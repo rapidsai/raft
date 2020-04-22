@@ -15,7 +15,7 @@
 
 ### C++ Integration
 
-The C++ component of RAFT is header only, so it can be easily configured using CMake by consuming libraries. Since this repo is intended to be included by downstream repos, the recommended way of accomplishing that is using CMake's git cloning functionality:
+C++ RAFT is a header only library, so it can be easily configured using CMake by consuming libraries. Since this repo is intended to be included by downstream repos, the recommended way of accomplishing that is using CMake's git cloning functionality:
 
 
 ```cmake
@@ -45,7 +45,7 @@ This create the variable `$RAFT_INCLUDE_DIR` variable that can be used in `inclu
 
 ### Python/Cython Integration
 
-The Python and Cython code have been designed to be included in projects that use RAFT, as opposed to a distributable by itself. To use:
+RAFT's Python and Cython code have been designed to be included in projects that use RAFT, as opposed to be distributed by itself as a Python package. To use:
 
 - The file `setuputils.py` is included in RAFT's `python` folder. Copy the file to your repo, in a location where it can be imported by `setup.py`
 - In your setup.py, use the function `use_raft_package`, for example for cuML:

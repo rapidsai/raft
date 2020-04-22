@@ -2,7 +2,7 @@
 
 RAFT is a repository containining shared utilities, mathematical operations and common functions for the analytics components of RAPIDS. Both the C++ and Python components can be included in consuming libraries.
 
-Refer to the [Build and Development Guide](Build.md) for details on RAFT's design, building, testing and development guidelines.
+Refer to the [Build and Development Guide](BUILD.md) for details on RAFT's design, building, testing and development guidelines.
 
 ## Folder Structure and Contents
 
