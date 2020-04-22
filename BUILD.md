@@ -1,13 +1,13 @@
 # RAFT Build and Development Guide
 
-- [Usage of RAFT by downstream projects](usage-of-raft-by-downstream-projects)
-    - [C++ Integration](c-integration)
-    - [Python/Cython Integration](pythoncython-integration)
-- [Building and running tests](building-and-running-tests)
-- [CI Process](ci-process)
-- [Development Guide](developer-guide)
-    - [Local Development](local-development)
-    - [Submitting PRs](submitting-prs)
+- [Usage of RAFT by downstream projects](#usage-of-raft-by-downstream-projects)
+    - [C++ Integration](#c-integration)
+    - [Python/Cython Integration](#pythoncython-integration)
+- [Building and running tests](#building-and-running-tests)
+- [CI Process](#ci-process)
+- [Developer Guide](#developer-guide)
+    - [Local Development](#local-development)
+    - [Submitting PRs](#submitting-prs)
 
 
 
