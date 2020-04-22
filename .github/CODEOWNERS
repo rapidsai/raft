@@ -1,0 +1,27 @@
+#cpp code owners
+cpp/               @rapidsai/cuml-cpp-codeowners
+cpp/               @rapidsai/cugraph-cpp-codeowners
+
+#python code owners
+python/            @rapidsai/cuml-python-codeowners
+python/            @rapidsai/cugraph-python-codeowners
+
+#cmake code owners
+**/CMakeLists.txt  @rapidsai/cuml-cmake-codeowners
+**/CMakeLists.txt  @rapidsai/cugraph-cmake-codeowners
+**/cmake/          @rapidsai/cuml-cmake-codeowners
+**/cmake/          @rapidsai/cugraph-cmake-codeowners
+python/setup.py    @rapidsai/cuml-cmake-codeowners
+python/setup.py    @rapidsai/cugraph-cmake-codeowners
+build.sh           @rapidsai/cuml-cmake-codeowners
+build.sh           @rapidsai/cugraph-cmake-codeowners
+**/build.sh        @rapidsai/cuml-cmake-codeowners
+**/build.sh        @rapidsai/cugraph-cmake-codeowners
+
+#build/ops code owners
+.github/           @rapidsai/ops-codeowners
+ci/                @rapidsai/ops-codeowners
+conda/             @rapidsai/ops-codeowners
+**/Dockerfile      @rapidsai/ops-codeowners
+**/.dockerignore   @rapidsai/ops-codeowners
+docker/            @rapidsai/ops-codeowners
