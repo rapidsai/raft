@@ -14,8 +14,13 @@
 #
 
 import pytest
-import raft
 import sys
+
+try:
+    import raft
+except ImportError:
+    print("Skipping RAFT tests")
+    pytestmart = pytest.mark.skip
 
 pytestmark = pytest.mark.skipif(
     'raft' not in sys.argv, reason="marker to allow integration of RAFT"
