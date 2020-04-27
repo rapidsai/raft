@@ -80,11 +80,11 @@ To run C++ tests:
 ./test_raft
 ```
 
-To run Python tests:
+To run Python tests, if `install` setup.py target is not run:
 
 ```bash
 cd python
-python -m pytest
+python -m pytest raft
 ```
 
 To build manually, you can also use `CMake` and setup.py directly. For C++:
