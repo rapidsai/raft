@@ -13,7 +13,13 @@
 # limitations under the License.
 #
 
+import pytest
 import raft
+import sys
+
+pytestmark = pytest.mark.skipif(
+    'raft' not in sys.argv, reason="marker to allow integration of RAFT"
+)
 
 
 def test_raft():
