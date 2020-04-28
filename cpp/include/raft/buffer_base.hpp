@@ -18,9 +18,7 @@
 
 #include <cuda_runtime.h>
 #include <memory>
-
-//TODO: include utils.h
-#include "../utils.h"
+#include "cudart_utils.h"
 
 namespace raft {
 
