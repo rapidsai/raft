@@ -63,7 +63,7 @@ class Allocator {
 
 /**
  * @brief An explicit interface for an asynchronous device allocator.
-
+ *
  * This is mostly done in order to reduce work needed in cuML codebase.
  * An implementation of this interface can make the following assumptions,
  * further to the ones listed in `Allocator`:
