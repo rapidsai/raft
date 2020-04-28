@@ -17,8 +17,12 @@
 
 #include <raft.hpp>
 #include <iostream>
+#include <gtest/gtest.h>
 
-int main(){
-    std::string result = raft::test_raft();
-    std::cout << result;
+namespace raft {
+
+TEST(Raft, print) {
+  std::cout << test_raft() << std::endl;
 }
+
+}  // namespace raft

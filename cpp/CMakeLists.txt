@@ -45,6 +45,8 @@ option(LINE_INFO "Enable lineinfo in nvcc" OFF)
 
 option(NVTX "Enable nvtx markers" OFF)
 
+option(BUILD_RAFT_TESTS "Build raft unit-tests" ON)
+
 set(PARALLEL_LEVEL "" CACHE STRING
     "Sub-projects parallel level for compilation. Currently only affects FAISS" )
 
@@ -53,11 +55,12 @@ set(GPU_ARCHS "" CACHE STRING
     Pass 'ALL' if you want to compile for all supported GPU architectures.
     Empty string means to auto-detect the GPUs on the current system")
 
-
 ##############################################################################
 # - Requirements -------------------------------------------------------------
 
 find_package(CUDA 10.0 REQUIRED)
+
+set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 ##############################################################################
 # - Compiler Options  --------------------------------------------------------
@@ -149,8 +152,10 @@ endif(CMAKE_COMPILER_IS_GNUCXX)
 set(CMAKE_CUDA_FLAGS
   "${CMAKE_CUDA_FLAGS} -Xcudafe --diag_suppress=unrecognized_gcc_pragma")
 
+##############################################################################
+# - dependencies -------------------------------------------------------------
 
-
+include(cmake/Dependencies.cmake)
 
 ##############################################################################
 # - include paths ------------------------------------------------------------
@@ -165,11 +170,19 @@ set(RAFT_INCLUDE_DIRECTORIES
 ##############################################################################
 # - build test executables ---------------------------------------------------
 
-add_executable(test_raft
-               test/test.cpp)
+if(BUILD_RAFT_TESTS)
+  add_executable(test_raft
+    test/test.cpp)
 
-target_include_directories(test_raft PRIVATE
-                           ${RAFT_INCLUDE_DIRECTORIES})
+  target_include_directories(test_raft PRIVATE
+    ${RAFT_INCLUDE_DIRECTORIES}
+    ${GTEST_DIR}/include)
+
+  target_link_libraries(test_raft
+    gtestlib
+    gtest_mainlib
+    pthread)
+endif(BUILD_RAFT_TESTS)
 
 ##############################################################################
 # - doxygen targets ----------------------------------------------------------
