@@ -164,14 +164,25 @@ set(RAFT_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include CACHE STRING
   "Path to RAFT include directories")
 
 set(RAFT_INCLUDE_DIRECTORIES
-    ${RAFT_INCLUDE_DIR}
-)
+  ${RAFT_INCLUDE_DIR}
+  ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
 
 ##############################################################################
-# - build test executables ---------------------------------------------------
+# - libraries ----------------------------------------------------------------
+
+set(RAFT_LINK_LIBRARIES
+  ${CUDA_cublas_LIBRARY}
+  ${CUDA_cusolver_LIBRARY}
+  ${CUDA_CUDART_LIBRARY}
+  ${CUDA_cusparse_LIBRARY})
+
+##############################################################################
+# - build test executable ----------------------------------------------------
 
 if(BUILD_RAFT_TESTS)
+  # keep the files in alphabetical order!
   add_executable(test_raft
+    test/cudart_utils.cpp
     test/test.cpp)
 
   target_include_directories(test_raft PRIVATE
@@ -181,7 +192,8 @@ if(BUILD_RAFT_TESTS)
   target_link_libraries(test_raft
     gtestlib
     gtest_mainlib
-    pthread)
+    pthread
+    ${RAFT_LINK_LIBRARIES})
 endif(BUILD_RAFT_TESTS)
 
 ##############################################################################

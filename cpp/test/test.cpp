@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 #include <raft.hpp>
 #include <iostream>
 #include <gtest/gtest.h>
