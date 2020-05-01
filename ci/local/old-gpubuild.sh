@@ -62,6 +62,27 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
       "dask-cuda=${MINOR_VERSION}" \
       "ucx-py=${MINOR_VERSION}"
 
+if [ "$RUN_CUML_LIBCUML_TESTS" = "ON" ] || [ "$RUN_CUML_PRIMS_TESTS" = "ON" ] || [ "$RUN_CUML_PYTHON_TESTS" = "ON" ]; then
+  conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
+      "nvstrings=${MINOR_VERSION}" \
+      "libcumlprims=${MINOR_VERSION}" \
+      "lapack" \
+      "umap-learn" \
+      "nccl>=2.5" \
+      "statsmodels" \
+      "xgboost====1.0.2dev.rapidsai0.13" \
+      "lightgbm"
+fi
+
+if [ "$RUN_CUGRAPH_LIBCUGRAPH_TESTS" = "ON" ] || [ "$RUN_CUGRAPH_PYTHON_TESTS" = "ON" ]; then
+  conda install -c nvidia -c rapidsai -c rapidsai-nightly -c conda-forge -c defaults \
+      "networkx>=2.3" \
+      "python-louvain" \
+      "libcypher-parser" \
+      "ipython=7.3*" \
+      "jupyterlab"
+fi
+
 # Install the master version of dask, distributed, and dask-ml
 logger "pip install git+https://github.com/dask/distributed.git --upgrade --no-deps"
 pip install "git+https://github.com/dask/distributed.git" --upgrade --no-deps
@@ -118,3 +139,68 @@ cd $WORKSPACE/python
 
 pytest --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v -s
 
+
+################################################################################
+# cuML CI
+################################################################################
+
+if [ "$RUN_CUML_LIBCUML_TESTS" = "ON" ] || [ "$RUN_CUML_PRIMS_TESTS" = "ON" ] || [ "$RUN_CUML_PYTHON_TESTS" = "ON" ] || [ "$RUN_CUGRAPH_LIBCUGRAPH_TESTS" = "ON" ] || [ "$RUN_CUGRAPH_PYTHON_TESTS" = "ON" ]; then
+  cd $WORKSPACE
+  mkdir $WORKSPACE/test_downstream_repos
+  cd $WORKSPACE/test_downstream_repos
+  export RAFT_PATH=$WORKSPACE
+fi
+
+if [ "$RUN_CUML_LIBCUML_TESTS" = "ON" ] || [ "$RUN_CUML_PRIMS_TESTS" = "ON" ] || [ "$RUN_CUML_PYTHON_TESTS" = "ON" ]; then
+  cd $WORKSPACE/test_downstream_repos
+
+  ## Change fork and branch to be tested here:
+  git clone https://github.com/rapidsai/cuml.git -b branch-0.14
+
+
+  ## Build cuML and run tests, uncomment the tests you want to run
+  $WORKSPACE/test_downstream_repos/cuml/build.sh
+
+  if [ "$RUN_CUML_LIBCUML_TESTS" = "ON" ]; then
+    logger "GoogleTest for libcuml..."
+    cd $WORKSPACE/cpp/build
+    GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp/" ./test/ml
+  fi
+
+  if [ "$RUN_CUML_PYTHON_TESTS" = "ON" ]; then
+    logger "Python pytest for cuml..."
+    cd $WORKSPACE/python
+    pytest --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v -s -m "not memleak"
+  fi
+
+  if [ "$RUN_CUML_PRIMS_TESTS" = "ON" ]; then
+    logger "Run ml-prims test..."
+    cd $WORKSPACE/cpp/build
+    GTEST_OUTPUT="xml:${WORKSPACE}/test-results/prims/" ./test/prims
+  fi
+fi
+
+
+################################################################################
+# cuGraph CI
+################################################################################
+
+if [ "$RUN_CUGRAPH_LIBCUGRAPH_TESTS" = "ON" ] || [ "$RUN_CUGRAPH_PYTHON_TESTS" = "ON" ]; then
+  cd $WORKSPACE/test_downstream_repos
+
+  ## Change fork and branch to be tested here:
+  git clone https://github.com/rapidsai/cugraph.git -b branch-0.14
+
+  $WORKSPACE/test_downstream_repos/cugraph/build.sh clean libcugraph cugraph
+
+  if [ "$RUN_CUGRAPH_LIBCUGRAPH_TESTS" = "ON" ]; then
+    logger "GoogleTest for libcugraph..."
+    cd $WORKSPACE/cpp/build
+    ${WORKSPACE}/ci/test.sh ${TEST_MODE_FLAG} | tee testoutput.txt
+  fi
+
+  if [ "$RUN_CUGRAPH_PYTHON_TESTS" = "ON" ]; then
+    logger "Python pytest for cugraph..."
+    cd $WORKSPACE/python
+  fi
+fi
