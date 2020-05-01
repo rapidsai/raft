@@ -41,8 +41,8 @@ source $WORKSPACE/ci/prtest.config
 logger "Check environment..."
 env
 
-#logger "Check GPU usage..."
-#nvidia-smi
+logger "Check GPU usage..."
+nvidia-smi
 
 # temporary usage of conda install with packages listed here, looking into
 # using the repos yaml files for this
@@ -106,15 +106,15 @@ if hasArg --skip-tests; then
     exit 0
 fi
 
-#logger "Check GPU usage..."
-#nvidia-smi
+logger "Check GPU usage..."
+nvidia-smi
 
-#logger "GoogleTest for raft..."
-#cd $WORKSPACE/cpp/build
-#GTEST_OUTPUT="xml:${WORKSPACE}/test-results/raft_cpp/" ./test/ml
+logger "GoogleTest for raft..."
+cd $WORKSPACE/cpp/build
+GTEST_OUTPUT="xml:${WORKSPACE}/test-results/raft_cpp/" ./test/ml
 
-#logger "Python pytest for cuml..."
-#cd $WORKSPACE/python
+logger "Python pytest for cuml..."
+cd $WORKSPACE/python
 
-#pytest --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v -s
+pytest --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v -s
 
