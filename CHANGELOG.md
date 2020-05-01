@@ -8,3 +8,4 @@
 
 
 ## Bug Fixes
+- PR #5: Small build.sh fixes
