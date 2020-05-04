@@ -37,6 +37,8 @@ endif()
 ##############################################################################
 # - User Options  ------------------------------------------------------------
 
+option(CMAKE_CXX11_ABI "Enable the GLIBCXX11 ABI" ON)
+
 option(EMPTY_MARKER_KERNEL "Enable empty marker kernel after nvtxRangePop" ON)
 
 option(KERNEL_INFO "Enable kernel resource usage info" OFF)
@@ -88,7 +90,7 @@ endif(OPENMP_FOUND)
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-extended-lambda")
 
 if(${CMAKE_VERSION} VERSION_LESS "3.17.0")
-  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --std=c++11")
+  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --std=c++14")
 endif(${CMAKE_VERSION} VERSION_LESS "3.17.0")
 
 if(LINE_INFO)
@@ -180,6 +182,8 @@ set(RAFT_LINK_LIBRARIES
 # - build test executable ----------------------------------------------------
 
 if(BUILD_RAFT_TESTS)
+  find_package(OpenMP REQUIRED)
+
   # keep the files in alphabetical order!
   add_executable(test_raft
     test/cudart_utils.cpp
@@ -190,10 +194,11 @@ if(BUILD_RAFT_TESTS)
     ${GTEST_DIR}/include)
 
   target_link_libraries(test_raft
+    ${RAFT_LINK_LIBRARIES}
     gtestlib
     gtest_mainlib
-    pthread
-    ${RAFT_LINK_LIBRARIES})
+    OpenMP::OpenMP_CXX
+    Threads::Threads)
 endif(BUILD_RAFT_TESTS)
 
 ##############################################################################
