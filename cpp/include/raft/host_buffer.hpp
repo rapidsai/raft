@@ -17,8 +17,7 @@
 #pragma once
 
 #include "buffer_base.hpp"
-//TODO: update allocator header
-#include <cuml/common/cuml_allocator.hpp>
+#include "allocator.hpp"
 
 namespace raft {
 
