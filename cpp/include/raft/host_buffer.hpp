@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include "buffer_base.hpp"
 #include "allocator.hpp"
+#include "buffer_base.hpp"
 
 namespace raft {
 

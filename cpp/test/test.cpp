@@ -14,14 +14,12 @@
  * limitations under the License.
  */
 
-#include <raft.hpp>
-#include <iostream>
 #include <gtest/gtest.h>
+#include <iostream>
+#include <raft.hpp>
 
 namespace raft {
 
-TEST(Raft, print) {
-  std::cout << test_raft() << std::endl;
-}
+TEST(Raft, print) { std::cout << test_raft() << std::endl; }
 
 }  // namespace raft

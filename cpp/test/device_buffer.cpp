@@ -15,9 +15,9 @@
  */
 
 #include <gtest/gtest.h>
-#include <raft/device_buffer.hpp>
 #include <iostream>
 #include <memory>
+#include <raft/device_buffer.hpp>
 
 namespace raft {
 

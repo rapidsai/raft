@@ -15,9 +15,9 @@
  */
 
 #include <gtest/gtest.h>
-#include <raft/host_buffer.hpp>
 #include <iostream>
 #include <memory>
+#include <raft/host_buffer.hpp>
 
 namespace raft {
 

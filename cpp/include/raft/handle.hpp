@@ -16,14 +16,14 @@
 
 #pragma once
 
+#include <memory>
 #include <mutex>
 #include <unordered_map>
 #include <utility>
 #include <vector>
-#include <memory>
 
-#include <cuda_runtime.h>
 #include <cublas_v2.h>
+#include <cuda_runtime.h>
 #include <cusolverDn.h>
 #include <cusolverSp.h>
 #include <cusparse.h>
@@ -31,11 +31,11 @@
 ///@todo: enable once we have migrated cuml-comms layer too
 //#include <common/cuml_comms_int.hpp>
 
-#include "allocator.hpp"
-#include "cudart_utils.h"
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/cusolver_wrappers.h>
 #include <raft/sparse/cusparse_wrappers.h>
+#include "allocator.hpp"
+#include "cudart_utils.h"
 
 namespace raft {
 
@@ -55,19 +55,19 @@ class handle_t {
    */
   handle_t(int n_streams = NumDefaultWorkerStreams)
     : _dev_id([]() -> int {
-      int cur_dev = -1;
-      CUDA_CHECK(cudaGetDevice(&cur_dev));
-      return cur_dev;
-    }()),
-    _num_streams(n_streams),
-    _cublasInitialized(false),
-    _cusolverDnInitialized(false),
-    _cusolverSpInitialized(false),
-    _cusparseInitialized(false),
-    _deviceAllocator(std::make_shared<defaultDeviceAllocator>()),
-    _hostAllocator(std::make_shared<defaultHostAllocator>()),
-    _userStream(NULL),
-    _devicePropInitialized(false) {
+        int cur_dev = -1;
+        CUDA_CHECK(cudaGetDevice(&cur_dev));
+        return cur_dev;
+      }()),
+      _num_streams(n_streams),
+      _cublasInitialized(false),
+      _cusolverDnInitialized(false),
+      _cusolverSpInitialized(false),
+      _cusparseInitialized(false),
+      _deviceAllocator(std::make_shared<defaultDeviceAllocator>()),
+      _hostAllocator(std::make_shared<defaultHostAllocator>()),
+      _userStream(NULL),
+      _devicePropInitialized(false) {
     createResources();
   }
 
@@ -241,4 +241,4 @@ class streamSyncer {
   const handle_t& _handle;
 };  // class streamSyncer
 
-}  // end namespace ML
+}  // namespace raft

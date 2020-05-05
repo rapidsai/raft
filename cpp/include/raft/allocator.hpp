@@ -69,8 +69,7 @@ class Allocator {
  * further to the ones listed in `Allocator`:
  * - Allocations may be always on the device that was specified on construction.
  */
-class deviceAllocator : public Allocator {
-};  // class deviceAllocator
+class deviceAllocator : public Allocator {};  // class deviceAllocator
 
 /**
  * @brief An explicit interface for an asynchronous host allocations.
@@ -80,8 +79,7 @@ class deviceAllocator : public Allocator {
  * further to the ones listed in `Allocator`:
  * - Allocations don't need to be zero copy accessible form a device.
  */
-class hostAllocator : public Allocator {
-};  // class hostAllocator
+class hostAllocator : public Allocator {};  // class hostAllocator
 
 /** Default cudaMalloc/cudaFree based device allocator */
 class defaultDeviceAllocator : public deviceAllocator {

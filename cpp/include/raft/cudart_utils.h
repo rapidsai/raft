@@ -18,12 +18,12 @@
 
 #include <cuda_runtime.h>
 #include <execinfo.h>
+#include <chrono>
 #include <cstdio>
+#include <iostream>
 #include <sstream>
 #include <stdexcept>
 #include <string>
-#include <chrono>
-#include <iostream>
 ///@todo: enable once logging has been enabled in raft
 //#include "logger.hpp"
 
@@ -90,7 +90,7 @@ class Exception : public std::exception {
     msg += errMsg;                                                             \
     std::snprintf(errMsg, sizeof(errMsg), fmt, ##__VA_ARGS__);                 \
     msg += errMsg;                                                             \
-    throw raft::Exception(msg);                                            \
+    throw raft::Exception(msg);                                                \
   } while (0)
 
 /** macro to check for a conditional and assert on failure */
