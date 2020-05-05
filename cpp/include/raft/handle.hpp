@@ -20,6 +20,7 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
+#include <memory>
 
 #include <cuda_runtime.h>
 #include <cublas_v2.h>
@@ -52,7 +53,7 @@ class handle_t {
    *
    * @param[in] n_streams number worker streams to be created
    */
-  handle_t(int n_streams = NumDefaultWorkerStreams) :
+  handle_t(int n_streams = NumDefaultWorkerStreams)
     : _dev_id([]() -> int {
       int cur_dev = -1;
       CUDA_CHECK(cudaGetDevice(&cur_dev));

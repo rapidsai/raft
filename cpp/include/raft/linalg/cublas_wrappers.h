@@ -22,7 +22,7 @@
 #include <raft/cudart_utils.h>
 
 namespace raft {
-namespace linal {
+namespace linalg {
 
 #define _CUBLAS_ERR_TO_STR(err) \
   case err:                     \

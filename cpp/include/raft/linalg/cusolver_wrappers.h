@@ -52,7 +52,7 @@ inline const char *cusolverErr2Str(cusolverStatus_t err) {
     cusolverStatus_t err = call;                                     \
     ASSERT(err == CUSOLVER_STATUS_SUCCESS,                           \
            "CUSOLVER call='%s' got errorcode=%d err=%s", #call, err, \
-           MLCommon::LinAlg::cusolverErr2Str(err));                  \
+           raft::linalg::cusolverErr2Str(err));                      \
   } while (0)
 
 ///@todo: enable this once logging is enabled
@@ -62,7 +62,7 @@ inline const char *cusolverErr2Str(cusolverStatus_t err) {
 //     cusolverStatus_t err = call;                                               \
 //     if (err != CUSOLVER_STATUS_SUCCESS) {                                      \
 //       CUML_LOG_ERROR("CUSOLVER call='%s' got errorcode=%d err=%s", #call, err, \
-//                      MLCommon::LinAlg::cusolverErr2Str(err));                  \
+//                      raft::linalg::cusolverErr2Str(err));                      \
 //     }                                                                          \
 //   } while (0)
 
