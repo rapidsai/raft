@@ -188,6 +188,7 @@ if(BUILD_RAFT_TESTS)
   add_executable(test_raft
     test/cudart_utils.cpp
     test/device_buffer.cpp
+    test/host_buffer.cpp
     test/test.cpp)
 
   target_include_directories(test_raft PRIVATE
