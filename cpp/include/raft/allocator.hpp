@@ -26,6 +26,9 @@ namespace raft {
  *
  * An implementation of this interface can make the following assumptions:
  * - It does not need to be but it can allow async allocate and deallocate.
+ *
+ * @note This interface does NOT support RAII. Thus, if you need RAII-enabled
+ *       interface, better to use `device_buffer` or `host_buffer`.
  */
 class Allocator {
  public:
