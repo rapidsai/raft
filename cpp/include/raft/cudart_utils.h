@@ -30,44 +30,41 @@
 namespace raft {
 
 /** base exception class for the whole of raft */
-class Exception : public std::exception {
+class exception : public std::exception {
  public:
   /** default ctor */
-  Exception() throw() : std::exception(), msg() {}
+  explicit exception() noexcept : std::exception(), msg_() {}
 
   /** copy ctor */
-  Exception(const Exception& src) throw() : std::exception(), msg(src.what()) {
-    collectCallStack();
+  exception(const exception& src) noexcept : std::exception(), msg_(src.what()) {
+    collect_call_stack();
   }
 
   /** ctor from an input message */
-  Exception(const std::string& _msg) throw() : std::exception(), msg(_msg) {
-    collectCallStack();
+  explicit exception(const std::string& _msg) noexcept : std::exception(), msg_(_msg) {
+    collect_call_stack();
   }
 
-  /** dtor */
-  virtual ~Exception() throw() {}
-
   /** get the message associated with this exception */
-  virtual const char* what() const throw() { return msg.c_str(); }
+  const char* what() const noexcept override { return msg_.c_str(); }
 
  private:
   /** message associated with this exception */
-  std::string msg;
+  std::string msg_;
 
   /** append call stack info to this exception's message for ease of debug */
   // Courtesy: https://www.gnu.org/software/libc/manual/html_node/Backtraces.html
-  void collectCallStack() throw() {
+  void collect_call_stack() noexcept {
 #ifdef __GNUC__
-    const int MaxStackDepth = 64;
-    void* stack[MaxStackDepth];
-    auto depth = backtrace(stack, MaxStackDepth);
+    const int kMaxStackDepth = 64;
+    void* stack[kMaxStackDepth];  // NOLINT
+    auto depth = backtrace(stack, kMaxStackDepth);
     std::ostringstream oss;
     oss << std::endl << "Obtained " << depth << " stack frames" << std::endl;
     char** strings = backtrace_symbols(stack, depth);
     if (strings == nullptr) {
       oss << "But no stack trace could be found!" << std::endl;
-      msg += oss.str();
+      msg_ += oss.str();
       return;
     }
     ///@todo: support for demangling of C++ symbol names
@@ -75,7 +72,7 @@ class Exception : public std::exception {
       oss << "#" << i << " in " << strings[i] << std::endl;
     }
     free(strings);
-    msg += oss.str();
+    msg_ += oss.str();
 #endif  // __GNUC__
   }
 };
@@ -86,11 +83,11 @@ class Exception : public std::exception {
     std::string msg;                                                           \
     char errMsg[2048]; /* NOLINT */                                            \
     std::snprintf(errMsg, sizeof(errMsg),                                      \
-                  "Exception occured! file=%s line=%d: ", __FILE__, __LINE__); \
+                  "exception occured! file=%s line=%d: ", __FILE__, __LINE__); \
     msg += errMsg;                                                             \
     std::snprintf(errMsg, sizeof(errMsg), fmt, ##__VA_ARGS__);                 \
     msg += errMsg;                                                             \
-    throw raft::Exception(msg);                                                \
+    throw raft::exception(msg);                                                \
   } while (0)
 
 /** macro to check for a conditional and assert on failure */
@@ -122,7 +119,7 @@ class Exception : public std::exception {
 //   } while (0)
 
 /** helper method to get max usable shared mem per block parameter */
-inline int getSharedMemPerBlock() {
+inline int get_shared_memory_per_block() {
   int devId;
   CUDA_CHECK(cudaGetDevice(&devId));
   int smemPerBlk;
@@ -131,7 +128,7 @@ inline int getSharedMemPerBlock() {
   return smemPerBlk;
 }
 /** helper method to get multi-processor count parameter */
-inline int getMultiProcessorCount() {
+inline int get_multi_processor_count() {
   int devId;
   CUDA_CHECK(cudaGetDevice(&devId));
   int mpCount;
@@ -162,32 +159,32 @@ void copy(Type* dst, const Type* src, size_t len, cudaStream_t stream) {
  */
 /** performs a host to device copy */
 template <typename Type>
-void updateDevice(Type* dPtr, const Type* hPtr, size_t len,
-                  cudaStream_t stream) {
+void update_device(Type* dPtr, const Type* hPtr, size_t len,
+                   cudaStream_t stream) {
   copy(dPtr, hPtr, len, stream);
 }
 
 /** performs a device to host copy */
 template <typename Type>
-void updateHost(Type* hPtr, const Type* dPtr, size_t len, cudaStream_t stream) {
+void update_host(Type* hPtr, const Type* dPtr, size_t len, cudaStream_t stream) {
   copy(hPtr, dPtr, len, stream);
 }
 
 template <typename Type>
-void copyAsync(Type* dPtr1, const Type* dPtr2, size_t len,
-               cudaStream_t stream) {
+void copy_async(Type* dPtr1, const Type* dPtr2, size_t len,
+                cudaStream_t stream) {
   CUDA_CHECK(cudaMemcpyAsync(dPtr1, dPtr2, len * sizeof(Type),
                              cudaMemcpyDeviceToDevice, stream));
 }
 /** @} */
 
 /**
- * @defgroup Debug Utils for debugging device buffers
+ * @defgroup Debug Utils for debugging host/device buffers
  * @{
  */
 template <class T, class OutStream>
-void printHostVector(const char* variableName, const T* hostMem,
-                     size_t componentsCount, OutStream& out) {
+void print_host_vector(const char* variableName, const T* hostMem,
+                       size_t componentsCount, OutStream& out) {
   out << variableName << "=[";
   for (size_t i = 0; i < componentsCount; ++i) {
     if (i != 0) out << ",";
@@ -196,28 +193,14 @@ void printHostVector(const char* variableName, const T* hostMem,
   out << "];\n";
 }
 
-template <class T>
-void printHostVector(const char* variableName, const T* hostMem,
-                     size_t componentsCount) {
-  printHostVector(variableName, hostMem, componentsCount, std::cout);
-  std::cout.flush();
-}
-
 template <class T, class OutStream>
-void printDevVector(const char* variableName, const T* devMem,
-                    size_t componentsCount, OutStream& out) {
+void print_device_vector(const char* variableName, const T* devMem,
+                         size_t componentsCount, OutStream& out) {
   T* hostMem = new T[componentsCount];
   CUDA_CHECK(cudaMemcpy(hostMem, devMem, componentsCount * sizeof(T),
                         cudaMemcpyDeviceToHost));
-  printHostVector(variableName, hostMem, componentsCount, out);
+  print_host_vector(variableName, hostMem, componentsCount, out);
   delete[] hostMem;
-}
-
-template <class T>
-void printDevVector(const char* variableName, const T* devMem,
-                    size_t componentsCount) {
-  printDevVector(variableName, devMem, componentsCount, std::cout);
-  std::cout.flush();
 }
 /** @} */
 
