@@ -70,58 +70,58 @@ namespace raft {
 
 namespace {
 
-size_t getDatatypeSize(const std_comms::datatype_t datatype) {
+size_t getDatatypeSize(const comms::datatype_t datatype) {
   switch (datatype) {
-    case MLCommon::cumlCommunicator::CHAR:
+    case comms::CHAR:
       return sizeof(char);
-    case MLCommon::cumlCommunicator::UINT8:
+    case comms::UINT8:
       return sizeof(uint8_t);
-    case MLCommon::cumlCommunicator::INT:
+    case comms::INT:
       return sizeof(int);
-    case MLCommon::cumlCommunicator::UINT:
+    case comms::UINT:
       return sizeof(unsigned int);
-    case MLCommon::cumlCommunicator::INT64:
+    case comms::INT64:
       return sizeof(int64_t);
-    case MLCommon::cumlCommunicator::UINT64:
+    case comms::UINT64:
       return sizeof(uint64_t);
-    case MLCommon::cumlCommunicator::FLOAT:
+    case comms::FLOAT:
       return sizeof(float);
-    case MLCommon::cumlCommunicator::DOUBLE:
+    case comms::DOUBLE:
       return sizeof(double);
   }
 }
 
 ncclDataType_t getNCCLDatatype(
-  const std_comms::datatype_t datatype) {
+  const comms::datatype_t datatype) {
   switch (datatype) {
-    case MLCommon::cumlCommunicator::CHAR:
+    case comms::CHAR:
       return ncclChar;
-    case MLCommon::cumlCommunicator::UINT8:
+    case comms::UINT8:
       return ncclUint8;
-    case MLCommon::cumlCommunicator::INT:
+    case comms::INT:
       return ncclInt;
-    case MLCommon::cumlCommunicator::UINT:
+    case comms::UINT:
       return ncclUint32;
-    case MLCommon::cumlCommunicator::INT64:
+    case comms::INT64:
       return ncclInt64;
-    case MLCommon::cumlCommunicator::UINT64:
+    case comms::UINT64:
       return ncclUint64;
-    case MLCommon::cumlCommunicator::FLOAT:
+    case comms::FLOAT:
       return ncclFloat;
-    case MLCommon::cumlCommunicator::DOUBLE:
+    case comms::DOUBLE:
       return ncclDouble;
   }
 }
 
-ncclRedOp_t getNCCLOp(const std_comms::op_t op) {
+ncclRedOp_t getNCCLOp(const comms::op_t op) {
   switch (op) {
-    case MLCommon::cumlCommunicator::SUM:
+    case comms::SUM:
       return ncclSum;
-    case MLCommon::cumlCommunicator::PROD:
+    case comms::PROD:
       return ncclProd;
-    case MLCommon::cumlCommunicator::MIN:
+    case comms::MIN:
       return ncclMin;
-    case MLCommon::cumlCommunicator::MAX:
+    case comms::MAX:
       return ncclMax;
   }
 }
@@ -140,14 +140,14 @@ bool ucx_enabled() { return UCX_ENABLED; }
  */
 void inject_comms(cumlHandle &handle, ncclComm_t comm, ucp_worker_h ucp_worker,
                   std::shared_ptr<ucp_ep_h *> eps, int size, int rank) {
-  auto communicator = std::make_shared<MLCommon::cumlCommunicator>(
+  auto communicator = std::make_shared<comms>(
     std::unique_ptr<MLCommon::comms>(
       new std_comms(comm, ucp_worker, eps, size, rank)));
   handle.getImpl().setCommunicator(communicator);
 }
 
 void inject_comms(cumlHandle &handle, ncclComm_t comm, int size, int rank) {
-  auto communicator = std::make_shared<MLCommon::cumlCommunicator>(
+  auto communicator = std::make_shared<comms>(
     std::unique_ptr<MLCommon::comms>(
       new std_comms(comm, size, rank)));
   handle.getImpl().setCommunicator(communicator);
@@ -182,7 +182,7 @@ void inject_comms_py(ML::cumlHandle *handle, ncclComm_t comm, void *ucp_worker,
 
 
 /**
- * @brief A cumlCommunicator implementation capable of running collective communications
+ * @brief A comms implementation capable of running collective communications
  * with NCCL and point-to-point-communications with UCX. Note that the latter is optional.
  *
  * Underlying comms, like NCCL and UCX, should be initialized and ready for use,
@@ -235,66 +235,66 @@ class std_comms : public raft::comms {
 	  CUDA_CHECK_NO_THROW(cudaFree(_recvbuff));
 	}
 
-  size_t getDatatypeSize(const std_comms::datatype_t datatype) {
+  size_t getDatatypeSize(const comms::datatype_t datatype) {
     switch (datatype) {
-      case MLCommon::cumlCommunicator::CHAR:
+      case comms::CHAR:
         return sizeof(char);
-      case MLCommon::cumlCommunicator::UINT8:
+      case comms::UINT8:
         return sizeof(uint8_t);
-      case MLCommon::cumlCommunicator::INT:
+      case comms::INT:
         return sizeof(int);
-      case MLCommon::cumlCommunicator::UINT:
+      case comms::UINT:
         return sizeof(unsigned int);
-      case MLCommon::cumlCommunicator::INT64:
+      case comms::INT64:
         return sizeof(int64_t);
-      case MLCommon::cumlCommunicator::UINT64:
+      case comms::UINT64:
         return sizeof(uint64_t);
-      case MLCommon::cumlCommunicator::FLOAT:
+      case comms::FLOAT:
         return sizeof(float);
-      case MLCommon::cumlCommunicator::DOUBLE:
+      case comms::DOUBLE:
         return sizeof(double);
     }
   }
 
 
   template <>
-  cumlCommunicator::datatype_t getDataType<char>() const {
-    return cumlCommunicator::CHAR;
+  comms::datatype_t getDataType<char>() const {
+    return comms::CHAR;
   }
 
   template <>
-  cumlCommunicator::datatype_t getDataType<uint8_t>() const {
-    return cumlCommunicator::UINT8;
+  comms::datatype_t getDataType<uint8_t>() const {
+    return comms::UINT8;
   }
 
   template <>
-  cumlCommunicator::datatype_t getDataType<int>() const {
-    return cumlCommunicator::INT;
+  comms::datatype_t getDataType<int>() const {
+    return comms::INT;
   }
 
   template <>
-  cumlCommunicator::datatype_t getDataType<uint32_t>() const {
-    return cumlCommunicator::UINT;
+  comms::datatype_t getDataType<uint32_t>() const {
+    return comms::UINT;
   }
 
   template <>
-  cumlCommunicator::datatype_t getDataType<int64_t>() const {
-    return cumlCommunicator::INT64;
+  comms::datatype_t getDataType<int64_t>() const {
+    return comms::INT64;
   }
 
   template <>
-  cumlCommunicator::datatype_t getDataType<uint64_t>() const {
-    return cumlCommunicator::UINT64;
+  comms::datatype_t getDataType<uint64_t>() const {
+    return comms::UINT64;
   }
 
   template <>
-  cumlCommunicator::datatype_t getDataType<float>() const {
-    return cumlCommunicator::FLOAT;
+  comms::datatype_t getDataType<float>() const {
+    return comms::FLOAT;
   }
 
   template <>
-  cumlCommunicator::datatype_t getDataType<double>() const {
-    return cumlCommunicator::DOUBLE;
+  comms::datatype_t getDataType<double>() const {
+    return comms::DOUBLE;
   }
 
   void initialize() {
@@ -309,7 +309,7 @@ class std_comms : public raft::comms {
 
   int getRank() const { return _rank; }
 
-  std::unique_ptr<MLCommon::comms>
+  std::unique_ptr<comms>
   commSplit(int color, int key) const {
     // Not supported by NCCL
     ASSERT(false,
@@ -321,8 +321,8 @@ class std_comms : public raft::comms {
     CUDA_CHECK(cudaMemsetAsync(_sendbuff, 1, sizeof(int), _stream));
     CUDA_CHECK(cudaMemsetAsync(_recvbuff, 1, sizeof(int), _stream));
 
-    allreduce(_sendbuff, _recvbuff, 1, MLCommon::cumlCommunicator::INT,
-              MLCommon::cumlCommunicator::SUM, _stream);
+    allreduce(_sendbuff, _recvbuff, 1, comms::INT,
+              comms::SUM, _stream);
 
     ASSERT(syncStream(_stream) == status_t::commStatusSuccess,
            "ERROR: syncStream failed. This can be caused by a failed rank.");
@@ -381,10 +381,6 @@ class std_comms : public raft::comms {
     ucp_ep_h ep_ptr = (*_ucp_eps)[source];
 
     ucp_tag_t tag_mask = default_tag_mask;
-
-    if (source == CUML_ANY_SOURCE) {
-      tag_mask = any_rank_tag_mask;
-    }
 
     ucp_request *ucp_req = (ucp_request *)malloc(sizeof(ucp_request));
     _ucp_handler.ucp_irecv(ucp_req, _ucp_worker, ep_ptr, buf, size, tag, tag_mask,
