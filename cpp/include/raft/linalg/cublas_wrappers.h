@@ -20,6 +20,7 @@
 ///@todo: enable this once we have logger enabled
 //#include <cuml/common/logger.hpp>
 #include <raft/cudart_utils.h>
+#include <cstdint>
 
 namespace raft {
 namespace linalg {
