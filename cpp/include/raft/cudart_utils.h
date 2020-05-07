@@ -84,7 +84,7 @@ class Exception : public std::exception {
 #define THROW(fmt, ...)                                                        \
   do {                                                                         \
     std::string msg;                                                           \
-    char errMsg[2048];                                                         \
+    char errMsg[2048]; /* NOLINT */                                            \
     std::snprintf(errMsg, sizeof(errMsg),                                      \
                   "Exception occured! file=%s line=%d: ", __FILE__, __LINE__); \
     msg += errMsg;                                                             \
