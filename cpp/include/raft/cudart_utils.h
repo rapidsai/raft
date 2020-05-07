@@ -24,6 +24,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <utility>
 ///@todo: enable once logging has been enabled in raft
 //#include "logger.hpp"
 
@@ -41,7 +42,7 @@ class exception : public std::exception {
   }
 
   /** ctor from an input message */
-  explicit exception(const std::string& _msg) noexcept : std::exception(), msg_(_msg) {
+  explicit exception(const std::string _msg) noexcept : std::exception(), msg_(std::move(_msg)) {
     collect_call_stack();
   }
 
