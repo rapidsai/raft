@@ -27,7 +27,7 @@ namespace sparse {
 #define _CUSPARSE_ERR_TO_STR(err) \
   case err:                       \
     return #err;
-inline const char* cusparseErr2Str(cusparseStatus_t err) {
+inline const char* cusparse_error_to_string(cusparseStatus_t err) {
 #if defined(CUDART_VERSION) && CUDART_VERSION >= 10100
   return cusparseGetErrorString(status);
 #else   // CUDART_VERSION
@@ -53,7 +53,7 @@ inline const char* cusparseErr2Str(cusparseStatus_t err) {
     cusparseStatus_t err = call;                                     \
     ASSERT(err == CUSPARSE_STATUS_SUCCESS,                           \
            "CUSPARSE call='%s' got errorcode=%d err=%s", #call, err, \
-           raft::sparse::cusparseErr2Str(err));                      \
+           raft::sparse::cusparse_error_to_string(err));             \
   } while (0)
 
 ///@todo: enable this once logging is enabled
@@ -63,7 +63,7 @@ inline const char* cusparseErr2Str(cusparseStatus_t err) {
 //     cusparseStatus_t err = call;                                               \
 //     if (err != CUSPARSE_STATUS_SUCCESS) {                                      \
 //       CUML_LOG_ERROR("CUSPARSE call='%s' got errorcode=%d err=%s", #call, err, \
-//                      raft::sparse::cusparseErr2Str(err));                      \
+//                      raft::sparse::cusparse_error_to_string(err));             \
 //     }                                                                          \
 //   } while (0)
 
@@ -114,11 +114,13 @@ inline void cusparsecoo2csr(cusparseHandle_t handle, const int* cooRowInd,
  * @{
  */
 template <typename T>
-size_t cusparsecoosort_bufferSizeExt(cusparseHandle_t handle, int m, int n,
+size_t cusparsecoosort_bufferSizeExt(  // NOLINT
+  cusparseHandle_t handle, int m, int n,
                                      int nnz, const T* cooRows,
                                      const T* cooCols, cudaStream_t stream);
 template <>
-inline size_t cusparsecoosort_bufferSizeExt(cusparseHandle_t handle, int m,
+inline size_t cusparsecoosort_bufferSizeExt(  // NOLINT
+  cusparseHandle_t handle, int m,
                                             int n, int nnz, const int* cooRows,
                                             const int* cooCols,
                                             cudaStream_t stream) {
@@ -130,11 +132,13 @@ inline size_t cusparsecoosort_bufferSizeExt(cusparseHandle_t handle, int m,
 }
 
 template <typename T>
-void cusparsecoosortByRow(cusparseHandle_t handle, int m, int n, int nnz,
+void cusparsecoosortByRow(  // NOLINT
+  cusparseHandle_t handle, int m, int n, int nnz,
                           T* cooRows, T* cooCols, T* P, void* pBuffer,
                           cudaStream_t stream);
 template <>
-inline void cusparsecoosortByRow(cusparseHandle_t handle, int m, int n, int nnz,
+inline void cusparsecoosortByRow(  // NOLINT
+  cusparseHandle_t handle, int m, int n, int nnz,
                                  int* cooRows, int* cooCols, int* P,
                                  void* pBuffer, cudaStream_t stream) {
   CUSPARSE_CHECK(cusparseSetStream(handle, stream));
