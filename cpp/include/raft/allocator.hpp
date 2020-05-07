@@ -30,7 +30,7 @@ namespace raft {
  * @note This interface does NOT support RAII. Thus, if you need RAII-enabled
  *       interface, better to use `device_buffer` or `host_buffer`.
  */
-class Allocator {
+class allocator {
  public:
   /**
    * @brief Asynchronously allocates a memory region.
@@ -61,7 +61,7 @@ class Allocator {
    */
   virtual void deallocate(void* p, std::size_t n, cudaStream_t stream) = 0;
 
-  virtual ~Allocator() {}
+  virtual ~allocator() = default;
 };  // class Allocator
 
 /**
@@ -72,7 +72,7 @@ class Allocator {
  * further to the ones listed in `Allocator`:
  * - Allocations may be always on the device that was specified on construction.
  */
-class deviceAllocator : public Allocator {};  // class deviceAllocator
+class device_allocator : public allocator {};
 
 /**
  * @brief An explicit interface for an asynchronous host allocations.
@@ -82,10 +82,10 @@ class deviceAllocator : public Allocator {};  // class deviceAllocator
  * further to the ones listed in `Allocator`:
  * - Allocations don't need to be zero copy accessible form a device.
  */
-class hostAllocator : public Allocator {};  // class hostAllocator
+class host_allocator : public allocator {};
 
 /** Default cudaMalloc/cudaFree based device allocator */
-class defaultDeviceAllocator : public deviceAllocator {
+class default_device_allocator : public device_allocator {
  public:
   void* allocate(std::size_t n, cudaStream_t stream) override {
     void* ptr = 0;
@@ -98,10 +98,10 @@ class defaultDeviceAllocator : public deviceAllocator {
     //CUDA_CHECK_NO_THROW(cudaFree(p));
     CUDA_CHECK(cudaFree(p));
   }
-};  // class defaultDeviceAllocator
+};  // class default_device_allocator
 
 /** Default cudaMallocHost/cudaFreeHost based host allocator */
-class defaultHostAllocator : public hostAllocator {
+class default_host_allocator : public host_allocator {
  public:
   void* allocate(std::size_t n, cudaStream_t stream) override {
     void* ptr = 0;
@@ -114,6 +114,6 @@ class defaultHostAllocator : public hostAllocator {
     //CUDA_CHECK_NO_THROW(cudaFreeHost(p));
     CUDA_CHECK(cudaFreeHost(p));
   }
-};  // class defaultHostAllocator
+};  // class default_host_allocator
 
 };  // end namespace raft
