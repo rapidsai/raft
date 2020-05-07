@@ -115,15 +115,12 @@ inline void cusparsecoo2csr(cusparseHandle_t handle, const int* cooRowInd,
  */
 template <typename T>
 size_t cusparsecoosort_bufferSizeExt(  // NOLINT
-  cusparseHandle_t handle, int m, int n,
-                                     int nnz, const T* cooRows,
-                                     const T* cooCols, cudaStream_t stream);
+  cusparseHandle_t handle, int m, int n, int nnz, const T* cooRows,
+  const T* cooCols, cudaStream_t stream);
 template <>
 inline size_t cusparsecoosort_bufferSizeExt(  // NOLINT
-  cusparseHandle_t handle, int m,
-                                            int n, int nnz, const int* cooRows,
-                                            const int* cooCols,
-                                            cudaStream_t stream) {
+  cusparseHandle_t handle, int m, int n, int nnz, const int* cooRows,
+  const int* cooCols, cudaStream_t stream) {
   size_t val;
   CUSPARSE_CHECK(cusparseSetStream(handle, stream));
   CUSPARSE_CHECK(
@@ -133,14 +130,12 @@ inline size_t cusparsecoosort_bufferSizeExt(  // NOLINT
 
 template <typename T>
 void cusparsecoosortByRow(  // NOLINT
-  cusparseHandle_t handle, int m, int n, int nnz,
-                          T* cooRows, T* cooCols, T* P, void* pBuffer,
-                          cudaStream_t stream);
+  cusparseHandle_t handle, int m, int n, int nnz, T* cooRows, T* cooCols, T* P,
+  void* pBuffer, cudaStream_t stream);
 template <>
 inline void cusparsecoosortByRow(  // NOLINT
-  cusparseHandle_t handle, int m, int n, int nnz,
-                                 int* cooRows, int* cooCols, int* P,
-                                 void* pBuffer, cudaStream_t stream) {
+  cusparseHandle_t handle, int m, int n, int nnz, int* cooRows, int* cooCols,
+  int* P, void* pBuffer, cudaStream_t stream) {
   CUSPARSE_CHECK(cusparseSetStream(handle, stream));
   CUSPARSE_CHECK(
     cusparseXcoosortByRow(handle, m, n, nnz, cooRows, cooCols, P, pBuffer));
