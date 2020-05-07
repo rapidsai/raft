@@ -37,12 +37,14 @@ class exception : public std::exception {
   explicit exception() noexcept : std::exception(), msg_() {}
 
   /** copy ctor */
-  exception(const exception& src) noexcept : std::exception(), msg_(src.what()) {
+  exception(const exception& src) noexcept
+    : std::exception(), msg_(src.what()) {
     collect_call_stack();
   }
 
   /** ctor from an input message */
-  explicit exception(const std::string _msg) noexcept : std::exception(), msg_(std::move(_msg)) {
+  explicit exception(const std::string _msg) noexcept
+    : std::exception(), msg_(std::move(_msg)) {
     collect_call_stack();
   }
 
@@ -167,7 +169,8 @@ void update_device(Type* dPtr, const Type* hPtr, size_t len,
 
 /** performs a device to host copy */
 template <typename Type>
-void update_host(Type* hPtr, const Type* dPtr, size_t len, cudaStream_t stream) {
+void update_host(Type* hPtr, const Type* dPtr, size_t len,
+                 cudaStream_t stream) {
   copy(hPtr, dPtr, len, stream);
 }
 

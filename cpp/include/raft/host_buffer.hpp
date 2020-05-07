@@ -46,7 +46,8 @@ class host_buffer : public buffer_base<T, host_allocator> {
   using size_type = typename buffer_base<T, host_allocator>::size_type;
   using value_type = typename buffer_base<T, host_allocator>::value_type;
   using iterator = typename buffer_base<T, host_allocator>::iterator;
-  using const_iterator = typename buffer_base<T, host_allocator>::const_iterator;
+  using const_iterator =
+    typename buffer_base<T, host_allocator>::const_iterator;
   using reference = typename buffer_base<T, host_allocator>::reference;
   using const_reference =
     typename buffer_base<T, host_allocator>::const_reference;

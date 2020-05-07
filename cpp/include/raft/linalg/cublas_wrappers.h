@@ -197,7 +197,7 @@ cublasStatus_t cublasgemmBatched(cublasHandle_t handle,  // NOLINT
                                  cublasOperation_t transa,
                                  cublasOperation_t transb, int m, int n, int k,
                                  const T *alpha,
-                                 const T *const Aarray[],  // NOLINT
+                                 const T *const Aarray[],           // NOLINT
                                  int lda, const T *const Barray[],  // NOLINT
                                  int ldb, const T *beta,
                                  T *Carray[],  // NOLINT
@@ -207,8 +207,8 @@ template <>
 inline cublasStatus_t cublasgemmBatched(  // NOLINT
   cublasHandle_t handle, cublasOperation_t transa, cublasOperation_t transb,
   int m, int n, int k, const float *alpha,
-  const float *const Aarray[],  // NOLINT
-  int lda, const float *const Barray[],  // NOLINT
+  const float *const Aarray[],                  // NOLINT
+  int lda, const float *const Barray[],         // NOLINT
   int ldb, const float *beta, float *Carray[],  // NOLINT
   int ldc, int batchCount, cudaStream_t stream) {
   CUBLAS_CHECK(cublasSetStream(handle, stream));
@@ -220,8 +220,8 @@ template <>
 inline cublasStatus_t cublasgemmBatched(  // NOLINT
   cublasHandle_t handle, cublasOperation_t transa, cublasOperation_t transb,
   int m, int n, int k, const double *alpha,
-  const double *const Aarray[],  // NOLINT
-  int lda, const double *const Barray[],  // NOLINT
+  const double *const Aarray[],                   // NOLINT
+  int lda, const double *const Barray[],          // NOLINT
   int ldb, const double *beta, double *Carray[],  // NOLINT
   int ldc, int batchCount, cudaStream_t stream) {
   CUBLAS_CHECK(cublasSetStream(handle, stream));
@@ -246,9 +246,9 @@ template <>
 inline cublasStatus_t cublasgemmStridedBatched(  // NOLINT
   cublasHandle_t handle, cublasOperation_t transa, cublasOperation_t transb,
   int m, int n, int k, const float *alpha, const float *const Aarray, int lda,
-  int64_t strideA, const float *const Barray, int ldb,
-  int64_t strideB, const float *beta, float *Carray, int ldc,
-  int64_t strideC, int batchCount, cudaStream_t stream) {
+  int64_t strideA, const float *const Barray, int ldb, int64_t strideB,
+  const float *beta, float *Carray, int ldc, int64_t strideC, int batchCount,
+  cudaStream_t stream) {
   CUBLAS_CHECK(cublasSetStream(handle, stream));
   return cublasSgemmStridedBatched(handle, transa, transb, m, n, k, alpha,
                                    Aarray, lda, strideA, Barray, ldb, strideB,
@@ -259,9 +259,9 @@ template <>
 inline cublasStatus_t cublasgemmStridedBatched(  // NOLINT
   cublasHandle_t handle, cublasOperation_t transa, cublasOperation_t transb,
   int m, int n, int k, const double *alpha, const double *const Aarray, int lda,
-  int64_t strideA, const double *const Barray, int ldb,
-  int64_t strideB, const double *beta, double *Carray, int ldc,
-  int64_t strideC, int batchCount, cudaStream_t stream) {
+  int64_t strideA, const double *const Barray, int ldb, int64_t strideB,
+  const double *beta, double *Carray, int ldc, int64_t strideC, int batchCount,
+  cudaStream_t stream) {
   CUBLAS_CHECK(cublasSetStream(handle, stream));
   return cublasDgemmStridedBatched(handle, transa, transb, m, n, k, alpha,
                                    Aarray, lda, strideA, Barray, ldb, strideB,
@@ -275,13 +275,13 @@ inline cublasStatus_t cublasgemmStridedBatched(  // NOLINT
  */
 
 template <typename T>
-cublasStatus_t cublasgetrfBatched(cublasHandle_t handle, int n,   // NOLINT
-                                  T *const A[],  // NOLINT
-                                  int lda, int *P, int *info,
-                                  int batchSize, cudaStream_t stream);
+cublasStatus_t cublasgetrfBatched(cublasHandle_t handle, int n,  // NOLINT
+                                  T *const A[],                  // NOLINT
+                                  int lda, int *P, int *info, int batchSize,
+                                  cudaStream_t stream);
 
 template <>
-inline cublasStatus_t cublasgetrfBatched(cublasHandle_t handle,  // NOLINT
+inline cublasStatus_t cublasgetrfBatched(cublasHandle_t handle,    // NOLINT
                                          int n, float *const A[],  // NOLINT
                                          int lda, int *P, int *info,
                                          int batchSize, cudaStream_t stream) {
@@ -290,7 +290,7 @@ inline cublasStatus_t cublasgetrfBatched(cublasHandle_t handle,  // NOLINT
 }
 
 template <>
-inline cublasStatus_t cublasgetrfBatched(cublasHandle_t handle,  // NOLINT
+inline cublasStatus_t cublasgetrfBatched(cublasHandle_t handle,     // NOLINT
                                          int n, double *const A[],  // NOLINT
                                          int lda, int *P, int *info,
                                          int batchSize, cudaStream_t stream) {
@@ -300,25 +300,25 @@ inline cublasStatus_t cublasgetrfBatched(cublasHandle_t handle,  // NOLINT
 
 template <typename T>
 cublasStatus_t cublasgetriBatched(cublasHandle_t handle, int n,  // NOLINT
-                                  const T *const A[],  // NOLINT
+                                  const T *const A[],            // NOLINT
                                   int lda, const int *P,
                                   T *const C[],  // NOLINT
                                   int ldc, int *info, int batchSize,
                                   cudaStream_t stream);
 
 template <>
-inline cublasStatus_t cublasgetriBatched(  // NOLINT
+inline cublasStatus_t cublasgetriBatched(                // NOLINT
   cublasHandle_t handle, int n, const float *const A[],  // NOLINT
-  int lda, const int *P, float *const C[],  // NOLINT
+  int lda, const int *P, float *const C[],               // NOLINT
   int ldc, int *info, int batchSize, cudaStream_t stream) {
   CUBLAS_CHECK(cublasSetStream(handle, stream));
   return cublasSgetriBatched(handle, n, A, lda, P, C, ldc, info, batchSize);
 }
 
 template <>
-inline cublasStatus_t cublasgetriBatched(  // NOLINT
+inline cublasStatus_t cublasgetriBatched(                 // NOLINT
   cublasHandle_t handle, int n, const double *const A[],  // NOLINT
-  int lda, const int *P, double *const C[],  // NOLINT
+  int lda, const int *P, double *const C[],               // NOLINT
   int ldc, int *info, int batchSize, cudaStream_t stream) {
   CUBLAS_CHECK(cublasSetStream(handle, stream));
   return cublasDgetriBatched(handle, n, A, lda, P, C, ldc, info, batchSize);
@@ -335,7 +335,7 @@ template <typename T>
 inline cublasStatus_t cublasgelsBatched(cublasHandle_t handle,  // NOLINT
                                         cublasOperation_t trans, int m, int n,
                                         int nrhs, T *Aarray[],  // NOLINT
-                                        int lda, T *Carray[],  // NOLINT
+                                        int lda, T *Carray[],   // NOLINT
                                         int ldc, int *info, int *devInfoArray,
                                         int batchSize, cudaStream_t stream);
 
@@ -343,7 +343,7 @@ template <>
 inline cublasStatus_t cublasgelsBatched(cublasHandle_t handle,  // NOLINT
                                         cublasOperation_t trans, int m, int n,
                                         int nrhs, float *Aarray[],  // NOLINT
-                                        int lda, float *Carray[],  // NOLINT
+                                        int lda, float *Carray[],   // NOLINT
                                         int ldc, int *info, int *devInfoArray,
                                         int batchSize, cudaStream_t stream) {
   CUBLAS_CHECK(cublasSetStream(handle, stream));
@@ -355,7 +355,7 @@ template <>
 inline cublasStatus_t cublasgelsBatched(cublasHandle_t handle,  // NOLINT
                                         cublasOperation_t trans, int m, int n,
                                         int nrhs, double *Aarray[],  // NOLINT
-                                        int lda, double *Carray[],  // NOLINT
+                                        int lda, double *Carray[],   // NOLINT
                                         int ldc, int *info, int *devInfoArray,
                                         int batchSize, cudaStream_t stream) {
   CUBLAS_CHECK(cublasSetStream(handle, stream));
