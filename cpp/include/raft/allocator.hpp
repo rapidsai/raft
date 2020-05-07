@@ -88,7 +88,7 @@ class host_allocator : public allocator {};
 class default_device_allocator : public device_allocator {
  public:
   void* allocate(std::size_t n, cudaStream_t stream) override {
-    void* ptr = 0;
+    void* ptr = nullptr;
     CUDA_CHECK(cudaMalloc(&ptr, n));
     return ptr;
   }
@@ -104,7 +104,7 @@ class default_device_allocator : public device_allocator {
 class default_host_allocator : public host_allocator {
  public:
   void* allocate(std::size_t n, cudaStream_t stream) override {
-    void* ptr = 0;
+    void* ptr = nullptr;
     CUDA_CHECK(cudaMallocHost(&ptr, n));
     return ptr;
   }

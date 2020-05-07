@@ -22,7 +22,7 @@
 namespace raft {
 
 TEST(Raft, DeviceBuffer) {
-  auto allocator = std::make_shared<defaultDeviceAllocator>();
+  auto allocator = std::make_shared<default_device_allocator>();
   cudaStream_t stream;
   CUDA_CHECK(cudaStreamCreate(&stream));
   // no allocation at construction

@@ -41,15 +41,15 @@ namespace raft {
  * @endcode
  */
 template <typename T>
-class host_buffer : public buffer_base<T, hostAllocator> {
+class host_buffer : public buffer_base<T, host_allocator> {
  public:
-  using size_type = typename buffer_base<T, hostAllocator>::size_type;
-  using value_type = typename buffer_base<T, hostAllocator>::value_type;
-  using iterator = typename buffer_base<T, hostAllocator>::iterator;
-  using const_iterator = typename buffer_base<T, hostAllocator>::const_iterator;
-  using reference = typename buffer_base<T, hostAllocator>::reference;
+  using size_type = typename buffer_base<T, host_allocator>::size_type;
+  using value_type = typename buffer_base<T, host_allocator>::value_type;
+  using iterator = typename buffer_base<T, host_allocator>::iterator;
+  using const_iterator = typename buffer_base<T, host_allocator>::const_iterator;
+  using reference = typename buffer_base<T, host_allocator>::reference;
   using const_reference =
-    typename buffer_base<T, hostAllocator>::const_reference;
+    typename buffer_base<T, host_allocator>::const_reference;
 
   host_buffer() = delete;
 
@@ -57,18 +57,16 @@ class host_buffer : public buffer_base<T, hostAllocator> {
 
   host_buffer& operator=(const host_buffer& other) = delete;
 
-  host_buffer(std::shared_ptr<hostAllocator> allocator, cudaStream_t stream,
+  host_buffer(std::shared_ptr<host_allocator> allocator, cudaStream_t stream,
               size_type n = 0)
-    : buffer_base<T, hostAllocator>(allocator, stream, n) {}
+    : buffer_base<T, host_allocator>(allocator, stream, n) {}
 
-  ~host_buffer() {}
+  reference operator[](size_type pos) { return data_[pos]; }
 
-  reference operator[](size_type pos) { return _data[pos]; }
-
-  const_reference operator[](size_type pos) const { return _data[pos]; }
+  const_reference operator[](size_type pos) const { return data_[pos]; }
 
  private:
-  using buffer_base<T, hostAllocator>::_data;
+  using buffer_base<T, host_allocator>::data_;
 };
 
 }  // namespace raft

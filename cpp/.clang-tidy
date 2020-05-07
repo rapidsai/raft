@@ -141,13 +141,13 @@ CheckOptions:
   - key:             readability-identifier-naming.StaticConstantSuffix
     value:           ''
   - key:             readability-identifier-naming.StructCase
-    value:           CamelCase
+    value:           lower_case
   - key:             readability-identifier-naming.StructPrefix
     value:           ''
   - key:             readability-identifier-naming.StructSuffix
     value:           ''
   - key:             readability-identifier-naming.TypeAliasCase
-    value:           CamelCase
+    value:           lower_case
   - key:             readability-identifier-naming.TypeAliasPrefix
     value:           ''
   - key:             readability-identifier-naming.TypeAliasSuffix
@@ -159,7 +159,7 @@ CheckOptions:
   - key:             readability-identifier-naming.TypeTemplateParameterSuffix
     value:           ''
   - key:             readability-identifier-naming.TypedefCase
-    value:           CamelCase
+    value:           lower_case
   - key:             readability-identifier-naming.TypedefPrefix
     value:           ''
   - key:             readability-identifier-naming.TypedefSuffix

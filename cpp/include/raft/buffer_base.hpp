@@ -18,6 +18,7 @@
 
 #include <cuda_runtime.h>
 #include <memory>
+#include <utility>
 #include "cudart_utils.h"
 
 namespace raft {
@@ -52,39 +53,39 @@ class buffer_base {
    */
   buffer_base(std::shared_ptr<Allocator> allocator, cudaStream_t stream,
               size_type n = 0)
-    : _size(n),
-      _capacity(n),
-      _data(nullptr),
-      _stream(stream),
-      _allocator(allocator) {
-    if (_capacity > 0) {
-      _data = static_cast<value_type*>(
-        _allocator->allocate(_capacity * sizeof(value_type), _stream));
-      CUDA_CHECK(cudaStreamSynchronize(_stream));
+    : size_(n),
+      capacity_(n),
+      data_(nullptr),
+      stream_(stream),
+      allocator_(std::move(allocator)) {
+    if (capacity_ > 0) {
+      data_ = static_cast<value_type*>(
+        allocator_->allocate(capacity_ * sizeof(value_type), stream_));
+      CUDA_CHECK(cudaStreamSynchronize(stream_));
     }
   }
 
   ~buffer_base() {
-    if (nullptr != _data) {
-      _allocator->deallocate(_data, _capacity * sizeof(value_type), _stream);
+    if (nullptr != data_) {
+      allocator_->deallocate(data_, capacity_ * sizeof(value_type), stream_);
     }
   }
 
-  value_type* data() { return _data; }
+  value_type* data() { return data_; }
 
-  const value_type* data() const { return _data; }
+  const value_type* data() const { return data_; }
 
-  size_type size() const { return _size; }
+  size_type size() const { return size_; }
 
-  void clear() { _size = 0; }
+  void clear() { size_ = 0; }
 
-  iterator begin() { return _data; }
+  iterator begin() { return data_; }
 
-  const_iterator begin() const { return _data; }
+  const_iterator begin() const { return data_; }
 
-  iterator end() { return _data + _size; }
+  iterator end() { return data_ + size_; }
 
-  const_iterator end() const { return _data + _size; }
+  const_iterator end() const { return data_ + size_; }
 
   /**
    * @brief Reserve new memory size for this buffer.
@@ -98,18 +99,18 @@ class buffer_base {
    */
   void reserve(const size_type new_capacity, cudaStream_t stream) {
     set_stream(stream);
-    if (new_capacity > _capacity) {
-      value_type* new_data = static_cast<value_type*>(
-        _allocator->allocate(new_capacity * sizeof(value_type), _stream));
-      if (_size > 0) {
-        CUDA_CHECK(cudaMemcpyAsync(new_data, _data, _size * sizeof(value_type),
-                                   cudaMemcpyDefault, _stream));
+    if (new_capacity > capacity_) {
+      auto* new_data = static_cast<value_type*>(
+        allocator_->allocate(new_capacity * sizeof(value_type), stream_));
+      if (size_ > 0) {
+        CUDA_CHECK(cudaMemcpyAsync(new_data, data_, size_ * sizeof(value_type),
+                                   cudaMemcpyDefault, stream_));
       }
-      if (nullptr != _data) {
-        _allocator->deallocate(_data, _capacity * sizeof(value_type), _stream);
+      if (nullptr != data_) {
+        allocator_->deallocate(data_, capacity_ * sizeof(value_type), stream_);
       }
-      _data = new_data;
-      _capacity = new_capacity;
+      data_ = new_data;
+      capacity_ = new_capacity;
     }
   }
 
@@ -121,7 +122,7 @@ class buffer_base {
    */
   void resize(const size_type new_size, cudaStream_t stream) {
     reserve(new_size, stream);
-    _size = new_size;
+    size_ = new_size;
   }
 
   /**
@@ -133,12 +134,12 @@ class buffer_base {
    */
   void release(cudaStream_t stream) {
     set_stream(stream);
-    if (nullptr != _data) {
-      _allocator->deallocate(_data, _capacity * sizeof(value_type), _stream);
+    if (nullptr != data_) {
+      allocator_->deallocate(data_, capacity_ * sizeof(value_type), stream_);
     }
-    _data = nullptr;
-    _capacity = 0;
-    _size = 0;
+    data_ = nullptr;
+    capacity_ = 0;
+    size_ = 0;
   }
 
   /**
@@ -146,16 +147,16 @@ class buffer_base {
    *
    * @return the allocator pointer
    */
-  std::shared_ptr<Allocator> get_allocator() const { return _allocator; }
+  std::shared_ptr<Allocator> get_allocator() const { return allocator_; }
 
  protected:
-  value_type* _data;
+  value_type* data_;
 
  private:
-  size_type _size;
-  size_type _capacity;
-  cudaStream_t _stream;
-  std::shared_ptr<Allocator> _allocator;
+  size_type size_;
+  size_type capacity_;
+  cudaStream_t stream_;
+  std::shared_ptr<Allocator> allocator_;
 
   /**
    * @brief Sets a new cuda stream where the future operations will be queued
@@ -169,12 +170,12 @@ class buffer_base {
    *                   current one, then this method will be a no-op.
    */
   void set_stream(cudaStream_t stream) {
-    if (_stream != stream) {
+    if (stream_ != stream) {
       cudaEvent_t event;
       CUDA_CHECK(cudaEventCreateWithFlags(&event, cudaEventDisableTiming));
-      CUDA_CHECK(cudaEventRecord(event, _stream));
+      CUDA_CHECK(cudaEventRecord(event, stream_));
       CUDA_CHECK(cudaStreamWaitEvent(stream, event, 0));
-      _stream = stream;
+      stream_ = stream;
       CUDA_CHECK(cudaEventDestroy(event));
     }
   }

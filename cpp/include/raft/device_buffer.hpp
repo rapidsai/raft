@@ -40,6 +40,6 @@ namespace raft {
  * @endcode
  */
 template <typename T>
-using device_buffer = buffer_base<T, deviceAllocator>;
+using device_buffer = buffer_base<T, device_allocator>;
 
 }  // namespace raft
