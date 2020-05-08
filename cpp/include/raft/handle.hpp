@@ -34,6 +34,7 @@
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/cusolver_wrappers.h>
 #include <raft/sparse/cusparse_wrappers.h>
+#include <raft/comms/comms.hpp>
 #include "allocator.hpp"
 #include "cudart_utils.h"
 

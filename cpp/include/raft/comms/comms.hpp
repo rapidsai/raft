@@ -40,7 +40,7 @@ class comms_t {
   virtual size_t getDatatypeSize(const comms_t::datatype_t datatype);
 
   template <typename T>
-  virtual datatype_t getDataType() const;
+  datatype_t getDataType() const;
 
   virtual ~comms_t();
 
