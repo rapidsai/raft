@@ -171,8 +171,6 @@ class comms_ucp_handler {
   void ucp_isend(ucp_request *req, ucp_ep_h ep_ptr, const void *buf, int size,
                  int tag, ucp_tag_t tag_mask, int rank) const {
     ucp_tag_t ucp_tag = build_message_tag(rank, tag);
-//
-//    CUML_LOG_DEBUG("Sending tag: %ld", ucp_tag);
 
     ucs_status_ptr_t send_result = (*(send_func))(
       ep_ptr, buf, size, ucp_dt_make_contig(1), ucp_tag, send_callback);
@@ -208,8 +206,6 @@ class comms_ucp_handler {
                  void *buf, int size, int tag, ucp_tag_t tag_mask,
                  int sender_rank) const {
     ucp_tag_t ucp_tag = build_message_tag(sender_rank, tag);
-//
-//    CUML_LOG_DEBUG("%d: Receiving tag: %ld", ucp_tag);
 
     ucs_status_ptr_t recv_result =
       (*(recv_func))(worker, buf, size, ucp_dt_make_contig(1), ucp_tag,

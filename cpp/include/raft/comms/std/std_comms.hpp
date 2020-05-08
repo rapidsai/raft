@@ -129,28 +129,17 @@ ncclRedOp_t getNCCLOp(const comms_t::op_t op) {
 
 bool ucx_enabled() { return UCX_ENABLED; }
 
-void inject_comms(cumlHandle &handle, ncclComm_t comm, ucp_worker_h ucp_worker,
-                  std::shared_ptr<ucp_ep_h *> eps, int size, int rank) {
-  auto communicator = std::make_shared<comms_t>(
-    std::unique_ptr<MLCommon::comms_t>(
-      new std_comms(comm, ucp_worker, eps, size, rank)));
-  handle.getImpl().setCommunicator(communicator);
-}
-
-void inject_comms(cumlHandle &handle, ncclComm_t comm, int size, int rank) {
-  auto communicator = std::make_shared<comms_t>(
-    std::unique_ptr<MLCommon::comms_t>(
-      new std_comms(comm, size, rank)));
-  handle.getImpl().setCommunicator(communicator);
-}
-
-void inject_comms_py_coll(cumlHandle *handle, ncclComm_t comm, int size,
+void inject_comms(handle_t *handle, ncclComm_t comm, int size,
                           int rank) {
-  inject_comms(*handle, comm, size, rank);
+  auto communicator = std::make_shared<comms_t>(
+	std::unique_ptr<comms_t>(
+	  new std_comms(comm, size, rank)));
+  handle->setCommunicator(communicator);
 }
 
-void inject_comms_py(ML::cumlHandle *handle, ncclComm_t comm, void *ucp_worker,
+void inject_comms(handle_t *handle, ncclComm_t comm, void *ucp_worker,
                      void *eps, int size, int rank) {
+
   std::shared_ptr<ucp_ep_h *> eps_sp =
     std::make_shared<ucp_ep_h *>(new ucp_ep_h[size]);
 
@@ -168,11 +157,14 @@ void inject_comms_py(ML::cumlHandle *handle, ncclComm_t comm, void *ucp_worker,
     }
   }
 
-  inject_comms(*handle, comm, (ucp_worker_h)ucp_worker, eps_sp, size, rank);
+  auto communicator = std::make_shared<comms_t>(
+    std::unique_ptr<comms_t>(
+      new std_comms(comm, ucp_worker, eps, size, rank)));
+  handle->setCommunicator(communicator);
 }
 
 
-class std_comms : public raft::comms_t {
+class std_comms : public comms_t {
  public:
   std_comms() = delete;
 
