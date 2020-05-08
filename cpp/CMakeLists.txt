@@ -161,6 +161,7 @@ set(CMAKE_CUDA_FLAGS
 # - dependencies -------------------------------------------------------------
 
 include(cmake/Dependencies.cmake)
+add_subdirectory(include/raft/comms)
 
 ##############################################################################
 # - include paths ------------------------------------------------------------
