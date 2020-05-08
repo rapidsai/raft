@@ -149,11 +149,21 @@ class handle_t {
     }
   }
 
-  ///@todo: enable this once we have cuml-comms migrated
-  // void setCommunicator(
-  //   std::shared_ptr<MLCommon::cumlCommunicator> communicator);
-  // const MLCommon::cumlCommunicator& getCommunicator() const;
-  // bool commsInitialized() const;
+  void setCommunicator(
+    std::shared_ptr<comms_t> communicator) {
+    _communicator = communicator;
+  }
+
+  const comms_t& getCommunicator() const {
+    ASSERT(nullptr != _communicator.get(),
+           "ERROR: Communicator was not initialized\n");
+    return *_communicator;
+  }
+
+  bool commsInitialized() const {
+    return (nullptr != _communicator.get());
+  }
+
 
   const cudaDeviceProp& getDeviceProperties() const {
     if (!_devicePropInitialized) {
@@ -181,9 +191,7 @@ class handle_t {
   cudaEvent_t _event;
   mutable cudaDeviceProp _prop;
   mutable bool _devicePropInitialized;
-
-  ///@todo: enable this once we have migrated cuml-comms
-  //std::shared_ptr<MLCommon::cumlCommunicator> _communicator;
+  std::shared_ptr<comms_t> _communicator;
 
   void createResources() {
     cudaStream_t stream;

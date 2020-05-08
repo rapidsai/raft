@@ -21,7 +21,7 @@
 
 namespace raft {
 
-class comms {
+class comms_t {
  public:
 
   typedef unsigned int request_t;
@@ -37,17 +37,17 @@ class comms {
 	commStatusAbort
   };  // A failure occurred in sync, queued operations aborted
 
-  virtual size_t getDatatypeSize(const comms::datatype_t datatype);
+  virtual size_t getDatatypeSize(const comms_t::datatype_t datatype);
 
   template <typename T>
   virtual datatype_t getDataType() const;
 
-  virtual ~comms();
+  virtual ~comms_t();
 
   virtual int getSize() const = 0;
   virtual int getRank() const = 0;
 
-  virtual std::unique_ptr<comms> commSplit(int color, int key) const = 0;
+  virtual std::unique_ptr<comms_t> commSplit(int color, int key) const = 0;
 
   virtual void barrier() const = 0;
 

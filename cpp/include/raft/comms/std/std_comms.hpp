@@ -59,7 +59,7 @@ constexpr bool UCX_ENABLED = true;
   do {                                                            \
     ncclResult_t status = call;                                   \
     if (status != ncclSuccess) {                                  \
-      CUML_LOG_ERROR("NCCL call='%s' failed. Reason:%s\n", #call, \
+      printf("NCCL call='%s' failed. Reason:%s\n", #call, \
                      ncclGetErrorString(status));                 \
     }                                                             \
   } while (0)
@@ -70,58 +70,58 @@ namespace raft {
 
 namespace {
 
-size_t getDatatypeSize(const comms::datatype_t datatype) {
+size_t getDatatypeSize(const comms_t::datatype_t datatype) {
   switch (datatype) {
-    case comms::CHAR:
+    case comms_t::CHAR:
       return sizeof(char);
-    case comms::UINT8:
+    case comms_t::UINT8:
       return sizeof(uint8_t);
-    case comms::INT:
+    case comms_t::INT:
       return sizeof(int);
-    case comms::UINT:
+    case comms_t::UINT:
       return sizeof(unsigned int);
-    case comms::INT64:
+    case comms_t::INT64:
       return sizeof(int64_t);
-    case comms::UINT64:
+    case comms_t::UINT64:
       return sizeof(uint64_t);
-    case comms::FLOAT:
+    case comms_t::FLOAT:
       return sizeof(float);
-    case comms::DOUBLE:
+    case comms_t::DOUBLE:
       return sizeof(double);
   }
 }
 
 ncclDataType_t getNCCLDatatype(
-  const comms::datatype_t datatype) {
+  const comms_t::datatype_t datatype) {
   switch (datatype) {
-    case comms::CHAR:
+    case comms_t::CHAR:
       return ncclChar;
-    case comms::UINT8:
+    case comms_t::UINT8:
       return ncclUint8;
-    case comms::INT:
+    case comms_t::INT:
       return ncclInt;
-    case comms::UINT:
+    case comms_t::UINT:
       return ncclUint32;
-    case comms::INT64:
+    case comms_t::INT64:
       return ncclInt64;
-    case comms::UINT64:
+    case comms_t::UINT64:
       return ncclUint64;
-    case comms::FLOAT:
+    case comms_t::FLOAT:
       return ncclFloat;
-    case comms::DOUBLE:
+    case comms_t::DOUBLE:
       return ncclDouble;
   }
 }
 
-ncclRedOp_t getNCCLOp(const comms::op_t op) {
+ncclRedOp_t getNCCLOp(const comms_t::op_t op) {
   switch (op) {
-    case comms::SUM:
+    case comms_t::SUM:
       return ncclSum;
-    case comms::PROD:
+    case comms_t::PROD:
       return ncclProd;
-    case comms::MIN:
+    case comms_t::MIN:
       return ncclMin;
-    case comms::MAX:
+    case comms_t::MAX:
       return ncclMax;
   }
 }
@@ -129,26 +129,17 @@ ncclRedOp_t getNCCLOp(const comms::op_t op) {
 
 bool ucx_enabled() { return UCX_ENABLED; }
 
-/**
- * @brief Underlying comms, like NCCL and UCX, should be initialized and ready for use,
- * and maintained, outside of the cuML Comms lifecycle. This allows us to decouple the
- * ownership of the actual comms from cuml so that they can also be used outside of cuml.
- *
- * For instance, nccl-py can be used to bootstrap a ncclComm_t before it is
- * used to construct a cuml comms instance. UCX endpoints can be bootstrapped
- * in Python using ucx-py, before being used to construct a cuML comms instance.
- */
 void inject_comms(cumlHandle &handle, ncclComm_t comm, ucp_worker_h ucp_worker,
                   std::shared_ptr<ucp_ep_h *> eps, int size, int rank) {
-  auto communicator = std::make_shared<comms>(
-    std::unique_ptr<MLCommon::comms>(
+  auto communicator = std::make_shared<comms_t>(
+    std::unique_ptr<MLCommon::comms_t>(
       new std_comms(comm, ucp_worker, eps, size, rank)));
   handle.getImpl().setCommunicator(communicator);
 }
 
 void inject_comms(cumlHandle &handle, ncclComm_t comm, int size, int rank) {
-  auto communicator = std::make_shared<comms>(
-    std::unique_ptr<MLCommon::comms>(
+  auto communicator = std::make_shared<comms_t>(
+    std::unique_ptr<MLCommon::comms_t>(
       new std_comms(comm, size, rank)));
   handle.getImpl().setCommunicator(communicator);
 }
@@ -181,19 +172,7 @@ void inject_comms_py(ML::cumlHandle *handle, ncclComm_t comm, void *ucp_worker,
 }
 
 
-/**
- * @brief A comms implementation capable of running collective communications
- * with NCCL and point-to-point-communications with UCX. Note that the latter is optional.
- *
- * Underlying comms, like NCCL and UCX, should be initialized and ready for use,
- * and maintained, outside of the cuML Comms lifecycle. This allows us to decouple the
- * ownership of the actual comms from cuml so that they can also be used outside of cuml.
- *
- * For instance, nccl-py can be used to bootstrap a ncclComm_t before it is
- * used to construct a cuml comms instance. UCX endpoints can be bootstrapped
- * in Python using ucx-py, before being used to construct a cuML comms instance.
- */
-class std_comms : public raft::comms {
+class std_comms : public raft::comms_t {
  public:
   std_comms() = delete;
 
@@ -235,66 +214,66 @@ class std_comms : public raft::comms {
 	  CUDA_CHECK_NO_THROW(cudaFree(_recvbuff));
 	}
 
-  size_t getDatatypeSize(const comms::datatype_t datatype) {
+  size_t getDatatypeSize(const c::datatype_t datatype) {
     switch (datatype) {
-      case comms::CHAR:
+      case comms_t::CHAR:
         return sizeof(char);
-      case comms::UINT8:
+      case comms_t::UINT8:
         return sizeof(uint8_t);
-      case comms::INT:
+      case comms_t::INT:
         return sizeof(int);
-      case comms::UINT:
+      case comms_t::UINT:
         return sizeof(unsigned int);
-      case comms::INT64:
+      case comms_t::INT64:
         return sizeof(int64_t);
-      case comms::UINT64:
+      case comms_t::UINT64:
         return sizeof(uint64_t);
-      case comms::FLOAT:
+      case comms_t::FLOAT:
         return sizeof(float);
-      case comms::DOUBLE:
+      case comms_t::DOUBLE:
         return sizeof(double);
     }
   }
 
 
   template <>
-  comms::datatype_t getDataType<char>() const {
-    return comms::CHAR;
+  comms_t::datatype_t getDataType<char>() const {
+    return comms_t::CHAR;
   }
 
   template <>
-  comms::datatype_t getDataType<uint8_t>() const {
-    return comms::UINT8;
+  comms_t::datatype_t getDataType<uint8_t>() const {
+    return comms_t::UINT8;
   }
 
   template <>
-  comms::datatype_t getDataType<int>() const {
-    return comms::INT;
+  comms_t::datatype_t getDataType<int>() const {
+    return comms_t::INT;
   }
 
   template <>
-  comms::datatype_t getDataType<uint32_t>() const {
-    return comms::UINT;
+  comms_t::datatype_t getDataType<uint32_t>() const {
+    return comms_t::UINT;
   }
 
   template <>
-  comms::datatype_t getDataType<int64_t>() const {
-    return comms::INT64;
+  comms_t::datatype_t getDataType<int64_t>() const {
+    return comms_t::INT64;
   }
 
   template <>
-  comms::datatype_t getDataType<uint64_t>() const {
-    return comms::UINT64;
+  comms_t::datatype_t getDataType<uint64_t>() const {
+    return comms_t::UINT64;
   }
 
   template <>
-  comms::datatype_t getDataType<float>() const {
-    return comms::FLOAT;
+  comms_t::datatype_t getDataType<float>() const {
+    return comms_t::FLOAT;
   }
 
   template <>
-  comms::datatype_t getDataType<double>() const {
-    return comms::DOUBLE;
+  comms_t::datatype_t getDataType<double>() const {
+    return comms_t::DOUBLE;
   }
 
   void initialize() {
@@ -309,7 +288,7 @@ class std_comms : public raft::comms {
 
   int getRank() const { return _rank; }
 
-  std::unique_ptr<comms>
+  std::unique_ptr<comms_t>
   commSplit(int color, int key) const {
     // Not supported by NCCL
     ASSERT(false,
@@ -321,8 +300,8 @@ class std_comms : public raft::comms {
     CUDA_CHECK(cudaMemsetAsync(_sendbuff, 1, sizeof(int), _stream));
     CUDA_CHECK(cudaMemsetAsync(_recvbuff, 1, sizeof(int), _stream));
 
-    allreduce(_sendbuff, _recvbuff, 1, comms::INT,
-              comms::SUM, _stream);
+    allreduce(_sendbuff, _recvbuff, 1, comms_t::INT,
+              comms_t::SUM, _stream);
 
     ASSERT(syncStream(_stream) == status_t::commStatusSuccess,
            "ERROR: syncStream failed. This can be caused by a failed rank.");
@@ -344,9 +323,9 @@ class std_comms : public raft::comms {
 
   void isend(const void *buf, int size, int dest,
                                        int tag, request_t *request) const {
-    ASSERT(UCX_ENABLED, "cuML Comms not built with UCX support");
+    ASSERT(UCX_ENABLED, "Comms not built with UCX support");
     ASSERT(p2p_enabled,
-           "cuML Comms instance was not initialized for point-to-point");
+           "Comms instance was not initialized for point-to-point");
 
     ASSERT(_ucp_worker != nullptr,
            "ERROR: UCX comms not initialized on communicator.");
@@ -359,19 +338,14 @@ class std_comms : public raft::comms {
     this->_ucp_handler.ucp_isend(ucp_req, ep_ptr, buf, size, tag,
                                  default_tag_mask, getRank());
 
-    CUML_LOG_DEBUG(
-      "%d: Created send request [id=%llu], ptr=%llu, to=%llu, ep=%llu", getRank(),
-      (unsigned long long)*request, (unsigned long long)ucp_req->req,
-      (unsigned long long)dest, (unsigned long long)ep_ptr);
-
     _requests_in_flight.insert(std::make_pair(*request, ucp_req));
   }
 
   void irecv(void *buf, int size, int source, int tag,
                                        request_t *request) const {
-    ASSERT(UCX_ENABLED, "cuML Comms not built with UCX support");
+    ASSERT(UCX_ENABLED, "Comms not built with UCX support");
     ASSERT(p2p_enabled,
-           "cuML Comms instance was not initialized for point-to-point");
+           "Comms instance was not initialized for point-to-point");
 
     ASSERT(_ucp_worker != nullptr,
            "ERROR: UCX comms not initialized on communicator.");
@@ -386,19 +360,14 @@ class std_comms : public raft::comms {
     _ucp_handler.ucp_irecv(ucp_req, _ucp_worker, ep_ptr, buf, size, tag, tag_mask,
                            source);
 
-    CUML_LOG_DEBUG(
-      "%d: Created receive request [id=%llu], ptr=%llu, from=%llu, ep=%llu",
-      getRank(), (unsigned long long)*request, (unsigned long long)ucp_req->req,
-      (unsigned long long)source, (unsigned long long)ep_ptr);
-
     _requests_in_flight.insert(std::make_pair(*request, ucp_req));
   }
 
   void waitall(int count,
                                          request_t array_of_requests[]) const {
-    ASSERT(UCX_ENABLED, "cuML Comms not built with UCX support");
+    ASSERT(UCX_ENABLED, "Comms not built with UCX support");
     ASSERT(p2p_enabled,
-           "cuML Comms instance was not initialized for point-to-point");
+           "Comms instance was not initialized for point-to-point");
 
     ASSERT(_ucp_worker != nullptr,
            "ERROR: UCX comms not initialized on communicator.");
@@ -452,11 +421,6 @@ class std_comms : public raft::comms {
         // is complete, we can go ahead and clean it up.
         if (!req->needs_release || req->req->completed == 1) {
           restart = true;
-          CUML_LOG_DEBUG(
-            "%d: request completed. [ptr=%llu, num_left=%lu,"
-            " other_rank=%d, is_send=%d, completed_immediately=%d]",
-            getRank(), (unsigned long long)req->req, requests.size() - 1,
-            req->other_rank, req->is_send_request, !req->needs_release);
 
           // perform cleanup
           _ucp_handler.free_ucp_request(req);

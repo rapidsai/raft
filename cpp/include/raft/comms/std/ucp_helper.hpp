@@ -14,14 +14,11 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
+#include <cudart_utils.h>
 #include <dlfcn.h>
 #include <stdio.h>
 #include <ucp/api/ucp.h>
 #include <ucp/api/ucp_def.h>
-#include <cuml/common/logger.hpp>
-#include <cuml/common/utils.hpp>
-
 #pragma once
 
 typedef void (*dlsym_print_info)(ucp_ep_h, FILE *);
@@ -62,14 +59,6 @@ class ucp_request {
 
 // by default, match the whole tag
 static const ucp_tag_t default_tag_mask = -1;
-
-// Only match the passed in tag, not the rank. This
-// enables simulated multi-cast.
-static const ucp_tag_t any_rank_tag_mask = 0xFFFF0000;
-
-// Per the MPI API, receiving from a rank of -1 denotes receiving
-// from any rank that used the expected tag.
-static const int UCP_ANY_RANK = -1;
 
 /**
  * @brief Asynchronous send callback sets request to completed
@@ -182,8 +171,8 @@ class comms_ucp_handler {
   void ucp_isend(ucp_request *req, ucp_ep_h ep_ptr, const void *buf, int size,
                  int tag, ucp_tag_t tag_mask, int rank) const {
     ucp_tag_t ucp_tag = build_message_tag(rank, tag);
-
-    CUML_LOG_DEBUG("Sending tag: %ld", ucp_tag);
+//
+//    CUML_LOG_DEBUG("Sending tag: %ld", ucp_tag);
 
     ucs_status_ptr_t send_result = (*(send_func))(
       ep_ptr, buf, size, ucp_dt_make_contig(1), ucp_tag, send_callback);
@@ -219,8 +208,8 @@ class comms_ucp_handler {
                  void *buf, int size, int tag, ucp_tag_t tag_mask,
                  int sender_rank) const {
     ucp_tag_t ucp_tag = build_message_tag(sender_rank, tag);
-
-    CUML_LOG_DEBUG("%d: Receiving tag: %ld", ucp_tag);
+//
+//    CUML_LOG_DEBUG("%d: Receiving tag: %ld", ucp_tag);
 
     ucs_status_ptr_t recv_result =
       (*(recv_func))(worker, buf, size, ucp_dt_make_contig(1), ucp_tag,
