@@ -1,4 +1,6 @@
 ---
+# Refer to the following link for the explanation of each params:
+#  https://releases.llvm.org/8.0.1/tools/clang/tools/extra/docs/clang-tidy/checks/list.html
 Checks:          'clang-diagnostic-*,clang-analyzer-*,modernize-*,-modernize-make-*,-modernize-raw-string-literal,google-*,-google-default-arguments,-clang-diagnostic-#pragma-messages,readability-identifier-naming,-*,modernize-*,-modernize-make-*,-modernize-raw-string-literal,google-*,-google-default-arguments,-clang-diagnostic-#pragma-messages,readability-identifier-naming'
 WarningsAsErrors: ''
 HeaderFilterRegex: ''
@@ -79,7 +81,7 @@ CheckOptions:
   - key:             modernize-use-using.IgnoreMacros
     value:           '1'
   - key:             readability-identifier-naming.ClassCase
-    value:           CamelCase
+    value:           lower_case
   - key:             readability-identifier-naming.ClassPrefix
     value:           ''
   - key:             readability-identifier-naming.ClassSuffix
@@ -101,7 +103,7 @@ CheckOptions:
   - key:             readability-identifier-naming.EnumSuffix
     value:           ''
   - key:             readability-identifier-naming.FunctionCase
-    value:           CamelCase
+    value:           lower_case
   - key:             readability-identifier-naming.FunctionPrefix
     value:           ''
   - key:             readability-identifier-naming.FunctionSuffix
@@ -141,13 +143,13 @@ CheckOptions:
   - key:             readability-identifier-naming.StaticConstantSuffix
     value:           ''
   - key:             readability-identifier-naming.StructCase
-    value:           CamelCase
+    value:           lower_case
   - key:             readability-identifier-naming.StructPrefix
     value:           ''
   - key:             readability-identifier-naming.StructSuffix
     value:           ''
   - key:             readability-identifier-naming.TypeAliasCase
-    value:           CamelCase
+    value:           lower_case
   - key:             readability-identifier-naming.TypeAliasPrefix
     value:           ''
   - key:             readability-identifier-naming.TypeAliasSuffix
@@ -159,7 +161,7 @@ CheckOptions:
   - key:             readability-identifier-naming.TypeTemplateParameterSuffix
     value:           ''
   - key:             readability-identifier-naming.TypedefCase
-    value:           CamelCase
+    value:           lower_case
   - key:             readability-identifier-naming.TypedefPrefix
     value:           ''
   - key:             readability-identifier-naming.TypedefSuffix

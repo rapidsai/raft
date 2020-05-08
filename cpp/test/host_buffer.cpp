@@ -22,7 +22,7 @@
 namespace raft {
 
 TEST(Raft, HostBuffer) {
-  auto allocator = std::make_shared<defaultHostAllocator>();
+  auto allocator = std::make_shared<default_host_allocator>();
   cudaStream_t stream;
   CUDA_CHECK(cudaStreamCreate(&stream));
   // no allocation at construction

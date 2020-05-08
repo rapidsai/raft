@@ -23,22 +23,22 @@ namespace raft {
 
 TEST(Raft, HandleDefault) {
   handle_t h;
-  ASSERT_EQ(0, h.getNumInternalStreams());
-  ASSERT_EQ(0, h.getDevice());
-  ASSERT_EQ(nullptr, h.getStream());
-  ASSERT_NE(nullptr, h.getCublasHandle());
-  ASSERT_NE(nullptr, h.getcusolverDnHandle());
-  ASSERT_NE(nullptr, h.getcusolverSpHandle());
-  ASSERT_NE(nullptr, h.getcusparseHandle());
+  ASSERT_EQ(0, h.get_num_internal_streams());
+  ASSERT_EQ(0, h.get_device());
+  ASSERT_EQ(nullptr, h.get_stream());
+  ASSERT_NE(nullptr, h.get_cublas_handle());
+  ASSERT_NE(nullptr, h.get_cusolver_dn_handle());
+  ASSERT_NE(nullptr, h.get_cusolver_sp_handle());
+  ASSERT_NE(nullptr, h.get_cusparse_handle());
 }
 
 TEST(Raft, Handle) {
   handle_t h(4);
-  ASSERT_EQ(4, h.getNumInternalStreams());
+  ASSERT_EQ(4, h.get_num_internal_streams());
   cudaStream_t stream;
   CUDA_CHECK(cudaStreamCreate(&stream));
-  h.setStream(stream);
-  ASSERT_EQ(stream, h.getStream());
+  h.set_stream(stream);
+  ASSERT_EQ(stream, h.get_stream());
   CUDA_CHECK(cudaStreamSynchronize(stream));
   CUDA_CHECK(cudaStreamDestroy(stream));
 }
