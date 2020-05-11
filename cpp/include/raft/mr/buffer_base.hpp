@@ -70,9 +70,7 @@ class buffer_base {
   }
 
   ~buffer_base() {
-    if (nullptr != data_) {
-      allocator_->deallocate(data_, capacity_ * sizeof(value_type), stream_);
-    }
+    release();
   }
 
   value_type* data() { return data_; }
@@ -168,6 +166,13 @@ class buffer_base {
    * @return the allocator pointer
    */
   std::shared_ptr<AllocatorT> get_allocator() const { return allocator_; }
+
+  /**
+   * @brief returns the underlying stream used
+   *
+   * @return the cuda stream
+   */
+  cudaStream_t get_stream() const { return stream_; }
 
  protected:
   value_type* data_;

@@ -19,6 +19,8 @@
 #include <memory>
 #include "allocator.hpp"
 #include <raft/mr/buffer_base.hpp>
+#include <raft/mr/device/buffer.hpp>
+#include <raft/cudart_utils.h>
 
 namespace raft {
 namespace mr {
@@ -61,6 +63,13 @@ class buffer : public buffer_base<T, allocator> {
   buffer(const buffer& other) = delete;
 
   buffer& operator=(const buffer& other) = delete;
+
+  buffer(std::shared_ptr<allocator> alloc, const device::buffer<T>& other)
+    : buffer_base<T, allocator>(alloc, other.get_stream(), other.size()) {
+    if (other.size() > 0) {
+      raft::copy(data_, other.data(), other.size(), other.get_stream());
+    }
+  }
 
   buffer(std::shared_ptr<allocator> alloc, cudaStream_t stream,
          size_type n = 0)
