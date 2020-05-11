@@ -115,4 +115,4 @@ cd $WORKSPACE/cpp/build
 logger "Python pytest for cuml..."
 cd $WORKSPACE/python
 
-python -m pytest pytest --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v -s
+python -m pytest --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v -s
