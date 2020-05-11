@@ -140,6 +140,11 @@ inline int get_multi_processor_count() {
   return mp_count;
 }
 
+/** Helper method to get to know warp size in device code */
+constexpr inline int warp_size() {
+  return 32;
+}
+
 /**
  * @brief Generic copy method for all kinds of transfers
  * @tparam Type data type
