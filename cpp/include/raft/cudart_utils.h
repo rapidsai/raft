@@ -59,7 +59,7 @@ class exception : public std::exception {
   // Courtesy: https://www.gnu.org/software/libc/manual/html_node/Backtraces.html
   void collect_call_stack() noexcept {
 #ifdef __GNUC__
-    const int kMaxStackDepth = 64;
+    constexpr int kMaxStackDepth = 64;
     void* stack[kMaxStackDepth];  // NOLINT
     auto depth = backtrace(stack, kMaxStackDepth);
     std::ostringstream oss;
@@ -123,21 +123,21 @@ class exception : public std::exception {
 
 /** helper method to get max usable shared mem per block parameter */
 inline int get_shared_memory_per_block() {
-  int devId;
-  CUDA_CHECK(cudaGetDevice(&devId));
-  int smemPerBlk;
-  CUDA_CHECK(cudaDeviceGetAttribute(&smemPerBlk,
-                                    cudaDevAttrMaxSharedMemoryPerBlock, devId));
-  return smemPerBlk;
+  int dev_id;
+  CUDA_CHECK(cudaGetDevice(&dev_id));
+  int smem_per_blk;
+  CUDA_CHECK(cudaDeviceGetAttribute(&smem_per_blk,
+                                    cudaDevAttrMaxSharedMemoryPerBlock, dev_id));
+  return smem_per_blk;
 }
 /** helper method to get multi-processor count parameter */
 inline int get_multi_processor_count() {
-  int devId;
-  CUDA_CHECK(cudaGetDevice(&devId));
-  int mpCount;
+  int dev_id;
+  CUDA_CHECK(cudaGetDevice(&dev_id));
+  int mp_count;
   CUDA_CHECK(
-    cudaDeviceGetAttribute(&mpCount, cudaDevAttrMultiProcessorCount, devId));
-  return mpCount;
+    cudaDeviceGetAttribute(&mp_count, cudaDevAttrMultiProcessorCount, dev_id));
+  return mp_count;
 }
 
 /**
@@ -162,22 +162,22 @@ void copy(Type* dst, const Type* src, size_t len, cudaStream_t stream) {
  */
 /** performs a host to device copy */
 template <typename Type>
-void update_device(Type* dPtr, const Type* hPtr, size_t len,
+void update_device(Type* d_ptr, const Type* h_ptr, size_t len,
                    cudaStream_t stream) {
-  copy(dPtr, hPtr, len, stream);
+  copy(d_ptr, h_ptr, len, stream);
 }
 
 /** performs a device to host copy */
 template <typename Type>
-void update_host(Type* hPtr, const Type* dPtr, size_t len,
+void update_host(Type* h_ptr, const Type* d_ptr, size_t len,
                  cudaStream_t stream) {
-  copy(hPtr, dPtr, len, stream);
+  copy(h_ptr, d_ptr, len, stream);
 }
 
 template <typename Type>
-void copy_async(Type* dPtr1, const Type* dPtr2, size_t len,
+void copy_async(Type* d_ptr1, const Type* d_ptr2, size_t len,
                 cudaStream_t stream) {
-  CUDA_CHECK(cudaMemcpyAsync(dPtr1, dPtr2, len * sizeof(Type),
+  CUDA_CHECK(cudaMemcpyAsync(d_ptr1, d_ptr2, len * sizeof(Type),
                              cudaMemcpyDeviceToDevice, stream));
 }
 /** @} */
@@ -187,24 +187,24 @@ void copy_async(Type* dPtr1, const Type* dPtr2, size_t len,
  * @{
  */
 template <class T, class OutStream>
-void print_host_vector(const char* variableName, const T* hostMem,
+void print_host_vector(const char* variable_name, const T* host_mem,
                        size_t componentsCount, OutStream& out) {
-  out << variableName << "=[";
+  out << variable_name << "=[";
   for (size_t i = 0; i < componentsCount; ++i) {
     if (i != 0) out << ",";
-    out << hostMem[i];
+    out << host_mem[i];
   }
   out << "];\n";
 }
 
 template <class T, class OutStream>
-void print_device_vector(const char* variableName, const T* devMem,
+void print_device_vector(const char* variable_name, const T* devMem,
                          size_t componentsCount, OutStream& out) {
-  T* hostMem = new T[componentsCount];
-  CUDA_CHECK(cudaMemcpy(hostMem, devMem, componentsCount * sizeof(T),
+  T* host_mem = new T[componentsCount];
+  CUDA_CHECK(cudaMemcpy(host_mem, devMem, componentsCount * sizeof(T),
                         cudaMemcpyDeviceToHost));
-  print_host_vector(variableName, hostMem, componentsCount, out);
-  delete[] hostMem;
+  print_host_vector(variable_name, host_mem, componentsCount, out);
+  delete[] host_mem;
 }
 /** @} */
 
