@@ -17,9 +17,9 @@
 #pragma once
 
 #include <cuda_runtime.h>
+#include <raft/cudart_utils.h>
 #include <memory>
 #include <utility>
-#include <raft/cudart_utils.h>
 
 namespace raft {
 namespace mr {
@@ -69,9 +69,7 @@ class buffer_base {
     }
   }
 
-  ~buffer_base() {
-    release();
-  }
+  ~buffer_base() { release(); }
 
   value_type* data() { return data_; }
 

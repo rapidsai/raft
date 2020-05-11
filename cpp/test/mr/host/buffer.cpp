@@ -17,8 +17,8 @@
 #include <gtest/gtest.h>
 #include <iostream>
 #include <memory>
-#include <raft/mr/host/buffer.hpp>
 #include <raft/mr/device/buffer.hpp>
+#include <raft/mr/host/buffer.hpp>
 
 namespace raft {
 namespace mr {
@@ -57,8 +57,8 @@ TEST(Raft, DeviceToHostBuffer) {
   cudaStream_t stream;
   CUDA_CHECK(cudaStreamCreate(&stream));
   device::buffer<char> d_buff(d_alloc, stream, 32);
-  CUDA_CHECK(cudaMemsetAsync(d_buff.data(), 0, sizeof(char) * d_buff.size(),
-                             stream));
+  CUDA_CHECK(
+    cudaMemsetAsync(d_buff.data(), 0, sizeof(char) * d_buff.size(), stream));
   buffer<char> h_buff(h_alloc, d_buff);
   ASSERT_EQ(d_buff.size(), h_buff.size());
   CUDA_CHECK(cudaStreamSynchronize(stream));

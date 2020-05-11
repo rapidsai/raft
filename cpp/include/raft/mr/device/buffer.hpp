@@ -17,8 +17,8 @@
 #pragma once
 
 #include <memory>
-#include "allocator.hpp"
 #include <raft/mr/buffer_base.hpp>
+#include "allocator.hpp"
 
 namespace raft {
 namespace mr {
@@ -49,11 +49,9 @@ class buffer : public buffer_base<T, allocator> {
   using size_type = typename buffer_base<T, allocator>::size_type;
   using value_type = typename buffer_base<T, allocator>::value_type;
   using iterator = typename buffer_base<T, allocator>::iterator;
-  using const_iterator =
-    typename buffer_base<T, allocator>::const_iterator;
+  using const_iterator = typename buffer_base<T, allocator>::const_iterator;
   using reference = typename buffer_base<T, allocator>::reference;
-  using const_reference =
-    typename buffer_base<T, allocator>::const_reference;
+  using const_reference = typename buffer_base<T, allocator>::const_reference;
 
   buffer() = delete;
 

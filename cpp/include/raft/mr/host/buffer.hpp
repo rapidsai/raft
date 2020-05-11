@@ -16,11 +16,11 @@
 
 #pragma once
 
+#include <raft/cudart_utils.h>
 #include <memory>
-#include "allocator.hpp"
 #include <raft/mr/buffer_base.hpp>
 #include <raft/mr/device/buffer.hpp>
-#include <raft/cudart_utils.h>
+#include "allocator.hpp"
 
 namespace raft {
 namespace mr {
@@ -52,11 +52,9 @@ class buffer : public buffer_base<T, allocator> {
   using size_type = typename buffer_base<T, allocator>::size_type;
   using value_type = typename buffer_base<T, allocator>::value_type;
   using iterator = typename buffer_base<T, allocator>::iterator;
-  using const_iterator =
-    typename buffer_base<T, allocator>::const_iterator;
+  using const_iterator = typename buffer_base<T, allocator>::const_iterator;
   using reference = typename buffer_base<T, allocator>::reference;
-  using const_reference =
-    typename buffer_base<T, allocator>::const_reference;
+  using const_reference = typename buffer_base<T, allocator>::const_reference;
 
   buffer() = delete;
 
@@ -71,8 +69,7 @@ class buffer : public buffer_base<T, allocator> {
     }
   }
 
-  buffer(std::shared_ptr<allocator> alloc, cudaStream_t stream,
-         size_type n = 0)
+  buffer(std::shared_ptr<allocator> alloc, cudaStream_t stream, size_type n = 0)
     : buffer_base<T, allocator>(alloc, stream, n) {}
 
   reference operator[](size_type pos) { return data_[pos]; }
