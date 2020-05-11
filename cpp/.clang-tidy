@@ -122,6 +122,12 @@ CheckOptions:
     value:           ''
   - key:             readability-identifier-naming.LocalVariableSuffix
     value:           ''
+  - key:             readability-identifier-naming.ConstExprVariableCase
+    value:           'CamelCase'
+  - key:             readability-identifier-naming.ConstExprVariablePrefix
+    value:           'k'
+  - key:             readability-identifier-naming.ConstExprVariableSuffix
+    value:           ''
   - key:             readability-identifier-naming.MemberCase
     value:           lower_case
   - key:             readability-identifier-naming.MemberPrefix
