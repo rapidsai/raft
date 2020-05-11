@@ -172,6 +172,11 @@ set(RAFT_INCLUDE_DIRECTORIES
   ${RAFT_INCLUDE_DIR}
   ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
 
+if(DEFINED ENV{CONDA_PREFIX})
+  message(STATUS "Using RMM installation froM $ENV{CONDA_PREFIX}")
+  list(APPEND RAFT_INCLUDE_DIRECTORIES $ENV{CONDA_PREFIX}/include)
+endif(DEFINED ENV{CONDA_PREFIX})
+
 ##############################################################################
 # - libraries ----------------------------------------------------------------
 
@@ -179,7 +184,14 @@ set(RAFT_LINK_LIBRARIES
   ${CUDA_cublas_LIBRARY}
   ${CUDA_cusolver_LIBRARY}
   ${CUDA_CUDART_LIBRARY}
-  ${CUDA_cusparse_LIBRARY})
+  ${CUDA_cusparse_LIBRARY}
+  rmm)
+
+set(RAFT_LINK_DIRECTORIES "")
+
+if(DEFINED ENV{CONDA_PREFIX})
+  list(APPEND RAFT_LINK_DIRECTORIES $ENV{CONDA_PREFIX}/lib)
+endif(DEFINED ENV{CONDA_PREFIX})
 
 ##############################################################################
 # - build test executable ----------------------------------------------------
@@ -195,16 +207,22 @@ if(BUILD_RAFT_TESTS)
     test/host_buffer.cpp
     test/test.cpp)
 
-  target_include_directories(test_raft PRIVATE
-    ${RAFT_INCLUDE_DIRECTORIES}
-    ${GTEST_DIR}/include)
+  target_include_directories(test_raft
+    PRIVATE
+      ${RAFT_INCLUDE_DIRECTORIES}
+      ${GTEST_DIR}/include)
+
+  target_link_directories(test_raft
+    PRIVATE
+      ${RAFT_LINK_DIRECTORIES})
 
   target_link_libraries(test_raft
-    ${RAFT_LINK_LIBRARIES}
-    gtestlib
-    gtest_mainlib
-    OpenMP::OpenMP_CXX
-    Threads::Threads)
+    PRIVATE
+      ${RAFT_LINK_LIBRARIES}
+      gtestlib
+      gtest_mainlib
+      OpenMP::OpenMP_CXX
+      Threads::Threads)
 endif(BUILD_RAFT_TESTS)
 
 ##############################################################################
