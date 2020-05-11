@@ -158,7 +158,7 @@ fi
 
 
 # Build and (optionally) install the cuml Python package
-if (( ${NUMARGS} == 0 )) || hasArg cuml; then
+if (( ${NUMARGS} == 0 )) || hasArg pyraft; then
 
     cd ${REPODIR}/python
     if [[ ${INSTALL_TARGET} != "" ]]; then

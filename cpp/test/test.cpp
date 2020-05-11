@@ -14,11 +14,10 @@
  * limitations under the License.
  */
 
-
-#include <raft.hpp>
 #include <iostream>
+#include <raft.hpp>
 
-int main(){
-    std::string result = raft::test_raft();
-    std::cout << result;
+int main() {
+  std::string result = raft::test_raft();
+  std::cout << result;
 }
