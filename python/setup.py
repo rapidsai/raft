@@ -74,7 +74,7 @@ if clean_artifacts:
         clean_folder(setup_file_path + '/raft')
         shutil.rmtree(setup_file_path + '/build')
 
-    except IOError as e:
+    except IOError:
         pass
 
     # need to terminate script so cythonizing doesn't get triggered after
