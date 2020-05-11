@@ -88,34 +88,42 @@ class handle_t {
   }
 
   cublasHandle_t get_cublas_handle() const {
+    mutex_.lock();
     if (!cublas_initialized_) {
       CUBLAS_CHECK(cublasCreate(&cublas_handle_));
       cublas_initialized_ = true;
     }
+    mutex_.unlock();
     return cublas_handle_;
   }
 
   cusolverDnHandle_t get_cusolver_dn_handle() const {
+    mutex_.lock();
     if (!cusolver_dn_initialized_) {
       CUSOLVER_CHECK(cusolverDnCreate(&cusolver_dn_handle_));
       cusolver_dn_initialized_ = true;
     }
+    mutex_.unlock();
     return cusolver_dn_handle_;
   }
 
   cusolverSpHandle_t get_cusolver_sp_handle() const {
+    mutex_.lock();
     if (!cusolver_sp_initialized_) {
       CUSOLVER_CHECK(cusolverSpCreate(&cusolver_sp_handle_));
       cusolver_sp_initialized_ = true;
     }
+    mutex_.unlock();
     return cusolver_sp_handle_;
   }
 
   cusparseHandle_t get_cusparse_handle() const {
+    mutex_.lock();
     if (!cusparse_initialized_) {
       CUSPARSE_CHECK(cusparseCreate(&cusparse_handle_));
       cusparse_initialized_ = true;
     }
+    mutex_.unlock();
     return cusparse_handle_;
   }
 
@@ -150,10 +158,12 @@ class handle_t {
   // bool commsInitialized() const;
 
   const cudaDeviceProp& get_device_properties() const {
+    mutex_.lock();
     if (!device_prop_initialized_) {
       CUDA_CHECK(cudaGetDeviceProperties(&prop_, dev_id_));
       device_prop_initialized_ = true;
     }
+    mutex_.unlock();
     return prop_;
   }
 
@@ -175,6 +185,7 @@ class handle_t {
   cudaEvent_t event_;
   mutable cudaDeviceProp prop_;
   mutable bool device_prop_initialized_{false};
+  mutable std::mutex mutex_;
 
   ///@todo: enable this once we have migrated cuml-comms
   //std::shared_ptr<MLCommon::cumlCommunicator> _communicator;
