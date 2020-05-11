@@ -116,6 +116,12 @@ CheckOptions:
     value:           ''
   - key:             readability-identifier-naming.IgnoreFailedSplit
     value:           '0'
+  - key:             readability-identifier-naming.LocalVariableCase
+    value:           'lower_case'
+  - key:             readability-identifier-naming.LocalVariablePrefix
+    value:           ''
+  - key:             readability-identifier-naming.LocalVariableSuffix
+    value:           ''
   - key:             readability-identifier-naming.MemberCase
     value:           lower_case
   - key:             readability-identifier-naming.MemberPrefix
