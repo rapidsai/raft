@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 #include <string>
 
 namespace raft {
@@ -22,10 +21,9 @@ namespace raft {
 /* Function for testing RAFT include
  *
  * @return message indicating RAFT has been included succesfully*/
-inline std::string test_raft()
-{
-    std::string status = "RAFT Setup succesfully";
-    return status;
+inline std::string test_raft() {
+  std::string status = "RAFT Setup succesfully";
+  return status;
 }
 
 } // namespace raft
