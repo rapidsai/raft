@@ -55,12 +55,13 @@ class buffer_base {
    * @param[in] stream    cuda stream where this allocation operations are async
    * @param[in] n         size of the buffer (in number of elements)
    */
-  buffer_base(AllocatorT* allocator, cudaStream_t stream, size_type n = 0) {
+  buffer_base(std::shared_ptr<AllocatorT> allocator, cudaStream_t stream,
+              size_type n = 0)
     : size_(n),
       capacity_(n),
       data_(nullptr),
       stream_(stream),
-      allocator_(allocator) {
+      allocator_(std::move(allocator)) {
     if (capacity_ > 0) {
       data_ = static_cast<value_type*>(
         allocator_->allocate(capacity_ * sizeof(value_type), stream_));
@@ -106,7 +107,7 @@ class buffer_base {
       auto* new_data = static_cast<value_type*>(
         allocator_->allocate(new_capacity * sizeof(value_type), stream_));
       if (size_ > 0) {
-        raft::copy(new_data, data_t, size_, stream_);
+        raft::copy(new_data, data_, size_, stream_);
         allocator_->deallocate(data_, capacity_ * sizeof(value_type), stream_);
       }
       data_ = new_data;
@@ -147,7 +148,7 @@ class buffer_base {
    *
    * @return the allocator pointer
    */
-  AllocatorT* get_allocator() const { return allocator_; }
+  std::shared_ptr<AllocatorT> get_allocator() const { return allocator_; }
 
  protected:
   value_type* data_;
@@ -156,7 +157,7 @@ class buffer_base {
   size_type size_;
   size_type capacity_;
   cudaStream_t stream_;
-  AllocatorT* allocator_;
+  std::shared_ptr<AllocatorT> allocator_;
 
   /**
    * @brief Sets a new cuda stream where the future operations will be queued

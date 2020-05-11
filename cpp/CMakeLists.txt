@@ -202,9 +202,9 @@ if(BUILD_RAFT_TESTS)
   # keep the files in alphabetical order!
   add_executable(test_raft
     test/cudart_utils.cpp
-    test/device_buffer.cpp
     test/handle.cpp
-    test/host_buffer.cpp
+    test/mr/device/buffer.cpp
+    test/mr/host/buffer.cpp
     test/test.cpp)
 
   target_include_directories(test_raft

@@ -17,16 +17,18 @@
 #include <gtest/gtest.h>
 #include <iostream>
 #include <memory>
-#include <raft/host_buffer.hpp>
+#include <raft/mr/host/buffer.hpp>
 
 namespace raft {
+namespace mr {
+namespace host {
 
 TEST(Raft, HostBuffer) {
-  auto allocator = std::make_shared<default_host_allocator>();
+  auto alloc = std::make_shared<default_allocator>();
   cudaStream_t stream;
   CUDA_CHECK(cudaStreamCreate(&stream));
   // no allocation at construction
-  host_buffer<char> buff(allocator, stream);
+  buffer<char> buff(alloc, stream);
   ASSERT_EQ(0, buff.size());
   // explicit allocation after construction
   buff.resize(20, stream);
@@ -41,4 +43,6 @@ TEST(Raft, HostBuffer) {
   CUDA_CHECK(cudaStreamDestroy(stream));
 }
 
+}  // namespace host
+}  // namespace mr
 }  // namespace raft

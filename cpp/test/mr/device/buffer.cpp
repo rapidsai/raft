@@ -17,16 +17,18 @@
 #include <gtest/gtest.h>
 #include <iostream>
 #include <memory>
-#include <raft/device_buffer.hpp>
+#include <raft/mr/device/buffer.hpp>
 
 namespace raft {
+namespace mr {
+namespace device {
 
 TEST(Raft, DeviceBuffer) {
-  auto allocator = std::make_shared<default_device_allocator>();
+  auto alloc = std::make_shared<default_allocator>();
   cudaStream_t stream;
   CUDA_CHECK(cudaStreamCreate(&stream));
   // no allocation at construction
-  device_buffer<char> buff(allocator, stream);
+  buffer<char> buff(alloc, stream);
   ASSERT_EQ(0, buff.size());
   // explicit allocation after construction
   buff.resize(20, stream);
@@ -41,4 +43,6 @@ TEST(Raft, DeviceBuffer) {
   CUDA_CHECK(cudaStreamDestroy(stream));
 }
 
+}  // namespace device
+}  // namespace mr
 }  // namespace raft

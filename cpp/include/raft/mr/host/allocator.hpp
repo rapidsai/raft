@@ -19,7 +19,6 @@
 #include <raft/mr/allocator.hpp>
 #include <cuda_runtime.h>
 #include <raft/cudart_utils.h>
-#include <atomic>
 
 namespace raft {
 namespace mr {
@@ -50,48 +49,6 @@ class default_allocator : public allocator {
     CUDA_CHECK(cudaFreeHost(p));
   }
 };  // class default_allocator
-
-namespace {
-
-allocator* get_default_impl() {
-  static default_allocator obj;
-  return &obj;
-}
-
-std::atomic<allocator*>& get_default() {
-  static std::atomic<allocator*> alloc{get_default_impl()};
-  return alloc;
-}
-
-}  // namespace
-
-/**
- * @brief Gets the default host allocator
- *
- * This is thread-safe
- *
- * @return the allocator object
- */
-allocator* get_default_allocator() {
-  return get_default().load();
-}
-
-/**
- * @brief Sets the new default host allocator
- *
- * This is thread-safe
- *
- * @param[in] new_allocator the new host allocator that will be the default
- *                          If a nullptr is passed, the default allocator will
- *                          be reset to the one based on `default_allocator`
- * @return the old allocator
- */
-allocator* set_default_allocator(allocator* new_allocator) {
-  if (new_allocator == nullptr) {
-    new_allocator = get_default();
-  }
-  return get_default().exchange(new_allocator);
-}
 
 };  // namespace host
 };  // namespace mr

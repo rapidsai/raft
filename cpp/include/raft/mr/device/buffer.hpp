@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <memory>
 #include "allocator.hpp"
 #include <raft/mr/buffer_base.hpp>
 
@@ -60,8 +61,7 @@ class buffer : public buffer_base<T, allocator> {
 
   buffer& operator=(const buffer& other) = delete;
 
-  buffer(cudaStream_t stream, size_type n = 0,
-         allocator* alloc = get_default_allocator())
+  buffer(std::shared_ptr<allocator> alloc, cudaStream_t stream, size_type n = 0)
     : buffer_base<T, device::allocator>(alloc, stream, n) {}
 };  // class buffer
 
