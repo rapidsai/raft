@@ -100,9 +100,9 @@ class buffer_base {
    *
    * @param[in] new_capacity new capacity (in number of elements)
    * @param[in] stream       cuda stream where allocation operations are queued
+   * @{
    */
-  void reserve(size_type new_capacity, cudaStream_t stream) {
-    set_stream(stream);
+  void reserve(size_type new_capacity) {
     if (new_capacity > capacity_) {
       auto* new_data = static_cast<value_type*>(
         allocator_->allocate(new_capacity * sizeof(value_type), stream_));
@@ -115,16 +115,29 @@ class buffer_base {
     }
   }
 
+  void reserve(size_type new_capacity, cudaStream_t stream) {
+    set_stream(stream);
+    reserve(new_capacity);
+  }
+  /** @} */
+
   /**
    * @brief Resize the underlying buffer (uses `reserve` method internally)
    *
    * @param[in] new_size new buffer size
    * @param[in] stream   cuda stream where the work will be queued
+   * @{
    */
-  void resize(const size_type new_size, cudaStream_t stream) {
-    reserve(new_size, stream);
+  void resize(const size_type new_size) {
+    reserve(new_size);
     size_ = new_size;
   }
+
+  void resize(const size_type new_size, cudaStream_t stream) {
+    set_stream(stream);
+    resize(new_size);
+  }
+  /** @} */
 
   /**
    * @brief Deletes the underlying buffer
@@ -132,9 +145,9 @@ class buffer_base {
    * If this method is not explicitly called, it will be during the destructor
    *
    * @param[in] stream   cuda stream where the work will be queued
+   * @{
    */
-  void release(cudaStream_t stream) {
-    set_stream(stream);
+  void release() {
     if (nullptr != data_) {
       allocator_->deallocate(data_, capacity_ * sizeof(value_type), stream_);
     }
@@ -142,6 +155,12 @@ class buffer_base {
     capacity_ = 0;
     size_ = 0;
   }
+
+  void release(cudaStream_t stream) {
+    set_stream(stream);
+    release();
+  }
+  /** @} */
 
   /**
    * @brief returns the underlying allocator used

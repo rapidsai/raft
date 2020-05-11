@@ -39,6 +39,13 @@ TEST(Raft, HostBuffer) {
   // explicit deallocation
   buff.release(stream);
   ASSERT_EQ(0, buff.size());
+  // use these methods without the explicit stream parameter
+  buff.resize(20);
+  ASSERT_EQ(20, buff.size());
+  buff.resize(10);
+  ASSERT_EQ(10, buff.size());
+  buff.release();
+  ASSERT_EQ(0, buff.size());
   CUDA_CHECK(cudaStreamSynchronize(stream));
   CUDA_CHECK(cudaStreamDestroy(stream));
 }
