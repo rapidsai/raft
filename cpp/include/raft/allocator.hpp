@@ -18,6 +18,7 @@
 
 #include <cuda_runtime.h>
 #include "cudart_utils.h"
+#include <rmm/mr/device/default_memory_resource.hpp>
 
 namespace raft {
 
@@ -84,19 +85,16 @@ class device_allocator : public allocator {};
  */
 class host_allocator : public allocator {};
 
-/** Default cudaMalloc/cudaFree based device allocator */
+/** Default device allocator based on the one provided by RMM */
 class default_device_allocator : public device_allocator {
  public:
   void* allocate(std::size_t n, cudaStream_t stream) override {
-    void* ptr = nullptr;
-    CUDA_CHECK(cudaMalloc(&ptr, n));
+    void* ptr = rmm::mr::get_default_resource()->allocate(n, stream);
     return ptr;
   }
 
   void deallocate(void* p, std::size_t n, cudaStream_t stream) override {
-    ///@todo: enable this once logging is enabled in raft
-    //CUDA_CHECK_NO_THROW(cudaFree(p));
-    CUDA_CHECK(cudaFree(p));
+    rmm::mr::get_default_resource()->deallocate(p, n, stream);
   }
 };  // class default_device_allocator
 
