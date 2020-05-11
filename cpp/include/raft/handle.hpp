@@ -180,10 +180,7 @@ class handle_t {
   //std::shared_ptr<MLCommon::cumlCommunicator> _communicator;
 
   void create_resources() {
-    cudaStream_t stream;
-    CUDA_CHECK(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));
-    streams_.push_back(stream);
-    for (int i = 1; i < num_streams_; ++i) {
+    for (int i = 0; i < num_streams_; ++i) {
       cudaStream_t stream;
       CUDA_CHECK(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));
       streams_.push_back(stream);
