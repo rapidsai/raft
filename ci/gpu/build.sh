@@ -108,9 +108,7 @@ nvidia-smi
 
 logger "GoogleTest for raft..."
 cd $WORKSPACE/cpp/build
-# Googletests haven't been moved over/integrated yet
-# GTEST_OUTPUT="xml:${WORKSPACE}/test-results/raft_cpp/" ./test_raft
-# running simple tests meanwhile
+GTEST_OUTPUT="xml:${WORKSPACE}/test-results/raft_cpp/" ./test_raft
 
 logger "Python pytest for cuml..."
 cd $WORKSPACE/python
