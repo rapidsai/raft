@@ -15,11 +15,16 @@
  */
 
 #include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
 #include <iostream>
-#include <raft.hpp>
 
 namespace raft {
 
-TEST(Raft, print) { std::cout << test_raft() << std::endl; }
+TEST(Raft, Utils) {
+  ASSERT_NO_THROW(ASSERT(1 == 1, "Should not assert!"));
+  ASSERT_THROW(ASSERT(1 != 1, "Should assert!"), exception);
+  ASSERT_THROW(THROW("Should throw!"), exception);
+  ASSERT_NO_THROW(CUDA_CHECK(cudaFree(nullptr)));
+}
 
 }  // namespace raft

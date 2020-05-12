@@ -17,7 +17,7 @@
 
 cmake_minimum_required(VERSION 3.14 FATAL_ERROR)
 
-project(CUML VERSION 0.14.0 LANGUAGES CXX CUDA)
+project(RAFT VERSION 0.14.0 LANGUAGES CXX CUDA)
 
 ##############################################################################
 # - build type ---------------------------------------------------------------
@@ -34,8 +34,13 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     "Debug" "Release")
 endif()
 
+# this is needed for clang-tidy runs
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 ##############################################################################
 # - User Options  ------------------------------------------------------------
+
+option(CMAKE_CXX11_ABI "Enable the GLIBCXX11 ABI" ON)
 
 option(EMPTY_MARKER_KERNEL "Enable empty marker kernel after nvtxRangePop" ON)
 
@@ -45,6 +50,8 @@ option(LINE_INFO "Enable lineinfo in nvcc" OFF)
 
 option(NVTX "Enable nvtx markers" OFF)
 
+option(BUILD_RAFT_TESTS "Build raft unit-tests" ON)
+
 set(PARALLEL_LEVEL "" CACHE STRING
     "Sub-projects parallel level for compilation. Currently only affects FAISS" )
 
@@ -53,11 +60,12 @@ set(GPU_ARCHS "" CACHE STRING
     Pass 'ALL' if you want to compile for all supported GPU architectures.
     Empty string means to auto-detect the GPUs on the current system")
 
-
 ##############################################################################
 # - Requirements -------------------------------------------------------------
 
 find_package(CUDA 10.0 REQUIRED)
+
+set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 ##############################################################################
 # - Compiler Options  --------------------------------------------------------
@@ -85,7 +93,7 @@ endif(OPENMP_FOUND)
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-extended-lambda")
 
 if(${CMAKE_VERSION} VERSION_LESS "3.17.0")
-  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --std=c++11")
+  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --std=c++14")
 endif(${CMAKE_VERSION} VERSION_LESS "3.17.0")
 
 if(LINE_INFO)
@@ -149,8 +157,10 @@ endif(CMAKE_COMPILER_IS_GNUCXX)
 set(CMAKE_CUDA_FLAGS
   "${CMAKE_CUDA_FLAGS} -Xcudafe --diag_suppress=unrecognized_gcc_pragma")
 
+##############################################################################
+# - dependencies -------------------------------------------------------------
 
-
+include(cmake/Dependencies.cmake)
 
 ##############################################################################
 # - include paths ------------------------------------------------------------
@@ -159,17 +169,61 @@ set(RAFT_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include CACHE STRING
   "Path to RAFT include directories")
 
 set(RAFT_INCLUDE_DIRECTORIES
-    ${RAFT_INCLUDE_DIR}
-)
+  ${RAFT_INCLUDE_DIR}
+  ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
+
+if(DEFINED ENV{CONDA_PREFIX})
+  message(STATUS "Using RMM installation froM $ENV{CONDA_PREFIX}")
+  list(APPEND RAFT_INCLUDE_DIRECTORIES $ENV{CONDA_PREFIX}/include)
+endif(DEFINED ENV{CONDA_PREFIX})
 
 ##############################################################################
-# - build test executables ---------------------------------------------------
+# - libraries ----------------------------------------------------------------
 
-add_executable(test_raft
-               test/test.cpp)
+set(RAFT_LINK_LIBRARIES
+  ${CUDA_cublas_LIBRARY}
+  ${CUDA_cusolver_LIBRARY}
+  ${CUDA_CUDART_LIBRARY}
+  ${CUDA_cusparse_LIBRARY}
+  rmm)
 
-target_include_directories(test_raft PRIVATE
-                           ${RAFT_INCLUDE_DIRECTORIES})
+set(RAFT_LINK_DIRECTORIES "")
+
+if(DEFINED ENV{CONDA_PREFIX})
+  list(APPEND RAFT_LINK_DIRECTORIES $ENV{CONDA_PREFIX}/lib)
+endif(DEFINED ENV{CONDA_PREFIX})
+
+##############################################################################
+# - build test executable ----------------------------------------------------
+
+if(BUILD_RAFT_TESTS)
+  find_package(OpenMP REQUIRED)
+
+  # keep the files in alphabetical order!
+  add_executable(test_raft
+    test/cudart_utils.cpp
+    test/handle.cpp
+    test/mr/device/buffer.cpp
+    test/mr/host/buffer.cpp
+    test/test.cpp)
+
+  target_include_directories(test_raft
+    PRIVATE
+      ${RAFT_INCLUDE_DIRECTORIES}
+      ${GTEST_DIR}/include)
+
+  target_link_directories(test_raft
+    PRIVATE
+      ${RAFT_LINK_DIRECTORIES})
+
+  target_link_libraries(test_raft
+    PRIVATE
+      ${RAFT_LINK_LIBRARIES}
+      gtestlib
+      gtest_mainlib
+      OpenMP::OpenMP_CXX
+      Threads::Threads)
+endif(BUILD_RAFT_TESTS)
 
 ##############################################################################
 # - doxygen targets ----------------------------------------------------------

@@ -16,10 +16,31 @@
 
 #include <gtest/gtest.h>
 #include <iostream>
-#include <raft.hpp>
+#include <memory>
+#include <raft/handle.hpp>
 
 namespace raft {
 
-TEST(Raft, print) { std::cout << test_raft() << std::endl; }
+TEST(Raft, HandleDefault) {
+  handle_t h;
+  ASSERT_EQ(0, h.get_num_internal_streams());
+  ASSERT_EQ(0, h.get_device());
+  ASSERT_EQ(nullptr, h.get_stream());
+  ASSERT_NE(nullptr, h.get_cublas_handle());
+  ASSERT_NE(nullptr, h.get_cusolver_dn_handle());
+  ASSERT_NE(nullptr, h.get_cusolver_sp_handle());
+  ASSERT_NE(nullptr, h.get_cusparse_handle());
+}
+
+TEST(Raft, Handle) {
+  handle_t h(4);
+  ASSERT_EQ(4, h.get_num_internal_streams());
+  cudaStream_t stream;
+  CUDA_CHECK(cudaStreamCreate(&stream));
+  h.set_stream(stream);
+  ASSERT_EQ(stream, h.get_stream());
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+  CUDA_CHECK(cudaStreamDestroy(stream));
+}
 
 }  // namespace raft

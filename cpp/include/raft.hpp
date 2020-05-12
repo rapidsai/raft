@@ -26,4 +26,4 @@ inline std::string test_raft() {
   return status;
 }
 
-} // namespace raft
+}  // namespace raft

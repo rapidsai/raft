@@ -22,6 +22,7 @@ import argparse
 
 
 IncludeRegex = re.compile(r"\s*#include\s*(\S+)")
+RemoveComments = re.compile(r"//.*")
 
 
 def parse_args():
@@ -52,6 +53,7 @@ def check_includes_in(src):
     errs = []
     dir = os.path.dirname(src)
     for line_number, line in enumerate(open(src)):
+        line = RemoveComments.sub("", line)
         match = IncludeRegex.search(line)
         if match is None:
             continue
