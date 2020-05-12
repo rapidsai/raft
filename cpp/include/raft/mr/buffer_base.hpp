@@ -17,18 +17,22 @@
 #pragma once
 
 #include <cuda_runtime.h>
+#include <raft/cudart_utils.h>
 #include <memory>
 #include <utility>
-#include "cudart_utils.h"
 
 namespace raft {
+namespace mr {
 
 /**
  * @brief Base for all RAII-based owning of temporary memory allocations. This
  *        class should ideally not be used by users directly, but instead via
  *        the child classes `device_buffer` and `host_buffer`.
+ *
+ * @tparam T          data type
+ * @tparam AllocatorT The underly allocator object
  */
-template <typename T, typename Allocator>
+template <typename T, typename AllocatorT>
 class buffer_base {
  public:
   using size_type = std::size_t;
@@ -51,7 +55,7 @@ class buffer_base {
    * @param[in] stream    cuda stream where this allocation operations are async
    * @param[in] n         size of the buffer (in number of elements)
    */
-  buffer_base(std::shared_ptr<Allocator> allocator, cudaStream_t stream,
+  buffer_base(std::shared_ptr<AllocatorT> allocator, cudaStream_t stream,
               size_type n = 0)
     : size_(n),
       capacity_(n),
@@ -65,11 +69,7 @@ class buffer_base {
     }
   }
 
-  ~buffer_base() {
-    if (nullptr != data_) {
-      allocator_->deallocate(data_, capacity_ * sizeof(value_type), stream_);
-    }
-  }
+  ~buffer_base() { release(); }
 
   value_type* data() { return data_; }
 
@@ -96,17 +96,14 @@ class buffer_base {
    *
    * @param[in] new_capacity new capacity (in number of elements)
    * @param[in] stream       cuda stream where allocation operations are queued
+   * @{
    */
-  void reserve(const size_type new_capacity, cudaStream_t stream) {
-    set_stream(stream);
+  void reserve(size_type new_capacity) {
     if (new_capacity > capacity_) {
       auto* new_data = static_cast<value_type*>(
         allocator_->allocate(new_capacity * sizeof(value_type), stream_));
       if (size_ > 0) {
-        CUDA_CHECK(cudaMemcpyAsync(new_data, data_, size_ * sizeof(value_type),
-                                   cudaMemcpyDefault, stream_));
-      }
-      if (nullptr != data_) {
+        raft::copy(new_data, data_, size_, stream_);
         allocator_->deallocate(data_, capacity_ * sizeof(value_type), stream_);
       }
       data_ = new_data;
@@ -114,16 +111,29 @@ class buffer_base {
     }
   }
 
+  void reserve(size_type new_capacity, cudaStream_t stream) {
+    set_stream(stream);
+    reserve(new_capacity);
+  }
+  /** @} */
+
   /**
    * @brief Resize the underlying buffer (uses `reserve` method internally)
    *
    * @param[in] new_size new buffer size
    * @param[in] stream   cuda stream where the work will be queued
+   * @{
    */
-  void resize(const size_type new_size, cudaStream_t stream) {
-    reserve(new_size, stream);
+  void resize(const size_type new_size) {
+    reserve(new_size);
     size_ = new_size;
   }
+
+  void resize(const size_type new_size, cudaStream_t stream) {
+    set_stream(stream);
+    resize(new_size);
+  }
+  /** @} */
 
   /**
    * @brief Deletes the underlying buffer
@@ -131,9 +141,9 @@ class buffer_base {
    * If this method is not explicitly called, it will be during the destructor
    *
    * @param[in] stream   cuda stream where the work will be queued
+   * @{
    */
-  void release(cudaStream_t stream) {
-    set_stream(stream);
+  void release() {
     if (nullptr != data_) {
       allocator_->deallocate(data_, capacity_ * sizeof(value_type), stream_);
     }
@@ -142,12 +152,25 @@ class buffer_base {
     size_ = 0;
   }
 
+  void release(cudaStream_t stream) {
+    set_stream(stream);
+    release();
+  }
+  /** @} */
+
   /**
    * @brief returns the underlying allocator used
    *
    * @return the allocator pointer
    */
-  std::shared_ptr<Allocator> get_allocator() const { return allocator_; }
+  std::shared_ptr<AllocatorT> get_allocator() const { return allocator_; }
+
+  /**
+   * @brief returns the underlying stream used
+   *
+   * @return the cuda stream
+   */
+  cudaStream_t get_stream() const { return stream_; }
 
  protected:
   value_type* data_;
@@ -156,7 +179,7 @@ class buffer_base {
   size_type size_;
   size_type capacity_;
   cudaStream_t stream_;
-  std::shared_ptr<Allocator> allocator_;
+  std::shared_ptr<AllocatorT> allocator_;
 
   /**
    * @brief Sets a new cuda stream where the future operations will be queued
@@ -181,4 +204,5 @@ class buffer_base {
   }
 };  // class buffer_base
 
-}  // namespace raft
+};  // namespace mr
+};  // namespace raft

@@ -35,7 +35,8 @@
 #include <raft/linalg/cusolver_wrappers.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/comms/comms.hpp>
-#include "allocator.hpp"
+#include <raft/mr/device/allocator.hpp>
+#include <raft/mr/host/allocator.hpp>
 #include "cudart_utils.h"
 
 namespace raft {
@@ -61,8 +62,8 @@ class handle_t {
         return cur_dev;
       }()),
       num_streams_(n_streams),
-      device_allocator_(std::make_shared<default_device_allocator>()),
-      host_allocator_(std::make_shared<default_host_allocator>()) {
+      device_allocator_(std::make_shared<mr::device::default_allocator>()),
+      host_allocator_(std::make_shared<mr::host::default_allocator>()) {
     create_resources();
   }
 
@@ -74,21 +75,22 @@ class handle_t {
   void set_stream(cudaStream_t stream) { user_stream_ = stream; }
   cudaStream_t get_stream() const { return user_stream_; }
 
-  void set_device_allocator(std::shared_ptr<device_allocator> allocator) {
+  void set_device_allocator(std::shared_ptr<mr::device::allocator> allocator) {
     device_allocator_ = allocator;
   }
-  std::shared_ptr<device_allocator> get_device_allocator() const {
+  std::shared_ptr<mr::device::allocator> get_device_allocator() const {
     return device_allocator_;
   }
 
-  void set_host_allocator(std::shared_ptr<host_allocator> allocator) {
+  void set_host_allocator(std::shared_ptr<mr::host::allocator> allocator) {
     host_allocator_ = allocator;
   }
-  std::shared_ptr<host_allocator> get_host_allocator() const {
+  std::shared_ptr<mr::host::allocator> get_host_allocator() const {
     return host_allocator_;
   }
 
   cublasHandle_t get_cublas_handle() const {
+    std::lock_guard<std::mutex> _(mutex_);
     if (!cublas_initialized_) {
       CUBLAS_CHECK(cublasCreate(&cublas_handle_));
       cublas_initialized_ = true;
@@ -97,6 +99,7 @@ class handle_t {
   }
 
   cusolverDnHandle_t get_cusolver_dn_handle() const {
+    std::lock_guard<std::mutex> _(mutex_);
     if (!cusolver_dn_initialized_) {
       CUSOLVER_CHECK(cusolverDnCreate(&cusolver_dn_handle_));
       cusolver_dn_initialized_ = true;
@@ -105,6 +108,7 @@ class handle_t {
   }
 
   cusolverSpHandle_t get_cusolver_sp_handle() const {
+    std::lock_guard<std::mutex> _(mutex_);
     if (!cusolver_sp_initialized_) {
       CUSOLVER_CHECK(cusolverSpCreate(&cusolver_sp_handle_));
       cusolver_sp_initialized_ = true;
@@ -113,6 +117,7 @@ class handle_t {
   }
 
   cusparseHandle_t get_cusparse_handle() const {
+    std::lock_guard<std::mutex> _(mutex_);
     if (!cusparse_initialized_) {
       CUSPARSE_CHECK(cusparseCreate(&cusparse_handle_));
       cusparse_initialized_ = true;
@@ -161,6 +166,7 @@ class handle_t {
 
 
   const cudaDeviceProp& get_device_properties() const {
+    std::lock_guard<std::mutex> _(mutex_);
     if (!device_prop_initialized_) {
       CUDA_CHECK(cudaGetDeviceProperties(&prop_, dev_id_));
       device_prop_initialized_ = true;
@@ -182,18 +188,16 @@ class handle_t {
   mutable bool cusolver_sp_initialized_{false};
   mutable cusparseHandle_t cusparse_handle_;
   mutable bool cusparse_initialized_{false};
-  std::shared_ptr<device_allocator> device_allocator_;
-  std::shared_ptr<host_allocator> host_allocator_;
+  std::shared_ptr<mr::device::allocator> device_allocator_;
+  std::shared_ptr<mr::host::allocator> host_allocator_;
   cudaStream_t user_stream_{nullptr};
   cudaEvent_t event_;
   mutable cudaDeviceProp prop_;
   mutable bool device_prop_initialized_{false};
+  mutable std::mutex mutex_;
 
   void create_resources() {
-    cudaStream_t stream;
-    CUDA_CHECK(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));
-    streams_.push_back(stream);
-    for (int i = 1; i < num_streams_; ++i) {
+    for (int i = 0; i < num_streams_; ++i) {
       cudaStream_t stream;
       CUDA_CHECK(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));
       streams_.push_back(stream);

@@ -17,9 +17,9 @@
 #pragma once
 
 #include <cuda_runtime.h>
-#include "cudart_utils.h"
 
 namespace raft {
+namespace mr {
 
 /**
  * @brief Interface for an asynchronous device/host allocator.
@@ -30,7 +30,7 @@ namespace raft {
  * @note This interface does NOT support RAII. Thus, if you need RAII-enabled
  *       interface, better to use `device_buffer` or `host_buffer`.
  */
-class allocator {
+class base_allocator {
  public:
   /**
    * @brief Asynchronously allocates a memory region.
@@ -61,59 +61,8 @@ class allocator {
    */
   virtual void deallocate(void* p, std::size_t n, cudaStream_t stream) = 0;
 
-  virtual ~allocator() = default;
-};  // class Allocator
+  virtual ~base_allocator() = default;
+};  // class base_allocator
 
-/**
- * @brief An explicit interface for an asynchronous device allocator.
- *
- * This is mostly done in order to reduce work needed in cuML codebase.
- * An implementation of this interface can make the following assumptions,
- * further to the ones listed in `Allocator`:
- * - Allocations may be always on the device that was specified on construction.
- */
-class device_allocator : public allocator {};
-
-/**
- * @brief An explicit interface for an asynchronous host allocations.
- *
- * This is mostly done in order to reduce work needed in cuML codebase.
- * An implementation of this interface can make the following assumptions,
- * further to the ones listed in `Allocator`:
- * - Allocations don't need to be zero copy accessible form a device.
- */
-class host_allocator : public allocator {};
-
-/** Default cudaMalloc/cudaFree based device allocator */
-class default_device_allocator : public device_allocator {
- public:
-  void* allocate(std::size_t n, cudaStream_t stream) override {
-    void* ptr = nullptr;
-    CUDA_CHECK(cudaMalloc(&ptr, n));
-    return ptr;
-  }
-
-  void deallocate(void* p, std::size_t n, cudaStream_t stream) override {
-    ///@todo: enable this once logging is enabled in raft
-    //CUDA_CHECK_NO_THROW(cudaFree(p));
-    CUDA_CHECK(cudaFree(p));
-  }
-};  // class default_device_allocator
-
-/** Default cudaMallocHost/cudaFreeHost based host allocator */
-class default_host_allocator : public host_allocator {
- public:
-  void* allocate(std::size_t n, cudaStream_t stream) override {
-    void* ptr = nullptr;
-    CUDA_CHECK(cudaMallocHost(&ptr, n));
-    return ptr;
-  }
-
-  void deallocate(void* p, std::size_t n, cudaStream_t stream) override {
-    ///@todo: enable this once logging is enabled in raft
-    //CUDA_CHECK_NO_THROW(cudaFreeHost(p));
-    CUDA_CHECK(cudaFreeHost(p));
-  }
-};  // class default_host_allocator
-
-};  // end namespace raft
+};  // namespace mr
+};  // namespace raft

@@ -17,16 +17,19 @@
 #include <gtest/gtest.h>
 #include <iostream>
 #include <memory>
-#include <raft/host_buffer.hpp>
+#include <raft/mr/device/buffer.hpp>
+#include <raft/mr/host/buffer.hpp>
 
 namespace raft {
+namespace mr {
+namespace host {
 
 TEST(Raft, HostBuffer) {
-  auto allocator = std::make_shared<default_host_allocator>();
+  auto alloc = std::make_shared<default_allocator>();
   cudaStream_t stream;
   CUDA_CHECK(cudaStreamCreate(&stream));
   // no allocation at construction
-  host_buffer<char> buff(allocator, stream);
+  buffer<char> buff(alloc, stream);
   ASSERT_EQ(0, buff.size());
   // explicit allocation after construction
   buff.resize(20, stream);
@@ -37,8 +40,31 @@ TEST(Raft, HostBuffer) {
   // explicit deallocation
   buff.release(stream);
   ASSERT_EQ(0, buff.size());
+  // use these methods without the explicit stream parameter
+  buff.resize(20);
+  ASSERT_EQ(20, buff.size());
+  buff.resize(10);
+  ASSERT_EQ(10, buff.size());
+  buff.release();
+  ASSERT_EQ(0, buff.size());
   CUDA_CHECK(cudaStreamSynchronize(stream));
   CUDA_CHECK(cudaStreamDestroy(stream));
 }
 
+TEST(Raft, DeviceToHostBuffer) {
+  auto d_alloc = std::make_shared<device::default_allocator>();
+  auto h_alloc = std::make_shared<default_allocator>();
+  cudaStream_t stream;
+  CUDA_CHECK(cudaStreamCreate(&stream));
+  device::buffer<char> d_buff(d_alloc, stream, 32);
+  CUDA_CHECK(
+    cudaMemsetAsync(d_buff.data(), 0, sizeof(char) * d_buff.size(), stream));
+  buffer<char> h_buff(h_alloc, d_buff);
+  ASSERT_EQ(d_buff.size(), h_buff.size());
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+  CUDA_CHECK(cudaStreamDestroy(stream));
+}
+
+}  // namespace host
+}  // namespace mr
 }  // namespace raft

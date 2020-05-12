@@ -84,7 +84,7 @@ logger "Adding ${CONDA_PREFIX}/lib to LD_LIBRARY_PATH"
 export LD_LIBRARY_PATH_CACHED=$LD_LIBRARY_PATH
 export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
 
-logger "Build libcuml, cuml, prims and bench targets..."
+logger "Build C++ and Python targets..."
 $WORKSPACE/build.sh cppraft pyraft -v
 
 logger "Resetting LD_LIBRARY_PATH..."
@@ -92,9 +92,6 @@ logger "Resetting LD_LIBRARY_PATH..."
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH_CACHED
 export LD_LIBRARY_PATH_CACHED=""
 
-logger "Build treelite for GPU testing..."
-
-cd $WORKSPACE
 
 
 ################################################################################
@@ -111,10 +108,9 @@ nvidia-smi
 
 logger "GoogleTest for raft..."
 cd $WORKSPACE/cpp/build
-GTEST_OUTPUT="xml:${WORKSPACE}/test-results/raft_cpp/" ./test/ml
+GTEST_OUTPUT="xml:${WORKSPACE}/test-results/raft_cpp/" ./test_raft
 
 logger "Python pytest for cuml..."
 cd $WORKSPACE/python
 
-pytest --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v -s
-
+python -m pytest --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v -s
