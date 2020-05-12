@@ -149,18 +149,18 @@ class handle_t {
     }
   }
 
-  void setCommunicator(
-    std::shared_ptr<comms_t> communicator) {
+  void set_comms(
+    std::shared_ptr<comms::comms_t> communicator) {
     _communicator = communicator;
   }
 
-  const comms_t& getCommunicator() const {
+  const comms::comms_t& get_comms() const {
     ASSERT(nullptr != _communicator.get(),
            "ERROR: Communicator was not initialized\n");
     return *_communicator;
   }
 
-  bool commsInitialized() const {
+  bool comms_initialized() const {
     return (nullptr != _communicator.get());
   }
 
@@ -175,7 +175,7 @@ class handle_t {
   }
 
  private:
-  std::shared_ptr<comms_t> _communicator;
+  std::shared_ptr<comms::comms_t> _communicator;
   
   const int dev_id_;
   const int num_streams_;

@@ -20,6 +20,7 @@
 
 
 namespace raft {
+namespace comms {
 
 class comms_t {
  public:
@@ -36,11 +37,6 @@ class comms_t {
 	commStatusError,    // An error occured querying sync status
 	commStatusAbort
   };  // A failure occurred in sync, queued operations aborted
-
-  virtual size_t getDatatypeSize(const comms_t::datatype_t datatype);
-
-  template <typename T>
-  datatype_t getDataType() const;
 
   virtual ~comms_t();
 
@@ -84,4 +80,48 @@ class comms_t {
                              cudaStream_t stream) const = 0;
 };
 
+
+template <typename T>
+comms_t::datatype_t getDataType(T a);
+
+template <>
+comms_t::datatype_t getDataType<char>(char a) {
+  return comms_t::CHAR;
+}
+
+template <>
+comms_t::datatype_t getDataType<uint8_t>(uint8_t a) {
+  return comms_t::UINT8;
+}
+
+template <>
+comms_t::datatype_t getDataType<int>(int a) {
+  return comms_t::INT;
+}
+
+template <>
+comms_t::datatype_t getDataType<uint32_t>(uint32_t a) {
+  return comms_t::UINT;
+}
+
+template <>
+comms_t::datatype_t getDataType<int64_t>(int64_t a) {
+  return comms_t::INT64;
+}
+
+template <>
+comms_t::datatype_t getDataType<uint64_t>(uint64_t a) {
+  return comms_t::UINT64;
+}
+
+template <>
+comms_t::datatype_t getDataType<float>(float a) {
+  return comms_t::FLOAT;
+}
+
+template <>
+comms_t::datatype_t getDataType<double>(double a) {
+  return comms_t::DOUBLE;
+}
+} /// namespace comms
 }  // namespace raft

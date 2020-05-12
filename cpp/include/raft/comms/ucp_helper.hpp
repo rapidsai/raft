@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include <dlfcn.h>
 #include <stdio.h>
 #include <ucp/api/ucp.h>

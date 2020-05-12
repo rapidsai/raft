@@ -112,14 +112,14 @@ class exception : public std::exception {
 //  * @brief check for cuda runtime API errors but log error instead of raising
 //  *        exception.
 //  */
-// #define CUDA_CHECK_NO_THROW(call)                                            \
-//   do {                                                                       \
-//     cudaError_t status = call;                                               \
-//     if (status != cudaSuccess) {                                             \
-//       RAFT_LOG_ERROR("CUDA call='%s' at file=%s line=%d failed with %s ",    \
-//                      #call, __FILE__, __LINE__, cudaGetErrorString(status)); \
-//     }                                                                        \
-//   } while (0)
+ #define CUDA_CHECK_NO_THROW(call)                                            \
+   do {                                                                       \
+     cudaError_t status = call;                                               \
+     if (status != cudaSuccess) {                                             \
+       printf("CUDA call='%s' at file=%s line=%d failed with %s\n",    \
+                      #call, __FILE__, __LINE__, cudaGetErrorString(status)); \
+     }                                                                        \
+   } while (0)
 
 /** helper method to get max usable shared mem per block parameter */
 inline int get_shared_memory_per_block() {

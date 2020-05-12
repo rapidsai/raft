@@ -19,8 +19,6 @@ project(comms LANGUAGES CXX CUDA)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
-option(WITH_UCX "Uses UCX for P2P comms" ON)
-
 if(NOT NCCL_PATH)
     find_package(NCCL REQUIRED)
 else()
@@ -34,8 +32,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(UCX)
 include_directories(${UCX_INCLUDE_DIRS})
-add_compile_definitions(WITH_UCX=1)
 
-add_definitions(-DHAVE_NCCL)
 include_directories( ${NCCL_INCLUDE_DIRS} )
 list(APPEND RAFT_LINK_LIBRARIES ${NCCL_LIBRARIES})

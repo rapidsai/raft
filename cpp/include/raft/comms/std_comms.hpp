@@ -22,15 +22,13 @@
 
 #include <nccl.h>
 
-#include <comms.hpp>
+#include <raft/comms/comms.hpp>
 
 #include <ucp/api/ucp.h>
 #include <ucp/api/ucp_def.h>
 #include "ucp_helper.hpp"
 
 #include <nccl.h>
-
-constexpr bool UCX_ENABLED = true;
 
 #include <stdlib.h>
 #include <time.h>
@@ -68,7 +66,7 @@ constexpr bool UCX_ENABLED = true;
 
 namespace raft {
 
-namespace {
+namespace comms {
 
 size_t getDatatypeSize(const comms_t::datatype_t datatype) {
   switch (datatype) {
@@ -90,6 +88,9 @@ size_t getDatatypeSize(const comms_t::datatype_t datatype) {
       return sizeof(double);
   }
 }
+
+
+
 
 ncclDataType_t getNCCLDatatype(
   const comms_t::datatype_t datatype) {
@@ -124,43 +125,6 @@ ncclRedOp_t getNCCLOp(const comms_t::op_t op) {
     case comms_t::MAX:
       return ncclMax;
   }
-}
-}  // namespace
-
-bool ucx_enabled() { return UCX_ENABLED; }
-
-void inject_comms(handle_t *handle, ncclComm_t comm, int size,
-                          int rank) {
-  auto communicator = std::make_shared<comms_t>(
-	std::unique_ptr<comms_t>(
-	  new std_comms(comm, size, rank)));
-  handle->setCommunicator(communicator);
-}
-
-void inject_comms(handle_t *handle, ncclComm_t comm, void *ucp_worker,
-                     void *eps, int size, int rank) {
-
-  std::shared_ptr<ucp_ep_h *> eps_sp =
-    std::make_shared<ucp_ep_h *>(new ucp_ep_h[size]);
-
-  size_t *size_t_ep_arr = (size_t *)eps;
-
-  for (int i = 0; i < size; i++) {
-    size_t ptr = size_t_ep_arr[i];
-    ucp_ep_h *ucp_ep_v = (ucp_ep_h *)*eps_sp;
-
-    if (ptr != 0) {
-      ucp_ep_h eps_ptr = (ucp_ep_h)size_t_ep_arr[i];
-      ucp_ep_v[i] = eps_ptr;
-    } else {
-      ucp_ep_v[i] = nullptr;
-    }
-  }
-
-  auto communicator = std::make_shared<comms_t>(
-    std::unique_ptr<comms_t>(
-      new std_comms(comm, ucp_worker, eps, size, rank)));
-  handle->setCommunicator(communicator);
 }
 
 
@@ -206,67 +170,7 @@ class std_comms : public comms_t {
 	  CUDA_CHECK_NO_THROW(cudaFree(_recvbuff));
 	}
 
-  size_t getDatatypeSize(const c::datatype_t datatype) {
-    switch (datatype) {
-      case comms_t::CHAR:
-        return sizeof(char);
-      case comms_t::UINT8:
-        return sizeof(uint8_t);
-      case comms_t::INT:
-        return sizeof(int);
-      case comms_t::UINT:
-        return sizeof(unsigned int);
-      case comms_t::INT64:
-        return sizeof(int64_t);
-      case comms_t::UINT64:
-        return sizeof(uint64_t);
-      case comms_t::FLOAT:
-        return sizeof(float);
-      case comms_t::DOUBLE:
-        return sizeof(double);
-    }
-  }
 
-
-  template <>
-  comms_t::datatype_t getDataType<char>() const {
-    return comms_t::CHAR;
-  }
-
-  template <>
-  comms_t::datatype_t getDataType<uint8_t>() const {
-    return comms_t::UINT8;
-  }
-
-  template <>
-  comms_t::datatype_t getDataType<int>() const {
-    return comms_t::INT;
-  }
-
-  template <>
-  comms_t::datatype_t getDataType<uint32_t>() const {
-    return comms_t::UINT;
-  }
-
-  template <>
-  comms_t::datatype_t getDataType<int64_t>() const {
-    return comms_t::INT64;
-  }
-
-  template <>
-  comms_t::datatype_t getDataType<uint64_t>() const {
-    return comms_t::UINT64;
-  }
-
-  template <>
-  comms_t::datatype_t getDataType<float>() const {
-    return comms_t::FLOAT;
-  }
-
-  template <>
-  comms_t::datatype_t getDataType<double>() const {
-    return comms_t::DOUBLE;
-  }
 
   void initialize() {
     CUDA_CHECK(cudaStreamCreate(&_stream));
@@ -315,9 +219,6 @@ class std_comms : public comms_t {
 
   void isend(const void *buf, int size, int dest,
                                        int tag, request_t *request) const {
-    ASSERT(UCX_ENABLED, "Comms not built with UCX support");
-    ASSERT(p2p_enabled,
-           "Comms instance was not initialized for point-to-point");
 
     ASSERT(_ucp_worker != nullptr,
            "ERROR: UCX comms not initialized on communicator.");
@@ -335,10 +236,6 @@ class std_comms : public comms_t {
 
   void irecv(void *buf, int size, int source, int tag,
                                        request_t *request) const {
-    ASSERT(UCX_ENABLED, "Comms not built with UCX support");
-    ASSERT(p2p_enabled,
-           "Comms instance was not initialized for point-to-point");
-
     ASSERT(_ucp_worker != nullptr,
            "ERROR: UCX comms not initialized on communicator.");
 
@@ -357,9 +254,6 @@ class std_comms : public comms_t {
 
   void waitall(int count,
                                          request_t array_of_requests[]) const {
-    ASSERT(UCX_ENABLED, "Comms not built with UCX support");
-    ASSERT(p2p_enabled,
-           "Comms instance was not initialized for point-to-point");
 
     ASSERT(_ucp_worker != nullptr,
            "ERROR: UCX comms not initialized on communicator.");
@@ -457,18 +351,25 @@ class std_comms : public comms_t {
                              getNCCLDatatype(datatype), _nccl_comm, stream));
   }
 
+//  const void* sendbuf, void* recvbuf,
+//                            const int recvcounts[], const int displs[],
+//                            datatype_t datatype, cudaStream_t stream
+//
+
   void allgatherv(const void *sendbuf, void *recvbuf,
                                             const int recvcounts[],
                                             const int displs[],
-                                            datatype_t datatype,
+                                            comms_t::datatype_t datatype,
                                             cudaStream_t stream) const {
     //From: "An Empirical Evaluation of Allgatherv on Multi-GPU Systems" - https://arxiv.org/pdf/1812.05964.pdf
     //Listing 1 on page 4.
-    for (int root = 0; root < _size; ++root)
+    for (int root = 0; root < _size; ++root) {
+      size_t dtype_size = getDatatypeSize(datatype);
       NCCL_CHECK(ncclBroadcast(
         sendbuf,
-        static_cast<char *>(recvbuf) + displs[root] * getDatatypeSize(datatype),
+        static_cast<char *>(recvbuf) + displs[root] * dtype_size,
         recvcounts[root], getNCCLDatatype(datatype), root, _nccl_comm, stream));
+    }
   }
 
   void reducescatter(const void *sendbuff,
@@ -480,7 +381,7 @@ class std_comms : public comms_t {
                                  _nccl_comm, stream));
   }
 
-  status_t std_comms::syncStream(
+  comms_t::status_t syncStream(
     cudaStream_t stream) const {
     cudaError_t cudaErr;
     ncclResult_t ncclErr, ncclAsyncErr;
@@ -531,5 +432,6 @@ class std_comms : public comms_t {
     _requests_in_flight;
   mutable std::unordered_set<request_t> _free_requests;
 };
+}
 
-}  // end namespace ML
+}  // end namespace raft
