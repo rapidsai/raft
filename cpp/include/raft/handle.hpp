@@ -89,42 +89,38 @@ class handle_t {
   }
 
   cublasHandle_t get_cublas_handle() const {
-    mutex_.lock();
+    std::lock_guard<std::mutex> _(mutex_);
     if (!cublas_initialized_) {
       CUBLAS_CHECK(cublasCreate(&cublas_handle_));
       cublas_initialized_ = true;
     }
-    mutex_.unlock();
     return cublas_handle_;
   }
 
   cusolverDnHandle_t get_cusolver_dn_handle() const {
-    mutex_.lock();
+    std::lock_guard<std::mutex> _(mutex_);
     if (!cusolver_dn_initialized_) {
       CUSOLVER_CHECK(cusolverDnCreate(&cusolver_dn_handle_));
       cusolver_dn_initialized_ = true;
     }
-    mutex_.unlock();
     return cusolver_dn_handle_;
   }
 
   cusolverSpHandle_t get_cusolver_sp_handle() const {
-    mutex_.lock();
+    std::lock_guard<std::mutex> _(mutex_);
     if (!cusolver_sp_initialized_) {
       CUSOLVER_CHECK(cusolverSpCreate(&cusolver_sp_handle_));
       cusolver_sp_initialized_ = true;
     }
-    mutex_.unlock();
     return cusolver_sp_handle_;
   }
 
   cusparseHandle_t get_cusparse_handle() const {
-    mutex_.lock();
+    std::lock_guard<std::mutex> _(mutex_);
     if (!cusparse_initialized_) {
       CUSPARSE_CHECK(cusparseCreate(&cusparse_handle_));
       cusparse_initialized_ = true;
     }
-    mutex_.unlock();
     return cusparse_handle_;
   }
 
@@ -159,12 +155,11 @@ class handle_t {
   // bool commsInitialized() const;
 
   const cudaDeviceProp& get_device_properties() const {
-    mutex_.lock();
+    std::lock_guard<std::mutex> _(mutex_);
     if (!device_prop_initialized_) {
       CUDA_CHECK(cudaGetDeviceProperties(&prop_, dev_id_));
       device_prop_initialized_ = true;
     }
-    mutex_.unlock();
     return prop_;
   }
 
