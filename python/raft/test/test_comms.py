@@ -17,8 +17,6 @@ import pytest
 
 import random
 
-import raft
-
 from dask.distributed import Client, wait
 
 from raft.dask.common import CommsContext, worker_state
@@ -53,7 +51,6 @@ def func_test_allreduce(sessionId, r):
 def func_test_send_recv(sessionId, n_trials, r):
     handle = worker_state(sessionId)["handle"]
     return perform_test_comms_send_recv(handle, n_trials)
-
 
 
 @pytest.mark.nccl

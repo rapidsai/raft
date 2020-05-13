@@ -13,9 +13,7 @@
 # limitations under the License.
 #
 
-import logging
 import os
-import numba.cuda
 import random
 import time
 
@@ -33,51 +31,6 @@ def get_visible_devices():
     """
     # TODO: Shouldn't have to split on every call
     return os.environ["CUDA_VISIBLE_DEVICES"].split(",")
-
-
-def device_of_devicendarray(devicendarray):
-    """
-    Returns the device that backs memory allocated on the given
-    deviceNDArray
-    :param devicendarray: devicendarray array to check
-    :return: int device id
-    """
-    dev = device_of_gpu_matrix(devicendarray)
-    return get_visible_devices()[dev]
-
-
-def get_device_id(canonical_name):
-    """
-    Given a local device id, find the actual "global" id
-    :param canonical_name: the local device name in CUDA_VISIBLE_DEVICES
-    :return: the global device id for the system
-    """
-    dev_order = get_visible_devices()
-    idx = 0
-    for dev in dev_order:
-        if dev == canonical_name:
-            return idx
-        idx += 1
-
-    return -1
-
-
-def select_device(dev, close=True):
-    """
-    Use numbas numba to select the given device, optionally
-    closing and opening up a new cuda context if it fails.
-    :param dev: int device to select
-    :param close: bool close the cuda context and create new one?
-    """
-    if numba.cuda.get_current_device().id != dev:
-        logging.warn("Selecting device " + str(dev))
-        if close:
-            numba.cuda.close()
-        numba.cuda.select_device(dev)
-        if dev != numba.cuda.get_current_device().id:
-            logging.warn("Current device " +
-                         str(numba.cuda.get_current_device()) +
-                         " does not match expected " + str(dev))
 
 
 def get_client(client=None):
