@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,13 +14,16 @@
  * limitations under the License.
  */
 
+#pragma once
+
 #include <dlfcn.h>
 #include <raft/cudart_utils.h>
 #include <stdio.h>
 #include <ucp/api/ucp.h>
 #include <ucp/api/ucp_def.h>
-#pragma once
 
+namespace raft {
+namespace comms {
 typedef void (*dlsym_print_info)(ucp_ep_h, FILE *);
 typedef void (*dlsym_rec_free)(void *);
 typedef int (*dlsym_worker_progress)(ucp_worker_h);
@@ -223,3 +226,5 @@ class comms_ucp_handler {
            UCS_PTR_STATUS(recv_result));
   }
 };
+} // end namespace comms
+} // end namespace raft

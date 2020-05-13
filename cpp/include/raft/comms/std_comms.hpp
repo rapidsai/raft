@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -402,6 +402,5 @@ class std_comms : public comms_iface {
     _requests_in_flight;
   mutable std::unordered_set<request_t> _free_requests;
 };
-}  // namespace comms
-
+}  // end namespace comms
 }  // end namespace raft
