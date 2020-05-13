@@ -24,6 +24,7 @@
 
 namespace raft {
 namespace comms {
+
 typedef void (*dlsym_print_info)(ucp_ep_h, FILE *);
 typedef void (*dlsym_rec_free)(void *);
 typedef int (*dlsym_worker_progress)(ucp_worker_h);
