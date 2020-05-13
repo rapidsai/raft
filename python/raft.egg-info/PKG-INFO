@@ -1,0 +1,14 @@
+Metadata-Version: 1.1
+Name: raft
+Version: 0+untagged.85.g5d37e9e.dirty
+Summary: RAPIDS Analytics Frameworks Toolset
+Home-page: UNKNOWN
+Author: NVIDIA Corporation
+Author-email: UNKNOWN
+License: Apache
+Description: UNKNOWN
+Platform: UNKNOWN
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
