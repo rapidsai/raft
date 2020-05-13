@@ -4,6 +4,7 @@
 ## New Features
 - Initial RAFT version
 - PR #3: defining raft::handle_t, device_buffer, host_buffer, allocator classes
+- PR #7: Migrating cuml comms -> raft comms_t
 
 ## Improvements
 
