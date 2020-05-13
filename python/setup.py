@@ -40,7 +40,7 @@ except ImportError:
 # - Dependencies include and lib folder setup --------------------------------
 
 install_requires = [
-    'cython'
+    'cython',
 ]
 
 cuda_home = get_environment_option("CUDA_HOME")
@@ -92,7 +92,7 @@ if clean_artifacts:
 # - Cython extensions build and parameters -----------------------------------
 
 
-libs = []
+libs = ["nccl", "rmm", "cusolver", "cusparse", "cublas"]
 
 include_dirs = [cuda_include_dir,
                 numpy.get_include(),

@@ -42,17 +42,16 @@ cdef extern from "raft/comms/std_comms.hpp" namespace "raft::comms":
     cdef cppclass std_comms:
         pass
 
-    void build_comms_nccl_ucx(handle_t *handle,
-                      ncclComm_t comm,
-                      void *ucp_worker,
-                      void *eps,
-                      int size,
-                      int rank) except +
 
-    void build_comms_nccl_only(handle_t *handle,
-                      ncclComm_t comm,
-                      int size,
-                      int rank) except +
+cdef extern from "raft/comms/comms.hpp" namespace "raft::comms":
+
+    cdef cppclass comms_t:
+        pass
+
+    cdef cppclass comms_iface:
+        pass
+
+
 
 
 cdef extern from "raft/comms/comms_helper.hpp" namespace "raft::comms":

@@ -22,25 +22,23 @@
 namespace raft {
 namespace comms {
 
+typedef unsigned int request_t;
+enum datatype_t { CHAR, UINT8, INT, UINT, INT64, UINT64, FLOAT, DOUBLE };
+enum op_t { SUM, PROD, MIN, MAX };
+
+/**
+ * The resulting status of distributed stream synchronization
+ */
+enum status_t {
+	commStatusSuccess,  // Synchronization successful
+	commStatusError,    // An error occured querying sync status
+	commStatusAbort
+};  // A failure occurred in sync, queued operations aborted
+
+
 
 class comms_iface {
  public:
-
-
-	  typedef unsigned int request_t;
-	  enum datatype_t { CHAR, UINT8, INT, UINT, INT64, UINT64, FLOAT, DOUBLE };
-	  enum op_t { SUM, PROD, MIN, MAX };
-
-	  /**
-	   * The resulting status of distributed stream synchronization
-	   */
-	  enum status_t {
-		commStatusSuccess,  // Synchronization successful
-		commStatusError,    // An error occured querying sync status
-		commStatusAbort
-	  };  // A failure occurred in sync, queued operations aborted
-
-
 
   virtual ~comms_iface();
 
@@ -86,6 +84,7 @@ class comms_iface {
 
 class comms_t: public comms_iface {
  public:
+
 
 
 	comms_t(std::unique_ptr<comms_iface> impl)
@@ -163,48 +162,50 @@ class comms_t: public comms_iface {
 
 };
 
+comms_iface::~comms_iface() {}
 
-template <typename T>
-comms_t::datatype_t getDataType(T a);
 
-template <>
-comms_t::datatype_t getDataType<char>(char a) {
-  return comms_t::CHAR;
-}
-
-template <>
-comms_t::datatype_t getDataType<uint8_t>(uint8_t a) {
-  return comms_t::UINT8;
-}
-
-template <>
-comms_t::datatype_t getDataType<int>(int a) {
-  return comms_t::INT;
-}
-
-template <>
-comms_t::datatype_t getDataType<uint32_t>(uint32_t a) {
-  return comms_t::UINT;
-}
-
-template <>
-comms_t::datatype_t getDataType<int64_t>(int64_t a) {
-  return comms_t::INT64;
-}
-
-template <>
-comms_t::datatype_t getDataType<uint64_t>(uint64_t a) {
-  return comms_t::UINT64;
-}
-
-template <>
-comms_t::datatype_t getDataType<float>(float a) {
-  return comms_t::FLOAT;
-}
-
-template <>
-comms_t::datatype_t getDataType<double>(double a) {
-  return comms_t::DOUBLE;
-}
+//template <typename T>
+//inline datatype_t getDataType(T a);
+//
+//template <>
+//inline datatype_t getDataType<char>(char a) {
+//  return CHAR;
+//}
+//
+//template <>
+//inline datatype_t getDataType<uint8_t>(uint8_t a) {
+//  return UINT8;
+//}
+//
+//template <>
+//inline  datatype_t getDataType<int>(int a) {
+//  return INT;
+//}
+//
+//template <>
+//inline datatype_t getDataType<uint32_t>(uint32_t a) {
+//  return UINT;
+//}
+//
+//template <>
+//inline datatype_t getDataType<int64_t>(int64_t a) {
+//  return INT64;
+//}
+//
+//template <>
+//inline datatype_t getDataType<uint64_t>(uint64_t a) {
+//  return UINT64;
+//}
+//
+//template <>
+//inline datatype_t getDataType<float>(float a) {
+//  return FLOAT;
+//}
+//
+//template <>
+//inline datatype_t getDataType<double>(double a) {
+//  return DOUBLE;
+//}
 } /// namespace comms
 }  // namespace raft

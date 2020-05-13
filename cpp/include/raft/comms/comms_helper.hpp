@@ -68,8 +68,8 @@ bool test_collective_allreduce(const handle_t& handle) {
   temp_d.resize(1, stream);
   CUDA_CHECK(cudaMemcpyAsync(temp_d.data(), &send, sizeof(int),
                              cudaMemcpyHostToDevice, stream));
-  communicator.allreduce(temp_d.data(), temp_d.data(), 1, getDataType(temp_d.data()),
-                         comms_t::SUM, stream);
+  communicator.allreduce(temp_d.data(), temp_d.data(), 1, datatype_t::INT,
+                         SUM, stream);
   int temp_h = 0;
   CUDA_CHECK(cudaMemcpyAsync(&temp_h, temp_d.data(), sizeof(int),
                              cudaMemcpyDeviceToHost, stream));
@@ -91,7 +91,7 @@ bool test_pointToPoint_simple_send_recv(const handle_t& h,
   for (int i = 0; i < numTrials; i++) {
     std::vector<int> received_data((communicator.getSize() - 1), -1);
 
-    std::vector<comms_t::request_t> requests;
+    std::vector<request_t> requests;
     requests.resize(2 * (communicator.getSize() - 1));
     int request_idx = 0;
     //post receives

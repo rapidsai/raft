@@ -68,23 +68,23 @@ namespace raft {
 
 namespace comms {
 
-size_t getDatatypeSize(const comms_t::datatype_t datatype) {
+size_t getDatatypeSize(const datatype_t datatype) {
   switch (datatype) {
-    case comms_t::CHAR:
+    case CHAR:
       return sizeof(char);
-    case comms_t::UINT8:
+    case UINT8:
       return sizeof(uint8_t);
-    case comms_t::INT:
+    case INT:
       return sizeof(int);
-    case comms_t::UINT:
+    case UINT:
       return sizeof(unsigned int);
-    case comms_t::INT64:
+    case INT64:
       return sizeof(int64_t);
-    case comms_t::UINT64:
+    case UINT64:
       return sizeof(uint64_t);
-    case comms_t::FLOAT:
+    case FLOAT:
       return sizeof(float);
-    case comms_t::DOUBLE:
+    case DOUBLE:
       return sizeof(double);
   }
 }
@@ -93,36 +93,36 @@ size_t getDatatypeSize(const comms_t::datatype_t datatype) {
 
 
 ncclDataType_t getNCCLDatatype(
-  const comms_t::datatype_t datatype) {
+  const datatype_t datatype) {
   switch (datatype) {
-    case comms_t::CHAR:
+    case CHAR:
       return ncclChar;
-    case comms_t::UINT8:
+    case UINT8:
       return ncclUint8;
-    case comms_t::INT:
+    case INT:
       return ncclInt;
-    case comms_t::UINT:
+    case UINT:
       return ncclUint32;
-    case comms_t::INT64:
+    case INT64:
       return ncclInt64;
-    case comms_t::UINT64:
+    case UINT64:
       return ncclUint64;
-    case comms_t::FLOAT:
+    case FLOAT:
       return ncclFloat;
-    case comms_t::DOUBLE:
+    case DOUBLE:
       return ncclDouble;
   }
 }
 
-ncclRedOp_t getNCCLOp(const comms_t::op_t op) {
+ncclRedOp_t getNCCLOp(const op_t op) {
   switch (op) {
-    case comms_t::SUM:
+    case SUM:
       return ncclSum;
-    case comms_t::PROD:
+    case PROD:
       return ncclProd;
-    case comms_t::MIN:
+    case MIN:
       return ncclMin;
-    case comms_t::MAX:
+    case MAX:
       return ncclMax;
   }
 }
@@ -196,10 +196,10 @@ class std_comms : public comms_iface {
     CUDA_CHECK(cudaMemsetAsync(_sendbuff, 1, sizeof(int), _stream));
     CUDA_CHECK(cudaMemsetAsync(_recvbuff, 1, sizeof(int), _stream));
 
-    allreduce(_sendbuff, _recvbuff, 1, comms_t::INT,
-              comms_t::SUM, _stream);
+    allreduce(_sendbuff, _recvbuff, 1, INT,
+              SUM, _stream);
 
-    ASSERT(syncStream(_stream) == comms_t::status_t::commStatusSuccess,
+    ASSERT(syncStream(_stream) == status_t::commStatusSuccess,
            "ERROR: syncStream failed. This can be caused by a failed rank.");
   }
 
@@ -359,7 +359,7 @@ class std_comms : public comms_iface {
   void allgatherv(const void *sendbuf, void *recvbuf,
                                             const int recvcounts[],
                                             const int displs[],
-                                            comms_t::datatype_t datatype,
+                                            datatype_t datatype,
                                             cudaStream_t stream) const {
     //From: "An Empirical Evaluation of Allgatherv on Multi-GPU Systems" - https://arxiv.org/pdf/1812.05964.pdf
     //Listing 1 on page 4.
@@ -381,7 +381,7 @@ class std_comms : public comms_iface {
                                  _nccl_comm, stream));
   }
 
-  comms_t::status_t syncStream(
+  status_t syncStream(
     cudaStream_t stream) const {
     cudaError_t cudaErr;
     ncclResult_t ncclErr, ncclAsyncErr;
