@@ -17,7 +17,8 @@ import os
 import random
 import time
 
-from dask.distributed import default_client, wait
+from dask.distributed import default_client
+from dask.distributed import wait
 
 from asyncio import InvalidStateError
 

@@ -13,7 +13,8 @@
 # limitations under the License.
 #
 
-from raft.dask.common.comms import CommsContext, worker_state
+from raft.dask.common.comms import Comms
+from raft.dask.common.comms import local_handle
 
 from raft.dask.common.comms_utils import inject_comms_on_handle
 from raft.dask.common.comms_utils import inject_comms_on_handle_coll_only

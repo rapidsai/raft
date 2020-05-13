@@ -30,25 +30,204 @@ import time
 import uuid
 
 
+class Comms:
+
+    """
+    Initializes and manages underlying NCCL and UCX comms handles across
+    the workers of a Dask cluster. It is expected that `init()` will be
+    called explicitly. It is recommended to also call `destroy()` when
+    the comms are no longer needed so the underlying resources can be
+    cleaned up. This class is not meant to be thread-safe.
+
+    Examples
+    --------
+   .. code-block:: python
+
+        # The following code block assumes we have wrapped a C++
+        # function in a Python function called `run_algorithm`,
+        # which takes a `raft::handle_t` as a single argument.
+        # Once the `Comms` instance is successfully initialized,
+        # the underlying `raft::handle_t` will contain an instance
+        # of `raft::comms::comms_t`
+
+        from dask_cuda import LocalCUDACluster
+        from dask.distributed import Client
+
+        from raft.dask.common import Comms, local_handle
+
+        cluster = LocalCUDACluster()
+        client = Client(cluster)
+
+        def _use_comms(sessionId):
+            return run_algorithm(local_handle(sessionId))
+
+        comms = Comms(client=client)
+        comms.init()
+
+        futures = [client.submit(_use_comms,
+                                 comms.sessionId,
+                                 workers=[w],
+                                 pure=False) # Don't memoize
+                       for w in cb.worker_addresses]
+        wait(dfs, timeout=5)
+
+        comms.destroy()
+        client.close()
+        cluster.close()
+    """
+
+    def __init__(self, comms_p2p=False, client=None, verbose=False,
+                 streams_per_handle=0):
+        """
+        Construct a new CommsContext instance
+
+        Parameters
+        ----------
+        comms_p2p : bool
+                    Initialize UCX endpoints?
+        client : dask.distributed.Client [optional]
+                 Dask client to use
+        verbose : bool
+                  Print verbose logging
+        """
+        self.client = client if client is not None else default_client()
+        self.comms_p2p = comms_p2p
+
+        self.streams_per_handle = streams_per_handle
+
+        self.sessionId = uuid.uuid4().bytes
+
+        self.nccl_initialized = False
+        self.ucx_initialized = False
+
+        self.verbose = verbose
+
+        if verbose:
+            print("Initializing comms!")
+
+    def __del__(self):
+        if self.nccl_initialized or self.ucx_initialized:
+            self.destroy()
+
+    def worker_info(self, workers):
+        """
+        Builds a dictionary of { (worker_address, worker_port) :
+                                (worker_rank, worker_port ) }
+        """
+        ranks = _func_worker_ranks(workers)
+        ports = _func_ucp_ports(self.client, workers) \
+            if self.comms_p2p else None
+
+        output = {}
+        for k in ranks.keys():
+            output[k] = {"rank": ranks[k]}
+            if self.comms_p2p:
+                output[k]["port"] = ports[k]
+        return output
+
+    def init(self, workers=None):
+        """
+        Initializes the underlying comms. NCCL is required but
+        UCX is only initialized if `comms_p2p == True`
+
+        Parameters
+        ----------
+
+        workers : Sequence
+                  Unique collection of workers for initializing comms.
+        """
+
+        self.worker_addresses = list(set(
+            self.client.scheduler_info()["workers"].keys()
+            if workers is None else workers))
+
+        if self.nccl_initialized or self.ucx_initialized:
+            warnings.warn("Comms have already been initialized.")
+            return
+
+        worker_info = self.worker_info(self.worker_addresses)
+        worker_info = {w: worker_info[w] for w in self.worker_addresses}
+
+        self.uniqueId = nccl.get_unique_id()
+
+        self.client.run(_func_init_all,
+                        self.sessionId,
+                        self.uniqueId,
+                        self.comms_p2p,
+                        worker_info,
+                        self.verbose,
+                        self.streams_per_handle,
+                        workers=self.worker_addresses,
+                        wait=True)
+
+        self.nccl_initialized = True
+
+        if self.comms_p2p:
+            self.ucx_initialized = True
+
+        if self.verbose:
+            print("Initialization complete.")
+
+    def destroy(self):
+        """
+        Shuts down initialized comms and cleans up resources. This will
+        be called automatically by the Comms destructor, but may be called
+        earlier to save resources.
+        """
+        self.client.run(_func_destroy_all,
+                        self.sessionId,
+                        self.comms_p2p,
+                        self.verbose,
+                        wait=True,
+                        workers=self.worker_addresses)
+
+        if self.verbose:
+            print("Destroying comms.")
+
+        self.nccl_initialized = False
+        self.ucx_initialized = False
+
+
+def local_handle(sessionId):
+    """Simple helper function for retrieving the local handle_t instance
+    for a comms session on a worker.
+
+    Parameters
+    ----------
+    sessionId : str
+                session identifier from an initialized comms instance
+
+    Returns
+    -------
+
+    handle : raft.Handle or None
+    """
+    state = worker_state(sessionId)
+    return state["handle"] if "handle" in state else None
+
+
 def worker_state(sessionId=None):
     """
     Retrieves cuML comms state on local worker for the given
     sessionId, creating a new session if it does not exist.
     If no session id is given, returns the state dict for all
     sessions.
-    :param sessionId:
-    :return:
+
+    Parameters
+    ----------
+    sessionId : str
+                session identifier from initialized comms instance
     """
     worker = get_worker()
-    if not hasattr(worker, "_cuml_comm_state"):
-        worker._cuml_comm_state = {}
-    if sessionId is not None and sessionId not in worker._cuml_comm_state:
+    if not hasattr(worker, "_raft_comm_state"):
+        worker._raft_comm_state = {}
+    if sessionId is not None and sessionId not in worker._raft_comm_state:
         # Build state for new session and mark session creation time
-        worker._cuml_comm_state[sessionId] = {"ts": time.time()}
+        worker._raft_comm_state[sessionId] = {"ts": time.time()}
 
     if sessionId is not None:
-        return worker._cuml_comm_state[sessionId]
-    return worker._cuml_comm_state
+        return worker._raft_comm_state[sessionId]
+    return worker._raft_comm_state
 
 
 def get_ucx():
@@ -109,10 +288,14 @@ async def _func_init_all(sessionId, uniqueId, comms_p2p,
 def _func_init_nccl(sessionId, uniqueId):
     """
     Initialize ncclComm_t on worker
-    :param workerId: int ID of the current worker running the function
-    :param nWorkers: int Number of workers in the cluster
-    :param uniqueId: array[byte] The NCCL unique Id generated from the
-                     client.
+
+    Parameters
+    ----------
+    sessionId : str
+                session identifier from a comms instance
+    uniqueId : array[byte]
+               The NCCL unique Id generated from the
+               client.
     """
 
     wid = worker_state(sessionId)["wid"]
@@ -128,12 +311,13 @@ def _func_init_nccl(sessionId, uniqueId):
 
 def _func_build_handle_p2p(sessionId, streams_per_handle, verbose):
     """
-    Builds a cumlHandle on the current worker given the initialized comms
-    :param nccl_comm: ncclComm_t Initialized NCCL comm
-    :param eps: size_t initialized endpoints
-    :param nWorkers: int number of workers in cluster
-    :param workerId: int Rank of current worker
-    :return:
+    Builds a handle_t on the current worker given the initialized comms
+
+    Parameters
+    ----------
+    sessionId : str id to reference state for current comms instance.
+    streams_per_handle : int number of internal streams to create
+    verbose : bool print verbose logging output
     """
     ucp_worker = get_ucx().get_worker()
     session_state = worker_state(sessionId)
@@ -152,11 +336,13 @@ def _func_build_handle_p2p(sessionId, streams_per_handle, verbose):
 
 def _func_build_handle(sessionId, streams_per_handle, verbose):
     """
-    Builds a cumlHandle on the current worker given the initialized comms
-    :param nccl_comm: ncclComm_t Initialized NCCL comm
-    :param nWorkers: int number of workers in cluster
-    :param workerId: int Rank of current worker
-    :return:
+    Builds a handle_t on the current worker given the initialized comms
+
+    Parameters
+    ----------
+    sessionId : str id to reference state for current comms instance.
+    streams_per_handle : int number of internal streams to create
+    verbose : bool print verbose logging output
     """
     handle = Handle(streams_per_handle)
 
@@ -181,9 +367,13 @@ def _func_store_initial_state(nworkers, sessionId, uniqueId, wid):
 async def _func_ucp_create_endpoints(sessionId, worker_info):
     """
     Runs on each worker to create ucp endpoints to all other workers
-    :param sessionId: uuid unique id for this instance
-    :param worker_info: dict Maps worker address to rank & UCX port
-    :param r: float a random number to stop the function from being cached
+
+    Parameters
+    ----------
+    sessionId : str
+                uuid unique id for this instance
+    worker_info : dict
+                  Maps worker addresses to NCCL ranks & UCX ports
     """
     dask_worker = get_worker()
     local_address = dask_worker.address
@@ -220,110 +410,3 @@ def _func_worker_ranks(workers):
     Builds a dictionary of { (worker_address, worker_port) : worker_rank }
     """
     return dict(list(zip(workers, range(len(workers)))))
-
-
-class CommsContext:
-
-    """
-    A base class to initialize and manage underlying NCCL and UCX
-    comms handles across a Dask cluster. Classes extending CommsContext
-    are responsible for calling `self.init()` to initialize the comms.
-    Classes that extend or use the CommsContext are also responsible for
-    calling `destroy()` to clean up the underlying comms.
-
-    This class is not meant to be thread-safe.
-    """
-
-    def __init__(self, comms_p2p=False, client=None, verbose=False,
-                 streams_per_handle=0):
-        """
-        Construct a new CommsContext instance
-        :param comms_p2p: bool Should p2p comms be initialized?
-        """
-        self.client = client if client is not None else default_client()
-        self.comms_p2p = comms_p2p
-
-        self.streams_per_handle = streams_per_handle
-
-        self.sessionId = uuid.uuid4().bytes
-
-        self.nccl_initialized = False
-        self.ucx_initialized = False
-
-        self.verbose = verbose
-
-        if verbose:
-            print("Initializing comms!")
-
-    def __del__(self):
-        if self.nccl_initialized or self.ucx_initialized:
-            self.destroy()
-
-    def worker_info(self, workers):
-        """
-        Builds a dictionary of { (worker_address, worker_port) :
-                                (worker_rank, worker_port ) }
-        """
-        ranks = _func_worker_ranks(workers)
-        ports = _func_ucp_ports(self.client, workers) \
-            if self.comms_p2p else None
-
-        output = {}
-        for k in ranks.keys():
-            output[k] = {"rank": ranks[k]}
-            if self.comms_p2p:
-                output[k]["port"] = ports[k]
-        return output
-
-    def init(self, workers=None):
-        """
-        Initializes the underlying comms. NCCL is required but
-        UCX is only initialized if `comms_p2p == True`
-        """
-
-        self.worker_addresses = list(set((self.client.has_what().keys()
-                                          if workers is None else workers)))
-
-        if self.nccl_initialized:
-            warnings.warn("CommsContext has already been initialized.")
-            return
-
-        worker_info = self.worker_info(self.worker_addresses)
-        worker_info = {w: worker_info[w] for w in self.worker_addresses}
-
-        self.uniqueId = nccl.get_unique_id()
-
-        self.client.run(_func_init_all,
-                        self.sessionId,
-                        self.uniqueId,
-                        self.comms_p2p,
-                        worker_info,
-                        self.verbose,
-                        self.streams_per_handle,
-                        workers=self.worker_addresses,
-                        wait=True)
-
-        self.nccl_initialized = True
-
-        if self.comms_p2p:
-            self.ucx_initialized = True
-
-        if self.verbose:
-            print("Initialization complete.")
-
-    def destroy(self):
-        """
-        Shuts down initialized comms and cleans up resources.
-        """
-        self.client.run(_func_destroy_all,
-                        self.sessionId,
-                        self.comms_p2p,
-                        self.verbose,
-                        wait=True,
-                        workers=self.worker_addresses)
-
-        if self.verbose:
-            print("Destroying comms.")
-
-        self.nccl_initialized = False
-        self.ucx_initialized = False
