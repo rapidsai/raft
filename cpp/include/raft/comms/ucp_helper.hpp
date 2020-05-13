@@ -227,5 +227,5 @@ class comms_ucp_handler {
            UCS_PTR_STATUS(recv_result));
   }
 };
-} // end namespace comms
-} // end namespace raft
+}  // end namespace comms
+}  // end namespace raft
