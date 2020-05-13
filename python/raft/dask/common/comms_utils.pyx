@@ -24,7 +24,6 @@ from cpython.long cimport PyLong_AsVoidPtr
 
 from libcpp cimport bool
 
-
 from libc.stdint cimport uintptr_t
 
 cdef extern from "nccl.h":
@@ -46,17 +45,16 @@ cdef extern from "raft/comms/std_comms.hpp" namespace "raft::comms":
 cdef extern from "raft/comms/comms_helper.hpp" namespace "raft::comms":
 
     void build_comms_nccl_ucx(handle_t *handle,
-                      ncclComm_t comm,
-                      void *ucp_worker,
-                      void *eps,
-                      int size,
-                      int rank) except +
+                              ncclComm_t comm,
+                              void *ucp_worker,
+                              void *eps,
+                              int size,
+                              int rank) except +
 
     void build_comms_nccl_only(handle_t *handle,
-                      ncclComm_t comm,
-                      int size,
-                      int rank) except +
-
+                               ncclComm_t comm,
+                               int size,
+                               int rank) except +
 
     bool test_collective_allreduce(const handle_t &h) except +
     bool test_pointToPoint_simple_send_recv(const handle_t &h,
@@ -81,7 +79,6 @@ def perform_test_comms_send_recv(handle, n_trials):
     return test_pointToPoint_simple_send_recv(deref(h), <int>n_trials)
 
 
-
 def inject_comms_on_handle_coll_only(handle, nccl_inst, size, rank, verbose):
     """
     Given a handle and initialized nccl comm, creates a cumlCommunicator
@@ -99,9 +96,9 @@ def inject_comms_on_handle_coll_only(handle, nccl_inst, size, rank, verbose):
     nccl_comm_ = <ncclComm_t*>nccl_comm_size_t
 
     build_comms_nccl_only(handle_,
-                 deref(nccl_comm_),
-                 size,
-                 rank)
+                          deref(nccl_comm_),
+                          size,
+                          rank)
 
 
 def inject_comms_on_handle(handle, nccl_inst, ucp_worker, eps, size,
@@ -134,10 +131,10 @@ def inject_comms_on_handle(handle, nccl_inst, ucp_worker, eps, size,
     nccl_comm_ = <ncclComm_t*>nccl_comm_size_t
 
     build_comms_nccl_ucx(handle_,
-                 deref(nccl_comm_),
-                 <void*>ucp_worker_st,
-                 <void*>ucp_eps,
-                 size,
-                 rank)
+                         deref(nccl_comm_),
+                         <void*>ucp_worker_st,
+                         <void*>ucp_eps,
+                         size,
+                         rank)
 
     free(ucp_eps)

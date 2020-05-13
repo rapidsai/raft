@@ -24,7 +24,8 @@ from libcpp.memory cimport shared_ptr
 cimport raft.common.cuda
 
 
-cdef extern from "raft/mr/device/allocator.hpp" namespace "raft::mr::device" nogil:
+cdef extern from "raft/mr/device/allocator.hpp" \
+        namespace "raft::mr::device" nogil:
     cdef cppclass allocator:
         pass
 
