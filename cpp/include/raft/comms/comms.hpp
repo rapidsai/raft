@@ -18,7 +18,6 @@
 
 #include <memory>
 
-
 namespace raft {
 namespace comms {
 
@@ -27,19 +26,16 @@ enum datatype_t { CHAR, UINT8, INT, UINT, INT64, UINT64, FLOAT, DOUBLE };
 enum op_t { SUM, PROD, MIN, MAX };
 
 /**
- * The resulting status of distributed stream synchronization
- */
+	 * The resulting status of distributed stream synchronization
+	 */
 enum status_t {
-	commStatusSuccess,  // Synchronization successful
-	commStatusError,    // An error occured querying sync status
-	commStatusAbort
+  commStatusSuccess,  // Synchronization successful
+  commStatusError,    // An error occured querying sync status
+  commStatusAbort
 };  // A failure occurred in sync, queued operations aborted
-
-
 
 class comms_iface {
  public:
-
   virtual ~comms_iface();
 
   virtual int getSize() const = 0;
@@ -82,130 +78,77 @@ class comms_iface {
                              cudaStream_t stream) const = 0;
 };
 
-class comms_t: public comms_iface {
+class comms_t : public comms_iface {
  public:
+  comms_t(std::unique_ptr<comms_iface> impl) : _impl(impl.release()) {
+    ASSERT(nullptr != _impl.get(), "ERROR: Invalid comms_iface used!");
+  }
 
+  int getSize() const { return _impl->getSize(); }
 
+  int getRank() const { return _impl->getRank(); }
 
-	comms_t(std::unique_ptr<comms_iface> impl)
-	  : _impl(impl.release()) {
-	  ASSERT(nullptr != _impl.get(), "ERROR: Invalid comms_iface used!");
-	}
+  std::unique_ptr<comms_iface> commSplit(int color, int key) const {
+    return _impl->commSplit(color, key);
+  }
 
-	int getSize() const { return _impl->getSize(); }
+  void barrier() const { _impl->barrier(); }
 
-	int getRank() const { return _impl->getRank(); }
+  status_t syncStream(cudaStream_t stream) const {
+    return _impl->syncStream(stream);
+  }
 
-	std::unique_ptr<comms_iface> commSplit(int color, int key) const {
-	  return _impl->commSplit(color, key);
-	}
+  void isend(const void* buf, int size, int dest, int tag,
+             request_t* request) const {
+    _impl->isend(buf, size, dest, tag, request);
+  }
 
-	void barrier() const { _impl->barrier(); }
+  void irecv(void* buf, int size, int source, int tag,
+             request_t* request) const {
+    _impl->irecv(buf, size, source, tag, request);
+  }
 
-	status_t syncStream(
-	  cudaStream_t stream) const {
-	  return _impl->syncStream(stream);
-	}
+  void waitall(int count, request_t array_of_requests[]) const {
+    _impl->waitall(count, array_of_requests);
+  }
 
-	void isend(const void* buf, int size, int dest, int tag,
-	                             request_t* request) const {
-	  _impl->isend(buf, size, dest, tag, request);
-	}
+  void allreduce(const void* sendbuff, void* recvbuff, int count,
+                 datatype_t datatype, op_t op, cudaStream_t stream) const {
+    _impl->allreduce(sendbuff, recvbuff, count, datatype, op, stream);
+  }
 
-	void irecv(void* buf, int size, int source, int tag,
-	                             request_t* request) const {
-	  _impl->irecv(buf, size, source, tag, request);
-	}
+  void bcast(void* buff, int count, datatype_t datatype, int root,
+             cudaStream_t stream) const {
+    _impl->bcast(buff, count, datatype, root, stream);
+  }
 
-	void waitall(int count, request_t array_of_requests[]) const {
-	  _impl->waitall(count, array_of_requests);
-	}
+  void reduce(const void* sendbuff, void* recvbuff, int count,
+              datatype_t datatype, op_t op, int root,
+              cudaStream_t stream) const {
+    _impl->reduce(sendbuff, recvbuff, count, datatype, op, root, stream);
+  }
 
-	void allreduce(const void* sendbuff, void* recvbuff,
-	                                 int count, datatype_t datatype, op_t op,
-	                                 cudaStream_t stream) const {
-	  _impl->allreduce(sendbuff, recvbuff, count, datatype, op, stream);
-	}
+  void allgather(const void* sendbuff, void* recvbuff, int sendcount,
+                 datatype_t datatype, cudaStream_t stream) const {
+    _impl->allgather(sendbuff, recvbuff, sendcount, datatype, stream);
+  }
 
-	void bcast(void* buff, int count, datatype_t datatype,
-	                             int root, cudaStream_t stream) const {
-	  _impl->bcast(buff, count, datatype, root, stream);
-	}
+  void allgatherv(const void* sendbuf, void* recvbuf, const int recvcounts[],
+                  const int displs[], datatype_t datatype,
+                  cudaStream_t stream) const {
+    _impl->allgatherv(sendbuf, recvbuf, recvcounts, displs, datatype, stream);
+  }
 
-	void reduce(const void* sendbuff, void* recvbuff, int count,
-	                              datatype_t datatype, op_t op, int root,
-	                              cudaStream_t stream) const {
-	  _impl->reduce(sendbuff, recvbuff, count, datatype, op, root, stream);
-	}
-
-	void allgather(const void* sendbuff, void* recvbuff,
-	                                 int sendcount, datatype_t datatype,
-	                                 cudaStream_t stream) const {
-	  _impl->allgather(sendbuff, recvbuff, sendcount, datatype, stream);
-	}
-
-	void allgatherv(const void* sendbuf, void* recvbuf,
-	                                  const int recvcounts[], const int displs[],
-	                                  datatype_t datatype,
-	                                  cudaStream_t stream) const {
-	  _impl->allgatherv(sendbuf, recvbuf, recvcounts, displs, datatype, stream);
-	}
-
-	void reducescatter(const void* sendbuff, void* recvbuff,
-	                                     int recvcount, datatype_t datatype,
-	                                     op_t op, cudaStream_t stream) const {
-	  _impl->reducescatter(sendbuff, recvbuff, recvcount, datatype, op, stream);
-	}
+  void reducescatter(const void* sendbuff, void* recvbuff, int recvcount,
+                     datatype_t datatype, op_t op, cudaStream_t stream) const {
+    _impl->reducescatter(sendbuff, recvbuff, recvcount, datatype, op, stream);
+  }
 
  private:
   std::unique_ptr<comms_iface> _impl;
-
 };
 
 comms_iface::~comms_iface() {}
 
-
-//template <typename T>
-//inline datatype_t getDataType(T a);
-//
-//template <>
-//inline datatype_t getDataType<char>(char a) {
-//  return CHAR;
-//}
-//
-//template <>
-//inline datatype_t getDataType<uint8_t>(uint8_t a) {
-//  return UINT8;
-//}
-//
-//template <>
-//inline  datatype_t getDataType<int>(int a) {
-//  return INT;
-//}
-//
-//template <>
-//inline datatype_t getDataType<uint32_t>(uint32_t a) {
-//  return UINT;
-//}
-//
-//template <>
-//inline datatype_t getDataType<int64_t>(int64_t a) {
-//  return INT64;
-//}
-//
-//template <>
-//inline datatype_t getDataType<uint64_t>(uint64_t a) {
-//  return UINT64;
-//}
-//
-//template <>
-//inline datatype_t getDataType<float>(float a) {
-//  return FLOAT;
-//}
-//
-//template <>
-//inline datatype_t getDataType<double>(double a) {
-//  return DOUBLE;
-//}
-} /// namespace comms
+}  // namespace comms
 }  // namespace raft

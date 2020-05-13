@@ -14,26 +14,24 @@
  * limitations under the License.
  */
 
-#include <raft/handle.hpp>
-#include <raft/comms/comms.hpp>
-#include <raft/mr/device/buffer.hpp>
 #include <iostream>
+#include <raft/comms/comms.hpp>
+#include <raft/handle.hpp>
+#include <raft/mr/device/buffer.hpp>
 
 namespace raft {
 namespace comms {
 
 void build_comms_nccl_only(handle_t *handle, ncclComm_t comm, int size,
-                          int rank) {
-
+                           int rank) {
   auto *raft_comm = new raft::comms::std_comms(comm, size, rank);
-  auto communicator = std::make_shared<comms_t>(
-	std::unique_ptr<comms_iface>(raft_comm));
+  auto communicator =
+    std::make_shared<comms_t>(std::unique_ptr<comms_iface>(raft_comm));
   handle->set_comms(communicator);
 }
 
 void build_comms_nccl_ucx(handle_t *handle, ncclComm_t comm, void *ucp_worker,
-                     void *eps, int size, int rank) {
-
+                          void *eps, int size, int rank) {
   std::shared_ptr<ucp_ep_h *> eps_sp =
     std::make_shared<ucp_ep_h *>(new ucp_ep_h[size]);
 
@@ -51,14 +49,15 @@ void build_comms_nccl_ucx(handle_t *handle, ncclComm_t comm, void *ucp_worker,
     }
   }
 
-  auto *raft_comm = new raft::comms::std_comms(comm, (ucp_worker_h)ucp_worker, eps_sp, size, rank);
-  auto communicator = std::make_shared<comms_t>(std::unique_ptr<comms_iface>(raft_comm));
+  auto *raft_comm = new raft::comms::std_comms(comm, (ucp_worker_h)ucp_worker,
+                                               eps_sp, size, rank);
+  auto communicator =
+    std::make_shared<comms_t>(std::unique_ptr<comms_iface>(raft_comm));
   handle->set_comms(communicator);
 }
 
-
-bool test_collective_allreduce(const handle_t& handle) {
-  const comms_t& communicator = handle.get_comms();
+bool test_collective_allreduce(const handle_t &handle) {
+  const comms_t &communicator = handle.get_comms();
 
   const int send = 1;
 
@@ -68,8 +67,8 @@ bool test_collective_allreduce(const handle_t& handle) {
   temp_d.resize(1, stream);
   CUDA_CHECK(cudaMemcpyAsync(temp_d.data(), &send, sizeof(int),
                              cudaMemcpyHostToDevice, stream));
-  communicator.allreduce(temp_d.data(), temp_d.data(), 1, datatype_t::INT,
-                         SUM, stream);
+  communicator.allreduce(temp_d.data(), temp_d.data(), 1, datatype_t::INT, SUM,
+                         stream);
   int temp_h = 0;
   CUDA_CHECK(cudaMemcpyAsync(&temp_h, temp_d.data(), sizeof(int),
                              cudaMemcpyDeviceToHost, stream));
@@ -82,9 +81,8 @@ bool test_collective_allreduce(const handle_t& handle) {
   return temp_h == communicator.getSize();
 }
 
-bool test_pointToPoint_simple_send_recv(const handle_t& h,
-                                        int numTrials) {
-  const comms_t& communicator = h.get_comms();
+bool test_pointToPoint_simple_send_recv(const handle_t &h, int numTrials) {
+  const comms_t &communicator = h.get_comms();
   const int rank = communicator.getRank();
 
   bool ret = true;
