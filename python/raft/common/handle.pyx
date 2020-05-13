@@ -74,8 +74,8 @@ cdef class Handle:
         """
         Issues a sync on the stream set for this handle.
 
-        Once we make `raft.common.cuda.Stream` as a mandatory option for creating
-        `raft.common.Handle`, this should go away
+        Once we make `raft.common.cuda.Stream` as a mandatory option
+        for creating `raft.common.Handle`, this should go away
         """
         cdef handle_t* h_ = <handle_t*>self.h
         cdef _Stream stream = h_.get_stream()
