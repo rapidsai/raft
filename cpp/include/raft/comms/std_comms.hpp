@@ -62,7 +62,6 @@
   } while (0)
 
 namespace raft {
-
 namespace comms {
 
 size_t getDatatypeSize(const datatype_t datatype) {
@@ -332,11 +331,6 @@ class std_comms : public comms_iface {
     NCCL_CHECK(ncclAllGather(sendbuff, recvbuff, sendcount,
                              getNCCLDatatype(datatype), _nccl_comm, stream));
   }
-
-  //  const void* sendbuf, void* recvbuf,
-  //                            const int recvcounts[], const int displs[],
-  //                            datatype_t datatype, cudaStream_t stream
-  //
 
   void allgatherv(const void *sendbuf, void *recvbuf, const int recvcounts[],
                   const int displs[], datatype_t datatype,

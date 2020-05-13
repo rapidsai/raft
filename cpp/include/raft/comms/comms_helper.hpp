@@ -95,7 +95,7 @@ bool test_pointToPoint_simple_send_recv(const handle_t &h, int numTrials) {
     //post receives
     for (int r = 0; r < communicator.getSize(); ++r) {
       if (r != rank) {
-        communicator.irecv(received_data.data() + request_idx, 1, r, 0,
+        communicator.irecv(received_data.data() + request_idx, sizeof(int), r, 0,
                            requests.data() + request_idx);
         ++request_idx;
       }
@@ -103,7 +103,7 @@ bool test_pointToPoint_simple_send_recv(const handle_t &h, int numTrials) {
 
     for (int r = 0; r < communicator.getSize(); ++r) {
       if (r != rank) {
-        communicator.isend(&rank, 1, r, 0, requests.data() + request_idx);
+        communicator.isend(&rank, sizeof(int), r, 0, requests.data() + request_idx);
         ++request_idx;
       }
     }

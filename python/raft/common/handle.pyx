@@ -23,11 +23,6 @@ import raft
 from libcpp.memory cimport shared_ptr
 from raft.common.cuda cimport _Stream, _Error, cudaStreamSynchronize
 
-#
-# cdef extern from ".cuml/common/rmmAllocatorAdapterhpp" namespace "ML" nogil:
-#     cdef cppclass rmmAllocatorAdapter(deviceAllocator):
-#         pass
-
 cdef class Handle:
     """
     Handle is a lightweight python wrapper around the corresponding C++ class
@@ -54,7 +49,7 @@ cdef class Handle:
         del handle  # optional!
     """
 
-    # ML::cumlHandle doesn't have copy operator. So, use pointer for the object
+    # handle_t doesn't have copy operator. So, use pointer for the object
     # python world cannot access to this raw object directly, hence use
     # 'size_t'!
     cdef size_t h
@@ -66,10 +61,6 @@ cdef class Handle:
     def __cinit__(self, n_streams=0):
         self.n_streams = n_streams
         self.h = <size_t>(new handle_t(n_streams))
-        # cdef shared_ptr[deviceAllocator] rmmAlloc = (
-        #     shared_ptr[deviceAllocator](new rmmAllocatorAdapter()))
-        # cdef cumlHandle* h_ = <cumlHandle*>self.h
-        # h_.setDeviceAllocator(rmmAlloc)
 
     def __dealloc__(self):
         h_ = <handle_t*>self.h

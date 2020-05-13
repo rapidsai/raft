@@ -26,13 +26,13 @@ enum datatype_t { CHAR, UINT8, INT, UINT, INT64, UINT64, FLOAT, DOUBLE };
 enum op_t { SUM, PROD, MIN, MAX };
 
 /**
-	 * The resulting status of distributed stream synchronization
-	 */
+ * The resulting status of distributed stream synchronization
+ */
 enum status_t {
   commStatusSuccess,  // Synchronization successful
   commStatusError,    // An error occured querying sync status
-  commStatusAbort
-};  // A failure occurred in sync, queued operations aborted
+  commStatusAbort // A failure occurred in sync, queued operations aborted
+};
 
 class comms_iface {
  public:
