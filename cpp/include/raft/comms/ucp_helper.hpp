@@ -40,7 +40,7 @@ typedef ucs_status_ptr_t (*dlsym_recv)(ucp_worker_h, void *, size_t count,
  * Standard UCX request object that will be passed
  * around asynchronously. This object is really
  * opaque and the comms layer only cares that it
- * has been completed. Because cuml comms do not
+ * has been completed. Because raft comms do not
  * initialize the ucx application context, it doesn't
  * own this object and thus it's important not to
  * modify this struct.
