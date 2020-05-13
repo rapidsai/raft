@@ -128,7 +128,7 @@ ncclRedOp_t getNCCLOp(const comms_t::op_t op) {
 }
 
 
-class std_comms : public comms_t {
+class std_comms : public comms_iface {
  public:
   std_comms() = delete;
 
@@ -184,7 +184,7 @@ class std_comms : public comms_t {
 
   int getRank() const { return _rank; }
 
-  std::unique_ptr<comms_t>
+  std::unique_ptr<comms_iface>
   commSplit(int color, int key) const {
     // Not supported by NCCL
     ASSERT(false,
@@ -199,7 +199,7 @@ class std_comms : public comms_t {
     allreduce(_sendbuff, _recvbuff, 1, comms_t::INT,
               comms_t::SUM, _stream);
 
-    ASSERT(syncStream(_stream) == status_t::commStatusSuccess,
+    ASSERT(syncStream(_stream) == comms_t::status_t::commStatusSuccess,
            "ERROR: syncStream failed. This can be caused by a failed rank.");
   }
 

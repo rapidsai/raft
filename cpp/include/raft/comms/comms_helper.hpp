@@ -27,7 +27,7 @@ void build_comms_nccl_only(handle_t *handle, ncclComm_t comm, int size,
 
   auto *raft_comm = new raft::comms::std_comms(comm, size, rank);
   auto communicator = std::make_shared<comms_t>(
-	std::unique_ptr<comms_t>(raft_comm));
+	std::unique_ptr<comms_iface>(raft_comm));
   handle->set_comms(communicator);
 }
 
@@ -51,9 +51,8 @@ void build_comms_nccl_ucx(handle_t *handle, ncclComm_t comm, void *ucp_worker,
     }
   }
 
-  auto communicator = std::make_shared<comms_t>(
-    std::unique_ptr<comms_t>(
-      new raft::comms::std_comms(comm, (ucp_worker_h)ucp_worker, eps_sp, size, rank)));
+  auto *raft_comm = new raft::comms::std_comms(comm, (ucp_worker_h)ucp_worker, eps_sp, size, rank);
+  auto communicator = std::make_shared<comms_t>(std::unique_ptr<comms_iface>(raft_comm));
   handle->set_comms(communicator);
 }
 

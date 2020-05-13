@@ -25,7 +25,7 @@ from cython.operator cimport dereference as deref
 from libcpp cimport bool
 from libc.stdlib cimport malloc, free
 
-cdef extern from "raft/include/comms/nccl_helper.hpp" namespace "raft::coms":
+cdef extern from "raft/comms/nccl_helper.hpp" namespace "raft::comms":
     void get_unique_id(char *uid, int size) except +
     void ncclUniqueIdFromChar(ncclUniqueId *id,
                               char *uniqueId,
