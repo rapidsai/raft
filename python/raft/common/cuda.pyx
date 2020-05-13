@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -43,8 +43,8 @@ cdef class Stream:
 
     .. code-block:: python
 
-        import cuml
-        stream = cuml.cuda.Stream()
+        from raft.common.cuda import Stream
+        stream = Stream()
         stream.sync()
         del stream  # optional!
     """

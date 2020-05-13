@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,25 +26,24 @@ from raft.common.cuda cimport _Stream, _Error, cudaStreamSynchronize
 cdef class Handle:
     """
     Handle is a lightweight python wrapper around the corresponding C++ class
-    of cumlHandle exposed by cuML's C++ interface. Refer to the header file
-    cuml/cuml.hpp for interface level details of this struct
+    of handle_t exposed by RAFT's C++ interface. Refer to the header file
+    raft/handle.hpp for interface level details of this struct
 
     Examples
     --------
 
     .. code-block:: python
 
-        import cuml
-        stream = cuml.cuda.Stream()
-        handle = cuml.Handle()
+        from raft.common import Stream, Handle
+        stream = Stream()
+        handle = Handle()
         handle.setStream(stream)
-        handle.enableRMM()   # Enable RMM as the device-side allocator
 
-        # call ML algos here
+        # call algos here
 
         # final sync of all work launched in the stream of this handle
-        # this is same as `cuml.cuda.Stream.sync()` call, but safer in case
-        # the default stream inside the `cumlHandle` is being used
+        # this is same as `raft.cuda.Stream.sync()` call, but safer in case
+        # the default stream inside the `handle_t` is being used
         handle.sync()
         del handle  # optional!
     """
@@ -75,8 +74,8 @@ cdef class Handle:
         """
         Issues a sync on the stream set for this handle.
 
-        Once we make `cuml.cuda.Stream` as a mandatory option for creating
-        `cuml.Handle`, this should go away
+        Once we make `raft.common.cuda.Stream` as a mandatory option for creating
+        `raft.common.Handle`, this should go away
         """
         cdef handle_t* h_ = <handle_t*>self.h
         cdef _Stream stream = h_.get_stream()

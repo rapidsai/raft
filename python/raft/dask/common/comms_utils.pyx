@@ -41,7 +41,6 @@ cdef extern from "raft/comms/std_comms.hpp" namespace "raft::comms":
     cdef cppclass std_comms:
         pass
 
-
 cdef extern from "raft/comms/comms_helper.hpp" namespace "raft::comms":
 
     void build_comms_nccl_ucx(handle_t *handle,
@@ -64,7 +63,11 @@ cdef extern from "raft/comms/comms_helper.hpp" namespace "raft::comms":
 def perform_test_comms_allreduce(handle):
     """
     Performs an allreduce on the current worker
-    :param handle: Handle handle containing cumlCommunicator to use
+
+    Parameters
+    ----------
+    handle : raft.common.Handle
+             handle containing comms_t to use
     """
     cdef const handle_t* h = <handle_t*><size_t>handle.getHandle()
     return test_collective_allreduce(deref(h))
@@ -73,7 +76,11 @@ def perform_test_comms_allreduce(handle):
 def perform_test_comms_send_recv(handle, n_trials):
     """
     Performs a p2p send/recv on the current worker
-    :param handle: Handle handle containing cumlCommunicator to use
+
+    Parameters
+    ----------
+    handle : raft.common.Handle
+             handle containing comms_t to use
     """
     cdef const handle_t *h = <handle_t*><size_t>handle.getHandle()
     return test_pointToPoint_simple_send_recv(deref(h), <int>n_trials)
@@ -83,10 +90,18 @@ def inject_comms_on_handle_coll_only(handle, nccl_inst, size, rank, verbose):
     """
     Given a handle and initialized nccl comm, creates a cumlCommunicator
     instance and injects it into the handle.
-    :param handle: Handle cumlHandle to inject comms into
-    :param nccl_inst: ncclComm_t initialized nccl comm
-    :param size: int number of workers in cluster
-    :param rank: int rank of current worker
+
+        Parameters
+    ----------
+    handle : raft.common.Handle
+             handle containing comms_t to use
+    nccl_inst : raft.dask.common.nccl
+                Initialized nccl comm to use
+    size : int
+           Number of workers in cluster
+    rank : int
+           Rank of current worker
+
     """
 
     cdef size_t handle_size_t = <size_t>handle.getHandle()
@@ -106,12 +121,19 @@ def inject_comms_on_handle(handle, nccl_inst, ucp_worker, eps, size,
     """
     Given a handle and initialized comms, creates a cumlCommunicator instance
     and injects it into the handle.
-    :param handle: Handle cumlHandle to inject comms into
-    :param nccl_inst: ncclComm_t initialized nccl comm
-    :param ucp_worker: size_t initialized ucp_worker_h instance
-    :param eps: size_t array of initialized ucp_ep_h instances
-    :param size: int number of workers in cluster
-    :param rank: int rank of current worker
+
+    Parameters
+    ----------
+    handle : raft.common.Handle
+             handle containing comms_t to use
+    nccl_inst : raft.dask.common.nccl
+                Initialized nccl comm to use
+    ucp_worker : size_t pointer to initialized ucp_worker_h instance
+    eps: size_t pointer to array of initialized ucp_ep_h instances
+    size : int
+           Number of workers in cluster
+    rank : int
+           Rank of current worker
     """
     cdef size_t *ucp_eps = <size_t*> malloc(len(eps)*sizeof(size_t))
 

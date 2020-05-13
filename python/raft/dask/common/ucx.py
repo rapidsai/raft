@@ -24,7 +24,7 @@ class UCX:
     """
     Singleton UCX context to encapsulate all interactions with the
     UCX-py API and guarantee only a single listener & endpoints are
-    created by cuML on a single process.
+    created by RAFT Comms on a single process.
     """
 
     __instance = None

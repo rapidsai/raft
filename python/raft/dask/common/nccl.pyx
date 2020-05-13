@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -74,7 +74,10 @@ def unique_id():
     Returns a new ncclUniqueId converted to a
     character array that can be safely serialized
     and shared to a remote worker.
-    :return: string a 128-byte unique id string
+
+    Returns
+    -------
+    128-byte unique id : str
     """
     cdef char *uid = <char *> malloc(NCCL_UNIQUE_ID_BYTES * sizeof(char))
     get_unique_id(uid, NCCL_UNIQUE_ID_BYTES)
@@ -108,16 +111,22 @@ cdef class nccl:
     def get_unique_id():
         """
         Returns a new nccl unique id
-        :return: string nccl unique id
+
+        Returns
+        -------
+        nccl unique id : str
         """
         return unique_id()
 
     def init(self, nranks, commId, rank):
         """
         Construct a nccl-py object
-        :param nranks: int size of clique
-        :param commId: string unique id from client
-        :param rank: int rank of current worker
+
+        Parameters
+        ----------
+        nranks : int size of clique
+        commId : string unique id from client
+        rank : int rank of current worker
         """
         self.size = nranks
         self.rank = rank
@@ -183,7 +192,10 @@ cdef class nccl:
     def cu_device(self):
         """
         Get the device backing the underlying comm
-        :returns int device id
+
+        Returns
+        -------
+        device id : int
         """
         cdef int *dev = <int*>malloc(sizeof(int))
 
@@ -204,7 +216,10 @@ cdef class nccl:
     def user_rank(self):
         """
         Get the rank id of the current comm
-        :return: int rank
+
+        Returns
+        -------
+        rank : int
         """
 
         cdef int *rank = <int*>malloc(sizeof(int))
@@ -228,6 +243,9 @@ cdef class nccl:
         """
         Returns the underlying nccl comm in a size_t (similar to void*).
         This can be safely typecasted from size_t into ncclComm_t*
-        :return: size_t ncclComm_t instance
+
+        Returns
+        -------
+        ncclComm_t instance pointer : size_t
         """
         return <size_t>self.comm
