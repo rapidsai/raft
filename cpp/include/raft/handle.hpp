@@ -149,8 +149,7 @@ class handle_t {
     }
   }
 
-  void set_comms(
-    std::shared_ptr<comms::comms_t> communicator) {
+  void set_comms(std::shared_ptr<comms::comms_t> communicator) {
     _communicator = communicator;
   }
 
@@ -160,10 +159,7 @@ class handle_t {
     return *_communicator;
   }
 
-  bool comms_initialized() const {
-    return (nullptr != _communicator.get());
-  }
-
+  bool comms_initialized() const { return (nullptr != _communicator.get()); }
 
   const cudaDeviceProp& get_device_properties() const {
     std::lock_guard<std::mutex> _(mutex_);
@@ -176,7 +172,7 @@ class handle_t {
 
  private:
   std::shared_ptr<comms::comms_t> _communicator;
-  
+
   const int dev_id_;
   const int num_streams_;
   std::vector<cudaStream_t> streams_;

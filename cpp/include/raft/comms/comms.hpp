@@ -31,7 +31,7 @@ enum op_t { SUM, PROD, MIN, MAX };
 enum status_t {
   commStatusSuccess,  // Synchronization successful
   commStatusError,    // An error occured querying sync status
-  commStatusAbort // A failure occurred in sync, queued operations aborted
+  commStatusAbort     // A failure occurred in sync, queued operations aborted
 };
 
 class comms_iface {

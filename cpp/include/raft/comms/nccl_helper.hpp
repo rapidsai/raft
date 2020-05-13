@@ -1,6 +1,5 @@
 #include <nccl.h>
 
-
 namespace raft {
 namespace comms {
 inline void ncclUniqueIdFromChar(ncclUniqueId *id, char *uniqueId, int size) {
@@ -13,6 +12,5 @@ inline void get_unique_id(char *uid, int size) {
 
   memcpy(uid, id.internal, size);
 }
-}
-}
-
+}  // namespace comms
+}  // namespace raft
