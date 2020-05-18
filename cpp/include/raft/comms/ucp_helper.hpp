@@ -172,7 +172,7 @@ class comms_ucp_handler {
   /**
    * @brief Asynchronously send data to the given endpoint using the given tag
    */
-  void ucp_isend(ucp_request *req, ucp_ep_h ep_ptr, const void *buf, int size,
+  void ucp_isend(ucp_request *req, ucp_ep_h ep_ptr, const void *buf, size_t size,
                  int tag, ucp_tag_t tag_mask, int rank) const {
     ucp_tag_t ucp_tag = build_message_tag(rank, tag);
 
@@ -207,7 +207,7 @@ class comms_ucp_handler {
    * @brief Asynchronously receive data from given endpoint with the given tag.
    */
   void ucp_irecv(ucp_request *req, ucp_worker_h worker, ucp_ep_h ep_ptr,
-                 void *buf, int size, int tag, ucp_tag_t tag_mask,
+                 void *buf, size_t size, int tag, ucp_tag_t tag_mask,
                  int sender_rank) const {
     ucp_tag_t ucp_tag = build_message_tag(sender_rank, tag);
 

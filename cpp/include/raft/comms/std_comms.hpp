@@ -66,55 +66,55 @@ namespace comms {
 
 size_t getDatatypeSize(const datatype_t datatype) {
   switch (datatype) {
-    case CHAR:
+    case datatype_t::CHAR:
       return sizeof(char);
-    case UINT8:
+    case datatype_t::UINT8:
       return sizeof(uint8_t);
-    case INT:
+    case datatype_t::INT32:
       return sizeof(int);
-    case UINT:
+    case datatype_t::UINT32:
       return sizeof(unsigned int);
-    case INT64:
+    case datatype_t::INT64:
       return sizeof(int64_t);
-    case UINT64:
+    case datatype_t::UINT64:
       return sizeof(uint64_t);
-    case FLOAT:
+    case datatype_t::FLOAT32:
       return sizeof(float);
-    case DOUBLE:
+    case datatype_t::FLOAT64:
       return sizeof(double);
   }
 }
 
 ncclDataType_t getNCCLDatatype(const datatype_t datatype) {
   switch (datatype) {
-    case CHAR:
+    case datatype_t::CHAR:
       return ncclChar;
-    case UINT8:
+    case datatype_t::UINT8:
       return ncclUint8;
-    case INT:
+    case datatype_t::INT32:
       return ncclInt;
-    case UINT:
+    case datatype_t::UINT32:
       return ncclUint32;
-    case INT64:
+    case datatype_t::INT64:
       return ncclInt64;
-    case UINT64:
+    case datatype_t::UINT64:
       return ncclUint64;
-    case FLOAT:
+    case datatype_t::FLOAT32:
       return ncclFloat;
-    case DOUBLE:
+    case datatype_t::FLOAT64:
       return ncclDouble;
   }
 }
 
 ncclRedOp_t getNCCLOp(const op_t op) {
   switch (op) {
-    case SUM:
+    case op_t::SUM:
       return ncclSum;
-    case PROD:
+    case op_t::PROD:
       return ncclProd;
-    case MIN:
+    case op_t::MIN:
       return ncclMin;
-    case MAX:
+    case op_t::MAX:
       return ncclMax;
   }
 }
@@ -131,16 +131,17 @@ class std_comms : public comms_iface {
    * @param size size of the cluster
    * @param rank rank of the current worker
    */
-  std_comms(ncclComm_t comm, ucp_worker_h ucp_worker,
-            std::shared_ptr<ucp_ep_h *> eps, int size, int rank)
-    : _nccl_comm(comm),
-      _ucp_worker(ucp_worker),
-      _ucp_eps(eps),
-      _size(size),
-      _rank(rank),
-      _next_request_id(0) {
+  std_comms(ncclComm_t nccl_comm, ucp_worker_h ucp_worker,
+            std::shared_ptr<ucp_ep_h *> eps, int num_ranks, int rank,
+            const std::shared_ptr<mr::device::allocator> device_allocator)
+    : nccl_comm_(nccl_comm),
+      ucp_worker_(ucp_worker),
+      ucp_eps_(eps),
+      num_ranks_(num_ranks),
+      rank_(rank),
+      device_allocator_(device_allocator),
+      next_request_id_(0) {
     initialize();
-    p2p_enabled = true;
   };
 
   /**
@@ -149,28 +150,30 @@ class std_comms : public comms_iface {
    * @param size size of the cluster
    * @param rank rank of the current worker
    */
-  std_comms(ncclComm_t comm, int size, int rank)
-    : _nccl_comm(comm), _size(size), _rank(rank) {
+  std_comms(const ncclComm_t nccl_comm, int num_ranks, int rank,
+		  const std::shared_ptr<mr::device::allocator> device_allocator)
+    : nccl_comm_(nccl_comm), num_ranks_(num_ranks), rank_(rank),
+      device_allocator_(device_allocator){
     initialize();
   };
 
   virtual ~std_comms() {
-    CUDA_CHECK_NO_THROW(cudaStreamDestroy(_stream));
+    CUDA_CHECK_NO_THROW(cudaStreamDestroy(stream_));
 
-    CUDA_CHECK_NO_THROW(cudaFree(_sendbuff));
-    CUDA_CHECK_NO_THROW(cudaFree(_recvbuff));
+    device_allocator_->deallocate(sendbuff_, sizeof(int), stream_);
+    device_allocator_->deallocate(recvbuff_, sizeof(int), stream_);
   }
 
   void initialize() {
-    CUDA_CHECK(cudaStreamCreate(&_stream));
+    CUDA_CHECK(cudaStreamCreate(&stream_));
 
-    CUDA_CHECK(cudaMalloc(&_sendbuff, sizeof(int)));
-    CUDA_CHECK(cudaMalloc(&_recvbuff, sizeof(int)));
+    sendbuff_ = reinterpret_cast<int*>(device_allocator_->allocate(sizeof(int), stream_));
+    recvbuff_ = reinterpret_cast<int*>(device_allocator_->allocate(sizeof(int), stream_));
   }
 
-  int getSize() const { return _size; }
+  int getSize() const { return num_ranks_; }
 
-  int getRank() const { return _rank; }
+  int getRank() const { return rank_; }
 
   std::unique_ptr<comms_iface> commSplit(int color, int key) const {
     // Not supported by NCCL
@@ -180,64 +183,64 @@ class std_comms : public comms_iface {
   }
 
   void barrier() const {
-    CUDA_CHECK(cudaMemsetAsync(_sendbuff, 1, sizeof(int), _stream));
-    CUDA_CHECK(cudaMemsetAsync(_recvbuff, 1, sizeof(int), _stream));
+    CUDA_CHECK(cudaMemsetAsync(sendbuff_, 1, sizeof(int), stream_));
+    CUDA_CHECK(cudaMemsetAsync(recvbuff_, 1, sizeof(int), stream_));
 
-    allreduce(_sendbuff, _recvbuff, 1, INT, SUM, _stream);
+    allreduce(sendbuff_, recvbuff_, 1, datatype_t::INT32, op_t::SUM, stream_);
 
-    ASSERT(syncStream(_stream) == status_t::commStatusSuccess,
-           "ERROR: syncStream failed. This can be caused by a failed rank.");
+    ASSERT(syncStream(stream_) == status_t::commStatusSuccess,
+           "ERROR: syncStream failed. This can be caused by a failed rank_.");
   }
 
   void get_request_id(request_t *req) const {
     request_t req_id;
 
-    if (this->_free_requests.empty())
-      req_id = this->_next_request_id++;
+    if (this->free_requests_.empty())
+      req_id = this->next_request_id_++;
     else {
-      auto it = this->_free_requests.begin();
+      auto it = this->free_requests_.begin();
       req_id = *it;
-      this->_free_requests.erase(it);
+      this->free_requests_.erase(it);
     }
     *req = req_id;
   }
 
-  void isend(const void *buf, int size, int dest, int tag,
+  void isend(const void *buf, size_t size, int dest, int tag,
              request_t *request) const {
-    ASSERT(_ucp_worker != nullptr,
+    ASSERT(ucp_worker_ != nullptr,
            "ERROR: UCX comms not initialized on communicator.");
 
     get_request_id(request);
-    ucp_ep_h ep_ptr = (*_ucp_eps)[dest];
+    ucp_ep_h ep_ptr = (*ucp_eps_)[dest];
 
     ucp_request *ucp_req = (ucp_request *)malloc(sizeof(ucp_request));
 
-    this->_ucp_handler.ucp_isend(ucp_req, ep_ptr, buf, size, tag,
+    this->ucp_handler_.ucp_isend(ucp_req, ep_ptr, buf, size, tag,
                                  default_tag_mask, getRank());
 
-    _requests_in_flight.insert(std::make_pair(*request, ucp_req));
+    requests_in_flight_.insert(std::make_pair(*request, ucp_req));
   }
 
-  void irecv(void *buf, int size, int source, int tag,
+  void irecv(void *buf, size_t size, int source, int tag,
              request_t *request) const {
-    ASSERT(_ucp_worker != nullptr,
+    ASSERT(ucp_worker_ != nullptr,
            "ERROR: UCX comms not initialized on communicator.");
 
     get_request_id(request);
 
-    ucp_ep_h ep_ptr = (*_ucp_eps)[source];
+    ucp_ep_h ep_ptr = (*ucp_eps_)[source];
 
     ucp_tag_t tag_mask = default_tag_mask;
 
     ucp_request *ucp_req = (ucp_request *)malloc(sizeof(ucp_request));
-    _ucp_handler.ucp_irecv(ucp_req, _ucp_worker, ep_ptr, buf, size, tag,
+    ucp_handler_.ucp_irecv(ucp_req, ucp_worker_, ep_ptr, buf, size, tag,
                            tag_mask, source);
 
-    _requests_in_flight.insert(std::make_pair(*request, ucp_req));
+    requests_in_flight_.insert(std::make_pair(*request, ucp_req));
   }
 
   void waitall(int count, request_t array_of_requests[]) const {
-    ASSERT(_ucp_worker != nullptr,
+    ASSERT(ucp_worker_ != nullptr,
            "ERROR: UCX comms not initialized on communicator.");
 
     std::vector<ucp_request *> requests;
@@ -246,12 +249,12 @@ class std_comms : public comms_iface {
     time_t start = time(NULL);
 
     for (int i = 0; i < count; ++i) {
-      auto req_it = _requests_in_flight.find(array_of_requests[i]);
-      ASSERT(_requests_in_flight.end() != req_it,
+      auto req_it = requests_in_flight_.find(array_of_requests[i]);
+      ASSERT(requests_in_flight_.end() != req_it,
              "ERROR: waitall on invalid request: %d", array_of_requests[i]);
       requests.push_back(req_it->second);
-      _free_requests.insert(req_it->first);
-      _requests_in_flight.erase(req_it);
+      free_requests_.insert(req_it->first);
+      requests_in_flight_.erase(req_it);
     }
 
     while (requests.size() > 0) {
@@ -266,7 +269,7 @@ class std_comms : public comms_iface {
         bool restart = false;  // resets the timeout when any progress was made
 
         // Causes UCP to progress through the send/recv message queue
-        while (_ucp_handler.ucp_progress(_ucp_worker) != 0) {
+        while (ucp_handler_.ucp_progress(ucp_worker_) != 0) {
           restart = true;
         }
 
@@ -291,7 +294,7 @@ class std_comms : public comms_iface {
           restart = true;
 
           // perform cleanup
-          _ucp_handler.free_ucp_request(req);
+          ucp_handler_.free_ucp_request(req);
 
           // remove from pending requests
           it = requests.erase(it);
@@ -306,50 +309,50 @@ class std_comms : public comms_iface {
     }
   }
 
-  void allreduce(const void *sendbuff, void *recvbuff, int count,
+  void allreduce(const void *sendbuff, void *recvbuff, size_t count,
                  datatype_t datatype, op_t op, cudaStream_t stream) const {
     NCCL_CHECK(ncclAllReduce(sendbuff, recvbuff, count,
                              getNCCLDatatype(datatype), getNCCLOp(op),
-                             _nccl_comm, stream));
+                             nccl_comm_, stream));
   }
 
-  void bcast(void *buff, int count, datatype_t datatype, int root,
+  void bcast(void *buff, size_t count, datatype_t datatype, int root,
              cudaStream_t stream) const {
     NCCL_CHECK(ncclBroadcast(buff, buff, count, getNCCLDatatype(datatype), root,
-                             _nccl_comm, stream));
+                             nccl_comm_, stream));
   }
 
-  void reduce(const void *sendbuff, void *recvbuff, int count,
+  void reduce(const void *sendbuff, void *recvbuff, size_t count,
               datatype_t datatype, op_t op, int root,
               cudaStream_t stream) const {
     NCCL_CHECK(ncclReduce(sendbuff, recvbuff, count, getNCCLDatatype(datatype),
-                          getNCCLOp(op), root, _nccl_comm, stream));
+                          getNCCLOp(op), root, nccl_comm_, stream));
   }
 
-  void allgather(const void *sendbuff, void *recvbuff, int sendcount,
+  void allgather(const void *sendbuff, void *recvbuff, size_t sendcount,
                  datatype_t datatype, cudaStream_t stream) const {
     NCCL_CHECK(ncclAllGather(sendbuff, recvbuff, sendcount,
-                             getNCCLDatatype(datatype), _nccl_comm, stream));
+                             getNCCLDatatype(datatype), nccl_comm_, stream));
   }
 
-  void allgatherv(const void *sendbuf, void *recvbuf, const int recvcounts[],
+  void allgatherv(const void *sendbuf, void *recvbuf, const size_t recvcounts[],
                   const int displs[], datatype_t datatype,
                   cudaStream_t stream) const {
     //From: "An Empirical Evaluation of Allgatherv on Multi-GPU Systems" - https://arxiv.org/pdf/1812.05964.pdf
     //Listing 1 on page 4.
-    for (int root = 0; root < _size; ++root) {
+    for (int root = 0; root < num_ranks_; ++root) {
       size_t dtype_size = getDatatypeSize(datatype);
       NCCL_CHECK(ncclBroadcast(
         sendbuf, static_cast<char *>(recvbuf) + displs[root] * dtype_size,
-        recvcounts[root], getNCCLDatatype(datatype), root, _nccl_comm, stream));
+        recvcounts[root], getNCCLDatatype(datatype), root, nccl_comm_, stream));
     }
   }
 
-  void reducescatter(const void *sendbuff, void *recvbuff, int recvcount,
+  void reducescatter(const void *sendbuff, void *recvbuff, size_t recvcount,
                      datatype_t datatype, op_t op, cudaStream_t stream) const {
     NCCL_CHECK(ncclReduceScatter(sendbuff, recvbuff, recvcount,
                                  getNCCLDatatype(datatype), getNCCLOp(op),
-                                 _nccl_comm, stream));
+                                 nccl_comm_, stream));
   }
 
   status_t syncStream(cudaStream_t stream) const {
@@ -360,11 +363,11 @@ class std_comms : public comms_iface {
       if (cudaErr == cudaSuccess) return status_t::commStatusSuccess;
 
       if (cudaErr != cudaErrorNotReady) {
-        // An error occurred querying the status of the stream
+        // An error occurred querying the status of the stream_
         return status_t::commStatusError;
       }
 
-      ncclErr = ncclCommGetAsyncError(_nccl_comm, &ncclAsyncErr);
+      ncclErr = ncclCommGetAsyncError(nccl_comm_, &ncclAsyncErr);
       if (ncclErr != ncclSuccess) {
         // An error occurred retrieving the asynchronous error
         return status_t::commStatusError;
@@ -373,7 +376,7 @@ class std_comms : public comms_iface {
       if (ncclAsyncErr != ncclSuccess) {
         // An asynchronous error happened. Stop the operation and destroy
         // the communicator
-        ncclErr = ncclCommAbort(_nccl_comm);
+        ncclErr = ncclCommAbort(nccl_comm_);
         if (ncclErr != ncclSuccess)
           // Caller may abort with an exception or try to re-create a new communicator.
           return status_t::commStatusAbort;
@@ -385,22 +388,23 @@ class std_comms : public comms_iface {
   }
 
  private:
-  ncclComm_t _nccl_comm;
-  cudaStream_t _stream;
+  ncclComm_t nccl_comm_;
+  cudaStream_t stream_;
 
-  int *_sendbuff, *_recvbuff;
+  int *sendbuff_, *recvbuff_;
 
-  int _size;
-  int _rank;
+  int num_ranks_;
+  int rank_;
 
-  bool p2p_enabled = false;
-  comms_ucp_handler _ucp_handler;
-  ucp_worker_h _ucp_worker;
-  std::shared_ptr<ucp_ep_h *> _ucp_eps;
-  mutable request_t _next_request_id;
+  comms_ucp_handler ucp_handler_;
+  ucp_worker_h ucp_worker_;
+  std::shared_ptr<ucp_ep_h *> ucp_eps_;
+  mutable request_t next_request_id_;
   mutable std::unordered_map<request_t, struct ucp_request *>
-    _requests_in_flight;
-  mutable std::unordered_set<request_t> _free_requests;
+    requests_in_flight_;
+  mutable std::unordered_set<request_t> free_requests_;
+
+  std::shared_ptr<mr::device::allocator> device_allocator_;
 };
 }  // end namespace comms
 }  // end namespace raft

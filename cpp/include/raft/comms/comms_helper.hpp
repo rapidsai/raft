@@ -24,35 +24,46 @@
 namespace raft {
 namespace comms {
 
+/**
+ * Function to construct comms_t and inject it on a handle_t. This
+ * is used for convenience in the Python layer.
+ */
 void build_comms_nccl_only(handle_t *handle, ncclComm_t comm, int size,
                            int rank) {
-  auto *raft_comm = new raft::comms::std_comms(comm, size, rank);
+
+  auto d_alloc = handle->get_device_allocator();
+  auto *raft_comm = new raft::comms::std_comms(comm, size, rank, d_alloc);
   auto communicator =
     std::make_shared<comms_t>(std::unique_ptr<comms_iface>(raft_comm));
   handle->set_comms(communicator);
 }
 
+/**
+ * Function to construct comms_t and inject it on a handle_t. This
+ * is used for convenience in the Python layer.
+ */
 void build_comms_nccl_ucx(handle_t *handle, ncclComm_t comm, void *ucp_worker,
                           void *eps, int size, int rank) {
-  std::shared_ptr<ucp_ep_h *> eps_sp =
+  auto eps_sp =
     std::make_shared<ucp_ep_h *>(new ucp_ep_h[size]);
 
-  size_t *size_t_ep_arr = (size_t *)eps;
+  auto size_t_ep_arr = reinterpret_cast<size_t*>(eps);
 
   for (int i = 0; i < size; i++) {
     size_t ptr = size_t_ep_arr[i];
-    ucp_ep_h *ucp_ep_v = (ucp_ep_h *)*eps_sp;
+    auto ucp_ep_v = reinterpret_cast<ucp_ep_h *>(*eps_sp);
 
     if (ptr != 0) {
-      ucp_ep_h eps_ptr = (ucp_ep_h)size_t_ep_arr[i];
+      auto eps_ptr = reinterpret_cast<ucp_ep_h>(size_t_ep_arr[i]);
       ucp_ep_v[i] = eps_ptr;
     } else {
       ucp_ep_v[i] = nullptr;
     }
   }
 
+  auto d_alloc = handle->get_device_allocator();
   auto *raft_comm = new raft::comms::std_comms(comm, (ucp_worker_h)ucp_worker,
-                                               eps_sp, size, rank);
+                                               eps_sp, size, rank, d_alloc);
   auto communicator =
     std::make_shared<comms_t>(std::unique_ptr<comms_iface>(raft_comm));
   handle->set_comms(communicator);
@@ -69,7 +80,7 @@ bool test_collective_allreduce(const handle_t &handle) {
   temp_d.resize(1, stream);
   CUDA_CHECK(cudaMemcpyAsync(temp_d.data(), &send, sizeof(int),
                              cudaMemcpyHostToDevice, stream));
-  communicator.allreduce(temp_d.data(), temp_d.data(), 1, datatype_t::INT, SUM,
+  communicator.allreduce(temp_d.data(), temp_d.data(), 1, datatype_t::INT32, op_t::SUM,
                          stream);
   int temp_h = 0;
   CUDA_CHECK(cudaMemcpyAsync(&temp_h, temp_d.data(), sizeof(int),
