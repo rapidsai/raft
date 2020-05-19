@@ -52,7 +52,6 @@ class comms_iface {
   virtual int getRank() const = 0;
 
   virtual std::unique_ptr<comms_iface> commSplit(int color, int key) const = 0;
-
   virtual void barrier() const = 0;
 
   virtual status_t syncStream(cudaStream_t stream) const = 0;
@@ -97,125 +96,180 @@ class comms_t {
   template <typename value_t>
   datatype_t get_type() const;
 
+  /**
+   * Returns the size of the communicator clique
+   */
+
   int getSize() const { return impl_->getSize(); }
 
+
+  /**
+   * Returns the local rank
+   */
   int getRank() const { return impl_->getRank(); }
 
+  /**
+   * Splits the current communicator clique into sub-cliques matching
+   * the given color and key
+   *
+   * @param color ranks w/ the same color are placed in the same communicator
+   * @param key controls rank assignment
+   */
   std::unique_ptr<comms_iface> commSplit(int color, int key) const {
     return impl_->commSplit(color, key);
   }
 
+  /**
+   * Performs a collective barrier synchronization
+   */
   void barrier() const { impl_->barrier(); }
 
+  /**
+   * Some collective communications implementations (eg. NCCL) might use asynchronous
+   * collectives that are explicitly synchronized. It's important to always synchronize
+   * using this method to allow failures to propagate, rather than `cudaStreamSynchronize()`,
+   * to prevent the potential for deadlocks.
+   *
+   * @param stream the cuda stream to sync collective operations on
+   */
   status_t syncStream(cudaStream_t stream) const {
     return impl_->syncStream(stream);
   }
 
-  void isend(const void* buf, size_t size, int dest, int tag,
-               request_t* request) const {
-	  impl_->isend(buf, size, dest, tag, request);
-  }
-
+  /**
+   * Performs an asynchronous point-to-point send
+   * @tparam value_t the type of data to send
+   * @param buf pointer to array of data to send
+   * @param size number of elements in buf
+   * @param dest destination rank
+   * @param tag a tag to use for the receiver to filter
+   * @param request pointer to hold returned request_t object.
+   * 		This will be used in `waitall()` to synchronize until the message is delivered (or fails).
+   */
   template<typename value_t>
   void isend(const value_t* buf, size_t size, int dest, int tag,
              request_t* request) const {
-    isend(static_cast<const void*>(buf), size * sizeof(value_t), dest, tag, request);
+    impl_->isend(static_cast<const void*>(buf), size * sizeof(value_t), dest, tag, request);
   }
 
-  void irecv(void* buf, size_t size, int source, int tag,
-               request_t* request) const {
-	impl_->irecv(buf, size, source, tag, request);
-  }
-
+  /**
+   * Performs an asynchronous point-to-point receive
+   * @tparam value_t the type of data to be received
+   * @param buf pointer to (initialized) array that will hold received data
+   * @param size number of elements in buf
+   * @param source source rank
+   * @param tag a tag to use for message filtering
+   * @param request pointer to hold returned request_t object.
+   * 		This will be used in `waitall()` to synchronize until the message is delivered (or fails).
+   */
   template<typename value_t>
   void irecv(value_t* buf, size_t size, int source, int tag,
              request_t* request) const {
-    irecv(static_cast<void*>(buf), size * sizeof(value_t), source, tag, request);
+    impl_->irecv(static_cast<void*>(buf), size * sizeof(value_t), source, tag, request);
   }
 
+  /**
+   * Synchronize on an array of request_t objects returned from isend/irecv
+   * @param count number of requests to synchronize on
+   * @param array_of_requests an array of request_t objects returned from isend/irecv
+   */
   void waitall(int count, request_t array_of_requests[]) const {
 	  impl_->waitall(count, array_of_requests);
   }
 
-  void allreduce(const void* sendbuff, void* recvbuff, size_t count,
-                   datatype_t datatype, op_t op, cudaStream_t stream) const {
-
-	impl_->allreduce(sendbuff, recvbuff, count, datatype, op, stream);
-  }
-
+  /**
+   * Perform an allreduce collective
+   * @tparam value_t datatype of underlying buffers
+   * @param sendbuff data to reduce
+   * @param recvbuff buffer to hold the reduced result
+   * @param count number of elements in sendbuff
+   * @param op reduction operation to perform
+   * @param stream CUDA stream to synchronize operation
+   */
   template<typename value_t>
   void allreduce(const value_t* sendbuff, value_t* recvbuff, size_t count,
                  op_t op, cudaStream_t stream) const {
-    allreduce(static_cast<const void*>(sendbuff), static_cast<void*>(recvbuff)
-    		, sizeof(value_t)*count, get_type<value_t>(), op, stream);
+    impl_->allreduce(static_cast<const void*>(sendbuff), static_cast<void*>(recvbuff)
+    		, count, get_type<value_t>(), op, stream);
   }
 
-  void bcast(void* buff, size_t count, datatype_t datatype, int root,
-               cudaStream_t stream) const {
-
-	impl_->bcast(buff, count, datatype , root, stream);
-  }
-
+  /**
+   * Broadcast data from one rank to the rest
+   * @tparam value_t datatype of underlying buffers
+   * @param buff buffer to send
+   * @param count number of elements if buff
+   * @param root the rank initiating the broadcast
+   * @param stream CUDA stream to synchronize operation
+   */
   template<typename value_t>
   void bcast(value_t* buff, size_t count, int root,
              cudaStream_t stream) const {
-    bcast(static_cast<void*>(buff), count, get_type<value_t>() , root, stream);
+    impl_->bcast(static_cast<void*>(buff), count, get_type<value_t>(), root, stream);
   }
 
-  void reduce(const void* sendbuff, void* recvbuff, size_t count,
-                datatype_t datatype, op_t op, int root,
-                cudaStream_t stream) const {
-
-	impl_->reduce(sendbuff, recvbuff, count, datatype, op, root, stream);
-  }
-
+  /**
+   * Reduce data from many ranks down to a single rank
+   * @tparam value_t datatype of underlying buffers
+   * @param sendbuff buffer containing data to reduce
+   * @param recvbuff buffer containing reduced data (only needs to be initialized on root)
+   * @param count number of elements in sendbuff
+   * @param op reduction operation to perform
+   * @param root rank to store the results
+   * @param stream CUDA stream to synchronize operation
+   */
   template<typename value_t>
   void reduce(const value_t* sendbuff, value_t* recvbuff, size_t count,
               op_t op, int root,
               cudaStream_t stream) const {
-    reduce(static_cast<const void*>(sendbuff), static_cast<void*>(recvbuff),
+    impl_->reduce(static_cast<const void*>(sendbuff), static_cast<void*>(recvbuff),
     		count, get_type<value_t>(), op, root, stream);
   }
 
-  void allgather(const void* sendbuff, void* recvbuff, size_t sendcount,
-                   datatype_t datatype, cudaStream_t stream) const {
-
-	impl_->allgather(sendbuff, recvbuff,
-			sendcount, datatype, stream);
-  }
-
+  /**
+   * Gathers data from each rank onto all ranks
+   * @tparam value_t datatype of underlying buffers
+   * @param sendbuff buffer containing data to gather
+   * @param recvbuff buffer containing gathered data from all ranks
+   * @param sendcount number of elements in send buffer
+   * @param stream CUDA stream to synchronize operation
+   */
   template<typename value_t>
   void allgather(const value_t* sendbuff, value_t* recvbuff, size_t sendcount,
                  cudaStream_t stream) const {
-    allgather(static_cast<const void*>(sendbuff), static_cast<void*>(recvbuff),
+    impl_->allgather(static_cast<const void*>(sendbuff), static_cast<void*>(recvbuff),
     		sendcount, get_type<value_t>(), stream);
   }
 
-  void allgatherv(const void* sendbuf, void* recvbuf, const size_t recvcounts[],
-                    const int displs[], datatype_t datatype,
-                    cudaStream_t stream) const {
-
-	impl_->allgatherv(sendbuf, recvbuf, recvcounts, displs, datatype, stream);
-  }
-
+  /**
+   * Gathers data from all ranks and delivers to combined data to all ranks
+   * @param value_t datatype of underlying buffers
+   * @param sendbuff buffer containing data to send
+   * @param recvbuff buffer containing data to receive
+   * @param recvcounts array (of length num_ranks size) containing the number of elements
+   * 		that are to be received from each rank
+   * @param displs array (of length num_ranks size) to specify the displacement (relative to recvbuf)
+   * 		at which to place the incoming data from each rank
+   * @param stream CUDA stream to synchronize operation
+   */
   template<typename value_t>
   void allgatherv(const value_t* sendbuf, value_t* recvbuf, const size_t recvcounts[],
                   const int displs[],
                   cudaStream_t stream) const {
-    allgatherv(static_cast<const void*>(sendbuf), static_cast<void*>(recvbuf), recvcounts, displs, get_type<value_t>(), stream);
+    impl_->allgatherv(static_cast<const void*>(sendbuf), static_cast<void*>(recvbuf), recvcounts, displs, get_type<value_t>(), stream);
   }
 
-  void reducescatter(const void* sendbuff, void* recvbuff, size_t recvcount,
-                       datatype_t datatype, op_t op, cudaStream_t stream) const {
-
-	    impl_->reducescatter(sendbuff, recvbuff,
-	    		recvcount, datatype , op, stream);
-  }
-
+  /**
+   * Reduces data from all ranks then scatters the result across ranks
+   * @tparam value_t datatype of underlying buffers
+   * @param sendbuff buffer containing data to send (size recvcount * num_ranks)
+   * @param recvbuff buffer containing received data
+   * @param op reduction operation to perform
+   * @param stream CUDA stream to synchronize operation
+   */
   template<typename value_t>
   void reducescatter(const value_t* sendbuff, value_t* recvbuff, size_t recvcount,
                      op_t op, cudaStream_t stream) const {
-    reducescatter(static_cast<const void*>(sendbuff), static_cast<void*>(recvbuff),
+    impl_->reducescatter(static_cast<const void*>(sendbuff), static_cast<void*>(recvbuff),
     		recvcount, get_type<value_t>() , op, stream);
   }
 

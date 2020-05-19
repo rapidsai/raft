@@ -92,6 +92,7 @@ ncclDataType_t get_nccl_datatype(const datatype_t datatype) {
     case datatype_t::UINT8:
       return ncclUint8;
     case datatype_t::INT32:
+      std::cout << "Returning int32" << std::endl;
       return ncclInt;
     case datatype_t::UINT32:
       return ncclUint32;

@@ -20,4 +20,7 @@ from raft.dask.common.comms_utils import inject_comms_on_handle
 from raft.dask.common.comms_utils import inject_comms_on_handle_coll_only
 from raft.dask.common.comms_utils import perform_test_comms_allreduce
 from raft.dask.common.comms_utils import perform_test_comms_send_recv
-
+from raft.dask.common.comms_utils import perform_test_comms_allgather
+from raft.dask.common.comms_utils import perform_test_comms_bcast
+from raft.dask.common.comms_utils import perform_test_comms_reduce
+from raft.dask.common.comms_utils import perform_test_comms_reducescatter

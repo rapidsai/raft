@@ -55,12 +55,16 @@ cdef extern from "raft/comms/comms_helper.hpp" namespace "raft::comms":
                                int size,
                                int rank) except +
 
-    bool test_collective_allreduce(const handle_t &h) except +
+    bool test_collective_allreduce(const handle_t &h, int root) except +
+    bool test_collective_broadcast(const handle_t &h, int root) except +
+    bool test_collective_reduce(const handle_t &h, int root) except +
+    bool test_collective_allgather(const handle_t &h, int root) except +
+    bool test_collective_reducescatter(const handle_t &h, int root) except +
     bool test_pointToPoint_simple_send_recv(const handle_t &h,
                                             int numTrials) except +
 
 
-def perform_test_comms_allreduce(handle):
+def perform_test_comms_allreduce(handle, root):
     """
     Performs an allreduce on the current worker
 
@@ -70,7 +74,59 @@ def perform_test_comms_allreduce(handle):
              handle containing comms_t to use
     """
     cdef const handle_t* h = <handle_t*><size_t>handle.getHandle()
-    return test_collective_allreduce(deref(h))
+    return test_collective_allreduce(deref(h), root)
+
+
+def perform_test_comms_reduce(handle, root):
+    """
+    Performs an allreduce on the current worker
+
+    Parameters
+    ----------
+    handle : raft.common.Handle
+             handle containing comms_t to use
+    """
+    cdef const handle_t* h = <handle_t*><size_t>handle.getHandle()
+    return test_collective_reduce(deref(h), root)
+
+
+def perform_test_comms_reducescatter(handle, root):
+    """
+    Performs an allreduce on the current worker
+
+    Parameters
+    ----------
+    handle : raft.common.Handle
+             handle containing comms_t to use
+    """
+    cdef const handle_t* h = <handle_t*><size_t>handle.getHandle()
+    return test_collective_reducescatter(deref(h), root)
+
+
+def perform_test_comms_bcast(handle, root):
+    """
+    Performs an broadcast on the current worker
+
+    Parameters
+    ----------
+    handle : raft.common.Handle
+             handle containing comms_t to use
+    """
+    cdef const handle_t* h = <handle_t*><size_t>handle.getHandle()
+    return test_collective_broadcast(deref(h), root)
+
+
+def perform_test_comms_allgather(handle, root):
+    """
+    Performs an broadcast on the current worker
+
+    Parameters
+    ----------
+    handle : raft.common.Handle
+             handle containing comms_t to use
+    """
+    cdef const handle_t* h = <handle_t*><size_t>handle.getHandle()
+    return test_collective_allgather(deref(h), root)
 
 
 def perform_test_comms_send_recv(handle, n_trials):

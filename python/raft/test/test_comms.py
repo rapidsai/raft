@@ -22,6 +22,10 @@ from raft.dask.common import Comms
 from raft.dask.common import local_handle
 from raft.dask.common import perform_test_comms_send_recv
 from raft.dask.common import perform_test_comms_allreduce
+from raft.dask.common import perform_test_comms_bcast
+from raft.dask.common import perform_test_comms_reduce
+from raft.dask.common import perform_test_comms_allgather
+from raft.dask.common import perform_test_comms_reducescatter
 
 pytestmark = pytest.mark.mg
 
@@ -43,9 +47,9 @@ def test_comms_init_no_p2p(cluster):
         client.close()
 
 
-def func_test_allreduce(sessionId):
+def func_test_collective(func, sessionId, root):
     handle = local_handle(sessionId)
-    return perform_test_comms_allreduce(handle)
+    return func(handle, root)
 
 
 def func_test_send_recv(sessionId, n_trials):
@@ -79,7 +83,12 @@ def test_handles(cluster):
 
 
 @pytest.mark.nccl
-def test_allreduce(cluster):
+@pytest.mark.parametrize("func", [perform_test_comms_allgather,
+                                  perform_test_comms_allreduce,
+                                  perform_test_comms_bcast,
+                                  perform_test_comms_reduce,
+                                  perform_test_comms_reducescatter])
+def test_collectives(cluster, func):
 
     client = Client(cluster)
 
@@ -87,12 +96,16 @@ def test_allreduce(cluster):
         cb = Comms()
         cb.init()
 
-        dfs = [client.submit(func_test_allreduce,
-                             cb.sessionId,
-                             pure=False,
-                             workers=[w])
-               for w in cb.worker_addresses]
-        wait(dfs, timeout=5)
+        for k, v in cb.worker_info(cb.worker_addresses).items():
+
+            dfs = [client.submit(func_test_collective,
+                                 perform_test_comms_allreduce,
+                                 cb.sessionId,
+                                 v["rank"],
+                                 pure=False,
+                                 workers=[w])
+                   for w in cb.worker_addresses]
+            wait(dfs, timeout=5)
 
         assert all([x.result() for x in dfs])
 
