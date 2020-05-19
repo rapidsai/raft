@@ -21,7 +21,7 @@
 
 
 from libcpp.memory cimport shared_ptr
-cimport raft.common.cuda
+from .cuda cimport _Stream
 
 
 cdef extern from "raft/mr/device/allocator.hpp" \
@@ -33,7 +33,7 @@ cdef extern from "raft/handle.hpp" namespace "raft" nogil:
     cdef cppclass handle_t:
         handle_t() except +
         handle_t(int ns) except +
-        void set_stream(raft.common.cuda._Stream s) except +
+        void set_stream(_Stream s) except +
         void set_device_allocator(shared_ptr[allocator] a) except +
-        raft.common.cuda._Stream get_stream() except +
+        _Stream get_stream() except +
         int get_num_internal_streams() except +

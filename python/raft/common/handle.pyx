@@ -19,9 +19,11 @@
 # cython: embedsignature = True
 # cython: language_level = 3
 
-import raft
+# import raft
 from libcpp.memory cimport shared_ptr
-from raft.common.cuda cimport _Stream, _Error, cudaStreamSynchronize
+
+from .cuda cimport _Stream, _Error, cudaStreamSynchronize
+from .cuda import CudaRuntimeError
 
 cdef class Handle:
     """
@@ -81,7 +83,7 @@ cdef class Handle:
         cdef _Stream stream = h_.get_stream()
         cdef _Error e = cudaStreamSynchronize(stream)
         if e != 0:
-            raise raft.cuda.CudaRuntimeError("Stream sync")
+            raise CudaRuntimeError("Stream sync")
 
     def getHandle(self):
         return self.h
