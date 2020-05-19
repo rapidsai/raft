@@ -33,10 +33,11 @@ namespace comms {
  * @param num_ranks number of ranks in communicator clique
  * @param rank rank of local instance
  */
-void build_comms_nccl_only(handle_t *handle, ncclComm_t nccl_comm, int num_ranks,
-                           int rank) {
+void build_comms_nccl_only(handle_t *handle, ncclComm_t nccl_comm,
+                           int num_ranks, int rank) {
   auto d_alloc = handle->get_device_allocator();
-  raft::comms::comms_iface *raft_comm = new raft::comms::std_comms(nccl_comm, num_ranks, rank, d_alloc);
+  raft::comms::comms_iface *raft_comm =
+    new raft::comms::std_comms(nccl_comm, num_ranks, rank, d_alloc);
   std::cout << "Comms: " << raft_comm->getSize() << std::endl;
 
   auto communicator =
@@ -59,8 +60,9 @@ void build_comms_nccl_only(handle_t *handle, ncclComm_t nccl_comm, int num_ranks
  * @param num_ranks number of ranks in communicator clique
  * @param rank rank of local instance
  */
-void build_comms_nccl_ucx(handle_t *handle, ncclComm_t nccl_comm, void *ucp_worker,
-                          void *eps, int num_ranks, int rank) {
+void build_comms_nccl_ucx(handle_t *handle, ncclComm_t nccl_comm,
+                          void *ucp_worker, void *eps, int num_ranks,
+                          int rank) {
   auto eps_sp = std::make_shared<ucp_ep_h *>(new ucp_ep_h[num_ranks]);
 
   auto size_t_ep_arr = reinterpret_cast<size_t *>(eps);
@@ -78,8 +80,8 @@ void build_comms_nccl_ucx(handle_t *handle, ncclComm_t nccl_comm, void *ucp_work
   }
 
   auto d_alloc = handle->get_device_allocator();
-  auto *raft_comm = new raft::comms::std_comms(nccl_comm, (ucp_worker_h)ucp_worker,
-                                               eps_sp, num_ranks, rank, d_alloc);
+  auto *raft_comm = new raft::comms::std_comms(
+    nccl_comm, (ucp_worker_h)ucp_worker, eps_sp, num_ranks, rank, d_alloc);
   auto communicator =
     std::make_shared<comms_t>(std::unique_ptr<comms_iface>(raft_comm));
   handle->set_comms(communicator);
@@ -100,13 +102,12 @@ bool test_collective_allreduce(const handle_t &handle, int root) {
 
   raft::mr::device::buffer<int> temp_d(handle.get_device_allocator(), stream);
   temp_d.resize(1, stream);
-  CUDA_CHECK(cudaMemcpyAsync(temp_d.data(), &send, 1,
-                             cudaMemcpyHostToDevice, stream));
-  communicator.allreduce(temp_d.data(), temp_d.data(), 1,
-                         	  op_t::SUM, stream);
+  CUDA_CHECK(
+    cudaMemcpyAsync(temp_d.data(), &send, 1, cudaMemcpyHostToDevice, stream));
+  communicator.allreduce(temp_d.data(), temp_d.data(), 1, op_t::SUM, stream);
   int temp_h = 0;
-  CUDA_CHECK(cudaMemcpyAsync(&temp_h, temp_d.data(), 1,
-                             cudaMemcpyDeviceToHost, stream));
+  CUDA_CHECK(
+    cudaMemcpyAsync(&temp_h, temp_d.data(), 1, cudaMemcpyDeviceToHost, stream));
   CUDA_CHECK(cudaStreamSynchronize(stream));
   communicator.barrier();
 
@@ -115,7 +116,6 @@ bool test_collective_allreduce(const handle_t &handle, int root) {
 
   return temp_h == communicator.getSize();
 }
-
 
 /**
  * A simple sanity check that NCCL is able to perform a collective operation
@@ -133,13 +133,13 @@ bool test_collective_broadcast(const handle_t &handle, int root) {
   raft::mr::device::buffer<int> temp_d(handle.get_device_allocator(), stream);
   temp_d.resize(1, stream);
 
-  if(communicator.getRank() == root)
-	  CUDA_CHECK(cudaMemcpyAsync(temp_d.data(), &send, sizeof(int),
-								 cudaMemcpyHostToDevice, stream));
+  if (communicator.getRank() == root)
+    CUDA_CHECK(cudaMemcpyAsync(temp_d.data(), &send, sizeof(int),
+                               cudaMemcpyHostToDevice, stream));
 
   communicator.bcast(temp_d.data(), 1, root, stream);
   communicator.syncStream(stream);
-  int temp_h = -1; // Verify more than one byte is being sent
+  int temp_h = -1;  // Verify more than one byte is being sent
   CUDA_CHECK(cudaMemcpyAsync(&temp_h, temp_d.data(), sizeof(int),
                              cudaMemcpyDeviceToHost, stream));
   CUDA_CHECK(cudaStreamSynchronize(stream));
@@ -162,11 +162,11 @@ bool test_collective_reduce(const handle_t &handle, int root) {
   temp_d.resize(1, stream);
 
   CUDA_CHECK(cudaMemcpyAsync(temp_d.data(), &send, sizeof(int),
-							 cudaMemcpyHostToDevice, stream));
+                             cudaMemcpyHostToDevice, stream));
 
   communicator.reduce(temp_d.data(), temp_d.data(), 1, op_t::SUM, root, stream);
   communicator.syncStream(stream);
-  int temp_h = -1; // Verify more than one byte is being sent
+  int temp_h = -1;  // Verify more than one byte is being sent
   CUDA_CHECK(cudaMemcpyAsync(&temp_h, temp_d.data(), sizeof(int),
                              cudaMemcpyDeviceToHost, stream));
   CUDA_CHECK(cudaStreamSynchronize(stream));
@@ -175,12 +175,11 @@ bool test_collective_reduce(const handle_t &handle, int root) {
   std::cout << "Clique size: " << communicator.getSize() << std::endl;
   std::cout << "final_size: " << temp_h << std::endl;
 
-  if(communicator.getRank() == root)
-	  return temp_h == root * communicator.getSize();
+  if (communicator.getRank() == root)
+    return temp_h == root * communicator.getSize();
   else
-	  return true;
+    return true;
 }
-
 
 bool test_collective_allgather(const handle_t &handle, int root) {
   const comms_t &communicator = handle.get_comms();
@@ -192,15 +191,18 @@ bool test_collective_allgather(const handle_t &handle, int root) {
   raft::mr::device::buffer<int> temp_d(handle.get_device_allocator(), stream);
   temp_d.resize(1, stream);
 
-  raft::mr::device::buffer<int> recv_d(handle.get_device_allocator(), stream, communicator.getSize());
+  raft::mr::device::buffer<int> recv_d(handle.get_device_allocator(), stream,
+                                       communicator.getSize());
 
   CUDA_CHECK(cudaMemcpyAsync(temp_d.data(), &send, sizeof(int),
-							 cudaMemcpyHostToDevice, stream));
+                             cudaMemcpyHostToDevice, stream));
 
   communicator.allgather(temp_d.data(), recv_d.data(), 1, stream);
   communicator.syncStream(stream);
-  int temp_h[communicator.getSize()]; // Verify more than one byte is being sent
-  CUDA_CHECK(cudaMemcpyAsync(&temp_h, temp_d.data(), sizeof(int)*communicator.getSize(),
+  int
+    temp_h[communicator.getSize()];  // Verify more than one byte is being sent
+  CUDA_CHECK(cudaMemcpyAsync(&temp_h, temp_d.data(),
+                             sizeof(int) * communicator.getSize(),
                              cudaMemcpyDeviceToHost, stream));
   CUDA_CHECK(cudaStreamSynchronize(stream));
   communicator.barrier();
@@ -208,9 +210,8 @@ bool test_collective_allgather(const handle_t &handle, int root) {
   std::cout << "Clique size: " << communicator.getSize() << std::endl;
   std::cout << "final_size: " << temp_h << std::endl;
 
-  for(int i = 0; i < communicator.getSize(); i++)
-	  if(temp_h[i] != i)
-		  return false;
+  for (int i = 0; i < communicator.getSize(); i++)
+    if (temp_h[i] != i) return false;
   return true;
 }
 
@@ -221,15 +222,18 @@ bool test_collective_reducescatter(const handle_t &handle, int root) {
 
   cudaStream_t stream = handle.get_stream();
 
-  raft::mr::device::buffer<int> temp_d(handle.get_device_allocator(), stream, 1);
-  raft::mr::device::buffer<int> recv_d(handle.get_device_allocator(), stream, 1);
+  raft::mr::device::buffer<int> temp_d(handle.get_device_allocator(), stream,
+                                       1);
+  raft::mr::device::buffer<int> recv_d(handle.get_device_allocator(), stream,
+                                       1);
 
   CUDA_CHECK(cudaMemcpyAsync(temp_d.data(), &send, sizeof(int),
-							 cudaMemcpyHostToDevice, stream));
+                             cudaMemcpyHostToDevice, stream));
 
-  communicator.reducescatter(temp_d.data(), recv_d.data(), 1, op_t::SUM, stream);
+  communicator.reducescatter(temp_d.data(), recv_d.data(), 1, op_t::SUM,
+                             stream);
   communicator.syncStream(stream);
-  int temp_h = -1; // Verify more than one byte is being sent
+  int temp_h = -1;  // Verify more than one byte is being sent
   CUDA_CHECK(cudaMemcpyAsync(&temp_h, temp_d.data(), sizeof(int),
                              cudaMemcpyDeviceToHost, stream));
   CUDA_CHECK(cudaStreamSynchronize(stream));
@@ -240,7 +244,6 @@ bool test_collective_reducescatter(const handle_t &handle, int root) {
 
   return temp_h = communicator.getSize();
 }
-
 
 /**
  * A simple sanity check that UCX is able to send messages between all ranks
@@ -263,16 +266,15 @@ bool test_pointToPoint_simple_send_recv(const handle_t &h, int numTrials) {
     //post receives
     for (int r = 0; r < communicator.getSize(); ++r) {
       if (r != rank) {
-        communicator.irecv(received_data.data() + request_idx, 1, r,
-                           0, requests.data() + request_idx);
+        communicator.irecv(received_data.data() + request_idx, 1, r, 0,
+                           requests.data() + request_idx);
         ++request_idx;
       }
     }
 
     for (int r = 0; r < communicator.getSize(); ++r) {
       if (r != rank) {
-        communicator.isend(&rank, 1, r, 0,
-                           requests.data() + request_idx);
+        communicator.isend(&rank, 1, r, 0, requests.data() + request_idx);
         ++request_idx;
       }
     }
