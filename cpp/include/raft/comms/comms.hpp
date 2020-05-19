@@ -22,7 +22,16 @@ namespace raft {
 namespace comms {
 
 typedef unsigned int request_t;
-enum class datatype_t { CHAR, UINT8, INT32, UINT32, INT64, UINT64, FLOAT32, FLOAT64 };
+enum class datatype_t {
+  CHAR,
+  UINT8,
+  INT32,
+  UINT32,
+  INT64,
+  UINT64,
+  FLOAT32,
+  FLOAT64
+};
 enum class op_t { SUM, PROD, MIN, MAX };
 
 /**
@@ -74,7 +83,7 @@ class comms_iface {
                           datatype_t datatype, cudaStream_t stream) const = 0;
 
   virtual void reducescatter(const void* sendbuff, void* recvbuff,
-		  size_t recvcount, datatype_t datatype, op_t op,
+                             size_t recvcount, datatype_t datatype, op_t op,
                              cudaStream_t stream) const = 0;
 };
 

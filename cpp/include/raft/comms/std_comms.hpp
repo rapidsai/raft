@@ -64,7 +64,6 @@
 namespace raft {
 namespace comms {
 
-
 constexpr size_t get_datatype_size(const datatype_t datatype) {
   switch (datatype) {
     case datatype_t::CHAR:
@@ -152,9 +151,11 @@ class std_comms : public comms_iface {
    * @param rank rank of the current worker
    */
   std_comms(const ncclComm_t nccl_comm, int num_ranks, int rank,
-		  const std::shared_ptr<mr::device::allocator> device_allocator)
-    : nccl_comm_(nccl_comm), num_ranks_(num_ranks), rank_(rank),
-      device_allocator_(device_allocator){
+            const std::shared_ptr<mr::device::allocator> device_allocator)
+    : nccl_comm_(nccl_comm),
+      num_ranks_(num_ranks),
+      rank_(rank),
+      device_allocator_(device_allocator) {
     initialize();
   };
 
@@ -168,8 +169,10 @@ class std_comms : public comms_iface {
   void initialize() {
     CUDA_CHECK(cudaStreamCreate(&stream_));
 
-    sendbuff_ = reinterpret_cast<int*>(device_allocator_->allocate(sizeof(int), stream_));
-    recvbuff_ = reinterpret_cast<int*>(device_allocator_->allocate(sizeof(int), stream_));
+    sendbuff_ = reinterpret_cast<int *>(
+      device_allocator_->allocate(sizeof(int), stream_));
+    recvbuff_ = reinterpret_cast<int *>(
+      device_allocator_->allocate(sizeof(int), stream_));
   }
 
   int getSize() const { return num_ranks_; }
@@ -319,15 +322,16 @@ class std_comms : public comms_iface {
 
   void bcast(void *buff, size_t count, datatype_t datatype, int root,
              cudaStream_t stream) const {
-    NCCL_CHECK(ncclBroadcast(buff, buff, count, get_nccl_datatype(datatype), root,
-                             nccl_comm_, stream));
+    NCCL_CHECK(ncclBroadcast(buff, buff, count, get_nccl_datatype(datatype),
+                             root, nccl_comm_, stream));
   }
 
   void reduce(const void *sendbuff, void *recvbuff, size_t count,
               datatype_t datatype, op_t op, int root,
               cudaStream_t stream) const {
-    NCCL_CHECK(ncclReduce(sendbuff, recvbuff, count, get_nccl_datatype(datatype),
-                          get_nccl_op(op), root, nccl_comm_, stream));
+    NCCL_CHECK(ncclReduce(sendbuff, recvbuff, count,
+                          get_nccl_datatype(datatype), get_nccl_op(op), root,
+                          nccl_comm_, stream));
   }
 
   void allgather(const void *sendbuff, void *recvbuff, size_t sendcount,
@@ -345,7 +349,8 @@ class std_comms : public comms_iface {
       size_t dtype_size = get_datatype_size(datatype);
       NCCL_CHECK(ncclBroadcast(
         sendbuf, static_cast<char *>(recvbuf) + displs[root] * dtype_size,
-        recvcounts[root], get_nccl_datatype(datatype), root, nccl_comm_, stream));
+        recvcounts[root], get_nccl_datatype(datatype), root, nccl_comm_,
+        stream));
     }
   }
 

@@ -30,7 +30,6 @@ namespace comms {
  */
 void build_comms_nccl_only(handle_t *handle, ncclComm_t comm, int size,
                            int rank) {
-
   auto d_alloc = handle->get_device_allocator();
   auto *raft_comm = new raft::comms::std_comms(comm, size, rank, d_alloc);
   auto communicator =
@@ -44,10 +43,9 @@ void build_comms_nccl_only(handle_t *handle, ncclComm_t comm, int size,
  */
 void build_comms_nccl_ucx(handle_t *handle, ncclComm_t comm, void *ucp_worker,
                           void *eps, int size, int rank) {
-  auto eps_sp =
-    std::make_shared<ucp_ep_h *>(new ucp_ep_h[size]);
+  auto eps_sp = std::make_shared<ucp_ep_h *>(new ucp_ep_h[size]);
 
-  auto size_t_ep_arr = reinterpret_cast<size_t*>(eps);
+  auto size_t_ep_arr = reinterpret_cast<size_t *>(eps);
 
   for (int i = 0; i < size; i++) {
     size_t ptr = size_t_ep_arr[i];
@@ -80,8 +78,8 @@ bool test_collective_allreduce(const handle_t &handle) {
   temp_d.resize(1, stream);
   CUDA_CHECK(cudaMemcpyAsync(temp_d.data(), &send, sizeof(int),
                              cudaMemcpyHostToDevice, stream));
-  communicator.allreduce(temp_d.data(), temp_d.data(), 1, datatype_t::INT32, op_t::SUM,
-                         stream);
+  communicator.allreduce(temp_d.data(), temp_d.data(), 1, datatype_t::INT32,
+                         op_t::SUM, stream);
   int temp_h = 0;
   CUDA_CHECK(cudaMemcpyAsync(&temp_h, temp_d.data(), sizeof(int),
                              cudaMemcpyDeviceToHost, stream));
