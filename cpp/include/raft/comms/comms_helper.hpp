@@ -31,7 +31,9 @@ namespace comms {
 void build_comms_nccl_only(handle_t *handle, ncclComm_t comm, int size,
                            int rank) {
   auto d_alloc = handle->get_device_allocator();
-  auto *raft_comm = new raft::comms::std_comms(comm, size, rank, d_alloc);
+  raft::comms::comms_iface *raft_comm = new raft::comms::std_comms(comm, size, rank, d_alloc);
+  std::cout << "Comms: " << raft_comm->getSize() << std::endl;
+
   auto communicator =
     std::make_shared<comms_t>(std::unique_ptr<comms_iface>(raft_comm));
   handle->set_comms(communicator);
@@ -62,6 +64,7 @@ void build_comms_nccl_ucx(handle_t *handle, ncclComm_t comm, void *ucp_worker,
   auto d_alloc = handle->get_device_allocator();
   auto *raft_comm = new raft::comms::std_comms(comm, (ucp_worker_h)ucp_worker,
                                                eps_sp, size, rank, d_alloc);
+  std::cout << "Comms: " << raft_comm << std::endl;
   auto communicator =
     std::make_shared<comms_t>(std::unique_ptr<comms_iface>(raft_comm));
   handle->set_comms(communicator);
@@ -76,12 +79,12 @@ bool test_collective_allreduce(const handle_t &handle) {
 
   raft::mr::device::buffer<int> temp_d(handle.get_device_allocator(), stream);
   temp_d.resize(1, stream);
-  CUDA_CHECK(cudaMemcpyAsync(temp_d.data(), &send, sizeof(int),
+  CUDA_CHECK(cudaMemcpyAsync(temp_d.data(), &send, 1,
                              cudaMemcpyHostToDevice, stream));
-  communicator.allreduce(temp_d.data(), temp_d.data(), 1, datatype_t::INT32,
-                         op_t::SUM, stream);
+  communicator.allreduce(temp_d.data(), temp_d.data(), 1,
+                         datatype_t::INT32, op_t::SUM, stream);
   int temp_h = 0;
-  CUDA_CHECK(cudaMemcpyAsync(&temp_h, temp_d.data(), sizeof(int),
+  CUDA_CHECK(cudaMemcpyAsync(&temp_h, temp_d.data(), 1,
                              cudaMemcpyDeviceToHost, stream));
   CUDA_CHECK(cudaStreamSynchronize(stream));
   communicator.barrier();
@@ -106,7 +109,7 @@ bool test_pointToPoint_simple_send_recv(const handle_t &h, int numTrials) {
     //post receives
     for (int r = 0; r < communicator.getSize(); ++r) {
       if (r != rank) {
-        communicator.irecv(received_data.data() + request_idx, sizeof(int), r,
+        communicator.irecv(received_data.data() + request_idx, 1, r,
                            0, requests.data() + request_idx);
         ++request_idx;
       }
@@ -114,7 +117,7 @@ bool test_pointToPoint_simple_send_recv(const handle_t &h, int numTrials) {
 
     for (int r = 0; r < communicator.getSize(); ++r) {
       if (r != rank) {
-        communicator.isend(&rank, sizeof(int), r, 0,
+        communicator.isend(&rank, 1, r, 0,
                            requests.data() + request_idx);
         ++request_idx;
       }
