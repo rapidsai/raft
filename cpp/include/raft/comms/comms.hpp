@@ -43,6 +43,51 @@ enum class status_t {
   commStatusAbort     // A failure occurred in sync, queued operations aborted
 };
 
+template <typename value_t>
+constexpr datatype_t get_type();
+
+
+template <>
+constexpr datatype_t get_type<char>() {
+  return datatype_t::CHAR;
+}
+
+template <>
+constexpr datatype_t get_type<uint8_t>() {
+  return datatype_t::UINT8;
+}
+
+template <>
+constexpr datatype_t get_type<int>() {
+  return datatype_t::INT32;
+}
+
+template <>
+constexpr datatype_t get_type<uint32_t>() {
+  return datatype_t::UINT32;
+}
+
+template <>
+constexpr datatype_t get_type<int64_t>() {
+  return datatype_t::INT64;
+}
+
+template <>
+constexpr datatype_t get_type<uint64_t>() {
+  return datatype_t::UINT64;
+}
+
+template <>
+constexpr datatype_t get_type<float>() {
+  return datatype_t::FLOAT32;
+}
+
+template <>
+constexpr datatype_t get_type<double>() {
+  return datatype_t::FLOAT64;
+}
+
+
 class comms_iface {
  public:
   virtual ~comms_iface();
@@ -91,9 +136,6 @@ class comms_t {
   comms_t(std::unique_ptr<comms_iface> impl) : impl_(impl.release()) {
     ASSERT(nullptr != impl_.get(), "ERROR: Invalid comms_iface used!");
   }
-
-  template <typename value_t>
-  datatype_t get_type() const;
 
   /**
    * Returns the size of the communicator clique
@@ -284,44 +326,6 @@ class comms_t {
 
 comms_iface::~comms_iface() {}
 
-template <>
-constexpr datatype_t comms_t::get_type<char>() const {
-  return datatype_t::CHAR;
-}
 
-template <>
-constexpr datatype_t comms_t::get_type<uint8_t>() const {
-  return datatype_t::UINT8;
-}
-
-template <>
-constexpr datatype_t comms_t::get_type<int>() const {
-  return datatype_t::INT32;
-}
-
-template <>
-constexpr datatype_t comms_t::get_type<uint32_t>() const {
-  return datatype_t::UINT32;
-}
-
-template <>
-constexpr datatype_t comms_t::get_type<int64_t>() const {
-  return datatype_t::INT64;
-}
-
-template <>
-constexpr datatype_t comms_t::get_type<uint64_t>() const {
-  return datatype_t::UINT64;
-}
-
-template <>
-constexpr datatype_t comms_t::get_type<float>() const {
-  return datatype_t::FLOAT32;
-}
-
-template <>
-constexpr datatype_t comms_t::get_type<double>() const {
-  return datatype_t::FLOAT64;
-}
 }  // namespace comms
 }  // namespace raft
