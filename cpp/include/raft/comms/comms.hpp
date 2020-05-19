@@ -78,7 +78,7 @@ class comms_iface {
                              cudaStream_t stream) const = 0;
 };
 
-class comms_t: comms_iface {
+class comms_t {
  public:
   comms_t(std::unique_ptr<comms_iface> impl) : impl_(impl.release()) {
     ASSERT(nullptr != impl.get(), "ERROR: Invalid comms_iface used!");
