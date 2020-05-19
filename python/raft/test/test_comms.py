@@ -107,7 +107,7 @@ def test_collectives(cluster, func):
                    for w in cb.worker_addresses]
             wait(dfs, timeout=5)
 
-        assert all([x.result() for x in dfs])
+            assert all([x.result() for x in dfs])
 
     finally:
         cb.destroy()
