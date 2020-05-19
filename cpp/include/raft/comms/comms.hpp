@@ -47,13 +47,13 @@ class comms_iface {
  public:
   virtual ~comms_iface();
 
-  virtual int getSize() const = 0;
-  virtual int getRank() const = 0;
+  virtual int get_size() const = 0;
+  virtual int get_rank() const = 0;
 
-  virtual std::unique_ptr<comms_iface> commSplit(int color, int key) const = 0;
+  virtual std::unique_ptr<comms_iface> comm_split(int color, int key) const = 0;
   virtual void barrier() const = 0;
 
-  virtual status_t syncStream(cudaStream_t stream) const = 0;
+  virtual status_t sync_stream(cudaStream_t stream) const = 0;
 
   virtual void isend(const void* buf, size_t size, int dest, int tag,
                      request_t* request) const = 0;
@@ -99,12 +99,12 @@ class comms_t {
    * Returns the size of the communicator clique
    */
 
-  int getSize() const { return impl_->getSize(); }
+  int get_size() const { return impl_->get_size(); }
 
   /**
    * Returns the local rank
    */
-  int getRank() const { return impl_->getRank(); }
+  int get_rank() const { return impl_->get_rank(); }
 
   /**
    * Splits the current communicator clique into sub-cliques matching
@@ -113,8 +113,8 @@ class comms_t {
    * @param color ranks w/ the same color are placed in the same communicator
    * @param key controls rank assignment
    */
-  std::unique_ptr<comms_iface> commSplit(int color, int key) const {
-    return impl_->commSplit(color, key);
+  std::unique_ptr<comms_iface> comm_split(int color, int key) const {
+    return impl_->comm_split(color, key);
   }
 
   /**
@@ -130,8 +130,8 @@ class comms_t {
    *
    * @param stream the cuda stream to sync collective operations on
    */
-  status_t syncStream(cudaStream_t stream) const {
-    return impl_->syncStream(stream);
+  status_t sync_stream(cudaStream_t stream) const {
+    return impl_->sync_stream(stream);
   }
 
   /**

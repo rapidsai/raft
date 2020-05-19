@@ -38,7 +38,7 @@ void build_comms_nccl_only(handle_t *handle, ncclComm_t nccl_comm,
   auto d_alloc = handle->get_device_allocator();
   raft::comms::comms_iface *raft_comm =
     new raft::comms::std_comms(nccl_comm, num_ranks, rank, d_alloc);
-  std::cout << "Comms: " << raft_comm->getSize() << std::endl;
+  std::cout << "Comms: " << raft_comm->get_size() << std::endl;
 
   auto communicator =
     std::make_shared<comms_t>(std::unique_ptr<comms_iface>(raft_comm));
@@ -111,10 +111,10 @@ bool test_collective_allreduce(const handle_t &handle, int root) {
   CUDA_CHECK(cudaStreamSynchronize(stream));
   communicator.barrier();
 
-  std::cout << "Clique size: " << communicator.getSize() << std::endl;
+  std::cout << "Clique size: " << communicator.get_size() << std::endl;
   std::cout << "final_size: " << temp_h << std::endl;
 
-  return temp_h == communicator.getSize();
+  return temp_h == communicator.get_size();
 }
 
 /**
@@ -133,19 +133,19 @@ bool test_collective_broadcast(const handle_t &handle, int root) {
   raft::mr::device::buffer<int> temp_d(handle.get_device_allocator(), stream);
   temp_d.resize(1, stream);
 
-  if (communicator.getRank() == root)
+  if (communicator.get_rank() == root)
     CUDA_CHECK(cudaMemcpyAsync(temp_d.data(), &send, sizeof(int),
                                cudaMemcpyHostToDevice, stream));
 
   communicator.bcast(temp_d.data(), 1, root, stream);
-  communicator.syncStream(stream);
+  communicator.sync_stream(stream);
   int temp_h = -1;  // Verify more than one byte is being sent
   CUDA_CHECK(cudaMemcpyAsync(&temp_h, temp_d.data(), sizeof(int),
                              cudaMemcpyDeviceToHost, stream));
   CUDA_CHECK(cudaStreamSynchronize(stream));
   communicator.barrier();
 
-  std::cout << "Clique size: " << communicator.getSize() << std::endl;
+  std::cout << "Clique size: " << communicator.get_size() << std::endl;
   std::cout << "final_size: " << temp_h << std::endl;
 
   return temp_h == root;
@@ -165,18 +165,18 @@ bool test_collective_reduce(const handle_t &handle, int root) {
                              cudaMemcpyHostToDevice, stream));
 
   communicator.reduce(temp_d.data(), temp_d.data(), 1, op_t::SUM, root, stream);
-  communicator.syncStream(stream);
+  communicator.sync_stream(stream);
   int temp_h = -1;  // Verify more than one byte is being sent
   CUDA_CHECK(cudaMemcpyAsync(&temp_h, temp_d.data(), sizeof(int),
                              cudaMemcpyDeviceToHost, stream));
   CUDA_CHECK(cudaStreamSynchronize(stream));
   communicator.barrier();
 
-  std::cout << "Clique size: " << communicator.getSize() << std::endl;
+  std::cout << "Clique size: " << communicator.get_size() << std::endl;
   std::cout << "final_size: " << temp_h << std::endl;
 
-  if (communicator.getRank() == root)
-    return temp_h == root * communicator.getSize();
+  if (communicator.get_rank() == root)
+    return temp_h == root * communicator.get_size();
   else
     return true;
 }
@@ -192,25 +192,25 @@ bool test_collective_allgather(const handle_t &handle, int root) {
   temp_d.resize(1, stream);
 
   raft::mr::device::buffer<int> recv_d(handle.get_device_allocator(), stream,
-                                       communicator.getSize());
+                                       communicator.get_size());
 
   CUDA_CHECK(cudaMemcpyAsync(temp_d.data(), &send, sizeof(int),
                              cudaMemcpyHostToDevice, stream));
 
   communicator.allgather(temp_d.data(), recv_d.data(), 1, stream);
-  communicator.syncStream(stream);
+  communicator.sync_stream(stream);
   int
-    temp_h[communicator.getSize()];  // Verify more than one byte is being sent
+    temp_h[communicator.get_size()];  // Verify more than one byte is being sent
   CUDA_CHECK(cudaMemcpyAsync(&temp_h, temp_d.data(),
-                             sizeof(int) * communicator.getSize(),
+                             sizeof(int) * communicator.get_size(),
                              cudaMemcpyDeviceToHost, stream));
   CUDA_CHECK(cudaStreamSynchronize(stream));
   communicator.barrier();
 
-  std::cout << "Clique size: " << communicator.getSize() << std::endl;
+  std::cout << "Clique size: " << communicator.get_size() << std::endl;
   std::cout << "final_size: " << temp_h << std::endl;
 
-  for (int i = 0; i < communicator.getSize(); i++)
+  for (int i = 0; i < communicator.get_size(); i++)
     if (temp_h[i] != i) return false;
   return true;
 }
@@ -232,17 +232,17 @@ bool test_collective_reducescatter(const handle_t &handle, int root) {
 
   communicator.reducescatter(temp_d.data(), recv_d.data(), 1, op_t::SUM,
                              stream);
-  communicator.syncStream(stream);
+  communicator.sync_stream(stream);
   int temp_h = -1;  // Verify more than one byte is being sent
   CUDA_CHECK(cudaMemcpyAsync(&temp_h, temp_d.data(), sizeof(int),
                              cudaMemcpyDeviceToHost, stream));
   CUDA_CHECK(cudaStreamSynchronize(stream));
   communicator.barrier();
 
-  std::cout << "Clique size: " << communicator.getSize() << std::endl;
+  std::cout << "Clique size: " << communicator.get_size() << std::endl;
   std::cout << "final_size: " << temp_h << std::endl;
 
-  return temp_h = communicator.getSize();
+  return temp_h = communicator.get_size();
 }
 
 /**
@@ -254,17 +254,17 @@ bool test_collective_reducescatter(const handle_t &handle, int root) {
  */
 bool test_pointToPoint_simple_send_recv(const handle_t &h, int numTrials) {
   const comms_t &communicator = h.get_comms();
-  const int rank = communicator.getRank();
+  const int rank = communicator.get_rank();
 
   bool ret = true;
   for (int i = 0; i < numTrials; i++) {
-    std::vector<int> received_data((communicator.getSize() - 1), -1);
+    std::vector<int> received_data((communicator.get_size() - 1), -1);
 
     std::vector<request_t> requests;
-    requests.resize(2 * (communicator.getSize() - 1));
+    requests.resize(2 * (communicator.get_size() - 1));
     int request_idx = 0;
     //post receives
-    for (int r = 0; r < communicator.getSize(); ++r) {
+    for (int r = 0; r < communicator.get_size(); ++r) {
       if (r != rank) {
         communicator.irecv(received_data.data() + request_idx, 1, r, 0,
                            requests.data() + request_idx);
@@ -272,7 +272,7 @@ bool test_pointToPoint_simple_send_recv(const handle_t &h, int numTrials) {
       }
     }
 
-    for (int r = 0; r < communicator.getSize(); ++r) {
+    for (int r = 0; r < communicator.get_size(); ++r) {
       if (r != rank) {
         communicator.isend(&rank, 1, r, 0, requests.data() + request_idx);
         ++request_idx;
@@ -282,14 +282,14 @@ bool test_pointToPoint_simple_send_recv(const handle_t &h, int numTrials) {
     communicator.waitall(requests.size(), requests.data());
     communicator.barrier();
 
-    if (communicator.getRank() == 0) {
+    if (communicator.get_rank() == 0) {
       std::cout << "=========================" << std::endl;
       std::cout << "Trial " << i << std::endl;
     }
 
-    for (int printrank = 0; printrank < communicator.getSize(); ++printrank) {
-      if (communicator.getRank() == printrank) {
-        std::cout << "Rank " << communicator.getRank() << " received: [";
+    for (int printrank = 0; printrank < communicator.get_size(); ++printrank) {
+      if (communicator.get_rank() == printrank) {
+        std::cout << "Rank " << communicator.get_rank() << " received: [";
         for (int i = 0; i < received_data.size(); i++) {
           auto rec = received_data[i];
           std::cout << rec;
@@ -303,7 +303,7 @@ bool test_pointToPoint_simple_send_recv(const handle_t &h, int numTrials) {
       communicator.barrier();
     }
 
-    if (communicator.getRank() == 0)
+    if (communicator.get_rank() == 0)
       std::cout << "=========================" << std::endl;
   }
 

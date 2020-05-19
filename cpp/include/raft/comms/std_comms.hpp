@@ -176,11 +176,11 @@ class std_comms : public comms_iface {
       device_allocator_->allocate(sizeof(int), stream_));
   }
 
-  int getSize() const { return num_ranks_; }
+  int get_size() const { return num_ranks_; }
 
-  int getRank() const { return rank_; }
+  int get_rank() const { return rank_; }
 
-  std::unique_ptr<comms_iface> commSplit(int color, int key) const {
+  std::unique_ptr<comms_iface> comm_split(int color, int key) const {
     // Not supported by NCCL
     ASSERT(false,
            "ERROR: commSplit called but not yet supported in this comms "
@@ -193,7 +193,7 @@ class std_comms : public comms_iface {
 
     allreduce(sendbuff_, recvbuff_, 1, datatype_t::INT32, op_t::SUM, stream_);
 
-    ASSERT(syncStream(stream_) == status_t::commStatusSuccess,
+    ASSERT(sync_stream(stream_) == status_t::commStatusSuccess,
            "ERROR: syncStream failed. This can be caused by a failed rank_.");
   }
 
@@ -221,7 +221,7 @@ class std_comms : public comms_iface {
     ucp_request *ucp_req = (ucp_request *)malloc(sizeof(ucp_request));
 
     this->ucp_handler_.ucp_isend(ucp_req, ep_ptr, buf, size, tag,
-                                 default_tag_mask, getRank());
+                                 default_tag_mask, get_rank());
 
     requests_in_flight_.insert(std::make_pair(*request, ucp_req));
   }
@@ -362,7 +362,7 @@ class std_comms : public comms_iface {
                                  nccl_comm_, stream));
   }
 
-  status_t syncStream(cudaStream_t stream) const {
+  status_t sync_stream(cudaStream_t stream) const {
     cudaError_t cudaErr;
     ncclResult_t ncclErr, ncclAsyncErr;
     while (1) {

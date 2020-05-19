@@ -150,16 +150,16 @@ class handle_t {
   }
 
   void set_comms(std::shared_ptr<comms::comms_t> communicator) {
-    _communicator = communicator;
+    communicator_ = communicator;
   }
 
   const comms::comms_t& get_comms() const {
-    ASSERT(nullptr != _communicator.get(),
+    ASSERT(nullptr != communicator_.get(),
            "ERROR: Communicator was not initialized\n");
-    return *_communicator;
+    return *communicator_;
   }
 
-  bool comms_initialized() const { return (nullptr != _communicator.get()); }
+  bool comms_initialized() const { return (nullptr != communicator_.get()); }
 
   const cudaDeviceProp& get_device_properties() const {
     std::lock_guard<std::mutex> _(mutex_);
@@ -171,7 +171,7 @@ class handle_t {
   }
 
  private:
-  std::shared_ptr<comms::comms_t> _communicator;
+  std::shared_ptr<comms::comms_t> communicator_;
 
   const int dev_id_;
   const int num_streams_;
