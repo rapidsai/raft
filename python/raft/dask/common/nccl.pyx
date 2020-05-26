@@ -25,11 +25,11 @@ from cython.operator cimport dereference as deref
 from libcpp cimport bool
 from libc.stdlib cimport malloc, free
 
-cdef extern from "raft/comms/nccl_helper.hpp" namespace "raft::comms":
+cdef extern from "raft/comms/helper.hpp" namespace "raft::comms":
     void get_unique_id(char *uid, int size) except +
-    void ncclUniqueIdFromChar(ncclUniqueId *id,
-                              char *uniqueId,
-                              int size) except +
+    void nccl_unique_id_from_char(ncclUniqueId *id,
+                                  char *uniqueId,
+                                  int size) except +
 
 cdef extern from "nccl.h":
 
@@ -132,7 +132,7 @@ cdef class nccl:
         self.rank = rank
 
         cdef ncclUniqueId *ident = <ncclUniqueId*>malloc(sizeof(ncclUniqueId))
-        ncclUniqueIdFromChar(ident, commId, NCCL_UNIQUE_ID_BYTES)
+        nccl_unique_id_from_char(ident, commId, NCCL_UNIQUE_ID_BYTES)
 
         comm_ = <ncclComm_t*>self.comm
 

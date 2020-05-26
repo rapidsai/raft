@@ -17,6 +17,7 @@
 #pragma once
 
 #include <memory>
+#include <raft/cudart_utils.h>
 
 namespace raft {
 namespace comms {
@@ -38,14 +39,13 @@ enum class op_t { SUM, PROD, MIN, MAX };
  * The resulting status of distributed stream synchronization
  */
 enum class status_t {
-  commStatusSuccess,  // Synchronization successful
-  commStatusError,    // An error occured querying sync status
-  commStatusAbort     // A failure occurred in sync, queued operations aborted
+  SUCCESS,  // Synchronization successful
+  ERROR,    // An error occured querying sync status
+  ABORT     // A failure occurred in sync, queued operations aborted
 };
 
 template <typename value_t>
 constexpr datatype_t get_type();
-
 
 template <>
 constexpr datatype_t get_type<char>() {

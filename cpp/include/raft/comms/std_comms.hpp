@@ -85,7 +85,7 @@ constexpr size_t get_datatype_size(const datatype_t datatype) {
   }
 }
 
-ncclDataType_t get_nccl_datatype(const datatype_t datatype) {
+constexpr ncclDataType_t get_nccl_datatype(const datatype_t datatype) {
   switch (datatype) {
     case datatype_t::CHAR:
       return ncclChar;
@@ -107,7 +107,7 @@ ncclDataType_t get_nccl_datatype(const datatype_t datatype) {
   }
 }
 
-ncclRedOp_t get_nccl_op(const op_t op) {
+constexpr ncclRedOp_t get_nccl_op(const op_t op) {
   switch (op) {
     case op_t::SUM:
       return ncclSum;
@@ -134,13 +134,15 @@ class std_comms : public comms_iface {
    */
   std_comms(ncclComm_t nccl_comm, ucp_worker_h ucp_worker,
             std::shared_ptr<ucp_ep_h *> eps, int num_ranks, int rank,
-            const std::shared_ptr<mr::device::allocator> device_allocator)
+            const std::shared_ptr<mr::device::allocator> device_allocator,
+            cudaStream_t stream)
     : nccl_comm_(nccl_comm),
       ucp_worker_(ucp_worker),
       ucp_eps_(eps),
       num_ranks_(num_ranks),
       rank_(rank),
       device_allocator_(device_allocator),
+      stream_(stream),
       next_request_id_(0) {
     initialize();
   };
@@ -152,24 +154,22 @@ class std_comms : public comms_iface {
    * @param rank rank of the current worker
    */
   std_comms(const ncclComm_t nccl_comm, int num_ranks, int rank,
-            const std::shared_ptr<mr::device::allocator> device_allocator)
+            const std::shared_ptr<mr::device::allocator> device_allocator,
+            cudaStream_t stream)
     : nccl_comm_(nccl_comm),
       num_ranks_(num_ranks),
       rank_(rank),
-      device_allocator_(device_allocator) {
+      device_allocator_(device_allocator),
+      stream_(stream) {
     initialize();
   };
 
   virtual ~std_comms() {
-    CUDA_CHECK_NO_THROW(cudaStreamDestroy(stream_));
-
     device_allocator_->deallocate(sendbuff_, sizeof(int), stream_);
     device_allocator_->deallocate(recvbuff_, sizeof(int), stream_);
   }
 
   void initialize() {
-    CUDA_CHECK(cudaStreamCreate(&stream_));
-
     sendbuff_ = reinterpret_cast<int *>(
       device_allocator_->allocate(sizeof(int), stream_));
     recvbuff_ = reinterpret_cast<int *>(
@@ -193,7 +193,7 @@ class std_comms : public comms_iface {
 
     allreduce(sendbuff_, recvbuff_, 1, datatype_t::INT32, op_t::SUM, stream_);
 
-    ASSERT(sync_stream(stream_) == status_t::commStatusSuccess,
+    ASSERT(sync_stream(stream_) == status_t::SUCCESS,
            "ERROR: syncStream failed. This can be caused by a failed rank_.");
   }
 
@@ -367,17 +367,17 @@ class std_comms : public comms_iface {
     ncclResult_t ncclErr, ncclAsyncErr;
     while (1) {
       cudaErr = cudaStreamQuery(stream);
-      if (cudaErr == cudaSuccess) return status_t::commStatusSuccess;
+      if (cudaErr == cudaSuccess) return status_t::SUCCESS;
 
       if (cudaErr != cudaErrorNotReady) {
         // An error occurred querying the status of the stream_
-        return status_t::commStatusError;
+        return status_t::ERROR;
       }
 
       ncclErr = ncclCommGetAsyncError(nccl_comm_, &ncclAsyncErr);
       if (ncclErr != ncclSuccess) {
         // An error occurred retrieving the asynchronous error
-        return status_t::commStatusError;
+        return status_t::ERROR;
       }
 
       if (ncclAsyncErr != ncclSuccess) {
@@ -386,7 +386,7 @@ class std_comms : public comms_iface {
         ncclErr = ncclCommAbort(nccl_comm_);
         if (ncclErr != ncclSuccess)
           // Caller may abort with an exception or try to re-create a new communicator.
-          return status_t::commStatusAbort;
+          return status_t::ABORT;
       }
 
       // Let other threads (including NCCL threads) use the CPU.

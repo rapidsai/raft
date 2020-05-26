@@ -13,5 +13,5 @@
 # limitations under the License.
 #
 
-from raft.common.cuda import Stream
-from raft.common.handle import Handle
+from .cuda import Stream
+from .handle import Handle

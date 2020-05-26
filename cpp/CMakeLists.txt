@@ -67,6 +67,8 @@ find_package(CUDA 10.0 REQUIRED)
 
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
+message("HELLO!")
+
 ##############################################################################
 # - Compiler Options  --------------------------------------------------------
 
@@ -161,7 +163,7 @@ set(CMAKE_CUDA_FLAGS
 # - dependencies -------------------------------------------------------------
 
 include(cmake/Dependencies.cmake)
-add_subdirectory(include/raft/comms)
+include(cmake/comms.cmake)
 
 ##############################################################################
 # - include paths ------------------------------------------------------------
