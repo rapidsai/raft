@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <memory>
 #include <raft/cudart_utils.h>
+#include <memory>
 
 namespace raft {
 namespace comms {
@@ -86,7 +86,6 @@ template <>
 constexpr datatype_t get_type<double>() {
   return datatype_t::FLOAT64;
 }
-
 
 class comms_iface {
  public:
@@ -325,7 +324,6 @@ class comms_t {
 };
 
 comms_iface::~comms_iface() {}
-
 
 }  // namespace comms
 }  // namespace raft

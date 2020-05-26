@@ -246,5 +246,5 @@ bool test_pointToPoint_simple_send_recv(const handle_t &h, int numTrials) {
 
   return ret;
 }
-}
-};
+}  // namespace comms
+};  // namespace raft
