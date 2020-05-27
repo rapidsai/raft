@@ -82,6 +82,8 @@ constexpr size_t get_datatype_size(const datatype_t datatype) {
       return sizeof(float);
     case datatype_t::FLOAT64:
       return sizeof(double);
+    default:
+      return -1;
   }
 }
 
@@ -104,6 +106,8 @@ constexpr ncclDataType_t get_nccl_datatype(const datatype_t datatype) {
       return ncclFloat;
     case datatype_t::FLOAT64:
       return ncclDouble;
+    default:
+      return -1;
   }
 }
 
@@ -117,6 +121,8 @@ constexpr ncclRedOp_t get_nccl_op(const op_t op) {
       return ncclMin;
     case op_t::MAX:
       return ncclMax;
+    default:
+      return -1;
   }
 }
 
