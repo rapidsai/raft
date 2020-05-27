@@ -83,7 +83,7 @@ constexpr size_t get_datatype_size(const datatype_t datatype) {
     case datatype_t::FLOAT64:
       return sizeof(double);
     default:
-      return -1;
+      throw "Unsupported";
   }
 }
 
@@ -107,7 +107,7 @@ constexpr ncclDataType_t get_nccl_datatype(const datatype_t datatype) {
     case datatype_t::FLOAT64:
       return ncclDouble;
     default:
-      return -1;
+      throw "Unsupported";
   }
 }
 
@@ -122,7 +122,7 @@ constexpr ncclRedOp_t get_nccl_op(const op_t op) {
     case op_t::MAX:
       return ncclMax;
     default:
-      return -1;
+      throw "Unsupported";
   }
 }
 
