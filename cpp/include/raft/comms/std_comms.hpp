@@ -64,7 +64,11 @@
 namespace raft {
 namespace comms {
 
-constexpr size_t get_datatype_size(const datatype_t datatype) {
+
+static size_t get_datatype_size(const datatype_t datatype) {
+
+  size_t ret = -1;
+
   switch (datatype) {
     case datatype_t::CHAR:
       return sizeof(char);
@@ -87,7 +91,7 @@ constexpr size_t get_datatype_size(const datatype_t datatype) {
   }
 }
 
-constexpr ncclDataType_t get_nccl_datatype(const datatype_t datatype) {
+static ncclDataType_t get_nccl_datatype(const datatype_t datatype) {
   switch (datatype) {
     case datatype_t::CHAR:
       return ncclChar;
@@ -111,7 +115,7 @@ constexpr ncclDataType_t get_nccl_datatype(const datatype_t datatype) {
   }
 }
 
-constexpr ncclRedOp_t get_nccl_op(const op_t op) {
+static ncclRedOp_t get_nccl_op(const op_t op) {
   switch (op) {
     case op_t::SUM:
       return ncclSum;
