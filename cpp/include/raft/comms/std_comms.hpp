@@ -64,9 +64,7 @@
 namespace raft {
 namespace comms {
 
-
 static size_t get_datatype_size(const datatype_t datatype) {
-
   size_t ret = -1;
 
   switch (datatype) {
