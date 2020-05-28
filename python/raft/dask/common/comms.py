@@ -13,14 +13,14 @@
 # limitations under the License.
 #
 
-from raft.dask.common.nccl import nccl
-from raft.dask.common.ucx import UCX
+from .nccl import nccl
+from .ucx import UCX
 
 from .comms_utils import inject_comms_on_handle
 from .comms_utils import inject_comms_on_handle_coll_only
 
 from .utils import parse_host_port
-from raft.common.handle import Handle
+from ...common.handle import Handle
 
 from dask.distributed import get_worker, default_client
 

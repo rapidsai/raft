@@ -18,7 +18,7 @@ import pytest
 from dask.distributed import Client
 from dask.distributed import wait
 
-from raft.dask.common import Comms
+from raft.dask import Comms
 from raft.dask.common import local_handle
 from raft.dask.common import perform_test_comms_send_recv
 from raft.dask.common import perform_test_comms_allreduce
