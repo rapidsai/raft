@@ -13,8 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+//#ifdef NVGRAPH_PARTITION
 
-#include "include/partition.hxx"
+#include "include/modularity_maximization.hxx"
 
 #include <math.h>
 #include <stdio.h>
@@ -25,14 +26,35 @@
 #include <thrust/reduce.h>
 #include <thrust/transform.h>
 
-#include <nvgraph/include/debug_macros.h>
-#include <nvgraph/include/sm_utils.h>
-#include <nvgraph/include/kmeans.hxx>
-#include <nvgraph/include/lanczos.hxx>
-#include <nvgraph/include/nvgraph_cublas.hxx>
-#include <nvgraph/include/nvgraph_error.hxx>
-#include <nvgraph/include/nvgraph_vector.hxx>
-#include <nvgraph/include/spectral_matrix.hxx>
+#include "include/debug_macros.h"
+#include "include/kmeans.hxx"
+#include "include/lanczos.hxx"
+#include "include/nvgraph_cublas.hxx"
+#include "include/nvgraph_error.hxx"
+#include "include/nvgraph_vector.hxx"
+#include "include/sm_utils.h"
+#include "include/spectral_matrix.hxx"
+
+//#define COLLECT_TIME_STATISTICS 1
+//#undef COLLECT_TIME_STATISTICS
+
+#ifdef COLLECT_TIME_STATISTICS
+#include <stddef.h>
+#include <sys/resource.h>
+#include <sys/sysinfo.h>
+#include <sys/time.h>
+#include "cuda_profiler_api.h"
+#endif
+
+#ifdef COLLECT_TIME_STATISTICS
+static double timer(void)
+{
+  struct timeval tv;
+  cudaDeviceSynchronize();
+  gettimeofday(&tv, NULL);
+  return (double)tv.tv_sec + (double)tv.tv_usec / 1000000.0;
+}
+#endif
 
 namespace nvgraph {
 
@@ -130,16 +152,15 @@ cudaError_t scale_obs(IndexType_ m, IndexType_ n, ValueType_ *obs)
 }
 
 // =========================================================
-// Spectral partitioner
+// Spectral modularity_maximization
 // =========================================================
 
-/// Compute spectral graph partition
 /** Compute partition for a weighted undirected graph. This
  *  partition attempts to minimize the cost function:
  *    Cost = \sum_i (Edges cut by ith partition)/(Vertices in ith partition)
  *
  *  @param G Weighted graph in CSR format
- *  @param nParts Number of partitions.
+ *  @param nClusters Number of partitions.
  *  @param nEigVecs Number of eigenvectors to compute.
  *  @param maxIter_lanczos Maximum number of Lanczos iterations.
  *  @param restartIter_lanczos Maximum size of Lanczos system before
@@ -147,7 +168,7 @@ cudaError_t scale_obs(IndexType_ m, IndexType_ n, ValueType_ *obs)
  *  @param tol_lanczos Convergence tolerance for Lanczos method.
  *  @param maxIter_kmeans Maximum number of k-means iterations.
  *  @param tol_kmeans Convergence tolerance for k-means algorithm.
- *  @param parts (Output, device memory, n entries) Partition
+ *  @param parts (Output, device memory, n entries) Cluster
  *    assignments.
  *  @param iters_lanczos On exit, number of Lanczos iterations
  *    performed.
@@ -156,26 +177,24 @@ cudaError_t scale_obs(IndexType_ m, IndexType_ n, ValueType_ *obs)
  *  @return NVGRAPH error flag.
  */
 template <typename vertex_t, typename edge_t, typename weight_t>
-NVGRAPH_ERROR partition(
+NVGRAPH_ERROR modularity_maximization(
   cugraph::experimental::GraphCSRView<vertex_t, edge_t, weight_t> const &graph,
-  vertex_t nParts,
+  vertex_t nClusters,
   vertex_t nEigVecs,
   int maxIter_lanczos,
   int restartIter_lanczos,
   weight_t tol_lanczos,
   int maxIter_kmeans,
   weight_t tol_kmeans,
-  vertex_t *__restrict__ parts,
+  vertex_t *__restrict__ clusters,
   weight_t *eigVals,
-  weight_t *eigVecs)
+  weight_t *eigVecs,
+  int &iters_lanczos,
+  int &iters_kmeans)
 {
   cudaStream_t stream = 0;
-
   const weight_t zero{0.0};
   const weight_t one{1.0};
-
-  int iters_lanczos;
-  int iters_kmeans;
 
   edge_t i;
   edge_t n = graph.number_of_vertices;
@@ -183,13 +202,8 @@ NVGRAPH_ERROR partition(
   // k-means residual
   weight_t residual_kmeans;
 
-  // -------------------------------------------------------
-  // Spectral partitioner
-  // -------------------------------------------------------
-
-  // Compute eigenvectors of Laplacian
-
-  // Initialize Laplacian
+  // Compute eigenvectors of Modularity Matrix
+  // Initialize Modularity Matrix
   CsrMatrix<vertex_t, weight_t> A(false,
                                   false,
                                   graph.number_of_vertices,
@@ -199,23 +213,26 @@ NVGRAPH_ERROR partition(
                                   graph.edge_data,
                                   graph.offsets,
                                   graph.indices);
-  LaplacianMatrix<vertex_t, weight_t> L(A);
+  ModularityMatrix<vertex_t, weight_t> B(A, graph.number_of_edges);
 
   // Compute smallest eigenvalues and eigenvectors
-  CHECK_NVGRAPH(computeSmallestEigenvectors(L,
-                                            nEigVecs,
-                                            maxIter_lanczos,
-                                            restartIter_lanczos,
-                                            tol_lanczos,
-                                            false,
-                                            iters_lanczos,
-                                            eigVals,
-                                            eigVecs));
+  CHECK_NVGRAPH(computeLargestEigenvectors(B,
+                                           nEigVecs,
+                                           maxIter_lanczos,
+                                           restartIter_lanczos,
+                                           tol_lanczos,
+                                           false,
+                                           iters_lanczos,
+                                           eigVals,
+                                           eigVecs));
 
+  // eigVals.dump(0, nEigVecs);
+  // eigVecs.dump(0, nEigVecs);
+  // eigVecs.dump(n, nEigVecs);
+  // eigVecs.dump(2*n, nEigVecs);
   // Whiten eigenvector matrix
   for (i = 0; i < nEigVecs; ++i) {
     weight_t mean, std;
-
     mean = thrust::reduce(thrust::device_pointer_cast(eigVecs + IDX(0, i, n)),
                           thrust::device_pointer_cast(eigVecs + IDX(0, i + 1, n)));
     cudaCheckError();
@@ -256,24 +273,26 @@ NVGRAPH_ERROR partition(
       eigVecs, work.raw(), nEigVecs * n * sizeof(weight_t), cudaMemcpyDeviceToDevice));
   }
 
-  // Clean up
+  // WARNING: notice that at this point the matrix has already been transposed, so we are scaling
+  // columns
+  scale_obs(nEigVecs, n, eigVecs);
+  cudaCheckError();
 
   // eigVecs.dump(0, nEigVecs*n);
   // Find partition with k-means clustering
   CHECK_NVGRAPH(kmeans(n,
                        nEigVecs,
-                       nParts,
+                       nClusters,
                        tol_kmeans,
                        maxIter_kmeans,
                        eigVecs,
-                       parts,
+                       clusters,
                        residual_kmeans,
                        iters_kmeans));
 
   return NVGRAPH_OK;
 }
-
-// =========================================================
+//===================================================
 // Analysis of graph partition
 // =========================================================
 
@@ -295,43 +314,33 @@ struct equal_to_i_op {
 };
 }  // namespace
 
-/// Compute cost function for partition
-/** This function determines the edges cut by a partition and a cost
- *  function:
- *    Cost = \sum_i (Edges cut by ith partition)/(Vertices in ith partition)
- *  Graph is assumed to be weighted and undirected.
- *
+/// Compute modularity
+/** This function determines the modularity based on a graph and cluster assignments
  *  @param G Weighted graph in CSR format
- *  @param nParts Number of partitions.
- *  @param parts (Input, device memory, n entries) Partition
- *    assignments.
- *  @param edgeCut On exit, weight of edges cut by partition.
- *  @param cost On exit, partition cost function.
- *  @return NVGRAPH error flag.
+ *  @param nClusters Number of clusters.
+ *  @param parts (Input, device memory, n entries) Cluster assignments.
+ *  @param modularity On exit, modularity
  */
 template <typename vertex_t, typename edge_t, typename weight_t>
-NVGRAPH_ERROR analyzePartition(
+NVGRAPH_ERROR analyzeModularity(
   cugraph::experimental::GraphCSRView<vertex_t, edge_t, weight_t> const &graph,
-  vertex_t nParts,
+  vertex_t nClusters,
   const vertex_t *__restrict__ parts,
-  weight_t &edgeCut,
-  weight_t &cost)
+  weight_t &modularity)
 {
   cudaStream_t stream = 0;
-
   edge_t i;
   edge_t n = graph.number_of_vertices;
-
-  weight_t partEdgesCut, partSize;
+  weight_t partModularity, partSize;
 
   // Device memory
   Vector<weight_t> part_i(n, stream);
-  Vector<weight_t> Lx(n, stream);
+  Vector<weight_t> Bx(n, stream);
 
   // Initialize cuBLAS
   Cublas::set_pointer_mode_host();
 
-  // Initialize Laplacian
+  // Initialize Modularity
   CsrMatrix<vertex_t, weight_t> A(false,
                                   false,
                                   graph.number_of_vertices,
@@ -341,14 +350,13 @@ NVGRAPH_ERROR analyzePartition(
                                   graph.edge_data,
                                   graph.offsets,
                                   graph.indices);
-  LaplacianMatrix<vertex_t, weight_t> L(A);
+  ModularityMatrix<vertex_t, weight_t> B(A, graph.number_of_edges);
 
   // Initialize output
-  cost    = 0;
-  edgeCut = 0;
+  modularity = 0;
 
   // Iterate through partitions
-  for (i = 0; i < nParts; ++i) {
+  for (i = 0; i < nClusters; ++i) {
     // Construct indicator vector for ith partition
     thrust::for_each(
       thrust::make_zip_iterator(thrust::make_tuple(thrust::device_pointer_cast(parts),
@@ -366,25 +374,28 @@ NVGRAPH_ERROR analyzePartition(
       continue;
     }
 
-    // Compute number of edges cut by ith partition
-    L.mv(1, part_i.raw(), 0, Lx.raw());
-    Cublas::dot(n, Lx.raw(), 1, part_i.raw(), 1, &partEdgesCut);
+    // Compute modularity
+    B.mv(1, part_i.raw(), 0, Bx.raw());
+    Cublas::dot(n, Bx.raw(), 1, part_i.raw(), 1, &partModularity);
 
     // Record results
-    cost += partEdgesCut / partSize;
-    edgeCut += partEdgesCut / 2;
+    modularity += partModularity;
+    // std::cout<< "partModularity " <<partModularity<< std::endl;
   }
-
+  // modularity = modularity/nClusters;
+  // devide by nnz
+  modularity = modularity / B.getEdgeSum();
   // Clean up and return
+
   return NVGRAPH_OK;
 }
 
 // =========================================================
 // Explicit instantiation
 // =========================================================
-template NVGRAPH_ERROR partition<int, int, float>(
+template NVGRAPH_ERROR modularity_maximization<int, int, float>(
   cugraph::experimental::GraphCSRView<int, int, float> const &graph,
-  int nParts,
+  int nClusters,
   int nEigVecs,
   int maxIter_lanczos,
   int restartIter_lanczos,
@@ -393,11 +404,12 @@ template NVGRAPH_ERROR partition<int, int, float>(
   float tol_kmeans,
   int *__restrict__ parts,
   float *eigVals,
-  float *eigVecs);
-
-template NVGRAPH_ERROR partition<int, int, double>(
+  float *eigVecs,
+  int &iters_lanczos,
+  int &iters_kmeans);
+template NVGRAPH_ERROR modularity_maximization<int, int, double>(
   cugraph::experimental::GraphCSRView<int, int, double> const &graph,
-  int nParts,
+  int nClusters,
   int nEigVecs,
   int maxIter_lanczos,
   int restartIter_lanczos,
@@ -406,19 +418,19 @@ template NVGRAPH_ERROR partition<int, int, double>(
   double tol_kmeans,
   int *__restrict__ parts,
   double *eigVals,
-  double *eigVecs);
-
-template NVGRAPH_ERROR analyzePartition<int, int, float>(
+  double *eigVecs,
+  int &iters_lanczos,
+  int &iters_kmeans);
+template NVGRAPH_ERROR analyzeModularity<int, int, float>(
   cugraph::experimental::GraphCSRView<int, int, float> const &graph,
-  int nParts,
+  int nClusters,
   const int *__restrict__ parts,
-  float &edgeCut,
-  float &cost);
-template NVGRAPH_ERROR analyzePartition<int, int, double>(
+  float &modularity);
+template NVGRAPH_ERROR analyzeModularity<int, int, double>(
   cugraph::experimental::GraphCSRView<int, int, double> const &graph,
-  int nParts,
+  int nClusters,
   const int *__restrict__ parts,
-  double &edgeCut,
-  double &cost);
+  double &modularity);
 
 }  // namespace nvgraph
+//#endif //NVGRAPH_PARTITION
