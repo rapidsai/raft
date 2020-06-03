@@ -18,6 +18,7 @@
 
 #include <cuda.h>
 #include <cuda_runtime_api.h>
+#include <cusparse_v2.h>
 #include <nccl.h>
 
 #include <stdexcept>
@@ -47,6 +48,14 @@ struct cuda_error : public std::runtime_error {
 };
 
 /**
+ * @brief Exception thrown when a cuSparse error is encountered.
+ */
+struct cusparse_error : public std::runtime_error {
+  explicit cusparse_error(char const* const message) : std::runtime_error(message) {}
+  explicit cusparse_error(std::string const& message) : std::runtime_error(message) {}
+};
+
+/**
  * @brief Exception thrown when a NCCL error is encountered.
  */
 struct nccl_error : public std::runtime_error {
@@ -67,7 +76,7 @@ struct nccl_error : public std::runtime_error {
  * @param[in] reason String literal description of the reason that cond is
  * expected to be true
  * @throw raft::logic_error if the condition evaluates to false.
- **/
+ */
 #define RAFT_EXPECTS(cond, reason)                                  \
   (!!(cond)) ? static_cast<void>(0)                                 \
              : throw raft::logic_error("RAFT failure at: " __FILE__ \
@@ -79,7 +88,7 @@ struct nccl_error : public std::runtime_error {
  * In host code, throws a `raft::logic_error`.
  *
  * @param[in] reason String literal description of the reason
- **/
+ */
 #define RAFT_FAIL(reason) \
   throw raft::logic_error("RAFT failure at: " __FILE__ ":" RAFT_STRINGIFY(__LINE__) ": " reason)
 
@@ -91,7 +100,7 @@ struct nccl_error : public std::runtime_error {
  * @param[in] reason String literal description of the reason that cond is
  * expected to be true
  * @throw raft::logic_error if the condition evaluates to false.
- **/
+ */
 #define CUML_EXPECTS(cond, reason)                                  \
   (!!(cond)) ? static_cast<void>(0)                                 \
              : throw raft::logic_error("cuML failure at: " __FILE__ \
@@ -103,7 +112,7 @@ struct nccl_error : public std::runtime_error {
  * In host code, throws a `raft::logic_error`.
  *
  * @param[in] reason String literal description of the reason
- **/
+ */
 #define CUML_FAIL(reason) \
   throw raft::logic_error("cuML failure at: " __FILE__ ":" RAFT_STRINGIFY(__LINE__) ": " reason)
 
@@ -115,7 +124,7 @@ struct nccl_error : public std::runtime_error {
  * @param[in] reason String literal description of the reason that cond is
  * expected to be true
  * @throw raft::logic_error if the condition evaluates to false.
- **/
+ */
 #define CUGRAPH_EXPECTS(cond, reason)                                  \
   (!!(cond)) ? static_cast<void>(0)                                    \
              : throw raft::logic_error("cuGRAPH failure at: " __FILE__ \
@@ -127,7 +136,7 @@ struct nccl_error : public std::runtime_error {
  * In host code, throws a `raft::logic_error`.
  *
  * @param[in] reason String literal description of the reason
- **/
+ */
 #define CUGRAPH_FAIL(reason) \
   throw raft::logic_error("cuGRAPH failure at: " __FILE__ ":" RAFT_STRINGIFY(__LINE__) ": " reason)
 
@@ -148,6 +157,37 @@ inline void throw_nccl_error(ncclResult_t error, const char* file, unsigned int 
                 ncclGetErrorString(error)});
 }
 
+// FIXME: unnecessary once CUDA 10.1+ becomes the minimum supported version
+#define _CUSPARSE_ERR_TO_STR(err) \
+  case err:                       \
+    return #err;
+inline const char* cusparse_error_to_string(cusparseStatus_t err) {
+#if defined(CUDART_VERSION) && CUDART_VERSION >= 10100
+  return cusparseGetErrorString(status);
+#else   // CUDART_VERSION
+  switch (err) {
+    _CUSPARSE_ERR_TO_STR(CUSPARSE_STATUS_SUCCESS);
+    _CUSPARSE_ERR_TO_STR(CUSPARSE_STATUS_NOT_INITIALIZED);
+    _CUSPARSE_ERR_TO_STR(CUSPARSE_STATUS_ALLOC_FAILED);
+    _CUSPARSE_ERR_TO_STR(CUSPARSE_STATUS_INVALID_VALUE);
+    _CUSPARSE_ERR_TO_STR(CUSPARSE_STATUS_ARCH_MISMATCH);
+    _CUSPARSE_ERR_TO_STR(CUSPARSE_STATUS_EXECUTION_FAILED);
+    _CUSPARSE_ERR_TO_STR(CUSPARSE_STATUS_INTERNAL_ERROR);
+    _CUSPARSE_ERR_TO_STR(CUSPARSE_STATUS_MATRIX_TYPE_NOT_SUPPORTED);
+    default:
+      return "CUSPARSE_STATUS_UNKNOWN";
+  };
+#endif  // CUDART_VERSION
+}
+#undef _CUSPARSE_ERR_TO_STR
+
+inline void throw_cusparse_error(cusparseStatus_t error, const char* file, unsigned int line) {
+  throw raft::cusparse_error(
+    std::string{"cuSparse error encountered at: " + std::string{file} + ":" +
+                std::to_string(line) + ": " + std::to_string(error) + " " +
+                cusparse_error_to_string(error)});
+}
+
 }  // namespace detail
 }  // namespace raft
 
@@ -158,7 +198,7 @@ inline void throw_nccl_error(ncclResult_t error, const char* file, unsigned int 
  * cudaSuccess, invokes cudaGetLastError() to clear the error and throws an
  * exception detailing the CUDA error that occurred
  *
- **/
+ */
 #define CUDA_TRY(call)                                            \
   do {                                                            \
     cudaError_t const status = (call);                            \
@@ -181,7 +221,7 @@ inline void throw_nccl_error(ncclResult_t error, const char* file, unsigned int 
  * be used after any asynchronous CUDA call, e.g., cudaMemcpyAsync, or an
  * asynchronous kernel launch.
  *
- **/
+ */
 #ifndef NDEBUG
 #define CHECK_CUDA(stream) CUDA_TRY(cudaStreamSynchronize(stream));
 #else
@@ -189,15 +229,29 @@ inline void throw_nccl_error(ncclResult_t error, const char* file, unsigned int 
 #endif
 
 /**
+ * @brief Error checking macro for cuSparse runtime API functions.
+ *
+ * Invokes a cuSparse runtime API function call, if the call does not return
+ * CUSPARSE_STATUS_SUCCESS, throws an exception detailing the cuSparse error that occurred
+ */
+#define CUSPARSE_TRY(call)                                            \
+  do {                                                                \
+    cusparseStatus_t const status = (call);                           \
+    if (CUSPARSE_STATUS_SUCCESS != status) {                          \
+      raft::detail::throw_cusparse_error(status, __FILE__, __LINE__); \
+    }                                                                 \
+  } while (0);
+
+/**
  * @brief Error checking macro for NCCL runtime API functions.
  *
  * Invokes a NCCL runtime API function call, if the call does not return ncclSuccess, throws an
  * exception detailing the NCCL error that occurred
  */
-#define NCCL_TRY(call)                                              \
-  do {                                                              \
-    ncclResult_t const status = (call);                             \
-    if (ncclSuccess != status) {                                    \
-      raft::detail::throw_nccl_error(status, __FILE__, __LINE__);\
-    }                                                               \
+#define NCCL_TRY(call)                                            \
+  do {                                                            \
+    ncclResult_t const status = (call);                           \
+    if (ncclSuccess != status) {                                  \
+      raft::detail::throw_nccl_error(status, __FILE__, __LINE__); \
+    }                                                             \
   } while (0);
