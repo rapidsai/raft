@@ -34,6 +34,7 @@
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/cusolver_wrappers.h>
 #include <raft/sparse/cusparse_wrappers.h>
+#include <raft/comms/comms.hpp>
 #include <raft/mr/device/allocator.hpp>
 #include <raft/mr/host/allocator.hpp>
 #include "cudart_utils.h"
@@ -148,11 +149,17 @@ class handle_t {
     }
   }
 
-  ///@todo: enable this once we have cuml-comms migrated
-  // void setCommunicator(
-  //   std::shared_ptr<MLCommon::cumlCommunicator> communicator);
-  // const MLCommon::cumlCommunicator& getCommunicator() const;
-  // bool commsInitialized() const;
+  void set_comms(std::shared_ptr<comms::comms_t> communicator) {
+    communicator_ = communicator;
+  }
+
+  const comms::comms_t& get_comms() const {
+    ASSERT(nullptr != communicator_.get(),
+           "ERROR: Communicator was not initialized\n");
+    return *communicator_;
+  }
+
+  bool comms_initialized() const { return (nullptr != communicator_.get()); }
 
   const cudaDeviceProp& get_device_properties() const {
     std::lock_guard<std::mutex> _(mutex_);
@@ -164,6 +171,8 @@ class handle_t {
   }
 
  private:
+  std::shared_ptr<comms::comms_t> communicator_;
+
   const int dev_id_;
   const int num_streams_;
   std::vector<cudaStream_t> streams_;
@@ -182,9 +191,6 @@ class handle_t {
   mutable cudaDeviceProp prop_;
   mutable bool device_prop_initialized_{false};
   mutable std::mutex mutex_;
-
-  ///@todo: enable this once we have migrated cuml-comms
-  //std::shared_ptr<MLCommon::cumlCommunicator> _communicator;
 
   void create_resources() {
     for (int i = 0; i < num_streams_; ++i) {
