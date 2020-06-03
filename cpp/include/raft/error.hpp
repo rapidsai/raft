@@ -25,7 +25,6 @@
 #include <stdexcept>
 #include <string>
 
-
 namespace raft {
 
 /**
@@ -37,39 +36,48 @@ namespace raft {
  */
 struct logic_error : public std::logic_error {
   explicit logic_error(char const* const message) : std::logic_error(message) {}
-  explicit logic_error(std::string const& message) : std::logic_error(message) {}
+  explicit logic_error(std::string const& message)
+    : std::logic_error(message) {}
 };
 
 /**
  * @brief Exception thrown when a CUDA error is encountered.
  */
 struct cuda_error : public std::runtime_error {
-  explicit cuda_error(char const* const message) : std::runtime_error(message) {}
-  explicit cuda_error(std::string const& message) : std::runtime_error(message) {}
+  explicit cuda_error(char const* const message)
+    : std::runtime_error(message) {}
+  explicit cuda_error(std::string const& message)
+    : std::runtime_error(message) {}
 };
 
 /**
  * @brief Exception thrown when a cuRAND error is encountered.
  */
 struct curand_error : public std::runtime_error {
-  explicit curand_error(char const* const message) : std::runtime_error(message) {}
-  explicit curand_error(std::string const& message) : std::runtime_error(message) {}
+  explicit curand_error(char const* const message)
+    : std::runtime_error(message) {}
+  explicit curand_error(std::string const& message)
+    : std::runtime_error(message) {}
 };
 
 /**
  * @brief Exception thrown when a cuSparse error is encountered.
  */
 struct cusparse_error : public std::runtime_error {
-  explicit cusparse_error(char const* const message) : std::runtime_error(message) {}
-  explicit cusparse_error(std::string const& message) : std::runtime_error(message) {}
+  explicit cusparse_error(char const* const message)
+    : std::runtime_error(message) {}
+  explicit cusparse_error(std::string const& message)
+    : std::runtime_error(message) {}
 };
 
 /**
  * @brief Exception thrown when a NCCL error is encountered.
  */
 struct nccl_error : public std::runtime_error {
-  explicit nccl_error(char const* const message) : std::runtime_error(message) {}
-  explicit nccl_error(std::string const& message) : std::runtime_error(message) {}
+  explicit nccl_error(char const* const message)
+    : std::runtime_error(message) {}
+  explicit nccl_error(std::string const& message)
+    : std::runtime_error(message) {}
 };
 
 }  // namespace raft
@@ -86,10 +94,11 @@ struct nccl_error : public std::runtime_error {
  * expected to be true
  * @throw raft::logic_error if the condition evaluates to false.
  */
-#define RAFT_EXPECTS(cond, reason)                                  \
-  (!!(cond)) ? static_cast<void>(0)                                 \
-             : throw raft::logic_error("RAFT failure at: " __FILE__ \
-                                       ":" RAFT_STRINGIFY(__LINE__) ": " reason)
+#define RAFT_EXPECTS(cond, reason)                         \
+  (!!(cond))                                               \
+    ? static_cast<void>(0)                                 \
+    : throw raft::logic_error("RAFT failure at: " __FILE__ \
+                              ":" RAFT_STRINGIFY(__LINE__) ": " reason)
 
 /**
  * @brief Indicates that an erroneous code path has been taken.
@@ -98,8 +107,9 @@ struct nccl_error : public std::runtime_error {
  *
  * @param[in] reason String literal description of the reason
  */
-#define RAFT_FAIL(reason) \
-  throw raft::logic_error("RAFT failure at: " __FILE__ ":" RAFT_STRINGIFY(__LINE__) ": " reason)
+#define RAFT_FAIL(reason)                              \
+  throw raft::logic_error("RAFT failure at: " __FILE__ \
+                          ":" RAFT_STRINGIFY(__LINE__) ": " reason)
 
 /**
  * @brief Macro for checking (pre-)conditions that throws an exception when
@@ -110,10 +120,11 @@ struct nccl_error : public std::runtime_error {
  * expected to be true
  * @throw raft::logic_error if the condition evaluates to false.
  */
-#define CUML_EXPECTS(cond, reason)                                  \
-  (!!(cond)) ? static_cast<void>(0)                                 \
-             : throw raft::logic_error("cuML failure at: " __FILE__ \
-                                       ":" RAFT_STRINGIFY(__LINE__) ": " reason)
+#define CUML_EXPECTS(cond, reason)                         \
+  (!!(cond))                                               \
+    ? static_cast<void>(0)                                 \
+    : throw raft::logic_error("cuML failure at: " __FILE__ \
+                              ":" RAFT_STRINGIFY(__LINE__) ": " reason)
 
 /**
  * @brief Indicates that an erroneous code path has been taken.
@@ -122,8 +133,9 @@ struct nccl_error : public std::runtime_error {
  *
  * @param[in] reason String literal description of the reason
  */
-#define CUML_FAIL(reason) \
-  throw raft::logic_error("cuML failure at: " __FILE__ ":" RAFT_STRINGIFY(__LINE__) ": " reason)
+#define CUML_FAIL(reason)                              \
+  throw raft::logic_error("cuML failure at: " __FILE__ \
+                          ":" RAFT_STRINGIFY(__LINE__) ": " reason)
 
 /**
  * @brief Macro for checking (pre-)conditions that throws an exception when
@@ -134,10 +146,11 @@ struct nccl_error : public std::runtime_error {
  * expected to be true
  * @throw raft::logic_error if the condition evaluates to false.
  */
-#define CUGRAPH_EXPECTS(cond, reason)                                  \
-  (!!(cond)) ? static_cast<void>(0)                                    \
-             : throw raft::logic_error("cuGRAPH failure at: " __FILE__ \
-                                       ":" RAFT_STRINGIFY(__LINE__) ": " reason)
+#define CUGRAPH_EXPECTS(cond, reason)                         \
+  (!!(cond))                                                  \
+    ? static_cast<void>(0)                                    \
+    : throw raft::logic_error("cuGRAPH failure at: " __FILE__ \
+                              ":" RAFT_STRINGIFY(__LINE__) ": " reason)
 
 /**
  * @brief Indicates that an erroneous code path has been taken.
@@ -146,20 +159,23 @@ struct nccl_error : public std::runtime_error {
  *
  * @param[in] reason String literal description of the reason
  */
-#define CUGRAPH_FAIL(reason) \
-  throw raft::logic_error("cuGRAPH failure at: " __FILE__ ":" RAFT_STRINGIFY(__LINE__) ": " reason)
+#define CUGRAPH_FAIL(reason)                              \
+  throw raft::logic_error("cuGRAPH failure at: " __FILE__ \
+                          ":" RAFT_STRINGIFY(__LINE__) ": " reason)
 
 namespace raft {
 namespace detail {
 
-inline void throw_cuda_error(cudaError_t error, const char* file, unsigned int line)
-{
-  throw raft::cuda_error(std::string{"CUDA error encountered at: " + std::string{file} + ":" +
-                                     std::to_string(line) + ": " + std::to_string(error) + " " +
-                                     cudaGetErrorName(error) + " " + cudaGetErrorString(error)});
+inline void throw_cuda_error(cudaError_t error, const char* file,
+                             unsigned int line) {
+  throw raft::cuda_error(
+    std::string{"CUDA error encountered at: " + std::string{file} + ":" +
+                std::to_string(line) + ": " + std::to_string(error) + " " +
+                cudaGetErrorName(error) + " " + cudaGetErrorString(error)});
 }
 
-inline void throw_nccl_error(ncclResult_t error, const char* file, unsigned int line) {
+inline void throw_nccl_error(ncclResult_t error, const char* file,
+                             unsigned int line) {
   throw raft::nccl_error(
     std::string{"NCCL error encountered at: " + std::string{file} + ":" +
                 std::to_string(line) + ": " + std::to_string(error) + " " +
@@ -167,10 +183,10 @@ inline void throw_nccl_error(ncclResult_t error, const char* file, unsigned int 
 }
 
 #define _CURAND_ERR_TO_STR(err) \
-  case err:                       \
+  case err:                     \
     return #err;
 inline auto curand_error_to_string(curandStatus_t err) -> const char* {
-  switch(err) {
+  switch (err) {
     _CURAND_ERR_TO_STR(CURAND_STATUS_SUCCESS);
     _CURAND_ERR_TO_STR(CURAND_STATUS_VERSION_MISMATCH);
     _CURAND_ERR_TO_STR(CURAND_STATUS_NOT_INITIALIZED);
@@ -190,7 +206,8 @@ inline auto curand_error_to_string(curandStatus_t err) -> const char* {
 }
 #undef _CURAND_ERR_TO_STR
 
-inline void throw_curand_error(curandStatus_t error, const char* file, unsigned int line) {
+inline void throw_curand_error(curandStatus_t error, const char* file,
+                               unsigned int line) {
   throw raft::curand_error(
     std::string{"cuRAND error encountered at: " + std::string{file} + ":" +
                 std::to_string(line) + ": " + std::to_string(error) + " " +
@@ -204,7 +221,7 @@ inline void throw_curand_error(curandStatus_t error, const char* file, unsigned 
 inline auto cusparse_error_to_string(cusparseStatus_t err) -> const char* {
 #if defined(CUDART_VERSION) && CUDART_VERSION >= 10100
   return cusparseGetErrorString(status);
-#else   // CUDART_VERSION
+#else  // CUDART_VERSION
   switch (err) {
     _CUSPARSE_ERR_TO_STR(CUSPARSE_STATUS_SUCCESS);
     _CUSPARSE_ERR_TO_STR(CUSPARSE_STATUS_NOT_INITIALIZED);
@@ -221,7 +238,8 @@ inline auto cusparse_error_to_string(cusparseStatus_t err) -> const char* {
 }
 #undef _CUSPARSE_ERR_TO_STR
 
-inline void throw_cusparse_error(cusparseStatus_t error, const char* file, unsigned int line) {
+inline void throw_cusparse_error(cusparseStatus_t error, const char* file,
+                                 unsigned int line) {
   throw raft::cusparse_error(
     std::string{"cuSparse error encountered at: " + std::string{file} + ":" +
                 std::to_string(line) + ": " + std::to_string(error) + " " +
