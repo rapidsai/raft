@@ -221,7 +221,7 @@ inline void throw_curand_error(curandStatus_t error, const char* file,
 inline auto cusparse_error_to_string(cusparseStatus_t err) -> const char* {
 #if defined(CUDART_VERSION) && CUDART_VERSION >= 10100
   return cusparseGetErrorString(status);
-#else  // CUDART_VERSION
+#else   // CUDART_VERSION
   switch (err) {
     _CUSPARSE_ERR_TO_STR(CUSPARSE_STATUS_SUCCESS);
     _CUSPARSE_ERR_TO_STR(CUSPARSE_STATUS_NOT_INITIALIZED);
