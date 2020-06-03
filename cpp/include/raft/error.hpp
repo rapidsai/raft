@@ -169,7 +169,7 @@ inline void throw_nccl_error(ncclResult_t error, const char* file, unsigned int 
 #define _CURAND_ERR_TO_STR(err) \
   case err:                       \
     return #err;
-inline const char* curand_error_to_string(curandStatus_t err) {
+inline auto curand_error_to_string(curandStatus_t err) -> const char* {
   switch(err) {
     _CURAND_ERR_TO_STR(CURAND_STATUS_SUCCESS);
     _CURAND_ERR_TO_STR(CURAND_STATUS_VERSION_MISMATCH);
@@ -201,7 +201,7 @@ inline void throw_curand_error(curandStatus_t error, const char* file, unsigned 
 #define _CUSPARSE_ERR_TO_STR(err) \
   case err:                       \
     return #err;
-inline const char* cusparse_error_to_string(cusparseStatus_t err) {
+inline auto cusparse_error_to_string(cusparseStatus_t err) -> const char* {
 #if defined(CUDART_VERSION) && CUDART_VERSION >= 10100
   return cusparseGetErrorString(status);
 #else   // CUDART_VERSION
