@@ -18,6 +18,7 @@
 
 #include <cuda.h>
 #include <cuda_runtime_api.h>
+#include <curand.h>
 #include <cusparse_v2.h>
 #include <nccl.h>
 
@@ -45,6 +46,14 @@ struct logic_error : public std::logic_error {
 struct cuda_error : public std::runtime_error {
   explicit cuda_error(char const* const message) : std::runtime_error(message) {}
   explicit cuda_error(std::string const& message) : std::runtime_error(message) {}
+};
+
+/**
+ * @brief Exception thrown when a cuRAND error is encountered.
+ */
+struct curand_error : public std::runtime_error {
+  explicit curand_error(char const* const message) : std::runtime_error(message) {}
+  explicit curand_error(std::string const& message) : std::runtime_error(message) {}
 };
 
 /**
@@ -157,6 +166,37 @@ inline void throw_nccl_error(ncclResult_t error, const char* file, unsigned int 
                 ncclGetErrorString(error)});
 }
 
+#define _CURAND_ERR_TO_STR(err) \
+  case err:                       \
+    return #err;
+inline const char* curand_error_to_string(curandStatus_t err) {
+  switch(err) {
+    _CURAND_ERR_TO_STR(CURAND_STATUS_SUCCESS);
+    _CURAND_ERR_TO_STR(CURAND_STATUS_VERSION_MISMATCH);
+    _CURAND_ERR_TO_STR(CURAND_STATUS_NOT_INITIALIZED);
+    _CURAND_ERR_TO_STR(CURAND_STATUS_ALLOCATION_FAILED);
+    _CURAND_ERR_TO_STR(CURAND_STATUS_TYPE_ERROR);
+    _CURAND_ERR_TO_STR(CURAND_STATUS_OUT_OF_RANGE);
+    _CURAND_ERR_TO_STR(CURAND_STATUS_LENGTH_NOT_MULTIPLE);
+    _CURAND_ERR_TO_STR(CURAND_STATUS_DOUBLE_PRECISION_REQUIRED);
+    _CURAND_ERR_TO_STR(CURAND_STATUS_LAUNCH_FAILURE);
+    _CURAND_ERR_TO_STR(CURAND_STATUS_PREEXISTING_FAILURE);
+    _CURAND_ERR_TO_STR(CURAND_STATUS_INITIALIZATION_FAILED);
+    _CURAND_ERR_TO_STR(CURAND_STATUS_ARCH_MISMATCH);
+    _CURAND_ERR_TO_STR(CURAND_STATUS_INTERNAL_ERROR);
+    default:
+      return "CURAND_STATUS_UNKNOWN";
+  };
+}
+#undef _CURAND_ERR_TO_STR
+
+inline void throw_curand_error(curandStatus_t error, const char* file, unsigned int line) {
+  throw raft::curand_error(
+    std::string{"cuRAND error encountered at: " + std::string{file} + ":" +
+                std::to_string(line) + ": " + std::to_string(error) + " " +
+                curand_error_to_string(error)});
+}
+
 // FIXME: unnecessary once CUDA 10.1+ becomes the minimum supported version
 #define _CUSPARSE_ERR_TO_STR(err) \
   case err:                       \
@@ -227,6 +267,20 @@ inline void throw_cusparse_error(cusparseStatus_t error, const char* file, unsig
 #else
 #define CHECK_CUDA(stream) CUDA_TRY(cudaPeekAtLastError());
 #endif
+
+/**
+ * @brief Error checking macro for cuRAND runtime API functions.
+ *
+ * Invokes a cuRAND runtime API function call, if the call does not return
+ * CURAND_STATUS_SUCCESS, throws an exception detailing the cuRAND error that occurred
+ */
+#define CURAND_TRY(call)                                            \
+  do {                                                              \
+    curandStatus_t const status = (call);                           \
+    if (CURAND_STATUS_SUCCESS != status) {                          \
+      raft::detail::throw_curand_error(status, __FILE__, __LINE__); \
+    }                                                               \
+  } while (0);
 
 /**
  * @brief Error checking macro for cuSparse runtime API functions.
