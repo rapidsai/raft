@@ -30,7 +30,7 @@ namespace raft {
  * @brief Exception thrown when logical precondition is violated.
  *
  * This exception should not be thrown directly and is instead thrown by the
- * RAFT_EXPECTS macro.
+ * RAFT_EXPECTS, RAFT_FAIL, CUML_EXPECTS, CUML_FAIL, CUGRAPH_EXPECTS, CUGRAPH_FAIL macros.
  *
  */
 struct logic_error : public std::logic_error {
