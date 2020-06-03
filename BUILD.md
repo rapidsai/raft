@@ -140,9 +140,7 @@ Using as an example developer working on cuML and RAFT, we recommend the followi
 
 This will facilitate development, and the `RAFT_PATH` variable will make it so that the downstream repository, in this case cuML, builds using the locally cloned RAFT (as descrbed in the first step).
 
-### Submitting PRs
-
-If you are submitting changes to RAFT itself, without changing downstream repos, you can use the config file located in `ci/prtest.config` to trigger RAFT's CI to run tests of downstream repositories.
+### Submitting PRs Guidelines
 
 If you have changes to both RAFT and at least one downstream repo, then:
 
