@@ -22,6 +22,21 @@
 // #include <cusparse.h>
 
 #include <rmm/thrust_rmm_allocator.h>
+#include <thrust/device_vector.h>
+#include <thrust/reduce.h>
+#include <thrust/fill.h>
+#include <thrust/copy.h>
+#include <thrust/transform.h>
+#include <thrust/execution_policy.h>
+
+#include <algorithm>
+
+#ifdef DEBUG
+#include <iostream>
+#include <iomanip>
+#endif
+
+#include "error_temp.hpp" // TODO: replace w/ actual error handling to be brought in soon
 
 // CUDA block size
 #define BLOCK_SIZE 1024
@@ -33,7 +48,7 @@ namespace raft {
 namespace matrix {
   void check_size(size_t sz)
   {
-    if (sz > INT_MAX) FatalError("Vector larger than INT_MAX", ERR_BAD_PARAMETERS);
+    RAFT_EXPECT( sz <= INT_MAX, "Vector larger than INT_MAX");
   }
   template <typename ValueType_>
   void nrm1_raw_vec(ValueType_* vec, size_t n, ValueType_* res, cudaStream_t stream)
@@ -56,12 +71,12 @@ namespace matrix {
   {
 #ifdef DEBUG
     thrust::device_ptr<ValueType_> dev_ptr(vec);
-    COUT().precision(15);
-    COUT() << "sample size = " << n << ", offset = " << offset << std::endl;
+    std::cout<<std::setprecision(15);
+    std::cout << "sample size = " << n << ", offset = " << offset << std::endl;
     thrust::copy(
-                 dev_ptr + offset, dev_ptr + offset + n, std::ostream_iterator<ValueType_>(COUT(), " "));
+                 dev_ptr + offset, dev_ptr + offset + n, std::ostream_iterator<ValueType_>(std::cout, " "));
     cudaCheckError();
-    COUT() << std::endl;
+    std::cout << std::endl;
 #endif
   }
 
@@ -131,18 +146,18 @@ namespace matrix {
            ValueType_* y,
            cudaStream_t stream)
   {
+    RAFT_EXPECT((alpha == 1.0) && ((beta == 0.0) || (beta == 1.0)), "Not implemented case of y = D*x");
+    
     int items_per_thread = 4;
     int num_threads      = 128;
     int max_grid_size    = 4096;
     check_size(num_vertices);
     int n          = static_cast<int>(num_vertices);
     int num_blocks = std::min(max_grid_size, (n / (items_per_thread * num_threads)) + 1);
-    if (alpha == 1.0 && beta == 0.0)
+    if (beta == 0.0)
       dmv0_kernel<<<num_blocks, num_threads, 0, stream>>>(D, x, y, n);
-    else if (alpha == 1.0 && beta == 1.0)
+    else if (beta == 1.0)
       dmv1_kernel<<<num_blocks, num_threads, 0, stream>>>(D, x, y, n);
-    else
-      FatalError("Not implemented case of y = D*x", ERR_BAD_PARAMETERS);
 
     cudaCheckError();
   }
@@ -190,7 +205,7 @@ namespace matrix {
 
     void allocate(size_t n, cudaStream_t stream = 0) 
     {
-      values.resize(n);
+      values.resize(n);//TODO: delegate to outer alocator!
     }
 
     void fill(ValueType val, cudaStream_t stream = 0) 
@@ -200,16 +215,15 @@ namespace matrix {
 
     void copy(Vector<ValueType> &vec1, cudaStream_t stream = 0)
     {
+      RAFT_EXPECT( (get_size() == 0 && vec1.get_size()>0) || (get_size() >= vec1.get_size()) );
       if (this->get_size() == 0 && vec1.get_size()>0) {
         allocate(vec1.get_size(), stream);
         copy_vec(vec1.raw(), this->get_size(), this->raw(), stream);
       } else if (this->get_size() == vec1.get_size()) 
         copy_vec(vec1.raw(),  this->get_size(), this->raw(), stream);
-      else if (this->get_size() > vec1.get_size()) {
+      else // if (this->get_size() > vec1.get_size()) {
         copy_vec(vec1.raw(),  vec1.get_size(), this->raw(), stream);
-      } else {
-        FatalError("Cannot copy a vector into a smaller one", ERR_BAD_PARAMETERS);
-      }
+      } 
     }
 
     ValueType nrm1(cudaStream_t stream = 0) { 
@@ -271,49 +285,6 @@ namespace matrix {
     
     //Get the sum of all edges
     virtual ValueType_ getEdgeSum() const = 0;
-  };
-
-  /// Dense matrix class
-  template <typename IndexType_, typename ValueType_>
-  class DenseMatrix : public Matrix<IndexType_, ValueType_> {
-
-  private:
-    /// Whether to transpose matrix
-    const bool trans;
-    /// Matrix entries, stored column-major in device memory
-    const ValueType_ * A;
-    /// Leading dimension of matrix entry array
-    const IndexType_ lda;
-
-  public:
-    /// Constructor
-    DenseMatrix(bool _trans,
-		IndexType_ _m, IndexType_ _n,
-		const ValueType_ * _A, IndexType_ _lda);
-
-    /// Destructor
-    virtual ~DenseMatrix();
-
-    /// Get and Set CUDA stream  
-    virtual void setCUDAStream(cudaStream_t _s);  
-    virtual void getCUDAStream(cudaStream_t *_s);     
-
-    /// Matrix-vector product
-    virtual void mv(ValueType_ alpha, const ValueType_ * __restrict__ x,
-		    ValueType_ beta, ValueType_ * __restrict__ y) const;
-    /// Matrix-set of k vectors product
-    virtual void mm(IndexType_ k, ValueType_ alpha, const ValueType_ * __restrict__ x, ValueType_ beta, ValueType_ * __restrict__ y) const;  
-
-    /// Color and Reorder
-    virtual void color(IndexType_ *c, IndexType_ *p) const;  
-    virtual void reorder(IndexType_ *p) const;  
-
-    /// Incomplete Cholesky (setup, factor and solve)
-    virtual void prec_setup(Matrix<IndexType_,ValueType_> * _M);
-    virtual void prec_solve(IndexType_ k, ValueType_ alpha, ValueType_ * __restrict__ fx, ValueType_ * __restrict__ t) const; 
-    
-    //Get the sum of all edges
-    virtual ValueType_ getEdgeSum() const;
   };
 
   /// Sparse matrix class in CSR format
@@ -517,111 +488,6 @@ static __global__ void diagmm(IndexType_ n,
 }  // namespace
 
 // =============================================
-// Dense matrix class
-// =============================================
-
-/// Constructor for dense matrix class
-/** @param _trans Whether to transpose matrix.
- *  @param _m Number of rows.
- *  @param _n Number of columns.
- *  @param _A (Input, device memory, _m*_n entries) Matrix
- *    entries, stored column-major.
- *  @param _lda Leading dimension of _A.
- */
-template <typename IndexType_, typename ValueType_>
-DenseMatrix<IndexType_, ValueType_>::DenseMatrix(
-  bool _trans, IndexType_ _m, IndexType_ _n, const ValueType_ *_A, IndexType_ _lda)
-  : Matrix<IndexType_, ValueType_>(_m, _n), trans(_trans), A(_A), lda(_lda)
-{
-  Cublas::set_pointer_mode_host();
-  if (_lda < _m) FatalError("invalid dense matrix parameter (lda<m)", NVGRAPH_ERR_BAD_PARAMETERS);
-}
-
-/// Destructor for dense matrix class
-template <typename IndexType_, typename ValueType_>
-DenseMatrix<IndexType_, ValueType_>::~DenseMatrix()
-{
-}
-
-/// Get and Set CUDA stream
-template <typename IndexType_, typename ValueType_>
-void DenseMatrix<IndexType_, ValueType_>::setCUDAStream(cudaStream_t _s)
-{
-  this->s = _s;
-  // printf("DenseMatrix setCUDAStream stream=%p\n",this->s);
-  Cublas::setStream(_s);
-}
-template <typename IndexType_, typename ValueType_>
-void DenseMatrix<IndexType_, ValueType_>::getCUDAStream(cudaStream_t *_s)
-{
-  *_s = this->s;
-  // CHECK_CUBLAS(cublasGetStream(cublasHandle, _s));
-}
-
-/// Matrix-vector product for dense matrix class
-/** y is overwritten with alpha*A*x+beta*y.
- *
- *  @param alpha Scalar.
- *  @param x (Input, device memory, n entries) Vector.
- *  @param beta Scalar.
- *  @param y (Input/output, device memory, m entries) Output vector.
- */
-template <typename IndexType_, typename ValueType_>
-void DenseMatrix<IndexType_, ValueType_>::mv(ValueType_ alpha,
-                                             const ValueType_ *__restrict__ x,
-                                             ValueType_ beta,
-                                             ValueType_ *__restrict__ y) const
-{
-  Cublas::gemv(this->trans, this->m, this->n, &alpha, this->A, this->lda, x, 1, &beta, y, 1);
-}
-
-template <typename IndexType_, typename ValueType_>
-void DenseMatrix<IndexType_, ValueType_>::mm(IndexType_ k,
-                                             ValueType_ alpha,
-                                             const ValueType_ *__restrict__ x,
-                                             ValueType_ beta,
-                                             ValueType_ *__restrict__ y) const
-{
-  Cublas::gemm(
-    this->trans, false, this->m, k, this->n, &alpha, A, lda, x, this->m, &beta, y, this->n);
-}
-
-/// Color and Reorder
-template <typename IndexType_, typename ValueType_>
-void DenseMatrix<IndexType_, ValueType_>::color(IndexType_ *c, IndexType_ *p) const
-{
-}
-
-template <typename IndexType_, typename ValueType_>
-void DenseMatrix<IndexType_, ValueType_>::reorder(IndexType_ *p) const
-{
-}
-
-/// Incomplete Cholesky (setup, factor and solve)
-template <typename IndexType_, typename ValueType_>
-void DenseMatrix<IndexType_, ValueType_>::prec_setup(Matrix<IndexType_, ValueType_> *_M)
-{
-  printf("ERROR: DenseMatrix prec_setup dispacthed\n");
-  // exit(1);
-}
-
-template <typename IndexType_, typename ValueType_>
-void DenseMatrix<IndexType_, ValueType_>::prec_solve(IndexType_ k,
-                                                     ValueType_ alpha,
-                                                     ValueType_ *__restrict__ fx,
-                                                     ValueType_ *__restrict__ t) const
-{
-  printf("ERROR: DenseMatrix prec_solve dispacthed\n");
-  // exit(1);
-}
-
-template <typename IndexType_, typename ValueType_>
-ValueType_ DenseMatrix<IndexType_, ValueType_>::getEdgeSum() const
-{
-  return 0.0;
-}
-
-// =============================================
 // CSR matrix class
 // =============================================
 
@@ -657,7 +523,7 @@ CsrMatrix<IndexType_, ValueType_>::CsrMatrix(bool _trans,
     csrRowPtrA(_csrRowPtrA),
     csrColIndA(_csrColIndA)
 {
-  if (nnz < 0) FatalError("invalid CSR matrix parameter (nnz<0)", NVGRAPH_ERR_BAD_PARAMETERS);
+  RAFT_EXPECT(nnz >= 0, "invalid CSR matrix parameter (nnz<0)");
   Cusparse::set_pointer_mode_host();
 }
 
@@ -857,19 +723,17 @@ LaplacianMatrix<IndexType_, ValueType_>::LaplacianMatrix(
   : Matrix<IndexType_, ValueType_>(_A.m, _A.n), A(&_A)
 {
   // Check that adjacency matrix is square
-  if (_A.m != _A.n)
-    FatalError("cannot construct Laplacian matrix from non-square adjacency matrix",
-               NVGRAPH_ERR_BAD_PARAMETERS);
+  RAFT_EXPECT(_A.m == _A.n, "cannot construct Laplacian matrix from non-square adjacency matrix");
   // set CUDA stream
-  this->s = NULL;
+  this->s = nullptr;
   // Construct degree matrix
   D.allocate(_A.m, this->s);
   Vector<ValueType_> ones(this->n, this->s);
   ones.fill(1.0);
   _A.mv(1, ones.raw(), 0, D.raw());
 
-  // Set preconditioning matrix pointer to NULL
-  M = NULL;
+  // Set preconditioning matrix pointer to nullptr
+  M = nullptr;
 }
 
 /// Destructor for Laplacian matrix class
@@ -885,7 +749,7 @@ void LaplacianMatrix<IndexType_, ValueType_>::setCUDAStream(cudaStream_t _s)
   this->s = _s;
   // printf("LaplacianMatrix setCUDAStream stream=%p\n",this->s);
   A->setCUDAStream(_s);
-  if (M != NULL) { M->setCUDAStream(_s); }
+  if (M != nullptr) { M->setCUDAStream(_s); }
 }
 template <typename IndexType_, typename ValueType_>
 void LaplacianMatrix<IndexType_, ValueType_>::getCUDAStream(cudaStream_t *_s)
@@ -1004,9 +868,9 @@ void LaplacianMatrix<IndexType_, ValueType_>::prec_setup(Matrix<IndexType_, Valu
 {
   // save the pointer to preconditioner M
   M = _M;
-  if (M != NULL) {
+  if (M != nullptr) {
     // setup the preconditioning matrix M
-    M->prec_setup(NULL);
+    M->prec_setup(nullptr);
   }
 }
 
@@ -1016,7 +880,7 @@ void LaplacianMatrix<IndexType_, ValueType_>::prec_solve(IndexType_ k,
                                                          ValueType_ *__restrict__ fx,
                                                          ValueType_ *__restrict__ t) const
 {
-  if (M != NULL) {
+  if (M != nullptr) {
     // preconditioning
     M->prec_solve(k, alpha, fx, t);
   }
@@ -1040,12 +904,10 @@ ModularityMatrix<IndexType_, ValueType_>::ModularityMatrix(
   : Matrix<IndexType_, ValueType_>(_A.m, _A.n), A(&_A), nnz(_nnz)
 {
   // Check that adjacency matrix is square
-  if (_A.m != _A.n)
-    FatalError("cannot construct Modularity matrix from non-square adjacency matrix",
-               NVGRAPH_ERR_BAD_PARAMETERS);
+  RAFT_EXPECT(_A.m == _A.n, "cannot construct Modularity matrix from non-square adjacency matrix");
 
   // set CUDA stream
-  this->s = NULL;
+  this->s = nullptr;
   // Construct degree matrix
   D.allocate(_A.m, this->s);
   Vector<ValueType_> ones(this->n, this->s);
@@ -1054,8 +916,8 @@ ModularityMatrix<IndexType_, ValueType_>::ModularityMatrix(
   // D.dump(0,this->n);
   edge_sum = D.nrm1();
 
-  // Set preconditioning matrix pointer to NULL
-  M = NULL;
+  // Set preconditioning matrix pointer to nullptr
+  M = nullptr;
 }
 
 /// Destructor for Modularity matrix class
@@ -1071,7 +933,7 @@ void ModularityMatrix<IndexType_, ValueType_>::setCUDAStream(cudaStream_t _s)
   this->s = _s;
   // printf("ModularityMatrix setCUDAStream stream=%p\n",this->s);
   A->setCUDAStream(_s);
-  if (M != NULL) { M->setCUDAStream(_s); }
+  if (M != nullptr) { M->setCUDAStream(_s); }
 }
 
 template <typename IndexType_, typename ValueType_>
@@ -1096,9 +958,7 @@ void ModularityMatrix<IndexType_, ValueType_>::mv(ValueType_ alpha,
                                                   ValueType_ *__restrict__ y) const
 {
   // Scale result vector
-  if (alpha != 1 || beta != 0)
-    FatalError("This isn't implemented for Modularity Matrix currently",
-               NVGRAPH_ERR_NOT_IMPLEMENTED);
+  RAFT_EXPECT(alpha == 1 && beta == 0, "cannot construct Modularity matrix from non-square adjacency matrix");
 
   // CHECK_CUBLAS(cublasXdot(handle, this->n, const double *x, int incx, const double *y, int incy,
   // double *result));
@@ -1125,7 +985,7 @@ void ModularityMatrix<IndexType_, ValueType_>::mm(IndexType_ k,
                                                   ValueType_ beta,
                                                   ValueType_ *__restrict__ y) const
 {
-  FatalError("This isn't implemented for Modularity Matrix currently", NVGRAPH_ERR_NOT_IMPLEMENTED);
+  RAFT_FAIL("Functionality not currently supported in Modularity Matrix.");
 }
 
 template <typename IndexType_, typename ValueType_>
@@ -1135,20 +995,20 @@ void ModularityMatrix<IndexType_, ValueType_>::dm(IndexType_ k,
                                                   ValueType_ beta,
                                                   ValueType_ *__restrict__ y) const
 {
-  FatalError("This isn't implemented for Modularity Matrix currently", NVGRAPH_ERR_NOT_IMPLEMENTED);
+  RAFT_FAIL("Functionality not currently supported in Modularity Matrix.");
 }
 
 /// Color and Reorder
 template <typename IndexType_, typename ValueType_>
 void ModularityMatrix<IndexType_, ValueType_>::color(IndexType_ *c, IndexType_ *p) const
 {
-  FatalError("This isn't implemented for Modularity Matrix currently", NVGRAPH_ERR_NOT_IMPLEMENTED);
+  RAFT_FAIL("Functionality not currently supported in Modularity Matrix.");
 }
 
 template <typename IndexType_, typename ValueType_>
 void ModularityMatrix<IndexType_, ValueType_>::reorder(IndexType_ *p) const
 {
-  FatalError("This isn't implemented for Modularity Matrix currently", NVGRAPH_ERR_NOT_IMPLEMENTED);
+  RAFT_FAIL("Functionality not currently supported in Modularity Matrix.");
 }
 
 /// Solve preconditioned system M x = f for a set of k vectors
@@ -1157,9 +1017,9 @@ void ModularityMatrix<IndexType_, ValueType_>::prec_setup(Matrix<IndexType_, Val
 {
   // save the pointer to preconditioner M
   M = _M;
-  if (M != NULL) {
+  if (M != nullptr) {
     // setup the preconditioning matrix M
-    M->prec_setup(NULL);
+    M->prec_setup(nullptr);
   }
 }
 
@@ -1169,10 +1029,7 @@ void ModularityMatrix<IndexType_, ValueType_>::prec_solve(IndexType_ k,
                                                           ValueType_ *__restrict__ fx,
                                                           ValueType_ *__restrict__ t) const
 {
-  if (M != NULL) {
-    FatalError("This isn't implemented for Modularity Matrix currently",
-               NVGRAPH_ERR_NOT_IMPLEMENTED);
-  }
+  RAFT_EXPECT(M == nullptr, "Functionality not currently supported in Modularity Matrix.");
 }
 
 template <typename IndexType_, typename ValueType_>
