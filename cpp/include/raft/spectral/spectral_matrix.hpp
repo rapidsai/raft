@@ -55,7 +55,7 @@ namespace matrix {
   {
     thrust::device_ptr<ValueType_> dev_ptr(vec);
     *res = thrust::reduce(dev_ptr, dev_ptr + n);
-    cudaCheckError();
+    CUDA_CHECK_LAST();
   }
 
   template <typename ValueType_>
@@ -63,7 +63,7 @@ namespace matrix {
   {
     thrust::device_ptr<ValueType_> dev_ptr(vec);
     thrust::fill(dev_ptr, dev_ptr + n, value);
-    cudaCheckError();
+    CUDA_CHECK_LAST();
   }
 
   template <typename ValueType_>
@@ -75,7 +75,7 @@ namespace matrix {
     std::cout << "sample size = " << n << ", offset = " << offset << std::endl;
     thrust::copy(
                  dev_ptr + offset, dev_ptr + offset + n, std::ostream_iterator<ValueType_>(std::cout, " "));
-    cudaCheckError();
+    CUDA_CHECK_LAST();
     std::cout << std::endl;
 #endif
   }
@@ -120,7 +120,7 @@ namespace matrix {
     // COUT() << "copy "<< n << " elements" << std::endl;
 #endif
     thrust::copy_n(dev_ptr, n, res_ptr);
-    cudaCheckError();
+    CUDA_CHECK_LAST();
     // dump_raw_vec (res, n, 0);
   }
 
@@ -134,7 +134,7 @@ namespace matrix {
     int n          = static_cast<int>(num_vertices);
     int num_blocks = std::min(max_grid_size, (n / (items_per_thread * num_threads)) + 1);
     flag_zeroes_kernel<<<num_blocks, num_threads, 0, stream>>>(num_vertices, vec, flags);
-    cudaCheckError();
+    CUDA_CHECK_LAST();
   }
 
   template <typename ValueType_>
@@ -159,7 +159,7 @@ namespace matrix {
     else if (beta == 1.0)
       dmv1_kernel<<<num_blocks, num_threads, 0, stream>>>(D, x, y, n);
 
-    cudaCheckError();
+    CUDA_CHECK_LAST();
   }
 
   template <typename IndexType_, typename ValueType_>
@@ -172,7 +172,7 @@ namespace matrix {
   {
     fill_raw_vec(res, n, unreachable_val);
     cudaMemcpy(&res[root], &self_loop_val, sizeof(self_loop_val), cudaMemcpyHostToDevice);
-    cudaCheckError();
+    CUDA_CHECK_LAST();
   }
 
 
@@ -791,7 +791,7 @@ void LaplacianMatrix<IndexType_, ValueType_>::mv(ValueType_ alpha,
   blockDim.y = 1;
   blockDim.z = 1;
   diagmv<<<gridDim, blockDim, 0, A->s>>>(this->n, alpha, D.raw(), x, y);
-  cudaCheckError();
+  CUDA_CHECK_LAST();
 
   // Apply adjacency matrix
   A->mv(-alpha, x, 1, y);
@@ -848,7 +848,7 @@ void LaplacianMatrix<IndexType_, ValueType_>::dm(IndexType_ k,
     diagmm<IndexType_, ValueType_, false>
       <<<gridDim, blockDim, 0, A->s>>>(this->n, k, alpha, D.raw(), x, beta, y);
   }
-  cudaCheckError();
+  CUDA_CHECK_LAST();
 }
 
 /// Color and Reorder
