@@ -34,24 +34,24 @@ namespace raft {
  *
  */
 struct logic_error : public std::logic_error {
-  logic_error(char const* const message) : std::logic_error(message) {}
-  logic_error(std::string const& message) : std::logic_error(message) {}
+  explicit logic_error(char const* const message) : std::logic_error(message) {}
+  explicit logic_error(std::string const& message) : std::logic_error(message) {}
 };
 
 /**
  * @brief Exception thrown when a CUDA error is encountered.
  */
 struct cuda_error : public std::runtime_error {
-  cuda_error(char const* const message) : std::runtime_error(message) {}
-  cuda_error(std::string const& message) : std::runtime_error(message) {}
+  explicit cuda_error(char const* const message) : std::runtime_error(message) {}
+  explicit cuda_error(std::string const& message) : std::runtime_error(message) {}
 };
 
 /**
  * @brief Exception thrown when a NCCL error is encountered.
  */
 struct nccl_error : public std::runtime_error {
-  nccl_error(char const* const message) : std::runtime_error(message) {}
-  nccl_error(std::string const& message) : std::runtime_error(message) {}
+  explicit nccl_error(char const* const message) : std::runtime_error(message) {}
+  explicit nccl_error(std::string const& message) : std::runtime_error(message) {}
 };
 
 }  // namespace raft
@@ -142,7 +142,7 @@ inline void throw_cuda_error(cudaError_t error, const char* file, unsigned int l
 }
 
 inline void throw_nccl_error(ncclResult_t error, const char* file, unsigned int line) {
-  throw cugraph::nccl_error(
+  throw raft::nccl_error(
     std::string{"NCCL error encountered at: " + std::string{file} + ":" +
                 std::to_string(line) + ": " + std::to_string(error) + " " +
                 ncclGetErrorString(error)});
@@ -198,6 +198,6 @@ inline void throw_nccl_error(ncclResult_t error, const char* file, unsigned int 
   do {                                                              \
     ncclResult_t const status = (call);                             \
     if (ncclSuccess != status) {                                    \
-      cugraph::detail::throw_nccl_error(status, __FILE__, __LINE__);\
+      raft::detail::throw_nccl_error(status, __FILE__, __LINE__);\
     }                                                               \
   } while (0);
