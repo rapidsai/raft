@@ -17,8 +17,6 @@
 cmake_minimum_required(VERSION 3.14 FATAL_ERROR)
 project(comms LANGUAGES CXX CUDA)
 
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
-
 if(NOT NCCL_PATH)
     find_package(NCCL REQUIRED)
 else()
