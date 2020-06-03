@@ -21,6 +21,8 @@
 // #include <cusolverDn.h>
 // #include <cusparse.h>
 
+#include <raft/sparse/cusparse_wrappers.h>
+
 #include <rmm/thrust_rmm_allocator.h>
 #include <thrust/device_vector.h>
 #include <thrust/reduce.h>
