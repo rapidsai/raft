@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,25 +14,20 @@
  * limitations under the License.
  */
 
-//#ifdef NVGRAPH_PARTITION
+#pragma once
 
+//for cmath:
 #define _USE_MATH_DEFINES
-#include <math.h>
-#include "include/lanczos.hxx"
 
-#include <stdio.h>
-#include <time.h>
+#include <cmath>
 #include <vector>
 
 #include <cuda.h>
 #include <curand.h>
 
-#include "include/debug_macros.h"
-#include "include/nvgraph_cublas.hxx"
-#include "include/nvgraph_error.hxx"
-#include "include/nvgraph_lapack.hxx"
-#include "include/nvgraph_vector.hxx"
-#include "include/nvgraph_vector_kernels.hxx"
+#include <raft/spectral/matrix_wrappers.hpp>
+#include <raft/spectral/error_temp.hpp>
+
 // =========================================================
 // Useful macros
 // =========================================================
@@ -40,10 +35,12 @@
 // Get index of matrix entry
 #define IDX(i, j, lda) ((i) + (j) * (lda))
 
-namespace nvgraph {
+namespace raft {
 
 namespace {
 
+using namespace matrix;
+  
 // =========================================================
 // Helper functions
 // =========================================================
@@ -75,16 +72,16 @@ namespace {
  *  @return Zero if successful. Otherwise non-zero.
  */
 template <typename IndexType_, typename ValueType_>
-static int performLanczosIteration(const Matrix<IndexType_, ValueType_> *A,
-                                   IndexType_ *iter,
-                                   IndexType_ maxIter,
-                                   ValueType_ shift,
-                                   ValueType_ tol,
-                                   bool reorthogonalize,
-                                   ValueType_ *__restrict__ alpha_host,
-                                   ValueType_ *__restrict__ beta_host,
-                                   ValueType_ *__restrict__ lanczosVecs_dev,
-                                   ValueType_ *__restrict__ work_dev)
+int performLanczosIteration(sparse_matrix_t<IndexType_, ValueType_> const* A,
+                            IndexType_ *iter,
+                            IndexType_ maxIter,
+                            ValueType_ shift,
+                            ValueType_ tol,
+                            bool reorthogonalize,
+                            ValueType_ *__restrict__ alpha_host,
+                            ValueType_ *__restrict__ beta_host,
+                            ValueType_ *__restrict__ lanczosVecs_dev,
+                            ValueType_ *__restrict__ work_dev)
 {
   // -------------------------------------------------------
   // Variable declaration
@@ -95,7 +92,7 @@ static int performLanczosIteration(const Matrix<IndexType_, ValueType_> *A,
   const ValueType_ negOne = -1;
   const ValueType_ zero   = 0;
 
-  IndexType_ n = A->n;
+  IndexType_ n = A->nrows;
 
   // -------------------------------------------------------
   // Compute second Lanczos vector
@@ -105,7 +102,7 @@ static int performLanczosIteration(const Matrix<IndexType_, ValueType_> *A,
 
     // Apply matrix
     if (shift != 0)
-      CHECK_CUDA(cudaMemcpyAsync(
+      CUDA_TRY(cudaMemcpyAsync(
         lanczosVecs_dev + n, lanczosVecs_dev, n * sizeof(ValueType_), cudaMemcpyDeviceToDevice));
     A->mv(1, lanczosVecs_dev, shift, lanczosVecs_dev + n);
 
@@ -130,7 +127,7 @@ static int performLanczosIteration(const Matrix<IndexType_, ValueType_> *A,
 
     // Apply matrix
     if (shift != 0)
-      CHECK_CUDA(cudaMemcpyAsync(lanczosVecs_dev + (*iter) * n,
+      CUDA_TRY(cudaMemcpyAsync(lanczosVecs_dev + (*iter) * n,
                                  lanczosVecs_dev + (*iter - 1) * n,
                                  n * sizeof(ValueType_),
                                  cudaMemcpyDeviceToDevice));
@@ -161,7 +158,7 @@ static int performLanczosIteration(const Matrix<IndexType_, ValueType_> *A,
                    &one,
                    lanczosVecs_dev + IDX(0, *iter, n),
                    1);
-      CHECK_CUDA(cudaMemcpyAsync(alpha_host + (*iter - 1),
+      CUDA_TRY(cudaMemcpyAsync(alpha_host + (*iter - 1),
                                  work_dev + (*iter - 1),
                                  sizeof(ValueType_),
                                  cudaMemcpyDeviceToHost));
@@ -220,7 +217,7 @@ static int performLanczosIteration(const Matrix<IndexType_, ValueType_> *A,
     Cublas::scal(n, 1 / beta_host[*iter - 1], lanczosVecs_dev + IDX(0, *iter, n), 1);
   }
 
-  CHECK_CUDA(cudaDeviceSynchronize());
+  CUDA_TRY(cudaDeviceSynchronize());
 
   return 0;
 }
@@ -558,7 +555,7 @@ static int lanczosRestart(IndexType_ n,
       WARNING("error in implicitly shifted QR algorithm");
 
   // Obtain new residual
-  CHECK_CUDA(
+  CUDA_TRY(
     cudaMemcpyAsync(V_dev, V_host, iter * iter * sizeof(ValueType_), cudaMemcpyHostToDevice));
 
   beta_host[iter - 1] = beta_host[iter - 1] * V_host[IDX(iter - 1, iter_new - 1, iter)];
@@ -578,11 +575,11 @@ static int lanczosRestart(IndexType_ n,
   Cublas::gemm(
     false, false, n, iter_new, iter, &one, lanczosVecs_dev, n, V_dev, iter, &zero, work_dev, n);
 
-  CHECK_CUDA(cudaMemcpyAsync(
+  CUDA_TRY(cudaMemcpyAsync(
     lanczosVecs_dev, work_dev, n * iter_new * sizeof(ValueType_), cudaMemcpyDeviceToDevice));
 
   // Normalize residual to obtain new Lanczos vector
-  CHECK_CUDA(cudaMemcpyAsync(lanczosVecs_dev + IDX(0, iter_new, n),
+  CUDA_TRY(cudaMemcpyAsync(lanczosVecs_dev + IDX(0, iter_new, n),
                              lanczosVecs_dev + IDX(0, iter, n),
                              n * sizeof(ValueType_),
                              cudaMemcpyDeviceToDevice));
@@ -592,7 +589,7 @@ static int lanczosRestart(IndexType_ n,
   return 0;
 }
 
-}  // namespace
+}  // anonym. namespace
 
 // =========================================================
 // Eigensolver
@@ -642,24 +639,25 @@ static int lanczosRestart(IndexType_ n,
  *    Eigenvectors corresponding to smallest eigenvalues of
  *    matrix. Vectors are stored as columns of a column-major matrix
  *    with dimensions n x nEigVecs.
- *  @return NVGRAPH error flag.
+ *  @return error flag.
  */
 template <typename IndexType_, typename ValueType_>
-NVGRAPH_ERROR computeSmallestEigenvectors(const Matrix<IndexType_, ValueType_> *A,
-                                          IndexType_ nEigVecs,
-                                          IndexType_ maxIter,
-                                          IndexType_ restartIter,
-                                          ValueType_ tol,
-                                          bool reorthogonalize,
-                                          IndexType_ *effIter,
-                                          IndexType_ *totalIter,
-                                          ValueType_ *shift,
-                                          ValueType_ *__restrict__ alpha_host,
-                                          ValueType_ *__restrict__ beta_host,
-                                          ValueType_ *__restrict__ lanczosVecs_dev,
-                                          ValueType_ *__restrict__ work_dev,
-                                          ValueType_ *__restrict__ eigVals_dev,
-                                          ValueType_ *__restrict__ eigVecs_dev)
+int computeSmallestEigenvectors(sparse_matrix_t<IndexType_, ValueType_> const* A,
+                                IndexType_ nEigVecs,
+                                IndexType_ maxIter,
+                                IndexType_ restartIter,
+                                ValueType_ tol,
+                                bool reorthogonalize,
+                                IndexType_ *effIter,
+                                IndexType_ *totalIter,
+                                ValueType_ *shift,
+                                ValueType_ *__restrict__ alpha_host,
+                                ValueType_ *__restrict__ beta_host,
+                                ValueType_ *__restrict__ lanczosVecs_dev,
+                                ValueType_ *__restrict__ work_dev,
+                                ValueType_ *__restrict__ eigVals_dev,
+                                ValueType_ *__restrict__ eigVecs_dev,
+                                unsigned long long seed)
 {
   // -------------------------------------------------------
   // Variable declaration
@@ -670,7 +668,7 @@ NVGRAPH_ERROR computeSmallestEigenvectors(const Matrix<IndexType_, ValueType_> *
   const ValueType_ zero = 0;
 
   // Matrix dimension
-  IndexType_ n = A->n;
+  IndexType_ n = A->nrows;
 
   // Shift for implicit restart
   ValueType_ shiftUpper;
@@ -697,34 +695,12 @@ NVGRAPH_ERROR computeSmallestEigenvectors(const Matrix<IndexType_, ValueType_> *
   // -------------------------------------------------------
   // Check that parameters are valid
   // -------------------------------------------------------
-  if (A->m != A->n) {
-    WARNING("invalid parameter (matrix is not square)");
-    return NVGRAPH_ERR_BAD_PARAMETERS;
-  }
-  if (nEigVecs < 1) {
-    WARNING("invalid parameter (nEigVecs<1)");
-    return NVGRAPH_ERR_BAD_PARAMETERS;
-  }
-  if (restartIter < 1) {
-    WARNING("invalid parameter (restartIter<4)");
-    return NVGRAPH_ERR_BAD_PARAMETERS;
-  }
-  if (tol < 0) {
-    WARNING("invalid parameter (tol<0)");
-    return NVGRAPH_ERR_BAD_PARAMETERS;
-  }
-  if (nEigVecs > n) {
-    WARNING("invalid parameters (nEigVecs>n)");
-    return NVGRAPH_ERR_BAD_PARAMETERS;
-  }
-  if (maxIter < nEigVecs) {
-    WARNING("invalid parameters (maxIter<nEigVecs)");
-    return NVGRAPH_ERR_BAD_PARAMETERS;
-  }
-  if (restartIter < nEigVecs) {
-    WARNING("invalid parameters (restartIter<nEigVecs)");
-    return NVGRAPH_ERR_BAD_PARAMETERS;
-  }
+  RAFT_EXPECT(nEigVecs > 0 && nEigVecs<=n, "Invalid number of eigenvectors.");
+  RAFT_EXPECT(restartIter > 0, "Invalid restartIter.");
+  RAFT_EXPECT(tol > 0, "Invalid tolerance.");
+  RAFT_EXPECT(maxIter >= nEigVecs, "Invalid maxIter.");
+  RAFT_EXPECT(restartIter >= nEigVecs, "Invalid restartIter.");
+  
 
   // -------------------------------------------------------
   // Variable initialization
@@ -750,15 +726,15 @@ NVGRAPH_ERROR computeSmallestEigenvectors(const Matrix<IndexType_, ValueType_> *
   // Random number generator
   curandGenerator_t randGen;
   // Initialize random number generator
-  CHECK_CURAND(curandCreateGenerator(&randGen, CURAND_RNG_PSEUDO_PHILOX4_32_10));
+  CUDA_TRY(curandCreateGenerator(&randGen, CURAND_RNG_PSEUDO_PHILOX4_32_10));
 
   // FIXME: This is hard coded, which is good for unit testing...
   //        but should really be a parameter so it could be
   //        "random" for real runs and "fixed" for tests
-  CHECK_CURAND(curandSetPseudoRandomGeneratorSeed(randGen, 1234567 /*time(NULL)*/));
-  // CHECK_CURAND(curandSetPseudoRandomGeneratorSeed(randGen, time(NULL)));
+  CUDA_TRY(curandSetPseudoRandomGeneratorSeed(randGen, seed /*time(NULL)*/));
+  // CUDA_TRY(curandSetPseudoRandomGeneratorSeed(randGen, time(NULL)));
   // Initialize initial Lanczos vector
-  CHECK_CURAND(curandGenerateNormalX(randGen, lanczosVecs_dev, n + n % 2, zero, one));
+  CUDA_TRY(curandGenerateNormalX(randGen, lanczosVecs_dev, n + n % 2, zero, one));
   ValueType_ normQ1 = Cublas::nrm2(n, lanczosVecs_dev, 1);
   Cublas::scal(n, 1 / normQ1, lanczosVecs_dev, 1);
 
@@ -877,7 +853,7 @@ NVGRAPH_ERROR computeSmallestEigenvectors(const Matrix<IndexType_, ValueType_> *
   for (i = *effIter; i < nEigVecs; ++i) work_host[i + 2 * (*effIter)] = 0;
 
   // Copy results to device memory
-  CHECK_CUDA(cudaMemcpy(eigVals_dev,
+  CUDA_TRY(cudaMemcpy(eigVals_dev,
                         work_host + 2 * (*effIter),
                         nEigVecs * sizeof(ValueType_),
                         cudaMemcpyHostToDevice));
@@ -885,7 +861,7 @@ NVGRAPH_ERROR computeSmallestEigenvectors(const Matrix<IndexType_, ValueType_> *
   //{
   //  std::cout <<*(work_host+(2*(*effIter)+i))<< std::endl;
   //}
-  CHECK_CUDA(cudaMemcpy(
+  CUDA_TRY(cudaMemcpy(
     work_dev, Z_host, (*effIter) * nEigVecs * sizeof(ValueType_), cudaMemcpyHostToDevice));
 
   // Convert eigenvectors from Lanczos basis to standard basis
@@ -904,8 +880,8 @@ NVGRAPH_ERROR computeSmallestEigenvectors(const Matrix<IndexType_, ValueType_> *
                n);
 
   // Clean up and exit
-  CHECK_CURAND(curandDestroyGenerator(randGen));
-  return NVGRAPH_OK;
+  CUDA_TRY(curandDestroyGenerator(randGen));
+  return 0;
 }
 
 /// Compute smallest eigenvectors of symmetric matrix
@@ -942,55 +918,30 @@ NVGRAPH_ERROR computeSmallestEigenvectors(const Matrix<IndexType_, ValueType_> *
  *    Eigenvectors corresponding to smallest eigenvalues of
  *    matrix. Vectors are stored as columns of a column-major matrix
  *    with dimensions n x nEigVecs.
- *  @return NVGRAPH error flag.
+ *  @return error flag.
  */
 template <typename IndexType_, typename ValueType_>
-NVGRAPH_ERROR computeSmallestEigenvectors(const Matrix<IndexType_, ValueType_> &A,
-                                          IndexType_ nEigVecs,
-                                          IndexType_ maxIter,
-                                          IndexType_ restartIter,
-                                          ValueType_ tol,
-                                          bool reorthogonalize,
-                                          IndexType_ &iter,
-                                          ValueType_ *__restrict__ eigVals_dev,
-                                          ValueType_ *__restrict__ eigVecs_dev)
+int computeSmallestEigenvectors(sparse_matrix_t<IndexType_, ValueType_> const& A,
+                                IndexType_ nEigVecs,
+                                IndexType_ maxIter,
+                                IndexType_ restartIter,
+                                ValueType_ tol,
+                                bool reorthogonalize,
+                                IndexType_ &iter,
+                                ValueType_ *__restrict__ eigVals_dev,
+                                ValueType_ *__restrict__ eigVecs_dev,
+                                unsigned long long seed = 1234567,
+                                cudaStream_t stream = 0)
 {
-  // CUDA stream
-  //   TODO: handle non-zero streams
-  cudaStream_t stream = 0;
-
   // Matrix dimension
-  IndexType_ n = A.n;
+  IndexType_ n = A.nrows;
 
   // Check that parameters are valid
-  if (A.m != A.n) {
-    WARNING("invalid parameter (matrix is not square)");
-    return NVGRAPH_ERR_BAD_PARAMETERS;
-  }
-  if (nEigVecs < 1) {
-    WARNING("invalid parameter (nEigVecs<1)");
-    return NVGRAPH_ERR_BAD_PARAMETERS;
-  }
-  if (restartIter < 1) {
-    WARNING("invalid parameter (restartIter<4)");
-    return NVGRAPH_ERR_BAD_PARAMETERS;
-  }
-  if (tol < 0) {
-    WARNING("invalid parameter (tol<0)");
-    return NVGRAPH_ERR_BAD_PARAMETERS;
-  }
-  if (nEigVecs > n) {
-    WARNING("invalid parameters (nEigVecs>n)");
-    return NVGRAPH_ERR_BAD_PARAMETERS;
-  }
-  if (maxIter < nEigVecs) {
-    WARNING("invalid parameters (maxIter<nEigVecs)");
-    return NVGRAPH_ERR_BAD_PARAMETERS;
-  }
-  if (restartIter < nEigVecs) {
-    WARNING("invalid parameters (restartIter<nEigVecs)");
-    return NVGRAPH_ERR_BAD_PARAMETERS;
-  }
+  RAFT_EXPECT(nEigVecs > 0 && nEigVecs<=n, "Invalid number of eigenvectors.");
+  RAFT_EXPECT(restartIter > 0, "Invalid restartIter.");
+  RAFT_EXPECT(tol > 0, "Invalid tolerance.");
+  RAFT_EXPECT(maxIter >= nEigVecs, "Invalid maxIter.");
+  RAFT_EXPECT(restartIter >= nEigVecs, "Invalid restartIter.");
 
   // Allocate memory
   std::vector<ValueType_> alpha_host_v(restartIter);
@@ -999,27 +950,29 @@ NVGRAPH_ERROR computeSmallestEigenvectors(const Matrix<IndexType_, ValueType_> &
   ValueType_ *alpha_host = alpha_host_v.data();
   ValueType_ *beta_host  = beta_host_v.data();
 
-  Vector<ValueType_> lanczosVecs_dev(n * (restartIter + 1), stream);
-  Vector<ValueType_> work_dev((n + restartIter) * restartIter, stream);
+  //TODO: replace and fix allocation via RAFT handle
+  AllocatableVector<ValueType_> lanczosVecs_dev(n * (restartIter + 1), stream);
+  AllocatableVector<ValueType_> work_dev((n + restartIter) * restartIter, stream);
 
   // Perform Lanczos method
   IndexType_ effIter;
   ValueType_ shift;
-  NVGRAPH_ERROR status = computeSmallestEigenvectors(&A,
-                                                     nEigVecs,
-                                                     maxIter,
-                                                     restartIter,
-                                                     tol,
-                                                     reorthogonalize,
-                                                     &effIter,
-                                                     &iter,
-                                                     &shift,
-                                                     alpha_host,
-                                                     beta_host,
-                                                     lanczosVecs_dev.raw(),
-                                                     work_dev.raw(),
-                                                     eigVals_dev,
-                                                     eigVecs_dev);
+  int status = computeSmallestEigenvectors(&A,
+                                           nEigVecs,
+                                           maxIter,
+                                           restartIter,
+                                           tol,
+                                           reorthogonalize,
+                                           &effIter,
+                                           &iter,
+                                           &shift,
+                                           alpha_host,
+                                           beta_host,
+                                           lanczosVecs_dev.raw(),
+                                           work_dev.raw(),
+                                           eigVals_dev,
+                                           eigVecs_dev,
+                                           seed);
 
   // Clean up and return
   return status;
@@ -1068,23 +1021,24 @@ NVGRAPH_ERROR computeSmallestEigenvectors(const Matrix<IndexType_, ValueType_> &
  *    Eigenvectors corresponding to largest eigenvalues of
  *    matrix. Vectors are stored as columns of a column-major matrix
  *    with dimensions n x nEigVecs.
- *  @return NVGRAPH error flag.
+ *  @return error flag.
  */
 template <typename IndexType_, typename ValueType_>
-NVGRAPH_ERROR computeLargestEigenvectors(const Matrix<IndexType_, ValueType_> *A,
-                                         IndexType_ nEigVecs,
-                                         IndexType_ maxIter,
-                                         IndexType_ restartIter,
-                                         ValueType_ tol,
-                                         bool reorthogonalize,
-                                         IndexType_ *effIter,
-                                         IndexType_ *totalIter,
-                                         ValueType_ *__restrict__ alpha_host,
-                                         ValueType_ *__restrict__ beta_host,
-                                         ValueType_ *__restrict__ lanczosVecs_dev,
-                                         ValueType_ *__restrict__ work_dev,
-                                         ValueType_ *__restrict__ eigVals_dev,
-                                         ValueType_ *__restrict__ eigVecs_dev)
+int computeLargestEigenvectors(sparse_matrix_t<IndexType_, ValueType_> const* A,
+                               IndexType_ nEigVecs,
+                               IndexType_ maxIter,
+                               IndexType_ restartIter,
+                               ValueType_ tol,
+                               bool reorthogonalize,
+                               IndexType_ *effIter,
+                               IndexType_ *totalIter,
+                               ValueType_ *__restrict__ alpha_host,
+                               ValueType_ *__restrict__ beta_host,
+                               ValueType_ *__restrict__ lanczosVecs_dev,
+                               ValueType_ *__restrict__ work_dev,
+                               ValueType_ *__restrict__ eigVals_dev,
+                               ValueType_ *__restrict__ eigVecs_dev,
+                               unsigned long long seed)
 {
   // -------------------------------------------------------
   // Variable declaration
@@ -1095,7 +1049,7 @@ NVGRAPH_ERROR computeLargestEigenvectors(const Matrix<IndexType_, ValueType_> *A
   const ValueType_ zero = 0;
 
   // Matrix dimension
-  IndexType_ n = A->n;
+  IndexType_ n = A->nrows;
 
   // Lanczos iteration counters
   IndexType_ maxIter_curr = restartIter;  // Maximum size of Lanczos system
@@ -1118,34 +1072,11 @@ NVGRAPH_ERROR computeLargestEigenvectors(const Matrix<IndexType_, ValueType_> *A
   // -------------------------------------------------------
   // Check that parameters are valid
   // -------------------------------------------------------
-  if (A->m != A->n) {
-    WARNING("invalid parameter (matrix is not square)");
-    return NVGRAPH_ERR_BAD_PARAMETERS;
-  }
-  if (nEigVecs < 1) {
-    WARNING("invalid parameter (nEigVecs<1)");
-    return NVGRAPH_ERR_BAD_PARAMETERS;
-  }
-  if (restartIter < 1) {
-    WARNING("invalid parameter (restartIter<4)");
-    return NVGRAPH_ERR_BAD_PARAMETERS;
-  }
-  if (tol < 0) {
-    WARNING("invalid parameter (tol<0)");
-    return NVGRAPH_ERR_BAD_PARAMETERS;
-  }
-  if (nEigVecs > n) {
-    WARNING("invalid parameters (nEigVecs>n)");
-    return NVGRAPH_ERR_BAD_PARAMETERS;
-  }
-  if (maxIter < nEigVecs) {
-    WARNING("invalid parameters (maxIter<nEigVecs)");
-    return NVGRAPH_ERR_BAD_PARAMETERS;
-  }
-  if (restartIter <= nEigVecs) {
-    WARNING("invalid parameters (restartIter<=nEigVecs)");
-    return NVGRAPH_ERR_BAD_PARAMETERS;
-  }
+  RAFT_EXPECT(nEigVecs > 0 && nEigVecs<=n, "Invalid number of eigenvectors.");
+  RAFT_EXPECT(restartIter > 0, "Invalid restartIter.");
+  RAFT_EXPECT(tol > 0, "Invalid tolerance.");
+  RAFT_EXPECT(maxIter >= nEigVecs, "Invalid maxIter.");
+  RAFT_EXPECT(restartIter >= nEigVecs, "Invalid restartIter.");
 
   // -------------------------------------------------------
   // Variable initialization
@@ -1171,10 +1102,10 @@ NVGRAPH_ERROR computeLargestEigenvectors(const Matrix<IndexType_, ValueType_> *A
   // Random number generator
   curandGenerator_t randGen;
   // Initialize random number generator
-  CHECK_CURAND(curandCreateGenerator(&randGen, CURAND_RNG_PSEUDO_PHILOX4_32_10));
-  CHECK_CURAND(curandSetPseudoRandomGeneratorSeed(randGen, 123456));
+  CUDA_TRY(curandCreateGenerator(&randGen, CURAND_RNG_PSEUDO_PHILOX4_32_10));
+  CUDA_TRY(curandSetPseudoRandomGeneratorSeed(randGen, seed));
   // Initialize initial Lanczos vector
-  CHECK_CURAND(curandGenerateNormalX(randGen, lanczosVecs_dev, n + n % 2, zero, one));
+  CUDA_TRY(curandGenerateNormalX(randGen, lanczosVecs_dev, n + n % 2, zero, one));
   ValueType_ normQ1 = Cublas::nrm2(n, lanczosVecs_dev, 1);
   Cublas::scal(n, 1 / normQ1, lanczosVecs_dev, 1);
 
@@ -1296,13 +1227,13 @@ NVGRAPH_ERROR computeLargestEigenvectors(const Matrix<IndexType_, ValueType_> *A
 
   // Copy results to device memory
   // skip smallest eigenvalue if needed
-  CHECK_CUDA(cudaMemcpy(eigVals_dev,
+  CUDA_TRY(cudaMemcpy(eigVals_dev,
                         work_host + 2 * (*effIter) + top_eigenparis_idx_offset,
                         nEigVecs * sizeof(ValueType_),
                         cudaMemcpyHostToDevice));
 
   // skip smallest eigenvector if needed
-  CHECK_CUDA(cudaMemcpy(work_dev,
+  CUDA_TRY(cudaMemcpy(work_dev,
                         Z_host + (top_eigenparis_idx_offset * (*effIter)),
                         (*effIter) * nEigVecs * sizeof(ValueType_),
                         cudaMemcpyHostToDevice));
@@ -1323,8 +1254,8 @@ NVGRAPH_ERROR computeLargestEigenvectors(const Matrix<IndexType_, ValueType_> *A
                n);
 
   // Clean up and exit
-  CHECK_CURAND(curandDestroyGenerator(randGen));
-  return NVGRAPH_OK;
+  CUDA_TRY(curandDestroyGenerator(randGen));
+  return 0;
 }
 
 /// Compute largest eigenvectors of symmetric matrix
@@ -1361,55 +1292,30 @@ NVGRAPH_ERROR computeLargestEigenvectors(const Matrix<IndexType_, ValueType_> *A
  *    Eigenvectors corresponding to largest eigenvalues of
  *    matrix. Vectors are stored as columns of a column-major matrix
  *    with dimensions n x nEigVecs.
- *  @return NVGRAPH error flag.
+ *  @return error flag.
  */
 template <typename IndexType_, typename ValueType_>
-NVGRAPH_ERROR computeLargestEigenvectors(const Matrix<IndexType_, ValueType_> &A,
-                                         IndexType_ nEigVecs,
-                                         IndexType_ maxIter,
-                                         IndexType_ restartIter,
-                                         ValueType_ tol,
-                                         bool reorthogonalize,
-                                         IndexType_ &iter,
-                                         ValueType_ *__restrict__ eigVals_dev,
-                                         ValueType_ *__restrict__ eigVecs_dev)
+int computeLargestEigenvectors(sparse_matrix_t<IndexType_, ValueType_> const& A,
+                               IndexType_ nEigVecs,
+                               IndexType_ maxIter,
+                               IndexType_ restartIter,
+                               ValueType_ tol,
+                               bool reorthogonalize,
+                               IndexType_ &iter,
+                               ValueType_ *__restrict__ eigVals_dev,
+                               ValueType_ *__restrict__ eigVecs_dev,
+                               unsigned long long seed = 123456,
+                               cudaStream_t stream = 0)
 {
-  // CUDA stream
-  //   TODO: handle non-zero streams
-  cudaStream_t stream = 0;
-
   // Matrix dimension
-  IndexType_ n = A.n;
+  IndexType_ n = A.nrows;
 
   // Check that parameters are valid
-  if (A.m != A.n) {
-    WARNING("invalid parameter (matrix is not square)");
-    return NVGRAPH_ERR_BAD_PARAMETERS;
-  }
-  if (nEigVecs < 1) {
-    WARNING("invalid parameter (nEigVecs<1)");
-    return NVGRAPH_ERR_BAD_PARAMETERS;
-  }
-  if (restartIter < 1) {
-    WARNING("invalid parameter (restartIter<4)");
-    return NVGRAPH_ERR_BAD_PARAMETERS;
-  }
-  if (tol < 0) {
-    WARNING("invalid parameter (tol<0)");
-    return NVGRAPH_ERR_BAD_PARAMETERS;
-  }
-  if (nEigVecs > n) {
-    WARNING("invalid parameters (nEigVecs>n)");
-    return NVGRAPH_ERR_BAD_PARAMETERS;
-  }
-  if (maxIter < nEigVecs) {
-    WARNING("invalid parameters (maxIter<nEigVecs)");
-    return NVGRAPH_ERR_BAD_PARAMETERS;
-  }
-  if (restartIter < nEigVecs) {
-    WARNING("invalid parameters (restartIter<nEigVecs)");
-    return NVGRAPH_ERR_BAD_PARAMETERS;
-  }
+  RAFT_EXPECT(nEigVecs > 0 && nEigVecs<=n, "Invalid number of eigenvectors.");
+  RAFT_EXPECT(restartIter > 0, "Invalid restartIter.");
+  RAFT_EXPECT(tol > 0, "Invalid tolerance.");
+  RAFT_EXPECT(maxIter >= nEigVecs, "Invalid maxIter.");
+  RAFT_EXPECT(restartIter >= nEigVecs, "Invalid restartIter.");
 
   // Allocate memory
   std::vector<ValueType_> alpha_host_v(restartIter);
@@ -1418,70 +1324,31 @@ NVGRAPH_ERROR computeLargestEigenvectors(const Matrix<IndexType_, ValueType_> &A
   ValueType_ *alpha_host = alpha_host_v.data();
   ValueType_ *beta_host  = beta_host_v.data();
 
-  Vector<ValueType_> lanczosVecs_dev(n * (restartIter + 1), stream);
-  Vector<ValueType_> work_dev((n + restartIter) * restartIter, stream);
+  //TODO: replace and fix allocation via RAFT handle
+  AllocatableVector<ValueType_> lanczosVecs_dev(n * (restartIter + 1), stream);
+  AllocatableVector<ValueType_> work_dev((n + restartIter) * restartIter, stream);
 
   // Perform Lanczos method
   IndexType_ effIter;
-  NVGRAPH_ERROR status = computeLargestEigenvectors(&A,
-                                                    nEigVecs,
-                                                    maxIter,
-                                                    restartIter,
-                                                    tol,
-                                                    reorthogonalize,
-                                                    &effIter,
-                                                    &iter,
-                                                    alpha_host,
-                                                    beta_host,
-                                                    lanczosVecs_dev.raw(),
-                                                    work_dev.raw(),
-                                                    eigVals_dev,
-                                                    eigVecs_dev);
+  int status = computeLargestEigenvectors(&A,
+                                          nEigVecs,
+                                          maxIter,
+                                          restartIter,
+                                          tol,
+                                          reorthogonalize,
+                                          &effIter,
+                                          &iter,
+                                          alpha_host,
+                                          beta_host,
+                                          lanczosVecs_dev.raw(),
+                                          work_dev.raw(),
+                                          eigVals_dev,
+                                          eigVecs_dev,
+                                          seed);
 
   // Clean up and return
   return status;
 }
 
-// =========================================================
-// Explicit instantiation
-// =========================================================
 
-template NVGRAPH_ERROR computeSmallestEigenvectors<int, float>(const Matrix<int, float> &A,
-                                                               int nEigVecs,
-                                                               int maxIter,
-                                                               int restartIter,
-                                                               float tol,
-                                                               bool reorthogonalize,
-                                                               int &iter,
-                                                               float *__restrict__ eigVals_dev,
-                                                               float *__restrict__ eigVecs_dev);
-template NVGRAPH_ERROR computeSmallestEigenvectors<int, double>(const Matrix<int, double> &A,
-                                                                int nEigVecs,
-                                                                int maxIter,
-                                                                int restartIter,
-                                                                double tol,
-                                                                bool reorthogonalize,
-                                                                int &iter,
-                                                                double *__restrict__ eigVals_dev,
-                                                                double *__restrict__ eigVecs_dev);
-
-template NVGRAPH_ERROR computeLargestEigenvectors<int, float>(const Matrix<int, float> &A,
-                                                              int nEigVecs,
-                                                              int maxIter,
-                                                              int restartIter,
-                                                              float tol,
-                                                              bool reorthogonalize,
-                                                              int &iter,
-                                                              float *__restrict__ eigVals_dev,
-                                                              float *__restrict__ eigVecs_dev);
-template NVGRAPH_ERROR computeLargestEigenvectors<int, double>(const Matrix<int, double> &A,
-                                                               int nEigVecs,
-                                                               int maxIter,
-                                                               int restartIter,
-                                                               double tol,
-                                                               bool reorthogonalize,
-                                                               int &iter,
-                                                               double *__restrict__ eigVals_dev,
-                                                               double *__restrict__ eigVecs_dev);
-
-}  // namespace nvgraph
+}  // namespace raft
