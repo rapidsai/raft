@@ -22,8 +22,8 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace cugraph {
-namespace experimental {
+namespace raft {
+namespace matrix {
 
 enum class PropType { PROP_UNDEF, PROP_FALSE, PROP_TRUE };
 
@@ -571,5 +571,5 @@ class GraphCSC : public GraphCompressedSparseBase<VT, ET, WT> {
   }
 };
 
-}  // namespace experimental
-}  // namespace cugraph
+}  // namespace matrix
+}  // namespace raft
