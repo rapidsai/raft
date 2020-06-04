@@ -4,6 +4,7 @@
 - PR #7: Migrating cuml comms -> raft comms_t
 
 ## Improvements
+- PR #13: Add RMM_INCLUDE and RMM_LIBRARY options to allow linking to non-conda RMM
 
 ## Bug Fixes
 
