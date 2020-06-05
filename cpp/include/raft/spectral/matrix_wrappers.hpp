@@ -16,7 +16,9 @@
 #pragma once
 
 #include <raft/graph.hpp>
-#include <raft/sparse/cusparse_wrappers.h>
+#include <raft/sparse/cusparse_wrappers.h> // ?
+#include <raft/handle.hpp>
+
 
 namespace raft{
 namespace matrix {
@@ -26,14 +28,66 @@ using size_type = int; // for now; TODO: move it in appropriate header
 // Vector "view"-like aggregate for linear algebra purposes
 //
 template <typename value_type>
-struct vector_t {
+struct vector_view_t {
   value_type* buffer_;
   size_type size_;
 
-  vector_t(value_type* buffer, size_type sz):
+  vector_view_t(value_type* buffer, size_type sz):
     buffer_(buffer),
     size_(sz)
   {
+  }
+
+  vector_view_t(vector_view_t&& other):
+    buffer_(other.buffer_),
+    size_(other.size_)
+  {
+    other.buffer_ = nullptr;
+    other.size_ = 0;
+  }
+
+  vector_view_t& operator = (vector_view_t&& other)
+  {
+    buffer_ = other.buffer_;
+    size_ = other.size_;
+
+    other.buffer_ = nullptr;
+    other.size_ = 0;
+  }
+};
+
+// allocatable vector, using raft handle allocator
+//
+template <typename value_type>
+class vector_t {
+  handle_t const& handle_;
+  value_type* buffer_;
+  size_type size_;
+  cudaStream_t stream_;
+public:
+  
+  vector_t(handle_t const& raft_handle, size_type sz, cudaStream_t stream = 0):
+    handle_(raft_handle),
+    buffer_(static_cast<value_type*>(raft_handle.get_device_allocator()->allocate(sz*sizeof(value_type), stream))),
+    size_(sz),
+    stream_(stream)
+  {
+  }
+
+  virtual ~vector_t(void)
+  {
+    handle_.get_device_allocator()->deallocate(buffer_, size_, stream_);
+  }
+
+  size_type size(void) const
+  {
+    return size_;
+  }
+  
+protected:
+  value_type* buffer(void)
+  {
+    return buffer_;
   }
 };
   
@@ -84,29 +138,71 @@ struct sparse_matrix_t {
 };
 
 template <typename index_type, typename value_type>
-struct laplacian_matrix_t : sparse_matrix_t {
-  laplacian_matrix_t(index_type const* row_offsets,
+struct laplacian_matrix_t : sparse_matrix_t<index_type, value_type>, vector_t<value_type> {
+  laplacian_matrix_t(handle_t const& raft_handle,
+                     index_type const* row_offsets,
                      index_type const* col_indices,
                      value_type const* values,
-                     vector_t<value_type>&& diagonal,
+                     index_type const nrows,
                      index_type const nnz,
-                     index_type const nrows) :
-    sparse_matrix_t(row_offsets,col_indices,values,nrows,nnz),
-    diagonal_(diagonal)
+                     cudaStream_t stream = 0) :
+    sparse_matrix_t<index_type, value_type>(row_offsets,col_indices,values,nrows,nnz),
+    vector_t<value_type>(raft_handle, nrows, stream)
+  {
+    auto* v = vector_t<value_type>::buffer();
+  }
+
+  laplacian_matrix_t(handle_t const& raft_handle,
+                     GraphCSRView<index_type, index_type, value_type> const& csr_view,
+                     cudaStream_t stream = 0):
+    sparse_matrix_t<index_type, value_type>(csr_view),
+    vector_t<value_type>(raft_handle, csr_view.number_of_vertices_, stream)
   {
   }
 
-  laplacian_matrix_t(GraphCSRView<index_type, index_type, value_type> const& csr_view, vector_t<value_type>&& diagonal):
-  sparse_matrix_t(csr_view),
-  diagonal_(diagonal)
+  // y = alpha*A*x + beta*y
+  //
+  void mv(value_type alpha,
+          value_type const* __restrict__ x,
+          value_type beta,
+          value_type* __restrict__ y) const override
   {
+    //TODO: call cusparse::csrmv
   }
-  
-  vector_t<value_type> diagonal_;
 };
 
 template <typename index_type, typename value_type>
-using modularity_matrix_t = laplacian_matrix_t<index_type, value_type>; // for now; TODO: if it turns out modularity matrix actually behaves differently than Laplacian matrix, this should be made a separate class;
+struct modularity_matrix_t: laplacian_matrix_t<index_type, value_type>
+{
+  modularity_matrix_t(handle_t const& raft_handle,
+                     index_type const* row_offsets,
+                     index_type const* col_indices,
+                     value_type const* values,
+                     index_type const nrows,
+                     index_type const nnz,
+                     cudaStream_t stream = 0) :
+    laplacian_matrix_t<index_type, value_type>(raft_handle, row_offsets, col_indices, values, nrows, nnz, stream)
+  {
+    auto* v = vector_t<value_type>::buffer();
+  }
+
+  modularity_matrix_t(handle_t const& raft_handle,
+                      GraphCSRView<index_type, index_type, value_type> const& csr_view,
+                      cudaStream_t stream = 0):
+    laplacian_matrix_t<index_type, value_type>(raft_handle, csr_view, stream)
+  {
+  }
+  
+  // y = alpha*A*x + beta*y
+  //
+  void mv(value_type alpha,
+          value_type const* __restrict__ x,
+          value_type beta,
+          value_type* __restrict__ y) const override
+  {
+    //TODO: call cusparse::csrmv
+  }
+};
  
 } // namespace matrix
 } // namespace raft
