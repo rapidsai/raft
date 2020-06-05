@@ -74,7 +74,7 @@ public:
   {
   }
 
-  virtual ~vector_t(void)
+  ~vector_t(void)
   {
     handle_.get_device_allocator()->deallocate(buffer_, size_, stream_);
   }
@@ -84,8 +84,7 @@ public:
     return size_;
   }
   
-protected:
-  value_type* buffer(void)
+  value_type* raw(void)
   {
     return buffer_;
   }
@@ -138,7 +137,7 @@ struct sparse_matrix_t {
 };
 
 template <typename index_type, typename value_type>
-struct laplacian_matrix_t : sparse_matrix_t<index_type, value_type>, vector_t<value_type> {
+struct laplacian_matrix_t : sparse_matrix_t<index_type, value_type> {
   laplacian_matrix_t(handle_t const& raft_handle,
                      index_type const* row_offsets,
                      index_type const* col_indices,
@@ -147,16 +146,17 @@ struct laplacian_matrix_t : sparse_matrix_t<index_type, value_type>, vector_t<va
                      index_type const nnz,
                      cudaStream_t stream = 0) :
     sparse_matrix_t<index_type, value_type>(row_offsets,col_indices,values,nrows,nnz),
-    vector_t<value_type>(raft_handle, nrows, stream)
+    diagonal_(raft_handle, nrows, stream)
   {
-    auto* v = vector_t<value_type>::buffer();
+    auto* v = diagonal_.raw();
+    //TODO: more work, here...
   }
 
   laplacian_matrix_t(handle_t const& raft_handle,
                      GraphCSRView<index_type, index_type, value_type> const& csr_view,
                      cudaStream_t stream = 0):
     sparse_matrix_t<index_type, value_type>(csr_view),
-    vector_t<value_type>(raft_handle, csr_view.number_of_vertices_, stream)
+    diagonal_(raft_handle, csr_view.number_of_vertices_, stream)
   {
   }
 
@@ -169,6 +169,8 @@ struct laplacian_matrix_t : sparse_matrix_t<index_type, value_type>, vector_t<va
   {
     //TODO: call cusparse::csrmv
   }
+
+  vector_t<value_type> diagonal_;
 };
 
 template <typename index_type, typename value_type>
@@ -183,7 +185,8 @@ struct modularity_matrix_t: laplacian_matrix_t<index_type, value_type>
                      cudaStream_t stream = 0) :
     laplacian_matrix_t<index_type, value_type>(raft_handle, row_offsets, col_indices, values, nrows, nnz, stream)
   {
-    auto* v = vector_t<value_type>::buffer();
+    auto* v = laplacian_matrix_t<index_type, value_type>::diagonal_.raw();
+    //TODO: more work, here...
   }
 
   modularity_matrix_t(handle_t const& raft_handle,

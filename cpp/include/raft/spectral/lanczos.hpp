@@ -27,6 +27,7 @@
 
 #include <raft/spectral/matrix_wrappers.hpp>
 #include <raft/spectral/error_temp.hpp>
+#include <raft/handle.hpp>
 
 // =========================================================
 // Useful macros
@@ -921,7 +922,8 @@ int computeSmallestEigenvectors(sparse_matrix_t<IndexType_, ValueType_> const* A
  *  @return error flag.
  */
 template <typename IndexType_, typename ValueType_>
-int computeSmallestEigenvectors(sparse_matrix_t<IndexType_, ValueType_> const& A,
+int computeSmallestEigenvectors(handle_t handle,
+                                sparse_matrix_t<IndexType_, ValueType_> const& A,
                                 IndexType_ nEigVecs,
                                 IndexType_ maxIter,
                                 IndexType_ restartIter,
@@ -951,8 +953,8 @@ int computeSmallestEigenvectors(sparse_matrix_t<IndexType_, ValueType_> const& A
   ValueType_ *beta_host  = beta_host_v.data();
 
   //TODO: replace and fix allocation via RAFT handle
-  AllocatableVector<ValueType_> lanczosVecs_dev(n * (restartIter + 1), stream);
-  AllocatableVector<ValueType_> work_dev((n + restartIter) * restartIter, stream);
+  vector_t<ValueType_> lanczosVecs_dev(handle, n * (restartIter + 1), stream);
+  vector_t<ValueType_> work_dev(handle, (n + restartIter) * restartIter, stream);
 
   // Perform Lanczos method
   IndexType_ effIter;
@@ -1295,7 +1297,8 @@ int computeLargestEigenvectors(sparse_matrix_t<IndexType_, ValueType_> const* A,
  *  @return error flag.
  */
 template <typename IndexType_, typename ValueType_>
-int computeLargestEigenvectors(sparse_matrix_t<IndexType_, ValueType_> const& A,
+int computeLargestEigenvectors(handle_t handle,
+                               sparse_matrix_t<IndexType_, ValueType_> const& A,
                                IndexType_ nEigVecs,
                                IndexType_ maxIter,
                                IndexType_ restartIter,
@@ -1325,8 +1328,8 @@ int computeLargestEigenvectors(sparse_matrix_t<IndexType_, ValueType_> const& A,
   ValueType_ *beta_host  = beta_host_v.data();
 
   //TODO: replace and fix allocation via RAFT handle
-  AllocatableVector<ValueType_> lanczosVecs_dev(n * (restartIter + 1), stream);
-  AllocatableVector<ValueType_> work_dev((n + restartIter) * restartIter, stream);
+  vector_t<ValueType_> lanczosVecs_dev(handle, n * (restartIter + 1), stream);
+  vector_t<ValueType_> work_dev(handle, (n + restartIter) * restartIter, stream);
 
   // Perform Lanczos method
   IndexType_ effIter;
