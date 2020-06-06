@@ -8,6 +8,8 @@
 
 #define RAFT_TRY(error_expression)
 
+//assume RAFT_FAIL() can take a std::string `reason`
+//
 #define RAFT_FAIL(reason)
 
 #define CUDA_TRY(call)
