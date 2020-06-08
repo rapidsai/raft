@@ -323,7 +323,7 @@ class comms_t {
   std::unique_ptr<comms_iface> impl_;
 };
 
-comms_iface::~comms_iface() {}
+inline comms_iface::~comms_iface() {}
 
 }  // namespace comms
 }  // namespace raft
