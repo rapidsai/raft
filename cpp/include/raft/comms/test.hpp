@@ -41,7 +41,9 @@ bool test_collective_allreduce(const handle_t &handle, int root) {
   temp_d.resize(1, stream);
   CUDA_CHECK(
     cudaMemcpyAsync(temp_d.data(), &send, 1, cudaMemcpyHostToDevice, stream));
+
   communicator.allreduce(temp_d.data(), temp_d.data(), 1, op_t::SUM, stream);
+
   int temp_h = 0;
   CUDA_CHECK(
     cudaMemcpyAsync(&temp_h, temp_d.data(), 1, cudaMemcpyDeviceToHost, stream));
@@ -260,20 +262,23 @@ bool test_commsplit(const handle_t &h, int n_colors) {
   const int rank = communicator.get_rank();
   const int size = communicator.get_size();
 
-  int n_ranks_per_color = n_colors / communicator.get_size();
+  if(n_colors > size)
+	  n_colors = size;
+
+  int n_ranks_per_color = communicator.get_size() / n_colors;
 
   // first we need to assign to a color, then assign the rank within the color
   int color = rank % n_colors;
   int key = rank % n_ranks_per_color;
 
-  auto split_comm = communicator.comm_split(color, key).get();
-
   handle_t new_handle(1);
-  auto shared_comm =
-    std::make_shared<comms_t>(std::unique_ptr<comms_iface>(split_comm));
+  auto shared_comm = std::make_shared<comms_t>(communicator.comm_split(color, key));
   new_handle.set_comms(shared_comm);
 
-  return test_collective_allreduce(new_handle, 0);
+  const comms_t  &newcomms = new_handle.get_comms();
+  bool result = test_collective_allreduce(new_handle, 0);
+
+  return result;
 }
 
 

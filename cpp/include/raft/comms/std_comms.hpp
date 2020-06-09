@@ -200,8 +200,10 @@ class std_comms : public comms_iface {
 	  update_device(color_buf.data(), &color, 1, stream_);
 	  update_device(key_buf.data(), &key, 1, stream_);
 
-	  allgather(&color, colors.data(), 1, datatype_t::INT32, stream_);
-	  allgather(&key, keys.data(), 1, datatype_t::INT32, stream_);
+	  allgather(color_buf.data(), colors.data(), 1, datatype_t::INT32, stream_);
+	  allgather(key_buf.data(), keys.data(), 1, datatype_t::INT32, stream_);
+
+	  this->sync_stream(stream_);
 
 	  // find all ranks with same color and lowest key of that color
 	  int *colors_host = new int[get_size()]();
@@ -214,10 +216,11 @@ class std_comms : public comms_iface {
 
 	  std::vector<int> ranks_with_color;
 	  std::vector<ucp_ep_h> new_ucx_ptrs;
-	  int min_rank = get_rank();
+	  int min_rank = key;
 	  for(int i = 0; i < get_size(); i++) {
 		  if(colors_host[i] == color) {
 			  ranks_with_color.push_back(keys_host[i]);
+			  std::cout << keys_host[i] << std::endl;
 			  if(keys_host[i] < min_rank)
 				  min_rank = keys_host[i];
 
@@ -232,21 +235,26 @@ class std_comms : public comms_iface {
 	  // root rank of new comm generates NCCL unique id and sends to other ranks of color
 	  int request_idx = 0;
 	  std::vector<request_t> requests;
-	  if(get_rank() == min_rank) {
+
+	  if(key == min_rank) {
 		  NCCL_CHECK(ncclGetUniqueId(&id));
+     	  requests.resize(ranks_with_color.size());
 		  for(int i = 0; i < get_size(); i++) {
-			  if(colors_host[i] == color && min_rank != i) {
-				  isend(&id, 128, i, color, requests.data()+request_idx);
+			  if(colors_host[i] == color) {
+				  isend(&id.internal, 128, i, color, requests.data()+request_idx);
 				  ++request_idx;
 			  }
 		  }
-
-	  // non-root ranks of new comm recv unique id
 	  } else {
 		  requests.resize(1);
-		  irecv(&id, 128, min_rank, color, requests.data()+request_idx);
-		  ++request_idx;
 	  }
+
+	  delete[] colors_host;
+	  delete[] keys_host;
+
+	  // non-root ranks of new comm recv unique id
+	  irecv(&id.internal, 128, min_rank, color, requests.data()+request_idx);
+	  ++request_idx;
 
 	  waitall(requests.size(), requests.data());
 
@@ -260,6 +268,7 @@ class std_comms : public comms_iface {
 	  auto *raft_comm =
 	    new raft::comms::std_comms(nccl_comm, (ucp_worker_h)ucp_worker_, eps_sp,
 	    						   ranks_with_color.size(), key, device_allocator_, stream_);
+
 	  return std::unique_ptr<comms_iface>(raft_comm);
   }
 
@@ -392,6 +401,8 @@ class std_comms : public comms_iface {
 
   void allreduce(const void *sendbuff, void *recvbuff, size_t count,
                  datatype_t datatype, op_t op, cudaStream_t stream) const {
+
+	std::cout << "Inside allreduce" << std::endl;
     NCCL_CHECK(ncclAllReduce(sendbuff, recvbuff, count,
                              get_nccl_datatype(datatype), get_nccl_op(op),
                              nccl_comm_, stream));

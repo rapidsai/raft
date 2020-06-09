@@ -10,11 +10,14 @@ enable_nvlink = False
 enable_infiniband = False
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def cluster():
+
+    print("Created Cluster")
     cluster = LocalCUDACluster(protocol="tcp", scheduler_port=0)
     yield cluster
     cluster.close()
+    print("Closed cluster")
 
 
 @pytest.fixture(scope="session")
@@ -31,7 +34,7 @@ def ucx_cluster():
     cluster.close()
 
 
-@pytest.fixture()
+@pytest.fixture(scope="session")
 def client(cluster):
     client = Client(cluster)
     yield client

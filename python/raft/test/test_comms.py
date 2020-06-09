@@ -36,7 +36,7 @@ def test_comms_init_no_p2p(cluster):
     client = Client(cluster)
 
     try:
-        cb = Comms()
+        cb = Comms(verbose=True)
         cb.init()
 
         assert cb.nccl_initialized is True
@@ -71,7 +71,7 @@ def test_handles(cluster):
         return local_handle(sessionId) is not None
 
     try:
-        cb = Comms()
+        cb = Comms(verbose=True)
         cb.init()
 
         dfs = [client.submit(_has_handle,
@@ -94,56 +94,42 @@ def test_handles(cluster):
                                   perform_test_comms_bcast,
                                   perform_test_comms_reduce,
                                   perform_test_comms_reducescatter])
-def test_collectives(cluster, func):
+def test_collectives(client, func):
 
-    client = Client(cluster)
+    cb = Comms(verbose=True)
+    cb.init()
 
-    try:
-        cb = Comms()
-        cb.init()
+    for k, v in cb.worker_info(cb.worker_addresses).items():
 
-        for k, v in cb.worker_info(cb.worker_addresses).items():
+        dfs = [client.submit(func_test_collective,
+                             func,
+                             cb.sessionId,
+                             v["rank"],
+                             pure=False,
+                             workers=[w])
+               for w in cb.worker_addresses]
+        wait(dfs, timeout=5)
 
-            dfs = [client.submit(func_test_collective,
-                                 func,
-                                 cb.sessionId,
-                                 v["rank"],
-                                 pure=False,
-                                 workers=[w])
-                   for w in cb.worker_addresses]
-            wait(dfs, timeout=5)
-
-            assert all([x.result() for x in dfs])
-
-    finally:
-        cb.destroy()
-        client.close()
+        assert all([x.result() for x in dfs])
 
 
 @pytest.mark.nccl
-def test_comm_split(ucx_cluster):
+def test_comm_split(client):
 
-    client = Client(ucx_cluster)
+    cb = Comms(comms_p2p=True, verbose=True)
+    cb.init()
 
-    try:
-        cb = Comms()
-        cb.init()
+    for k, v in cb.worker_info(cb.worker_addresses).items():
 
-        for k, v in cb.worker_info(cb.worker_addresses).items():
+        dfs = [client.submit(func_test_comm_split,
+                             cb.sessionId,
+                             3,
+                             pure=False,
+                             workers=[w])
+               for w in cb.worker_addresses]
+        wait(dfs, timeout=5)
 
-            dfs = [client.submit(func_test_comm_split,
-                                 cb.sessionId,
-                                 3,
-                                 pure=False,
-                                 workers=[w])
-                   for w in cb.worker_addresses]
-            wait(dfs, timeout=5)
-
-            assert all([x.result() for x in dfs])
-
-    finally:
-        cb.destroy()
-        client.close()
+        assert all([x.result() for x in dfs])
 
 
 @pytest.mark.ucx
