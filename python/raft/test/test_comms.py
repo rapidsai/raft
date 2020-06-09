@@ -26,6 +26,7 @@ from raft.dask.common import perform_test_comms_bcast
 from raft.dask.common import perform_test_comms_reduce
 from raft.dask.common import perform_test_comms_allgather
 from raft.dask.common import perform_test_comms_reducescatter
+from raft.dask.common import perform_test_comm_split
 
 pytestmark = pytest.mark.mg
 
@@ -55,6 +56,11 @@ def func_test_collective(func, sessionId, root):
 def func_test_send_recv(sessionId, n_trials):
     handle = local_handle(sessionId)
     return perform_test_comms_send_recv(handle, n_trials)
+
+
+def func_test_comm_split(sessionId, n_trials):
+    handle = local_handle(sessionId)
+    return perform_test_comm_split(handle, n_trials)
 
 
 def test_handles(cluster):
@@ -99,7 +105,7 @@ def test_collectives(cluster, func):
         for k, v in cb.worker_info(cb.worker_addresses).items():
 
             dfs = [client.submit(func_test_collective,
-                                 perform_test_comms_allreduce,
+                                 func,
                                  cb.sessionId,
                                  v["rank"],
                                  pure=False,
@@ -114,11 +120,37 @@ def test_collectives(cluster, func):
         client.close()
 
 
+@pytest.mark.nccl
+def test_comm_split(ucx_cluster):
+
+    client = Client(ucx_cluster)
+
+    try:
+        cb = Comms()
+        cb.init()
+
+        for k, v in cb.worker_info(cb.worker_addresses).items():
+
+            dfs = [client.submit(func_test_comm_split,
+                                 cb.sessionId,
+                                 3,
+                                 pure=False,
+                                 workers=[w])
+                   for w in cb.worker_addresses]
+            wait(dfs, timeout=5)
+
+            assert all([x.result() for x in dfs])
+
+    finally:
+        cb.destroy()
+        client.close()
+
+
 @pytest.mark.ucx
 @pytest.mark.parametrize("n_trials", [1, 5])
-def test_send_recv(n_trials, cluster):
+def test_send_recv(n_trials, ucx_cluster):
 
-    client = Client(cluster)
+    client = Client(ucx_cluster)
 
     try:
 

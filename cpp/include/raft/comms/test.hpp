@@ -121,7 +121,7 @@ bool test_collective_reduce(const handle_t &handle, int root) {
 bool test_collective_allgather(const handle_t &handle, int root) {
   const comms_t &communicator = handle.get_comms();
 
-  const int send = root;
+  const int send = communicator.get_rank();
 
   cudaStream_t stream = handle.get_stream();
 
@@ -138,7 +138,7 @@ bool test_collective_allgather(const handle_t &handle, int root) {
   communicator.sync_stream(stream);
   int
     temp_h[communicator.get_size()];  // Verify more than one byte is being sent
-  CUDA_CHECK(cudaMemcpyAsync(&temp_h, temp_d.data(),
+  CUDA_CHECK(cudaMemcpyAsync(&temp_h, recv_d.data(),
                              sizeof(int) * communicator.get_size(),
                              cudaMemcpyDeviceToHost, stream));
   CUDA_CHECK(cudaStreamSynchronize(stream));
@@ -147,8 +147,9 @@ bool test_collective_allgather(const handle_t &handle, int root) {
   std::cout << "Clique size: " << communicator.get_size() << std::endl;
   std::cout << "final_size: " << temp_h << std::endl;
 
-  for (int i = 0; i < communicator.get_size(); i++)
+  for (int i = 0; i < communicator.get_size(); i++) {
     if (temp_h[i] != i) return false;
+  }
   return true;
 }
 
@@ -246,5 +247,35 @@ bool test_pointToPoint_simple_send_recv(const handle_t &h, int numTrials) {
 
   return ret;
 }
+
+
+/**
+ * A simple test that the comms can be split into 2 separate subcommunicators
+ *
+ * @param the raft handle to use. This is expected to already have an
+ *        initialized comms instance.
+ */
+bool test_commsplit(const handle_t &h, int n_colors) {
+  const comms_t &communicator = h.get_comms();
+  const int rank = communicator.get_rank();
+  const int size = communicator.get_size();
+
+  int n_ranks_per_color = n_colors / communicator.get_size();
+
+  // first we need to assign to a color, then assign the rank within the color
+  int color = rank % n_colors;
+  int key = rank % n_ranks_per_color;
+
+  auto split_comm = communicator.comm_split(color, key).get();
+
+  handle_t new_handle(1);
+  auto shared_comm =
+    std::make_shared<comms_t>(std::unique_ptr<comms_iface>(split_comm));
+  new_handle.set_comms(shared_comm);
+
+  return test_collective_allreduce(new_handle, 0);
+}
+
+
 }  // namespace comms
 };  // namespace raft

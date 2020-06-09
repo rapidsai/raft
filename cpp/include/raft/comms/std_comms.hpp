@@ -38,6 +38,7 @@
 #include <exception>
 #include <memory>
 #include <raft/handle.hpp>
+#include <raft/mr/device/buffer.hpp>
 
 #include <thread>
 
@@ -189,10 +190,77 @@ class std_comms : public comms_iface {
   int get_rank() const { return rank_; }
 
   std::unique_ptr<comms_iface> comm_split(int color, int key) const {
-    // Not supported by NCCL
-    ASSERT(false,
-           "ERROR: commSplit called but not yet supported in this comms "
-           "implementation.");
+
+	  mr::device::buffer<int> colors(device_allocator_, stream_, get_size());
+	  mr::device::buffer<int> keys(device_allocator_, stream_, get_size());
+
+	  mr::device::buffer<int> color_buf(device_allocator_, stream_, 1);
+	  mr::device::buffer<int> key_buf(device_allocator_, stream_, 1);
+
+	  update_device(color_buf.data(), &color, 1, stream_);
+	  update_device(key_buf.data(), &key, 1, stream_);
+
+	  allgather(&color, colors.data(), 1, datatype_t::INT32, stream_);
+	  allgather(&key, keys.data(), 1, datatype_t::INT32, stream_);
+
+	  // find all ranks with same color and lowest key of that color
+	  int *colors_host = new int[get_size()]();
+	  int *keys_host = new int[get_size()]();
+
+	  update_host(colors_host, colors.data(), get_size(), stream_);
+	  update_host(keys_host, keys.data(), get_size(), stream_);
+
+	  CUDA_CHECK(cudaStreamSynchronize(stream_));
+
+	  std::vector<int> ranks_with_color;
+	  std::vector<ucp_ep_h> new_ucx_ptrs;
+	  int min_rank = get_rank();
+	  for(int i = 0; i < get_size(); i++) {
+		  if(colors_host[i] == color) {
+			  ranks_with_color.push_back(keys_host[i]);
+			  if(keys_host[i] < min_rank)
+				  min_rank = keys_host[i];
+
+			  if(ucp_worker_ != nullptr) {
+				  new_ucx_ptrs.push_back((*ucp_eps_)[i]);
+			  }
+		  }
+	  }
+
+	  ncclUniqueId id;
+
+	  // root rank of new comm generates NCCL unique id and sends to other ranks of color
+	  int request_idx = 0;
+	  std::vector<request_t> requests;
+	  if(get_rank() == min_rank) {
+		  NCCL_CHECK(ncclGetUniqueId(&id));
+		  for(int i = 0; i < get_size(); i++) {
+			  if(colors_host[i] == color && min_rank != i) {
+				  isend(&id, 128, i, color, requests.data()+request_idx);
+				  ++request_idx;
+			  }
+		  }
+
+	  // non-root ranks of new comm recv unique id
+	  } else {
+		  requests.resize(1);
+		  irecv(&id, 128, min_rank, color, requests.data()+request_idx);
+		  ++request_idx;
+	  }
+
+	  waitall(requests.size(), requests.data());
+
+	  ncclComm_t nccl_comm;
+
+	  auto eps_sp = std::make_shared<ucp_ep_h *>(new_ucx_ptrs.data());
+
+	  // create new nccl comm, if ucx endpoints are set, pull out of `ucp_eps_`
+	  NCCL_CHECK(ncclCommInitRank(&nccl_comm, ranks_with_color.size(), id, keys_host[get_rank()]));
+
+	  auto *raft_comm =
+	    new raft::comms::std_comms(nccl_comm, (ucp_worker_h)ucp_worker_, eps_sp,
+	    						   ranks_with_color.size(), key, device_allocator_, stream_);
+	  return std::unique_ptr<comms_iface>(raft_comm);
   }
 
   void barrier() const {

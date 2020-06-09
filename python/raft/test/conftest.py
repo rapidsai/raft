@@ -17,7 +17,7 @@ def cluster():
     cluster.close()
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def ucx_cluster():
     initialize.initialize(create_cuda_context=True,
                           enable_tcp_over_ucx=enable_tcp_over_ucx,
@@ -26,8 +26,7 @@ def ucx_cluster():
     cluster = LocalCUDACluster(protocol="ucx",
                                enable_tcp_over_ucx=enable_tcp_over_ucx,
                                enable_nvlink=enable_nvlink,
-                               enable_infiniband=enable_infiniband,
-                               ucx_net_devices="auto")
+                               enable_infiniband=enable_infiniband)
     yield cluster
     cluster.close()
 
