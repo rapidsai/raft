@@ -89,7 +89,6 @@ constexpr datatype_t get_type<double>() {
 
 class comms_iface {
  public:
-  virtual ~comms_iface();
 
   virtual int get_size() const = 0;
   virtual int get_rank() const = 0;
@@ -322,8 +321,6 @@ class comms_t {
  private:
   std::unique_ptr<comms_iface> impl_;
 };
-
-inline comms_iface::~comms_iface() {}
 
 }  // namespace comms
 }  // namespace raft
