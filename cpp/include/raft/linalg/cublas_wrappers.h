@@ -542,5 +542,25 @@ inline cublasStatus_t cublasdot(cublasHandle_t handle, int n, const double *x,
 }
 /** @} */
 
+/**
+ * @defgroup setpointermode cublas set pointer mode method
+ * @{
+ */
+// no T dependency...
+// template <typename T>
+// cublasStatus_t cublassetpointermode(  // NOLINT
+//                                         cublasHandle_t  handle,
+//                                         cublasPointerMode_t mode,
+//                                         cudaStream_t stream);
+
+// template<>
+inline cublasStatus_t cublassetpointermode(cublasHandle_t handle,
+                                           cublasPointerMode_t mode,
+                                           cudaStream_t stream) {
+  CUBLAS_CHECK(cublasSetStream(handle, stream));
+  return cublasSetPointerMode(handle, mode);
+}
+/** @} */
+
 };  // namespace linalg
 };  // namespace raft
