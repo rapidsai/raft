@@ -89,7 +89,6 @@ constexpr datatype_t get_type<double>() {
 
 class comms_iface {
  public:
-
   virtual int get_size() const = 0;
   virtual int get_rank() const = 0;
 
