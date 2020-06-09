@@ -325,6 +325,27 @@ inline void cusparsecsr2coo(cusparseHandle_t handle,
   CUSPARSE_CHECK(cusparseXcsr2coo(handle, csrRowPtr, nnz, n, cooRowInd, CUSPARSE_INDEX_BASE_ZERO));
 }
 /** @} */
+  
+/**
+ * @defgroup setpointermode cusparse set pointer mode method
+ * @{
+ */
+// no T dependency...
+// template <typename T>
+// cusparseStatus_t cusparsesetpointermode(  // NOLINT
+//                                         cusparseHandle_t handle,
+//                                         cusparsePointerMode_t mode,
+//                                         cudaStream_t stream);
 
+// template<>
+inline cusparseStatus_t cusparsesetpointermode(cusparseHandle_t handle,
+                                               cusparsePointerMode_t mode,
+                                               cudaStream_t stream)
+{
+  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+  return cusparseSetPointerMode(handle, mode); 
+}
+
+/** @} */
 };  // namespace sparse
 };  // namespace raft
