@@ -146,19 +146,183 @@ inline void cusparsecoosortByRow(  // NOLINT
  * @defgroup Gemmi cusparse gemmi operations
  * @{
  */
+template <typename T>
+cusparseStatus_t cusparsegemmi(  // NOLINT
+                               cusparseHandle_t handle, int m, int n, int k, int nnz, const T* alpha, const T* A, int lda, const T* cscValB, const int* cscColPtrB, const int* cscRowIndB, const T* beta, T* C, int ldc, cudaStream_t stream);
+template <>
 inline cusparseStatus_t cusparsegemmi(
   cusparseHandle_t handle, int m, int n, int k, int nnz, const float* alpha,
   const float* A, int lda, const float* cscValB, const int* cscColPtrB,
-  const int* cscRowIndB, const float* beta, float* C, int ldc) {
+  const int* cscRowIndB, const float* beta, float* C, int ldc, cudaStream_t stream) {
+  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
   return cusparseSgemmi(handle, m, n, k, nnz, alpha, A, lda, cscValB,
                         cscColPtrB, cscRowIndB, beta, C, ldc);
 }
+template<>
 inline cusparseStatus_t cusparsegemmi(
   cusparseHandle_t handle, int m, int n, int k, int nnz, const double* alpha,
   const double* A, int lda, const double* cscValB, const int* cscColPtrB,
-  const int* cscRowIndB, const double* beta, double* C, int ldc) {
+  const int* cscRowIndB, const double* beta, double* C, int ldc, cudaStream_t stream) {
+  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
   return cusparseDgemmi(handle, m, n, k, nnz, alpha, A, lda, cscValB,
                         cscColPtrB, cscRowIndB, beta, C, ldc);
+}
+/** @} */
+/**
+ * @defgroup Csrmv cusparse csrmv operations
+ * @{
+ */
+template <typename T>
+cusparseStatus_t cusparsecsrmv(  // NOLINT
+                               cusparseHandle_t handle,
+                               cusparseOperation_t trans,
+                               int m,
+                               int n,
+                               int nnz,
+                               const T* alpha,
+                               const cusparseMatDescr_t descr,
+                               const T* csrVal,
+                               const int* csrRowPtr,
+                               const int* csrColInd,
+                               const T* x,
+                               const T* beta,
+                               T* y,
+                               cudaStream_t stream);
+template <>
+inline cusparseStatus_t cusparsecsrmv(cusparseHandle_t handle,
+                                      cusparseOperation_t trans,
+                                      int m,
+                                      int n,
+                                      int nnz,
+                                      const float* alpha,
+                                      const cusparseMatDescr_t descr,
+                                      const float* csrVal,
+                                      const int* csrRowPtr,
+                                      const int* csrColInd,
+                                      const float* x,
+                                      const float* beta,
+                                      float* y,
+                                      cudaStream_t stream)
+{
+  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+  return cusparseScsrmv(
+    handle, trans, m, n, nnz, alpha, descr, csrVal, csrRowPtr, csrColInd, x, beta, y);
+}
+template <>
+inline cusparseStatus_t cusparsecsrmv(cusparseHandle_t handle,
+                                      cusparseOperation_t trans,
+                                      int m,
+                                      int n,
+                                      int nnz,
+                                      const double* alpha,
+                                      const cusparseMatDescr_t descr,
+                                      const double* csrVal,
+                                      const int* csrRowPtr,
+                                      const int* csrColInd,
+                                      const double* x,
+                                      const double* beta,
+                                      double* y,
+                                      cudaStream_t stream)
+{
+  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+  return cusparseDcsrmv(
+    handle, trans, m, n, nnz, alpha, descr, csrVal, csrRowPtr, csrColInd, x, beta, y);
+} 
+/** @} */
+
+/**
+ * @defgroup Csrmm cusparse csrmm operations
+ * @{
+ */
+template <typename T>
+cusparseStatus_t cusparsecsrmm(  // NOLINT
+                               cusparseHandle_t handle,
+                               cusparseOperation_t trans,
+                               int m,
+                               int n,
+                               int k,
+                               int nnz,
+                               const T* alpha,
+                               const cusparseMatDescr_t descr,
+                               const T* csrVal,
+                               const int* csrRowPtr,
+                               const int* csrColInd,
+                               const T* x,
+                               const int ldx,
+                               const T* beta,
+                               T* y,
+                               const int ldy,
+                               cudaStream_t stream);
+template <>
+inline cusparseStatus_t cusparsecsrmm(cusparseHandle_t handle,
+                                      cusparseOperation_t trans,
+                                      int m,
+                                      int n,
+                                      int k,
+                                      int nnz,
+                                      const float* alpha,
+                                      const cusparseMatDescr_t descr,
+                                      const float* csrVal,
+                                      const int* csrRowPtr,
+                                      const int* csrColInd,
+                                      const float* x,
+                                      const int ldx,
+                                      const float* beta,
+                                      float* y,
+                                      const int ldy,
+                                      cudaStream_t stream)
+{
+  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+  return cusparseScsrmm(
+    handle, trans, m, n, k, nnz, alpha, descr, csrVal, csrRowPtr, csrColInd, x, ldx, beta, y, ldy);
+}
+template <>
+inline cusparseStatus_t cusparsecsrmm(cusparseHandle_t handle,
+                                      cusparseOperation_t trans,
+                                      int m,
+                                      int n,
+                                      int k,
+                                      int nnz,
+                                      const double* alpha,
+                                      const cusparseMatDescr_t descr,
+                                      const double* csrVal,
+                                      const int* csrRowPtr,
+                                      const int* csrColInd,
+                                      const double* x,
+                                      const int ldx,
+                                      const double* beta,
+                                      double* y,
+                                      const int ldy,
+                                      cudaStream_t stream)
+{
+  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+  return cusparseDcsrmm(
+    handle, trans, m, n, k, nnz, alpha, descr, csrVal, csrRowPtr, csrColInd, x, ldx, beta, y, ldy);
+}
+/** @} */
+
+/**
+ * @defgroup csr2coo cusparse CSR to COO converter methods
+ * @{
+ */
+template <typename T>
+void cusparsecsr2coo(  // NOLINT
+                     cusparseHandle_t handle,
+                     const int n,
+                     const int nnz,
+                     const T* csrRowPtr,
+                     T* cooRowInd,
+                     cudaStream_t stream);
+template <>
+inline void cusparsecsr2coo(cusparseHandle_t handle,
+                            const int n,
+                            const int nnz,
+                            const int* csrRowPtr,
+                            int* cooRowInd,
+                            cudaStream_t stream)
+{
+  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+  CUSPARSE_CHECK(cusparseXcsr2coo(handle, csrRowPtr, nnz, n, cooRowInd, CUSPARSE_INDEX_BASE_ZERO));
 }
 /** @} */
 
