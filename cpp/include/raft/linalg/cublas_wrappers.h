@@ -562,5 +562,31 @@ inline cublasStatus_t cublassetpointermode(cublasHandle_t handle,
 }
 /** @} */
 
+/**
+ * @defgroup scal cublas dot calls
+ * @{
+ */
+template <typename T>
+cublasStatus_t cublasscal(cublasHandle_t handle, int n, const T *alpha, T *x,
+                          int incx, cudaStream_t stream);
+
+template <>
+inline cublasStatus_t cublasscal(cublasHandle_t handle, int n,
+                                 const float *alpha, float *x, int incx,
+                                 cudaStream_t stream) {
+  CUBLAS_CHECK(cublasSetStream(handle, stream));
+  return cublasSscal(handle, n, alpha, x, incx);
+}
+
+template <>
+inline cublasStatus_t cublasscal(cublasHandle_t handle, int n,
+                                 const double *alpha, double *x, int incx,
+                                 cudaStream_t stream) {
+  CUBLAS_CHECK(cublasSetStream(handle, stream));
+  return cublasDscal(handle, n, alpha, x, incx);
+}
+
+/** @} */
+
 };  // namespace linalg
 };  // namespace raft
