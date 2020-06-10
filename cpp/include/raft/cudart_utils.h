@@ -16,88 +16,17 @@
 
 #pragma once
 
+#include "raft/error.hpp"
+
 #include <cuda_runtime.h>
+
 #include <execinfo.h>
-#include <chrono>
 #include <cstdio>
-#include <iostream>
-#include <sstream>
-#include <stdexcept>
-#include <string>
-#include <utility>
+
 ///@todo: enable once logging has been enabled in raft
 //#include "logger.hpp"
 
 namespace raft {
-
-/** base exception class for the whole of raft */
-class exception : public std::exception {
- public:
-  /** default ctor */
-  explicit exception() noexcept : std::exception(), msg_() {}
-
-  /** copy ctor */
-  exception(const exception& src) noexcept
-    : std::exception(), msg_(src.what()) {
-    collect_call_stack();
-  }
-
-  /** ctor from an input message */
-  explicit exception(const std::string _msg) noexcept
-    : std::exception(), msg_(std::move(_msg)) {
-    collect_call_stack();
-  }
-
-  /** get the message associated with this exception */
-  const char* what() const noexcept override { return msg_.c_str(); }
-
- private:
-  /** message associated with this exception */
-  std::string msg_;
-
-  /** append call stack info to this exception's message for ease of debug */
-  // Courtesy: https://www.gnu.org/software/libc/manual/html_node/Backtraces.html
-  void collect_call_stack() noexcept {
-#ifdef __GNUC__
-    constexpr int kMaxStackDepth = 64;
-    void* stack[kMaxStackDepth];  // NOLINT
-    auto depth = backtrace(stack, kMaxStackDepth);
-    std::ostringstream oss;
-    oss << std::endl << "Obtained " << depth << " stack frames" << std::endl;
-    char** strings = backtrace_symbols(stack, depth);
-    if (strings == nullptr) {
-      oss << "But no stack trace could be found!" << std::endl;
-      msg_ += oss.str();
-      return;
-    }
-    ///@todo: support for demangling of C++ symbol names
-    for (int i = 0; i < depth; ++i) {
-      oss << "#" << i << " in " << strings[i] << std::endl;
-    }
-    free(strings);
-    msg_ += oss.str();
-#endif  // __GNUC__
-  }
-};
-
-/** macro to throw a runtime error */
-#define THROW(fmt, ...)                                                        \
-  do {                                                                         \
-    std::string msg;                                                           \
-    char errMsg[2048]; /* NOLINT */                                            \
-    std::snprintf(errMsg, sizeof(errMsg),                                      \
-                  "exception occured! file=%s line=%d: ", __FILE__, __LINE__); \
-    msg += errMsg;                                                             \
-    std::snprintf(errMsg, sizeof(errMsg), fmt, ##__VA_ARGS__);                 \
-    msg += errMsg;                                                             \
-    throw raft::exception(msg);                                                \
-  } while (0)
-
-/** macro to check for a conditional and assert on failure */
-#define ASSERT(check, fmt, ...)              \
-  do {                                       \
-    if (!(check)) THROW(fmt, ##__VA_ARGS__); \
-  } while (0)
 
 /** check for cuda runtime API errors and assert accordingly */
 #define CUDA_CHECK(call)                                               \
