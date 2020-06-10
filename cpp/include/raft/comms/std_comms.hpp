@@ -26,7 +26,7 @@
 
 #include <ucp/api/ucp.h>
 #include <ucp/api/ucp_def.h>
-#include "ucp_helper.hpp"
+#include <raft/comms/ucp_helper.hpp>
 
 #include <nccl.h>
 
@@ -189,6 +189,32 @@ class std_comms : public comms_iface {
 
   int get_rank() const { return rank_; }
 
+  void scatter_nccluniqueid(ncclUniqueId &id, int color, int key, int root,
+                            int new_size, std::vector<int> &colors) const {
+    // root rank of new comm generates NCCL unique id and sends to other ranks of color
+    int request_idx = 0;
+    std::vector<request_t> requests;
+
+    if (key == root) {
+      NCCL_CHECK(ncclGetUniqueId(&id));
+      requests.resize(new_size);
+      for (int i = 0; i < get_size(); i++) {
+        if (colors.data()[i] == color) {
+          isend(&id.internal, 128, i, color, requests.data() + request_idx);
+          ++request_idx;
+        }
+      }
+    } else {
+      requests.resize(1);
+    }
+
+    // non-root ranks of new comm recv unique id
+    irecv(&id.internal, 128, root, color, requests.data() + request_idx);
+
+    waitall(requests.size(), requests.data());
+    barrier();
+  }
+
   std::unique_ptr<comms_iface> comm_split(int color, int key) const {
     mr::device::buffer<int> colors(device_allocator_, stream_, get_size());
     mr::device::buffer<int> keys(device_allocator_, stream_, get_size());
@@ -205,11 +231,11 @@ class std_comms : public comms_iface {
     this->sync_stream(stream_);
 
     // find all ranks with same color and lowest key of that color
-    int *colors_host = new int[get_size()]();
-    int *keys_host = new int[get_size()]();
+    std::vector<int> colors_host(get_size());
+    std::vector<int> keys_host(get_size());
 
-    update_host(colors_host, colors.data(), get_size(), stream_);
-    update_host(keys_host, keys.data(), get_size(), stream_);
+    update_host(colors_host.data(), colors.data(), get_size(), stream_);
+    update_host(keys_host.data(), keys.data(), get_size(), stream_);
 
     CUDA_CHECK(cudaStreamSynchronize(stream_));
 
@@ -228,29 +254,8 @@ class std_comms : public comms_iface {
     }
 
     ncclUniqueId id;
-
-    // root rank of new comm generates NCCL unique id and sends to other ranks of color
-    int request_idx = 0;
-    std::vector<request_t> requests;
-
-    if (key == min_rank) {
-      NCCL_CHECK(ncclGetUniqueId(&id));
-      requests.resize(ranks_with_color.size());
-      for (int i = 0; i < get_size(); i++) {
-        if (colors_host[i] == color) {
-          isend(&id.internal, 128, i, color, requests.data() + request_idx);
-          ++request_idx;
-        }
-      }
-    } else {
-      requests.resize(1);
-    }
-
-    // non-root ranks of new comm recv unique id
-    irecv(&id.internal, 128, min_rank, color, requests.data() + request_idx);
-
-    waitall(requests.size(), requests.data());
-    barrier();
+    scatter_nccluniqueid(id, color, key, min_rank, ranks_with_color.size(),
+                         colors_host);
 
     ncclComm_t nccl_comm;
 
@@ -263,9 +268,6 @@ class std_comms : public comms_iface {
     auto *raft_comm = new raft::comms::std_comms(
       nccl_comm, (ucp_worker_h)ucp_worker_, eps_sp, ranks_with_color.size(),
       key, device_allocator_, stream_);
-
-    delete[] colors_host;
-    delete[] keys_host;
 
     return std::unique_ptr<comms_iface>(raft_comm);
   }
