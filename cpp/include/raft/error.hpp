@@ -106,50 +106,50 @@ class exception : public std::exception {
  * RAFT_EXPECTS, RAFT_FAIL, CUML_EXPECTS, CUML_FAIL, CUGRAPH_EXPECTS, CUGRAPH_FAIL macros.
  *
  */
-struct logic_error : public std::logic_error {
-  explicit logic_error(char const* const message) : std::logic_error(message) {}
+struct logic_error : public raft::exception {
+  explicit logic_error(char const* const message) : raft::exception(message) {}
   explicit logic_error(std::string const& message)
-    : std::logic_error(message) {}
+    : raft::exception(message) {}
 };
 
 /**
  * @brief Exception thrown when a CUDA error is encountered.
  */
-struct cuda_error : public std::runtime_error {
+struct cuda_error : public raft::exception {
   explicit cuda_error(char const* const message)
-    : std::runtime_error(message) {}
+    : raft::exception(message) {}
   explicit cuda_error(std::string const& message)
-    : std::runtime_error(message) {}
+    : raft::exception(message) {}
 };
 
 /**
  * @brief Exception thrown when a cuRAND error is encountered.
  */
-struct curand_error : public std::runtime_error {
+struct curand_error : public raft::exception {
   explicit curand_error(char const* const message)
-    : std::runtime_error(message) {}
+    : raft::exception(message) {}
   explicit curand_error(std::string const& message)
-    : std::runtime_error(message) {}
+    : raft::exception(message) {}
 };
 
 /**
  * @brief Exception thrown when a cuSparse error is encountered.
  */
-struct cusparse_error : public std::runtime_error {
+struct cusparse_error : public raft::exception {
   explicit cusparse_error(char const* const message)
-    : std::runtime_error(message) {}
+    : raft::exception(message) {}
   explicit cusparse_error(std::string const& message)
-    : std::runtime_error(message) {}
+    : raft::exception(message) {}
 };
 
 /**
  * @brief Exception thrown when a NCCL error is encountered.
  */
-struct nccl_error : public std::runtime_error {
+struct nccl_error : public raft::exception {
   explicit nccl_error(char const* const message)
-    : std::runtime_error(message) {}
+    : raft::exception(message) {}
   explicit nccl_error(std::string const& message)
-    : std::runtime_error(message) {}
+    : raft::exception(message) {}
 };
 
 }  // namespace raft
