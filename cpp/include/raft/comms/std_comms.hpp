@@ -227,7 +227,6 @@ class std_comms : public comms_iface {
 
     allgather(color_buf.data(), colors.data(), 1, datatype_t::INT32, stream_);
     allgather(key_buf.data(), keys.data(), 1, datatype_t::INT32, stream_);
-
     this->sync_stream(stream_);
 
     // find all ranks with same color and lowest key of that color
@@ -247,9 +246,7 @@ class std_comms : public comms_iface {
         ranks_with_color.push_back(keys_host[i]);
         if (keys_host[i] < min_rank) min_rank = keys_host[i];
 
-        if (ucp_worker_ != nullptr) {
-          new_ucx_ptrs.push_back((*ucp_eps_)[i]);
-        }
+        if (ucp_worker_ != nullptr) new_ucx_ptrs.push_back((*ucp_eps_)[i]);
       }
     }
 
@@ -258,8 +255,6 @@ class std_comms : public comms_iface {
                          colors_host);
 
     ncclComm_t nccl_comm;
-
-    // create new nccl comm
     NCCL_CHECK(ncclCommInitRank(&nccl_comm, ranks_with_color.size(), id,
                                 keys_host[get_rank()]));
 
