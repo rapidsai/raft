@@ -71,13 +71,9 @@ namespace {
  *    initialized to zero.
  */
 template <typename IndexType_, typename ValueType_>
-static __global__ void computeDistances(IndexType_ n,
-                                        IndexType_ d,
-                                        IndexType_ k,
-                                        const ValueType_* __restrict__ obs,
-                                        const ValueType_* __restrict__ centroids,
-                                        ValueType_* __restrict__ dists)
-{
+static __global__ void computeDistances(
+  IndexType_ n, IndexType_ d, IndexType_ k, const ValueType_* __restrict__ obs,
+  const ValueType_* __restrict__ centroids, ValueType_* __restrict__ dists) {
   // Loop index
   IndexType_ i;
 
@@ -115,7 +111,8 @@ static __global__ void computeDistances(IndexType_ n,
           dist_private += utils::shfl_down(dist_private, i, 2 * i);
 
         // Write result to global memory
-        if (threadIdx.x == 0) atomicFPAdd(dists + IDX(gidz, gidy, n), dist_private);
+        if (threadIdx.x == 0)
+          atomicFPAdd(dists + IDX(gidz, gidy, n), dist_private);
 
         // Move to another observation vector
         gidz += blockDim.z * gridDim.z;
@@ -150,12 +147,10 @@ static __global__ void computeDistances(IndexType_ n,
  *    cluster. Entries must be initialized to zero.
  */
 template <typename IndexType_, typename ValueType_>
-static __global__ void minDistances(IndexType_ n,
-                                    IndexType_ k,
+static __global__ void minDistances(IndexType_ n, IndexType_ k,
                                     ValueType_* __restrict__ dists,
                                     IndexType_* __restrict__ codes,
-                                    IndexType_* __restrict__ clusterSizes)
-{
+                                    IndexType_* __restrict__ clusterSizes) {
   // Loop index
   IndexType_ i, j;
 
@@ -174,8 +169,8 @@ static __global__ void minDistances(IndexType_ n,
     dist_min = dists[IDX(i, 0, n)];
     for (j = 1; j < k; ++j) {
       dist_curr = dists[IDX(i, j, n)];
-      code_min  = (dist_curr < dist_min) ? j : code_min;
-      dist_min  = (dist_curr < dist_min) ? dist_curr : dist_min;
+      code_min = (dist_curr < dist_min) ? j : code_min;
+      dist_min = (dist_curr < dist_min) ? dist_curr : dist_min;
     }
 
     // Transfer result to global memory
@@ -212,8 +207,7 @@ static __global__ void minDistances2(IndexType_ n,
                                      ValueType_* __restrict__ dists_old,
                                      const ValueType_* __restrict__ dists_new,
                                      IndexType_* __restrict__ codes_old,
-                                     IndexType_ code_new)
-{
+                                     IndexType_ code_new) {
   // Loop index
   IndexType_ i;
 
@@ -250,11 +244,9 @@ static __global__ void minDistances2(IndexType_ n,
  *    cluster. Entries must be initialized to zero.
  */
 template <typename IndexType_>
-static __global__ void computeClusterSizes(IndexType_ n,
-                                           IndexType_ k,
-                                           const IndexType_* __restrict__ codes,
-                                           IndexType_* __restrict__ clusterSizes)
-{
+static __global__ void computeClusterSizes(
+  IndexType_ n, IndexType_ k, const IndexType_* __restrict__ codes,
+  IndexType_* __restrict__ clusterSizes) {
   IndexType_ i = threadIdx.x + blockIdx.x * blockDim.x;
   while (i < n) {
     atomicAdd(clusterSizes + codes[i], 1);
@@ -282,11 +274,9 @@ static __global__ void computeClusterSizes(IndexType_ n,
  *    column is the mean position of a cluster).
  */
 template <typename IndexType_, typename ValueType_>
-static __global__ void divideCentroids(IndexType_ d,
-                                       IndexType_ k,
-                                       const IndexType_* __restrict__ clusterSizes,
-                                       ValueType_* __restrict__ centroids)
-{
+static __global__ void divideCentroids(
+  IndexType_ d, IndexType_ k, const IndexType_* __restrict__ clusterSizes,
+  ValueType_* __restrict__ centroids) {
   // Global indices
   IndexType_ gidx, gidy;
 
@@ -300,7 +290,7 @@ static __global__ void divideCentroids(IndexType_ d,
     clusterSize_private = clusterSizes[gidy];
 
     // Add vector entries to centroid matrix
-    //   Vector entris are determined by global x-index
+    //   vector entris are determined by global x-index
     gidx = threadIdx.x + blockIdx.x * blockDim.x;
     while (gidx < d) {
       centroids[IDX(gidx, gidy, d)] /= clusterSize_private;
@@ -333,16 +323,13 @@ static __global__ void divideCentroids(IndexType_ d,
  *    coordinates.
  *  @return Zero if successful. Otherwise non-zero.
  */
-template <typename IndexType_, typename ValueType_>
+template <typename IndexType_, typename ValueType_, typename ThrustExePolicy>
 static int chooseNewCentroid(handle_t handle,
-                             IndexType_ n,
-                             IndexType_ d,
-                             IndexType_ k,
-                             ValueType_ rand,
+                             ThrustExePolicy thrust_exec_policy, IndexType_ n,
+                             IndexType_ d, IndexType_ k, ValueType_ rand,
                              const ValueType_* __restrict__ obs,
                              ValueType_* __restrict__ dists,
-                             ValueType_* __restrict__ centroid)
-{
+                             ValueType_* __restrict__ centroid) {
   using namespace thrust;
 
   // Cumulative sum of distances
@@ -356,26 +343,28 @@ static int chooseNewCentroid(handle_t handle,
   auto stream = handle.get_stream();
 
   // Compute cumulative sum of distances
-  thrust::inclusive_scan(
-   thrust::device_pointer_cast(dists),thrust::device_pointer_cast(dists + n),thrust::device_pointer_cast(distsCumSum));
-  cudaCheckError();
-  CHECK_CUDA(
-    cudaMemcpy(&distsSum, distsCumSum + n - 1, sizeof(ValueType_), cudaMemcpyDeviceToHost));
+  thrust::inclusive_scan(thrust_exec_policy, thrust::device_pointer_cast(dists),
+                         thrust::device_pointer_cast(dists + n),
+                         thrust::device_pointer_cast(distsCumSum));
+  CUDA_CHECK_LAST();
+  CUDA_TRY(cudaMemcpy(&distsSum, distsCumSum + n - 1, sizeof(ValueType_),
+                      cudaMemcpyDeviceToHost));
 
   // Randomly choose observation vector
   //   Probabilities are proportional to square of distance to closest
   //   centroid (see k-means++ algorithm)
-  obsIndex =
-    (thrust::lower_bound(
-      thrust::device_pointer_cast(distsCumSum),thrust::device_pointer_cast(distsCumSum + n), distsSum * rand) -
-    thrust::device_pointer_cast(distsCumSum));
-  cudaCheckError();
+  obsIndex = (thrust::lower_bound(
+                thrust_exec_policy, thrust::device_pointer_cast(distsCumSum),
+                thrust::device_pointer_cast(distsCumSum + n), distsSum * rand) -
+              thrust::device_pointer_cast(distsCumSum));
+  CUDA_CHECK_LAST();
   obsIndex = max(obsIndex, 0);
   obsIndex = min(obsIndex, n - 1);
 
   // Record new centroid position
-  CHECK_CUDA(cudaMemcpyAsync(
-                             centroid, obs + IDX(0, obsIndex, d), d * sizeof(ValueType_), cudaMemcpyDeviceToDevice, stream));
+  CUDA_TRY(cudaMemcpyAsync(centroid, obs + IDX(0, obsIndex, d),
+                           d * sizeof(ValueType_), cudaMemcpyDeviceToDevice,
+                           stream));
 
   return 0;
 }
@@ -401,18 +390,13 @@ static int chooseNewCentroid(handle_t handle,
  *    distance between observation vectors and the closest centroid.
  *  @return Zero if successful. Otherwise non-zero.
  */
-template <typename IndexType_, typename ValueType_>
-static int initializeCentroids(handle_t handle,
-                               IndexType_ n,
-                               IndexType_ d,
-                               IndexType_ k,
-                               const ValueType_* __restrict__ obs,
-                               ValueType_* __restrict__ centroids,
-                               IndexType_* __restrict__ codes,
-                               IndexType_* __restrict__ clusterSizes,
-                               ValueType_* __restrict__ dists,
-                               unsigned long long seed = 123456)
-{
+template <typename IndexType_, typename ValueType_, typename ThrustExePolicy>
+static int initializeCentroids(
+  handle_t handle, ThrustExePolicy thrust_exec_policy, IndexType_ n,
+  IndexType_ d, IndexType_ k, const ValueType_* __restrict__ obs,
+  ValueType_* __restrict__ centroids, IndexType_* __restrict__ codes,
+  IndexType_* __restrict__ clusterSizes, ValueType_* __restrict__ dists,
+  unsigned long long seed) {
   // -------------------------------------------------------
   // Variable declarations
   // -------------------------------------------------------
@@ -438,49 +422,54 @@ static int initializeCentroids(handle_t handle,
   blockDim_warp.x = WARP_SIZE;
   blockDim_warp.y = 1;
   blockDim_warp.z = BSIZE_DIV_WSIZE;
-  gridDim_warp.x  = min((d + WARP_SIZE - 1) / WARP_SIZE, 65535);
-  gridDim_warp.y  = 1;
-  gridDim_warp.z  = min((n + BSIZE_DIV_WSIZE - 1) / BSIZE_DIV_WSIZE, 65535);
+  gridDim_warp.x = min((d + WARP_SIZE - 1) / WARP_SIZE, 65535);
+  gridDim_warp.y = 1;
+  gridDim_warp.z = min((n + BSIZE_DIV_WSIZE - 1) / BSIZE_DIV_WSIZE, 65535);
   gridDim_block.x = min((n + BLOCK_SIZE - 1) / BLOCK_SIZE, 65535);
   gridDim_block.y = 1;
   gridDim_block.z = 1;
 
   // Assign observation vectors to code 0
-  CHECK_CUDA(cudaMemsetAsync(codes, 0, n * sizeof(IndexType_), stream));
+  CUDA_TRY(cudaMemsetAsync(codes, 0, n * sizeof(IndexType_), stream));
 
   // Choose first centroid
-  thrust::fill(thrust::device_pointer_cast(dists), thrust::device_pointer_cast(dists + n), 1);
-  cudaCheckError();
-  if (chooseNewCentroid(handle, n, d, k, uniformDist(rng), obs, dists, centroids))
+  thrust::fill(thrust_exec_policy, thrust::device_pointer_cast(dists),
+               thrust::device_pointer_cast(dists + n), 1);
+  CUDA_CHECK_LAST();
+  if (chooseNewCentroid(handle, thrust_exec_policy, n, d, k, uniformDist(rng),
+                        obs, dists, centroids))
     WARNING("error in k-means++ (could not pick centroid)");
 
   // Compute distances from first centroid
-  CHECK_CUDA(cudaMemsetAsync(dists, 0, n * sizeof(ValueType_), stream));
-  computeDistances<<<gridDim_warp, blockDim_warp, 0, stream>>>(n, d, 1, obs, centroids, dists);
+  CUDA_TRY(cudaMemsetAsync(dists, 0, n * sizeof(ValueType_), stream));
+  computeDistances<<<gridDim_warp, blockDim_warp, 0, stream>>>(
+    n, d, 1, obs, centroids, dists);
   cudaCheckError()
 
     // Choose remaining centroids
-    for (i = 1; i < k; ++i)
-  {
+    for (i = 1; i < k; ++i) {
     // Choose ith centroid
-    if (chooseNewCentroid(handle, n, d, k, uniformDist(rng), obs, dists, centroids + IDX(0, i, d)))
+    if (chooseNewCentroid(handle, thrust_exec_policy, n, d, k, uniformDist(rng),
+                          obs, dists, centroids + IDX(0, i, d)))
       WARNING("error in k-means++ (could not pick centroid)");
 
     // Compute distances from ith centroid
-    CHECK_CUDA(cudaMemsetAsync(dists + n, 0, n * sizeof(ValueType_), stream));
+    CUDA_TRY(cudaMemsetAsync(dists + n, 0, n * sizeof(ValueType_), stream));
     computeDistances<<<gridDim_warp, blockDim_warp, 0, stream>>>(
       n, d, 1, obs, centroids + IDX(0, i, d), dists + n);
-    cudaCheckError();
+    CUDA_CHECK_LAST();
 
     // Recompute minimum distances
-    minDistances2<<<gridDim_block, BLOCK_SIZE, 0, stream>>>(n, dists, dists + n, codes, i);
-    cudaCheckError();
+    minDistances2<<<gridDim_block, BLOCK_SIZE, 0, stream>>>(n, dists, dists + n,
+                                                            codes, i);
+    CUDA_CHECK_LAST();
   }
 
   // Compute cluster sizes
-  CHECK_CUDA(cudaMemsetAsync(clusterSizes, 0, k * sizeof(IndexType_), stream));
-  computeClusterSizes<<<gridDim_block, BLOCK_SIZE, 0, stream>>>(n, k, codes, clusterSizes);
-  cudaCheckError();
+  CUDA_TRY(cudaMemsetAsync(clusterSizes, 0, k * sizeof(IndexType_), stream));
+  computeClusterSizes<<<gridDim_block, BLOCK_SIZE, 0, stream>>>(n, k, codes,
+                                                                clusterSizes);
+  CUDA_CHECK_LAST();
 
   return 0;
 }
@@ -508,18 +497,15 @@ static int initializeCentroids(handle_t handle,
  *    of squares of assignment.
  *  @return Zero if successful. Otherwise non-zero.
  */
-template <typename IndexType_, typename ValueType_>
-static int assignCentroids(handle_t handle,
-                           IndexType_ n,
-                           IndexType_ d,
-                           IndexType_ k,
+template <typename IndexType_, typename ValueType_, typename ThrustExePolicy>
+static int assignCentroids(handle_t handle, ThrustExePolicy thrust_exec_policy,
+                           IndexType_ n, IndexType_ d, IndexType_ k,
                            const ValueType_* __restrict__ obs,
                            const ValueType_* __restrict__ centroids,
                            ValueType_* __restrict__ dists,
                            IndexType_* __restrict__ codes,
                            IndexType_* __restrict__ clusterSizes,
-                           ValueType_* residual_host)
-{
+                           ValueType_* residual_host) {
   // CUDA grid dimensions
   dim3 blockDim, gridDim;
 
@@ -527,30 +513,33 @@ static int assignCentroids(handle_t handle,
   auto stream = handle.get_stream();
 
   // Compute distance between centroids and observation vectors
-  CHECK_CUDA(cudaMemsetAsync(dists, 0, n * k * sizeof(ValueType_), stream));
+  CUDA_TRY(cudaMemsetAsync(dists, 0, n * k * sizeof(ValueType_), stream));
   blockDim.x = WARP_SIZE;
   blockDim.y = 1;
   blockDim.z = BLOCK_SIZE / WARP_SIZE;
-  gridDim.x  = min((d + WARP_SIZE - 1) / WARP_SIZE, 65535);
-  gridDim.y  = min(k, 65535);
-  gridDim.z  = min((n + BSIZE_DIV_WSIZE - 1) / BSIZE_DIV_WSIZE, 65535);
-  computeDistances<<<gridDim, blockDim, 0, stream>>>(n, d, k, obs, centroids, dists);
-  cudaCheckError();
+  gridDim.x = min((d + WARP_SIZE - 1) / WARP_SIZE, 65535);
+  gridDim.y = min(k, 65535);
+  gridDim.z = min((n + BSIZE_DIV_WSIZE - 1) / BSIZE_DIV_WSIZE, 65535);
+  computeDistances<<<gridDim, blockDim, 0, stream>>>(n, d, k, obs, centroids,
+                                                     dists);
+  CUDA_CHECK_LAST();
 
   // Find centroid closest to each observation vector
-  CHECK_CUDA(cudaMemsetAsync(clusterSizes, 0, k * sizeof(IndexType_), stream));
+  CUDA_TRY(cudaMemsetAsync(clusterSizes, 0, k * sizeof(IndexType_), stream));
   blockDim.x = BLOCK_SIZE;
   blockDim.y = 1;
   blockDim.z = 1;
-  gridDim.x  = min((n + BLOCK_SIZE - 1) / BLOCK_SIZE, 65535);
-  gridDim.y  = 1;
-  gridDim.z  = 1;
-  minDistances<<<gridDim, blockDim, 0, stream>>>(n, k, dists, codes, clusterSizes);
-  cudaCheckError();
+  gridDim.x = min((n + BLOCK_SIZE - 1) / BLOCK_SIZE, 65535);
+  gridDim.y = 1;
+  gridDim.z = 1;
+  minDistances<<<gridDim, blockDim, 0, stream>>>(n, k, dists, codes,
+                                                 clusterSizes);
+  CUDA_CHECK_LAST();
 
   // Compute residual sum of squares
   *residual_host =
-    thrust::reduce(thrust::device_pointer_cast(dists), thrust::device_pointer_cast(dists + n));
+    thrust::reduce(thrust_exec_policy, thrust::device_pointer_cast(dists),
+                   thrust::device_pointer_cast(dists + n));
 
   return 0;
 }
@@ -576,25 +565,21 @@ static int assignCentroids(handle_t handle,
  *    Workspace.
  *  @return Zero if successful. Otherwise non-zero.
  */
-template <typename IndexType_, typename ValueType_>
-static int updateCentroids(handle_t handle,
-                           IndexType_ n,
-                           IndexType_ d,
-                           IndexType_ k,
+template <typename IndexType_, typename ValueType_, typename ThrustExePolicy>
+static int updateCentroids(handle_t handle, ThrustExePolicy thrust_exec_policy,
+                           IndexType_ n, IndexType_ d, IndexType_ k,
                            const ValueType_* __restrict__ obs,
                            const IndexType_* __restrict__ codes,
                            const IndexType_* __restrict__ clusterSizes,
                            ValueType_* __restrict__ centroids,
                            ValueType_* __restrict__ work,
-                           IndexType_* __restrict__ work_int)
-{
-
+                           IndexType_* __restrict__ work_int) {
   // -------------------------------------------------------
   // Variable declarations
   // -------------------------------------------------------
 
   // Useful constants
-  const ValueType_ one  = 1;
+  const ValueType_ one = 1;
   const ValueType_ zero = 0;
 
   auto cublas_h = handle.get_cublas_handle();
@@ -609,54 +594,48 @@ static int updateCentroids(handle_t handle,
   thrust::device_ptr<IndexType_> rows(work_int + d * n);
 
   // Take transpose of observation matrix
-  CUBLAS_CHECK(cublasgeam(cublas_h,
-                          CUBLAS_OP_T,
-                          CUBLAS_OP_N,
-                          n,
-                          d,
-                          &one,
-                          obs,
-                          d,
-                          &zero,
-                          (ValueType_*)NULL,
-                          n,
-                          thrust::raw_pointer_cast(obs_copy),
-                          n,
-                          stream));
+  CUBLAS_CHECK(cublasgeam(cublas_h, CUBLAS_OP_T, CUBLAS_OP_N, n, d, &one, obs,
+                          d, &zero, (ValueType_*)NULL, n,
+                          thrust::raw_pointer_cast(obs_copy), n, stream));
 
   // Cluster assigned to each observation matrix entry
-  thrust::sequence(rows, rows + d * n);
-  cudaCheckError();
-  thrust::transform(rows, rows + d * n, make_constant_iterator<IndexType_>(n), rows, modulus<IndexType_>());
-  cudaCheckError();
-  thrust::gather(rows, rows + d * n,thrust::device_pointer_cast(codes), codes_copy);
-  cudaCheckError();
+  thrust::sequence(thrust_exec_policy, rows, rows + d * n);
+  CUDA_CHECK_LAST();
+  thrust::transform(thrust_exec_policy, rows, rows + d * n,
+                    make_constant_iterator<IndexType_>(n), rows,
+                    modulus<IndexType_>());
+  CUDA_CHECK_LAST();
+  thrust::gather(thrust_exec_policy, rows, rows + d * n,
+                 thrust::device_pointer_cast(codes), codes_copy);
+  CUDA_CHECK_LAST();
 
   // Row associated with each observation matrix entry
-  thrust::sequence(rows, rows + d * n);
-  cudaCheckError();
-  thrust::transform(rows, rows + d * n, make_constant_iterator<IndexType_>(n), rows, divides<IndexType_>());
-  cudaCheckError();
+  thrust::sequence(thrust_exec_policy, rows, rows + d * n);
+  CUDA_CHECK_LAST();
+  thrust::transform(thrust_exec_policy, rows, rows + d * n,
+                    make_constant_iterator<IndexType_>(n), rows,
+                    divides<IndexType_>());
+  CUDA_CHECK_LAST();
 
   // Sort and reduce to add observation vectors in same cluster
-  thrust::stable_sort_by_key(codes_copy, codes_copy + d * n, make_zip_iterator(make_tuple(obs_copy, rows)));
-  cudaCheckError();
-  thrust::reduce_by_key(rows,
-                rows + d * n,
-                obs_copy,
-                codes_copy,  // Output to codes_copy is ignored
-               thrust::device_pointer_cast(centroids));
-  cudaCheckError();
+  thrust::stable_sort_by_key(thrust_exec_policy, codes_copy, codes_copy + d * n,
+                             make_zip_iterator(make_tuple(obs_copy, rows)));
+  CUDA_CHECK_LAST();
+  thrust::reduce_by_key(thrust_exec_policy, rows, rows + d * n, obs_copy,
+                        codes_copy,  // Output to codes_copy is ignored
+                        thrust::device_pointer_cast(centroids));
+  CUDA_CHECK_LAST();
 
   // Divide sums by cluster size to get centroid matrix
   blockDim.x = WARP_SIZE;
   blockDim.y = BLOCK_SIZE / WARP_SIZE;
   blockDim.z = 1;
-  gridDim.x  = min((d + WARP_SIZE - 1) / WARP_SIZE, 65535);
-  gridDim.y  = min((k + BSIZE_DIV_WSIZE - 1) / BSIZE_DIV_WSIZE, 65535);
-  gridDim.z  = 1;
-  divideCentroids<<<gridDim, blockDim, 0, stream>>>(d, k, clusterSizes, centroids);
-  cudaCheckError();
+  gridDim.x = min((d + WARP_SIZE - 1) / WARP_SIZE, 65535);
+  gridDim.y = min((k + BSIZE_DIV_WSIZE - 1) / BSIZE_DIV_WSIZE, 65535);
+  gridDim.z = 1;
+  divideCentroids<<<gridDim, blockDim, 0, stream>>>(d, k, clusterSizes,
+                                                    centroids);
+  CUDA_CHECK_LAST();
 
   return 0;
 }
@@ -699,25 +678,16 @@ namespace raft {
  *    vectors and centroids).
  *  @param iters_host (Output, host memory, 1 entry) Number of
  *    k-means iterations.
- *  @return NVGRAPH error flag.
+ *  @return error flag.
  */
-template <typename IndexType_, typename ValueType_>
-NVGRAPH_ERROR kmeans(handle_t handle,
-                     IndexType_ n,
-                     IndexType_ d,
-                     IndexType_ k,
-                     ValueType_ tol,
-                     IndexType_ maxiter,
-                     const ValueType_* __restrict__ obs,
-                     IndexType_* __restrict__ codes,
-                     IndexType_* __restrict__ clusterSizes,
-                     ValueType_* __restrict__ centroids,
-                     ValueType_* __restrict__ work,
-                     IndexType_* __restrict__ work_int,
-                     ValueType_* residual_host,
-                     IndexType_* iters_host,
-                     unsigned long long seed = 123456)
-{
+template <typename IndexType_, typename ValueType_, typename ThrustExePolicy>
+int kmeans(handle_t handle, ThrustExePolicy thrust_exec_policy, IndexType_ n,
+           IndexType_ d, IndexType_ k, ValueType_ tol, IndexType_ maxiter,
+           const ValueType_* __restrict__ obs, IndexType_* __restrict__ codes,
+           IndexType_* __restrict__ clusterSizes,
+           ValueType_* __restrict__ centroids, ValueType_* __restrict__ work,
+           IndexType_* __restrict__ work_int, ValueType_* residual_host,
+           IndexType_* iters_host, unsigned long long seed) {
   // -------------------------------------------------------
   // Variable declarations
   // -------------------------------------------------------
@@ -736,63 +706,50 @@ NVGRAPH_ERROR kmeans(handle_t handle,
   // Initialization
   // -------------------------------------------------------
 
-  // Check that parameters are valid
-  if (n < 1) {
-    WARNING("invalid parameter (n<1)");
-    return NVGRAPH_ERR_BAD_PARAMETERS;
-  }
-  if (d < 1) {
-    WARNING("invalid parameter (d<1)");
-    return NVGRAPH_ERR_BAD_PARAMETERS;
-  }
-  if (k < 1) {
-    WARNING("invalid parameter (k<1)");
-    return NVGRAPH_ERR_BAD_PARAMETERS;
-  }
-  if (tol < 0) {
-    WARNING("invalid parameter (tol<0)");
-    return NVGRAPH_ERR_BAD_PARAMETERS;
-  }
-  if (maxiter < 0) {
-    WARNING("invalid parameter (maxiter<0)");
-    return NVGRAPH_ERR_BAD_PARAMETERS;
-  }
-
   auto cublas_h = handle.get_cublas_handle();
   auto stream = handle.get_stream();
 
   // Trivial cases
   if (k == 1) {
-    CHECK_CUDA(cudaMemsetAsync(codes, 0, n * sizeof(IndexType_), stream));
-    CHECK_CUDA(cudaMemcpyAsync(clusterSizes, &n, sizeof(IndexType_), cudaMemcpyHostToDevice, stream));
-    if (updateCentroids(handle, n, d, k, obs, codes, clusterSizes, centroids, work, work_int))
+    CUDA_TRY(cudaMemsetAsync(codes, 0, n * sizeof(IndexType_), stream));
+    CUDA_TRY(cudaMemcpyAsync(clusterSizes, &n, sizeof(IndexType_),
+                             cudaMemcpyHostToDevice, stream));
+    if (updateCentroids(handle, thrust_exec_policy, n, d, k, obs, codes,
+                        clusterSizes, centroids, work, work_int))
       WARNING("could not compute k-means centroids");
     dim3 blockDim, gridDim;
     blockDim.x = WARP_SIZE;
     blockDim.y = 1;
     blockDim.z = BLOCK_SIZE / WARP_SIZE;
-    gridDim.x  = min((d + WARP_SIZE - 1) / WARP_SIZE, 65535);
-    gridDim.y  = 1;
-    gridDim.z  = min((n + BLOCK_SIZE / WARP_SIZE - 1) / (BLOCK_SIZE / WARP_SIZE), 65535);
-    CHECK_CUDA(cudaMemsetAsync(work, 0, n * k * sizeof(ValueType_), stream));
-    computeDistances<<<gridDim, blockDim, 0, stream>>>(n, d, 1, obs, centroids, work);
-    cudaCheckError();
+    gridDim.x = min((d + WARP_SIZE - 1) / WARP_SIZE, 65535);
+    gridDim.y = 1;
+    gridDim.z =
+      min((n + BLOCK_SIZE / WARP_SIZE - 1) / (BLOCK_SIZE / WARP_SIZE), 65535);
+    CUDA_TRY(cudaMemsetAsync(work, 0, n * k * sizeof(ValueType_), stream));
+    computeDistances<<<gridDim, blockDim, 0, stream>>>(n, d, 1, obs, centroids,
+                                                       work);
+    CUDA_CHECK_LAST();
     *residual_host =
-      thrust::reduce(thrust::device_pointer_cast(work), thrust::device_pointer_cast(work + n));
-    cudaCheckError();
-    return NVGRAPH_OK;
+      thrust::reduce(thrust_exec_policy, thrust::device_pointer_cast(work),
+                     thrust::device_pointer_cast(work + n));
+    CUDA_CHECK_LAST();
+    return 0;
   }
   if (n <= k) {
-    thrust::sequence(thrust::device_pointer_cast(codes), thrust::device_pointer_cast(codes + n));
-    cudaCheckError();
-    thrust::fill_n(thrust::device_pointer_cast(clusterSizes), n, 1);
-    cudaCheckError();
+    thrust::sequence(thrust_exec_policy, thrust::device_pointer_cast(codes),
+                     thrust::device_pointer_cast(codes + n));
+    CUDA_CHECK_LAST();
+    thrust::fill_n(thrust_exec_policy,
+                   thrust::device_pointer_cast(clusterSizes), n, 1);
+    CUDA_CHECK_LAST();
 
-    if (n < k) CHECK_CUDA(cudaMemsetAsync(clusterSizes + n, 0, (k - n) * sizeof(IndexType_), stream));
-    CHECK_CUDA(
-               cudaMemcpyAsync(centroids, obs, d * n * sizeof(ValueType_), cudaMemcpyDeviceToDevice, stream));
+    if (n < k)
+      CUDA_TRY(cudaMemsetAsync(clusterSizes + n, 0,
+                               (k - n) * sizeof(IndexType_), stream));
+    CUDA_TRY(cudaMemcpyAsync(centroids, obs, d * n * sizeof(ValueType_),
+                             cudaMemcpyDeviceToDevice, stream));
     *residual_host = 0;
-    return NVGRAPH_OK;
+    return 0;
   }
 
   // Initialize cuBLAS
@@ -804,40 +761,47 @@ NVGRAPH_ERROR kmeans(handle_t handle,
   // -------------------------------------------------------
 
   // Choose initial cluster centroids
-  if (initializeCentroids(n, d, k, obs, centroids, codes, clusterSizes, work))
+  if (initializeCentroids(handle, thrust_exec_policy, n, d, k, obs, centroids,
+                          codes, clusterSizes, work, seed))
     WARNING("could not initialize k-means centroids");
 
   // Apply k-means iteration until convergence
   for (iter = 0; iter < maxiter; ++iter) {
     // Update cluster centroids
-    if (updateCentroids(handle, n, d, k, obs, codes, clusterSizes, centroids, work, work_int))
+    if (updateCentroids(handle, thrust_exec_policy, n, d, k, obs, codes,
+                        clusterSizes, centroids, work, work_int))
       WARNING("could not update k-means centroids");
 
     // Determine centroid closest to each observation
     residualPrev = *residual_host;
-    if (assignCentroids(n, d, k, obs, centroids, work, codes, clusterSizes, residual_host))
+    if (assignCentroids(handle, thrust_exec_policy, n, d, k, obs, centroids,
+                        work, codes, clusterSizes, residual_host))
       WARNING("could not assign observation vectors to k-means clusters");
 
     // Reinitialize empty clusters with new centroids
-    IndexType_ emptyCentroid = (thrust::find(thrust::device_pointer_cast(clusterSizes),
-                                             thrust::device_pointer_cast(clusterSizes + k),
-                                             0) -
-                                thrust::device_pointer_cast(clusterSizes));
+    IndexType_ emptyCentroid =
+      (thrust::find(thrust_exec_policy,
+                    thrust::device_pointer_cast(clusterSizes),
+                    thrust::device_pointer_cast(clusterSizes + k), 0) -
+       thrust::device_pointer_cast(clusterSizes));
 
     // FIXME: emptyCentroid never reaches k (infinite loop) under certain
     // conditions, such as if obs is corrupt (as seen as a result of a
     // DataFrame column of NULL edge vals used to create the Graph)
     while (emptyCentroid < k) {
-      if (chooseNewCentroid(
-            n, d, k, uniformDist(rng), obs, work, centroids + IDX(0, emptyCentroid, d)))
+      if (chooseNewCentroid(handle, thrust_exec_policy, n, d, k,
+                            uniformDist(rng), obs, work,
+                            centroids + IDX(0, emptyCentroid, d)))
         WARNING("could not replace empty centroid");
-      if (assignCentroids(n, d, k, obs, centroids, work, codes, clusterSizes, residual_host))
+      if (assignCentroids(handle, thrust_exec_policy, n, d, k, obs, centroids,
+                          work, codes, clusterSizes, residual_host))
         WARNING("could not assign observation vectors to k-means clusters");
-      emptyCentroid = (thrust::find(thrust::device_pointer_cast(clusterSizes),
-                                    thrust::device_pointer_cast(clusterSizes + k),
-                                    0) -
-                       thrust::device_pointer_cast(clusterSizes));
-      cudaCheckError();
+      emptyCentroid =
+        (thrust::find(thrust_exec_policy,
+                      thrust::device_pointer_cast(clusterSizes),
+                      thrust::device_pointer_cast(clusterSizes + k), 0) -
+         thrust::device_pointer_cast(clusterSizes));
+      CUDA_CHECK_LAST();
     }
 
     // Check for convergence
@@ -848,7 +812,8 @@ NVGRAPH_ERROR kmeans(handle_t handle,
   }
 
   // Warning if k-means has failed to converge
-  if (std::fabs(residualPrev - (*residual_host)) / n >= tol) WARNING("k-means failed to converge");
+  if (std::fabs(residualPrev - (*residual_host)) / n >= tol)
+    WARNING("k-means failed to converge");
 
   *iters_host = iter;
   return 0;
@@ -875,63 +840,34 @@ NVGRAPH_ERROR kmeans(handle_t handle,
  *  @param residual On exit, residual sum of squares (sum of squares
  *    of distances between observation vectors and centroids).
  *  @param On exit, number of k-means iterations.
- *  @return NVGRAPH error flag
+ *  @return error flag
  */
-template <typename IndexType_, typename ValueType_>
-NVGRAPH_ERROR kmeans(IndexType_ n,
-                     IndexType_ d,
-                     IndexType_ k,
-                     ValueType_ tol,
-                     IndexType_ maxiter,
-                     const ValueType_* __restrict__ obs,
-                     IndexType_* __restrict__ codes,
-                     ValueType_& residual,
-                     IndexType_& iters)
-{
+template <typename IndexType_, typename ValueType_, typename ThrustExePolicy>
+int kmeans(handle_t handle, ThrustExePolicy thrust_exec_policy, IndexType_ n,
+           IndexType_ d, IndexType_ k, ValueType_ tol, IndexType_ maxiter,
+           const ValueType_* __restrict__ obs, IndexType_* __restrict__ codes,
+           ValueType_& residual, IndexType_& iters,
+           unsigned long long seed = 123456) {
+  using namespace matrix;
+
   // Check that parameters are valid
-  if (n < 1) {
-    WARNING("invalid parameter (n<1)");
-    return NVGRAPH_ERR_BAD_PARAMETERS;
-  }
-  if (d < 1) {
-    WARNING("invalid parameter (d<1)");
-    return NVGRAPH_ERR_BAD_PARAMETERS;
-  }
-  if (k < 1) {
-    WARNING("invalid parameter (k<1)");
-    return NVGRAPH_ERR_BAD_PARAMETERS;
-  }
-  if (tol < 0) {
-    WARNING("invalid parameter (tol<0)");
-    return NVGRAPH_ERR_BAD_PARAMETERS;
-  }
-  if (maxiter < 0) {
-    WARNING("invalid parameter (maxiter<0)");
-    return NVGRAPH_ERR_BAD_PARAMETERS;
-  }
+  RAFT_EXPECT(n > 0, "invalid parameter (n<1)");
+  RAFT_EXPECT(d > 0, "invalid parameter (d<1)");
+  RAFT_EXPECT(k > 0, "invalid parameter (k<1)");
+  RAFT_EXPECT(tol > 0, "invalid parameter (tol<=0)");
+  RAFT_EXPECT(maxiter >= 0, "invalid parameter (maxiter<0)");
 
   // Allocate memory
-  // TODO: handle non-zero CUDA streams
-  cudaStream_t stream = 0;
-  Vector<IndexType_> clusterSizes(k, stream);
-  Vector<ValueType_> centroids(d * k, stream);
-  Vector<ValueType_> work(n * max(k, d), stream);
-  Vector<IndexType_> work_int(2 * d * n, stream);
+  vector_t<IndexType_> clusterSizes(handle, k);
+  vector_t<ValueType_> centroids(handle, d * k);
+  vector_t<ValueType_> work(handle, n * max(k, d));
+  vector_t<IndexType_> work_int(handle, 2 * d * n);
 
   // Perform k-means
-  return kmeans<IndexType_, ValueType_>(n,
-                                        d,
-                                        k,
-                                        tol,
-                                        maxiter,
-                                        obs,
-                                        codes,
-                                        clusterSizes.raw(),
-                                        centroids.raw(),
-                                        work.raw(),
-                                        work_int.raw(),
-                                        &residual,
-                                        &iters);
+  return kmeans<IndexType_, ValueType_>(
+    handle, thrust_exec_policy, n, d, k, tol, maxiter, obs, codes,
+    clusterSizes.raw(), centroids.raw(), work.raw(), work_int.raw(), &residual,
+    &iters, seed);
 }
 
 }  // namespace raft

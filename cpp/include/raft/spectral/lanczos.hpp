@@ -880,9 +880,8 @@ int computeSmallestEigenvectors(
   ValueType_ *beta_host = beta_host_v.data();
 
   //TODO: replace and fix allocation via RAFT handle
-  vector_t<ValueType_> lanczosVecs_dev(handle, n * (restartIter + 1), stream);
-  vector_t<ValueType_> work_dev(handle, (n + restartIter) * restartIter,
-                                stream);
+  vector_t<ValueType_> lanczosVecs_dev(handle, n * (restartIter + 1));
+  vector_t<ValueType_> work_dev(handle, (n + restartIter) * restartIter);
 
   // Perform Lanczos method
   IndexType_ effIter;
@@ -1203,9 +1202,8 @@ int computeLargestEigenvectors(handle_t handle,
   ValueType_ *beta_host = beta_host_v.data();
 
   //TODO: replace and fix allocation via RAFT handle
-  vector_t<ValueType_> lanczosVecs_dev(handle, n * (restartIter + 1), stream);
-  vector_t<ValueType_> work_dev(handle, (n + restartIter) * restartIter,
-                                stream);
+  vector_t<ValueType_> lanczosVecs_dev(handle, n * (restartIter + 1));
+  vector_t<ValueType_> work_dev(handle, (n + restartIter) * restartIter);
 
   // Perform Lanczos method
   IndexType_ effIter;
