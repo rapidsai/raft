@@ -259,15 +259,20 @@ class std_comms : public comms_iface {
 
     ncclComm_t nccl_comm;
 
-    auto eps_sp = std::make_shared<ucp_ep_h *>(new_ucx_ptrs.data());
-
-    // create new nccl comm, if ucx endpoints are set, pull out of `ucp_eps_`
+    // create new nccl comm
     NCCL_CHECK(ncclCommInitRank(&nccl_comm, ranks_with_color.size(), id,
                                 keys_host[get_rank()]));
 
-    auto *raft_comm = new raft::comms::std_comms(
-      nccl_comm, (ucp_worker_h)ucp_worker_, eps_sp, ranks_with_color.size(),
-      key, device_allocator_, stream_);
+    std_comms *raft_comm;
+    if (ucp_worker_ != nullptr) {
+      auto eps_sp = std::make_shared<ucp_ep_h *>(new_ucx_ptrs.data());
+      raft_comm =
+        new std_comms(nccl_comm, (ucp_worker_h)ucp_worker_, eps_sp,
+                      ranks_with_color.size(), key, device_allocator_, stream_);
+    } else {
+      raft_comm = new std_comms(nccl_comm, ranks_with_color.size(), key,
+                                device_allocator_, stream_);
+    }
 
     return std::unique_ptr<comms_iface>(raft_comm);
   }
