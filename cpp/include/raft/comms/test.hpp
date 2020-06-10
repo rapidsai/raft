@@ -250,7 +250,6 @@ bool test_pointToPoint_simple_send_recv(const handle_t &h, int numTrials) {
   return ret;
 }
 
-
 /**
  * A simple test that the comms can be split into 2 separate subcommunicators
  *
@@ -262,8 +261,7 @@ bool test_commsplit(const handle_t &h, int n_colors) {
   const int rank = communicator.get_rank();
   const int size = communicator.get_size();
 
-  if(n_colors > size)
-	  n_colors = size;
+  if (n_colors > size) n_colors = size;
 
   int n_ranks_per_color = communicator.get_size() / n_colors;
 
@@ -272,15 +270,12 @@ bool test_commsplit(const handle_t &h, int n_colors) {
   int key = rank % n_ranks_per_color;
 
   handle_t new_handle(1);
-  auto shared_comm = std::make_shared<comms_t>(communicator.comm_split(color, key));
+  auto shared_comm =
+    std::make_shared<comms_t>(communicator.comm_split(color, key));
   new_handle.set_comms(shared_comm);
 
-  const comms_t  &newcomms = new_handle.get_comms();
-  bool result = test_collective_allreduce(new_handle, 0);
-
-  return result;
+  return test_collective_allreduce(new_handle, 0);
 }
-
 
 }  // namespace comms
 };  // namespace raft

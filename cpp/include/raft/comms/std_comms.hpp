@@ -190,86 +190,84 @@ class std_comms : public comms_iface {
   int get_rank() const { return rank_; }
 
   std::unique_ptr<comms_iface> comm_split(int color, int key) const {
+    mr::device::buffer<int> colors(device_allocator_, stream_, get_size());
+    mr::device::buffer<int> keys(device_allocator_, stream_, get_size());
 
-	  mr::device::buffer<int> colors(device_allocator_, stream_, get_size());
-	  mr::device::buffer<int> keys(device_allocator_, stream_, get_size());
+    mr::device::buffer<int> color_buf(device_allocator_, stream_, 1);
+    mr::device::buffer<int> key_buf(device_allocator_, stream_, 1);
 
-	  mr::device::buffer<int> color_buf(device_allocator_, stream_, 1);
-	  mr::device::buffer<int> key_buf(device_allocator_, stream_, 1);
+    update_device(color_buf.data(), &color, 1, stream_);
+    update_device(key_buf.data(), &key, 1, stream_);
 
-	  update_device(color_buf.data(), &color, 1, stream_);
-	  update_device(key_buf.data(), &key, 1, stream_);
+    allgather(color_buf.data(), colors.data(), 1, datatype_t::INT32, stream_);
+    allgather(key_buf.data(), keys.data(), 1, datatype_t::INT32, stream_);
 
-	  allgather(color_buf.data(), colors.data(), 1, datatype_t::INT32, stream_);
-	  allgather(key_buf.data(), keys.data(), 1, datatype_t::INT32, stream_);
+    this->sync_stream(stream_);
 
-	  this->sync_stream(stream_);
+    // find all ranks with same color and lowest key of that color
+    int *colors_host = new int[get_size()]();
+    int *keys_host = new int[get_size()]();
 
-	  // find all ranks with same color and lowest key of that color
-	  int *colors_host = new int[get_size()]();
-	  int *keys_host = new int[get_size()]();
+    update_host(colors_host, colors.data(), get_size(), stream_);
+    update_host(keys_host, keys.data(), get_size(), stream_);
 
-	  update_host(colors_host, colors.data(), get_size(), stream_);
-	  update_host(keys_host, keys.data(), get_size(), stream_);
+    CUDA_CHECK(cudaStreamSynchronize(stream_));
 
-	  CUDA_CHECK(cudaStreamSynchronize(stream_));
+    std::vector<int> ranks_with_color;
+    std::vector<ucp_ep_h> new_ucx_ptrs;
+    int min_rank = key;
+    for (int i = 0; i < get_size(); i++) {
+      if (colors_host[i] == color) {
+        ranks_with_color.push_back(keys_host[i]);
+        if (keys_host[i] < min_rank) min_rank = keys_host[i];
 
-	  std::vector<int> ranks_with_color;
-	  std::vector<ucp_ep_h> new_ucx_ptrs;
-	  int min_rank = key;
-	  for(int i = 0; i < get_size(); i++) {
-		  if(colors_host[i] == color) {
-			  ranks_with_color.push_back(keys_host[i]);
-			  std::cout << keys_host[i] << std::endl;
-			  if(keys_host[i] < min_rank)
-				  min_rank = keys_host[i];
+        if (ucp_worker_ != nullptr) {
+          new_ucx_ptrs.push_back((*ucp_eps_)[i]);
+        }
+      }
+    }
 
-			  if(ucp_worker_ != nullptr) {
-				  new_ucx_ptrs.push_back((*ucp_eps_)[i]);
-			  }
-		  }
-	  }
+    ncclUniqueId id;
 
-	  ncclUniqueId id;
+    // root rank of new comm generates NCCL unique id and sends to other ranks of color
+    int request_idx = 0;
+    std::vector<request_t> requests;
 
-	  // root rank of new comm generates NCCL unique id and sends to other ranks of color
-	  int request_idx = 0;
-	  std::vector<request_t> requests;
+    if (key == min_rank) {
+      NCCL_CHECK(ncclGetUniqueId(&id));
+      requests.resize(ranks_with_color.size());
+      for (int i = 0; i < get_size(); i++) {
+        if (colors_host[i] == color) {
+          isend(&id.internal, 128, i, color, requests.data() + request_idx);
+          ++request_idx;
+        }
+      }
+    } else {
+      requests.resize(1);
+    }
 
-	  if(key == min_rank) {
-		  NCCL_CHECK(ncclGetUniqueId(&id));
-     	  requests.resize(ranks_with_color.size());
-		  for(int i = 0; i < get_size(); i++) {
-			  if(colors_host[i] == color) {
-				  isend(&id.internal, 128, i, color, requests.data()+request_idx);
-				  ++request_idx;
-			  }
-		  }
-	  } else {
-		  requests.resize(1);
-	  }
+    // non-root ranks of new comm recv unique id
+    irecv(&id.internal, 128, min_rank, color, requests.data() + request_idx);
 
-	  delete[] colors_host;
-	  delete[] keys_host;
+    waitall(requests.size(), requests.data());
+    barrier();
 
-	  // non-root ranks of new comm recv unique id
-	  irecv(&id.internal, 128, min_rank, color, requests.data()+request_idx);
-	  ++request_idx;
+    ncclComm_t nccl_comm;
 
-	  waitall(requests.size(), requests.data());
+    auto eps_sp = std::make_shared<ucp_ep_h *>(new_ucx_ptrs.data());
 
-	  ncclComm_t nccl_comm;
+    // create new nccl comm, if ucx endpoints are set, pull out of `ucp_eps_`
+    NCCL_CHECK(ncclCommInitRank(&nccl_comm, ranks_with_color.size(), id,
+                                keys_host[get_rank()]));
 
-	  auto eps_sp = std::make_shared<ucp_ep_h *>(new_ucx_ptrs.data());
+    auto *raft_comm = new raft::comms::std_comms(
+      nccl_comm, (ucp_worker_h)ucp_worker_, eps_sp, ranks_with_color.size(),
+      key, device_allocator_, stream_);
 
-	  // create new nccl comm, if ucx endpoints are set, pull out of `ucp_eps_`
-	  NCCL_CHECK(ncclCommInitRank(&nccl_comm, ranks_with_color.size(), id, keys_host[get_rank()]));
+    delete[] colors_host;
+    delete[] keys_host;
 
-	  auto *raft_comm =
-	    new raft::comms::std_comms(nccl_comm, (ucp_worker_h)ucp_worker_, eps_sp,
-	    						   ranks_with_color.size(), key, device_allocator_, stream_);
-
-	  return std::unique_ptr<comms_iface>(raft_comm);
+    return std::unique_ptr<comms_iface>(raft_comm);
   }
 
   void barrier() const {
@@ -384,6 +382,7 @@ class std_comms : public comms_iface {
           restart = true;
 
           // perform cleanup
+          std::cout << "Freeing request" << std::endl;
           ucp_handler_.free_ucp_request(req);
 
           // remove from pending requests
@@ -401,8 +400,7 @@ class std_comms : public comms_iface {
 
   void allreduce(const void *sendbuff, void *recvbuff, size_t count,
                  datatype_t datatype, op_t op, cudaStream_t stream) const {
-
-	std::cout << "Inside allreduce" << std::endl;
+    std::cout << "Inside allreduce" << std::endl;
     NCCL_CHECK(ncclAllReduce(sendbuff, recvbuff, count,
                              get_nccl_datatype(datatype), get_nccl_op(op),
                              nccl_comm_, stream));

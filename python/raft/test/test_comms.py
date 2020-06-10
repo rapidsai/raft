@@ -119,41 +119,32 @@ def test_comm_split(client):
     cb = Comms(comms_p2p=True, verbose=True)
     cb.init()
 
-    for k, v in cb.worker_info(cb.worker_addresses).items():
+    dfs = [client.submit(func_test_comm_split,
+                         cb.sessionId,
+                         3,
+                         pure=False,
+                         workers=[w])
+           for w in cb.worker_addresses]
 
-        dfs = [client.submit(func_test_comm_split,
-                             cb.sessionId,
-                             3,
-                             pure=False,
-                             workers=[w])
-               for w in cb.worker_addresses]
-        wait(dfs, timeout=5)
+    wait(dfs, timeout=5)
 
-        assert all([x.result() for x in dfs])
+    assert all([x.result() for x in dfs])
 
 
 @pytest.mark.ucx
 @pytest.mark.parametrize("n_trials", [1, 5])
-def test_send_recv(n_trials, ucx_cluster):
+def test_send_recv(n_trials, client):
 
-    client = Client(ucx_cluster)
+    cb = Comms(comms_p2p=True, verbose=True)
+    cb.init()
 
-    try:
+    dfs = [client.submit(func_test_send_recv,
+                         cb.sessionId,
+                         n_trials,
+                         pure=False,
+                         workers=[w])
+           for w in cb.worker_addresses]
 
-        cb = Comms(comms_p2p=True, verbose=True)
-        cb.init()
+    wait(dfs, timeout=5)
 
-        dfs = [client.submit(func_test_send_recv,
-                             cb.sessionId,
-                             n_trials,
-                             pure=False,
-                             workers=[w])
-               for w in cb.worker_addresses]
-
-        wait(dfs, timeout=5)
-
-        assert(list(map(lambda x: x.result(), dfs)))
-
-    finally:
-        cb.destroy()
-        client.close()
+    assert(list(map(lambda x: x.result(), dfs)))

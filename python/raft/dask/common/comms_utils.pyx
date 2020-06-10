@@ -145,16 +145,16 @@ def perform_test_comms_send_recv(handle, n_trials):
 
 
 def perform_test_comm_split(handle, n_colors):
-        """
-        Performs a p2p send/recv on the current worker
+    """
+    Performs a p2p send/recv on the current worker
 
-        Parameters
-        ----------
-        handle : raft.common.Handle
-                 handle containing comms_t to use
-        """
-        cdef const handle_t * h = < handle_t * > < size_t > handle.getHandle()
-        return test_commsplit(deref(h), < int > n_colors)
+    Parameters
+    ----------
+    handle : raft.common.Handle
+             handle containing comms_t to use
+    """
+    cdef const handle_t * h = < handle_t * > < size_t > handle.getHandle()
+    return test_commsplit(deref(h), < int > n_colors)
 
 
 def inject_comms_on_handle_coll_only(handle, nccl_inst, size, rank, verbose):

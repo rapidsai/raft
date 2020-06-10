@@ -25,3 +25,5 @@ from .comms_utils import perform_test_comms_bcast
 from .comms_utils import perform_test_comms_reduce
 from .comms_utils import perform_test_comms_reducescatter
 from .comms_utils import perform_test_comm_split
+
+from .ucx import UCX
