@@ -80,25 +80,6 @@ class exception : public std::exception {
   }
 };
 
-/** macro to throw a runtime error */
-#define THROW(fmt, ...)                                                        \
-  do {                                                                         \
-    std::string msg;                                                           \
-    char errMsg[2048]; /* NOLINT */                                            \
-    std::snprintf(errMsg, sizeof(errMsg),                                      \
-                  "exception occured! file=%s line=%d: ", __FILE__, __LINE__); \
-    msg += errMsg;                                                             \
-    std::snprintf(errMsg, sizeof(errMsg), fmt, ##__VA_ARGS__);                 \
-    msg += errMsg;                                                             \
-    throw raft::exception(msg);                                                \
-  } while (0)
-
-/** macro to check for a conditional and assert on failure */
-#define ASSERT(check, fmt, ...)              \
-  do {                                       \
-    if (!(check)) THROW(fmt, ##__VA_ARGS__); \
-  } while (0)
-
 /**
  * @brief Exception thrown when logical precondition is violated.
  *
@@ -153,6 +134,25 @@ struct nccl_error : public raft::exception {
 };
 
 }  // namespace raft
+
+/** macro to throw a runtime error */
+#define THROW(fmt, ...)                                                        \
+  do {                                                                         \
+    std::string msg;                                                           \
+    char errMsg[2048]; /* NOLINT */                                            \
+    std::snprintf(errMsg, sizeof(errMsg),                                      \
+                  "exception occured! file=%s line=%d: ", __FILE__, __LINE__); \
+    msg += errMsg;                                                             \
+    std::snprintf(errMsg, sizeof(errMsg), fmt, ##__VA_ARGS__);                 \
+    msg += errMsg;                                                             \
+    throw raft::exception(msg);                                                \
+  } while (0)
+
+/** macro to check for a conditional and assert on failure */
+#define ASSERT(check, fmt, ...)              \
+  do {                                       \
+    if (!(check)) THROW(fmt, ##__VA_ARGS__); \
+  } while (0)
 
 #define STRINGIFY_DETAIL(x) #x
 #define RAFT_STRINGIFY(x) STRINGIFY_DETAIL(x)

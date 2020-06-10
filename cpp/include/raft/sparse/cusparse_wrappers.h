@@ -21,9 +21,6 @@
 //#include <cuml/common/logger.hpp>
 #include <raft/cudart_utils.h>
 
-namespace raft {
-namespace sparse {
-
 #define _CUSPARSE_ERR_TO_STR(err) \
   case err:                       \
     return #err;
@@ -66,6 +63,9 @@ inline const char* cusparse_error_to_string(cusparseStatus_t err) {
 //                      raft::sparse::cusparse_error_to_string(err));             \
 //     }                                                                          \
 //   } while (0)
+
+namespace raft {
+namespace sparse {
 
 /**
  * @defgroup gthr cusparse gather methods

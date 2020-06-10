@@ -22,9 +22,6 @@
 #include <raft/cudart_utils.h>
 #include <cstdint>
 
-namespace raft {
-namespace linalg {
-
 #define _CUBLAS_ERR_TO_STR(err) \
   case err:                     \
     return #err
@@ -65,6 +62,9 @@ inline const char *cublas_error_to_string(cublasStatus_t err) {
 //                      raft::linalg::cublas_error_to_string(err));             \
 //     }                                                                        \
 //   } while (0)
+
+namespace raft {
+namespace linalg {
 
 /**
  * @defgroup Axpy cublas ax+y operations

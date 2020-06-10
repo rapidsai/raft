@@ -22,9 +22,6 @@
 //#include <cuml/common/logger.hpp>
 #include <raft/cudart_utils.h>
 
-namespace raft {
-namespace linalg {
-
 #define _CUSOLVER_ERR_TO_STR(err) \
   case err:                       \
     return #err;
@@ -65,6 +62,9 @@ inline const char *cusolver_error_to_string(cusolverStatus_t err) {
 //                      raft::linalg::cusolver_error_to_string(err));             \
 //     }                                                                          \
 //   } while (0)
+
+namespace raft {
+namespace linalg {
 
 /**
  * @defgroup Getrf cusolver getrf operations

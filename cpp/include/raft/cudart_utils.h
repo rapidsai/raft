@@ -26,8 +26,6 @@
 ///@todo: enable once logging has been enabled in raft
 //#include "logger.hpp"
 
-namespace raft {
-
 /** check for cuda runtime API errors and assert accordingly */
 #define CUDA_CHECK(call)                                               \
   do {                                                                 \
@@ -49,6 +47,8 @@ namespace raft {
              __FILE__, __LINE__, cudaGetErrorString(status));             \
     }                                                                     \
   } while (0)
+
+namespace raft {
 
 /** helper method to get max usable shared mem per block parameter */
 inline int get_shared_memory_per_block() {
