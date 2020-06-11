@@ -25,6 +25,11 @@
 #define _CUBLAS_ERR_TO_STR(err) \
   case err:                     \
     return #err
+
+namespace raft {
+namespace linalg {
+namespace detail {
+
 inline const char *cublas_error_to_string(cublasStatus_t err) {
   switch (err) {
     _CUBLAS_ERR_TO_STR(CUBLAS_STATUS_SUCCESS);
@@ -41,6 +46,11 @@ inline const char *cublas_error_to_string(cublasStatus_t err) {
       return "CUBLAS_STATUS_UNKNOWN";
   };
 }
+
+};  // namespace detail
+};  // namespace linalg
+};  // namespace raft
+
 #undef _CUBLAS_ERR_TO_STR
 
 /** check for cublas runtime API errors and assert accordingly */
@@ -49,7 +59,7 @@ inline const char *cublas_error_to_string(cublasStatus_t err) {
     cublasStatus_t err = call;                                     \
     ASSERT(err == CUBLAS_STATUS_SUCCESS,                           \
            "CUBLAS call='%s' got errorcode=%d err=%s", #call, err, \
-           raft::linalg::cublas_error_to_string(err));             \
+           raft::linalg::detail::cublas_error_to_string(err));     \
   } while (0)
 
 ///@todo: enable this once we have logging enabled
@@ -59,7 +69,7 @@ inline const char *cublas_error_to_string(cublasStatus_t err) {
 //     cublasStatus_t err = call;                                               \
 //     if (err != CUBLAS_STATUS_SUCCESS) {                                      \
 //       CUML_LOG_ERROR("CUBLAS call='%s' got errorcode=%d err=%s", #call, err, \
-//                      raft::linalg::cublas_error_to_string(err));             \
+//                      raft::linalg::detail::cublas_error_to_string(err));     \
 //     }                                                                        \
 //   } while (0)
 

@@ -24,6 +24,11 @@
 #define _CUSPARSE_ERR_TO_STR(err) \
   case err:                       \
     return #err;
+
+namespace raft {
+namespace sparse {
+namespace detail {
+
 inline const char* cusparse_error_to_string(cusparseStatus_t err) {
 #if defined(CUDART_VERSION) && CUDART_VERSION >= 10100
   return cusparseGetErrorString(status);
@@ -42,6 +47,11 @@ inline const char* cusparse_error_to_string(cusparseStatus_t err) {
   };
 #endif  // CUDART_VERSION
 }
+
+};  // namespace detail
+};  // namespace sparse
+};  // namespace raft
+
 #undef _CUSPARSE_ERR_TO_STR
 
 /** check for cusparse runtime API errors and assert accordingly */
@@ -50,7 +60,7 @@ inline const char* cusparse_error_to_string(cusparseStatus_t err) {
     cusparseStatus_t err = call;                                     \
     ASSERT(err == CUSPARSE_STATUS_SUCCESS,                           \
            "CUSPARSE call='%s' got errorcode=%d err=%s", #call, err, \
-           raft::sparse::cusparse_error_to_string(err));             \
+           raft::sparse::detail::cusparse_error_to_string(err));     \
   } while (0)
 
 ///@todo: enable this once logging is enabled
@@ -60,7 +70,7 @@ inline const char* cusparse_error_to_string(cusparseStatus_t err) {
 //     cusparseStatus_t err = call;                                               \
 //     if (err != CUSPARSE_STATUS_SUCCESS) {                                      \
 //       CUML_LOG_ERROR("CUSPARSE call='%s' got errorcode=%d err=%s", #call, err, \
-//                      raft::sparse::cusparse_error_to_string(err));             \
+//                      raft::sparse::detail::cusparse_error_to_string(err));     \
 //     }                                                                          \
 //   } while (0)
 

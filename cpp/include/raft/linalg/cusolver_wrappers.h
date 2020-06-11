@@ -25,6 +25,11 @@
 #define _CUSOLVER_ERR_TO_STR(err) \
   case err:                       \
     return #err;
+
+namespace raft {
+namespace linalg {
+namespace detail {
+
 inline const char *cusolver_error_to_string(cusolverStatus_t err) {
   switch (err) {
     _CUSOLVER_ERR_TO_STR(CUSOLVER_STATUS_SUCCESS);
@@ -41,6 +46,11 @@ inline const char *cusolver_error_to_string(cusolverStatus_t err) {
       return "CUSOLVER_STATUS_UNKNOWN";
   };
 }
+
+};  // namespace detail
+};  // namespace linalg
+};  // namespace raft
+
 #undef _CUSOLVER_ERR_TO_STR
 
 /** check for cusolver runtime API errors and assert accordingly */
@@ -49,7 +59,7 @@ inline const char *cusolver_error_to_string(cusolverStatus_t err) {
     cusolverStatus_t err = call;                                     \
     ASSERT(err == CUSOLVER_STATUS_SUCCESS,                           \
            "CUSOLVER call='%s' got errorcode=%d err=%s", #call, err, \
-           raft::linalg::cusolver_error_to_string(err));             \
+           raft::linalg::detail::cusolver_error_to_string(err));     \
   } while (0)
 
 ///@todo: enable this once logging is enabled
@@ -59,7 +69,7 @@ inline const char *cusolver_error_to_string(cusolverStatus_t err) {
 //     cusolverStatus_t err = call;                                               \
 //     if (err != CUSOLVER_STATUS_SUCCESS) {                                      \
 //       CUML_LOG_ERROR("CUSOLVER call='%s' got errorcode=%d err=%s", #call, err, \
-//                      raft::linalg::cusolver_error_to_string(err));             \
+//                      raft::linalg::detail::cusolver_error_to_string(err));     \
 //     }                                                                          \
 //   } while (0)
 
