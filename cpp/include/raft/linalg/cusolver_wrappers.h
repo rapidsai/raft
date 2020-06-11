@@ -58,9 +58,9 @@ inline const char *cusolver_error_to_string(cusolverStatus_t err) {
   };
 }
 
-};  // namespace detail
-};  // namespace linalg
-};  // namespace raft
+}  // namespace detail
+}  // namespace linalg
+}  // namespace raft
 
 #undef _CUSOLVER_ERR_TO_STR
 
@@ -718,5 +718,5 @@ inline cusolverStatus_t cusolverSpcsrqrsvBatched(  // NOLINT
 }
 /** @} */
 
-};  // namespace linalg
-};  // namespace raft
+}  // namespace linalg
+}  // namespace raft

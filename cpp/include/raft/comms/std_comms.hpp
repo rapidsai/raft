@@ -52,11 +52,11 @@ namespace raft {
  * @brief Exception thrown when a NCCL error is encountered.
  */
 struct nccl_error : public raft::exception {
-  explicit nccl_error(char const *const message) : raft::exception(message) {}
-  explicit nccl_error(std::string const &message) : raft::exception(message) {}
+  explicit nccl_error(char const* const message) : raft::exception(message) {}
+  explicit nccl_error(std::string const& message) : raft::exception(message) {}
 };
 
-};  // namespace raft
+}  // namespace raft
 
 /**
  * @brief Error checking macro for NCCL runtime API functions.
@@ -82,7 +82,7 @@ struct nccl_error : public raft::exception {
 #define NCCL_CHECK_NO_THROW(call)                         \
   do {                                                    \
     ncclResult_t status = call;                           \
-    if (status != ncclSuccess) {                          \
+    if (ncclSuccess != status) {                          \
       printf("NCCL call='%s' failed. Reason:%s\n", #call, \
              ncclGetErrorString(status));                 \
     }                                                     \

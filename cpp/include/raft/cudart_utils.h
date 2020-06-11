@@ -89,8 +89,8 @@ struct cuda_error : public raft::exception {
 //  */
 #define CUDA_CHECK_NO_THROW(call)                                         \
   do {                                                                    \
-    cudaError_t status = call;                                            \
-    if (status != cudaSuccess) {                                          \
+    cudaError_t const status = call;                                      \
+    if (cudaSuccess != status) {                                          \
       printf("CUDA call='%s' at file=%s line=%d failed with %s\n", #call, \
              __FILE__, __LINE__, cudaGetErrorString(status));             \
     }                                                                     \
@@ -188,4 +188,4 @@ void print_device_vector(const char* variable_name, const T* devMem,
 }
 /** @} */
 
-};  // namespace raft
+}  // namespace raft

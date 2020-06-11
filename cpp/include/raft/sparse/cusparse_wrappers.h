@@ -60,9 +60,9 @@ inline const char* cusparse_error_to_string(cusparseStatus_t err) {
 #endif  // CUDART_VERSION
 }
 
-};  // namespace detail
-};  // namespace sparse
-};  // namespace raft
+}  // namespace detail
+}  // namespace sparse
+}  // namespace raft
 
 #undef _CUSPARSE_ERR_TO_STR
 
@@ -198,5 +198,5 @@ inline cusparseStatus_t cusparsegemmi(
 }
 /** @} */
 
-};  // namespace sparse
-};  // namespace raft
+}  // namespace sparse
+}  // namespace raft

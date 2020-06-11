@@ -59,9 +59,9 @@ inline const char *cublas_error_to_string(cublasStatus_t err) {
   };
 }
 
-};  // namespace detail
-};  // namespace linalg
-};  // namespace raft
+}  // namespace detail
+}  // namespace linalg
+}  // namespace raft
 
 #undef _CUBLAS_ERR_TO_STR
 
@@ -578,5 +578,5 @@ inline cublasStatus_t cublasdot(cublasHandle_t handle, int n, const double *x,
 }
 /** @} */
 
-};  // namespace linalg
-};  // namespace raft
+}  // namespace linalg
+}  // namespace raft
