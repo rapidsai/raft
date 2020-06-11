@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "raft/error.hpp"
+#include <raft/error.hpp>
 
 #include <cuda_runtime.h>
 

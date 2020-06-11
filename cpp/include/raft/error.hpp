@@ -37,19 +37,19 @@ class exception : public std::exception {
   explicit exception() noexcept : std::exception(), msg_() {}
 
   /** copy ctor */
-  exception(const exception& src) noexcept
+  exception(exception const& src) noexcept
     : std::exception(), msg_(src.what()) {
     collect_call_stack();
   }
 
   /** ctor from an input message */
-  explicit exception(const std::string _msg) noexcept
-    : std::exception(), msg_(std::move(_msg)) {
+  explicit exception(std::string const msg) noexcept
+    : std::exception(), msg_(std::move(msg)) {
     collect_call_stack();
   }
 
   /** get the message associated with this exception */
-  const char* what() const noexcept override { return msg_.c_str(); }
+  char const* what() const noexcept override { return msg_.c_str(); }
 
  private:
   /** message associated with this exception */
