@@ -92,8 +92,6 @@ namespace raft {
 namespace comms {
 
 static size_t get_datatype_size(const datatype_t datatype) {
-  size_t ret = -1;
-
   switch (datatype) {
     case datatype_t::CHAR:
       return sizeof(char);
@@ -112,7 +110,7 @@ static size_t get_datatype_size(const datatype_t datatype) {
     case datatype_t::FLOAT64:
       return sizeof(double);
     default:
-      throw "Unsupported";
+      RAFT_FAIL("Unsupported datatype.");
   }
 }
 
@@ -172,13 +170,13 @@ class std_comms : public comms_iface {
             const std::shared_ptr<mr::device::allocator> device_allocator,
             cudaStream_t stream)
     : nccl_comm_(nccl_comm),
-      ucp_worker_(ucp_worker),
-      ucp_eps_(eps),
+      stream_(stream),
       num_ranks_(num_ranks),
       rank_(rank),
-      device_allocator_(device_allocator),
-      stream_(stream),
-      next_request_id_(0) {
+      ucp_worker_(ucp_worker),
+      ucp_eps_(eps),
+      next_request_id_(0),
+      device_allocator_(device_allocator) {
     initialize();
   };
 
@@ -192,10 +190,10 @@ class std_comms : public comms_iface {
             const std::shared_ptr<mr::device::allocator> device_allocator,
             cudaStream_t stream)
     : nccl_comm_(nccl_comm),
+      stream_(stream),
       num_ranks_(num_ranks),
       rank_(rank),
-      device_allocator_(device_allocator),
-      stream_(stream) {
+      device_allocator_(device_allocator) {
     initialize();
   };
 
