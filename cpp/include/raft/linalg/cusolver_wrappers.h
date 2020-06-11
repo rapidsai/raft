@@ -32,9 +32,9 @@ namespace raft {
  * @brief Exception thrown when a cuSOLVER error is encountered.
  */
 struct cusolver_error : public raft::exception {
-  explicit cusolver_error(char const* const message)
+  explicit cusolver_error(char const *const message)
     : raft::exception(message) {}
-  explicit cusolver_error(std::string const& message)
+  explicit cusolver_error(std::string const &message)
     : raft::exception(message) {}
 };
 
@@ -70,17 +70,17 @@ inline const char *cusolver_error_to_string(cusolverStatus_t err) {
  * Invokes a cuSOLVER runtime API function call, if the call does not return
  * CUSolver_STATUS_SUCCESS, throws an exception detailing the cuSOLVER error that occurred
  */
-#define CUSOLVER_TRY(call)                                                      \
-  do {                                                                          \
-    cusolverStatus_t const status = (call);                                       \
-    if (CUSOLVER_STATUS_SUCCESS != status) {                                    \
-      std::string msg{};                                                        \
-      SET_ERROR_MSG(                                                            \
-        msg, "cuSOLVER error encountered at: ", "call='%s', Reason=%d:%s",      \
-        #call, status, raft::linalg::detail::cusolver_error_to_string(status)); \
-      throw raft::cublas_error(msg);                                            \
-    }                                                                           \
-  } while(0)
+#define CUSOLVER_TRY(call)                                                   \
+  do {                                                                       \
+    cusolverStatus_t const status = (call);                                  \
+    if (CUSOLVER_STATUS_SUCCESS != status) {                                 \
+      std::string msg{};                                                     \
+      SET_ERROR_MSG(msg, "cuSOLVER error encountered at: ",                  \
+                    "call='%s', Reason=%d:%s", #call, status,                \
+                    raft::linalg::detail::cusolver_error_to_string(status)); \
+      throw raft::cublas_error(msg);                                         \
+    }                                                                        \
+  } while (0)
 
 /** FIXME: temporary alias for cuML compatibility */
 #define CUSOLVER_CHECK(call) CUSOLVER_TRY(call)

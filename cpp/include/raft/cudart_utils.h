@@ -32,13 +32,11 @@ namespace raft {
  * @brief Exception thrown when a CUDA error is encountered.
  */
 struct cuda_error : public raft::exception {
-  explicit cuda_error(char const* const message)
-    : raft::exception(message) {}
-  explicit cuda_error(std::string const& message)
-    : raft::exception(message) {}
+  explicit cuda_error(char const* const message) : raft::exception(message) {}
+  explicit cuda_error(std::string const& message) : raft::exception(message) {}
 };
 
-}
+}  // namespace raft
 
 /**
  * @brief Error checking macro for CUDA runtime API functions.
@@ -48,18 +46,18 @@ struct cuda_error : public raft::exception {
  * exception detailing the CUDA error that occurred
  *
  */
-#define CUDA_TRY(call)                                                 \
-  do {                                                                 \
-    cudaError_t const status = call;                                   \
-    if (status != cudaSuccess) {                                       \
-      cudaGetLastError();                                              \
-      std::string msg{};                                               \
-      SET_ERROR_MSG(                                                   \
-        msg, "CUDA error encountered at: ", "call='%s', Reason=%s:%s", \
-        #call, cudaGetErrorName(status), cudaGetErrorString(status));  \
-      throw raft::cuda_error(msg);                                     \
-    }                                                                  \
-  } while(0)
+#define CUDA_TRY(call)                                                        \
+  do {                                                                        \
+    cudaError_t const status = call;                                          \
+    if (status != cudaSuccess) {                                              \
+      cudaGetLastError();                                                     \
+      std::string msg{};                                                      \
+      SET_ERROR_MSG(                                                          \
+        msg, "CUDA error encountered at: ", "call='%s', Reason=%s:%s", #call, \
+        cudaGetErrorName(status), cudaGetErrorString(status));                \
+      throw raft::cuda_error(msg);                                            \
+    }                                                                         \
+  } while (0)
 
 /**
  * @brief Debug macro to check for CUDA errors

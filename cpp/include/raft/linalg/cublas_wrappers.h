@@ -34,9 +34,8 @@ namespace raft {
  * @brief Exception thrown when a cuBLAS error is encountered.
  */
 struct cublas_error : public raft::exception {
-  explicit cublas_error(char const* const message)
-    : raft::exception(message) {}
-  explicit cublas_error(std::string const& message)
+  explicit cublas_error(char const *const message) : raft::exception(message) {}
+  explicit cublas_error(std::string const &message)
     : raft::exception(message) {}
 };
 
@@ -82,7 +81,7 @@ inline const char *cublas_error_to_string(cublasStatus_t err) {
         #call, status, raft::linalg::detail::cublas_error_to_string(status)); \
       throw raft::cublas_error(msg);                                          \
     }                                                                         \
-  } while(0)
+  } while (0)
 
 /** FIXME: temporary alias for cuML compatibility */
 #define CUBLAS_CHECK(call) CUBLAS_TRY(call)

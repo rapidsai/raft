@@ -72,17 +72,17 @@ inline const char* cusparse_error_to_string(cusparseStatus_t err) {
  * Invokes a cuSparse runtime API function call, if the call does not return
  * CUSPARSE_STATUS_SUCCESS, throws an exception detailing the cuSparse error that occurred
  */
-#define CUSPARSE_TRY(call)                                                      \
-  do {                                                                          \
-    cusparseStatus_t const status = (call);                                     \
-    if (CUSPARSE_STATUS_SUCCESS != status) {                                    \
-      std::string msg{};                                                        \
-      SET_ERROR_MSG(                                                            \
-        msg, "cuSparse error encountered at: ", "call='%s', Reason=%d:%s",      \
-        #call, status, raft::sparse::detail::cusparse_error_to_string(status)); \
-      throw raft::cusparse_error(msg);                                          \
-    }                                                                           \
-  } while(0)
+#define CUSPARSE_TRY(call)                                                   \
+  do {                                                                       \
+    cusparseStatus_t const status = (call);                                  \
+    if (CUSPARSE_STATUS_SUCCESS != status) {                                 \
+      std::string msg{};                                                     \
+      SET_ERROR_MSG(msg, "cuSparse error encountered at: ",                  \
+                    "call='%s', Reason=%d:%s", #call, status,                \
+                    raft::sparse::detail::cusparse_error_to_string(status)); \
+      throw raft::cusparse_error(msg);                                       \
+    }                                                                        \
+  } while (0)
 
 /** FIXME: temporary alias for cuML compatibility */
 #define CUSPARSE_CHECK(call) CUSPARSE_TRY(call)
