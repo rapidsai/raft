@@ -30,13 +30,6 @@
 #include <raft/spectral/error_temp.hpp>
 #include <raft/spectral/matrix_wrappers.hpp>
 
-// =========================================================
-// Useful macros
-// =========================================================
-
-// Get index of matrix entry
-#define IDX(i, j, lda) ((i) + (j) * (lda))
-
 namespace raft {
 
 namespace {

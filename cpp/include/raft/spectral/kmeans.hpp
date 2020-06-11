@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#pragma once
 
 #include <cmath>
 #include <cstdio>
@@ -32,18 +33,15 @@
 #include <raft/spectral/error_temp.hpp>
 #include <raft/spectral/matrix_wrappers.hpp>
 
-// =========================================================
-// Useful macros
-// =========================================================
-
-#define BLOCK_SIZE 1024
-#define WARP_SIZE 32
-#define BSIZE_DIV_WSIZE (BLOCK_SIZE / WARP_SIZE)
-
-// Get index of matrix entry
-#define IDX(i, j, lda) ((i) + (j) * (lda))
-
 namespace {
+
+// =========================================================
+// Useful grid settings
+// =========================================================
+
+constexpr unsigned int BLOCK_SIZE = 1024;
+constexpr unsigned int WARP_SIZE = 32;
+constexpr unsigned int BSIZE_DIV_WSIZE = (BLOCK_SIZE / WARP_SIZE);
 
 // =========================================================
 // CUDA kernels

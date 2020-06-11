@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#pragma once
 
 #include "include/partition.hxx"
 
@@ -25,16 +26,10 @@
 #include <thrust/reduce.h>
 #include <thrust/transform.h>
 
-#include <nvgraph/include/debug_macros.h>
-#include <nvgraph/include/sm_utils.h>
-#include <nvgraph/include/kmeans.hxx>
-#include <nvgraph/include/lanczos.hxx>
-#include <nvgraph/include/nvgraph_cublas.hxx>
-#include <nvgraph/include/nvgraph_error.hxx>
-#include <nvgraph/include/nvgraph_vector.hxx>
-#include <nvgraph/include/spectral_matrix.hxx>
+#include <raft/spectral/lanczos.hpp>
+#include <raft/spectral/kmeans.hpp>
 
-namespace nvgraph {
+namespace raft {
 
 // =========================================================
 // Useful macros
@@ -153,21 +148,24 @@ cudaError_t scale_obs(IndexType_ m, IndexType_ n, ValueType_ *obs)
  *    performed.
  *  @param iters_kmeans On exit, number of k-means iterations
  *    performed.
- *  @return NVGRAPH error flag.
+ *  @return error flag.
  */
-template <typename vertex_t, typename edge_t, typename weight_t>
-NVGRAPH_ERROR partition(
-  cugraph::experimental::GraphCSRView<vertex_t, edge_t, weight_t> const &graph,
-  vertex_t nParts,
-  vertex_t nEigVecs,
-  int maxIter_lanczos,
-  int restartIter_lanczos,
-  weight_t tol_lanczos,
-  int maxIter_kmeans,
-  weight_t tol_kmeans,
-  vertex_t *__restrict__ parts,
-  weight_t *eigVals,
-  weight_t *eigVecs)
+template <typename vertex_t,
+          typename edge_t, typename weight_t,
+          typename ThrustExePolicy>
+int partition(handle_t handle,
+              ThrustExePolicy thrust_exec_policy,
+              cugraph::experimental::GraphCSRView<vertex_t, edge_t, weight_t> const &graph,
+              vertex_t nParts,
+              vertex_t nEigVecs,
+              int maxIter_lanczos,
+              int restartIter_lanczos,
+              weight_t tol_lanczos,
+              int maxIter_kmeans,
+              weight_t tol_kmeans,
+              vertex_t *__restrict__ parts,
+              weight_t *eigVals,
+              weight_t *eigVecs)
 {
   cudaStream_t stream = 0;
 
@@ -190,19 +188,11 @@ NVGRAPH_ERROR partition(
   // Compute eigenvectors of Laplacian
 
   // Initialize Laplacian
-  CsrMatrix<vertex_t, weight_t> A(false,
-                                  false,
-                                  graph.number_of_vertices,
-                                  graph.number_of_vertices,
-                                  graph.number_of_edges,
-                                  0,
-                                  graph.edge_data,
-                                  graph.offsets,
-                                  graph.indices);
-  LaplacianMatrix<vertex_t, weight_t> L(A);
+  sparse_matrix_t<vertex_t, weight_t> A{graph};
+  laplacian_matrix_t<vertex_t, weight_t> L{handle, graph};
 
   // Compute smallest eigenvalues and eigenvectors
-  CHECK_NVGRAPH(computeSmallestEigenvectors(L,
+  RAFT_TRY(computeSmallestEigenvectors(L,
                                             nEigVecs,
                                             maxIter_lanczos,
                                             restartIter_lanczos,
@@ -260,17 +250,17 @@ NVGRAPH_ERROR partition(
 
   // eigVecs.dump(0, nEigVecs*n);
   // Find partition with k-means clustering
-  CHECK_NVGRAPH(kmeans(n,
-                       nEigVecs,
-                       nParts,
-                       tol_kmeans,
-                       maxIter_kmeans,
-                       eigVecs,
-                       parts,
-                       residual_kmeans,
-                       iters_kmeans));
-
-  return NVGRAPH_OK;
+  RAFT_TRY(kmeans(n,
+                  nEigVecs,
+                  nParts,
+                  tol_kmeans,
+                  maxIter_kmeans,
+                  eigVecs,
+                  parts,
+                  residual_kmeans,
+                  iters_kmeans));
+  
+  return 0;
 }
 
 // =========================================================
@@ -307,10 +297,10 @@ struct equal_to_i_op {
  *    assignments.
  *  @param edgeCut On exit, weight of edges cut by partition.
  *  @param cost On exit, partition cost function.
- *  @return NVGRAPH error flag.
+ *  @return error flag.
  */
 template <typename vertex_t, typename edge_t, typename weight_t>
-NVGRAPH_ERROR analyzePartition(
+int analyzePartition(
   cugraph::experimental::GraphCSRView<vertex_t, edge_t, weight_t> const &graph,
   vertex_t nParts,
   const vertex_t *__restrict__ parts,
@@ -376,49 +366,7 @@ NVGRAPH_ERROR analyzePartition(
   }
 
   // Clean up and return
-  return NVGRAPH_OK;
+  return 0;
 }
 
-// =========================================================
-// Explicit instantiation
-// =========================================================
-template NVGRAPH_ERROR partition<int, int, float>(
-  cugraph::experimental::GraphCSRView<int, int, float> const &graph,
-  int nParts,
-  int nEigVecs,
-  int maxIter_lanczos,
-  int restartIter_lanczos,
-  float tol_lanczos,
-  int maxIter_kmeans,
-  float tol_kmeans,
-  int *__restrict__ parts,
-  float *eigVals,
-  float *eigVecs);
-
-template NVGRAPH_ERROR partition<int, int, double>(
-  cugraph::experimental::GraphCSRView<int, int, double> const &graph,
-  int nParts,
-  int nEigVecs,
-  int maxIter_lanczos,
-  int restartIter_lanczos,
-  double tol_lanczos,
-  int maxIter_kmeans,
-  double tol_kmeans,
-  int *__restrict__ parts,
-  double *eigVals,
-  double *eigVecs);
-
-template NVGRAPH_ERROR analyzePartition<int, int, float>(
-  cugraph::experimental::GraphCSRView<int, int, float> const &graph,
-  int nParts,
-  const int *__restrict__ parts,
-  float &edgeCut,
-  float &cost);
-template NVGRAPH_ERROR analyzePartition<int, int, double>(
-  cugraph::experimental::GraphCSRView<int, int, double> const &graph,
-  int nParts,
-  const int *__restrict__ parts,
-  double &edgeCut,
-  double &cost);
-
-}  // namespace nvgraph
+}  // namespace raft

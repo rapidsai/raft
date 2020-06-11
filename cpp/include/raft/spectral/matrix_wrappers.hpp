@@ -15,9 +15,16 @@
  */
 #pragma once
 
-#include <raft/sparse/cusparse_wrappers.h>  // ?
+#include <raft/sparse/cusparse_wrappers.h>
 #include <raft/graph.hpp>
 #include <raft/handle.hpp>
+
+// =========================================================
+// Useful macros
+// =========================================================
+
+// Get index of matrix entry
+#define IDX(i, j, lda) ((i) + (j) * (lda))
 
 namespace raft {
 namespace matrix {
