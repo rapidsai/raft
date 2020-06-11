@@ -84,7 +84,7 @@ class exception : public std::exception {
  * @brief Exception thrown when logical precondition is violated.
  *
  * This exception should not be thrown directly and is instead thrown by the
- * RAFT_EXPECTS, RAFT_FAIL, CUML_EXPECTS, CUML_FAIL, CUGRAPH_EXPECTS, CUGRAPH_FAIL macros.
+ * RAFT_EXPECTS and  RAFT_FAIL macros.
  *
  */
 struct logic_error : public raft::exception {
@@ -181,58 +181,6 @@ struct nccl_error : public raft::exception {
  */
 #define RAFT_FAIL(reason)                              \
   throw raft::logic_error("RAFT failure at: " __FILE__ \
-                          ":" RAFT_STRINGIFY(__LINE__) ": " reason)
-
-/**
- * @brief Macro for checking (pre-)conditions that throws an exception when
- * a condition is violated.
- *
- * @param[in] cond Expression that evaluates to true or false
- * @param[in] reason String literal description of the reason that cond is
- * expected to be true
- * @throw raft::logic_error if the condition evaluates to false.
- */
-#define CUML_EXPECTS(cond, reason)                         \
-  (!!(cond))                                               \
-    ? static_cast<void>(0)                                 \
-    : throw raft::logic_error("cuML failure at: " __FILE__ \
-                              ":" RAFT_STRINGIFY(__LINE__) ": " reason)
-
-/**
- * @brief Indicates that an erroneous code path has been taken.
- *
- * In host code, throws a `raft::logic_error`.
- *
- * @param[in] reason String literal description of the reason
- */
-#define CUML_FAIL(reason)                              \
-  throw raft::logic_error("cuML failure at: " __FILE__ \
-                          ":" RAFT_STRINGIFY(__LINE__) ": " reason)
-
-/**
- * @brief Macro for checking (pre-)conditions that throws an exception when
- * a condition is violated.
- *
- * @param[in] cond Expression that evaluates to true or false
- * @param[in] reason String literal description of the reason that cond is
- * expected to be true
- * @throw raft::logic_error if the condition evaluates to false.
- */
-#define CUGRAPH_EXPECTS(cond, reason)                         \
-  (!!(cond))                                                  \
-    ? static_cast<void>(0)                                    \
-    : throw raft::logic_error("cuGRAPH failure at: " __FILE__ \
-                              ":" RAFT_STRINGIFY(__LINE__) ": " reason)
-
-/**
- * @brief Indicates that an erroneous code path has been taken.
- *
- * In host code, throws a `raft::logic_error`.
- *
- * @param[in] reason String literal description of the reason
- */
-#define CUGRAPH_FAIL(reason)                              \
-  throw raft::logic_error("cuGRAPH failure at: " __FILE__ \
                           ":" RAFT_STRINGIFY(__LINE__) ": " reason)
 
 namespace raft {
