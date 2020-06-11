@@ -148,40 +148,43 @@ struct nccl_error : public raft::exception {
     throw raft::exception(msg);                                                \
   } while (0)
 
+// FIXME: Need to be replaced with RAFT_EXPECTS
 /** macro to check for a conditional and assert on failure */
 #define ASSERT(check, fmt, ...)              \
   do {                                       \
     if (!(check)) THROW(fmt, ##__VA_ARGS__); \
   } while (0)
 
-#define STRINGIFY_DETAIL(x) #x
-#define RAFT_STRINGIFY(x) STRINGIFY_DETAIL(x)
-
 /**
- * @brief Macro for checking (pre-)conditions that throws an exception when
- * a condition is violated.
+ * @brief Macro for checking (pre-)conditions that throws an exception when a condition is false
  *
  * @param[in] cond Expression that evaluates to true or false
- * @param[in] reason String literal description of the reason that cond is
- * expected to be true
+ * @param[in] fmt String literal description of the reason that cond is expected to be true with
+ * optinal format tagas
  * @throw raft::logic_error if the condition evaluates to false.
  */
-#define RAFT_EXPECTS(cond, reason)                         \
-  (!!(cond))                                               \
-    ? static_cast<void>(0)                                 \
-    : throw raft::logic_error("RAFT failure at: " __FILE__ \
-                              ":" RAFT_STRINGIFY(__LINE__) ": " reason)
+#define RAFT_EXPECTS(cond, fmt, ...)                                          \
+  do {                                                                        \
+    if (!cond) {                                                              \
+      std::string msg{};                                                      \
+      char err_msg[2048]; /* NOLINT */                                        \
+      std::snprintf(err_msg, sizeof(err_msg),                                 \
+                    "RAFT failure at file=%s line=%d: ", __FILE__, __LINE__); \
+      msg += err_msg;                                                         \
+      std::snprintf(err_msg, sizeof(err_msg), fmt, ##__VA_ARGS__);            \
+      msg += err_msg;                                                         \
+      throw raft::logic_error(msg);                                           \
+    }                                                                         \
+  } while (0)
 
 /**
  * @brief Indicates that an erroneous code path has been taken.
  *
- * In host code, throws a `raft::logic_error`.
- *
- * @param[in] reason String literal description of the reason
+ * @param[in] fmt String literal description of the reason that this code path is erroneous with
+ * optinal format tagas
+ * @throw always throws raft::logic_error
  */
-#define RAFT_FAIL(reason)                              \
-  throw raft::logic_error("RAFT failure at: " __FILE__ \
-                          ":" RAFT_STRINGIFY(__LINE__) ": " reason)
+#define RAFT_FAIL(fmt, ...) RAFT_EXPECTS(false, fmt, ##__VA_ARGS__)
 
 namespace raft {
 namespace detail {
