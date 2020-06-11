@@ -44,13 +44,42 @@
 #include <cuda_runtime.h>
 
 #include <raft/cudart_utils.h>
+#include <raft/error.hpp>
 
-#define NCCL_CHECK(call)                                                       \
-  do {                                                                         \
-    ncclResult_t status = call;                                                \
-    ASSERT(ncclSuccess == status, "ERROR: NCCL call='%s'. Reason:%s\n", #call, \
-           ncclGetErrorString(status));                                        \
-  } while (0)
+namespace raft {
+
+/**
+ * @brief Exception thrown when a NCCL error is encountered.
+ */
+struct nccl_error : public raft::exception {
+  explicit nccl_error(char const* const message)
+    : raft::exception(message) {}
+  explicit nccl_error(std::string const& message)
+    : raft::exception(message) {}
+};
+
+};  // namespace raft
+
+/**
+ * @brief Error checking macro for NCCL runtime API functions.
+ *
+ * Invokes a NCCL runtime API function call, if the call does not return ncclSuccess, throws an
+ * exception detailing the NCCL error that occurred
+ */
+#define NCCL_TRY(call)                                                 \
+  do {                                                                 \
+    ncclResult_t const status = (call);                                \
+    if (ncclSuccess != status) {                                       \
+      std::string msg{};                                               \
+      SET_ERROR_MSG(                                                   \
+        msg, "NCCL error encountered at: ", "call='%s', Reason=%d:%s", \
+        #call, status, ncclGetErrorString(status));                    \
+      throw raft::nccl_error(msg);                                     \
+    }                                                                  \
+  } while (0);
+
+/** FIXME: temporary alias for cuML compatibility */
+#define NCCL_CHECK(call) NCCL_TRY(call)
 
 #define NCCL_CHECK_NO_THROW(call)                         \
   do {                                                    \

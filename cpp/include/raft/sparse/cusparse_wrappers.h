@@ -16,16 +16,28 @@
 
 #pragma once
 
+#include <raft/error.hpp>
+
 #include <cusparse_v2.h>
 ///@todo: enable this once logging is enabled
 //#include <cuml/common/logger.hpp>
-#include <raft/cudart_utils.h>
 
 #define _CUSPARSE_ERR_TO_STR(err) \
   case err:                       \
     return #err;
 
 namespace raft {
+
+/**
+ * @brief Exception thrown when a cuSparse error is encountered.
+ */
+struct cusparse_error : public raft::exception {
+  explicit cusparse_error(char const* const message)
+    : raft::exception(message) {}
+  explicit cusparse_error(std::string const& message)
+    : raft::exception(message) {}
+};
+
 namespace sparse {
 namespace detail {
 
@@ -54,25 +66,39 @@ inline const char* cusparse_error_to_string(cusparseStatus_t err) {
 
 #undef _CUSPARSE_ERR_TO_STR
 
-/** check for cusparse runtime API errors and assert accordingly */
-#define CUSPARSE_CHECK(call)                                         \
-  do {                                                               \
-    cusparseStatus_t err = call;                                     \
-    ASSERT(err == CUSPARSE_STATUS_SUCCESS,                           \
-           "CUSPARSE call='%s' got errorcode=%d err=%s", #call, err, \
-           raft::sparse::detail::cusparse_error_to_string(err));     \
-  } while (0)
+/**
+ * @brief Error checking macro for cuSparse runtime API functions.
+ *
+ * Invokes a cuSparse runtime API function call, if the call does not return
+ * CUSPARSE_STATUS_SUCCESS, throws an exception detailing the cuSparse error that occurred
+ */
+#define CUSPARSE_TRY(call)                                                      \
+  do {                                                                          \
+    cusparseStatus_t const status = (call);                                     \
+    if (CUSPARSE_STATUS_SUCCESS != status) {                                    \
+      std::string msg{};                                                        \
+      SET_ERROR_MSG(                                                            \
+        msg, "cuSparse error encountered at: ", "call='%s', Reason=%d:%s",      \
+        #call, status, raft::sparse::detail::cusparse_error_to_string(status)); \
+      throw raft::cusparse_error(msg);                                          \
+    }                                                                           \
+  } while(0)
 
-///@todo: enable this once logging is enabled
-// /** check for cusparse runtime API errors but do not assert */
-// #define CUSPARSE_CHECK_NO_THROW(call)                                          \
-//   do {                                                                         \
-//     cusparseStatus_t err = call;                                               \
-//     if (err != CUSPARSE_STATUS_SUCCESS) {                                      \
-//       CUML_LOG_ERROR("CUSPARSE call='%s' got errorcode=%d err=%s", #call, err, \
-//                      raft::sparse::detail::cusparse_error_to_string(err));     \
-//     }                                                                          \
-//   } while (0)
+/** FIXME: temporary alias for cuML compatibility */
+#define CUSPARSE_CHECK(call) CUSPARSE_TRY(call)
+
+//@todo: enable this once logging is enabled
+#if 0
+/** check for cusparse runtime API errors but do not assert */
+#define CUSPARSE_CHECK_NO_THROW(call)                                          \
+  do {                                                                         \
+    cusparseStatus_t err = call;                                               \
+    if (err != CUSPARSE_STATUS_SUCCESS) {                                      \
+      CUML_LOG_ERROR("CUSPARSE call='%s' got errorcode=%d err=%s", #call, err, \
+                     raft::sparse::detail::cusparse_error_to_string(err));     \
+    }                                                                          \
+  } while (0)
+#endif
 
 namespace raft {
 namespace sparse {

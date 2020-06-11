@@ -16,10 +16,12 @@
 
 #pragma once
 
+#include <raft/error.hpp>
+
 #include <cublas_v2.h>
 ///@todo: enable this once we have logger enabled
 //#include <cuml/common/logger.hpp>
-#include <raft/cudart_utils.h>
+
 #include <cstdint>
 
 #define _CUBLAS_ERR_TO_STR(err) \
@@ -27,6 +29,17 @@
     return #err
 
 namespace raft {
+
+/**
+ * @brief Exception thrown when a cuBLAS error is encountered.
+ */
+struct cublas_error : public raft::exception {
+  explicit cublas_error(char const* const message)
+    : raft::exception(message) {}
+  explicit cublas_error(std::string const& message)
+    : raft::exception(message) {}
+};
+
 namespace linalg {
 namespace detail {
 
@@ -53,25 +66,39 @@ inline const char *cublas_error_to_string(cublasStatus_t err) {
 
 #undef _CUBLAS_ERR_TO_STR
 
-/** check for cublas runtime API errors and assert accordingly */
-#define CUBLAS_CHECK(call)                                         \
-  do {                                                             \
-    cublasStatus_t err = call;                                     \
-    ASSERT(err == CUBLAS_STATUS_SUCCESS,                           \
-           "CUBLAS call='%s' got errorcode=%d err=%s", #call, err, \
-           raft::linalg::detail::cublas_error_to_string(err));     \
-  } while (0)
+/**
+ * @brief Error checking macro for cuBLAS runtime API functions.
+ *
+ * Invokes a cuBLAS runtime API function call, if the call does not return
+ * CUBLAS_STATUS_SUCCESS, throws an exception detailing the cuBLAS error that occurred
+ */
+#define CUBLAS_TRY(call)                                                      \
+  do {                                                                        \
+    cublasStatus_t const status = (call);                                     \
+    if (CUBLAS_STATUS_SUCCESS != status) {                                    \
+      std::string msg{};                                                      \
+      SET_ERROR_MSG(                                                          \
+        msg, "cuBLAS error encountered at: ", "call='%s', Reason=%d:%s",      \
+        #call, status, raft::linalg::detail::cublas_error_to_string(status)); \
+      throw raft::cublas_error(msg);                                          \
+    }                                                                         \
+  } while(0)
+
+/** FIXME: temporary alias for cuML compatibility */
+#define CUBLAS_CHECK(call) CUBLAS_TRY(call)
 
 ///@todo: enable this once we have logging enabled
-// /** check for cublas runtime API errors but do not assert */
-// #define CUBLAS_CHECK_NO_THROW(call)                                          \
-//   do {                                                                       \
-//     cublasStatus_t err = call;                                               \
-//     if (err != CUBLAS_STATUS_SUCCESS) {                                      \
-//       CUML_LOG_ERROR("CUBLAS call='%s' got errorcode=%d err=%s", #call, err, \
-//                      raft::linalg::detail::cublas_error_to_string(err));     \
-//     }                                                                        \
-//   } while (0)
+#if 0
+/** check for cublas runtime API errors but do not assert */
+define CUBLAS_CHECK_NO_THROW(call)                                          \
+  do {                                                                       \
+    cublasStatus_t err = call;                                               \
+    if (err != CUBLAS_STATUS_SUCCESS) {                                      \
+      CUML_LOG_ERROR("CUBLAS call='%s' got errorcode=%d err=%s", #call, err, \
+                     raft::linalg::detail::cublas_error_to_string(err));     \
+    }                                                                        \
+  } while (0)
+#endif
 
 namespace raft {
 namespace linalg {

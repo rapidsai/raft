@@ -26,13 +26,63 @@
 ///@todo: enable once logging has been enabled in raft
 //#include "logger.hpp"
 
-/** check for cuda runtime API errors and assert accordingly */
-#define CUDA_CHECK(call)                                               \
+namespace raft {
+
+/**
+ * @brief Exception thrown when a CUDA error is encountered.
+ */
+struct cuda_error : public raft::exception {
+  explicit cuda_error(char const* const message)
+    : raft::exception(message) {}
+  explicit cuda_error(std::string const& message)
+    : raft::exception(message) {}
+};
+
+}
+
+/**
+ * @brief Error checking macro for CUDA runtime API functions.
+ *
+ * Invokes a CUDA runtime API function call, if the call does not return
+ * cudaSuccess, invokes cudaGetLastError() to clear the error and throws an
+ * exception detailing the CUDA error that occurred
+ *
+ */
+#define CUDA_TRY(call)                                                 \
   do {                                                                 \
-    cudaError_t status = call;                                         \
-    ASSERT(status == cudaSuccess, "FAIL: call='%s'. Reason:%s", #call, \
-           cudaGetErrorString(status));                                \
-  } while (0)
+    cudaError_t const status = call;                                   \
+    if (status != cudaSuccess) {                                       \
+      cudaGetLastError();                                              \
+      std::string msg{};                                               \
+      SET_ERROR_MSG(                                                   \
+        msg, "CUDA error encountered at: ", "call='%s', Reason=%s:%s", \
+        #call, cudaGetErrorName(status), cudaGetErrorString(status));  \
+      throw raft::cuda_error(msg);                                     \
+    }                                                                  \
+  } while(0)
+
+/**
+ * @brief Debug macro to check for CUDA errors
+ *
+ * In a non-release build, this macro will synchronize the specified stream
+ * before error checking. In both release and non-release builds, this macro
+ * checks for any pending CUDA errors from previous calls. If an error is
+ * reported, an exception is thrown detailing the CUDA error that occurred.
+ *
+ * The intent of this macro is to provide a mechanism for synchronous and
+ * deterministic execution for debugging asynchronous CUDA execution. It should
+ * be used after any asynchronous CUDA call, e.g., cudaMemcpyAsync, or an
+ * asynchronous kernel launch.
+ *
+ */
+#ifndef NDEBUG
+#define CHECK_CUDA(stream) CUDA_TRY(cudaStreamSynchronize(stream));
+#else
+#define CHECK_CUDA(stream) CUDA_TRY(cudaPeekAtLastError());
+#endif
+
+/** FIXME: temporary alias for cuML compatibility */
+#define CUDA_CHECK(call) CUDA_TRY(call)
 
 ///@todo: enable this only after we have added logging support in raft
 // /**

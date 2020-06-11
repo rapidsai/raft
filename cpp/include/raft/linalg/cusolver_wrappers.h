@@ -27,6 +27,17 @@
     return #err;
 
 namespace raft {
+
+/**
+ * @brief Exception thrown when a cuSOLVER error is encountered.
+ */
+struct cusolver_error : public raft::exception {
+  explicit cusolver_error(char const* const message)
+    : raft::exception(message) {}
+  explicit cusolver_error(std::string const& message)
+    : raft::exception(message) {}
+};
+
 namespace linalg {
 namespace detail {
 
@@ -53,25 +64,39 @@ inline const char *cusolver_error_to_string(cusolverStatus_t err) {
 
 #undef _CUSOLVER_ERR_TO_STR
 
-/** check for cusolver runtime API errors and assert accordingly */
-#define CUSOLVER_CHECK(call)                                         \
-  do {                                                               \
-    cusolverStatus_t err = call;                                     \
-    ASSERT(err == CUSOLVER_STATUS_SUCCESS,                           \
-           "CUSOLVER call='%s' got errorcode=%d err=%s", #call, err, \
-           raft::linalg::detail::cusolver_error_to_string(err));     \
-  } while (0)
+/**
+ * @brief Error checking macro for cuSOLVER runtime API functions.
+ *
+ * Invokes a cuSOLVER runtime API function call, if the call does not return
+ * CUSolver_STATUS_SUCCESS, throws an exception detailing the cuSOLVER error that occurred
+ */
+#define CUSOLVER_TRY(call)                                                      \
+  do {                                                                          \
+    cusolverStatus_t const status = (call);                                       \
+    if (CUSOLVER_STATUS_SUCCESS != status) {                                    \
+      std::string msg{};                                                        \
+      SET_ERROR_MSG(                                                            \
+        msg, "cuSOLVER error encountered at: ", "call='%s', Reason=%d:%s",      \
+        #call, status, raft::linalg::detail::cusolver_error_to_string(status)); \
+      throw raft::cublas_error(msg);                                            \
+    }                                                                           \
+  } while(0)
 
-///@todo: enable this once logging is enabled
-// /** check for cusolver runtime API errors but do not assert */
-// #define CUSOLVER_CHECK_NO_THROW(call)                                          \
-//   do {                                                                         \
-//     cusolverStatus_t err = call;                                               \
-//     if (err != CUSOLVER_STATUS_SUCCESS) {                                      \
-//       CUML_LOG_ERROR("CUSOLVER call='%s' got errorcode=%d err=%s", #call, err, \
-//                      raft::linalg::detail::cusolver_error_to_string(err));     \
-//     }                                                                          \
-//   } while (0)
+/** FIXME: temporary alias for cuML compatibility */
+#define CUSOLVER_CHECK(call) CUSOLVER_TRY(call)
+
+//@todo: enable this once logging is enabled
+#if 0
+** check for cusolver runtime API errors but do not assert */
+define CUSOLVER_CHECK_NO_THROW(call)                                          \
+  do {                                                                         \
+    cusolverStatus_t err = call;                                               \
+    if (err != CUSOLVER_STATUS_SUCCESS) {                                      \
+      CUML_LOG_ERROR("CUSOLVER call='%s' got errorcode=%d err=%s", #call, err, \
+                     raft::linalg::detail::cusolver_error_to_string(err));     \
+    }                                                                          \
+  } while (0)
+#endif
 
 namespace raft {
 namespace linalg {
