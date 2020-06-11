@@ -52,8 +52,8 @@ namespace raft {
  * @brief Exception thrown when a NCCL error is encountered.
  */
 struct nccl_error : public raft::exception {
-  explicit nccl_error(char const* const message) : raft::exception(message) {}
-  explicit nccl_error(std::string const& message) : raft::exception(message) {}
+  explicit nccl_error(char const *const message) : raft::exception(message) {}
+  explicit nccl_error(std::string const &message) : raft::exception(message) {}
 };
 
 }  // namespace raft
