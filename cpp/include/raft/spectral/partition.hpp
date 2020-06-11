@@ -15,8 +15,6 @@
  */
 #pragma once
 
-#include "include/partition.hxx"
-
 #include <math.h>
 #include <stdio.h>
 
@@ -27,7 +25,7 @@
 #include <thrust/transform.h>
 
 #include <raft/spectral/kmeans.hpp>
-#include <raft/spectral/lanczos.hpp>
+#include <raft/spectral/eigen_solvers.hpp>
 #include <raft/spectral/sm_utils.hpp>
 
 namespace raft {
@@ -149,22 +147,21 @@ cudaError_t scale_obs(IndexType_ m, IndexType_ n, ValueType_ *obs) {
  *  @return error flag.
  */
 template <typename vertex_t, typename edge_t, typename weight_t,
-          typename ThrustExePolicy, typename EigenSolver = LanczosSolver,
+          typename ThrustExePolicy, typename EigenSolver = lanczos_solver_t<vertex_t, weight_t>,
           typename ClusterSolver = KmeansSolver>
 int partition(
   handle_t handle, ThrustExePolicy thrust_exec_policy,
   cugraph::experimental::GraphCSRView<vertex_t, edge_t, weight_t> const &graph,
-  vertex_t nParts, vertex_t nEigVecs, int maxIter_lanczos,
-  int restartIter_lanczos, weight_t tol_lanczos, int maxIter_kmeans,
-  weight_t tol_kmeans, vertex_t *__restrict__ parts, weight_t *eigVals,
-  weight_t *eigVecs) {
+  vertex_t nParts,  EigenSolver eigen_solver,
+  int maxIter_kmeans, weight_t tol_kmeans, vertex_t *__restrict__ parts,
+  weight_t *eigVals, weight_t *eigVecs) {
   const weight_t zero{0.0};
   const weight_t one{1.0};
 
   auto cublas_h = handle.get_cublas_handle();
   auto stream = handle.get_stream();
 
-  int iters_lanczos;
+  int iters_eig_solver;
   int iters_kmeans;
 
   edge_t i;
@@ -183,10 +180,11 @@ int partition(
   sparse_matrix_t<vertex_t, weight_t> A{graph};
   laplacian_matrix_t<vertex_t, weight_t> L{handle, graph};
 
+  auto eigen_config = eigen_solver.get_config();
+  auto nEigVecs = eigen_configs.n_eigVecs;
+
   // Compute smallest eigenvalues and eigenvectors
-  RAFT_TRY(computeSmallestEigenvectors(L, nEigVecs, maxIter_lanczos,
-                                       restartIter_lanczos, tol_lanczos, false,
-                                       iters_lanczos, eigVals, eigVecs));
+  iter_eigs_solver = eigen_solver.solve_smallest_eigenvector(L, eigVals, eigVecs);
 
   // Whiten eigenvector matrix
   for (i = 0; i < nEigVecs; ++i) {

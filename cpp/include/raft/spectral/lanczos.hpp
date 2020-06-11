@@ -32,10 +32,10 @@
 
 namespace raft {
 
-namespace {
-
 using namespace matrix;
 using namespace linalg;
+
+namespace {
 
 // =========================================================
 // Helper functions
