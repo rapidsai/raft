@@ -144,7 +144,7 @@ struct laplacian_matrix_t : sparse_matrix_t<index_type, value_type> {
   //
   void mv(value_type alpha, value_type const* __restrict__ x, value_type beta,
           value_type* __restrict__ y) const override {
-    //TODO: call cusparse::csrmv
+    //TODO: call cusparse::csrmv ... and more
   }
 
   vector_t<value_type> diagonal_;
@@ -171,7 +171,7 @@ struct modularity_matrix_t : laplacian_matrix_t<index_type, value_type> {
   //
   void mv(value_type alpha, value_type const* __restrict__ x, value_type beta,
           value_type* __restrict__ y) const override {
-    //TODO: call cusparse::csrmv
+    //TODO: call cusparse::csrmv ... and more
   }
 };
 
