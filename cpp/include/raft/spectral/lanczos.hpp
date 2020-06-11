@@ -35,6 +35,7 @@ namespace raft {
 namespace {
 
 using namespace matrix;
+using namespace linalg;
 
 // =========================================================
 // Helper functions

@@ -28,15 +28,12 @@
 
 #include <raft/spectral/kmeans.hpp>
 #include <raft/spectral/lanczos.hpp>
+#include <raft/spectral/sm_utils.hpp>
 
 namespace raft {
 
-// =========================================================
-// Useful macros
-// =========================================================
-
-// Get index of matrix entry
-#define IDX(i, j, lda) ((i) + (j) * (lda))
+using namespace matrix;
+using namespace linalg;
 
 template <typename IndexType_, typename ValueType_>
 static __global__ void scale_obs_kernel(IndexType_ m, IndexType_ n,
@@ -120,7 +117,7 @@ cudaError_t scale_obs(IndexType_ m, IndexType_ n, ValueType_ *obs) {
 
   // launch scaling kernel (scale each column of obs by its norm)
   scale_obs_kernel<IndexType_, ValueType_><<<nblocks, nthreads>>>(m, n, obs);
-  cudaCheckError();
+  CUDA_CHECK_LAST();
 
   return cudaSuccess;
 }
@@ -152,7 +149,8 @@ cudaError_t scale_obs(IndexType_ m, IndexType_ n, ValueType_ *obs) {
  *  @return error flag.
  */
 template <typename vertex_t, typename edge_t, typename weight_t,
-          typename ThrustExePolicy>
+          typename ThrustExePolicy, typename EigenSolver = LanczosSolver,
+          typename ClusterSolver = KmeansSolver>
 int partition(
   handle_t handle, ThrustExePolicy thrust_exec_policy,
   cugraph::experimental::GraphCSRView<vertex_t, edge_t, weight_t> const &graph,
@@ -194,37 +192,47 @@ int partition(
   for (i = 0; i < nEigVecs; ++i) {
     weight_t mean, std;
 
-    mean =
-      thrust::reduce(thrust::device_pointer_cast(eigVecs + IDX(0, i, n)),
-                     thrust::device_pointer_cast(eigVecs + IDX(0, i + 1, n)));
-    cudaCheckError();
+    mean = thrust::reduce(
+      thrust_exec_policy, thrust::device_pointer_cast(eigVecs + IDX(0, i, n)),
+      thrust::device_pointer_cast(eigVecs + IDX(0, i + 1, n)));
+    CUDA_CHECK_LAST();
     mean /= n;
-    thrust::transform(thrust::device_pointer_cast(eigVecs + IDX(0, i, n)),
+    thrust::transform(thrust_exec_policy,
+                      thrust::device_pointer_cast(eigVecs + IDX(0, i, n)),
                       thrust::device_pointer_cast(eigVecs + IDX(0, i + 1, n)),
                       thrust::make_constant_iterator(mean),
                       thrust::device_pointer_cast(eigVecs + IDX(0, i, n)),
                       thrust::minus<weight_t>());
-    cudaCheckError();
-    std = Cublas::nrm2(n, eigVecs + IDX(0, i, n), 1) /
-          std::sqrt(static_cast<weight_t>(n));
-    thrust::transform(thrust::device_pointer_cast(eigVecs + IDX(0, i, n)),
+    CUDA_CHECK_LAST();
+
+    CUBLAS_CHECK(
+      cublasnrm2(cublas_h, n, eigVecs + IDX(0, i, n), 1, &std, stream));
+
+    std /= std::sqrt(static_cast<weight_t>(n));
+
+    thrust::transform(thrust_exec_policy,
+                      thrust::device_pointer_cast(eigVecs + IDX(0, i, n)),
                       thrust::device_pointer_cast(eigVecs + IDX(0, i + 1, n)),
                       thrust::make_constant_iterator(std),
                       thrust::device_pointer_cast(eigVecs + IDX(0, i, n)),
                       thrust::divides<weight_t>());
-    cudaCheckError();
+    CUDA_CHECK_LAST();
   }
 
   // Transpose eigenvector matrix
   //   TODO: in-place transpose
   {
     vector_t<weight_t> work(handle, nEigVecs * n);
-    Cublas::set_pointer_mode_host();
-    Cublas::geam(true, false, nEigVecs, n, &one, eigVecs, n, &zero,
-                 (weight_t *)NULL, nEigVecs, work.raw(), nEigVecs);
+    CUBLAS_CHECK(
+      cublassetpointermode(cublas_h, CUBLAS_POINTER_MODE_HOST, stream));
+
+    CUBLAS_CHECK(cublasgeam(cublas_h, CUBLAS_OP_T, CUBLAS_OP_N, nEigVecs, n,
+                            &one, eigVecs, n, &zero, (weight_t *)NULL, nEigVecs,
+                            work.raw(), nEigVecs, stream));
+
     CUDA_TRY(cudaMemcpyAsync(eigVecs, work.raw(),
                              nEigVecs * n * sizeof(weight_t),
-                             cudaMemcpyDeviceToDevice));
+                             cudaMemcpyDeviceToDevice, stream));
   }
 
   // Clean up
@@ -292,7 +300,8 @@ int analyzePartition(
   vector_t<weight_t> Lx(handle, n);
 
   // Initialize cuBLAS
-  Cublas::set_pointer_mode_host();
+  CUBLAS_CHECK(
+    cublassetpointermode(cublas_h, CUBLAS_POINTER_MODE_HOST, stream));
 
   // Initialize Laplacian
   sparse_matrix_t<vertex_t, weight_t> A{graph};
@@ -305,17 +314,20 @@ int analyzePartition(
   // Iterate through partitions
   for (i = 0; i < nParts; ++i) {
     // Construct indicator vector for ith partition
-    thrust::for_each(thrust::make_zip_iterator(thrust::make_tuple(
+    thrust::for_each(thrust_exec_policy,
+                     thrust::make_zip_iterator(thrust::make_tuple(
                        thrust::device_pointer_cast(parts),
                        thrust::device_pointer_cast(part_i.raw()))),
                      thrust::make_zip_iterator(thrust::make_tuple(
                        thrust::device_pointer_cast(parts + n),
                        thrust::device_pointer_cast(part_i.raw() + n))),
                      equal_to_i_op<vertex_t, weight_t>(i));
-    cudaCheckError();
+    CUDA_CHECK_LAST();
 
     // Compute size of ith partition
-    Cublas::dot(n, part_i.raw(), 1, part_i.raw(), 1, &partSize);
+    CUBLAS_CHECK(cublasdot(cublas_h, n, part_i.raw(), 1, part_i.raw(), 1,
+                           &partSize, stream));
+
     partSize = round(partSize);
     if (partSize < 0.5) {
       WARNING("empty partition");
@@ -324,7 +336,8 @@ int analyzePartition(
 
     // Compute number of edges cut by ith partition
     L.mv(1, part_i.raw(), 0, Lx.raw());
-    Cublas::dot(n, Lx.raw(), 1, part_i.raw(), 1, &partEdgesCut);
+    CUBLAS_CHECK(cublasdot(cublas_h, n, Lx.raw(), 1, part_i.raw(), 1,
+                           &partEdgesCut, stream));
 
     // Record results
     cost += partEdgesCut / partSize;

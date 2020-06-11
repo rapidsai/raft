@@ -32,9 +32,12 @@
 #include <raft/handle.hpp>
 #include <raft/spectral/error_temp.hpp>
 #include <raft/spectral/matrix_wrappers.hpp>
+#include <raft/spectral/sm_utils.hpp>
 
 namespace {
 
+using namespace raft;
+using namespace raft::linalg;
 // =========================================================
 // Useful grid settings
 // =========================================================
@@ -328,8 +331,6 @@ static int chooseNewCentroid(handle_t handle,
                              const ValueType_* __restrict__ obs,
                              ValueType_* __restrict__ dists,
                              ValueType_* __restrict__ centroid) {
-  using namespace thrust;
-
   // Cumulative sum of distances
   ValueType_* distsCumSum = dists + n;
   // Residual sum of squares
@@ -751,8 +752,9 @@ int kmeans(handle_t handle, ThrustExePolicy thrust_exec_policy, IndexType_ n,
   }
 
   // Initialize cuBLAS
-  CUBLAS_CHECK(cublassetpointermode(cublas_h, CUBLAS_POINTER_MODE_HOST,
-                                    stream));  // ????? TODO: check / remove
+  CUBLAS_CHECK(
+    linalg::cublassetpointermode(cublas_h, CUBLAS_POINTER_MODE_HOST,
+                                 stream));  // ????? TODO: check / remove
 
   // -------------------------------------------------------
   // k-means++ algorithm
