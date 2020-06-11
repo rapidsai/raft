@@ -135,6 +135,7 @@ struct nccl_error : public raft::exception {
 
 }  // namespace raft
 
+// FIXME: Need to be replaced with RAFT_FAIL
 /** macro to throw a runtime error */
 #define THROW(fmt, ...)                                                        \
   do {                                                                         \
@@ -155,6 +156,17 @@ struct nccl_error : public raft::exception {
     if (!(check)) THROW(fmt, ##__VA_ARGS__); \
   } while (0)
 
+#define SET_ERROR_MSG(msg, location_prefix, fmt, ...)                                 \
+  do {                                                                                \
+    char err_msg[2048]; /* NOLINT */                                                  \
+    std::snprintf(err_msg, sizeof(err_msg), "RAFT failure at %s", __FILE__);          \
+    msg += err_msg;                                                                   \
+    std::snprintf(err_msg, sizeof(err_msg), "file=%s line=%d: ", __FILE__, __LINE__); \
+    msg += err_msg;                                                                   \
+    std::snprintf(err_msg, sizeof(err_msg), fmt, ##__VA_ARGS__);                      \
+    msg += err_msg;                                                                   \
+  } while(0)
+
 /**
  * @brief Macro for checking (pre-)conditions that throws an exception when a condition is false
  *
@@ -163,18 +175,13 @@ struct nccl_error : public raft::exception {
  * optinal format tagas
  * @throw raft::logic_error if the condition evaluates to false.
  */
-#define RAFT_EXPECTS(cond, fmt, ...)                                          \
-  do {                                                                        \
-    if (!cond) {                                                              \
-      std::string msg{};                                                      \
-      char err_msg[2048]; /* NOLINT */                                        \
-      std::snprintf(err_msg, sizeof(err_msg),                                 \
-                    "RAFT failure at file=%s line=%d: ", __FILE__, __LINE__); \
-      msg += err_msg;                                                         \
-      std::snprintf(err_msg, sizeof(err_msg), fmt, ##__VA_ARGS__);            \
-      msg += err_msg;                                                         \
-      throw raft::logic_error(msg);                                           \
-    }                                                                         \
+#define RAFT_EXPECTS(cond, fmt, ...)                              \
+  do {                                                            \
+    if (!cond) {                                                  \
+      std::string msg{};                                          \
+      SET_ERROR_MSG(msg, "RAFT failure at ", fmt, ##__VA_ARGS__); \
+      throw raft::logic_error(msg);                               \
+    }                                                             \
   } while (0)
 
 /**
@@ -184,7 +191,12 @@ struct nccl_error : public raft::exception {
  * optinal format tagas
  * @throw always throws raft::logic_error
  */
-#define RAFT_FAIL(fmt, ...) RAFT_EXPECTS(false, fmt, ##__VA_ARGS__)
+#define RAFT_FAIL(fmt, ...)                                     \
+  do {                                                          \
+    std::string msg{};                                          \
+    SET_ERROR_MSG(msg, "RAFT failure at ", fmt, ##__VA_ARGS__); \
+    throw raft::logic_error(msg);                               \
+  } while (0)
 
 namespace raft {
 namespace detail {
