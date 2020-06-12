@@ -46,7 +46,8 @@ struct lanczos_solver_t {
 
   index_type_t solve_smallest_eigenvectors(
     handle_t handle, sparse_matrix_t<index_type_t, value_type_t> const& A,
-    value_type_t* __restrict__ eigVals, value_type_t* __restrict__ eigVecs) {
+    value_type_t* __restrict__ eigVals,
+    value_type_t* __restrict__ eigVecs) const {
     index_type_t iters{};
     RAFT_TRY(computeSmallestEigenvectors(
       handle, A, config_.n_eigVecs, config_.maxIter, config_.restartIter,
@@ -57,7 +58,8 @@ struct lanczos_solver_t {
 
   index_type_t solve_largest_eigenvectors(
     handle_t handle, sparse_matrix_t<index_type_t, value_type_t> const& A,
-    value_type_t* __restrict__ eigVals, value_type_t* __restrict__ eigVecs) {
+    value_type_t* __restrict__ eigVals,
+    value_type_t* __restrict__ eigVecs) const {
     index_type_t iters{};
     RAFT_TRY(computeLargestEigenvectors(handle, A, config_.n_eigVecs,
                                         config_.maxIter, config_.restartIter,
@@ -66,7 +68,7 @@ struct lanczos_solver_t {
     return iters;
   }
 
-  decltype(auto) get_config(void) const { return config_; }
+  auto const& get_config(void) const { return config_; }
 
  private:
   eigen_solver_config_t<index_t, value_type_t, size_type_t> config_;

@@ -24,7 +24,9 @@
 #include <thrust/reduce.h>
 #include <thrust/transform.h>
 
-#include <raft/spectral/kmeans.hpp>
+#include <tuple>
+
+#include <raft/spectral/cluster_solvers.hpp>
 #include <raft/spectral/eigen_solvers.hpp>
 #include <raft/spectral/sm_utils.hpp>
 
@@ -147,28 +149,25 @@ cudaError_t scale_obs(IndexType_ m, IndexType_ n, ValueType_ *obs) {
  *  @return error flag.
  */
 template <typename vertex_t, typename edge_t, typename weight_t,
-          typename ThrustExePolicy, typename EigenSolver = lanczos_solver_t<vertex_t, weight_t>,
-          typename ClusterSolver = KmeansSolver>
-int partition(
+          typename ThrustExePolicy,
+          typename EigenSolver = lanczos_solver_t<vertex_t, weight_t>,
+          typename ClusterSolver = kmeans_solver_t<vertex_t, weight_t>>
+std::tuple<vertex_t, weight_t, vertex_t> partition(
   handle_t handle, ThrustExePolicy thrust_exec_policy,
   cugraph::experimental::GraphCSRView<vertex_t, edge_t, weight_t> const &graph,
-  vertex_t nParts,  EigenSolver eigen_solver,
-  int maxIter_kmeans, weight_t tol_kmeans, vertex_t *__restrict__ parts,
-  weight_t *eigVals, weight_t *eigVecs) {
+  EigenSolver const &eigen_solver, ClusterSolver const &cluster_solver,
+  vertex_t *__restrict__ parts, weight_t *eigVals, weight_t *eigVecs) {
   const weight_t zero{0.0};
   const weight_t one{1.0};
 
   auto cublas_h = handle.get_cublas_handle();
   auto stream = handle.get_stream();
 
-  int iters_eig_solver;
-  int iters_kmeans;
+  std::tuple<vertex_t, weight_t, vertex_t>
+    stats;  //{iters_eig_solver,residual_cluster,iters_cluster_solver} // # iters eigen solver, cluster solver residual, # iters cluster solver
 
   edge_t i;
   edge_t n = graph.number_of_vertices;
-
-  // k-means residual
-  weight_t residual_kmeans;
 
   // -------------------------------------------------------
   // Spectral partitioner
@@ -184,7 +183,7 @@ int partition(
   auto nEigVecs = eigen_configs.n_eigVecs;
 
   // Compute smallest eigenvalues and eigenvectors
-  iter_eigs_solver = eigen_solver.solve_smallest_eigenvector(L, eigVals, eigVecs);
+  stats.get<0>() = eigen_solver.solve_smallest_eigenvector(L, eigVals, eigVecs);
 
   // Whiten eigenvector matrix
   for (i = 0; i < nEigVecs; ++i) {
@@ -233,14 +232,14 @@ int partition(
                              cudaMemcpyDeviceToDevice, stream));
   }
 
-  // Clean up
+  // Find partition with clustering
+  auto pair_cluster = cluster_solver.solve(handle, t_thrust_exec_policy, n,
+                                           nEigVecs, eigVecs, parts);
 
-  // eigVecs.dump(0, nEigVecs*n);
-  // Find partition with k-means clustering
-  RAFT_TRY(kmeans(n, nEigVecs, nParts, tol_kmeans, maxIter_kmeans, eigVecs,
-                  parts, residual_kmeans, iters_kmeans));
+  stats.get<1>() = pair_cluster.first;
+  stats.get<2>() = pair_cluster.second;
 
-  return 0;
+  return stats;
 }
 
 // =========================================================
