@@ -183,7 +183,8 @@ std::tuple<vertex_t, weight_t, vertex_t> partition(
   auto nEigVecs = eigen_configs.n_eigVecs;
 
   // Compute smallest eigenvalues and eigenvectors
-  stats.get<0>() = eigen_solver.solve_smallest_eigenvector(L, eigVals, eigVecs);
+  std::get<0>(stats) =
+    eigen_solver.solve_smallest_eigenvector(L, eigVals, eigVecs);
 
   // Whiten eigenvector matrix
   for (i = 0; i < nEigVecs; ++i) {
@@ -236,8 +237,8 @@ std::tuple<vertex_t, weight_t, vertex_t> partition(
   auto pair_cluster = cluster_solver.solve(handle, t_thrust_exec_policy, n,
                                            nEigVecs, eigVecs, parts);
 
-  stats.get<1>() = pair_cluster.first;
-  stats.get<2>() = pair_cluster.second;
+  std::get<1>(stats) = pair_cluster.first;
+  std::get<2>(stats) = pair_cluster.second;
 
   return stats;
 }
