@@ -29,6 +29,7 @@
 
 #include <raft/spectral/cluster_solvers.hpp>
 #include <raft/spectral/eigen_solvers.hpp>
+#include <raft/spectral/spectral_util.hpp>
 
 //#define COLLECT_TIME_STATISTICS 1
 //#undef COLLECT_TIME_STATISTICS
@@ -51,6 +52,7 @@ static double timer(void) {
 #endif
 
 namespace raft {
+namespace spectral {
 
 using namespace matrix;
 using namespace linalg;
@@ -163,7 +165,7 @@ template <typename vertex_t, typename edge_t, typename weight_t>
 void analyzeModularity(handle_t handle, ThrustExePolicy thrust_exec_policy,
                        GraphCSRView<vertex_t, edge_t, weight_t> const &graph,
                        vertex_t nClusters,
-                       const vertex_t *__restrict__ clusters,
+                       vertex_t const *__restrict__ clusters,
                        weight_t &modularity) {
   edge_t i;
   edge_t n = graph.number_of_vertices;
@@ -174,7 +176,7 @@ void analyzeModularity(handle_t handle, ThrustExePolicy thrust_exec_policy,
 
   // Device memory
   vector_t<weight_t> part_i(handle, n);
-  Vector<weight_t> Bx(handle, n);
+  vector_t<weight_t> Bx(handle, n);
 
   // Initialize cuBLAS
   CUBLAS_CHECK(
@@ -189,31 +191,11 @@ void analyzeModularity(handle_t handle, ThrustExePolicy thrust_exec_policy,
 
   // Iterate through partitions
   for (i = 0; i < nClusters; ++i) {
-    // Construct indicator vector for ith partition
-    thrust::for_each(thrust_exec_policy,
-                     thrust::make_zip_iterator(thrust::make_tuple(
-                       thrust::device_pointer_cast(clusters),
-                       thrust::device_pointer_cast(part_i.raw()))),
-                     thrust::make_zip_iterator(thrust::make_tuple(
-                       thrust::device_pointer_cast(clusters + n),
-                       thrust::device_pointer_cast(part_i.raw() + n))),
-                     equal_to_i_op<vertex_t, weight_t>(i));
-    CUDA_CHECK_LAST();
-
-    // Compute size of ith partition
-    CUBLAS_CHECK(cublasdot(cublas_h, n, part_i.raw(), 1, part_i.raw(), 1,
-                           &clustersize, stream));
-
-    clustersize = round(clustersize);
-    if (clustersize < 0.5) {
+    if (!construct_indicator(handle, thrust_exec_policy, n, clustersize,
+                             partModularity, clusters, part_i, Bx, B)) {
       WARNING("empty partition");
       continue;
     }
-
-    // Compute modularity
-    B.mv(1, part_i.raw(), 0, Bx.raw());
-    CUBLAS_CHECK(cublasdot(cublas_h, n, Bx.raw(), 1, part_i.raw(), 1,
-                           &partModularity, stream));
 
     // Record results
     modularity += partModularity;
@@ -224,4 +206,5 @@ void analyzeModularity(handle_t handle, ThrustExePolicy thrust_exec_policy,
   modularity = modularity / B.get_diag_nrm1();
 }
 
+}  // namespace spectral
 }  // namespace raft

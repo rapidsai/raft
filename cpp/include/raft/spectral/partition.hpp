@@ -28,8 +28,10 @@
 
 #include <raft/spectral/cluster_solvers.hpp>
 #include <raft/spectral/eigen_solvers.hpp>
+#include <raft/spectral/spectral_util.hpp>
 
 namespace raft {
+namespace spectral {
 
 using namespace matrix;
 using namespace linalg;
@@ -115,24 +117,6 @@ std::tuple<vertex_t, weight_t, vertex_t> partition(
 // Analysis of graph partition
 // =========================================================
 
-namespace {
-/// Functor to generate indicator vectors
-/** For use in Thrust transform
- */
-template <typename IndexType_, typename ValueType_>
-struct equal_to_i_op {
-  const IndexType_ i;
-
- public:
-  equal_to_i_op(IndexType_ _i) : i(_i) {}
-  template <typename Tuple_>
-  __host__ __device__ void operator()(Tuple_ t) {
-    thrust::get<1>(t) =
-      (thrust::get<0>(t) == i) ? (ValueType_)1.0 : (ValueType_)0.0;
-  }
-};
-}  // namespace
-
 /// Compute cost function for partition
 /** This function determines the edges cut by a partition and a cost
  *  function:
@@ -179,30 +163,11 @@ void analyzePartition(handle_t handle, ThrustExePolicy thrust_exec_policy,
   // Iterate through partitions
   for (i = 0; i < nClusters; ++i) {
     // Construct indicator vector for ith partition
-    thrust::for_each(thrust_exec_policy,
-                     thrust::make_zip_iterator(thrust::make_tuple(
-                       thrust::device_pointer_cast(clusters),
-                       thrust::device_pointer_cast(part_i.raw()))),
-                     thrust::make_zip_iterator(thrust::make_tuple(
-                       thrust::device_pointer_cast(clusters + n),
-                       thrust::device_pointer_cast(part_i.raw() + n))),
-                     equal_to_i_op<vertex_t, weight_t>(i));
-    CUDA_CHECK_LAST();
-
-    // Compute size of ith partition
-    CUBLAS_CHECK(cublasdot(cublas_h, n, part_i.raw(), 1, part_i.raw(), 1,
-                           &clustersize, stream));
-
-    clustersize = round(clustersize);
-    if (clustersize < 0.5) {
+    if (!construct_indicator(handle, thrust_exec_policy, n, clustersize,
+                             partEdgesCut, clusters, part_i, Lx, L)) {
       WARNING("empty partition");
       continue;
     }
-
-    // Compute number of edges cut by ith partition
-    L.mv(1, part_i.raw(), 0, Lx.raw());
-    CUBLAS_CHECK(cublasdot(cublas_h, n, Lx.raw(), 1, part_i.raw(), 1,
-                           &partEdgesCut, stream));
 
     // Record results
     cost += partEdgesCut / clustersize;
@@ -210,4 +175,5 @@ void analyzePartition(handle_t handle, ThrustExePolicy thrust_exec_policy,
   }
 }
 
+}  // namespace spectral
 }  // namespace raft
