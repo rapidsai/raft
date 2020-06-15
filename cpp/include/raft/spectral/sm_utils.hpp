@@ -102,15 +102,15 @@ static __device__ __forceinline__ double shfl(double r, int lane,
                                               int mask = DEFAULT_MASK) {
 #if __CUDA_ARCH__ >= 300
 #ifdef USE_CG
-  int2 a = *reinterpret_cast<int2*>(&r);
+  int2 a = *reinterpret_cast<int2 *>(&r);
   a.x = __shfl_sync(mask, a.x, lane, bound);
   a.y = __shfl_sync(mask, a.y, lane, bound);
-  return *reinterpret_cast<double*>(&a);
+  return *reinterpret_cast<double *>(&a);
 #else
-  int2 a = *reinterpret_cast<int2*>(&r);
+  int2 a = *reinterpret_cast<int2 *>(&r);
   a.x = __shfl(a.x, lane, bound);
   a.y = __shfl(a.y, lane, bound);
-  return *reinterpret_cast<double*>(&a);
+  return *reinterpret_cast<double *>(&a);
 #endif
 #else
   return 0.0;
@@ -122,15 +122,15 @@ static __device__ __forceinline__ long long shfl(long long r, int lane,
                                                  int mask = DEFAULT_MASK) {
 #if __CUDA_ARCH__ >= 300
 #ifdef USE_CG
-  int2 a = *reinterpret_cast<int2*>(&r);
+  int2 a = *reinterpret_cast<int2 *>(&r);
   a.x = __shfl_sync(mask, a.x, lane, bound);
   a.y = __shfl_sync(mask, a.y, lane, bound);
-  return *reinterpret_cast<long long*>(&a);
+  return *reinterpret_cast<long long *>(&a);
 #else
-  int2 a = *reinterpret_cast<int2*>(&r);
+  int2 a = *reinterpret_cast<int2 *>(&r);
   a.x = __shfl(a.x, lane, bound);
   a.y = __shfl(a.y, lane, bound);
-  return *reinterpret_cast<long long*>(&a);
+  return *reinterpret_cast<long long *>(&a);
 #endif
 #else
   return 0.0;
@@ -170,15 +170,15 @@ static __device__ __forceinline__ double shfl_down(double r, int offset,
                                                    int mask = DEFAULT_MASK) {
 #if __CUDA_ARCH__ >= 300
 #ifdef USE_CG
-  int2 a = *reinterpret_cast<int2*>(&r);
+  int2 a = *reinterpret_cast<int2 *>(&r);
   a.x = __shfl_down_sync(mask, a.x, offset, bound);
   a.y = __shfl_down_sync(mask, a.y, offset, bound);
-  return *reinterpret_cast<double*>(&a);
+  return *reinterpret_cast<double *>(&a);
 #else
-  int2 a = *reinterpret_cast<int2*>(&r);
+  int2 a = *reinterpret_cast<int2 *>(&r);
   a.x = __shfl_down(a.x, offset, bound);
   a.y = __shfl_down(a.y, offset, bound);
-  return *reinterpret_cast<double*>(&a);
+  return *reinterpret_cast<double *>(&a);
 #endif
 #else
   return 0.0;
@@ -190,15 +190,15 @@ static __device__ __forceinline__ long long shfl_down(long long r, int offset,
                                                       int mask = DEFAULT_MASK) {
 #if __CUDA_ARCH__ >= 300
 #ifdef USE_CG
-  int2 a = *reinterpret_cast<int2*>(&r);
+  int2 a = *reinterpret_cast<int2 *>(&r);
   a.x = __shfl_down_sync(mask, a.x, offset, bound);
   a.y = __shfl_down_sync(mask, a.y, offset, bound);
-  return *reinterpret_cast<long long*>(&a);
+  return *reinterpret_cast<long long *>(&a);
 #else
-  int2 a = *reinterpret_cast<int2*>(&r);
+  int2 a = *reinterpret_cast<int2 *>(&r);
   a.x = __shfl_down(a.x, offset, bound);
   a.y = __shfl_down(a.y, offset, bound);
-  return *reinterpret_cast<long long*>(&a);
+  return *reinterpret_cast<long long *>(&a);
 #endif
 #else
   return 0.0;
@@ -211,15 +211,15 @@ static __device__ __forceinline__ uint64_t shfl_down(uint64_t r, int offset,
                                                      int mask = DEFAULT_MASK) {
 #if __CUDA_ARCH__ >= 300
 #ifdef USE_CG
-  int2 a = *reinterpret_cast<int2*>(&r);
+  int2 a = *reinterpret_cast<int2 *>(&r);
   a.x = __shfl_down_sync(mask, a.x, offset, bound);
   a.y = __shfl_down_sync(mask, a.y, offset, bound);
-  return *reinterpret_cast<uint64_t*>(&a);
+  return *reinterpret_cast<uint64_t *>(&a);
 #else
-  int2 a = *reinterpret_cast<int2*>(&r);
+  int2 a = *reinterpret_cast<int2 *>(&r);
   a.x = __shfl_down(mask, a.x, offset, bound);
   a.y = __shfl_down(mask, a.y, offset, bound);
-  return *reinterpret_cast<uint64_t*>(&a);
+  return *reinterpret_cast<uint64_t *>(&a);
 #endif
 #else
   return 0.0;
@@ -258,15 +258,15 @@ static __device__ __forceinline__ double shfl_up(double r, int offset,
                                                  int mask = DEFAULT_MASK) {
 #if __CUDA_ARCH__ >= 300
 #ifdef USE_CG
-  int2 a = *reinterpret_cast<int2*>(&r);
+  int2 a = *reinterpret_cast<int2 *>(&r);
   a.x = __shfl_up_sync(mask, a.x, offset, bound);
   a.y = __shfl_up_sync(mask, a.y, offset, bound);
-  return *reinterpret_cast<double*>(&a);
+  return *reinterpret_cast<double *>(&a);
 #else
-  int2 a = *reinterpret_cast<int2*>(&r);
+  int2 a = *reinterpret_cast<int2 *>(&r);
   a.x = __shfl_up(a.x, offset, bound);
   a.y = __shfl_up(a.y, offset, bound);
-  return *reinterpret_cast<double*>(&a);
+  return *reinterpret_cast<double *>(&a);
 #endif
 #else
   return 0.0;
@@ -278,20 +278,144 @@ static __device__ __forceinline__ long long shfl_up(long long r, int offset,
                                                     int mask = DEFAULT_MASK) {
 #if __CUDA_ARCH__ >= 300
 #ifdef USE_CG
-  int2 a = *reinterpret_cast<int2*>(&r);
+  int2 a = *reinterpret_cast<int2 *>(&r);
   a.x = __shfl_up_sync(mask, a.x, offset, bound);
   a.y = __shfl_up_sync(mask, a.y, offset, bound);
-  return *reinterpret_cast<long long*>(&a);
+  return *reinterpret_cast<long long *>(&a);
 #else
-  int2 a = *reinterpret_cast<int2*>(&r);
+  int2 a = *reinterpret_cast<int2 *>(&r);
   a.x = __shfl_up(a.x, offset, bound);
   a.y = __shfl_up(a.y, offset, bound);
-  return *reinterpret_cast<long long*>(&a);
+  return *reinterpret_cast<long long *>(&a);
 #endif
 #else
   return 0.0;
 #endif
 }
+
+static __inline__ __device__ double atomicFPAdd(double *addr, double val) {
+// atomicAdd for double starts with sm_60
+#if __CUDA_ARCH__ >= 600
+  return atomicAdd(addr, val);
+#else
+  unsigned long long old = __double_as_longlong(addr[0]), assumed;
+
+  do {
+    assumed = old;
+    old = atomicCAS((unsigned long long *)addr, assumed,
+                    __double_as_longlong(val + __longlong_as_double(assumed)));
+  } while (assumed != old);
+
+  return old;
+#endif
+}
+
+// atomicAdd for float starts with sm_20
+static __inline__ __device__ float atomicFPAdd(float *addr, float val) {
+  return atomicAdd(addr, val);
+}
+
+static __inline__ __device__ double atomicFPMin(double *addr, double val) {
+  double old, assumed;
+  old = *addr;
+  do {
+    assumed = old;
+    old = __longlong_as_double(
+      atomicCAS((unsigned long long int *)addr, __double_as_longlong(assumed),
+                __double_as_longlong(min(val, assumed))));
+  } while (__double_as_longlong(assumed) != __double_as_longlong(old));
+  return old;
+}
+
+/* atomic addition: based on Nvidia Research atomic's tricks from cusparse */
+static __inline__ __device__ float atomicFPMin(float *addr, float val) {
+  float old, assumed;
+  old = *addr;
+  do {
+    assumed = old;
+    old = int_as_float(atomicCAS((int *)addr, float_as_int(assumed),
+                                 float_as_int(min(val, assumed))));
+  } while (float_as_int(assumed) != float_as_int(old));
+
+  return old;
+}
+
+static __inline__ __device__ double atomicFPMax(double *addr, double val) {
+  double old, assumed;
+  old = *addr;
+  do {
+    assumed = old;
+    old = __longlong_as_double(
+      atomicCAS((unsigned long long int *)addr, __double_as_longlong(assumed),
+                __double_as_longlong(max(val, assumed))));
+  } while (__double_as_longlong(assumed) != __double_as_longlong(old));
+  return old;
+}
+
+/* atomic addition: based on Nvidia Research atomic's tricks from cusparse */
+static __inline__ __device__ float atomicFPMax(float *addr, float val) {
+  float old, assumed;
+  old = *addr;
+  do {
+    assumed = old;
+    old = int_as_float(atomicCAS((int *)addr, float_as_int(assumed),
+                                 float_as_int(max(val, assumed))));
+  } while (float_as_int(assumed) != float_as_int(old));
+
+  return old;
+}
+
+static __inline__ __device__ double atomicFPOr(double *addr, double val) {
+  double old, assumed;
+  old = *addr;
+  do {
+    assumed = old;
+    old = __longlong_as_double(
+      atomicCAS((unsigned long long int *)addr, __double_as_longlong(assumed),
+                __double_as_longlong((bool)val | (bool)assumed)));
+  } while (__double_as_longlong(assumed) != __double_as_longlong(old));
+  return old;
+}
+
+/* atomic addition: based on Nvidia Research atomic's tricks from cusparse */
+static __inline__ __device__ float atomicFPOr(float *addr, float val) {
+  float old, assumed;
+  old = *addr;
+  do {
+    assumed = old;
+    old = int_as_float(atomicCAS((int *)addr, float_as_int(assumed),
+                                 float_as_int((bool)val | (bool)assumed)));
+  } while (float_as_int(assumed) != float_as_int(old));
+
+  return old;
+}
+
+static __inline__ __device__ double atomicFPLog(double *addr, double val) {
+  double old, assumed;
+  old = *addr;
+  do {
+    assumed = old;
+    old = __longlong_as_double(
+      atomicCAS((unsigned long long int *)addr, __double_as_longlong(assumed),
+                __double_as_longlong(-log(exp(-val) + exp(-assumed)))));
+  } while (__double_as_longlong(assumed) != __double_as_longlong(old));
+  return old;
+}
+
+/* atomic addition: based on Nvidia Research atomic's tricks from cusparse */
+static __inline__ __device__ float atomicFPLog(float *addr, float val) {
+  float old, assumed;
+  old = *addr;
+  do {
+    assumed = old;
+    old =
+      int_as_float(atomicCAS((int *)addr, float_as_int(assumed),
+                             float_as_int(-logf(expf(-val) + expf(-assumed)))));
+  } while (float_as_int(assumed) != float_as_int(old));
+
+  return old;
+}
+
 }  // namespace utils
 
 }  // namespace raft

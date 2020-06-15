@@ -23,6 +23,7 @@
 #include <thrust/binary_search.h>
 #include <thrust/device_vector.h>
 #include <thrust/gather.h>
+#include <thrust/iterator/constant_iterator.h>
 #include <thrust/random.h>
 #include <thrust/reduce.h>
 #include <thrust/sequence.h>
@@ -113,7 +114,7 @@ static __global__ void computeDistances(
 
         // Write result to global memory
         if (threadIdx.x == 0)
-          atomicFPAdd(dists + IDX(gidz, gidy, n), dist_private);
+          utils::atomicFPAdd(dists + IDX(gidz, gidy, n), dist_private);
 
         // Move to another observation vector
         gidz += blockDim.z * gridDim.z;
@@ -325,7 +326,7 @@ static __global__ void divideCentroids(
  *  @return Zero if successful. Otherwise non-zero.
  */
 template <typename IndexType_, typename ValueType_, typename ThrustExePolicy>
-static int chooseNewCentroid(handle_t handle,
+static int chooseNewCentroid(handle_t const& handle,
                              ThrustExePolicy thrust_exec_policy, IndexType_ n,
                              IndexType_ d, IndexType_ k, ValueType_ rand,
                              const ValueType_* __restrict__ obs,
@@ -334,7 +335,7 @@ static int chooseNewCentroid(handle_t handle,
   // Cumulative sum of distances
   ValueType_* distsCumSum = dists + n;
   // Residual sum of squares
-  ValueType_ distsSum;
+  ValueType_ distsSum{0};
   // Observation vector that is chosen as new centroid
   IndexType_ obsIndex;
 
@@ -391,7 +392,7 @@ static int chooseNewCentroid(handle_t handle,
  */
 template <typename IndexType_, typename ValueType_, typename ThrustExePolicy>
 static int initializeCentroids(
-  handle_t handle, ThrustExePolicy thrust_exec_policy, IndexType_ n,
+  handle_t const& handle, ThrustExePolicy thrust_exec_policy, IndexType_ n,
   IndexType_ d, IndexType_ k, const ValueType_* __restrict__ obs,
   ValueType_* __restrict__ centroids, IndexType_* __restrict__ codes,
   IndexType_* __restrict__ clusterSizes, ValueType_* __restrict__ dists,
@@ -443,10 +444,10 @@ static int initializeCentroids(
   CUDA_TRY(cudaMemsetAsync(dists, 0, n * sizeof(ValueType_), stream));
   computeDistances<<<gridDim_warp, blockDim_warp, 0, stream>>>(
     n, d, 1, obs, centroids, dists);
-  cudaCheckError()
+  CUDA_CHECK_LAST();
 
-    // Choose remaining centroids
-    for (i = 1; i < k; ++i) {
+  // Choose remaining centroids
+  for (i = 1; i < k; ++i) {
     // Choose ith centroid
     if (chooseNewCentroid(handle, thrust_exec_policy, n, d, k, uniformDist(rng),
                           obs, dists, centroids + IDX(0, i, d)))
@@ -497,14 +498,12 @@ static int initializeCentroids(
  *  @return Zero if successful. Otherwise non-zero.
  */
 template <typename IndexType_, typename ValueType_, typename ThrustExePolicy>
-static int assignCentroids(handle_t handle, ThrustExePolicy thrust_exec_policy,
-                           IndexType_ n, IndexType_ d, IndexType_ k,
-                           const ValueType_* __restrict__ obs,
-                           const ValueType_* __restrict__ centroids,
-                           ValueType_* __restrict__ dists,
-                           IndexType_* __restrict__ codes,
-                           IndexType_* __restrict__ clusterSizes,
-                           ValueType_* residual_host) {
+static int assignCentroids(
+  handle_t const& handle, ThrustExePolicy thrust_exec_policy, IndexType_ n,
+  IndexType_ d, IndexType_ k, const ValueType_* __restrict__ obs,
+  const ValueType_* __restrict__ centroids, ValueType_* __restrict__ dists,
+  IndexType_* __restrict__ codes, IndexType_* __restrict__ clusterSizes,
+  ValueType_* residual_host) {
   // CUDA grid dimensions
   dim3 blockDim, gridDim;
 
@@ -565,8 +564,9 @@ static int assignCentroids(handle_t handle, ThrustExePolicy thrust_exec_policy,
  *  @return Zero if successful. Otherwise non-zero.
  */
 template <typename IndexType_, typename ValueType_, typename ThrustExePolicy>
-static int updateCentroids(handle_t handle, ThrustExePolicy thrust_exec_policy,
-                           IndexType_ n, IndexType_ d, IndexType_ k,
+static int updateCentroids(handle_t const& handle,
+                           ThrustExePolicy thrust_exec_policy, IndexType_ n,
+                           IndexType_ d, IndexType_ k,
                            const ValueType_* __restrict__ obs,
                            const IndexType_* __restrict__ codes,
                            const IndexType_* __restrict__ clusterSizes,
@@ -601,8 +601,8 @@ static int updateCentroids(handle_t handle, ThrustExePolicy thrust_exec_policy,
   thrust::sequence(thrust_exec_policy, rows, rows + d * n);
   CUDA_CHECK_LAST();
   thrust::transform(thrust_exec_policy, rows, rows + d * n,
-                    make_constant_iterator<IndexType_>(n), rows,
-                    modulus<IndexType_>());
+                    thrust::make_constant_iterator<IndexType_>(n), rows,
+                    thrust::modulus<IndexType_>());
   CUDA_CHECK_LAST();
   thrust::gather(thrust_exec_policy, rows, rows + d * n,
                  thrust::device_pointer_cast(codes), codes_copy);
@@ -612,8 +612,8 @@ static int updateCentroids(handle_t handle, ThrustExePolicy thrust_exec_policy,
   thrust::sequence(thrust_exec_policy, rows, rows + d * n);
   CUDA_CHECK_LAST();
   thrust::transform(thrust_exec_policy, rows, rows + d * n,
-                    make_constant_iterator<IndexType_>(n), rows,
-                    divides<IndexType_>());
+                    thrust::make_constant_iterator<IndexType_>(n), rows,
+                    thrust::divides<IndexType_>());
   CUDA_CHECK_LAST();
 
   // Sort and reduce to add observation vectors in same cluster
@@ -680,9 +680,10 @@ namespace raft {
  *  @return error flag.
  */
 template <typename IndexType_, typename ValueType_, typename ThrustExePolicy>
-int kmeans(handle_t handle, ThrustExePolicy thrust_exec_policy, IndexType_ n,
-           IndexType_ d, IndexType_ k, ValueType_ tol, IndexType_ maxiter,
-           const ValueType_* __restrict__ obs, IndexType_* __restrict__ codes,
+int kmeans(handle_t const& handle, ThrustExePolicy thrust_exec_policy,
+           IndexType_ n, IndexType_ d, IndexType_ k, ValueType_ tol,
+           IndexType_ maxiter, const ValueType_* __restrict__ obs,
+           IndexType_* __restrict__ codes,
            IndexType_* __restrict__ clusterSizes,
            ValueType_* __restrict__ centroids, ValueType_* __restrict__ work,
            IndexType_* __restrict__ work_int, ValueType_* residual_host,
@@ -843,11 +844,11 @@ int kmeans(handle_t handle, ThrustExePolicy thrust_exec_policy, IndexType_ n,
  *  @return error flag
  */
 template <typename IndexType_, typename ValueType_, typename ThrustExePolicy>
-int kmeans(handle_t handle, ThrustExePolicy thrust_exec_policy, IndexType_ n,
-           IndexType_ d, IndexType_ k, ValueType_ tol, IndexType_ maxiter,
-           const ValueType_* __restrict__ obs, IndexType_* __restrict__ codes,
-           ValueType_& residual, IndexType_& iters,
-           unsigned long long seed = 123456) {
+int kmeans(handle_t const& handle, ThrustExePolicy thrust_exec_policy,
+           IndexType_ n, IndexType_ d, IndexType_ k, ValueType_ tol,
+           IndexType_ maxiter, const ValueType_* __restrict__ obs,
+           IndexType_* __restrict__ codes, ValueType_& residual,
+           IndexType_& iters, unsigned long long seed = 123456) {
   using namespace matrix;
 
   // Check that parameters are valid

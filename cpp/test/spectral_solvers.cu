@@ -19,11 +19,11 @@
 #include <memory>
 #include <raft/handle.hpp>
 
-#include <raft/spectral/lanczos.hpp>
+#include <raft/spectral/kmeans.hpp>
 
 namespace raft {
 
-TEST(Raft, SpectralSolvers) {
+TEST(Raft, ClusterSolvers) {
   using namespace matrix;
   using index_type = int;
   using value_type = double;
@@ -32,32 +32,23 @@ TEST(Raft, SpectralSolvers) {
   ASSERT_EQ(0, h.get_num_internal_streams());
   ASSERT_EQ(0, h.get_device());
 
-  index_type* ro{nullptr};
-  index_type* ci{nullptr};
-  value_type* vs{nullptr};
-  index_type nnz = 0;
-  index_type nrows = 0;
-  sparse_matrix_t<index_type, value_type> sm1{ro, ci, vs, nrows, nnz};
-  ASSERT_EQ(nullptr, sm1.row_offsets_);
-
-  laplacian_matrix_t<index_type, value_type> lm1{h, ro, ci, vs, nrows, nnz};
-  ASSERT_EQ(nullptr, lm1.diagonal_.raw());
-
-  index_type neigvs{10};
   index_type maxiter{100};
-  index_type restart_iter{10};
   value_type tol{1.0e-10};
-  bool reorthog{true};
-
   index_type iter;
-  value_type* eigvals{nullptr};
   value_type* eigvecs{nullptr};
   unsigned long long seed{100110021003};
-  computeSmallestEigenvectors(h, lm1, neigvs, maxiter, restart_iter, tol,
-                              reorthog, iter, eigvals, eigvecs, seed);
 
-  computeLargestEigenvectors(h, lm1, neigvs, maxiter, restart_iter, tol,
-                             reorthog, iter, eigvals, eigvecs, seed);
+  auto stream = h.get_stream();
+  //thrust::cuda::par.on(stream);
+
+  index_type n{100};
+  index_type d{10};
+  index_type k{5};
+  index_type* codes{nullptr};
+  value_type residual;
+
+  kmeans(h, thrust::cuda::par.on(stream), n, d, k, tol, maxiter, eigvecs, codes,
+         residual, iter, seed);
 }
 
 }  // namespace raft
