@@ -31,11 +31,6 @@ TEST(Raft, SpectralMatrices) {
   handle_t h;
   ASSERT_EQ(0, h.get_num_internal_streams());
   ASSERT_EQ(0, h.get_device());
-  // ASSERT_EQ(nullptr, h.get_stream());
-  // ASSERT_NE(nullptr, h.get_cublas_handle());
-  // ASSERT_NE(nullptr, h.get_cusolver_dn_handle());
-  // ASSERT_NE(nullptr, h.get_cusolver_sp_handle());
-  // ASSERT_NE(nullptr, h.get_cusparse_handle());
 
   int const sz = 10;
   vector_t<index_type> d_v{h, sz};
@@ -49,12 +44,18 @@ TEST(Raft, SpectralMatrices) {
   index_type nrows = 0;
   sparse_matrix_t<index_type, value_type> sm1{ro, ci, vs, nrows, nnz};
   sparse_matrix_t<index_type, value_type> sm2{empty_graph};
+  ASSERT_EQ(nullptr, sm1.row_offsets_);
+  ASSERT_EQ(nullptr, sm2.row_offsets_);
 
   laplacian_matrix_t<index_type, value_type> lm1{h, ro, ci, vs, nrows, nnz};
   laplacian_matrix_t<index_type, value_type> lm2{h, empty_graph};
+  ASSERT_EQ(nullptr, lm1.diagonal_.raw());
+  ASSERT_EQ(nullptr, lm2.diagonal_.raw());
 
   modularity_matrix_t<index_type, value_type> mm1{h, ro, ci, vs, nrows, nnz};
   modularity_matrix_t<index_type, value_type> mm2{h, empty_graph};
+  ASSERT_EQ(nullptr, mm1.diagonal_.raw());
+  ASSERT_EQ(nullptr, mm2.diagonal_.raw());
 }
 
 }  // namespace raft
