@@ -56,6 +56,9 @@ TEST(Raft, SpectralSolvers) {
   unsigned long long seed{100110021003};
   computeSmallestEigenvectors(h, lm1, neigvs, maxiter, restart_iter, tol,
                               reorthog, iter, eigvals, eigvecs, seed);
+
+  computeLargestEigenvectors(h, lm1, neigvs, maxiter, restart_iter, tol,
+                             reorthog, iter, eigvals, eigvecs, seed);
 }
 
 }  // namespace raft
