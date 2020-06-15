@@ -28,6 +28,7 @@
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/handle.hpp>
 #include <raft/spectral/error_temp.hpp>
+#include <raft/spectral/lapack.hpp>
 #include <raft/spectral/matrix_wrappers.hpp>
 
 namespace raft {
@@ -69,7 +70,7 @@ namespace {
  */
 template <typename IndexType_, typename ValueType_>
 int performLanczosIteration(
-  handle_t handle, sparse_matrix_t<IndexType_, ValueType_> const *A,
+  handle_t const &handle, sparse_matrix_t<IndexType_, ValueType_> const *A,
   IndexType_ *iter, IndexType_ maxIter, ValueType_ shift, ValueType_ tol,
   bool reorthogonalize, ValueType_ *__restrict__ alpha_host,
   ValueType_ *__restrict__ beta_host, ValueType_ *__restrict__ lanczosVecs_dev,
@@ -82,13 +83,14 @@ int performLanczosIteration(
   const ValueType_ one = 1;
   const ValueType_ negOne = -1;
   const ValueType_ zero = 0;
+  ValueType_ alpha;
 
   auto cublas_h = handle.get_cublas_handle();
   auto stream = handle.get_stream();
 
   RAFT_EXPECT(A != nullptr, "Null matrix pointer.");
 
-  IndexType_ n = A->nrows;
+  IndexType_ n = A->nrows_;
 
   // -------------------------------------------------------
   // Compute second Lanczos vector
@@ -108,7 +110,7 @@ int performLanczosIteration(
                            lanczosVecs_dev + IDX(0, 1, n), 1, alpha_host,
                            stream));
 
-    auto alpha = -alpha_host[0];
+    alpha = -alpha_host[0];
     CUBLAS_CHECK(cublasaxpy(cublas_h, n, &alpha, lanczosVecs_dev, 1,
                             lanczosVecs_dev + IDX(0, 1, n), 1, stream));
     CUBLAS_CHECK(cublasnrm2(cublas_h, n, lanczosVecs_dev + IDX(0, 1, n), 1,
@@ -443,7 +445,7 @@ static int francisQRIteration(IndexType_ n, ValueType_ shift1,
  */
 template <typename IndexType_, typename ValueType_>
 static int lanczosRestart(
-  handle_t handle, IndexType_ n, IndexType_ iter, IndexType_ iter_new,
+  handle_t const &handle, IndexType_ n, IndexType_ iter, IndexType_ iter_new,
   ValueType_ *shiftUpper, ValueType_ *shiftLower,
   ValueType_ *__restrict__ alpha_host, ValueType_ *__restrict__ beta_host,
   ValueType_ *__restrict__ V_host, ValueType_ *__restrict__ work_host,
@@ -500,16 +502,16 @@ static int lanczosRestart(
       *shiftUpper = ritzVals_host[iter - 1];
       *shiftLower = ritzVals_host[iter_new];
     } else {
-      *shiftUpper = max(*shiftUpper, ritzVals_host[iter - 1]);
-      *shiftLower = min(*shiftLower, ritzVals_host[iter_new]);
+      *shiftUpper = std::max(*shiftUpper, ritzVals_host[iter - 1]);
+      *shiftLower = std::min(*shiftLower, ritzVals_host[iter_new]);
     }
   } else {
     if (*shiftLower > *shiftUpper) {
       *shiftUpper = ritzVals_host[iter - iter_new - 1];
       *shiftLower = ritzVals_host[0];
     } else {
-      *shiftUpper = max(*shiftUpper, ritzVals_host[iter - iter_new - 1]);
-      *shiftLower = min(*shiftLower, ritzVals_host[0]);
+      *shiftUpper = std::max(*shiftUpper, ritzVals_host[iter - iter_new - 1]);
+      *shiftLower = std::min(*shiftLower, ritzVals_host[0]);
     }
   }
 
@@ -617,7 +619,7 @@ static int lanczosRestart(
  */
 template <typename IndexType_, typename ValueType_>
 int computeSmallestEigenvectors(
-  handle_t handle, sparse_matrix_t<IndexType_, ValueType_> const *A,
+  handle_t const &handle, sparse_matrix_t<IndexType_, ValueType_> const *A,
   IndexType_ nEigVecs, IndexType_ maxIter, IndexType_ restartIter,
   ValueType_ tol, bool reorthogonalize, IndexType_ *effIter,
   IndexType_ *totalIter, ValueType_ *shift, ValueType_ *__restrict__ alpha_host,
@@ -633,7 +635,7 @@ int computeSmallestEigenvectors(
   const ValueType_ zero = 0;
 
   // Matrix dimension
-  IndexType_ n = A->nrows;
+  IndexType_ n = A->nrows_;
 
   // Shift for implicit restart
   ValueType_ shiftUpper;
@@ -851,13 +853,13 @@ int computeSmallestEigenvectors(
  */
 template <typename IndexType_, typename ValueType_>
 int computeSmallestEigenvectors(
-  handle_t handle, sparse_matrix_t<IndexType_, ValueType_> const &A,
+  handle_t const &handle, sparse_matrix_t<IndexType_, ValueType_> const &A,
   IndexType_ nEigVecs, IndexType_ maxIter, IndexType_ restartIter,
   ValueType_ tol, bool reorthogonalize, IndexType_ &iter,
   ValueType_ *__restrict__ eigVals_dev, ValueType_ *__restrict__ eigVecs_dev,
   unsigned long long seed = 1234567) {
   // Matrix dimension
-  IndexType_ n = A.nrows;
+  IndexType_ n = A.nrows_;
 
   // Check that parameters are valid
   RAFT_EXPECT(nEigVecs > 0 && nEigVecs <= n, "Invalid number of eigenvectors.");
@@ -936,7 +938,7 @@ int computeSmallestEigenvectors(
  */
 template <typename IndexType_, typename ValueType_>
 int computeLargestEigenvectors(
-  handle_t handle, sparse_matrix_t<IndexType_, ValueType_> const *A,
+  handle_t const &handle, sparse_matrix_t<IndexType_, ValueType_> const *A,
   IndexType_ nEigVecs, IndexType_ maxIter, IndexType_ restartIter,
   ValueType_ tol, bool reorthogonalize, IndexType_ *effIter,
   IndexType_ *totalIter, ValueType_ *__restrict__ alpha_host,
@@ -952,7 +954,7 @@ int computeLargestEigenvectors(
   const ValueType_ zero = 0;
 
   // Matrix dimension
-  IndexType_ n = A->nrows;
+  IndexType_ n = A->nrows_;
 
   // Lanczos iteration counters
   IndexType_ maxIter_curr = restartIter;  // Maximum size of Lanczos system
@@ -1170,7 +1172,7 @@ int computeLargestEigenvectors(
  *  @return error flag.
  */
 template <typename IndexType_, typename ValueType_>
-int computeLargestEigenvectors(handle_t handle,
+int computeLargestEigenvectors(handle_t const &handle,
                                sparse_matrix_t<IndexType_, ValueType_> const &A,
                                IndexType_ nEigVecs, IndexType_ maxIter,
                                IndexType_ restartIter, ValueType_ tol,
@@ -1179,7 +1181,7 @@ int computeLargestEigenvectors(handle_t handle,
                                ValueType_ *__restrict__ eigVecs_dev,
                                unsigned long long seed = 123456) {
   // Matrix dimension
-  IndexType_ n = A.nrows;
+  IndexType_ n = A.nrows_;
 
   // Check that parameters are valid
   RAFT_EXPECT(nEigVecs > 0 && nEigVecs <= n, "Invalid number of eigenvectors.");
