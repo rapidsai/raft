@@ -97,11 +97,11 @@ struct sparse_matrix_t {
 
   sparse_matrix_t(
     GraphCSRView<index_type, index_type, value_type> const& csr_view)
-    : row_offsets_(csr_view.offsets_),
-      col_indices_(csr_view.indices_),
-      values_(csr_view.edge_data_),
-      nrows_(csr_view.number_of_vertices_),
-      nnz_(csr_view.number_of_edges_) {}
+    : row_offsets_(csr_view.offsets),
+      col_indices_(csr_view.indices),
+      values_(csr_view.edge_data),
+      nrows_(csr_view.number_of_vertices),
+      nnz_(csr_view.number_of_edges) {}
 
   virtual ~sparse_matrix_t(void) =
     default;  // virtual because used as base for following matrix types
