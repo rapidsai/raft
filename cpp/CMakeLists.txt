@@ -205,7 +205,8 @@ if(BUILD_RAFT_TESTS)
     test/handle.cpp
     test/mr/device/buffer.cpp
     test/mr/host/buffer.cpp
-    test/test.cpp)
+    test/test.cpp
+    test/spectral_matrix.cpp)
 
   target_include_directories(test_raft
     PRIVATE

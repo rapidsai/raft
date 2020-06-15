@@ -87,8 +87,8 @@ class vector_t {
 template <typename index_type, typename value_type>
 struct sparse_matrix_t {
   sparse_matrix_t(index_type const* row_offsets, index_type const* col_indices,
-                  value_type const* values, index_type const nnz,
-                  index_type const nrows)
+                  value_type const* values, index_type const nrows,
+                  index_type const nnz)
     : row_offsets_(row_offsets),
       col_indices_(col_indices),
       values_(values),
@@ -146,7 +146,7 @@ struct laplacian_matrix_t : sparse_matrix_t<index_type, value_type> {
     handle_t const& raft_handle,
     GraphCSRView<index_type, index_type, value_type> const& csr_view)
     : sparse_matrix_t<index_type, value_type>(csr_view),
-      diagonal_(raft_handle, csr_view.number_of_vertices_) {
+      diagonal_(raft_handle, csr_view.number_of_vertices) {
     //TODO: more work, here:
     //
     // vector_t<value_type> ones(csr_view.number_of_vertices_);
