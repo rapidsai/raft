@@ -19,7 +19,7 @@
 #include <memory>
 #include <raft/handle.hpp>
 
-#include <raft/spectral/kmeans.hpp>
+#include <raft/spectral/cluster_solvers.hpp>
 
 namespace raft {
 

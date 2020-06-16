@@ -38,11 +38,11 @@ struct cluster_solver_config_t {
 template <typename index_type_t, typename value_type_t,
           typename size_type_t = index_type_t>
 struct kmeans_solver_t {
-  explicit kmeans_solver_t(
-    cluster_solver_config_t<index_t, value_type_t, size_type_t> const& config)
+  explicit kmeans_solver_t(cluster_solver_config_t<index_type_t, value_type_t,
+                                                   size_type_t> const& config)
     : config_(config) {}
 
-  template <thrust_exe_policy_t>
+  template <typename thrust_exe_policy_t>
   std::pair<value_type_t, index_type_t> solve(
     handle_t handle, thrust_exe_policy_t t_exe_policy, size_type_t n_obs_vecs,
     size_type_t dim, value_type_t const* __restrict__ obs,
@@ -58,6 +58,6 @@ struct kmeans_solver_t {
   auto const& get_config(void) const { return config_; }
 
  private:
-  cluster_solver_config_t<index_t, value_type_t, size_type_t> config_;
+  cluster_solver_config_t<index_type_t, value_type_t, size_type_t> config_;
 };
 }  // namespace raft
