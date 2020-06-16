@@ -19,7 +19,7 @@
 #include <memory>
 #include <raft/handle.hpp>
 
-#include <raft/spectral/lanczos.hpp>
+#include <raft/spectral/eigen_solvers.hpp>
 
 namespace raft {
 
@@ -53,11 +53,15 @@ TEST(Raft, SpectralSolvers) {
   value_type* eigvals{nullptr};
   value_type* eigvecs{nullptr};
   unsigned long long seed{100110021003};
-  computeSmallestEigenvectors(h, lm1, neigvs, maxiter, restart_iter, tol,
-                              reorthog, iter, eigvals, eigvecs, seed);
 
-  computeLargestEigenvectors(h, lm1, neigvs, maxiter, restart_iter, tol,
-                             reorthog, iter, eigvals, eigvecs, seed);
+  eigen_solver_config_t<index_type, value_type> cfg{
+    neigvs, maxiter, restart_iter, tol, reorthog, seed};
+
+  lanczos_solver_t<index_type, value_type> eig_solver{cfg};
+
+  eig_solver.solve_smallest_eigenvectors(h, lm1, eigvals, eigvecs);
+
+  eig_solver.solve_largest_eigenvectors(h, lm1, eigvals, eigvecs);
 }
 
 }  // namespace raft

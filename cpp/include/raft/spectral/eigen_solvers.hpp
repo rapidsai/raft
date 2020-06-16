@@ -40,12 +40,13 @@ struct eigen_solver_config_t {
 template <typename index_type_t, typename value_type_t,
           typename size_type_t = index_type_t>
 struct lanczos_solver_t {
-  explicit lanczos_solver_t(
-    eigen_solver_config_t<index_t, value_type_t, size_type_t> const& config)
+  explicit lanczos_solver_t(eigen_solver_config_t<index_type_t, value_type_t,
+                                                  size_type_t> const& config)
     : config_(config) {}
 
   index_type_t solve_smallest_eigenvectors(
-    handle_t handle, sparse_matrix_t<index_type_t, value_type_t> const& A,
+    handle_t const& handle,
+    sparse_matrix_t<index_type_t, value_type_t> const& A,
     value_type_t* __restrict__ eigVals,
     value_type_t* __restrict__ eigVecs) const {
     index_type_t iters{};
@@ -57,7 +58,8 @@ struct lanczos_solver_t {
   }
 
   index_type_t solve_largest_eigenvectors(
-    handle_t handle, sparse_matrix_t<index_type_t, value_type_t> const& A,
+    handle_t const& handle,
+    sparse_matrix_t<index_type_t, value_type_t> const& A,
     value_type_t* __restrict__ eigVals,
     value_type_t* __restrict__ eigVecs) const {
     index_type_t iters{};
@@ -71,6 +73,6 @@ struct lanczos_solver_t {
   auto const& get_config(void) const { return config_; }
 
  private:
-  eigen_solver_config_t<index_t, value_type_t, size_type_t> config_;
+  eigen_solver_config_t<index_type_t, value_type_t, size_type_t> config_;
 };
 }  // namespace raft
