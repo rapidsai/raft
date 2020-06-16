@@ -191,7 +191,7 @@ void analyzeModularity(handle_t handle, ThrustExePolicy thrust_exec_policy,
 
   // Iterate through partitions
   for (i = 0; i < nClusters; ++i) {
-    if (!construct_indicator(handle, thrust_exec_policy, n, clustersize,
+    if (!construct_indicator(handle, thrust_exec_policy, i, n, clustersize,
                              partModularity, clusters, part_i, Bx, B)) {
       WARNING("empty partition");
       continue;

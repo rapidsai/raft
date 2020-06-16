@@ -122,6 +122,9 @@ void transform_eigen_matrix(handle_t handle, ThrustExePolicy thrust_exec_policy,
   auto cublas_h = handle.get_cublas_handle();
   auto stream = handle.get_stream();
 
+  const weight_t zero{0.0};
+  const weight_t one{1.0};
+
   // Whiten eigenvector matrix
   for (auto i = 0; i < nEigVecs; ++i) {
     weight_t mean, std;
@@ -190,9 +193,11 @@ struct equal_to_i_op {
 
 // Construct indicator vector for ith partition
 //
-template <typename vertex_t, typename edge_t, typename weight_t>
+template <typename vertex_t, typename edge_t, typename weight_t,
+          typename ThrustExePolicy>
 bool construct_indicator(handle_t handle, ThrustExePolicy thrust_exec_policy,
-                         edge_t n, weight_t& clustersize, weight_t& partStats,
+                         edge_t index, edge_t n, weight_t& clustersize,
+                         weight_t& partStats,
                          vertex_t const* __restrict__ clusters,
                          vector_t<weight_t>& part_i, vector_t<weight_t>& Bx,
                          laplacian_matrix_t<vertex_t, weight_t> const& B) {
@@ -206,7 +211,7 @@ bool construct_indicator(handle_t handle, ThrustExePolicy thrust_exec_policy,
                    thrust::make_zip_iterator(thrust::make_tuple(
                      thrust::device_pointer_cast(clusters + n),
                      thrust::device_pointer_cast(part_i.raw() + n))),
-                   equal_to_i_op<vertex_t, weight_t>(i));
+                   equal_to_i_op<vertex_t, weight_t>(index));
   CUDA_CHECK_LAST();
 
   // Compute size of ith partition

@@ -207,8 +207,8 @@ if(BUILD_RAFT_TESTS)
     test/mr/host/buffer.cpp
     test/test.cpp
     test/spectral_matrix.cpp
-    test/spectral_solvers.cpp
-    test/spectral_solvers.cu)
+    test/eigen_solvers.cu
+    test/cluster_solvers.cu)
 
   target_include_directories(test_raft
     PRIVATE

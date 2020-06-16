@@ -19,7 +19,7 @@
 #include <memory>
 #include <raft/handle.hpp>
 
-#include <raft/spectral/eigen_solvers.hpp>
+#include <raft/spectral/partition.hpp>
 
 namespace raft {
 
@@ -49,7 +49,6 @@ TEST(Raft, SpectralSolvers) {
   value_type tol{1.0e-10};
   bool reorthog{true};
 
-  index_type iter;
   value_type* eigvals{nullptr};
   value_type* eigvecs{nullptr};
   unsigned long long seed{100110021003};

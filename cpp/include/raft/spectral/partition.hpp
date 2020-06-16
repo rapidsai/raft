@@ -67,7 +67,7 @@ template <typename vertex_t, typename edge_t, typename weight_t,
           typename EigenSolver = lanczos_solver_t<vertex_t, weight_t>,
           typename ClusterSolver = kmeans_solver_t<vertex_t, weight_t>>
 std::tuple<vertex_t, weight_t, vertex_t> partition(
-  handle_t handle, ThrustExePolicy thrust_exec_policy,
+  handle_t const &handle, ThrustExePolicy thrust_exec_policy,
   GraphCSRView<vertex_t, edge_t, weight_t> const &graph,
   EigenSolver const &eigen_solver, ClusterSolver const &cluster_solver,
   vertex_t *__restrict__ clusters, weight_t *eigVals, weight_t *eigVecs) {
@@ -94,7 +94,7 @@ std::tuple<vertex_t, weight_t, vertex_t> partition(
   laplacian_matrix_t<vertex_t, weight_t> L{handle, graph};
 
   auto eigen_config = eigen_solver.get_config();
-  auto nEigVecs = eigen_configs.n_eigVecs;
+  auto nEigVecs = eigen_config.n_eigVecs;
 
   // Compute smallest eigenvalues and eigenvectors
   std::get<0>(stats) =
@@ -131,8 +131,10 @@ std::tuple<vertex_t, weight_t, vertex_t> partition(
  *  @param cost On exit, partition cost function.
  *  @return error flag.
  */
-template <typename vertex_t, typename edge_t, typename weight_t>
-void analyzePartition(handle_t handle, ThrustExePolicy thrust_exec_policy,
+template <typename vertex_t, typename edge_t, typename weight_t,
+          typename ThrustExePolicy>
+void analyzePartition(handle_t const &handle,
+                      ThrustExePolicy thrust_exec_policy,
                       GraphCSRView<vertex_t, edge_t, weight_t> const &graph,
                       vertex_t nClusters, const vertex_t *__restrict__ clusters,
                       weight_t &edgeCut, weight_t &cost) {
@@ -163,7 +165,7 @@ void analyzePartition(handle_t handle, ThrustExePolicy thrust_exec_policy,
   // Iterate through partitions
   for (i = 0; i < nClusters; ++i) {
     // Construct indicator vector for ith partition
-    if (!construct_indicator(handle, thrust_exec_policy, n, clustersize,
+    if (!construct_indicator(handle, thrust_exec_policy, i, n, clustersize,
                              partEdgesCut, clusters, part_i, Lx, L)) {
       WARNING("empty partition");
       continue;
