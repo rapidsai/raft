@@ -44,18 +44,42 @@
 #include <cuda_runtime.h>
 
 #include <raft/cudart_utils.h>
+#include <raft/error.hpp>
 
-#define NCCL_CHECK(call)                                                       \
-  do {                                                                         \
-    ncclResult_t status = call;                                                \
-    ASSERT(ncclSuccess == status, "ERROR: NCCL call='%s'. Reason:%s\n", #call, \
-           ncclGetErrorString(status));                                        \
-  } while (0)
+namespace raft {
+
+/**
+ * @brief Exception thrown when a NCCL error is encountered.
+ */
+struct nccl_error : public raft::exception {
+  explicit nccl_error(char const *const message) : raft::exception(message) {}
+  explicit nccl_error(std::string const &message) : raft::exception(message) {}
+};
+
+}  // namespace raft
+
+/**
+ * @brief Error checking macro for NCCL runtime API functions.
+ *
+ * Invokes a NCCL runtime API function call, if the call does not return ncclSuccess, throws an
+ * exception detailing the NCCL error that occurred
+ */
+#define NCCL_TRY(call)                                                        \
+  do {                                                                        \
+    ncclResult_t const status = (call);                                       \
+    if (ncclSuccess != status) {                                              \
+      std::string msg{};                                                      \
+      SET_ERROR_MSG(msg,                                                      \
+                    "NCCL error encountered at: ", "call='%s', Reason=%d:%s", \
+                    #call, status, ncclGetErrorString(status));               \
+      throw raft::nccl_error(msg);                                            \
+    }                                                                         \
+  } while (0);
 
 #define NCCL_CHECK_NO_THROW(call)                         \
   do {                                                    \
     ncclResult_t status = call;                           \
-    if (status != ncclSuccess) {                          \
+    if (ncclSuccess != status) {                          \
       printf("NCCL call='%s' failed. Reason:%s\n", #call, \
              ncclGetErrorString(status));                 \
     }                                                     \
@@ -65,8 +89,6 @@ namespace raft {
 namespace comms {
 
 static size_t get_datatype_size(const datatype_t datatype) {
-  size_t ret = -1;
-
   switch (datatype) {
     case datatype_t::CHAR:
       return sizeof(char);
@@ -85,7 +107,7 @@ static size_t get_datatype_size(const datatype_t datatype) {
     case datatype_t::FLOAT64:
       return sizeof(double);
     default:
-      throw "Unsupported";
+      RAFT_FAIL("Unsupported datatype.");
   }
 }
 
@@ -144,13 +166,13 @@ class std_comms : public comms_iface {
             const std::shared_ptr<mr::device::allocator> device_allocator,
             cudaStream_t stream)
     : nccl_comm_(nccl_comm),
-      ucp_worker_(ucp_worker),
-      ucp_eps_(eps),
+      stream_(stream),
       num_ranks_(num_ranks),
       rank_(rank),
-      device_allocator_(device_allocator),
-      stream_(stream),
-      next_request_id_(0) {
+      ucp_worker_(ucp_worker),
+      ucp_eps_(eps),
+      next_request_id_(0),
+      device_allocator_(device_allocator) {
     initialize();
   };
 
@@ -164,10 +186,10 @@ class std_comms : public comms_iface {
             const std::shared_ptr<mr::device::allocator> device_allocator,
             cudaStream_t stream)
     : nccl_comm_(nccl_comm),
+      stream_(stream),
       num_ranks_(num_ranks),
       rank_(rank),
-      device_allocator_(device_allocator),
-      stream_(stream) {
+      device_allocator_(device_allocator) {
     initialize();
   };
 
@@ -323,29 +345,28 @@ class std_comms : public comms_iface {
 
   void allreduce(const void *sendbuff, void *recvbuff, size_t count,
                  datatype_t datatype, op_t op, cudaStream_t stream) const {
-    NCCL_CHECK(ncclAllReduce(sendbuff, recvbuff, count,
-                             get_nccl_datatype(datatype), get_nccl_op(op),
-                             nccl_comm_, stream));
+    NCCL_TRY(ncclAllReduce(sendbuff, recvbuff, count,
+                           get_nccl_datatype(datatype), get_nccl_op(op),
+                           nccl_comm_, stream));
   }
 
   void bcast(void *buff, size_t count, datatype_t datatype, int root,
              cudaStream_t stream) const {
-    NCCL_CHECK(ncclBroadcast(buff, buff, count, get_nccl_datatype(datatype),
-                             root, nccl_comm_, stream));
+    NCCL_TRY(ncclBroadcast(buff, buff, count, get_nccl_datatype(datatype), root,
+                           nccl_comm_, stream));
   }
 
   void reduce(const void *sendbuff, void *recvbuff, size_t count,
               datatype_t datatype, op_t op, int root,
               cudaStream_t stream) const {
-    NCCL_CHECK(ncclReduce(sendbuff, recvbuff, count,
-                          get_nccl_datatype(datatype), get_nccl_op(op), root,
-                          nccl_comm_, stream));
+    NCCL_TRY(ncclReduce(sendbuff, recvbuff, count, get_nccl_datatype(datatype),
+                        get_nccl_op(op), root, nccl_comm_, stream));
   }
 
   void allgather(const void *sendbuff, void *recvbuff, size_t sendcount,
                  datatype_t datatype, cudaStream_t stream) const {
-    NCCL_CHECK(ncclAllGather(sendbuff, recvbuff, sendcount,
-                             get_nccl_datatype(datatype), nccl_comm_, stream));
+    NCCL_TRY(ncclAllGather(sendbuff, recvbuff, sendcount,
+                           get_nccl_datatype(datatype), nccl_comm_, stream));
   }
 
   void allgatherv(const void *sendbuf, void *recvbuf, const size_t recvcounts[],
@@ -355,7 +376,7 @@ class std_comms : public comms_iface {
     //Listing 1 on page 4.
     for (int root = 0; root < num_ranks_; ++root) {
       size_t dtype_size = get_datatype_size(datatype);
-      NCCL_CHECK(ncclBroadcast(
+      NCCL_TRY(ncclBroadcast(
         sendbuf, static_cast<char *>(recvbuf) + displs[root] * dtype_size,
         recvcounts[root], get_nccl_datatype(datatype), root, nccl_comm_,
         stream));
@@ -364,9 +385,9 @@ class std_comms : public comms_iface {
 
   void reducescatter(const void *sendbuff, void *recvbuff, size_t recvcount,
                      datatype_t datatype, op_t op, cudaStream_t stream) const {
-    NCCL_CHECK(ncclReduceScatter(sendbuff, recvbuff, recvcount,
-                                 get_nccl_datatype(datatype), get_nccl_op(op),
-                                 nccl_comm_, stream));
+    NCCL_TRY(ncclReduceScatter(sendbuff, recvbuff, recvcount,
+                               get_nccl_datatype(datatype), get_nccl_op(op),
+                               nccl_comm_, stream));
   }
 
   status_t sync_stream(cudaStream_t stream) const {
