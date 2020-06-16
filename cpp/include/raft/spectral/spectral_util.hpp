@@ -117,8 +117,9 @@ cudaError_t scale_obs(IndexType_ m, IndexType_ n, ValueType_* obs) {
 
 template <typename vertex_t, typename edge_t, typename weight_t,
           typename ThrustExePolicy>
-void transform_eigen_matrix(handle_t handle, ThrustExePolicy thrust_exec_policy,
-                            edge_t n, vertex_t nEigVecs, weight_t* eigVecs) {
+void transform_eigen_matrix(handle_t const& handle,
+                            ThrustExePolicy thrust_exec_policy, edge_t n,
+                            vertex_t nEigVecs, weight_t* eigVecs) {
   auto cublas_h = handle.get_cublas_handle();
   auto stream = handle.get_stream();
 
@@ -195,9 +196,9 @@ struct equal_to_i_op {
 //
 template <typename vertex_t, typename edge_t, typename weight_t,
           typename ThrustExePolicy>
-bool construct_indicator(handle_t handle, ThrustExePolicy thrust_exec_policy,
-                         edge_t index, edge_t n, weight_t& clustersize,
-                         weight_t& partStats,
+bool construct_indicator(handle_t const& handle,
+                         ThrustExePolicy thrust_exec_policy, edge_t index,
+                         edge_t n, weight_t& clustersize, weight_t& partStats,
                          vertex_t const* __restrict__ clusters,
                          vector_t<weight_t>& part_i, vector_t<weight_t>& Bx,
                          laplacian_matrix_t<vertex_t, weight_t> const& B) {

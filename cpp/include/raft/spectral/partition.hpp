@@ -63,24 +63,19 @@ using namespace linalg;
  *  @return statistics: number of eigensolver iterations, .
  */
 template <typename vertex_t, typename edge_t, typename weight_t,
-          typename ThrustExePolicy,
-          typename EigenSolver = lanczos_solver_t<vertex_t, weight_t>,
-          typename ClusterSolver = kmeans_solver_t<vertex_t, weight_t>>
+          typename ThrustExePolicy, typename EigenSolver,
+          typename ClusterSolver>
 std::tuple<vertex_t, weight_t, vertex_t> partition(
   handle_t const &handle, ThrustExePolicy thrust_exec_policy,
   GraphCSRView<vertex_t, edge_t, weight_t> const &graph,
   EigenSolver const &eigen_solver, ClusterSolver const &cluster_solver,
   vertex_t *__restrict__ clusters, weight_t *eigVals, weight_t *eigVecs) {
-  const weight_t zero{0.0};
-  const weight_t one{1.0};
-
   auto cublas_h = handle.get_cublas_handle();
   auto stream = handle.get_stream();
 
   std::tuple<vertex_t, weight_t, vertex_t>
     stats;  //{iters_eig_solver,residual_cluster,iters_cluster_solver} // # iters eigen solver, cluster solver residual, # iters cluster solver
 
-  edge_t i;
   edge_t n = graph.number_of_vertices;
 
   // -------------------------------------------------------
@@ -98,7 +93,7 @@ std::tuple<vertex_t, weight_t, vertex_t> partition(
 
   // Compute smallest eigenvalues and eigenvectors
   std::get<0>(stats) =
-    eigen_solver.solve_smallest_eigenvectors(L, eigVals, eigVecs);
+    eigen_solver.solve_smallest_eigenvectors(handle, L, eigVals, eigVecs);
 
   // Whiten eigenvector matrix
   transform_eigen_matrix(handle, thrust_exec_policy, n, nEigVecs, eigVecs);
