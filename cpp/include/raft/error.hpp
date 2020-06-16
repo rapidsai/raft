@@ -118,7 +118,7 @@ struct logic_error : public raft::exception {
 #define SET_ERROR_MSG(msg, location_prefix, fmt, ...)                        \
   do {                                                                       \
     char err_msg[2048]; /* NOLINT */                                         \
-    std::snprintf(err_msg, sizeof(err_msg), "RAFT failure at %s", __FILE__); \
+    std::snprintf(err_msg, sizeof(err_msg), location_prefix);                \
     msg += err_msg;                                                          \
     std::snprintf(err_msg, sizeof(err_msg), "file=%s line=%d: ", __FILE__,   \
                   __LINE__);                                                 \

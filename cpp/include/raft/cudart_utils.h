@@ -71,7 +71,6 @@ struct cuda_error : public raft::exception {
  * deterministic execution for debugging asynchronous CUDA execution. It should
  * be used after any asynchronous CUDA call, e.g., cudaMemcpyAsync, or an
  * asynchronous kernel launch.
- *
  */
 #ifndef NDEBUG
 #define CHECK_CUDA(stream) CUDA_TRY(cudaStreamSynchronize(stream));
