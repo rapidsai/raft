@@ -44,8 +44,9 @@ struct kmeans_solver_t {
 
   template <typename thrust_exe_policy_t>
   std::pair<value_type_t, index_type_t> solve(
-    handle_t handle, thrust_exe_policy_t t_exe_policy, size_type_t n_obs_vecs,
-    size_type_t dim, value_type_t const* __restrict__ obs,
+    handle_t const& handle, thrust_exe_policy_t t_exe_policy,
+    size_type_t n_obs_vecs, size_type_t dim,
+    value_type_t const* __restrict__ obs,
     index_type_t* __restrict__ codes) const {
     value_type_t residual{};
     index_type_t iters{};

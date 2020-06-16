@@ -34,21 +34,22 @@ TEST(Raft, ClusterSolvers) {
 
   index_type maxiter{100};
   value_type tol{1.0e-10};
-  index_type iter;
   value_type* eigvecs{nullptr};
   unsigned long long seed{100110021003};
 
   auto stream = h.get_stream();
-  //thrust::cuda::par.on(stream);
 
   index_type n{100};
   index_type d{10};
   index_type k{5};
   index_type* codes{nullptr};
-  value_type residual;
 
-  kmeans(h, thrust::cuda::par.on(stream), n, d, k, tol, maxiter, eigvecs, codes,
-         residual, iter, seed);
+  cluster_solver_config_t<index_type, value_type> cfg{k, maxiter, tol, seed};
+
+  kmeans_solver_t<index_type, value_type> cluster_solver{cfg};
+
+  auto pair_ret =
+    cluster_solver.solve(h, thrust::cuda::par.on(stream), n, d, eigvecs, codes);
 }
 
 }  // namespace raft
