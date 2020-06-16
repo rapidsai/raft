@@ -76,9 +76,6 @@ struct nccl_error : public raft::exception {
     }                                                                         \
   } while (0);
 
-/** FIXME: temporary alias for cuML compatibility */
-#define NCCL_CHECK(call) NCCL_TRY(call)
-
 #define NCCL_CHECK_NO_THROW(call)                         \
   do {                                                    \
     ncclResult_t status = call;                           \
@@ -349,29 +346,29 @@ class std_comms : public comms_iface {
 
   void allreduce(const void *sendbuff, void *recvbuff, size_t count,
                  datatype_t datatype, op_t op, cudaStream_t stream) const {
-    NCCL_CHECK(ncclAllReduce(sendbuff, recvbuff, count,
-                             get_nccl_datatype(datatype), get_nccl_op(op),
-                             nccl_comm_, stream));
+    NCCL_TRY(ncclAllReduce(sendbuff, recvbuff, count,
+                           get_nccl_datatype(datatype), get_nccl_op(op),
+                           nccl_comm_, stream));
   }
 
   void bcast(void *buff, size_t count, datatype_t datatype, int root,
              cudaStream_t stream) const {
-    NCCL_CHECK(ncclBroadcast(buff, buff, count, get_nccl_datatype(datatype),
-                             root, nccl_comm_, stream));
+    NCCL_TRY(ncclBroadcast(buff, buff, count, get_nccl_datatype(datatype),
+                           root, nccl_comm_, stream));
   }
 
   void reduce(const void *sendbuff, void *recvbuff, size_t count,
               datatype_t datatype, op_t op, int root,
               cudaStream_t stream) const {
-    NCCL_CHECK(ncclReduce(sendbuff, recvbuff, count,
-                          get_nccl_datatype(datatype), get_nccl_op(op), root,
-                          nccl_comm_, stream));
+    NCCL_TRY(ncclReduce(sendbuff, recvbuff, count,
+                        get_nccl_datatype(datatype), get_nccl_op(op), root,
+                        nccl_comm_, stream));
   }
 
   void allgather(const void *sendbuff, void *recvbuff, size_t sendcount,
                  datatype_t datatype, cudaStream_t stream) const {
-    NCCL_CHECK(ncclAllGather(sendbuff, recvbuff, sendcount,
-                             get_nccl_datatype(datatype), nccl_comm_, stream));
+    NCCL_TRY(ncclAllGather(sendbuff, recvbuff, sendcount,
+                           get_nccl_datatype(datatype), nccl_comm_, stream));
   }
 
   void allgatherv(const void *sendbuf, void *recvbuf, const size_t recvcounts[],
@@ -381,7 +378,7 @@ class std_comms : public comms_iface {
     //Listing 1 on page 4.
     for (int root = 0; root < num_ranks_; ++root) {
       size_t dtype_size = get_datatype_size(datatype);
-      NCCL_CHECK(ncclBroadcast(
+      NCCL_TRY(ncclBroadcast(
         sendbuf, static_cast<char *>(recvbuf) + displs[root] * dtype_size,
         recvcounts[root], get_nccl_datatype(datatype), root, nccl_comm_,
         stream));
@@ -390,9 +387,9 @@ class std_comms : public comms_iface {
 
   void reducescatter(const void *sendbuff, void *recvbuff, size_t recvcount,
                      datatype_t datatype, op_t op, cudaStream_t stream) const {
-    NCCL_CHECK(ncclReduceScatter(sendbuff, recvbuff, recvcount,
-                                 get_nccl_datatype(datatype), get_nccl_op(op),
-                                 nccl_comm_, stream));
+    NCCL_TRY(ncclReduceScatter(sendbuff, recvbuff, recvcount,
+                               get_nccl_datatype(datatype), get_nccl_op(op),
+                               nccl_comm_, stream));
   }
 
   status_t sync_stream(cudaStream_t stream) const {
