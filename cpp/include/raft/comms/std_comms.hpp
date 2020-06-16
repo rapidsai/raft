@@ -353,16 +353,15 @@ class std_comms : public comms_iface {
 
   void bcast(void *buff, size_t count, datatype_t datatype, int root,
              cudaStream_t stream) const {
-    NCCL_TRY(ncclBroadcast(buff, buff, count, get_nccl_datatype(datatype),
-                           root, nccl_comm_, stream));
+    NCCL_TRY(ncclBroadcast(buff, buff, count, get_nccl_datatype(datatype), root,
+                           nccl_comm_, stream));
   }
 
   void reduce(const void *sendbuff, void *recvbuff, size_t count,
               datatype_t datatype, op_t op, int root,
               cudaStream_t stream) const {
-    NCCL_TRY(ncclReduce(sendbuff, recvbuff, count,
-                        get_nccl_datatype(datatype), get_nccl_op(op), root,
-                        nccl_comm_, stream));
+    NCCL_TRY(ncclReduce(sendbuff, recvbuff, count, get_nccl_datatype(datatype),
+                        get_nccl_op(op), root, nccl_comm_, stream));
   }
 
   void allgather(const void *sendbuff, void *recvbuff, size_t sendcount,
