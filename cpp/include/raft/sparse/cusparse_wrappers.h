@@ -176,6 +176,33 @@ inline cusparseStatus_t cusparsegemmi(cusparseHandle_t handle, int m, int n,
                         cscColPtrB, cscRowIndB, beta, C, ldc);
 }
 /** @} */
+
+#if __CUDACC_VER_MAJOR__ > 10
+/**
+ * @defgroup Csrmv cusparse SpMV operations
+ * @{
+ */
+inline cusparseStatus_t cusparsespmv_buffersize(
+  cusparseHandle_t handle, cusparseOperation_t opA, const void* alpha,
+  const cusparseSpMatDescr_t matA, const cusparseDnVecDescr_t vecX,
+  const void* beta, const cusparseDnVecDescr_t vecY, cudaDataType computeType,
+  cusparseSpMVAlg_t alg, size_t* bufferSize, cudaStream_t stream) {
+  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+  return cusparseSpMV_bufferSize(handle, opA, alpha, matA, vecX, beta, vecY,
+                                 computeType, alg, bufferSize);
+}
+
+inline cusparseStatus_t cusparsespmv(
+  cusparseHandle_t handle, cusparseOperation_t opA, const void* alpha,
+  const cusparseSpMatDescr_t matA, const cusparseDnVecDescr_t vecX,
+  const void* beta, const cusparseDnVecDescr_t vecY, cudaDataType computeType,
+  cusparseSpMVAlg_t alg, void* externalBuffer, cudaStream_t stream) {
+  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+  return cusparseSpMV(handle, opA, alpha, matA, vecX, beta, vecY, computeType,
+                      alg, externalBuffer);
+}
+/** @} */
+#else
 /**
  * @defgroup Csrmv cusparse csrmv operations
  * @{
@@ -207,7 +234,36 @@ inline cusparseStatus_t cusparsecsrmv(
                         csrRowPtr, csrColInd, x, beta, y);
 }
 /** @} */
+#endif
 
+#if __CUDACC_VER_MAJOR__ > 10
+/**
+ * @defgroup Csrmm cusparse csrmm operations
+ * @{
+ */
+inline cusparseStatus_t cusparsespmm_bufferSize(
+  cusparseHandle_t handle, cusparseOperation_t opA, cusparseOperation_t opB,
+  const void* alpha, const cusparseSpMatDescr_t matA,
+  const cusparseDnMatDescr_t matB, const void* beta, cusparseDnMatDescr_t matC,
+  cudaDataType computeType, cusparseSpMMAlg_t alg, size_t* bufferSize,
+  cudaStream_t stream) {
+  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+  return cusparseSpMM_bufferSize(handle, opA, opB, alpha, matA, matB, beta,
+                                 matC, computeType, alg, bufferSize);
+}
+
+inline cusparseStatus_t cusparsespmm(
+  cusparseHandle_t handle, cusparseOperation_t opA, cusparseOperation_t opB,
+  const void* alpha, const cusparseSpMatDescr_t matA,
+  const cusparseDnMatDescr_t matB, const void* beta, cusparseDnMatDescr_t matC,
+  cudaDataType computeType, cusparseSpMMAlg_t alg, void* externalBuffer,
+  cudaStream_t stream) {
+  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+  return cusparseSpMM(handle, opA, opB, alpha, matA, matB, beta, matC,
+                      computeType, alg, externalBuffer);
+}
+/** @} */
+#else
 /**
  * @defgroup Csrmm cusparse csrmm operations
  * @{
@@ -241,6 +297,7 @@ inline cusparseStatus_t cusparsecsrmm(
                         csrRowPtr, csrColInd, x, ldx, beta, y, ldy);
 }
 /** @} */
+#endif
 
 /**
  * @defgroup csr2coo cusparse CSR to COO converter methods
