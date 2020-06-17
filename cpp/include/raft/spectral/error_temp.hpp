@@ -1,10 +1,15 @@
 #pragma once
 
+#include <stdexcept>
+#include <string>
+
 #define STRINGIFY_DETAIL(x) #x
 #define RAFT_STRINGIFY(x) STRINGIFY_DETAIL(x)
 
-
-#define RAFT_EXPECT(cond, reason)
+///#define RAFT_EXPECT(cond, reason)
+inline void RAFT_EXPECT(bool cond, std::string const& reason) {
+  if (!cond) throw std::runtime_error(reason.c_str());
+}
 
 #define RAFT_TRY(error_expression)
 
@@ -28,4 +33,3 @@
 #else  // DEBUG
 #define WARNING(message)
 #endif
-

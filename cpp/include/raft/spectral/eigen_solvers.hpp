@@ -49,6 +49,8 @@ struct lanczos_solver_t {
     sparse_matrix_t<index_type_t, value_type_t> const& A,
     value_type_t* __restrict__ eigVals,
     value_type_t* __restrict__ eigVecs) const {
+    RAFT_EXPECT(eigVals != nullptr, "Null eigVals buffer.");
+    RAFT_EXPECT(eigVecs != nullptr, "Null eigVecs buffer.");
     index_type_t iters{};
     RAFT_TRY(computeSmallestEigenvectors(
       handle, A, config_.n_eigVecs, config_.maxIter, config_.restartIter,
@@ -62,6 +64,8 @@ struct lanczos_solver_t {
     sparse_matrix_t<index_type_t, value_type_t> const& A,
     value_type_t* __restrict__ eigVals,
     value_type_t* __restrict__ eigVecs) const {
+    RAFT_EXPECT(eigVals != nullptr, "Null eigVals buffer.");
+    RAFT_EXPECT(eigVecs != nullptr, "Null eigVecs buffer.");
     index_type_t iters{};
     RAFT_TRY(computeLargestEigenvectors(handle, A, config_.n_eigVecs,
                                         config_.maxIter, config_.restartIter,

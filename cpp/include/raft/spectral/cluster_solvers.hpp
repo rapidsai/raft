@@ -48,6 +48,8 @@ struct kmeans_solver_t {
     size_type_t n_obs_vecs, size_type_t dim,
     value_type_t const* __restrict__ obs,
     index_type_t* __restrict__ codes) const {
+    RAFT_EXPECT(obs != nullptr, "Null obs buffer.");
+    RAFT_EXPECT(codes != nullptr, "Null codes buffer.");
     value_type_t residual{};
     index_type_t iters{};
     RAFT_TRY(kmeans(handle, t_exe_policy, n_obs_vecs, dim, config_.n_clusters,

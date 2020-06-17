@@ -19,7 +19,7 @@
 #include <memory>
 #include <raft/handle.hpp>
 
-#include <raft/spectral/cluster_solvers.hpp>
+#include <raft/spectral/modularity_maximization.hpp>
 
 namespace raft {
 
@@ -34,7 +34,6 @@ TEST(Raft, ClusterSolvers) {
 
   index_type maxiter{100};
   value_type tol{1.0e-10};
-  value_type* eigvecs{nullptr};
   unsigned long long seed{100110021003};
 
   auto stream = h.get_stream();
@@ -42,14 +41,64 @@ TEST(Raft, ClusterSolvers) {
   index_type n{100};
   index_type d{10};
   index_type k{5};
+
+  //nullptr expected to trigger exceptions:
+  //
+  value_type* eigvecs{nullptr};
   index_type* codes{nullptr};
 
   cluster_solver_config_t<index_type, value_type> cfg{k, maxiter, tol, seed};
 
   kmeans_solver_t<index_type, value_type> cluster_solver{cfg};
 
-  auto pair_ret =
-    cluster_solver.solve(h, thrust::cuda::par.on(stream), n, d, eigvecs, codes);
+  EXPECT_ANY_THROW(cluster_solver.solve(h, thrust::cuda::par.on(stream), n, d,
+                                        eigvecs, codes));
+}
+
+TEST(Raft, ModularitySolvers) {
+  using namespace matrix;
+  using index_type = int;
+  using value_type = double;
+
+  handle_t h;
+  ASSERT_EQ(0, h.get_num_internal_streams());
+  ASSERT_EQ(0, h.get_device());
+
+  index_type neigvs{10};
+  index_type maxiter{100};
+  index_type restart_iter{10};
+  value_type tol{1.0e-10};
+  bool reorthog{true};
+
+  //nullptr expected to trigger exceptions:
+  //
+  index_type* clusters{nullptr};
+  value_type* eigvals{nullptr};
+  value_type* eigvecs{nullptr};
+
+  unsigned long long seed{100110021003};
+
+  eigen_solver_config_t<index_type, value_type> eig_cfg{
+    neigvs, maxiter, restart_iter, tol, reorthog, seed};
+  lanczos_solver_t<index_type, value_type> eig_solver{eig_cfg};
+
+  index_type k{5};
+
+  cluster_solver_config_t<index_type, value_type> clust_cfg{k, maxiter, tol,
+                                                            seed};
+  kmeans_solver_t<index_type, value_type> cluster_solver{clust_cfg};
+
+  auto stream = h.get_stream();
+  GraphCSRView<index_type, index_type, value_type> empty_graph;
+  auto t_exe_p = thrust::cuda::par.on(stream);
+
+  EXPECT_ANY_THROW(spectral::modularity_maximization(
+    h, t_exe_p, empty_graph, eig_solver, cluster_solver, clusters, eigvals,
+    eigvecs));
+
+  value_type modularity{0};
+  EXPECT_ANY_THROW(spectral::analyzeModularity(h, t_exe_p, empty_graph, k,
+                                               clusters, modularity));
 }
 
 }  // namespace raft

@@ -83,16 +83,16 @@ using namespace linalg;
  *  @return error flag.
  */
 template <typename vertex_t, typename edge_t, typename weight_t,
-          typename ThrustExePolicy,
-          typename EigenSolver = lanczos_solver_t<vertex_t, weight_t>,
-          typename ClusterSolver = kmeans_solver_t<vertex_t, weight_t>>
+          typename ThrustExePolicy, typename EigenSolver,
+          typename ClusterSolver>
 std::tuple<vertex_t, weight_t, vertex_t> modularity_maximization(
-  handle_t handle, ThrustExePolicy thrust_exec_policy,
+  handle_t const &handle, ThrustExePolicy thrust_exec_policy,
   GraphCSRView<vertex_t, edge_t, weight_t> const &graph,
   EigenSolver const &eigen_solver, ClusterSolver const &cluster_solver,
   vertex_t *__restrict__ clusters, weight_t *eigVals, weight_t *eigVecs) {
-  const weight_t zero{0.0};
-  const weight_t one{1.0};
+  RAFT_EXPECT(clusters != nullptr, "Null clusters buffer.");
+  RAFT_EXPECT(eigVals != nullptr, "Null eigVals buffer.");
+  RAFT_EXPECT(eigVecs != nullptr, "Null eigVecs buffer.");
 
   auto cublas_h = handle.get_cublas_handle();
   auto stream = handle.get_stream();
@@ -109,11 +109,11 @@ std::tuple<vertex_t, weight_t, vertex_t> modularity_maximization(
   modularity_matrix_t<vertex_t, weight_t> B{handle, graph};
 
   auto eigen_config = eigen_solver.get_config();
-  auto nEigVecs = eigen_configs.n_eigVecs;
+  auto nEigVecs = eigen_config.n_eigVecs;
 
   // Compute eigenvectors corresponding to largest eigenvalues
   std::get<0>(stats) =
-    eigen_solver.solve_largest_eigenvectors(B, eigVals, eigVecs);
+    eigen_solver.solve_largest_eigenvectors(handle, B, eigVals, eigVecs);
 
   // Whiten eigenvector matrix
   transform_eigen_matrix(handle, thrust_exec_policy, n, nEigVecs, eigVecs);
@@ -136,24 +136,6 @@ std::tuple<vertex_t, weight_t, vertex_t> modularity_maximization(
 // Analysis of graph partition
 // =========================================================
 
-namespace {
-/// Functor to generate indicator vectors
-/** For use in Thrust transform
- */
-template <typename IndexType_, typename ValueType_>
-struct equal_to_i_op {
-  const IndexType_ i;
-
- public:
-  equal_to_i_op(IndexType_ _i) : i(_i) {}
-  template <typename Tuple_>
-  __host__ __device__ void operator()(Tuple_ t) {
-    thrust::get<1>(t) =
-      (thrust::get<0>(t) == i) ? (ValueType_)1.0 : (ValueType_)0.0;
-  }
-};
-}  // namespace
-
 /// Compute modularity
 /** This function determines the modularity based on a graph and cluster assignments
  *  @param G Weighted graph in CSR format
@@ -161,12 +143,16 @@ struct equal_to_i_op {
  *  @param clusters (Input, device memory, n entries) Cluster assignments.
  *  @param modularity On exit, modularity
  */
-template <typename vertex_t, typename edge_t, typename weight_t>
-void analyzeModularity(handle_t handle, ThrustExePolicy thrust_exec_policy,
+template <typename vertex_t, typename edge_t, typename weight_t,
+          typename ThrustExePolicy>
+void analyzeModularity(handle_t const &handle,
+                       ThrustExePolicy thrust_exec_policy,
                        GraphCSRView<vertex_t, edge_t, weight_t> const &graph,
                        vertex_t nClusters,
                        vertex_t const *__restrict__ clusters,
                        weight_t &modularity) {
+  RAFT_EXPECT(clusters != nullptr, "Null clusters buffer.");
+
   edge_t i;
   edge_t n = graph.number_of_vertices;
   weight_t partModularity, clustersize;
