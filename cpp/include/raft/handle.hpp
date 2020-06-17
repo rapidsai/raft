@@ -128,7 +128,7 @@ class handle_t {
   cudaStream_t get_internal_stream(int sid) const { return streams_[sid]; }
   int get_num_internal_streams() const { return num_streams_; }
   std::vector<cudaStream_t> get_internal_streams() const {
-    std::vector<cudaStream_t> int_streams_vec(num_streams_);
+    std::vector<cudaStream_t> int_streams_vec;
     for (auto s : streams_) {
       int_streams_vec.push_back(s);
     }
