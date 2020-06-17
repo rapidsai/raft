@@ -43,4 +43,10 @@ TEST(Raft, Handle) {
   CUDA_CHECK(cudaStreamDestroy(stream));
 }
 
+TEST(Raft, GetInternalStreams) {
+  handle_t h(4);
+  auto streams = h.get_internal_streams();
+  ASSERT_EQ(4U, streams.size());
+}
+
 }  // namespace raft
