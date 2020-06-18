@@ -110,10 +110,13 @@ struct sparse_matrix_t {
     default;  // virtual because used as base for following matrix types
 
   // y = alpha*A*x + beta*y
+  //(Note: removed const-ness of x, because CUDA 11 SpMV
+  // descriptor creation works with non-const, and const-casting
+  // down is dangerous)
   //
-  virtual void mv(value_type alpha, value_type const* __restrict__ x,
-                  value_type beta, value_type* __restrict__ y,
-                  bool transpose = false, bool symmetric = false) const {
+  virtual void mv(value_type alpha, value_type* __restrict__ x, value_type beta,
+                  value_type* __restrict__ y, bool transpose = false,
+                  bool symmetric = false) const {
     using namespace sparse;
 
     auto cusparse_h = handle_.get_cusparse_handle();
@@ -132,8 +135,7 @@ struct sparse_matrix_t {
                                      col_indices_, values_));
 
     cusparseDnVecDescr_t vecX;
-    CUSPARSE_CHECK(cusparsecreatednvec(&vecX, nrows_,
-                                       x));  // TODO: const-cast down?!
+    CUSPARSE_CHECK(cusparsecreatednvec(&vecX, nrows_, x));
 
     cusparseDnVecDescr_t vecY;
     CUSPARSE_CHECK(cusparsecreatednvec(&vecY, nrows_, y));
@@ -219,7 +221,7 @@ struct laplacian_matrix_t : sparse_matrix_t<index_type, value_type> {
 
   // y = alpha*A*x + beta*y
   //
-  void mv(value_type alpha, value_type const* __restrict__ x, value_type beta,
+  void mv(value_type alpha, value_type* __restrict__ x, value_type beta,
           value_type* __restrict__ y, bool transpose = false,
           bool symmetric = false) const override {
     //TODO: call cusparse::csrmv ... and more:
@@ -276,7 +278,7 @@ struct modularity_matrix_t : laplacian_matrix_t<index_type, value_type> {
 
   // y = alpha*A*x + beta*y
   //
-  void mv(value_type alpha, value_type const* __restrict__ x, value_type beta,
+  void mv(value_type alpha, value_type* __restrict__ x, value_type beta,
           value_type* __restrict__ y, bool transpose = false,
           bool symmetric = false) const override {
     //TODO: call cusparse::csrmv ... and more:
