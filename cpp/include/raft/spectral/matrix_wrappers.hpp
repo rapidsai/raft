@@ -114,10 +114,32 @@ struct sparse_matrix_t {
   virtual void mv(value_type alpha, value_type const* __restrict__ x,
                   value_type beta, value_type* __restrict__ y,
                   bool transpose = false, bool symmetric = false) const {
-    //TODO:
-    //
-    //Cusparse::set_pointer_mode_host();
-    //cusparsecsrmv(...);
+
+    using namespace sparse;
+    
+    auto cusparse_h = handle_.get_cusparse_handle();
+    auto stream = handle_.get_stream();
+#if __CUDACC_VER_MAJOR__ > 10
+#else
+    CUSPARSE_CHECK(
+    cusparsesetpointermode(cusparse_h, CUSPARSE_POINTER_MODE_HOST, stream));
+
+    cusparseOperation_t trans =
+      transpose ? CUSPARSE_OPERATION_TRANSPOSE : CUSPARSE_OPERATION_NON_TRANSPOSE;//non-transpose
+    cusparseMatDescr_t descr = 0;
+    CUSPARSE_CHECK(cusparseCreateMatDescr(&descr));
+    if (symmetric) {
+      CUSPARSE_CHECK(cusparseSetMatType(descr, CUSPARSE_MATRIX_TYPE_SYMMETRIC));
+    } else {
+      CUSPARSE_CHECK(cusparseSetMatType(descr, CUSPARSE_MATRIX_TYPE_GENERAL));
+    }
+    CUSPARSE_CHECK(cusparseSetMatIndexBase(descr, CUSPARSE_INDEX_BASE_ZERO));
+    CUSPARSE_CHECK(cusparsecsrmv(cusparse_h, trans, nrows_, nrows_, nnz_,
+                                 &alpha, descr, values_,
+                                 row_offsets_, col_indices_,
+                                 x, &beta, y, stream));
+    CUSPARSE_CHECK(cusparseDestroyMatDescr(descr));
+#endif
   }
 
   //private: // maybe not, keep this ASAPBNS ("as simple as possible, but not simpler"); hence, aggregate
