@@ -192,13 +192,31 @@ inline cusparseStatus_t cusparsespmv_buffersize(
                                  computeType, alg, bufferSize);
 }
 
+template <typename T>
+cusparseStatus_t cusparsespmv(cusparseHandle_t handle, cusparseOperation_t opA,
+                              const T* alpha, const cusparseSpMatDescr_t matA,
+                              const cusparseDnVecDescr_t vecX, const T* beta,
+                              const cusparseDnVecDescr_t vecY,
+                              cusparseSpMVAlg_t alg, T* externalBuffer,
+                              cudaStream_t stream);
+template <>
 inline cusparseStatus_t cusparsespmv(
-  cusparseHandle_t handle, cusparseOperation_t opA, const void* alpha,
+  cusparseHandle_t handle, cusparseOperation_t opA, const float* alpha,
   const cusparseSpMatDescr_t matA, const cusparseDnVecDescr_t vecX,
-  const void* beta, const cusparseDnVecDescr_t vecY, cudaDataType computeType,
-  cusparseSpMVAlg_t alg, void* externalBuffer, cudaStream_t stream) {
+  const float* beta, const cusparseDnVecDescr_t vecY, cusparseSpMVAlg_t alg,
+  float* externalBuffer, cudaStream_t stream) {
   CUSPARSE_CHECK(cusparseSetStream(handle, stream));
-  return cusparseSpMV(handle, opA, alpha, matA, vecX, beta, vecY, computeType,
+  return cusparseSpMV(handle, opA, alpha, matA, vecX, beta, vecY, CUDA_R_32F,
+                      alg, externalBuffer);
+}
+template <>
+inline cusparseStatus_t cusparsespmv(
+  cusparseHandle_t handle, cusparseOperation_t opA, const double* alpha,
+  const cusparseSpMatDescr_t matA, const cusparseDnVecDescr_t vecX,
+  const double* beta, const cusparseDnVecDescr_t vecY, cusparseSpMVAlg_t alg,
+  double* externalBuffer, cudaStream_t stream) {
+  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+  return cusparseSpMV(handle, opA, alpha, matA, vecX, beta, vecY, CUDA_R_64F,
                       alg, externalBuffer);
 }
 /** @} */
@@ -251,16 +269,32 @@ inline cusparseStatus_t cusparsespmm_bufferSize(
   return cusparseSpMM_bufferSize(handle, opA, opB, alpha, matA, matB, beta,
                                  matC, computeType, alg, bufferSize);
 }
-
+template <typename T>
 inline cusparseStatus_t cusparsespmm(
   cusparseHandle_t handle, cusparseOperation_t opA, cusparseOperation_t opB,
-  const void* alpha, const cusparseSpMatDescr_t matA,
-  const cusparseDnMatDescr_t matB, const void* beta, cusparseDnMatDescr_t matC,
-  cudaDataType computeType, cusparseSpMMAlg_t alg, void* externalBuffer,
+  const T* alpha, const cusparseSpMatDescr_t matA,
+  const cusparseDnMatDescr_t matB, const T* beta, cusparseDnMatDescr_t matC,
+  cusparseSpMMAlg_t alg, T* externalBuffer, cudaStream_t stream);
+template <>
+inline cusparseStatus_t cusparsespmm(
+  cusparseHandle_t handle, cusparseOperation_t opA, cusparseOperation_t opB,
+  const float* alpha, const cusparseSpMatDescr_t matA,
+  const cusparseDnMatDescr_t matB, const float* beta, cusparseDnMatDescr_t matC,
+  cusparseSpMMAlg_t alg, float* externalBuffer, cudaStream_t stream) {
+  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+  return cusparseSpMM(handle, opA, opB, alpha, matA, matB, beta, matC,
+                      CUDA_R_32F, alg, externalBuffer);
+}
+template <>
+inline cusparseStatus_t cusparsespmm(
+  cusparseHandle_t handle, cusparseOperation_t opA, cusparseOperation_t opB,
+  const double* alpha, const cusparseSpMatDescr_t matA,
+  const cusparseDnMatDescr_t matB, const double* beta,
+  cusparseDnMatDescr_t matC, cusparseSpMMAlg_t alg, double* externalBuffer,
   cudaStream_t stream) {
   CUSPARSE_CHECK(cusparseSetStream(handle, stream));
   return cusparseSpMM(handle, opA, opB, alpha, matA, matB, beta, matC,
-                      computeType, alg, externalBuffer);
+                      CUDA_R_64F, alg, externalBuffer);
 }
 /** @} */
 #else
