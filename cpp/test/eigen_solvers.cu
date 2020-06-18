@@ -37,7 +37,7 @@ TEST(Raft, EigenSolvers) {
   value_type* vs{nullptr};
   index_type nnz = 0;
   index_type nrows = 0;
-  sparse_matrix_t<index_type, value_type> sm1{ro, ci, vs, nrows, nnz};
+  sparse_matrix_t<index_type, value_type> sm1{h, ro, ci, vs, nrows, nnz};
   ASSERT_EQ(nullptr, sm1.row_offsets_);
 
   laplacian_matrix_t<index_type, value_type> lm1{h, ro, ci, vs, nrows, nnz};

@@ -89,7 +89,7 @@ std::tuple<vertex_t, weight_t, vertex_t> partition(
   // Compute eigenvectors of Laplacian
 
   // Initialize Laplacian
-  sparse_matrix_t<vertex_t, weight_t> A{graph};
+  sparse_matrix_t<vertex_t, weight_t> A{handle, graph};
   laplacian_matrix_t<vertex_t, weight_t> L{handle, graph};
 
   auto eigen_config = eigen_solver.get_config();
@@ -156,7 +156,7 @@ void analyzePartition(handle_t const &handle,
     cublassetpointermode(cublas_h, CUBLAS_POINTER_MODE_HOST, stream));
 
   // Initialize Laplacian
-  sparse_matrix_t<vertex_t, weight_t> A{graph};
+  sparse_matrix_t<vertex_t, weight_t> A{handle, graph};
   laplacian_matrix_t<vertex_t, weight_t> L{handle, graph};
 
   // Initialize output

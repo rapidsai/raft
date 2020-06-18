@@ -86,18 +86,21 @@ class vector_t {
 
 template <typename index_type, typename value_type>
 struct sparse_matrix_t {
-  sparse_matrix_t(index_type const* row_offsets, index_type const* col_indices,
-                  value_type const* values, index_type const nrows,
-                  index_type const nnz)
-    : row_offsets_(row_offsets),
+  sparse_matrix_t(handle_t const& raft_handle, index_type const* row_offsets,
+                  index_type const* col_indices, value_type const* values,
+                  index_type const nrows, index_type const nnz)
+    : handle_(raft_handle),
+      row_offsets_(row_offsets),
       col_indices_(col_indices),
       values_(values),
       nrows_(nrows),
       nnz_(nnz) {}
 
   sparse_matrix_t(
+    handle_t const& raft_handle,
     GraphCSRView<index_type, index_type, value_type> const& csr_view)
-    : row_offsets_(csr_view.offsets),
+    : handle_(raft_handle),
+      row_offsets_(csr_view.offsets),
       col_indices_(csr_view.indices),
       values_(csr_view.edge_data),
       nrows_(csr_view.number_of_vertices),
@@ -109,7 +112,8 @@ struct sparse_matrix_t {
   // y = alpha*A*x + beta*y
   //
   virtual void mv(value_type alpha, value_type const* __restrict__ x,
-                  value_type beta, value_type* __restrict__ y) const {
+                  value_type beta, value_type* __restrict__ y,
+                  bool transpose = false, bool symmetric = false) const {
     //TODO:
     //
     //Cusparse::set_pointer_mode_host();
@@ -118,10 +122,10 @@ struct sparse_matrix_t {
 
   //private: // maybe not, keep this ASAPBNS ("as simple as possible, but not simpler"); hence, aggregate
 
+  handle_t const& handle_;
   index_type const* row_offsets_;
   index_type const* col_indices_;
-  value_type const*
-    values_;  // TODO: const-ness of this is debatable; cusparse primitives may not accept it...
+  value_type const* values_;
   index_type const nrows_;
   index_type const nnz_;
 };
@@ -131,8 +135,8 @@ struct laplacian_matrix_t : sparse_matrix_t<index_type, value_type> {
   laplacian_matrix_t(handle_t const& raft_handle, index_type const* row_offsets,
                      index_type const* col_indices, value_type const* values,
                      index_type const nrows, index_type const nnz)
-    : sparse_matrix_t<index_type, value_type>(row_offsets, col_indices, values,
-                                              nrows, nnz),
+    : sparse_matrix_t<index_type, value_type>(raft_handle, row_offsets,
+                                              col_indices, values, nrows, nnz),
       diagonal_(raft_handle, nrows) {
     auto* v = diagonal_.raw();
     //TODO: more work, here:
@@ -145,7 +149,7 @@ struct laplacian_matrix_t : sparse_matrix_t<index_type, value_type> {
   laplacian_matrix_t(
     handle_t const& raft_handle,
     GraphCSRView<index_type, index_type, value_type> const& csr_view)
-    : sparse_matrix_t<index_type, value_type>(csr_view),
+    : sparse_matrix_t<index_type, value_type>(raft_handle, csr_view),
       diagonal_(raft_handle, csr_view.number_of_vertices) {
     //TODO: more work, here:
     //
@@ -157,7 +161,8 @@ struct laplacian_matrix_t : sparse_matrix_t<index_type, value_type> {
   // y = alpha*A*x + beta*y
   //
   void mv(value_type alpha, value_type const* __restrict__ x, value_type beta,
-          value_type* __restrict__ y) const override {
+          value_type* __restrict__ y, bool transpose = false,
+          bool symmetric = false) const override {
     //TODO: call cusparse::csrmv ... and more:
     //
     // if (beta == 0)
@@ -213,7 +218,8 @@ struct modularity_matrix_t : laplacian_matrix_t<index_type, value_type> {
   // y = alpha*A*x + beta*y
   //
   void mv(value_type alpha, value_type const* __restrict__ x, value_type beta,
-          value_type* __restrict__ y) const override {
+          value_type* __restrict__ y, bool transpose = false,
+          bool symmetric = false) const override {
     //TODO: call cusparse::csrmv ... and more:
     //
     // // y = A*x
@@ -225,9 +231,11 @@ struct modularity_matrix_t : laplacian_matrix_t<index_type, value_type> {
     // Cublas::axpy(this->n, -(dot_res / this->edge_sum), D.raw(), 1, y, 1);
   }
 
-  value_type get_diag_nrm1(void) const { return diag_nrm1_; }
+  value_type get_diag_nrm1(void) const {
+    return diag_nrm1_;  // TODO: replace w/ diag_.nrm1()
+  }
 
-  value_type diag_nrm1_;
+  value_type diag_nrm1_;  // TODO: remove
 };
 
 }  // namespace matrix

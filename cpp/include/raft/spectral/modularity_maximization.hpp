@@ -105,7 +105,7 @@ std::tuple<vertex_t, weight_t, vertex_t> modularity_maximization(
   // Compute eigenvectors of Modularity Matrix
 
   // Initialize Modularity Matrix
-  sparse_matrix_t<vertex_t, weight_t> A{graph};
+  sparse_matrix_t<vertex_t, weight_t> A{handle, graph};
   modularity_matrix_t<vertex_t, weight_t> B{handle, graph};
 
   auto eigen_config = eigen_solver.get_config();
@@ -169,7 +169,7 @@ void analyzeModularity(handle_t const &handle,
     cublassetpointermode(cublas_h, CUBLAS_POINTER_MODE_HOST, stream));
 
   // Initialize Modularity
-  sparse_matrix_t<vertex_t, weight_t> A{graph};
+  sparse_matrix_t<vertex_t, weight_t> A{handle, graph};
   modularity_matrix_t<vertex_t, weight_t> B{handle, graph};
 
   // Initialize output
