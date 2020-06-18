@@ -114,18 +114,56 @@ struct sparse_matrix_t {
   virtual void mv(value_type alpha, value_type const* __restrict__ x,
                   value_type beta, value_type* __restrict__ y,
                   bool transpose = false, bool symmetric = false) const {
-
     using namespace sparse;
-    
+
     auto cusparse_h = handle_.get_cusparse_handle();
     auto stream = handle_.get_stream();
-#if __CUDACC_VER_MAJOR__ > 10
-#else
-    CUSPARSE_CHECK(
-    cusparsesetpointermode(cusparse_h, CUSPARSE_POINTER_MODE_HOST, stream));
 
     cusparseOperation_t trans =
-      transpose ? CUSPARSE_OPERATION_TRANSPOSE : CUSPARSE_OPERATION_NON_TRANSPOSE;//non-transpose
+      transpose ? CUSPARSE_OPERATION_TRANSPOSE :  // transpose
+        CUSPARSE_OPERATION_NON_TRANSPOSE;         //non-transpose
+
+#if __CUDACC_VER_MAJOR__ > 10
+
+    //create descriptors:
+    //
+    cusparseSpMatDescr_t matA;
+    CUSPARSE_CHECK(cusparsecreatecsr(&matA, nrows_, nrows_, nnz_, row_offsets_,
+                                     col_indices_, values_));
+
+    cusparseDnVecDescr_t vecX;
+    CUSPARSE_CHECK(cusparsecreatednvec(&vecX, nrows_,
+                                       x));  // TODO: const-cast down?!
+
+    cusparseDnVecDescr_t vecY;
+    CUSPARSE_CHECK(cusparsecreatednvec(&vecY, nrows_, y));
+
+    //get (scratch) external device buffer size:
+    //
+    size_t bufferSize;
+    CUSPARSE_CHECK(cusparsespmv_buffersize(cusparse_h, opA, &alpha, matA, vecX,
+                                           &beta, vecY, alg, &bufferSize,
+                                           stream));
+
+    //allocate external buffer:
+    //
+    vector_t<value_type> external_buffer(handle_, bufferSize);
+
+    //finally perform SpMV:
+    //
+    CUSPARSE_CHECK(cusparsespmv(cusparse_h, trans, &alpha, matA, vecX, &beta,
+                                vecY, CUSPARSE_CSRMV_ALG1,
+                                external_buffer.raw(), stream));
+
+    //free descriptors:
+    //(TODO: maybe wrap them in a RAII struct?)
+    //
+    CUSPARSE_CHECK(cusparseDestroyDnVec(vecY));
+    CUSPARSE_CHECK(cusparseDestroyDnVec(vecX));
+    CUSPARSE_CHECK(cusparseDestroySpMat(matA));
+#else
+    CUSPARSE_CHECK(
+      cusparsesetpointermode(cusparse_h, CUSPARSE_POINTER_MODE_HOST, stream));
     cusparseMatDescr_t descr = 0;
     CUSPARSE_CHECK(cusparseCreateMatDescr(&descr));
     if (symmetric) {
@@ -135,9 +173,8 @@ struct sparse_matrix_t {
     }
     CUSPARSE_CHECK(cusparseSetMatIndexBase(descr, CUSPARSE_INDEX_BASE_ZERO));
     CUSPARSE_CHECK(cusparsecsrmv(cusparse_h, trans, nrows_, nrows_, nnz_,
-                                 &alpha, descr, values_,
-                                 row_offsets_, col_indices_,
-                                 x, &beta, y, stream));
+                                 &alpha, descr, values_, row_offsets_,
+                                 col_indices_, x, &beta, y, stream));
     CUSPARSE_CHECK(cusparseDestroyMatDescr(descr));
 #endif
   }
