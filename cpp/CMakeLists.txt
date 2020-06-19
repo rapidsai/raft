@@ -207,7 +207,7 @@ if(BUILD_RAFT_TESTS)
     test/mr/device/buffer.cpp
     test/mr/host/buffer.cpp
     test/test.cpp
-    test/spectral_matrix.cpp
+    test/spectral_matrix.cu
     test/eigen_solvers.cu
     test/cluster_solvers.cu)
 

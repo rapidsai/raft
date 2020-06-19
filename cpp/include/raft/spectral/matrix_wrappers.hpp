@@ -19,6 +19,7 @@
 #include <raft/graph.hpp>
 #include <raft/handle.hpp>
 #include <raft/spectral/error_temp.hpp>
+#include <raft/spectral/sm_utils.hpp>
 
 // =========================================================
 // Useful macros
