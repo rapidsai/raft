@@ -11,13 +11,13 @@ inline void RAFT_EXPECT(bool cond, std::string const& reason) {
   if (!cond) throw std::runtime_error(reason.c_str());
 }
 
-#define RAFT_TRY(error_expression)
+#define RAFT_TRY(expression) (expression)
 
 //assume RAFT_FAIL() can take a std::string `reason`
 //
 #define RAFT_FAIL(reason)
 
-#define CUDA_TRY(call)
+#define CUDA_TRY(call) (call)
 
 #define CUDA_CHECK_LAST()
 

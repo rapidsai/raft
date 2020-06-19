@@ -36,7 +36,19 @@ namespace raft {
 using namespace matrix;
 using namespace linalg;
 
-namespace {
+namespace detail {
+
+// curandGeneratorNormalX
+inline curandStatus_t curandGenerateNormalX(curandGenerator_t generator,
+                                            float *outputPtr, size_t n,
+                                            float mean, float stddev) {
+  return curandGenerateNormal(generator, outputPtr, n, mean, stddev);
+}
+inline curandStatus_t curandGenerateNormalX(curandGenerator_t generator,
+                                            double *outputPtr, size_t n,
+                                            double mean, double stddev) {
+  return curandGenerateNormalDouble(generator, outputPtr, n, mean, stddev);
+}
 
 // =========================================================
 // Helper functions
@@ -565,7 +577,7 @@ static int lanczosRestart(
   return 0;
 }
 
-}  // namespace
+}  // namespace detail
 
 // =========================================================
 // Eigensolver
@@ -626,9 +638,7 @@ int computeSmallestEigenvectors(
   ValueType_ *__restrict__ beta_host, ValueType_ *__restrict__ lanczosVecs_dev,
   ValueType_ *__restrict__ work_dev, ValueType_ *__restrict__ eigVals_dev,
   ValueType_ *__restrict__ eigVecs_dev, unsigned long long seed) {
-  // -------------------------------------------------------
-  // Variable declaration
-  // -------------------------------------------------------
+  using namespace detail;
 
   // Useful constants
   const ValueType_ one = 1;
@@ -858,6 +868,8 @@ int computeSmallestEigenvectors(
   ValueType_ tol, bool reorthogonalize, IndexType_ &iter,
   ValueType_ *__restrict__ eigVals_dev, ValueType_ *__restrict__ eigVecs_dev,
   unsigned long long seed = 1234567) {
+  using namespace detail;
+
   // Matrix dimension
   IndexType_ n = A.nrows_;
 
@@ -945,9 +957,7 @@ int computeLargestEigenvectors(
   ValueType_ *__restrict__ beta_host, ValueType_ *__restrict__ lanczosVecs_dev,
   ValueType_ *__restrict__ work_dev, ValueType_ *__restrict__ eigVals_dev,
   ValueType_ *__restrict__ eigVecs_dev, unsigned long long seed) {
-  // -------------------------------------------------------
-  // Variable declaration
-  // -------------------------------------------------------
+  using namespace detail;
 
   // Useful constants
   const ValueType_ one = 1;
