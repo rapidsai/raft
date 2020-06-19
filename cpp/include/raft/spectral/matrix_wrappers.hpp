@@ -119,6 +119,9 @@ struct sparse_matrix_t {
                   bool symmetric = false) const {
     using namespace sparse;
 
+    RAFT_EXPECT(x != nullptr, "Null x buffer.");
+    RAFT_EXPECT(y != nullptr, "Null y buffer.");
+
     auto cusparse_h = handle_.get_cusparse_handle();
     auto stream = handle_.get_stream();
 
