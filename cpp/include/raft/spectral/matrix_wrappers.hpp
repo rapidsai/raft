@@ -21,6 +21,8 @@
 #include <raft/spectral/error_temp.hpp>
 #include <raft/spectral/sm_utils.hpp>
 
+#include <thrust/reduce.h>
+
 // =========================================================
 // Useful macros
 // =========================================================
@@ -83,6 +85,16 @@ class vector_t {
   size_type size(void) const { return size_; }
 
   value_type* raw(void) { return buffer_; }
+
+  template <typename ThrustExecPolicy>
+  value_type nrm1(ThrustExecPolicy t_exe_pol) const {
+    return thrust::reduce(t_exe_pol, buffer_, buffer_ + size_, value_type{0},
+                          [] __device__(auto left, auto right) {
+                            auto abs_left = left > 0 ? left : -left;
+                            auto abs_right = right > 0 ? right : -right;
+                            return abs_left + abs_right;
+                          });
+  }
 };
 
 template <typename index_type, typename value_type>
