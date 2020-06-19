@@ -137,7 +137,7 @@ struct logic_error : public raft::exception {
  */
 #define RAFT_EXPECTS(cond, fmt, ...)                              \
   do {                                                            \
-    if (!cond) {                                                  \
+    if (!(cond)) {                                                \
       std::string msg{};                                          \
       SET_ERROR_MSG(msg, "RAFT failure at ", fmt, ##__VA_ARGS__); \
       throw raft::logic_error(msg);                               \
