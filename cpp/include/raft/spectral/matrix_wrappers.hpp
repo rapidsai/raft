@@ -301,30 +301,55 @@ struct modularity_matrix_t : laplacian_matrix_t<index_type, value_type> {
                       index_type const nrows, index_type const nnz)
     : laplacian_matrix_t<index_type, value_type>(
         raft_handle, thrust_exec_policy, row_offsets, col_indices, values,
-        nrows, nnz) {}
+        nrows, nnz) {
+    edge_sum_ = laplacian_matrix_t<index_type, value_type>::diagonal_.nrm1(
+      thrust_exec_policy);
+  }
 
   template <typename ThrustExePolicy>
   modularity_matrix_t(
     handle_t const& raft_handle, ThrustExePolicy thrust_exec_policy,
     GraphCSRView<index_type, index_type, value_type> const& csr_view)
-    : laplacian_matrix_t<index_type, value_type>(
-        raft_handle, thrust_exec_policy, csr_view) {}
+    : laplacian_matrix_t<index_type, value_type>(raft_handle,
+                                                 thrust_exec_policy, csr_view) {
+    edge_sum_ = laplacian_matrix_t<index_type, value_type>::diagonal_.nrm1(
+      thrust_exec_policy);
+  }
 
   // y = alpha*A*x + beta*y
   //
   void mv(value_type alpha, value_type* __restrict__ x, value_type beta,
           value_type* __restrict__ y, bool transpose = false,
           bool symmetric = false) const override {
-    //TODO: call cusparse::csrmv ... and more:
+    auto n = sparse_matrix_t<index_type, value_type>::nrows_;
+
+    auto cublas_h =
+      sparse_matrix_t<index_type, value_type>::get_handle().get_cublas_handle();
+    auto stream =
+      sparse_matrix_t<index_type, value_type>::get_handle().get_stream();
+
+    // y = A*x
     //
-    // // y = A*x
-    // sparse_matrix_t::mv(alpha, x, 0, y);
-    // value_type dot_res;
-    // // gamma = d'*x
+    sparse_matrix_t<index_type, value_type>::mv(alpha, x, 0, y);
+    value_type dot_res;
+
+    // gamma = d'*x
+    //
     // Cublas::dot(this->n, D.raw(), 1, x, 1, &dot_res);
-    // // y = y -(gamma/edge_sum)*d
-    // Cublas::axpy(this->n, -(dot_res / this->edge_sum), D.raw(), 1, y, 1);
+    CUBLAS_CHECK(linalg::cublasdot(
+      cublas_h, n, laplacian_matrix_t<index_type, value_type>::diagonal_.raw(),
+      1, x, 1, &dot_res, stream));
+
+    // y = y -(gamma/edge_sum)*d
+    //
+    value_type gamma_ = -dot_res / edge_sum_;
+    CUBLAS_CHECK(linalg::cublasaxpy(
+      cublas_h, n, &gamma_,
+      laplacian_matrix_t<index_type, value_type>::diagonal_.raw(), 1, y, 1,
+      stream));
   }
+
+  value_type edge_sum_;
 };
 
 }  // namespace matrix
