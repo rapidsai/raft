@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include <raft/linalg/cublas_wrappers.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/graph.hpp>
 #include <raft/handle.hpp>
@@ -23,6 +24,8 @@
 
 #include <thrust/fill.h>
 #include <thrust/reduce.h>
+
+#include <algorithm>
 
 // =========================================================
 // Useful macros
@@ -86,6 +89,8 @@ class vector_t {
   size_type size(void) const { return size_; }
 
   value_type* raw(void) { return buffer_; }
+
+  value_type const* raw(void) const { return buffer_; }
 
   template <typename ThrustExecPolicy>
   value_type nrm1(ThrustExecPolicy t_exe_pol) const {
@@ -203,6 +208,8 @@ struct sparse_matrix_t {
 #endif
   }
 
+  handle_t const& get_handle(void) const { return handle_; }
+
   //private: // maybe not, keep this ASAPBNS ("as simple as possible, but not simpler"); hence, aggregate
 
   handle_t const& handle_;
@@ -247,32 +254,38 @@ struct laplacian_matrix_t : sparse_matrix_t<index_type, value_type> {
   void mv(value_type alpha, value_type* __restrict__ x, value_type beta,
           value_type* __restrict__ y, bool transpose = false,
           bool symmetric = false) const override {
-    //TODO: call cusparse::csrmv ... and more:
+    constexpr int BLOCK_SIZE = 1024;
+    auto n = sparse_matrix_t<index_type, value_type>::nrows_;
+
+    auto cublas_h =
+      sparse_matrix_t<index_type, value_type>::get_handle().get_cublas_handle();
+    auto stream =
+      sparse_matrix_t<index_type, value_type>::get_handle().get_stream();
+
+    // scales y by beta:
     //
-    // // scales y by beta:
-    // //
-    // if (beta == 0)
-    //   CHECK_CUDA(cudaMemset(y, 0, (this->n) * sizeof(ValueType_)))
-    //   else if (beta != 1)
-    //     thrust::transform(thrust::device_pointer_cast(y),
-    //                       thrust::device_pointer_cast(y + this->n),
-    //                       thrust::make_constant_iterator(beta),
-    //                       thrust::device_pointer_cast(y),
-    //                       thrust::multiplies<ValueType_>());
+    if (beta == 0) {
+      CUDA_TRY(cudaMemsetAsync(y, 0, n * sizeof(value_type), stream));
+    } else if (beta != 1) {
+      CUBLAS_CHECK(linalg::cublasscal(cublas_h, n, &beta, y, 1, stream));
+    }
 
-    // // Apply diagonal matrix
-    // dim3 gridDim, blockDim;
-    // gridDim.x  = min(((this->n) + BLOCK_SIZE - 1) / BLOCK_SIZE, 65535);
-    // gridDim.y  = 1;
-    // gridDim.z  = 1;
-    // blockDim.x = BLOCK_SIZE;
-    // blockDim.y = 1;
-    // blockDim.z = 1;
-    // diagmv<<<gridDim, blockDim, 0, A->s>>>(this->n, alpha, D.raw(), x, y);
-    // cudaCheckError();
+    // Apply diagonal matrix
+    //
+    dim3 gridDim, blockDim;
+    gridDim.x = std::min((n + BLOCK_SIZE - 1) / BLOCK_SIZE, 65535);
+    gridDim.y = 1;
+    gridDim.z = 1;
+    blockDim.x = BLOCK_SIZE;
+    blockDim.y = 1;
+    blockDim.z = 1;
+    utils::diagmv<<<gridDim, blockDim, 0, stream>>>(n, alpha, diagonal_.raw(),
+                                                    x, y);
+    CUDA_CHECK_LAST();
 
-    // // Apply adjacency matrix
-    // sparse_matrix_t::mv(-alpha, x, 1, y);
+    // Apply adjacency matrix
+    //
+    sparse_matrix_t<index_type, value_type>::mv(-alpha, x, 1, y);
   }
 
   vector_t<value_type> diagonal_;
