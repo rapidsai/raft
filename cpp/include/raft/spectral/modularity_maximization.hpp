@@ -106,7 +106,7 @@ std::tuple<vertex_t, weight_t, vertex_t> modularity_maximization(
 
   // Initialize Modularity Matrix
   sparse_matrix_t<vertex_t, weight_t> A{handle, graph};
-  modularity_matrix_t<vertex_t, weight_t> B{handle, graph};
+  modularity_matrix_t<vertex_t, weight_t> B{handle, thrust_exec_policy, graph};
 
   auto eigen_config = eigen_solver.get_config();
   auto nEigVecs = eigen_config.n_eigVecs;
@@ -170,7 +170,7 @@ void analyzeModularity(handle_t const &handle,
 
   // Initialize Modularity
   sparse_matrix_t<vertex_t, weight_t> A{handle, graph};
-  modularity_matrix_t<vertex_t, weight_t> B{handle, graph};
+  modularity_matrix_t<vertex_t, weight_t> B{handle, thrust_exec_policy, graph};
 
   // Initialize output
   modularity = 0;
@@ -189,7 +189,7 @@ void analyzeModularity(handle_t const &handle,
   }
   // modularity = modularity/nClusters;
   // devide by nnz
-  modularity = modularity / B.get_diag_nrm1();
+  modularity = modularity / B.diagonal_.nrm1(thrust_exec_policy);
 }
 
 }  // namespace spectral

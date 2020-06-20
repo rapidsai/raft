@@ -47,15 +47,30 @@ TEST(Raft, SpectralMatrices) {
   ASSERT_EQ(nullptr, sm1.row_offsets_);
   ASSERT_EQ(nullptr, sm2.row_offsets_);
 
-  laplacian_matrix_t<index_type, value_type> lm1{h, ro, ci, vs, nrows, nnz};
-  laplacian_matrix_t<index_type, value_type> lm2{h, empty_graph};
-  ASSERT_EQ(nullptr, lm1.diagonal_.raw());
-  ASSERT_EQ(nullptr, lm2.diagonal_.raw());
+  auto stream = h.get_stream();
+  auto t_exe_pol = thrust::cuda::par.on(stream);
 
-  modularity_matrix_t<index_type, value_type> mm1{h, ro, ci, vs, nrows, nnz};
-  modularity_matrix_t<index_type, value_type> mm2{h, empty_graph};
-  ASSERT_EQ(nullptr, mm1.diagonal_.raw());
-  ASSERT_EQ(nullptr, mm2.diagonal_.raw());
+  auto cnstr_lm1 = [&h, t_exe_pol, ro, ci, vs, nrows, nnz](void) {
+    laplacian_matrix_t<index_type, value_type> lm1{h,  t_exe_pol, ro, ci,
+                                                   vs, nrows,     nnz};
+  };
+  EXPECT_ANY_THROW(cnstr_lm1());  // because of nullptr ptr args
+
+  auto cnstr_lm2 = [&h, t_exe_pol, &empty_graph](void) {
+    laplacian_matrix_t<index_type, value_type> lm2{h, t_exe_pol, empty_graph};
+  };
+  EXPECT_ANY_THROW(cnstr_lm2());  // because of nullptr ptr args
+
+  auto cnstr_mm1 = [&h, t_exe_pol, ro, ci, vs, nrows, nnz](void) {
+    modularity_matrix_t<index_type, value_type> mm1{h,  t_exe_pol, ro, ci,
+                                                    vs, nrows,     nnz};
+  };
+  EXPECT_ANY_THROW(cnstr_mm1());  // because of nullptr ptr args
+
+  auto cnstr_mm2 = [&h, t_exe_pol, &empty_graph](void) {
+    modularity_matrix_t<index_type, value_type> mm2{h, t_exe_pol, empty_graph};
+  };
+  EXPECT_ANY_THROW(cnstr_mm2());  // because of nullptr ptr args
 }
 
 }  // namespace raft

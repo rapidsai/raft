@@ -37,11 +37,11 @@ TEST(Raft, EigenSolvers) {
   value_type* vs{nullptr};
   index_type nnz = 0;
   index_type nrows = 0;
+  auto stream = h.get_stream();
+  auto t_exe_pol = thrust::cuda::par.on(stream);
+
   sparse_matrix_t<index_type, value_type> sm1{h, ro, ci, vs, nrows, nnz};
   ASSERT_EQ(nullptr, sm1.row_offsets_);
-
-  laplacian_matrix_t<index_type, value_type> lm1{h, ro, ci, vs, nrows, nnz};
-  ASSERT_EQ(nullptr, lm1.diagonal_.raw());
 
   index_type neigvs{10};
   index_type maxiter{100};
@@ -61,10 +61,10 @@ TEST(Raft, EigenSolvers) {
   lanczos_solver_t<index_type, value_type> eig_solver{cfg};
 
   EXPECT_ANY_THROW(
-    eig_solver.solve_smallest_eigenvectors(h, lm1, eigvals, eigvecs));
+    eig_solver.solve_smallest_eigenvectors(h, sm1, eigvals, eigvecs));
 
   EXPECT_ANY_THROW(
-    eig_solver.solve_largest_eigenvectors(h, lm1, eigvals, eigvecs));
+    eig_solver.solve_largest_eigenvectors(h, sm1, eigvals, eigvecs));
 }
 
 TEST(Raft, SpectralSolvers) {

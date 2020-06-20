@@ -90,7 +90,7 @@ std::tuple<vertex_t, weight_t, vertex_t> partition(
 
   // Initialize Laplacian
   sparse_matrix_t<vertex_t, weight_t> A{handle, graph};
-  laplacian_matrix_t<vertex_t, weight_t> L{handle, graph};
+  laplacian_matrix_t<vertex_t, weight_t> L{handle, thrust_exec_policy, graph};
 
   auto eigen_config = eigen_solver.get_config();
   auto nEigVecs = eigen_config.n_eigVecs;
@@ -157,7 +157,7 @@ void analyzePartition(handle_t const &handle,
 
   // Initialize Laplacian
   sparse_matrix_t<vertex_t, weight_t> A{handle, graph};
-  laplacian_matrix_t<vertex_t, weight_t> L{handle, graph};
+  laplacian_matrix_t<vertex_t, weight_t> L{handle, thrust_exec_policy, graph};
 
   // Initialize output
   cost = 0;

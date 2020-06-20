@@ -21,6 +21,7 @@
 #include <raft/spectral/error_temp.hpp>
 #include <raft/spectral/sm_utils.hpp>
 
+#include <thrust/fill.h>
 #include <thrust/reduce.h>
 
 // =========================================================
@@ -94,6 +95,11 @@ class vector_t {
                             auto abs_right = right > 0 ? right : -right;
                             return abs_left + abs_right;
                           });
+  }
+
+  template <typename ThrustExecPolicy>
+  void fill(ThrustExecPolicy t_exe_pol, value_type value) {
+    thrust::fill_n(t_exe_pol, buffer_, size_, value);
   }
 };
 
@@ -209,30 +215,31 @@ struct sparse_matrix_t {
 
 template <typename index_type, typename value_type>
 struct laplacian_matrix_t : sparse_matrix_t<index_type, value_type> {
-  laplacian_matrix_t(handle_t const& raft_handle, index_type const* row_offsets,
+  template <typename ThrustExePolicy>
+  laplacian_matrix_t(handle_t const& raft_handle,
+                     ThrustExePolicy thrust_exec_policy,
+                     index_type const* row_offsets,
                      index_type const* col_indices, value_type const* values,
                      index_type const nrows, index_type const nnz)
     : sparse_matrix_t<index_type, value_type>(raft_handle, row_offsets,
                                               col_indices, values, nrows, nnz),
       diagonal_(raft_handle, nrows) {
-    auto* v = diagonal_.raw();
-    //TODO: more work, here:
-    //
-    // vector_t<value_type> ones(nrows);
-    // ones.fill(1.0);
-    // sparse_matrix_t::mv(1, ones.raw(), 0, diagonal_.raw());
+    vector_t<value_type> ones{raft_handle, nrows};
+    ones.fill(thrust_exec_policy, 1.0);
+    sparse_matrix_t<index_type, value_type>::mv(1, ones.raw(), 0,
+                                                diagonal_.raw());
   }
 
+  template <typename ThrustExePolicy>
   laplacian_matrix_t(
-    handle_t const& raft_handle,
+    handle_t const& raft_handle, ThrustExePolicy thrust_exec_policy,
     GraphCSRView<index_type, index_type, value_type> const& csr_view)
     : sparse_matrix_t<index_type, value_type>(raft_handle, csr_view),
       diagonal_(raft_handle, csr_view.number_of_vertices) {
-    //TODO: more work, here:
-    //
-    // vector_t<value_type> ones(csr_view.number_of_vertices_);
-    // ones.fill(1.0);
-    // sparse_matrix_t::mv(1, ones.raw(), 0, diagonal_.raw());
+    vector_t<value_type> ones{raft_handle, csr_view.number_of_vertices};
+    ones.fill(thrust_exec_policy, 1.0);
+    sparse_matrix_t<index_type, value_type>::mv(1, ones.raw(), 0,
+                                                diagonal_.raw());
   }
 
   // y = alpha*A*x + beta*y
@@ -242,6 +249,8 @@ struct laplacian_matrix_t : sparse_matrix_t<index_type, value_type> {
           bool symmetric = false) const override {
     //TODO: call cusparse::csrmv ... and more:
     //
+    // // scales y by beta:
+    // //
     // if (beta == 0)
     //   CHECK_CUDA(cudaMemset(y, 0, (this->n) * sizeof(ValueType_)))
     //   else if (beta != 1)
@@ -271,26 +280,22 @@ struct laplacian_matrix_t : sparse_matrix_t<index_type, value_type> {
 
 template <typename index_type, typename value_type>
 struct modularity_matrix_t : laplacian_matrix_t<index_type, value_type> {
+  template <typename ThrustExePolicy>
   modularity_matrix_t(handle_t const& raft_handle,
+                      ThrustExePolicy thrust_exec_policy,
                       index_type const* row_offsets,
                       index_type const* col_indices, value_type const* values,
                       index_type const nrows, index_type const nnz)
     : laplacian_matrix_t<index_type, value_type>(
-        raft_handle, row_offsets, col_indices, values, nrows, nnz) {
-    auto* v = laplacian_matrix_t<index_type, value_type>::diagonal_.raw();
-    //TODO: more work, here:
-    //
-    // diag_nrm1_ = diagonal_.nrm1();
-  }
+        raft_handle, thrust_exec_policy, row_offsets, col_indices, values,
+        nrows, nnz) {}
 
+  template <typename ThrustExePolicy>
   modularity_matrix_t(
-    handle_t const& raft_handle,
+    handle_t const& raft_handle, ThrustExePolicy thrust_exec_policy,
     GraphCSRView<index_type, index_type, value_type> const& csr_view)
-    : laplacian_matrix_t<index_type, value_type>(raft_handle, csr_view) {
-    //TODO: more work, here:
-    //
-    // diag_nrm1_ = diagonal_.nrm1();
-  }
+    : laplacian_matrix_t<index_type, value_type>(
+        raft_handle, thrust_exec_policy, csr_view) {}
 
   // y = alpha*A*x + beta*y
   //
@@ -307,12 +312,6 @@ struct modularity_matrix_t : laplacian_matrix_t<index_type, value_type> {
     // // y = y -(gamma/edge_sum)*d
     // Cublas::axpy(this->n, -(dot_res / this->edge_sum), D.raw(), 1, y, 1);
   }
-
-  value_type get_diag_nrm1(void) const {
-    return diag_nrm1_;  // TODO: replace w/ diag_.nrm1()
-  }
-
-  value_type diag_nrm1_;  // TODO: remove
 };
 
 }  // namespace matrix
