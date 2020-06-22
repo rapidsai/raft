@@ -1,6 +1,7 @@
 # RAFT 0.15.0 (Date TBD)
 
 ## New Features
+- PR #12: Spectral clustering.
 
 ## Improvements
 
