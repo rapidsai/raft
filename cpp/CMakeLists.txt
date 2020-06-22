@@ -161,6 +161,24 @@ set(CMAKE_CUDA_FLAGS
 # - dependencies -------------------------------------------------------------
 
 include(cmake/Dependencies.cmake)
+include(cmake/comms.cmake)
+
+###################################################################################################
+# - RMM -------------------------------------------------------------------------------------------
+
+find_path(RMM_INCLUDE "rmm"
+          HINTS "$ENV{RMM_ROOT}/include")
+
+find_library(RMM_LIBRARY "rmm"
+             HINTS "$ENV{RMM_ROOT}/lib" "$ENV{RMM_ROOT}/build")
+
+message(STATUS "RMM: RMM_LIBRARY set to ${RMM_LIBRARY}")
+message(STATUS "RMM: RMM_INCLUDE set to ${RMM_INCLUDE}")
+
+add_library(rmm SHARED IMPORTED ${RMM_LIBRARY})
+if(RMM_INCLUDE AND RMM_LIBRARY)
+    set_target_properties(rmm PROPERTIES IMPORTED_LOCATION ${RMM_LIBRARY})
+endif(RMM_INCLUDE AND RMM_LIBRARY)
 
 ##############################################################################
 # - include paths ------------------------------------------------------------
@@ -170,10 +188,11 @@ set(RAFT_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include CACHE STRING
 
 set(RAFT_INCLUDE_DIRECTORIES
   ${RAFT_INCLUDE_DIR}
-  ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
+  ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
+  "${RMM_INCLUDE}")
 
 if(DEFINED ENV{CONDA_PREFIX})
-  message(STATUS "Using RMM installation froM $ENV{CONDA_PREFIX}")
+  message(STATUS "Using RMM installation from $ENV{CONDA_PREFIX}")
   list(APPEND RAFT_INCLUDE_DIRECTORIES $ENV{CONDA_PREFIX}/include)
 endif(DEFINED ENV{CONDA_PREFIX})
 
@@ -188,7 +207,7 @@ set(RAFT_LINK_LIBRARIES
   ${CUDA_curand_LIBRARY}
   rmm)
 
-set(RAFT_LINK_DIRECTORIES "")
+set(RAFT_LINK_DIRECTORIES "${RMM_LIBRARY}")
 
 if(DEFINED ENV{CONDA_PREFIX})
   list(APPEND RAFT_LINK_DIRECTORIES $ENV{CONDA_PREFIX}/lib)

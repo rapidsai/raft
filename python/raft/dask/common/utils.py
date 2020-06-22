@@ -13,14 +13,27 @@
 # limitations under the License.
 #
 
-from .comms import Comms
-from .comms import local_handle
+from dask.distributed import default_client
 
-from .comms_utils import inject_comms_on_handle
-from .comms_utils import inject_comms_on_handle_coll_only
-from .comms_utils import perform_test_comms_allreduce
-from .comms_utils import perform_test_comms_send_recv
-from .comms_utils import perform_test_comms_allgather
-from .comms_utils import perform_test_comms_bcast
-from .comms_utils import perform_test_comms_reduce
-from .comms_utils import perform_test_comms_reducescatter
+
+def get_client(client=None):
+    return default_client() if client is None else client
+
+
+def parse_host_port(address):
+    """
+    Given a string address with host/port, build a tuple(host, port)
+
+    Parameters
+    ----------
+    address: string address to parse
+
+    Returns
+    -------
+    tuple with host and port info : tuple(host, port)
+    """
+    if '://' in address:
+        address = address.rsplit('://', 1)[1]
+    host, port = address.split(':')
+    port = int(port)
+    return host, port
