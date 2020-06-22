@@ -16,8 +16,8 @@
 
 #pragma once
 
+#include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
-#include <raft/spectral/error_temp.hpp>
 #include <raft/spectral/sm_utils.hpp>
 
 #include <thrust/device_vector.h>
@@ -110,7 +110,6 @@ cudaError_t scale_obs(IndexType_ m, IndexType_ n, ValueType_* obs) {
 
   // launch scaling kernel (scale each column of obs by its norm)
   scale_obs_kernel<IndexType_, ValueType_><<<nblocks, nthreads>>>(m, n, obs);
-  CUDA_CHECK_LAST();
 
   return cudaSuccess;
 }
@@ -133,7 +132,7 @@ void transform_eigen_matrix(handle_t const& handle,
     mean = thrust::reduce(
       thrust_exec_policy, thrust::device_pointer_cast(eigVecs + IDX(0, i, n)),
       thrust::device_pointer_cast(eigVecs + IDX(0, i + 1, n)));
-    CUDA_CHECK_LAST();
+    CHECK_CUDA(stream);
     mean /= n;
     thrust::transform(thrust_exec_policy,
                       thrust::device_pointer_cast(eigVecs + IDX(0, i, n)),
@@ -141,7 +140,7 @@ void transform_eigen_matrix(handle_t const& handle,
                       thrust::make_constant_iterator(mean),
                       thrust::device_pointer_cast(eigVecs + IDX(0, i, n)),
                       thrust::minus<weight_t>());
-    CUDA_CHECK_LAST();
+    CHECK_CUDA(stream);
 
     CUBLAS_CHECK(
       cublasnrm2(cublas_h, n, eigVecs + IDX(0, i, n), 1, &std, stream));
@@ -154,7 +153,7 @@ void transform_eigen_matrix(handle_t const& handle,
                       thrust::make_constant_iterator(std),
                       thrust::device_pointer_cast(eigVecs + IDX(0, i, n)),
                       thrust::divides<weight_t>());
-    CUDA_CHECK_LAST();
+    CHECK_CUDA(stream);
   }
 
   // Transpose eigenvector matrix
@@ -213,7 +212,7 @@ bool construct_indicator(handle_t const& handle,
                      thrust::device_pointer_cast(clusters + n),
                      thrust::device_pointer_cast(part_i.raw() + n))),
                    equal_to_i_op<vertex_t, weight_t>(index));
-  CUDA_CHECK_LAST();
+  CHECK_CUDA(stream);
 
   // Compute size of ith partition
   CUBLAS_CHECK(cublasdot(cublas_h, n, part_i.raw(), 1, part_i.raw(), 1,

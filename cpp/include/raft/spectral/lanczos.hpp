@@ -25,11 +25,12 @@
 #include <cuda.h>
 #include <curand.h>
 
+#include <raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/handle.hpp>
-#include <raft/spectral/error_temp.hpp>
 #include <raft/spectral/lapack.hpp>
 #include <raft/spectral/matrix_wrappers.hpp>
+#include <raft/spectral/warn_dbg.hpp>
 
 namespace raft {
 
@@ -100,7 +101,7 @@ int performLanczosIteration(
   auto cublas_h = handle.get_cublas_handle();
   auto stream = handle.get_stream();
 
-  RAFT_EXPECT(A != nullptr, "Null matrix pointer.");
+  RAFT_EXPECTS(A != nullptr, "Null matrix pointer.");
 
   IndexType_ n = A->nrows_;
 
@@ -672,11 +673,12 @@ int computeSmallestEigenvectors(
   // -------------------------------------------------------
   // Check that parameters are valid
   // -------------------------------------------------------
-  RAFT_EXPECT(nEigVecs > 0 && nEigVecs <= n, "Invalid number of eigenvectors.");
-  RAFT_EXPECT(restartIter > 0, "Invalid restartIter.");
-  RAFT_EXPECT(tol > 0, "Invalid tolerance.");
-  RAFT_EXPECT(maxIter >= nEigVecs, "Invalid maxIter.");
-  RAFT_EXPECT(restartIter >= nEigVecs, "Invalid restartIter.");
+  RAFT_EXPECTS(nEigVecs > 0 && nEigVecs <= n,
+               "Invalid number of eigenvectors.");
+  RAFT_EXPECTS(restartIter > 0, "Invalid restartIter.");
+  RAFT_EXPECTS(tol > 0, "Invalid tolerance.");
+  RAFT_EXPECTS(maxIter >= nEigVecs, "Invalid maxIter.");
+  RAFT_EXPECTS(restartIter >= nEigVecs, "Invalid restartIter.");
 
   auto cublas_h = handle.get_cublas_handle();
   auto stream = handle.get_stream();
@@ -696,8 +698,8 @@ int computeSmallestEigenvectors(
   work_host = work_host_v.data();
 
   // Initialize cuBLAS
-  CUBLAS_CHECK(cublassetpointermode(cublas_h, CUBLAS_POINTER_MODE_HOST,
-                                    stream));  // ????? TODO: check / remove
+  CUBLAS_CHECK(
+    cublassetpointermode(cublas_h, CUBLAS_POINTER_MODE_HOST, stream));
 
   // -------------------------------------------------------
   // Compute largest eigenvalue to determine shift
@@ -706,16 +708,15 @@ int computeSmallestEigenvectors(
   // Random number generator
   curandGenerator_t randGen;
   // Initialize random number generator
-  CUDA_TRY(curandCreateGenerator(&randGen, CURAND_RNG_PSEUDO_PHILOX4_32_10));
+  curandCreateGenerator(&randGen, CURAND_RNG_PSEUDO_PHILOX4_32_10);
 
   // FIXME: This is hard coded, which is good for unit testing...
   //        but should really be a parameter so it could be
   //        "random" for real runs and "fixed" for tests
-  CUDA_TRY(curandSetPseudoRandomGeneratorSeed(randGen, seed /*time(NULL)*/));
-  // CUDA_TRY(curandSetPseudoRandomGeneratorSeed(randGen, time(NULL)));
+  curandSetPseudoRandomGeneratorSeed(randGen, seed /*time(NULL)*/);
+
   // Initialize initial Lanczos vector
-  CUDA_TRY(
-    curandGenerateNormalX(randGen, lanczosVecs_dev, n + n % 2, zero, one));
+  curandGenerateNormalX(randGen, lanczosVecs_dev, n + n % 2, zero, one);
   ValueType_ normQ1;
   CUBLAS_CHECK(cublasnrm2(cublas_h, n, lanczosVecs_dev, 1, &normQ1, stream));
 
@@ -821,7 +822,7 @@ int computeSmallestEigenvectors(
                           *effIter, &zero, eigVecs_dev, n, stream));
 
   // Clean up and exit
-  CUDA_TRY(curandDestroyGenerator(randGen));
+  curandDestroyGenerator(randGen);
   return 0;
 }
 
@@ -874,11 +875,12 @@ int computeSmallestEigenvectors(
   IndexType_ n = A.nrows_;
 
   // Check that parameters are valid
-  RAFT_EXPECT(nEigVecs > 0 && nEigVecs <= n, "Invalid number of eigenvectors.");
-  RAFT_EXPECT(restartIter > 0, "Invalid restartIter.");
-  RAFT_EXPECT(tol > 0, "Invalid tolerance.");
-  RAFT_EXPECT(maxIter >= nEigVecs, "Invalid maxIter.");
-  RAFT_EXPECT(restartIter >= nEigVecs, "Invalid restartIter.");
+  RAFT_EXPECTS(nEigVecs > 0 && nEigVecs <= n,
+               "Invalid number of eigenvectors.");
+  RAFT_EXPECTS(restartIter > 0, "Invalid restartIter.");
+  RAFT_EXPECTS(tol > 0, "Invalid tolerance.");
+  RAFT_EXPECTS(maxIter >= nEigVecs, "Invalid maxIter.");
+  RAFT_EXPECTS(restartIter >= nEigVecs, "Invalid restartIter.");
 
   // Allocate memory
   std::vector<ValueType_> alpha_host_v(restartIter);
@@ -987,11 +989,12 @@ int computeLargestEigenvectors(
   // -------------------------------------------------------
   // Check that parameters are valid
   // -------------------------------------------------------
-  RAFT_EXPECT(nEigVecs > 0 && nEigVecs <= n, "Invalid number of eigenvectors.");
-  RAFT_EXPECT(restartIter > 0, "Invalid restartIter.");
-  RAFT_EXPECT(tol > 0, "Invalid tolerance.");
-  RAFT_EXPECT(maxIter >= nEigVecs, "Invalid maxIter.");
-  RAFT_EXPECT(restartIter >= nEigVecs, "Invalid restartIter.");
+  RAFT_EXPECTS(nEigVecs > 0 && nEigVecs <= n,
+               "Invalid number of eigenvectors.");
+  RAFT_EXPECTS(restartIter > 0, "Invalid restartIter.");
+  RAFT_EXPECTS(tol > 0, "Invalid tolerance.");
+  RAFT_EXPECTS(maxIter >= nEigVecs, "Invalid maxIter.");
+  RAFT_EXPECTS(restartIter >= nEigVecs, "Invalid restartIter.");
 
   auto cublas_h = handle.get_cublas_handle();
   auto stream = handle.get_stream();
@@ -1021,11 +1024,10 @@ int computeLargestEigenvectors(
   // Random number generator
   curandGenerator_t randGen;
   // Initialize random number generator
-  CUDA_TRY(curandCreateGenerator(&randGen, CURAND_RNG_PSEUDO_PHILOX4_32_10));
-  CUDA_TRY(curandSetPseudoRandomGeneratorSeed(randGen, seed));
+  curandCreateGenerator(&randGen, CURAND_RNG_PSEUDO_PHILOX4_32_10);
+  curandSetPseudoRandomGeneratorSeed(randGen, seed);
   // Initialize initial Lanczos vector
-  CUDA_TRY(
-    curandGenerateNormalX(randGen, lanczosVecs_dev, n + n % 2, zero, one));
+  curandGenerateNormalX(randGen, lanczosVecs_dev, n + n % 2, zero, one);
   ValueType_ normQ1;
   CUBLAS_CHECK(cublasnrm2(cublas_h, n, lanczosVecs_dev, 1, &normQ1, stream));
 
@@ -1141,7 +1143,7 @@ int computeLargestEigenvectors(
                           *effIter, &zero, eigVecs_dev, n, stream));
 
   // Clean up and exit
-  CUDA_TRY(curandDestroyGenerator(randGen));
+  curandDestroyGenerator(randGen);
   return 0;
 }
 
@@ -1194,11 +1196,12 @@ int computeLargestEigenvectors(handle_t const &handle,
   IndexType_ n = A.nrows_;
 
   // Check that parameters are valid
-  RAFT_EXPECT(nEigVecs > 0 && nEigVecs <= n, "Invalid number of eigenvectors.");
-  RAFT_EXPECT(restartIter > 0, "Invalid restartIter.");
-  RAFT_EXPECT(tol > 0, "Invalid tolerance.");
-  RAFT_EXPECT(maxIter >= nEigVecs, "Invalid maxIter.");
-  RAFT_EXPECT(restartIter >= nEigVecs, "Invalid restartIter.");
+  RAFT_EXPECTS(nEigVecs > 0 && nEigVecs <= n,
+               "Invalid number of eigenvectors.");
+  RAFT_EXPECTS(restartIter > 0, "Invalid restartIter.");
+  RAFT_EXPECTS(tol > 0, "Invalid tolerance.");
+  RAFT_EXPECTS(maxIter >= nEigVecs, "Invalid maxIter.");
+  RAFT_EXPECTS(restartIter >= nEigVecs, "Invalid restartIter.");
 
   // Allocate memory
   std::vector<ValueType_> alpha_host_v(restartIter);

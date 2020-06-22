@@ -19,7 +19,7 @@
 
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/cusolver_wrappers.h>
-#include <raft/spectral/error_temp.hpp>
+#include <raft/error.hpp>
 
 //for now; TODO: check if/where this `define` should be;
 //
@@ -33,7 +33,7 @@ namespace raft {
       std::stringstream ss;                             \
       ss << "Lapack error: argument number " << -status \
          << " had an illegal value.";                   \
-      RAFT_FAIL(ss.str());                              \
+      throw exception(ss.str());                        \
     } else if (status > 0)                              \
       RAFT_FAIL("Lapack error: internal error.");       \
   }

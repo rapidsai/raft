@@ -90,9 +90,9 @@ std::tuple<vertex_t, weight_t, vertex_t> modularity_maximization(
   GraphCSRView<vertex_t, edge_t, weight_t> const &graph,
   EigenSolver const &eigen_solver, ClusterSolver const &cluster_solver,
   vertex_t *__restrict__ clusters, weight_t *eigVals, weight_t *eigVecs) {
-  RAFT_EXPECT(clusters != nullptr, "Null clusters buffer.");
-  RAFT_EXPECT(eigVals != nullptr, "Null eigVals buffer.");
-  RAFT_EXPECT(eigVecs != nullptr, "Null eigVecs buffer.");
+  RAFT_EXPECTS(clusters != nullptr, "Null clusters buffer.");
+  RAFT_EXPECTS(eigVals != nullptr, "Null eigVals buffer.");
+  RAFT_EXPECTS(eigVecs != nullptr, "Null eigVecs buffer.");
 
   auto cublas_h = handle.get_cublas_handle();
   auto stream = handle.get_stream();
@@ -121,7 +121,7 @@ std::tuple<vertex_t, weight_t, vertex_t> modularity_maximization(
   // notice that at this point the matrix has already been transposed, so we are scaling
   // columns
   scale_obs(nEigVecs, n, eigVecs);
-  CUDA_CHECK_LAST();
+  CHECK_CUDA(stream);
 
   // Find partition clustering
   auto pair_cluster = cluster_solver.solve(handle, thrust_exec_policy, n,
@@ -151,7 +151,7 @@ void analyzeModularity(handle_t const &handle,
                        vertex_t nClusters,
                        vertex_t const *__restrict__ clusters,
                        weight_t &modularity) {
-  RAFT_EXPECT(clusters != nullptr, "Null clusters buffer.");
+  RAFT_EXPECTS(clusters != nullptr, "Null clusters buffer.");
 
   edge_t i;
   edge_t n = graph.number_of_vertices;

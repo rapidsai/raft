@@ -15,11 +15,11 @@
  */
 #pragma once
 
+#include <raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/graph.hpp>
 #include <raft/handle.hpp>
-#include <raft/spectral/error_temp.hpp>
 #include <raft/spectral/sm_utils.hpp>
 
 #include <thrust/fill.h>
@@ -143,8 +143,8 @@ struct sparse_matrix_t {
                   bool symmetric = false) const {
     using namespace sparse;
 
-    RAFT_EXPECT(x != nullptr, "Null x buffer.");
-    RAFT_EXPECT(y != nullptr, "Null y buffer.");
+    RAFT_EXPECTS(x != nullptr, "Null x buffer.");
+    RAFT_EXPECTS(y != nullptr, "Null y buffer.");
 
     auto cusparse_h = handle_.get_cusparse_handle();
     auto stream = handle_.get_stream();
@@ -281,7 +281,7 @@ struct laplacian_matrix_t : sparse_matrix_t<index_type, value_type> {
     blockDim.z = 1;
     utils::diagmv<<<gridDim, blockDim, 0, stream>>>(n, alpha, diagonal_.raw(),
                                                     x, y);
-    CUDA_CHECK_LAST();
+    CHECK_CUDA(stream);
 
     // Apply adjacency matrix
     //

@@ -70,9 +70,9 @@ std::tuple<vertex_t, weight_t, vertex_t> partition(
   GraphCSRView<vertex_t, edge_t, weight_t> const &graph,
   EigenSolver const &eigen_solver, ClusterSolver const &cluster_solver,
   vertex_t *__restrict__ clusters, weight_t *eigVals, weight_t *eigVecs) {
-  RAFT_EXPECT(clusters != nullptr, "Null clusters buffer.");
-  RAFT_EXPECT(eigVals != nullptr, "Null eigVals buffer.");
-  RAFT_EXPECT(eigVecs != nullptr, "Null eigVecs buffer.");
+  RAFT_EXPECTS(clusters != nullptr, "Null clusters buffer.");
+  RAFT_EXPECTS(eigVals != nullptr, "Null eigVals buffer.");
+  RAFT_EXPECTS(eigVecs != nullptr, "Null eigVecs buffer.");
 
   auto cublas_h = handle.get_cublas_handle();
   auto stream = handle.get_stream();
@@ -137,7 +137,7 @@ void analyzePartition(handle_t const &handle,
                       GraphCSRView<vertex_t, edge_t, weight_t> const &graph,
                       vertex_t nClusters, const vertex_t *__restrict__ clusters,
                       weight_t &edgeCut, weight_t &cost) {
-  RAFT_EXPECT(clusters != nullptr, "Null clusters buffer.");
+  RAFT_EXPECTS(clusters != nullptr, "Null clusters buffer.");
 
   edge_t i;
   edge_t n = graph.number_of_vertices;
