@@ -354,10 +354,33 @@ static int chooseNewCentroid(handle_t const& handle,
   // Randomly choose observation vector
   //   Probabilities are proportional to square of distance to closest
   //   centroid (see k-means++ algorithm)
-  obsIndex = (thrust::lower_bound(
-                thrust_exec_policy, thrust::device_pointer_cast(distsCumSum),
-                thrust::device_pointer_cast(distsCumSum + n), distsSum * rand) -
-              thrust::device_pointer_cast(distsCumSum));
+  //
+  //seg-faults due to Thrust bug
+  //on binary-search-like algorithms
+  //when run with stream dependent
+  //execution policies; fixed on Thrust GitHub
+  //hence replace w/ linear interpolation,
+  //until the Thrust issue gets resolved:
+  //
+  // obsIndex = (thrust::lower_bound(
+  //               thrust_exec_policy, thrust::device_pointer_cast(distsCumSum),
+  //               thrust::device_pointer_cast(distsCumSum + n), distsSum * rand) -
+  //             thrust::device_pointer_cast(distsCumSum));
+  //
+  //linear interpolation logic:
+  //{
+  ValueType_ minSum{0};
+  CUDA_TRY(cudaMemcpy(&minSum, distsCumSum, sizeof(ValueType_),
+                      cudaMemcpyDeviceToHost));
+  if (distsSum > minSum) {
+    ValueType_ vIndex = static_cast<ValueType_>(n - 1);
+    obsIndex = static_cast<IndexType_>(vIndex * (distsSum * rand - minSum) /
+                                       (distsSum - minSum));
+  } else {
+    obsIndex = 0;
+  }
+  //}
+
   CHECK_CUDA(stream);
   obsIndex = max(obsIndex, 0);
   obsIndex = min(obsIndex, n - 1);
