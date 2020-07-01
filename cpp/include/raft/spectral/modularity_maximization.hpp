@@ -82,12 +82,11 @@ using namespace linalg;
  *    performed.
  *  @return error flag.
  */
-template <typename vertex_t, typename edge_t, typename weight_t,
-          typename ThrustExePolicy, typename EigenSolver,
-          typename ClusterSolver>
+template <typename vertex_t, typename weight_t, typename ThrustExePolicy,
+          typename EigenSolver, typename ClusterSolver>
 std::tuple<vertex_t, weight_t, vertex_t> modularity_maximization(
   handle_t const &handle, ThrustExePolicy thrust_exec_policy,
-  GraphCSRView<vertex_t, edge_t, weight_t> const &graph,
+  sparse_matrix_t<vertex_t, weight_t> const &csr_m,
   EigenSolver const &eigen_solver, ClusterSolver const &cluster_solver,
   vertex_t *__restrict__ clusters, weight_t *eigVals, weight_t *eigVecs) {
   RAFT_EXPECTS(clusters != nullptr, "Null clusters buffer.");
@@ -100,13 +99,13 @@ std::tuple<vertex_t, weight_t, vertex_t> modularity_maximization(
   std::tuple<vertex_t, weight_t, vertex_t>
     stats;  //{iters_eig_solver,residual_cluster,iters_cluster_solver} // # iters eigen solver, cluster solver residual, # iters cluster solver
 
-  edge_t n = graph.number_of_vertices;
+  vertex_t n = csr_m.nrows_;
 
   // Compute eigenvectors of Modularity Matrix
 
   // Initialize Modularity Matrix
-  sparse_matrix_t<vertex_t, weight_t> A{handle, graph};
-  modularity_matrix_t<vertex_t, weight_t> B{handle, thrust_exec_policy, graph};
+  //sparse_matrix_t<vertex_t, weight_t> A{handle, graph};
+  modularity_matrix_t<vertex_t, weight_t> B{handle, thrust_exec_policy, csr_m};
 
   auto eigen_config = eigen_solver.get_config();
   auto nEigVecs = eigen_config.n_eigVecs;
@@ -143,18 +142,17 @@ std::tuple<vertex_t, weight_t, vertex_t> modularity_maximization(
  *  @param clusters (Input, device memory, n entries) Cluster assignments.
  *  @param modularity On exit, modularity
  */
-template <typename vertex_t, typename edge_t, typename weight_t,
-          typename ThrustExePolicy>
+template <typename vertex_t, typename weight_t, typename ThrustExePolicy>
 void analyzeModularity(handle_t const &handle,
                        ThrustExePolicy thrust_exec_policy,
-                       GraphCSRView<vertex_t, edge_t, weight_t> const &graph,
+                       sparse_matrix_t<vertex_t, weight_t> const &csr_m,
                        vertex_t nClusters,
                        vertex_t const *__restrict__ clusters,
                        weight_t &modularity) {
   RAFT_EXPECTS(clusters != nullptr, "Null clusters buffer.");
 
-  edge_t i;
-  edge_t n = graph.number_of_vertices;
+  vertex_t i;
+  vertex_t n = csr_m.nrows_;
   weight_t partModularity, clustersize;
 
   auto cublas_h = handle.get_cublas_handle();
@@ -169,8 +167,8 @@ void analyzeModularity(handle_t const &handle,
     cublassetpointermode(cublas_h, CUBLAS_POINTER_MODE_HOST, stream));
 
   // Initialize Modularity
-  sparse_matrix_t<vertex_t, weight_t> A{handle, graph};
-  modularity_matrix_t<vertex_t, weight_t> B{handle, thrust_exec_policy, graph};
+  ///sparse_matrix_t<vertex_t, weight_t> A{handle, graph};
+  modularity_matrix_t<vertex_t, weight_t> B{handle, thrust_exec_policy, csr_m};
 
   // Initialize output
   modularity = 0;

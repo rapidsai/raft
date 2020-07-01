@@ -18,7 +18,6 @@
 #include <raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/sparse/cusparse_wrappers.h>
-#include <raft/graph.hpp>
 #include <raft/handle.hpp>
 #include <raft/spectral/sm_utils.hpp>
 
@@ -120,9 +119,8 @@ struct sparse_matrix_t {
       nrows_(nrows),
       nnz_(nnz) {}
 
-  sparse_matrix_t(
-    handle_t const& raft_handle,
-    GraphCSRView<index_type, index_type, value_type> const& csr_view)
+  template <typename CSRView>
+  sparse_matrix_t(handle_t const& raft_handle, CSRView const& csr_view)
     : handle_(raft_handle),
       row_offsets_(csr_view.offsets),
       col_indices_(csr_view.indices),
@@ -238,12 +236,14 @@ struct laplacian_matrix_t : sparse_matrix_t<index_type, value_type> {
   }
 
   template <typename ThrustExePolicy>
-  laplacian_matrix_t(
-    handle_t const& raft_handle, ThrustExePolicy thrust_exec_policy,
-    GraphCSRView<index_type, index_type, value_type> const& csr_view)
-    : sparse_matrix_t<index_type, value_type>(raft_handle, csr_view),
-      diagonal_(raft_handle, csr_view.number_of_vertices) {
-    vector_t<value_type> ones{raft_handle, csr_view.number_of_vertices};
+  laplacian_matrix_t(handle_t const& raft_handle,
+                     ThrustExePolicy thrust_exec_policy,
+                     sparse_matrix_t<index_type, value_type> const& csr_m)
+    : sparse_matrix_t<index_type, value_type>(raft_handle, csr_m.row_offsets_,
+                                              csr_m.col_indices_, csr_m.values_,
+                                              csr_m.nrows_, csr_m.nnz_),
+      diagonal_(raft_handle, csr_m.nrows_) {
+    vector_t<value_type> ones{raft_handle, csr_m.nrows_};
     ones.fill(thrust_exec_policy, 1.0);
     sparse_matrix_t<index_type, value_type>::mv(1, ones.raw(), 0,
                                                 diagonal_.raw());
@@ -307,11 +307,11 @@ struct modularity_matrix_t : laplacian_matrix_t<index_type, value_type> {
   }
 
   template <typename ThrustExePolicy>
-  modularity_matrix_t(
-    handle_t const& raft_handle, ThrustExePolicy thrust_exec_policy,
-    GraphCSRView<index_type, index_type, value_type> const& csr_view)
+  modularity_matrix_t(handle_t const& raft_handle,
+                      ThrustExePolicy thrust_exec_policy,
+                      sparse_matrix_t<index_type, value_type> const& csr_m)
     : laplacian_matrix_t<index_type, value_type>(raft_handle,
-                                                 thrust_exec_policy, csr_view) {
+                                                 thrust_exec_policy, csr_m) {
     edge_sum_ = laplacian_matrix_t<index_type, value_type>::diagonal_.nrm1(
       thrust_exec_policy);
   }

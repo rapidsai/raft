@@ -101,17 +101,17 @@ TEST(Raft, SpectralSolvers) {
   kmeans_solver_t<index_type, value_type> cluster_solver{clust_cfg};
 
   auto stream = h.get_stream();
-  GraphCSRView<index_type, index_type, value_type> empty_graph;
-  auto t_exe_p = thrust::cuda::par.on(stream);
 
-  EXPECT_ANY_THROW(spectral::partition(h, t_exe_p, empty_graph, eig_solver,
-                                       cluster_solver, clusters, eigvals,
-                                       eigvecs));
+  auto t_exe_p = thrust::cuda::par.on(stream);
+  sparse_matrix_t<index_type, value_type> sm{h,       nullptr, nullptr,
+                                             nullptr, 0,       0};
+  EXPECT_ANY_THROW(spectral::partition(
+    h, t_exe_p, sm, eig_solver, cluster_solver, clusters, eigvals, eigvecs));
 
   value_type edgeCut{0};
   value_type cost{0};
-  EXPECT_ANY_THROW(spectral::analyzePartition(h, t_exe_p, empty_graph, k,
-                                              clusters, edgeCut, cost));
+  EXPECT_ANY_THROW(
+    spectral::analyzePartition(h, t_exe_p, sm, k, clusters, edgeCut, cost));
 }
 
 }  // namespace raft
