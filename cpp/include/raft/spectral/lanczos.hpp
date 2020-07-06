@@ -81,29 +81,30 @@ inline curandStatus_t curandGenerateNormalX(curandGenerator_t generator,
  *    Workspace. Not needed if full reorthogonalization is disabled.
  *  @return Zero if successful. Otherwise non-zero.
  */
-template <typename IndexType_, typename ValueType_>
+template <typename index_type_t, typename value_type_t>
 int performLanczosIteration(
-  handle_t const &handle, sparse_matrix_t<IndexType_, ValueType_> const *A,
-  IndexType_ *iter, IndexType_ maxIter, ValueType_ shift, ValueType_ tol,
-  bool reorthogonalize, ValueType_ *__restrict__ alpha_host,
-  ValueType_ *__restrict__ beta_host, ValueType_ *__restrict__ lanczosVecs_dev,
-  ValueType_ *__restrict__ work_dev) {
+  handle_t const &handle, sparse_matrix_t<index_type_t, value_type_t> const *A,
+  index_type_t *iter, index_type_t maxIter, value_type_t shift,
+  value_type_t tol, bool reorthogonalize, value_type_t *__restrict__ alpha_host,
+  value_type_t *__restrict__ beta_host,
+  value_type_t *__restrict__ lanczosVecs_dev,
+  value_type_t *__restrict__ work_dev) {
   // -------------------------------------------------------
   // Variable declaration
   // -------------------------------------------------------
 
   // Useful variables
-  const ValueType_ one = 1;
-  const ValueType_ negOne = -1;
-  const ValueType_ zero = 0;
-  ValueType_ alpha;
+  const value_type_t one = 1;
+  const value_type_t negOne = -1;
+  const value_type_t zero = 0;
+  value_type_t alpha;
 
   auto cublas_h = handle.get_cublas_handle();
   auto stream = handle.get_stream();
 
   RAFT_EXPECTS(A != nullptr, "Null matrix pointer.");
 
-  IndexType_ n = A->nrows_;
+  index_type_t n = A->nrows_;
 
   // -------------------------------------------------------
   // Compute second Lanczos vector
@@ -114,8 +115,8 @@ int performLanczosIteration(
     // Apply matrix
     if (shift != 0)
       CUDA_TRY(cudaMemcpyAsync(lanczosVecs_dev + n, lanczosVecs_dev,
-                               n * sizeof(ValueType_), cudaMemcpyDeviceToDevice,
-                               stream));
+                               n * sizeof(value_type_t),
+                               cudaMemcpyDeviceToDevice, stream));
     A->mv(1, lanczosVecs_dev, shift, lanczosVecs_dev + n);
 
     // Orthogonalize Lanczos vector
@@ -149,7 +150,7 @@ int performLanczosIteration(
     if (shift != 0)
       CUDA_TRY(cudaMemcpyAsync(
         lanczosVecs_dev + (*iter) * n, lanczosVecs_dev + (*iter - 1) * n,
-        n * sizeof(ValueType_), cudaMemcpyDeviceToDevice, stream));
+        n * sizeof(value_type_t), cudaMemcpyDeviceToDevice, stream));
     A->mv(1, lanczosVecs_dev + IDX(0, *iter - 1, n), shift,
           lanczosVecs_dev + IDX(0, *iter, n));
 
@@ -165,7 +166,7 @@ int performLanczosIteration(
                               lanczosVecs_dev + IDX(0, *iter, n), 1, stream));
 
       CUDA_TRY(cudaMemcpyAsync(alpha_host + (*iter - 1), work_dev + (*iter - 1),
-                               sizeof(ValueType_), cudaMemcpyDeviceToHost,
+                               sizeof(value_type_t), cudaMemcpyDeviceToHost,
                                stream));
 
       CUBLAS_CHECK(cublasgemv(
@@ -228,8 +229,9 @@ int performLanczosIteration(
  *  @param P (Output, host memory, 9 entries) Householder transform
  *    matrix. Matrix dimensions are 3 x 3.
  */
-template <typename IndexType_, typename ValueType_>
-static void findHouseholder3(ValueType_ *v, ValueType_ *Pv, ValueType_ *P) {
+template <typename index_type_t, typename value_type_t>
+static void findHouseholder3(value_type_t *v, value_type_t *Pv,
+                             value_type_t *P) {
   // Compute norm of vector
   *Pv = std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
 
@@ -239,7 +241,7 @@ static void findHouseholder3(ValueType_ *v, ValueType_ *Pv, ValueType_ *P) {
   v[0] -= *Pv;
 
   // Normalize Householder vector
-  ValueType_ normHouseholder =
+  value_type_t normHouseholder =
     std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
   if (normHouseholder != 0) {
     v[0] /= normHouseholder;
@@ -252,7 +254,7 @@ static void findHouseholder3(ValueType_ *v, ValueType_ *Pv, ValueType_ *P) {
   }
 
   // Construct Householder matrix
-  IndexType_ i, j;
+  index_type_t i, j;
   for (j = 0; j < 3; ++j)
     for (i = 0; i < 3; ++i) P[IDX(i, j, 3)] = -2 * v[i] * v[j];
   for (i = 0; i < 3; ++i) P[IDX(i, i, 3)] += 1;
@@ -267,12 +269,12 @@ static void findHouseholder3(ValueType_ *v, ValueType_ *Pv, ValueType_ *P) {
  *  @param v (Input, host memory, 3 entries) Householder vector.
  *  @param A (Input/output, host memory, 16 entries) 4 x 4 matrix.
  */
-template <typename IndexType_, typename ValueType_>
-static void applyHouseholder3(const ValueType_ *v, ValueType_ *A) {
+template <typename index_type_t, typename value_type_t>
+static void applyHouseholder3(const value_type_t *v, value_type_t *A) {
   // Loop indices
-  IndexType_ i, j;
+  index_type_t i, j;
   // Dot product between Householder vector and matrix row/column
-  ValueType_ vDotA;
+  value_type_t vDotA;
 
   // Pre-apply Householder transform
   for (j = 0; j < 4; ++j) {
@@ -307,31 +309,31 @@ static void applyHouseholder3(const ValueType_ *v, ValueType_ *A) {
  *  @param work (Output, host memory, 3*n entries) Workspace.
  *  @return Zero if successful. Otherwise non-zero.
  */
-template <typename IndexType_, typename ValueType_>
-static int francisQRIteration(IndexType_ n, ValueType_ shift1,
-                              ValueType_ shift2, ValueType_ *alpha,
-                              ValueType_ *beta, ValueType_ *V,
-                              ValueType_ *work) {
+template <typename index_type_t, typename value_type_t>
+static int francisQRIteration(index_type_t n, value_type_t shift1,
+                              value_type_t shift2, value_type_t *alpha,
+                              value_type_t *beta, value_type_t *V,
+                              value_type_t *work) {
   // -------------------------------------------------------
   // Variable declaration
   // -------------------------------------------------------
 
   // Temporary storage of 4x4 bulge and Householder vector
-  ValueType_ bulge[16];
+  value_type_t bulge[16];
 
   // Householder vector
-  ValueType_ householder[3];
+  value_type_t householder[3];
   // Householder matrix
-  ValueType_ householderMatrix[3 * 3];
+  value_type_t householderMatrix[3 * 3];
 
   // Shifts are roots of the polynomial p(x)=x^2+b*x+c
-  ValueType_ b = -shift1 - shift2;
-  ValueType_ c = shift1 * shift2;
+  value_type_t b = -shift1 - shift2;
+  value_type_t c = shift1 * shift2;
 
   // Loop indices
-  IndexType_ i, j, pos;
+  index_type_t i, j, pos;
   // Temporary variable
-  ValueType_ temp;
+  value_type_t temp;
 
   // -------------------------------------------------------
   // Implementation
@@ -341,20 +343,20 @@ static int francisQRIteration(IndexType_ n, ValueType_ shift1,
   householder[0] = alpha[0] * alpha[0] + beta[0] * beta[0] + b * alpha[0] + c;
   householder[1] = beta[0] * (alpha[0] + alpha[1] + b);
   householder[2] = beta[0] * beta[1];
-  findHouseholder3<IndexType_, ValueType_>(householder, &temp,
-                                           householderMatrix);
+  findHouseholder3<index_type_t, value_type_t>(householder, &temp,
+                                               householderMatrix);
 
   // Apply initial Householder transform to create bulge
-  memset(bulge, 0, 16 * sizeof(ValueType_));
+  memset(bulge, 0, 16 * sizeof(value_type_t));
   for (i = 0; i < 4; ++i) bulge[IDX(i, i, 4)] = alpha[i];
   for (i = 0; i < 3; ++i) {
     bulge[IDX(i + 1, i, 4)] = beta[i];
     bulge[IDX(i, i + 1, 4)] = beta[i];
   }
-  applyHouseholder3<IndexType_, ValueType_>(householder, bulge);
-  Lapack<ValueType_>::gemm(false, false, n, 3, 3, 1, V, n, householderMatrix, 3,
-                           0, work, n);
-  memcpy(V, work, 3 * n * sizeof(ValueType_));
+  applyHouseholder3<index_type_t, value_type_t>(householder, bulge);
+  Lapack<value_type_t>::gemm(false, false, n, 3, 3, 1, V, n, householderMatrix,
+                             3, 0, work, n);
+  memcpy(V, work, 3 * n * sizeof(value_type_t));
 
   // Chase bulge to bottom-right of matrix with Householder transforms
   for (pos = 0; pos < n - 4; ++pos) {
@@ -374,12 +376,12 @@ static int francisQRIteration(IndexType_ n, ValueType_ shift1,
     bulge[IDX(3, 3, 4)] = alpha[pos + 4];
 
     // Apply Householder transform
-    findHouseholder3<IndexType_, ValueType_>(householder, beta + pos,
-                                             householderMatrix);
-    applyHouseholder3<IndexType_, ValueType_>(householder, bulge);
-    Lapack<ValueType_>::gemm(false, false, n, 3, 3, 1, V + IDX(0, pos + 1, n),
-                             n, householderMatrix, 3, 0, work, n);
-    memcpy(V + IDX(0, pos + 1, n), work, 3 * n * sizeof(ValueType_));
+    findHouseholder3<index_type_t, value_type_t>(householder, beta + pos,
+                                                 householderMatrix);
+    applyHouseholder3<index_type_t, value_type_t>(householder, bulge);
+    Lapack<value_type_t>::gemm(false, false, n, 3, 3, 1, V + IDX(0, pos + 1, n),
+                               n, householderMatrix, 3, 0, work, n);
+    memcpy(V + IDX(0, pos + 1, n), work, 3 * n * sizeof(value_type_t));
   }
 
   // Apply penultimate Householder transform
@@ -397,12 +399,12 @@ static int francisQRIteration(IndexType_ n, ValueType_ shift1,
   bulge[IDX(1, 3, 4)] = 0;
   bulge[IDX(2, 3, 4)] = 0;
   bulge[IDX(3, 3, 4)] = 0;
-  findHouseholder3<IndexType_, ValueType_>(householder, beta + n - 4,
-                                           householderMatrix);
-  applyHouseholder3<IndexType_, ValueType_>(householder, bulge);
-  Lapack<ValueType_>::gemm(false, false, n, 3, 3, 1, V + IDX(0, n - 3, n), n,
-                           householderMatrix, 3, 0, work, n);
-  memcpy(V + IDX(0, n - 3, n), work, 3 * n * sizeof(ValueType_));
+  findHouseholder3<index_type_t, value_type_t>(householder, beta + n - 4,
+                                               householderMatrix);
+  applyHouseholder3<index_type_t, value_type_t>(householder, bulge);
+  Lapack<value_type_t>::gemm(false, false, n, 3, 3, 1, V + IDX(0, n - 3, n), n,
+                             householderMatrix, 3, 0, work, n);
+  memcpy(V + IDX(0, n - 3, n), work, 3 * n * sizeof(value_type_t));
 
   // Apply final Householder transform
   //   Values in the last two rows and columns are zero
@@ -412,12 +414,12 @@ static int francisQRIteration(IndexType_ n, ValueType_ shift1,
   householder[2] = 0;
   for (j = 0; j < 3; ++j)
     for (i = 0; i < 3; ++i) bulge[IDX(i, j, 4)] = bulge[IDX(i + 1, j + 1, 4)];
-  findHouseholder3<IndexType_, ValueType_>(householder, beta + n - 3,
-                                           householderMatrix);
-  applyHouseholder3<IndexType_, ValueType_>(householder, bulge);
-  Lapack<ValueType_>::gemm(false, false, n, 2, 2, 1, V + IDX(0, n - 2, n), n,
-                           householderMatrix, 3, 0, work, n);
-  memcpy(V + IDX(0, n - 2, n), work, 2 * n * sizeof(ValueType_));
+  findHouseholder3<index_type_t, value_type_t>(householder, beta + n - 3,
+                                               householderMatrix);
+  applyHouseholder3<index_type_t, value_type_t>(householder, bulge);
+  Lapack<value_type_t>::gemm(false, false, n, 2, 2, 1, V + IDX(0, n - 2, n), n,
+                             householderMatrix, 3, 0, work, n);
+  memcpy(V + IDX(0, n - 2, n), work, 2 * n * sizeof(value_type_t));
 
   // Bulge has been eliminated
   alpha[n - 2] = bulge[IDX(0, 0, 4)];
@@ -456,49 +458,49 @@ static int francisQRIteration(IndexType_ n, ValueType_ shift1,
  *  @param work_dev (Output, device memory, (n+iter)*iter entries)
  *    Workspace.
  */
-template <typename IndexType_, typename ValueType_>
+template <typename index_type_t, typename value_type_t>
 static int lanczosRestart(
-  handle_t const &handle, IndexType_ n, IndexType_ iter, IndexType_ iter_new,
-  ValueType_ *shiftUpper, ValueType_ *shiftLower,
-  ValueType_ *__restrict__ alpha_host, ValueType_ *__restrict__ beta_host,
-  ValueType_ *__restrict__ V_host, ValueType_ *__restrict__ work_host,
-  ValueType_ *__restrict__ lanczosVecs_dev, ValueType_ *__restrict__ work_dev,
-  bool smallest_eig) {
+  handle_t const &handle, index_type_t n, index_type_t iter,
+  index_type_t iter_new, value_type_t *shiftUpper, value_type_t *shiftLower,
+  value_type_t *__restrict__ alpha_host, value_type_t *__restrict__ beta_host,
+  value_type_t *__restrict__ V_host, value_type_t *__restrict__ work_host,
+  value_type_t *__restrict__ lanczosVecs_dev,
+  value_type_t *__restrict__ work_dev, bool smallest_eig) {
   // -------------------------------------------------------
   // Variable declaration
   // -------------------------------------------------------
 
   // Useful constants
-  const ValueType_ zero = 0;
-  const ValueType_ one = 1;
+  const value_type_t zero = 0;
+  const value_type_t one = 1;
 
   auto cublas_h = handle.get_cublas_handle();
   auto stream = handle.get_stream();
 
   // Loop index
-  IndexType_ i;
+  index_type_t i;
 
   // Number of implicit restart steps
   //   Assumed to be even since each call to Francis algorithm is
   //   equivalent to two calls of QR algorithm
-  IndexType_ restartSteps = iter - iter_new;
+  index_type_t restartSteps = iter - iter_new;
 
   // Ritz values from Lanczos method
-  ValueType_ *ritzVals_host = work_host + 3 * iter;
+  value_type_t *ritzVals_host = work_host + 3 * iter;
   // Shifts for implicit restart
-  ValueType_ *shifts_host;
+  value_type_t *shifts_host;
 
   // Orthonormal matrix for similarity transform
-  ValueType_ *V_dev = work_dev + n * iter;
+  value_type_t *V_dev = work_dev + n * iter;
 
   // -------------------------------------------------------
   // Implementation
   // -------------------------------------------------------
 
   // Compute Ritz values
-  memcpy(ritzVals_host, alpha_host, iter * sizeof(ValueType_));
-  memcpy(work_host, beta_host, (iter - 1) * sizeof(ValueType_));
-  Lapack<ValueType_>::sterf(iter, ritzVals_host, work_host);
+  memcpy(ritzVals_host, alpha_host, iter * sizeof(value_type_t));
+  memcpy(work_host, beta_host, (iter - 1) * sizeof(value_type_t));
+  Lapack<value_type_t>::sterf(iter, ritzVals_host, work_host);
 
   // Debug: Print largest eigenvalues
   // for (int i = iter-iter_new; i < iter; ++i)
@@ -506,7 +508,7 @@ static int lanczosRestart(
   // std::cout <<std::endl;
 
   // Initialize similarity transform with identity matrix
-  memset(V_host, 0, iter * iter * sizeof(ValueType_));
+  memset(V_host, 0, iter * iter * sizeof(value_type_t));
   for (i = 0; i < iter; ++i) V_host[IDX(i, i, iter)] = 1;
 
   // Determine interval to suppress eigenvalues
@@ -532,7 +534,7 @@ static int lanczosRestart(
   shifts_host = ritzVals_host;
   for (i = 0; i < restartSteps; ++i) {
     shifts_host[i] =
-      cos((i + 0.5) * static_cast<ValueType_>(M_PI) / restartSteps);
+      cos((i + 0.5) * static_cast<value_type_t>(M_PI) / restartSteps);
     shifts_host[i] *= 0.5 * ((*shiftUpper) - (*shiftLower));
     shifts_host[i] += 0.5 * ((*shiftUpper) + (*shiftLower));
   }
@@ -544,7 +546,7 @@ static int lanczosRestart(
       WARNING("error in implicitly shifted QR algorithm");
 
   // Obtain new residual
-  CUDA_TRY(cudaMemcpyAsync(V_dev, V_host, iter * iter * sizeof(ValueType_),
+  CUDA_TRY(cudaMemcpyAsync(V_dev, V_host, iter * iter * sizeof(value_type_t),
                            cudaMemcpyHostToDevice, stream));
 
   beta_host[iter - 1] =
@@ -560,13 +562,13 @@ static int lanczosRestart(
                           work_dev, n, stream));
 
   CUDA_TRY(cudaMemcpyAsync(lanczosVecs_dev, work_dev,
-                           n * iter_new * sizeof(ValueType_),
+                           n * iter_new * sizeof(value_type_t),
                            cudaMemcpyDeviceToDevice, stream));
 
   // Normalize residual to obtain new Lanczos vector
   CUDA_TRY(cudaMemcpyAsync(
     lanczosVecs_dev + IDX(0, iter_new, n), lanczosVecs_dev + IDX(0, iter, n),
-    n * sizeof(ValueType_), cudaMemcpyDeviceToDevice, stream));
+    n * sizeof(value_type_t), cudaMemcpyDeviceToDevice, stream));
 
   CUBLAS_CHECK(cublasnrm2(cublas_h, n, lanczosVecs_dev + IDX(0, iter_new, n), 1,
                           beta_host + iter_new - 1, stream));
@@ -630,45 +632,46 @@ static int lanczosRestart(
  *    with dimensions n x nEigVecs.
  *  @return error flag.
  */
-template <typename IndexType_, typename ValueType_>
+template <typename index_type_t, typename value_type_t>
 int computeSmallestEigenvectors(
-  handle_t const &handle, sparse_matrix_t<IndexType_, ValueType_> const *A,
-  IndexType_ nEigVecs, IndexType_ maxIter, IndexType_ restartIter,
-  ValueType_ tol, bool reorthogonalize, IndexType_ *effIter,
-  IndexType_ *totalIter, ValueType_ *shift, ValueType_ *__restrict__ alpha_host,
-  ValueType_ *__restrict__ beta_host, ValueType_ *__restrict__ lanczosVecs_dev,
-  ValueType_ *__restrict__ work_dev, ValueType_ *__restrict__ eigVals_dev,
-  ValueType_ *__restrict__ eigVecs_dev, unsigned long long seed) {
+  handle_t const &handle, sparse_matrix_t<index_type_t, value_type_t> const *A,
+  index_type_t nEigVecs, index_type_t maxIter, index_type_t restartIter,
+  value_type_t tol, bool reorthogonalize, index_type_t *effIter,
+  index_type_t *totalIter, value_type_t *shift,
+  value_type_t *__restrict__ alpha_host, value_type_t *__restrict__ beta_host,
+  value_type_t *__restrict__ lanczosVecs_dev,
+  value_type_t *__restrict__ work_dev, value_type_t *__restrict__ eigVals_dev,
+  value_type_t *__restrict__ eigVecs_dev, unsigned long long seed) {
   using namespace spectral;
 
   // Useful constants
-  const ValueType_ one = 1;
-  const ValueType_ zero = 0;
+  const value_type_t one = 1;
+  const value_type_t zero = 0;
 
   // Matrix dimension
-  IndexType_ n = A->nrows_;
+  index_type_t n = A->nrows_;
 
   // Shift for implicit restart
-  ValueType_ shiftUpper;
-  ValueType_ shiftLower;
+  value_type_t shiftUpper;
+  value_type_t shiftLower;
 
   // Lanczos iteration counters
-  IndexType_ maxIter_curr = restartIter;  // Maximum size of Lanczos system
+  index_type_t maxIter_curr = restartIter;  // Maximum size of Lanczos system
 
   // Status flags
   int status;
 
   // Loop index
-  IndexType_ i;
+  index_type_t i;
 
   // Host memory
-  ValueType_ *Z_host;     // Eigenvectors in Lanczos basis
-  ValueType_ *work_host;  // Workspace
+  value_type_t *Z_host;     // Eigenvectors in Lanczos basis
+  value_type_t *work_host;  // Workspace
 
   // -------------------------------------------------------
   // Check that LAPACK is enabled
   // -------------------------------------------------------
-  // Lapack<ValueType_>::check_lapack_enabled();
+  // Lapack<value_type_t>::check_lapack_enabled();
 
   // -------------------------------------------------------
   // Check that parameters are valid
@@ -691,8 +694,8 @@ int computeSmallestEigenvectors(
   *totalIter = 0;
 
   // Allocate host memory
-  std::vector<ValueType_> Z_host_v(restartIter * restartIter);
-  std::vector<ValueType_> work_host_v(4 * restartIter);
+  std::vector<value_type_t> Z_host_v(restartIter * restartIter);
+  std::vector<value_type_t> work_host_v(4 * restartIter);
 
   Z_host = Z_host_v.data();
   work_host = work_host_v.data();
@@ -717,7 +720,7 @@ int computeSmallestEigenvectors(
 
   // Initialize initial Lanczos vector
   curandGenerateNormalX(randGen, lanczosVecs_dev, n + n % 2, zero, one);
-  ValueType_ normQ1;
+  value_type_t normQ1;
   CUBLAS_CHECK(cublasnrm2(cublas_h, n, lanczosVecs_dev, 1, &normQ1, stream));
 
   auto h_val = 1 / normQ1;
@@ -725,22 +728,22 @@ int computeSmallestEigenvectors(
 
   // Estimate number of Lanczos iterations
   //   See bounds in Kuczynski and Wozniakowski (1992).
-  // const ValueType_ relError = 0.25;  // Relative error
-  // const ValueType_ failProb = 1e-4;  // Probability of failure
+  // const value_type_t relError = 0.25;  // Relative error
+  // const value_type_t failProb = 1e-4;  // Probability of failure
   // maxIter_curr = log(n/pow(failProb,2))/(4*std::sqrt(relError)) + 1;
   // maxIter_curr = min(maxIter_curr, restartIter);
 
   // Obtain tridiagonal matrix with Lanczos
   *effIter = 0;
   *shift = 0;
-  status = performLanczosIteration<IndexType_, ValueType_>(
+  status = performLanczosIteration<index_type_t, value_type_t>(
     handle, A, effIter, maxIter_curr, *shift, 0.0, reorthogonalize, alpha_host,
     beta_host, lanczosVecs_dev, work_dev);
   if (status) WARNING("error in Lanczos iteration");
 
   // Determine largest eigenvalue
 
-  Lapack<ValueType_>::sterf(*effIter, alpha_host, beta_host);
+  Lapack<value_type_t>::sterf(*effIter, alpha_host, beta_host);
   *shift = -alpha_host[*effIter - 1];
   // std::cout <<  *shift <<std::endl;
   // -------------------------------------------------------
@@ -750,7 +753,7 @@ int computeSmallestEigenvectors(
   // Obtain tridiagonal matrix with Lanczos
   *effIter = 0;
   // maxIter_curr = min(maxIter, restartIter);
-  status = performLanczosIteration<IndexType_, ValueType_>(
+  status = performLanczosIteration<index_type_t, value_type_t>(
     handle, A, effIter, maxIter_curr, *shift, 0, reorthogonalize, alpha_host,
     beta_host, lanczosVecs_dev, work_dev);
   if (status) WARNING("error in Lanczos iteration");
@@ -762,14 +765,14 @@ int computeSmallestEigenvectors(
   while (*totalIter < maxIter && beta_host[*effIter - 1] > tol * shiftLower) {
     // Determine number of restart steps
     // Number of steps must be even due to Francis algorithm
-    IndexType_ iter_new = nEigVecs + 1;
+    index_type_t iter_new = nEigVecs + 1;
     if (restartIter - (maxIter - *totalIter) > nEigVecs + 1)
       iter_new = restartIter - (maxIter - *totalIter);
     if ((restartIter - iter_new) % 2) iter_new -= 1;
     if (iter_new == *effIter) break;
 
     // Implicit restart of Lanczos method
-    status = lanczosRestart<IndexType_, ValueType_>(
+    status = lanczosRestart<index_type_t, value_type_t>(
       handle, n, *effIter, iter_new, &shiftUpper, &shiftLower, alpha_host,
       beta_host, Z_host, work_host, lanczosVecs_dev, work_dev, true);
     if (status) WARNING("error in Lanczos implicit restart");
@@ -780,7 +783,7 @@ int computeSmallestEigenvectors(
 
     // Proceed with Lanczos method
     // maxIter_curr = min(restartIter, maxIter-*totalIter+*effIter);
-    status = performLanczosIteration<IndexType_, ValueType_>(
+    status = performLanczosIteration<index_type_t, value_type_t>(
       handle, A, effIter, maxIter_curr, *shift, tol * fabs(shiftLower),
       reorthogonalize, alpha_host, beta_host, lanczosVecs_dev, work_dev);
     if (status) WARNING("error in Lanczos iteration");
@@ -794,12 +797,12 @@ int computeSmallestEigenvectors(
 
   // Solve tridiagonal system
   memcpy(work_host + 2 * (*effIter), alpha_host,
-         (*effIter) * sizeof(ValueType_));
+         (*effIter) * sizeof(value_type_t));
   memcpy(work_host + 3 * (*effIter), beta_host,
-         (*effIter - 1) * sizeof(ValueType_));
-  Lapack<ValueType_>::steqr('I', *effIter, work_host + 2 * (*effIter),
-                            work_host + 3 * (*effIter), Z_host, *effIter,
-                            work_host);
+         (*effIter - 1) * sizeof(value_type_t));
+  Lapack<value_type_t>::steqr('I', *effIter, work_host + 2 * (*effIter),
+                              work_host + 3 * (*effIter), Z_host, *effIter,
+                              work_host);
 
   // Obtain desired eigenvalues by applying shift
   for (i = 0; i < *effIter; ++i) work_host[i + 2 * (*effIter)] -= *shift;
@@ -807,13 +810,13 @@ int computeSmallestEigenvectors(
 
   // Copy results to device memory
   CUDA_TRY(cudaMemcpy(eigVals_dev, work_host + 2 * (*effIter),
-                      nEigVecs * sizeof(ValueType_), cudaMemcpyHostToDevice));
+                      nEigVecs * sizeof(value_type_t), cudaMemcpyHostToDevice));
   // for (int i = 0; i < nEigVecs; ++i)
   //{
   //  std::cout <<*(work_host+(2*(*effIter)+i))<< std::endl;
   //}
   CUDA_TRY(cudaMemcpy(work_dev, Z_host,
-                      (*effIter) * nEigVecs * sizeof(ValueType_),
+                      (*effIter) * nEigVecs * sizeof(value_type_t),
                       cudaMemcpyHostToDevice));
 
   // Convert eigenvectors from Lanczos basis to standard basis
@@ -862,17 +865,17 @@ int computeSmallestEigenvectors(
  *    with dimensions n x nEigVecs.
  *  @return error flag.
  */
-template <typename IndexType_, typename ValueType_>
+template <typename index_type_t, typename value_type_t>
 int computeSmallestEigenvectors(
-  handle_t const &handle, sparse_matrix_t<IndexType_, ValueType_> const &A,
-  IndexType_ nEigVecs, IndexType_ maxIter, IndexType_ restartIter,
-  ValueType_ tol, bool reorthogonalize, IndexType_ &iter,
-  ValueType_ *__restrict__ eigVals_dev, ValueType_ *__restrict__ eigVecs_dev,
-  unsigned long long seed = 1234567) {
+  handle_t const &handle, sparse_matrix_t<index_type_t, value_type_t> const &A,
+  index_type_t nEigVecs, index_type_t maxIter, index_type_t restartIter,
+  value_type_t tol, bool reorthogonalize, index_type_t &iter,
+  value_type_t *__restrict__ eigVals_dev,
+  value_type_t *__restrict__ eigVecs_dev, unsigned long long seed = 1234567) {
   using namespace spectral;
 
   // Matrix dimension
-  IndexType_ n = A.nrows_;
+  index_type_t n = A.nrows_;
 
   // Check that parameters are valid
   RAFT_EXPECTS(nEigVecs > 0 && nEigVecs <= n,
@@ -883,19 +886,19 @@ int computeSmallestEigenvectors(
   RAFT_EXPECTS(restartIter >= nEigVecs, "Invalid restartIter.");
 
   // Allocate memory
-  std::vector<ValueType_> alpha_host_v(restartIter);
-  std::vector<ValueType_> beta_host_v(restartIter);
+  std::vector<value_type_t> alpha_host_v(restartIter);
+  std::vector<value_type_t> beta_host_v(restartIter);
 
-  ValueType_ *alpha_host = alpha_host_v.data();
-  ValueType_ *beta_host = beta_host_v.data();
+  value_type_t *alpha_host = alpha_host_v.data();
+  value_type_t *beta_host = beta_host_v.data();
 
   //TODO: replace and fix allocation via RAFT handle
-  vector_t<ValueType_> lanczosVecs_dev(handle, n * (restartIter + 1));
-  vector_t<ValueType_> work_dev(handle, (n + restartIter) * restartIter);
+  vector_t<value_type_t> lanczosVecs_dev(handle, n * (restartIter + 1));
+  vector_t<value_type_t> work_dev(handle, (n + restartIter) * restartIter);
 
   // Perform Lanczos method
-  IndexType_ effIter;
-  ValueType_ shift;
+  index_type_t effIter;
+  value_type_t shift;
   int status = computeSmallestEigenvectors(
     handle, &A, nEigVecs, maxIter, restartIter, tol, reorthogonalize, &effIter,
     &iter, &shift, alpha_host, beta_host, lanczosVecs_dev.raw(), work_dev.raw(),
@@ -950,41 +953,42 @@ int computeSmallestEigenvectors(
  *    with dimensions n x nEigVecs.
  *  @return error flag.
  */
-template <typename IndexType_, typename ValueType_>
+template <typename index_type_t, typename value_type_t>
 int computeLargestEigenvectors(
-  handle_t const &handle, sparse_matrix_t<IndexType_, ValueType_> const *A,
-  IndexType_ nEigVecs, IndexType_ maxIter, IndexType_ restartIter,
-  ValueType_ tol, bool reorthogonalize, IndexType_ *effIter,
-  IndexType_ *totalIter, ValueType_ *__restrict__ alpha_host,
-  ValueType_ *__restrict__ beta_host, ValueType_ *__restrict__ lanczosVecs_dev,
-  ValueType_ *__restrict__ work_dev, ValueType_ *__restrict__ eigVals_dev,
-  ValueType_ *__restrict__ eigVecs_dev, unsigned long long seed) {
+  handle_t const &handle, sparse_matrix_t<index_type_t, value_type_t> const *A,
+  index_type_t nEigVecs, index_type_t maxIter, index_type_t restartIter,
+  value_type_t tol, bool reorthogonalize, index_type_t *effIter,
+  index_type_t *totalIter, value_type_t *__restrict__ alpha_host,
+  value_type_t *__restrict__ beta_host,
+  value_type_t *__restrict__ lanczosVecs_dev,
+  value_type_t *__restrict__ work_dev, value_type_t *__restrict__ eigVals_dev,
+  value_type_t *__restrict__ eigVecs_dev, unsigned long long seed) {
   using namespace spectral;
 
   // Useful constants
-  const ValueType_ one = 1;
-  const ValueType_ zero = 0;
+  const value_type_t one = 1;
+  const value_type_t zero = 0;
 
   // Matrix dimension
-  IndexType_ n = A->nrows_;
+  index_type_t n = A->nrows_;
 
   // Lanczos iteration counters
-  IndexType_ maxIter_curr = restartIter;  // Maximum size of Lanczos system
+  index_type_t maxIter_curr = restartIter;  // Maximum size of Lanczos system
 
   // Status flags
   int status;
 
   // Loop index
-  IndexType_ i;
+  index_type_t i;
 
   // Host memory
-  ValueType_ *Z_host;     // Eigenvectors in Lanczos basis
-  ValueType_ *work_host;  // Workspace
+  value_type_t *Z_host;     // Eigenvectors in Lanczos basis
+  value_type_t *work_host;  // Workspace
 
   // -------------------------------------------------------
   // Check that LAPACK is enabled
   // -------------------------------------------------------
-  // Lapack<ValueType_>::check_lapack_enabled();
+  // Lapack<value_type_t>::check_lapack_enabled();
 
   // -------------------------------------------------------
   // Check that parameters are valid
@@ -1007,8 +1011,8 @@ int computeLargestEigenvectors(
   *totalIter = 0;
 
   // Allocate host memory
-  std::vector<ValueType_> Z_host_v(restartIter * restartIter);
-  std::vector<ValueType_> work_host_v(4 * restartIter);
+  std::vector<value_type_t> Z_host_v(restartIter * restartIter);
+  std::vector<value_type_t> work_host_v(4 * restartIter);
 
   Z_host = Z_host_v.data();
   work_host = work_host_v.data();
@@ -1028,7 +1032,7 @@ int computeLargestEigenvectors(
   curandSetPseudoRandomGeneratorSeed(randGen, seed);
   // Initialize initial Lanczos vector
   curandGenerateNormalX(randGen, lanczosVecs_dev, n + n % 2, zero, one);
-  ValueType_ normQ1;
+  value_type_t normQ1;
   CUBLAS_CHECK(cublasnrm2(cublas_h, n, lanczosVecs_dev, 1, &normQ1, stream));
 
   auto h_val = 1 / normQ1;
@@ -1036,36 +1040,36 @@ int computeLargestEigenvectors(
 
   // Estimate number of Lanczos iterations
   //   See bounds in Kuczynski and Wozniakowski (1992).
-  // const ValueType_ relError = 0.25;  // Relative error
-  // const ValueType_ failProb = 1e-4;  // Probability of failure
+  // const value_type_t relError = 0.25;  // Relative error
+  // const value_type_t failProb = 1e-4;  // Probability of failure
   // maxIter_curr = log(n/pow(failProb,2))/(4*std::sqrt(relError)) + 1;
   // maxIter_curr = min(maxIter_curr, restartIter);
 
   // Obtain tridiagonal matrix with Lanczos
   *effIter = 0;
-  ValueType_ shift_val = 0.0;
-  ValueType_ *shift = &shift_val;
+  value_type_t shift_val = 0.0;
+  value_type_t *shift = &shift_val;
   // maxIter_curr = min(maxIter, restartIter);
-  status = performLanczosIteration<IndexType_, ValueType_>(
+  status = performLanczosIteration<index_type_t, value_type_t>(
     handle, A, effIter, maxIter_curr, *shift, 0, reorthogonalize, alpha_host,
     beta_host, lanczosVecs_dev, work_dev);
   if (status) WARNING("error in Lanczos iteration");
   *totalIter += *effIter;
 
   // Apply Lanczos method until convergence
-  ValueType_ shiftLower = 1;
-  ValueType_ shiftUpper = -1;
+  value_type_t shiftLower = 1;
+  value_type_t shiftUpper = -1;
   while (*totalIter < maxIter && beta_host[*effIter - 1] > tol * shiftLower) {
     // Determine number of restart steps
     //   Number of steps must be even due to Francis algorithm
-    IndexType_ iter_new = nEigVecs + 1;
+    index_type_t iter_new = nEigVecs + 1;
     if (restartIter - (maxIter - *totalIter) > nEigVecs + 1)
       iter_new = restartIter - (maxIter - *totalIter);
     if ((restartIter - iter_new) % 2) iter_new -= 1;
     if (iter_new == *effIter) break;
 
     // Implicit restart of Lanczos method
-    status = lanczosRestart<IndexType_, ValueType_>(
+    status = lanczosRestart<index_type_t, value_type_t>(
       handle, n, *effIter, iter_new, &shiftUpper, &shiftLower, alpha_host,
       beta_host, Z_host, work_host, lanczosVecs_dev, work_dev, false);
     if (status) WARNING("error in Lanczos implicit restart");
@@ -1076,7 +1080,7 @@ int computeLargestEigenvectors(
 
     // Proceed with Lanczos method
     // maxIter_curr = min(restartIter, maxIter-*totalIter+*effIter);
-    status = performLanczosIteration<IndexType_, ValueType_>(
+    status = performLanczosIteration<index_type_t, value_type_t>(
       handle, A, effIter, maxIter_curr, *shift, tol * fabs(shiftLower),
       reorthogonalize, alpha_host, beta_host, lanczosVecs_dev, work_dev);
     if (status) WARNING("error in Lanczos iteration");
@@ -1092,12 +1096,12 @@ int computeLargestEigenvectors(
   }
   // Solve tridiagonal system
   memcpy(work_host + 2 * (*effIter), alpha_host,
-         (*effIter) * sizeof(ValueType_));
+         (*effIter) * sizeof(value_type_t));
   memcpy(work_host + 3 * (*effIter), beta_host,
-         (*effIter - 1) * sizeof(ValueType_));
-  Lapack<ValueType_>::steqr('I', *effIter, work_host + 2 * (*effIter),
-                            work_host + 3 * (*effIter), Z_host, *effIter,
-                            work_host);
+         (*effIter - 1) * sizeof(value_type_t));
+  Lapack<value_type_t>::steqr('I', *effIter, work_host + 2 * (*effIter),
+                              work_host + 3 * (*effIter), Z_host, *effIter,
+                              work_host);
 
   // note: We need to pick the top nEigVecs eigenvalues
   // but effItter can be larger than nEigVecs
@@ -1105,7 +1109,7 @@ int computeLargestEigenvectors(
   // matrix of size effIter. remember the array is sorted, so it is not needed for smallest
   // eigenvalues case because the first ones are the smallest ones
 
-  IndexType_ top_eigenparis_idx_offset = *effIter - nEigVecs;
+  index_type_t top_eigenparis_idx_offset = *effIter - nEigVecs;
 
   // Debug : print nEigVecs largest eigenvalues
   // for (int i = top_eigenparis_idx_offset; i < *effIter; ++i)
@@ -1130,12 +1134,12 @@ int computeLargestEigenvectors(
   // skip smallest eigenvalue if needed
   CUDA_TRY(cudaMemcpy(eigVals_dev,
                       work_host + 2 * (*effIter) + top_eigenparis_idx_offset,
-                      nEigVecs * sizeof(ValueType_), cudaMemcpyHostToDevice));
+                      nEigVecs * sizeof(value_type_t), cudaMemcpyHostToDevice));
 
   // skip smallest eigenvector if needed
   CUDA_TRY(cudaMemcpy(
     work_dev, Z_host + (top_eigenparis_idx_offset * (*effIter)),
-    (*effIter) * nEigVecs * sizeof(ValueType_), cudaMemcpyHostToDevice));
+    (*effIter) * nEigVecs * sizeof(value_type_t), cudaMemcpyHostToDevice));
 
   // Convert eigenvectors from Lanczos basis to standard basis
   CUBLAS_CHECK(cublasgemm(cublas_h, CUBLAS_OP_N, CUBLAS_OP_N, n, nEigVecs,
@@ -1183,17 +1187,15 @@ int computeLargestEigenvectors(
  *    with dimensions n x nEigVecs.
  *  @return error flag.
  */
-template <typename IndexType_, typename ValueType_>
-int computeLargestEigenvectors(handle_t const &handle,
-                               sparse_matrix_t<IndexType_, ValueType_> const &A,
-                               IndexType_ nEigVecs, IndexType_ maxIter,
-                               IndexType_ restartIter, ValueType_ tol,
-                               bool reorthogonalize, IndexType_ &iter,
-                               ValueType_ *__restrict__ eigVals_dev,
-                               ValueType_ *__restrict__ eigVecs_dev,
-                               unsigned long long seed = 123456) {
+template <typename index_type_t, typename value_type_t>
+int computeLargestEigenvectors(
+  handle_t const &handle, sparse_matrix_t<index_type_t, value_type_t> const &A,
+  index_type_t nEigVecs, index_type_t maxIter, index_type_t restartIter,
+  value_type_t tol, bool reorthogonalize, index_type_t &iter,
+  value_type_t *__restrict__ eigVals_dev,
+  value_type_t *__restrict__ eigVecs_dev, unsigned long long seed = 123456) {
   // Matrix dimension
-  IndexType_ n = A.nrows_;
+  index_type_t n = A.nrows_;
 
   // Check that parameters are valid
   RAFT_EXPECTS(nEigVecs > 0 && nEigVecs <= n,
@@ -1204,18 +1206,18 @@ int computeLargestEigenvectors(handle_t const &handle,
   RAFT_EXPECTS(restartIter >= nEigVecs, "Invalid restartIter.");
 
   // Allocate memory
-  std::vector<ValueType_> alpha_host_v(restartIter);
-  std::vector<ValueType_> beta_host_v(restartIter);
+  std::vector<value_type_t> alpha_host_v(restartIter);
+  std::vector<value_type_t> beta_host_v(restartIter);
 
-  ValueType_ *alpha_host = alpha_host_v.data();
-  ValueType_ *beta_host = beta_host_v.data();
+  value_type_t *alpha_host = alpha_host_v.data();
+  value_type_t *beta_host = beta_host_v.data();
 
   //TODO: replace and fix allocation via RAFT handle
-  vector_t<ValueType_> lanczosVecs_dev(handle, n * (restartIter + 1));
-  vector_t<ValueType_> work_dev(handle, (n + restartIter) * restartIter);
+  vector_t<value_type_t> lanczosVecs_dev(handle, n * (restartIter + 1));
+  vector_t<value_type_t> work_dev(handle, (n + restartIter) * restartIter);
 
   // Perform Lanczos method
-  IndexType_ effIter;
+  index_type_t effIter;
   int status = computeLargestEigenvectors(
     handle, &A, nEigVecs, maxIter, restartIter, tol, reorthogonalize, &effIter,
     &iter, alpha_host, beta_host, lanczosVecs_dev.raw(), work_dev.raw(),
