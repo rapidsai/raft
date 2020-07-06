@@ -453,9 +453,6 @@ static int initializeCentroids(
   // Loop index
   index_type_t i;
 
-  // CUDA grid dimensions
-  dim3 blockDim_warp, gridDim_warp, gridDim_block;
-
   // Random number generator
   thrust::default_random_engine rng(seed);
   thrust::uniform_real_distribution<value_type_t> uniformDist(0, 1);
@@ -468,15 +465,14 @@ static int initializeCentroids(
   // -------------------------------------------------------
 
   // Initialize grid dimensions
-  blockDim_warp.x = WARP_SIZE;
-  blockDim_warp.y = 1;
-  blockDim_warp.z = BSIZE_DIV_WSIZE;
-  gridDim_warp.x = min((d + WARP_SIZE - 1) / WARP_SIZE, 65535);
-  gridDim_warp.y = 1;
-  gridDim_warp.z = min((n + BSIZE_DIV_WSIZE - 1) / BSIZE_DIV_WSIZE, 65535);
-  gridDim_block.x = min((n + BLOCK_SIZE - 1) / BLOCK_SIZE, 65535);
-  gridDim_block.y = 1;
-  gridDim_block.z = 1;
+  dim3 blockDim_warp{WARP_SIZE, 1, BSIZE_DIV_WSIZE};
+
+  // CUDA grid dimensions
+  dim3 gridDim_warp{min((d + WARP_SIZE - 1) / WARP_SIZE, 65535), 1,
+                    min((n + BSIZE_DIV_WSIZE - 1) / BSIZE_DIV_WSIZE, 65535)};
+
+  // CUDA grid dimensions
+  dim3 gridDim_block{min((n + BLOCK_SIZE - 1) / BLOCK_SIZE, 65535), 1, 1};
 
   // Assign observation vectors to code 0
   CUDA_TRY(cudaMemsetAsync(codes, 0, n * sizeof(index_type_t), stream));
@@ -559,20 +555,22 @@ static int assignCentroids(
   const value_type_t* __restrict__ centroids, value_type_t* __restrict__ dists,
   index_type_t* __restrict__ codes, index_type_t* __restrict__ clusterSizes,
   value_type_t* residual_host) {
-  // CUDA grid dimensions
-  dim3 blockDim, gridDim;
-
   auto cublas_h = handle.get_cublas_handle();
   auto stream = handle.get_stream();
 
   // Compute distance between centroids and observation vectors
   CUDA_TRY(cudaMemsetAsync(dists, 0, n * k * sizeof(value_type_t), stream));
-  blockDim.x = WARP_SIZE;
-  blockDim.y = 1;
-  blockDim.z = BLOCK_SIZE / WARP_SIZE;
-  gridDim.x = min((d + WARP_SIZE - 1) / WARP_SIZE, 65535);
-  gridDim.y = min(k, 65535);
-  gridDim.z = min((n + BSIZE_DIV_WSIZE - 1) / BSIZE_DIV_WSIZE, 65535);
+
+  // CUDA grid dimensions
+  dim3 blockDim{WARP_SIZE, 1, BLOCK_SIZE / WARP_SIZE};
+
+  dim3 gridDim;
+  constexpr index_type_t grid_lower_bound{65535};
+  gridDim.x = min((d + WARP_SIZE - 1) / WARP_SIZE, grid_lower_bound);
+  gridDim.y = min(k, grid_lower_bound);
+  gridDim.z =
+    min((n + BSIZE_DIV_WSIZE - 1) / BSIZE_DIV_WSIZE, grid_lower_bound);
+
   computeDistances<<<gridDim, blockDim, 0, stream>>>(n, d, k, obs, centroids,
                                                      dists);
   CHECK_CUDA(stream);
@@ -645,9 +643,6 @@ static int updateCentroids(handle_t const& handle,
   auto cublas_h = handle.get_cublas_handle();
   auto stream = handle.get_stream();
 
-  // CUDA grid dimensions
-  dim3 blockDim, gridDim;
-
   // Device memory
   thrust::device_ptr<value_type_t> obs_copy(work);
   thrust::device_ptr<index_type_t> codes_copy(work_int);
@@ -687,12 +682,14 @@ static int updateCentroids(handle_t const& handle,
   CHECK_CUDA(stream);
 
   // Divide sums by cluster size to get centroid matrix
-  blockDim.x = WARP_SIZE;
-  blockDim.y = BLOCK_SIZE / WARP_SIZE;
-  blockDim.z = 1;
-  gridDim.x = min((d + WARP_SIZE - 1) / WARP_SIZE, 65535);
-  gridDim.y = min((k + BSIZE_DIV_WSIZE - 1) / BSIZE_DIV_WSIZE, 65535);
-  gridDim.z = 1;
+  //
+  // CUDA grid dimensions
+  dim3 blockDim{WARP_SIZE, BLOCK_SIZE / WARP_SIZE, 1};
+
+  // CUDA grid dimensions
+  dim3 gridDim{min((d + WARP_SIZE - 1) / WARP_SIZE, 65535),
+               min((k + BSIZE_DIV_WSIZE - 1) / BSIZE_DIV_WSIZE, 65535), 1};
+
   divideCentroids<<<gridDim, blockDim, 0, stream>>>(d, k, clusterSizes,
                                                     centroids);
   CHECK_CUDA(stream);
@@ -786,14 +783,13 @@ int kmeans(handle_t const& handle, thrust_exe_pol_t thrust_exec_policy,
     if (updateCentroids(handle, thrust_exec_policy, n, d, k, obs, codes,
                         clusterSizes, centroids, work, work_int))
       WARNING("could not compute k-means centroids");
-    dim3 blockDim, gridDim;
-    blockDim.x = WARP_SIZE;
-    blockDim.y = 1;
-    blockDim.z = BLOCK_SIZE / WARP_SIZE;
-    gridDim.x = min((d + WARP_SIZE - 1) / WARP_SIZE, 65535);
-    gridDim.y = 1;
-    gridDim.z =
-      min((n + BLOCK_SIZE / WARP_SIZE - 1) / (BLOCK_SIZE / WARP_SIZE), 65535);
+
+    dim3 blockDim{WARP_SIZE, 1, BLOCK_SIZE / WARP_SIZE};
+
+    dim3 gridDim{
+      min((d + WARP_SIZE - 1) / WARP_SIZE, 65535), 1,
+      min((n + BLOCK_SIZE / WARP_SIZE - 1) / (BLOCK_SIZE / WARP_SIZE), 65535)};
+
     CUDA_TRY(cudaMemsetAsync(work, 0, n * k * sizeof(value_type_t), stream));
     computeDistances<<<gridDim, blockDim, 0, stream>>>(n, d, 1, obs, centroids,
                                                        work);
