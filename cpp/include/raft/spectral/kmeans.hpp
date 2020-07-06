@@ -365,8 +365,8 @@ static int chooseNewCentroid(handle_t const& handle,
                          thrust::device_pointer_cast(dists + n),
                          thrust::device_pointer_cast(distsCumSum));
   CHECK_CUDA(stream);
-  CUDA_TRY(cudaMemcpy(&distsSum, distsCumSum + n - 1, sizeof(value_type_t),
-                      cudaMemcpyDeviceToHost));
+  CUDA_TRY(cudaMemcpyAsync(&distsSum, distsCumSum + n - 1, sizeof(value_type_t),
+                           cudaMemcpyDeviceToHost, stream));
 
   // Randomly choose observation vector
   //   Probabilities are proportional to square of distance to closest
@@ -387,8 +387,10 @@ static int chooseNewCentroid(handle_t const& handle,
   //linear interpolation logic:
   //{
   value_type_t minSum{0};
-  CUDA_TRY(cudaMemcpy(&minSum, distsCumSum, sizeof(value_type_t),
-                      cudaMemcpyDeviceToHost));
+  CUDA_TRY(cudaMemcpyAsync(&minSum, distsCumSum, sizeof(value_type_t),
+                           cudaMemcpyDeviceToHost, stream));
+  CHECK_CUDA(cudaStreamSynchronize(stream));
+
   if (distsSum > minSum) {
     value_type_t vIndex = static_cast<value_type_t>(n - 1);
     obsIndex = static_cast<index_type_t>(vIndex * (distsSum * rand - minSum) /
