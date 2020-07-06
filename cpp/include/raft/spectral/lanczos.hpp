@@ -209,7 +209,7 @@ int performLanczosIteration(
                             lanczosVecs_dev + IDX(0, *iter, n), 1, stream));
   }
 
-  CUDA_TRY(cudaDeviceSynchronize());
+  CUDA_TRY(cudaStreamSynchronize(stream));
 
   return 0;
 }
