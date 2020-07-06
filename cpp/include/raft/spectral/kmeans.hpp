@@ -59,7 +59,7 @@ constexpr unsigned int BSIZE_DIV_WSIZE = (BLOCK_SIZE / WARP_SIZE);
  *    are d threads in the x-direction, k threads in the y-direction,
  *    and n threads in the z-direction.
  *  @tparam Index_Type_ the type of data used for indexing.
- *  @tparam ValueType_ the type of data used for weights, distances.
+ *  @tparam value_type_t the type of data used for weights, distances.
  *  @param n Number of observation vectors.
  *  @param d Dimension of observation vectors.
  *  @param k Number of clusters.
@@ -75,20 +75,22 @@ constexpr unsigned int BSIZE_DIV_WSIZE = (BLOCK_SIZE / WARP_SIZE);
  *    centroid. Matrix dimensions are n x k. Entries must be
  *    initialized to zero.
  */
-template <typename IndexType_, typename ValueType_>
+template <typename index_type_t, typename value_type_t>
 static __global__ void computeDistances(
-  IndexType_ n, IndexType_ d, IndexType_ k, const ValueType_* __restrict__ obs,
-  const ValueType_* __restrict__ centroids, ValueType_* __restrict__ dists) {
+  index_type_t n, index_type_t d, index_type_t k,
+  const value_type_t* __restrict__ obs,
+  const value_type_t* __restrict__ centroids,
+  value_type_t* __restrict__ dists) {
   // Loop index
-  IndexType_ i;
+  index_type_t i;
 
   // Block indices
-  IndexType_ bidx;
+  index_type_t bidx;
   // Global indices
-  IndexType_ gidx, gidy, gidz;
+  index_type_t gidx, gidy, gidz;
 
   // Private memory
-  ValueType_ centroid_private, dist_private;
+  value_type_t centroid_private, dist_private;
 
   // Global x-index indicates index of vector entry
   bidx = blockIdx.x;
@@ -137,7 +139,7 @@ static __global__ void computeDistances(
  *    Block and grid dimensions should be 1-dimensional. Ideally the
  *    grid is large enough so there are n threads.
  *  @tparam Index_Type_ the type of data used for indexing.
- *  @tparam ValueType_ the type of data used for weights, distances.
+ *  @tparam value_type_t the type of data used for weights, distances.
  *  @param n Number of observation vectors.
  *  @param k Number of clusters.
  *  @param centroids (Input, d*k entries) Centroid matrix. Matrix is
@@ -153,20 +155,20 @@ static __global__ void computeDistances(
  *  @param clusterSizes (Output, k entries) Number of points in each
  *    cluster. Entries must be initialized to zero.
  */
-template <typename IndexType_, typename ValueType_>
-static __global__ void minDistances(IndexType_ n, IndexType_ k,
-                                    ValueType_* __restrict__ dists,
-                                    IndexType_* __restrict__ codes,
-                                    IndexType_* __restrict__ clusterSizes) {
+template <typename index_type_t, typename value_type_t>
+static __global__ void minDistances(index_type_t n, index_type_t k,
+                                    value_type_t* __restrict__ dists,
+                                    index_type_t* __restrict__ codes,
+                                    index_type_t* __restrict__ clusterSizes) {
   // Loop index
-  IndexType_ i, j;
+  index_type_t i, j;
 
   // Current matrix entry
-  ValueType_ dist_curr;
+  value_type_t dist_curr;
 
   // Smallest entry in row
-  ValueType_ dist_min;
-  IndexType_ code_min;
+  value_type_t dist_min;
+  index_type_t code_min;
 
   // Each row in observation matrix is processed by a thread
   i = threadIdx.x + blockIdx.x * blockDim.x;
@@ -197,7 +199,7 @@ static __global__ void minDistances(IndexType_ n, IndexType_ k,
  *    Block and grid dimensions should be 1-dimensional. Ideally the
  *    grid is large enough so there are n threads.
  *  @tparam Index_Type_ the type of data used for indexing.
- *  @tparam ValueType_ the type of data used for weights, distances.
+ *  @tparam value_type_t the type of data used for weights, distances.
  *  @param n Number of observation vectors.
  *  @param dists_old (Input/output, n entries) Distances between
  *    observation vectors and closest centroids. On exit, entries
@@ -211,18 +213,18 @@ static __global__ void minDistances(IndexType_ n, IndexType_ k,
  *    centroid.
  *  @param code_new Index associated with new centroid.
  */
-template <typename IndexType_, typename ValueType_>
-static __global__ void minDistances2(IndexType_ n,
-                                     ValueType_* __restrict__ dists_old,
-                                     const ValueType_* __restrict__ dists_new,
-                                     IndexType_* __restrict__ codes_old,
-                                     IndexType_ code_new) {
+template <typename index_type_t, typename value_type_t>
+static __global__ void minDistances2(index_type_t n,
+                                     value_type_t* __restrict__ dists_old,
+                                     const value_type_t* __restrict__ dists_new,
+                                     index_type_t* __restrict__ codes_old,
+                                     index_type_t code_new) {
   // Loop index
-  IndexType_ i;
+  index_type_t i;
 
   // Distances
-  ValueType_ dist_old_private;
-  ValueType_ dist_new_private;
+  value_type_t dist_old_private;
+  value_type_t dist_new_private;
 
   // Each row is processed by a thread
   i = threadIdx.x + blockIdx.x * blockDim.x;
@@ -253,11 +255,11 @@ static __global__ void minDistances2(IndexType_ n,
  *  @param clusterSizes (Output, k entries) Number of points in each
  *    cluster. Entries must be initialized to zero.
  */
-template <typename IndexType_>
+template <typename index_type_t>
 static __global__ void computeClusterSizes(
-  IndexType_ n, IndexType_ k, const IndexType_* __restrict__ codes,
-  IndexType_* __restrict__ clusterSizes) {
-  IndexType_ i = threadIdx.x + blockIdx.x * blockDim.x;
+  index_type_t n, index_type_t k, const index_type_t* __restrict__ codes,
+  index_type_t* __restrict__ clusterSizes) {
+  index_type_t i = threadIdx.x + blockIdx.x * blockDim.x;
   while (i < n) {
     atomicAdd(clusterSizes + codes[i], 1);
     i += blockDim.x * gridDim.x;
@@ -274,7 +276,7 @@ static __global__ void computeClusterSizes(
  *    enough so there are d threads in the x-direction and k threads
  *    in the y-direction.
  *  @tparam Index_Type_ the type of data used for indexing.
- *  @tparam ValueType_ the type of data used for weights, distances.
+ *  @tparam value_type_t the type of data used for weights, distances.
  *  @param d Dimension of observation vectors.
  *  @param k Number of clusters.
  *  @param clusterSizes (Input, k entries) Number of points in each
@@ -285,15 +287,15 @@ static __global__ void computeClusterSizes(
  *    cluster. On exit, the matrix is the centroid matrix (each
  *    column is the mean position of a cluster).
  */
-template <typename IndexType_, typename ValueType_>
+template <typename index_type_t, typename value_type_t>
 static __global__ void divideCentroids(
-  IndexType_ d, IndexType_ k, const IndexType_* __restrict__ clusterSizes,
-  ValueType_* __restrict__ centroids) {
+  index_type_t d, index_type_t k, const index_type_t* __restrict__ clusterSizes,
+  value_type_t* __restrict__ centroids) {
   // Global indices
-  IndexType_ gidx, gidy;
+  index_type_t gidx, gidy;
 
   // Current cluster size
-  IndexType_ clusterSize_private;
+  index_type_t clusterSize_private;
 
   // Observation vector is determined by global y-index
   gidy = threadIdx.y + blockIdx.y * blockDim.y;
@@ -322,8 +324,8 @@ static __global__ void divideCentroids(
  *  @brief Randomly choose new centroids.
  *    Centroid is randomly chosen with k-means++ algorithm.
  *  @tparam Index_Type_ the type of data used for indexing.
- *  @tparam ValueType_ the type of data used for weights, distances.
- *  @tparam ThrustExePolicy the type of thrust execution policy.
+ *  @tparam value_type_t the type of data used for weights, distances.
+ *  @tparam thrust_exe_pol_t the type of thrust execution policy.
  *  @param handle the raft handle.
  *  @param n Number of observation vectors.
  *  @param d Dimension of observation vectors.
@@ -339,19 +341,21 @@ static __global__ void divideCentroids(
  *    coordinates.
  *  @return Zero if successful. Otherwise non-zero.
  */
-template <typename IndexType_, typename ValueType_, typename ThrustExePolicy>
+template <typename index_type_t, typename value_type_t,
+          typename thrust_exe_pol_t>
 static int chooseNewCentroid(handle_t const& handle,
-                             ThrustExePolicy thrust_exec_policy, IndexType_ n,
-                             IndexType_ d, IndexType_ k, ValueType_ rand,
-                             const ValueType_* __restrict__ obs,
-                             ValueType_* __restrict__ dists,
-                             ValueType_* __restrict__ centroid) {
+                             thrust_exe_pol_t thrust_exec_policy,
+                             index_type_t n, index_type_t d, index_type_t k,
+                             value_type_t rand,
+                             const value_type_t* __restrict__ obs,
+                             value_type_t* __restrict__ dists,
+                             value_type_t* __restrict__ centroid) {
   // Cumulative sum of distances
-  ValueType_* distsCumSum = dists + n;
+  value_type_t* distsCumSum = dists + n;
   // Residual sum of squares
-  ValueType_ distsSum{0};
+  value_type_t distsSum{0};
   // Observation vector that is chosen as new centroid
-  IndexType_ obsIndex;
+  index_type_t obsIndex;
 
   auto cublas_h = handle.get_cublas_handle();
   auto stream = handle.get_stream();
@@ -361,7 +365,7 @@ static int chooseNewCentroid(handle_t const& handle,
                          thrust::device_pointer_cast(dists + n),
                          thrust::device_pointer_cast(distsCumSum));
   CHECK_CUDA(stream);
-  CUDA_TRY(cudaMemcpy(&distsSum, distsCumSum + n - 1, sizeof(ValueType_),
+  CUDA_TRY(cudaMemcpy(&distsSum, distsCumSum + n - 1, sizeof(value_type_t),
                       cudaMemcpyDeviceToHost));
 
   // Randomly choose observation vector
@@ -382,13 +386,13 @@ static int chooseNewCentroid(handle_t const& handle,
   //
   //linear interpolation logic:
   //{
-  ValueType_ minSum{0};
-  CUDA_TRY(cudaMemcpy(&minSum, distsCumSum, sizeof(ValueType_),
+  value_type_t minSum{0};
+  CUDA_TRY(cudaMemcpy(&minSum, distsCumSum, sizeof(value_type_t),
                       cudaMemcpyDeviceToHost));
   if (distsSum > minSum) {
-    ValueType_ vIndex = static_cast<ValueType_>(n - 1);
-    obsIndex = static_cast<IndexType_>(vIndex * (distsSum * rand - minSum) /
-                                       (distsSum - minSum));
+    value_type_t vIndex = static_cast<value_type_t>(n - 1);
+    obsIndex = static_cast<index_type_t>(vIndex * (distsSum * rand - minSum) /
+                                         (distsSum - minSum));
   } else {
     obsIndex = 0;
   }
@@ -400,7 +404,7 @@ static int chooseNewCentroid(handle_t const& handle,
 
   // Record new centroid position
   CUDA_TRY(cudaMemcpyAsync(centroid, obs + IDX(0, obsIndex, d),
-                           d * sizeof(ValueType_), cudaMemcpyDeviceToDevice,
+                           d * sizeof(value_type_t), cudaMemcpyDeviceToDevice,
                            stream));
 
   return 0;
@@ -410,8 +414,8 @@ static int chooseNewCentroid(handle_t const& handle,
  *  @brief Choose initial cluster centroids for k-means algorithm.  
  *    Centroids are randomly chosen with k-means++ algorithm
  *  @tparam Index_Type_ the type of data used for indexing.
- *  @tparam ValueType_ the type of data used for weights, distances.
- *  @tparam ThrustExePolicy the type of thrust execution policy.
+ *  @tparam value_type_t the type of data used for weights, distances.
+ *  @tparam thrust_exe_pol_t the type of thrust execution policy.
  *  @param handle the raft handle.
  *  @param  thrust_exec_policy thrust execution policy.
  *  @param n Number of observation vectors.
@@ -432,26 +436,27 @@ static int chooseNewCentroid(handle_t const& handle,
  *    distance between observation vectors and the closest centroid.
  *  @return Zero if successful. Otherwise non-zero.
  */
-template <typename IndexType_, typename ValueType_, typename ThrustExePolicy>
+template <typename index_type_t, typename value_type_t,
+          typename thrust_exe_pol_t>
 static int initializeCentroids(
-  handle_t const& handle, ThrustExePolicy thrust_exec_policy, IndexType_ n,
-  IndexType_ d, IndexType_ k, const ValueType_* __restrict__ obs,
-  ValueType_* __restrict__ centroids, IndexType_* __restrict__ codes,
-  IndexType_* __restrict__ clusterSizes, ValueType_* __restrict__ dists,
+  handle_t const& handle, thrust_exe_pol_t thrust_exec_policy, index_type_t n,
+  index_type_t d, index_type_t k, const value_type_t* __restrict__ obs,
+  value_type_t* __restrict__ centroids, index_type_t* __restrict__ codes,
+  index_type_t* __restrict__ clusterSizes, value_type_t* __restrict__ dists,
   unsigned long long seed) {
   // -------------------------------------------------------
   // Variable declarations
   // -------------------------------------------------------
 
   // Loop index
-  IndexType_ i;
+  index_type_t i;
 
   // CUDA grid dimensions
   dim3 blockDim_warp, gridDim_warp, gridDim_block;
 
   // Random number generator
   thrust::default_random_engine rng(seed);
-  thrust::uniform_real_distribution<ValueType_> uniformDist(0, 1);
+  thrust::uniform_real_distribution<value_type_t> uniformDist(0, 1);
 
   auto cublas_h = handle.get_cublas_handle();
   auto stream = handle.get_stream();
@@ -472,7 +477,7 @@ static int initializeCentroids(
   gridDim_block.z = 1;
 
   // Assign observation vectors to code 0
-  CUDA_TRY(cudaMemsetAsync(codes, 0, n * sizeof(IndexType_), stream));
+  CUDA_TRY(cudaMemsetAsync(codes, 0, n * sizeof(index_type_t), stream));
 
   // Choose first centroid
   thrust::fill(thrust_exec_policy, thrust::device_pointer_cast(dists),
@@ -483,7 +488,7 @@ static int initializeCentroids(
     WARNING("error in k-means++ (could not pick centroid)");
 
   // Compute distances from first centroid
-  CUDA_TRY(cudaMemsetAsync(dists, 0, n * sizeof(ValueType_), stream));
+  CUDA_TRY(cudaMemsetAsync(dists, 0, n * sizeof(value_type_t), stream));
   computeDistances<<<gridDim_warp, blockDim_warp, 0, stream>>>(
     n, d, 1, obs, centroids, dists);
   CHECK_CUDA(stream);
@@ -496,7 +501,7 @@ static int initializeCentroids(
       WARNING("error in k-means++ (could not pick centroid)");
 
     // Compute distances from ith centroid
-    CUDA_TRY(cudaMemsetAsync(dists + n, 0, n * sizeof(ValueType_), stream));
+    CUDA_TRY(cudaMemsetAsync(dists + n, 0, n * sizeof(value_type_t), stream));
     computeDistances<<<gridDim_warp, blockDim_warp, 0, stream>>>(
       n, d, 1, obs, centroids + IDX(0, i, d), dists + n);
     CHECK_CUDA(stream);
@@ -508,7 +513,7 @@ static int initializeCentroids(
   }
 
   // Compute cluster sizes
-  CUDA_TRY(cudaMemsetAsync(clusterSizes, 0, k * sizeof(IndexType_), stream));
+  CUDA_TRY(cudaMemsetAsync(clusterSizes, 0, k * sizeof(index_type_t), stream));
   computeClusterSizes<<<gridDim_block, BLOCK_SIZE, 0, stream>>>(n, k, codes,
                                                                 clusterSizes);
   CHECK_CUDA(stream);
@@ -520,8 +525,8 @@ static int initializeCentroids(
  *  @brief Find cluster centroids closest to observation vectors. 
  *    Distance is measured with Euclidean norm.
  *  @tparam Index_Type_ the type of data used for indexing.
- *  @tparam ValueType_ the type of data used for weights, distances.
- *  @tparam ThrustExePolicy the type of thrust execution policy.
+ *  @tparam value_type_t the type of data used for weights, distances.
+ *  @tparam thrust_exe_pol_t the type of thrust execution policy.
  *  @param handle the raft handle.
  *  @param  thrust_exec_policy thrust execution policy.
  *  @param n Number of observation vectors.
@@ -544,13 +549,14 @@ static int initializeCentroids(
  *    of squares of assignment.
  *  @return Zero if successful. Otherwise non-zero.
  */
-template <typename IndexType_, typename ValueType_, typename ThrustExePolicy>
+template <typename index_type_t, typename value_type_t,
+          typename thrust_exe_pol_t>
 static int assignCentroids(
-  handle_t const& handle, ThrustExePolicy thrust_exec_policy, IndexType_ n,
-  IndexType_ d, IndexType_ k, const ValueType_* __restrict__ obs,
-  const ValueType_* __restrict__ centroids, ValueType_* __restrict__ dists,
-  IndexType_* __restrict__ codes, IndexType_* __restrict__ clusterSizes,
-  ValueType_* residual_host) {
+  handle_t const& handle, thrust_exe_pol_t thrust_exec_policy, index_type_t n,
+  index_type_t d, index_type_t k, const value_type_t* __restrict__ obs,
+  const value_type_t* __restrict__ centroids, value_type_t* __restrict__ dists,
+  index_type_t* __restrict__ codes, index_type_t* __restrict__ clusterSizes,
+  value_type_t* residual_host) {
   // CUDA grid dimensions
   dim3 blockDim, gridDim;
 
@@ -558,7 +564,7 @@ static int assignCentroids(
   auto stream = handle.get_stream();
 
   // Compute distance between centroids and observation vectors
-  CUDA_TRY(cudaMemsetAsync(dists, 0, n * k * sizeof(ValueType_), stream));
+  CUDA_TRY(cudaMemsetAsync(dists, 0, n * k * sizeof(value_type_t), stream));
   blockDim.x = WARP_SIZE;
   blockDim.y = 1;
   blockDim.z = BLOCK_SIZE / WARP_SIZE;
@@ -570,7 +576,7 @@ static int assignCentroids(
   CHECK_CUDA(stream);
 
   // Find centroid closest to each observation vector
-  CUDA_TRY(cudaMemsetAsync(clusterSizes, 0, k * sizeof(IndexType_), stream));
+  CUDA_TRY(cudaMemsetAsync(clusterSizes, 0, k * sizeof(index_type_t), stream));
   blockDim.x = BLOCK_SIZE;
   blockDim.y = 1;
   blockDim.z = 1;
@@ -593,8 +599,8 @@ static int assignCentroids(
  *  @brief Update cluster centroids for k-means algorithm. 
  *    All clusters are assumed to be non-empty.
  *  @tparam Index_Type_ the type of data used for indexing.
- *  @tparam ValueType_ the type of data used for weights, distances.
- *  @tparam ThrustExePolicy the type of thrust execution policy.
+ *  @tparam value_type_t the type of data used for weights, distances.
+ *  @tparam thrust_exe_pol_t the type of thrust execution policy.
  *  @param handle the raft handle.
  *  @param  thrust_exec_policy thrust execution policy.
  *  @param n Number of observation vectors.
@@ -615,23 +621,24 @@ static int assignCentroids(
  *    Workspace.
  *  @return Zero if successful. Otherwise non-zero.
  */
-template <typename IndexType_, typename ValueType_, typename ThrustExePolicy>
+template <typename index_type_t, typename value_type_t,
+          typename thrust_exe_pol_t>
 static int updateCentroids(handle_t const& handle,
-                           ThrustExePolicy thrust_exec_policy, IndexType_ n,
-                           IndexType_ d, IndexType_ k,
-                           const ValueType_* __restrict__ obs,
-                           const IndexType_* __restrict__ codes,
-                           const IndexType_* __restrict__ clusterSizes,
-                           ValueType_* __restrict__ centroids,
-                           ValueType_* __restrict__ work,
-                           IndexType_* __restrict__ work_int) {
+                           thrust_exe_pol_t thrust_exec_policy, index_type_t n,
+                           index_type_t d, index_type_t k,
+                           const value_type_t* __restrict__ obs,
+                           const index_type_t* __restrict__ codes,
+                           const index_type_t* __restrict__ clusterSizes,
+                           value_type_t* __restrict__ centroids,
+                           value_type_t* __restrict__ work,
+                           index_type_t* __restrict__ work_int) {
   // -------------------------------------------------------
   // Variable declarations
   // -------------------------------------------------------
 
   // Useful constants
-  const ValueType_ one = 1;
-  const ValueType_ zero = 0;
+  const value_type_t one = 1;
+  const value_type_t zero = 0;
 
   auto cublas_h = handle.get_cublas_handle();
   auto stream = handle.get_stream();
@@ -640,21 +647,21 @@ static int updateCentroids(handle_t const& handle,
   dim3 blockDim, gridDim;
 
   // Device memory
-  thrust::device_ptr<ValueType_> obs_copy(work);
-  thrust::device_ptr<IndexType_> codes_copy(work_int);
-  thrust::device_ptr<IndexType_> rows(work_int + d * n);
+  thrust::device_ptr<value_type_t> obs_copy(work);
+  thrust::device_ptr<index_type_t> codes_copy(work_int);
+  thrust::device_ptr<index_type_t> rows(work_int + d * n);
 
   // Take transpose of observation matrix
   CUBLAS_CHECK(cublasgeam(cublas_h, CUBLAS_OP_T, CUBLAS_OP_N, n, d, &one, obs,
-                          d, &zero, (ValueType_*)NULL, n,
+                          d, &zero, (value_type_t*)NULL, n,
                           thrust::raw_pointer_cast(obs_copy), n, stream));
 
   // Cluster assigned to each observation matrix entry
   thrust::sequence(thrust_exec_policy, rows, rows + d * n);
   CHECK_CUDA(stream);
   thrust::transform(thrust_exec_policy, rows, rows + d * n,
-                    thrust::make_constant_iterator<IndexType_>(n), rows,
-                    thrust::modulus<IndexType_>());
+                    thrust::make_constant_iterator<index_type_t>(n), rows,
+                    thrust::modulus<index_type_t>());
   CHECK_CUDA(stream);
   thrust::gather(thrust_exec_policy, rows, rows + d * n,
                  thrust::device_pointer_cast(codes), codes_copy);
@@ -664,8 +671,8 @@ static int updateCentroids(handle_t const& handle,
   thrust::sequence(thrust_exec_policy, rows, rows + d * n);
   CHECK_CUDA(stream);
   thrust::transform(thrust_exec_policy, rows, rows + d * n,
-                    thrust::make_constant_iterator<IndexType_>(n), rows,
-                    thrust::divides<IndexType_>());
+                    thrust::make_constant_iterator<index_type_t>(n), rows,
+                    thrust::divides<index_type_t>());
   CHECK_CUDA(stream);
 
   // Sort and reduce to add observation vectors in same cluster
@@ -705,8 +712,8 @@ namespace raft {
  *    clusters are reinitialized by choosing new centroids with
  *    k-means++ algorithm.
  *  @tparam Index_Type_ the type of data used for indexing.
- *  @tparam ValueType_ the type of data used for weights, distances.
- *  @tparam ThrustExePolicy the type of thrust execution policy.
+ *  @tparam value_type_t the type of data used for weights, distances.
+ *  @tparam thrust_exe_pol_t the type of thrust execution policy.
  *  @param handle the raft handle.
  *  @param  thrust_exec_policy thrust execution policy.
  *  @param n Number of observation vectors.
@@ -737,28 +744,30 @@ namespace raft {
  *  @param seed random seed to be used.
  *  @return error flag.
  */
-template <typename IndexType_, typename ValueType_, typename ThrustExePolicy>
-int kmeans(handle_t const& handle, ThrustExePolicy thrust_exec_policy,
-           IndexType_ n, IndexType_ d, IndexType_ k, ValueType_ tol,
-           IndexType_ maxiter, const ValueType_* __restrict__ obs,
-           IndexType_* __restrict__ codes,
-           IndexType_* __restrict__ clusterSizes,
-           ValueType_* __restrict__ centroids, ValueType_* __restrict__ work,
-           IndexType_* __restrict__ work_int, ValueType_* residual_host,
-           IndexType_* iters_host, unsigned long long seed) {
+template <typename index_type_t, typename value_type_t,
+          typename thrust_exe_pol_t>
+int kmeans(handle_t const& handle, thrust_exe_pol_t thrust_exec_policy,
+           index_type_t n, index_type_t d, index_type_t k, value_type_t tol,
+           index_type_t maxiter, const value_type_t* __restrict__ obs,
+           index_type_t* __restrict__ codes,
+           index_type_t* __restrict__ clusterSizes,
+           value_type_t* __restrict__ centroids,
+           value_type_t* __restrict__ work, index_type_t* __restrict__ work_int,
+           value_type_t* residual_host, index_type_t* iters_host,
+           unsigned long long seed) {
   // -------------------------------------------------------
   // Variable declarations
   // -------------------------------------------------------
 
   // Current iteration
-  IndexType_ iter;
+  index_type_t iter;
 
   // Residual sum of squares at previous iteration
-  ValueType_ residualPrev = 0;
+  value_type_t residualPrev = 0;
 
   // Random number generator
   thrust::default_random_engine rng(seed);
-  thrust::uniform_real_distribution<ValueType_> uniformDist(0, 1);
+  thrust::uniform_real_distribution<value_type_t> uniformDist(0, 1);
 
   // -------------------------------------------------------
   // Initialization
@@ -769,8 +778,8 @@ int kmeans(handle_t const& handle, ThrustExePolicy thrust_exec_policy,
 
   // Trivial cases
   if (k == 1) {
-    CUDA_TRY(cudaMemsetAsync(codes, 0, n * sizeof(IndexType_), stream));
-    CUDA_TRY(cudaMemcpyAsync(clusterSizes, &n, sizeof(IndexType_),
+    CUDA_TRY(cudaMemsetAsync(codes, 0, n * sizeof(index_type_t), stream));
+    CUDA_TRY(cudaMemcpyAsync(clusterSizes, &n, sizeof(index_type_t),
                              cudaMemcpyHostToDevice, stream));
     if (updateCentroids(handle, thrust_exec_policy, n, d, k, obs, codes,
                         clusterSizes, centroids, work, work_int))
@@ -783,7 +792,7 @@ int kmeans(handle_t const& handle, ThrustExePolicy thrust_exec_policy,
     gridDim.y = 1;
     gridDim.z =
       min((n + BLOCK_SIZE / WARP_SIZE - 1) / (BLOCK_SIZE / WARP_SIZE), 65535);
-    CUDA_TRY(cudaMemsetAsync(work, 0, n * k * sizeof(ValueType_), stream));
+    CUDA_TRY(cudaMemsetAsync(work, 0, n * k * sizeof(value_type_t), stream));
     computeDistances<<<gridDim, blockDim, 0, stream>>>(n, d, 1, obs, centroids,
                                                        work);
     CHECK_CUDA(stream);
@@ -803,8 +812,8 @@ int kmeans(handle_t const& handle, ThrustExePolicy thrust_exec_policy,
 
     if (n < k)
       CUDA_TRY(cudaMemsetAsync(clusterSizes + n, 0,
-                               (k - n) * sizeof(IndexType_), stream));
-    CUDA_TRY(cudaMemcpyAsync(centroids, obs, d * n * sizeof(ValueType_),
+                               (k - n) * sizeof(index_type_t), stream));
+    CUDA_TRY(cudaMemcpyAsync(centroids, obs, d * n * sizeof(value_type_t),
                              cudaMemcpyDeviceToDevice, stream));
     *residual_host = 0;
     return 0;
@@ -837,7 +846,7 @@ int kmeans(handle_t const& handle, ThrustExePolicy thrust_exec_policy,
       WARNING("could not assign observation vectors to k-means clusters");
 
     // Reinitialize empty clusters with new centroids
-    IndexType_ emptyCentroid =
+    index_type_t emptyCentroid =
       (thrust::find(thrust_exec_policy,
                     thrust::device_pointer_cast(clusterSizes),
                     thrust::device_pointer_cast(clusterSizes + k), 0) -
@@ -883,8 +892,8 @@ int kmeans(handle_t const& handle, ThrustExePolicy thrust_exec_policy,
  *    clusters are reinitialized by choosing new centroids with
  *    k-means++ algorithm.
  *  @tparam Index_Type_ the type of data used for indexing.
- *  @tparam ValueType_ the type of data used for weights, distances.
- *  @tparam ThrustExePolicy the type of thrust execution policy.
+ *  @tparam value_type_t the type of data used for weights, distances.
+ *  @tparam thrust_exe_pol_t the type of thrust execution policy.
  *  @param handle the raft handle.
  *  @param  thrust_exec_policy thrust execution policy.
  *  @param n Number of observation vectors.
@@ -904,12 +913,13 @@ int kmeans(handle_t const& handle, ThrustExePolicy thrust_exec_policy,
  *  @param seed random seed to be used.
  *  @return error flag
  */
-template <typename IndexType_, typename ValueType_, typename ThrustExePolicy>
-int kmeans(handle_t const& handle, ThrustExePolicy thrust_exec_policy,
-           IndexType_ n, IndexType_ d, IndexType_ k, ValueType_ tol,
-           IndexType_ maxiter, const ValueType_* __restrict__ obs,
-           IndexType_* __restrict__ codes, ValueType_& residual,
-           IndexType_& iters, unsigned long long seed = 123456) {
+template <typename index_type_t, typename value_type_t,
+          typename thrust_exe_pol_t>
+int kmeans(handle_t const& handle, thrust_exe_pol_t thrust_exec_policy,
+           index_type_t n, index_type_t d, index_type_t k, value_type_t tol,
+           index_type_t maxiter, const value_type_t* __restrict__ obs,
+           index_type_t* __restrict__ codes, value_type_t& residual,
+           index_type_t& iters, unsigned long long seed = 123456) {
   using namespace matrix;
 
   // Check that parameters are valid
@@ -920,13 +930,13 @@ int kmeans(handle_t const& handle, ThrustExePolicy thrust_exec_policy,
   RAFT_EXPECTS(maxiter >= 0, "invalid parameter (maxiter<0)");
 
   // Allocate memory
-  vector_t<IndexType_> clusterSizes(handle, k);
-  vector_t<ValueType_> centroids(handle, d * k);
-  vector_t<ValueType_> work(handle, n * max(k, d));
-  vector_t<IndexType_> work_int(handle, 2 * d * n);
+  vector_t<index_type_t> clusterSizes(handle, k);
+  vector_t<value_type_t> centroids(handle, d * k);
+  vector_t<value_type_t> work(handle, n * max(k, d));
+  vector_t<index_type_t> work_int(handle, 2 * d * n);
 
   // Perform k-means
-  return kmeans<IndexType_, ValueType_>(
+  return kmeans<index_type_t, value_type_t>(
     handle, thrust_exec_policy, n, d, k, tol, maxiter, obs, codes,
     clusterSizes.raw(), centroids.raw(), work.raw(), work_int.raw(), &residual,
     &iters, seed);
