@@ -731,10 +731,7 @@ int computeSmallestEigenvectors(
   // Initialize random number generator
   curandCreateGenerator(&randGen, CURAND_RNG_PSEUDO_PHILOX4_32_10);
 
-  // FIXME: This is hard coded, which is good for unit testing...
-  //        but should really be a parameter so it could be
-  //        "random" for real runs and "fixed" for tests
-  curandSetPseudoRandomGeneratorSeed(randGen, seed /*time(NULL)*/);
+  curandSetPseudoRandomGeneratorSeed(randGen, seed);
 
   // Initialize initial Lanczos vector
   curandGenerateNormalX(randGen, lanczosVecs_dev, n + n % 2, zero, one);
