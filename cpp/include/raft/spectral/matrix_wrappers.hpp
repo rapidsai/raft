@@ -272,13 +272,10 @@ struct laplacian_matrix_t : sparse_matrix_t<index_type, value_type> {
 
     // Apply diagonal matrix
     //
-    dim3 gridDim, blockDim;
-    gridDim.x = std::min((n + BLOCK_SIZE - 1) / BLOCK_SIZE, 65535);
-    gridDim.y = 1;
-    gridDim.z = 1;
-    blockDim.x = BLOCK_SIZE;
-    blockDim.y = 1;
-    blockDim.z = 1;
+    dim3 gridDim{
+      std::min<unsigned int>((n + BLOCK_SIZE - 1) / BLOCK_SIZE, 65535), 1, 1};
+
+    dim3 blockDim{BLOCK_SIZE, 1, 1};
     utils::diagmv<<<gridDim, blockDim, 0, stream>>>(n, alpha, diagonal_.raw(),
                                                     x, y);
     CHECK_CUDA(stream);
