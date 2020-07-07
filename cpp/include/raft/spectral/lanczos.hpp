@@ -817,12 +817,14 @@ int computeSmallestEigenvectors(
   for (i = *effIter; i < nEigVecs; ++i) work_host[i + 2 * (*effIter)] = 0;
 
   // Copy results to device memory
-  CUDA_TRY(cudaMemcpy(eigVals_dev, work_host + 2 * (*effIter),
-                      nEigVecs * sizeof(value_type_t), cudaMemcpyHostToDevice));
+  CUDA_TRY(cudaMemcpyAsync(eigVals_dev, work_host + 2 * (*effIter),
+                           nEigVecs * sizeof(value_type_t),
+                           cudaMemcpyHostToDevice, stream));
 
-  CUDA_TRY(cudaMemcpy(work_dev, Z_host,
-                      (*effIter) * nEigVecs * sizeof(value_type_t),
-                      cudaMemcpyHostToDevice));
+  CUDA_TRY(cudaMemcpyAsync(work_dev, Z_host,
+                           (*effIter) * nEigVecs * sizeof(value_type_t),
+                           cudaMemcpyHostToDevice, stream));
+  CHECK_CUDA(cudaStreamSynchronize(stream));
 
   // Convert eigenvectors from Lanczos basis to standard basis
   CUBLAS_CHECK(cublasgemm(cublas_h, CUBLAS_OP_N, CUBLAS_OP_N, n, nEigVecs,
@@ -1134,14 +1136,17 @@ int computeLargestEigenvectors(
 
   // Copy results to device memory
   // skip smallest eigenvalue if needed
-  CUDA_TRY(cudaMemcpy(eigVals_dev,
-                      work_host + 2 * (*effIter) + top_eigenparis_idx_offset,
-                      nEigVecs * sizeof(value_type_t), cudaMemcpyHostToDevice));
+  CUDA_TRY(cudaMemcpyAsync(
+    eigVals_dev, work_host + 2 * (*effIter) + top_eigenparis_idx_offset,
+    nEigVecs * sizeof(value_type_t), cudaMemcpyHostToDevice, stream));
 
   // skip smallest eigenvector if needed
-  CUDA_TRY(cudaMemcpy(
-    work_dev, Z_host + (top_eigenparis_idx_offset * (*effIter)),
-    (*effIter) * nEigVecs * sizeof(value_type_t), cudaMemcpyHostToDevice));
+  CUDA_TRY(cudaMemcpyAsync(work_dev,
+                           Z_host + (top_eigenparis_idx_offset * (*effIter)),
+                           (*effIter) * nEigVecs * sizeof(value_type_t),
+                           cudaMemcpyHostToDevice, stream));
+
+  CHECK_CUDA(cudaStreamSynchronize(stream));
 
   // Convert eigenvectors from Lanczos basis to standard basis
   CUBLAS_CHECK(cublasgemm(cublas_h, CUBLAS_OP_N, CUBLAS_OP_N, n, nEigVecs,
