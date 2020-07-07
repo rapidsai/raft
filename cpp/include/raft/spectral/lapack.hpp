@@ -103,14 +103,11 @@ class Lapack {
   // computes the QR factorization of a general matrix
   static void geqrf(int m, int n, T *a, int lda, T *tau, T *work, int *lwork);
   // Generates the real orthogonal matrix Q of the QR factorization formed by geqrf.
-  //static void orgqr( int m, int n, int k, T* a, int lda, const T* tau, T* work, int* lwork );
+
   // multiply C by implicit Q
   static void ormqr(bool right_side, bool transq, int m, int n, int k, T *a,
                     int lda, T *tau, T *c, int ldc, T *work, int *lwork);
-  //static void unmqr (bool right_side, bool transq, int m, int n, int k, T *a, int lda, T *tau, T *c, int ldc, T *work, int *lwork);
-  //static void qrf (int n, T *H, T *Q, T *R);
 
-  //static void hseqr (T* Q, T* R, T* eigenvalues,T* eigenvectors, int dim, int ldh, int ldq);
   static void geev(T *A, T *eigenvalues, int dim, int lda);
   static void geev(T *A, T *eigenvalues, T *eigenvectors, int dim, int lda,
                    int ldvr);
