@@ -29,8 +29,6 @@ TEST(Raft, ClusterSolvers) {
   using value_type = double;
 
   handle_t h;
-  ASSERT_EQ(0, h.get_num_internal_streams());
-  ASSERT_EQ(0, h.get_device());
 
   index_type maxiter{100};
   value_type tol{1.0e-10};
