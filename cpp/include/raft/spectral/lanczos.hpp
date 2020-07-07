@@ -744,13 +744,6 @@ int computeSmallestEigenvectors(
   auto h_val = 1 / normQ1;
   CUBLAS_CHECK(cublasscal(cublas_h, n, &h_val, lanczosVecs_dev, 1, stream));
 
-  // Estimate number of Lanczos iterations
-  //   See bounds in Kuczynski and Wozniakowski (1992).
-  // const value_type_t relError = 0.25;  // Relative error
-  // const value_type_t failProb = 1e-4;  // Probability of failure
-  // maxIter_curr = log(n/pow(failProb,2))/(4*std::sqrt(relError)) + 1;
-  // maxIter_curr = min(maxIter_curr, restartIter);
-
   // Obtain tridiagonal matrix with Lanczos
   *effIter = 0;
   *shift = 0;
@@ -1059,13 +1052,6 @@ int computeLargestEigenvectors(
 
   auto h_val = 1 / normQ1;
   CUBLAS_CHECK(cublasscal(cublas_h, n, &h_val, lanczosVecs_dev, 1, stream));
-
-  // Estimate number of Lanczos iterations
-  //   See bounds in Kuczynski and Wozniakowski (1992).
-  // const value_type_t relError = 0.25;  // Relative error
-  // const value_type_t failProb = 1e-4;  // Probability of failure
-  // maxIter_curr = log(n/pow(failProb,2))/(4*std::sqrt(relError)) + 1;
-  // maxIter_curr = min(maxIter_curr, restartIter);
 
   // Obtain tridiagonal matrix with Lanczos
   *effIter = 0;
