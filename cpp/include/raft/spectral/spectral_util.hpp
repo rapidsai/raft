@@ -40,8 +40,7 @@ static __global__ void scale_obs_kernel(IndexType_ m, IndexType_ n,
   mm = (((m + blockDim.x - 1) / blockDim.x) *
         blockDim.x);  // m in multiple of blockDim.x
   alpha = 0.0;
-  // printf("[%d,%d,%d,%d] n=%d, li=%d, mn=%d \n",threadIdx.x,threadIdx.y,blockIdx.x,blockIdx.y, n,
-  // li, mn);
+
   for (j = threadIdx.y + blockIdx.y * blockDim.y; j < n;
        j += blockDim.y * gridDim.y) {
     for (i = threadIdx.x; i < mm; i += blockDim.x) {
