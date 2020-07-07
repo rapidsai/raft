@@ -97,9 +97,9 @@ int performLanczosIteration(
   // -------------------------------------------------------
 
   // Useful variables
-  const value_type_t one = 1;
-  const value_type_t negOne = -1;
-  const value_type_t zero = 0;
+  constexpr value_type_t one = 1;
+  constexpr value_type_t negOne = -1;
+  constexpr value_type_t zero = 0;
   value_type_t alpha;
 
   auto cublas_h = handle.get_cublas_handle();
@@ -447,11 +447,11 @@ static int francisQRIteration(index_type_t n, value_type_t shift1,
  *  @param n Matrix dimension.
  *  @param iter Current Lanczos iteration.
  *  @param iter_new Lanczos iteration after restart.
- *  @param shiftUpper Pointer to upper bound for unwanted
+ *  @param shiftUpper Pointer (host memory) to upper bound for unwanted
  *    region. Value is ignored if less than *shiftLower. If a
  *    stronger upper bound has been found, the value is updated on
  *    exit.
- *  @param shiftLower Pointer to lower bound for unwanted
+ *  @param shiftLower Pointer (host memory) to lower bound for unwanted
  *    region. Value is ignored if greater than *shiftUpper. If a
  *    stronger lower bound has been found, the value is updated on
  *    exit.
@@ -486,8 +486,8 @@ static int lanczosRestart(
   // -------------------------------------------------------
 
   // Useful constants
-  const value_type_t zero = 0;
-  const value_type_t one = 1;
+  constexpr value_type_t zero = 0;
+  constexpr value_type_t one = 1;
 
   auto cublas_h = handle.get_cublas_handle();
   auto stream = handle.get_stream();
@@ -663,8 +663,8 @@ int computeSmallestEigenvectors(
   using namespace spectral;
 
   // Useful constants
-  const value_type_t one = 1;
-  const value_type_t zero = 0;
+  constexpr value_type_t one = 1;
+  constexpr value_type_t zero = 0;
 
   // Matrix dimension
   index_type_t n = A->nrows_;
@@ -988,8 +988,8 @@ int computeLargestEigenvectors(
   using namespace spectral;
 
   // Useful constants
-  const value_type_t one = 1;
-  const value_type_t zero = 0;
+  constexpr value_type_t one = 1;
+  constexpr value_type_t zero = 0;
 
   // Matrix dimension
   index_type_t n = A->nrows_;
