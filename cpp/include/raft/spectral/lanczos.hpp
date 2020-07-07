@@ -900,7 +900,6 @@ int computeSmallestEigenvectors(
   value_type_t *alpha_host = alpha_host_v.data();
   value_type_t *beta_host = beta_host_v.data();
 
-  //TODO: replace and fix allocation via RAFT handle
   vector_t<value_type_t> lanczosVecs_dev(handle, n * (restartIter + 1));
   vector_t<value_type_t> work_dev(handle, (n + restartIter) * restartIter);
 
@@ -1029,8 +1028,8 @@ int computeLargestEigenvectors(
   work_host = work_host_v.data();
 
   // Initialize cuBLAS
-  CUBLAS_CHECK(cublassetpointermode(cublas_h, CUBLAS_POINTER_MODE_HOST,
-                                    stream));  // ????? TODO: check / remove
+  CUBLAS_CHECK(
+    cublassetpointermode(cublas_h, CUBLAS_POINTER_MODE_HOST, stream));
 
   // -------------------------------------------------------
   // Compute largest eigenvalue
@@ -1220,7 +1219,6 @@ int computeLargestEigenvectors(
   value_type_t *alpha_host = alpha_host_v.data();
   value_type_t *beta_host = beta_host_v.data();
 
-  //TODO: replace and fix allocation via RAFT handle
   vector_t<value_type_t> lanczosVecs_dev(handle, n * (restartIter + 1));
   vector_t<value_type_t> work_dev(handle, (n + restartIter) * restartIter);
 
