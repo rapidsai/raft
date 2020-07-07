@@ -28,11 +28,11 @@
 namespace raft {
 namespace spectral {
 
-template <typename IndexType_, typename ValueType_>
-static __global__ void scale_obs_kernel(IndexType_ m, IndexType_ n,
-                                        ValueType_* obs) {
-  IndexType_ i, j, k, index, mm;
-  ValueType_ alpha, v, last;
+template <typename index_type_t, typename value_type_t>
+static __global__ void scale_obs_kernel(index_type_t m, index_type_t n,
+                                        value_type_t* obs) {
+  index_type_t i, j, k, index, mm;
+  value_type_t alpha, v, last;
   bool valid;
   // ASSUMPTION: kernel is launched with either 2, 4, 8, 16 or 32 threads in x-dimension
 
@@ -76,9 +76,9 @@ static __global__ void scale_obs_kernel(IndexType_ m, IndexType_ n,
   }
 }
 
-template <typename IndexType_>
-IndexType_ next_pow2(IndexType_ n) {
-  IndexType_ v;
+template <typename index_type_t>
+index_type_t next_pow2(index_type_t n) {
+  index_type_t v;
   // Reference:
   // http://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2Float
   v = n - 1;
@@ -90,25 +90,21 @@ IndexType_ next_pow2(IndexType_ n) {
   return v + 1;
 }
 
-template <typename IndexType_, typename ValueType_>
-cudaError_t scale_obs(IndexType_ m, IndexType_ n, ValueType_* obs) {
-  IndexType_ p2m;
-  dim3 nthreads, nblocks;
+template <typename index_type_t, typename value_type_t>
+cudaError_t scale_obs(index_type_t m, index_type_t n, value_type_t* obs) {
+  index_type_t p2m;
 
   // find next power of 2
-  p2m = next_pow2<IndexType_>(m);
+  p2m = next_pow2<index_type_t>(m);
   // setup launch configuration
-  nthreads.x = max(2, min(p2m, 32));
-  nthreads.y = 256 / nthreads.x;
-  nthreads.z = 1;
-  nblocks.x = 1;
-  nblocks.y = (n + nthreads.y - 1) / nthreads.y;
-  nblocks.z = 1;
-  // printf("m=%d(%d),n=%d,obs=%p,
-  // nthreads=(%d,%d,%d),nblocks=(%d,%d,%d)\n",m,p2m,n,obs,nthreads.x,nthreads.y,nthreads.z,nblocks.x,nblocks.y,nblocks.z);
+  unsigned int xsize = max(2, min(p2m, 32));
+  dim3 nthreads{xsize, 256 / xsize, 1};
+
+  dim3 nblocks{1, (n + nthreads.y - 1) / nthreads.y, 1};
 
   // launch scaling kernel (scale each column of obs by its norm)
-  scale_obs_kernel<IndexType_, ValueType_><<<nblocks, nthreads>>>(m, n, obs);
+  scale_obs_kernel<index_type_t, value_type_t>
+    <<<nblocks, nthreads>>>(m, n, obs);
 
   return cudaSuccess;
 }
@@ -176,16 +172,16 @@ namespace {
 /// Functor to generate indicator vectors
 /** For use in Thrust transform
  */
-template <typename IndexType_, typename ValueType_>
+template <typename index_type_t, typename value_type_t>
 struct equal_to_i_op {
-  const IndexType_ i;
+  const index_type_t i;
 
  public:
-  equal_to_i_op(IndexType_ _i) : i(_i) {}
+  equal_to_i_op(index_type_t _i) : i(_i) {}
   template <typename Tuple_>
   __host__ __device__ void operator()(Tuple_ t) {
     thrust::get<1>(t) =
-      (thrust::get<0>(t) == i) ? (ValueType_)1.0 : (ValueType_)0.0;
+      (thrust::get<0>(t) == i) ? (value_type_t)1.0 : (value_type_t)0.0;
   }
 };
 }  // namespace
