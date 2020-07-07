@@ -687,11 +687,6 @@ int computeSmallestEigenvectors(
   value_type_t *work_host;  // Workspace
 
   // -------------------------------------------------------
-  // Check that LAPACK is enabled
-  // -------------------------------------------------------
-  // Lapack<value_type_t>::check_lapack_enabled();
-
-  // -------------------------------------------------------
   // Check that parameters are valid
   // -------------------------------------------------------
   RAFT_EXPECTS(nEigVecs > 0 && nEigVecs <= n,
