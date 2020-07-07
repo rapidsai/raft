@@ -31,9 +31,6 @@
 #include <raft/spectral/eigen_solvers.hpp>
 #include <raft/spectral/spectral_util.hpp>
 
-//#define COLLECT_TIME_STATISTICS 1
-//#undef COLLECT_TIME_STATISTICS
-
 #ifdef COLLECT_TIME_STATISTICS
 #include <stddef.h>
 #include <sys/resource.h>
@@ -97,14 +94,13 @@ std::tuple<vertex_t, weight_t, vertex_t> modularity_maximization(
   auto stream = handle.get_stream();
 
   std::tuple<vertex_t, weight_t, vertex_t>
-    stats;  //{iters_eig_solver,residual_cluster,iters_cluster_solver} // # iters eigen solver, cluster solver residual, # iters cluster solver
+    stats;  // # iters eigen solver, cluster solver residual, # iters cluster solver
 
   vertex_t n = csr_m.nrows_;
 
   // Compute eigenvectors of Modularity Matrix
 
   // Initialize Modularity Matrix
-  //sparse_matrix_t<vertex_t, weight_t> A{handle, graph};
   modularity_matrix_t<vertex_t, weight_t> B{handle, thrust_exec_policy, csr_m};
 
   auto eigen_config = eigen_solver.get_config();
@@ -167,7 +163,6 @@ void analyzeModularity(handle_t const &handle,
     cublassetpointermode(cublas_h, CUBLAS_POINTER_MODE_HOST, stream));
 
   // Initialize Modularity
-  ///sparse_matrix_t<vertex_t, weight_t> A{handle, graph};
   modularity_matrix_t<vertex_t, weight_t> B{handle, thrust_exec_policy, csr_m};
 
   // Initialize output
@@ -183,10 +178,8 @@ void analyzeModularity(handle_t const &handle,
 
     // Record results
     modularity += partModularity;
-    // std::cout<< "partModularity " <<partModularity<< std::endl;
   }
-  // modularity = modularity/nClusters;
-  // devide by nnz
+
   modularity = modularity / B.diagonal_.nrm1(thrust_exec_policy);
 }
 
