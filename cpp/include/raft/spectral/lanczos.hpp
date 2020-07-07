@@ -55,9 +55,12 @@ inline curandStatus_t curandGenerateNormalX(curandGenerator_t generator,
 // Helper functions
 // =========================================================
 
-/// Perform Lanczos iteration
-/** Lanczos iteration is performed on a shifted matrix A+shift*I.
- *
+/**  
+ *  @brief  Perform Lanczos iteration
+ *    Lanczos iteration is performed on a shifted matrix A+shift*I.
+ *  @tparam index_type_t the type of data used for indexing.
+ *  @tparam value_type_t the type of data used for weights, distances.
+ *  @param handle the raft handle.
  *  @param A Matrix.
  *  @param iter Pointer to current Lanczos iteration. On exit, the
  *    variable is set equal to the final Lanczos iteration.
@@ -214,12 +217,14 @@ int performLanczosIteration(
   return 0;
 }
 
-/// Find Householder transform for 3-dimensional system
-/** Given an input vector v=[x,y,z]', this function finds a
- *  Householder transform P such that P*v is a multiple of
- *  e_1=[1,0,0]'. The input vector v is overwritten with the
- *  Householder vector such that P=I-2*v*v'.
- *
+/** 
+ *  @brief  Find Householder transform for 3-dimensional system
+ *    Given an input vector v=[x,y,z]', this function finds a
+ *    Householder transform P such that P*v is a multiple of
+ *    e_1=[1,0,0]'. The input vector v is overwritten with the
+ *    Householder vector such that P=I-2*v*v'.
+ *  @tparam index_type_t the type of data used for indexing.
+ *  @tparam value_type_t the type of data used for weights, distances.
  *  @param v (Input/output, host memory, 3 entries) Input
  *    3-dimensional vector. On exit, the vector is set to the
  *    Householder vector.
@@ -260,12 +265,14 @@ static void findHouseholder3(value_type_t *v, value_type_t *Pv,
   for (i = 0; i < 3; ++i) P[IDX(i, i, 3)] += 1;
 }
 
-/// Apply 3-dimensional Householder transform to 4 x 4 matrix
-/** The Householder transform is pre-applied to the top three rows
+/**  
+ *  @brief  Apply 3-dimensional Householder transform to 4 x 4 matrix
+ *    The Householder transform is pre-applied to the top three rows
  *  of the matrix and post-applied to the left three columns. The
  *  4 x 4 matrix is intended to contain the bulge that is produced
  *  in the Francis QR algorithm.
- *
+ *  @tparam index_type_t the type of data used for indexing.
+ *  @tparam value_type_t the type of data used for weights, distances.
  *  @param v (Input, host memory, 3 entries) Householder vector.
  *  @param A (Input/output, host memory, 16 entries) 4 x 4 matrix.
  */
@@ -291,10 +298,12 @@ static void applyHouseholder3(const value_type_t *v, value_type_t *A) {
   }
 }
 
-/// Perform one step of Francis QR algorithm
-/** Equivalent to two steps of the classical QR algorithm on a
- *  tridiagonal matrix.
- *
+/**  
+ *  @brief  Perform one step of Francis QR algorithm
+ *    Equivalent to two steps of the classical QR algorithm on a
+ *    tridiagonal matrix.
+ *  @tparam index_type_t the type of data used for indexing.
+ *  @tparam value_type_t the type of data used for weights, distances.
  *  @param n Matrix dimension.
  *  @param shift1 QR algorithm shift.
  *  @param shift2 QR algorithm shift.
@@ -429,9 +438,12 @@ static int francisQRIteration(index_type_t n, value_type_t shift1,
   return 0;
 }
 
-/// Perform implicit restart of Lanczos algorithm
-/** Shifts are Chebyshev nodes of unwanted region of matrix spectrum.
- *
+/**  
+ *  @brief  Perform implicit restart of Lanczos algorithm
+ *    Shifts are Chebyshev nodes of unwanted region of matrix spectrum.
+ *  @tparam index_type_t the type of data used for indexing.
+ *  @tparam value_type_t the type of data used for weights, distances.
+ *  @param handle the raft handle.
  *  @param n Matrix dimension.
  *  @param iter Current Lanczos iteration.
  *  @param iter_new Lanczos iteration after restart.
@@ -457,6 +469,9 @@ static int francisQRIteration(index_type_t n, value_type_t shift1,
  *    column-major matrix with dimensions n x (iter+1).
  *  @param work_dev (Output, device memory, (n+iter)*iter entries)
  *    Workspace.
+ *  @param smallest_eig specifies whether smallest (true) or largest
+ *    (false) eigenvalues are to be calculated.
+ *  @return error flag.
  */
 template <typename index_type_t, typename value_type_t>
 static int lanczosRestart(
@@ -586,17 +601,19 @@ static int lanczosRestart(
 // Eigensolver
 // =========================================================
 
-/// Compute smallest eigenvectors of symmetric matrix
-/** Computes eigenvalues and eigenvectors that are least
- *  positive. If matrix is positive definite or positive
- *  semidefinite, the computed eigenvalues are smallest in
- *  magnitude.
- *
- *  The largest eigenvalue is estimated by performing several
- *  Lanczos iterations. An implicitly restarted Lanczos method is
- *  then applied to A+s*I, where s is negative the largest
- *  eigenvalue.
- *
+/**  
+ * @brief  Compute smallest eigenvectors of symmetric matrix
+ *    Computes eigenvalues and eigenvectors that are least
+ *    positive. If matrix is positive definite or positive
+ *    semidefinite, the computed eigenvalues are smallest in
+ *    magnitude.
+ *    The largest eigenvalue is estimated by performing several
+ *    Lanczos iterations. An implicitly restarted Lanczos method is
+ *    then applied to A+s*I, where s is negative the largest
+ *    eigenvalue.
+ *  @tparam index_type_t the type of data used for indexing.
+ *  @tparam value_type_t the type of data used for weights, distances.
+ *  @param handle the raft handle.
  *  @param A Matrix.
  *  @param nEigVecs Number of eigenvectors to compute.
  *  @param maxIter Maximum number of Lanczos steps. Does not include
@@ -630,6 +647,7 @@ static int lanczosRestart(
  *    Eigenvectors corresponding to smallest eigenvalues of
  *    matrix. Vectors are stored as columns of a column-major matrix
  *    with dimensions n x nEigVecs.
+ *  @param seed random seed.
  *  @return error flag.
  */
 template <typename index_type_t, typename value_type_t>
@@ -829,19 +847,19 @@ int computeSmallestEigenvectors(
   return 0;
 }
 
-/// Compute smallest eigenvectors of symmetric matrix
-/** Computes eigenvalues and eigenvectors that are least
- *  positive. If matrix is positive definite or positive
- *  semidefinite, the computed eigenvalues are smallest in
- *  magnitude.
- *
- *  The largest eigenvalue is estimated by performing several
- *  Lanczos iterations. An implicitly restarted Lanczos method is
- *  then applied to A+s*I, where s is negative the largest
- *  eigenvalue.
- *
- *  CNMEM must be initialized before calling this function.
- *
+/**  
+ *  @brief  Compute smallest eigenvectors of symmetric matrix
+ *    Computes eigenvalues and eigenvectors that are least
+ *    positive. If matrix is positive definite or positive
+ *    semidefinite, the computed eigenvalues are smallest in
+ *    magnitude.
+ *    The largest eigenvalue is estimated by performing several
+ *    Lanczos iterations. An implicitly restarted Lanczos method is
+ *    then applied to A+s*I, where s is negative the largest
+ *    eigenvalue.
+ *  @tparam index_type_t the type of data used for indexing.
+ *  @tparam value_type_t the type of data used for weights, distances.
+ *  @param handle the raft handle.
  *  @param A Matrix.
  *  @param nEigVecs Number of eigenvectors to compute.
  *  @param maxIter Maximum number of Lanczos steps. Does not include
@@ -863,6 +881,7 @@ int computeSmallestEigenvectors(
  *    Eigenvectors corresponding to smallest eigenvalues of
  *    matrix. Vectors are stored as columns of a column-major matrix
  *    with dimensions n x nEigVecs.
+ *  @param seed random seed.
  *  @return error flag.
  */
 template <typename index_type_t, typename value_type_t>
@@ -912,16 +931,18 @@ int computeSmallestEigenvectors(
 // Eigensolver
 // =========================================================
 
-/// Compute largest eigenvectors of symmetric matrix
-/** Computes eigenvalues and eigenvectors that are least
- *  positive. If matrix is positive definite or positive
- *  semidefinite, the computed eigenvalues are largest in
- *  magnitude.
- *
- *  The largest eigenvalue is estimated by performing several
- *  Lanczos iterations. An implicitly restarted Lanczos method is
- *  then applied.
- *
+/**  
+ *  @brief Compute largest eigenvectors of symmetric matrix
+ *    Computes eigenvalues and eigenvectors that are least
+ *    positive. If matrix is positive definite or positive
+ *    semidefinite, the computed eigenvalues are largest in
+ *    magnitude.
+ *    The largest eigenvalue is estimated by performing several
+ *    Lanczos iterations. An implicitly restarted Lanczos method is
+ *    then applied.
+ *  @tparam index_type_t the type of data used for indexing.
+ *  @tparam value_type_t the type of data used for weights, distances.
+ *  @param handle the raft handle.
  *  @param A Matrix.
  *  @param nEigVecs Number of eigenvectors to compute.
  *  @param maxIter Maximum number of Lanczos steps.
@@ -951,6 +972,7 @@ int computeSmallestEigenvectors(
  *    Eigenvectors corresponding to largest eigenvalues of
  *    matrix. Vectors are stored as columns of a column-major matrix
  *    with dimensions n x nEigVecs.
+ *  @param seed random seed.
  *  @return error flag.
  */
 template <typename index_type_t, typename value_type_t>
@@ -1151,19 +1173,19 @@ int computeLargestEigenvectors(
   return 0;
 }
 
-/// Compute largest eigenvectors of symmetric matrix
-/** Computes eigenvalues and eigenvectors that are least
- *  positive. If matrix is positive definite or positive
- *  semidefinite, the computed eigenvalues are largest in
- *  magnitude.
- *
- *  The largest eigenvalue is estimated by performing several
- *  Lanczos iterations. An implicitly restarted Lanczos method is
- *  then applied to A+s*I, where s is negative the largest
- *  eigenvalue.
- *
- *  CNMEM must be initialized before calling this function.
- *
+/**  
+ *  @brief  Compute largest eigenvectors of symmetric matrix
+ *    Computes eigenvalues and eigenvectors that are least
+ *    positive. If matrix is positive definite or positive
+ *    semidefinite, the computed eigenvalues are largest in
+ *    magnitude.
+ *    The largest eigenvalue is estimated by performing several
+ *    Lanczos iterations. An implicitly restarted Lanczos method is
+ *    then applied to A+s*I, where s is negative the largest
+ *    eigenvalue.
+ *  @tparam index_type_t the type of data used for indexing.
+ *  @tparam value_type_t the type of data used for weights, distances.
+ *  @param handle the raft handle.
  *  @param A Matrix.
  *  @param nEigVecs Number of eigenvectors to compute.
  *  @param maxIter Maximum number of Lanczos steps. Does not include
@@ -1185,6 +1207,7 @@ int computeLargestEigenvectors(
  *    Eigenvectors corresponding to largest eigenvalues of
  *    matrix. Vectors are stored as columns of a column-major matrix
  *    with dimensions n x nEigVecs.
+ *  @param seed random seed.
  *  @return error flag.
  */
 template <typename index_type_t, typename value_type_t>

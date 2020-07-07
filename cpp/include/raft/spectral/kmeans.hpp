@@ -58,7 +58,7 @@ constexpr unsigned int BSIZE_DIV_WSIZE = (BLOCK_SIZE / WARP_SIZE);
  *    blockSize/warpSize). Ideally, the grid is large enough so there
  *    are d threads in the x-direction, k threads in the y-direction,
  *    and n threads in the z-direction.
- *  @tparam Index_Type_ the type of data used for indexing.
+ *  @tparam index_type_t the type of data used for indexing.
  *  @tparam value_type_t the type of data used for weights, distances.
  *  @param n Number of observation vectors.
  *  @param d Dimension of observation vectors.
@@ -138,7 +138,7 @@ static __global__ void computeDistances(
  *  @brief Find closest centroid to observation vectors. 
  *    Block and grid dimensions should be 1-dimensional. Ideally the
  *    grid is large enough so there are n threads.
- *  @tparam Index_Type_ the type of data used for indexing.
+ *  @tparam index_type_t the type of data used for indexing.
  *  @tparam value_type_t the type of data used for weights, distances.
  *  @param n Number of observation vectors.
  *  @param k Number of clusters.
@@ -198,7 +198,7 @@ static __global__ void minDistances(index_type_t n, index_type_t k,
  *  @brief Check if newly computed distances are smaller than old distances. 
  *    Block and grid dimensions should be 1-dimensional. Ideally the
  *    grid is large enough so there are n threads.
- *  @tparam Index_Type_ the type of data used for indexing.
+ *  @tparam index_type_t the type of data used for indexing.
  *  @tparam value_type_t the type of data used for weights, distances.
  *  @param n Number of observation vectors.
  *  @param dists_old (Input/output, n entries) Distances between
@@ -248,7 +248,7 @@ static __global__ void minDistances2(index_type_t n,
  *  @brief Compute size of k-means clusters.
  *    Block and grid dimensions should be 1-dimensional. Ideally the
  *    grid is large enough so there are n threads.
- *  @tparam Index_Type_ the type of data used for indexing.
+ *  @tparam index_type_t the type of data used for indexing.
  *  @param n Number of observation vectors.
  *  @param k Number of clusters.
  *  @param codes (Input, n entries) Cluster assignments.
@@ -275,7 +275,7 @@ static __global__ void computeClusterSizes(
  *    dimensions should be 2-dimensional. Ideally the grid is large
  *    enough so there are d threads in the x-direction and k threads
  *    in the y-direction.
- *  @tparam Index_Type_ the type of data used for indexing.
+ *  @tparam index_type_t the type of data used for indexing.
  *  @tparam value_type_t the type of data used for weights, distances.
  *  @param d Dimension of observation vectors.
  *  @param k Number of clusters.
@@ -323,7 +323,7 @@ static __global__ void divideCentroids(
 /**
  *  @brief Randomly choose new centroids.
  *    Centroid is randomly chosen with k-means++ algorithm.
- *  @tparam Index_Type_ the type of data used for indexing.
+ *  @tparam index_type_t the type of data used for indexing.
  *  @tparam value_type_t the type of data used for weights, distances.
  *  @tparam thrust_exe_pol_t the type of thrust execution policy.
  *  @param handle the raft handle.
@@ -415,7 +415,7 @@ static int chooseNewCentroid(handle_t const& handle,
 /**
  *  @brief Choose initial cluster centroids for k-means algorithm.  
  *    Centroids are randomly chosen with k-means++ algorithm
- *  @tparam Index_Type_ the type of data used for indexing.
+ *  @tparam index_type_t the type of data used for indexing.
  *  @tparam value_type_t the type of data used for weights, distances.
  *  @tparam thrust_exe_pol_t the type of thrust execution policy.
  *  @param handle the raft handle.
@@ -522,7 +522,7 @@ static int initializeCentroids(
 /** 
  *  @brief Find cluster centroids closest to observation vectors. 
  *    Distance is measured with Euclidean norm.
- *  @tparam Index_Type_ the type of data used for indexing.
+ *  @tparam index_type_t the type of data used for indexing.
  *  @tparam value_type_t the type of data used for weights, distances.
  *  @tparam thrust_exe_pol_t the type of thrust execution policy.
  *  @param handle the raft handle.
@@ -598,7 +598,7 @@ static int assignCentroids(
 /** 
  *  @brief Update cluster centroids for k-means algorithm. 
  *    All clusters are assumed to be non-empty.
- *  @tparam Index_Type_ the type of data used for indexing.
+ *  @tparam index_type_t the type of data used for indexing.
  *  @tparam value_type_t the type of data used for weights, distances.
  *  @tparam thrust_exe_pol_t the type of thrust execution policy.
  *  @param handle the raft handle.
@@ -710,7 +710,7 @@ namespace raft {
  *    Initial centroids are chosen with k-means++ algorithm. Empty
  *    clusters are reinitialized by choosing new centroids with
  *    k-means++ algorithm.
- *  @tparam Index_Type_ the type of data used for indexing.
+ *  @tparam index_type_t the type of data used for indexing.
  *  @tparam value_type_t the type of data used for weights, distances.
  *  @tparam thrust_exe_pol_t the type of thrust execution policy.
  *  @param handle the raft handle.
@@ -889,7 +889,7 @@ int kmeans(handle_t const& handle, thrust_exe_pol_t thrust_exec_policy,
  *    Initial centroids are chosen with k-means++ algorithm. Empty
  *    clusters are reinitialized by choosing new centroids with
  *    k-means++ algorithm.
- *  @tparam Index_Type_ the type of data used for indexing.
+ *  @tparam index_type_t the type of data used for indexing.
  *  @tparam value_type_t the type of data used for weights, distances.
  *  @tparam thrust_exe_pol_t the type of thrust execution policy.
  *  @param handle the raft handle.
