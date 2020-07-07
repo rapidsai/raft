@@ -756,14 +756,14 @@ int computeSmallestEigenvectors(
 
   Lapack<value_type_t>::sterf(*effIter, alpha_host, beta_host);
   *shift = -alpha_host[*effIter - 1];
-  // std::cout <<  *shift <<std::endl;
+
   // -------------------------------------------------------
   // Compute eigenvectors of shifted matrix
   // -------------------------------------------------------
 
   // Obtain tridiagonal matrix with Lanczos
   *effIter = 0;
-  // maxIter_curr = min(maxIter, restartIter);
+
   status = performLanczosIteration<index_type_t, value_type_t>(
     handle, A, effIter, maxIter_curr, *shift, 0, reorthogonalize, alpha_host,
     beta_host, lanczosVecs_dev, work_dev);
@@ -793,7 +793,7 @@ int computeSmallestEigenvectors(
     if (beta_host[*effIter - 1] <= tol * fabs(shiftLower)) break;
 
     // Proceed with Lanczos method
-    // maxIter_curr = min(restartIter, maxIter-*totalIter+*effIter);
+
     status = performLanczosIteration<index_type_t, value_type_t>(
       handle, A, effIter, maxIter_curr, *shift, tol * fabs(shiftLower),
       reorthogonalize, alpha_host, beta_host, lanczosVecs_dev, work_dev);
@@ -822,10 +822,7 @@ int computeSmallestEigenvectors(
   // Copy results to device memory
   CUDA_TRY(cudaMemcpy(eigVals_dev, work_host + 2 * (*effIter),
                       nEigVecs * sizeof(value_type_t), cudaMemcpyHostToDevice));
-  // for (int i = 0; i < nEigVecs; ++i)
-  //{
-  //  std::cout <<*(work_host+(2*(*effIter)+i))<< std::endl;
-  //}
+
   CUDA_TRY(cudaMemcpy(work_dev, Z_host,
                       (*effIter) * nEigVecs * sizeof(value_type_t),
                       cudaMemcpyHostToDevice));
@@ -1057,7 +1054,7 @@ int computeLargestEigenvectors(
   *effIter = 0;
   value_type_t shift_val = 0.0;
   value_type_t *shift = &shift_val;
-  // maxIter_curr = min(maxIter, restartIter);
+
   status = performLanczosIteration<index_type_t, value_type_t>(
     handle, A, effIter, maxIter_curr, *shift, 0, reorthogonalize, alpha_host,
     beta_host, lanczosVecs_dev, work_dev);
@@ -1087,7 +1084,7 @@ int computeLargestEigenvectors(
     if (beta_host[*effIter - 1] <= tol * fabs(shiftLower)) break;
 
     // Proceed with Lanczos method
-    // maxIter_curr = min(restartIter, maxIter-*totalIter+*effIter);
+
     status = performLanczosIteration<index_type_t, value_type_t>(
       handle, A, effIter, maxIter_curr, *shift, tol * fabs(shiftLower),
       reorthogonalize, alpha_host, beta_host, lanczosVecs_dev, work_dev);
