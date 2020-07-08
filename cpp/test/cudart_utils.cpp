@@ -27,4 +27,10 @@ TEST(Raft, Utils) {
   ASSERT_NO_THROW(CUDA_CHECK(cudaFree(nullptr)));
 }
 
+TEST(Raft, ceildiv) {
+  ASSERT_EQ(raft::ceildiv(5, 3), 2);
+  ASSERT_EQ(raft::ceildiv(0, 3), 0);
+  ASSERT_EQ(raft::ceildiv(7, 8), 1);
+}
+
 }  // namespace raft
