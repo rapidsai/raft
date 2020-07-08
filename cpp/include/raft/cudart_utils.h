@@ -33,8 +33,7 @@ namespace raft {
  * @tparam IntType supposed to be only integers for now!
  */
 template <typename T>
-constexpr __host__ __device__
-std::enable_if_t<std::is_integral<T>::value, T>
+constexpr __host__ __device__ std::enable_if_t<std::is_integral<T>::value, T>
 ceildiv(T a, T b) {
   return (a + b - 1) / b;
 }
