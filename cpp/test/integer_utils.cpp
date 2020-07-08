@@ -15,16 +15,23 @@
  */
 
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
+#include <raft/integer_utils.h>
 #include <iostream>
 
 namespace raft {
 
-TEST(Raft, Utils) {
-  ASSERT_NO_THROW(ASSERT(1 == 1, "Should not assert!"));
-  ASSERT_THROW(ASSERT(1 != 1, "Should assert!"), exception);
-  ASSERT_THROW(THROW("Should throw!"), exception);
-  ASSERT_NO_THROW(CUDA_CHECK(cudaFree(nullptr)));
+TEST(Raft, rounding_up) {
+  ASSERT_EQ(raft::div_rounding_up_safe(5, 3), 2);
+  ASSERT_EQ(raft::div_rounding_up_safe(0, 3), 0);
+  ASSERT_EQ(raft::div_rounding_up_safe(7, 8), 1);
+  ASSERT_EQ(raft::div_rounding_up_unsafe(5, 3), 2);
+  ASSERT_EQ(raft::div_rounding_up_unsafe(0, 3), 0);
+  ASSERT_EQ(raft::div_rounding_up_unsafe(7, 8), 1);
+}
+
+TEST(Raft, is_a_power_of_two) {
+  ASSERT_EQ(raft::is_a_power_of_two(1 << 5), true);
+  ASSERT_EQ(raft::is_a_power_of_two((1 << 5) + 1), false);
 }
 
 }  // namespace raft
