@@ -222,6 +222,7 @@ if(BUILD_RAFT_TESTS)
   add_executable(test_raft
     test/cudart_utils.cpp
     test/handle.cpp
+    test/integer_utils.cpp
     test/mr/device/buffer.cpp
     test/mr/host/buffer.cpp
     test/test.cpp)
