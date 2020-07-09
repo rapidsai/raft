@@ -33,8 +33,8 @@
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/handle.hpp>
 #include <raft/spectral/matrix_wrappers.hpp>
-#include <raft/utils/sm_utils.hpp>
 #include <raft/spectral/warn_dbg.hpp>
+#include <raft/utils/sm_utils.hpp>
 
 namespace {
 
@@ -389,7 +389,7 @@ static int chooseNewCentroid(handle_t const& handle,
   value_type_t minSum{0};
   CUDA_TRY(cudaMemcpyAsync(&minSum, distsCumSum, sizeof(value_type_t),
                            cudaMemcpyDeviceToHost, stream));
-  CHECK_CUDA(stream);//cudaStreamSynchronize(stream));
+  CHECK_CUDA(stream);
 
   if (distsSum > minSum) {
     value_type_t vIndex = static_cast<value_type_t>(n - 1);
