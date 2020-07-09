@@ -18,7 +18,7 @@
 
 #include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
-#include <raft/spectral/sm_utils.hpp>
+#include <raft/utils/sm_utils.hpp>
 
 #include <thrust/device_vector.h>
 #include <thrust/fill.h>

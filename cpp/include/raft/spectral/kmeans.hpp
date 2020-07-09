@@ -33,7 +33,7 @@
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/handle.hpp>
 #include <raft/spectral/matrix_wrappers.hpp>
-#include <raft/spectral/sm_utils.hpp>
+#include <raft/utils/sm_utils.hpp>
 #include <raft/spectral/warn_dbg.hpp>
 
 namespace {

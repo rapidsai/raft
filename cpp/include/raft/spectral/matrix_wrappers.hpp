@@ -19,7 +19,7 @@
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/handle.hpp>
-#include <raft/spectral/sm_utils.hpp>
+#include <raft/utils/sm_utils.hpp>
 
 #include <thrust/fill.h>
 #include <thrust/reduce.h>
