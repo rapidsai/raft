@@ -819,7 +819,7 @@ int computeSmallestEigenvectors(
   CUDA_TRY(cudaMemcpyAsync(work_dev, Z_host,
                            (*effIter) * nEigVecs * sizeof(value_type_t),
                            cudaMemcpyHostToDevice, stream));
-  CHECK_CUDA(cudaStreamSynchronize(stream));
+  CHECK_CUDA(stream);
 
   // Convert eigenvectors from Lanczos basis to standard basis
   CUBLAS_CHECK(cublasgemm(cublas_h, CUBLAS_OP_N, CUBLAS_OP_N, n, nEigVecs,
