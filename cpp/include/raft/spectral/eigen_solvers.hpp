@@ -15,7 +15,7 @@
  */
 #pragma once
 
-#include <raft/spectral/lanczos.hpp>
+#include <raft/linalg/lanczos.hpp>
 
 namespace raft {
 
