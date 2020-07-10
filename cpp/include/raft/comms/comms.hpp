@@ -109,6 +109,10 @@ class comms_iface {
                          datatype_t datatype, op_t op,
                          cudaStream_t stream) const = 0;
 
+  virtual void bcast(const void* sendbuff, void* recvbuff, size_t count,
+                     datatype_t datatype, int root,
+                     cudaStream_t stream) const = 0;
+
   virtual void bcast(void* buff, size_t count, datatype_t datatype, int root,
                      cudaStream_t stream) const = 0;
 
@@ -244,6 +248,23 @@ class comms_t {
   template <typename value_t>
   void bcast(value_t* buff, size_t count, int root, cudaStream_t stream) const {
     impl_->bcast(static_cast<void*>(buff), count, get_type<value_t>(), root,
+                 stream);
+  }
+
+  /**
+   * Broadcast data from one rank to the rest
+   * @tparam value_t datatype of underlying buffers
+   * @param sendbuff buffer to send
+   * @param recvbuff buffer to receive
+   * @param count number of elements if buff
+   * @param root the rank initiating the broadcast
+   * @param stream CUDA stream to synchronize operation
+   */
+  template <typename value_t>
+  void bcast(const value_t* sendbuff, value_t* recvbuff, size_t count, int root,
+             cudaStream_t stream) const {
+    impl_->bcast(static_cast<const void*>(sendbuff),
+                 static_cast<void*>(recvbuff), count, get_type<value_t>(), root,
                  stream);
   }
 

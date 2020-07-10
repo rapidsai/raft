@@ -60,7 +60,7 @@ bool test_collective_allreduce(const handle_t &handle, int root) {
  * @param the raft handle to use. This is expected to already have an
  *        initialized comms instance.
  */
-bool test_collective_broadcast(const handle_t &handle, int root) {
+bool test_collective_inplace_broadcast(const handle_t &handle, int root) {
   const comms_t &communicator = handle.get_comms();
 
   const int send = root;
@@ -78,6 +78,45 @@ bool test_collective_broadcast(const handle_t &handle, int root) {
   communicator.sync_stream(stream);
   int temp_h = -1;  // Verify more than one byte is being sent
   CUDA_CHECK(cudaMemcpyAsync(&temp_h, temp_d.data(), sizeof(int),
+                             cudaMemcpyDeviceToHost, stream));
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+  communicator.barrier();
+
+  std::cout << "Clique size: " << communicator.get_size() << std::endl;
+  std::cout << "final_size: " << temp_h << std::endl;
+
+  return temp_h == root;
+}
+
+/**
+ * A simple sanity check that NCCL is able to perform a collective operation
+ *
+ * @param the raft handle to use. This is expected to already have an
+ *        initialized comms instance.
+ */
+bool test_collective_broadcast(const handle_t &handle, int root) {
+  const comms_t &communicator = handle.get_comms();
+
+  const int send = root;
+
+  cudaStream_t stream = handle.get_stream();
+
+  raft::mr::device::buffer<int> temp_d_snd(handle.get_device_allocator(),
+                                           stream);
+  temp_d_snd.resize(1, stream);
+
+  raft::mr::device::buffer<int> temp_d_rcv(handle.get_device_allocator(),
+                                           stream);
+  temp_d_rcv.resize(1, stream);
+
+  if (communicator.get_rank() == root)
+    CUDA_CHECK(cudaMemcpyAsync(temp_d_snd.data(), &send, sizeof(int),
+                               cudaMemcpyHostToDevice, stream));
+
+  communicator.bcast(temp_d_snd.data(), temp_d_rcv.data(), 1, root, stream);
+  communicator.sync_stream(stream);
+  int temp_h = -1;  // Verify more than one byte is being sent
+  CUDA_CHECK(cudaMemcpyAsync(&temp_h, temp_d_rcv.data(), sizeof(int),
                              cudaMemcpyDeviceToHost, stream));
   CUDA_CHECK(cudaStreamSynchronize(stream));
   communicator.barrier();

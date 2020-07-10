@@ -58,6 +58,7 @@ cdef extern from "raft/comms/helper.hpp" namespace "raft::comms":
 cdef extern from "raft/comms/test.hpp" namespace "raft::comms":
 
     bool test_collective_allreduce(const handle_t &h, int root) except +
+    bool test_collective_inplace_broadcast(const handle_t &h, int root) except +
     bool test_collective_broadcast(const handle_t &h, int root) except +
     bool test_collective_reduce(const handle_t &h, int root) except +
     bool test_collective_allgather(const handle_t &h, int root) except +
@@ -103,6 +104,19 @@ def perform_test_comms_reducescatter(handle, root):
     """
     cdef const handle_t* h = <handle_t*><size_t>handle.getHandle()
     return test_collective_reducescatter(deref(h), root)
+
+
+def perform_test_comms_inplace_bcast(handle, root):
+    """
+    Performs an in place broadcast on the current worker
+
+    Parameters
+    ----------
+    handle : raft.common.Handle
+             handle containing comms_t to use
+    """
+    cdef const handle_t* h = <handle_t*><size_t>handle.getHandle()
+    return test_collective_inplace_broadcast(deref(h), root)
 
 
 def perform_test_comms_bcast(handle, root):

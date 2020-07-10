@@ -21,6 +21,7 @@ from .comms_utils import inject_comms_on_handle_coll_only
 from .comms_utils import perform_test_comms_allreduce
 from .comms_utils import perform_test_comms_send_recv
 from .comms_utils import perform_test_comms_allgather
+from .comms_utils import perform_test_comms_inplace_bcast
 from .comms_utils import perform_test_comms_bcast
 from .comms_utils import perform_test_comms_reduce
 from .comms_utils import perform_test_comms_reducescatter
