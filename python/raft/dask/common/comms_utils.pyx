@@ -58,7 +58,8 @@ cdef extern from "raft/comms/helper.hpp" namespace "raft::comms":
 cdef extern from "raft/comms/test.hpp" namespace "raft::comms":
 
     bool test_collective_allreduce(const handle_t &h, int root) except +
-    bool test_collective_inplace_broadcast(const handle_t &h, int root) except +
+    bool test_collective_inplace_broadcast(const handle_t &h, int root)
+                                           except +
     bool test_collective_broadcast(const handle_t &h, int root) except +
     bool test_collective_reduce(const handle_t &h, int root) except +
     bool test_collective_allgather(const handle_t &h, int root) except +
