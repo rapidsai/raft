@@ -419,7 +419,7 @@ static int chooseNewCentroid(handle_t const& handle,
  *  @tparam thrust_exe_pol_t the type of thrust execution policy.
  *  @param handle the raft handle.
  *  @param  thrust_exec_policy thrust execution policy 
- *    (assumed to be same as handle.stream).
+ *    (assumed to have same stream as handle.stream).
  *  @param n Number of observation vectors.
  *  @param d Dimension of observation vectors.
  *  @param k Number of clusters.
@@ -460,6 +460,8 @@ static int initializeCentroids(
   auto cublas_h = handle.get_cublas_handle();
   auto stream = handle.get_stream();
 
+  constexpr index_type_t grid_lower_bound{65535};
+
   // -------------------------------------------------------
   // Implementation
   // -------------------------------------------------------
@@ -468,11 +470,13 @@ static int initializeCentroids(
   dim3 blockDim_warp{WARP_SIZE, 1, BSIZE_DIV_WSIZE};
 
   // CUDA grid dimensions
-  dim3 gridDim_warp{min((d + WARP_SIZE - 1) / WARP_SIZE, 65535), 1,
-                    min((n + BSIZE_DIV_WSIZE - 1) / BSIZE_DIV_WSIZE, 65535)};
+  dim3 gridDim_warp{
+    min((d + WARP_SIZE - 1) / WARP_SIZE, grid_lower_bound), 1,
+    min((n + BSIZE_DIV_WSIZE - 1) / BSIZE_DIV_WSIZE, grid_lower_bound)};
 
   // CUDA grid dimensions
-  dim3 gridDim_block{min((n + BLOCK_SIZE - 1) / BLOCK_SIZE, 65535), 1, 1};
+  dim3 gridDim_block{min((n + BLOCK_SIZE - 1) / BLOCK_SIZE, grid_lower_bound),
+                     1, 1};
 
   // Assign observation vectors to code 0
   CUDA_TRY(cudaMemsetAsync(codes, 0, n * sizeof(index_type_t), stream));
@@ -527,7 +531,7 @@ static int initializeCentroids(
  *  @tparam thrust_exe_pol_t the type of thrust execution policy.
  *  @param handle the raft handle.
  *  @param  thrust_exec_policy thrust execution policy
- *    (assumed to be same as handle.stream).
+ *    (assumed to have same stream as handle.stream).
  *  @param n Number of observation vectors.
  *  @param d Dimension of observation vectors.
  *  @param k Number of clusters.
@@ -581,7 +585,7 @@ static int assignCentroids(
   blockDim.x = BLOCK_SIZE;
   blockDim.y = 1;
   blockDim.z = 1;
-  gridDim.x = min((n + BLOCK_SIZE - 1) / BLOCK_SIZE, 65535);
+  gridDim.x = min((n + BLOCK_SIZE - 1) / BLOCK_SIZE, grid_lower_bound);
   gridDim.y = 1;
   gridDim.z = 1;
   minDistances<<<gridDim, blockDim, 0, stream>>>(n, k, dists, codes,
@@ -604,7 +608,7 @@ static int assignCentroids(
  *  @tparam thrust_exe_pol_t the type of thrust execution policy.
  *  @param handle the raft handle.
  *  @param  thrust_exec_policy thrust execution policy
- *    (assumed to be same as handle.stream).
+ *    (assumed to have same stream as handle.stream).
  *  @param n Number of observation vectors.
  *  @param d Dimension of observation vectors.
  *  @param k Number of clusters.
@@ -641,6 +645,8 @@ static int updateCentroids(handle_t const& handle,
   // Useful constants
   const value_type_t one = 1;
   const value_type_t zero = 0;
+
+  constexpr index_type_t grid_lower_bound{65535};
 
   auto cublas_h = handle.get_cublas_handle();
   auto stream = handle.get_stream();
@@ -689,8 +695,9 @@ static int updateCentroids(handle_t const& handle,
   dim3 blockDim{WARP_SIZE, BLOCK_SIZE / WARP_SIZE, 1};
 
   // CUDA grid dimensions
-  dim3 gridDim{min((d + WARP_SIZE - 1) / WARP_SIZE, 65535),
-               min((k + BSIZE_DIV_WSIZE - 1) / BSIZE_DIV_WSIZE, 65535), 1};
+  dim3 gridDim{
+    min((d + WARP_SIZE - 1) / WARP_SIZE, grid_lower_bound),
+    min((k + BSIZE_DIV_WSIZE - 1) / BSIZE_DIV_WSIZE, grid_lower_bound), 1};
 
   divideCentroids<<<gridDim, blockDim, 0, stream>>>(d, k, clusterSizes,
                                                     centroids);
@@ -717,7 +724,7 @@ namespace raft {
  *  @tparam thrust_exe_pol_t the type of thrust execution policy.
  *  @param handle the raft handle.
  *  @param  thrust_exec_policy thrust execution policy
- *    (assumed to be same as handle.stream).
+ *    (assumed to have same stream as handle.stream).
  *  @param n Number of observation vectors.
  *  @param d Dimension of observation vectors.
  *  @param k Number of clusters.
@@ -764,6 +771,8 @@ int kmeans(handle_t const& handle, thrust_exe_pol_t thrust_exec_policy,
   // Current iteration
   index_type_t iter;
 
+  constexpr index_type_t grid_lower_bound{65535};
+
   // Residual sum of squares at previous iteration
   value_type_t residualPrev = 0;
 
@@ -790,8 +799,9 @@ int kmeans(handle_t const& handle, thrust_exe_pol_t thrust_exec_policy,
     dim3 blockDim{WARP_SIZE, 1, BLOCK_SIZE / WARP_SIZE};
 
     dim3 gridDim{
-      min((d + WARP_SIZE - 1) / WARP_SIZE, 65535), 1,
-      min((n + BLOCK_SIZE / WARP_SIZE - 1) / (BLOCK_SIZE / WARP_SIZE), 65535)};
+      min((d + WARP_SIZE - 1) / WARP_SIZE, grid_lower_bound), 1,
+      min((n + BLOCK_SIZE / WARP_SIZE - 1) / (BLOCK_SIZE / WARP_SIZE),
+          grid_lower_bound)};
 
     CUDA_TRY(cudaMemsetAsync(work, 0, n * k * sizeof(value_type_t), stream));
     computeDistances<<<gridDim, blockDim, 0, stream>>>(n, d, 1, obs, centroids,
@@ -897,7 +907,7 @@ int kmeans(handle_t const& handle, thrust_exe_pol_t thrust_exec_policy,
  *  @tparam thrust_exe_pol_t the type of thrust execution policy.
  *  @param handle the raft handle.
  *  @param  thrust_exec_policy thrust execution policy
- *    (assumed to be same as handle.stream).
+ *    (assumed to have same stream as handle.stream).
  *  @param n Number of observation vectors.
  *  @param d Dimension of observation vectors.
  *  @param k Number of clusters.
