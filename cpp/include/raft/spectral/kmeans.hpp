@@ -220,14 +220,13 @@ static __global__ void minDistances2(index_type_t n,
                                      index_type_t* __restrict__ codes_old,
                                      index_type_t code_new) {
   // Loop index
-  index_type_t i;
+  index_type_t i = threadIdx.x + blockIdx.x * blockDim.x;
 
   // Distances
   value_type_t dist_old_private;
   value_type_t dist_new_private;
 
   // Each row is processed by a thread
-  i = threadIdx.x + blockIdx.x * blockDim.x;
   while (i < n) {
     // Get old and new distances
     dist_old_private = dists_old[i];
@@ -419,7 +418,8 @@ static int chooseNewCentroid(handle_t const& handle,
  *  @tparam value_type_t the type of data used for weights, distances.
  *  @tparam thrust_exe_pol_t the type of thrust execution policy.
  *  @param handle the raft handle.
- *  @param  thrust_exec_policy thrust execution policy.
+ *  @param  thrust_exec_policy thrust execution policy 
+ *    (assumed to be same as handle.stream).
  *  @param n Number of observation vectors.
  *  @param d Dimension of observation vectors.
  *  @param k Number of clusters.
@@ -526,7 +526,8 @@ static int initializeCentroids(
  *  @tparam value_type_t the type of data used for weights, distances.
  *  @tparam thrust_exe_pol_t the type of thrust execution policy.
  *  @param handle the raft handle.
- *  @param  thrust_exec_policy thrust execution policy.
+ *  @param  thrust_exec_policy thrust execution policy
+ *    (assumed to be same as handle.stream).
  *  @param n Number of observation vectors.
  *  @param d Dimension of observation vectors.
  *  @param k Number of clusters.
@@ -602,7 +603,8 @@ static int assignCentroids(
  *  @tparam value_type_t the type of data used for weights, distances.
  *  @tparam thrust_exe_pol_t the type of thrust execution policy.
  *  @param handle the raft handle.
- *  @param  thrust_exec_policy thrust execution policy.
+ *  @param  thrust_exec_policy thrust execution policy
+ *    (assumed to be same as handle.stream).
  *  @param n Number of observation vectors.
  *  @param d Dimension of observation vectors.
  *  @param k Number of clusters.
@@ -714,7 +716,8 @@ namespace raft {
  *  @tparam value_type_t the type of data used for weights, distances.
  *  @tparam thrust_exe_pol_t the type of thrust execution policy.
  *  @param handle the raft handle.
- *  @param  thrust_exec_policy thrust execution policy.
+ *  @param  thrust_exec_policy thrust execution policy
+ *    (assumed to be same as handle.stream).
  *  @param n Number of observation vectors.
  *  @param d Dimension of observation vectors.
  *  @param k Number of clusters.
@@ -893,7 +896,8 @@ int kmeans(handle_t const& handle, thrust_exe_pol_t thrust_exec_policy,
  *  @tparam value_type_t the type of data used for weights, distances.
  *  @tparam thrust_exe_pol_t the type of thrust execution policy.
  *  @param handle the raft handle.
- *  @param  thrust_exec_policy thrust execution policy.
+ *  @param  thrust_exec_policy thrust execution policy
+ *    (assumed to be same as handle.stream).
  *  @param n Number of observation vectors.
  *  @param d Dimension of observation vectors.
  *  @param k Number of clusters.
