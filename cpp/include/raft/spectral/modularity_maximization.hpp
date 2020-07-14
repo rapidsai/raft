@@ -32,11 +32,11 @@
 #include <raft/spectral/spectral_util.hpp>
 
 #ifdef COLLECT_TIME_STATISTICS
+#include <cuda_profiler_api.h>
 #include <stddef.h>
 #include <sys/resource.h>
 #include <sys/sysinfo.h>
 #include <sys/time.h>
-#include "cuda_profiler_api.h"
 #endif
 
 #ifdef COLLECT_TIME_STATISTICS
