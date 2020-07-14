@@ -13,6 +13,7 @@
 - PR #17: Make destructor inline to avoid redeclaration error
 - PR #25: Fix bug in handle_t::get_internal_streams
 - PR #26: Fix bug in RAFT_EXPECTS (add parentheses surrounding cond)
+- PR #34 Fix issue with incorrect docker image being used in local build script
 
 # RAFT 0.14.0 (Date TBD)
 
