@@ -204,6 +204,7 @@ set(RAFT_LINK_LIBRARIES
   ${CUDA_cusolver_LIBRARY}
   ${CUDA_CUDART_LIBRARY}
   ${CUDA_cusparse_LIBRARY}
+  ${CUDA_curand_LIBRARY}
   rmm)
 
 set(RAFT_LINK_DIRECTORIES "${RMM_LIBRARY}")
@@ -225,7 +226,10 @@ if(BUILD_RAFT_TESTS)
     test/integer_utils.cpp
     test/mr/device/buffer.cpp
     test/mr/host/buffer.cpp
-    test/test.cpp)
+    test/test.cpp
+    test/spectral_matrix.cu
+    test/eigen_solvers.cu
+    test/cluster_solvers.cu)
 
   target_include_directories(test_raft
     PRIVATE
