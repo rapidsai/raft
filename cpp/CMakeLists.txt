@@ -111,6 +111,7 @@ include(cmake/thirdparty/get_rmm.cmake)
 include(cmake/thirdparty/get_cuco.cmake)
 include(cmake/thirdparty/get_libcudacxx.cmake)
 include(cmake/thirdparty/get_faiss.cmake)
+include(cmake/thirdparty/get_mdspan.cmake)
 
 if(BUILD_TESTS)
   include(cmake/thirdparty/get_gtest.cmake)
@@ -137,7 +138,8 @@ target_link_libraries(raft INTERFACE
   CUDA::cusparse
   $<$<BOOL:${NVTX}>:CUDA::nvToolsExt>
   rmm::rmm
-  cuco::cuco)
+  cuco::cuco
+  std::mdspan)
 
 target_compile_definitions(raft INTERFACE $<$<BOOL:${NVTX}>:NVTX_ENABLED>)
 target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
@@ -248,7 +250,7 @@ install(DIRECTORY include/raft/
 
 # Temporary install of raft.hpp while the file is removed
 install(FILES include/raft.hpp
-	DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/raft)
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/raft)
 
 ##############################################################################
 # - install export -----------------------------------------------------------
