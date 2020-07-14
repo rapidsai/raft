@@ -23,7 +23,7 @@ into three categories:
 
 ### Your first issue
 
-1. Read the project's [README.md](https://github.com/rapidsai/RAFT/blob/master/README.md)
+1. Read the project's [README.md](https://github.com/rapidsai/RAFT/blob/main/README.md)
     to learn how to setup the development environment
 2. Find an issue to work on. The best way is to look for the [good first issue](https://github.com/rapidsai/RAFT/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
     or [help wanted](https://github.com/rapidsai/RAFT/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22) labels
@@ -52,5 +52,3 @@ implementation of the issue, ask them in the issue instead of the PR.
 
 ## Attribution
 Portions adopted from https://github.com/pytorch/pytorch/blob/master/CONTRIBUTING.md
-
-
