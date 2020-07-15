@@ -20,7 +20,6 @@
 #include <cuda_runtime_api.h>
 #include <curand.h>
 #include <cusparse_v2.h>
-#include <nccl.h>
 
 #include <execinfo.h>
 #include <iostream>
