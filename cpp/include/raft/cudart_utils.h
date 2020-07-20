@@ -97,25 +97,6 @@ struct cuda_error : public raft::exception {
 
 namespace raft {
 
-/** helper method to get max usable shared mem per block parameter */
-inline int get_shared_memory_per_block() {
-  int dev_id;
-  CUDA_CHECK(cudaGetDevice(&dev_id));
-  int smem_per_blk;
-  CUDA_CHECK(cudaDeviceGetAttribute(
-    &smem_per_blk, cudaDevAttrMaxSharedMemoryPerBlock, dev_id));
-  return smem_per_blk;
-}
-/** helper method to get multi-processor count parameter */
-inline int get_multi_processor_count() {
-  int dev_id;
-  CUDA_CHECK(cudaGetDevice(&dev_id));
-  int mp_count;
-  CUDA_CHECK(
-    cudaDeviceGetAttribute(&mp_count, cudaDevAttrMultiProcessorCount, dev_id));
-  return mp_count;
-}
-
 /** Helper method to get to know warp size in device code */
 constexpr inline int warp_size() { return 32; }
 
