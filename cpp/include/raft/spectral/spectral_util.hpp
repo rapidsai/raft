@@ -48,7 +48,7 @@ static __global__ void scale_obs_kernel(index_type_t m, index_type_t n,
       valid = i < m;
 
       // get the value of the last thread
-      last = utils::shfl(alpha, blockDim.x - 1, blockDim.x);
+      last = __shfl_sync(warp_full_mask(), alpha, blockDim.x - 1, blockDim.x);
 
       // if you are valid read the value from memory, otherwise set your value to 0
       alpha = (valid) ? obs[i + j * m] : 0.0;
@@ -56,7 +56,7 @@ static __global__ void scale_obs_kernel(index_type_t m, index_type_t n,
 
       // do prefix sum (of size warpSize=blockDim.x =< 32)
       for (k = 1; k < blockDim.x; k *= 2) {
-        v = utils::shfl_up(alpha, k, blockDim.x);
+        v = __shfl_up_sync(warp_full_mask(), alpha, k, blockDim.x);
         if (threadIdx.x >= k) alpha += v;
       }
       // shift by last
@@ -65,7 +65,7 @@ static __global__ void scale_obs_kernel(index_type_t m, index_type_t n,
   }
 
   // scale by alpha
-  alpha = utils::shfl(alpha, blockDim.x - 1, blockDim.x);
+  alpha = __shfl_sync(warp_full_mask(), alpha, blockDim.x - 1, blockDim.x);
   alpha = std::sqrt(alpha);
   for (j = threadIdx.y + blockIdx.y * blockDim.y; j < n;
        j += blockDim.y * gridDim.y) {
