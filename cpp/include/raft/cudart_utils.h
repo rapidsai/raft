@@ -98,7 +98,11 @@ struct cuda_error : public raft::exception {
 namespace raft {
 
 /** Helper method to get to know warp size in device code */
+__host__ __device__
 constexpr inline int warp_size() { return 32; }
+
+__host__ __device__
+constexpr inline unsigned int warp_full_mask() { return 0xffffffff; }
 
 /**
  * @brief Generic copy method for all kinds of transfers
