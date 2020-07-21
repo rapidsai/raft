@@ -16,7 +16,6 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
 #include <memory>
 
 namespace raft {
@@ -133,6 +132,11 @@ class comms_t {
   comms_t(std::unique_ptr<comms_iface> impl) : impl_(impl.release()) {
     ASSERT(nullptr != impl_.get(), "ERROR: Invalid comms_iface used!");
   }
+
+  /**
+   * Virtual Destructor to enable polymorphism
+   */
+  virtual ~comms_t() {}
 
   /**
    * Returns the size of the communicator clique
