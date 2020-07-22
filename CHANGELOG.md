@@ -18,6 +18,7 @@
 - PR #26: Fix bug in RAFT_EXPECTS (add parentheses surrounding cond)
 - PR #34: Fix issue with incorrect docker image being used in local build script
 - PR #35: Remove #include <nccl.h> from `raft/error.hpp`
+- PR #40: Preemptively fixed future CUDA 11 related errors.
 
 # RAFT 0.14.0 (Date TBD)
 
