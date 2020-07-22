@@ -16,7 +16,6 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
 #include <memory>
 #include <raft/mr/buffer_base.hpp>
 #include <raft/mr/device/buffer.hpp>

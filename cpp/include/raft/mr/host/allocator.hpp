@@ -17,7 +17,6 @@
 #pragma once
 
 #include <cuda_runtime.h>
-#include <raft/cudart_utils.h>
 #include <raft/mr/allocator.hpp>
 
 namespace raft {
