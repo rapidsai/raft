@@ -34,7 +34,6 @@
 #include <raft/handle.hpp>
 #include <raft/spectral/matrix_wrappers.hpp>
 #include <raft/spectral/warn_dbg.hpp>
-#include <raft/utils/sm_utils.hpp>
 
 namespace {
 
