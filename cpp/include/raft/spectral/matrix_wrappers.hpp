@@ -181,9 +181,9 @@ struct sparse_matrix_t {
     //get (scratch) external device buffer size:
     //
     size_t bufferSize;
-    CUSPARSE_CHECK(cusparsespmv_buffersize(cusparse_h, opA, &alpha, matA, vecX,
-                                           &beta, vecY, alg, &bufferSize,
-                                           stream));
+    CUSPARSE_CHECK(
+      cusparsespmv_buffersize(cusparse_h, trans, &alpha, matA, vecX, &beta,
+                              vecY, CUSPARSE_CSRMV_ALG1, &bufferSize, stream));
 
     //allocate external buffer:
     //

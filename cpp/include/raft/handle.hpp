@@ -68,7 +68,7 @@ class handle_t {
   }
 
   /** Destroys all held-up resources */
-  ~handle_t() { destroy_resources(); }
+  virtual ~handle_t() { destroy_resources(); }
 
   int get_device() const { return dev_id_; }
 
