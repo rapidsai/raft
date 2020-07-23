@@ -10,6 +10,7 @@
 - PR #13: Add RMM_INCLUDE and RMM_LIBRARY options to allow linking to non-conda RMM
 - PR #22: Preserve order in comms workers for rank initialization
 - PR #38: Remove #include <cudar_utils.h> from `raft/mr/`
+- PR #37: Clean-up CUDA related utilities
 
 ## Bug Fixes
 - PR #17: Make destructor inline to avoid redeclaration error
