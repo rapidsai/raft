@@ -41,9 +41,9 @@ using size_type = int;  // for now; TODO: move it in appropriate header
 //
 template <typename IndexType_, typename ValueType_>
 static __global__ void diagmv(IndexType_ n, ValueType_ alpha,
-                              const ValueType_ *__restrict__ D,
-                              const ValueType_ *__restrict__ x,
-                              ValueType_ *__restrict__ y) {
+                              const ValueType_* __restrict__ D,
+                              const ValueType_* __restrict__ x,
+                              ValueType_* __restrict__ y) {
   IndexType_ i = threadIdx.x + blockIdx.x * blockDim.x;
   while (i < n) {
     y[i] += alpha * D[i] * x[i];
@@ -289,8 +289,7 @@ struct laplacian_matrix_t : sparse_matrix_t<index_type, value_type> {
       std::min<unsigned int>((n + BLOCK_SIZE - 1) / BLOCK_SIZE, 65535), 1, 1};
 
     dim3 blockDim{BLOCK_SIZE, 1, 1};
-    diagmv<<<gridDim, blockDim, 0, stream>>>(n, alpha, diagonal_.raw(),
-                                                    x, y);
+    diagmv<<<gridDim, blockDim, 0, stream>>>(n, alpha, diagonal_.raw(), x, y);
     CHECK_CUDA(stream);
 
     // Apply adjacency matrix
