@@ -98,11 +98,95 @@ struct cuda_error : public raft::exception {
 namespace raft {
 
 /** Helper method to get to know warp size in device code */
-__host__ __device__
-constexpr inline int warp_size() { return 32; }
+__host__ __device__ constexpr inline int warp_size() { return 32; }
 
-__host__ __device__
-constexpr inline unsigned int warp_full_mask() { return 0xffffffff; }
+__host__ __device__ constexpr inline unsigned int warp_full_mask() {
+  return 0xffffffff;
+}
+
+/**
+ * @brief A kernel grid configuration construction gadget for simple one-dimensional mapping
+ * elements to threads.
+ */
+class grid_1d_thread_t {
+ public:
+  int const block_size{0};
+  int const num_blocks{0};
+
+  /**
+   * @param overall_num_elements The number of elements the kernel needs to handle/process
+   * @param num_threads_per_block The grid block size, determined according to the kernel's
+   * specific features (amount of shared memory necessary, SM functional units use pattern etc.);
+   * this can't be determined generically/automatically (as opposed to the number of blocks)
+   * @param elements_per_thread Typically, a single kernel thread processes more than a single
+   * element; this affects the number of threads the grid must contain
+   */
+  grid_1d_thread_t(size_t overall_num_elements, size_t num_threads_per_block,
+                   size_t max_num_blocks_1d, size_t elements_per_thread = 1)
+    : block_size(num_threads_per_block),
+      num_blocks(std::min((overall_num_elements +
+                           (elements_per_thread * num_threads_per_block) - 1) /
+                            (elements_per_thread * num_threads_per_block),
+                          max_num_blocks_1d)) {
+    RAFT_EXPECTS(overall_num_elements > 0, "overall_num_elements must be > 0");
+    RAFT_EXPECTS(num_threads_per_block / warp_size() > 0,
+                 "num_threads_per_block / warp_size() must be > 0");
+    RAFT_EXPECTS(elements_per_thread > 0, "elements_per_thread must be > 0");
+  }
+};
+
+/**
+ * @brief A kernel grid configuration construction gadget for simple one-dimensional mapping
+ * elements to warps.
+ */
+class grid_1d_warp_t {
+ public:
+  int const block_size{0};
+  int const num_blocks{0};
+
+  /**
+   * @param overall_num_elements The number of elements the kernel needs to handle/process
+   * @param num_threads_per_block The grid block size, determined according to the kernel's
+   * specific features (amount of shared memory necessary, SM functional units use pattern etc.);
+   * this can't be determined generically/automatically (as opposed to the number of blocks)
+   */
+  grid_1d_warp_t(size_t overall_num_elements, size_t num_threads_per_block,
+                 size_t max_num_blocks_1d)
+    : block_size(num_threads_per_block),
+      num_blocks(std::min(
+        (overall_num_elements + (num_threads_per_block / warp_size()) - 1) /
+          (num_threads_per_block / warp_size()),
+        max_num_blocks_1d)) {
+    RAFT_EXPECTS(overall_num_elements > 0, "overall_num_elements must be > 0");
+    RAFT_EXPECTS(num_threads_per_block / warp_size() > 0,
+                 "num_threads_per_block / warp_size() must be > 0");
+  }
+};
+
+/**
+ * @brief A kernel grid configuration construction gadget for simple one-dimensional mapping
+ * elements to blocks.
+ */
+class grid_1d_block_t {
+ public:
+  int const block_size{0};
+  int const num_blocks{0};
+
+  /**
+   * @param overall_num_elements The number of elements the kernel needs to handle/process
+   * @param num_threads_per_block The grid block size, determined according to the kernel's
+   * specific features (amount of shared memory necessary, SM functional units use pattern etc.);
+   * this can't be determined generically/automatically (as opposed to the number of blocks)
+   */
+  grid_1d_block_t(size_t overall_num_elements, size_t num_threads_per_block,
+                  size_t max_num_blocks_1d)
+    : block_size(num_threads_per_block),
+      num_blocks(std::min(overall_num_elements, max_num_blocks_1d)) {
+    RAFT_EXPECTS(overall_num_elements > 0, "overall_num_elements must be > 0");
+    RAFT_EXPECTS(num_threads_per_block / warp_size() > 0,
+                 "num_threads_per_block / warp_size() must be > 0");
+  }
+};
 
 /**
  * @brief Generic copy method for all kinds of transfers
