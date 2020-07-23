@@ -111,12 +111,25 @@ template <typename index_type, typename value_type>
 struct sparse_matrix_t {
   sparse_matrix_t(handle_t const& raft_handle, index_type const* row_offsets,
                   index_type const* col_indices, value_type const* values,
+                  index_type const nrows, index_type const ncols,
+                  index_type const nnz)
+    : handle_(raft_handle),
+      row_offsets_(row_offsets),
+      col_indices_(col_indices),
+      values_(values),
+      nrows_(nrows),
+      ncols_(ncols),
+      nnz_(nnz) {}
+
+  sparse_matrix_t(handle_t const& raft_handle, index_type const* row_offsets,
+                  index_type const* col_indices, value_type const* values,
                   index_type const nrows, index_type const nnz)
     : handle_(raft_handle),
       row_offsets_(row_offsets),
       col_indices_(col_indices),
       values_(values),
       nrows_(nrows),
+      ncols_(nrows),
       nnz_(nnz) {}
 
   template <typename CSRView>
@@ -126,6 +139,7 @@ struct sparse_matrix_t {
       col_indices_(csr_view.indices),
       values_(csr_view.edge_data),
       nrows_(csr_view.number_of_vertices),
+      ncols_(csr_view.number_of_vertices),
       nnz_(csr_view.number_of_edges) {}
 
   virtual ~sparse_matrix_t(void) =
@@ -152,18 +166,20 @@ struct sparse_matrix_t {
         CUSPARSE_OPERATION_NON_TRANSPOSE;         //non-transpose
 
 #if __CUDACC_VER_MAJOR__ > 10
+    auto size_x = transpose ? nrows_ : ncols_;
+    auto size_y = transpose ? ncols_ : nrows_;
 
     //create descriptors:
     //
     cusparseSpMatDescr_t matA;
-    CUSPARSE_CHECK(cusparsecreatecsr(&matA, nrows_, nrows_, nnz_, row_offsets_,
+    CUSPARSE_CHECK(cusparsecreatecsr(&matA, nrows_, ncols_, nnz_, row_offsets_,
                                      col_indices_, values_));
 
     cusparseDnVecDescr_t vecX;
-    CUSPARSE_CHECK(cusparsecreatednvec(&vecX, nrows_, x));
+    CUSPARSE_CHECK(cusparsecreatednvec(&vecX, size_x, x));
 
     cusparseDnVecDescr_t vecY;
-    CUSPARSE_CHECK(cusparsecreatednvec(&vecY, nrows_, y));
+    CUSPARSE_CHECK(cusparsecreatednvec(&vecY, size_y, y));
 
     //get (scratch) external device buffer size:
     //
@@ -199,7 +215,7 @@ struct sparse_matrix_t {
       CUSPARSE_CHECK(cusparseSetMatType(descr, CUSPARSE_MATRIX_TYPE_GENERAL));
     }
     CUSPARSE_CHECK(cusparseSetMatIndexBase(descr, CUSPARSE_INDEX_BASE_ZERO));
-    CUSPARSE_CHECK(cusparsecsrmv(cusparse_h, trans, nrows_, nrows_, nnz_,
+    CUSPARSE_CHECK(cusparsecsrmv(cusparse_h, trans, nrows_, ncols_, nnz_,
                                  &alpha, descr, values_, row_offsets_,
                                  col_indices_, x, &beta, y, stream));
     CUSPARSE_CHECK(cusparseDestroyMatDescr(descr));
@@ -215,6 +231,7 @@ struct sparse_matrix_t {
   index_type const* col_indices_;
   value_type const* values_;
   index_type const nrows_;
+  index_type const ncols_;
   index_type const nnz_;
 };
 
