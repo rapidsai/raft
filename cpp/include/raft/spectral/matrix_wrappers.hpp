@@ -165,15 +165,19 @@ struct sparse_matrix_t {
       transpose ? CUSPARSE_OPERATION_TRANSPOSE :  // transpose
         CUSPARSE_OPERATION_NON_TRANSPOSE;         //non-transpose
 
-#if __CUDACC_VER_MAJOR__ > 10
+#if __CUDACC_VER_MAJOR__ >= 10 and __CUDACC_VER_MINOR__ > 0
     auto size_x = transpose ? nrows_ : ncols_;
     auto size_y = transpose ? ncols_ : nrows_;
 
     //create descriptors:
+    //(below casts are necessary, because
+    // cusparseCreateCsr(...) takes non-const
+    // void*; the casts should be harmless)
     //
     cusparseSpMatDescr_t matA;
-    CUSPARSE_CHECK(cusparsecreatecsr(&matA, nrows_, ncols_, nnz_, row_offsets_,
-                                     col_indices_, values_));
+    CUSPARSE_CHECK(cusparsecreatecsr(
+      &matA, nrows_, ncols_, nnz_, const_cast<index_type*>(row_offsets_),
+      const_cast<index_type*>(col_indices_), const_cast<value_type*>(values_)));
 
     cusparseDnVecDescr_t vecX;
     CUSPARSE_CHECK(cusparsecreatednvec(&vecX, size_x, x));

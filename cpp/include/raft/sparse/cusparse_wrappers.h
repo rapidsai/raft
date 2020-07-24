@@ -213,7 +213,7 @@ inline cusparseStatus_t cusparsegemmi(cusparseHandle_t handle, int m, int n,
 }
 /** @} */
 
-#if __CUDACC_VER_MAJOR__ > 10
+#if __CUDACC_VER_MAJOR__ >= 10 and __CUDACC_VER_MINOR__ > 0
 /**
  * @defgroup cusparse Create CSR operations
  * @{
@@ -226,9 +226,8 @@ cusparseStatus_t cusparsecreatecsr(cusparseSpMatDescr_t* spMatDescr,
 template <>
 inline cusparseStatus_t cusparsecreatecsr(cusparseSpMatDescr_t* spMatDescr,
                                           int64_t rows, int64_t cols,
-                                          int64_t nnz, int32_t* csrRowOffsets,
-                                          int32_t* csrColInd,
-                                          float* csrValues) {
+                                          int64_t nnz, int* csrRowOffsets,
+                                          int* csrColInd, float* csrValues) {
   return cusparseCreateCsr(spMatDescr, rows, cols, nnz, csrRowOffsets,
                            csrColInd, csrValues, CUSPARSE_INDEX_32I,
                            CUSPARSE_INDEX_32I, CUSPARSE_INDEX_BASE_ZERO,
@@ -237,9 +236,8 @@ inline cusparseStatus_t cusparsecreatecsr(cusparseSpMatDescr_t* spMatDescr,
 template <>
 inline cusparseStatus_t cusparsecreatecsr(cusparseSpMatDescr_t* spMatDescr,
                                           int64_t rows, int64_t cols,
-                                          int64_t nnz, int32_t* csrRowOffsets,
-                                          int32_t* csrColInd,
-                                          double* csrValues) {
+                                          int64_t nnz, int* csrRowOffsets,
+                                          int* csrColInd, double* csrValues) {
   return cusparseCreateCsr(spMatDescr, rows, cols, nnz, csrRowOffsets,
                            csrColInd, csrValues, CUSPARSE_INDEX_32I,
                            CUSPARSE_INDEX_32I, CUSPARSE_INDEX_BASE_ZERO,
