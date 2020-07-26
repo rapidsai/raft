@@ -38,6 +38,16 @@ namespace matrix {
 
 using size_type = int;  // for now; TODO: move it in appropriate header
 
+// specifies type of algorithm used
+// for SpMv:
+//
+enum struct sparse_mv_alg_t : int {
+  SPARSE_MV_UNDEFINED = -1,
+  SPARSE_MV_ALG_DEFAULT,  // generic, for any sparse matrix
+  SPARSE_MV_ALG1,         // typical for CSR
+  SPARSE_MV_ALG2  // may provide better performamce for irregular sparse matrices
+};
+
 // Vector "view"-like aggregate for linear algebra purposes
 //
 template <typename value_type>
@@ -151,8 +161,9 @@ struct sparse_matrix_t {
   // down is dangerous)
   //
   virtual void mv(value_type alpha, value_type* __restrict__ x, value_type beta,
-                  value_type* __restrict__ y, bool transpose = false,
-                  bool symmetric = false) const {
+                  value_type* __restrict__ y,
+                  sparse_mv_alg_t alg = sparse_mv_alg_t::SPARSE_MV_ALG1,
+                  bool transpose = false, bool symmetric = false) const {
     using namespace sparse;
 
     RAFT_EXPECTS(x != nullptr, "Null x buffer.");
@@ -168,6 +179,8 @@ struct sparse_matrix_t {
 #if __CUDACC_VER_MAJOR__ >= 10 and __CUDACC_VER_MINOR__ > 0
     auto size_x = transpose ? nrows_ : ncols_;
     auto size_y = transpose ? ncols_ : nrows_;
+
+    cusparseSpMVAlg_t spmv_alg = translate_algorithm(alg);
 
     //create descriptors:
     //(below casts are necessary, because
@@ -188,9 +201,9 @@ struct sparse_matrix_t {
     //get (scratch) external device buffer size:
     //
     size_t bufferSize;
-    CUSPARSE_CHECK(
-      cusparsespmv_buffersize(cusparse_h, trans, &alpha, matA, vecX, &beta,
-                              vecY, CUSPARSE_CSRMV_ALG1, &bufferSize, stream));
+    CUSPARSE_CHECK(cusparsespmv_buffersize(cusparse_h, trans, &alpha, matA,
+                                           vecX, &beta, vecY, spmv_alg,
+                                           &bufferSize, stream));
 
     //allocate external buffer:
     //
@@ -199,8 +212,7 @@ struct sparse_matrix_t {
     //finally perform SpMV:
     //
     CUSPARSE_CHECK(cusparsespmv(cusparse_h, trans, &alpha, matA, vecX, &beta,
-                                vecY, CUSPARSE_CSRMV_ALG1,
-                                external_buffer.raw(), stream));
+                                vecY, spmv_alg, external_buffer.raw(), stream));
 
     //free descriptors:
     //(TODO: maybe wrap them in a RAII struct?)
@@ -227,6 +239,19 @@ struct sparse_matrix_t {
   }
 
   handle_t const& get_handle(void) const { return handle_; }
+
+#if __CUDACC_VER_MAJOR__ >= 10 and __CUDACC_VER_MINOR__ > 0
+  cusparseSpMVAlg_t translate_algorithm(sparse_mv_alg_t alg) const {
+    switch (alg) {
+      case sparse_mv_alg_t::SPARSE_MV_ALG1:
+        return CUSPARSE_CSRMV_ALG1;
+      case sparse_mv_alg_t::SPARSE_MV_ALG2:
+        return CUSPARSE_CSRMV_ALG2;
+      default:
+        return CUSPARSE_MV_ALG_DEFAULT;
+    }
+  }
+#endif
 
   //private: // maybe not, keep this ASAPBNS ("as simple as possible, but not simpler"); hence, aggregate
 
@@ -273,8 +298,9 @@ struct laplacian_matrix_t : sparse_matrix_t<index_type, value_type> {
   // y = alpha*A*x + beta*y
   //
   void mv(value_type alpha, value_type* __restrict__ x, value_type beta,
-          value_type* __restrict__ y, bool transpose = false,
-          bool symmetric = false) const override {
+          value_type* __restrict__ y,
+          sparse_mv_alg_t alg = sparse_mv_alg_t::SPARSE_MV_ALG1,
+          bool transpose = false, bool symmetric = false) const override {
     constexpr int BLOCK_SIZE = 1024;
     auto n = sparse_matrix_t<index_type, value_type>::nrows_;
 
@@ -303,7 +329,8 @@ struct laplacian_matrix_t : sparse_matrix_t<index_type, value_type> {
 
     // Apply adjacency matrix
     //
-    sparse_matrix_t<index_type, value_type>::mv(-alpha, x, 1, y);
+    sparse_matrix_t<index_type, value_type>::mv(-alpha, x, 1, y, alg, transpose,
+                                                symmetric);
   }
 
   vector_t<value_type> diagonal_;
@@ -337,8 +364,9 @@ struct modularity_matrix_t : laplacian_matrix_t<index_type, value_type> {
   // y = alpha*A*x + beta*y
   //
   void mv(value_type alpha, value_type* __restrict__ x, value_type beta,
-          value_type* __restrict__ y, bool transpose = false,
-          bool symmetric = false) const override {
+          value_type* __restrict__ y,
+          sparse_mv_alg_t alg = sparse_mv_alg_t::SPARSE_MV_ALG1,
+          bool transpose = false, bool symmetric = false) const override {
     auto n = sparse_matrix_t<index_type, value_type>::nrows_;
 
     auto cublas_h =
@@ -348,7 +376,8 @@ struct modularity_matrix_t : laplacian_matrix_t<index_type, value_type> {
 
     // y = A*x
     //
-    sparse_matrix_t<index_type, value_type>::mv(alpha, x, 0, y);
+    sparse_matrix_t<index_type, value_type>::mv(alpha, x, 0, y, alg, transpose,
+                                                symmetric);
     value_type dot_res;
 
     // gamma = d'*x
