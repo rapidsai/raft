@@ -16,96 +16,70 @@
 
 #pragma once
 
+#include <raft/error.hpp>
+
 #include <cuda_runtime.h>
+
 #include <execinfo.h>
-#include <chrono>
 #include <cstdio>
-#include <iostream>
-#include <sstream>
-#include <stdexcept>
-#include <string>
-#include <utility>
+
 ///@todo: enable once logging has been enabled in raft
 //#include "logger.hpp"
 
 namespace raft {
 
-/** base exception class for the whole of raft */
-class exception : public std::exception {
- public:
-  /** default ctor */
-  explicit exception() noexcept : std::exception(), msg_() {}
-
-  /** copy ctor */
-  exception(const exception& src) noexcept
-    : std::exception(), msg_(src.what()) {
-    collect_call_stack();
-  }
-
-  /** ctor from an input message */
-  explicit exception(const std::string _msg) noexcept
-    : std::exception(), msg_(std::move(_msg)) {
-    collect_call_stack();
-  }
-
-  /** get the message associated with this exception */
-  const char* what() const noexcept override { return msg_.c_str(); }
-
- private:
-  /** message associated with this exception */
-  std::string msg_;
-
-  /** append call stack info to this exception's message for ease of debug */
-  // Courtesy: https://www.gnu.org/software/libc/manual/html_node/Backtraces.html
-  void collect_call_stack() noexcept {
-#ifdef __GNUC__
-    constexpr int kMaxStackDepth = 64;
-    void* stack[kMaxStackDepth];  // NOLINT
-    auto depth = backtrace(stack, kMaxStackDepth);
-    std::ostringstream oss;
-    oss << std::endl << "Obtained " << depth << " stack frames" << std::endl;
-    char** strings = backtrace_symbols(stack, depth);
-    if (strings == nullptr) {
-      oss << "But no stack trace could be found!" << std::endl;
-      msg_ += oss.str();
-      return;
-    }
-    ///@todo: support for demangling of C++ symbol names
-    for (int i = 0; i < depth; ++i) {
-      oss << "#" << i << " in " << strings[i] << std::endl;
-    }
-    free(strings);
-    msg_ += oss.str();
-#endif  // __GNUC__
-  }
+/**
+ * @brief Exception thrown when a CUDA error is encountered.
+ */
+struct cuda_error : public raft::exception {
+  explicit cuda_error(char const* const message) : raft::exception(message) {}
+  explicit cuda_error(std::string const& message) : raft::exception(message) {}
 };
 
-/** macro to throw a runtime error */
-#define THROW(fmt, ...)                                                        \
-  do {                                                                         \
-    std::string msg;                                                           \
-    char errMsg[2048]; /* NOLINT */                                            \
-    std::snprintf(errMsg, sizeof(errMsg),                                      \
-                  "exception occured! file=%s line=%d: ", __FILE__, __LINE__); \
-    msg += errMsg;                                                             \
-    std::snprintf(errMsg, sizeof(errMsg), fmt, ##__VA_ARGS__);                 \
-    msg += errMsg;                                                             \
-    throw raft::exception(msg);                                                \
+}  // namespace raft
+
+/**
+ * @brief Error checking macro for CUDA runtime API functions.
+ *
+ * Invokes a CUDA runtime API function call, if the call does not return
+ * cudaSuccess, invokes cudaGetLastError() to clear the error and throws an
+ * exception detailing the CUDA error that occurred
+ *
+ */
+#define CUDA_TRY(call)                                                        \
+  do {                                                                        \
+    cudaError_t const status = call;                                          \
+    if (status != cudaSuccess) {                                              \
+      cudaGetLastError();                                                     \
+      std::string msg{};                                                      \
+      SET_ERROR_MSG(                                                          \
+        msg, "CUDA error encountered at: ", "call='%s', Reason=%s:%s", #call, \
+        cudaGetErrorName(status), cudaGetErrorString(status));                \
+      throw raft::cuda_error(msg);                                            \
+    }                                                                         \
   } while (0)
 
-/** macro to check for a conditional and assert on failure */
-#define ASSERT(check, fmt, ...)              \
-  do {                                       \
-    if (!(check)) THROW(fmt, ##__VA_ARGS__); \
-  } while (0)
+/**
+ * @brief Debug macro to check for CUDA errors
+ *
+ * In a non-release build, this macro will synchronize the specified stream
+ * before error checking. In both release and non-release builds, this macro
+ * checks for any pending CUDA errors from previous calls. If an error is
+ * reported, an exception is thrown detailing the CUDA error that occurred.
+ *
+ * The intent of this macro is to provide a mechanism for synchronous and
+ * deterministic execution for debugging asynchronous CUDA execution. It should
+ * be used after any asynchronous CUDA call, e.g., cudaMemcpyAsync, or an
+ * asynchronous kernel launch.
+ */
+#ifndef NDEBUG
+#define CHECK_CUDA(stream) CUDA_TRY(cudaStreamSynchronize(stream));
+#else
+#define CHECK_CUDA(stream) CUDA_TRY(cudaPeekAtLastError());
+#endif
 
-/** check for cuda runtime API errors and assert accordingly */
-#define CUDA_CHECK(call)                                               \
-  do {                                                                 \
-    cudaError_t status = call;                                         \
-    ASSERT(status == cudaSuccess, "FAIL: call='%s'. Reason:%s", #call, \
-           cudaGetErrorString(status));                                \
-  } while (0)
+/** FIXME: temporary alias for cuML compatibility */
+#define CUDA_CHECK(call) CUDA_TRY(call)
 
 ///@todo: enable this only after we have added logging support in raft
 // /**
@@ -114,12 +88,14 @@ class exception : public std::exception {
 //  */
 #define CUDA_CHECK_NO_THROW(call)                                         \
   do {                                                                    \
-    cudaError_t status = call;                                            \
-    if (status != cudaSuccess) {                                          \
+    cudaError_t const status = call;                                      \
+    if (cudaSuccess != status) {                                          \
       printf("CUDA call='%s' at file=%s line=%d failed with %s\n", #call, \
              __FILE__, __LINE__, cudaGetErrorString(status));             \
     }                                                                     \
   } while (0)
+
+namespace raft {
 
 /** helper method to get max usable shared mem per block parameter */
 inline int get_shared_memory_per_block() {
@@ -211,4 +187,4 @@ void print_device_vector(const char* variable_name, const T* devMem,
 }
 /** @} */
 
-};  // namespace raft
+}  // namespace raft

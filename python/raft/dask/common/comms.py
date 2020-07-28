@@ -28,6 +28,7 @@ import warnings
 
 import time
 import uuid
+from collections import OrderedDict
 
 
 class Comms:
@@ -137,7 +138,7 @@ class Comms:
                   Unique collection of workers for initializing comms.
         """
 
-        self.worker_addresses = list(set(
+        self.worker_addresses = list(OrderedDict.fromkeys(
             self.client.scheduler_info()["workers"].keys()
             if workers is None else workers))
 

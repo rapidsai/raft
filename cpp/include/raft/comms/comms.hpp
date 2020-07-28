@@ -135,6 +135,11 @@ class comms_t {
   }
 
   /**
+   * Virtual Destructor to enable polymorphism
+   */
+  virtual ~comms_t() {}
+
+  /**
    * Returns the size of the communicator clique
    */
 

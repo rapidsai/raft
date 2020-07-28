@@ -22,6 +22,8 @@
 #include <raft/handle.hpp>
 #include <raft/mr/device/buffer.hpp>
 
+#include <raft/error.hpp>
+
 #include <raft/cudart_utils.h>
 
 #include <cuda_runtime.h>
@@ -44,17 +46,41 @@
 #include <memory>
 #include <thread>
 
-#define NCCL_TRY(call)                                                         \
-  do {                                                                         \
-    ncclResult_t status = call;                                                \
-    ASSERT(ncclSuccess == status, "ERROR: NCCL call='%s'. Reason:%s\n", #call, \
-           ncclGetErrorString(status));                                        \
-  } while (0)
+
+namespace raft {
+
+/**
+ * @brief Exception thrown when a NCCL error is encountered.
+ */
+struct nccl_error : public raft::exception {
+  explicit nccl_error(char const *const message) : raft::exception(message) {}
+  explicit nccl_error(std::string const &message) : raft::exception(message) {}
+};
+
+}  // namespace raft
+
+/**
+ * @brief Error checking macro for NCCL runtime API functions.
+ *
+ * Invokes a NCCL runtime API function call, if the call does not return ncclSuccess, throws an
+ * exception detailing the NCCL error that occurred
+ */
+#define NCCL_TRY(call)                                                        \
+  do {                                                                        \
+    ncclResult_t const status = (call);                                       \
+    if (ncclSuccess != status) {                                              \
+      std::string msg{};                                                      \
+      SET_ERROR_MSG(msg,                                                      \
+                    "NCCL error encountered at: ", "call='%s', Reason=%d:%s", \
+                    #call, status, ncclGetErrorString(status));               \
+      throw raft::nccl_error(msg);                                            \
+    }                                                                         \
+  } while (0);
 
 #define NCCL_CHECK_NO_THROW(call)                         \
   do {                                                    \
     ncclResult_t status = call;                           \
-    if (status != ncclSuccess) {                          \
+    if (ncclSuccess != status) {                          \
       printf("NCCL call='%s' failed. Reason:%s\n", #call, \
              ncclGetErrorString(status));                 \
     }                                                     \
@@ -64,8 +90,6 @@ namespace raft {
 namespace comms {
 
 static size_t get_datatype_size(const datatype_t datatype) {
-  size_t ret = -1;
-
   switch (datatype) {
     case datatype_t::CHAR:
       return sizeof(char);
@@ -84,7 +108,7 @@ static size_t get_datatype_size(const datatype_t datatype) {
     case datatype_t::FLOAT64:
       return sizeof(double);
     default:
-      throw "Unsupported";
+      RAFT_FAIL("Unsupported datatype.");
   }
 }
 
@@ -95,7 +119,6 @@ static ncclDataType_t get_nccl_datatype(const datatype_t datatype) {
     case datatype_t::UINT8:
       return ncclUint8;
     case datatype_t::INT32:
-      std::cout << "Returning int32" << std::endl;
       return ncclInt;
     case datatype_t::UINT32:
       return ncclUint32;
@@ -144,14 +167,14 @@ class std_comms : public comms_iface {
             const std::shared_ptr<mr::device::allocator> device_allocator,
             cudaStream_t stream, bool subcomms_ucp = true)
     : nccl_comm_(nccl_comm),
-      ucp_worker_(ucp_worker),
-      ucp_eps_(eps),
+      stream_(stream),
       num_ranks_(num_ranks),
       rank_(rank),
       device_allocator_(device_allocator),
-      stream_(stream),
       next_request_id_(0),
-      subcomms_ucp_(subcomms_ucp) {
+      subcomms_ucp_(subcomms_ucp),
+      ucp_worker_(ucp_worker),
+      ucp_eps_(eps) {
     initialize();
   };
 
@@ -165,11 +188,11 @@ class std_comms : public comms_iface {
             const std::shared_ptr<mr::device::allocator> device_allocator,
             cudaStream_t stream)
     : nccl_comm_(nccl_comm),
+      stream_(stream),
       num_ranks_(num_ranks),
       rank_(rank),
-      device_allocator_(device_allocator),
-      stream_(stream),
-      subcomms_ucp_(false) {
+      subcomms_ucp_(false),
+      device_allocator_(device_allocator) {
     initialize();
   };
 
