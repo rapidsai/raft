@@ -46,7 +46,6 @@
 #include <memory>
 #include <thread>
 
-
 namespace raft {
 
 /**
