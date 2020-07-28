@@ -16,12 +16,13 @@
 
 #pragma once
 
-#include <nccl.h>
-#include <ucp/api/ucp.h>
-#include <iostream>
 #include <raft/comms/std_comms.hpp>
 #include <raft/handle.hpp>
 #include <raft/mr/device/buffer.hpp>
+
+#include <nccl.h>
+#include <ucp/api/ucp.h>
+#include <iostream>
 
 namespace raft {
 namespace comms {
@@ -39,11 +40,8 @@ void build_comms_nccl_only(handle_t *handle, ncclComm_t nccl_comm,
                            int num_ranks, int rank) {
   auto d_alloc = handle->get_device_allocator();
   cudaStream_t stream = handle->get_stream();
-  comms_iface *raft_comm =
-    new raft::comms::std_comms(nccl_comm, num_ranks, rank, d_alloc, stream);
-
-  auto communicator =
-    std::make_shared<comms_t>(std::unique_ptr<comms_iface>(raft_comm));
+  auto communicator = std::make_shared<comms_t>(std::unique_ptr<comms_iface>(
+    new raft::comms::std_comms(nccl_comm, num_ranks, rank, d_alloc, stream)));
   handle->set_comms(communicator);
 }
 
@@ -84,11 +82,9 @@ void build_comms_nccl_ucx(handle_t *handle, ncclComm_t nccl_comm,
   auto d_alloc = handle->get_device_allocator();
   cudaStream_t stream = handle->get_stream();
 
-  auto *raft_comm =
+  auto communicator = std::make_shared<comms_t>(std::unique_ptr<comms_iface>(
     new raft::comms::std_comms(nccl_comm, (ucp_worker_h)ucp_worker, eps_sp,
-                               num_ranks, rank, d_alloc, stream);
-  auto communicator =
-    std::make_shared<comms_t>(std::unique_ptr<comms_iface>(raft_comm));
+                               num_ranks, rank, d_alloc, stream)));
   handle->set_comms(communicator);
 }
 

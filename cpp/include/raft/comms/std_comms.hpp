@@ -16,19 +16,24 @@
 
 #pragma once
 
-#include <unordered_map>
-#include <unordered_set>
-#include <utility>
-
-#include <nccl.h>
-
 #include <raft/comms/comms.hpp>
+
+#include <raft/comms/ucp_helper.hpp>
+#include <raft/handle.hpp>
+#include <raft/mr/device/buffer.hpp>
+
+#include <raft/cudart_utils.h>
+
+#include <cuda_runtime.h>
 
 #include <ucp/api/ucp.h>
 #include <ucp/api/ucp_def.h>
-#include <raft/comms/ucp_helper.hpp>
 
 #include <nccl.h>
+
+#include <unordered_map>
+#include <unordered_set>
+#include <utility>
 
 #include <stdlib.h>
 #include <time.h>
@@ -37,16 +42,9 @@
 #include <cstdio>
 #include <exception>
 #include <memory>
-#include <raft/handle.hpp>
-#include <raft/mr/device/buffer.hpp>
-
 #include <thread>
 
-#include <cuda_runtime.h>
-
-#include <raft/cudart_utils.h>
-
-#define NCCL_CHECK(call)                                                       \
+#define NCCL_TRY(call)                                                         \
   do {                                                                         \
     ncclResult_t status = call;                                                \
     ASSERT(ncclSuccess == status, "ERROR: NCCL call='%s'. Reason:%s\n", #call, \
@@ -144,7 +142,7 @@ class std_comms : public comms_iface {
   std_comms(ncclComm_t nccl_comm, ucp_worker_h ucp_worker,
             std::shared_ptr<ucp_ep_h *> eps, int num_ranks, int rank,
             const std::shared_ptr<mr::device::allocator> device_allocator,
-            cudaStream_t stream)
+            cudaStream_t stream, bool subcomms_ucp = true)
     : nccl_comm_(nccl_comm),
       ucp_worker_(ucp_worker),
       ucp_eps_(eps),
@@ -152,7 +150,8 @@ class std_comms : public comms_iface {
       rank_(rank),
       device_allocator_(device_allocator),
       stream_(stream),
-      next_request_id_(0) {
+      next_request_id_(0),
+      subcomms_ucp_(subcomms_ucp) {
     initialize();
   };
 
@@ -169,7 +168,8 @@ class std_comms : public comms_iface {
       num_ranks_(num_ranks),
       rank_(rank),
       device_allocator_(device_allocator),
-      stream_(stream) {
+      stream_(stream),
+      subcomms_ucp_(false) {
     initialize();
   };
 
@@ -196,20 +196,21 @@ class std_comms : public comms_iface {
     std::vector<request_t> requests;
 
     if (key == root) {
-      NCCL_CHECK(ncclGetUniqueId(&id));
+      NCCL_TRY(ncclGetUniqueId(&id));
       requests.resize(new_size);
       for (int i = 0; i < get_size(); i++) {
-        if (colors.data()[i] == color) {
-          isend(&id.internal, 128, i, color, requests.data() + request_idx);
+        if (colors[i] == color) {
+          isend(&id, sizeof(ncclUniqueId), i, color,
+                requests.data() + request_idx);
           ++request_idx;
         }
       }
     } else {
       requests.resize(1);
+      // non-root ranks of new comm recv unique id
     }
-
-    // non-root ranks of new comm recv unique id
-    irecv(&id.internal, 128, root, color, requests.data() + request_idx);
+    irecv(&id, sizeof(ncclUniqueId), root, color,
+          requests.data() + request_idx);
 
     waitall(requests.size(), requests.data());
     barrier();
@@ -245,8 +246,8 @@ class std_comms : public comms_iface {
       if (colors_host[i] == color) {
         ranks_with_color.push_back(keys_host[i]);
         if (keys_host[i] < min_rank) min_rank = keys_host[i];
-
-        if (ucp_worker_ != nullptr) new_ucx_ptrs.push_back((*ucp_eps_)[i]);
+        if (ucp_worker_ != nullptr && subcomms_ucp_)
+          new_ucx_ptrs.push_back((*ucp_eps_)[i]);
       }
     }
 
@@ -255,21 +256,19 @@ class std_comms : public comms_iface {
                          colors_host);
 
     ncclComm_t nccl_comm;
-    NCCL_CHECK(ncclCommInitRank(&nccl_comm, ranks_with_color.size(), id,
-                                keys_host[get_rank()]));
+    NCCL_TRY(ncclCommInitRank(&nccl_comm, ranks_with_color.size(), id,
+                              keys_host[get_rank()]));
 
     std_comms *raft_comm;
-    if (ucp_worker_ != nullptr) {
+    if (ucp_worker_ != nullptr && subcomms_ucp_) {
       auto eps_sp = std::make_shared<ucp_ep_h *>(new_ucx_ptrs.data());
-      raft_comm =
-        new std_comms(nccl_comm, (ucp_worker_h)ucp_worker_, eps_sp,
-                      ranks_with_color.size(), key, device_allocator_, stream_);
+      return std::unique_ptr<comms_iface>(new std_comms(
+        nccl_comm, (ucp_worker_h)ucp_worker_, eps_sp, ranks_with_color.size(),
+        key, device_allocator_, stream_, subcomms_ucp_));
     } else {
-      raft_comm = new std_comms(nccl_comm, ranks_with_color.size(), key,
-                                device_allocator_, stream_);
+      return std::unique_ptr<comms_iface>(new std_comms(
+        nccl_comm, ranks_with_color.size(), key, device_allocator_, stream_));
     }
-
-    return std::unique_ptr<comms_iface>(raft_comm);
   }
 
   void barrier() const {
@@ -402,30 +401,28 @@ class std_comms : public comms_iface {
 
   void allreduce(const void *sendbuff, void *recvbuff, size_t count,
                  datatype_t datatype, op_t op, cudaStream_t stream) const {
-    std::cout << "Inside allreduce" << std::endl;
-    NCCL_CHECK(ncclAllReduce(sendbuff, recvbuff, count,
-                             get_nccl_datatype(datatype), get_nccl_op(op),
-                             nccl_comm_, stream));
+    NCCL_TRY(ncclAllReduce(sendbuff, recvbuff, count,
+                           get_nccl_datatype(datatype), get_nccl_op(op),
+                           nccl_comm_, stream));
   }
 
   void bcast(void *buff, size_t count, datatype_t datatype, int root,
              cudaStream_t stream) const {
-    NCCL_CHECK(ncclBroadcast(buff, buff, count, get_nccl_datatype(datatype),
-                             root, nccl_comm_, stream));
+    NCCL_TRY(ncclBroadcast(buff, buff, count, get_nccl_datatype(datatype), root,
+                           nccl_comm_, stream));
   }
 
   void reduce(const void *sendbuff, void *recvbuff, size_t count,
               datatype_t datatype, op_t op, int root,
               cudaStream_t stream) const {
-    NCCL_CHECK(ncclReduce(sendbuff, recvbuff, count,
-                          get_nccl_datatype(datatype), get_nccl_op(op), root,
-                          nccl_comm_, stream));
+    NCCL_TRY(ncclReduce(sendbuff, recvbuff, count, get_nccl_datatype(datatype),
+                        get_nccl_op(op), root, nccl_comm_, stream));
   }
 
   void allgather(const void *sendbuff, void *recvbuff, size_t sendcount,
                  datatype_t datatype, cudaStream_t stream) const {
-    NCCL_CHECK(ncclAllGather(sendbuff, recvbuff, sendcount,
-                             get_nccl_datatype(datatype), nccl_comm_, stream));
+    NCCL_TRY(ncclAllGather(sendbuff, recvbuff, sendcount,
+                           get_nccl_datatype(datatype), nccl_comm_, stream));
   }
 
   void allgatherv(const void *sendbuf, void *recvbuf, const size_t recvcounts[],
@@ -435,7 +432,7 @@ class std_comms : public comms_iface {
     //Listing 1 on page 4.
     for (int root = 0; root < num_ranks_; ++root) {
       size_t dtype_size = get_datatype_size(datatype);
-      NCCL_CHECK(ncclBroadcast(
+      NCCL_TRY(ncclBroadcast(
         sendbuf, static_cast<char *>(recvbuf) + displs[root] * dtype_size,
         recvcounts[root], get_nccl_datatype(datatype), root, nccl_comm_,
         stream));
@@ -444,9 +441,9 @@ class std_comms : public comms_iface {
 
   void reducescatter(const void *sendbuff, void *recvbuff, size_t recvcount,
                      datatype_t datatype, op_t op, cudaStream_t stream) const {
-    NCCL_CHECK(ncclReduceScatter(sendbuff, recvbuff, recvcount,
-                                 get_nccl_datatype(datatype), get_nccl_op(op),
-                                 nccl_comm_, stream));
+    NCCL_TRY(ncclReduceScatter(sendbuff, recvbuff, recvcount,
+                               get_nccl_datatype(datatype), get_nccl_op(op),
+                               nccl_comm_, stream));
   }
 
   status_t sync_stream(cudaStream_t stream) const {
@@ -489,6 +486,8 @@ class std_comms : public comms_iface {
 
   int num_ranks_;
   int rank_;
+
+  bool subcomms_ucp_;
 
   comms_ucp_handler ucp_handler_;
   ucp_worker_h ucp_worker_;

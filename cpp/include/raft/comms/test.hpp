@@ -31,9 +31,9 @@ namespace comms {
  *        initialized comms instance.
  */
 bool test_collective_allreduce(const handle_t &handle, int root) {
-  const comms_t &communicator = handle.get_comms();
+  comms_t const &communicator = handle.get_comms();
 
-  const int send = 1;
+  int const send = 1;
 
   cudaStream_t stream = handle.get_stream();
 
@@ -63,9 +63,9 @@ bool test_collective_allreduce(const handle_t &handle, int root) {
  *        initialized comms instance.
  */
 bool test_collective_broadcast(const handle_t &handle, int root) {
-  const comms_t &communicator = handle.get_comms();
+  comms_t const &communicator = handle.get_comms();
 
-  const int send = root;
+  int const send = root;
 
   cudaStream_t stream = handle.get_stream();
 
@@ -91,9 +91,9 @@ bool test_collective_broadcast(const handle_t &handle, int root) {
 }
 
 bool test_collective_reduce(const handle_t &handle, int root) {
-  const comms_t &communicator = handle.get_comms();
+  comms_t const &communicator = handle.get_comms();
 
-  const int send = root;
+  int const send = root;
 
   cudaStream_t stream = handle.get_stream();
 
@@ -121,9 +121,9 @@ bool test_collective_reduce(const handle_t &handle, int root) {
 }
 
 bool test_collective_allgather(const handle_t &handle, int root) {
-  const comms_t &communicator = handle.get_comms();
+  comms_t const &communicator = handle.get_comms();
 
-  const int send = communicator.get_rank();
+  int const send = communicator.get_rank();
 
   cudaStream_t stream = handle.get_stream();
 
@@ -156,9 +156,9 @@ bool test_collective_allgather(const handle_t &handle, int root) {
 }
 
 bool test_collective_reducescatter(const handle_t &handle, int root) {
-  const comms_t &communicator = handle.get_comms();
+  comms_t const &communicator = handle.get_comms();
 
-  const int send = 1;
+  int const send = 1;
 
   cudaStream_t stream = handle.get_stream();
 
@@ -193,8 +193,8 @@ bool test_collective_reducescatter(const handle_t &handle, int root) {
  * @param number of iterations of all-to-all messaging to perform
  */
 bool test_pointToPoint_simple_send_recv(const handle_t &h, int numTrials) {
-  const comms_t &communicator = h.get_comms();
-  const int rank = communicator.get_rank();
+  comms_t const &communicator = h.get_comms();
+  int const rank = communicator.get_rank();
 
   bool ret = true;
   for (int i = 0; i < numTrials; i++) {
@@ -255,19 +255,18 @@ bool test_pointToPoint_simple_send_recv(const handle_t &h, int numTrials) {
  *
  * @param the raft handle to use. This is expected to already have an
  *        initialized comms instance.
+ * @param n_colors number of different colors to test
  */
 bool test_commsplit(const handle_t &h, int n_colors) {
-  const comms_t &communicator = h.get_comms();
-  const int rank = communicator.get_rank();
-  const int size = communicator.get_size();
+  comms_t const &communicator = h.get_comms();
+  int const rank = communicator.get_rank();
+  int const size = communicator.get_size();
 
   if (n_colors > size) n_colors = size;
 
-  int n_ranks_per_color = communicator.get_size() / n_colors;
-
   // first we need to assign to a color, then assign the rank within the color
   int color = rank % n_colors;
-  int key = rank % n_ranks_per_color;
+  int key = rank / n_colors;
 
   handle_t new_handle(1);
   auto shared_comm =
