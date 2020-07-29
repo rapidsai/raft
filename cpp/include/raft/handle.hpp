@@ -155,8 +155,8 @@ class handle_t {
   }
 
   const comms::comms_t& get_comms() const {
-	  RAFT_EXPECTS(this->comms_initialized(),
-           "ERROR: Communicator was not initialized\n");
+    RAFT_EXPECTS(this->comms_initialized(),
+                 "ERROR: Communicator was not initialized\n");
     return *communicator_;
   }
 
@@ -165,13 +165,13 @@ class handle_t {
   }
 
   const comms::comms_t& get_subcomm(std::string key) const {
-	  RAFT_EXPECTS(subcomms_.find(key) != subcomms_.end(),
-           "%s was not found in subcommunicators.", key.c_str());
+    RAFT_EXPECTS(subcomms_.find(key) != subcomms_.end(),
+                 "%s was not found in subcommunicators.", key.c_str());
 
     auto subcomm = subcomms_.at(key);
 
     RAFT_EXPECTS(nullptr != subcomm.get(),
-           "ERROR: Subcommunicator was not initialized");
+                 "ERROR: Subcommunicator was not initialized");
 
     return *subcomm;
   }
