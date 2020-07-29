@@ -21,6 +21,7 @@
 - PR #34: Fix issue with incorrect docker image being used in local build script
 - PR #35: Remove #include <nccl.h> from `raft/error.hpp`
 - PR #40: Preemptively fixed future CUDA 11 related errors.
+- PR #43: Fixed CUDA version selection mechanism for SpMV.
 
 # RAFT 0.14.0 (Date TBD)
 
