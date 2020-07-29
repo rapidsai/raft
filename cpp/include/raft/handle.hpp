@@ -155,7 +155,7 @@ class handle_t {
   }
 
   const comms::comms_t& get_comms() const {
-    ASSERT(this->comms_initialized(),
+	  RAFT_EXPECTS(this->comms_initialized(),
            "ERROR: Communicator was not initialized\n");
     return *communicator_;
   }
@@ -165,12 +165,12 @@ class handle_t {
   }
 
   const comms::comms_t& get_subcomm(std::string key) const {
-    ASSERT(subcomms_.find(key) != subcomms_.end(),
+	  RAFT_EXPECTS(subcomms_.find(key) != subcomms_.end(),
            "%s was not found in subcommunicators.", key.c_str());
 
     auto subcomm = subcomms_.at(key);
 
-    ASSERT(nullptr != subcomm.get(),
+    RAFT_EXPECTS(nullptr != subcomm.get(),
            "ERROR: Subcommunicator was not initialized");
 
     return *subcomm;

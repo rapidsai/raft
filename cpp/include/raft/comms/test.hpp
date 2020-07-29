@@ -230,12 +230,12 @@ bool test_pointToPoint_simple_send_recv(const handle_t &h, int numTrials) {
     for (int printrank = 0; printrank < communicator.get_size(); ++printrank) {
       if (communicator.get_rank() == printrank) {
         std::cout << "Rank " << communicator.get_rank() << " received: [";
-        for (int i = 0; i < static_cast<int>(received_data.size()); i++) {
+        for (size_t i = 0; i < received_data.size(); i++) {
           auto rec = received_data[i];
           std::cout << rec;
           if (rec == -1) ret = false;
           communicator.barrier();
-          if (i < static_cast<int>(received_data.size() - 1)) std::cout << ", ";
+          if (i < received_data.size() - 1) std::cout << ", ";
         }
         std::cout << "]" << std::endl;
       }
