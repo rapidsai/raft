@@ -171,7 +171,7 @@ class std_comms : public comms_iface {
       rank_(rank),
       subcomms_ucp_(subcomms_ucp),
       ucp_worker_(ucp_worker),
-  	  ucp_eps_(eps),
+      ucp_eps_(eps),
       next_request_id_(0),
       device_allocator_(device_allocator) {
     initialize();
@@ -187,7 +187,7 @@ class std_comms : public comms_iface {
             const std::shared_ptr<mr::device::allocator> device_allocator,
             cudaStream_t stream)
     : nccl_comm_(nccl_comm),
-  	  stream_(stream),
+      stream_(stream),
       num_ranks_(num_ranks),
       rank_(rank),
       subcomms_ucp_(false),
