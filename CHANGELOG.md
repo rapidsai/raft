@@ -12,6 +12,7 @@
 - PR #38: Remove #include <cudar_utils.h> from `raft/mr/`
 - PR #39: Adding a virtual destructor to `raft::handle_t` and `raft::comms::comms_t`
 - PR #37: Clean-up CUDA related utilities
+- PR #41: Upgrade to `cusparseSpMV()`, alg selection, and rectangular matrices.
 
 ## Bug Fixes
 - PR #17: Make destructor inline to avoid redeclaration error
