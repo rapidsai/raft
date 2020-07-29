@@ -31,9 +31,9 @@ namespace comms {
  *        initialized comms instance.
  */
 bool test_collective_allreduce(const handle_t &handle, int root) {
-  const comms_t &communicator = handle.get_comms();
+  comms_t const &communicator = handle.get_comms();
 
-  const int send = 1;
+  int const send = 1;
 
   cudaStream_t stream = handle.get_stream();
 
@@ -41,7 +41,9 @@ bool test_collective_allreduce(const handle_t &handle, int root) {
   temp_d.resize(1, stream);
   CUDA_CHECK(
     cudaMemcpyAsync(temp_d.data(), &send, 1, cudaMemcpyHostToDevice, stream));
+
   communicator.allreduce(temp_d.data(), temp_d.data(), 1, op_t::SUM, stream);
+
   int temp_h = 0;
   CUDA_CHECK(
     cudaMemcpyAsync(&temp_h, temp_d.data(), 1, cudaMemcpyDeviceToHost, stream));
@@ -61,9 +63,9 @@ bool test_collective_allreduce(const handle_t &handle, int root) {
  *        initialized comms instance.
  */
 bool test_collective_broadcast(const handle_t &handle, int root) {
-  const comms_t &communicator = handle.get_comms();
+  comms_t const &communicator = handle.get_comms();
 
-  const int send = root;
+  int const send = root;
 
   cudaStream_t stream = handle.get_stream();
 
@@ -89,9 +91,9 @@ bool test_collective_broadcast(const handle_t &handle, int root) {
 }
 
 bool test_collective_reduce(const handle_t &handle, int root) {
-  const comms_t &communicator = handle.get_comms();
+  comms_t const &communicator = handle.get_comms();
 
-  const int send = root;
+  int const send = root;
 
   cudaStream_t stream = handle.get_stream();
 
@@ -119,9 +121,9 @@ bool test_collective_reduce(const handle_t &handle, int root) {
 }
 
 bool test_collective_allgather(const handle_t &handle, int root) {
-  const comms_t &communicator = handle.get_comms();
+  comms_t const &communicator = handle.get_comms();
 
-  const int send = root;
+  int const send = communicator.get_rank();
 
   cudaStream_t stream = handle.get_stream();
 
@@ -138,7 +140,7 @@ bool test_collective_allgather(const handle_t &handle, int root) {
   communicator.sync_stream(stream);
   int
     temp_h[communicator.get_size()];  // Verify more than one byte is being sent
-  CUDA_CHECK(cudaMemcpyAsync(&temp_h, temp_d.data(),
+  CUDA_CHECK(cudaMemcpyAsync(&temp_h, recv_d.data(),
                              sizeof(int) * communicator.get_size(),
                              cudaMemcpyDeviceToHost, stream));
   CUDA_CHECK(cudaStreamSynchronize(stream));
@@ -147,15 +149,16 @@ bool test_collective_allgather(const handle_t &handle, int root) {
   std::cout << "Clique size: " << communicator.get_size() << std::endl;
   std::cout << "final_size: " << temp_h << std::endl;
 
-  for (int i = 0; i < communicator.get_size(); i++)
+  for (int i = 0; i < communicator.get_size(); i++) {
     if (temp_h[i] != i) return false;
+  }
   return true;
 }
 
 bool test_collective_reducescatter(const handle_t &handle, int root) {
-  const comms_t &communicator = handle.get_comms();
+  comms_t const &communicator = handle.get_comms();
 
-  const int send = 1;
+  int const send = 1;
 
   cudaStream_t stream = handle.get_stream();
 
@@ -190,8 +193,8 @@ bool test_collective_reducescatter(const handle_t &handle, int root) {
  * @param number of iterations of all-to-all messaging to perform
  */
 bool test_pointToPoint_simple_send_recv(const handle_t &h, int numTrials) {
-  const comms_t &communicator = h.get_comms();
-  const int rank = communicator.get_rank();
+  comms_t const &communicator = h.get_comms();
+  int const rank = communicator.get_rank();
 
   bool ret = true;
   for (int i = 0; i < numTrials; i++) {
@@ -246,5 +249,32 @@ bool test_pointToPoint_simple_send_recv(const handle_t &h, int numTrials) {
 
   return ret;
 }
+
+/**
+ * A simple test that the comms can be split into 2 separate subcommunicators
+ *
+ * @param the raft handle to use. This is expected to already have an
+ *        initialized comms instance.
+ * @param n_colors number of different colors to test
+ */
+bool test_commsplit(const handle_t &h, int n_colors) {
+  comms_t const &communicator = h.get_comms();
+  int const rank = communicator.get_rank();
+  int const size = communicator.get_size();
+
+  if (n_colors > size) n_colors = size;
+
+  // first we need to assign to a color, then assign the rank within the color
+  int color = rank % n_colors;
+  int key = rank / n_colors;
+
+  handle_t new_handle(1);
+  auto shared_comm =
+    std::make_shared<comms_t>(communicator.comm_split(color, key));
+  new_handle.set_comms(shared_comm);
+
+  return test_collective_allreduce(new_handle, 0);
+}
+
 }  // namespace comms
 };  // namespace raft

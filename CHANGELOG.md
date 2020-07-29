@@ -3,6 +3,7 @@
 ## New Features
 - PR #12: Spectral clustering.
 - PR #7: Migrating cuml comms -> raft comms_t
+- PR #18: Adding commsplit to cuml communicator
 - PR #15: add exception based error handling macros
 - PR #29: Add ceildiv functionality
 

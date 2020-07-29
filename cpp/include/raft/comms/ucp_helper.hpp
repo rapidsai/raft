@@ -164,6 +164,7 @@ class comms_ucp_handler {
   void free_ucp_request(ucp_request *request) const {
     if (request->needs_release) {
       request->req->completed = 0;
+      std::cout << "FREEING REQUEST" << std::endl;
       (*(req_free_func))(request->req);
     }
     free(request);
@@ -179,6 +180,9 @@ class comms_ucp_handler {
     ucs_status_ptr_t send_result = (*(send_func))(
       ep_ptr, buf, size, ucp_dt_make_contig(1), ucp_tag, send_callback);
     struct ucx_context *ucp_req = (struct ucx_context *)send_result;
+
+    std::cout << "REQ: " << ucp_req << std::endl;
+
     if (UCS_PTR_IS_ERR(send_result)) {
       ASSERT(!UCS_PTR_IS_ERR(send_result),
              "unable to send UCX data message (%d)\n",
@@ -221,6 +225,8 @@ class comms_ucp_handler {
     req->needs_release = true;
     req->is_send_request = false;
     req->other_rank = sender_rank;
+
+    std::cout << "REQ: " << ucp_req << std::endl;
 
     ASSERT(!UCS_PTR_IS_ERR(recv_result),
            "unable to receive UCX data message (%d)\n",
