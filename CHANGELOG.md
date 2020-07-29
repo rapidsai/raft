@@ -6,6 +6,7 @@
 - PR #18: Adding commsplit to cuml communicator
 - PR #15: add exception based error handling macros
 - PR #29: Add ceildiv functionality
+- PR #44: Add get_subcomm and set_subcomm to handle_t
 
 ## Improvements
 - PR #13: Add RMM_INCLUDE and RMM_LIBRARY options to allow linking to non-conda RMM
