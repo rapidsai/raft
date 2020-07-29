@@ -161,18 +161,19 @@ class handle_t {
   }
 
   void set_subcomm(std::string key, std::shared_ptr<comms::comms_t> subcomm) {
-	  subcomms_[key] = subcomm;
+    subcomms_[key] = subcomm;
   }
 
   const comms::comms_t& get_subcomm(std::string key) const {
-	  ASSERT(subcomms_.find(key) != subcomms_.end(),
-			  "%s was not found in subcommunicators.", key.c_str());
+    ASSERT(subcomms_.find(key) != subcomms_.end(),
+           "%s was not found in subcommunicators.", key.c_str());
 
-	  auto subcomm = subcomms_.at(key);
+    auto subcomm = subcomms_.at(key);
 
-	  ASSERT(nullptr != subcomm.get(), "ERROR: Subcommunicator was not initialized");
+    ASSERT(nullptr != subcomm.get(),
+           "ERROR: Subcommunicator was not initialized");
 
-	  return *subcomm;
+    return *subcomm;
   }
 
   bool comms_initialized() const { return (nullptr != communicator_.get()); }
