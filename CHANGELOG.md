@@ -13,6 +13,7 @@
 - PR #38: Remove #include <cudart_utils.h> from `raft/mr/`
 - PR #39: Adding a virtual destructor to `raft::handle_t` and `raft::comms::comms_t`
 - PR #41: Upgrade to `cusparseSpMV()`, alg selection, and rectangular matrices.
+- PR #45: Add Ampere target to cuda11 cmake
 
 ## Bug Fixes
 - PR #17: Make destructor inline to avoid redeclaration error
