@@ -5,19 +5,23 @@ from dask.distributed import Client
 from dask_cuda import initialize
 from dask_cuda import LocalCUDACluster
 
+import os
+os.environ["UCX_LOG_LEVEL"] = "error"
+
+
 enable_tcp_over_ucx = True
 enable_nvlink = False
 enable_infiniband = False
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def cluster():
     cluster = LocalCUDACluster(protocol="tcp", scheduler_port=0)
     yield cluster
     cluster.close()
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def ucx_cluster():
     initialize.initialize(create_cuda_context=True,
                           enable_tcp_over_ucx=enable_tcp_over_ucx,
@@ -26,13 +30,12 @@ def ucx_cluster():
     cluster = LocalCUDACluster(protocol="ucx",
                                enable_tcp_over_ucx=enable_tcp_over_ucx,
                                enable_nvlink=enable_nvlink,
-                               enable_infiniband=enable_infiniband,
-                               ucx_net_devices="auto")
+                               enable_infiniband=enable_infiniband)
     yield cluster
     cluster.close()
 
 
-@pytest.fixture()
+@pytest.fixture(scope="session")
 def client(cluster):
     client = Client(cluster)
     yield client
