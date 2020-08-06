@@ -26,6 +26,26 @@
   case err:                       \
     return #err;
 
+//Notes:
+//(1.) CUDA_VER_SELECT aggregates all the CUDA version selection logic;
+//(2.) to enforce a lower version,
+//
+//`#define CUDA_ENFORCE_LOWER
+// #include <raft/sparse/cusparse_wrappers.h>`
+//
+// (i.e., before including this header)
+//
+#define CUDA_VER_SELECT         \
+  (__CUDACC_VER_MAJOR__ > 10 or \
+   (__CUDACC_VER_MAJOR__ >= 10 and __CUDACC_VER_MINOR__ > 0))
+
+#define VALUE_TO_STRING(x) #x
+#define VALUE(x) VALUE_TO_STRING(x)
+#define VAR_NAME_VALUE(var) #var "=" VALUE(var)
+
+#pragma message(VAR_NAME_VALUE(__CUDACC_VER_MAJOR__))
+#pragma message(VAR_NAME_VALUE(__CUDACC_VER_MINOR__))
+
 namespace raft {
 
 /**
@@ -213,7 +233,7 @@ inline cusparseStatus_t cusparsegemmi(cusparseHandle_t handle, int m, int n,
 }
 /** @} */
 
-#if __CUDACC_VER_MAJOR__ >= 10 and __CUDACC_VER_MINOR__ > 0
+#if not defined CUDA_ENFORCE_LOWER and CUDA_VER_SELECT
 /**
  * @defgroup cusparse Create CSR operations
  * @{

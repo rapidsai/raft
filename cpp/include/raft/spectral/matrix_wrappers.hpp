@@ -33,19 +33,6 @@
 // Get index of matrix entry
 #define IDX(i, j, lda) ((i) + (j) * (lda))
 
-//Notes:
-//(1.) CUDA_VER_SELECT aggregates all the CUDA version selection logic;
-//(2.) to enforce a lower version,
-//
-//`#define CUDA_ENFORCE_LOWER
-// #include <raft/spectral/matrix_wrappers.hpp>`
-//
-// (i.e., before including this header)
-//
-#define CUDA_VER_SELECT         \
-  (__CUDACC_VER_MAJOR__ > 10 or \
-   (__CUDACC_VER_MAJOR__ >= 10 and __CUDACC_VER_MINOR__ > 0))
-
 namespace raft {
 namespace matrix {
 
