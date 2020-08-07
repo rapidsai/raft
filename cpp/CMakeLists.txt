@@ -40,6 +40,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 ##############################################################################
 # - User Options  ------------------------------------------------------------
 
+option(BUILD_GTEST "Build the GTEST library for running raft test executables" OFF)
+
 option(CMAKE_CXX11_ABI "Enable the GLIBCXX11 ABI" ON)
 
 option(EMPTY_MARKER_KERNEL "Enable empty marker kernel after nvtxRangePop" ON)
@@ -243,8 +245,8 @@ if(BUILD_RAFT_TESTS)
   target_link_libraries(test_raft
     PRIVATE
       ${RAFT_LINK_LIBRARIES}
-      gtestlib
-      gtest_mainlib
+      GTest::GTest
+      GTest::Main
       OpenMP::OpenMP_CXX
       Threads::Threads)
 endif(BUILD_RAFT_TESTS)
