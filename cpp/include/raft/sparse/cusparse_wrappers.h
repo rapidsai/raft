@@ -27,7 +27,7 @@
     return #err;
 
 //Notes:
-//(1.) CUDA_VER_SELECT aggregates all the CUDA version selection logic;
+//(1.) CUDA_VER_10_1_UP aggregates all the CUDA version selection logic;
 //(2.) to enforce a lower version,
 //
 //`#define CUDA_ENFORCE_LOWER
@@ -35,14 +35,7 @@
 //
 // (i.e., before including this header)
 //
-
-#define CUDA_VER_SELECT (CUDART_VERSION >= 10100)
-
-#define VALUE_TO_STRING(x) #x
-#define VALUE(x) VALUE_TO_STRING(x)
-#define VAR_NAME_VALUE(var) #var "=" VALUE(var)
-
-#pragma message(VAR_NAME_VALUE(CUDART_VERSION))
+#define CUDA_VER_10_1_UP (CUDART_VERSION >= 10100)
 
 namespace raft {
 
@@ -231,7 +224,7 @@ inline cusparseStatus_t cusparsegemmi(cusparseHandle_t handle, int m, int n,
 }
 /** @} */
 
-#if not defined CUDA_ENFORCE_LOWER and CUDA_VER_SELECT
+#if not defined CUDA_ENFORCE_LOWER and CUDA_VER_10_1_UP
 /**
  * @defgroup cusparse Create CSR operations
  * @{
@@ -396,7 +389,7 @@ inline cusparseStatus_t cusparsecsrmv(
 /** @} */
 #endif
 
-#if not defined CUDA_ENFORCE_LOWER and CUDA_VER_SELECT
+#if not defined CUDA_ENFORCE_LOWER and CUDA_VER_10_1_UP
 /**
  * @defgroup Csrmm cusparse csrmm operations
  * @{
