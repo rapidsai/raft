@@ -35,16 +35,14 @@
 //
 // (i.e., before including this header)
 //
-#define CUDA_VER_SELECT         \
-  (__CUDACC_VER_MAJOR__ > 10 or \
-   (__CUDACC_VER_MAJOR__ >= 10 and __CUDACC_VER_MINOR__ > 0))
+
+#define CUDA_VER_SELECT (CUDART_VERSION >= 10100)
 
 #define VALUE_TO_STRING(x) #x
 #define VALUE(x) VALUE_TO_STRING(x)
 #define VAR_NAME_VALUE(var) #var "=" VALUE(var)
 
-#pragma message(VAR_NAME_VALUE(__CUDACC_VER_MAJOR__))
-#pragma message(VAR_NAME_VALUE(__CUDACC_VER_MINOR__))
+#pragma message(VAR_NAME_VALUE(CUDART_VERSION))
 
 namespace raft {
 
@@ -398,7 +396,7 @@ inline cusparseStatus_t cusparsecsrmv(
 /** @} */
 #endif
 
-#if __CUDACC_VER_MAJOR__ > 10
+#if not defined CUDA_ENFORCE_LOWER and CUDA_VER_SELECT
 /**
  * @defgroup Csrmm cusparse csrmm operations
  * @{

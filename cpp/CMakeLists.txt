@@ -222,7 +222,7 @@ if(BUILD_RAFT_TESTS)
   # keep the files in alphabetical order!
   add_executable(test_raft
     test/cudart_utils.cpp
-    test/handle.cu
+    test/handle.cpp
     test/integer_utils.cpp
     test/mr/device/buffer.cpp
     test/mr/host/buffer.cpp
