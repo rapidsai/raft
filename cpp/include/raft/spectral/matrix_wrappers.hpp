@@ -33,19 +33,6 @@
 // Get index of matrix entry
 #define IDX(i, j, lda) ((i) + (j) * (lda))
 
-//Notes:
-//(1.) CUDA_VER_SELECT aggregates all the CUDA version selection logic;
-//(2.) to enforce a lower version,
-//
-//`#define CUDA_ENFORCE_LOWER
-// #include <raft/spectral/matrix_wrappers.hpp>`
-//
-// (i.e., before including this header)
-//
-#define CUDA_VER_SELECT         \
-  (__CUDACC_VER_MAJOR__ > 10 or \
-   (__CUDACC_VER_MAJOR__ >= 10 and __CUDACC_VER_MINOR__ > 0))
-
 namespace raft {
 namespace matrix {
 
@@ -189,7 +176,7 @@ struct sparse_matrix_t {
       transpose ? CUSPARSE_OPERATION_TRANSPOSE :  // transpose
         CUSPARSE_OPERATION_NON_TRANSPOSE;         //non-transpose
 
-#if not defined CUDA_ENFORCE_LOWER and CUDA_VER_SELECT
+#if not defined CUDA_ENFORCE_LOWER and CUDA_VER_10_1_UP
     auto size_x = transpose ? nrows_ : ncols_;
     auto size_y = transpose ? ncols_ : nrows_;
 
@@ -253,7 +240,7 @@ struct sparse_matrix_t {
 
   handle_t const& get_handle(void) const { return handle_; }
 
-#if not defined CUDA_ENFORCE_LOWER and CUDA_VER_SELECT
+#if not defined CUDA_ENFORCE_LOWER and CUDA_VER_10_1_UP
   cusparseSpMVAlg_t translate_algorithm(sparse_mv_alg_t alg) const {
     switch (alg) {
       case sparse_mv_alg_t::SPARSE_MV_ALG1:
