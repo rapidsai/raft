@@ -18,7 +18,7 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean cppraft pyraft -v -g --allgpuarch --nvtx --show_depr_warn -h"
+VALIDARGS="clean cppraft pyraft -v -g --allgpuarch --nvtx --show_depr_warn -h --buildgtest"
 HELP="$0 [<target> ...] [<flag> ...]
  where <target> is:
    clean            - remove all existing build artifacts and configuration (start over)
@@ -43,6 +43,7 @@ BUILD_DIRS="${CPP_RAFT_BUILD_DIR} ${PY_RAFT_BUILD_DIR} ${PYTHON_DEPS_CLONE}"
 # Set defaults for vars modified by flags to this script
 VERBOSE=""
 BUILD_ALL_GPU_ARCH=0
+BUILD_GTEST=OFF
 SINGLEGPU=""
 NVTX=OFF
 CLEAN=0
@@ -84,6 +85,9 @@ fi
 
 if hasArg --allgpuarch; then
     BUILD_ALL_GPU_ARCH=1
+fi
+if hasArg --buildgtest; then
+    BUILD_GTEST=ON
 fi
 if hasArg --singlegpu; then
     SINGLEGPU="--singlegpu"
@@ -135,6 +139,7 @@ if (( ${NUMARGS} == 0 )) || hasArg cppraft; then
           -DPARALLEL_LEVEL=${PARALLEL_LEVEL} \
           -DNCCL_PATH=${INSTALL_PREFIX} \
           -DDISABLE_DEPRECATION_WARNING=${BUILD_DISABLE_DEPRECATION_WARNING} \
+          -DBUILD_GTEST=${BUILD_GTEST} \
           ..
 
 fi
