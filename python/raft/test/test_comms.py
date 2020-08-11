@@ -18,17 +18,19 @@ import pytest
 from dask.distributed import Client
 from dask.distributed import wait
 
-from raft.dask import Comms
-from raft.dask.common import local_handle
-from raft.dask.common import perform_test_comms_send_recv
-from raft.dask.common import perform_test_comms_allreduce
-from raft.dask.common import perform_test_comms_bcast
-from raft.dask.common import perform_test_comms_reduce
-from raft.dask.common import perform_test_comms_allgather
-from raft.dask.common import perform_test_comms_reducescatter
-from raft.dask.common import perform_test_comm_split
-
-pytestmark = pytest.mark.mg
+try:
+    from raft.dask import Comms
+    from raft.dask.common import local_handle
+    from raft.dask.common import perform_test_comms_send_recv
+    from raft.dask.common import perform_test_comms_allreduce
+    from raft.dask.common import perform_test_comms_bcast
+    from raft.dask.common import perform_test_comms_reduce
+    from raft.dask.common import perform_test_comms_allgather
+    from raft.dask.common import perform_test_comms_reducescatter
+    from raft.dask.common import perform_test_comm_split
+    pytestmark = pytest.mark.mg
+except:
+    pytestmark = pytest.mark.skip
 
 
 def test_comms_init_no_p2p(cluster):
@@ -88,12 +90,15 @@ def test_handles(cluster):
         client.close()
 
 
+if pytestmark.markname != 'skip':
+    pytest.mark.parametrize("func", [perform_test_comms_allgather,
+                                     perform_test_comms_allreduce,
+                                     perform_test_comms_bcast,
+                                     perform_test_comms_reduce,
+                                     perform_test_comms_reducescatter])
+
+
 @pytest.mark.nccl
-@pytest.mark.parametrize("func", [perform_test_comms_allgather,
-                                  perform_test_comms_allreduce,
-                                  perform_test_comms_bcast,
-                                  perform_test_comms_reduce,
-                                  perform_test_comms_reducescatter])
 def test_collectives(client, func):
 
     cb = Comms(verbose=True)
