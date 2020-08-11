@@ -29,7 +29,7 @@ try:
     from raft.dask.common import perform_test_comms_reducescatter
     from raft.dask.common import perform_test_comm_split
     pytestmark = pytest.mark.mg
-except:
+except ImportError:
     pytestmark = pytest.mark.skip
 
 
