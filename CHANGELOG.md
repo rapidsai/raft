@@ -25,6 +25,7 @@
 - PR #40: Preemptively fixed future CUDA 11 related errors.
 - PR #43: Fixed CUDA version selection mechanism for SpMV.
 - PR #46: Fix for cpp file extension issue (nvcc-enforced).
+- PR #48: Fix gtest target names in cmake build gtest option.
 
 # RAFT 0.14.0 (Date TBD)
 
