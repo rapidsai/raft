@@ -91,13 +91,16 @@ def test_handles(cluster):
 
 
 if pytestmark.markname != 'skip':
-    pytest.mark.parametrize("func", [perform_test_comms_allgather,
-                                     perform_test_comms_allreduce,
-                                     perform_test_comms_bcast,
-                                     perform_test_comms_reduce,
-                                     perform_test_comms_reducescatter])
+    functions = [perform_test_comms_allgather,
+                 perform_test_comms_allreduce,
+                 perform_test_comms_bcast,
+                 perform_test_comms_reduce,
+                 perform_test_comms_reducescatter]
+else:
+    functions = [None]
 
 
+@pytest.mark.parametrize("func", functions)
 @pytest.mark.nccl
 def test_collectives(client, func):
 
