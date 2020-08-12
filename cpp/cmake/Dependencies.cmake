@@ -36,15 +36,15 @@ if(BUILD_GTEST)
     UPDATE_COMMAND    "")
   add_library(GTest::GTest STATIC IMPORTED)
   add_library(GTest::Main STATIC IMPORTED)
-  set_property(TARGET gtestlib PROPERTY
+  set_property(TARGET GTest::GTest PROPERTY
     IMPORTED_LOCATION ${GTEST_DIR}/lib/libgtest.a)
-  set_property(TARGET gtest_mainlib PROPERTY
+  set_property(TARGET GTest::Main PROPERTY
     IMPORTED_LOCATION ${GTEST_DIR}/lib/libgtest_main.a)
-  add_dependencies(gtestlib googletest)
-  add_dependencies(gtest_mainlib googletest)
+  add_dependencies(GTest::GTest googletest)
+  add_dependencies(GTest::Main googletest)
 
 else()
 
   find_package(GTest REQUIRED)
 
-endif(BUILD_TEST)
+endif(BUILD_GTEST)
