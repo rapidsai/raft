@@ -31,10 +31,10 @@
 
 #include <raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
+#include <raft/device_atomics.cuh>
 #include <raft/handle.hpp>
 #include <raft/spectral/matrix_wrappers.hpp>
 #include <raft/spectral/warn_dbg.hpp>
-#include <raft/utils/sm_utils.hpp>
 
 namespace {
 
@@ -115,11 +115,12 @@ static __global__ void computeDistances(
 
         // Perform reduction on warp
         for (i = WARP_SIZE / 2; i > 0; i /= 2)
-          dist_private += utils::shfl_down(dist_private, i, 2 * i);
+          dist_private +=
+            __shfl_down_sync(warp_full_mask(), dist_private, i, 2 * i);
 
         // Write result to global memory
         if (threadIdx.x == 0)
-          utils::atomicFPAdd(dists + IDX(gidz, gidy, n), dist_private);
+          atomicAdd(dists + IDX(gidz, gidy, n), dist_private);
 
         // Move to another observation vector
         gidz += blockDim.z * gridDim.z;

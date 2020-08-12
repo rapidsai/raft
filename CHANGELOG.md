@@ -11,8 +11,9 @@
 ## Improvements
 - PR #13: Add RMM_INCLUDE and RMM_LIBRARY options to allow linking to non-conda RMM
 - PR #22: Preserve order in comms workers for rank initialization
-- PR #38: Remove #include <cudart_utils.h> from `raft/mr/`
+- PR #38: Remove #include <cudar_utils.h> from `raft/mr/`
 - PR #39: Adding a virtual destructor to `raft::handle_t` and `raft::comms::comms_t`
+- PR #37: Clean-up CUDA related utilities
 - PR #41: Upgrade to `cusparseSpMV()`, alg selection, and rectangular matrices.
 - PR #45: Add Ampere target to cuda11 cmake
 - PR #47: Use gtest conda package in CMake/build.sh by default
