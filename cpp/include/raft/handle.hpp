@@ -18,6 +18,7 @@
 
 #include <memory>
 #include <mutex>
+#include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -154,9 +155,25 @@ class handle_t {
   }
 
   const comms::comms_t& get_comms() const {
-    ASSERT(nullptr != communicator_.get(),
-           "ERROR: Communicator was not initialized\n");
+    RAFT_EXPECTS(this->comms_initialized(),
+                 "ERROR: Communicator was not initialized\n");
     return *communicator_;
+  }
+
+  void set_subcomm(std::string key, std::shared_ptr<comms::comms_t> subcomm) {
+    subcomms_[key] = subcomm;
+  }
+
+  const comms::comms_t& get_subcomm(std::string key) const {
+    RAFT_EXPECTS(subcomms_.find(key) != subcomms_.end(),
+                 "%s was not found in subcommunicators.", key.c_str());
+
+    auto subcomm = subcomms_.at(key);
+
+    RAFT_EXPECTS(nullptr != subcomm.get(),
+                 "ERROR: Subcommunicator was not initialized");
+
+    return *subcomm;
   }
 
   bool comms_initialized() const { return (nullptr != communicator_.get()); }
@@ -172,6 +189,7 @@ class handle_t {
 
  private:
   std::shared_ptr<comms::comms_t> communicator_;
+  std::unordered_map<std::string, std::shared_ptr<comms::comms_t>> subcomms_;
 
   const int dev_id_;
   const int num_streams_;

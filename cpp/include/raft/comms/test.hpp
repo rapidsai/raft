@@ -182,7 +182,7 @@ bool test_collective_reducescatter(const handle_t &handle, int root) {
   std::cout << "Clique size: " << communicator.get_size() << std::endl;
   std::cout << "final_size: " << temp_h << std::endl;
 
-  return temp_h = communicator.get_size();
+  return temp_h == communicator.get_size();
 }
 
 /**
@@ -230,7 +230,7 @@ bool test_pointToPoint_simple_send_recv(const handle_t &h, int numTrials) {
     for (int printrank = 0; printrank < communicator.get_size(); ++printrank) {
       if (communicator.get_rank() == printrank) {
         std::cout << "Rank " << communicator.get_rank() << " received: [";
-        for (int i = 0; i < received_data.size(); i++) {
+        for (size_t i = 0; i < received_data.size(); i++) {
           auto rec = received_data[i];
           std::cout << rec;
           if (rec == -1) ret = false;
