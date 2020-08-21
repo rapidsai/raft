@@ -17,7 +17,7 @@
 #pragma once
 
 #include <raft/mr/allocator.hpp>
-#include <rmm/mr/device/default_memory_resource.hpp>
+#include <rmm/mr/device/per_device_resource.hpp>
 
 namespace raft {
 namespace mr {
@@ -37,12 +37,12 @@ class allocator : public base_allocator {};
 class default_allocator : public allocator {
  public:
   void* allocate(std::size_t n, cudaStream_t stream) override {
-    void* ptr = rmm::mr::get_default_resource()->allocate(n, stream);
+    void* ptr = rmm::mr::get_current_device_resource()->allocate(n, stream);
     return ptr;
   }
 
   void deallocate(void* p, std::size_t n, cudaStream_t stream) override {
-    rmm::mr::get_default_resource()->deallocate(p, n, stream);
+    rmm::mr::get_current_device_resource()->deallocate(p, n, stream);
   }
 };  // class default_allocator
 
