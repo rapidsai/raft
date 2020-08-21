@@ -688,6 +688,5 @@ inline cusparseStatus_t cusparsespgemm_copy(
 
 /** @} */
 
-
 }  // namespace sparse
 }  // namespace raft
