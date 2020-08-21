@@ -17,6 +17,7 @@
 - PR #41: Upgrade to `cusparseSpMV()`, alg selection, and rectangular matrices.
 - PR #45: Add Ampere target to cuda11 cmake
 - PR #47: Use gtest conda package in CMake/build.sh by default
+- PR #59: Adding SpGEMM to cusparse_wrappers.h
 
 ## Bug Fixes
 - PR #17: Make destructor inline to avoid redeclaration error
