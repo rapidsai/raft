@@ -1,3 +1,12 @@
+# RAFT 0.16.0 (Date TBD)
+
+## New Features
+
+## Improvements
+
+## Bug Fixes
+- PR #56: Fix compiler warnings.
+
 # RAFT 0.15.0 (Date TBD)
 
 ## New Features
