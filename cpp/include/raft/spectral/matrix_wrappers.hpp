@@ -19,7 +19,6 @@
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/handle.hpp>
-#include <raft/utils/sm_utils.hpp>
 
 #include <thrust/fill.h>
 #include <thrust/reduce.h>
@@ -33,23 +32,24 @@
 // Get index of matrix entry
 #define IDX(i, j, lda) ((i) + (j) * (lda))
 
-//Notes:
-//(1.) CUDA_VER_SELECT aggregates all the CUDA version selection logic;
-//(2.) to enforce a lower version,
-//
-//`#define CUDA_ENFORCE_LOWER
-// #include <raft/spectral/matrix_wrappers.hpp>`
-//
-// (i.e., before including this header)
-//
-#define CUDA_VER_SELECT         \
-  (__CUDACC_VER_MAJOR__ > 10 or \
-   (__CUDACC_VER_MAJOR__ >= 10 and __CUDACC_VER_MINOR__ > 0))
-
 namespace raft {
 namespace matrix {
 
 using size_type = int;  // for now; TODO: move it in appropriate header
+
+// Apply diagonal matrix to vector:
+//
+template <typename IndexType_, typename ValueType_>
+static __global__ void diagmv(IndexType_ n, ValueType_ alpha,
+                              const ValueType_* __restrict__ D,
+                              const ValueType_* __restrict__ x,
+                              ValueType_* __restrict__ y) {
+  IndexType_ i = threadIdx.x + blockIdx.x * blockDim.x;
+  while (i < n) {
+    y[i] += alpha * D[i] * x[i];
+    i += blockDim.x * gridDim.x;
+  }
+}
 
 // specifies type of algorithm used
 // for SpMv:
@@ -189,7 +189,7 @@ struct sparse_matrix_t {
       transpose ? CUSPARSE_OPERATION_TRANSPOSE :  // transpose
         CUSPARSE_OPERATION_NON_TRANSPOSE;         //non-transpose
 
-#if not defined CUDA_ENFORCE_LOWER and CUDA_VER_SELECT
+#if not defined CUDA_ENFORCE_LOWER and CUDA_VER_10_1_UP
     auto size_x = transpose ? nrows_ : ncols_;
     auto size_y = transpose ? ncols_ : nrows_;
 
@@ -253,7 +253,7 @@ struct sparse_matrix_t {
 
   handle_t const& get_handle(void) const { return handle_; }
 
-#if not defined CUDA_ENFORCE_LOWER and CUDA_VER_SELECT
+#if not defined CUDA_ENFORCE_LOWER and CUDA_VER_10_1_UP
   cusparseSpMVAlg_t translate_algorithm(sparse_mv_alg_t alg) const {
     switch (alg) {
       case sparse_mv_alg_t::SPARSE_MV_ALG1:
@@ -336,8 +336,7 @@ struct laplacian_matrix_t : sparse_matrix_t<index_type, value_type> {
       std::min<unsigned int>((n + BLOCK_SIZE - 1) / BLOCK_SIZE, 65535), 1, 1};
 
     dim3 blockDim{BLOCK_SIZE, 1, 1};
-    utils::diagmv<<<gridDim, blockDim, 0, stream>>>(n, alpha, diagonal_.raw(),
-                                                    x, y);
+    diagmv<<<gridDim, blockDim, 0, stream>>>(n, alpha, diagonal_.raw(), x, y);
     CHECK_CUDA(stream);
 
     // Apply adjacency matrix

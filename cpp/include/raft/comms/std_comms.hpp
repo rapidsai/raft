@@ -169,11 +169,11 @@ class std_comms : public comms_iface {
       stream_(stream),
       num_ranks_(num_ranks),
       rank_(rank),
-      device_allocator_(device_allocator),
-      next_request_id_(0),
       subcomms_ucp_(subcomms_ucp),
       ucp_worker_(ucp_worker),
-      ucp_eps_(eps) {
+      ucp_eps_(eps),
+      next_request_id_(0),
+      device_allocator_(device_allocator) {
     initialize();
   };
 
@@ -281,7 +281,6 @@ class std_comms : public comms_iface {
     NCCL_TRY(ncclCommInitRank(&nccl_comm, ranks_with_color.size(), id,
                               keys_host[get_rank()]));
 
-    std_comms *raft_comm;
     if (ucp_worker_ != nullptr && subcomms_ucp_) {
       auto eps_sp = std::make_shared<ucp_ep_h *>(new_ucx_ptrs.data());
       return std::unique_ptr<comms_iface>(new std_comms(
