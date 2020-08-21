@@ -182,7 +182,7 @@ bool test_collective_reducescatter(const handle_t &handle, int root) {
   std::cout << "Clique size: " << communicator.get_size() << std::endl;
   std::cout << "final_size: " << temp_h << std::endl;
 
-  return temp_h = communicator.get_size();
+  return temp_h == communicator.get_size();
 }
 
 /**
