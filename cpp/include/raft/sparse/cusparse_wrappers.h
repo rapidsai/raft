@@ -590,6 +590,79 @@ inline cusparseStatus_t cusparsecsrmvex(
                          CUDA_R_64F, beta, CUDA_R_64F, y, CUDA_R_64F,
                          CUDA_R_64F, buffer);
 }
+
+/** @} */
+
+/**
+ * @defgroup Csr2cscEx2 cusparse csr->csc conversion
+ * @{
+ */
+
+template <typename T>
+cusparseStatus_t cusparsecsr2csc_bufferSize(
+  cusparseHandle_t handle, int m, int n, int nnz, const T* csrVal,
+  const int* csrRowPtr, const int* csrColInd, void* cscVal, int* cscColPtr,
+  int* cscRowInd, cusparseAction_t copyValues, cusparseIndexBase_t idxBase,
+  cusparseCsr2CscAlg_t alg, size_t* bufferSize, cudaStream_t stream);
+
+template <>
+inline cusparseStatus_t cusparsecsr2csc_bufferSize(
+  cusparseHandle_t handle, int m, int n, int nnz, const float* csrVal,
+  const int* csrRowPtr, const int* csrColInd, void* cscVal, int* cscColPtr,
+  int* cscRowInd, cusparseAction_t copyValues, cusparseIndexBase_t idxBase,
+  cusparseCsr2CscAlg_t alg, size_t* bufferSize, cudaStream_t stream) {
+  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+
+  return cusparseCsr2cscEx2_bufferSize(
+    handle, m, n, nnz, csrVal, csrRowPtr, csrColInd, cscVal, cscColPtr,
+    cscRowInd, CUDA_R_32F, copyValues, idxBase, alg, bufferSize);
+}
+template <>
+inline cusparseStatus_t cusparsecsr2csc_bufferSize(
+  cusparseHandle_t handle, int m, int n, int nnz, const double* csrVal,
+  const int* csrRowPtr, const int* csrColInd, void* cscVal, int* cscColPtr,
+  int* cscRowInd, cusparseAction_t copyValues, cusparseIndexBase_t idxBase,
+  cusparseCsr2CscAlg_t alg, size_t* bufferSize, cudaStream_t stream) {
+  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+
+  return cusparseCsr2cscEx2_bufferSize(
+    handle, m, n, nnz, csrVal, csrRowPtr, csrColInd, cscVal, cscColPtr,
+    cscRowInd, CUDA_R_64F, copyValues, idxBase, alg, bufferSize);
+}
+
+template <typename T>
+cusparseStatus_t cusparsecsr2csc(
+  cusparseHandle_t handle, int m, int n, int nnz, const T* csrVal,
+  const int* csrRowPtr, const int* csrColInd, void* cscVal, int* cscColPtr,
+  int* cscRowInd, cusparseAction_t copyValues, cusparseIndexBase_t idxBase,
+  cusparseCsr2CscAlg_t alg, void* buffer, cudaStream_t stream);
+
+template <>
+inline cusparseStatus_t cusparsecsr2csc(
+  cusparseHandle_t handle, int m, int n, int nnz, const float* csrVal,
+  const int* csrRowPtr, const int* csrColInd, void* cscVal, int* cscColPtr,
+  int* cscRowInd, cusparseAction_t copyValues, cusparseIndexBase_t idxBase,
+  cusparseCsr2CscAlg_t alg, void* buffer, cudaStream_t stream) {
+  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+
+  return cusparseCsr2cscEx2(handle, m, n, nnz, csrVal, csrRowPtr, csrColInd,
+                            cscVal, cscColPtr, cscRowInd, CUDA_R_32F,
+                            copyValues, idxBase, alg, buffer);
+}
+
+template <>
+inline cusparseStatus_t cusparsecsr2csc(
+  cusparseHandle_t handle, int m, int n, int nnz, const double* csrVal,
+  const int* csrRowPtr, const int* csrColInd, void* cscVal, int* cscColPtr,
+  int* cscRowInd, cusparseAction_t copyValues, cusparseIndexBase_t idxBase,
+  cusparseCsr2CscAlg_t alg, void* buffer, cudaStream_t stream) {
+  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+
+  return cusparseCsr2cscEx2(handle, m, n, nnz, csrVal, csrRowPtr, csrColInd,
+                            cscVal, cscColPtr, cscRowInd, CUDA_R_64F,
+                            copyValues, idxBase, alg, buffer);
+}
+
 /** @} */
 
 /**
