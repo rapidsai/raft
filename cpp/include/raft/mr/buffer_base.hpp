@@ -57,9 +57,9 @@ class buffer_base {
    */
   buffer_base(std::shared_ptr<AllocatorT> allocator, cudaStream_t stream,
               size_type n = 0)
-    : size_(n),
+    : data_(nullptr),
+      size_(n),
       capacity_(n),
-      data_(nullptr),
       stream_(stream),
       allocator_(std::move(allocator)) {
     if (capacity_ > 0) {
