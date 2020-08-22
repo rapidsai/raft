@@ -1,3 +1,9 @@
+# RAFT 0.16.0 (Date TBD)
+
+## Improvements
+- PR #59: Adding csrgemm2 to cusparse_wrappers.h
+
+
 # RAFT 0.15.0 (Date TBD)
 
 ## New Features
