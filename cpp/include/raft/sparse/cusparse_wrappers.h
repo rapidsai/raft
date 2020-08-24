@@ -124,16 +124,22 @@ inline cusparseStatus_t cusparsegthr(cusparseHandle_t handle, int nnz,
                                      const double* vals, double* vals_sorted,
                                      int* d_P, cudaStream_t stream) {
   CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
   return cusparseDgthr(handle, nnz, vals, vals_sorted, d_P,
                        CUSPARSE_INDEX_BASE_ZERO);
+#pragma GCC diagnostic pop
 }
 template <>
 inline cusparseStatus_t cusparsegthr(cusparseHandle_t handle, int nnz,
                                      const float* vals, float* vals_sorted,
                                      int* d_P, cudaStream_t stream) {
   CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
   return cusparseSgthr(handle, nnz, vals, vals_sorted, d_P,
                        CUSPARSE_INDEX_BASE_ZERO);
+#pragma GCC diagnostic pop
 }
 /** @} */
 
@@ -205,8 +211,11 @@ inline cusparseStatus_t cusparsegemmi(cusparseHandle_t handle, int m, int n,
                                       const int* cscRowIndB, const float* beta,
                                       float* C, int ldc, cudaStream_t stream) {
   CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
   return cusparseSgemmi(handle, m, n, k, nnz, alpha, A, lda, cscValB,
                         cscColPtrB, cscRowIndB, beta, C, ldc);
+#pragma GCC diagnostic pop
 }
 template <>
 inline cusparseStatus_t cusparsegemmi(cusparseHandle_t handle, int m, int n,
@@ -217,8 +226,11 @@ inline cusparseStatus_t cusparsegemmi(cusparseHandle_t handle, int m, int n,
                                       const int* cscRowIndB, const double* beta,
                                       double* C, int ldc, cudaStream_t stream) {
   CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
   return cusparseDgemmi(handle, m, n, k, nnz, alpha, A, lda, cscValB,
                         cscColPtrB, cscRowIndB, beta, C, ldc);
+#pragma GCC diagnostic pop
 }
 /** @} */
 
@@ -689,11 +701,14 @@ inline cusparseStatus_t cusparsecsrgemm2_buffersizeext(
   const int* indicesD, csrgemm2Info_t info, size_t* pBufferSizeInBytes,
   cudaStream_t stream) {
   CUSPARSE_CHECK(cusparseSetStream(handle, stream));
-
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
   return cusparseScsrgemm2_bufferSizeExt(
     handle, m, n, k, alpha, matA, nnzA, rowindA, indicesA, matB, nnzB, rowindB,
     indicesB, beta, matD, nnzD, rowindD, indicesD, info, pBufferSizeInBytes);
+#pragma GCC diagnostic pop
 }
+
 template <>
 inline cusparseStatus_t cusparsecsrgemm2_buffersizeext(
   cusparseHandle_t handle, int m, int n, int k, const double* alpha,
@@ -704,9 +719,12 @@ inline cusparseStatus_t cusparsecsrgemm2_buffersizeext(
   const int* indicesD, csrgemm2Info_t info, size_t* pBufferSizeInBytes,
   cudaStream_t stream) {
   CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
   return cusparseDcsrgemm2_bufferSizeExt(
     handle, m, n, k, alpha, matA, nnzA, rowindA, indicesA, matB, nnzB, rowindB,
     indicesB, beta, matD, nnzD, rowindD, indicesD, info, pBufferSizeInBytes);
+#pragma GCC diagnostic pop
 }
 
 inline cusparseStatus_t cusparsecsrgemm2nnz(
@@ -718,11 +736,13 @@ inline cusparseStatus_t cusparsecsrgemm2nnz(
   int* rowindC, int* nnzC, const csrgemm2Info_t info, void* pBuffer,
   cudaStream_t stream) {
   CUSPARSE_CHECK(cusparseSetStream(handle, stream));
-
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
   return cusparseXcsrgemm2Nnz(handle, m, n, k, matA, nnzA, rowindA, indicesA,
                               matB, nnzB, rowindB, indicesB, matD, nnzD,
                               rowindD, indicesD, matC, rowindC, nnzC, info,
                               pBuffer);
+#pragma GCC diagnostic pop
 }
 
 template <typename T>
@@ -748,12 +768,14 @@ inline cusparseStatus_t cusparsecsrgemm2(
   int* csrColIndC, const csrgemm2Info_t info, void* pBuffer,
   cudaStream_t stream) {
   CUSPARSE_CHECK(cusparseSetStream(handle, stream));
-
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
   return cusparseScsrgemm2(handle, m, n, k, alpha, descrA, nnzA, csrValA,
                            csrRowPtrA, csrColIndA, descrB, nnzB, csrValB,
                            csrRowPtrB, csrColIndB, beta, descrD, nnzD, csrValD,
                            csrRowPtrD, csrColIndD, descrC, csrValC, csrRowPtrC,
                            csrColIndC, info, pBuffer);
+#pragma GCC diagnostic pop
 }
 
 template <>
@@ -768,11 +790,14 @@ inline cusparseStatus_t cusparsecsrgemm2(
   int* csrColIndC, const csrgemm2Info_t info, void* pBuffer,
   cudaStream_t stream) {
   CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
   return cusparseDcsrgemm2(handle, m, n, k, alpha, descrA, nnzA, csrValA,
                            csrRowPtrA, csrColIndA, descrB, nnzB, csrValB,
                            csrRowPtrB, csrColIndB, beta, descrD, nnzD, csrValD,
                            csrRowPtrD, csrColIndD, descrC, csrValC, csrRowPtrC,
                            csrColIndC, info, pBuffer);
+#pragma GCC diagnostic pop
 }
 
 /** @} */
