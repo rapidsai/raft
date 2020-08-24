@@ -777,5 +777,59 @@ inline cusparseStatus_t cusparsecsrgemm2(
 
 /** @} */
 
+/**
+ * @defgroup csrgemm2 cusparse sparse gemm operations
+ * @{
+ */
+
+template<typename T>
+cusparseStatus_t cusparsecsr2dense(cusparseHandle_t         handle,
+        int                      m,
+        int                      n,
+        const cusparseMatDescr_t descrA,
+        const T*             csrValA,
+        const int*               csrRowPtrA,
+        const int*               csrColIndA,
+        T*                   A,
+        int                      lda,
+		cudaStream_t stream);
+
+template<>
+inline cusparseStatus_t cusparsecsr2dense(cusparseHandle_t         handle,
+        int                      m,
+        int                      n,
+        const cusparseMatDescr_t descrA,
+        const float*             csrValA,
+        const int*               csrRowPtrA,
+        const int*               csrColIndA,
+        float*                   A,
+        int                      lda,
+		cudaStream_t stream) {
+
+	  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+	  return cusparseScsr2dense(handle, m, n, descrA,
+	                   csrValA, csrRowPtrA, csrColIndA, A, lda);
+}
+template<>
+inline cusparseStatus_t cusparsecsr2dense(cusparseHandle_t         handle,
+        int                      m,
+        int                      n,
+        const cusparseMatDescr_t descrA,
+        const double*             csrValA,
+        const int*               csrRowPtrA,
+        const int*               csrColIndA,
+        double*                   A,
+        int                      lda,
+		cudaStream_t stream) {
+
+	  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+	  return cusparseDcsr2dense(handle, m, n, descrA,
+	                   csrValA, csrRowPtrA, csrColIndA, A, lda);
+}
+
+
+/** @} */
+
+
 }  // namespace sparse
 }  // namespace raft
