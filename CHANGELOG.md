@@ -4,6 +4,7 @@
 
 ## Improvements
 - PR #59: Adding csrgemm2 to cusparse_wrappers.h
+- PR #61: Add cusparsecsr2dense to cusparse_wrappers.h
 
 ## Bug Fixes
 - PR #56: Fix compiler warnings.
