@@ -35,5 +35,6 @@ cdef extern from "raft/handle.hpp" namespace "raft" nogil:
         handle_t(int ns) except +
         void set_stream(_Stream s) except +
         void set_device_allocator(shared_ptr[allocator] a) except +
+        shared_ptr[allocator] get_device_allocator() except +
         _Stream get_stream() except +
         int get_num_internal_streams() except +

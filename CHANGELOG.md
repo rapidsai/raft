@@ -5,6 +5,7 @@
 ## Improvements
 - PR #59: Adding csrgemm2 to cusparse_wrappers.h
 - PR #61: Add cusparsecsr2dense to cusparse_wrappers.h
+- PR #62: Adding `get_device_allocator` to `handle.pxd`
 
 ## Bug Fixes
 - PR #56: Fix compiler warnings.
