@@ -68,6 +68,10 @@ class UCX:
 
         return ep
 
+    async def close_endpoints(self):
+        for k, ep in self._endpoints.items():
+            await ep.close()
+
     def __del__(self):
         for ip_port, ep in self._endpoints.items():
             if not ep.closed():

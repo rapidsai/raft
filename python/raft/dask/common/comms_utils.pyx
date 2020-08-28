@@ -31,7 +31,6 @@ cdef extern from "nccl.h":
     cdef struct ncclComm
     ctypedef ncclComm *ncclComm_t
 
-
 cdef extern from "raft/handle.hpp" namespace "raft":
     cdef cppclass handle_t:
         handle_t() except +
@@ -64,6 +63,7 @@ cdef extern from "raft/comms/test.hpp" namespace "raft::comms":
     bool test_collective_reducescatter(const handle_t &h, int root) except +
     bool test_pointToPoint_simple_send_recv(const handle_t &h,
                                             int numTrials) except +
+    bool test_commsplit(const handle_t &h, int n_colors) except +
 
 
 def perform_test_comms_allreduce(handle, root):
@@ -142,6 +142,19 @@ def perform_test_comms_send_recv(handle, n_trials):
     """
     cdef const handle_t *h = <handle_t*><size_t>handle.getHandle()
     return test_pointToPoint_simple_send_recv(deref(h), <int>n_trials)
+
+
+def perform_test_comm_split(handle, n_colors):
+    """
+    Performs a p2p send/recv on the current worker
+
+    Parameters
+    ----------
+    handle : raft.common.Handle
+             handle containing comms_t to use
+    """
+    cdef const handle_t * h = < handle_t * > < size_t > handle.getHandle()
+    return test_commsplit(deref(h), < int > n_colors)
 
 
 def inject_comms_on_handle_coll_only(handle, nccl_inst, size, rank, verbose):
