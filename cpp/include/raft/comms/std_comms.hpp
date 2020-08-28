@@ -25,13 +25,13 @@
 #include <raft/error.hpp>
 
 #include <raft/cudart_utils.h>
+#include <raft/comms/util.hpp>
 
 #include <cuda_runtime.h>
 
 #include <ucp/api/ucp.h>
 #include <ucp/api/ucp_def.h>
-#include "ucp_helper.hpp"
-#include "util.hpp"
+#include <raft/comms/ucp_helper.hpp>
 
 #include <nccl.h>
 

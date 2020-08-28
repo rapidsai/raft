@@ -1,12 +1,25 @@
-/**
- * @brief Exception thrown when a NCCL error is encountered.
+/*
+ * Copyright (c) 2020, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
-struct nccl_error : public raft::exception {
-  explicit nccl_error(char const *const message) : raft::exception(message) {}
-  explicit nccl_error(std::string const &message) : raft::exception(message) {}
-};
 
-}  // namespace raft
+
+#pragma once
+
+#include <raft/error.hpp>
+#include <nccl.h>
+#include <string>
 
 /**
  * @brief Error checking macro for NCCL runtime API functions.
@@ -22,11 +35,11 @@ struct nccl_error : public raft::exception {
       SET_ERROR_MSG(msg,                                                      \
                     "NCCL error encountered at: ", "call='%s', Reason=%d:%s", \
                     #call, status, ncclGetErrorString(status));               \
-      throw raft::nccl_error(msg);                                            \
+      throw raft::logic_error(msg);                                            \
     }                                                                         \
   } while (0);
 
-#define NCCL_CHECK_NO_THROW(call)                         \
+#define NCCL_TRY_NO_THROW(call)                         \
   do {                                                    \
     ncclResult_t status = call;                           \
     if (ncclSuccess != status) {                          \
@@ -98,3 +111,5 @@ static ncclRedOp_t get_nccl_op(const op_t op) {
       throw "Unsupported";
   }
 }
+};
+};
