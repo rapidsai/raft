@@ -50,7 +50,7 @@
 namespace raft {
 namespace comms {
 
-static size_t get_datatype_size(const datatype_t datatype) {
+constexpr size_t get_datatype_size(const datatype_t datatype) {
   switch (datatype) {
     case datatype_t::CHAR:
       return sizeof(char);
@@ -69,11 +69,11 @@ static size_t get_datatype_size(const datatype_t datatype) {
     case datatype_t::FLOAT64:
       return sizeof(double);
     default:
-      RAFT_FAIL("Unsupported datatype.");
+      throw "Unsupported datatype";
   }
 }
 
-static ncclDataType_t get_nccl_datatype(const datatype_t datatype) {
+constexpr ncclDataType_t get_nccl_datatype(const datatype_t datatype) {
   switch (datatype) {
     case datatype_t::CHAR:
       return ncclChar;
@@ -92,11 +92,11 @@ static ncclDataType_t get_nccl_datatype(const datatype_t datatype) {
     case datatype_t::FLOAT64:
       return ncclDouble;
     default:
-      throw "Unsupported";
+      throw "Unsupported datatype";
   }
 }
 
-static ncclRedOp_t get_nccl_op(const op_t op) {
+constexpr ncclRedOp_t get_nccl_op(const op_t op) {
   switch (op) {
     case op_t::SUM:
       return ncclSum;
@@ -107,7 +107,7 @@ static ncclRedOp_t get_nccl_op(const op_t op) {
     case op_t::MAX:
       return ncclMax;
     default:
-      throw "Unsupported";
+      throw "Unsupported datatype";
   }
 }
 };  // namespace comms

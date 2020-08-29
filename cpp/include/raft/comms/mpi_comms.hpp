@@ -59,7 +59,7 @@
 namespace raft {
 namespace comms {
 
-static MPI_Datatype get_mpi_datatype(const datatype_t datatype) {
+constexpr MPI_Datatype get_mpi_datatype(const datatype_t datatype) {
   switch (datatype) {
     case datatype_t::CHAR:
       return MPI_CHAR;
@@ -83,7 +83,7 @@ static MPI_Datatype get_mpi_datatype(const datatype_t datatype) {
   }
 }
 
-static MPI_Op get_mpi_op(const op_t op) {
+constexpr MPI_Op get_mpi_op(const op_t op) {
   switch (op) {
     case op_t::SUM:
       return MPI_SUM;
@@ -102,58 +102,58 @@ static MPI_Op get_mpi_op(const op_t op) {
 class mpi_comms : public comms_iface {
  public:
   mpi_comms(MPI_Comm comm, const bool owns_mpi_comm)
-    : _owns_mpi_comm(owns_mpi_comm),
-      _mpi_comm(comm),
-      _size(0),
-      _rank(1),
-      _next_request_id(0) {
+    : owns_mpi_comm_(owns_mpi_comm),
+      mpi_comm_(comm),
+      size_(0),
+      rank_(1),
+      next_request_id_(0) {
     int mpi_is_initialized = 0;
     MPI_TRY(MPI_Initialized(&mpi_is_initialized));
     RAFT_EXPECTS(mpi_is_initialized, "ERROR: MPI is not initialized!");
-    MPI_TRY(MPI_Comm_size(_mpi_comm, &_size));
-    MPI_TRY(MPI_Comm_rank(_mpi_comm, &_rank));
+    MPI_TRY(MPI_Comm_size(mpi_comm_, &size_));
+    MPI_TRY(MPI_Comm_rank(mpi_comm_, &rank_));
     //get NCCL unique ID at rank 0 and broadcast it to all others
     ncclUniqueId id;
-    if (0 == _rank) NCCL_TRY(ncclGetUniqueId(&id));
-    MPI_TRY(MPI_Bcast((void*)&id, sizeof(id), MPI_BYTE, 0, _mpi_comm));
+    if (0 == rank_) NCCL_TRY(ncclGetUniqueId(&id));
+    MPI_TRY(MPI_Bcast((void*)&id, sizeof(id), MPI_BYTE, 0, mpi_comm_));
 
     //initializing NCCL
-    NCCL_TRY(ncclCommInitRank(&_nccl_comm, _size, id, _rank));
+    NCCL_TRY(ncclCommInitRank(&nccl_comm_, size_, id, rank_));
   }
 
   virtual ~mpi_comms() {
     //finalizing NCCL
-    NCCL_TRY_NO_THROW(ncclCommDestroy(_nccl_comm));
-    if (_owns_mpi_comm) {
-      MPI_TRY_NO_THROW(MPI_Comm_free(&_mpi_comm));
+    NCCL_TRY_NO_THROW(ncclCommDestroy(nccl_comm_));
+    if (owns_mpi_comm_) {
+      MPI_TRY_NO_THROW(MPI_Comm_free(&mpi_comm_));
     }
   }
 
-  int get_size() const { return _size; }
+  int get_size() const { return size_; }
 
-  int get_rank() const { return _rank; }
+  int get_rank() const { return rank_; }
 
   std::unique_ptr<comms_iface> comm_split(int color, int key) const {
     MPI_Comm new_comm;
-    MPI_TRY(MPI_Comm_split(_mpi_comm, color, key, &new_comm));
+    MPI_TRY(MPI_Comm_split(mpi_comm_, color, key, &new_comm));
     return std::unique_ptr<comms_iface>(new mpi_comms(new_comm, true));
   }
 
-  void barrier() const { MPI_TRY(MPI_Barrier(_mpi_comm)); }
+  void barrier() const { MPI_TRY(MPI_Barrier(mpi_comm_)); }
 
   void isend(const void* buf, size_t size, int dest, int tag,
              request_t* request) const {
     MPI_Request mpi_req;
     request_t req_id;
-    if (_free_requests.empty()) {
-      req_id = _next_request_id++;
+    if (free_requests_.empty()) {
+      req_id = next_request_id_++;
     } else {
-      auto it = _free_requests.begin();
+      auto it = free_requests_.begin();
       req_id = *it;
-      _free_requests.erase(it);
+      free_requests_.erase(it);
     }
-    MPI_TRY(MPI_Isend(buf, size, MPI_BYTE, dest, tag, _mpi_comm, &mpi_req));
-    _requests_in_flight.insert(std::make_pair(req_id, mpi_req));
+    MPI_TRY(MPI_Isend(buf, size, MPI_BYTE, dest, tag, mpi_comm_, &mpi_req));
+    requests_in_flight_.insert(std::make_pair(req_id, mpi_req));
     *request = req_id;
   }
 
@@ -161,16 +161,16 @@ class mpi_comms : public comms_iface {
              request_t* request) const {
     MPI_Request mpi_req;
     request_t req_id;
-    if (_free_requests.empty()) {
-      req_id = _next_request_id++;
+    if (free_requests_.empty()) {
+      req_id = next_request_id_++;
     } else {
-      auto it = _free_requests.begin();
+      auto it = free_requests_.begin();
       req_id = *it;
-      _free_requests.erase(it);
+      free_requests_.erase(it);
     }
 
-    MPI_TRY(MPI_Irecv(buf, size, MPI_BYTE, source, tag, _mpi_comm, &mpi_req));
-    _requests_in_flight.insert(std::make_pair(req_id, mpi_req));
+    MPI_TRY(MPI_Irecv(buf, size, MPI_BYTE, source, tag, mpi_comm_, &mpi_req));
+    requests_in_flight_.insert(std::make_pair(req_id, mpi_req));
     *request = req_id;
   }
 
@@ -178,13 +178,13 @@ class mpi_comms : public comms_iface {
     std::vector<MPI_Request> requests;
     requests.reserve(count);
     for (int i = 0; i < count; ++i) {
-      auto req_it = _requests_in_flight.find(array_of_requests[i]);
-      RAFT_EXPECTS(_requests_in_flight.end() != req_it,
+      auto req_it = requests_in_flight_.find(array_of_requests[i]);
+      RAFT_EXPECTS(requests_in_flight_.end() != req_it,
                    "ERROR: waitall on invalid request: %d",
                    array_of_requests[i]);
       requests.push_back(req_it->second);
-      _free_requests.insert(req_it->first);
-      _requests_in_flight.erase(req_it);
+      free_requests_.insert(req_it->first);
+      requests_in_flight_.erase(req_it);
     }
     MPI_TRY(MPI_Waitall(requests.size(), requests.data(), MPI_STATUSES_IGNORE));
   }
@@ -193,26 +193,26 @@ class mpi_comms : public comms_iface {
                  datatype_t datatype, op_t op, cudaStream_t stream) const {
     NCCL_TRY(ncclAllReduce(sendbuff, recvbuff, count,
                            get_nccl_datatype(datatype), get_nccl_op(op),
-                           _nccl_comm, stream));
+                           nccl_comm_, stream));
   }
 
   void bcast(void* buff, size_t count, datatype_t datatype, int root,
              cudaStream_t stream) const {
     NCCL_TRY(ncclBroadcast(buff, buff, count, get_nccl_datatype(datatype), root,
-                           _nccl_comm, stream));
+                           nccl_comm_, stream));
   }
 
   void reduce(const void* sendbuff, void* recvbuff, size_t count,
               datatype_t datatype, op_t op, int root,
               cudaStream_t stream) const {
     NCCL_TRY(ncclReduce(sendbuff, recvbuff, count, get_nccl_datatype(datatype),
-                        get_nccl_op(op), root, _nccl_comm, stream));
+                        get_nccl_op(op), root, nccl_comm_, stream));
   }
 
   void allgather(const void* sendbuff, void* recvbuff, size_t sendcount,
                  datatype_t datatype, cudaStream_t stream) const {
     NCCL_TRY(ncclAllGather(sendbuff, recvbuff, sendcount,
-                           get_nccl_datatype(datatype), _nccl_comm, stream));
+                           get_nccl_datatype(datatype), nccl_comm_, stream));
   }
 
   void allgatherv(const void* sendbuf, void* recvbuf, const size_t recvcounts[],
@@ -220,12 +220,12 @@ class mpi_comms : public comms_iface {
                   cudaStream_t stream) const {
     //From: "An Empirical Evaluation of Allgatherv on Multi-GPU Systems" - https://arxiv.org/pdf/1812.05964.pdf
     //Listing 1 on page 4.
-    for (int root = 0; root < _size; ++root) {
+    for (int root = 0; root < size_; ++root) {
       NCCL_TRY(ncclBroadcast(sendbuf,
                              static_cast<char*>(recvbuf) +
                                displs[root] * get_datatype_size(datatype),
                              recvcounts[root], get_nccl_datatype(datatype),
-                             root, _nccl_comm, stream));
+                             root, nccl_comm_, stream));
     }
   }
 
@@ -233,7 +233,7 @@ class mpi_comms : public comms_iface {
                      datatype_t datatype, op_t op, cudaStream_t stream) const {
     NCCL_TRY(ncclReduceScatter(sendbuff, recvbuff, recvcount,
                                get_nccl_datatype(datatype), get_nccl_op(op),
-                               _nccl_comm, stream));
+                               nccl_comm_, stream));
   }
 
   status_t sync_stream(cudaStream_t stream) const {
@@ -248,7 +248,7 @@ class mpi_comms : public comms_iface {
         return status_t::ERROR;
       }
 
-      ncclErr = ncclCommGetAsyncError(_nccl_comm, &ncclAsyncErr);
+      ncclErr = ncclCommGetAsyncError(nccl_comm_, &ncclAsyncErr);
       if (ncclErr != ncclSuccess) {
         // An error occurred retrieving the asynchronous error
         return status_t::ERROR;
@@ -257,7 +257,7 @@ class mpi_comms : public comms_iface {
       if (ncclAsyncErr != ncclSuccess) {
         // An asynchronous error happened. Stop the operation and destroy
         // the communicator
-        ncclErr = ncclCommAbort(_nccl_comm);
+        ncclErr = ncclCommAbort(nccl_comm_);
         if (ncclErr != ncclSuccess)
           // Caller may abort with an exception or try to re-create a new communicator.
           return status_t::ABORT;
@@ -269,15 +269,15 @@ class mpi_comms : public comms_iface {
   };
 
  private:
-  bool _owns_mpi_comm;
-  MPI_Comm _mpi_comm;
+  bool owns_mpi_comm_;
+  MPI_Comm mpi_comm_;
 
-  ncclComm_t _nccl_comm;
-  int _size;
-  int _rank;
-  mutable request_t _next_request_id;
-  mutable std::unordered_map<request_t, MPI_Request> _requests_in_flight;
-  mutable std::unordered_set<request_t> _free_requests;
+  ncclComm_t nccl_comm_;
+  int size_;
+  int rank_;
+  mutable request_t next_request_id_;
+  mutable std::unordered_map<request_t, MPI_Request> requests_in_flight_;
+  mutable std::unordered_set<request_t> free_requests_;
 };
 
 inline void initialize_mpi_comms(handle_t* handle, MPI_Comm comm) {
