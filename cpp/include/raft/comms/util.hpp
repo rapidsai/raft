@@ -14,11 +14,10 @@
  * limitations under the License.
  */
 
-
 #pragma once
 
-#include <raft/error.hpp>
 #include <nccl.h>
+#include <raft/error.hpp>
 #include <string>
 
 /**
@@ -35,11 +34,11 @@
       SET_ERROR_MSG(msg,                                                      \
                     "NCCL error encountered at: ", "call='%s', Reason=%d:%s", \
                     #call, status, ncclGetErrorString(status));               \
-      throw raft::logic_error(msg);                                            \
+      throw raft::logic_error(msg);                                           \
     }                                                                         \
   } while (0);
 
-#define NCCL_TRY_NO_THROW(call)                         \
+#define NCCL_TRY_NO_THROW(call)                           \
   do {                                                    \
     ncclResult_t status = call;                           \
     if (ncclSuccess != status) {                          \
@@ -111,5 +110,5 @@ static ncclRedOp_t get_nccl_op(const op_t op) {
       throw "Unsupported";
   }
 }
-};
-};
+};  // namespace comms
+};  // namespace raft
