@@ -11,7 +11,7 @@
 
 ## Bug Fixes
 - PR #56: Fix compiler warnings.
-- PR #60: Remove `cublas_try` from `cusolver_wrappers.h`
+- PR #64: Remove `cublas_try` from `cusolver_wrappers.h`
 
 # RAFT 0.15.0 (Date TBD)
 
