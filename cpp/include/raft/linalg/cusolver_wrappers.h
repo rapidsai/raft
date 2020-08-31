@@ -78,7 +78,7 @@ inline const char *cusolver_error_to_string(cusolverStatus_t err) {
       SET_ERROR_MSG(msg, "cuSOLVER error encountered at: ",                  \
                     "call='%s', Reason=%d:%s", #call, status,                \
                     raft::linalg::detail::cusolver_error_to_string(status)); \
-      throw raft::cublas_error(msg);                                         \
+      throw raft::cusolver_error(msg);                                       \
     }                                                                        \
   } while (0)
 
