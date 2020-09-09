@@ -124,6 +124,13 @@ if("${GPU_ARCHS}" STREQUAL "")
   evaluate_gpu_archs(GPU_ARCHS)
 endif()
 
+# CUDA 11 onwards cub ships with CTK
+if((CUDA_VERSION_MAJOR EQUAL 11) OR (CUDA_VERSION_MAJOR GREATER 11))
+  set(CUB_IS_PART_OF_CTK ON)
+else()
+  set(CUB_IS_PART_OF_CTK OFF)
+endif()
+
 if("${GPU_ARCHS}" STREQUAL "ALL")
   set(GPU_ARCHS "60")
   if((CUDA_VERSION_MAJOR EQUAL 9) OR (CUDA_VERSION_MAJOR GREATER 9))
@@ -196,6 +203,10 @@ set(RAFT_INCLUDE_DIRECTORIES
   ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
   "${RMM_INCLUDE}")
 
+if(NOT CUB_IS_PART_OF_CTK)
+  list(APPEND RAFT_INCLUDE_DIRECTORIES ${CUB_DIR}/src/cub)
+endif(NOT CUB_IS_PART_OF_CTK)
+
 if(DEFINED ENV{CONDA_PREFIX})
   message(STATUS "Using RMM installation from $ENV{CONDA_PREFIX}")
   list(APPEND RAFT_INCLUDE_DIRECTORIES $ENV{CONDA_PREFIX}/include)
@@ -231,6 +242,8 @@ if(BUILD_RAFT_TESTS)
     test/integer_utils.cpp
     test/mr/device/buffer.cpp
     test/mr/host/buffer.cpp
+    test/random/rng.cu
+    test/random/rng_int.cu
     test/test.cpp
     test/spectral_matrix.cu
     test/eigen_solvers.cu

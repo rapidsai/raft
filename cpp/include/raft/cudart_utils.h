@@ -256,4 +256,36 @@ void print_device_vector(const char* variable_name, const T* devMem,
 }
 /** @} */
 
+/** cuda malloc */
+template <typename Type>
+void allocate(Type*& ptr, size_t len, bool setZero = false) {
+  CUDA_CHECK(cudaMalloc((void**)&ptr, sizeof(Type) * len));
+  if (setZero) CUDA_CHECK(cudaMemset(ptr, 0, sizeof(Type) * len));
+}
+
+/** helper method to get multi-processor count parameter */
+inline int getMultiProcessorCount() {
+  int devId;
+  CUDA_CHECK(cudaGetDevice(&devId));
+  int mpCount;
+  CUDA_CHECK(
+    cudaDeviceGetAttribute(&mpCount, cudaDevAttrMultiProcessorCount, devId));
+  return mpCount;
+}
+
+/** calculate greatest common divisor of two numbers
+* @a integer
+* @b integer
+* @ return gcd of a and b
+*/
+template <typename IntType>
+IntType gcd(IntType a, IntType b) {
+  while (b != 0) {
+    IntType tmp = b;
+    b = a % b;
+    a = tmp;
+  }
+  return a;
+}
+
 }  // namespace raft
