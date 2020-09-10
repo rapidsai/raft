@@ -393,9 +393,9 @@ TEST(Rng, MeanError) {
     raft::random::Rng r(seed, rtype);
     r.normal(handle, data, len, 3.3f, 0.23f, stream);
     // r.uniform(data, len, -1.0, 2.0);
-    raft::stats::mean(mean_result, data, num_samples, num_experiments, false, false,
+    raft::stats::mean(handle, mean_result, data, num_samples, num_experiments, false, false,
                 stream);
-    raft::stats::stddev(std_result, data, mean_result, num_samples, num_experiments,
+    raft::stats::stddev(handle, std_result, data, mean_result, num_samples, num_experiments,
                   false, false, stream);
     std::vector<float> h_mean_result(num_experiments);
     std::vector<float> h_std_result(num_experiments);

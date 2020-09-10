@@ -19,6 +19,7 @@
 #include <cub/cub.cuh>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/binary_op.cuh>
+#include <raft/handle.hpp>
 
 namespace raft {
 namespace stats {
@@ -103,7 +104,7 @@ __global__ void varsKernelColMajor(Type *var, const Type *data, const Type *mu,
  * @param stream cuda stream where to launch work
  */
 template <typename Type, typename IdxType = int>
-void stddev(Type *std, const Type *data, const Type *mu, IdxType D, IdxType N,
+void stddev(raft::handle_t& handle, Type *std, const Type *data, const Type *mu, IdxType D, IdxType N,
             bool sample, bool rowMajor, cudaStream_t stream) {
   static const int TPB = 256;
   if (rowMajor) {
@@ -145,7 +146,7 @@ void stddev(Type *std, const Type *data, const Type *mu, IdxType D, IdxType N,
  * @param stream cuda stream where to launch work
  */
 template <typename Type, typename IdxType = int>
-void vars(Type *var, const Type *data, const Type *mu, IdxType D, IdxType N,
+void vars(raft::handle_t& handle, Type *var, const Type *data, const Type *mu, IdxType D, IdxType N,
           bool sample, bool rowMajor, cudaStream_t stream) {
   static const int TPB = 256;
   if (rowMajor) {

@@ -241,11 +241,16 @@ if(BUILD_RAFT_TESTS)
     test/handle.cpp
     test/integer_utils.cpp
     test/linalg/binary_op.cu
+    test/linalg/map_then_reduce.cu
+    test/linalg/matrix_vector_op.cu
     test/linalg/unary_op.cu
+    test/matrix/math.cu
     test/mr/device/buffer.cpp
     test/mr/host/buffer.cpp
     test/random/rng.cu
     test/random/rng_int.cu
+    test/stats/mean.cu
+    test/stats/stddev.cu
     test/test.cpp
     test/spectral_matrix.cu
     test/eigen_solvers.cu

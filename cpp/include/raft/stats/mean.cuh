@@ -19,6 +19,7 @@
 #include <cub/cub.cuh>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/eltwise.cuh>
+#include <raft/handle.hpp>
 
 namespace raft {
 namespace stats {
@@ -79,7 +80,7 @@ __global__ void meanKernelColMajor(Type *mu, const Type *data, IdxType D,
  * @param stream: cuda stream
  */
 template <typename Type, typename IdxType = int>
-void mean(Type *mu, const Type *data, IdxType D, IdxType N, bool sample,
+void mean(raft::handle_t& handle, Type *mu, const Type *data, IdxType D, IdxType N, bool sample,
           bool rowMajor, cudaStream_t stream) {
   static const int TPB = 256;
   if (rowMajor) {
