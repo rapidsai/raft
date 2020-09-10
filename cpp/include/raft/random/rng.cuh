@@ -504,10 +504,12 @@ class Rng {
   template <typename DataT, typename WeightsT, typename IdxT = int>
   void sampleWithoutReplacement(raft::handle_t& handle, DataT *out, IdxT *outIdx, const DataT *in,
                                 const WeightsT *wts, IdxT sampledLen, IdxT len,
-                                std::shared_ptr<raft::mr::device::allocator> allocator,
                                 cudaStream_t stream) {
     ASSERT(sampledLen <= len,
            "sampleWithoutReplacement: 'sampledLen' cant be more than 'len'.");
+
+    std::shared_ptr<raft::mr::device::allocator> allocator = handle.get_device_allocator();
+
     raft::mr::device::buffer<WeightsT> expWts(allocator, stream, len);
     raft::mr::device::buffer<WeightsT> sortedWts(allocator, stream, len);
     raft::mr::device::buffer<IdxT> inIdx(allocator, stream, len);

@@ -108,5 +108,5 @@ void eltwiseDivideCheckZero(math_t *out, const math_t *in1, const math_t *in2,
 }
 /** @} */
 
-};  // end namespace LinAlg
-};  // end namespace MLCommon
+};  // end namespace linalg
+};  // end namespace raft

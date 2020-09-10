@@ -137,5 +137,5 @@ void writeOnlyUnaryOp(OutType *out, IdxType len, Lambda op,
   CUDA_CHECK(cudaGetLastError());
 }
 
-};  // end namespace LinAlg
-};  // end namespace MLCommon
+};  // end namespace linalg
+};  // end namespace raft

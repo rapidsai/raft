@@ -96,5 +96,5 @@ void binaryOp(OutType *out, const InType *in1, const InType *in2, IdxType len,
   }
 }
 
-};  // end namespace LinAlg
-};  // end namespace MLCommon
+};  // end namespace linalg
+};  // end namespace raft

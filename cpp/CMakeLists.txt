@@ -240,6 +240,8 @@ if(BUILD_RAFT_TESTS)
     test/cudart_utils.cpp
     test/handle.cpp
     test/integer_utils.cpp
+    test/linalg/binary_op.cu
+    test/linalg/unary_op.cu
     test/mr/device/buffer.cpp
     test/mr/host/buffer.cpp
     test/random/rng.cu
