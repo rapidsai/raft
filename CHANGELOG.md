@@ -3,6 +3,7 @@
 ## New Features
 
 - PR #63: Adding MPI comms implementation
+- PR #65: Adding cuml rng prims and its dependencies, and some utils
 
 ## Improvements
 - PR #59: Adding csrgemm2 to cusparse_wrappers.h
