@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <raft/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
 #include <cub/cub.cuh>
 #include <raft/cuda_utils.cuh>
 #include <raft/random/rng.cuh>
@@ -388,18 +388,19 @@ TEST(Rng, MeanError) {
   raft::allocate(mean_result, num_experiments);
   raft::allocate(std_result, num_experiments);
 
-  for (auto rtype :
-       {raft::random::GenPhilox, raft::random::GenKiss99 /*, raft::random::GenTaps */}) {
+  for (auto rtype : {raft::random::GenPhilox,
+                     raft::random::GenKiss99 /*, raft::random::GenTaps */}) {
     raft::random::Rng r(seed, rtype);
     r.normal(handle, data, len, 3.3f, 0.23f, stream);
     // r.uniform(data, len, -1.0, 2.0);
-    raft::stats::mean(handle, mean_result, data, num_samples, num_experiments, false, false,
-                stream);
-    raft::stats::stddev(handle, std_result, data, mean_result, num_samples, num_experiments,
-                  false, false, stream);
+    raft::stats::mean(handle, mean_result, data, num_samples, num_experiments,
+                      false, false, stream);
+    raft::stats::stddev(handle, std_result, data, mean_result, num_samples,
+                        num_experiments, false, false, stream);
     std::vector<float> h_mean_result(num_experiments);
     std::vector<float> h_std_result(num_experiments);
-    raft::update_host(h_mean_result.data(), mean_result, num_experiments, stream);
+    raft::update_host(h_mean_result.data(), mean_result, num_experiments,
+                      stream);
     raft::update_host(h_std_result.data(), std_result, num_experiments, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     auto d_mean = quick_mean(h_mean_result);
@@ -629,5 +630,5 @@ TEST_P(RngAffineTest, Result) { check(); }
 INSTANTIATE_TEST_CASE_P(RngAffineTests, RngAffineTest,
                         ::testing::ValuesIn(inputs_affine));
 
-}  // end namespace Random
-}  // end namespace MLCommon
+}  // namespace random
+}  // namespace raft

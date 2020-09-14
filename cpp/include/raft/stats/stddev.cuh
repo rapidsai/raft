@@ -18,8 +18,8 @@
 
 #include <cub/cub.cuh>
 #include <raft/cuda_utils.cuh>
-#include <raft/linalg/binary_op.cuh>
 #include <raft/handle.hpp>
+#include <raft/linalg/binary_op.cuh>
 
 namespace raft {
 namespace stats {
@@ -104,21 +104,25 @@ __global__ void varsKernelColMajor(Type *var, const Type *data, const Type *mu,
  * @param stream cuda stream where to launch work
  */
 template <typename Type, typename IdxType = int>
-void stddev(raft::handle_t& handle, Type *std, const Type *data, const Type *mu, IdxType D, IdxType N,
-            bool sample, bool rowMajor, cudaStream_t stream) {
+void stddev(raft::handle_t &handle, Type *std, const Type *data, const Type *mu,
+            IdxType D, IdxType N, bool sample, bool rowMajor,
+            cudaStream_t stream) {
   static const int TPB = 256;
   if (rowMajor) {
     static const int RowsPerThread = 4;
     static const int ColsPerBlk = 32;
     static const int RowsPerBlk = (TPB / ColsPerBlk) * RowsPerThread;
-    dim3 grid(raft::ceildiv(N, (IdxType)RowsPerBlk), raft::ceildiv(D, (IdxType)ColsPerBlk));
+    dim3 grid(raft::ceildiv(N, (IdxType)RowsPerBlk),
+              raft::ceildiv(D, (IdxType)ColsPerBlk));
     CUDA_CHECK(cudaMemset(std, 0, sizeof(Type) * D));
     stddevKernelRowMajor<Type, IdxType, TPB, ColsPerBlk>
       <<<grid, TPB, 0, stream>>>(std, data, D, N);
     Type ratio = Type(1) / (sample ? Type(N - 1) : Type(N));
     linalg::binaryOp(
       std, std, mu, D,
-      [ratio] __device__(Type a, Type b) { return raft::mySqrt(a * ratio - b * b); },
+      [ratio] __device__(Type a, Type b) {
+        return raft::mySqrt(a * ratio - b * b);
+      },
       stream);
   } else {
     stddevKernelColMajor<Type, IdxType, TPB>
@@ -146,8 +150,9 @@ void stddev(raft::handle_t& handle, Type *std, const Type *data, const Type *mu,
  * @param stream cuda stream where to launch work
  */
 template <typename Type, typename IdxType = int>
-void vars(raft::handle_t& handle, Type *var, const Type *data, const Type *mu, IdxType D, IdxType N,
-          bool sample, bool rowMajor, cudaStream_t stream) {
+void vars(raft::handle_t &handle, Type *var, const Type *data, const Type *mu,
+          IdxType D, IdxType N, bool sample, bool rowMajor,
+          cudaStream_t stream) {
   static const int TPB = 256;
   if (rowMajor) {
     static const int RowsPerThread = 4;
@@ -168,5 +173,5 @@ void vars(raft::handle_t& handle, Type *var, const Type *data, const Type *mu, I
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
-};  // end namespace Stats
-};  // end namespace MLCommon
+};  // namespace stats
+};  // namespace raft

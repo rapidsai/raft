@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <raft/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
 #include <cub/cub.cuh>
 #include <raft/cuda_utils.cuh>
 #include <raft/random/rng.cuh>
@@ -77,7 +77,8 @@ class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
     raft::allocate(stats, 2, true);
     switch (params.type) {
       case RNG_Uniform:
-        r.uniformInt(handle, data, params.len, params.start, params.end, stream);
+        r.uniformInt(handle, data, params.len, params.start, params.end,
+                     stream);
         break;
     };
     static const int threads = 128;
@@ -185,5 +186,5 @@ TEST_P(RngTestS64, Result) {
 }
 INSTANTIATE_TEST_CASE_P(RngTests, RngTestS64, ::testing::ValuesIn(inputs_s64));
 
-}  // end namespace Random
-}  // end namespace MLCommon
+}  // namespace random
+}  // namespace raft

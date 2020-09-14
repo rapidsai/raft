@@ -15,11 +15,11 @@
  */
 
 #pragma once
-#include <raft/cudart_utils.h>
 #include <gtest/gtest.h>
-#include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <iostream>
 #include <memory>
+#include <raft/cuda_utils.cuh>
 
 namespace raft {
 
@@ -249,4 +249,4 @@ template <typename T, typename L>
     ms /= args.runs;                                    \
   } while (0)
 
-};  // end namespace MLCommon
+};  // namespace raft

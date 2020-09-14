@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-#include <raft/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
 #include <raft/linalg/binary_op.cuh>
 #include <raft/random/rng.cuh>
-#include "binary_op.cuh"
 #include "../test_utils.h"
+#include "binary_op.cuh"
 
 namespace raft {
 namespace linalg {
@@ -122,5 +122,5 @@ TEST_P(BinaryOpTestD_i64, Result) {
 INSTANTIATE_TEST_CASE_P(BinaryOpTests, BinaryOpTestD_i64,
                         ::testing::ValuesIn(inputsd_i64));
 
-}  // end namespace LinAlg
-}  // end namespace MLCommon
+}  // namespace linalg
+}  // namespace raft

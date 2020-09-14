@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <raft/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/random/rng.cuh>
 #include "../test_utils.h"
@@ -58,8 +58,8 @@ template <typename T>
 // for an extended __device__ lambda cannot have private or protected access
 // within its class
 template <typename T>
-void mapReduceLaunch(raft::handle_t& handle, T *out_ref, T *out, const T *in, size_t len,
-                     cudaStream_t stream) {
+void mapReduceLaunch(raft::handle_t &handle, T *out_ref, T *out, const T *in,
+                     size_t len, cudaStream_t stream) {
   auto op = [] __device__(T in) { return in; };
   naiveMapReduce(out_ref, in, len, op, stream);
   mapThenSumReduce(handle, out, len, op, 0, in);

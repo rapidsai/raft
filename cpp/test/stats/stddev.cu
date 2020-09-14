@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <raft/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
 #include <raft/matrix/math.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/stats/mean.cuh>
@@ -59,16 +59,17 @@ class StdDevTest : public ::testing::TestWithParam<StdDevInputs<T>> {
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
-  void stdVarSGtest(T *data, raft::handle_t& handle, cudaStream_t stream) {
+  void stdVarSGtest(T *data, raft::handle_t &handle, cudaStream_t stream) {
     int rows = params.rows, cols = params.cols;
 
-    mean(handle, mean_act, data, cols, rows, params.sample, params.rowMajor, stream);
+    mean(handle, mean_act, data, cols, rows, params.sample, params.rowMajor,
+         stream);
 
     stddev(handle, stddev_act, data, mean_act, cols, rows, params.sample,
            params.rowMajor, stream);
 
-    vars(handle, vars_act, data, mean_act, cols, rows, params.sample, params.rowMajor,
-         stream);
+    vars(handle, vars_act, data, mean_act, cols, rows, params.sample,
+         params.rowMajor, stream);
 
     matrix::seqRoot(handle, vars_act, T(1), cols, stream);
   }

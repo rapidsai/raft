@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <raft/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
 #include <raft/matrix/math.cuh>
 #include <raft/random/rng.cuh>
 #include "../test_utils.h"
@@ -326,5 +326,5 @@ INSTANTIATE_TEST_CASE_P(MathTests, MathSetSmallZeroTestF,
 INSTANTIATE_TEST_CASE_P(MathTests, MathSetSmallZeroTestD,
                         ::testing::ValuesIn(inputsd));
 
-}  // end namespace Matrix
-}  // end namespace MLCommon
+}  // namespace matrix
+}  // namespace raft

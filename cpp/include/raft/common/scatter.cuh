@@ -94,4 +94,4 @@ void scatter(DataT *out, const DataT *in, const IdxT *idx, IdxT len,
   }
 }
 
-}  // end namespace MLCommon
+}  // namespace raft

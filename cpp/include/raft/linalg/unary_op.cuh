@@ -45,7 +45,8 @@ template <typename InType, int VecLen, typename Lambda, typename OutType,
           typename IdxType, int TPB>
 void unaryOpImpl(OutType *out, const InType *in, IdxType len, Lambda op,
                  cudaStream_t stream) {
-  const IdxType nblks = raft::ceildiv(VecLen ? len / VecLen : len, (IdxType)TPB);
+  const IdxType nblks =
+    raft::ceildiv(VecLen ? len / VecLen : len, (IdxType)TPB);
   unaryOpKernel<InType, VecLen, Lambda, OutType, IdxType>
     <<<nblks, TPB, 0, stream>>>(out, in, len, op);
   CUDA_CHECK(cudaPeekAtLastError());

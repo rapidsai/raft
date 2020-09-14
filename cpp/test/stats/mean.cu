@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <raft/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <raft/cuda_utils.cuh>
@@ -60,10 +60,11 @@ class MeanTest : public ::testing::TestWithParam<MeanInputs<T>> {
     meanSGtest(data, handle, stream);
   }
 
-  void meanSGtest(T *data, raft::handle_t& handle, cudaStream_t stream) {
+  void meanSGtest(T *data, raft::handle_t &handle, cudaStream_t stream) {
     int rows = params.rows, cols = params.cols;
 
-    mean(handle, mean_act, data, cols, rows, params.sample, params.rowMajor, stream);
+    mean(handle, mean_act, data, cols, rows, params.sample, params.rowMajor,
+         stream);
   }
 
   void TearDown() override {
