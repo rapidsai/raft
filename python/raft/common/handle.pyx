@@ -68,7 +68,7 @@ cdef class Handle:
         del h_
 
     def setStream(self, stream):
-        cdef size_t s = <size_t>stream.get_stream()
+        cdef size_t s = <size_t>stream.getStream()
         cdef handle_t* h_ = <handle_t*>self.h
         h_.set_stream(<_Stream>s)
 
