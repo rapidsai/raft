@@ -21,6 +21,7 @@
 ///@todo: enable this once logging is enabled
 //#include <cuml/common/logger.hpp>
 #include <raft/cudart_utils.h>
+#include <type_traits>
 
 #define _CUSOLVER_ERR_TO_STR(err) \
   case err:                       \
@@ -358,7 +359,7 @@ inline cusolverStatus_t cusolverDnsyevdx(  // NOLINT
 template <typename T>
 cusolverStatus_t cusolverDngesvd_bufferSize(  // NOLINT
   cusolverDnHandle_t handle, int m, int n, int *lwork) {
-  if (typeid(T) == typeid(float)) {
+  if (std::is_same<std::decay_t<T>, float>::value) {
     return cusolverDnSgesvd_bufferSize(handle, m, n, lwork);
   } else {
     return cusolverDnDgesvd_bufferSize(handle, m, n, lwork);
