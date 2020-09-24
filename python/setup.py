@@ -92,7 +92,7 @@ if clean_artifacts:
 # - Cython extensions build and parameters -----------------------------------
 
 
-libs = ["nccl", "rmm", "cusolver", "cusparse", "cublas"]
+libs = ["nccl", "cusolver", "cusparse", "cublas"]
 
 include_dirs = [cuda_include_dir,
                 numpy.get_include(),
