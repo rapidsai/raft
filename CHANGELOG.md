@@ -14,7 +14,7 @@
 - PR #56: Fix compiler warnings.
 - PR #64: Remove `cublas_try` from `cusolver_wrappers.h`
 - PR #66: Fixing typo `get_stream` to `getStream` in `handle.pyx`
-- PR #68: Change the type of displs in allgatherv from int[] to size_t[]
+- PR #68: Change the type of recvcounts & displs in allgatherv from size_t[] to size_t* and int[] to size_t*, respectively.
 
 # RAFT 0.15.0 (Date TBD)
 
