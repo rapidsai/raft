@@ -120,7 +120,7 @@ class comms_iface {
                          datatype_t datatype, cudaStream_t stream) const = 0;
 
   virtual void allgatherv(const void* sendbuf, void* recvbuf,
-                          const size_t recvcounts[], const int displs[],
+                          const size_t recvcounts[], const size_t displs[],
                           datatype_t datatype, cudaStream_t stream) const = 0;
 
   virtual void reducescatter(const void* sendbuff, void* recvbuff,
@@ -299,7 +299,7 @@ class comms_t {
    */
   template <typename value_t>
   void allgatherv(const value_t* sendbuf, value_t* recvbuf,
-                  const size_t recvcounts[], const int displs[],
+                  const size_t recvcounts[], const size_t displs[],
                   cudaStream_t stream) const {
     impl_->allgatherv(static_cast<const void*>(sendbuf),
                       static_cast<void*>(recvbuf), recvcounts, displs,

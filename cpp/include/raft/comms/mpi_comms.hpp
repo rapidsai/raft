@@ -216,7 +216,7 @@ class mpi_comms : public comms_iface {
   }
 
   void allgatherv(const void* sendbuf, void* recvbuf, const size_t recvcounts[],
-                  const int displs[], datatype_t datatype,
+                  const size_t displs[], datatype_t datatype,
                   cudaStream_t stream) const {
     //From: "An Empirical Evaluation of Allgatherv on Multi-GPU Systems" - https://arxiv.org/pdf/1812.05964.pdf
     //Listing 1 on page 4.
