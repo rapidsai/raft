@@ -40,9 +40,9 @@ __global__ void meanKernelRowMajor(Type *mu, const Type *data, IdxType D,
   __shared__ Type smu[ColsPerBlk];
   if (threadIdx.x < ColsPerBlk) smu[threadIdx.x] = Type(0);
   __syncthreads();
-  myAtomicAdd(smu + thisColId, thread_data);
+  raft::myAtomicAdd(smu + thisColId, thread_data);
   __syncthreads();
-  if (threadIdx.x < ColsPerBlk) myAtomicAdd(mu + colId, smu[thisColId]);
+  if (threadIdx.x < ColsPerBlk) raft::myAtomicAdd(mu + colId, smu[thisColId]);
 }
 
 template <typename Type, typename IdxType, int TPB>
@@ -80,8 +80,8 @@ __global__ void meanKernelColMajor(Type *mu, const Type *data, IdxType D,
  * @param stream: cuda stream
  */
 template <typename Type, typename IdxType = int>
-void mean(raft::handle_t &handle, Type *mu, const Type *data, IdxType D,
-          IdxType N, bool sample, bool rowMajor, cudaStream_t stream) {
+void mean(Type *mu, const Type *data, IdxType D, IdxType N, bool sample,
+          bool rowMajor, cudaStream_t stream) {
   static const int TPB = 256;
   if (rowMajor) {
     static const int RowsPerThread = 4;

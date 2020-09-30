@@ -37,8 +37,8 @@ __global__ void meanKernel(float *out, const T *data, int len) {
   float xx = BlockReduce(temp_storage).Sum(val * val);
   __syncthreads();
   if (threadIdx.x == 0) {
-    myAtomicAdd(out, x);
-    myAtomicAdd(out + 1, xx);
+    raft::myAtomicAdd(out, x);
+    raft::myAtomicAdd(out + 1, xx);
   }
 }
 
@@ -70,22 +70,20 @@ class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
     params = ::testing::TestWithParam<RngInputs<T>>::GetParam();
     Rng r(params.seed, params.gtype);
 
-    raft::handle_t handle;
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
-    raft::allocate(data, params.len);
-    raft::allocate(stats, 2, true);
+    allocate(data, params.len);
+    allocate(stats, 2, true);
     switch (params.type) {
       case RNG_Uniform:
-        r.uniformInt(handle, data, params.len, params.start, params.end,
-                     stream);
+        r.uniformInt(data, params.len, params.start, params.end, stream);
         break;
     };
     static const int threads = 128;
     meanKernel<T, threads>
-      <<<ceildiv(params.len, threads), threads, 0, stream>>>(stats, data,
-                                                             params.len);
-    raft::update_host<float>(h_stats, stats, 2, stream);
+      <<<raft::ceildiv(params.len, threads), threads, 0, stream>>>(stats, data,
+                                                                   params.len);
+    update_host<float>(h_stats, stats, 2, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     h_stats[0] /= params.len;
     h_stats[1] = (h_stats[1] / params.len) - (h_stats[0] * h_stats[0]);

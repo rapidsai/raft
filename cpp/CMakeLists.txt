@@ -244,6 +244,7 @@ if(BUILD_RAFT_TESTS)
     test/mr/host/buffer.cpp
     test/random/rng.cu
     test/random/rng_int.cu
+    test/random/sample_without_replacement.cu
     test/stats/mean.cu
     test/stats/stddev.cu
     test/test.cpp

@@ -19,20 +19,20 @@
 #include <cub/cub.cuh>
 #include <raft/mr/device/buffer.hpp>
 
-namespace MLCommon {
+namespace raft {
 
 /**
- * @brief Convenience wrapper over cub's SortPairs method
- * @tparam KeyT key type
- * @tparam ValueT value type
- * @param workspace workspace buffer which will get resized if not enough space
- * @param inKeys input keys array
- * @param outKeys output keys array
- * @param inVals input values array
- * @param outVals output values array
- * @param len array length
- * @param stream cuda stream
- */
+     * @brief Convenience wrapper over cub's SortPairs method
+     * @tparam KeyT key type
+     * @tparam ValueT value type
+     * @param workspace workspace buffer which will get resized if not enough space
+     * @param inKeys input keys array
+     * @param outKeys output keys array
+     * @param inVals input values array
+     * @param outVals output values array
+     * @param len array length
+     * @param stream cuda stream
+     */
 template <typename KeyT, typename ValueT>
 void sortPairs(raft::mr::device::buffer<char> &workspace, const KeyT *inKeys,
                KeyT *outKeys, const ValueT *inVals, ValueT *outVals, int len,
@@ -46,4 +46,4 @@ void sortPairs(raft::mr::device::buffer<char> &workspace, const KeyT *inKeys,
                                   stream);
 }
 
-}  // end namespace MLCommon
+}  // namespace raft

@@ -36,7 +36,7 @@ namespace linalg {
 template <typename math_t, typename IdxType = int>
 void scalarAdd(math_t *out, const math_t *in, math_t scalar, IdxType len,
                cudaStream_t stream) {
-  unaryOp(
+  raft::linalg::unaryOp(
     out, in, len, [scalar] __device__(math_t in) { return in + scalar; },
     stream);
 }
@@ -44,7 +44,7 @@ void scalarAdd(math_t *out, const math_t *in, math_t scalar, IdxType len,
 template <typename math_t, typename IdxType = int>
 void scalarMultiply(math_t *out, const math_t *in, math_t scalar, IdxType len,
                     cudaStream_t stream) {
-  unaryOp(
+  raft::linalg::unaryOp(
     out, in, len, [scalar] __device__(math_t in) { return in * scalar; },
     stream);
 }
