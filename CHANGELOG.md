@@ -3,6 +3,7 @@
 ## New Features
 
 - PR #63: Adding MPI comms implementation
+- PR #70: Adding CUB to RAFT cmake
 
 ## Improvements
 - PR #59: Adding csrgemm2 to cusparse_wrappers.h
