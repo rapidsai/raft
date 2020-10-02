@@ -2,6 +2,7 @@
 
 ## New Features
 
+- PR #73: Move DistanceType enum from cuML to RAFT
 - PR #63: Adding MPI comms implementation
 
 ## Improvements
