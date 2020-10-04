@@ -112,84 +112,66 @@ class std_comms : public comms_iface {
 
   int get_rank() const { return rank_; }
 
-  void scatter_nccluniqueid(ncclUniqueId &id, int color, int key, int root,
-                            int new_size, std::vector<int> &colors) const {
-    // root rank of new comm generates NCCL unique id and sends to other ranks of color
-    int request_idx = 0;
-    std::vector<request_t> requests;
-
-    if (key == root) {
-      NCCL_TRY(ncclGetUniqueId(&id));
-      requests.resize(new_size);
-      for (int i = 0; i < get_size(); i++) {
-        if (colors[i] == color) {
-          isend(&id, sizeof(ncclUniqueId), i, color,
-                requests.data() + request_idx);
-          ++request_idx;
-        }
-      }
-    } else {
-      requests.resize(1);
-      // non-root ranks of new comm recv unique id
-    }
-    irecv(&id, sizeof(ncclUniqueId), root, color,
-          requests.data() + request_idx);
-
-    waitall(requests.size(), requests.data());
-    barrier();
-  }
-
   std::unique_ptr<comms_iface> comm_split(int color, int key) const {
-    mr::device::buffer<int> colors(device_allocator_, stream_, get_size());
-    mr::device::buffer<int> keys(device_allocator_, stream_, get_size());
+    mr::device::buffer<int> d_colors(device_allocator_, stream_, get_size());
+    mr::device::buffer<int> d_keys(device_allocator_, stream_, get_size());
 
-    mr::device::buffer<int> color_buf(device_allocator_, stream_, 1);
-    mr::device::buffer<int> key_buf(device_allocator_, stream_, 1);
+    update_device(d_colors.data() + get_rank(), &color, 1, stream_);
+    update_device(d_keys.data() + get_rank(), &key, 1, stream_);
 
-    update_device(color_buf.data(), &color, 1, stream_);
-    update_device(key_buf.data(), &key, 1, stream_);
-
-    allgather(color_buf.data(), colors.data(), 1, datatype_t::INT32, stream_);
-    allgather(key_buf.data(), keys.data(), 1, datatype_t::INT32, stream_);
+    allgather(d_colors.data() + get_rank(), d_colors.data(), 1,
+              datatype_t::INT32, stream_);
+    allgather(d_keys.data() + get_rank(), d_keys.data(), 1, datatype_t::INT32,
+              stream_);
     this->sync_stream(stream_);
 
-    // find all ranks with same color and lowest key of that color
-    std::vector<int> colors_host(get_size());
-    std::vector<int> keys_host(get_size());
+    std::vector<int> h_colors(get_size());
+    std::vector<int> h_keys(get_size());
 
-    update_host(colors_host.data(), colors.data(), get_size(), stream_);
-    update_host(keys_host.data(), keys.data(), get_size(), stream_);
+    update_host(h_colors.data(), d_colors.data(), get_size(), stream_);
+    update_host(h_keys.data(), d_keys.data(), get_size(), stream_);
 
     CUDA_CHECK(cudaStreamSynchronize(stream_));
 
-    std::vector<int> ranks_with_color;
-    std::vector<ucp_ep_h> new_ucx_ptrs;
-    int min_rank = key;
-    for (int i = 0; i < get_size(); i++) {
-      if (colors_host[i] == color) {
-        ranks_with_color.push_back(keys_host[i]);
-        if (keys_host[i] < min_rank) min_rank = keys_host[i];
-        if (ucp_worker_ != nullptr && subcomms_ucp_)
+    std::vector<int> subcomm_ranks{};
+    std::vector<ucp_ep_h> new_ucx_ptrs{};
+
+    for (int i = 0; i < get_size(); ++i) {
+      if (h_colors[i] == color) {
+        subcomm_ranks.push_back(i);
+        if (ucp_worker_ != nullptr && subcomms_ucp_) {
           new_ucx_ptrs.push_back((*ucp_eps_)[i]);
+        }
       }
     }
 
-    ncclUniqueId id;
-    scatter_nccluniqueid(id, color, key, min_rank, ranks_with_color.size(),
-                         colors_host);
+    ncclUniqueId id{};
+    if (get_rank() == subcomm_ranks[0]) {  // root of the new subcommunicator
+      NCCL_TRY(ncclGetUniqueId(&id));
+      std::vector<request_t> requests(subcomm_ranks.size() - 1);
+      for (size_t i = 1; i < subcomm_ranks.size(); ++i) {
+        isend(&id, sizeof(ncclUniqueId), subcomm_ranks[i], color,
+              requests.data() + (i - 1));
+      }
+      waitall(requests.size(), requests.data());
+    } else {
+      request_t request{};
+      irecv(&id, sizeof(ncclUniqueId), subcomm_ranks[0], color, &request);
+      waitall(1, &request);
+    }
+    barrier();
 
     ncclComm_t nccl_comm;
-    NCCL_TRY(ncclCommInitRank(&nccl_comm, ranks_with_color.size(), id,
-                              keys_host[get_rank()]));
+    NCCL_TRY(ncclCommInitRank(&nccl_comm, subcomm_ranks.size(), id, key));
 
     if (ucp_worker_ != nullptr && subcomms_ucp_) {
       auto eps_sp = std::make_shared<ucp_ep_h *>(new_ucx_ptrs.data());
       return std::unique_ptr<comms_iface>(new std_comms(
-        nccl_comm, (ucp_worker_h)ucp_worker_, eps_sp, ranks_with_color.size(),
-        key, device_allocator_, stream_, subcomms_ucp_));
+        nccl_comm, (ucp_worker_h)ucp_worker_, eps_sp, subcomm_ranks.size(), key,
+        device_allocator_, stream_, subcomms_ucp_));
     } else {
       return std::unique_ptr<comms_iface>(new std_comms(
-        nccl_comm, ranks_with_color.size(), key, device_allocator_, stream_));
+        nccl_comm, subcomm_ranks.size(), key, device_allocator_, stream_));
     }
   }
 
