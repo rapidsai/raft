@@ -159,6 +159,7 @@ class std_comms : public comms_iface {
       irecv(&id, sizeof(ncclUniqueId), subcomm_ranks[0], color, &request);
       waitall(1, &request);
     }
+    // FIXME: this seems unnecessary, do more testing and remove this
     barrier();
 
     ncclComm_t nccl_comm;
