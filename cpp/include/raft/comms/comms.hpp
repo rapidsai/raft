@@ -120,7 +120,7 @@ class comms_iface {
                          datatype_t datatype, cudaStream_t stream) const = 0;
 
   virtual void allgatherv(const void* sendbuf, void* recvbuf,
-                          const size_t recvcounts[], const int displs[],
+                          const size_t* recvcounts, const size_t* displs,
                           datatype_t datatype, cudaStream_t stream) const = 0;
 
   virtual void reducescatter(const void* sendbuff, void* recvbuff,
@@ -291,15 +291,15 @@ class comms_t {
    * @param value_t datatype of underlying buffers
    * @param sendbuff buffer containing data to send
    * @param recvbuff buffer containing data to receive
-   * @param recvcounts array (of length num_ranks size) containing the number of elements
-   * 		that are to be received from each rank
-   * @param displs array (of length num_ranks size) to specify the displacement (relative to recvbuf)
-   * 		at which to place the incoming data from each rank
+   * @param recvcounts pointer to an array (of length num_ranks size) containing the number of
+   *                   elements that are to be received from each rank
+   * @param displs pointer to an array (of length num_ranks size) to specify the displacement
+   *               (relative to recvbuf) at which to place the incoming data from each rank
    * @param stream CUDA stream to synchronize operation
    */
   template <typename value_t>
   void allgatherv(const value_t* sendbuf, value_t* recvbuf,
-                  const size_t recvcounts[], const int displs[],
+                  const size_t* recvcounts, const size_t* displs,
                   cudaStream_t stream) const {
     impl_->allgatherv(static_cast<const void*>(sendbuf),
                       static_cast<void*>(recvbuf), recvcounts, displs,

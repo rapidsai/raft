@@ -1,19 +1,32 @@
+# RAFT 0.17.0 (Date TBD)
+
+## New Features
+- PR #65: Adding cuml rng prims and its dependencies, and some utils
+
+## Improvements
+
+## Bug Fixes
+
 # RAFT 0.16.0 (Date TBD)
 
 ## New Features
 
 - PR #63: Adding MPI comms implementation
-- PR #65: Adding cuml rng prims and its dependencies, and some utils
+- PR #70: Adding CUB to RAFT cmake
 
 ## Improvements
 - PR #59: Adding csrgemm2 to cusparse_wrappers.h
 - PR #61: Add cusparsecsr2dense to cusparse_wrappers.h
 - PR #62: Adding `get_device_allocator` to `handle.pxd`
+- PR #67: Remove dependence on run-time type info
 
 ## Bug Fixes
 - PR #56: Fix compiler warnings.
 - PR #64: Remove `cublas_try` from `cusolver_wrappers.h`
 - PR #66: Fixing typo `get_stream` to `getStream` in `handle.pyx`
+- PR #68: Change the type of recvcounts & displs in allgatherv from size_t[] to size_t* and int[] to size_t*, respectively.
+- PR #69: Updates for RMM being header only
+- PR #74: Fix std_comms::comm_split bug
 
 # RAFT 0.15.0 (Date TBD)
 

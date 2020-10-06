@@ -17,7 +17,7 @@
 
 cmake_minimum_required(VERSION 3.14 FATAL_ERROR)
 
-project(RAFT VERSION 0.14.0 LANGUAGES CXX CUDA)
+project(RAFT VERSION 0.17.0 LANGUAGES CXX CUDA)
 
 ##############################################################################
 # - build type ---------------------------------------------------------------
@@ -124,13 +124,6 @@ if("${GPU_ARCHS}" STREQUAL "")
   evaluate_gpu_archs(GPU_ARCHS)
 endif()
 
-# CUDA 11 onwards cub ships with CTK
-if((CUDA_VERSION_MAJOR EQUAL 11) OR (CUDA_VERSION_MAJOR GREATER 11))
-  set(CUB_IS_PART_OF_CTK ON)
-else()
-  set(CUB_IS_PART_OF_CTK OFF)
-endif()
-
 if("${GPU_ARCHS}" STREQUAL "ALL")
   set(GPU_ARCHS "60")
   if((CUDA_VERSION_MAJOR EQUAL 9) OR (CUDA_VERSION_MAJOR GREATER 9))
@@ -175,22 +168,24 @@ set(CMAKE_CUDA_FLAGS
 include(cmake/Dependencies.cmake)
 include(cmake/comms.cmake)
 
+# CUDA 11 onwards cub ships with CTK
+if((CUDA_VERSION_MAJOR EQUAL 11) OR (CUDA_VERSION_MAJOR GREATER 11))
+  set(CUB_IS_PART_OF_CTK ON)
+else()
+  set(CUB_IS_PART_OF_CTK OFF)
+endif()
+
 ###################################################################################################
 # - RMM -------------------------------------------------------------------------------------------
 
-find_path(RMM_INCLUDE "rmm"
-          HINTS "$ENV{RMM_ROOT}/include")
+find_path(RMM_INCLUDE_DIRS "rmm"
+    HINTS
+    "$ENV{RMM_ROOT}/include"
+    "$ENV{CONDA_PREFIX}/include/rmm"
+    "$ENV{CONDA_PREFIX}/include")
 
-find_library(RMM_LIBRARY "rmm"
-             HINTS "$ENV{RMM_ROOT}/lib" "$ENV{RMM_ROOT}/build")
+message(STATUS "RMM: RMM_INCLUDE_DIRS set to ${RMM_INCLUDE_DIRS}")
 
-message(STATUS "RMM: RMM_LIBRARY set to ${RMM_LIBRARY}")
-message(STATUS "RMM: RMM_INCLUDE set to ${RMM_INCLUDE}")
-
-add_library(rmm SHARED IMPORTED ${RMM_LIBRARY})
-if(RMM_INCLUDE AND RMM_LIBRARY)
-    set_target_properties(rmm PROPERTIES IMPORTED_LOCATION ${RMM_LIBRARY})
-endif(RMM_INCLUDE AND RMM_LIBRARY)
 
 ##############################################################################
 # - include paths ------------------------------------------------------------
@@ -201,7 +196,7 @@ set(RAFT_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include CACHE STRING
 set(RAFT_INCLUDE_DIRECTORIES
   ${RAFT_INCLUDE_DIR}
   ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
-  "${RMM_INCLUDE}")
+  ${RMM_INCLUDE_DIRS})
 
 if(NOT CUB_IS_PART_OF_CTK)
   list(APPEND RAFT_INCLUDE_DIRECTORIES ${CUB_DIR}/src/cub)
@@ -220,10 +215,10 @@ set(RAFT_LINK_LIBRARIES
   ${CUDA_cusolver_LIBRARY}
   ${CUDA_CUDART_LIBRARY}
   ${CUDA_cusparse_LIBRARY}
-  ${CUDA_curand_LIBRARY}
-  rmm)
+  ${CUDA_curand_LIBRARY})
 
-set(RAFT_LINK_DIRECTORIES "${RMM_LIBRARY}")
+set(RAFT_LINK_DIRECTORIES
+  ${RMM_INCLUDE_DIRS})
 
 if(DEFINED ENV{CONDA_PREFIX})
   list(APPEND RAFT_LINK_DIRECTORIES $ENV{CONDA_PREFIX}/lib)
