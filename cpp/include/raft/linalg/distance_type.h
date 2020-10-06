@@ -17,7 +17,7 @@
 #pragma once
 
 namespace raft {
-namespace linalg {
+namespace distance {
 
 /** enum to tell how to compute euclidean distance */
 enum DistanceType : unsigned short {
