@@ -35,5 +35,5 @@ enum DistanceType : unsigned short {
   EucUnexpandedL2Sqrt = 5,
 };
 
-};  // end namespace linalg
+};  // namespace distance
 };  // end namespace raft
