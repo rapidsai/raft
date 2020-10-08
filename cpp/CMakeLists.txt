@@ -165,15 +165,15 @@ set(CMAKE_CUDA_FLAGS
 ##############################################################################
 # - dependencies -------------------------------------------------------------
 
-include(cmake/Dependencies.cmake)
-include(cmake/comms.cmake)
-
 # CUDA 11 onwards cub ships with CTK
 if((CUDA_VERSION_MAJOR EQUAL 11) OR (CUDA_VERSION_MAJOR GREATER 11))
   set(CUB_IS_PART_OF_CTK ON)
 else()
   set(CUB_IS_PART_OF_CTK OFF)
 endif()
+
+include(cmake/Dependencies.cmake)
+include(cmake/comms.cmake)
 
 ###################################################################################################
 # - RMM -------------------------------------------------------------------------------------------

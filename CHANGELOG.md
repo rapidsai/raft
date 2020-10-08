@@ -5,6 +5,7 @@
 ## Improvements
 
 ## Bug Fixes
+- PR #77: Fixing CUB include for CUDA < 11
 
 # RAFT 0.16.0 (Date TBD)
 
