@@ -18,6 +18,7 @@
 - PR #68: Change the type of recvcounts & displs in allgatherv from size_t[] to size_t* and int[] to size_t*, respectively.
 - PR #69: Updates for RMM being header only
 - PR #74: Fix std_comms::comm_split bug
+- PR #79: remove debug print statements
 
 # RAFT 0.15.0 (Date TBD)
 

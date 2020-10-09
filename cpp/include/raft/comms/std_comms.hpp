@@ -288,7 +288,6 @@ class std_comms : public comms_iface {
           restart = true;
 
           // perform cleanup
-          std::cout << "Freeing request" << std::endl;
           ucp_handler_.free_ucp_request(req);
 
           // remove from pending requests
