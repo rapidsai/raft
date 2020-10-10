@@ -19,6 +19,7 @@
 - PR #69: Updates for RMM being header only
 - PR #74: Fix std_comms::comm_split bug
 - PR #79: remove debug print statements
+- PR #81: temporarily expose internal NCCL communicator
 
 # RAFT 0.15.0 (Date TBD)
 
