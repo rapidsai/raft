@@ -17,6 +17,10 @@
 #pragma once
 
 #include <raft/cudart_utils.h>
+
+// FIXME: for get_nccl_comm(), should be removed
+#include <nccl.h>
+
 #include <memory>
 
 namespace raft {
@@ -92,6 +96,9 @@ class comms_iface {
   virtual int get_size() const = 0;
   virtual int get_rank() const = 0;
 
+  // FIXME: a temporary hack, should be removed
+  virtual ncclComm_t get_nccl_comm() const = 0;
+
   virtual std::unique_ptr<comms_iface> comm_split(int color, int key) const = 0;
   virtual void barrier() const = 0;
 
@@ -149,6 +156,9 @@ class comms_t {
    * Returns the local rank
    */
   int get_rank() const { return impl_->get_rank(); }
+
+  // FIXME: a temporary hack, should be removed
+  ncclComm_t get_nccl_comm() const { return impl_->get_nccl_comm(); }
 
   /**
    * Splits the current communicator clique into sub-cliques matching
