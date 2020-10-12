@@ -112,6 +112,9 @@ class std_comms : public comms_iface {
 
   int get_rank() const { return rank_; }
 
+  // FIXME: a temporary hack, should be removed
+  ncclComm_t get_nccl_comm() const { return nccl_comm_; }
+
   std::unique_ptr<comms_iface> comm_split(int color, int key) const {
     mr::device::buffer<int> d_colors(device_allocator_, stream_, get_size());
     mr::device::buffer<int> d_keys(device_allocator_, stream_, get_size());
