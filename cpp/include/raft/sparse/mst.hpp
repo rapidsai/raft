@@ -17,6 +17,7 @@
 #include <raft/cudart_utils.h>
 #include <rmm/thrust_rmm_allocator.h>
 #include <algorithm>
+#include <cstddef>
 #include <cub/cub.cuh>
 #include <raft/error.hpp>
 #include <raft/handle.hpp>
@@ -106,7 +107,8 @@ void MST_solver<vertex_t, edge_t, weight_t>::solve(
 
   // Theorem : the minimum incident edge to any vertex has to be in the MST
   // This is a segmented min scan/reduce
-  cub::KeyValuePair<vertex_t, weight_t>* void* cub_temp_storage = NULL;
+  cub::KeyValuePair<vertex_t, weight_t>* d_out = nullptr;
+  void* cub_temp_storage = nullptr;
   size_t cub_temp_storage_bytes = 0;
   cub::DeviceSegmentedReduce::ArgMin(cub_temp_storage, cub_temp_storage_bytes,
                                      weights, d_out, v, offsets, offsets + 1);
@@ -123,8 +125,8 @@ void MST_solver<vertex_t, edge_t, weight_t>::solve(
   // Boruvka original formulation says "while more than 1 supervertex remains"
   // Here we adjust it to support disconnected components (spanning forest)
   // track completion with mst_edge_found status.
-  // max_iter ensure it always exits.
-  for (auto i = 0; i < max_iter; i++) {
+  // should have max_iter ensure it always exits.
+  for (auto i = 0; i < v; i++) {
     {
       // updates colors of supervertices by propagating the lower color to the higher
       // TODO
@@ -141,5 +143,6 @@ void MST_solver<vertex_t, edge_t, weight_t>::solve(
       if (!mst_edge_found) break;
     }
   }
+}
 }  // namespace mst
-}  // namespace mst
+}  // namespace raft
