@@ -20,7 +20,7 @@
 
 #include <raft/handle.hpp>
 
-#include <raft/sparse/mst.hpp>
+#include <raft/sparse/mst.cuh>
 
 namespace raft {
 
