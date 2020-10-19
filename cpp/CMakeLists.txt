@@ -240,7 +240,8 @@ if(BUILD_RAFT_TESTS)
     test/test.cpp
     test/spectral_matrix.cu
     test/eigen_solvers.cu
-    test/cluster_solvers.cu)
+    test/cluster_solvers.cu
+    test/mst.cu)
 
   target_include_directories(test_raft
     PRIVATE
