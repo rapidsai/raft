@@ -36,7 +36,7 @@ def parse_args():
                            help="Path to cmake-generated compilation database")
     argparser.add_argument("-exe", type=str, default="clang-tidy",
                            help="Path to clang-tidy exe")
-    argparser.add_argument("-ignore", type=str, default="[.]cu$",
+    argparser.add_argument("-ignore", type=str, default=None,
                            help="Regex used to ignore files from checking")
     argparser.add_argument("-select", type=str, default=None,
                            help="Regex used to select files for checking")
@@ -123,6 +123,10 @@ def get_tidy_args(cmd, exe):
         # replace nvcc's "-gencode ..." with clang's "--cuda-gpu-arch ..."
         archs = get_gpu_archs(command)
         command.extend(archs)
+        # clang-tooling 8.0.1 doesn't support linking with greater sm_70 archs
+        # so, we need to disable libdevice linkage, until we are in a position
+        # to upgrade clang-tooling
+        command.extend(["-nocudalib", "--no-cuda-version-check"])
         while True:
             loc = remove_item_plus_one(command, "-gencode")
             if loc < 0:
@@ -135,6 +139,8 @@ def get_tidy_args(cmd, exe):
         remove_item(command, "--expt-extended-lambda")
         remove_item(command, "--diag_suppress=unrecognized_gcc_pragma")
     command.extend(get_clang_includes(exe))
+    # somehow this option gets onto the commandline, it is unrecognized by tidy
+    remove_item(command, "-forward-unknown-to-host-compiler")
     return command, is_cuda
 
 
