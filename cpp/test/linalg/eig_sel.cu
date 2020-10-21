@@ -16,8 +16,8 @@
 
 #if CUDART_VERSION >= 10010
 
-#include <raft/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/eig.cuh>
 #include <raft/random/rng.cuh>
@@ -124,16 +124,16 @@ TEST_P(EigSelTestVecD, Result) {
 }
 
 INSTANTIATE_TEST_SUITE_P(EigSelTest, EigSelTestValF,
-                        ::testing::ValuesIn(inputsf2));
+                         ::testing::ValuesIn(inputsf2));
 
 INSTANTIATE_TEST_SUITE_P(EigSelTest, EigSelTestValD,
-                        ::testing::ValuesIn(inputsd2));
+                         ::testing::ValuesIn(inputsd2));
 
 INSTANTIATE_TEST_SUITE_P(EigSelTest, EigSelTestVecF,
-                        ::testing::ValuesIn(inputsf2));
+                         ::testing::ValuesIn(inputsf2));
 
 INSTANTIATE_TEST_SUITE_P(EigSelTest, EigSelTestVecD,
-                        ::testing::ValuesIn(inputsd2));
+                         ::testing::ValuesIn(inputsd2));
 
 }  // end namespace linalg
 }  // end namespace raft

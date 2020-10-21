@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <raft/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
 #include <raft/linalg/divide.cuh>
 #include <raft/random/rng.cuh>
 #include "../test_utils.h"
@@ -81,7 +81,8 @@ TEST_P(DivideTestF, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
                           raft::CompareApprox<float>(params.tolerance)));
 }
-INSTANTIATE_TEST_SUITE_P(DivideTests, DivideTestF, ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_SUITE_P(DivideTests, DivideTestF,
+                         ::testing::ValuesIn(inputsf));
 
 typedef DivideTest<double> DivideTestD;
 const std::vector<UnaryOpInputs<double>> inputsd = {
@@ -90,7 +91,8 @@ TEST_P(DivideTestD, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
                           raft::CompareApprox<double>(params.tolerance)));
 }
-INSTANTIATE_TEST_SUITE_P(DivideTests, DivideTestD, ::testing::ValuesIn(inputsd));
+INSTANTIATE_TEST_SUITE_P(DivideTests, DivideTestD,
+                         ::testing::ValuesIn(inputsd));
 
 }  // end namespace linalg
 }  // end namespace raft

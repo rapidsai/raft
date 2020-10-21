@@ -21,8 +21,8 @@
 #include <cuda_runtime.h>
 
 #include <execinfo.h>
-#include <cstdio>
 #include <chrono>
+#include <cstdio>
 #include <iomanip>
 #include <iostream>
 

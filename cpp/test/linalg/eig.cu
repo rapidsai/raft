@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <raft/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/eig.cuh>
 #include <raft/random/rng.cuh>
@@ -203,16 +203,16 @@ INSTANTIATE_TEST_SUITE_P(EigTests, EigTestVecF, ::testing::ValuesIn(inputsf2));
 INSTANTIATE_TEST_SUITE_P(EigTests, EigTestVecD, ::testing::ValuesIn(inputsd2));
 
 INSTANTIATE_TEST_SUITE_P(EigTests, EigTestValJacobiF,
-                        ::testing::ValuesIn(inputsf2));
+                         ::testing::ValuesIn(inputsf2));
 
 INSTANTIATE_TEST_SUITE_P(EigTests, EigTestValJacobiD,
-                        ::testing::ValuesIn(inputsd2));
+                         ::testing::ValuesIn(inputsd2));
 
 INSTANTIATE_TEST_SUITE_P(EigTests, EigTestVecJacobiF,
-                        ::testing::ValuesIn(inputsf2));
+                         ::testing::ValuesIn(inputsf2));
 
 INSTANTIATE_TEST_SUITE_P(EigTests, EigTestVecJacobiD,
-                        ::testing::ValuesIn(inputsd2));
+                         ::testing::ValuesIn(inputsd2));
 
 }  // namespace linalg
 }  // namespace raft

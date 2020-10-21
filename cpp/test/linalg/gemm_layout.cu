@@ -143,10 +143,10 @@ TEST_P(GemmLayoutTestD, Result) {
 }
 
 INSTANTIATE_TEST_SUITE_P(GemmLayoutTests, GemmLayoutTestF,
-                        ::testing::ValuesIn(inputsf));
+                         ::testing::ValuesIn(inputsf));
 
 INSTANTIATE_TEST_SUITE_P(GemmLayoutTests, GemmLayoutTestD,
-                        ::testing::ValuesIn(inputsd));
+                         ::testing::ValuesIn(inputsd));
 
 }  // end namespace linalg
 }  // end namespace raft

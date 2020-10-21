@@ -16,13 +16,12 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
 #include <cuda_runtime_api.h>
+#include <raft/cudart_utils.h>
 #include <raft/linalg/cusolver_wrappers.h>
-#include <raft/mr/device/buffer.hpp>
 #include <raft/cuda_utils.cuh>
-#include <raft/matrix/matrix.cuh>
 #include <raft/handle.hpp>
+#include <raft/matrix/matrix.cuh>
 #include <raft/mr/device/buffer.hpp>
 
 namespace raft {

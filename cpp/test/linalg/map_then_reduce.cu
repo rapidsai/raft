@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <raft/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/random/rng.cuh>
 #include "../test_utils.h"
@@ -102,7 +102,7 @@ TEST_P(MapReduceTestF, Result) {
                           CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_SUITE_P(MapReduceTests, MapReduceTestF,
-                        ::testing::ValuesIn(inputsf));
+                         ::testing::ValuesIn(inputsf));
 
 const std::vector<MapReduceInputs<double>> inputsd = {
   {0.000001, 1024 * 1024, 1234ULL}};
@@ -112,7 +112,7 @@ TEST_P(MapReduceTestD, Result) {
                           CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_SUITE_P(MapReduceTests, MapReduceTestD,
-                        ::testing::ValuesIn(inputsd));
+                         ::testing::ValuesIn(inputsd));
 
 }  // end namespace linalg
 }  // end namespace raft

@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <raft/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
 #include <raft/matrix/math.cuh>
 #include <raft/random/rng.cuh>
 #include "../test_utils.h"
@@ -294,37 +294,39 @@ TEST_P(MathSetSmallZeroTestD, Result) {
 }
 
 INSTANTIATE_TEST_SUITE_P(MathTests, MathPowerTestF,
-                        ::testing::ValuesIn(inputsf));
+                         ::testing::ValuesIn(inputsf));
 
 INSTANTIATE_TEST_SUITE_P(MathTests, MathPowerTestD,
-                        ::testing::ValuesIn(inputsd));
+                         ::testing::ValuesIn(inputsd));
 
-INSTANTIATE_TEST_SUITE_P(MathTests, MathSqrtTestF, ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_SUITE_P(MathTests, MathSqrtTestF,
+                         ::testing::ValuesIn(inputsf));
 
-INSTANTIATE_TEST_SUITE_P(MathTests, MathSqrtTestD, ::testing::ValuesIn(inputsd));
+INSTANTIATE_TEST_SUITE_P(MathTests, MathSqrtTestD,
+                         ::testing::ValuesIn(inputsd));
 
 INSTANTIATE_TEST_SUITE_P(MathTests, MathRatioTestF,
-                        ::testing::ValuesIn(inputsf));
+                         ::testing::ValuesIn(inputsf));
 
 INSTANTIATE_TEST_SUITE_P(MathTests, MathRatioTestD,
-                        ::testing::ValuesIn(inputsd));
+                         ::testing::ValuesIn(inputsd));
 
 INSTANTIATE_TEST_SUITE_P(MathTests, MathSignFlipTestF,
-                        ::testing::ValuesIn(inputsf));
+                         ::testing::ValuesIn(inputsf));
 
 INSTANTIATE_TEST_SUITE_P(MathTests, MathSignFlipTestD,
-                        ::testing::ValuesIn(inputsd));
+                         ::testing::ValuesIn(inputsd));
 
 INSTANTIATE_TEST_SUITE_P(MathTests, MathReciprocalTestF,
-                        ::testing::ValuesIn(inputsf));
+                         ::testing::ValuesIn(inputsf));
 
 INSTANTIATE_TEST_SUITE_P(MathTests, MathReciprocalTestD,
-                        ::testing::ValuesIn(inputsd));
+                         ::testing::ValuesIn(inputsd));
 
 INSTANTIATE_TEST_SUITE_P(MathTests, MathSetSmallZeroTestF,
-                        ::testing::ValuesIn(inputsf));
+                         ::testing::ValuesIn(inputsf));
 INSTANTIATE_TEST_SUITE_P(MathTests, MathSetSmallZeroTestD,
-                        ::testing::ValuesIn(inputsd));
+                         ::testing::ValuesIn(inputsd));
 
 }  // namespace matrix
 }  // namespace raft

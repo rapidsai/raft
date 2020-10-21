@@ -16,9 +16,9 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
 #include <cuda_runtime.h>
 #include <cusolverDn.h>
+#include <raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <thrust/device_vector.h>
 #include <thrust/execution_policy.h>

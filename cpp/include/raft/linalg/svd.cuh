@@ -20,9 +20,9 @@
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/cusolver_wrappers.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/handle.hpp>
 #include <raft/matrix/math.cuh>
 #include <raft/matrix/matrix.cuh>
-#include <raft/handle.hpp>
 #include <raft/mr/device/buffer.hpp>
 #include "eig.cuh"
 #include "gemm.cuh"

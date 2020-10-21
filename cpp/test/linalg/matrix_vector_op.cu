@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-#include <raft/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
 #include <raft/random/rng.cuh>
-#include "matrix_vector_op.cuh"
 #include "../test_utils.h"
+#include "matrix_vector_op.cuh"
 
 namespace raft {
 namespace linalg {
@@ -126,7 +126,7 @@ TEST_P(MatVecOpTestF_i32, Result) {
                           CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_SUITE_P(MatVecOpTests, MatVecOpTestF_i32,
-                        ::testing::ValuesIn(inputsf_i32));
+                         ::testing::ValuesIn(inputsf_i32));
 
 const std::vector<MatVecOpInputs<float, size_t>> inputsf_i64 = {
   {0.00001f, 2500, 250, false, false, false, 1234ULL},
@@ -137,7 +137,7 @@ TEST_P(MatVecOpTestF_i64, Result) {
                           CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_SUITE_P(MatVecOpTests, MatVecOpTestF_i64,
-                        ::testing::ValuesIn(inputsf_i64));
+                         ::testing::ValuesIn(inputsf_i64));
 
 const std::vector<MatVecOpInputs<double, int>> inputsd_i32 = {
   {0.0000001, 1024, 32, true, true, false, 1234ULL},
@@ -163,7 +163,7 @@ TEST_P(MatVecOpTestD_i32, Result) {
                           CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_SUITE_P(MatVecOpTests, MatVecOpTestD_i32,
-                        ::testing::ValuesIn(inputsd_i32));
+                         ::testing::ValuesIn(inputsd_i32));
 
 const std::vector<MatVecOpInputs<double, size_t>> inputsd_i64 = {
   {0.0000001, 2500, 250, false, false, false, 1234ULL},
@@ -174,7 +174,7 @@ TEST_P(MatVecOpTestD_i64, Result) {
                           CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_SUITE_P(MatVecOpTests, MatVecOpTestD_i64,
-                        ::testing::ValuesIn(inputsd_i64));
+                         ::testing::ValuesIn(inputsd_i64));
 
 }  // end namespace linalg
 }  // end namespace raft

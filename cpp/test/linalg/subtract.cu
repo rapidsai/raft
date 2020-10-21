@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <raft/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
 #include <raft/linalg/subtract.cuh>
 #include <raft/random/rng.cuh>
 #include "../test_utils.h"
@@ -135,10 +135,10 @@ TEST_P(SubtractTestD, Result) {
 }
 
 INSTANTIATE_TEST_SUITE_P(SubtractTests, SubtractTestF,
-                        ::testing::ValuesIn(inputsf2));
+                         ::testing::ValuesIn(inputsf2));
 
 INSTANTIATE_TEST_SUITE_P(SubtractTests, SubtractTestD,
-                        ::testing::ValuesIn(inputsd2));
+                         ::testing::ValuesIn(inputsd2));
 
 }  // end namespace linalg
 }  // end namespace raft

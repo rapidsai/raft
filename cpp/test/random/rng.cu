@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <raft/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
 #include <cub/cub.cuh>
 #include <raft/cuda_utils.cuh>
 #include <raft/random/rng.cuh>
@@ -571,7 +571,7 @@ TEST_P(RngNormalTableTestF, Result) {
                     CompareApprox<float>(num_sigma * params.tolerance)));
 }
 INSTANTIATE_TEST_SUITE_P(RngNormalTableTests, RngNormalTableTestF,
-                        ::testing::ValuesIn(inputsf_t));
+                         ::testing::ValuesIn(inputsf_t));
 
 typedef RngNormalTableTest<double> RngNormalTableTestD;
 const std::vector<RngNormalTableInputs<double>> inputsd_t = {
@@ -590,7 +590,7 @@ TEST_P(RngNormalTableTestD, Result) {
                     CompareApprox<double>(num_sigma * params.tolerance)));
 }
 INSTANTIATE_TEST_SUITE_P(RngNormalTableTests, RngNormalTableTestD,
-                        ::testing::ValuesIn(inputsd_t));
+                         ::testing::ValuesIn(inputsd_t));
 
 struct RngAffineInputs {
   int n;
@@ -622,7 +622,7 @@ const std::vector<RngAffineInputs> inputs_affine = {
 };
 TEST_P(RngAffineTest, Result) { check(); }
 INSTANTIATE_TEST_SUITE_P(RngAffineTests, RngAffineTest,
-                        ::testing::ValuesIn(inputs_affine));
+                         ::testing::ValuesIn(inputs_affine));
 
 }  // namespace random
 }  // namespace raft

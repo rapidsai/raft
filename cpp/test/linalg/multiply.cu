@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <raft/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
 #include <raft/linalg/multiply.cuh>
 #include <raft/random/rng.cuh>
 #include "../test_utils.h"
@@ -62,7 +62,7 @@ TEST_P(MultiplyTestF, Result) {
                           raft::CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_SUITE_P(MultiplyTests, MultiplyTestF,
-                        ::testing::ValuesIn(inputsf));
+                         ::testing::ValuesIn(inputsf));
 
 typedef MultiplyTest<double> MultiplyTestD;
 const std::vector<UnaryOpInputs<double>> inputsd = {
@@ -72,7 +72,7 @@ TEST_P(MultiplyTestD, Result) {
                           raft::CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_SUITE_P(MultiplyTests, MultiplyTestD,
-                        ::testing::ValuesIn(inputsd));
+                         ::testing::ValuesIn(inputsd));
 
 }  // end namespace linalg
 }  // end namespace raft

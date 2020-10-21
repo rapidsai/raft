@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <raft/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
 #include <raft/matrix/matrix.cuh>
 #include <raft/random/rng.cuh>
 #include "../test_utils.h"
@@ -89,10 +89,10 @@ TEST_P(MatrixTestD, Result) {
 }
 
 INSTANTIATE_TEST_SUITE_P(MatrixTests, MatrixTestF,
-                        ::testing::ValuesIn(inputsf2));
+                         ::testing::ValuesIn(inputsf2));
 
 INSTANTIATE_TEST_SUITE_P(MatrixTests, MatrixTestD,
-                        ::testing::ValuesIn(inputsd2));
+                         ::testing::ValuesIn(inputsd2));
 
 }  // namespace matrix
 }  // namespace raft

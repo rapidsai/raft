@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <raft/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
 #include <raft/linalg/transpose.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/random/rng.cuh>
@@ -105,10 +105,10 @@ TEST_P(TransposeTestValD, Result) {
 }
 
 INSTANTIATE_TEST_SUITE_P(TransposeTests, TransposeTestValF,
-                        ::testing::ValuesIn(inputsf2));
+                         ::testing::ValuesIn(inputsf2));
 
 INSTANTIATE_TEST_SUITE_P(TransposeTests, TransposeTestValD,
-                        ::testing::ValuesIn(inputsd2));
+                         ::testing::ValuesIn(inputsd2));
 
 }  // end namespace linalg
 }  // end namespace raft

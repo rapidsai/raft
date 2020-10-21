@@ -18,10 +18,10 @@
 
 #include <raft/cudart_utils.h>
 #include <stdint.h>
-#include <raft/common/cub_wrappers.cuh>
-#include <raft/common/scatter.cuh>
 #include <cstdio>
 #include <cstdlib>
+#include <raft/common/cub_wrappers.cuh>
+#include <raft/common/scatter.cuh>
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
 #include <raft/mr/device/allocator.hpp>

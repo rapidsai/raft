@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <raft/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
 #include <raft/random/rng.cuh>
 #include <raft/stats/mean.cuh>
 #include <raft/stats/mean_center.cuh>
@@ -111,7 +111,7 @@ TEST_P(MeanCenterTestF_i32, Result) {
                           raft::CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_SUITE_P(MeanCenterTests, MeanCenterTestF_i32,
-                        ::testing::ValuesIn(inputsf_i32));
+                         ::testing::ValuesIn(inputsf_i32));
 
 const std::vector<MeanCenterInputs<float, size_t>> inputsf_i64 = {
   {0.05f, 1.f, 1024, 32, true, false, true, 1234ULL},
@@ -144,7 +144,7 @@ TEST_P(MeanCenterTestF_i64, Result) {
                           raft::CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_SUITE_P(MeanCenterTests, MeanCenterTestF_i64,
-                        ::testing::ValuesIn(inputsf_i64));
+                         ::testing::ValuesIn(inputsf_i64));
 
 const std::vector<MeanCenterInputs<double, int>> inputsd_i32 = {
   {0.05, 1.0, 1024, 32, true, false, true, 1234ULL},
@@ -177,7 +177,7 @@ TEST_P(MeanCenterTestD_i32, Result) {
                           raft::CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_SUITE_P(MeanCenterTests, MeanCenterTestD_i32,
-                        ::testing::ValuesIn(inputsd_i32));
+                         ::testing::ValuesIn(inputsd_i32));
 
 const std::vector<MeanCenterInputs<double, size_t>> inputsd_i64 = {
   {0.05, 1.0, 1024, 32, true, false, true, 1234ULL},
@@ -210,7 +210,7 @@ TEST_P(MeanCenterTestD_i64, Result) {
                           raft::CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_SUITE_P(MeanCenterTests, MeanCenterTestD_i64,
-                        ::testing::ValuesIn(inputsd_i64));
+                         ::testing::ValuesIn(inputsd_i64));
 
 }  // end namespace stats
 }  // end namespace raft

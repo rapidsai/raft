@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-#include <raft/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
 #include <raft/linalg/binary_op.cuh>
 #include <raft/random/rng.cuh>
-#include "binary_op.cuh"
 #include "../test_utils.h"
+#include "binary_op.cuh"
 
 namespace raft {
 namespace linalg {
@@ -79,7 +79,7 @@ TEST_P(BinaryOpTestF_i32, Result) {
                           CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_SUITE_P(BinaryOpTests, BinaryOpTestF_i32,
-                        ::testing::ValuesIn(inputsf_i32));
+                         ::testing::ValuesIn(inputsf_i32));
 
 const std::vector<BinaryOpInputs<float, size_t>> inputsf_i64 = {
   {0.000001f, 1024 * 1024, 1234ULL}};
@@ -89,7 +89,7 @@ TEST_P(BinaryOpTestF_i64, Result) {
                           CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_SUITE_P(BinaryOpTests, BinaryOpTestF_i64,
-                        ::testing::ValuesIn(inputsf_i64));
+                         ::testing::ValuesIn(inputsf_i64));
 
 const std::vector<BinaryOpInputs<float, int, double>> inputsf_i32_d = {
   {0.000001f, 1024 * 1024, 1234ULL}};
@@ -99,7 +99,7 @@ TEST_P(BinaryOpTestF_i32_D, Result) {
                           CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_SUITE_P(BinaryOpTests, BinaryOpTestF_i32_D,
-                        ::testing::ValuesIn(inputsf_i32_d));
+                         ::testing::ValuesIn(inputsf_i32_d));
 
 const std::vector<BinaryOpInputs<double, int>> inputsd_i32 = {
   {0.00000001, 1024 * 1024, 1234ULL}};
@@ -109,7 +109,7 @@ TEST_P(BinaryOpTestD_i32, Result) {
                           CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_SUITE_P(BinaryOpTests, BinaryOpTestD_i32,
-                        ::testing::ValuesIn(inputsd_i32));
+                         ::testing::ValuesIn(inputsd_i32));
 
 const std::vector<BinaryOpInputs<double, size_t>> inputsd_i64 = {
   {0.00000001, 1024 * 1024, 1234ULL}};
@@ -119,7 +119,7 @@ TEST_P(BinaryOpTestD_i64, Result) {
                           CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_SUITE_P(BinaryOpTests, BinaryOpTestD_i64,
-                        ::testing::ValuesIn(inputsd_i64));
+                         ::testing::ValuesIn(inputsd_i64));
 
 }  // namespace linalg
 }  // namespace raft
