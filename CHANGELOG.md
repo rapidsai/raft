@@ -3,6 +3,7 @@
 ## New Features
 
 ## Improvements
+- PR #73: Move DistanceType enum from cuML to RAFT
 
 ## Bug Fixes
 - PR #77: Fixing CUB include for CUDA < 11
@@ -11,7 +12,6 @@
 
 ## New Features
 
-- PR #73: Move DistanceType enum from cuML to RAFT
 - PR #63: Adding MPI comms implementation
 - PR #70: Adding CUB to RAFT cmake
 
