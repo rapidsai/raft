@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
+#include <gtest/gtest.h>
 #include <raft/random/rng.cuh>
-#include "../test_utils.h"
 #include "matrix_vector_op.cuh"
+#include "../test_utils.h"
 
 namespace raft {
 namespace linalg {
@@ -125,7 +125,7 @@ TEST_P(MatVecOpTestF_i32, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.rows * params.cols,
                           CompareApprox<float>(params.tolerance)));
 }
-INSTANTIATE_TEST_CASE_P(MatVecOpTests, MatVecOpTestF_i32,
+INSTANTIATE_TEST_SUITE_P(MatVecOpTests, MatVecOpTestF_i32,
                         ::testing::ValuesIn(inputsf_i32));
 
 const std::vector<MatVecOpInputs<float, size_t>> inputsf_i64 = {
@@ -136,7 +136,7 @@ TEST_P(MatVecOpTestF_i64, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.rows * params.cols,
                           CompareApprox<float>(params.tolerance)));
 }
-INSTANTIATE_TEST_CASE_P(MatVecOpTests, MatVecOpTestF_i64,
+INSTANTIATE_TEST_SUITE_P(MatVecOpTests, MatVecOpTestF_i64,
                         ::testing::ValuesIn(inputsf_i64));
 
 const std::vector<MatVecOpInputs<double, int>> inputsd_i32 = {
@@ -162,7 +162,7 @@ TEST_P(MatVecOpTestD_i32, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.rows * params.cols,
                           CompareApprox<double>(params.tolerance)));
 }
-INSTANTIATE_TEST_CASE_P(MatVecOpTests, MatVecOpTestD_i32,
+INSTANTIATE_TEST_SUITE_P(MatVecOpTests, MatVecOpTestD_i32,
                         ::testing::ValuesIn(inputsd_i32));
 
 const std::vector<MatVecOpInputs<double, size_t>> inputsd_i64 = {
@@ -173,7 +173,7 @@ TEST_P(MatVecOpTestD_i64, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.rows * params.cols,
                           CompareApprox<double>(params.tolerance)));
 }
-INSTANTIATE_TEST_CASE_P(MatVecOpTests, MatVecOpTestD_i64,
+INSTANTIATE_TEST_SUITE_P(MatVecOpTests, MatVecOpTestD_i64,
                         ::testing::ValuesIn(inputsd_i64));
 
 }  // end namespace linalg

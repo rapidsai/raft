@@ -165,15 +165,15 @@ set(CMAKE_CUDA_FLAGS
 ##############################################################################
 # - dependencies -------------------------------------------------------------
 
-include(cmake/Dependencies.cmake)
-include(cmake/comms.cmake)
-
 # CUDA 11 onwards cub ships with CTK
 if((CUDA_VERSION_MAJOR EQUAL 11) OR (CUDA_VERSION_MAJOR GREATER 11))
   set(CUB_IS_PART_OF_CTK ON)
 else()
   set(CUB_IS_PART_OF_CTK OFF)
 endif()
+
+include(cmake/Dependencies.cmake)
+include(cmake/comms.cmake)
 
 ###################################################################################################
 # - RMM -------------------------------------------------------------------------------------------
@@ -235,17 +235,28 @@ if(BUILD_RAFT_TESTS)
     test/cudart_utils.cpp
     test/handle.cpp
     test/integer_utils.cpp
+    test/linalg/add.cu
     test/linalg/binary_op.cu
+    test/linalg/divide.cu
+    test/linalg/eig.cu
+    test/linalg/eig_sel.cu
+    test/linalg/gemm_layout.cu
     test/linalg/map_then_reduce.cu
     test/linalg/matrix_vector_op.cu
+    test/linalg/multiply.cu
+    test/linalg/subtract.cu
+    test/linalg/svd.cu
+    test/linalg/transpose.cu
     test/linalg/unary_op.cu
     test/matrix/math.cu
+    test/matrix/matrix.cu
     test/mr/device/buffer.cpp
     test/mr/host/buffer.cpp
     test/random/rng.cu
     test/random/rng_int.cu
     test/random/sample_without_replacement.cu
     test/stats/mean.cu
+    test/stats/mean_center.cu
     test/stats/stddev.cu
     test/test.cpp
     test/spectral_matrix.cu

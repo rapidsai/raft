@@ -15,11 +15,11 @@
  */
 
 #pragma once
-#include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
+#include <gtest/gtest.h>
+#include <raft/cuda_utils.cuh>
 #include <iostream>
 #include <memory>
-#include <raft/cuda_utils.cuh>
 
 namespace raft {
 

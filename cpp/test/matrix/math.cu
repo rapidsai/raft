@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
+#include <gtest/gtest.h>
 #include <raft/matrix/math.cuh>
 #include <raft/random/rng.cuh>
 #include "../test_utils.h"
@@ -293,37 +293,37 @@ TEST_P(MathSetSmallZeroTestD, Result) {
                           CompareApprox<double>(params.tolerance)));
 }
 
-INSTANTIATE_TEST_CASE_P(MathTests, MathPowerTestF,
+INSTANTIATE_TEST_SUITE_P(MathTests, MathPowerTestF,
                         ::testing::ValuesIn(inputsf));
 
-INSTANTIATE_TEST_CASE_P(MathTests, MathPowerTestD,
+INSTANTIATE_TEST_SUITE_P(MathTests, MathPowerTestD,
                         ::testing::ValuesIn(inputsd));
 
-INSTANTIATE_TEST_CASE_P(MathTests, MathSqrtTestF, ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_SUITE_P(MathTests, MathSqrtTestF, ::testing::ValuesIn(inputsf));
 
-INSTANTIATE_TEST_CASE_P(MathTests, MathSqrtTestD, ::testing::ValuesIn(inputsd));
+INSTANTIATE_TEST_SUITE_P(MathTests, MathSqrtTestD, ::testing::ValuesIn(inputsd));
 
-INSTANTIATE_TEST_CASE_P(MathTests, MathRatioTestF,
+INSTANTIATE_TEST_SUITE_P(MathTests, MathRatioTestF,
                         ::testing::ValuesIn(inputsf));
 
-INSTANTIATE_TEST_CASE_P(MathTests, MathRatioTestD,
+INSTANTIATE_TEST_SUITE_P(MathTests, MathRatioTestD,
                         ::testing::ValuesIn(inputsd));
 
-INSTANTIATE_TEST_CASE_P(MathTests, MathSignFlipTestF,
+INSTANTIATE_TEST_SUITE_P(MathTests, MathSignFlipTestF,
                         ::testing::ValuesIn(inputsf));
 
-INSTANTIATE_TEST_CASE_P(MathTests, MathSignFlipTestD,
+INSTANTIATE_TEST_SUITE_P(MathTests, MathSignFlipTestD,
                         ::testing::ValuesIn(inputsd));
 
-INSTANTIATE_TEST_CASE_P(MathTests, MathReciprocalTestF,
+INSTANTIATE_TEST_SUITE_P(MathTests, MathReciprocalTestF,
                         ::testing::ValuesIn(inputsf));
 
-INSTANTIATE_TEST_CASE_P(MathTests, MathReciprocalTestD,
+INSTANTIATE_TEST_SUITE_P(MathTests, MathReciprocalTestD,
                         ::testing::ValuesIn(inputsd));
 
-INSTANTIATE_TEST_CASE_P(MathTests, MathSetSmallZeroTestF,
+INSTANTIATE_TEST_SUITE_P(MathTests, MathSetSmallZeroTestF,
                         ::testing::ValuesIn(inputsf));
-INSTANTIATE_TEST_CASE_P(MathTests, MathSetSmallZeroTestD,
+INSTANTIATE_TEST_SUITE_P(MathTests, MathSetSmallZeroTestD,
                         ::testing::ValuesIn(inputsd));
 
 }  // namespace matrix

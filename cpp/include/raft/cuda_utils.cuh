@@ -16,9 +16,6 @@
 
 #pragma once
 
-#include "cudart_utils.h"
-#include "error.hpp"
-
 #include <math_constants.h>
 #include <stdint.h>
 

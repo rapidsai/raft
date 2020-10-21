@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
+#include <gtest/gtest.h>
 #include <cub/cub.cuh>
 #include <raft/cuda_utils.cuh>
 #include <raft/random/rng.cuh>
@@ -267,7 +267,7 @@ TEST_P(RngTestF, Result) {
   ASSERT_TRUE(match(meanvar[1], h_stats[1],
                     CompareApprox<float>(num_sigma * params.tolerance)));
 }
-INSTANTIATE_TEST_CASE_P(RngTests, RngTestF, ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_SUITE_P(RngTests, RngTestF, ::testing::ValuesIn(inputsf));
 
 typedef RngTest<double> RngTestD;
 const std::vector<RngInputs<double>> inputsd = {
@@ -329,7 +329,7 @@ TEST_P(RngTestD, Result) {
   ASSERT_TRUE(match(meanvar[1], h_stats[1],
                     CompareApprox<double>(num_sigma * params.tolerance)));
 }
-INSTANTIATE_TEST_CASE_P(RngTests, RngTestD, ::testing::ValuesIn(inputsd));
+INSTANTIATE_TEST_SUITE_P(RngTests, RngTestD, ::testing::ValuesIn(inputsd));
 
 // ---------------------------------------------------------------------- //
 // Test for expected variance in mean calculations
@@ -570,7 +570,7 @@ TEST_P(RngNormalTableTestF, Result) {
   ASSERT_TRUE(match(meanvar[1], h_stats[1],
                     CompareApprox<float>(num_sigma * params.tolerance)));
 }
-INSTANTIATE_TEST_CASE_P(RngNormalTableTests, RngNormalTableTestF,
+INSTANTIATE_TEST_SUITE_P(RngNormalTableTests, RngNormalTableTestF,
                         ::testing::ValuesIn(inputsf_t));
 
 typedef RngNormalTableTest<double> RngNormalTableTestD;
@@ -589,7 +589,7 @@ TEST_P(RngNormalTableTestD, Result) {
   ASSERT_TRUE(match(meanvar[1], h_stats[1],
                     CompareApprox<double>(num_sigma * params.tolerance)));
 }
-INSTANTIATE_TEST_CASE_P(RngNormalTableTests, RngNormalTableTestD,
+INSTANTIATE_TEST_SUITE_P(RngNormalTableTests, RngNormalTableTestD,
                         ::testing::ValuesIn(inputsd_t));
 
 struct RngAffineInputs {
@@ -621,7 +621,7 @@ const std::vector<RngAffineInputs> inputs_affine = {
   {2568, 123456ULL},    {2568, 1234567890ULL},
 };
 TEST_P(RngAffineTest, Result) { check(); }
-INSTANTIATE_TEST_CASE_P(RngAffineTests, RngAffineTest,
+INSTANTIATE_TEST_SUITE_P(RngAffineTests, RngAffineTest,
                         ::testing::ValuesIn(inputs_affine));
 
 }  // namespace random

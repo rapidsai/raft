@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
+#include <gtest/gtest.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <raft/cuda_utils.cuh>
@@ -126,9 +126,9 @@ TEST_P(MeanTestD, Result) {
                           CompareApprox<double>(params.tolerance)));
 }
 
-INSTANTIATE_TEST_CASE_P(MeanTests, MeanTestF, ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_SUITE_P(MeanTests, MeanTestF, ::testing::ValuesIn(inputsf));
 
-INSTANTIATE_TEST_CASE_P(MeanTests, MeanTestD, ::testing::ValuesIn(inputsd));
+INSTANTIATE_TEST_SUITE_P(MeanTests, MeanTestD, ::testing::ValuesIn(inputsd));
 
 }  // end namespace stats
 }  // end namespace raft

@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
+#include <gtest/gtest.h>
 #include <cub/cub.cuh>
 #include <raft/cuda_utils.cuh>
 #include <raft/random/rng.cuh>
@@ -128,7 +128,7 @@ TEST_P(RngTestU32, Result) {
   ASSERT_TRUE(
     match(meanvar[1], h_stats[1], CompareApprox<float>(params.tolerance)));
 }
-INSTANTIATE_TEST_CASE_P(RngTests, RngTestU32, ::testing::ValuesIn(inputs_u32));
+INSTANTIATE_TEST_SUITE_P(RngTests, RngTestU32, ::testing::ValuesIn(inputs_u32));
 
 typedef RngTest<uint64_t> RngTestU64;
 const std::vector<RngInputs<uint64_t>> inputs_u64 = {
@@ -146,7 +146,7 @@ TEST_P(RngTestU64, Result) {
   ASSERT_TRUE(
     match(meanvar[1], h_stats[1], CompareApprox<float>(params.tolerance)));
 }
-INSTANTIATE_TEST_CASE_P(RngTests, RngTestU64, ::testing::ValuesIn(inputs_u64));
+INSTANTIATE_TEST_SUITE_P(RngTests, RngTestU64, ::testing::ValuesIn(inputs_u64));
 
 typedef RngTest<int32_t> RngTestS32;
 const std::vector<RngInputs<int32_t>> inputs_s32 = {
@@ -164,7 +164,7 @@ TEST_P(RngTestS32, Result) {
   ASSERT_TRUE(
     match(meanvar[1], h_stats[1], CompareApprox<float>(params.tolerance)));
 }
-INSTANTIATE_TEST_CASE_P(RngTests, RngTestS32, ::testing::ValuesIn(inputs_s32));
+INSTANTIATE_TEST_SUITE_P(RngTests, RngTestS32, ::testing::ValuesIn(inputs_s32));
 
 typedef RngTest<int64_t> RngTestS64;
 const std::vector<RngInputs<int64_t>> inputs_s64 = {
@@ -182,7 +182,7 @@ TEST_P(RngTestS64, Result) {
   ASSERT_TRUE(
     match(meanvar[1], h_stats[1], CompareApprox<float>(params.tolerance)));
 }
-INSTANTIATE_TEST_CASE_P(RngTests, RngTestS64, ::testing::ValuesIn(inputs_s64));
+INSTANTIATE_TEST_SUITE_P(RngTests, RngTestS64, ::testing::ValuesIn(inputs_s64));
 
 }  // namespace random
 }  // namespace raft

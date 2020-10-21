@@ -1,11 +1,12 @@
 # RAFT 0.17.0 (Date TBD)
 
 ## New Features
-- PR #65: Adding cuml rng prims and its dependencies, and some utils
+- PR #65: Adding cuml prims that break circular dependency between cuml and cumlprims projects
 
 ## Improvements
 
 ## Bug Fixes
+- PR #77: Fixing CUB include for CUDA < 11
 
 # RAFT 0.16.0 (Date TBD)
 
@@ -27,6 +28,8 @@
 - PR #68: Change the type of recvcounts & displs in allgatherv from size_t[] to size_t* and int[] to size_t*, respectively.
 - PR #69: Updates for RMM being header only
 - PR #74: Fix std_comms::comm_split bug
+- PR #79: remove debug print statements
+- PR #81: temporarily expose internal NCCL communicator
 
 # RAFT 0.15.0 (Date TBD)
 

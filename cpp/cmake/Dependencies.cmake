@@ -65,4 +65,4 @@ endif(BUILD_GTEST)
 
 if(NOT CUB_IS_PART_OF_CTK)
   add_dependencies(GTest::GTest cub)
-endif(NOT CUB_IS_PART_OF_CTK)
+endif(NOT CUB_IS_PART_OF_CTK) 

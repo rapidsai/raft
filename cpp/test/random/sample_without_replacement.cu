@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
+#include <gtest/gtest.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/random/rng.cuh>
 #include <set>
@@ -166,7 +166,7 @@ TEST_P(SWoRTestF, Result) {
     ASSERT_EQ(h_outIdx[0], params.largeWeightIndex);
   }
 }
-INSTANTIATE_TEST_CASE_P(SWoRTests, SWoRTestF, ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_SUITE_P(SWoRTests, SWoRTestF, ::testing::ValuesIn(inputsf));
 
 typedef SWoRTest<double> SWoRTestD;
 const std::vector<SWoRInputs<double>> inputsd = {
@@ -250,7 +250,7 @@ TEST_P(SWoRTestD, Result) {
     ASSERT_EQ(h_outIdx[0], params.largeWeightIndex);
   }
 }
-INSTANTIATE_TEST_CASE_P(SWoRTests, SWoRTestD, ::testing::ValuesIn(inputsd));
+INSTANTIATE_TEST_SUITE_P(SWoRTests, SWoRTestD, ::testing::ValuesIn(inputsd));
 
 }  // namespace random
 }  // namespace raft

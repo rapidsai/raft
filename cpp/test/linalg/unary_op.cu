@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
+#include <gtest/gtest.h>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/random/rng.cuh>
 #include "../test_utils.h"
@@ -99,7 +99,7 @@ class WriteOnlyUnaryOpTest : public UnaryOpTest<OutType, IdxType, OutType> {
 
 #define UNARY_OP_TEST(Name, inputs)  \
   TEST_P(Name, Result) { DoTest(); } \
-  INSTANTIATE_TEST_CASE_P(UnaryOpTests, Name, ::testing::ValuesIn(inputs))
+  INSTANTIATE_TEST_SUITE_P(UnaryOpTests, Name, ::testing::ValuesIn(inputs))
 
 const std::vector<UnaryOpInputs<float, int>> inputsf_i32 = {
   {0.000001f, 1024 * 1024, 2.f, 1234ULL}};

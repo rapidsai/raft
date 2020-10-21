@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
+#include <gtest/gtest.h>
 #include <raft/linalg/binary_op.cuh>
 #include <raft/random/rng.cuh>
-#include "../test_utils.h"
 #include "binary_op.cuh"
+#include "../test_utils.h"
 
 namespace raft {
 namespace linalg {
@@ -78,7 +78,7 @@ TEST_P(BinaryOpTestF_i32, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
                           CompareApprox<float>(params.tolerance)));
 }
-INSTANTIATE_TEST_CASE_P(BinaryOpTests, BinaryOpTestF_i32,
+INSTANTIATE_TEST_SUITE_P(BinaryOpTests, BinaryOpTestF_i32,
                         ::testing::ValuesIn(inputsf_i32));
 
 const std::vector<BinaryOpInputs<float, size_t>> inputsf_i64 = {
@@ -88,7 +88,7 @@ TEST_P(BinaryOpTestF_i64, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
                           CompareApprox<float>(params.tolerance)));
 }
-INSTANTIATE_TEST_CASE_P(BinaryOpTests, BinaryOpTestF_i64,
+INSTANTIATE_TEST_SUITE_P(BinaryOpTests, BinaryOpTestF_i64,
                         ::testing::ValuesIn(inputsf_i64));
 
 const std::vector<BinaryOpInputs<float, int, double>> inputsf_i32_d = {
@@ -98,7 +98,7 @@ TEST_P(BinaryOpTestF_i32_D, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
                           CompareApprox<double>(params.tolerance)));
 }
-INSTANTIATE_TEST_CASE_P(BinaryOpTests, BinaryOpTestF_i32_D,
+INSTANTIATE_TEST_SUITE_P(BinaryOpTests, BinaryOpTestF_i32_D,
                         ::testing::ValuesIn(inputsf_i32_d));
 
 const std::vector<BinaryOpInputs<double, int>> inputsd_i32 = {
@@ -108,7 +108,7 @@ TEST_P(BinaryOpTestD_i32, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
                           CompareApprox<double>(params.tolerance)));
 }
-INSTANTIATE_TEST_CASE_P(BinaryOpTests, BinaryOpTestD_i32,
+INSTANTIATE_TEST_SUITE_P(BinaryOpTests, BinaryOpTestD_i32,
                         ::testing::ValuesIn(inputsd_i32));
 
 const std::vector<BinaryOpInputs<double, size_t>> inputsd_i64 = {
@@ -118,7 +118,7 @@ TEST_P(BinaryOpTestD_i64, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
                           CompareApprox<double>(params.tolerance)));
 }
-INSTANTIATE_TEST_CASE_P(BinaryOpTests, BinaryOpTestD_i64,
+INSTANTIATE_TEST_SUITE_P(BinaryOpTests, BinaryOpTestD_i64,
                         ::testing::ValuesIn(inputsd_i64));
 
 }  // namespace linalg

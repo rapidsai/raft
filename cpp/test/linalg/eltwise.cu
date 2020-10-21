@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
+#include <gtest/gtest.h>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/random/rng.cuh>
 #include "../test_utils.h"
@@ -107,10 +107,10 @@ TEST_P(ScalarMultiplyTestD, Result) {
                           CompareApprox<double>(params.tolerance)));
 }
 
-INSTANTIATE_TEST_CASE_P(ScalarMultiplyTests, ScalarMultiplyTestF,
+INSTANTIATE_TEST_SUITE_P(ScalarMultiplyTests, ScalarMultiplyTestF,
                         ::testing::ValuesIn(inputsf1));
 
-INSTANTIATE_TEST_CASE_P(ScalarMultiplyTests, ScalarMultiplyTestD,
+INSTANTIATE_TEST_SUITE_P(ScalarMultiplyTests, ScalarMultiplyTestD,
                         ::testing::ValuesIn(inputsd1));
 
 //// Testing binary ops
@@ -197,10 +197,10 @@ TEST_P(EltwiseAddTestD, Result) {
                           CompareApprox<double>(params.tolerance)));
 }
 
-INSTANTIATE_TEST_CASE_P(EltwiseAddTests, EltwiseAddTestF,
+INSTANTIATE_TEST_SUITE_P(EltwiseAddTests, EltwiseAddTestF,
                         ::testing::ValuesIn(inputsf2));
 
-INSTANTIATE_TEST_CASE_P(EltwiseAddTests, EltwiseAddTestD,
+INSTANTIATE_TEST_SUITE_P(EltwiseAddTests, EltwiseAddTestD,
                         ::testing::ValuesIn(inputsd2));
 
 }  // end namespace linalg
