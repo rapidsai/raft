@@ -62,16 +62,16 @@ namespace comms {
 constexpr MPI_Datatype get_mpi_datatype(const DataTypeT datatype) {
   switch (datatype) {
     case DataTypeT::kChar:
-      return MPI_kChar;
+      return MPI_CHAR;
     case DataTypeT::kUint8:
-      return MPI_UNSIGNED_kChar;
+      return MPI_UNSIGNED_CHAR;
     case DataTypeT::kInt32:
       return MPI_INT;
-    case DataTypeT::UkInt32:
+    case DataTypeT::kUint32:
       return MPI_UNSIGNED;
     case DataTypeT::kInt64:
       return MPI_LONG_LONG;
-    case DataTypeT::UkInt64:
+    case DataTypeT::kUint64:
       return MPI_UNSIGNED_LONG_LONG;
     case DataTypeT::kFloat32:
       return MPI_FLOAT;
