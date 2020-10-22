@@ -219,7 +219,7 @@ bool test_pointToPoint_simple_send_recv(const handle_t &h, int numTrials) {
       }
     }
 
-    communicator.waitall(requests.size(), requests.data());
+    communicator.waitall(requests);
     communicator.barrier();
 
     if (communicator.get_rank() == 0) {

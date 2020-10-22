@@ -104,7 +104,7 @@ class vector_t {
       size_(sz),
       stream_(raft_handle.get_stream()) {}
 
-  ~vector_t() {
+  ~vector_t() {  // NOLINT - somehow tidy thinks that this is a trivial dtor!
     handle_.get_device_allocator()->deallocate(buffer_, size_, stream_);
   }
 
@@ -177,8 +177,6 @@ struct sparse_matrix_t {
                   ValueT* __restrict__ y,
                   SparseMvAlgoT alg = SparseMvAlgoT::kAlgo1,
                   bool transpose = false, bool symmetric = false) const {
-    using namespace sparse;
-
     RAFT_EXPECTS(x != nullptr, "Null x buffer.");
     RAFT_EXPECTS(y != nullptr, "Null y buffer.");
 
@@ -201,20 +199,20 @@ struct sparse_matrix_t {
     // void*; the casts should be harmless)
     //
     cusparseSpMatDescr_t mat_a;
-    CUSPARSE_CHECK(cusparsecreatecsr(
+    CUSPARSE_CHECK(sparse::cusparsecreatecsr(
       &mat_a, nrows, ncols, nnz, const_cast<IndexType*>(row_offsets),
       const_cast<IndexType*>(col_indices), const_cast<ValueT*>(values)));
 
     cusparseDnVecDescr_t vec_x;
-    CUSPARSE_CHECK(cusparsecreatednvec(&vec_x, size_x, x));
+    CUSPARSE_CHECK(sparse::cusparsecreatednvec(&vec_x, size_x, x));
 
     cusparseDnVecDescr_t vec_y;
-    CUSPARSE_CHECK(cusparsecreatednvec(&vec_y, size_y, y));
+    CUSPARSE_CHECK(sparse::cusparsecreatednvec(&vec_y, size_y, y));
 
     //get (scratch) external device buffer size:
     //
     size_t buffer_size;
-    CUSPARSE_CHECK(cusparsespmv_buffersize(cusparse_h, trans, &alpha, mat_a,
+    CUSPARSE_CHECK(sparse::cusparsespmv_buffersize(cusparse_h, trans, &alpha, mat_a,
                                            vec_x, &beta, vec_y, spmv_alg,
                                            &buffer_size, stream));
 
@@ -224,7 +222,7 @@ struct sparse_matrix_t {
 
     //finally perform SpMV:
     //
-    CUSPARSE_CHECK(cusparsespmv(cusparse_h, trans, &alpha, mat_a, vec_x, &beta,
+    CUSPARSE_CHECK(sparse::cusparsespmv(cusparse_h, trans, &alpha, mat_a, vec_x, &beta,
                                 vec_y, spmv_alg, external_buffer.raw(), stream));
 
     //free descriptors:

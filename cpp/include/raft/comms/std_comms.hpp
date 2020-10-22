@@ -156,11 +156,11 @@ class std_comms : public comms_iface {
         isend(&id, sizeof(ncclUniqueId), subcomm_ranks[i], color,
               requests.data() + (i - 1));
       }
-      waitall(requests.size(), requests.data());
+      waitall(requests);
     } else {
-      request_t request{};
-      irecv(&id, sizeof(ncclUniqueId), subcomm_ranks[0], color, &request);
-      waitall(1, &request);
+      std::vector<request_t> request(1);
+      irecv(&id, sizeof(ncclUniqueId), subcomm_ranks[0], color, &request[0]);
+      waitall(request);
     }
     // FIXME: this seems unnecessary, do more testing and remove this
     barrier();
@@ -236,16 +236,16 @@ class std_comms : public comms_iface {
     requests_in_flight_.insert(std::make_pair(*request, ucp_req));
   }
 
-  void waitall(int count, request_t* array_of_requests) const {
+  void waitall(const std::vector<request_t>& array_of_requests) const {
     ASSERT(ucp_worker_ != nullptr,
            "ERROR: UCX comms not initialized on communicator.");
 
     std::vector<ucp_request *> requests;
-    requests.reserve(count);
+    requests.reserve(array_of_requests.size());
 
     time_t start = time(NULL);
 
-    for (int i = 0; i < count; ++i) {
+    for (size_t i = 0; i < array_of_requests.size(); ++i) {
       auto req_it = requests_in_flight_.find(array_of_requests[i]);
       ASSERT(requests_in_flight_.end() != req_it,
              "ERROR: waitall on invalid request: %d", array_of_requests[i]);

@@ -117,7 +117,7 @@ class comms_iface {
   virtual void irecv(void* buf, size_t size, int source, int tag,
                      request_t* request) const = 0;
 
-  virtual void waitall(int count, request_t* array_of_requests) const = 0;
+  virtual void waitall(const std::vector<request_t>& array_of_requests) const = 0;
 
   virtual void allreduce(const void* sendbuff, void* recvbuff, size_t count,
                          DataTypeT datatype, OpT op,
@@ -231,11 +231,10 @@ class comms_t {
 
   /**
    * Synchronize on an array of request_t objects returned from isend/irecv
-   * @param count number of requests to synchronize on
    * @param array_of_requests an array of request_t objects returned from isend/irecv
    */
-  void waitall(int count, request_t* array_of_requests) const {
-    impl_->waitall(count, array_of_requests);
+  void waitall(const std::vector<request_t>& array_of_requests) const {
+    impl_->waitall(array_of_requests);
   }
 
   /**

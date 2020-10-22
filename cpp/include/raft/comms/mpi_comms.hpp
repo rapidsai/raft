@@ -177,10 +177,10 @@ class mpi_comms : public comms_iface {
     *request = req_id;
   }
 
-  void waitall(int count, request_t* array_of_requests) const {
+  void waitall(const std::vector<request_t>& array_of_requests) const {
     std::vector<MPI_Request> requests;
-    requests.reserve(count);
-    for (int i = 0; i < count; ++i) {
+    requests.reserve(array_of_requests.size());
+    for (size_t i = 0; i < array_of_requests.size(); ++i) {
       auto req_it = requests_in_flight_.find(array_of_requests[i]);
       RAFT_EXPECTS(requests_in_flight_.end() != req_it,
                    "ERROR: waitall on invalid request: %d",
