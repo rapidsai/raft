@@ -38,7 +38,7 @@ namespace detail {
 // Binary operators
 
 /* @brief binary `sum` operator */
-struct DeviceSum {
+struct device_sum {
   template <typename T,
             typename std::enable_if_t<std::is_arithmetic<T>::value>* = nullptr>
   __device__ T operator()(const T& lhs, const T& rhs) {
@@ -47,7 +47,7 @@ struct DeviceSum {
 };
 
 /* @brief binary `min` operator */
-struct DeviceMin {
+struct device_min {
   template <typename T>
   __device__ T operator()(const T& lhs, const T& rhs) {
     return lhs < rhs ? lhs : rhs;
@@ -55,7 +55,7 @@ struct DeviceMin {
 };
 
 /* @brief binary `max` operator */
-struct DeviceMax {
+struct device_max {
   template <typename T>
   __device__ T operator()(const T& lhs, const T& rhs) {
     return lhs > rhs ? lhs : rhs;
@@ -63,7 +63,7 @@ struct DeviceMax {
 };
 
 /* @brief binary `product` operator */
-struct DeviceProduct {
+struct device_product {
   template <typename T,
             typename std::enable_if_t<std::is_arithmetic<T>::value>* = nullptr>
   __device__ T operator()(const T& lhs, const T& rhs) {
@@ -72,7 +72,7 @@ struct DeviceProduct {
 };
 
 /* @brief binary `and` operator */
-struct DeviceAnd {
+struct device_and {
   template <typename T,
             typename std::enable_if_t<std::is_integral<T>::value>* = nullptr>
   __device__ T operator()(const T& lhs, const T& rhs) {
@@ -81,7 +81,7 @@ struct DeviceAnd {
 };
 
 /* @brief binary `or` operator */
-struct DeviceOr {
+struct device_or {
   template <typename T,
             typename std::enable_if_t<std::is_integral<T>::value>* = nullptr>
   __device__ T operator()(const T& lhs, const T& rhs) {
@@ -90,7 +90,7 @@ struct DeviceOr {
 };
 
 /* @brief binary `xor` operator */
-struct DeviceXor {
+struct device_xor {
   template <typename T,
             typename std::enable_if_t<std::is_integral<T>::value>* = nullptr>
   __device__ T operator()(const T& lhs, const T& rhs) {
@@ -102,11 +102,11 @@ struct DeviceXor {
 // `static_assert` requires a string literal at C++14.
 #define errmsg_cast "size mismatch."
 
-template <typename T_output, typename T_input>
-__forceinline__ __device__ T_output type_reinterpret(T_input value) {
-  static_assert(sizeof(T_output) == sizeof(T_input),
+template <typename OutputT, typename InputT>
+__forceinline__ __device__ OutputT type_reinterpret(InputT value) {
+  static_assert(sizeof(OutputT) == sizeof(InputT),
                 "type_reinterpret for different size");
-  return *(reinterpret_cast<T_output*>(&value));
+  return *(reinterpret_cast<OutputT*>(&value));
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -120,22 +120,22 @@ template <typename T, typename Op>
 struct genericAtomicOperationImpl<T, Op, 1> {
   __forceinline__ __device__ T operator()(T* addr, T const& update_value,
                                           Op op) {
-    using T_int = unsigned int;
+    using int_t = unsigned int;
 
-    T_int* address_uint32 =
-      reinterpret_cast<T_int*>(addr - (reinterpret_cast<size_t>(addr) & 3));
-    T_int shift = ((reinterpret_cast<size_t>(addr) & 3) * 8);
+    auto* address_uint32 =
+      reinterpret_cast<int_t*>(addr - (reinterpret_cast<size_t>(addr) & 3));
+    int_t shift = ((reinterpret_cast<size_t>(addr) & 3) * 8);
 
-    T_int old = *address_uint32;
-    T_int assumed;
+    int_t old = *address_uint32;
+    int_t assumed;
 
     do {
       assumed = old;
       T target_value = T((old >> shift) & 0xff);
-      uint8_t updating_value =
+      auto updating_value =
         type_reinterpret<uint8_t, T>(op(target_value, update_value));
-      T_int new_value =
-        (old & ~(0x000000ff << shift)) | (T_int(updating_value) << shift);
+      int_t new_value =
+        (old & ~(0x000000ff << shift)) | (int_t(updating_value) << shift);
       old = atomicCAS(address_uint32, assumed, new_value);
     } while (assumed != old);
 
@@ -148,23 +148,23 @@ template <typename T, typename Op>
 struct genericAtomicOperationImpl<T, Op, 2> {
   __forceinline__ __device__ T operator()(T* addr, T const& update_value,
                                           Op op) {
-    using T_int = unsigned int;
+    using int_t = unsigned int;
     bool is_32_align = (reinterpret_cast<size_t>(addr) & 2) ? false : true;
-    T_int* address_uint32 = reinterpret_cast<T_int*>(
+    auto* address_uint32 = reinterpret_cast<int_t*>(
       reinterpret_cast<size_t>(addr) - (is_32_align ? 0 : 2));
 
-    T_int old = *address_uint32;
-    T_int assumed;
+    int_t old = *address_uint32;
+    int_t assumed;
 
     do {
       assumed = old;
       T target_value = (is_32_align) ? T(old & 0xffff) : T(old >> 16);
-      uint16_t updating_value =
+      auto updating_value =
         type_reinterpret<uint16_t, T>(op(target_value, update_value));
 
-      T_int new_value = (is_32_align)
+      int_t new_value = (is_32_align)
                           ? (old & 0xffff0000) | updating_value
-                          : (old & 0xffff) | (T_int(updating_value) << 16);
+                          : (old & 0xffff) | (int_t(updating_value) << 16);
       old = atomicCAS(address_uint32, assumed, new_value);
     } while (assumed != old);
 
@@ -178,7 +178,7 @@ template <typename T, typename Op>
 struct genericAtomicOperationImpl<T, Op, 4> {
   __forceinline__ __device__ T operator()(T* addr, T const& update_value,
                                           Op op) {
-    using T_int = unsigned int;
+    using int_t = unsigned int;
 
     T old_value = *addr;
     T assumed{old_value};
@@ -187,10 +187,10 @@ struct genericAtomicOperationImpl<T, Op, 4> {
       assumed = old_value;
       const T new_value = op(old_value, update_value);
 
-      T_int ret = atomicCAS(reinterpret_cast<T_int*>(addr),
-                            type_reinterpret<T_int, T>(assumed),
-                            type_reinterpret<T_int, T>(new_value));
-      old_value = type_reinterpret<T, T_int>(ret);
+      int_t ret = atomicCAS(reinterpret_cast<int_t*>(addr),
+                            type_reinterpret<int_t, T>(assumed),
+                            type_reinterpret<int_t, T>(new_value));
+      old_value = type_reinterpret<T, int_t>(ret);
 
     } while (assumed != old_value);
 
@@ -203,8 +203,8 @@ template <typename T, typename Op>
 struct genericAtomicOperationImpl<T, Op, 8> {
   __forceinline__ __device__ T operator()(T* addr, T const& update_value,
                                           Op op) {
-    using T_int = unsigned long long int;
-    static_assert(sizeof(T) == sizeof(T_int), errmsg_cast);
+    using int_t = unsigned long long int;  // NOLINT
+    static_assert(sizeof(T) == sizeof(int_t), errmsg_cast);
 
     T old_value = *addr;
     T assumed{old_value};
@@ -213,10 +213,10 @@ struct genericAtomicOperationImpl<T, Op, 8> {
       assumed = old_value;
       const T new_value = op(old_value, update_value);
 
-      T_int ret = atomicCAS(reinterpret_cast<T_int*>(addr),
-                            type_reinterpret<T_int, T>(assumed),
-                            type_reinterpret<T_int, T>(new_value));
-      old_value = type_reinterpret<T, T_int>(ret);
+      int_t ret = atomicCAS(reinterpret_cast<int_t*>(addr),
+                            type_reinterpret<int_t, T>(assumed),
+                            type_reinterpret<int_t, T>(new_value));
+      old_value = type_reinterpret<T, int_t>(ret);
 
     } while (assumed != old_value);
 
@@ -238,28 +238,28 @@ struct genericAtomicOperationImpl<T, Op, 8> {
 // Then, this computes as `unsigned long long int` with `atomicAdd`
 // @sa https://en.wikipedia.org/wiki/Two%27s_complement
 template <>
-struct genericAtomicOperationImpl<long int, DeviceSum, 8> {
-  using T = long int;
-  __forceinline__ __device__ T operator()(T* addr, T const& update_value,
-                                          DeviceSum op) {
-    using T_int = unsigned long long int;
-    static_assert(sizeof(T) == sizeof(T_int), errmsg_cast);
-    T_int ret = atomicAdd(reinterpret_cast<T_int*>(addr),
-                          type_reinterpret<T_int, T>(update_value));
-    return type_reinterpret<T, T_int>(ret);
+struct genericAtomicOperationImpl<long int, device_sum, 8> {  // NOLINT
+  using input_t = long int;  // NOLINT
+  __forceinline__ __device__ input_t operator()(input_t* addr, input_t const& update_value,
+                                                device_sum op) {
+    using int_t = unsigned long long int;  // NOLINT
+    static_assert(sizeof(input_t) == sizeof(int_t), errmsg_cast);
+    int_t ret = atomicAdd(reinterpret_cast<int_t*>(addr),
+                          type_reinterpret<int_t, input_t>(update_value));
+    return type_reinterpret<input_t, int_t>(ret);
   }
 };
 
 template <>
-struct genericAtomicOperationImpl<unsigned long int, DeviceSum, 8> {
-  using T = unsigned long int;
-  __forceinline__ __device__ T operator()(T* addr, T const& update_value,
-                                          DeviceSum op) {
-    using T_int = unsigned long long int;
-    static_assert(sizeof(T) == sizeof(T_int), errmsg_cast);
-    T_int ret = atomicAdd(reinterpret_cast<T_int*>(addr),
-                          type_reinterpret<T_int, T>(update_value));
-    return type_reinterpret<T, T_int>(ret);
+struct genericAtomicOperationImpl<unsigned long int, device_sum, 8> {  // NOLINT
+  using input_t = unsigned long int;  // NOLINT
+  __forceinline__ __device__ input_t operator()(input_t* addr, input_t const& update_value,
+                                          device_sum op) {
+    using int_t = unsigned long long int;  // NOLINT
+    static_assert(sizeof(input_t) == sizeof(int_t), errmsg_cast);
+    int_t ret = atomicAdd(reinterpret_cast<int_t*>(addr),
+                          type_reinterpret<int_t, input_t>(update_value));
+    return type_reinterpret<input_t, int_t>(ret);
   }
 };
 
@@ -271,77 +271,77 @@ struct genericAtomicOperationImpl<unsigned long int, DeviceSum, 8> {
 // Then, this computes as `unsigned long long int` with `atomicAdd`
 // @sa https://en.wikipedia.org/wiki/Two%27s_complement
 template <>
-struct genericAtomicOperationImpl<long long int, DeviceSum, 8> {
-  using T = long long int;
-  __forceinline__ __device__ T operator()(T* addr, T const& update_value,
-                                          DeviceSum op) {
-    using T_int = unsigned long long int;
-    static_assert(sizeof(T) == sizeof(T_int), errmsg_cast);
-    T_int ret = atomicAdd(reinterpret_cast<T_int*>(addr),
-                          type_reinterpret<T_int, T>(update_value));
-    return type_reinterpret<T, T_int>(ret);
+struct genericAtomicOperationImpl<long long int, device_sum, 8> {  // NOLINT
+  using input_t = long long int;  // NOLINT
+  __forceinline__ __device__ input_t operator()(input_t* addr, input_t const& update_value,
+                                          device_sum op) {
+    using int_t = unsigned long long int;  // NOLINT
+    static_assert(sizeof(input_t) == sizeof(int_t), errmsg_cast);
+    int_t ret = atomicAdd(reinterpret_cast<int_t*>(addr),
+                          type_reinterpret<int_t, T>(update_value));
+    return type_reinterpret<T, int_t>(ret);
   }
 };
 
 template <>
-struct genericAtomicOperationImpl<unsigned long int, DeviceMin, 8> {
-  using T = unsigned long int;
-  __forceinline__ __device__ T operator()(T* addr, T const& update_value,
-                                          DeviceMin op) {
-    using T_int = unsigned long long int;
-    static_assert(sizeof(T) == sizeof(T_int), errmsg_cast);
-    T ret = atomicMin(reinterpret_cast<T_int*>(addr),
-                      type_reinterpret<T_int, T>(update_value));
-    return type_reinterpret<T, T_int>(ret);
+struct genericAtomicOperationImpl<unsigned long int, device_min, 8> {  // NOLINT
+  using input_t = unsigned long int;  // NOLINT
+  __forceinline__ __device__ input_t operator()(input_t* addr, input_t const& update_value,
+                                          device_min op) {
+    using int_t = unsigned long long int;  // NOLINT
+    static_assert(sizeof(input_t) == sizeof(int_t), errmsg_cast);
+    input_t ret = atomicMin(reinterpret_cast<int_t*>(addr),
+                      type_reinterpret<int_t, input_t>(update_value));
+    return type_reinterpret<input_t, int_t>(ret);
   }
 };
 
 template <>
-struct genericAtomicOperationImpl<unsigned long int, DeviceMax, 8> {
-  using T = unsigned long int;
-  __forceinline__ __device__ T operator()(T* addr, T const& update_value,
-                                          DeviceMax op) {
-    using T_int = unsigned long long int;
-    static_assert(sizeof(T) == sizeof(T_int), errmsg_cast);
-    T ret = atomicMax(reinterpret_cast<T_int*>(addr),
-                      type_reinterpret<T_int, T>(update_value));
-    return type_reinterpret<T, T_int>(ret);
+struct genericAtomicOperationImpl<unsigned long int, device_max, 8> {  // NOLINT
+  using input_t = unsigned long int;  // NOLINT
+  __forceinline__ __device__ input_t operator()(input_t* addr, input_t const& update_value,
+                                          device_max op) {
+    using int_t = unsigned long long int;  // NOLINT
+    static_assert(sizeof(T) == sizeof(int_t), errmsg_cast);
+    input_t ret = atomicMax(reinterpret_cast<int_t*>(addr),
+                            type_reinterpret<int_t, input_t>(update_value));
+    return type_reinterpret<input_t, int_t>(ret);
   }
 };
 
 template <typename T>
-struct genericAtomicOperationImpl<T, DeviceAnd, 8> {
+struct genericAtomicOperationImpl<T, device_and, 8> {
   __forceinline__ __device__ T operator()(T* addr, T const& update_value,
-                                          DeviceAnd op) {
-    using T_int = unsigned long long int;
-    static_assert(sizeof(T) == sizeof(T_int), errmsg_cast);
-    T_int ret = atomicAnd(reinterpret_cast<T_int*>(addr),
-                          type_reinterpret<T_int, T>(update_value));
-    return type_reinterpret<T, T_int>(ret);
+                                          device_and op) {
+    using int_t = unsigned long long int;  // NOLINT
+    static_assert(sizeof(T) == sizeof(int_t), errmsg_cast);
+    int_t ret = atomicAnd(reinterpret_cast<int_t*>(addr),
+                          type_reinterpret<int_t, T>(update_value));
+    return type_reinterpret<T, int_t>(ret);
   }
 };
 
 template <typename T>
-struct genericAtomicOperationImpl<T, DeviceOr, 8> {
+struct genericAtomicOperationImpl<T, device_or, 8> {
   __forceinline__ __device__ T operator()(T* addr, T const& update_value,
-                                          DeviceOr op) {
-    using T_int = unsigned long long int;
-    static_assert(sizeof(T) == sizeof(T_int), errmsg_cast);
-    T_int ret = atomicOr(reinterpret_cast<T_int*>(addr),
-                         type_reinterpret<T_int, T>(update_value));
-    return type_reinterpret<T, T_int>(ret);
+                                          device_or op) {
+    using int_t = unsigned long long int;  // NOLINT
+    static_assert(sizeof(T) == sizeof(int_t), errmsg_cast);
+    int_t ret = atomicOr(reinterpret_cast<int_t*>(addr),
+                         type_reinterpret<int_t, T>(update_value));
+    return type_reinterpret<T, int_t>(ret);
   }
 };
 
 template <typename T>
-struct genericAtomicOperationImpl<T, DeviceXor, 8> {
+struct genericAtomicOperationImpl<T, device_xor, 8> {
   __forceinline__ __device__ T operator()(T* addr, T const& update_value,
-                                          DeviceXor op) {
-    using T_int = unsigned long long int;
-    static_assert(sizeof(T) == sizeof(T_int), errmsg_cast);
-    T_int ret = atomicXor(reinterpret_cast<T_int*>(addr),
-                          type_reinterpret<T_int, T>(update_value));
-    return type_reinterpret<T, T_int>(ret);
+                                          device_xor op) {
+    using int_t = unsigned long long int;  // NOLINT
+    static_assert(sizeof(T) == sizeof(int_t), errmsg_cast);
+    int_t ret = atomicXor(reinterpret_cast<int_t*>(addr),
+                          type_reinterpret<int_t, T>(update_value));
+    return type_reinterpret<T, int_t>(ret);
   }
 };
 
@@ -355,17 +355,17 @@ template <typename T>
 struct typesAtomicCASImpl<T, 1> {
   __forceinline__ __device__ T operator()(T* addr, T const& compare,
                                           T const& update_value) {
-    using T_int = unsigned int;
+    using int_t = unsigned int;
 
-    T_int shift = ((reinterpret_cast<size_t>(addr) & 3) * 8);
-    T_int* address_uint32 =
-      reinterpret_cast<T_int*>(addr - (reinterpret_cast<size_t>(addr) & 3));
+    int_t shift = ((reinterpret_cast<size_t>(addr) & 3) * 8);
+    auto* address_uint32 =
+      reinterpret_cast<int_t*>(addr - (reinterpret_cast<size_t>(addr) & 3));
 
     // the 'target_value' in `old` can be different from `compare`
     // because other thread may update the value
     // before fetching a value from `address_uint32` in this function
-    T_int old = *address_uint32;
-    T_int assumed;
+    int_t old = *address_uint32;
+    int_t assumed;
     T target_value;
     uint8_t u_val = type_reinterpret<uint8_t, T>(update_value);
 
@@ -376,8 +376,8 @@ struct typesAtomicCASImpl<T, 1> {
       // the `target_value` in `old` can be different with `compare`
       if (target_value != compare) break;
 
-      T_int new_value =
-        (old & ~(0x000000ff << shift)) | (T_int(u_val) << shift);
+      int_t new_value =
+        (old & ~(0x000000ff << shift)) | (int_t(u_val) << shift);
       old = atomicCAS(address_uint32, assumed, new_value);
     } while (assumed != old);
 
@@ -389,14 +389,14 @@ template <typename T>
 struct typesAtomicCASImpl<T, 2> {
   __forceinline__ __device__ T operator()(T* addr, T const& compare,
                                           T const& update_value) {
-    using T_int = unsigned int;
+    using int_t = unsigned int;
 
     bool is_32_align = (reinterpret_cast<size_t>(addr) & 2) ? false : true;
-    T_int* address_uint32 = reinterpret_cast<T_int*>(
+    auto* address_uint32 = reinterpret_cast<int_t*>(
       reinterpret_cast<size_t>(addr) - (is_32_align ? 0 : 2));
 
-    T_int old = *address_uint32;
-    T_int assumed;
+    int_t old = *address_uint32;
+    int_t assumed;
     T target_value;
     uint16_t u_val = type_reinterpret<uint16_t, T>(update_value);
 
@@ -405,8 +405,8 @@ struct typesAtomicCASImpl<T, 2> {
       target_value = (is_32_align) ? T(old & 0xffff) : T(old >> 16);
       if (target_value != compare) break;
 
-      T_int new_value = (is_32_align) ? (old & 0xffff0000) | u_val
-                                      : (old & 0xffff) | (T_int(u_val) << 16);
+      int_t new_value = (is_32_align) ? (old & 0xffff0000) | u_val
+                                      : (old & 0xffff) | (int_t(u_val) << 16);
       old = atomicCAS(address_uint32, assumed, new_value);
     } while (assumed != old);
 
@@ -418,13 +418,13 @@ template <typename T>
 struct typesAtomicCASImpl<T, 4> {
   __forceinline__ __device__ T operator()(T* addr, T const& compare,
                                           T const& update_value) {
-    using T_int = unsigned int;
+    using int_t = unsigned int;
 
-    T_int ret = atomicCAS(reinterpret_cast<T_int*>(addr),
-                          type_reinterpret<T_int, T>(compare),
-                          type_reinterpret<T_int, T>(update_value));
+    int_t ret = atomicCAS(reinterpret_cast<int_t*>(addr),
+                          type_reinterpret<int_t, T>(compare),
+                          type_reinterpret<int_t, T>(update_value));
 
-    return type_reinterpret<T, T_int>(ret);
+    return type_reinterpret<T, int_t>(ret);
   }
 };
 
@@ -433,14 +433,14 @@ template <typename T>
 struct typesAtomicCASImpl<T, 8> {
   __forceinline__ __device__ T operator()(T* addr, T const& compare,
                                           T const& update_value) {
-    using T_int = unsigned long long int;
-    static_assert(sizeof(T) == sizeof(T_int), errmsg_cast);
+    using int_t = unsigned long long int;  // NOLINT
+    static_assert(sizeof(T) == sizeof(int_t), errmsg_cast);
 
-    T_int ret = atomicCAS(reinterpret_cast<T_int*>(addr),
-                          type_reinterpret<T_int, T>(compare),
-                          type_reinterpret<T_int, T>(update_value));
+    int_t ret = atomicCAS(reinterpret_cast<int_t*>(addr),
+                          type_reinterpret<int_t, T>(compare),
+                          type_reinterpret<int_t, T>(update_value));
 
-    return type_reinterpret<T, T_int>(ret);
+    return type_reinterpret<T, int_t>(ret);
   }
 };
 
@@ -486,6 +486,9 @@ __forceinline__ __device__ bool genericAtomicOperation(bool* address,
 
 }  // namespace raft
 
+// NOTE: the below method names have NOLINT against them because we want their
+//       names to reflect those corresponding ones in the cudart library
+
 /**
  * @brief Overloads for `atomicAdd`
  *
@@ -502,9 +505,9 @@ __forceinline__ __device__ bool genericAtomicOperation(bool* address,
  * @returns The old value at `address`
  */
 template <typename T>
-__forceinline__ __device__ T atomicAdd(T* address, T val) {
+__forceinline__ __device__ T atomicAdd(T* address, T val) {  // NOLINT
   return raft::genericAtomicOperation(
-    address, val, raft::device_atomics::detail::DeviceSum{});
+    address, val, raft::device_atomics::detail::device_sum{});
 }
 
 /**
@@ -523,9 +526,9 @@ __forceinline__ __device__ T atomicAdd(T* address, T val) {
  * @returns The old value at `address`
  */
 template <typename T>
-__forceinline__ __device__ T atomicMin(T* address, T val) {
+__forceinline__ __device__ T atomicMin(T* address, T val) {  // NOLINT
   return raft::genericAtomicOperation(
-    address, val, raft::device_atomics::detail::DeviceMin{});
+    address, val, raft::device_atomics::detail::device_min{});
 }
 
 /**
@@ -544,9 +547,9 @@ __forceinline__ __device__ T atomicMin(T* address, T val) {
  * @returns The old value at `address`
  */
 template <typename T>
-__forceinline__ __device__ T atomicMax(T* address, T val) {
+__forceinline__ __device__ T atomicMax(T* address, T val) {  // NOLINT
   return raft::genericAtomicOperation(
-    address, val, raft::device_atomics::detail::DeviceMax{});
+    address, val, raft::device_atomics::detail::device_max{});
 }
 
 /**
@@ -566,7 +569,7 @@ __forceinline__ __device__ T atomicMax(T* address, T val) {
  * @returns The old value at `address`
  */
 template <typename T>
-__forceinline__ __device__ T atomicCAS(T* address, T compare, T val) {
+__forceinline__ __device__ T atomicCAS(T* address, T compare, T val) {  // NOLINT
   return raft::device_atomics::detail::typesAtomicCASImpl<T>()(address, compare,
                                                                val);
 }
@@ -588,9 +591,9 @@ __forceinline__ __device__ T atomicCAS(T* address, T compare, T val) {
  */
 template <typename T,
           typename std::enable_if_t<std::is_integral<T>::value, T>* = nullptr>
-__forceinline__ __device__ T atomicAnd(T* address, T val) {
+__forceinline__ __device__ T atomicAnd(T* address, T val) {  // NOLINT
   return raft::genericAtomicOperation(
-    address, val, raft::device_atomics::detail::DeviceAnd{});
+    address, val, raft::device_atomics::detail::device_and{});
 }
 
 /**
@@ -610,9 +613,9 @@ __forceinline__ __device__ T atomicAnd(T* address, T val) {
  */
 template <typename T,
           typename std::enable_if_t<std::is_integral<T>::value, T>* = nullptr>
-__forceinline__ __device__ T atomicOr(T* address, T val) {
+__forceinline__ __device__ T atomicOr(T* address, T val) {  // NOLINT
   return raft::genericAtomicOperation(address, val,
-                                      raft::device_atomics::detail::DeviceOr{});
+                                      raft::device_atomics::detail::device_or{});
 }
 
 /**
@@ -632,7 +635,7 @@ __forceinline__ __device__ T atomicOr(T* address, T val) {
  */
 template <typename T,
           typename std::enable_if_t<std::is_integral<T>::value, T>* = nullptr>
-__forceinline__ __device__ T atomicXor(T* address, T val) {
+__forceinline__ __device__ T atomicXor(T* address, T val) {  // NOLINT
   return raft::genericAtomicOperation(
-    address, val, raft::device_atomics::detail::DeviceXor{});
+    address, val, raft::device_atomics::detail::device_xor{});
 }

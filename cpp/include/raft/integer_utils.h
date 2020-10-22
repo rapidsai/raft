@@ -81,7 +81,7 @@ namespace detail {
 template <typename I>
 constexpr inline I div_rounding_up_safe(std::integral_constant<bool, false>,
                                         I dividend, I divisor) noexcept {
-  // TODO: This could probably be implemented faster
+  // TODO(kaatish): This could probably be implemented faster
   return (dividend > divisor)
            ? 1 + div_rounding_up_unsafe(dividend - divisor, divisor)
            : (dividend > 0);
