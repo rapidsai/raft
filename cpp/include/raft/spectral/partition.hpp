@@ -15,8 +15,8 @@
  */
 #pragma once
 
-#include <math.h>
-#include <stdio.h>
+#include <cmath>
+#include <cstdio>
 
 #include <cuda.h>
 #include <thrust/device_vector.h>

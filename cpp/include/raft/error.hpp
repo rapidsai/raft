@@ -33,7 +33,7 @@ namespace raft {
 class exception : public std::exception {
  public:
   /** default ctor */
-  explicit exception() noexcept : std::exception(), msg_() {}
+  explicit exception() noexcept = default;
 
   /** copy ctor */
   exception(exception const& src) noexcept

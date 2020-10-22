@@ -151,7 +151,7 @@ void transform_eigen_matrix(handle_t const& handle,
   }
 
   // Transpose eigenvector matrix
-  //   TODO: in-place transpose
+  //   TODO(aschaffer): in-place transpose
   {
     vector_t<weight_t> work(handle, nEigVecs * n);
     CUBLAS_CHECK(
