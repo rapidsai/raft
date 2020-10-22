@@ -237,6 +237,7 @@ if(BUILD_RAFT_TESTS)
     test/integer_utils.cpp
     test/linalg/add.cu
     test/linalg/binary_op.cu
+    test/linalg/coalesced_reduction.cu
     test/linalg/divide.cu
     test/linalg/eig.cu
     test/linalg/eig_sel.cu
@@ -244,6 +245,9 @@ if(BUILD_RAFT_TESTS)
     test/linalg/map_then_reduce.cu
     test/linalg/matrix_vector_op.cu
     test/linalg/multiply.cu
+    test/linalg/norm.cu
+    test/linalg/reduce.cu
+    test/linalg/strided_reduction.cu
     test/linalg/subtract.cu
     test/linalg/svd.cu
     test/linalg/transpose.cu
@@ -258,6 +262,7 @@ if(BUILD_RAFT_TESTS)
     test/stats/mean.cu
     test/stats/mean_center.cu
     test/stats/stddev.cu
+    test/stats/sum.cu
     test/test.cpp
     test/spectral_matrix.cu
     test/eigen_solvers.cu
