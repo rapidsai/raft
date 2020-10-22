@@ -107,7 +107,7 @@ int performLanczosIteration(
 
   RAFT_EXPECTS(A != nullptr, "Null matrix pointer.");
 
-  index_type_t n = A->nrows_;
+  index_type_t n = A->nrows;
 
   // -------------------------------------------------------
   // Compute second Lanczos vector
@@ -667,7 +667,7 @@ int computeSmallestEigenvectors(
   constexpr value_type_t zero = 0;
 
   // Matrix dimension
-  index_type_t n = A->nrows_;
+  index_type_t n = A->nrows;
 
   // Shift for implicit restart
   value_type_t shiftUpper;
@@ -878,7 +878,7 @@ int computeSmallestEigenvectors(
   using namespace spectral;
 
   // Matrix dimension
-  index_type_t n = A.nrows_;
+  index_type_t n = A.nrows;
 
   // Check that parameters are valid
   RAFT_EXPECTS(nEigVecs > 0 && nEigVecs <= n,
@@ -975,7 +975,7 @@ int computeLargestEigenvectors(
   constexpr value_type_t zero = 0;
 
   // Matrix dimension
-  index_type_t n = A->nrows_;
+  index_type_t n = A->nrows;
 
   // Lanczos iteration counters
   index_type_t maxIter_curr = restartIter;  // Maximum size of Lanczos system
@@ -1197,7 +1197,7 @@ int computeLargestEigenvectors(
   value_type_t *__restrict__ eigVals_dev,
   value_type_t *__restrict__ eigVecs_dev, unsigned long long seed = 123456) {
   // Matrix dimension
-  index_type_t n = A.nrows_;
+  index_type_t n = A.nrows;
 
   // Check that parameters are valid
   RAFT_EXPECTS(nEigVecs > 0 && nEigVecs <= n,

@@ -96,7 +96,7 @@ std::tuple<vertex_t, weight_t, vertex_t> modularity_maximization(
   std::tuple<vertex_t, weight_t, vertex_t>
     stats;  // # iters eigen solver, cluster solver residual, # iters cluster solver
 
-  vertex_t n = csr_m.nrows_;
+  vertex_t n = csr_m.nrows;
 
   // Compute eigenvectors of Modularity Matrix
 
@@ -148,7 +148,7 @@ void analyzeModularity(handle_t const &handle,
   RAFT_EXPECTS(clusters != nullptr, "Null clusters buffer.");
 
   vertex_t i;
-  vertex_t n = csr_m.nrows_;
+  vertex_t n = csr_m.nrows;
   weight_t partModularity, clustersize;
 
   auto cublas_h = handle.get_cublas_handle();
@@ -180,7 +180,7 @@ void analyzeModularity(handle_t const &handle,
     modularity += partModularity;
   }
 
-  modularity = modularity / B.diagonal_.nrm1(thrust_exec_policy);
+  modularity = modularity / B.diagonal.nrm1(thrust_exec_policy);
 }
 
 }  // namespace spectral

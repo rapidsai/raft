@@ -278,8 +278,8 @@ struct genericAtomicOperationImpl<long long int, device_sum, 8> {  // NOLINT
     using int_t = unsigned long long int;  // NOLINT
     static_assert(sizeof(input_t) == sizeof(int_t), errmsg_cast);
     int_t ret = atomicAdd(reinterpret_cast<int_t*>(addr),
-                          type_reinterpret<int_t, T>(update_value));
-    return type_reinterpret<T, int_t>(ret);
+                          type_reinterpret<int_t, input_t>(update_value));
+    return type_reinterpret<input_t, int_t>(ret);
   }
 };
 
@@ -302,7 +302,7 @@ struct genericAtomicOperationImpl<unsigned long int, device_max, 8> {  // NOLINT
   __forceinline__ __device__ input_t operator()(input_t* addr, input_t const& update_value,
                                           device_max op) {
     using int_t = unsigned long long int;  // NOLINT
-    static_assert(sizeof(T) == sizeof(int_t), errmsg_cast);
+    static_assert(sizeof(input_t) == sizeof(int_t), errmsg_cast);
     input_t ret = atomicMax(reinterpret_cast<int_t*>(addr),
                             type_reinterpret<int_t, input_t>(update_value));
     return type_reinterpret<input_t, int_t>(ret);

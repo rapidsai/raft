@@ -79,7 +79,7 @@ std::tuple<vertex_t, weight_t, vertex_t> partition(
   std::tuple<vertex_t, weight_t, vertex_t>
     stats;  //{iters_eig_solver,residual_cluster,iters_cluster_solver} // # iters eigen solver, cluster solver residual, # iters cluster solver
 
-  vertex_t n = csr_m.nrows_;
+  vertex_t n = csr_m.nrows;
 
   // -------------------------------------------------------
   // Spectral partitioner
@@ -138,7 +138,7 @@ void analyzePartition(handle_t const &handle,
   RAFT_EXPECTS(clusters != nullptr, "Null clusters buffer.");
 
   vertex_t i;
-  vertex_t n = csr_m.nrows_;
+  vertex_t n = csr_m.nrows;
 
   auto cublas_h = handle.get_cublas_handle();
   auto stream = handle.get_stream();
