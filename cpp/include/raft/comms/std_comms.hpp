@@ -123,8 +123,8 @@ class std_comms : public comms_iface {
     update_device(d_keys.data() + get_rank(), &key, 1, stream_);
 
     allgather(d_colors.data() + get_rank(), d_colors.data(), 1,
-              datatype_t::INT32, stream_);
-    allgather(d_keys.data() + get_rank(), d_keys.data(), 1, datatype_t::INT32,
+              DataTypeT::kInt32, stream_);
+    allgather(d_keys.data() + get_rank(), d_keys.data(), 1, DataTypeT::kInt32,
               stream_);
     this->sync_stream(stream_);
 
@@ -183,9 +183,9 @@ class std_comms : public comms_iface {
     CUDA_CHECK(cudaMemsetAsync(sendbuff_, 1, sizeof(int), stream_));
     CUDA_CHECK(cudaMemsetAsync(recvbuff_, 1, sizeof(int), stream_));
 
-    allreduce(sendbuff_, recvbuff_, 1, datatype_t::INT32, op_t::SUM, stream_);
+    allreduce(sendbuff_, recvbuff_, 1, DataTypeT::kInt32, OpT::kSum, stream_);
 
-    ASSERT(sync_stream(stream_) == status_t::SUCCESS,
+    ASSERT(sync_stream(stream_) == StatusT::kSuccess,
            "ERROR: syncStream failed. This can be caused by a failed rank_.");
   }
 
@@ -236,7 +236,7 @@ class std_comms : public comms_iface {
     requests_in_flight_.insert(std::make_pair(*request, ucp_req));
   }
 
-  void waitall(int count, request_t array_of_requests[]) const {
+  void waitall(int count, request_t* array_of_requests) const {
     ASSERT(ucp_worker_ != nullptr,
            "ERROR: UCX comms not initialized on communicator.");
 
@@ -307,33 +307,33 @@ class std_comms : public comms_iface {
   }
 
   void allreduce(const void *sendbuff, void *recvbuff, size_t count,
-                 datatype_t datatype, op_t op, cudaStream_t stream) const {
+                 DataTypeT datatype, OpT op, cudaStream_t stream) const {
     NCCL_TRY(ncclAllReduce(sendbuff, recvbuff, count,
                            get_nccl_datatype(datatype), get_nccl_op(op),
                            nccl_comm_, stream));
   }
 
-  void bcast(void *buff, size_t count, datatype_t datatype, int root,
+  void bcast(void *buff, size_t count, DataTypeT datatype, int root,
              cudaStream_t stream) const {
     NCCL_TRY(ncclBroadcast(buff, buff, count, get_nccl_datatype(datatype), root,
                            nccl_comm_, stream));
   }
 
   void reduce(const void *sendbuff, void *recvbuff, size_t count,
-              datatype_t datatype, op_t op, int root,
+              DataTypeT datatype, OpT op, int root,
               cudaStream_t stream) const {
     NCCL_TRY(ncclReduce(sendbuff, recvbuff, count, get_nccl_datatype(datatype),
                         get_nccl_op(op), root, nccl_comm_, stream));
   }
 
   void allgather(const void *sendbuff, void *recvbuff, size_t sendcount,
-                 datatype_t datatype, cudaStream_t stream) const {
+                 DataTypeT datatype, cudaStream_t stream) const {
     NCCL_TRY(ncclAllGather(sendbuff, recvbuff, sendcount,
                            get_nccl_datatype(datatype), nccl_comm_, stream));
   }
 
   void allgatherv(const void *sendbuf, void *recvbuf, const size_t *recvcounts,
-                  const size_t *displs, datatype_t datatype,
+                  const size_t *displs, DataTypeT datatype,
                   cudaStream_t stream) const {
     //From: "An Empirical Evaluation of Allgatherv on Multi-GPU Systems" - https://arxiv.org/pdf/1812.05964.pdf
     //Listing 1 on page 4.
@@ -347,28 +347,28 @@ class std_comms : public comms_iface {
   }
 
   void reducescatter(const void *sendbuff, void *recvbuff, size_t recvcount,
-                     datatype_t datatype, op_t op, cudaStream_t stream) const {
+                     DataTypeT datatype, OpT op, cudaStream_t stream) const {
     NCCL_TRY(ncclReduceScatter(sendbuff, recvbuff, recvcount,
                                get_nccl_datatype(datatype), get_nccl_op(op),
                                nccl_comm_, stream));
   }
 
-  status_t sync_stream(cudaStream_t stream) const {
+  StatusT sync_stream(cudaStream_t stream) const {
     cudaError_t cudaErr;
     ncclResult_t ncclErr, ncclAsyncErr;
     while (1) {
       cudaErr = cudaStreamQuery(stream);
-      if (cudaErr == cudaSuccess) return status_t::SUCCESS;
+      if (cudaErr == cudaSuccess) return StatusT::kSuccess;
 
       if (cudaErr != cudaErrorNotReady) {
         // An error occurred querying the status of the stream_
-        return status_t::ERROR;
+        return StatusT::kError;
       }
 
       ncclErr = ncclCommGetAsyncError(nccl_comm_, &ncclAsyncErr);
       if (ncclErr != ncclSuccess) {
         // An error occurred retrieving the asynchronous error
-        return status_t::ERROR;
+        return StatusT::kError;
       }
 
       if (ncclAsyncErr != ncclSuccess) {
@@ -377,7 +377,7 @@ class std_comms : public comms_iface {
         ncclErr = ncclCommAbort(nccl_comm_);
         if (ncclErr != ncclSuccess)
           // Caller may abort with an exception or try to re-create a new communicator.
-          return status_t::ABORT;
+          return StatusT::kAbort;
       }
 
       // Let other threads (including NCCL threads) use the CPU.

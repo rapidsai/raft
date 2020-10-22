@@ -50,61 +50,61 @@
 namespace raft {
 namespace comms {
 
-constexpr size_t get_datatype_size(const datatype_t datatype) {
+constexpr size_t get_datatype_size(const DataTypeT datatype) {
   switch (datatype) {
-    case datatype_t::CHAR:
+    case DataTypeT::kChar:
       return sizeof(char);
-    case datatype_t::UINT8:
+    case DataTypeT::kUint8:
       return sizeof(uint8_t);
-    case datatype_t::INT32:
+    case DataTypeT::kInt32:
       return sizeof(int);
-    case datatype_t::UINT32:
+    case DataTypeT::kUint32:
       return sizeof(unsigned int);
-    case datatype_t::INT64:
+    case DataTypeT::kInt64:
       return sizeof(int64_t);
-    case datatype_t::UINT64:
+    case DataTypeT::kUint64:
       return sizeof(uint64_t);
-    case datatype_t::FLOAT32:
+    case DataTypeT::kFloat32:
       return sizeof(float);
-    case datatype_t::FLOAT64:
+    case DataTypeT::kFloat64:
       return sizeof(double);
     default:
       throw "Unsupported datatype";
   }
 }
 
-constexpr ncclDataType_t get_nccl_datatype(const datatype_t datatype) {
+constexpr ncclDataType_t get_nccl_datatype(const DataTypeT datatype) {
   switch (datatype) {
-    case datatype_t::CHAR:
+    case DataTypeT::kChar:
       return ncclChar;
-    case datatype_t::UINT8:
+    case DataTypeT::kUint8:
       return ncclUint8;
-    case datatype_t::INT32:
+    case DataTypeT::kInt32:
       return ncclInt;
-    case datatype_t::UINT32:
+    case DataTypeT::kUint32:
       return ncclUint32;
-    case datatype_t::INT64:
+    case DataTypeT::kInt64:
       return ncclInt64;
-    case datatype_t::UINT64:
+    case DataTypeT::kUint64:
       return ncclUint64;
-    case datatype_t::FLOAT32:
+    case DataTypeT::kFloat32:
       return ncclFloat;
-    case datatype_t::FLOAT64:
+    case DataTypeT::kFloat64:
       return ncclDouble;
     default:
       throw "Unsupported datatype";
   }
 }
 
-constexpr ncclRedOp_t get_nccl_op(const op_t op) {
+constexpr ncclRedOp_t get_nccl_op(const OpT op) {
   switch (op) {
-    case op_t::SUM:
+    case OpT::kSum:
       return ncclSum;
-    case op_t::PROD:
+    case OpT::kProd:
       return ncclProd;
-    case op_t::MIN:
+    case OpT::kMin:
       return ncclMin;
-    case op_t::MAX:
+    case OpT::kMax:
       return ncclMax;
     default:
       throw "Unsupported datatype";

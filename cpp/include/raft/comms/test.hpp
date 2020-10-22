@@ -42,7 +42,7 @@ bool test_collective_allreduce(const handle_t &handle, int root) {
   CUDA_CHECK(
     cudaMemcpyAsync(temp_d.data(), &send, 1, cudaMemcpyHostToDevice, stream));
 
-  communicator.allreduce(temp_d.data(), temp_d.data(), 1, op_t::SUM, stream);
+  communicator.allreduce(temp_d.data(), temp_d.data(), 1, OpT::kSum, stream);
 
   int temp_h = 0;
   CUDA_CHECK(
@@ -103,7 +103,7 @@ bool test_collective_reduce(const handle_t &handle, int root) {
   CUDA_CHECK(cudaMemcpyAsync(temp_d.data(), &send, sizeof(int),
                              cudaMemcpyHostToDevice, stream));
 
-  communicator.reduce(temp_d.data(), temp_d.data(), 1, op_t::SUM, root, stream);
+  communicator.reduce(temp_d.data(), temp_d.data(), 1, OpT::kSum, root, stream);
   communicator.sync_stream(stream);
   int temp_h = -1;  // Verify more than one byte is being sent
   CUDA_CHECK(cudaMemcpyAsync(&temp_h, temp_d.data(), sizeof(int),
@@ -170,7 +170,7 @@ bool test_collective_reducescatter(const handle_t &handle, int root) {
   CUDA_CHECK(cudaMemcpyAsync(temp_d.data(), &send, sizeof(int),
                              cudaMemcpyHostToDevice, stream));
 
-  communicator.reducescatter(temp_d.data(), recv_d.data(), 1, op_t::SUM,
+  communicator.reducescatter(temp_d.data(), recv_d.data(), 1, OpT::kSum,
                              stream);
   communicator.sync_stream(stream);
   int temp_h = -1;  // Verify more than one byte is being sent

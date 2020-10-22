@@ -59,23 +59,23 @@
 namespace raft {
 namespace comms {
 
-constexpr MPI_Datatype get_mpi_datatype(const datatype_t datatype) {
+constexpr MPI_Datatype get_mpi_datatype(const DataTypeT datatype) {
   switch (datatype) {
-    case datatype_t::CHAR:
-      return MPI_CHAR;
-    case datatype_t::UINT8:
-      return MPI_UNSIGNED_CHAR;
-    case datatype_t::INT32:
+    case DataTypeT::kChar:
+      return MPI_kChar;
+    case DataTypeT::kUint8:
+      return MPI_UNSIGNED_kChar;
+    case DataTypeT::kInt32:
       return MPI_INT;
-    case datatype_t::UINT32:
+    case DataTypeT::UkInt32:
       return MPI_UNSIGNED;
-    case datatype_t::INT64:
+    case DataTypeT::kInt64:
       return MPI_LONG_LONG;
-    case datatype_t::UINT64:
+    case DataTypeT::UkInt64:
       return MPI_UNSIGNED_LONG_LONG;
-    case datatype_t::FLOAT32:
+    case DataTypeT::kFloat32:
       return MPI_FLOAT;
-    case datatype_t::FLOAT64:
+    case DataTypeT::kFloat64:
       return MPI_DOUBLE;
     default:
       // Execution should never reach here. This takes care of compiler warning.
@@ -83,15 +83,15 @@ constexpr MPI_Datatype get_mpi_datatype(const datatype_t datatype) {
   }
 }
 
-constexpr MPI_Op get_mpi_op(const op_t op) {
+constexpr MPI_Op get_mpi_op(const OpT op) {
   switch (op) {
-    case op_t::SUM:
+    case OpT::kSum:
       return MPI_SUM;
-    case op_t::PROD:
+    case OpT::kProd:
       return MPI_PROD;
-    case op_t::MIN:
+    case OpT::kMin:
       return MPI_MIN;
-    case op_t::MAX:
+    case OpT::kMax:
       return MPI_MAX;
     default:
       // Execution should never reach here. This takes care of compiler warning.
@@ -177,7 +177,7 @@ class mpi_comms : public comms_iface {
     *request = req_id;
   }
 
-  void waitall(int count, request_t array_of_requests[]) const {
+  void waitall(int count, request_t* array_of_requests) const {
     std::vector<MPI_Request> requests;
     requests.reserve(count);
     for (int i = 0; i < count; ++i) {
@@ -193,33 +193,33 @@ class mpi_comms : public comms_iface {
   }
 
   void allreduce(const void* sendbuff, void* recvbuff, size_t count,
-                 datatype_t datatype, op_t op, cudaStream_t stream) const {
+                 DataTypeT datatype, OpT op, cudaStream_t stream) const {
     NCCL_TRY(ncclAllReduce(sendbuff, recvbuff, count,
                            get_nccl_datatype(datatype), get_nccl_op(op),
                            nccl_comm_, stream));
   }
 
-  void bcast(void* buff, size_t count, datatype_t datatype, int root,
+  void bcast(void* buff, size_t count, DataTypeT datatype, int root,
              cudaStream_t stream) const {
     NCCL_TRY(ncclBroadcast(buff, buff, count, get_nccl_datatype(datatype), root,
                            nccl_comm_, stream));
   }
 
   void reduce(const void* sendbuff, void* recvbuff, size_t count,
-              datatype_t datatype, op_t op, int root,
+              DataTypeT datatype, OpT op, int root,
               cudaStream_t stream) const {
     NCCL_TRY(ncclReduce(sendbuff, recvbuff, count, get_nccl_datatype(datatype),
                         get_nccl_op(op), root, nccl_comm_, stream));
   }
 
   void allgather(const void* sendbuff, void* recvbuff, size_t sendcount,
-                 datatype_t datatype, cudaStream_t stream) const {
+                 DataTypeT datatype, cudaStream_t stream) const {
     NCCL_TRY(ncclAllGather(sendbuff, recvbuff, sendcount,
                            get_nccl_datatype(datatype), nccl_comm_, stream));
   }
 
   void allgatherv(const void* sendbuf, void* recvbuf, const size_t* recvcounts,
-                  const size_t* displs, datatype_t datatype,
+                  const size_t* displs, DataTypeT datatype,
                   cudaStream_t stream) const {
     //From: "An Empirical Evaluation of Allgatherv on Multi-GPU Systems" - https://arxiv.org/pdf/1812.05964.pdf
     //Listing 1 on page 4.
@@ -233,28 +233,28 @@ class mpi_comms : public comms_iface {
   }
 
   void reducescatter(const void* sendbuff, void* recvbuff, size_t recvcount,
-                     datatype_t datatype, op_t op, cudaStream_t stream) const {
+                     DataTypeT datatype, OpT op, cudaStream_t stream) const {
     NCCL_TRY(ncclReduceScatter(sendbuff, recvbuff, recvcount,
                                get_nccl_datatype(datatype), get_nccl_op(op),
                                nccl_comm_, stream));
   }
 
-  status_t sync_stream(cudaStream_t stream) const {
+  StatusT sync_stream(cudaStream_t stream) const {
     cudaError_t cudaErr;
     ncclResult_t ncclErr, ncclAsyncErr;
     while (1) {
       cudaErr = cudaStreamQuery(stream);
-      if (cudaErr == cudaSuccess) return status_t::SUCCESS;
+      if (cudaErr == cudaSuccess) return StatusT::kSuccess;
 
       if (cudaErr != cudaErrorNotReady) {
         // An error occurred querying the status of the stream
-        return status_t::ERROR;
+        return StatusT::kError;
       }
 
       ncclErr = ncclCommGetAsyncError(nccl_comm_, &ncclAsyncErr);
       if (ncclErr != ncclSuccess) {
         // An error occurred retrieving the asynchronous error
-        return status_t::ERROR;
+        return StatusT::kError;
       }
 
       if (ncclAsyncErr != ncclSuccess) {
@@ -263,7 +263,7 @@ class mpi_comms : public comms_iface {
         ncclErr = ncclCommAbort(nccl_comm_);
         if (ncclErr != ncclSuccess)
           // Caller may abort with an exception or try to re-create a new communicator.
-          return status_t::ABORT;
+          return StatusT::kAbort;
       }
 
       // Let other threads (including NCCL threads) use the CPU.
