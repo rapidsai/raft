@@ -4,6 +4,7 @@
 
 ## Improvements
 - PR #85: clang-tidy fixes
+- PR #73: Move DistanceType enum from cuML to RAFT
 
 ## Bug Fixes
 - PR #77: Fixing CUB include for CUDA < 11
