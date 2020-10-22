@@ -19,6 +19,7 @@
 #include <cub/cub.cuh>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/eltwise.cuh>
+#include <raft/error.hpp>
 
 namespace raft {
 namespace stats {
