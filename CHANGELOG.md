@@ -3,6 +3,7 @@
 ## New Features
 
 ## Improvements
+- PR #85: clang-tidy fixes
 
 ## Bug Fixes
 - PR #77: Fixing CUB include for CUDA < 11
