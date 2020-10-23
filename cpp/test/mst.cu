@@ -27,12 +27,10 @@
 #include <raft/sparse/mst.cuh>
 
 template <typename vertex_t, typename edge_t, typename value_t>
-struct csr_t {
-  vertex_t *offsets;
-  edge_t *indices;
-  value_t *weights;
-  vertex_t n_vertices;
-  edge_t n_edges;
+struct CSRHost {
+  std::vector<vertex_t> offsets;
+  std::vector<edge_t> indices;
+  std::vector<value_t> weights;
 };
 
 namespace raft {
@@ -41,7 +39,7 @@ namespace mst {
 // Sequential prims function
 // Returns total weight of MST
 template <typename vertex_t, typename edge_t, typename value_t>
-value_t prims(csr_t<vertex_t, edge_t, value_t> &csr_h) {
+value_t prims(CSRHost<vertex_t, edge_t, value_t> &csr_h) {
   std::cout << csr_h.n_vertices;
   bool active_vertex[csr_h.n_vertices];
   // bool mst_set[csr_h.n_edges];
@@ -106,10 +104,10 @@ value_t prims(csr_t<vertex_t, edge_t, value_t> &csr_h) {
 }
 
 template <typename vertex_t, typename edge_t, typename value_t>
-class MSTTest : public ::testing::TestWithParam<csr_t<vertex_t, edge_t, value_t>> {
+class MSTTest : public ::testing::TestWithParam<CSRHost<vertex_t, edge_t, value_t>> {
   protected:
     void mst_sequential() {
-      csr_h = ::testing::TestWithParam<csr_t<vertex_t, edge_t, value_t>>::GetParam();
+      csr_h = ::testing::TestWithParam<CSRHost<vertex_t, edge_t, value_t>>::GetParam();
 
       rmm::device_vector<vertex_t> mst_src;
       rmm::device_vector<vertex_t> mst_dst;
@@ -141,7 +139,7 @@ class MSTTest : public ::testing::TestWithParam<csr_t<vertex_t, edge_t, value_t>
     }
   
   protected:
-    csr_t<vertex_t, edge_t, value_t> csr_h, csr_d;
+    CSRHost<vertex_t, edge_t, value_t> csr_h;
 
     raft::handle_t handle;
 };
@@ -154,16 +152,14 @@ Graph 1:
 (2)   (3)
 
 */
-constexpr csr_t<int, int, int> graph1() {
-  int offsets[5] = {0, 3, 5, 7, 8};
-  int indices[8] = {1, 2, 3, 0, 3, 0, 0, 1};
-  int weights[8] = {2, 3, 4, 2, 1, 3, 4, 1};
-  return csr_t<int, int, int> {offsets, indices, weights, 4, 8};
-}
 
-const std::vector<csr_t<int, int, int>> csr_in_h = {
+const std::vector<CSRHost<int, int, int>> csr_in_h = {
   // {nullptr, nullptr, nullptr, 0, 0},
-  graph1()
+  {
+    {0, 3, 5, 7, 8},
+    {1, 2, 3, 0, 3, 0, 0, 1},
+    {2, 3, 4, 2, 1, 3, 4, 1}
+  }
 };
 
 typedef MSTTest<int, int, int> MSTTestSequential;
