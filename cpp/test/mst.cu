@@ -33,6 +33,13 @@ struct CSRHost {
   std::vector<value_t> weights;
 };
 
+template <typename vertex_t, typename edge_t, typename value_t>
+struct CSRDevice {
+  rmm::device_vector<vertex_t> offsets;
+  rmm::device_vector<edge_t> indices;
+  rmm::device_vector<value_t> weights;
+};
+
 namespace raft {
 namespace mst {
 
@@ -40,12 +47,14 @@ namespace mst {
 // Returns total weight of MST
 template <typename vertex_t, typename edge_t, typename value_t>
 value_t prims(CSRHost<vertex_t, edge_t, value_t> &csr_h) {
-  std::cout << csr_h.n_vertices;
-  bool active_vertex[csr_h.n_vertices];
-  // bool mst_set[csr_h.n_edges];
-  value_t curr_edge[csr_h.n_vertices];
 
-  for (auto i = 0; i < csr_h.n_vertices; i++) {
+  auto n_vertices = csr_h.offsets.size() - 1;
+
+  bool active_vertex[n_vertices];
+  // bool mst_set[csr_h.n_edges];
+  value_t curr_edge[n_vertices];
+
+  for (auto i = 0; i < n_vertices; i++) {
     active_vertex[i] = false;
     curr_edge[i] = INT_MAX;
   }
@@ -71,9 +80,9 @@ value_t prims(CSRHost<vertex_t, edge_t, value_t> &csr_h) {
   };
 
   // iterate over n vertices
-  for (auto v = 0; v < csr_h.n_vertices - 1; v++) {
+  for (auto v = 0; v < n_vertices - 1; v++) {
     // pick min vertex-edge
-    vertex_t curr_v = min_vertex_edge(curr_edge, active_vertex, csr_h.n_vertices);
+    vertex_t curr_v = min_vertex_edge(curr_edge, active_vertex, n_vertices);
 
     active_vertex[curr_v] = true; // set to active
 
@@ -95,7 +104,7 @@ value_t prims(CSRHost<vertex_t, edge_t, value_t> &csr_h) {
 
   // find sum of MST
   value_t total_weight = 0;
-  for(auto v = 1; v < csr_h.n_vertices; v++) {
+  for(auto v = 1; v < n_vertices; v++) {
     total_weight += curr_edge[v];
   }
 
@@ -109,37 +118,34 @@ class MSTTest : public ::testing::TestWithParam<CSRHost<vertex_t, edge_t, value_
     void mst_sequential() {
       csr_h = ::testing::TestWithParam<CSRHost<vertex_t, edge_t, value_t>>::GetParam();
 
-      rmm::device_vector<vertex_t> mst_src;
-      rmm::device_vector<vertex_t> mst_dst;
+      // rmm::device_vector<vertex_t> mst_src;
+      // rmm::device_vector<vertex_t> mst_dst;
 
-      MST_solver<vertex_t, edge_t, value_t> solver(handle, csr_d.offsets, csr_d.indices, csr_d.weights, csr_d.n_vertices,
-                                                  csr_d.n_edges);
+      // MST_solver<vertex_t, edge_t, value_t> solver(handle, csr_d.offsets.data(), csr_d.indices.data(), csr_d.weights.data(), csr_d.offsets.size() - 1,
+      //                                             csr_d.indices.size());
 
-      //nullptr expected to trigger exceptions
-      EXPECT_ANY_THROW(solver.solve(mst_src, mst_dst));
+      // //nullptr expected to trigger exceptions
+      // EXPECT_ANY_THROW(solver.solve(mst_src, mst_dst));
     }
 
     void SetUp() override {
-      csr_d.n_vertices = csr_h.n_vertices;
-      csr_d.n_edges = csr_h.n_edges;
+      // csr_d.n_vertices = csr_h.n_vertices;
+      // csr_d.n_edges = csr_h.n_edges;
 
-      CUDA_CHECK(cudaMalloc(&csr_d.offsets, csr_d.n_vertices * sizeof(vertex_t)));
-      CUDA_CHECK(cudaMalloc(&csr_d.indices, csr_d.n_edges * sizeof(vertex_t)));
-      CUDA_CHECK(cudaMalloc(&csr_d.weights, csr_d.n_edges * sizeof(vertex_t)));
+      // CUDA_CHECK(cudaMalloc(&csr_d.offsets, csr_d.n_vertices * sizeof(vertex_t)));
+      // CUDA_CHECK(cudaMalloc(&csr_d.indices, csr_d.n_edges * sizeof(vertex_t)));
+      // CUDA_CHECK(cudaMalloc(&csr_d.weights, csr_d.n_edges * sizeof(vertex_t)));
 
-      raft::update_device(csr_d.offsets, csr_h.offsets, csr_h.n_vertices, handle.get_stream());
-      raft::update_device(csr_d.indices, csr_h.indices, csr_h.n_edges, handle.get_stream());
-      raft::update_device(csr_d.weights, csr_h.weights, csr_h.n_edges, handle.get_stream());
+      // raft::update_device(csr_d.offsets, csr_h.offsets, csr_h.n_vertices, handle.get_stream());
+      // raft::update_device(csr_d.indices, csr_h.indices, csr_h.n_edges, handle.get_stream());
+      // raft::update_device(csr_d.weights, csr_h.weights, csr_h.n_edges, handle.get_stream());
     }
 
-    void TearDown() override {
-      CUDA_CHECK(cudaFree(csr_d.offsets));
-      CUDA_CHECK(cudaFree(csr_d.indices));
-      CUDA_CHECK(cudaFree(csr_d.weights));
-    }
+    void TearDown() override { }
   
   protected:
     CSRHost<vertex_t, edge_t, value_t> csr_h;
+    CSRDevice<vertex_t, edge_t, value_t> csr_d;
 
     raft::handle_t handle;
 };
@@ -164,7 +170,7 @@ const std::vector<CSRHost<int, int, int>> csr_in_h = {
 
 typedef MSTTest<int, int, int> MSTTestSequential;
 TEST_P(MSTTestSequential, Sequential) {
-  // this->mst_sequential();
+  mst_sequential();
 
   // do assertions here
   // in this case, running sequential MST
