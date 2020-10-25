@@ -94,7 +94,7 @@ value_t prims(CSRHost<vertex_t, edge_t, value_t> &csr_h) {
 
       // put edges to be considered for next iteration
       auto neighbor_idx = csr_h.indices[e];
-      if (!active_vertex[neighbor_idx] && csr_h.weights[e]) {
+      if (!active_vertex[neighbor_idx] && csr_h.weights[e] < curr_edge[neighbor_idx]) {
         curr_edge[neighbor_idx] = csr_h.weights[e];
       }
 
