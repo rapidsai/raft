@@ -21,6 +21,7 @@
 #include <cub/cub.cuh>
 #include <raft/error.hpp>
 #include <raft/handle.hpp>
+#include <limits>
 
 namespace raft {
 namespace mst {
@@ -91,34 +92,75 @@ MST_solver<vertex_t, edge_t, weight_t>::MST_solver(
 template <typename vertex_t, typename edge_t, typename weight_t>
 __global__ void kernel_min_edge_per_vertex() {
 
-  unsigned tid = threadIdx.x + blockIdx.x * blockDim.x;
+  edge_t tid = threadIdx.x + blockIdx.x * blockDim.x;
 
   unsigned warp_id = tid / 32;
   unsigned lane_id = tid % 32;
+
+  __shared__ edge_t min_edge_index[32];
+  __shared__ weight_t min_edge_weight[32];
+  __shared__ edge_t min_color[32];
+
+  min_edge_index[lane_id] = std::numeric_limits<edge_t>::max();
+  min_edge_weight[lane_id] = std::numeric_limits<weight_t>::max();
+  min_color[lane_id] = std::numeric_limits<edge_t>::max();
+
+  edge_t self_color = color[tid];
 
   if (tid < size) {
     // one row is associated with one warp
     row_start = offsets[warp_id];
     row_end = offsets[warp_id + 1];
 
-    // reduce for min edge across warp
-    edge_t min_edge_index = maxval;
-    weight_t min_edge_weight = maxval;
-
     // assuming one warp per row
-    for (unsigned e = row_start + lane_id, mid = 16; e < row_end; e += 32, mid >>= 1) {
-      if (lane_id < mid) {
-        if (weights[e] < weights[e + mid]) {
-          min_edge_weight = weights[e];
-          min_edge_index = e;
-
-          successor[warp_id] = indices[e];
+    // find min for each thread in warp
+    for (edge_t e = row_start + lane_id; e < row_end; e += 32) {
+      weight_t curr_edge_weight = weights[e];
+      edge_t successor_color = color[indices[e]];
+      if (!mst_edge[e] && self_color != successor_color) {
+        if (curr_edge_weight < min_edge_weight[lane_id]) {
+          min_color[lane_id] = successor_color;
+          min_edge_weight[lane_id] = curr_edge_weight;
+          min_edge_index[lane_id] = e;
         }
-        else if (weights[e] == weights[e + mid]) {
+        else if (curr_edge_weight == min_edge_weight[lane_id]) {
           // tie break
+          if (min_color[lane_id] > successor_color) {
+            min_color[lane_id] = successor_color;
+            min_edge_weight[lane_id] = curr_edge_weight;
+            min_edge_index[lane_id] = e;
+          }
         }
       }
     }
+  }
+
+  // reduce across threads in warp
+  for (int offset = 16; offset > 0; offset >>= 1) {
+    if (lane_id < offset) {
+      if (min_edge_weight[lane_id] > min_edge_weight[lane_id + offset]) {
+        min_color[lane_id] = min_color[lane_id + offset];
+        min_edge_weight[lane_id] = min_edge_weight[lane_id + offset];
+        min_edge_index[lane_id] = min_edge_index[lane_id + offset];
+      }
+      else if (min_edge_weight[lane_id] == min_edge_weight[lane_id + offset]) {
+        if (min_color[lane_id] > min_color[lane_id + offset]) {
+          min_color[lane_id] = min_color[lane_id + offset];
+          min_edge_weight[lane_id] = min_edge_weight[lane_id + offset];
+          min_edge_index[lane_id] = min_edge_index[lane_id + offset];
+        }
+      }
+    }
+  }
+
+  // min edge may now be found in first thread
+  if (lane_id == 0) {
+    if (min_edge_weight[0] != std::numeric_limits<weight_t>::max()) {
+      successor[warp_id] = indices[min_edge_index[0]];
+      mst_edge[min_edge_index[0]] = true;
+
+      atomicMin(&min_edge_color[self_color], min_edge_weight[0]);
+    } 
   }
 }
 
