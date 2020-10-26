@@ -19,9 +19,9 @@
 #include <algorithm>
 #include <cstddef>
 #include <cub/cub.cuh>
+#include <limits>
 #include <raft/error.hpp>
 #include <raft/handle.hpp>
-#include <limits>
 
 namespace raft {
 namespace mst {
@@ -43,12 +43,18 @@ class MST_solver {
   int sm_count;
 
   rmm::device_vector<vertex_t> color;  // represent each supervertex as a color
-  rmm::device_vector<vertex_t> color_idx;  //index of v color in color array
-  rmm::device_vector<bool> active_color;   // track active supervertex color
-  rmm::device_vector<vertex_t> degree;     // supervertices degrees
-  rmm::device_vector<vertex_t> cycle;      // edges to be excluded from mst_edge
-  rmm::device_vector<vertex_t> new_mst_edge_idx;  // current mst iteration
-  rmm::device_vector<vertex_t> mst_edge_idx;      // mst output
+  rmm::device_vector<vertex_t> next_color;  //index of v color in color array
+  rmm::device_vector<bool> active_color;    // track active supervertex color
+  //rmm::device_vector<vertex_t> degree;     // supervertices degrees
+  //rmm::device_vector<vertex_t> cycle;      // edges to be excluded from mst_edge
+  rmm::device_vector<vertex_t>
+    successor;  // current mst iteration. edge being added is (src=i, dst=successor[i])
+  rmm::device_vector<bool>
+    mst_edge;  // mst output -  true if the edge belongs in mst
+  rmm::device_vector<edge_t>
+    min_edge_color; // minimum incident edge per color
+
+  void label_prop();
 
  public:
   MST_solver(const raft::handle_t& handle_, vertex_t const* offsets_,
@@ -73,27 +79,29 @@ MST_solver<vertex_t, edge_t, weight_t>::MST_solver(
     v(v_),
     e(e_),
     color(v_),
-    color_idx(v_),
+    next_color(v_),
     active_color(v_),
-    degree(v_),
-    cycle(v_),
-    new_mst_edge_idx(v_),
-    mst_edge_idx(e_) {
+    successor(v_),
+    mst_edge(e_, true),
+    min_edge_color(v_, std::numeric_limits<edge_t>::max()) {
   max_blocks = handle_.get_device_properties().maxGridSize[0];
   max_threads = handle_.get_device_properties().maxThreadsPerBlock;
   sm_count = handle_.get_device_properties().multiProcessorCount;
 
   //Initially, color holds the vertex id as color
   thrust::sequence(color.begin(), color.end());
-  //Initially, each color_idx redirects to its own color
-  thrust::sequence(color_idx.begin(), color_idx.end());
+  //Initially, each next_color redirects to its own color
+  thrust::sequence(next_color.begin(), next_color.end());
+  //Initially, each edge is not in the mst
+  auto op = [] __device__ (const bool x) { return true; }
 }
 
 template <typename vertex_t, typename edge_t, typename weight_t>
 __global__ void kernel_min_edge_per_vertex(vertex_t *offsets, edge_t *indices,
                                            weight_t *weights, vertex_t *color,
                                            vertex_t *successor, edge_t *mst_edge,
-                                           vertex_t *min_edge_color) {
+                                           vertex_t *min_edge_color,
+                                           vertex_t const v) {
 
   edge_t tid = threadIdx.x + blockIdx.x * blockDim.x;
 
@@ -102,15 +110,15 @@ __global__ void kernel_min_edge_per_vertex(vertex_t *offsets, edge_t *indices,
 
   __shared__ edge_t min_edge_index[32];
   __shared__ weight_t min_edge_weight[32];
-  __shared__ edge_t min_color[32];
+  __shared__ vertex_t min_color[32];
 
   min_edge_index[lane_id] = std::numeric_limits<edge_t>::max();
   min_edge_weight[lane_id] = std::numeric_limits<weight_t>::max();
-  min_color[lane_id] = std::numeric_limits<edge_t>::max();
+  min_color[lane_id] = std::numeric_limits<vertex_t>::max();
 
-  edge_t self_color = color[tid];
+  vertex_t self_color = color[tid];
 
-  if (tid < size) {
+  if (tid < v) {
     // one row is associated with one warp
     row_start = offsets[warp_id];
     row_end = offsets[warp_id + 1];
@@ -119,12 +127,13 @@ __global__ void kernel_min_edge_per_vertex(vertex_t *offsets, edge_t *indices,
     // find min for each thread in warp
     for (edge_t e = row_start + lane_id; e < row_end; e += 32) {
       weight_t curr_edge_weight = weights[e];
-      edge_t successor_color = color[indices[e]];
+      vertex_t successor_color = color[indices[e]];
       if (!mst_edge[e] && self_color != successor_color) {
         if (curr_edge_weight < min_edge_weight[lane_id]) {
           min_color[lane_id] = successor_color;
           min_edge_weight[lane_id] = curr_edge_weight;
           min_edge_index[lane_id] = e;
+          // theta = abs(curr_edge_weight - min_edge_weight[lane_id]);
         }
         else if (curr_edge_weight == min_edge_weight[lane_id]) {
           // tie break
@@ -167,6 +176,60 @@ __global__ void kernel_min_edge_per_vertex(vertex_t *offsets, edge_t *indices,
   }
 }
 
+// TODO make this work in 64bit
+__device__ int get_1D_idx() { return blockIdx.x * blockDim.x + threadIdx.x; }
+
+// executes for each vertex and updates the colors of both vertices to the lower color
+template <typename vertex_t, typename edge_t, typename weight_t>
+__global__ void min_pair_colors(vertex_t const v,
+                                rmm::device_vector<vertex_t>& color,
+                                rmm::device_vector<vertex_t>& next_color,
+                                rmm::device_vector<vertex_t>& successor) {
+  int i = get_1D_idx();
+  if (i < v) {
+    atomicMin(&next_color[i], color[successor[i]]);
+    atomicMin(&next_color[successor[i]], color[i]);
+  }
+}
+
+template <typename vertex_t, typename edge_t, typename weight_t>
+__global__ void check_color_change(vertex_t const v,
+                                   rmm::device_vector<vertex_t>& color,
+                                   rmm::device_vector<vertex_t>& next_color,
+                                   rmm::device_vector<bool>& done) {
+  //This kernel works on the global_colors[] array
+  int i = get_1D_idx();
+  if (i < v) {
+    if (color[i] > next_color[i]) {
+      //Termination for label propagation
+      done[0] = false;
+      color[i] = next_color[i];
+    }
+  }
+  // Notice that some degree >1 and we run in parallel
+  // min_pair_colors kernel may result in pair color inconsitencies
+  // resolving here for next iteration
+  // TODO check experimentally
+  next_color[i] = color[i];
+}
+
+template <typename vertex_t, typename edge_t, typename weight_t>
+void MST_solver<vertex_t, edge_t, weight_t>::label_prop() {
+  // update the colors of both ends its until there is no change in colors
+  int nthreads = std::min(v, max_threads);
+  int nblocks = std::min((v + nthreads - 1) / nthreads, max_blocks);
+  auto stream = handle.get_stream();
+
+  rmm::device_vector<vertex_t> done(1, false);
+
+  while (!done) {
+    done[0] = true;
+    min_pair_colors<<<nblocks, nthreads, 0, stream>>>(v, color, next_color);
+    check_color_change<<<nblocks, nthreads, 0, stream>>>(v, color, next_color,
+                                                         done);
+  }
+}
+
 template <typename vertex_t, typename edge_t, typename weight_t>
 void MST_solver<vertex_t, edge_t, weight_t>::solve(
   rmm::device_vector<vertex_t>& mst_src,
@@ -177,9 +240,7 @@ void MST_solver<vertex_t, edge_t, weight_t>::solve(
   RAFT_EXPECTS(indices != nullptr, "Null indices.");
   RAFT_EXPECTS(weights != nullptr, "Null weights.");
 
-  int nthreads = std::min(v, max_threads);
-  int nblocks = std::min((v + nthreads - 1) / nthreads, max_blocks);
-  auto stream = handle.get_stream();
+  
 
   // Theorem : the minimum incident edge to any vertex has to be in the MST
   // This is a segmented min scan/reduce
@@ -194,8 +255,8 @@ void MST_solver<vertex_t, edge_t, weight_t>::solve(
   // cub::DeviceSegmentedReduce::ArgMin(cub_temp_storage, cub_temp_storage_bytes,
   //                                    weights, d_out, v, offsets, offsets + 1);
   //
-  // TODO set component color : color[i] = min(i, offset[i]+key[i])
-  // TODO: mst_idx[offset[i]+key[i]]=true; (thrust)
+  // TODO: mst[offset[i]+key[i]]=true; (thrust)?
+  // Extract MST edge list by just filtering with the mask generated above?
 
   bool mst_edge_found = true;
   // Boruvka original formulation says "while more than 1 supervertex remains"
