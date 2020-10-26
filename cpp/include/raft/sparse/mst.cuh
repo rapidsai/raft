@@ -89,7 +89,38 @@ MST_solver<vertex_t, edge_t, weight_t>::MST_solver(
 }
 
 template <typename vertex_t, typename edge_t, typename weight_t>
-__global__ void kernel_min_edges() {}
+__global__ void kernel_min_edge_per_vertex() {
+
+  unsigned tid = threadIdx.x + blockIdx.x * blockDim.x;
+
+  unsigned warp_id = tid / 32;
+  unsigned lane_id = tid % 32;
+
+  if (tid < size) {
+    // one row is associated with one warp
+    row_start = offsets[warp_id];
+    row_end = offsets[warp_id + 1];
+
+    // reduce for min edge across warp
+    edge_t min_edge_index = maxval;
+    weight_t min_edge_weight = maxval;
+
+    // assuming one warp per row
+    for (unsigned e = row_start + lane_id, mid = 16; e < row_end; e += 32, mid >>= 1) {
+      if (lane_id < mid) {
+        if (weights[e] < weights[e + mid]) {
+          min_edge_weight = weights[e];
+          min_edge_index = e;
+
+          successor[warp_id] = indices[e];
+        }
+        else if (weights[e] == weights[e + mid]) {
+          // tie break
+        }
+      }
+    }
+  }
+}
 
 template <typename vertex_t, typename edge_t, typename weight_t>
 void MST_solver<vertex_t, edge_t, weight_t>::solve(
@@ -107,16 +138,16 @@ void MST_solver<vertex_t, edge_t, weight_t>::solve(
 
   // Theorem : the minimum incident edge to any vertex has to be in the MST
   // This is a segmented min scan/reduce
-  cub::KeyValuePair<vertex_t, weight_t>* d_out = nullptr;
-  void* cub_temp_storage = nullptr;
-  size_t cub_temp_storage_bytes = 0;
-  cub::DeviceSegmentedReduce::ArgMin(cub_temp_storage, cub_temp_storage_bytes,
-                                     weights, d_out, v, offsets, offsets + 1);
-  // FIXME RMM Allocate temporary storage
-  cudaMalloc(&cub_temp_storage, cub_temp_storage_bytes);
-  // Run argmin-reduction
-  cub::DeviceSegmentedReduce::ArgMin(cub_temp_storage, cub_temp_storage_bytes,
-                                     weights, d_out, v, offsets, offsets + 1);
+  // cub::KeyValuePair<vertex_t, weight_t>* d_out = nullptr;
+  // void* cub_temp_storage = nullptr;
+  // size_t cub_temp_storage_bytes = 0;
+  // cub::DeviceSegmentedReduce::ArgMin(cub_temp_storage, cub_temp_storage_bytes,
+  //                                    weights, d_out, v, offsets, offsets + 1);
+  // // FIXME RMM Allocate temporary storage
+  // cudaMalloc(&cub_temp_storage, cub_temp_storage_bytes);
+  // // Run argmin-reduction
+  // cub::DeviceSegmentedReduce::ArgMin(cub_temp_storage, cub_temp_storage_bytes,
+  //                                    weights, d_out, v, offsets, offsets + 1);
   //
   // TODO set component color : color[i] = min(i, offset[i]+key[i])
   // TODO: mst_idx[offset[i]+key[i]]=true; (thrust)

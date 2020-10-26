@@ -127,8 +127,8 @@ class MSTTest
 
     MST_solver<vertex_t, edge_t, value_t> solver(handle, offsets, indices, weights, v, e);
 
-    // //nullptr expected to trigger exceptions
-    // EXPECT_ANY_THROW(solver.solve(mst_src, mst_dst));
+    //nullptr expected to trigger exceptions
+    EXPECT_ANY_THROW(solver.solve(mst_src, mst_dst));
   }
 
   void SetUp() override {
