@@ -258,6 +258,22 @@ if(BUILD_RAFT_TESTS)
       GTest::Main
       OpenMP::OpenMP_CXX
       Threads::Threads)
+
+  add_executable(test_hungarian test/lap/main.cu)
+
+  target_include_directories(test_hungarian
+    PRIVATE
+      ${RAFT_INCLUDE_DIRECTORIES}
+      ${GTEST_DIR}/include)
+
+  target_link_libraries(test_hungarian
+    PRIVATE
+      ${RAFT_LINK_LIBRARIES}
+      GTest::GTest
+      GTest::Main
+      OpenMP::OpenMP_CXX
+      Threads::Threads)
+
 endif(BUILD_RAFT_TESTS)
 
 ##############################################################################
