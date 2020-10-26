@@ -19,10 +19,11 @@
 #include <gtest/gtest.h>
 #include <rmm/thrust_rmm_allocator.h>
 #include <iostream>
+#include <rmm/device_buffer.hpp>
 #include <vector>
 
-#include <raft/handle.hpp>
 #include <raft/cudart_utils.h>
+#include <raft/handle.hpp>
 
 #include <raft/sparse/mst.cuh>
 
@@ -35,9 +36,9 @@ struct CSRHost {
 
 template <typename vertex_t, typename edge_t, typename value_t>
 struct CSRDevice {
-  rmm::device_vector<vertex_t> offsets;
-  rmm::device_vector<edge_t> indices;
-  rmm::device_vector<value_t> weights;
+  rmm::device_buffer offsets;
+  rmm::device_buffer indices;
+  rmm::device_buffer weights;
 };
 
 namespace raft {
@@ -47,7 +48,6 @@ namespace mst {
 // Returns total weight of MST
 template <typename vertex_t, typename edge_t, typename value_t>
 value_t prims(CSRHost<vertex_t, edge_t, value_t> &csr_h) {
-
   auto n_vertices = csr_h.offsets.size() - 1;
 
   bool active_vertex[n_vertices];
@@ -65,7 +65,8 @@ value_t prims(CSRHost<vertex_t, edge_t, value_t> &csr_h) {
   // }
 
   // function to pick next min vertex-edge
-  auto min_vertex_edge = [](auto *curr_edge, auto *active_vertex, auto n_vertices) {
+  auto min_vertex_edge = [](auto *curr_edge, auto *active_vertex,
+                            auto n_vertices) {
     value_t min = INT_MAX;
     vertex_t min_vertex;
 
@@ -82,72 +83,73 @@ value_t prims(CSRHost<vertex_t, edge_t, value_t> &csr_h) {
   // iterate over n vertices
   for (auto v = 0; v < n_vertices - 1; v++) {
     // pick min vertex-edge
-    vertex_t curr_v = min_vertex_edge(curr_edge, active_vertex, n_vertices);
+    auto curr_v = min_vertex_edge(curr_edge, active_vertex, n_vertices);
 
-    active_vertex[curr_v] = true; // set to active
+    active_vertex[curr_v] = true;  // set to active
 
     // iterate through edges of current active vertex
     auto edge_st = csr_h.offsets[curr_v];
     auto edge_end = csr_h.offsets[curr_v + 1];
 
     for (auto e = edge_st; e < edge_end; e++) {
-
       // put edges to be considered for next iteration
       auto neighbor_idx = csr_h.indices[e];
-      if (!active_vertex[neighbor_idx] && csr_h.weights[e] < curr_edge[neighbor_idx]) {
+      if (!active_vertex[neighbor_idx] &&
+          csr_h.weights[e] < curr_edge[neighbor_idx]) {
         curr_edge[neighbor_idx] = csr_h.weights[e];
       }
-
     }
-
   }
 
   // find sum of MST
   value_t total_weight = 0;
-  for(auto v = 1; v < n_vertices; v++) {
+  for (auto v = 1; v < n_vertices; v++) {
     total_weight += curr_edge[v];
   }
 
   return total_weight;
-
 }
 
 template <typename vertex_t, typename edge_t, typename value_t>
-class MSTTest : public ::testing::TestWithParam<CSRHost<vertex_t, edge_t, value_t>> {
-  protected:
-    void mst_sequential() {
-      csr_h = ::testing::TestWithParam<CSRHost<vertex_t, edge_t, value_t>>::GetParam();
+class MSTTest
+  : public ::testing::TestWithParam<CSRHost<vertex_t, edge_t, value_t>> {
+ protected:
+  void mst_sequential() {
+    rmm::device_vector<vertex_t> mst_src;
+    rmm::device_vector<vertex_t> mst_dst;
 
-      // rmm::device_vector<vertex_t> mst_src;
-      // rmm::device_vector<vertex_t> mst_dst;
+    vertex_t *offsets = static_cast<vertex_t*>(csr_d.offsets.data());
+    edge_t *indices = static_cast<edge_t*>(csr_d.indices.data());
+    value_t *weights = static_cast<value_t*>(csr_d.weights.data());
 
-      // MST_solver<vertex_t, edge_t, value_t> solver(handle, csr_d.offsets.data(), csr_d.indices.data(), csr_d.weights.data(), csr_d.offsets.size() - 1,
-      //                                             csr_d.indices.size());
+    auto v = static_cast<vertex_t>((csr_d.offsets.size() / sizeof(value_t)) - 1);
+    auto e = static_cast<edge_t>(csr_d.indices.size() / sizeof(edge_t));
 
-      // //nullptr expected to trigger exceptions
-      // EXPECT_ANY_THROW(solver.solve(mst_src, mst_dst));
-    }
+    MST_solver<vertex_t, edge_t, value_t> solver(handle, offsets, indices, weights, v, e);
 
-    void SetUp() override {
-      // csr_d.n_vertices = csr_h.n_vertices;
-      // csr_d.n_edges = csr_h.n_edges;
+    // //nullptr expected to trigger exceptions
+    // EXPECT_ANY_THROW(solver.solve(mst_src, mst_dst));
+  }
 
-      // CUDA_CHECK(cudaMalloc(&csr_d.offsets, csr_d.n_vertices * sizeof(vertex_t)));
-      // CUDA_CHECK(cudaMalloc(&csr_d.indices, csr_d.n_edges * sizeof(vertex_t)));
-      // CUDA_CHECK(cudaMalloc(&csr_d.weights, csr_d.n_edges * sizeof(vertex_t)));
+  void SetUp() override {
+    csr_h =
+      ::testing::TestWithParam<CSRHost<vertex_t, edge_t, value_t>>::GetParam();
 
-      // raft::update_device(csr_d.offsets, csr_h.offsets, csr_h.n_vertices, handle.get_stream());
-      // raft::update_device(csr_d.indices, csr_h.indices, csr_h.n_edges, handle.get_stream());
-      // raft::update_device(csr_d.weights, csr_h.weights, csr_h.n_edges, handle.get_stream());
-    }
+    csr_d.offsets = rmm::device_buffer(csr_h.offsets.data(),
+                                       csr_h.offsets.size() * sizeof(vertex_t));
+    csr_d.indices = rmm::device_buffer(csr_h.indices.data(),
+                                       csr_h.indices.size() * sizeof(edge_t));
+    csr_d.weights = rmm::device_buffer(csr_h.weights.data(),
+                                       csr_h.weights.size() * sizeof(value_t));
+  }
 
-    void TearDown() override { }
-  
-  protected:
-    CSRHost<vertex_t, edge_t, value_t> csr_h;
-    CSRDevice<vertex_t, edge_t, value_t> csr_d;
+  void TearDown() override {}
 
-    raft::handle_t handle;
+ protected:
+  CSRHost<vertex_t, edge_t, value_t> csr_h;
+  CSRDevice<vertex_t, edge_t, value_t> csr_d;
+
+  raft::handle_t handle;
 };
 
 /*
@@ -161,12 +163,7 @@ Graph 1:
 
 const std::vector<CSRHost<int, int, int>> csr_in_h = {
   // {nullptr, nullptr, nullptr, 0, 0},
-  {
-    {0, 3, 5, 7, 8},
-    {1, 2, 3, 0, 3, 0, 0, 1},
-    {2, 3, 4, 2, 1, 3, 4, 1}
-  }
-};
+  {{0, 3, 5, 7, 8}, {1, 2, 3, 0, 3, 0, 0, 1}, {2, 3, 4, 2, 1, 3, 4, 1}}};
 
 typedef MSTTest<int, int, int> MSTTestSequential;
 TEST_P(MSTTestSequential, Sequential) {
@@ -177,7 +174,8 @@ TEST_P(MSTTestSequential, Sequential) {
   std::cout << prims(csr_h);
 }
 
-INSTANTIATE_TEST_SUITE_P(MSTTests, MSTTestSequential, ::testing::ValuesIn(csr_in_h));
+INSTANTIATE_TEST_SUITE_P(MSTTests, MSTTestSequential,
+                         ::testing::ValuesIn(csr_in_h));
 
 }  // namespace mst
 }  // namespace raft
