@@ -90,7 +90,10 @@ MST_solver<vertex_t, edge_t, weight_t>::MST_solver(
 }
 
 template <typename vertex_t, typename edge_t, typename weight_t>
-__global__ void kernel_min_edge_per_vertex() {
+__global__ void kernel_min_edge_per_vertex(vertex_t *offsets, edge_t *indices,
+                                           weight_t *weights, vertex_t *color,
+                                           vertex_t *successor, edge_t *mst_edge,
+                                           vertex_t *min_edge_color) {
 
   edge_t tid = threadIdx.x + blockIdx.x * blockDim.x;
 
