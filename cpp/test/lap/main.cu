@@ -40,38 +40,31 @@
 std::default_random_engine generator(SEED);
 
 // Function for generating problem with uniformly distributed integer costs between [0, COSTRANGE].
-void generateProblem(float *cost_matrix, int SP, int N, int costrange) {
+template <typename weight_t>
+void generateProblem(weight_t *cost_matrix, int SP, int N, int costrange) {
   long N2 = SP * N * N;
 
   std::uniform_int_distribution<int> distribution(0, costrange);
 
   for (long i = 0; i < N2; i++) {
     int val = distribution(generator);
-    cost_matrix[i] = (float)val;
+    cost_matrix[i] = (weight_t)val;
   }
 }
 
-TEST(Raft, Hungarian) {
-  const int problemsize{PROBLEMSIZE};
-  const int costrange{COSTRANGE};
-  const int problemcount{PROBLEMCOUNT};
-  const int repetitions{REPETITIONS};
-  const int batchsize{BATCHSIZE};
-  const int devid{0};
-
+template <typename vertex_t, typename weight_t>
+void hungarian_test(int problemsize, int costrange, int problemcount,
+                    int repetitions, int batchsize) {
   raft::handle_t handle;
 
-  cudaSetDevice(devid);
-  cudaDeviceSynchronize();
-
-  float *h_cost = new float[batchsize * problemsize * problemsize];
+  weight_t *h_cost = new weight_t[batchsize * problemsize * problemsize];
 
   printf("(%d, %d)\n", problemsize, costrange);
 
   for (int j = 0; j < problemcount; j++) {
     generateProblem(h_cost, batchsize, problemsize, costrange);
 
-    raft::mr::device::buffer<float> elements_v(
+    raft::mr::device::buffer<weight_t> elements_v(
       handle.get_device_allocator(), handle.get_stream(),
       batchsize * problemsize * problemsize);
 
@@ -83,7 +76,8 @@ TEST(Raft, Hungarian) {
       float start = omp_get_wtime();
 
       // Create an instance of LinearAssignmentProblem using problem size, number of subproblems
-      raft::lap::LinearAssignmentProblem<long, float> lpx(handle, problemsize, batchsize);
+      raft::lap::LinearAssignmentProblem<vertex_t, weight_t> lpx(handle, problemsize,
+                                                                 batchsize);
 
       // Solve LAP(s) for given cost matrix
       lpx.solve(elements_v.data());
@@ -94,8 +88,12 @@ TEST(Raft, Hungarian) {
 
       // Use getPrimalObjectiveValue and getDualObjectiveValue APIs to get primal and dual objectives. At optimality both values should match.
       for (int k = 0; k < batchsize; k++) {
-        printf("%d:%d:%d:%f:%f:%f\n", j, i, k, lpx.getPrimalObjectiveValue(k),
-               lpx.getDualObjectiveValue(k), total_time);
+        std::cout << j << ":"
+                  << i << ":"
+                  << k << ":"
+                  << lpx.getPrimalObjectiveValue(k) << ":"
+                  << lpx.getDualObjectiveValue(k) << ":"
+                  << total_time << std::endl;
       }
 
       //			Use getAssignmentVector API to get the optimal row assignments for specified problem id.
@@ -127,4 +125,34 @@ TEST(Raft, Hungarian) {
   }
 
   delete[] h_cost;
+}
+
+TEST(Raft, HungarianIntFloat) {
+  hungarian_test<int, float>(PROBLEMSIZE, COSTRANGE, PROBLEMCOUNT, REPETITIONS,
+                             BATCHSIZE);
+}
+
+TEST(Raft, HungarianIntDouble) {
+  hungarian_test<int, double>(PROBLEMSIZE, COSTRANGE, PROBLEMCOUNT, REPETITIONS,
+                             BATCHSIZE);
+}
+
+TEST(Raft, HungarianIntLong) {
+  hungarian_test<int, long>(PROBLEMSIZE, COSTRANGE, PROBLEMCOUNT, REPETITIONS,
+                             BATCHSIZE);
+}
+
+TEST(Raft, HungarianLongFloat) {
+  hungarian_test<long, float>(PROBLEMSIZE, COSTRANGE, PROBLEMCOUNT, REPETITIONS,
+                             BATCHSIZE);
+}
+
+TEST(Raft, HungarianLongDouble) {
+  hungarian_test<long, double>(PROBLEMSIZE, COSTRANGE, PROBLEMCOUNT, REPETITIONS,
+                             BATCHSIZE);
+}
+
+TEST(Raft, HungarianLongLong) {
+  hungarian_test<long, long>(PROBLEMSIZE, COSTRANGE, PROBLEMCOUNT, REPETITIONS,
+                             BATCHSIZE);
 }

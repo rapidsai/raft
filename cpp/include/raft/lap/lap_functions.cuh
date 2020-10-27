@@ -421,15 +421,15 @@ inline void dualUpdate(raft::handle_t const &handle,
   dim3 threads_per_block;
   int total_blocks;
 
-  raft::mr::device::buffer<float> sp_min_v(handle.get_device_allocator(),
-                                           handle.get_stream(), 1);
+  raft::mr::device::buffer<weight_t> sp_min_v(handle.get_device_allocator(),
+                                              handle.get_stream(), 1);
 
   raft::lap::detail::calculateLinearDims(blocks_per_grid, threads_per_block,
                                          total_blocks, SP);
   kernel_dualUpdate_1<<<blocks_per_grid, threads_per_block, 0,
                         handle.get_stream()>>>(
     sp_min_v.data(), d_vertices_dev.col_slacks, d_vertices_dev.col_covers, SP,
-    N, std::numeric_limits<float>::max());
+    N, std::numeric_limits<weight_t>::max());
 
   CHECK_CUDA(handle.get_stream());
 
@@ -440,7 +440,7 @@ inline void dualUpdate(raft::handle_t const &handle,
     sp_min_v.data(), d_vertices_dev.row_duals, d_vertices_dev.col_duals,
     d_vertices_dev.col_slacks, d_vertices_dev.row_covers,
     d_vertices_dev.col_covers, d_row_data_dev.is_visited,
-    d_col_data_dev.parents, SP, N, std::numeric_limits<float>::max());
+    d_col_data_dev.parents, SP, N, std::numeric_limits<weight_t>::max());
 
   CHECK_CUDA(handle.get_stream());
 }

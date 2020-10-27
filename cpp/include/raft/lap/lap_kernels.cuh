@@ -108,7 +108,7 @@ __device__ void cover_and_expand_row(
 
 // Device function for traversing an alternating path from unassigned row to unassigned column.
 template <typename vertex_t>
-__device__ void __reverse_traversal(int *d_row_visited, long *d_row_children,
+__device__ void __reverse_traversal(int *d_row_visited, vertex_t *d_row_children,
                                     vertex_t *d_col_children,
                                     vertex_t const *d_row_parents,
                                     vertex_t const *d_col_parents,
@@ -145,6 +145,8 @@ __device__ void __augment(vertex_t *d_row_assignments,
 }
 
 // Kernel for reducing the rows by subtracting row minimum from each row element.
+//  FIXME:  Once cuda 10.2 is the standard should replace passing infinity
+//          here with using cuda::std::numeric_limits<weight_t>::max()
 template <typename vertex_t, typename weight_t>
 __global__ void kernel_rowReduction(weight_t const *d_costs,
                                     weight_t *d_row_duals, int SP, vertex_t N,
@@ -167,6 +169,8 @@ __global__ void kernel_rowReduction(weight_t const *d_costs,
 }
 
 // Kernel for reducing the column by subtracting column minimum from each column element.
+//  FIXME:  Once cuda 10.2 is the standard should replace passing infinity
+//          here with using cuda::std::numeric_limits<weight_t>::max()
 template <typename vertex_t, typename weight_t>
 __global__ void kernel_columnReduction(weight_t const *d_costs,
                                        weight_t const *d_row_duals,
@@ -395,6 +399,8 @@ __global__ void kernel_augmentation(vertex_t *d_row_assignments,
 }
 
 // Kernel for updating the dual values in Step 5.
+//  FIXME:  Once cuda 10.2 is the standard should replace passing infinity
+//          here with using cuda::std::numeric_limits<weight_t>::max()
 template <typename vertex_t, typename weight_t>
 __global__ void kernel_dualUpdate_1(weight_t *d_sp_min,
                                     weight_t const *d_col_slacks,
@@ -418,6 +424,8 @@ __global__ void kernel_dualUpdate_1(weight_t *d_sp_min,
 }
 
 // Kernel for updating the dual values in Step 5.
+//  FIXME:  Once cuda 10.2 is the standard should replace passing infinity
+//          here with using cuda::std::numeric_limits<weight_t>::max()
 template <typename vertex_t, typename weight_t>
 __global__ void kernel_dualUpdate_2(
   weight_t const *d_sp_min, weight_t *d_row_duals, weight_t *d_col_duals,
