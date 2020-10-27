@@ -159,11 +159,11 @@ Graph 1:
 
 */
 
-const std::vector<CSRHost<int, int, int>> csr_in_h = {
+const std::vector<CSRHost<int, int, float>> csr_in_h = {
   // {nullptr, nullptr, nullptr, 0, 0},
   {{0, 3, 5, 7, 8}, {1, 2, 3, 0, 3, 0, 0, 1}, {2, 3, 4, 2, 1, 3, 4, 1}}};
 
-typedef MSTTest<int, int, int> MSTTestSequential;
+typedef MSTTest<int, int, float> MSTTestSequential;
 TEST_P(MSTTestSequential, Sequential) {
   mst_sequential();
 
