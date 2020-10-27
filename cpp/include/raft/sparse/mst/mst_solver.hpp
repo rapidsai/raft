@@ -60,7 +60,7 @@ class MST_solver {
   rmm::device_vector<edge_t> min_edge_color;  // minimum incident edge per color
 
   void label_prop();
-  void min_edge_per_color();
+  void min_edge_per_vertex();
 };
 
 }  // namespace mst

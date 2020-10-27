@@ -57,7 +57,7 @@ void MST_solver<vertex_t, edge_t, weight_t>::solve() {
   RAFT_EXPECTS(indices != nullptr, "Null indices.");
   RAFT_EXPECTS(weights != nullptr, "Null weights.");
 
-  min_edge_per_color();
+  min_edge_per_vertex();
 
   detail::printv(successor);
 
@@ -136,7 +136,7 @@ void MST_solver<vertex_t, edge_t, weight_t>::label_prop() {
 }
 
 template <typename vertex_t, typename edge_t, typename weight_t>
-void MST_solver<vertex_t, edge_t, weight_t>::min_edge_per_color() {
+void MST_solver<vertex_t, edge_t, weight_t>::min_edge_per_vertex() {
   auto stream = handle.get_stream();
   int n_threads = 32;
 
@@ -144,7 +144,7 @@ void MST_solver<vertex_t, edge_t, weight_t>::min_edge_per_color() {
   vertex_t* successor_ptr = thrust::raw_pointer_cast(successor.data());
   bool* mst_edge_ptr = thrust::raw_pointer_cast(mst_edge.data());
 
-  detail::kernel_min_edge_per_color<<<v, n_threads, 0, stream>>>(
+  detail::kernel_min_edge_per_vertex<<<v, n_threads, 0, stream>>>(
     offsets, indices, weights, color_ptr, successor_ptr, mst_edge_ptr, v);
 }
 
