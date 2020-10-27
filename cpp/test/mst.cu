@@ -27,14 +27,14 @@
 
 #include <raft/sparse/mst/mst.cuh>
 
-template <typename vertex_t, typename edge_t, typename value_t>
+template <typename vertex_t, typename edge_t, typename weight_t>
 struct CSRHost {
   std::vector<vertex_t> offsets;
   std::vector<edge_t> indices;
-  std::vector<value_t> weights;
+  std::vector<weight_t> weights;
 };
 
-template <typename vertex_t, typename edge_t, typename value_t>
+template <typename vertex_t, typename edge_t, typename weight_t>
 struct CSRDevice {
   rmm::device_buffer offsets;
   rmm::device_buffer indices;
@@ -46,13 +46,13 @@ namespace mst {
 
 // Sequential prims function
 // Returns total weight of MST
-template <typename vertex_t, typename edge_t, typename value_t>
-value_t prims(CSRHost<vertex_t, edge_t, value_t> &csr_h) {
+template <typename vertex_t, typename edge_t, typename weight_t>
+weight_t prims(CSRHost<vertex_t, edge_t, weight_t> &csr_h) {
   auto n_vertices = csr_h.offsets.size() - 1;
 
   bool active_vertex[n_vertices];
   // bool mst_set[csr_h.n_edges];
-  value_t curr_edge[n_vertices];
+  weight_t curr_edge[n_vertices];
 
   for (auto i = 0; i < n_vertices; i++) {
     active_vertex[i] = false;
@@ -67,7 +67,7 @@ value_t prims(CSRHost<vertex_t, edge_t, value_t> &csr_h) {
   // function to pick next min vertex-edge
   auto min_vertex_edge = [](auto *curr_edge, auto *active_vertex,
                             auto n_vertices) {
-    value_t min = INT_MAX;
+    weight_t min = INT_MAX;
     vertex_t min_vertex;
 
     for (auto v = 0; v < n_vertices; v++) {
@@ -102,7 +102,7 @@ value_t prims(CSRHost<vertex_t, edge_t, value_t> &csr_h) {
   }
 
   // find sum of MST
-  value_t total_weight = 0;
+  weight_t total_weight = 0;
   for (auto v = 1; v < n_vertices; v++) {
     total_weight += curr_edge[v];
   }
@@ -110,9 +110,9 @@ value_t prims(CSRHost<vertex_t, edge_t, value_t> &csr_h) {
   return total_weight;
 }
 
-template <typename vertex_t, typename edge_t, typename value_t>
+template <typename vertex_t, typename edge_t, typename weight_t>
 class MSTTest
-  : public ::testing::TestWithParam<CSRHost<vertex_t, edge_t, value_t>> {
+  : public ::testing::TestWithParam<CSRHost<vertex_t, edge_t, weight_t>> {
  protected:
   void mst_sequential() {
     rmm::device_vector<vertex_t> mst_src;
@@ -120,32 +120,32 @@ class MSTTest
 
     vertex_t *offsets = static_cast<vertex_t *>(csr_d.offsets.data());
     edge_t *indices = static_cast<edge_t *>(csr_d.indices.data());
-    value_t *weights = static_cast<value_t *>(csr_d.weights.data());
+    weight_t *weights = static_cast<weight_t *>(csr_d.weights.data());
 
     auto v =
-      static_cast<vertex_t>((csr_d.offsets.size() / sizeof(value_t)) - 1);
+      static_cast<vertex_t>((csr_d.offsets.size() / sizeof(weight_t)) - 1);
     auto e = static_cast<edge_t>(csr_d.indices.size() / sizeof(edge_t));
 
-    mst<vertex_t, edge_t, value_t>(handle, offsets, indices, weights, v, e);
+    mst<vertex_t, edge_t, weight_t>(handle, offsets, indices, weights, v, e);
   }
 
   void SetUp() override {
     csr_h =
-      ::testing::TestWithParam<CSRHost<vertex_t, edge_t, value_t>>::GetParam();
+      ::testing::TestWithParam<CSRHost<vertex_t, edge_t, weight_t>>::GetParam();
 
     csr_d.offsets = rmm::device_buffer(csr_h.offsets.data(),
                                        csr_h.offsets.size() * sizeof(vertex_t));
     csr_d.indices = rmm::device_buffer(csr_h.indices.data(),
                                        csr_h.indices.size() * sizeof(edge_t));
     csr_d.weights = rmm::device_buffer(csr_h.weights.data(),
-                                       csr_h.weights.size() * sizeof(value_t));
+                                       csr_h.weights.size() * sizeof(weight_t));
   }
 
   void TearDown() override {}
 
  protected:
-  CSRHost<vertex_t, edge_t, value_t> csr_h;
-  CSRDevice<vertex_t, edge_t, value_t> csr_d;
+  CSRHost<vertex_t, edge_t, weight_t> csr_h;
+  CSRDevice<vertex_t, edge_t, weight_t> csr_d;
 
   raft::handle_t handle;
 };
