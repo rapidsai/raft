@@ -26,6 +26,16 @@
 namespace raft {
 namespace mst {
 
+//FIXME this should live elswhere
+template <typename T>
+void printv(rmm::device_vector<T>& vec) {
+  std::cout.precision(15);
+  std::cout << "Size = " << vec.size() << std::endl;
+  thrust::copy(vec.begin(), vec.end(),
+               std::ostream_iterator<T>(std::cout, " "));
+  std::cout << std::endl;
+}
+
 template <typename vertex_t, typename edge_t, typename weight_t>
 class MST_solver {
  private:
@@ -51,8 +61,7 @@ class MST_solver {
     successor;  // current mst iteration. edge being added is (src=i, dst=successor[i])
   rmm::device_vector<bool>
     mst_edge;  // mst output -  true if the edge belongs in mst
-  rmm::device_vector<edge_t>
-    min_edge_color; // minimum incident edge per color
+  rmm::device_vector<edge_t> min_edge_color;  // minimum incident edge per color
 
   void label_prop();
 
@@ -96,10 +105,11 @@ MST_solver<vertex_t, edge_t, weight_t>::MST_solver(
 }
 
 template <typename vertex_t, typename edge_t, typename weight_t>
-__global__ void kernel_min_edge_per_vertex(const vertex_t *offsets, const edge_t *indices,
-                                           const weight_t *weights, vertex_t *color,
-                                           vertex_t *successor, bool *mst_edge,
-                                           const vertex_t v) {
+__global__ void kernel_min_edge_per_vertex(const vertex_t* offsets,
+                                           const edge_t* indices,
+                                           const weight_t* weights,
+                                           vertex_t* color, vertex_t* successor,
+                                           bool* mst_edge, const vertex_t v) {
   edge_t tid = threadIdx.x + blockIdx.x * blockDim.x;
 
   unsigned warp_id = tid / 32;
@@ -139,8 +149,7 @@ __global__ void kernel_min_edge_per_vertex(const vertex_t *offsets, const edge_t
           min_edge_weight[lane_id] = curr_edge_weight;
           min_edge_index[lane_id] = e;
           // theta = abs(curr_edge_weight - min_edge_weight[lane_id]);
-        }
-        else if (curr_edge_weight == min_edge_weight[lane_id]) {
+        } else if (curr_edge_weight == min_edge_weight[lane_id]) {
           // tie break
           if (min_color[lane_id] > successor_color) {
             min_color[lane_id] = successor_color;
@@ -160,8 +169,8 @@ __global__ void kernel_min_edge_per_vertex(const vertex_t *offsets, const edge_t
         min_color[lane_id] = min_color[lane_id + offset];
         min_edge_weight[lane_id] = min_edge_weight[lane_id + offset];
         min_edge_index[lane_id] = min_edge_index[lane_id + offset];
-      }
-      else if (min_edge_weight[lane_id] == min_edge_weight[lane_id + offset]) {
+      } else if (min_edge_weight[lane_id] ==
+                 min_edge_weight[lane_id + offset]) {
         if (min_color[lane_id] > min_color[lane_id + offset]) {
           min_color[lane_id] = min_color[lane_id + offset];
           min_edge_weight[lane_id] = min_edge_weight[lane_id + offset];
@@ -176,7 +185,7 @@ __global__ void kernel_min_edge_per_vertex(const vertex_t *offsets, const edge_t
   if (lane_id == 0) {
     if (min_edge_weight[0] != 100) {
       successor[warp_id] = indices[min_edge_index[0]];
-    } 
+    }
   }
 }
 
@@ -184,11 +193,9 @@ __global__ void kernel_min_edge_per_vertex(const vertex_t *offsets, const edge_t
 __device__ int get_1D_idx() { return blockIdx.x * blockDim.x + threadIdx.x; }
 
 // executes for each vertex and updates the colors of both vertices to the lower color
-template <typename vertex_t, typename edge_t, typename weight_t>
-__global__ void min_pair_colors(vertex_t const v,
-                                rmm::device_vector<vertex_t>& color,
-                                rmm::device_vector<vertex_t>& next_color,
-                                rmm::device_vector<vertex_t>& successor) {
+template <typename vertex_t>
+__global__ void min_pair_colors(const vertex_t v, const vertex_t* successor,
+                                vertex_t* color, vertex_t* next_color) {
   int i = get_1D_idx();
   if (i < v) {
     atomicMin(&next_color[i], color[successor[i]]);
@@ -196,11 +203,9 @@ __global__ void min_pair_colors(vertex_t const v,
   }
 }
 
-template <typename vertex_t, typename edge_t, typename weight_t>
-__global__ void check_color_change(vertex_t const v,
-                                   rmm::device_vector<vertex_t>& color,
-                                   rmm::device_vector<vertex_t>& next_color,
-                                   rmm::device_vector<bool>& done) {
+template <typename vertex_t>
+__global__ void check_color_change(const vertex_t v, vertex_t* color,
+                                   vertex_t* next_color, bool* done) {
   //This kernel works on the global_colors[] array
   int i = get_1D_idx();
   if (i < v) {
@@ -224,14 +229,27 @@ void MST_solver<vertex_t, edge_t, weight_t>::label_prop() {
   int nblocks = std::min((v + nthreads - 1) / nthreads, max_blocks);
   auto stream = handle.get_stream();
 
-  rmm::device_vector<vertex_t> done(1, false);
+  rmm::device_vector<bool> done(1, false);
+  vertex_t* color_ptr = thrust::raw_pointer_cast(color.data());
+  vertex_t* next_color_ptr = thrust::raw_pointer_cast(next_color.data());
+  vertex_t* successor_ptr = thrust::raw_pointer_cast(successor.data());
 
-  while (!done) {
+  bool* done_ptr = thrust::raw_pointer_cast(done.data());
+
+  auto i = 0;
+  std::cout << "==================" << std::endl;
+  printv(color);
+  while (!done[0]) {
     done[0] = true;
-    min_pair_colors<<<nblocks, nthreads, 0, stream>>>(v, color, next_color);
-    check_color_change<<<nblocks, nthreads, 0, stream>>>(v, color, next_color,
-                                                         done);
+    min_pair_colors<<<nblocks, nthreads, 0, stream>>>(
+      v, successor_ptr, color_ptr, next_color_ptr);
+    printv(next_color);
+    check_color_change<<<nblocks, nthreads, 0, stream>>>(
+      v, color_ptr, next_color_ptr, done_ptr);
+    printv(color);
+    i++;
   }
+  std::cout << "Label prop iterations : " << i << std::endl;
 }
 
 template <typename vertex_t, typename edge_t, typename weight_t>
@@ -246,14 +264,17 @@ void MST_solver<vertex_t, edge_t, weight_t>::solve(
 
   auto stream = handle.get_stream();
 
-  kernel_min_edge_per_vertex<<<v, 32, 0, stream>>>(offsets, indices, weights,
-                                                   thrust::raw_pointer_cast(color.data()),
-                                                   thrust::raw_pointer_cast(successor.data()),
-                                                   thrust::raw_pointer_cast(mst_edge.data()),
-                                                   v);
+  kernel_min_edge_per_vertex<<<v, 32, 0, stream>>>(
+    offsets, indices, weights, thrust::raw_pointer_cast(color.data()),
+    thrust::raw_pointer_cast(successor.data()),
+    thrust::raw_pointer_cast(mst_edge.data()), v);
 
-  thrust::copy(successor.begin(), successor.end(),
-                 std::ostream_iterator<edge_t>(std::cout, " "));
+  printv(successor);
+
+  label_prop();
+
+  printv(color);
+
   // Theorem : the minimum incident edge to any vertex has to be in the MST
   // This is a segmented min scan/reduce
   // cub::KeyValuePair<vertex_t, weight_t>* d_out = nullptr;
@@ -277,18 +298,18 @@ void MST_solver<vertex_t, edge_t, weight_t>::solve(
   // should have max_iter ensure it always exits.
   // for (auto i = 0; i < v; i++) {
   //   {
-      // updates colors of supervertices by propagating the lower color to the higher
-      // TODO
+  // updates colors of supervertices by propagating the lower color to the higher
+  // TODO
 
-      // Finds the minimum outgoing edge from each supervertex to the lowest outgoing color
-      // by working at each vertex of the supervertex
-      // TODO
-      // segmented min with an extra check to discard edges leading to the same color
+  // Finds the minimum outgoing edge from each supervertex to the lowest outgoing color
+  // by working at each vertex of the supervertex
+  // TODO
+  // segmented min with an extra check to discard edges leading to the same color
 
-      // filter internal edges / remove cycles
-      // TODO
+  // filter internal edges / remove cycles
+  // TODO
 
-      // done
+  // done
   //     if (!mst_edge_found) break;
   //   }
   // }
