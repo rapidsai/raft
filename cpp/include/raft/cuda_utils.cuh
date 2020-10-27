@@ -19,6 +19,8 @@
 #include <math_constants.h>
 #include <stdint.h>
 
+#include <raft/cudart_utils.h>
+
 #ifndef ENABLE_MEMCPY_ASYNC
 // enable memcpy_async interface by default for newer GPUs
 #if __CUDA_ARCH__ >= 800
