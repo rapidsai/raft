@@ -25,7 +25,7 @@
 #include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
 
-#include <raft/sparse/mst.cuh>
+#include <raft/sparse/mst/mst.cuh>
 
 template <typename vertex_t, typename edge_t, typename value_t>
 struct CSRHost {
@@ -125,10 +125,8 @@ class MSTTest
     auto v = static_cast<vertex_t>((csr_d.offsets.size() / sizeof(value_t)) - 1);
     auto e = static_cast<edge_t>(csr_d.indices.size() / sizeof(edge_t));
 
-    MST_solver<vertex_t, edge_t, value_t> solver(handle, offsets, indices, weights, v, e);
+    mst<vertex_t, edge_t, value_t>(handle, offsets, indices, weights, v, e);
 
-    //nullptr expected to trigger exceptions
-    solver.solve(mst_src, mst_dst);
   }
 
   void SetUp() override {
