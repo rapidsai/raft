@@ -259,7 +259,7 @@ if(BUILD_RAFT_TESTS)
       OpenMP::OpenMP_CXX
       Threads::Threads)
 
-  add_executable(test_hungarian test/lap/main.cu)
+  add_executable(test_hungarian test/lap/lap.cu)
 
   target_include_directories(test_hungarian
     PRIVATE
