@@ -25,7 +25,6 @@ namespace mst {
 
 template <typename vertex_t, typename edge_t, typename weight_t>
 class MST_solver {
-
  public:
   MST_solver(const raft::handle_t& handle_, vertex_t const* offsets_,
              vertex_t const* indices_, weight_t const* weights_,
@@ -64,7 +63,7 @@ class MST_solver {
   void min_edge_per_color();
 };
 
-} // namespace mst
-} // namespace raft
+}  // namespace mst
+}  // namespace raft
 
 #include "detail/mst_solver_inl.hpp"

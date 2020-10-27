@@ -20,17 +20,17 @@
 #include "utils.cuh"
 
 #include <limits>
- 
+
 namespace raft {
 namespace mst {
 namespace detail {
 
 template <typename vertex_t, typename edge_t, typename weight_t>
 __global__ void kernel_min_edge_per_color(const vertex_t* offsets,
-                                           const edge_t* indices,
-                                           const weight_t* weights,
-                                           vertex_t* color, vertex_t* successor,
-                                           bool* mst_edge, const vertex_t v) {
+                                          const edge_t* indices,
+                                          const weight_t* weights,
+                                          vertex_t* color, vertex_t* successor,
+                                          bool* mst_edge, const vertex_t v) {
   edge_t tid = threadIdx.x + blockIdx.x * blockDim.x;
 
   unsigned warp_id = tid / 32;
@@ -140,6 +140,6 @@ __global__ void check_color_change(const vertex_t v, vertex_t* color,
   next_color[i] = color[i];
 }
 
-} // namespace detail
-} // namespace mst
-} // namespace raft
+}  // namespace detail
+}  // namespace mst
+}  // namespace raft

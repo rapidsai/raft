@@ -137,20 +137,16 @@ void MST_solver<vertex_t, edge_t, weight_t>::label_prop() {
 
 template <typename vertex_t, typename edge_t, typename weight_t>
 void MST_solver<vertex_t, edge_t, weight_t>::min_edge_per_color() {
-
   auto stream = handle.get_stream();
   int n_threads = 32;
 
-  vertex_t *color_ptr = thrust::raw_pointer_cast(color.data());
-  vertex_t *successor_ptr = thrust::raw_pointer_cast(successor.data());
-  bool *mst_edge_ptr = thrust::raw_pointer_cast(mst_edge.data());
+  vertex_t* color_ptr = thrust::raw_pointer_cast(color.data());
+  vertex_t* successor_ptr = thrust::raw_pointer_cast(successor.data());
+  bool* mst_edge_ptr = thrust::raw_pointer_cast(mst_edge.data());
 
   detail::kernel_min_edge_per_color<<<v, n_threads, 0, stream>>>(
-    offsets, indices, weights, color_ptr,
-    successor_ptr,
-    mst_edge_ptr, v);
-
+    offsets, indices, weights, color_ptr, successor_ptr, mst_edge_ptr, v);
 }
 
-} // namespace mst
-} // namespace raft
+}  // namespace mst
+}  // namespace raft

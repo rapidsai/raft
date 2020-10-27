@@ -118,15 +118,15 @@ class MSTTest
     rmm::device_vector<vertex_t> mst_src;
     rmm::device_vector<vertex_t> mst_dst;
 
-    vertex_t *offsets = static_cast<vertex_t*>(csr_d.offsets.data());
-    edge_t *indices = static_cast<edge_t*>(csr_d.indices.data());
-    value_t *weights = static_cast<value_t*>(csr_d.weights.data());
+    vertex_t *offsets = static_cast<vertex_t *>(csr_d.offsets.data());
+    edge_t *indices = static_cast<edge_t *>(csr_d.indices.data());
+    value_t *weights = static_cast<value_t *>(csr_d.weights.data());
 
-    auto v = static_cast<vertex_t>((csr_d.offsets.size() / sizeof(value_t)) - 1);
+    auto v =
+      static_cast<vertex_t>((csr_d.offsets.size() / sizeof(value_t)) - 1);
     auto e = static_cast<edge_t>(csr_d.indices.size() / sizeof(edge_t));
 
     mst<vertex_t, edge_t, value_t>(handle, offsets, indices, weights, v, e);
-
   }
 
   void SetUp() override {

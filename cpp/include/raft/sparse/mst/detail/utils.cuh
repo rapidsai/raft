@@ -36,6 +36,6 @@ void printv(rmm::device_vector<T>& vec) {
   std::cout << std::endl;
 }
 
-} // namespace detail
-} // namespace mst
-} // namespace raft
+}  // namespace detail
+}  // namespace mst
+}  // namespace raft

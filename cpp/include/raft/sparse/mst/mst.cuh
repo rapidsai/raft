@@ -24,12 +24,11 @@ namespace mst {
 
 template <typename vertex_t, typename edge_t, typename weight_t>
 void mst(const raft::handle_t& handle, vertex_t const* offsets,
-  vertex_t const* indices, weight_t const* weights,
-  vertex_t const v, vertex_t const e) {
-  
-  MST_solver<vertex_t, edge_t, weight_t> mst_solver(handle, offsets, indices, weights, v, e);
+         vertex_t const* indices, weight_t const* weights, vertex_t const v,
+         vertex_t const e) {
+  MST_solver<vertex_t, edge_t, weight_t> mst_solver(handle, offsets, indices,
+                                                    weights, v, e);
   mst_solver.solve();
-
 }
 
 }  // namespace mst
