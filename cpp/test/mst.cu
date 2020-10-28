@@ -25,16 +25,16 @@
 #include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
 
-#include <raft/sparse/mst.cuh>
+#include <raft/sparse/mst/mst.cuh>
 
-template <typename vertex_t, typename edge_t, typename value_t>
+template <typename vertex_t, typename edge_t, typename weight_t>
 struct CSRHost {
   std::vector<vertex_t> offsets;
   std::vector<edge_t> indices;
-  std::vector<value_t> weights;
+  std::vector<weight_t> weights;
 };
 
-template <typename vertex_t, typename edge_t, typename value_t>
+template <typename vertex_t, typename edge_t, typename weight_t>
 struct CSRDevice {
   rmm::device_buffer offsets;
   rmm::device_buffer indices;
@@ -46,13 +46,13 @@ namespace mst {
 
 // Sequential prims function
 // Returns total weight of MST
-template <typename vertex_t, typename edge_t, typename value_t>
-value_t prims(CSRHost<vertex_t, edge_t, value_t> &csr_h) {
+template <typename vertex_t, typename edge_t, typename weight_t>
+weight_t prims(CSRHost<vertex_t, edge_t, weight_t> &csr_h) {
   auto n_vertices = csr_h.offsets.size() - 1;
 
   bool active_vertex[n_vertices];
   // bool mst_set[csr_h.n_edges];
-  value_t curr_edge[n_vertices];
+  weight_t curr_edge[n_vertices];
 
   for (auto i = 0; i < n_vertices; i++) {
     active_vertex[i] = false;
@@ -67,7 +67,7 @@ value_t prims(CSRHost<vertex_t, edge_t, value_t> &csr_h) {
   // function to pick next min vertex-edge
   auto min_vertex_edge = [](auto *curr_edge, auto *active_vertex,
                             auto n_vertices) {
-    value_t min = INT_MAX;
+    weight_t min = INT_MAX;
     vertex_t min_vertex;
 
     for (auto v = 0; v < n_vertices; v++) {
@@ -102,7 +102,7 @@ value_t prims(CSRHost<vertex_t, edge_t, value_t> &csr_h) {
   }
 
   // find sum of MST
-  value_t total_weight = 0;
+  weight_t total_weight = 0;
   for (auto v = 1; v < n_vertices; v++) {
     total_weight += curr_edge[v];
   }
@@ -110,44 +110,42 @@ value_t prims(CSRHost<vertex_t, edge_t, value_t> &csr_h) {
   return total_weight;
 }
 
-template <typename vertex_t, typename edge_t, typename value_t>
+template <typename vertex_t, typename edge_t, typename weight_t>
 class MSTTest
-  : public ::testing::TestWithParam<CSRHost<vertex_t, edge_t, value_t>> {
+  : public ::testing::TestWithParam<CSRHost<vertex_t, edge_t, weight_t>> {
  protected:
   void mst_sequential() {
     rmm::device_vector<vertex_t> mst_src;
     rmm::device_vector<vertex_t> mst_dst;
 
-    vertex_t *offsets = static_cast<vertex_t*>(csr_d.offsets.data());
-    edge_t *indices = static_cast<edge_t*>(csr_d.indices.data());
-    value_t *weights = static_cast<value_t*>(csr_d.weights.data());
+    vertex_t *offsets = static_cast<vertex_t *>(csr_d.offsets.data());
+    edge_t *indices = static_cast<edge_t *>(csr_d.indices.data());
+    weight_t *weights = static_cast<weight_t *>(csr_d.weights.data());
 
-    auto v = static_cast<vertex_t>((csr_d.offsets.size() / sizeof(value_t)) - 1);
+    auto v =
+      static_cast<vertex_t>((csr_d.offsets.size() / sizeof(weight_t)) - 1);
     auto e = static_cast<edge_t>(csr_d.indices.size() / sizeof(edge_t));
 
-    MST_solver<vertex_t, edge_t, value_t> solver(handle, offsets, indices, weights, v, e);
-
-    //nullptr expected to trigger exceptions
-    solver.solve(mst_src, mst_dst);
+    mst<vertex_t, edge_t, weight_t>(handle, offsets, indices, weights, v, e);
   }
 
   void SetUp() override {
     csr_h =
-      ::testing::TestWithParam<CSRHost<vertex_t, edge_t, value_t>>::GetParam();
+      ::testing::TestWithParam<CSRHost<vertex_t, edge_t, weight_t>>::GetParam();
 
     csr_d.offsets = rmm::device_buffer(csr_h.offsets.data(),
                                        csr_h.offsets.size() * sizeof(vertex_t));
     csr_d.indices = rmm::device_buffer(csr_h.indices.data(),
                                        csr_h.indices.size() * sizeof(edge_t));
     csr_d.weights = rmm::device_buffer(csr_h.weights.data(),
-                                       csr_h.weights.size() * sizeof(value_t));
+                                       csr_h.weights.size() * sizeof(weight_t));
   }
 
   void TearDown() override {}
 
  protected:
-  CSRHost<vertex_t, edge_t, value_t> csr_h;
-  CSRDevice<vertex_t, edge_t, value_t> csr_d;
+  CSRHost<vertex_t, edge_t, weight_t> csr_h;
+  CSRDevice<vertex_t, edge_t, weight_t> csr_d;
 
   raft::handle_t handle;
 };
@@ -161,11 +159,16 @@ Graph 1:
 
 */
 
-const std::vector<CSRHost<int, int, int>> csr_in_h = {
-  // {nullptr, nullptr, nullptr, 0, 0},
+const std::vector<CSRHost<int, int, float>> csr_in_h = {
   {{0, 3, 5, 7, 8}, {1, 2, 3, 0, 3, 0, 0, 1}, {2, 3, 4, 2, 1, 3, 4, 1}}};
 
-typedef MSTTest<int, int, int> MSTTestSequential;
+const std::vector<CSRHost<int, int, float>> csr_in2_h = {
+  {{0, 4, 6, 9, 12, 15, 17, 20},
+   {2, 4, 5, 6, 3, 6, 0, 4, 5, 1, 4, 6, 0, 2, 3, 0, 2, 0, 1, 3},
+   {5.0, 9.0, 1.0, 4.0, 8.0, 7.0, 5.0, 2.0, 6.0, 8.0,
+    3.0, 4.0, 9.0, 2.0, 3.0, 1.0, 6.0, 4.0, 7.0, 10.0}}};
+
+typedef MSTTest<int, int, float> MSTTestSequential;
 TEST_P(MSTTestSequential, Sequential) {
   mst_sequential();
 
@@ -175,7 +178,7 @@ TEST_P(MSTTestSequential, Sequential) {
 }
 
 INSTANTIATE_TEST_SUITE_P(MSTTests, MSTTestSequential,
-                         ::testing::ValuesIn(csr_in_h));
+                         ::testing::ValuesIn(csr_in2_h));
 
 }  // namespace mst
 }  // namespace raft
