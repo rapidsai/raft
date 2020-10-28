@@ -57,13 +57,15 @@ class MST_solver {
     successor;  // current mst iteration. edge being added is (src=i, dst=successor[i])
   rmm::device_vector<bool>
     mst_edge;  // mst output -  true if the edge belongs in mst
-  rmm::device_vector<edge_t> min_edge_color;  // minimum incident edge per color
+  rmm::device_vector<weight_t> min_edge_color;  // minimum incident edge weight per color
+  rmm::device_vector<edge_t> new_mst_edge;  // new minimum edge per vertex
 
   void label_prop();
   void min_edge_per_vertex();
+  void min_edge_per_supervertex();
 };
 
 }  // namespace mst
 }  // namespace raft
 
-#include "detail/mst_solver_inl.hpp"
+#include "detail/mst_solver_inl.cuh"
