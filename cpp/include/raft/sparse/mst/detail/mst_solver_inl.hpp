@@ -73,6 +73,25 @@ void MST_solver<vertex_t, edge_t, weight_t>::solve() {
 }
 
 template <typename vertex_t, typename edge_t, typename weight_t>
+weight_t MST_solver<vertex_t, edge_t, weight_t>::alteration_upper_bound() {
+  auto policy = rmm::exec_policy(handle.get_stream())->on(handle.get_stream());
+  rmm::device_vector<weight_t> tmp(e);
+  thrust::device_ptr<weight_t> weights_ptr(weights);
+  thrust::copy(policy, weights_ptr, weights_ptr + e, tmp.begin());
+  thrust::sort(policy, tmp.begin(), tmp.end());
+  //remove duplicates
+  auto new_end = thrust::unique(policy, tmp.begin(), tmp.end());
+
+  //min(a[i+1]-a[i])/2
+  auto begin =
+    thrust::make_zip_iterator(thrust::make_tuple(tmp.begin(), tmp.begin() + 1));
+  auto end = thrust::make_zip_iterator(thrust::make_tuple(new_end - 1,  new_end);
+  auto init = tmp[1]-tmp[0];
+  return thrust::transform_reduce(
+    policy, begin, end, thrust::minus<weight_t>(), init, thrust::minimum<weight_t>())/static_cast<weight_t>(2);
+}
+
+template <typename vertex_t, typename edge_t, typename weight_t>
 void MST_solver<vertex_t, edge_t, weight_t>::label_prop() {
   // update the colors of both ends its until there is no change in colors
   int nthreads = std::min(v, max_threads);
