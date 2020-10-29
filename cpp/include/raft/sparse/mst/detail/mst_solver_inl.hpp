@@ -118,7 +118,7 @@ weight_t MST_solver<vertex_t, edge_t, weight_t>::alteration_max() {
   thrust::copy(policy, weights_ptr, weights_ptr + e, tmp.begin());
   detail::printv(tmp);
   //sort tmp weights
-  thrust::sort(policy, tmp.begin(), tmp.begin());
+  thrust::sort(policy, tmp.begin(), tmp.end());
   detail::printv(tmp);
 
   //remove duplicates
