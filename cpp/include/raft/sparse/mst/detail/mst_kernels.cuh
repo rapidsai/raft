@@ -195,7 +195,27 @@ __global__ void kernel_check_termination(const vertex_t e, bool *mst_edge,
   if (block_count > 0) {
     *done = false;
   }
+}
 
+// Alterate the weights, make all undirected edge weight unique while keeping Wuv == Wvu
+// Consider using curand device API instead of precomputed random_values array
+template <typename vertex_t, typename edge_t, typename weight_t>
+__global__ void alteration_kernel(const vertex_t v, const edge_t e,
+                                  const edge_t* offsets,
+                                  const vertex_t* indices,
+                                  const weight_t* weights, weight_t max,
+                                  weight_t* random_values,
+                                  weight_t* alterated_weights) {
+  auto row = get_1D_idx();
+  if (row < v) {
+    auto row_begin = offsets[row];
+    auto row_end = offsets[row + 1];
+    for (auto i = row_begin; i < row_end; i++) {
+      auto column = indices[i];
+      alterated_weights[i] =
+        weights[i] + max * (random_values[row] + random_values[column]);
+    }
+  }
 }
 
 }  // namespace detail

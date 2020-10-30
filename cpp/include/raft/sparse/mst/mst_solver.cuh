@@ -61,12 +61,15 @@ class MST_solver {
     prev_mst_edge;  // mst output of prev iteration - used to check for termination
   rmm::device_vector<weight_t> min_edge_color;  // minimum incident edge weight per color
   rmm::device_vector<edge_t> new_mst_edge;  // new minimum edge per vertex
+  rmm::device_vector<weight_t> alterated_weights;  // weights to be used for mst
   rmm::device_vector<bool> msf_done; // check if msf/mst has terminated
 
   void label_prop();
   void min_edge_per_vertex();
   void min_edge_per_supervertex();
   void check_termination();
+  void alteration();
+  weight_t alteration_max();
 };
 
 }  // namespace mst
