@@ -112,17 +112,15 @@ struct alteration_functor {
 template <typename vertex_t, typename edge_t, typename weight_t>
 weight_t MST_solver<vertex_t, edge_t, weight_t>::alteration_max() {
   auto stream = handle.get_stream();
-
+  auto policy = rmm::exec_policy(stream);
   rmm::device_vector<weight_t> tmp(e);
   thrust::device_ptr<const weight_t> weights_ptr(weights);
-  thrust::copy(rmm::exec_policy(stream)->on(stream), weights_ptr,
-               weights_ptr + e, tmp.begin());
+  thrust::copy(policy->on(stream), weights_ptr, weights_ptr + e, tmp.begin());
   //sort tmp weights
-  thrust::sort(rmm::exec_policy(stream)->on(stream), tmp.begin(), tmp.end());
+  thrust::sort(policy->on(stream), tmp.begin(), tmp.end());
 
   //remove duplicates
-  auto new_end = thrust::unique(rmm::exec_policy(stream)->on(stream),
-                                tmp.begin(), tmp.end());
+  auto new_end = thrust::unique(policy->on(stream), tmp.begin(), tmp.end());
 
   //min(a[i+1]-a[i])/2
   auto begin =
@@ -130,9 +128,9 @@ weight_t MST_solver<vertex_t, edge_t, weight_t>::alteration_max() {
   auto end =
     thrust::make_zip_iterator(thrust::make_tuple(new_end - 1, new_end));
   auto init = tmp[1] - tmp[0];
-  auto max = thrust::transform_reduce(
-    rmm::exec_policy(stream)->on(stream), begin, end,
-    alteration_functor<weight_t>(), init, thrust::minimum<weight_t>());
+  auto max = thrust::transform_reduce(policy->on(stream), begin, end,
+                                      alteration_functor<weight_t>(), init,
+                                      thrust::minimum<weight_t>());
   return max / static_cast<weight_t>(2);
 }
 
