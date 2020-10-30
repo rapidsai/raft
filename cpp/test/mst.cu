@@ -181,7 +181,7 @@ TEST_P(MSTTestSequential, Sequential) {
 
   // do assertions here
   // in this case, running sequential MST
-  // std::cout << prims(csr_h);
+  std::cout << prims(csr_h);
 }
 
 INSTANTIATE_TEST_SUITE_P(MSTTests, MSTTestSequential,

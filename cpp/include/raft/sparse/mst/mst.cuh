@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "mst_solver.hpp"
+#include "mst_solver.cuh"
 
 namespace raft {
 namespace mst {

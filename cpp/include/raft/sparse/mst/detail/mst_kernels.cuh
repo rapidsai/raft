@@ -21,6 +21,8 @@
 
 #include <limits>
 
+#include <raft/device_atomics.cuh>
+
 namespace raft {
 namespace mst {
 namespace detail {
@@ -30,7 +32,9 @@ __global__ void kernel_min_edge_per_vertex(const vertex_t* offsets,
                                            const edge_t* indices,
                                            const weight_t* weights,
                                            vertex_t* color, vertex_t* successor,
-                                           bool* mst_edge, const vertex_t v) {
+                                           bool* mst_edge, edge_t *new_mst_edge,
+                                           weight_t *min_edge_color,
+                                           const vertex_t v) {
   edge_t tid = threadIdx.x + blockIdx.x * blockDim.x;
 
   unsigned warp_id = tid / 32;
@@ -106,8 +110,43 @@ __global__ void kernel_min_edge_per_vertex(const vertex_t* offsets,
   if (lane_id == 0) {
     if (min_edge_weight[0] != std::numeric_limits<weight_t>::max()) {
       successor[warp_id] = indices[min_edge_index[0]];
+
+      new_mst_edge[warp_id] = min_edge_index[0];
+
+      // atomically set min edge per color
+      // takes care of super vertex case
+      // printf("color: %d, min edge index: %d, min edge color: %f, min edge weight: %f\n",self_color, min_edge_index[0], min_edge_color[self_color], min_edge_weight[0]);
+      atomicMin(&min_edge_color[self_color], min_edge_weight[0]);
     }
   }
+}
+
+template <typename vertex_t, typename edge_t, typename weight_t>
+__global__ void min_edge_per_supervertex(const vertex_t *color,
+                                         const edge_t *new_mst_edge,
+                                         const weight_t *weights,
+                                         vertex_t *successor,
+                                         bool *mst_edge,
+                                         const weight_t *min_edge_color,
+                                         const vertex_t v) {
+  vertex_t tid = get_1D_idx();
+
+  if (tid < v) {
+    vertex_t vertex_color = color[tid];
+    edge_t edge_idx = new_mst_edge[tid];
+
+    // check if valid outgoing edge was found
+    if (edge_idx != std::numeric_limits<edge_t>::max()) {
+      weight_t vertex_weight = weights[edge_idx];
+      if (min_edge_color[vertex_color] == vertex_weight) {
+        mst_edge[edge_idx] = true;
+      }
+      else {
+        successor[tid] = std::numeric_limits<vertex_t>::max();
+      }
+    }
+  }
+
 }
 
 // executes for each vertex and updates the colors of both vertices to the lower color
@@ -116,8 +155,10 @@ __global__ void min_pair_colors(const vertex_t v, const vertex_t* successor,
                                 vertex_t* color, vertex_t* next_color) {
   int i = get_1D_idx();
   if (i < v) {
-    atomicMin(&next_color[i], color[successor[i]]);
-    atomicMin(&next_color[successor[i]], color[i]);
+    if (successor[i] != std::numeric_limits<vertex_t>::max()) {
+      atomicMin(&next_color[i], color[successor[i]]);
+      atomicMin(&next_color[successor[i]], color[i]);
+    }
   }
 }
 
@@ -138,6 +179,22 @@ __global__ void check_color_change(const vertex_t v, vertex_t* color,
   // resolving here for next iteration
   // TODO check experimentally
   next_color[i] = color[i];
+}
+
+template <typename vertex_t>
+__global__ void kernel_check_termination(const vertex_t e, bool *mst_edge,
+                                         bool *prev_mst_edge, bool *done) {
+
+  vertex_t tid = get_1D_idx();
+
+  // count > 0 values in block
+  bool predicate = tid < e && (mst_edge[tid] ^ prev_mst_edge[tid]);
+  // printf("tid: %d, predicate: %d, xor: %d\n", tid, predicate, color[tid] ^)
+  vertex_t block_count = __syncthreads_count(predicate);
+
+  if (block_count > 0) {
+    *done = false;
+  }
 }
 
 // Alterate the weights, make all undirected edge weight unique while keeping Wuv == Wvu
