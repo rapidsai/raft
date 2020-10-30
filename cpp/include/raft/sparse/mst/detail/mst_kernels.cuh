@@ -141,9 +141,6 @@ __global__ void min_edge_per_supervertex(const vertex_t *color,
       if (min_edge_color[vertex_color] == vertex_weight) {
         mst_edge[edge_idx] = true;
       }
-      else {
-        successor[tid] = std::numeric_limits<vertex_t>::max();
-      }
     }
   }
 
@@ -155,10 +152,8 @@ __global__ void min_pair_colors(const vertex_t v, const vertex_t* successor,
                                 vertex_t* color, vertex_t* next_color) {
   int i = get_1D_idx();
   if (i < v) {
-    if (successor[i] != std::numeric_limits<vertex_t>::max()) {
-      atomicMin(&next_color[i], color[successor[i]]);
-      atomicMin(&next_color[successor[i]], color[i]);
-    }
+    atomicMin(&next_color[i], color[successor[i]]);
+    atomicMin(&next_color[successor[i]], color[i]);
   }
 }
 

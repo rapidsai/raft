@@ -57,7 +57,7 @@ MST_solver<vertex_t, edge_t, weight_t>::MST_solver(
     color(v_),
     next_color(v_),
     active_color(v_),
-    successor(v_),
+    successor(v_, std::numeric_limits<vertex_t>::max()),
     mst_edge(e_, false),
     prev_mst_edge(e_, false),
     min_edge_color(v_),
@@ -97,12 +97,14 @@ void MST_solver<vertex_t, edge_t, weight_t>::solve() {
     // Finds the minimum outgoing edge from each supervertex to the lowest outgoing color
     // by working at each vertex of the supervertex
     min_edge_per_vertex();
-    std::cout << "Successor: " << std::endl;
+    std::cout << "Successor Before: " << std::endl;
     detail::printv(successor);
     std::cout << "New MST Edge: " << std::endl;
     detail::printv(new_mst_edge);
 
     min_edge_per_supervertex();
+    std::cout << "Successor After: " << std::endl;
+    detail::printv(successor);
 
     // check if msf/mst done
     std::cout << "MST Edge: " << std::endl;
@@ -224,13 +226,12 @@ void MST_solver<vertex_t, edge_t, weight_t>::label_prop() {
     //detail::printv(color);
     i++;
   }
-  std::cout << "Label prop iterations : " << i << std::endl;
+  // std::cout << "Label prop iterations : " << i << std::endl;
   //std::cout << "==================" << std::endl;
 }
 
 template <typename vertex_t, typename edge_t, typename weight_t>
 void MST_solver<vertex_t, edge_t, weight_t>::min_edge_per_vertex() {
-  thrust::fill(successor.begin(), successor.end(), std::numeric_limits<vertex_t>::max());
   thrust::fill(new_mst_edge.begin(), new_mst_edge.end(), std::numeric_limits<edge_t>::max());
   thrust::fill(min_edge_color.begin(), min_edge_color.end(), std::numeric_limits<weight_t>::max());
 
