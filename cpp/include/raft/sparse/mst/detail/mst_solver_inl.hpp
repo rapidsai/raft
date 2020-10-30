@@ -96,7 +96,7 @@ void MST_solver<vertex_t, edge_t, weight_t>::solve() {
   }
 }
 
-//|a|-|b|
+//|b|-|a|
 template <typename weight_t>
 struct alteration_functor {
   __host__ __device__ weight_t
@@ -112,18 +112,17 @@ struct alteration_functor {
 template <typename vertex_t, typename edge_t, typename weight_t>
 weight_t MST_solver<vertex_t, edge_t, weight_t>::alteration_max() {
   auto stream = handle.get_stream();
-  auto policy = rmm::exec_policy(stream)->on(stream);
+
   rmm::device_vector<weight_t> tmp(e);
   thrust::device_ptr<const weight_t> weights_ptr(weights);
-  thrust::copy(policy, weights_ptr, weights_ptr + e, tmp.begin());
-  detail::printv(tmp);
+  thrust::copy(rmm::exec_policy(stream)->on(stream), weights_ptr,
+               weights_ptr + e, tmp.begin());
   //sort tmp weights
-  thrust::sort(policy, tmp.begin(), tmp.end());
-  detail::printv(tmp);
+  thrust::sort(rmm::exec_policy(stream)->on(stream), tmp.begin(), tmp.end());
 
   //remove duplicates
-  auto new_end = thrust::unique(policy, tmp.begin(), tmp.end());
-  detail::printv(tmp);
+  auto new_end = thrust::unique(rmm::exec_policy(stream)->on(stream),
+                                tmp.begin(), tmp.end());
 
   //min(a[i+1]-a[i])/2
   auto begin =
@@ -131,16 +130,15 @@ weight_t MST_solver<vertex_t, edge_t, weight_t>::alteration_max() {
   auto end =
     thrust::make_zip_iterator(thrust::make_tuple(new_end - 1, new_end));
   auto init = tmp[1] - tmp[0];
-  auto max =
-    thrust::transform_reduce(policy, begin, end, alteration_functor<weight_t>(),
-                             init, thrust::minimum<weight_t>());
+  auto max = thrust::transform_reduce(
+    rmm::exec_policy(stream)->on(stream), begin, end,
+    alteration_functor<weight_t>(), init, thrust::minimum<weight_t>());
   return max / static_cast<weight_t>(2);
 }
 
 template <typename vertex_t, typename edge_t, typename weight_t>
 void MST_solver<vertex_t, edge_t, weight_t>::alteration() {
   auto stream = handle.get_stream();
-  auto policy = rmm::exec_policy(handle.get_stream())->on(handle.get_stream());
   auto nthreads = std::min(v, max_threads);
   auto nblocks = std::min((v + nthreads - 1) / nthreads, max_blocks);
 
@@ -185,20 +183,20 @@ void MST_solver<vertex_t, edge_t, weight_t>::label_prop() {
   bool* done_ptr = thrust::raw_pointer_cast(done.data());
 
   auto i = 0;
-  std::cout << "==================" << std::endl;
-  detail::printv(color);
+  //std::cout << "==================" << std::endl;
+  //detail::printv(color);
   while (!done[0]) {
     done[0] = true;
     detail::min_pair_colors<<<nblocks, nthreads, 0, stream>>>(
       v, successor_ptr, color_ptr, next_color_ptr);
-    detail::printv(next_color);
+    //detail::printv(next_color);
     detail::check_color_change<<<nblocks, nthreads, 0, stream>>>(
       v, color_ptr, next_color_ptr, done_ptr);
-    detail::printv(color);
+    //detail::printv(color);
     i++;
   }
   std::cout << "Label prop iterations : " << i << std::endl;
-  std::cout << "==================" << std::endl;
+  //std::cout << "==================" << std::endl;
 }
 
 template <typename vertex_t, typename edge_t, typename weight_t>
