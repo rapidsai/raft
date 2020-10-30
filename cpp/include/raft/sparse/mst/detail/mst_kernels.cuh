@@ -153,15 +153,10 @@ __global__ void alteration_kernel(const vertex_t v, const edge_t e,
   if (row < v) {
     auto row_begin = offsets[row];
     auto row_end = offsets[row + 1];
-    vertex_t column;
     for (auto i = row_begin; i < row_end; i++) {
-      column = indices[i];
-      if (row < column)
-        // upper tiangular
-        alterated_weights[i] = weights[i] + max * random_values[i];
-      else
-        // lower triangular
-        alterated_weights[i] = weights[i] + max * random_values[i % (e / 2)];
+      auto column = indices[i];
+      alterated_weights[i] =
+        weights[i] + max * (random_values[row] + random_values[column]);
     }
   }
 }

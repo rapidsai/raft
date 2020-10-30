@@ -178,7 +178,7 @@ TEST_P(MSTTestSequential, Sequential) {
 }
 
 INSTANTIATE_TEST_SUITE_P(MSTTests, MSTTestSequential,
-                         ::testing::ValuesIn(csr_in2_h));
+                         ::testing::ValuesIn(csr_in3_h));
 
 }  // namespace mst
 }  // namespace raft

@@ -25,6 +25,7 @@
 #include <thrust/device_vector.h>
 #include <thrust/sort.h>
 #include <thrust/transform.h>
+#include <iostream>
 
 namespace raft {
 namespace mst {
@@ -144,7 +145,7 @@ void MST_solver<vertex_t, edge_t, weight_t>::alteration() {
   weight_t max = alteration_max();
 
   // pool of rand values
-  rmm::device_vector<weight_t> rand_values(e / 2);
+  rmm::device_vector<weight_t> rand_values(v);
 
   // Random number generator
   curandGenerator_t randGen;
@@ -153,7 +154,7 @@ void MST_solver<vertex_t, edge_t, weight_t>::alteration() {
 
   // Initialize rand values
   auto curand_status = curand_generate_uniformX(
-    randGen, thrust::raw_pointer_cast(rand_values.data()), e / 2);
+    randGen, thrust::raw_pointer_cast(rand_values.data()), v);
   RAFT_EXPECTS(curand_status == CURAND_STATUS_SUCCESS, "MST: CURAND failed");
   curand_status = curandDestroyGenerator(randGen);
   RAFT_EXPECTS(curand_status == CURAND_STATUS_SUCCESS,
