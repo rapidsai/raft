@@ -41,8 +41,10 @@ MST_solver<vertex_t, edge_t, weight_t>::MST_solver(
     active_color(v_),
     successor(v_),
     mst_edge(e_, false),
+    prev_mst_edge(e_, false),
     min_edge_color(v_),
-    new_mst_edge(v_) {
+    new_mst_edge(v_),
+    msf_done(1, true) {
   max_blocks = handle_.get_device_properties().maxGridSize[0];
   max_threads = handle_.get_device_properties().maxThreadsPerBlock;
   sm_count = handle_.get_device_properties().multiProcessorCount;
@@ -66,18 +68,38 @@ void MST_solver<vertex_t, edge_t, weight_t>::solve() {
   // Here we adjust it to support disconnected components (spanning forest)
   // track completion with mst_edge_found status.
   // should have max_iter ensure it always exits.
-  for (auto i = 0; i < 2; i++) {
+  for (auto i = 0; i < 3; i++) {
+    std::cout << "Iteration: " << i << std::endl;
     // Finds the minimum outgoing edge from each supervertex to the lowest outgoing color
     // by working at each vertex of the supervertex
     min_edge_per_vertex();
+    std::cout << "Successor: " << std::endl;
     detail::printv(successor);
+    std::cout << "New MST Edge: " << std::endl;
     detail::printv(new_mst_edge);
 
     min_edge_per_supervertex();
 
+    // check if msf/mst done
+    std::cout << "MST Edge: " << std::endl;
+    detail::printv(mst_edge);
+    std::cout << "Prev MST Edge: " << std::endl;
+    detail::printv(prev_mst_edge);
+    check_termination();
+    std::cout << "MSF/MST done: " << msf_done[0] << std::endl;
+    if (msf_done[0] == true) {
+      break;
+    }
+
     // updates colors of supervertices by propagating the lower color to the higher
     label_prop();
+    std::cout << "Color: " << std::endl;
     detail::printv(color);
+    std::cout << "Next Color: " << std::endl;
+    detail::printv(next_color);
+
+    // copy this iteration's results and store
+    prev_mst_edge = mst_edge;
   }
 }
 
@@ -96,20 +118,20 @@ void MST_solver<vertex_t, edge_t, weight_t>::label_prop() {
   bool* done_ptr = thrust::raw_pointer_cast(done.data());
 
   auto i = 0;
-  std::cout << "==================" << std::endl;
-  detail::printv(color);
+  // std::cout << "==================" << std::endl;
+  // detail::printv(color);
   while (!done[0]) {
     done[0] = true;
     detail::min_pair_colors<<<nblocks, nthreads, 0, stream>>>(
       v, successor_ptr, color_ptr, next_color_ptr);
-    detail::printv(next_color);
+    // detail::printv(next_color);
     detail::check_color_change<<<nblocks, nthreads, 0, stream>>>(
       v, color_ptr, next_color_ptr, done_ptr);
-    detail::printv(color);
+    // detail::printv(color);
     i++;
   }
-  std::cout << "Label prop iterations : " << i << std::endl;
-  std::cout << "==================" << std::endl;
+  // std::cout << "Label prop iterations : " << i << std::endl;
+  // std::cout << "==================" << std::endl;
 }
 
 template <typename vertex_t, typename edge_t, typename weight_t>
@@ -133,8 +155,9 @@ void MST_solver<vertex_t, edge_t, weight_t>::min_edge_per_vertex() {
 
 template <typename vertex_t, typename edge_t, typename weight_t>
 void MST_solver<vertex_t, edge_t, weight_t>::min_edge_per_supervertex() {
+  int nthreads = std::min(v, max_threads);
+  int nblocks = std::min((v + nthreads - 1) / nthreads, max_blocks);
   auto stream = handle.get_stream();
-  int n_threads = 32;
 
   vertex_t* color_ptr = thrust::raw_pointer_cast(color.data());
   edge_t* new_mst_edge_ptr = thrust::raw_pointer_cast(new_mst_edge.data());
@@ -146,9 +169,9 @@ void MST_solver<vertex_t, edge_t, weight_t>::min_edge_per_supervertex() {
   // rmm::device_vector<weight_t> out_edge(v, std::numeric_limits<weight_t>::max());
   // weight_t *out_edge_ptr = thrust::raw_pointer_cast(out_edge.data());
 
-  detail::min_edge_per_supervertex<<<v, n_threads, 0, stream>>>(color_ptr, new_mst_edge_ptr, weights, successor_ptr, mst_edge_ptr, min_edge_color_ptr, v);
+  detail::min_edge_per_supervertex<<<nblocks, nthreads, 0, stream>>>(color_ptr, new_mst_edge_ptr, weights, successor_ptr, mst_edge_ptr, min_edge_color_ptr, v);
 
-  detail::printv(mst_edge);
+  // detail::printv(mst_edge);
 
   // auto pred_op = [] __device__ (const auto &x1, const auto &x2) {
   //   return x1 == x2;
@@ -167,6 +190,20 @@ void MST_solver<vertex_t, edge_t, weight_t>::min_edge_per_supervertex() {
   // rmm::device_vector<edge_t> out_edge(v);
 
   // auto new_end = thrust::reduce_by_key(thrust::device, color.begin(), color.end(), new_mst_edge.begin(), out_color.begin(), out_edge.begin(), pred_op, min_op);
+}
+
+template <typename vertex_t, typename edge_t, typename weight_t>
+void MST_solver<vertex_t, edge_t, weight_t>::check_termination() {
+  int nthreads = std::min(e, max_threads);
+  int nblocks = std::min((e + nthreads - 1) / nthreads, max_blocks);
+  auto stream = handle.get_stream();
+
+  bool* mst_edge_ptr = thrust::raw_pointer_cast(mst_edge.data());
+  bool* prev_mst_edge_ptr = thrust::raw_pointer_cast(prev_mst_edge.data());
+
+  bool *msf_done_ptr = thrust::raw_pointer_cast(msf_done.data());
+
+  detail::kernel_check_termination<<<nblocks, nthreads, 0, stream>>>(e, mst_edge_ptr, prev_mst_edge_ptr, msf_done_ptr);
 }
 
 }  // namespace mst

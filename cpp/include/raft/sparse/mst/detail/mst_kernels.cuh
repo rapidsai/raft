@@ -134,9 +134,10 @@ __global__ void min_edge_per_supervertex(const vertex_t *color,
   if (tid < v) {
     vertex_t vertex_color = color[tid];
     edge_t edge_idx = new_mst_edge[tid];
-    weight_t vertex_weight = weights[edge_idx];
 
-    if (vertex_weight != std::numeric_limits<weight_t>::max()) {
+    // check if valid outgoing edge was found
+    if (edge_idx != std::numeric_limits<edge_t>::max()) {
+      weight_t vertex_weight = weights[edge_idx];
       if (min_edge_color[vertex_color] == vertex_weight) {
         mst_edge[edge_idx] = true;
       }
@@ -178,6 +179,23 @@ __global__ void check_color_change(const vertex_t v, vertex_t* color,
   // resolving here for next iteration
   // TODO check experimentally
   next_color[i] = color[i];
+}
+
+template <typename vertex_t>
+__global__ void kernel_check_termination(const vertex_t e, bool *mst_edge,
+                                         bool *prev_mst_edge, bool *done) {
+
+  vertex_t tid = get_1D_idx();
+
+  // count > 0 values in block
+  bool predicate = tid < e && (mst_edge[tid] ^ prev_mst_edge[tid]);
+  // printf("tid: %d, predicate: %d, xor: %d\n", tid, predicate, color[tid] ^)
+  vertex_t block_count = __syncthreads_count(predicate);
+
+  if (block_count > 0) {
+    *done = false;
+  }
+
 }
 
 }  // namespace detail
