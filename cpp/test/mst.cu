@@ -168,6 +168,13 @@ const std::vector<CSRHost<int, int, float>> csr_in3_h = {
    {0.1, 0.1, 0.1, 0.1, 0.2, 0.2, 0.1, 0.2, 0.2, 0.2,
     0.1, 0.1, 0.1, 0.2, 0.1, 0.1, 0.2, 0.1, 0.2, 0.1}}};
 
+//  disconnected
+const std::vector<CSRHost<int, int, float>> csr_in4_h = {
+  {{0, 3, 5, 8, 10, 12, 14, 16},
+   {2, 4, 5, 3, 6, 0, 4, 5, 1, 6, 0, 2, 0, 2, 1, 3},
+   {5.0f, 9.0f, 1.0f, 8.0f, 7.0f, 5.0f, 2.0f, 6.0f, 8.0f, 10.0f, 9.0f, 2.0f,
+    1.0f, 6.0f, 7.0f, 10.0f}}};
+
 typedef MSTTest<int, int, float> MSTTestSequential;
 TEST_P(MSTTestSequential, Sequential) {
   mst_sequential();
