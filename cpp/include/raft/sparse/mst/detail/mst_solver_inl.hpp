@@ -16,11 +16,29 @@
 
 #pragma once
 
+#include <curand.h>
 #include "mst_kernels.cuh"
 #include "utils.cuh"
 
+#include <thrust/complex.h>
+#include <thrust/device_ptr.h>
+#include <thrust/device_vector.h>
+#include <thrust/sort.h>
+#include <thrust/transform.h>
+#include <iostream>
+
 namespace raft {
 namespace mst {
+
+// curand generator uniform
+curandStatus_t curand_generate_uniformX(curandGenerator_t generator,
+                                        float* outputPtr, size_t n) {
+  return curandGenerateUniform(generator, outputPtr, n);
+}
+curandStatus_t curand_generate_uniformX(curandGenerator_t generator,
+                                        double* outputPtr, size_t n) {
+  return curandGenerateUniformDouble(generator, outputPtr, n);
+}
 
 template <typename vertex_t, typename edge_t, typename weight_t>
 MST_solver<vertex_t, edge_t, weight_t>::MST_solver(
@@ -31,6 +49,7 @@ MST_solver<vertex_t, edge_t, weight_t>::MST_solver(
     offsets(offsets_),
     indices(indices_),
     weights(weights_),
+    alterated_weights(e_),
     v(v_),
     e(e_),
     color(v_),
@@ -57,6 +76,12 @@ void MST_solver<vertex_t, edge_t, weight_t>::solve() {
   RAFT_EXPECTS(indices != nullptr, "Null indices.");
   RAFT_EXPECTS(weights != nullptr, "Null weights.");
 
+  // Alterating the weights
+  // this is done by identifying the lowest cost edge weight gap that is not 0, call this theta.
+  // For each edge, add noise that is less than theta. That is, generate a random number in the range [0.0, theta) and add it to each edge weight.
+  alteration();
+  detail::printv(alterated_weights);
+
   // Boruvka original formulation says "while more than 1 supervertex remains"
   // Here we adjust it to support disconnected components (spanning forest)
   // track completion with mst_edge_found status.
@@ -72,11 +97,81 @@ void MST_solver<vertex_t, edge_t, weight_t>::solve() {
   }
 }
 
+//|b|-|a|
+template <typename weight_t>
+struct alteration_functor {
+  __host__ __device__ weight_t
+  operator()(const thrust::tuple<weight_t, weight_t>& t) {
+    auto x = thrust::get<0>(t);
+    auto y = thrust::get<1>(t);
+    x < weight_t(0) ? -x : x;
+    y < weight_t(0) ? -y : y;
+    return y - x;
+  }
+};
+
+template <typename vertex_t, typename edge_t, typename weight_t>
+weight_t MST_solver<vertex_t, edge_t, weight_t>::alteration_max() {
+  auto stream = handle.get_stream();
+  auto policy = rmm::exec_policy(stream);
+  rmm::device_vector<weight_t> tmp(e);
+  thrust::device_ptr<const weight_t> weights_ptr(weights);
+  thrust::copy(policy->on(stream), weights_ptr, weights_ptr + e, tmp.begin());
+  //sort tmp weights
+  thrust::sort(policy->on(stream), tmp.begin(), tmp.end());
+
+  //remove duplicates
+  auto new_end = thrust::unique(policy->on(stream), tmp.begin(), tmp.end());
+
+  //min(a[i+1]-a[i])/2
+  auto begin =
+    thrust::make_zip_iterator(thrust::make_tuple(tmp.begin(), tmp.begin() + 1));
+  auto end =
+    thrust::make_zip_iterator(thrust::make_tuple(new_end - 1, new_end));
+  auto init = tmp[1] - tmp[0];
+  auto max = thrust::transform_reduce(policy->on(stream), begin, end,
+                                      alteration_functor<weight_t>(), init,
+                                      thrust::minimum<weight_t>());
+  return max / static_cast<weight_t>(2);
+}
+
+template <typename vertex_t, typename edge_t, typename weight_t>
+void MST_solver<vertex_t, edge_t, weight_t>::alteration() {
+  auto stream = handle.get_stream();
+  auto nthreads = std::min(v, max_threads);
+  auto nblocks = std::min((v + nthreads - 1) / nthreads, max_blocks);
+
+  // maximum alteration that does not change realtive weights order
+  weight_t max = alteration_max();
+
+  // pool of rand values
+  rmm::device_vector<weight_t> rand_values(v);
+
+  // Random number generator
+  curandGenerator_t randGen;
+  curandCreateGenerator(&randGen, CURAND_RNG_PSEUDO_DEFAULT);
+  curandSetPseudoRandomGeneratorSeed(randGen, 1234567);
+
+  // Initialize rand values
+  auto curand_status = curand_generate_uniformX(
+    randGen, thrust::raw_pointer_cast(rand_values.data()), v);
+  RAFT_EXPECTS(curand_status == CURAND_STATUS_SUCCESS, "MST: CURAND failed");
+  curand_status = curandDestroyGenerator(randGen);
+  RAFT_EXPECTS(curand_status == CURAND_STATUS_SUCCESS,
+               "MST: CURAND cleanup failed");
+
+  //Alterate the weights, make all undirected edge weight unique while keeping Wuv == Wvu
+  detail::alteration_kernel<<<nblocks, nthreads, 0, stream>>>(
+    v, e, offsets, indices, weights, max,
+    thrust::raw_pointer_cast(rand_values.data()),
+    thrust::raw_pointer_cast(alterated_weights.data()));
+}
+
 template <typename vertex_t, typename edge_t, typename weight_t>
 void MST_solver<vertex_t, edge_t, weight_t>::label_prop() {
   // update the colors of both ends its until there is no change in colors
-  int nthreads = std::min(v, max_threads);
-  int nblocks = std::min((v + nthreads - 1) / nthreads, max_blocks);
+  auto nthreads = std::min(v, max_threads);
+  auto nblocks = std::min((v + nthreads - 1) / nthreads, max_blocks);
   auto stream = handle.get_stream();
 
   rmm::device_vector<bool> done(1, false);
@@ -87,20 +182,20 @@ void MST_solver<vertex_t, edge_t, weight_t>::label_prop() {
   bool* done_ptr = thrust::raw_pointer_cast(done.data());
 
   auto i = 0;
-  std::cout << "==================" << std::endl;
-  detail::printv(color);
+  //std::cout << "==================" << std::endl;
+  //detail::printv(color);
   while (!done[0]) {
     done[0] = true;
     detail::min_pair_colors<<<nblocks, nthreads, 0, stream>>>(
       v, successor_ptr, color_ptr, next_color_ptr);
-    detail::printv(next_color);
+    //detail::printv(next_color);
     detail::check_color_change<<<nblocks, nthreads, 0, stream>>>(
       v, color_ptr, next_color_ptr, done_ptr);
-    detail::printv(color);
+    //detail::printv(color);
     i++;
   }
   std::cout << "Label prop iterations : " << i << std::endl;
-  std::cout << "==================" << std::endl;
+  //std::cout << "==================" << std::endl;
 }
 
 template <typename vertex_t, typename edge_t, typename weight_t>
@@ -111,9 +206,11 @@ void MST_solver<vertex_t, edge_t, weight_t>::min_edge_per_vertex() {
   vertex_t* color_ptr = thrust::raw_pointer_cast(color.data());
   vertex_t* successor_ptr = thrust::raw_pointer_cast(successor.data());
   bool* mst_edge_ptr = thrust::raw_pointer_cast(mst_edge.data());
-
+  weight_t* alterated_weights_ptr =
+    thrust::raw_pointer_cast(alterated_weights.data());
   detail::kernel_min_edge_per_vertex<<<v, n_threads, 0, stream>>>(
-    offsets, indices, weights, color_ptr, successor_ptr, mst_edge_ptr, v);
+    offsets, indices, alterated_weights_ptr, color_ptr, successor_ptr,
+    mst_edge_ptr, v);
 }
 
 }  // namespace mst

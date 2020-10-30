@@ -58,9 +58,11 @@ class MST_solver {
   rmm::device_vector<bool>
     mst_edge;  // mst output -  true if the edge belongs in mst
   rmm::device_vector<edge_t> min_edge_color;  // minimum incident edge per color
-
+  rmm::device_vector<weight_t> alterated_weights;  // weights to be used for mst
   void label_prop();
   void min_edge_per_vertex();
+  void alteration();
+  weight_t alteration_max();
 };
 
 }  // namespace mst
