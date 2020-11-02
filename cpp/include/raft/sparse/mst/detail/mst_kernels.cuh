@@ -28,13 +28,10 @@ namespace mst {
 namespace detail {
 
 template <typename vertex_t, typename edge_t, typename weight_t>
-__global__ void kernel_min_edge_per_vertex(const vertex_t* offsets,
-                                           const edge_t* indices,
-                                           const weight_t* weights,
-                                           vertex_t* color, vertex_t* successor,
-                                           bool* mst_edge, edge_t *new_mst_edge,
-                                           weight_t *min_edge_color,
-                                           const vertex_t v) {
+__global__ void kernel_min_edge_per_vertex(
+  const vertex_t* offsets, const edge_t* indices, const weight_t* weights,
+  vertex_t* color, vertex_t* successor, bool* mst_edge, edge_t* new_mst_edge,
+  weight_t* min_edge_color, const vertex_t v) {
   edge_t tid = threadIdx.x + blockIdx.x * blockDim.x;
 
   unsigned warp_id = tid / 32;
@@ -122,12 +119,11 @@ __global__ void kernel_min_edge_per_vertex(const vertex_t* offsets,
 }
 
 template <typename vertex_t, typename edge_t, typename weight_t>
-__global__ void min_edge_per_supervertex(const vertex_t *color,
-                                         const edge_t *new_mst_edge,
-                                         const weight_t *weights,
-                                         vertex_t *successor,
-                                         bool *mst_edge,
-                                         const weight_t *min_edge_color,
+__global__ void min_edge_per_supervertex(const vertex_t* color,
+                                         const edge_t* new_mst_edge,
+                                         const weight_t* weights,
+                                         vertex_t* successor, bool* mst_edge,
+                                         const weight_t* min_edge_color,
                                          const vertex_t v) {
   vertex_t tid = get_1D_idx();
 
@@ -143,7 +139,6 @@ __global__ void min_edge_per_supervertex(const vertex_t *color,
       }
     }
   }
-
 }
 
 // executes for each vertex and updates the colors of both vertices to the lower color
@@ -177,17 +172,15 @@ __global__ void check_color_change(const vertex_t v, vertex_t* color,
 }
 
 template <typename vertex_t>
-__global__ void kernel_check_termination(const vertex_t e, bool *mst_edge,
-                                         bool *prev_mst_edge, bool *done) {
-
+__global__ void kernel_check_termination(const vertex_t e, bool* mst_edge,
+                                         bool* prev_mst_edge, bool* done) {
   vertex_t tid = get_1D_idx();
 
   // count > 0 values in block
   bool predicate = tid < e && (mst_edge[tid] ^ prev_mst_edge[tid]);
-  // printf("tid: %d, predicate: %d, xor: %d\n", tid, predicate, color[tid] ^)
   vertex_t block_count = __syncthreads_count(predicate);
 
-  if (block_count > 0) {
+  if (threadIdx.x == 0 && block_count > 0) {
     *done = false;
   }
 }
