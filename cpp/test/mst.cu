@@ -115,9 +115,6 @@ class MSTTest
   : public ::testing::TestWithParam<CSRHost<vertex_t, edge_t, weight_t>> {
  protected:
   void mst_sequential() {
-    rmm::device_vector<vertex_t> mst_src;
-    rmm::device_vector<vertex_t> mst_dst;
-
     vertex_t *offsets = static_cast<vertex_t *>(csr_d.offsets.data());
     edge_t *indices = static_cast<edge_t *>(csr_d.indices.data());
     weight_t *weights = static_cast<weight_t *>(csr_d.weights.data());
@@ -126,7 +123,16 @@ class MSTTest
       static_cast<vertex_t>((csr_d.offsets.size() / sizeof(weight_t)) - 1);
     auto e = static_cast<edge_t>(csr_d.indices.size() / sizeof(edge_t));
 
-    mst<vertex_t, edge_t, weight_t>(handle, offsets, indices, weights, v, e);
+    rmm::device_vector<vertex_t> mst_src(2 * v - 2,
+                                         std::numeric_limits<vertex_t>::max());
+    rmm::device_vector<vertex_t> mst_dst(2 * v - 2,
+                                         std::numeric_limits<vertex_t>::max());
+
+    vertex_t *mst_src_ptr = thrust::raw_pointer_cast(mst_src.data());
+    vertex_t *mst_dest_ptr = thrust::raw_pointer_cast(mst_dst.data());
+
+    mst<vertex_t, edge_t, weight_t>(handle, offsets, indices, weights, v, e,
+                                    mst_src_ptr, mst_dest_ptr);
   }
 
   void SetUp() override {

@@ -30,7 +30,7 @@ class MST_solver {
              vertex_t const* indices_, weight_t const* weights_,
              vertex_t const v_, vertex_t const e_);
 
-  void solve();
+  void solve(vertex_t* mst_src, vertex_t* mst_dest);
 
   ~MST_solver() {}
 
@@ -64,6 +64,12 @@ class MST_solver {
   rmm::device_vector<edge_t> new_mst_edge;  // new minimum edge per vertex
   rmm::device_vector<weight_t> alterated_weights;  // weights to be used for mst
   rmm::device_vector<bool> msf_done;  // check if msf/mst has terminated
+  rmm::device_vector<edge_t>
+    mst_edge_count;  // total number of edges added after every iteration
+
+  // new src-dest pairs found per iteration
+  rmm::device_vector<vertex_t> temp_src;
+  rmm::device_vector<vertex_t> temp_dest;
 
   void label_prop();
   void min_edge_per_vertex();
@@ -71,6 +77,7 @@ class MST_solver {
   void check_termination();
   void alteration();
   weight_t alteration_max();
+  void append_src_dest_pair(vertex_t* mst_src, vertex_t* mst_dest);
 };
 
 }  // namespace mst

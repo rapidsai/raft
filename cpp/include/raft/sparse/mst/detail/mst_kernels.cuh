@@ -106,25 +106,23 @@ __global__ void kernel_min_edge_per_vertex(
   // min edge may now be found in first thread
   if (lane_id == 0) {
     if (min_edge_weight[0] != std::numeric_limits<weight_t>::max()) {
-      successor[warp_id] = indices[min_edge_index[0]];
+      // successor[warp_id] = indices[min_edge_index[0]];
 
       new_mst_edge[warp_id] = min_edge_index[0];
 
       // atomically set min edge per color
       // takes care of super vertex case
-      // printf("color: %d, min edge index: %d, min edge color: %f, min edge weight: %f\n",self_color, min_edge_index[0], min_edge_color[self_color], min_edge_weight[0]);
       atomicMin(&min_edge_color[self_color], min_edge_weight[0]);
     }
   }
 }
 
 template <typename vertex_t, typename edge_t, typename weight_t>
-__global__ void min_edge_per_supervertex(const vertex_t* color,
-                                         const edge_t* new_mst_edge,
-                                         const weight_t* weights,
-                                         vertex_t* successor, bool* mst_edge,
-                                         const weight_t* min_edge_color,
-                                         const vertex_t v) {
+__global__ void min_edge_per_supervertex(
+  const vertex_t* color, edge_t* new_mst_edge, const vertex_t* indices,
+  const weight_t* weights, vertex_t* successor, bool* mst_edge,
+  vertex_t* temp_src, vertex_t* temp_dest, const weight_t* min_edge_color,
+  const vertex_t v) {
   vertex_t tid = get_1D_idx();
 
   if (tid < v) {
@@ -135,7 +133,14 @@ __global__ void min_edge_per_supervertex(const vertex_t* color,
     if (edge_idx != std::numeric_limits<edge_t>::max()) {
       weight_t vertex_weight = weights[edge_idx];
       if (min_edge_color[vertex_color] == vertex_weight) {
+        temp_src[tid] = tid;
+        temp_dest[tid] = indices[edge_idx];
+
         mst_edge[edge_idx] = true;
+
+        successor[tid] = indices[edge_idx];
+      } else {
+        new_mst_edge[tid] = std::numeric_limits<edge_t>::max();
       }
     }
   }
@@ -172,7 +177,7 @@ __global__ void check_color_change(const vertex_t v, vertex_t* color,
 }
 
 template <typename vertex_t>
-__global__ void kernel_check_termination(const vertex_t e, bool* mst_edge,
+__global__ void kernel_check_termination(const vertex_t& e, bool* mst_edge,
                                          bool* prev_mst_edge, bool* done) {
   vertex_t tid = get_1D_idx();
 
@@ -203,6 +208,21 @@ __global__ void alteration_kernel(const vertex_t v, const edge_t e,
       alterated_weights[i] =
         weights[i] + max * (random_values[row] + random_values[column]);
     }
+  }
+}
+
+template <typename vertex_t, typename edge_t>
+__global__ void kernel_count_new_mst_edges(const vertex_t* new_mst_edge,
+                                           edge_t* mst_edge_count,
+                                           const vertex_t v) {
+  vertex_t tid = get_1D_idx();
+
+  bool predicate =
+    tid < v && (new_mst_edge[tid] != std::numeric_limits<vertex_t>::max());
+  edge_t block_count = __syncthreads_count(predicate);
+
+  if (threadIdx.x == 0 && block_count > 0) {
+    atomicAdd(mst_edge_count, block_count);
   }
 }
 
