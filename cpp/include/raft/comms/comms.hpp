@@ -28,7 +28,7 @@ namespace comms {
 
 using request_t = unsigned int;
 
-enum class DataTypeT {
+enum class DataType {
   kChar,
   kUint8,
   kInt32,
@@ -39,7 +39,7 @@ enum class DataTypeT {
   kFloat64
 };
 
-enum class OpT {
+enum class Op {
   kSum,
   kProd,
   kMin,
@@ -56,46 +56,46 @@ enum class StatusT {
 };
 
 template <typename ValueT>
-constexpr DataTypeT get_type();
+constexpr DataType get_type();
 
 template <>
-constexpr DataTypeT get_type<char>() {
-  return DataTypeT::kChar;
+constexpr DataType get_type<char>() {
+  return DataType::kChar;
 }
 
 template <>
-constexpr DataTypeT get_type<uint8_t>() {
-  return DataTypeT::kUint8;
+constexpr DataType get_type<uint8_t>() {
+  return DataType::kUint8;
 }
 
 template <>
-constexpr DataTypeT get_type<int>() {
-  return DataTypeT::kInt32;
+constexpr DataType get_type<int>() {
+  return DataType::kInt32;
 }
 
 template <>
-constexpr DataTypeT get_type<uint32_t>() {
-  return DataTypeT::kUint32;
+constexpr DataType get_type<uint32_t>() {
+  return DataType::kUint32;
 }
 
 template <>
-constexpr DataTypeT get_type<int64_t>() {
-  return DataTypeT::kInt64;
+constexpr DataType get_type<int64_t>() {
+  return DataType::kInt64;
 }
 
 template <>
-constexpr DataTypeT get_type<uint64_t>() {
-  return DataTypeT::kUint64;
+constexpr DataType get_type<uint64_t>() {
+  return DataType::kUint64;
 }
 
 template <>
-constexpr DataTypeT get_type<float>() {
-  return DataTypeT::kFloat32;
+constexpr DataType get_type<float>() {
+  return DataType::kFloat32;
 }
 
 template <>
-constexpr DataTypeT get_type<double>() {
-  return DataTypeT::kFloat64;
+constexpr DataType get_type<double>() {
+  return DataType::kFloat64;
 }
 
 class comms_iface {
@@ -120,25 +120,25 @@ class comms_iface {
   virtual void waitall(const std::vector<request_t>& array_of_requests) const = 0;
 
   virtual void allreduce(const void* sendbuff, void* recvbuff, size_t count,
-                         DataTypeT datatype, OpT op,
+                         DataType datatype, Op op,
                          cudaStream_t stream) const = 0;
 
-  virtual void bcast(void* buff, size_t count, DataTypeT datatype, int root,
+  virtual void bcast(void* buff, size_t count, DataType datatype, int root,
                      cudaStream_t stream) const = 0;
 
   virtual void reduce(const void* sendbuff, void* recvbuff, size_t count,
-                      DataTypeT datatype, OpT op, int root,
+                      DataType datatype, Op op, int root,
                       cudaStream_t stream) const = 0;
 
   virtual void allgather(const void* sendbuff, void* recvbuff, size_t sendcount,
-                         DataTypeT datatype, cudaStream_t stream) const = 0;
+                         DataType datatype, cudaStream_t stream) const = 0;
 
   virtual void allgatherv(const void* sendbuf, void* recvbuf,
                           const size_t* recvcounts, const size_t* displs,
-                          DataTypeT datatype, cudaStream_t stream) const = 0;
+                          DataType datatype, cudaStream_t stream) const = 0;
 
   virtual void reducescatter(const void* sendbuff, void* recvbuff,
-                             size_t recvcount, DataTypeT datatype, OpT op,
+                             size_t recvcount, DataType datatype, Op op,
                              cudaStream_t stream) const = 0;
 };
 
@@ -248,7 +248,7 @@ class comms_t {
    */
   template <typename ValueT>
   void allreduce(const ValueT* sendbuff, ValueT* recvbuff, size_t count,
-                 OpT op, cudaStream_t stream) const {
+                 Op op, cudaStream_t stream) const {
     impl_->allreduce(static_cast<const void*>(sendbuff),
                      static_cast<void*>(recvbuff), count, get_type<ValueT>(),
                      op, stream);
@@ -279,7 +279,7 @@ class comms_t {
    * @param stream CUDA stream to synchronize operation
    */
   template <typename ValueT>
-  void reduce(const ValueT* sendbuff, ValueT* recvbuff, size_t count, OpT op,
+  void reduce(const ValueT* sendbuff, ValueT* recvbuff, size_t count, Op op,
               int root, cudaStream_t stream) const {
     impl_->reduce(static_cast<const void*>(sendbuff),
                   static_cast<void*>(recvbuff), count, get_type<ValueT>(), op,
@@ -332,7 +332,7 @@ class comms_t {
    */
   template <typename ValueT>
   void reducescatter(const ValueT* sendbuff, ValueT* recvbuff,
-                     size_t recvcount, OpT op, cudaStream_t stream) const {
+                     size_t recvcount, Op op, cudaStream_t stream) const {
     impl_->reducescatter(static_cast<const void*>(sendbuff),
                          static_cast<void*>(recvbuff), recvcount,
                          get_type<ValueT>(), op, stream);

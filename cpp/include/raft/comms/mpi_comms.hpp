@@ -59,23 +59,23 @@
 namespace raft {
 namespace comms {
 
-constexpr MPI_Datatype get_mpi_datatype(const DataTypeT datatype) {
+constexpr MPI_Datatype get_mpi_datatype(const DataType datatype) {
   switch (datatype) {
-    case DataTypeT::kChar:
+    case DataType::kChar:
       return MPI_CHAR;
-    case DataTypeT::kUint8:
+    case DataType::kUint8:
       return MPI_UNSIGNED_CHAR;
-    case DataTypeT::kInt32:
+    case DataType::kInt32:
       return MPI_INT;
-    case DataTypeT::kUint32:
+    case DataType::kUint32:
       return MPI_UNSIGNED;
-    case DataTypeT::kInt64:
+    case DataType::kInt64:
       return MPI_LONG_LONG;
-    case DataTypeT::kUint64:
+    case DataType::kUint64:
       return MPI_UNSIGNED_LONG_LONG;
-    case DataTypeT::kFloat32:
+    case DataType::kFloat32:
       return MPI_FLOAT;
-    case DataTypeT::kFloat64:
+    case DataType::kFloat64:
       return MPI_DOUBLE;
     default:
       // Execution should never reach here. This takes care of compiler warning.
@@ -83,15 +83,15 @@ constexpr MPI_Datatype get_mpi_datatype(const DataTypeT datatype) {
   }
 }
 
-constexpr MPI_Op get_mpi_op(const OpT op) {
+constexpr MPI_Op get_mpi_op(const Op op) {
   switch (op) {
-    case OpT::kSum:
+    case Op::kSum:
       return MPI_SUM;
-    case OpT::kProd:
+    case Op::kProd:
       return MPI_PROD;
-    case OpT::kMin:
+    case Op::kMin:
       return MPI_MIN;
-    case OpT::kMax:
+    case Op::kMax:
       return MPI_MAX;
     default:
       // Execution should never reach here. This takes care of compiler warning.
@@ -193,33 +193,33 @@ class mpi_comms : public comms_iface {
   }
 
   void allreduce(const void* sendbuff, void* recvbuff, size_t count,
-                 DataTypeT datatype, OpT op, cudaStream_t stream) const {
+                 DataType datatype, Op op, cudaStream_t stream) const {
     NCCL_TRY(ncclAllReduce(sendbuff, recvbuff, count,
                            get_nccl_datatype(datatype), get_nccl_op(op),
                            nccl_comm_, stream));
   }
 
-  void bcast(void* buff, size_t count, DataTypeT datatype, int root,
+  void bcast(void* buff, size_t count, DataType datatype, int root,
              cudaStream_t stream) const {
     NCCL_TRY(ncclBroadcast(buff, buff, count, get_nccl_datatype(datatype), root,
                            nccl_comm_, stream));
   }
 
   void reduce(const void* sendbuff, void* recvbuff, size_t count,
-              DataTypeT datatype, OpT op, int root,
+              DataType datatype, Op op, int root,
               cudaStream_t stream) const {
     NCCL_TRY(ncclReduce(sendbuff, recvbuff, count, get_nccl_datatype(datatype),
                         get_nccl_op(op), root, nccl_comm_, stream));
   }
 
   void allgather(const void* sendbuff, void* recvbuff, size_t sendcount,
-                 DataTypeT datatype, cudaStream_t stream) const {
+                 DataType datatype, cudaStream_t stream) const {
     NCCL_TRY(ncclAllGather(sendbuff, recvbuff, sendcount,
                            get_nccl_datatype(datatype), nccl_comm_, stream));
   }
 
   void allgatherv(const void* sendbuf, void* recvbuf, const size_t* recvcounts,
-                  const size_t* displs, DataTypeT datatype,
+                  const size_t* displs, DataType datatype,
                   cudaStream_t stream) const {
     //From: "An Empirical Evaluation of Allgatherv on Multi-GPU Systems" - https://arxiv.org/pdf/1812.05964.pdf
     //Listing 1 on page 4.
@@ -233,7 +233,7 @@ class mpi_comms : public comms_iface {
   }
 
   void reducescatter(const void* sendbuff, void* recvbuff, size_t recvcount,
-                     DataTypeT datatype, OpT op, cudaStream_t stream) const {
+                     DataType datatype, Op op, cudaStream_t stream) const {
     NCCL_TRY(ncclReduceScatter(sendbuff, recvbuff, recvcount,
                                get_nccl_datatype(datatype), get_nccl_op(op),
                                nccl_comm_, stream));

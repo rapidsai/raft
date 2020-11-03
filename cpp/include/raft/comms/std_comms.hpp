@@ -123,8 +123,8 @@ class std_comms : public comms_iface {
     update_device(d_keys.data() + get_rank(), &key, 1, stream_);
 
     allgather(d_colors.data() + get_rank(), d_colors.data(), 1,
-              DataTypeT::kInt32, stream_);
-    allgather(d_keys.data() + get_rank(), d_keys.data(), 1, DataTypeT::kInt32,
+              DataType::kInt32, stream_);
+    allgather(d_keys.data() + get_rank(), d_keys.data(), 1, DataType::kInt32,
               stream_);
     this->sync_stream(stream_);
 
@@ -183,7 +183,7 @@ class std_comms : public comms_iface {
     CUDA_CHECK(cudaMemsetAsync(sendbuff_, 1, sizeof(int), stream_));
     CUDA_CHECK(cudaMemsetAsync(recvbuff_, 1, sizeof(int), stream_));
 
-    allreduce(sendbuff_, recvbuff_, 1, DataTypeT::kInt32, OpT::kSum, stream_);
+    allreduce(sendbuff_, recvbuff_, 1, DataType::kInt32, Op::kSum, stream_);
 
     ASSERT(sync_stream(stream_) == StatusT::kSuccess,
            "ERROR: syncStream failed. This can be caused by a failed rank_.");
@@ -307,33 +307,33 @@ class std_comms : public comms_iface {
   }
 
   void allreduce(const void *sendbuff, void *recvbuff, size_t count,
-                 DataTypeT datatype, OpT op, cudaStream_t stream) const {
+                 DataType datatype, Op op, cudaStream_t stream) const {
     NCCL_TRY(ncclAllReduce(sendbuff, recvbuff, count,
                            get_nccl_datatype(datatype), get_nccl_op(op),
                            nccl_comm_, stream));
   }
 
-  void bcast(void *buff, size_t count, DataTypeT datatype, int root,
+  void bcast(void *buff, size_t count, DataType datatype, int root,
              cudaStream_t stream) const {
     NCCL_TRY(ncclBroadcast(buff, buff, count, get_nccl_datatype(datatype), root,
                            nccl_comm_, stream));
   }
 
   void reduce(const void *sendbuff, void *recvbuff, size_t count,
-              DataTypeT datatype, OpT op, int root,
+              DataType datatype, Op op, int root,
               cudaStream_t stream) const {
     NCCL_TRY(ncclReduce(sendbuff, recvbuff, count, get_nccl_datatype(datatype),
                         get_nccl_op(op), root, nccl_comm_, stream));
   }
 
   void allgather(const void *sendbuff, void *recvbuff, size_t sendcount,
-                 DataTypeT datatype, cudaStream_t stream) const {
+                 DataType datatype, cudaStream_t stream) const {
     NCCL_TRY(ncclAllGather(sendbuff, recvbuff, sendcount,
                            get_nccl_datatype(datatype), nccl_comm_, stream));
   }
 
   void allgatherv(const void *sendbuf, void *recvbuf, const size_t *recvcounts,
-                  const size_t *displs, DataTypeT datatype,
+                  const size_t *displs, DataType datatype,
                   cudaStream_t stream) const {
     //From: "An Empirical Evaluation of Allgatherv on Multi-GPU Systems" - https://arxiv.org/pdf/1812.05964.pdf
     //Listing 1 on page 4.
@@ -347,7 +347,7 @@ class std_comms : public comms_iface {
   }
 
   void reducescatter(const void *sendbuff, void *recvbuff, size_t recvcount,
-                     DataTypeT datatype, OpT op, cudaStream_t stream) const {
+                     DataType datatype, Op op, cudaStream_t stream) const {
     NCCL_TRY(ncclReduceScatter(sendbuff, recvbuff, recvcount,
                                get_nccl_datatype(datatype), get_nccl_op(op),
                                nccl_comm_, stream));
