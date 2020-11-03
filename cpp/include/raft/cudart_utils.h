@@ -271,8 +271,8 @@ inline int get_shared_mem_per_block() {
   int dev_id;
   CUDA_CHECK(cudaGetDevice(&dev_id));
   int smem_per_blk;
-  CUDA_CHECK(cudaDeviceGetAttribute(&smem_per_blk,
-                                    cudaDevAttrMaxSharedMemoryPerBlock, dev_id));
+  CUDA_CHECK(cudaDeviceGetAttribute(
+    &smem_per_blk, cudaDevAttrMaxSharedMemoryPerBlock, dev_id));
   return smem_per_blk;
 }
 

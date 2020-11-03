@@ -206,8 +206,7 @@ class mpi_comms : public comms_iface {
   }
 
   void reduce(const void* sendbuff, void* recvbuff, size_t count,
-              DataType datatype, Op op, int root,
-              cudaStream_t stream) const {
+              DataType datatype, Op op, int root, cudaStream_t stream) const {
     NCCL_TRY(ncclReduce(sendbuff, recvbuff, count, get_nccl_datatype(datatype),
                         get_nccl_op(op), root, nccl_comm_, stream));
   }

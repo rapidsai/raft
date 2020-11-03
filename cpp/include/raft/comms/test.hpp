@@ -170,8 +170,7 @@ bool test_collective_reducescatter(const handle_t &handle, int root) {
   CUDA_CHECK(cudaMemcpyAsync(temp_d.data(), &send, sizeof(int),
                              cudaMemcpyHostToDevice, stream));
 
-  communicator.reducescatter(temp_d.data(), recv_d.data(), 1, Op::kSum,
-                             stream);
+  communicator.reducescatter(temp_d.data(), recv_d.data(), 1, Op::kSum, stream);
   communicator.sync_stream(stream);
   int temp_h = -1;  // Verify more than one byte is being sent
   CUDA_CHECK(cudaMemcpyAsync(&temp_h, temp_d.data(), sizeof(int),

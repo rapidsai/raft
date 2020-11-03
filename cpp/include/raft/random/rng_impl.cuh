@@ -195,7 +195,7 @@ struct kiss99_generator {
   // This function multiplies 128-bit hash by 128-bit FNV prime and returns lower
   // 128 bits. It uses 32-bit wide multiply only.
   DI void mul_by_fnv1a128_prime(uint32_t* h) {
-    typedef union {  // NOLINT
+    typedef union {     // NOLINT
       uint32_t u32[2];  // NOLINT
       uint64_t u64[1];  // NOLINT
     } words64;
@@ -247,8 +247,8 @@ struct kiss99_generator {
 
   DI void init_kiss99(uint64_t seed) {
     // Initialize hash to 128-bit FNV1a basis
-    uint32_t hash[4] = {  // NOLINT
-      1653982605UL, 1656234357UL, 129696066UL, 1818371886UL};
+    uint32_t hash[4] = {// NOLINT
+                        1653982605UL, 1656234357UL, 129696066UL, 1818371886UL};
 
     // Digest threadIdx, blockIdx and seed
     fnv1a128(hash, threadIdx.x);

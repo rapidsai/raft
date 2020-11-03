@@ -101,7 +101,8 @@ __global__ void const_fill_kernel(Type *ptr, int len, Type val) {
 template <typename Type>
 DI void box_muller_transform(Type &val1, Type &val2, Type sigma1, Type mu1,
                              Type sigma2, Type mu2) {
-  constexpr auto kTwoPi = static_cast<Type>(2.0) * static_cast<Type>(3.141592654);
+  constexpr auto kTwoPi =
+    static_cast<Type>(2.0) * static_cast<Type>(3.141592654);
   constexpr auto kMinus2 = static_cast<Type>(-2.0);
   Type r = raft::mySqrt(kMinus2 * raft::myLog(val1));
   auto theta = kTwoPi * val2;
@@ -292,7 +293,8 @@ class Rng {
    */
   template <typename Type, typename LenType = int>
   void fill(Type *ptr, LenType len, Type val, cudaStream_t stream) {
-    const_fill_kernel<Type><<<num_blocks_, kNumThreads, 0, stream>>>(ptr, len, val);
+    const_fill_kernel<Type>
+      <<<num_blocks_, kNumThreads, 0, stream>>>(ptr, len, val);
     CUDA_CHECK(cudaPeekAtLastError());
   }
 
@@ -534,8 +536,8 @@ class Rng {
     // sort the array and pick the top sampledLen items
     IdxT *out_idx_ptr = out_idx_buff.data();
     raft::mr::device::buffer<char> workspace(allocator, stream);
-    sortPairs(workspace, exp_wts.data(), sorted_wts.data(), in_idx_ptr, out_idx_ptr,
-              (int)len, stream);
+    sortPairs(workspace, exp_wts.data(), sorted_wts.data(), in_idx_ptr,
+              out_idx_ptr, (int)len, stream);
     if (outIdx != nullptr) {
       CUDA_CHECK(cudaMemcpyAsync(outIdx, out_idx_ptr, sizeof(IdxT) * sampledLen,
                                  cudaMemcpyDeviceToDevice, stream));
@@ -614,15 +616,16 @@ class Rng {
   template <typename OutType, typename MathType = OutType,
             typename LenType = int, typename Lambda>
   void rand_impl(uint64_t *offset, OutType *ptr, LenType len, Lambda randOp,
-                int nThreads, int nBlocks, GeneratorType type,
-                cudaStream_t stream) {
+                 int nThreads, int nBlocks, GeneratorType type,
+                 cudaStream_t stream) {
     if (len <= 0) return;
     uint64_t seed = gen_();
     auto new_offset = setup_seeds<false, MathType, LenType>(&seed, offset, len,
                                                             nThreads, nBlocks);
     switch (type) {
       case kGenPhilox:
-        rand_kernel<OutType, MathType, detail::philox_generator, LenType, Lambda>
+        rand_kernel<OutType, MathType, detail::philox_generator, LenType,
+                    Lambda>
           <<<nBlocks, nThreads, 0, stream>>>(seed, *offset, ptr, len, randOp);
         break;
       case kGenTaps:
@@ -630,7 +633,8 @@ class Rng {
           <<<nBlocks, nThreads, 0, stream>>>(seed, *offset, ptr, len, randOp);
         break;
       case kGenKiss99:
-        rand_kernel<OutType, MathType, detail::kiss99_generator, LenType, Lambda>
+        rand_kernel<OutType, MathType, detail::kiss99_generator, LenType,
+                    Lambda>
           <<<nBlocks, nThreads, 0, stream>>>(seed, *offset, ptr, len, randOp);
         break;
       default:
@@ -643,8 +647,8 @@ class Rng {
   template <typename OutType, typename MathType = OutType,
             typename LenType = int, typename Lambda2>
   void rand2_impl(uint64_t *offset, OutType *ptr, LenType len, Lambda2 rand2Op,
-                 int nThreads, int nBlocks, GeneratorType type,
-                 cudaStream_t stream) {
+                  int nThreads, int nBlocks, GeneratorType type,
+                  cudaStream_t stream) {
     if (len <= 0) return;
     auto seed = gen_();
     auto new_offset = setup_seeds<true, MathType, LenType>(&seed, offset, len,
@@ -652,16 +656,17 @@ class Rng {
     switch (type) {
       case kGenPhilox:
         rand2_kernel<OutType, MathType, detail::philox_generator, LenType,
-                    Lambda2>
+                     Lambda2>
           <<<nBlocks, nThreads, 0, stream>>>(seed, *offset, ptr, len, rand2Op);
         break;
       case kGenTaps:
-        rand2_kernel<OutType, MathType, detail::taps_generator, LenType, Lambda2>
+        rand2_kernel<OutType, MathType, detail::taps_generator, LenType,
+                     Lambda2>
           <<<nBlocks, nThreads, 0, stream>>>(seed, *offset, ptr, len, rand2Op);
         break;
       case kGenKiss99:
         rand2_kernel<OutType, MathType, detail::kiss99_generator, LenType,
-                    Lambda2>
+                     Lambda2>
           <<<nBlocks, nThreads, 0, stream>>>(seed, *offset, ptr, len, rand2Op);
         break;
       default:

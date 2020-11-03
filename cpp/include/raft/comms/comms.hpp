@@ -39,12 +39,7 @@ enum class DataType {
   kFloat64
 };
 
-enum class Op {
-  kSum,
-  kProd,
-  kMin,
-  kMax
-};
+enum class Op { kSum, kProd, kMin, kMax };
 
 /**
  * The resulting status of distributed stream synchronization
@@ -117,7 +112,8 @@ class comms_iface {
   virtual void irecv(void* buf, size_t size, int source, int tag,
                      request_t* request) const = 0;
 
-  virtual void waitall(const std::vector<request_t>& array_of_requests) const = 0;
+  virtual void waitall(
+    const std::vector<request_t>& array_of_requests) const = 0;
 
   virtual void allreduce(const void* sendbuff, void* recvbuff, size_t count,
                          DataType datatype, Op op,
@@ -247,8 +243,8 @@ class comms_t {
    * @param stream CUDA stream to synchronize operation
    */
   template <typename ValueT>
-  void allreduce(const ValueT* sendbuff, ValueT* recvbuff, size_t count,
-                 Op op, cudaStream_t stream) const {
+  void allreduce(const ValueT* sendbuff, ValueT* recvbuff, size_t count, Op op,
+                 cudaStream_t stream) const {
     impl_->allreduce(static_cast<const void*>(sendbuff),
                      static_cast<void*>(recvbuff), count, get_type<ValueT>(),
                      op, stream);
@@ -331,8 +327,8 @@ class comms_t {
    * @param stream CUDA stream to synchronize operation
    */
   template <typename ValueT>
-  void reducescatter(const ValueT* sendbuff, ValueT* recvbuff,
-                     size_t recvcount, Op op, cudaStream_t stream) const {
+  void reducescatter(const ValueT* sendbuff, ValueT* recvbuff, size_t recvcount,
+                     Op op, cudaStream_t stream) const {
     impl_->reducescatter(static_cast<const void*>(sendbuff),
                          static_cast<void*>(recvbuff), recvcount,
                          get_type<ValueT>(), op, stream);

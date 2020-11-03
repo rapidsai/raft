@@ -239,8 +239,9 @@ struct genericAtomicOperationImpl<T, Op, 8> {
 // @sa https://en.wikipedia.org/wiki/Two%27s_complement
 template <>
 struct genericAtomicOperationImpl<long int, device_sum, 8> {  // NOLINT
-  using input_t = long int;  // NOLINT
-  __forceinline__ __device__ input_t operator()(input_t* addr, input_t const& update_value,
+  using input_t = long int;                                   // NOLINT
+  __forceinline__ __device__ input_t operator()(input_t* addr,
+                                                input_t const& update_value,
                                                 device_sum op) {
     using int_t = unsigned long long int;  // NOLINT
     static_assert(sizeof(input_t) == sizeof(int_t), errmsg_cast);
@@ -252,9 +253,10 @@ struct genericAtomicOperationImpl<long int, device_sum, 8> {  // NOLINT
 
 template <>
 struct genericAtomicOperationImpl<unsigned long int, device_sum, 8> {  // NOLINT
-  using input_t = unsigned long int;  // NOLINT
-  __forceinline__ __device__ input_t operator()(input_t* addr, input_t const& update_value,
-                                          device_sum op) {
+  using input_t = unsigned long int;                                   // NOLINT
+  __forceinline__ __device__ input_t operator()(input_t* addr,
+                                                input_t const& update_value,
+                                                device_sum op) {
     using int_t = unsigned long long int;  // NOLINT
     static_assert(sizeof(input_t) == sizeof(int_t), errmsg_cast);
     int_t ret = atomicAdd(reinterpret_cast<int_t*>(addr),
@@ -272,9 +274,10 @@ struct genericAtomicOperationImpl<unsigned long int, device_sum, 8> {  // NOLINT
 // @sa https://en.wikipedia.org/wiki/Two%27s_complement
 template <>
 struct genericAtomicOperationImpl<long long int, device_sum, 8> {  // NOLINT
-  using input_t = long long int;  // NOLINT
-  __forceinline__ __device__ input_t operator()(input_t* addr, input_t const& update_value,
-                                          device_sum op) {
+  using input_t = long long int;                                   // NOLINT
+  __forceinline__ __device__ input_t operator()(input_t* addr,
+                                                input_t const& update_value,
+                                                device_sum op) {
     using int_t = unsigned long long int;  // NOLINT
     static_assert(sizeof(input_t) == sizeof(int_t), errmsg_cast);
     int_t ret = atomicAdd(reinterpret_cast<int_t*>(addr),
@@ -285,22 +288,24 @@ struct genericAtomicOperationImpl<long long int, device_sum, 8> {  // NOLINT
 
 template <>
 struct genericAtomicOperationImpl<unsigned long int, device_min, 8> {  // NOLINT
-  using input_t = unsigned long int;  // NOLINT
-  __forceinline__ __device__ input_t operator()(input_t* addr, input_t const& update_value,
-                                          device_min op) {
+  using input_t = unsigned long int;                                   // NOLINT
+  __forceinline__ __device__ input_t operator()(input_t* addr,
+                                                input_t const& update_value,
+                                                device_min op) {
     using int_t = unsigned long long int;  // NOLINT
     static_assert(sizeof(input_t) == sizeof(int_t), errmsg_cast);
     input_t ret = atomicMin(reinterpret_cast<int_t*>(addr),
-                      type_reinterpret<int_t, input_t>(update_value));
+                            type_reinterpret<int_t, input_t>(update_value));
     return type_reinterpret<input_t, int_t>(ret);
   }
 };
 
 template <>
 struct genericAtomicOperationImpl<unsigned long int, device_max, 8> {  // NOLINT
-  using input_t = unsigned long int;  // NOLINT
-  __forceinline__ __device__ input_t operator()(input_t* addr, input_t const& update_value,
-                                          device_max op) {
+  using input_t = unsigned long int;                                   // NOLINT
+  __forceinline__ __device__ input_t operator()(input_t* addr,
+                                                input_t const& update_value,
+                                                device_max op) {
     using int_t = unsigned long long int;  // NOLINT
     static_assert(sizeof(input_t) == sizeof(int_t), errmsg_cast);
     input_t ret = atomicMax(reinterpret_cast<int_t*>(addr),
@@ -569,7 +574,8 @@ __forceinline__ __device__ T atomicMax(T* address, T val) {  // NOLINT
  * @returns The old value at `address`
  */
 template <typename T>
-__forceinline__ __device__ T atomicCAS(T* address, T compare, T val) {  // NOLINT
+__forceinline__ __device__ T atomicCAS(T* address, T compare,
+                                       T val) {  // NOLINT
   return raft::device_atomics::detail::typesAtomicCASImpl<T>()(address, compare,
                                                                val);
 }
@@ -614,8 +620,8 @@ __forceinline__ __device__ T atomicAnd(T* address, T val) {  // NOLINT
 template <typename T,
           typename std::enable_if_t<std::is_integral<T>::value, T>* = nullptr>
 __forceinline__ __device__ T atomicOr(T* address, T val) {  // NOLINT
-  return raft::genericAtomicOperation(address, val,
-                                      raft::device_atomics::detail::device_or{});
+  return raft::genericAtomicOperation(
+    address, val, raft::device_atomics::detail::device_or{});
 }
 
 /**

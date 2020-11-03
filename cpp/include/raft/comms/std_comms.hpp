@@ -236,7 +236,7 @@ class std_comms : public comms_iface {
     requests_in_flight_.insert(std::make_pair(*request, ucp_req));
   }
 
-  void waitall(const std::vector<request_t>& array_of_requests) const {
+  void waitall(const std::vector<request_t> &array_of_requests) const {
     ASSERT(ucp_worker_ != nullptr,
            "ERROR: UCX comms not initialized on communicator.");
 
@@ -320,8 +320,7 @@ class std_comms : public comms_iface {
   }
 
   void reduce(const void *sendbuff, void *recvbuff, size_t count,
-              DataType datatype, Op op, int root,
-              cudaStream_t stream) const {
+              DataType datatype, Op op, int root, cudaStream_t stream) const {
     NCCL_TRY(ncclReduce(sendbuff, recvbuff, count, get_nccl_datatype(datatype),
                         get_nccl_op(op), root, nccl_comm_, stream));
   }

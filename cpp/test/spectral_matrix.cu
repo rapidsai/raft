@@ -63,7 +63,7 @@ TEST(Raft, SpectralMatrices) {  // NOLINT
 
   auto cnstr_lm1 = [&h, t_exe_pol, ro, ci, vs, nrows, nnz]() {
     laplacian_matrix_t<index_t, value_t> lm1{h,  t_exe_pol, ro, ci,
-                                                   vs, nrows,     nnz};
+                                             vs, nrows,     nnz};
   };
   EXPECT_ANY_THROW(cnstr_lm1());  // because of nullptr ptr args
 
@@ -74,7 +74,7 @@ TEST(Raft, SpectralMatrices) {  // NOLINT
 
   auto cnstr_mm1 = [&h, t_exe_pol, ro, ci, vs, nrows, nnz]() {
     modularity_matrix_t<index_t, value_t> mm1{h,  t_exe_pol, ro, ci,
-                                                    vs, nrows,     nnz};
+                                              vs, nrows,     nnz};
   };
   EXPECT_ANY_THROW(cnstr_mm1());  // because of nullptr ptr args
 

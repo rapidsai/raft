@@ -68,8 +68,7 @@ struct vector_view_t {
   ValueT* buffer;
   size_type size;
 
-  vector_view_t(ValueT* buffer, size_type sz)
-    : buffer(buffer), size(sz) {}
+  vector_view_t(ValueT* buffer, size_type sz) : buffer(buffer), size(sz) {}
 
   vector_view_t(vector_view_t&& other)
     : buffer(other.buffer), size(other.size) {
@@ -98,9 +97,8 @@ class vector_t {
  public:
   vector_t(handle_t const& raft_handle, size_type sz)
     : handle_(raft_handle),
-      buffer_(
-        static_cast<ValueT*>(raft_handle.get_device_allocator()->allocate(
-          sz * sizeof(ValueT), raft_handle.get_stream()))),
+      buffer_(static_cast<ValueT*>(raft_handle.get_device_allocator()->allocate(
+        sz * sizeof(ValueT), raft_handle.get_stream()))),
       size_(sz),
       stream_(raft_handle.get_stream()) {}
 
@@ -212,9 +210,9 @@ struct sparse_matrix_t {
     //get (scratch) external device buffer size:
     //
     size_t buffer_size;
-    CUSPARSE_CHECK(sparse::cusparsespmv_buffersize(cusparse_h, trans, &alpha, mat_a,
-                                           vec_x, &beta, vec_y, spmv_alg,
-                                           &buffer_size, stream));
+    CUSPARSE_CHECK(sparse::cusparsespmv_buffersize(
+      cusparse_h, trans, &alpha, mat_a, vec_x, &beta, vec_y, spmv_alg,
+      &buffer_size, stream));
 
     //allocate external buffer:
     //
@@ -222,8 +220,9 @@ struct sparse_matrix_t {
 
     //finally perform SpMV:
     //
-    CUSPARSE_CHECK(sparse::cusparsespmv(cusparse_h, trans, &alpha, mat_a, vec_x, &beta,
-                                vec_y, spmv_alg, external_buffer.raw(), stream));
+    CUSPARSE_CHECK(sparse::cusparsespmv(cusparse_h, trans, &alpha, mat_a, vec_x,
+                                        &beta, vec_y, spmv_alg,
+                                        external_buffer.raw(), stream));
 
     //free descriptors:
     //(TODO: maybe wrap them in a RAII struct?)
@@ -242,9 +241,9 @@ struct sparse_matrix_t {
       CUSPARSE_CHECK(cusparseSetMatType(descr, CUSPARSE_MATRIX_TYPE_GENERAL));
     }
     CUSPARSE_CHECK(cusparseSetMatIndexBase(descr, CUSPARSE_INDEX_BASE_ZERO));
-    CUSPARSE_CHECK(cusparsecsrmv(cusparse_h, trans, nrows, ncols, nnz,
-                                 &alpha, descr, values, row_offsets,
-                                 col_indices, x, &beta, y, stream));
+    CUSPARSE_CHECK(cusparsecsrmv(cusparse_h, trans, nrows, ncols, nnz, &alpha,
+                                 descr, values, row_offsets, col_indices, x,
+                                 &beta, y, stream));
     CUSPARSE_CHECK(cusparseDestroyMatDescr(descr));
 #endif
   }
@@ -280,16 +279,15 @@ struct laplacian_matrix_t : sparse_matrix_t<IndexType, ValueT> {
   template <typename ThrustExePolicy>
   laplacian_matrix_t(handle_t const& raft_handle,
                      ThrustExePolicy thrust_exec_policy,
-                     IndexType const* row_offsets,
-                     IndexType const* col_indices, ValueT const* values,
-                     IndexType const nrows, IndexType const nnz)
-    : sparse_matrix_t<IndexType, ValueT>(raft_handle, row_offsets,
-                                              col_indices, values, nrows, nnz),
+                     IndexType const* row_offsets, IndexType const* col_indices,
+                     ValueT const* values, IndexType const nrows,
+                     IndexType const nnz)
+    : sparse_matrix_t<IndexType, ValueT>(raft_handle, row_offsets, col_indices,
+                                         values, nrows, nnz),
       diagonal(raft_handle, nrows) {
     vector_t<ValueT> ones{raft_handle, nrows};
     ones.fill(thrust_exec_policy, 1.0);
-    sparse_matrix_t<IndexType, ValueT>::mv(1, ones.raw(), 0,
-                                                diagonal.raw());
+    sparse_matrix_t<IndexType, ValueT>::mv(1, ones.raw(), 0, diagonal.raw());
   }
 
   template <typename ThrustExePolicy>
@@ -297,28 +295,25 @@ struct laplacian_matrix_t : sparse_matrix_t<IndexType, ValueT> {
                      ThrustExePolicy thrust_exec_policy,
                      sparse_matrix_t<IndexType, ValueT> const& csr_m)
     : sparse_matrix_t<IndexType, ValueT>(raft_handle, csr_m.row_offsets,
-                                              csr_m.col_indices, csr_m.values,
-                                              csr_m.nrows, csr_m.nnz),
+                                         csr_m.col_indices, csr_m.values,
+                                         csr_m.nrows, csr_m.nnz),
       diagonal(raft_handle, csr_m.nrows) {
     vector_t<ValueT> ones{raft_handle, csr_m.nrows};
     ones.fill(thrust_exec_policy, 1.0);
-    sparse_matrix_t<IndexType, ValueT>::mv(1, ones.raw(), 0,
-                                                diagonal.raw());
+    sparse_matrix_t<IndexType, ValueT>::mv(1, ones.raw(), 0, diagonal.raw());
   }
 
   // y = alpha*A*x + beta*y
   //
   void mv(ValueT alpha, ValueT* __restrict__ x, ValueT beta,
-          ValueT* __restrict__ y,
-          SparseMvAlgoT alg = SparseMvAlgoT::kAlgo1,
+          ValueT* __restrict__ y, SparseMvAlgoT alg = SparseMvAlgoT::kAlgo1,
           bool transpose = false, bool symmetric = false) const override {
     constexpr int kBlockSize = 1024;
     auto n = sparse_matrix_t<IndexType, ValueT>::nrows;
 
     auto cublas_h =
       sparse_matrix_t<IndexType, ValueT>::get_handle().get_cublas_handle();
-    auto stream =
-      sparse_matrix_t<IndexType, ValueT>::get_handle().get_stream();
+    auto stream = sparse_matrix_t<IndexType, ValueT>::get_handle().get_stream();
 
     // scales y by beta:
     //
@@ -340,7 +335,7 @@ struct laplacian_matrix_t : sparse_matrix_t<IndexType, ValueT> {
     // Apply adjacency matrix
     //
     sparse_matrix_t<IndexType, ValueT>::mv(-alpha, x, 1, y, alg, transpose,
-                                                symmetric);
+                                           symmetric);
   }
 
   vector_t<ValueT> diagonal;
@@ -354,56 +349,53 @@ struct modularity_matrix_t : laplacian_matrix_t<IndexType, ValueT> {
                       IndexType const* row_offsets,
                       IndexType const* col_indices, ValueT const* values,
                       IndexType const nrows, IndexType const nnz)
-    : laplacian_matrix_t<IndexType, ValueT>(
-        raft_handle, thrust_exec_policy, row_offsets, col_indices, values,
-        nrows, nnz) {
-    edge_sum = laplacian_matrix_t<IndexType, ValueT>::diagonal.nrm1(
-      thrust_exec_policy);
+    : laplacian_matrix_t<IndexType, ValueT>(raft_handle, thrust_exec_policy,
+                                            row_offsets, col_indices, values,
+                                            nrows, nnz) {
+    edge_sum =
+      laplacian_matrix_t<IndexType, ValueT>::diagonal.nrm1(thrust_exec_policy);
   }
 
   template <typename ThrustExePolicy>
   modularity_matrix_t(handle_t const& raft_handle,
                       ThrustExePolicy thrust_exec_policy,
                       sparse_matrix_t<IndexType, ValueT> const& csr_m)
-    : laplacian_matrix_t<IndexType, ValueT>(raft_handle,
-                                                 thrust_exec_policy, csr_m) {
-    edge_sum = laplacian_matrix_t<IndexType, ValueT>::diagonal.nrm1(
-      thrust_exec_policy);
+    : laplacian_matrix_t<IndexType, ValueT>(raft_handle, thrust_exec_policy,
+                                            csr_m) {
+    edge_sum =
+      laplacian_matrix_t<IndexType, ValueT>::diagonal.nrm1(thrust_exec_policy);
   }
 
   // y = alpha*A*x + beta*y
   //
   void mv(ValueT alpha, ValueT* __restrict__ x, ValueT beta,
-          ValueT* __restrict__ y,
-          SparseMvAlgoT alg = SparseMvAlgoT::kAlgo1,
+          ValueT* __restrict__ y, SparseMvAlgoT alg = SparseMvAlgoT::kAlgo1,
           bool transpose = false, bool symmetric = false) const override {
     auto n = sparse_matrix_t<IndexType, ValueT>::nrows;
 
     auto cublas_h =
       sparse_matrix_t<IndexType, ValueT>::get_handle().get_cublas_handle();
-    auto stream =
-      sparse_matrix_t<IndexType, ValueT>::get_handle().get_stream();
+    auto stream = sparse_matrix_t<IndexType, ValueT>::get_handle().get_stream();
 
     // y = A*x
     //
     sparse_matrix_t<IndexType, ValueT>::mv(alpha, x, 0, y, alg, transpose,
-                                                symmetric);
+                                           symmetric);
     ValueT dot_res;
 
     // gamma = d'*x
     //
     // Cublas::dot(this->n, D.raw(), 1, x, 1, &dot_res);
     CUBLAS_CHECK(linalg::cublasdot(
-      cublas_h, n, laplacian_matrix_t<IndexType, ValueT>::diagonal.raw(),
-      1, x, 1, &dot_res, stream));
+      cublas_h, n, laplacian_matrix_t<IndexType, ValueT>::diagonal.raw(), 1, x,
+      1, &dot_res, stream));
 
     // y = y -(gamma/edge_sum)*d
     //
     ValueT gamma = -dot_res / edge_sum;
     CUBLAS_CHECK(linalg::cublasaxpy(
       cublas_h, n, &gamma,
-      laplacian_matrix_t<IndexType, ValueT>::diagonal.raw(), 1, y, 1,
-      stream));
+      laplacian_matrix_t<IndexType, ValueT>::diagonal.raw(), 1, y, 1, stream));
   }
 
   ValueT edge_sum;
