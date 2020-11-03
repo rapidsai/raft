@@ -200,12 +200,12 @@ struct IOType<uint64_t, 2> {
 // there's no guarantee that uint64_t and unsigned long long will be same types!
 template <>
 struct IOType<unsigned long long, 1> {  // NOLINT
-  using Type = unsigned long long;  // NOLINT
+  using Type = unsigned long long;      // NOLINT
 };
 // there's no guarantee that uint64_t and unsigned long long will be same types!
 template <>
 struct IOType<unsigned long long, 2> {  // NOLINT
-  using Type = uint4;  // NOLINT
+  using Type = uint4;                   // NOLINT
 };
 template <>
 struct IOType<double, 1> {
@@ -323,7 +323,7 @@ struct TxN_t {  // NOLINT
 /** this is just to keep the compiler happy! */
 template <typename Math>
 struct TxN_t<Math, 0> {
-  using math_t = Math;  // NOLINT
+  using math_t = Math;         // NOLINT
   static const int Ratio = 1;  // NOLINT
 
   union {
