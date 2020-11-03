@@ -17,7 +17,7 @@
 #pragma once
 
 #include <raft/cudart_utils.h>
-#include <stdint.h>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <raft/common/cub_wrappers.cuh>
@@ -36,23 +36,23 @@ namespace random {
 /** all different generator types used */
 enum GeneratorType {
   /** curand-based philox generator */
-  GenPhilox = 0,
+  kGenPhilox = 0,
   /** LFSR taps generator */
-  GenTaps,
+  kGenTaps,
   /** kiss99 generator (currently the fastest) */
-  GenKiss99
+  kGenKiss99
 };
 
 template <typename OutType, typename MathType, typename GenType,
           typename LenType, typename Lambda>
-__global__ void randKernel(uint64_t seed, uint64_t offset, OutType *ptr,
-                           LenType len, Lambda randOp) {
+__global__ void rand_kernel(uint64_t seed, uint64_t offset, OutType *ptr,
+                            LenType len, Lambda randOp) {
   LenType tid = (blockIdx.x * blockDim.x) + threadIdx.x;
-  detail::Generator<GenType> gen(seed, (uint64_t)tid, offset);
+  detail::generator<GenType> gen(seed, static_cast<uint64_t>(tid), offset);
   const LenType stride = gridDim.x * blockDim.x;
   for (LenType idx = tid; idx < len; idx += stride) {
     MathType val;
-    gen.next(val);
+    gen.next(&val);
     ptr[idx] = randOp(val, idx);
   }
 }
@@ -60,24 +60,24 @@ __global__ void randKernel(uint64_t seed, uint64_t offset, OutType *ptr,
 // used for Box-Muller type transformations
 template <typename OutType, typename MathType, typename GenType,
           typename LenType, typename Lambda2>
-__global__ void rand2Kernel(uint64_t seed, uint64_t offset, OutType *ptr,
-                            LenType len, Lambda2 rand2Op) {
+__global__ void rand2_kernel(uint64_t seed, uint64_t offset, OutType *ptr,
+                             LenType len, Lambda2 rand2Op) {
   LenType tid = (blockIdx.x * blockDim.x) + threadIdx.x;
-  detail::Generator<GenType> gen(seed, (uint64_t)tid, offset);
+  detail::generator<GenType> gen(seed, static_cast<uint64_t>(tid), offset);
   const LenType stride = gridDim.x * blockDim.x;
   for (LenType idx = tid; idx < len; idx += stride) {
     MathType val1, val2;
-    gen.next(val1);
-    gen.next(val2);
+    gen.next(&val1);
+    gen.next(&val2);
     rand2Op(val1, val2, idx, idx + stride);
-    if (idx < len) ptr[idx] = (OutType)val1;
+    if (idx < len) ptr[idx] = static_cast<OutType>(val1);
     idx += stride;
-    if (idx < len) ptr[idx] = (OutType)val2;
+    if (idx < len) ptr[idx] = static_cast<OutType>(val2);
   }
 }
 
 template <typename Type>
-__global__ void constFillKernel(Type *ptr, int len, Type val) {
+__global__ void const_fill_kernel(Type *ptr, int len, Type val) {
   unsigned tid = (blockIdx.x * blockDim.x) + threadIdx.x;
   const unsigned stride = gridDim.x * blockDim.x;
   for (unsigned idx = tid; idx < len; idx += stride) {
@@ -101,14 +101,14 @@ __global__ void constFillKernel(Type *ptr, int len, Type val) {
 template <typename Type>
 DI void box_muller_transform(Type &val1, Type &val2, Type sigma1, Type mu1,
                              Type sigma2, Type mu2) {
-  constexpr Type twoPi = Type(2.0) * Type(3.141592654);
-  constexpr Type minus2 = -Type(2.0);
-  Type R = raft::mySqrt(minus2 * raft::myLog(val1));
-  Type theta = twoPi * val2;
+  constexpr auto kTwoPi = static_cast<Type>(2.0) * static_cast<Type>(3.141592654);
+  constexpr auto kMinus2 = static_cast<Type>(-2.0);
+  Type r = raft::mySqrt(kMinus2 * raft::myLog(val1));
+  auto theta = kTwoPi * val2;
   Type s, c;
   raft::mySinCos(theta, s, c);
-  val1 = R * c * sigma1 + mu1;
-  val2 = R * s * sigma2 + mu2;
+  val1 = r * c * sigma1 + mu1;
+  val2 = r * s * sigma2 + mu2;
 }
 template <typename Type>
 DI void box_muller_transform(Type &val1, Type &val2, Type sigma1, Type mu1) {
@@ -125,13 +125,13 @@ class Rng {
    * @param _t backend device RNG generator type
    * @note Refer to the `Rng::seed` method for details about seeding the engine
    */
-  Rng(uint64_t _s, GeneratorType _t = GenPhilox)
-    : type(_t),
-      offset(0),
+  explicit Rng(uint64_t _s, GeneratorType _t = kGenPhilox)
+    : type_(_t),
+      offset_(0),
       // simple heuristic to make sure all SMs will be occupied properly
       // and also not too many initialization calls will be made by each thread
-      nBlocks(4 * getMultiProcessorCount()),
-      gen() {
+      num_blocks_(4 * get_multi_processor_count()),
+      gen_() {
     seed(_s);
   }
 
@@ -143,8 +143,8 @@ class Rng {
    *       `std::random_device` for setting seed.
    */
   void seed(uint64_t _s) {
-    gen.seed(_s);
-    offset = 0;
+    gen_.seed(_s);
+    offset_ = 0;
   }
 
   /**
@@ -160,13 +160,13 @@ class Rng {
   template <typename IdxT>
   void affine_transform_params(IdxT n, IdxT &a, IdxT &b) {
     // always keep 'a' to be coprime to 'n'
-    a = gen() % n;
+    a = gen_() % n;
     while (gcd(a, n) != 1) {
       ++a;
       if (a >= n) a = 0;
     }
     // the bias term 'b' can be any number in the range of [0, n)
-    b = gen() % n;
+    b = gen_() % n;
   }
 
   /**
@@ -222,24 +222,24 @@ class Rng {
               cudaStream_t stream) {
     static_assert(std::is_floating_point<Type>::value,
                   "Type for 'normal' can only be floating point!");
-    rand2Impl(
-      offset, ptr, len,
+    rand2_impl(
+      &offset_, ptr, len,
       [=] __device__(Type & val1, Type & val2, LenType idx1, LenType idx2) {
         box_muller_transform<Type>(val1, val2, sigma, mu);
       },
-      NumThreads, nBlocks, type, stream);
+      kNumThreads, num_blocks_, type_, stream);
   }
   template <typename IntType, typename LenType = int>
   void normalInt(IntType *ptr, LenType len, IntType mu, IntType sigma,
                  cudaStream_t stream) {
     static_assert(std::is_integral<IntType>::value,
                   "Type for 'normalInt' can only be integer!");
-    rand2Impl<IntType, double>(
-      offset, ptr, len,
+    rand2_impl<IntType, double>(
+      &offset_, ptr, len,
       [=] __device__(double &val1, double &val2, LenType idx1, LenType idx2) {
         box_muller_transform<double>(val1, val2, sigma, mu);
       },
-      NumThreads, nBlocks, type, stream);
+      kNumThreads, num_blocks_, type_, stream);
   }
   /** @} */
 
@@ -266,8 +266,8 @@ class Rng {
   template <typename Type, typename LenType = int>
   void normalTable(Type *ptr, LenType n_rows, LenType n_cols, const Type *mu,
                    const Type *sigma_vec, Type sigma, cudaStream_t stream) {
-    rand2Impl(
-      offset, ptr, n_rows * n_cols,
+    rand2_impl(
+      &offset_, ptr, n_rows * n_cols,
       [=] __device__(Type & val1, Type & val2, LenType idx1, LenType idx2) {
         // yikes! use fast-int-div
         auto col1 = idx1 % n_cols;
@@ -278,7 +278,7 @@ class Rng {
         auto sig2 = sigma_vec == nullptr ? sigma : sigma_vec[col2];
         box_muller_transform<Type>(val1, val2, sig1, mean1, sig2, mean2);
       },
-      NumThreads, nBlocks, type, stream);
+      kNumThreads, num_blocks_, type_, stream);
   }
 
   /**
@@ -292,7 +292,7 @@ class Rng {
    */
   template <typename Type, typename LenType = int>
   void fill(Type *ptr, LenType len, Type val, cudaStream_t stream) {
-    constFillKernel<Type><<<nBlocks, NumThreads, 0, stream>>>(ptr, len, val);
+    const_fill_kernel<Type><<<num_blocks_, kNumThreads, 0, stream>>>(ptr, len, val);
     CUDA_CHECK(cudaPeekAtLastError());
   }
 
@@ -372,14 +372,14 @@ class Rng {
   template <typename Type, typename LenType = int>
   void lognormal(Type *ptr, LenType len, Type mu, Type sigma,
                  cudaStream_t stream) {
-    rand2Impl(
-      offset, ptr, len,
+    rand2_impl(
+      &offset_, ptr, len,
       [=] __device__(Type & val1, Type & val2, LenType idx1, LenType idx2) {
         box_muller_transform<Type>(val1, val2, sigma, mu);
         val1 = raft::myExp(val1);
         val2 = raft::myExp(val2);
       },
-      NumThreads, nBlocks, type, stream);
+      kNumThreads, num_blocks_, type_, stream);
   }
 
   /**
@@ -398,8 +398,8 @@ class Rng {
     custom_distribution(
       ptr, len,
       [=] __device__(Type val, LenType idx) {
-        constexpr Type one = (Type)1.0;
-        return mu - scale * raft::myLog(one / val - one);
+        constexpr auto kOne = static_cast<Type>(1.0);
+        return mu - scale * raft::myLog(kOne / val - kOne);
       },
       stream);
   }
@@ -418,8 +418,8 @@ class Rng {
     custom_distribution(
       ptr, len,
       [=] __device__(Type val, LenType idx) {
-        constexpr Type one = (Type)1.0;
-        return -raft::myLog(one - val) / lambda;
+        constexpr auto kOne = static_cast<Type>(1.0);
+        return -raft::myLog(kOne - val) / lambda;
       },
       stream);
   }
@@ -438,9 +438,9 @@ class Rng {
     custom_distribution(
       ptr, len,
       [=] __device__(Type val, LenType idx) {
-        constexpr Type one = (Type)1.0;
-        constexpr Type two = (Type)2.0;
-        return raft::mySqrt(-two * raft::myLog(one - val)) * sigma;
+        constexpr auto kOne = static_cast<Type>(1.0);
+        constexpr auto kTwo = static_cast<Type>(2.0);
+        return raft::mySqrt(-kTwo * raft::myLog(kOne - val)) * sigma;
       },
       stream);
   }
@@ -461,14 +461,14 @@ class Rng {
     custom_distribution(
       ptr, len,
       [=] __device__(Type val, LenType idx) {
-        constexpr Type one = (Type)1.0;
-        constexpr Type two = (Type)2.0;
-        constexpr Type oneHalf = (Type)0.5;
+        constexpr auto kOne = static_cast<Type>(1.0);
+        constexpr auto kTwo = static_cast<Type>(2.0);
+        constexpr auto kOneHalf = static_cast<Type>(0.5);
         Type out;
-        if (val <= oneHalf) {
-          out = mu + scale * raft::myLog(two * val);
+        if (val <= kOneHalf) {
+          out = mu + scale * raft::myLog(kTwo * val);
         } else {
-          out = mu - scale * raft::myLog(two * (one - val));
+          out = mu - scale * raft::myLog(kTwo * (kOne - val));
         }
         return out;
       },
@@ -512,18 +512,18 @@ class Rng {
     std::shared_ptr<raft::mr::device::allocator> allocator =
       handle.get_device_allocator();
 
-    raft::mr::device::buffer<WeightsT> expWts(allocator, stream, len);
-    raft::mr::device::buffer<WeightsT> sortedWts(allocator, stream, len);
-    raft::mr::device::buffer<IdxT> inIdx(allocator, stream, len);
-    raft::mr::device::buffer<IdxT> outIdxBuff(allocator, stream, len);
-    auto *inIdxPtr = inIdx.data();
+    raft::mr::device::buffer<WeightsT> exp_wts(allocator, stream, len);
+    raft::mr::device::buffer<WeightsT> sorted_wts(allocator, stream, len);
+    raft::mr::device::buffer<IdxT> in_idx(allocator, stream, len);
+    raft::mr::device::buffer<IdxT> out_idx_buff(allocator, stream, len);
+    auto *in_idx_ptr = in_idx.data();
     // generate modified weights
     custom_distribution(
-      expWts.data(), len,
-      [wts, inIdxPtr] __device__(WeightsT val, IdxT idx) {
-        inIdxPtr[idx] = idx;
-        constexpr WeightsT one = (WeightsT)1.0;
-        auto exp = -raft::myLog(one - val);
+      exp_wts.data(), len,
+      [wts, in_idx_ptr] __device__(WeightsT val, IdxT idx) {
+        in_idx_ptr[idx] = idx;
+        constexpr auto kOne = static_cast<WeightsT>(1.0);
+        auto exp = -raft::myLog(kOne - val);
         if (wts != nullptr) {
           return exp / wts[idx];
         }
@@ -532,15 +532,15 @@ class Rng {
       stream);
     ///@todo: use a more efficient partitioning scheme instead of full sort
     // sort the array and pick the top sampledLen items
-    IdxT *outIdxPtr = outIdxBuff.data();
+    IdxT *out_idx_ptr = out_idx_buff.data();
     raft::mr::device::buffer<char> workspace(allocator, stream);
-    sortPairs(workspace, expWts.data(), sortedWts.data(), inIdxPtr, outIdxPtr,
+    sortPairs(workspace, exp_wts.data(), sorted_wts.data(), in_idx_ptr, out_idx_ptr,
               (int)len, stream);
     if (outIdx != nullptr) {
-      CUDA_CHECK(cudaMemcpyAsync(outIdx, outIdxPtr, sizeof(IdxT) * sampledLen,
+      CUDA_CHECK(cudaMemcpyAsync(outIdx, out_idx_ptr, sizeof(IdxT) * sampledLen,
                                  cudaMemcpyDeviceToDevice, stream));
     }
-    scatter<DataT, IdxT>(out, in, outIdxPtr, sampledLen, stream);
+    scatter<DataT, IdxT>(out, in, out_idx_ptr, sampledLen, stream);
   }
 
   /**
@@ -562,113 +562,113 @@ class Rng {
             typename LenType = int, typename Lambda>
   void custom_distribution(OutType *ptr, LenType len, Lambda randOp,
                            cudaStream_t stream) {
-    randImpl<OutType, MathType, LenType, Lambda>(
-      offset, ptr, len, randOp, NumThreads, nBlocks, type, stream);
+    rand_impl<OutType, MathType, LenType, Lambda>(
+      &offset_, ptr, len, randOp, kNumThreads, num_blocks_, type_, stream);
   }
   template <typename OutType, typename MathType = OutType,
             typename LenType = int, typename Lambda>
   void custom_distribution2(OutType *ptr, LenType len, Lambda randOp,
                             cudaStream_t stream) {
-    rand2Impl<OutType, MathType, LenType, Lambda>(
-      offset, ptr, len, randOp, NumThreads, nBlocks, type, stream);
+    rand2_impl<OutType, MathType, LenType, Lambda>(
+      &offset_, ptr, len, randOp, kNumThreads, num_blocks_, type_, stream);
   }
   /** @} */
 
  private:
   /** generator type */
-  GeneratorType type;
+  GeneratorType type_;
   /**
    * offset is also used to initialize curand state.
    * Limits period of Philox RNG from (4 * 2^128) to (Blocks * Threads * 2^64),
    * but is still a large period.
    */
-  uint64_t offset;
+  uint64_t offset_;
   /** number of blocks to launch */
-  int nBlocks;
+  int num_blocks_;
   /** next seed generator for device-side RNG */
-  std::mt19937_64 gen;
+  std::mt19937_64 gen_;
 
-  static const int NumThreads = 256;
+  static const int kNumThreads = 256;
 
   template <bool IsNormal, typename Type, typename LenType>
-  uint64_t _setupSeeds(uint64_t &seed, uint64_t &offset, LenType len,
+  uint64_t setup_seeds(uint64_t *seed, uint64_t *offset, LenType len,
                        int nThreads, int nBlocks) {
-    LenType itemsPerThread = raft::ceildiv(len, LenType(nBlocks * nThreads));
-    if (IsNormal && itemsPerThread % 2 == 1) {
-      ++itemsPerThread;
+    LenType items_per_thread = raft::ceildiv(len, LenType(nBlocks * nThreads));
+    if (IsNormal && items_per_thread % 2 == 1) {
+      ++items_per_thread;
     }
     // curand uses 2 32b uint's to generate one double
     uint64_t factor = sizeof(Type) / sizeof(float);
     if (factor == 0) ++factor;
     // Check if there are enough random numbers left in sequence
     // If not, then generate new seed and start from zero offset
-    uint64_t newOffset = offset + LenType(itemsPerThread) * factor;
-    if (newOffset < offset) {
-      offset = 0;
-      seed = gen();
-      newOffset = itemsPerThread * factor;
+    uint64_t new_offset = *offset + LenType(items_per_thread) * factor;
+    if (new_offset < *offset) {
+      *offset = 0;
+      *seed = gen_();
+      new_offset = items_per_thread * factor;
     }
-    return newOffset;
+    return new_offset;
   }
 
   template <typename OutType, typename MathType = OutType,
             typename LenType = int, typename Lambda>
-  void randImpl(uint64_t &offset, OutType *ptr, LenType len, Lambda randOp,
+  void rand_impl(uint64_t *offset, OutType *ptr, LenType len, Lambda randOp,
                 int nThreads, int nBlocks, GeneratorType type,
                 cudaStream_t stream) {
     if (len <= 0) return;
-    uint64_t seed = gen();
-    auto newOffset = _setupSeeds<false, MathType, LenType>(seed, offset, len,
-                                                           nThreads, nBlocks);
+    uint64_t seed = gen_();
+    auto new_offset = setup_seeds<false, MathType, LenType>(&seed, offset, len,
+                                                            nThreads, nBlocks);
     switch (type) {
-      case GenPhilox:
-        randKernel<OutType, MathType, detail::PhiloxGenerator, LenType, Lambda>
-          <<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr, len, randOp);
+      case kGenPhilox:
+        rand_kernel<OutType, MathType, detail::philox_generator, LenType, Lambda>
+          <<<nBlocks, nThreads, 0, stream>>>(seed, *offset, ptr, len, randOp);
         break;
-      case GenTaps:
-        randKernel<OutType, MathType, detail::TapsGenerator, LenType, Lambda>
-          <<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr, len, randOp);
+      case kGenTaps:
+        rand_kernel<OutType, MathType, detail::taps_generator, LenType, Lambda>
+          <<<nBlocks, nThreads, 0, stream>>>(seed, *offset, ptr, len, randOp);
         break;
-      case GenKiss99:
-        randKernel<OutType, MathType, detail::Kiss99Generator, LenType, Lambda>
-          <<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr, len, randOp);
+      case kGenKiss99:
+        rand_kernel<OutType, MathType, detail::kiss99_generator, LenType, Lambda>
+          <<<nBlocks, nThreads, 0, stream>>>(seed, *offset, ptr, len, randOp);
         break;
       default:
-        ASSERT(false, "randImpl: Incorrect generator type! %d", type);
+        ASSERT(false, "rand_impl: Incorrect generator type! %d", type);
     };
     CUDA_CHECK(cudaGetLastError());
-    offset = newOffset;
+    *offset = new_offset;
   }
 
   template <typename OutType, typename MathType = OutType,
             typename LenType = int, typename Lambda2>
-  void rand2Impl(uint64_t &offset, OutType *ptr, LenType len, Lambda2 rand2Op,
+  void rand2_impl(uint64_t *offset, OutType *ptr, LenType len, Lambda2 rand2Op,
                  int nThreads, int nBlocks, GeneratorType type,
                  cudaStream_t stream) {
     if (len <= 0) return;
-    auto seed = gen();
-    auto newOffset = _setupSeeds<true, MathType, LenType>(seed, offset, len,
-                                                          nThreads, nBlocks);
+    auto seed = gen_();
+    auto new_offset = setup_seeds<true, MathType, LenType>(&seed, offset, len,
+                                                           nThreads, nBlocks);
     switch (type) {
-      case GenPhilox:
-        rand2Kernel<OutType, MathType, detail::PhiloxGenerator, LenType,
+      case kGenPhilox:
+        rand2_kernel<OutType, MathType, detail::philox_generator, LenType,
                     Lambda2>
-          <<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr, len, rand2Op);
+          <<<nBlocks, nThreads, 0, stream>>>(seed, *offset, ptr, len, rand2Op);
         break;
-      case GenTaps:
-        rand2Kernel<OutType, MathType, detail::TapsGenerator, LenType, Lambda2>
-          <<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr, len, rand2Op);
+      case kGenTaps:
+        rand2_kernel<OutType, MathType, detail::taps_generator, LenType, Lambda2>
+          <<<nBlocks, nThreads, 0, stream>>>(seed, *offset, ptr, len, rand2Op);
         break;
-      case GenKiss99:
-        rand2Kernel<OutType, MathType, detail::Kiss99Generator, LenType,
+      case kGenKiss99:
+        rand2_kernel<OutType, MathType, detail::kiss99_generator, LenType,
                     Lambda2>
-          <<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr, len, rand2Op);
+          <<<nBlocks, nThreads, 0, stream>>>(seed, *offset, ptr, len, rand2Op);
         break;
       default:
-        ASSERT(false, "rand2Impl: Incorrect generator type! %d", type);
+        ASSERT(false, "rand2_impl: Incorrect generator type! %d", type);
     };
     CUDA_CHECK(cudaGetLastError());
-    offset = newOffset;
+    *offset = new_offset;
   }
 };
 

@@ -267,60 +267,54 @@ void allocate(Type*& ptr, size_t len, bool setZero = false) {
 }
 
 /** helper method to get max usable shared mem per block parameter */
-inline int getSharedMemPerBlock() {
-  int devId;
-  CUDA_CHECK(cudaGetDevice(&devId));
-  int smemPerBlk;
-  CUDA_CHECK(cudaDeviceGetAttribute(&smemPerBlk,
-                                    cudaDevAttrMaxSharedMemoryPerBlock, devId));
-  return smemPerBlk;
+inline int get_shared_mem_per_block() {
+  int dev_id;
+  CUDA_CHECK(cudaGetDevice(&dev_id));
+  int smem_per_blk;
+  CUDA_CHECK(cudaDeviceGetAttribute(&smem_per_blk,
+                                    cudaDevAttrMaxSharedMemoryPerBlock, dev_id));
+  return smem_per_blk;
 }
 
 /** helper method to get multi-processor count parameter */
-inline int getMultiProcessorCount() {
-  int devId;
-  CUDA_CHECK(cudaGetDevice(&devId));
-  int mpCount;
+inline int get_multi_processor_count() {
+  int dev_id;
+  CUDA_CHECK(cudaGetDevice(&dev_id));
+  int mp_count;
   CUDA_CHECK(
-    cudaDeviceGetAttribute(&mpCount, cudaDevAttrMultiProcessorCount, devId));
-  return mpCount;
+    cudaDeviceGetAttribute(&mp_count, cudaDevAttrMultiProcessorCount, dev_id));
+  return mp_count;
 }
 
 /** helper method to convert an array on device to a string on host */
 template <typename T>
-std::string arr2Str(const T* arr, int size, std::string name,
+std::string arr2str(const T* arr, int size, std::string name,
                     cudaStream_t stream, int width = 4) {
   std::stringstream ss;
-
-  T* arr_h = (T*)malloc(size * sizeof(T));
-  update_host(arr_h, arr, size, stream);
+  std::vector<T> arr_h(size);
+  update_host(arr_h.data(), arr, size, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
-
   ss << name << " = [ ";
   for (int i = 0; i < size; i++) {
     ss << std::setw(width) << arr_h[i];
-
     if (i < size - 1) ss << ", ";
   }
   ss << " ]" << std::endl;
-
-  free(arr_h);
-
   return ss.str();
 }
 
 /** this seems to be unused, but may be useful in the future */
 template <typename T>
-void ASSERT_DEVICE_MEM(T* ptr, std::string name) {
+void assert_device_mem(T* ptr, std::string name) {
   cudaPointerAttributes s_att;
   cudaError_t s_err = cudaPointerGetAttributes(&s_att, ptr);
-
-  if (s_err != 0 || s_att.device == -1)
+  if (s_err != 0 || s_att.device == -1) {
     std::cout << "Invalid device pointer encountered in " << name
               << ". device=" << s_att.device << ", err=" << s_err << std::endl;
+  }
 }
 
-inline uint32_t curTimeMillis() {
+inline uint32_t cur_time_millis() {
   auto now = std::chrono::high_resolution_clock::now();
   auto duration = now.time_since_epoch();
   return std::chrono::duration_cast<std::chrono::milliseconds>(duration)
@@ -333,7 +327,7 @@ inline uint32_t curTimeMillis() {
     * @return need number of items to allocate via allocate()
     * @sa allocate()
     */
-inline size_t allocLengthForMatrix(size_t rows, size_t columns) {
+inline size_t alloc_length_for_matrix(size_t rows, size_t columns) {
   return rows * columns;
 }
 
