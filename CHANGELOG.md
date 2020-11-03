@@ -1,6 +1,7 @@
 # RAFT 0.17.0 (Date TBD)
 
 ## New Features
+- PR #65: Adding cuml prims that break circular dependency between cuml and cumlprims projects
 
 ## Improvements
 - PR #85: clang-tidy fixes
@@ -8,6 +9,7 @@
 
 ## Bug Fixes
 - PR #77: Fixing CUB include for CUDA < 11
+- PR #86: Missing headers for newly moved prims
 
 # RAFT 0.16.0 (Date TBD)
 
