@@ -118,7 +118,7 @@ DI void box_muller_transform(Type &val1, Type &val2, Type sigma1, Type mu1) {
 /** @} */
 
 /** The main random number generator class, fully on GPUs */
-class Rng {
+class Rng {  // NOLINT
  public:
   /**
    * @brief ctor
@@ -194,8 +194,8 @@ class Rng {
       stream);
   }
   template <typename IntType, typename LenType = int>
-  void uniformInt(IntType *ptr, LenType len, IntType start, IntType end,
-                  cudaStream_t stream) {
+  void uniformInt(IntType *ptr, LenType len, IntType start,  // NOLINT
+                  IntType end, cudaStream_t stream) {
     static_assert(std::is_integral<IntType>::value,
                   "Type for 'uniformInt' can only be integer!");
     custom_distribution(
@@ -231,8 +231,8 @@ class Rng {
       kNumThreads, num_blocks_, type_, stream);
   }
   template <typename IntType, typename LenType = int>
-  void normalInt(IntType *ptr, LenType len, IntType mu, IntType sigma,
-                 cudaStream_t stream) {
+  void normalInt(IntType *ptr, LenType len, IntType mu,  // NOLINT
+                 IntType sigma, cudaStream_t stream) {
     static_assert(std::is_integral<IntType>::value,
                   "Type for 'normalInt' can only be integer!");
     rand2_impl<IntType, double>(
@@ -265,8 +265,9 @@ class Rng {
    * @param stream stream where to launch the kernel
    */
   template <typename Type, typename LenType = int>
-  void normalTable(Type *ptr, LenType n_rows, LenType n_cols, const Type *mu,
-                   const Type *sigma_vec, Type sigma, cudaStream_t stream) {
+  void normalTable(Type *ptr, LenType n_rows, LenType n_cols,  // NOLINT
+                   const Type *mu, const Type *sigma_vec, Type sigma,
+                   cudaStream_t stream) {
     rand2_impl(
       &offset_, ptr, n_rows * n_cols,
       [=] __device__(Type & val1, Type & val2, LenType idx1, LenType idx2) {
@@ -504,8 +505,8 @@ class Rng {
    * @param stream cuda stream
    */
   template <typename DataT, typename WeightsT, typename IdxT = int>
-  void sampleWithoutReplacement(const raft::handle_t &handle, DataT *out,
-                                IdxT *outIdx, const DataT *in,
+  void sampleWithoutReplacement(const raft::handle_t &handle,  // NOLINT
+                                DataT *out, IdxT *outIdx, const DataT *in,
                                 const WeightsT *wts, IdxT sampledLen, IdxT len,
                                 cudaStream_t stream) {
     ASSERT(sampledLen <= len,
