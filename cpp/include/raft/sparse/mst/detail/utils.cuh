@@ -33,7 +33,7 @@ void printv(rmm::device_vector<T>& vec) {
   std::cout << "Size = " << vec.size() << std::endl;
   thrust::copy(vec.begin(), vec.end(),
                std::ostream_iterator<T>(std::cout, " "));
-  std::cout << std::endl;
+  std::cout << std::endl << std::endl;
 }
 
 }  // namespace detail
