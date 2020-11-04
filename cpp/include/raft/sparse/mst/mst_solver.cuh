@@ -59,7 +59,7 @@ class MST_solver {
   rmm::device_vector<vertex_t>
     mst_edge_count;  // total number of edges added after every iteration
   rmm::device_vector<vertex_t>
-    prev_mst_edge_count; // total number of edges up to the previous iteration
+    prev_mst_edge_count;  // total number of edges up to the previous iteration
 
   // new src-dest pairs found per iteration
   rmm::device_vector<vertex_t> temp_src;

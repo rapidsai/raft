@@ -30,7 +30,7 @@ namespace detail {
 template <typename vertex_t, typename edge_t, typename weight_t>
 __global__ void kernel_min_edge_per_vertex(
   const vertex_t* offsets, const edge_t* indices, const weight_t* weights,
-  const vertex_t* color, edge_t* new_mst_edge, const bool *mst_edge,
+  const vertex_t* color, edge_t* new_mst_edge, const bool* mst_edge,
   weight_t* min_edge_color, const vertex_t v) {
   edge_t tid = threadIdx.x + blockIdx.x * blockDim.x;
 
@@ -119,10 +119,9 @@ __global__ void kernel_min_edge_per_vertex(
 
 template <typename vertex_t, typename edge_t, typename weight_t>
 __global__ void min_edge_per_supervertex(
-  const vertex_t* color, edge_t* new_mst_edge, bool *mst_edge, const vertex_t* indices,
-  const weight_t* weights,
-  vertex_t* temp_src, vertex_t* temp_dest, const weight_t* min_edge_color,
-  const vertex_t v) {
+  const vertex_t* color, edge_t* new_mst_edge, bool* mst_edge,
+  const vertex_t* indices, const weight_t* weights, vertex_t* temp_src,
+  vertex_t* temp_dest, const weight_t* min_edge_color, const vertex_t v) {
   vertex_t tid = get_1D_idx();
 
   if (tid < v) {
@@ -146,8 +145,10 @@ __global__ void min_edge_per_supervertex(
 
 // executes for each vertex and updates the colors of both vertices to the lower color
 template <typename vertex_t>
-__global__ void min_pair_colors(const vertex_t mst_edge_count, const vertex_t *mst_src, const vertex_t* mst_dest,
-                                vertex_t* color, vertex_t* next_color) {
+__global__ void min_pair_colors(const vertex_t mst_edge_count,
+                                const vertex_t* mst_src,
+                                const vertex_t* mst_dest, vertex_t* color,
+                                vertex_t* next_color) {
   vertex_t i = get_1D_idx();
   if (i < mst_edge_count) {
     auto src = mst_src[i];
