@@ -23,12 +23,12 @@ namespace raft {
 namespace mst {
 
 template <typename vertex_t, typename edge_t, typename weight_t>
-void mst(const raft::handle_t& handle, vertex_t const* offsets,
+Graph_COO<vertex_t, edge_t, weight_t> mst(const raft::handle_t& handle, edge_t const* offsets,
          vertex_t const* indices, weight_t const* weights, vertex_t const v,
-         vertex_t const e, vertex_t* mst_src, vertex_t* mst_dest) {
+         edge_t const e, vertex_t *color, cudaStream_t stream) {
   MST_solver<vertex_t, edge_t, weight_t> mst_solver(handle, offsets, indices,
-                                                    weights, v, e);
-  mst_solver.solve(mst_src, mst_dest);
+                                                    weights, v, e, color, stream);
+  return mst_solver.solve();
 }
 
 }  // namespace mst

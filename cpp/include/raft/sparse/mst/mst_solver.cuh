@@ -18,60 +18,77 @@
 #pragma once
 
 #include <rmm/thrust_rmm_allocator.h>
+#include <rmm/device_uvector.hpp>
 #include <raft/handle.hpp>
 
 namespace raft {
+
+template <typename vertex_t, typename edge_t, typename weight_t>
+struct Graph_COO {
+  rmm::device_uvector<vertex_t> src;
+  rmm::device_uvector<vertex_t> dst;
+  rmm::device_uvector<weight_t> weights;
+  edge_t n_edges;
+
+  Graph_COO (vertex_t size, cudaStream_t stream) 
+  : src(size, stream),
+    dst(size, stream),
+    weights(size, stream) {}
+};
+
 namespace mst {
 
 template <typename vertex_t, typename edge_t, typename weight_t>
 class MST_solver {
  public:
-  MST_solver(const raft::handle_t& handle_, vertex_t const* offsets_,
+  MST_solver(const raft::handle_t& handle_, edge_t const* offsets_,
              vertex_t const* indices_, weight_t const* weights_,
-             vertex_t const v_, vertex_t const e_);
+             vertex_t const v_, edge_t const e_, vertex_t *color, cudaStream_t stream_);
 
-  void solve(vertex_t* mst_src, vertex_t* mst_dest);
+  Graph_COO<vertex_t, edge_t, weight_t> solve();
 
   ~MST_solver() {}
 
  private:
   raft::handle_t const& handle;
+  cudaStream_t stream;
 
   //CSR
-  const vertex_t* offsets;
+  const edge_t* offsets;
   const vertex_t* indices;
   const weight_t* weights;
   const vertex_t v;
-  const vertex_t e;
+  const edge_t e;
 
   int max_blocks;
   int max_threads;
   int sm_count;
 
-  rmm::device_vector<vertex_t> color;  // represent each supervertex as a color
+  vertex_t *color;  // represent each supervertex as a color
   rmm::device_vector<vertex_t> next_color;  //index of v color in color array
   rmm::device_vector<bool>
     mst_edge;  // mst output -  true if the edge belongs in mst
   rmm::device_vector<weight_t>
     min_edge_color;  // minimum incident edge weight per color
   rmm::device_vector<edge_t> new_mst_edge;  // new minimum edge per vertex
-  rmm::device_vector<weight_t> alterated_weights;  // weights to be used for mst
+  rmm::device_vector<weight_t> altered_weights;  // weights to be used for mst
   rmm::device_vector<vertex_t>
     mst_edge_count;  // total number of edges added after every iteration
   rmm::device_vector<vertex_t>
     prev_mst_edge_count;  // total number of edges up to the previous iteration
 
-  // new src-dest pairs found per iteration
+  // new src-dst pairs found per iteration
   rmm::device_vector<vertex_t> temp_src;
-  rmm::device_vector<vertex_t> temp_dest;
+  rmm::device_vector<vertex_t> temp_dst;
+  rmm::device_vector<weight_t> temp_weights;
 
-  void label_prop(vertex_t* mst_src, vertex_t* mst_dest);
+  void label_prop(vertex_t* mst_src, vertex_t* mst_dst);
   void min_edge_per_vertex();
   void min_edge_per_supervertex();
   void check_termination();
   void alteration();
   weight_t alteration_max();
-  void append_src_dest_pair(vertex_t* mst_src, vertex_t* mst_dest);
+  void append_src_dst_pair(vertex_t* mst_src, vertex_t* mst_dst, weight_t *mst_weights);
 };
 
 }  // namespace mst

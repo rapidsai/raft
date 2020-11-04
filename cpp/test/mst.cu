@@ -127,12 +127,15 @@ class MSTTest
                                          std::numeric_limits<vertex_t>::max());
     rmm::device_vector<vertex_t> mst_dst(2 * v - 2,
                                          std::numeric_limits<vertex_t>::max());
+    rmm::device_vector<vertex_t> color(v, 0);
 
-    vertex_t *mst_src_ptr = thrust::raw_pointer_cast(mst_src.data());
-    vertex_t *mst_dest_ptr = thrust::raw_pointer_cast(mst_dst.data());
+    vertex_t *color_ptr = thrust::raw_pointer_cast(color.data());
 
-    mst<vertex_t, edge_t, weight_t>(handle, offsets, indices, weights, v, e,
-                                    mst_src_ptr, mst_dest_ptr);
+
+    auto result = mst<vertex_t, edge_t, weight_t>(handle, offsets, indices, weights, v, e, color_ptr, handle.get_stream());
+    raft::print_device_vector("Final MST Src: ", result.src.data(), result.n_edges, std::cout);
+    raft::print_device_vector("Final MST Dst: ", result.dst.data(), result.n_edges, std::cout);
+    raft::print_device_vector("Final MST Weights: ", result.weights.data(), result.n_edges, std::cout);
   }
 
   void SetUp() override {

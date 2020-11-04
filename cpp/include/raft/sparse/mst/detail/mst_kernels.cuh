@@ -29,7 +29,7 @@ namespace detail {
 
 template <typename vertex_t, typename edge_t, typename weight_t>
 __global__ void kernel_min_edge_per_vertex(
-  const vertex_t* offsets, const edge_t* indices, const weight_t* weights,
+  const edge_t* offsets, const edge_t* indices, const weight_t* weights,
   const vertex_t* color, edge_t* new_mst_edge, const bool* mst_edge,
   weight_t* min_edge_color, const vertex_t v) {
   edge_t tid = threadIdx.x + blockIdx.x * blockDim.x;
@@ -53,6 +53,7 @@ __global__ void kernel_min_edge_per_vertex(
   // each thread in warp holds the minimum edge for
   // only the edges that thread scanned
   if (warp_id < v) {
+
     // one row is associated with one warp
     edge_t row_start = offsets[warp_id];
     edge_t row_end = offsets[warp_id + 1];
@@ -118,8 +119,8 @@ __global__ void kernel_min_edge_per_vertex(
 template <typename vertex_t, typename edge_t, typename weight_t>
 __global__ void min_edge_per_supervertex(
   const vertex_t* color, edge_t* new_mst_edge, bool* mst_edge,
-  const vertex_t* indices, const weight_t* weights, vertex_t* temp_src,
-  vertex_t* temp_dest, const weight_t* min_edge_color, const vertex_t v) {
+  const vertex_t* indices, const weight_t* weights, const weight_t *altered_weights, vertex_t* temp_src,
+  vertex_t* temp_dst, weight_t *temp_weights, const weight_t* min_edge_color, const vertex_t v) {
   vertex_t tid = get_1D_idx();
 
   if (tid < v) {
@@ -130,10 +131,11 @@ __global__ void min_edge_per_supervertex(
     // find minimum edge is same as minimum edge of whole supervertex
     // if yes, that is part of mst
     if (edge_idx != std::numeric_limits<edge_t>::max()) {
-      weight_t vertex_weight = weights[edge_idx];
+      weight_t vertex_weight = altered_weights[edge_idx];
       if (min_edge_color[vertex_color] == vertex_weight) {
         temp_src[tid] = tid;
-        temp_dest[tid] = indices[edge_idx];
+        temp_dst[tid] = indices[edge_idx];
+        temp_weights[tid] = weights[edge_idx];
 
         mst_edge[edge_idx] = true;
       } else {
@@ -147,15 +149,15 @@ __global__ void min_edge_per_supervertex(
 template <typename vertex_t>
 __global__ void min_pair_colors(const vertex_t mst_edge_count,
                                 const vertex_t* mst_src,
-                                const vertex_t* mst_dest, vertex_t* color,
+                                const vertex_t* mst_dst, vertex_t* color,
                                 vertex_t* next_color) {
   vertex_t i = get_1D_idx();
   if (i < mst_edge_count) {
     auto src = mst_src[i];
-    auto dest = mst_dest[i];
+    auto dst = mst_dst[i];
 
-    atomicMin(&next_color[src], color[dest]);
-    atomicMin(&next_color[dest], color[src]);
+    atomicMin(&next_color[src], color[dst]);
+    atomicMin(&next_color[dst], color[src]);
   }
 }
 
@@ -186,14 +188,14 @@ __global__ void alteration_kernel(const vertex_t v, const edge_t e,
                                   const vertex_t* indices,
                                   const weight_t* weights, weight_t max,
                                   weight_t* random_values,
-                                  weight_t* alterated_weights) {
+                                  weight_t* altered_weights) {
   auto row = get_1D_idx();
   if (row < v) {
     auto row_begin = offsets[row];
     auto row_end = offsets[row + 1];
     for (auto i = row_begin; i < row_end; i++) {
       auto column = indices[i];
-      alterated_weights[i] =
+      altered_weights[i] =
         weights[i] + max * (random_values[row] + random_values[column]);
     }
   }
