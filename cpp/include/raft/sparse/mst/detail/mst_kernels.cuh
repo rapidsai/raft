@@ -53,7 +53,6 @@ __global__ void kernel_min_edge_per_vertex(
   // each thread in warp holds the minimum edge for
   // only the edges that thread scanned
   if (warp_id < v) {
-
     // one row is associated with one warp
     edge_t row_start = offsets[warp_id];
     edge_t row_end = offsets[warp_id + 1];
@@ -119,8 +118,9 @@ __global__ void kernel_min_edge_per_vertex(
 template <typename vertex_t, typename edge_t, typename weight_t>
 __global__ void min_edge_per_supervertex(
   const vertex_t* color, edge_t* new_mst_edge, bool* mst_edge,
-  const vertex_t* indices, const weight_t* weights, const weight_t *altered_weights, vertex_t* temp_src,
-  vertex_t* temp_dst, weight_t *temp_weights, const weight_t* min_edge_color, const vertex_t v) {
+  const vertex_t* indices, const weight_t* weights,
+  const weight_t* altered_weights, vertex_t* temp_src, vertex_t* temp_dst,
+  weight_t* temp_weights, const weight_t* min_edge_color, const vertex_t v) {
   vertex_t tid = get_1D_idx();
 
   if (tid < v) {

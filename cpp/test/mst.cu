@@ -131,11 +131,14 @@ class MSTTest
 
     vertex_t *color_ptr = thrust::raw_pointer_cast(color.data());
 
-
-    auto result = mst<vertex_t, edge_t, weight_t>(handle, offsets, indices, weights, v, e, color_ptr, handle.get_stream());
-    raft::print_device_vector("Final MST Src: ", result.src.data(), result.n_edges, std::cout);
-    raft::print_device_vector("Final MST Dst: ", result.dst.data(), result.n_edges, std::cout);
-    raft::print_device_vector("Final MST Weights: ", result.weights.data(), result.n_edges, std::cout);
+    auto result = mst<vertex_t, edge_t, weight_t>(
+      handle, offsets, indices, weights, v, e, color_ptr, handle.get_stream());
+    raft::print_device_vector("Final MST Src: ", result.src.data(),
+                              result.n_edges, std::cout);
+    raft::print_device_vector("Final MST Dst: ", result.dst.data(),
+                              result.n_edges, std::cout);
+    raft::print_device_vector("Final MST Weights: ", result.weights.data(),
+                              result.n_edges, std::cout);
   }
 
   void SetUp() override {

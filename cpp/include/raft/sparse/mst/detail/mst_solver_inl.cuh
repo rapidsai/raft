@@ -48,7 +48,7 @@ template <typename vertex_t, typename edge_t, typename weight_t>
 MST_solver<vertex_t, edge_t, weight_t>::MST_solver(
   const raft::handle_t& handle_, edge_t const* offsets_,
   vertex_t const* indices_, weight_t const* weights_, vertex_t const v_,
-  edge_t const e_, vertex_t *color, cudaStream_t stream_)
+  edge_t const e_, vertex_t* color_, cudaStream_t stream_)
   : handle(handle_),
     offsets(offsets_),
     indices(indices_),
@@ -56,7 +56,7 @@ MST_solver<vertex_t, edge_t, weight_t>::MST_solver(
     altered_weights(e_),
     v(v_),
     e(e_),
-    // color(v_),
+    color(color_),
     next_color(v_),
     min_edge_color(v_),
     new_mst_edge(v_),
@@ -81,7 +81,8 @@ MST_solver<vertex_t, edge_t, weight_t>::MST_solver(
 }
 
 template <typename vertex_t, typename edge_t, typename weight_t>
-Graph_COO<vertex_t, edge_t, weight_t> MST_solver<vertex_t, edge_t, weight_t>::solve() {
+Graph_COO<vertex_t, edge_t, weight_t>
+MST_solver<vertex_t, edge_t, weight_t>::solve() {
   RAFT_EXPECTS(v > 0, "0 vertices");
   RAFT_EXPECTS(e > 0, "0 edges");
   RAFT_EXPECTS(offsets != nullptr, "Null offsets.");
@@ -124,10 +125,13 @@ Graph_COO<vertex_t, edge_t, weight_t> MST_solver<vertex_t, edge_t, weight_t>::so
     }
 
     // append the newly found MST edges to the final output
-    append_src_dst_pair(mst_result.src.data(), mst_result.dst.data(), mst_result.weights.data());
+    append_src_dst_pair(mst_result.src.data(), mst_result.dst.data(),
+                        mst_result.weights.data());
 
-    raft::print_device_vector("Mst Src: ", mst_result.src.data(), 2 * v - 2, std::cout);
-    raft::print_device_vector("Mst dst: ", mst_result.dst.data(), 2 * v - 2, std::cout);
+    raft::print_device_vector("Mst Src: ", mst_result.src.data(), 2 * v - 2,
+                              std::cout);
+    raft::print_device_vector("Mst dst: ", mst_result.dst.data(), 2 * v - 2,
+                              std::cout);
 
     // updates colors of supervertices by propagating the lower color to the higher
     label_prop(mst_result.src.data(), mst_result.dst.data());
@@ -141,7 +145,7 @@ Graph_COO<vertex_t, edge_t, weight_t> MST_solver<vertex_t, edge_t, weight_t>::so
 
     prev_mst_edge_count = mst_edge_count;
   }
-  
+
   thrust::host_vector<edge_t> host_mst_edge_count = mst_edge_count;
   mst_result.n_edges = host_mst_edge_count[0];
 
@@ -233,7 +237,6 @@ void MST_solver<vertex_t, edge_t, weight_t>::label_prop(vertex_t* mst_src,
     (v + color_change_nthreads - 1) / color_change_nthreads, max_blocks);
 
   rmm::device_vector<bool> done(1, false);
-  // vertex_t* color_ptr = thrust::raw_pointer_cast(color.data());
   vertex_t* next_color_ptr = thrust::raw_pointer_cast(next_color.data());
   vertex_t* mst_edge_count_ptr =
     thrust::raw_pointer_cast(mst_edge_count.data());
@@ -249,8 +252,7 @@ void MST_solver<vertex_t, edge_t, weight_t>::label_prop(vertex_t* mst_src,
       curr_mst_edge_count[0], mst_src, mst_dst, color, next_color_ptr);
     //detail::printv(next_color);
     detail::check_color_change<<<color_change_nblocks, color_change_nthreads, 0,
-                                 stream>>>(v, color, next_color_ptr,
-                                           done_ptr);
+                                 stream>>>(v, color, next_color_ptr, done_ptr);
     //detail::printv(color);
     i++;
   }
@@ -265,16 +267,16 @@ void MST_solver<vertex_t, edge_t, weight_t>::min_edge_per_vertex() {
 
   int n_threads = 32;
 
-  // vertex_t* color_ptr = thrust::raw_pointer_cast(color.data());
   edge_t* new_mst_edge_ptr = thrust::raw_pointer_cast(new_mst_edge.data());
   bool* mst_edge_ptr = thrust::raw_pointer_cast(mst_edge.data());
   weight_t* min_edge_color_ptr =
     thrust::raw_pointer_cast(min_edge_color.data());
-  weight_t *altered_weights_ptr = thrust::raw_pointer_cast(altered_weights.data());
+  weight_t* altered_weights_ptr =
+    thrust::raw_pointer_cast(altered_weights.data());
 
   detail::kernel_min_edge_per_vertex<<<v, n_threads, 0, stream>>>(
-    offsets, indices, altered_weights_ptr, color, new_mst_edge_ptr, mst_edge_ptr,
-    min_edge_color_ptr, v);
+    offsets, indices, altered_weights_ptr, color, new_mst_edge_ptr,
+    mst_edge_ptr, min_edge_color_ptr, v);
 }
 
 template <typename vertex_t, typename edge_t, typename weight_t>
@@ -284,23 +286,21 @@ void MST_solver<vertex_t, edge_t, weight_t>::min_edge_per_supervertex() {
 
   thrust::fill(temp_src.begin(), temp_src.end(),
                std::numeric_limits<vertex_t>::max());
-  // thrust::fill(temp_dst.begin(), temp_dst.end(),
-  //              std::numeric_limits<vertex_t>::max());
 
-
-  // vertex_t* color_ptr = thrust::raw_pointer_cast(color.data());
   edge_t* new_mst_edge_ptr = thrust::raw_pointer_cast(new_mst_edge.data());
   bool* mst_edge_ptr = thrust::raw_pointer_cast(mst_edge.data());
   weight_t* min_edge_color_ptr =
     thrust::raw_pointer_cast(min_edge_color.data());
-  weight_t *altered_weights_ptr = thrust::raw_pointer_cast(altered_weights.data());
+  weight_t* altered_weights_ptr =
+    thrust::raw_pointer_cast(altered_weights.data());
   vertex_t* temp_src_ptr = thrust::raw_pointer_cast(temp_src.data());
   vertex_t* temp_dst_ptr = thrust::raw_pointer_cast(temp_dst.data());
   weight_t* temp_weights_ptr = thrust::raw_pointer_cast(temp_weights.data());
 
   detail::min_edge_per_supervertex<<<nblocks, nthreads, 0, stream>>>(
-    color, new_mst_edge_ptr, mst_edge_ptr, indices, weights, altered_weights_ptr, temp_src_ptr,
-    temp_dst_ptr, temp_weights_ptr, min_edge_color_ptr, v);
+    color, new_mst_edge_ptr, mst_edge_ptr, indices, weights,
+    altered_weights_ptr, temp_src_ptr, temp_dst_ptr, temp_weights_ptr,
+    min_edge_color_ptr, v);
 }
 
 template <typename vertex_t, typename edge_t, typename weight_t>
@@ -318,10 +318,10 @@ void MST_solver<vertex_t, edge_t, weight_t>::check_termination() {
     temp_src_ptr, mst_edge_count_ptr, v);
 }
 
-template <typename vertex_t>
+template <typename vertex_t, typename weight_t>
 struct new_edges_functor {
   __host__ __device__ bool operator()(
-    const thrust::tuple<vertex_t, vertex_t>& t) {
+    const thrust::tuple<vertex_t, vertex_t, weight_t>& t) {
     auto src = thrust::get<0>(t);
 
     return src != std::numeric_limits<vertex_t>::max() ? true : false;
@@ -330,25 +330,26 @@ struct new_edges_functor {
 
 template <typename vertex_t, typename edge_t, typename weight_t>
 void MST_solver<vertex_t, edge_t, weight_t>::append_src_dst_pair(
-  vertex_t* mst_src, vertex_t* mst_dst, weight_t *mst_weights) {
+  vertex_t* mst_src, vertex_t* mst_dst, weight_t* mst_weights) {
   auto policy = rmm::exec_policy(stream);
 
   auto curr_mst_edge_count = prev_mst_edge_count[0];
 
   // iterator to end of mst edges added to final output in previous iteration
   auto src_dst_zip_end = thrust::make_zip_iterator(thrust::make_tuple(
-    mst_src + curr_mst_edge_count, mst_dst + curr_mst_edge_count));
+    mst_src + curr_mst_edge_count, mst_dst + curr_mst_edge_count,
+    mst_weights + curr_mst_edge_count));
 
   // iterator to new mst edges found
-  auto temp_src_dst_zip_begin = thrust::make_zip_iterator(
-    thrust::make_tuple(temp_src.begin(), temp_dst.begin()));
+  auto temp_src_dst_zip_begin = thrust::make_zip_iterator(thrust::make_tuple(
+    temp_src.begin(), temp_dst.begin(), temp_weights.begin()));
   auto temp_src_dst_zip_end = thrust::make_zip_iterator(
-    thrust::make_tuple(temp_src.end(), temp_dst.end()));
+    thrust::make_tuple(temp_src.end(), temp_dst.end(), temp_weights.end()));
 
   // copy new mst edges to final output
   thrust::copy_if(policy->on(stream), temp_src_dst_zip_begin,
                   temp_src_dst_zip_end, src_dst_zip_end,
-                  new_edges_functor<vertex_t>());
+                  new_edges_functor<vertex_t, weight_t>());
 }
 
 }  // namespace mst
