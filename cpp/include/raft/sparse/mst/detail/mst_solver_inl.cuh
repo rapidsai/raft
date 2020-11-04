@@ -314,7 +314,6 @@ struct new_edges_functor {
   __host__ __device__ bool operator()(
     const thrust::tuple<vertex_t, vertex_t>& t) {
     auto src = thrust::get<0>(t);
-    // auto dest = thrust::get<1>(t);
 
     return src != std::numeric_limits<vertex_t>::max() ? true : false;
   }
@@ -328,14 +327,17 @@ void MST_solver<vertex_t, edge_t, weight_t>::append_src_dest_pair(
 
   auto curr_mst_edge_count = prev_mst_edge_count[0];
 
+  // iterator to end of mst edges added to final output in previous iteration
   auto src_dest_zip_end = thrust::make_zip_iterator(thrust::make_tuple(
     mst_src + curr_mst_edge_count, mst_dest + curr_mst_edge_count));
 
+  // iterator to new mst edges found
   auto temp_src_dest_zip_begin = thrust::make_zip_iterator(
     thrust::make_tuple(temp_src.begin(), temp_dest.begin()));
   auto temp_src_dest_zip_end = thrust::make_zip_iterator(
     thrust::make_tuple(temp_src.end(), temp_dest.end()));
 
+  // copy new mst edges to final output
   thrust::copy_if(policy->on(stream), temp_src_dest_zip_begin,
                   temp_src_dest_zip_end, src_dest_zip_end,
                   new_edges_functor<vertex_t>());

@@ -45,15 +45,13 @@ __global__ void kernel_min_edge_per_vertex(
   min_edge_weight[lane_id] = std::numeric_limits<weight_t>::max();
   min_color[lane_id] = std::numeric_limits<vertex_t>::max();
 
-  // TODO: Find a way to set limits
-  // Above does not work as it is host code
-  // min_edge_index[lane_id] = 100;
-  // min_edge_weight[lane_id] = 100;
-  // min_color[lane_id] = 100;
   __syncthreads();
 
   vertex_t self_color = color[warp_id];
 
+  // find the minimum edge associated per row
+  // each thread in warp holds the minimum edge for
+  // only the edges that thread scanned
   if (warp_id < v) {
     // one row is associated with one warp
     edge_t row_start = offsets[warp_id];
@@ -85,6 +83,8 @@ __global__ void kernel_min_edge_per_vertex(
   __syncthreads();
 
   // reduce across threads in warp
+  // each thread in warp holds min edge scanned by itself
+  // reduce across all those warps
   for (int offset = 16; offset > 0; offset >>= 1) {
     if (lane_id < offset) {
       if (min_edge_weight[lane_id] > min_edge_weight[lane_id + offset]) {
@@ -106,8 +106,6 @@ __global__ void kernel_min_edge_per_vertex(
   // min edge may now be found in first thread
   if (lane_id == 0) {
     if (min_edge_weight[0] != std::numeric_limits<weight_t>::max()) {
-      // successor[warp_id] = indices[min_edge_index[0]];
-
       new_mst_edge[warp_id] = min_edge_index[0];
 
       // atomically set min edge per color
@@ -129,6 +127,8 @@ __global__ void min_edge_per_supervertex(
     edge_t edge_idx = new_mst_edge[tid];
 
     // check if valid outgoing edge was found
+    // find minimum edge is same as minimum edge of whole supervertex
+    // if yes, that is part of mst
     if (edge_idx != std::numeric_limits<edge_t>::max()) {
       weight_t vertex_weight = weights[edge_idx];
       if (min_edge_color[vertex_color] == vertex_weight) {
@@ -205,6 +205,7 @@ __global__ void kernel_count_new_mst_edges(const vertex_t* mst_src,
                                            const vertex_t v) {
   vertex_t tid = get_1D_idx();
 
+  // count number of new mst edges added
   bool predicate =
     tid < v && (mst_src[tid] != std::numeric_limits<vertex_t>::max());
   vertex_t block_count = __syncthreads_count(predicate);
