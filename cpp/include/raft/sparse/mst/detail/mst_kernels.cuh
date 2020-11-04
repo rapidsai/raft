@@ -138,7 +138,7 @@ __global__ void min_edge_per_supervertex(
 
         mst_edge[edge_idx] = true;
 
-        successor[tid] = indices[edge_idx];
+        // successor[tid] = indices[edge_idx];
       } else {
         new_mst_edge[tid] = std::numeric_limits<edge_t>::max();
       }
@@ -148,12 +148,15 @@ __global__ void min_edge_per_supervertex(
 
 // executes for each vertex and updates the colors of both vertices to the lower color
 template <typename vertex_t>
-__global__ void min_pair_colors(const vertex_t v, const vertex_t* successor,
+__global__ void min_pair_colors(const vertex_t mst_edge_count, const vertex_t *mst_src, const vertex_t* mst_dest,
                                 vertex_t* color, vertex_t* next_color) {
-  int i = get_1D_idx();
-  if (i < v) {
-    atomicMin(&next_color[i], color[successor[i]]);
-    atomicMin(&next_color[successor[i]], color[i]);
+  vertex_t i = get_1D_idx();
+  if (i < mst_edge_count) {
+    auto src = mst_src[i];
+    auto dest = mst_dest[i];
+
+    atomicMin(&next_color[src], color[dest]);
+    atomicMin(&next_color[dest], color[src]);
   }
 }
 
@@ -161,7 +164,7 @@ template <typename vertex_t>
 __global__ void check_color_change(const vertex_t v, vertex_t* color,
                                    vertex_t* next_color, bool* done) {
   //This kernel works on the global_colors[] array
-  int i = get_1D_idx();
+  vertex_t i = get_1D_idx();
   if (i < v) {
     if (color[i] > next_color[i]) {
       //Termination for label propagation
@@ -176,19 +179,19 @@ __global__ void check_color_change(const vertex_t v, vertex_t* color,
   next_color[i] = color[i];
 }
 
-template <typename vertex_t>
-__global__ void kernel_check_termination(const vertex_t& e, bool* mst_edge,
-                                         bool* prev_mst_edge, bool* done) {
-  vertex_t tid = get_1D_idx();
+// template <typename vertex_t>
+// __global__ void kernel_check_termination(const vertex_t& e, bool* mst_edge,
+//                                          bool* prev_mst_edge, bool* done) {
+//   vertex_t tid = get_1D_idx();
 
-  // count > 0 values in block
-  bool predicate = tid < e && (mst_edge[tid] ^ prev_mst_edge[tid]);
-  vertex_t block_count = __syncthreads_count(predicate);
+//   // count > 0 values in block
+//   bool predicate = tid < e && (mst_edge[tid] ^ prev_mst_edge[tid]);
+//   vertex_t block_count = __syncthreads_count(predicate);
 
-  if (threadIdx.x == 0 && block_count > 0) {
-    *done = false;
-  }
-}
+//   if (threadIdx.x == 0 && block_count > 0) {
+//     *done = false;
+//   }
+// }
 
 // Alterate the weights, make all undirected edge weight unique while keeping Wuv == Wvu
 // Consider using curand device API instead of precomputed random_values array
@@ -211,15 +214,15 @@ __global__ void alteration_kernel(const vertex_t v, const edge_t e,
   }
 }
 
-template <typename vertex_t, typename edge_t>
-__global__ void kernel_count_new_mst_edges(const vertex_t* new_mst_edge,
-                                           edge_t* mst_edge_count,
+template <typename vertex_t>
+__global__ void kernel_count_new_mst_edges(const vertex_t* mst_src,
+                                           vertex_t* mst_edge_count,
                                            const vertex_t v) {
   vertex_t tid = get_1D_idx();
 
   bool predicate =
-    tid < v && (new_mst_edge[tid] != std::numeric_limits<vertex_t>::max());
-  edge_t block_count = __syncthreads_count(predicate);
+    tid < v && (mst_src[tid] != std::numeric_limits<vertex_t>::max());
+  vertex_t block_count = __syncthreads_count(predicate);
 
   if (threadIdx.x == 0 && block_count > 0) {
     atomicAdd(mst_edge_count, block_count);

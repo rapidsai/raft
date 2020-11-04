@@ -66,9 +66,10 @@ MST_solver<vertex_t, edge_t, weight_t>::MST_solver(
     min_edge_color(v_),
     new_mst_edge(v_),
     msf_done(1),
-    temp_src(2 * v_ - 2),
-    temp_dest(2 * v_ - 2),
-    mst_edge_count(1, 0) {
+    temp_src(v_),
+    temp_dest(v_),
+    mst_edge_count(1, 0),
+    prev_mst_edge_count(1, 0) {
   max_blocks = handle_.get_device_properties().maxGridSize[0];
   max_threads = handle_.get_device_properties().maxThreadsPerBlock;
   sm_count = handle_.get_device_properties().multiProcessorCount;
@@ -99,7 +100,7 @@ void MST_solver<vertex_t, edge_t, weight_t>::solve(vertex_t* mst_src,
   // Here we adjust it to support disconnected components (spanning forest)
   // track completion with mst_edge_found status.
   // should have max_iter ensure it always exits.
-  for (auto i = 0; i < 1; i++) {
+  for (auto i = 0; i < 3; i++) {
     std::cout << "Iteration: " << i << std::endl;
     // Finds the minimum outgoing edge from each supervertex to the lowest outgoing color
     // by working at each vertex of the supervertex
@@ -117,6 +118,18 @@ void MST_solver<vertex_t, edge_t, weight_t>::solve(vertex_t* mst_src,
     detail::printv(temp_src);
     std::cout << "New MST Dest: " << std::endl;
     detail::printv(temp_dest);
+
+    // // check if msf/mst done, count new edges added thition
+    // std::cout << "MST Edge: " << std::endl;
+    // detail::printv(mst_edge);
+    // std::cout << "Prev MST Edge: " << std::endl;
+    // detail::printv(prev_mst_edge);
+    check_termination();
+    std::cout << "MST edge count: " << mst_edge_count[0] << std::endl;
+    std::cout << "New MST edge count: " << prev_mst_edge_count[0] << std::endl;
+    if (prev_mst_edge_count[0] == mst_edge_count[0]) {
+      break;
+    }
     // raft::print_device_vector("Mst Src: ", temp_src, 2 * v - 2, std::cout);
     // raft::print_device_vector("Mst Src: ", temp_dest, 2 * v - 2, std::cout);
     // append the newly found MST edges to the final output
@@ -131,26 +144,17 @@ void MST_solver<vertex_t, edge_t, weight_t>::solve(vertex_t* mst_src,
     // std::cout << "MST Dest: " << std::endl;
     // detail::printv(rmm::device_vector<vertex_t>(thrust::device_ptr<vertex_t>(mst_dest)));
 
-    // // check if msf/mst done
-    // std::cout << "MST Edge: " << std::endl;
-    // detail::printv(mst_edge);
-    // std::cout << "Prev MST Edge: " << std::endl;
-    // detail::printv(prev_mst_edge);
-    // check_termination();
-    // std::cout << "MSF/MST done: " << msf_done[0] << std::endl;
-    // if (msf_done[0] == true) {
-    //   break;
-    // }
+    // updates colors of supervertices by propagating the lower color to the higher
+    label_prop(mst_src, mst_dest);
+    std::cout << "Color: " << std::endl;
+    detail::printv(color);
+    std::cout << "Next Color: " << std::endl;
+    detail::printv(next_color);
 
-    // // updates colors of supervertices by propagating the lower color to the higher
-    // label_prop();
-    // std::cout << "Color: " << std::endl;
-    // detail::printv(color);
-    // std::cout << "Next Color: " << std::endl;
-    // detail::printv(next_color);
-
-    // // copy this iteration's results and store
+    // copy this iteration's results and store
     // prev_mst_edge = mst_edge;
+
+    prev_mst_edge_count = mst_edge_count;
   }
 }
 
@@ -225,16 +229,25 @@ void MST_solver<vertex_t, edge_t, weight_t>::alteration() {
 }
 
 template <typename vertex_t, typename edge_t, typename weight_t>
-void MST_solver<vertex_t, edge_t, weight_t>::label_prop() {
+void MST_solver<vertex_t, edge_t, weight_t>::label_prop(vertex_t *mst_src, vertex_t *mst_dest) {
   // update the colors of both ends its until there is no change in colors
-  auto nthreads = std::min(v, max_threads);
-  auto nblocks = std::min((v + nthreads - 1) / nthreads, max_blocks);
   auto stream = handle.get_stream();
+
+  thrust::host_vector<vertex_t> curr_mst_edge_count = mst_edge_count;
+  // auto curr_mst_edge_count = mst_edge_count[0];
+  // vertex_t curr_mst_edge_count = 0;
+  // raft::update_host(&curr_mst_edge_count, thrust::raw_pointer_cast(mst_edge_count.data()), 1, stream);
+  auto min_pair_nthreads = std::min(curr_mst_edge_count[0], max_threads);
+  auto min_pair_nblocks = std::min((curr_mst_edge_count[0] + min_pair_nthreads - 1) / min_pair_nthreads, max_blocks);
+
+  auto color_change_nthreads = std::min(v, max_threads);
+  auto color_change_nblocks = std::min((v + color_change_nthreads - 1) / color_change_nthreads, max_blocks);
 
   rmm::device_vector<bool> done(1, false);
   vertex_t* color_ptr = thrust::raw_pointer_cast(color.data());
   vertex_t* next_color_ptr = thrust::raw_pointer_cast(next_color.data());
-  vertex_t* successor_ptr = thrust::raw_pointer_cast(successor.data());
+  vertex_t *mst_edge_count_ptr = thrust::raw_pointer_cast(mst_edge_count.data());
+  // vertex_t* successor_ptr = thrust::raw_pointer_cast(successor.data());
 
   bool* done_ptr = thrust::raw_pointer_cast(done.data());
 
@@ -243,10 +256,10 @@ void MST_solver<vertex_t, edge_t, weight_t>::label_prop() {
   //detail::printv(color);
   while (!done[0]) {
     done[0] = true;
-    detail::min_pair_colors<<<nblocks, nthreads, 0, stream>>>(
-      v, successor_ptr, color_ptr, next_color_ptr);
+    detail::min_pair_colors<<<min_pair_nblocks, min_pair_nthreads, 0, stream>>>(
+      curr_mst_edge_count[0], mst_src, mst_dest, color_ptr, next_color_ptr);
     //detail::printv(next_color);
-    detail::check_color_change<<<nblocks, nthreads, 0, stream>>>(
+    detail::check_color_change<<<color_change_nblocks, color_change_nthreads, 0, stream>>>(
       v, color_ptr, next_color_ptr, done_ptr);
     //detail::printv(color);
     i++;
@@ -330,17 +343,25 @@ template <typename vertex_t, typename edge_t, typename weight_t>
 void MST_solver<vertex_t, edge_t, weight_t>::check_termination() {
   msf_done[0] = true;
 
-  int nthreads = std::min(e, max_threads);
-  int nblocks = std::min((e + nthreads - 1) / nthreads, max_blocks);
+  int nthreads = std::min(v, max_threads);
+  int nblocks = std::min((v + nthreads - 1) / nthreads, max_blocks);
   auto stream = handle.get_stream();
 
-  bool* mst_edge_ptr = thrust::raw_pointer_cast(mst_edge.data());
-  bool* prev_mst_edge_ptr = thrust::raw_pointer_cast(prev_mst_edge.data());
+  // bool* mst_edge_ptr = thrust::raw_pointer_cast(mst_edge.data());
+  // bool* prev_mst_edge_ptr = thrust::raw_pointer_cast(prev_mst_edge.data());
 
-  bool* msf_done_ptr = thrust::raw_pointer_cast(msf_done.data());
+  // bool* msf_done_ptr = thrust::raw_pointer_cast(msf_done.data());
 
-  detail::kernel_check_termination<<<nblocks, nthreads, 0, stream>>>(
-    e, mst_edge_ptr, prev_mst_edge_ptr, msf_done_ptr);
+  // detail::kernel_check_termination<<<nblocks, nthreads, 0, stream>>>(
+  //   e, mst_edge_ptr, prev_mst_edge_ptr, msf_done_ptr);
+
+  // count number of new mst edges
+
+  vertex_t* mst_edge_count_ptr = thrust::raw_pointer_cast(mst_edge_count.data());
+  vertex_t* temp_src_ptr = thrust::raw_pointer_cast(temp_src.data());
+
+  detail::kernel_count_new_mst_edges<<<nblocks, nthreads, 0, stream>>>(
+    temp_src_ptr, mst_edge_count_ptr, v);
 }
 
 template <typename vertex_t>
@@ -357,13 +378,13 @@ struct new_edges_functor {
 template <typename vertex_t, typename edge_t, typename weight_t>
 void MST_solver<vertex_t, edge_t, weight_t>::append_src_dest_pair(
   vertex_t* mst_src, vertex_t* mst_dest) {
-  int nthreads = std::min(v, max_threads);
-  int nblocks = std::min((v + nthreads - 1) / nthreads, max_blocks);
+  // int nthreads = std::min(v, max_threads);
+  // int nblocks = std::min((v + nthreads - 1) / nthreads, max_blocks);
   auto stream = handle.get_stream();
   auto policy = rmm::exec_policy(stream);
 
   // std::cout << "MST Edge Count: " << mst_edge_count[0] << std::endl;
-  auto curr_mst_edge_count = mst_edge_count[0];
+  auto curr_mst_edge_count = prev_mst_edge_count[0];
 
   auto src_dest_zip_end = thrust::make_zip_iterator(thrust::make_tuple(
     mst_src + curr_mst_edge_count, mst_dest + curr_mst_edge_count));
@@ -376,13 +397,6 @@ void MST_solver<vertex_t, edge_t, weight_t>::append_src_dest_pair(
   thrust::copy_if(policy->on(stream), temp_src_dest_zip_begin,
                   temp_src_dest_zip_end, src_dest_zip_end,
                   new_edges_functor<vertex_t>());
-
-  // // count number of new mst edges
-  edge_t* mst_edge_count_ptr = thrust::raw_pointer_cast(mst_edge_count.data());
-  vertex_t* new_mst_edge_ptr = thrust::raw_pointer_cast(new_mst_edge.data());
-
-  detail::kernel_count_new_mst_edges<<<nblocks, nthreads, 0, stream>>>(
-    new_mst_edge_ptr, mst_edge_count_ptr, v);
 }
 
 }  // namespace mst
