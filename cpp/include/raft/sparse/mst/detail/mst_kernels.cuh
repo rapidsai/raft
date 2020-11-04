@@ -30,7 +30,7 @@ namespace detail {
 template <typename vertex_t, typename edge_t, typename weight_t>
 __global__ void kernel_min_edge_per_vertex(
   const vertex_t* offsets, const edge_t* indices, const weight_t* weights,
-  vertex_t* color, vertex_t* successor, bool* mst_edge, edge_t* new_mst_edge,
+  const vertex_t* color, edge_t* new_mst_edge, const bool *mst_edge,
   weight_t* min_edge_color, const vertex_t v) {
   edge_t tid = threadIdx.x + blockIdx.x * blockDim.x;
 
@@ -119,8 +119,8 @@ __global__ void kernel_min_edge_per_vertex(
 
 template <typename vertex_t, typename edge_t, typename weight_t>
 __global__ void min_edge_per_supervertex(
-  const vertex_t* color, edge_t* new_mst_edge, const vertex_t* indices,
-  const weight_t* weights, vertex_t* successor, bool* mst_edge,
+  const vertex_t* color, edge_t* new_mst_edge, bool *mst_edge, const vertex_t* indices,
+  const weight_t* weights,
   vertex_t* temp_src, vertex_t* temp_dest, const weight_t* min_edge_color,
   const vertex_t v) {
   vertex_t tid = get_1D_idx();
@@ -137,8 +137,6 @@ __global__ void min_edge_per_supervertex(
         temp_dest[tid] = indices[edge_idx];
 
         mst_edge[edge_idx] = true;
-
-        // successor[tid] = indices[edge_idx];
       } else {
         new_mst_edge[tid] = std::numeric_limits<edge_t>::max();
       }
@@ -178,20 +176,6 @@ __global__ void check_color_change(const vertex_t v, vertex_t* color,
   // TODO check experimentally
   next_color[i] = color[i];
 }
-
-// template <typename vertex_t>
-// __global__ void kernel_check_termination(const vertex_t& e, bool* mst_edge,
-//                                          bool* prev_mst_edge, bool* done) {
-//   vertex_t tid = get_1D_idx();
-
-//   // count > 0 values in block
-//   bool predicate = tid < e && (mst_edge[tid] ^ prev_mst_edge[tid]);
-//   vertex_t block_count = __syncthreads_count(predicate);
-
-//   if (threadIdx.x == 0 && block_count > 0) {
-//     *done = false;
-//   }
-// }
 
 // Alterate the weights, make all undirected edge weight unique while keeping Wuv == Wvu
 // Consider using curand device API instead of precomputed random_values array

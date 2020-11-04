@@ -50,20 +50,12 @@ class MST_solver {
 
   rmm::device_vector<vertex_t> color;  // represent each supervertex as a color
   rmm::device_vector<vertex_t> next_color;  //index of v color in color array
-  rmm::device_vector<bool> active_color;    // track active supervertex color
-  //rmm::device_vector<vertex_t> degree;     // supervertices degrees
-  //rmm::device_vector<vertex_t> cycle;      // edges to be excluded from mst_edge
-  rmm::device_vector<vertex_t>
-    successor;  // current mst iteration. edge being added is (src=i, dst=successor[i])
   rmm::device_vector<bool>
     mst_edge;  // mst output -  true if the edge belongs in mst
-  rmm::device_vector<bool>
-    prev_mst_edge;  // mst output of prev iteration - used to check for termination
   rmm::device_vector<weight_t>
     min_edge_color;  // minimum incident edge weight per color
   rmm::device_vector<edge_t> new_mst_edge;  // new minimum edge per vertex
   rmm::device_vector<weight_t> alterated_weights;  // weights to be used for mst
-  rmm::device_vector<bool> msf_done;  // check if msf/mst has terminated
   rmm::device_vector<vertex_t>
     mst_edge_count;  // total number of edges added after every iteration
   rmm::device_vector<vertex_t>
