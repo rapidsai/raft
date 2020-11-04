@@ -48,6 +48,9 @@ class MST_solver {
 
   ~MST_solver() {}
 
+  rmm::device_vector<bool>
+  mst_edge;  // mst output -  true if the edge belongs in mst
+
  private:
   raft::handle_t const& handle;
   cudaStream_t stream;
@@ -65,8 +68,6 @@ class MST_solver {
 
   vertex_t* color;  // represent each supervertex as a color
   rmm::device_vector<vertex_t> next_color;  //index of v color in color array
-  rmm::device_vector<bool>
-    mst_edge;  // mst output -  true if the edge belongs in mst
   rmm::device_vector<weight_t>
     min_edge_color;  // minimum incident edge weight per color
   rmm::device_vector<edge_t> new_mst_edge;       // new minimum edge per vertex
