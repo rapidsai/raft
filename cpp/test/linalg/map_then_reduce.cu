@@ -24,7 +24,7 @@ namespace raft {
 namespace linalg {
 
 template <typename Type, typename MapOp>
-__global__ void naiveMapReduceKernel(Type *out, const Type *in, size_t len,
+__global__ void naive_map_reduce_kernel(Type *out, const Type *in, size_t len,
                                      MapOp map) {
   int idx = threadIdx.x + blockIdx.x * blockDim.x;
   if (idx < len) {
@@ -33,24 +33,24 @@ __global__ void naiveMapReduceKernel(Type *out, const Type *in, size_t len,
 }
 
 template <typename Type, typename MapOp>
-void naiveMapReduce(Type *out, const Type *in, size_t len, MapOp map,
+void naive_map_reduce(Type *out, const Type *in, size_t len, MapOp map,
                     cudaStream_t stream) {
-  static const int TPB = 64;
-  int nblks = raft::ceildiv(len, (size_t)TPB);
-  naiveMapReduceKernel<Type, MapOp>
-    <<<nblks, TPB, 0, stream>>>(out, in, len, map);
+  static const int kTpb = 64;
+  int nblks = raft::ceildiv(len, static_cast<size_t>(kTpb));
+  naive_map_reduce_kernel<Type, MapOp>
+    <<<nblks, kTpb, 0, stream>>>(out, in, len, map);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
 template <typename T>
-struct MapReduceInputs {
+struct map_reduce_inputs {
   T tolerance;
   size_t len;
-  unsigned long long int seed;
+  uint64_t seed;
 };
 
 template <typename T>
-::std::ostream &operator<<(::std::ostream &os, const MapReduceInputs<T> &dims) {
+::std::ostream &operator<<(::std::ostream &os, const map_reduce_inputs<T> &dims) {
   return os;
 }
 
@@ -58,61 +58,60 @@ template <typename T>
 // for an extended __device__ lambda cannot have private or protected access
 // within its class
 template <typename T>
-void mapReduceLaunch(T *out_ref, T *out, const T *in, size_t len,
+void map_reduce_launch(T *out_ref, T *out, const T *in, size_t len,
                      cudaStream_t stream) {
   auto op = [] __device__(T in) { return in; };
-  naiveMapReduce(out_ref, in, len, op, stream);
+  naive_map_reduce(out_ref, in, len, op, stream);
   mapThenSumReduce(out, len, op, 0, in);
 }
 
 template <typename T>
-class MapReduceTest : public ::testing::TestWithParam<MapReduceInputs<T>> {
+class map_reduce_test : public ::testing::TestWithParam<map_reduce_inputs<T>> {
  protected:
-  void SetUp() override {
-    params = ::testing::TestWithParam<MapReduceInputs<T>>::GetParam();
-    raft::random::Rng r(params.seed);
-    auto len = params.len;
+  void SetUp() override {  // NOLINT
+    params_ = ::testing::TestWithParam<map_reduce_inputs<T>>::GetParam();
+    raft::random::Rng r(params_.seed);
+    auto len = params_.len;
 
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
-    allocate(in, len);
-    allocate(out_ref, len);
-    allocate(out, len);
-    r.uniform(in, len, T(-1.0), T(1.0), stream);
-    mapReduceLaunch(out_ref, out, in, len, stream);
+    allocate(in_, len);
+    allocate(out_ref_, len);
+    allocate(out_, len);
+    r.uniform(in_, len, T(-1.0), T(1.0), stream);
+    map_reduce_launch(out_ref_, out_, in_, len, stream);
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
-  void TearDown() override {
-    CUDA_CHECK(cudaFree(in));
-    CUDA_CHECK(cudaFree(out_ref));
-    CUDA_CHECK(cudaFree(out));
+  void TearDown() override {  // NOLINT
+    CUDA_CHECK(cudaFree(in_));
+    CUDA_CHECK(cudaFree(out_ref_));
+    CUDA_CHECK(cudaFree(out_));
   }
 
- protected:
-  MapReduceInputs<T> params;
-  T *in, *out_ref, *out;
+  map_reduce_inputs<T> params_;
+  T *in_, *out_ref_, *out_;
 };
 
-const std::vector<MapReduceInputs<float>> inputsf = {
+const std::vector<map_reduce_inputs<float>> kInputsF = {
   {0.001f, 1024 * 1024, 1234ULL}};
-typedef MapReduceTest<float> MapReduceTestF;
-TEST_P(MapReduceTestF, Result) {
-  ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
-                          compare_approx<float>(params.tolerance)));
+using map_reduce_test_f = map_reduce_test<float>;
+TEST_P(map_reduce_test_f, Result) {  // NOLINT
+  ASSERT_TRUE(devArrMatch(out_ref_, out_, params_.len,
+                          compare_approx<float>(params_.tolerance)));
 }
-INSTANTIATE_TEST_SUITE_P(MapReduceTests, MapReduceTestF,
-                         ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_SUITE_P(map_reduce_tests, map_reduce_test_f,  // NOLINT
+                         ::testing::ValuesIn(kInputsF));
 
-const std::vector<MapReduceInputs<double>> inputsd = {
+const std::vector<map_reduce_inputs<double>> kInputsD = {
   {0.000001, 1024 * 1024, 1234ULL}};
-typedef MapReduceTest<double> MapReduceTestD;
-TEST_P(MapReduceTestD, Result) {
-  ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
-                          compare_approx<double>(params.tolerance)));
+using map_reduce_test_d = map_reduce_test<double>;
+TEST_P(map_reduce_test_d, Result) {  // NOLINT
+  ASSERT_TRUE(devArrMatch(out_ref_, out_, params_.len,
+                          compare_approx<double>(params_.tolerance)));
 }
-INSTANTIATE_TEST_SUITE_P(MapReduceTests, MapReduceTestD,
-                         ::testing::ValuesIn(inputsd));
+INSTANTIATE_TEST_SUITE_P(map_reduce_tests, map_reduce_test_d,  // NOLINT
+                         ::testing::ValuesIn(kInputsD));
 
 }  // end namespace linalg
 }  // end namespace raft
