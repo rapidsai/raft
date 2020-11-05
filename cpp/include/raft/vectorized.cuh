@@ -256,7 +256,7 @@ struct IOType<double, 2> {
 template <typename Math, int VecLen>
 struct TxN_t {  // NOLINT
   /** underlying math data type */
-  using math_t = Matht;  // NOLINT
+  using math_t = Math;  // NOLINT
   /** internal storage data type */
   using io_t = typename IOType<math_t, VecLen>::Type;  // NOLINT
 

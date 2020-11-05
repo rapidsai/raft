@@ -17,7 +17,7 @@
 #pragma once
 
 #include <math_constants.h>
-#include <stdint.h>
+#include <cstdint>
 
 #include <raft/cudart_utils.h>
 
@@ -54,7 +54,7 @@ constexpr HDI IntType ceildiv(IntType a, IntType b) {
  * @tparam IntType supposed to be only integers for now!
  */
 template <typename IntType>
-constexpr HDI IntType alignTo(IntType a, IntType b) {
+constexpr HDI IntType alignTo(IntType a, IntType b) {  // NOLINT
   return ceildiv(a, b) * b;
 }
 
@@ -63,7 +63,7 @@ constexpr HDI IntType alignTo(IntType a, IntType b) {
  * @tparam IntType supposed to be only integers for now!
  */
 template <typename IntType>
-constexpr HDI IntType alignDown(IntType a, IntType b) {
+constexpr HDI IntType alignDown(IntType a, IntType b) {  // NOLINT
   return (a / b) * b;
 }
 
@@ -72,7 +72,7 @@ constexpr HDI IntType alignDown(IntType a, IntType b) {
  * @tparam IntType data type (checked only for integers)
  */
 template <typename IntType>
-constexpr HDI bool isPo2(IntType num) {
+constexpr HDI bool isPo2(IntType num) {  // NOLINT
   return (num && !(num & (num - 1)));
 }
 
@@ -87,20 +87,20 @@ constexpr HDI IntType log2(IntType num, IntType ret = IntType(0)) {
 
 /** Device function to apply the input lambda across threads in the grid */
 template <int ItemsPerThread, typename L>
-DI void forEach(int num, L lambda) {
+DI void forEach(int num, L lambda) {  // NOLINT
   int idx = (blockDim.x * blockIdx.x) + threadIdx.x;
-  const int numThreads = blockDim.x * gridDim.x;
+  const int num_threads = blockDim.x * gridDim.x;
 #pragma unroll
-  for (int itr = 0; itr < ItemsPerThread; ++itr, idx += numThreads) {
+  for (int itr = 0; itr < ItemsPerThread; ++itr, idx += num_threads) {
     if (idx < num) lambda(idx, itr);
   }
 }
 
 /** number of threads per warp */
-static const int WarpSize = 32;
+static const int WarpSize = 32;  // NOLINT
 
 /** get the laneId of the current thread */
-DI int laneId() {
+DI int laneId() {  // NOLINT
   int id;
   asm("mov.s32 %0, %laneid;" : "=r"(id));
   return id;
@@ -113,7 +113,7 @@ DI int laneId() {
  * @param b second input
  */
 template <typename T>
-HDI void swapVals(T &a, T &b) {
+HDI void swapVals(T &a, T &b) {  // NOLINT
   T tmp = a;
   a = b;
   b = tmp;
@@ -121,7 +121,7 @@ HDI void swapVals(T &a, T &b) {
 
 /** Device function to have atomic add support for older archs */
 template <typename Type>
-DI void myAtomicAdd(Type *address, Type val) {
+DI void myAtomicAdd(Type *address, Type val) {  // NOLINT
   atomicAdd(address, val);
 }
 
@@ -129,9 +129,10 @@ DI void myAtomicAdd(Type *address, Type val) {
 // Ref:
 // http://on-demand.gputechconf.com/gtc/2013/presentations/S3101-Atomic-Memory-Operations.pdf
 template <>
-DI void myAtomicAdd(double *address, double val) {
-  unsigned long long int *address_as_ull = (unsigned long long int *)address;
-  unsigned long long int old = *address_as_ull, assumed;
+DI void myAtomicAdd(double *address, double val) {  // NOLINT
+  auto *address_as_ull =
+    reinterpret_cast<unsigned long long*>(address);  // NOLINT
+  auto old = *address_as_ull, assumed;
   do {
     assumed = old;
     old = atomicCAS(address_as_ull, assumed,
@@ -141,12 +142,14 @@ DI void myAtomicAdd(double *address, double val) {
 #endif
 
 template <typename T, typename ReduceLambda>
-DI void myAtomicReduce(T *address, T val, ReduceLambda op);
+DI void myAtomicReduce(T *address, T val, ReduceLambda op);  // NOLINT
 
 template <typename ReduceLambda>
-DI void myAtomicReduce(double *address, double val, ReduceLambda op) {
-  unsigned long long int *address_as_ull = (unsigned long long int *)address;
-  unsigned long long int old = *address_as_ull, assumed;
+DI void myAtomicReduce(double *address, double val,  // NOLINT
+                       ReduceLambda op) {
+  auto *address_as_ull =
+    reinterpret_cast<unsigned long long*>(address);  // NOLINT
+  unsigned long long old = *address_as_ull, assumed;  // NOLINT
   do {
     assumed = old;
     old =
@@ -156,9 +159,9 @@ DI void myAtomicReduce(double *address, double val, ReduceLambda op) {
 }
 
 template <typename ReduceLambda>
-DI void myAtomicReduce(float *address, float val, ReduceLambda op) {
-  unsigned int *address_as_uint = (unsigned int *)address;
-  unsigned int old = *address_as_uint, assumed;
+DI void myAtomicReduce(float *address, float val, ReduceLambda op) {  // NOLINT
+  auto *address_as_uint = reinterpret_cast<unsigned*>(address);
+  unsigned old = *address_as_uint, assumed;
   do {
     assumed = old;
     old = atomicCAS(address_as_uint, assumed,
@@ -167,7 +170,7 @@ DI void myAtomicReduce(float *address, float val, ReduceLambda op) {
 }
 
 template <typename ReduceLambda>
-DI void myAtomicReduce(int *address, int val, ReduceLambda op) {
+DI void myAtomicReduce(int *address, int val, ReduceLambda op) {  // NOLINT
   int old = *address, assumed;
   do {
     assumed = old;
@@ -176,8 +179,9 @@ DI void myAtomicReduce(int *address, int val, ReduceLambda op) {
 }
 
 template <typename ReduceLambda>
-DI void myAtomicReduce(long long *address, long long val, ReduceLambda op) {
-  long long old = *address, assumed;
+DI void myAtomicReduce(long long *address, long long val,  // NOLINT
+                       ReduceLambda op) {
+  long long old = *address, assumed;  // NOLINT
   do {
     assumed = old;
     old = atomicCAS(address, assumed, op(val, assumed));
@@ -185,9 +189,9 @@ DI void myAtomicReduce(long long *address, long long val, ReduceLambda op) {
 }
 
 template <typename ReduceLambda>
-DI void myAtomicReduce(unsigned long long *address, unsigned long long val,
-                       ReduceLambda op) {
-  unsigned long long old = *address, assumed;
+DI void myAtomicReduce(unsigned long long *address,  // NOLINT
+                       unsigned long long val, ReduceLambda op) {  // NOLINT
+  unsigned long long old = *address, assumed;  // NOLINT
   do {
     assumed = old;
     old = atomicCAS(address, assumed, op(val, assumed));
@@ -201,7 +205,7 @@ DI void myAtomicReduce(unsigned long long *address, unsigned long long val,
  * @param[in] val: new value to compare with old
  */
 template <typename T>
-DI T myAtomicMin(T *address, T val);
+DI T myAtomicMin(T *address, T val);  // NOLINT
 
 /**
  * @brief Provide atomic max operation.
@@ -210,24 +214,24 @@ DI T myAtomicMin(T *address, T val);
  * @param[in] val: new value to compare with old
  */
 template <typename T>
-DI T myAtomicMax(T *address, T val);
+DI T myAtomicMax(T *address, T val);  // NOLINT
 
-DI float myAtomicMin(float *address, float val) {
+DI float myAtomicMin(float *address, float val) {  // NOLINT
   myAtomicReduce(address, val, fminf);
   return *address;
 }
 
-DI float myAtomicMax(float *address, float val) {
+DI float myAtomicMax(float *address, float val) {  // NOLINT
   myAtomicReduce(address, val, fmaxf);
   return *address;
 }
 
-DI double myAtomicMin(double *address, double val) {
+DI double myAtomicMin(double *address, double val) {  // NOLINT
   myAtomicReduce<double(double, double)>(address, val, fmin);
   return *address;
 }
 
-DI double myAtomicMax(double *address, double val) {
+DI double myAtomicMax(double *address, double val) {  // NOLINT
   myAtomicReduce<double(double, double)>(address, val, fmax);
   return *address;
 }
@@ -237,13 +241,13 @@ DI double myAtomicMax(double *address, double val) {
  * @{
  */
 template <typename T>
-HDI T myMax(T x, T y);
+HDI T myMax(T x, T y);  // NOLINT
 template <>
-HDI float myMax<float>(float x, float y) {
+HDI float myMax<float>(float x, float y) {  // NOLINT
   return fmaxf(x, y);
 }
 template <>
-HDI double myMax<double>(double x, double y) {
+HDI double myMax<double>(double x, double y) {  // NOLINT
   return fmax(x, y);
 }
 /** @} */
@@ -253,13 +257,13 @@ HDI double myMax<double>(double x, double y) {
  * @{
  */
 template <typename T>
-HDI T myMin(T x, T y);
+HDI T myMin(T x, T y);  // NOLINT
 template <>
-HDI float myMin<float>(float x, float y) {
+HDI float myMin<float>(float x, float y) {  // NOLINT
   return fminf(x, y);
 }
 template <>
-HDI double myMin<double>(double x, double y) {
+HDI double myMin<double>(double x, double y) {  // NOLINT
   return fmin(x, y);
 }
 /** @} */
@@ -271,7 +275,7 @@ HDI double myMin<double>(double x, double y) {
  * @param[in] val: new value to compare with old
  */
 template <typename T>
-DI T myAtomicMin(T *address, T val) {
+DI T myAtomicMin(T *address, T val) {  // NOLINT
   myAtomicReduce(address, val, myMin<T>);
   return *address;
 }
@@ -283,7 +287,7 @@ DI T myAtomicMin(T *address, T val) {
  * @param[in] val: new value to compare with old
  */
 template <typename T>
-DI T myAtomicMax(T *address, T val) {
+DI T myAtomicMax(T *address, T val) {  // NOLINT
   myAtomicReduce(address, val, myMax<T>);
   return *address;
 }
@@ -301,13 +305,13 @@ HDI int sgn(const T val) {
  * @{
  */
 template <typename T>
-HDI T myExp(T x);
+HDI T myExp(T x);  // NOLINT
 template <>
-HDI float myExp(float x) {
+HDI float myExp(float x) {  // NOLINT
   return expf(x);
 }
 template <>
-HDI double myExp(double x) {
+HDI double myExp(double x) {  // NOLINT
   return exp(x);
 }
 /** @} */
@@ -317,13 +321,13 @@ HDI double myExp(double x) {
  * @{
  */
 template <typename T>
-inline __device__ T myInf();
+inline __device__ T myInf();  // NOLINT
 template <>
-inline __device__ float myInf<float>() {
+inline __device__ float myInf<float>() {  // NOLINT
   return CUDART_INF_F;
 }
 template <>
-inline __device__ double myInf<double>() {
+inline __device__ double myInf<double>() {  // NOLINT
   return CUDART_INF;
 }
 /** @} */
@@ -333,13 +337,13 @@ inline __device__ double myInf<double>() {
  * @{
  */
 template <typename T>
-HDI T myLog(T x);
+HDI T myLog(T x);  // NOLINT
 template <>
-HDI float myLog(float x) {
+HDI float myLog(float x) {  // NOLINT
   return logf(x);
 }
 template <>
-HDI double myLog(double x) {
+HDI double myLog(double x) {  // NOLINT
   return log(x);
 }
 /** @} */
@@ -349,13 +353,13 @@ HDI double myLog(double x) {
  * @{
  */
 template <typename T>
-HDI T mySqrt(T x);
+HDI T mySqrt(T x);  // NOLINT
 template <>
-HDI float mySqrt(float x) {
+HDI float mySqrt(float x) {  // NOLINT
   return sqrtf(x);
 }
 template <>
-HDI double mySqrt(double x) {
+HDI double mySqrt(double x) {  // NOLINT
   return sqrt(x);
 }
 /** @} */
@@ -365,13 +369,13 @@ HDI double mySqrt(double x) {
  * @{
  */
 template <typename T>
-DI void mySinCos(T x, T &s, T &c);
+DI void mySinCos(T x, T &s, T &c);  // NOLINT
 template <>
-DI void mySinCos(float x, float &s, float &c) {
+DI void mySinCos(float x, float &s, float &c) {  // NOLINT
   sincosf(x, &s, &c);
 }
 template <>
-DI void mySinCos(double x, double &s, double &c) {
+DI void mySinCos(double x, double &s, double &c) {  // NOLINT
   sincos(x, &s, &c);
 }
 /** @} */
@@ -381,13 +385,13 @@ DI void mySinCos(double x, double &s, double &c) {
  * @{
  */
 template <typename T>
-DI T mySin(T x);
+DI T mySin(T x);  // NOLINT
 template <>
-DI float mySin(float x) {
+DI float mySin(float x) {  // NOLINT
   return sinf(x);
 }
 template <>
-DI double mySin(double x) {
+DI double mySin(double x) {  // NOLINT
   return sin(x);
 }
 /** @} */
@@ -397,15 +401,15 @@ DI double mySin(double x) {
  * @{
  */
 template <typename T>
-DI T myAbs(T x) {
+DI T myAbs(T x) {  // NOLINT
   return x < 0 ? -x : x;
 }
 template <>
-DI float myAbs(float x) {
+DI float myAbs(float x) {  // NOLINT
   return fabsf(x);
 }
 template <>
-DI double myAbs(double x) {
+DI double myAbs(double x) {  // NOLINT
   return fabs(x);
 }
 /** @} */
@@ -415,13 +419,13 @@ DI double myAbs(double x) {
  * @{
  */
 template <typename T>
-HDI T myPow(T x, T power);
+HDI T myPow(T x, T power);  // NOLINT
 template <>
-HDI float myPow(float x, float power) {
+HDI float myPow(float x, float power) {  // NOLINT
   return powf(x, power);
 }
 template <>
-HDI double myPow(double x, double power) {
+HDI double myPow(double x, double power) {  // NOLINT
   return pow(x, power);
 }
 /** @} */
@@ -431,13 +435,13 @@ HDI double myPow(double x, double power) {
  * @{
  */
 template <typename T>
-HDI T myTanh(T x);
+HDI T myTanh(T x);  // NOLINT
 template <>
-HDI float myTanh(float x) {
+HDI float myTanh(float x) {  // NOLINT
   return tanhf(x);
 }
 template <>
-HDI double myTanh(double x) {
+HDI double myTanh(double x) {  // NOLINT
   return tanh(x);
 }
 /** @} */
@@ -447,13 +451,13 @@ HDI double myTanh(double x) {
  * @{
  */
 template <typename T>
-HDI T myATanh(T x);
+HDI T myATanh(T x);  // NOLINT
 template <>
-HDI float myATanh(float x) {
+HDI float myATanh(float x) {  // NOLINT
   return atanhf(x);
 }
 template <>
-HDI double myATanh(double x) {
+HDI double myATanh(double x) {  // NOLINT
   return atanh(x);
 }
 /** @} */
@@ -464,22 +468,22 @@ HDI double myATanh(double x) {
  */
 // IdxType mostly to be used for MainLambda in *Reduction kernels
 template <typename Type, typename IdxType = int>
-struct Nop {
+struct Nop {  // NOLINT
   HDI Type operator()(Type in, IdxType i = 0) { return in; }
 };
 
 template <typename Type, typename IdxType = int>
-struct L1Op {
+struct L1Op {  // NOLINT
   HDI Type operator()(Type in, IdxType i = 0) { return myAbs(in); }
 };
 
 template <typename Type, typename IdxType = int>
-struct L2Op {
+struct L2Op {  // NOLINT
   HDI Type operator()(Type in, IdxType i = 0) { return in * in; }
 };
 
 template <typename Type>
-struct Sum {
+struct Sum {  // NOLINT
   HDI Type operator()(Type a, Type b) { return a + b; }
 };
 /** @} */
@@ -492,15 +496,15 @@ struct Sum {
  * @{
  */
 template <typename T>
-DI T signPrim(T x) {
+DI T signPrim(T x) {  // NOLINT
   return x < 0 ? -1 : +1;
 }
 template <>
-DI float signPrim(float x) {
+DI float signPrim(float x) {  // NOLINT
   return signbit(x) == true ? -1.0f : +1.0f;
 }
 template <>
-DI double signPrim(double x) {
+DI double signPrim(double x) {  // NOLINT
   return signbit(x) == true ? -1.0 : +1.0;
 }
 /** @} */
@@ -514,21 +518,21 @@ DI double signPrim(double x) {
  * @{
  */
 template <typename T>
-DI T maxPrim(T x, T y) {
+DI T maxPrim(T x, T y) {  // NOLINT
   return x > y ? x : y;
 }
 template <>
-DI float maxPrim(float x, float y) {
+DI float maxPrim(float x, float y) {  // NOLINT
   return fmaxf(x, y);
 }
 template <>
-DI double maxPrim(double x, double y) {
+DI double maxPrim(double x, double y) {  // NOLINT
   return fmax(x, y);
 }
 /** @} */
 
 /** apply a warp-wide fence (useful from Volta+ archs) */
-DI void warpFence() {
+DI void warpFence() {  // NOLINT
 #if __CUDA_ARCH__ >= 700
   __syncwarp();
 #endif
@@ -602,7 +606,7 @@ DI T shfl_xor(T val, int laneMask, int width = WarpSize,
  * @todo Expand this to support arbitrary reduction ops
  */
 template <typename T>
-DI T warpReduce(T val) {
+DI T warpReduce(T val) {  // NOLINT
 #pragma unroll
   for (int i = WarpSize / 2; i > 0; i >>= 1) {
     T tmp = shfl(val, laneId() + i);
@@ -623,15 +627,15 @@ DI T warpReduce(T val) {
  * @todo Expand this to support arbitrary reduction ops
  */
 template <typename T>
-DI T blockReduce(T val, char *smem) {
-  auto *sTemp = reinterpret_cast<T *>(smem);
-  int nWarps = (blockDim.x + WarpSize - 1) / WarpSize;
+DI T blockReduce(T val, char *smem) {  // NOLINT
+  auto *s_temp = reinterpret_cast<T *>(smem);
+  int n_warps = (blockDim.x + WarpSize - 1) / WarpSize;
   int lid = laneId();
   int wid = threadIdx.x / WarpSize;
   val = warpReduce(val);
-  if (lid == 0) sTemp[wid] = val;
+  if (lid == 0) s_temp[wid] = val;
   __syncthreads();
-  val = lid < nWarps ? sTemp[lid] : T(0);
+  val = lid < n_warps ? s_temp[lid] : T(0);
   return warpReduce(val);
 }
 

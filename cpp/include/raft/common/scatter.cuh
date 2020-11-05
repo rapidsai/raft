@@ -24,8 +24,8 @@ namespace raft {
 template <typename DataT, int VecLen, typename Lambda, typename IdxT>
 __global__ void scatter_kernel(DataT *out, const DataT *in, const IdxT *idx,
                                IdxT len, Lambda op) {
-  using DataVec TxN_t<DataT, VecLen>;
-  using IdxVec TxN_t<IdxT, VecLen>;
+  using DataVec = TxN_t<DataT, VecLen>;
+  using IdxVec = TxN_t<IdxT, VecLen>;
   IdxT tid = threadIdx.x + (static_cast<IdxT>(blockIdx.x) * blockDim.x);
   tid *= VecLen;
   if (tid >= len) return;
