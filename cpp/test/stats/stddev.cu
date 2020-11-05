@@ -123,19 +123,19 @@ const std::vector<StdDevInputs<double>> inputsd = {
 typedef StdDevTest<float> StdDevTestF;
 TEST_P(StdDevTestF, Result) {
   ASSERT_TRUE(devArrMatch(params.stddev, stddev_act, params.cols,
-                          CompareApprox<float>(params.tolerance)));
+                          compare_approx<float>(params.tolerance)));
 
   ASSERT_TRUE(devArrMatch(stddev_act, vars_act, params.cols,
-                          CompareApprox<float>(params.tolerance)));
+                          compare_approx<float>(params.tolerance)));
 }
 
 typedef StdDevTest<double> StdDevTestD;
 TEST_P(StdDevTestD, Result) {
   ASSERT_TRUE(devArrMatch(params.stddev, stddev_act, params.cols,
-                          CompareApprox<double>(params.tolerance)));
+                          compare_approx<double>(params.tolerance)));
 
   ASSERT_TRUE(devArrMatch(stddev_act, vars_act, params.cols,
-                          CompareApprox<double>(params.tolerance)));
+                          compare_approx<double>(params.tolerance)));
 }
 
 INSTANTIATE_TEST_SUITE_P(StdDevTests, StdDevTestF,

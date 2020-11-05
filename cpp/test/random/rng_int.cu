@@ -124,9 +124,9 @@ TEST_P(RngTestU32, Result) {
   float meanvar[2];
   getExpectedMeanVar(meanvar);
   ASSERT_TRUE(
-    match(meanvar[0], h_stats[0], CompareApprox<float>(params.tolerance)));
+    match(meanvar[0], h_stats[0], compare_approx<float>(params.tolerance)));
   ASSERT_TRUE(
-    match(meanvar[1], h_stats[1], CompareApprox<float>(params.tolerance)));
+    match(meanvar[1], h_stats[1], compare_approx<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_SUITE_P(RngTests, RngTestU32, ::testing::ValuesIn(inputs_u32));
 
@@ -142,9 +142,9 @@ TEST_P(RngTestU64, Result) {
   float meanvar[2];
   getExpectedMeanVar(meanvar);
   ASSERT_TRUE(
-    match(meanvar[0], h_stats[0], CompareApprox<float>(params.tolerance)));
+    match(meanvar[0], h_stats[0], compare_approx<float>(params.tolerance)));
   ASSERT_TRUE(
-    match(meanvar[1], h_stats[1], CompareApprox<float>(params.tolerance)));
+    match(meanvar[1], h_stats[1], compare_approx<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_SUITE_P(RngTests, RngTestU64, ::testing::ValuesIn(inputs_u64));
 
@@ -160,9 +160,9 @@ TEST_P(RngTestS32, Result) {
   float meanvar[2];
   getExpectedMeanVar(meanvar);
   ASSERT_TRUE(
-    match(meanvar[0], h_stats[0], CompareApprox<float>(params.tolerance)));
+    match(meanvar[0], h_stats[0], compare_approx<float>(params.tolerance)));
   ASSERT_TRUE(
-    match(meanvar[1], h_stats[1], CompareApprox<float>(params.tolerance)));
+    match(meanvar[1], h_stats[1], compare_approx<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_SUITE_P(RngTests, RngTestS32, ::testing::ValuesIn(inputs_s32));
 
@@ -178,9 +178,9 @@ TEST_P(RngTestS64, Result) {
   float meanvar[2];
   getExpectedMeanVar(meanvar);
   ASSERT_TRUE(
-    match(meanvar[0], h_stats[0], CompareApprox<float>(params.tolerance)));
+    match(meanvar[0], h_stats[0], compare_approx<float>(params.tolerance)));
   ASSERT_TRUE(
-    match(meanvar[1], h_stats[1], CompareApprox<float>(params.tolerance)));
+    match(meanvar[1], h_stats[1], compare_approx<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_SUITE_P(RngTests, RngTestS64, ::testing::ValuesIn(inputs_s64));
 

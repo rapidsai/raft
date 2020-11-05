@@ -74,7 +74,7 @@ class UnaryOpTest
     unaryOpLaunch(out, in, scalar, len, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
-                            CompareApprox<OutType>(params.tolerance)));
+                            compare_approx<OutType>(params.tolerance)));
   }
 
   UnaryOpInputs<InType, IdxType, OutType> params;
@@ -93,7 +93,7 @@ class WriteOnlyUnaryOpTest : public UnaryOpTest<OutType, IdxType, OutType> {
     unaryOpLaunch(this->out, (OutType *)nullptr, scalar, len, this->stream);
     CUDA_CHECK(cudaStreamSynchronize(this->stream));
     ASSERT_TRUE(devArrMatch(this->out_ref, this->out, this->params.len,
-                            CompareApprox<OutType>(this->params.tolerance)));
+                            compare_approx<OutType>(this->params.tolerance)));
   }
 };
 

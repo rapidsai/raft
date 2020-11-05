@@ -210,87 +210,87 @@ const std::vector<MathInputs<double>> inputsd = {
 typedef MathTest<float> MathPowerTestF;
 TEST_P(MathPowerTestF, Result) {
   ASSERT_TRUE(devArrMatch(in_power, out_power_ref, params.len,
-                          CompareApprox<float>(params.tolerance)));
+                          compare_approx<float>(params.tolerance)));
 }
 
 typedef MathTest<double> MathPowerTestD;
 TEST_P(MathPowerTestD, Result) {
   ASSERT_TRUE(devArrMatch(in_power, out_power_ref, params.len,
-                          CompareApprox<double>(params.tolerance)));
+                          compare_approx<double>(params.tolerance)));
 }
 
 typedef MathTest<float> MathSqrtTestF;
 TEST_P(MathSqrtTestF, Result) {
   ASSERT_TRUE(devArrMatch(in_sqrt, out_sqrt_ref, params.len,
-                          CompareApprox<float>(params.tolerance)));
+                          compare_approx<float>(params.tolerance)));
 }
 
 typedef MathTest<double> MathSqrtTestD;
 TEST_P(MathSqrtTestD, Result) {
   ASSERT_TRUE(devArrMatch(in_sqrt, out_sqrt_ref, params.len,
-                          CompareApprox<double>(params.tolerance)));
+                          compare_approx<double>(params.tolerance)));
 }
 
 typedef MathTest<float> MathRatioTestF;
 TEST_P(MathRatioTestF, Result) {
   ASSERT_TRUE(devArrMatch(in_ratio, out_ratio_ref, 4,
-                          CompareApprox<float>(params.tolerance)));
+                          compare_approx<float>(params.tolerance)));
 }
 
 typedef MathTest<double> MathRatioTestD;
 TEST_P(MathRatioTestD, Result) {
   ASSERT_TRUE(devArrMatch(in_ratio, out_ratio_ref, 4,
-                          CompareApprox<double>(params.tolerance)));
+                          compare_approx<double>(params.tolerance)));
 }
 
 typedef MathTest<float> MathSignFlipTestF;
 TEST_P(MathSignFlipTestF, Result) {
   ASSERT_TRUE(devArrMatch(in_sign_flip, out_sign_flip_ref, params.len,
-                          CompareApprox<float>(params.tolerance)));
+                          compare_approx<float>(params.tolerance)));
 }
 
 typedef MathTest<double> MathSignFlipTestD;
 TEST_P(MathSignFlipTestD, Result) {
   ASSERT_TRUE(devArrMatch(in_sign_flip, out_sign_flip_ref, params.len,
-                          CompareApprox<double>(params.tolerance)));
+                          compare_approx<double>(params.tolerance)));
 }
 
 typedef MathTest<float> MathReciprocalTestF;
 TEST_P(MathReciprocalTestF, Result) {
   ASSERT_TRUE(devArrMatch(in_recip, in_recip_ref, 4,
-                          CompareApprox<float>(params.tolerance)));
+                          compare_approx<float>(params.tolerance)));
 
   // 4-th term tests `setzero=true` functionality, not present in this version of `reciprocal`.
   ASSERT_TRUE(devArrMatch(out_recip, in_recip_ref, 3,
-                          CompareApprox<float>(params.tolerance)));
+                          compare_approx<float>(params.tolerance)));
 }
 
 typedef MathTest<double> MathReciprocalTestD;
 TEST_P(MathReciprocalTestD, Result) {
   ASSERT_TRUE(devArrMatch(in_recip, in_recip_ref, 4,
-                          CompareApprox<double>(params.tolerance)));
+                          compare_approx<double>(params.tolerance)));
 
   // 4-th term tests `setzero=true` functionality, not present in this version of `reciprocal`.
   ASSERT_TRUE(devArrMatch(out_recip, in_recip_ref, 3,
-                          CompareApprox<double>(params.tolerance)));
+                          compare_approx<double>(params.tolerance)));
 }
 
 typedef MathTest<float> MathSetSmallZeroTestF;
 TEST_P(MathSetSmallZeroTestF, Result) {
   ASSERT_TRUE(devArrMatch(in_smallzero, out_smallzero_ref, 4,
-                          CompareApprox<float>(params.tolerance)));
+                          compare_approx<float>(params.tolerance)));
 
   ASSERT_TRUE(devArrMatch(out_smallzero, out_smallzero_ref, 4,
-                          CompareApprox<float>(params.tolerance)));
+                          compare_approx<float>(params.tolerance)));
 }
 
 typedef MathTest<double> MathSetSmallZeroTestD;
 TEST_P(MathSetSmallZeroTestD, Result) {
   ASSERT_TRUE(devArrMatch(in_smallzero, out_smallzero_ref, 4,
-                          CompareApprox<double>(params.tolerance)));
+                          compare_approx<double>(params.tolerance)));
 
   ASSERT_TRUE(devArrMatch(out_smallzero, out_smallzero_ref, 4,
-                          CompareApprox<double>(params.tolerance)));
+                          compare_approx<double>(params.tolerance)));
 }
 
 INSTANTIATE_TEST_SUITE_P(MathTests, MathPowerTestF,

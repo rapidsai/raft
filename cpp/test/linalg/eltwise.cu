@@ -98,13 +98,13 @@ const std::vector<ScalarMultiplyInputs<double>> inputsd1 = {
 typedef ScalarMultiplyTest<float> ScalarMultiplyTestF;
 TEST_P(ScalarMultiplyTestF, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
-                          CompareApprox<float>(params.tolerance)));
+                          compare_approx<float>(params.tolerance)));
 }
 
 typedef ScalarMultiplyTest<double> ScalarMultiplyTestD;
 TEST_P(ScalarMultiplyTestD, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
-                          CompareApprox<double>(params.tolerance)));
+                          compare_approx<double>(params.tolerance)));
 }
 
 INSTANTIATE_TEST_SUITE_P(ScalarMultiplyTests, ScalarMultiplyTestF,
@@ -188,13 +188,13 @@ const std::vector<EltwiseAddInputs<double>> inputsd2 = {
 typedef EltwiseAddTest<float> EltwiseAddTestF;
 TEST_P(EltwiseAddTestF, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
-                          CompareApprox<float>(params.tolerance)));
+                          compare_approx<float>(params.tolerance)));
 }
 
 typedef EltwiseAddTest<double> EltwiseAddTestD;
 TEST_P(EltwiseAddTestD, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
-                          CompareApprox<double>(params.tolerance)));
+                          compare_approx<double>(params.tolerance)));
 }
 
 INSTANTIATE_TEST_SUITE_P(EltwiseAddTests, EltwiseAddTestF,

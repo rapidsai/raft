@@ -76,7 +76,7 @@ const std::vector<BinaryOpInputs<float, int>> inputsf_i32 = {
 typedef BinaryOpTest<float, int> BinaryOpTestF_i32;
 TEST_P(BinaryOpTestF_i32, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
-                          CompareApprox<float>(params.tolerance)));
+                          compare_approx<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_SUITE_P(BinaryOpTests, BinaryOpTestF_i32,
                          ::testing::ValuesIn(inputsf_i32));
@@ -86,7 +86,7 @@ const std::vector<BinaryOpInputs<float, size_t>> inputsf_i64 = {
 typedef BinaryOpTest<float, size_t> BinaryOpTestF_i64;
 TEST_P(BinaryOpTestF_i64, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
-                          CompareApprox<float>(params.tolerance)));
+                          compare_approx<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_SUITE_P(BinaryOpTests, BinaryOpTestF_i64,
                          ::testing::ValuesIn(inputsf_i64));
@@ -96,7 +96,7 @@ const std::vector<BinaryOpInputs<float, int, double>> inputsf_i32_d = {
 typedef BinaryOpTest<float, int, double> BinaryOpTestF_i32_D;
 TEST_P(BinaryOpTestF_i32_D, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
-                          CompareApprox<double>(params.tolerance)));
+                          compare_approx<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_SUITE_P(BinaryOpTests, BinaryOpTestF_i32_D,
                          ::testing::ValuesIn(inputsf_i32_d));
@@ -106,7 +106,7 @@ const std::vector<BinaryOpInputs<double, int>> inputsd_i32 = {
 typedef BinaryOpTest<double, int> BinaryOpTestD_i32;
 TEST_P(BinaryOpTestD_i32, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
-                          CompareApprox<double>(params.tolerance)));
+                          compare_approx<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_SUITE_P(BinaryOpTests, BinaryOpTestD_i32,
                          ::testing::ValuesIn(inputsd_i32));
@@ -116,7 +116,7 @@ const std::vector<BinaryOpInputs<double, size_t>> inputsd_i64 = {
 typedef BinaryOpTest<double, size_t> BinaryOpTestD_i64;
 TEST_P(BinaryOpTestD_i64, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
-                          CompareApprox<double>(params.tolerance)));
+                          compare_approx<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_SUITE_P(BinaryOpTests, BinaryOpTestD_i64,
                          ::testing::ValuesIn(inputsd_i64));

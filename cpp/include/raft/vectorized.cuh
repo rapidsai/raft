@@ -265,7 +265,7 @@ struct TxN_t {  // NOLINT
 
   union {
     /** the vectorized data that is used for subsequent operations */
-    math_t data[Ratio];
+    math_t data[Ratio];  // NOLINT
     /** internal data used to ensure vectorized loads/stores */
     io_t internal;
   } val;

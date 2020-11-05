@@ -108,7 +108,7 @@ const std::vector<MeanCenterInputs<float, int>> inputsf_i32 = {
 typedef MeanCenterTest<float, int> MeanCenterTestF_i32;
 TEST_P(MeanCenterTestF_i32, Result) {
   ASSERT_TRUE(devArrMatch(out, out_ref, params.cols,
-                          raft::CompareApprox<float>(params.tolerance)));
+                          raft::compare_approx<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_SUITE_P(MeanCenterTests, MeanCenterTestF_i32,
                          ::testing::ValuesIn(inputsf_i32));
@@ -141,7 +141,7 @@ const std::vector<MeanCenterInputs<float, size_t>> inputsf_i64 = {
 typedef MeanCenterTest<float, size_t> MeanCenterTestF_i64;
 TEST_P(MeanCenterTestF_i64, Result) {
   ASSERT_TRUE(devArrMatch(out, out_ref, params.cols,
-                          raft::CompareApprox<float>(params.tolerance)));
+                          raft::compare_approx<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_SUITE_P(MeanCenterTests, MeanCenterTestF_i64,
                          ::testing::ValuesIn(inputsf_i64));
@@ -174,7 +174,7 @@ const std::vector<MeanCenterInputs<double, int>> inputsd_i32 = {
 typedef MeanCenterTest<double, int> MeanCenterTestD_i32;
 TEST_P(MeanCenterTestD_i32, Result) {
   ASSERT_TRUE(devArrMatch(out, out_ref, params.cols,
-                          raft::CompareApprox<double>(params.tolerance)));
+                          raft::compare_approx<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_SUITE_P(MeanCenterTests, MeanCenterTestD_i32,
                          ::testing::ValuesIn(inputsd_i32));
@@ -207,7 +207,7 @@ const std::vector<MeanCenterInputs<double, size_t>> inputsd_i64 = {
 typedef MeanCenterTest<double, size_t> MeanCenterTestD_i64;
 TEST_P(MeanCenterTestD_i64, Result) {
   ASSERT_TRUE(devArrMatch(out, out_ref, params.cols,
-                          raft::CompareApprox<double>(params.tolerance)));
+                          raft::compare_approx<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_SUITE_P(MeanCenterTests, MeanCenterTestD_i64,
                          ::testing::ValuesIn(inputsd_i64));

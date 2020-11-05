@@ -87,13 +87,13 @@ const std::vector<stridedReductionInputs<double>> inputsd = {
 typedef stridedReductionTest<float> stridedReductionTestF;
 TEST_P(stridedReductionTestF, Result) {
   ASSERT_TRUE(devArrMatch(dots_exp, dots_act, params.cols,
-                          raft::CompareApprox<float>(params.tolerance)));
+                          raft::compare_approx<float>(params.tolerance)));
 }
 
 typedef stridedReductionTest<double> stridedReductionTestD;
 TEST_P(stridedReductionTestD, Result) {
   ASSERT_TRUE(devArrMatch(dots_exp, dots_act, params.cols,
-                          raft::CompareApprox<double>(params.tolerance)));
+                          raft::compare_approx<double>(params.tolerance)));
 }
 
 INSTANTIATE_TEST_CASE_P(stridedReductionTests, stridedReductionTestF,

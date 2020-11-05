@@ -24,13 +24,13 @@
 namespace raft {
 
 template <typename T>
-struct Compare {
+struct compare {
   bool operator()(const T &a, const T &b) const { return a == b; }
 };
 
 template <typename T>
-struct CompareApprox {
-  CompareApprox(T eps_) : eps(eps_) {}
+struct compare_approx {
+  compare_approx(T eps_) : eps(eps_) {}
   bool operator()(const T &a, const T &b) const {
     T diff = abs(a - b);
     T m = std::max(abs(a), abs(b));
@@ -44,8 +44,8 @@ struct CompareApprox {
 };
 
 template <typename T>
-struct CompareApproxAbs {
-  CompareApproxAbs(T eps_) : eps(eps_) {}
+struct compare_approx_abs {
+  compare_approx_abs(T eps_) : eps(eps_) {}
   bool operator()(const T &a, const T &b) const {
     T diff = abs(abs(a) - abs(b));
     T m = std::max(abs(a), abs(b));

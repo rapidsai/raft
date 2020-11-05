@@ -79,7 +79,7 @@ const std::vector<UnaryOpInputs<float>> inputsf = {
 typedef DivideTest<float> DivideTestF;
 TEST_P(DivideTestF, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
-                          raft::CompareApprox<float>(params.tolerance)));
+                          raft::compare_approx<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_SUITE_P(DivideTests, DivideTestF,
                          ::testing::ValuesIn(inputsf));
@@ -89,7 +89,7 @@ const std::vector<UnaryOpInputs<double>> inputsd = {
   {0.000001f, 1024 * 1024, 2.f, 1234ULL}};
 TEST_P(DivideTestD, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
-                          raft::CompareApprox<double>(params.tolerance)));
+                          raft::compare_approx<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_SUITE_P(DivideTests, DivideTestD,
                          ::testing::ValuesIn(inputsd));

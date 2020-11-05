@@ -117,13 +117,13 @@ const std::vector<MeanInputs<double>> inputsd = {
 typedef MeanTest<float> MeanTestF;
 TEST_P(MeanTestF, Result) {
   ASSERT_TRUE(devArrMatch(params.mean, mean_act, params.cols,
-                          CompareApprox<float>(params.tolerance)));
+                          compare_approx<float>(params.tolerance)));
 }
 
 typedef MeanTest<double> MeanTestD;
 TEST_P(MeanTestD, Result) {
   ASSERT_TRUE(devArrMatch(params.mean, mean_act, params.cols,
-                          CompareApprox<double>(params.tolerance)));
+                          compare_approx<double>(params.tolerance)));
 }
 
 INSTANTIATE_TEST_SUITE_P(MeanTests, MeanTestF, ::testing::ValuesIn(inputsf));

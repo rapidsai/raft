@@ -78,13 +78,13 @@ const std::vector<SumInputs<double>> inputsd = {{0.05, 1024, 32, 1234ULL},
 typedef SumTest<float> SumTestF;
 TEST_P(SumTestF, Result) {
   ASSERT_TRUE(raft::devArrMatch(float(params.rows), sum_act, params.cols,
-                                raft::CompareApprox<float>(params.tolerance)));
+                                raft::compare_approx<float>(params.tolerance)));
 }
 
 typedef SumTest<double> SumTestD;
 TEST_P(SumTestD, Result) {
   ASSERT_TRUE(raft::devArrMatch(double(params.rows), sum_act, params.cols,
-                                raft::CompareApprox<double>(params.tolerance)));
+                                raft::compare_approx<double>(params.tolerance)));
 }
 
 INSTANTIATE_TEST_CASE_P(SumTests, SumTestF, ::testing::ValuesIn(inputsf));

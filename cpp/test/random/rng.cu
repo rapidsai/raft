@@ -263,9 +263,9 @@ TEST_P(RngTestF, Result) {
   float meanvar[2];
   getExpectedMeanVar(meanvar);
   ASSERT_TRUE(match(meanvar[0], h_stats[0],
-                    CompareApprox<float>(num_sigma * params.tolerance)));
+                    compare_approx<float>(num_sigma * params.tolerance)));
   ASSERT_TRUE(match(meanvar[1], h_stats[1],
-                    CompareApprox<float>(num_sigma * params.tolerance)));
+                    compare_approx<float>(num_sigma * params.tolerance)));
 }
 INSTANTIATE_TEST_SUITE_P(RngTests, RngTestF, ::testing::ValuesIn(inputsf));
 
@@ -325,9 +325,9 @@ TEST_P(RngTestD, Result) {
   double meanvar[2];
   getExpectedMeanVar(meanvar);
   ASSERT_TRUE(match(meanvar[0], h_stats[0],
-                    CompareApprox<double>(num_sigma * params.tolerance)));
+                    compare_approx<double>(num_sigma * params.tolerance)));
   ASSERT_TRUE(match(meanvar[1], h_stats[1],
-                    CompareApprox<double>(num_sigma * params.tolerance)));
+                    compare_approx<double>(num_sigma * params.tolerance)));
 }
 INSTANTIATE_TEST_SUITE_P(RngTests, RngTestD, ::testing::ValuesIn(inputsd));
 
@@ -566,9 +566,9 @@ TEST_P(RngNormalTableTestF, Result) {
   float meanvar[2];
   getExpectedMeanVar(meanvar);
   ASSERT_TRUE(match(meanvar[0], h_stats[0],
-                    CompareApprox<float>(num_sigma * params.tolerance)));
+                    compare_approx<float>(num_sigma * params.tolerance)));
   ASSERT_TRUE(match(meanvar[1], h_stats[1],
-                    CompareApprox<float>(num_sigma * params.tolerance)));
+                    compare_approx<float>(num_sigma * params.tolerance)));
 }
 INSTANTIATE_TEST_SUITE_P(RngNormalTableTests, RngNormalTableTestF,
                          ::testing::ValuesIn(inputsf_t));
@@ -585,9 +585,9 @@ TEST_P(RngNormalTableTestD, Result) {
   double meanvar[2];
   getExpectedMeanVar(meanvar);
   ASSERT_TRUE(match(meanvar[0], h_stats[0],
-                    CompareApprox<double>(num_sigma * params.tolerance)));
+                    compare_approx<double>(num_sigma * params.tolerance)));
   ASSERT_TRUE(match(meanvar[1], h_stats[1],
-                    CompareApprox<double>(num_sigma * params.tolerance)));
+                    compare_approx<double>(num_sigma * params.tolerance)));
 }
 INSTANTIATE_TEST_SUITE_P(RngNormalTableTests, RngNormalTableTestD,
                          ::testing::ValuesIn(inputsd_t));

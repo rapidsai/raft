@@ -79,13 +79,13 @@ const std::vector<MatrixInputs<double>> inputsd2 = {
 typedef MatrixTest<float> MatrixTestF;
 TEST_P(MatrixTestF, Result) {
   ASSERT_TRUE(raft::devArrMatch(in1, in2, params.n_row * params.n_col,
-                                raft::CompareApprox<float>(params.tolerance)));
+                                raft::compare_approx<float>(params.tolerance)));
 }
 
 typedef MatrixTest<double> MatrixTestD;
 TEST_P(MatrixTestD, Result) {
   ASSERT_TRUE(raft::devArrMatch(in1, in2, params.n_row * params.n_col,
-                                raft::CompareApprox<double>(params.tolerance)));
+                                raft::compare_approx<double>(params.tolerance)));
 }
 
 INSTANTIATE_TEST_SUITE_P(MatrixTests, MatrixTestF,

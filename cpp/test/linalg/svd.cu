@@ -115,28 +115,28 @@ typedef SvdTest<float> SvdTestValF;
 TEST_P(SvdTestValF, Result) {
   ASSERT_TRUE(
     raft::devArrMatch(sing_vals_ref, sing_vals_qr, params.n_col,
-                      raft::CompareApproxAbs<float>(params.tolerance)));
+                      raft::compare_approx_abs<float>(params.tolerance)));
 }
 
 typedef SvdTest<double> SvdTestValD;
 TEST_P(SvdTestValD, Result) {
   ASSERT_TRUE(
     raft::devArrMatch(sing_vals_ref, sing_vals_qr, params.n_col,
-                      raft::CompareApproxAbs<double>(params.tolerance)));
+                      raft::compare_approx_abs<double>(params.tolerance)));
 }
 
 typedef SvdTest<float> SvdTestLeftVecF;
 TEST_P(SvdTestLeftVecF, Result) {
   ASSERT_TRUE(raft::devArrMatch(
     left_eig_vectors_ref, left_eig_vectors_qr, params.n_row * params.n_col,
-    raft::CompareApproxAbs<float>(params.tolerance)));
+    raft::compare_approx_abs<float>(params.tolerance)));
 }
 
 typedef SvdTest<double> SvdTestLeftVecD;
 TEST_P(SvdTestLeftVecD, Result) {
   ASSERT_TRUE(raft::devArrMatch(
     left_eig_vectors_ref, left_eig_vectors_qr, params.n_row * params.n_col,
-    raft::CompareApproxAbs<double>(params.tolerance)));
+    raft::compare_approx_abs<double>(params.tolerance)));
 }
 
 typedef SvdTest<float> SvdTestRightVecF;
@@ -144,7 +144,7 @@ TEST_P(SvdTestRightVecF, Result) {
   ASSERT_TRUE(
     raft::devArrMatch(right_eig_vectors_ref, right_eig_vectors_trans_qr,
                       params.n_col * params.n_col,
-                      raft::CompareApproxAbs<float>(params.tolerance)));
+                      raft::compare_approx_abs<float>(params.tolerance)));
 }
 
 typedef SvdTest<double> SvdTestRightVecD;
@@ -152,7 +152,7 @@ TEST_P(SvdTestRightVecD, Result) {
   ASSERT_TRUE(
     raft::devArrMatch(right_eig_vectors_ref, right_eig_vectors_trans_qr,
                       params.n_col * params.n_col,
-                      raft::CompareApproxAbs<double>(params.tolerance)));
+                      raft::compare_approx_abs<double>(params.tolerance)));
 }
 
 INSTANTIATE_TEST_SUITE_P(SvdTests, SvdTestValF, ::testing::ValuesIn(inputsf2));

@@ -86,22 +86,22 @@ typedef TransposeTest<float> TransposeTestValF;
 TEST_P(TransposeTestValF, Result) {
   ASSERT_TRUE(
     raft::devArrMatch(data_trans_ref, data_trans, params.len,
-                      raft::CompareApproxAbs<float>(params.tolerance)));
+                      raft::compare_approx_abs<float>(params.tolerance)));
 
   ASSERT_TRUE(
     raft::devArrMatch(data_trans_ref, data, params.len,
-                      raft::CompareApproxAbs<float>(params.tolerance)));
+                      raft::compare_approx_abs<float>(params.tolerance)));
 }
 
 typedef TransposeTest<double> TransposeTestValD;
 TEST_P(TransposeTestValD, Result) {
   ASSERT_TRUE(
     raft::devArrMatch(data_trans_ref, data_trans, params.len,
-                      raft::CompareApproxAbs<double>(params.tolerance)));
+                      raft::compare_approx_abs<double>(params.tolerance)));
 
   ASSERT_TRUE(
     raft::devArrMatch(data_trans_ref, data, params.len,
-                      raft::CompareApproxAbs<double>(params.tolerance)));
+                      raft::compare_approx_abs<double>(params.tolerance)));
 }
 
 INSTANTIATE_TEST_SUITE_P(TransposeTests, TransposeTestValF,

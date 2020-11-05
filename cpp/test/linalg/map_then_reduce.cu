@@ -99,7 +99,7 @@ const std::vector<MapReduceInputs<float>> inputsf = {
 typedef MapReduceTest<float> MapReduceTestF;
 TEST_P(MapReduceTestF, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
-                          CompareApprox<float>(params.tolerance)));
+                          compare_approx<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_SUITE_P(MapReduceTests, MapReduceTestF,
                          ::testing::ValuesIn(inputsf));
@@ -109,7 +109,7 @@ const std::vector<MapReduceInputs<double>> inputsd = {
 typedef MapReduceTest<double> MapReduceTestD;
 TEST_P(MapReduceTestD, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
-                          CompareApprox<double>(params.tolerance)));
+                          compare_approx<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_SUITE_P(MapReduceTests, MapReduceTestD,
                          ::testing::ValuesIn(inputsd));

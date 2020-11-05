@@ -99,28 +99,28 @@ typedef EigSelTest<float> EigSelTestValF;
 TEST_P(EigSelTestValF, Result) {
   ASSERT_TRUE(
     raft::devArrMatch(eig_vals_ref, eig_vals, params.n_col,
-                      raft::CompareApproxAbs<float>(params.tolerance)));
+                      raft::compare_approx_abs<float>(params.tolerance)));
 }
 
 typedef EigSelTest<double> EigSelTestValD;
 TEST_P(EigSelTestValD, Result) {
   ASSERT_TRUE(
     raft::devArrMatch(eig_vals_ref, eig_vals, params.n_col,
-                      raft::CompareApproxAbs<double>(params.tolerance)));
+                      raft::compare_approx_abs<double>(params.tolerance)));
 }
 
 typedef EigSelTest<float> EigSelTestVecF;
 TEST_P(EigSelTestVecF, Result) {
   ASSERT_TRUE(
     raft::devArrMatch(eig_vectors_ref, eig_vectors, 12,
-                      raft::CompareApproxAbs<float>(params.tolerance)));
+                      raft::compare_approx_abs<float>(params.tolerance)));
 }
 
 typedef EigSelTest<double> EigSelTestVecD;
 TEST_P(EigSelTestVecD, Result) {
   ASSERT_TRUE(
     raft::devArrMatch(eig_vectors_ref, eig_vectors, 12,
-                      raft::CompareApproxAbs<double>(params.tolerance)));
+                      raft::compare_approx_abs<double>(params.tolerance)));
 }
 
 INSTANTIATE_TEST_SUITE_P(EigSelTest, EigSelTestValF,
