@@ -18,8 +18,8 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/gemm.cuh>
 #include <raft/random/rng.cuh>
-#include "../test_utils.h"
 #include "../fixture.hpp"
+#include "../test_utils.h"
 
 namespace raft {
 namespace linalg {
@@ -82,11 +82,11 @@ class gemm_layout_test : public raft::fixture<gemm_layout_inputs<T>> {
     dim3 blocks(raft::ceildiv<int>(params_.m, 128),
                 raft::ceildiv<int>(params_.m, 4), 1);
     dim3 threads(128, 4, 1);
-    naive_gemm<<<blocks, threads>>>(ref_z_, x_, y_, params_.m, params_.n, params_.k,
-                                    params_.z_layout, params_.x_layout,
-                                    params_.y_layout);
-    gemm(this->handle(), z_, x_, y_, params_.m, params_.n, params_.k, params_.z_layout,
-         params_.x_layout, params_.y_layout, stream);
+    naive_gemm<<<blocks, threads>>>(ref_z_, x_, y_, params_.m, params_.n,
+                                    params_.k, params_.z_layout,
+                                    params_.x_layout, params_.y_layout);
+    gemm(this->handle(), z_, x_, y_, params_.m, params_.n, params_.k,
+         params_.z_layout, params_.x_layout, params_.y_layout, stream);
   }
 
   void finalize() override {

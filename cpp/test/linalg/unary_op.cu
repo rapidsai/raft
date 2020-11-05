@@ -18,9 +18,9 @@
 #include <raft/cudart_utils.h>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/random/rng.cuh>
+#include "../fixture.hpp"
 #include "../test_utils.h"
 #include "unary_op.cuh"
-#include "../fixture.hpp"
 
 namespace raft {
 namespace linalg {
@@ -30,7 +30,7 @@ namespace linalg {
 // within its class
 template <typename InType, typename IdxType = int, typename OutType = InType>
 void unary_op_launch(OutType *out, const InType *in, InType scalar, IdxType len,
-                   cudaStream_t stream) {
+                     cudaStream_t stream) {
   if (in == nullptr) {
     auto op = [scalar] __device__(OutType * ptr, IdxType idx) {
       *ptr = static_cast<OutType>(scalar * idx);
@@ -45,7 +45,8 @@ void unary_op_launch(OutType *out, const InType *in, InType scalar, IdxType len,
 }
 
 template <typename InType, typename IdxType, typename OutType = InType>
-class unary_op_test : public raft::fixture<unary_op_inputs<InType, IdxType, OutType>> {
+class unary_op_test
+  : public raft::fixture<unary_op_inputs<InType, IdxType, OutType>> {
  protected:
   void initialize() override {
     params_ = ::testing::TestWithParam<
@@ -82,14 +83,17 @@ class unary_op_test : public raft::fixture<unary_op_inputs<InType, IdxType, OutT
 };
 
 template <typename OutType, typename IdxType>
-class write_only_unary_op_test : public unary_op_test<OutType, IdxType, OutType> {
+class write_only_unary_op_test
+  : public unary_op_test<OutType, IdxType, OutType> {
  protected:
   void check() override {
     auto len = this->params_.len;
     auto scalar = this->params_.scalar;
     auto stream = this->handle().get_stream();
-    naive_scale<OutType, IdxType, OutType>(this->out_ref_, nullptr, scalar, len, stream);
-    unary_op_launch<OutType, IdxType, OutType>(this->out_, nullptr, scalar, len, stream);
+    naive_scale<OutType, IdxType, OutType>(this->out_ref_, nullptr, scalar, len,
+                                           stream);
+    unary_op_launch<OutType, IdxType, OutType>(this->out_, nullptr, scalar, len,
+                                               stream);
     ASSERT_TRUE(devArrMatch(this->out_ref_, this->out_, this->params_.len,
                             compare_approx<OutType>(this->params_.tolerance)));
   }

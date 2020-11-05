@@ -24,9 +24,10 @@ namespace raft {
 namespace linalg {
 
 template <typename InType, typename OutType, typename IdxType>
-__global__ void naive_scale_kernel(OutType *out, const InType *in, InType scalar,
-                                 IdxType len) {
-  IdxType idx = threadIdx.x + (static_cast<IdxType>(blockIdx.x) * static_cast<IdxType>(blockDim.x));
+__global__ void naive_scale_kernel(OutType *out, const InType *in,
+                                   InType scalar, IdxType len) {
+  IdxType idx = threadIdx.x + (static_cast<IdxType>(blockIdx.x) *
+                               static_cast<IdxType>(blockDim.x));
   if (idx < len) {
     if (in == nullptr) {
       // used for testing writeOnlyUnaryOp

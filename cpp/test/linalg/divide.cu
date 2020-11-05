@@ -18,9 +18,9 @@
 #include <raft/cudart_utils.h>
 #include <raft/linalg/divide.cuh>
 #include <raft/random/rng.cuh>
+#include "../fixture.hpp"
 #include "../test_utils.h"
 #include "unary_op.cuh"
-#include "../fixture.hpp"
 
 namespace raft {
 namespace linalg {
@@ -36,7 +36,7 @@ __global__ void naive_divide_kernel(Type *out, const Type *in, Type scalar,
 
 template <typename Type>
 void naive_divide(Type *out, const Type *in, Type scalar, int len,
-                 cudaStream_t stream) {
+                  cudaStream_t stream) {
   static const int kTpb = 64;
   int nblks = raft::ceildiv(len, kTpb);
   naive_divide_kernel<Type><<<nblks, kTpb, 0, stream>>>(out, in, scalar, len);

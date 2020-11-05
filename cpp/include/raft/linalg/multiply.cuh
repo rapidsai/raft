@@ -34,8 +34,7 @@ namespace linalg {
  */
 template <typename MathT, typename IdxType = int>
 void multiplyScalar(MathT *out, const MathT *in, MathT scalar,  // NOLINT
-                    IdxType len,
-                    cudaStream_t stream) {
+                    IdxType len, cudaStream_t stream) {
   unaryOp(
     out, in, len, [scalar] __device__(MathT in) { return in * scalar; },
     stream);
