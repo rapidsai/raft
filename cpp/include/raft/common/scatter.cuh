@@ -24,14 +24,14 @@ namespace raft {
 template <typename DataT, int VecLen, typename Lambda, typename IdxT>
 __global__ void scatter_kernel(DataT *out, const DataT *in, const IdxT *idx,
                                IdxT len, Lambda op) {
-  using DataVec = TxN_t<DataT, VecLen>;
-  using IdxVec = TxN_t<IdxT, VecLen>;
+  using data_vec = TxN_t<DataT, VecLen>;
+  using idx_vec = TxN_t<IdxT, VecLen>;
   IdxT tid = threadIdx.x + (static_cast<IdxT>(blockIdx.x) * blockDim.x);
   tid *= VecLen;
   if (tid >= len) return;
-  IdxVec idx_in;
+  idx_vec idx_in;
   idx_in.load(idx, tid);
-  DataVec data_in;
+  data_vec data_in;
 #pragma unroll
   for (int i = 0; i < VecLen; ++i) {
     auto in_pos = idx_in.val.data[i];
