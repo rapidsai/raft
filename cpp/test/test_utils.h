@@ -30,31 +30,30 @@ struct compare {
 
 template <typename T>
 struct compare_approx {
-  compare_approx(T eps_) : eps(eps_) {}
+  explicit compare_approx(T eps) : eps_(eps) {}
   bool operator()(const T &a, const T &b) const {
     T diff = abs(a - b);
     T m = std::max(abs(a), abs(b));
-    T ratio = diff >= eps ? diff / m : diff;
-
-    return (ratio <= eps);
+    T ratio = diff >= eps_ ? diff / m : diff;
+    return (ratio <= eps_);
   }
 
  private:
-  T eps;
+  T eps_;
 };
 
 template <typename T>
 struct compare_approx_abs {
-  compare_approx_abs(T eps_) : eps(eps_) {}
+  explicit compare_approx_abs(T eps) : eps_(eps) {}
   bool operator()(const T &a, const T &b) const {
     T diff = abs(abs(a) - abs(b));
     T m = std::max(abs(a), abs(b));
-    T ratio = diff >= eps ? diff / m : diff;
-    return (ratio <= eps);
+    T ratio = diff >= eps_ ? diff / m : diff;
+    return (ratio <= eps_);
   }
 
  private:
-  T eps;
+  T eps_;
 };
 
 template <typename T>
@@ -74,7 +73,8 @@ T abs(const T &a) {
      * @{
      */
 template <typename T, typename L>
-testing::AssertionResult devArrMatch(const T *expected, const T *actual,
+testing::AssertionResult devArrMatch(const T *expected,  // NOLINT
+                                     const T *actual,
                                      size_t size, L eq_compare,
                                      cudaStream_t stream = 0) {
   std::shared_ptr<T> exp_h(new T[size]);
@@ -94,7 +94,8 @@ testing::AssertionResult devArrMatch(const T *expected, const T *actual,
 }
 
 template <typename T, typename L>
-testing::AssertionResult devArrMatch(T expected, const T *actual, size_t size,
+testing::AssertionResult devArrMatch(T expected, const T *actual,  // NOLINT
+                                     size_t size,
                                      L eq_compare, cudaStream_t stream = 0) {
   std::shared_ptr<T> act_h(new T[size]);
   raft::update_host<T>(act_h.get(), actual, size, stream);
@@ -110,7 +111,8 @@ testing::AssertionResult devArrMatch(T expected, const T *actual, size_t size,
 }
 
 template <typename T, typename L>
-testing::AssertionResult devArrMatch(const T *expected, const T *actual,
+testing::AssertionResult devArrMatch(const T *expected,  // NOLINT
+                                     const T *actual,
                                      size_t rows, size_t cols, L eq_compare,
                                      cudaStream_t stream = 0) {
   size_t size = rows * cols;
@@ -135,7 +137,8 @@ testing::AssertionResult devArrMatch(const T *expected, const T *actual,
 }
 
 template <typename T, typename L>
-testing::AssertionResult devArrMatch(T expected, const T *actual, size_t rows,
+testing::AssertionResult devArrMatch(T expected, const T *actual,  // NOLINT
+                                     size_t rows,
                                      size_t cols, L eq_compare,
                                      cudaStream_t stream = 0) {
   size_t size = rows * cols;
@@ -157,18 +160,19 @@ testing::AssertionResult devArrMatch(T expected, const T *actual, size_t rows,
 }
 
 /*
-     * @brief Helper function to compare a device n-D arrays with an expected array
-     * on the host, using a custom comparison
-     * @tparam T the data type of the arrays
-     * @tparam L the comparator lambda or object function
-     * @param expected_h host array of expected value(s)
-     * @param actual_d device array actual values
-     * @param eq_compare the comparator
-     * @param stream cuda stream
-     * @return the testing assertion to be later used by ASSERT_TRUE/EXPECT_TRUE
-     */
+ * @brief Helper function to compare a device n-D arrays with an expected array
+ * on the host, using a custom comparison
+ * @tparam T the data type of the arrays
+ * @tparam L the comparator lambda or object function
+ * @param expected_h host array of expected value(s)
+ * @param actual_d device array actual values
+ * @param eq_compare the comparator
+ * @param stream cuda stream
+ * @return the testing assertion to be later used by ASSERT_TRUE/EXPECT_TRUE
+ */
 template <typename T, typename L>
-testing::AssertionResult devArrMatchHost(const T *expected_h, const T *actual_d,
+testing::AssertionResult devArrMatchHost(const T *expected_h,  // NOLINT
+                                         const T *actual_d,
                                          size_t size, L eq_compare,
                                          cudaStream_t stream = 0) {
   std::shared_ptr<T> act_h(new T[size]);
@@ -189,17 +193,18 @@ testing::AssertionResult devArrMatchHost(const T *expected_h, const T *actual_d,
 }
 
 /*
-     * @brief Helper function to compare diagonal values of a 2D matrix
-     * @tparam T the data type of the arrays
-     * @tparam L the comparator lambda or object function
-     * @param expected expected value along diagonal
-     * @param actual actual matrix
-     * @param eq_compare the comparator
-     * @param stream cuda stream
-     * @return the testing assertion to be later used by ASSERT_TRUE/EXPECT_TRUE
-     */
+ * @brief Helper function to compare diagonal values of a 2D matrix
+ * @tparam T the data type of the arrays
+ * @tparam L the comparator lambda or object function
+ * @param expected expected value along diagonal
+ * @param actual actual matrix
+ * @param eq_compare the comparator
+ * @param stream cuda stream
+ * @return the testing assertion to be later used by ASSERT_TRUE/EXPECT_TRUE
+ */
 template <typename T, typename L>
-testing::AssertionResult diagonalMatch(T expected, const T *actual, size_t rows,
+testing::AssertionResult diagonalMatch(T expected, const T *actual,  // NOLINT
+                                       size_t rows,
                                        size_t cols, L eq_compare,
                                        cudaStream_t stream = 0) {
   size_t size = rows * cols;
