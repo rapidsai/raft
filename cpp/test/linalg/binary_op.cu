@@ -19,6 +19,7 @@
 #include <raft/linalg/binary_op.cuh>
 #include <raft/random/rng.cuh>
 #include "../test_utils.h"
+#include "../fixture.hpp"
 #include "binary_op.cuh"
 
 namespace raft {
@@ -28,98 +29,76 @@ namespace linalg {
 // for an extended __device__ lambda cannot have private or protected access
 // within its class
 template <typename InType, typename IdxType, typename OutType>
-void binaryOpLaunch(OutType *out, const InType *in1, const InType *in2,
-                    IdxType len, cudaStream_t stream) {
+void binary_op_launch(OutType *out, const InType *in1, const InType *in2,
+                      IdxType len, cudaStream_t stream) {
   binaryOp(
     out, in1, in2, len, [] __device__(InType a, InType b) { return a + b; },
     stream);
 }
 
 template <typename InType, typename IdxType, typename OutType = InType>
-class BinaryOpTest
-  : public ::testing::TestWithParam<BinaryOpInputs<InType, IdxType, OutType>> {
+class binary_op_test
+  : public raft::fixture<binary_op_inputs<InType, IdxType, OutType>> {
  protected:
-  void SetUp() override {
-    params = ::testing::TestWithParam<
-      BinaryOpInputs<InType, IdxType, OutType>>::GetParam();
-    raft::random::Rng r(params.seed);
-
-    cudaStream_t stream;
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    IdxType len = params.len;
-    allocate(in1, len);
-    allocate(in2, len);
-    allocate(out_ref, len);
-    allocate(out, len);
-    r.uniform(in1, len, InType(-1.0), InType(1.0), stream);
-    r.uniform(in2, len, InType(-1.0), InType(1.0), stream);
-    naiveAdd(out_ref, in1, in2, len);
-    binaryOpLaunch(out, in1, in2, len, stream);
-    CUDA_CHECK(cudaStreamDestroy(stream));
+  void initialize() override {
+    params_ = ::testing::TestWithParam<
+      binary_op_inputs<InType, IdxType, OutType>>::GetParam();
+    raft::random::Rng r(params_.seed);
+    auto stream = this->handle().get_stream();
+    IdxType len = params_.len;
+    allocate(in1_, len);
+    allocate(in2_, len);
+    allocate(out_ref_, len);
+    allocate(out_, len);
+    constexpr auto kOne = static_cast<InType>(1.0);
+    r.uniform(in1_, len, -kOne, kOne, stream);
+    r.uniform(in2_, len, -kOne, kOne, stream);
+    naive_add(out_ref_, in1_, in2_, len);
+    binary_op_launch(out_, in1_, in2_, len, stream);
   }
 
-  void TearDown() override {
-    CUDA_CHECK(cudaFree(in1));
-    CUDA_CHECK(cudaFree(in2));
-    CUDA_CHECK(cudaFree(out_ref));
-    CUDA_CHECK(cudaFree(out));
+  void finalize() override {
+    CUDA_CHECK(cudaFree(in1_));
+    CUDA_CHECK(cudaFree(in2_));
+    CUDA_CHECK(cudaFree(out_ref_));
+    CUDA_CHECK(cudaFree(out_));
+  }
+
+  void check() override {
+    ASSERT_TRUE(devArrMatch(out_ref_, out_, params_.len,
+                            compare_approx<OutType>(params_.tolerance)));
   }
 
  protected:
-  BinaryOpInputs<InType, IdxType, OutType> params;
-  InType *in1, *in2;
-  OutType *out_ref, *out;
+  binary_op_inputs<InType, IdxType, OutType> params_;
+  InType *in1_, *in2_;
+  OutType *out_ref_, *out_;
 };
 
-const std::vector<BinaryOpInputs<float, int>> inputsf_i32 = {
+const std::vector<binary_op_inputs<float, int>> kInputsFI32 = {
   {0.000001f, 1024 * 1024, 1234ULL}};
-typedef BinaryOpTest<float, int> BinaryOpTestF_i32;
-TEST_P(BinaryOpTestF_i32, Result) {
-  ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
-                          compare_approx<float>(params.tolerance)));
-}
-INSTANTIATE_TEST_SUITE_P(BinaryOpTests, BinaryOpTestF_i32,
-                         ::testing::ValuesIn(inputsf_i32));
+using binary_op_test_f_i32 = binary_op_test<float, int>;
+RUN_TEST_BASE(binary_op, binary_op_test_f_i32, kInputsFI32);
 
-const std::vector<BinaryOpInputs<float, size_t>> inputsf_i64 = {
+const std::vector<binary_op_inputs<float, size_t>> kInputsFI64 = {
   {0.000001f, 1024 * 1024, 1234ULL}};
-typedef BinaryOpTest<float, size_t> BinaryOpTestF_i64;
-TEST_P(BinaryOpTestF_i64, Result) {
-  ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
-                          compare_approx<float>(params.tolerance)));
-}
-INSTANTIATE_TEST_SUITE_P(BinaryOpTests, BinaryOpTestF_i64,
-                         ::testing::ValuesIn(inputsf_i64));
+using binary_op_test_f_i64 = binary_op_test<float, size_t>;
+RUN_TEST_BASE(binary_op, binary_op_test_f_i64, kInputsFI64);
 
-const std::vector<BinaryOpInputs<float, int, double>> inputsf_i32_d = {
+const std::vector<binary_op_inputs<float, int, double>> kInputsFI32D = {
   {0.000001f, 1024 * 1024, 1234ULL}};
-typedef BinaryOpTest<float, int, double> BinaryOpTestF_i32_D;
-TEST_P(BinaryOpTestF_i32_D, Result) {
-  ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
-                          compare_approx<double>(params.tolerance)));
-}
-INSTANTIATE_TEST_SUITE_P(BinaryOpTests, BinaryOpTestF_i32_D,
-                         ::testing::ValuesIn(inputsf_i32_d));
+using binary_op_test_f_i32_d = binary_op_test<float, int, double>;
+RUN_TEST_BASE(binary_op, binary_op_test_f_i32_d, kInputsFI32D);
 
-const std::vector<BinaryOpInputs<double, int>> inputsd_i32 = {
+const std::vector<binary_op_inputs<double, int>> kInputsDI32 = {
   {0.00000001, 1024 * 1024, 1234ULL}};
-typedef BinaryOpTest<double, int> BinaryOpTestD_i32;
-TEST_P(BinaryOpTestD_i32, Result) {
-  ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
-                          compare_approx<double>(params.tolerance)));
-}
-INSTANTIATE_TEST_SUITE_P(BinaryOpTests, BinaryOpTestD_i32,
-                         ::testing::ValuesIn(inputsd_i32));
+using binary_op_test_d_i32 = binary_op_test<double, int>;
+RUN_TEST_BASE(binary_op, binary_op_test_d_i32, kInputsDI32);
 
-const std::vector<BinaryOpInputs<double, size_t>> inputsd_i64 = {
+const std::vector<binary_op_inputs<double, size_t>> kInputsDI64 = {
   {0.00000001, 1024 * 1024, 1234ULL}};
-typedef BinaryOpTest<double, size_t> BinaryOpTestD_i64;
-TEST_P(BinaryOpTestD_i64, Result) {
-  ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
-                          compare_approx<double>(params.tolerance)));
-}
-INSTANTIATE_TEST_SUITE_P(BinaryOpTests, BinaryOpTestD_i64,
-                         ::testing::ValuesIn(inputsd_i64));
+using binary_op_test_d_i64 = binary_op_test<double, size_t>;
+RUN_TEST_BASE(binary_op, binary_op_test_d_i64, kInputsDI64);
 
 }  // namespace linalg
 }  // namespace raft
