@@ -20,59 +20,45 @@
 #include <raft/random/rng.cuh>
 #include "../test_utils.h"
 #include "unary_op.cuh"
+#include "../fixture.hpp"
 
 namespace raft {
 namespace linalg {
 
 template <typename T>
-class MultiplyTest : public ::testing::TestWithParam<UnaryOpInputs<T>> {
+class multiply_test : public raft::fixture<unary_op_inputs<T>> {
  protected:
-  void SetUp() override {
-    params = ::testing::TestWithParam<UnaryOpInputs<T>>::GetParam();
-    raft::random::Rng r(params.seed);
-    int len = params.len;
-    cudaStream_t stream;
-    CUDA_CHECK(cudaStreamCreate(&stream));
-
-    raft::allocate(in, len);
-    raft::allocate(out_ref, len);
-    raft::allocate(out, len);
-    r.uniform(in, len, T(-1.0), T(1.0), stream);
-    naiveScale(out_ref, in, params.scalar, len, stream);
-    multiplyScalar(out, in, params.scalar, len, stream);
-    CUDA_CHECK(cudaStreamDestroy(stream));
+  void initialize() override {
+    params_ = ::testing::TestWithParam<unary_op_inputs<T>>::GetParam();
+    raft::random::Rng r(params_.seed);
+    int len = params_.len;
+    auto stream = this->handle().get_stream();
+    raft::allocate(in_, len);
+    raft::allocate(out_ref_, len);
+    raft::allocate(out_, len);
+    constexpr auto kOne = static_cast<T>(1.0);
+    r.uniform(in_, len, -kOne, kOne, stream);
+    naive_scale(out_ref_, in_, params_.scalar, len, stream);
+    multiplyScalar(out_, in_, params_.scalar, len, stream);
   }
 
-  void TearDown() override {
-    CUDA_CHECK(cudaFree(in));
-    CUDA_CHECK(cudaFree(out_ref));
-    CUDA_CHECK(cudaFree(out));
+  void finalize() override {
+    CUDA_CHECK(cudaFree(in_));
+    CUDA_CHECK(cudaFree(out_ref_));
+    CUDA_CHECK(cudaFree(out_));
   }
 
- protected:
-  UnaryOpInputs<T> params;
-  T *in, *out_ref, *out;
+  unary_op_inputs<T> params_;
+  T *in_, *out_ref_, *out_;
 };
 
-const std::vector<UnaryOpInputs<float>> inputsf = {
+const std::vector<unary_op_inputs<float>> kInputsF = {
   {0.000001f, 1024 * 1024, 2.f, 1234ULL}};
-typedef MultiplyTest<float> MultiplyTestF;
-TEST_P(MultiplyTestF, Result) {
-  ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
-                          raft::compare_approx<float>(params.tolerance)));
-}
-INSTANTIATE_TEST_SUITE_P(MultiplyTests, MultiplyTestF,
-                         ::testing::ValuesIn(inputsf));
+RUN_TEST(multiply_test, multiply_test_f, multiply_test<float>, kInputsF);
 
-typedef MultiplyTest<double> MultiplyTestD;
-const std::vector<UnaryOpInputs<double>> inputsd = {
+const std::vector<unary_op_inputs<double>> kInputsD = {
   {0.000001f, 1024 * 1024, 2.f, 1234ULL}};
-TEST_P(MultiplyTestD, Result) {
-  ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
-                          raft::compare_approx<double>(params.tolerance)));
-}
-INSTANTIATE_TEST_SUITE_P(MultiplyTests, MultiplyTestD,
-                         ::testing::ValuesIn(inputsd));
+RUN_TEST(multiply_test, multiply_test_d, multiply_test<double>, kInputsD);
 
 }  // end namespace linalg
 }  // end namespace raft

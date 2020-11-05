@@ -23,7 +23,7 @@ namespace linalg {
 
 /**
  * @defgroup ScalarOps Scalar operations on the input buffer
- * @tparam math_t data-type upon which the math operation will be performed
+ * @tparam MathT data-type upon which the math operation will be performed
  * @tparam IdxType Integer type used to for addressing
  * @param out the output buffer
  * @param in the input buffer
@@ -32,11 +32,12 @@ namespace linalg {
  * @param stream cuda stream where to launch work
  * @{
  */
-template <typename math_t, typename IdxType = int>
-void multiplyScalar(math_t *out, const math_t *in, math_t scalar, IdxType len,
+template <typename MathT, typename IdxType = int>
+void multiplyScalar(MathT *out, const MathT *in, MathT scalar,  // NOLINT
+                    IdxType len,
                     cudaStream_t stream) {
   unaryOp(
-    out, in, len, [scalar] __device__(math_t in) { return in * scalar; },
+    out, in, len, [scalar] __device__(MathT in) { return in * scalar; },
     stream);
 }
 /** @} */

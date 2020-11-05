@@ -20,6 +20,7 @@
 #include <raft/random/rng.cuh>
 #include "../test_utils.h"
 #include "unary_op.cuh"
+#include "../fixture.hpp"
 
 namespace raft {
 namespace linalg {
@@ -28,7 +29,7 @@ namespace linalg {
 // for an extended __device__ lambda cannot have private or protected access
 // within its class
 template <typename InType, typename IdxType = int, typename OutType = InType>
-void unaryOpLaunch(OutType *out, const InType *in, InType scalar, IdxType len,
+void unary_op_launch(OutType *out, const InType *in, InType scalar, IdxType len,
                    cudaStream_t stream) {
   if (in == nullptr) {
     auto op = [scalar] __device__(OutType * ptr, IdxType idx) {
@@ -44,95 +45,88 @@ void unaryOpLaunch(OutType *out, const InType *in, InType scalar, IdxType len,
 }
 
 template <typename InType, typename IdxType, typename OutType = InType>
-class UnaryOpTest
-  : public ::testing::TestWithParam<UnaryOpInputs<InType, IdxType, OutType>> {
+class unary_op_test : public raft::fixture<unary_op_inputs<InType, IdxType, OutType>> {
  protected:
-  void SetUp() override {
-    params = ::testing::TestWithParam<
-      UnaryOpInputs<InType, IdxType, OutType>>::GetParam();
-    raft::random::Rng r(params.seed);
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    auto len = params.len;
-    allocate(in, len);
-    allocate(out_ref, len);
-    allocate(out, len);
-    r.uniform(in, len, InType(-1.0), InType(1.0), stream);
+  void initialize() override {
+    params_ = ::testing::TestWithParam<
+      unary_op_inputs<InType, IdxType, OutType>>::GetParam();
+    raft::random::Rng r(params_.seed);
+    auto stream = this->handle().get_stream();
+    auto len = params_.len;
+    allocate(in_, len);
+    allocate(out_ref_, len);
+    allocate(out_, len);
+    constexpr auto kOne = static_cast<InType>(1.0);
+    r.uniform(in_, len, -kOne, kOne, stream);
   }
 
-  void TearDown() override {
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-    CUDA_CHECK(cudaStreamDestroy(stream));
-    CUDA_CHECK(cudaFree(in));
-    CUDA_CHECK(cudaFree(out_ref));
-    CUDA_CHECK(cudaFree(out));
+  void finalize() override {
+    CUDA_CHECK(cudaFree(in_));
+    CUDA_CHECK(cudaFree(out_ref_));
+    CUDA_CHECK(cudaFree(out_));
   }
 
-  virtual void DoTest() {
-    auto len = params.len;
-    auto scalar = params.scalar;
-    naiveScale(out_ref, in, scalar, len, stream);
-    unaryOpLaunch(out, in, scalar, len, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-    ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
-                            compare_approx<OutType>(params.tolerance)));
+  void check() override {
+    auto len = params_.len;
+    auto scalar = params_.scalar;
+    auto stream = this->handle().get_stream();
+    naive_scale(out_ref_, in_, scalar, len, stream);
+    unary_op_launch(out_, in_, scalar, len, stream);
+    ASSERT_TRUE(devArrMatch(out_ref_, out_, params_.len,
+                            compare_approx<OutType>(params_.tolerance)));
   }
 
-  UnaryOpInputs<InType, IdxType, OutType> params;
-  InType *in;
-  OutType *out_ref, *out;
-  cudaStream_t stream;
+  unary_op_inputs<InType, IdxType, OutType> params_;
+  InType *in_;
+  OutType *out_ref_, *out_;
 };
 
 template <typename OutType, typename IdxType>
-class WriteOnlyUnaryOpTest : public UnaryOpTest<OutType, IdxType, OutType> {
+class write_only_unary_op_test : public unary_op_test<OutType, IdxType, OutType> {
  protected:
-  void DoTest() override {
-    auto len = this->params.len;
-    auto scalar = this->params.scalar;
-    naiveScale(this->out_ref, (OutType *)nullptr, scalar, len, this->stream);
-    unaryOpLaunch(this->out, (OutType *)nullptr, scalar, len, this->stream);
-    CUDA_CHECK(cudaStreamSynchronize(this->stream));
-    ASSERT_TRUE(devArrMatch(this->out_ref, this->out, this->params.len,
-                            compare_approx<OutType>(this->params.tolerance)));
+  void check() override {
+    auto len = this->params_.len;
+    auto scalar = this->params_.scalar;
+    auto stream = this->handle().get_stream();
+    naive_scale<OutType, IdxType, OutType>(this->out_ref_, nullptr, scalar, len, stream);
+    unary_op_launch<OutType, IdxType, OutType>(this->out_, nullptr, scalar, len, stream);
+    ASSERT_TRUE(devArrMatch(this->out_ref_, this->out_, this->params_.len,
+                            compare_approx<OutType>(this->params_.tolerance)));
   }
 };
 
-#define UNARY_OP_TEST(Name, inputs)  \
-  TEST_P(Name, Result) { DoTest(); } \
-  INSTANTIATE_TEST_SUITE_P(UnaryOpTests, Name, ::testing::ValuesIn(inputs))
-
-const std::vector<UnaryOpInputs<float, int>> inputsf_i32 = {
+const std::vector<unary_op_inputs<float, int>> kInputsFI32 = {
   {0.000001f, 1024 * 1024, 2.f, 1234ULL}};
-typedef UnaryOpTest<float, int> UnaryOpTestF_i32;
-UNARY_OP_TEST(UnaryOpTestF_i32, inputsf_i32);
-typedef WriteOnlyUnaryOpTest<float, int> WriteOnlyUnaryOpTestF_i32;
-UNARY_OP_TEST(WriteOnlyUnaryOpTestF_i32, inputsf_i32);
+using unary_op_test_f_i32 = unary_op_test<float, int>;
+RUN_TEST_BASE(unary_op, unary_op_test_f_i32, kInputsFI32);
+using write_only_unary_op_test_f_i32 = write_only_unary_op_test<float, int>;
+RUN_TEST_BASE(unary_op, write_only_unary_op_test_f_i32, kInputsFI32);
 
-const std::vector<UnaryOpInputs<float, size_t>> inputsf_i64 = {
+const std::vector<unary_op_inputs<float, size_t>> kInputsFI64 = {
   {0.000001f, 1024 * 1024, 2.f, 1234ULL}};
-typedef UnaryOpTest<float, size_t> UnaryOpTestF_i64;
-UNARY_OP_TEST(UnaryOpTestF_i64, inputsf_i64);
-typedef WriteOnlyUnaryOpTest<float, size_t> WriteOnlyUnaryOpTestF_i64;
-UNARY_OP_TEST(WriteOnlyUnaryOpTestF_i64, inputsf_i64);
+using unary_op_test_f_i64 = unary_op_test<float, size_t>;
+RUN_TEST_BASE(unary_op, unary_op_test_f_i64, kInputsFI64);
+using write_only_unary_op_test_f_i64 = write_only_unary_op_test<float, size_t>;
+RUN_TEST_BASE(unary_op, write_only_unary_op_test_f_i64, kInputsFI64);
 
-const std::vector<UnaryOpInputs<float, int, double>> inputsf_i32_d = {
+const std::vector<unary_op_inputs<float, int, double>> kInputsFI32D = {
   {0.000001f, 1024 * 1024, 2.f, 1234ULL}};
-typedef UnaryOpTest<float, int, double> UnaryOpTestF_i32_D;
-UNARY_OP_TEST(UnaryOpTestF_i32_D, inputsf_i32_d);
+using unary_op_test_f_i32_d = unary_op_test<float, int, double>;
+RUN_TEST_BASE(unary_op, unary_op_test_f_i32_d, kInputsFI32D);
 
-const std::vector<UnaryOpInputs<double, int>> inputsd_i32 = {
+const std::vector<unary_op_inputs<double, int>> kInputsDI32 = {
   {0.00000001, 1024 * 1024, 2.0, 1234ULL}};
-typedef UnaryOpTest<double, int> UnaryOpTestD_i32;
-UNARY_OP_TEST(UnaryOpTestD_i32, inputsd_i32);
-typedef WriteOnlyUnaryOpTest<double, int> WriteOnlyUnaryOpTestD_i32;
-UNARY_OP_TEST(WriteOnlyUnaryOpTestD_i32, inputsd_i32);
+using unary_op_test_d_i32 = unary_op_test<double, int>;
+RUN_TEST_BASE(unary_op, unary_op_test_d_i32, kInputsDI32);
+using write_only_unary_op_test_d_i32 = write_only_unary_op_test<double, int>;
+RUN_TEST_BASE(unary_op, write_only_unary_op_test_d_i32, kInputsDI32);
 
-const std::vector<UnaryOpInputs<double, size_t>> inputsd_i64 = {
+const std::vector<unary_op_inputs<double, size_t>> kInputsDI64 = {
   {0.00000001, 1024 * 1024, 2.0, 1234ULL}};
-typedef UnaryOpTest<double, size_t> UnaryOpTestD_i64;
-UNARY_OP_TEST(UnaryOpTestD_i64, inputsd_i64);
-typedef WriteOnlyUnaryOpTest<double, size_t> WriteOnlyUnaryOpTestD_i64;
-UNARY_OP_TEST(WriteOnlyUnaryOpTestD_i64, inputsd_i64);
+using unary_op_test_d_i64 = unary_op_test<double, size_t>;
+RUN_TEST_BASE(unary_op, unary_op_test_d_i64, kInputsDI64);
+using write_only_unary_op_test_d_i64 = write_only_unary_op_test<double, size_t>;
+RUN_TEST_BASE(unary_op, write_only_unary_op_test_d_i64, kInputsDI64);
 
 }  // end namespace linalg
 }  // end namespace raft

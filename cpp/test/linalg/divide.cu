@@ -20,13 +20,14 @@
 #include <raft/random/rng.cuh>
 #include "../test_utils.h"
 #include "unary_op.cuh"
+#include "../fixture.hpp"
 
 namespace raft {
 namespace linalg {
 
 template <typename Type>
-__global__ void naiveDivideKernel(Type *out, const Type *in, Type scalar,
-                                  int len) {
+__global__ void naive_divide_kernel(Type *out, const Type *in, Type scalar,
+                                    int len) {
   int idx = threadIdx.x + blockIdx.x * blockDim.x;
   if (idx < len) {
     out[idx] = in[idx] / scalar;
@@ -34,65 +35,55 @@ __global__ void naiveDivideKernel(Type *out, const Type *in, Type scalar,
 }
 
 template <typename Type>
-void naiveDivide(Type *out, const Type *in, Type scalar, int len,
+void naive_divide(Type *out, const Type *in, Type scalar, int len,
                  cudaStream_t stream) {
-  static const int TPB = 64;
-  int nblks = raft::ceildiv(len, TPB);
-  naiveDivideKernel<Type><<<nblks, TPB, 0, stream>>>(out, in, scalar, len);
+  static const int kTpb = 64;
+  int nblks = raft::ceildiv(len, kTpb);
+  naive_divide_kernel<Type><<<nblks, kTpb, 0, stream>>>(out, in, scalar, len);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
 template <typename T>
-class DivideTest
-  : public ::testing::TestWithParam<raft::linalg::UnaryOpInputs<T>> {
+class divide_test : public raft::fixture<raft::linalg::unary_op_inputs<T>> {
  protected:
-  void SetUp() override {
-    params =
-      ::testing::TestWithParam<raft::linalg::UnaryOpInputs<T>>::GetParam();
-    raft::random::Rng r(params.seed);
-    int len = params.len;
-    cudaStream_t stream;
-    CUDA_CHECK(cudaStreamCreate(&stream));
-
-    raft::allocate(in, len);
-    raft::allocate(out_ref, len);
-    raft::allocate(out, len);
-    r.uniform(in, len, T(-1.0), T(1.0), stream);
-    naiveDivide(out_ref, in, params.scalar, len, stream);
-    divideScalar(out, in, params.scalar, len, stream);
-    CUDA_CHECK(cudaStreamDestroy(stream));
+  void initialize() override {
+    params_ =
+      ::testing::TestWithParam<raft::linalg::unary_op_inputs<T>>::GetParam();
+    raft::random::Rng r(params_.seed);
+    int len = params_.len;
+    auto stream = this->handle().get_stream();
+    raft::allocate(in_, len);
+    raft::allocate(out_ref_, len);
+    raft::allocate(out_, len);
+    constexpr auto kOne = static_cast<T>(1.0);
+    r.uniform(in_, len, -kOne, kOne, stream);
+    naive_divide(out_ref_, in_, params_.scalar, len, stream);
+    divideScalar(out_, in_, params_.scalar, len, stream);
   }
 
-  void TearDown() override {
-    CUDA_CHECK(cudaFree(in));
-    CUDA_CHECK(cudaFree(out_ref));
-    CUDA_CHECK(cudaFree(out));
+  void finalize() override {
+    CUDA_CHECK(cudaFree(in_));
+    CUDA_CHECK(cudaFree(out_ref_));
+    CUDA_CHECK(cudaFree(out_));
+  }
+
+  void check() override {
+    ASSERT_TRUE(devArrMatch(out_ref_, out_, params_.len,
+                            raft::compare_approx<T>(params_.tolerance)));
   }
 
  protected:
-  UnaryOpInputs<T> params;
-  T *in, *out_ref, *out;
+  unary_op_inputs<T> params_;
+  T *in_, *out_ref_, *out_;
 };
 
-const std::vector<UnaryOpInputs<float>> inputsf = {
+const std::vector<unary_op_inputs<float>> kInputsF = {
   {0.000001f, 1024 * 1024, 2.f, 1234ULL}};
-typedef DivideTest<float> DivideTestF;
-TEST_P(DivideTestF, Result) {
-  ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
-                          raft::compare_approx<float>(params.tolerance)));
-}
-INSTANTIATE_TEST_SUITE_P(DivideTests, DivideTestF,
-                         ::testing::ValuesIn(inputsf));
+RUN_TEST(divide, divide_test_f, divide_test<float>, kInputsF);
 
-typedef DivideTest<double> DivideTestD;
-const std::vector<UnaryOpInputs<double>> inputsd = {
+const std::vector<unary_op_inputs<double>> kInputsD = {
   {0.000001f, 1024 * 1024, 2.f, 1234ULL}};
-TEST_P(DivideTestD, Result) {
-  ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
-                          raft::compare_approx<double>(params.tolerance)));
-}
-INSTANTIATE_TEST_SUITE_P(DivideTests, DivideTestD,
-                         ::testing::ValuesIn(inputsd));
+RUN_TEST(divide, divide_test_d, divide_test<double>, kInputsD);
 
 }  // end namespace linalg
 }  // end namespace raft

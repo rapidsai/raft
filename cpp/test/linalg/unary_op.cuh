@@ -24,9 +24,9 @@ namespace raft {
 namespace linalg {
 
 template <typename InType, typename OutType, typename IdxType>
-__global__ void naiveScaleKernel(OutType *out, const InType *in, InType scalar,
+__global__ void naive_scale_kernel(OutType *out, const InType *in, InType scalar,
                                  IdxType len) {
-  IdxType idx = threadIdx.x + ((IdxType)blockIdx.x * (IdxType)blockDim.x);
+  IdxType idx = threadIdx.x + (static_cast<IdxType>(blockIdx.x) * static_cast<IdxType>(blockDim.x));
   if (idx < len) {
     if (in == nullptr) {
       // used for testing writeOnlyUnaryOp
@@ -38,26 +38,26 @@ __global__ void naiveScaleKernel(OutType *out, const InType *in, InType scalar,
 }
 
 template <typename InType, typename IdxType = int, typename OutType = InType>
-void naiveScale(OutType *out, const InType *in, InType scalar, int len,
-                cudaStream_t stream) {
-  static const int TPB = 64;
-  int nblks = raft::ceildiv(len, TPB);
-  naiveScaleKernel<InType, OutType, IdxType>
-    <<<nblks, TPB, 0, stream>>>(out, in, scalar, len);
+void naive_scale(OutType *out, const InType *in, InType scalar, int len,
+                 cudaStream_t stream) {
+  static const int kTpb = 64;
+  int nblks = raft::ceildiv(len, kTpb);
+  naive_scale_kernel<InType, OutType, IdxType>
+    <<<nblks, kTpb, 0, stream>>>(out, in, scalar, len);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
 template <typename InType, typename IdxType = int, typename OutType = InType>
-struct UnaryOpInputs {
+struct unary_op_inputs {
   OutType tolerance;
   IdxType len;
   InType scalar;
-  unsigned long long int seed;
+  uint64_t seed;
 };
 
 template <typename InType, typename IdxType = int, typename OutType = InType>
 ::std::ostream &operator<<(::std::ostream &os,
-                           const UnaryOpInputs<InType, IdxType, OutType> &d) {
+                           const unary_op_inputs<InType, IdxType, OutType> &d) {
   return os;
 }
 
