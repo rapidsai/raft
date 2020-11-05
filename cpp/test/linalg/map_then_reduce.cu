@@ -19,6 +19,7 @@
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/random/rng.cuh>
 #include "../test_utils.h"
+#include "../fixture.hpp"
 
 namespace raft {
 namespace linalg {
@@ -66,27 +67,29 @@ void map_reduce_launch(T *out_ref, T *out, const T *in, size_t len,
 }
 
 template <typename T>
-class map_reduce_test : public ::testing::TestWithParam<map_reduce_inputs<T>> {
+class map_reduce_test : public raft::fixture<map_reduce_inputs<T>> {
  protected:
-  void SetUp() override {  // NOLINT
+  void initialize() override {
     params_ = ::testing::TestWithParam<map_reduce_inputs<T>>::GetParam();
     raft::random::Rng r(params_.seed);
+    auto stream = this->handle().get_stream();
     auto len = params_.len;
-
-    cudaStream_t stream;
-    CUDA_CHECK(cudaStreamCreate(&stream));
     allocate(in_, len);
     allocate(out_ref_, len);
     allocate(out_, len);
     r.uniform(in_, len, T(-1.0), T(1.0), stream);
     map_reduce_launch(out_ref_, out_, in_, len, stream);
-    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
-  void TearDown() override {  // NOLINT
+  void finalize() override {
     CUDA_CHECK(cudaFree(in_));
     CUDA_CHECK(cudaFree(out_ref_));
     CUDA_CHECK(cudaFree(out_));
+  }
+
+  void check() override {
+    ASSERT_TRUE(devArrMatch(out_ref_, out_, params_.len,
+                            compare_approx<T>(params_.tolerance)));
   }
 
   map_reduce_inputs<T> params_;
@@ -95,23 +98,11 @@ class map_reduce_test : public ::testing::TestWithParam<map_reduce_inputs<T>> {
 
 const std::vector<map_reduce_inputs<float>> kInputsF = {
   {0.001f, 1024 * 1024, 1234ULL}};
-using map_reduce_test_f = map_reduce_test<float>;
-TEST_P(map_reduce_test_f, Result) {  // NOLINT
-  ASSERT_TRUE(devArrMatch(out_ref_, out_, params_.len,
-                          compare_approx<float>(params_.tolerance)));
-}
-INSTANTIATE_TEST_SUITE_P(map_reduce_tests, map_reduce_test_f,  // NOLINT
-                         ::testing::ValuesIn(kInputsF));
+RUN_TEST(map_reduce, map_reduce_test_f, map_reduce_test<float>, kInputsF);
 
 const std::vector<map_reduce_inputs<double>> kInputsD = {
   {0.000001, 1024 * 1024, 1234ULL}};
-using map_reduce_test_d = map_reduce_test<double>;
-TEST_P(map_reduce_test_d, Result) {  // NOLINT
-  ASSERT_TRUE(devArrMatch(out_ref_, out_, params_.len,
-                          compare_approx<double>(params_.tolerance)));
-}
-INSTANTIATE_TEST_SUITE_P(map_reduce_tests, map_reduce_test_d,  // NOLINT
-                         ::testing::ValuesIn(kInputsD));
+RUN_TEST(map_reduce, map_reduce_test_d, map_reduce_test<double>, kInputsD);
 
 }  // end namespace linalg
 }  // end namespace raft
