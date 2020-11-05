@@ -27,7 +27,8 @@ EXPECTED_VERSION = "8.0.1"
 VERSION_REGEX = re.compile(r"  LLVM version ([0-9.]+)")
 GPU_ARCH_REGEX = re.compile(r"sm_(\d+)")
 SPACES = re.compile(r"\s+")
-SEPARATOR = "-" * 16
+SEPARATOR = "-" * 8
+END_SEPARATOR = "*" * 64
 
 
 def parse_args():
@@ -42,6 +43,8 @@ def parse_args():
                            help="Regex used to select files for checking")
     argparser.add_argument("-j", type=int, default=-1,
                            help="Number of parallel jobs to launch.")
+    argparser.add_argument("-root", type=str, default=None,
+        help="Pass the repo root path to help cut down the file name length.")
     args = argparser.parse_args()
     if args.j <= 0:
         args.j = mp.cpu_count()
@@ -152,7 +155,7 @@ def run_clang_tidy_command(tidy_cmd):
     if status:
         out = ""
     else:
-        out = "CMD: " + cmd
+        out = "CMD: " + cmd + "\n"
     out += result.stdout.decode("utf-8").rstrip()
     return status, out
 
@@ -168,7 +171,7 @@ def run_clang_tidy(cmd, args):
         tidy_cmd.append(cmd["file"])
         ret, out1 = run_clang_tidy_command(tidy_cmd)
         out += out1
-        out += "%s" % SEPARATOR
+        out += "\n%s\n" % SEPARATOR
         if not ret:
             status = ret
         tidy_cmd[-2] = "--cuda-host-only"
@@ -192,19 +195,28 @@ def collect_result(result):
     results.append(result)
 
 
-def print_result(passed, stdout, file):
+def print_result(passed, stdout, file, root):
+    if root is not None:
+        file = file.replace(root, "./")
+        if stdout:
+            stdout = stdout.replace(root, "./")
     status_str = "PASSED" if passed else "FAILED"
     print("%s File:%s %s %s" % (SEPARATOR, file, status_str, SEPARATOR))
     if stdout:
         print(stdout)
-        print("%s File:%s ENDS %s" % (SEPARATOR, file, SEPARATOR))
+    print("%s\n" % END_SEPARATOR)
 
 
-def print_results():
+def print_results(args):
+    root = args.root
+    if root is not None:
+        root = root.rstrip("/")
+        root += "/"
+        print("NOTE: all relative paths are wrt '%s'\n" % root)
     global results
     status = True
     for passed, stdout, file in results:
-        print_result(passed, stdout, file)
+        print_result(passed, stdout, file, args.root)
         if not passed:
             status = False
     return status
@@ -223,7 +235,7 @@ def run_sequential(args, all_files):
            re.search(args.select_compiled, cmd["file"]) is None:
             continue
         passed, stdout, file = run_clang_tidy(cmd, args)
-        print_result(passed, stdout, file)
+        print_result(passed, stdout, file, args.root)
         if not passed:
             status = False
     return status
@@ -244,7 +256,7 @@ def run_parallel(args, all_files):
                          callback=collect_result)
     pool.close()
     pool.join()
-    return print_results()
+    return print_results(args)
 
 
 def main():
