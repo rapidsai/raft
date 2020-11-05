@@ -36,7 +36,7 @@ __device__ void reduce(Type *out, const Type acc) {
 
 template <typename Type, typename MapOp, int TPB, typename... Args>
 __global__ void map_then_sum_reduce_kernel(Type *out, size_t len, MapOp map,
-                                       const Type *in, Args... args) {
+                                           const Type *in, Args... args) {
   auto acc = static_cast<Type>(0);
   auto idx = (threadIdx.x + (blockIdx.x * blockDim.x));
   if (idx < len) {
@@ -47,8 +47,9 @@ __global__ void map_then_sum_reduce_kernel(Type *out, size_t len, MapOp map,
 }
 
 template <typename Type, typename MapOp, int TPB, typename... Args>
-void map_then_sum_reduce_impl(Type *out, size_t len, MapOp map, cudaStream_t stream,
-                          const Type *in, Args... args) {
+void map_then_sum_reduce_impl(Type *out, size_t len, MapOp map,
+                              cudaStream_t stream, const Type *in,
+                              Args... args) {
   CUDA_CHECK(cudaMemsetAsync(out, 0, sizeof(Type), stream));
   const int nblks = raft::ceildiv(len, (size_t)TPB);
   map_then_sum_reduce_kernel<Type, MapOp, TPB, Args...>
@@ -71,10 +72,9 @@ void map_then_sum_reduce_impl(Type *out, size_t len, MapOp map, cudaStream_t str
  */
 template <typename Type, typename MapOp, int TPB = 256, typename... Args>
 void mapThenSumReduce(Type *out, size_t len, MapOp map,  // NOLINT
-                      cudaStream_t stream,
-                      const Type *in, Args... args) {
+                      cudaStream_t stream, const Type *in, Args... args) {
   map_then_sum_reduce_impl<Type, MapOp, TPB, Args...>(out, len, map, stream, in,
-                                                  args...);
+                                                      args...);
 }
 
 };  // end namespace linalg

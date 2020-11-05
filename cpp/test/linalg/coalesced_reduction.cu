@@ -19,8 +19,8 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/coalesced_reduction.cuh>
 #include <raft/random/rng.cuh>
-#include "../test_utils.h"
 #include "../fixture.hpp"
+#include "../test_utils.h"
 #include "reduce.cuh"
 
 namespace raft {
@@ -44,7 +44,7 @@ template <typename T>
 // within its class
 template <typename T>
 void coalesced_reduction_launch(T *dots, const T *data, int cols, int rows,
-                              cudaStream_t stream, bool inplace = false) {
+                                cudaStream_t stream, bool inplace = false) {
   coalescedReduction(dots, data, cols, rows, static_cast<T>(0), stream, inplace,
                      [] __device__(T in, int i) { return in * in; });
 }
@@ -53,7 +53,8 @@ template <typename T>
 class coalesced_reduction_test : public fixture<coalesced_reduction_inputs<T>> {
  protected:
   void initialize() override {
-    params_ = ::testing::TestWithParam<coalesced_reduction_inputs<T>>::GetParam();
+    params_ =
+      ::testing::TestWithParam<coalesced_reduction_inputs<T>>::GetParam();
     raft::random::Rng r(params_.seed);
     auto rows = params_.rows, cols = params_.cols;
     auto len = rows * cols;
@@ -77,9 +78,8 @@ class coalesced_reduction_test : public fixture<coalesced_reduction_inputs<T>> {
   }
 
   void check() override {
-    ASSERT_TRUE(raft::devArrMatch(
-                  dots_exp_, dots_act_, params_.rows,
-                  raft::compare_approx<T>(params_.tolerance)));
+    ASSERT_TRUE(raft::devArrMatch(dots_exp_, dots_act_, params_.rows,
+                                  raft::compare_approx<T>(params_.tolerance)));
   }
 
  protected:

@@ -26,7 +26,7 @@ namespace linalg {
 template <typename InType, int VecLen, typename Lambda, typename OutType,
           typename IdxType>
 __global__ void unary_op_kernel(OutType *out, const InType *in, IdxType len,
-                              Lambda op) {
+                                Lambda op) {
   using in_vec_t = TxN_t<InType, VecLen>;
   using out_vec_t = TxN_t<OutType, VecLen>;
   in_vec_t a;
@@ -47,7 +47,7 @@ __global__ void unary_op_kernel(OutType *out, const InType *in, IdxType len,
 template <typename InType, int VecLen, typename Lambda, typename OutType,
           typename IdxType, int TPB>
 void unary_op_impl(OutType *out, const InType *in, IdxType len, Lambda op,
-                 cudaStream_t stream) {
+                   cudaStream_t stream) {
   const IdxType nblks =
     raft::ceildiv(VecLen ? len / VecLen : len, static_cast<IdxType>(TPB));
   unary_op_kernel<InType, VecLen, Lambda, OutType, IdxType>
@@ -103,12 +103,13 @@ void unaryOp(OutType *out, const InType *in, IdxType len, Lambda op,  // NOLINT
       out, in, len, op, stream);
   } else {
     unary_op_impl<InType, 1, Lambda, OutType, IdxType, TPB>(out, in, len, op,
-                                                          stream);
+                                                            stream);
   }
 }
 
 template <typename OutType, typename Lambda, typename IdxType>
-__global__ void write_only_unary_op_kernel(OutType *out, IdxType len, Lambda op) {
+__global__ void write_only_unary_op_kernel(OutType *out, IdxType len,
+                                           Lambda op) {
   IdxType idx = threadIdx.x + (static_cast<IdxType>(blockIdx.x) * blockDim.x);
   if (idx < len) {
     op(out + idx, idx);

@@ -48,7 +48,7 @@ void naive_coalesced_reduction(Type *dots, const Type *data, int D, int N,
 
 template <typename Type>
 void unary_and_gemv(Type *dots, const Type *data, int D, int N,
-                  cudaStream_t stream) {
+                    cudaStream_t stream) {
   //computes a MLCommon unary op on data (squares it), then computes Ax
   //(A input matrix and x column vector) to sum columns
   thrust::device_vector<Type> sq(D * N);
@@ -68,7 +68,7 @@ void unary_and_gemv(Type *dots, const Type *data, int D, int N,
 
 template <typename Type>
 void naive_reduction(Type *dots, const Type *data, int D, int N, bool rowMajor,
-                    bool alongRows, cudaStream_t stream) {
+                     bool alongRows, cudaStream_t stream) {
   if (rowMajor && alongRows) {
     naive_coalesced_reduction(dots, data, D, N, stream);
   } else if (rowMajor && !alongRows) {

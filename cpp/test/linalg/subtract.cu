@@ -127,11 +127,11 @@ TEST_P(SubtractTestF, Result) {
 
 typedef SubtractTest<double> SubtractTestD;
 TEST_P(SubtractTestD, Result) {
-  ASSERT_TRUE(raft::devArrMatch(out_ref, out, params.len,
-                                raft::compare_approx<double>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(
+    out_ref, out, params.len, raft::compare_approx<double>(params.tolerance)));
 
-  ASSERT_TRUE(raft::devArrMatch(out_ref, in1, params.len,
-                                raft::compare_approx<double>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(
+    out_ref, in1, params.len, raft::compare_approx<double>(params.tolerance)));
 }
 
 INSTANTIATE_TEST_SUITE_P(SubtractTests, SubtractTestF,

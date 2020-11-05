@@ -25,18 +25,21 @@ namespace linalg {
 
 template <typename InType, typename OutType, typename IdxType>
 __global__ void naive_add_kernel(OutType *out, const InType *in1,
-                               const InType *in2, IdxType len) {
-  IdxType idx = threadIdx.x + (static_cast<IdxType>(blockIdx.x) * static_cast<IdxType>(blockDim.x));
+                                 const InType *in2, IdxType len) {
+  IdxType idx = threadIdx.x + (static_cast<IdxType>(blockIdx.x) *
+                               static_cast<IdxType>(blockDim.x));
   if (idx < len) {
     out[idx] = static_cast<OutType>(in1[idx] + in2[idx]);
   }
 }
 
 template <typename InType, typename IdxType = int, typename OutType = InType>
-void naive_add(OutType *out, const InType *in1, const InType *in2, IdxType len) {
+void naive_add(OutType *out, const InType *in1, const InType *in2,
+               IdxType len) {
   static const IdxType kTpb = 64;
   IdxType nblks = raft::ceildiv(len, kTpb);
-  naive_add_kernel<InType, OutType, IdxType><<<nblks, kTpb>>>(out, in1, in2, len);
+  naive_add_kernel<InType, OutType, IdxType>
+    <<<nblks, kTpb>>>(out, in1, in2, len);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
@@ -48,8 +51,8 @@ struct binary_op_inputs {
 };
 
 template <typename InType, typename IdxType = int, typename OutType = InType>
-::std::ostream &operator<<(::std::ostream &os,
-                           const binary_op_inputs<InType, IdxType, OutType> &d) {
+::std::ostream &operator<<(
+  ::std::ostream &os, const binary_op_inputs<InType, IdxType, OutType> &d) {
   return os;
 }
 

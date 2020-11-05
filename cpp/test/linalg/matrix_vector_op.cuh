@@ -22,9 +22,10 @@ namespace raft {
 namespace linalg {
 
 template <typename Type, typename IdxType = int>
-__global__ void naive_mat_vec_kernel(Type *out, const Type *mat, const Type *vec,
-                                  IdxType D, IdxType N, bool rowMajor,
-                                  bool bcastAlongRows, Type scalar) {
+__global__ void naive_mat_vec_kernel(Type *out, const Type *mat,
+                                     const Type *vec, IdxType D, IdxType N,
+                                     bool rowMajor, bool bcastAlongRows,
+                                     Type scalar) {
   IdxType idx = threadIdx.x + blockIdx.x * blockDim.x;
   auto len = N * D;
   IdxType col;
@@ -44,7 +45,7 @@ __global__ void naive_mat_vec_kernel(Type *out, const Type *mat, const Type *vec
 
 template <typename Type, typename IdxType = int>
 void naive_mat_vec(Type *out, const Type *mat, const Type *vec, IdxType D,
-                 IdxType N, bool rowMajor, bool bcastAlongRows, Type scalar) {
+                   IdxType N, bool rowMajor, bool bcastAlongRows, Type scalar) {
   static const IdxType kTpb = 64;
   auto len = N * D;
   IdxType nblks = raft::ceildiv(len, kTpb);
@@ -54,10 +55,10 @@ void naive_mat_vec(Type *out, const Type *mat, const Type *vec, IdxType D,
 }
 
 template <typename Type, typename IdxType = int>
-__global__ void naive_mat_vec_kernel(Type *out, const Type *mat, const Type *vec1,
-                                  const Type *vec2, IdxType D, IdxType N,
-                                  bool rowMajor, bool bcastAlongRows,
-                                  Type scalar) {
+__global__ void naive_mat_vec_kernel(Type *out, const Type *mat,
+                                     const Type *vec1, const Type *vec2,
+                                     IdxType D, IdxType N, bool rowMajor,
+                                     bool bcastAlongRows, Type scalar) {
   IdxType idx = threadIdx.x + blockIdx.x * blockDim.x;
   auto len = N * D;
   IdxType col;
@@ -76,14 +77,14 @@ __global__ void naive_mat_vec_kernel(Type *out, const Type *mat, const Type *vec
 }
 
 template <typename Type, typename IdxType = int>
-void naive_mat_vec(Type *out, const Type *mat, const Type *vec1, const Type *vec2,
-                 IdxType D, IdxType N, bool rowMajor, bool bcastAlongRows,
-                 Type scalar) {
+void naive_mat_vec(Type *out, const Type *mat, const Type *vec1,
+                   const Type *vec2, IdxType D, IdxType N, bool rowMajor,
+                   bool bcastAlongRows, Type scalar) {
   static const IdxType kTpb = 64;
   auto len = N * D;
   IdxType nblks = raft::ceildiv(len, kTpb);
-  naive_mat_vec_kernel<Type><<<nblks, kTpb>>>(out, mat, vec1, vec2, D, N, rowMajor,
-                                          bcastAlongRows, scalar);
+  naive_mat_vec_kernel<Type><<<nblks, kTpb>>>(out, mat, vec1, vec2, D, N,
+                                              rowMajor, bcastAlongRows, scalar);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 

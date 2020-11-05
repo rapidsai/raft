@@ -83,8 +83,9 @@ TEST_P(SumTestF, Result) {
 
 typedef SumTest<double> SumTestD;
 TEST_P(SumTestD, Result) {
-  ASSERT_TRUE(raft::devArrMatch(double(params.rows), sum_act, params.cols,
-                                raft::compare_approx<double>(params.tolerance)));
+  ASSERT_TRUE(
+    raft::devArrMatch(double(params.rows), sum_act, params.cols,
+                      raft::compare_approx<double>(params.tolerance)));
 }
 
 INSTANTIATE_TEST_CASE_P(SumTests, SumTestF, ::testing::ValuesIn(inputsf));

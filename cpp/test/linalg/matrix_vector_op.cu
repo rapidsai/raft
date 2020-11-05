@@ -17,8 +17,8 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <raft/random/rng.cuh>
-#include "../test_utils.h"
 #include "../fixture.hpp"
+#include "../test_utils.h"
 #include "matrix_vector_op.cuh"
 
 namespace raft {
@@ -43,9 +43,9 @@ template <typename T, typename IdxType>
 // within its class
 template <typename T, typename IdxType>
 void matrix_vector_op_launch(T *out, const T *in, const T *vec1, const T *vec2,
-                          IdxType D, IdxType N, bool row_major,
-                          bool bcast_along_rows, bool use_two_vectors,
-                          cudaStream_t stream) {
+                             IdxType D, IdxType N, bool row_major,
+                             bool bcast_along_rows, bool use_two_vectors,
+                             cudaStream_t stream) {
   if (use_two_vectors) {
     matrixVectorOp(
       out, in, vec1, vec2, D, N, row_major, bcast_along_rows,
@@ -61,7 +61,8 @@ template <typename T, typename IdxType>
 class mat_vec_op_test : public raft::fixture<mat_vec_op_inputs<T, IdxType>> {
  protected:
   void initialize() override {
-    params_ = ::testing::TestWithParam<mat_vec_op_inputs<T, IdxType>>::GetParam();
+    params_ =
+      ::testing::TestWithParam<mat_vec_op_inputs<T, IdxType>>::GetParam();
     raft::random::Rng r(params_.seed);
     auto n = params_.rows, d = params_.cols;
     auto len = n * d;
@@ -84,7 +85,8 @@ class mat_vec_op_test : public raft::fixture<mat_vec_op_inputs<T, IdxType>> {
                     params_.bcast_along_rows, kOne);
     }
     matrix_vector_op_launch(out_, in_, vec1_, vec2_, d, n, params_.row_major,
-                         params_.bcast_along_rows, params_.use_two_vectors, stream);
+                            params_.bcast_along_rows, params_.use_two_vectors,
+                            stream);
   }
 
   void finalize() override {

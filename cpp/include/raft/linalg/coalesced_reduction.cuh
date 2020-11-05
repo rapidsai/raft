@@ -29,11 +29,11 @@ namespace linalg {
 template <typename InType, typename OutType, typename IdxType, int TPB,
           typename MainLambda, typename ReduceLambda, typename FinalLambda>
 __global__ void coalesced_reduction_kernel(OutType *dots, const InType *data,
-                                         int D, int N, OutType init,
-                                         MainLambda main_op,
-                                         ReduceLambda reduce_op,
-                                         FinalLambda final_op,
-                                         bool inplace = false) {
+                                           int D, int N, OutType init,
+                                           MainLambda main_op,
+                                           ReduceLambda reduce_op,
+                                           FinalLambda final_op,
+                                           bool inplace = false) {
   using block_reduce_t = cub::BlockReduce<OutType, TPB>;
   __shared__ typename block_reduce_t::TempStorage temp_storage;  // NOLINT
   auto thread_data = init;
@@ -84,7 +84,8 @@ template <typename InType, typename OutType = InType, typename IdxType = int,
           typename ReduceLambda = raft::Sum<OutType>,
           typename FinalLambda = raft::Nop<OutType>>
 void coalescedReduction(OutType *dots, const InType *data, int D,  // NOLINT
-                         int N, OutType init, cudaStream_t stream, bool inplace = false,
+                        int N, OutType init, cudaStream_t stream,
+                        bool inplace = false,
                         MainLambda main_op = raft::Nop<InType, IdxType>(),
                         ReduceLambda reduce_op = raft::Sum<OutType>(),
                         FinalLambda final_op = raft::Nop<OutType>()) {

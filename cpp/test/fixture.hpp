@@ -17,22 +17,19 @@
 #pragma once
 
 #include <gtest/gtest.h>
-#include <raft/handle.hpp>
 #include <raft/cudart_utils.h>
+#include <raft/handle.hpp>
 
 namespace raft {
 
 template <typename ParamT>
 class fixture : public ::testing::TestWithParam<ParamT> {
  protected:
-  virtual void initialize() {
-  }
+  virtual void initialize() {}
 
-  virtual void finalize() {
-  }
+  virtual void finalize() {}
 
-  virtual void check() {
-  }
+  virtual void check() {}
 
   void SetUp() override {  // NOLINT
     CUDA_CHECK(cudaStreamCreate(&stream_));
@@ -42,7 +39,7 @@ class fixture : public ::testing::TestWithParam<ParamT> {
     CUDA_CHECK(cudaDeviceSynchronize());  // to be safe
   }
 
-  void TearDown() override {  // NOLINT
+  void TearDown() override {              // NOLINT
     CUDA_CHECK(cudaDeviceSynchronize());  // to be safe
     finalize();
     handle_.reset();
@@ -55,15 +52,11 @@ class fixture : public ::testing::TestWithParam<ParamT> {
   cudaStream_t stream_;
 };  // class fixture
 
-
-#define RUN_TEST_BASE(test_suite_name, test_name, inputs)       \
-  TEST_P(test_name, Result) {                                   \
-    this->check();                                              \
-  }                                                             \
-                                                                \
-  INSTANTIATE_TEST_SUITE_P(test_suite_name, test_name,          \
-    ::testing::ValuesIn(inputs))
-  
+#define RUN_TEST_BASE(test_suite_name, test_name, inputs) \
+  TEST_P(test_name, Result) { this->check(); }            \
+                                                          \
+  INSTANTIATE_TEST_SUITE_P(test_suite_name, test_name,    \
+                           ::testing::ValuesIn(inputs))
 
 #define RUN_TEST(test_suite_name, test_name, test_type, inputs) \
   using test_name = test_type;                                  \

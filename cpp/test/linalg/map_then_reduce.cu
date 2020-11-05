@@ -18,15 +18,15 @@
 #include <raft/cudart_utils.h>
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/random/rng.cuh>
-#include "../test_utils.h"
 #include "../fixture.hpp"
+#include "../test_utils.h"
 
 namespace raft {
 namespace linalg {
 
 template <typename Type, typename MapOp>
 __global__ void naive_map_reduce_kernel(Type *out, const Type *in, size_t len,
-                                     MapOp map) {
+                                        MapOp map) {
   int idx = threadIdx.x + blockIdx.x * blockDim.x;
   if (idx < len) {
     raft::myAtomicAdd(out, map(in[idx]));
@@ -35,7 +35,7 @@ __global__ void naive_map_reduce_kernel(Type *out, const Type *in, size_t len,
 
 template <typename Type, typename MapOp>
 void naive_map_reduce(Type *out, const Type *in, size_t len, MapOp map,
-                    cudaStream_t stream) {
+                      cudaStream_t stream) {
   static const int kTpb = 64;
   int nblks = raft::ceildiv(len, static_cast<size_t>(kTpb));
   naive_map_reduce_kernel<Type, MapOp>
@@ -51,7 +51,8 @@ struct map_reduce_inputs {
 };
 
 template <typename T>
-::std::ostream &operator<<(::std::ostream &os, const map_reduce_inputs<T> &dims) {
+::std::ostream &operator<<(::std::ostream &os,
+                           const map_reduce_inputs<T> &dims) {
   return os;
 }
 
@@ -60,7 +61,7 @@ template <typename T>
 // within its class
 template <typename T>
 void map_reduce_launch(T *out_ref, T *out, const T *in, size_t len,
-                     cudaStream_t stream) {
+                       cudaStream_t stream) {
   auto op = [] __device__(T in) { return in; };
   naive_map_reduce(out_ref, in, len, op, stream);
   mapThenSumReduce(out, len, op, 0, in);

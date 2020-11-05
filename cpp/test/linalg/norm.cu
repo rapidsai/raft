@@ -220,8 +220,9 @@ TEST_P(RowNormTestF, Result) {
 
 typedef RowNormTest<double> RowNormTestD;
 TEST_P(RowNormTestD, Result) {
-  ASSERT_TRUE(raft::devArrMatch(dots_exp, dots_act, params.rows,
-                                raft::compare_approx<double>(params.tolerance)));
+  ASSERT_TRUE(
+    raft::devArrMatch(dots_exp, dots_act, params.rows,
+                      raft::compare_approx<double>(params.tolerance)));
 }
 
 INSTANTIATE_TEST_CASE_P(RowNormTests, RowNormTestF,
@@ -276,8 +277,9 @@ TEST_P(ColNormTestF, Result) {
 
 typedef ColNormTest<double> ColNormTestD;
 TEST_P(ColNormTestD, Result) {
-  ASSERT_TRUE(raft::devArrMatch(dots_exp, dots_act, params.cols,
-                                raft::compare_approx<double>(params.tolerance)));
+  ASSERT_TRUE(
+    raft::devArrMatch(dots_exp, dots_act, params.cols,
+                      raft::compare_approx<double>(params.tolerance)));
 }
 
 INSTANTIATE_TEST_CASE_P(ColNormTests, ColNormTestF,

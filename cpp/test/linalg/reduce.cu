@@ -63,7 +63,7 @@ class ReduceTest : public ::testing::TestWithParam<ReduceInputs<T>> {
     raft::allocate(dots_act, outlen);
     r.uniform(data, len, T(-1.0), T(1.0), stream);
     naive_reduction(dots_exp, data, cols, rows, params.rowMajor,
-                   params.alongRows, stream);
+                    params.alongRows, stream);
 
     // Perform reduction with default inplace = false first
     reduceLaunch(dots_act, data, cols, rows, params.rowMajor, params.alongRows,

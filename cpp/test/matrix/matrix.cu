@@ -84,8 +84,9 @@ TEST_P(MatrixTestF, Result) {
 
 typedef MatrixTest<double> MatrixTestD;
 TEST_P(MatrixTestD, Result) {
-  ASSERT_TRUE(raft::devArrMatch(in1, in2, params.n_row * params.n_col,
-                                raft::compare_approx<double>(params.tolerance)));
+  ASSERT_TRUE(
+    raft::devArrMatch(in1, in2, params.n_row * params.n_col,
+                      raft::compare_approx<double>(params.tolerance)));
 }
 
 INSTANTIATE_TEST_SUITE_P(MatrixTests, MatrixTestF,
