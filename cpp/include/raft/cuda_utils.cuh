@@ -131,7 +131,7 @@ DI void myAtomicAdd(Type *address, Type val) {  // NOLINT
 template <>
 DI void myAtomicAdd(double *address, double val) {  // NOLINT
   auto *address_as_ull =
-    reinterpret_cast<unsigned long long*>(address);  // NOLINT
+    reinterpret_cast<unsigned long long *>(address);  // NOLINT
   auto old = *address_as_ull, assumed;
   do {
     assumed = old;
@@ -148,7 +148,7 @@ template <typename ReduceLambda>
 DI void myAtomicReduce(double *address, double val,  // NOLINT
                        ReduceLambda op) {
   auto *address_as_ull =
-    reinterpret_cast<unsigned long long*>(address);  // NOLINT
+    reinterpret_cast<unsigned long long *>(address);  // NOLINT
   unsigned long long old = *address_as_ull, assumed;  // NOLINT
   do {
     assumed = old;
@@ -160,7 +160,7 @@ DI void myAtomicReduce(double *address, double val,  // NOLINT
 
 template <typename ReduceLambda>
 DI void myAtomicReduce(float *address, float val, ReduceLambda op) {  // NOLINT
-  auto *address_as_uint = reinterpret_cast<unsigned*>(address);
+  auto *address_as_uint = reinterpret_cast<unsigned *>(address);
   unsigned old = *address_as_uint, assumed;
   do {
     assumed = old;
@@ -189,9 +189,9 @@ DI void myAtomicReduce(long long *address, long long val,  // NOLINT
 }
 
 template <typename ReduceLambda>
-DI void myAtomicReduce(unsigned long long *address,  // NOLINT
+DI void myAtomicReduce(unsigned long long *address,                // NOLINT
                        unsigned long long val, ReduceLambda op) {  // NOLINT
-  unsigned long long old = *address, assumed;  // NOLINT
+  unsigned long long old = *address, assumed;                      // NOLINT
   do {
     assumed = old;
     old = atomicCAS(address, assumed, op(val, assumed));

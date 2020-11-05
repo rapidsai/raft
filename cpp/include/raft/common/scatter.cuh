@@ -43,7 +43,8 @@ __global__ void scatter_kernel(DataT *out, const DataT *in, const IdxT *idx,
 template <typename DataT, int VecLen, typename Lambda, typename IdxT, int TPB>
 void scatter_impl(DataT *out, const DataT *in, const IdxT *idx, IdxT len,
                   Lambda op, cudaStream_t stream) {
-  const IdxT nblks = raft::ceildiv(VecLen ? len / VecLen : len, static_cast<IdxT>(TPB));
+  const IdxT nblks =
+    raft::ceildiv(VecLen ? len / VecLen : len, static_cast<IdxT>(TPB));
   scatter_kernel<DataT, VecLen, Lambda, IdxT>
     <<<nblks, TPB, 0, stream>>>(out, in, idx, len, op);
   CUDA_CHECK(cudaGetLastError());
@@ -76,19 +77,19 @@ void scatter(DataT *out, const DataT *in, const IdxT *idx, IdxT len,
   size_t bytes = len * kMaxPerElem;
   if (16 / kMaxPerElem && bytes % 16 == 0) {
     scatter_impl<DataT, 16 / kMaxPerElem, Lambda, IdxT, TPB>(out, in, idx, len,
-                                                           op, stream);
+                                                             op, stream);
   } else if (8 / kMaxPerElem && bytes % 8 == 0) {
-    scatter_impl<DataT, 8 / kMaxPerElem, Lambda, IdxT, TPB>(out, in, idx, len, op,
-                                                          stream);
+    scatter_impl<DataT, 8 / kMaxPerElem, Lambda, IdxT, TPB>(out, in, idx, len,
+                                                            op, stream);
   } else if (4 / kMaxPerElem && bytes % 4 == 0) {
-    scatter_impl<DataT, 4 / kMaxPerElem, Lambda, IdxT, TPB>(out, in, idx, len, op,
-                                                          stream);
+    scatter_impl<DataT, 4 / kMaxPerElem, Lambda, IdxT, TPB>(out, in, idx, len,
+                                                            op, stream);
   } else if (2 / kMaxPerElem && bytes % 2 == 0) {
-    scatter_impl<DataT, 2 / kMaxPerElem, Lambda, IdxT, TPB>(out, in, idx, len, op,
-                                                          stream);
+    scatter_impl<DataT, 2 / kMaxPerElem, Lambda, IdxT, TPB>(out, in, idx, len,
+                                                            op, stream);
   } else if (1 / kMaxPerElem) {
-    scatter_impl<DataT, 1 / kMaxPerElem, Lambda, IdxT, TPB>(out, in, idx, len, op,
-                                                          stream);
+    scatter_impl<DataT, 1 / kMaxPerElem, Lambda, IdxT, TPB>(out, in, idx, len,
+                                                            op, stream);
   } else {
     scatter_impl<DataT, 1, Lambda, IdxT, TPB>(out, in, idx, len, op, stream);
   }
