@@ -18,22 +18,23 @@
 #include <raft/cudart_utils.h>
 #include <raft/random/rng.cuh>
 #include "../test_utils.h"
+#include "../fixture.hpp"
 #include "matrix_vector_op.cuh"
 
 namespace raft {
 namespace linalg {
 
 template <typename T, typename IdxType = int>
-struct MatVecOpInputs {
+struct mat_vec_op_inputs {
   T tolerance;
   IdxType rows, cols;
-  bool rowMajor, bcastAlongRows, useTwoVectors;
-  unsigned long long int seed;
+  bool row_major, bcast_along_rows, use_two_vectors;
+  uint64_t seed;
 };
 
 template <typename T, typename IdxType>
 ::std::ostream &operator<<(::std::ostream &os,
-                           const MatVecOpInputs<T, IdxType> &dims) {
+                           const mat_vec_op_inputs<T, IdxType> &dims) {
   return os;
 }
 
@@ -41,68 +42,69 @@ template <typename T, typename IdxType>
 // for an extended __device__ lambda cannot have private or protected access
 // within its class
 template <typename T, typename IdxType>
-void matrixVectorOpLaunch(T *out, const T *in, const T *vec1, const T *vec2,
-                          IdxType D, IdxType N, bool rowMajor,
-                          bool bcastAlongRows, bool useTwoVectors,
+void matrix_vector_op_launch(T *out, const T *in, const T *vec1, const T *vec2,
+                          IdxType D, IdxType N, bool row_major,
+                          bool bcast_along_rows, bool use_two_vectors,
                           cudaStream_t stream) {
-  if (useTwoVectors) {
+  if (use_two_vectors) {
     matrixVectorOp(
-      out, in, vec1, vec2, D, N, rowMajor, bcastAlongRows,
+      out, in, vec1, vec2, D, N, row_major, bcast_along_rows,
       [] __device__(T a, T b, T c) { return a + b + c; }, stream);
   } else {
     matrixVectorOp(
-      out, in, vec1, D, N, rowMajor, bcastAlongRows,
+      out, in, vec1, D, N, row_major, bcast_along_rows,
       [] __device__(T a, T b) { return a + b; }, stream);
   }
 }
 
 template <typename T, typename IdxType>
-class MatVecOpTest
-  : public ::testing::TestWithParam<MatVecOpInputs<T, IdxType>> {
+class mat_vec_op_test : public raft::fixture<mat_vec_op_inputs<T, IdxType>> {
  protected:
-  void SetUp() override {
-    params = ::testing::TestWithParam<MatVecOpInputs<T, IdxType>>::GetParam();
-    raft::random::Rng r(params.seed);
-    IdxType N = params.rows, D = params.cols;
-    IdxType len = N * D;
-
-    cudaStream_t stream;
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    allocate(in, len);
-    allocate(out_ref, len);
-    allocate(out, len);
-    IdxType vecLen = params.bcastAlongRows ? D : N;
-    allocate(vec1, vecLen);
-    allocate(vec2, vecLen);
-    r.uniform(in, len, (T)-1.0, (T)1.0, stream);
-    r.uniform(vec1, vecLen, (T)-1.0, (T)1.0, stream);
-    r.uniform(vec2, vecLen, (T)-1.0, (T)1.0, stream);
-    if (params.useTwoVectors) {
-      naiveMatVec(out_ref, in, vec1, vec2, D, N, params.rowMajor,
-                  params.bcastAlongRows, (T)1.0);
+  void initialize() override {
+    params_ = ::testing::TestWithParam<mat_vec_op_inputs<T, IdxType>>::GetParam();
+    raft::random::Rng r(params_.seed);
+    auto n = params_.rows, d = params_.cols;
+    auto len = n * d;
+    auto stream = this->handle().get_stream();
+    allocate(in_, len);
+    allocate(out_ref_, len);
+    allocate(out_, len);
+    auto vec_len = params_.bcast_along_rows ? d : n;
+    allocate(vec1_, vec_len);
+    allocate(vec2_, vec_len);
+    constexpr auto kOne = static_cast<T>(1.0);
+    r.uniform(in_, len, -kOne, kOne, stream);
+    r.uniform(vec1_, vec_len, -kOne, kOne, stream);
+    r.uniform(vec2_, vec_len, -kOne, kOne, stream);
+    if (params_.use_two_vectors) {
+      naive_mat_vec(out_ref_, in_, vec1_, vec2_, d, n, params_.row_major,
+                    params_.bcast_along_rows, kOne);
     } else {
-      naiveMatVec(out_ref, in, vec1, D, N, params.rowMajor,
-                  params.bcastAlongRows, (T)1.0);
+      naive_mat_vec(out_ref_, in_, vec1_, d, n, params_.row_major,
+                    params_.bcast_along_rows, kOne);
     }
-    matrixVectorOpLaunch(out, in, vec1, vec2, D, N, params.rowMajor,
-                         params.bcastAlongRows, params.useTwoVectors, stream);
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    matrix_vector_op_launch(out_, in_, vec1_, vec2_, d, n, params_.row_major,
+                         params_.bcast_along_rows, params_.use_two_vectors, stream);
   }
 
-  void TearDown() override {
-    CUDA_CHECK(cudaFree(vec1));
-    CUDA_CHECK(cudaFree(vec2));
-    CUDA_CHECK(cudaFree(out));
-    CUDA_CHECK(cudaFree(out_ref));
-    CUDA_CHECK(cudaFree(in));
+  void finalize() override {
+    CUDA_CHECK(cudaFree(vec1_));
+    CUDA_CHECK(cudaFree(vec2_));
+    CUDA_CHECK(cudaFree(out_));
+    CUDA_CHECK(cudaFree(out_ref_));
+    CUDA_CHECK(cudaFree(in_));
   }
 
- protected:
-  MatVecOpInputs<T, IdxType> params;
-  T *in, *out, *out_ref, *vec1, *vec2;
+  void check() override {
+    ASSERT_TRUE(devArrMatch(out_ref_, out_, params_.rows * params_.cols,
+                            compare_approx<T>(params_.tolerance)));
+  }
+
+  mat_vec_op_inputs<T, IdxType> params_;
+  T *in_, *out_, *out_ref_, *vec1_, *vec2_;
 };
 
-const std::vector<MatVecOpInputs<float, int>> inputsf_i32 = {
+const std::vector<mat_vec_op_inputs<float, int>> kInputsFI32 = {
   {0.00001f, 1024, 32, true, true, false, 1234ULL},
   {0.00001f, 1024, 64, true, true, false, 1234ULL},
   {0.00001f, 1024, 32, true, false, false, 1234ULL},
@@ -120,26 +122,16 @@ const std::vector<MatVecOpInputs<float, int>> inputsf_i32 = {
   {0.00001f, 1024, 64, false, true, true, 1234ULL},
   {0.00001f, 1024, 32, false, false, true, 1234ULL},
   {0.00001f, 1024, 64, false, false, true, 1234ULL}};
-typedef MatVecOpTest<float, int> MatVecOpTestF_i32;
-TEST_P(MatVecOpTestF_i32, Result) {
-  ASSERT_TRUE(devArrMatch(out_ref, out, params.rows * params.cols,
-                          compare_approx<float>(params.tolerance)));
-}
-INSTANTIATE_TEST_SUITE_P(MatVecOpTests, MatVecOpTestF_i32,
-                         ::testing::ValuesIn(inputsf_i32));
+using mat_vec_op_test_f_i32 = mat_vec_op_test<float, int>;
+RUN_TEST_BASE(mat_vec_op, mat_vec_op_test_f_i32, kInputsFI32);
 
-const std::vector<MatVecOpInputs<float, size_t>> inputsf_i64 = {
+const std::vector<mat_vec_op_inputs<float, size_t>> kInputsFI64 = {
   {0.00001f, 2500, 250, false, false, false, 1234ULL},
   {0.00001f, 2500, 250, false, false, true, 1234ULL}};
-typedef MatVecOpTest<float, size_t> MatVecOpTestF_i64;
-TEST_P(MatVecOpTestF_i64, Result) {
-  ASSERT_TRUE(devArrMatch(out_ref, out, params.rows * params.cols,
-                          compare_approx<float>(params.tolerance)));
-}
-INSTANTIATE_TEST_SUITE_P(MatVecOpTests, MatVecOpTestF_i64,
-                         ::testing::ValuesIn(inputsf_i64));
+using mat_vec_op_test_f_i64 = mat_vec_op_test<float, size_t>;
+RUN_TEST_BASE(mat_vec_op, mat_vec_op_test_f_i64, kInputsFI64);
 
-const std::vector<MatVecOpInputs<double, int>> inputsd_i32 = {
+const std::vector<mat_vec_op_inputs<double, int>> kInputsDI32 = {
   {0.0000001, 1024, 32, true, true, false, 1234ULL},
   {0.0000001, 1024, 64, true, true, false, 1234ULL},
   {0.0000001, 1024, 32, true, false, false, 1234ULL},
@@ -157,24 +149,14 @@ const std::vector<MatVecOpInputs<double, int>> inputsd_i32 = {
   {0.0000001, 1024, 64, false, true, true, 1234ULL},
   {0.0000001, 1024, 32, false, false, true, 1234ULL},
   {0.0000001, 1024, 64, false, false, true, 1234ULL}};
-typedef MatVecOpTest<double, int> MatVecOpTestD_i32;
-TEST_P(MatVecOpTestD_i32, Result) {
-  ASSERT_TRUE(devArrMatch(out_ref, out, params.rows * params.cols,
-                          compare_approx<double>(params.tolerance)));
-}
-INSTANTIATE_TEST_SUITE_P(MatVecOpTests, MatVecOpTestD_i32,
-                         ::testing::ValuesIn(inputsd_i32));
+using mat_vec_op_test_d_i32 = mat_vec_op_test<double, int>;
+RUN_TEST_BASE(mat_vec_op, mat_vec_op_test_d_i32, kInputsDI32);
 
-const std::vector<MatVecOpInputs<double, size_t>> inputsd_i64 = {
+const std::vector<mat_vec_op_inputs<double, size_t>> kInputsDI64 = {
   {0.0000001, 2500, 250, false, false, false, 1234ULL},
   {0.0000001, 2500, 250, false, false, true, 1234ULL}};
-typedef MatVecOpTest<double, size_t> MatVecOpTestD_i64;
-TEST_P(MatVecOpTestD_i64, Result) {
-  ASSERT_TRUE(devArrMatch(out_ref, out, params.rows * params.cols,
-                          compare_approx<double>(params.tolerance)));
-}
-INSTANTIATE_TEST_SUITE_P(MatVecOpTests, MatVecOpTestD_i64,
-                         ::testing::ValuesIn(inputsd_i64));
+using mat_vec_op_test_d_i64 = mat_vec_op_test<double, size_t>;
+RUN_TEST_BASE(mat_vec_op, mat_vec_op_test_d_i64, kInputsDI64);
 
 }  // end namespace linalg
 }  // end namespace raft

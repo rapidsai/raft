@@ -56,14 +56,17 @@ class fixture : public ::testing::TestWithParam<ParamT> {
 };  // class fixture
 
 
-#define RUN_TEST(test_suite_name, test_name, test_type, inputs) \
-  using test_name = test_type;                                  \
-                                                                \
+#define RUN_TEST_BASE(test_suite_name, test_name, inputs)       \
   TEST_P(test_name, Result) {                                   \
     this->check();                                              \
   }                                                             \
                                                                 \
   INSTANTIATE_TEST_SUITE_P(test_suite_name, test_name,          \
     ::testing::ValuesIn(inputs))
+  
+
+#define RUN_TEST(test_suite_name, test_name, test_type, inputs) \
+  using test_name = test_type;                                  \
+  RUN_TEST_BASE(test_suite_name, test_name, inputs)
 
 }  // namespace raft
