@@ -24,30 +24,30 @@ namespace raft {
 namespace linalg {
 
 template <typename Type>
-__global__ void naiveCoalescedReductionKernel(Type *dots, const Type *data,
-                                              int D, int N) {
-  Type acc = (Type)0;
-  int rowStart = threadIdx.x + blockIdx.x * blockDim.x;
-  if (rowStart < N) {
+__global__ void naive_coalesced_reduction_kernel(Type *dots, const Type *data,
+                                                 int D, int N) {
+  auto acc = static_cast<Type>(0);
+  int row_start = threadIdx.x + blockIdx.x * blockDim.x;
+  if (row_start < N) {
     for (int i = 0; i < D; ++i) {
-      acc += data[rowStart * D + i] * data[rowStart * D + i];
+      acc += data[row_start * D + i] * data[row_start * D + i];
     }
-    dots[rowStart] = 2 * acc;
+    dots[row_start] = 2 * acc;
   }
 }
 
 template <typename Type>
-void naiveCoalescedReduction(Type *dots, const Type *data, int D, int N,
-                             cudaStream_t stream) {
-  static const int TPB = 64;
-  int nblks = raft::ceildiv(N, TPB);
-  naiveCoalescedReductionKernel<Type>
-    <<<nblks, TPB, 0, stream>>>(dots, data, D, N);
+void naive_coalesced_reduction(Type *dots, const Type *data, int D, int N,
+                               cudaStream_t stream) {
+  static const int kTpb = 64;
+  auto nblks = raft::ceildiv(N, kTpb);
+  naive_coalesced_reduction_kernel<Type>
+    <<<nblks, kTpb, 0, stream>>>(dots, data, D, N);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
 template <typename Type>
-void unaryAndGemv(Type *dots, const Type *data, int D, int N,
+void unary_and_gemv(Type *dots, const Type *data, int D, int N,
                   cudaStream_t stream) {
   //computes a MLCommon unary op on data (squares it), then computes Ax
   //(A input matrix and x column vector) to sum columns
@@ -67,16 +67,16 @@ void unaryAndGemv(Type *dots, const Type *data, int D, int N,
 }
 
 template <typename Type>
-void naiveReduction(Type *dots, const Type *data, int D, int N, bool rowMajor,
+void naive_reduction(Type *dots, const Type *data, int D, int N, bool rowMajor,
                     bool alongRows, cudaStream_t stream) {
   if (rowMajor && alongRows) {
-    naiveCoalescedReduction(dots, data, D, N, stream);
+    naive_coalesced_reduction(dots, data, D, N, stream);
   } else if (rowMajor && !alongRows) {
-    unaryAndGemv(dots, data, D, N, stream);
+    unary_and_gemv(dots, data, D, N, stream);
   } else if (!rowMajor && alongRows) {
-    unaryAndGemv(dots, data, N, D, stream);
+    unary_and_gemv(dots, data, N, D, stream);
   } else {
-    naiveCoalescedReduction(dots, data, N, D, stream);
+    naive_coalesced_reduction(dots, data, N, D, stream);
   }
   CUDA_CHECK(cudaDeviceSynchronize());
 }

@@ -25,18 +25,20 @@ namespace linalg {
 
 template <typename InType, int VecLen, typename Lambda, typename OutType,
           typename IdxType>
-__global__ void unaryOpKernel(OutType *out, const InType *in, IdxType len,
+__global__ void unary_op_kernel(OutType *out, const InType *in, IdxType len,
                               Lambda op) {
-  typedef TxN_t<InType, VecLen> InVecType;
-  typedef TxN_t<OutType, VecLen> OutVecType;
-  InVecType a;
-  OutVecType b;
-  IdxType idx = threadIdx.x + ((IdxType)blockIdx.x * blockDim.x);
-  idx *= InVecType::Ratio;
-  if (idx >= len) return;
+  using in_vec_t = TxN_t<InType, VecLen>;
+  using out_vec_t = TxN_t<OutType, VecLen>;
+  in_vec_t a;
+  out_vec_t b;
+  IdxType idx = threadIdx.x + (static_cast<IdxType>(blockIdx.x) * blockDim.x);
+  idx *= in_vec_t::Ratio;
+  if (idx >= len) {
+    return;
+  }
   a.load(in, idx);
 #pragma unroll
-  for (int i = 0; i < InVecType::Ratio; ++i) {
+  for (int i = 0; i < in_vec_t::Ratio; ++i) {
     b.val.data[i] = op(a.val.data[i]);
   }
   b.store(out, idx);
@@ -44,11 +46,11 @@ __global__ void unaryOpKernel(OutType *out, const InType *in, IdxType len,
 
 template <typename InType, int VecLen, typename Lambda, typename OutType,
           typename IdxType, int TPB>
-void unaryOpImpl(OutType *out, const InType *in, IdxType len, Lambda op,
+void unary_op_impl(OutType *out, const InType *in, IdxType len, Lambda op,
                  cudaStream_t stream) {
   const IdxType nblks =
-    raft::ceildiv(VecLen ? len / VecLen : len, (IdxType)TPB);
-  unaryOpKernel<InType, VecLen, Lambda, OutType, IdxType>
+    raft::ceildiv(VecLen ? len / VecLen : len, static_cast<IdxType>(TPB));
+  unary_op_kernel<InType, VecLen, Lambda, OutType, IdxType>
     <<<nblks, TPB, 0, stream>>>(out, in, len, op);
   CUDA_CHECK(cudaPeekAtLastError());
 }
@@ -70,42 +72,44 @@ void unaryOpImpl(OutType *out, const InType *in, IdxType len, Lambda op,
  */
 template <typename InType, typename Lambda, typename IdxType = int,
           typename OutType = InType, int TPB = 256>
-void unaryOp(OutType *out, const InType *in, IdxType len, Lambda op,
+void unaryOp(OutType *out, const InType *in, IdxType len, Lambda op,  // NOLINT
              cudaStream_t stream) {
-  if (len <= 0) return;  //silently skip in case of 0 length input
-  constexpr auto maxSize =
+  if (len <= 0) {
+    return;  //silently skip in case of 0 length input
+  }
+  constexpr auto kMaxSize =
     sizeof(InType) >= sizeof(OutType) ? sizeof(InType) : sizeof(OutType);
-  size_t bytes = len * maxSize;
-  uint64_t inAddr = uint64_t(in);
-  uint64_t outAddr = uint64_t(out);
-  if (16 / maxSize && bytes % 16 == 0 && inAddr % 16 == 0 &&
-      outAddr % 16 == 0) {
-    unaryOpImpl<InType, 16 / maxSize, Lambda, OutType, IdxType, TPB>(
+  size_t bytes = len * kMaxSize;
+  auto in_addr = reinterpret_cast<uint64_t>(in);
+  auto out_addr = reinterpret_cast<uint64_t>(out);
+  if (16 / kMaxSize && bytes % 16 == 0 && in_addr % 16 == 0 &&
+      out_addr % 16 == 0) {
+    unary_op_impl<InType, 16 / kMaxSize, Lambda, OutType, IdxType, TPB>(
       out, in, len, op, stream);
-  } else if (8 / maxSize && bytes % 8 == 0 && inAddr % 8 == 0 &&
-             outAddr % 8 == 0) {
-    unaryOpImpl<InType, 8 / maxSize, Lambda, OutType, IdxType, TPB>(
+  } else if (8 / kMaxSize && bytes % 8 == 0 && in_addr % 8 == 0 &&
+             out_addr % 8 == 0) {
+    unary_op_impl<InType, 8 / kMaxSize, Lambda, OutType, IdxType, TPB>(
       out, in, len, op, stream);
-  } else if (4 / maxSize && bytes % 4 == 0 && inAddr % 4 == 0 &&
-             outAddr % 4 == 0) {
-    unaryOpImpl<InType, 4 / maxSize, Lambda, OutType, IdxType, TPB>(
+  } else if (4 / kMaxSize && bytes % 4 == 0 && in_addr % 4 == 0 &&
+             out_addr % 4 == 0) {
+    unary_op_impl<InType, 4 / kMaxSize, Lambda, OutType, IdxType, TPB>(
       out, in, len, op, stream);
-  } else if (2 / maxSize && bytes % 2 == 0 && inAddr % 2 == 0 &&
-             outAddr % 2 == 0) {
-    unaryOpImpl<InType, 2 / maxSize, Lambda, OutType, IdxType, TPB>(
+  } else if (2 / kMaxSize && bytes % 2 == 0 && in_addr % 2 == 0 &&
+             out_addr % 2 == 0) {
+    unary_op_impl<InType, 2 / kMaxSize, Lambda, OutType, IdxType, TPB>(
       out, in, len, op, stream);
-  } else if (1 / maxSize) {
-    unaryOpImpl<InType, 1 / maxSize, Lambda, OutType, IdxType, TPB>(
+  } else if (1 / kMaxSize) {
+    unary_op_impl<InType, 1 / kMaxSize, Lambda, OutType, IdxType, TPB>(
       out, in, len, op, stream);
   } else {
-    unaryOpImpl<InType, 1, Lambda, OutType, IdxType, TPB>(out, in, len, op,
+    unary_op_impl<InType, 1, Lambda, OutType, IdxType, TPB>(out, in, len, op,
                                                           stream);
   }
 }
 
 template <typename OutType, typename Lambda, typename IdxType>
-__global__ void writeOnlyUnaryOpKernel(OutType *out, IdxType len, Lambda op) {
-  IdxType idx = threadIdx.x + ((IdxType)blockIdx.x * blockDim.x);
+__global__ void write_only_unary_op_kernel(OutType *out, IdxType len, Lambda op) {
+  IdxType idx = threadIdx.x + (static_cast<IdxType>(blockIdx.x) * blockDim.x);
   if (idx < len) {
     op(out + idx, idx);
   }
@@ -130,11 +134,13 @@ __global__ void writeOnlyUnaryOpKernel(OutType *out, IdxType len, Lambda op) {
  */
 template <typename OutType, typename Lambda, typename IdxType = int,
           int TPB = 256>
-void writeOnlyUnaryOp(OutType *out, IdxType len, Lambda op,
+void writeOnlyUnaryOp(OutType *out, IdxType len, Lambda op,  // NOLINT
                       cudaStream_t stream) {
-  if (len <= 0) return;  // silently skip in case of 0 length input
+  if (len <= 0) {
+    return;  // silently skip in case of 0 length input
+  }
   auto nblks = raft::ceildiv<IdxType>(len, TPB);
-  writeOnlyUnaryOpKernel<OutType, Lambda, IdxType>
+  write_only_unary_op_kernel<OutType, Lambda, IdxType>
     <<<nblks, TPB, 0, stream>>>(out, len, op);
   CUDA_CHECK(cudaGetLastError());
 }

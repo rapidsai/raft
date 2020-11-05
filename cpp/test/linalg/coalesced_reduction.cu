@@ -20,21 +20,22 @@
 #include <raft/linalg/coalesced_reduction.cuh>
 #include <raft/random/rng.cuh>
 #include "../test_utils.h"
+#include "../fixture.hpp"
 #include "reduce.cuh"
 
 namespace raft {
 namespace linalg {
 
 template <typename T>
-struct coalescedReductionInputs {
+struct coalesced_reduction_inputs {
   T tolerance;
   int rows, cols;
-  unsigned long long int seed;
+  uint64_t seed;
 };
 
 template <typename T>
 ::std::ostream &operator<<(::std::ostream &os,
-                           const coalescedReductionInputs<T> &dims) {
+                           const coalesced_reduction_inputs<T> &dims) {
   return os;
 }
 
@@ -42,77 +43,65 @@ template <typename T>
 // for an extended __device__ lambda cannot have private or protected access
 // within its class
 template <typename T>
-void coalescedReductionLaunch(T *dots, const T *data, int cols, int rows,
+void coalesced_reduction_launch(T *dots, const T *data, int cols, int rows,
                               cudaStream_t stream, bool inplace = false) {
-  coalescedReduction(dots, data, cols, rows, (T)0, stream, inplace,
+  coalescedReduction(dots, data, cols, rows, static_cast<T>(0), stream, inplace,
                      [] __device__(T in, int i) { return in * in; });
 }
 
 template <typename T>
-class coalescedReductionTest
-  : public ::testing::TestWithParam<coalescedReductionInputs<T>> {
+class coalesced_reduction_test : public fixture<coalesced_reduction_inputs<T>> {
  protected:
-  void SetUp() override {
-    params = ::testing::TestWithParam<coalescedReductionInputs<T>>::GetParam();
-    raft::random::Rng r(params.seed);
-    int rows = params.rows, cols = params.cols;
-    int len = rows * cols;
-    cudaStream_t stream;
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    raft::allocate(data, len);
-    raft::allocate(dots_exp, rows);
-    raft::allocate(dots_act, rows);
-    r.uniform(data, len, T(-1.0), T(1.0), stream);
-    naiveCoalescedReduction(dots_exp, data, cols, rows, stream);
+  void initialize() override {
+    params_ = ::testing::TestWithParam<coalesced_reduction_inputs<T>>::GetParam();
+    raft::random::Rng r(params_.seed);
+    auto rows = params_.rows, cols = params_.cols;
+    auto len = rows * cols;
+    auto stream = this->handle().get_stream();
+    raft::allocate(data_, len);
+    raft::allocate(dots_exp_, rows);
+    raft::allocate(dots_act_, rows);
+    r.uniform(data_, len, static_cast<T>(-1.0), static_cast<T>(1.0), stream);
+    naive_coalesced_reduction(dots_exp_, data_, cols, rows, stream);
 
     // Perform reduction with default inplace = false first
-    coalescedReductionLaunch(dots_act, data, cols, rows, stream);
+    coalesced_reduction_launch(dots_act_, data_, cols, rows, stream);
     // Add to result with inplace = true next
-    coalescedReductionLaunch(dots_act, data, cols, rows, stream, true);
-
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    coalesced_reduction_launch(dots_act_, data_, cols, rows, stream, true);
   }
 
-  void TearDown() override {
-    CUDA_CHECK(cudaFree(data));
-    CUDA_CHECK(cudaFree(dots_exp));
-    CUDA_CHECK(cudaFree(dots_act));
+  void finalize() override {
+    CUDA_CHECK(cudaFree(data_));
+    CUDA_CHECK(cudaFree(dots_exp_));
+    CUDA_CHECK(cudaFree(dots_act_));
+  }
+
+  void check() override {
+    ASSERT_TRUE(raft::devArrMatch(
+                  dots_exp_, dots_act_, params_.rows,
+                  raft::compare_approx<T>(params_.tolerance)));
   }
 
  protected:
-  coalescedReductionInputs<T> params;
-  T *data, *dots_exp, *dots_act;
+  coalesced_reduction_inputs<T> params_;
+  T *data_, *dots_exp_, *dots_act_;
 };
 
-const std::vector<coalescedReductionInputs<float>> inputsf = {
+const std::vector<coalesced_reduction_inputs<float>> kInputsF = {
   {0.000002f, 1024, 32, 1234ULL},
   {0.000002f, 1024, 64, 1234ULL},
   {0.000002f, 1024, 128, 1234ULL},
   {0.000002f, 1024, 256, 1234ULL}};
+RUN_TEST(coalesced_reduction, coalesced_reduction_test_f,
+         coalesced_reduction_test<float>, kInputsF);
 
-const std::vector<coalescedReductionInputs<double>> inputsd = {
+const std::vector<coalesced_reduction_inputs<double>> kInputsD = {
   {0.000000001, 1024, 32, 1234ULL},
   {0.000000001, 1024, 64, 1234ULL},
   {0.000000001, 1024, 128, 1234ULL},
   {0.000000001, 1024, 256, 1234ULL}};
-
-typedef coalescedReductionTest<float> coalescedReductionTestF;
-TEST_P(coalescedReductionTestF, Result) {
-  ASSERT_TRUE(raft::devArrMatch(dots_exp, dots_act, params.rows,
-                                raft::compare_approx<float>(params.tolerance)));
-}
-
-typedef coalescedReductionTest<double> coalescedReductionTestD;
-TEST_P(coalescedReductionTestD, Result) {
-  ASSERT_TRUE(raft::devArrMatch(dots_exp, dots_act, params.rows,
-                                raft::compare_approx<double>(params.tolerance)));
-}
-
-INSTANTIATE_TEST_CASE_P(coalescedReductionTests, coalescedReductionTestF,
-                        ::testing::ValuesIn(inputsf));
-
-INSTANTIATE_TEST_CASE_P(coalescedReductionTests, coalescedReductionTestD,
-                        ::testing::ValuesIn(inputsd));
+RUN_TEST(coalesced_reduction, coalesced_reduction_test_d,
+         coalesced_reduction_test<double>, kInputsD);
 
 }  // end namespace linalg
 }  // end namespace raft

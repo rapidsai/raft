@@ -55,7 +55,7 @@ class stridedReductionTest
     r.uniform(data, len, T(-1.0), T(1.0),
               stream);  //initialize matrix to random
 
-    unaryAndGemv(dots_exp, data, cols, rows, stream);
+    unary_and_gemv(dots_exp, data, cols, rows, stream);
     stridedReductionLaunch(dots_act, data, cols, rows, stream);
   }
 
