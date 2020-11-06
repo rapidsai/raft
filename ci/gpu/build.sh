@@ -9,7 +9,7 @@ NUMARGS=$#
 ARGS=$*
 
 # Logger function for build status output
-function logger() {
+function gpuci_logger() {
   echo -e "\n>>>> $@\n"
 }
 
@@ -19,8 +19,8 @@ function hasArg {
 }
 
 # Set path and build parallel level
-export PATH=/conda/bin:/usr/local/cuda/bin:$PATH
-export PARALLEL_LEVEL=4
+export PATH=/opt/conda/bin:/usr/local/cuda/bin:$PATH
+export PARALLEL_LEVEL=-4
 export CUDA_REL=${CUDA_VERSION%.*}
 
 # Set home to the job's workspace
@@ -38,18 +38,19 @@ source $WORKSPACE/ci/prtest.config
 # SETUP - Check environment
 ################################################################################
 
-logger "Check environment..."
+gpuci_logger "Check environment"
 env
 
-logger "Check GPU usage..."
+gpuci_logger "Check GPU usage"
 nvidia-smi
 
-# temporary usage of conda install with packages listed here, looking into
+# temporary usage of gpuci_conda_retry install with packages listed here, looking into
 # using the repos yaml files for this
-logger "Activate conda env..."
-source activate gdf
-logger "Installing packages needed for RAFT..."
-conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
+gpuci_logger "Activate conda env"
+. /opt/conda/etc/profile.d/conda.sh
+conda activate rapids
+gpuci_logger "Installing packages needed for RAFT"
+gpuci_conda_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
       "cupy>=7,<8.0.0a0" \
       "cudatoolkit=${CUDA_REL}" \
       "cudf=${MINOR_VERSION}" \
@@ -63,31 +64,33 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
       "ucx-py=${MINOR_VERSION}"
 
 # Install the master version of dask, distributed, and dask-ml
-logger "pip install git+https://github.com/dask/distributed.git --upgrade --no-deps"
+gpuci_logger "pip install git+https://github.com/dask/distributed.git --upgrade --no-deps"
 pip install "git+https://github.com/dask/distributed.git" --upgrade --no-deps
-logger "pip install git+https://github.com/dask/dask.git --upgrade --no-deps"
+gpuci_logger "pip install git+https://github.com/dask/dask.git --upgrade --no-deps"
 pip install "git+https://github.com/dask/dask.git" --upgrade --no-deps
 
 
-logger "Check versions..."
+gpuci_logger "Check versions"
 python --version
 $CC --version
 $CXX --version
-conda list
+conda info
+conda config --show-sources
+conda list --show-channel-urls
 
 ################################################################################
 # BUILD - Build RAFT tests
 ################################################################################
 
-logger "Adding ${CONDA_PREFIX}/lib to LD_LIBRARY_PATH"
+gpuci_logger "Adding ${CONDA_PREFIX}/lib to LD_LIBRARY_PATH"
 
 export LD_LIBRARY_PATH_CACHED=$LD_LIBRARY_PATH
 export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
 
-logger "Build C++ and Python targets..."
+gpuci_logger "Build C++ and Python targets"
 $WORKSPACE/build.sh cppraft pyraft -v
 
-logger "Resetting LD_LIBRARY_PATH..."
+gpuci_logger "Resetting LD_LIBRARY_PATH"
 
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH_CACHED
 export LD_LIBRARY_PATH_CACHED=""
@@ -99,18 +102,18 @@ export LD_LIBRARY_PATH_CACHED=""
 ################################################################################
 
 if hasArg --skip-tests; then
-    logger "Skipping Tests..."
+    gpuci_logger "Skipping Tests"
     exit 0
 fi
 
-logger "Check GPU usage..."
+gpuci_logger "Check GPU usage"
 nvidia-smi
 
-logger "GoogleTest for raft..."
+gpuci_logger "GoogleTest for raft"
 cd $WORKSPACE/cpp/build
 GTEST_OUTPUT="xml:${WORKSPACE}/test-results/raft_cpp/" ./test_raft
 
-logger "Python pytest for cuml..."
+gpuci_logger "Python pytest for cuml"
 cd $WORKSPACE/python
 
 python -m pytest --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v -s
