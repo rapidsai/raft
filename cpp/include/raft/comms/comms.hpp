@@ -51,60 +51,60 @@ enum class StatusT {
 };
 
 template <typename ValueT>
-constexpr DataType get_type();
+constexpr auto get_type() -> DataType;
 
 template <>
-constexpr DataType get_type<char>() {
+constexpr auto get_type<char>() -> DataType {
   return DataType::kChar;
 }
 
 template <>
-constexpr DataType get_type<uint8_t>() {
+constexpr auto get_type<uint8_t>() -> DataType {
   return DataType::kUint8;
 }
 
 template <>
-constexpr DataType get_type<int>() {
+constexpr auto get_type<int>() -> DataType {
   return DataType::kInt32;
 }
 
 template <>
-constexpr DataType get_type<uint32_t>() {
+constexpr auto get_type<uint32_t>() -> DataType {
   return DataType::kUint32;
 }
 
 template <>
-constexpr DataType get_type<int64_t>() {
+constexpr auto get_type<int64_t>() -> DataType {
   return DataType::kInt64;
 }
 
 template <>
-constexpr DataType get_type<uint64_t>() {
+constexpr auto get_type<uint64_t>() -> DataType {
   return DataType::kUint64;
 }
 
 template <>
-constexpr DataType get_type<float>() {
+constexpr auto get_type<float>() -> DataType {
   return DataType::kFloat32;
 }
 
 template <>
-constexpr DataType get_type<double>() {
+constexpr auto get_type<double>() -> DataType {
   return DataType::kFloat64;
 }
 
 class comms_iface {
  public:
-  virtual int get_size() const = 0;
-  virtual int get_rank() const = 0;
+  virtual auto get_size() const -> int = 0;
+  virtual auto get_rank() const -> int = 0;
 
   // FIXME: a temporary hack, should be removed
-  virtual ncclComm_t get_nccl_comm() const = 0;
+  virtual auto get_nccl_comm() const -> ncclComm_t = 0;
 
-  virtual std::unique_ptr<comms_iface> comm_split(int color, int key) const = 0;
+  virtual auto comm_split(int color, int key) const -> std::unique_ptr<comms_iface> = 0;
   virtual void barrier() const = 0;
 
-  virtual StatusT sync_stream(cudaStream_t stream) const = 0;
+  virtual auto sync_stream(cudaStream_t stream) const -> StatusT = 0;
 
   virtual void isend(const void* buf, size_t size, int dest, int tag,
                      request_t* request) const = 0;
@@ -153,15 +153,15 @@ class comms_t {
    * Returns the size of the communicator clique
    */
 
-  int get_size() const { return impl_->get_size(); }
+  auto get_size() const -> int { return impl_->get_size(); }
 
   /**
    * Returns the local rank
    */
-  int get_rank() const { return impl_->get_rank(); }
+  auto get_rank() const -> int { return impl_->get_rank(); }
 
   // FIXME: a temporary hack, should be removed
-  ncclComm_t get_nccl_comm() const { return impl_->get_nccl_comm(); }
+  auto get_nccl_comm() const -> ncclComm_t { return impl_->get_nccl_comm(); }
 
   /**
    * Splits the current communicator clique into sub-cliques matching
@@ -170,7 +170,7 @@ class comms_t {
    * @param color ranks w/ the same color are placed in the same communicator
    * @param key controls rank assignment
    */
-  std::unique_ptr<comms_iface> comm_split(int color, int key) const {
+  auto comm_split(int color, int key) const -> std::unique_ptr<comms_iface> {
     return impl_->comm_split(color, key);
   }
 
@@ -187,7 +187,7 @@ class comms_t {
    *
    * @param stream the cuda stream to sync collective operations on
    */
-  StatusT sync_stream(cudaStream_t stream) const {
+  auto sync_stream(cudaStream_t stream) const -> StatusT {
     return impl_->sync_stream(stream);
   }
 

@@ -25,6 +25,7 @@
 #include <cstdio>
 #include <iomanip>
 #include <iostream>
+#include <vector>
 
 ///@todo: enable once logging has been enabled in raft
 //#include "logger.hpp"
@@ -101,10 +102,10 @@ struct cuda_error : public raft::exception {
 namespace raft {
 
 /** Helper method to get to know warp size in device code */
-__host__ __device__ constexpr inline int warp_size() { return 32; }
+__host__ __device__ constexpr inline auto warp_size() -> int { return 32; }
 
-__host__ __device__ constexpr inline unsigned int warp_full_mask() {
-  return 0xffffffff;
+__host__ __device__ constexpr inline auto warp_full_mask() -> unsigned {
+  return 0xffffffffu;
 }
 
 /**
@@ -267,7 +268,7 @@ void allocate(Type*& ptr, size_t len, bool setZero = false) {
 }
 
 /** helper method to get max usable shared mem per block parameter */
-inline int get_shared_mem_per_block() {
+inline auto get_shared_mem_per_block() -> int {
   int dev_id;
   CUDA_CHECK(cudaGetDevice(&dev_id));
   int smem_per_blk;
@@ -277,7 +278,7 @@ inline int get_shared_mem_per_block() {
 }
 
 /** helper method to get multi-processor count parameter */
-inline int get_multi_processor_count() {
+inline auto get_multi_processor_count() -> int {
   int dev_id;
   CUDA_CHECK(cudaGetDevice(&dev_id));
   int mp_count;
@@ -288,8 +289,8 @@ inline int get_multi_processor_count() {
 
 /** helper method to convert an array on device to a string on host */
 template <typename T>
-std::string arr2str(const T* arr, int size, std::string name,
-                    cudaStream_t stream, int width = 4) {
+auto arr2str(const T* arr, int size, std::string name, cudaStream_t stream,
+             int width = 4) -> std::string {
   std::stringstream ss;
   std::vector<T> arr_h(size);
   update_host(arr_h.data(), arr, size, stream);
@@ -314,7 +315,7 @@ void assert_device_mem(T* ptr, std::string name) {
   }
 }
 
-inline uint32_t cur_time_millis() {
+inline auto cur_time_millis() -> uint32_t {
   auto now = std::chrono::high_resolution_clock::now();
   auto duration = now.time_since_epoch();
   return std::chrono::duration_cast<std::chrono::milliseconds>(duration)
@@ -327,7 +328,7 @@ inline uint32_t cur_time_millis() {
     * @return need number of items to allocate via allocate()
     * @sa allocate()
     */
-inline size_t alloc_length_for_matrix(size_t rows, size_t columns) {
+inline auto alloc_length_for_matrix(size_t rows, size_t columns) -> size_t {
   return rows * columns;
 }
 
@@ -337,7 +338,7 @@ inline size_t alloc_length_for_matrix(size_t rows, size_t columns) {
     * @return true if address in bytes is a multiple of alignment
     */
 template <typename Type>
-bool is_aligned(Type* ptr, size_t alignment) {
+auto is_aligned(Type* ptr, size_t alignment) -> bool {
   return reinterpret_cast<uintptr_t>(ptr) % alignment == 0;
 }
 
@@ -347,7 +348,7 @@ bool is_aligned(Type* ptr, size_t alignment) {
 * @ return gcd of a and b
 */
 template <typename IntType>
-IntType gcd(IntType a, IntType b) {
+auto gcd(IntType a, IntType b) -> IntType {
   while (b != 0) {
     IntType tmp = b;
     b = a % b;

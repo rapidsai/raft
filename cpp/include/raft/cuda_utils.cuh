@@ -45,7 +45,7 @@ namespace raft {
  * @tparam IntType supposed to be only integers for now!
  */
 template <typename IntType>
-constexpr HDI IntType ceildiv(IntType a, IntType b) {
+constexpr HDI auto ceildiv(IntType a, IntType b) -> IntType {
   return (a + b - 1) / b;
 }
 
@@ -54,7 +54,7 @@ constexpr HDI IntType ceildiv(IntType a, IntType b) {
  * @tparam IntType supposed to be only integers for now!
  */
 template <typename IntType>
-constexpr HDI IntType alignTo(IntType a, IntType b) {  // NOLINT
+constexpr HDI auto alignTo(IntType a, IntType b) -> IntType {  // NOLINT
   return ceildiv(a, b) * b;
 }
 
@@ -63,7 +63,7 @@ constexpr HDI IntType alignTo(IntType a, IntType b) {  // NOLINT
  * @tparam IntType supposed to be only integers for now!
  */
 template <typename IntType>
-constexpr HDI IntType alignDown(IntType a, IntType b) {  // NOLINT
+constexpr HDI auto alignDown(IntType a, IntType b) -> IntType {  // NOLINT
   return (a / b) * b;
 }
 
@@ -72,7 +72,7 @@ constexpr HDI IntType alignDown(IntType a, IntType b) {  // NOLINT
  * @tparam IntType data type (checked only for integers)
  */
 template <typename IntType>
-constexpr HDI bool isPo2(IntType num) {  // NOLINT
+constexpr HDI auto isPo2(IntType num) -> bool {  // NOLINT
   return (num && !(num & (num - 1)));
 }
 
@@ -81,7 +81,7 @@ constexpr HDI bool isPo2(IntType num) {  // NOLINT
  * @tparam IntType data type (checked only for integers)
  */
 template <typename IntType>
-constexpr HDI IntType log2(IntType num, IntType ret = IntType(0)) {
+constexpr HDI auto log2(IntType num, IntType ret = IntType(0)) -> IntType {
   return num <= IntType(1) ? ret : log2(num >> IntType(1), ++ret);
 }
 
@@ -100,7 +100,7 @@ DI void forEach(int num, L lambda) {  // NOLINT
 static const int WarpSize = 32;  // NOLINT
 
 /** get the laneId of the current thread */
-DI int laneId() {  // NOLINT
+DI auto laneId() -> int {  // NOLINT
   int id;
   asm("mov.s32 %0, %laneid;" : "=r"(id));
   return id;
@@ -214,24 +214,24 @@ DI T myAtomicMin(T *address, T val);  // NOLINT
  * @param[in] val: new value to compare with old
  */
 template <typename T>
-DI T myAtomicMax(T *address, T val);  // NOLINT
+DI auto myAtomicMax(T *address, T val) -> T;  // NOLINT
 
-DI float myAtomicMin(float *address, float val) {  // NOLINT
+DI auto myAtomicMin(float *address, float val) -> float {  // NOLINT
   myAtomicReduce(address, val, fminf);
   return *address;
 }
 
-DI float myAtomicMax(float *address, float val) {  // NOLINT
+DI auto myAtomicMax(float *address, float val) -> float {  // NOLINT
   myAtomicReduce(address, val, fmaxf);
   return *address;
 }
 
-DI double myAtomicMin(double *address, double val) {  // NOLINT
+DI auto myAtomicMin(double *address, double val) -> double {  // NOLINT
   myAtomicReduce<double(double, double)>(address, val, fmin);
   return *address;
 }
 
-DI double myAtomicMax(double *address, double val) {  // NOLINT
+DI auto myAtomicMax(double *address, double val) -> double {  // NOLINT
   myAtomicReduce<double(double, double)>(address, val, fmax);
   return *address;
 }
@@ -241,13 +241,13 @@ DI double myAtomicMax(double *address, double val) {  // NOLINT
  * @{
  */
 template <typename T>
-HDI T myMax(T x, T y);  // NOLINT
+HDI auto myMax(T x, T y) -> T;  // NOLINT
 template <>
-HDI float myMax<float>(float x, float y) {  // NOLINT
+HDI auto myMax<float>(float x, float y) -> float {  // NOLINT
   return fmaxf(x, y);
 }
 template <>
-HDI double myMax<double>(double x, double y) {  // NOLINT
+HDI auto myMax<double>(double x, double y) -> double {  // NOLINT
   return fmax(x, y);
 }
 /** @} */
@@ -257,13 +257,13 @@ HDI double myMax<double>(double x, double y) {  // NOLINT
  * @{
  */
 template <typename T>
-HDI T myMin(T x, T y);  // NOLINT
+HDI auto myMin(T x, T y) -> T;  // NOLINT
 template <>
-HDI float myMin<float>(float x, float y) {  // NOLINT
+HDI auto myMin<float>(float x, float y) -> float {  // NOLINT
   return fminf(x, y);
 }
 template <>
-HDI double myMin<double>(double x, double y) {  // NOLINT
+HDI auto myMin<double>(double x, double y) -> double {  // NOLINT
   return fmin(x, y);
 }
 /** @} */
@@ -275,7 +275,7 @@ HDI double myMin<double>(double x, double y) {  // NOLINT
  * @param[in] val: new value to compare with old
  */
 template <typename T>
-DI T myAtomicMin(T *address, T val) {  // NOLINT
+DI auto myAtomicMin(T *address, T val) -> T {  // NOLINT
   myAtomicReduce(address, val, myMin<T>);
   return *address;
 }
@@ -287,7 +287,7 @@ DI T myAtomicMin(T *address, T val) {  // NOLINT
  * @param[in] val: new value to compare with old
  */
 template <typename T>
-DI T myAtomicMax(T *address, T val) {  // NOLINT
+DI auto myAtomicMax(T *address, T val) -> T {  // NOLINT
   myAtomicReduce(address, val, myMax<T>);
   return *address;
 }
@@ -296,7 +296,7 @@ DI T myAtomicMax(T *address, T val) {  // NOLINT
  * Sign function
  */
 template <typename T>
-HDI int sgn(const T val) {
+HDI auto sgn(const T val) -> int {
   return (T(0) < val) - (val < T(0));
 }
 
@@ -305,13 +305,13 @@ HDI int sgn(const T val) {
  * @{
  */
 template <typename T>
-HDI T myExp(T x);  // NOLINT
+HDI auto myExp(T x) -> T;  // NOLINT
 template <>
-HDI float myExp(float x) {  // NOLINT
+HDI auto myExp(float x) -> float {  // NOLINT
   return expf(x);
 }
 template <>
-HDI double myExp(double x) {  // NOLINT
+HDI auto myExp(double x) -> double {  // NOLINT
   return exp(x);
 }
 /** @} */
@@ -321,13 +321,13 @@ HDI double myExp(double x) {  // NOLINT
  * @{
  */
 template <typename T>
-inline __device__ T myInf();  // NOLINT
+DI auto myInf() -> T;  // NOLINT
 template <>
-inline __device__ float myInf<float>() {  // NOLINT
+DI auto myInf<float>() -> float {  // NOLINT
   return CUDART_INF_F;
 }
 template <>
-inline __device__ double myInf<double>() {  // NOLINT
+DI auto myInf<double>() -> double {  // NOLINT
   return CUDART_INF;
 }
 /** @} */
@@ -337,13 +337,13 @@ inline __device__ double myInf<double>() {  // NOLINT
  * @{
  */
 template <typename T>
-HDI T myLog(T x);  // NOLINT
+HDI auto myLog(T x)-> T;  // NOLINT
 template <>
-HDI float myLog(float x) {  // NOLINT
+HDI auto myLog(float x) -> float {  // NOLINT
   return logf(x);
 }
 template <>
-HDI double myLog(double x) {  // NOLINT
+HDI auto myLog(double x) -> double {  // NOLINT
   return log(x);
 }
 /** @} */
@@ -353,13 +353,13 @@ HDI double myLog(double x) {  // NOLINT
  * @{
  */
 template <typename T>
-HDI T mySqrt(T x);  // NOLINT
+HDI auto mySqrt(T x) -> T;  // NOLINT
 template <>
-HDI float mySqrt(float x) {  // NOLINT
+HDI auto mySqrt(float x) -> float {  // NOLINT
   return sqrtf(x);
 }
 template <>
-HDI double mySqrt(double x) {  // NOLINT
+HDI auto mySqrt(double x) -> double {  // NOLINT
   return sqrt(x);
 }
 /** @} */
@@ -385,13 +385,13 @@ DI void mySinCos(double x, double &s, double &c) {  // NOLINT
  * @{
  */
 template <typename T>
-DI T mySin(T x);  // NOLINT
+DI auto mySin(T x) -> T;  // NOLINT
 template <>
-DI float mySin(float x) {  // NOLINT
+DI auto mySin(float x) -> float {  // NOLINT
   return sinf(x);
 }
 template <>
-DI double mySin(double x) {  // NOLINT
+DI auto mySin(double x) -> double {  // NOLINT
   return sin(x);
 }
 /** @} */
@@ -401,15 +401,15 @@ DI double mySin(double x) {  // NOLINT
  * @{
  */
 template <typename T>
-DI T myAbs(T x) {  // NOLINT
+DI auto myAbs(T x) -> T {  // NOLINT
   return x < 0 ? -x : x;
 }
 template <>
-DI float myAbs(float x) {  // NOLINT
+DI auto myAbs(float x) -> float {  // NOLINT
   return fabsf(x);
 }
 template <>
-DI double myAbs(double x) {  // NOLINT
+DI auto myAbs(double x) -> double {  // NOLINT
   return fabs(x);
 }
 /** @} */
@@ -419,13 +419,13 @@ DI double myAbs(double x) {  // NOLINT
  * @{
  */
 template <typename T>
-HDI T myPow(T x, T power);  // NOLINT
+HDI auto myPow(T x, T power) -> T;  // NOLINT
 template <>
-HDI float myPow(float x, float power) {  // NOLINT
+HDI auto myPow(float x, float power) -> float {  // NOLINT
   return powf(x, power);
 }
 template <>
-HDI double myPow(double x, double power) {  // NOLINT
+HDI auto myPow(double x, double power) -> double {  // NOLINT
   return pow(x, power);
 }
 /** @} */
@@ -435,13 +435,13 @@ HDI double myPow(double x, double power) {  // NOLINT
  * @{
  */
 template <typename T>
-HDI T myTanh(T x);  // NOLINT
+HDI auto myTanh(T x) -> T;  // NOLINT
 template <>
-HDI float myTanh(float x) {  // NOLINT
+HDI auto myTanh(float x) -> float {  // NOLINT
   return tanhf(x);
 }
 template <>
-HDI double myTanh(double x) {  // NOLINT
+HDI auto myTanh(double x) -> double {  // NOLINT
   return tanh(x);
 }
 /** @} */
@@ -451,13 +451,13 @@ HDI double myTanh(double x) {  // NOLINT
  * @{
  */
 template <typename T>
-HDI T myATanh(T x);  // NOLINT
+HDI auto myATanh(T x) -> T;  // NOLINT
 template <>
-HDI float myATanh(float x) {  // NOLINT
+HDI auto myATanh(float x) -> float {  // NOLINT
   return atanhf(x);
 }
 template <>
-HDI double myATanh(double x) {  // NOLINT
+HDI auto myATanh(double x) -> double {  // NOLINT
   return atanh(x);
 }
 /** @} */
@@ -469,22 +469,22 @@ HDI double myATanh(double x) {  // NOLINT
 // IdxType mostly to be used for MainLambda in *Reduction kernels
 template <typename Type, typename IdxType = int>
 struct Nop {  // NOLINT
-  HDI Type operator()(Type in, IdxType i = 0) { return in; }
+  HDI auto operator()(Type in, IdxType i = 0) -> Type { return in; }
 };
 
 template <typename Type, typename IdxType = int>
 struct L1Op {  // NOLINT
-  HDI Type operator()(Type in, IdxType i = 0) { return myAbs(in); }
+  HDI auto operator()(Type in, IdxType i = 0) -> Type { return myAbs(in); }
 };
 
 template <typename Type, typename IdxType = int>
 struct L2Op {  // NOLINT
-  HDI Type operator()(Type in, IdxType i = 0) { return in * in; }
+  HDI auto operator()(Type in, IdxType i = 0) -> Type { return in * in; }
 };
 
 template <typename Type>
 struct Sum {  // NOLINT
-  HDI Type operator()(Type a, Type b) { return a + b; }
+  HDI auto operator()(Type a, Type b) -> Type { return a + b; }
 };
 /** @} */
 
@@ -496,15 +496,15 @@ struct Sum {  // NOLINT
  * @{
  */
 template <typename T>
-DI T signPrim(T x) {  // NOLINT
+DI auto signPrim(T x) -> T {  // NOLINT
   return x < 0 ? -1 : +1;
 }
 template <>
-DI float signPrim(float x) {  // NOLINT
+DI auto signPrim(float x) -> float {  // NOLINT
   return signbit(x) == true ? -1.0f : +1.0f;
 }
 template <>
-DI double signPrim(double x) {  // NOLINT
+DI auto signPrim(double x) -> double {  // NOLINT
   return signbit(x) == true ? -1.0 : +1.0;
 }
 /** @} */
@@ -518,15 +518,15 @@ DI double signPrim(double x) {  // NOLINT
  * @{
  */
 template <typename T>
-DI T maxPrim(T x, T y) {  // NOLINT
+DI auto maxPrim(T x, T y) -> T {  // NOLINT
   return x > y ? x : y;
 }
 template <>
-DI float maxPrim(float x, float y) {  // NOLINT
+DI auto maxPrim(float x, float y) -> float {  // NOLINT
   return fmaxf(x, y);
 }
 template <>
-DI double maxPrim(double x, double y) {  // NOLINT
+DI auto maxPrim(double x, double y) -> double {  // NOLINT
   return fmax(x, y);
 }
 /** @} */
@@ -539,7 +539,7 @@ DI void warpFence() {  // NOLINT
 }
 
 /** warp-wide any boolean aggregator */
-DI bool any(bool inFlag, uint32_t mask = 0xffffffffu) {
+DI auto any(bool inFlag, uint32_t mask = 0xffffffffu) -> bool {
 #if CUDART_VERSION >= 9000
   inFlag = __any_sync(mask, inFlag);
 #else
@@ -549,7 +549,7 @@ DI bool any(bool inFlag, uint32_t mask = 0xffffffffu) {
 }
 
 /** warp-wide all boolean aggregator */
-DI bool all(bool inFlag, uint32_t mask = 0xffffffffu) {
+DI auto all(bool inFlag, uint32_t mask = 0xffffffffu) -> bool {
 #if CUDART_VERSION >= 9000
   inFlag = __all_sync(mask, inFlag);
 #else
@@ -568,8 +568,8 @@ DI bool all(bool inFlag, uint32_t mask = 0xffffffffu) {
  * @return the shuffled data
  */
 template <typename T>
-DI T shfl(T val, int srcLane, int width = WarpSize,
-          uint32_t mask = 0xffffffffu) {
+DI auto shfl(T val, int srcLane, int width = WarpSize,
+          uint32_t mask = 0xffffffffu) -> T {
 #if CUDART_VERSION >= 9000
   return __shfl_sync(mask, val, srcLane, width);
 #else
@@ -587,8 +587,8 @@ DI T shfl(T val, int srcLane, int width = WarpSize,
  * @return the shuffled data
  */
 template <typename T>
-DI T shfl_xor(T val, int laneMask, int width = WarpSize,
-              uint32_t mask = 0xffffffffu) {
+DI auto shfl_xor(T val, int laneMask, int width = WarpSize,
+              uint32_t mask = 0xffffffffu) -> T {
 #if CUDART_VERSION >= 9000
   return __shfl_xor_sync(mask, val, laneMask, width);
 #else
@@ -606,7 +606,7 @@ DI T shfl_xor(T val, int laneMask, int width = WarpSize,
  * @todo Expand this to support arbitrary reduction ops
  */
 template <typename T>
-DI T warpReduce(T val) {  // NOLINT
+DI auto warpReduce(T val) -> T {  // NOLINT
 #pragma unroll
   for (int i = WarpSize / 2; i > 0; i >>= 1) {
     T tmp = shfl(val, laneId() + i);
@@ -627,7 +627,7 @@ DI T warpReduce(T val) {  // NOLINT
  * @todo Expand this to support arbitrary reduction ops
  */
 template <typename T>
-DI T blockReduce(T val, char *smem) {  // NOLINT
+DI auto blockReduce(T val, char *smem) -> T {  // NOLINT
   auto *s_temp = reinterpret_cast<T *>(smem);
   int n_warps = (blockDim.x + WarpSize - 1) / WarpSize;
   int lid = laneId();
@@ -647,9 +647,9 @@ DI T blockReduce(T val, char *smem) {  // NOLINT
  * @param n_int_streams number of internal streams
  * @param idx the index for which to query the stream
  */
-inline cudaStream_t select_stream(cudaStream_t user_stream,
-                                  cudaStream_t *int_streams, int n_int_streams,
-                                  int idx) {
+inline auto select_stream(cudaStream_t user_stream,
+                          cudaStream_t *int_streams, int n_int_streams,
+                          int idx) -> cudaStream_t {
   return n_int_streams > 0 ? int_streams[idx % n_int_streams] : user_stream;
 }
 

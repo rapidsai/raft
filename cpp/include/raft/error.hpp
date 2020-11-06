@@ -48,7 +48,7 @@ class exception : public std::exception {
   }
 
   /** get the message associated with this exception */
-  char const* what() const noexcept override { return msg_.c_str(); }
+  char const* what() const noexcept override { return msg_.c_str(); }  // NOLINT
 
  private:
   /** message associated with this exception */
