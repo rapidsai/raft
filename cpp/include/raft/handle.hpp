@@ -71,26 +71,26 @@ class handle_t {
   /** Destroys all held-up resources */
   virtual ~handle_t() { destroy_resources(); }
 
-  int get_device() const { return dev_id_; }
+  auto get_device() const -> int { return dev_id_; }
 
   void set_stream(cudaStream_t stream) { user_stream_ = stream; }
-  cudaStream_t get_stream() const { return user_stream_; }
+  auto get_stream() const -> cudaStream_t { return user_stream_; }
 
   void set_device_allocator(std::shared_ptr<mr::device::allocator> allocator) {
     device_allocator_ = allocator;
   }
-  std::shared_ptr<mr::device::allocator> get_device_allocator() const {
+  auto get_device_allocator() const -> std::shared_ptr<mr::device::allocator> {
     return device_allocator_;
   }
 
   void set_host_allocator(std::shared_ptr<mr::host::allocator> allocator) {
     host_allocator_ = allocator;
   }
-  std::shared_ptr<mr::host::allocator> get_host_allocator() const {
+  auto get_host_allocator() const -> std::shared_ptr<mr::host::allocator> {
     return host_allocator_;
   }
 
-  cublasHandle_t get_cublas_handle() const {
+  auto get_cublas_handle() const -> cublasHandle_t {
     std::lock_guard<std::mutex> _(mutex_);
     if (!cublas_initialized_) {
       CUBLAS_CHECK(cublasCreate(&cublas_handle_));
@@ -99,7 +99,7 @@ class handle_t {
     return cublas_handle_;
   }
 
-  cusolverDnHandle_t get_cusolver_dn_handle() const {
+  auto get_cusolver_dn_handle() const -> cusolverDnHandle_t {
     std::lock_guard<std::mutex> _(mutex_);
     if (!cusolver_dn_initialized_) {
       CUSOLVER_CHECK(cusolverDnCreate(&cusolver_dn_handle_));
@@ -108,7 +108,7 @@ class handle_t {
     return cusolver_dn_handle_;
   }
 
-  cusolverSpHandle_t get_cusolver_sp_handle() const {
+  auto get_cusolver_sp_handle() const -> cusolverSpHandle_t {
     std::lock_guard<std::mutex> _(mutex_);
     if (!cusolver_sp_initialized_) {
       CUSOLVER_CHECK(cusolverSpCreate(&cusolver_sp_handle_));
@@ -117,7 +117,7 @@ class handle_t {
     return cusolver_sp_handle_;
   }
 
-  cusparseHandle_t get_cusparse_handle() const {
+  auto get_cusparse_handle() const -> cusparseHandle_t {
     std::lock_guard<std::mutex> _(mutex_);
     if (!cusparse_initialized_) {
       CUSPARSE_CHECK(cusparseCreate(&cusparse_handle_));
@@ -126,9 +126,11 @@ class handle_t {
     return cusparse_handle_;
   }
 
-  cudaStream_t get_internal_stream(int sid) const { return streams_[sid]; }
-  int get_num_internal_streams() const { return num_streams_; }
-  std::vector<cudaStream_t> get_internal_streams() const {
+  auto get_internal_stream(int sid) const -> cudaStream_t {
+    return streams_[sid];
+  }
+  auto get_num_internal_streams() const -> int { return num_streams_; }
+  auto get_internal_streams() const -> std::vector<cudaStream_t> {
     std::vector<cudaStream_t> int_streams_vec;
     for (auto s : streams_) {
       int_streams_vec.push_back(s);
@@ -154,7 +156,7 @@ class handle_t {
     communicator_ = communicator;
   }
 
-  const comms::comms_t& get_comms() const {
+  auto get_comms() const -> const comms::comms_t& {
     RAFT_EXPECTS(this->comms_initialized(),
                  "ERROR: Communicator was not initialized\n");
     return *communicator_;
@@ -164,7 +166,7 @@ class handle_t {
     subcomms_[key] = subcomm;
   }
 
-  const comms::comms_t& get_subcomm(std::string key) const {
+  auto get_subcomm(std::string key) const -> const comms::comms_t& {
     RAFT_EXPECTS(subcomms_.find(key) != subcomms_.end(),
                  "%s was not found in subcommunicators.", key.c_str());
 
@@ -176,9 +178,11 @@ class handle_t {
     return *subcomm;
   }
 
-  bool comms_initialized() const { return (nullptr != communicator_.get()); }
+  auto comms_initialized() const -> bool {
+    return (nullptr != communicator_.get());
+  }
 
-  const cudaDeviceProp& get_device_properties() const {
+  auto get_device_properties() const -> const cudaDeviceProp& {
     std::lock_guard<std::mutex> _(mutex_);
     if (!device_prop_initialized_) {
       CUDA_CHECK(cudaGetDeviceProperties(&prop_, dev_id_));
@@ -258,7 +262,7 @@ class stream_syncer {
   ~stream_syncer() { handle_.wait_on_internal_streams(); }
 
   stream_syncer(const stream_syncer& other) = delete;
-  stream_syncer& operator=(const stream_syncer& other) = delete;
+  auto operator=(const stream_syncer& other) -> stream_syncer& = delete;
 
  private:
   const handle_t& handle_;
