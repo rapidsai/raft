@@ -17,6 +17,8 @@
 #pragma once
 
 #include <curand.h>
+#include <chrono>
+
 #include "mst_kernels.cuh"
 #include "utils.cuh"
 
@@ -33,6 +35,7 @@
 
 namespace raft {
 namespace mst {
+typedef std::chrono::high_resolution_clock Clock;
 
 // curand generator uniform
 curandStatus_t curand_generate_uniformX(curandGenerator_t generator,
@@ -74,7 +77,6 @@ MST_solver<vertex_t, edge_t, weight_t>::MST_solver(
   //Initially, color holds the vertex id as color
   auto policy = rmm::exec_policy(stream);
   thrust::sequence(policy->on(stream), color, color + v, 0);
-  raft::print_device_vector("Initial Color: ", color, v, std::cout);
   //Initially, each next_color redirects to its own color
   thrust::sequence(next_color.begin(), next_color.end());
   //Initially, each edge is not in the mst
@@ -88,61 +90,69 @@ MST_solver<vertex_t, edge_t, weight_t>::solve() {
   RAFT_EXPECTS(offsets != nullptr, "Null offsets.");
   RAFT_EXPECTS(indices != nullptr, "Null indices.");
   RAFT_EXPECTS(weights != nullptr, "Null weights.");
-
+  double timer1 = 0, timer2 = 0, timer3 = 0, timer4 = 0, timer5 = 0;
   // Alterating the weights
   // this is done by identifying the lowest cost edge weight gap that is not 0, call this theta.
   // For each edge, add noise that is less than theta. That is, generate a random number in the range [0.0, theta) and add it to each edge weight.
+  auto start = Clock::now();
   alteration();
-  detail::printv(altered_weights);
+  auto stop = Clock::now();
+  std::cout << "Alteration: " << duration_ms(stop - start) << " ms"
+            << std::endl;
+
+  detail::printv(altered_weights, "altered_weights", 20);
 
   Graph_COO<vertex_t, edge_t, weight_t> mst_result(2 * v - 2, stream);
 
   // Boruvka original formulation says "while more than 1 supervertex remains"
   // Here we adjust it to support disconnected components (spanning forest)
   // track completion with mst_edge_found status.
-  // should have max_iter ensure it always exits.
-  for (auto i = 0; i < 3; i++) {
-    std::cout << "Iteration: " << i << std::endl;
+  for (auto i = 0; i < v; i++) {
     // Finds the minimum outgoing edge from each supervertex to the lowest outgoing color
     // by working at each vertex of the supervertex
+
+    start = Clock::now();
     min_edge_per_vertex();
-    std::cout << "New MST Edge: " << std::endl;
-    detail::printv(new_mst_edge);
-
+    stop = Clock::now();
+    timer1 += duration_ms(stop - start);
+    start = Clock::now();
     min_edge_per_supervertex();
+    stop = Clock::now();
+    timer2 += duration_ms(stop - start);
+    //detail::printv(temp_src, "New MST Src");
+    //detail::printv(temp_dst, "New MST dst");
 
-    std::cout << "New MST Src: " << std::endl;
-    detail::printv(temp_src);
-    std::cout << "New MST dst: " << std::endl;
-    detail::printv(temp_dst);
-
-    // // check if msf/mst done, count new edges added thition
+    // check if msf/mst done, count new edges added thition
+    start = Clock::now();
     check_termination();
-    std::cout << "MST edge count: " << mst_edge_count[0] << std::endl;
-    std::cout << "New MST edge count: " << prev_mst_edge_count[0] << std::endl;
+    stop = Clock::now();
+    timer3 += duration_ms(stop - start);
+    // std::cout << "MST edge count: " << mst_edge_count[0] << std::endl;
+    // std::cout << "New MST edge count: " << prev_mst_edge_count[0] << std::endl;
     if (prev_mst_edge_count[0] == mst_edge_count[0]) {
+#ifdef MST_DEBUG
+      std::cout << "Iterations: " << i << std::endl;
+      std::cout << timer1 << "," << timer2 << "," << timer3 << "," << timer4
+                << "," << timer5 << std::endl;
+#endif
       break;
     }
 
     // append the newly found MST edges to the final output
+    start = Clock::now();
     append_src_dst_pair(mst_result.src.data(), mst_result.dst.data(),
                         mst_result.weights.data());
-
-    raft::print_device_vector("Mst Src: ", mst_result.src.data(), 2 * v - 2,
-                              std::cout);
-    raft::print_device_vector("Mst dst: ", mst_result.dst.data(), 2 * v - 2,
-                              std::cout);
+    stop = Clock::now();
+    timer4 += duration_ms(stop - start);
 
     // updates colors of supervertices by propagating the lower color to the higher
+    start = Clock::now();
     label_prop(mst_result.src.data(), mst_result.dst.data());
-    raft::print_device_vector("Color: ", color, v, std::cout);
-    // std::cout << "Color: " << std::endl;
-    // detail::printv(color);
-    std::cout << "Next Color: " << std::endl;
-    detail::printv(next_color);
+    stop = Clock::now();
+    timer5 += duration_ms(stop - start);
+    // detail::printv(colors, "Colors");
 
     // copy this iteration's results and store
-
     prev_mst_edge_count = mst_edge_count;
   }
 
@@ -224,7 +234,6 @@ template <typename vertex_t, typename edge_t, typename weight_t>
 void MST_solver<vertex_t, edge_t, weight_t>::label_prop(vertex_t* mst_src,
                                                         vertex_t* mst_dst) {
   // update the colors of both ends its until there is no change in colors
-
   thrust::host_vector<vertex_t> curr_mst_edge_count = mst_edge_count;
 
   auto min_pair_nthreads = std::min(curr_mst_edge_count[0], max_threads);
@@ -242,22 +251,26 @@ void MST_solver<vertex_t, edge_t, weight_t>::label_prop(vertex_t* mst_src,
     thrust::raw_pointer_cast(mst_edge_count.data());
 
   bool* done_ptr = thrust::raw_pointer_cast(done.data());
-
+  double timer1 = 0, timer2 = 0;
   auto i = 0;
-  //std::cout << "==================" << std::endl;
-  //detail::printv(color);
   while (!done[0]) {
     done[0] = true;
+    auto start = Clock::now();
     detail::min_pair_colors<<<min_pair_nblocks, min_pair_nthreads, 0, stream>>>(
       curr_mst_edge_count[0], mst_src, mst_dst, color, next_color_ptr);
-    //detail::printv(next_color);
+    auto stop = Clock::now();
+    timer1 += duration_ms(stop - start);
+    start = Clock::now();
     detail::check_color_change<<<color_change_nblocks, color_change_nthreads, 0,
                                  stream>>>(v, color, next_color_ptr, done_ptr);
-    //detail::printv(color);
+    stop = Clock::now();
+    timer2 += duration_ms(stop - start);
     i++;
   }
-  // std::cout << "Label prop iterations : " << i << std::endl;
-  //std::cout << "==================" << std::endl;
+  std::cout << timer1 << "," << timer2 << std::endl;
+#ifdef MST_DEBUG
+  std::cout << "Label prop iterations: " << i << std::endl;
+#endif
 }
 
 template <typename vertex_t, typename edge_t, typename weight_t>
