@@ -121,8 +121,7 @@ class MSTTest
     edge_t *indices = static_cast<edge_t *>(csr_d.indices.data());
     weight_t *weights = static_cast<weight_t *>(csr_d.weights.data());
 
-    v =
-      static_cast<vertex_t>((csr_d.offsets.size() / sizeof(weight_t)) - 1);
+    v = static_cast<vertex_t>((csr_d.offsets.size() / sizeof(weight_t)) - 1);
     e = static_cast<edge_t>(csr_d.indices.size() / sizeof(edge_t));
 
     rmm::device_vector<vertex_t> mst_src(2 * v - 2,
@@ -142,6 +141,11 @@ class MSTTest
                               result.n_edges, std::cout);
     raft::print_device_vector("Final MST Weights: ", result.weights.data(),
                               result.n_edges, std::cout);
+    raft::print_device_vector("Final MST Colors: ", color_ptr, v, std::cout);
+
+    std::cout << "number_of_MST_edges: " << result.n_edges << std::endl;
+    EXPECT_LE(result.n_edges, 2 * v - 2);
+
     mst_edge = mst_solver.mst_edge;
   }
 
@@ -191,6 +195,13 @@ const std::vector<CSRHost<int, int, float>> csr_in3_h = {
 const std::vector<CSRHost<int, int, float>> csr_in4_h = {
   {{0, 3, 5, 8, 10, 12, 14, 16},
    {2, 4, 5, 3, 6, 0, 4, 5, 1, 6, 0, 2, 0, 2, 1, 3},
+   {5.0f, 9.0f, 1.0f, 8.0f, 7.0f, 5.0f, 2.0f, 6.0f, 8.0f, 10.0f, 9.0f, 2.0f,
+    1.0f, 6.0f, 7.0f, 10.0f}}};
+
+//  singletons
+const std::vector<CSRHost<int, int, float>> csr_in5_h = {
+  {{0, 3, 5, 8, 10, 10, 10, 12, 14, 16, 16},
+   {2, 8, 7, 3, 8, 0, 8, 7, 1, 8, 0, 2, 0, 2, 1, 3},
    {5.0f, 9.0f, 1.0f, 8.0f, 7.0f, 5.0f, 2.0f, 6.0f, 8.0f, 10.0f, 9.0f, 2.0f,
     1.0f, 6.0f, 7.0f, 10.0f}}};
 
