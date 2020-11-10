@@ -146,12 +146,14 @@ __global__ void min_edge_per_supervertex(
 }
 
 template <typename vertex_t, typename edge_t, typename weight_t>
-__global__ void add_reverse_edge(const edge_t* new_mst_edge, const vertex_t* indices, const weight_t* weights, vertex_t* temp_src, vertex_t* temp_dst,
-  weight_t* temp_weights, const vertex_t v) {
+__global__ void add_reverse_edge(const edge_t* new_mst_edge,
+                                 const vertex_t* indices,
+                                 const weight_t* weights, vertex_t* temp_src,
+                                 vertex_t* temp_dst, weight_t* temp_weights,
+                                 const vertex_t v) {
   vertex_t tid = get_1D_idx();
 
   if (tid < v) {
-
     bool reverse_needed = false;
 
     edge_t edge_idx = new_mst_edge[tid];
@@ -163,8 +165,7 @@ __global__ void add_reverse_edge(const edge_t* new_mst_edge, const vertex_t* ind
       // definitely needed
       if (neighbor_edge_idx == std::numeric_limits<edge_t>::max()) {
         reverse_needed = true;
-      }
-      else {
+      } else {
         // check what vertex the neighbor vertex picked
         vertex_t neighbor_vertex_neighbor = indices[neighbor_edge_idx];
 

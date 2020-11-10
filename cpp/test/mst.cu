@@ -215,11 +215,14 @@ TEST_P(MSTTestSequential, Sequential) {
   // in this case, running sequential MST
   auto prims_result = prims(csr_h);
 
-  auto parallel_mst_result = thrust::reduce(thrust::device, gpu_result.weights.data(), gpu_result.weights.data() + gpu_result.n_edges);
+  auto parallel_mst_result =
+    thrust::reduce(thrust::device, gpu_result.weights.data(),
+                   gpu_result.weights.data() + gpu_result.n_edges);
   // std::cout << prims_result << std::endl;
   // std::cout << parallel_mst_result << std::endl;
 
-  ASSERT_TRUE(raft::match(2 * prims_result, parallel_mst_result, raft::Compare<double>()));
+  ASSERT_TRUE(raft::match(2 * prims_result, parallel_mst_result,
+                          raft::Compare<double>()));
 }
 
 INSTANTIATE_TEST_SUITE_P(MSTTests, MSTTestSequential,

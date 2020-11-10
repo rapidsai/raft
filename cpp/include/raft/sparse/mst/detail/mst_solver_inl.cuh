@@ -318,9 +318,9 @@ void MST_solver<vertex_t, edge_t, weight_t>::min_edge_per_supervertex() {
   // the above kernel only adds directed mst edges in the case where
   // a pair of vertices don't pick the same min edge between them
   // so, now we add the reverse edge to make it undirected
-  detail::add_reverse_edge<<<nblocks, nthreads, 0, stream>>> (
-    new_mst_edge_ptr, indices, weights, temp_src_ptr, temp_dst_ptr, temp_weights_ptr, v
-  );
+  detail::add_reverse_edge<<<nblocks, nthreads, 0, stream>>>(
+    new_mst_edge_ptr, indices, weights, temp_src_ptr, temp_dst_ptr,
+    temp_weights_ptr, v);
 }
 
 template <typename vertex_t, typename edge_t, typename weight_t>
