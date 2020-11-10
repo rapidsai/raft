@@ -175,23 +175,24 @@ class MSTTest
   raft::handle_t handle;
 };
 
-// single iteration
+// connected components tests
+// a full MST is produced
 const std::vector<CSRHost<int, int, float>> csr_in_h = {
-  {{0, 3, 5, 7, 8}, {1, 2, 3, 0, 3, 0, 0, 1}, {2, 3, 4, 2, 1, 3, 4, 1}}};
+  // single iteration
+  {{0, 3, 5, 7, 8}, {1, 2, 3, 0, 3, 0, 0, 1}, {2, 3, 4, 2, 1, 3, 4, 1}},
 
-//  multiple iterations and cycles
-const std::vector<CSRHost<int, int, float>> csr_in2_h = {
+  //  multiple iterations and cycles
   {{0, 4, 6, 9, 12, 15, 17, 20},
    {2, 4, 5, 6, 3, 6, 0, 4, 5, 1, 4, 6, 0, 2, 3, 0, 2, 0, 1, 3},
    {5.0f, 9.0f,  1.0f, 4.0f, 8.0f, 7.0f, 5.0f, 2.0f, 6.0f, 8.0f,
-    1.0f, 10.0f, 9.0f, 2.0f, 1.0f, 1.0f, 6.0f, 4.0f, 7.0f, 10.0f}}};
+    1.0f, 10.0f, 9.0f, 2.0f, 1.0f, 1.0f, 6.0f, 4.0f, 7.0f, 10.0f}},
 
-// equal weights
-const std::vector<CSRHost<int, int, float>> csr_in3_h = {
+  // equal weights
   {{0, 4, 6, 9, 12, 15, 17, 20},
-   {2, 4, 5, 6, 3, 6, 0, 4, 5, 1, 4, 6, 0, 2, 3, 0, 2, 0, 1, 3},
-   {0.1, 0.1, 0.1, 0.1, 0.2, 0.2, 0.1, 0.2, 0.2, 0.2,
-    0.1, 0.1, 0.1, 0.2, 0.1, 0.1, 0.2, 0.1, 0.2, 0.1}}};
+  {2, 4, 5, 6, 3, 6, 0, 4, 5, 1, 4, 6, 0, 2, 3, 0, 2, 0, 1, 3},
+  {0.1, 0.1, 0.1, 0.1, 0.2, 0.2, 0.1, 0.2, 0.2, 0.2,
+    0.1, 0.1, 0.1, 0.2, 0.1, 0.1, 0.2, 0.1, 0.2, 0.1}}
+};
 
 //  disconnected
 const std::vector<CSRHost<int, int, float>> csr_in4_h = {
@@ -222,11 +223,11 @@ TEST_P(MSTTestSequential, Sequential) {
   // std::cout << parallel_mst_result << std::endl;
 
   ASSERT_TRUE(raft::match(2 * prims_result, parallel_mst_result,
-                          raft::Compare<double>()));
+                          raft::CompareApprox<float>(0.1)));
 }
 
 INSTANTIATE_TEST_SUITE_P(MSTTests, MSTTestSequential,
-                         ::testing::ValuesIn(csr_in2_h));
+                         ::testing::ValuesIn(csr_in_h));
 
 }  // namespace mst
 }  // namespace raft
