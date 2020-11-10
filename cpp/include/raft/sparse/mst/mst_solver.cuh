@@ -44,12 +44,9 @@ class MST_solver {
              vertex_t const v_, edge_t const e_, vertex_t* color_,
              cudaStream_t stream_);
 
-  Graph_COO<vertex_t, edge_t, weight_t> solve();
+  raft::Graph_COO<vertex_t, edge_t, weight_t> solve();
 
   ~MST_solver() {}
-
-  rmm::device_vector<bool>
-  mst_edge;  // mst output -  true if the edge belongs in mst
 
  private:
   raft::handle_t const& handle;
@@ -76,6 +73,8 @@ class MST_solver {
     mst_edge_count;  // total number of edges added after every iteration
   rmm::device_vector<vertex_t>
     prev_mst_edge_count;  // total number of edges up to the previous iteration
+  rmm::device_vector<bool>
+    mst_edge;  // mst output -  true if the edge belongs in mst
 
   // new src-dst pairs found per iteration
   rmm::device_vector<vertex_t> temp_src;

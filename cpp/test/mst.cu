@@ -27,6 +27,8 @@
 
 #include <raft/sparse/mst/mst.cuh>
 
+#include "test_utils.h"
+
 template <typename vertex_t, typename edge_t, typename weight_t>
 struct CSRHost {
   std::vector<vertex_t> offsets;
@@ -116,7 +118,7 @@ template <typename vertex_t, typename edge_t, typename weight_t>
 class MSTTest
   : public ::testing::TestWithParam<CSRHost<vertex_t, edge_t, weight_t>> {
  protected:
-  void mst_sequential() {
+  raft::Graph_COO<vertex_t, edge_t, weight_t> mst_sequential() {
     vertex_t *offsets = static_cast<vertex_t *>(csr_d.offsets.data());
     edge_t *indices = static_cast<edge_t *>(csr_d.indices.data());
     weight_t *weights = static_cast<weight_t *>(csr_d.weights.data());
@@ -146,7 +148,7 @@ class MSTTest
     std::cout << "number_of_MST_edges: " << result.n_edges << std::endl;
     EXPECT_LE(result.n_edges, 2 * v - 2);
 
-    mst_edge = mst_solver.mst_edge;
+    return result;
   }
 
   void SetUp() override {
@@ -173,19 +175,19 @@ class MSTTest
   raft::handle_t handle;
 };
 
-// single iteration
+// connected components tests
+// a full MST is produced
 const std::vector<CSRHost<int, int, float>> csr_in_h = {
-  {{0, 3, 5, 7, 8}, {1, 2, 3, 0, 3, 0, 0, 1}, {2, 3, 4, 2, 1, 3, 4, 1}}};
+  // single iteration
+  {{0, 3, 5, 7, 8}, {1, 2, 3, 0, 3, 0, 0, 1}, {2, 3, 4, 2, 1, 3, 4, 1}},
 
-//  multiple iterations and cycles
-const std::vector<CSRHost<int, int, float>> csr_in2_h = {
+  //  multiple iterations and cycles
   {{0, 4, 6, 9, 12, 15, 17, 20},
    {2, 4, 5, 6, 3, 6, 0, 4, 5, 1, 4, 6, 0, 2, 3, 0, 2, 0, 1, 3},
    {5.0f, 9.0f,  1.0f, 4.0f, 8.0f, 7.0f, 5.0f, 2.0f, 6.0f, 8.0f,
-    1.0f, 10.0f, 9.0f, 2.0f, 1.0f, 1.0f, 6.0f, 4.0f, 7.0f, 10.0f}}};
+    1.0f, 10.0f, 9.0f, 2.0f, 1.0f, 1.0f, 6.0f, 4.0f, 7.0f, 10.0f}},
 
-// equal weights
-const std::vector<CSRHost<int, int, float>> csr_in3_h = {
+  // equal weights
   {{0, 4, 6, 9, 12, 15, 17, 20},
    {2, 4, 5, 6, 3, 6, 0, 4, 5, 1, 4, 6, 0, 2, 3, 0, 2, 0, 1, 3},
    {0.1, 0.1, 0.1, 0.1, 0.2, 0.2, 0.1, 0.2, 0.2, 0.2,
@@ -207,23 +209,24 @@ const std::vector<CSRHost<int, int, float>> csr_in5_h = {
 
 typedef MSTTest<int, int, float> MSTTestSequential;
 TEST_P(MSTTestSequential, Sequential) {
-  mst_sequential();
+  auto gpu_result = mst_sequential();
 
   // do assertions here
   // in this case, running sequential MST
   auto prims_result = prims(csr_h);
-  detail::printv(mst_edge);
-  auto parallel_mst_result = thrust::reduce(mst_edge.begin(), mst_edge.end());
-  std::cout << prims_result << std::endl;
-  std::cout << parallel_mst_result << std::endl;
 
-  if (prims_result == parallel_mst_result) {
-    std::cout << "SUCCESS";
-  }
+  auto parallel_mst_result =
+    thrust::reduce(thrust::device, gpu_result.weights.data(),
+                   gpu_result.weights.data() + gpu_result.n_edges);
+  // std::cout << prims_result << std::endl;
+  // std::cout << parallel_mst_result << std::endl;
+
+  ASSERT_TRUE(raft::match(2 * prims_result, parallel_mst_result,
+                          raft::CompareApprox<float>(0.1)));
 }
 
 INSTANTIATE_TEST_SUITE_P(MSTTests, MSTTestSequential,
-                         ::testing::ValuesIn(csr_in2_h));
+                         ::testing::ValuesIn(csr_in_h));
 
 }  // namespace mst
 }  // namespace raft

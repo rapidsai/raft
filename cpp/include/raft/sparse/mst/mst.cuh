@@ -23,7 +23,7 @@ namespace raft {
 namespace mst {
 
 template <typename vertex_t, typename edge_t, typename weight_t>
-Graph_COO<vertex_t, edge_t, weight_t> mst(
+raft::Graph_COO<vertex_t, edge_t, weight_t> mst(
   const raft::handle_t& handle, edge_t const* offsets, vertex_t const* indices,
   weight_t const* weights, vertex_t const v, edge_t const e, vertex_t* color,
   cudaStream_t stream) {
