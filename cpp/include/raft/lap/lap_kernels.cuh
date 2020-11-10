@@ -108,11 +108,9 @@ __device__ void cover_and_expand_row(
 
 // Device function for traversing an alternating path from unassigned row to unassigned column.
 template <typename vertex_t>
-__device__ void __reverse_traversal(int *d_row_visited, vertex_t *d_row_children,
-                                    vertex_t *d_col_children,
-                                    vertex_t const *d_row_parents,
-                                    vertex_t const *d_col_parents,
-                                    int cur_colid) {
+__device__ void __reverse_traversal(
+  int *d_row_visited, vertex_t *d_row_children, vertex_t *d_col_children,
+  vertex_t const *d_row_parents, vertex_t const *d_col_parents, int cur_colid) {
   int cur_rowid = -1;
 
   while (cur_colid != -1) {

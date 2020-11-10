@@ -41,4 +41,3 @@ struct VertexData {
   vertex_t *children;
   int *is_visited;
 };
-

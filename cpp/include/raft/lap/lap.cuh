@@ -58,7 +58,8 @@ class LinearAssignmentProblem {
   raft::mr::device::buffer<weight_t> obj_val_dual_v;
 
  public:
-  LinearAssignmentProblem(raft::handle_t const &handle, vertex_t size, vertex_t batchsize)
+  LinearAssignmentProblem(raft::handle_t const &handle, vertex_t size,
+                          vertex_t batchsize)
     : handle_(handle),
       size_(size),
       batchsize_(batchsize),
@@ -78,7 +79,8 @@ class LinearAssignmentProblem {
       obj_val_dual_v(handle_.get_device_allocator(), handle_.get_stream(), 0) {}
 
   // Executes Hungarian algorithm on the input cost matrix.
-  void solve(weight_t const *d_cost_matrix, vertex_t *d_row_assignment, vertex_t *d_col_assignment) {
+  void solve(weight_t const *d_cost_matrix, vertex_t *d_row_assignment,
+             vertex_t *d_col_assignment) {
     initializeDevice();
 
     d_vertices_dev.row_assignments = d_row_assignment;
@@ -233,9 +235,8 @@ class LinearAssignmentProblem {
     bool h_flag = false;
     raft::update_device(flag_v.data(), &h_flag, 1, handle_.get_stream());
 
-    detail::executeZeroCover(handle_, d_costs_, d_vertices_dev,
-                             d_row_data_dev, d_col_data_dev, flag_v.data(),
-                             batchsize_, size_);
+    detail::executeZeroCover(handle_, d_costs_, d_vertices_dev, d_row_data_dev,
+                             d_col_data_dev, flag_v.data(), batchsize_, size_);
 
     raft::update_host(&h_flag, flag_v.data(), 1, handle_.get_stream());
 
@@ -265,9 +266,8 @@ class LinearAssignmentProblem {
 
   // Function for calculating primal and dual objective values at optimality.
   int hungarianStep6() {
-    detail::calcObjValPrimal(handle_, obj_val_primal_v.data(),
-                             d_costs_, d_vertices_dev.row_assignments, batchsize_,
-                             size_);
+    detail::calcObjValPrimal(handle_, obj_val_primal_v.data(), d_costs_,
+                             d_vertices_dev.row_assignments, batchsize_, size_);
 
     detail::calcObjValDual(handle_, obj_val_dual_v.data(), d_vertices_dev,
                            batchsize_, size_);

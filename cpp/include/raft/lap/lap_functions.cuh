@@ -204,8 +204,8 @@ inline void coverZeroAndExpand(raft::handle_t const &handle,
 
   kernel_coverAndExpand<<<blocks_per_grid, threads_per_block, 0,
                           handle.get_stream()>>>(
-    d_flag, d_rows_csr_ptrs, d_rows_csr_neighbors, d_costs_dev,
-    d_vertices_dev, d_row_data_dev, d_col_data_dev, SP, N);
+    d_flag, d_rows_csr_ptrs, d_rows_csr_neighbors, d_costs_dev, d_vertices_dev,
+    d_row_data_dev, d_col_data_dev, SP, N);
 }
 
 template <typename vertex_t, typename weight_t>

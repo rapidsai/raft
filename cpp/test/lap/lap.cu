@@ -76,8 +76,8 @@ void hungarian_test(int problemsize, int costrange, int problemcount,
       float start = omp_get_wtime();
 
       // Create an instance of LinearAssignmentProblem using problem size, number of subproblems
-      raft::lap::LinearAssignmentProblem<vertex_t, weight_t> lpx(handle, problemsize,
-                                                                 batchsize);
+      raft::lap::LinearAssignmentProblem<vertex_t, weight_t> lpx(
+        handle, problemsize, batchsize);
 
       // Solve LAP(s) for given cost matrix
       lpx.solve(elements_v.data());
@@ -88,12 +88,10 @@ void hungarian_test(int problemsize, int costrange, int problemcount,
 
       // Use getPrimalObjectiveValue and getDualObjectiveValue APIs to get primal and dual objectives. At optimality both values should match.
       for (int k = 0; k < batchsize; k++) {
-        std::cout << j << ":"
-                  << i << ":"
-                  << k << ":"
+        std::cout << j << ":" << i << ":" << k << ":"
                   << lpx.getPrimalObjectiveValue(k) << ":"
-                  << lpx.getDualObjectiveValue(k) << ":"
-                  << total_time << std::endl;
+                  << lpx.getDualObjectiveValue(k) << ":" << total_time
+                  << std::endl;
       }
 
       //			Use getAssignmentVector API to get the optimal row assignments for specified problem id.
@@ -134,22 +132,22 @@ TEST(Raft, HungarianIntFloat) {
 
 TEST(Raft, HungarianIntDouble) {
   hungarian_test<int, double>(PROBLEMSIZE, COSTRANGE, PROBLEMCOUNT, REPETITIONS,
-                             BATCHSIZE);
+                              BATCHSIZE);
 }
 
 TEST(Raft, HungarianIntLong) {
   hungarian_test<int, long>(PROBLEMSIZE, COSTRANGE, PROBLEMCOUNT, REPETITIONS,
-                             BATCHSIZE);
+                            BATCHSIZE);
 }
 
 TEST(Raft, HungarianLongFloat) {
   hungarian_test<long, float>(PROBLEMSIZE, COSTRANGE, PROBLEMCOUNT, REPETITIONS,
-                             BATCHSIZE);
+                              BATCHSIZE);
 }
 
 TEST(Raft, HungarianLongDouble) {
-  hungarian_test<long, double>(PROBLEMSIZE, COSTRANGE, PROBLEMCOUNT, REPETITIONS,
-                             BATCHSIZE);
+  hungarian_test<long, double>(PROBLEMSIZE, COSTRANGE, PROBLEMCOUNT,
+                               REPETITIONS, BATCHSIZE);
 }
 
 TEST(Raft, HungarianLongLong) {
