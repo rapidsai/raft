@@ -180,7 +180,6 @@ __global__ void add_reverse_edge(const edge_t* new_mst_edge, const vertex_t* ind
         // it is assumed the each vertex only picks one valid min edge
         // per cycle
         // hence, we store at index tid + v for the reverse edge scenario
-        printf("tid: %d, tid + v: %d\n", tid, tid + v);
         temp_src[tid + v] = neighbor_vertex;
         temp_dst[tid + v] = tid;
         temp_weights[tid + v] = weights[edge_idx];
