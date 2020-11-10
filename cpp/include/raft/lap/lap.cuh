@@ -43,8 +43,6 @@ class LinearAssignmentProblem {
   VertexData<vertex_t> d_row_data_dev, d_col_data_dev;
 
   raft::handle_t const &handle_;
-  raft::mr::device::buffer<vertex_t> row_assignments_v;
-  raft::mr::device::buffer<vertex_t> col_assignments_v;
   raft::mr::device::buffer<int> row_covers_v;
   raft::mr::device::buffer<int> col_covers_v;
   raft::mr::device::buffer<weight_t> row_duals_v;
@@ -65,10 +63,6 @@ class LinearAssignmentProblem {
       size_(size),
       batchsize_(batchsize),
       d_costs_(nullptr),
-      row_assignments_v(handle_.get_device_allocator(), handle_.get_stream(),
-                        0),
-      col_assignments_v(handle_.get_device_allocator(), handle_.get_stream(),
-                        0),
       row_covers_v(handle_.get_device_allocator(), handle_.get_stream(), 0),
       col_covers_v(handle_.get_device_allocator(), handle_.get_stream(), 0),
       row_duals_v(handle_.get_device_allocator(), handle_.get_stream(), 0),
@@ -84,8 +78,11 @@ class LinearAssignmentProblem {
       obj_val_dual_v(handle_.get_device_allocator(), handle_.get_stream(), 0) {}
 
   // Executes Hungarian algorithm on the input cost matrix.
-  void solve(weight_t const *d_cost_matrix) {
+  void solve(weight_t const *d_cost_matrix, vertex_t *d_row_assignment, vertex_t *d_col_assignment) {
     initializeDevice();
+
+    d_vertices_dev.row_assignments = d_row_assignment;
+    d_vertices_dev.col_assignments = d_col_assignment;
 
     d_costs_ = d_cost_matrix;
 
@@ -120,11 +117,6 @@ class LinearAssignmentProblem {
     d_costs_ = nullptr;
   }
 
-  // Function for getting optimal assignment vector for subproblem spId.
-  std::pair<const vertex_t *, vertex_t> getAssignmentVector(int spId) const {
-    return std::make_pair(row_assignments_v.data() + spId * size_, size_);
-  }
-
   // Function for getting optimal row dual vector for subproblem spId.
   std::pair<const weight_t *, vertex_t> getRowDualVector(int spId) const {
     return std::make_pair(row_duals_v.data() + spId * size_, size_);
@@ -156,8 +148,6 @@ class LinearAssignmentProblem {
  private:
   // Helper function for initializing global variables and arrays on a single host.
   void initializeDevice() {
-    row_assignments_v.resize(batchsize_ * size_);
-    col_assignments_v.resize(batchsize_ * size_);
     row_covers_v.resize(batchsize_ * size_);
     col_covers_v.resize(batchsize_ * size_);
     row_duals_v.resize(batchsize_ * size_);
@@ -172,8 +162,6 @@ class LinearAssignmentProblem {
     obj_val_primal_v.resize(batchsize_);
     obj_val_dual_v.resize(batchsize_);
 
-    d_vertices_dev.row_assignments = row_assignments_v.data();
-    d_vertices_dev.col_assignments = col_assignments_v.data();
     d_vertices_dev.row_covers = row_covers_v.data();
     d_vertices_dev.col_covers = col_covers_v.data();
 
@@ -188,10 +176,6 @@ class LinearAssignmentProblem {
     d_col_data_dev.parents = col_parents_v.data();
     d_col_data_dev.children = col_children_v.data();
 
-    thrust::fill(thrust::device, row_assignments_v.begin(),
-                 row_assignments_v.end(), int{-1});
-    thrust::fill(thrust::device, col_assignments_v.begin(),
-                 col_assignments_v.end(), int{-1});
     thrust::fill(thrust::device, row_covers_v.begin(), row_covers_v.end(),
                  int{0});
     thrust::fill(thrust::device, col_covers_v.begin(), col_covers_v.end(),
