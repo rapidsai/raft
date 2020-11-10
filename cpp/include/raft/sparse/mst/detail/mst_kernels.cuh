@@ -145,6 +145,50 @@ __global__ void min_edge_per_supervertex(
   }
 }
 
+template <typename vertex_t, typename edge_t, typename weight_t>
+__global__ void add_reverse_edge(const edge_t* new_mst_edge, const vertex_t* indices, const weight_t* weights, vertex_t* temp_src, vertex_t* temp_dst,
+  weight_t* temp_weights, const vertex_t v) {
+  vertex_t tid = get_1D_idx();
+
+  if (tid < v) {
+
+    bool reverse_needed = false;
+
+    edge_t edge_idx = new_mst_edge[tid];
+    if (edge_idx != std::numeric_limits<edge_t>::max()) {
+      vertex_t neighbor_vertex = indices[edge_idx];
+      edge_t neighbor_edge_idx = new_mst_edge[neighbor_vertex];
+
+      // if neighbor picked no vertex then reverse edge is
+      // definitely needed
+      if (neighbor_edge_idx == std::numeric_limits<edge_t>::max()) {
+        reverse_needed = true;
+      }
+      else {
+        // check what vertex the neighbor vertex picked
+        vertex_t neighbor_vertex_neighbor = indices[neighbor_edge_idx];
+
+        // if vertices did not pick each other
+        // add a reverse edge
+        if (tid != neighbor_vertex_neighbor) {
+          reverse_needed = true;
+        }
+      }
+
+      // if reverse was needed, add the edge
+      if (reverse_needed) {
+        // it is assumed the each vertex only picks one valid min edge
+        // per cycle
+        // hence, we store at index tid + v for the reverse edge scenario
+        printf("tid: %d, tid + v: %d\n", tid, tid + v);
+        temp_src[tid + v] = neighbor_vertex;
+        temp_dst[tid + v] = tid;
+        temp_weights[tid + v] = weights[edge_idx];
+      }
+    }
+  }
+}
+
 // executes for each vertex and updates the colors of both vertices to the lower color
 template <typename vertex_t>
 __global__ void min_pair_colors(const vertex_t mst_edge_count,

@@ -27,6 +27,8 @@
 
 #include <raft/sparse/mst/mst.cuh>
 
+#include "test_utils.h"
+
 template <typename vertex_t, typename edge_t, typename weight_t>
 struct CSRHost {
   std::vector<vertex_t> offsets;
@@ -116,7 +118,7 @@ template <typename vertex_t, typename edge_t, typename weight_t>
 class MSTTest
   : public ::testing::TestWithParam<CSRHost<vertex_t, edge_t, weight_t>> {
  protected:
-  void mst_sequential() {
+  raft::Graph_COO<vertex_t, edge_t, weight_t> mst_sequential() {
     vertex_t *offsets = static_cast<vertex_t *>(csr_d.offsets.data());
     edge_t *indices = static_cast<edge_t *>(csr_d.indices.data());
     weight_t *weights = static_cast<weight_t *>(csr_d.weights.data());
@@ -146,7 +148,7 @@ class MSTTest
     std::cout << "number_of_MST_edges: " << result.n_edges << std::endl;
     EXPECT_LE(result.n_edges, 2 * v - 2);
 
-    mst_edge = mst_solver.mst_edge;
+    return result;
   }
 
   void SetUp() override {
@@ -207,19 +209,17 @@ const std::vector<CSRHost<int, int, float>> csr_in5_h = {
 
 typedef MSTTest<int, int, float> MSTTestSequential;
 TEST_P(MSTTestSequential, Sequential) {
-  mst_sequential();
+  auto gpu_result = mst_sequential();
 
   // do assertions here
   // in this case, running sequential MST
   auto prims_result = prims(csr_h);
-  detail::printv(mst_edge);
-  auto parallel_mst_result = thrust::reduce(mst_edge.begin(), mst_edge.end());
-  std::cout << prims_result << std::endl;
-  std::cout << parallel_mst_result << std::endl;
 
-  if (prims_result == parallel_mst_result) {
-    std::cout << "SUCCESS";
-  }
+  auto parallel_mst_result = thrust::reduce(thrust::device, gpu_result.weights.data(), gpu_result.weights.data() + gpu_result.n_edges);
+  // std::cout << prims_result << std::endl;
+  // std::cout << parallel_mst_result << std::endl;
+
+  ASSERT_TRUE(raft::match(2 * prims_result, parallel_mst_result, raft::Compare<double>()));
 }
 
 INSTANTIATE_TEST_SUITE_P(MSTTests, MSTTestSequential,

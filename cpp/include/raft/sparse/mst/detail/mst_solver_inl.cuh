@@ -64,9 +64,9 @@ MST_solver<vertex_t, edge_t, weight_t>::MST_solver(
     min_edge_color(v_),
     new_mst_edge(v_),
     mst_edge(e_, false),
-    temp_src(v_),
-    temp_dst(v_),
-    temp_weights(v_),
+    temp_src(2 * v_),
+    temp_dst(2 * v_),
+    temp_weights(2 * v_),
     mst_edge_count(1, 0),
     prev_mst_edge_count(1, 0),
     stream(stream_) {
@@ -83,7 +83,7 @@ MST_solver<vertex_t, edge_t, weight_t>::MST_solver(
 }
 
 template <typename vertex_t, typename edge_t, typename weight_t>
-Graph_COO<vertex_t, edge_t, weight_t>
+raft::Graph_COO<vertex_t, edge_t, weight_t>
 MST_solver<vertex_t, edge_t, weight_t>::solve() {
   RAFT_EXPECTS(v > 0, "0 vertices");
   RAFT_EXPECTS(e > 0, "0 edges");
@@ -119,8 +119,8 @@ MST_solver<vertex_t, edge_t, weight_t>::solve() {
     min_edge_per_supervertex();
     stop = Clock::now();
     timer2 += duration_ms(stop - start);
-    //detail::printv(temp_src, "New MST Src");
-    //detail::printv(temp_dst, "New MST dst");
+    // detail::printv(temp_src, "New MST Src", 14);
+    // detail::printv(temp_dst, "New MST dst", 14);
 
     // check if msf/mst done, count new edges added thition
     start = Clock::now();
@@ -314,12 +314,19 @@ void MST_solver<vertex_t, edge_t, weight_t>::min_edge_per_supervertex() {
     color, new_mst_edge_ptr, mst_edge_ptr, indices, weights,
     altered_weights_ptr, temp_src_ptr, temp_dst_ptr, temp_weights_ptr,
     min_edge_color_ptr, v);
+
+  // the above kernel only adds directed mst edges in the case where
+  // a pair of vertices don't pick the same min edge between them
+  // so, now we add the reverse edge to make it undirected
+  detail::add_reverse_edge<<<nblocks, nthreads, 0, stream>>> (
+    new_mst_edge_ptr, indices, weights, temp_src_ptr, temp_dst_ptr, temp_weights_ptr, v
+  );
 }
 
 template <typename vertex_t, typename edge_t, typename weight_t>
 void MST_solver<vertex_t, edge_t, weight_t>::check_termination() {
-  int nthreads = std::min(v, max_threads);
-  int nblocks = std::min((v + nthreads - 1) / nthreads, max_blocks);
+  int nthreads = std::min(2 * v, max_threads);
+  int nblocks = std::min((2 * v + nthreads - 1) / nthreads, max_blocks);
 
   // count number of new mst edges
 
@@ -328,7 +335,7 @@ void MST_solver<vertex_t, edge_t, weight_t>::check_termination() {
   vertex_t* temp_src_ptr = thrust::raw_pointer_cast(temp_src.data());
 
   detail::kernel_count_new_mst_edges<<<nblocks, nthreads, 0, stream>>>(
-    temp_src_ptr, mst_edge_count_ptr, v);
+    temp_src_ptr, mst_edge_count_ptr, 2 * v);
 }
 
 template <typename vertex_t, typename weight_t>
