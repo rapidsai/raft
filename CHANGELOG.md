@@ -3,6 +3,7 @@
 ## New Features
 - PR #65: Adding cuml prims that break circular dependency between cuml and cumlprims projects
 - PR #93: Incorporate Date/Nagi implementation of Hungarian Algorithm
+- PR #94: Allow generic reductions for the map then reduce op
 
 ## Improvements
 - PR #73: Move DistanceType enum from cuML to RAFT
