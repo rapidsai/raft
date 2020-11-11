@@ -235,6 +235,7 @@ if(BUILD_RAFT_TESTS)
     test/cudart_utils.cpp
     test/handle.cpp
     test/integer_utils.cpp
+    test/lap/lap.cu
     test/linalg/add.cu
     test/linalg/binary_op.cu
     test/linalg/coalesced_reduction.cu
@@ -278,21 +279,6 @@ if(BUILD_RAFT_TESTS)
       ${RAFT_LINK_DIRECTORIES})
 
   target_link_libraries(test_raft
-    PRIVATE
-      ${RAFT_LINK_LIBRARIES}
-      GTest::GTest
-      GTest::Main
-      OpenMP::OpenMP_CXX
-      Threads::Threads)
-
-  add_executable(test_hungarian test/lap/lap.cu)
-
-  target_include_directories(test_hungarian
-    PRIVATE
-      ${RAFT_INCLUDE_DIRECTORIES}
-      ${GTEST_DIR}/include)
-
-  target_link_libraries(test_hungarian
     PRIVATE
       ${RAFT_LINK_LIBRARIES}
       GTest::GTest
