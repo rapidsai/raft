@@ -27,7 +27,7 @@
 #include <omp.h>
 #include <iostream>
 #include <random>
-#include "raft/lap/lap.cuh"
+#include <raft/lap/lap.cuh>
 
 #define PROBLEMSIZE 1000  // Number of rows/columns
 #define BATCHSIZE 10      // Number of problems in the batch
