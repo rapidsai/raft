@@ -25,12 +25,12 @@
 #pragma once
 
 #include <cuda.h>
+#include <cuda_runtime.h>
+#include <device_launch_parameters.h>
 #include <thrust/device_ptr.h>
 #include <thrust/reduce.h>
 #include <thrust/scan.h>
-#include <cuda_runtime.h>
 #include "d_structs.h"
-#include <device_launch_parameters.h>
 
 #include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
