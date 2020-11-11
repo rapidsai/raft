@@ -16,6 +16,7 @@
 
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
+#include <limits>
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/random/rng.cuh>
 #include "../test_utils.h"
@@ -114,5 +115,60 @@ TEST_P(MapReduceTestD, Result) {
 INSTANTIATE_TEST_SUITE_P(MapReduceTests, MapReduceTestD,
                          ::testing::ValuesIn(inputsd));
 
+template <typename math_t>
+class MapGenericReduceTest : public ::testing::Test {
+ protected:
+  MapGenericReduceTest()
+    : allocator(handle.get_device_allocator()),
+      input(allocator, handle.get_stream(), n),
+      output(allocator, handle.get_stream(), 1) {
+    CUDA_CHECK(cudaStreamCreate(&stream));
+    handle.set_stream(stream);
+    initInput(input.data(), input.size(), stream);
+  }
+
+  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
+
+ public:
+  void initInput(math_t *input, int n, cudaStream_t stream) {
+    raft::random::Rng r(137);
+    r.uniform(input, n, math_t(2), math_t(3), stream);
+    math_t val = 1;
+    raft::update_device(input + 42, &val, 1, stream);
+    val = 5;
+    raft::update_device(input + 337, &val, 1, stream);
+  }
+
+  void testMin() {
+    auto op = [] __device__(math_t in) { return in; };
+    const math_t neutral = std::numeric_limits<math_t>::max();
+    mapThenReduce(output.data(), input.size(), neutral, op, cub::Min(), stream,
+                  input.data());
+    EXPECT_TRUE(
+      raft::devArrMatch(math_t(1), output.data(), 1, raft::Compare<math_t>()));
+  }
+  void testMax() {
+    auto op = [] __device__(math_t in) { return in; };
+    const math_t neutral = std::numeric_limits<math_t>::min();
+    mapThenReduce(output.data(), input.size(), neutral, op, cub::Max(), stream,
+                  input.data());
+    EXPECT_TRUE(
+      raft::devArrMatch(math_t(5), output.data(), 1, raft::Compare<math_t>()));
+  }
+
+ protected:
+  int n = 1237;
+  raft::handle_t handle;
+  cudaStream_t stream;
+  std::shared_ptr<raft::mr::device::allocator> allocator;
+  raft::mr::device::buffer<math_t> input;
+  raft::mr::device::buffer<math_t> output;
+};
+
+typedef ::testing::Types<float, double> FloatTypes;
+
+TYPED_TEST_CASE(MapGenericReduceTest, FloatTypes);
+TYPED_TEST(MapGenericReduceTest, min) { this->testMin(); }
+TYPED_TEST(MapGenericReduceTest, max) { this->testMax(); }
 }  // end namespace linalg
 }  // end namespace raft
