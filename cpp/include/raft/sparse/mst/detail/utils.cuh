@@ -48,7 +48,7 @@ void printv(rmm::device_vector<T>& vec, const std::string& name = "",
   std::cout << std::endl << std::endl;
 #endif
 }
-#define duration_ms(a) \
+#define duration_us(a) \
   std::chrono::duration_cast<std::chrono::microseconds>(a).count()
 
 }  // namespace detail

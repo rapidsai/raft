@@ -95,7 +95,7 @@ MST_solver<vertex_t, edge_t, weight_t>::solve() {
   auto start = Clock::now();
   alteration();
   auto stop = Clock::now();
-  std::cout << "Alteration: " << duration_ms(stop - start) << " ms"
+  std::cout << "Alteration: " << duration_us(stop - start) << " ms"
             << std::endl;
 
   detail::printv(altered_weights, "altered_weights", 20);
@@ -112,11 +112,11 @@ MST_solver<vertex_t, edge_t, weight_t>::solve() {
     start = Clock::now();
     min_edge_per_vertex();
     stop = Clock::now();
-    timer1 += duration_ms(stop - start);
+    timer1 += duration_us(stop - start);
     start = Clock::now();
     min_edge_per_supervertex();
     stop = Clock::now();
-    timer2 += duration_ms(stop - start);
+    timer2 += duration_us(stop - start);
     // detail::printv(temp_src, "New MST Src", 14);
     // detail::printv(temp_dst, "New MST dst", 14);
 
@@ -124,7 +124,7 @@ MST_solver<vertex_t, edge_t, weight_t>::solve() {
     start = Clock::now();
     check_termination();
     stop = Clock::now();
-    timer3 += duration_ms(stop - start);
+    timer3 += duration_us(stop - start);
     // std::cout << "MST edge count: " << mst_edge_count[0] << std::endl;
     // std::cout << "New MST edge count: " << prev_mst_edge_count[0] << std::endl;
     if (prev_mst_edge_count[0] == mst_edge_count[0]) {
@@ -141,13 +141,13 @@ MST_solver<vertex_t, edge_t, weight_t>::solve() {
     append_src_dst_pair(mst_result.src.data(), mst_result.dst.data(),
                         mst_result.weights.data());
     stop = Clock::now();
-    timer4 += duration_ms(stop - start);
+    timer4 += duration_us(stop - start);
 
     // updates colors of supervertices by propagating the lower color to the higher
     start = Clock::now();
     label_prop(mst_result.src.data(), mst_result.dst.data());
     stop = Clock::now();
-    timer5 += duration_ms(stop - start);
+    timer5 += duration_us(stop - start);
     // detail::printv(colors, "Colors");
 
     // copy this iteration's results and store
