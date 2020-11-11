@@ -60,7 +60,6 @@ MST_solver<vertex_t, edge_t, weight_t>::MST_solver(
     v(v_),
     e(e_),
     color(color_),
-    next_color(v_),
     min_edge_color(v_),
     new_mst_edge(v_),
     mst_edge(e_, false),
@@ -77,8 +76,7 @@ MST_solver<vertex_t, edge_t, weight_t>::MST_solver(
   //Initially, color holds the vertex id as color
   auto policy = rmm::exec_policy(stream);
   thrust::sequence(policy->on(stream), color, color + v, 0);
-  //Initially, each next_color redirects to its own color
-  thrust::sequence(next_color.begin(), next_color.end());
+
   //Initially, each edge is not in the mst
 }
 
@@ -246,28 +244,17 @@ void MST_solver<vertex_t, edge_t, weight_t>::label_prop(vertex_t* mst_src,
     (v + color_change_nthreads - 1) / color_change_nthreads, max_blocks);
 
   rmm::device_vector<bool> done(1, false);
-  vertex_t* next_color_ptr = thrust::raw_pointer_cast(next_color.data());
   vertex_t* mst_edge_count_ptr =
     thrust::raw_pointer_cast(mst_edge_count.data());
 
   bool* done_ptr = thrust::raw_pointer_cast(done.data());
-  double timer1 = 0, timer2 = 0;
   auto i = 0;
   while (!done[0]) {
     done[0] = true;
-    auto start = Clock::now();
     detail::min_pair_colors<<<min_pair_nblocks, min_pair_nthreads, 0, stream>>>(
-      curr_mst_edge_count[0], mst_src, mst_dst, color, next_color_ptr);
-    auto stop = Clock::now();
-    timer1 += duration_ms(stop - start);
-    start = Clock::now();
-    detail::check_color_change<<<color_change_nblocks, color_change_nthreads, 0,
-                                 stream>>>(v, color, next_color_ptr, done_ptr);
-    stop = Clock::now();
-    timer2 += duration_ms(stop - start);
+      curr_mst_edge_count[0], mst_src, mst_dst, color, done_ptr);
     i++;
   }
-  std::cout << timer1 << "," << timer2 << std::endl;
 #ifdef MST_DEBUG
   std::cout << "Label prop iterations: " << i << std::endl;
 #endif

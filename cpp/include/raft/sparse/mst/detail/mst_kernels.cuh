@@ -194,34 +194,19 @@ template <typename vertex_t>
 __global__ void min_pair_colors(const vertex_t mst_edge_count,
                                 const vertex_t* mst_src,
                                 const vertex_t* mst_dst, vertex_t* color,
-                                vertex_t* next_color) {
+                                bool* done) {
   vertex_t i = get_1D_idx();
   if (i < mst_edge_count) {
     auto src = mst_src[i];
     auto dst = mst_dst[i];
 
-    atomicMin(&next_color[src], color[dst]);
-    atomicMin(&next_color[dst], color[src]);
-  }
-}
-
-template <typename vertex_t>
-__global__ void check_color_change(const vertex_t v, vertex_t* color,
-                                   vertex_t* next_color, bool* done) {
-  //This kernel works on the global_colors[] array
-  vertex_t i = get_1D_idx();
-  if (i < v) {
-    if (color[i] > next_color[i]) {
-      //Termination for label propagation
-      done[0] = false;
-      color[i] = next_color[i];
+    // resolve pair color
+    if (color[src] != color[dst]) done[0] = false;
+    while (color[src] != color[dst]) {
+      atomicMin(&color[src], color[dst]);
+      atomicMin(&color[dst], color[src]);
     }
   }
-  // Notice that some degree >1 and we run in parallel
-  // min_pair_colors kernel may result in pair color inconsitencies
-  // resolving here for next iteration
-  // TODO check experimentally
-  next_color[i] = color[i];
 }
 
 // Alterate the weights, make all undirected edge weight unique while keeping Wuv == Wvu
