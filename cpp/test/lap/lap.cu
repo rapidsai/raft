@@ -56,7 +56,7 @@ void generateProblem(weight_t *cost_matrix, int SP, int N, int costrange) {
 
 template <typename vertex_t, typename weight_t>
 void hungarian_test(int problemsize, int costrange, int problemcount,
-                    int repetitions, int batchsize, bool verbose=false) {
+                    int repetitions, int batchsize, bool verbose = false) {
   raft::handle_t handle;
 
   weight_t *h_cost = new weight_t[batchsize * problemsize * problemsize];
@@ -86,7 +86,8 @@ void hungarian_test(int problemsize, int costrange, int problemcount,
         handle, problemsize, batchsize);
 
       // Solve LAP(s) for given cost matrix
-      lpx.solve(elements_v.data(), row_assignment_v.data(), col_assignment_v.data());
+      lpx.solve(elements_v.data(), row_assignment_v.data(),
+                col_assignment_v.data());
 
       float end = omp_get_wtime();
 
@@ -163,4 +164,4 @@ TEST(Raft, HungarianLongLong) {
                              BATCHSIZE);
 }
 
-}
+}  // namespace raft
