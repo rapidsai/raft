@@ -238,6 +238,7 @@ if(BUILD_RAFT_TESTS)
     test/lap/lap.cu
     test/linalg/add.cu
     test/linalg/binary_op.cu
+    test/linalg/cholesky_r1.cu
     test/linalg/coalesced_reduction.cu
     test/linalg/divide.cu
     test/linalg/eig.cu
