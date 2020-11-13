@@ -31,7 +31,7 @@ Style Check:
 ```bash
 $ bash ci/local/build.sh -r ~/rapids/cuml -s
 $ . /opt/conda/etc/profile.d/conda.sh
-$ conda activate rapids gdf    #Activate gpuCI conda environment
+$ conda activate rapids    #Activate gpuCI conda environment
 $ cd rapids
 $ flake8 python
 ```
