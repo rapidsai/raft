@@ -196,7 +196,6 @@ __global__ void kernel_columnReduction(weight_t const *d_costs,
 }
 
 // Kernel for calculating initial assignments.
-//  TODO:  N should be vertex_t
 template <typename vertex_t, typename weight_t>
 __global__ void kernel_computeInitialAssignments(
   weight_t const *d_costs, weight_t const *d_row_duals,
@@ -231,7 +230,6 @@ __global__ void kernel_computeInitialAssignments(
 }
 
 // Kernel for populating the cover arrays and initializing alternating tree.
-//   TODO:  N should be type vertex_t
 template <typename vertex_t>
 __global__ void kernel_computeRowCovers(vertex_t *d_row_assignments,
                                         int *d_row_covers, int *d_row_visited,
@@ -251,9 +249,6 @@ __global__ void kernel_computeRowCovers(vertex_t *d_row_assignments,
 }
 
 // Kernel for populating the predicate matrix for edges in row major format.
-//
-// TODO: N should be of type vertex_t.  Need to clean up things to make
-//       that happen
 template <typename vertex_t>
 __global__ void kernel_rowPredicateConstructionCSR(bool *d_predicates,
                                                    vertex_t *d_addresses,
@@ -276,7 +271,6 @@ __global__ void kernel_rowPredicateConstructionCSR(bool *d_predicates,
 }
 
 // Kernel for scattering the edges based on the scatter addresses.
-//   TODO:  N should be type vertex_t
 template <typename vertex_t>
 __global__ void kernel_rowScatterCSR(bool const *d_predicates,
                                      vertex_t const *d_addresses,
@@ -302,7 +296,6 @@ __global__ void kernel_rowScatterCSR(bool const *d_predicates,
 }
 
 // Kernel for finding the minimum zero cover.
-//template <typename vertex_t, typename weight_t>
 template <typename vertex_t, typename weight_t>
 __global__ void kernel_coverAndExpand(bool *d_flag, vertex_t const *d_ptrs,
                                       vertex_t const *d_neighbors,

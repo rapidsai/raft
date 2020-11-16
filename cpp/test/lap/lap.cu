@@ -102,32 +102,6 @@ void hungarian_test(int problemsize, int costrange, int problemcount,
                     << std::endl;
         }
       }
-
-      //			Use getAssignmentVector API to get the optimal row assignments for specified problem id.
-      //			Example is shown below.
-
-      //			int *assignment_sp1 = new int[problemsize];
-      //			lpx.getAssignmentVector(assignment_sp1, 15);
-      //
-      //			std::cout << "\nPrinting assignment vector for subproblem 1" << std::endl;
-      //			for (int z = 0; z < problemsize; z++) {
-      //				std::cout << z << "\t" << assignment_sp1[z] << std::endl;
-      //			}
-      //
-      //			delete[] assignment_sp1;
-
-      //			Use getRowDualVector and getColDualVector API to get the optimal row duals and column duals for specified problem id.
-      //			Example is shown below.
-
-      //			float *row_dual_sp1 = new float[problemsize];
-      //			lpx.getRowDualVector(row_dual_sp1, 15);
-      //
-      //			std::cout << "\nPrinting row dual vector for subproblem 1" << std::endl;
-      //			for (int z = 0; z < problemsize; z++) {
-      //				std::cout << z << "\t" << row_dual_sp1[z] << std::endl;
-      //			}
-      //
-      //			delete[] row_dual_sp1;
     }
   }
 
