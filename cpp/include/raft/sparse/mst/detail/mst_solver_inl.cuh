@@ -88,17 +88,14 @@ MST_solver<vertex_t, edge_t, weight_t>::solve() {
   RAFT_EXPECTS(offsets != nullptr, "Null offsets.");
   RAFT_EXPECTS(indices != nullptr, "Null indices.");
   RAFT_EXPECTS(weights != nullptr, "Null weights.");
-  double timer1 = 0, timer2 = 0, timer3 = 0, timer4 = 0, timer5 = 0;
+  double timer0 = 0, timer1 = 0, timer2 = 0, timer3 = 0, timer4 = 0, timer5 = 0;
   // Alterating the weights
   // this is done by identifying the lowest cost edge weight gap that is not 0, call this theta.
   // For each edge, add noise that is less than theta. That is, generate a random number in the range [0.0, theta) and add it to each edge weight.
   auto start = Clock::now();
   alteration();
   auto stop = Clock::now();
-  std::cout << "Alteration: " << duration_us(stop - start) << " ms"
-            << std::endl;
-
-  //detail::printv(altered_weights, "altered_weights", 20);
+  timer0 = duration_us(stop - start);
 
   Graph_COO<vertex_t, edge_t, weight_t> mst_result(2 * v - 2, stream);
 
@@ -117,21 +114,18 @@ MST_solver<vertex_t, edge_t, weight_t>::solve() {
     min_edge_per_supervertex();
     stop = Clock::now();
     timer2 += duration_us(stop - start);
-    // detail::printv(temp_src, "New MST Src", 14);
-    // detail::printv(temp_dst, "New MST dst", 14);
 
     // check if msf/mst done, count new edges added thition
     start = Clock::now();
     check_termination();
     stop = Clock::now();
     timer3 += duration_us(stop - start);
-    // std::cout << "MST edge count: " << mst_edge_count[0] << std::endl;
-    // std::cout << "New MST edge count: " << prev_mst_edge_count[0] << std::endl;
+
     if (prev_mst_edge_count[0] == mst_edge_count[0]) {
 #ifdef MST_DEBUG
       std::cout << "Iterations: " << i << std::endl;
-      std::cout << timer1 << "," << timer2 << "," << timer3 << "," << timer4
-                << "," << timer5 << std::endl;
+      std::cout << timer0 << "," << timer1 << "," << timer2 << "," << timer3
+                << "," << timer4 << "," << timer5 << std::endl;
 #endif
       break;
     }
@@ -148,7 +142,6 @@ MST_solver<vertex_t, edge_t, weight_t>::solve() {
     label_prop(mst_result.src.data(), mst_result.dst.data());
     stop = Clock::now();
     timer5 += duration_us(stop - start);
-    // detail::printv(colors, "Colors");
 
     // copy this iteration's results and store
     prev_mst_edge_count = mst_edge_count;
@@ -163,16 +156,16 @@ MST_solver<vertex_t, edge_t, weight_t>::solve() {
   return mst_result;
 }
 
-//|b|-|a|
+// ||y|-|x||
 template <typename weight_t>
 struct alteration_functor {
   __host__ __device__ weight_t
   operator()(const thrust::tuple<weight_t, weight_t>& t) {
     auto x = thrust::get<0>(t);
     auto y = thrust::get<1>(t);
-    x < weight_t(0) ? -x : x;
-    y < weight_t(0) ? -y : y;
-    return y - x;
+    x = x < 0 ? -x : x;
+    y = y < 0 ? -y : y;
+    return x < y ? y - x : x - y;
   }
 };
 
