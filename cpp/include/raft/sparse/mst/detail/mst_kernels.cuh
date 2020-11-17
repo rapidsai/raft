@@ -199,11 +199,12 @@ __global__ void min_pair_colors(const vertex_t mst_edge_count,
   if (i < mst_edge_count) {
     auto src = mst_src[i];
     auto dst = mst_dst[i];
+    auto c_src = color[src];
+    auto c_dst = color[dst];
 
     // resolve pair color
-    if (color[src] != color[dst]) {
-      atomicMin(&color[src], color[dst]);
-      atomicMin(&color[dst], color[src]);
+    if (c_src != c_dst) {
+      atomicMin(&color[src], c_dst);
       done[0] = false;
     }
   }

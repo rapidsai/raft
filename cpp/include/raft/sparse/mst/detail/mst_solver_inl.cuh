@@ -88,14 +88,20 @@ MST_solver<vertex_t, edge_t, weight_t>::solve() {
   RAFT_EXPECTS(offsets != nullptr, "Null offsets.");
   RAFT_EXPECTS(indices != nullptr, "Null indices.");
   RAFT_EXPECTS(weights != nullptr, "Null weights.");
+#ifdef MST_TIME
   double timer0 = 0, timer1 = 0, timer2 = 0, timer3 = 0, timer4 = 0, timer5 = 0;
+  auto start = Clock::now();
+#endif
+
   // Alterating the weights
   // this is done by identifying the lowest cost edge weight gap that is not 0, call this theta.
   // For each edge, add noise that is less than theta. That is, generate a random number in the range [0.0, theta) and add it to each edge weight.
-  auto start = Clock::now();
   alteration();
+
+#ifdef MST_TIME
   auto stop = Clock::now();
   timer0 = duration_us(stop - start);
+#endif
 
   Graph_COO<vertex_t, edge_t, weight_t> mst_result(2 * v - 2, stream);
 
@@ -103,26 +109,37 @@ MST_solver<vertex_t, edge_t, weight_t>::solve() {
   // Here we adjust it to support disconnected components (spanning forest)
   // track completion with mst_edge_found status.
   for (auto i = 0; i < v; i++) {
+#ifdef MST_TIME
+    start = Clock::now();
+#endif
     // Finds the minimum outgoing edge from each supervertex to the lowest outgoing color
     // by working at each vertex of the supervertex
-
-    start = Clock::now();
     min_edge_per_vertex();
+
+#ifdef MST_TIME
     stop = Clock::now();
     timer1 += duration_us(stop - start);
     start = Clock::now();
+#endif
+
     min_edge_per_supervertex();
+
+#ifdef MST_TIME
     stop = Clock::now();
     timer2 += duration_us(stop - start);
-
-    // check if msf/mst done, count new edges added thition
     start = Clock::now();
+#endif
+
+    // check if msf/mst done, count new edges added
     check_termination();
+
+#ifdef MST_TIME
     stop = Clock::now();
     timer3 += duration_us(stop - start);
+#endif
 
     if (prev_mst_edge_count[0] == mst_edge_count[0]) {
-#ifdef MST_DEBUG
+#ifdef MST_TIME
       std::cout << "Iterations: " << i << std::endl;
       std::cout << timer0 << "," << timer1 << "," << timer2 << "," << timer3
                 << "," << timer4 << "," << timer5 << std::endl;
@@ -130,18 +147,25 @@ MST_solver<vertex_t, edge_t, weight_t>::solve() {
       break;
     }
 
-    // append the newly found MST edges to the final output
+#ifdef MST_TIME
     start = Clock::now();
+#endif
+    // append the newly found MST edges to the final output
     append_src_dst_pair(mst_result.src.data(), mst_result.dst.data(),
                         mst_result.weights.data());
+#ifdef MST_TIME
     stop = Clock::now();
     timer4 += duration_us(stop - start);
+    start = Clock::now();
+#endif
 
     // updates colors of supervertices by propagating the lower color to the higher
-    start = Clock::now();
     label_prop(mst_result.src.data(), mst_result.dst.data());
+
+#ifdef MST_TIME
     stop = Clock::now();
     timer5 += duration_us(stop - start);
+#endif
 
     // copy this iteration's results and store
     prev_mst_edge_count = mst_edge_count;
@@ -247,7 +271,7 @@ void MST_solver<vertex_t, edge_t, weight_t>::label_prop(vertex_t* mst_src,
       curr_mst_edge_count[0], mst_src, mst_dst, color, done_ptr);
     i++;
   }
-#ifdef MST_DEBUG
+#ifdef MST_TIME
   std::cout << "Label prop iterations: " << i << std::endl;
 #endif
 }
