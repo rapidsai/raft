@@ -98,7 +98,7 @@ MST_solver<vertex_t, edge_t, weight_t>::solve() {
   std::cout << "Alteration: " << duration_us(stop - start) << " ms"
             << std::endl;
 
-  detail::printv(altered_weights, "altered_weights", 20);
+  //detail::printv(altered_weights, "altered_weights", 20);
 
   Graph_COO<vertex_t, edge_t, weight_t> mst_result(2 * v - 2, stream);
 
@@ -156,6 +156,9 @@ MST_solver<vertex_t, edge_t, weight_t>::solve() {
 
   thrust::host_vector<edge_t> host_mst_edge_count = mst_edge_count;
   mst_result.n_edges = host_mst_edge_count[0];
+  mst_result.src.resize(mst_result.n_edges, stream);
+  mst_result.dst.resize(mst_result.n_edges, stream);
+  mst_result.weights.resize(mst_result.n_edges, stream);
 
   return mst_result;
 }
@@ -238,10 +241,6 @@ void MST_solver<vertex_t, edge_t, weight_t>::label_prop(vertex_t* mst_src,
   auto min_pair_nblocks = std::min(
     (curr_mst_edge_count[0] + min_pair_nthreads - 1) / min_pair_nthreads,
     max_blocks);
-
-  auto color_change_nthreads = std::min(v, max_threads);
-  auto color_change_nblocks = std::min(
-    (v + color_change_nthreads - 1) / color_change_nthreads, max_blocks);
 
   rmm::device_vector<bool> done(1, false);
   vertex_t* mst_edge_count_ptr =
