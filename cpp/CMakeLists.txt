@@ -235,6 +235,7 @@ if(BUILD_RAFT_TESTS)
     test/cudart_utils.cpp
     test/handle.cpp
     test/integer_utils.cpp
+    test/lap/lap.cu
     test/linalg/add.cu
     test/linalg/binary_op.cu
     test/linalg/coalesced_reduction.cu
@@ -284,6 +285,7 @@ if(BUILD_RAFT_TESTS)
       GTest::Main
       OpenMP::OpenMP_CXX
       Threads::Threads)
+
 endif(BUILD_RAFT_TESTS)
 
 ##############################################################################
