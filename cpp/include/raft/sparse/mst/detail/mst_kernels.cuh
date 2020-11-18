@@ -30,8 +30,8 @@ namespace detail {
 template <typename vertex_t, typename edge_t, typename weight_t>
 __global__ void kernel_min_edge_per_vertex(
   const edge_t* offsets, const edge_t* indices, const weight_t* weights,
-  const vertex_t* color, const vertex_t *color_index, edge_t* new_mst_edge, const bool* mst_edge,
-  weight_t* min_edge_color, const vertex_t v) {
+  const vertex_t* color, const vertex_t* color_index, edge_t* new_mst_edge,
+  const bool* mst_edge, weight_t* min_edge_color, const vertex_t v) {
   edge_t tid = threadIdx.x + blockIdx.x * blockDim.x;
 
   unsigned warp_id = tid / 32;
@@ -119,8 +119,8 @@ __global__ void kernel_min_edge_per_vertex(
 
 template <typename vertex_t, typename edge_t, typename weight_t>
 __global__ void min_edge_per_supervertex(
-  const vertex_t* color, const vertex_t *color_index, edge_t* new_mst_edge, bool* mst_edge,
-  const vertex_t* indices, const weight_t* weights,
+  const vertex_t* color, const vertex_t* color_index, edge_t* new_mst_edge,
+  bool* mst_edge, const vertex_t* indices, const weight_t* weights,
   const weight_t* altered_weights, vertex_t* temp_src, vertex_t* temp_dst,
   weight_t* temp_weights, const weight_t* min_edge_color, const vertex_t v) {
   vertex_t tid = get_1D_idx();
@@ -194,8 +194,11 @@ __global__ void add_reverse_edge(const edge_t* new_mst_edge,
 
 // executes for newly added mst edges and updates the colors of both vertices to the lower color
 template <typename vertex_t, typename edge_t>
-__global__ void min_pair_colors(const vertex_t v, const vertex_t *indices,
-                                const edge_t *new_mst_edge, const vertex_t* color, const vertex_t *color_index, vertex_t *next_color) {
+__global__ void min_pair_colors(const vertex_t v, const vertex_t* indices,
+                                const edge_t* new_mst_edge,
+                                const vertex_t* color,
+                                const vertex_t* color_index,
+                                vertex_t* next_color) {
   vertex_t i = get_1D_idx();
 
   if (i < v) {
@@ -208,7 +211,6 @@ __global__ void min_pair_colors(const vertex_t v, const vertex_t *indices,
       vertex_t self_color = color[self_color_idx];
       vertex_t neighbor_color_idx = color_index[neighbor_vertex];
       vertex_t neighbor_super_color = color[neighbor_color_idx];
-
 
       // update my own color as source of edge
       // update neighbour color index directly
@@ -223,7 +225,9 @@ __global__ void min_pair_colors(const vertex_t v, const vertex_t *indices,
 
 // for each vertex, update color if it was changed in min_pair_colors kernel
 template <typename vertex_t>
-__global__ void update_colors(const vertex_t v, vertex_t *color, const vertex_t *color_index, const vertex_t *next_color, bool *done) {
+__global__ void update_colors(const vertex_t v, vertex_t* color,
+                              const vertex_t* color_index,
+                              const vertex_t* next_color, bool* done) {
   vertex_t i = get_1D_idx();
 
   if (i < v) {
@@ -241,7 +245,8 @@ __global__ void update_colors(const vertex_t v, vertex_t *color, const vertex_t 
 
 // point vertices to their final color index
 template <typename vertex_t>
-__global__ void final_color_indices(const vertex_t v, const vertex_t *color, vertex_t *color_index) {
+__global__ void final_color_indices(const vertex_t v, const vertex_t* color,
+                                    vertex_t* color_index) {
   vertex_t i = get_1D_idx();
 
   if (i < v) {
