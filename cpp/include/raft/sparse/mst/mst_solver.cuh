@@ -74,6 +74,9 @@ class MST_solver {
     prev_mst_edge_count;  // total number of edges up to the previous iteration
   rmm::device_vector<bool>
     mst_edge;  // mst output -  true if the edge belongs in mst
+  rmm::device_vector<vertex_t> next_color;  //  next iteration color
+  rmm::device_vector<vertex_t>
+    color_index;  // index of color that vertex points to
 
   // new src-dst pairs found per iteration
   rmm::device_vector<vertex_t> temp_src;

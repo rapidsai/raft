@@ -30,8 +30,8 @@ namespace detail {
 template <typename vertex_t, typename edge_t, typename weight_t>
 __global__ void kernel_min_edge_per_vertex(
   const edge_t* offsets, const edge_t* indices, const weight_t* weights,
-  const vertex_t* color, edge_t* new_mst_edge, const bool* mst_edge,
-  weight_t* min_edge_color, const vertex_t v) {
+  const vertex_t* color, const vertex_t* color_index, edge_t* new_mst_edge,
+  const bool* mst_edge, weight_t* min_edge_color, const vertex_t v) {
   edge_t tid = threadIdx.x + blockIdx.x * blockDim.x;
 
   unsigned warp_id = tid / 32;
@@ -47,7 +47,8 @@ __global__ void kernel_min_edge_per_vertex(
 
   __syncthreads();
 
-  vertex_t self_color = color[warp_id];
+  vertex_t self_color_idx = color_index[warp_id];
+  vertex_t self_color = color[self_color_idx];
 
   // find the minimum edge associated per row
   // each thread in warp holds the minimum edge for
@@ -61,7 +62,8 @@ __global__ void kernel_min_edge_per_vertex(
     // find min for each thread in warp
     for (edge_t e = row_start + lane_id; e < row_end; e += 32) {
       weight_t curr_edge_weight = weights[e];
-      vertex_t successor_color = color[indices[e]];
+      vertex_t successor_color_idx = color_index[indices[e]];
+      vertex_t successor_color = color[successor_color_idx];
 
       if (!mst_edge[e] && self_color != successor_color) {
         if (curr_edge_weight < min_edge_weight[lane_id]) {
@@ -117,14 +119,15 @@ __global__ void kernel_min_edge_per_vertex(
 
 template <typename vertex_t, typename edge_t, typename weight_t>
 __global__ void min_edge_per_supervertex(
-  const vertex_t* color, edge_t* new_mst_edge, bool* mst_edge,
-  const vertex_t* indices, const weight_t* weights,
+  const vertex_t* color, const vertex_t* color_index, edge_t* new_mst_edge,
+  bool* mst_edge, const vertex_t* indices, const weight_t* weights,
   const weight_t* altered_weights, vertex_t* temp_src, vertex_t* temp_dst,
   weight_t* temp_weights, const weight_t* min_edge_color, const vertex_t v) {
   vertex_t tid = get_1D_idx();
 
   if (tid < v) {
-    vertex_t vertex_color = color[tid];
+    vertex_t vertex_color_idx = color_index[tid];
+    vertex_t vertex_color = color[vertex_color_idx];
     edge_t edge_idx = new_mst_edge[tid];
 
     // check if valid outgoing edge was found
@@ -189,24 +192,78 @@ __global__ void add_reverse_edge(const edge_t* new_mst_edge,
   }
 }
 
-// executes for each vertex and updates the colors of both vertices to the lower color
-template <typename vertex_t>
-__global__ void min_pair_colors(const vertex_t mst_edge_count,
-                                const vertex_t* mst_src,
-                                const vertex_t* mst_dst, vertex_t* color,
-                                bool* done) {
+// executes for newly added mst edges and updates the colors of both vertices to the lower color
+template <typename vertex_t, typename edge_t>
+__global__ void min_pair_colors(const vertex_t v, const vertex_t* indices,
+                                const edge_t* new_mst_edge,
+                                const vertex_t* color,
+                                const vertex_t* color_index,
+                                vertex_t* next_color) {
   vertex_t i = get_1D_idx();
-  if (i < mst_edge_count) {
-    auto src = mst_src[i];
-    auto dst = mst_dst[i];
-    auto c_src = color[src];
-    auto c_dst = color[dst];
 
-    // resolve pair color
-    if (c_src != c_dst) {
-      atomicMin(&color[src], c_dst);
-      done[0] = false;
+  if (i < v) {
+    edge_t edge_idx = new_mst_edge[i];
+
+    if (edge_idx != std::numeric_limits<edge_t>::max()) {
+      vertex_t neighbor_vertex = indices[edge_idx];
+      // vertex_t self_color = color[i];
+      vertex_t self_color_idx = color_index[i];
+      vertex_t self_color = color[self_color_idx];
+      vertex_t neighbor_color_idx = color_index[neighbor_vertex];
+      vertex_t neighbor_super_color = color[neighbor_color_idx];
+
+      // update my own color as source of edge
+      // update neighbour color index directly
+      // this will ensure v1 updates supervertex color
+      // while v2 will update the color of its supervertex
+      // thus, allowing the colors to progress towards 0
+      atomicMin(&next_color[self_color_idx], neighbor_super_color);
+      atomicMin(&next_color[neighbor_color_idx], self_color);
     }
+  }
+}
+
+// for each vertex, update color if it was changed in min_pair_colors kernel
+template <typename vertex_t>
+__global__ void update_colors(const vertex_t v, vertex_t* color,
+                              const vertex_t* color_index,
+                              const vertex_t* next_color, bool* done) {
+  vertex_t i = get_1D_idx();
+
+  if (i < v) {
+    vertex_t self_color = color[i];
+    vertex_t self_color_idx = color_index[i];
+    vertex_t new_color = next_color[self_color_idx];
+
+    // update self color to new smaller color
+    if (self_color > new_color) {
+      color[i] = new_color;
+      *done = false;
+    }
+  }
+}
+
+// point vertices to their final color index
+template <typename vertex_t>
+__global__ void final_color_indices(const vertex_t v, const vertex_t* color,
+                                    vertex_t* color_index) {
+  vertex_t i = get_1D_idx();
+
+  if (i < v) {
+    vertex_t self_color_idx = color_index[i];
+    vertex_t self_color = color[self_color_idx];
+
+    // if self color is not equal to self color index,
+    // it means self is not supervertex
+    // in which case, iterate until we can find
+    // parent supervertex
+    while (self_color_idx != self_color) {
+      self_color_idx = color_index[self_color];
+      self_color = color[self_color_idx];
+    }
+
+    // point to new supervertex
+    color_index[i] = self_color_idx;
   }
 }
 

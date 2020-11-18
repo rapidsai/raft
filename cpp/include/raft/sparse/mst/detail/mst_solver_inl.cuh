@@ -60,6 +60,8 @@ MST_solver<vertex_t, edge_t, weight_t>::MST_solver(
     v(v_),
     e(e_),
     color(color_),
+    color_index(v_),
+    next_color(v_),
     min_edge_color(v_),
     new_mst_edge(v_),
     mst_edge(e_, false),
@@ -76,6 +78,9 @@ MST_solver<vertex_t, edge_t, weight_t>::MST_solver(
   //Initially, color holds the vertex id as color
   auto policy = rmm::exec_policy(stream);
   thrust::sequence(policy->on(stream), color, color + v, 0);
+  thrust::sequence(policy->on(stream), color_index.begin(), color_index.end(),
+                   0);
+  thrust::sequence(policy->on(stream), next_color.begin(), next_color.end(), 0);
 
   //Initially, each edge is not in the mst
 }
@@ -254,23 +259,33 @@ void MST_solver<vertex_t, edge_t, weight_t>::label_prop(vertex_t* mst_src,
   // update the colors of both ends its until there is no change in colors
   thrust::host_vector<vertex_t> curr_mst_edge_count = mst_edge_count;
 
-  auto min_pair_nthreads = std::min(curr_mst_edge_count[0], max_threads);
-  auto min_pair_nblocks = std::min(
-    (curr_mst_edge_count[0] + min_pair_nthreads - 1) / min_pair_nthreads,
-    max_blocks);
+  auto min_pair_nthreads = std::min(v, max_threads);
+  auto min_pair_nblocks =
+    std::min((v + min_pair_nthreads - 1) / min_pair_nthreads, max_blocks);
 
   rmm::device_vector<bool> done(1, false);
-  vertex_t* mst_edge_count_ptr =
-    thrust::raw_pointer_cast(mst_edge_count.data());
+
+  edge_t* new_mst_edge_ptr = thrust::raw_pointer_cast(new_mst_edge.data());
+  vertex_t* color_index_ptr = thrust::raw_pointer_cast(color_index.data());
+  vertex_t* next_color_ptr = thrust::raw_pointer_cast(next_color.data());
 
   bool* done_ptr = thrust::raw_pointer_cast(done.data());
+
   auto i = 0;
   while (!done[0]) {
     done[0] = true;
+
     detail::min_pair_colors<<<min_pair_nblocks, min_pair_nthreads, 0, stream>>>(
-      curr_mst_edge_count[0], mst_src, mst_dst, color, done_ptr);
+      v, indices, new_mst_edge_ptr, color, color_index_ptr, next_color_ptr);
+
+    detail::update_colors<<<min_pair_nblocks, min_pair_nthreads, 0, stream>>>(
+      v, color, color_index_ptr, next_color_ptr, done_ptr);
     i++;
   }
+
+  detail::
+    final_color_indices<<<min_pair_nblocks, min_pair_nthreads, 0, stream>>>(
+      v, color, color_index_ptr);
 #ifdef MST_TIME
   std::cout << "Label prop iterations: " << i << std::endl;
 #endif
@@ -283,6 +298,7 @@ void MST_solver<vertex_t, edge_t, weight_t>::min_edge_per_vertex() {
 
   int n_threads = 32;
 
+  vertex_t* color_index_ptr = thrust::raw_pointer_cast(color_index.data());
   edge_t* new_mst_edge_ptr = thrust::raw_pointer_cast(new_mst_edge.data());
   bool* mst_edge_ptr = thrust::raw_pointer_cast(mst_edge.data());
   weight_t* min_edge_color_ptr =
@@ -291,8 +307,8 @@ void MST_solver<vertex_t, edge_t, weight_t>::min_edge_per_vertex() {
     thrust::raw_pointer_cast(altered_weights.data());
 
   detail::kernel_min_edge_per_vertex<<<v, n_threads, 0, stream>>>(
-    offsets, indices, altered_weights_ptr, color, new_mst_edge_ptr,
-    mst_edge_ptr, min_edge_color_ptr, v);
+    offsets, indices, altered_weights_ptr, color, color_index_ptr,
+    new_mst_edge_ptr, mst_edge_ptr, min_edge_color_ptr, v);
 }
 
 template <typename vertex_t, typename edge_t, typename weight_t>
@@ -303,6 +319,7 @@ void MST_solver<vertex_t, edge_t, weight_t>::min_edge_per_supervertex() {
   thrust::fill(temp_src.begin(), temp_src.end(),
                std::numeric_limits<vertex_t>::max());
 
+  vertex_t* color_index_ptr = thrust::raw_pointer_cast(color_index.data());
   edge_t* new_mst_edge_ptr = thrust::raw_pointer_cast(new_mst_edge.data());
   bool* mst_edge_ptr = thrust::raw_pointer_cast(mst_edge.data());
   weight_t* min_edge_color_ptr =
@@ -314,7 +331,7 @@ void MST_solver<vertex_t, edge_t, weight_t>::min_edge_per_supervertex() {
   weight_t* temp_weights_ptr = thrust::raw_pointer_cast(temp_weights.data());
 
   detail::min_edge_per_supervertex<<<nblocks, nthreads, 0, stream>>>(
-    color, new_mst_edge_ptr, mst_edge_ptr, indices, weights,
+    color, color_index_ptr, new_mst_edge_ptr, mst_edge_ptr, indices, weights,
     altered_weights_ptr, temp_src_ptr, temp_dst_ptr, temp_weights_ptr,
     min_edge_color_ptr, v);
 

@@ -19,7 +19,7 @@
 
 #include <rmm/thrust_rmm_allocator.h>
 #include <iostream>
-// #define MST_TIME
+#define MST_TIME
 
 namespace raft {
 namespace mst {
