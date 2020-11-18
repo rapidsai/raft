@@ -209,11 +209,10 @@ __global__ void min_pair_colors(const vertex_t v, const vertex_t *indices,
       vertex_t neighbor_color_idx = color_index[neighbor_vertex];
       vertex_t neighbor_super_color = color[neighbor_color_idx];
 
-      // printf("v1: %d, v2: %d, v1color: %d, v2coloridx: %d, v2color: %d\n", i, neighbor_vertex, self_color, neighbor_color_idx, neighbor_super_color);
 
       // update my own color as source of edge
       // update neighbour color index directly
-      // this will ensure v1 updates its color directly
+      // this will ensure v1 updates supervertex color
       // while v2 will update the color of its supervertex
       // thus, allowing the colors to progress towards 0
       atomicMin(&next_color[self_color_idx], neighbor_super_color);
@@ -231,8 +230,6 @@ __global__ void update_colors(const vertex_t v, vertex_t *color, const vertex_t 
     vertex_t self_color = color[i];
     vertex_t self_color_idx = color_index[i];
     vertex_t new_color = next_color[self_color_idx];
-
-    // printf("v1: %d, color: %d, new_color: %d\n", i, self_color, new_color);
 
     // update self color to new smaller color
     if (self_color > new_color) {
@@ -256,12 +253,8 @@ __global__ void final_color_indices(const vertex_t v, const vertex_t *color, ver
     // in which case, iterate until we can find
     // parent supervertex
     while (self_color_idx != self_color) {
-      // printf("v: %d, color_idx: %d, color: %d\n", i, self_color_idx, self_color);
-
       self_color_idx = color_index[self_color];
       self_color = color[self_color_idx];
-
-      // printf("v: %d, color_idx: %d, color: %d\n", i, self_color_idx, self_color);
     }
 
     // point to new supervertex

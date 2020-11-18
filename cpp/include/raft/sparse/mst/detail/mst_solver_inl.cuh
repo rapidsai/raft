@@ -113,7 +113,6 @@ MST_solver<vertex_t, edge_t, weight_t>::solve() {
   // Here we adjust it to support disconnected components (spanning forest)
   // track completion with mst_edge_found status.
   for (auto i = 0; i < v; i++) {
-    std::cout << "iteration: " << i << std::endl;
 #ifdef MST_TIME
     start = Clock::now();
 #endif
@@ -137,8 +136,6 @@ MST_solver<vertex_t, edge_t, weight_t>::solve() {
 
     // check if msf/mst done, count new edges added
     check_termination();
-    std::cout << "Prev MST edge count: " << prev_mst_edge_count[0] << std::endl;
-    std::cout << "New MST edge count: " << mst_edge_count[0] << std::endl;
 
 #ifdef MST_TIME
     stop = Clock::now();
@@ -266,14 +263,8 @@ void MST_solver<vertex_t, edge_t, weight_t>::label_prop(vertex_t* mst_src,
     (v + min_pair_nthreads - 1) / min_pair_nthreads,
     max_blocks);
 
-  // auto min_pair_nthreads = std::min(curr_mst_edge_count[0], max_threads);
-  // auto min_pair_nblocks = std::min(
-  //   (curr_mst_edge_count[0] + min_pair_nthreads - 1) / min_pair_nthreads,
-  //   max_blocks);
-
   rmm::device_vector<bool> done(1, false);
-  // vertex_t* mst_edge_count_ptr =
-  //   thrust::raw_pointer_cast(mst_edge_count.data());
+
   edge_t* new_mst_edge_ptr =
     thrust::raw_pointer_cast(new_mst_edge.data());
   vertex_t* color_index_ptr =
@@ -282,22 +273,19 @@ void MST_solver<vertex_t, edge_t, weight_t>::label_prop(vertex_t* mst_src,
     thrust::raw_pointer_cast(next_color.data());
 
   bool* done_ptr = thrust::raw_pointer_cast(done.data());
+
   auto i = 0;
   while (!done[0]) {
-    std::cout << "label prop iter: " << i << std::endl;
     done[0] = true;
-    // detail::min_pair_colors<<<min_pair_nblocks, min_pair_nthreads, 0, stream>>>(
-    //   curr_mst_edge_count[0], mst_src, mst_dst, color, done_ptr);
-    std::cout << "Min Pairs Kernel: " << std::endl;
+
     detail::min_pair_colors<<<min_pair_nblocks, min_pair_nthreads, 0, stream>>>(
       v, indices, new_mst_edge_ptr, color, color_index_ptr, next_color_ptr);
-    std::cout << "Update Colors Kernel: " << std::endl;
+
     detail::update_colors<<<min_pair_nblocks, min_pair_nthreads, 0, stream>>>(
       v, color, color_index_ptr, next_color_ptr, done_ptr);
     i++;
   }
 
-  std::cout << "Final Color: " << std::endl;
   detail::final_color_indices<<<min_pair_nblocks, min_pair_nthreads, 0, stream>>> (
     v, color, color_index_ptr
   );
