@@ -5,6 +5,7 @@
 
 ## Improvements
 - PR #73: Move DistanceType enum from cuML to RAFT
+- PR #98: Adding InnerProduct to DistanceType
 
 ## Bug Fixes
 - PR #77: Fixing CUB include for CUDA < 11
