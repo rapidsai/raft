@@ -2,6 +2,7 @@
 
 ## New Features
 - PR #65: Adding cuml prims that break circular dependency between cuml and cumlprims projects
+- PR #101: MST core solver
 
 ## Improvements
 - PR #73: Move DistanceType enum from cuML to RAFT
