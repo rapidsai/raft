@@ -257,7 +257,7 @@ template <typename vertex_t, typename edge_t, typename weight_t>
 void MST_solver<vertex_t, edge_t, weight_t>::label_prop(vertex_t* mst_src,
                                                         vertex_t* mst_dst) {
   // update the colors of both ends its until there is no change in colors
-  thrust::host_vector<vertex_t> curr_mst_edge_count = mst_edge_count;
+  thrust::host_vector<edge_t> curr_mst_edge_count = mst_edge_count;
 
   auto min_pair_nthreads = std::min(v, max_threads);
   auto min_pair_nblocks =
@@ -350,8 +350,7 @@ void MST_solver<vertex_t, edge_t, weight_t>::check_termination() {
 
   // count number of new mst edges
 
-  vertex_t* mst_edge_count_ptr =
-    thrust::raw_pointer_cast(mst_edge_count.data());
+  edge_t* mst_edge_count_ptr = thrust::raw_pointer_cast(mst_edge_count.data());
   vertex_t* temp_src_ptr = thrust::raw_pointer_cast(temp_src.data());
 
   detail::kernel_count_new_mst_edges<<<nblocks, nthreads, 0, stream>>>(

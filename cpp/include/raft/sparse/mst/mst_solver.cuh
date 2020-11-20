@@ -68,9 +68,9 @@ class MST_solver {
     min_edge_color;  // minimum incident edge weight per color
   rmm::device_vector<edge_t> new_mst_edge;       // new minimum edge per vertex
   rmm::device_vector<weight_t> altered_weights;  // weights to be used for mst
-  rmm::device_vector<vertex_t>
+  rmm::device_vector<edge_t>
     mst_edge_count;  // total number of edges added after every iteration
-  rmm::device_vector<vertex_t>
+  rmm::device_vector<edge_t>
     prev_mst_edge_count;  // total number of edges up to the previous iteration
   rmm::device_vector<bool>
     mst_edge;  // mst output -  true if the edge belongs in mst

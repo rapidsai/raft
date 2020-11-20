@@ -70,14 +70,6 @@ __global__ void kernel_min_edge_per_vertex(
           min_color[lane_id] = successor_color;
           min_edge_weight[lane_id] = curr_edge_weight;
           min_edge_index[lane_id] = e;
-          // theta = abs(curr_edge_weight - min_edge_weight[lane_id]);
-        } else if (curr_edge_weight == min_edge_weight[lane_id]) {
-          // tie break
-          if (min_color[lane_id] > successor_color) {
-            min_color[lane_id] = successor_color;
-            min_edge_weight[lane_id] = curr_edge_weight;
-            min_edge_index[lane_id] = e;
-          }
         }
       }
     }
@@ -93,13 +85,6 @@ __global__ void kernel_min_edge_per_vertex(
         min_color[lane_id] = min_color[lane_id + offset];
         min_edge_weight[lane_id] = min_edge_weight[lane_id + offset];
         min_edge_index[lane_id] = min_edge_index[lane_id + offset];
-      } else if (min_edge_weight[lane_id] ==
-                 min_edge_weight[lane_id + offset]) {
-        if (min_color[lane_id] > min_color[lane_id + offset]) {
-          min_color[lane_id] = min_color[lane_id + offset];
-          min_edge_weight[lane_id] = min_edge_weight[lane_id + offset];
-          min_edge_index[lane_id] = min_edge_index[lane_id + offset];
-        }
       }
     }
     __syncthreads();
@@ -288,9 +273,9 @@ __global__ void alteration_kernel(const vertex_t v, const edge_t e,
   }
 }
 
-template <typename vertex_t>
+template <typename vertex_t, typename edge_t>
 __global__ void kernel_count_new_mst_edges(const vertex_t* mst_src,
-                                           vertex_t* mst_edge_count,
+                                           edge_t* mst_edge_count,
                                            const vertex_t v) {
   vertex_t tid = get_1D_idx();
 
