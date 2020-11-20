@@ -25,8 +25,10 @@ namespace raft {
 namespace mst {
 namespace detail {
 
-// TODO make this work in 64bit
-__device__ int get_1D_idx() { return blockIdx.x * blockDim.x + threadIdx.x; }
+template <typename idx_t>
+__device__ idx_t get_1D_idx() {
+  return blockIdx.x * blockDim.x + threadIdx.x;
+}
 
 // somewhat smart vector print
 template <typename T>

@@ -108,7 +108,7 @@ __global__ void min_edge_per_supervertex(
   bool* mst_edge, const vertex_t* indices, const weight_t* weights,
   const weight_t* altered_weights, vertex_t* temp_src, vertex_t* temp_dst,
   weight_t* temp_weights, const weight_t* min_edge_color, const vertex_t v) {
-  vertex_t tid = get_1D_idx();
+  auto tid = get_1D_idx<vertex_t>();
 
   if (tid < v) {
     vertex_t vertex_color_idx = color_index[tid];
@@ -139,7 +139,7 @@ __global__ void add_reverse_edge(const edge_t* new_mst_edge,
                                  const weight_t* weights, vertex_t* temp_src,
                                  vertex_t* temp_dst, weight_t* temp_weights,
                                  const vertex_t v) {
-  vertex_t tid = get_1D_idx();
+  auto tid = get_1D_idx<vertex_t>();
 
   if (tid < v) {
     bool reverse_needed = false;
@@ -184,7 +184,7 @@ __global__ void min_pair_colors(const vertex_t v, const vertex_t* indices,
                                 const vertex_t* color,
                                 const vertex_t* color_index,
                                 vertex_t* next_color) {
-  vertex_t i = get_1D_idx();
+  auto i = get_1D_idx<vertex_t>();
 
   if (i < v) {
     edge_t edge_idx = new_mst_edge[i];
@@ -213,7 +213,7 @@ template <typename vertex_t>
 __global__ void update_colors(const vertex_t v, vertex_t* color,
                               const vertex_t* color_index,
                               const vertex_t* next_color, bool* done) {
-  vertex_t i = get_1D_idx();
+  auto i = get_1D_idx<vertex_t>();
 
   if (i < v) {
     vertex_t self_color = color[i];
@@ -232,7 +232,7 @@ __global__ void update_colors(const vertex_t v, vertex_t* color,
 template <typename vertex_t>
 __global__ void final_color_indices(const vertex_t v, const vertex_t* color,
                                     vertex_t* color_index) {
-  vertex_t i = get_1D_idx();
+  auto i = get_1D_idx<vertex_t>();
 
   if (i < v) {
     vertex_t self_color_idx = color_index[i];
@@ -261,7 +261,7 @@ __global__ void alteration_kernel(const vertex_t v, const edge_t e,
                                   const weight_t* weights, weight_t max,
                                   weight_t* random_values,
                                   weight_t* altered_weights) {
-  auto row = get_1D_idx();
+  auto row = get_1D_idx<vertex_t>();
   if (row < v) {
     auto row_begin = offsets[row];
     auto row_end = offsets[row + 1];
@@ -277,7 +277,7 @@ template <typename vertex_t, typename edge_t>
 __global__ void kernel_count_new_mst_edges(const vertex_t* mst_src,
                                            edge_t* mst_edge_count,
                                            const vertex_t v) {
-  vertex_t tid = get_1D_idx();
+  auto tid = get_1D_idx<vertex_t>();
 
   // count number of new mst edges added
   bool predicate =
