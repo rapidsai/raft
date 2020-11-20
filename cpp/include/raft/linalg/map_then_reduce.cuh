@@ -26,32 +26,32 @@ namespace linalg {
 
 struct sum_tag {};
 
-template <typename Type, int TPB>
-__device__ void reduce(Type *out, const Type acc, sum_tag) {
-  typedef cub::BlockReduce<Type, TPB> BlockReduce;
+template <typename InType, typename OutType, int TPB>
+__device__ void reduce(OutType *out, const InType acc, sum_tag) {
+  typedef cub::BlockReduce<InType, TPB> BlockReduce;
   __shared__ typename BlockReduce::TempStorage temp_storage;
-  Type tmp = BlockReduce(temp_storage).Sum(acc);
+  OutType tmp = BlockReduce(temp_storage).Sum(acc);
   if (threadIdx.x == 0) {
     raft::myAtomicAdd(out, tmp);
   }
 }
 
-template <typename Type, int TPB, typename ReduceLambda>
-__device__ void reduce(Type *out, const Type acc, ReduceLambda op) {
-  typedef cub::BlockReduce<Type, TPB> BlockReduce;
+template <typename InType, typename OutType, int TPB, typename ReduceLambda>
+__device__ void reduce(OutType *out, const InType acc, ReduceLambda op) {
+  typedef cub::BlockReduce<InType, TPB> BlockReduce;
   __shared__ typename BlockReduce::TempStorage temp_storage;
-  Type tmp = BlockReduce(temp_storage).Reduce(acc, op);
+  OutType tmp = BlockReduce(temp_storage).Reduce(acc, op);
   if (threadIdx.x == 0) {
     raft::myAtomicReduce(out, tmp, op);
   }
 }
 
-template <typename Type, typename MapOp, typename ReduceLambda, int TPB,
-          typename... Args>
-__global__ void mapThenReduceKernel(Type *out, size_t len, Type neutral,
-                                    MapOp map, ReduceLambda op, const Type *in,
-                                    Args... args) {
-  Type acc = neutral;
+template <typename InType, typename OutType, typename MapOp,
+          typename ReduceLambda, int TPB, typename... Args>
+__global__ void mapThenReduceKernel(OutType *out, size_t len, InType neutral,
+                                    MapOp map, ReduceLambda op,
+                                    const InType *in, Args... args) {
+  InType acc = neutral;
   auto idx = (threadIdx.x + (blockIdx.x * blockDim.x));
 
   if (idx < len) {
@@ -60,17 +60,18 @@ __global__ void mapThenReduceKernel(Type *out, size_t len, Type neutral,
 
   __syncthreads();
 
-  reduce<Type, TPB>(out, acc, op);
+  reduce<InType, OutType, TPB>(out, acc, op);
 }
 
-template <typename Type, typename MapOp, typename ReduceLambda, int TPB,
-          typename... Args>
-void mapThenReduceImpl(Type *out, size_t len, Type neutral, MapOp map,
-                       ReduceLambda op, cudaStream_t stream, const Type *in,
+template <typename InType, typename OutType, typename MapOp,
+          typename ReduceLambda, int TPB, typename... Args>
+void mapThenReduceImpl(OutType *out, size_t len, InType neutral, MapOp map,
+                       ReduceLambda op, cudaStream_t stream, const InType *in,
                        Args... args) {
-  raft::update_device(out, &neutral, 1, stream);
+  OutType n = neutral;
+  raft::update_device(out, &n, 1, stream);
   const int nblks = raft::ceildiv(len, (size_t)TPB);
-  mapThenReduceKernel<Type, MapOp, ReduceLambda, TPB, Args...>
+  mapThenReduceKernel<InType, OutType, MapOp, ReduceLambda, TPB, Args...>
     <<<nblks, TPB, 0, stream>>>(out, len, neutral, map, op, in, args...);
   CUDA_CHECK(cudaPeekAtLastError());
 }
@@ -89,11 +90,12 @@ void mapThenReduceImpl(Type *out, size_t len, Type neutral, MapOp map,
  * @param args additional input arrays
  */
 
-template <typename Type, typename MapOp, int TPB = 256, typename... Args>
-void mapThenSumReduce(Type *out, size_t len, MapOp map, cudaStream_t stream,
-                      const Type *in, Args... args) {
-  mapThenReduceImpl<Type, MapOp, sum_tag, TPB, Args...>(
-    out, len, (Type)0, map, sum_tag(), stream, in, args...);
+template <typename InType, typename MapOp, int TPB = 256, typename... Args,
+          typename OutType = InType>
+void mapThenSumReduce(OutType *out, size_t len, MapOp map, cudaStream_t stream,
+                      const InType *in, Args... args) {
+  mapThenReduceImpl<InType, OutType, MapOp, sum_tag, TPB, Args...>(
+    out, len, (InType)0, map, sum_tag(), stream, in, args...);
 }
 
 /**
@@ -114,12 +116,12 @@ void mapThenSumReduce(Type *out, size_t len, MapOp map, cudaStream_t stream,
  * @param args additional input arrays
  */
 
-template <typename Type, typename MapOp, typename ReduceLambda, int TPB = 256,
-          typename... Args>
-void mapThenReduce(Type *out, size_t len, Type neutral, MapOp map,
-                   ReduceLambda op, cudaStream_t stream, const Type *in,
+template <typename InType, typename MapOp, typename ReduceLambda, int TPB = 256,
+          typename OutType = InType, typename... Args>
+void mapThenReduce(OutType *out, size_t len, InType neutral, MapOp map,
+                   ReduceLambda op, cudaStream_t stream, const InType *in,
                    Args... args) {
-  mapThenReduceImpl<Type, MapOp, ReduceLambda, TPB, Args...>(
+  mapThenReduceImpl<InType, OutType, MapOp, ReduceLambda, TPB, Args...>(
     out, len, neutral, map, op, stream, in, args...);
 }
 };  // end namespace linalg
