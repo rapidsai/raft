@@ -62,10 +62,6 @@ weight_t prims(CSRHost<vertex_t, edge_t, weight_t> &csr_h) {
   }
   curr_edge[0] = 0;
 
-  // for (auto i = 0; i < csr_h.n_edges; i++) {
-  //   mst_set[i] = false;
-  // }
-
   // function to pick next min vertex-edge
   auto min_vertex_edge = [](auto *curr_edge, auto *active_vertex,
                             auto n_vertices) {
@@ -108,8 +104,6 @@ weight_t prims(CSRHost<vertex_t, edge_t, weight_t> &csr_h) {
   for (auto v = 1; v < n_vertices; v++) {
     total_weight += curr_edge[v];
   }
-
-  raft::print_host_vector("Prims: ", curr_edge, n_vertices, std::cout);
 
   return total_weight;
 }
@@ -230,8 +224,6 @@ TEST_P(MSTTestSequential, Sequential) {
   auto parallel_mst_result =
     thrust::reduce(thrust::device, gpu_result.weights.data(),
                    gpu_result.weights.data() + gpu_result.n_edges);
-  // std::cout << prims_result << std::endl;
-  // std::cout << parallel_mst_result << std::endl;
 
   ASSERT_TRUE(raft::match(2 * prims_result, parallel_mst_result,
                           raft::CompareApprox<float>(0.1)));

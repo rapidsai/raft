@@ -81,8 +81,6 @@ MST_solver<vertex_t, edge_t, weight_t>::MST_solver(
   thrust::sequence(policy->on(stream), color_index.begin(), color_index.end(),
                    0);
   thrust::sequence(policy->on(stream), next_color.begin(), next_color.end(), 0);
-
-  //Initially, each edge is not in the mst
 }
 
 template <typename vertex_t, typename edge_t, typename weight_t>
@@ -112,12 +110,12 @@ MST_solver<vertex_t, edge_t, weight_t>::solve() {
 
   // Boruvka original formulation says "while more than 1 supervertex remains"
   // Here we adjust it to support disconnected components (spanning forest)
-  // track completion with mst_edge_found status.
+  // track completion with mst_edge_found status and v as upper bound
   for (auto i = 0; i < v; i++) {
 #ifdef MST_TIME
     start = Clock::now();
 #endif
-    // Finds the minimum outgoing edge from each supervertex to the lowest outgoing color
+    // Finds the minimum edge from each vertex to the lowest color
     // by working at each vertex of the supervertex
     min_edge_per_vertex();
 
@@ -126,7 +124,7 @@ MST_solver<vertex_t, edge_t, weight_t>::solve() {
     timer1 += duration_us(stop - start);
     start = Clock::now();
 #endif
-
+    // Finds the minimum edge from each supervertex to the lowest color
     min_edge_per_supervertex();
 
 #ifdef MST_TIME
@@ -149,6 +147,7 @@ MST_solver<vertex_t, edge_t, weight_t>::solve() {
       std::cout << timer0 << "," << timer1 << "," << timer2 << "," << timer3
                 << "," << timer4 << "," << timer5 << std::endl;
 #endif
+      // exit here when reaching steady state
       break;
     }
 
@@ -164,7 +163,7 @@ MST_solver<vertex_t, edge_t, weight_t>::solve() {
     start = Clock::now();
 #endif
 
-    // updates colors of supervertices by propagating the lower color to the higher
+    // updates colors of vertices by propagating the lower color to the higher
     label_prop(mst_result.src.data(), mst_result.dst.data());
 
 #ifdef MST_TIME
@@ -176,6 +175,7 @@ MST_solver<vertex_t, edge_t, weight_t>::solve() {
     prev_mst_edge_count = mst_edge_count;
   }
 
+  // result packaging
   thrust::host_vector<edge_t> host_mst_edge_count = mst_edge_count;
   mst_result.n_edges = host_mst_edge_count[0];
   mst_result.src.resize(mst_result.n_edges, stream);
@@ -198,6 +198,7 @@ struct alteration_functor {
   }
 };
 
+// Compute the uper bound for the alteration
 template <typename vertex_t, typename edge_t, typename weight_t>
 weight_t MST_solver<vertex_t, edge_t, weight_t>::alteration_max() {
   auto policy = rmm::exec_policy(stream);
@@ -222,6 +223,8 @@ weight_t MST_solver<vertex_t, edge_t, weight_t>::alteration_max() {
   return max / static_cast<weight_t>(2);
 }
 
+// Compute the alteration to make all undirected edge weight unique
+// Preserves weights order
 template <typename vertex_t, typename edge_t, typename weight_t>
 void MST_solver<vertex_t, edge_t, weight_t>::alteration() {
   auto nthreads = std::min(v, max_threads);
@@ -253,6 +256,7 @@ void MST_solver<vertex_t, edge_t, weight_t>::alteration() {
     thrust::raw_pointer_cast(altered_weights.data()));
 }
 
+// updates colors of vertices by propagating the lower color to the higher
 template <typename vertex_t, typename edge_t, typename weight_t>
 void MST_solver<vertex_t, edge_t, weight_t>::label_prop(vertex_t* mst_src,
                                                         vertex_t* mst_dst) {
@@ -291,6 +295,7 @@ void MST_solver<vertex_t, edge_t, weight_t>::label_prop(vertex_t* mst_src,
 #endif
 }
 
+// Finds the minimum edge from each vertex to the lowest color
 template <typename vertex_t, typename edge_t, typename weight_t>
 void MST_solver<vertex_t, edge_t, weight_t>::min_edge_per_vertex() {
   thrust::fill(min_edge_color.begin(), min_edge_color.end(),
@@ -311,6 +316,7 @@ void MST_solver<vertex_t, edge_t, weight_t>::min_edge_per_vertex() {
     new_mst_edge_ptr, mst_edge_ptr, min_edge_color_ptr, v);
 }
 
+// Finds the minimum edge from each supervertex to the lowest color
 template <typename vertex_t, typename edge_t, typename weight_t>
 void MST_solver<vertex_t, edge_t, weight_t>::min_edge_per_supervertex() {
   int nthreads = std::min(v, max_threads);
@@ -349,7 +355,6 @@ void MST_solver<vertex_t, edge_t, weight_t>::check_termination() {
   int nblocks = std::min((2 * v + nthreads - 1) / nthreads, max_blocks);
 
   // count number of new mst edges
-
   edge_t* mst_edge_count_ptr = thrust::raw_pointer_cast(mst_edge_count.data());
   vertex_t* temp_src_ptr = thrust::raw_pointer_cast(temp_src.data());
 
