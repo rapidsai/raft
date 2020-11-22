@@ -191,9 +191,7 @@ void choleskyRank1Update(const raft::handle_t &handle, math_t *L, int n, int ld,
   math_t L_22_host;
   raft::update_host(&L_22_host, L_22, 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
-  if (std::isnan(L_22_host)) {
-    THROW("Error during Cholesky rank one update");
-  }
+  ASSERT(!std::isnan(L_22_host), "Error during Cholesky rank one update");
 }
 };  // namespace linalg
 };  // namespace raft
