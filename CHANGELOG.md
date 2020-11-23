@@ -8,6 +8,7 @@
 ## Improvements
 - PR #73: Move DistanceType enum from cuML to RAFT
 - PR #98: Adding InnerProduct to DistanceType
+- PR #103: Epsilon parameter for Cholesky rank one update
 
 ## Bug Fixes
 - PR #77: Fixing CUB include for CUDA < 11
