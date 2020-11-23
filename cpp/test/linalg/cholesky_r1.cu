@@ -97,6 +97,10 @@ class CholeskyR1Test : public ::testing::Test {
         raft::linalg::choleskyRank1Update(
           handle, L.data(), 2, 2, workspace.data(), &Lwork, uplo, stream),
         raft::exception);
+
+      math_t eps = std::numeric_limits<math_t>::epsilon();
+      ASSERT_NO_THROW(raft::linalg::choleskyRank1Update(
+        handle, L.data(), 2, 2, workspace.data(), &Lwork, uplo, stream, eps));
     }
   }
 
