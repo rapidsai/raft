@@ -129,6 +129,56 @@ inline cublasStatus_t cublasaxpy(cublasHandle_t handle, int n,
 /** @} */
 
 /**
+ * @defgroup cublas swap operations
+ * @{
+ */
+template <typename T>
+cublasStatus_t cublasSwap(cublasHandle_t handle, int n, T *x, int incx, T *y,
+                          int incy, cudaStream_t stream);
+
+template <>
+inline cublasStatus_t cublasSwap(cublasHandle_t handle, int n, float *x,
+                                 int incx, float *y, int incy,
+                                 cudaStream_t stream) {
+  CUBLAS_CHECK(cublasSetStream(handle, stream));
+  return cublasSswap(handle, n, x, incx, y, incy);
+}
+
+template <>
+inline cublasStatus_t cublasSwap(cublasHandle_t handle, int n, double *x,
+                                 int incx, double *y, int incy,
+                                 cudaStream_t stream) {
+  CUBLAS_CHECK(cublasSetStream(handle, stream));
+  return cublasDswap(handle, n, x, incx, y, incy);
+}
+
+/** @} */
+
+/**
+ * @defgroup cublas copy operations
+ * @{
+ */
+template <typename T>
+cublasStatus_t cublasCopy(cublasHandle_t handle, int n, const T *x, int incx,
+                          T *y, int incy, cudaStream_t stream);
+
+template <>
+inline cublasStatus_t cublasCopy(cublasHandle_t handle, int n, const float *x,
+                                 int incx, float *y, int incy,
+                                 cudaStream_t stream) {
+  CUBLAS_CHECK(cublasSetStream(handle, stream));
+  return cublasScopy(handle, n, x, incx, y, incy);
+}
+template <>
+inline cublasStatus_t cublasCopy(cublasHandle_t handle, int n, const double *x,
+                                 int incx, double *y, int incy,
+                                 cudaStream_t stream) {
+  CUBLAS_CHECK(cublasSetStream(handle, stream));
+  return cublasDcopy(handle, n, x, incx, y, incy);
+}
+/** @} */
+
+/**
  * @defgroup gemv cublas gemv calls
  * @{
  */
