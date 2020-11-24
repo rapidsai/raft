@@ -49,9 +49,9 @@ curandStatus_t curand_generate_uniformX(curandGenerator_t generator,
 
 template <typename vertex_t, typename edge_t, typename weight_t>
 MST_solver<vertex_t, edge_t, weight_t>::MST_solver(
-  const raft::handle_t& handle_, edge_t const* offsets_,
-  vertex_t const* indices_, weight_t const* weights_, vertex_t const v_,
-  edge_t const e_, vertex_t* color_, cudaStream_t stream_)
+  const raft::handle_t& handle_, const edge_t* offsets_,
+  const vertex_t* indices_, const weight_t* weights_, const vertex_t v_,
+  const edge_t e_, vertex_t* color_, cudaStream_t stream_)
   : handle(handle_),
     offsets(offsets_),
     indices(indices_),

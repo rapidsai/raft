@@ -113,8 +113,8 @@ class MSTTest
   : public ::testing::TestWithParam<CSRHost<vertex_t, edge_t, weight_t>> {
  protected:
   raft::Graph_COO<vertex_t, edge_t, weight_t> mst_sequential() {
-    vertex_t *offsets = static_cast<vertex_t *>(csr_d.offsets.data());
-    edge_t *indices = static_cast<edge_t *>(csr_d.indices.data());
+    edge_t *offsets = static_cast<edge_t *>(csr_d.offsets.data());
+    vertex_t *indices = static_cast<vertex_t *>(csr_d.indices.data());
     weight_t *weights = static_cast<weight_t *>(csr_d.weights.data());
 
     v = static_cast<vertex_t>((csr_d.offsets.size() / sizeof(vertex_t)) - 1);

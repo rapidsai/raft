@@ -39,9 +39,9 @@ namespace mst {
 template <typename vertex_t, typename edge_t, typename weight_t>
 class MST_solver {
  public:
-  MST_solver(const raft::handle_t& handle_, edge_t const* offsets_,
-             vertex_t const* indices_, weight_t const* weights_,
-             vertex_t const v_, edge_t const e_, vertex_t* color_,
+  MST_solver(const raft::handle_t& handle_, const edge_t* offsets_,
+             const vertex_t* indices_, const weight_t* weights_,
+             const vertex_t v_, const edge_t e_, vertex_t* color_,
              cudaStream_t stream_);
 
   raft::Graph_COO<vertex_t, edge_t, weight_t> solve();
@@ -49,7 +49,7 @@ class MST_solver {
   ~MST_solver() {}
 
  private:
-  raft::handle_t const& handle;
+  const raft::handle_t& handle;
   cudaStream_t stream;
 
   //CSR
