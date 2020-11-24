@@ -16,6 +16,7 @@
 - PR #77: Fixing CUB include for CUDA < 11
 - PR #86: Missing headers for newly moved prims
 - PR #102: Check alignment before binaryOp dispatch
+- PR #104: Fix update-version.sh
 
 # RAFT 0.16.0 (Date TBD)
 
