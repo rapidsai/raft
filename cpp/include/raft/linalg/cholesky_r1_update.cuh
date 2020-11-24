@@ -50,6 +50,13 @@ namespace linalg {
  *
  * On exit L will be updated to store the Cholesky decomposition of A'.
  *
+ * If the matrix is not positive definit, or very ill conditioned then the new
+ * diagonal element of L would be NaN. In such a case an exception is thrown.
+ * The eps argument can be used to override this behavior: if eps >= 0 then
+ * the diagonal element is replaced by eps in case the diagonal is NaN or
+ * smaller than eps. Note: for an iterative solver it is probably better to
+ * stop early in case of error, rather than relying on the eps parameter.
+ *
  * Examples:
  *
  * - Lower triangular factorization:
@@ -111,11 +118,13 @@ namespace linalg {
  * @param stream CUDA stream
  * @param uplo indicates whether L is stored as an upper or lower triangular
  *    matrix (CUBLAS_FILL_MODE_UPPER or CUBLAS_FILL_MODE_LOWER)
+ * @param eps numerical parameter that can act as a regularizer for ill
+ *    conditioned systems. Negative values mean no regularizaton.
  */
 template <typename math_t>
 void choleskyRank1Update(const raft::handle_t &handle, math_t *L, int n, int ld,
                          void *workspace, int *n_bytes, cublasFillMode_t uplo,
-                         cudaStream_t stream) {
+                         cudaStream_t stream, math_t eps = -1) {
   // The matrix A' is defined as:
   // A' = [[A_11, A_12]
   //       [A_21, A_22]]
@@ -182,16 +191,22 @@ void choleskyRank1Update(const raft::handle_t &handle, math_t *L, int n, int ld,
   }
 
   // L_22 = sqrt(A_22 - L_12 * L_12)
-  raft::linalg::binaryOp(
-    L_22, s, L_22, 1, [] __device__(math_t s, math_t l) { return sqrt(l - s); },
-    stream);
-
-  // Check for numeric error: the above sqrt can have negative argument if the
-  // matrix is not positive definite or very ill conditioned.
+  math_t s_host;
   math_t L_22_host;
-  raft::update_host(&L_22_host, L_22, 1, stream);
+  raft::update_host(&s_host, s, 1, stream);
+  raft::update_host(&L_22_host, L_22, 1, stream);  // L_22 stores A_22
   CUDA_CHECK(cudaStreamSynchronize(stream));
+  L_22_host = std::sqrt(L_22_host - s_host);
+
+  // Check for numeric error with sqrt. If the matrix is not positive definit or
+  // the system is very ill conditioned then the A_22 - L_12 * L_12 can be
+  // negative, which would result L_22 = NaN. A small positive eps parameter
+  // can be used to prevent this.
+  if (eps >= 0 && (std::isnan(L_22_host) || L_22_host < eps)) {
+    L_22_host = eps;
+  }
   ASSERT(!std::isnan(L_22_host), "Error during Cholesky rank one update");
+  raft::update_device(L_22, &L_22_host, 1, stream);
 }
 };  // namespace linalg
 };  // namespace raft
