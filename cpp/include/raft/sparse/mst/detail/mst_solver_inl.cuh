@@ -242,8 +242,8 @@ void MST_solver<vertex_t, edge_t, weight_t>::alteration() {
   curandSetPseudoRandomGeneratorSeed(randGen, 1234567);
 
   // Initialize rand values
-  auto curand_status = curand_generate_uniformX(
-    randGen, thrust::raw_pointer_cast(rand_values.data()), v);
+  auto curand_status =
+    curand_generate_uniformX(randGen, rand_values.data().get(), v);
   RAFT_EXPECTS(curand_status == CURAND_STATUS_SUCCESS, "MST: CURAND failed");
   curand_status = curandDestroyGenerator(randGen);
   RAFT_EXPECTS(curand_status == CURAND_STATUS_SUCCESS,
@@ -251,9 +251,8 @@ void MST_solver<vertex_t, edge_t, weight_t>::alteration() {
 
   //Alterate the weights, make all undirected edge weight unique while keeping Wuv == Wvu
   detail::alteration_kernel<<<nblocks, nthreads, 0, stream>>>(
-    v, e, offsets, indices, weights, max,
-    thrust::raw_pointer_cast(rand_values.data()),
-    thrust::raw_pointer_cast(altered_weights.data()));
+    v, e, offsets, indices, weights, max, rand_values.data().get(),
+    altered_weights.data().get());
 }
 
 // updates colors of vertices by propagating the lower color to the higher
@@ -269,11 +268,11 @@ void MST_solver<vertex_t, edge_t, weight_t>::label_prop(vertex_t* mst_src,
 
   rmm::device_vector<bool> done(1, false);
 
-  edge_t* new_mst_edge_ptr = thrust::raw_pointer_cast(new_mst_edge.data());
-  vertex_t* color_index_ptr = thrust::raw_pointer_cast(color_index.data());
-  vertex_t* next_color_ptr = thrust::raw_pointer_cast(next_color.data());
+  edge_t* new_mst_edge_ptr = new_mst_edge.data().get();
+  vertex_t* color_index_ptr = color_index.data().get();
+  vertex_t* next_color_ptr = next_color.data().get();
 
-  bool* done_ptr = thrust::raw_pointer_cast(done.data());
+  bool* done_ptr = done.data().get();
 
   auto i = 0;
   while (!done[0]) {
@@ -303,13 +302,11 @@ void MST_solver<vertex_t, edge_t, weight_t>::min_edge_per_vertex() {
 
   int n_threads = 32;
 
-  vertex_t* color_index_ptr = thrust::raw_pointer_cast(color_index.data());
-  edge_t* new_mst_edge_ptr = thrust::raw_pointer_cast(new_mst_edge.data());
-  bool* mst_edge_ptr = thrust::raw_pointer_cast(mst_edge.data());
-  weight_t* min_edge_color_ptr =
-    thrust::raw_pointer_cast(min_edge_color.data());
-  weight_t* altered_weights_ptr =
-    thrust::raw_pointer_cast(altered_weights.data());
+  vertex_t* color_index_ptr = color_index.data().get();
+  edge_t* new_mst_edge_ptr = new_mst_edge.data().get();
+  bool* mst_edge_ptr = mst_edge.data().get();
+  weight_t* min_edge_color_ptr = min_edge_color.data().get();
+  weight_t* altered_weights_ptr = altered_weights.data().get();
 
   detail::kernel_min_edge_per_vertex<<<v, n_threads, 0, stream>>>(
     offsets, indices, altered_weights_ptr, color, color_index_ptr,
@@ -325,16 +322,14 @@ void MST_solver<vertex_t, edge_t, weight_t>::min_edge_per_supervertex() {
   thrust::fill(temp_src.begin(), temp_src.end(),
                std::numeric_limits<vertex_t>::max());
 
-  vertex_t* color_index_ptr = thrust::raw_pointer_cast(color_index.data());
-  edge_t* new_mst_edge_ptr = thrust::raw_pointer_cast(new_mst_edge.data());
-  bool* mst_edge_ptr = thrust::raw_pointer_cast(mst_edge.data());
-  weight_t* min_edge_color_ptr =
-    thrust::raw_pointer_cast(min_edge_color.data());
-  weight_t* altered_weights_ptr =
-    thrust::raw_pointer_cast(altered_weights.data());
-  vertex_t* temp_src_ptr = thrust::raw_pointer_cast(temp_src.data());
-  vertex_t* temp_dst_ptr = thrust::raw_pointer_cast(temp_dst.data());
-  weight_t* temp_weights_ptr = thrust::raw_pointer_cast(temp_weights.data());
+  vertex_t* color_index_ptr = color_index.data().get();
+  edge_t* new_mst_edge_ptr = new_mst_edge.data().get();
+  bool* mst_edge_ptr = mst_edge.data().get();
+  weight_t* min_edge_color_ptr = min_edge_color.data().get();
+  weight_t* altered_weights_ptr = altered_weights.data().get();
+  vertex_t* temp_src_ptr = temp_src.data().get();
+  vertex_t* temp_dst_ptr = temp_dst.data().get();
+  weight_t* temp_weights_ptr = temp_weights.data().get();
 
   detail::min_edge_per_supervertex<<<nblocks, nthreads, 0, stream>>>(
     color, color_index_ptr, new_mst_edge_ptr, mst_edge_ptr, indices, weights,
@@ -355,8 +350,8 @@ void MST_solver<vertex_t, edge_t, weight_t>::check_termination() {
   int nblocks = std::min((2 * v + nthreads - 1) / nthreads, max_blocks);
 
   // count number of new mst edges
-  edge_t* mst_edge_count_ptr = thrust::raw_pointer_cast(mst_edge_count.data());
-  vertex_t* temp_src_ptr = thrust::raw_pointer_cast(temp_src.data());
+  edge_t* mst_edge_count_ptr = mst_edge_count.data().get();
+  vertex_t* temp_src_ptr = temp_src.data().get();
 
   detail::kernel_count_new_mst_edges<<<nblocks, nthreads, 0, stream>>>(
     temp_src_ptr, mst_edge_count_ptr, 2 * v);
