@@ -2,6 +2,7 @@
 
 ## New Features
 - PR #65: Adding cuml prims that break circular dependency between cuml and cumlprims projects
+- PR #101: MST core solver
 - PR #93: Incorporate Date/Nagi implementation of Hungarian Algorithm
 - RP #95: Cholesky rank one update prim
 

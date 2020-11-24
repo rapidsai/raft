@@ -92,7 +92,7 @@ if(OPENMP_FOUND)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 endif(OPENMP_FOUND)
 
-set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-extended-lambda")
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-extended-lambda --expt-relaxed-constexpr")
 
 if(${CMAKE_VERSION} VERSION_LESS "3.17.0")
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --std=c++14")
@@ -268,7 +268,8 @@ if(BUILD_RAFT_TESTS)
     test/test.cpp
     test/spectral_matrix.cu
     test/eigen_solvers.cu
-    test/cluster_solvers.cu)
+    test/cluster_solvers.cu
+    test/mst.cu)
 
   target_include_directories(test_raft
     PRIVATE
