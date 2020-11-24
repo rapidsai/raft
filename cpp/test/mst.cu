@@ -31,8 +31,8 @@
 
 template <typename vertex_t, typename edge_t, typename weight_t>
 struct CSRHost {
-  std::vector<vertex_t> offsets;
-  std::vector<edge_t> indices;
+  std::vector<edge_t> offsets;
+  std::vector<vertex_t> indices;
   std::vector<weight_t> weights;
 };
 
@@ -117,7 +117,7 @@ class MSTTest
     edge_t *indices = static_cast<edge_t *>(csr_d.indices.data());
     weight_t *weights = static_cast<weight_t *>(csr_d.weights.data());
 
-    v = static_cast<vertex_t>((csr_d.offsets.size() / sizeof(weight_t)) - 1);
+    v = static_cast<vertex_t>((csr_d.offsets.size() / sizeof(vertex_t)) - 1);
     e = static_cast<edge_t>(csr_d.indices.size() / sizeof(edge_t));
 
     rmm::device_vector<vertex_t> mst_src(2 * v - 2,
@@ -150,9 +150,9 @@ class MSTTest
       ::testing::TestWithParam<CSRHost<vertex_t, edge_t, weight_t>>::GetParam();
 
     csr_d.offsets = rmm::device_buffer(csr_h.offsets.data(),
-                                       csr_h.offsets.size() * sizeof(vertex_t));
+                                       csr_h.offsets.size() * sizeof(edge_t));
     csr_d.indices = rmm::device_buffer(csr_h.indices.data(),
-                                       csr_h.indices.size() * sizeof(edge_t));
+                                       csr_h.indices.size() * sizeof(vertex_t));
     csr_d.weights = rmm::device_buffer(csr_h.weights.data(),
                                        csr_h.weights.size() * sizeof(weight_t));
   }

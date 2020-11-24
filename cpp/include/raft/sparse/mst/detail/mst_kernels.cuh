@@ -29,7 +29,7 @@ namespace detail {
 
 template <typename vertex_t, typename edge_t, typename weight_t>
 __global__ void kernel_min_edge_per_vertex(
-  const edge_t* offsets, const edge_t* indices, const weight_t* weights,
+  const edge_t* offsets, const vertex_t* indices, const weight_t* weights,
   const vertex_t* color, const vertex_t* color_index, edge_t* new_mst_edge,
   const bool* mst_edge, weight_t* min_edge_color, const vertex_t v) {
   edge_t tid = threadIdx.x + blockIdx.x * blockDim.x;
