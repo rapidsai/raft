@@ -48,10 +48,10 @@ __device__ void reduce(OutType *out, const InType acc, ReduceLambda op) {
 
 template <typename InType, typename OutType, typename MapOp,
           typename ReduceLambda, int TPB, typename... Args>
-__global__ void mapThenReduceKernel(OutType *out, size_t len, InType neutral,
+__global__ void mapThenReduceKernel(OutType *out, size_t len, OutType neutral,
                                     MapOp map, ReduceLambda op,
                                     const InType *in, Args... args) {
-  InType acc = neutral;
+  OutType acc = neutral;
   auto idx = (threadIdx.x + (blockIdx.x * blockDim.x));
 
   if (idx < len) {
@@ -65,11 +65,10 @@ __global__ void mapThenReduceKernel(OutType *out, size_t len, InType neutral,
 
 template <typename InType, typename OutType, typename MapOp,
           typename ReduceLambda, int TPB, typename... Args>
-void mapThenReduceImpl(OutType *out, size_t len, InType neutral, MapOp map,
+void mapThenReduceImpl(OutType *out, size_t len, OutType neutral, MapOp map,
                        ReduceLambda op, cudaStream_t stream, const InType *in,
                        Args... args) {
-  OutType n = neutral;
-  raft::update_device(out, &n, 1, stream);
+  raft::update_device(out, &neutral, 1, stream);
   const int nblks = raft::ceildiv(len, (size_t)TPB);
   mapThenReduceKernel<InType, OutType, MapOp, ReduceLambda, TPB, Args...>
     <<<nblks, TPB, 0, stream>>>(out, len, neutral, map, op, in, args...);
@@ -95,7 +94,7 @@ template <typename InType, typename MapOp, int TPB = 256, typename... Args,
 void mapThenSumReduce(OutType *out, size_t len, MapOp map, cudaStream_t stream,
                       const InType *in, Args... args) {
   mapThenReduceImpl<InType, OutType, MapOp, sum_tag, TPB, Args...>(
-    out, len, (InType)0, map, sum_tag(), stream, in, args...);
+    out, len, (OutType)0, map, sum_tag(), stream, in, args...);
 }
 
 /**
@@ -118,7 +117,7 @@ void mapThenSumReduce(OutType *out, size_t len, MapOp map, cudaStream_t stream,
 
 template <typename InType, typename MapOp, typename ReduceLambda, int TPB = 256,
           typename OutType = InType, typename... Args>
-void mapThenReduce(OutType *out, size_t len, InType neutral, MapOp map,
+void mapThenReduce(OutType *out, size_t len, OutType neutral, MapOp map,
                    ReduceLambda op, cudaStream_t stream, const InType *in,
                    Args... args) {
   mapThenReduceImpl<InType, OutType, MapOp, ReduceLambda, TPB, Args...>(

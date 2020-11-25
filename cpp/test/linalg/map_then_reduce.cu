@@ -153,7 +153,7 @@ class MapGenericReduceTest : public ::testing::Test {
 
   void testMin() {
     auto op = [] __device__(InType in) { return in; };
-    const InType neutral = std::numeric_limits<InType>::max();
+    const OutType neutral = std::numeric_limits<InType>::max();
     mapThenReduce(output.data(), input.size(), neutral, op, cub::Min(), stream,
                   input.data());
     EXPECT_TRUE(raft::devArrMatch(OutType(1), output.data(), 1,
@@ -161,7 +161,7 @@ class MapGenericReduceTest : public ::testing::Test {
   }
   void testMax() {
     auto op = [] __device__(InType in) { return in; };
-    const InType neutral = std::numeric_limits<InType>::min();
+    const OutType neutral = std::numeric_limits<InType>::min();
     mapThenReduce(output.data(), input.size(), neutral, op, cub::Max(), stream,
                   input.data());
     EXPECT_TRUE(raft::devArrMatch(OutType(5), output.data(), 1,
