@@ -43,9 +43,9 @@ class default_allocator : public allocator {
   }
 
   void deallocate(void* p, std::size_t n, cudaStream_t stream) override {
-    ///@todo: enable this once logging is enabled in raft
-    //CUDA_CHECK_NO_THROW(cudaFreeHost(p));
-    CUDA_CHECK(cudaFreeHost(p));
+    //Must call _NO_THROW here is this is called frequently from object
+    //destructors which are "nothrow" by default
+    CUDA_CHECK_NO_THROW(cudaFreeHost(p));
   }
 };  // class default_allocator
 
