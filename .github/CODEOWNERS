@@ -1,14 +1,17 @@
 #cpp code owners
 cpp/               @rapidsai/cuml-cpp-codeowners
 cpp/               @rapidsai/cugraph-cpp-codeowners
+cpp/               @divyegala
 
 #python code owners
 python/            @rapidsai/cuml-python-codeowners
 python/            @rapidsai/cugraph-python-codeowners
+python/            @divyegala
 
 #cmake code owners
 **/CMakeLists.txt  @rapidsai/cuml-cmake-codeowners
 **/CMakeLists.txt  @rapidsai/cugraph-cmake-codeowners
+**/CMakeLists.txt  @divyegala
 **/cmake/          @rapidsai/cuml-cmake-codeowners
 **/cmake/          @rapidsai/cugraph-cmake-codeowners
 python/setup.py    @rapidsai/cuml-cmake-codeowners
