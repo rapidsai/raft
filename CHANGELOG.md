@@ -5,6 +5,7 @@
 
 ## Improvements
 - PR #73: Move DistanceType enum from cuML to RAFT
+- pr #92: Cleanup gpuCI scripts
 
 ## Bug Fixes
 - PR #77: Fixing CUB include for CUDA < 11
