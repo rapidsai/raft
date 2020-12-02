@@ -43,7 +43,7 @@ class default_allocator : public allocator {
   }
 
   void deallocate(void* p, std::size_t n, cudaStream_t stream) override {
-    //Must call _NO_THROW here is this is called frequently from object
+    //Must call _NO_THROW here since this is called frequently from object
     //destructors which are "nothrow" by default
     CUDA_CHECK_NO_THROW(cudaFreeHost(p));
   }
