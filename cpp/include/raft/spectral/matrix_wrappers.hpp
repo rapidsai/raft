@@ -105,9 +105,8 @@ class vector_t {
       stream_(raft_handle.get_stream()) {}
 
   ~vector_t(void) {
-    handle_.get_device_allocator()->deallocate(buffer_,
-                                               size_ * sizeof(value_type),
-                                               stream_);
+    handle_.get_device_allocator()->deallocate(
+      buffer_, size_ * sizeof(value_type), stream_);
   }
 
   size_type size(void) const { return size_; }
