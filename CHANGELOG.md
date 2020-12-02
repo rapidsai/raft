@@ -14,6 +14,7 @@
 - PR #100: Add divyegala as codeowner
 
 ## Bug Fixes
+- PR #106: Specify dependency branches to avoid pip resolver failure
 - PR #77: Fixing CUB include for CUDA < 11
 - PR #86: Missing headers for newly moved prims
 - PR #102: Check alignment before binaryOp dispatch
