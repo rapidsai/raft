@@ -27,6 +27,7 @@
 - PR #86: Missing headers for newly moved prims
 - PR #102: Check alignment before binaryOp dispatch
 - PR #104: Fix update-version.sh
+- PR #109: Fixing Incorrect Deallocation Size and Count Bugs
 
 # RAFT 0.16.0 (Date TBD)
 
