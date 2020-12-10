@@ -232,6 +232,37 @@ class mpi_comms : public comms_iface {
     }
   }
 
+  void gather(const void* sendbuff, void* recvbuff, size_t sendcount,
+              datatype_t datatype, int root, cudaStream_t stream) const {
+    size_t dtype_size = get_datatype_size(datatype);
+    NCCL_TRY(ncclGroupStart());
+    if (get_rank() == root) {
+      for (int r = 0; r < get_size(); ++r) {
+        NCCL_TRY(ncclRecv(recvbuff + sendcount * i * dtype_size, sendcount,
+                          get_nccl_datatype(datatype), r, nccl_comm_, stream));
+      }
+    }
+    NCCL_TRY(ncclSend(sendbuff, sendcount, get_nccl_datatype(datatype), r,
+                      nccl_comm_, stream));
+    NCCL_TRY(ncclGroupEnd());
+  }
+
+  void gatherv(const void* sendbuf, void* recvbuf, size_t sendcount,
+               const size_t* recvcounts, const size_t* displs,
+               datatype_t datatype, int root, cudaStream_t stream) const {
+    size_t dtype_size = get_datatype_size(datatype);
+    NCCL_TRY(ncclGroupStart());
+    if (get_rank() == root) {
+      for (int r = 0; r < get_size(); ++r) {
+        NCCL_TRY(ncclRecv(recvbuff + displs[r] * dtype_size, recvcounts[r],
+                          get_nccl_datatype(datatype), r, nccl_comm_, stream));
+      }
+    }
+    NCCL_TRY(ncclSend(sendbuff, sendcount, get_nccl_datatype(datatype), r,
+                      nccl_comm_, stream));
+    NCCL_TRY(ncclGroupEnd());
+  }
+
   void reducescatter(const void* sendbuff, void* recvbuff, size_t recvcount,
                      datatype_t datatype, op_t op, cudaStream_t stream) const {
     NCCL_TRY(ncclReduceScatter(sendbuff, recvbuff, recvcount,
