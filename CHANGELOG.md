@@ -1,16 +1,34 @@
+# RAFT 0.18.0 (Date TBD)
+
+## New Features
+
+## Improvements
+
+## Bug Fixes
+
 # RAFT 0.17.0 (Date TBD)
 
 ## New Features
 - PR #65: Adding cuml prims that break circular dependency between cuml and cumlprims projects
+- PR #101: MST core solver
 - PR #93: Incorporate Date/Nagi implementation of Hungarian Algorithm
+- PR #94: Allow generic reductions for the map then reduce op
+- RP #95: Cholesky rank one update prim
 
 ## Improvements
+- PR #108: Remove unused old-gpubuild.sh
 - PR #73: Move DistanceType enum from cuML to RAFT
 - PR #98: Adding InnerProduct to DistanceType
+- PR #103: Epsilon parameter for Cholesky rank one update
+- PR #100: Add divyegala as codeowner
 
 ## Bug Fixes
+- PR #106: Specify dependency branches to avoid pip resolver failure
 - PR #77: Fixing CUB include for CUDA < 11
 - PR #86: Missing headers for newly moved prims
+- PR #102: Check alignment before binaryOp dispatch
+- PR #104: Fix update-version.sh
+- PR #109: Fixing Incorrect Deallocation Size and Count Bugs
 
 # RAFT 0.16.0 (Date TBD)
 
