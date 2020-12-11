@@ -39,6 +39,16 @@ enum DistanceType : unsigned short {
   ChebyChev = 7,
   /** Canberra distance **/
   Canberra = 8
+  /** Generalized Minkowski distance **/
+  Minkowski = 9
+  /** Correlation distance **/
+  Correlation = 10
+  /** Jaccard distance **/
+  Jaccard = 11
+  /** Hellinger distance **/
+  Hellinger = 12
+  /** Haversine distance **/
+  Haversine = 13
 };
 
 };  // namespace distance
