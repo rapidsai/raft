@@ -104,6 +104,9 @@ class buffer_base {
         allocator_->allocate(new_capacity * sizeof(value_type), stream_));
       if (size_ > 0) {
         raft::copy(new_data, data_, size_, stream_);
+      }
+      // Only deallocate if we have allocated a pointer
+      if (nullptr != data_) {
         allocator_->deallocate(data_, capacity_ * sizeof(value_type), stream_);
       }
       data_ = new_data;

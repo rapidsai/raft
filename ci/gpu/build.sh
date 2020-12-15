@@ -59,10 +59,17 @@ gpuci_conda_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvid
       "ucx-py=${MINOR_VERSION}"
 
 # Install the master version of dask, distributed, and dask-ml
+<<<<<<< HEAD
 gpuci_logger "pip install git+https://github.com/dask/distributed.git --upgrade --no-deps"
 pip install "git+https://github.com/dask/distributed.git" --upgrade --no-deps
 gpuci_logger "pip install git+https://github.com/dask/dask.git --upgrade --no-deps"
 pip install "git+https://github.com/dask/dask.git" --upgrade --no-deps
+=======
+logger "pip install git+https://github.com/dask/distributed.git@master --upgrade --no-deps"
+pip install "git+https://github.com/dask/distributed.git@master" --upgrade --no-deps
+logger "pip install git+https://github.com/dask/dask.git@master --upgrade --no-deps"
+pip install "git+https://github.com/dask/dask.git@master" --upgrade --no-deps
+>>>>>>> upstream/branch-0.18
 
 
 gpuci_logger "Check versions"

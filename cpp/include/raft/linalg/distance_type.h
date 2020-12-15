@@ -34,7 +34,21 @@ enum DistanceType : unsigned short {
   /** same as above, but inside the epilogue, perform square root operation */
   EucUnexpandedL2Sqrt = 5,
   /** basic inner product **/
-  InnerProduct = 6
+  InnerProduct = 6,
+  /** ChebyChev (Linf) distance **/
+  ChebyChev = 7,
+  /** Canberra distance **/
+  Canberra = 8
+  /** Generalized Minkowski distance **/
+  Minkowski = 9
+  /** Correlation distance **/
+  Correlation = 10
+  /** Jaccard distance **/
+  Jaccard = 11
+  /** Hellinger distance **/
+  Hellinger = 12
+  /** Haversine distance **/
+  Haversine = 13
 };
 
 };  // namespace distance

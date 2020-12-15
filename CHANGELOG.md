@@ -1,3 +1,11 @@
+# RAFT 0.18.0 (Date TBD)
+
+## New Features
+
+## Improvements
+
+## Bug Fixes
+
 # RAFT 0.17.0 (Date TBD)
 
 ## New Features
@@ -8,6 +16,7 @@
 - PR #95: Cholesky rank one update prim
 
 ## Improvements
+- PR #108: Remove unused old-gpubuild.sh
 - PR #73: Move DistanceType enum from cuML to RAFT
 - pr #92: Cleanup gpuCI scripts
 - PR #98: Adding InnerProduct to DistanceType
@@ -16,10 +25,12 @@
 - PR #111: Cleanup gpuCI scripts
 
 ## Bug Fixes
+- PR #106: Specify dependency branches to avoid pip resolver failure
 - PR #77: Fixing CUB include for CUDA < 11
 - PR #86: Missing headers for newly moved prims
 - PR #102: Check alignment before binaryOp dispatch
 - PR #104: Fix update-version.sh
+- PR #109: Fixing Incorrect Deallocation Size and Count Bugs
 
 # RAFT 0.16.0 (Date TBD)
 
