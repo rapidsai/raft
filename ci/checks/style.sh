@@ -6,10 +6,11 @@
 
 # Ignore errors and set path
 set +e
-PATH=/conda/bin:$PATH
+PATH=/opt/conda/bin:$PATH
 
 # Activate common conda env
-source activate gdf
+. /opt/conda/etc/profile.d/conda.sh
+conda activate rapids
 
 # Run flake8 and get results/return code
 FLAKE=`flake8 --exclude=cpp,thirdparty,__init__.py,versioneer.py && flake8 --config=python/.flake8.cython`
