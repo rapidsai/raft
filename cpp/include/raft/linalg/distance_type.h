@@ -36,17 +36,17 @@ enum DistanceType : unsigned short {
   /** basic inner product **/
   InnerProduct = 6,
   /** Chebyshev (Linf) distance **/
-  EucUnexpandedLinf = 7,
+  UnexpandedLinf = 7,
   /** Canberra distance **/
-  EucUnexpandedCanberra = 8,
+  UnexpandedCanberra = 8,
   /** Generalized Minkowski distance **/
-  EucUnexpandedLp = 9,
+  UnexpandedLp = 9,
   /** Correlation distance **/
-  EucExpandedCorrelation = 10,
+  ExpandedCorrelation = 10,
   /** Jaccard distance **/
-  EucExpandedJaccard = 11,
+  ExpandedJaccard = 11,
   /** Hellinger distance **/
-  EucExpandedHellinger = 12,
+  ExpandedHellinger = 12,
   /** Haversine distance **/
   Haversine = 13
 };
