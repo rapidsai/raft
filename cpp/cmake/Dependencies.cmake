@@ -31,6 +31,46 @@ if(NOT CUB_IS_PART_OF_CTK)
 endif(NOT CUB_IS_PART_OF_CTK)
 
 ##############################################################################
+# - faiss --------------------------------------------------------------------
+
+if(BUILD_STATIC_FAISS)
+  set(FAISS_DIR ${CMAKE_CURRENT_BINARY_DIR}/faiss CACHE STRING
+    "Path to FAISS source directory")
+  ExternalProject_Add(faiss
+    GIT_REPOSITORY    https://github.com/facebookresearch/faiss.git
+    GIT_TAG           a5b850dec6f1cd6c88ab467bfd5e87b0cac2e41d
+    CONFIGURE_COMMAND LIBS=-pthread
+                      CPPFLAGS=-w
+                      LDFLAGS=-L${CMAKE_INSTALL_PREFIX}/lib
+                              ${CMAKE_CURRENT_BINARY_DIR}/faiss/src/faiss/configure
+	                      --prefix=${CMAKE_CURRENT_BINARY_DIR}/faiss
+	                      --with-blas=${BLAS_LIBRARIES}
+	                      --with-cuda=${CUDA_TOOLKIT_ROOT_DIR}
+	                      --with-cuda-arch=${FAISS_GPU_ARCHS}
+	                      -v
+    PREFIX            ${FAISS_DIR}
+    BUILD_COMMAND     make -j${PARALLEL_LEVEL} VERBOSE=1
+    BUILD_BYPRODUCTS  ${FAISS_DIR}/lib/libfaiss.a
+    BUILD_ALWAYS      1
+    INSTALL_COMMAND   make -s install > /dev/null
+    UPDATE_COMMAND    ""
+    BUILD_IN_SOURCE   1
+    PATCH_COMMAND     patch -p1 -N < ${CMAKE_CURRENT_SOURCE_DIR}/cmake/faiss_cuda11.patch || true)
+
+  ExternalProject_Get_Property(faiss install_dir)
+  add_library(FAISS::FAISS STATIC IMPORTED)
+  set_property(TARGET FAISS::FAISS PROPERTY
+    IMPORTED_LOCATION ${FAISS_DIR}/lib/libfaiss.a)
+  # to account for the FAISS file reorg that happened recently after the current
+  # pinned commit, just change the following line to
+  # set(FAISS_INCLUDE_DIRS "${FAISS_DIR}/src/faiss")
+  set(FAISS_INCLUDE_DIRS "${FAISS_DIR}/src")
+else()
+  set(FAISS_INSTALL_DIR ENV{FAISS_ROOT})
+  find_package(FAISS REQUIRED)
+endif(BUILD_STATIC_FAISS)
+
+##############################################################################
 # - googletest ---------------------------------------------------------------
 
 if(BUILD_GTEST)
@@ -65,4 +105,6 @@ endif(BUILD_GTEST)
 
 if(NOT CUB_IS_PART_OF_CTK)
   add_dependencies(GTest::GTest cub)
-endif(NOT CUB_IS_PART_OF_CTK) 
+endif(NOT CUB_IS_PART_OF_CTK)
+add_dependencies(FAISS::FAISS benchmark)
+add_dependencies(FAISS::FAISS faiss)
