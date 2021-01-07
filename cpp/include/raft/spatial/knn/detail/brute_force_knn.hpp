@@ -10,6 +10,7 @@
 #include <faiss/gpu/StandardGpuResources.h>
 #include <faiss/utils/Heap.h>
 #include <faiss/gpu/utils/Limits.cuh>
+#include <faiss/gpu/utils/Select.cuh>
 
 #include <thrust/device_vector.h>
 #include <thrust/iterator/transform_iterator.h>

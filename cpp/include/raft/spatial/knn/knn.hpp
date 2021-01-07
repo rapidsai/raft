@@ -17,12 +17,15 @@
 #pragma once
 
 #include "detail/brute_force_knn.hpp"
+#include "detail/processing.hpp"
 
 #include <raft/mr/device/allocator.hpp>
 #include <raft/mr/device/buffer.hpp>
 
 namespace raft {
   namespace knn {
+
+using deviceAllocator = raft::mr::device::allocator;
 
 /**
  * Search the kNN for the k-nearest neighbors of a set of query vectors
@@ -106,7 +109,7 @@ void brute_force_knn_impl(std::vector<float *> &input, std::vector<int> &sizes,
                       userStream);
 
   raft::mr::device::buffer<float> all_D(allocator, userStream, 0);
-  raft::mr::devic::buffer<int64_t> all_I(allocator, userStream, 0);
+  raft::mr::device::buffer<int64_t> all_I(allocator, userStream, 0);
 
   float *out_D = res_D;
   int64_t *out_I = res_I;
@@ -166,7 +169,7 @@ void brute_force_knn_impl(std::vector<float *> &input, std::vector<int> &sizes,
   if (input.size() > 1 || translations != nullptr) {
     // This is necessary for proper index translations. If there are
     // no translations or partitions to combine, it can be skipped.
-    knn_merge_parts(out_D, out_I, res_D, res_I, n, input.size(), k, userStream,
+    detail::knn_merge_parts(out_D, out_I, res_D, res_I, n, input.size(), k, userStream,
                     trans.data());
   }
 
