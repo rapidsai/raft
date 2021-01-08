@@ -19,34 +19,35 @@
 namespace raft {
 namespace distance {
 
-/** enum to tell how to compute euclidean distance */
+/** enum to tell how to compute distance */
 enum DistanceType : unsigned short {
+
   /** evaluate as dist_ij = sum(x_ik^2) + sum(y_ij)^2 - 2*sum(x_ik * y_jk) */
-  EucExpandedL2 = 0,
+  L2Expanded = 0,
   /** same as above, but inside the epilogue, perform square root operation */
-  EucExpandedL2Sqrt = 1,
+  L2SqrtExpanded = 1,
   /** cosine distance */
-  EucExpandedCosine = 2,
+  CosineExpanded = 2,
   /** L1 distance */
-  EucUnexpandedL1 = 3,
+  L1 = 3,
   /** evaluate as dist_ij += (x_ik - y-jk)^2 */
-  EucUnexpandedL2 = 4,
+  L2Unexpanded = 4,
   /** same as above, but inside the epilogue, perform square root operation */
-  EucUnexpandedL2Sqrt = 5,
+  L2SqrtUnexpanded = 5,
   /** basic inner product **/
   InnerProduct = 6,
   /** Chebyshev (Linf) distance **/
-  UnexpandedLinf = 7,
+  Linf = 7,
   /** Canberra distance **/
-  UnexpandedCanberra = 8,
+  Canberra = 8,
   /** Generalized Minkowski distance **/
-  UnexpandedLp = 9,
+  LpUnexpanded = 9,
   /** Correlation distance **/
-  ExpandedCorrelation = 10,
+  CorrelationExpanded = 10,
   /** Jaccard distance **/
-  ExpandedJaccard = 11,
+  JaccardExpanded = 11,
   /** Hellinger distance **/
-  ExpandedHellinger = 12,
+  HellingerExpanded = 12,
   /** Haversine distance **/
   Haversine = 13
 };
