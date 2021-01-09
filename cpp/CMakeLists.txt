@@ -248,45 +248,45 @@ if(BUILD_RAFT_TESTS)
 
   # keep the files in alphabetical order!
   add_executable(test_raft
-    test/cudart_utils.cpp
-    test/handle.cpp
-    test/integer_utils.cpp
-    test/lap/lap.cu
-    test/linalg/add.cu
-    test/linalg/binary_op.cu
-    test/linalg/cholesky_r1.cu
-    test/linalg/coalesced_reduction.cu
-    test/linalg/divide.cu
-    test/linalg/eig.cu
-    test/linalg/eig_sel.cu
-    test/linalg/gemm_layout.cu
-    test/linalg/map_then_reduce.cu
-    test/linalg/matrix_vector_op.cu
-    test/linalg/multiply.cu
-    test/linalg/norm.cu
-    test/linalg/reduce.cu
-    test/linalg/strided_reduction.cu
-    test/linalg/subtract.cu
-    test/linalg/svd.cu
-    test/linalg/transpose.cu
-    test/linalg/unary_op.cu
-    test/matrix/math.cu
-    test/matrix/matrix.cu
-    test/mr/device/buffer.cpp
-    test/mr/host/buffer.cpp
-    test/random/rng.cu
-    test/random/rng_int.cu
-    test/random/sample_without_replacement.cu
-    test/spatial/knn.cu
-    test/stats/mean.cu
-    test/stats/mean_center.cu
-    test/stats/stddev.cu
-    test/stats/sum.cu
-    test/test.cpp
-    test/spectral_matrix.cu
-    test/eigen_solvers.cu
-    test/cluster_solvers.cu
-    test/mst.cu)
+    #  test/cudart_utils.cpp
+    #test/handle.cpp
+    #test/integer_utils.cpp
+    #test/lap/lap.cu
+    #test/linalg/add.cu
+    #test/linalg/binary_op.cu
+    #test/linalg/cholesky_r1.cu
+    #test/linalg/coalesced_reduction.cu
+    #test/linalg/divide.cu
+    #test/linalg/eig.cu
+    #test/linalg/eig_sel.cu
+    #test/linalg/gemm_layout.cu
+    #test/linalg/map_then_reduce.cu
+    #test/linalg/matrix_vector_op.cu
+    #test/linalg/multiply.cu
+    #test/linalg/norm.cu
+    #test/linalg/reduce.cu
+    #test/linalg/strided_reduction.cu
+    #test/linalg/subtract.cu
+    #test/linalg/svd.cu
+    #test/linalg/transpose.cu
+    #test/linalg/unary_op.cu
+    #test/matrix/math.cu
+    #test/matrix/matrix.cu
+    #test/mr/device/buffer.cpp
+    #test/mr/host/buffer.cpp
+    #test/random/rng.cu
+    #test/random/rng_int.cu
+    #test/random/sample_without_replacement.cu
+    test/spatial/knn.cu)
+    #test/stats/mean.cu
+    #test/stats/mean_center.cu
+    #test/stats/stddev.cu
+    #test/stats/sum.cu
+    #test/test.cpp
+    #test/spectral_matrix.cu
+    #test/eigen_solvers.cu
+    #test/cluster_solvers.cu
+    #test/mst.cu)
 
   target_include_directories(test_raft
     PRIVATE
