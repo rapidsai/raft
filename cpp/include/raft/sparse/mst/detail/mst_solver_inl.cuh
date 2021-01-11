@@ -38,11 +38,11 @@ namespace mst {
 typedef std::chrono::high_resolution_clock Clock;
 
 // curand generator uniform
-curandStatus_t curand_generate_uniformX(curandGenerator_t generator,
+inline curandStatus_t curand_generate_uniformX(curandGenerator_t generator,
                                         float* outputPtr, size_t n) {
   return curandGenerateUniform(generator, outputPtr, n);
 }
-curandStatus_t curand_generate_uniformX(curandGenerator_t generator,
+inline curandStatus_t curand_generate_uniformX(curandGenerator_t generator,
                                         double* outputPtr, size_t n) {
   return curandGenerateUniformDouble(generator, outputPtr, n);
 }
