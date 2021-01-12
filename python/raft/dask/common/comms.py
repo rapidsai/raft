@@ -77,8 +77,10 @@ class Comms:
         cluster.close()
     """
 
+    valid_nccl_placements = ('client', 'worker', 'scheduler')
+
     def __init__(self, comms_p2p=False, client=None, verbose=False,
-                 streams_per_handle=0):
+                 streams_per_handle=0, nccl_root_location="scheduler"):
         """
         Construct a new CommsContext instance
 
@@ -90,9 +92,17 @@ class Comms:
                  Dask client to use
         verbose : bool
                   Print verbose logging
+        nccl_root_location : string
+                  Indicates where the NCCL's root node should be located. ['client', 'worker', 'scheduler' (default)]
+
         """
         self.client = client if client is not None else default_client()
+
         self.comms_p2p = comms_p2p
+
+        if (nccl_root_location.lower() not in Comms.valid_nccl_placements):
+            raise ValueError(f"nccl_root_location must be one of: {Comms.valid_nccl_placements}")
+        self.nccl_root_location = nccl_root_location.lower()
 
         self.streams_per_handle = streams_per_handle
 
@@ -149,7 +159,12 @@ class Comms:
         worker_info = self.worker_info(self.worker_addresses)
         worker_info = {w: worker_info[w] for w in self.worker_addresses}
 
-        self.uniqueId = nccl.get_unique_id()
+        if (self.nccl_root_location == 'client'):
+            self.uniqueId = nccl.get_unique_id()
+        elif (self.nccl_root_location == 'worker'):
+            self.uniqueId = self.client.run(get_unique_id_on_worker, sessionId=self.sessionId)
+        else:
+            self.uniqueId = self.client.run_on_scheduler(_func_set_scheduler_as_nccl_root, sessionId=self.sessionId)
 
         self.client.run(_func_init_all,
                         self.sessionId,
@@ -182,6 +197,10 @@ class Comms:
                         wait=True,
                         workers=self.worker_addresses)
 
+        if (self.nccl_root_location == 'scheduler'):
+            self.client.run_on_scheduler(_func_destroy_scheduler_session,
+                                         self.sessionId)
+
         if self.verbose:
             print("Destroying comms.")
 
@@ -205,6 +224,27 @@ def local_handle(sessionId):
     """
     state = worker_state(sessionId)
     return state["handle"] if "handle" in state else None
+
+
+def scheduler_state(sessionId, dask_scheduler):
+    """
+    Retrieves cuML comms state on the scheduler node, for the given sessionId, creating
+    a new session if it does not exist. If no session id is given, returns the state dict for
+    all sessions.
+    :param sessionId: SessionId value to retrieve from the dask_scheduler instances
+    :param dask_scheduler: Dask Scheduler object
+    :return: session state associated with sessionId
+    """
+
+    if (not hasattr(dask_scheduler, "_raft_comm_state")):
+        dask_scheduler._raft_comm_state = {}
+
+    if (sessionId is not None and sessionId not in dask_scheduler._raft_comm_state):
+        dask_scheduler._raft_comm_state[sessionId] = { "ts": time.time() }
+
+        return dask_scheduler._raft_comm_state[sessionId]
+
+    return dask_scheduler._raft_comm_state
 
 
 def worker_state(sessionId=None):
@@ -240,6 +280,38 @@ def get_ucx():
         worker_state("ucp")["ucx"] = UCX.get()
     return worker_state("ucp")["ucx"]
 
+def _func_destroy_scheduler_session(sessionId, dask_scheduler):
+    if (sessionId is not None and sessionId in dask_scheduler._raft_comm_state):
+        del dask_scheduler._raft_comm_state[sessionId]
+
+    return 0
+
+def _func_set_scheduler_as_nccl_root(sessionId, dask_scheduler):
+    """
+    Creates a persistent nccl uniqueId on the scheduler node.
+
+    Note: dask_scheduler should be passed by the scheduler, it does not need to be supplied to the run_on_scheduler
+    call.
+
+    :param sessionId: Associated session to attach the unique ID to.
+    :param dask_scheduler: dask scheduler object, populated by the client/scheduler call
+    :return:
+    """
+    if (sessionId is None):
+        raise ValueError("sessionId cannot be None.")
+
+    session_state = scheduler_state(sessionId=sessionId, dask_scheduler=dask_scheduler)
+    if ('nccl_uid' not in session_state):
+        session_state['nccl_uid'] = nccl.get_unique_id()
+
+    return session_state['nccl_uid']
+
+# TODO
+def _func_set_worker_as_nccl_root(sessionId, workerId):
+    pass
+
+def _func_destroy_worker_session(sessionId, workerId):
+    pass
 
 def _func_ucp_listener_port():
     return get_ucx().listener_port()
@@ -254,6 +326,7 @@ async def _func_init_all(sessionId, uniqueId, comms_p2p,
     session_state["nworkers"] = len(worker_info)
 
     if verbose:
+        # TODO: prints should be replaced with logging calls.
         print("Initializing NCCL")
         start = time.time()
 
@@ -261,10 +334,12 @@ async def _func_init_all(sessionId, uniqueId, comms_p2p,
 
     if verbose:
         elapsed = time.time() - start
+        # TODO: prints should be replaced with logging calls.
         print("NCCL Initialization took: %f seconds." % elapsed)
 
     if comms_p2p:
         if verbose:
+            # TODO: prints should be replaced with logging calls.
             print("Initializing UCX Endpoints")
 
         if verbose:
@@ -273,6 +348,7 @@ async def _func_init_all(sessionId, uniqueId, comms_p2p,
 
         if verbose:
             elapsed = time.time() - start
+            # TODO: prints should be replaced with logging calls.
             print("Done initializing UCX endpoints. Took: %f seconds." %
                   elapsed)
             print("Building handle")
@@ -280,6 +356,7 @@ async def _func_init_all(sessionId, uniqueId, comms_p2p,
         _func_build_handle_p2p(sessionId, streams_per_handle, verbose)
 
         if verbose:
+            # TODO: prints should be replaced with logging calls.
             print("Done building handle.")
 
     else:
@@ -306,8 +383,10 @@ def _func_init_nccl(sessionId, uniqueId):
         n = nccl()
         n.init(nWorkers, uniqueId, wid)
         worker_state(sessionId)["nccl"] = n
-    except Exception:
+    except Exception as e:
+        # TODO: prints should be replaced with logging calls.
         print("An error occurred initializing NCCL!")
+        raise
 
 
 def _func_build_handle_p2p(sessionId, streams_per_handle, verbose):

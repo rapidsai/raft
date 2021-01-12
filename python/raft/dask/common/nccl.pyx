@@ -140,18 +140,15 @@ cdef class nccl:
         cdef int r = rank
         cdef ncclResult_t result
 
-        import time
-
-        start = time.time()
         with nogil:
             result = ncclCommInitRank(comm_, nr,
                                       deref(ident), r)
 
-        end = time.time()
         if result != ncclSuccess:
             with nogil:
                 err_str = ncclGetErrorString(result)
-            print("NCCL_ERROR: %s" % err_str)
+
+            raise RuntimeError("NCCL_ERROR: %s" % err_str)
 
     def destroy(self):
         """
@@ -164,13 +161,14 @@ cdef class nccl:
             with nogil:
                 result = ncclCommDestroy(deref(comm_))
 
+            free(self.comm)
+            self.comm = NULL
+
             if result != ncclSuccess:
                 with nogil:
                     err_str = ncclGetErrorString(result)
-                print("NCCL_ERROR: %s" % err_str)
 
-            free(self.comm)
-            self.comm = NULL
+                raise RuntimeError("NCCL_ERROR: %s" % err_str)
 
     def abort(self):
         """
@@ -182,12 +180,13 @@ cdef class nccl:
             with nogil:
                 result = ncclCommAbort(deref(comm_))
 
+            free(comm_)
+            self.comm = NULL
+
             if result != ncclSuccess:
                 with nogil:
                     err_str = ncclGetErrorString(result)
-                print("NCCL_ERROR: %s" % err_str)
-            free(comm_)
-            self.comm = NULL
+                raise RuntimeError("NCCL_ERROR: %s" % err_str)
 
     def cu_device(self):
         """
@@ -204,13 +203,15 @@ cdef class nccl:
         with nogil:
             result = ncclCommCuDevice(deref(comm_), dev)
 
+        ret = dev[0]
+        free(dev)
+
         if result != ncclSuccess:
             with nogil:
                 err_str = ncclGetErrorString(result)
-            print("NCCL_ERROR: %s" % err_str)
 
-        ret = dev[0]
-        free(dev)
+            raise RuntimeError("NCCL_ERROR: %s" % err_str)
+
         return ret
 
     def user_rank(self):
@@ -230,13 +231,14 @@ cdef class nccl:
         with nogil:
             result = ncclCommUserRank(deref(comm_), rank)
 
+        ret = rank[0]
+        free(rank)
+
         if result != ncclSuccess:
             with nogil:
                 err_str = ncclGetErrorString(result)
-            print("NCCL_ERROR: %s" % err_str)
+            raise RuntimeError("NCCL_ERROR: %s" % err_str)
 
-        ret = rank[0]
-        free(rank)
         return ret
 
     def get_comm(self):
