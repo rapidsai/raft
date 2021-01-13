@@ -171,7 +171,7 @@ def test_nccl_root_placement(client, root_location):
                 func_check_uid_on_scheduler, cb.sessionId, cb.uniqueId
             )
         else:
-            result = int(cb.uniqueId == None)
+            result = int(cb.uniqueId is None)
 
         assert result == 0
 
@@ -179,8 +179,6 @@ def test_nccl_root_placement(client, root_location):
         if cb:
             cb.destroy()
 
-
-# TODO: Add negative case test for bad location type, and Comm init failure so we check cleanup routines.
 
 
 @pytest.mark.parametrize("func", functions)
