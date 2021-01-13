@@ -26,9 +26,12 @@ from dask.distributed import get_worker, default_client
 
 import warnings
 
+import logging
 import time
 import uuid
 from collections import OrderedDict
+
+logger = logging.getLogger(__name__)
 
 
 class Comms:
@@ -153,7 +156,8 @@ class Comms:
             if workers is None else workers))
 
         if self.nccl_initialized or self.ucx_initialized:
-            warnings.warn("Comms have already been initialized.")
+            msg = "Comms have already been initialized."
+            warnings.warn(msg)
             return
 
         worker_info = self.worker_info(self.worker_addresses)
@@ -163,11 +167,14 @@ class Comms:
             self.uniqueId = nccl.get_unique_id()
         elif (self.nccl_root_location == 'worker'):
             self.uniqueId = self.client.run(_func_set_worker_as_nccl_root,
-                                            self.sessionId,
+                                            sessionId=self.sessionId,
+                                            verbose=self.verbose,
                                             workers=[self.worker_addresses[0]],
                                             wait=True)[self.worker_addresses[0]]
         else:
-            self.uniqueId = self.client.run_on_scheduler(_func_set_scheduler_as_nccl_root, sessionId=self.sessionId)
+            self.uniqueId = self.client.run_on_scheduler(_func_set_scheduler_as_nccl_root,
+                                                         sessionId=self.sessionId,
+                                                         verbose=self.verbose)
 
         self.client.run(_func_init_all,
                         self.sessionId,
@@ -185,7 +192,7 @@ class Comms:
             self.ucx_initialized = True
 
         if self.verbose:
-            print("Initialization complete.")
+            print("Initialization Complete")
 
     def destroy(self):
         """
@@ -205,7 +212,7 @@ class Comms:
                                          self.sessionId)
 
         if self.verbose:
-            print("Destroying comms.")
+            print("Destroying Comms.")
 
         self.nccl_initialized = False
         self.ucx_initialized = False
@@ -289,7 +296,7 @@ def _func_destroy_scheduler_session(sessionId, dask_scheduler):
 
     return 0
 
-def _func_set_scheduler_as_nccl_root(sessionId, dask_scheduler):
+def _func_set_scheduler_as_nccl_root(sessionId, verbose, dask_scheduler):
     """
     Creates a persistent nccl uniqueId on the scheduler node.
 
@@ -300,6 +307,9 @@ def _func_set_scheduler_as_nccl_root(sessionId, dask_scheduler):
     :param dask_scheduler: dask scheduler object, populated by the client/scheduler call
     :return:
     """
+    if(verbose):
+        logger.info(msg=f"Setting scheduler as NCCL root for sessionId, '{sessionId}'")
+
     if (sessionId is None):
         raise ValueError("sessionId cannot be None.")
 
@@ -307,15 +317,26 @@ def _func_set_scheduler_as_nccl_root(sessionId, dask_scheduler):
     if ('nccl_uid' not in session_state):
         session_state['nccl_uid'] = nccl.get_unique_id()
 
+    if(verbose):
+        logger.info(f"Done setting scheduler as NCCL root.")
+
     return session_state['nccl_uid']
 
-def _func_set_worker_as_nccl_root(sessionId, workerId=0):
+def _func_set_worker_as_nccl_root(sessionId, verbose, workerId=0):
+    if(verbose):
+        get_worker().log_event(topic="info",
+                               msg=f"Setting worker, '{workerId}', as NCCL root for session, '{sessionId}'")
+
     if (sessionId is None):
         raise ValueError("sessionId cannot be None.")
 
     session_state = worker_state(sessionId)
     if ('nccl_uid' not in session_state):
         session_state['nccl_uid'] = nccl.get_unique_id()
+
+    if(verbose):
+        get_worker().log_event(topic="info",
+                               msg=f"Done setting scheduler as NCCL root.")
 
     return session_state['nccl_uid']
 
@@ -332,21 +353,18 @@ async def _func_init_all(sessionId, uniqueId, comms_p2p,
     session_state["nworkers"] = len(worker_info)
 
     if verbose:
-        # TODO: prints should be replaced with logging calls.
-        print("Initializing NCCL")
+        get_worker().log_event(topic="info", msg="Initializing NCCL.")
         start = time.time()
 
     _func_init_nccl(sessionId, uniqueId)
 
     if verbose:
         elapsed = time.time() - start
-        # TODO: prints should be replaced with logging calls.
-        print("NCCL Initialization took: %f seconds." % elapsed)
+        get_worker().log_event(topic="info", msg=f"NCCL Initialization took: {elapsed} seconds.")
 
     if comms_p2p:
         if verbose:
-            # TODO: prints should be replaced with logging calls.
-            print("Initializing UCX Endpoints")
+            get_worker().log_event(topic="info", msg="Initializing UCX Endpoints")
 
         if verbose:
             start = time.time()
@@ -354,16 +372,13 @@ async def _func_init_all(sessionId, uniqueId, comms_p2p,
 
         if verbose:
             elapsed = time.time() - start
-            # TODO: prints should be replaced with logging calls.
-            print("Done initializing UCX endpoints. Took: %f seconds." %
-                  elapsed)
-            print("Building handle")
+            msg = f"Done initializing UCX endpoints. Took: {elapsed} seconds.\nBuilding handle."
+            get_worker().log_event(topic="info", msg=msg)
 
         _func_build_handle_p2p(sessionId, streams_per_handle, verbose)
 
         if verbose:
-            # TODO: prints should be replaced with logging calls.
-            print("Done building handle.")
+            get_worker().log_event(topic="info", msg="Done building handle.")
 
     else:
         _func_build_handle(sessionId, streams_per_handle, verbose)
@@ -390,8 +405,7 @@ def _func_init_nccl(sessionId, uniqueId):
         n.init(nWorkers, uniqueId, wid)
         worker_state(sessionId)["nccl"] = n
     except Exception as e:
-        # TODO: prints should be replaced with logging calls.
-        print("An error occurred initializing NCCL!")
+        get_worker().log_event(topic="error", msg="An error occurred initializing NCCL!.")
         raise
 
 
@@ -405,6 +419,9 @@ def _func_build_handle_p2p(sessionId, streams_per_handle, verbose):
     streams_per_handle : int number of internal streams to create
     verbose : bool print verbose logging output
     """
+    if (verbose):
+        get_worker().log_event(topic="info", msg="Building p2p handle.")
+
     ucp_worker = get_ucx().get_worker()
     session_state = worker_state(sessionId)
 
@@ -414,8 +431,13 @@ def _func_build_handle_p2p(sessionId, streams_per_handle, verbose):
     nWorkers = session_state["nworkers"]
     workerId = session_state["wid"]
 
+    if (verbose):
+        get_worker().log_event(topic="info", msg="Injecting comms on handle.")
     inject_comms_on_handle(handle, nccl_comm, ucp_worker, eps,
                            nWorkers, workerId, verbose)
+
+    if (verbose):
+        get_worker().log_event(topic="info", msg="Finished injecting comms on handle.")
 
     worker_state(sessionId)["handle"] = handle
 
@@ -430,6 +452,9 @@ def _func_build_handle(sessionId, streams_per_handle, verbose):
     streams_per_handle : int number of internal streams to create
     verbose : bool print verbose logging output
     """
+    if (verbose):
+        get_worker().log_event(topic="info", msg="Finished injecting comms on handle.")
+
     handle = Handle(streams_per_handle)
 
     session_state = worker_state(sessionId)
@@ -444,6 +469,7 @@ def _func_build_handle(sessionId, streams_per_handle, verbose):
 
 
 def _func_store_initial_state(nworkers, sessionId, uniqueId, wid):
+    # TODO: We don't ever remove wid or nworkers... could cause problems? Maybe we should just blow away whole session
     session_state = worker_state(sessionId)
     session_state["nccl_uid"] = uniqueId
     session_state["wid"] = wid
@@ -476,9 +502,26 @@ async def _func_ucp_create_endpoints(sessionId, worker_info):
 
 
 async def _func_destroy_all(sessionId, comms_p2p, verbose=False):
-    worker_state(sessionId)["nccl"].destroy()
-    del worker_state(sessionId)["nccl"]
-    del worker_state(sessionId)["handle"]
+    if(verbose):
+        get_worker().log_event(topic="info", msg="Destroying NCCL session state.")
+    session_state = worker_state(sessionId)
+    if ('nccl' in session_state):
+        session_state["nccl"].destroy()
+        del session_state["nccl"]
+        if (verbose):
+            get_worker().log_event(topic="info", msg="NCCL session state destroyed.")
+    else:
+        if (verbose):
+            get_worker().log_event(topic="info", msg=f"{sessionId} does not contain")
+
+    if (verbose):
+        get_worker().log_event(topic="info", msg=f"Destroy CUDA handle for sessionId, '{sessionId}.'")
+    if ('handle' in session_state):
+        del session_state["handle"]
+    else:
+        if (verbose):
+            #TODO add logging for unexpected worker state
+            pass
 
 
 def _func_ucp_ports(client, workers):

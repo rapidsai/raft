@@ -67,7 +67,7 @@ def func_test_comm_split(sessionId, n_trials):
     handle = local_handle(sessionId)
     return perform_test_comm_split(handle, n_trials)
 
-def func_chk_uid_on_scheduler(sessionId, uniqueId, dask_scheduler):
+def func_check_uid_on_scheduler(sessionId, uniqueId, dask_scheduler):
     if (not hasattr(dask_scheduler, '_raft_comm_state')):
         return 1
 
@@ -85,7 +85,7 @@ def func_chk_uid_on_scheduler(sessionId, uniqueId, dask_scheduler):
 
     return 0
 
-def func_chk_uid_on_worker(sessionId, uniqueId):
+def func_check_uid_on_worker(sessionId, uniqueId):
     from dask.distributed import get_worker
 
     worker_state = get_worker()
@@ -154,12 +154,12 @@ def test_nccl_root_placement(client, root_location):
             client.scheduler_info()["workers"].keys()))
 
         if (root_location in ('worker',)):
-            result = client.run(func_chk_uid_on_worker,
+            result = client.run(func_check_uid_on_worker,
                                 cb.sessionId,
                                 cb.uniqueId,
                                 workers=[worker_addresses[0]])[worker_addresses[0]]
         elif (root_location in ('scheduler',)):
-            result = client.run_on_scheduler(func_chk_uid_on_scheduler, cb.sessionId, cb.uniqueId)
+            result = client.run_on_scheduler(func_check_uid_on_scheduler, cb.sessionId, cb.uniqueId)
         else:
             result = int(cb.uniqueId == None)
 
@@ -168,6 +168,8 @@ def test_nccl_root_placement(client, root_location):
     finally:
         if (cb):
             cb.destroy()
+
+# TODO: Add negative case test for bad location type, and Comm init failure so we check cleanup routines.
 
 @pytest.mark.parametrize("func", functions)
 @pytest.mark.parametrize("root_location", ['client', 'worker', 'scheduler'])
