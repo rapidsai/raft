@@ -180,7 +180,6 @@ def test_nccl_root_placement(client, root_location):
             cb.destroy()
 
 
-
 @pytest.mark.parametrize("func", functions)
 @pytest.mark.parametrize("root_location", ["client", "worker", "scheduler"])
 @pytest.mark.nccl

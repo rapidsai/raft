@@ -377,7 +377,7 @@ def _func_set_scheduler_as_nccl_root(sessionId, verbose, dask_scheduler):
         session_state["nccl_uid"] = nccl.get_unique_id()
 
     if verbose:
-        logger.info(f"Done setting scheduler as NCCL root.")
+        logger.info("Done setting scheduler as NCCL root.")
 
     return session_state["nccl_uid"]
 
@@ -412,7 +412,7 @@ def _func_set_worker_as_nccl_root(sessionId, verbose):
 
     if verbose:
         get_worker().log_event(
-            topic="info", msg=f"Done setting scheduler as NCCL root."
+            topic="info", msg="Done setting scheduler as NCCL root."
         )
 
     return session_state["nccl_uid"]
@@ -492,7 +492,7 @@ def _func_init_nccl(sessionId, uniqueId):
         worker_state(sessionId)["nccl"] = n
     except Exception as e:
         get_worker().log_event(
-            topic="error", msg="An error occurred initializing NCCL!."
+            topic="error", msg=f"An error occurred initializing NCCL: {e}."
         )
         raise
 
