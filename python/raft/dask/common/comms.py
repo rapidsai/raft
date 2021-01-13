@@ -162,7 +162,10 @@ class Comms:
         if (self.nccl_root_location == 'client'):
             self.uniqueId = nccl.get_unique_id()
         elif (self.nccl_root_location == 'worker'):
-            self.uniqueId = self.client.run(get_unique_id_on_worker, sessionId=self.sessionId)
+            self.uniqueId = self.client.run(_func_set_worker_as_nccl_root,
+                                            self.sessionId,
+                                            workers=[self.worker_addresses[0]],
+                                            wait=True)[self.worker_addresses[0]]
         else:
             self.uniqueId = self.client.run_on_scheduler(_func_set_scheduler_as_nccl_root, sessionId=self.sessionId)
 
@@ -240,7 +243,7 @@ def scheduler_state(sessionId, dask_scheduler):
         dask_scheduler._raft_comm_state = {}
 
     if (sessionId is not None and sessionId not in dask_scheduler._raft_comm_state):
-        dask_scheduler._raft_comm_state[sessionId] = { "ts": time.time() }
+        dask_scheduler._raft_comm_state[sessionId] = {"ts": time.time()}
 
         return dask_scheduler._raft_comm_state[sessionId]
 
@@ -306,12 +309,15 @@ def _func_set_scheduler_as_nccl_root(sessionId, dask_scheduler):
 
     return session_state['nccl_uid']
 
-# TODO
-def _func_set_worker_as_nccl_root(sessionId, workerId):
-    pass
+def _func_set_worker_as_nccl_root(sessionId, workerId=0):
+    if (sessionId is None):
+        raise ValueError("sessionId cannot be None.")
 
-def _func_destroy_worker_session(sessionId, workerId):
-    pass
+    session_state = worker_state(sessionId)
+    if ('nccl_uid' not in session_state):
+        session_state['nccl_uid'] = nccl.get_unique_id()
+
+    return session_state['nccl_uid']
 
 def _func_ucp_listener_port():
     return get_ucx().listener_port()
