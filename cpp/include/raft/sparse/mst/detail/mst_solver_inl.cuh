@@ -39,11 +39,11 @@ typedef std::chrono::high_resolution_clock Clock;
 
 // curand generator uniform
 inline curandStatus_t curand_generate_uniformX(curandGenerator_t generator,
-                                        float* outputPtr, size_t n) {
+                                               float* outputPtr, size_t n) {
   return curandGenerateUniform(generator, outputPtr, n);
 }
 inline curandStatus_t curand_generate_uniformX(curandGenerator_t generator,
-                                        double* outputPtr, size_t n) {
+                                               double* outputPtr, size_t n) {
   return curandGenerateUniformDouble(generator, outputPtr, n);
 }
 
