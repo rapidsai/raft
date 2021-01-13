@@ -14,7 +14,6 @@
 # limitations under the License.
 #=============================================================================
 
-
 cmake_minimum_required(VERSION 3.14 FATAL_ERROR)
 
 project(RAFT VERSION 0.18.0 LANGUAGES CXX CUDA)
@@ -66,18 +65,6 @@ set(GPU_ARCHS "" CACHE STRING
 
 ##############################################################################
 # - Requirements -------------------------------------------------------------
-
-# Create FindPackage.cmake files to use find(package) functionality for
-# dependencies
-
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/cmake/templates)
-
-if(NOT BUILD_STATIC_FAISS)
-  GENERATE_FIND_MODULE(
-    NAME         FAISS
-    HEADER_NAME  faiss/IndexFlat.h
-    LIBRARY_NAME faiss)
-endif(NOT BUILD_STATIC_FAISS)
 
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
@@ -190,6 +177,18 @@ include(cmake/Dependencies.cmake)
 include(cmake/comms.cmake)
 
 ###################################################################################################
+# - FAISS -------------------------------------------------------------------------------------------
+
+if(NOT BUILD_STATIC_FAISS)
+ find_path(FAISS_INCLUDE_DIRS "faiss"
+    HINTS
+    "$ENV{FAISS_ROOT}/include"
+    "$ENV{CONDA_PREFIX}/include/faiss"
+    "$ENV{CONDA_PREFIX}/include")
+endif(NOT BUILD_STATIC_FAISS)
+message(STATUS "FAISS: FAISS_INCLUDE_DIRS set to ${FAISS_INCLUDE_DIRS}")
+
+###################################################################################################
 # - RMM -------------------------------------------------------------------------------------------
 
 find_path(RMM_INCLUDE_DIRS "rmm"
@@ -226,7 +225,6 @@ endif(DEFINED ENV{CONDA_PREFIX})
 # - libraries ----------------------------------------------------------------
 
 set(RAFT_LINK_LIBRARIES
-  FAISS::FAISS
   ${CUDA_cublas_LIBRARY}
   ${CUDA_cusolver_LIBRARY}
   ${CUDA_CUDART_LIBRARY}
@@ -234,6 +232,7 @@ set(RAFT_LINK_LIBRARIES
   ${CUDA_curand_LIBRARY})
 
 set(RAFT_LINK_DIRECTORIES
+  ${FAISS_INCLUDE_DIRS}
   ${RMM_INCLUDE_DIRS})
 
 if(DEFINED ENV{CONDA_PREFIX})
@@ -300,6 +299,7 @@ if(BUILD_RAFT_TESTS)
   target_link_libraries(test_raft
     PRIVATE
       ${RAFT_LINK_LIBRARIES}
+      FAISS::FAISS
       GTest::GTest
       GTest::Main
       OpenMP::OpenMP_CXX

@@ -66,8 +66,10 @@ if(BUILD_STATIC_FAISS)
   # set(FAISS_INCLUDE_DIRS "${FAISS_DIR}/src/faiss")
   set(FAISS_INCLUDE_DIRS "${FAISS_DIR}/src")
 else()
-  set(FAISS_INSTALL_DIR ENV{FAISS_ROOT})
-  find_package(FAISS REQUIRED)
+  add_library(FAISS::FAISS SHARED IMPORTED)
+  set_property(TARGET FAISS::FAISS PROPERTY
+    IMPORTED_LOCATION $ENV{CONDA_PREFIX}/lib/libfaiss.so)
+  message(STATUS "Found FAISS: $ENV{CONDA_PREFIX}/lib/libfaiss.so")
 endif(BUILD_STATIC_FAISS)
 
 ##############################################################################
@@ -106,5 +108,4 @@ endif(BUILD_GTEST)
 if(NOT CUB_IS_PART_OF_CTK)
   add_dependencies(GTest::GTest cub)
 endif(NOT CUB_IS_PART_OF_CTK)
-add_dependencies(FAISS::FAISS benchmark)
 add_dependencies(FAISS::FAISS faiss)
