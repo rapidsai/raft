@@ -549,7 +549,8 @@ async def _func_destroy_all(sessionId, comms_p2p, verbose=False):
             get_worker().log_event(topic="info", msg="NCCL session state destroyed.")
     else:
         if (verbose):
-            get_worker().log_event(topic="info", msg=f"{sessionId} does not contain")
+            get_worker().log_event(topic="warning",
+                                   msg=f"Session state for, '{sessionId}', does not contain expected 'nccl' element")
 
     if (verbose):
         get_worker().log_event(topic="info", msg=f"Destroy CUDA handle for sessionId, '{sessionId}.'")
@@ -557,8 +558,8 @@ async def _func_destroy_all(sessionId, comms_p2p, verbose=False):
         del session_state["handle"]
     else:
         if (verbose):
-            #TODO add logging for unexpected worker state
-            pass
+            get_worker().log_event(topic="warning",
+                                   msg=f"Session state for, '{sessionId}', does not contain expected 'handle' element")
 
 
 def _func_ucp_ports(client, workers):
