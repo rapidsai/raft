@@ -80,10 +80,16 @@ class Comms:
         cluster.close()
     """
 
-    valid_nccl_placements = ('client', 'worker', 'scheduler')
+    valid_nccl_placements = ("client", "worker", "scheduler")
 
-    def __init__(self, comms_p2p=False, client=None, verbose=False,
-                 streams_per_handle=0, nccl_root_location="scheduler"):
+    def __init__(
+        self,
+        comms_p2p=False,
+        client=None,
+        verbose=False,
+        streams_per_handle=0,
+        nccl_root_location="scheduler",
+    ):
         """
         Construct a new CommsContext instance
 
@@ -104,9 +110,11 @@ class Comms:
 
         self.comms_p2p = comms_p2p
 
-        if (nccl_root_location.lower() not in Comms.valid_nccl_placements):
-            raise ValueError(f"nccl_root_location must be one of: "
-                             f"{Comms.valid_nccl_placements}")
+        if nccl_root_location.lower() not in Comms.valid_nccl_placements:
+            raise ValueError(
+                f"nccl_root_location must be one of: "
+                f"{Comms.valid_nccl_placements}"
+            )
         self.nccl_root_location = nccl_root_location.lower()
 
         self.streams_per_handle = streams_per_handle
@@ -131,8 +139,9 @@ class Comms:
                                 (worker_rank, worker_port ) }
         """
         ranks = _func_worker_ranks(workers)
-        ports = _func_ucp_ports(self.client, workers) \
-            if self.comms_p2p else None
+        ports = (
+            _func_ucp_ports(self.client, workers) if self.comms_p2p else None
+        )
 
         output = {}
         for k in ranks.keys():
@@ -153,9 +162,13 @@ class Comms:
                   Unique collection of workers for initializing comms.
         """
 
-        self.worker_addresses = list(OrderedDict.fromkeys(
-            self.client.scheduler_info()["workers"].keys()
-            if workers is None else workers))
+        self.worker_addresses = list(
+            OrderedDict.fromkeys(
+                self.client.scheduler_info()["workers"].keys()
+                if workers is None
+                else workers
+            )
+        )
 
         if self.nccl_initialized or self.ucx_initialized:
             warnings.warn("Comms have already been initialized.")
@@ -164,29 +177,34 @@ class Comms:
         worker_info = self.worker_info(self.worker_addresses)
         worker_info = {w: worker_info[w] for w in self.worker_addresses}
 
-        if (self.nccl_root_location == 'client'):
+        if self.nccl_root_location == "client":
             self.uniqueId = nccl.get_unique_id()
-        elif (self.nccl_root_location == 'worker'):
-            self.uniqueId = self.client.run(_func_set_worker_as_nccl_root,
-                                          sessionId=self.sessionId,
-                                          verbose=self.verbose,
-                                          workers=[self.worker_addresses[0]],
-                                          wait=True)[self.worker_addresses[0]]
+        elif self.nccl_root_location == "worker":
+            self.uniqueId = self.client.run(
+                _func_set_worker_as_nccl_root,
+                sessionId=self.sessionId,
+                verbose=self.verbose,
+                workers=[self.worker_addresses[0]],
+                wait=True,
+            )[self.worker_addresses[0]]
         else:
             self.uniqueId = self.client.run_on_scheduler(
                 _func_set_scheduler_as_nccl_root,
                 sessionId=self.sessionId,
-                verbose=self.verbose)
+                verbose=self.verbose,
+            )
 
-        self.client.run(_func_init_all,
-                        self.sessionId,
-                        self.uniqueId,
-                        self.comms_p2p,
-                        worker_info,
-                        self.verbose,
-                        self.streams_per_handle,
-                        workers=self.worker_addresses,
-                        wait=True)
+        self.client.run(
+            _func_init_all,
+            self.sessionId,
+            self.uniqueId,
+            self.comms_p2p,
+            worker_info,
+            self.verbose,
+            self.streams_per_handle,
+            workers=self.worker_addresses,
+            wait=True,
+        )
 
         self.nccl_initialized = True
 
@@ -202,16 +220,19 @@ class Comms:
         be called automatically by the Comms destructor, but may be called
         earlier to save resources.
         """
-        self.client.run(_func_destroy_all,
-                        self.sessionId,
-                        self.comms_p2p,
-                        self.verbose,
-                        wait=True,
-                        workers=self.worker_addresses)
+        self.client.run(
+            _func_destroy_all,
+            self.sessionId,
+            self.comms_p2p,
+            self.verbose,
+            wait=True,
+            workers=self.worker_addresses,
+        )
 
-        if (self.nccl_root_location == 'scheduler'):
-            self.client.run_on_scheduler(_func_destroy_scheduler_session,
-                                         self.sessionId)
+        if self.nccl_root_location == "scheduler":
+            self.client.run_on_scheduler(
+                _func_destroy_scheduler_session, self.sessionId
+            )
 
         if self.verbose:
             print("Destroying comms.")
@@ -257,11 +278,13 @@ def scheduler_state(sessionId, dask_scheduler):
                     session state associated with sessionId
     """
 
-    if (not hasattr(dask_scheduler, "_raft_comm_state")):
+    if not hasattr(dask_scheduler, "_raft_comm_state"):
         dask_scheduler._raft_comm_state = {}
 
-    if (sessionId is not None
-            and sessionId not in dask_scheduler._raft_comm_state):
+    if (
+        sessionId is not None
+        and sessionId not in dask_scheduler._raft_comm_state
+    ):
         dask_scheduler._raft_comm_state[sessionId] = {"ts": time.time()}
 
         return dask_scheduler._raft_comm_state[sessionId]
@@ -302,6 +325,7 @@ def get_ucx():
         worker_state("ucp")["ucx"] = UCX.get()
     return worker_state("ucp")["ucx"]
 
+
 def _func_destroy_scheduler_session(sessionId, dask_scheduler):
     """
     Remove session date from _raft_comm_state, associated with sessionId
@@ -312,13 +336,13 @@ def _func_destroy_scheduler_session(sessionId, dask_scheduler):
     dask_scheduler : dask_scheduler object
                     (Note: this is supplied by DASK, not the client)
     """
-    if (sessionId is not None
-            and sessionId in dask_scheduler._raft_comm_state):
+    if sessionId is not None and sessionId in dask_scheduler._raft_comm_state:
         del dask_scheduler._raft_comm_state[sessionId]
     else:
         return 1
 
     return 0
+
 
 def _func_set_scheduler_as_nccl_root(sessionId, verbose, dask_scheduler):
     """
@@ -337,22 +361,26 @@ def _func_set_scheduler_as_nccl_root(sessionId, verbose, dask_scheduler):
     uniqueId : byte str
                 NCCL uniqueId, associating the DASK scheduler as its root node.
     """
-    if(verbose):
-        logger.info(msg=f"Setting scheduler as NCCL "
-                        f"root for sessionId, '{sessionId}'")
+    if verbose:
+        logger.info(
+            msg=f"Setting scheduler as NCCL "
+            f"root for sessionId, '{sessionId}'"
+        )
 
-    if (sessionId is None):
+    if sessionId is None:
         raise ValueError("sessionId cannot be None.")
 
-    session_state = scheduler_state(sessionId=sessionId,
-                                    dask_scheduler=dask_scheduler)
-    if ('nccl_uid' not in session_state):
-        session_state['nccl_uid'] = nccl.get_unique_id()
+    session_state = scheduler_state(
+        sessionId=sessionId, dask_scheduler=dask_scheduler
+    )
+    if "nccl_uid" not in session_state:
+        session_state["nccl_uid"] = nccl.get_unique_id()
 
-    if(verbose):
+    if verbose:
         logger.info(f"Done setting scheduler as NCCL root.")
 
-    return session_state['nccl_uid']
+    return session_state["nccl_uid"]
+
 
 def _func_set_worker_as_nccl_root(sessionId, verbose):
     """
@@ -369,29 +397,34 @@ def _func_set_worker_as_nccl_root(sessionId, verbose):
     uniqueId : byte str
                 NCCL uniqueId, associating this DASK worker as its root node.
     """
-    if(verbose):
-        get_worker().log_event(topic="info",
-                msg=f"Setting worker as NCCL root for session, '{sessionId}'")
+    if verbose:
+        get_worker().log_event(
+            topic="info",
+            msg=f"Setting worker as NCCL root for session, '{sessionId}'",
+        )
 
-    if (sessionId is None):
+    if sessionId is None:
         raise ValueError("sessionId cannot be None.")
 
     session_state = worker_state(sessionId)
-    if ('nccl_uid' not in session_state):
-        session_state['nccl_uid'] = nccl.get_unique_id()
+    if "nccl_uid" not in session_state:
+        session_state["nccl_uid"] = nccl.get_unique_id()
 
-    if(verbose):
-        get_worker().log_event(topic="info",
-                               msg=f"Done setting scheduler as NCCL root.")
+    if verbose:
+        get_worker().log_event(
+            topic="info", msg=f"Done setting scheduler as NCCL root."
+        )
 
-    return session_state['nccl_uid']
+    return session_state["nccl_uid"]
+
 
 def _func_ucp_listener_port():
     return get_ucx().listener_port()
 
 
-async def _func_init_all(sessionId, uniqueId, comms_p2p,
-                         worker_info, verbose, streams_per_handle):
+async def _func_init_all(
+    sessionId, uniqueId, comms_p2p, worker_info, verbose, streams_per_handle
+):
 
     session_state = worker_state(sessionId)
     session_state["nccl_uid"] = uniqueId
@@ -406,13 +439,15 @@ async def _func_init_all(sessionId, uniqueId, comms_p2p,
 
     if verbose:
         elapsed = time.time() - start
-        get_worker().log_event(topic="info",
-                        msg=f"NCCL Initialization took: {elapsed} seconds.")
+        get_worker().log_event(
+            topic="info", msg=f"NCCL Initialization took: {elapsed} seconds."
+        )
 
     if comms_p2p:
         if verbose:
-            get_worker().log_event(topic="info",
-                                    msg="Initializing UCX Endpoints")
+            get_worker().log_event(
+                topic="info", msg="Initializing UCX Endpoints"
+            )
 
         if verbose:
             start = time.time()
@@ -420,8 +455,10 @@ async def _func_init_all(sessionId, uniqueId, comms_p2p,
 
         if verbose:
             elapsed = time.time() - start
-            msg = f"Done initializing UCX endpoints." \
-                  f"Took: {elapsed} seconds.\nBuilding handle."
+            msg = (
+                f"Done initializing UCX endpoints."
+                f"Took: {elapsed} seconds.\nBuilding handle."
+            )
             get_worker().log_event(topic="info", msg=msg)
 
         _func_build_handle_p2p(sessionId, streams_per_handle, verbose)
@@ -454,8 +491,9 @@ def _func_init_nccl(sessionId, uniqueId):
         n.init(nWorkers, uniqueId, wid)
         worker_state(sessionId)["nccl"] = n
     except Exception as e:
-        get_worker().log_event(topic="error",
-                               msg="An error occurred initializing NCCL!.")
+        get_worker().log_event(
+            topic="error", msg="An error occurred initializing NCCL!."
+        )
         raise
 
 
@@ -469,7 +507,7 @@ def _func_build_handle_p2p(sessionId, streams_per_handle, verbose):
     streams_per_handle : int number of internal streams to create
     verbose : bool print verbose logging output
     """
-    if (verbose):
+    if verbose:
         get_worker().log_event(topic="info", msg="Building p2p handle.")
 
     ucp_worker = get_ucx().get_worker()
@@ -481,14 +519,16 @@ def _func_build_handle_p2p(sessionId, streams_per_handle, verbose):
     nWorkers = session_state["nworkers"]
     workerId = session_state["wid"]
 
-    if (verbose):
+    if verbose:
         get_worker().log_event(topic="info", msg="Injecting comms on handle.")
-    inject_comms_on_handle(handle, nccl_comm, ucp_worker, eps,
-                           nWorkers, workerId, verbose)
+    inject_comms_on_handle(
+        handle, nccl_comm, ucp_worker, eps, nWorkers, workerId, verbose
+    )
 
-    if (verbose):
-        get_worker().log_event(topic="info",
-                               msg="Finished injecting comms on handle.")
+    if verbose:
+        get_worker().log_event(
+            topic="info", msg="Finished injecting comms on handle."
+        )
 
     worker_state(sessionId)["handle"] = handle
 
@@ -503,9 +543,10 @@ def _func_build_handle(sessionId, streams_per_handle, verbose):
     streams_per_handle : int number of internal streams to create
     verbose : bool print verbose logging output
     """
-    if (verbose):
-        get_worker().log_event(topic="info",
-                               msg="Finished injecting comms on handle.")
+    if verbose:
+        get_worker().log_event(
+            topic="info", msg="Finished injecting comms on handle."
+        )
 
     handle = Handle(streams_per_handle)
 
@@ -515,8 +556,9 @@ def _func_build_handle(sessionId, streams_per_handle, verbose):
     nWorkers = session_state["nworkers"]
 
     nccl_comm = session_state["nccl"]
-    inject_comms_on_handle_coll_only(handle, nccl_comm, nWorkers,
-                                     workerId, verbose)
+    inject_comms_on_handle_coll_only(
+        handle, nccl_comm, nWorkers, workerId, verbose
+    )
     session_state["handle"] = handle
 
 
@@ -553,37 +595,44 @@ async def _func_ucp_create_endpoints(sessionId, worker_info):
 
 
 async def _func_destroy_all(sessionId, comms_p2p, verbose=False):
-    if(verbose):
-        get_worker().log_event(topic="info",
-                               msg="Destroying NCCL session state.")
+    if verbose:
+        get_worker().log_event(
+            topic="info", msg="Destroying NCCL session state."
+        )
     session_state = worker_state(sessionId)
-    if ('nccl' in session_state):
+    if "nccl" in session_state:
         session_state["nccl"].destroy()
         del session_state["nccl"]
-        if (verbose):
-            get_worker().log_event(topic="info",
-                                   msg="NCCL session state destroyed.")
+        if verbose:
+            get_worker().log_event(
+                topic="info", msg="NCCL session state destroyed."
+            )
     else:
-        if (verbose):
-            get_worker().log_event(topic="warning",
-                            msg=f"Session state for, '{sessionId}', "
-                                f"does not contain expected 'nccl' element")
+        if verbose:
+            get_worker().log_event(
+                topic="warning",
+                msg=f"Session state for, '{sessionId}', "
+                f"does not contain expected 'nccl' element",
+            )
 
-    if (verbose):
-        get_worker().log_event(topic="info",
-                    msg=f"Destroy CUDA handle for sessionId, '{sessionId}.'")
-    if ('handle' in session_state):
+    if verbose:
+        get_worker().log_event(
+            topic="info",
+            msg=f"Destroy CUDA handle for sessionId, '{sessionId}.'",
+        )
+    if "handle" in session_state:
         del session_state["handle"]
     else:
-        if (verbose):
-            get_worker().log_event(topic="warning",
-                           msg=f"Session state for, '{sessionId}', "
-                               f"does not contain expected 'handle' element")
+        if verbose:
+            get_worker().log_event(
+                topic="warning",
+                msg=f"Session state for, '{sessionId}', "
+                f"does not contain expected 'handle' element",
+            )
 
 
 def _func_ucp_ports(client, workers):
-    return client.run(_func_ucp_listener_port,
-                      workers=workers)
+    return client.run(_func_ucp_listener_port, workers=workers)
 
 
 def _func_worker_ranks(workers):
