@@ -156,8 +156,7 @@ class Comms:
             if workers is None else workers))
 
         if self.nccl_initialized or self.ucx_initialized:
-            msg = "Comms have already been initialized."
-            warnings.warn(msg)
+            warnings.warn("Comms have already been initialized.")
             return
 
         worker_info = self.worker_info(self.worker_addresses)
@@ -192,7 +191,7 @@ class Comms:
             self.ucx_initialized = True
 
         if self.verbose:
-            print("Initialization Complete")
+            print("Initialization complete.")
 
     def destroy(self):
         """
@@ -212,14 +211,15 @@ class Comms:
                                          self.sessionId)
 
         if self.verbose:
-            print("Destroying Comms.")
+            print("Destroying comms.")
 
         self.nccl_initialized = False
         self.ucx_initialized = False
 
 
 def local_handle(sessionId):
-    """Simple helper function for retrieving the local handle_t instance
+    """
+    Simple helper function for retrieving the local handle_t instance
     for a comms session on a worker.
 
     Parameters
@@ -241,9 +241,17 @@ def scheduler_state(sessionId, dask_scheduler):
     Retrieves cuML comms state on the scheduler node, for the given sessionId, creating
     a new session if it does not exist. If no session id is given, returns the state dict for
     all sessions.
-    :param sessionId: SessionId value to retrieve from the dask_scheduler instances
-    :param dask_scheduler: Dask Scheduler object
-    :return: session state associated with sessionId
+
+    Parameters
+    ----------
+    sessionId : SessionId value to retrieve from the dask_scheduler instances
+    dask_scheduler : Dask Scheduler object
+
+    Returns
+    -------
+
+    session state : str
+                    session state associated with sessionId
     """
 
     if (not hasattr(dask_scheduler, "_raft_comm_state")):
@@ -291,8 +299,18 @@ def get_ucx():
     return worker_state("ucp")["ucx"]
 
 def _func_destroy_scheduler_session(sessionId, dask_scheduler):
+    """
+    Remove session date from _raft_comm_state, associated with sessionId
+
+    Parameters
+    ----------
+    sessionId : session Id to be destroyed.
+    dask_scheduler : dask_scheduler object (Note: this is supplied by DASK, not the client)
+    """
     if (sessionId is not None and sessionId in dask_scheduler._raft_comm_state):
         del dask_scheduler._raft_comm_state[sessionId]
+    else:
+        return 1
 
     return 0
 
@@ -300,12 +318,17 @@ def _func_set_scheduler_as_nccl_root(sessionId, verbose, dask_scheduler):
     """
     Creates a persistent nccl uniqueId on the scheduler node.
 
-    Note: dask_scheduler should be passed by the scheduler, it does not need to be supplied to the run_on_scheduler
-    call.
 
-    :param sessionId: Associated session to attach the unique ID to.
-    :param dask_scheduler: dask scheduler object, populated by the client/scheduler call
-    :return:
+    Parameters
+    ----------
+    sessionId : Associated session to attach the unique ID to.
+    verbose : Indicates whether or not to emit additional information
+    dask_scheduler : dask scheduler object, (Note: this is supplied by DASK, not the client)
+
+    Return
+    ------
+    uniqueId : byte str
+                NCCL uniqueId, associating the DASK scheduler as its root node.
     """
     if(verbose):
         logger.info(msg=f"Setting scheduler as NCCL root for sessionId, '{sessionId}'")
@@ -322,10 +345,24 @@ def _func_set_scheduler_as_nccl_root(sessionId, verbose, dask_scheduler):
 
     return session_state['nccl_uid']
 
-def _func_set_worker_as_nccl_root(sessionId, verbose, workerId=0):
+def _func_set_worker_as_nccl_root(sessionId, verbose):
+    """
+    Creates a persistent nccl uniqueId on the scheduler node.
+
+
+    Parameters
+    ----------
+    sessionId : Associated session to attach the unique ID to.
+    verbose : Indicates whether or not to emit additional information
+
+    Return
+    ------
+    uniqueId : byte str
+                NCCL uniqueId, associating this DASK worker as its root node.
+    """
     if(verbose):
         get_worker().log_event(topic="info",
-                               msg=f"Setting worker, '{workerId}', as NCCL root for session, '{sessionId}'")
+                               msg=f"Setting worker as NCCL root for session, '{sessionId}'")
 
     if (sessionId is None):
         raise ValueError("sessionId cannot be None.")
