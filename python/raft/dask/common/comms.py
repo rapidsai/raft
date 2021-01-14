@@ -110,12 +110,12 @@ class Comms:
 
         self.comms_p2p = comms_p2p
 
-        if nccl_root_location.lower() not in Comms.valid_nccl_placements:
+        self.nccl_root_location = nccl_root_location.lower()
+        if self.nccl_root_location not in Comms.valid_nccl_placements:
             raise ValueError(
                 f"nccl_root_location must be one of: "
                 f"{Comms.valid_nccl_placements}"
             )
-        self.nccl_root_location = nccl_root_location.lower()
 
         self.streams_per_handle = streams_per_handle
 
@@ -150,6 +150,24 @@ class Comms:
                 output[k]["port"] = ports[k]
         return output
 
+    def create_nccl_uniqueid(self):
+        if self.nccl_root_location == "client":
+            self.uniqueId = nccl.get_unique_id()
+        elif self.nccl_root_location == "worker":
+            self.uniqueId = self.client.run(
+                _func_set_worker_as_nccl_root,
+                sessionId=self.sessionId,
+                verbose=self.verbose,
+                workers=[self.worker_addresses[0]],
+                wait=True,
+            )[self.worker_addresses[0]]
+        else:
+            self.uniqueId = self.client.run_on_scheduler(
+                _func_set_scheduler_as_nccl_root,
+                sessionId=self.sessionId,
+                verbose=self.verbose,
+            )
+
     def init(self, workers=None):
         """
         Initializes the underlying comms. NCCL is required but
@@ -177,22 +195,7 @@ class Comms:
         worker_info = self.worker_info(self.worker_addresses)
         worker_info = {w: worker_info[w] for w in self.worker_addresses}
 
-        if self.nccl_root_location == "client":
-            self.uniqueId = nccl.get_unique_id()
-        elif self.nccl_root_location == "worker":
-            self.uniqueId = self.client.run(
-                _func_set_worker_as_nccl_root,
-                sessionId=self.sessionId,
-                verbose=self.verbose,
-                workers=[self.worker_addresses[0]],
-                wait=True,
-            )[self.worker_addresses[0]]
-        else:
-            self.uniqueId = self.client.run_on_scheduler(
-                _func_set_scheduler_as_nccl_root,
-                sessionId=self.sessionId,
-                verbose=self.verbose,
-            )
+        self.create_nccl_uniqueid()
 
         self.client.run(
             _func_init_all,
