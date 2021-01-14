@@ -68,37 +68,15 @@ def func_test_comm_split(sessionId, n_trials):
     return perform_test_comm_split(handle, n_trials)
 
 
-def func_check_uid_on_scheduler(sessionId, uniqueId, dask_scheduler):
-    if not hasattr(dask_scheduler, "_raft_comm_state"):
+def func_check_uid(sessionId, uniqueId, state_object):
+    if not hasattr(state_object, "_raft_comm_state"):
         return 1
 
-    state_object = dask_scheduler._raft_comm_state
-    if sessionId not in state_object:
+    state = state_object._raft_comm_state
+    if sessionId not in state:
         return 2
 
-    session_state = state_object[sessionId]
-    if "nccl_uid" not in dask_scheduler._raft_comm_state[sessionId]:
-        return 3
-
-    nccl_uid = session_state["nccl_uid"]
-    if nccl_uid != uniqueId:
-        return 4
-
-    return 0
-
-
-def func_check_uid_on_worker(sessionId, uniqueId):
-    from dask.distributed import get_worker
-
-    worker_state = get_worker()
-    if not hasattr(worker_state, "_raft_comm_state"):
-        return 1
-
-    state_object = worker_state._raft_comm_state
-    if sessionId not in state_object:
-        return 2
-
-    session_state = state_object[sessionId]
+    session_state = state[sessionId]
     if "nccl_uid" not in session_state:
         return 3
 
@@ -107,6 +85,20 @@ def func_check_uid_on_worker(sessionId, uniqueId):
         return 4
 
     return 0
+
+
+def func_check_uid_on_scheduler(sessionId, uniqueId, dask_scheduler):
+    return func_check_uid(sessionId=sessionId,
+                          uniqueId=uniqueId,
+                          state_object=dask_scheduler)
+
+
+def func_check_uid_on_worker(sessionId, uniqueId):
+    from dask.distributed import get_worker
+
+    return func_check_uid(sessionId=sessionId,
+                          uniqueId=uniqueId,
+                          state_object=get_worker())
 
 
 def test_handles(cluster):
