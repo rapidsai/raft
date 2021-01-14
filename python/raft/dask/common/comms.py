@@ -133,23 +133,6 @@ class Comms:
         if self.nccl_initialized or self.ucx_initialized:
             self.destroy()
 
-    def worker_info(self, workers):
-        """
-        Builds a dictionary of { (worker_address, worker_port) :
-                                (worker_rank, worker_port ) }
-        """
-        ranks = _func_worker_ranks(workers)
-        ports = (
-            _func_ucp_ports(self.client, workers) if self.comms_p2p else None
-        )
-
-        output = {}
-        for k in ranks.keys():
-            output[k] = {"rank": ranks[k]}
-            if self.comms_p2p:
-                output[k]["port"] = ports[k]
-        return output
-
     def create_nccl_uniqueid(self):
         if self.nccl_root_location == "client":
             self.uniqueId = nccl.get_unique_id()
@@ -167,6 +150,23 @@ class Comms:
                 sessionId=self.sessionId,
                 verbose=self.verbose,
             )
+
+    def worker_info(self, workers):
+        """
+        Builds a dictionary of { (worker_address, worker_port) :
+                                (worker_rank, worker_port ) }
+        """
+        ranks = _func_worker_ranks(workers)
+        ports = (
+            _func_ucp_ports(self.client, workers) if self.comms_p2p else None
+        )
+
+        output = {}
+        for k in ranks.keys():
+            output[k] = {"rank": ranks[k]}
+            if self.comms_p2p:
+                output[k]["port"] = ports[k]
+        return output
 
     def init(self, workers=None):
         """
@@ -259,11 +259,11 @@ def local_handle(sessionId):
 
     handle : raft.Handle or None
     """
-    state = worker_state(sessionId)
+    state = get_raft_comm_state(sessionId, get_worker())
     return state["handle"] if "handle" in state else None
 
 
-def scheduler_state(sessionId, dask_scheduler):
+def get_raft_comm_state(sessionId, state_object):
     """
     Retrieves cuML comms state on the scheduler node, for the given sessionId,
     creating a new session if it does not exist. If no session id is given,
@@ -272,7 +272,8 @@ def scheduler_state(sessionId, dask_scheduler):
     Parameters
     ----------
     sessionId : SessionId value to retrieve from the dask_scheduler instances
-    dask_scheduler : Dask Scheduler object
+    state_object : Object (either Worker, or Scheduler) on which the raft
+                   comm state will retrieved (or created)
 
     Returns
     -------
@@ -281,42 +282,33 @@ def scheduler_state(sessionId, dask_scheduler):
                     session state associated with sessionId
     """
 
-    if not hasattr(dask_scheduler, "_raft_comm_state"):
-        dask_scheduler._raft_comm_state = {}
+    if not hasattr(state_object, "_raft_comm_state"):
+        state_object._raft_comm_state = {}
 
     if (
-        sessionId is not None
-        and sessionId not in dask_scheduler._raft_comm_state
+            sessionId is not None
+            and sessionId not in state_object._raft_comm_state
     ):
-        dask_scheduler._raft_comm_state[sessionId] = {"ts": time.time()}
+        state_object._raft_comm_state[sessionId] = {"ts": time.time()}
 
-        return dask_scheduler._raft_comm_state[sessionId]
+    if (sessionId is not None):
+        return state_object._raft_comm_state[sessionId]
 
-    return dask_scheduler._raft_comm_state
+    return state_object._raft_comm_state
 
 
-def worker_state(sessionId=None):
-    """
-    Retrieves cuML comms state on local worker for the given
-    sessionId, creating a new session if it does not exist.
-    If no session id is given, returns the state dict for all
-    sessions.
+def set_nccl_root(sessionId, state_object):
+    if sessionId is None:
+        raise ValueError("sessionId cannot be None.")
 
-    Parameters
-    ----------
-    sessionId : str
-                session identifier from initialized comms instance
-    """
-    worker = get_worker()
-    if not hasattr(worker, "_raft_comm_state"):
-        worker._raft_comm_state = {}
-    if sessionId is not None and sessionId not in worker._raft_comm_state:
-        # Build state for new session and mark session creation time
-        worker._raft_comm_state[sessionId] = {"ts": time.time()}
+    raft_comm_state = get_raft_comm_state(
+        sessionId=sessionId, state_object=state_object
+    )
 
-    if sessionId is not None:
-        return worker._raft_comm_state[sessionId]
-    return worker._raft_comm_state
+    if "nccl_uid" not in raft_comm_state:
+        raft_comm_state["nccl_uid"] = nccl.get_unique_id()
+
+    return raft_comm_state["nccl_uid"]
 
 
 def get_ucx():
@@ -324,9 +316,12 @@ def get_ucx():
     A simple convenience wrapper to make sure UCP listener and
     endpoints are only ever assigned once per worker.
     """
-    if "ucx" not in worker_state("ucp"):
-        worker_state("ucp")["ucx"] = UCX.get()
-    return worker_state("ucp")["ucx"]
+    raft_comm_state = get_raft_comm_state(sessionId="ucp",
+                                          state_object=get_worker())
+    if "ucx" not in raft_comm_state:
+        raft_comm_state["ucx"] = UCX.get()
+
+    return raft_comm_state["ucx"]
 
 
 def _func_destroy_scheduler_session(sessionId, dask_scheduler):
@@ -370,19 +365,12 @@ def _func_set_scheduler_as_nccl_root(sessionId, verbose, dask_scheduler):
             f"root for sessionId, '{sessionId}'"
         )
 
-    if sessionId is None:
-        raise ValueError("sessionId cannot be None.")
-
-    session_state = scheduler_state(
-        sessionId=sessionId, dask_scheduler=dask_scheduler
-    )
-    if "nccl_uid" not in session_state:
-        session_state["nccl_uid"] = nccl.get_unique_id()
+    nccl_uid = set_nccl_root(sessionId=sessionId, state_object=dask_scheduler)
 
     if verbose:
         logger.info("Done setting scheduler as NCCL root.")
 
-    return session_state["nccl_uid"]
+    return nccl_uid
 
 
 def _func_set_worker_as_nccl_root(sessionId, verbose):
@@ -400,25 +388,21 @@ def _func_set_worker_as_nccl_root(sessionId, verbose):
     uniqueId : byte str
                 NCCL uniqueId, associating this DASK worker as its root node.
     """
+    worker = get_worker()
     if verbose:
-        get_worker().log_event(
+        worker.log_event(
             topic="info",
             msg=f"Setting worker as NCCL root for session, '{sessionId}'",
         )
 
-    if sessionId is None:
-        raise ValueError("sessionId cannot be None.")
-
-    session_state = worker_state(sessionId)
-    if "nccl_uid" not in session_state:
-        session_state["nccl_uid"] = nccl.get_unique_id()
+    nccl_uid = set_nccl_root(sessionId=sessionId, state_object=worker)
 
     if verbose:
-        get_worker().log_event(
+        worker.log_event(
             topic="info", msg="Done setting scheduler as NCCL root."
         )
 
-    return session_state["nccl_uid"]
+    return nccl_uid
 
 
 def _func_ucp_listener_port():
@@ -428,27 +412,28 @@ def _func_ucp_listener_port():
 async def _func_init_all(
     sessionId, uniqueId, comms_p2p, worker_info, verbose, streams_per_handle
 ):
-
-    session_state = worker_state(sessionId)
-    session_state["nccl_uid"] = uniqueId
-    session_state["wid"] = worker_info[get_worker().address]["rank"]
-    session_state["nworkers"] = len(worker_info)
+    worker = get_worker()
+    raft_comm_state = get_raft_comm_state(sessionId=sessionId,
+                                        state_object=worker)
+    raft_comm_state["nccl_uid"] = uniqueId
+    raft_comm_state["wid"] = worker_info[get_worker().address]["rank"]
+    raft_comm_state["nworkers"] = len(worker_info)
 
     if verbose:
-        get_worker().log_event(topic="info", msg="Initializing NCCL.")
+        worker.log_event(topic="info", msg="Initializing NCCL.")
         start = time.time()
 
     _func_init_nccl(sessionId, uniqueId)
 
     if verbose:
         elapsed = time.time() - start
-        get_worker().log_event(
+        worker.log_event(
             topic="info", msg=f"NCCL Initialization took: {elapsed} seconds."
         )
 
     if comms_p2p:
         if verbose:
-            get_worker().log_event(
+            worker.log_event(
                 topic="info", msg="Initializing UCX Endpoints"
             )
 
@@ -462,12 +447,12 @@ async def _func_init_all(
                 f"Done initializing UCX endpoints."
                 f"Took: {elapsed} seconds.\nBuilding handle."
             )
-            get_worker().log_event(topic="info", msg=msg)
+            worker.log_event(topic="info", msg=msg)
 
         _func_build_handle_p2p(sessionId, streams_per_handle, verbose)
 
         if verbose:
-            get_worker().log_event(topic="info", msg="Done building handle.")
+            worker.log_event(topic="info", msg="Done building handle.")
 
     else:
         _func_build_handle(sessionId, streams_per_handle, verbose)
@@ -486,15 +471,18 @@ def _func_init_nccl(sessionId, uniqueId):
                client.
     """
 
-    wid = worker_state(sessionId)["wid"]
-    nWorkers = worker_state(sessionId)["nworkers"]
+    worker = get_worker()
+    raft_comm_state = get_raft_comm_state(sessionId=sessionId,
+                                          state_object=get_worker())
+    wid = raft_comm_state["wid"]
+    nWorkers = raft_comm_state["nworkers"]
 
     try:
         n = nccl()
         n.init(nWorkers, uniqueId, wid)
-        worker_state(sessionId)["nccl"] = n
+        raft_comm_state["nccl"] = n
     except Exception as e:
-        get_worker().log_event(
+        worker.log_event(
             topic="error", msg=f"An error occurred initializing NCCL: {e}."
         )
         raise
@@ -510,30 +498,33 @@ def _func_build_handle_p2p(sessionId, streams_per_handle, verbose):
     streams_per_handle : int number of internal streams to create
     verbose : bool print verbose logging output
     """
+    worker = get_worker()
     if verbose:
-        get_worker().log_event(topic="info", msg="Building p2p handle.")
+        worker.log_event(topic="info", msg="Building p2p handle.")
 
     ucp_worker = get_ucx().get_worker()
-    session_state = worker_state(sessionId)
+    raft_comm_state = get_raft_comm_state(sessionId=sessionId,
+                                        state_object=worker)
 
     handle = Handle(streams_per_handle)
-    nccl_comm = session_state["nccl"]
-    eps = session_state["ucp_eps"]
-    nWorkers = session_state["nworkers"]
-    workerId = session_state["wid"]
+    nccl_comm = raft_comm_state["nccl"]
+    eps = raft_comm_state["ucp_eps"]
+    nWorkers = raft_comm_state["nworkers"]
+    workerId = raft_comm_state["wid"]
 
     if verbose:
-        get_worker().log_event(topic="info", msg="Injecting comms on handle.")
+        worker.log_event(topic="info", msg="Injecting comms on handle.")
+
     inject_comms_on_handle(
         handle, nccl_comm, ucp_worker, eps, nWorkers, workerId, verbose
     )
 
     if verbose:
-        get_worker().log_event(
+        worker.log_event(
             topic="info", msg="Finished injecting comms on handle."
         )
 
-    worker_state(sessionId)["handle"] = handle
+    raft_comm_state["handle"] = handle
 
 
 def _func_build_handle(sessionId, streams_per_handle, verbose):
@@ -546,30 +537,33 @@ def _func_build_handle(sessionId, streams_per_handle, verbose):
     streams_per_handle : int number of internal streams to create
     verbose : bool print verbose logging output
     """
+    worker = get_worker()
     if verbose:
-        get_worker().log_event(
+        worker.log_event(
             topic="info", msg="Finished injecting comms on handle."
         )
 
     handle = Handle(streams_per_handle)
 
-    session_state = worker_state(sessionId)
+    raft_comm_state = get_raft_comm_state(sessionId=sessionId,
+                                          state_object=worker)
 
-    workerId = session_state["wid"]
-    nWorkers = session_state["nworkers"]
+    workerId = raft_comm_state["wid"]
+    nWorkers = raft_comm_state["nworkers"]
 
-    nccl_comm = session_state["nccl"]
+    nccl_comm = raft_comm_state["nccl"]
     inject_comms_on_handle_coll_only(
         handle, nccl_comm, nWorkers, workerId, verbose
     )
-    session_state["handle"] = handle
+    raft_comm_state["handle"] = handle
 
 
 def _func_store_initial_state(nworkers, sessionId, uniqueId, wid):
-    session_state = worker_state(sessionId)
-    session_state["nccl_uid"] = uniqueId
-    session_state["wid"] = wid
-    session_state["nworkers"] = nworkers
+    raft_comm_state = get_raft_comm_state(sessionId=sessionId,
+                                          state_object=get_worker())
+    raft_comm_state["nccl_uid"] = uniqueId
+    raft_comm_state["wid"] = wid
+    raft_comm_state["nworkers"] = nworkers
 
 
 async def _func_ucp_create_endpoints(sessionId, worker_info):
@@ -594,40 +588,46 @@ async def _func_ucp_create_endpoints(sessionId, worker_info):
         eps[worker_info[k]["rank"]] = ep
         count += 1
 
-    worker_state(sessionId)["ucp_eps"] = eps
+    raft_comm_state = get_raft_comm_state(sessionId=sessionId,
+                                          state_object=get_worker())
+    raft_comm_state["ucp_eps"] = eps
 
 
 async def _func_destroy_all(sessionId, comms_p2p, verbose=False):
+    worker = get_worker()
     if verbose:
-        get_worker().log_event(
+        worker.log_event(
             topic="info", msg="Destroying NCCL session state."
         )
-    session_state = worker_state(sessionId)
-    if "nccl" in session_state:
-        session_state["nccl"].destroy()
-        del session_state["nccl"]
+
+    raft_comm_state = get_raft_comm_state(sessionId=sessionId,
+                                          state_object=worker)
+    if "nccl" in raft_comm_state:
+        raft_comm_state["nccl"].destroy()
+        del raft_comm_state["nccl"]
         if verbose:
-            get_worker().log_event(
+            worker.log_event(
                 topic="info", msg="NCCL session state destroyed."
             )
     else:
         if verbose:
-            get_worker().log_event(
+            worker.log_event(
                 topic="warning",
                 msg=f"Session state for, '{sessionId}', "
                 f"does not contain expected 'nccl' element",
             )
 
     if verbose:
-        get_worker().log_event(
+        worker.log_event(
             topic="info",
-            msg=f"Destroy CUDA handle for sessionId, '{sessionId}.'",
+            msg=f"Destroying CUDA handle for sessionId, '{sessionId}.'",
         )
-    if "handle" in session_state:
-        del session_state["handle"]
+
+    if "handle" in raft_comm_state:
+        del raft_comm_state["handle"]
     else:
         if verbose:
-            get_worker().log_event(
+            worker.log_event(
                 topic="warning",
                 msg=f"Session state for, '{sessionId}', "
                 f"does not contain expected 'handle' element",
