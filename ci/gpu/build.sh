@@ -58,10 +58,6 @@ gpuci_conda_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvid
       "dask-cuda=${MINOR_VERSION}" \
       "ucx-py=${MINOR_VERSION}"
 
-# https://docs.rapids.ai/maintainers/depmgmt/
-# gpuci_conda_retry remove --force rapids-build-env
-# gpuci_conda_retry install -y "your-pkg=1.0.0"
-gpuci_conda_retry remove --force rapids-build-env
 gpuci_conda_retry install "libgcc-ng=9.3.0" "libstdcxx-ng=9.3.0" "libgfortran-ng=9.3.0"
 
 # Install the master version of dask, distributed, and dask-ml
