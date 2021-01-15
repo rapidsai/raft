@@ -46,33 +46,33 @@ gpuci_logger "Activate conda env"
 conda activate rapids
 gpuci_logger "Installing packages needed for RAFT"
 gpuci_conda_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
-      "cupy>=7,<8.0.0a0" \
       "cudatoolkit=${CUDA_REL}" \
       "cudf=${MINOR_VERSION}" \
       "rmm=${MINOR_VERSION}" \
-      "cmake==3.14.3" \
-      "nccl>=2.5" \
-      "dask>=2.12.0" \
-      "distributed>=2.12.0" \
       "dask-cudf=${MINOR_VERSION}" \
       "dask-cuda=${MINOR_VERSION}" \
-      "ucx-py=${MINOR_VERSION}"
+      "ucx-py=${MINOR_VERSION}" \
+      "rapids-build-env=${MINOR_VERSION}.*" \
+      "rapids-notebook-env=${MINOR_VERSION}.*" \
+      "rapids-doc-env=${MINOR_VERSION}.*"
 
 # Install the master version of dask, distributed, and dask-ml
-gpuci_logger "pip install git+https://github.com/dask/distributed.git --upgrade --no-deps"
+gpuci_logger "Install the master version of dask and distributed"
+set -x
 pip install "git+https://github.com/dask/distributed.git" --upgrade --no-deps
-gpuci_logger "pip install git+https://github.com/dask/dask.git --upgrade --no-deps"
 pip install "git+https://github.com/dask/dask.git" --upgrade --no-deps
+set +x
 
 
-gpuci_logger "Check versions"
+gpuci_logger "Check compiler versions"
 python --version
 $CC --version
 $CXX --version
+
+gpuci_logger "Check conda environment"
 conda info
 conda config --show-sources
 conda list --show-channel-urls
-
 
 ################################################################################
 # BUILD - Build RAFT tests
