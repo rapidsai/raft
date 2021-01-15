@@ -135,13 +135,19 @@ if (( ${NUMARGS} == 0 )) || hasArg cppraft; then
     mkdir -p ${CPP_RAFT_BUILD_DIR}
     cd ${CPP_RAFT_BUILD_DIR}
 
+    set +e
     cmake -DNVTX=${NVTX} \
           -DPARALLEL_LEVEL=${PARALLEL_LEVEL} \
           -DNCCL_PATH=${INSTALL_PREFIX} \
           -DDISABLE_DEPRECATION_WARNING=${BUILD_DISABLE_DEPRECATION_WARNING} \
           -DBUILD_GTEST=${BUILD_GTEST} \
           ..
-
+    echo "------ CMAKE OUTPUT ------------"
+    cat CMakeFiles/CMakeOutput.log
+    
+    echo "------- CMAKE ERRORS -----------"
+    cat CMakeFiles/CMakeError.log
+    set -e
 fi
 
 # Run all make targets at once
