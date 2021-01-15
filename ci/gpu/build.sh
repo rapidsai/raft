@@ -36,9 +36,6 @@ source $WORKSPACE/ci/prtest.config
 gpuci_logger "Check environment"
 env
 
-gpuci_logger "Look for pthreads"
-find / -name "libpthread*"
-
 gpuci_logger "Check GPU usage"
 nvidia-smi
 
@@ -81,18 +78,18 @@ conda list --show-channel-urls
 # BUILD - Build RAFT tests
 ################################################################################
 
-gpuci_logger "Adding ${CONDA_PREFIX}/lib to LD_LIBRARY_PATH"
+# gpuci_logger "Adding ${CONDA_PREFIX}/lib to LD_LIBRARY_PATH"
 
-export LD_LIBRARY_PATH_CACHED=$LD_LIBRARY_PATH
-export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
+# export LD_LIBRARY_PATH_CACHED=$LD_LIBRARY_PATH
+# export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
 
 gpuci_logger "Build C++ and Python targets"
 $WORKSPACE/build.sh cppraft pyraft -v
 
-gpuci_logger "Resetting LD_LIBRARY_PATH"
+# gpuci_logger "Resetting LD_LIBRARY_PATH"
 
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH_CACHED
-export LD_LIBRARY_PATH_CACHED=""
+# export LD_LIBRARY_PATH=$LD_LIBRARY_PATH_CACHED
+# export LD_LIBRARY_PATH_CACHED=""
 
 
 
