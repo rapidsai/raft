@@ -36,6 +36,9 @@ source $WORKSPACE/ci/prtest.config
 gpuci_logger "Check environment"
 env
 
+gpuci_logger "Look for pthreads"
+find / -name "libpthread*"
+
 gpuci_logger "Check GPU usage"
 nvidia-smi
 
