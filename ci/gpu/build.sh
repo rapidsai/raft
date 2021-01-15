@@ -36,6 +36,10 @@ source $WORKSPACE/ci/prtest.config
 gpuci_logger "Check environment"
 env
 
+export GPU_LABEL=gpu-t4
+echo "Try changing GPU_LABEL to $GPU_LABEL"
+
+
 # gpuci_logger "Look for pthreads"
 # find / -name "libpthread*"
 
