@@ -19,6 +19,7 @@
 #include <vector>
 #include <rmm/device_buffer.hpp>
 #include <raft/spatial/knn/knn.hpp>
+#include <raft/linalg/distance_type.h>
 
 namespace raft {
 namespace knn {
@@ -81,10 +82,7 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
                     distances_,
                     k_,
                     true,
-                    true,
-                    MetricType::METRIC_L2,
-                    0.0,
-                    false);
+                    true);
 
     build_actual_output<<<raft::ceildiv(rows_ * k_, 32), 32, 0, stream>>>(
         actual_labels_, rows_,
@@ -126,7 +124,6 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
     int *labels_ptr = static_cast<int *>(labels_d.data());
 
     raft::allocate(input_, rows_ * cols_, true);
-    raft::allocate(search_data_, rows_ * cols_, true);
     raft::allocate(search_data_, rows_ * cols_, true);
     raft::allocate(indices_, rows_ * k_, true);
     raft::allocate(distances_, rows_ * k_, true);

@@ -15,8 +15,7 @@
  */
 #pragma once
 
-#include "utils.hpp"
-
+#include <raft/linalg/distance_type.h>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/linalg/unary_op.cuh>
@@ -160,17 +159,17 @@ class DefaultMetricProcessor : public MetricProcessor<math_t> {
 
 template <typename math_t>
 inline std::unique_ptr<MetricProcessor<math_t>> create_processor(
-  MetricType metric, int n, int D, int k, bool rowMajorQuery,
+  distance::DistanceType metric, int n, int D, int k, bool rowMajorQuery,
   cudaStream_t userStream, std::shared_ptr<deviceAllocator> allocator) {
   MetricProcessor<math_t> *mp = nullptr;
 
   switch (metric) {
-    case MetricType::METRIC_Cosine:
+    case distance::DistanceType::EucExpandedCosine:
       mp = new CosineMetricProcessor<math_t>(n, D, k, rowMajorQuery, userStream,
                                              allocator);
       break;
 
-    case MetricType::METRIC_Correlation:
+    case distance::DistanceType::Correlation:
       mp = new CorrelationMetricProcessor<math_t>(n, D, k, rowMajorQuery,
                                                   userStream, allocator);
       break;

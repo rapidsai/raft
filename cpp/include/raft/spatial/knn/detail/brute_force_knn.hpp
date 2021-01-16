@@ -1,8 +1,5 @@
 #pragma once
 
-#include "processing.hpp"
-#include "utils.hpp"
-
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
 
@@ -16,8 +13,11 @@
 #include <thrust/device_vector.h>
 #include <thrust/iterator/transform_iterator.h>
 #include <raft/handle.hpp>
+#include <raft/linalg/distance_type.h>
 #include <iostream>
 #include <set>
+
+#include "processing.hpp"
 
 namespace raft {
 namespace knn {
@@ -149,14 +149,20 @@ inline void knn_merge_parts(value_t *inK, value_idx *inV, value_t *outK,
       inK, inV, outK, outV, n_samples, n_parts, k, stream, translations);
 }
 
-inline faiss::MetricType build_faiss_metric(MetricType metric) {
+inline faiss::MetricType build_faiss_metric(distance::DistanceType metric) {
   switch (metric) {
-    case MetricType::METRIC_Cosine:
-      return faiss::MetricType::METRIC_INNER_PRODUCT;
-    case MetricType::METRIC_Correlation:
-      return faiss::MetricType::METRIC_INNER_PRODUCT;
+    case distance::DistanceType::EucUnexpandedL2:
+      return faiss::MetricType::METRIC_L2;
+    case distance::DistanceType::EucUnexpandedL1:
+      return faiss::MetricType::METRIC_L1;
+    case distance::DistanceType::ChebyChev:
+      return faiss::MetricType::METRIC_Linf;
+    case distance::DistanceType::Minkowski:
+      return faiss::MetricType::METRIC_Lp;
+    case distance::DistanceType::Canberra:
+      return faiss::MetricType::METRIC_Canberra;
     default:
-      return (faiss::MetricType)metric;
+      return faiss::MetricType::METRIC_INNER_PRODUCT;
   }
 }
 
@@ -196,7 +202,7 @@ void brute_force_knn_impl(std::vector<float *> &input, std::vector<int> &sizes,
 													int n_int_streams = 0, bool rowMajorIndex = true,
 													bool rowMajorQuery = true,
 													std::vector<int64_t> *translations = nullptr,
-													MetricType metric = MetricType::METRIC_L2,
+													distance::DistanceType metric = distance::DistanceType::EucUnexpandedL2,
 													float metricArg = 2.0, bool expanded_form = false) {
 
  ASSERT(input.size() == sizes.size(),

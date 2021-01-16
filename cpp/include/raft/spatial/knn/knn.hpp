@@ -51,9 +51,10 @@ using deviceAllocator = raft::mr::device::allocator;
  */
 void brute_force_knn(raft::handle_t &handle, std::vector<float *> &input,
                      std::vector<int> &sizes, int D, float *search_items, int n,
-                     int64_t *res_I, float *res_D, int k, bool rowMajorIndex,
-                     bool rowMajorQuery, MetricType metric, float metric_arg,
-                     bool expanded) {
+                     int64_t *res_I, float *res_D, int k, bool rowMajorIndex = false,
+                     bool rowMajorQuery = false,
+                     distance::DistanceType metric = distance::DistanceType::EucUnexpandedL2,
+                     float metric_arg = 2.0f, bool expanded = false) {
   ASSERT(input.size() == sizes.size(),
          "input and sizes vectors must be the same size");
 
