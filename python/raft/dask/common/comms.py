@@ -262,8 +262,7 @@ def local_handle(sessionId):
     state = get_raft_comm_state(sessionId, get_worker())
     return state["handle"] if "handle" in state else None
 
-
-def get_raft_comm_state(sessionId, state_object):
+def get_raft_comm_state(sessionId, state_object=None):
     """
     Retrieves cuML comms state on the scheduler node, for the given sessionId,
     creating a new session if it does not exist. If no session id is given,
@@ -281,6 +280,7 @@ def get_raft_comm_state(sessionId, state_object):
     session state : str
                     session state associated with sessionId
     """
+    state_object = state_object if state_object is not None else get_worker()
 
     if not hasattr(state_object, "_raft_comm_state"):
         state_object._raft_comm_state = {}
