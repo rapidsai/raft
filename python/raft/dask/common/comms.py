@@ -262,6 +262,7 @@ def local_handle(sessionId):
     state = get_raft_comm_state(sessionId, get_worker())
     return state["handle"] if "handle" in state else None
 
+
 def get_raft_comm_state(sessionId, state_object=None):
     """
     Retrieves cuML comms state on the scheduler node, for the given sessionId,
