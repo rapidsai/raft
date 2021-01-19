@@ -88,17 +88,17 @@ def func_check_uid(sessionId, uniqueId, state_object):
 
 
 def func_check_uid_on_scheduler(sessionId, uniqueId, dask_scheduler):
-    return func_check_uid(sessionId=sessionId,
-                          uniqueId=uniqueId,
-                          state_object=dask_scheduler)
+    return func_check_uid(
+        sessionId=sessionId, uniqueId=uniqueId, state_object=dask_scheduler
+    )
 
 
 def func_check_uid_on_worker(sessionId, uniqueId):
     from dask.distributed import get_worker
 
-    return func_check_uid(sessionId=sessionId,
-                          uniqueId=uniqueId,
-                          state_object=get_worker())
+    return func_check_uid(
+        sessionId=sessionId, uniqueId=uniqueId, state_object=get_worker()
+    )
 
 
 def test_handles(cluster):

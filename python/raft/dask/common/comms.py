@@ -286,12 +286,12 @@ def get_raft_comm_state(sessionId, state_object):
         state_object._raft_comm_state = {}
 
     if (
-            sessionId is not None
-            and sessionId not in state_object._raft_comm_state
+        sessionId is not None
+        and sessionId not in state_object._raft_comm_state
     ):
         state_object._raft_comm_state[sessionId] = {"ts": time.time()}
 
-    if (sessionId is not None):
+    if sessionId is not None:
         return state_object._raft_comm_state[sessionId]
 
     return state_object._raft_comm_state
@@ -316,8 +316,9 @@ def get_ucx():
     A simple convenience wrapper to make sure UCP listener and
     endpoints are only ever assigned once per worker.
     """
-    raft_comm_state = get_raft_comm_state(sessionId="ucp",
-                                          state_object=get_worker())
+    raft_comm_state = get_raft_comm_state(
+        sessionId="ucp", state_object=get_worker()
+    )
     if "ucx" not in raft_comm_state:
         raft_comm_state["ucx"] = UCX.get()
 
@@ -413,8 +414,9 @@ async def _func_init_all(
     sessionId, uniqueId, comms_p2p, worker_info, verbose, streams_per_handle
 ):
     worker = get_worker()
-    raft_comm_state = get_raft_comm_state(sessionId=sessionId,
-                                        state_object=worker)
+    raft_comm_state = get_raft_comm_state(
+        sessionId=sessionId, state_object=worker
+    )
     raft_comm_state["nccl_uid"] = uniqueId
     raft_comm_state["wid"] = worker_info[get_worker().address]["rank"]
     raft_comm_state["nworkers"] = len(worker_info)
@@ -433,9 +435,7 @@ async def _func_init_all(
 
     if comms_p2p:
         if verbose:
-            worker.log_event(
-                topic="info", msg="Initializing UCX Endpoints"
-            )
+            worker.log_event(topic="info", msg="Initializing UCX Endpoints")
 
         if verbose:
             start = time.time()
@@ -472,8 +472,9 @@ def _func_init_nccl(sessionId, uniqueId):
     """
 
     worker = get_worker()
-    raft_comm_state = get_raft_comm_state(sessionId=sessionId,
-                                          state_object=get_worker())
+    raft_comm_state = get_raft_comm_state(
+        sessionId=sessionId, state_object=get_worker()
+    )
     wid = raft_comm_state["wid"]
     nWorkers = raft_comm_state["nworkers"]
 
@@ -503,8 +504,9 @@ def _func_build_handle_p2p(sessionId, streams_per_handle, verbose):
         worker.log_event(topic="info", msg="Building p2p handle.")
 
     ucp_worker = get_ucx().get_worker()
-    raft_comm_state = get_raft_comm_state(sessionId=sessionId,
-                                        state_object=worker)
+    raft_comm_state = get_raft_comm_state(
+        sessionId=sessionId, state_object=worker
+    )
 
     handle = Handle(streams_per_handle)
     nccl_comm = raft_comm_state["nccl"]
@@ -545,8 +547,9 @@ def _func_build_handle(sessionId, streams_per_handle, verbose):
 
     handle = Handle(streams_per_handle)
 
-    raft_comm_state = get_raft_comm_state(sessionId=sessionId,
-                                          state_object=worker)
+    raft_comm_state = get_raft_comm_state(
+        sessionId=sessionId, state_object=worker
+    )
 
     workerId = raft_comm_state["wid"]
     nWorkers = raft_comm_state["nworkers"]
@@ -559,8 +562,9 @@ def _func_build_handle(sessionId, streams_per_handle, verbose):
 
 
 def _func_store_initial_state(nworkers, sessionId, uniqueId, wid):
-    raft_comm_state = get_raft_comm_state(sessionId=sessionId,
-                                          state_object=get_worker())
+    raft_comm_state = get_raft_comm_state(
+        sessionId=sessionId, state_object=get_worker()
+    )
     raft_comm_state["nccl_uid"] = uniqueId
     raft_comm_state["wid"] = wid
     raft_comm_state["nworkers"] = nworkers
@@ -588,27 +592,25 @@ async def _func_ucp_create_endpoints(sessionId, worker_info):
         eps[worker_info[k]["rank"]] = ep
         count += 1
 
-    raft_comm_state = get_raft_comm_state(sessionId=sessionId,
-                                          state_object=get_worker())
+    raft_comm_state = get_raft_comm_state(
+        sessionId=sessionId, state_object=get_worker()
+    )
     raft_comm_state["ucp_eps"] = eps
 
 
 async def _func_destroy_all(sessionId, comms_p2p, verbose=False):
     worker = get_worker()
     if verbose:
-        worker.log_event(
-            topic="info", msg="Destroying NCCL session state."
-        )
+        worker.log_event(topic="info", msg="Destroying NCCL session state.")
 
-    raft_comm_state = get_raft_comm_state(sessionId=sessionId,
-                                          state_object=worker)
+    raft_comm_state = get_raft_comm_state(
+        sessionId=sessionId, state_object=worker
+    )
     if "nccl" in raft_comm_state:
         raft_comm_state["nccl"].destroy()
         del raft_comm_state["nccl"]
         if verbose:
-            worker.log_event(
-                topic="info", msg="NCCL session state destroyed."
-            )
+            worker.log_event(topic="info", msg="NCCL session state destroyed.")
     else:
         if verbose:
             worker.log_event(
