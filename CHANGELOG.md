@@ -23,6 +23,7 @@
 - PR #103: Epsilon parameter for Cholesky rank one update
 - PR #100: Add divyegala as codeowner
 - PR #111: Cleanup gpuCI scripts
+- PR #120: Update NCCL init process to support root node placement.
 
 ## Bug Fixes
 - PR #106: Specify dependency branches to avoid pip resolver failure
