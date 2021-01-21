@@ -39,11 +39,11 @@ typedef std::chrono::high_resolution_clock Clock;
 
 // curand generator uniform
 inline curandStatus_t curand_generate_uniformX(curandGenerator_t generator,
-                                        float* outputPtr, size_t n) {
+                                               float* outputPtr, size_t n) {
   return curandGenerateUniform(generator, outputPtr, n);
 }
 inline curandStatus_t curand_generate_uniformX(curandGenerator_t generator,
-                                        double* outputPtr, size_t n) {
+                                               double* outputPtr, size_t n) {
   return curandGenerateUniformDouble(generator, outputPtr, n);
 }
 
@@ -71,7 +71,6 @@ MST_solver<vertex_t, edge_t, weight_t>::MST_solver(
     mst_edge_count(1, 0),
     prev_mst_edge_count(1, 0),
     stream(stream_) {
-
   printf("GOT HERE!!!\n");
 
   max_blocks = handle_.get_device_properties().maxGridSize[0];
@@ -266,8 +265,8 @@ void MST_solver<vertex_t, edge_t, weight_t>::label_prop(vertex_t* mst_src,
   thrust::host_vector<edge_t> curr_mst_edge_count = mst_edge_count;
 
   auto min_pair_nthreads = std::min(v, (vertex_t)max_threads);
-  auto min_pair_nblocks =
-    std::min((v + min_pair_nthreads - 1) / min_pair_nthreads, (vertex_t)max_blocks);
+  auto min_pair_nblocks = std::min(
+    (v + min_pair_nthreads - 1) / min_pair_nthreads, (vertex_t)max_blocks);
 
   rmm::device_vector<bool> done(1, false);
 
@@ -342,15 +341,16 @@ void MST_solver<vertex_t, edge_t, weight_t>::min_edge_per_supervertex() {
   // the above kernel only adds directed mst edges in the case where
   // a pair of vertices don't pick the same min edge between them
   // so, now we add the reverse edge to make it undirected
-//  detail::add_reverse_edge<<<nblocks, nthreads, 0, stream>>>(
-//    new_mst_edge_ptr, indices, weights, temp_src_ptr, temp_dst_ptr,
-//    temp_weights_ptr, v);
+  //  detail::add_reverse_edge<<<nblocks, nthreads, 0, stream>>>(
+  //    new_mst_edge_ptr, indices, weights, temp_src_ptr, temp_dst_ptr,
+  //    temp_weights_ptr, v);
 }
 
 template <typename vertex_t, typename edge_t, typename weight_t>
 void MST_solver<vertex_t, edge_t, weight_t>::check_termination() {
   vertex_t nthreads = std::min(2 * v, (vertex_t)max_threads);
-  vertex_t nblocks = std::min((2 * v + nthreads - 1) / nthreads, (vertex_t)max_blocks);
+  vertex_t nblocks =
+    std::min((2 * v + nthreads - 1) / nthreads, (vertex_t)max_blocks);
 
   // count number of new mst edges
   edge_t* mst_edge_count_ptr = mst_edge_count.data().get();

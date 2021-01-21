@@ -31,8 +31,7 @@ struct Graph_COO {
   edge_t n_edges;
 
   Graph_COO(vertex_t size, cudaStream_t stream)
-    : src(size, stream), dst(size, stream), weights(size, stream) {
-  }
+    : src(size, stream), dst(size, stream), weights(size, stream) {}
 };
 
 namespace mst {

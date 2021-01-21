@@ -135,8 +135,7 @@ __global__ void min_edge_per_supervertex(
             temp_weights[tid] = weights[edge_idx];
             mst_edge[edge_idx] = true;
           }
-        }
-        else {
+        } else {
           temp_src[tid] = tid;
           temp_dst[tid] = dst;
           temp_weights[tid] = weights[edge_idx];
@@ -288,7 +287,6 @@ __global__ void alteration_kernel(const vertex_t v, const edge_t e,
     }
   }
 }
-
 
 template <typename vertex_t, typename edge_t>
 __global__ void kernel_count_new_mst_edges(const vertex_t* mst_src,
