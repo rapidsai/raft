@@ -102,37 +102,6 @@ __global__ void kernel_min_edge_per_vertex(
   }
 }
 
-//template <typename vertex_t, typename edge_t, typename weight_t>
-//__global__ void min_edge_per_supervertex(
-//  const vertex_t* color, const vertex_t* color_index, edge_t* new_mst_edge,
-//  bool* mst_edge, const vertex_t* indices, const weight_t* weights,
-//  const weight_t* altered_weights, vertex_t* temp_src, vertex_t* temp_dst,
-//  weight_t* temp_weights, const weight_t* min_edge_color, const vertex_t v) {
-//  auto tid = get_1D_idx<vertex_t>();
-//
-//  if (tid < v) {
-//    vertex_t vertex_color_idx = color_index[tid];
-//    vertex_t vertex_color = color[vertex_color_idx];
-//    edge_t edge_idx = new_mst_edge[tid];
-//
-//    // check if valid outgoing edge was found
-//    // find minimum edge is same as minimum edge of whole supervertex
-//    // if yes, that is part of mst
-//    if (edge_idx != std::numeric_limits<edge_t>::max()) {
-//      weight_t vertex_weight = altered_weights[edge_idx];
-//      if (min_edge_color[vertex_color] == vertex_weight) {
-//        temp_src[tid] = tid;
-//        temp_dst[tid] = indices[edge_idx];
-//        temp_weights[tid] = weights[edge_idx];
-//
-//        mst_edge[edge_idx] = true;
-//      } else {
-//        new_mst_edge[tid] = std::numeric_limits<edge_t>::max();
-//      }
-//    }
-//  }
-//}
-
 template <typename vertex_t, typename edge_t, typename weight_t>
 __global__ void min_edge_per_supervertex(
   const vertex_t* color, const vertex_t* color_index, edge_t* new_mst_edge,
@@ -160,7 +129,6 @@ __global__ void min_edge_per_supervertex(
         if (dst_edge_idx != std::numeric_limits<edge_t>::max() &&
             indices[dst_edge_idx] == tid &&
             min_edge_color[dst_color] == altered_weights[dst_edge_idx]) {
-          auto dst_src = indices[dst_edge_idx];
           if (vertex_color < dst_color) {
             temp_src[tid] = tid;
             temp_dst[tid] = dst;

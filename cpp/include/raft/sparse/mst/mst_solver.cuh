@@ -31,7 +31,8 @@ struct Graph_COO {
   edge_t n_edges;
 
   Graph_COO(vertex_t size, cudaStream_t stream)
-    : src(size, stream), dst(size, stream), weights(size, stream) {}
+    : src(size, stream), dst(size, stream), weights(size, stream) {
+  }
 };
 
 namespace mst {
@@ -59,9 +60,9 @@ class MST_solver {
   const vertex_t v;
   const edge_t e;
 
-  int max_blocks;
-  int max_threads;
-  int sm_count;
+  vertex_t max_blocks;
+  vertex_t max_threads;
+  vertex_t sm_count;
 
   vertex_t* color;  // represent each supervertex as a color
   rmm::device_vector<weight_t>
