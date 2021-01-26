@@ -151,16 +151,20 @@ inline void knn_merge_parts(value_t *inK, value_idx *inV, value_t *outK,
 
 inline faiss::MetricType build_faiss_metric(distance::DistanceType metric) {
   switch (metric) {
-    case distance::DistanceType::EucUnexpandedL2:
+    case distance::DistanceType::L2Unexpanded:
       return faiss::MetricType::METRIC_L2;
-    case distance::DistanceType::EucUnexpandedL1:
+    case distance::DistanceType::L1:
       return faiss::MetricType::METRIC_L1;
-    case distance::DistanceType::ChebyChev:
+    case distance::DistanceType::Linf:
       return faiss::MetricType::METRIC_Linf;
-    case distance::DistanceType::Minkowski:
+    case distance::DistanceType::LpUnexpanded:
       return faiss::MetricType::METRIC_Lp;
     case distance::DistanceType::Canberra:
       return faiss::MetricType::METRIC_Canberra;
+    case distance::DistanceType::BrayCurtis:
+      return faiss::MetricType::METRIC_BrayCurtis;
+    case distance::DistanceType::JensenShannon:
+      return faiss::MetricType::METRIC_JensenShannon;
     default:
       return faiss::MetricType::METRIC_INNER_PRODUCT;
   }
@@ -202,7 +206,7 @@ void brute_force_knn_impl(std::vector<float *> &input, std::vector<int> &sizes,
 													int n_int_streams = 0, bool rowMajorIndex = true,
 													bool rowMajorQuery = true,
 													std::vector<int64_t> *translations = nullptr,
-													distance::DistanceType metric = distance::DistanceType::EucUnexpandedL2,
+													distance::DistanceType metric = distance::DistanceType::L2Unexpanded,
 													float metricArg = 2.0, bool expanded_form = false) {
 
  ASSERT(input.size() == sizes.size(),

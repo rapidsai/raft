@@ -16,10 +16,11 @@
 
 #include <gtest/gtest.h>
 #include <iostream>
-#include <vector>
-#include <rmm/device_buffer.hpp>
-#include <raft/spatial/knn/knn.hpp>
 #include <raft/linalg/distance_type.h>
+#include <raft/spatial/knn/knn.hpp>
+#include <rmm/device_buffer.hpp>
+#include <vector>
+#include "../test_utils.h"
 
 namespace raft {
 namespace knn {
@@ -101,6 +102,10 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
          rows_ * k_, std::cout);
     raft::print_device_vector("Expected labels: ", expected_labels_,
          rows_ * k_, std::cout);
+
+    ASSERT_TRUE(devArrMatch(expected_labels_, actual_labels_,
+          rows_ * k_,
+          raft::Compare<int>()));
   }
 
   void SetUp() override {

@@ -164,12 +164,12 @@ inline std::unique_ptr<MetricProcessor<math_t>> create_processor(
   MetricProcessor<math_t> *mp = nullptr;
 
   switch (metric) {
-    case distance::DistanceType::EucExpandedCosine:
+    case distance::DistanceType::CosineExpanded:
       mp = new CosineMetricProcessor<math_t>(n, D, k, rowMajorQuery, userStream,
                                              allocator);
       break;
 
-    case distance::DistanceType::Correlation:
+    case distance::DistanceType::CorrelationExpanded:
       mp = new CorrelationMetricProcessor<math_t>(n, D, k, rowMajorQuery,
                                                   userStream, allocator);
       break;
