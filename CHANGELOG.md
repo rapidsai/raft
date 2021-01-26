@@ -13,14 +13,17 @@
 - PR #101: MST core solver
 - PR #93: Incorporate Date/Nagi implementation of Hungarian Algorithm
 - PR #94: Allow generic reductions for the map then reduce op
-- RP #95: Cholesky rank one update prim
+- PR #95: Cholesky rank one update prim
 
 ## Improvements
 - PR #108: Remove unused old-gpubuild.sh
 - PR #73: Move DistanceType enum from cuML to RAFT
+- pr #92: Cleanup gpuCI scripts
 - PR #98: Adding InnerProduct to DistanceType
 - PR #103: Epsilon parameter for Cholesky rank one update
 - PR #100: Add divyegala as codeowner
+- PR #111: Cleanup gpuCI scripts
+- PR #120: Update NCCL init process to support root node placement.
 
 ## Bug Fixes
 - PR #106: Specify dependency branches to avoid pip resolver failure
