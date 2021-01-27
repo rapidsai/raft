@@ -59,7 +59,7 @@ void svdQR(const raft::handle_t &handle, T *in, int n_rows, int n_cols,
   cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
   cublasHandle_t cublasH = handle.get_cublas_handle();
 
-#if CUDART_VERSION >= 10010 && CUDART_VERSION < 10020
+#if CUDART_VERSION >= 10010 && CUDART_VERSION < 11000
   // 46340: sqrt of max int value
   ASSERT(n_rows <= 46340,
          "svd solver is not supported for the data that has more than 46340 "
