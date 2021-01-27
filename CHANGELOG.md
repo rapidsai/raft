@@ -1,3 +1,11 @@
+# raft 0.19.0 (Date TBD)
+
+## New Features
+
+## Improvements
+
+## Bug Fixes
+
 # RAFT 0.18.0 (Date TBD)
 
 ## New Features
