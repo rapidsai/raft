@@ -2,7 +2,7 @@
 # Adapted from https://github.com/rapidsai/raft/blob/main/.github/CODEOWNERS
 # Labels culled from https://github.com/rapidsai/raft/labels
 
-Python:
+python:
  - 'python/**'
 
 cpp:
@@ -12,8 +12,5 @@ CMake:
  - '**/CMakeLists.txt'
  - '**/cmake/**'
 
-ci:
+gpuCI:
   - 'ci/**'
-
-conda:
-  - 'conda/**'
