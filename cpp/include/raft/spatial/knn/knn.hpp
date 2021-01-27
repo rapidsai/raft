@@ -22,7 +22,7 @@
 #include <raft/mr/device/buffer.hpp>
 
 namespace raft {
-  namespace knn {
+namespace knn {
 
 using deviceAllocator = raft::mr::device::allocator;
 
@@ -49,12 +49,12 @@ using deviceAllocator = raft::mr::device::allocator;
  * @param[in] expanded should lp-based distances be returned in their expanded
  * 					 form (e.g., without raising to the 1/p power).
  */
-void brute_force_knn(raft::handle_t &handle, std::vector<float *> &input,
-                     std::vector<int> &sizes, int D, float *search_items, int n,
-                     int64_t *res_I, float *res_D, int k, bool rowMajorIndex = false,
-                     bool rowMajorQuery = false,
-                     distance::DistanceType metric = distance::DistanceType::L2Unexpanded,
-                     float metric_arg = 2.0f, bool expanded = false) {
+void brute_force_knn(
+  raft::handle_t &handle, std::vector<float *> &input, std::vector<int> &sizes,
+  int D, float *search_items, int n, int64_t *res_I, float *res_D, int k,
+  bool rowMajorIndex = false, bool rowMajorQuery = false,
+  distance::DistanceType metric = distance::DistanceType::L2Unexpanded,
+  float metric_arg = 2.0f, bool expanded = false) {
   ASSERT(input.size() == sizes.size(),
          "input and sizes vectors must be the same size");
 
@@ -67,5 +67,5 @@ void brute_force_knn(raft::handle_t &handle, std::vector<float *> &input,
     metric, metric_arg, expanded);
 }
 
-} // namespace knn
-} // namespace raft
+}  // namespace knn
+}  // namespace raft

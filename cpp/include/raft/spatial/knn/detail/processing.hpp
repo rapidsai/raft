@@ -19,10 +19,10 @@
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/linalg/unary_op.cuh>
-#include <raft/stats/mean.cuh>
-#include <raft/stats/mean_center.cuh>
 #include <raft/mr/device/allocator.hpp>
 #include <raft/mr/device/buffer.hpp>
+#include <raft/stats/mean.cuh>
+#include <raft/stats/mean_center.cuh>
 
 namespace raft {
 namespace knn {

@@ -10,11 +10,11 @@
 #include <faiss/gpu/utils/Limits.cuh>
 #include <faiss/gpu/utils/Select.cuh>
 
+#include <raft/linalg/distance_type.h>
 #include <thrust/device_vector.h>
 #include <thrust/iterator/transform_iterator.h>
-#include <raft/handle.hpp>
-#include <raft/linalg/distance_type.h>
 #include <iostream>
+#include <raft/handle.hpp>
 #include <set>
 
 #include "processing.hpp"
@@ -197,19 +197,16 @@ inline faiss::MetricType build_faiss_metric(distance::DistanceType metric) {
  * @param[in] expanded_form whether or not lp variants should be reduced w/ lp-root
  */
 template <typename IntType = int>
-void brute_force_knn_impl(std::vector<float *> &input, std::vector<int> &sizes,
-													IntType D, float *search_items, IntType n, int64_t *res_I,
-													float *res_D, IntType k,
-													std::shared_ptr<raft::mr::device::allocator> allocator,
-													cudaStream_t userStream,
-													cudaStream_t *internalStreams = nullptr,
-													int n_int_streams = 0, bool rowMajorIndex = true,
-													bool rowMajorQuery = true,
-													std::vector<int64_t> *translations = nullptr,
-													distance::DistanceType metric = distance::DistanceType::L2Unexpanded,
-													float metricArg = 2.0, bool expanded_form = false) {
-
- ASSERT(input.size() == sizes.size(),
+void brute_force_knn_impl(
+  std::vector<float *> &input, std::vector<int> &sizes, IntType D,
+  float *search_items, IntType n, int64_t *res_I, float *res_D, IntType k,
+  std::shared_ptr<raft::mr::device::allocator> allocator,
+  cudaStream_t userStream, cudaStream_t *internalStreams = nullptr,
+  int n_int_streams = 0, bool rowMajorIndex = true, bool rowMajorQuery = true,
+  std::vector<int64_t> *translations = nullptr,
+  distance::DistanceType metric = distance::DistanceType::L2Unexpanded,
+  float metricArg = 2.0, bool expanded_form = false) {
+  ASSERT(input.size() == sizes.size(),
          "input and sizes vectors should be the same size");
 
   faiss::MetricType m = detail::build_faiss_metric(metric);
@@ -247,7 +244,8 @@ void brute_force_knn_impl(std::vector<float *> &input, std::vector<int> &sizes,
   int device;
   CUDA_CHECK(cudaGetDevice(&device));
 
-  raft::mr::device::buffer<int64_t> trans(allocator, userStream, id_ranges->size());
+  raft::mr::device::buffer<int64_t> trans(allocator, userStream,
+                                          id_ranges->size());
   raft::update_device(trans.data(), id_ranges->data(), id_ranges->size(),
                       userStream);
 
@@ -312,8 +310,8 @@ void brute_force_knn_impl(std::vector<float *> &input, std::vector<int> &sizes,
   if (input.size() > 1 || translations != nullptr) {
     // This is necessary for proper index translations. If there are
     // no translations or partitions to combine, it can be skipped.
-    detail::knn_merge_parts(out_D, out_I, res_D, res_I, n, input.size(), k, userStream,
-                    trans.data());
+    detail::knn_merge_parts(out_D, out_I, res_D, res_I, n, input.size(), k,
+                            userStream, trans.data());
   }
 
   // Perform necessary post-processing
@@ -339,6 +337,6 @@ void brute_force_knn_impl(std::vector<float *> &input, std::vector<int> &sizes,
   if (translations == nullptr) delete id_ranges;
 }
 
-} // namespace detail
-} // namespace knn
-} // namespace raft
+}  // namespace detail
+}  // namespace knn
+}  // namespace raft
