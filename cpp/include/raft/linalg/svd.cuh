@@ -64,7 +64,7 @@ void svdQR(const raft::handle_t &handle, T *in, int n_rows, int n_cols,
   ASSERT(n_rows <= 46340,
          "svd solver is not supported for the data that has more than 46340 "
          "samples (rows) "
-         "if you are using CUDA version 10.1. Please use other solvers such as "
+         "if you are using CUDA version <11. Please use other solvers such as "
          "eig if it is available.");
 #endif
 
