@@ -94,5 +94,59 @@ INSTANTIATE_TEST_SUITE_P(MatrixTests, MatrixTestF,
 INSTANTIATE_TEST_SUITE_P(MatrixTests, MatrixTestD,
                          ::testing::ValuesIn(inputsd2));
 
+template <typename T>
+class MatrixCopyRowsTest : public ::testing::Test {
+  using math_t = typename std::tuple_element<0, T>::type;
+  using idx_t = typename std::tuple_element<1, T>::type;
+  using idx_array_t = typename std::tuple_element<2, T>::type;
+
+ protected:
+  MatrixCopyRowsTest()
+    : allocator(handle.get_device_allocator()),
+      input(allocator, handle.get_stream(), n_cols * n_rows),
+      indices(allocator, handle.get_stream(), n_selected),
+      output(allocator, handle.get_stream(), n_cols * n_selected) {
+    CUDA_CHECK(cudaStreamCreate(&stream));
+    handle.set_stream(stream);
+    raft::update_device(indices.data(), indices_host, n_selected, stream);
+    // Init input array
+    thrust::counting_iterator<idx_t> first(0);
+    thrust::device_ptr<math_t> ptr(input.data());
+    thrust::copy(thrust::cuda::par.on(stream), first, first + n_cols * n_rows,
+                 ptr);
+  }
+
+  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
+
+  void testCopyRows() {
+    copyRows(input.data(), n_rows, n_cols, output.data(), indices.data(),
+             n_selected, stream, false);
+    EXPECT_TRUE(raft::devArrMatchHost(
+      output_exp, output.data(), n_selected * n_cols, raft::Compare<math_t>()));
+  }
+
+ protected:
+  int n_rows = 10;
+  int n_cols = 3;
+  int n_selected = 5;
+
+  idx_array_t indices_host[5] = {0, 3, 4, 7, 9};
+  math_t output_exp[15] = {0,  3,  4,  7,  9,  10, 13, 14,
+                           17, 19, 20, 23, 24, 27, 29};
+  raft::handle_t handle;
+  cudaStream_t stream;
+  std::shared_ptr<raft::mr::device::allocator> allocator;
+  raft::mr::device::buffer<math_t> input;
+  raft::mr::device::buffer<math_t> output;
+  raft::mr::device::buffer<idx_array_t> indices;
+};
+
+using TypeTuple =
+  ::testing::Types<std::tuple<float, int, int>, std::tuple<float, int64_t, int>,
+                   std::tuple<double, int, int>,
+                   std::tuple<double, int64_t, int>>;
+
+TYPED_TEST_CASE(MatrixCopyRowsTest, TypeTuple);
+TYPED_TEST(MatrixCopyRowsTest, CopyRows) { this->testCopyRows(); }
 }  // namespace matrix
 }  // namespace raft
