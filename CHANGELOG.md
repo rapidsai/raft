@@ -1,12 +1,8 @@
-# RAFT 0.18.0 (Date TBD)
+# 0.18.0
 
-## New Features
+Please see https://github.com/rapidsai/raft/releases/tag/branch-0.18-latest for the latest changes to this development branch.
 
-## Improvements
-
-## Bug Fixes
-
-# RAFT 0.17.0 (Date TBD)
+# RAFT 0.17.0 (10 Dec 2020)
 
 ## New Features
 - PR #65: Adding cuml prims that break circular dependency between cuml and cumlprims projects
