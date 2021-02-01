@@ -23,6 +23,7 @@
 #include "../test_utils.h"
 
 namespace raft {
+namespace spatial {
 namespace knn {
 struct KNNInputs {
   std::vector<std::vector<float>> input;
@@ -170,4 +171,5 @@ TEST_P(KNNTestF, BruteForce) { this->testBruteForce(); }
 INSTANTIATE_TEST_CASE_P(KNNTest, KNNTestF, ::testing::ValuesIn(inputs));
 
 }  // namespace knn
+}  // namespace spatial
 }  // namespace raft

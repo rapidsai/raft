@@ -25,6 +25,7 @@
 #include <raft/stats/mean_center.cuh>
 
 namespace raft {
+namespace spatial {
 namespace knn {
 
 using deviceAllocator = raft::mr::device::allocator;
@@ -186,5 +187,6 @@ template class CosineMetricProcessor<float>;
 template class CorrelationMetricProcessor<float>;
 template class DefaultMetricProcessor<float>;
 
-};  // namespace knn
-};  // namespace raft
+}  // namespace knn
+}  // namespace spatial
+}  // namespace raft

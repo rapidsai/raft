@@ -22,6 +22,7 @@
 #include <raft/mr/device/buffer.hpp>
 
 namespace raft {
+namespace spatial {
 namespace knn {
 
 using deviceAllocator = raft::mr::device::allocator;
@@ -68,4 +69,5 @@ void brute_force_knn(
 }
 
 }  // namespace knn
+}  // namespace spatial
 }  // namespace raft

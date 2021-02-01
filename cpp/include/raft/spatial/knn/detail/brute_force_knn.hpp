@@ -36,6 +36,7 @@
 #include "processing.hpp"
 
 namespace raft {
+namespace spatial {
 namespace knn {
 namespace detail {
 
@@ -355,4 +356,5 @@ void brute_force_knn_impl(
 
 }  // namespace detail
 }  // namespace knn
+}  // namespace spatial
 }  // namespace raft
