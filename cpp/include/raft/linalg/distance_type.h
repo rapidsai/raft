@@ -49,7 +49,11 @@ enum DistanceType : unsigned short {
   /** Hellinger distance **/
   HellingerExpanded = 12,
   /** Haversine distance **/
-  Haversine = 13
+  Haversine = 13,
+  /** Bray-Curtis distance **/
+  BrayCurtis = 14,
+  /** Jensen-Shannon distance**/
+  JensenShannon = 15
 };
 
 };  // namespace distance
