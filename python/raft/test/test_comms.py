@@ -28,6 +28,8 @@ try:
     from raft.dask.common import perform_test_comms_bcast
     from raft.dask.common import perform_test_comms_reduce
     from raft.dask.common import perform_test_comms_allgather
+    from raft.dask.common import perform_test_comms_gather
+    from raft.dask.common import perform_test_comms_gatherv
     from raft.dask.common import perform_test_comms_reducescatter
     from raft.dask.common import perform_test_comm_split
 
@@ -130,6 +132,8 @@ if pytestmark.markname != "skip":
         perform_test_comms_allgather,
         perform_test_comms_allreduce,
         perform_test_comms_bcast,
+        perform_test_comms_gather,
+        perform_test_comms_gatherv,
         perform_test_comms_reduce,
         perform_test_comms_reducescatter,
     ]

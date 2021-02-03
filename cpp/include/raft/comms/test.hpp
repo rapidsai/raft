@@ -16,10 +16,12 @@
 
 #pragma once
 
-#include <iostream>
 #include <raft/comms/comms.hpp>
 #include <raft/handle.hpp>
 #include <raft/mr/device/buffer.hpp>
+
+#include <iostream>
+#include <numeric>
 
 namespace raft {
 namespace comms {
@@ -155,26 +157,114 @@ bool test_collective_allgather(const handle_t &handle, int root) {
   return true;
 }
 
+bool test_collective_gather(const handle_t &handle, int root) {
+  comms_t const &communicator = handle.get_comms();
+
+  int const send = communicator.get_rank();
+
+  cudaStream_t stream = handle.get_stream();
+
+  raft::mr::device::buffer<int> temp_d(handle.get_device_allocator(), stream);
+  temp_d.resize(1, stream);
+
+  raft::mr::device::buffer<int> recv_d(
+    handle.get_device_allocator(), stream,
+    communicator.get_rank() == root ? communicator.get_size() : 0);
+
+  CUDA_CHECK(cudaMemcpyAsync(temp_d.data(), &send, sizeof(int),
+                             cudaMemcpyHostToDevice, stream));
+
+  communicator.gather(temp_d.data(), recv_d.data(), 1, root, stream);
+  communicator.sync_stream(stream);
+
+  if (communicator.get_rank() == root) {
+    std::vector<int> temp_h(communicator.get_size(), 0);
+    CUDA_CHECK(cudaMemcpyAsync(temp_h.data(), recv_d.data(),
+                               sizeof(int) * temp_h.size(),
+                               cudaMemcpyDeviceToHost, stream));
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+
+    for (int i = 0; i < communicator.get_size(); i++) {
+      if (temp_h[i] != i) return false;
+    }
+  }
+  return true;
+}
+
+bool test_collective_gatherv(const handle_t &handle, int root) {
+  comms_t const &communicator = handle.get_comms();
+
+  std::vector<size_t> sendcounts(communicator.get_size());
+  std::iota(sendcounts.begin(), sendcounts.end(), size_t{1});
+  std::vector<size_t> displacements(communicator.get_size() + 1, 0);
+  std::partial_sum(sendcounts.begin(), sendcounts.end(),
+                   displacements.begin() + 1);
+
+  std::vector<int> sends(displacements[communicator.get_rank() + 1] -
+                           displacements[communicator.get_rank()],
+                         communicator.get_rank());
+
+  cudaStream_t stream = handle.get_stream();
+
+  raft::mr::device::buffer<int> temp_d(handle.get_device_allocator(), stream);
+  temp_d.resize(sends.size(), stream);
+
+  raft::mr::device::buffer<int> recv_d(
+    handle.get_device_allocator(), stream,
+    communicator.get_rank() == root ? displacements.back() : 0);
+
+  CUDA_CHECK(cudaMemcpyAsync(temp_d.data(), sends.data(),
+                             sends.size() * sizeof(int), cudaMemcpyHostToDevice,
+                             stream));
+
+  communicator.gatherv(
+    temp_d.data(), recv_d.data(), temp_d.size(),
+    communicator.get_rank() == root ? sendcounts.data()
+                                    : static_cast<size_t *>(nullptr),
+    communicator.get_rank() == root ? displacements.data()
+                                    : static_cast<size_t *>(nullptr),
+    root, stream);
+  communicator.sync_stream(stream);
+
+  if (communicator.get_rank() == root) {
+    std::vector<int> temp_h(displacements.back(), 0);
+    CUDA_CHECK(cudaMemcpyAsync(temp_h.data(), recv_d.data(),
+                               sizeof(int) * displacements.back(),
+                               cudaMemcpyDeviceToHost, stream));
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+
+    for (int i = 0; i < communicator.get_size(); i++) {
+      if (std::count_if(temp_h.begin() + displacements[i],
+                        temp_h.begin() + displacements[i + 1],
+                        [i](auto val) { return val != i; }) != 0) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
 bool test_collective_reducescatter(const handle_t &handle, int root) {
   comms_t const &communicator = handle.get_comms();
 
-  int const send = 1;
+  std::vector<int> sends(communicator.get_size(), 1);
 
   cudaStream_t stream = handle.get_stream();
 
   raft::mr::device::buffer<int> temp_d(handle.get_device_allocator(), stream,
-                                       1);
+                                       sends.size());
   raft::mr::device::buffer<int> recv_d(handle.get_device_allocator(), stream,
                                        1);
 
-  CUDA_CHECK(cudaMemcpyAsync(temp_d.data(), &send, sizeof(int),
-                             cudaMemcpyHostToDevice, stream));
+  CUDA_CHECK(cudaMemcpyAsync(temp_d.data(), sends.data(),
+                             sends.size() * sizeof(int), cudaMemcpyHostToDevice,
+                             stream));
 
   communicator.reducescatter(temp_d.data(), recv_d.data(), 1, op_t::SUM,
                              stream);
   communicator.sync_stream(stream);
   int temp_h = -1;  // Verify more than one byte is being sent
-  CUDA_CHECK(cudaMemcpyAsync(&temp_h, temp_d.data(), sizeof(int),
+  CUDA_CHECK(cudaMemcpyAsync(&temp_h, recv_d.data(), sizeof(int),
                              cudaMemcpyDeviceToHost, stream));
   CUDA_CHECK(cudaStreamSynchronize(stream));
   communicator.barrier();
