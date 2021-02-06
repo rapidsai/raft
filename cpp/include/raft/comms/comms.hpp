@@ -139,6 +139,13 @@ class comms_iface {
   virtual void device_sendrecv(void* sendbuf, size_t sendsize, int dest,
                                void* recvbuf, size_t recvsize, int source,
                                cudaStream_t stream) const = 0;
+
+  virtual void device_multicast_sendrecv(
+    void* sendbuf, std::vector<size_t> const& sendsizes,
+    std::vector<size_t> const& sendoffsets, std::vector<int> const& dests,
+    void* recvbuf, std::vector<size_t> const& recvsizes,
+    std::vector<size_t> const& recvoffsets, std::vector<int> const& sources,
+    cudaStream_t stream) const = 0;
 };
 
 class comms_t {
@@ -374,7 +381,7 @@ class comms_t {
   /**
    * Performs a point-to-point send/receive
    *
-   * @tparam value_t the type of data to be received
+   * @tparam value_t the type of data to be sent & received
    * @param sendbuf pointer to array of data to send
    * @param sendsize number of elements in sendbuf
    * @param dest destination rank
@@ -390,6 +397,46 @@ class comms_t {
     impl_->device_sendrecv(
       static_cast<void*>(snedbuf), sendsize * sizeof(value_t), dest,
       static_cast<void*>(recvbuf), recvsize * sizeof(value_t), source, stream);
+  }
+
+  /**
+   * Performs a multicast send/receive
+   *
+   * @tparam value_t the type of data to be sent & received
+   * @param sendbuf pointer to array of data to send
+   * @param sendsizes numbers of elements to send
+   * @param sendoffsets offsets in a number of elements from sendbuf
+   * @param dest destination ranks
+   * @param recvbuf pointer to (initialized) array that will hold received data
+   * @param recvsizes numbers of elements to recv
+   * @param recvoffsets offsets in a number of elements from recvbuf
+   * @param sources source ranks
+   * @param stream CUDA stream to synchronize operation
+   */
+  template <typename value_t>
+  void device_multicast_sendrecv(void* sendbuf,
+                                 std::vector<size_t> const& sendsizes,
+                                 std::vector<size_t> const& sendoffsets,
+                                 std::vector<int> const& dests, void* recvbuf,
+                                 std::vector<size_t> const& recvsizes,
+                                 std::vector<size_t> const& recvoffsets,
+                                 std::vector<int> const& sources,
+                                 cudaStream_t stream) const {
+    auto sendbytesizes = sendsizes;
+    auto sendbyteoffsets = sendoffsets;
+    for (size_t i = 0; i < sendsizes.size(); ++i) {
+      sendbytesizes[i] *= sizeof(value_t);
+      sendbyteoffsets[i] *= sizeof(value_t);
+    }
+    auto recvbytesizes = recvsizes;
+    auto recvbyteoffsets = recvoffsets;
+    for (size_t i = 0; i < recvsizes.size(); ++i) {
+      recvbytesizes[i] *= sizeof(value_t);
+      recvbyteoffsets[i] *= sizeof(value_t);
+    }
+    impl->device_multicast_sendrecv(sendbuf, sendbytesizes, sendbyteoffsets,
+                                    dests, recvbytesizes, recvbyteoffsets,
+                                    sources, stream);
   }
 
  private:

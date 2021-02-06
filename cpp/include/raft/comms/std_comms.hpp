@@ -404,6 +404,27 @@ class std_comms : public comms_iface {
     NCCL_TRY(ncclGroupEnd());
   }
 
+  void device_multicast_sendrecv(void *sendbuf,
+                                 std::vector<size_t> const &sendsizes,
+                                 std::vector<size_t> const &sendoffsets,
+                                 std::vector<int> const &dests, void *recvbuf,
+                                 std::vector<size_t> const &recvsizes,
+                                 std::vector<size_t> const &recvoffsets,
+                                 std::vector<int> const &sources,
+                                 cudaStream_t stream) const {
+    // ncclSend/ncclRecv pair needs to be inside ncclGroupStart/ncclGroupEnd to avoid deadlock
+    NCCL_TRY(ncclGroupStart());
+    for (size_t i = 0; i < sendsizes.size(); ++i) {
+      NCCL_TRY(ncclSend(sendbuf + sendoffsets[i], sendsizes[i], ncclUint8,
+                        dests[i], nccl_comm_, stream));
+    }
+    for (size_t i = 0; i < recvsizes.size(); ++i) {
+      NCCL_TRY(ncclRecv(recvbuf + recvoffsets[i], recvsizes[i], ncclUint8,
+                        sources[i], nccl_comm_, stream));
+    }
+    NCCL_TRY(ncclGroupEnd());
+  }
+
  private:
   ncclComm_t nccl_comm_;
   cudaStream_t stream_;
