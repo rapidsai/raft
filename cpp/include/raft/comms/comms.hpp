@@ -128,13 +128,17 @@ class comms_iface {
                              size_t recvcount, datatype_t datatype, op_t op,
                              cudaStream_t stream) const = 0;
 
-  // note that if a thread is sending & receiving at the same time, use device_sendrecv to avoid deadlock
+  // if a thread is sending & receiving at the same time, use device_sendrecv to avoid deadlock
   virtual void device_send(const void* buf, size_t size, int dest,
                            cudaStream_t stream) const = 0;
 
-  // note that if a thread is sending & receiving at the same time, use device_sendrecv to avoid deadlock
+  // if a thread is sending & receiving at the same time, use device_sendrecv to avoid deadlock
   virtual void device_recv(void* buf, size_t size, int source,
                            cudaStream_t stream) const = 0;
+
+  virtual void device_sendrecv(void* sendbuf, size_t sendsize, int dest,
+                               void* recvbuf, size_t recvsize, int source,
+                               cudaStream_t stream) const = 0;
 };
 
 class comms_t {
@@ -334,7 +338,7 @@ class comms_t {
   /**
    * Performs a point-to-point send
    *
-   *  note that if a thread is sending & receiving at the same time, use device_sendrecv to avoid deadlock.
+   *  if a thread is sending & receiving at the same time, use device_sendrecv to avoid deadlock.
    *
    * @tparam value_t the type of data to send
    * @param buf pointer to array of data to send
@@ -352,7 +356,7 @@ class comms_t {
   /**
    * Performs a point-to-point receive
    *
-   *  note that if a thread is sending & receiving at the same time, use device_sendrecv to avoid deadlock.
+   *  if a thread is sending & receiving at the same time, use device_sendrecv to avoid deadlock.
    *
    * @tparam value_t the type of data to be received
    * @param buf pointer to (initialized) array that will hold received data
@@ -365,6 +369,27 @@ class comms_t {
                    cudaStream_t stream) const {
     impl_->device_recv(static_cast<void*>(buf), size * sizeof(value_t), source,
                        stream);
+  }
+
+  /**
+   * Performs a point-to-point send/receive
+   *
+   * @tparam value_t the type of data to be received
+   * @param sendbuf pointer to array of data to send
+   * @param sendsize number of elements in sendbuf
+   * @param dest destination rank
+   * @param recvbuf pointer to (initialized) array that will hold received data
+   * @param recvsize number of elements in recvbuf
+   * @param source source rank
+   * @param stream CUDA stream to synchronize operation
+   */
+  template <typename value_t>
+  void device_sendrecv(value_t* sendbuf, size_t sendsize, int dest,
+                       value_t* recvbuf, size_t recvsize, int source,
+                       cudaStream_t stream) const {
+    impl_->device_sendrecv(
+      static_cast<void*>(snedbuf), sendsize * sizeof(value_t), dest,
+      static_cast<void*>(recvbuf), recvsize * sizeof(value_t), source, stream);
   }
 
  private:
