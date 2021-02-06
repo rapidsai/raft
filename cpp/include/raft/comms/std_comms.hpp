@@ -382,6 +382,18 @@ class std_comms : public comms_iface {
     }
   }
 
+  // note that if a thread is sending & receiving at the same time, use device_sendrecv to avoid deadlock
+  void device_send(const void *buf, size_t size, int dest,
+                   cudaStream_t stream) const {
+    NCCL_TRY(ncclSend(buf, size, ncclUint8, dest, nccl_comm_, stream));
+  }
+
+  // note that if a thread is sending & receiving at the same time, use device_sendrecv to avoid deadlock
+  void device_recv(void *buf, size_t size, int source,
+                   cudaStream_t stream) const {
+    NCCL_TRY(ncclRecv(buf, size, ncclUint8, source, nccl_comm_, stream));
+  }
+
  private:
   ncclComm_t nccl_comm_;
   cudaStream_t stream_;

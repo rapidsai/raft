@@ -127,6 +127,14 @@ class comms_iface {
   virtual void reducescatter(const void* sendbuff, void* recvbuff,
                              size_t recvcount, datatype_t datatype, op_t op,
                              cudaStream_t stream) const = 0;
+
+  // note that if a thread is sending & receiving at the same time, use device_sendrecv to avoid deadlock
+  virtual void device_send(const void* buf, size_t size, int dest,
+                           cudaStream_t stream) const = 0;
+
+  // note that if a thread is sending & receiving at the same time, use device_sendrecv to avoid deadlock
+  virtual void device_recv(void* buf, size_t size, int source,
+                           cudaStream_t stream) const = 0;
 };
 
 class comms_t {
@@ -321,6 +329,42 @@ class comms_t {
     impl_->reducescatter(static_cast<const void*>(sendbuff),
                          static_cast<void*>(recvbuff), recvcount,
                          get_type<value_t>(), op, stream);
+  }
+
+  /**
+   * Performs a point-to-point send
+   *
+   *  note that if a thread is sending & receiving at the same time, use device_sendrecv to avoid deadlock.
+   *
+   * @tparam value_t the type of data to send
+   * @param buf pointer to array of data to send
+   * @param size number of elements in buf
+   * @param dest destination rank
+   * @param stream CUDA stream to synchronize operation
+   */
+  template <typename value_t>
+  void device_send(const value_t* buf, size_t size, int dest,
+                   cudaStream_t stream) const {
+    impl_->device_send(static_cast<const void*>(buf), size * sizeof(value_t),
+                       dest, stream);
+  }
+
+  /**
+   * Performs a point-to-point receive
+   *
+   *  note that if a thread is sending & receiving at the same time, use device_sendrecv to avoid deadlock.
+   *
+   * @tparam value_t the type of data to be received
+   * @param buf pointer to (initialized) array that will hold received data
+   * @param size number of elements in buf
+   * @param source source rank
+   * @param stream CUDA stream to synchronize operation
+   */
+  template <typename value_t>
+  void device_recv(value_t* buf, size_t size, int source,
+                   cudaStream_t stream) const {
+    impl_->device_recv(static_cast<void*>(buf), size * sizeof(value_t), source,
+                       stream);
   }
 
  private:
