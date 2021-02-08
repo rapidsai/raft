@@ -16,17 +16,15 @@
 
 #pragma once
 
-#include <connectivities.h>
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
+#include "distance.h"
 
 #include <raft/sparse/coo.cuh>
 #include <raft/sparse/csr.cuh>
 #include <raft/sparse/linalg/symmetrize.cuh>
 
 #include <raft/spatial/knn/knn.hpp>
-
-#include <distance/distance.cuh>
 
 #include <raft/linalg/distance_type.h>
 #include <raft/mr/device/buffer.hpp>
@@ -62,23 +60,6 @@ value_idx build_k(value_idx n_samples, int c) {
   // from "kNN-MST-Agglomerative: A fast & scalable graph-based data clustering
   // approach on GPU"
   return min(n_samples, (value_idx)floor(logf(n_samples)) + c);
-}
-
-// TODO: This will go away once KNN is using raft's distance type
-ML::MetricType raft_distance_to_ml(raft::distance::DistanceType metric) {
-  switch (metric) {
-    case raft::distance::DistanceType::L1:
-      return ML::METRIC_L1;
-
-    case raft::distance::DistanceType::L2Expanded:
-      return ML::METRIC_L2;
-
-    case raft::distance::DistanceType::InnerProduct:
-      return ML::METRIC_INNER_PRODUCT;
-
-    default:
-      throw raft::exception("Unsupported distance");
-  }
 }
 
 template <typename in_t, typename out_t>
@@ -141,10 +122,9 @@ void knn_graph(const raft::handle_t &handle, const value_t *X, size_t m,
   raft::mr::device::buffer<int64_t> int64_indices(d_alloc, stream, nnz);
 
   uint32_t knn_start = raft::curTimeMillis();
-  ML::MetricType ml_metric = raft_distance_to_ml(metric);
-  ML::brute_force_knn(handle, inputs, sizes, n, const_cast<value_t *>(X), m,
-                      int64_indices.data(), data.data(), k, true, true,
-                      ml_metric);
+  raft::spatial::knn::brute_force_knn(
+    handle, inputs, sizes, n, const_cast<value_t *>(X), m, int64_indices.data(),
+    data.data(), k, true, true, metric);
 
   // convert from current knn's 64-bit to 32-bit.
   conv_indices(int64_indices.data(), indices.data(), nnz, stream);
@@ -172,15 +152,15 @@ struct distance_graph_impl<LinkageDistance::KNN_GRAPH, value_idx, value_t> {
     auto stream = handle.get_stream();
 
     // Need to symmetrize knn into undirected graph
-    MLCommon::Sparse::COO<value_t, value_idx> knn_graph_coo(d_alloc, stream);
+    raft::sparse::COO<value_t, value_idx> knn_graph_coo(d_alloc, stream);
 
-    Distance::knn_graph(handle, X, m, n, metric, knn_graph_coo, c);
+    knn_graph(handle, X, m, n, metric, knn_graph_coo, c);
 
     indices.resize(knn_graph_coo.nnz, stream);
     data.resize(knn_graph_coo.nnz, stream);
 
-    MLCommon::Sparse::sorted_coo_to_csr(&knn_graph_coo, indptr.data(), d_alloc,
-                                        stream);
+    raft::sparse::convert::sorted_coo_to_csr(&knn_graph_coo, indptr.data(),
+                                             d_alloc, stream);
 
     raft::copy_async(indices.data(), knn_graph_coo.cols(), knn_graph_coo.nnz,
                      stream);

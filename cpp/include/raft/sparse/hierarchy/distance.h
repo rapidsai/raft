@@ -19,22 +19,8 @@
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
 
-#include <raft/sparse/coo.cuh>
-#include <raft/sparse/csr.cuh>
-#include <raft/sparse/linalg/symmetrize.cuh>
-
-#include <raft/spatial/knn/knn.hpp>
-
-#include <distance/distance.cuh>
-
 #include <raft/linalg/distance_type.h>
 #include <raft/mr/device/buffer.hpp>
-#include <raft/sparse/mst/mst.cuh>
-
-#include <thrust/device_ptr.h>
-#include <thrust/execution_policy.h>
-#include <thrust/scan.h>
-#include <thrust/sort.h>
 
 #include <limits>
 
