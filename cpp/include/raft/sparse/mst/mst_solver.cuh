@@ -59,9 +59,9 @@ class MST_solver {
   const vertex_t v;
   const edge_t e;
 
-  int max_blocks;
-  int max_threads;
-  int sm_count;
+  vertex_t max_blocks;
+  vertex_t max_threads;
+  vertex_t sm_count;
 
   vertex_t* color;  // represent each supervertex as a color
   rmm::device_vector<weight_t>
