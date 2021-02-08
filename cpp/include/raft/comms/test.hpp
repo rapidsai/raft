@@ -16,10 +16,14 @@
 
 #pragma once
 
-#include <iostream>
 #include <raft/comms/comms.hpp>
 #include <raft/handle.hpp>
 #include <raft/mr/device/buffer.hpp>
+#include <rmm/device_scalar.hpp>
+#include <rmm/device_uvector.hpp>
+
+#include <iostream>
+#include <numeric>
 
 namespace raft {
 namespace comms {
@@ -158,23 +162,24 @@ bool test_collective_allgather(const handle_t &handle, int root) {
 bool test_collective_reducescatter(const handle_t &handle, int root) {
   comms_t const &communicator = handle.get_comms();
 
-  int const send = 1;
+  std::vector<int> sends(communicator.get_size(), 1);
 
   cudaStream_t stream = handle.get_stream();
 
   raft::mr::device::buffer<int> temp_d(handle.get_device_allocator(), stream,
-                                       1);
+                                       sends.size());
   raft::mr::device::buffer<int> recv_d(handle.get_device_allocator(), stream,
                                        1);
 
-  CUDA_CHECK(cudaMemcpyAsync(temp_d.data(), &send, sizeof(int),
-                             cudaMemcpyHostToDevice, stream));
+  CUDA_CHECK(cudaMemcpyAsync(temp_d.data(), sends.data(),
+                             sends.size() * sizeof(int), cudaMemcpyHostToDevice,
+                             stream));
 
   communicator.reducescatter(temp_d.data(), recv_d.data(), 1, op_t::SUM,
                              stream);
   communicator.sync_stream(stream);
   int temp_h = -1;  // Verify more than one byte is being sent
-  CUDA_CHECK(cudaMemcpyAsync(&temp_h, temp_d.data(), sizeof(int),
+  CUDA_CHECK(cudaMemcpyAsync(&temp_h, recv_d.data(), sizeof(int),
                              cudaMemcpyDeviceToHost, stream));
   CUDA_CHECK(cudaStreamSynchronize(stream));
   communicator.barrier();
@@ -245,6 +250,156 @@ bool test_pointToPoint_simple_send_recv(const handle_t &h, int numTrials) {
 
     if (communicator.get_rank() == 0)
       std::cout << "=========================" << std::endl;
+  }
+
+  return ret;
+}
+
+/**
+ * A simple sanity check that device is able to send OR receive.
+ *
+ * @param the raft handle to use. This is expected to already have an
+ *        initialized comms instance.
+ * @param number of iterations of send or receive messaging to perform
+ */
+bool test_pointToPoint_device_send_or_recv(const handle_t &h, int numTrials) {
+  comms_t const &communicator = h.get_comms();
+  int const rank = communicator.get_rank();
+  cudaStream_t stream = h.get_stream();
+
+  bool ret = true;
+  for (int i = 0; i < numTrials; i++) {
+    if (communicator.get_rank() == 0) {
+      std::cout << "=========================" << std::endl;
+      std::cout << "Trial " << i << std::endl;
+    }
+
+    bool sender = (rank % 2) == 0 ? true : false;
+    rmm::device_scalar<int> received_data(-1, stream);
+    rmm::device_scalar<int> sent_data(rank, stream);
+
+    if (sender) {
+      if (rank + 1 < communicator.get_size()) {
+        communicator.device_send(sent_data.data(), 1, rank + 1, stream);
+      }
+    } else {
+      communicator.device_recv(received_data.data(), 1, rank - 1, stream);
+    }
+
+    communicator.sync_stream(stream);
+
+    if (!sender && received_data.value() != rank - 1) {
+      ret = false;
+    }
+
+    if (communicator.get_rank() == 0) {
+      std::cout << "=========================" << std::endl;
+    }
+  }
+
+  return ret;
+}
+
+/**
+ * A simple sanity check that device is able to send and receive at the same time.
+ *
+ * @param the raft handle to use. This is expected to already have an
+ *        initialized comms instance.
+ * @param number of iterations of send or receive messaging to perform
+ */
+bool test_pointToPoint_device_sendrecv(const handle_t &h, int numTrials) {
+  comms_t const &communicator = h.get_comms();
+  int const rank = communicator.get_rank();
+  cudaStream_t stream = h.get_stream();
+
+  bool ret = true;
+  for (int i = 0; i < numTrials; i++) {
+    if (communicator.get_rank() == 0) {
+      std::cout << "=========================" << std::endl;
+      std::cout << "Trial " << i << std::endl;
+    }
+
+    rmm::device_scalar<int> received_data(-1, stream);
+    rmm::device_scalar<int> sent_data(rank, stream);
+
+    if (rank % 2 == 0) {
+      if (rank + 1 < communicator.get_size()) {
+        communicator.device_sendrecv(sent_data.data(), 1, rank + 1,
+                                     received_data.data(), 1, rank + 1, stream);
+      }
+    } else {
+      communicator.device_sendrecv(sent_data.data(), 1, rank - 1,
+                                   received_data.data(), 1, rank - 1, stream);
+    }
+
+    communicator.sync_stream(stream);
+
+    if (((rank % 2 == 0) && (received_data.value() != rank + 1)) ||
+        ((rank % 2 == 1) && (received_data.value() != rank - 1))) {
+      ret = false;
+    }
+
+    if (communicator.get_rank() == 0) {
+      std::cout << "=========================" << std::endl;
+    }
+  }
+
+  return ret;
+}
+
+/**
+ * A simple sanity check that device is able to perform multiple concurrent sends and receives.
+ *
+ * @param the raft handle to use. This is expected to already have an
+ *        initialized comms instance.
+ * @param number of iterations of send or receive messaging to perform
+ */
+bool test_pointToPoint_device_multicast_sendrecv(const handle_t &h,
+                                                 int numTrials) {
+  comms_t const &communicator = h.get_comms();
+  int const rank = communicator.get_rank();
+  cudaStream_t stream = h.get_stream();
+
+  bool ret = true;
+  for (int i = 0; i < numTrials; i++) {
+    if (communicator.get_rank() == 0) {
+      std::cout << "=========================" << std::endl;
+      std::cout << "Trial " << i << std::endl;
+    }
+
+    rmm::device_uvector<int> received_data(communicator.get_size(), stream);
+    rmm::device_scalar<int> sent_data(rank, stream);
+
+    std::vector<size_t> sendsizes(communicator.get_size(), 1);
+    std::vector<size_t> sendoffsets(communicator.get_size(), 0);
+    std::vector<int> dests(communicator.get_size());
+    std::iota(dests.begin(), dests.end(), int{0});
+
+    std::vector<size_t> recvsizes(communicator.get_size(), 1);
+    std::vector<size_t> recvoffsets(communicator.get_size());
+    std::iota(recvoffsets.begin(), recvoffsets.end(), size_t{0});
+    std::vector<int> srcs(communicator.get_size());
+    std::iota(srcs.begin(), srcs.end(), int{0});
+
+    communicator.device_multicast_sendrecv(
+      sent_data.data(), sendsizes, sendoffsets, dests, received_data.data(),
+      recvsizes, recvoffsets, srcs, stream);
+
+    communicator.sync_stream(stream);
+
+    std::vector<int> h_received_data(communicator.get_size());
+    raft::update_host(h_received_data.data(), received_data.data(),
+                      received_data.size(), stream);
+    CUDA_TRY(cudaStreamSynchronize(stream));
+    for (int i = 0; i < communicator.get_size(); ++i) {
+      if (h_received_data[i] != i) {
+        ret = false;
+      }
+    }
+
+    if (communicator.get_rank() == 0) {
+      std::cout << "=========================" << std::endl;
+    }
   }
 
   return ret;
