@@ -26,9 +26,9 @@
 #include <thrust/execution_policy.h>
 #include <thrust/sort.h>
 
-namespace ML {
-namespace Linkage {
-namespace MST {
+namespace raft {
+namespace hierarchy {
+namespace detail {
 
 /**
  * Sorts a COO by its weight
@@ -94,6 +94,6 @@ void build_sorted_mst(const raft::handle_t &handle, const value_idx *indptr,
                    stream);
 }
 
-};  // namespace MST
-};  // namespace Linkage
-};  // namespace ML
+};  // namespace detail
+};  // namespace hierarchy
+};  // namespace raft

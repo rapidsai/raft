@@ -16,22 +16,12 @@
 
 #pragma once
 
-#include <cuml/common/logger.hpp>
-
-#include <cuml/cuml_api.h>
-#include <common/cumlHandle.hpp>
-
 #include <raft/cudart_utils.h>
 #include <raft/mr/device/buffer.hpp>
 
-#include <cuml/cluster/linkage.hpp>
-
-#include <distance/distance.cuh>
-#include <sparse/coo.cuh>
-
-#include <hierarchy/agglomerative.cuh>
-#include <hierarchy/connectivities.cuh>
-#include <hierarchy/mst.cuh>
+#include <hierarchy/detail/agglomerative.cuh>
+#include <hierarchy/detail/connectivities.cuh>
+#include <hierarchy/detail/mst.cuh>
 
 namespace raft {
 namespace hierarchy {
@@ -75,7 +65,7 @@ void single_linkage(const raft::handle_t &handle, const value_t *X, size_t m,
   /**
    * 1. Construct distance graph
    */
-  distance::get_distance_graph<value_idx, value_t, dist_type>(
+  detail::get_distance_graph<value_idx, value_t, dist_type>(
     handle, X, m, n, metric, indptr, indices, pw_dists, c);
 
   raft::mr::device::buffer<value_idx> mst_rows(d_alloc, stream, EMPTY);
@@ -85,7 +75,7 @@ void single_linkage(const raft::handle_t &handle, const value_t *X, size_t m,
   /**
    * 2. Construct MST, sorted by weights
    */
-  mst::build_sorted_mst<value_idx, value_t>(
+  detail::build_sorted_mst<value_idx, value_t>(
     handle, indptr.data(), indices.data(), pw_dists.data(), m, mst_rows,
     mst_cols, mst_data, indices.size());
 
@@ -101,12 +91,12 @@ void single_linkage(const raft::handle_t &handle, const value_t *X, size_t m,
   raft::mr::device::buffer<value_idx> out_size(d_alloc, stream, n_edges);
 
   // Create dendrogram
-  label::agglomerative::build_dendrogram_host<value_idx, value_t>(
+  detail::build_dendrogram_host<value_idx, value_t>(
     handle, mst_rows.data(), mst_cols.data(), mst_data.data(), n_edges,
     children, out_delta, out_size);
 
-  label::agglomerative::extract_flattened_clusters(handle, out->labels,
-                                                   children, n_clusters, m);
+  detail::extract_flattened_clusters(handle, out->labels, children, n_clusters,
+                                     m);
 };
 };  // namespace hierarchy
 };  // namespace raft

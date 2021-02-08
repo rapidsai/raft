@@ -18,17 +18,17 @@
 
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
-#include "distance.h"
+#include "connectivities.cuh"
 
+#include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/coo.cuh>
-#include <raft/sparse/csr.cuh>
 #include <raft/sparse/linalg/symmetrize.cuh>
 
 #include <raft/spatial/knn/knn.hpp>
 
 #include <raft/linalg/distance_type.h>
 #include <raft/mr/device/buffer.hpp>
-#include <raft/sparse/mst/mst.cuh>
+#include <raft/sparse/hierarchy/connectivities.cuh>
 
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
@@ -38,8 +38,8 @@
 #include <limits>
 
 namespace raft {
-namespace linkage {
-namespace distance {
+namespace hierarchy {
+namespace detail {
 
 /**
  * Fills indices array of pairwise distance array
@@ -169,6 +169,6 @@ struct distance_graph_impl<LinkageDistance::KNN_GRAPH, value_idx, value_t> {
   }
 };
 
-};  // namespace distance
-};  // end namespace linkage
+};  // namespace detail
+};  // end namespace hierarchy
 };  // end namespace raft

@@ -25,8 +25,8 @@
 #include <limits>
 
 namespace raft {
-namespace linkage {
-namespace distance {
+namespace hierarchy {
+namespace detail {
 
 template <LinkageDistance dist_type, typename value_idx, typename value_t>
 struct distance_graph_impl {
@@ -63,6 +63,6 @@ void get_distance_graph(const raft::handle_t &handle, const value_t *X,
     stream);
 }
 
-}  // namespace distance
-}  // namespace linkage
+}  // namespace detail
+}  // namespace hierarchy
 }  // namespace raft

@@ -26,9 +26,8 @@
 #include <thrust/sort.h>
 
 namespace raft {
-namespace linkage {
-namespace label {
-namespace agglomerative {
+namespace hierarchy {
+namespace detail {
 
 template <typename value_idx, typename value_t>
 class UnionFind {
@@ -358,7 +357,8 @@ void extract_flattened_clusters(
   raft::copy_async(labels, tmp_labels.data(), n_leaves, stream);
 }
 
-};  // end namespace agglomerative
-};  // end namespace label
-};  // end namespace linkage
-};  // end namespace raft
+};  // namespace detail
+};  // namespace hierarchy
+};  // namespace raft
+}
+;  // end namespace raft
