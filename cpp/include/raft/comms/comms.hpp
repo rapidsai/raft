@@ -19,6 +19,7 @@
 #include <raft/cudart_utils.h>
 
 #include <memory>
+#include <vector>
 
 namespace raft {
 namespace comms {
@@ -395,7 +396,7 @@ class comms_t {
                        value_t* recvbuf, size_t recvsize, int source,
                        cudaStream_t stream) const {
     impl_->device_sendrecv(
-      static_cast<void*>(snedbuf), sendsize * sizeof(value_t), dest,
+      static_cast<void*>(sendbuf), sendsize * sizeof(value_t), dest,
       static_cast<void*>(recvbuf), recvsize * sizeof(value_t), source, stream);
   }
 
@@ -414,14 +415,12 @@ class comms_t {
    * @param stream CUDA stream to synchronize operation
    */
   template <typename value_t>
-  void device_multicast_sendrecv(void* sendbuf,
-                                 std::vector<size_t> const& sendsizes,
-                                 std::vector<size_t> const& sendoffsets,
-                                 std::vector<int> const& dests, void* recvbuf,
-                                 std::vector<size_t> const& recvsizes,
-                                 std::vector<size_t> const& recvoffsets,
-                                 std::vector<int> const& sources,
-                                 cudaStream_t stream) const {
+  void device_multicast_sendrecv(
+    value_t* sendbuf, std::vector<size_t> const& sendsizes,
+    std::vector<size_t> const& sendoffsets, std::vector<int> const& dests,
+    value_t* recvbuf, std::vector<size_t> const& recvsizes,
+    std::vector<size_t> const& recvoffsets, std::vector<int> const& sources,
+    cudaStream_t stream) const {
     auto sendbytesizes = sendsizes;
     auto sendbyteoffsets = sendoffsets;
     for (size_t i = 0; i < sendsizes.size(); ++i) {
@@ -434,9 +433,10 @@ class comms_t {
       recvbytesizes[i] *= sizeof(value_t);
       recvbyteoffsets[i] *= sizeof(value_t);
     }
-    impl->device_multicast_sendrecv(sendbuf, sendbytesizes, sendbyteoffsets,
-                                    dests, recvbytesizes, recvbyteoffsets,
-                                    sources, stream);
+    impl_->device_multicast_sendrecv(static_cast<void*>(sendbuf), sendbytesizes,
+                                     sendbyteoffsets, dests,
+                                     static_cast<void*>(recvbuf), recvbytesizes,
+                                     recvbyteoffsets, sources, stream);
   }
 
  private:
