@@ -75,7 +75,7 @@ void build_sorted_mst(const raft::handle_t &handle, const value_idx *indptr,
   auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
 
-  raft::mr::device::buffer<value_idx> color(d_alloc, stream, (size_t)m-1);
+  raft::mr::device::buffer<value_idx> color(d_alloc, stream, (size_t)m - 1);
 
   auto mst_coo = raft::mst::mst<value_idx, value_idx, value_t>(
     handle, indptr, indices, pw_dists, (value_idx)m, nnz, color.data(), stream);
@@ -94,6 +94,6 @@ void build_sorted_mst(const raft::handle_t &handle, const value_idx *indptr,
                    stream);
 }
 
-};  // end namespace mst
-};  // end namespace linkage
-};  // end namespace raft
+};  // namespace MST
+};  // namespace Linkage
+};  // namespace ML

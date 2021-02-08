@@ -69,12 +69,14 @@ void get_distance_graph(const raft::handle_t &handle, const value_t *X,
   raft::linalg::unaryOp<value_t>(
     data.data(), data.data(), data.size(),
     [] __device__(value_t input) {
-    if(input == 0) return std::numeric_limits<value_t>::max();
-    else return input;
-  },
-  stream);
+      if (input == 0)
+        return std::numeric_limits<value_t>::max();
+      else
+        return input;
+    },
+    stream);
 }
 
-}
-}
-}
+}  // namespace distance
+}  // namespace linkage
+}  // namespace raft

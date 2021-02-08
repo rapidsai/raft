@@ -304,7 +304,6 @@ void from_knn_symmetrize_matrix(
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
-
 template <typename value_idx>
 __global__ void compute_duplicates_diffs(const value_idx *rows,
                                          const value_idx *cols, value_idx *diff,
@@ -340,7 +339,6 @@ template <typename value_idx, typename value_t>
 void symmetrize(const raft::handle_t &handle, const value_idx *rows,
                 const value_idx *cols, const value_t *vals, size_t m, size_t n,
                 size_t nnz, MLCommon::Sparse::COO<value_t, value_idx> &out) {
-
   auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
 
@@ -368,8 +366,8 @@ void symmetrize(const raft::handle_t &handle, const value_idx *rows,
                              ((nnz * 2) + 1) * sizeof(value_idx), stream));
 
   compute_duplicates_diffs<<<raft::ceildiv(nnz * 2, (size_t)1024), 1024, 0,
-  stream>>>(symm_rows.data(), symm_cols.data(),
-            diff.data(), nnz * 2);
+                             stream>>>(symm_rows.data(), symm_cols.data(),
+                                       diff.data(), nnz * 2);
 
   thrust::device_ptr<value_idx> dev = thrust::device_pointer_cast(diff.data());
 
@@ -388,7 +386,7 @@ void symmetrize(const raft::handle_t &handle, const value_idx *rows,
 
   // perform reduce
   reduce_duplicates_kernel<<<raft::ceildiv(nnz * 2, (size_t)1024), 1024, 0,
-  stream>>>(
+                             stream>>>(
     symm_rows.data(), symm_cols.data(), symm_vals.data(), diff.data() + 1,
     out.rows(), out.cols(), out.vals(), nnz * 2);
 }

@@ -156,7 +156,6 @@ void knn_graph(const raft::handle_t &handle, const value_t *X, size_t m,
   CUDA_CHECK(cudaGetLastError());
 }
 
-
 /**
  * Connectivities specialization to build a knn graph
  * @tparam value_idx
@@ -164,12 +163,11 @@ void knn_graph(const raft::handle_t &handle, const value_t *X, size_t m,
  */
 template <typename value_idx, typename value_t>
 struct distance_graph_impl<LinkageDistance::KNN_GRAPH, value_idx, value_t> {
-  void run(const raft::handle_t &handle, const value_t *X,
-           size_t m, size_t n, raft::distance::DistanceType metric,
+  void run(const raft::handle_t &handle, const value_t *X, size_t m, size_t n,
+           raft::distance::DistanceType metric,
            raft::mr::device::buffer<value_idx> &indptr,
            raft::mr::device::buffer<value_idx> &indices,
            raft::mr::device::buffer<value_t> &data, int c) {
-
     auto d_alloc = handle.get_device_allocator();
     auto stream = handle.get_stream();
 
@@ -181,8 +179,8 @@ struct distance_graph_impl<LinkageDistance::KNN_GRAPH, value_idx, value_t> {
     indices.resize(knn_graph_coo.nnz, stream);
     data.resize(knn_graph_coo.nnz, stream);
 
-    MLCommon::Sparse::sorted_coo_to_csr(&knn_graph_coo, indptr.data(),
-                                        d_alloc, stream);
+    MLCommon::Sparse::sorted_coo_to_csr(&knn_graph_coo, indptr.data(), d_alloc,
+                                        stream);
 
     raft::copy_async(indices.data(), knn_graph_coo.cols(), knn_graph_coo.nnz,
                      stream);
