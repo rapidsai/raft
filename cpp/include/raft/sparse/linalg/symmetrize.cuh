@@ -24,10 +24,10 @@
 #include <raft/mr/device/allocator.hpp>
 #include <raft/mr/device/buffer.hpp>
 
-#include <raft/device_atomics.cuh>
-
+#include <raft/sparse/op/sort.h>
 #include <thrust/device_ptr.h>
 #include <thrust/scan.h>
+#include <raft/device_atomics.cuh>
 
 #include <cuda_runtime.h>
 #include <stdio.h>
@@ -338,7 +338,7 @@ __global__ void reduce_duplicates_kernel(
 template <typename value_idx, typename value_t>
 void symmetrize(const raft::handle_t &handle, const value_idx *rows,
                 const value_idx *cols, const value_t *vals, size_t m, size_t n,
-                size_t nnz, MLCommon::Sparse::COO<value_t, value_idx> &out) {
+                size_t nnz, raft::sparse::COO<value_t, value_idx> &out) {
   auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
 
@@ -356,7 +356,7 @@ void symmetrize(const raft::handle_t &handle, const value_idx *rows,
   raft::copy_async(symm_vals.data() + nnz, vals, nnz, stream);
 
   // sort COO
-  MLCommon::Sparse::coo_sort(m, n, nnz * 2, symm_rows.data(), symm_cols.data(),
+  raft::sparse::op::coo_sort(m, n, nnz * 2, symm_rows.data(), symm_cols.data(),
                              symm_vals.data(), d_alloc, stream);
 
   // compute diffs & take exclusive scan
@@ -371,9 +371,8 @@ void symmetrize(const raft::handle_t &handle, const value_idx *rows,
 
   thrust::device_ptr<value_idx> dev = thrust::device_pointer_cast(diff.data());
 
-  ML::thrustAllocatorAdapter alloc(d_alloc, stream);
-  thrust::exclusive_scan(thrust::cuda::par(alloc).on(stream), dev,
-                         dev + diff.size(), dev);
+  thrust::exclusive_scan(thrust::cuda::par.on(stream), dev, dev + diff.size(),
+                         dev);
 
   // compute final size
   value_idx size = 0;

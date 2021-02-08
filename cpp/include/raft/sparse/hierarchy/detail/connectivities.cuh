@@ -18,11 +18,16 @@
 
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/handle.hpp>
 
 #include <raft/linalg/unary_op.cuh>
 
 #include <raft/linalg/distance_type.h>
+#include <raft/sparse/hierarchy/common.h>
 #include <raft/mr/device/buffer.hpp>
+#include <raft/sparse/convert/csr.cuh>
+#include <raft/sparse/coo.cuh>
+#include <raft/sparse/hierarchy/detail/knn_graph.cuh>
 
 #include <limits>
 
@@ -30,7 +35,8 @@ namespace raft {
 namespace hierarchy {
 namespace detail {
 
-template <raft::hierarchy::LinkageDistance dist_type, typename value_idx, typename value_t>
+template <raft::hierarchy::LinkageDistance dist_type, typename value_idx,
+          typename value_t>
 struct distance_graph_impl {
   void run(const raft::handle_t &handle, const value_t *X, size_t m, size_t n,
            raft::distance::DistanceType metric,
@@ -39,7 +45,42 @@ struct distance_graph_impl {
            raft::mr::device::buffer<value_t> &data, int c);
 };
 
-template <typename value_idx, typename value_t, raft::hierarchy::LinkageDistance dist_type>
+//@TODO: Don't need to expose these
+/**
+ * Connectivities specialization to build a knn graph
+ * @tparam value_idx
+ * @tparam value_t
+ */
+template <typename value_idx, typename value_t>
+struct distance_graph_impl<LinkageDistance::KNN_GRAPH, value_idx, value_t> {
+  void run(const raft::handle_t &handle, const value_t *X, size_t m, size_t n,
+           raft::distance::DistanceType metric,
+           raft::mr::device::buffer<value_idx> &indptr,
+           raft::mr::device::buffer<value_idx> &indices,
+           raft::mr::device::buffer<value_t> &data, int c) {
+    auto d_alloc = handle.get_device_allocator();
+    auto stream = handle.get_stream();
+
+    // Need to symmetrize knn into undirected graph
+    raft::sparse::COO<value_t, value_idx> knn_graph_coo(d_alloc, stream);
+
+    knn_graph(handle, X, m, n, metric, knn_graph_coo, c);
+
+    indices.resize(knn_graph_coo.nnz, stream);
+    data.resize(knn_graph_coo.nnz, stream);
+
+    raft::sparse::convert::sorted_coo_to_csr(&knn_graph_coo, indptr.data(),
+                                             d_alloc, stream);
+
+    raft::copy_async(indices.data(), knn_graph_coo.cols(), knn_graph_coo.nnz,
+                     stream);
+    raft::copy_async(data.data(), knn_graph_coo.vals(), knn_graph_coo.nnz,
+                     stream);
+  }
+};
+
+template <typename value_idx, typename value_t,
+          hierarchy::LinkageDistance dist_type>
 void get_distance_graph(const raft::handle_t &handle, const value_t *X,
                         size_t m, size_t n, raft::distance::DistanceType metric,
                         raft::mr::device::buffer<value_idx> &indptr,
@@ -65,6 +106,6 @@ void get_distance_graph(const raft::handle_t &handle, const value_t *X,
     stream);
 }
 
-}  // namespace detail
-}  // namespace hierarchy
-}  // namespace raft
+};  // namespace detail
+};  // namespace hierarchy
+};  // namespace raft

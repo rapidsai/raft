@@ -18,6 +18,7 @@
 
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/handle.hpp>
 
 #include <raft/mr/device/buffer.hpp>
 
@@ -86,12 +87,11 @@ class UnionFind {
  * @param[out] out_size cluster sizes of output
  */
 template <typename value_idx, typename value_t>
-void build_dendrogram_host(const raft::handle_t &handle, const value_idx *rows,
+void build_dendrogram_host(const handle_t &handle, const value_idx *rows,
                            const value_idx *cols, const value_t *data,
-                           size_t nnz,
-                           raft::mr::device::buffer<value_idx> &children,
-                           raft::mr::device::buffer<value_t> &out_delta,
-                           raft::mr::device::buffer<value_idx> &out_size) {
+                           size_t nnz, mr::device::buffer<value_idx> &children,
+                           mr::device::buffer<value_t> &out_delta,
+                           mr::device::buffer<value_idx> &out_size) {
   auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
 
@@ -101,16 +101,16 @@ void build_dendrogram_host(const raft::handle_t &handle, const value_idx *rows,
   std::vector<value_idx> mst_dst_h(n_edges);
   std::vector<value_t> mst_weights_h(n_edges);
 
-  raft::update_host(mst_src_h.data(), rows, n_edges, stream);
-  raft::update_host(mst_dst_h.data(), cols, n_edges, stream);
-  raft::update_host(mst_weights_h.data(), data, n_edges, stream);
+  update_host(mst_src_h.data(), rows, n_edges, stream);
+  update_host(mst_dst_h.data(), cols, n_edges, stream);
+  update_host(mst_weights_h.data(), data, n_edges, stream);
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   std::vector<value_idx> children_h(n_edges * 2);
   std::vector<value_idx> out_size_h(n_edges);
 
-  uint32_t start = raft::curTimeMillis();
+  uint32_t start = curTimeMillis();
   UnionFind<value_idx, value_t> U(nnz + 1);
 
   for (value_idx i = 0; i < nnz; i++) {
@@ -128,8 +128,6 @@ void build_dendrogram_host(const raft::handle_t &handle, const value_idx *rows,
 
     U.perform_union(aa, bb);
   }
-
-  printf("union-find time: %d\n", (raft::curTimeMillis() - start));
 
   children.resize(n_edges * 2, stream);
   out_size.resize(n_edges, stream);
@@ -173,11 +171,11 @@ void build_dendrogram_host(const raft::handle_t &handle, const value_idx *rows,
  * @param[in] k_folds number of folds for parallelizing label step
  */
 template <typename value_idx, typename value_t>
-void build_dendrogram_device(const raft::handle_t &handle,
-                             const value_idx *rows, const value_idx *cols,
-                             const value_t *data, value_idx nnz,
-                             value_idx *children, value_t *out_delta,
-                             value_idx *out_size, value_idx k_folds) {
+void build_dendrogram_device(const handle_t &handle, const value_idx *rows,
+                             const value_idx *cols, const value_t *data,
+                             value_idx nnz, value_idx *children,
+                             value_t *out_delta, value_idx *out_size,
+                             value_idx k_folds) {
   ASSERT(k_folds < nnz / 2, "k_folds must be < n_edges / 2");
   /**
    * divide (sorted) mst coo into overlapping subsets. Easiest way to do this is to
@@ -297,7 +295,7 @@ void extract_flattened_clusters(
   raft::mr::device::buffer<value_idx> levels(handle.get_device_allocator(),
                                              stream, n_vertices);
 
-  value_idx n_blocks = raft::ceildiv(n_vertices, (value_idx)tpb);
+  value_idx n_blocks = ceildiv(n_vertices, (value_idx)tpb);
   write_levels_kernel<<<n_blocks, tpb, 0, stream>>>(children.data(),
                                                     levels.data(), n_vertices);
   /**
@@ -314,8 +312,8 @@ void extract_flattened_clusters(
                                                   stream, child_size);
 
   value_idx children_cpy_start = children.size() - child_size;
-  raft::copy_async(label_roots.data(), children.data() + children_cpy_start,
-                   child_size, stream);
+  copy_async(label_roots.data(), children.data() + children_cpy_start,
+             child_size, stream);
 
   thrust::device_ptr<value_idx> t_label_roots =
     thrust::device_pointer_cast(label_roots.data());

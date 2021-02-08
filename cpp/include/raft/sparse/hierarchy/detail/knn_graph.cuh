@@ -18,9 +18,7 @@
 
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
-#include "connectivities.cuh"
 
-#include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/coo.cuh>
 #include <raft/sparse/linalg/symmetrize.cuh>
 
@@ -28,7 +26,6 @@
 
 #include <raft/linalg/distance_type.h>
 #include <raft/mr/device/buffer.hpp>
-#include <raft/sparse/hierarchy/connectivities.cuh>
 
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
@@ -72,7 +69,7 @@ __global__ void conv_indices_kernel(in_t *inds, out_t *out, size_t nnz) {
 
 template <typename in_t, typename out_t, int tpb = 256>
 void conv_indices(in_t *inds, out_t *out, size_t size, cudaStream_t stream) {
-  size_t blocks = raft::ceildiv(size, (size_t)tpb);
+  size_t blocks = ceildiv(size, (size_t)tpb);
   conv_indices_kernel<<<blocks, tpb, 0, stream>>>(inds, out, size);
 }
 
@@ -94,9 +91,9 @@ void conv_indices(in_t *inds, out_t *out, size_t size, cudaStream_t stream) {
  * @param c
  */
 template <typename value_idx = int, typename value_t = float>
-void knn_graph(const raft::handle_t &handle, const value_t *X, size_t m,
-               size_t n, raft::distance::DistanceType metric,
-               MLCommon::Sparse::COO<value_t, value_idx> &out, int c = 15) {
+void knn_graph(const handle_t &handle, const value_t *X, size_t m, size_t n,
+               distance::DistanceType metric,
+               raft::sparse::COO<value_t, value_idx> &out, int c = 15) {
   int k = build_k(m, c);
 
   auto d_alloc = handle.get_device_allocator();
@@ -108,7 +105,7 @@ void knn_graph(const raft::handle_t &handle, const value_t *X, size_t m,
   raft::mr::device::buffer<value_idx> indices(d_alloc, stream, nnz);
   raft::mr::device::buffer<value_t> data(d_alloc, stream, nnz);
 
-  size_t blocks = raft::ceildiv(nnz, (size_t)256);
+  size_t blocks = ceildiv(nnz, (size_t)256);
   fill_indices<value_idx><<<blocks, 256, 0, stream>>>(rows.data(), k, nnz);
 
   std::vector<value_t *> inputs;
@@ -119,9 +116,9 @@ void knn_graph(const raft::handle_t &handle, const value_t *X, size_t m,
 
   // This is temporary. Once faiss is updated, we should be able to
   // pass value_idx through to knn.
-  raft::mr::device::buffer<int64_t> int64_indices(d_alloc, stream, nnz);
+  mr::device::buffer<int64_t> int64_indices(d_alloc, stream, nnz);
 
-  uint32_t knn_start = raft::curTimeMillis();
+  uint32_t knn_start = curTimeMillis();
   raft::spatial::knn::brute_force_knn(
     handle, inputs, sizes, n, const_cast<value_t *>(X), m, int64_indices.data(),
     data.data(), k, true, true, metric);
@@ -135,39 +132,6 @@ void knn_graph(const raft::handle_t &handle, const value_t *X, size_t m,
   CUDA_CHECK(cudaStreamSynchronize(stream));
   CUDA_CHECK(cudaGetLastError());
 }
-
-/**
- * Connectivities specialization to build a knn graph
- * @tparam value_idx
- * @tparam value_t
- */
-template <typename value_idx, typename value_t>
-struct distance_graph_impl<LinkageDistance::KNN_GRAPH, value_idx, value_t> {
-  void run(const raft::handle_t &handle, const value_t *X, size_t m, size_t n,
-           raft::distance::DistanceType metric,
-           raft::mr::device::buffer<value_idx> &indptr,
-           raft::mr::device::buffer<value_idx> &indices,
-           raft::mr::device::buffer<value_t> &data, int c) {
-    auto d_alloc = handle.get_device_allocator();
-    auto stream = handle.get_stream();
-
-    // Need to symmetrize knn into undirected graph
-    raft::sparse::COO<value_t, value_idx> knn_graph_coo(d_alloc, stream);
-
-    knn_graph(handle, X, m, n, metric, knn_graph_coo, c);
-
-    indices.resize(knn_graph_coo.nnz, stream);
-    data.resize(knn_graph_coo.nnz, stream);
-
-    raft::sparse::convert::sorted_coo_to_csr(&knn_graph_coo, indptr.data(),
-                                             d_alloc, stream);
-
-    raft::copy_async(indices.data(), knn_graph_coo.cols(), knn_graph_coo.nnz,
-                     stream);
-    raft::copy_async(data.data(), knn_graph_coo.vals(), knn_graph_coo.nnz,
-                     stream);
-  }
-};
 
 };  // namespace detail
 };  // end namespace hierarchy
