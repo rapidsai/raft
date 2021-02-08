@@ -360,5 +360,3 @@ void extract_flattened_clusters(
 };  // namespace detail
 };  // namespace hierarchy
 };  // namespace raft
-}
-;  // end namespace raft

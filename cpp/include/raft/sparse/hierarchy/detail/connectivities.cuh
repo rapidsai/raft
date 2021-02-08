@@ -19,6 +19,8 @@
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
 
+#include <raft/linalg/unary_op.cuh>
+
 #include <raft/linalg/distance_type.h>
 #include <raft/mr/device/buffer.hpp>
 
@@ -28,7 +30,7 @@ namespace raft {
 namespace hierarchy {
 namespace detail {
 
-template <LinkageDistance dist_type, typename value_idx, typename value_t>
+template <raft::hierarchy::LinkageDistance dist_type, typename value_idx, typename value_t>
 struct distance_graph_impl {
   void run(const raft::handle_t &handle, const value_t *X, size_t m, size_t n,
            raft::distance::DistanceType metric,
@@ -37,7 +39,7 @@ struct distance_graph_impl {
            raft::mr::device::buffer<value_t> &data, int c);
 };
 
-template <typename value_idx, typename value_t, LinkageDistance dist_type>
+template <typename value_idx, typename value_t, raft::hierarchy::LinkageDistance dist_type>
 void get_distance_graph(const raft::handle_t &handle, const value_t *X,
                         size_t m, size_t n, raft::distance::DistanceType metric,
                         raft::mr::device::buffer<value_idx> &indptr,

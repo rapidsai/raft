@@ -19,33 +19,15 @@
 #include <raft/cudart_utils.h>
 #include <raft/mr/device/buffer.hpp>
 
-#include <hierarchy/detail/agglomerative.cuh>
-#include <hierarchy/detail/connectivities.cuh>
-#include <hierarchy/detail/mst.cuh>
+#include <raft/sparse/hierarchy/common.h>
+#include <raft/sparse/hierarchy/detail/agglomerative.cuh>
+#include <raft/sparse/hierarchy/detail/connectivities.cuh>
+#include <raft/sparse/hierarchy/detail/mst.cuh>
 
 namespace raft {
 namespace hierarchy {
 
 static const size_t EMPTY = 0;
-
-enum LinkageDistance { PAIRWISE = 0, KNN_GRAPH = 1 };
-
-template <typename value_idx, typename value_t>
-struct linkage_output {
-  value_idx m;
-  value_idx n_clusters;
-
-  value_idx n_leaves;
-  value_idx n_connected_components;
-
-  value_idx *labels;  // size: m
-
-  value_idx *children;  // size: (m-1, 2)
-};
-
-struct linkage_output_int_float : public linkage_output<int, float> {};
-struct linkage_output__int64_float : public linkage_output<int64_t, float> {};
-
 template <typename value_idx, typename value_t,
           LinkageDistance dist_type = LinkageDistance::PAIRWISE>
 void single_linkage(const raft::handle_t &handle, const value_t *X, size_t m,
