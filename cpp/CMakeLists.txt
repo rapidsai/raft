@@ -277,6 +277,23 @@ if(BUILD_RAFT_TESTS)
     test/random/rng.cu
     test/random/rng_int.cu
     test/random/sample_without_replacement.cu
+    test/sparse/add.cu
+    test/sparse/convert_coo.cu
+    test/sparse/convert_csr.cu
+    test/sparse/csr_row_slice.cu
+    test/sparse/csr_to_dense.cu
+    test/sparse/csr_transpose.cu
+    test/sparse/degree.cu
+    test/sparse/dist_coo_spmv.cu
+    test/sparse/dist_csr_spmv.cu
+    test/sparse/distance.cu
+    test/sparse/filter.cu
+    test/sparse/knn.cu
+    test/sparse/norm.cu
+    test/sparse/row_op.cu
+    test/sparse/selection.cu
+    test/sparse/sort.cu
+    test/sparse/symmetrize.cu
     test/spatial/knn.cu
     test/stats/mean.cu
     test/stats/mean_center.cu
