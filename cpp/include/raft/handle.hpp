@@ -67,9 +67,22 @@ class handle_t {
       host_allocator_(std::make_shared<mr::host::default_allocator>()) {
     create_resources();
   }
+  handle_t(const handle_t& h) : dev_id_(h.get_device()), num_streams_(0) {}
+  handle_t(const handle_t&& h) : dev_id_(h.get_device()), num_streams_(0) {}
+
+  handle_t& operator=(const handle_t& h) {
+    prop_ = h.get_device_properties();
+    device_prop_initialized_ = true;
+    device_allocator_ = get_device_allocator();
+    host_allocator_ = get_host_allocator();
+    return *this;
+  }
 
   /** Destroys all held-up resources */
-  virtual ~handle_t() { destroy_resources(); }
+  virtual ~handle_t() {
+    std::cout << "dtor" << std::endl;
+    destroy_resources();
+  }
 
   int get_device() const { return dev_id_; }
 
@@ -134,6 +147,14 @@ class handle_t {
       int_streams_vec.push_back(s);
     }
     return int_streams_vec;
+  }
+
+  handle_t get_handle_from_internal_pool(
+    int stream_id, int n_streams = kNumDefaultWorkerStreams) const {
+    handle_t handle(n_streams);
+    handle = *this;
+    handle.set_stream(this->get_internal_stream(stream_id));
+    return handle;
   }
 
   void wait_on_user_stream() const {

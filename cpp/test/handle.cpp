@@ -15,6 +15,7 @@
  */
 
 #include <gtest/gtest.h>
+#include <cstddef>
 #include <iostream>
 #include <memory>
 #include <raft/handle.hpp>
@@ -49,4 +50,14 @@ TEST(Raft, GetInternalStreams) {
   ASSERT_EQ(4U, streams.size());
 }
 
+TEST(Raft, GetHandleFromPool) {
+  handle_t parent(4);
+  int sid = 2;
+  auto child = parent.get_handle_from_internal_pool(sid);
+  std::cout << "done" << std::endl;
+
+  ASSERT_EQ(parent.get_internal_stream(sid), child.get_stream());
+  ASSERT_EQ(0, child.get_num_internal_streams());
+  ASSERT_EQ(parent.get_device(), child.get_device());
+}
 }  // namespace raft
