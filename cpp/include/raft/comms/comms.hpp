@@ -396,7 +396,7 @@ class comms_t {
                        value_t* recvbuf, size_t recvsize, int source,
                        cudaStream_t stream) const {
     impl_->device_sendrecv(
-      static_cast<void*>(sendbuf), sendsize * sizeof(value_t), dest,
+      static_cast<const void*>(sendbuf), sendsize * sizeof(value_t), dest,
       static_cast<void*>(recvbuf), recvsize * sizeof(value_t), source, stream);
   }
 
@@ -433,7 +433,7 @@ class comms_t {
       recvbytesizes[i] *= sizeof(value_t);
       recvbyteoffsets[i] *= sizeof(value_t);
     }
-    impl_->device_multicast_sendrecv(static_cast<void*>(sendbuf), sendbytesizes,
+    impl_->device_multicast_sendrecv(static_cast<const void*>(sendbuf), sendbytesizes,
                                      sendbyteoffsets, dests,
                                      static_cast<void*>(recvbuf), recvbytesizes,
                                      recvbyteoffsets, sources, stream);

@@ -302,7 +302,7 @@ class mpi_comms : public comms_iface {
     // ncclSend/ncclRecv pair needs to be inside ncclGroupStart/ncclGroupEnd to avoid deadlock
     NCCL_TRY(ncclGroupStart());
     for (size_t i = 0; i < sendsizes.size(); ++i) {
-      NCCL_TRY(ncclSend(static_cast<char*>(sendbuf) + sendoffsets[i],
+      NCCL_TRY(ncclSend(static_cast<const char*>(sendbuf) + sendoffsets[i],
                         sendsizes[i], ncclUint8, dests[i], nccl_comm_, stream));
     }
     for (size_t i = 0; i < recvsizes.size(); ++i) {
