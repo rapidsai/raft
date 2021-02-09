@@ -280,8 +280,9 @@ class mpi_comms : public comms_iface {
     NCCL_TRY(ncclRecv(buf, size, ncclUint8, source, nccl_comm_, stream));
   }
 
-  void device_sendrecv(void* sendbuf, size_t sendsize, int dest, void* recvbuf,
-                       size_t recvsize, int source, cudaStream_t stream) const {
+  void device_sendrecv(const void* sendbuf, size_t sendsize, int dest,
+                       void* recvbuf, size_t recvsize, int source,
+                       cudaStream_t stream) const {
     // ncclSend/ncclRecv pair needs to be inside ncclGroupStart/ncclGroupEnd to avoid deadlock
     NCCL_TRY(ncclGroupStart());
     NCCL_TRY(ncclSend(sendbuf, sendsize, ncclUint8, dest, nccl_comm_, stream));
@@ -290,7 +291,7 @@ class mpi_comms : public comms_iface {
     NCCL_TRY(ncclGroupEnd());
   }
 
-  void device_multicast_sendrecv(void* sendbuf,
+  void device_multicast_sendrecv(const void* sendbuf,
                                  std::vector<size_t> const& sendsizes,
                                  std::vector<size_t> const& sendoffsets,
                                  std::vector<int> const& dests, void* recvbuf,

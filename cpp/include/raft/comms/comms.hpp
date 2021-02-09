@@ -137,12 +137,12 @@ class comms_iface {
   virtual void device_recv(void* buf, size_t size, int source,
                            cudaStream_t stream) const = 0;
 
-  virtual void device_sendrecv(void* sendbuf, size_t sendsize, int dest,
+  virtual void device_sendrecv(const void* sendbuf, size_t sendsize, int dest,
                                void* recvbuf, size_t recvsize, int source,
                                cudaStream_t stream) const = 0;
 
   virtual void device_multicast_sendrecv(
-    void* sendbuf, std::vector<size_t> const& sendsizes,
+    const void* sendbuf, std::vector<size_t> const& sendsizes,
     std::vector<size_t> const& sendoffsets, std::vector<int> const& dests,
     void* recvbuf, std::vector<size_t> const& recvsizes,
     std::vector<size_t> const& recvoffsets, std::vector<int> const& sources,
@@ -392,7 +392,7 @@ class comms_t {
    * @param stream CUDA stream to synchronize operation
    */
   template <typename value_t>
-  void device_sendrecv(value_t* sendbuf, size_t sendsize, int dest,
+  void device_sendrecv(const value_t* sendbuf, size_t sendsize, int dest,
                        value_t* recvbuf, size_t recvsize, int source,
                        cudaStream_t stream) const {
     impl_->device_sendrecv(
@@ -416,7 +416,7 @@ class comms_t {
    */
   template <typename value_t>
   void device_multicast_sendrecv(
-    value_t* sendbuf, std::vector<size_t> const& sendsizes,
+    const value_t* sendbuf, std::vector<size_t> const& sendsizes,
     std::vector<size_t> const& sendoffsets, std::vector<int> const& dests,
     value_t* recvbuf, std::vector<size_t> const& recvsizes,
     std::vector<size_t> const& recvoffsets, std::vector<int> const& sources,
