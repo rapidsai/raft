@@ -169,7 +169,7 @@ def perform_test_comms_device_send_or_recv(handle, n_trials):
 
 def perform_test_comms_device_sendrecv(handle, n_trials):
     """
-    Performs a p2p device concurrent send & recv on the current worker
+    Performs a p2p device concurrent send&recv on the current worker
 
     Parameters
     ----------
@@ -184,7 +184,7 @@ def perform_test_comms_device_sendrecv(handle, n_trials):
 
 def perform_test_comms_device_multicast_sendrecv(handle, n_trials):
     """
-    Performs a p2p device concurrent multicast send & recv on the current worker
+    Performs a p2p device concurrent multicast send&recv on the current worker
 
     Parameters
     ----------
