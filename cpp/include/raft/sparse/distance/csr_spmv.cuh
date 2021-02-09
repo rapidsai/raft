@@ -31,7 +31,7 @@
 
 #include <nvfunctional>
 
-#include <cub/cub.h>
+#include <cub/cub.cuh>
 
 namespace raft {
 namespace sparse {

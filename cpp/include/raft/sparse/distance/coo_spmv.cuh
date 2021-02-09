@@ -32,7 +32,7 @@
 
 #include <cusparse_v2.h>
 
-#include <cub/cub.h>
+#include <cub/cub.cuh>
 
 namespace raft {
 namespace sparse {
