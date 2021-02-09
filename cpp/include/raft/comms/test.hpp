@@ -171,7 +171,7 @@ bool test_collective_reducescatter(const handle_t &handle, int root) {
   raft::mr::device::buffer<int> recv_d(handle.get_device_allocator(), stream,
                                        1);
 
-  CUDA_CHECK(cudaMemcpyAsync(temp_d.data(), &send sizeof(int),
+  CUDA_CHECK(cudaMemcpyAsync(temp_d.data(), &send, sizeof(int),
                              cudaMemcpyHostToDevice, stream));
 
   communicator.reducescatter(temp_d.data(), recv_d.data(), 1, op_t::SUM,
