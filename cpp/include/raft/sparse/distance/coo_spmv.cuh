@@ -32,9 +32,7 @@
 
 #include <cusparse_v2.h>
 
-#include <cub/block/block_load.cuh>
-#include <cub/block/block_radix_sort.cuh>
-#include <cub/block/block_store.cuh>
+#include <cub/cub.h>
 
 namespace raft {
 namespace sparse {
@@ -98,6 +96,8 @@ __global__ void balanced_coo_generalized_spmv_kernel(
   value_idx *indicesB, value_t *dataB, value_idx m, value_idx n, value_idx dim,
   value_idx nnz_b, value_t *out, int n_blocks_per_row, int chunk_size,
   product_f product_func, accum_f accum_func, write_f write_func) {
+  typedef cub::WarpReduce<value_t> warp_reduce;
+
   value_idx cur_row_a = blockIdx.x / n_blocks_per_row;
   value_idx cur_chunk_offset = blockIdx.x % n_blocks_per_row;
 
@@ -117,8 +117,8 @@ __global__ void balanced_coo_generalized_spmv_kernel(
 
   value_idx *offsets_a = (value_idx *)smem;
   kv_t *A = (kv_t *)(offsets_a + 2);
-  typename cub::WarpReduce<value_t>::TempStorage *temp_storage =
-    (typename cub::WarpReduce<value_t>::TempStorage *)(A + dim);
+  typename warp_reduce::TempStorage *temp_storage =
+    (typename warp_reduce::TempStorage *)(A + dim);
 
   // Create dense vector A and populate with 0s
   for (int k = tid; k < dim; k += blockDim.x) A[k] = 0;
@@ -146,7 +146,7 @@ __global__ void balanced_coo_generalized_spmv_kernel(
   value_idx cur_row_b = -1;
   value_t c = 0.0;
 
-  auto warp_red = cub::WarpReduce<value_t>(*(temp_storage + warp_id));
+  auto warp_red = warp_reduce(*(temp_storage + warp_id));
 
   // coalesced reads from B
   if (tid < active_chunk_size) {
