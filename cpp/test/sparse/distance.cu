@@ -135,7 +135,8 @@ class SparseDistanceTest
       ASSERT_TRUE(devArrMatch(out_dists_ref, out_dists,
                               params.out_dists_ref_h.size(),
                               CompareApprox<value_t>(1e-3)));
-    }  }
+    }
+  }
 
  protected:
   cudaStream_t stream;

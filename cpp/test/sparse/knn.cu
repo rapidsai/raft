@@ -93,15 +93,12 @@ class SparseKNNTest
     update_device(out_dists_ref, out_dists_ref_h.data(), out_dists_ref_h.size(),
                   stream);
 
-
     printf("Allocating final output\n");
-
 
     allocate(out_dists, n_rows * k);
     allocate(out_indices, n_rows * k);
 
     printf("Done.\n");
-
   }
 
   void SetUp() override {
@@ -109,7 +106,6 @@ class SparseKNNTest
       ::testing::TestWithParam<SparseKNNInputs<value_idx, value_t>>::GetParam();
     std::shared_ptr<raft::mr::device::allocator> alloc(
       new raft::mr::device::default_allocator);
-
 
     CUDA_CHECK(cudaStreamCreate(&stream));
 
@@ -137,7 +133,6 @@ class SparseKNNTest
   }
 
   void TearDown() override {
-
     CUDA_CHECK(cudaFree(indptr));
     CUDA_CHECK(cudaFree(indices));
     CUDA_CHECK(cudaFree(data));
@@ -184,7 +179,8 @@ const std::vector<SparseKNNInputs<int, float>> inputs_i32_f = {
    {0, 1.41421, 0, 7.87401, 0, 7.87401, 0, 1.41421},  // dists
    {0, 3, 1, 0, 2, 0, 3, 0},                          // inds
    2,
-   2, 2,
+   2,
+   2,
    raft::distance::DistanceType::L2Expanded}};
 typedef SparseKNNTest<int, float> SparseKNNTestF;
 TEST_P(SparseKNNTestF, Result) { compare(); }
