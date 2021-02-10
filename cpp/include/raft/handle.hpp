@@ -86,6 +86,9 @@ class handle_t {
 
   void set_stream(cudaStream_t stream) { user_stream_ = stream; }
   cudaStream_t get_stream() const { return user_stream_; }
+  rmm::cuda_stream_view get_stream_view() const {
+    return rmm::cuda_stream_view(user_stream_);
+  }
 
   void set_device_allocator(std::shared_ptr<mr::device::allocator> allocator) {
     device_allocator_ = allocator;
@@ -137,9 +140,15 @@ class handle_t {
     return cusparse_handle_;
   }
 
+  // legacy compatibility for cuML
   cudaStream_t get_internal_stream(int sid) const {
     return streams_.get_stream(sid).value();
   }
+  // new accessor return rmm::cuda_stream_view
+  rmm::cuda_stream_view get_internal_stream_view(int sid) const {
+    return streams_.get_stream(sid);
+  }
+
   int get_num_internal_streams() const { return streams_.get_pool_size(); }
   std::vector<cudaStream_t> get_internal_streams() const {
     std::vector<cudaStream_t> int_streams_vec;
