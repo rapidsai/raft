@@ -38,6 +38,7 @@
 #include <raft/comms/comms.hpp>
 #include <raft/mr/device/allocator.hpp>
 #include <raft/mr/host/allocator.hpp>
+#include <rmm/cuda_stream_pool.hpp>
 #include "cudart_utils.h"
 
 namespace raft {
@@ -62,13 +63,13 @@ class handle_t {
         CUDA_CHECK(cudaGetDevice(&cur_dev));
         return cur_dev;
       }()),
-      num_streams_(n_streams),
+      streams_(n_streams),
       device_allocator_(std::make_shared<mr::device::default_allocator>()),
       host_allocator_(std::make_shared<mr::host::default_allocator>()) {
     create_resources();
   }
-  handle_t(const handle_t& h) : dev_id_(h.get_device()), num_streams_(0) {}
-  handle_t(const handle_t&& h) : dev_id_(h.get_device()), num_streams_(0) {}
+  handle_t(const handle_t& h) : dev_id_(h.get_device()) {}
+  handle_t(const handle_t&& h) : dev_id_(h.get_device()) {}
 
   handle_t& operator=(const handle_t& h) {
     prop_ = h.get_device_properties();
@@ -79,10 +80,7 @@ class handle_t {
   }
 
   /** Destroys all held-up resources */
-  virtual ~handle_t() {
-    std::cout << "dtor" << std::endl;
-    destroy_resources();
-  }
+  virtual ~handle_t() { destroy_resources(); }
 
   int get_device() const { return dev_id_; }
 
@@ -139,12 +137,14 @@ class handle_t {
     return cusparse_handle_;
   }
 
-  cudaStream_t get_internal_stream(int sid) const { return streams_[sid]; }
-  int get_num_internal_streams() const { return num_streams_; }
+  cudaStream_t get_internal_stream(int sid) const {
+    return streams_.get_stream(sid).value();
+  }
+  int get_num_internal_streams() const { return streams_.get_pool_size(); }
   std::vector<cudaStream_t> get_internal_streams() const {
     std::vector<cudaStream_t> int_streams_vec;
-    for (auto s : streams_) {
-      int_streams_vec.push_back(s);
+    for (int i = 0; i < get_num_internal_streams(); i++) {
+      int_streams_vec.push_back(get_internal_stream(i));
     }
     return int_streams_vec;
   }
@@ -159,14 +159,14 @@ class handle_t {
 
   void wait_on_user_stream() const {
     CUDA_CHECK(cudaEventRecord(event_, user_stream_));
-    for (auto s : streams_) {
-      CUDA_CHECK(cudaStreamWaitEvent(s, event_, 0));
+    for (int i = 0; i < get_num_internal_streams(); i++) {
+      CUDA_CHECK(cudaStreamWaitEvent(get_internal_stream(i), event_, 0));
     }
   }
 
   void wait_on_internal_streams() const {
-    for (auto s : streams_) {
-      CUDA_CHECK(cudaEventRecord(event_, s));
+    for (int i = 0; i < get_num_internal_streams(); i++) {
+      CUDA_CHECK(cudaEventRecord(event_, get_internal_stream(i)));
       CUDA_CHECK(cudaStreamWaitEvent(user_stream_, event_, 0));
     }
   }
@@ -213,8 +213,7 @@ class handle_t {
   std::unordered_map<std::string, std::shared_ptr<comms::comms_t>> subcomms_;
 
   const int dev_id_;
-  const int num_streams_;
-  std::vector<cudaStream_t> streams_;
+  rmm::cuda_stream_pool streams_{0};
   mutable cublasHandle_t cublas_handle_;
   mutable bool cublas_initialized_{false};
   mutable cusolverDnHandle_t cusolver_dn_handle_;
@@ -232,11 +231,6 @@ class handle_t {
   mutable std::mutex mutex_;
 
   void create_resources() {
-    for (int i = 0; i < num_streams_; ++i) {
-      cudaStream_t stream;
-      CUDA_CHECK(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));
-      streams_.push_back(stream);
-    }
     CUDA_CHECK(cudaEventCreateWithFlags(&event_, cudaEventDisableTiming));
   }
 
@@ -257,11 +251,6 @@ class handle_t {
     if (cublas_initialized_) {
       //CUBLAS_CHECK_NO_THROW(cublasDestroy(cublas_handle_));
       CUBLAS_CHECK(cublasDestroy(cublas_handle_));
-    }
-    while (!streams_.empty()) {
-      //CUDA_CHECK_NO_THROW(cudaStreamDestroy(streams_.back()));
-      CUDA_CHECK(cudaStreamDestroy(streams_.back()));
-      streams_.pop_back();
     }
     //CUDA_CHECK_NO_THROW(cudaEventDestroy(event_));
     CUDA_CHECK(cudaEventDestroy(event_));
