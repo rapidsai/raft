@@ -52,10 +52,25 @@ TEST(Raft, GetInternalStreams) {
 
 TEST(Raft, GetHandleFromPool) {
   handle_t parent(4);
-  int sid = 2;
-  auto child = parent.get_handle_from_internal_pool(sid);
-  ASSERT_EQ(parent.get_internal_stream(sid), child.get_stream());
+
+  auto child = parent.get_handle_from_internal_pool(2);
+  ASSERT_EQ(parent.get_internal_stream(2), child.get_stream());
   ASSERT_EQ(0, child.get_num_internal_streams());
+
+  child.set_stream(parent.get_internal_stream(3));
+  ASSERT_EQ(parent.get_internal_stream(3), child.get_stream());
+  ASSERT_NE(parent.get_internal_stream(2), child.get_stream());
+
   ASSERT_EQ(parent.get_device(), child.get_device());
+}
+
+TEST(Raft, GetHandleStreamViews) {
+  handle_t parent(4);
+
+  auto child = parent.get_handle_from_internal_pool(2);
+  ASSERT_EQ(parent.get_internal_stream_view(2), child.get_stream_view());
+  ASSERT_EQ(parent.get_internal_stream_view(2).value(),
+            child.get_stream_view().value());
+  EXPECT_FALSE(child.get_stream_view().is_default());
 }
 }  // namespace raft
