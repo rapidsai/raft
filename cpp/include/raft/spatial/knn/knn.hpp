@@ -50,7 +50,7 @@ using deviceAllocator = raft::mr::device::allocator;
  * @param[in] expanded should lp-based distances be returned in their expanded
  * 					 form (e.g., without raising to the 1/p power).
  */
-void brute_force_knn(
+inline void brute_force_knn(
   raft::handle_t &handle, std::vector<float *> &input, std::vector<int> &sizes,
   int D, float *search_items, int n, int64_t *res_I, float *res_D, int k,
   bool rowMajorIndex = false, bool rowMajorQuery = false,
