@@ -71,6 +71,8 @@ class handle_t {
   handle_t(const handle_t& h) : dev_id_(h.get_device()) {}
   handle_t(const handle_t&& h) : dev_id_(h.get_device()) {}
 
+  // light copy operator
+  // skip streams, comms, and libs handles
   handle_t& operator=(const handle_t& h) {
     prop_ = h.get_device_properties();
     device_prop_initialized_ = true;

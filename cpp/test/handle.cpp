@@ -64,6 +64,18 @@ TEST(Raft, GetHandleFromPool) {
   ASSERT_EQ(parent.get_device(), child.get_device());
 }
 
+TEST(Raft, GetHandleFromPoolPerf) {
+  handle_t parent(100);
+  auto start = curTimeMillis();
+  for (int i = 0; i < parent.get_num_internal_streams(); i++) {
+    auto child = parent.get_handle_from_internal_pool(i);
+    ASSERT_EQ(parent.get_internal_stream(i), child.get_stream());
+    child.wait_on_user_stream();
+  }
+  // upperbound on 0.1ms per child handle
+  ASSERT_LE(curTimeMillis() - start, 10);
+}
+
 TEST(Raft, GetHandleStreamViews) {
   handle_t parent(4);
 
