@@ -1,4 +1,4 @@
-# raft 0.19.0 (Date TBD)
+# RAFT 0.19.0 (Date TBD)
 
 ## New Features
 
