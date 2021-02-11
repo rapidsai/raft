@@ -481,8 +481,8 @@ class comms_t {
       recvbytesizes[i] *= sizeof(value_t);
       recvbyteoffsets[i] *= sizeof(value_t);
     }
-    impl_->device_multicast_sendrecv(static_cast<const void*>(sendbuf), sendbytesizes,
-                                     sendbyteoffsets, dests,
+    impl_->device_multicast_sendrecv(static_cast<const void*>(sendbuf),
+                                     sendbytesizes, sendbyteoffsets, dests,
                                      static_cast<void*>(recvbuf), recvbytesizes,
                                      recvbyteoffsets, sources, stream);
   }
