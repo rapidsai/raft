@@ -18,7 +18,7 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean cppraft pyraft -v -g --allgpuarch --nvtx --show_depr_warn -h --buildgtest"
+VALIDARGS="clean cppraft pyraft -v -g --allgpuarch --nvtx --show_depr_warn -h --buildgtest --buildfaiss"
 HELP="$0 [<target> ...] [<flag> ...]
  where <target> is:
    clean            - remove all existing build artifacts and configuration (start over)
@@ -29,6 +29,7 @@ HELP="$0 [<target> ...] [<flag> ...]
    -v               - verbose build mode
    -g               - build for debug
    --allgpuarch     - build for all supported GPU architectures
+   --buildfaiss     - build faiss statically into raft
    --nvtx           - Enable nvtx for profiling support
    --show_depr_warn - show cmake deprecation warnings
    -h               - print this text
@@ -44,6 +45,7 @@ BUILD_DIRS="${CPP_RAFT_BUILD_DIR} ${PY_RAFT_BUILD_DIR} ${PYTHON_DEPS_CLONE}"
 VERBOSE=""
 BUILD_ALL_GPU_ARCH=0
 BUILD_GTEST=OFF
+BUILD_STATIC_FAISS=OFF
 SINGLEGPU=""
 NVTX=OFF
 CLEAN=0
@@ -88,6 +90,9 @@ if hasArg --allgpuarch; then
 fi
 if hasArg --buildgtest; then
     BUILD_GTEST=ON
+fi
+if hasArg --buildfaiss; then
+      BUILD_STATIC_FAISS=ON
 fi
 if hasArg --singlegpu; then
     SINGLEGPU="--singlegpu"
@@ -140,6 +145,7 @@ if (( ${NUMARGS} == 0 )) || hasArg cppraft; then
           -DNCCL_PATH=${INSTALL_PREFIX} \
           -DDISABLE_DEPRECATION_WARNING=${BUILD_DISABLE_DEPRECATION_WARNING} \
           -DBUILD_GTEST=${BUILD_GTEST} \
+          -DBUILD_STATIC_FAISS=${BUILD_STATIC_FAISS} \
           ..
 
 fi

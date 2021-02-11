@@ -125,6 +125,15 @@ class comms_iface {
                           const size_t* recvcounts, const size_t* displs,
                           datatype_t datatype, cudaStream_t stream) const = 0;
 
+  virtual void gather(const void* sendbuff, void* recvbuff, size_t sendcount,
+                      datatype_t datatype, int root,
+                      cudaStream_t stream) const = 0;
+
+  virtual void gatherv(const void* sendbuf, void* recvbuf, size_t sendcount,
+                       const size_t* recvcounts, const size_t* displs,
+                       datatype_t datatype, int root,
+                       cudaStream_t stream) const = 0;
+
   virtual void reducescatter(const void* sendbuff, void* recvbuff,
                              size_t recvcount, datatype_t datatype, op_t op,
                              cudaStream_t stream) const = 0;
@@ -325,6 +334,45 @@ class comms_t {
     impl_->allgatherv(static_cast<const void*>(sendbuf),
                       static_cast<void*>(recvbuf), recvcounts, displs,
                       get_type<value_t>(), stream);
+  }
+
+  /**
+   * Gathers data from each rank onto all ranks
+   * @tparam value_t datatype of underlying buffers
+   * @param sendbuff buffer containing data to gather
+   * @param recvbuff buffer containing gathered data from all ranks
+   * @param sendcount number of elements in send buffer
+   * @param root rank to store the results
+   * @param stream CUDA stream to synchronize operation
+   */
+  template <typename value_t>
+  void gather(const value_t* sendbuff, value_t* recvbuff, size_t sendcount,
+              int root, cudaStream_t stream) const {
+    impl_->gather(static_cast<const void*>(sendbuff),
+                  static_cast<void*>(recvbuff), sendcount, get_type<value_t>(),
+                  root, stream);
+  }
+
+  /**
+   * Gathers data from all ranks and delivers to combined data to all ranks
+   * @param value_t datatype of underlying buffers
+   * @param sendbuff buffer containing data to send
+   * @param recvbuff buffer containing data to receive
+   * @param sendcount number of elements in send buffer
+   * @param recvcounts pointer to an array (of length num_ranks size) containing the number of
+   *                   elements that are to be received from each rank
+   * @param displs pointer to an array (of length num_ranks size) to specify the displacement
+   *               (relative to recvbuf) at which to place the incoming data from each rank
+   * @param root rank to store the results
+   * @param stream CUDA stream to synchronize operation
+   */
+  template <typename value_t>
+  void gatherv(const value_t* sendbuf, value_t* recvbuf, size_t sendcount,
+               const size_t* recvcounts, const size_t* displs, int root,
+               cudaStream_t stream) const {
+    impl_->gatherv(static_cast<const void*>(sendbuf),
+                   static_cast<void*>(recvbuf), sendcount, recvcounts, displs,
+                   get_type<value_t>(), root, stream);
   }
 
   /**

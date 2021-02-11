@@ -42,6 +42,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 option(BUILD_GTEST "Build the GTEST library for running raft test executables" OFF)
 
+option(BUILD_STATIC_FAISS "Build the FAISS library for nearest neighbors search on GPU" OFF)
+
 option(CMAKE_CXX11_ABI "Enable the GLIBCXX11 ABI" ON)
 
 option(EMPTY_MARKER_KERNEL "Enable empty marker kernel after nvtxRangePop" ON)
@@ -176,6 +178,18 @@ include(cmake/Dependencies.cmake)
 include(cmake/comms.cmake)
 
 ###################################################################################################
+# - FAISS -------------------------------------------------------------------------------------------
+
+if(NOT BUILD_STATIC_FAISS)
+ find_path(FAISS_INCLUDE_DIRS "faiss"
+    HINTS
+    "$ENV{FAISS_ROOT}/include"
+    "$ENV{CONDA_PREFIX}/include/faiss"
+    "$ENV{CONDA_PREFIX}/include")
+endif(NOT BUILD_STATIC_FAISS)
+message(STATUS "FAISS: FAISS_INCLUDE_DIRS set to ${FAISS_INCLUDE_DIRS}")
+
+###################################################################################################
 # - RMM -------------------------------------------------------------------------------------------
 
 find_path(RMM_INCLUDE_DIRS "rmm"
@@ -196,6 +210,7 @@ set(RAFT_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include CACHE STRING
 set(RAFT_INCLUDE_DIRECTORIES
   ${RAFT_INCLUDE_DIR}
   ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
+  ${FAISS_INCLUDE_DIRS}
   ${RMM_INCLUDE_DIRS})
 
 if(NOT CUB_IS_PART_OF_CTK)
@@ -218,6 +233,7 @@ set(RAFT_LINK_LIBRARIES
   ${CUDA_curand_LIBRARY})
 
 set(RAFT_LINK_DIRECTORIES
+  ${FAISS_INCLUDE_DIRS}
   ${RMM_INCLUDE_DIRS})
 
 if(DEFINED ENV{CONDA_PREFIX})
@@ -261,6 +277,7 @@ if(BUILD_RAFT_TESTS)
     test/random/rng.cu
     test/random/rng_int.cu
     test/random/sample_without_replacement.cu
+    test/spatial/knn.cu
     test/stats/mean.cu
     test/stats/mean_center.cu
     test/stats/stddev.cu
@@ -283,6 +300,7 @@ if(BUILD_RAFT_TESTS)
   target_link_libraries(test_raft
     PRIVATE
       ${RAFT_LINK_LIBRARIES}
+      FAISS::FAISS
       GTest::GTest
       GTest::Main
       OpenMP::OpenMP_CXX

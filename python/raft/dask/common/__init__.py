@@ -24,6 +24,8 @@ from .comms_utils import perform_test_comms_device_send_or_recv
 from .comms_utils import perform_test_comms_device_sendrecv
 from .comms_utils import perform_test_comms_device_multicast_sendrecv
 from .comms_utils import perform_test_comms_allgather
+from .comms_utils import perform_test_comms_gather
+from .comms_utils import perform_test_comms_gatherv
 from .comms_utils import perform_test_comms_bcast
 from .comms_utils import perform_test_comms_reduce
 from .comms_utils import perform_test_comms_reducescatter
