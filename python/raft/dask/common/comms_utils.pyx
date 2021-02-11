@@ -60,6 +60,8 @@ cdef extern from "raft/comms/test.hpp" namespace "raft::comms":
     bool test_collective_broadcast(const handle_t &h, int root) except +
     bool test_collective_reduce(const handle_t &h, int root) except +
     bool test_collective_allgather(const handle_t &h, int root) except +
+    bool test_collective_gather(const handle_t &h, int root) except +
+    bool test_collective_gatherv(const handle_t &h, int root) except +
     bool test_collective_reducescatter(const handle_t &h, int root) except +
     bool test_pointToPoint_simple_send_recv(const handle_t &h,
                                             int numTrials) except +
@@ -129,6 +131,36 @@ def perform_test_comms_allgather(handle, root):
     """
     cdef const handle_t* h = <handle_t*><size_t>handle.getHandle()
     return test_collective_allgather(deref(h), root)
+
+
+def perform_test_comms_gather(handle, root):
+    """
+    Performs a gather on the current worker
+
+    Parameters
+    ----------
+    handle : raft.common.Handle
+             handle containing comms_t to use
+    root : int
+           Rank of the root worker
+    """
+    cdef const handle_t* h = <handle_t*><size_t>handle.getHandle()
+    return test_collective_gather(deref(h), root)
+
+
+def perform_test_comms_gatherv(handle, root):
+    """
+    Performs a gatherv on the current worker
+
+    Parameters
+    ----------
+    handle : raft.common.Handle
+             handle containing comms_t to use
+    root : int
+           Rank of the root worker
+    """
+    cdef const handle_t* h = <handle_t*><size_t>handle.getHandle()
+    return test_collective_gatherv(deref(h), root)
 
 
 def perform_test_comms_send_recv(handle, n_trials):
