@@ -68,17 +68,25 @@ class handle_t {
       host_allocator_(std::make_shared<mr::host::default_allocator>()) {
     create_resources();
   }
-  handle_t(const handle_t& h) : dev_id_(h.get_device()) {}
-  handle_t(const handle_t&& h) : dev_id_(h.get_device()) {}
 
-  // light copy operator
-  // skip streams, comms, and libs handles
-  handle_t& operator=(const handle_t& h) {
-    prop_ = h.get_device_properties();
+  /**
+   * @brief Construct a light handle copy from another 
+   * user stream, cuda handles, comms and worker pool are not copied
+   * The user_stream of the returned handle is set to the specified stream 
+   * of the other handle worker pool 
+   * @param[in] stream_id stream id in `other` worker streams 
+   * to be set as user stream in the constructed handle
+   * @param[in] n_streams number worker streams to be created
+   */
+  handle_t(const handle_t& other, int stream_id,
+           int n_streams = kNumDefaultWorkerStreams)
+    : dev_id_(other.get_device()), streams_(n_streams) {
+    prop_ = other.get_device_properties();
     device_prop_initialized_ = true;
-    device_allocator_ = get_device_allocator();
-    host_allocator_ = get_host_allocator();
-    return *this;
+    device_allocator_ = other.get_device_allocator();
+    host_allocator_ = other.get_host_allocator();
+    create_resources();
+    set_stream(other.get_internal_stream(stream_id));
   }
 
   /** Destroys all held-up resources */
@@ -158,14 +166,6 @@ class handle_t {
       int_streams_vec.push_back(get_internal_stream(i));
     }
     return int_streams_vec;
-  }
-
-  handle_t get_handle_from_internal_pool(
-    int stream_id, int n_streams = kNumDefaultWorkerStreams) const {
-    handle_t handle(n_streams);
-    handle = *this;
-    handle.set_stream(this->get_internal_stream(stream_id));
-    return handle;
   }
 
   void wait_on_user_stream() const {

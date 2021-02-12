@@ -53,7 +53,7 @@ TEST(Raft, GetInternalStreams) {
 TEST(Raft, GetHandleFromPool) {
   handle_t parent(4);
 
-  auto child = parent.get_handle_from_internal_pool(2);
+  handle_t child(parent, 2);
   ASSERT_EQ(parent.get_internal_stream(2), child.get_stream());
   ASSERT_EQ(0, child.get_num_internal_streams());
 
@@ -68,7 +68,7 @@ TEST(Raft, GetHandleFromPoolPerf) {
   handle_t parent(100);
   auto start = curTimeMillis();
   for (int i = 0; i < parent.get_num_internal_streams(); i++) {
-    auto child = parent.get_handle_from_internal_pool(i);
+    handle_t child(parent, i);
     ASSERT_EQ(parent.get_internal_stream(i), child.get_stream());
     child.wait_on_user_stream();
   }
@@ -79,7 +79,7 @@ TEST(Raft, GetHandleFromPoolPerf) {
 TEST(Raft, GetHandleStreamViews) {
   handle_t parent(4);
 
-  auto child = parent.get_handle_from_internal_pool(2);
+  handle_t child(parent, 2);
   ASSERT_EQ(parent.get_internal_stream_view(2), child.get_stream_view());
   ASSERT_EQ(parent.get_internal_stream_view(2).value(),
             child.get_stream_view().value());
