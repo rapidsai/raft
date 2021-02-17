@@ -42,7 +42,7 @@ class MST_solver {
   MST_solver(const raft::handle_t& handle_, const edge_t* offsets_,
              const vertex_t* indices_, const weight_t* weights_,
              const vertex_t v_, const edge_t e_, vertex_t* color_,
-             cudaStream_t stream_, bool initialize_colors_);
+             cudaStream_t stream_, bool initialize_colors_=true);
 
   raft::Graph_COO<vertex_t, edge_t, weight_t> solve();
 
