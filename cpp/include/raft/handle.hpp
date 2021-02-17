@@ -81,6 +81,9 @@ class handle_t {
   handle_t(const handle_t& other, int stream_id,
            int n_streams = kNumDefaultWorkerStreams)
     : dev_id_(other.get_device()), streams_(n_streams) {
+    RAFT_EXPECTS(
+      other.get_num_internal_streams() > 0,
+      "ERROR: the main handle must have at least one worker stream\n");
     prop_ = other.get_device_properties();
     device_prop_initialized_ = true;
     device_allocator_ = other.get_device_allocator();
