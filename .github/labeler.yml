@@ -1,0 +1,16 @@
+# https://github.com/actions/labeler#common-examples
+# Adapted from https://github.com/rapidsai/raft/blob/main/.github/CODEOWNERS
+# Labels culled from https://github.com/rapidsai/raft/labels
+
+python:
+ - 'python/**'
+
+cpp:
+ - 'cpp/**'
+
+CMake:
+ - '**/CMakeLists.txt'
+ - '**/cmake/**'
+
+gpuCI:
+  - 'ci/**'
