@@ -51,7 +51,8 @@ template <typename vertex_t, typename edge_t, typename weight_t>
 MST_solver<vertex_t, edge_t, weight_t>::MST_solver(
   const raft::handle_t& handle_, const edge_t* offsets_,
   const vertex_t* indices_, const weight_t* weights_, const vertex_t v_,
-  const edge_t e_, vertex_t* color_, cudaStream_t stream_)
+  const edge_t e_, vertex_t* color_, cudaStream_t stream_,
+  bool symmetrize_output_)
   : handle(handle_),
     offsets(offsets_),
     indices(indices_),
@@ -70,7 +71,8 @@ MST_solver<vertex_t, edge_t, weight_t>::MST_solver(
     temp_weights(2 * v_),
     mst_edge_count(1, 0),
     prev_mst_edge_count(1, 0),
-    stream(stream_) {
+    stream(stream_),
+    symmetrize_output(symmetrize_output_){
 
   max_blocks = handle_.get_device_properties().maxGridSize[0];
   max_threads = handle_.get_device_properties().maxThreadsPerBlock;
@@ -340,9 +342,11 @@ void MST_solver<vertex_t, edge_t, weight_t>::min_edge_per_supervertex() {
   // the above kernel only adds directed mst edges in the case where
   // a pair of vertices don't pick the same min edge between them
   // so, now we add the reverse edge to make it undirected
-  //  detail::add_reverse_edge<<<nblocks, nthreads, 0, stream>>>(
-  //    new_mst_edge_ptr, indices, weights, temp_src_ptr, temp_dst_ptr,
-  //    temp_weights_ptr, v);
+  if(symmetrize_output) {
+    detail::add_reverse_edge<<<nblocks, nthreads, 0, stream>>>(
+      new_mst_edge_ptr, indices, weights, temp_src_ptr, temp_dst_ptr,
+        temp_weights_ptr, v);
+  }
 }
 
 template <typename vertex_t, typename edge_t, typename weight_t>

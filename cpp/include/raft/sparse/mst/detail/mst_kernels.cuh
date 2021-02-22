@@ -126,16 +126,17 @@ __global__ void min_edge_per_supervertex(
         // only if destination has found an edge
         // the edge points back to source
         // the edge is minimum edge found for dst color
+        bool add_edge = false;
         if (dst_edge_idx != std::numeric_limits<edge_t>::max() &&
             indices[dst_edge_idx] == tid &&
             min_edge_color[dst_color] == altered_weights[dst_edge_idx]) {
           if (vertex_color < dst_color) {
-            temp_src[tid] = tid;
-            temp_dst[tid] = dst;
-            temp_weights[tid] = weights[edge_idx];
-            mst_edge[edge_idx] = true;
+            add_edge = true;
           }
         } else {
+          add_edge = true;
+        }
+        if (add_edge) {
           temp_src[tid] = tid;
           temp_dst[tid] = dst;
           temp_weights[tid] = weights[edge_idx];
