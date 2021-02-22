@@ -71,7 +71,6 @@ MST_solver<vertex_t, edge_t, weight_t>::MST_solver(
     mst_edge_count(1, 0),
     prev_mst_edge_count(1, 0),
     stream(stream_) {
-  printf("GOT HERE!!!\n");
 
   max_blocks = handle_.get_device_properties().maxGridSize[0];
   max_threads = handle_.get_device_properties().maxThreadsPerBlock;
