@@ -65,6 +65,12 @@ cdef extern from "raft/comms/test.hpp" namespace "raft::comms":
     bool test_collective_reducescatter(const handle_t &h, int root) except +
     bool test_pointToPoint_simple_send_recv(const handle_t &h,
                                             int numTrials) except +
+    bool test_pointToPoint_device_send_or_recv(const handle_t &h,
+                                               int numTrials) except +
+    bool test_pointToPoint_device_sendrecv(const handle_t &h,
+                                           int numTrials) except +
+    bool test_pointToPoint_device_multicast_sendrecv(const handle_t &h,
+                                                     int numTrials) except +
     bool test_commsplit(const handle_t &h, int n_colors) except +
 
 
@@ -171,9 +177,56 @@ def perform_test_comms_send_recv(handle, n_trials):
     ----------
     handle : raft.common.Handle
              handle containing comms_t to use
+    n_trilas : int
+               Number of test trials
     """
     cdef const handle_t *h = <handle_t*><size_t>handle.getHandle()
     return test_pointToPoint_simple_send_recv(deref(h), <int>n_trials)
+
+
+def perform_test_comms_device_send_or_recv(handle, n_trials):
+    """
+    Performs a p2p device send or recv on the current worker
+
+    Parameters
+    ----------
+    handle : raft.common.Handle
+             handle containing comms_t to use
+    n_trilas : int
+               Number of test trials
+    """
+    cdef const handle_t *h = <handle_t*><size_t>handle.getHandle()
+    return test_pointToPoint_device_send_or_recv(deref(h), <int>n_trials)
+
+
+def perform_test_comms_device_sendrecv(handle, n_trials):
+    """
+    Performs a p2p device concurrent send&recv on the current worker
+
+    Parameters
+    ----------
+    handle : raft.common.Handle
+             handle containing comms_t to use
+    n_trilas : int
+               Number of test trials
+    """
+    cdef const handle_t *h = <handle_t*><size_t>handle.getHandle()
+    return test_pointToPoint_device_sendrecv(deref(h), <int>n_trials)
+
+
+def perform_test_comms_device_multicast_sendrecv(handle, n_trials):
+    """
+    Performs a p2p device concurrent multicast send&recv on the current worker
+
+    Parameters
+    ----------
+    handle : raft.common.Handle
+             handle containing comms_t to use
+    n_trilas : int
+               Number of test trials
+    """
+    cdef const handle_t *h = <handle_t*><size_t>handle.getHandle()
+    return test_pointToPoint_device_multicast_sendrecv(deref(h), <int>n_trials)
 
 
 def perform_test_comm_split(handle, n_colors):
