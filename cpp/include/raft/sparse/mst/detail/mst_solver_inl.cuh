@@ -337,7 +337,7 @@ void MST_solver<vertex_t, edge_t, weight_t>::min_edge_per_supervertex() {
   detail::min_edge_per_supervertex<<<nblocks, nthreads, 0, stream>>>(
     color, color_index_ptr, new_mst_edge_ptr, mst_edge_ptr, indices, weights,
     altered_weights_ptr, temp_src_ptr, temp_dst_ptr, temp_weights_ptr,
-    min_edge_color_ptr, v);
+    min_edge_color_ptr, v, symmetrize_output);
 
   // the above kernel only adds directed mst edges in the case where
   // a pair of vertices don't pick the same min edge between them
