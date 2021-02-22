@@ -129,7 +129,7 @@ class MSTTest
     vertex_t *color_ptr = thrust::raw_pointer_cast(color.data());
 
     MST_solver<vertex_t, edge_t, weight_t> mst_solver(
-      handle, offsets, indices, weights, v, e, color_ptr, handle.get_stream());
+      handle, offsets, indices, weights, v, e, color_ptr, handle.get_stream(), true);
     auto result = mst_solver.solve();
     raft::print_device_vector("Final MST Src: ", result.src.data(),
                               result.n_edges, std::cout);
