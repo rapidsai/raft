@@ -72,8 +72,7 @@ MST_solver<vertex_t, edge_t, weight_t>::MST_solver(
     mst_edge_count(1, 0),
     prev_mst_edge_count(1, 0),
     stream(stream_),
-    symmetrize_output(symmetrize_output_){
-
+    symmetrize_output(symmetrize_output_) {
   max_blocks = handle_.get_device_properties().maxGridSize[0];
   max_threads = handle_.get_device_properties().maxThreadsPerBlock;
   sm_count = handle_.get_device_properties().multiProcessorCount;
@@ -337,15 +336,15 @@ void MST_solver<vertex_t, edge_t, weight_t>::min_edge_per_supervertex() {
   detail::min_edge_per_supervertex<<<nblocks, nthreads, 0, stream>>>(
     color, color_index_ptr, new_mst_edge_ptr, mst_edge_ptr, indices, weights,
     altered_weights_ptr, temp_src_ptr, temp_dst_ptr, temp_weights_ptr,
-    min_edge_color_ptr, v);
+    min_edge_color_ptr, v, symmetrize_output);
 
   // the above kernel only adds directed mst edges in the case where
   // a pair of vertices don't pick the same min edge between them
   // so, now we add the reverse edge to make it undirected
-  if(symmetrize_output) {
+  if (symmetrize_output) {
     detail::add_reverse_edge<<<nblocks, nthreads, 0, stream>>>(
       new_mst_edge_ptr, indices, weights, temp_src_ptr, temp_dst_ptr,
-        temp_weights_ptr, v);
+      temp_weights_ptr, v);
   }
 }
 

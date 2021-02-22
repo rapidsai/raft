@@ -107,7 +107,8 @@ __global__ void min_edge_per_supervertex(
   const vertex_t* color, const vertex_t* color_index, edge_t* new_mst_edge,
   bool* mst_edge, const vertex_t* indices, const weight_t* weights,
   const weight_t* altered_weights, vertex_t* temp_src, vertex_t* temp_dst,
-  weight_t* temp_weights, const weight_t* min_edge_color, const vertex_t v) {
+  weight_t* temp_weights, const weight_t* min_edge_color, const vertex_t v,
+  bool symmetrize_output) {
   auto tid = get_1D_idx<vertex_t>();
   if (tid < v) {
     vertex_t vertex_color_idx = color_index[tid];
@@ -130,7 +131,7 @@ __global__ void min_edge_per_supervertex(
         if (dst_edge_idx != std::numeric_limits<edge_t>::max() &&
             indices[dst_edge_idx] == tid &&
             min_edge_color[dst_color] == altered_weights[dst_edge_idx]) {
-          if (vertex_color < dst_color) {
+          if (symmetrize_output || vertex_color < dst_color) {
             add_edge = true;
           }
         } else {
@@ -141,14 +142,13 @@ __global__ void min_edge_per_supervertex(
           temp_dst[tid] = dst;
           temp_weights[tid] = weights[edge_idx];
           mst_edge[edge_idx] = true;
+        } else {
+          new_mst_edge[tid] = std::numeric_limits<edge_t>::max();
         }
-      } else {
-        new_mst_edge[tid] = std::numeric_limits<edge_t>::max();
       }
     }
   }
 }
-
 template <typename vertex_t, typename edge_t, typename weight_t>
 __global__ void add_reverse_edge(const edge_t* new_mst_edge,
                                  const vertex_t* indices,
