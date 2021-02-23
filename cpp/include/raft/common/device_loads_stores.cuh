@@ -96,13 +96,13 @@ DI void ldg(float (&x)[1], const float* addr) {
 }
 DI void ldg(float (&x)[2], const float* addr) {
   asm volatile("ld.global.cg.v2.f32 {%0, %1}, [%2];"
-  : "=f"(x[0]), "=f"(x[1])
-  : "l"(addr));
+               : "=f"(x[0]), "=f"(x[1])
+               : "l"(addr));
 }
 DI void ldg(float (&x)[4], const float* addr) {
   asm volatile("ld.global.cg.v4.f32 {%0, %1, %2, %3}, [%4];"
-  : "=f"(x[0]), "=f"(x[1]), "=f"(x[2]), "=f"(x[3])
-  : "l"(addr));
+               : "=f"(x[0]), "=f"(x[1]), "=f"(x[2]), "=f"(x[3])
+               : "l"(addr));
 }
 DI void ldg(double& x, const double* addr) {
   asm volatile("ld.global.cg.f64 %0, [%1];" : "=d"(x) : "l"(addr));
@@ -112,9 +112,9 @@ DI void ldg(double (&x)[1], const double* addr) {
 }
 DI void ldg(double (&x)[2], const double* addr) {
   asm volatile("ld.global.cg.v2.f64 {%0, %1}, [%2];"
-  : "=d"(x[0]), "=d"(x[1])
-  : "l"(addr));
+               : "=d"(x[0]), "=d"(x[1])
+               : "l"(addr));
 }
 /** @} */
 
-}  // namespace MLCommon
+}  // namespace raft

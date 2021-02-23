@@ -56,7 +56,7 @@ namespace linalg {
  *                 thread block
  */
 template <typename DataT, int _veclen, int _kblk, int _rpt, int _cpt, int _tr,
-  int _tc>
+          int _tc>
 struct KernelPolicy {
   enum {
     /** number of elements along K worked upon per main loop iteration */

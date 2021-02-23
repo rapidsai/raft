@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,8 +19,8 @@
 #include <stdint.h>
 #include <cub/cub.cuh>
 #include <limits>
-#include <raft/linalg/contractions.cuh>
 #include <raft/cuda_utils.cuh>
+#include <raft/linalg/contractions.cuh>
 
 namespace raft {
 namespace distance {
@@ -69,8 +69,8 @@ struct MinReduceOp {
 };
 
 template <typename DataT, typename OutT, typename IdxT, bool Sqrt,
-  typename Policy, typename ReduceOpT, typename KVPReduceOpT,
-  typename BaseClass = linalg::Contractions_NT<DataT, IdxT, Policy>>
+          typename Policy, typename ReduceOpT, typename KVPReduceOpT,
+          typename BaseClass = linalg::Contractions_NT<DataT, IdxT, Policy>>
 struct FusedL2NN : public BaseClass {
  private:
   typedef Policy P;
@@ -114,7 +114,7 @@ struct FusedL2NN : public BaseClass {
       redOp(op),
       pairRedOp(pair_op) {
 #if (ENABLE_MEMCPY_ASYNC == 1)
-    #pragma unroll
+#pragma unroll
     for (int i = 0; i < P::Veclen; ++i) {
       zeros[i] = BaseClass::Zero;
     }
@@ -313,7 +313,7 @@ struct FusedL2NN : public BaseClass {
 };      // struct FusedL2NN
 
 template <typename DataT, typename OutT, typename IdxT, bool Sqrt,
-  typename Policy, typename ReduceOpT, typename KVPReduceOpT>
+          typename Policy, typename ReduceOpT, typename KVPReduceOpT>
 __global__ __launch_bounds__(Policy::Nthreads, 2) void fusedL2NNkernel(
   OutT* min, const DataT* x, const DataT* y, const DataT* xn, const DataT* yn,
   IdxT m, IdxT n, IdxT k, DataT maxVal, int* mutex, ReduceOpT redOp,
@@ -333,7 +333,7 @@ __global__ void initKernel(OutT* min, IdxT m, DataT maxVal, ReduceOpT redOp) {
 }
 
 template <typename DataT, typename OutT, typename IdxT, int VecLen,
-  typename ReduceOpT, typename KVPReduceOpT>
+          typename ReduceOpT, typename KVPReduceOpT>
 void fusedL2NNImpl(OutT* min, const DataT* x, const DataT* y, const DataT* xn,
                    const DataT* yn, IdxT m, IdxT n, IdxT k, int* workspace,
                    ReduceOpT redOp, KVPReduceOpT pairRedOp, bool sqrt,
@@ -347,17 +347,17 @@ void fusedL2NNImpl(OutT* min, const DataT* x, const DataT* y, const DataT* xn,
   CUDA_CHECK(cudaMemsetAsync(workspace, 0, sizeof(int) * m, stream));
   if (initOutBuffer) {
     initKernel<DataT, OutT, IdxT, ReduceOpT>
-    <<<nblks, Policy::Nthreads, 0, stream>>>(min, m, maxVal, redOp);
+      <<<nblks, Policy::Nthreads, 0, stream>>>(min, m, maxVal, redOp);
     CUDA_CHECK(cudaGetLastError());
   }
   if (sqrt) {
     fusedL2NNkernel<DataT, OutT, IdxT, true, Policy, ReduceOpT>
-    <<<grid, blk, Policy::SmemSize, stream>>>(
-      min, x, y, xn, yn, m, n, k, maxVal, workspace, redOp, pairRedOp);
+      <<<grid, blk, Policy::SmemSize, stream>>>(
+        min, x, y, xn, yn, m, n, k, maxVal, workspace, redOp, pairRedOp);
   } else {
     fusedL2NNkernel<DataT, OutT, IdxT, false, Policy, ReduceOpT>
-    <<<grid, blk, Policy::SmemSize, stream>>>(
-      min, x, y, xn, yn, m, n, k, maxVal, workspace, redOp, pairRedOp);
+      <<<grid, blk, Policy::SmemSize, stream>>>(
+        min, x, y, xn, yn, m, n, k, maxVal, workspace, redOp, pairRedOp);
   }
   CUDA_CHECK(cudaGetLastError());
 }
@@ -398,7 +398,7 @@ void fusedL2NNImpl(OutT* min, const DataT* x, const DataT* y, const DataT* xn,
  * @param[in]  stream        cuda stream
  */
 template <typename DataT, typename OutT, typename IdxT, typename ReduceOpT,
-  typename KVPReduceOpT>
+          typename KVPReduceOpT>
 void fusedL2NN(OutT* min, const DataT* x, const DataT* y, const DataT* xn,
                const DataT* yn, IdxT m, IdxT n, IdxT k, void* workspace,
                ReduceOpT redOp, KVPReduceOpT pairRedOp, bool sqrt,
