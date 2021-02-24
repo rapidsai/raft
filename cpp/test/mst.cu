@@ -112,7 +112,9 @@ template <typename vertex_t, typename edge_t, typename weight_t>
 class MSTTest
   : public ::testing::TestWithParam<CSRHost<vertex_t, edge_t, weight_t>> {
  protected:
-  raft::Graph_COO<vertex_t, edge_t, weight_t> mst_sequential() {
+  std::pair<raft::Graph_COO<vertex_t, edge_t, weight_t>,
+            raft::Graph_COO<vertex_t, edge_t, weight_t>>
+  mst_gpu() {
     edge_t *offsets = static_cast<edge_t *>(csr_d.offsets.data());
     vertex_t *indices = static_cast<vertex_t *>(csr_d.indices.data());
     weight_t *weights = static_cast<weight_t *>(csr_d.weights.data());
@@ -128,22 +130,22 @@ class MSTTest
 
     vertex_t *color_ptr = thrust::raw_pointer_cast(color.data());
 
-    MST_solver<vertex_t, edge_t, weight_t> mst_solver(
+    MST_solver<vertex_t, edge_t, weight_t> symmetric_solver(
       handle, offsets, indices, weights, v, e, color_ptr, handle.get_stream(),
       true);
-    auto result = mst_solver.solve();
-    raft::print_device_vector("Final MST Src: ", result.src.data(),
-                              result.n_edges, std::cout);
-    raft::print_device_vector("Final MST Dst: ", result.dst.data(),
-                              result.n_edges, std::cout);
-    raft::print_device_vector("Final MST Weights: ", result.weights.data(),
-                              result.n_edges, std::cout);
-    raft::print_device_vector("Final MST Colors: ", color_ptr, v, std::cout);
+    auto symmetric_result = symmetric_solver.solve();
 
-    std::cout << "number_of_MST_edges: " << result.n_edges << std::endl;
-    EXPECT_LE(result.n_edges, 2 * v - 2);
+    MST_solver<vertex_t, edge_t, weight_t> non_symmetric_solver(
+      handle, offsets, indices, weights, v, e, color_ptr, handle.get_stream(),
+      false);
+    auto non_symmetric_result = non_symmetric_solver.solve();
 
-    return result;
+    std::cout << "number_of_MST_edges: " << symmetric_result.n_edges
+              << std::endl;
+    EXPECT_LE(symmetric_result.n_edges, 2 * v - 2);
+
+    return std::make_pair(std::move(symmetric_result),
+                          std::move(non_symmetric_result));
   }
 
   void SetUp() override {
@@ -216,17 +218,24 @@ const std::vector<CSRHost<int, int, float>> csr_in5_h = {
 
 typedef MSTTest<int, int, float> MSTTestSequential;
 TEST_P(MSTTestSequential, Sequential) {
-  auto gpu_result = mst_sequential();
+  auto results_pair = mst_gpu();
+  auto &symmetric_result = results_pair.first;
+  auto &non_symmetric_result = results_pair.second;
 
   // do assertions here
   // in this case, running sequential MST
   auto prims_result = prims(csr_h);
 
-  auto parallel_mst_result =
-    thrust::reduce(thrust::device, gpu_result.weights.data(),
-                   gpu_result.weights.data() + gpu_result.n_edges);
+  auto symmetric_sum =
+    thrust::reduce(thrust::device, symmetric_result.weights.data(),
+                   symmetric_result.weights.data() + symmetric_result.n_edges);
+  auto non_symmetric_sum = thrust::reduce(
+    thrust::device, non_symmetric_result.weights.data(),
+    non_symmetric_result.weights.data() + non_symmetric_result.n_edges);
 
-  ASSERT_TRUE(raft::match(2 * prims_result, parallel_mst_result,
+  ASSERT_TRUE(raft::match(2 * prims_result, symmetric_sum,
+                          raft::CompareApprox<float>(0.1)));
+  ASSERT_TRUE(raft::match(prims_result, non_symmetric_sum,
                           raft::CompareApprox<float>(0.1)));
 }
 

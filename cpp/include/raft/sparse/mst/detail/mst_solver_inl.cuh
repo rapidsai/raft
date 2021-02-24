@@ -344,7 +344,7 @@ void MST_solver<vertex_t, edge_t, weight_t>::min_edge_per_supervertex() {
   if (symmetrize_output) {
     detail::add_reverse_edge<<<nblocks, nthreads, 0, stream>>>(
       new_mst_edge_ptr, indices, weights, temp_src_ptr, temp_dst_ptr,
-      temp_weights_ptr, v);
+      temp_weights_ptr, v, symmetrize_output);
   }
 }
 
