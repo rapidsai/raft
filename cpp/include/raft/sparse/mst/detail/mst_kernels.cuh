@@ -114,7 +114,7 @@ __global__ void min_edge_per_supervertex(
     vertex_t vertex_color_idx = color_index[tid];
     vertex_t vertex_color = color[vertex_color_idx];
     edge_t edge_idx = new_mst_edge[tid];
-  
+
     // check if valid outgoing edge was found
     // find minimum edge is same as minimum edge of whole supervertex
     // if yes, that is part of mst
@@ -140,7 +140,7 @@ __global__ void min_edge_per_supervertex(
             if (vertex_color > dst_color) {
               add_edge = false;
             }
-          } 
+          }
         }
         // else {
         //   add_edge = true;
