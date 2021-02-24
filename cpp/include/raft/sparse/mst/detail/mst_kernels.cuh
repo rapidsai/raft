@@ -142,9 +142,7 @@ __global__ void min_edge_per_supervertex(
             }
           }
         }
-        // else {
-        //   add_edge = true;
-        // }
+
         if (add_edge) {
           temp_src[tid] = tid;
           temp_dst[tid] = dst;
