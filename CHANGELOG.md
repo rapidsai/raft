@@ -1,6 +1,32 @@
-# 0.18.0
+# raft 0.18.0 (24 Feb 2021)
 
-Please see https://github.com/rapidsai/raft/releases/tag/branch-0.18-latest for the latest changes to this development branch.
+## Breaking Changes 🚨
+
+- Make NCCL root initialization configurable. (#120) @drobison00
+
+## Bug Fixes 🐛
+
+- Add idx_t template parameter to matrix helper routines (#131) @tfeher
+- Eliminate CUDA 10.2 as valid for large svd solving (#129) @wphicks
+- Update check to allow svd solver on CUDA&gt;=10.2 (#125) @wphicks
+- Updating gpu build.sh and debugging threads CI issue (#123) @dantegd
+
+## New Features 🚀
+
+- Adding additional distances (#116) @cjnolet
+
+## Improvements 🛠️
+
+- Update stale GHA with exemptions &amp; new labels (#152) @mike-wendt
+- Add GHA to mark issues/prs as stale/rotten (#150) @Ethyling
+- Prepare Changelog for Automation (#135) @ajschmidt8
+- Adding Jensen-Shannon and BrayCurtis to DistanceType for Nearest Neighbors (#132) @lowener
+- Add brute force KNN (#126) @hlinsen
+- Make NCCL root initialization configurable. (#120) @drobison00
+- Auto-label PRs based on their content (#117) @jolorunyomi
+- Add gather &amp; gatherv to raft::comms::comms_t (#114) @seunghwak
+- Adding canberra and chebyshev to distance types (#99) @cjnolet
+- Gpuciscripts clean and update (#92) @msadang
 
 # RAFT 0.17.0 (10 Dec 2020)
 
