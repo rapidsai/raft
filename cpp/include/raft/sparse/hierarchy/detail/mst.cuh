@@ -78,7 +78,8 @@ void build_sorted_mst(const raft::handle_t &handle, const value_idx *indptr,
   raft::mr::device::buffer<value_idx> color(d_alloc, stream, (size_t)m - 1);
 
   auto mst_coo = raft::mst::mst<value_idx, value_idx, value_t>(
-    handle, indptr, indices, pw_dists, (value_idx)m, nnz, color.data(), stream);
+    handle, indptr, indices, pw_dists, (value_idx)m, nnz, color.data(), stream,
+    false);
 
   sort_coo_by_data(mst_coo.src.data(), mst_coo.dst.data(),
                    mst_coo.weights.data(), mst_coo.n_edges, stream);

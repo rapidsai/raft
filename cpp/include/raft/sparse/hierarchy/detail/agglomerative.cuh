@@ -292,6 +292,16 @@ void extract_flattened_clusters(
                           d_ptr + children.size())) +
     1;
 
+  thrust::device_ptr<value_idx> d_labels_ptr =
+    thrust::device_pointer_cast(labels);
+  value_idx n_labels =
+    *(thrust::max_element(thrust::cuda::par.on(stream), d_labels_ptr,
+                          d_labels_ptr + n_leaves)) + 1;
+
+  printf("n_labels: %d", n_labels);
+
+  RAFT_EXPECTS(n_labels == 1, "Multiple components found in MST. Cannot find valid single-linkage solution");
+
   raft::mr::device::buffer<value_idx> levels(handle.get_device_allocator(),
                                              stream, n_vertices);
 
