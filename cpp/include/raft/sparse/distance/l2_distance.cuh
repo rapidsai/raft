@@ -16,18 +16,13 @@
 
 #pragma once
 
-#include <limits.h>
-#include <cmath>
-
-#include <raft/cudart_utils.h>
-#include <raft/sparse/distance/common.h>
+#include <cuml/neighbors/knn.hpp>
 
 #include <raft/cudart_utils.h>
 #include <raft/linalg/distance_type.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/unary_op.cuh>
-
 #include <raft/mr/device/allocator.hpp>
 #include <raft/mr/device/buffer.hpp>
 
@@ -78,7 +73,7 @@ __global__ void compute_euclidean_warp_kernel(
 }
 
 template <typename value_idx, typename value_t, int tpb = 1024,
-          typename expansion_f>
+  typename expansion_f>
 void compute_euclidean(value_t *C, const value_t *Q_sq_norms,
                        const value_t *R_sq_norms, value_idx n_rows,
                        value_idx n_cols, cudaStream_t stream,
@@ -89,7 +84,7 @@ void compute_euclidean(value_t *C, const value_t *Q_sq_norms,
 }
 
 template <typename value_idx, typename value_t, int tpb = 1024,
-          typename expansion_f>
+  typename expansion_f>
 void compute_l2(value_t *out, const value_idx *Q_coo_rows,
                 const value_t *Q_data, value_idx Q_nnz,
                 const value_idx *R_coo_rows, const value_t *R_data,
@@ -127,17 +122,20 @@ class l2_expanded_distances_t : public distances_t<value_t> {
       ip_dists(config) {}
 
   void compute(value_t *out_dists) {
+    CUML_LOG_DEBUG("Computing inner products");
     ip_dists.compute(out_dists);
 
     value_idx *b_indices = ip_dists.b_rows_coo();
     value_t *b_data = ip_dists.b_data_coo();
 
+    CUML_LOG_DEBUG("Computing COO row index array");
     raft::mr::device::buffer<value_idx> search_coo_rows(
       config_->allocator, config_->stream, config_->a_nnz);
     raft::sparse::convert::csr_to_coo(config_->a_indptr, config_->a_nrows,
                                       search_coo_rows.data(), config_->a_nnz,
                                       config_->stream);
 
+    CUML_LOG_DEBUG("Computing L2");
     compute_l2(
       out_dists, search_coo_rows.data(), config_->a_data, config_->a_nnz,
       b_indices, b_data, config_->b_nnz, config_->a_nrows, config_->b_nrows,
@@ -149,10 +147,39 @@ class l2_expanded_distances_t : public distances_t<value_t> {
 
   ~l2_expanded_distances_t() = default;
 
- private:
+ protected:
   const distances_config_t<value_idx, value_t> *config_;
   raft::mr::device::buffer<char> workspace;
   ip_distances_t<value_idx, value_t> ip_dists;
+};
+
+/**
+ * L2 sqrt distance performing the sqrt operation after the distance computation
+ * The expanded form is more efficient for sparse data.
+ */
+template <typename value_idx = int, typename value_t = float>
+class l2_sqrt_expanded_distances_t
+  : public l2_expanded_distances_t<value_idx, value_t> {
+ public:
+  explicit l2_sqrt_expanded_distances_t(
+    const distances_config_t<value_idx, value_t> &config)
+    : l2_expanded_distances_t<value_idx, value_t>(config) {}
+
+  void compute(value_t *out_dists) override {
+    l2_expanded_distances_t<value_idx, value_t>::compute(out_dists);
+    CUML_LOG_DEBUG("Computing Sqrt");
+    // Sqrt Post-processing
+    value_t p = 0.5;  // standard l2
+    raft::linalg::unaryOp<value_t>(
+      out_dists, out_dists, this->config_->a_nrows * this->config_->b_nrows,
+    [p] __device__(value_t input) {
+      int neg = input < 0 ? -1 : 1;
+      return powf(fabs(input), p) * neg;
+    },
+    this->config_->stream);
+  }
+
+  ~l2_sqrt_expanded_distances_t() = default;
 };
 
 /**
@@ -169,17 +196,20 @@ class cosine_expanded_distances_t : public distances_t<value_t> {
       ip_dists(config) {}
 
   void compute(value_t *out_dists) {
+    CUML_LOG_DEBUG("Computing inner products");
     ip_dists.compute(out_dists);
 
     value_idx *b_indices = ip_dists.b_rows_coo();
     value_t *b_data = ip_dists.b_data_coo();
 
+    CUML_LOG_DEBUG("Computing COO row index array");
     raft::mr::device::buffer<value_idx> search_coo_rows(
       config_->allocator, config_->stream, config_->a_nnz);
     raft::sparse::convert::csr_to_coo(config_->a_indptr, config_->a_nrows,
                                       search_coo_rows.data(), config_->a_nnz,
                                       config_->stream);
 
+    CUML_LOG_DEBUG("Computing L2");
     compute_l2(
       out_dists, search_coo_rows.data(), config_->a_data, config_->a_nnz,
       b_indices, b_data, config_->b_nnz, config_->a_nrows, config_->b_nrows,
@@ -219,6 +249,8 @@ class hellinger_expanded_distances_t : public distances_t<value_t> {
       ip_dists(config) {}
 
   void compute(value_t *out_dists) {
+    CUML_LOG_DEBUG("Computing Hellinger Distance");
+
     // First sqrt A and B
     raft::linalg::unaryOp<value_t>(
       config_->a_data, config_->a_data, config_->a_nnz,
