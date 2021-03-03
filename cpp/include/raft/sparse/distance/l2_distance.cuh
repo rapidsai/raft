@@ -73,7 +73,7 @@ __global__ void compute_euclidean_warp_kernel(
 }
 
 template <typename value_idx, typename value_t, int tpb = 1024,
-  typename expansion_f>
+          typename expansion_f>
 void compute_euclidean(value_t *C, const value_t *Q_sq_norms,
                        const value_t *R_sq_norms, value_idx n_rows,
                        value_idx n_cols, cudaStream_t stream,
@@ -84,7 +84,7 @@ void compute_euclidean(value_t *C, const value_t *Q_sq_norms,
 }
 
 template <typename value_idx, typename value_t, int tpb = 1024,
-  typename expansion_f>
+          typename expansion_f>
 void compute_l2(value_t *out, const value_idx *Q_coo_rows,
                 const value_t *Q_data, value_idx Q_nnz,
                 const value_idx *R_coo_rows, const value_t *R_data,
@@ -172,11 +172,11 @@ class l2_sqrt_expanded_distances_t
     value_t p = 0.5;  // standard l2
     raft::linalg::unaryOp<value_t>(
       out_dists, out_dists, this->config_->a_nrows * this->config_->b_nrows,
-    [p] __device__(value_t input) {
-      int neg = input < 0 ? -1 : 1;
-      return powf(fabs(input), p) * neg;
-    },
-    this->config_->stream);
+      [p] __device__(value_t input) {
+        int neg = input < 0 ? -1 : 1;
+        return powf(fabs(input), p) * neg;
+      },
+      this->config_->stream);
   }
 
   ~l2_sqrt_expanded_distances_t() = default;

@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include <rmm/device_uvector.hpp>
+
 #include <raft/cudart_utils.h>
 #include <raft/linalg/distance_type.h>
 #include <raft/sparse/cusparse_wrappers.h>
@@ -34,13 +36,10 @@
 #include <raft/spatial/knn/detail/brute_force_knn.hpp>
 #include <raft/spatial/knn/knn.hpp>
 
-#include <raft/linalg/distance_type.h>
-
 #include <raft/cudart_utils.h>
-
-#include <raft/cuda_utils.cuh>
-
+#include <raft/linalg/distance_type.h>
 #include <raft/sparse/cusparse_wrappers.h>
+#include <raft/cuda_utils.cuh>
 
 #include <cusparse_v2.h>
 
@@ -127,7 +126,7 @@ class sparse_knn_t {
                size_t batch_size_index_ = 2 << 14,  // approx 1M
                size_t batch_size_query_ = 2 << 14,
                raft::distance::DistanceType metric_ =
-               raft::distance::DistanceType::L2Expanded,
+                 raft::distance::DistanceType::L2Expanded,
                float metricArg_ = 0)
     : idxIndptr(idxIndptr_),
       idxIndices(idxIndices_),
@@ -241,7 +240,7 @@ class sparse_knn_t {
 
         // populate batch indices array
         value_idx batch_rows = query_batcher.batch_rows(),
-          batch_cols = idx_batcher.batch_rows();
+                  batch_cols = idx_batcher.batch_rows();
 
         iota_fill(batch_indices.data(), batch_rows, batch_cols, stream);
 
@@ -311,7 +310,7 @@ class sparse_knn_t {
                         stream);
 
     // combine merge buffers only if there's more than 1 partition to combine
-    MLCommon::Selection::knn_merge_parts(
+    raft::spatial::knn::detail::knn_merge_parts(
       merge_buffer_dists, merge_buffer_indices, out_dists, out_indices,
       query_batcher.batch_rows(), 2, k, stream, trans.data());
   }
@@ -322,7 +321,7 @@ class sparse_knn_t {
                            value_t *out_dists, value_idx *out_indices) {
     // populate batch indices array
     value_idx batch_rows = query_batcher.batch_rows(),
-      batch_cols = idx_batcher.batch_rows();
+              batch_cols = idx_batcher.batch_rows();
 
     // build translation buffer to shift resulting indices by the batch
     std::vector<value_idx> id_ranges;
@@ -440,7 +439,7 @@ void brute_force_knn(const value_idx *idxIndptr, const value_idx *idxIndices,
                      size_t batch_size_index = 2 << 14,  // approx 1M
                      size_t batch_size_query = 2 << 14,
                      raft::distance::DistanceType metric =
-                     raft::distance::DistanceType::L2Expanded,
+                       raft::distance::DistanceType::L2Expanded,
                      float metricArg = 0) {
   sparse_knn_t<value_idx, value_t>(
     idxIndptr, idxIndices, idxData, idxNNZ, n_idx_rows, n_idx_cols, queryIndptr,

@@ -41,7 +41,7 @@ namespace sparse {
 namespace distance {
 
 template <typename value_idx = int, typename value_t = float,
-  typename product_f, typename accum_f, typename write_f>
+          typename product_f, typename accum_f, typename write_f>
 
 void unexpanded_lp_distances(
   value_t *out_dists, const distances_config_t<value_idx, value_t> *config_,
@@ -145,11 +145,11 @@ class l2_sqrt_unexpanded_distances_t
     value_t p = 0.5;  // standard l2
     raft::linalg::unaryOp<value_t>(
       out_dists, out_dists, this->config_->a_nrows * this->config_->b_nrows,
-    [p] __device__(value_t input) {
-      int neg = input < 0 ? -1 : 1;
-      return powf(fabs(input), p) * neg;
-    },
-    this->config_->stream);
+      [p] __device__(value_t input) {
+        int neg = input < 0 ? -1 : 1;
+        return powf(fabs(input), p) * neg;
+      },
+      this->config_->stream);
   }
 };
 
