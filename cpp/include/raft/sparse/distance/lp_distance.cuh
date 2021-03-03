@@ -104,8 +104,6 @@ class l1_unexpanded_distances_t : public distances_t<value_t> {
     : config_(&config) {}
 
   void compute(value_t *out_dists) {
-    CUML_LOG_DEBUG("Running l1 dists");
-
     unexpanded_lp_distances<value_idx, value_t>(out_dists, config_, AbsDiff(),
                                                 Sum(), AtomicAdd());
   }
@@ -140,7 +138,6 @@ class l2_sqrt_unexpanded_distances_t
 
   void compute(value_t *out_dists) {
     l2_unexpanded_distances_t<value_idx, value_t>::compute(out_dists);
-    CUML_LOG_DEBUG("Computing Sqrt");
     // Sqrt Post-processing
     value_t p = 0.5;  // standard l2
     raft::linalg::unaryOp<value_t>(
