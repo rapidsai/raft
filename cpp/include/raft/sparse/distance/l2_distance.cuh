@@ -242,7 +242,6 @@ class hellinger_expanded_distances_t : public distances_t<value_t> {
       ip_dists(config) {}
 
   void compute(value_t *out_dists) {
-
     // First sqrt A and B
     raft::linalg::unaryOp<value_t>(
       config_->a_data, config_->a_data, config_->a_nnz,
