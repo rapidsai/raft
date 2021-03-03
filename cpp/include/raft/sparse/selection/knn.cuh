@@ -351,7 +351,6 @@ class sparse_knn_t {
     /**
      * Compute distances
      */
-    CUML_LOG_DEBUG("Computing pairwise distances for batch");
     raft::sparse::distance::distances_config_t<value_idx, value_t> dist_config;
     dist_config.b_nrows = idx_batcher.batch_rows();
     dist_config.b_ncols = n_idx_cols;

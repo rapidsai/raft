@@ -122,20 +122,17 @@ class l2_expanded_distances_t : public distances_t<value_t> {
       ip_dists(config) {}
 
   void compute(value_t *out_dists) {
-    CUML_LOG_DEBUG("Computing inner products");
     ip_dists.compute(out_dists);
 
     value_idx *b_indices = ip_dists.b_rows_coo();
     value_t *b_data = ip_dists.b_data_coo();
 
-    CUML_LOG_DEBUG("Computing COO row index array");
     raft::mr::device::buffer<value_idx> search_coo_rows(
       config_->allocator, config_->stream, config_->a_nnz);
     raft::sparse::convert::csr_to_coo(config_->a_indptr, config_->a_nrows,
                                       search_coo_rows.data(), config_->a_nnz,
                                       config_->stream);
 
-    CUML_LOG_DEBUG("Computing L2");
     compute_l2(
       out_dists, search_coo_rows.data(), config_->a_data, config_->a_nnz,
       b_indices, b_data, config_->b_nnz, config_->a_nrows, config_->b_nrows,
@@ -167,7 +164,6 @@ class l2_sqrt_expanded_distances_t
 
   void compute(value_t *out_dists) override {
     l2_expanded_distances_t<value_idx, value_t>::compute(out_dists);
-    CUML_LOG_DEBUG("Computing Sqrt");
     // Sqrt Post-processing
     value_t p = 0.5;  // standard l2
     raft::linalg::unaryOp<value_t>(
@@ -196,20 +192,17 @@ class cosine_expanded_distances_t : public distances_t<value_t> {
       ip_dists(config) {}
 
   void compute(value_t *out_dists) {
-    CUML_LOG_DEBUG("Computing inner products");
     ip_dists.compute(out_dists);
 
     value_idx *b_indices = ip_dists.b_rows_coo();
     value_t *b_data = ip_dists.b_data_coo();
 
-    CUML_LOG_DEBUG("Computing COO row index array");
     raft::mr::device::buffer<value_idx> search_coo_rows(
       config_->allocator, config_->stream, config_->a_nnz);
     raft::sparse::convert::csr_to_coo(config_->a_indptr, config_->a_nrows,
                                       search_coo_rows.data(), config_->a_nnz,
                                       config_->stream);
 
-    CUML_LOG_DEBUG("Computing L2");
     compute_l2(
       out_dists, search_coo_rows.data(), config_->a_data, config_->a_nnz,
       b_indices, b_data, config_->b_nnz, config_->a_nrows, config_->b_nrows,
@@ -249,8 +242,6 @@ class hellinger_expanded_distances_t : public distances_t<value_t> {
       ip_dists(config) {}
 
   void compute(value_t *out_dists) {
-    CUML_LOG_DEBUG("Computing Hellinger Distance");
-
     // First sqrt A and B
     raft::linalg::unaryOp<value_t>(
       config_->a_data, config_->a_data, config_->a_nnz,
