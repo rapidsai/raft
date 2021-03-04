@@ -35,8 +35,8 @@
 #include <limits>
 
 namespace raft {
-namespace hierarchy {
-namespace detail {
+namespace sparse {
+namespace selection {
 
 /**
  * Fills indices array of pairwise distance array
@@ -56,7 +56,7 @@ template <typename value_idx>
 value_idx build_k(value_idx n_samples, int c) {
   // from "kNN-MST-Agglomerative: A fast & scalable graph-based data clustering
   // approach on GPU"
-  return min(n_samples, (value_idx)floor(logf(n_samples)) + c);
+  return min(n_samples, (value_idx)floor(log2(n_samples)) + c);
 }
 
 template <typename in_t, typename out_t>

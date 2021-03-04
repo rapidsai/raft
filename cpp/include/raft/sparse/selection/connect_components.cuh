@@ -218,7 +218,7 @@ void build_output_colors_indptr(value_idx *degrees,
 
   raft::print_device_vector("components_indptr", components_indptr,
                             n_components + 1, std::cout);
-  raft::print_device_vector("nn_components", nn_components, 5, std::cout);
+  raft::print_device_vector("nn_components", n_components, 5, std::cout);
 
   /**
    * Create COO array by first computing CSR indptr w/ degrees of each
@@ -341,7 +341,7 @@ void connect_components(const raft::handle_t &handle,
   raft::mr::device::buffer<value_idx> color_neigh_degrees(d_alloc, stream,
                                                           n_components + 1);
   raft::mr::device::buffer<value_idx> colors_indptr(d_alloc, stream,
-                                                    n_components);
+                                                    n_components+1);
 
   perform_1nn(temp_inds_dists.data(), nn_colors.data(), colors, X, n_rows,
               n_cols, d_alloc, stream);
@@ -351,13 +351,16 @@ void connect_components(const raft::handle_t &handle,
    */
   // max_color + 1 = number of connected components
   // sort nn_colors by key w/ original colors
-
   sort_by_color(colors, nn_colors.data(), temp_inds_dists.data(),
                 src_indices.data(), n_rows, stream);
 
   // create an indptr array for newly sorted colors
   raft::sparse::convert::sorted_coo_to_csr(colors, n_rows, colors_indptr.data(),
                                            n_components + 1, d_alloc, stream);
+
+  raft::print_device_vector("color_sorted", colors,
+                            n_rows, std::cout);
+
 
   // create output degree array for closest components per row
   build_output_colors_indptr(color_neigh_degrees.data(), colors_indptr.data(),

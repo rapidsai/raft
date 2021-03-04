@@ -281,6 +281,7 @@ if(BUILD_RAFT_TESTS)
     test/sparse/add.cu
     test/sparse/convert_coo.cu
     test/sparse/convert_csr.cu
+    test/sparse/connect_components.cu
     test/sparse/csr_row_slice.cu
     test/sparse/csr_to_dense.cu
     test/sparse/csr_transpose.cu
