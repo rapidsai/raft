@@ -218,7 +218,7 @@ void build_output_colors_indptr(value_idx *degrees,
 
   raft::print_device_vector("components_indptr", components_indptr,
                             n_components + 1, std::cout);
-  raft::print_device_vector("nn_components", n_components, 5, std::cout);
+//  raft::print_device_vector("nn_components", n_components, 5, std::cout);
 
   /**
    * Create COO array by first computing CSR indptr w/ degrees of each
