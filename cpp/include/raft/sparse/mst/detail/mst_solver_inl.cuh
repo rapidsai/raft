@@ -52,7 +52,7 @@ MST_solver<vertex_t, edge_t, weight_t>::MST_solver(
   const raft::handle_t& handle_, const edge_t* offsets_,
   const vertex_t* indices_, const weight_t* weights_, const vertex_t v_,
   const edge_t e_, vertex_t* color_, cudaStream_t stream_,
-  bool symmetrize_output_)
+  bool symmetrize_output_, bool initialize_colors_, int iterations_)
   : handle(handle_),
     offsets(offsets_),
     indices(indices_),
@@ -60,8 +60,8 @@ MST_solver<vertex_t, edge_t, weight_t>::MST_solver(
     altered_weights(e_),
     v(v_),
     e(e_),
-    color(color_),
-    color_index(v_),
+    color_index(color_),
+    color(v_),
     next_color(v_),
     min_edge_color(v_),
     new_mst_edge(v_),
@@ -72,16 +72,21 @@ MST_solver<vertex_t, edge_t, weight_t>::MST_solver(
     mst_edge_count(1, 0),
     prev_mst_edge_count(1, 0),
     stream(stream_),
-    symmetrize_output(symmetrize_output_) {
+    symmetrize_output(symmetrize_output_),
+    initialize_colors(initialize_colors_),
+    iterations(iterations_) {
   max_blocks = handle_.get_device_properties().maxGridSize[0];
   max_threads = handle_.get_device_properties().maxThreadsPerBlock;
   sm_count = handle_.get_device_properties().multiProcessorCount;
 
   //Initially, color holds the vertex id as color
   auto policy = rmm::exec_policy(stream);
-  thrust::sequence(policy->on(stream), color, color + v, 0);
-  thrust::sequence(policy->on(stream), color_index.begin(), color_index.end(),
-                   0);
+  if (initialize_colors_) {
+    thrust::sequence(policy->on(stream), color.begin(), color.end(), 0);
+    thrust::sequence(policy->on(stream), color_index, color_index + v, 0);
+  } else {
+    raft::copy(color.data().get(), color_index, v, stream);
+  }
   thrust::sequence(policy->on(stream), next_color.begin(), next_color.end(), 0);
 }
 
@@ -113,7 +118,8 @@ MST_solver<vertex_t, edge_t, weight_t>::solve() {
   // Boruvka original formulation says "while more than 1 supervertex remains"
   // Here we adjust it to support disconnected components (spanning forest)
   // track completion with mst_edge_found status and v as upper bound
-  for (auto i = 0; i < v; i++) {
+  auto mst_iterations = iterations > 0 ? iterations : v;
+  for (auto i = 0; i < mst_iterations; i++) {
 #ifdef MST_TIME
     start = Clock::now();
 #endif
@@ -183,6 +189,8 @@ MST_solver<vertex_t, edge_t, weight_t>::solve() {
   mst_result.src.resize(mst_result.n_edges, stream);
   mst_result.dst.resize(mst_result.n_edges, stream);
   mst_result.weights.resize(mst_result.n_edges, stream);
+
+  // raft::print_device_vector("Colors before sending: ", color_index, 7, std::cout);
 
   return mst_result;
 }
@@ -271,7 +279,7 @@ void MST_solver<vertex_t, edge_t, weight_t>::label_prop(vertex_t* mst_src,
   rmm::device_vector<bool> done(1, false);
 
   edge_t* new_mst_edge_ptr = new_mst_edge.data().get();
-  vertex_t* color_index_ptr = color_index.data().get();
+  vertex_t* color_ptr = color.data().get();
   vertex_t* next_color_ptr = next_color.data().get();
 
   bool* done_ptr = done.data().get();
@@ -281,16 +289,16 @@ void MST_solver<vertex_t, edge_t, weight_t>::label_prop(vertex_t* mst_src,
     done[0] = true;
 
     detail::min_pair_colors<<<min_pair_nblocks, min_pair_nthreads, 0, stream>>>(
-      v, indices, new_mst_edge_ptr, color, color_index_ptr, next_color_ptr);
+      v, indices, new_mst_edge_ptr, color_ptr, color_index, next_color_ptr);
 
     detail::update_colors<<<min_pair_nblocks, min_pair_nthreads, 0, stream>>>(
-      v, color, color_index_ptr, next_color_ptr, done_ptr);
+      v, color_ptr, color_index, next_color_ptr, done_ptr);
     i++;
   }
 
   detail::
     final_color_indices<<<min_pair_nblocks, min_pair_nthreads, 0, stream>>>(
-      v, color, color_index_ptr);
+      v, color_ptr, color_index);
 #ifdef MST_TIME
   std::cout << "Label prop iterations: " << i << std::endl;
 #endif
@@ -304,14 +312,14 @@ void MST_solver<vertex_t, edge_t, weight_t>::min_edge_per_vertex() {
 
   int n_threads = 32;
 
-  vertex_t* color_index_ptr = color_index.data().get();
+  vertex_t* color_ptr = color.data().get();
   edge_t* new_mst_edge_ptr = new_mst_edge.data().get();
   bool* mst_edge_ptr = mst_edge.data().get();
   weight_t* min_edge_color_ptr = min_edge_color.data().get();
   weight_t* altered_weights_ptr = altered_weights.data().get();
 
   detail::kernel_min_edge_per_vertex<<<v, n_threads, 0, stream>>>(
-    offsets, indices, altered_weights_ptr, color, color_index_ptr,
+    offsets, indices, altered_weights_ptr, color_ptr, color_index,
     new_mst_edge_ptr, mst_edge_ptr, min_edge_color_ptr, v);
 }
 
@@ -324,7 +332,7 @@ void MST_solver<vertex_t, edge_t, weight_t>::min_edge_per_supervertex() {
   thrust::fill(temp_src.begin(), temp_src.end(),
                std::numeric_limits<vertex_t>::max());
 
-  vertex_t* color_index_ptr = color_index.data().get();
+  vertex_t* color_ptr = color.data().get();
   edge_t* new_mst_edge_ptr = new_mst_edge.data().get();
   bool* mst_edge_ptr = mst_edge.data().get();
   weight_t* min_edge_color_ptr = min_edge_color.data().get();
@@ -334,7 +342,7 @@ void MST_solver<vertex_t, edge_t, weight_t>::min_edge_per_supervertex() {
   weight_t* temp_weights_ptr = temp_weights.data().get();
 
   detail::min_edge_per_supervertex<<<nblocks, nthreads, 0, stream>>>(
-    color, color_index_ptr, new_mst_edge_ptr, mst_edge_ptr, indices, weights,
+    color_ptr, color_index, new_mst_edge_ptr, mst_edge_ptr, indices, weights,
     altered_weights_ptr, temp_src_ptr, temp_dst_ptr, temp_weights_ptr,
     min_edge_color_ptr, v, symmetrize_output);
 
