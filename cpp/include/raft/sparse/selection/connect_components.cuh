@@ -65,30 +65,46 @@ struct FixConnectivitiesRedOp {
   }
 };
 
+/**
+ * Count the unique vertices adjacent to each component.
+ * This is essentially a count_unique_by_key.
+ * @tparam value_idx
+ * @param out_indptr
+ * @param colors_indptr
+ * @param colors_nn
+ * @param n_colors
+ */
 template <typename value_idx>
 __global__ void count_components_by_color_kernel(value_idx *out_indptr,
                                                  const value_idx *colors_indptr,
                                                  const value_idx *colors_nn,
                                                  value_idx n_colors) {
-  value_idx tid = blockDim.x * blockIdx.x + threadIdx.x;
+  value_idx tid = threadIdx.x;
   value_idx row = blockIdx.x;
-
-  if (row >= n_colors) return;
 
   __shared__ extern value_idx count_smem[];
 
   value_idx start_offset = colors_indptr[row];
   value_idx stop_offset = colors_indptr[row + 1];
 
-  for (value_idx i = tid; i < (stop_offset - start_offset); i += blockDim.x) {
-    value_idx new_color = colors_nn[start_offset + i];
-    count_smem[new_color] = 1;
+  for (value_idx i = tid; i < n_colors; i += blockDim.x) {
+    count_smem[i] = 0;
   }
 
   __syncthreads();
 
-  for (value_idx i = tid; i < n_colors; i += blockDim.x)
-    atomicAdd(out_indptr + i, count_smem[i] > 0);
+
+  for (value_idx i = tid; i < (stop_offset - start_offset); i += blockDim.x) {
+    count_smem[colors_nn[start_offset + i]] = 1;
+  }
+
+  __syncthreads();
+
+  for (value_idx i = tid; i < n_colors; i += blockDim.x) {
+
+    // TODO: Warp-level reduction
+    atomicAdd(out_indptr+row, count_smem[i] > 0);
+  }
 }
 
 template <typename value_idx>
@@ -128,17 +144,11 @@ __global__ void min_components_by_color_kernel(
     (cub::KeyValuePair<value_idx, value_t> *)(mutex + n_colors);
   value_idx *src_inds = (value_idx *)(min + n_colors);
 
-  value_idx *output_offset_i = (value_idx *)(src_inds + n_colors);
-
-  if (threadIdx.x == 0) {
-    output_offset_i[0] = 0;
-  }
-
   value_idx start_offset = colors_indptr[blockIdx.x];
   value_idx stop_offset = colors_indptr[blockIdx.x + 1];
 
   // initialize
-  for (value_idx i = threadIdx.x; i < (stop_offset - start_offset);
+  for (value_idx i = threadIdx.x; i < n_colors;
        i += blockDim.x) {
     auto skvp = min + i;
     skvp->key = -1;
@@ -154,7 +164,9 @@ __global__ void min_components_by_color_kernel(
     while (atomicCAS(mutex + new_color, 0, 1) == 1)
       ;
     __threadfence();
-    auto cur_kvp = kvp[start_offset + i];
+    volatile auto cur_kvp = kvp[start_offset + i];
+
+    printf("bid=%d, tid=%d, new_color=%d, src_inds=%d, min_key=%d, min_val=%f, key=%d, val=%f\n", blockIdx.x, threadIdx.x, new_color, indices[start_offset+i], min[new_color].key, min[new_color].value, cur_kvp.key, cur_kvp.value);
     if (cur_kvp.value < min[new_color].value) {
       src_inds[new_color] = indices[start_offset + i];
       min[new_color].key = cur_kvp.key;
@@ -167,18 +179,19 @@ __global__ void min_components_by_color_kernel(
   __syncthreads();
 
   value_idx out_offset = out_indptr[blockIdx.x];
-  for (value_idx i = threadIdx.x; i < n_colors; i += blockDim.x) {
-    auto min_color = min[i];
-    if (min_color.key > -1) {
-      __threadfence();
 
-      value_idx cur_offset = output_offset_i[0];
+  // TODO: There might be a way to do this across threads.
+  if (threadIdx.x == 0) {
+    value_idx cur_offset = 0;
 
-      out_rows[out_offset + cur_offset] = src_inds[i];
-      out_cols[out_offset + cur_offset] = min_color.key;
-      out_vals[out_offset + cur_offset] = min_color.value;
-
-      atomicAdd(output_offset_i, 1);
+    for(value_idx i = 0; i < n_colors; i++) {
+      auto min_color = min[i];
+      if (min_color.key > -1) {
+        out_rows[out_offset + cur_offset] = src_inds[i];
+        out_cols[out_offset + cur_offset] = min_color.key;
+        out_vals[out_offset + cur_offset] = min_color.value;
+        cur_offset += 1;
+      }
     }
   }
 }
@@ -299,8 +312,17 @@ void sort_by_color(value_idx *colors, value_idx *nn_colors,
   auto vals = thrust::make_zip_iterator(
     thrust::make_tuple(t_data, t_src_indices, t_nn_colors));
 
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+
+  raft::print_device_vector("src_indices", src_indices, n_rows, std::cout);
+
   // get all the colors in contiguous locations so we can map them to warps.
   thrust::sort_by_key(thrust::cuda::par.on(stream), keys, keys + n_rows, vals);
+
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+
+  raft::print_device_vector("src_indices_sorted", src_indices, n_rows, std::cout);
+
 }
 
 /**
