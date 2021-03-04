@@ -24,6 +24,9 @@ try:
     from raft.dask import Comms
     from raft.dask.common import local_handle
     from raft.dask.common import perform_test_comms_send_recv
+    from raft.dask.common import perform_test_comms_device_send_or_recv
+    from raft.dask.common import perform_test_comms_device_sendrecv
+    from raft.dask.common import perform_test_comms_device_multicast_sendrecv
     from raft.dask.common import perform_test_comms_allreduce
     from raft.dask.common import perform_test_comms_bcast
     from raft.dask.common import perform_test_comms_reduce
@@ -63,6 +66,21 @@ def func_test_collective(func, sessionId, root):
 def func_test_send_recv(sessionId, n_trials):
     handle = local_handle(sessionId)
     return perform_test_comms_send_recv(handle, n_trials)
+
+
+def func_test_device_send_or_recv(sessionId, n_trials):
+    handle = local_handle(sessionId)
+    return perform_test_comms_device_send_or_recv(handle, n_trials)
+
+
+def func_test_device_sendrecv(sessionId, n_trials):
+    handle = local_handle(sessionId)
+    return perform_test_comms_device_sendrecv(handle, n_trials)
+
+
+def func_test_device_multicast_sendrecv(sessionId, n_trials):
+    handle = local_handle(sessionId)
+    return perform_test_comms_device_multicast_sendrecv(handle, n_trials)
 
 
 def func_test_comm_split(sessionId, n_trials):
@@ -236,6 +254,75 @@ def test_send_recv(n_trials, client):
     dfs = [
         client.submit(
             func_test_send_recv,
+            cb.sessionId,
+            n_trials,
+            pure=False,
+            workers=[w],
+        )
+        for w in cb.worker_addresses
+    ]
+
+    wait(dfs, timeout=5)
+
+    assert list(map(lambda x: x.result(), dfs))
+
+
+@pytest.mark.nccl
+@pytest.mark.parametrize("n_trials", [1, 5])
+def test_device_send_or_recv(n_trials, client):
+
+    cb = Comms(comms_p2p=True, verbose=True)
+    cb.init()
+
+    dfs = [
+        client.submit(
+            func_test_device_send_or_recv,
+            cb.sessionId,
+            n_trials,
+            pure=False,
+            workers=[w],
+        )
+        for w in cb.worker_addresses
+    ]
+
+    wait(dfs, timeout=5)
+
+    assert list(map(lambda x: x.result(), dfs))
+
+
+@pytest.mark.nccl
+@pytest.mark.parametrize("n_trials", [1, 5])
+def test_device_sendrecv(n_trials, client):
+
+    cb = Comms(comms_p2p=True, verbose=True)
+    cb.init()
+
+    dfs = [
+        client.submit(
+            func_test_device_sendrecv,
+            cb.sessionId,
+            n_trials,
+            pure=False,
+            workers=[w],
+        )
+        for w in cb.worker_addresses
+    ]
+
+    wait(dfs, timeout=5)
+
+    assert list(map(lambda x: x.result(), dfs))
+
+
+@pytest.mark.nccl
+@pytest.mark.parametrize("n_trials", [1, 5])
+def test_device_multicast_sendrecv(n_trials, client):
+
+    cb = Comms(comms_p2p=True, verbose=True)
+    cb.init()
+
+    dfs = [
+        client.submit(
+            func_test_device_multicast_sendrecv,
             cb.sessionId,
             n_trials,
             pure=False,

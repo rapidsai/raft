@@ -112,9 +112,6 @@ class std_comms : public comms_iface {
 
   int get_rank() const { return rank_; }
 
-  // FIXME: a temporary hack, should be removed
-  ncclComm_t get_nccl_comm() const { return nccl_comm_; }
-
   std::unique_ptr<comms_iface> comm_split(int color, int key) const {
     mr::device::buffer<int> d_colors(device_allocator_, stream_, get_size());
     mr::device::buffer<int> d_keys(device_allocator_, stream_, get_size());
@@ -416,6 +413,51 @@ class std_comms : public comms_iface {
       // Let other threads (including NCCL threads) use the CPU.
       std::this_thread::yield();
     }
+  }
+
+  // if a thread is sending & receiving at the same time, use device_sendrecv to avoid deadlock
+  void device_send(const void *buf, size_t size, int dest,
+                   cudaStream_t stream) const {
+    NCCL_TRY(ncclSend(buf, size, ncclUint8, dest, nccl_comm_, stream));
+  }
+
+  // if a thread is sending & receiving at the same time, use device_sendrecv to avoid deadlock
+  void device_recv(void *buf, size_t size, int source,
+                   cudaStream_t stream) const {
+    NCCL_TRY(ncclRecv(buf, size, ncclUint8, source, nccl_comm_, stream));
+  }
+
+  void device_sendrecv(const void *sendbuf, size_t sendsize, int dest,
+                       void *recvbuf, size_t recvsize, int source,
+                       cudaStream_t stream) const {
+    // ncclSend/ncclRecv pair needs to be inside ncclGroupStart/ncclGroupEnd to avoid deadlock
+    NCCL_TRY(ncclGroupStart());
+    NCCL_TRY(ncclSend(sendbuf, sendsize, ncclUint8, dest, nccl_comm_, stream));
+    NCCL_TRY(
+      ncclRecv(recvbuf, recvsize, ncclUint8, source, nccl_comm_, stream));
+    NCCL_TRY(ncclGroupEnd());
+  }
+
+  void device_multicast_sendrecv(const void *sendbuf,
+                                 std::vector<size_t> const &sendsizes,
+                                 std::vector<size_t> const &sendoffsets,
+                                 std::vector<int> const &dests, void *recvbuf,
+                                 std::vector<size_t> const &recvsizes,
+                                 std::vector<size_t> const &recvoffsets,
+                                 std::vector<int> const &sources,
+                                 cudaStream_t stream) const {
+    // ncclSend/ncclRecv pair needs to be inside ncclGroupStart/ncclGroupEnd to avoid deadlock
+    NCCL_TRY(ncclGroupStart());
+    for (size_t i = 0; i < sendsizes.size(); ++i) {
+      NCCL_TRY(ncclSend(static_cast<const char *>(sendbuf) + sendoffsets[i],
+                        sendsizes[i], ncclUint8, dests[i], nccl_comm_, stream));
+    }
+    for (size_t i = 0; i < recvsizes.size(); ++i) {
+      NCCL_TRY(ncclRecv(static_cast<char *>(recvbuf) + recvoffsets[i],
+                        recvsizes[i], ncclUint8, sources[i], nccl_comm_,
+                        stream));
+    }
+    NCCL_TRY(ncclGroupEnd());
   }
 
  private:

@@ -42,7 +42,7 @@ class MST_solver {
   MST_solver(const raft::handle_t& handle_, const edge_t* offsets_,
              const vertex_t* indices_, const weight_t* weights_,
              const vertex_t v_, const edge_t e_, vertex_t* color_,
-             cudaStream_t stream_, bool initialize_colors_=true);
+             cudaStream_t stream_, bool symmetrize_output_, bool initialize_colors_, int iterations_);
 
   raft::Graph_COO<vertex_t, edge_t, weight_t> solve();
 
@@ -51,7 +51,8 @@ class MST_solver {
  private:
   const raft::handle_t& handle;
   cudaStream_t stream;
-  bool initialize_colors;
+  bool symmetrize_output, initialize_colors;
+  int iterations;
 
   //CSR
   const edge_t* offsets;
@@ -60,9 +61,9 @@ class MST_solver {
   const vertex_t v;
   const edge_t e;
 
-  int max_blocks;
-  int max_threads;
-  int sm_count;
+  vertex_t max_blocks;
+  vertex_t max_threads;
+  vertex_t sm_count;
 
   vertex_t* color_index;  // represent each supervertex as a color
   rmm::device_vector<weight_t>

@@ -51,7 +51,8 @@ template <typename vertex_t, typename edge_t, typename weight_t>
 MST_solver<vertex_t, edge_t, weight_t>::MST_solver(
   const raft::handle_t& handle_, const edge_t* offsets_,
   const vertex_t* indices_, const weight_t* weights_, const vertex_t v_,
-  const edge_t e_, vertex_t* color_, cudaStream_t stream_, bool initialize_colors_)
+  const edge_t e_, vertex_t* color_, cudaStream_t stream_,
+  bool symmetrize_output_, bool initialize_colors_, int iterations_)
   : handle(handle_),
     offsets(offsets_),
     indices(indices_),
@@ -71,7 +72,9 @@ MST_solver<vertex_t, edge_t, weight_t>::MST_solver(
     mst_edge_count(1, 0),
     prev_mst_edge_count(1, 0),
     stream(stream_),
-    initialize_colors(initialize_colors_) {
+    symmetrize_output(symmetrize_output_),
+    initialize_colors(initialize_colors_),
+    iterations(iterations_) {
   max_blocks = handle_.get_device_properties().maxGridSize[0];
   max_threads = handle_.get_device_properties().maxThreadsPerBlock;
   sm_count = handle_.get_device_properties().multiProcessorCount;
@@ -82,12 +85,11 @@ MST_solver<vertex_t, edge_t, weight_t>::MST_solver(
     thrust::sequence(policy->on(stream), color.begin(), color.end(), 0);
     thrust::sequence(policy->on(stream), color_index, color_index + v,
                     0);
-    thrust::sequence(policy->on(stream), next_color.begin(), next_color.end(), 0);
   }
   else {
-    thrust::copy(policy->on(stream), color.begin(), color.end(), color_);
-    thrust::copy(policy->on(stream), next_color.begin(), next_color.end(), color_);
+    raft::copy(color.data().get(), color_index, v, stream);
   }
+  thrust::sequence(policy->on(stream), next_color.begin(), next_color.end(), 0);
 }
 
 template <typename vertex_t, typename edge_t, typename weight_t>
@@ -118,7 +120,8 @@ MST_solver<vertex_t, edge_t, weight_t>::solve() {
   // Boruvka original formulation says "while more than 1 supervertex remains"
   // Here we adjust it to support disconnected components (spanning forest)
   // track completion with mst_edge_found status and v as upper bound
-  for (auto i = 0; i < v; i++) {
+  auto mst_iterations = iterations > 0 ? iterations : v;
+  for (auto i = 0; i < mst_iterations; i++) {
 #ifdef MST_TIME
     start = Clock::now();
 #endif
@@ -188,6 +191,8 @@ MST_solver<vertex_t, edge_t, weight_t>::solve() {
   mst_result.src.resize(mst_result.n_edges, stream);
   mst_result.dst.resize(mst_result.n_edges, stream);
   mst_result.weights.resize(mst_result.n_edges, stream);
+
+  // raft::print_device_vector("Colors before sending: ", color_index, 7, std::cout);
 
   return mst_result;
 }
@@ -269,9 +274,9 @@ void MST_solver<vertex_t, edge_t, weight_t>::label_prop(vertex_t* mst_src,
   // update the colors of both ends its until there is no change in colors
   thrust::host_vector<edge_t> curr_mst_edge_count = mst_edge_count;
 
-  auto min_pair_nthreads = std::min(v, max_threads);
-  auto min_pair_nblocks =
-    std::min((v + min_pair_nthreads - 1) / min_pair_nthreads, max_blocks);
+  auto min_pair_nthreads = std::min(v, (vertex_t)max_threads);
+  auto min_pair_nblocks = std::min(
+    (v + min_pair_nthreads - 1) / min_pair_nthreads, (vertex_t)max_blocks);
 
   rmm::device_vector<bool> done(1, false);
 
@@ -323,8 +328,8 @@ void MST_solver<vertex_t, edge_t, weight_t>::min_edge_per_vertex() {
 // Finds the minimum edge from each supervertex to the lowest color
 template <typename vertex_t, typename edge_t, typename weight_t>
 void MST_solver<vertex_t, edge_t, weight_t>::min_edge_per_supervertex() {
-  int nthreads = std::min(v, max_threads);
-  int nblocks = std::min((v + nthreads - 1) / nthreads, max_blocks);
+  auto nthreads = std::min(v, max_threads);
+  auto nblocks = std::min((v + nthreads - 1) / nthreads, max_blocks);
 
   thrust::fill(temp_src.begin(), temp_src.end(),
                std::numeric_limits<vertex_t>::max());
@@ -341,20 +346,23 @@ void MST_solver<vertex_t, edge_t, weight_t>::min_edge_per_supervertex() {
   detail::min_edge_per_supervertex<<<nblocks, nthreads, 0, stream>>>(
     color_ptr, color_index, new_mst_edge_ptr, mst_edge_ptr, indices, weights,
     altered_weights_ptr, temp_src_ptr, temp_dst_ptr, temp_weights_ptr,
-    min_edge_color_ptr, v);
+    min_edge_color_ptr, v, symmetrize_output);
 
   // the above kernel only adds directed mst edges in the case where
   // a pair of vertices don't pick the same min edge between them
   // so, now we add the reverse edge to make it undirected
-  detail::add_reverse_edge<<<nblocks, nthreads, 0, stream>>>(
-    new_mst_edge_ptr, indices, weights, temp_src_ptr, temp_dst_ptr,
-    temp_weights_ptr, v);
+  if (symmetrize_output) {
+    detail::add_reverse_edge<<<nblocks, nthreads, 0, stream>>>(
+      new_mst_edge_ptr, indices, weights, temp_src_ptr, temp_dst_ptr,
+      temp_weights_ptr, v, symmetrize_output);
+  }
 }
 
 template <typename vertex_t, typename edge_t, typename weight_t>
 void MST_solver<vertex_t, edge_t, weight_t>::check_termination() {
-  int nthreads = std::min(2 * v, max_threads);
-  int nblocks = std::min((2 * v + nthreads - 1) / nthreads, max_blocks);
+  vertex_t nthreads = std::min(2 * v, (vertex_t)max_threads);
+  vertex_t nblocks =
+    std::min((2 * v + nthreads - 1) / nthreads, (vertex_t)max_blocks);
 
   // count number of new mst edges
   edge_t* mst_edge_count_ptr = mst_edge_count.data().get();
