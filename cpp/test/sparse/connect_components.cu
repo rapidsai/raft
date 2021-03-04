@@ -19,6 +19,7 @@
 #include <raft/cuda_utils.cuh>
 #include <vector>
 
+#include <raft/sparse/linalg/symmetrize.cuh>
 #include <raft/sparse/mst/mst.cuh>
 #include <raft/sparse/selection/knn_graph.cuh>
 
@@ -108,18 +109,9 @@ class ConnectComponentsTest : public ::testing::TestWithParam<
      */
     raft::mr::device::buffer<value_idx> colors(d_alloc, stream, params.n_row);
 
-    raft::mr::device::buffer<value_idx> mst_rows(d_alloc, stream, 0);
-    raft::mr::device::buffer<value_idx> mst_cols(d_alloc, stream, 0);
-    raft::mr::device::buffer<value_t> mst_data(d_alloc, stream, 0);
-
     auto mst_coo = raft::mst::mst<value_idx, value_idx, value_t>(
       handle, indptr.data(), knn_graph_coo.cols(), knn_graph_coo.vals(),
       params.n_row, knn_graph_coo.nnz, colors.data(), stream, false);
-
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-
-    raft::print_device_vector("colors", colors.data(), colors.size(),
-                              std::cout);
 
     /**
      * 3. connect_components to fix connectivities
@@ -128,9 +120,60 @@ class ConnectComponentsTest : public ::testing::TestWithParam<
       handle, *out_edges, data.data(), colors.data(), params.n_row,
       params.n_col);
 
-    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+    int final_nnz = out_edges->nnz + mst_coo.n_edges;
 
-    std::cout << "OUTPUT: " << *out_edges << std::endl;
+    /**
+     * Construct final edge list
+     */
+    raft::mr::device::buffer<value_idx> new_rows(d_alloc, stream, final_nnz);
+    raft::mr::device::buffer<value_idx> new_cols(d_alloc, stream, final_nnz);
+    raft::mr::device::buffer<value_t> new_vals(d_alloc, stream, final_nnz);
+
+    raft::copy_async(new_rows.data(), out_edges->rows(), out_edges->nnz,
+                     stream);
+    raft::copy_async(new_cols.data(), out_edges->cols(), out_edges->nnz,
+                     stream);
+    raft::copy_async(new_vals.data(), out_edges->vals(), out_edges->nnz,
+                     stream);
+
+    raft::copy_async(new_rows.data() + out_edges->nnz, mst_coo.src.data(),
+                     mst_coo.n_edges, stream);
+    raft::copy_async(new_cols.data() + out_edges->nnz, mst_coo.dst.data(),
+                     mst_coo.n_edges, stream);
+    raft::copy_async(new_vals.data() + out_edges->nnz, mst_coo.weights.data(),
+                     mst_coo.n_edges, stream);
+
+    raft::sparse::COO<value_t, value_idx> final_coo(d_alloc, stream);
+
+    raft::sparse::linalg::symmetrize(handle, new_rows.data(), new_cols.data(),
+                                     new_vals.data(), params.n_row,
+                                     params.n_col, final_nnz, final_coo);
+
+    raft::mr::device::buffer<value_idx> indptr2(d_alloc, stream,
+                                                params.n_row + 1);
+
+    raft::sparse::convert::sorted_coo_to_csr(final_coo.rows(), final_coo.nnz,
+                                             indptr2.data(), params.n_row,
+                                             d_alloc, stream);
+
+    max_offset = 0;
+    raft::update_host(&max_offset, indptr2.data() + (params.n_row - 1), 1,
+                      stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+
+    max_offset += (final_nnz - max_offset);
+
+    raft::update_device(indptr2.data() + params.n_row, &max_offset, 1, stream);
+
+    auto output_mst = raft::mst::mst<value_idx, value_idx, value_t>(
+      handle, indptr2.data(), final_coo.cols(), final_coo.vals(), params.n_row,
+      final_coo.nnz, colors.data(), stream, false, true);
+
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+
+    printf("output edges: %d\n", output_mst.n_edges);
+
+    final_edges = output_mst.n_edges;
   }
 
   void SetUp() override { basicTest(); }
@@ -144,6 +187,8 @@ class ConnectComponentsTest : public ::testing::TestWithParam<
   ConnectComponentsInputs<value_t, value_idx> params;
   value_idx *labels, *labels_ref;
   raft::sparse::COO<value_t, value_idx> *out_edges;
+
+  value_idx final_edges;
 };
 
 const std::vector<ConnectComponentsInputs<float, int>> fix_conn_inputsf2 = {
@@ -513,9 +558,7 @@ TEST_P(ConnectComponentsTestF_Int, Result) {
   /**
      * Verify the src & dst vertices on each edge have different colors
      */
-  bool pass = true;
-
-  EXPECT_TRUE(pass);
+  EXPECT_TRUE(final_edges == params.n_row - 1);
 }
 
 INSTANTIATE_TEST_CASE_P(ConnectComponentsTest, ConnectComponentsTestF_Int,

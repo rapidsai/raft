@@ -161,13 +161,7 @@ __global__ void min_components_by_color_kernel(
     while (atomicCAS(mutex + new_color, 0, 1) == 1)
       ;
     __threadfence();
-    volatile auto cur_kvp = kvp[start_offset + i];
-
-    printf(
-      "bid=%d, tid=%d, new_color=%d, src_inds=%d, min_key=%d, min_val=%f, "
-      "key=%d, val=%f\n",
-      blockIdx.x, threadIdx.x, new_color, indices[start_offset + i],
-      min[new_color].key, min[new_color].value, cur_kvp.key, cur_kvp.value);
+    auto cur_kvp = kvp[start_offset + i];
     if (cur_kvp.value < min[new_color].value) {
       src_inds[new_color] = indices[start_offset + i];
       min[new_color].key = cur_kvp.key;
@@ -181,7 +175,7 @@ __global__ void min_components_by_color_kernel(
 
   value_idx out_offset = out_indptr[blockIdx.x];
 
-  // TODO: There might be a way to do this across threads.
+  // TODO: Do this across threads, using an atomic counter for each color
   if (threadIdx.x == 0) {
     value_idx cur_offset = 0;
 
@@ -229,10 +223,6 @@ void build_output_colors_indptr(value_idx *degrees,
                                 value_idx n_components, cudaStream_t stream) {
   CUDA_CHECK(cudaMemsetAsync(degrees, 0, (n_components + 1) * sizeof(value_idx),
                              stream));
-
-  raft::print_device_vector("components_indptr", components_indptr,
-                            n_components + 1, std::cout);
-  //  raft::print_device_vector("nn_components", n_components, 5, std::cout);
 
   /**
    * Create COO array by first computing CSR indptr w/ degrees of each
@@ -287,11 +277,6 @@ void perform_1nn(cub::KeyValuePair<value_idx, value_t> *kvp,
   LookupColorOp<value_idx, value_t> extract_colors_op(colors);
   thrust::transform(thrust::cuda::par.on(stream), t_kvp, t_kvp + n_rows,
                     t_nn_colors, extract_colors_op);
-
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-
-  raft::print_device_vector<value_idx>("nn_colors", nn_colors, n_rows,
-                                       std::cout);
 }
 
 template <typename value_idx, typename value_t>
@@ -313,17 +298,8 @@ void sort_by_color(value_idx *colors, value_idx *nn_colors,
   auto vals = thrust::make_zip_iterator(
     thrust::make_tuple(t_data, t_src_indices, t_nn_colors));
 
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-
-  raft::print_device_vector("src_indices", src_indices, n_rows, std::cout);
-
   // get all the colors in contiguous locations so we can map them to warps.
   thrust::sort_by_key(thrust::cuda::par.on(stream), keys, keys + n_rows, vals);
-
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-
-  raft::print_device_vector("src_indices_sorted", src_indices, n_rows,
-                            std::cout);
 }
 
 /**
@@ -350,8 +326,6 @@ void connect_components(const raft::handle_t &handle,
   auto stream = handle.get_stream();
 
   value_idx n_components = get_n_components(colors, n_rows, stream);
-
-  raft::print_device_vector("colors", colors, n_rows, std::cout);
 
   /**
    * First compute 1-nn for all colors where the color of each data point
@@ -381,14 +355,9 @@ void connect_components(const raft::handle_t &handle,
   raft::sparse::convert::sorted_coo_to_csr(colors, n_rows, colors_indptr.data(),
                                            n_components + 1, d_alloc, stream);
 
-  raft::print_device_vector("color_sorted", colors, n_rows, std::cout);
-
   // create output degree array for closest components per row
   build_output_colors_indptr(color_neigh_degrees.data(), colors_indptr.data(),
                              nn_colors.data(), n_components, stream);
-
-  raft::print_device_vector("color_neigh_degrees", color_neigh_degrees.data(),
-                            color_neigh_degrees.size(), std::cout);
 
   value_idx nnz;
   raft::update_host(&nnz, color_neigh_degrees.data() + n_components, 1, stream);
@@ -399,12 +368,6 @@ void connect_components(const raft::handle_t &handle,
                           colors_indptr.data(), nn_colors.data(),
                           src_indices.data(), temp_inds_dists.data(),
                           n_components, stream);
-
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-
-  raft::print_device_vector("min_edges", min_edges.rows(), nnz, std::cout);
-  raft::print_device_vector("min_edges", min_edges.cols(), nnz, std::cout);
-  raft::print_device_vector("min_edges", min_edges.vals(), nnz, std::cout);
 
   // symmetrize
   raft::sparse::linalg::symmetrize(handle, min_edges.rows(), min_edges.cols(),
