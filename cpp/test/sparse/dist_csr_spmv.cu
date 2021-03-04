@@ -229,7 +229,8 @@ const std::vector<SparseDistanceCSRSPMVInputs<int, float>> inputs_i32_f = {
      1832.0,
      0.0,
    },
-   raft::distance::DistanceType::L2Unexpanded},
+   raft::distance::DistanceType::L2Unexpanded,
+   0.0},
 
   {10,
    {0, 5, 11, 15, 20, 27, 32, 36, 43, 47, 50},
@@ -342,7 +343,8 @@ const std::vector<SparseDistanceCSRSPMVInputs<int, float>> inputs_i32_f = {
     6.903282911791188,
     7.0,
     0.0},
-   raft::distance::DistanceType::Canberra},
+   raft::distance::DistanceType::Canberra,
+   0.0},
 
   {10,
    {0, 5, 11, 15, 20, 27, 32, 36, 43, 47, 50},
@@ -569,7 +571,8 @@ const std::vector<SparseDistanceCSRSPMVInputs<int, float>> inputs_i32_f = {
     0.5079750812968089,
     0.8429599432532096,
     0.0},
-   raft::distance::DistanceType::Linf},
+   raft::distance::DistanceType::Linf,
+   0.0},
 
   {4,
    {0, 1, 1, 2, 4},
@@ -594,7 +597,8 @@ const std::vector<SparseDistanceCSRSPMVInputs<int, float>> inputs_i32_f = {
      0.84454,
      0.0,
    },
-   raft::distance::DistanceType::L1}
+   raft::distance::DistanceType::L1,
+   0.0}
 
 };
 
