@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <cuml/neighbors/knn.hpp>
+#include <raft/spatial/knn/knn.hpp>
 
 #include <raft/cudart_utils.h>
 #include <raft/linalg/distance_type.h>
