@@ -122,32 +122,24 @@ class ConnectComponentsTest : public ::testing::TestWithParam<
 
     int final_nnz = out_edges->nnz + mst_coo.n_edges;
 
+    mst_coo.src.resize(final_nnz, stream);
+    mst_coo.dst.resize(final_nnz, stream);
+    mst_coo.weights.resize(final_nnz, stream);
+
     /**
      * Construct final edge list
      */
-    raft::mr::device::buffer<value_idx> new_rows(d_alloc, stream, final_nnz);
-    raft::mr::device::buffer<value_idx> new_cols(d_alloc, stream, final_nnz);
-    raft::mr::device::buffer<value_t> new_vals(d_alloc, stream, final_nnz);
-
-    raft::copy_async(new_rows.data(), out_edges->rows(), out_edges->nnz,
-                     stream);
-    raft::copy_async(new_cols.data(), out_edges->cols(), out_edges->nnz,
-                     stream);
-    raft::copy_async(new_vals.data(), out_edges->vals(), out_edges->nnz,
-                     stream);
-
-    raft::copy_async(new_rows.data() + out_edges->nnz, mst_coo.src.data(),
-                     mst_coo.n_edges, stream);
-    raft::copy_async(new_cols.data() + out_edges->nnz, mst_coo.dst.data(),
-                     mst_coo.n_edges, stream);
-    raft::copy_async(new_vals.data() + out_edges->nnz, mst_coo.weights.data(),
-                     mst_coo.n_edges, stream);
+    raft::copy_async(mst_coo.src.data() + mst_coo.n_edges, out_edges->rows(),
+                     out_edges->nnz, stream);
+    raft::copy_async(mst_coo.dst.data() + mst_coo.n_edges, out_edges->cols(),
+                     out_edges->nnz, stream);
+    raft::copy_async(mst_coo.weights.data() + mst_coo.n_edges,
+                     out_edges->vals(), out_edges->nnz, stream);
 
     raft::sparse::COO<value_t, value_idx> final_coo(d_alloc, stream);
-
-    raft::sparse::linalg::symmetrize(handle, new_rows.data(), new_cols.data(),
-                                     new_vals.data(), params.n_row,
-                                     params.n_col, final_nnz, final_coo);
+    raft::sparse::linalg::symmetrize(
+      handle, mst_coo.src.data(), mst_coo.dst.data(), mst_coo.weights.data(),
+      params.n_row, params.n_col, final_nnz, final_coo);
 
     raft::mr::device::buffer<value_idx> indptr2(d_alloc, stream,
                                                 params.n_row + 1);

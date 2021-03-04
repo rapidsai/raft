@@ -122,7 +122,7 @@ const std::vector<LinkageInputs<float, int>> linkage_inputsf2 = {
     0.76166195, 0.66613745},
    {9, 8, 7, 6, 5, 4, 3, 2, 1, 0},
    10,
-   10},
+   -1},
   //  // Test outlier points
   {9,
    2,
@@ -130,7 +130,7 @@ const std::vector<LinkageInputs<float, int>> linkage_inputsf2 = {
     10, 50, 30, 5},
    {6, 0, 5, 0, 0, 4, 3, 2, 1},
    7,
-   9},
+   -1},
 
   // Test n_clusters == (n_points / 2)
   {10,
@@ -146,7 +146,7 @@ const std::vector<LinkageInputs<float, int>> linkage_inputsf2 = {
     0.76166195, 0.66613745},
    {1, 0, 4, 0, 0, 3, 2, 0, 2, 1},
    5,
-   10},
+   -1},
 
   // Test n_points == 100
   {100,
@@ -492,7 +492,7 @@ const std::vector<LinkageInputs<float, int>> linkage_inputsf2 = {
     0, 0, 0, 0, 0, 5, 0, 0, 0, 0, 4, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
    10,
-   100}};
+   -4}};
 
 typedef LinkageTest<float, int> LinkageTestF_Int;
 TEST_P(LinkageTestF_Int, Result) {

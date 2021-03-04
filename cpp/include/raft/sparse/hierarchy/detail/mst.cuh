@@ -83,11 +83,54 @@ void build_sorted_mst(const raft::handle_t &handle, const value_t *X,
     handle, indptr, indices, pw_dists, (value_idx)m, nnz, color.data(), stream,
     false);
 
+  // TODO: Pull this into a separate function
   if (linkage::get_n_components(color.data(), m, stream) > 1) {
-    raft::sparse::COO<value_t, value_idx> out_coo(d_alloc, stream);
+    raft::sparse::COO<value_t, value_idx> connected_edges(d_alloc, stream);
 
-    // TODO: Fix connectivities here
-    linkage::connect_components(handle, out_coo, X, color.data(), m, n);
+    raft::linkage::connect_components<value_idx, value_t>(
+      handle, connected_edges, X, color.data(), m, n);
+
+    int final_nnz = connected_edges.nnz + mst_coo.n_edges;
+
+    mst_coo.src.resize(final_nnz, stream);
+    mst_coo.dst.resize(final_nnz, stream);
+    mst_coo.weights.resize(final_nnz, stream);
+
+    /**
+     * Construct final edge list
+     */
+    raft::copy_async(mst_coo.src.data() + mst_coo.n_edges,
+                     connected_edges.rows(), connected_edges.nnz, stream);
+    raft::copy_async(mst_coo.dst.data() + mst_coo.n_edges,
+                     connected_edges.cols(), connected_edges.nnz, stream);
+    raft::copy_async(mst_coo.weights.data() + mst_coo.n_edges,
+                     connected_edges.vals(), connected_edges.nnz, stream);
+
+    raft::sparse::COO<value_t, value_idx> final_coo(d_alloc, stream);
+    raft::sparse::linalg::symmetrize(handle, mst_coo.src.data(),
+                                     mst_coo.dst.data(), mst_coo.weights.data(),
+                                     m, n, final_nnz, final_coo);
+
+    raft::mr::device::buffer<value_idx> indptr2(d_alloc, stream, m + 1);
+
+    raft::sparse::convert::sorted_coo_to_csr(
+      final_coo.rows(), final_coo.nnz, indptr2.data(), m, d_alloc, stream);
+
+    value_idx max_offset = 0;
+    raft::update_host(&max_offset, indptr2.data() + (m - 1), 1, stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+
+    max_offset += (final_nnz - max_offset);
+
+    raft::update_device(indptr2.data() + m, &max_offset, 1, stream);
+
+    mst_coo = raft::mst::mst<value_idx, value_idx, value_t>(
+      handle, indptr2.data(), final_coo.cols(), final_coo.vals(), m,
+      final_coo.nnz, color.data(), stream, false, true);
+
+    RAFT_EXPECTS(
+      mst_coo.n_edges == m - 1,
+      "MST was not able to connect knn graph in a single iteration.");
   }
 
   sort_coo_by_data(mst_coo.src.data(), mst_coo.dst.data(),
