@@ -501,7 +501,6 @@ TEST_P(LinkageTestF_Int, Result) {
     raft::devArrMatch(labels, labels_ref, params.n_row, raft::Compare<int>()));
 }
 
-
 INSTANTIATE_TEST_CASE_P(LinkageTest, LinkageTestF_Int,
                         ::testing::ValuesIn(linkage_inputsf2));
 }  // end namespace raft

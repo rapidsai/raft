@@ -20,8 +20,8 @@
 #include <raft/cuda_utils.cuh>
 
 #include <raft/mr/device/buffer.hpp>
-#include <raft/sparse/selection/connect_components.cuh>
 #include <raft/sparse/mst/mst.cuh>
+#include <raft/sparse/selection/connect_components.cuh>
 
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>

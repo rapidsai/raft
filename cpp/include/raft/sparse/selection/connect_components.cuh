@@ -93,7 +93,6 @@ __global__ void count_components_by_color_kernel(value_idx *out_indptr,
 
   __syncthreads();
 
-
   for (value_idx i = tid; i < (stop_offset - start_offset); i += blockDim.x) {
     count_smem[colors_nn[start_offset + i]] = 1;
   }
@@ -101,9 +100,8 @@ __global__ void count_components_by_color_kernel(value_idx *out_indptr,
   __syncthreads();
 
   for (value_idx i = tid; i < n_colors; i += blockDim.x) {
-
     // TODO: Warp-level reduction
-    atomicAdd(out_indptr+row, count_smem[i] > 0);
+    atomicAdd(out_indptr + row, count_smem[i] > 0);
   }
 }
 
@@ -148,8 +146,7 @@ __global__ void min_components_by_color_kernel(
   value_idx stop_offset = colors_indptr[blockIdx.x + 1];
 
   // initialize
-  for (value_idx i = threadIdx.x; i < n_colors;
-       i += blockDim.x) {
+  for (value_idx i = threadIdx.x; i < n_colors; i += blockDim.x) {
     auto skvp = min + i;
     skvp->key = -1;
     skvp->value = std::numeric_limits<value_t>::max();
@@ -166,7 +163,11 @@ __global__ void min_components_by_color_kernel(
     __threadfence();
     volatile auto cur_kvp = kvp[start_offset + i];
 
-    printf("bid=%d, tid=%d, new_color=%d, src_inds=%d, min_key=%d, min_val=%f, key=%d, val=%f\n", blockIdx.x, threadIdx.x, new_color, indices[start_offset+i], min[new_color].key, min[new_color].value, cur_kvp.key, cur_kvp.value);
+    printf(
+      "bid=%d, tid=%d, new_color=%d, src_inds=%d, min_key=%d, min_val=%f, "
+      "key=%d, val=%f\n",
+      blockIdx.x, threadIdx.x, new_color, indices[start_offset + i],
+      min[new_color].key, min[new_color].value, cur_kvp.key, cur_kvp.value);
     if (cur_kvp.value < min[new_color].value) {
       src_inds[new_color] = indices[start_offset + i];
       min[new_color].key = cur_kvp.key;
@@ -184,7 +185,7 @@ __global__ void min_components_by_color_kernel(
   if (threadIdx.x == 0) {
     value_idx cur_offset = 0;
 
-    for(value_idx i = 0; i < n_colors; i++) {
+    for (value_idx i = 0; i < n_colors; i++) {
       auto min_color = min[i];
       if (min_color.key > -1) {
         out_rows[out_offset + cur_offset] = src_inds[i];
@@ -231,7 +232,7 @@ void build_output_colors_indptr(value_idx *degrees,
 
   raft::print_device_vector("components_indptr", components_indptr,
                             n_components + 1, std::cout);
-//  raft::print_device_vector("nn_components", n_components, 5, std::cout);
+  //  raft::print_device_vector("nn_components", n_components, 5, std::cout);
 
   /**
    * Create COO array by first computing CSR indptr w/ degrees of each
@@ -321,8 +322,8 @@ void sort_by_color(value_idx *colors, value_idx *nn_colors,
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
-  raft::print_device_vector("src_indices_sorted", src_indices, n_rows, std::cout);
-
+  raft::print_device_vector("src_indices_sorted", src_indices, n_rows,
+                            std::cout);
 }
 
 /**
@@ -363,7 +364,7 @@ void connect_components(const raft::handle_t &handle,
   raft::mr::device::buffer<value_idx> color_neigh_degrees(d_alloc, stream,
                                                           n_components + 1);
   raft::mr::device::buffer<value_idx> colors_indptr(d_alloc, stream,
-                                                    n_components+1);
+                                                    n_components + 1);
 
   perform_1nn(temp_inds_dists.data(), nn_colors.data(), colors, X, n_rows,
               n_cols, d_alloc, stream);
@@ -380,9 +381,7 @@ void connect_components(const raft::handle_t &handle,
   raft::sparse::convert::sorted_coo_to_csr(colors, n_rows, colors_indptr.data(),
                                            n_components + 1, d_alloc, stream);
 
-  raft::print_device_vector("color_sorted", colors,
-                            n_rows, std::cout);
-
+  raft::print_device_vector("color_sorted", colors, n_rows, std::cout);
 
   // create output degree array for closest components per row
   build_output_colors_indptr(color_neigh_degrees.data(), colors_indptr.data(),

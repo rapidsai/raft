@@ -130,6 +130,6 @@ void knn_graph(const handle_t &handle, const value_t *X, size_t m, size_t n,
                                    data.data(), m, k, nnz, out);
 }
 
-};  // namespace detail
-};  // end namespace hierarchy
+};  // namespace selection
+};  // namespace sparse
 };  // end namespace raft
