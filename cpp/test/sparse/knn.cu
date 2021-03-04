@@ -17,6 +17,8 @@
 #include <cusparse_v2.h>
 #include <gtest/gtest.h>
 
+#include <raft/linalg/distance_type.h>
+#include <raft/sparse/cusparse_wrappers.h>
 #include <raft/sparse/selection/knn.cuh>
 #include "../test_utils.h"
 
@@ -49,7 +51,7 @@ struct SparseKNNInputs {
   int batch_size_query = 2;
 
   raft::distance::DistanceType metric =
-    raft::distance::DistanceType::L2Expanded;
+    raft::distance::DistanceType::L2SqrtExpanded;
 };
 
 template <typename value_idx, typename value_t>
@@ -67,13 +69,9 @@ class SparseKNNTest
     std::vector<value_idx> indices_h = params.indices_h;
     std::vector<value_t> data_h = params.data_h;
 
-    printf("Allocating input\n");
-
     allocate(indptr, indptr_h.size());
     allocate(indices, indices_h.size());
     allocate(data, data_h.size());
-
-    printf("Updating device\n");
 
     update_device(indptr, indptr_h.data(), indptr_h.size(), stream);
     update_device(indices, indices_h.data(), indices_h.size(), stream);
@@ -82,23 +80,16 @@ class SparseKNNTest
     std::vector<value_t> out_dists_ref_h = params.out_dists_ref_h;
     std::vector<value_idx> out_indices_ref_h = params.out_indices_ref_h;
 
-    printf("Allocating ref output\n");
     allocate(out_indices_ref, out_indices_ref_h.size());
     allocate(out_dists_ref, out_dists_ref_h.size());
-
-    printf("Updating device\n");
 
     update_device(out_indices_ref, out_indices_ref_h.data(),
                   out_indices_ref_h.size(), stream);
     update_device(out_dists_ref, out_dists_ref_h.data(), out_dists_ref_h.size(),
                   stream);
 
-    printf("Allocating final output\n");
-
     allocate(out_dists, n_rows * k);
     allocate(out_indices, n_rows * k);
-
-    printf("Done.\n");
   }
 
   void SetUp() override {
@@ -106,7 +97,6 @@ class SparseKNNTest
       ::testing::TestWithParam<SparseKNNInputs<value_idx, value_t>>::GetParam();
     std::shared_ptr<raft::mr::device::allocator> alloc(
       new raft::mr::device::default_allocator);
-
     CUDA_CHECK(cudaStreamCreate(&stream));
 
     CUSPARSE_CHECK(cusparseCreate(&cusparseHandle));
@@ -115,11 +105,7 @@ class SparseKNNTest
     nnz = params.indices_h.size();
     k = params.k;
 
-    printf("Making data\n");
-
     make_data();
-
-    printf("About to run kselect\n");
 
     raft::sparse::selection::brute_force_knn<value_idx, value_t>(
       indptr, indices, data, nnz, n_rows, params.n_cols, indptr, indices, data,
@@ -128,11 +114,11 @@ class SparseKNNTest
       params.metric);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
-
-    printf("Executed k-select");
   }
 
   void TearDown() override {
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+
     CUDA_CHECK(cudaFree(indptr));
     CUDA_CHECK(cudaFree(indices));
     CUDA_CHECK(cudaFree(data));
@@ -181,7 +167,7 @@ const std::vector<SparseKNNInputs<int, float>> inputs_i32_f = {
    2,
    2,
    2,
-   raft::distance::DistanceType::L2Expanded}};
+   raft::distance::DistanceType::L2SqrtExpanded}};
 typedef SparseKNNTest<int, float> SparseKNNTestF;
 TEST_P(SparseKNNTestF, Result) { compare(); }
 INSTANTIATE_TEST_CASE_P(SparseKNNTest, SparseKNNTestF,

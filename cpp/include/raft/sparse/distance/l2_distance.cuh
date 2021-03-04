@@ -16,18 +16,13 @@
 
 #pragma once
 
-#include <limits.h>
-#include <cmath>
-
-#include <raft/cudart_utils.h>
-#include <raft/sparse/distance/common.h>
+#include <raft/spatial/knn/knn.hpp>
 
 #include <raft/cudart_utils.h>
 #include <raft/linalg/distance_type.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/unary_op.cuh>
-
 #include <raft/mr/device/allocator.hpp>
 #include <raft/mr/device/buffer.hpp>
 
@@ -149,10 +144,37 @@ class l2_expanded_distances_t : public distances_t<value_t> {
 
   ~l2_expanded_distances_t() = default;
 
- private:
+ protected:
   const distances_config_t<value_idx, value_t> *config_;
   raft::mr::device::buffer<char> workspace;
   ip_distances_t<value_idx, value_t> ip_dists;
+};
+
+/**
+ * L2 sqrt distance performing the sqrt operation after the distance computation
+ * The expanded form is more efficient for sparse data.
+ */
+template <typename value_idx = int, typename value_t = float>
+class l2_sqrt_expanded_distances_t
+  : public l2_expanded_distances_t<value_idx, value_t> {
+ public:
+  explicit l2_sqrt_expanded_distances_t(
+    const distances_config_t<value_idx, value_t> &config)
+    : l2_expanded_distances_t<value_idx, value_t>(config) {}
+
+  void compute(value_t *out_dists) override {
+    l2_expanded_distances_t<value_idx, value_t>::compute(out_dists);
+    // Sqrt Post-processing
+    raft::linalg::unaryOp<value_t>(
+      out_dists, out_dists, this->config_->a_nrows * this->config_->b_nrows,
+      [] __device__(value_t input) {
+        int neg = input < 0 ? -1 : 1;
+        return sqrt(abs(input) * neg);
+      },
+      this->config_->stream);
+  }
+
+  ~l2_sqrt_expanded_distances_t() = default;
 };
 
 /**
