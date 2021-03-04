@@ -292,6 +292,8 @@ void extract_flattened_clusters(
                           d_ptr + children.size())) +
     1;
 
+  printf("n_vertices: %d\n", n_vertices);
+
   thrust::device_ptr<value_idx> d_labels_ptr =
     thrust::device_pointer_cast(labels);
   value_idx n_labels =
@@ -299,7 +301,7 @@ void extract_flattened_clusters(
                           d_labels_ptr + n_leaves)) +
     1;
 
-  printf("n_labels: %d", n_labels);
+  printf("n_labels: %d\n", n_labels);
 
   RAFT_EXPECTS(n_labels == 1,
                "Multiple components found in MST. Cannot find valid "
@@ -340,7 +342,8 @@ void extract_flattened_clusters(
   // Init labels to -1
   thrust::device_ptr<value_idx> t_labels =
     thrust::device_pointer_cast(tmp_labels.data());
-  thrust::fill(t_labels, t_labels + n_vertices, -1);
+  thrust::fill(thrust::cuda::par.on(stream), t_labels, t_labels + n_vertices,
+               -1);
 
   // Write labels for cluster roots to "labels"
   thrust::counting_iterator<uint> first(0);
@@ -349,7 +352,7 @@ void extract_flattened_clusters(
   auto z_iter = thrust::make_zip_iterator(thrust::make_tuple(
     first, t_label_roots + (label_roots.size() - n_clusters)));
 
-  thrust::for_each(z_iter, z_iter + n_clusters,
+  thrust::for_each(thrust::cuda::par.on(stream), z_iter, z_iter + n_clusters,
                    init_label_roots<value_idx>(tmp_labels.data()));
 
   /**

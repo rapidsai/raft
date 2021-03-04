@@ -19,12 +19,12 @@
 #include <raft/cuda_utils.cuh>
 #include <vector>
 
-#include <raft/sparse/hierarchy/single_linkage.hpp>
-#include <raft/mr/device/allocator.hpp>
-#include <raft/mr/device/buffer.hpp>
 #include <raft/linalg/distance_type.h>
 #include <raft/linalg/transpose.h>
+#include <raft/mr/device/allocator.hpp>
+#include <raft/mr/device/buffer.hpp>
 #include <raft/sparse/coo.cuh>
+#include <raft/sparse/hierarchy/single_linkage.hpp>
 
 #include "../test_utils.h"
 
@@ -60,8 +60,9 @@ class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
 
     params = ::testing::TestWithParam<LinkageInputs<T, IdxT>>::GetParam();
 
-    raft::mr::device::buffer<T> data(handle.get_device_allocator(), handle.get_stream(),
-                          params.n_row * params.n_col);
+    raft::mr::device::buffer<T> data(handle.get_device_allocator(),
+                                     handle.get_stream(),
+                                     params.n_row * params.n_col);
 
     // Allocate result labels and expected labels on device
     raft::allocate(labels, params.n_row);
@@ -78,16 +79,16 @@ class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
     out_arrs.labels = labels;
 
     raft::mr::device::buffer<IdxT> out_children(handle.get_device_allocator(),
-                                 handle.get_stream(),
-                                 (params.n_row - 1) * 2);
+                                                handle.get_stream(),
+                                                (params.n_row - 1) * 2);
 
     out_arrs.children = out_children.data();
 
-    raft::hierarchy::single_linkage<IdxT, T, raft::hierarchy::LinkageDistance::KNN_GRAPH>(
-      handle, data.data(), params.n_row,
-      params.n_col,
-      raft::distance::DistanceType::L2Expanded,
-      &out_arrs, params.c, params.n_clusters);
+    raft::hierarchy::single_linkage<
+      IdxT, T, raft::hierarchy::LinkageDistance::KNN_GRAPH>(
+      handle, data.data(), params.n_row, params.n_col,
+      raft::distance::DistanceType::L2Unexpanded, &out_arrs, params.c,
+      params.n_clusters);
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
   }
@@ -95,8 +96,8 @@ class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
   void SetUp() override { basicTest(); }
 
   void TearDown() override {
-    //    CUDA_CHECK(cudaFree(labels));
-    //    CUDA_CHECK(cudaFree(labels_ref));
+    CUDA_CHECK(cudaFree(labels));
+    CUDA_CHECK(cudaFree(labels_ref));
   }
 
  protected:
@@ -121,15 +122,15 @@ const std::vector<LinkageInputs<float, int>> linkage_inputsf2 = {
     0.76166195, 0.66613745},
    {9, 8, 7, 6, 5, 4, 3, 2, 1, 0},
    10,
-   5},
-  // Test outlier points
+   10},
+  //  // Test outlier points
   {9,
    2,
    {-1, -50, 3, 4, 5000, 10000, 1, 3, 4, 5, 0.000005, 0.00002, 2000000, 500000,
     10, 50, 30, 5},
    {6, 0, 5, 0, 0, 4, 3, 2, 1},
    7,
-   5},
+   9},
 
   // Test n_clusters == (n_points / 2)
   {10,
@@ -491,11 +492,10 @@ const std::vector<LinkageInputs<float, int>> linkage_inputsf2 = {
     0, 0, 0, 0, 0, 5, 0, 0, 0, 0, 4, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
    10,
-   5}};
+   100}};
 
 typedef LinkageTest<float, int> LinkageTestF_Int;
 TEST_P(LinkageTestF_Int, Result) {
-
   // TODO: This will fail until knn graph connection is fully integrated
   EXPECT_TRUE(
     raft::devArrMatch(labels, labels_ref, params.n_row, raft::Compare<int>()));
@@ -503,4 +503,4 @@ TEST_P(LinkageTestF_Int, Result) {
 
 INSTANTIATE_TEST_CASE_P(LinkageTest, LinkageTestF_Int,
                         ::testing::ValuesIn(linkage_inputsf2));
-} // end namespace raft
+}  // end namespace raft

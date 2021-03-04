@@ -54,31 +54,49 @@ void single_linkage(const raft::handle_t &handle, const value_t *X, size_t m,
   raft::mr::device::buffer<value_idx> mst_cols(d_alloc, stream, EMPTY);
   raft::mr::device::buffer<value_t> mst_data(d_alloc, stream, EMPTY);
 
+  raft::print_device_vector("rows", indptr.data(), indptr.size(), std::cout);
+  raft::print_device_vector("cols", indices.data(), indices.size(), std::cout);
+  raft::print_device_vector("data", pw_dists.data(), pw_dists.size(),
+                            std::cout);
+
   /**
    * 2. Construct MST, sorted by weights
    */
   detail::build_sorted_mst<value_idx, value_t>(
-    handle, indptr.data(), indices.data(), pw_dists.data(), m, mst_rows,
+    handle, X, indptr.data(), indices.data(), pw_dists.data(), m, n, mst_rows,
     mst_cols, mst_data, indices.size());
 
   pw_dists.release();
+
+  printf("FInished running MST\n");
 
   /**
    * Perform hierarchical labeling
    */
   size_t n_edges = mst_rows.size();
 
+  printf("n_edges: %d\n", n_edges);
+
   raft::mr::device::buffer<value_idx> children(d_alloc, stream, n_edges * 2);
   raft::mr::device::buffer<value_t> out_delta(d_alloc, stream, n_edges);
   raft::mr::device::buffer<value_idx> out_size(d_alloc, stream, n_edges);
+
+  printf("Creating dendrogram\n");
 
   // Create dendrogram
   detail::build_dendrogram_host<value_idx, value_t>(
     handle, mst_rows.data(), mst_cols.data(), mst_data.data(), n_edges,
     children, out_delta, out_size);
 
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+
+  printf("Finished running dendrogram\n");
+
   detail::extract_flattened_clusters(handle, out->labels, children, n_clusters,
                                      m);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+
+  printf("Created flattened clusters\n");
 }
 
 };  // namespace hierarchy

@@ -14,9 +14,6 @@
  * limitations under the License.
  */
 
-#include <cuml/cuml_api.h>
-#include <common/cumlHandle.hpp>
-
 #include <raft/linalg/norm.cuh>
 #include <raft/mr/device/buffer.hpp>
 #include <raft/sparse/convert/csr.cuh>
@@ -203,7 +200,7 @@ void min_components_by_color(raft::sparse::COO<value_t, value_idx> &coo,
 }
 
 template <typename value_idx>
-value_idx get_n_components(value_idx *colors, value_idx n_rows,
+value_idx get_n_components(value_idx *colors, size_t n_rows,
                            cudaStream_t stream) {
   thrust::device_ptr<value_idx> t_colors = thrust::device_pointer_cast(colors);
   return *(thrust::max_element(thrust::cuda::par.on(stream), t_colors,
@@ -230,19 +227,13 @@ void build_output_colors_indptr(value_idx *degrees,
   // map each component to a separate warp, perform warp reduce by key to find
   // number of unique components in output.
 
-  CUML_LOG_DEBUG("Calling count_components_by_color");
   count_components_by_color(degrees, components_indptr, nn_components,
                             n_components, stream);
 
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-
-  CUML_LOG_DEBUG("Performing exclusive scan");
   thrust::device_ptr<value_idx> t_degrees =
     thrust::device_pointer_cast(degrees);
   thrust::exclusive_scan(thrust::cuda::par.on(stream), t_degrees,
                          t_degrees + n_components + 1, t_degrees);
-
-  CUML_LOG_DEBUG("Done.");
 }
 
 template <typename value_idx, typename value_t>
@@ -259,7 +250,7 @@ struct LookupColorOp {
 template <typename value_idx, typename value_t>
 void perform_1nn(cub::KeyValuePair<value_idx, value_t> *kvp,
                  value_idx *nn_colors, value_idx *colors, const value_t *X,
-                 value_idx n_rows, value_idx n_cols,
+                 size_t n_rows, size_t n_cols,
                  std::shared_ptr<raft::mr::device::allocator> d_alloc,
                  cudaStream_t stream) {
   raft::mr::device::buffer<int> workspace(d_alloc, stream, n_rows);
@@ -269,10 +260,10 @@ void perform_1nn(cub::KeyValuePair<value_idx, value_t> *kvp,
                         true, stream);
 
   FixConnectivitiesRedOp<value_idx, value_t> red_op(colors, n_rows);
-  MLCommon::Distance::fusedL2NN<value_t, cub::KeyValuePair<value_idx, value_t>,
-                                value_idx>(
-    kvp, X, X, x_norm.data(), x_norm.data(), n_rows, n_rows, n_cols,
-    workspace.data(), red_op, red_op, true, true, stream);
+  raft::distance::fusedL2NN<value_t, cub::KeyValuePair<value_idx, value_t>,
+                            value_idx>(kvp, X, X, x_norm.data(), x_norm.data(),
+                                       n_rows, n_rows, n_cols, workspace.data(),
+                                       red_op, red_op, true, true, stream);
 
   thrust::device_ptr<cub::KeyValuePair<value_idx, value_t>> t_kvp =
     thrust::device_pointer_cast(kvp);
@@ -292,8 +283,7 @@ void perform_1nn(cub::KeyValuePair<value_idx, value_t> *kvp,
 template <typename value_idx, typename value_t>
 void sort_by_color(value_idx *colors, value_idx *nn_colors,
                    cub::KeyValuePair<value_idx, value_t> *kvp,
-                   value_idx *src_indices, value_idx n_rows,
-                   cudaStream_t stream) {
+                   value_idx *src_indices, size_t n_rows, cudaStream_t stream) {
   thrust::device_ptr<value_idx> t_colors = thrust::device_pointer_cast(colors);
   thrust::device_ptr<value_idx> t_nn_colors =
     thrust::device_pointer_cast(nn_colors);
@@ -331,8 +321,8 @@ void sort_by_color(value_idx *colors, value_idx *nn_colors,
 template <typename value_idx, typename value_t>
 void connect_components(const raft::handle_t &handle,
                         raft::sparse::COO<value_t, value_idx> &out,
-                        const value_t *X, value_idx *colors, value_idx n_rows,
-                        value_idx n_cols) {
+                        const value_t *X, value_idx *colors, size_t n_rows,
+                        size_t n_cols) {
   auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
 
@@ -353,11 +343,8 @@ void connect_components(const raft::handle_t &handle,
   raft::mr::device::buffer<value_idx> colors_indptr(d_alloc, stream,
                                                     n_components);
 
-  CUML_LOG_DEBUG("Performing 1nn");
   perform_1nn(temp_inds_dists.data(), nn_colors.data(), colors, X, n_rows,
               n_cols, d_alloc, stream);
-
-  CUDA_CHECK(cudaStreamSynchronize(stream));
 
   /**
    * Sort data points by color (neighbors are not sorted)
@@ -365,22 +352,16 @@ void connect_components(const raft::handle_t &handle,
   // max_color + 1 = number of connected components
   // sort nn_colors by key w/ original colors
 
-  CUML_LOG_DEBUG("Performing sort_by_color");
   sort_by_color(colors, nn_colors.data(), temp_inds_dists.data(),
                 src_indices.data(), n_rows, stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
 
-  CUML_LOG_DEBUG("Performing sorted_coo_to_csr");
   // create an indptr array for newly sorted colors
   raft::sparse::convert::sorted_coo_to_csr(colors, n_rows, colors_indptr.data(),
                                            n_components + 1, d_alloc, stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
 
-  CUML_LOG_DEBUG("Performing build_output_colors_indptr");
   // create output degree array for closest components per row
   build_output_colors_indptr(color_neigh_degrees.data(), colors_indptr.data(),
                              nn_colors.data(), n_components, stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
 
   raft::print_device_vector("color_neigh_degrees", color_neigh_degrees.data(),
                             color_neigh_degrees.size(), std::cout);
@@ -390,8 +371,6 @@ void connect_components(const raft::handle_t &handle,
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   raft::sparse::COO<value_t, value_idx> min_edges(d_alloc, stream, nnz);
-
-  CUML_LOG_DEBUG("Performing min_components_by_color");
   min_components_by_color(min_edges, color_neigh_degrees.data(),
                           colors_indptr.data(), nn_colors.data(),
                           src_indices.data(), temp_inds_dists.data(),
@@ -403,13 +382,9 @@ void connect_components(const raft::handle_t &handle,
   raft::print_device_vector("min_edges", min_edges.cols(), nnz, std::cout);
   raft::print_device_vector("min_edges", min_edges.vals(), nnz, std::cout);
 
-  CUML_LOG_DEBUG("Performing symmetrize");
   // symmetrize
   raft::sparse::linalg::symmetrize(handle, min_edges.rows(), min_edges.cols(),
                                    min_edges.vals(), n_rows, n_rows, nnz, out);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-
-  CUML_LOG_DEBUG("Done.");
 }
 
 };  // end namespace linkage

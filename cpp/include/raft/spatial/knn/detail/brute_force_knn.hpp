@@ -331,6 +331,8 @@ void brute_force_knn_impl(
                             userStream, trans.data());
   }
 
+  raft::print_device_vector("before sqrt", res_D, n * k, std::cout);
+
   // Perform necessary post-processing
   if ((m == faiss::MetricType::METRIC_L2 ||
        m == faiss::MetricType::METRIC_Lp) &&
@@ -344,6 +346,10 @@ void brute_force_knn_impl(
       res_D, res_D, n * k,
       [p] __device__(float input) { return powf(input, p); }, userStream);
   }
+
+  CUDA_CHECK(cudaStreamSynchronize(userStream));
+
+  raft::print_device_vector("after sqrt", res_D, n * k, std::cout);
 
   query_metric_processor->revert(search_items);
   query_metric_processor->postprocess(out_D);

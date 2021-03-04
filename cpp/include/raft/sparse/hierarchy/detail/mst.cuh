@@ -20,6 +20,7 @@
 #include <raft/cuda_utils.cuh>
 
 #include <raft/mr/device/buffer.hpp>
+#include <raft/sparse/hierarchy/detail/fix_connectivities.cuh>
 #include <raft/sparse/mst/mst.cuh>
 
 #include <thrust/device_ptr.h>
@@ -66,20 +67,28 @@ void sort_coo_by_data(value_idx *rows, value_idx *cols, value_t *data,
  * @param[out] mst_weight
  */
 template <typename value_idx, typename value_t>
-void build_sorted_mst(const raft::handle_t &handle, const value_idx *indptr,
-                      const value_idx *indices, const value_t *pw_dists,
-                      size_t m, raft::mr::device::buffer<value_idx> &mst_src,
+void build_sorted_mst(const raft::handle_t &handle, const value_t *X,
+                      const value_idx *indptr, const value_idx *indices,
+                      const value_t *pw_dists, size_t m, size_t n,
+                      raft::mr::device::buffer<value_idx> &mst_src,
                       raft::mr::device::buffer<value_idx> &mst_dst,
                       raft::mr::device::buffer<value_t> &mst_weight,
                       const size_t nnz) {
   auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
 
-  raft::mr::device::buffer<value_idx> color(d_alloc, stream, (size_t)m - 1);
+  raft::mr::device::buffer<value_idx> color(d_alloc, stream, m);
 
   auto mst_coo = raft::mst::mst<value_idx, value_idx, value_t>(
     handle, indptr, indices, pw_dists, (value_idx)m, nnz, color.data(), stream,
     false);
+
+  if (linkage::get_n_components(color.data(), m, stream) > 1) {
+    raft::sparse::COO<value_t, value_idx> out_coo(d_alloc, stream);
+
+    // TODO: Fix connectivities here
+    linkage::connect_components(handle, out_coo, X, color.data(), m, n);
+  }
 
   sort_coo_by_data(mst_coo.src.data(), mst_coo.dst.data(),
                    mst_coo.weights.data(), mst_coo.n_edges, stream);

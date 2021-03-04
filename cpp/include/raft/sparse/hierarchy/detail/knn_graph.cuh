@@ -128,9 +128,6 @@ void knn_graph(const handle_t &handle, const value_t *X, size_t m, size_t n,
 
   raft::sparse::linalg::symmetrize(handle, rows.data(), indices.data(),
                                    data.data(), m, k, nnz, out);
-
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-  CUDA_CHECK(cudaGetLastError());
 }
 
 };  // namespace detail
