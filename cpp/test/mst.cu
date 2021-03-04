@@ -37,6 +37,12 @@ struct CSRHost {
 };
 
 template <typename vertex_t, typename edge_t, typename weight_t>
+struct MSTTestInput {
+  struct CSRHost<vertex_t, edge_t, weight_t> csr_h;
+  int iterations;
+};
+
+template <typename vertex_t, typename edge_t, typename weight_t>
 struct CSRDevice {
   rmm::device_buffer offsets;
   rmm::device_buffer indices;
@@ -110,7 +116,7 @@ weight_t prims(CSRHost<vertex_t, edge_t, weight_t> &csr_h) {
 
 template <typename vertex_t, typename edge_t, typename weight_t>
 class MSTTest
-  : public ::testing::TestWithParam<CSRHost<vertex_t, edge_t, weight_t>> {
+  : public ::testing::TestWithParam<MSTTestInput<vertex_t, edge_t, weight_t>> {
  protected:
   std::pair<raft::Graph_COO<vertex_t, edge_t, weight_t>,
             raft::Graph_COO<vertex_t, edge_t, weight_t>>
@@ -130,77 +136,125 @@ class MSTTest
 
     vertex_t *color_ptr = thrust::raw_pointer_cast(color.data());
 
-    MST_solver<vertex_t, edge_t, weight_t> symmetric_solver(
-      handle, offsets, indices, weights, v, e, color_ptr, handle.get_stream(),
-      true);
-    auto symmetric_result = symmetric_solver.solve();
+    if (iterations == 0) {
+      MST_solver<vertex_t, edge_t, weight_t> symmetric_solver(
+        handle, offsets, indices, weights, v, e, color_ptr, handle.get_stream(),
+        true, true, 0);
+      auto symmetric_result = symmetric_solver.solve();
 
-    MST_solver<vertex_t, edge_t, weight_t> non_symmetric_solver(
-      handle, offsets, indices, weights, v, e, color_ptr, handle.get_stream(),
-      false);
-    auto non_symmetric_result = non_symmetric_solver.solve();
+      MST_solver<vertex_t, edge_t, weight_t> non_symmetric_solver(
+        handle, offsets, indices, weights, v, e, color_ptr, handle.get_stream(),
+        false, true, 0);
+      auto non_symmetric_result = non_symmetric_solver.solve();
 
-    std::cout << "number_of_MST_edges: " << symmetric_result.n_edges
-              << std::endl;
-    EXPECT_LE(symmetric_result.n_edges, 2 * v - 2);
+      EXPECT_LE(symmetric_result.n_edges, 2 * v - 2);
+      EXPECT_LE(non_symmetric_result.n_edges, v - 1);
 
-    return std::make_pair(std::move(symmetric_result),
-                          std::move(non_symmetric_result));
+      return std::make_pair(std::move(symmetric_result),
+                            std::move(non_symmetric_result));
+    } else {
+      MST_solver<vertex_t, edge_t, weight_t> intermediate_solver(
+        handle, offsets, indices, weights, v, e, color_ptr, handle.get_stream(),
+        true, true, iterations);
+      auto intermediate_result = intermediate_solver.solve();
+
+      MST_solver<vertex_t, edge_t, weight_t> symmetric_solver(
+        handle, offsets, indices, weights, v, e, color_ptr, handle.get_stream(),
+        true, false, 0);
+      auto symmetric_result = symmetric_solver.solve();
+
+      // symmetric_result.n_edges += intermediate_result.n_edges;
+      auto total_edge_size =
+        symmetric_result.n_edges + intermediate_result.n_edges;
+      symmetric_result.src.resize(total_edge_size, handle.get_stream());
+      symmetric_result.dst.resize(total_edge_size, handle.get_stream());
+      symmetric_result.weights.resize(total_edge_size, handle.get_stream());
+
+      raft::copy(symmetric_result.src.data() + symmetric_result.n_edges,
+                 intermediate_result.src.data(), intermediate_result.n_edges,
+                 handle.get_stream());
+      raft::copy(symmetric_result.dst.data() + symmetric_result.n_edges,
+                 intermediate_result.dst.data(), intermediate_result.n_edges,
+                 handle.get_stream());
+      raft::copy(symmetric_result.weights.data() + symmetric_result.n_edges,
+                 intermediate_result.weights.data(),
+                 intermediate_result.n_edges, handle.get_stream());
+      symmetric_result.n_edges = total_edge_size;
+
+      MST_solver<vertex_t, edge_t, weight_t> non_symmetric_solver(
+        handle, offsets, indices, weights, v, e, color_ptr, handle.get_stream(),
+        false, true, 0);
+      auto non_symmetric_result = non_symmetric_solver.solve();
+
+      EXPECT_LE(symmetric_result.n_edges, 2 * v - 2);
+      EXPECT_LE(non_symmetric_result.n_edges, v - 1);
+
+      return std::make_pair(std::move(symmetric_result),
+                            std::move(non_symmetric_result));
+    }
   }
 
   void SetUp() override {
-    csr_h =
-      ::testing::TestWithParam<CSRHost<vertex_t, edge_t, weight_t>>::GetParam();
+    mst_input = ::testing::TestWithParam<
+      MSTTestInput<vertex_t, edge_t, weight_t>>::GetParam();
+    iterations = mst_input.iterations;
 
-    csr_d.offsets = rmm::device_buffer(csr_h.offsets.data(),
-                                       csr_h.offsets.size() * sizeof(edge_t));
-    csr_d.indices = rmm::device_buffer(csr_h.indices.data(),
-                                       csr_h.indices.size() * sizeof(vertex_t));
-    csr_d.weights = rmm::device_buffer(csr_h.weights.data(),
-                                       csr_h.weights.size() * sizeof(weight_t));
+    csr_d.offsets =
+      rmm::device_buffer(mst_input.csr_h.offsets.data(),
+                         mst_input.csr_h.offsets.size() * sizeof(edge_t));
+    csr_d.indices =
+      rmm::device_buffer(mst_input.csr_h.indices.data(),
+                         mst_input.csr_h.indices.size() * sizeof(vertex_t));
+    csr_d.weights =
+      rmm::device_buffer(mst_input.csr_h.weights.data(),
+                         mst_input.csr_h.weights.size() * sizeof(weight_t));
   }
 
   void TearDown() override {}
 
  protected:
-  CSRHost<vertex_t, edge_t, weight_t> csr_h;
+  MSTTestInput<vertex_t, edge_t, weight_t> mst_input;
   CSRDevice<vertex_t, edge_t, weight_t> csr_d;
   rmm::device_vector<bool> mst_edge;
   vertex_t v;
   edge_t e;
+  int iterations;
 
   raft::handle_t handle;
 };
 
 // connected components tests
 // a full MST is produced
-const std::vector<CSRHost<int, int, float>> csr_in_h = {
+const std::vector<MSTTestInput<int, int, float>> csr_in_h = {
   // single iteration
-  {{0, 3, 5, 7, 8}, {1, 2, 3, 0, 3, 0, 0, 1}, {2, 3, 4, 2, 1, 3, 4, 1}},
+  {{{0, 3, 5, 7, 8}, {1, 2, 3, 0, 3, 0, 0, 1}, {2, 3, 4, 2, 1, 3, 4, 1}}, 0},
 
   //  multiple iterations and cycles
-  {{0, 4, 6, 9, 12, 15, 17, 20},
-   {2, 4, 5, 6, 3, 6, 0, 4, 5, 1, 4, 6, 0, 2, 3, 0, 2, 0, 1, 3},
-   {5.0f, 9.0f,  1.0f, 4.0f, 8.0f, 7.0f, 5.0f, 2.0f, 6.0f, 8.0f,
-    1.0f, 10.0f, 9.0f, 2.0f, 1.0f, 1.0f, 6.0f, 4.0f, 7.0f, 10.0f}},
+  {{{0, 4, 6, 9, 12, 15, 17, 20},
+    {2, 4, 5, 6, 3, 6, 0, 4, 5, 1, 4, 6, 0, 2, 3, 0, 2, 0, 1, 3},
+    {5.0f, 9.0f,  1.0f, 4.0f, 8.0f, 7.0f, 5.0f, 2.0f, 6.0f, 8.0f,
+     1.0f, 10.0f, 9.0f, 2.0f, 1.0f, 1.0f, 6.0f, 4.0f, 7.0f, 10.0f}},
+   1},
   // negative weights
-  {{0, 4, 6, 9, 12, 15, 17, 20},
-   {2, 4, 5, 6, 3, 6, 0, 4, 5, 1, 4, 6, 0, 2, 3, 0, 2, 0, 1, 3},
-   {-5.0f, -9.0f,  -1.0f, 4.0f,  -8.0f, -7.0f, -5.0f, -2.0f, -6.0f, -8.0f,
-    -1.0f, -10.0f, -9.0f, -2.0f, -1.0f, -1.0f, -6.0f, 4.0f,  -7.0f, -10.0f}},
+  {{{0, 4, 6, 9, 12, 15, 17, 20},
+    {2, 4, 5, 6, 3, 6, 0, 4, 5, 1, 4, 6, 0, 2, 3, 0, 2, 0, 1, 3},
+    {-5.0f, -9.0f,  -1.0f, 4.0f,  -8.0f, -7.0f, -5.0f, -2.0f, -6.0f, -8.0f,
+     -1.0f, -10.0f, -9.0f, -2.0f, -1.0f, -1.0f, -6.0f, 4.0f,  -7.0f, -10.0f}},
+   0},
 
-  // equal weights
-  {{0, 4, 6, 9, 12, 15, 17, 20},
-   {2, 4, 5, 6, 3, 6, 0, 4, 5, 1, 4, 6, 0, 2, 3, 0, 2, 0, 1, 3},
-   {0.1, 0.1, 0.1, 0.1, 0.2, 0.2, 0.1, 0.2, 0.2, 0.2,
-    0.1, 0.1, 0.1, 0.2, 0.1, 0.1, 0.2, 0.1, 0.2, 0.1}},
+  // // equal weights
+  {{{0, 4, 6, 9, 12, 15, 17, 20},
+    {2, 4, 5, 6, 3, 6, 0, 4, 5, 1, 4, 6, 0, 2, 3, 0, 2, 0, 1, 3},
+    {0.1, 0.1, 0.1, 0.1, 0.2, 0.2, 0.1, 0.2, 0.2, 0.2,
+     0.1, 0.1, 0.1, 0.2, 0.1, 0.1, 0.2, 0.1, 0.2, 0.1}},
+   0},
 
-  //self loop
-  {{0, 4, 6, 9, 12, 15, 17, 20},
-   {0, 4, 5, 6, 3, 6, 2, 4, 5, 1, 4, 6, 0, 2, 3, 0, 2, 0, 1, 3},
-   {0.5f, 9.0f,  1.0f, 4.0f, 8.0f, 7.0f, 0.5f, 2.0f, 6.0f, 8.0f,
-    1.0f, 10.0f, 9.0f, 2.0f, 1.0f, 1.0f, 6.0f, 4.0f, 7.0f, 10.0f}},
-};
+  // //self loop
+  {{{0, 4, 6, 9, 12, 15, 17, 20},
+    {0, 4, 5, 6, 3, 6, 2, 4, 5, 1, 4, 6, 0, 2, 3, 0, 2, 0, 1, 3},
+    {0.5f, 9.0f,  1.0f, 4.0f, 8.0f, 7.0f, 0.5f, 2.0f, 6.0f, 8.0f,
+     1.0f, 10.0f, 9.0f, 2.0f, 1.0f, 1.0f, 6.0f, 4.0f, 7.0f, 10.0f}},
+   0}};
 
 //  disconnected
 const std::vector<CSRHost<int, int, float>> csr_in4_h = {
@@ -224,7 +278,7 @@ TEST_P(MSTTestSequential, Sequential) {
 
   // do assertions here
   // in this case, running sequential MST
-  auto prims_result = prims(csr_h);
+  auto prims_result = prims(mst_input.csr_h);
 
   auto symmetric_sum =
     thrust::reduce(thrust::device, symmetric_result.weights.data(),
