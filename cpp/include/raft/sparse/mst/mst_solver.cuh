@@ -42,7 +42,8 @@ class MST_solver {
   MST_solver(const raft::handle_t& handle_, const edge_t* offsets_,
              const vertex_t* indices_, const weight_t* weights_,
              const vertex_t v_, const edge_t e_, vertex_t* color_,
-             cudaStream_t stream_, bool symmetrize_output_, bool initialize_colors_, int iterations_);
+             cudaStream_t stream_, bool symmetrize_output_,
+             bool initialize_colors_, int iterations_);
 
   raft::Graph_COO<vertex_t, edge_t, weight_t> solve();
 
@@ -77,8 +78,7 @@ class MST_solver {
   rmm::device_vector<bool>
     mst_edge;  // mst output -  true if the edge belongs in mst
   rmm::device_vector<vertex_t> next_color;  //  next iteration color
-  rmm::device_vector<vertex_t>
-    color;  // index of color that vertex points to
+  rmm::device_vector<vertex_t> color;  // index of color that vertex points to
 
   // new src-dst pairs found per iteration
   rmm::device_vector<vertex_t> temp_src;

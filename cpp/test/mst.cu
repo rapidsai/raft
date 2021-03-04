@@ -152,8 +152,7 @@ class MSTTest
 
       return std::make_pair(std::move(symmetric_result),
                             std::move(non_symmetric_result));
-    }
-    else {
+    } else {
       MST_solver<vertex_t, edge_t, weight_t> intermediate_solver(
         handle, offsets, indices, weights, v, e, color_ptr, handle.get_stream(),
         true, true, iterations);
@@ -165,14 +164,21 @@ class MSTTest
       auto symmetric_result = symmetric_solver.solve();
 
       // symmetric_result.n_edges += intermediate_result.n_edges;
-      auto total_edge_size = symmetric_result.n_edges + intermediate_result.n_edges;
+      auto total_edge_size =
+        symmetric_result.n_edges + intermediate_result.n_edges;
       symmetric_result.src.resize(total_edge_size, handle.get_stream());
       symmetric_result.dst.resize(total_edge_size, handle.get_stream());
       symmetric_result.weights.resize(total_edge_size, handle.get_stream());
 
-      raft::copy(symmetric_result.src.data() + symmetric_result.n_edges, intermediate_result.src.data(), intermediate_result.n_edges, handle.get_stream());
-      raft::copy(symmetric_result.dst.data() + symmetric_result.n_edges, intermediate_result.dst.data(), intermediate_result.n_edges, handle.get_stream());
-      raft::copy(symmetric_result.weights.data() + symmetric_result.n_edges, intermediate_result.weights.data(), intermediate_result.n_edges, handle.get_stream());
+      raft::copy(symmetric_result.src.data() + symmetric_result.n_edges,
+                 intermediate_result.src.data(), intermediate_result.n_edges,
+                 handle.get_stream());
+      raft::copy(symmetric_result.dst.data() + symmetric_result.n_edges,
+                 intermediate_result.dst.data(), intermediate_result.n_edges,
+                 handle.get_stream());
+      raft::copy(symmetric_result.weights.data() + symmetric_result.n_edges,
+                 intermediate_result.weights.data(),
+                 intermediate_result.n_edges, handle.get_stream());
       symmetric_result.n_edges = total_edge_size;
 
       MST_solver<vertex_t, edge_t, weight_t> non_symmetric_solver(
@@ -186,20 +192,22 @@ class MSTTest
       return std::make_pair(std::move(symmetric_result),
                             std::move(non_symmetric_result));
     }
-
   }
 
   void SetUp() override {
-    mst_input =
-      ::testing::TestWithParam<MSTTestInput<vertex_t, edge_t, weight_t>>::GetParam();
+    mst_input = ::testing::TestWithParam<
+      MSTTestInput<vertex_t, edge_t, weight_t>>::GetParam();
     iterations = mst_input.iterations;
 
-    csr_d.offsets = rmm::device_buffer(mst_input.csr_h.offsets.data(),
-    mst_input.csr_h.offsets.size() * sizeof(edge_t));
-    csr_d.indices = rmm::device_buffer(mst_input.csr_h.indices.data(),
-    mst_input.csr_h.indices.size() * sizeof(vertex_t));
-    csr_d.weights = rmm::device_buffer(mst_input.csr_h.weights.data(),
-    mst_input.csr_h.weights.size() * sizeof(weight_t));
+    csr_d.offsets =
+      rmm::device_buffer(mst_input.csr_h.offsets.data(),
+                         mst_input.csr_h.offsets.size() * sizeof(edge_t));
+    csr_d.indices =
+      rmm::device_buffer(mst_input.csr_h.indices.data(),
+                         mst_input.csr_h.indices.size() * sizeof(vertex_t));
+    csr_d.weights =
+      rmm::device_buffer(mst_input.csr_h.weights.data(),
+                         mst_input.csr_h.weights.size() * sizeof(weight_t));
   }
 
   void TearDown() override {}
@@ -223,27 +231,30 @@ const std::vector<MSTTestInput<int, int, float>> csr_in_h = {
 
   //  multiple iterations and cycles
   {{{0, 4, 6, 9, 12, 15, 17, 20},
-   {2, 4, 5, 6, 3, 6, 0, 4, 5, 1, 4, 6, 0, 2, 3, 0, 2, 0, 1, 3},
-   {5.0f, 9.0f,  1.0f, 4.0f, 8.0f, 7.0f, 5.0f, 2.0f, 6.0f, 8.0f,
-    1.0f, 10.0f, 9.0f, 2.0f, 1.0f, 1.0f, 6.0f, 4.0f, 7.0f, 10.0f}}, 1},
+    {2, 4, 5, 6, 3, 6, 0, 4, 5, 1, 4, 6, 0, 2, 3, 0, 2, 0, 1, 3},
+    {5.0f, 9.0f,  1.0f, 4.0f, 8.0f, 7.0f, 5.0f, 2.0f, 6.0f, 8.0f,
+     1.0f, 10.0f, 9.0f, 2.0f, 1.0f, 1.0f, 6.0f, 4.0f, 7.0f, 10.0f}},
+   1},
   // negative weights
   {{{0, 4, 6, 9, 12, 15, 17, 20},
-   {2, 4, 5, 6, 3, 6, 0, 4, 5, 1, 4, 6, 0, 2, 3, 0, 2, 0, 1, 3},
-   {-5.0f, -9.0f,  -1.0f, 4.0f,  -8.0f, -7.0f, -5.0f, -2.0f, -6.0f, -8.0f,
-    -1.0f, -10.0f, -9.0f, -2.0f, -1.0f, -1.0f, -6.0f, 4.0f,  -7.0f, -10.0f}}, 0},
+    {2, 4, 5, 6, 3, 6, 0, 4, 5, 1, 4, 6, 0, 2, 3, 0, 2, 0, 1, 3},
+    {-5.0f, -9.0f,  -1.0f, 4.0f,  -8.0f, -7.0f, -5.0f, -2.0f, -6.0f, -8.0f,
+     -1.0f, -10.0f, -9.0f, -2.0f, -1.0f, -1.0f, -6.0f, 4.0f,  -7.0f, -10.0f}},
+   0},
 
   // // equal weights
   {{{0, 4, 6, 9, 12, 15, 17, 20},
-   {2, 4, 5, 6, 3, 6, 0, 4, 5, 1, 4, 6, 0, 2, 3, 0, 2, 0, 1, 3},
-   {0.1, 0.1, 0.1, 0.1, 0.2, 0.2, 0.1, 0.2, 0.2, 0.2,
-    0.1, 0.1, 0.1, 0.2, 0.1, 0.1, 0.2, 0.1, 0.2, 0.1}}, 0},
+    {2, 4, 5, 6, 3, 6, 0, 4, 5, 1, 4, 6, 0, 2, 3, 0, 2, 0, 1, 3},
+    {0.1, 0.1, 0.1, 0.1, 0.2, 0.2, 0.1, 0.2, 0.2, 0.2,
+     0.1, 0.1, 0.1, 0.2, 0.1, 0.1, 0.2, 0.1, 0.2, 0.1}},
+   0},
 
   // //self loop
   {{{0, 4, 6, 9, 12, 15, 17, 20},
-   {0, 4, 5, 6, 3, 6, 2, 4, 5, 1, 4, 6, 0, 2, 3, 0, 2, 0, 1, 3},
-   {0.5f, 9.0f,  1.0f, 4.0f, 8.0f, 7.0f, 0.5f, 2.0f, 6.0f, 8.0f,
-    1.0f, 10.0f, 9.0f, 2.0f, 1.0f, 1.0f, 6.0f, 4.0f, 7.0f, 10.0f}}, 0}
-};
+    {0, 4, 5, 6, 3, 6, 2, 4, 5, 1, 4, 6, 0, 2, 3, 0, 2, 0, 1, 3},
+    {0.5f, 9.0f,  1.0f, 4.0f, 8.0f, 7.0f, 0.5f, 2.0f, 6.0f, 8.0f,
+     1.0f, 10.0f, 9.0f, 2.0f, 1.0f, 1.0f, 6.0f, 4.0f, 7.0f, 10.0f}},
+   0}};
 
 //  disconnected
 const std::vector<CSRHost<int, int, float>> csr_in4_h = {

@@ -83,10 +83,8 @@ MST_solver<vertex_t, edge_t, weight_t>::MST_solver(
   auto policy = rmm::exec_policy(stream);
   if (initialize_colors_) {
     thrust::sequence(policy->on(stream), color.begin(), color.end(), 0);
-    thrust::sequence(policy->on(stream), color_index, color_index + v,
-                    0);
-  }
-  else {
+    thrust::sequence(policy->on(stream), color_index, color_index + v, 0);
+  } else {
     raft::copy(color.data().get(), color_index, v, stream);
   }
   thrust::sequence(policy->on(stream), next_color.begin(), next_color.end(), 0);
