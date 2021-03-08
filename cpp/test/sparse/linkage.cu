@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -73,14 +73,11 @@ class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
     raft::copy(labels_ref, params.expected_labels.data(), params.n_row,
                handle.get_stream());
 
-    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
-
     raft::hierarchy::linkage_output<IdxT, T> out_arrs;
     out_arrs.labels = labels;
 
-    raft::mr::device::buffer<IdxT> out_children(handle.get_device_allocator(),
-                                                handle.get_stream(),
-                                                (params.n_row - 1) * 2);
+    raft::mr::device::buffer<IdxT> out_children(
+      handle.get_device_allocator(), handle.get_stream(), params.n_row * 2);
 
     out_arrs.children = out_children.data();
 
@@ -496,7 +493,6 @@ const std::vector<LinkageInputs<float, int>> linkage_inputsf2 = {
 
 typedef LinkageTest<float, int> LinkageTestF_Int;
 TEST_P(LinkageTestF_Int, Result) {
-  // TODO: This will fail until knn graph connection is fully integrated
   EXPECT_TRUE(
     raft::devArrMatch(labels, labels_ref, params.n_row, raft::Compare<int>()));
 }

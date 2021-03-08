@@ -21,6 +21,13 @@ namespace hierarchy {
 
 enum LinkageDistance { PAIRWISE = 0, KNN_GRAPH = 1 };
 
+/**
+ * Simple POCO for consolidating linkage results. This closely
+ * mirrors the trained instance variables populated in
+ * Scikit-learn's AgglomerativeClustering estimator.
+ * @tparam value_idx
+ * @tparam value_t
+ */
 template <typename value_idx, typename value_t>
 struct linkage_output {
   value_idx m;

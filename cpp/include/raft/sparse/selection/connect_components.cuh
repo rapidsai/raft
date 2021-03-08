@@ -34,6 +34,13 @@
 namespace raft {
 namespace linkage {
 
+/**
+ * Functor with reduction ops for performing fused 1-nn
+ * computation and guaranteeing only cross-component
+ * neighbors are considered.
+ * @tparam value_idx
+ * @tparam value_t
+ */
 template <typename value_idx, typename value_t>
 struct FixConnectivitiesRedOp {
   value_idx *colors;
@@ -68,11 +75,6 @@ struct FixConnectivitiesRedOp {
 /**
  * Count the unique vertices adjacent to each component.
  * This is essentially a count_unique_by_key.
- * @tparam value_idx
- * @param out_indptr
- * @param colors_indptr
- * @param colors_nn
- * @param n_colors
  */
 template <typename value_idx>
 __global__ void count_components_by_color_kernel(value_idx *out_indptr,
@@ -105,6 +107,16 @@ __global__ void count_components_by_color_kernel(value_idx *out_indptr,
   }
 }
 
+/**
+ * Compute indptr for the min set of unique components that neighbor the components
+ * of each source vertex
+ * @tparam value_idx
+ * @param[out] out_indptr output indptr
+ * @param[in] colors_indptr indptr of components for each source vertex
+ * @param[in] colors_nn array of components for the 1-nn around each source vertex
+ * @param[in] n_colors number of components
+ * @param[in] stream cuda stream for which to order cuda operations
+ */
 template <typename value_idx>
 void count_components_by_color(value_idx *out_indptr,
                                const value_idx *colors_indptr,
@@ -118,15 +130,6 @@ void count_components_by_color(value_idx *out_indptr,
 /**
  * colors_nn is not assumed to be sorted wrt colors_indptr
  * so we need to perform atomic reductions in each thread.
- * @tparam value_idx
- * @tparam value_t
- * @tparam reduction
- * @param out_cols
- * @param out_vals
- * @param colors_indptr
- * @param colors_nn
- * @param idx_dists
- * @param n_colors
  */
 template <typename value_idx, typename value_t>
 __global__ void min_components_by_color_kernel(
@@ -191,6 +194,20 @@ __global__ void min_components_by_color_kernel(
   }
 }
 
+/**
+ * Computes the min set of unique components that neighbor the
+ * components of each source vertex.
+ * @tparam value_idx
+ * @tparam value_t
+ * @param[out] coo output edge list
+ * @param[in] out_indptr output indptr for ordering edge list
+ * @param[in] colors_indptr indptr of source components
+ * @param[in] colors_nn components of nearest neighbors to each source component
+ * @param[in] indices indices of source vertices for each component
+ * @param[in] kvp indices and distances of each destination vertex for each component
+ * @param[in] n_colors number of components
+ * @param[in] stream cuda stream for which to order cuda operations
+ */
 template <typename value_idx, typename value_t>
 void min_components_by_color(raft::sparse::COO<value_t, value_idx> &coo,
                              const value_idx *out_indptr,
@@ -207,6 +224,16 @@ void min_components_by_color(raft::sparse::COO<value_t, value_idx> &coo,
     indices, kvp, n_colors);
 }
 
+/**
+ * Gets max maximum value (max number of components) from array of
+ * components. Note that this does not assume the components are
+ * drawn from a monotonically increasing set.
+ * @tparam value_idx
+ * @param[in] colors array of components
+ * @param[in] n_rows size of components array
+ * @param[in] stream cuda stream for which to order cuda operations
+ * @return total number of components
+ */
 template <typename value_idx>
 value_idx get_n_components(value_idx *colors, size_t n_rows,
                            cudaStream_t stream) {
@@ -216,6 +243,16 @@ value_idx get_n_components(value_idx *colors, size_t n_rows,
          1;
 }
 
+/**
+ * Build CSR indptr array for sorted edge list mapping components of source
+ * vertices to the components of their nearest neighbor vertices
+ * @tparam value_idx
+ * @param[out] degrees output indptr array
+ * @param[in] components_indptr indptr of original CSR array of components
+ * @param[in] nn_components indptr of nearest neighbors CSR array of components
+ * @param[in] n_components size of nn_components
+ * @param[in] stream cuda stream for which to order cuda operations
+ */
 template <typename value_idx>
 void build_output_colors_indptr(value_idx *degrees,
                                 const value_idx *components_indptr,
@@ -240,6 +277,11 @@ void build_output_colors_indptr(value_idx *degrees,
                          t_degrees + n_components + 1, t_degrees);
 }
 
+/**
+ * Functor to look up a component for a vertex
+ * @tparam value_idx
+ * @tparam value_t
+ */
 template <typename value_idx, typename value_t>
 struct LookupColorOp {
   value_idx *colors;
@@ -251,6 +293,20 @@ struct LookupColorOp {
   }
 };
 
+/**
+ * Compute the cross-component 1-nearest neighbors for each row in X using
+ * the given array of components
+ * @tparam value_idx
+ * @tparam value_t
+ * @param[out] kvp mapping of closest neighbor vertex and distance for each vertex in the given array of components
+ * @param[out] nn_colors components of nearest neighbors for each vertex
+ * @param[in] colors components of each vertex
+ * @param[in] X original dense data
+ * @param[in] n_rows number of rows in original dense data
+ * @param[in] n_cols number of columns in original dense data
+ * @param[in] d_alloc device allocator to use
+ * @param[in] stream cuda stream for which to order cuda operations
+ */
 template <typename value_idx, typename value_t>
 void perform_1nn(cub::KeyValuePair<value_idx, value_t> *kvp,
                  value_idx *nn_colors, value_idx *colors, const value_t *X,
@@ -279,6 +335,18 @@ void perform_1nn(cub::KeyValuePair<value_idx, value_t> *kvp,
                     t_nn_colors, extract_colors_op);
 }
 
+/**
+ * Sort nearest neighboring components wrt component of source vertices
+ * @tparam value_idx
+ * @tparam value_t
+ * @param[inout] colors components array of source vertices
+ * @param[inout] nn_colors nearest neighbors components array
+ * @param[inout] kvp nearest neighbor source vertex / distance array
+ * @param[inout] src_indices array of source vertex indices which will become arg_sort
+ *               indices
+ * @param n_rows number of components in `colors`
+ * @param stream stream for which to order CUDA operations
+ */
 template <typename value_idx, typename value_t>
 void sort_by_color(value_idx *colors, value_idx *nn_colors,
                    cub::KeyValuePair<value_idx, value_t> *kvp,
@@ -292,7 +360,8 @@ void sort_by_color(value_idx *colors, value_idx *nn_colors,
     thrust::device_pointer_cast(src_indices);
 
   thrust::counting_iterator<value_idx> arg_sort_iter(0);
-  thrust::copy(arg_sort_iter, arg_sort_iter + n_rows, t_src_indices);
+  thrust::copy(thrust::cuda::par.on(stream), arg_sort_iter,
+               arg_sort_iter + n_rows, t_src_indices);
 
   auto keys = thrust::make_zip_iterator(thrust::make_tuple(t_colors));
   auto vals = thrust::make_zip_iterator(
@@ -303,19 +372,22 @@ void sort_by_color(value_idx *colors, value_idx *nn_colors,
 }
 
 /**
- * Connects components by computing a 1-nn to neighboring
- * components of each data point (e.g. component(nn) != component(self))
- * and reduces the results to include the smallest
+ * Connects components by computing a 1-nn to neighboring components
+ * of each data point (e.g. component(nn) != component(self))
+ * and reducing the results to include the set of smallest destination
+ * components for each source component. The result will not necessarily
+ * contain n_components^2 - n_components number of elements because
+ * many comonents will likely not be contained in the neighborhoods
+ * of 1-nns.
  * @tparam value_idx
  * @tparam value_t
- * @param nn_indices
- * @param nn_dists
- * @param X
- * @param colors
- * @param n_rows
- * @param n_cols
- * @param d_alloc
- * @param stream
+ * @param[in] handle raft handle
+ * @param[out] out output edge list containing nearest cross-component
+ *             edges.
+ * @param[in] X original (row-major) dense matrix for which knn graph should be constructed.
+ * @param[in] colors array containing component number for each row of X
+ * @param n_rows number of rows in X
+ * @param n_cols number of cols in X
  */
 template <typename value_idx, typename value_t>
 void connect_components(const raft::handle_t &handle,

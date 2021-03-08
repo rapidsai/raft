@@ -89,7 +89,7 @@ class UnionFind {
 template <typename value_idx, typename value_t>
 void build_dendrogram_host(const handle_t &handle, const value_idx *rows,
                            const value_idx *cols, const value_t *data,
-                           size_t nnz, mr::device::buffer<value_idx> &children,
+                           size_t nnz, value_idx *children,
                            mr::device::buffer<value_t> &out_delta,
                            mr::device::buffer<value_idx> &out_size) {
   auto d_alloc = handle.get_device_allocator();
@@ -129,10 +129,9 @@ void build_dendrogram_host(const handle_t &handle, const value_idx *rows,
     U.perform_union(aa, bb);
   }
 
-  children.resize(n_edges * 2, stream);
   out_size.resize(n_edges, stream);
 
-  raft::update_device(children.data(), children_h.data(), n_edges * 2, stream);
+  raft::update_device(children, children_h.data(), n_edges * 2, stream);
   raft::update_device(out_size.data(), out_size_h.data(), n_edges, stream);
 }
 
@@ -269,10 +268,9 @@ struct init_label_roots {
  * @param n_leaves
  */
 template <typename value_idx, int tpb = 256>
-void extract_flattened_clusters(
-  const raft::handle_t &handle, value_idx *labels,
-  const raft::mr::device::buffer<value_idx> &children, size_t n_clusters,
-  size_t n_leaves) {
+void extract_flattened_clusters(const raft::handle_t &handle, value_idx *labels,
+                                const value_idx *children, size_t n_clusters,
+                                size_t n_leaves) {
   auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
 
@@ -285,34 +283,26 @@ void extract_flattened_clusters(
    *        out for each of the children
    */
 
+  size_t n_edges = (n_leaves - 1) * 2;
+
   thrust::device_ptr<value_idx> d_ptr =
-    thrust::device_pointer_cast(const_cast<value_idx *>(children.data()));
-  value_idx n_vertices =
-    *(thrust::max_element(thrust::cuda::par.on(stream), d_ptr,
-                          d_ptr + children.size())) +
-    1;
+    thrust::device_pointer_cast(const_cast<value_idx *>(children));
+  value_idx n_vertices = *(thrust::max_element(thrust::cuda::par.on(stream),
+                                               d_ptr, d_ptr + n_edges)) +
+                         1;
 
-  printf("n_vertices: %d\n", n_vertices);
-
-  thrust::device_ptr<value_idx> d_labels_ptr =
-    thrust::device_pointer_cast(labels);
-  value_idx n_labels =
-    *(thrust::max_element(thrust::cuda::par.on(stream), d_labels_ptr,
-                          d_labels_ptr + n_leaves)) +
-    1;
-
-  printf("n_labels: %d\n", n_labels);
-
-  RAFT_EXPECTS(n_labels == 1,
-               "Multiple components found in MST. Cannot find valid "
-               "single-linkage solution");
+  // Prevent potential infinite loop from labeling disconnected
+  // connectivities graph.
+  RAFT_EXPECTS(n_vertices == (n_leaves - 1) * 2,
+               "Multiple components found in MST or MST is invalid. "
+               "Cannot find single-linkage solution.");
 
   raft::mr::device::buffer<value_idx> levels(handle.get_device_allocator(),
                                              stream, n_vertices);
 
   value_idx n_blocks = ceildiv(n_vertices, (value_idx)tpb);
-  write_levels_kernel<<<n_blocks, tpb, 0, stream>>>(children.data(),
-                                                    levels.data(), n_vertices);
+  write_levels_kernel<<<n_blocks, tpb, 0, stream>>>(children, levels.data(),
+                                                    n_vertices);
   /**
    * Step 1: Find label roots:
    *
@@ -326,9 +316,9 @@ void extract_flattened_clusters(
   raft::mr::device::buffer<value_idx> label_roots(handle.get_device_allocator(),
                                                   stream, child_size);
 
-  value_idx children_cpy_start = children.size() - child_size;
-  copy_async(label_roots.data(), children.data() + children_cpy_start,
-             child_size, stream);
+  value_idx children_cpy_start = n_edges - child_size;
+  copy_async(label_roots.data(), children + children_cpy_start, child_size,
+             stream);
 
   thrust::device_ptr<value_idx> t_label_roots =
     thrust::device_pointer_cast(label_roots.data());
@@ -361,9 +351,9 @@ void extract_flattened_clusters(
    *     2. For each element in levels array, propagate until parent's
    *        label is !=-1
    */
-  value_idx cut_level = (children.size() / 2) - (n_clusters - 1);
+  value_idx cut_level = (n_edges / 2) - (n_clusters - 1);
 
-  inherit_labels<<<n_blocks, tpb, 0, stream>>>(children.data(), levels.data(),
+  inherit_labels<<<n_blocks, tpb, 0, stream>>>(children, levels.data(),
                                                n_leaves, tmp_labels.data(),
                                                cut_level, n_vertices);
 

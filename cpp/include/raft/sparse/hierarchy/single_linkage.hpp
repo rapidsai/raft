@@ -28,12 +28,32 @@ namespace raft {
 namespace hierarchy {
 
 static const size_t EMPTY = 0;
+
+/**
+ * Single-linkage clustering, capable of constructing a KNN graph to
+ * scale the algorithm beyond the n^2 memory consumption of implementations
+ * that use the fully-connected graph of pairwise distances by connecting
+ * a knn graph when k is not large enough to connect it.
+
+ * @tparam value_idx
+ * @tparam value_t
+ * @tparam dist_type method to use for constructing connectivities graph
+ * @param[in] handle raft handle
+ * @param[in] X dense input matrix in row-major layout
+ * @param[in] m number of rows in X
+ * @param[in] n number of columns in X
+ * @param[in] metric distance metrix to use when constructing connectivities graph
+ * @param[out] out struct containing output dendrogram and cluster assignments
+ * @param[in] c a constant used when constructing connectivities from knn graph. Allows the indirect control
+ *            of k. The algorithm will set `k = log(n) + c`
+ * @param[in] n_clusters number of clusters to assign data samples
+ */
 template <typename value_idx, typename value_t,
-          LinkageDistance dist_type = LinkageDistance::PAIRWISE>
+          LinkageDistance dist_type = LinkageDistance::KNN_GRAPH>
 void single_linkage(const raft::handle_t &handle, const value_t *X, size_t m,
                     size_t n, raft::distance::DistanceType metric,
                     linkage_output<value_idx, value_t> *out, int c,
-                    int n_clusters) {
+                    size_t n_clusters) {
   ASSERT(n_clusters <= m,
          "n_clusters must be less than or equal to the number of data points");
 
@@ -54,11 +74,6 @@ void single_linkage(const raft::handle_t &handle, const value_t *X, size_t m,
   raft::mr::device::buffer<value_idx> mst_cols(d_alloc, stream, EMPTY);
   raft::mr::device::buffer<value_t> mst_data(d_alloc, stream, EMPTY);
 
-  raft::print_device_vector("rows", indptr.data(), indptr.size(), std::cout);
-  raft::print_device_vector("cols", indices.data(), indices.size(), std::cout);
-  raft::print_device_vector("data", pw_dists.data(), pw_dists.size(),
-                            std::cout);
-
   /**
    * 2. Construct MST, sorted by weights
    */
@@ -68,35 +83,24 @@ void single_linkage(const raft::handle_t &handle, const value_t *X, size_t m,
 
   pw_dists.release();
 
-  printf("FInished running MST\n");
-
   /**
    * Perform hierarchical labeling
    */
   size_t n_edges = mst_rows.size();
 
-  printf("n_edges: %d\n", n_edges);
-
-  raft::mr::device::buffer<value_idx> children(d_alloc, stream, n_edges * 2);
   raft::mr::device::buffer<value_t> out_delta(d_alloc, stream, n_edges);
   raft::mr::device::buffer<value_idx> out_size(d_alloc, stream, n_edges);
-
-  printf("Creating dendrogram\n");
-
   // Create dendrogram
   detail::build_dendrogram_host<value_idx, value_t>(
     handle, mst_rows.data(), mst_cols.data(), mst_data.data(), n_edges,
-    children, out_delta, out_size);
+    out->children, out_delta, out_size);
+  detail::extract_flattened_clusters(handle, out->labels, out->children,
+                                     n_clusters, m);
 
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-
-  printf("Finished running dendrogram\n");
-
-  detail::extract_flattened_clusters(handle, out->labels, children, n_clusters,
-                                     m);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-
-  printf("Created flattened clusters\n");
+  out->m = m;
+  out->n_clusters = n_clusters;
+  out->n_leaves = m;
+  out->n_connected_components = 1;
 }
 
 };  // namespace hierarchy

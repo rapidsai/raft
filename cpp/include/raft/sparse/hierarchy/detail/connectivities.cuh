@@ -45,7 +45,6 @@ struct distance_graph_impl {
            raft::mr::device::buffer<value_t> &data, int c);
 };
 
-//@TODO: Don't need to expose these
 /**
  * Connectivities specialization to build a knn graph
  * @tparam value_idx
@@ -89,6 +88,22 @@ struct distance_graph_impl<LinkageDistance::KNN_GRAPH, value_idx, value_t> {
   }
 };
 
+/**
+ * Returns a CSR connectivities graph based on the given linkage distance.
+ * @tparam value_idx
+ * @tparam value_t
+ * @tparam dist_type
+ * @param[in] handle raft handle
+ * @param[in] X dense data for which to construct connectivites
+ * @param[in] m number of rows in X
+ * @param[in] n number of columns in X
+ * @param[in] metric distance metric to use
+ * @param[out] indptr indptr array of connectivities graph
+ * @param[out] indices column indices array of connectivities graph
+ * @param[out] data distances array of connectivities graph
+ * @param[out] c constant 'c' used for nearest neighbors-based distances
+ *             which will guarantee k <= log(n) + c
+ */
 template <typename value_idx, typename value_t,
           hierarchy::LinkageDistance dist_type>
 void get_distance_graph(const raft::handle_t &handle, const value_t *X,

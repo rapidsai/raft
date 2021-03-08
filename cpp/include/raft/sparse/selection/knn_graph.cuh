@@ -77,17 +77,16 @@ void conv_indices(in_t *inds, out_t *out, size_t size, cudaStream_t stream) {
  * Constructs a (symmetrized) knn graph edge list from
  * dense input vectors.
  *
- * Note: The resulting KNN graph is not
+ * Note: The resulting KNN graph is not guaranteed to be connected.
+ *
  * @tparam value_idx
  * @tparam value_t
- * @param handle
- * @param X
- * @param m
- * @param n
- * @param metric
- * @param indptr
- * @param indices
- * @param data
+ * @param[in] handle raft handle
+ * @param[in] X dense matrix of input data samples and observations
+ * @param[in] m number of data samples (rows) in X
+ * @param[in] n number of observations (columns) in X
+ * @param[in] metric distance metric to use when constructing neighborhoods
+ * @param[out] out output edge list
  * @param c
  */
 template <typename value_idx = int, typename value_t = float>
