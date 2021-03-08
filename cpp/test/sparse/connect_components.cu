@@ -113,6 +113,8 @@ class ConnectComponentsTest : public ::testing::TestWithParam<
       handle, indptr.data(), knn_graph_coo.cols(), knn_graph_coo.vals(),
       params.n_row, knn_graph_coo.nnz, colors.data(), stream, false);
 
+    raft::print_device_vector("colors", colors.data(), colors.size(), std::cout);
+
     /**
      * 3. connect_components to fix connectivities
      */
@@ -125,6 +127,8 @@ class ConnectComponentsTest : public ::testing::TestWithParam<
     mst_coo.src.resize(final_nnz, stream);
     mst_coo.dst.resize(final_nnz, stream);
     mst_coo.weights.resize(final_nnz, stream);
+
+    printf("New nnz: %d\n", final_nnz);
 
     /**
      * Construct final edge list
