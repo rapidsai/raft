@@ -15,6 +15,9 @@
  */
 
 #include <gtest/gtest.h>
+
+#include <cub/cub.cuh>
+
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
 #include <vector>

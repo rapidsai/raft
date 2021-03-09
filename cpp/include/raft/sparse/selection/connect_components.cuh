@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include <cub/cub.cuh>
+
 #include <raft/linalg/norm.cuh>
 #include <raft/mr/device/buffer.hpp>
 #include <raft/sparse/convert/csr.cuh>
