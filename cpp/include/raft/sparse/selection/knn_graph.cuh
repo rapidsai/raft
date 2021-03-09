@@ -56,7 +56,8 @@ template <typename value_idx>
 value_idx build_k(value_idx n_samples, int c) {
   // from "kNN-MST-Agglomerative: A fast & scalable graph-based data clustering
   // approach on GPU"
-  return min(n_samples, (value_idx)floor(log2(n_samples)) + c);
+  return min(n_samples,
+             max((value_idx)2, (value_idx)floor(log2(n_samples)) + c));
 }
 
 template <typename in_t, typename out_t>
@@ -94,6 +95,8 @@ void knn_graph(const handle_t &handle, const value_t *X, size_t m, size_t n,
                distance::DistanceType metric,
                raft::sparse::COO<value_t, value_idx> &out, int c = 15) {
   int k = build_k(m, c);
+
+  printf("K=%d\n", k);
 
   auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();

@@ -152,6 +152,7 @@ __global__ void min_components_by_color_kernel(
 
   // initialize
   for (value_idx i = threadIdx.x; i < n_colors; i += blockDim.x) {
+    mutex[i] = 0;
     auto skvp = min + i;
     skvp->key = -1;
     skvp->value = std::numeric_limits<value_t>::max();
@@ -162,10 +163,9 @@ __global__ void min_components_by_color_kernel(
   for (value_idx i = threadIdx.x; i < (stop_offset - start_offset);
        i += blockDim.x) {
     value_idx new_color = colors_nn[start_offset + i];
-
-    while (atomicCAS(mutex + new_color, 0, 1) == 1)
-      ;
-    __threadfence();
+    while (atomicCAS(mutex + new_color, 0, 1) == 1) {
+      __threadfence();
+    }
     auto cur_kvp = kvp[start_offset + i];
     if (cur_kvp.value < min[new_color].value) {
       src_inds[new_color] = indices[start_offset + i];
@@ -177,6 +177,8 @@ __global__ void min_components_by_color_kernel(
   }
 
   __syncthreads();
+
+  //  printf("block %d thread %d did final sync\n", blockIdx.x, threadIdx.x);
 
   value_idx out_offset = out_indptr[blockIdx.x];
 
