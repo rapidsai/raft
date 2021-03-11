@@ -19,14 +19,17 @@
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
 
-#include <rmm/device_uvector.hpp>
 #include <raft/mr/device/buffer.hpp>
 #include <raft/sparse/mst/mst.cuh>
 #include <raft/sparse/selection/connect_components.cuh>
+#include <rmm/device_uvector.hpp>
+
+#include <rmm/exec_policy.hpp>
 
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
 #include <thrust/sort.h>
+#include <rmm/exec_policy.hpp>
 
 namespace raft {
 namespace hierarchy {
@@ -45,12 +48,11 @@ namespace detail {
 template <typename value_idx, typename value_t>
 void sort_coo_by_data(value_idx *rows, value_idx *cols, value_t *data,
                       value_idx nnz, cudaStream_t stream) {
-
   thrust::device_ptr<value_idx> t_rows = thrust::device_pointer_cast(rows);
   thrust::device_ptr<value_idx> t_cols = thrust::device_pointer_cast(cols);
   thrust::device_ptr<value_t> t_data = thrust::device_pointer_cast(data);
 
-  auto first = thrust::make_zip_iterator(thrust::make_tuple(t_rows, t_cols));
+  auto first = thrust::make_zip_iterator(thrust::make_tuple(rows, cols));
 
   thrust::sort_by_key(thrust::cuda::par.on(stream), t_data, t_data + nnz,
                       first);

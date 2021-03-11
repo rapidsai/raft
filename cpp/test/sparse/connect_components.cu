@@ -29,10 +29,10 @@
 #include <raft/linalg/distance_type.h>
 #include <raft/linalg/transpose.h>
 #include <raft/mr/device/allocator.hpp>
-#include <rmm/device_uvector.hpp>
 #include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/coo.cuh>
 #include <raft/sparse/hierarchy/single_linkage.hpp>
+#include <rmm/device_uvector.hpp>
 
 #include "../test_utils.h"
 
@@ -70,7 +70,8 @@ class ConnectComponentsTest : public ::testing::TestWithParam<
     out_edges = new raft::sparse::COO<value_t, value_idx>(
       handle.get_device_allocator(), handle.get_stream());
 
-    rmm::device_uvector<value_t> data(params.n_row * params.n_col, handle.get_stream());
+    rmm::device_uvector<value_t> data(params.n_row * params.n_col,
+                                      handle.get_stream());
 
     // Allocate result labels and expected labels on device
     raft::allocate(labels, params.n_row);

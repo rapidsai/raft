@@ -26,8 +26,9 @@
 #include <raft/distance/fused_l2_nn.cuh>
 
 #include <thrust/device_ptr.h>
-#include <thrust/execution_policy.h>
 #include <thrust/sort.h>
+#include <rmm/device_uvector.hpp>
+#include <rmm/exec_policy.hpp>
 
 #include <limits>
 
@@ -317,8 +318,8 @@ void perform_1nn(cub::KeyValuePair<value_idx, value_t> *kvp,
                  size_t n_rows, size_t n_cols,
                  std::shared_ptr<raft::mr::device::allocator> d_alloc,
                  cudaStream_t stream) {
-  raft::mr::device::buffer<int> workspace(d_alloc, stream, n_rows);
-  raft::mr::device::buffer<value_t> x_norm(d_alloc, stream, n_rows);
+  rmm::device_uvector<int> workspace(n_rows, stream);
+  rmm::device_uvector<value_t> x_norm(n_rows, stream);
 
   raft::linalg::rowNorm(x_norm.data(), X, n_cols, n_rows, raft::linalg::L2Norm,
                         true, stream);
@@ -329,14 +330,9 @@ void perform_1nn(cub::KeyValuePair<value_idx, value_t> *kvp,
                                        n_rows, n_rows, n_cols, workspace.data(),
                                        red_op, red_op, true, true, stream);
 
-  thrust::device_ptr<cub::KeyValuePair<value_idx, value_t>> t_kvp =
-    thrust::device_pointer_cast(kvp);
-  thrust::device_ptr<value_idx> t_nn_colors =
-    thrust::device_pointer_cast(nn_colors);
-
   LookupColorOp<value_idx, value_t> extract_colors_op(colors);
-  thrust::transform(thrust::cuda::par.on(stream), t_kvp, t_kvp + n_rows,
-                    t_nn_colors, extract_colors_op);
+  thrust::transform(thrust::cuda::par.on(stream), kvp, kvp + n_rows, nn_colors,
+                    extract_colors_op);
 }
 
 /**
@@ -355,21 +351,13 @@ template <typename value_idx, typename value_t>
 void sort_by_color(value_idx *colors, value_idx *nn_colors,
                    cub::KeyValuePair<value_idx, value_t> *kvp,
                    value_idx *src_indices, size_t n_rows, cudaStream_t stream) {
-  thrust::device_ptr<value_idx> t_colors = thrust::device_pointer_cast(colors);
-  thrust::device_ptr<value_idx> t_nn_colors =
-    thrust::device_pointer_cast(nn_colors);
-  thrust::device_ptr<cub::KeyValuePair<value_idx, value_t>> t_data =
-    thrust::device_pointer_cast(kvp);
-  thrust::device_ptr<value_idx> t_src_indices =
-    thrust::device_pointer_cast(src_indices);
-
   thrust::counting_iterator<value_idx> arg_sort_iter(0);
   thrust::copy(thrust::cuda::par.on(stream), arg_sort_iter,
-               arg_sort_iter + n_rows, t_src_indices);
+               arg_sort_iter + n_rows, src_indices);
 
-  auto keys = thrust::make_zip_iterator(thrust::make_tuple(t_colors));
-  auto vals = thrust::make_zip_iterator(
-    thrust::make_tuple(t_data, t_src_indices, t_nn_colors));
+  auto keys = thrust::make_zip_iterator(thrust::make_tuple(colors));
+  auto vals =
+    thrust::make_zip_iterator(thrust::make_tuple(kvp, src_indices, nn_colors));
 
   // get all the colors in contiguous locations so we can map them to warps.
   thrust::sort_by_key(thrust::cuda::par.on(stream), keys, keys + n_rows, vals);
@@ -407,14 +395,12 @@ void connect_components(const raft::handle_t &handle,
    * First compute 1-nn for all colors where the color of each data point
    * is guaranteed to be != color of its nearest neighbor.
    */
-  raft::mr::device::buffer<value_idx> nn_colors(d_alloc, stream, n_rows);
-  raft::mr::device::buffer<cub::KeyValuePair<value_idx, value_t>>
-    temp_inds_dists(d_alloc, stream, n_rows);
-  raft::mr::device::buffer<value_idx> src_indices(d_alloc, stream, n_rows);
-  raft::mr::device::buffer<value_idx> color_neigh_degrees(d_alloc, stream,
-                                                          n_components + 1);
-  raft::mr::device::buffer<value_idx> colors_indptr(d_alloc, stream,
-                                                    n_components + 1);
+  rmm::device_uvector<value_idx> nn_colors(n_rows, stream);
+  rmm::device_uvector<cub::KeyValuePair<value_idx, value_t>> temp_inds_dists(
+    n_rows, stream);
+  rmm::device_uvector<value_idx> src_indices(n_rows, stream);
+  rmm::device_uvector<value_idx> color_neigh_degrees(n_components + 1, stream);
+  rmm::device_uvector<value_idx> colors_indptr(n_components + 1, stream);
 
   perform_1nn(temp_inds_dists.data(), nn_colors.data(), colors, X, n_rows,
               n_cols, d_alloc, stream);

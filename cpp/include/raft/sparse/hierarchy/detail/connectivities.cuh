@@ -52,7 +52,8 @@ struct distance_graph_impl {
  * @tparam value_t
  */
 template <typename value_idx, typename value_t>
-struct distance_graph_impl<raft::hierarchy::LinkageDistance::KNN_GRAPH, value_idx, value_t> {
+struct distance_graph_impl<raft::hierarchy::LinkageDistance::KNN_GRAPH,
+                           value_idx, value_t> {
   void run(const raft::handle_t &handle, const value_t *X, size_t m, size_t n,
            raft::distance::DistanceType metric,
            rmm::device_uvector<value_idx> &indptr,

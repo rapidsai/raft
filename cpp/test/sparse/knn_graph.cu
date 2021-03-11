@@ -17,8 +17,8 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <raft/random/rng.cuh>
-#include "../test_utils.h"
 #include <rmm/device_uvector.hpp>
+#include "../test_utils.h"
 
 #include <raft/sparse/coo.cuh>
 #include <raft/sparse/selection/knn_graph.cuh>

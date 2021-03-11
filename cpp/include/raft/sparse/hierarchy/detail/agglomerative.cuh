@@ -19,9 +19,9 @@
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
-#include <rmm/exec_policy.hpp>
 #include <raft/mr/device/buffer.hpp>
 #include <rmm/device_uvector.hpp>
+#include <rmm/exec_policy.hpp>
 
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
@@ -289,9 +289,8 @@ void extract_flattened_clusters(const raft::handle_t &handle, value_idx *labels,
 
   thrust::device_ptr<const value_idx> d_ptr =
     thrust::device_pointer_cast(children);
-  value_idx n_vertices = *(thrust::max_element(thrust_policy,
-                                               d_ptr, d_ptr + n_edges)) +
-                         1;
+  value_idx n_vertices =
+    *(thrust::max_element(thrust_policy, d_ptr, d_ptr + n_edges)) + 1;
 
   // Prevent potential infinite loop from labeling disconnected
   // connectivities graph.
@@ -317,12 +316,12 @@ void extract_flattened_clusters(const raft::handle_t &handle, value_idx *labels,
   rmm::device_uvector<value_idx> label_roots(child_size, stream);
 
   value_idx children_cpy_start = n_edges - child_size;
-  raft::copy_async(label_roots.data(), children + children_cpy_start, child_size,
-             stream);
+  raft::copy_async(label_roots.data(), children + children_cpy_start,
+                   child_size, stream);
 
-//  thrust::device_ptr<value_idx> t_label_roots =
-//    thrust::device_pointer_cast(label_roots.data());
-//
+  //  thrust::device_ptr<value_idx> t_label_roots =
+  //    thrust::device_pointer_cast(label_roots.data());
+  //
   thrust::sort(thrust_policy, label_roots.data(),
                label_roots.data() + (child_size), thrust::greater<value_idx>());
 

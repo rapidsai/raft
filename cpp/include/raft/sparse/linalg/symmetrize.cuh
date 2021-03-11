@@ -31,6 +31,8 @@
 
 #include <cuda_runtime.h>
 #include <stdio.h>
+#include <rmm/device_uvector.hpp>
+#include <rmm/exec_policy.hpp>
 
 #include <algorithm>
 #include <iostream>
@@ -342,10 +344,12 @@ void symmetrize(const raft::handle_t &handle, const value_idx *rows,
   auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
 
+  auto exec_policy = rmm::exec_policy(stream);
+
   // copy rows to cols and cols to rows
-  raft::mr::device::buffer<value_idx> symm_rows(d_alloc, stream, nnz * 2);
-  raft::mr::device::buffer<value_idx> symm_cols(d_alloc, stream, nnz * 2);
-  raft::mr::device::buffer<value_t> symm_vals(d_alloc, stream, nnz * 2);
+  rmm::device_uvector<value_idx> symm_rows(nnz * 2, stream);
+  rmm::device_uvector<value_idx> symm_cols(nnz * 2, stream);
+  rmm::device_uvector<value_t> symm_vals(nnz * 2, stream);
 
   raft::copy_async(symm_rows.data(), rows, nnz, stream);
   raft::copy_async(symm_rows.data() + nnz, cols, nnz, stream);
@@ -360,7 +364,7 @@ void symmetrize(const raft::handle_t &handle, const value_idx *rows,
                              symm_vals.data(), d_alloc, stream);
 
   // compute diffs & take exclusive scan
-  raft::mr::device::buffer<value_idx> diff(d_alloc, stream, (nnz * 2) + 1);
+  rmm::device_uvector<value_idx> diff((nnz * 2) + 1, stream);
 
   CUDA_CHECK(cudaMemsetAsync(diff.data(), 0,
                              ((nnz * 2) + 1) * sizeof(value_idx), stream));
@@ -369,10 +373,8 @@ void symmetrize(const raft::handle_t &handle, const value_idx *rows,
                              stream>>>(symm_rows.data(), symm_cols.data(),
                                        diff.data(), nnz * 2);
 
-  thrust::device_ptr<value_idx> dev = thrust::device_pointer_cast(diff.data());
-
-  thrust::exclusive_scan(thrust::cuda::par.on(stream), dev, dev + diff.size(),
-                         dev);
+  thrust::exclusive_scan(exec_policy, diff.data(), diff.data() + diff.size(),
+                         diff.data());
 
   // compute final size
   value_idx size = 0;
