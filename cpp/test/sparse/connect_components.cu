@@ -29,7 +29,7 @@
 #include <raft/linalg/distance_type.h>
 #include <raft/linalg/transpose.h>
 #include <raft/mr/device/allocator.hpp>
-#include <raft/mr/device/buffer.hpp>
+#include <rmm/device_uvector.hpp>
 #include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/coo.cuh>
 #include <raft/sparse/hierarchy/single_linkage.hpp>
@@ -70,9 +70,7 @@ class ConnectComponentsTest : public ::testing::TestWithParam<
     out_edges = new raft::sparse::COO<value_t, value_idx>(
       handle.get_device_allocator(), handle.get_stream());
 
-    raft::mr::device::buffer<value_t> data(handle.get_device_allocator(),
-                                           handle.get_stream(),
-                                           params.n_row * params.n_col);
+    rmm::device_uvector<value_t> data(params.n_row * params.n_col, handle.get_stream());
 
     // Allocate result labels and expected labels on device
     raft::allocate(labels, params.n_row);
@@ -83,8 +81,7 @@ class ConnectComponentsTest : public ::testing::TestWithParam<
     raft::copy(labels_ref, params.expected_labels.data(), params.n_row,
                handle.get_stream());
 
-    raft::mr::device::buffer<value_idx> indptr(d_alloc, stream,
-                                               params.n_row + 1);
+    rmm::device_uvector<value_idx> indptr(params.n_row + 1, stream);
 
     /**
      * 1. Construct knn graph
@@ -110,7 +107,7 @@ class ConnectComponentsTest : public ::testing::TestWithParam<
     /**
      * 2. Construct MST, sorted by weights
      */
-    raft::mr::device::buffer<value_idx> colors(d_alloc, stream, params.n_row);
+    rmm::device_uvector<value_idx> colors(params.n_row, stream);
 
     auto mst_coo = raft::mst::mst<value_idx, value_idx, value_t>(
       handle, indptr.data(), knn_graph_coo.cols(), knn_graph_coo.vals(),
@@ -149,8 +146,7 @@ class ConnectComponentsTest : public ::testing::TestWithParam<
       handle, mst_coo.src.data(), mst_coo.dst.data(), mst_coo.weights.data(),
       params.n_row, params.n_col, final_nnz, final_coo);
 
-    raft::mr::device::buffer<value_idx> indptr2(d_alloc, stream,
-                                                params.n_row + 1);
+    rmm::device_uvector<value_idx> indptr2(params.n_row + 1, stream);
 
     raft::sparse::convert::sorted_coo_to_csr(final_coo.rows(), final_coo.nnz,
                                              indptr2.data(), params.n_row,

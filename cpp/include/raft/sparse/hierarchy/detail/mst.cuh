@@ -19,6 +19,7 @@
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
 
+#include <rmm/device_uvector.hpp>
 #include <raft/mr/device/buffer.hpp>
 #include <raft/sparse/mst/mst.cuh>
 #include <raft/sparse/selection/connect_components.cuh>
@@ -44,6 +45,7 @@ namespace detail {
 template <typename value_idx, typename value_t>
 void sort_coo_by_data(value_idx *rows, value_idx *cols, value_t *data,
                       value_idx nnz, cudaStream_t stream) {
+
   thrust::device_ptr<value_idx> t_rows = thrust::device_pointer_cast(rows);
   thrust::device_ptr<value_idx> t_cols = thrust::device_pointer_cast(cols);
   thrust::device_ptr<value_t> t_data = thrust::device_pointer_cast(data);
@@ -101,7 +103,7 @@ raft::Graph_COO<value_idx, value_idx, value_t> connect_knn_graph(
                                    msf.weights.data(), m, n, final_nnz,
                                    final_coo);
 
-  raft::mr::device::buffer<value_idx> indptr2(d_alloc, stream, m + 1);
+  rmm::device_uvector<value_idx> indptr2(m + 1, stream);
 
   raft::sparse::convert::sorted_coo_to_csr(final_coo.rows(), final_coo.nnz,
                                            indptr2.data(), m, d_alloc, stream);
@@ -145,14 +147,14 @@ template <typename value_idx, typename value_t>
 void build_sorted_mst(const raft::handle_t &handle, const value_t *X,
                       const value_idx *indptr, const value_idx *indices,
                       const value_t *pw_dists, size_t m, size_t n,
-                      raft::mr::device::buffer<value_idx> &mst_src,
-                      raft::mr::device::buffer<value_idx> &mst_dst,
-                      raft::mr::device::buffer<value_t> &mst_weight,
+                      rmm::device_uvector<value_idx> &mst_src,
+                      rmm::device_uvector<value_idx> &mst_dst,
+                      rmm::device_uvector<value_t> &mst_weight,
                       const size_t nnz) {
   auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
 
-  raft::mr::device::buffer<value_idx> color(d_alloc, stream, m);
+  rmm::device_uvector<value_idx> color(m, stream);
 
   auto mst_coo = raft::mst::mst<value_idx, value_idx, value_t>(
     handle, indptr, indices, pw_dists, (value_idx)m, nnz, color.data(), stream,

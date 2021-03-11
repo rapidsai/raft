@@ -18,6 +18,7 @@
 #include <raft/cudart_utils.h>
 #include <raft/random/rng.cuh>
 #include "../test_utils.h"
+#include <rmm/device_uvector.hpp>
 
 #include <raft/sparse/coo.cuh>
 #include <raft/sparse/selection/knn_graph.cuh>
@@ -76,7 +77,7 @@ class KNNGraphTest
       handle, X, params.m, params.n, raft::distance::DistanceType::L2Unexpanded,
       *out);
 
-    raft::mr::device::buffer<value_idx> sum(alloc, stream, 1);
+    rmm::device_uvector<value_idx> sum(1, stream);
 
     CUDA_CHECK(cudaMemsetAsync(sum.data(), 0, 1 * sizeof(value_idx), stream));
 

@@ -21,6 +21,7 @@
 #include <raft/handle.hpp>
 
 #include <raft/linalg/unary_op.cuh>
+#include <rmm/device_uvector.hpp>
 
 #include <raft/linalg/distance_type.h>
 #include <raft/sparse/hierarchy/common.h>
@@ -40,9 +41,9 @@ template <raft::hierarchy::LinkageDistance dist_type, typename value_idx,
 struct distance_graph_impl {
   void run(const raft::handle_t &handle, const value_t *X, size_t m, size_t n,
            raft::distance::DistanceType metric,
-           raft::mr::device::buffer<value_idx> &indptr,
-           raft::mr::device::buffer<value_idx> &indices,
-           raft::mr::device::buffer<value_t> &data, int c);
+           rmm::device_uvector<value_idx> &indptr,
+           rmm::device_uvector<value_idx> &indices,
+           rmm::device_uvector<value_t> &data, int c);
 };
 
 /**
@@ -51,12 +52,12 @@ struct distance_graph_impl {
  * @tparam value_t
  */
 template <typename value_idx, typename value_t>
-struct distance_graph_impl<LinkageDistance::KNN_GRAPH, value_idx, value_t> {
+struct distance_graph_impl<raft::hierarchy::LinkageDistance::KNN_GRAPH, value_idx, value_t> {
   void run(const raft::handle_t &handle, const value_t *X, size_t m, size_t n,
            raft::distance::DistanceType metric,
-           raft::mr::device::buffer<value_idx> &indptr,
-           raft::mr::device::buffer<value_idx> &indices,
-           raft::mr::device::buffer<value_t> &data, int c) {
+           rmm::device_uvector<value_idx> &indptr,
+           rmm::device_uvector<value_idx> &indices,
+           rmm::device_uvector<value_t> &data, int c) {
     auto d_alloc = handle.get_device_allocator();
     auto stream = handle.get_stream();
 
@@ -105,12 +106,12 @@ struct distance_graph_impl<LinkageDistance::KNN_GRAPH, value_idx, value_t> {
  *             which will guarantee k <= log(n) + c
  */
 template <typename value_idx, typename value_t,
-          hierarchy::LinkageDistance dist_type>
+          raft::hierarchy::LinkageDistance dist_type>
 void get_distance_graph(const raft::handle_t &handle, const value_t *X,
                         size_t m, size_t n, raft::distance::DistanceType metric,
-                        raft::mr::device::buffer<value_idx> &indptr,
-                        raft::mr::device::buffer<value_idx> &indices,
-                        raft::mr::device::buffer<value_t> &data, int c) {
+                        rmm::device_uvector<value_idx> &indptr,
+                        rmm::device_uvector<value_idx> &indices,
+                        rmm::device_uvector<value_t> &data, int c) {
   auto stream = handle.get_stream();
 
   indptr.resize(m + 1, stream);

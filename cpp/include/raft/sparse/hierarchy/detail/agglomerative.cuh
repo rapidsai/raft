@@ -19,8 +19,9 @@
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
-
+#include <rmm/exec_policy.hpp>
 #include <raft/mr/device/buffer.hpp>
+#include <rmm/device_uvector.hpp>
 
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
@@ -90,8 +91,8 @@ template <typename value_idx, typename value_t>
 void build_dendrogram_host(const handle_t &handle, const value_idx *rows,
                            const value_idx *cols, const value_t *data,
                            size_t nnz, value_idx *children,
-                           mr::device::buffer<value_t> &out_delta,
-                           mr::device::buffer<value_idx> &out_size) {
+                           rmm::device_uvector<value_t> &out_delta,
+                           rmm::device_uvector<value_idx> &out_size) {
   auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
 
@@ -273,6 +274,7 @@ void extract_flattened_clusters(const raft::handle_t &handle, value_idx *labels,
                                 size_t n_leaves) {
   auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
+  auto thrust_policy = rmm::exec_policy(stream);
 
   /**
    * Compute levels for each node
@@ -285,9 +287,9 @@ void extract_flattened_clusters(const raft::handle_t &handle, value_idx *labels,
 
   size_t n_edges = (n_leaves - 1) * 2;
 
-  thrust::device_ptr<value_idx> d_ptr =
-    thrust::device_pointer_cast(const_cast<value_idx *>(children));
-  value_idx n_vertices = *(thrust::max_element(thrust::cuda::par.on(stream),
+  thrust::device_ptr<const value_idx> d_ptr =
+    thrust::device_pointer_cast(children);
+  value_idx n_vertices = *(thrust::max_element(thrust_policy,
                                                d_ptr, d_ptr + n_edges)) +
                          1;
 
@@ -297,8 +299,7 @@ void extract_flattened_clusters(const raft::handle_t &handle, value_idx *labels,
                "Multiple components found in MST or MST is invalid. "
                "Cannot find single-linkage solution.");
 
-  raft::mr::device::buffer<value_idx> levels(handle.get_device_allocator(),
-                                             stream, n_vertices);
+  rmm::device_uvector<value_idx> levels(n_vertices, stream);
 
   value_idx n_blocks = ceildiv(n_vertices, (value_idx)tpb);
   write_levels_kernel<<<n_blocks, tpb, 0, stream>>>(children, levels.data(),
@@ -313,36 +314,31 @@ void extract_flattened_clusters(const raft::handle_t &handle, value_idx *labels,
    */
 
   value_idx child_size = (n_clusters - 1) * 2;
-  raft::mr::device::buffer<value_idx> label_roots(handle.get_device_allocator(),
-                                                  stream, child_size);
+  rmm::device_uvector<value_idx> label_roots(child_size, stream);
 
   value_idx children_cpy_start = n_edges - child_size;
-  copy_async(label_roots.data(), children + children_cpy_start, child_size,
+  raft::copy_async(label_roots.data(), children + children_cpy_start, child_size,
              stream);
 
-  thrust::device_ptr<value_idx> t_label_roots =
-    thrust::device_pointer_cast(label_roots.data());
+//  thrust::device_ptr<value_idx> t_label_roots =
+//    thrust::device_pointer_cast(label_roots.data());
+//
+  thrust::sort(thrust_policy, label_roots.data(),
+               label_roots.data() + (child_size), thrust::greater<value_idx>());
 
-  thrust::sort(thrust::cuda::par.on(stream), t_label_roots,
-               t_label_roots + (child_size), thrust::greater<value_idx>());
-
-  raft::mr::device::buffer<value_idx> tmp_labels(handle.get_device_allocator(),
-                                                 stream, n_vertices);
+  rmm::device_uvector<value_idx> tmp_labels(n_vertices, stream);
 
   // Init labels to -1
-  thrust::device_ptr<value_idx> t_labels =
-    thrust::device_pointer_cast(tmp_labels.data());
-  thrust::fill(thrust::cuda::par.on(stream), t_labels, t_labels + n_vertices,
+  thrust::fill(thrust_policy, tmp_labels.data(), tmp_labels.data() + n_vertices,
                -1);
 
   // Write labels for cluster roots to "labels"
   thrust::counting_iterator<uint> first(0);
-  thrust::counting_iterator<uint> last = first + tmp_labels.size();
 
   auto z_iter = thrust::make_zip_iterator(thrust::make_tuple(
-    first, t_label_roots + (label_roots.size() - n_clusters)));
+    first, label_roots.data() + (label_roots.size() - n_clusters)));
 
-  thrust::for_each(thrust::cuda::par.on(stream), z_iter, z_iter + n_clusters,
+  thrust::for_each(thrust_policy, z_iter, z_iter + n_clusters,
                    init_label_roots<value_idx>(tmp_labels.data()));
 
   /**

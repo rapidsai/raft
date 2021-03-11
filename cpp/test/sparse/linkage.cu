@@ -22,7 +22,7 @@
 #include <raft/linalg/distance_type.h>
 #include <raft/linalg/transpose.h>
 #include <raft/mr/device/allocator.hpp>
-#include <raft/mr/device/buffer.hpp>
+#include <rmm/device_uvector.hpp>
 #include <raft/sparse/coo.cuh>
 #include <raft/sparse/hierarchy/single_linkage.hpp>
 
@@ -60,9 +60,7 @@ class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
 
     params = ::testing::TestWithParam<LinkageInputs<T, IdxT>>::GetParam();
 
-    raft::mr::device::buffer<T> data(handle.get_device_allocator(),
-                                     handle.get_stream(),
-                                     params.n_row * params.n_col);
+    rmm::device_uvector<T> data(params.n_row * params.n_col, handle.get_stream());
 
     // Allocate result labels and expected labels on device
     raft::allocate(labels, params.n_row);
@@ -76,8 +74,8 @@ class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
     raft::hierarchy::linkage_output<IdxT, T> out_arrs;
     out_arrs.labels = labels;
 
-    raft::mr::device::buffer<IdxT> out_children(
-      handle.get_device_allocator(), handle.get_stream(), params.n_row * 2);
+    rmm::device_uvector<IdxT> out_children(
+      params.n_row * 2, handle.get_stream());
 
     out_arrs.children = out_children.data();
 

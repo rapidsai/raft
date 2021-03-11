@@ -17,7 +17,7 @@
 #pragma once
 
 #include <raft/cudart_utils.h>
-#include <raft/mr/device/buffer.hpp>
+#include <rmm/device_uvector.hpp>
 
 #include <raft/sparse/hierarchy/common.h>
 #include <raft/sparse/hierarchy/detail/agglomerative.cuh>
@@ -60,9 +60,9 @@ void single_linkage(const raft::handle_t &handle, const value_t *X, size_t m,
   auto stream = handle.get_stream();
   auto d_alloc = handle.get_device_allocator();
 
-  raft::mr::device::buffer<value_idx> indptr(d_alloc, stream, EMPTY);
-  raft::mr::device::buffer<value_idx> indices(d_alloc, stream, EMPTY);
-  raft::mr::device::buffer<value_t> pw_dists(d_alloc, stream, EMPTY);
+  rmm::device_uvector<value_idx> indptr(EMPTY, stream);
+  rmm::device_uvector<value_idx> indices(EMPTY, stream);
+  rmm::device_uvector<value_t> pw_dists(EMPTY, stream);
 
   /**
    * 1. Construct distance graph
@@ -70,9 +70,9 @@ void single_linkage(const raft::handle_t &handle, const value_t *X, size_t m,
   detail::get_distance_graph<value_idx, value_t, dist_type>(
     handle, X, m, n, metric, indptr, indices, pw_dists, c);
 
-  raft::mr::device::buffer<value_idx> mst_rows(d_alloc, stream, EMPTY);
-  raft::mr::device::buffer<value_idx> mst_cols(d_alloc, stream, EMPTY);
-  raft::mr::device::buffer<value_t> mst_data(d_alloc, stream, EMPTY);
+  rmm::device_uvector<value_idx> mst_rows(EMPTY, stream);
+  rmm::device_uvector<value_idx> mst_cols(EMPTY, stream);
+  rmm::device_uvector<value_t> mst_data(EMPTY, stream);
 
   /**
    * 2. Construct MST, sorted by weights
@@ -88,8 +88,8 @@ void single_linkage(const raft::handle_t &handle, const value_t *X, size_t m,
    */
   size_t n_edges = mst_rows.size();
 
-  raft::mr::device::buffer<value_t> out_delta(d_alloc, stream, n_edges);
-  raft::mr::device::buffer<value_idx> out_size(d_alloc, stream, n_edges);
+  rmm::device_uvector<value_t> out_delta(n_edges, stream);
+  rmm::device_uvector<value_idx> out_size(n_edges, stream);
   // Create dendrogram
   detail::build_dendrogram_host<value_idx, value_t>(
     handle, mst_rows.data(), mst_cols.data(), mst_data.data(), n_edges,

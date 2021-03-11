@@ -25,7 +25,7 @@
 #include <raft/spatial/knn/knn.hpp>
 
 #include <raft/linalg/distance_type.h>
-#include <raft/mr/device/buffer.hpp>
+#include <rmm/device_uvector.hpp>
 
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
@@ -103,9 +103,9 @@ void knn_graph(const handle_t &handle, const value_t *X, size_t m, size_t n,
 
   size_t nnz = m * k;
 
-  raft::mr::device::buffer<value_idx> rows(d_alloc, stream, nnz);
-  raft::mr::device::buffer<value_idx> indices(d_alloc, stream, nnz);
-  raft::mr::device::buffer<value_t> data(d_alloc, stream, nnz);
+  rmm::device_uvector<value_idx> rows(nnz, stream);
+  rmm::device_uvector<value_idx> indices(nnz, stream);
+  rmm::device_uvector<value_t> data(nnz, stream);
 
   size_t blocks = ceildiv(nnz, (size_t)256);
   fill_indices<value_idx><<<blocks, 256, 0, stream>>>(rows.data(), k, nnz);
@@ -118,7 +118,7 @@ void knn_graph(const handle_t &handle, const value_t *X, size_t m, size_t n,
 
   // This is temporary. Once faiss is updated, we should be able to
   // pass value_idx through to knn.
-  mr::device::buffer<int64_t> int64_indices(d_alloc, stream, nnz);
+  rmm::device_uvector<int64_t> int64_indices(nnz, stream);
 
   uint32_t knn_start = curTimeMillis();
   raft::spatial::knn::brute_force_knn(
