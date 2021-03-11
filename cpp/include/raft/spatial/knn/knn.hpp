@@ -54,6 +54,7 @@ inline void brute_force_knn(
   raft::handle_t const &handle, std::vector<float *> &input,
   std::vector<int> &sizes, int D, float *search_items, int n, int64_t *res_I,
   float *res_D, int k, bool rowMajorIndex = false, bool rowMajorQuery = false,
+  std::vector<int64_t> *translations = nullptr,
   distance::DistanceType metric = distance::DistanceType::L2Unexpanded,
   float metric_arg = 2.0f, bool expanded = false) {
   ASSERT(input.size() == sizes.size(),
@@ -64,8 +65,8 @@ inline void brute_force_knn(
   detail::brute_force_knn_impl(
     input, sizes, D, search_items, n, res_I, res_D, k,
     handle.get_device_allocator(), handle.get_stream(), int_streams.data(),
-    handle.get_num_internal_streams(), rowMajorIndex, rowMajorQuery, nullptr,
-    metric, metric_arg, expanded);
+    handle.get_num_internal_streams(), rowMajorIndex, rowMajorQuery,
+    translations, metric, metric_arg, expanded);
 }
 
 }  // namespace knn
