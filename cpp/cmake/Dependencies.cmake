@@ -22,7 +22,7 @@ include(ExternalProject)
 if(NOT CUB_IS_PART_OF_CTK)
   set(CUB_DIR ${CMAKE_CURRENT_BINARY_DIR}/cub CACHE STRING "Path to cub repo")
   ExternalProject_Add(cub
-    GIT_REPOSITORY    https://github.com/NVIDIA/cub.git
+    GIT_REPOSITORY    https://github.com/thrust/cub.git
     GIT_TAG           1.8.0
     PREFIX            ${CUB_DIR}
     CONFIGURE_COMMAND ""
