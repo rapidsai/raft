@@ -123,7 +123,7 @@ void knn_graph(const handle_t &handle, const value_t *X, size_t m, size_t n,
   uint32_t knn_start = curTimeMillis();
   raft::spatial::knn::brute_force_knn(
     handle, inputs, sizes, n, const_cast<value_t *>(X), m, int64_indices.data(),
-    data.data(), k, true, true, metric);
+    data.data(), k, true, true, nullptr, metric);
 
   // convert from current knn's 64-bit to 32-bit.
   conv_indices(int64_indices.data(), indices.data(), nnz, stream);
