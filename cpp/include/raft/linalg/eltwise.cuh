@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ namespace linalg {
 
 /**
  * @defgroup ScalarOps Scalar operations on the input buffer
- * @tparam math_t data-type upon which the math operation will be performed
+ * @tparam InType data-type upon which the math operation will be performed
  * @tparam IdxType Integer type used to for addressing
  * @param out the output buffer
  * @param in the input buffer
@@ -33,26 +33,26 @@ namespace linalg {
  * @param stream cuda stream where to launch work
  * @{
  */
-template <typename math_t, typename IdxType = int>
-void scalarAdd(math_t *out, const math_t *in, math_t scalar, IdxType len,
+template <typename InType, typename IdxType, typename OutType = InType>
+void scalarAdd(OutType *out, const InType *in, InType scalar, IdxType len,
                cudaStream_t stream) {
   raft::linalg::unaryOp(
-    out, in, len, [scalar] __device__(math_t in) { return in + scalar; },
+    out, in, len, [scalar] __device__(InType in) { return in + scalar; },
     stream);
 }
 
-template <typename math_t, typename IdxType = int>
-void scalarMultiply(math_t *out, const math_t *in, math_t scalar, IdxType len,
+template <typename InType, typename IdxType, typename OutType = InType>
+void scalarMultiply(OutType *out, const InType *in, InType scalar, IdxType len,
                     cudaStream_t stream) {
   raft::linalg::unaryOp(
-    out, in, len, [scalar] __device__(math_t in) { return in * scalar; },
+    out, in, len, [scalar] __device__(InType in) { return in * scalar; },
     stream);
 }
 /** @} */
 
 /**
  * @defgroup BinaryOps Element-wise binary operations on the input buffers
- * @tparam math_t data-type upon which the math operation will be performed
+ * @tparam InType data-type upon which the math operation will be performed
  * @tparam IdxType Integer type used to for addressing
  * @param out the output buffer
  * @param in1 the first input buffer
@@ -61,46 +61,46 @@ void scalarMultiply(math_t *out, const math_t *in, math_t scalar, IdxType len,
  * @param stream cuda stream where to launch work
  * @{
  */
-template <typename math_t, typename IdxType = int>
-void eltwiseAdd(math_t *out, const math_t *in1, const math_t *in2, IdxType len,
+template <typename InType, typename IdxType, typename OutType = InType>
+void eltwiseAdd(OutType *out, const InType *in1, const InType *in2, IdxType len,
                 cudaStream_t stream) {
   binaryOp(
-    out, in1, in2, len, [] __device__(math_t a, math_t b) { return a + b; },
+    out, in1, in2, len, [] __device__(InType a, InType b) { return a + b; },
     stream);
 }
 
-template <typename math_t, typename IdxType = int>
-void eltwiseSub(math_t *out, const math_t *in1, const math_t *in2, IdxType len,
+template <typename InType, typename IdxType, typename OutType = InType>
+void eltwiseSub(OutType *out, const InType *in1, const InType *in2, IdxType len,
                 cudaStream_t stream) {
   binaryOp(
-    out, in1, in2, len, [] __device__(math_t a, math_t b) { return a - b; },
+    out, in1, in2, len, [] __device__(InType a, InType b) { return a - b; },
     stream);
 }
 
-template <typename math_t, typename IdxType = int>
-void eltwiseMultiply(math_t *out, const math_t *in1, const math_t *in2,
+template <typename InType, typename IdxType, typename OutType = InType>
+void eltwiseMultiply(OutType *out, const InType *in1, const InType *in2,
                      IdxType len, cudaStream_t stream) {
   binaryOp(
-    out, in1, in2, len, [] __device__(math_t a, math_t b) { return a * b; },
+    out, in1, in2, len, [] __device__(InType a, InType b) { return a * b; },
     stream);
 }
 
-template <typename math_t, typename IdxType = int>
-void eltwiseDivide(math_t *out, const math_t *in1, const math_t *in2,
+template <typename InType, typename IdxType, typename OutType = InType>
+void eltwiseDivide(OutType *out, const InType *in1, const InType *in2,
                    IdxType len, cudaStream_t stream) {
   binaryOp(
-    out, in1, in2, len, [] __device__(math_t a, math_t b) { return a / b; },
+    out, in1, in2, len, [] __device__(InType a, InType b) { return a / b; },
     stream);
 }
 
-template <typename math_t, typename IdxType = int>
-void eltwiseDivideCheckZero(math_t *out, const math_t *in1, const math_t *in2,
+template <typename InType, typename IdxType, typename OutType = InType>
+void eltwiseDivideCheckZero(OutType *out, const InType *in1, const InType *in2,
                             IdxType len, cudaStream_t stream) {
   binaryOp(
     out, in1, in2, len,
-    [] __device__(math_t a, math_t b) {
-      if (b == math_t(0.0))
-        return math_t(0.0);
+    [] __device__(InType a, InType b) {
+      if (b == InType(0.0))
+        return InType(0.0);
       else
         return a / b;
     },

@@ -261,6 +261,7 @@ if(BUILD_RAFT_TESTS)
     test/linalg/eig.cu
     test/linalg/eig_sel.cu
     test/linalg/gemm_layout.cu
+    test/linalg/map.cu
     test/linalg/map_then_reduce.cu
     test/linalg/matrix_vector_op.cu
     test/linalg/multiply.cu
