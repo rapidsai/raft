@@ -28,6 +28,16 @@ if(NOT CUB_IS_PART_OF_CTK)
     CONFIGURE_COMMAND ""
     BUILD_COMMAND     ""
     INSTALL_COMMAND   "")
+
+set(THRUST_DIR ${CMAKE_CURRENT_BINARY_DIR}/thrust CACHE STRING "Path to cub repo")
+ExternalProject_Add(thrust
+        GIT_REPOSITORY    https://github.com/nvidia/thrust.git
+        GIT_TAG           1.12.0
+        PREFIX            ${THRUST_DIR}
+        CONFIGURE_COMMAND ""
+        BUILD_COMMAND     ""
+        INSTALL_COMMAND   "")
+
 endif(NOT CUB_IS_PART_OF_CTK)
 
 ##############################################################################
@@ -107,5 +117,6 @@ endif(BUILD_GTEST)
 
 if(NOT CUB_IS_PART_OF_CTK)
   add_dependencies(GTest::GTest cub)
+  add_dependencies(GTest::GTest thrust)
 endif(NOT CUB_IS_PART_OF_CTK)
 add_dependencies(FAISS::FAISS faiss)

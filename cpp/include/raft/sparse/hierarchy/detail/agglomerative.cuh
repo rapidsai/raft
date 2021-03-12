@@ -28,6 +28,7 @@
 #include <thrust/sort.h>
 
 namespace raft {
+
 namespace hierarchy {
 namespace detail {
 
