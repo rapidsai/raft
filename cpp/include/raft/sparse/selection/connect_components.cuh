@@ -38,6 +38,40 @@ namespace raft {
 namespace linkage {
 
 /**
+ * \brief A key identifier paired with a corresponding value
+ */
+template <
+  typename    _Key,
+  typename    _Value
+>
+struct KeyValuePair
+{
+  typedef _Key    Key;                ///< Key data type
+  typedef _Value  Value;              ///< Value data type
+
+  Key     key;                        ///< Item key
+  Value   value;                      ///< Item value
+
+  /// Constructor
+  __host__ __device__ __forceinline__
+  KeyValuePair() {}
+
+  /// Copy Constructor
+  __host__ __device__ __forceinline__
+    KeyValuePair(cub::KeyValuePair<_Key, _Value> kvp): key(kvp.key), value(kvp.value) {}
+
+  /// Constructor
+  __host__ __device__ __forceinline__
+  KeyValuePair(Key const& key, Value const& value) : key(key), value(value) {}
+
+  /// Inequality operator
+  __host__ __device__ __forceinline__ bool operator !=(const KeyValuePair &b)
+  {
+    return (value != b.value) || (key != b.key);
+  }
+};
+
+/**
  * Functor with reduction ops for performing fused 1-nn
  * computation and guaranteeing only cross-component
  * neighbors are considered.
@@ -357,20 +391,21 @@ void sort_by_color(value_idx *colors, value_idx *nn_colors,
 
   auto keys = thrust::make_zip_iterator(thrust::make_tuple(colors));
   auto vals =
-    thrust::make_zip_iterator(thrust::make_tuple(kvp, src_indices, nn_colors));
+    thrust::make_zip_iterator(thrust::make_tuple(
+      (raft::linkage::KeyValuePair<value_idx, value_t>*)kvp, src_indices, nn_colors));
 
   // get all the colors in contiguous locations so we can map them to warps.
   thrust::sort_by_key(thrust::cuda::par.on(stream), keys, keys + n_rows, vals);
 }
 
 /**
- * Connects components by computing a 1-nn to neighboring components
- * of each data point (e.g. component(nn) != component(self))
- * and reducing the results to include the set of smallest destination
- * components for each source component. The result will not necessarily
- * contain n_components^2 - n_components number of elements because
- * many comonents will likely not be contained in the neighborhoods
- * of 1-nns.
+ * Connects the components of an otherwise unconnected knn graph
+ * by computing a 1-nn to neighboring components of each data point
+ * (e.g. component(nn) != component(self)) and reducing the results to
+ * include the set of smallest destination components for each source
+ * component. The result will not necessarily contain
+ * n_components^2 - n_components number of elements because many components
+ * will likely not be contained in the neighborhoods of 1-nns.
  * @tparam value_idx
  * @tparam value_t
  * @param[in] handle raft handle
