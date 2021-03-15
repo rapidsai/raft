@@ -40,33 +40,29 @@ namespace linkage {
 /**
  * \brief A key identifier paired with a corresponding value
  */
-template <
-  typename    _Key,
-  typename    _Value
->
-struct KeyValuePair
-{
-  typedef _Key    Key;                ///< Key data type
-  typedef _Value  Value;              ///< Value data type
+template <typename _Key, typename _Value>
+struct KeyValuePair {
+  typedef _Key Key;      ///< Key data type
+  typedef _Value Value;  ///< Value data type
 
-  Key     key;                        ///< Item key
-  Value   value;                      ///< Item value
+  Key key;      ///< Item key
+  Value value;  ///< Item value
 
   /// Constructor
-  __host__ __device__ __forceinline__
-  KeyValuePair() {}
+  __host__ __device__ __forceinline__ KeyValuePair() {}
 
   /// Copy Constructor
   __host__ __device__ __forceinline__
-    KeyValuePair(cub::KeyValuePair<_Key, _Value> kvp): key(kvp.key), value(kvp.value) {}
+  KeyValuePair(cub::KeyValuePair<_Key, _Value> kvp)
+    : key(kvp.key), value(kvp.value) {}
 
   /// Constructor
-  __host__ __device__ __forceinline__
-  KeyValuePair(Key const& key, Value const& value) : key(key), value(value) {}
+  __host__ __device__ __forceinline__ KeyValuePair(Key const &key,
+                                                   Value const &value)
+    : key(key), value(value) {}
 
   /// Inequality operator
-  __host__ __device__ __forceinline__ bool operator !=(const KeyValuePair &b)
-  {
+  __host__ __device__ __forceinline__ bool operator!=(const KeyValuePair &b) {
     return (value != b.value) || (key != b.key);
   }
 };
@@ -390,9 +386,9 @@ void sort_by_color(value_idx *colors, value_idx *nn_colors,
                arg_sort_iter + n_rows, src_indices);
 
   auto keys = thrust::make_zip_iterator(thrust::make_tuple(colors));
-  auto vals =
-    thrust::make_zip_iterator(thrust::make_tuple(
-      (raft::linkage::KeyValuePair<value_idx, value_t>*)kvp, src_indices, nn_colors));
+  auto vals = thrust::make_zip_iterator(
+    thrust::make_tuple((raft::linkage::KeyValuePair<value_idx, value_t> *)kvp,
+                       src_indices, nn_colors));
 
   // get all the colors in contiguous locations so we can map them to warps.
   thrust::sort_by_key(thrust::cuda::par.on(stream), keys, keys + n_rows, vals);
