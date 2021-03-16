@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "detail/brute_force_knn.hpp"
+#include "detail/brute_force_knn.cuh"
 
 #include <raft/mr/device/allocator.hpp>
 #include <raft/mr/device/buffer.hpp>

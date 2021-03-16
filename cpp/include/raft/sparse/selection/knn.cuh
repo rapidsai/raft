@@ -33,7 +33,7 @@
 #include <raft/sparse/csr.cuh>
 #include <raft/sparse/distance/distance.cuh>
 #include <raft/sparse/selection/selection.cuh>
-#include <raft/spatial/knn/detail/brute_force_knn.hpp>
+#include <raft/spatial/knn/detail/brute_force_knn.cuh>
 #include <raft/spatial/knn/knn.hpp>
 
 #include <raft/cudart_utils.h>
