@@ -112,7 +112,6 @@ void build_dendrogram_host(const handle_t &handle, const value_idx *rows,
   std::vector<value_idx> children_h(n_edges * 2);
   std::vector<value_idx> out_size_h(n_edges);
 
-  uint32_t start = curTimeMillis();
   UnionFind<value_idx, value_t> U(nnz + 1);
 
   for (value_idx i = 0; i < nnz; i++) {
