@@ -194,9 +194,8 @@ __global__ void min_components_by_color_kernel(
   for (value_idx i = threadIdx.x; i < (stop_offset - start_offset);
        i += blockDim.x) {
     value_idx new_color = colors_nn[start_offset + i];
-    while (atomicCAS(mutex + new_color, 0, 1) == 1) {
+    while (atomicCAS(mutex + new_color, 0, 1) == 1) ;
       __threadfence();
-    }
     auto cur_kvp = kvp[start_offset + i];
     if (cur_kvp.value < min[new_color].value) {
       src_inds[new_color] = indices[start_offset + i];
