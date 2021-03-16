@@ -210,7 +210,10 @@ class cosine_expanded_distances_t : public distances_t<value_t> {
         value_t norms = sqrt(q_norm) * sqrt(r_norm);
         // deal with potential for 0 in denominator by forcing 0/1 instead
         value_t cos = ((norms != 0) * dot) / ((norms == 0) + norms);
-        return 1 - cos;
+
+        // flip the similarity when both rows are 0
+        bool both_empty = (q_norm == 0) && (r_norm == 0);
+        return 1 - ((!both_empty * cos) + both_empty);
       });
   }
 
