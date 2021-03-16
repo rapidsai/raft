@@ -297,6 +297,7 @@ if(BUILD_RAFT_TESTS)
     test/sparse/sort.cu
     test/sparse/symmetrize.cu
     test/spatial/knn.cu
+    test/spatial/haversine.cu
     test/stats/mean.cu
     test/stats/mean_center.cu
     test/stats/stddev.cu
