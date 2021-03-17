@@ -108,8 +108,7 @@ class ConnectComponentsTest : public ::testing::TestWithParam<
 
     printf("Got here.\n");
 
-    raft::print_device_vector("colors", colors.data(), params.n_row,
-                              std::cout);
+    raft::print_device_vector("colors", colors.data(), params.n_row, std::cout);
 
     /**
      * 3. connect_components to fix connectivities
