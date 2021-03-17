@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "detail/brute_force_knn.hpp"
+#include "detail/brute_force_knn.cuh"
 
 #include <raft/mr/device/allocator.hpp>
 #include <raft/mr/device/buffer.hpp>
@@ -56,17 +56,17 @@ inline void brute_force_knn(
   float *res_D, int k, bool rowMajorIndex = false, bool rowMajorQuery = false,
   std::vector<int64_t> *translations = nullptr,
   distance::DistanceType metric = distance::DistanceType::L2Unexpanded,
-  float metric_arg = 2.0f, bool expanded = false) {
+  float metric_arg = 2.0f) {
   ASSERT(input.size() == sizes.size(),
          "input and sizes vectors must be the same size");
 
   std::vector<cudaStream_t> int_streams = handle.get_internal_streams();
 
-  detail::brute_force_knn_impl(
-    input, sizes, D, search_items, n, res_I, res_D, k,
-    handle.get_device_allocator(), handle.get_stream(), int_streams.data(),
-    handle.get_num_internal_streams(), rowMajorIndex, rowMajorQuery,
-    translations, metric, metric_arg, expanded);
+  detail::brute_force_knn_impl(input, sizes, D, search_items, n, res_I, res_D,
+                               k, handle.get_device_allocator(),
+                               handle.get_stream(), int_streams.data(),
+                               handle.get_num_internal_streams(), rowMajorIndex,
+                               rowMajorQuery, translations, metric, metric_arg);
 }
 
 }  // namespace knn
