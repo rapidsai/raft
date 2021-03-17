@@ -106,7 +106,9 @@ class ConnectComponentsTest : public ::testing::TestWithParam<
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
-    raft::print_device_vector("colors", colors.data(), colors.size(),
+    printf("Got here.\n");
+
+    raft::print_device_vector("colors", colors.data(), params.n_row,
                               std::cout);
 
     /**
