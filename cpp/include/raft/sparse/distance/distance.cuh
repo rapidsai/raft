@@ -118,8 +118,7 @@ void pairwiseDistance(value_t *out,
         .compute(out);
       break;
     case raft::distance::DistanceType::DiceExpanded:
-      dice_expanded_distances_t<value_idx, value_t>(input_config)
-	.compute(out);
+      dice_expanded_distances_t<value_idx, value_t>(input_config).compute(out);
 
     default:
       THROW("Unsupported distance: %d", metric);
