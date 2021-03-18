@@ -52,8 +52,10 @@ enum DistanceType : unsigned short {
   Haversine = 13,
   /** Bray-Curtis distance **/
   BrayCurtis = 14,
-  /** Jensen-Shannon distance**/
-  JensenShannon = 15
+  /** Jensen-Shannon distance **/
+  JensenShannon = 15,
+  /** Dice-Sorensen distance **/
+  DiceExpanded = 16
 };
 
 };  // namespace distance
