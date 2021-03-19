@@ -53,7 +53,10 @@ enum DistanceType : unsigned short {
   /** Bray-Curtis distance **/
   BrayCurtis = 14,
   /** Jensen-Shannon distance**/
-  JensenShannon = 15
+  JensenShannon = 15,
+
+  /** Precomputed (special value) **/
+  Precomputed = 100
 };
 
 };  // namespace distance
