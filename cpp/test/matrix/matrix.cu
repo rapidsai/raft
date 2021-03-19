@@ -121,8 +121,14 @@ class MatrixCopyRowsTest : public ::testing::Test {
   void testCopyRows() {
     copyRows(input.data(), n_rows, n_cols, output.data(), indices.data(),
              n_selected, stream, false);
-    EXPECT_TRUE(raft::devArrMatchHost(
-      output_exp, output.data(), n_selected * n_cols, raft::Compare<math_t>()));
+    EXPECT_TRUE(raft::devArrMatchHost(output_exp_colmajor, output.data(),
+                                      n_selected * n_cols,
+                                      raft::Compare<math_t>()));
+    copyRows(input.data(), n_rows, n_cols, output.data(), indices.data(),
+             n_selected, stream, true);
+    EXPECT_TRUE(raft::devArrMatchHost(output_exp_rowmajor, output.data(),
+                                      n_selected * n_cols,
+                                      raft::Compare<math_t>()));
   }
 
  protected:
@@ -131,8 +137,10 @@ class MatrixCopyRowsTest : public ::testing::Test {
   int n_selected = 5;
 
   idx_array_t indices_host[5] = {0, 3, 4, 7, 9};
-  math_t output_exp[15] = {0,  3,  4,  7,  9,  10, 13, 14,
-                           17, 19, 20, 23, 24, 27, 29};
+  math_t output_exp_colmajor[15] = {0,  3,  4,  7,  9,  10, 13, 14,
+                                    17, 19, 20, 23, 24, 27, 29};
+  math_t output_exp_rowmajor[15] = {0,  1,  2,  9,  10, 11, 12, 13,
+                                    14, 21, 22, 23, 27, 28, 29};
   raft::handle_t handle;
   cudaStream_t stream;
   std::shared_ptr<raft::mr::device::allocator> allocator;
