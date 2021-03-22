@@ -183,19 +183,12 @@ MST_solver<vertex_t, edge_t, weight_t>::solve() {
     prev_mst_edge_count = mst_edge_count;
   }
 
-  std::cout << "Packaging results" << std::endl;
-
   // result packaging
   thrust::host_vector<edge_t> host_mst_edge_count = mst_edge_count;
   mst_result.n_edges = host_mst_edge_count[0];
   mst_result.src.resize(mst_result.n_edges, stream);
   mst_result.dst.resize(mst_result.n_edges, stream);
   mst_result.weights.resize(mst_result.n_edges, stream);
-
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-
-  // raft::print_device_vector("Colors before sending: ", color_index, 7, std::cout);
-  std::cout << "Returning results" << std::endl;
 
   return mst_result;
 }
