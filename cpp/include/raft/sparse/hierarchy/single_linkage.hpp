@@ -97,6 +97,9 @@ void single_linkage(const raft::handle_t &handle, const value_t *X, size_t m,
   detail::extract_flattened_clusters(handle, out->labels, out->children,
                                      n_clusters, m);
 
+
+  raft::print_device_vector("cuml labels", out->labels, m, std::cout);
+
   out->m = m;
   out->n_clusters = n_clusters;
   out->n_leaves = m;

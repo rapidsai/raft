@@ -166,8 +166,6 @@ void build_sorted_mst(const raft::handle_t &handle, const value_t *X,
     mst_coo = connect_knn_graph<value_idx, value_t>(handle, X, mst_coo, m, n,
                                                     color.data());
 
-    printf("Edges: %d\n", mst_coo.n_edges);
-
     RAFT_EXPECTS(
       mst_coo.n_edges == m - 1,
       "MST was not able to connect knn graph in a single iteration.");

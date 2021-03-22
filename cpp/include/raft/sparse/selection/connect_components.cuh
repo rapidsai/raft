@@ -209,8 +209,6 @@ __global__ void min_components_by_color_kernel(
 
   __syncthreads();
 
-  //  printf("block %d thread %d did final sync\n", blockIdx.x, threadIdx.x);
-
   value_idx out_offset = out_indptr[blockIdx.x];
 
   // TODO: Do this across threads, using an atomic counter for each color

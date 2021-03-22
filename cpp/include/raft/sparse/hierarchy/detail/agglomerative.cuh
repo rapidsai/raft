@@ -287,6 +287,8 @@ void extract_flattened_clusters(const raft::handle_t &handle, value_idx *labels,
 
   size_t n_edges = (n_leaves - 1) * 2;
 
+  raft::print_device_vector("children", children, (n_leaves - 1) * 2, std::cout);
+
   thrust::device_ptr<const value_idx> d_ptr =
     thrust::device_pointer_cast(children);
   value_idx n_vertices =
@@ -319,11 +321,15 @@ void extract_flattened_clusters(const raft::handle_t &handle, value_idx *labels,
   raft::copy_async(label_roots.data(), children + children_cpy_start,
                    child_size, stream);
 
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+
   //  thrust::device_ptr<value_idx> t_label_roots =
   //    thrust::device_pointer_cast(label_roots.data());
   //
   thrust::sort(thrust_policy, label_roots.data(),
                label_roots.data() + (child_size), thrust::greater<value_idx>());
+
+  raft::print_device_vector("label_roots", label_roots.data(), label_roots.size(), std::cout);
 
   rmm::device_uvector<value_idx> tmp_labels(n_vertices, stream);
 
