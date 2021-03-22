@@ -72,7 +72,7 @@ __global__ void computeTheNumerator(const T* firstClusterArray,
       ++myA;
     }
 
-      //checking if the pair have been classified differently by both the clusters
+    //checking if the pair have been classified differently by both the clusters
     else if (firstClusterArray[i] != firstClusterArray[j] &&
              secondClusterArray[i] != secondClusterArray[j]) {
       ++myB;
@@ -81,7 +81,7 @@ __global__ void computeTheNumerator(const T* firstClusterArray,
 
   //specialize blockReduce for a 2D block of 1024 threads of type uint64_t
   typedef cub::BlockReduce<uint64_t, BLOCK_DIM_X,
-  cub::BLOCK_REDUCE_WARP_REDUCTIONS, BLOCK_DIM_Y>
+                           cub::BLOCK_REDUCE_WARP_REDUCTIONS, BLOCK_DIM_Y>
     BlockReduce;
 
   //Allocate shared memory for blockReduce
@@ -110,10 +110,9 @@ __global__ void computeTheNumerator(const T* firstClusterArray,
 * @param stream: the cudaStream object
 */
 template <typename T>
-double compute_rand_index(T* firstClusterArray, T* secondClusterArray,
-                          uint64_t size,
-                          std::shared_ptr<raft::mr::device::allocator> allocator,
-                          cudaStream_t stream) {
+double compute_rand_index(
+  T* firstClusterArray, T* secondClusterArray, uint64_t size,
+  std::shared_ptr<raft::mr::device::allocator> allocator, cudaStream_t stream) {
   //rand index for size less than 2 is not defined
   ASSERT(size >= 2, "Rand Index for size less than 2 not defined!");
 
@@ -129,9 +128,9 @@ double compute_rand_index(T* firstClusterArray, T* secondClusterArray,
 
   //calling the kernel
   computeTheNumerator<T, BLOCK_DIM_X, BLOCK_DIM_Y>
-  <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
-    firstClusterArray, secondClusterArray, size, arr_buf.data(),
-    arr_buf.data() + 1);
+    <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
+      firstClusterArray, secondClusterArray, size, arr_buf.data(),
+      arr_buf.data() + 1);
 
   //synchronizing and updating the calculated values of a and b from device to host
   uint64_t ab_host[2] = {0};
@@ -148,10 +147,9 @@ double compute_rand_index(T* firstClusterArray, T* secondClusterArray,
   return (double)(((double)(ab_host[0] + ab_host[1])) / (double)nChooseTwo);
 }
 
-
 template <typename T, typename IdxT>
-::std::ostream &operator<<(::std::ostream &os,
-                           const LinkageInputs<T, IdxT> &dims) {
+::std::ostream& operator<<(::std::ostream& os,
+                           const LinkageInputs<T, IdxT>& dims) {
   return os;
 }
 
@@ -191,7 +189,9 @@ class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
-    score = compute_rand_index(labels, labels_ref, params.n_row, handle.get_device_allocator(), handle.get_stream());
+    score =
+      compute_rand_index(labels, labels_ref, params.n_row,
+                         handle.get_device_allocator(), handle.get_stream());
   }
 
   void SetUp() override { basicTest(); }
@@ -596,9 +596,7 @@ const std::vector<LinkageInputs<float, int>> linkage_inputsf2 = {
    -4}};
 
 typedef LinkageTest<float, int> LinkageTestF_Int;
-TEST_P(LinkageTestF_Int, Result) {
-  EXPECT_TRUE(score == 1.0);
-}
+TEST_P(LinkageTestF_Int, Result) { EXPECT_TRUE(score == 1.0); }
 
 INSTANTIATE_TEST_CASE_P(LinkageTest, LinkageTestF_Int,
                         ::testing::ValuesIn(linkage_inputsf2));

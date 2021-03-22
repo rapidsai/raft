@@ -30,7 +30,6 @@ enum LinkageDistance { PAIRWISE = 0, KNN_GRAPH = 1 };
  */
 template <typename value_idx, typename value_t>
 class linkage_output {
-
  public:
   value_idx m;
   value_idx n_clusters;

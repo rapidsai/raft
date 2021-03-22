@@ -287,7 +287,8 @@ void extract_flattened_clusters(const raft::handle_t &handle, value_idx *labels,
 
   size_t n_edges = (n_leaves - 1) * 2;
 
-  raft::print_device_vector("children", children, (n_leaves - 1) * 2, std::cout);
+  raft::print_device_vector("children", children, (n_leaves - 1) * 2,
+                            std::cout);
 
   thrust::device_ptr<const value_idx> d_ptr =
     thrust::device_pointer_cast(children);
@@ -329,7 +330,8 @@ void extract_flattened_clusters(const raft::handle_t &handle, value_idx *labels,
   thrust::sort(thrust_policy, label_roots.data(),
                label_roots.data() + (child_size), thrust::greater<value_idx>());
 
-  raft::print_device_vector("label_roots", label_roots.data(), label_roots.size(), std::cout);
+  raft::print_device_vector("label_roots", label_roots.data(),
+                            label_roots.size(), std::cout);
 
   rmm::device_uvector<value_idx> tmp_labels(n_vertices, stream);
 
