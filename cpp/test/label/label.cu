@@ -19,8 +19,8 @@
 #include <raft/label/classlabels.cuh>
 
 #include <raft/cudart_utils.h>
-#include <raft/mr/device/allocator.hpp>
 #include <raft/cuda_utils.cuh>
+#include <raft/mr/device/allocator.hpp>
 #include "../test_utils.h"
 
 #include <iostream>
