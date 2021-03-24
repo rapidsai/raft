@@ -56,7 +56,8 @@ enum DistanceType : unsigned short {
   JensenShannon = 15,
   /** Dice-Sorensen distance **/
   DiceExpanded = 16
+  /** Precomputed (special value) **/
+  Precomputed = 100
 };
-
 };  // namespace distance
 };  // end namespace raft

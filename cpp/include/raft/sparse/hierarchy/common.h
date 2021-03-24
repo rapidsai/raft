@@ -29,7 +29,8 @@ enum LinkageDistance { PAIRWISE = 0, KNN_GRAPH = 1 };
  * @tparam value_t
  */
 template <typename value_idx, typename value_t>
-struct linkage_output {
+class linkage_output {
+ public:
   value_idx m;
   value_idx n_clusters;
 
@@ -41,8 +42,8 @@ struct linkage_output {
   value_idx *children;  // size: (m-1, 2)
 };
 
-struct linkage_output_int_float : public linkage_output<int, float> {};
-struct linkage_output__int64_float : public linkage_output<int64_t, float> {};
+class linkage_output_int_float : public linkage_output<int, float> {};
+class linkage_output__int64_float : public linkage_output<int64_t, float> {};
 
 };  // namespace hierarchy
 };  // namespace raft
