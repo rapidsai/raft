@@ -190,8 +190,6 @@ MST_solver<vertex_t, edge_t, weight_t>::solve() {
   mst_result.dst.resize(mst_result.n_edges, stream);
   mst_result.weights.resize(mst_result.n_edges, stream);
 
-  // raft::print_device_vector("Colors before sending: ", color_index, 7, std::cout);
-
   return mst_result;
 }
 
