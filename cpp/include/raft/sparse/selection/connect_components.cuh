@@ -16,6 +16,8 @@
 
 #include <cub/cub.cuh>
 
+#include <raft/distance/fused_l2_nn.cuh>
+#include <raft/label/classlabels.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/mr/device/buffer.hpp>
 #include <raft/sparse/convert/csr.cuh>
@@ -23,16 +25,15 @@
 #include <raft/sparse/linalg/symmetrize.cuh>
 
 #include <raft/cudart_utils.h>
-#include <raft/distance/fused_l2_nn.cuh>
 
-#include <thrust/device_ptr.h>
-#include <thrust/sort.h>
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
-
-#include <limits>
+#include <thrust/device_ptr.h>
+#include <thrust/sort.h>
 
 #include <cub/cub.cuh>
+
+#include <limits>
 
 namespace raft {
 namespace linkage {
@@ -184,7 +185,7 @@ __global__ void min_components_by_color_kernel(
 
   for (value_idx i = tid; i < (stop_offset - start_offset) - 1;
        i += blockDim.x) {
-    // Columns are sorted by row so ony columns that are != previous column
+    // Columns are sorted by row so only columns that are != previous column
     // should get counted
     value_idx cur_color = colors_nn[start_offset + i];
     if (colors_nn[start_offset + i + 1] != cur_color
@@ -431,7 +432,16 @@ void connect_components(const raft::handle_t &handle,
   auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
 
+
+  // Normalize colors so they are drawn from a monotonically increasing set
+  raft::label::make_monotonic(colors, colors, n_rows, stream, d_alloc);
+
   value_idx n_components = get_n_components(colors, n_rows, stream);
+
+  printf("Found %d components. Going to try connecting graph\n",
+         n_components);
+
+
 
   /**
    * First compute 1-nn for all colors where the color of each data point

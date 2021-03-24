@@ -166,8 +166,6 @@ void build_sorted_mst(const raft::handle_t &handle, const value_t *X,
   int iters = 1;
   int n_components = linkage::get_n_components(color.data(), m, stream);
   while (n_components > 1 && iters < 100) {
-    printf("Found %d components. Going to try connecting graph\n",
-           n_components);
     mst_coo = connect_knn_graph<value_idx, value_t>(handle, X, mst_coo, m, n,
                                                     color.data());
 
