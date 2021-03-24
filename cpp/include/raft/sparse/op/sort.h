@@ -71,6 +71,8 @@ void coo_sort(int m, int n, int nnz, int *rows, int *cols, T *vals,
 
   CUSPARSE_CHECK(cusparseCreateIdentityPermutation(handle, nnz, d_P.data()));
 
+  printf("nnz: %d\n", nnz);
+
   CUSPARSE_CHECK(cusparseXcoosortByRow(handle, m, n, nnz, rows, cols,
                                        d_P.data(), pBuffer.data()));
 

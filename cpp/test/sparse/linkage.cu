@@ -46,9 +46,110 @@ struct LinkageInputs {
   int c;
 };
 
+/**
+ * @brief kernel to calculate the values of a and b
+ * @param firstClusterArray: the array of classes of type T
+ * @param secondClusterArray: the array of classes of type T
+ * @param size: the size of the data points
+ * @param a: number of pairs of points that both the clusters have classified the same
+ * @param b: number of pairs of points that both the clusters have classified differently
+ */
+template <typename T, int BLOCK_DIM_X, int BLOCK_DIM_Y>
+__global__ void computeTheNumerator(const T* firstClusterArray,
+                                    const T* secondClusterArray, uint64_t size,
+                                    uint64_t* a, uint64_t* b) {
+  //calculating the indices of pairs of datapoints compared by the current thread
+  uint64_t j = threadIdx.x + blockIdx.x * blockDim.x;
+  uint64_t i = threadIdx.y + blockIdx.y * blockDim.y;
+
+  //thread-local variables to count a and b
+  uint64_t myA = 0, myB = 0;
+
+  if (i < size && j < size && j < i) {
+    //checking if the pair have been classified the same by both the clusters
+    if (firstClusterArray[i] == firstClusterArray[j] &&
+        secondClusterArray[i] == secondClusterArray[j]) {
+      ++myA;
+    }
+
+    //checking if the pair have been classified differently by both the clusters
+    else if (firstClusterArray[i] != firstClusterArray[j] &&
+             secondClusterArray[i] != secondClusterArray[j]) {
+      ++myB;
+    }
+  }
+
+  //specialize blockReduce for a 2D block of 1024 threads of type uint64_t
+  typedef cub::BlockReduce<uint64_t, BLOCK_DIM_X,
+                           cub::BLOCK_REDUCE_WARP_REDUCTIONS, BLOCK_DIM_Y>
+    BlockReduce;
+
+  //Allocate shared memory for blockReduce
+  __shared__ typename BlockReduce::TempStorage temp_storage;
+
+  //summing up thread-local counts specific to a block
+  myA = BlockReduce(temp_storage).Sum(myA);
+  __syncthreads();
+  myB = BlockReduce(temp_storage).Sum(myB);
+  __syncthreads();
+
+  //executed once per block
+  if (threadIdx.x == 0 && threadIdx.y == 0) {
+    raft::myAtomicAdd<unsigned long long int>((unsigned long long int*)a, myA);
+    raft::myAtomicAdd<unsigned long long int>((unsigned long long int*)b, myB);
+  }
+}
+
+/**
+* @brief Function to calculate RandIndex
+* <a href="https://en.wikipedia.org/wiki/Rand_index">more info on rand index</a>
+* @param firstClusterArray: the array of classes of type T
+* @param secondClusterArray: the array of classes of type T
+* @param size: the size of the data points of type uint64_t
+* @param allocator: object that takes care of temporary device memory allocation of type std::shared_ptr<MLCommon::deviceAllocator>
+* @param stream: the cudaStream object
+*/
+template <typename T>
+double compute_rand_index(
+  T* firstClusterArray, T* secondClusterArray, uint64_t size,
+  std::shared_ptr<raft::mr::device::allocator> allocator, cudaStream_t stream) {
+  //rand index for size less than 2 is not defined
+  ASSERT(size >= 2, "Rand Index for size less than 2 not defined!");
+
+  //allocating and initializing memory for a and b in the GPU
+  raft::mr::device::buffer<uint64_t> arr_buf(allocator, stream, 2);
+  CUDA_CHECK(cudaMemsetAsync(arr_buf.data(), 0, 2 * sizeof(uint64_t), stream));
+
+  //kernel configuration
+  static const int BLOCK_DIM_Y = 16, BLOCK_DIM_X = 16;
+  dim3 numThreadsPerBlock(BLOCK_DIM_X, BLOCK_DIM_Y);
+  dim3 numBlocks(raft::ceildiv<int>(size, numThreadsPerBlock.x),
+                 raft::ceildiv<int>(size, numThreadsPerBlock.y));
+
+  //calling the kernel
+  computeTheNumerator<T, BLOCK_DIM_X, BLOCK_DIM_Y>
+    <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
+      firstClusterArray, secondClusterArray, size, arr_buf.data(),
+      arr_buf.data() + 1);
+
+  //synchronizing and updating the calculated values of a and b from device to host
+  uint64_t ab_host[2] = {0};
+  raft::update_host(ab_host, arr_buf.data(), 2, stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+
+  //error handling
+  CUDA_CHECK(cudaGetLastError());
+
+  //denominator
+  uint64_t nChooseTwo = size * (size - 1) / 2;
+
+  //calculating the rand_index
+  return (double)(((double)(ab_host[0] + ab_host[1])) / (double)nChooseTwo);
+}
+
 template <typename T, typename IdxT>
-::std::ostream &operator<<(::std::ostream &os,
-                           const LinkageInputs<T, IdxT> &dims) {
+::std::ostream& operator<<(::std::ostream& os,
+                           const LinkageInputs<T, IdxT>& dims) {
   return os;
 }
 
@@ -83,10 +184,14 @@ class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
     raft::hierarchy::single_linkage<
       IdxT, T, raft::hierarchy::LinkageDistance::KNN_GRAPH>(
       handle, data.data(), params.n_row, params.n_col,
-      raft::distance::DistanceType::L2Unexpanded, &out_arrs, params.c,
+      raft::distance::DistanceType::L2SqrtExpanded, &out_arrs, params.c,
       params.n_clusters);
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+
+    score =
+      compute_rand_index(labels, labels_ref, params.n_row,
+                         handle.get_device_allocator(), handle.get_stream());
   }
 
   void SetUp() override { basicTest(); }
@@ -491,10 +596,7 @@ const std::vector<LinkageInputs<float, int>> linkage_inputsf2 = {
    -4}};
 
 typedef LinkageTest<float, int> LinkageTestF_Int;
-TEST_P(LinkageTestF_Int, Result) {
-  EXPECT_TRUE(
-    raft::devArrMatch(labels, labels_ref, params.n_row, raft::Compare<int>()));
-}
+TEST_P(LinkageTestF_Int, Result) { EXPECT_TRUE(score == 1.0); }
 
 INSTANTIATE_TEST_CASE_P(LinkageTest, LinkageTestF_Int,
                         ::testing::ValuesIn(linkage_inputsf2));

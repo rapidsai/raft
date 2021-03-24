@@ -104,8 +104,6 @@ class ConnectComponentsTest : public ::testing::TestWithParam<
       handle, indptr.data(), knn_graph_coo.cols(), knn_graph_coo.vals(),
       params.n_row, knn_graph_coo.nnz, colors.data(), stream, false);
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-
     printf("Got here.\n");
 
     raft::print_device_vector("colors", colors.data(), params.n_row, std::cout);
