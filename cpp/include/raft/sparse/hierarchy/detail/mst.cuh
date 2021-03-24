@@ -100,6 +100,7 @@ raft::Graph_COO<value_idx, value_idx, value_t> connect_knn_graph(
   raft::copy_async(msf.weights.data() + msf.n_edges, connected_edges.vals(),
                    connected_edges.nnz, stream);
 
+  printf("connected components nnz: %d\n", final_nnz);
   raft::sparse::COO<value_t, value_idx> final_coo(d_alloc, stream);
   raft::sparse::linalg::symmetrize(handle, msf.src.data(), msf.dst.data(),
                                    msf.weights.data(), m, n, final_nnz,
@@ -162,14 +163,25 @@ void build_sorted_mst(const raft::handle_t &handle, const value_t *X,
     handle, indptr, indices, pw_dists, (value_idx)m, nnz, color.data(), stream,
     false);
 
-  if (linkage::get_n_components(color.data(), m, stream) > 1) {
+  int iters = 1;
+  int n_components = linkage::get_n_components(color.data(), m, stream);
+  while (n_components > 1 && iters < 100) {
+    printf("Found %d components. Going to try connecting graph\n",
+           n_components);
     mst_coo = connect_knn_graph<value_idx, value_t>(handle, X, mst_coo, m, n,
                                                     color.data());
 
-    RAFT_EXPECTS(
-      mst_coo.n_edges == m - 1,
-      "MST was not able to connect knn graph in a single iteration.");
+    iters++;
+
+    n_components = linkage::get_n_components(color.data(), m, stream);
+    //
+    //    printf("Connecting knn graph!\n");
+    //
+    //    RAFT_EXPECTS(
+    //      mst_coo.n_edges == m - 1,
+    //      "MST was not able to connect knn graph in a single iteration.");
   }
+  printf("Found %d components.\n", n_components);
 
   sort_coo_by_data(mst_coo.src.data(), mst_coo.dst.data(),
                    mst_coo.weights.data(), mst_coo.n_edges, stream);

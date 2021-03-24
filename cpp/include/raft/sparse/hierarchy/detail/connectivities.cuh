@@ -68,6 +68,8 @@ struct distance_graph_impl<raft::hierarchy::LinkageDistance::KNN_GRAPH,
     raft::sparse::selection::knn_graph(handle, X, m, n, metric, knn_graph_coo,
                                        c);
 
+    CUDA_CHECK(cudaDeviceSynchronize());
+
     indices.resize(knn_graph_coo.nnz, stream);
     data.resize(knn_graph_coo.nnz, stream);
 
