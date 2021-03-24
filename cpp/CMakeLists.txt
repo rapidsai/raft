@@ -252,6 +252,8 @@ if(BUILD_RAFT_TESTS)
     test/distance/fused_l2_nn.cu
     test/handle.cpp
     test/integer_utils.cpp
+    test/label/label.cu
+    test/label/merge_labels.cu
     test/lap/lap.cu
     test/linalg/add.cu
     test/linalg/binary_op.cu
