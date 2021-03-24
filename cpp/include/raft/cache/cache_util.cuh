@@ -104,11 +104,13 @@ __global__ void store_vecs(const math_t *tile, int n_tile, int n_vec,
 }
 
 /**
- * Map a key to a cache set.
+ * @brief Map a key to a cache set.
+ *
+ * @param key key to be hashed
+ * @param n_cache_set number of cache sets
+ * @return index of the cache set [0..n_cache_set)
  */
-int DI hash(int key, int n_cache_sets, int associativity) {
-  return key % n_cache_sets;
-}
+int DI hash(int key, int n_cache_sets) { return key % n_cache_sets; }
 
 /**
  * @brief Binary search to find the first element in the array which is greater
@@ -146,7 +148,7 @@ int DI arg_first_ge(const int *array, int n, int val) {
  * Assume that array is [0, 1, 1, 1, 2, 2, 4, 4, 4, 4, 6, 7]
  * then find_nth_occurrence(cset, 12, 4, 2) == 7, because cset_array[7] stores
  * the second element with value = 4.
- * If there are less then k values in the array, then return -1
+ * If there are less than k values in the array, then return -1
  *
  * @param [in] array sorted array of numbers, size [n]
  * @param [in] n number of elements in the array
@@ -166,8 +168,8 @@ int DI find_nth_occurrence(const int *array, int n, int val, int k) {
 }
 
 /**
- * @brief Rank the entries in a cache set according the time stamp, return the
- * indices that would sort the time stamp in ascending order.
+ * @brief Rank the entries in a cache set according to the time stamp, return
+ * the indices that would sort the time stamp in ascending order.
  *
  * Assume we have a single cache set with time stamps as:
  * key (threadIdx.x):   0   1   2   3
@@ -230,11 +232,11 @@ DI void rank_set_entries(const int *cache_time, int n_cache_sets, int *rank) {
  * set.
  *
  * Each cache set is sorted according to time_stamp, and values from keys
- * are filled in starting at the oldest time stamp. Enties that were accessed
+ * are filled in starting at the oldest time stamp. Entries that were accessed
  * at the current time are not reassigned.
  *
  * @tparam nthreads number of threads per block
- * @tparam assaciativity number of keys in a cache set
+ * @tparam associativity number of keys in a cache set
  *
  * @param [in] keys that we want to cache size [n]
  * @param [in] n number of keys
@@ -262,9 +264,9 @@ __global__ void assign_cache_idx(const int *keys, int n, const int *cache_set,
   rank_set_entries<nthreads, associativity>(cache_time, n_cache_sets, rank);
 
   // Each thread will fill items_per_thread items in the cache.
-  // It uses a place, only if it was not udated at the current time step
+  // It uses a place, only if it was not updated at the current time step
   // (cache_time != time).
-  // We rank the places acconding to the time stamp, least recently used
+  // We rank the places according to the time stamp, least recently used
   // elements come to the front.
   // We fill the least recently used elements with the working set.
   // there might be elements which cannot be assigned to cache loc.
@@ -325,7 +327,7 @@ __global__ void get_cache_idx(int *keys, int n, int *cached_keys,
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid < n) {
     int widx = keys[tid];
-    int sidx = hash(widx, n_cache_sets, associativity);
+    int sidx = hash(widx, n_cache_sets);
     int cidx = sidx * associativity;
     int i = 0;
     bool found = false;
