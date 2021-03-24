@@ -278,8 +278,8 @@ class ip_distances_t : public distances_t<value_t> {
   internal_ip_dist =
     std::make_unique<ip_distances_spmv_t<value_idx, value_t>>(*config_);
 //    } else {
-//      internal_ip_dist =
-//        std::make_unique<ip_distances_gemm_t<value_idx, value_t>>(*config_);
+    //  internal_ip_dist =
+    //    std::make_unique<ip_distances_gemm_t<value_idx, value_t>>(*config_);
 //    }
   }
 

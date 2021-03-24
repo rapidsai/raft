@@ -124,7 +124,7 @@
    // Convert current row vector in A to dense
    for (int i = tid; i < (stop_offset_a - start_offset_a); i += blockDim.x) {
      strategy.insert(inserter, indicesA[start_offset_a + i],
-                     dataA[start_offset_a + i]);
+                     dataA[start_offset_a + i], dim);
    }
  
    __syncthreads();
@@ -164,7 +164,7 @@
        indptrA.check_indices_bounds(start_index_a, stop_index_a, index_b);
  
      if (in_bounds) {
-       value_t a_col = strategy.find(finder, index_b, indicesA, dataA, start_offset_a, stop_offset_a);
+       value_t a_col = strategy.find(finder, index_b, indicesA, dataA, start_offset_a, stop_offset_a, dim);
        // if (tid < active_chunk_size)
        // printf("blockIdx.x: %d, cur_row_a: %d, index_b: %d, a_col: %f\n", blockIdx.x, cur_row_a,
        //        index_b, a_col);
@@ -215,7 +215,7 @@
        auto in_bounds =
          indptrA.check_indices_bounds(start_index_a, stop_index_a, index_b);
        if (in_bounds) {
-         value_t a_col = strategy.find(finder, index_b, indicesA, dataA, start_offset_a, stop_offset_a);
+         value_t a_col = strategy.find(finder, index_b, indicesA, dataA, start_offset_a, stop_offset_a, dim);
  
          if (!rev || a_col == 0.0) {
            c = accum_func(c, product_func(a_col, dataB[ind]));

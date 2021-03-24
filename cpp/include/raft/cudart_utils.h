@@ -267,12 +267,21 @@ void allocate(Type*& ptr, size_t len, bool setZero = false) {
 }
 
 /** helper method to get max usable shared mem per block parameter */
-inline int getSharedMemPerBlock() {
+// __host__ inline int getSharedMemPerBlock() {
+//   int devId;
+//   CUDA_CHECK(cudaGetDevice(&devId));
+//   int smemPerBlk;
+//   CUDA_CHECK(cudaDeviceGetAttribute(&smemPerBlk,
+//                                     cudaDevAttrMaxSharedMemoryPerBlock, devId));
+//   return smemPerBlk;
+// }
+
+__host__ __device__ inline int getSharedMemPerBlock() {
   int devId;
-  CUDA_CHECK(cudaGetDevice(&devId));
+  cudaGetDevice(&devId);
   int smemPerBlk;
-  CUDA_CHECK(cudaDeviceGetAttribute(&smemPerBlk,
-                                    cudaDevAttrMaxSharedMemoryPerBlock, devId));
+  cudaDeviceGetAttribute(&smemPerBlk,
+                                    cudaDevAttrMaxSharedMemoryPerBlock, devId);
   return smemPerBlk;
 }
 

@@ -54,7 +54,7 @@ class dense_smem_strategy : public coo_spmv_strategy<value_idx, value_t, tpb> {
     mask_row_it<value_idx> a_indptr(this->config.a_indptr,
                                     this->config.a_nrows);
 
-    this->_dispatch_base(*this, this->config.b_ncols, a_indptr, out_dists,
+    this->_dispatch_base(*this, this->smem, this->config.b_ncols, a_indptr, out_dists,
                          coo_rows_b, product_func, accum_func, write_func,
                          chunk_size, n_blocks, n_blocks_per_row);
   }
@@ -69,7 +69,7 @@ class dense_smem_strategy : public coo_spmv_strategy<value_idx, value_t, tpb> {
     mask_row_it<value_idx> b_indptr(this->config.b_indptr,
                                     this->config.b_nrows);
 
-    this->_dispatch_base_rev(*this, this->config.a_ncols, b_indptr, out_dists,
+    this->_dispatch_base_rev(*this, this->smem, this->config.a_ncols, b_indptr, out_dists,
                              coo_rows_a, product_func, accum_func, write_func,
                              chunk_size, n_blocks, n_blocks_per_row);
   }
@@ -83,13 +83,13 @@ class dense_smem_strategy : public coo_spmv_strategy<value_idx, value_t, tpb> {
   }
 
   __device__ inline void insert(insert_type cache, value_idx &key,
-                                value_t &value) {
+                                value_t &value, int &size) {
     cache[key] = value;
   }
 
   __device__ inline find_type init_find(smem_type cache) { return cache; }
 
-  __device__ inline value_t find(find_type cache, value_idx &key, value_idx *indices, value_t *data, value_idx start_offset, value_idx stop_offset) {
+  __device__ inline value_t find(find_type cache, value_idx &key, value_idx *indices, value_t *data, value_idx start_offset, value_idx stop_offset, int &size) {
     return cache[key];
   }
 };

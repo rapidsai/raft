@@ -17,7 +17,8 @@
 #pragma once
 
 #include "coo_spmv_strategies/dense_smem_strategy.cuh"
-#include "coo_spmv_strategies/hash_strategy.cuh"
+// #include "coo_spmv_strategies/hash_strategy.cuh"
+#include "coo_spmv_strategies/bloom_filter_strategy.cuh"
 
 #include <raft/cudart_utils.h>
 #include <raft/sparse/cusparse_wrappers.h>
@@ -89,17 +90,17 @@ inline void balanced_coo_pairwise_generalized_spmv(
   dense_smem_strategy<value_idx, value_t, threads_per_block>::smem_per_block(
   config_.a_ncols);
   if (smem != -1) {
-  dense_smem_strategy<value_idx, value_t, threads_per_block> strategy(config_,
-                                                                smem);
-  strategy.dispatch(out_dists, coo_rows_b, product_func, accum_func,
-              write_func, chunk_size);
+    dense_smem_strategy<value_idx, value_t, threads_per_block> strategy(config_,
+                                                                  smem);
+    strategy.dispatch(out_dists, coo_rows_b, product_func, accum_func,
+                write_func, chunk_size);
   } else {
   // hash_strategy<value_idx, value_t, threads_per_block> strategy(config_);
-  mask_row_it<value_idx> a_indptr(config_.a_indptr,
-  config_.a_nrows);
-  bloom_filter_strategy<value_idx, value_t, threads_per_block> strategy(config_, a_indptr);
-  strategy.dispatch(out_dists, coo_rows_b, product_func, accum_func,
-              write_func, chunk_size);
+    mask_row_it<value_idx> a_indptr(config_.a_indptr,
+    config_.a_nrows);
+    bloom_filter_strategy<value_idx, value_t> strategy(config_, a_indptr);
+    strategy.dispatch(out_dists, coo_rows_b, product_func, accum_func,
+                write_func, chunk_size);
   }
 };
 
@@ -150,18 +151,18 @@ inline void balanced_coo_pairwise_generalized_spmv_rev(
   auto smem =
   dense_smem_strategy<value_idx, value_t, threads_per_block>::smem_per_block(
   config_.a_ncols);
-  if (smem != -1) {
-  dense_smem_strategy<value_idx, value_t, threads_per_block> strategy(config_,
-                                                                smem);
-  strategy.dispatch_rev(out_dists, coo_rows_a, product_func, accum_func,
-                  write_func, chunk_size);
+    if (smem != -1) {
+    dense_smem_strategy<value_idx, value_t, threads_per_block> strategy(config_,
+                                                                  smem);
+    strategy.dispatch_rev(out_dists, coo_rows_a, product_func, accum_func,
+                    write_func, chunk_size);
   } else {
   // hash_strategy<value_idx, value_t, threads_per_block> strategy(config_);
-  mask_row_it<value_idx> b_indptr(config_.b_indptr,
-  config_.b_nrows);
-  bloom_filter_strategy<value_idx, value_t, threads_per_block> strategy(config_, b_indptr);
-  strategy.dispatch_rev(out_dists, coo_rows_a, product_func, accum_func,
-                  write_func, chunk_size);
+    mask_row_it<value_idx> b_indptr(config_.b_indptr,
+    config_.b_nrows);
+    bloom_filter_strategy<value_idx, value_t> strategy(config_, b_indptr);
+    strategy.dispatch_rev(out_dists, coo_rows_a, product_func, accum_func,
+                    write_func, chunk_size);
   }
 };
 

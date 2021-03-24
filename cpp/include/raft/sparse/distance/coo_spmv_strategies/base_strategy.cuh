@@ -37,7 +37,7 @@ class coo_spmv_strategy {
 
   template <typename strategy_t, typename indptr_it, typename product_f,
             typename accum_f, typename write_f>
-  void _dispatch_base(strategy_t &strategy, value_idx smem_dim,
+  void _dispatch_base(strategy_t &strategy, int smem, int smem_dim,
                       indptr_it &a_indptr, value_t *out_dists,
                       value_idx *coo_rows_b, product_f product_func,
                       accum_f accum_func, write_f write_func, int chunk_size,
@@ -60,7 +60,7 @@ class coo_spmv_strategy {
 
   template <typename strategy_t, typename indptr_it, typename product_f,
             typename accum_f, typename write_f>
-  void _dispatch_base_rev(strategy_t &strategy, value_idx smem_dim,
+  void _dispatch_base_rev(strategy_t &strategy, int smem, int smem_dim,
                           indptr_it &b_indptr, value_t *out_dists,
                           value_idx *coo_rows_a, product_f product_func,
                           accum_f accum_func, write_f write_func,
