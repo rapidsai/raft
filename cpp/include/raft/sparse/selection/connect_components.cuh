@@ -454,7 +454,7 @@ void sort_by_color(value_idx *colors, value_idx *nn_colors,
 template <typename value_idx, typename value_t>
 void connect_components(const raft::handle_t &handle,
                         raft::sparse::COO<value_t, value_idx> &out,
-                        const value_t *X, value_idx *colors, size_t n_rows,
+                        const value_t *X, const value_idx *orig_colors, size_t n_rows,
                         size_t n_cols,
                         raft::distance::DistanceType metric =
                           raft::distance::DistanceType::L2SqrtExpanded) {
@@ -465,10 +465,13 @@ void connect_components(const raft::handle_t &handle,
                "Fixing connectivities for an unconnected k-NN graph only "
                "supports L2SqrtExpanded currently.");
 
-  // Normalize colors so they are drawn from a monotonically increasing set
-  raft::label::make_monotonic(colors, colors, n_rows, stream, d_alloc);
+  rmm::device_uvector<value_idx> colors(n_rows, stream);
+  raft::copy_async(colors.data(), orig_colors, n_rows, stream);
 
-  value_idx n_components = get_n_components(colors, n_rows, d_alloc, stream);
+  // Normalize colors so they are drawn from a monotonically increasing set
+  raft::label::make_monotonic(colors.data(), colors.data(), n_rows, stream, d_alloc);
+
+  value_idx n_components = get_n_components(colors.data(), n_rows, d_alloc, stream);
 
   printf("Found %d components. Going to try connecting graph\n", n_components);
 
@@ -483,7 +486,7 @@ void connect_components(const raft::handle_t &handle,
   rmm::device_uvector<value_idx> color_neigh_degrees(n_components + 1, stream);
   rmm::device_uvector<value_idx> colors_indptr(n_components + 1, stream);
 
-  perform_1nn(temp_inds_dists.data(), nn_colors.data(), colors, X, n_rows,
+  perform_1nn(temp_inds_dists.data(), nn_colors.data(), colors.data(), X, n_rows,
               n_cols, d_alloc, stream);
 
   /**
@@ -491,11 +494,11 @@ void connect_components(const raft::handle_t &handle,
    */
   // max_color + 1 = number of connected components
   // sort nn_colors by key w/ original colors
-  sort_by_color(colors, nn_colors.data(), temp_inds_dists.data(),
+  sort_by_color(colors.data(), nn_colors.data(), temp_inds_dists.data(),
                 src_indices.data(), n_rows, stream);
 
   // create an indptr array for newly sorted colors
-  raft::sparse::convert::sorted_coo_to_csr(colors, n_rows, colors_indptr.data(),
+  raft::sparse::convert::sorted_coo_to_csr(colors.data(), n_rows, colors_indptr.data(),
                                            n_components + 1, d_alloc, stream);
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
