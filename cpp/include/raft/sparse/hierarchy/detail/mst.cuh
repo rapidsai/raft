@@ -83,8 +83,12 @@ raft::Graph_COO<value_idx, value_idx, value_t> connect_knn_graph(
 
   raft::sparse::COO<value_t, value_idx> connected_edges(d_alloc, stream);
 
+  rmm::device_uvector<value_idx> new_colors(m, stream);
+
+  raft::copy_async(new_colors.data(), color, m, stream);
+
   raft::linkage::connect_components<value_idx, value_t>(handle, connected_edges,
-                                                        X, color, m, n);
+                                                        X, new_colors.data(), m, n);
 
   int final_nnz = connected_edges.nnz + msf.n_edges;
 
