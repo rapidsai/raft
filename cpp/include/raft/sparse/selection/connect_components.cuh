@@ -139,17 +139,19 @@ __global__ void count_components_by_color_kernel(value_idx *out_indptr,
 
   value_idx agg = 0;
 
+  bool blocked = false;
+
   typedef cub::BlockReduce<value_idx, 256> BlockReduce;
   __shared__ typename BlockReduce::TempStorage temp_storage;
 
   value_idx v = 0;
-  for (value_idx i = tid; i < (stop_offset - start_offset) - 1;
+  for (value_idx i = tid; i < (stop_offset - start_offset);
        i += blockDim.x) {
     // Columns are sorted by row so only columns that are != next column
     // should get counted
-    v += (colors_nn[start_offset + i + 1] != colors_nn[start_offset + i])
-         // last thread should always write something
-         || i == (stop_offset - start_offset - 2);
+    // last thread should always write something
+    v += (i == (stop_offset - start_offset - 1))
+         || (colors_nn[start_offset + i + 1] != colors_nn[start_offset + i]);
   }
 
   agg = BlockReduce(temp_storage).Reduce(v, cub::Sum());
@@ -183,14 +185,14 @@ __global__ void min_components_by_color_kernel(
   value_idx start_offset = colors_indptr[row];
   value_idx stop_offset = colors_indptr[row + 1];
 
-  for (value_idx i = tid; i < (stop_offset - start_offset) - 1;
+  for (value_idx i = tid; i < (stop_offset - start_offset);
        i += blockDim.x) {
     // Columns are sorted by row so only columns that are != previous column
     // should get counted
     value_idx cur_color = colors_nn[start_offset + i];
-    if (colors_nn[start_offset + i + 1] != cur_color
-        // last thread should always write something
-        || (i == stop_offset - start_offset - 2)) {
+    // last thread should always write something
+    if (i == (stop_offset - start_offset - 1)
+        || colors_nn[start_offset + i + 1] != cur_color) {
       while (atomicCAS(mutex, 0, 1) == 1)
         ;
       __threadfence();
@@ -441,8 +443,6 @@ void connect_components(const raft::handle_t &handle,
   printf("Found %d components. Going to try connecting graph\n",
          n_components);
 
-
-
   /**
    * First compute 1-nn for all colors where the color of each data point
    * is guaranteed to be != color of its nearest neighbor.
@@ -454,14 +454,8 @@ void connect_components(const raft::handle_t &handle,
   rmm::device_uvector<value_idx> color_neigh_degrees(n_components + 1, stream);
   rmm::device_uvector<value_idx> colors_indptr(n_components + 1, stream);
 
-  printf("Performing 1nn\n");
-
   perform_1nn(temp_inds_dists.data(), nn_colors.data(), colors, X, n_rows,
               n_cols, d_alloc, stream);
-
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-
-  printf("Sorting by color\n");
 
   /**
    * Sort data points by color (neighbors are not sorted)
@@ -475,31 +469,24 @@ void connect_components(const raft::handle_t &handle,
   raft::sparse::convert::sorted_coo_to_csr(colors, n_rows, colors_indptr.data(),
                                            n_components + 1, d_alloc, stream);
 
-  printf("Building output colors indptr\n");
   // create output degree array for closest components per row
   build_output_colors_indptr(color_neigh_degrees.data(), colors_indptr.data(),
                              nn_colors.data(), n_components, stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
 
   value_idx nnz;
   raft::update_host(&nnz, color_neigh_degrees.data() + n_components, 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
-  printf("Min components by color\n");
   raft::sparse::COO<value_t, value_idx> min_edges(d_alloc, stream, nnz);
   min_components_by_color(min_edges, color_neigh_degrees.data(),
                           colors_indptr.data(), nn_colors.data(),
                           src_indices.data(), temp_inds_dists.data(),
                           n_components, stream);
 
-  CUDA_CHECK(cudaStreamSynchronize(stream));
   // symmetrize
 
-  printf("Symmetrize\n");
   raft::sparse::linalg::symmetrize(handle, min_edges.rows(), min_edges.cols(),
                                    min_edges.vals(), n_rows, n_rows, nnz, out);
-
-  CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
 };  // end namespace linkage

@@ -112,10 +112,10 @@ raft::Graph_COO<value_idx, value_idx, value_t> connect_knn_graph(
                                            indptr2.data(), m, d_alloc, stream);
 
   value_idx max_offset = 0;
-  raft::update_host(&max_offset, indptr2.data() + (m - 1), 1, stream);
+  raft::update_host(&max_offset, indptr2.data() + m, 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
-  max_offset += (final_nnz - max_offset);
+  max_offset += (final_coo.nnz - max_offset);
 
   raft::update_device(indptr2.data() + m, &max_offset, 1, stream);
 
