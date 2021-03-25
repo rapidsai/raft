@@ -55,8 +55,8 @@ class ConnectComponentsTest : public ::testing::TestWithParam<
                                 ConnectComponentsInputs<value_t, value_idx>> {
  protected:
   void basicTest() {
-// skip test pre-volta
-#if __CUDA_ARCH__ >= 700
+#ifdef POST_PASCAL
+
     raft::handle_t handle;
 
     auto d_alloc = handle.get_device_allocator();
@@ -156,7 +156,6 @@ class ConnectComponentsTest : public ::testing::TestWithParam<
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
     final_edges = output_mst.n_edges;
-
 #endif
   }
 
@@ -530,8 +529,7 @@ TEST_P(ConnectComponentsTestF_Int, Result) {
   /**
      * Verify the src & dst vertices on each edge have different colors
      */
-// skip test pre-volta
-#if __CUDA_ARCH__ >= 700
+#ifdef POST_PASCAL
   EXPECT_TRUE(final_edges == params.n_row - 1);
 #endif
 }

@@ -75,7 +75,9 @@ template <typename value_idx, typename value_t>
 raft::Graph_COO<value_idx, value_idx, value_t> connect_knn_graph(
   const raft::handle_t &handle, const value_t *X,
   raft::Graph_COO<value_idx, value_idx, value_t> &msf, size_t m, size_t n,
-  value_idx *color) {
+  value_idx *color,
+  raft::distance::DistanceType metric =
+    raft::distance::DistanceType::L2SqrtExpanded) {
   auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
 
@@ -100,7 +102,6 @@ raft::Graph_COO<value_idx, value_idx, value_t> connect_knn_graph(
   raft::copy_async(msf.weights.data() + msf.n_edges, connected_edges.vals(),
                    connected_edges.nnz, stream);
 
-  printf("connected components nnz: %d\n", final_nnz);
   raft::sparse::COO<value_t, value_idx> final_coo(d_alloc, stream);
   raft::sparse::linalg::symmetrize(handle, msf.src.data(), msf.dst.data(),
                                    msf.weights.data(), m, n, final_nnz,
@@ -145,6 +146,8 @@ raft::Graph_COO<value_idx, value_idx, value_t> connect_knn_graph(
  * @param[out] mst_src output src edges
  * @param[out] mst_dst output dst edges
  * @param[out] mst_weight output weights (distances)
+ * @param[in] max_iter maximum iterations to run knn graph connection. This
+ *  argument is really just a safeguard against the potential for infinite loops.
  */
 template <typename value_idx, typename value_t>
 void build_sorted_mst(const raft::handle_t &handle, const value_t *X,
@@ -153,7 +156,10 @@ void build_sorted_mst(const raft::handle_t &handle, const value_t *X,
                       rmm::device_uvector<value_idx> &mst_src,
                       rmm::device_uvector<value_idx> &mst_dst,
                       rmm::device_uvector<value_t> &mst_weight,
-                      const size_t nnz) {
+                      const size_t nnz,
+                      raft::distance::DistanceType metric =
+                        raft::distance::DistanceType::L2SqrtExpanded,
+                      int max_iter = 10) {
   auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
 
@@ -165,21 +171,41 @@ void build_sorted_mst(const raft::handle_t &handle, const value_t *X,
 
   int iters = 1;
   int n_components = linkage::get_n_components(color.data(), m, stream);
-  while (n_components > 1 && iters < 100) {
+
+  while (n_components > 1 && iters < max_iter) {
+#ifdef POST_PASCAL
     mst_coo = connect_knn_graph<value_idx, value_t>(handle, X, mst_coo, m, n,
                                                     color.data());
 
     iters++;
 
     n_components = linkage::get_n_components(color.data(), m, stream);
-    //
-    //    printf("Connecting knn graph!\n");
-    //
-    //    RAFT_EXPECTS(
-    //      mst_coo.n_edges == m - 1,
-    //      "MST was not able to connect knn graph in a single iteration.");
+#else
+    RAFT_FAIL(
+      "Connecting an unconnected KNN graph requires Volta or newer "
+      "architecture");
+#endif
   }
-  printf("Found %d components.\n", n_components);
+
+  /**
+   * The `max_iter` argument was introduced only to prevent the potential for an infinite loop.
+   * Ideally the log2(n) guarantees of the MST should be enough to connect KNN graphs with a
+   * massive number of data samples in very few iterations. If it does not, there are 3 likely
+   * reasons why (in order of their likelihood):
+   * 1. There is a bug in this code somewhere
+   * 2. Either the given KNN graph wasn't generated from X or the same metric is not being used
+   *    to generate the 1-nn (currently only L2SqrtExpanded is supported).
+   * 3. max_iter was not large enough to connect the graph.
+   *
+   * Note that a KNN graph generated from 50 random isotropic balls (with significant overlap)
+   * was able to be connected in a single iteration.
+   */
+  RAFT_EXPECTS(n_components == 1,
+               "KNN graph could not be connected in %d iterations. "
+               "Please verify that the input knn graph is generated from X "
+               "(and the same distance metric used),"
+               " or increase 'max_iter'",
+               max_iter);
 
   sort_coo_by_data(mst_coo.src.data(), mst_coo.dst.data(),
                    mst_coo.weights.data(), mst_coo.n_edges, stream);

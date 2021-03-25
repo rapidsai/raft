@@ -38,6 +38,11 @@
 namespace raft {
 namespace linkage {
 
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ < 700
+#else
+#define POST_PASCAL
+#endif
+
 /**
  * \brief A key identifier paired with a corresponding value
  */
@@ -139,8 +144,6 @@ __global__ void count_components_by_color_kernel(value_idx *out_indptr,
 
   value_idx agg = 0;
 
-  bool blocked = false;
-
   typedef cub::BlockReduce<value_idx, 256> BlockReduce;
   __shared__ typename BlockReduce::TempStorage temp_storage;
 
@@ -203,6 +206,9 @@ __global__ void min_components_by_color_kernel(
       __threadfence();
       atomicCAS(mutex, 1, 0);
     }
+
+    // have threads in each warp share whether they have a value to write w/ the first lane id.
+    // first lane id should
   }
 }
 
@@ -266,6 +272,11 @@ void min_components_by_color(raft::sparse::COO<value_t, value_idx> &coo,
    * so the last element of each column in the input CSR should be
    * the min.
    */
+#ifndef POST_PASCAL
+  RAFT_FAIL(
+    "Connect components is only supported on Volta and newer architectures");
+#endif
+
   min_components_by_color_kernel<<<n_colors, 256, 0, stream>>>(
     coo.cols(), coo.vals(), coo.rows(), out_indptr, colors_indptr, colors_nn,
     indices, kvp, n_colors);
@@ -428,9 +439,15 @@ template <typename value_idx, typename value_t>
 void connect_components(const raft::handle_t &handle,
                         raft::sparse::COO<value_t, value_idx> &out,
                         const value_t *X, value_idx *colors, size_t n_rows,
-                        size_t n_cols) {
+                        size_t n_cols,
+                        raft::distance::DistanceType metric =
+                          raft::distance::DistanceType::L2SqrtExpanded) {
   auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
+
+  RAFT_EXPECTS(metric == raft::distance::DistanceType::L2SqrtExpanded,
+               "Fixing connectivities for an unconnected k-NN graph only "
+               "supports L2SqrtExpanded currently.");
 
   // Normalize colors so they are drawn from a monotonically increasing set
   raft::label::make_monotonic(colors, colors, n_rows, stream, d_alloc);
