@@ -26,10 +26,10 @@
 
 #include <raft/cudart_utils.h>
 
-#include <rmm/device_uvector.hpp>
-#include <rmm/exec_policy.hpp>
 #include <thrust/device_ptr.h>
 #include <thrust/sort.h>
+#include <rmm/device_uvector.hpp>
+#include <rmm/exec_policy.hpp>
 
 #include <cub/cub.cuh>
 
@@ -145,13 +145,12 @@ __global__ void count_components_by_color_kernel(value_idx *out_indptr,
   __shared__ typename BlockReduce::TempStorage temp_storage;
 
   value_idx v = 0;
-  for (value_idx i = tid; i < (stop_offset - start_offset);
-       i += blockDim.x) {
+  for (value_idx i = tid; i < (stop_offset - start_offset); i += blockDim.x) {
     // Columns are sorted by row so only columns that are != next column
     // should get counted
     // last thread should always write something
-    v += (i == (stop_offset - start_offset - 1))
-         || (colors_nn[start_offset + i + 1] != colors_nn[start_offset + i]);
+    v += (i == (stop_offset - start_offset - 1)) ||
+         (colors_nn[start_offset + i + 1] != colors_nn[start_offset + i]);
   }
 
   agg = BlockReduce(temp_storage).Reduce(v, cub::Sum());
@@ -185,14 +184,13 @@ __global__ void min_components_by_color_kernel(
   value_idx start_offset = colors_indptr[row];
   value_idx stop_offset = colors_indptr[row + 1];
 
-  for (value_idx i = tid; i < (stop_offset - start_offset);
-       i += blockDim.x) {
+  for (value_idx i = tid; i < (stop_offset - start_offset); i += blockDim.x) {
     // Columns are sorted by row so only columns that are != previous column
     // should get counted
     value_idx cur_color = colors_nn[start_offset + i];
     // last thread should always write something
-    if (i == (stop_offset - start_offset - 1)
-        || colors_nn[start_offset + i + 1] != cur_color) {
+    if (i == (stop_offset - start_offset - 1) ||
+        colors_nn[start_offset + i + 1] != cur_color) {
       while (atomicCAS(mutex, 0, 1) == 1)
         ;
       __threadfence();
@@ -434,14 +432,12 @@ void connect_components(const raft::handle_t &handle,
   auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
 
-
   // Normalize colors so they are drawn from a monotonically increasing set
   raft::label::make_monotonic(colors, colors, n_rows, stream, d_alloc);
 
   value_idx n_components = get_n_components(colors, n_rows, stream);
 
-  printf("Found %d components. Going to try connecting graph\n",
-         n_components);
+  printf("Found %d components. Going to try connecting graph\n", n_components);
 
   /**
    * First compute 1-nn for all colors where the color of each data point

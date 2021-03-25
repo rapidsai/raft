@@ -55,6 +55,7 @@ class ConnectComponentsTest : public ::testing::TestWithParam<
                                 ConnectComponentsInputs<value_t, value_idx>> {
  protected:
   void basicTest() {
+// skip test pre-volta
 #if __CUDA_ARCH__ >= 700
     raft::handle_t handle;
 
@@ -529,7 +530,7 @@ TEST_P(ConnectComponentsTestF_Int, Result) {
   /**
      * Verify the src & dst vertices on each edge have different colors
      */
-
+// skip test pre-volta
 #if __CUDA_ARCH__ >= 700
   EXPECT_TRUE(final_edges == params.n_row - 1);
 #endif
