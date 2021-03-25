@@ -367,9 +367,9 @@ void symmetrize(const raft::handle_t &handle, const value_idx *rows,
   rmm::device_uvector<value_idx> diff((nnz * 2) + 1, stream);
 
   CUDA_CHECK(cudaMemsetAsync(diff.data(), 0,
-                             ((nnz * 2) + 1) * sizeof(value_idx), stream));
+                             (diff.size()) * sizeof(value_idx), stream));
 
-  compute_duplicates_diffs<<<raft::ceildiv(nnz * 2, (size_t)1024), 1024, 0,
+  compute_duplicates_diffs<<<raft::ceildiv(nnz * 2, (size_t)256), 256, 0,
                              stream>>>(symm_rows.data(), symm_cols.data(),
                                        diff.data(), nnz * 2);
 
@@ -380,13 +380,13 @@ void symmetrize(const raft::handle_t &handle, const value_idx *rows,
   value_idx size = 0;
   raft::update_host(&size, diff.data() + (diff.size() - 1), 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
-
-  size++;
+//
+//  size++;
 
   out.allocate(size, m, n, true, stream);
 
   // perform reduce
-  reduce_duplicates_kernel<<<raft::ceildiv(nnz * 2, (size_t)1024), 1024, 0,
+  reduce_duplicates_kernel<<<raft::ceildiv(nnz * 2, (size_t)256), 256, 0,
                              stream>>>(
     symm_rows.data(), symm_cols.data(), symm_vals.data(), diff.data() + 1,
     out.rows(), out.cols(), out.vals(), nnz * 2);

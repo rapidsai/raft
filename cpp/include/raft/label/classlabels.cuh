@@ -116,7 +116,7 @@ __global__ void map_label_kernel(Type *map_ids, size_t N_labels, Type *in,
     if (!filter_op(in[tid])) {
       for (size_t i = 0; i < N_labels; i++) {
         if (in[tid] == map_ids[i]) {
-          out[tid] = i + 1;
+          out[tid] = i;
           break;
         }
       }

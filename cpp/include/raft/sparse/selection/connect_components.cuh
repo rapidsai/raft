@@ -156,6 +156,7 @@ __global__ void count_components_by_color_kernel(value_idx *out_indptr,
          (colors_nn[start_offset + i + 1] != colors_nn[start_offset + i]);
   }
 
+
   agg = BlockReduce(temp_storage).Reduce(v, cub::Sum());
 
   if (threadIdx.x == 0) out_indptr[row] = agg;
@@ -183,6 +184,7 @@ __global__ void min_components_by_color_kernel(
   value_idx row = blockIdx.x;
 
   value_idx out_offset = out_indptr[blockIdx.x];
+  value_idx out_stop_offset = out_indptr[blockIdx.x+1];
 
   value_idx start_offset = colors_indptr[row];
   value_idx stop_offset = colors_indptr[row + 1];
@@ -206,9 +208,15 @@ __global__ void min_components_by_color_kernel(
       __threadfence();
       atomicCAS(mutex, 1, 0);
     }
+  }
 
-    // have threads in each warp share whether they have a value to write w/ the first lane id.
-    // first lane id should
+  __syncthreads();
+
+  if(threadIdx.x == 0) {
+    if(cur_offset[0] != (out_stop_offset - out_offset)) {
+      printf("row %d only wrote %d offsets and should have written %d\n",
+             row, cur_offset[0], (out_stop_offset - out_offset));
+    }
   }
 }
 
@@ -294,11 +302,15 @@ void min_components_by_color(raft::sparse::COO<value_t, value_idx> &coo,
  */
 template <typename value_idx>
 value_idx get_n_components(value_idx *colors, size_t n_rows,
+                           std::shared_ptr<raft::mr::device::allocator> d_alloc,
                            cudaStream_t stream) {
-  thrust::device_ptr<value_idx> t_colors = thrust::device_pointer_cast(colors);
-  return *(thrust::max_element(thrust::cuda::par.on(stream), t_colors,
-                               t_colors + n_rows)) +
-         1;
+
+  value_idx *map_ids;
+  int num_clusters;
+  raft::label::getUniquelabels(colors, n_rows, &map_ids, &num_clusters, stream, d_alloc);
+  d_alloc->deallocate(map_ids, num_clusters * sizeof(value_idx), stream);
+
+  return num_clusters;
 }
 
 /**
@@ -328,6 +340,10 @@ void build_output_colors_indptr(value_idx *degrees,
 
   count_components_by_color(degrees, components_indptr, nn_components,
                             n_components, stream);
+
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+
+  raft::print_device_vector("color_neigh_degrees", degrees, n_components, std::cout);
 
   thrust::device_ptr<value_idx> t_degrees =
     thrust::device_pointer_cast(degrees);
@@ -452,7 +468,7 @@ void connect_components(const raft::handle_t &handle,
   // Normalize colors so they are drawn from a monotonically increasing set
   raft::label::make_monotonic(colors, colors, n_rows, stream, d_alloc);
 
-  value_idx n_components = get_n_components(colors, n_rows, stream);
+  value_idx n_components = get_n_components(colors, n_rows, d_alloc, stream);
 
   printf("Found %d components. Going to try connecting graph\n", n_components);
 
@@ -482,7 +498,13 @@ void connect_components(const raft::handle_t &handle,
   raft::sparse::convert::sorted_coo_to_csr(colors, n_rows, colors_indptr.data(),
                                            n_components + 1, d_alloc, stream);
 
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+  raft::print_device_vector("colors_indptr", colors_indptr.data(),
+                            colors_indptr.size(), std::cout);
+
   // create output degree array for closest components per row
+  // Every component should be represented by at least one neighbor.
+  // If there are any 0 degrees, there's a problem
   build_output_colors_indptr(color_neigh_degrees.data(), colors_indptr.data(),
                              nn_colors.data(), n_components, stream);
 
@@ -490,16 +512,22 @@ void connect_components(const raft::handle_t &handle,
   raft::update_host(&nnz, color_neigh_degrees.data() + n_components, 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
+  raft::print_device_vector("color_neigh_degrees", color_neigh_degrees.data(),
+                            color_neigh_degrees.size(), std::cout);
+
   raft::sparse::COO<value_t, value_idx> min_edges(d_alloc, stream, nnz);
   min_components_by_color(min_edges, color_neigh_degrees.data(),
                           colors_indptr.data(), nn_colors.data(),
                           src_indices.data(), temp_inds_dists.data(),
                           n_components, stream);
 
-  // symmetrize
-
+  // symmetrize to remove duplicates
   raft::sparse::linalg::symmetrize(handle, min_edges.rows(), min_edges.cols(),
                                    min_edges.vals(), n_rows, n_rows, nnz, out);
+
+  raft::print_device_vector("rows", out.rows(), out.nnz, std::cout);
+  raft::print_device_vector("cols", out.cols(), out.nnz, std::cout);
+  raft::print_device_vector("vals", out.vals(), out.nnz, std::cout);
 }
 
 };  // end namespace linkage

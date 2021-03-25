@@ -110,16 +110,20 @@ raft::Graph_COO<value_idx, value_idx, value_t> connect_knn_graph(
   rmm::device_uvector<value_idx> indptr2(m + 1, stream);
 
   raft::sparse::convert::sorted_coo_to_csr(final_coo.rows(), final_coo.nnz,
-                                           indptr2.data(), m, d_alloc, stream);
+                                           indptr2.data(), m+1, d_alloc, stream);
 
   value_idx max_offset = 0;
   raft::update_host(&max_offset, indptr2.data() + m, 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
-  max_offset += (final_coo.nnz - max_offset);
+  max_offset += (final_nnz - max_offset);
 
   raft::update_device(indptr2.data() + m, &max_offset, 1, stream);
 
+//
+  printf("connected nnz: %d, max_offset: %d\n", final_nnz, max_offset);
+
+  // We don't want MST to initialize colors on second call.
   return raft::mst::mst<value_idx, value_idx, value_t>(
     handle, indptr2.data(), final_coo.cols(), final_coo.vals(), m,
     final_coo.nnz, color, stream, false, true);
@@ -165,12 +169,13 @@ void build_sorted_mst(const raft::handle_t &handle, const value_t *X,
 
   rmm::device_uvector<value_idx> color(m, stream);
 
+  // We want to have MST initialize colors on first call.
   auto mst_coo = raft::mst::mst<value_idx, value_idx, value_t>(
     handle, indptr, indices, pw_dists, (value_idx)m, nnz, color.data(), stream,
-    false);
+    false, true);
 
   int iters = 1;
-  int n_components = linkage::get_n_components(color.data(), m, stream);
+  int n_components = linkage::get_n_components(color.data(), m, d_alloc, stream);
 
   while (n_components > 1 && iters < max_iter) {
 #ifdef POST_PASCAL
@@ -179,7 +184,7 @@ void build_sorted_mst(const raft::handle_t &handle, const value_t *X,
 
     iters++;
 
-    n_components = linkage::get_n_components(color.data(), m, stream);
+    n_components = linkage::get_n_components(color.data(), m, d_alloc, stream);
 #else
     RAFT_FAIL(
       "Connecting an unconnected KNN graph requires Volta or newer "
