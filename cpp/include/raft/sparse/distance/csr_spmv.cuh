@@ -256,7 +256,7 @@ __global__ void classic_csr_semiring_spmv_smem_kernel(
 
   value_idx *offsets_a = (value_idx *)smem;
   value_idx *a_cols = offsets_a + 2;
-  value_t *a_vals = (value_t *)(a_cols + buffer_size);
+  value_t *a_vals = ((value_t *)a_cols) + buffer_size;
 
   BlockSemiring<value_idx, value_t, tpb, product_f, accum_f> semiring(
     n, a_cols, a_vals, offsets_a);
