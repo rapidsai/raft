@@ -44,6 +44,7 @@
 namespace raft {
 namespace sparse {
 namespace op {
+
 template <typename value_idx>
 __global__ void compute_duplicates_diffs_kernel(const value_idx *rows,
                                                 const value_idx *cols,
@@ -58,10 +59,12 @@ __global__ void compute_duplicates_diffs_kernel(const value_idx *rows,
 }
 
 template <typename value_idx, typename value_t>
-__global__ void reduce_duplicates_kernel(
-  const value_idx *src_rows, const value_idx *src_cols, const value_t *src_vals,
-  const value_idx *index, value_idx *out_rows, value_idx *out_cols,
-  value_t *out_vals, size_t nnz) {
+__global__ void max_duplicates_kernel(const value_idx *src_rows,
+                                      const value_idx *src_cols,
+                                      const value_t *src_vals,
+                                      const value_idx *index,
+                                      value_idx *out_rows, value_idx *out_cols,
+                                      value_t *out_vals, size_t nnz) {
   size_t tid = blockDim.x * blockIdx.x + threadIdx.x;
 
   if (tid < nnz) {
@@ -72,48 +75,58 @@ __global__ void reduce_duplicates_kernel(
   }
 }
 
+/**
+ * Computes a mask from a sorted COO matrix where 0's denote
+ * duplicate values and 1's denote new values. This mask can
+ * be useful for reducing duplicates, such as when symmetrizing
+ * or taking the min of each duplicated value.
+ * @tparam value_idx
+ * @param[out] mask output mask, size nnz
+ * @param[in] rows COO rows array, size nnz
+ * @param[in] cols COO cols array, size nnz
+ * @param[in] nnz number of nonzeros in input arrays
+ * @param[in] stream cuda ops will be ordered wrt this stream
+ */
 template <typename value_idx>
-void compute_duplicates_diffs(value_idx *diff, const value_idx *rows,
-                              const value_idx *cols, size_t nnz,
-                              cudaStream_t stream) {
-  CUDA_CHECK(cudaMemsetAsync(diff, 0, nnz * sizeof(value_idx), stream));
+void compute_duplicates_mask(value_idx *mask, const value_idx *rows,
+                             const value_idx *cols, size_t nnz,
+                             cudaStream_t stream) {
+  CUDA_CHECK(cudaMemsetAsync(mask, 0, nnz * sizeof(value_idx), stream));
 
   compute_duplicates_diffs_kernel<<<raft::ceildiv(nnz, (size_t)256), 256, 0,
-                                    stream>>>(rows, cols, diff, nnz);
+                                    stream>>>(rows, cols, mask, nnz);
 }
 
 /**
- * Performs a reduce of duplicate columns per row, taking the min weight
- * for duplicates. This requires a sorted
+ * Performs a COO reduce of duplicate columns per row, taking the max weight
+ * for duplicate columns in each row. This function assumes the input COO
+ * has been sorted by both row and column but makes no assumption on
+ * the sorting of values.
  * @tparam value_idx
  * @tparam value_t
- * @param out
- * @param rows
- * @param cols
- * @param vals
- * @param nnz
- * @param m
- * @param n
- * @param stream
+ * @param[out] out output COO, the nnz will be computed allocate() will be called in this function.
+ * @param[in] rows COO rows array, size nnz
+ * @param[in] cols COO cols array, size nnz
+ * @param[in] vals COO vals array, size nnz
+ * @param[in] nnz number of nonzeros in COO input arrays
+ * @param[in] m number of rows in COO input matrix
+ * @param[in] n number of columns in COO input matrix
+ * @param[in] stream cuda ops will be ordered wrt this stream
  */
 template <typename value_idx, typename value_t>
 void max_duplicates(const raft::handle_t &handle,
-                    raft::sparse::COO<value_t, value_idx> &out, value_idx *rows,
-                    value_idx *cols, value_t *vals, size_t nnz, size_t m,
-                    size_t n) {
+                    raft::sparse::COO<value_t, value_idx> &out,
+                    const value_idx *rows, const value_idx *cols,
+                    const value_t *vals, size_t nnz, size_t m, size_t n) {
   auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
 
   auto exec_policy = rmm::exec_policy(stream);
 
-  // sort COO
-  raft::sparse::op::coo_sort((value_idx)m, (value_idx)n, (value_idx)nnz, rows,
-                             cols, vals, d_alloc, stream);
-
   // compute diffs & take exclusive scan
   rmm::device_uvector<value_idx> diff(nnz + 1, stream);
 
-  compute_duplicates_diffs(diff.data(), rows, cols, nnz, stream);
+  compute_duplicates_mask(diff.data(), rows, cols, nnz, stream);
 
   thrust::exclusive_scan(exec_policy, diff.data(), diff.data() + diff.size(),
                          diff.data());
@@ -128,7 +141,7 @@ void max_duplicates(const raft::handle_t &handle,
   out.allocate(size, m, n, true, stream);
 
   // perform reduce
-  reduce_duplicates_kernel<<<raft::ceildiv(nnz, (size_t)256), 256, 0, stream>>>(
+  max_duplicates_kernel<<<raft::ceildiv(nnz, (size_t)256), 256, 0, stream>>>(
     rows, cols, vals, diff.data() + 1, out.rows(), out.cols(), out.vals(), nnz);
 }
 };  // END namespace op

@@ -41,6 +41,11 @@ namespace linkage {
 
 /**
  * \brief A key identifier paired with a corresponding value
+ *
+ * NOTE: This is being included close to where it's being used
+ * because it's meant to be temporary. There is a conflict
+ * between the cub and thrust_cub namespaces with older CUDA
+ * versions so we're using our own as a workaround.
  */
 template <typename _Key, typename _Value>
 struct KeyValuePair {
@@ -107,6 +112,11 @@ struct FixConnectivitiesRedOp {
   }
 };
 
+/**
+ * Assumes 3-iterator tuple containing COO rows, cols, and
+ * a cub keyvalue pair object. Sorts the 3 arrays in
+ * ascending order: row->col->keyvaluepair
+ */
 struct TupleComp {
   template <typename one, typename two>
   __host__ __device__ bool operator()(const one &t1, const two &t2) {
@@ -138,8 +148,8 @@ struct CubKVPMinReduce {
 };  // KVPMinReduce
 
 /**
- * Gets max maximum value (max number of components) from array of
- * components. Note that this does not assume the components are
+ * Gets the number of unique components from array of
+ * colors or labels. This does not assume the components are
  * drawn from a monotonically increasing set.
  * @tparam value_idx
  * @param[in] colors array of components
@@ -305,8 +315,8 @@ void min_components_by_color(raft::sparse::COO<value_t, value_idx> &coo,
  *             edges.
  * @param[in] X original (row-major) dense matrix for which knn graph should be constructed.
  * @param[in] colors array containing component number for each row of X
- * @param n_rows number of rows in X
- * @param n_cols number of cols in X
+ * @param[in] n_rows number of rows in X
+ * @param[in] n_cols number of cols in X
  */
 template <typename value_idx, typename value_t>
 void connect_components(const raft::handle_t &handle,
@@ -357,8 +367,8 @@ void connect_components(const raft::handle_t &handle,
    */
   // Compute mask of duplicates
   rmm::device_uvector<value_idx> out_index(n_rows + 1, stream);
-  raft::sparse::op::compute_duplicates_diffs(out_index.data(), colors.data(),
-                                             nn_colors.data(), n_rows, stream);
+  raft::sparse::op::compute_duplicates_mask(out_index.data(), colors.data(),
+                                            nn_colors.data(), n_rows, stream);
 
   thrust::exclusive_scan(thrust::cuda::par.on(stream), out_index.data(),
                          out_index.data() + out_index.size(), out_index.data());

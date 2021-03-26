@@ -157,7 +157,6 @@ template <typename T, typename IdxT>
 class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
  protected:
   void basicTest() {
-#ifdef POST_PASCAL
     raft::handle_t handle;
 
     params = ::testing::TestWithParam<LinkageInputs<T, IdxT>>::GetParam();
@@ -193,7 +192,6 @@ class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
     score =
       compute_rand_index(labels, labels_ref, params.n_row,
                          handle.get_device_allocator(), handle.get_stream());
-#endif
   }
 
   void SetUp() override { basicTest(); }
@@ -598,11 +596,7 @@ const std::vector<LinkageInputs<float, int>> linkage_inputsf2 = {
    -4}};
 
 typedef LinkageTest<float, int> LinkageTestF_Int;
-TEST_P(LinkageTestF_Int, Result) {
-#ifdef POST_PASCAL
-  EXPECT_TRUE(score == 1.0);
-#endif
-}
+TEST_P(LinkageTestF_Int, Result) { EXPECT_TRUE(score == 1.0); }
 
 INSTANTIATE_TEST_CASE_P(LinkageTest, LinkageTestF_Int,
                         ::testing::ValuesIn(linkage_inputsf2));
