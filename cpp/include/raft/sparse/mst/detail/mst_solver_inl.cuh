@@ -305,7 +305,10 @@ void MST_solver<vertex_t, edge_t, weight_t>::label_prop(vertex_t* mst_src,
 // Finds the minimum edge from each vertex to the lowest color
 template <typename vertex_t, typename edge_t, typename weight_t>
 void MST_solver<vertex_t, edge_t, weight_t>::min_edge_per_vertex() {
-  thrust::fill(min_edge_color.begin(), min_edge_color.end(),
+  auto policy = rmm::exec_policy(stream);
+  thrust::fill(policy->on(stream), min_edge_color.begin(), min_edge_color.end(),
+               std::numeric_limits<weight_t>::max());
+  thrust::fill(policy->on(stream), new_mst_edge.begin(), new_mst_edge.end(),
                std::numeric_limits<weight_t>::max());
 
   int n_threads = 32;
@@ -327,7 +330,8 @@ void MST_solver<vertex_t, edge_t, weight_t>::min_edge_per_supervertex() {
   auto nthreads = std::min(v, max_threads);
   auto nblocks = std::min((v + nthreads - 1) / nthreads, max_blocks);
 
-  thrust::fill(temp_src.begin(), temp_src.end(),
+  auto policy = rmm::exec_policy(stream);
+  thrust::fill(policy->on(stream), temp_src.begin(), temp_src.end(),
                std::numeric_limits<vertex_t>::max());
 
   vertex_t* color_ptr = color.data().get();
