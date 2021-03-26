@@ -110,13 +110,14 @@ void getOvrlabels(math_t *y, int n, math_t *y_unique, int n_classes,
 
 template <typename Type, int TPB_X, typename Lambda>
 __global__ void map_label_kernel(Type *map_ids, size_t N_labels, Type *in,
-                                 Type *out, size_t N, Lambda filter_op) {
+                                 Type *out, size_t N, Lambda filter_op,
+                                 bool zero_based = false) {
   int tid = threadIdx.x + blockIdx.x * TPB_X;
   if (tid < N) {
     if (!filter_op(in[tid])) {
       for (size_t i = 0; i < N_labels; i++) {
         if (in[tid] == map_ids[i]) {
-          out[tid] = i;
+          out[tid] = i + !zero_based;
           break;
         }
       }
@@ -146,7 +147,8 @@ __global__ void map_label_kernel(Type *map_ids, size_t N_labels, Type *in,
 template <typename Type, typename Lambda>
 void make_monotonic(Type *out, Type *in, size_t N, cudaStream_t stream,
                     Lambda filter_op,
-                    std::shared_ptr<raft::mr::device::allocator> allocator) {
+                    std::shared_ptr<raft::mr::device::allocator> allocator,
+                    bool zero_based = false) {
   static const size_t TPB_X = 256;
 
   dim3 blocks(raft::ceildiv(N, TPB_X));
@@ -157,7 +159,7 @@ void make_monotonic(Type *out, Type *in, size_t N, cudaStream_t stream,
   getUniquelabels(in, N, &map_ids, &num_clusters, stream, allocator);
 
   map_label_kernel<Type, TPB_X><<<blocks, threads, 0, stream>>>(
-    map_ids, num_clusters, in, out, N, filter_op);
+    map_ids, num_clusters, in, out, N, filter_op, zero_based);
 
   allocator->deallocate(map_ids, num_clusters * sizeof(Type), stream);
 }
@@ -181,9 +183,11 @@ void make_monotonic(Type *out, Type *in, size_t N, cudaStream_t stream,
    */
 template <typename Type>
 void make_monotonic(Type *out, Type *in, size_t N, cudaStream_t stream,
-                    std::shared_ptr<raft::mr::device::allocator> allocator) {
+                    std::shared_ptr<raft::mr::device::allocator> allocator,
+                    bool zero_based = false) {
   make_monotonic<Type>(
-    out, in, N, stream, [] __device__(Type val) { return false; }, allocator);
+    out, in, N, stream, [] __device__(Type val) { return false; }, allocator,
+    zero_based);
 }
 };  // namespace label
 };  // end namespace raft

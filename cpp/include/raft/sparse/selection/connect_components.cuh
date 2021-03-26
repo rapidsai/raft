@@ -456,7 +456,7 @@ void connect_components(const raft::handle_t &handle,
 
   // Normalize colors so they are drawn from a monotonically increasing set
   raft::label::make_monotonic(colors.data(), colors.data(), n_rows, stream,
-                              d_alloc);
+                              d_alloc, true);
 
   value_idx n_components =
     get_n_components(colors.data(), n_rows, d_alloc, stream);
