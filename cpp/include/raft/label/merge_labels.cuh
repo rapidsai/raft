@@ -30,28 +30,29 @@ namespace label {
  *  equivalence graph implicitly using labels_a, labels_b and mask.
  *  For an additional cost we can build the graph with edges
  *  E={(A[i], B[i]) | M[i]=1} and make this step faster */
-template <typename Index_, int TPB_X = 256>
+template <typename value_idx, int TPB_X = 256>
 __global__ void __launch_bounds__(TPB_X)
-  propagate_label_kernel(const Index_* __restrict__ labels_a,
-                         const Index_* __restrict__ labels_b,
-                         Index_* __restrict__ R, const bool* __restrict__ mask,
-                         bool* __restrict__ m, Index_ N) {
-  Index_ tid = threadIdx.x + blockIdx.x * TPB_X;
+  propagate_label_kernel(const value_idx* __restrict__ labels_a,
+                         const value_idx* __restrict__ labels_b,
+                         value_idx* __restrict__ R,
+                         const bool* __restrict__ mask, bool* __restrict__ m,
+                         value_idx N) {
+  value_idx tid = threadIdx.x + blockIdx.x * TPB_X;
   if (tid < N) {
     if (__ldg((char*)mask + tid)) {
       // Note: labels are from 1 to N
-      Index_ la = __ldg(labels_a + tid) - 1;
-      Index_ lb = __ldg(labels_b + tid) - 1;
-      Index_ ra = R[la];
-      Index_ rb = R[lb];
+      value_idx la = __ldg(labels_a + tid) - 1;
+      value_idx lb = __ldg(labels_b + tid) - 1;
+      value_idx ra = R[la];
+      value_idx rb = R[lb];
       if (ra != rb) {
         *m = true;
         // min(ra, rb) would be sufficient but this speeds up convergence
-        Index_ rmin = R[min(ra, rb)];
-        if (sizeof(Index_) == 4) {
+        value_idx rmin = R[min(ra, rb)];
+        if (sizeof(value_idx) == 4) {
           atomicMin((int*)(R + la), rmin);
           atomicMin((int*)(R + lb), rmin);
-        } else if (sizeof(Index_) == 8) {
+        } else if (sizeof(value_idx) == 8) {
           atomicMin((long long int*)(R + la), rmin);
           atomicMin((long long int*)(R + lb), rmin);
         }
@@ -60,19 +61,19 @@ __global__ void __launch_bounds__(TPB_X)
   }
 }
 
-template <typename Index_, int TPB_X = 256>
+template <typename value_idx, int TPB_X = 256>
 __global__ void __launch_bounds__(TPB_X)
-  reassign_label_kernel(Index_* __restrict__ labels_a,
-                        const Index_* __restrict__ labels_b,
-                        const Index_* __restrict__ R, Index_ N,
-                        Index_ MAX_LABEL) {
-  Index_ tid = threadIdx.x + blockIdx.x * TPB_X;
+  reassign_label_kernel(value_idx* __restrict__ labels_a,
+                        const value_idx* __restrict__ labels_b,
+                        const value_idx* __restrict__ R, value_idx N,
+                        value_idx MAX_LABEL) {
+  value_idx tid = threadIdx.x + blockIdx.x * TPB_X;
   if (tid < N) {
     // Note: labels are from 1 to N
-    Index_ la = labels_a[tid];
-    Index_ lb = __ldg(labels_b + tid);
-    Index_ ra = (la == MAX_LABEL) ? MAX_LABEL : __ldg(R + (la - 1)) + 1;
-    Index_ rb = (lb == MAX_LABEL) ? MAX_LABEL : __ldg(R + (lb - 1)) + 1;
+    value_idx la = labels_a[tid];
+    value_idx lb = __ldg(labels_b + tid);
+    value_idx ra = (la == MAX_LABEL) ? MAX_LABEL : __ldg(R + (la - 1)) + 1;
+    value_idx rb = (lb == MAX_LABEL) ? MAX_LABEL : __ldg(R + (lb - 1)) + 1;
     labels_a[tid] = min(ra, rb);
   }
 }
@@ -106,12 +107,13 @@ __global__ void __launch_bounds__(TPB_X)
  * @param[in]    N           Number of points in the dataset
  * @param[in]    stream      CUDA stream
  */
-template <typename Index_ = int, int TPB_X = 256>
-void merge_labels(Index_* labels_a, const Index_* labels_b, const bool* mask,
-                  Index_* R, bool* m, Index_ N, cudaStream_t stream) {
-  dim3 blocks(raft::ceildiv(N, Index_(TPB_X)));
+template <typename value_idx = int, int TPB_X = 256>
+void merge_labels(value_idx* labels_a, const value_idx* labels_b,
+                  const bool* mask, value_idx* R, bool* m, value_idx N,
+                  cudaStream_t stream) {
+  dim3 blocks(raft::ceildiv(N, value_idx(TPB_X)));
   dim3 threads(TPB_X);
-  Index_ MAX_LABEL = std::numeric_limits<Index_>::max();
+  value_idx MAX_LABEL = std::numeric_limits<value_idx>::max();
 
   // Initialize R. R defines the relabeling rules; after merging the input
   // arrays, label l will be reassigned as R[l-1]+1.
@@ -128,7 +130,7 @@ void merge_labels(Index_* labels_a, const Index_* labels_b, const bool* mask,
   do {
     CUDA_CHECK(cudaMemsetAsync(m, false, sizeof(bool), stream));
 
-    propagate_label_kernel<Index_, TPB_X>
+    propagate_label_kernel<value_idx, TPB_X>
       <<<blocks, threads, 0, stream>>>(labels_a, labels_b, R, mask, m, N);
     CUDA_CHECK(cudaPeekAtLastError());
 
@@ -137,7 +139,7 @@ void merge_labels(Index_* labels_a, const Index_* labels_b, const bool* mask,
   } while (host_m);
 
   // Step 2: re-assign minimum equivalent label
-  reassign_label_kernel<Index_, TPB_X>
+  reassign_label_kernel<value_idx, TPB_X>
     <<<blocks, threads, 0, stream>>>(labels_a, labels_b, R, N, MAX_LABEL);
   CUDA_CHECK(cudaPeekAtLastError());
 }

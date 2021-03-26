@@ -33,7 +33,7 @@ namespace label {
  * The y array is assumed to store class labels. The unique values are selected
  * from this array.
  *
- * \tparam math_t numeric type of the arrays with class labels
+ * \tparam value_t numeric type of the arrays with class labels
  * \param [in] y device array of labels, size [n]
  * \param [in] n number of labels
  * \param [out] y_unique device array of unique labels, unallocated on entry,
@@ -42,12 +42,12 @@ namespace label {
  * \param [in] stream cuda stream
  * \param [in] allocator device allocator
  */
-template <typename math_t>
-void getUniquelabels(math_t *y, size_t n, math_t **y_unique, int *n_unique,
+template <typename value_t>
+void getUniquelabels(value_t *y, size_t n, value_t **y_unique, int *n_unique,
                      cudaStream_t stream,
                      std::shared_ptr<raft::mr::device::allocator> allocator) {
-  raft::mr::device::buffer<math_t> y2(allocator, stream, n);
-  raft::mr::device::buffer<math_t> y3(allocator, stream, n);
+  raft::mr::device::buffer<value_t> y2(allocator, stream, n);
+  raft::mr::device::buffer<value_t> y3(allocator, stream, n);
   raft::mr::device::buffer<int> d_num_selected(allocator, stream, 1);
   size_t bytes = 0;
   size_t bytes2 = 0;
@@ -68,7 +68,8 @@ void getUniquelabels(math_t *y, size_t n, math_t **y_unique, int *n_unique,
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   // Copy unique classes to output
-  *y_unique = (math_t *)allocator->allocate(*n_unique * sizeof(math_t), stream);
+  *y_unique =
+    (value_t *)allocator->allocate(*n_unique * sizeof(value_t), stream);
   raft::copy(*y_unique, y3.data(), *n_unique, stream);
 }
 
@@ -78,7 +79,7 @@ void getUniquelabels(math_t *y, size_t n, math_t **y_unique, int *n_unique,
  * The output labels will have values +/-1:
  * y_out = (y == y_unique[idx]) ? +1 : -1;
  *
- * The output type currently is set to math_t, but for SVM in principle we are
+ * The output type currently is set to value_t, but for SVM in principle we are
  * free to choose other type for y_out (it should represent +/-1, and it is used
  * in floating point arithmetics).
  *
@@ -90,15 +91,15 @@ void getUniquelabels(math_t *y, size_t n, math_t **y_unique, int *n_unique,
  * \param [in] idx index of unique label that should be labeled as 1
  * \param [in] stream cuda stream
  */
-template <typename math_t>
-void getOvrlabels(math_t *y, int n, math_t *y_unique, int n_classes,
-                  math_t *y_out, int idx, cudaStream_t stream) {
+template <typename value_t>
+void getOvrlabels(value_t *y, int n, value_t *y_unique, int n_classes,
+                  value_t *y_out, int idx, cudaStream_t stream) {
   ASSERT(idx < n_classes,
          "Parameter idx should not be larger than the number "
          "of classes");
   raft::linalg::unaryOp(
     y_out, y, n,
-    [idx, y_unique] __device__(math_t y) {
+    [idx, y_unique] __device__(value_t y) {
       return y == y_unique[idx] ? +1 : -1;
     },
     stream);

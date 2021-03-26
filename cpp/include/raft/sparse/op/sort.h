@@ -71,11 +71,10 @@ void coo_sort(int m, int n, int nnz, int *rows, int *cols, T *vals,
               std::shared_ptr<raft::mr::device::allocator> d_alloc,
               cudaStream_t stream) {
   auto coo_indices = thrust::make_zip_iterator(thrust::make_tuple(rows, cols));
-  auto coo_vals = thrust::make_zip_iterator(thrust::make_tuple(vals));
 
   // get all the colors in contiguous locations so we can map them to warps.
   thrust::sort_by_key(thrust::cuda::par.on(stream), coo_indices,
-                      coo_indices + nnz, coo_vals, TupleComp());
+                      coo_indices + nnz, vals, TupleComp());
 }
 
 /**

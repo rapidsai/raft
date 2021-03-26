@@ -78,8 +78,16 @@ __global__ void max_duplicates_kernel(const value_idx *src_rows,
 /**
  * Computes a mask from a sorted COO matrix where 0's denote
  * duplicate values and 1's denote new values. This mask can
- * be useful for reducing duplicates, such as when symmetrizing
+ * be useful for computing an exclusive scan to pre-build offsets
+ * for reducing duplicates, such as when symmetrizing
  * or taking the min of each duplicated value.
+ *
+ * Note that this function always marks the first value as 0 so that
+ * a cumulative sum can be performed as a follow-on. However, even
+ * if the mask is used direclty, any duplicates should always have a
+ * 1 when first encountered so it can be assumed that the first element
+ * is always a 1 otherwise.
+ *
  * @tparam value_idx
  * @param[out] mask output mask, size nnz
  * @param[in] rows COO rows array, size nnz
@@ -135,7 +143,6 @@ void max_duplicates(const raft::handle_t &handle,
   value_idx size = 0;
   raft::update_host(&size, diff.data() + (diff.size() - 1), 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
-  //
   size++;
 
   out.allocate(size, m, n, true, stream);
