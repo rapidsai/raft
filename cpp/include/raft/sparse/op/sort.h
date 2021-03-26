@@ -40,9 +40,21 @@ namespace raft {
 namespace sparse {
 namespace op {
 
+struct TupleComp {
+  template <typename one, typename two>
+  __host__ __device__ bool operator()(const one &t1, const two &t2) {
+    // sort first by each sample's color,
+    if (thrust::get<0>(t1) < thrust::get<0>(t2)) return true;
+    if (thrust::get<0>(t1) > thrust::get<0>(t2)) return false;
+
+    // then sort by value in descending order
+    return thrust::get<1>(t1) < thrust::get<1>(t2);
+  }
+};
+
 /**
  * @brief Sorts the arrays that comprise the coo matrix
- * by row.
+ * by row and then by column.
  *
  * @param m number of rows in coo matrix
  * @param n number of cols in coo matrix
@@ -55,37 +67,14 @@ namespace op {
  */
 template <typename T>
 void coo_sort(int m, int n, int nnz, int *rows, int *cols, T *vals,
+              // TODO: Remove this
               std::shared_ptr<raft::mr::device::allocator> d_alloc,
               cudaStream_t stream) {
-  cusparseHandle_t handle = NULL;
+  auto coo_indices = thrust::make_zip_iterator(thrust::make_tuple(rows, cols));
 
-  size_t pBufferSizeInBytes = 0;
-
-  CUSPARSE_CHECK(cusparseCreate(&handle));
-  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
-  CUSPARSE_CHECK(cusparseXcoosort_bufferSizeExt(handle, m, n, nnz, rows, cols,
-                                                &pBufferSizeInBytes));
-
-  raft::mr::device::buffer<int> d_P(d_alloc, stream, nnz);
-  raft::mr::device::buffer<char> pBuffer(d_alloc, stream, pBufferSizeInBytes);
-
-  CUSPARSE_CHECK(cusparseCreateIdentityPermutation(handle, nnz, d_P.data()));
-
-  printf("nnz: %d\n", nnz);
-
-  CUSPARSE_CHECK(cusparseXcoosortByRow(handle, m, n, nnz, rows, cols,
-                                       d_P.data(), pBuffer.data()));
-
-  raft::mr::device::buffer<T> vals_sorted(d_alloc, stream, nnz);
-
-  CUSPARSE_CHECK(raft::sparse::cusparsegthr<T>(
-    handle, nnz, vals, vals_sorted.data(), d_P.data(), stream));
-
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-
-  raft::copy(vals, vals_sorted.data(), nnz, stream);
-
-  CUSPARSE_CHECK(cusparseDestroy(handle));
+  // get all the colors in contiguous locations so we can map them to warps.
+  thrust::sort_by_key(thrust::cuda::par.on(stream), coo_indices,
+                      coo_indices + nnz, vals, TupleComp());
 }
 
 /**
@@ -97,6 +86,7 @@ void coo_sort(int m, int n, int nnz, int *rows, int *cols, T *vals,
  */
 template <typename T>
 void coo_sort(COO<T> *const in,
+              // TODO: Remove this
               std::shared_ptr<raft::mr::device::allocator> d_alloc,
               cudaStream_t stream) {
   coo_sort<T>(in->n_rows, in->n_cols, in->nnz, in->rows(), in->cols(),
