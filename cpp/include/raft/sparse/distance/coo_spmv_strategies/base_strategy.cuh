@@ -43,11 +43,11 @@ class coo_spmv_strategy {
                       accum_f accum_func, write_f write_func, int chunk_size,
                       int n_blocks, int n_blocks_per_row) {
 
-    CUDA_CHECK(cudaFuncSetCacheConfig(
-      balanced_coo_generalized_spmv_kernel<strategy_t, indptr_it, value_idx,
-                                           value_t, tpb, false, product_f,
-                                           accum_f, write_f>,
-      cudaFuncCachePreferShared));
+    // CUDA_CHECK(cudaFuncSetCacheConfig(
+    //   balanced_coo_generalized_spmv_kernel<strategy_t, indptr_it, value_idx,
+    //                                        value_t, tpb, false, product_f,
+    //                                        accum_f, write_f>,
+    //   cudaFuncCachePreferL1));
 
     balanced_coo_generalized_spmv_kernel<strategy_t, indptr_it, value_idx,
                                          value_t, tpb, false>
@@ -66,11 +66,11 @@ class coo_spmv_strategy {
                           accum_f accum_func, write_f write_func,
                           int chunk_size, int n_blocks, int n_blocks_per_row) {
 
-    CUDA_CHECK(cudaFuncSetCacheConfig(
-      balanced_coo_generalized_spmv_kernel<strategy_t, indptr_it, value_idx,
-                                           value_t, tpb, true, product_f,
-                                           accum_f, write_f>,
-      cudaFuncCachePreferShared));
+    // CUDA_CHECK(cudaFuncSetCacheConfig(
+    //   balanced_coo_generalized_spmv_kernel<strategy_t, indptr_it, value_idx,
+    //                                        value_t, tpb, true, product_f,
+    //                                        accum_f, write_f>,
+    //   cudaFuncCachePreferL1));
 
     balanced_coo_generalized_spmv_kernel<strategy_t, indptr_it, value_idx,
                                          value_t, tpb, true>
