@@ -156,7 +156,6 @@ __global__ void count_components_by_color_kernel(value_idx *out_indptr,
          (colors_nn[start_offset + i + 1] != colors_nn[start_offset + i]);
   }
 
-
   agg = BlockReduce(temp_storage).Reduce(v, cub::Sum());
 
   if (threadIdx.x == 0) out_indptr[row] = agg;
@@ -184,7 +183,7 @@ __global__ void min_components_by_color_kernel(
   value_idx row = blockIdx.x;
 
   value_idx out_offset = out_indptr[blockIdx.x];
-  value_idx out_stop_offset = out_indptr[blockIdx.x+1];
+  value_idx out_stop_offset = out_indptr[blockIdx.x + 1];
 
   value_idx start_offset = colors_indptr[row];
   value_idx stop_offset = colors_indptr[row + 1];
@@ -212,10 +211,10 @@ __global__ void min_components_by_color_kernel(
 
   __syncthreads();
 
-  if(threadIdx.x == 0) {
-    if(cur_offset[0] != (out_stop_offset - out_offset)) {
-      printf("row %d only wrote %d offsets and should have written %d\n",
-             row, cur_offset[0], (out_stop_offset - out_offset));
+  if (threadIdx.x == 0) {
+    if (cur_offset[0] != (out_stop_offset - out_offset)) {
+      printf("row %d only wrote %d offsets and should have written %d\n", row,
+             cur_offset[0], (out_stop_offset - out_offset));
     }
   }
 }
@@ -304,10 +303,10 @@ template <typename value_idx>
 value_idx get_n_components(value_idx *colors, size_t n_rows,
                            std::shared_ptr<raft::mr::device::allocator> d_alloc,
                            cudaStream_t stream) {
-
   value_idx *map_ids;
   int num_clusters;
-  raft::label::getUniquelabels(colors, n_rows, &map_ids, &num_clusters, stream, d_alloc);
+  raft::label::getUniquelabels(colors, n_rows, &map_ids, &num_clusters, stream,
+                               d_alloc);
   d_alloc->deallocate(map_ids, num_clusters * sizeof(value_idx), stream);
 
   return num_clusters;
@@ -343,7 +342,8 @@ void build_output_colors_indptr(value_idx *degrees,
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
-  raft::print_device_vector("color_neigh_degrees", degrees, n_components, std::cout);
+  raft::print_device_vector("color_neigh_degrees", degrees, n_components,
+                            std::cout);
 
   thrust::device_ptr<value_idx> t_degrees =
     thrust::device_pointer_cast(degrees);
@@ -454,8 +454,8 @@ void sort_by_color(value_idx *colors, value_idx *nn_colors,
 template <typename value_idx, typename value_t>
 void connect_components(const raft::handle_t &handle,
                         raft::sparse::COO<value_t, value_idx> &out,
-                        const value_t *X, const value_idx *orig_colors, size_t n_rows,
-                        size_t n_cols,
+                        const value_t *X, const value_idx *orig_colors,
+                        size_t n_rows, size_t n_cols,
                         raft::distance::DistanceType metric =
                           raft::distance::DistanceType::L2SqrtExpanded) {
   auto d_alloc = handle.get_device_allocator();
@@ -469,9 +469,11 @@ void connect_components(const raft::handle_t &handle,
   raft::copy_async(colors.data(), orig_colors, n_rows, stream);
 
   // Normalize colors so they are drawn from a monotonically increasing set
-  raft::label::make_monotonic(colors.data(), colors.data(), n_rows, stream, d_alloc);
+  raft::label::make_monotonic(colors.data(), colors.data(), n_rows, stream,
+                              d_alloc);
 
-  value_idx n_components = get_n_components(colors.data(), n_rows, d_alloc, stream);
+  value_idx n_components =
+    get_n_components(colors.data(), n_rows, d_alloc, stream);
 
   printf("Found %d components. Going to try connecting graph\n", n_components);
 
@@ -486,8 +488,8 @@ void connect_components(const raft::handle_t &handle,
   rmm::device_uvector<value_idx> color_neigh_degrees(n_components + 1, stream);
   rmm::device_uvector<value_idx> colors_indptr(n_components + 1, stream);
 
-  perform_1nn(temp_inds_dists.data(), nn_colors.data(), colors.data(), X, n_rows,
-              n_cols, d_alloc, stream);
+  perform_1nn(temp_inds_dists.data(), nn_colors.data(), colors.data(), X,
+              n_rows, n_cols, d_alloc, stream);
 
   /**
    * Sort data points by color (neighbors are not sorted)
@@ -498,7 +500,8 @@ void connect_components(const raft::handle_t &handle,
                 src_indices.data(), n_rows, stream);
 
   // create an indptr array for newly sorted colors
-  raft::sparse::convert::sorted_coo_to_csr(colors.data(), n_rows, colors_indptr.data(),
+  raft::sparse::convert::sorted_coo_to_csr(colors.data(), n_rows,
+                                           colors_indptr.data(),
                                            n_components + 1, d_alloc, stream);
 
   CUDA_CHECK(cudaStreamSynchronize(stream));

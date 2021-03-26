@@ -58,12 +58,10 @@ void sort_coo_by_data(value_idx *rows, value_idx *cols, value_t *data,
                       first);
 }
 
-template<typename value_idx, typename value_t>
-void merge_msts(
-  raft::Graph_COO<value_idx, value_idx, value_t> &coo1,
-  raft::Graph_COO<value_idx, value_idx, value_t> &coo2,
-  cudaStream_t stream) {
-
+template <typename value_idx, typename value_t>
+void merge_msts(raft::Graph_COO<value_idx, value_idx, value_t> &coo1,
+                raft::Graph_COO<value_idx, value_idx, value_t> &coo2,
+                cudaStream_t stream) {
   /** Add edges to existing mst **/
   int final_nnz = coo2.n_edges + coo1.n_edges;
 
@@ -98,12 +96,11 @@ void merge_msts(
  * @return updated MST edge list
  */
 template <typename value_idx, typename value_t>
-void connect_knn_graph(
-  const raft::handle_t &handle, const value_t *X,
-  raft::Graph_COO<value_idx, value_idx, value_t> &msf, size_t m, size_t n,
-  value_idx *color,
-  raft::distance::DistanceType metric =
-    raft::distance::DistanceType::L2SqrtExpanded) {
+void connect_knn_graph(const raft::handle_t &handle, const value_t *X,
+                       raft::Graph_COO<value_idx, value_idx, value_t> &msf,
+                       size_t m, size_t n, value_idx *color,
+                       raft::distance::DistanceType metric =
+                         raft::distance::DistanceType::L2SqrtExpanded) {
   auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
 
@@ -114,9 +111,9 @@ void connect_knn_graph(
 
   rmm::device_uvector<value_idx> indptr2(m + 1, stream);
 
-  raft::sparse::convert::sorted_coo_to_csr(connected_edges.rows(), connected_edges.nnz,
-                                           indptr2.data(), m + 1, d_alloc, stream);
-
+  raft::sparse::convert::sorted_coo_to_csr(connected_edges.rows(),
+                                           connected_edges.nnz, indptr2.data(),
+                                           m + 1, d_alloc, stream);
 
   printf("Connected edges: %d\n", connected_edges.nnz);
 
@@ -177,12 +174,13 @@ void build_sorted_mst(const raft::handle_t &handle, const value_t *X,
   printf("Original MST edges: %d\n", mst_coo.n_edges);
 
   int iters = 1;
-  int n_components = linkage::get_n_components(color.data(), m, d_alloc, stream);
+  int n_components =
+    linkage::get_n_components(color.data(), m, d_alloc, stream);
 
   while (n_components > 1 && iters < max_iter) {
 #ifdef POST_PASCAL
     connect_knn_graph<value_idx, value_t>(handle, X, mst_coo, m, n,
-                                                    color.data());
+                                          color.data());
 
     iters++;
 
