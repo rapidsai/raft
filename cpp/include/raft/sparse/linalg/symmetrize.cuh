@@ -317,8 +317,6 @@ void symmetrize(const raft::handle_t &handle, const value_idx *rows,
   auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
 
-  auto exec_policy = rmm::exec_policy(stream);
-
   // copy rows to cols and cols to rows
   rmm::device_uvector<value_idx> symm_rows(nnz * 2, stream);
   rmm::device_uvector<value_idx> symm_cols(nnz * 2, stream);
@@ -333,7 +331,7 @@ void symmetrize(const raft::handle_t &handle, const value_idx *rows,
   raft::copy_async(symm_vals.data() + nnz, vals, nnz, stream);
 
   // sort COO
-  raft::sparse::op::coo_sort((value_idx)m, (value_idx)n, (value_idx)nnz,
+  raft::sparse::op::coo_sort((value_idx)m, (value_idx)n, (value_idx)nnz * 2,
                              symm_rows.data(), symm_cols.data(),
                              symm_vals.data(), d_alloc, stream);
 

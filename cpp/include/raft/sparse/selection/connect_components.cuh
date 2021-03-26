@@ -218,9 +218,17 @@ void perform_1nn(cub::KeyValuePair<value_idx, value_t> *kvp,
                                        n_rows, n_rows, n_cols, workspace.data(),
                                        red_op, red_op, true, true, stream);
 
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+
+  printf("Finished fusedl2nn");
+
   LookupColorOp<value_idx, value_t> extract_colors_op(colors);
   thrust::transform(thrust::cuda::par.on(stream), kvp, kvp + n_rows, nn_colors,
                     extract_colors_op);
+
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+
+  printf("Finished thrust transform");
 }
 
 /**
@@ -354,6 +362,10 @@ void connect_components(const raft::handle_t &handle,
   perform_1nn(temp_inds_dists.data(), nn_colors.data(), colors.data(), X,
               n_rows, n_cols, d_alloc, stream);
 
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+
+  printf("Finished 1nn");
+
   /**
    * Sort data points by color (neighbors are not sorted)
    */
@@ -361,6 +373,9 @@ void connect_components(const raft::handle_t &handle,
   // sort nn_colors by key w/ original colors
   sort_by_color(colors.data(), nn_colors.data(), temp_inds_dists.data(),
                 src_indices.data(), n_rows, stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+
+  printf("Finished sort by color");
 
   /**
    * Take the min for any duplicate colors

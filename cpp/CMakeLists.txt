@@ -297,6 +297,7 @@ if(BUILD_RAFT_TESTS)
     test/sparse/knn_graph.cu
     test/sparse/linkage.cu
     test/sparse/norm.cu
+    test/sparse/reduce.cu
     test/sparse/row_op.cu
     test/sparse/selection.cu
     test/sparse/sort.cu
