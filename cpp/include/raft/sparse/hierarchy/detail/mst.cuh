@@ -110,7 +110,6 @@ void connect_knn_graph(const raft::handle_t &handle, const value_t *X,
                                                         X, color, m, n);
 
   rmm::device_uvector<value_idx> indptr2(m + 1, stream);
-
   raft::sparse::convert::sorted_coo_to_csr(connected_edges.rows(),
                                            connected_edges.nnz, indptr2.data(),
                                            m + 1, d_alloc, stream);
@@ -174,18 +173,12 @@ void build_sorted_mst(const raft::handle_t &handle, const value_t *X,
     linkage::get_n_components(color.data(), m, d_alloc, stream);
 
   while (n_components > 1 && iters < max_iter) {
-#ifdef POST_PASCAL
     connect_knn_graph<value_idx, value_t>(handle, X, mst_coo, m, n,
                                           color.data());
 
     iters++;
 
     n_components = linkage::get_n_components(color.data(), m, d_alloc, stream);
-#else
-    RAFT_FAIL(
-      "Connecting an unconnected KNN graph requires Volta or newer "
-      "architecture");
-#endif
   }
 
   /**
