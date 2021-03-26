@@ -531,6 +531,8 @@ void connect_components(const raft::handle_t &handle,
   raft::print_device_vector("rows", out.rows(), out.nnz, std::cout);
   raft::print_device_vector("cols", out.cols(), out.nnz, std::cout);
   raft::print_device_vector("vals", out.vals(), out.nnz, std::cout);
+
+  printf("out.nnz: %d\n", out.nnz);
 }
 
 };  // end namespace linkage

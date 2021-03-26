@@ -58,6 +58,32 @@ void sort_coo_by_data(value_idx *rows, value_idx *cols, value_t *data,
                       first);
 }
 
+template<typename value_idx, typename value_t>
+void merge_msts(
+  raft::Graph_COO<value_idx, value_idx, value_t> &coo1,
+  raft::Graph_COO<value_idx, value_idx, value_t> &coo2,
+  cudaStream_t stream) {
+
+  /** Add edges to existing mst **/
+  int final_nnz = coo2.n_edges + coo1.n_edges;
+
+  coo1.src.resize(final_nnz, stream);
+  coo1.dst.resize(final_nnz, stream);
+  coo1.weights.resize(final_nnz, stream);
+
+  /**
+   * Construct final edge list
+   */
+  raft::copy_async(coo1.src.data() + coo1.n_edges, coo2.src.data(),
+                   coo2.n_edges, stream);
+  raft::copy_async(coo1.dst.data() + coo1.n_edges, coo2.dst.data(),
+                   coo2.n_edges, stream);
+  raft::copy_async(coo1.weights.data() + coo1.n_edges, coo2.weights.data(),
+                   coo2.n_edges, stream);
+
+  coo1.n_edges = final_nnz;
+}
+
 /**
  * Connect an unconnected knn graph (one in which mst returns an msf). The
  * device buffers underlying the Graph_COO object are modified in-place.
@@ -68,11 +94,11 @@ void sort_coo_by_data(value_idx *rows, value_idx *cols, value_t *data,
  * @param[inout] msf edge list containing the mst result
  * @param[in] m number of rows in X
  * @param[in] n number of columns in X
- * @param[in] color the color labels array returned from the mst invocation
+ * @param[inout] color the color labels array returned from the mst invocation
  * @return updated MST edge list
  */
 template <typename value_idx, typename value_t>
-raft::Graph_COO<value_idx, value_idx, value_t> connect_knn_graph(
+void connect_knn_graph(
   const raft::handle_t &handle, const value_t *X,
   raft::Graph_COO<value_idx, value_idx, value_t> &msf, size_t m, size_t n,
   value_idx *color,
@@ -86,47 +112,21 @@ raft::Graph_COO<value_idx, value_idx, value_t> connect_knn_graph(
   raft::linkage::connect_components<value_idx, value_t>(handle, connected_edges,
                                                         X, color, m, n);
 
-  int final_nnz = connected_edges.nnz + msf.n_edges;
-
-  msf.src.resize(final_nnz, stream);
-  msf.dst.resize(final_nnz, stream);
-  msf.weights.resize(final_nnz, stream);
-
-  /**
-   * Construct final edge list
-   */
-  raft::copy_async(msf.src.data() + msf.n_edges, connected_edges.rows(),
-                   connected_edges.nnz, stream);
-  raft::copy_async(msf.dst.data() + msf.n_edges, connected_edges.cols(),
-                   connected_edges.nnz, stream);
-  raft::copy_async(msf.weights.data() + msf.n_edges, connected_edges.vals(),
-                   connected_edges.nnz, stream);
-
-  raft::sparse::COO<value_t, value_idx> final_coo(d_alloc, stream);
-  raft::sparse::linalg::symmetrize(handle, msf.src.data(), msf.dst.data(),
-                                   msf.weights.data(), m, n, final_nnz,
-                                   final_coo);
-
   rmm::device_uvector<value_idx> indptr2(m + 1, stream);
 
-  raft::sparse::convert::sorted_coo_to_csr(final_coo.rows(), final_coo.nnz,
-                                           indptr2.data(), m+1, d_alloc, stream);
+  raft::sparse::convert::sorted_coo_to_csr(connected_edges.rows(), connected_edges.nnz,
+                                           indptr2.data(), m + 1, d_alloc, stream);
 
-  value_idx max_offset = 0;
-  raft::update_host(&max_offset, indptr2.data() + m, 1, stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
 
-  max_offset += (final_nnz - max_offset);
+  printf("Connected edges: %d\n", connected_edges.nnz);
 
-  raft::update_device(indptr2.data() + m, &max_offset, 1, stream);
+  // On the second call, we hand the MST the original colors
+  // and the new set of edges and let it restart the optimization process
+  auto new_mst = raft::mst::mst<value_idx, value_idx, value_t>(
+    handle, indptr2.data(), connected_edges.cols(), connected_edges.vals(), m,
+    connected_edges.nnz, color, stream, false, false);
 
-//
-  printf("connected nnz: %d, max_offset: %d\n", final_nnz, max_offset);
-
-  // We don't want MST to initialize colors on second call.
-  return raft::mst::mst<value_idx, value_idx, value_t>(
-    handle, indptr2.data(), final_coo.cols(), final_coo.vals(), m,
-    final_coo.nnz, color, stream, false, true);
+  merge_msts<value_idx, value_t>(msf, new_mst, stream);
 }
 
 /**
@@ -174,12 +174,14 @@ void build_sorted_mst(const raft::handle_t &handle, const value_t *X,
     handle, indptr, indices, pw_dists, (value_idx)m, nnz, color.data(), stream,
     false, true);
 
+  printf("Original MST edges: %d\n", mst_coo.n_edges);
+
   int iters = 1;
   int n_components = linkage::get_n_components(color.data(), m, d_alloc, stream);
 
   while (n_components > 1 && iters < max_iter) {
 #ifdef POST_PASCAL
-    mst_coo = connect_knn_graph<value_idx, value_t>(handle, X, mst_coo, m, n,
+    connect_knn_graph<value_idx, value_t>(handle, X, mst_coo, m, n,
                                                     color.data());
 
     iters++;

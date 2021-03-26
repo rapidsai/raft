@@ -381,7 +381,7 @@ void symmetrize(const raft::handle_t &handle, const value_idx *rows,
   raft::update_host(&size, diff.data() + (diff.size() - 1), 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 //
-//  size++;
+  size++;
 
   out.allocate(size, m, n, true, stream);
 
