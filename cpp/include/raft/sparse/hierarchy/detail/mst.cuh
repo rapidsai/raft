@@ -114,11 +114,6 @@ void connect_knn_graph(const raft::handle_t &handle, const value_t *X,
   raft::sparse::convert::sorted_coo_to_csr(connected_edges.rows(),
                                            connected_edges.nnz, indptr2.data(),
                                            m + 1, d_alloc, stream);
-<<<<<<< HEAD
-=======
-
-  printf("Connected edges: %d\n", connected_edges.nnz);
->>>>>>> 012760ec4b269d7365df1bfbcd98c12a0daa40b4
 
   // On the second call, we hand the MST the original colors
   // and the new set of edges and let it restart the optimization process

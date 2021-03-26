@@ -208,15 +208,6 @@ __global__ void min_components_by_color_kernel(
       atomicCAS(mutex, 1, 0);
     }
   }
-
-  __syncthreads();
-
-  if (threadIdx.x == 0) {
-    if (cur_offset[0] != (out_stop_offset - out_offset)) {
-      printf("row %d only wrote %d offsets and should have written %d\n", row,
-             cur_offset[0], (out_stop_offset - out_offset));
-    }
-  }
 }
 
 /**
@@ -339,11 +330,6 @@ void build_output_colors_indptr(value_idx *degrees,
 
   count_components_by_color(degrees, components_indptr, nn_components,
                             n_components, stream);
-
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-
-  raft::print_device_vector("color_neigh_degrees", degrees, n_components,
-                            std::cout);
 
   thrust::device_ptr<value_idx> t_degrees =
     thrust::device_pointer_cast(degrees);
@@ -475,8 +461,6 @@ void connect_components(const raft::handle_t &handle,
   value_idx n_components =
     get_n_components(colors.data(), n_rows, d_alloc, stream);
 
-  printf("Found %d components. Going to try connecting graph\n", n_components);
-
   /**
    * First compute 1-nn for all colors where the color of each data point
    * is guaranteed to be != color of its nearest neighbor.
@@ -504,10 +488,6 @@ void connect_components(const raft::handle_t &handle,
                                            colors_indptr.data(),
                                            n_components + 1, d_alloc, stream);
 
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-  raft::print_device_vector("colors_indptr", colors_indptr.data(),
-                            colors_indptr.size(), std::cout);
-
   // create output degree array for closest components per row
   // Every component should be represented by at least one neighbor.
   // If there are any 0 degrees, there's a problem
@@ -518,9 +498,6 @@ void connect_components(const raft::handle_t &handle,
   raft::update_host(&nnz, color_neigh_degrees.data() + n_components, 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
-  raft::print_device_vector("color_neigh_degrees", color_neigh_degrees.data(),
-                            color_neigh_degrees.size(), std::cout);
-
   raft::sparse::COO<value_t, value_idx> min_edges(d_alloc, stream, nnz);
   min_components_by_color(min_edges, color_neigh_degrees.data(),
                           colors_indptr.data(), nn_colors.data(),
@@ -530,12 +507,6 @@ void connect_components(const raft::handle_t &handle,
   // symmetrize to remove duplicates
   raft::sparse::linalg::symmetrize(handle, min_edges.rows(), min_edges.cols(),
                                    min_edges.vals(), n_rows, n_rows, nnz, out);
-
-  raft::print_device_vector("rows", out.rows(), out.nnz, std::cout);
-  raft::print_device_vector("cols", out.cols(), out.nnz, std::cout);
-  raft::print_device_vector("vals", out.vals(), out.nnz, std::cout);
-
-  printf("out.nnz: %d\n", out.nnz);
 }
 
 };  // end namespace linkage
