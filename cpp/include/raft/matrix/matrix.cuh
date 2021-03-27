@@ -24,6 +24,7 @@
 #include <thrust/execution_policy.h>
 #include <algorithm>
 #include <cstddef>
+#include <raft/cache/cache_util.cuh>
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
 
@@ -52,7 +53,12 @@ void copyRows(const m_t *in, idx_t n_rows, idx_t n_cols, m_t *out,
               const idx_array_t *indices, idx_t n_rows_indices,
               cudaStream_t stream, bool rowMajor = false) {
   if (rowMajor) {
-    ASSERT(false, "matrix.h: row major is not supported yet!");
+    const idx_t TPB = 256;
+    cache::
+      get_vecs<<<raft::ceildiv(n_rows_indices * n_cols, TPB), TPB, 0, stream>>>(
+        in, n_cols, indices, n_rows_indices, out);
+    CUDA_CHECK(cudaPeekAtLastError());
+    return;
   }
 
   idx_t size = n_rows_indices * n_cols;
