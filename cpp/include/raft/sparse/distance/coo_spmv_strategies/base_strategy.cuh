@@ -29,7 +29,7 @@ namespace raft {
 namespace sparse {
 namespace distance {
 
-template <typename value_idx, typename value_t, int tpb>
+template <typename value_idx, typename value_t>
 class coo_spmv_strategy {
  public:
   coo_spmv_strategy(const distances_config_t<value_idx, value_t> &config_)
@@ -41,20 +41,20 @@ class coo_spmv_strategy {
                       indptr_it &a_indptr, value_t *out_dists,
                       value_idx *coo_rows_b, product_f product_func,
                       accum_f accum_func, write_f write_func, int chunk_size,
-                      int n_blocks, int n_blocks_per_row) {
+                      int n_blocks, int n_blocks_per_row, int tpb=1024) {
 
-    // CUDA_CHECK(cudaFuncSetCacheConfig(
-    //   balanced_coo_generalized_spmv_kernel<strategy_t, indptr_it, value_idx,
-    //                                        value_t, tpb, false, product_f,
-    //                                        accum_f, write_f>,
-    //   cudaFuncCachePreferL1));
+    CUDA_CHECK(cudaFuncSetCacheConfig(
+      balanced_coo_generalized_spmv_kernel<strategy_t, indptr_it, value_idx,
+                                           value_t, false, product_f,
+                                           accum_f, write_f>,
+      cudaFuncCachePreferShared));
 
     balanced_coo_generalized_spmv_kernel<strategy_t, indptr_it, value_idx,
-                                         value_t, tpb, false>
+                                         value_t, false>
       <<<n_blocks, tpb, smem, config.stream>>>(
         strategy, a_indptr, config.a_indices, config.a_data, config.a_nnz,
         coo_rows_b, config.b_indices, config.b_data, config.a_nrows,
-        config.b_nrows, smem_dim, config.b_nnz, out_dists, n_blocks_per_row,
+        config.b_nrows, smem_dim, tpb, config.b_nnz, out_dists, n_blocks_per_row,
         chunk_size, product_func, accum_func, write_func);
   }
 
@@ -64,20 +64,20 @@ class coo_spmv_strategy {
                           indptr_it &b_indptr, value_t *out_dists,
                           value_idx *coo_rows_a, product_f product_func,
                           accum_f accum_func, write_f write_func,
-                          int chunk_size, int n_blocks, int n_blocks_per_row) {
+                          int chunk_size, int n_blocks, int n_blocks_per_row, int tpb=1024) {
 
-    // CUDA_CHECK(cudaFuncSetCacheConfig(
-    //   balanced_coo_generalized_spmv_kernel<strategy_t, indptr_it, value_idx,
-    //                                        value_t, tpb, true, product_f,
-    //                                        accum_f, write_f>,
-    //   cudaFuncCachePreferL1));
+    CUDA_CHECK(cudaFuncSetCacheConfig(
+      balanced_coo_generalized_spmv_kernel<strategy_t, indptr_it, value_idx,
+                                           value_t, true, product_f,
+                                           accum_f, write_f>,
+      cudaFuncCachePreferShared));
 
     balanced_coo_generalized_spmv_kernel<strategy_t, indptr_it, value_idx,
-                                         value_t, tpb, true>
+                                         value_t, true>
       <<<n_blocks, tpb, smem, config.stream>>>(
         strategy, b_indptr, config.b_indices, config.b_data, config.b_nnz,
         coo_rows_a, config.a_indices, config.a_data, config.b_nrows,
-        config.a_nrows, smem_dim, config.a_nnz, out_dists, n_blocks_per_row,
+        config.a_nrows, smem_dim, tpb, config.a_nnz, out_dists, n_blocks_per_row,
         chunk_size, product_func, accum_func, write_func);
   }
 

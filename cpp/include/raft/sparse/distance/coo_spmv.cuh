@@ -87,10 +87,10 @@ inline void balanced_coo_pairwise_generalized_spmv(
   config_.stream));
 
   auto smem =
-  dense_smem_strategy<value_idx, value_t, threads_per_block>::smem_per_block(
+  dense_smem_strategy<value_idx, value_t>::smem_per_block(
   config_.a_ncols);
   if (smem != -1) {
-    dense_smem_strategy<value_idx, value_t, threads_per_block> strategy(config_,
+    dense_smem_strategy<value_idx, value_t> strategy(config_,
                                                                   smem);
     strategy.dispatch(out_dists, coo_rows_b, product_func, accum_func,
                 write_func, chunk_size);
@@ -149,10 +149,10 @@ inline void balanced_coo_pairwise_generalized_spmv_rev(
   write_f write_func) {
   // try dense first
   auto smem =
-  dense_smem_strategy<value_idx, value_t, threads_per_block>::smem_per_block(
+  dense_smem_strategy<value_idx, value_t>::smem_per_block(
   config_.a_ncols);
     if (smem != -1) {
-    dense_smem_strategy<value_idx, value_t, threads_per_block> strategy(config_,
+    dense_smem_strategy<value_idx, value_t> strategy(config_,
                                                                   smem);
     strategy.dispatch_rev(out_dists, coo_rows_a, product_func, accum_func,
                     write_func, chunk_size);

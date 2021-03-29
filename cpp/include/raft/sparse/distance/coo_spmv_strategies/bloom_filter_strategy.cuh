@@ -25,7 +25,7 @@ namespace sparse {
 namespace distance {
 
 template <typename value_idx, typename value_t>
-class bloom_filter_strategy : public coo_spmv_strategy<value_idx, value_t, 1024> {
+class bloom_filter_strategy : public coo_spmv_strategy<value_idx, value_t> {
 
 public:
     using smem_type = uint32_t *;
@@ -37,7 +37,7 @@ public:
     using Hash3 = cuco::detail::MurmurHash3_32<value_idx>;
   
     bloom_filter_strategy(const distances_config_t<value_idx, value_t> &config_, mask_row_it<value_idx> &row_it_)
-      : coo_spmv_strategy<value_idx, value_t, 1024>(config_),
+      : coo_spmv_strategy<value_idx, value_t>(config_),
         row_it(row_it_),
         hash1(config_.a_nnz),
         hash2(config_.a_nrows),
@@ -83,7 +83,7 @@ public:
             mask_row_it<value_idx> row_it_128(this->config.a_indptr, std::get<0>(block_counts), mask_indptr.data());
             this->_dispatch_base(*this, filter_bits<128>(), nnz_in_filter<128>(), row_it_128, out_dists, coo_rows_b,
             product_func, accum_func, write_func, chunk_size,
-            row_it_128.n_rows * n_blocks_per_row, n_blocks_per_row);
+            row_it_128.n_rows * n_blocks_per_row, n_blocks_per_row, 128);
         }
 
         if (std::get<1>(block_counts) > 0) {
@@ -92,7 +92,7 @@ public:
             mask_row_it<value_idx> row_it_256(this->config.a_indptr, std::get<1>(block_counts), mask_indptr.data() + std::get<0>(block_counts));
             this->_dispatch_base(*this, filter_bits<256>(), nnz_in_filter<256>(), row_it_256, out_dists, coo_rows_b,
             product_func, accum_func, write_func, chunk_size,
-            row_it_256.n_rows * n_blocks_per_row, n_blocks_per_row);
+            row_it_256.n_rows * n_blocks_per_row, n_blocks_per_row, 256);
         }
 
         if (std::get<2>(block_counts) > 0) {
@@ -101,7 +101,7 @@ public:
             mask_row_it<value_idx> row_it_512(this->config.a_indptr, std::get<2>(block_counts), mask_indptr.data() + std::get<0>(block_counts) + std::get<1>(block_counts));
             this->_dispatch_base(*this, filter_bits<512>(), nnz_in_filter<512>(), row_it_512, out_dists, coo_rows_b,
             product_func, accum_func, write_func, chunk_size,
-            row_it_512.n_rows * n_blocks_per_row, n_blocks_per_row);
+            row_it_512.n_rows * n_blocks_per_row, n_blocks_per_row, 512);
         }
 
         if (std::get<3>(block_counts) > 0) {
@@ -110,7 +110,7 @@ public:
             mask_row_it<value_idx> row_it_1024(this->config.a_indptr, std::get<3>(block_counts), mask_indptr.data() + std::get<0>(block_counts) + std::get<1>(block_counts) + std::get<2>(block_counts));
             this->_dispatch_base(*this, filter_bits<1024>(), nnz_in_filter<1024>(), row_it_1024, out_dists, coo_rows_b,
             product_func, accum_func, write_func, chunk_size,
-            row_it_1024.n_rows * n_blocks_per_row, n_blocks_per_row);
+            row_it_1024.n_rows * n_blocks_per_row, n_blocks_per_row, 1024);
         }
     }
 

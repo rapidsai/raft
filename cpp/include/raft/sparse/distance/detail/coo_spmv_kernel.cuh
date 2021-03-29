@@ -78,12 +78,12 @@
   * @param[in] write_func atomic semiring sum() function
   */
  template <typename strategy_t, typename indptr_it, typename value_idx,
-           typename value_t, int tpb, bool rev, typename product_f,
+           typename value_t, bool rev, typename product_f,
            typename accum_f, typename write_f>
  __global__ void balanced_coo_generalized_spmv_kernel(
    strategy_t strategy, indptr_it indptrA, value_idx *indicesA, value_t *dataA,
    value_idx nnz_a, value_idx *rowsB, value_idx *indicesB, value_t *dataB,
-   value_idx m, value_idx n, value_idx dim, value_idx nnz_b, value_t *out,
+   value_idx m, value_idx n, int dim, int tpb, value_idx nnz_b, value_t *out,
    int n_blocks_per_row, int chunk_size, product_f product_func,
    accum_f accum_func, write_f write_func) {
    typedef cub::WarpReduce<value_t> warp_reduce;
