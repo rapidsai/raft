@@ -184,9 +184,9 @@ class dice_expanded_distances_t : public distances_t<value_t> {
       config_->handle, config_->allocator, config_->stream,
       [] __device__ __host__(value_t dot, value_t q_norm, value_t r_norm) {
         value_t q_r_union = q_norm + r_norm;
-        // deal with potential for 0 in denominator by forcing 0/1 instead
-        return 1 -
-               ((q_r_union != 0) * (2 * dot)) / ((q_r_union == 0) + q_r_union);
+        value_t dice = (2 * dot) / q_r_union;
+        bool both_empty = q_r_union == 0;
+        return 1 - ((!both_empty * dice) + both_empty);
       });
   }
 
