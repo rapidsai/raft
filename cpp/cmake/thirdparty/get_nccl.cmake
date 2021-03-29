@@ -38,7 +38,7 @@ function(find_and_configure_nccl)
         DOWNLOAD_ONLY   YES
     )
 
-    set(NCCL_SOURCE_DIR "${RAFT_SOURCE_DIR}" PARENT_SCOPE)
+    set(nccl_SOURCE_DIR "${nccl_SOURCE_DIR}" PARENT_SCOPE)
 
     if (nccl_ADDED)
         # todo (DD): Add building nccl from source, works fine for conda installed for now

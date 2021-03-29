@@ -41,7 +41,7 @@ function(find_and_configure_faiss)
         #                 BLAS_LIBRARIES ${BLAS_LIBRARIES}"
     )
 
-    set(NCCL_SOURCE_DIR "${RAFT_SOURCE_DIR}" PARENT_SCOPE)
+    set(faiss_SOURCE_DIR "${faiss_SOURCE_DIR}" PARENT_SCOPE)
 
     if (faiss_ADDED)
         # todo (DD): Test building faiss statically
