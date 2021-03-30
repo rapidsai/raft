@@ -99,7 +99,7 @@ struct KernelPolicy {
     SmemSize = 2 * SmemPage * sizeof(DataT),
   };  // enum
 
-};    // struct KernelPolicy
+};  // struct KernelPolicy
 
 template <typename DataT, int _veclen, int _kblk, int _rpt, int _cpt, int _tr,
           int _tc>
@@ -143,7 +143,7 @@ struct ColKernelPolicy {
     SmemPage = SmemPageX + SmemPageY,
     /** size (in B) for smem needed */
     SmemSize = 2 * SmemPage * sizeof(DataT),
-  }; // colMajor enum
+  };  // colMajor enum
   static_assert(Mblk == Nblk, "Mblk should be equal to Nblk");
 };
 /**
@@ -180,7 +180,8 @@ struct Policy4x4<double, _veclen> {
  * @tparam Policy policy used to customize memory access behavior.
  *                See documentation for `KernelPolicy` to know more.
  */
-template <typename DataT, typename IdxT, typename Policy, bool isRowMajor = true>
+template <typename DataT, typename IdxT, typename Policy,
+          bool isRowMajor = true>
 struct Contractions_NT {
  protected:
   typedef Policy P;
@@ -291,18 +292,18 @@ struct Contractions_NT {
       sy(&(sx[P::SmemPageX])),
       pageWr(0),
       pageRd(0) {
-        if (isRowMajor) {
-          xrowid = IdxT(blockIdx.x) * P::Mblk + srowid;
-          yrowid = IdxT(blockIdx.y) * P::Nblk + srowid;
-          x = _x + xrowid * lda;
-          y = _y + yrowid * ldb;
-        } else {
-          xrowid = IdxT(blockIdx.x) * P::Mblk;
-          yrowid = IdxT(blockIdx.y) * P::Nblk;
-          x = _x + xrowid + srowid * lda;
-          y = _y + yrowid + srowid * ldb;
-        }
-      }
+    if (isRowMajor) {
+      xrowid = IdxT(blockIdx.x) * P::Mblk + srowid;
+      yrowid = IdxT(blockIdx.y) * P::Nblk + srowid;
+      x = _x + xrowid * lda;
+      y = _y + yrowid * ldb;
+    } else {
+      xrowid = IdxT(blockIdx.x) * P::Mblk;
+      yrowid = IdxT(blockIdx.y) * P::Nblk;
+      x = _x + xrowid + srowid * lda;
+      y = _y + yrowid + srowid * ldb;
+    }
+  }
 
  protected:
   /**
@@ -341,7 +342,7 @@ struct Contractions_NT {
         if (koffset < lda && (xrowid + i * P::LdgRowsX) < numRows) {
           ldg(ldgDataX[i], x + i * P::LdgRowsX * lda + koffset);
         } else {
-  #pragma unroll
+#pragma unroll
           for (int j = 0; j < P::Veclen; ++j) {
             ldgDataX[i][j] = Zero;
           }
@@ -351,10 +352,11 @@ struct Contractions_NT {
       const auto numRows = k;
       auto koffset = scolid;
       for (int i = 0; i < P::LdgPerThX; ++i) {
-        if ((koffset + xrowid) < lda && (srowid + kidx + i * P::LdgRowsX) < numRows) {
+        if ((koffset + xrowid) < lda &&
+            (srowid + kidx + i * P::LdgRowsX) < numRows) {
           ldg(ldgDataX[i], x + (kidx + i * P::LdgRowsX) * lda + koffset);
         } else {
-  #pragma unroll
+#pragma unroll
           for (int j = 0; j < P::Veclen; ++j) {
             ldgDataX[i][j] = Zero;
           }
@@ -371,7 +373,7 @@ struct Contractions_NT {
         if (koffset < ldb && (yrowid + i * P::LdgRowsY) < numRows) {
           ldg(ldgDataY[i], y + i * P::LdgRowsY * ldb + koffset);
         } else {
-  #pragma unroll
+#pragma unroll
           for (int j = 0; j < P::Veclen; ++j) {
             ldgDataY[i][j] = Zero;
           }
@@ -381,10 +383,11 @@ struct Contractions_NT {
       auto numRows = k;
       auto koffset = scolid;
       for (int i = 0; i < P::LdgPerThY; ++i) {
-        if ((koffset + yrowid) < ldb && ((threadIdx.x / P::LdgThRow) + kidx + i * P::LdgRowsY) < numRows) {
+        if ((koffset + yrowid) < ldb &&
+            (srowid + kidx + i * P::LdgRowsY) < numRows) {
           ldg(ldgDataY[i], y + (kidx + i * P::LdgRowsY) * ldb + koffset);
         } else {
-  #pragma unroll
+#pragma unroll
           for (int j = 0; j < P::Veclen; ++j) {
             ldgDataY[i][j] = Zero;
           }
@@ -445,7 +448,6 @@ struct Contractions_NT {
         }
       }
     }
-
   }
 
 };  // struct Contractions_NT
