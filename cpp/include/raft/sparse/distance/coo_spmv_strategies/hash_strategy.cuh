@@ -26,7 +26,7 @@
  namespace distance {
 
  template <typename value_idx, typename value_t, int tpb>
- class hash_strategy : public coo_spmv_strategy<value_idx, value_t, tpb> {
+ class hash_strategy : public coo_spmv_strategy<value_idx, value_t> {
   public:
    // namespace cg = cooperative_groups;
    using insert_type =
@@ -37,29 +37,29 @@
      typename cuco::static_map<value_idx, value_t,
                                cuda::thread_scope_block>::device_view;
 
-   hash_strategy(const distances_config_t<value_idx, value_t> &config_)
-     : coo_spmv_strategy<value_idx, value_t, tpb>(config_), mask_indptr(1) {
+   hash_strategy(const distances_config_t<value_idx, value_t> &config_, float capacity_threshold_ = 0.5)
+     : coo_spmv_strategy<value_idx, value_t>(config_), mask_indptr(1), capacity_threshold(capacity_threshold_) {
      this->smem = raft::getSharedMemPerBlock();
    }
 
    bool chunking_needed(const value_idx *indptr, const value_idx n_rows) {
      auto widest_row =
        max_degree<value_idx, true>(indptr, n_rows, this->config.allocator,
-                                   this->config.stream, 0.5 * map_size());
+                                   this->config.stream, capacity_threshold * map_size());
 
      // figure out if chunking strategy needs to be enabled
      // operating at 50% of hash table size
-     if (widest_row.first > 0.5 * map_size()) {
+     if (widest_row.first > capacity_threshold * map_size()) {
        chunking = true;
        more_rows = widest_row.second;
        less_rows = n_rows - more_rows;
        mask_indptr = rmm::device_vector<value_idx>(n_rows);
 
-       fits_in_hash_table<true> fits_functor(indptr);
+       fits_in_hash_table<true> fits_functor(indptr, capacity_threshold);
        thrust::copy_if(thrust::make_counting_iterator(0),
                        thrust::make_counting_iterator(n_rows),
                        mask_indptr.begin(), fits_functor);
-       fits_in_hash_table<false> not_fits_functor(indptr);
+       fits_in_hash_table<false> not_fits_functor(indptr, capacity_threshold);
        thrust::copy_if(thrust::make_counting_iterator(0),
                        thrust::make_counting_iterator(n_rows),
                        mask_indptr.begin() + less_rows, not_fits_functor);
@@ -86,20 +86,25 @@
        // bloom_filter_strategy<value_idx, value_t, tpb> bf_strategy(this->config, more);
        chunked_mask_row_it<value_idx> more(
          this->config.a_indptr, more_rows, mask_indptr.data().get() + less_rows,
-         0.5 * map_size(), this->config.stream);
+         capacity_threshold * map_size(), this->config.stream);
        more.init();
        // cudaStreamSynchronize(this->config.stream);
 
        auto n_less_blocks = less_rows * n_blocks_per_row;
        if (less_rows > 0) {
-         this->_dispatch_base(*this, map_size(), less, out_dists, coo_rows_b,
+         int smem = map_size();
+         int smem_dim = smem / sizeof(typename insert_type::slot_type);
+         this->_dispatch_base(*this, smem, smem_dim, less,
+                              out_dists, coo_rows_b,
                              product_func, accum_func, write_func, chunk_size,
                              n_less_blocks, n_blocks_per_row);
          // cudaStreamSynchronize(this->config.stream);
        }
        // bf_strategy.dispatch(out_dists, coo_rows_b, product_func, accum_func, write_func, chunk_size);
        auto n_more_blocks = more.total_row_blocks * n_blocks_per_row;
-       this->_dispatch_base(*this, map_size(), more, out_dists, coo_rows_b,
+       int smem = map_size();
+       int smem_dim = smem / sizeof(typename insert_type::slot_type);
+       this->_dispatch_base(*this, smem, smem_dim, more, out_dists, coo_rows_b,
                             product_func, accum_func, write_func, chunk_size,
                             n_more_blocks, n_blocks_per_row);
        // cudaStreamSynchronize(this->config.stream);
@@ -107,7 +112,9 @@
        mask_row_it<value_idx> less(this->config.a_indptr, this->config.a_nrows);
 
        auto n_blocks = this->config.a_nrows * n_blocks_per_row;
-       this->_dispatch_base(*this, map_size(), less, out_dists, coo_rows_b,
+       int smem = map_size();
+       int smem_dim = smem / sizeof(typename insert_type::slot_type);
+       this->_dispatch_base(*this, smem, smem_dim, less, out_dists, coo_rows_b,
                             product_func, accum_func, write_func, chunk_size,
                             n_blocks, n_blocks_per_row);
      }
@@ -117,41 +124,7 @@
    void dispatch_rev(value_t *out_dists, value_idx *coo_rows_a,
                      product_f product_func, accum_f accum_func,
                      write_f write_func, int chunk_size) {
-     auto need = chunking_needed(this->config.b_indptr, this->config.b_nrows);
-
-     auto n_blocks_per_row = raft::ceildiv(this->config.a_nnz, chunk_size * tpb);
-
-     if (need) {
-       mask_row_it<value_idx> less(this->config.b_indptr, less_rows,
-                                   mask_indptr.data().get());
-       // mask_row_it<value_idx> more(this->config.b_indptr, more_rows,
-       //   mask_indptr.data().get() + less_rows);
-       // bloom_filter_strategy<value_idx, value_t, tpb> bf_strategy(this->config, more);
-       chunked_mask_row_it<value_idx> more(
-         this->config.b_indptr, more_rows, mask_indptr.data().get() + less_rows,
-         0.5 * map_size(), this->config.stream);
-       more.init();
-
-       auto n_less_blocks = less_rows * n_blocks_per_row;
-       if (less_rows > 0) {
-         this->_dispatch_base_rev(*this, map_size(), less, out_dists, coo_rows_a,
-                                product_func, accum_func, write_func, chunk_size,
-                                n_less_blocks, n_blocks_per_row);
-       }
-
-       // bf_strategy.dispatch_rev(out_dists, coo_rows_a, product_func, accum_func, write_func, chunk_size);
-       auto n_more_blocks = more.total_row_blocks * n_blocks_per_row;
-       this->_dispatch_base_rev(*this, map_size(), more, out_dists, coo_rows_a,
-                                product_func, accum_func, write_func, chunk_size,
-                                n_more_blocks, n_blocks_per_row);
-     } else {
-       mask_row_it<value_idx> less(this->config.b_indptr, this->config.b_nrows);
-
-       auto n_blocks = this->config.a_nrows * n_blocks_per_row;
-       this->_dispatch_base_rev(*this, map_size(), less, out_dists, coo_rows_a,
-                                product_func, accum_func, write_func, chunk_size,
-                                n_blocks, n_blocks_per_row);
-     }
+     throw raft::exception("Cannot perform reverse on hash table strategy");
    }
 
    __device__ inline insert_type init_insert(smem_type cache,
@@ -161,7 +134,7 @@
    }
 
    __device__ inline void insert(insert_type cache, value_idx &key,
-                                 value_t &value) {
+                                 value_t &value, int &size) {
      auto success = cache.insert(thrust::make_pair(key, value));
    }
 
@@ -169,7 +142,7 @@
      return find_type(cache, map_size(), -1, 0);
    }
 
-   __device__ inline value_t find(find_type cache, value_idx &key, value_idx *indices, value_t *data, value_idx start_offset, value_idx stop_offset) {
+   __device__ inline value_t find(find_type cache, value_idx &key, value_idx *indices, value_t *data, value_idx start_offset, value_idx stop_offset, int &size) {
      auto a_pair = cache.find(key);
 
      value_t a_col = 0.0;
@@ -181,23 +154,25 @@
 
    template <bool fits>
    struct fits_in_hash_table {
-     fits_in_hash_table(const value_idx *indptr_) : indptr(indptr_) {}
+     fits_in_hash_table(const value_idx *indptr_, float capacity_threshold_) : indptr(indptr_), capacity_threshold(capacity_threshold_) {}
 
      __host__ __device__ bool operator()(const value_idx &i) {
        auto degree = indptr[i + 1] - indptr[i];
 
        if (fits) {
-         return degree <= 0.5 * hash_strategy::map_size();
+         return degree <= capacity_threshold * hash_strategy::map_size();
        } else {
-         return degree > 0.5 * hash_strategy::map_size();
+         return degree > capacity_threshold * hash_strategy::map_size();
        }
      }
 
     private:
+     float capacity_threshold;
      const value_idx *indptr;
    };
 
   private:
+   float capacity_threshold;
    __host__ __device__ constexpr static int map_size() {
      return (48000 - ((tpb / raft::warp_size()) * sizeof(value_t))) /
             sizeof(typename insert_type::slot_type);
