@@ -48,7 +48,7 @@
                                    this->config.stream, capacity_threshold * map_size());
 
      // figure out if chunking strategy needs to be enabled
-     // operating at 50% of hash table size
+     // operating at capacity_threshold of hash table size
      if (widest_row.first > capacity_threshold * map_size()) {
        chunking = true;
        more_rows = widest_row.second;
@@ -63,7 +63,6 @@
        thrust::copy_if(thrust::make_counting_iterator(0),
                        thrust::make_counting_iterator(n_rows),
                        mask_indptr.begin() + less_rows, not_fits_functor);
-       // printv(mask_indptr, "mask_indptr");
      } else {
        chunking = false;
      }
@@ -88,7 +87,6 @@
          this->config.a_indptr, more_rows, mask_indptr.data().get() + less_rows,
          capacity_threshold * map_size(), this->config.stream);
        more.init();
-       // cudaStreamSynchronize(this->config.stream);
 
        auto n_less_blocks = less_rows * n_blocks_per_row;
        if (less_rows > 0) {
@@ -98,7 +96,6 @@
                               out_dists, coo_rows_b,
                              product_func, accum_func, write_func, chunk_size,
                              n_less_blocks, n_blocks_per_row);
-         // cudaStreamSynchronize(this->config.stream);
        }
        // bf_strategy.dispatch(out_dists, coo_rows_b, product_func, accum_func, write_func, chunk_size);
        auto n_more_blocks = more.total_row_blocks * n_blocks_per_row;
@@ -107,7 +104,6 @@
        this->_dispatch_base(*this, smem, smem_dim, more, out_dists, coo_rows_b,
                             product_func, accum_func, write_func, chunk_size,
                             n_more_blocks, n_blocks_per_row);
-       // cudaStreamSynchronize(this->config.stream);
      } else {
        mask_row_it<value_idx> less(this->config.a_indptr, this->config.a_nrows);
 

@@ -57,7 +57,7 @@ void unexpanded_lp_distances(
  *  Ref: https://github.com/rapidsai/cuml/issues/3371
  */
 
-  if (config_->a_ncols < max_cols_per_block<value_idx, value_t>()) {
+//  if (config_->a_ncols < max_cols_per_block<value_idx, value_t>()) {
     // TODO: Use n_cols to set shared memory and threads per block
     // for max occupancy.
     // Ref: https://github.com/rapidsai/cuml/issues/3371
@@ -81,12 +81,12 @@ void unexpanded_lp_distances(
       out_dists, *config_, coo_rows.data(), product_func, accum_func,
       write_func);
 
-  } else {
-    // TODO: Find max nnz and set smem based on this value.
-    // Ref: https://github.com/rapidsai/cuml/issues/3371
-    generalized_csr_pairwise_semiring<value_idx, value_t>(
-      out_dists, *config_, product_func, accum_func);
-  }
+//  } else {
+//    // TODO: Find max nnz and set smem based on this value.
+//    // Ref: https://github.com/rapidsai/cuml/issues/3371
+//    generalized_csr_pairwise_semiring<value_idx, value_t>(
+//      out_dists, *config_, product_func, accum_func);
+//  }
 }
 
 /**
@@ -223,10 +223,10 @@ class hamming_unexpanded_distances_t : public distances_t<value_t> {
     unexpanded_lp_distances<value_idx, value_t>(out_dists, config_, NotEqual(),
                                                 Sum(), AtomicAdd());
 
-    value_idx n_cols = config_->a_ncols;
+    value_idx n_cols = 1 / config_->a_ncols;
     raft::linalg::unaryOp<value_t>(
       out_dists, out_dists, config_->a_nrows * config_->b_nrows,
-      [=] __device__(value_t input) { return input / n_cols; },
+      [=] __device__(value_t input) { return input * n_cols; },
       config_->stream);
   }
 
