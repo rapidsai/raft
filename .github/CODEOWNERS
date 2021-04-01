@@ -1,7 +1,5 @@
 #cpp code owners
-cpp/               @divyegala
-cpp/               @rapidsai/cuml-cpp-codeowners
-cpp/               @rapidsai/cugraph-cpp-codeowners
+cpp/               @divyegala @rapidsai/cuml-cpp-codeowners @rapidsai/cugraph-cpp-codeowners
 
 #python code owners
 python/            @divyegala
