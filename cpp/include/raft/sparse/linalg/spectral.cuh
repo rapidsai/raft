@@ -32,7 +32,8 @@ namespace spectral {
 
 template <typename T>
 void fit_embedding(const raft::handle_t &handle, int *rows, int *cols, T *vals,
-                   int nnz, int n, int n_components, T *out, unsigned long long seed = 1234567) {
+                   int nnz, int n, int n_components, T *out,
+                   unsigned long long seed = 1234567) {
   auto stream = handle.get_stream();
   auto d_alloc = handle.get_device_allocator();
   raft::mr::device::buffer<int> src_offsets(d_alloc, stream, n + 1);
