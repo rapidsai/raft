@@ -47,10 +47,6 @@ struct ConnectComponentsInputs {
   value_idx n_col;
   std::vector<value_t> data;
 
-  std::vector<value_idx> expected_labels;
-
-  int n_clusters;
-
   int c;
 };
 
@@ -67,19 +63,13 @@ class ConnectComponentsTest : public ::testing::TestWithParam<
     params = ::testing::TestWithParam<
       ConnectComponentsInputs<value_t, value_idx>>::GetParam();
 
-    out_edges = new raft::sparse::COO<value_t, value_idx>(
+    raft::sparse::COO<value_t, value_idx> out_edges(
       handle.get_device_allocator(), handle.get_stream());
 
     rmm::device_uvector<value_t> data(params.n_row * params.n_col,
                                       handle.get_stream());
 
-    // Allocate result labels and expected labels on device
-    raft::allocate(labels, params.n_row);
-    raft::allocate(labels_ref, params.n_row);
-
     raft::copy(data.data(), params.data.data(), data.size(),
-               handle.get_stream());
-    raft::copy(labels_ref, params.expected_labels.data(), params.n_row,
                handle.get_stream());
 
     rmm::device_uvector<value_idx> indptr(params.n_row + 1, stream);
@@ -91,19 +81,11 @@ class ConnectComponentsTest : public ::testing::TestWithParam<
 
     raft::sparse::selection::knn_graph(
       handle, data.data(), params.n_row, params.n_col,
-      raft::distance::DistanceType::L2Unexpanded, knn_graph_coo, params.c);
+      raft::distance::DistanceType::L2SqrtExpanded, knn_graph_coo, params.c);
 
-    raft::sparse::convert::sorted_coo_to_csr(&knn_graph_coo, indptr.data(),
-                                             d_alloc, stream);
-
-    value_idx max_offset = 0;
-    raft::update_host(&max_offset, indptr.data() + (params.n_row - 1), 1,
-                      stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-
-    max_offset += (knn_graph_coo.nnz - max_offset);
-
-    raft::update_device(indptr.data() + params.n_row, &max_offset, 1, stream);
+    raft::sparse::convert::sorted_coo_to_csr(knn_graph_coo.rows(),
+                                             knn_graph_coo.nnz, indptr.data(),
+                                             params.n_row + 1, d_alloc, stream);
 
     /**
      * 2. Construct MST, sorted by weights
@@ -112,78 +94,40 @@ class ConnectComponentsTest : public ::testing::TestWithParam<
 
     auto mst_coo = raft::mst::mst<value_idx, value_idx, value_t>(
       handle, indptr.data(), knn_graph_coo.cols(), knn_graph_coo.vals(),
-      params.n_row, knn_graph_coo.nnz, colors.data(), stream, false);
-
-    raft::print_device_vector("colors", colors.data(), colors.size(),
-                              std::cout);
+      params.n_row, knn_graph_coo.nnz, colors.data(), stream, false, true);
 
     /**
      * 3. connect_components to fix connectivities
      */
     raft::linkage::connect_components<value_idx, value_t>(
-      handle, *out_edges, data.data(), colors.data(), params.n_row,
+      handle, out_edges, data.data(), colors.data(), params.n_row,
       params.n_col);
-
-    int final_nnz = out_edges->nnz + mst_coo.n_edges;
-
-    mst_coo.src.resize(final_nnz, stream);
-    mst_coo.dst.resize(final_nnz, stream);
-    mst_coo.weights.resize(final_nnz, stream);
-
-    printf("New nnz: %d\n", final_nnz);
 
     /**
      * Construct final edge list
      */
-    raft::copy_async(mst_coo.src.data() + mst_coo.n_edges, out_edges->rows(),
-                     out_edges->nnz, stream);
-    raft::copy_async(mst_coo.dst.data() + mst_coo.n_edges, out_edges->cols(),
-                     out_edges->nnz, stream);
-    raft::copy_async(mst_coo.weights.data() + mst_coo.n_edges,
-                     out_edges->vals(), out_edges->nnz, stream);
-
-    raft::sparse::COO<value_t, value_idx> final_coo(d_alloc, stream);
-    raft::sparse::linalg::symmetrize(
-      handle, mst_coo.src.data(), mst_coo.dst.data(), mst_coo.weights.data(),
-      params.n_row, params.n_col, final_nnz, final_coo);
-
     rmm::device_uvector<value_idx> indptr2(params.n_row + 1, stream);
 
-    raft::sparse::convert::sorted_coo_to_csr(final_coo.rows(), final_coo.nnz,
-                                             indptr2.data(), params.n_row,
+    raft::sparse::convert::sorted_coo_to_csr(out_edges.rows(), out_edges.nnz,
+                                             indptr2.data(), params.n_row + 1,
                                              d_alloc, stream);
 
-    max_offset = 0;
-    raft::update_host(&max_offset, indptr2.data() + (params.n_row - 1), 1,
-                      stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-
-    max_offset += (final_nnz - max_offset);
-
-    raft::update_device(indptr2.data() + params.n_row, &max_offset, 1, stream);
-
     auto output_mst = raft::mst::mst<value_idx, value_idx, value_t>(
-      handle, indptr2.data(), final_coo.cols(), final_coo.vals(), params.n_row,
-      final_coo.nnz, colors.data(), stream, false, true);
+      handle, indptr2.data(), out_edges.cols(), out_edges.vals(), params.n_row,
+      out_edges.nnz, colors.data(), stream, false, false);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
-    printf("output edges: %d\n", output_mst.n_edges);
-
-    final_edges = output_mst.n_edges;
+    // The sum of edges for both MST runs should be n_rows - 1
+    final_edges = output_mst.n_edges + mst_coo.n_edges;
   }
 
   void SetUp() override { basicTest(); }
 
-  void TearDown() override {
-    //    CUDA_CHECK(cudaFree(labels));
-    //    CUDA_CHECK(cudaFree(labels_ref));
-  }
+  void TearDown() override {}
 
  protected:
   ConnectComponentsInputs<value_t, value_idx> params;
-  value_idx *labels, *labels_ref;
-  raft::sparse::COO<value_t, value_idx> *out_edges;
 
   value_idx final_edges;
 };
@@ -201,8 +145,6 @@ const std::vector<ConnectComponentsInputs<float, int>> fix_conn_inputsf2 = {
     0.27864171, 0.70911132, 0.21338564, 0.32035554, 0.73788331, 0.46926692,
     0.57570162, 0.42559178, 0.87120209, 0.22734951, 0.01847905, 0.75549396,
     0.76166195, 0.66613745},
-   {9, 8, 7, 6, 5, 4, 3, 2, 1, 0},
-   10,
    -1},
   // Test n_points == 100
   {100,
@@ -543,11 +485,6 @@ const std::vector<ConnectComponentsInputs<float, int>> fix_conn_inputsf2 = {
     8.66342445e-01
 
    },
-   {0, 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 5, 0, 0, 0, 0, 4, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-   10,
    -4}};
 
 typedef ConnectComponentsTest<int, float> ConnectComponentsTestF_Int;

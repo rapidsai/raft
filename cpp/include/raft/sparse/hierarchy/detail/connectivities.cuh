@@ -71,17 +71,9 @@ struct distance_graph_impl<raft::hierarchy::LinkageDistance::KNN_GRAPH,
     indices.resize(knn_graph_coo.nnz, stream);
     data.resize(knn_graph_coo.nnz, stream);
 
-    raft::sparse::convert::sorted_coo_to_csr(&knn_graph_coo, indptr.data(),
-                                             d_alloc, stream);
-
-    //TODO: This is a bug in the coo_to_csr prim
-    value_idx max_offset = 0;
-    raft::update_host(&max_offset, indptr.data() + (m - 1), 1, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-
-    max_offset += (knn_graph_coo.nnz - max_offset);
-
-    raft::update_device(indptr.data() + m, &max_offset, 1, stream);
+    raft::sparse::convert::sorted_coo_to_csr(knn_graph_coo.rows(),
+                                             knn_graph_coo.nnz, indptr.data(),
+                                             m + 1, d_alloc, stream);
 
     raft::copy_async(indices.data(), knn_graph_coo.cols(), knn_graph_coo.nnz,
                      stream);

@@ -16,29 +16,36 @@
 
 #include <cub/cub.cuh>
 
+#include <raft/distance/fused_l2_nn.cuh>
+#include <raft/label/classlabels.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/mr/device/buffer.hpp>
 #include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/coo.cuh>
 #include <raft/sparse/linalg/symmetrize.cuh>
+#include <raft/sparse/op/reduce.cuh>
 
 #include <raft/cudart_utils.h>
-#include <raft/distance/fused_l2_nn.cuh>
 
 #include <thrust/device_ptr.h>
 #include <thrust/sort.h>
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
 
-#include <limits>
-
 #include <cub/cub.cuh>
+
+#include <limits>
 
 namespace raft {
 namespace linkage {
 
 /**
  * \brief A key identifier paired with a corresponding value
+ *
+ * NOTE: This is being included close to where it's being used
+ * because it's meant to be temporary. There is a conflict
+ * between the cub and thrust_cub namespaces with older CUDA
+ * versions so we're using our own as a workaround.
  */
 template <typename _Key, typename _Value>
 struct KeyValuePair {
@@ -106,162 +113,43 @@ struct FixConnectivitiesRedOp {
 };
 
 /**
- * Count the unique vertices adjacent to each component.
- * This is essentially a count_unique_by_key.
+ * Assumes 3-iterator tuple containing COO rows, cols, and
+ * a cub keyvalue pair object. Sorts the 3 arrays in
+ * ascending order: row->col->keyvaluepair
  */
-template <typename value_idx>
-__global__ void count_components_by_color_kernel(value_idx *out_indptr,
-                                                 const value_idx *colors_indptr,
-                                                 const value_idx *colors_nn,
-                                                 value_idx n_colors) {
-  value_idx tid = threadIdx.x;
-  value_idx row = blockIdx.x;
+struct TupleComp {
+  template <typename one, typename two>
+  __host__ __device__ bool operator()(const one &t1, const two &t2) {
+    // sort first by each sample's color,
+    if (thrust::get<0>(t1) < thrust::get<0>(t2)) return true;
+    if (thrust::get<0>(t1) > thrust::get<0>(t2)) return false;
 
-  __shared__ extern value_idx count_smem[];
+    // then by the color of each sample's closest neighbor,
+    if (thrust::get<1>(t1) < thrust::get<1>(t2)) return true;
+    if (thrust::get<1>(t1) > thrust::get<1>(t2)) return false;
 
-  value_idx start_offset = colors_indptr[row];
-  value_idx stop_offset = colors_indptr[row + 1];
+    // then sort by value in descending order
+    return thrust::get<2>(t1).value < thrust::get<2>(t2).value;
+  }
+};
 
-  for (value_idx i = tid; i < n_colors; i += blockDim.x) {
-    count_smem[i] = 0;
+template <typename LabelT, typename DataT>
+struct CubKVPMinReduce {
+  typedef cub::KeyValuePair<LabelT, DataT> KVP;
+
+  DI KVP operator()(LabelT rit, const KVP &a, const KVP &b) {
+    return b.value < a.value ? b : a;
   }
 
-  __syncthreads();
-
-  for (value_idx i = tid; i < (stop_offset - start_offset); i += blockDim.x) {
-    count_smem[colors_nn[start_offset + i]] = 1;
+  DI KVP operator()(const KVP &a, const KVP &b) {
+    return b.value < a.value ? b : a;
   }
 
-  __syncthreads();
-
-  for (value_idx i = tid; i < n_colors; i += blockDim.x) {
-    // TODO: Warp-level reduction
-    atomicAdd(out_indptr + row, count_smem[i] > 0);
-  }
-}
+};  // KVPMinReduce
 
 /**
- * Compute indptr for the min set of unique components that neighbor the components
- * of each source vertex
- * @tparam value_idx
- * @param[out] out_indptr output indptr
- * @param[in] colors_indptr indptr of components for each source vertex
- * @param[in] colors_nn array of components for the 1-nn around each source vertex
- * @param[in] n_colors number of components
- * @param[in] stream cuda stream for which to order cuda operations
- */
-template <typename value_idx>
-void count_components_by_color(value_idx *out_indptr,
-                               const value_idx *colors_indptr,
-                               const value_idx *colors_nn, value_idx n_colors,
-                               cudaStream_t stream) {
-  count_components_by_color_kernel<<<n_colors, 256,
-                                     n_colors * sizeof(value_idx), stream>>>(
-    out_indptr, colors_indptr, colors_nn, n_colors);
-}
-
-/**
- * colors_nn is not assumed to be sorted wrt colors_indptr
- * so we need to perform atomic reductions in each thread.
- */
-template <typename value_idx, typename value_t>
-__global__ void min_components_by_color_kernel(
-  value_idx *out_cols, value_t *out_vals, value_idx *out_rows,
-  const value_idx *out_indptr, const value_idx *colors_indptr,
-  const value_idx *colors_nn, const value_idx *indices,
-  const cub::KeyValuePair<value_idx, value_t> *kvp, value_idx n_colors) {
-  __shared__ extern char min_smem[];
-
-  int *mutex = (int *)min_smem;
-
-  cub::KeyValuePair<value_idx, value_t> *min =
-    (cub::KeyValuePair<value_idx, value_t> *)(mutex + n_colors);
-  value_idx *src_inds = (value_idx *)(min + n_colors);
-
-  value_idx start_offset = colors_indptr[blockIdx.x];
-  value_idx stop_offset = colors_indptr[blockIdx.x + 1];
-
-  // initialize
-  for (value_idx i = threadIdx.x; i < n_colors; i += blockDim.x) {
-    mutex[i] = 0;
-    auto skvp = min + i;
-    skvp->key = -1;
-    skvp->value = std::numeric_limits<value_t>::max();
-  }
-
-  __syncthreads();
-
-  for (value_idx i = threadIdx.x; i < (stop_offset - start_offset);
-       i += blockDim.x) {
-    value_idx new_color = colors_nn[start_offset + i];
-    while (atomicCAS(mutex + new_color, 0, 1) == 1)
-      ;
-    __threadfence();
-    auto cur_kvp = kvp[start_offset + i];
-    if (cur_kvp.value < min[new_color].value) {
-      src_inds[new_color] = indices[start_offset + i];
-      min[new_color].key = cur_kvp.key;
-      min[new_color].value = cur_kvp.value;
-    }
-    __threadfence();
-    atomicCAS(mutex + new_color, 1, 0);
-  }
-
-  __syncthreads();
-
-  //  printf("block %d thread %d did final sync\n", blockIdx.x, threadIdx.x);
-
-  value_idx out_offset = out_indptr[blockIdx.x];
-
-  // TODO: Do this across threads, using an atomic counter for each color
-  if (threadIdx.x == 0) {
-    value_idx cur_offset = 0;
-
-    for (value_idx i = 0; i < n_colors; i++) {
-      auto min_color = min[i];
-      if (min_color.key > -1) {
-        out_rows[out_offset + cur_offset] = src_inds[i];
-        out_cols[out_offset + cur_offset] = min_color.key;
-        out_vals[out_offset + cur_offset] = min_color.value;
-        cur_offset += 1;
-      }
-    }
-  }
-}
-
-/**
- * Computes the min set of unique components that neighbor the
- * components of each source vertex.
- * @tparam value_idx
- * @tparam value_t
- * @param[out] coo output edge list
- * @param[in] out_indptr output indptr for ordering edge list
- * @param[in] colors_indptr indptr of source components
- * @param[in] colors_nn components of nearest neighbors to each source component
- * @param[in] indices indices of source vertices for each component
- * @param[in] kvp indices and distances of each destination vertex for each component
- * @param[in] n_colors number of components
- * @param[in] stream cuda stream for which to order cuda operations
- */
-template <typename value_idx, typename value_t>
-void min_components_by_color(raft::sparse::COO<value_t, value_idx> &coo,
-                             const value_idx *out_indptr,
-                             const value_idx *colors_indptr,
-                             const value_idx *colors_nn,
-                             const value_idx *indices,
-                             const cub::KeyValuePair<value_idx, value_t> *kvp,
-                             value_idx n_colors, cudaStream_t stream) {
-  int smem_bytes = (n_colors * sizeof(int)) + (n_colors * sizeof(kvp)) +
-                   ((n_colors + 1) * sizeof(value_idx));
-
-  min_components_by_color_kernel<<<n_colors, 256, smem_bytes, stream>>>(
-    coo.cols(), coo.vals(), coo.rows(), out_indptr, colors_indptr, colors_nn,
-    indices, kvp, n_colors);
-}
-
-/**
- * Gets max maximum value (max number of components) from array of
- * components. Note that this does not assume the components are
+ * Gets the number of unique components from array of
+ * colors or labels. This does not assume the components are
  * drawn from a monotonically increasing set.
  * @tparam value_idx
  * @param[in] colors array of components
@@ -271,45 +159,15 @@ void min_components_by_color(raft::sparse::COO<value_t, value_idx> &coo,
  */
 template <typename value_idx>
 value_idx get_n_components(value_idx *colors, size_t n_rows,
+                           std::shared_ptr<raft::mr::device::allocator> d_alloc,
                            cudaStream_t stream) {
-  thrust::device_ptr<value_idx> t_colors = thrust::device_pointer_cast(colors);
-  return *(thrust::max_element(thrust::cuda::par.on(stream), t_colors,
-                               t_colors + n_rows)) +
-         1;
-}
+  value_idx *map_ids;
+  int num_clusters;
+  raft::label::getUniquelabels(colors, n_rows, &map_ids, &num_clusters, stream,
+                               d_alloc);
+  d_alloc->deallocate(map_ids, num_clusters * sizeof(value_idx), stream);
 
-/**
- * Build CSR indptr array for sorted edge list mapping components of source
- * vertices to the components of their nearest neighbor vertices
- * @tparam value_idx
- * @param[out] degrees output indptr array
- * @param[in] components_indptr indptr of original CSR array of components
- * @param[in] nn_components indptr of nearest neighbors CSR array of components
- * @param[in] n_components size of nn_components
- * @param[in] stream cuda stream for which to order cuda operations
- */
-template <typename value_idx>
-void build_output_colors_indptr(value_idx *degrees,
-                                const value_idx *components_indptr,
-                                const value_idx *nn_components,
-                                value_idx n_components, cudaStream_t stream) {
-  CUDA_CHECK(cudaMemsetAsync(degrees, 0, (n_components + 1) * sizeof(value_idx),
-                             stream));
-
-  /**
-   * Create COO array by first computing CSR indptr w/ degrees of each
-   * color followed by COO row/col/val arrays.
-   */
-  // map each component to a separate warp, perform warp reduce by key to find
-  // number of unique components in output.
-
-  count_components_by_color(degrees, components_indptr, nn_components,
-                            n_components, stream);
-
-  thrust::device_ptr<value_idx> t_degrees =
-    thrust::device_pointer_cast(degrees);
-  thrust::exclusive_scan(thrust::cuda::par.on(stream), t_degrees,
-                         t_degrees + n_components + 1, t_degrees);
+  return num_clusters;
 }
 
 /**
@@ -385,13 +243,61 @@ void sort_by_color(value_idx *colors, value_idx *nn_colors,
   thrust::copy(thrust::cuda::par.on(stream), arg_sort_iter,
                arg_sort_iter + n_rows, src_indices);
 
-  auto keys = thrust::make_zip_iterator(thrust::make_tuple(colors));
-  auto vals = thrust::make_zip_iterator(
-    thrust::make_tuple((raft::linkage::KeyValuePair<value_idx, value_t> *)kvp,
-                       src_indices, nn_colors));
+  auto keys = thrust::make_zip_iterator(thrust::make_tuple(
+    colors, nn_colors, (raft::linkage::KeyValuePair<value_idx, value_t> *)kvp));
+  auto vals = thrust::make_zip_iterator(thrust::make_tuple(src_indices));
 
   // get all the colors in contiguous locations so we can map them to warps.
-  thrust::sort_by_key(thrust::cuda::par.on(stream), keys, keys + n_rows, vals);
+  thrust::sort_by_key(thrust::cuda::par.on(stream), keys, keys + n_rows, vals,
+                      TupleComp());
+}
+
+template <typename value_idx, typename value_t>
+__global__ void min_components_by_color_kernel(
+  value_idx *out_rows, value_idx *out_cols, value_t *out_vals,
+  const value_idx *out_index, const value_idx *indices,
+  const cub::KeyValuePair<value_idx, value_t> *kvp, size_t nnz) {
+  size_t tid = blockDim.x * blockIdx.x + threadIdx.x;
+
+  if (tid >= nnz) return;
+
+  int idx = out_index[tid];
+
+  if ((tid == 0 || (out_index[tid - 1] != idx))) {
+    out_rows[idx] = indices[tid];
+    out_cols[idx] = kvp[tid].key;
+    out_vals[idx] = kvp[tid].value;
+  }
+}
+
+/**
+ * Computes the min set of unique components that neighbor the
+ * components of each source vertex.
+ * @tparam value_idx
+ * @tparam value_t
+ * @param[out] coo output edge list
+ * @param[in] out_indptr output indptr for ordering edge list
+ * @param[in] colors_indptr indptr of source components
+ * @param[in] colors_nn components of nearest neighbors to each source component
+ * @param[in] indices indices of source vertices for each component
+ * @param[in] kvp indices and distances of each destination vertex for each component
+ * @param[in] n_colors number of components
+ * @param[in] stream cuda stream for which to order cuda operations
+ */
+template <typename value_idx, typename value_t>
+void min_components_by_color(raft::sparse::COO<value_t, value_idx> &coo,
+                             const value_idx *out_index,
+                             const value_idx *indices,
+                             const cub::KeyValuePair<value_idx, value_t> *kvp,
+                             size_t nnz, cudaStream_t stream) {
+  /**
+   * Arrays should be ordered by: colors_indptr->colors_n->kvp.value
+   * so the last element of each column in the input CSR should be
+   * the min.
+   */
+  min_components_by_color_kernel<<<raft::ceildiv(nnz, (size_t)256), 256, 0,
+                                   stream>>>(coo.rows(), coo.cols(), coo.vals(),
+                                             out_index, indices, kvp, nnz);
 }
 
 /**
@@ -409,18 +315,32 @@ void sort_by_color(value_idx *colors, value_idx *nn_colors,
  *             edges.
  * @param[in] X original (row-major) dense matrix for which knn graph should be constructed.
  * @param[in] colors array containing component number for each row of X
- * @param n_rows number of rows in X
- * @param n_cols number of cols in X
+ * @param[in] n_rows number of rows in X
+ * @param[in] n_cols number of cols in X
  */
 template <typename value_idx, typename value_t>
 void connect_components(const raft::handle_t &handle,
                         raft::sparse::COO<value_t, value_idx> &out,
-                        const value_t *X, value_idx *colors, size_t n_rows,
-                        size_t n_cols) {
+                        const value_t *X, const value_idx *orig_colors,
+                        size_t n_rows, size_t n_cols,
+                        raft::distance::DistanceType metric =
+                          raft::distance::DistanceType::L2SqrtExpanded) {
   auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
 
-  value_idx n_components = get_n_components(colors, n_rows, stream);
+  RAFT_EXPECTS(metric == raft::distance::DistanceType::L2SqrtExpanded,
+               "Fixing connectivities for an unconnected k-NN graph only "
+               "supports L2SqrtExpanded currently.");
+
+  rmm::device_uvector<value_idx> colors(n_rows, stream);
+  raft::copy_async(colors.data(), orig_colors, n_rows, stream);
+
+  // Normalize colors so they are drawn from a monotonically increasing set
+  raft::label::make_monotonic(colors.data(), colors.data(), n_rows, stream,
+                              d_alloc, true);
+
+  value_idx n_components =
+    get_n_components(colors.data(), n_rows, d_alloc, stream);
 
   /**
    * First compute 1-nn for all colors where the color of each data point
@@ -430,41 +350,48 @@ void connect_components(const raft::handle_t &handle,
   rmm::device_uvector<cub::KeyValuePair<value_idx, value_t>> temp_inds_dists(
     n_rows, stream);
   rmm::device_uvector<value_idx> src_indices(n_rows, stream);
-  rmm::device_uvector<value_idx> color_neigh_degrees(n_components + 1, stream);
-  rmm::device_uvector<value_idx> colors_indptr(n_components + 1, stream);
 
-  perform_1nn(temp_inds_dists.data(), nn_colors.data(), colors, X, n_rows,
-              n_cols, d_alloc, stream);
+  perform_1nn(temp_inds_dists.data(), nn_colors.data(), colors.data(), X,
+              n_rows, n_cols, d_alloc, stream);
 
   /**
    * Sort data points by color (neighbors are not sorted)
    */
   // max_color + 1 = number of connected components
   // sort nn_colors by key w/ original colors
-  sort_by_color(colors, nn_colors.data(), temp_inds_dists.data(),
+  sort_by_color(colors.data(), nn_colors.data(), temp_inds_dists.data(),
                 src_indices.data(), n_rows, stream);
 
-  // create an indptr array for newly sorted colors
-  raft::sparse::convert::sorted_coo_to_csr(colors, n_rows, colors_indptr.data(),
-                                           n_components + 1, d_alloc, stream);
+  /**
+   * Take the min for any duplicate colors
+   */
+  // Compute mask of duplicates
+  rmm::device_uvector<value_idx> out_index(n_rows + 1, stream);
+  raft::sparse::op::compute_duplicates_mask(out_index.data(), colors.data(),
+                                            nn_colors.data(), n_rows, stream);
 
-  // create output degree array for closest components per row
-  build_output_colors_indptr(color_neigh_degrees.data(), colors_indptr.data(),
-                             nn_colors.data(), n_components, stream);
+  thrust::exclusive_scan(thrust::cuda::par.on(stream), out_index.data(),
+                         out_index.data() + out_index.size(), out_index.data());
 
-  value_idx nnz;
-  raft::update_host(&nnz, color_neigh_degrees.data() + n_components, 1, stream);
+  // compute final size
+  value_idx size = 0;
+  raft::update_host(&size, out_index.data() + (out_index.size() - 1), 1,
+                    stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
-  raft::sparse::COO<value_t, value_idx> min_edges(d_alloc, stream, nnz);
-  min_components_by_color(min_edges, color_neigh_degrees.data(),
-                          colors_indptr.data(), nn_colors.data(),
-                          src_indices.data(), temp_inds_dists.data(),
-                          n_components, stream);
+  size++;
 
-  // symmetrize
+  raft::sparse::COO<value_t, value_idx> min_edges(d_alloc, stream);
+  min_edges.allocate(size, n_rows, n_rows, true, stream);
+
+  min_components_by_color(min_edges, out_index.data(), src_indices.data(),
+                          temp_inds_dists.data(), n_rows, stream);
+
+  /**
+   * Symmetrize resulting edge list
+   */
   raft::sparse::linalg::symmetrize(handle, min_edges.rows(), min_edges.cols(),
-                                   min_edges.vals(), n_rows, n_rows, nnz, out);
+                                   min_edges.vals(), n_rows, n_rows, size, out);
 }
 
 };  // end namespace linkage
