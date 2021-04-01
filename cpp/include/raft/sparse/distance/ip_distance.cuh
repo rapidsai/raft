@@ -318,6 +318,8 @@ class ip_distances_t : public distances_t<value_t> {
 template class ip_distances_t<int, float>;
 template class distances_config_t<int, float>;
 
+
+
 };  // END namespace distance
 };  // END namespace sparse
 };  // END namespace raft

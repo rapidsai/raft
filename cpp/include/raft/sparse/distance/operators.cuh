@@ -29,6 +29,14 @@ struct Sum {
   }
 };
 
+struct NotEqual {
+  template <typename value_t>
+  __host__ __device__ __forceinline__ value_t operator()(value_t a, value_t b) {
+    return a != b;
+  }
+};
+
+
 struct SqDiff {
   template <typename value_t>
   __host__ __device__ __forceinline__ value_t operator()(value_t a, value_t b) {

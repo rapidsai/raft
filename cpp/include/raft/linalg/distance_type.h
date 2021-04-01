@@ -53,7 +53,13 @@ enum DistanceType : unsigned short {
   /** Bray-Curtis distance **/
   BrayCurtis = 14,
   /** Jensen-Shannon distance**/
-  JensenShannon = 15
+  JensenShannon = 15,
+  /** Hamming distance **/
+  HammingUnexpanded = 16,
+  /** KLDivergence **/
+  KLDivergence = 17,
+  /** RusselRao **/
+  RusselRaoExpanded = 18
 };
 
 };  // namespace distance

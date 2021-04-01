@@ -282,6 +282,34 @@ class hellinger_expanded_distances_t : public distances_t<value_t> {
   ip_distances_t<value_idx, value_t> ip_dists;
 };
 
+template <typename value_idx = int, typename value_t = float>
+class russelrao_expanded_distances_t : public distances_t<value_t> {
+ public:
+  explicit russelrao_expanded_distances_t(
+    const distances_config_t<value_idx, value_t> &config)
+    : config_(&config),
+      workspace(config.allocator, config.stream, 0),
+      ip_dists(config) {}
+
+  void compute(value_t *out_dists) {
+
+    ip_dists.compute(out_dists);
+
+    value_idx n_cols = config_->a_ncols;
+    raft::linalg::unaryOp<value_t>(
+      out_dists, out_dists, config_->a_nrows * config_->b_nrows,
+      [=] __device__(value_t input) { return (n_cols - input) / n_cols; },
+      config_->stream);
+  }
+
+  ~russelrao_expanded_distances_t() = default;
+
+ private:
+  const distances_config_t<value_idx, value_t> *config_;
+  raft::mr::device::buffer<char> workspace;
+  ip_distances_t<value_idx, value_t> ip_dists;
+};
+
 };  // END namespace distance
 };  // END namespace sparse
 };  // END namespace raft
