@@ -33,7 +33,7 @@
 #include <raft/handle.hpp>
 #include <set>
 
-#include "haversine_distance.cuh"
+#include "haversine_knn.cuh"
 #include "processing.hpp"
 
 namespace raft {
