@@ -37,7 +37,7 @@
      typename cuco::static_map<value_idx, value_t,
                                cuda::thread_scope_block>::device_view;
 
-   hash_strategy(const distances_config_t<value_idx, value_t> &config_, float capacity_threshold_ = 0.1)
+   hash_strategy(const distances_config_t<value_idx, value_t> &config_, float capacity_threshold_ = 0.5)
      : coo_spmv_strategy<value_idx, value_t>(config_), mask_indptr(1), capacity_threshold(capacity_threshold_) {
      this->smem = raft::getSharedMemPerBlock();
    }
