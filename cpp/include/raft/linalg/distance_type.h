@@ -60,7 +60,10 @@ enum DistanceType : unsigned short {
   KLDivergence = 17,
   /** RusselRao **/
   RusselRaoExpanded = 18
+  /** Dice-Sorensen distance **/
+  DiceExpanded = 19,
+  /** Precomputed (special value) **/
+  Precomputed = 100
 };
-
 };  // namespace distance
 };  // end namespace raft

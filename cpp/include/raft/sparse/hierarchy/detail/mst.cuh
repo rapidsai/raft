@@ -58,6 +58,30 @@ void sort_coo_by_data(value_idx *rows, value_idx *cols, value_t *data,
                       first);
 }
 
+template <typename value_idx, typename value_t>
+void merge_msts(raft::Graph_COO<value_idx, value_idx, value_t> &coo1,
+                raft::Graph_COO<value_idx, value_idx, value_t> &coo2,
+                cudaStream_t stream) {
+  /** Add edges to existing mst **/
+  int final_nnz = coo2.n_edges + coo1.n_edges;
+
+  coo1.src.resize(final_nnz, stream);
+  coo1.dst.resize(final_nnz, stream);
+  coo1.weights.resize(final_nnz, stream);
+
+  /**
+   * Construct final edge list
+   */
+  raft::copy_async(coo1.src.data() + coo1.n_edges, coo2.src.data(),
+                   coo2.n_edges, stream);
+  raft::copy_async(coo1.dst.data() + coo1.n_edges, coo2.dst.data(),
+                   coo2.n_edges, stream);
+  raft::copy_async(coo1.weights.data() + coo1.n_edges, coo2.weights.data(),
+                   coo2.n_edges, stream);
+
+  coo1.n_edges = final_nnz;
+}
+
 /**
  * Connect an unconnected knn graph (one in which mst returns an msf). The
  * device buffers underlying the Graph_COO object are modified in-place.
@@ -68,14 +92,15 @@ void sort_coo_by_data(value_idx *rows, value_idx *cols, value_t *data,
  * @param[inout] msf edge list containing the mst result
  * @param[in] m number of rows in X
  * @param[in] n number of columns in X
- * @param[in] color the color labels array returned from the mst invocation
+ * @param[inout] color the color labels array returned from the mst invocation
  * @return updated MST edge list
  */
 template <typename value_idx, typename value_t>
-raft::Graph_COO<value_idx, value_idx, value_t> connect_knn_graph(
-  const raft::handle_t &handle, const value_t *X,
-  raft::Graph_COO<value_idx, value_idx, value_t> &msf, size_t m, size_t n,
-  value_idx *color) {
+void connect_knn_graph(const raft::handle_t &handle, const value_t *X,
+                       raft::Graph_COO<value_idx, value_idx, value_t> &msf,
+                       size_t m, size_t n, value_idx *color,
+                       raft::distance::DistanceType metric =
+                         raft::distance::DistanceType::L2SqrtExpanded) {
   auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
 
@@ -84,43 +109,18 @@ raft::Graph_COO<value_idx, value_idx, value_t> connect_knn_graph(
   raft::linkage::connect_components<value_idx, value_t>(handle, connected_edges,
                                                         X, color, m, n);
 
-  int final_nnz = connected_edges.nnz + msf.n_edges;
-
-  msf.src.resize(final_nnz, stream);
-  msf.dst.resize(final_nnz, stream);
-  msf.weights.resize(final_nnz, stream);
-
-  /**
-   * Construct final edge list
-   */
-  raft::copy_async(msf.src.data() + msf.n_edges, connected_edges.rows(),
-                   connected_edges.nnz, stream);
-  raft::copy_async(msf.dst.data() + msf.n_edges, connected_edges.cols(),
-                   connected_edges.nnz, stream);
-  raft::copy_async(msf.weights.data() + msf.n_edges, connected_edges.vals(),
-                   connected_edges.nnz, stream);
-
-  raft::sparse::COO<value_t, value_idx> final_coo(d_alloc, stream);
-  raft::sparse::linalg::symmetrize(handle, msf.src.data(), msf.dst.data(),
-                                   msf.weights.data(), m, n, final_nnz,
-                                   final_coo);
-
   rmm::device_uvector<value_idx> indptr2(m + 1, stream);
+  raft::sparse::convert::sorted_coo_to_csr(connected_edges.rows(),
+                                           connected_edges.nnz, indptr2.data(),
+                                           m + 1, d_alloc, stream);
 
-  raft::sparse::convert::sorted_coo_to_csr(final_coo.rows(), final_coo.nnz,
-                                           indptr2.data(), m, d_alloc, stream);
+  // On the second call, we hand the MST the original colors
+  // and the new set of edges and let it restart the optimization process
+  auto new_mst = raft::mst::mst<value_idx, value_idx, value_t>(
+    handle, indptr2.data(), connected_edges.cols(), connected_edges.vals(), m,
+    connected_edges.nnz, color, stream, false, false);
 
-  value_idx max_offset = 0;
-  raft::update_host(&max_offset, indptr2.data() + (m - 1), 1, stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-
-  max_offset += (final_nnz - max_offset);
-
-  raft::update_device(indptr2.data() + m, &max_offset, 1, stream);
-
-  return raft::mst::mst<value_idx, value_idx, value_t>(
-    handle, indptr2.data(), final_coo.cols(), final_coo.vals(), m,
-    final_coo.nnz, color, stream, false, true);
+  merge_msts<value_idx, value_t>(msf, new_mst, stream);
 }
 
 /**
@@ -144,6 +144,8 @@ raft::Graph_COO<value_idx, value_idx, value_t> connect_knn_graph(
  * @param[out] mst_src output src edges
  * @param[out] mst_dst output dst edges
  * @param[out] mst_weight output weights (distances)
+ * @param[in] max_iter maximum iterations to run knn graph connection. This
+ *  argument is really just a safeguard against the potential for infinite loops.
  */
 template <typename value_idx, typename value_t>
 void build_sorted_mst(const raft::handle_t &handle, const value_t *X,
@@ -152,26 +154,52 @@ void build_sorted_mst(const raft::handle_t &handle, const value_t *X,
                       rmm::device_uvector<value_idx> &mst_src,
                       rmm::device_uvector<value_idx> &mst_dst,
                       rmm::device_uvector<value_t> &mst_weight,
-                      const size_t nnz) {
+                      const size_t nnz,
+                      raft::distance::DistanceType metric =
+                        raft::distance::DistanceType::L2SqrtExpanded,
+                      int max_iter = 10) {
   auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
 
   rmm::device_uvector<value_idx> color(m, stream);
 
+  // We want to have MST initialize colors on first call.
   auto mst_coo = raft::mst::mst<value_idx, value_idx, value_t>(
     handle, indptr, indices, pw_dists, (value_idx)m, nnz, color.data(), stream,
-    false);
+    false, true);
 
-  if (linkage::get_n_components(color.data(), m, stream) > 1) {
-    mst_coo = connect_knn_graph<value_idx, value_t>(handle, X, mst_coo, m, n,
-                                                    color.data());
+  int iters = 1;
+  int n_components =
+    linkage::get_n_components(color.data(), m, d_alloc, stream);
 
-    printf("Edges: %d\n", mst_coo.n_edges);
+  while (n_components > 1 && iters < max_iter) {
+    connect_knn_graph<value_idx, value_t>(handle, X, mst_coo, m, n,
+                                          color.data());
 
-    RAFT_EXPECTS(
-      mst_coo.n_edges == m - 1,
-      "MST was not able to connect knn graph in a single iteration.");
+    iters++;
+
+    n_components = linkage::get_n_components(color.data(), m, d_alloc, stream);
   }
+
+  /**
+   * The `max_iter` argument was introduced only to prevent the potential for an infinite loop.
+   * Ideally the log2(n) guarantees of the MST should be enough to connect KNN graphs with a
+   * massive number of data samples in very few iterations. If it does not, there are 3 likely
+   * reasons why (in order of their likelihood):
+   * 1. There is a bug in this code somewhere
+   * 2. Either the given KNN graph wasn't generated from X or the same metric is not being used
+   *    to generate the 1-nn (currently only L2SqrtExpanded is supported).
+   * 3. max_iter was not large enough to connect the graph.
+   *
+   * Note that a KNN graph generated from 50 random isotropic balls (with significant overlap)
+   * was able to be connected in a single iteration.
+   */
+  RAFT_EXPECTS(n_components == 1,
+               "KNN graph could not be connected in %d iterations. "
+               "Please verify that the input knn graph is generated from X "
+               "(and the same distance metric used),"
+               " or increase 'max_iter'",
+               max_iter);
 
   sort_coo_by_data(mst_coo.src.data(), mst_coo.dst.data(),
                    mst_coo.weights.data(), mst_coo.n_edges, stream);

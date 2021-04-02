@@ -40,6 +40,7 @@
 #include <raft/sparse/utils.h>
 #include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/coo.cuh>
+#include <raft/sparse/op/reduce.cuh>
 
 namespace raft {
 namespace sparse {
@@ -306,34 +307,6 @@ void from_knn_symmetrize_matrix(
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
-template <typename value_idx>
-__global__ void compute_duplicates_diffs(const value_idx *rows,
-                                         const value_idx *cols, value_idx *diff,
-                                         size_t nnz) {
-  size_t tid = blockDim.x * blockIdx.x + threadIdx.x;
-  if (tid >= nnz) return;
-
-  value_idx d = 1;
-  if (tid == 0 || (rows[tid - 1] == rows[tid] && cols[tid - 1] == cols[tid]))
-    d = 0;
-  diff[tid] = d;
-}
-
-template <typename value_idx, typename value_t>
-__global__ void reduce_duplicates_kernel(
-  const value_idx *src_rows, const value_idx *src_cols, const value_t *src_vals,
-  const value_idx *index, value_idx *out_rows, value_idx *out_cols,
-  value_t *out_vals, size_t nnz) {
-  size_t tid = blockDim.x * blockIdx.x + threadIdx.x;
-
-  if (tid < nnz) {
-    value_idx idx = index[tid];
-    atomicMax(&out_vals[idx], src_vals[tid]);
-    out_rows[idx] = src_rows[tid];
-    out_cols[idx] = src_cols[tid];
-  }
-}
-
 /**
  * Symmetrizes a COO matrix
  */
@@ -343,8 +316,6 @@ void symmetrize(const raft::handle_t &handle, const value_idx *rows,
                 size_t nnz, raft::sparse::COO<value_t, value_idx> &out) {
   auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
-
-  auto exec_policy = rmm::exec_policy(stream);
 
   // copy rows to cols and cols to rows
   rmm::device_uvector<value_idx> symm_rows(nnz * 2, stream);
@@ -360,36 +331,13 @@ void symmetrize(const raft::handle_t &handle, const value_idx *rows,
   raft::copy_async(symm_vals.data() + nnz, vals, nnz, stream);
 
   // sort COO
-  raft::sparse::op::coo_sort(m, n, nnz * 2, symm_rows.data(), symm_cols.data(),
+  raft::sparse::op::coo_sort((value_idx)m, (value_idx)n, (value_idx)nnz * 2,
+                             symm_rows.data(), symm_cols.data(),
                              symm_vals.data(), d_alloc, stream);
 
-  // compute diffs & take exclusive scan
-  rmm::device_uvector<value_idx> diff((nnz * 2) + 1, stream);
-
-  CUDA_CHECK(cudaMemsetAsync(diff.data(), 0,
-                             ((nnz * 2) + 1) * sizeof(value_idx), stream));
-
-  compute_duplicates_diffs<<<raft::ceildiv(nnz * 2, (size_t)1024), 1024, 0,
-                             stream>>>(symm_rows.data(), symm_cols.data(),
-                                       diff.data(), nnz * 2);
-
-  thrust::exclusive_scan(exec_policy, diff.data(), diff.data() + diff.size(),
-                         diff.data());
-
-  // compute final size
-  value_idx size = 0;
-  raft::update_host(&size, diff.data() + (diff.size() - 1), 1, stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-
-  size++;
-
-  out.allocate(size, m, n, true, stream);
-
-  // perform reduce
-  reduce_duplicates_kernel<<<raft::ceildiv(nnz * 2, (size_t)1024), 1024, 0,
-                             stream>>>(
-    symm_rows.data(), symm_cols.data(), symm_vals.data(), diff.data() + 1,
-    out.rows(), out.cols(), out.vals(), nnz * 2);
+  raft::sparse::op::max_duplicates(handle, out, symm_rows.data(),
+                                   symm_cols.data(), symm_vals.data(), nnz * 2,
+                                   m, n);
 }
 
 };  // end NAMESPACE linalg
