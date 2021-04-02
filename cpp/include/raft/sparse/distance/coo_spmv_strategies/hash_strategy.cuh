@@ -37,7 +37,7 @@
      typename cuco::static_map<value_idx, value_t,
                                cuda::thread_scope_block>::device_view;
 
-   hash_strategy(const distances_config_t<value_idx, value_t> &config_, float capacity_threshold_ = 0.5)
+   hash_strategy(const distances_config_t<value_idx, value_t> &config_, float capacity_threshold_ = 0.1)
      : coo_spmv_strategy<value_idx, value_t>(config_), mask_indptr(1), capacity_threshold(capacity_threshold_) {
      this->smem = raft::getSharedMemPerBlock();
    }
@@ -90,8 +90,8 @@
 
        auto n_less_blocks = less_rows * n_blocks_per_row;
        if (less_rows > 0) {
-         int smem = map_size();
-         int smem_dim = smem / sizeof(typename insert_type::slot_type);
+         int smem_dim = map_size();
+         int smem = raft::getSharedMemPerBlock();
          this->_dispatch_base(*this, smem, smem_dim, less,
                               out_dists, coo_rows_b,
                              product_func, accum_func, write_func, chunk_size,
@@ -99,8 +99,8 @@
        }
        // bf_strategy.dispatch(out_dists, coo_rows_b, product_func, accum_func, write_func, chunk_size);
        auto n_more_blocks = more.total_row_blocks * n_blocks_per_row;
-       int smem = map_size();
-       int smem_dim = smem / sizeof(typename insert_type::slot_type);
+       int smem_dim = map_size();
+       int smem = raft::getSharedMemPerBlock();
        this->_dispatch_base(*this, smem, smem_dim, more, out_dists, coo_rows_b,
                             product_func, accum_func, write_func, chunk_size,
                             n_more_blocks, n_blocks_per_row);
@@ -108,8 +108,8 @@
        mask_row_it<value_idx> less(this->config.a_indptr, this->config.a_nrows);
 
        auto n_blocks = this->config.a_nrows * n_blocks_per_row;
-       int smem = map_size();
-       int smem_dim = smem / sizeof(typename insert_type::slot_type);
+       int smem_dim = map_size();
+       int smem = raft::getSharedMemPerBlock();
        this->_dispatch_base(*this, smem, smem_dim, less, out_dists, coo_rows_b,
                             product_func, accum_func, write_func, chunk_size,
                             n_blocks, n_blocks_per_row);

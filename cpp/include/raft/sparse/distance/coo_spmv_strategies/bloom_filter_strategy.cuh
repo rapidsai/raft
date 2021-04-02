@@ -53,10 +53,9 @@ class bloom_filter_strategy : public coo_spmv_strategy<value_idx, value_t> {
     auto n_blocks_per_row = raft::ceildiv(this->config.b_nnz, chunk_size * tpb);
     auto n_blocks = row_it.n_rows * n_blocks_per_row;
 
-    int smem = filter_size();
-    int smem_dim = smem / sizeof(value_idx);
+    int smem_dim = filter_size();
 
-    this->_dispatch_base(*this, smem, smem_dim, row_it, out_dists, coo_rows_b,
+    this->_dispatch_base(*this, this->smem, smem_dim, row_it, out_dists, coo_rows_b,
                          product_func, accum_func, write_func, chunk_size,
                          n_blocks, n_blocks_per_row);
   }
@@ -68,10 +67,9 @@ class bloom_filter_strategy : public coo_spmv_strategy<value_idx, value_t> {
     auto n_blocks_per_row = raft::ceildiv(this->config.a_nnz, chunk_size * tpb);
     auto n_blocks = row_it.n_rows * n_blocks_per_row;
 
-    int smem = filter_size();
-    int smem_dim = smem / sizeof(value_idx);
+    int smem_dim = filter_size();
 
-    this->_dispatch_base_rev(*this, smem, smem_dim, row_it, out_dists, coo_rows_b,
+    this->_dispatch_base_rev(*this, this->smem, smem_dim, row_it, out_dists, coo_rows_b,
                              product_func, accum_func, write_func, chunk_size,
                              n_blocks, n_blocks_per_row);
   }

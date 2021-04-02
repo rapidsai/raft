@@ -272,11 +272,11 @@ class kl_divergence_unexpanded_distances_t : public distances_t<value_t> {
     : config_(&config) {}
 
   void compute(value_t *out_dists) {
-
+/**
     // This is annihilating and identity is 1
     if (config_->a_ncols < max_cols_per_block<value_idx, value_t>()) {
 
-      raft::mr::device::buffer<value_idx> coo_rows(
+**/      raft::mr::device::buffer<value_idx> coo_rows(
         config_->allocator, config_->stream, max(config_->b_nnz, config_->a_nnz));
 
       raft::sparse::convert::csr_to_coo(config_->b_indptr, config_->b_nrows,
@@ -290,7 +290,7 @@ class kl_divergence_unexpanded_distances_t : public distances_t<value_t> {
         },
         Sum(), AtomicAdd());
 
-    } else {
+   /** } else {
       // TODO: Find max nnz and set smem based on this value.
       // Ref: https://github.com/rapidsai/cuml/issues/3371
       generalized_csr_pairwise_semiring<value_idx, value_t>(
@@ -299,7 +299,7 @@ class kl_divergence_unexpanded_distances_t : public distances_t<value_t> {
         },
         Sum());
     }
-
+**/
     raft::linalg::unaryOp<value_t>(
       out_dists, out_dists, config_->a_nrows * config_->b_nrows,
       [=] __device__(value_t input) { return 0.5 * input; },
