@@ -27,7 +27,7 @@ elseif(CMAKE_CUDA_ARCHITECTURES STREQUAL "" OR NOT DEFINED CMAKE_CUDA_ARCHITECTU
 endif()
 
 # language CUDA is enabled in ConfigureCUDA.cmake
-project(RAFT VERSION 0.19.0 LANGUAGES CXX)
+project(RAFT VERSION 0.20.0 LANGUAGES CXX)
 
 ##############################################################################
 # - build type ---------------------------------------------------------------

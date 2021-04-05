@@ -79,7 +79,7 @@ void single_linkage(const raft::handle_t &handle, const value_t *X, size_t m,
    */
   detail::build_sorted_mst<value_idx, value_t>(
     handle, X, indptr.data(), indices.data(), pw_dists.data(), m, n, mst_rows,
-    mst_cols, mst_data, indices.size());
+    mst_cols, mst_data, indices.size(), metric);
 
   pw_dists.release();
 

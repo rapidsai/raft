@@ -52,12 +52,12 @@ enum DistanceType : unsigned short {
   Haversine = 13,
   /** Bray-Curtis distance **/
   BrayCurtis = 14,
-  /** Jensen-Shannon distance**/
+  /** Jensen-Shannon distance **/
   JensenShannon = 15,
-
+  /** Dice-Sorensen distance **/
+  DiceExpanded = 16,
   /** Precomputed (special value) **/
   Precomputed = 100
 };
-
 };  // namespace distance
 };  // end namespace raft
