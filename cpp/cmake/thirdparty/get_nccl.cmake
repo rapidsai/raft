@@ -25,16 +25,17 @@ function(find_and_configure_nccl)
                           "${multiValueArgs}" ${ARGN} )
 
     GENERATE_FIND_MODULE(
-        NAME         nccl
+        NAME         NCCL
         HEADER_NAME  nccl.h
         LIBRARY_NAME nccl
     )
 
-    CPMFindPackage(NAME nccl
+    # find_package(NCCL 2.8 REQUIRED)
+
+    CPMFindPackage(NAME NCCL
         VERSION         ${PKG_VERSION}
         GIT_REPOSITORY  https://github.com/NVIDIA/nccl.git
         GIT_TAG         ${PKG_PINNED_TAG}
-        GIT_SHALLOW     TRUE
         DOWNLOAD_ONLY   YES
     )
 
@@ -47,7 +48,7 @@ function(find_and_configure_nccl)
     endif()
 endfunction()
 
-find_and_configure_nccl(VERSION     "${RAFT_VERSION_MAJOR}.${RAFT_VERSION_MINOR}"
+find_and_configure_nccl(VERSION     2.8
                         PINNED_TAG  911d61f214d45c98df1ee8c0ac23c33fb94b63de)
 
 

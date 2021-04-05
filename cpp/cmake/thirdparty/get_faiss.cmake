@@ -20,16 +20,17 @@ function(find_and_configure_faiss)
                           "${multiValueArgs}" ${ARGN} )
 
     GENERATE_FIND_MODULE(
-        NAME         faiss
-        HEADER_NAME  faiss.h
+        NAME         FAISS
+        HEADER_NAME  faiss/IndexFlat.h
         LIBRARY_NAME faiss
     )
 
-    CPMFindPackage(NAME faiss
+    # find_package(FAISS 1.7.0 REQUIRED)
+
+    CPMFindPackage(NAME FAISS
         VERSION         ${PKG_VERSION}
         GIT_REPOSITORY  https://github.com/facebookresearch/faiss.git
         GIT_TAG         ${PKG_PINNED_TAG}
-        GIT_SHALLOW     TRUE
         DOWNLOAD_ONLY   YES
         # OPTIONS         "CMAKE_BUILD_TYPE Release
         #                 BUILD_TESTING OFF
@@ -41,7 +42,7 @@ function(find_and_configure_faiss)
         #                 BLAS_LIBRARIES ${BLAS_LIBRARIES}"
     )
 
-    set(faiss_SOURCE_DIR "${faiss_SOURCE_DIR}" PARENT_SCOPE)
+    set(FAISS_SOURCE_DIR "${FAISS_SOURCE_DIR}" PARENT_SCOPE)
 
     if (faiss_ADDED)
         # todo (DD): Test building faiss statically
@@ -50,7 +51,7 @@ function(find_and_configure_faiss)
     endif()
 endfunction()
 
-find_and_configure_faiss(VERSION    0
+find_and_configure_faiss(VERSION    1.7.0
                         PINNED_TAG  c65f6705236570c9aac365c68e3cc5da2343c888
                         )
 

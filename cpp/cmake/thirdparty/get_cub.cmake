@@ -24,7 +24,6 @@ function(find_and_configure_cub)
         VERSION         ${PKG_VERSION}
         GIT_REPOSITORY  https://github.com/NVlabs/cub.git
         GIT_TAG         ${PKG_PINNED_TAG}
-        GIT_SHALLOW     TRUE
         DOWNLOAD_ONLY   TRUE
     )
 

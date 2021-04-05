@@ -119,8 +119,8 @@ include(cmake/modules/ConfigureCUDA.cmake)
 
 # our GENERATE_FIND_MODULE function works perfectly to allow CPMFindPackage work with packages
 # that don't have a find*.cmake (like it did for find_package), like nccl :)
-set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/cmake/templates)
+set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_BINARY_DIR}/cmake)
 
 if (NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
   find_package(OpenMP)
