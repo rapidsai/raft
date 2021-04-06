@@ -25,33 +25,24 @@ function(find_and_configure_faiss)
         LIBRARY_NAME faiss
     )
 
-    # find_package(FAISS 1.7.0 REQUIRED)
-
     CPMFindPackage(NAME FAISS
         VERSION         ${PKG_VERSION}
         GIT_REPOSITORY  https://github.com/facebookresearch/faiss.git
         GIT_TAG         ${PKG_PINNED_TAG}
-        DOWNLOAD_ONLY   YES
-        # OPTIONS         "CMAKE_BUILD_TYPE Release
-        #                 BUILD_TESTING OFF
-        #                 FAISS_ENABLE_PYTHON OFF
-        #                 BUILD_SHARED_LIBS OFF
-        #                 FAISS_ENABLE_GPU ON
-        #                 CUDAToolkit_ROOT ${CUDAToolkit_LIBRARY_DIR}
-        #                 CUDA_ARCHITECTURES ${FAISS_GPU_ARCHS}
-        #                 BLAS_LIBRARIES ${BLAS_LIBRARIES}"
+        OPTIONS
+          "FAISS_ENABLE_PYTHON OFF"
+          "BUILD_SHARED_LIBS OFF"
+          "CUDAToolkit_ROOT ${CUDAToolkit_LIBRARY_DIR}"
+          "FAISS_ENABLE_GPU ON"
+          "BUILD_TESTING OFF"
     )
 
-    set(FAISS_SOURCE_DIR "${FAISS_SOURCE_DIR}" PARENT_SCOPE)
+    set(FAISS_LIBRARIES ${FAISS_LIBRARY_RELEASE} PARENT_SCOPE)
 
-    if (faiss_ADDED)
-        # todo (DD): Test building faiss statically
-
-
-    endif()
+    # todo (DD): Test building faiss statically and add gpu archs again
 endfunction()
 
 find_and_configure_faiss(VERSION    1.7.0
-                        PINNED_TAG  c65f6705236570c9aac365c68e3cc5da2343c888
+                        PINNED_TAG  7c2d2388a492d65fdda934c7e74ae87acaeed066
                         )
 

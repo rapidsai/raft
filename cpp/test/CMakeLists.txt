@@ -100,14 +100,9 @@ target_compile_options(test_raft
 )
 
 target_include_directories(test_raft
-    PUBLIC  "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/cpp/include>"
-            "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/cpp/test>"
+    PUBLIC  "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/include>"
+            "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/test>"
 )
-
-# target_include_directories(test_raft
-# PRIVATE
-#   ${RAFT_INCLUDE_DIRECTORIES}
-#   ${GTEST_DIR}/include)
 
 target_link_directories(test_raft
 PRIVATE
@@ -116,8 +111,15 @@ PRIVATE
 target_link_libraries(test_raft
 PRIVATE
   ${RAFT_LINK_LIBRARIES}
-  FAISS::FAISS
-  GTest::GTest
-  GTest::Main
+  CUDA::cublas
+  CUDA::curand
+  CUDA::cusolver
+  CUDA::cudart
+  CUDA::cusparse
+  rmm::rmm
+  ${FAISS_LIBRARIES}
+  GTest::gtest
+  GTest::gtest_main
   OpenMP::OpenMP_CXX
-  Threads::Threads)
+  Threads::Threads
+)
