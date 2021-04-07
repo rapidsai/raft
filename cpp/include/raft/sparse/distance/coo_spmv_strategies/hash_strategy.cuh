@@ -175,9 +175,9 @@
   private:
    float capacity_threshold;
    __host__ __device__ constexpr static int map_size() {
-    //  return (48000 - ((tpb / raft::warp_size()) * sizeof(value_t))) /
-    //         sizeof(typename insert_type::slot_type);
-     return 2;
+     return (48000 - ((tpb / raft::warp_size()) * sizeof(value_t))) /
+            sizeof(typename insert_type::slot_type);
+    //  return 2;
    }
  };
 

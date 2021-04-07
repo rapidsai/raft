@@ -136,7 +136,7 @@
    if (ind >= nnz_b) return;
    // if (tid < active_chunk_size) printf("cur_row_a: %d, m: %d, cur_chunk_offset: %d, n_blocks_per_row: %d, ind: %d, nnz_b: %d\n", cur_row_a, m, cur_chunk_offset, n_blocks_per_row, ind, nnz_b);
  
-   value_idx start_index_a = 0, stop_index_a = b_ncols;
+   value_idx start_index_a = 0, stop_index_a = b_ncols - 1;
    indptrA.get_indices_boundary(indicesA, cur_row_a, start_offset_a, stop_offset_a,
      start_index_a, stop_index_a, first_a_chunk, last_a_chunk);
    // if (threadIdx.x == 0) {

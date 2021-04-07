@@ -154,14 +154,14 @@ class chunked_mask_row_it : public mask_row_it<value_idx> {
     value_idx &stop_offset, value_idx &start_index, value_idx &stop_index,
     bool &first_a_chunk,
     bool &last_a_chunk) {
-      start_index = first_a_chunk ? start_index : indices[start_offset];
+      start_index = first_a_chunk ? start_index : indices[start_offset - 1] + 1;
       stop_index = last_a_chunk ? stop_index : indices[stop_offset];
   }
 
   __device__ inline bool check_indices_bounds(value_idx &start_index_a,
                                               value_idx &stop_index_a,
                                               value_idx &index_b) {
-    return (index_b >= start_index_a && index_b < stop_index_a) || (index_b == start_index_a == stop_index_a);
+    return (index_b >= start_index_a && index_b <= stop_index_a) || (index_b == start_index_a == stop_index_a);
   }
 
   value_idx total_row_blocks;
