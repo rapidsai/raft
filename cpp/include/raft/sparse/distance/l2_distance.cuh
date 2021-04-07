@@ -67,9 +67,7 @@ __global__ void compute_euclidean_warp_kernel(
   value_t val = expansion_func(dot, Q_sq_norms[i], R_sq_norms[j]);
 
   // correct for small instabilities
-  if (fabs(val) < 0.0001) val = 0.0;
-
-  C[(size_t)i * n_cols + j] = val;
+  C[(size_t)i * n_cols + j] = val * (fabs(val) < 0.0001);
 }
 
 template <typename value_idx, typename value_t, int tpb = 1024,

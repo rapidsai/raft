@@ -84,7 +84,7 @@
    strategy_t strategy, indptr_it indptrA, value_idx *indicesA, value_t *dataA,
    value_idx nnz_a, value_idx *rowsB, value_idx *indicesB, value_t *dataB,
    value_idx m, value_idx n, int dim, int tpb, value_idx nnz_b, value_t *out,
-   int n_blocks_per_row, int chunk_size, product_f product_func,
+   int n_blocks_per_row, int chunk_size, value_idx b_ncols, product_f product_func,
    accum_f accum_func, write_f write_func) {
    typedef cub::WarpReduce<value_t> warp_reduce;
  
@@ -117,12 +117,13 @@
  
    __syncthreads();
  
-   value_idx start_offset_a, stop_offset_a, start_index_a, stop_index_a;
+   value_idx start_offset_a, stop_offset_a;
+   bool first_a_chunk, last_a_chunk;
    indptrA.get_row_offsets(cur_row_a, start_offset_a, stop_offset_a,
-                           n_blocks_per_row);
+                           n_blocks_per_row, first_a_chunk, last_a_chunk);
  
    // Convert current row vector in A to dense
-   for (int i = tid; i < (stop_offset_a - start_offset_a); i += blockDim.x) {
+   for (int i = tid; i <= (stop_offset_a - start_offset_a); i += blockDim.x) {
      strategy.insert(inserter, indicesA[start_offset_a + i],
                      dataA[start_offset_a + i], dim);
    }
@@ -135,8 +136,9 @@
    if (ind >= nnz_b) return;
    // if (tid < active_chunk_size) printf("cur_row_a: %d, m: %d, cur_chunk_offset: %d, n_blocks_per_row: %d, ind: %d, nnz_b: %d\n", cur_row_a, m, cur_chunk_offset, n_blocks_per_row, ind, nnz_b);
  
+   value_idx start_index_a = 0, stop_index_a = b_ncols;
    indptrA.get_indices_boundary(indicesA, cur_row_a, start_offset_a, stop_offset_a,
-     start_index_a, stop_index_a);
+     start_index_a, stop_index_a, first_a_chunk, last_a_chunk);
    // if (threadIdx.x == 0) {
    // printf(
    // "blockIdx.x: %d, cur_row_a: %d, start_offset: %d, end_offset: %d, "

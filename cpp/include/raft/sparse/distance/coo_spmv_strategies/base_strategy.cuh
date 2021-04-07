@@ -55,7 +55,7 @@ class coo_spmv_strategy {
         strategy, a_indptr, config.a_indices, config.a_data, config.a_nnz,
         coo_rows_b, config.b_indices, config.b_data, config.a_nrows,
         config.b_nrows, smem_dim, tpb, config.b_nnz, out_dists, n_blocks_per_row,
-        chunk_size, product_func, accum_func, write_func);
+        chunk_size, config.b_ncols, product_func, accum_func, write_func);
   }
 
   template <typename strategy_t, typename indptr_it, typename product_f,
@@ -78,7 +78,7 @@ class coo_spmv_strategy {
         strategy, b_indptr, config.b_indices, config.b_data, config.b_nnz,
         coo_rows_a, config.a_indices, config.a_data, config.b_nrows,
         config.a_nrows, smem_dim, tpb, config.a_nnz, out_dists, n_blocks_per_row,
-        chunk_size, product_func, accum_func, write_func);
+        chunk_size, config.a_ncols, product_func, accum_func, write_func);
   }
 
  protected:
