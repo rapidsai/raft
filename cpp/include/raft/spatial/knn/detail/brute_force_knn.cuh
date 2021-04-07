@@ -249,7 +249,7 @@ void brute_force_knn_impl(std::vector<float *> &input, std::vector<int> &sizes,
     // from the local partitions
     id_ranges = new std::vector<int64_t>();
     int64_t total_n = 0;
-    for (int i = 0; i < input.size(); i++) {
+    for (size_t i = 0; i < input.size(); i++) {
       id_ranges->push_back(total_n);
       total_n += sizes[i];
     }
@@ -266,7 +266,7 @@ void brute_force_knn_impl(std::vector<float *> &input, std::vector<int> &sizes,
 
   std::vector<std::unique_ptr<MetricProcessor<float>>> metric_processors(
     input.size());
-  for (int i = 0; i < input.size(); i++) {
+  for (size_t i = 0; i < input.size(); i++) {
     metric_processors[i] = create_processor<float>(
       metric, sizes[i], D, k, rowMajorQuery, userStream, allocator);
     metric_processors[i]->preprocess(input[i]);
@@ -297,7 +297,7 @@ void brute_force_knn_impl(std::vector<float *> &input, std::vector<int> &sizes,
   // Sync user stream only if using other streams to parallelize query
   if (n_int_streams > 0) CUDA_CHECK(cudaStreamSynchronize(userStream));
 
-  for (int i = 0; i < input.size(); i++) {
+  for (size_t i = 0; i < input.size(); i++) {
     float *out_d_ptr = out_D + (i * k * n);
     int64_t *out_i_ptr = out_I + (i * k * n);
 
@@ -378,7 +378,7 @@ void brute_force_knn_impl(std::vector<float *> &input, std::vector<int> &sizes,
 
   query_metric_processor->revert(search_items);
   query_metric_processor->postprocess(out_D);
-  for (int i = 0; i < input.size(); i++) {
+  for (size_t i = 0; i < input.size(); i++) {
     metric_processors[i]->revert(input[i]);
   }
 
