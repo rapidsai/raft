@@ -127,6 +127,8 @@ class ip_distances_gemm_t : public ip_trans_getters_t<value_idx, value_t> {
 
     value_idx out_batch_nnz = get_nnz(out_batch_indptr.data());
 
+    printf("Batch nnz: %d, %d\n", out_batch_nnz,  config_->a_nrows * config_->b_nrows);
+
     out_batch_indices.resize(out_batch_nnz, config_->stream);
     out_batch_data.resize(out_batch_nnz, config_->stream);
 
@@ -174,6 +176,8 @@ class ip_distances_gemm_t : public ip_trans_getters_t<value_idx, value_t> {
       &workspace_size, config_->stream));
 
     workspace.resize(workspace_size, config_->stream);
+
+    printf("workspace_size: %d\n", workspace_size);
 
     value_idx out_nnz = 0;
 
@@ -278,8 +282,8 @@ class ip_distances_t : public distances_t<value_t> {
   internal_ip_dist =
     std::make_unique<ip_distances_spmv_t<value_idx, value_t>>(*config_);
 //    } else {
-    //  internal_ip_dist =
-    //    std::make_unique<ip_distances_gemm_t<value_idx, value_t>>(*config_);
+//      internal_ip_dist =
+//        std::make_unique<ip_distances_gemm_t<value_idx, value_t>>(*config_);
 //    }
   }
 

@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "coo_spmv_strategies/bloom_filter_strategy.cuh"
 #include "coo_spmv_strategies/binned_bloom_filter_strategy.cuh"
 #include "coo_spmv_strategies/dense_smem_strategy.cuh"
 #include "coo_spmv_strategies/hash_strategy.cuh"
@@ -141,7 +142,7 @@ inline void balanced_coo_pairwise_generalized_spmv(
  * @param[in] write_func atomic semiring sum() function
  */
  template <typename value_idx, typename value_t, int threads_per_block = 1024,
- int chunk_size = 500000, typename product_f, typename accum_f,
+ int chunk_size = 1000, typename product_f, typename accum_f,
  typename write_f>
 inline void balanced_coo_pairwise_generalized_spmv_rev(
   value_t *out_dists, const distances_config_t<value_idx, value_t> &config_,

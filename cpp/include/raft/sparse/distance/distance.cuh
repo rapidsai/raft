@@ -59,7 +59,7 @@ static const std::unordered_set<raft::distance::DistanceType> supportedDistance{
   raft::distance::DistanceType::HammingUnexpanded,
   raft::distance::DistanceType::JensenShannon,
   raft::distance::DistanceType::KLDivergence,
-  raft::distance::DistanceType::RusselRaoExpanded};
+  raft::distance::DistanceType::RusselRaoExpanded,
   raft::distance::DistanceType::DiceExpanded};
 
 /**

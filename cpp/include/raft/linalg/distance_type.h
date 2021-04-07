@@ -59,7 +59,7 @@ enum DistanceType : unsigned short {
   /** KLDivergence **/
   KLDivergence = 17,
   /** RusselRao **/
-  RusselRaoExpanded = 18
+  RusselRaoExpanded = 18,
   /** Dice-Sorensen distance **/
   DiceExpanded = 19,
   /** Precomputed (special value) **/
