@@ -169,11 +169,11 @@ class chunked_mask_row_it : public mask_row_it<value_idx> {
   const cudaStream_t stream;
   rmm::device_vector<value_idx> n_chunks_per_row, chunk_indices;
   value_idx *n_chunks_per_row_ptr, *chunk_indices_ptr;
-  int &row_chunk_size, *row_chunk_size_d;
+  value_idx &row_chunk_size, *row_chunk_size_d;
 
   struct n_chunks_per_row_functor {
    public:
-    n_chunks_per_row_functor(const value_idx *indptr_, int *row_chunk_size_)
+    n_chunks_per_row_functor(const value_idx *indptr_, value_idx *row_chunk_size_)
       : indptr(indptr_), row_chunk_size(row_chunk_size_) {}
 
     __host__ __device__ value_idx operator()(const value_idx &i) {
@@ -182,7 +182,7 @@ class chunked_mask_row_it : public mask_row_it<value_idx> {
     }
 
     const value_idx *indptr;
-    int *row_chunk_size;
+    value_idx *row_chunk_size;
   };
 
   void fill_chunk_indices() {
