@@ -140,6 +140,9 @@ void pairwiseDistance(value_t *out,
     case raft::distance::DistanceType::DiceExpanded:
       dice_expanded_distances_t<value_idx, value_t>(input_config).compute(out);
       break;
+    case raft::distance::DistanceType::CorrelationExpanded:
+      correlation_expanded_distances_t<value_idx, value_t>(input_config).compute(out);
+      break;
 
     default:
       THROW("Unsupported distance: %d", metric);

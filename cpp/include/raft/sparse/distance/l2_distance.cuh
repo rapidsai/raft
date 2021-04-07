@@ -50,6 +50,17 @@ __global__ void compute_row_norm_kernel(value_t *out,
   }
 }
 
+template <typename value_idx, typename value_t>
+__global__ void compute_row_sum_kernel(value_t *out,
+                                        const value_idx *__restrict__ coo_rows,
+                                        const value_t *__restrict__ data,
+                                        value_idx nnz) {
+  value_idx i = blockDim.x * blockIdx.x + threadIdx.x;
+  if (i < nnz) {
+    atomicAdd(&out[coo_rows[i]], data[i]);
+  }
+}
+
 template <typename value_idx, typename value_t, typename expansion_f>
 __global__ void compute_euclidean_warp_kernel(
   value_t *__restrict__ C, const value_t *__restrict__ Q_sq_norms,
@@ -70,7 +81,33 @@ __global__ void compute_euclidean_warp_kernel(
   C[(size_t)i * n_cols + j] = val * (fabs(val) >= 0.0001);
 }
 
-template <typename value_idx, typename value_t, int tpb = 1024,
+template <typename value_idx, typename value_t>
+__global__ void compute_correlation_warp_kernel(
+  value_t *__restrict__ C,
+  const value_t *__restrict__ Q_sq_norms,
+  const value_t *__restrict__ R_sq_norms,
+  const value_t *__restrict__ Q_norms,
+  const value_t *__restrict__ R_norms,
+  value_idx n_rows, value_idx n_cols) {
+  value_idx tid = blockDim.x * blockIdx.x + threadIdx.x;
+  value_idx i = tid / n_cols;
+  value_idx j = tid % n_cols;
+
+  if (i >= n_rows || j >= n_cols) return;
+
+  value_t dot = C[(size_t)i * n_cols + j];
+  value_t Q_mu = Q_norms[i];
+  value_t R_mu = R_norms[j];
+
+  value_t Q_sigma = sqrt((Q_sq_norms[i] - (Q_mu * Q_mu)));
+  value_t R_sigma = sqrt((R_sq_norms[j] - (R_mu * R_mu)));
+
+  // correct for small instabilities
+  C[(size_t)i * n_cols + j] = 1 - (dot - (Q_mu * R_mu) / (Q_sigma * R_sigma));
+}
+
+
+template <typename value_idx, typename value_t, int tpb = 256,
           typename expansion_f>
 void compute_euclidean(value_t *C, const value_t *Q_sq_norms,
                        const value_t *R_sq_norms, value_idx n_rows,
@@ -81,7 +118,21 @@ void compute_euclidean(value_t *C, const value_t *Q_sq_norms,
     C, Q_sq_norms, R_sq_norms, n_rows, n_cols, expansion_func);
 }
 
-template <typename value_idx, typename value_t, int tpb = 1024,
+
+template <typename value_idx, typename value_t, int tpb = 256>
+void compute_correlation(value_t *C,
+                       const value_t *Q_sq_norms,
+                       const value_t *R_sq_norms,
+                       const value_t *Q_norms,
+                       const value_t *R_norms,
+                       value_idx n_rows,
+                       value_idx n_cols, cudaStream_t stream) {
+  int blocks = raft::ceildiv<size_t>((size_t)n_rows * n_cols, tpb);
+  compute_correlation_warp_kernel<<<blocks, tpb, 0, stream>>>(
+    C, Q_sq_norms, R_sq_norms, Q_norms, R_norms, n_rows, n_cols);
+}
+
+template <typename value_idx, typename value_t, int tpb = 256,
           typename expansion_f>
 void compute_l2(value_t *out, const value_idx *Q_coo_rows,
                 const value_t *Q_data, value_idx Q_nnz,
@@ -106,6 +157,66 @@ void compute_l2(value_t *out, const value_idx *Q_coo_rows,
                     expansion_func);
 }
 
+template <typename value_idx, typename value_t, int tpb = 256>
+void compute_corr(value_t *out, const value_idx *Q_coo_rows,
+                const value_t *Q_data, value_idx Q_nnz,
+                const value_idx *R_coo_rows, const value_t *R_data,
+                value_idx R_nnz, value_idx m, value_idx n,
+                value_idx n_cols,
+                cusparseHandle_t handle,
+                std::shared_ptr<raft::mr::device::allocator> alloc,
+                cudaStream_t stream) {
+  // sum_sq for std dev
+  raft::mr::device::buffer<value_t> Q_sq_norms(alloc, stream, m);
+  raft::mr::device::buffer<value_t> R_sq_norms(alloc, stream, n);
+
+  // sum for mean
+  raft::mr::device::buffer<value_t> Q_norms(alloc, stream, m);
+  raft::mr::device::buffer<value_t> R_norms(alloc, stream, n);
+
+  CUDA_CHECK(
+    cudaMemsetAsync(Q_sq_norms.data(), 0, Q_sq_norms.size() * sizeof(value_t)));
+  CUDA_CHECK(
+    cudaMemsetAsync(R_sq_norms.data(), 0, R_sq_norms.size() * sizeof(value_t)));
+
+  CUDA_CHECK(
+    cudaMemsetAsync(Q_norms.data(), 0, Q_norms.size() * sizeof(value_t)));
+  CUDA_CHECK(
+    cudaMemsetAsync(R_norms.data(), 0, R_norms.size() * sizeof(value_t)));
+
+  compute_row_norm_kernel<<<raft::ceildiv(Q_nnz, tpb), tpb, 0, stream>>>(
+    Q_sq_norms.data(), Q_coo_rows, Q_data, Q_nnz);
+  compute_row_norm_kernel<<<raft::ceildiv(R_nnz, tpb), tpb, 0, stream>>>(
+    R_sq_norms.data(), R_coo_rows, R_data, R_nnz);
+
+  compute_row_sum_kernel<<<raft::ceildiv(Q_nnz, tpb), tpb, 0, stream>>>(
+    Q_norms.data(), Q_coo_rows, Q_data, Q_nnz);
+  compute_row_sum_kernel<<<raft::ceildiv(R_nnz, tpb), tpb, 0, stream>>>(
+    R_norms.data(), R_coo_rows, R_data, R_nnz);
+
+  value_t n_cols_div = 1.0 / n_cols;
+  raft::linalg::unaryOp<value_t>(
+    Q_sq_norms.data(), Q_sq_norms.data(), m,
+    [=] __device__(value_t input) { return input * n_cols_div; },
+    stream);
+  raft::linalg::unaryOp<value_t>(
+    Q_norms.data(), Q_norms.data(), m,
+    [=] __device__(value_t input) { return input * n_cols_div; },
+    stream);
+  raft::linalg::unaryOp<value_t>(
+    R_sq_norms.data(), R_sq_norms.data(), n,
+    [=] __device__(value_t input) { return input * n_cols_div; },
+    stream);
+  raft::linalg::unaryOp<value_t>(
+    R_norms.data(), R_norms.data(), n,
+    [=] __device__(value_t input) { return input * n_cols_div; },
+    stream);
+
+  compute_correlation(out, Q_sq_norms.data(), R_sq_norms.data(),
+                      Q_norms.data(),  R_norms.data(), m, n, stream);
+}
+
+
 /**
  * L2 distance using the expanded form: sum(x_k)^2 + sum(y_k)^2 - 2 * sum(x_k * y_k)
  * The expanded form is more efficient for sparse data.
@@ -116,7 +227,6 @@ class l2_expanded_distances_t : public distances_t<value_t> {
   explicit l2_expanded_distances_t(
     const distances_config_t<value_idx, value_t> &config)
     : config_(&config),
-      workspace(config.allocator, config.stream, 0),
       ip_dists(config) {}
 
   void compute(value_t *out_dists) {
@@ -144,7 +254,38 @@ class l2_expanded_distances_t : public distances_t<value_t> {
 
  protected:
   const distances_config_t<value_idx, value_t> *config_;
-  raft::mr::device::buffer<char> workspace;
+  ip_distances_t<value_idx, value_t> ip_dists;
+};
+
+template<typename value_idx, typename value_t>
+class correlation_expanded_distances_t : public distances_t<value_t> {
+ public:
+  explicit correlation_expanded_distances_t(
+    const distances_config_t<value_idx, value_t> &config)
+  : config_(&config), ip_dists(config) {}
+
+  void compute(value_t *out_dists) {
+    ip_dists.compute(out_dists);
+
+    value_idx *b_indices = ip_dists.b_rows_coo();
+    value_t *b_data = ip_dists.b_data_coo();
+
+    raft::mr::device::buffer<value_idx> search_coo_rows(
+      config_->allocator, config_->stream, config_->a_nnz);
+    raft::sparse::convert::csr_to_coo(config_->a_indptr, config_->a_nrows,
+                                      search_coo_rows.data(), config_->a_nnz,
+                                      config_->stream);
+
+    compute_corr(
+      out_dists, search_coo_rows.data(), config_->a_data, config_->a_nnz,
+      b_indices, b_data, config_->b_nnz, config_->a_nrows, config_->b_nrows, config_->b_ncols,
+      config_->handle, config_->allocator, config_->stream);
+  }
+
+  ~correlation_expanded_distances_t() = default;
+
+ protected:
+  const distances_config_t<value_idx, value_t> *config_;
   ip_distances_t<value_idx, value_t> ip_dists;
 };
 
@@ -297,10 +438,10 @@ class russelrao_expanded_distances_t : public distances_t<value_t> {
 
     ip_dists.compute(out_dists);
 
-    value_idx n_cols = config_->a_ncols;
+    value_idx n_cols = 1 / config_->a_ncols;
     raft::linalg::unaryOp<value_t>(
       out_dists, out_dists, config_->a_nrows * config_->b_nrows,
-      [=] __device__(value_t input) { return (n_cols - input) / n_cols; },
+      [=] __device__(value_t input) { return (n_cols - input) * n_cols; },
       config_->stream);
   }
 
