@@ -279,11 +279,11 @@ class ip_distances_t : public distances_t<value_t> {
   explicit ip_distances_t(const distances_config_t<value_idx, value_t> &config)
     : config_(&config) {
 //    if (config_->a_ncols < max_cols_per_block<value_idx, value_t>()) {
-//  internal_ip_dist =
-//    std::make_unique<ip_distances_spmv_t<value_idx, value_t>>(*config_);
+  internal_ip_dist =
+    std::make_unique<ip_distances_spmv_t<value_idx, value_t>>(*config_);
 //    } else {
-      internal_ip_dist =
-        std::make_unique<ip_distances_gemm_t<value_idx, value_t>>(*config_);
+//      internal_ip_dist =
+//        std::make_unique<ip_distances_gemm_t<value_idx, value_t>>(*config_);
 //    }
   }
 
