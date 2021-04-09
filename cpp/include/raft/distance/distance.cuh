@@ -18,11 +18,11 @@
 
 #include <cuda_runtime_api.h>
 #include <raft/linalg/distance_type.h>
-#include <raft/mr/device/buffer.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/distance/cosine.cuh>
 #include <raft/distance/euclidean.cuh>
 #include <raft/distance/l1.cuh>
+#include <raft/mr/device/buffer.hpp>
 
 namespace raft {
 namespace distance {
@@ -44,9 +44,10 @@ struct DistanceImpl<raft::distance::DistanceType::L2Expanded, InType, AccType,
   void run(const InType *x, const InType *y, OutType *dist, Index_ m, Index_ n,
            Index_ k, void *workspace, size_t worksize, FinalLambda fin_op,
            cudaStream_t stream, bool isRowMajor) {
-    raft::distance::euclideanAlgo1<InType, AccType, OutType, FinalLambda, Index_>(
-      m, n, k, x, y, dist, false, (AccType *)workspace, worksize, fin_op,
-      stream, isRowMajor);
+    raft::distance::euclideanAlgo1<InType, AccType, OutType, FinalLambda,
+                                   Index_>(m, n, k, x, y, dist, false,
+                                           (AccType *)workspace, worksize,
+                                           fin_op, stream, isRowMajor);
   }
 };
 
@@ -57,9 +58,10 @@ struct DistanceImpl<raft::distance::DistanceType::L2SqrtExpanded, InType,
   void run(const InType *x, const InType *y, OutType *dist, Index_ m, Index_ n,
            Index_ k, void *workspace, size_t worksize, FinalLambda fin_op,
            cudaStream_t stream, bool isRowMajor) {
-    raft::distance::euclideanAlgo1<InType, AccType, OutType, FinalLambda, Index_>(
-      m, n, k, x, y, dist, true, (AccType *)workspace, worksize, fin_op, stream,
-      isRowMajor);
+    raft::distance::euclideanAlgo1<InType, AccType, OutType, FinalLambda,
+                                   Index_>(m, n, k, x, y, dist, true,
+                                           (AccType *)workspace, worksize,
+                                           fin_op, stream, isRowMajor);
   }
 };
 
@@ -83,8 +85,9 @@ struct DistanceImpl<raft::distance::DistanceType::L2Unexpanded, InType, AccType,
   void run(const InType *x, const InType *y, OutType *dist, Index_ m, Index_ n,
            Index_ k, void *workspace, size_t worksize, FinalLambda fin_op,
            cudaStream_t stream, bool isRowMajor) {
-    raft::distance::euclideanAlgo2<InType, AccType, OutType, FinalLambda, Index_>(
-      m, n, k, x, y, dist, false, fin_op, stream, isRowMajor);
+    raft::distance::euclideanAlgo2<InType, AccType, OutType, FinalLambda,
+                                   Index_>(m, n, k, x, y, dist, false, fin_op,
+                                           stream, isRowMajor);
   }
 };
 
@@ -95,8 +98,9 @@ struct DistanceImpl<raft::distance::DistanceType::L2SqrtUnexpanded, InType,
   void run(const InType *x, const InType *y, OutType *dist, Index_ m, Index_ n,
            Index_ k, void *workspace, size_t worksize, FinalLambda fin_op,
            cudaStream_t stream, bool isRowMajor) {
-    raft::distance::euclideanAlgo2<InType, AccType, OutType, FinalLambda, Index_>(
-      m, n, k, x, y, dist, true, fin_op, stream, isRowMajor);
+    raft::distance::euclideanAlgo2<InType, AccType, OutType, FinalLambda,
+                                   Index_>(m, n, k, x, y, dist, true, fin_op,
+                                           stream, isRowMajor);
   }
 };
 
@@ -250,7 +254,8 @@ void distance(const InType *x, const InType *y, OutType *dist, Index_ m,
  */
 template <typename Type, typename Index_, raft::distance::DistanceType DistType>
 void pairwise_distance_impl(const Type *x, const Type *y, Type *dist, Index_ m,
-                            Index_ n, Index_ k, raft::mr::device::buffer<char> &workspace,
+                            Index_ n, Index_ k,
+                            raft::mr::device::buffer<char> &workspace,
                             cudaStream_t stream, bool isRowMajor) {
   auto worksize =
     getWorkspaceSize<DistType, Type, Type, Type, Index_>(x, y, m, n, k);
@@ -261,7 +266,8 @@ void pairwise_distance_impl(const Type *x, const Type *y, Type *dist, Index_ m,
 
 template <typename Type, typename Index_ = int>
 void pairwise_distance(const Type *x, const Type *y, Type *dist, Index_ m,
-                       Index_ n, Index_ k, raft::mr::device::buffer<char> &workspace,
+                       Index_ n, Index_ k,
+                       raft::mr::device::buffer<char> &workspace,
                        raft::distance::DistanceType metric, cudaStream_t stream,
                        bool isRowMajor = true) {
   switch (metric) {
@@ -300,5 +306,5 @@ void pairwise_distance(const Type *x, const Type *y, Type *dist, Index_ m,
 }
 /** @} */
 
-};  // end namespace Distance
-};  // end namespace MLCommon
+};  // namespace distance
+};  // namespace raft

@@ -16,8 +16,8 @@
 
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
-#include <raft/distance/distance.cuh>
 #include <raft/cuda_utils.cuh>
+#include <raft/distance/distance.cuh>
 #include <raft/random/rng.cuh>
 #include "../test_utils.h"
 
@@ -179,8 +179,8 @@ class DistanceTest : public ::testing::TestWithParam<DistanceInputs<DataType>> {
     naiveDistance(dist_ref, x, y, m, n, k, distanceType, isRowMajor);
     char *workspace = nullptr;
     size_t worksize =
-      raft::distance::getWorkspaceSize<distanceType, DataType, DataType, DataType>(x, y, m, n,
-                                                                   k);
+      raft::distance::getWorkspaceSize<distanceType, DataType, DataType,
+                                       DataType>(x, y, m, n, k);
     if (worksize != 0) {
       raft::allocate(workspace, worksize);
     }

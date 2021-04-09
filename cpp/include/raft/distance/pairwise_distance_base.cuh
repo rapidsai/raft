@@ -237,5 +237,5 @@ __global__ __launch_bounds__(
   obj.run();
 }
 
-};  // end namespace raft
-};  // end namespace distance
+};  // namespace distance
+};  // namespace raft
