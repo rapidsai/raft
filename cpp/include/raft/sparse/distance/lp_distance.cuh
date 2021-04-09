@@ -61,7 +61,7 @@ void unexpanded_lp_distances(
     // TODO: Use n_cols to set shared memory and threads per block
     // for max occupancy.
     // Ref: https://github.com/rapidsai/cuml/issues/3371
-
+/**
     raft::mr::device::buffer<value_idx> coo_rows(
       config_->allocator, config_->stream, max(config_->b_nnz, config_->a_nnz));
 
@@ -80,12 +80,12 @@ void unexpanded_lp_distances(
     balanced_coo_pairwise_generalized_spmv_rev<value_idx, value_t>(
       out_dists, *config_, coo_rows.data(), product_func, accum_func,
       write_func);
-
+**/
 //  } else {
 //    // TODO: Find max nnz and set smem based on this value.
 //    // Ref: https://github.com/rapidsai/cuml/issues/3371
-//    generalized_csr_pairwise_semiring<value_idx, value_t>(
-//      out_dists, *config_, product_func, accum_func);
+    generalized_csr_pairwise_semiring<value_idx, value_t>(
+      out_dists, *config_, product_func, accum_func);
 //  }
 }
 
@@ -276,21 +276,21 @@ class kl_divergence_unexpanded_distances_t : public distances_t<value_t> {
     // This is annihilating and identity is 1
     if (config_->a_ncols < max_cols_per_block<value_idx, value_t>()) {
 
-**/      raft::mr::device::buffer<value_idx> coo_rows(
-        config_->allocator, config_->stream, max(config_->b_nnz, config_->a_nnz));
+**/    //  raft::mr::device::buffer<value_idx> coo_rows(
+       // config_->allocator, config_->stream, max(config_->b_nnz, config_->a_nnz));
 
-      raft::sparse::convert::csr_to_coo(config_->b_indptr, config_->b_nrows,
-                                        coo_rows.data(), config_->b_nnz,
-                                        config_->stream);
+      //raft::sparse::convert::csr_to_coo(config_->b_indptr, config_->b_nrows,
+  //                                      coo_rows.data(), config_->b_nnz,
+  //                                      config_->stream);
 
-      balanced_coo_pairwise_generalized_spmv<value_idx, value_t>(
-        out_dists, *config_, coo_rows.data(),
-        [] __device__(value_t a, value_t b) {
-          return a * log(a / b);
-        },
-        Sum(), AtomicAdd());
+     // balanced_coo_pairwise_generalized_spmv<value_idx, value_t>(
+     //   out_dists, *config_, coo_rows.data(),
+    //    [] __device__(value_t a, value_t b) {
+    //      return a * log(a / b);
+    //    },
+    //    Sum(), AtomicAdd());
 
-   /** } else {
+   // } else {
       // TODO: Find max nnz and set smem based on this value.
       // Ref: https://github.com/rapidsai/cuml/issues/3371
       generalized_csr_pairwise_semiring<value_idx, value_t>(
@@ -298,8 +298,8 @@ class kl_divergence_unexpanded_distances_t : public distances_t<value_t> {
           return a * log(a / b);
         },
         Sum());
-    }
-**/
+   // }
+
     raft::linalg::unaryOp<value_t>(
       out_dists, out_dists, config_->a_nrows * config_->b_nrows,
       [=] __device__(value_t input) { return 0.5 * input; },
