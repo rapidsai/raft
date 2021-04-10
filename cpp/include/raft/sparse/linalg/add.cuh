@@ -89,7 +89,7 @@ __global__ void csr_add_calc_row_counts_kernel(
     out_rowcounts[row] = final_size;
     raft::myAtomicAdd(out_rowcounts + m, final_size);
 
-    delete arr;
+    delete[] arr;
   }
 }
 
