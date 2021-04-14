@@ -163,7 +163,7 @@ if [ "$RUN_CUML_LIBCUML_TESTS" = "ON" ] || [ "$RUN_CUML_PRIMS_TESTS" = "ON" ] ||
   if [ "$RUN_CUML_LIBCUML_TESTS" = "ON" ]; then
     gpuci_logger "GoogleTest for libcuml"
     cd "$WORKSPACE/cpp/build"
-    GTEST_OUTPUT="xml:"$WORKSPACE/test-results/libcuml_cpp/" ./test/ml
+    GTEST_OUTPUT="xml:$WORKSPACE/test-results/libcuml_cpp/" ./test/ml
   fi
 
   if [ "$RUN_CUML_PYTHON_TESTS" = "ON" ]; then
