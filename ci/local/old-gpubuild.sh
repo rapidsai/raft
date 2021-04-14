@@ -131,7 +131,7 @@ nvidia-smi
 
 gpuci_logger "GoogleTest for raft"
 cd "$WORKSPACE/cpp/build"
-GTEST_OUTPUT="xml:"$WORKSPACE/test-results/raft_cpp/" ./test/ml
+GTEST_OUTPUT="xml:$WORKSPACE/test-results/raft_cpp/" ./test/ml
 
 gpuci_logger "Python pytest for cuml"
 cd "$WORKSPACE/python"
