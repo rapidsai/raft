@@ -48,30 +48,34 @@ class dense_smem_strategy : public coo_spmv_strategy<value_idx, value_t> {
   void dispatch(value_t *out_dists, value_idx *coo_rows_b,
                 product_f product_func, accum_f accum_func, write_f write_func,
                 int chunk_size) {
-    auto n_blocks_per_row = raft::ceildiv(this->config.b_nnz, chunk_size * 1024);
+    auto n_blocks_per_row =
+      raft::ceildiv(this->config.b_nnz, chunk_size * 1024);
     auto n_blocks = this->config.a_nrows * n_blocks_per_row;
 
     mask_row_it<value_idx> a_indptr(this->config.a_indptr,
                                     this->config.a_nrows);
 
-    this->_dispatch_base(*this, this->smem, this->config.b_ncols, a_indptr, out_dists,
-                         coo_rows_b, product_func, accum_func, write_func,
-                         chunk_size, n_blocks, n_blocks_per_row, 1024);
+    this->_dispatch_base(*this, this->smem, this->config.b_ncols, a_indptr,
+                         out_dists, coo_rows_b, product_func, accum_func,
+                         write_func, chunk_size, n_blocks, n_blocks_per_row,
+                         1024);
   }
 
   template <typename product_f, typename accum_f, typename write_f>
   void dispatch_rev(value_t *out_dists, value_idx *coo_rows_a,
                     product_f product_func, accum_f accum_func,
                     write_f write_func, int chunk_size) {
-    auto n_blocks_per_row = raft::ceildiv(this->config.a_nnz, chunk_size * 1024);
+    auto n_blocks_per_row =
+      raft::ceildiv(this->config.a_nnz, chunk_size * 1024);
     auto n_blocks = this->config.b_nrows * n_blocks_per_row;
 
     mask_row_it<value_idx> b_indptr(this->config.b_indptr,
                                     this->config.b_nrows);
 
-    this->_dispatch_base_rev(*this, this->smem, this->config.a_ncols, b_indptr, out_dists,
-                             coo_rows_a, product_func, accum_func, write_func,
-                             chunk_size, n_blocks, n_blocks_per_row, 1024);
+    this->_dispatch_base_rev(*this, this->smem, this->config.a_ncols, b_indptr,
+                             out_dists, coo_rows_a, product_func, accum_func,
+                             write_func, chunk_size, n_blocks, n_blocks_per_row,
+                             1024);
   }
 
   __device__ inline insert_type init_insert(smem_type cache,
@@ -89,7 +93,10 @@ class dense_smem_strategy : public coo_spmv_strategy<value_idx, value_t> {
 
   __device__ inline find_type init_find(smem_type cache) { return cache; }
 
-  __device__ inline value_t find(find_type cache, value_idx &key, value_idx *indices, value_t *data, value_idx start_offset, value_idx stop_offset, int &size) {
+  __device__ inline value_t find(find_type cache, value_idx &key,
+                                 value_idx *indices, value_t *data,
+                                 value_idx start_offset, value_idx stop_offset,
+                                 int &size) {
     return cache[key];
   }
 };

@@ -16,10 +16,10 @@
 
 #pragma once
 
-#include "coo_mask_row_iterators.cuh"
 #include "../common.h"
 #include "../detail/coo_spmv_kernel.cuh"
 #include "../utils.cuh"
+#include "coo_mask_row_iterators.cuh"
 
 #include <rmm/device_uvector.hpp>
 #include <rmm/device_vector.hpp>
@@ -41,12 +41,11 @@ class coo_spmv_strategy {
                       indptr_it &a_indptr, value_t *out_dists,
                       value_idx *coo_rows_b, product_f product_func,
                       accum_f accum_func, write_f write_func, int chunk_size,
-                      int n_blocks, int n_blocks_per_row, int tpb=1024) {
-
+                      int n_blocks, int n_blocks_per_row, int tpb = 1024) {
     CUDA_CHECK(cudaFuncSetCacheConfig(
       balanced_coo_generalized_spmv_kernel<strategy_t, indptr_it, value_idx,
-                                           value_t, false, product_f,
-                                           accum_f, write_f>,
+                                           value_t, false, product_f, accum_f,
+                                           write_f>,
       cudaFuncCachePreferShared));
 
     balanced_coo_generalized_spmv_kernel<strategy_t, indptr_it, value_idx,
@@ -54,8 +53,9 @@ class coo_spmv_strategy {
       <<<n_blocks, tpb, smem, config.stream>>>(
         strategy, a_indptr, config.a_indices, config.a_data, config.a_nnz,
         coo_rows_b, config.b_indices, config.b_data, config.a_nrows,
-        config.b_nrows, smem_dim, tpb, config.b_nnz, out_dists, n_blocks_per_row,
-        chunk_size, config.b_ncols, product_func, accum_func, write_func);
+        config.b_nrows, smem_dim, tpb, config.b_nnz, out_dists,
+        n_blocks_per_row, chunk_size, config.b_ncols, product_func, accum_func,
+        write_func);
   }
 
   template <typename strategy_t, typename indptr_it, typename product_f,
@@ -64,12 +64,12 @@ class coo_spmv_strategy {
                           indptr_it &b_indptr, value_t *out_dists,
                           value_idx *coo_rows_a, product_f product_func,
                           accum_f accum_func, write_f write_func,
-                          int chunk_size, int n_blocks, int n_blocks_per_row, int tpb=1024) {
-
+                          int chunk_size, int n_blocks, int n_blocks_per_row,
+                          int tpb = 1024) {
     CUDA_CHECK(cudaFuncSetCacheConfig(
       balanced_coo_generalized_spmv_kernel<strategy_t, indptr_it, value_idx,
-                                           value_t, true, product_f,
-                                           accum_f, write_f>,
+                                           value_t, true, product_f, accum_f,
+                                           write_f>,
       cudaFuncCachePreferShared));
 
     balanced_coo_generalized_spmv_kernel<strategy_t, indptr_it, value_idx,
@@ -77,8 +77,9 @@ class coo_spmv_strategy {
       <<<n_blocks, tpb, smem, config.stream>>>(
         strategy, b_indptr, config.b_indices, config.b_data, config.b_nnz,
         coo_rows_a, config.a_indices, config.a_data, config.b_nrows,
-        config.a_nrows, smem_dim, tpb, config.a_nnz, out_dists, n_blocks_per_row,
-        chunk_size, config.a_ncols, product_func, accum_func, write_func);
+        config.a_nrows, smem_dim, tpb, config.a_nnz, out_dists,
+        n_blocks_per_row, chunk_size, config.a_ncols, product_func, accum_func,
+        write_func);
   }
 
  protected:

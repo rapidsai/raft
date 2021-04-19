@@ -141,7 +141,8 @@ void pairwiseDistance(value_t *out,
       dice_expanded_distances_t<value_idx, value_t>(input_config).compute(out);
       break;
     case raft::distance::DistanceType::CorrelationExpanded:
-      correlation_expanded_distances_t<value_idx, value_t>(input_config).compute(out);
+      correlation_expanded_distances_t<value_idx, value_t>(input_config)
+        .compute(out);
       break;
 
     default:

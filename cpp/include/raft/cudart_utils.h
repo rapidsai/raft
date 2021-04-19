@@ -280,8 +280,8 @@ __host__ __device__ inline int getSharedMemPerBlock() {
   int devId;
   cudaGetDevice(&devId);
   int smemPerBlk;
-  cudaDeviceGetAttribute(&smemPerBlk,
-                                    cudaDevAttrMaxSharedMemoryPerBlock, devId);
+  cudaDeviceGetAttribute(&smemPerBlk, cudaDevAttrMaxSharedMemoryPerBlock,
+                         devId);
   return smemPerBlk;
 }
 

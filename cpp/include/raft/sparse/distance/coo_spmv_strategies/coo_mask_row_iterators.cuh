@@ -41,12 +41,9 @@ class mask_row_it {
     }
   }
 
-  __device__ inline void get_row_offsets(const value_idx &row_idx,
-                                         value_idx &start_offset,
-                                         value_idx &stop_offset,
-                                         const value_idx &n_blocks_nnz_b,
-                                         bool &first_a_chunk,
-                                         bool &last_a_chunk) {
+  __device__ inline void get_row_offsets(
+    const value_idx &row_idx, value_idx &start_offset, value_idx &stop_offset,
+    const value_idx &n_blocks_nnz_b, bool &first_a_chunk, bool &last_a_chunk) {
     start_offset = full_indptr[row_idx];
     stop_offset = full_indptr[row_idx + 1] - 1;
   }
@@ -54,8 +51,7 @@ class mask_row_it {
   __device__ constexpr inline void get_indices_boundary(
     value_idx *indices, value_idx &indices_len, value_idx &start_offset,
     value_idx &stop_offset, value_idx &start_index, value_idx &stop_index,
-    bool &first_a_chunk,
-    bool &last_a_chunk) {
+    bool &first_a_chunk, bool &last_a_chunk) {
     // do nothing;
   }
 
@@ -126,12 +122,9 @@ class chunked_mask_row_it : public mask_row_it<value_idx> {
     return this->mask_row_idx[chunk_indices_ptr[blockIdx.x / n_blocks_nnz_b]];
   }
 
-  __device__ inline void get_row_offsets(const value_idx &row_idx,
-                                         value_idx &start_offset,
-                                         value_idx &stop_offset,
-                                         const int &n_blocks_nnz_b,
-                                         bool &first_a_chunk,
-                                         bool &last_a_chunk) {
+  __device__ inline void get_row_offsets(
+    const value_idx &row_idx, value_idx &start_offset, value_idx &stop_offset,
+    const int &n_blocks_nnz_b, bool &first_a_chunk, bool &last_a_chunk) {
     auto chunk_index = blockIdx.x / n_blocks_nnz_b;
     auto chunk_val = chunk_indices_ptr[chunk_index];
     auto prev_n_chunks = n_chunks_per_row_ptr[chunk_val];
@@ -145,23 +138,22 @@ class chunked_mask_row_it : public mask_row_it<value_idx> {
     auto final_stop_offset = this->full_indptr[row_idx + 1];
 
     last_a_chunk = stop_offset >= final_stop_offset;
-    stop_offset =
-      last_a_chunk ? final_stop_offset - 1: stop_offset - 1;
+    stop_offset = last_a_chunk ? final_stop_offset - 1 : stop_offset - 1;
   }
 
   __device__ inline void get_indices_boundary(
     value_idx *indices, value_idx &row_idx, value_idx &start_offset,
     value_idx &stop_offset, value_idx &start_index, value_idx &stop_index,
-    bool &first_a_chunk,
-    bool &last_a_chunk) {
-      start_index = first_a_chunk ? start_index : indices[start_offset - 1] + 1;
-      stop_index = last_a_chunk ? stop_index : indices[stop_offset];
+    bool &first_a_chunk, bool &last_a_chunk) {
+    start_index = first_a_chunk ? start_index : indices[start_offset - 1] + 1;
+    stop_index = last_a_chunk ? stop_index : indices[stop_offset];
   }
 
   __device__ inline bool check_indices_bounds(value_idx &start_index_a,
                                               value_idx &stop_index_a,
                                               value_idx &index_b) {
-    return (index_b >= start_index_a && index_b <= stop_index_a) || (index_b == start_index_a == stop_index_a);
+    return (index_b >= start_index_a && index_b <= stop_index_a) ||
+           (index_b == start_index_a == stop_index_a);
   }
 
   value_idx total_row_blocks;
@@ -173,7 +165,8 @@ class chunked_mask_row_it : public mask_row_it<value_idx> {
 
   struct n_chunks_per_row_functor {
    public:
-    n_chunks_per_row_functor(const value_idx *indptr_, value_idx *row_chunk_size_)
+    n_chunks_per_row_functor(const value_idx *indptr_,
+                             value_idx *row_chunk_size_)
       : indptr(indptr_), row_chunk_size(row_chunk_size_) {}
 
     __host__ __device__ value_idx operator()(const value_idx &i) {

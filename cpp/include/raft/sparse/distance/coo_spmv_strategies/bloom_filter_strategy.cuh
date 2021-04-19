@@ -26,7 +26,6 @@ namespace distance {
 
 template <typename value_idx, typename value_t, int tpb>
 class bloom_filter_strategy : public coo_spmv_strategy<value_idx, value_t> {
-
  public:
   using smem_type = uint32_t *;
   using insert_type = smem_type;
@@ -36,7 +35,8 @@ class bloom_filter_strategy : public coo_spmv_strategy<value_idx, value_t> {
   using Hash2 = cuco::detail::MurmurHash3_32<value_idx>;
   using Hash3 = cuco::detail::MurmurHash3_32<value_idx>;
 
-  bloom_filter_strategy(const distances_config_t<value_idx, value_t> &config_, mask_row_it<value_idx> &row_it_)
+  bloom_filter_strategy(const distances_config_t<value_idx, value_t> &config_,
+                        mask_row_it<value_idx> &row_it_)
     : coo_spmv_strategy<value_idx, value_t>(config_),
       row_it(row_it_),
       hash1(config_.a_nnz),
@@ -49,29 +49,28 @@ class bloom_filter_strategy : public coo_spmv_strategy<value_idx, value_t> {
   void dispatch(value_t *out_dists, value_idx *coo_rows_b,
                 product_f product_func, accum_f accum_func, write_f write_func,
                 int chunk_size) {
-
     auto n_blocks_per_row = raft::ceildiv(this->config.b_nnz, chunk_size * tpb);
     auto n_blocks = row_it.n_rows * n_blocks_per_row;
 
     int smem_dim = filter_size();
 
-    this->_dispatch_base(*this, this->smem, smem_dim, row_it, out_dists, coo_rows_b,
-                         product_func, accum_func, write_func, chunk_size,
-                         n_blocks, n_blocks_per_row);
+    this->_dispatch_base(*this, this->smem, smem_dim, row_it, out_dists,
+                         coo_rows_b, product_func, accum_func, write_func,
+                         chunk_size, n_blocks, n_blocks_per_row);
   }
 
   template <typename product_f, typename accum_f, typename write_f>
   void dispatch_rev(value_t *out_dists, value_idx *coo_rows_b,
-                    product_f product_func, accum_f accum_func, write_f write_func,
-                    int chunk_size) {
+                    product_f product_func, accum_f accum_func,
+                    write_f write_func, int chunk_size) {
     auto n_blocks_per_row = raft::ceildiv(this->config.a_nnz, chunk_size * tpb);
     auto n_blocks = row_it.n_rows * n_blocks_per_row;
 
     int smem_dim = filter_size();
 
-    this->_dispatch_base_rev(*this, this->smem, smem_dim, row_it, out_dists, coo_rows_b,
-                             product_func, accum_func, write_func, chunk_size,
-                             n_blocks, n_blocks_per_row);
+    this->_dispatch_base_rev(*this, this->smem, smem_dim, row_it, out_dists,
+                             coo_rows_b, product_func, accum_func, write_func,
+                             chunk_size, n_blocks, n_blocks_per_row);
   }
 
   __device__ inline insert_type init_insert(smem_type cache,
@@ -90,11 +89,12 @@ class bloom_filter_strategy : public coo_spmv_strategy<value_idx, value_t> {
     uint32_t old;
     do {
       val = filter[h];
-      old = atomicCAS(filter+h, val, val | 1 << mem_bit);
-    } while(val != old);
+      old = atomicCAS(filter + h, val, val | 1 << mem_bit);
+    } while (val != old);
   }
 
-  __device__ inline void insert(insert_type filter, value_idx &key, value_t &value, int &size) {
+  __device__ inline void insert(insert_type filter, value_idx &key,
+                                value_t &value, int &size) {
     uint32_t hashed1 = hash1(key) & (filter_size() - 1);
     uint32_t hashed2 = hash2(key) & (filter_size() - 1);
     uint32_t hashed3 = hash3(key) & (filter_size() - 1);
@@ -112,7 +112,10 @@ class bloom_filter_strategy : public coo_spmv_strategy<value_idx, value_t> {
     return (filter[h] & 1 << mem_bit) > 0;
   }
 
-  __device__ inline value_t find(find_type filter, value_idx &key, value_idx *indices, value_t *data, value_idx start_offset, value_idx stop_offset, int &size) {
+  __device__ inline value_t find(find_type filter, value_idx &key,
+                                 value_idx *indices, value_t *data,
+                                 value_idx start_offset, value_idx stop_offset,
+                                 int &size) {
     uint32_t hashed1 = hash1(key) & (filter_size() - 1);
     uint32_t hashed2 = hash2(key) & (filter_size() - 1);
     uint32_t hashed3 = hash3(key) & (filter_size() - 1);
@@ -124,19 +127,16 @@ class bloom_filter_strategy : public coo_spmv_strategy<value_idx, value_t> {
     // printf("index_b: %d, key_present: %d\n", key, key_present);
     if (!key_present) {
       return 0.0;
-    }
-    else {
+    } else {
       while (start_offset <= stop_offset) {
         value_idx mid = start_offset + (stop_offset - start_offset) / 2;
 
         auto mid_val = indices[mid];
         if (mid_val == key) {
           return data[mid];
-        }
-        else if (mid_val < key) {
+        } else if (mid_val < key) {
           start_offset = mid + 1;
-        }
-        else if (mid_val > key) {
+        } else if (mid_val > key) {
           stop_offset = mid - 1;
         }
       }
