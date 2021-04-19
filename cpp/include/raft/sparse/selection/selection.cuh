@@ -38,7 +38,8 @@ template <typename K, typename IndexType, bool select_min, int warp_q,
           int thread_q, int tpb>
 __global__ void select_k_kernel(K *inK, IndexType *inV, size_t n_rows,
                                 size_t n_cols, K *outK, IndexType *outV,
-                                K initK, IndexType initV, int k, int k_out = -1) {
+                                K initK, IndexType initV, int k,
+                                int k_out = -1) {
   constexpr int kNumWarps = tpb / faiss::gpu::kWarpSize;
 
   k_out = k_out > 0 ? k_out : k;
@@ -87,7 +88,8 @@ template <typename value_idx = int, typename value_t = float, int warp_q,
           int thread_q>
 inline void select_k_impl(value_t *inK, value_idx *inV, size_t n_rows,
                           size_t n_cols, value_t *outK, value_idx *outV,
-                          bool select_min, int k, cudaStream_t stream, int k_out = -1) {
+                          bool select_min, int k, cudaStream_t stream,
+                          int k_out = -1) {
   auto grid = dim3(n_rows);
 
   constexpr int n_threads = (warp_q <= 1024) ? 128 : 64;
@@ -130,23 +132,23 @@ inline void select_k(value_t *inK, value_idx *inV, size_t n_rows, size_t n_cols,
     select_k_impl<value_idx, value_t, 1, 1>(inK, inV, n_rows, n_cols, outK,
                                             outV, select_min, k, stream, k_out);
   else if (k <= 32)
-    select_k_impl<value_idx, value_t, 32, 2>(inK, inV, n_rows, n_cols, outK,
-                                             outV, select_min, k, stream, k_out);
+    select_k_impl<value_idx, value_t, 32, 2>(
+      inK, inV, n_rows, n_cols, outK, outV, select_min, k, stream, k_out);
   else if (k <= 64)
-    select_k_impl<value_idx, value_t, 64, 3>(inK, inV, n_rows, n_cols, outK,
-                                             outV, select_min, k, stream, k_out);
+    select_k_impl<value_idx, value_t, 64, 3>(
+      inK, inV, n_rows, n_cols, outK, outV, select_min, k, stream, k_out);
   else if (k <= 128)
-    select_k_impl<value_idx, value_t, 128, 3>(inK, inV, n_rows, n_cols, outK,
-                                              outV, select_min, k, stream, k_out);
+    select_k_impl<value_idx, value_t, 128, 3>(
+      inK, inV, n_rows, n_cols, outK, outV, select_min, k, stream, k_out);
   else if (k <= 256)
-    select_k_impl<value_idx, value_t, 256, 4>(inK, inV, n_rows, n_cols, outK,
-                                              outV, select_min, k, stream, k_out);
+    select_k_impl<value_idx, value_t, 256, 4>(
+      inK, inV, n_rows, n_cols, outK, outV, select_min, k, stream, k_out);
   else if (k <= 512)
-    select_k_impl<value_idx, value_t, 512, 8>(inK, inV, n_rows, n_cols, outK,
-                                              outV, select_min, k, stream, k_out);
+    select_k_impl<value_idx, value_t, 512, 8>(
+      inK, inV, n_rows, n_cols, outK, outV, select_min, k, stream, k_out);
   else if (k <= 1024)
-    select_k_impl<value_idx, value_t, 1024, 8>(inK, inV, n_rows, n_cols, outK,
-                                               outV, select_min, k, stream, k_out);
+    select_k_impl<value_idx, value_t, 1024, 8>(
+      inK, inV, n_rows, n_cols, outK, outV, select_min, k, stream, k_out);
 }
 
 };  // namespace selection

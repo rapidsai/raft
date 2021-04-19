@@ -39,7 +39,7 @@ namespace knn {
 namespace detail {
 
 template <typename value_idx = int64_t, typename value_t = float, int warp_q,
-  int thread_q, int tpb>
+          int thread_q, int tpb>
 __global__ void knn_merge_parts_kernel(value_t *inK, value_idx *inV,
                                        value_t *outK, value_idx *outV,
                                        size_t n_samples, int n_parts,
@@ -54,8 +54,8 @@ __global__ void knn_merge_parts_kernel(value_t *inK, value_idx *inV,
    * Uses shared memory
    */
   faiss::gpu::BlockSelect<value_t, value_idx, false,
-    faiss::gpu::Comparator<value_t>, warp_q, thread_q,
-    tpb>
+                          faiss::gpu::Comparator<value_t>, warp_q, thread_q,
+                          tpb>
     heap(initK, initV, smemK, smemV, k);
 
   // Grid is exactly sized to rows available
@@ -104,7 +104,7 @@ __global__ void knn_merge_parts_kernel(value_t *inK, value_idx *inV,
 }
 
 template <typename value_idx = int64_t, typename value_t = float, int warp_q,
-  int thread_q>
+          int thread_q>
 inline void knn_merge_parts_impl(value_t *inK, value_idx *inV, value_t *outK,
                                  value_idx *outV, size_t n_samples, int n_parts,
                                  int k, cudaStream_t stream,
@@ -117,8 +117,8 @@ inline void knn_merge_parts_impl(value_t *inK, value_idx *inV, value_t *outK,
   auto kInit = faiss::gpu::Limits<value_t>::getMax();
   auto vInit = -1;
   knn_merge_parts_kernel<value_idx, value_t, warp_q, thread_q, n_threads>
-  <<<grid, block, 0, stream>>>(inK, inV, outK, outV, n_samples, n_parts,
-                               kInit, vInit, k, translations);
+    <<<grid, block, 0, stream>>>(inK, inV, outK, outV, n_samples, n_parts,
+                                 kInit, vInit, k, translations);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
@@ -163,7 +163,6 @@ inline void knn_merge_parts(value_t *inK, value_idx *inV, value_t *outK,
     knn_merge_parts_impl<value_idx, value_t, 1024, 8>(
       inK, inV, outK, outV, n_samples, n_parts, k, stream, translations);
 }
-
 
 }  // namespace detail
 }  // namespace knn

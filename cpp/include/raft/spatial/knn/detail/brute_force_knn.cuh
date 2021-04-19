@@ -33,9 +33,9 @@
 #include <raft/handle.hpp>
 #include <set>
 
-#include "selection.cuh"
 #include "haversine_knn.cuh"
 #include "processing.hpp"
+#include "selection.cuh"
 
 namespace raft {
 namespace spatial {
