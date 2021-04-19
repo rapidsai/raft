@@ -69,8 +69,8 @@ inline std::pair<value_idx, value_idx> max_degree(
   CUDA_CHECK(cudaMemsetAsync(max_d.data(), 0, sizeof(value_idx), stream));
 
   /**
-   * A custom max reduction is performed until https://github.com/rapidsai/cuml/issues/3431
-   * is fixed.
+   * A custom max reduction is performed until
+   * https://github.com/rapidsai/cuml/issues/3431 is fixed.
    */
   value_idx count_h;
   if (count_greater_than) {
@@ -93,16 +93,6 @@ inline std::pair<value_idx, value_idx> max_degree(
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   return std::make_pair(std::move(max_h), std::move(count_h));
-}
-
-template <typename T>
-void printv(rmm::device_vector<T> &vec, const std::string &name = "",
-            const size_t displ = 5) {
-  std::cout.precision(15);
-  std::cout << name << " size = " << vec.size() << std::endl;
-  thrust::copy(vec.begin(), vec.end(),
-               std::ostream_iterator<T>(std::cout, " "));
-  std::cout << std::endl << std::endl;
 }
 
 /**

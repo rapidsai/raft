@@ -31,7 +31,6 @@
 
 #include <raft/sparse/distance/common.h>
 #include <raft/sparse/convert/coo.cuh>
-#include <raft/sparse/distance/csr_spmv.cuh>
 #include <raft/sparse/distance/operators.cuh>
 
 #include <nvfunctional>
@@ -42,25 +41,18 @@ namespace distance {
 
 template <typename value_idx = int, typename value_t = float,
           typename product_f, typename accum_f, typename write_f>
-
 void unexpanded_lp_distances(
   value_t *out_dists, const distances_config_t<value_idx, value_t> *config_,
   product_f product_func, accum_f accum_func, write_f write_func) {
   /**
- * @TODO: Main logic here:
- *
- *  - if n_cols < available smem, just use dense conversion for rows of A
- *  - if n_cols > available smem but max nnz < available smem, use hashing
- *    (not yet available)
- *  - if n_cols > available smem & max_nnz > available smem,
- *              use batching + hashing only for those large cols
- *  Ref: https://github.com/rapidsai/cuml/issues/3371
- */
+   *
+   *  - if n_cols < available smem, just use dense conversion for rows of A
+   *  - if n_cols > available smem but max nnz < available smem, use hashing
+   *    (not yet available)
+   *  - if n_cols > available smem & max_nnz > available smem,
+   *              use batching + hashing only for those large cols
+   */
 
-  //  if (config_->a_ncols < max_cols_per_block<value_idx, value_t>()) {
-  // TODO: Use n_cols to set shared memory and threads per block
-  // for max occupancy.
-  // Ref: https://github.com/rapidsai/cuml/issues/3371
   raft::mr::device::buffer<value_idx> coo_rows(
     config_->allocator, config_->stream, max(config_->b_nnz, config_->a_nnz));
 
@@ -77,8 +69,6 @@ void unexpanded_lp_distances(
 
   balanced_coo_pairwise_generalized_spmv_rev<value_idx, value_t>(
     out_dists, *config_, coo_rows.data(), product_func, accum_func, write_func);
-  //    generalized_csr_pairwise_semiring<value_idx, value_t>(
-  //      out_dists, *config_, product_func, accum_func);
 }
 
 /**
@@ -263,11 +253,6 @@ class kl_divergence_unexpanded_distances_t : public distances_t<value_t> {
     : config_(&config) {}
 
   void compute(value_t *out_dists) {
-    /**
-    // This is annihilating and identity is 1
-    if (config_->a_ncols < max_cols_per_block<value_idx, value_t>()) {
-
-**/
     raft::mr::device::buffer<value_idx> coo_rows(
       config_->allocator, config_->stream, max(config_->b_nnz, config_->a_nnz));
 
@@ -279,14 +264,6 @@ class kl_divergence_unexpanded_distances_t : public distances_t<value_t> {
       out_dists, *config_, coo_rows.data(),
       [] __device__(value_t a, value_t b) { return a * log(a / b); }, Sum(),
       AtomicAdd());
-
-    // TODO: Find max nnz and set smem based on this value.
-    // Ref: https://github.com/rapidsai/cuml/issues/3371
-    //      generalized_csr_pairwise_semiring<value_idx, value_t>(
-    //        out_dists, *config_, [] __device__(value_t a, value_t b) {
-    //          return a * log(a / b);
-    //        },
-    //        Sum());
 
     raft::linalg::unaryOp<value_t>(
       out_dists, out_dists, config_->a_nrows * config_->b_nrows,

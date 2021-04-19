@@ -292,7 +292,6 @@ if(BUILD_RAFT_TESTS)
     test/sparse/csr_transpose.cu
     test/sparse/degree.cu
     test/sparse/dist_coo_spmv.cu
-    test/sparse/dist_csr_spmv.cu
     test/sparse/distance.cu
     test/sparse/filter.cu
     test/sparse/knn.cu

@@ -188,8 +188,6 @@ class chunked_mask_row_it : public mask_row_it<value_idx> {
 
     fill_chunk_indices_kernel<value_idx><<<n_blocks, n_threads, 0, stream>>>(
       n_chunks_per_row_ptr, chunk_indices_ptr, this->n_rows);
-
-    // printv(chunk_indices, "chunk_indices");
   }
 };
 

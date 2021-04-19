@@ -17,7 +17,6 @@
 #pragma once
 
 #include "base_strategy.cuh"
-#include "bloom_filter_strategy.cuh"
 
 #include <cuco/static_map.cuh>
 
@@ -28,7 +27,6 @@ namespace distance {
 template <typename value_idx, typename value_t, int tpb>
 class hash_strategy : public coo_spmv_strategy<value_idx, value_t> {
  public:
-  // namespace cg = cooperative_groups;
   using insert_type =
     typename cuco::static_map<value_idx, value_t,
                               cuda::thread_scope_block>::device_mutable_view;
@@ -68,9 +66,6 @@ class hash_strategy : public coo_spmv_strategy<value_idx, value_t> {
   void dispatch(value_t *out_dists, value_idx *coo_rows_b,
                 product_f product_func, accum_f accum_func, write_f write_func,
                 int chunk_size) {
-    // auto need = chunking_needed(this->config.a_indptr, this->config.a_nrows);
-    // std::cout << "n: " << this->config.b_nrows << std::endl;
-    // raft::print_device_vector("indptr_A", this->config.a_indptr, this->config.a_nrows + 1, std::cout);
 
     auto n_blocks_per_row = raft::ceildiv(this->config.b_nnz, chunk_size * tpb);
     rmm::device_uvector<value_idx> mask_indptr(this->config.a_nrows,
@@ -81,7 +76,6 @@ class hash_strategy : public coo_spmv_strategy<value_idx, value_t> {
                     n_rows_divided, this->config.stream);
 
     auto less_rows = std::get<0>(n_rows_divided);
-    // std::cout << "less_rows: " << less_rows << std::endl;
     if (less_rows > 0) {
       mask_row_it<value_idx> less(this->config.a_indptr, less_rows,
                                   mask_indptr.data());
@@ -93,7 +87,6 @@ class hash_strategy : public coo_spmv_strategy<value_idx, value_t> {
     }
 
     auto more_rows = std::get<1>(n_rows_divided);
-    // std::cout << "more_rows: " << more_rows << std::endl;
     if (more_rows > 0) {
       chunked_mask_row_it<value_idx> more(
         this->config.a_indptr, more_rows, mask_indptr.data() + less_rows,
@@ -194,7 +187,6 @@ class hash_strategy : public coo_spmv_strategy<value_idx, value_t> {
   __host__ __device__ constexpr static int map_size() {
     return (48000 - ((tpb / raft::warp_size()) * sizeof(value_t))) /
            sizeof(typename insert_type::slot_type);
-    //  return 2;
   }
 };
 

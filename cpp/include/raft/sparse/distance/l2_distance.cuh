@@ -364,33 +364,21 @@ class hellinger_expanded_distances_t : public distances_t<value_t> {
   explicit hellinger_expanded_distances_t(
     const distances_config_t<value_idx, value_t> &config)
     : config_(&config),
-      workspace(config.allocator, config.stream, 0),
-      ip_dists(config) {}
+      workspace(config.allocator, config.stream, 0) {}
 
   void compute(value_t *out_dists) {
-    // First sqrt A and B
-    raft::linalg::unaryOp<value_t>(
-      config_->a_data, config_->a_data, config_->a_nnz,
-      [=] __device__(value_t input) { return sqrt(input); }, config_->stream);
 
-    if (config_->a_data != config_->b_data) {
-      raft::linalg::unaryOp<value_t>(
-        config_->b_data, config_->b_data, config_->b_nnz,
-        [=] __device__(value_t input) { return sqrt(input); }, config_->stream);
-    }
+    raft::mr::device::buffer<value_idx> coo_rows(
+      config_->allocator, config_->stream, max(config_->b_nnz, config_->a_nnz));
 
-    ip_dists.compute(out_dists);
+    raft::sparse::convert::csr_to_coo(config_->b_indptr, config_->b_nrows,
+                                      coo_rows.data(), config_->b_nnz,
+                                      config_->stream);
 
-    // Revert sqrt of A and B
-    raft::linalg::unaryOp<value_t>(
-      config_->a_data, config_->a_data, config_->a_nnz,
-      [=] __device__(value_t input) { return input * input; }, config_->stream);
-    if (config_->a_data != config_->b_data) {
-      raft::linalg::unaryOp<value_t>(
-        config_->b_data, config_->b_data, config_->b_nnz,
-        [=] __device__(value_t input) { return input * input; },
-        config_->stream);
-    }
+    balanced_coo_pairwise_generalized_spmv<value_idx, value_t>(
+      out_dists, *config_, coo_rows.data(),
+      [] __device__(value_t a, value_t b) { return sqrt(a) * sqrt(b); }, Sum(),
+      AtomicAdd());
 
     raft::linalg::unaryOp<value_t>(
       out_dists, out_dists, config_->a_nrows * config_->b_nrows,
@@ -407,7 +395,6 @@ class hellinger_expanded_distances_t : public distances_t<value_t> {
  private:
   const distances_config_t<value_idx, value_t> *config_;
   raft::mr::device::buffer<char> workspace;
-  ip_distances_t<value_idx, value_t> ip_dists;
 };
 
 template <typename value_idx = int, typename value_t = float>

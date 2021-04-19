@@ -101,10 +101,6 @@ __global__ void balanced_coo_generalized_spmv_kernel(
 
   // compute id relative to current warp
   unsigned int lane_id = tid & (raft::warp_size() - 1);
-  // value_idx ind = ind_offset + threadIdx.x;
-  // constexpr int n_warps = tpb / raft::warp_size();
-  // value_idx chunk_per_warp = active_chunk_size < n_warps ? active_chunk_size : active_chunk_size / n_warps;
-  // value_idx ind = ind_offset + chunk_per_warp * warp_id + lane_id;
   value_idx ind = ind_offset + threadIdx.x;
 
   extern __shared__ char smem[];
@@ -134,45 +130,27 @@ __global__ void balanced_coo_generalized_spmv_kernel(
 
   if (cur_row_a > m || cur_chunk_offset > n_blocks_per_row) return;
   if (ind >= nnz_b) return;
-  // if (tid < active_chunk_size) printf("cur_row_a: %d, m: %d, cur_chunk_offset: %d, n_blocks_per_row: %d, ind: %d, nnz_b: %d\n", cur_row_a, m, cur_chunk_offset, n_blocks_per_row, ind, nnz_b);
 
   value_idx start_index_a = 0, stop_index_a = b_ncols - 1;
   indptrA.get_indices_boundary(indicesA, cur_row_a, start_offset_a,
                                stop_offset_a, start_index_a, stop_index_a,
                                first_a_chunk, last_a_chunk);
-  // if (threadIdx.x == 0) {
-  // printf(
-  // "blockIdx.x: %d, cur_row_a: %d, start_offset: %d, end_offset: %d, "
-  // "start_index_a: %d, stop_index_a: %d, nnz_a: %d, active_chunk_size: %d\n",
-  // blockIdx.x, cur_row_a, start_offset_a, stop_offset_a, start_index_a,
-  // stop_index_a, nnz_a, active_chunk_size);
-  // }
 
   value_idx cur_row_b = -1;
   value_t c = 0.0;
 
   auto warp_red = warp_reduce(*(temp_storage + warp_id));
 
-  // coalesced reads from B
-  // if (tid < active_chunk_size) printf("HI\n");
-  // printf("warp_id: %d, lane_id: %d, chunk_per_warp: %d, ind: %d, active_chunk_size: %d, n_warps: %d\n", warp_id, lane_id, chunk_per_warp, ind, active_chunk_size, n_warps);
-  // if (lane_id < chunk_per_warp) {
   if (tid < active_chunk_size) {
     cur_row_b = rowsB[ind];
 
     auto index_b = indicesB[ind];
-    // auto in_bounds = true;
-    // if (cur_row_a == cur_row_b)
     auto in_bounds =
       indptrA.check_indices_bounds(start_index_a, stop_index_a, index_b);
 
     if (in_bounds) {
       value_t a_col = strategy.find(finder, index_b, indicesA, dataA,
                                     start_offset_a, stop_offset_a, dim);
-      // if (tid < active_chunk_size)
-      // printf("blockIdx.x: %d, cur_row_a: %d, index_b: %d, a_col: %f\n", blockIdx.x, cur_row_a,
-      //        index_b, a_col);
-
       if (!rev || a_col == 0.0) {
         c = product_func(a_col, dataB[ind]);
       }
@@ -182,13 +160,10 @@ __global__ void balanced_coo_generalized_spmv_kernel(
   // loop through chunks in parallel, reducing when a new row is
   // encountered by each thread
   for (int i = tid; i < active_chunk_size; i += blockDim.x) {
-    // for (int i = lane_id; i < chunk_per_warp; i += raft::warp_size()) {
-    // value_idx ind_next = ind + raft::warp_size();
     value_idx ind_next = ind + blockDim.x;
     value_idx next_row_b = -1;
 
     if (i + blockDim.x < active_chunk_size) next_row_b = rowsB[ind_next];
-    // if (i + raft::warp_size() < chunk_per_warp) next_row_b = rowsB[ind_next];
 
     bool diff_rows = next_row_b != cur_row_b;
 
@@ -214,8 +189,6 @@ __global__ void balanced_coo_generalized_spmv_kernel(
       ind = ind_next;
 
       auto index_b = indicesB[ind];
-      // auto in_bounds = true;
-      // if (cur_row_a == cur_row_b)
       auto in_bounds =
         indptrA.check_indices_bounds(start_index_a, stop_index_a, index_b);
       if (in_bounds) {
