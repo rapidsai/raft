@@ -17,7 +17,7 @@
 #include <gtest/gtest.h>
 #include <raft/linalg/distance_type.h>
 #include <iostream>
-#include <raft/spatial/knn/detail/haversine_distance.cuh>
+#include <raft/spatial/knn/detail/haversine_knn.cuh>
 #include <rmm/device_buffer.hpp>
 #include <vector>
 #include "../test_utils.h"
@@ -75,7 +75,7 @@ class HaversineKNNTest : public ::testing::Test {
     CUDA_CHECK(cudaStreamCreate(&stream));
 
     raft::spatial::knn::detail::haversine_knn(
-      d_pred_I, d_pred_D, d_train_inputs, d_train_inputs, n, n, k, stream);
+      d_pred_I, d_pred_D, d_train_inputs, d_train_inputs, n, n, k, stream, 5, 5);
 
     CUDA_CHECK(cudaStreamDestroy(stream));
   }

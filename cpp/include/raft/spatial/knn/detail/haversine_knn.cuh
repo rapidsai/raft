@@ -16,23 +16,24 @@
 
 #pragma once
 
+#include <rmm/device_uvector.hpp>
+
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
-
-#include <faiss/gpu/GpuDistance.h>
-#include <faiss/gpu/GpuResources.h>
-#include <faiss/gpu/StandardGpuResources.h>
-#include <faiss/utils/Heap.h>
-#include <faiss/gpu/utils/Limits.cuh>
-#include <faiss/gpu/utils/Select.cuh>
-
-#include <raft/linalg/distance_type.h>
+#include <raft/sparse/utils.h>
+#include <raft/sparse/selection/selection.cuh>
 #include <raft/handle.hpp>
+
+#include <raft/spatial/knn/detail/selection.cuh>
 
 namespace raft {
 namespace spatial {
 namespace knn {
 namespace detail {
+
+
+constexpr int DEFAULT_IDX_BATCH_SIZE = 1 << 14;
+constexpr int DEFAULT_QUERY_BATCH_SIZE = 1 << 14;
 
 template <typename value_t>
 DI value_t compute_haversine(value_t x1, value_t y1, value_t x2, value_t y2) {
@@ -44,10 +45,9 @@ DI value_t compute_haversine(value_t x1, value_t y1, value_t x2, value_t y2) {
 }
 
 
-template <typename value_idx, typename value_t>
+template <typename value_idx = int>
 struct batcher_t {
-  batcher_t(value_idx batch_size, value_idx n_rows,
-                const value_t *data)
+  batcher_t(value_idx batch_size, value_idx n_rows)
     : batch_start_(0),
       batch_stop_(0),
       batch_rows_(0),
@@ -93,101 +93,77 @@ struct batcher_t {
  * @param[in] n_index_rows number of rows in index array
  * @param[in] k number of closest neighbors to return
  */
-template <typename value_idx, typename value_t, int warp_q = 1024,
-          int thread_q = 8, int tpb = 256>
-__global__ void haversine_knn_kernel(value_idx *out_inds, value_t *out_dists,
-                                     const value_t *index, const value_t *query,
-                                     size_t n_index_rows, int k) {
+template <typename value_t = float>
+__global__ void haversine_knn_kernel(value_t *out_dists,
+                                     const value_t *index,
+                                     const value_t *query,
+                                     int n_index_rows,
+                                     int n_query_rows) {
 
+  int out_dist_idx = blockDim.x * blockIdx.x + threadIdx.x;
 
-  // TODO: Each thread needs to load their query and index rows, compute
-  // haversine, and write to the correspoding distance batch
+  int query_row = out_dist_idx / n_index_rows;
+  int idx_row = out_dist_idx % n_index_rows;
 
-  faiss::gpu::BlockSelect<value_t, value_idx, false,
-                          faiss::gpu::Comparator<value_t>, warp_q, thread_q,
-                          tpb>
-    heap(faiss::gpu::Limits<value_t>::getMax(), -1, smemK, smemV, k);
+  const value_t *query_ptr = query + (query_row * 2);
+  const value_t *idx_ptr = index + (idx_row * 2);
 
-  // Grid is exactly sized to rows available
-  int limit = faiss::gpu::utils::roundDown(n_index_rows, faiss::gpu::kWarpSize);
-
-  const value_t *query_ptr = query + (blockIdx.x * 2);
-  value_t x1 = query_ptr[0];
-  value_t x2 = query_ptr[1];
-
-  int i = threadIdx.x;
-
-  for (; i < limit; i += tpb) {
-    const value_t *idx_ptr = index + (i * 2);
+  if(query_row < n_query_rows && idx_row < n_index_rows) {
+    value_t x1 = query_ptr[0];
+    value_t x2 = query_ptr[1];
     value_t y1 = idx_ptr[0];
     value_t y2 = idx_ptr[1];
 
     value_t dist = compute_haversine(x1, y1, x2, y2);
-
-    heap.add(dist, i);
-  }
-
-  // Handle last remainder fraction of a warp of elements
-  if (i < n_index_rows) {
-    const value_t *idx_ptr = index + (i * 2);
-    value_t y1 = idx_ptr[0];
-    value_t y2 = idx_ptr[1];
-
-    value_t dist = compute_haversine(x1, y1, x2, y2);
-
-    heap.addThreadQ(dist, i);
-  }
-
-  heap.reduce();
-
-  for (int i = threadIdx.x; i < k; i += tpb) {
-    out_dists[blockIdx.x * k + i] = smemK[i];
-    out_inds[blockIdx.x * k + i] = smemV[i];
+    out_dists[out_dist_idx] = dist;
   }
 }
 
-template <typename value_idx, typename value_t>
-class sparse_knn_t {
+template <typename value_idx = int, typename value_t = float, int tpb = 256>
+class haversine_knn_t {
  public:
-  sparse_knn_t(const value_t *idx_, size_t idx_rows_,
+  haversine_knn_t(const value_t *idx_, size_t idx_rows_,
                const value_t *query_, size_t query_rows_,
                value_idx *output_indices_, value_t *output_dists_, int k_,
-               std::shared_ptr<raft::mr::device::allocator> allocator_,
                cudaStream_t stream_,
-               size_t batch_size_index_ = 2 << 14,  // approx 1M
-               size_t batch_size_query_ = 2 << 14)
+               int batch_size_index_ = DEFAULT_IDX_BATCH_SIZE,
+               int batch_size_query_ = DEFAULT_QUERY_BATCH_SIZE)
     : idx(idx_),
-      idx_rows(idx_rows_),
+      n_idx_rows(idx_rows_),
       query(query_),
-      query_rows(query_rows_),
+      n_query_rows(query_rows_),
       output_indices(output_indices_),
       output_dists(output_dists_),
       k(k_),
-      allocator(allocator_),
       stream(stream_),
       batch_size_index(batch_size_index_),
       batch_size_query(batch_size_query_) {}
 
   void run() {
-    int n_batches_query = raft::ceildiv((size_t)query_rows, batch_size_query);
+    int n_batches_query = raft::ceildiv(n_query_rows, batch_size_query);
 
-    batcher_t<value_idx, value_t> query_batcher(batch_size_query, query_rows);
+    batcher_t<int> query_batcher(batch_size_query, n_query_rows);
 
     // A 3-partition temporary merge space to scale the batching. 2 parts for subsequent
     // batches and 1 space for the results of the merge, which get copied back to the top
 
     size_t merge_buffer_size = query_batcher.batch_rows() * k * 3;
 
-    rmm::device_uvector<value_idx> merge_buffer_indices(merge_buffer_size, stream);
-    rmm::device_uvector<value_t> merge_buffer_dists(merge_buffer_size, stream);
+    size_t rows_processed = 0;
 
     for (int i = 0; i < n_batches_query; i++) {
 
       query_batcher.set_batch(i);
 
-      int n_batches_idx = raft::ceildiv((size_t)n_idx_rows, batch_size_index);
+      int n_batches_idx = raft::ceildiv(n_idx_rows, batch_size_index);
 
-      batcher_t<value_idx, value_t> idx_batcher(batch_size_idx, idx_rows);
+      batcher_t<int> idx_batcher(batch_size_index, n_idx_rows);
+
+
+      // A 3-partition temporary merge space to scale the batching. 2 parts for subsequent
+      // batches and 1 space for the results of the merge, which get copied back to the top
+      rmm::device_uvector<value_idx> merge_buffer_indices(0, stream);
+      rmm::device_uvector<value_t> merge_buffer_dists(0, stream);
 
       value_t *dists_merge_buffer_ptr;
       value_idx *indices_merge_buffer_ptr;
@@ -195,6 +171,9 @@ class sparse_knn_t {
       for (int j = 0; j < n_batches_idx; j++) {
 
         idx_batcher.set_batch(j);
+
+        merge_buffer_indices.resize(query_batcher.batch_rows() * k * 3, stream);
+        merge_buffer_dists.resize(query_batcher.batch_rows() * k * 3, stream);
 
         /**
          * Compute distances
@@ -206,11 +185,11 @@ class sparse_knn_t {
         CUDA_CHECK(cudaMemset(batch_dists.data(), 0,
                               batch_dists.size() * sizeof(value_t)));
 
-        compute_distances(idx_batcher, query_batcher, idx_batch_nnz,
-                          n_query_batch_nnz, idx_batch_indptr.data(),
-                          idx_batch_indices.data(), idx_batch_data.data(),
-                          query_batch_indptr.data(), query_batch_indices.data(),
-                          query_batch_data.data(), batch_dists.data());
+        compute_distances(idx_batcher, query_batcher, batch_dists.data());
+
+        CUDA_CHECK(cudaStreamSynchronize(stream));
+
+        raft::print_device_vector("batch_dists", batch_dists.data(), batch_dists.size(), std::cout);
 
         // Build batch indices array
         rmm::device_uvector<value_idx> batch_indices(batch_dists.size(),
@@ -220,7 +199,7 @@ class sparse_knn_t {
         value_idx batch_rows = query_batcher.batch_rows(),
           batch_cols = idx_batcher.batch_rows();
 
-        iota_fill(batch_indices.data(), batch_rows, batch_cols, stream);
+        raft::sparse::iota_fill(batch_indices.data(), batch_rows, batch_cols, stream);
 
         /**
          * Perform k-selection on batch & merge with other k-selections
@@ -273,13 +252,13 @@ class sparse_knn_t {
   }
 
  private:
-  void merge_batches(csr_batcher_t<value_idx, value_t> &idx_batcher,
-                     csr_batcher_t<value_idx, value_t> &query_batcher,
+  void merge_batches(batcher_t<int> &idx_batcher,
+                     batcher_t<int> &query_batcher,
                      value_t *merge_buffer_dists,
                      value_idx *merge_buffer_indices, value_t *out_dists,
                      value_idx *out_indices) {
     // build translation buffer to shift resulting indices by the batch
-    std::vector<value_idx> id_ranges = (0, idx_batcher.batch_start());
+    std::vector<value_idx> id_ranges(0, idx_batcher.batch_start());
 
     rmm::device_uvector<value_idx> trans(id_ranges.size(), stream);
     raft::update_device(trans.data(), id_ranges.data(), id_ranges.size(),
@@ -291,89 +270,42 @@ class sparse_knn_t {
       query_batcher.batch_rows(), 2, k, stream, trans.data());
   }
 
-  void perform_k_selection(csr_batcher_t<value_idx, value_t> idx_batcher,
-                           csr_batcher_t<value_idx, value_t> query_batcher,
+  void perform_k_selection(batcher_t<int> &idx_batcher,
+                           batcher_t<int> &query_batcher,
                            value_t *batch_dists, value_idx *batch_indices,
                            value_t *out_dists, value_idx *out_indices) {
 
-    // in the case where the number of idx rows in the batch is < k, we
-    // want to adjust k.
-    value_idx n_neighbors = ;
 
     // kernel to slice first (min) k cols and copy into batched merge buffer
     raft::sparse::selection::select_k(batch_dists, batch_indices,
              query_batcher.batch_rows(), idx_batcher.batch_rows(),
-             out_dists, out_indices,
-             true, min(k, batch_cols), stream);
+             out_dists, out_indices, true, min(k, idx_batcher.batch_rows()), stream);
   }
 
-  void compute_distances(csr_batcher_t<value_idx, value_t> &idx_batcher,
-                         csr_batcher_t<value_idx, value_t> &query_batcher,
+  void compute_distances(batcher_t<int> &idx_batcher,
+                         batcher_t<int> &query_batcher,
                          value_t *batch_dists) {
 
-    // @TODO: Call haversine kernel
+    size_t total_threads = idx_batcher.batch_rows() * query_batcher.batch_rows();
+    size_t grid = raft::ceildiv((size_t)total_threads, (size_t)tpb);
+
+    const value_t *idx_ptr = idx + (idx_batcher.batch_start() * 2);
+    const value_t *query_ptr = query + (query_batcher.batch_start() * 2);
+
+    haversine_knn_kernel<<<grid, tpb, 0, stream>>>(
+      batch_dists, idx_ptr, query_ptr, idx_batcher.batch_rows(), query_batcher.batch_rows());
   }
 
   value_idx *output_indices;
   value_t *output_dists;
 
-  size_t batch_size_index, batch_size_query;
+  const value_t *idx, *query;
 
+  int batch_size_index, batch_size_query;
   int n_idx_rows, n_query_rows, k;
-
-  std::shared_ptr<raft::mr::device::allocator> allocator;
 
   cudaStream_t stream;
 };
-
-/**
-   * Search the sparse kNN for the k-nearest neighbors of a set of sparse query vectors
-   * using some distance implementation
-   * @param[in] idxIndptr csr indptr of the index matrix (size n_idx_rows + 1)
-   * @param[in] idxIndices csr column indices array of the index matrix (size n_idx_nnz)
-   * @param[in] idxData csr data array of the index matrix (size idxNNZ)
-   * @param[in] idxNNA number of non-zeros for sparse index matrix
-   * @param[in] n_idx_rows number of data samples in index matrix
-   * @param[in] queryIndptr csr indptr of the query matrix (size n_query_rows + 1)
-   * @param[in] queryIndices csr indices array of the query matrix (size queryNNZ)
-   * @param[in] queryData csr data array of the query matrix (size queryNNZ)
-   * @param[in] queryNNZ number of non-zeros for sparse query matrix
-   * @param[in] n_query_rows number of data samples in query matrix
-   * @param[in] n_query_cols number of features in query matrix
-   * @param[out] output_indices dense matrix for output indices (size n_query_rows * k)
-   * @param[out] output_dists dense matrix for output distances (size n_query_rows * k)
-   * @param[in] k the number of neighbors to query
-   * @param[in] cusparseHandle the initialized cusparseHandle instance to use
-   * @param[in] allocator device allocator instance to use
-   * @param[in] stream CUDA stream to order operations with respect to
-   * @param[in] batch_size_index maximum number of rows to use from index matrix per batch
-   * @param[in] batch_size_query maximum number of rows to use from query matrix per batch
-   * @param[in] metric distance metric/measure to use
-   * @param[in] metricArg potential argument for metric (currently unused)
-   */
-template <typename value_idx = int, typename value_t = float, int TPB_X = 32>
-void haversine_knn(const value_idx *idxIndptr, const value_idx *idxIndices,
-                     const value_t *idxData, size_t idxNNZ, int n_idx_rows,
-                     int n_idx_cols, const value_idx *queryIndptr,
-                     const value_idx *queryIndices, const value_t *queryData,
-                     size_t queryNNZ, int n_query_rows, int n_query_cols,
-                     value_idx *output_indices, value_t *output_dists, int k,
-                     cusparseHandle_t cusparseHandle,
-                     std::shared_ptr<raft::mr::device::allocator> allocator,
-                     cudaStream_t stream,
-                     size_t batch_size_index = 2 << 14,  // approx 1M
-                     size_t batch_size_query = 2 << 14,
-                     raft::distance::DistanceType metric =
-                     raft::distance::DistanceType::L2Expanded,
-                     float metricArg = 0) {
-  sparse_knn_t<value_idx, value_t>(
-    idxIndptr, idxIndices, idxData, idxNNZ, n_idx_rows, n_idx_cols, queryIndptr,
-    queryIndices, queryData, queryNNZ, n_query_rows, n_query_cols,
-    output_indices, output_dists, k, cusparseHandle, allocator, stream,
-    batch_size_index, batch_size_query, metric, metricArg)
-    .run();
-}
-
 
 /**
  * Conmpute the k-nearest neighbors using the Haversine
@@ -391,36 +323,20 @@ void haversine_knn(const value_idx *idxIndptr, const value_idx *idxIndices,
  * @param[in] k number of closest neighbors to return
  * @param[in] stream stream to order kernel launch
  */
-template <typename value_idx, typename value_t>
+template <typename value_idx = int, typename value_t = float, int tpb = 256>
 void haversine_knn(value_idx *out_inds, value_t *out_dists,
-                   const value_t *index, const value_t *query,
-                   size_t n_index_rows, size_t n_query_rows, int k,
-                   size_t batch_query_rows, size_t batch_index_rows,
-                   cudaStream_t stream) {
-
-  rmm::device_uvector<value_t> distance_buf(tile_rows * tile_cols);
-
-  for(int i = 0; i < num_queries; i += batch_query_rows) {
-
-    int cur_query_size = std::min(tile_rows, num_queries - i);
-
-    for (int j = 0; j < num_indices; j+= batch_index_rows) {
-
-      int cur_col_tile = j / tile_cols;
-
-      // run haversine distance over tile
-
-      // compute block select
-
-    }
-  }
-
-
-  haversine_knn_kernel<<<n_query_rows, 128, 0, stream>>>(
-    out_inds, out_dists, index, query, n_index_rows, k);
+                     const value_t *index, const value_t *query,
+                     int n_index_rows, int n_query_rows, int k,
+                     cudaStream_t stream,
+                     size_t batch_size_index = DEFAULT_IDX_BATCH_SIZE,
+                     size_t batch_size_query = DEFAULT_QUERY_BATCH_SIZE) {
+  haversine_knn_t<value_idx, value_t, tpb>(
+    index, n_index_rows, query, n_query_rows, out_inds, out_dists, k,
+    stream, batch_size_index, batch_size_query)
+    .run();
 }
 
-}  // namespace detail
-}  // namespace knn
-}  // namespace spatial
-}  // namespace raft
+};  // namespace detail
+};  // namespace knn
+};  // namespace spatial
+};  // namespace raft

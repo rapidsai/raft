@@ -19,11 +19,6 @@
 #include <raft/cudart_utils.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
-#include <raft/matrix/matrix.cuh>
-
-#include <raft/sparse/coo.cuh>
-#include <raft/sparse/csr.cuh>
-#include <raft/sparse/distance/distance.cuh>
 
 #include <faiss/gpu/GpuDistance.h>
 #include <faiss/gpu/GpuIndexFlat.h>
