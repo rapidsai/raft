@@ -144,21 +144,11 @@ class haversine_knn_t {
 
     batcher_t<int> query_batcher(batch_size_query, n_query_rows);
 
-    // A 3-partition temporary merge space to scale the batching. 2 parts for subsequent
-    // batches and 1 space for the results of the merge, which get copied back to the top
-
-    size_t merge_buffer_size = query_batcher.batch_rows() * k * 3;
-
     size_t rows_processed = 0;
 
     for (int i = 0; i < n_batches_query; i++) {
 
       query_batcher.set_batch(i);
-
-      int n_batches_idx = raft::ceildiv(n_idx_rows, batch_size_index);
-
-      batcher_t<int> idx_batcher(batch_size_index, n_idx_rows);
-
 
       // A 3-partition temporary merge space to scale the batching. 2 parts for subsequent
       // batches and 1 space for the results of the merge, which get copied back to the top
@@ -168,9 +158,17 @@ class haversine_knn_t {
       value_t *dists_merge_buffer_ptr;
       value_idx *indices_merge_buffer_ptr;
 
+      int n_batches_idx = raft::ceildiv(n_idx_rows, batch_size_index);
+      batcher_t<int> idx_batcher(batch_size_index, n_idx_rows);
+
       for (int j = 0; j < n_batches_idx; j++) {
 
         idx_batcher.set_batch(j);
+
+        printf("n_batches_query=%d, n_batches_index=%d, i=%d, j=%d, batch_size_query=%d, batch_size_idx=%d, batch_start_query=%d, batch_start_index=%d\n",
+               n_batches_query, n_batches_idx, i, j,
+               batch_size_query, batch_size_index, query_batcher.batch_start(),
+               idx_batcher.batch_start());
 
         merge_buffer_indices.resize(query_batcher.batch_rows() * k * 3, stream);
         merge_buffer_dists.resize(query_batcher.batch_rows() * k * 3, stream);
@@ -182,8 +180,8 @@ class haversine_knn_t {
           idx_batcher.batch_rows() * query_batcher.batch_rows();
         rmm::device_uvector<value_t> batch_dists(dists_size, stream);
 
-        CUDA_CHECK(cudaMemset(batch_dists.data(), 0,
-                              batch_dists.size() * sizeof(value_t)));
+        thrust::fill(thrust::cuda::par.on(stream), batch_dists.data(), batch_dists.data()+batch_dists.size(),
+                     std::numeric_limits<value_t>::max());
 
         compute_distances(idx_batcher, query_batcher, batch_dists.data());
 
@@ -209,6 +207,10 @@ class haversine_knn_t {
           merge_buffer_dists.data() + merge_buffer_offset;
         indices_merge_buffer_ptr =
           merge_buffer_indices.data() + merge_buffer_offset;
+
+        thrust::fill(thrust::cuda::par.on(stream), dists_merge_buffer_ptr,
+                     dists_merge_buffer_ptr+(batch_rows*k),
+                     std::numeric_limits<value_t>::max());
 
         perform_k_selection(idx_batcher, query_batcher, batch_dists.data(),
                             batch_indices.data(), dists_merge_buffer_ptr,
@@ -258,7 +260,7 @@ class haversine_knn_t {
                      value_idx *merge_buffer_indices, value_t *out_dists,
                      value_idx *out_indices) {
     // build translation buffer to shift resulting indices by the batch
-    std::vector<value_idx> id_ranges(0, idx_batcher.batch_start());
+    std::vector<value_idx> id_ranges = {0, idx_batcher.batch_start()};
 
     rmm::device_uvector<value_idx> trans(id_ranges.size(), stream);
     raft::update_device(trans.data(), id_ranges.data(), id_ranges.size(),
@@ -275,11 +277,11 @@ class haversine_knn_t {
                            value_t *batch_dists, value_idx *batch_indices,
                            value_t *out_dists, value_idx *out_indices) {
 
-
     // kernel to slice first (min) k cols and copy into batched merge buffer
     raft::sparse::selection::select_k(batch_dists, batch_indices,
              query_batcher.batch_rows(), idx_batcher.batch_rows(),
-             out_dists, out_indices, true, min(k, idx_batcher.batch_rows()), stream);
+             out_dists, out_indices, true, min(k, idx_batcher.batch_rows()),
+                                      stream, k);
   }
 
   void compute_distances(batcher_t<int> &idx_batcher,
@@ -293,7 +295,8 @@ class haversine_knn_t {
     const value_t *query_ptr = query + (query_batcher.batch_start() * 2);
 
     haversine_knn_kernel<<<grid, tpb, 0, stream>>>(
-      batch_dists, idx_ptr, query_ptr, idx_batcher.batch_rows(), query_batcher.batch_rows());
+      batch_dists, idx_ptr, query_ptr, idx_batcher.batch_rows(),
+      query_batcher.batch_rows());
   }
 
   value_idx *output_indices;

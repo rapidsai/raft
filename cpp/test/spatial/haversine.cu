@@ -75,7 +75,7 @@ class HaversineKNNTest : public ::testing::Test {
     CUDA_CHECK(cudaStreamCreate(&stream));
 
     raft::spatial::knn::detail::haversine_knn(
-      d_pred_I, d_pred_D, d_train_inputs, d_train_inputs, n, n, k, stream, 5, 5);
+      d_pred_I, d_pred_D, d_train_inputs, d_train_inputs, n, n, k, stream, 2, 2);
 
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
@@ -108,6 +108,9 @@ class HaversineKNNTest : public ::testing::Test {
 typedef HaversineKNNTest<int, float> HaversineKNNTestF;
 
 TEST_F(HaversineKNNTestF, Fit) {
+
+  raft::print_device_vector("dists", d_pred_D, n*n, std::cout);
+
   ASSERT_TRUE(raft::devArrMatch(d_ref_D, d_pred_D, n * n,
                                 raft::CompareApprox<float>(1e-3)));
   ASSERT_TRUE(
