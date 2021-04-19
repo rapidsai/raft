@@ -363,11 +363,9 @@ class hellinger_expanded_distances_t : public distances_t<value_t> {
  public:
   explicit hellinger_expanded_distances_t(
     const distances_config_t<value_idx, value_t> &config)
-    : config_(&config),
-      workspace(config.allocator, config.stream, 0) {}
+    : config_(&config), workspace(config.allocator, config.stream, 0) {}
 
   void compute(value_t *out_dists) {
-
     raft::mr::device::buffer<value_idx> coo_rows(
       config_->allocator, config_->stream, max(config_->b_nnz, config_->a_nnz));
 

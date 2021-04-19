@@ -63,8 +63,7 @@ class ip_distances_t : public distances_t<value_t> {
 	   * Compute pairwise distances and return dense matrix in row-major format
 	   */
     balanced_coo_pairwise_generalized_spmv<value_idx, value_t>(
-      out_distances, *config_, coo_rows_b.data(),
-      Product(), Sum(),
+      out_distances, *config_, coo_rows_b.data(), Product(), Sum(),
       AtomicAdd());
   }
 

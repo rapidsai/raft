@@ -66,7 +66,6 @@ class hash_strategy : public coo_spmv_strategy<value_idx, value_t> {
   void dispatch(value_t *out_dists, value_idx *coo_rows_b,
                 product_f product_func, accum_f accum_func, write_f write_func,
                 int chunk_size) {
-
     auto n_blocks_per_row = raft::ceildiv(this->config.b_nnz, chunk_size * tpb);
     rmm::device_uvector<value_idx> mask_indptr(this->config.a_nrows,
                                                this->config.stream);
