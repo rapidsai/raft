@@ -19,15 +19,15 @@ export PARALLEL_LEVEL=${PARALLEL_LEVEL:-4}
 export CUDA_REL=${CUDA_VERSION%.*}
 
 # Set home to the job's workspace
-export HOME=$WORKSPACE
+export HOME="$WORKSPACE"
 
 # Parse git describei
-cd $WORKSPACE
+cd "$WORKSPACE"
 export GIT_DESCRIBE_TAG=`git describe --tags`
 export MINOR_VERSION=`echo $GIT_DESCRIBE_TAG | grep -o -E '([0-9]+\.[0-9]+)'`
 
 # Read options for cloning/running downstream repo tests
-source $WORKSPACE/ci/prtest.config
+source "$WORKSPACE/ci/prtest.config"
 
 ################################################################################
 # SETUP - Check environment
@@ -84,7 +84,7 @@ export LD_LIBRARY_PATH_CACHED=$LD_LIBRARY_PATH
 export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
 
 gpuci_logger "Build C++ and Python targets"
-$WORKSPACE/build.sh cppraft pyraft -v
+"$WORKSPACE/build.sh" cppraft pyraft -v
 
 gpuci_logger "Resetting LD_LIBRARY_PATH"
 
@@ -105,10 +105,10 @@ gpuci_logger "Check GPU usage"
 nvidia-smi
 
 gpuci_logger "GoogleTest for raft"
-cd $WORKSPACE/cpp/build
-GTEST_OUTPUT="xml:${WORKSPACE}/test-results/raft_cpp/" ./test_raft
+cd "$WORKSPACE/cpp/build"
+GTEST_OUTPUT="xml:$WORKSPACE/test-results/raft_cpp/" ./test_raft
 
 gpuci_logger "Python pytest for cuml"
-cd $WORKSPACE/python
+cd "$WORKSPACE/python"
 
-python -m pytest --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v -s
+python -m pytest --cache-clear --junitxml="$WORKSPACE/junit-cuml.xml" -v -s
