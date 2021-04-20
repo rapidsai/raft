@@ -113,12 +113,14 @@ void build_dendrogram_host(const handle_t &handle, const value_idx *rows,
 
   std::vector<value_idx> children_h(n_edges * 2);
   std::vector<value_idx> out_size_h(n_edges);
+  std::vector<value_idx> out_delta_h(n_edges);
 
   UnionFind<value_idx, value_t> U(nnz + 1);
 
   for (value_idx i = 0; i < nnz; i++) {
     value_idx a = mst_src_h[i];
     value_idx b = mst_dst_h[i];
+    value_t delta = mst_weights_h[i];
 
     value_idx aa = U.find(a);
     value_idx bb = U.find(b);
@@ -127,6 +129,7 @@ void build_dendrogram_host(const handle_t &handle, const value_idx *rows,
 
     children_h[children_idx] = aa;
     children_h[children_idx + 1] = bb;
+    out_delta_h[i] = delta;
     out_size_h[i] = U.size[aa] + U.size[bb];
 
     U.perform_union(aa, bb);
@@ -138,6 +141,7 @@ void build_dendrogram_host(const handle_t &handle, const value_idx *rows,
 
   raft::update_device(children, children_h.data(), n_edges * 2, stream);
   raft::update_device(out_size.data(), out_size_h.data(), n_edges, stream);
+  raft::update_device(out_delta.data(), out_delta_h.data(), n_edges, stream);
 }
 
 /**
