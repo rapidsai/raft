@@ -19,9 +19,9 @@
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
 
+#include <raft/sparse/op/sort.h>
 #include <raft/mr/device/buffer.hpp>
 #include <raft/sparse/mst/mst.cuh>
-#include <raft/sparse/op/sort.h>
 #include <raft/sparse/selection/connect_components.cuh>
 #include <rmm/device_uvector.hpp>
 
@@ -35,8 +35,6 @@
 namespace raft {
 namespace hierarchy {
 namespace detail {
-
-
 
 template <typename value_idx, typename value_t>
 void merge_msts(raft::Graph_COO<value_idx, value_idx, value_t> &coo1,
@@ -62,9 +60,8 @@ void merge_msts(raft::Graph_COO<value_idx, value_idx, value_t> &coo1,
   coo1.n_edges = final_nnz;
 }
 
-template<typename value_idx, value_t>
+template <typename value_idx, value_t>
 struct MSTEpilogueNoOp {
-
   void operator()(raft::handle_t &handle, value_idx *coo_rows,
                   value_idx *coo_cols, value_t *coo_data) {}
 }
@@ -139,18 +136,16 @@ void connect_knn_graph(const raft::handle_t &handle, const value_t *X,
  *  argument is really just a safeguard against the potential for infinite loops.
  */
 template <typename value_idx, typename value_t, typename mst_epilogue_f>
-void build_sorted_mst(const raft::handle_t &handle, const value_t *X,
-                      const value_idx *indptr, const value_idx *indices,
-                      const value_t *pw_dists, size_t m, size_t n,
-                      rmm::device_uvector<value_idx> &mst_src,
-                      rmm::device_uvector<value_idx> &mst_dst,
-                      rmm::device_uvector<value_t> &mst_weight,
-                      const size_t nnz,
-                      raft::distance::DistanceType metric =
-                        raft::distance::DistanceType::L2SqrtExpanded,
-                      int max_iter = 10,
-                      mst_epilogue_f epilogue_func =
-                        MSTEpilogueNoOp<value_idx, value_t>()) {
+void build_sorted_mst(
+  const raft::handle_t &handle, const value_t *X, const value_idx *indptr,
+  const value_idx *indices, const value_t *pw_dists, size_t m, size_t n,
+  rmm::device_uvector<value_idx> &mst_src,
+  rmm::device_uvector<value_idx> &mst_dst,
+  rmm::device_uvector<value_t> &mst_weight, const size_t nnz,
+  raft::distance::DistanceType metric =
+    raft::distance::DistanceType::L2SqrtExpanded,
+  int max_iter = 10,
+  mst_epilogue_f epilogue_func = MSTEpilogueNoOp<value_idx, value_t>()) {
   auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
 
@@ -201,7 +196,8 @@ void build_sorted_mst(const raft::handle_t &handle, const value_t *X,
                m - 1, mst_coo.n_edges);
 
   raft::sparse::op::coo_sort_by_weight(mst_coo.src.data(), mst_coo.dst.data(),
-                   mst_coo.weights.data(), mst_coo.n_edges, stream);
+                                       mst_coo.weights.data(), mst_coo.n_edges,
+                                       stream);
 
   // TODO: be nice if we could pass these directly into the MST
   mst_src.resize(mst_coo.n_edges, stream);

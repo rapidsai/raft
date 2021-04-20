@@ -105,7 +105,7 @@ void coo_sort(COO<T> *const in,
  */
 template <typename value_idx, typename value_t>
 void coo_sort_by_weight(value_idx *rows, value_idx *cols, value_t *data,
-                      value_idx nnz, cudaStream_t stream) {
+                        value_idx nnz, cudaStream_t stream) {
   thrust::device_ptr<value_idx> t_rows = thrust::device_pointer_cast(rows);
   thrust::device_ptr<value_idx> t_cols = thrust::device_pointer_cast(cols);
   thrust::device_ptr<value_t> t_data = thrust::device_pointer_cast(data);
