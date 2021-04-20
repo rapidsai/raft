@@ -50,7 +50,7 @@ class coo_spmv_strategy {
 
     balanced_coo_generalized_spmv_kernel<strategy_t, indptr_it, value_idx,
                                          value_t, false>
-      <<<n_blocks, tpb, smem, config.stream>>>(
+      <<<n_blocks, tpb, smem, config.handle.get_stream()>>>(
         strategy, a_indptr, config.a_indices, config.a_data, config.a_nnz,
         coo_rows_b, config.b_indices, config.b_data, config.a_nrows,
         config.b_nrows, smem_dim, tpb, config.b_nnz, out_dists,
@@ -74,7 +74,7 @@ class coo_spmv_strategy {
 
     balanced_coo_generalized_spmv_kernel<strategy_t, indptr_it, value_idx,
                                          value_t, true>
-      <<<n_blocks, tpb, smem, config.stream>>>(
+      <<<n_blocks, tpb, smem, config.handle.get_stream()>>>(
         strategy, b_indptr, config.b_indices, config.b_data, config.b_nnz,
         coo_rows_a, config.a_indices, config.a_data, config.b_nrows,
         config.a_nrows, smem_dim, tpb, config.a_nnz, out_dists,

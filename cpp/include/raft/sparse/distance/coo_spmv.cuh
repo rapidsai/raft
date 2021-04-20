@@ -83,7 +83,7 @@ inline void balanced_coo_pairwise_generalized_spmv(
   write_f write_func) {
   CUDA_CHECK(cudaMemsetAsync(
     out_dists, 0, sizeof(value_t) * config_.a_nrows * config_.b_nrows,
-    config_.stream));
+    config_.handle.get_stream()));
 
   auto smem =
     dense_smem_strategy<value_idx, value_t>::smem_per_block(config_.a_ncols);
@@ -135,7 +135,7 @@ inline void balanced_coo_pairwise_generalized_spmv(
  * @param[in] write_func atomic semiring sum() function
  */
 template <typename value_idx, typename value_t, int threads_per_block = 1024,
-          int chunk_size = 1000, typename product_f, typename accum_f,
+          int chunk_size = 500000, typename product_f, typename accum_f,
           typename write_f>
 inline void balanced_coo_pairwise_generalized_spmv_rev(
   value_t *out_dists, const distances_config_t<value_idx, value_t> &config_,

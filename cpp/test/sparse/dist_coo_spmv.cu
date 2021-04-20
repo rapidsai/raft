@@ -64,25 +64,28 @@ class SparseDistanceCOOSPMVTest
   : public ::testing::TestWithParam<
       SparseDistanceCOOSPMVInputs<value_idx, value_t>> {
  public:
+  SparseDistanceCOOSPMVTest() : dist_config(handle) {}
+
   template <typename reduce_f, typename accum_f, typename write_f>
   void compute_dist(reduce_f reduce_func, accum_f accum_func,
                     write_f write_func, bool rev = true) {
     raft::mr::device::buffer<value_idx> coo_rows(
-      dist_config.allocator, dist_config.stream,
+      dist_config.handle.get_device_allocator(),
+      dist_config.handle.get_stream(),
       max(dist_config.b_nnz, dist_config.a_nnz));
 
     raft::sparse::convert::csr_to_coo(dist_config.b_indptr, dist_config.b_nrows,
                                       coo_rows.data(), dist_config.b_nnz,
-                                      dist_config.stream);
+                                      dist_config.handle.get_stream());
 
     balanced_coo_pairwise_generalized_spmv<value_idx, value_t>(
       out_dists, dist_config, coo_rows.data(), reduce_func, accum_func,
       write_func);
 
     if (rev) {
-      raft::sparse::convert::csr_to_coo(dist_config.a_indptr,
-                                        dist_config.a_nrows, coo_rows.data(),
-                                        dist_config.a_nnz, dist_config.stream);
+      raft::sparse::convert::csr_to_coo(
+        dist_config.a_indptr, dist_config.a_nrows, coo_rows.data(),
+        dist_config.a_nnz, dist_config.handle.get_stream());
 
       balanced_coo_pairwise_generalized_spmv_rev<value_idx, value_t>(
         out_dists, dist_config, coo_rows.data(), reduce_func, accum_func,
@@ -117,7 +120,7 @@ class SparseDistanceCOOSPMVTest
         raft::linalg::unaryOp<value_t>(
           out_dists, out_dists, dist_config.a_nrows * dist_config.b_nrows,
           [=] __device__(value_t input) { return powf(input, p); },
-          dist_config.stream);
+          dist_config.handle.get_stream());
 
       } break;
       default:
@@ -135,27 +138,23 @@ class SparseDistanceCOOSPMVTest
     allocate(indices, indices_h.size());
     allocate(data, data_h.size());
 
-    update_device(indptr, indptr_h.data(), indptr_h.size(), stream);
-    update_device(indices, indices_h.data(), indices_h.size(), stream);
-    update_device(data, data_h.data(), data_h.size(), stream);
+    update_device(indptr, indptr_h.data(), indptr_h.size(),
+                  handle.get_stream());
+    update_device(indices, indices_h.data(), indices_h.size(),
+                  handle.get_stream());
+    update_device(data, data_h.data(), data_h.size(), handle.get_stream());
 
     std::vector<value_t> out_dists_ref_h = params.out_dists_ref_h;
 
     allocate(out_dists_ref, (indptr_h.size() - 1) * (indptr_h.size() - 1));
 
     update_device(out_dists_ref, out_dists_ref_h.data(), out_dists_ref_h.size(),
-                  stream);
+                  handle.get_stream());
   }
 
   void SetUp() override {
     params = ::testing::TestWithParam<
       SparseDistanceCOOSPMVInputs<value_idx, value_t>>::GetParam();
-    std::shared_ptr<raft::mr::device::allocator> alloc(
-      new raft::mr::device::default_allocator);
-    CUDA_CHECK(cudaStreamCreate(&stream));
-
-    CUSPARSE_CHECK(cusparseCreate(&cusparseHandle));
-    CUSPARSE_CHECK(cusparseSetStream(cusparseHandle, stream));
 
     make_data();
 
@@ -171,9 +170,6 @@ class SparseDistanceCOOSPMVTest
     dist_config.a_indptr = indptr;
     dist_config.a_indices = indices;
     dist_config.a_data = data;
-    dist_config.handle = cusparseHandle;
-    dist_config.allocator = alloc;
-    dist_config.stream = stream;
 
     int out_size = dist_config.a_nrows * dist_config.b_nrows;
 
@@ -181,11 +177,11 @@ class SparseDistanceCOOSPMVTest
 
     run_spmv();
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
   }
 
   void TearDown() override {
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
     CUDA_CHECK(cudaFree(indptr));
     CUDA_CHECK(cudaFree(indices));
     CUDA_CHECK(cudaFree(data));
@@ -204,8 +200,7 @@ class SparseDistanceCOOSPMVTest
   }
 
  protected:
-  cudaStream_t stream;
-  cusparseHandle_t cusparseHandle;
+  raft::handle_t handle;
 
   // input data
   value_idx *indptr, *indices;

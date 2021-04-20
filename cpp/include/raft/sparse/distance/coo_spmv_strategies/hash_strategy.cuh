@@ -67,12 +67,12 @@ class hash_strategy : public coo_spmv_strategy<value_idx, value_t> {
                 product_f product_func, accum_f accum_func, write_f write_func,
                 int chunk_size) {
     auto n_blocks_per_row = raft::ceildiv(this->config.b_nnz, chunk_size * tpb);
-    rmm::device_uvector<value_idx> mask_indptr(this->config.a_nrows,
-                                               this->config.stream);
+    rmm::device_uvector<value_idx> mask_indptr(
+      this->config.a_nrows, this->config.handle.get_stream());
     std::tuple<value_idx, value_idx> n_rows_divided;
 
     chunking_needed(this->config.a_indptr, this->config.a_nrows, mask_indptr,
-                    n_rows_divided, this->config.stream);
+                    n_rows_divided, this->config.handle.get_stream());
 
     auto less_rows = std::get<0>(n_rows_divided);
     if (less_rows > 0) {
@@ -89,7 +89,7 @@ class hash_strategy : public coo_spmv_strategy<value_idx, value_t> {
     if (more_rows > 0) {
       chunked_mask_row_it<value_idx> more(
         this->config.a_indptr, more_rows, mask_indptr.data() + less_rows,
-        capacity_threshold * map_size(), this->config.stream);
+        capacity_threshold * map_size(), this->config.handle.get_stream());
       more.init();
 
       auto n_more_blocks = more.total_row_blocks * n_blocks_per_row;
@@ -104,12 +104,12 @@ class hash_strategy : public coo_spmv_strategy<value_idx, value_t> {
                     product_f product_func, accum_f accum_func,
                     write_f write_func, int chunk_size) {
     auto n_blocks_per_row = raft::ceildiv(this->config.a_nnz, chunk_size * tpb);
-    rmm::device_uvector<value_idx> mask_indptr(this->config.b_nrows,
-                                               this->config.stream);
+    rmm::device_uvector<value_idx> mask_indptr(
+      this->config.b_nrows, this->config.handle.get_stream());
     std::tuple<value_idx, value_idx> n_rows_divided;
 
     chunking_needed(this->config.b_indptr, this->config.b_nrows, mask_indptr,
-                    n_rows_divided, this->config.stream);
+                    n_rows_divided, this->config.handle.get_stream());
 
     auto less_rows = std::get<0>(n_rows_divided);
     if (less_rows > 0) {
@@ -126,7 +126,7 @@ class hash_strategy : public coo_spmv_strategy<value_idx, value_t> {
     if (more_rows > 0) {
       chunked_mask_row_it<value_idx> more(
         this->config.b_indptr, more_rows, mask_indptr.data() + less_rows,
-        capacity_threshold * map_size(), this->config.stream);
+        capacity_threshold * map_size(), this->config.handle.get_stream());
       more.init();
 
       auto n_more_blocks = more.total_row_blocks * n_blocks_per_row;

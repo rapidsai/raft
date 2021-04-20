@@ -54,18 +54,19 @@ void unexpanded_lp_distances(
    */
 
   raft::mr::device::buffer<value_idx> coo_rows(
-    config_->allocator, config_->stream, max(config_->b_nnz, config_->a_nnz));
+    config_->handle.get_device_allocator(), config_->handle.get_stream(),
+    max(config_->b_nnz, config_->a_nnz));
 
   raft::sparse::convert::csr_to_coo(config_->b_indptr, config_->b_nrows,
                                     coo_rows.data(), config_->b_nnz,
-                                    config_->stream);
+                                    config_->handle.get_stream());
 
   balanced_coo_pairwise_generalized_spmv<value_idx, value_t>(
     out_dists, *config_, coo_rows.data(), product_func, accum_func, write_func);
 
   raft::sparse::convert::csr_to_coo(config_->a_indptr, config_->a_nrows,
                                     coo_rows.data(), config_->a_nnz,
-                                    config_->stream);
+                                    config_->handle.get_stream());
 
   balanced_coo_pairwise_generalized_spmv_rev<value_idx, value_t>(
     out_dists, *config_, coo_rows.data(), product_func, accum_func, write_func);
@@ -127,7 +128,7 @@ class l2_sqrt_unexpanded_distances_t
         int neg = input < 0 ? -1 : 1;
         return sqrt(abs(input) * neg);
       },
-      this->config_->stream);
+      this->config_->handle.get_stream());
   }
 };
 
@@ -186,7 +187,7 @@ class lp_unexpanded_distances_t : public distances_t<value_t> {
     raft::linalg::unaryOp<value_t>(
       out_dists, out_dists, config_->a_nrows * config_->b_nrows,
       [=] __device__(value_t input) { return pow(input, one_over_p); },
-      config_->stream);
+      config_->handle.get_stream());
   }
 
  private:
@@ -209,7 +210,7 @@ class hamming_unexpanded_distances_t : public distances_t<value_t> {
     raft::linalg::unaryOp<value_t>(
       out_dists, out_dists, config_->a_nrows * config_->b_nrows,
       [=] __device__(value_t input) { return input * n_cols; },
-      config_->stream);
+      config_->handle.get_stream());
   }
 
  private:
@@ -238,7 +239,8 @@ class jensen_shannon_unexpanded_distances_t : public distances_t<value_t> {
 
     raft::linalg::unaryOp<value_t>(
       out_dists, out_dists, config_->a_nrows * config_->b_nrows,
-      [=] __device__(value_t input) { return 0.5 * input; }, config_->stream);
+      [=] __device__(value_t input) { return 0.5 * input; },
+      config_->handle.get_stream());
   }
 
  private:
@@ -254,11 +256,12 @@ class kl_divergence_unexpanded_distances_t : public distances_t<value_t> {
 
   void compute(value_t *out_dists) {
     raft::mr::device::buffer<value_idx> coo_rows(
-      config_->allocator, config_->stream, max(config_->b_nnz, config_->a_nnz));
+      config_->handle.get_device_allocator(), config_->handle.get_stream(),
+      max(config_->b_nnz, config_->a_nnz));
 
     raft::sparse::convert::csr_to_coo(config_->b_indptr, config_->b_nrows,
                                       coo_rows.data(), config_->b_nnz,
-                                      config_->stream);
+                                      config_->handle.get_stream());
 
     balanced_coo_pairwise_generalized_spmv<value_idx, value_t>(
       out_dists, *config_, coo_rows.data(),
@@ -267,7 +270,8 @@ class kl_divergence_unexpanded_distances_t : public distances_t<value_t> {
 
     raft::linalg::unaryOp<value_t>(
       out_dists, out_dists, config_->a_nrows * config_->b_nrows,
-      [=] __device__(value_t input) { return 0.5 * input; }, config_->stream);
+      [=] __device__(value_t input) { return 0.5 * input; },
+      config_->handle.get_stream());
   }
 
  private:

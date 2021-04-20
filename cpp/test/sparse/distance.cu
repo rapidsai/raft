@@ -58,41 +58,15 @@ template <typename value_idx, typename value_t>
 template <typename value_idx, typename value_t>
 class SparseDistanceTest
   : public ::testing::TestWithParam<SparseDistanceInputs<value_idx, value_t>> {
- protected:
-  void make_data() {
-    std::vector<value_idx> indptr_h = params.indptr_h;
-    std::vector<value_idx> indices_h = params.indices_h;
-    std::vector<value_t> data_h = params.data_h;
-
-    allocate(indptr, indptr_h.size());
-    allocate(indices, indices_h.size());
-    allocate(data, data_h.size());
-
-    update_device(indptr, indptr_h.data(), indptr_h.size(), stream);
-    update_device(indices, indices_h.data(), indices_h.size(), stream);
-    update_device(data, data_h.data(), data_h.size(), stream);
-
-    std::vector<value_t> out_dists_ref_h = params.out_dists_ref_h;
-
-    allocate(out_dists_ref, (indptr_h.size() - 1) * (indptr_h.size() - 1));
-
-    update_device(out_dists_ref, out_dists_ref_h.data(), out_dists_ref_h.size(),
-                  stream);
-  }
+ public:
+  SparseDistanceTest() : dist_config(handle) {}
 
   void SetUp() override {
     params = ::testing::TestWithParam<
       SparseDistanceInputs<value_idx, value_t>>::GetParam();
-    std::shared_ptr<raft::mr::device::allocator> alloc(
-      new raft::mr::device::default_allocator);
-    CUDA_CHECK(cudaStreamCreate(&stream));
-
-    CUSPARSE_CHECK(cusparseCreate(&cusparseHandle));
-    CUSPARSE_CHECK(cusparseSetStream(cusparseHandle, stream));
 
     make_data();
 
-    raft::sparse::distance::distances_config_t<value_idx, value_t> dist_config;
     dist_config.b_nrows = params.indptr_h.size() - 1;
     dist_config.b_ncols = params.n_cols;
     dist_config.b_nnz = params.indices_h.size();
@@ -105,9 +79,6 @@ class SparseDistanceTest
     dist_config.a_indptr = indptr;
     dist_config.a_indices = indices;
     dist_config.a_data = data;
-    dist_config.handle = cusparseHandle;
-    dist_config.allocator = alloc;
-    dist_config.stream = stream;
 
     int out_size = dist_config.a_nrows * dist_config.b_nrows;
 
@@ -115,11 +86,11 @@ class SparseDistanceTest
 
     pairwiseDistance(out_dists, dist_config, params.metric, params.metric_arg);
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
   }
 
   void TearDown() override {
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
     CUDA_CHECK(cudaFree(indptr));
     CUDA_CHECK(cudaFree(indices));
     CUDA_CHECK(cudaFree(data));
@@ -134,8 +105,30 @@ class SparseDistanceTest
   }
 
  protected:
-  cudaStream_t stream;
-  cusparseHandle_t cusparseHandle;
+  void make_data() {
+    std::vector<value_idx> indptr_h = params.indptr_h;
+    std::vector<value_idx> indices_h = params.indices_h;
+    std::vector<value_t> data_h = params.data_h;
+
+    allocate(indptr, indptr_h.size());
+    allocate(indices, indices_h.size());
+    allocate(data, data_h.size());
+
+    update_device(indptr, indptr_h.data(), indptr_h.size(),
+                  handle.get_stream());
+    update_device(indices, indices_h.data(), indices_h.size(),
+                  handle.get_stream());
+    update_device(data, data_h.data(), data_h.size(), handle.get_stream());
+
+    std::vector<value_t> out_dists_ref_h = params.out_dists_ref_h;
+
+    allocate(out_dists_ref, (indptr_h.size() - 1) * (indptr_h.size() - 1));
+
+    update_device(out_dists_ref, out_dists_ref_h.data(), out_dists_ref_h.size(),
+                  dist_config.handle.get_stream());
+  }
+
+  raft::handle_t handle;
 
   // input data
   value_idx *indptr, *indices;
@@ -145,6 +138,7 @@ class SparseDistanceTest
   value_t *out_dists, *out_dists_ref;
 
   SparseDistanceInputs<value_idx, value_t> params;
+  raft::sparse::distance::distances_config_t<value_idx, value_t> dist_config;
 };
 
 const std::vector<SparseDistanceInputs<int, float>> inputs_i32_f = {

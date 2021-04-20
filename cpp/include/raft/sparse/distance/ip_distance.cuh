@@ -48,10 +48,11 @@ class ip_distances_t : public distances_t<value_t> {
    */
   ip_distances_t(const distances_config_t<value_idx, value_t> &config)
     : config_(&config),
-      coo_rows_b(config.allocator, config.stream, config.b_nnz) {
+      coo_rows_b(config.handle.get_device_allocator(),
+                 config.handle.get_stream(), config.b_nnz) {
     raft::sparse::convert::csr_to_coo(config_->b_indptr, config_->b_nrows,
                                       coo_rows_b.data(), config_->b_nnz,
-                                      config_->stream);
+                                      config_->handle.get_stream());
   }
 
   /**

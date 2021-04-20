@@ -130,7 +130,6 @@ void compute_l2(value_t *out, const value_idx *Q_coo_rows,
                 const value_t *Q_data, value_idx Q_nnz,
                 const value_idx *R_coo_rows, const value_t *R_data,
                 value_idx R_nnz, value_idx m, value_idx n,
-                cusparseHandle_t handle,
                 std::shared_ptr<raft::mr::device::allocator> alloc,
                 cudaStream_t stream, expansion_f expansion_func) {
   raft::mr::device::buffer<value_t> Q_sq_norms(alloc, stream, m);
@@ -154,7 +153,6 @@ void compute_corr(value_t *out, const value_idx *Q_coo_rows,
                   const value_t *Q_data, value_idx Q_nnz,
                   const value_idx *R_coo_rows, const value_t *R_data,
                   value_idx R_nnz, value_idx m, value_idx n, value_idx n_cols,
-                  cusparseHandle_t handle,
                   std::shared_ptr<raft::mr::device::allocator> alloc,
                   cudaStream_t stream) {
   // sum_sq for std dev
@@ -221,15 +219,16 @@ class l2_expanded_distances_t : public distances_t<value_t> {
     value_t *b_data = ip_dists.b_data_coo();
 
     raft::mr::device::buffer<value_idx> search_coo_rows(
-      config_->allocator, config_->stream, config_->a_nnz);
+      config_->handle.get_device_allocator(), config_->handle.get_stream(),
+      config_->a_nnz);
     raft::sparse::convert::csr_to_coo(config_->a_indptr, config_->a_nrows,
                                       search_coo_rows.data(), config_->a_nnz,
-                                      config_->stream);
+                                      config_->handle.get_stream());
 
     compute_l2(
       out_dists, search_coo_rows.data(), config_->a_data, config_->a_nnz,
       b_indices, b_data, config_->b_nnz, config_->a_nrows, config_->b_nrows,
-      config_->handle, config_->allocator, config_->stream,
+      config_->handle.get_device_allocator(), config_->handle.get_stream(),
       [] __device__ __host__(value_t dot, value_t q_norm, value_t r_norm) {
         return -2 * dot + q_norm + r_norm;
       });
@@ -256,15 +255,17 @@ class correlation_expanded_distances_t : public distances_t<value_t> {
     value_t *b_data = ip_dists.b_data_coo();
 
     raft::mr::device::buffer<value_idx> search_coo_rows(
-      config_->allocator, config_->stream, config_->a_nnz);
+      config_->handle.get_device_allocator(), config_->handle.get_stream(),
+      config_->a_nnz);
     raft::sparse::convert::csr_to_coo(config_->a_indptr, config_->a_nrows,
                                       search_coo_rows.data(), config_->a_nnz,
-                                      config_->stream);
+                                      config_->handle.get_stream());
 
     compute_corr(out_dists, search_coo_rows.data(), config_->a_data,
                  config_->a_nnz, b_indices, b_data, config_->b_nnz,
                  config_->a_nrows, config_->b_nrows, config_->b_ncols,
-                 config_->handle, config_->allocator, config_->stream);
+                 config_->handle.get_device_allocator(),
+                 config_->handle.get_stream());
   }
 
   ~correlation_expanded_distances_t() = default;
@@ -295,7 +296,7 @@ class l2_sqrt_expanded_distances_t
         int neg = input < 0 ? -1 : 1;
         return sqrt(abs(input) * neg);
       },
-      this->config_->stream);
+      this->config_->handle.get_stream());
   }
 
   ~l2_sqrt_expanded_distances_t() = default;
@@ -311,7 +312,8 @@ class cosine_expanded_distances_t : public distances_t<value_t> {
   explicit cosine_expanded_distances_t(
     const distances_config_t<value_idx, value_t> &config)
     : config_(&config),
-      workspace(config.allocator, config.stream, 0),
+      workspace(config.handle.get_device_allocator(),
+                config.handle.get_stream(), 0),
       ip_dists(config) {}
 
   void compute(value_t *out_dists) {
@@ -321,15 +323,16 @@ class cosine_expanded_distances_t : public distances_t<value_t> {
     value_t *b_data = ip_dists.b_data_coo();
 
     raft::mr::device::buffer<value_idx> search_coo_rows(
-      config_->allocator, config_->stream, config_->a_nnz);
+      config_->handle.get_device_allocator(), config_->handle.get_stream(),
+      config_->a_nnz);
     raft::sparse::convert::csr_to_coo(config_->a_indptr, config_->a_nrows,
                                       search_coo_rows.data(), config_->a_nnz,
-                                      config_->stream);
+                                      config_->handle.get_stream());
 
     compute_l2(
       out_dists, search_coo_rows.data(), config_->a_data, config_->a_nnz,
       b_indices, b_data, config_->b_nnz, config_->a_nrows, config_->b_nrows,
-      config_->handle, config_->allocator, config_->stream,
+      config_->handle.get_device_allocator(), config_->handle.get_stream(),
       [] __device__ __host__(value_t dot, value_t q_norm, value_t r_norm) {
         value_t norms = sqrt(q_norm) * sqrt(r_norm);
         // deal with potential for 0 in denominator by forcing 0/1 instead
@@ -363,15 +366,18 @@ class hellinger_expanded_distances_t : public distances_t<value_t> {
  public:
   explicit hellinger_expanded_distances_t(
     const distances_config_t<value_idx, value_t> &config)
-    : config_(&config), workspace(config.allocator, config.stream, 0) {}
+    : config_(&config),
+      workspace(config.handle.get_device_allocator(),
+                config.handle.get_stream(), 0) {}
 
   void compute(value_t *out_dists) {
     raft::mr::device::buffer<value_idx> coo_rows(
-      config_->allocator, config_->stream, max(config_->b_nnz, config_->a_nnz));
+      config_->handle.get_device_allocator(), config_->handle.get_stream(),
+      max(config_->b_nnz, config_->a_nnz));
 
     raft::sparse::convert::csr_to_coo(config_->b_indptr, config_->b_nrows,
                                       coo_rows.data(), config_->b_nnz,
-                                      config_->stream);
+                                      config_->handle.get_stream());
 
     balanced_coo_pairwise_generalized_spmv<value_idx, value_t>(
       out_dists, *config_, coo_rows.data(),
@@ -385,7 +391,7 @@ class hellinger_expanded_distances_t : public distances_t<value_t> {
         bool rectifier = abs(1 - input) > 1e-8;
         return rectifier * sqrt(1 - input);
       },
-      config_->stream);
+      config_->handle.get_stream());
   }
 
   ~hellinger_expanded_distances_t() = default;
@@ -401,7 +407,8 @@ class russelrao_expanded_distances_t : public distances_t<value_t> {
   explicit russelrao_expanded_distances_t(
     const distances_config_t<value_idx, value_t> &config)
     : config_(&config),
-      workspace(config.allocator, config.stream, 0),
+      workspace(config.handle.get_device_allocator(),
+                config.handle.get_stream(), 0),
       ip_dists(config) {}
 
   void compute(value_t *out_dists) {
@@ -411,7 +418,7 @@ class russelrao_expanded_distances_t : public distances_t<value_t> {
     raft::linalg::unaryOp<value_t>(
       out_dists, out_dists, config_->a_nrows * config_->b_nrows,
       [=] __device__(value_t input) { return (n_cols - input) * n_cols; },
-      config_->stream);
+      config_->handle.get_stream());
   }
 
   ~russelrao_expanded_distances_t() = default;
