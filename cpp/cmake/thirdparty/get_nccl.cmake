@@ -42,8 +42,7 @@ function(find_and_configure_nccl)
     set(nccl_SOURCE_DIR "${nccl_SOURCE_DIR}" PARENT_SCOPE)
 
     if (nccl_ADDED)
-        # todo (DD): Add building nccl from source, works fine for conda installed for now
-
+        # todo (DD): Add building nccl from source, works fine for conda installed
 
     endif()
 endfunction()

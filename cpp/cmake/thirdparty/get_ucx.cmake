@@ -36,7 +36,7 @@ function(find_and_configure_ucx)
     set(ucx_SOURCE_DIR "${ucx_SOURCE_DIR}" PARENT_SCOPE)
 
     if (ucx_ADDED)
-        # todo (DD): Add building ucx from source, works fine for conda installed for now
+        # todo (DD): Add building ucx from source, works fine for conda installed
 
 
     endif()

@@ -139,10 +139,6 @@ include(cmake/thirdparty/get_faiss.cmake)
 
 include(cmake/thirdparty/get_rmm.cmake)
 
-if(NOT CUB_IS_PART_OF_CTK)
-  include(cmake/thirdparty/get_cub.cmake)
-endif(NOT CUB_IS_PART_OF_CTK)
-
 if(BUILD_TESTS)
   include(cmake/thirdparty/get_nccl.cmake)
 
@@ -154,16 +150,28 @@ endif()
 ##############################################################################
 # - install targets-----------------------------------------------------------
 
-# Currently not used, but added to ease the transition to a conda package, see:
-# https://github.com/rapidsai/raft/issues/83
+add_library(raft INTERFACE)
+add_library(raft::raft ALIAS raft)
+target_include_directories(raft INTERFACE "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/include>"
+                                          "$<INSTALL_INTERFACE:include>")
 
-# add_library(raft INTERFACE)
-# add_library(raft::raft ALIAS raft)
-# target_include_directories(raft INTERFACE "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/include>"
-#                                           "$<INSTALL_INTERFACE:include>")
+target_link_libraries(raft
+INTERFACE
+  CUDA::cublas
+  CUDA::curand
+  CUDA::cusolver
+  CUDA::cudart
+  CUDA::cusparse
+  rmm::rmm
+  spdlog::spdlog_header_only
+    )
 
+target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
 
-# target_compile_features(raft INTERFACE cxx_std_14 $<BUILD_INTERFACE:cuda_std_14>)
+export(
+  TARGETS raft
+  FILE ${RAFT_BINARY_DIR}/raft-targets.cmake
+  NAMESPACE raft::)
 
 ##############################################################################
 # - build test executable ----------------------------------------------------
@@ -179,14 +187,3 @@ include(cmake/doxygen.cmake)
 add_doxygen_target(IN_DOXYFILE Doxyfile.in
   OUT_DOXYFILE ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
   CWD ${CMAKE_CURRENT_BINARY_DIR})
-
-macro(print_all_variables)
-    message(STATUS "print_all_variables------------------------------------------{")
-    get_cmake_property(_variableNames VARIABLES)
-    foreach (_variableName ${_variableNames})
-        message(STATUS "${_variableName}=${${_variableName}}")
-    endforeach()
-    message(STATUS "print_all_variables------------------------------------------}")
-endmacro()
-
-# print_all_variables()

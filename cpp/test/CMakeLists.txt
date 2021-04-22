@@ -102,6 +102,7 @@ target_compile_options(test_raft
 target_include_directories(test_raft
     PUBLIC  "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/include>"
             "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/test>"
+            "${FAISS_GPU_HEADERS}"
 )
 
 target_link_directories(test_raft
@@ -117,7 +118,7 @@ PRIVATE
   CUDA::cudart
   CUDA::cusparse
   rmm::rmm
-  ${FAISS_LIBRARIES}
+  FAISS::FAISS
   GTest::gtest
   GTest::gtest_main
   OpenMP::OpenMP_CXX

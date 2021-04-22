@@ -35,14 +35,17 @@ function(find_and_configure_faiss)
           "CUDAToolkit_ROOT ${CUDAToolkit_LIBRARY_DIR}"
           "FAISS_ENABLE_GPU ON"
           "BUILD_TESTING OFF"
+          "CMAKE_MESSAGE_LOG_LEVEL VERBOSE"
+          "CMAKE_CUDA_ARCHITECTURES ${CMAKE_CUDA_ARCHITECTURES}"
     )
 
-    set(FAISS_LIBRARIES ${FAISS_LIBRARY_RELEASE} PARENT_SCOPE)
+    if(FAISS_ADDED)
+      set(FAISS_GPU_HEADERS ${FAISS_SOURCE_DIR} PARENT_SCOPE)
+      add_library(FAISS::FAISS ALIAS faiss)
+    endif()
 
-    # todo (DD): Test building faiss statically and add gpu archs again
 endfunction()
 
 find_and_configure_faiss(VERSION    1.7.0
-                        PINNED_TAG  7c2d2388a492d65fdda934c7e74ae87acaeed066
+                        PINNED_TAG  bde7c0027191f29c9dadafe4f6e68ca0ee31fb30
                         )
-
