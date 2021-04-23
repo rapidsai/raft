@@ -60,7 +60,7 @@ void merge_msts(raft::Graph_COO<value_idx, value_idx, value_t> &coo1,
   coo1.n_edges = final_nnz;
 }
 
-template <typename value_idx, value_t>
+template <typename value_idx, typename value_t>
 struct MSTEpilogueNoOp {
   void operator()(raft::handle_t &handle, value_idx *coo_rows,
                   value_idx *coo_cols, value_t *coo_data, value_idx nnz) {}
