@@ -60,11 +60,6 @@ void merge_msts(raft::Graph_COO<value_idx, value_idx, value_t> &coo1,
   coo1.n_edges = final_nnz;
 }
 
-template <typename value_idx, typename value_t>
-struct MSTEpilogueNoOp {
-  void operator()(raft::handle_t &handle, value_idx *coo_rows,
-                  value_idx *coo_cols, value_t *coo_data, value_idx nnz) {}
-}
 
 /**
  * Connect an unconnected knn graph (one in which mst returns an msf). The
@@ -83,9 +78,9 @@ template <typename value_idx, typename value_t, typename mst_epilogue_f>
 void connect_knn_graph(const raft::handle_t &handle, const value_t *X,
                        raft::Graph_COO<value_idx, value_idx, value_t> &msf,
                        size_t m, size_t n, value_idx *color,
-                       raft::distance::DistanceType metric =
-                         raft::distance::DistanceType::L2SqrtExpanded,
-                       mst_epilogue_f mst_epilogue_func) {
+                       mst_epilogue_f mst_epilogue_func,
+                         raft::distance::DistanceType metric =
+                         raft::distance::DistanceType::L2SqrtExpanded) {
   auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
 
@@ -105,7 +100,7 @@ void connect_knn_graph(const raft::handle_t &handle, const value_t *X,
     handle, indptr2.data(), connected_edges.cols(), connected_edges.vals(), m,
     connected_edges.nnz, color, stream, false, false);
 
-  distance_epilogue_func(handle, new_mst.src.data(), new_mst.dst.data(),
+  mst_epilogue_func(handle, new_mst.src.data(), new_mst.dst.data(),
                          new_mst.weights.data(), new_mst.n_edges);
 
   merge_msts<value_idx, value_t>(msf, new_mst, stream);
@@ -141,11 +136,11 @@ void build_sorted_mst(
   const value_idx *indices, const value_t *pw_dists, size_t m, size_t n,
   rmm::device_uvector<value_idx> &mst_src,
   rmm::device_uvector<value_idx> &mst_dst,
-  rmm::device_uvector<value_t> &mst_weight, const size_t nnz,
+  rmm::device_uvector<value_t> &mst_weight, size_t nnz,
+  mst_epilogue_f epilogue_func,
   raft::distance::DistanceType metric =
     raft::distance::DistanceType::L2SqrtExpanded,
-  int max_iter = 10,
-  mst_epilogue_f epilogue_func = MSTEpilogueNoOp<value_idx, value_t>()) {
+  int max_iter = 10)  {
   auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
 

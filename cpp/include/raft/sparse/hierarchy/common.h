@@ -21,6 +21,12 @@ namespace hierarchy {
 
 enum LinkageDistance { PAIRWISE = 0, KNN_GRAPH = 1 };
 
+template <typename value_idx, typename value_t>
+struct MSTEpilogueNoOp {
+  void operator()(const raft::handle_t &handle, value_idx *coo_rows,
+                  value_idx *coo_cols, value_t *coo_data, value_idx nnz) {}
+};
+
 /**
  * Simple POCO for consolidating linkage results. This closely
  * mirrors the trained instance variables populated in
