@@ -60,7 +60,6 @@ void merge_msts(raft::Graph_COO<value_idx, value_idx, value_t> &coo1,
   coo1.n_edges = final_nnz;
 }
 
-
 /**
  * Connect an unconnected knn graph (one in which mst returns an msf). The
  * device buffers underlying the Graph_COO object are modified in-place.
@@ -79,7 +78,7 @@ void connect_knn_graph(const raft::handle_t &handle, const value_t *X,
                        raft::Graph_COO<value_idx, value_idx, value_t> &msf,
                        size_t m, size_t n, value_idx *color,
                        mst_epilogue_f mst_epilogue_func,
-                         raft::distance::DistanceType metric =
+                       raft::distance::DistanceType metric =
                          raft::distance::DistanceType::L2SqrtExpanded) {
   auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
@@ -101,7 +100,7 @@ void connect_knn_graph(const raft::handle_t &handle, const value_t *X,
     connected_edges.nnz, color, stream, false, false);
 
   mst_epilogue_func(handle, new_mst.src.data(), new_mst.dst.data(),
-                         new_mst.weights.data(), new_mst.n_edges);
+                    new_mst.weights.data(), new_mst.n_edges);
 
   merge_msts<value_idx, value_t>(msf, new_mst, stream);
 }
@@ -131,16 +130,16 @@ void connect_knn_graph(const raft::handle_t &handle, const value_t *X,
  *  argument is really just a safeguard against the potential for infinite loops.
  */
 template <typename value_idx, typename value_t, typename mst_epilogue_f>
-void build_sorted_mst(
-  const raft::handle_t &handle, const value_t *X, const value_idx *indptr,
-  const value_idx *indices, const value_t *pw_dists, size_t m, size_t n,
-  rmm::device_uvector<value_idx> &mst_src,
-  rmm::device_uvector<value_idx> &mst_dst,
-  rmm::device_uvector<value_t> &mst_weight, size_t nnz,
-  mst_epilogue_f epilogue_func,
-  raft::distance::DistanceType metric =
-    raft::distance::DistanceType::L2SqrtExpanded,
-  int max_iter = 10)  {
+void build_sorted_mst(const raft::handle_t &handle, const value_t *X,
+                      const value_idx *indptr, const value_idx *indices,
+                      const value_t *pw_dists, size_t m, size_t n,
+                      rmm::device_uvector<value_idx> &mst_src,
+                      rmm::device_uvector<value_idx> &mst_dst,
+                      rmm::device_uvector<value_t> &mst_weight, size_t nnz,
+                      mst_epilogue_f epilogue_func,
+                      raft::distance::DistanceType metric =
+                        raft::distance::DistanceType::L2SqrtExpanded,
+                      int max_iter = 10) {
   auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
 
