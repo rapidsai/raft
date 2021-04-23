@@ -136,7 +136,7 @@ void max_duplicates(const raft::handle_t &handle,
 
   compute_duplicates_mask(diff.data(), rows, cols, nnz, stream);
 
-  thrust::exclusive_scan(exec_policy, diff.data(), diff.data() + diff.size(),
+  thrust::exclusive_scan(thrust::cuda::par.on(stream), diff.data(), diff.data() + diff.size(),
                          diff.data());
 
   // compute final size
