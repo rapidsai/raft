@@ -63,7 +63,7 @@ void merge_msts(raft::Graph_COO<value_idx, value_idx, value_t> &coo1,
 template <typename value_idx, value_t>
 struct MSTEpilogueNoOp {
   void operator()(raft::handle_t &handle, value_idx *coo_rows,
-                  value_idx *coo_cols, value_t *coo_data) {}
+                  value_idx *coo_cols, value_t *coo_data, value_idx nnz) {}
 }
 
 /**
