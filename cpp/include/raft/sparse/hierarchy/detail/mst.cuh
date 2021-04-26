@@ -93,14 +93,14 @@ void connect_knn_graph(const raft::handle_t &handle, const value_t *X,
                                            connected_edges.nnz, indptr2.data(),
                                            m + 1, d_alloc, stream);
 
+  mst_epilogue_func(handle, connected_edges.rows(), connected_edges.cols(),
+                    connected_edges.vals(), connected_edges.nnz);
+
   // On the second call, we hand the MST the original colors
   // and the new set of edges and let it restart the optimization process
   auto new_mst = raft::mst::mst<value_idx, value_idx, value_t>(
     handle, indptr2.data(), connected_edges.cols(), connected_edges.vals(), m,
     connected_edges.nnz, color, stream, false, false);
-
-  mst_epilogue_func(handle, new_mst.src.data(), new_mst.dst.data(),
-                    new_mst.weights.data(), new_mst.n_edges);
 
   merge_msts<value_idx, value_t>(msf, new_mst, stream);
 }
@@ -183,11 +183,19 @@ void build_sorted_mst(const raft::handle_t &handle, const value_t *X,
                " or increase 'max_iter'",
                max_iter);
 
+  if(mst_coo.n_edges != m-1) {
+    raft::print_device_vector("mst_src", mst_coo.src.data(), mst_coo.n_edges, std::cout);
+    raft::print_device_vector("mst_dst", mst_coo.dst.data(), mst_coo.n_edges, std::cout);
+    raft::print_device_vector("mst_weight", mst_coo.weights.data(), mst_coo.n_edges, std::cout);
+  }
+
+
   RAFT_EXPECTS(mst_coo.n_edges == m - 1,
                "n_edges should be %d but was %d. This"
                "could be an indication of duplicate edges returned from the"
                "MST or symmetrization stage.",
                m - 1, mst_coo.n_edges);
+
 
   raft::sparse::op::coo_sort_by_weight(mst_coo.src.data(), mst_coo.dst.data(),
                                        mst_coo.weights.data(), mst_coo.n_edges,
