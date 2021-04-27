@@ -76,6 +76,7 @@ if(DETECT_CONDA_ENV)
   endif()
 endif()
 
+
 ###################################################################################################
 # - compiler options ------------------------------------------------------------------------------
 
@@ -126,6 +127,10 @@ INTERFACE
   CUDA::cudart
   CUDA::cusparse
   rmm::rmm
+<<<<<<< HEAD
+=======
+  spdlog::spdlog_header_only
+>>>>>>> b26ed43 (Update raft to use rapids-cmake)
   )
 
 target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
