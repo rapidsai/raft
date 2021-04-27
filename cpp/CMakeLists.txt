@@ -126,7 +126,6 @@ INTERFACE
   CUDA::cudart
   CUDA::cusparse
   rmm::rmm
-  spdlog::spdlog_header_only
   )
 
 target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
