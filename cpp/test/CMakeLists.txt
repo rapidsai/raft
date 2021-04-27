@@ -105,13 +105,9 @@ target_include_directories(test_raft
             "${FAISS_GPU_HEADERS}"
 )
 
-target_link_directories(test_raft
-PRIVATE
-  ${RAFT_LINK_DIRECTORIES})
 
 target_link_libraries(test_raft
 PRIVATE
-  ${RAFT_LINK_LIBRARIES}
   CUDA::cublas
   CUDA::curand
   CUDA::cusolver

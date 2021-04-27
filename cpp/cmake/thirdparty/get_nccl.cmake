@@ -24,19 +24,16 @@ function(find_and_configure_nccl)
     cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
                           "${multiValueArgs}" ${ARGN} )
 
-    GENERATE_FIND_MODULE(
-        NAME         NCCL
-        HEADER_NAME  nccl.h
-        LIBRARY_NAME nccl
+    rapids_find_generate_module(NCCL
+        HEADER_NAMES  nccl.h
+        LIBRARY_NAMES nccl
     )
 
-    # find_package(NCCL 2.8 REQUIRED)
-
-    CPMFindPackage(NAME NCCL
-        VERSION         ${PKG_VERSION}
-        GIT_REPOSITORY  https://github.com/NVIDIA/nccl.git
-        GIT_TAG         ${PKG_PINNED_TAG}
-        DOWNLOAD_ONLY   YES
+    rapids_cpm_find(NCCL ${PKG_VERSION}
+        CPM_ARGS
+            GIT_REPOSITORY  https://github.com/NVIDIA/nccl.git
+            GIT_TAG         ${PKG_PINNED_TAG}
+            DOWNLOAD_ONLY   YES
     )
 
     set(nccl_SOURCE_DIR "${nccl_SOURCE_DIR}" PARENT_SCOPE)

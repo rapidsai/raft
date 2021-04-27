@@ -19,18 +19,17 @@ function(find_and_configure_ucx)
     cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
                           "${multiValueArgs}" ${ARGN} )
 
-    GENERATE_FIND_MODULE(
-        NAME         ucx
-        HEADER_NAME  ucp/api/ucp.h
-        LIBRARY_NAME ucp
+    rapids_find_generate_module(ucx
+        HEADER_NAMES  ucp/api/ucp.h
+        LIBRARY_NAMES ucp
     )
 
-    CPMFindPackage(NAME ucx
-        VERSION         ${PKG_VERSION}
-        GIT_REPOSITORY  https://github.com/openucx/ucx
-        GIT_TAG         ${PKG_PINNED_TAG}
-        GIT_SHALLOW     TRUE
-        DOWNLOAD_ONLY   YES
+    rapids_cpm_find(ucx ${PKG_VERSION}
+        CPM_ARGS
+            GIT_REPOSITORY  https://github.com/openucx/ucx
+            GIT_TAG         ${PKG_PINNED_TAG}
+            GIT_SHALLOW     TRUE
+            DOWNLOAD_ONLY   YES
     )
 
     set(ucx_SOURCE_DIR "${ucx_SOURCE_DIR}" PARENT_SCOPE)

@@ -19,24 +19,23 @@ function(find_and_configure_faiss)
     cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
                           "${multiValueArgs}" ${ARGN} )
 
-    GENERATE_FIND_MODULE(
-        NAME         FAISS
-        HEADER_NAME  faiss/IndexFlat.h
-        LIBRARY_NAME faiss
+    rapids_find_generate_module(FAISS
+        HEADER_NAMES  faiss/IndexFlat.h
+        LIBRARY_NAMES faiss
     )
 
-    CPMFindPackage(NAME FAISS
-        VERSION         ${PKG_VERSION}
-        GIT_REPOSITORY  https://github.com/facebookresearch/faiss.git
-        GIT_TAG         ${PKG_PINNED_TAG}
-        OPTIONS
-          "FAISS_ENABLE_PYTHON OFF"
-          "BUILD_SHARED_LIBS OFF"
-          "CUDAToolkit_ROOT ${CUDAToolkit_LIBRARY_DIR}"
-          "FAISS_ENABLE_GPU ON"
-          "BUILD_TESTING OFF"
-          "CMAKE_MESSAGE_LOG_LEVEL VERBOSE"
-          "CMAKE_CUDA_ARCHITECTURES ${CMAKE_CUDA_ARCHITECTURES}"
+    rapids_cpm_find(FAISS ${PKG_VERSION}
+        GLOBAL_TARGETS  faiss
+        CPM_ARGS
+          GIT_REPOSITORY  https://github.com/facebookresearch/faiss.git
+          GIT_TAG         ${PKG_PINNED_TAG}
+          OPTIONS
+            "FAISS_ENABLE_PYTHON OFF"
+            "BUILD_SHARED_LIBS OFF"
+            "CUDAToolkit_ROOT ${CUDAToolkit_LIBRARY_DIR}"
+            "FAISS_ENABLE_GPU ON"
+            "BUILD_TESTING OFF"
+            "CMAKE_MESSAGE_LOG_LEVEL VERBOSE"
     )
 
     if(FAISS_ADDED)
@@ -47,5 +46,5 @@ function(find_and_configure_faiss)
 endfunction()
 
 find_and_configure_faiss(VERSION    1.7.0
-                        PINNED_TAG  bde7c0027191f29c9dadafe4f6e68ca0ee31fb30
+                         PINNED_TAG  bde7c0027191f29c9dadafe4f6e68ca0ee31fb30
                         )

@@ -20,33 +20,20 @@ function(find_and_configure_rmm VERSION)
         return()
     endif()
 
-    # Consumers have two options for local source builds:
-    # 1. Pass `-D CPM_rmm_SOURCE=/path/to/rmm` to build a local RMM source tree
-    # 2. Pass `-D CMAKE_PREFIX_PATH=/path/to/rmm/build` to use an existing local
-    #    RMM build directory as the install location for find_package(rmm)
-    raft_save_if_enabled(BUILD_TESTS)
-    raft_save_if_enabled(BUILD_BENCHMARKS)
-
-    CPMFindPackage(NAME rmm
-        VERSION         ${VERSION}
-        GIT_REPOSITORY  https://github.com/rapidsai/rmm.git
-        GIT_TAG         branch-${VERSION}
-        GIT_SHALLOW     TRUE
-        OPTIONS         "BUILD_TESTS OFF"
-                        "BUILD_BENCHMARKS OFF"
-                        "CUDA_STATIC_RUNTIME ${CUDA_STATIC_RUNTIME}"
-                        "DISABLE_DEPRECATION_WARNING ${DISABLE_DEPRECATION_WARNING}"
+    rapids_cpm_find(rmm ${VERSION}
+        GLOBAL_TARGETS      rmm::rmm
+        BUILD_EXPORT_SET    raft-exports
+        INSTALL_EXPORT_SET  raft-exports
+        CPM_ARGS
+            GIT_REPOSITORY  https://github.com/rapidsai/rmm.git
+            GIT_TAG         branch-${VERSION}
+            GIT_SHALLOW     TRUE
+            OPTIONS         "BUILD_TESTS OFF"
+                            "BUILD_BENCHMARKS OFF"
+                            "CUDA_STATIC_RUNTIME ${CUDA_STATIC_RUNTIME}"
+                            "DISABLE_DEPRECATION_WARNING ${DISABLE_DEPRECATION_WARNING}"
     )
-    raft_restore_if_enabled(BUILD_TESTS)
-    raft_restore_if_enabled(BUILD_BENCHMARKS)
 
-    # Make sure consumers of RAFT can also see rmm::rmm
-    fix_cmake_global_defaults(rmm::rmm)
-
-    if(NOT rmm_BINARY_DIR IN_LIST CMAKE_PREFIX_PATH)
-        list(APPEND CMAKE_PREFIX_PATH "${rmm_BINARY_DIR}")
-        set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} PARENT_SCOPE)
-    endif()
 endfunction()
 
 set(RAFT_MIN_VERSION_rmm "${RAFT_VERSION_MAJOR}.${RAFT_VERSION_MINOR}")

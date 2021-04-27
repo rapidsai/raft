@@ -14,35 +14,29 @@
 # limitations under the License.
 #=============================================================================
 
+cmake_minimum_required(VERSION 3.20.1 FATAL_ERROR)
+include(FetchContent)
+FetchContent_Declare(
+  rapids-cmake
+  GIT_REPOSITORY git@github.com:rapidsai/rapids-cmake.git
+  GIT_TAG        origin/branch-0.20
+  )
+FetchContent_MakeAvailable(rapids-cmake)
+include(rapids-cmake)
+include(rapids-cpm)
+include(rapids-cuda)
+include(rapids-export)
+include(rapids-find)
 
-cmake_minimum_required(VERSION 3.18 FATAL_ERROR)
+rapids_cuda_init_architectures(RAFT)
 
-# This needs to be run before enabling the CUDA language due to the default initialization behavior
-# of `CMAKE_CUDA_ARCHITECTURES`, https://gitlab.kitware.com/cmake/cmake/-/issues/21302
-if(CMAKE_CUDA_ARCHITECTURES STREQUAL "ALL")
-  set(RAFT_BUILD_FOR_ALL_ARCHS TRUE)
-  set(CMAKE_CUDA_ARCHITECTURES "")
-elseif(CMAKE_CUDA_ARCHITECTURES STREQUAL "" OR NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
-  set(RAFT_BUILD_FOR_DETECTED_ARCHS TRUE)
-endif()
-
-# language CUDA is enabled in ConfigureCUDA.cmake
-project(RAFT VERSION 0.20.0 LANGUAGES CXX)
+project(RAFT VERSION 0.20.0 LANGUAGES CXX CUDA)
 
 ##############################################################################
 # - build type ---------------------------------------------------------------
 
 # Set a default build type if none was specified
-set(DEFAULT_BUILD_TYPE "Release")
-
-if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
-  message(STATUS "Setting build type to '${DEFAULT_BUILD_TYPE}' since none specified.")
-  set(CMAKE_BUILD_TYPE "${DEFAULT_BUILD_TYPE}" CACHE
-      STRING "Choose the type of build." FORCE)
-  # Set the possible values of build type for cmake-gui
-  set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
-    "Debug" "Release")
-endif()
+rapids_cmake_build_type(Release)
 
 # this is needed for clang-tidy runs
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -78,32 +72,8 @@ endif()
 ##############################################################################
 # - Conda environment detection ----------------------------------------------
 
-# conda-build conda package building detection
-if("$ENV{CONDA_BUILD}" STREQUAL "1")
-    message(STATUS "RAFT: Detected conda-build call, CMAKE_PREFIX_PATH unchanged.")
-
-# otherwise detecting conda environment
-else("$ENV{CONDA_BUILD}" STREQUAL "1")
-  if(DETECT_CONDA_ENV)
-
-    if(DEFINED ENV{CONDA_PREFIX})
-      set(CMAKE_PREFIX_PATH "$ENV{CONDA_PREFIX};${CMAKE_PREFIX_PATH}")
-      message(STATUS "RAFT: Detected Conda environment, CMAKE_PREFIX_PATH set to: ${CMAKE_PREFIX_PATH}")
-
-      if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
-        message(STATUS "RAFT: No CMAKE_INSTALL_PREFIX argument detected, setting to: $ENV{CONDA_PREFIX}")
-        set (CMAKE_INSTALL_PREFIX $ENV{CONDA_PREFIX})
-      endif (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
-
-    else(DEFINED ENV{CONDA_PREFIX})
-      message(STATUS "RAFT: No Conda environment detected, CMAKE_PREFIX_PATH set to: ${CMAKE_PREFIX_PATH}")
-    endif(DEFINED ENV{CONDA_PREFIX})
-
-  else(DETECT_CONDA_ENV)
-    message(STATUS "RAFT: No Conda detection being used")
-  endif(DETECT_CONDA_ENV)
-
-endif("$ENV{CONDA_BUILD}" STREQUAL "1")
+# conda environment
+rapids_cmake_support_conda_env( conda_env MODIFY_PREFIX_PATH )
 
 ###################################################################################################
 # - compiler options ------------------------------------------------------------------------------
@@ -112,15 +82,14 @@ endif("$ENV{CONDA_BUILD}" STREQUAL "1")
 # * determine GPU architectures
 # * enable the CMake CUDA language
 # * set other CUDA compilation flags
+rapids_find_package(CUDAToolkit REQUIRED
+    BUILD_EXPORT_SET raft-exports
+    INSTALL_EXPORT_SET raft-exports
+    )
 include(cmake/modules/ConfigureCUDA.cmake)
 
 ##############################################################################
 # - Requirements -------------------------------------------------------------
-
-# our GENERATE_FIND_MODULE function works perfectly to allow CPMFindPackage work with packages
-# that don't have a find*.cmake (like it did for find_package), like nccl :)
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/cmake/templates)
-set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_BINARY_DIR}/cmake)
 
 if (NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
   find_package(OpenMP)
@@ -130,20 +99,13 @@ if (NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
 endif(NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
 
 # add third party dependencies using CPM
-include(cmake/thirdparty/get_cpm.cmake)
-
-# add third party dependencies using CPM
-include(cmake/thirdparty/get_cpm.cmake)
+rapids_cpm_init()
 
 include(cmake/thirdparty/get_faiss.cmake)
-
 include(cmake/thirdparty/get_rmm.cmake)
-
 if(BUILD_TESTS)
   include(cmake/thirdparty/get_nccl.cmake)
-
   include(cmake/thirdparty/get_ucx.cmake)
-
   include(cmake/thirdparty/get_gtest.cmake)
 endif()
 
@@ -164,16 +126,43 @@ INTERFACE
   CUDA::cusparse
   rmm::rmm
   spdlog::spdlog_header_only
-    )
+  )
 
 target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
 
-export(
-  TARGETS raft
-  FILE ${RAFT_BINARY_DIR}/raft-targets.cmake
-  NAMESPACE raft::)
+install(TARGETS raft
+        DESTINATION lib
+        EXPORT raft-exports
+        )
 
-##############################################################################
+################################################################################################
+# - install export -------------------------------------------------------------------------------
+set(doc_string
+[=[
+Provide targets for the RAFT: RAPIDS Analytics Frameworks Toolset.
+
+RAFT is a repository containining shared utilities, mathematical operations
+and common functions for the analytics components of RAPIDS.
+
+]=])
+
+ rapids_export(INSTALL raft
+    EXPORT_SET raft-exports
+    GLOBAL_TARGETS raft # since we can't hook into EXPORT SETS
+    NAMESPACE raft::
+    DOCUMENTATION doc_string
+    )
+
+################################################################################################
+# - build export -------------------------------------------------------------------------------
+rapids_export(BUILD raft
+    EXPORT_SET raft-exports
+    GLOBAL_TARGETS raft # since we can't hook into EXPORT SETS
+    LANGUAGES CUDA
+    DOCUMENTATION doc_string
+    NAMESPACE raft::
+    )
+###################################################################
 # - build test executable ----------------------------------------------------
 
 if(BUILD_TESTS)

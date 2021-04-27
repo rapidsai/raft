@@ -14,26 +14,6 @@
 # limitations under the License.
 #=============================================================================
 
-# Find the CUDAToolkit
-find_package(CUDAToolkit REQUIRED)
-
-if((CUDAToolkit_VERSION EQUAL 11) OR (CUDAToolkit_VERSION GREATER 11))
-    set(CUB_IS_PART_OF_CTK ON)
-else()
-    message(STATUS "CUB NOT IN CTK")
-    set(CUB_IS_PART_OF_CTK OFF)
-endif()
-
-# Auto-detect available GPU compute architectures
-include(${RAFT_SOURCE_DIR}/cmake/modules/SetGPUArchs.cmake)
-message(STATUS "RAFT: Building for GPU architectures: ${CMAKE_CUDA_ARCHITECTURES}")
-
-# Must come after find_package(CUDAToolkit) because we symlink
-# ccache as a compiler front-end for nvcc in gpuCI CPU builds.
-# Must also come after we detect and potentially rewrite
-# CMAKE_CUDA_ARCHITECTURES
-enable_language(CUDA)
-
 # todo (DD): Change cuda flags environment variables to use generators to enable using
 # clang as per suggestion from mdemoret:
 # target_compile_options(raft
