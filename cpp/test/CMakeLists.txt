@@ -119,4 +119,5 @@ PRIVATE
   GTest::gtest_main
   OpenMP::OpenMP_CXX
   Threads::Threads
+  $<TARGET_NAME_IF_EXISTS:conda_env>
 )

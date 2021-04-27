@@ -65,15 +65,16 @@ set(RMM_LOGGING_LEVEL "INFO" CACHE STRING "Choose the logging level.")
 set_property(CACHE RMM_LOGGING_LEVEL PROPERTY STRINGS "TRACE" "DEBUG" "INFO" "WARN" "ERROR" "CRITICAL" "OFF")
 message(VERBOSE "RAFT: RMM_LOGGING_LEVEL = '${RMM_LOGGING_LEVEL}'.")
 
-if (NOT RAFT_GENERATED_INCLUDE_DIR)
-    set(RAFT_GENERATED_INCLUDE_DIR ${RAFT_BINARY_DIR})
-endif()
-
 ##############################################################################
 # - Conda environment detection ----------------------------------------------
 
-# conda environment
-rapids_cmake_support_conda_env( conda_env MODIFY_PREFIX_PATH )
+if(DETECT_CONDA_ENV)
+  rapids_cmake_support_conda_env( conda_env MODIFY_PREFIX_PATH )
+  if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT AND DEFINED ENV{CONDA_PREFIX})
+      message(STATUS "RAFT: No CMAKE_INSTALL_PREFIX argument detected, setting to: $ENV{CONDA_PREFIX}")
+      set(CMAKE_INSTALL_PREFIX "$ENV{CONDA_PREFIX}")
+  endif()
+endif()
 
 ###################################################################################################
 # - compiler options ------------------------------------------------------------------------------
