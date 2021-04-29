@@ -88,6 +88,9 @@ void connect_knn_graph(const raft::handle_t &handle, const value_t *X,
   raft::linkage::connect_components<value_idx, value_t>(handle, connected_edges,
                                                         X, color, m, n);
 
+  raft::print_device_vector("connected_edges", connected_edges.vals(),
+                            connected_edges.nnz, std::cout);
+
   rmm::device_uvector<value_idx> indptr2(m + 1, stream);
   raft::sparse::convert::sorted_coo_to_csr(connected_edges.rows(),
                                            connected_edges.nnz, indptr2.data(),
@@ -150,13 +153,21 @@ void build_sorted_mst(const raft::handle_t &handle, const value_t *X,
     handle, indptr, indices, pw_dists, (value_idx)m, nnz, color.data(), stream,
     false, true);
 
+  raft::print_device_vector("initial_dists", pw_dists, nnz, std::cout);
+  raft::print_device_vector("mst_weights", mst_coo.weights.data(), mst_coo.weights.size(), std::cout);
+
   int iters = 1;
   int n_components =
     linkage::get_n_components(color.data(), m, d_alloc, stream);
 
   while (n_components > 1 && iters < max_iter) {
+
+    printf("Didn't converge. trying again\n");
     connect_knn_graph<value_idx, value_t>(handle, X, mst_coo, m, n,
                                           color.data(), epilogue_func);
+
+
+    raft::print_device_vector("mst_weights", mst_coo.weights.data(), mst_coo.weights.size(), std::cout);
 
     iters++;
 
@@ -183,19 +194,20 @@ void build_sorted_mst(const raft::handle_t &handle, const value_t *X,
                " or increase 'max_iter'",
                max_iter);
 
-  if(mst_coo.n_edges != m-1) {
-    raft::print_device_vector("mst_src", mst_coo.src.data(), mst_coo.n_edges, std::cout);
-    raft::print_device_vector("mst_dst", mst_coo.dst.data(), mst_coo.n_edges, std::cout);
-    raft::print_device_vector("mst_weight", mst_coo.weights.data(), mst_coo.n_edges, std::cout);
+  if (mst_coo.n_edges != m - 1) {
+    raft::print_device_vector("mst_src", mst_coo.src.data(), mst_coo.n_edges,
+                              std::cout);
+    raft::print_device_vector("mst_dst", mst_coo.dst.data(), mst_coo.n_edges,
+                              std::cout);
+    raft::print_device_vector("mst_weight", mst_coo.weights.data(),
+                              mst_coo.n_edges, std::cout);
   }
-
 
   RAFT_EXPECTS(mst_coo.n_edges == m - 1,
                "n_edges should be %d but was %d. This"
                "could be an indication of duplicate edges returned from the"
                "MST or symmetrization stage.",
                m - 1, mst_coo.n_edges);
-
 
   raft::sparse::op::coo_sort_by_weight(mst_coo.src.data(), mst_coo.dst.data(),
                                        mst_coo.weights.data(), mst_coo.n_edges,

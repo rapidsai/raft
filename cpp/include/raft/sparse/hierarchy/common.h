@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include <raft/handle.hpp>
+
 #pragma once
 
 namespace raft {
