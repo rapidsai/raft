@@ -42,7 +42,7 @@ PYTHON_DEPS_CLONE=${REPODIR}/python/external_repositories
 BUILD_DIRS="${CPP_RAFT_BUILD_DIR} ${PY_RAFT_BUILD_DIR} ${PYTHON_DEPS_CLONE}"
 
 # Set defaults for vars modified by flags to this script
-VERBOSE=""
+VERBOSE_FLAG=""
 BUILD_ALL_GPU_ARCH=0
 BUILD_GTEST=OFF
 BUILD_STATIC_FAISS=OFF
@@ -79,7 +79,8 @@ fi
 
 # Process flags
 if hasArg -v; then
-    VERBOSE=1
+    VERBOSE_FLAG=-v
+    set -x
 fi
 if hasArg -g; then
     BUILD_TYPE=Debug
@@ -130,41 +131,24 @@ fi
 # Configure for building all C++ targets
 if (( ${NUMARGS} == 0 )) || hasArg cppraft; then
     if (( ${BUILD_ALL_GPU_ARCH} == 0 )); then
-        GPU_ARCH=""
+        CUDF_CMAKE_CUDA_ARCHITECTURES="NATIVE"
         echo "Building for the architecture of the GPU in the system..."
     else
-        GPU_ARCH="-DGPU_ARCHS=ALL"
+        CUDF_CMAKE_CUDA_ARCHITECTURES="ALL"
         echo "Building for *ALL* supported GPU architectures..."
     fi
 
-    mkdir -p ${CPP_RAFT_BUILD_DIR}
-    cd ${CPP_RAFT_BUILD_DIR}
-
-    cmake -DNVTX=${NVTX} \
-          -DPARALLEL_LEVEL=${PARALLEL_LEVEL} \
-          -DNCCL_PATH=${INSTALL_PREFIX} \
+    cmake -S ${REPODIR}/cpp -B ${CPP_RAFT_BUILD_DIR} \
+          -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} \
+          -DCMAKE_CUDA_ARCHITECTURES=${CUDF_CMAKE_CUDA_ARCHITECTURES} \
+          -DNVTX=${NVTX} \
           -DDISABLE_DEPRECATION_WARNING=${BUILD_DISABLE_DEPRECATION_WARNING} \
           -DBUILD_GTEST=${BUILD_GTEST} \
-          -DBUILD_STATIC_FAISS=${BUILD_STATIC_FAISS} \
-          ..
-
-fi
-
-# Run all make targets at once
-
-MAKE_TARGETS=
-if hasArg cppraft; then
-    MAKE_TARGETS="${MAKE_TARGETS} test_raft"
-fi
+          -DBUILD_STATIC_FAISS=${BUILD_STATIC_FAISS}
 
 
-# If `./build.sh pyraft` is called, don't build C/C++ components
-if (( ${NUMARGS} == 0 )) || hasArg cppraft; then
-# If there are no targets specified when calling build.sh, it will
-# just call `make -j`. This avoids a lot of extra printing
-    cd ${CPP_RAFT_BUILD_DIR}
-    make -j${PARALLEL_LEVEL} ${MAKE_TARGETS} VERBOSE=${VERBOSE}
-
+    # Run all c++ targets at once
+    cmake --build  ${CPP_RAFT_BUILD_DIR} -j${PARALLEL_LEVEL} ${MAKE_TARGETS} ${VERBOSE_FLAG}
 fi
 
 
