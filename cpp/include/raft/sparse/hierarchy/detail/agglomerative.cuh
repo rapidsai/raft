@@ -92,8 +92,8 @@ template <typename value_idx, typename value_t>
 void build_dendrogram_host(const handle_t &handle, const value_idx *rows,
                            const value_idx *cols, const value_t *data,
                            size_t nnz, value_idx *children,
-                           rmm::device_uvector<value_t> &out_delta,
-                           rmm::device_uvector<value_idx> &out_size) {
+                           value_t *out_delta,
+                           value_idx *out_size) {
   auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
 
@@ -135,13 +135,11 @@ void build_dendrogram_host(const handle_t &handle, const value_idx *rows,
     U.perform_union(aa, bb);
   }
 
-  out_size.resize(n_edges, stream);
-
   printf("Finished dendrogram\n");
 
   raft::update_device(children, children_h.data(), n_edges * 2, stream);
-  raft::update_device(out_size.data(), out_size_h.data(), n_edges, stream);
-  raft::update_device(out_delta.data(), out_delta_h.data(), n_edges, stream);
+  raft::update_device(out_size, out_size_h.data(), n_edges, stream);
+  raft::update_device(out_delta, out_delta_h.data(), n_edges, stream);
 }
 
 /**

@@ -94,7 +94,7 @@ void single_linkage(const raft::handle_t &handle, const value_t *X, size_t m,
   // Create dendrogram
   detail::build_dendrogram_host<value_idx, value_t>(
     handle, mst_rows.data(), mst_cols.data(), mst_data.data(), n_edges,
-    out->children, out_delta, out_size);
+    out->children, out_delta.data(), out_size.data());
   detail::extract_flattened_clusters(handle, out->labels, out->children,
                                      n_clusters, m);
 
