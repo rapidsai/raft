@@ -91,8 +91,7 @@ class UnionFind {
 template <typename value_idx, typename value_t>
 void build_dendrogram_host(const handle_t &handle, const value_idx *rows,
                            const value_idx *cols, const value_t *data,
-                           size_t nnz, value_idx *children,
-                           value_t *out_delta,
+                           size_t nnz, value_idx *children, value_t *out_delta,
                            value_idx *out_size) {
   auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();

@@ -136,9 +136,8 @@ template <typename value_idx, typename value_t, typename mst_epilogue_f>
 void build_sorted_mst(const raft::handle_t &handle, const value_t *X,
                       const value_idx *indptr, const value_idx *indices,
                       const value_t *pw_dists, size_t m, size_t n,
-                      rmm::device_uvector<value_idx> &mst_src,
-                      rmm::device_uvector<value_idx> &mst_dst,
-                      rmm::device_uvector<value_t> &mst_weight, size_t nnz,
+                      value_idx *mst_src, value_idx *mst_dst,
+                      value_t *mst_weight, size_t nnz,
                       mst_epilogue_f epilogue_func,
                       raft::distance::DistanceType metric =
                         raft::distance::DistanceType::L2SqrtExpanded,
@@ -154,20 +153,20 @@ void build_sorted_mst(const raft::handle_t &handle, const value_t *X,
     false, true);
 
   raft::print_device_vector("initial_dists", pw_dists, nnz, std::cout);
-  raft::print_device_vector("mst_weights", mst_coo.weights.data(), mst_coo.weights.size(), std::cout);
+  raft::print_device_vector("mst_weights", mst_coo.weights.data(),
+                            mst_coo.weights.size(), std::cout);
 
   int iters = 1;
   int n_components =
     linkage::get_n_components(color.data(), m, d_alloc, stream);
 
   while (n_components > 1 && iters < max_iter) {
-
     printf("Didn't converge. trying again\n");
     connect_knn_graph<value_idx, value_t>(handle, X, mst_coo, m, n,
                                           color.data(), epilogue_func);
 
-
-    raft::print_device_vector("mst_weights", mst_coo.weights.data(), mst_coo.weights.size(), std::cout);
+    raft::print_device_vector("mst_weights", mst_coo.weights.data(),
+                              mst_coo.weights.size(), std::cout);
 
     iters++;
 
@@ -213,15 +212,9 @@ void build_sorted_mst(const raft::handle_t &handle, const value_t *X,
                                        mst_coo.weights.data(), mst_coo.n_edges,
                                        stream);
 
-  // TODO: be nice if we could pass these directly into the MST
-  mst_src.resize(mst_coo.n_edges, stream);
-  mst_dst.resize(mst_coo.n_edges, stream);
-  mst_weight.resize(mst_coo.n_edges, stream);
-
-  raft::copy_async(mst_src.data(), mst_coo.src.data(), mst_coo.n_edges, stream);
-  raft::copy_async(mst_dst.data(), mst_coo.dst.data(), mst_coo.n_edges, stream);
-  raft::copy_async(mst_weight.data(), mst_coo.weights.data(), mst_coo.n_edges,
-                   stream);
+  raft::copy_async(mst_src, mst_coo.src.data(), mst_coo.n_edges, stream);
+  raft::copy_async(mst_dst, mst_coo.dst.data(), mst_coo.n_edges, stream);
+  raft::copy_async(mst_weight, mst_coo.weights.data(), mst_coo.n_edges, stream);
 }
 
 };  // namespace detail

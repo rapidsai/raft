@@ -70,17 +70,17 @@ void single_linkage(const raft::handle_t &handle, const value_t *X, size_t m,
   detail::get_distance_graph<value_idx, value_t, dist_type>(
     handle, X, m, n, metric, indptr, indices, pw_dists, c);
 
-  rmm::device_uvector<value_idx> mst_rows(EMPTY, stream);
-  rmm::device_uvector<value_idx> mst_cols(EMPTY, stream);
-  rmm::device_uvector<value_t> mst_data(EMPTY, stream);
+  rmm::device_uvector<value_idx> mst_rows(m - 1, stream);
+  rmm::device_uvector<value_idx> mst_cols(m - 1, stream);
+  rmm::device_uvector<value_t> mst_data(m - 1, stream);
 
   /**
    * 2. Construct MST, sorted by weights
    */
   detail::build_sorted_mst<value_idx, value_t>(
-    handle, X, indptr.data(), indices.data(), pw_dists.data(), m, n, mst_rows,
-    mst_cols, mst_data, indices.size(), MSTEpilogueNoOp<value_idx, value_t>(),
-    metric);
+    handle, X, indptr.data(), indices.data(), pw_dists.data(), m, n,
+    mst_rows.data(), mst_cols.data(), mst_data.data(), indices.size(),
+    MSTEpilogueNoOp<value_idx, value_t>(), metric);
 
   pw_dists.release();
 
