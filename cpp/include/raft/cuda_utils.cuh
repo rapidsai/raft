@@ -18,6 +18,7 @@
 
 #include <math_constants.h>
 #include <stdint.h>
+#include <cassert>
 
 #include <raft/cudart_utils.h>
 
@@ -602,13 +603,25 @@ DI T shfl_xor(T val, int laneMask, int width = WarpSize,
  * @todo Expand this to support arbitrary reduction ops
  */
 template <typename T>
-DI T warpReduce(T val) {
+DI T warpReduce(T val, uint32_t mask = warp_full_mask()) {
 #pragma unroll
   for (int i = WarpSize / 2; i > 0; i >>= 1) {
-    T tmp = shfl(val, laneId() + i);
+    T tmp = shfl(val, laneId() + i, raft::warp_size(), mask);
     val += tmp;
   }
   return val;
+}
+
+/**
+ * @brief Return warp id within whole kernel
+ * @note Block size must be multiple of warp size (32)
+ */
+DI int32_t warpId() {
+  int32_t n_warps_per_block = blockDim.x / raft::warp_size();
+  assert(blockDim.x % raft::warp_size() == 0 && "block size must be multiple of warp size");
+  int32_t n_warps = n_warps_per_block * blockIdx.x;
+  int32_t warp_id = n_warps + threadIdx.x / raft::warp_size();
+  return warp_id;
 }
 
 /**

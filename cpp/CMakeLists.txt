@@ -249,6 +249,7 @@ if(BUILD_RAFT_TESTS)
   # keep the files in alphabetical order!
   add_executable(test_raft
     test/cudart_utils.cpp
+    test/cuda_utils.cu
     test/distance/dist_adj.cu
     test/distance/dist_cos.cu
     test/distance/dist_euc_exp.cu
