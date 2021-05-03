@@ -273,7 +273,7 @@ class hellinger_expanded_distances_t : public distances_t<value_t> {
       [=] __device__(value_t input) {
         // Adjust to replace NaN in sqrt with 0 if input to sqrt is negative
         bool rectifier = (1 - input) > 0;
-        return rectifier * sqrt(1 - input);
+        return sqrt(rectifier * (1 - input));
       },
       config_->stream);
   }
