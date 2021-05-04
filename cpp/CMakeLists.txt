@@ -17,7 +17,7 @@
 
 cmake_minimum_required(VERSION 3.14 FATAL_ERROR)
 
-project(RAFT VERSION 0.19.0 LANGUAGES CXX CUDA)
+project(RAFT VERSION 0.20.0 LANGUAGES CXX CUDA)
 
 ##############################################################################
 # - build type ---------------------------------------------------------------
@@ -251,6 +251,11 @@ if(BUILD_RAFT_TESTS)
   # keep the files in alphabetical order!
   add_executable(test_raft
     test/cudart_utils.cpp
+    test/distance/dist_adj.cu
+    test/distance/dist_cos.cu
+    test/distance/dist_euc_exp.cu
+    test/distance/dist_euc_unexp.cu
+    test/distance/dist_l1.cu
     test/distance/fused_l2_nn.cu
     test/handle.cpp
     test/integer_utils.cpp

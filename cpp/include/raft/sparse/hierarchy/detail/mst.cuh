@@ -201,6 +201,12 @@ void build_sorted_mst(const raft::handle_t &handle, const value_t *X,
                " or increase 'max_iter'",
                max_iter);
 
+  RAFT_EXPECTS(mst_coo.n_edges == m - 1,
+               "n_edges should be %d but was %d. This"
+               "could be an indication of duplicate edges returned from the"
+               "MST or symmetrization stage.",
+               m - 1, mst_coo.n_edges);
+
   sort_coo_by_data(mst_coo.src.data(), mst_coo.dst.data(),
                    mst_coo.weights.data(), mst_coo.n_edges, stream);
 

@@ -19,15 +19,15 @@ export PARALLEL_LEVEL=${PARALLEL_LEVEL:-4}
 export CUDA_REL=${CUDA_VERSION%.*}
 
 # Set home to the job's workspace
-export HOME=$WORKSPACE
+export HOME="$WORKSPACE"
 
 # Parse git describei
-cd $WORKSPACE
+cd "$WORKSPACE"
 export GIT_DESCRIBE_TAG=`git describe --tags`
 export MINOR_VERSION=`echo $GIT_DESCRIBE_TAG | grep -o -E '([0-9]+\.[0-9]+)'`
 
 # Read options for cloning/running downstream repo tests
-source $WORKSPACE/ci/prtest.config
+source "$WORKSPACE/ci/prtest.config"
 
 ################################################################################
 # SETUP - Check environment
@@ -71,7 +71,7 @@ if [ "$RUN_CUML_LIBCUML_TESTS" = "ON" ] || [ "$RUN_CUML_PRIMS_TESTS" = "ON" ] ||
 fi
 
 if [ "$RUN_CUGRAPH_LIBCUGRAPH_TESTS" = "ON" ] || [ "$RUN_CUGRAPH_PYTHON_TESTS" = "ON" ]; then
-  gpuci_conda_retry install -c nvidia -c rapidsai -c rapidsai-nightly -c conda-forge -c defaults \
+  gpuci_conda_retry install -c nvidia -c rapidsai -c rapidsai-nightly -c conda-forge \
       "networkx>=2.3" \
       "python-louvain" \
       "libcypher-parser" \
@@ -105,7 +105,7 @@ export LD_LIBRARY_PATH_CACHED=$LD_LIBRARY_PATH
 export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
 
 gpuci_logger "Build libcuml, cuml, prims and bench targets"
-$WORKSPACE/build.sh cppraft pyraft -v
+"$WORKSPACE/build.sh" cppraft pyraft -v
 
 gpuci_logger "Resetting LD_LIBRARY_PATH"
 
@@ -114,7 +114,7 @@ export LD_LIBRARY_PATH_CACHED=""
 
 gpuci_logger "Build treelite for GPU testing"
 
-cd $WORKSPACE
+cd "$WORKSPACE"
 
 
 ################################################################################
@@ -130,13 +130,13 @@ gpuci_logger "Check GPU usage"
 nvidia-smi
 
 gpuci_logger "GoogleTest for raft"
-cd $WORKSPACE/cpp/build
-GTEST_OUTPUT="xml:${WORKSPACE}/test-results/raft_cpp/" ./test/ml
+cd "$WORKSPACE/cpp/build"
+GTEST_OUTPUT="xml:$WORKSPACE/test-results/raft_cpp/" ./test/ml
 
 gpuci_logger "Python pytest for cuml"
-cd $WORKSPACE/python
+cd "$WORKSPACE/python"
 
-pytest --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v -s
+pytest --cache-clear --junitxml="$WORKSPACE/junit-cuml.xml" -v -s
 
 
 ################################################################################
@@ -144,38 +144,38 @@ pytest --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v -s
 ################################################################################
 
 if [ "$RUN_CUML_LIBCUML_TESTS" = "ON" ] || [ "$RUN_CUML_PRIMS_TESTS" = "ON" ] || [ "$RUN_CUML_PYTHON_TESTS" = "ON" ] || [ "$RUN_CUGRAPH_LIBCUGRAPH_TESTS" = "ON" ] || [ "$RUN_CUGRAPH_PYTHON_TESTS" = "ON" ]; then
-  cd $WORKSPACE
-  mkdir $WORKSPACE/test_downstream_repos
-  cd $WORKSPACE/test_downstream_repos
-  export RAFT_PATH=$WORKSPACE
+  cd "$WORKSPACE"
+  mkdir "$WORKSPACE/test_downstream_repos"
+  cd "$WORKSPACE/test_downstream_repos"
+  export RAFT_PATH="$WORKSPACE"
 fi
 
 if [ "$RUN_CUML_LIBCUML_TESTS" = "ON" ] || [ "$RUN_CUML_PRIMS_TESTS" = "ON" ] || [ "$RUN_CUML_PYTHON_TESTS" = "ON" ]; then
-  cd $WORKSPACE/test_downstream_repos
+  cd "$WORKSPACE/test_downstream_repos"
 
   ## Change fork and branch to be tested here:
   git clone https://github.com/rapidsai/cuml.git -b branch-0.14
 
 
   ## Build cuML and run tests, uncomment the tests you want to run
-  $WORKSPACE/test_downstream_repos/cuml/build.sh
+  "$WORKSPACE/test_downstream_repos/cuml/build.sh"
 
   if [ "$RUN_CUML_LIBCUML_TESTS" = "ON" ]; then
     gpuci_logger "GoogleTest for libcuml"
-    cd $WORKSPACE/cpp/build
-    GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp/" ./test/ml
+    cd "$WORKSPACE/cpp/build"
+    GTEST_OUTPUT="xml:$WORKSPACE/test-results/libcuml_cpp/" ./test/ml
   fi
 
   if [ "$RUN_CUML_PYTHON_TESTS" = "ON" ]; then
     gpuci_logger "Python pytest for cuml"
-    cd $WORKSPACE/python
-    pytest --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v -s -m "not memleak"
+    cd "$WORKSPACE/python"
+    pytest --cache-clear --junitxml="$WORKSPACE/junit-cuml.xml" -v -s -m "not memleak"
   fi
 
   if [ "$RUN_CUML_PRIMS_TESTS" = "ON" ]; then
     gpuci_logger "Run ml-prims test"
-    cd $WORKSPACE/cpp/build
-    GTEST_OUTPUT="xml:${WORKSPACE}/test-results/prims/" ./test/prims
+    cd "$WORKSPACE/cpp/build"
+    GTEST_OUTPUT="xml:$WORKSPACE/test-results/prims/ ./test/prims
   fi
 fi
 
@@ -185,21 +185,21 @@ fi
 ################################################################################
 
 if [ "$RUN_CUGRAPH_LIBCUGRAPH_TESTS" = "ON" ] || [ "$RUN_CUGRAPH_PYTHON_TESTS" = "ON" ]; then
-  cd $WORKSPACE/test_downstream_repos
+  cd "$WORKSPACE/test_downstream_repos"
 
   ## Change fork and branch to be tested here:
   git clone https://github.com/rapidsai/cugraph.git -b branch-0.14
 
-  $WORKSPACE/test_downstream_repos/cugraph/build.sh clean libcugraph cugraph
+  "$WORKSPACE/test_downstream_repos/cugraph/build.sh" clean libcugraph cugraph
 
   if [ "$RUN_CUGRAPH_LIBCUGRAPH_TESTS" = "ON" ]; then
     gpuci_logger "GoogleTest for libcugraph"
-    cd $WORKSPACE/cpp/build
-    ${WORKSPACE}/ci/test.sh ${TEST_MODE_FLAG} | tee testoutput.txt
+    cd "$WORKSPACE/cpp/build"
+    "$WORKSPACE/ci/test.sh" ${TEST_MODE_FLAG} | tee testoutput.txt
   fi
 
   if [ "$RUN_CUGRAPH_PYTHON_TESTS" = "ON" ]; then
     gpuci_logger "Python pytest for cugraph"
-    cd $WORKSPACE/python
+    cd "$WORKSPACE/python"
   fi
 fi
