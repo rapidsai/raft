@@ -74,16 +74,17 @@ struct distance_graph_impl<raft::hierarchy::LinkageDistance::KNN_GRAPH,
     data.resize(knn_graph_coo.nnz, stream);
 
     // self-loops get max distance
-    auto transform_in = thrust::make_zip_iterator(
-      thrust::make_tuple(knn_graph_coo.rows(), knn_graph_coo.cols(),
-                         knn_graph_coo.vals()));
+    auto transform_in = thrust::make_zip_iterator(thrust::make_tuple(
+      knn_graph_coo.rows(), knn_graph_coo.cols(), knn_graph_coo.vals()));
 
-    thrust::transform(exec_policy, transform_in, transform_in+knn_graph_coo.nnz, knn_graph_coo.vals(),
-                      [=] __device__ (const thrust::tuple<value_idx, value_idx, value_t> &tup) {
-                        bool self_loop = thrust::get<0>(tup) == thrust::get<1>(tup);
-                        return (self_loop * std::numeric_limits<value_t>::max()) +
-                               (!self_loop * thrust::get<2>(tup));
-                      });
+    thrust::transform(
+      exec_policy, transform_in, transform_in + knn_graph_coo.nnz,
+      knn_graph_coo.vals(),
+      [=] __device__(const thrust::tuple<value_idx, value_idx, value_t> &tup) {
+        bool self_loop = thrust::get<0>(tup) == thrust::get<1>(tup);
+        return (self_loop * std::numeric_limits<value_t>::max()) +
+               (!self_loop * thrust::get<2>(tup));
+      });
 
     raft::sparse::convert::sorted_coo_to_csr(knn_graph_coo.rows(),
                                              knn_graph_coo.nnz, indptr.data(),

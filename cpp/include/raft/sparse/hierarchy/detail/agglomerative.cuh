@@ -281,7 +281,7 @@ void extract_flattened_clusters(const raft::handle_t &handle, value_idx *labels,
   auto thrust_policy = rmm::exec_policy(stream);
 
   // Handle special case where n_clusters == 1
-  if(n_clusters == 1) {
+  if (n_clusters == 1) {
     thrust::fill(thrust_policy, labels, labels + n_leaves, 0);
   } else {
     /**
@@ -328,13 +328,14 @@ void extract_flattened_clusters(const raft::handle_t &handle, value_idx *labels,
                      child_size, stream);
 
     thrust::sort(thrust_policy, label_roots.data(),
-                 label_roots.data() + (child_size), thrust::greater<value_idx>());
+                 label_roots.data() + (child_size),
+                 thrust::greater<value_idx>());
 
     rmm::device_uvector<value_idx> tmp_labels(n_vertices, stream);
 
     // Init labels to -1
-    thrust::fill(thrust_policy, tmp_labels.data(), tmp_labels.data() + n_vertices,
-                 -1);
+    thrust::fill(thrust_policy, tmp_labels.data(),
+                 tmp_labels.data() + n_vertices, -1);
 
     // Write labels for cluster roots to "labels"
     thrust::counting_iterator<uint> first(0);
