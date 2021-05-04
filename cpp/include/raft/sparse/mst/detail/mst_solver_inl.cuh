@@ -32,7 +32,9 @@
 #include <iostream>
 
 #include <raft/cudart_utils.h>
+
 #include <rmm/device_buffer.hpp>
+#include <rmm/exec_policy.hpp>
 
 namespace raft {
 namespace mst {

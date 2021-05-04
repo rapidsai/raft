@@ -92,6 +92,7 @@ struct distance_graph_impl<raft::hierarchy::LinkageDistance::KNN_GRAPH,
 
     // TODO: Wouldn't need to copy here if we could compute knn
     // graph directly on the device uvectors
+    // ref: https://github.com/rapidsai/raft/issues/227
     raft::copy_async(indices.data(), knn_graph_coo.cols(), knn_graph_coo.nnz,
                      stream);
     raft::copy_async(data.data(), knn_graph_coo.vals(), knn_graph_coo.nnz,
