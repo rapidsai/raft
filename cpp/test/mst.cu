@@ -17,7 +17,6 @@
 #include <bits/stdc++.h>
 
 #include <gtest/gtest.h>
-#include <rmm/thrust_rmm_allocator.h>
 #include <iostream>
 #include <rmm/device_buffer.hpp>
 #include <vector>
