@@ -102,8 +102,6 @@ void build_dendrogram_host(const handle_t &handle, const value_idx *rows,
   std::vector<value_idx> mst_dst_h(n_edges);
   std::vector<value_t> mst_weights_h(n_edges);
 
-  printf("n_edges: %d\n", n_edges);
-
   update_host(mst_src_h.data(), rows, n_edges, stream);
   update_host(mst_dst_h.data(), cols, n_edges, stream);
   update_host(mst_weights_h.data(), data, n_edges, stream);
@@ -133,8 +131,6 @@ void build_dendrogram_host(const handle_t &handle, const value_idx *rows,
 
     U.perform_union(aa, bb);
   }
-
-  printf("Finished dendrogram\n");
 
   raft::update_device(children, children_h.data(), n_edges * 2, stream);
   raft::update_device(out_size, out_size_h.data(), n_edges, stream);
