@@ -46,7 +46,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 option(BUILD_TESTS "Build raft unit-tests" ON)
 option(CUDA_ENABLE_KERNELINFO "Enable kernel resource usage info" OFF)
-option(CUDA_ENABLE_LINEINFO "Enable the -lineinfo option for nvcc (useful for cuda-memcheck / profiler" OFF)
+option(CUDA_ENABLE_LINEINFO "Enable the -lineinfo option for nvcc (useful for cuda-memcheck / profiler)" OFF)
 option(CUDA_STATIC_RUNTIME "Statically link the CUDA runtime" OFF)
 option(DETECT_CONDA_ENV "Enable detection of conda environment for dependencies" ON)
 option(DISABLE_OPENMP "Disable OpenMP" OFF)
@@ -76,9 +76,8 @@ if(DETECT_CONDA_ENV)
   endif()
 endif()
 
-
-###################################################################################################
-# - compiler options ------------------------------------------------------------------------------
+##############################################################################
+# - compiler options ---------------------------------------------------------
 
 # * find CUDAToolkit package
 # * determine GPU architectures
@@ -105,6 +104,7 @@ rapids_cpm_init()
 
 include(cmake/thirdparty/get_faiss.cmake)
 include(cmake/thirdparty/get_rmm.cmake)
+
 if(BUILD_TESTS)
   include(cmake/thirdparty/get_nccl.cmake)
   include(cmake/thirdparty/get_ucx.cmake)
@@ -127,11 +127,8 @@ INTERFACE
   CUDA::cudart
   CUDA::cusparse
   rmm::rmm
-<<<<<<< HEAD
-=======
-  spdlog::spdlog_header_only
->>>>>>> b26ed43 (Update raft to use rapids-cmake)
   )
+
 
 target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
 
@@ -140,8 +137,8 @@ install(TARGETS raft
         EXPORT raft-exports
         )
 
-################################################################################################
-# - install export -------------------------------------------------------------------------------
+##############################################################################
+# - install export -----------------------------------------------------------
 set(doc_string
 [=[
 Provide targets for the RAFT: RAPIDS Analytics Frameworks Toolset.
@@ -158,8 +155,9 @@ and common functions for the analytics components of RAPIDS.
     DOCUMENTATION doc_string
     )
 
-################################################################################################
-# - build export -------------------------------------------------------------------------------
+##############################################################################
+# - build export -------------------------------------------------------------
+
 rapids_export(BUILD raft
     EXPORT_SET raft-exports
     GLOBAL_TARGETS raft # since we can't hook into EXPORT SETS
@@ -167,7 +165,8 @@ rapids_export(BUILD raft
     DOCUMENTATION doc_string
     NAMESPACE raft::
     )
-###################################################################
+
+##############################################################################
 # - build test executable ----------------------------------------------------
 
 if(BUILD_TESTS)
