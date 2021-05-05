@@ -17,7 +17,14 @@
 # keep the files in alphabetical order!
 add_executable(test_raft
     test/cudart_utils.cpp
+    test/cluster_solvers.cu
+    test/distance/dist_adj.cu
+    test/distance/dist_cos.cu
+    test/distance/dist_euc_exp.cu
+    test/distance/dist_euc_unexp.cu
+    test/distance/dist_l1.cu
     test/distance/fused_l2_nn.cu
+    test/eigen_solvers.cu
     test/handle.cpp
     test/integer_utils.cpp
     test/label/label.cu
@@ -46,6 +53,7 @@ add_executable(test_raft
     test/matrix/matrix.cu
     test/mr/device/buffer.cpp
     test/mr/host/buffer.cpp
+    test/mst.cu
     test/random/rng.cu
     test/random/rng_int.cu
     test/random/sample_without_replacement.cu
@@ -72,15 +80,12 @@ add_executable(test_raft
     test/sparse/symmetrize.cu
     test/spatial/knn.cu
     test/spatial/haversine.cu
+    test/spectral_matrix.cu
     test/stats/mean.cu
     test/stats/mean_center.cu
     test/stats/stddev.cu
     test/stats/sum.cu
     test/test.cpp
-    test/spectral_matrix.cu
-    test/eigen_solvers.cu
-    test/cluster_solvers.cu
-    test/mst.cu
 )
 
 set_target_properties(test_raft
