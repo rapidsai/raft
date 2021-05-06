@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -303,6 +303,32 @@ template <>
 inline cusparseStatus_t cusparsecreatednvec(cusparseDnVecDescr_t* dnVecDescr,
                                             int64_t size, double* values) {
   return cusparseCreateDnVec(dnVecDescr, size, values, CUDA_R_64F);
+}
+/** @} */
+
+/**
+ * @defgroup cusparse CreateDnMat operations
+ * @{
+ */
+template <typename T>
+cusparseStatus_t cusparsecreatednmat(cusparseDnMatDescr_t* dnMatDescr,
+                                     int64_t rows, int64_t cols, int64_t ld,
+                                     T* values, cusparseOrder_t order);
+template <>
+inline cusparseStatus_t cusparsecreatednmat(cusparseDnMatDescr_t* dnMatDescr,
+                                            int64_t rows, int64_t cols,
+                                            int64_t ld, float* values,
+                                            cusparseOrder_t order) {
+  return cusparseCreateDnMat(dnMatDescr, rows, cols, ld, values, CUDA_R_32F,
+                             order);
+}
+template <>
+inline cusparseStatus_t cusparsecreatednmat(cusparseDnMatDescr_t* dnMatDescr,
+                                            int64_t rows, int64_t cols,
+                                            int64_t ld, double* values,
+                                            cusparseOrder_t order) {
+  return cusparseCreateDnMat(dnMatDescr, rows, cols, ld, values, CUDA_R_64F,
+                             order);
 }
 /** @} */
 
