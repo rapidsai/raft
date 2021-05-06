@@ -311,21 +311,21 @@ inline cusparseStatus_t cusparsecreatednvec(cusparseDnVecDescr_t* dnVecDescr,
  * @{
  */
 template <typename T>
-cusparseStatus_t cusparsecreatednmat(cusparseDnMatDescr_t *dnMatDescr,
+cusparseStatus_t cusparsecreatednmat(cusparseDnMatDescr_t* dnMatDescr,
                                      int64_t rows, int64_t cols, int64_t ld,
-                                     T *values, cusparseOrder_t order);
+                                     T* values, cusparseOrder_t order);
 template <>
-inline cusparseStatus_t cusparsecreatednmat(cusparseDnMatDescr_t *dnMatDescr,
+inline cusparseStatus_t cusparsecreatednmat(cusparseDnMatDescr_t* dnMatDescr,
                                             int64_t rows, int64_t cols,
-                                            int64_t ld, float *values,
+                                            int64_t ld, float* values,
                                             cusparseOrder_t order) {
   return cusparseCreateDnMat(dnMatDescr, rows, cols, ld, values, CUDA_R_32F,
                              order);
 }
 template <>
-inline cusparseStatus_t cusparsecreatednmat(cusparseDnMatDescr_t *dnMatDescr,
+inline cusparseStatus_t cusparsecreatednmat(cusparseDnMatDescr_t* dnMatDescr,
                                             int64_t rows, int64_t cols,
-                                            int64_t ld, double *values,
+                                            int64_t ld, double* values,
                                             cusparseOrder_t order) {
   return cusparseCreateDnMat(dnMatDescr, rows, cols, ld, values, CUDA_R_64F,
                              order);
