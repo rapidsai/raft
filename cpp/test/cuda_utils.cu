@@ -4,7 +4,8 @@
 
 void __global__ testWarpReduce(float* data, float* out) {
   size_t half_warp = raft::warp_size() / 2;
-  uint32_t mask = __ballot_sync(raft::warp_full_mask(), raft::laneId() < half_warp);
+  uint32_t mask =
+    __ballot_sync(raft::warp_full_mask(), raft::laneId() < half_warp);
   float val = 0.0f;
   if (raft::laneId() < half_warp) {
     val = raft::warpReduce(data[threadIdx.x], mask);

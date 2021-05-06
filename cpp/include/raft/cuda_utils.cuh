@@ -618,7 +618,8 @@ DI T warpReduce(T val, uint32_t mask = warp_full_mask()) {
  */
 DI int32_t warpId() {
   int32_t n_warps_per_block = blockDim.x / raft::warp_size();
-  assert(blockDim.x % raft::warp_size() == 0 && "block size must be multiple of warp size");
+  assert(blockDim.x % raft::warp_size() == 0 &&
+         "block size must be multiple of warp size");
   int32_t n_warps = n_warps_per_block * blockIdx.x;
   int32_t warp_id = n_warps + threadIdx.x / raft::warp_size();
   return warp_id;
