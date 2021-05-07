@@ -137,6 +137,11 @@ install(TARGETS raft
         EXPORT raft-exports
         )
 
+include(GNUInstallDirs)
+install(DIRECTORY include/
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+        )
+
 ##############################################################################
 # - install export -----------------------------------------------------------
 set(doc_string
