@@ -102,13 +102,13 @@ endif(NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
 # add third party dependencies using CPM
 rapids_cpm_init()
 
-include(cmake/thirdparty/get_faiss.cmake)
 include(cmake/thirdparty/get_rmm.cmake)
 
 if(BUILD_TESTS)
+  include(cmake/thirdparty/get_faiss.cmake)
+  include(cmake/thirdparty/get_gtest.cmake)
   include(cmake/thirdparty/get_nccl.cmake)
   include(cmake/thirdparty/get_ucx.cmake)
-  include(cmake/thirdparty/get_gtest.cmake)
 endif()
 
 ##############################################################################
