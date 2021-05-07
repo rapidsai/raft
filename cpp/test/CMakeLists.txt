@@ -91,9 +91,9 @@ add_executable(test_raft
 set_target_properties(test_raft
 PROPERTIES BUILD_RPATH                         "\$ORIGIN"
            # set target compile options
-           CXX_STANDARD                        14
+           CXX_STANDARD                        17
            CXX_STANDARD_REQUIRED               ON
-           CUDA_STANDARD                       14
+           CUDA_STANDARD                       17
            CUDA_STANDARD_REQUIRED              ON
            POSITION_INDEPENDENT_CODE           ON
            INTERFACE_POSITION_INDEPENDENT_CODE ON

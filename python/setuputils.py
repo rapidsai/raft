@@ -16,11 +16,8 @@
 
 import glob
 import os
-import re
 import shutil
-import subprocess
 import sys
-import warnings
 
 
 def get_environment_option(name):
