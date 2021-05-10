@@ -20,32 +20,18 @@ function(find_and_configure_nccl)
         return()
     endif()
 
-    set(oneValueArgs VERSION PINNED_TAG)
-    cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
-                          "${multiValueArgs}" ${ARGN} )
-
     rapids_find_generate_module(NCCL
         HEADER_NAMES  nccl.h
         LIBRARY_NAMES nccl
     )
 
-    rapids_cpm_find(NCCL ${PKG_VERSION}
-        CPM_ARGS
-            GIT_REPOSITORY  https://github.com/NVIDIA/nccl.git
-            GIT_TAG         ${PKG_PINNED_TAG}
-            DOWNLOAD_ONLY   YES
-    )
+    # Currently NCCL has no CMake build-system so we require
+    # it built and installed on the machine already
+    rapids_find_package(NCCL REQUIRED)
 
-    set(nccl_SOURCE_DIR "${nccl_SOURCE_DIR}" PARENT_SCOPE)
-
-    if (nccl_ADDED)
-        # todo (DD): Add building nccl from source, works fine for conda installed
-
-    endif()
 endfunction()
 
-find_and_configure_nccl(VERSION     2.8
-                        PINNED_TAG  911d61f214d45c98df1ee8c0ac23c33fb94b63de)
+find_and_configure_nccl()
 
 
 
