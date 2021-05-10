@@ -285,17 +285,27 @@ template <typename vertex_t, typename edge_t, typename weight_t>
 __global__ void alteration_kernel(const vertex_t v, const edge_t e,
                                   const edge_t* offsets,
                                   const vertex_t* indices,
-                                  const weight_t* weights, weight_t max,
+                                  const weight_t* weights, double max,
                                   weight_t* random_values,
-                                  weight_t* altered_weights) {
+                                  weight_t* altered_weights, int alpha,
+                                  bool use_alpha) {
   auto row = get_1D_idx<vertex_t>();
   if (row < v) {
     auto row_begin = offsets[row];
     auto row_end = offsets[row + 1];
     for (auto i = row_begin; i < row_end; i++) {
       auto column = indices[i];
-      altered_weights[i] =
-        weights[i] + max * (random_values[row] + random_values[column]);
+      // doing the later step explicity in double for precision
+      if (use_alpha) {
+        altered_weights[i] =
+          alpha * weights[i] + alpha * max *
+                                 (static_cast<double>(random_values[row]) +
+                                  static_cast<double>(random_values[column]));
+      } else {
+        altered_weights[i] =
+          weights[i] + max * (static_cast<double>(random_values[row]) +
+                              static_cast<double>(random_values[column]));
+      }
     }
   }
 }
