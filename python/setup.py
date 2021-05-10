@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -112,13 +112,12 @@ extensions = [
                                     os.path.join(os.sys.prefix, "lib")],
               libraries=libs,
               language='c++',
-              extra_compile_args=['-std=c++14'])
+              extra_compile_args=['-std=c++17'])
 ]
 
 
 ##############################################################################
 # - Python package generation ------------------------------------------------
-
 
 setup(name='raft',
       description="RAPIDS Analytics Frameworks Toolset",
@@ -126,13 +125,16 @@ setup(name='raft',
       classifiers=[
         "Intended Audience :: Developers",
         "Programming Language :: Python",
-        "Programming Language :: Python :: 3.6",
-        "Programming Language :: Python :: 3.7"
+        "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8"
       ],
       author="NVIDIA Corporation",
       setup_requires=['cython'],
       ext_modules=extensions,
-      packages=find_packages(include=['cuml', 'cuml.*']),
+      packages=find_packages(include=['raft', 'raft.*']),
+      package_data={
+          "raft.common": ["*.pxd"]
+      },
       install_requires=install_requires,
       license="Apache",
       cmdclass=cmdclass,
