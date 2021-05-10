@@ -88,16 +88,13 @@ void connect_knn_graph(const raft::handle_t &handle, const value_t *X,
   raft::linkage::connect_components<value_idx, value_t>(handle, connected_edges,
                                                         X, color, m, n);
 
-  raft::print_device_vector("connected_edges", connected_edges.vals(),
-                            connected_edges.nnz, std::cout);
+  mst_epilogue_func(handle, connected_edges.rows(), connected_edges.cols(),
+                    connected_edges.vals(), connected_edges.nnz);
 
   rmm::device_uvector<value_idx> indptr2(m + 1, stream);
   raft::sparse::convert::sorted_coo_to_csr(connected_edges.rows(),
                                            connected_edges.nnz, indptr2.data(),
                                            m + 1, d_alloc, stream);
-
-  mst_epilogue_func(handle, connected_edges.rows(), connected_edges.cols(),
-                    connected_edges.vals(), connected_edges.nnz);
 
   // On the second call, we hand the MST the original colors
   // and the new set of edges and let it restart the optimization process
@@ -152,9 +149,6 @@ void build_sorted_mst(const raft::handle_t &handle, const value_t *X,
     handle, indptr, indices, pw_dists, (value_idx)m, nnz, color.data(), stream,
     false, true);
 
-  raft::print_device_vector("initial_dists", pw_dists, nnz, std::cout);
-  raft::print_device_vector("mst_weights", mst_coo.weights.data(),
-                            mst_coo.weights.size(), std::cout);
 
   int iters = 1;
   int n_components =
@@ -164,9 +158,6 @@ void build_sorted_mst(const raft::handle_t &handle, const value_t *X,
     printf("Didn't converge. trying again\n");
     connect_knn_graph<value_idx, value_t>(handle, X, mst_coo, m, n,
                                           color.data(), epilogue_func);
-
-    raft::print_device_vector("mst_weights", mst_coo.weights.data(),
-                              mst_coo.weights.size(), std::cout);
 
     iters++;
 
