@@ -71,7 +71,7 @@ if [ "$RUN_CUML_LIBCUML_TESTS" = "ON" ] || [ "$RUN_CUML_PRIMS_TESTS" = "ON" ] ||
 fi
 
 if [ "$RUN_CUGRAPH_LIBCUGRAPH_TESTS" = "ON" ] || [ "$RUN_CUGRAPH_PYTHON_TESTS" = "ON" ]; then
-  gpuci_conda_retry install -c nvidia -c rapidsai -c rapidsai-nightly -c conda-forge -c defaults \
+  gpuci_conda_retry install -c nvidia -c rapidsai -c rapidsai-nightly -c conda-forge \
       "networkx>=2.3" \
       "python-louvain" \
       "libcypher-parser" \

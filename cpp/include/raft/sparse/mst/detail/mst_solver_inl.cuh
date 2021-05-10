@@ -22,16 +22,18 @@
 #include "mst_kernels.cuh"
 #include "utils.cuh"
 
+#include <raft/cudart_utils.h>
+#include <rmm/device_buffer.hpp>
+#include <rmm/exec_policy.hpp>
+
 #include <thrust/device_ptr.h>
 #include <thrust/device_vector.h>
 #include <thrust/execution_policy.h>
+#include <thrust/host_vector.h>
 #include <thrust/reduce.h>
 #include <thrust/sort.h>
 #include <thrust/transform.h>
 #include <iostream>
-
-#include <raft/cudart_utils.h>
-#include <rmm/device_buffer.hpp>
 
 namespace raft {
 namespace mst {
@@ -52,7 +54,7 @@ MST_solver<vertex_t, edge_t, weight_t>::MST_solver(
   const raft::handle_t& handle_, const edge_t* offsets_,
   const vertex_t* indices_, const weight_t* weights_, const vertex_t v_,
   const edge_t e_, vertex_t* color_, cudaStream_t stream_,
-  bool symmetrize_output_, bool initialize_colors_, int iterations_)
+  bool symmetrize_output_, bool initialize_colors_, int iterations_, int alpha_)
   : handle(handle_),
     offsets(offsets_),
     indices(indices_),
@@ -74,7 +76,8 @@ MST_solver<vertex_t, edge_t, weight_t>::MST_solver(
     stream(stream_),
     symmetrize_output(symmetrize_output_),
     initialize_colors(initialize_colors_),
-    iterations(iterations_) {
+    iterations(iterations_),
+    alpha(alpha_) {
   max_blocks = handle_.get_device_properties().maxGridSize[0];
   max_threads = handle_.get_device_properties().maxThreadsPerBlock;
   sm_count = handle_.get_device_properties().multiProcessorCount;
@@ -113,7 +116,9 @@ MST_solver<vertex_t, edge_t, weight_t>::solve() {
   timer0 = duration_us(stop - start);
 #endif
 
-  Graph_COO<vertex_t, edge_t, weight_t> mst_result(2 * v - 2, stream);
+  auto n_expected_edges = symmetrize_output ? 2 * v - 2 : v - 1;
+
+  Graph_COO<vertex_t, edge_t, weight_t> mst_result(n_expected_edges, stream);
 
   // Boruvka original formulation says "while more than 1 supervertex remains"
   // Here we adjust it to support disconnected components (spanning forest)
@@ -148,6 +153,10 @@ MST_solver<vertex_t, edge_t, weight_t>::solve() {
     stop = Clock::now();
     timer3 += duration_us(stop - start);
 #endif
+
+    RAFT_EXPECTS(mst_edge_count[0] <= n_expected_edges,
+                 "Number of edges found by MST is invalid. This may be due to "
+                 "loss in precision. Try increasing precision of weights.");
 
     if (prev_mst_edge_count[0] == mst_edge_count[0]) {
 #ifdef MST_TIME
@@ -208,7 +217,7 @@ struct alteration_functor {
 
 // Compute the uper bound for the alteration
 template <typename vertex_t, typename edge_t, typename weight_t>
-weight_t MST_solver<vertex_t, edge_t, weight_t>::alteration_max() {
+double MST_solver<vertex_t, edge_t, weight_t>::alteration_max() {
   auto policy = rmm::exec_policy(stream);
   rmm::device_vector<weight_t> tmp(e);
   thrust::device_ptr<const weight_t> weights_ptr(weights);
@@ -228,7 +237,7 @@ weight_t MST_solver<vertex_t, edge_t, weight_t>::alteration_max() {
   auto max =
     thrust::transform_reduce(policy, begin, end, alteration_functor<weight_t>(),
                              init, thrust::minimum<weight_t>());
-  return max / static_cast<weight_t>(2);
+  return max / static_cast<double>(2);
 }
 
 // Compute the alteration to make all undirected edge weight unique
@@ -239,7 +248,7 @@ void MST_solver<vertex_t, edge_t, weight_t>::alteration() {
   auto nblocks = std::min((v + nthreads - 1) / nthreads, max_blocks);
 
   // maximum alteration that does not change realtive weights order
-  weight_t max = alteration_max();
+  double max = alteration_max();
 
   // pool of rand values
   rmm::device_vector<weight_t> rand_values(v);
@@ -257,10 +266,12 @@ void MST_solver<vertex_t, edge_t, weight_t>::alteration() {
   RAFT_EXPECTS(curand_status == CURAND_STATUS_SUCCESS,
                "MST: CURAND cleanup failed");
 
+  bool use_alpha = max < 1e-3 && sizeof(weight_t) == 4;
+
   //Alterate the weights, make all undirected edge weight unique while keeping Wuv == Wvu
   detail::alteration_kernel<<<nblocks, nthreads, 0, stream>>>(
     v, e, offsets, indices, weights, max, rand_values.data().get(),
-    altered_weights.data().get());
+    altered_weights.data().get(), alpha, use_alpha);
 }
 
 // updates colors of vertices by propagating the lower color to the higher
