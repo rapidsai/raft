@@ -22,6 +22,11 @@
 #include "mst_kernels.cuh"
 #include "utils.cuh"
 
+
+#include <raft/cudart_utils.h>
+#include <rmm/device_buffer.hpp>
+#include <rmm/exec_policy.hpp>
+
 #include <thrust/device_ptr.h>
 #include <thrust/device_vector.h>
 #include <thrust/execution_policy.h>
@@ -30,9 +35,6 @@
 #include <thrust/sort.h>
 #include <thrust/transform.h>
 #include <iostream>
-
-#include <raft/cudart_utils.h>
-#include <rmm/device_buffer.hpp>
 
 namespace raft {
 namespace mst {
@@ -153,9 +155,9 @@ MST_solver<vertex_t, edge_t, weight_t>::solve() {
     timer3 += duration_us(stop - start);
 #endif
 
-    RAFT_EXPECTS(mst_edge_count[0] == n_expected_edges,
+    RAFT_EXPECTS(mst_edge_count[0] <= n_expected_edges,
                  "Number of edges found by MST is invalid. This may be due to "
-                 "loss in precision. Try increasing precision of weights.")
+                 "loss in precision. Try increasing precision of weights.");
 
     if (prev_mst_edge_count[0] == mst_edge_count[0]) {
 #ifdef MST_TIME

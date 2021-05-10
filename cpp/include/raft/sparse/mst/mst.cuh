@@ -30,7 +30,7 @@ raft::Graph_COO<vertex_t, edge_t, weight_t> mst(
   bool initialize_colors = true, int iterations = 0, int alpha = 1e6) {
   MST_solver<vertex_t, edge_t, weight_t> mst_solver(
     handle, offsets, indices, weights, v, e, color, stream, symmetrize_output,
-    initialize_colors, iterations);
+    initialize_colors, iterations, alpha);
   return mst_solver.solve();
 }
 
