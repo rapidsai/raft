@@ -266,7 +266,9 @@ void MST_solver<vertex_t, edge_t, weight_t>::alteration() {
   RAFT_EXPECTS(curand_status == CURAND_STATUS_SUCCESS,
                "MST: CURAND cleanup failed");
 
-  bool use_alpha = max < 1e-3 && sizeof(weight_t) == 4;
+  std::cout << "Max: " << max << std::endl;
+  // bool use_alpha = max < 1e-3 && sizeof(weight_t) == 4;
+  bool use_alpha = true;
 
   //Alterate the weights, make all undirected edge weight unique while keeping Wuv == Wvu
   detail::alteration_kernel<<<nblocks, nthreads, 0, stream>>>(
