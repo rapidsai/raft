@@ -103,6 +103,7 @@ endif(NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
 rapids_cpm_init()
 
 include(cmake/thirdparty/get_rmm.cmake)
+include(cmake/thirdparty/get_cuco.cmake)
 
 if(BUILD_TESTS)
   include(cmake/thirdparty/get_faiss.cmake)
@@ -127,6 +128,7 @@ INTERFACE
   CUDA::cudart
   CUDA::cusparse
   rmm::rmm
+  # cuco::cuco
   )
 
 
