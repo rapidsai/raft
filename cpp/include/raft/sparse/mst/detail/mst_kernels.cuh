@@ -27,22 +27,22 @@ namespace raft {
 namespace mst {
 namespace detail {
 
-template <typename vertex_t, typename edge_t, typename weight_t>
+template <typename vertex_t, typename edge_t>
 __global__ void kernel_min_edge_per_vertex(
-  const edge_t* offsets, const vertex_t* indices, const weight_t* weights,
+  const edge_t* offsets, const vertex_t* indices, const double* weights,
   const vertex_t* color, const vertex_t* color_index, edge_t* new_mst_edge,
-  const bool* mst_edge, weight_t* min_edge_color, const vertex_t v) {
+  const bool* mst_edge, double* min_edge_color, const vertex_t v) {
   edge_t tid = threadIdx.x + blockIdx.x * blockDim.x;
 
   unsigned warp_id = tid / 32;
   unsigned lane_id = tid % 32;
 
   __shared__ edge_t min_edge_index[32];
-  __shared__ weight_t min_edge_weight[32];
+  __shared__ double min_edge_weight[32];
   __shared__ vertex_t min_color[32];
 
   min_edge_index[lane_id] = std::numeric_limits<edge_t>::max();
-  min_edge_weight[lane_id] = std::numeric_limits<weight_t>::max();
+  min_edge_weight[lane_id] = std::numeric_limits<double>::max();
   min_color[lane_id] = std::numeric_limits<vertex_t>::max();
 
   __syncthreads();
@@ -61,7 +61,7 @@ __global__ void kernel_min_edge_per_vertex(
     // assuming one warp per row
     // find min for each thread in warp
     for (edge_t e = row_start + lane_id; e < row_end; e += 32) {
-      weight_t curr_edge_weight = weights[e];
+      auto curr_edge_weight = weights[e];
       vertex_t successor_color_idx = color_index[indices[e]];
       vertex_t successor_color = color[successor_color_idx];
 
@@ -92,7 +92,7 @@ __global__ void kernel_min_edge_per_vertex(
 
   // min edge may now be found in first thread
   if (lane_id == 0) {
-    if (min_edge_weight[0] != std::numeric_limits<weight_t>::max()) {
+    if (min_edge_weight[0] != std::numeric_limits<double>::max()) {
       new_mst_edge[warp_id] = min_edge_index[0];
 
       // atomically set min edge per color
@@ -106,8 +106,8 @@ template <typename vertex_t, typename edge_t, typename weight_t>
 __global__ void min_edge_per_supervertex(
   const vertex_t* color, const vertex_t* color_index, edge_t* new_mst_edge,
   bool* mst_edge, const vertex_t* indices, const weight_t* weights,
-  const weight_t* altered_weights, vertex_t* temp_src, vertex_t* temp_dst,
-  weight_t* temp_weights, const weight_t* min_edge_color, const vertex_t v,
+  const double* altered_weights, vertex_t* temp_src, vertex_t* temp_dst,
+  weight_t* temp_weights, const double* min_edge_color, const vertex_t v,
   bool symmetrize_output) {
   auto tid = get_1D_idx<vertex_t>();
   if (tid < v) {
@@ -119,7 +119,7 @@ __global__ void min_edge_per_supervertex(
     // find minimum edge is same as minimum edge of whole supervertex
     // if yes, that is part of mst
     if (edge_idx != std::numeric_limits<edge_t>::max()) {
-      weight_t vertex_weight = altered_weights[edge_idx];
+      double vertex_weight = altered_weights[edge_idx];
 
       bool add_edge = false;
       if (min_edge_color[vertex_color] == vertex_weight) {
@@ -286,8 +286,8 @@ __global__ void alteration_kernel(const vertex_t v, const edge_t e,
                                   const edge_t* offsets,
                                   const vertex_t* indices,
                                   const weight_t* weights, double max,
-                                  weight_t* random_values,
-                                  weight_t* altered_weights, int alpha,
+                                  double* random_values,
+                                  double* altered_weights, int alpha,
                                   bool use_alpha) {
   auto row = get_1D_idx<vertex_t>();
   if (row < v) {
@@ -296,16 +296,31 @@ __global__ void alteration_kernel(const vertex_t v, const edge_t e,
     for (auto i = row_begin; i < row_end; i++) {
       auto column = indices[i];
       // doing the later step explicity in double for precision
-      if (use_alpha) {
-        altered_weights[i] =
-          alpha * weights[i] + alpha * max *
-                                 (static_cast<double>(random_values[row]) +
-                                  static_cast<double>(random_values[column]));
-      } else {
-        altered_weights[i] =
-          weights[i] + max * (static_cast<double>(random_values[row]) +
-                              static_cast<double>(random_values[column]));
+      altered_weights[i] =
+      weights[i] + max * (random_values[row] + random_values[column]);
+
+      auto print = false;
+      if (row == 293 && column == 1276) print = true;
+      if (row == 3 && column == 1310) print = true;
+      if (row == 1507 && column == 594) print = true;
+
+      if (row == 279 && column == 1310) print = true;
+      if (row == 1276 && column == 1686) print = true;
+
+      if (print) {
+        printf("row: %d, col: %d, alt: %lf, weight: %lf, max: %lf, randr: %lf, randl: %lf\n", row, column, altered_weights[i], weights[i], max, random_values[row], random_values[column]);
       }
+
+      // if (use_alpha) {
+      //   altered_weights[i] =
+      //     alpha * weights[i] + alpha * max *
+      //                            (static_cast<double>(random_values[row]) +
+      //                             static_cast<double>(random_values[column]));
+      // } else {
+      //   altered_weights[i] =
+      //     weights[i] + max * (static_cast<double>(random_values[row]) +
+      //                         static_cast<double>(random_values[column]));
+      // }
     }
   }
 }

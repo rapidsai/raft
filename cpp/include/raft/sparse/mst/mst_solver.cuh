@@ -68,10 +68,10 @@ class MST_solver {
   vertex_t sm_count;
 
   vertex_t* color_index;  // represent each supervertex as a color
-  rmm::device_vector<weight_t>
+  rmm::device_vector<double>
     min_edge_color;  // minimum incident edge weight per color
   rmm::device_vector<edge_t> new_mst_edge;       // new minimum edge per vertex
-  rmm::device_vector<weight_t> altered_weights;  // weights to be used for mst
+  rmm::device_vector<double> altered_weights;  // weights to be used for mst
   rmm::device_vector<edge_t>
     mst_edge_count;  // total number of edges added after every iteration
   rmm::device_vector<edge_t>

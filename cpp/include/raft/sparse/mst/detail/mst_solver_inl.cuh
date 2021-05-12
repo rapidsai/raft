@@ -106,6 +106,13 @@ MST_solver<vertex_t, edge_t, weight_t>::solve() {
   auto start = Clock::now();
 #endif
 
+  // int start_1507, end_1507;
+  // raft::update_host(&start_1507, offsets + 1507, 1, stream);
+  // raft::update_host(&end_1507, offsets + 1508, 1, stream);
+
+  // raft::print_device_vector("1507 indices", indices + start_1507, end_1507 - start_1507, std::cout);
+  // raft::print_device_vector("1507 weights", weights + start_1507, end_1507 - start_1507, std::cout);
+
   // Alterating the weights
   // this is done by identifying the lowest cost edge weight gap that is not 0, call this theta.
   // For each edge, add noise that is less than theta. That is, generate a random number in the range [0.0, theta) and add it to each edge weight.
@@ -153,12 +160,22 @@ MST_solver<vertex_t, edge_t, weight_t>::solve() {
     stop = Clock::now();
     timer3 += duration_us(stop - start);
 #endif
+    // raft::print_device_vector("altered_weights", altered_weights.data().get(), e, std::cout);
+    // raft::print_device_vector("new_mst_edge", new_mst_edge.data().get(), v, std::cout);
+    // raft::print_device_vector("min_edge_color", min_edge_color.data().get(), v, std::cout);
 
-    RAFT_EXPECTS(mst_edge_count[0] <= n_expected_edges,
+    // raft::print_device_vector("temp_src", temp_src.data().get(), v, std::cout);
+    // raft::print_device_vector("temp_dst", temp_dst.data().get(), v, std::cout);
+    // raft::print_device_vector("temp_weights", temp_weights.data().get(), v, std::cout);
+
+
+    auto curr_mst_edge_count = mst_edge_count[0];
+    std::cout << "edge count: " << curr_mst_edge_count << ", expected: " << n_expected_edges << std::endl;
+    RAFT_EXPECTS(curr_mst_edge_count <= n_expected_edges,
                  "Number of edges found by MST is invalid. This may be due to "
                  "loss in precision. Try increasing precision of weights.");
 
-    if (prev_mst_edge_count[0] == mst_edge_count[0]) {
+    if (prev_mst_edge_count[0] == curr_mst_edge_count) {
 #ifdef MST_TIME
       std::cout << "Iterations: " << i << std::endl;
       std::cout << timer0 << "," << timer1 << "," << timer2 << "," << timer3
@@ -251,7 +268,7 @@ void MST_solver<vertex_t, edge_t, weight_t>::alteration() {
   double max = alteration_max();
 
   // pool of rand values
-  rmm::device_vector<weight_t> rand_values(v);
+  rmm::device_vector<double> rand_values(v);
 
   // Random number generator
   curandGenerator_t randGen;
@@ -320,17 +337,17 @@ template <typename vertex_t, typename edge_t, typename weight_t>
 void MST_solver<vertex_t, edge_t, weight_t>::min_edge_per_vertex() {
   auto policy = rmm::exec_policy(stream);
   thrust::fill(policy, min_edge_color.begin(), min_edge_color.end(),
-               std::numeric_limits<weight_t>::max());
+               std::numeric_limits<double>::max());
   thrust::fill(policy, new_mst_edge.begin(), new_mst_edge.end(),
-               std::numeric_limits<weight_t>::max());
+               std::numeric_limits<edge_t>::max());
 
   int n_threads = 32;
 
   vertex_t* color_ptr = color.data().get();
   edge_t* new_mst_edge_ptr = new_mst_edge.data().get();
   bool* mst_edge_ptr = mst_edge.data().get();
-  weight_t* min_edge_color_ptr = min_edge_color.data().get();
-  weight_t* altered_weights_ptr = altered_weights.data().get();
+  double* min_edge_color_ptr = min_edge_color.data().get();
+  double* altered_weights_ptr = altered_weights.data().get();
 
   detail::kernel_min_edge_per_vertex<<<v, n_threads, 0, stream>>>(
     offsets, indices, altered_weights_ptr, color_ptr, color_index,
@@ -350,8 +367,8 @@ void MST_solver<vertex_t, edge_t, weight_t>::min_edge_per_supervertex() {
   vertex_t* color_ptr = color.data().get();
   edge_t* new_mst_edge_ptr = new_mst_edge.data().get();
   bool* mst_edge_ptr = mst_edge.data().get();
-  weight_t* min_edge_color_ptr = min_edge_color.data().get();
-  weight_t* altered_weights_ptr = altered_weights.data().get();
+  double* min_edge_color_ptr = min_edge_color.data().get();
+  double* altered_weights_ptr = altered_weights.data().get();
   vertex_t* temp_src_ptr = temp_src.data().get();
   vertex_t* temp_dst_ptr = temp_dst.data().get();
   weight_t* temp_weights_ptr = temp_weights.data().get();
