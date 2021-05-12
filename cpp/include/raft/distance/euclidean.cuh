@@ -60,8 +60,8 @@ void euclideanExpImpl(const DataT *x, const DataT *y, const DataT *xn,
   typedef
     typename std::conditional<isRowMajor, RowPolicy, ColPolicy>::type KPolicy;
 
-  dim3 grid(raft::ceildiv<int>(m, KPolicy::Mblk),
-            raft::ceildiv<int>(n, KPolicy::Nblk));
+  dim3 grid(raft::ceildiv<int>(n, KPolicy::Nblk),
+            raft::ceildiv<int>(m, KPolicy::Mblk));
   dim3 blk(KPolicy::Nthreads);
 
   // Accumulation operation lambda
@@ -229,8 +229,9 @@ void euclideanUnExpImpl(const DataT *x, const DataT *y, IdxT m, IdxT n, IdxT k,
 
   typedef
     typename std::conditional<isRowMajor, RowPolicy, ColPolicy>::type KPolicy;
-  dim3 grid(raft::ceildiv<int>(m, KPolicy::Mblk),
-            raft::ceildiv<int>(n, KPolicy::Nblk));
+
+  dim3 grid(raft::ceildiv<int>(n, KPolicy::Nblk),
+            raft::ceildiv<int>(m, KPolicy::Mblk));
   dim3 blk(KPolicy::Nthreads);
 
   // Accumulation operation lambda

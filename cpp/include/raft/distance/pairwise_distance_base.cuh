@@ -56,6 +56,7 @@ namespace distance {
 template <bool useNorms, typename DataT, typename AccT, typename OutT,
           typename IdxT, typename Policy, typename CoreLambda,
           typename EpilogueLambda, typename FinalLambda, bool isRowMajor = true,
+          bool writeOut = true,
           typename BaseClass =
             raft::linalg::Contractions_NT<DataT, IdxT, Policy, isRowMajor>>
 struct PairwiseDistances : public BaseClass {
@@ -147,13 +148,15 @@ struct PairwiseDistances : public BaseClass {
 
       // Load x & y norms required by this threadblock in shmem buffer
       for (int i = threadIdx.x; i < P::Mblk; i += P::Nthreads) {
-        auto idx = blockIdx.x * P::Mblk + i;
+        auto idx = blockIdx.y * P::Mblk + i;
         sxNorm[i] = idx < this->m ? xn[idx] : 0;
       }
+
       for (int i = threadIdx.x; i < P::Nblk; i += P::Nthreads) {
-        auto idx = blockIdx.y * P::Nblk + i;
+        auto idx = blockIdx.x * P::Nblk + i;
         syNorm[i] = idx < this->n ? yn[idx] : 0;
       }
+
       __syncthreads();
 
       DataT regxn[P::AccRowsPerTh], regyn[P::AccColsPerTh];
@@ -171,16 +174,18 @@ struct PairwiseDistances : public BaseClass {
       epilog_op(acc, nullptr, nullptr);
     }
 
-    IdxT startx = blockIdx.x * P::Mblk + this->accrowid;
-    IdxT starty = blockIdx.y * P::Nblk + this->acccolid;
+    if (writeOut) {
+      IdxT starty = blockIdx.y * P::Mblk + this->accrowid;
+      IdxT startx = blockIdx.x * P::Nblk + this->acccolid;
 #pragma unroll
-    for (int i = 0; i < P::AccRowsPerTh; ++i) {
-      auto rowId = startx + i * P::AccThRows;
+      for (int i = 0; i < P::AccRowsPerTh; ++i) {
+        auto rowId = starty + i * P::AccThRows;
 #pragma unroll
-      for (int j = 0; j < P::AccColsPerTh; ++j) {
-        auto colId = starty + j * P::AccThCols;
-        if (rowId < this->m && colId < this->n) {
-          dOutput[rowId * this->n + colId] = fin_op(acc[i][j], 0);
+        for (int j = 0; j < P::AccColsPerTh; ++j) {
+          auto colId = startx + j * P::AccThCols;
+          if (rowId < this->m && colId < this->n) {
+            dOutput[rowId * this->n + colId] = fin_op(acc[i][j], 0);
+          }
         }
       }
     }
@@ -219,7 +224,8 @@ struct PairwiseDistances : public BaseClass {
  */
 template <bool useNorms, typename DataT, typename AccT, typename OutT,
           typename IdxT, typename Policy, typename CoreLambda,
-          typename EpilogueLambda, typename FinalLambda, bool isRowMajor = true>
+          typename EpilogueLambda, typename FinalLambda, bool isRowMajor = true,
+          bool writeOut = true>
 __global__ __launch_bounds__(
   Policy::Nthreads,
   2) void pairwiseDistanceMatKernel(const DataT* x, const DataT* y,
@@ -231,7 +237,7 @@ __global__ __launch_bounds__(
   extern __shared__ char smem[];
 
   PairwiseDistances<useNorms, DataT, AccT, OutT, IdxT, Policy, CoreLambda,
-                    EpilogueLambda, FinalLambda, isRowMajor>
+                    EpilogueLambda, FinalLambda, isRowMajor, writeOut>
     obj(x, y, m, n, k, lda, ldb, ldd, _xn, _yn, dOutput, smem, core_op,
         epilog_op, fin_op);
   obj.run();
