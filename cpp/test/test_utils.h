@@ -19,8 +19,8 @@
 #include <raft/cudart_utils.h>
 #include <iostream>
 #include <memory>
-#include <vector>
 #include <raft/cuda_utils.cuh>
+#include <vector>
 
 namespace raft {
 
