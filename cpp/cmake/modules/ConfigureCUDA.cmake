@@ -14,28 +14,13 @@
 # limitations under the License.
 #=============================================================================
 
-# todo (DD): Change cuda flags environment variables to use generators to enable using
-# clang as per suggestion from mdemoret:
-# target_compile_options(raft
-#     PUBLIC
-#       $<$<AND:$<CUDA_COMPILER_ID:NVIDIA>,$<COMPILE_LANGUAGE:CUDA>>:
-#         --expt-extended-lambda
-#         --expt-relaxed-constexpr
-#         -Xcudafe
-#         --diag_suppress=unrecognized_gcc_pragma
-#         -ccbin ${CMAKE_CXX_COMPILER}>
-#     PRIVATE
-#       $<$<AND:$<BOOL:${LINE_INFO}>,$<COMPILE_LANGUAGE:CUDA>>:-lineinfo>
-#       $<$<AND:$<BOOL:${KERNEL_INFO}>,$<COMPILE_LANGUAGE:CUDA>>:-Xptxas=-v>
-#       $<$<CUDA_COMPILER_ID:Clang>:-Wno-everything>
-#   )
+if(DISABLE_DEPRECATION_WARNINGS)
+    list(APPEND RAFT_CXX_FLAGS -Wno-deprecated-declarations)
+    list(APPEND RAFT_CUDA_FLAGS -Xcompiler=-Wno-deprecated-declarations)
+endif()
 
 if(CMAKE_COMPILER_IS_GNUCXX)
     list(APPEND RAFT_CXX_FLAGS -Wall -Werror -Wno-unknown-pragmas -Wno-error=deprecated-declarations)
-    if(RAFT_BUILD_TESTS OR RAFT_BUILD_BENCHMARKS)
-        # Suppress parentheses warning which causes gmock to fail
-        list(APPEND RAFT_CUDA_FLAGS -Xcompiler=-Wno-parentheses)
-    endif()
 endif()
 
 list(APPEND RAFT_CUDA_FLAGS --expt-extended-lambda --expt-relaxed-constexpr)
@@ -43,11 +28,6 @@ list(APPEND RAFT_CUDA_FLAGS --expt-extended-lambda --expt-relaxed-constexpr)
 # set warnings as errors
 # list(APPEND RAFT_CUDA_FLAGS -Werror=cross-execution-space-call)
 # list(APPEND RAFT_CUDA_FLAGS -Xcompiler=-Wall,-Werror,-Wno-error=deprecated-declarations)
-
-if(DISABLE_DEPRECATION_WARNING)
-    list(APPEND RAFT_CXX_FLAGS -Wno-deprecated-declarations)
-    list(APPEND RAFT_CUDA_FLAGS -Xcompiler=-Wno-deprecated-declarations)
-endif()
 
 # Option to enable line info in CUDA device compilation to allow introspection when profiling / memchecking
 if(CUDA_ENABLE_LINEINFO)

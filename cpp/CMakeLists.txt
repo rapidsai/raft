@@ -49,11 +49,13 @@ option(CUDA_ENABLE_KERNELINFO "Enable kernel resource usage info" OFF)
 option(CUDA_ENABLE_LINEINFO "Enable the -lineinfo option for nvcc (useful for cuda-memcheck / profiler)" OFF)
 option(CUDA_STATIC_RUNTIME "Statically link the CUDA runtime" OFF)
 option(DETECT_CONDA_ENV "Enable detection of conda environment for dependencies" ON)
+option(DISABLE_DEPRECATION_WARNINGS "Disable depreaction warnings " ON)
 option(DISABLE_OPENMP "Disable OpenMP" OFF)
 option(NVTX "Enable nvtx markers" OFF)
 
 message(VERBOSE "RAFT: Build RAFT unit-tests: ${BUILD_TESTS}")
 message(VERBOSE "RAFT: Enable detection of conda environment for dependencies: ${DETECT_CONDA_ENV}")
+message(VERBOSE "RAFT: Disable depreaction warnings " ${DISABLE_DEPRECATION_WARNINGS})
 message(VERBOSE "RAFT: Disable OpenMP: ${DISABLE_OPENMP}")
 message(VERBOSE "RAFT: Enable kernel resource usage info: ${CUDA_ENABLE_KERNELINFO}")
 message(VERBOSE "RAFT: Enable lineinfo in nvcc: ${CUDA_ENABLE_LINEINFO}")
@@ -128,9 +130,7 @@ INTERFACE
   CUDA::cudart
   CUDA::cusparse
   rmm::rmm
-  # cuco::cuco
   )
-
 
 target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
 
