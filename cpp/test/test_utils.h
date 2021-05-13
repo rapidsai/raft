@@ -19,6 +19,7 @@
 #include <raft/cudart_utils.h>
 #include <iostream>
 #include <memory>
+#include <vector>
 #include <raft/cuda_utils.cuh>
 
 namespace raft {
@@ -77,14 +78,14 @@ template <typename T, typename L>
 testing::AssertionResult devArrMatch(const T *expected, const T *actual,
                                      size_t size, L eq_compare,
                                      cudaStream_t stream = 0) {
-  std::shared_ptr<T> exp_h(new T[size]);
-  std::shared_ptr<T> act_h(new T[size]);
-  raft::update_host<T>(exp_h.get(), expected, size, stream);
-  raft::update_host<T>(act_h.get(), actual, size, stream);
+  std::vector<T> exp_h(size);
+  std::vector<T> act_h(size);
+  raft::update_host<T>(exp_h.data(), expected, size, stream);
+  raft::update_host<T>(act_h.data(), actual, size, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   for (size_t i(0); i < size; ++i) {
-    auto exp = exp_h.get()[i];
-    auto act = act_h.get()[i];
+    auto exp = exp_h[i];
+    auto act = act_h[i];
     if (!eq_compare(exp, act)) {
       return testing::AssertionFailure()
              << "actual=" << act << " != expected=" << exp << " @" << i;
@@ -96,11 +97,11 @@ testing::AssertionResult devArrMatch(const T *expected, const T *actual,
 template <typename T, typename L>
 testing::AssertionResult devArrMatch(T expected, const T *actual, size_t size,
                                      L eq_compare, cudaStream_t stream = 0) {
-  std::shared_ptr<T> act_h(new T[size]);
-  raft::update_host<T>(act_h.get(), actual, size, stream);
+  std::vector<T> act_h(size);
+  raft::update_host<T>(act_h.data(), actual, size, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   for (size_t i(0); i < size; ++i) {
-    auto act = act_h.get()[i];
+    auto act = act_h[i];
     if (!eq_compare(expected, act)) {
       return testing::AssertionFailure()
              << "actual=" << act << " != expected=" << expected << " @" << i;
@@ -114,16 +115,16 @@ testing::AssertionResult devArrMatch(const T *expected, const T *actual,
                                      size_t rows, size_t cols, L eq_compare,
                                      cudaStream_t stream = 0) {
   size_t size = rows * cols;
-  std::shared_ptr<T> exp_h(new T[size]);
-  std::shared_ptr<T> act_h(new T[size]);
-  raft::update_host<T>(exp_h.get(), expected, size, stream);
-  raft::update_host<T>(act_h.get(), actual, size, stream);
+  std::vector<T> exp_h(size);
+  std::vector<T> act_h(size);
+  raft::update_host<T>(exp_h.data(), expected, size, stream);
+  raft::update_host<T>(act_h.data(), actual, size, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   for (size_t i(0); i < rows; ++i) {
     for (size_t j(0); j < cols; ++j) {
       auto idx = i * cols + j;  // row major assumption!
-      auto exp = exp_h.get()[idx];
-      auto act = act_h.get()[idx];
+      auto exp = exp_h[idx];
+      auto act = act_h[idx];
       if (!eq_compare(exp, act)) {
         return testing::AssertionFailure()
                << "actual=" << act << " != expected=" << exp << " @" << i << ","
@@ -139,13 +140,13 @@ testing::AssertionResult devArrMatch(T expected, const T *actual, size_t rows,
                                      size_t cols, L eq_compare,
                                      cudaStream_t stream = 0) {
   size_t size = rows * cols;
-  std::shared_ptr<T> act_h(new T[size]);
-  raft::update_host<T>(act_h.get(), actual, size, stream);
+  std::vector<T> act_h(size);
+  raft::update_host<T>(act_h.data(), actual, size, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   for (size_t i(0); i < rows; ++i) {
     for (size_t j(0); j < cols; ++j) {
       auto idx = i * cols + j;  // row major assumption!
-      auto act = act_h.get()[idx];
+      auto act = act_h[idx];
       if (!eq_compare(expected, act)) {
         return testing::AssertionFailure()
                << "actual=" << act << " != expected=" << expected << " @" << i
@@ -171,14 +172,14 @@ template <typename T, typename L>
 testing::AssertionResult devArrMatchHost(const T *expected_h, const T *actual_d,
                                          size_t size, L eq_compare,
                                          cudaStream_t stream = 0) {
-  std::shared_ptr<T> act_h(new T[size]);
+  std::vector<T> act_h(size);
   raft::update_host<T>(act_h.get(), actual_d, size, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   bool ok = true;
   auto fail = testing::AssertionFailure();
   for (size_t i(0); i < size; ++i) {
     auto exp = expected_h[i];
-    auto act = act_h.get()[i];
+    auto act = act_h[i];
     if (!eq_compare(exp, act)) {
       ok = false;
       fail << "actual=" << act << " != expected=" << exp << " @" << i << "; ";
@@ -203,14 +204,14 @@ testing::AssertionResult diagonalMatch(T expected, const T *actual, size_t rows,
                                        size_t cols, L eq_compare,
                                        cudaStream_t stream = 0) {
   size_t size = rows * cols;
-  std::shared_ptr<T> act_h(new T[size]);
-  raft::update_host<T>(act_h.get(), actual, size, stream);
+  std::vector<T> act_h(size);
+  raft::update_host<T>(act_h.data(), actual, size, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   for (size_t i(0); i < rows; ++i) {
     for (size_t j(0); j < cols; ++j) {
       if (i != j) continue;
       auto idx = i * cols + j;  // row major assumption!
-      auto act = act_h.get()[idx];
+      auto act = act_h[idx];
       if (!eq_compare(expected, act)) {
         return testing::AssertionFailure()
                << "actual=" << act << " != expected=" << expected << " @" << i
