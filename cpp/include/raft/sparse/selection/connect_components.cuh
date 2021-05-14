@@ -200,23 +200,22 @@ struct LookupColorOp {
  * @param[in] d_alloc device allocator to use
  * @param[in] stream cuda stream for which to order cuda operations
  */
-template <typename value_idx, typename value_t>
+template <typename value_idx, typename value_t, typename red_op>
 void perform_1nn(cub::KeyValuePair<value_idx, value_t> *kvp,
                  value_idx *nn_colors, value_idx *colors, const value_t *X,
                  size_t n_rows, size_t n_cols,
                  std::shared_ptr<raft::mr::device::allocator> d_alloc,
-                 cudaStream_t stream) {
+                 cudaStream_t stream, red_op reduction_op) {
   rmm::device_uvector<int> workspace(n_rows, stream);
   rmm::device_uvector<value_t> x_norm(n_rows, stream);
 
   raft::linalg::rowNorm(x_norm.data(), X, n_cols, n_rows, raft::linalg::L2Norm,
                         true, stream);
 
-  FixConnectivitiesRedOp<value_idx, value_t> red_op(colors, n_rows);
   raft::distance::fusedL2NN<value_t, cub::KeyValuePair<value_idx, value_t>,
                             value_idx>(kvp, X, X, x_norm.data(), x_norm.data(),
                                        n_rows, n_rows, n_cols, workspace.data(),
-                                       red_op, red_op, true, true, stream);
+                                       reduction_op, reduction_op, true, true, stream);
 
   LookupColorOp<value_idx, value_t> extract_colors_op(colors);
   thrust::transform(thrust::cuda::par.on(stream), kvp, kvp + n_rows, nn_colors,
@@ -318,11 +317,12 @@ void min_components_by_color(raft::sparse::COO<value_t, value_idx> &coo,
  * @param[in] n_rows number of rows in X
  * @param[in] n_cols number of cols in X
  */
-template <typename value_idx, typename value_t>
+template <typename value_idx, typename value_t, typename red_op>
 void connect_components(const raft::handle_t &handle,
                         raft::sparse::COO<value_t, value_idx> &out,
                         const value_t *X, const value_idx *orig_colors,
                         size_t n_rows, size_t n_cols,
+                        red_op reduction_op,
                         raft::distance::DistanceType metric =
                           raft::distance::DistanceType::L2SqrtExpanded) {
   auto d_alloc = handle.get_device_allocator();
@@ -352,7 +352,7 @@ void connect_components(const raft::handle_t &handle,
   rmm::device_uvector<value_idx> src_indices(n_rows, stream);
 
   perform_1nn(temp_inds_dists.data(), nn_colors.data(), colors.data(), X,
-              n_rows, n_cols, d_alloc, stream);
+              n_rows, n_cols, d_alloc, stream, reduction_op);
 
   /**
    * Sort data points by color (neighbors are not sorted)
