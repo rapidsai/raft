@@ -16,6 +16,8 @@
 #pragma once
 #include <raft/linalg/contractions.cuh>
 #include <raft/linalg/norm.cuh>
+#include <raft/cudart_utils.h>
+#include <raft/cuda_utils.cuh>
 
 namespace raft {
 namespace distance {
@@ -64,14 +66,12 @@ struct PairwiseDistances : public BaseClass {
   typedef Policy P;
   const DataT* xn;
   const DataT* yn;
-  DataT* sxNorm;
-  DataT* syNorm;
+  const DataT *const yBase;
   OutT* dOutput;
   char* smem;
   CoreLambda core_op;
   EpilogueLambda epilog_op;
   FinalLambda fin_op;
-
   AccT acc[P::AccRowsPerTh][P::AccColsPerTh];
 
  public:
@@ -82,10 +82,9 @@ struct PairwiseDistances : public BaseClass {
                        char* _smem, CoreLambda _core_op,
                        EpilogueLambda _epilog_op, FinalLambda _fin_op)
     : BaseClass(_x, _y, _m, _n, _k, _lda, _ldb, _ldd, _smem),
-      sxNorm((DataT*)_smem),
-      syNorm(&(sxNorm[P::Mblk])),
       xn(_xn),
       yn(_yn),
+      yBase(_y),
       dOutput(_dOutput),
       smem(_smem),
       core_op(_core_op),
@@ -93,13 +92,54 @@ struct PairwiseDistances : public BaseClass {
       fin_op(_fin_op) {}
 
   DI void run() {
-    prolog();
-    loop();
-    epilog();
+
+    for(auto gridStrideY = blockIdx.y * P::Mblk; gridStrideY < this->m;
+          gridStrideY += P::Mblk * gridDim.y) {
+      for (auto gridStrideX = blockIdx.x * P::Nblk; gridStrideX < this->n;
+          gridStrideX += P::Nblk * gridDim.x) {
+        prolog(gridStrideX, gridStrideY);
+        loop();
+        epilog(gridStrideX, gridStrideY);
+      }
+    }
   }
 
  private:
-  DI void prolog() {
+  DI void updateIndicesY() {
+    const auto stride = P::Nblk * gridDim.x;
+    if (isRowMajor) {
+      this->y += stride * this->ldb;
+    } else {
+      this->y += stride;
+    }
+    this->yrowid += stride;
+    this->pageWr = 0;
+    this->pageRd = 0;
+  }
+
+  DI void updateIndicesXY() {
+    const auto stride = P::Mblk * gridDim.y;
+    if (isRowMajor) {
+      this->x += stride * this->lda;
+      this->yrowid = IdxT(blockIdx.x) * P::Nblk + this->srowid;
+      this->y = yBase + this->yrowid * this->ldb;
+    } else {
+      this->x += stride;
+      this->yrowid = IdxT(blockIdx.x) * P::Nblk;
+      this->y = yBase + this->yrowid + this->srowid * this->ldb;
+    }
+    this->xrowid += stride;
+    this->pageWr = 0;
+    this->pageRd = 0;
+  }
+
+  DI void prolog(IdxT gridStrideX, IdxT gridStrideY) {
+    if (gridStrideX > blockIdx.x * P::Nblk) {
+      updateIndicesY();
+    } else if (gridStrideY > blockIdx.y * P::Mblk) {
+      updateIndicesXY();
+    }
+
     this->ldgXY(0);
 #pragma unroll
     for (int i = 0; i < P::AccRowsPerTh; ++i) {
@@ -142,18 +182,21 @@ struct PairwiseDistances : public BaseClass {
     }
   }
 
-  DI void epilog() {
+  DI void epilog(IdxT gridStrideX, IdxT gridStrideY) {
     if (useNorms) {
       __syncthreads();  // so that we can safely reuse smem
 
+      DataT* sxNorm = (DataT*)smem;
+      DataT* syNorm = (&sxNorm[P::Mblk]);
+
       // Load x & y norms required by this threadblock in shmem buffer
       for (int i = threadIdx.x; i < P::Mblk; i += P::Nthreads) {
-        auto idx = blockIdx.y * P::Mblk + i;
+        auto idx = gridStrideY + i;
         sxNorm[i] = idx < this->m ? xn[idx] : 0;
       }
 
       for (int i = threadIdx.x; i < P::Nblk; i += P::Nthreads) {
-        auto idx = blockIdx.x * P::Nblk + i;
+        auto idx = gridStrideX + i;
         syNorm[i] = idx < this->n ? yn[idx] : 0;
       }
 
@@ -175,8 +218,9 @@ struct PairwiseDistances : public BaseClass {
     }
 
     if (writeOut) {
-      IdxT starty = blockIdx.y * P::Mblk + this->accrowid;
-      IdxT startx = blockIdx.x * P::Nblk + this->acccolid;
+      IdxT starty = gridStrideY + this->accrowid;
+      IdxT startx = gridStrideX + this->acccolid;
+
 #pragma unroll
       for (int i = 0; i < P::AccRowsPerTh; ++i) {
         auto rowId = starty + i * P::AccThRows;
@@ -242,6 +286,21 @@ __global__ __launch_bounds__(
         epilog_op, fin_op);
   obj.run();
 }
+
+template<typename P, typename IdxT>
+dim3 launchConfigGenerator(IdxT m, IdxT n) {
+  const auto numSMs = raft::getMultiProcessorCount();
+  // multiply by 2 as per launch bounds for pairwise dist kernels.
+  int minGridSize = numSMs * 2;
+  dim3 grid;
+  int yChunks = raft::ceildiv<int>(m, P::Mblk);
+  int xChunks = raft::ceildiv<int>(n, P::Nblk);
+  grid.y = yChunks > minGridSize ? minGridSize : yChunks;
+  grid.x = (minGridSize - grid.y) <= 0 ? 1 : xChunks;
+  grid.x = grid.x > (minGridSize + 1 - grid.y) ? (minGridSize + 1 - grid.y) : grid.x;
+  return grid;
+}
+
 
 };  // namespace distance
 };  // namespace raft
