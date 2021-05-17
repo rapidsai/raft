@@ -30,7 +30,7 @@ include(rapids-find)
 
 rapids_cuda_init_architectures(RAFT)
 
-project(RAFT VERSION 0.20.0 LANGUAGES CXX CUDA)
+project(RAFT VERSION 21.06.00 LANGUAGES CXX CUDA)
 
 ##############################################################################
 # - build type ---------------------------------------------------------------
