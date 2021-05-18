@@ -62,7 +62,7 @@ struct distance_graph_impl<raft::hierarchy::LinkageDistance::KNN_GRAPH,
            rmm::device_uvector<value_t> &data, int c) {
     auto d_alloc = handle.get_device_allocator();
     auto stream = handle.get_stream();
-    auto exec_policy = rmm::exec_policy(stream);
+    auto exec_policy = rmm::exec_policy(rmm::cuda_stream_view{stream});
 
     // Need to symmetrize knn into undirected graph
     raft::sparse::COO<value_t, value_idx> knn_graph_coo(d_alloc, stream);
