@@ -14,8 +14,21 @@
 # limitations under the License.
 #=============================================================================
 
+cmake_minimum_required(VERSION 3.20.1 FATAL_ERROR)
+include(FetchContent)
+FetchContent_Declare(
+  rapids-cmake
+  GIT_REPOSITORY https://github.com/rapidsai/rapids-cmake.git
+  GIT_TAG        origin/branch-0.20
+  )
+FetchContent_MakeAvailable(rapids-cmake)
+include(rapids-cmake)
+include(rapids-cpm)
+include(rapids-cuda)
+include(rapids-export)
+include(rapids-find)
 
-cmake_minimum_required(VERSION 3.14 FATAL_ERROR)
+rapids_cuda_init_architectures(RAFT)
 
 project(RAFT VERSION 0.20.0 LANGUAGES CXX CUDA)
 
@@ -23,16 +36,7 @@ project(RAFT VERSION 0.20.0 LANGUAGES CXX CUDA)
 # - build type ---------------------------------------------------------------
 
 # Set a default build type if none was specified
-set(DEFAULT_BUILD_TYPE "Release")
-
-if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
-  message(STATUS "Setting build type to '${DEFAULT_BUILD_TYPE}' since none specified.")
-  set(CMAKE_BUILD_TYPE "${DEFAULT_BUILD_TYPE}" CACHE
-      STRING "Choose the type of build." FORCE)
-  # Set the possible values of build type for cmake-gui
-  set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
-    "Debug" "Release")
-endif()
+rapids_cmake_build_type(Release)
 
 # this is needed for clang-tidy runs
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -40,304 +44,141 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 ##############################################################################
 # - User Options  ------------------------------------------------------------
 
-option(BUILD_GTEST "Build the GTEST library for running raft test executables" OFF)
-
-option(BUILD_STATIC_FAISS "Build the FAISS library for nearest neighbors search on GPU" OFF)
-
-option(CMAKE_CXX11_ABI "Enable the GLIBCXX11 ABI" ON)
-
-option(EMPTY_MARKER_KERNEL "Enable empty marker kernel after nvtxRangePop" ON)
-
-option(KERNEL_INFO "Enable kernel resource usage info" OFF)
-
-option(LINE_INFO "Enable lineinfo in nvcc" OFF)
-
+option(BUILD_TESTS "Build raft unit-tests" ON)
+option(CUDA_ENABLE_KERNELINFO "Enable kernel resource usage info" OFF)
+option(CUDA_ENABLE_LINEINFO "Enable the -lineinfo option for nvcc (useful for cuda-memcheck / profiler)" OFF)
+option(CUDA_STATIC_RUNTIME "Statically link the CUDA runtime" OFF)
+option(DETECT_CONDA_ENV "Enable detection of conda environment for dependencies" ON)
+option(DISABLE_DEPRECATION_WARNINGS "Disable depreaction warnings " ON)
+option(DISABLE_OPENMP "Disable OpenMP" OFF)
 option(NVTX "Enable nvtx markers" OFF)
 
-option(BUILD_RAFT_TESTS "Build raft unit-tests" ON)
+message(VERBOSE "RAFT: Build RAFT unit-tests: ${BUILD_TESTS}")
+message(VERBOSE "RAFT: Enable detection of conda environment for dependencies: ${DETECT_CONDA_ENV}")
+message(VERBOSE "RAFT: Disable depreaction warnings " ${DISABLE_DEPRECATION_WARNINGS})
+message(VERBOSE "RAFT: Disable OpenMP: ${DISABLE_OPENMP}")
+message(VERBOSE "RAFT: Enable kernel resource usage info: ${CUDA_ENABLE_KERNELINFO}")
+message(VERBOSE "RAFT: Enable lineinfo in nvcc: ${CUDA_ENABLE_LINEINFO}")
+message(VERBOSE "RAFT: Enable nvtx markers: ${NVTX}")
+message(VERBOSE "RAFT: Statically link the CUDA runtime: ${CUDA_STATIC_RUNTIME}")
 
-set(PARALLEL_LEVEL "" CACHE STRING
-    "Sub-projects parallel level for compilation. Currently only affects FAISS" )
+# Set RMM logging level
+set(RMM_LOGGING_LEVEL "INFO" CACHE STRING "Choose the logging level.")
+set_property(CACHE RMM_LOGGING_LEVEL PROPERTY STRINGS "TRACE" "DEBUG" "INFO" "WARN" "ERROR" "CRITICAL" "OFF")
+message(VERBOSE "RAFT: RMM_LOGGING_LEVEL = '${RMM_LOGGING_LEVEL}'.")
 
-set(GPU_ARCHS "" CACHE STRING
-    "List of GPU architectures (semicolon-separated) to be compiled for.
-    Pass 'ALL' if you want to compile for all supported GPU architectures.
-    Empty string means to auto-detect the GPUs on the current system")
+##############################################################################
+# - Conda environment detection ----------------------------------------------
+
+if(DETECT_CONDA_ENV)
+  rapids_cmake_support_conda_env( conda_env MODIFY_PREFIX_PATH )
+  if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT AND DEFINED ENV{CONDA_PREFIX})
+      message(STATUS "RAFT: No CMAKE_INSTALL_PREFIX argument detected, setting to: $ENV{CONDA_PREFIX}")
+      set(CMAKE_INSTALL_PREFIX "$ENV{CONDA_PREFIX}")
+  endif()
+endif()
+
+##############################################################################
+# - compiler options ---------------------------------------------------------
+
+# * find CUDAToolkit package
+# * determine GPU architectures
+# * enable the CMake CUDA language
+# * set other CUDA compilation flags
+rapids_find_package(CUDAToolkit REQUIRED
+    BUILD_EXPORT_SET raft-exports
+    INSTALL_EXPORT_SET raft-exports
+    )
+include(cmake/modules/ConfigureCUDA.cmake)
 
 ##############################################################################
 # - Requirements -------------------------------------------------------------
 
-find_package(CUDA 10.0 REQUIRED)
+if (NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
+  find_package(OpenMP)
+  if(OPENMP_FOUND)
+    message(VERBOSE "RAFT: OpenMP found in ${OpenMP_CXX_INCLUDE_DIRS}")
+  endif(OPENMP_FOUND)
+endif(NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
 
-set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
+# add third party dependencies using CPM
+rapids_cpm_init()
 
-##############################################################################
-# - Compiler Options  --------------------------------------------------------
+include(cmake/thirdparty/get_rmm.cmake)
+include(cmake/thirdparty/get_cuco.cmake)
 
-set(CMAKE_CXX_STANDARD 14)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-if(CMAKE_CUDA_HOST_COMPILER)
-  # If CMAKE_CUDA_HOST_COMPILER is set to a nonempty string cmake was called with the environment variable CUDAHOSTCXX set or -DCMAKE_CUDA_HOST_COMPILER
-  if(NOT CMAKE_CUDA_HOST_COMPILER STREQUAL CMAKE_CXX_COMPILER)
-    message(WARNING "CMAKE_CUDA_HOST_COMPILER=${CMAKE_CUDA_HOST_COMPILER} and CMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER} are inconsistent!")
-  endif(NOT CMAKE_CUDA_HOST_COMPILER STREQUAL CMAKE_CXX_COMPILER)
-else()
-  # No attempt to set CMAKE_CUDA_HOST_COMPILER has been made. Make sure CMAKE_CXX_COMPILER is used as CUDA host compiler.
-  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -ccbin ${CMAKE_CXX_COMPILER}")
-endif(CMAKE_CUDA_HOST_COMPILER)
-
-if(OPENMP_FOUND)
-  message(STATUS "Building with OpenMP support")
-  find_package(Threads REQUIRED)
-  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler ${OpenMP_CXX_FLAGS}")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
-endif(OPENMP_FOUND)
-
-set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-extended-lambda --expt-relaxed-constexpr")
-
-if(${CMAKE_VERSION} VERSION_LESS "3.17.0")
-  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --std=c++14")
-endif(${CMAKE_VERSION} VERSION_LESS "3.17.0")
-
-if(LINE_INFO)
-  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -lineinfo")
-endif(LINE_INFO)
-
-if(KERNEL_INFO)
-  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xptxas=-v")
-endif(KERNEL_INFO)
-
-if(NVTX)
-  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DNVTX_ENABLED")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DNVTX_ENABLED")
-  if(EMPTY_MARKER_KERNEL)
-  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DENABLE_EMPTY_MARKER_KERNEL")
-  endif(EMPTY_MARKER_KERNEL)
-endif(NVTX)
-
-if(CMAKE_BUILD_TYPE MATCHES Debug)
-  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -G -g")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
+if(BUILD_TESTS)
+  include(cmake/thirdparty/get_faiss.cmake)
+  include(cmake/thirdparty/get_gtest.cmake)
+  include(cmake/thirdparty/get_nccl.cmake)
+  include(cmake/thirdparty/get_ucx.cmake)
 endif()
 
-if("${GPU_ARCHS}" STREQUAL "")
-  include(cmake/EvalGpuArchs.cmake)
-  evaluate_gpu_archs(GPU_ARCHS)
-endif()
+##############################################################################
+# - install targets-----------------------------------------------------------
 
-if("${GPU_ARCHS}" STREQUAL "ALL")
-  set(GPU_ARCHS "60")
-  if((CUDA_VERSION_MAJOR EQUAL 9) OR (CUDA_VERSION_MAJOR GREATER 9))
-    set(GPU_ARCHS "${GPU_ARCHS};70")
-  endif()
-  if((CUDA_VERSION_MAJOR EQUAL 10) OR (CUDA_VERSION_MAJOR GREATER 10))
-    set(GPU_ARCHS "${GPU_ARCHS};75")
-  endif()
-  if((CUDA_VERSION_MAJOR EQUAL 11) OR (CUDA_VERSION_MAJOR GREATER 11))
-    set(GPU_ARCHS "${GPU_ARCHS};80")
-  endif()
-endif()
+add_library(raft INTERFACE)
+add_library(raft::raft ALIAS raft)
+target_include_directories(raft INTERFACE "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/include>"
+                                          "$<INSTALL_INTERFACE:include>")
 
-message("-- Building for GPU_ARCHS = ${GPU_ARCHS}")
+target_link_libraries(raft
+INTERFACE
+  CUDA::cublas
+  CUDA::curand
+  CUDA::cusolver
+  CUDA::cudart
+  CUDA::cusparse
+  rmm::rmm
+  )
 
-foreach(arch ${GPU_ARCHS})
-  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${arch},code=sm_${arch}")
-  set(FAISS_GPU_ARCHS "${FAISS_GPU_ARCHS} -gencode arch=compute_${arch},code=sm_${arch}")
-endforeach()
+target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
 
-list(GET GPU_ARCHS -1 ptx)
-set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${ptx},code=compute_${ptx}")
-set(FAISS_GPU_ARCHS "${FAISS_GPU_ARCHS} -gencode arch=compute_${ptx},code=compute_${ptx}")
+install(TARGETS raft
+        DESTINATION lib
+        EXPORT raft-exports
+        )
 
-if(CMAKE_COMPILER_IS_GNUCXX)
-  if(NOT CMAKE_CXX11_ABI)
-    message(STATUS "Disabling the GLIBCXX11 ABI")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0")
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler -D_GLIBCXX_USE_CXX11_ABI=0")
-  elseif(CMAKE_CXX11_ABI)
-    message(STATUS "Enabling the GLIBCXX11 ABI")
-  endif(NOT CMAKE_CXX11_ABI)
-endif(CMAKE_COMPILER_IS_GNUCXX)
-
-set(CMAKE_CUDA_FLAGS
-  "${CMAKE_CUDA_FLAGS} -Xcudafe --diag_suppress=unrecognized_gcc_pragma --expt-relaxed-constexpr")
+include(GNUInstallDirs)
+install(DIRECTORY include/
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+        )
 
 ##############################################################################
-# - dependencies -------------------------------------------------------------
+# - install export -----------------------------------------------------------
+set(doc_string
+[=[
+Provide targets for the RAFT: RAPIDS Analytics Frameworks Toolset.
 
-# CUDA 11 onwards cub ships with CTK
-if((CUDA_VERSION_MAJOR EQUAL 11) OR (CUDA_VERSION_MAJOR GREATER 11))
-  set(CUB_IS_PART_OF_CTK ON)
-else()
-  set(CUB_IS_PART_OF_CTK OFF)
-endif()
+RAFT is a repository containining shared utilities, mathematical operations
+and common functions for the analytics components of RAPIDS.
 
-include(cmake/Dependencies.cmake)
-include(cmake/comms.cmake)
+]=])
 
-###################################################################################################
-# - FAISS -------------------------------------------------------------------------------------------
-
-if(NOT BUILD_STATIC_FAISS)
- find_path(FAISS_INCLUDE_DIRS "faiss"
-    HINTS
-    "$ENV{FAISS_ROOT}/include"
-    "$ENV{CONDA_PREFIX}/include/faiss"
-    "$ENV{CONDA_PREFIX}/include")
-endif(NOT BUILD_STATIC_FAISS)
-message(STATUS "FAISS: FAISS_INCLUDE_DIRS set to ${FAISS_INCLUDE_DIRS}")
-
-###################################################################################################
-# - RMM -------------------------------------------------------------------------------------------
-
-find_path(RMM_INCLUDE_DIRS "rmm"
-    HINTS
-    "$ENV{RMM_ROOT}/include"
-    "$ENV{CONDA_PREFIX}/include/rmm"
-    "$ENV{CONDA_PREFIX}/include")
-
-message(STATUS "RMM: RMM_INCLUDE_DIRS set to ${RMM_INCLUDE_DIRS}")
-
+ rapids_export(INSTALL raft
+    EXPORT_SET raft-exports
+    GLOBAL_TARGETS raft # since we can't hook into EXPORT SETS
+    NAMESPACE raft::
+    DOCUMENTATION doc_string
+    )
 
 ##############################################################################
-# - include paths ------------------------------------------------------------
+# - build export -------------------------------------------------------------
 
-set(RAFT_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include CACHE STRING
-  "Path to RAFT include directories")
-
-set(RAFT_INCLUDE_DIRECTORIES
-  ${RAFT_INCLUDE_DIR}
-  ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
-  ${FAISS_INCLUDE_DIRS}
-  ${RMM_INCLUDE_DIRS})
-
-if(NOT CUB_IS_PART_OF_CTK)
-  list(APPEND RAFT_INCLUDE_DIRECTORIES ${CUB_DIR}/src/cub)
-endif(NOT CUB_IS_PART_OF_CTK)
-
-if(DEFINED ENV{CONDA_PREFIX})
-  message(STATUS "Using RMM installation from $ENV{CONDA_PREFIX}")
-  list(APPEND RAFT_INCLUDE_DIRECTORIES $ENV{CONDA_PREFIX}/include)
-endif(DEFINED ENV{CONDA_PREFIX})
-
-##############################################################################
-# - libraries ----------------------------------------------------------------
-
-set(RAFT_LINK_LIBRARIES
-  ${CUDA_cublas_LIBRARY}
-  ${CUDA_cusolver_LIBRARY}
-  ${CUDA_CUDART_LIBRARY}
-  ${CUDA_cusparse_LIBRARY}
-  ${CUDA_curand_LIBRARY})
-
-set(RAFT_LINK_DIRECTORIES
-  ${FAISS_INCLUDE_DIRS}
-  ${RMM_INCLUDE_DIRS})
-
-if(DEFINED ENV{CONDA_PREFIX})
-  list(APPEND RAFT_LINK_DIRECTORIES $ENV{CONDA_PREFIX}/lib)
-endif(DEFINED ENV{CONDA_PREFIX})
+rapids_export(BUILD raft
+    EXPORT_SET raft-exports
+    GLOBAL_TARGETS raft # since we can't hook into EXPORT SETS
+    LANGUAGES CUDA
+    DOCUMENTATION doc_string
+    NAMESPACE raft::
+    )
 
 ##############################################################################
 # - build test executable ----------------------------------------------------
 
-if(BUILD_RAFT_TESTS)
-  find_package(OpenMP REQUIRED)
-
-  # keep the files in alphabetical order!
-  add_executable(test_raft
-    test/cudart_utils.cpp
-    test/distance/dist_adj.cu
-    test/distance/dist_cos.cu
-    test/distance/dist_euc_exp.cu
-    test/distance/dist_euc_unexp.cu
-    test/distance/dist_l1.cu
-    test/distance/fused_l2_nn.cu
-    test/handle.cpp
-    test/integer_utils.cpp
-    test/label/label.cu
-    test/label/merge_labels.cu
-    test/lap/lap.cu
-    test/linalg/add.cu
-    test/linalg/binary_op.cu
-    test/linalg/cholesky_r1.cu
-    test/linalg/coalesced_reduction.cu
-    test/linalg/divide.cu
-    test/linalg/eig.cu
-    test/linalg/eig_sel.cu
-    test/linalg/gemm_layout.cu
-    test/linalg/map.cu
-    test/linalg/map_then_reduce.cu
-    test/linalg/matrix_vector_op.cu
-    test/linalg/multiply.cu
-    test/linalg/norm.cu
-    test/linalg/reduce.cu
-    test/linalg/strided_reduction.cu
-    test/linalg/subtract.cu
-    test/linalg/svd.cu
-    test/linalg/transpose.cu
-    test/linalg/unary_op.cu
-    test/matrix/math.cu
-    test/matrix/matrix.cu
-    test/mr/device/buffer.cpp
-    test/mr/host/buffer.cpp
-    test/random/rng.cu
-    test/random/rng_int.cu
-    test/random/sample_without_replacement.cu
-    test/sparse/add.cu
-    test/sparse/convert_coo.cu
-    test/sparse/convert_csr.cu
-    test/sparse/connect_components.cu
-    test/sparse/csr_row_slice.cu
-    test/sparse/csr_to_dense.cu
-    test/sparse/csr_transpose.cu
-    test/sparse/degree.cu
-    test/sparse/dist_coo_spmv.cu
-    test/sparse/dist_csr_spmv.cu
-    test/sparse/distance.cu
-    test/sparse/filter.cu
-    test/sparse/knn.cu
-    test/sparse/knn_graph.cu
-    test/sparse/linkage.cu
-    test/sparse/norm.cu
-    test/sparse/reduce.cu
-    test/sparse/row_op.cu
-    test/sparse/selection.cu
-    test/sparse/sort.cu
-    test/sparse/symmetrize.cu
-    test/spatial/knn.cu
-    test/spatial/haversine.cu
-    test/stats/mean.cu
-    test/stats/mean_center.cu
-    test/stats/stddev.cu
-    test/stats/sum.cu
-    test/test.cpp
-    test/spectral_matrix.cu
-    test/eigen_solvers.cu
-    test/cluster_solvers.cu
-    test/mst.cu)
-
-  target_include_directories(test_raft
-    PRIVATE
-      ${RAFT_INCLUDE_DIRECTORIES}
-      ${GTEST_DIR}/include)
-
-  target_link_directories(test_raft
-    PRIVATE
-      ${RAFT_LINK_DIRECTORIES})
-
-  target_link_libraries(test_raft
-    PRIVATE
-      ${RAFT_LINK_LIBRARIES}
-      FAISS::FAISS
-      GTest::GTest
-      GTest::Main
-      OpenMP::OpenMP_CXX
-      Threads::Threads)
-
-endif(BUILD_RAFT_TESTS)
+if(BUILD_TESTS)
+  include(test/CMakeLists.txt)
+endif()
 
 ##############################################################################
 # - doxygen targets ----------------------------------------------------------

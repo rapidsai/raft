@@ -35,6 +35,11 @@
 #include <thrust/transform.h>
 #include <iostream>
 
+#include <raft/cudart_utils.h>
+
+#include <rmm/device_buffer.hpp>
+#include <rmm/exec_policy.hpp>
+
 namespace raft {
 namespace mst {
 typedef std::chrono::high_resolution_clock Clock;
@@ -254,7 +259,7 @@ double MST_solver<vertex_t, edge_t, weight_t>::alteration_max() {
   auto max =
     thrust::transform_reduce(policy, begin, end, alteration_functor<weight_t>(),
                              init, thrust::minimum<weight_t>());
-  return max / static_cast<double>(2);
+  return max / static_cast<weight_t>(2);
 }
 
 // Compute the alteration to make all undirected edge weight unique
@@ -337,9 +342,9 @@ template <typename vertex_t, typename edge_t, typename weight_t>
 void MST_solver<vertex_t, edge_t, weight_t>::min_edge_per_vertex() {
   auto policy = rmm::exec_policy(stream);
   thrust::fill(policy, min_edge_color.begin(), min_edge_color.end(),
-               std::numeric_limits<double>::max());
+               std::numeric_limits<weight_t>::max());
   thrust::fill(policy, new_mst_edge.begin(), new_mst_edge.end(),
-               std::numeric_limits<edge_t>::max());
+               std::numeric_limits<weight_t>::max());
 
   int n_threads = 32;
 

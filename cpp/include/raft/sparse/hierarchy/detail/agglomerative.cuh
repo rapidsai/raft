@@ -277,81 +277,87 @@ void extract_flattened_clusters(const raft::handle_t &handle, value_idx *labels,
   auto stream = handle.get_stream();
   auto thrust_policy = rmm::exec_policy(stream);
 
-  /**
-   * Compute levels for each node
-   *
-   *     1. Initialize "levels" array of size n_leaves * 2
-   *
-   *     2. For each entry in children, write parent
-   *        out for each of the children
-   */
+  // Handle special case where n_clusters == 1
+  if (n_clusters == 1) {
+    thrust::fill(thrust_policy, labels, labels + n_leaves, 0);
+  } else {
+    /**
+     * Compute levels for each node
+     *
+     *     1. Initialize "levels" array of size n_leaves * 2
+     *
+     *     2. For each entry in children, write parent
+     *        out for each of the children
+     */
 
-  size_t n_edges = (n_leaves - 1) * 2;
+    size_t n_edges = (n_leaves - 1) * 2;
 
-  thrust::device_ptr<const value_idx> d_ptr =
-    thrust::device_pointer_cast(children);
-  value_idx n_vertices =
-    *(thrust::max_element(thrust_policy, d_ptr, d_ptr + n_edges)) + 1;
+    thrust::device_ptr<const value_idx> d_ptr =
+      thrust::device_pointer_cast(children);
+    value_idx n_vertices =
+      *(thrust::max_element(thrust_policy, d_ptr, d_ptr + n_edges)) + 1;
 
-  // Prevent potential infinite loop from labeling disconnected
-  // connectivities graph.
-  RAFT_EXPECTS(n_vertices == (n_leaves - 1) * 2,
-               "Multiple components found in MST or MST is invalid. "
-               "Cannot find single-linkage solution.");
+    // Prevent potential infinite loop from labeling disconnected
+    // connectivities graph.
+    RAFT_EXPECTS(n_vertices == (n_leaves - 1) * 2,
+                 "Multiple components found in MST or MST is invalid. "
+                 "Cannot find single-linkage solution.");
 
-  rmm::device_uvector<value_idx> levels(n_vertices, stream);
+    rmm::device_uvector<value_idx> levels(n_vertices, stream);
 
-  value_idx n_blocks = ceildiv(n_vertices, (value_idx)tpb);
-  write_levels_kernel<<<n_blocks, tpb, 0, stream>>>(children, levels.data(),
-                                                    n_vertices);
-  /**
-   * Step 1: Find label roots:
-   *
-   *     1. Copying children[children.size()-(n_clusters-1):] entries to
-   *        separate arrayo
-   *     2. sort array
-   *     3. take first n_clusters entries
-   */
+    value_idx n_blocks = ceildiv(n_vertices, (value_idx)tpb);
+    write_levels_kernel<<<n_blocks, tpb, 0, stream>>>(children, levels.data(),
+                                                      n_vertices);
+    /**
+     * Step 1: Find label roots:
+     *
+     *     1. Copying children[children.size()-(n_clusters-1):] entries to
+     *        separate arrayo
+     *     2. sort array
+     *     3. take first n_clusters entries
+     */
 
-  value_idx child_size = (n_clusters - 1) * 2;
-  rmm::device_uvector<value_idx> label_roots(child_size, stream);
+    value_idx child_size = (n_clusters - 1) * 2;
+    rmm::device_uvector<value_idx> label_roots(child_size, stream);
 
-  value_idx children_cpy_start = n_edges - child_size;
-  raft::copy_async(label_roots.data(), children + children_cpy_start,
-                   child_size, stream);
+    value_idx children_cpy_start = n_edges - child_size;
+    raft::copy_async(label_roots.data(), children + children_cpy_start,
+                     child_size, stream);
 
-  thrust::sort(thrust_policy, label_roots.data(),
-               label_roots.data() + (child_size), thrust::greater<value_idx>());
+    thrust::sort(thrust_policy, label_roots.data(),
+                 label_roots.data() + (child_size),
+                 thrust::greater<value_idx>());
 
-  rmm::device_uvector<value_idx> tmp_labels(n_vertices, stream);
+    rmm::device_uvector<value_idx> tmp_labels(n_vertices, stream);
 
-  // Init labels to -1
-  thrust::fill(thrust_policy, tmp_labels.data(), tmp_labels.data() + n_vertices,
-               -1);
+    // Init labels to -1
+    thrust::fill(thrust_policy, tmp_labels.data(),
+                 tmp_labels.data() + n_vertices, -1);
 
-  // Write labels for cluster roots to "labels"
-  thrust::counting_iterator<uint> first(0);
+    // Write labels for cluster roots to "labels"
+    thrust::counting_iterator<uint> first(0);
 
-  auto z_iter = thrust::make_zip_iterator(thrust::make_tuple(
-    first, label_roots.data() + (label_roots.size() - n_clusters)));
+    auto z_iter = thrust::make_zip_iterator(thrust::make_tuple(
+      first, label_roots.data() + (label_roots.size() - n_clusters)));
 
-  thrust::for_each(thrust_policy, z_iter, z_iter + n_clusters,
-                   init_label_roots<value_idx>(tmp_labels.data()));
+    thrust::for_each(thrust_policy, z_iter, z_iter + n_clusters,
+                     init_label_roots<value_idx>(tmp_labels.data()));
 
-  /**
-   * Step 2: Propagate labels by having children iterate through their parents
-   *     1. Initialize labels to -1
-   *     2. For each element in levels array, propagate until parent's
-   *        label is !=-1
-   */
-  value_idx cut_level = (n_edges / 2) - (n_clusters - 1);
+    /**
+     * Step 2: Propagate labels by having children iterate through their parents
+     *     1. Initialize labels to -1
+     *     2. For each element in levels array, propagate until parent's
+     *        label is !=-1
+     */
+    value_idx cut_level = (n_edges / 2) - (n_clusters - 1);
 
-  inherit_labels<<<n_blocks, tpb, 0, stream>>>(children, levels.data(),
-                                               n_leaves, tmp_labels.data(),
-                                               cut_level, n_vertices);
+    inherit_labels<<<n_blocks, tpb, 0, stream>>>(children, levels.data(),
+                                                 n_leaves, tmp_labels.data(),
+                                                 cut_level, n_vertices);
 
-  // copy tmp labels to actual labels
-  raft::copy_async(labels, tmp_labels.data(), n_leaves, stream);
+    // copy tmp labels to actual labels
+    raft::copy_async(labels, tmp_labels.data(), n_leaves, stream);
+  }
 }
 
 };  // namespace detail
