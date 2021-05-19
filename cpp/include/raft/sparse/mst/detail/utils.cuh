@@ -17,8 +17,8 @@
 
 #pragma once
 
-#include <rmm/thrust_rmm_allocator.h>
 #include <iostream>
+#include <rmm/device_vector.hpp>
 #define MST_TIME
 
 namespace raft {

@@ -32,7 +32,9 @@
 #include <iostream>
 
 #include <raft/cudart_utils.h>
+
 #include <rmm/device_buffer.hpp>
+#include <rmm/exec_policy.hpp>
 
 namespace raft {
 namespace mst {
@@ -81,14 +83,14 @@ MST_solver<vertex_t, edge_t, weight_t>::MST_solver(
   sm_count = handle_.get_device_properties().multiProcessorCount;
 
   //Initially, color holds the vertex id as color
-  auto policy = rmm::exec_policy(stream);
+  auto policy = rmm::exec_policy(rmm::cuda_stream_view{stream});
   if (initialize_colors_) {
-    thrust::sequence(policy->on(stream), color.begin(), color.end(), 0);
-    thrust::sequence(policy->on(stream), color_index, color_index + v, 0);
+    thrust::sequence(policy, color.begin(), color.end(), 0);
+    thrust::sequence(policy, color_index, color_index + v, 0);
   } else {
     raft::copy(color.data().get(), color_index, v, stream);
   }
-  thrust::sequence(policy->on(stream), next_color.begin(), next_color.end(), 0);
+  thrust::sequence(policy, next_color.begin(), next_color.end(), 0);
 }
 
 template <typename vertex_t, typename edge_t, typename weight_t>
@@ -210,15 +212,15 @@ struct alteration_functor {
 // Compute the uper bound for the alteration
 template <typename vertex_t, typename edge_t, typename weight_t>
 weight_t MST_solver<vertex_t, edge_t, weight_t>::alteration_max() {
-  auto policy = rmm::exec_policy(stream);
+  auto policy = rmm::exec_policy(rmm::cuda_stream_view{stream});
   rmm::device_vector<weight_t> tmp(e);
   thrust::device_ptr<const weight_t> weights_ptr(weights);
-  thrust::copy(policy->on(stream), weights_ptr, weights_ptr + e, tmp.begin());
+  thrust::copy(policy, weights_ptr, weights_ptr + e, tmp.begin());
   //sort tmp weights
-  thrust::sort(policy->on(stream), tmp.begin(), tmp.end());
+  thrust::sort(policy, tmp.begin(), tmp.end());
 
   //remove duplicates
-  auto new_end = thrust::unique(policy->on(stream), tmp.begin(), tmp.end());
+  auto new_end = thrust::unique(policy, tmp.begin(), tmp.end());
 
   //min(a[i+1]-a[i])/2
   auto begin =
@@ -226,9 +228,9 @@ weight_t MST_solver<vertex_t, edge_t, weight_t>::alteration_max() {
   auto end =
     thrust::make_zip_iterator(thrust::make_tuple(new_end - 1, new_end));
   auto init = tmp[1] - tmp[0];
-  auto max = thrust::transform_reduce(policy->on(stream), begin, end,
-                                      alteration_functor<weight_t>(), init,
-                                      thrust::minimum<weight_t>());
+  auto max =
+    thrust::transform_reduce(policy, begin, end, alteration_functor<weight_t>(),
+                             init, thrust::minimum<weight_t>());
   return max / static_cast<weight_t>(2);
 }
 
@@ -306,10 +308,10 @@ void MST_solver<vertex_t, edge_t, weight_t>::label_prop(vertex_t* mst_src,
 // Finds the minimum edge from each vertex to the lowest color
 template <typename vertex_t, typename edge_t, typename weight_t>
 void MST_solver<vertex_t, edge_t, weight_t>::min_edge_per_vertex() {
-  auto policy = rmm::exec_policy(stream);
-  thrust::fill(policy->on(stream), min_edge_color.begin(), min_edge_color.end(),
+  auto policy = rmm::exec_policy(rmm::cuda_stream_view{stream});
+  thrust::fill(policy, min_edge_color.begin(), min_edge_color.end(),
                std::numeric_limits<weight_t>::max());
-  thrust::fill(policy->on(stream), new_mst_edge.begin(), new_mst_edge.end(),
+  thrust::fill(policy, new_mst_edge.begin(), new_mst_edge.end(),
                std::numeric_limits<weight_t>::max());
 
   int n_threads = 32;
@@ -331,8 +333,8 @@ void MST_solver<vertex_t, edge_t, weight_t>::min_edge_per_supervertex() {
   auto nthreads = std::min(v, max_threads);
   auto nblocks = std::min((v + nthreads - 1) / nthreads, max_blocks);
 
-  auto policy = rmm::exec_policy(stream);
-  thrust::fill(policy->on(stream), temp_src.begin(), temp_src.end(),
+  auto policy = rmm::exec_policy(rmm::cuda_stream_view{stream});
+  thrust::fill(policy, temp_src.begin(), temp_src.end(),
                std::numeric_limits<vertex_t>::max());
 
   vertex_t* color_ptr = color.data().get();
@@ -386,7 +388,7 @@ struct new_edges_functor {
 template <typename vertex_t, typename edge_t, typename weight_t>
 void MST_solver<vertex_t, edge_t, weight_t>::append_src_dst_pair(
   vertex_t* mst_src, vertex_t* mst_dst, weight_t* mst_weights) {
-  auto policy = rmm::exec_policy(stream);
+  auto policy = rmm::exec_policy(rmm::cuda_stream_view{stream});
 
   auto curr_mst_edge_count = prev_mst_edge_count[0];
 
@@ -402,9 +404,8 @@ void MST_solver<vertex_t, edge_t, weight_t>::append_src_dst_pair(
     thrust::make_tuple(temp_src.end(), temp_dst.end(), temp_weights.end()));
 
   // copy new mst edges to final output
-  thrust::copy_if(policy->on(stream), temp_src_dst_zip_begin,
-                  temp_src_dst_zip_end, src_dst_zip_end,
-                  new_edges_functor<vertex_t, weight_t>());
+  thrust::copy_if(policy, temp_src_dst_zip_begin, temp_src_dst_zip_end,
+                  src_dst_zip_end, new_edges_functor<vertex_t, weight_t>());
 }
 
 }  // namespace mst
