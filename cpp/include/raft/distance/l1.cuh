@@ -65,8 +65,8 @@ static void l1Impl(const DataT *x, const DataT *y, IdxT m, IdxT n, IdxT k,
   // epilogue operation lambda for final value calculation
   auto epilog_lambda = [] __device__(
                          AccT acc[KPolicy::AccRowsPerTh][KPolicy::AccColsPerTh],
-                         DataT * regxn, DataT * regyn, 
-                         IdxT gridStrideX, IdxT gridStrideY) { return; };
+                         DataT * regxn, DataT * regyn, IdxT gridStrideX,
+                         IdxT gridStrideY) { return; };
 
   if (isRowMajor) {
     pairwiseDistanceMatKernel<false, DataT, AccT, OutT, IdxT, KPolicy,

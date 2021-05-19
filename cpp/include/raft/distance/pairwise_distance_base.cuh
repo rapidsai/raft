@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 #pragma once
-#include <raft/linalg/contractions.cuh>
-#include <raft/linalg/norm.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/linalg/contractions.cuh>
+#include <raft/linalg/norm.cuh>
 
 namespace raft {
 namespace distance {
@@ -68,7 +68,7 @@ struct PairwiseDistances : public BaseClass {
   typedef Policy P;
   const DataT* xn;
   const DataT* yn;
-  const DataT *const yBase;
+  const DataT* const yBase;
   OutT* dOutput;
   char* smem;
   CoreLambda core_op;
@@ -98,11 +98,10 @@ struct PairwiseDistances : public BaseClass {
       rowEpilog_op(_rowEpilog_op) {}
 
   DI void run() {
-
-    for(auto gridStrideY = blockIdx.y * P::Mblk; gridStrideY < this->m;
-          gridStrideY += P::Mblk * gridDim.y) {
+    for (auto gridStrideY = blockIdx.y * P::Mblk; gridStrideY < this->m;
+         gridStrideY += P::Mblk * gridDim.y) {
       for (auto gridStrideX = blockIdx.x * P::Nblk; gridStrideX < this->n;
-          gridStrideX += P::Nblk * gridDim.x) {
+           gridStrideX += P::Nblk * gridDim.x) {
         prolog(gridStrideX, gridStrideY);
         loop();
         epilog(gridStrideX, gridStrideY);
@@ -276,9 +275,8 @@ struct PairwiseDistances : public BaseClass {
 
 template <bool useNorms, typename DataT, typename AccT, typename OutT,
           typename IdxT, typename Policy, typename CoreLambda,
-          typename EpilogueLambda,
-          typename FinalLambda,
-          bool isRowMajor = true, bool writeOut = true>
+          typename EpilogueLambda, typename FinalLambda, bool isRowMajor = true,
+          bool writeOut = true>
 __global__ __launch_bounds__(
   Policy::Nthreads,
   2) void pairwiseDistanceMatKernel(const DataT* x, const DataT* y,
@@ -288,7 +286,7 @@ __global__ __launch_bounds__(
                                     EpilogueLambda epilog_op,
                                     FinalLambda fin_op) {
   extern __shared__ char smem[];
-  auto rowEpilog = [] __device__ (IdxT starty) { return; };
+  auto rowEpilog = [] __device__(IdxT starty) { return; };
 
   PairwiseDistances<useNorms, DataT, AccT, OutT, IdxT, Policy, CoreLambda,
                     EpilogueLambda, FinalLambda, decltype(rowEpilog),
@@ -298,7 +296,7 @@ __global__ __launch_bounds__(
   obj.run();
 }
 
-template<typename P, typename IdxT>
+template <typename P, typename IdxT>
 dim3 launchConfigGenerator(IdxT m, IdxT n) {
   const auto numSMs = raft::getMultiProcessorCount();
   // multiply by 2 as per launch bounds for pairwise dist kernels.
@@ -310,7 +308,7 @@ dim3 launchConfigGenerator(IdxT m, IdxT n) {
   grid.x = (minGridSize - grid.y) <= 0 ? 1 : xChunks;
   if (grid.x != 1) {
     int i = 1;
-    while(grid.y * i < minGridSize) {
+    while (grid.y * i < minGridSize) {
       i++;
     }
     grid.x = i >= xChunks ? xChunks : i;
@@ -318,7 +316,6 @@ dim3 launchConfigGenerator(IdxT m, IdxT n) {
 
   return grid;
 }
-
 
 };  // namespace distance
 };  // namespace raft

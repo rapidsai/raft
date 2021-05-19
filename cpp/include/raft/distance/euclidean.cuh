@@ -71,8 +71,8 @@ void euclideanExpImpl(const DataT *x, const DataT *y, const DataT *xn,
   // epilogue operation lambda for final value calculation
   auto epilog_lambda = [sqrt] __device__(
                          AccT acc[KPolicy::AccRowsPerTh][KPolicy::AccColsPerTh],
-                         DataT * regxn, DataT * regyn, 
-                         IdxT gridStrideX, IdxT gridStrideY) {
+                         DataT * regxn, DataT * regyn, IdxT gridStrideX,
+                         IdxT gridStrideY) {
 #pragma unroll
     for (int i = 0; i < KPolicy::AccRowsPerTh; ++i) {
 #pragma unroll
@@ -242,8 +242,8 @@ void euclideanUnExpImpl(const DataT *x, const DataT *y, IdxT m, IdxT n, IdxT k,
   // epilogue operation lambda for final value calculation
   auto epilog_lambda = [sqrt] __device__(
                          AccT acc[KPolicy::AccRowsPerTh][KPolicy::AccColsPerTh],
-                         DataT * regxn, DataT * regyn,
-                         IdxT gridStrideX, IdxT gridStrideY) {
+                         DataT * regxn, DataT * regyn, IdxT gridStrideX,
+                         IdxT gridStrideY) {
     if (sqrt) {
 #pragma unroll
       for (int i = 0; i < KPolicy::AccRowsPerTh; ++i) {
