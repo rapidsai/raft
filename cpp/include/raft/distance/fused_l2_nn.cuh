@@ -86,6 +86,8 @@ DI void updateReducedVal(int *mutex, OutT *min, KVPair *val,
   const auto lid = threadIdx.x % raft::WarpSize;
   const auto accrowid = threadIdx.x / P::AccThCols;
 
+  // for now have first lane from each warp update a unique output row. This
+  // will resolve hang issues with pre-Volta architectures
 #pragma unroll
   for (int j = 0; j < (raft::WarpSize/P::AccThCols); j++) {
     if (lid == 0) {
