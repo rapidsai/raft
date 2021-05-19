@@ -88,7 +88,7 @@ MST_solver<vertex_t, edge_t, weight_t>::MST_solver(
   sm_count = handle_.get_device_properties().multiProcessorCount;
 
   //Initially, color holds the vertex id as color
-  auto policy = rmm::exec_policy(stream);
+  auto policy = rmm::exec_policy(rmm::cuda_stream_view{stream});
   if (initialize_colors_) {
     thrust::sequence(policy, color.begin(), color.end(), 0);
     thrust::sequence(policy, color_index, color_index + v, 0);
@@ -340,7 +340,7 @@ void MST_solver<vertex_t, edge_t, weight_t>::label_prop(vertex_t* mst_src,
 // Finds the minimum edge from each vertex to the lowest color
 template <typename vertex_t, typename edge_t, typename weight_t>
 void MST_solver<vertex_t, edge_t, weight_t>::min_edge_per_vertex() {
-  auto policy = rmm::exec_policy(stream);
+  auto policy = rmm::exec_policy(rmm::cuda_stream_view{stream});
   thrust::fill(policy, min_edge_color.begin(), min_edge_color.end(),
                std::numeric_limits<weight_t>::max());
   thrust::fill(policy, new_mst_edge.begin(), new_mst_edge.end(),
@@ -365,7 +365,7 @@ void MST_solver<vertex_t, edge_t, weight_t>::min_edge_per_supervertex() {
   auto nthreads = std::min(v, max_threads);
   auto nblocks = std::min((v + nthreads - 1) / nthreads, max_blocks);
 
-  auto policy = rmm::exec_policy(stream);
+  auto policy = rmm::exec_policy(rmm::cuda_stream_view{stream});
   thrust::fill(policy, temp_src.begin(), temp_src.end(),
                std::numeric_limits<vertex_t>::max());
 
@@ -420,7 +420,7 @@ struct new_edges_functor {
 template <typename vertex_t, typename edge_t, typename weight_t>
 void MST_solver<vertex_t, edge_t, weight_t>::append_src_dst_pair(
   vertex_t* mst_src, vertex_t* mst_dst, weight_t* mst_weights) {
-  auto policy = rmm::exec_policy(stream);
+  auto policy = rmm::exec_policy(rmm::cuda_stream_view{stream});
 
   auto curr_mst_edge_count = prev_mst_edge_count[0];
 

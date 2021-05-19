@@ -129,7 +129,7 @@ void max_duplicates(const raft::handle_t &handle,
   auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
 
-  auto exec_policy = rmm::exec_policy(stream);
+  auto exec_policy = rmm::exec_policy(rmm::cuda_stream_view{stream});
 
   // compute diffs & take exclusive scan
   rmm::device_uvector<value_idx> diff(nnz + 1, stream);

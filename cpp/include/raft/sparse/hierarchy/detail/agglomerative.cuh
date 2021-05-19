@@ -275,7 +275,7 @@ void extract_flattened_clusters(const raft::handle_t &handle, value_idx *labels,
                                 size_t n_leaves) {
   auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
-  auto thrust_policy = rmm::exec_policy(stream);
+  auto thrust_policy = rmm::exec_policy(rmm::cuda_stream_view{stream});
 
   // Handle special case where n_clusters == 1
   if (n_clusters == 1) {
