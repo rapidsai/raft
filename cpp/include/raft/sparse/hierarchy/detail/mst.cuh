@@ -88,9 +88,6 @@ void connect_knn_graph(const raft::handle_t &handle, const value_t *X,
   raft::linkage::connect_components<value_idx, value_t>(
     handle, connected_edges, X, color, m, n, reduction_op);
 
-  mst_epilogue_func(handle, connected_edges.rows(), connected_edges.cols(),
-                    connected_edges.vals(), connected_edges.nnz);
-
   rmm::device_uvector<value_idx> indptr2(m + 1, stream);
   raft::sparse::convert::sorted_coo_to_csr(connected_edges.rows(),
                                            connected_edges.nnz, indptr2.data(),
@@ -152,7 +149,7 @@ void build_sorted_mst(const raft::handle_t &handle, const value_t *X,
 
   while (n_components > 1 && iters < max_iter) {
     connect_knn_graph<value_idx, value_t>(handle, X, mst_coo, m, n, color,
-                                          epilogue_func, reduction_op);
+                                          reduction_op);
 
     iters++;
 
