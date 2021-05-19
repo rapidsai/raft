@@ -72,7 +72,8 @@ void cosineImpl(const DataT *x, const DataT *y, const DataT *xn,
   // epilogue operation lambda for final value calculation
   auto epilog_lambda = [] __device__(
                          AccT acc[KPolicy::AccRowsPerTh][KPolicy::AccColsPerTh],
-                         DataT * regxn, DataT * regyn) {
+                         DataT * regxn, DataT * regyn,
+                         IdxT gridStrideX, IdxT gridStrideY) {
 #pragma unroll
     for (int i = 0; i < KPolicy::AccRowsPerTh; ++i) {
 #pragma unroll

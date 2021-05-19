@@ -55,9 +55,11 @@ namespace distance {
  * @param epilog_op the epilog operation lambda
  * @param fin_op the final gemm epilogue lambda
  */
+
 template <bool useNorms, typename DataT, typename AccT, typename OutT,
           typename IdxT, typename Policy, typename CoreLambda,
-          typename EpilogueLambda, typename FinalLambda, bool isRowMajor = true,
+          typename EpilogueLambda, typename FinalLambda,
+          typename rowEpilogueLambda, bool isRowMajor = true,
           bool writeOut = true,
           typename BaseClass =
             raft::linalg::Contractions_NT<DataT, IdxT, Policy, isRowMajor>>
@@ -72,6 +74,8 @@ struct PairwiseDistances : public BaseClass {
   CoreLambda core_op;
   EpilogueLambda epilog_op;
   FinalLambda fin_op;
+  rowEpilogueLambda rowEpilog_op;
+
   AccT acc[P::AccRowsPerTh][P::AccColsPerTh];
 
  public:
@@ -80,7 +84,8 @@ struct PairwiseDistances : public BaseClass {
                        IdxT _k, IdxT _lda, IdxT _ldb, IdxT _ldd,
                        const DataT* _xn, const DataT* _yn, OutT* _dOutput,
                        char* _smem, CoreLambda _core_op,
-                       EpilogueLambda _epilog_op, FinalLambda _fin_op)
+                       EpilogueLambda _epilog_op, FinalLambda _fin_op,
+                       rowEpilogueLambda _rowEpilog_op)
     : BaseClass(_x, _y, _m, _n, _k, _lda, _ldb, _ldd, _smem),
       xn(_xn),
       yn(_yn),
@@ -89,7 +94,8 @@ struct PairwiseDistances : public BaseClass {
       smem(_smem),
       core_op(_core_op),
       epilog_op(_epilog_op),
-      fin_op(_fin_op) {}
+      fin_op(_fin_op),
+      rowEpilog_op(_rowEpilog_op) {}
 
   DI void run() {
 
@@ -101,6 +107,7 @@ struct PairwiseDistances : public BaseClass {
         loop();
         epilog(gridStrideX, gridStrideY);
       }
+      rowEpilog_op(gridStrideY);
     }
   }
 
@@ -212,9 +219,9 @@ struct PairwiseDistances : public BaseClass {
         regyn[i] = syNorm[i * P::AccThCols + (threadIdx.x % P::AccThCols)];
       }
 
-      epilog_op(acc, regxn, regyn);
+      epilog_op(acc, regxn, regyn, gridStrideX, gridStrideY);
     } else {
-      epilog_op(acc, nullptr, nullptr);
+      epilog_op(acc, nullptr, nullptr, gridStrideX, gridStrideY);
     }
 
     if (writeOut) {
@@ -266,10 +273,12 @@ struct PairwiseDistances : public BaseClass {
  * @param epilog_op the epilogue lambda
  * @param fin_op    the final gemm epilogue lambda
  */
+
 template <bool useNorms, typename DataT, typename AccT, typename OutT,
           typename IdxT, typename Policy, typename CoreLambda,
-          typename EpilogueLambda, typename FinalLambda, bool isRowMajor = true,
-          bool writeOut = true>
+          typename EpilogueLambda,
+          typename FinalLambda,
+          bool isRowMajor = true, bool writeOut = true>
 __global__ __launch_bounds__(
   Policy::Nthreads,
   2) void pairwiseDistanceMatKernel(const DataT* x, const DataT* y,
@@ -279,11 +288,13 @@ __global__ __launch_bounds__(
                                     EpilogueLambda epilog_op,
                                     FinalLambda fin_op) {
   extern __shared__ char smem[];
+  auto rowEpilog = [] __device__ (IdxT starty) { return; };
 
   PairwiseDistances<useNorms, DataT, AccT, OutT, IdxT, Policy, CoreLambda,
-                    EpilogueLambda, FinalLambda, isRowMajor, writeOut>
+                    EpilogueLambda, FinalLambda, decltype(rowEpilog),
+                    isRowMajor, writeOut>
     obj(x, y, m, n, k, lda, ldb, ldd, _xn, _yn, dOutput, smem, core_op,
-        epilog_op, fin_op);
+        epilog_op, fin_op, rowEpilog);
   obj.run();
 }
 
@@ -297,7 +308,14 @@ dim3 launchConfigGenerator(IdxT m, IdxT n) {
   int xChunks = raft::ceildiv<int>(n, P::Nblk);
   grid.y = yChunks > minGridSize ? minGridSize : yChunks;
   grid.x = (minGridSize - grid.y) <= 0 ? 1 : xChunks;
-  grid.x = grid.x > (minGridSize + 1 - grid.y) ? (minGridSize + 1 - grid.y) : grid.x;
+  if (grid.x != 1) {
+    int i = 1;
+    while(grid.y * i < minGridSize) {
+      i++;
+    }
+    grid.x = i >= xChunks ? xChunks : i;
+  }
+
   return grid;
 }
 
