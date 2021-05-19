@@ -73,12 +73,11 @@ void merge_msts(raft::Graph_COO<value_idx, value_idx, value_t> &coo1,
  * @param[inout] color the color labels array returned from the mst invocation
  * @return updated MST edge list
  */
-template <typename value_idx, typename value_t, typename mst_epilogue_f,
-          typename red_op>
+template <typename value_idx, typename value_t, typename red_op>
 void connect_knn_graph(const raft::handle_t &handle, const value_t *X,
                        raft::Graph_COO<value_idx, value_idx, value_t> &msf,
                        size_t m, size_t n, value_idx *color,
-                       mst_epilogue_f mst_epilogue_func, red_op reduction_op,
+                       red_op reduction_op,
                        raft::distance::DistanceType metric =
                          raft::distance::DistanceType::L2SqrtExpanded) {
   auto d_alloc = handle.get_device_allocator();
@@ -97,12 +96,6 @@ void connect_knn_graph(const raft::handle_t &handle, const value_t *X,
                                            connected_edges.nnz, indptr2.data(),
                                            m + 1, d_alloc, stream);
 
-  raft::print_device_vector("new_rows", connected_edges.rows(),
-                            connected_edges.nnz, std::cout);
-  raft::print_device_vector("new_cols", connected_edges.cols(),
-                            connected_edges.nnz, std::cout);
-  raft::print_device_vector("new_dists", connected_edges.vals(),
-                            connected_edges.nnz, std::cout);
   // On the second call, we hand the MST the original colors
   // and the new set of edges and let it restart the optimization process
   auto new_mst = raft::mst::mst<value_idx, value_idx, value_t>(
@@ -136,14 +129,13 @@ void connect_knn_graph(const raft::handle_t &handle, const value_t *X,
  * @param[in] max_iter maximum iterations to run knn graph connection. This
  *  argument is really just a safeguard against the potential for infinite loops.
  */
-template <typename value_idx, typename value_t, typename mst_epilogue_f,
-          typename red_op>
+template <typename value_idx, typename value_t, typename red_op>
 void build_sorted_mst(const raft::handle_t &handle, const value_t *X,
                       const value_idx *indptr, const value_idx *indices,
                       const value_t *pw_dists, size_t m, size_t n,
                       value_idx *mst_src, value_idx *mst_dst,
                       value_t *mst_weight, value_idx *color, size_t nnz,
-                      mst_epilogue_f epilogue_func, red_op reduction_op,
+                      red_op reduction_op,
                       raft::distance::DistanceType metric =
                         raft::distance::DistanceType::L2SqrtExpanded,
                       int max_iter = 10) {
@@ -159,7 +151,6 @@ void build_sorted_mst(const raft::handle_t &handle, const value_t *X,
   int n_components = linkage::get_n_components(color, m, d_alloc, stream);
 
   while (n_components > 1 && iters < max_iter) {
-    printf("Didn't converge. trying again\n");
     connect_knn_graph<value_idx, value_t>(handle, X, mst_coo, m, n, color,
                                           epilogue_func, reduction_op);
 
@@ -187,15 +178,6 @@ void build_sorted_mst(const raft::handle_t &handle, const value_t *X,
                "(and the same distance metric used),"
                " or increase 'max_iter'",
                max_iter);
-
-  //  if (mst_coo.n_edges != m - 1) {
-  //    raft::print_device_vector("mst_src", mst_coo.src.data(), mst_coo.n_edges,
-  //                              std::cout);
-  //    raft::print_device_vector("mst_dst", mst_coo.dst.data(), mst_coo.n_edges,
-  //                              std::cout);
-  //    raft::print_device_vector("mst_weight", mst_coo.weights.data(),
-  //                              mst_coo.n_edges, std::cout);
-  //  }
 
   RAFT_EXPECTS(mst_coo.n_edges == m - 1,
                "n_edges should be %d but was %d. This"
