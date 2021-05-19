@@ -282,13 +282,10 @@ __global__ void final_color_indices(const vertex_t v, const vertex_t* color,
 // Alterate the weights, make all undirected edge weight unique while keeping Wuv == Wvu
 // Consider using curand device API instead of precomputed random_values array
 template <typename vertex_t, typename edge_t, typename weight_t>
-__global__ void alteration_kernel(const vertex_t v, const edge_t e,
-                                  const edge_t* offsets,
-                                  const vertex_t* indices,
-                                  const weight_t* weights, double max,
-                                  double* random_values,
-                                  double* altered_weights, int alpha,
-                                  bool use_alpha) {
+__global__ void alteration_kernel(
+  const vertex_t v, const edge_t e, const edge_t* offsets,
+  const vertex_t* indices, const weight_t* weights, double max,
+  double* random_values, double* altered_weights, int alpha, bool use_alpha) {
   auto row = get_1D_idx<vertex_t>();
   if (row < v) {
     auto row_begin = offsets[row];
@@ -297,7 +294,7 @@ __global__ void alteration_kernel(const vertex_t v, const edge_t e,
       auto column = indices[i];
       // doing the later step explicity in double for precision
       altered_weights[i] =
-      weights[i] + max * (random_values[row] + random_values[column]);
+        weights[i] + max * (random_values[row] + random_values[column]);
 
       auto print = false;
       if (row == 293 && column == 1276) print = true;
@@ -308,7 +305,11 @@ __global__ void alteration_kernel(const vertex_t v, const edge_t e,
       if (row == 1276 && column == 1686) print = true;
 
       if (print) {
-        printf("row: %d, col: %d, alt: %lf, weight: %lf, max: %lf, randr: %lf, randl: %lf\n", row, column, altered_weights[i], weights[i], max, random_values[row], random_values[column]);
+        printf(
+          "row: %d, col: %d, alt: %lf, weight: %lf, max: %lf, randr: %lf, "
+          "randl: %lf\n",
+          row, column, altered_weights[i], weights[i], max, random_values[row],
+          random_values[column]);
       }
 
       // if (use_alpha) {

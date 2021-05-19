@@ -168,9 +168,9 @@ MST_solver<vertex_t, edge_t, weight_t>::solve() {
     // raft::print_device_vector("temp_dst", temp_dst.data().get(), v, std::cout);
     // raft::print_device_vector("temp_weights", temp_weights.data().get(), v, std::cout);
 
-
     auto curr_mst_edge_count = mst_edge_count[0];
-    std::cout << "edge count: " << curr_mst_edge_count << ", expected: " << n_expected_edges << std::endl;
+    std::cout << "edge count: " << curr_mst_edge_count
+              << ", expected: " << n_expected_edges << std::endl;
     RAFT_EXPECTS(curr_mst_edge_count <= n_expected_edges,
                  "Number of edges found by MST is invalid. This may be due to "
                  "loss in precision. Try increasing precision of weights.");

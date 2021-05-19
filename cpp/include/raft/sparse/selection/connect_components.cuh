@@ -213,9 +213,9 @@ void perform_1nn(cub::KeyValuePair<value_idx, value_t> *kvp,
                         true, stream);
 
   raft::distance::fusedL2NN<value_t, cub::KeyValuePair<value_idx, value_t>,
-                            value_idx>(kvp, X, X, x_norm.data(), x_norm.data(),
-                                       n_rows, n_rows, n_cols, workspace.data(),
-                                       reduction_op, reduction_op, true, true, stream);
+                            value_idx>(
+    kvp, X, X, x_norm.data(), x_norm.data(), n_rows, n_rows, n_cols,
+    workspace.data(), reduction_op, reduction_op, true, true, stream);
 
   LookupColorOp<value_idx, value_t> extract_colors_op(colors);
   thrust::transform(thrust::cuda::par.on(stream), kvp, kvp + n_rows, nn_colors,
@@ -321,8 +321,7 @@ template <typename value_idx, typename value_t, typename red_op>
 void connect_components(const raft::handle_t &handle,
                         raft::sparse::COO<value_t, value_idx> &out,
                         const value_t *X, const value_idx *orig_colors,
-                        size_t n_rows, size_t n_cols,
-                        red_op reduction_op,
+                        size_t n_rows, size_t n_cols, red_op reduction_op,
                         raft::distance::DistanceType metric =
                           raft::distance::DistanceType::L2SqrtExpanded) {
   auto d_alloc = handle.get_device_allocator();
