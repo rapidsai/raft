@@ -91,20 +91,22 @@ void euclideanExpImpl(const DataT *x, const DataT *y, const DataT *xn,
     }
   };
 
+  size_t shmemSize =
+    KPolicy::SmemSize + ((KPolicy::Mblk + KPolicy::Nblk) * sizeof(DataT));
   if (isRowMajor) {
     pairwiseDistanceMatKernel<true, DataT, AccT, OutT, IdxT, KPolicy,
                               decltype(core_lambda), decltype(epilog_lambda),
                               FinalLambda, true>
-      <<<grid, blk, KPolicy::SmemSize, stream>>>(x, y, xn, yn, m, n, k, lda,
-                                                 ldb, ldd, dOutput, core_lambda,
-                                                 epilog_lambda, fin_op);
+      <<<grid, blk, shmemSize, stream>>>(x, y, xn, yn, m, n, k, lda, ldb, ldd,
+                                         dOutput, core_lambda, epilog_lambda,
+                                         fin_op);
   } else {
     pairwiseDistanceMatKernel<true, DataT, AccT, OutT, IdxT, KPolicy,
                               decltype(core_lambda), decltype(epilog_lambda),
                               FinalLambda, false>
-      <<<grid, blk, KPolicy::SmemSize, stream>>>(x, y, xn, yn, m, n, k, lda,
-                                                 ldb, ldd, dOutput, core_lambda,
-                                                 epilog_lambda, fin_op);
+      <<<grid, blk, shmemSize, stream>>>(x, y, xn, yn, m, n, k, lda, ldb, ldd,
+                                         dOutput, core_lambda, epilog_lambda,
+                                         fin_op);
   }
 
   CUDA_CHECK(cudaGetLastError());

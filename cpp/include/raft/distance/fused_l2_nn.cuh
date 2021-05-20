@@ -241,18 +241,19 @@ void fusedL2NNImpl(OutT* min, const DataT* x, const DataT* y, const DataT* xn,
 
   auto fin_op = [] __device__(DataT d_val, int g_d_idx) { return d_val; };
 
+  size_t shmemSize = P::SmemSize + ((P::Mblk + P::Nblk) * sizeof(DataT));
   if (sqrt) {
     fusedL2NNkernel<DataT, OutT, IdxT, true, P, ReduceOpT, KVPReduceOpT,
                     decltype(core_lambda), decltype(fin_op)>
-      <<<grid, blk, P::SmemSize, stream>>>(min, x, y, xn, yn, m, n, k, maxVal,
-                                           workspace, redOp, pairRedOp,
-                                           core_lambda, fin_op);
+      <<<grid, blk, shmemSize, stream>>>(min, x, y, xn, yn, m, n, k, maxVal,
+                                         workspace, redOp, pairRedOp,
+                                         core_lambda, fin_op);
   } else {
     fusedL2NNkernel<DataT, OutT, IdxT, false, P, ReduceOpT, KVPReduceOpT,
                     decltype(core_lambda), decltype(fin_op)>
-      <<<grid, blk, P::SmemSize, stream>>>(min, x, y, xn, yn, m, n, k, maxVal,
-                                           workspace, redOp, pairRedOp,
-                                           core_lambda, fin_op);
+      <<<grid, blk, shmemSize, stream>>>(min, x, y, xn, yn, m, n, k, maxVal,
+                                         workspace, redOp, pairRedOp,
+                                         core_lambda, fin_op);
   }
 
   CUDA_CHECK(cudaGetLastError());

@@ -190,15 +190,15 @@ struct PairwiseDistances : public BaseClass {
 
   DI void epilog(IdxT gridStrideX, IdxT gridStrideY) {
     if (useNorms) {
-      __syncthreads();  // so that we can safely reuse smem
-
-      DataT* sxNorm = (DataT*)smem;
+      DataT* sxNorm = (DataT*)(&smem[P::SmemSize]);
       DataT* syNorm = (&sxNorm[P::Mblk]);
 
       // Load x & y norms required by this threadblock in shmem buffer
-      for (int i = threadIdx.x; i < P::Mblk; i += P::Nthreads) {
-        auto idx = gridStrideY + i;
-        sxNorm[i] = idx < this->m ? xn[idx] : 0;
+      if (gridStrideX == blockIdx.x * P::Nblk) {
+        for (int i = threadIdx.x; i < P::Mblk; i += P::Nthreads) {
+          auto idx = gridStrideY + i;
+          sxNorm[i] = idx < this->m ? xn[idx] : 0;
+        }
       }
 
       for (int i = threadIdx.x; i < P::Nblk; i += P::Nthreads) {
