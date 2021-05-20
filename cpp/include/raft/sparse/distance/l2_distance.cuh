@@ -103,8 +103,13 @@ __global__ void compute_correlation_warp_kernel(
 
   value_t sigma_squared = Q_sigma * R_sigma;
 
+  printf("i=%d, j=%d, dot=%f, Q_mu=%f, R_mu=%f, mu_squared=%f, Q_sigma=%f, "
+    "R_sigma=%f, sigma_squared=%f\n", i, j, dot, Q_mu, R_mu, mu_squared, Q_sigma, R_sigma, sigma_squared);
+
+  value_t val = 1.0 - ((dot - mu_squared) / sigma_squared);
+
   // correct for small instabilities
-  C[(size_t)i * n_cols + j] = 1.0 - ((dot - mu_squared) / sigma_squared);
+  C[(size_t)i * n_cols + j] = val * (fabs(val) >= 0.0001);
 }
 
 template <typename value_idx, typename value_t, int tpb = 256,
@@ -201,6 +206,10 @@ void compute_corr(value_t *out, const value_idx *Q_coo_rows,
   raft::linalg::unaryOp<value_t>(
     R_norms.data(), R_norms.data(), n,
     [=] __device__(value_t input) { return input * n_cols_div; }, stream);
+  raft::linalg::unaryOp<value_t>(
+    out, out, m*n,
+    [=] __device__(value_t input) { return input * n_cols_div; }, stream);
+
 
   compute_correlation(out, Q_sq_norms.data(), R_sq_norms.data(), Q_norms.data(),
                       R_norms.data(), m, n, stream);
