@@ -56,10 +56,6 @@ static const std::unordered_set<raft::distance::DistanceType> supportedDistance{
   raft::distance::DistanceType::JaccardExpanded,
   raft::distance::DistanceType::CosineExpanded,
   raft::distance::DistanceType::HellingerExpanded,
-  raft::distance::DistanceType::HammingUnexpanded,
-  raft::distance::DistanceType::JensenShannon,
-  raft::distance::DistanceType::KLDivergence,
-  raft::distance::DistanceType::RusselRaoExpanded,
   raft::distance::DistanceType::DiceExpanded};
 
 /**
@@ -121,28 +117,8 @@ void pairwiseDistance(value_t *out,
       hellinger_expanded_distances_t<value_idx, value_t>(input_config)
         .compute(out);
       break;
-    case raft::distance::DistanceType::HammingUnexpanded:
-      hamming_unexpanded_distances_t<value_idx, value_t>(input_config)
-        .compute(out);
-      break;
-    case raft::distance::DistanceType::JensenShannon:
-      jensen_shannon_unexpanded_distances_t<value_idx, value_t>(input_config)
-        .compute(out);
-      break;
-    case raft::distance::DistanceType::KLDivergence:
-      kl_divergence_unexpanded_distances_t<value_idx, value_t>(input_config)
-        .compute(out);
-      break;
-    case raft::distance::DistanceType::RusselRaoExpanded:
-      russelrao_expanded_distances_t<value_idx, value_t>(input_config)
-        .compute(out);
-      break;
     case raft::distance::DistanceType::DiceExpanded:
       dice_expanded_distances_t<value_idx, value_t>(input_config).compute(out);
-      break;
-    case raft::distance::DistanceType::CorrelationExpanded:
-      correlation_expanded_distances_t<value_idx, value_t>(input_config)
-        .compute(out);
       break;
 
     default:
