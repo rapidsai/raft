@@ -81,7 +81,6 @@ __global__ void compute_euclidean_warp_kernel(
   C[(size_t)i * n_cols + j] = val * (fabs(val) >= 0.0001);
 }
 
-
 template <typename value_idx, typename value_t, int tpb = 256,
           typename expansion_f>
 void compute_euclidean(value_t *C, const value_t *Q_sq_norms,
@@ -92,7 +91,6 @@ void compute_euclidean(value_t *C, const value_t *Q_sq_norms,
   compute_euclidean_warp_kernel<<<blocks, tpb, 0, stream>>>(
     C, Q_sq_norms, R_sq_norms, n_rows, n_cols, expansion_func);
 }
-
 
 template <typename value_idx, typename value_t, int tpb = 256,
           typename expansion_f>
@@ -117,7 +115,6 @@ void compute_l2(value_t *out, const value_idx *Q_coo_rows,
   compute_euclidean(out, Q_sq_norms.data(), R_sq_norms.data(), m, n, stream,
                     expansion_func);
 }
-
 
 /**
  * L2 distance using the expanded form: sum(x_k)^2 + sum(y_k)^2 - 2 * sum(x_k * y_k)
