@@ -17,9 +17,9 @@
 
 #pragma once
 
-#include <rmm/thrust_rmm_allocator.h>
 #include <raft/handle.hpp>
 #include <rmm/device_uvector.hpp>
+#include <rmm/device_vector.hpp>
 
 namespace raft {
 
