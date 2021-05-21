@@ -118,6 +118,7 @@ PRIVATE
   CUDA::cudart
   CUDA::cusparse
   rmm::rmm
+  cuco::cuco
   FAISS::FAISS
   GTest::gtest
   GTest::gtest_main
