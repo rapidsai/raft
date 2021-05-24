@@ -136,14 +136,14 @@ class MSTTest
     vertex_t *color_ptr = thrust::raw_pointer_cast(color.data());
 
     if (iterations == 0) {
-      MST_solver<vertex_t, edge_t, weight_t> symmetric_solver(
+      MST_solver<vertex_t, edge_t, weight_t, float> symmetric_solver(
         handle, offsets, indices, weights, v, e, color_ptr, handle.get_stream(),
-        true, true, 0, 0);
+        true, true, 0);
       auto symmetric_result = symmetric_solver.solve();
 
-      MST_solver<vertex_t, edge_t, weight_t> non_symmetric_solver(
+      MST_solver<vertex_t, edge_t, weight_t, float> non_symmetric_solver(
         handle, offsets, indices, weights, v, e, color_ptr, handle.get_stream(),
-        false, true, 0, 0);
+        false, true, 0);
       auto non_symmetric_result = non_symmetric_solver.solve();
 
       EXPECT_LE(symmetric_result.n_edges, 2 * v - 2);
@@ -152,14 +152,14 @@ class MSTTest
       return std::make_pair(std::move(symmetric_result),
                             std::move(non_symmetric_result));
     } else {
-      MST_solver<vertex_t, edge_t, weight_t> intermediate_solver(
+      MST_solver<vertex_t, edge_t, weight_t, float> intermediate_solver(
         handle, offsets, indices, weights, v, e, color_ptr, handle.get_stream(),
-        true, true, iterations, 0);
+        true, true, iterations);
       auto intermediate_result = intermediate_solver.solve();
 
-      MST_solver<vertex_t, edge_t, weight_t> symmetric_solver(
+      MST_solver<vertex_t, edge_t, weight_t, float> symmetric_solver(
         handle, offsets, indices, weights, v, e, color_ptr, handle.get_stream(),
-        true, false, 0, 0);
+        true, false, 0);
       auto symmetric_result = symmetric_solver.solve();
 
       // symmetric_result.n_edges += intermediate_result.n_edges;
@@ -180,9 +180,9 @@ class MSTTest
                  intermediate_result.n_edges, handle.get_stream());
       symmetric_result.n_edges = total_edge_size;
 
-      MST_solver<vertex_t, edge_t, weight_t> non_symmetric_solver(
+      MST_solver<vertex_t, edge_t, weight_t, float> non_symmetric_solver(
         handle, offsets, indices, weights, v, e, color_ptr, handle.get_stream(),
-        false, true, 0, 0);
+        false, true, 0);
       auto non_symmetric_result = non_symmetric_solver.solve();
 
       EXPECT_LE(symmetric_result.n_edges, 2 * v - 2);
