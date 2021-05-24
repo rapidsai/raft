@@ -60,7 +60,6 @@ void euclideanExpImpl(const DataT *x, const DataT *y, const DataT *xn,
   typedef
     typename std::conditional<isRowMajor, RowPolicy, ColPolicy>::type KPolicy;
 
-  dim3 grid = launchConfigGenerator<KPolicy, IdxT>(m, n);
   dim3 blk(KPolicy::Nthreads);
 
   // Accumulation operation lambda
@@ -91,22 +90,29 @@ void euclideanExpImpl(const DataT *x, const DataT *y, const DataT *xn,
     }
   };
 
-  size_t shmemSize =
+  constexpr size_t shmemSize =
     KPolicy::SmemSize + ((KPolicy::Mblk + KPolicy::Nblk) * sizeof(DataT));
   if (isRowMajor) {
-    pairwiseDistanceMatKernel<true, DataT, AccT, OutT, IdxT, KPolicy,
-                              decltype(core_lambda), decltype(epilog_lambda),
-                              FinalLambda, true>
-      <<<grid, blk, shmemSize, stream>>>(x, y, xn, yn, m, n, k, lda, ldb, ldd,
-                                         dOutput, core_lambda, epilog_lambda,
-                                         fin_op);
+    auto euclideanExpRowMajor =
+      pairwiseDistanceMatKernel<true, DataT, AccT, OutT, IdxT, KPolicy,
+                                decltype(core_lambda), decltype(epilog_lambda),
+                                FinalLambda, true>;
+    dim3 grid =
+      launchConfigGenerator<KPolicy>(m, n, shmemSize, euclideanExpRowMajor);
+
+    euclideanExpRowMajor<<<grid, blk, shmemSize, stream>>>(
+      x, y, xn, yn, m, n, k, lda, ldb, ldd, dOutput, core_lambda, epilog_lambda,
+      fin_op);
   } else {
-    pairwiseDistanceMatKernel<true, DataT, AccT, OutT, IdxT, KPolicy,
-                              decltype(core_lambda), decltype(epilog_lambda),
-                              FinalLambda, false>
-      <<<grid, blk, shmemSize, stream>>>(x, y, xn, yn, m, n, k, lda, ldb, ldd,
-                                         dOutput, core_lambda, epilog_lambda,
-                                         fin_op);
+    auto euclideanExpColMajor =
+      pairwiseDistanceMatKernel<true, DataT, AccT, OutT, IdxT, KPolicy,
+                                decltype(core_lambda), decltype(epilog_lambda),
+                                FinalLambda, false>;
+    dim3 grid =
+      launchConfigGenerator<KPolicy>(m, n, shmemSize, euclideanExpColMajor);
+    euclideanExpColMajor<<<grid, blk, shmemSize, stream>>>(
+      x, y, xn, yn, m, n, k, lda, ldb, ldd, dOutput, core_lambda, epilog_lambda,
+      fin_op);
   }
 
   CUDA_CHECK(cudaGetLastError());
@@ -232,7 +238,6 @@ void euclideanUnExpImpl(const DataT *x, const DataT *y, IdxT m, IdxT n, IdxT k,
   typedef
     typename std::conditional<isRowMajor, RowPolicy, ColPolicy>::type KPolicy;
 
-  dim3 grid = launchConfigGenerator<KPolicy, IdxT>(m, n);
   dim3 blk(KPolicy::Nthreads);
 
   // Accumulation operation lambda
@@ -258,19 +263,28 @@ void euclideanUnExpImpl(const DataT *x, const DataT *y, IdxT m, IdxT n, IdxT k,
   };
 
   if (isRowMajor) {
-    pairwiseDistanceMatKernel<false, DataT, AccT, OutT, IdxT, KPolicy,
-                              decltype(core_lambda), decltype(epilog_lambda),
-                              FinalLambda>
-      <<<grid, blk, KPolicy::SmemSize, stream>>>(
-        x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput, core_lambda,
-        epilog_lambda, fin_op);
+    auto euclideanUnExpRowMajor =
+      pairwiseDistanceMatKernel<false, DataT, AccT, OutT, IdxT, KPolicy,
+                                decltype(core_lambda), decltype(epilog_lambda),
+                                FinalLambda, true>;
+    dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize,
+                                               euclideanUnExpRowMajor);
+
+    euclideanUnExpRowMajor<<<grid, blk, KPolicy::SmemSize, stream>>>(
+      x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput, core_lambda,
+      epilog_lambda, fin_op);
+
   } else {
-    pairwiseDistanceMatKernel<false, DataT, AccT, OutT, IdxT, KPolicy,
-                              decltype(core_lambda), decltype(epilog_lambda),
-                              FinalLambda, isRowMajor>
-      <<<grid, blk, KPolicy::SmemSize, stream>>>(
-        x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput, core_lambda,
-        epilog_lambda, fin_op);
+    auto euclideanUnExpColMajor =
+      pairwiseDistanceMatKernel<false, DataT, AccT, OutT, IdxT, KPolicy,
+                                decltype(core_lambda), decltype(epilog_lambda),
+                                FinalLambda, false>;
+    dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize,
+                                               euclideanUnExpColMajor);
+
+    euclideanUnExpColMajor<<<grid, blk, KPolicy::SmemSize, stream>>>(
+      x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput, core_lambda,
+      epilog_lambda, fin_op);
   }
 
   CUDA_CHECK(cudaGetLastError());

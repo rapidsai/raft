@@ -221,7 +221,6 @@ void fusedL2NNImpl(OutT* min, const DataT* x, const DataT* y, const DataT* xn,
                    bool initOutBuffer, cudaStream_t stream) {
   typedef typename linalg::Policy4x4<DataT, VecLen>::Policy P;
 
-  dim3 grid = launchConfigGenerator<P, IdxT>(m, n);
   dim3 blk(P::Nthreads);
   auto nblks = raft::ceildiv<int>(m, P::Nthreads);
   constexpr auto maxVal = std::numeric_limits<DataT>::max();
@@ -241,19 +240,25 @@ void fusedL2NNImpl(OutT* min, const DataT* x, const DataT* y, const DataT* xn,
 
   auto fin_op = [] __device__(DataT d_val, int g_d_idx) { return d_val; };
 
-  size_t shmemSize = P::SmemSize + ((P::Mblk + P::Nblk) * sizeof(DataT));
+  constexpr size_t shmemSize =
+    P::SmemSize + ((P::Mblk + P::Nblk) * sizeof(DataT));
   if (sqrt) {
-    fusedL2NNkernel<DataT, OutT, IdxT, true, P, ReduceOpT, KVPReduceOpT,
-                    decltype(core_lambda), decltype(fin_op)>
-      <<<grid, blk, shmemSize, stream>>>(min, x, y, xn, yn, m, n, k, maxVal,
-                                         workspace, redOp, pairRedOp,
-                                         core_lambda, fin_op);
+    auto fusedL2NNSqrt =
+      fusedL2NNkernel<DataT, OutT, IdxT, true, P, ReduceOpT, KVPReduceOpT,
+                      decltype(core_lambda), decltype(fin_op)>;
+    dim3 grid = launchConfigGenerator<P>(m, n, shmemSize, fusedL2NNSqrt);
+
+    fusedL2NNSqrt<<<grid, blk, shmemSize, stream>>>(
+      min, x, y, xn, yn, m, n, k, maxVal, workspace, redOp, pairRedOp,
+      core_lambda, fin_op);
   } else {
-    fusedL2NNkernel<DataT, OutT, IdxT, false, P, ReduceOpT, KVPReduceOpT,
-                    decltype(core_lambda), decltype(fin_op)>
-      <<<grid, blk, shmemSize, stream>>>(min, x, y, xn, yn, m, n, k, maxVal,
-                                         workspace, redOp, pairRedOp,
-                                         core_lambda, fin_op);
+    auto fusedL2NN =
+      fusedL2NNkernel<DataT, OutT, IdxT, false, P, ReduceOpT, KVPReduceOpT,
+                      decltype(core_lambda), decltype(fin_op)>;
+    dim3 grid = launchConfigGenerator<P>(m, n, shmemSize, fusedL2NN);
+    fusedL2NN<<<grid, blk, shmemSize, stream>>>(min, x, y, xn, yn, m, n, k,
+                                                maxVal, workspace, redOp,
+                                                pairRedOp, core_lambda, fin_op);
   }
 
   CUDA_CHECK(cudaGetLastError());

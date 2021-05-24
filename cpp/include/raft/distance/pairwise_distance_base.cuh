@@ -296,12 +296,15 @@ __global__ __launch_bounds__(
   obj.run();
 }
 
-template <typename P, typename IdxT>
-dim3 launchConfigGenerator(IdxT m, IdxT n) {
+template <typename P, typename IdxT, typename T>
+dim3 launchConfigGenerator(IdxT m, IdxT n, size_t sMemSize, T func) {
   const auto numSMs = raft::getMultiProcessorCount();
-  // multiply by 2 as per launch bounds for pairwise dist kernels.
-  int minGridSize = numSMs * 2;
+  int numBlocksPerSm = 0;
   dim3 grid;
+
+  CUDA_CHECK(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+    &numBlocksPerSm, func, P::Nthreads, sMemSize));
+  int minGridSize = numSMs * numBlocksPerSm;
   int yChunks = raft::ceildiv<int>(m, P::Mblk);
   int xChunks = raft::ceildiv<int>(n, P::Nblk);
   grid.y = yChunks > minGridSize ? minGridSize : yChunks;
