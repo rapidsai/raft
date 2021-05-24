@@ -16,11 +16,6 @@
 
 #pragma once
 
-#include <cuda.h>
-#include <cuda_runtime_api.h>
-#include <curand.h>
-#include <cusparse_v2.h>
-
 #include <execinfo.h>
 #include <iostream>
 #include <sstream>
