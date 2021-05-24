@@ -122,9 +122,9 @@ MST_solver<vertex_t, edge_t, weight_t, alteration_t>::solve() {
   timer0 = duration_us(stop - start);
 #endif
 
-  auto n_expected_edges = symmetrize_output ? 2 * v - 2 : v - 1;
+  auto max_mst_edges = symmetrize_output ? 2 * v - 2 : v - 1;
 
-  Graph_COO<vertex_t, edge_t, weight_t> mst_result(n_expected_edges, stream);
+  Graph_COO<vertex_t, edge_t, weight_t> mst_result(max_mst_edges, stream);
 
   // Boruvka original formulation says "while more than 1 supervertex remains"
   // Here we adjust it to support disconnected components (spanning forest)
@@ -161,7 +161,7 @@ MST_solver<vertex_t, edge_t, weight_t, alteration_t>::solve() {
 #endif
 
     auto curr_mst_edge_count = mst_edge_count[0];
-    RAFT_EXPECTS(curr_mst_edge_count <= n_expected_edges,
+    RAFT_EXPECTS(curr_mst_edge_count <= max_mst_edges,
                  "Number of edges found by MST is invalid. This may be due to "
                  "loss in precision. Try increasing precision of weights.");
 
