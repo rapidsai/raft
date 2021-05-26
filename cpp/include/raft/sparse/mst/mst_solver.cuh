@@ -36,14 +36,15 @@ struct Graph_COO {
 
 namespace mst {
 
-template <typename vertex_t, typename edge_t, typename weight_t>
+template <typename vertex_t, typename edge_t, typename weight_t,
+          typename alteration_t>
 class MST_solver {
  public:
   MST_solver(const raft::handle_t& handle_, const edge_t* offsets_,
              const vertex_t* indices_, const weight_t* weights_,
              const vertex_t v_, const edge_t e_, vertex_t* color_,
              cudaStream_t stream_, bool symmetrize_output_,
-             bool initialize_colors_, int iterations_, int alpha_);
+             bool initialize_colors_, int iterations_);
 
   raft::Graph_COO<vertex_t, edge_t, weight_t> solve();
 
@@ -54,7 +55,6 @@ class MST_solver {
   cudaStream_t stream;
   bool symmetrize_output, initialize_colors;
   int iterations;
-  int alpha;
 
   //CSR
   const edge_t* offsets;
@@ -68,10 +68,11 @@ class MST_solver {
   vertex_t sm_count;
 
   vertex_t* color_index;  // represent each supervertex as a color
-  rmm::device_vector<double>
+  rmm::device_vector<alteration_t>
     min_edge_color;  // minimum incident edge weight per color
-  rmm::device_vector<edge_t> new_mst_edge;     // new minimum edge per vertex
-  rmm::device_vector<double> altered_weights;  // weights to be used for mst
+  rmm::device_vector<edge_t> new_mst_edge;  // new minimum edge per vertex
+  rmm::device_vector<alteration_t>
+    altered_weights;  // weights to be used for mst
   rmm::device_vector<edge_t>
     mst_edge_count;  // total number of edges added after every iteration
   rmm::device_vector<edge_t>
@@ -91,7 +92,7 @@ class MST_solver {
   void min_edge_per_supervertex();
   void check_termination();
   void alteration();
-  double alteration_max();
+  alteration_t alteration_max();
   void append_src_dst_pair(vertex_t* mst_src, vertex_t* mst_dst,
                            weight_t* mst_weights);
 };

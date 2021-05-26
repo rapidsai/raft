@@ -95,7 +95,7 @@ void connect_knn_graph(const raft::handle_t &handle, const value_t *X,
 
   // On the second call, we hand the MST the original colors
   // and the new set of edges and let it restart the optimization process
-  auto new_mst = raft::mst::mst<value_idx, value_idx, value_t>(
+  auto new_mst = raft::mst::mst<value_idx, value_idx, value_t, double>(
     handle, indptr2.data(), connected_edges.cols(), connected_edges.vals(), m,
     connected_edges.nnz, color, stream, false, false);
 
@@ -140,9 +140,9 @@ void build_sorted_mst(const raft::handle_t &handle, const value_t *X,
   auto stream = handle.get_stream();
 
   // We want to have MST initialize colors on first call.
-  auto mst_coo = raft::mst::mst<value_idx, value_idx, value_t>(
-    handle, indptr, indices, pw_dists, (value_idx)m, nnz, color, stream, false,
-    true);
+  auto mst_coo = raft::mst::mst<value_idx, value_idx, value_t, double>(
+    handle, indptr, indices, pw_dists, (value_idx)m, nnz, color.data(), stream,
+    false, true);
 
   int iters = 1;
   int n_components = linkage::get_n_components(color, m, d_alloc, stream);
@@ -176,15 +176,13 @@ void build_sorted_mst(const raft::handle_t &handle, const value_t *X,
                " or increase 'max_iter'",
                max_iter);
 
-  RAFT_EXPECTS(mst_coo.n_edges == m - 1,
-               "n_edges should be %d but was %d. This"
-               "could be an indication of duplicate edges returned from the"
-               "MST or symmetrization stage.",
-               m - 1, mst_coo.n_edges);
+  sort_coo_by_data(mst_coo.src.data(), mst_coo.dst.data(),
+                   mst_coo.weights.data(), mst_coo.n_edges, stream);
 
-  raft::sparse::op::coo_sort_by_weight(mst_coo.src.data(), mst_coo.dst.data(),
-                                       mst_coo.weights.data(), mst_coo.n_edges,
-                                       stream);
+  // TODO: be nice if we could pass these directly into the MST
+  mst_src.resize(mst_coo.n_edges, stream);
+  mst_dst.resize(mst_coo.n_edges, stream);
+  mst_weight.resize(mst_coo.n_edges, stream);
 
   raft::copy_async(mst_src, mst_coo.src.data(), mst_coo.n_edges, stream);
   raft::copy_async(mst_dst, mst_coo.dst.data(), mst_coo.n_edges, stream);

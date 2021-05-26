@@ -54,12 +54,13 @@ inline curandStatus_t curand_generate_uniformX(curandGenerator_t generator,
   return curandGenerateUniformDouble(generator, outputPtr, n);
 }
 
-template <typename vertex_t, typename edge_t, typename weight_t>
-MST_solver<vertex_t, edge_t, weight_t>::MST_solver(
+template <typename vertex_t, typename edge_t, typename weight_t,
+          typename alteration_t>
+MST_solver<vertex_t, edge_t, weight_t, alteration_t>::MST_solver(
   const raft::handle_t& handle_, const edge_t* offsets_,
   const vertex_t* indices_, const weight_t* weights_, const vertex_t v_,
   const edge_t e_, vertex_t* color_, cudaStream_t stream_,
-  bool symmetrize_output_, bool initialize_colors_, int iterations_, int alpha_)
+  bool symmetrize_output_, bool initialize_colors_, int iterations_)
   : handle(handle_),
     offsets(offsets_),
     indices(indices_),
@@ -81,8 +82,7 @@ MST_solver<vertex_t, edge_t, weight_t>::MST_solver(
     stream(stream_),
     symmetrize_output(symmetrize_output_),
     initialize_colors(initialize_colors_),
-    iterations(iterations_),
-    alpha(alpha_) {
+    iterations(iterations_) {
   max_blocks = handle_.get_device_properties().maxGridSize[0];
   max_threads = handle_.get_device_properties().maxThreadsPerBlock;
   sm_count = handle_.get_device_properties().multiProcessorCount;
@@ -98,9 +98,10 @@ MST_solver<vertex_t, edge_t, weight_t>::MST_solver(
   thrust::sequence(policy, next_color.begin(), next_color.end(), 0);
 }
 
-template <typename vertex_t, typename edge_t, typename weight_t>
+template <typename vertex_t, typename edge_t, typename weight_t,
+          typename alteration_t>
 raft::Graph_COO<vertex_t, edge_t, weight_t>
-MST_solver<vertex_t, edge_t, weight_t>::solve() {
+MST_solver<vertex_t, edge_t, weight_t, alteration_t>::solve() {
   RAFT_EXPECTS(v > 0, "0 vertices");
   RAFT_EXPECTS(e > 0, "0 edges");
   RAFT_EXPECTS(offsets != nullptr, "Null offsets.");
@@ -128,9 +129,9 @@ MST_solver<vertex_t, edge_t, weight_t>::solve() {
   timer0 = duration_us(stop - start);
 #endif
 
-  auto n_expected_edges = symmetrize_output ? 2 * v - 2 : v - 1;
+  auto max_mst_edges = symmetrize_output ? 2 * v - 2 : v - 1;
 
-  Graph_COO<vertex_t, edge_t, weight_t> mst_result(n_expected_edges, stream);
+  Graph_COO<vertex_t, edge_t, weight_t> mst_result(max_mst_edges, stream);
 
   // Boruvka original formulation says "while more than 1 supervertex remains"
   // Here we adjust it to support disconnected components (spanning forest)
@@ -165,22 +166,13 @@ MST_solver<vertex_t, edge_t, weight_t>::solve() {
     stop = Clock::now();
     timer3 += duration_us(stop - start);
 #endif
-    // raft::print_device_vector("altered_weights", altered_weights.data().get(), e, std::cout);
-    // raft::print_device_vector("new_mst_edge", new_mst_edge.data().get(), v, std::cout);
-    // raft::print_device_vector("min_edge_color", min_edge_color.data().get(), v, std::cout);
-
-    // raft::print_device_vector("temp_src", temp_src.data().get(), v, std::cout);
-    // raft::print_device_vector("temp_dst", temp_dst.data().get(), v, std::cout);
-    // raft::print_device_vector("temp_weights", temp_weights.data().get(), v, std::cout);
 
     auto curr_mst_edge_count = mst_edge_count[0];
-    std::cout << "edge count: " << curr_mst_edge_count
-              << ", expected: " << n_expected_edges << std::endl;
-    RAFT_EXPECTS(curr_mst_edge_count <= n_expected_edges,
+    RAFT_EXPECTS(curr_mst_edge_count <= max_mst_edges,
                  "Number of edges found by MST is invalid. This may be due to "
                  "loss in precision. Try increasing precision of weights.");
 
-    if (prev_mst_edge_count[0] == curr_mst_edge_count) {
+    if (curr_mst_edge_count == prev_mst_edge_count[0]) {
 #ifdef MST_TIME
       std::cout << "Iterations: " << i << std::endl;
       std::cout << timer0 << "," << timer1 << "," << timer2 << "," << timer3
@@ -238,9 +230,11 @@ struct alteration_functor {
 };
 
 // Compute the uper bound for the alteration
-template <typename vertex_t, typename edge_t, typename weight_t>
-double MST_solver<vertex_t, edge_t, weight_t>::alteration_max() {
-  auto policy = rmm::exec_policy(stream);
+template <typename vertex_t, typename edge_t, typename weight_t,
+          typename alteration_t>
+alteration_t
+MST_solver<vertex_t, edge_t, weight_t, alteration_t>::alteration_max() {
+  auto policy = rmm::exec_policy(rmm::cuda_stream_view{stream});
   rmm::device_vector<weight_t> tmp(e);
   thrust::device_ptr<const weight_t> weights_ptr(weights);
   thrust::copy(policy, weights_ptr, weights_ptr + e, tmp.begin());
@@ -259,21 +253,22 @@ double MST_solver<vertex_t, edge_t, weight_t>::alteration_max() {
   auto max =
     thrust::transform_reduce(policy, begin, end, alteration_functor<weight_t>(),
                              init, thrust::minimum<weight_t>());
-  return max / static_cast<weight_t>(2);
+  return max / static_cast<alteration_t>(2);
 }
 
 // Compute the alteration to make all undirected edge weight unique
 // Preserves weights order
-template <typename vertex_t, typename edge_t, typename weight_t>
-void MST_solver<vertex_t, edge_t, weight_t>::alteration() {
+template <typename vertex_t, typename edge_t, typename weight_t,
+          typename alteration_t>
+void MST_solver<vertex_t, edge_t, weight_t, alteration_t>::alteration() {
   auto nthreads = std::min(v, max_threads);
   auto nblocks = std::min((v + nthreads - 1) / nthreads, max_blocks);
 
   // maximum alteration that does not change realtive weights order
-  double max = alteration_max();
+  alteration_t max = alteration_max();
 
   // pool of rand values
-  rmm::device_vector<double> rand_values(v);
+  rmm::device_vector<alteration_t> rand_values(v);
 
   // Random number generator
   curandGenerator_t randGen;
@@ -288,20 +283,17 @@ void MST_solver<vertex_t, edge_t, weight_t>::alteration() {
   RAFT_EXPECTS(curand_status == CURAND_STATUS_SUCCESS,
                "MST: CURAND cleanup failed");
 
-  std::cout << "Max: " << max << std::endl;
-  // bool use_alpha = max < 1e-3 && sizeof(weight_t) == 4;
-  bool use_alpha = true;
-
   //Alterate the weights, make all undirected edge weight unique while keeping Wuv == Wvu
   detail::alteration_kernel<<<nblocks, nthreads, 0, stream>>>(
     v, e, offsets, indices, weights, max, rand_values.data().get(),
-    altered_weights.data().get(), alpha, use_alpha);
+    altered_weights.data().get());
 }
 
 // updates colors of vertices by propagating the lower color to the higher
-template <typename vertex_t, typename edge_t, typename weight_t>
-void MST_solver<vertex_t, edge_t, weight_t>::label_prop(vertex_t* mst_src,
-                                                        vertex_t* mst_dst) {
+template <typename vertex_t, typename edge_t, typename weight_t,
+          typename alteration_t>
+void MST_solver<vertex_t, edge_t, weight_t, alteration_t>::label_prop(
+  vertex_t* mst_src, vertex_t* mst_dst) {
   // update the colors of both ends its until there is no change in colors
   thrust::host_vector<edge_t> curr_mst_edge_count = mst_edge_count;
 
@@ -338,11 +330,13 @@ void MST_solver<vertex_t, edge_t, weight_t>::label_prop(vertex_t* mst_src,
 }
 
 // Finds the minimum edge from each vertex to the lowest color
-template <typename vertex_t, typename edge_t, typename weight_t>
-void MST_solver<vertex_t, edge_t, weight_t>::min_edge_per_vertex() {
+template <typename vertex_t, typename edge_t, typename weight_t,
+          typename alteration_t>
+void MST_solver<vertex_t, edge_t, weight_t,
+                alteration_t>::min_edge_per_vertex() {
   auto policy = rmm::exec_policy(rmm::cuda_stream_view{stream});
   thrust::fill(policy, min_edge_color.begin(), min_edge_color.end(),
-               std::numeric_limits<weight_t>::max());
+               std::numeric_limits<alteration_t>::max());
   thrust::fill(policy, new_mst_edge.begin(), new_mst_edge.end(),
                std::numeric_limits<weight_t>::max());
 
@@ -351,8 +345,8 @@ void MST_solver<vertex_t, edge_t, weight_t>::min_edge_per_vertex() {
   vertex_t* color_ptr = color.data().get();
   edge_t* new_mst_edge_ptr = new_mst_edge.data().get();
   bool* mst_edge_ptr = mst_edge.data().get();
-  double* min_edge_color_ptr = min_edge_color.data().get();
-  double* altered_weights_ptr = altered_weights.data().get();
+  alteration_t* min_edge_color_ptr = min_edge_color.data().get();
+  alteration_t* altered_weights_ptr = altered_weights.data().get();
 
   detail::kernel_min_edge_per_vertex<<<v, n_threads, 0, stream>>>(
     offsets, indices, altered_weights_ptr, color_ptr, color_index,
@@ -360,8 +354,10 @@ void MST_solver<vertex_t, edge_t, weight_t>::min_edge_per_vertex() {
 }
 
 // Finds the minimum edge from each supervertex to the lowest color
-template <typename vertex_t, typename edge_t, typename weight_t>
-void MST_solver<vertex_t, edge_t, weight_t>::min_edge_per_supervertex() {
+template <typename vertex_t, typename edge_t, typename weight_t,
+          typename alteration_t>
+void MST_solver<vertex_t, edge_t, weight_t,
+                alteration_t>::min_edge_per_supervertex() {
   auto nthreads = std::min(v, max_threads);
   auto nblocks = std::min((v + nthreads - 1) / nthreads, max_blocks);
 
@@ -372,8 +368,8 @@ void MST_solver<vertex_t, edge_t, weight_t>::min_edge_per_supervertex() {
   vertex_t* color_ptr = color.data().get();
   edge_t* new_mst_edge_ptr = new_mst_edge.data().get();
   bool* mst_edge_ptr = mst_edge.data().get();
-  double* min_edge_color_ptr = min_edge_color.data().get();
-  double* altered_weights_ptr = altered_weights.data().get();
+  alteration_t* min_edge_color_ptr = min_edge_color.data().get();
+  alteration_t* altered_weights_ptr = altered_weights.data().get();
   vertex_t* temp_src_ptr = temp_src.data().get();
   vertex_t* temp_dst_ptr = temp_dst.data().get();
   weight_t* temp_weights_ptr = temp_weights.data().get();
@@ -393,8 +389,9 @@ void MST_solver<vertex_t, edge_t, weight_t>::min_edge_per_supervertex() {
   }
 }
 
-template <typename vertex_t, typename edge_t, typename weight_t>
-void MST_solver<vertex_t, edge_t, weight_t>::check_termination() {
+template <typename vertex_t, typename edge_t, typename weight_t,
+          typename alteration_t>
+void MST_solver<vertex_t, edge_t, weight_t, alteration_t>::check_termination() {
   vertex_t nthreads = std::min(2 * v, (vertex_t)max_threads);
   vertex_t nblocks =
     std::min((2 * v + nthreads - 1) / nthreads, (vertex_t)max_blocks);
@@ -417,8 +414,9 @@ struct new_edges_functor {
   }
 };
 
-template <typename vertex_t, typename edge_t, typename weight_t>
-void MST_solver<vertex_t, edge_t, weight_t>::append_src_dst_pair(
+template <typename vertex_t, typename edge_t, typename weight_t,
+          typename alteration_t>
+void MST_solver<vertex_t, edge_t, weight_t, alteration_t>::append_src_dst_pair(
   vertex_t* mst_src, vertex_t* mst_dst, weight_t* mst_weights) {
   auto policy = rmm::exec_policy(rmm::cuda_stream_view{stream});
 
