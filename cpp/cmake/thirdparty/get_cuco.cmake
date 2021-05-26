@@ -19,8 +19,8 @@ function(find_and_configure_cuco VERSION)
     rapids_cpm_find(cuco ${VERSION}
       GLOBAL_TARGETS cuco cuco::cuco
       CPM_ARGS
-        GIT_REPOSITORY https://github.com/NVIDIA/cuCollections.git
-        GIT_TAG        7678a5ecaa192b8983b02a0191a140097171713e
+        GIT_REPOSITORY https://github.com/divyegala/cuCollections.git
+        GIT_TAG        view-initialization-ctor
         OPTIONS        "BUILD_TESTS OFF"
                        "BUILD_BENCHMARKS OFF"
                        "BUILD_EXAMPLES OFF"
