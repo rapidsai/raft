@@ -99,10 +99,11 @@ class ConnectComponentsTest : public ::testing::TestWithParam<
     /**
      * 3. connect_components to fix connectivities
      */
-    raft::linkage::FixConnectivitiesRedOp<value_idx, value_t> red_op(colors.data(), params.n_row);
+    raft::linkage::FixConnectivitiesRedOp<value_idx, value_t> red_op(
+      colors.data(), params.n_row);
     raft::linkage::connect_components<value_idx, value_t>(
-      handle, out_edges, data.data(), colors.data(), params.n_row,
-      params.n_col, red_op);
+      handle, out_edges, data.data(), colors.data(), params.n_row, params.n_col,
+      red_op);
 
     /**
      * Construct final edge list

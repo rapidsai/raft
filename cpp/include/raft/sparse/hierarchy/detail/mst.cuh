@@ -141,8 +141,8 @@ void build_sorted_mst(const raft::handle_t &handle, const value_t *X,
 
   // We want to have MST initialize colors on first call.
   auto mst_coo = raft::mst::mst<value_idx, value_idx, value_t, double>(
-    handle, indptr, indices, pw_dists, (value_idx)m, nnz, color.data(), stream,
-    false, true);
+    handle, indptr, indices, pw_dists, (value_idx)m, nnz, color, stream, false,
+    true);
 
   int iters = 1;
   int n_components = linkage::get_n_components(color, m, d_alloc, stream);
@@ -176,13 +176,9 @@ void build_sorted_mst(const raft::handle_t &handle, const value_t *X,
                " or increase 'max_iter'",
                max_iter);
 
-  sort_coo_by_data(mst_coo.src.data(), mst_coo.dst.data(),
-                   mst_coo.weights.data(), mst_coo.n_edges, stream);
-
-  // TODO: be nice if we could pass these directly into the MST
-  mst_src.resize(mst_coo.n_edges, stream);
-  mst_dst.resize(mst_coo.n_edges, stream);
-  mst_weight.resize(mst_coo.n_edges, stream);
+  raft::sparse::op::coo_sort_by_weight(mst_coo.src.data(), mst_coo.dst.data(),
+                                       mst_coo.weights.data(), mst_coo.n_edges,
+                                       stream);
 
   raft::copy_async(mst_src, mst_coo.src.data(), mst_coo.n_edges, stream);
   raft::copy_async(mst_dst, mst_coo.dst.data(), mst_coo.n_edges, stream);
