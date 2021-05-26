@@ -112,13 +112,6 @@ MST_solver<vertex_t, edge_t, weight_t, alteration_t>::solve() {
   auto start = Clock::now();
 #endif
 
-  // int start_1507, end_1507;
-  // raft::update_host(&start_1507, offsets + 1507, 1, stream);
-  // raft::update_host(&end_1507, offsets + 1508, 1, stream);
-
-  // raft::print_device_vector("1507 indices", indices + start_1507, end_1507 - start_1507, std::cout);
-  // raft::print_device_vector("1507 weights", weights + start_1507, end_1507 - start_1507, std::cout);
-
   // Alterating the weights
   // this is done by identifying the lowest cost edge weight gap that is not 0, call this theta.
   // For each edge, add noise that is less than theta. That is, generate a random number in the range [0.0, theta) and add it to each edge weight.
