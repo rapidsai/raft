@@ -80,7 +80,7 @@ class UnionFind {
  * which breaks apart the sorted MST results into overlapping subsets and
  * independently runs Kruskal's algorithm on each subset, merging them back
  * together into a single hierarchy when complete. Unfortunately,
- * this is nontrivial and the speedup wouldn't bit e useful until this
+ * this is nontrivial and the speedup wouldn't be useful until this
  * becomes a bottleneck.
  *
  * @tparam value_idx
