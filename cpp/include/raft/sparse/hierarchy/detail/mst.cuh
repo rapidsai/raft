@@ -141,8 +141,8 @@ void build_sorted_mst(const raft::handle_t &handle, const value_t *X,
 
   // We want to have MST initialize colors on first call.
   auto mst_coo = raft::mst::mst<value_idx, value_idx, value_t, double>(
-    handle, indptr, indices, pw_dists, (value_idx)m, nnz, color.data(), stream,
-    false, true);
+    handle, indptr, indices, pw_dists, (value_idx)m, nnz, color, stream, false,
+    true);
 
   int iters = 1;
   int n_components = linkage::get_n_components(color, m, d_alloc, stream);

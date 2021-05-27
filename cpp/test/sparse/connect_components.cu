@@ -92,7 +92,7 @@ class ConnectComponentsTest : public ::testing::TestWithParam<
      */
     rmm::device_uvector<value_idx> colors(params.n_row, stream);
 
-    auto mst_coo = raft::mst::mst<value_idx, value_idx, value_t>(
+    auto mst_coo = raft::mst::mst<value_idx, value_idx, value_t, double>(
       handle, indptr.data(), knn_graph_coo.cols(), knn_graph_coo.vals(),
       params.n_row, knn_graph_coo.nnz, colors.data(), stream, false, true);
 
