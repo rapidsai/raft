@@ -116,7 +116,7 @@ void connect_knn_graph(const raft::handle_t &handle, const value_t *X,
 
   // On the second call, we hand the MST the original colors
   // and the new set of edges and let it restart the optimization process
-  auto new_mst = raft::mst::mst<value_idx, value_idx, value_t>(
+  auto new_mst = raft::mst::mst<value_idx, value_idx, value_t, double>(
     handle, indptr2.data(), connected_edges.cols(), connected_edges.vals(), m,
     connected_edges.nnz, color, stream, false, false);
 
@@ -164,7 +164,7 @@ void build_sorted_mst(const raft::handle_t &handle, const value_t *X,
   rmm::device_uvector<value_idx> color(m, stream);
 
   // We want to have MST initialize colors on first call.
-  auto mst_coo = raft::mst::mst<value_idx, value_idx, value_t>(
+  auto mst_coo = raft::mst::mst<value_idx, value_idx, value_t, double>(
     handle, indptr, indices, pw_dists, (value_idx)m, nnz, color.data(), stream,
     false, true);
 
@@ -200,12 +200,6 @@ void build_sorted_mst(const raft::handle_t &handle, const value_t *X,
                "(and the same distance metric used),"
                " or increase 'max_iter'",
                max_iter);
-
-  RAFT_EXPECTS(mst_coo.n_edges == m - 1,
-               "n_edges should be %d but was %d. This"
-               "could be an indication of duplicate edges returned from the"
-               "MST or symmetrization stage.",
-               m - 1, mst_coo.n_edges);
 
   sort_coo_by_data(mst_coo.src.data(), mst_coo.dst.data(),
                    mst_coo.weights.data(), mst_coo.n_edges, stream);
