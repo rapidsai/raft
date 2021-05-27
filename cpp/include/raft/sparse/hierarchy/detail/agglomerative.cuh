@@ -143,7 +143,6 @@ void build_dendrogram_host(const handle_t &handle, const value_idx *rows,
   raft::update_device(out_delta, out_delta_h.data(), n_edges, stream);
 }
 
-
 template <typename value_idx>
 __global__ void write_levels_kernel(const value_idx *children,
                                     value_idx *parents, value_idx n_vertices) {
