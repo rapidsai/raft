@@ -47,9 +47,11 @@ __global__ void naiveDistanceKernel(DataType *dist, const DataType *x,
 }
 
 template <typename DataType>
-__global__ void naiveL1DistanceKernel(DataType *dist, const DataType *x,
-                                      const DataType *y, int m, int n, int k,
-                                      bool isRowMajor) {
+__global__ void naiveL1_LinfDistanceKernel(DataType *dist, const DataType *x,
+                                           const DataType *y, int m, int n,
+                                           int k,
+                                           raft::distance::DistanceType type,
+                                           bool isRowMajor) {
   int midx = threadIdx.x + blockIdx.x * blockDim.x;
   int nidx = threadIdx.y + blockIdx.y * blockDim.y;
   if (midx >= m || nidx >= n) {
@@ -63,7 +65,11 @@ __global__ void naiveL1DistanceKernel(DataType *dist, const DataType *x,
     auto a = x[xidx];
     auto b = y[yidx];
     auto diff = (a > b) ? (a - b) : (b - a);
-    acc += diff;
+    if (type == raft::distance::DistanceType::Linf) {
+      acc = raft::myMax(acc, diff);
+    } else {
+      acc += diff;
+    }
   }
 
   int outidx = isRowMajor ? midx * n + nidx : midx + m * nidx;
@@ -109,9 +115,10 @@ void naiveDistance(DataType *dist, const DataType *x, const DataType *y, int m,
   dim3 nblks(raft::ceildiv(m, (int)TPB.x), raft::ceildiv(n, (int)TPB.y), 1);
 
   switch (type) {
+    case raft::distance::DistanceType::Linf:
     case raft::distance::DistanceType::L1:
-      naiveL1DistanceKernel<DataType>
-        <<<nblks, TPB>>>(dist, x, y, m, n, k, isRowMajor);
+      naiveL1_LinfDistanceKernel<DataType>
+        <<<nblks, TPB>>>(dist, x, y, m, n, k, type, isRowMajor);
       break;
     case raft::distance::DistanceType::L2SqrtUnexpanded:
     case raft::distance::DistanceType::L2Unexpanded:
