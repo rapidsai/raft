@@ -18,6 +18,7 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/contractions.cuh>
 #include <raft/linalg/norm.cuh>
+#include <raft/vectorized.cuh>
 
 namespace raft {
 namespace distance {
@@ -147,13 +148,22 @@ struct PairwiseDistances : public BaseClass {
     }
 
     this->ldgXY(0);
+    typedef TxN_t<DataT, P::Veclen> VecType;
+    VecType zeros;
+    zeros.fill(BaseClass::Zero);
 #pragma unroll
     for (int i = 0; i < P::AccRowsPerTh; ++i) {
+      zeros.store(&(this->regx[i][0]), 0);
 #pragma unroll
       for (int j = 0; j < P::AccColsPerTh; ++j) {
         acc[i][j] = BaseClass::Zero;
       }
     }
+#pragma unroll
+    for (int j = 0; j < P::AccColsPerTh; ++j) {
+      zeros.store(&(this->regy[j][0]), 0);
+    }
+
     this->stsXY();
     __syncthreads();
     this->pageWr ^= 1;
