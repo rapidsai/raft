@@ -22,6 +22,7 @@
 #include <raft/distance/chebyshev.cuh>
 #include <raft/distance/cosine.cuh>
 #include <raft/distance/euclidean.cuh>
+#include <raft/distance/hellinger.cuh>
 #include <raft/distance/l1.cuh>
 #include <raft/mr/device/buffer.hpp>
 
@@ -125,6 +126,19 @@ struct DistanceImpl<raft::distance::DistanceType::Linf, InType, AccType,
            Index_ k, void *workspace, size_t worksize, FinalLambda fin_op,
            cudaStream_t stream, bool isRowMajor) {
     raft::distance::chebyshevImpl<InType, AccType, OutType, FinalLambda,
+                                  Index_>(m, n, k, x, y, dist, fin_op, stream,
+                                          isRowMajor);
+  }
+};
+
+template <typename InType, typename AccType, typename OutType,
+          typename FinalLambda, typename Index_>
+struct DistanceImpl<raft::distance::DistanceType::HellingerExpanded, InType,
+                    AccType, OutType, FinalLambda, Index_> {
+  void run(const InType *x, const InType *y, OutType *dist, Index_ m, Index_ n,
+           Index_ k, void *workspace, size_t worksize, FinalLambda fin_op,
+           cudaStream_t stream, bool isRowMajor) {
+    raft::distance::hellingerImpl<InType, AccType, OutType, FinalLambda,
                                   Index_>(m, n, k, x, y, dist, fin_op, stream,
                                           isRowMajor);
   }
@@ -304,6 +318,11 @@ void pairwise_distance(const Type *x, const Type *y, Type *dist, Index_ m,
       break;
     case raft::distance::DistanceType::Linf:
       pairwise_distance_impl<Type, Index_, raft::distance::DistanceType::Linf>(
+        x, y, dist, m, n, k, workspace, stream, isRowMajor);
+      break;
+    case raft::distance::HellingerExpanded:
+      pairwise_distance_impl<Type, Index_,
+                             raft::distance::DistanceType::HellingerExpanded>(
         x, y, dist, m, n, k, workspace, stream, isRowMajor);
       break;
     default:

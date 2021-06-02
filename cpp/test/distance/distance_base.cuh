@@ -108,6 +108,37 @@ __global__ void naiveCosineDistanceKernel(DataType *dist, const DataType *x,
 }
 
 template <typename DataType>
+__global__ void naiveHellingerDistanceKernel(DataType *dist, const DataType *x,
+                                             const DataType *y, int m, int n,
+                                             int k, bool isRowMajor) {
+  int midx = threadIdx.x + blockIdx.x * blockDim.x;
+  int nidx = threadIdx.y + blockIdx.y * blockDim.y;
+  if (midx >= m || nidx >= n) {
+    return;
+  }
+
+  DataType acc_ab = DataType(0);
+
+  for (int i = 0; i < k; ++i) {
+    int xidx = isRowMajor ? i + midx * k : i * m + midx;
+    int yidx = isRowMajor ? i + nidx * k : i * n + nidx;
+    auto a = x[xidx];
+    auto b = y[yidx];
+    // Adjust to replace NaN in sqrt with 0 if input to sqrt is negative
+    auto rectifierX = (!signbit(a));
+    auto rectifierY = (!signbit(b));
+    acc_ab += raft::mySqrt(rectifierX * a) * raft::mySqrt(rectifierY * b);
+  }
+
+  int outidx = isRowMajor ? midx * n + nidx : midx + m * nidx;
+
+  // Adjust to replace NaN in sqrt with 0 if input to sqrt is negative
+  acc_ab = 1 - acc_ab;
+  auto rectifier = (!signbit(acc_ab));
+  dist[outidx] = raft::mySqrt(rectifier * acc_ab);
+}
+
+template <typename DataType>
 void naiveDistance(DataType *dist, const DataType *x, const DataType *y, int m,
                    int n, int k, raft::distance::DistanceType type,
                    bool isRowMajor) {
@@ -130,6 +161,10 @@ void naiveDistance(DataType *dist, const DataType *x, const DataType *y, int m,
     case raft::distance::DistanceType::CosineExpanded:
       naiveCosineDistanceKernel<DataType>
         <<<nblks, TPB>>>(dist, x, y, m, n, k, isRowMajor);
+      break;
+    case raft::distance::DistanceType::HellingerExpanded:
+      naiveHellingerDistanceKernel<<<nblks, TPB>>>(dist, x, y, m, n, k,
+                                                   isRowMajor);
       break;
     default:
       FAIL() << "should be here\n";
