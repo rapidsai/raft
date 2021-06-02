@@ -164,6 +164,7 @@ struct CompareApproxAbsKVP {
   typedef typename cub::KeyValuePair<int, T> KVP;
   CompareApproxAbsKVP(T eps_) : eps(eps_) {}
   bool operator()(const KVP &a, const KVP &b) const {
+    if (a.key != b.key) return false;
     T diff = raft::abs(raft::abs(a.value) - raft::abs(b.value));
     T m = std::max(raft::abs(a.value), raft::abs(b.value));
     T ratio = m >= eps ? diff / m : diff;
@@ -178,6 +179,7 @@ template <typename T>
 struct CompareExactKVP {
   typedef typename cub::KeyValuePair<int, T> KVP;
   bool operator()(const KVP &a, const KVP &b) const {
+    if (a.key != b.key) return false;
     if (a.value != b.value) return false;
     return true;
   }

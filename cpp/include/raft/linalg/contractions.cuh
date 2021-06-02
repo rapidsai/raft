@@ -293,13 +293,13 @@ struct Contractions_NT {
       pageWr(0),
       pageRd(0) {
     if (isRowMajor) {
-      xrowid = IdxT(blockIdx.y) * P::Mblk + srowid;
-      yrowid = IdxT(blockIdx.x) * P::Nblk + srowid;
+      xrowid = IdxT(blockIdx.x) * P::Mblk + srowid;
+      yrowid = IdxT(blockIdx.y) * P::Nblk + srowid;
       x = _x + xrowid * lda;
       y = _y + yrowid * ldb;
     } else {
-      xrowid = IdxT(blockIdx.y) * P::Mblk;
-      yrowid = IdxT(blockIdx.x) * P::Nblk;
+      xrowid = IdxT(blockIdx.x) * P::Mblk;
+      yrowid = IdxT(blockIdx.y) * P::Nblk;
       x = _x + xrowid + srowid * lda;
       y = _y + yrowid + srowid * ldb;
     }
