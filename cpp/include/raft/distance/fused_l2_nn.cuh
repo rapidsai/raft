@@ -20,6 +20,7 @@
 #include <cub/cub.cuh>
 #include <limits>
 #include <raft/cuda_utils.cuh>
+#include <raft/distance/pairwise_distance_base.cuh>
 #include <raft/linalg/contractions.cuh>
 
 namespace raft {
@@ -68,117 +69,81 @@ struct MinReduceOp {
   DI void init(DataT* out, DataT maxVal) { *out = maxVal; }
 };
 
-template <typename DataT, typename OutT, typename IdxT, bool Sqrt,
-          typename Policy, typename ReduceOpT, typename KVPReduceOpT,
-          typename BaseClass = linalg::Contractions_NT<DataT, IdxT, Policy>>
-struct FusedL2NN : public BaseClass {
- private:
-  typedef Policy P;
-
-  const DataT* xn;
-  const DataT* yn;
-  OutT* min;
-  int* mutex;
-
-  DataT *sxNorm, *syNorm;
-  cub::KeyValuePair<IdxT, DataT>* sRed;
-
-  DataT maxVal;
-
-  DataT acc[P::AccRowsPerTh][P::AccColsPerTh];
-
-  ReduceOpT redOp;
-  KVPReduceOpT pairRedOp;
-
-#if (ENABLE_MEMCPY_ASYNC == 1)
-  DataT zeros[P::Veclen];
-  nvcuda::experimental::pipeline pipe;
-#endif
-
-  static const DataT Two = (DataT)2.0;
-  static constexpr size_t SizeAndAlign = P::Veclen * sizeof(DataT);
-
- public:
-  DI FusedL2NN(OutT* _min, const DataT* _x, const DataT* _y, const DataT* _xn,
-               const DataT* _yn, IdxT _m, IdxT _n, IdxT _k, char* _smem,
-               DataT _mv, int* _mut, ReduceOpT op, KVPReduceOpT pair_op)
-    : BaseClass(_x, _y, _m, _n, _k, _smem),
-      xn(_xn),
-      yn(_yn),
-      min(_min),
-      mutex(_mut),
-      sxNorm((DataT*)_smem),
-      syNorm(&(sxNorm[P::Mblk])),
-      sRed((cub::KeyValuePair<IdxT, DataT>*)_smem),
-      maxVal(_mv),
-      redOp(op),
-      pairRedOp(pair_op) {
-#if (ENABLE_MEMCPY_ASYNC == 1)
-#pragma unroll
-    for (int i = 0; i < P::Veclen; ++i) {
-      zeros[i] = BaseClass::Zero;
-    }
-#endif
+template <typename DataT, typename OutT, typename IdxT, typename ReduceOpT>
+__global__ void initKernel(OutT* min, IdxT m, DataT maxVal, ReduceOpT redOp) {
+  auto tid = IdxT(blockIdx.x) * blockDim.x + threadIdx.x;
+  if (tid < m) {
+    redOp.init(min + tid, maxVal);
   }
+}
 
-  DI void run() {
-    prolog();
-    loop();
-    __syncthreads();  // so that we can safely reuse smem
-    epilog();
-  }
+// TODO: specialize this function for MinAndDistanceReduceOp<int, float>
+// with atomicCAS of 64 bit which will eliminate mutex and shfls
+template <typename P, typename OutT, typename IdxT, typename KVPair,
+          typename ReduceOpT>
+DI void updateReducedVal(int* mutex, OutT* min, KVPair* val, ReduceOpT red_op,
+                         IdxT m, IdxT gridStrideY) {
+  const auto lid = threadIdx.x % raft::WarpSize;
+  const auto accrowid = threadIdx.x / P::AccThCols;
 
- private:
-  DI void prolog() {
-    this->ldgXY(0);
+  // for now have first lane from each warp update a unique output row. This
+  // will resolve hang issues with pre-Volta architectures
 #pragma unroll
-    for (int i = 0; i < P::AccRowsPerTh; ++i) {
+  for (int j = 0; j < (raft::WarpSize / P::AccThCols); j++) {
+    if (lid == 0) {
 #pragma unroll
-      for (int j = 0; j < P::AccColsPerTh; ++j) {
-        acc[i][j] = BaseClass::Zero;
+      for (int i = 0; i < P::AccRowsPerTh; ++i) {
+        auto rid = gridStrideY + accrowid + j + i * P::AccThRows;
+        if (rid < m) {
+          auto value = val[i];
+          while (atomicCAS(mutex + rid, 0, 1) == 1)
+            ;
+          __threadfence();
+          red_op(rid, min + rid, value);
+          __threadfence();
+          atomicCAS(mutex + rid, 1, 0);
+        }
       }
     }
-    this->stsXY();
-    __syncthreads();
-    this->pageWr ^= 1;
+    if (j < (raft::WarpSize / P::AccThCols) - 1) {
+#pragma unroll
+      for (int i = 0; i < P::AccRowsPerTh; ++i) {
+        auto tmpkey = raft::shfl(val[i].key, (j + 1) * P::AccThCols);
+        auto tmpvalue = raft::shfl(val[i].value, (j + 1) * P::AccThCols);
+        val[i] = {tmpkey, tmpvalue};
+      }
+    }
+  }
+}
+
+template <typename DataT, typename OutT, typename IdxT, bool Sqrt, typename P,
+          typename ReduceOpT, typename KVPReduceOpT, typename CoreLambda,
+          typename FinalLambda>
+__global__ __launch_bounds__(P::Nthreads, 2) void fusedL2NNkernel(
+  OutT* min, const DataT* x, const DataT* y, const DataT* xn, const DataT* yn,
+  IdxT m, IdxT n, IdxT k, DataT maxVal, int* mutex, ReduceOpT redOp,
+  KVPReduceOpT pairRedOp, CoreLambda core_op, FinalLambda fin_op) {
+  extern __shared__ char smem[];
+
+  typedef cub::KeyValuePair<IdxT, DataT> KVPair;
+  KVPair val[P::AccRowsPerTh];
+#pragma unroll
+  for (int i = 0; i < P::AccRowsPerTh; ++i) {
+    val[i] = {-1, maxVal};
   }
 
-  DI void loop() {
-    for (int kidx = P::Kblk; kidx < this->k; kidx += P::Kblk) {
-      this->ldgXY(kidx);
-      accumulate();  // on the previous k-block
-      this->stsXY();
-      __syncthreads();
-      this->pageWr ^= 1;
-      this->pageRd ^= 1;
-    }
-    accumulate();  // last iteration
-  }
+  // epilogue operation lambda for final value calculation
+  auto epilog_lambda = [n, pairRedOp, &val, maxVal] __device__(
+                         DataT acc[P::AccRowsPerTh][P::AccColsPerTh],
+                         DataT * regxn, DataT * regyn, IdxT gridStrideX,
+                         IdxT gridStrideY) {
+    KVPReduceOpT pairRed_op(pairRedOp);
 
-  DI void epilog() {
-    for (int i = threadIdx.x; i < P::Mblk; i += P::Nthreads) {
-      auto idx = blockIdx.x * P::Mblk + i;
-      sxNorm[i] = idx < this->m ? xn[idx] : maxVal;
-    }
-    for (int i = threadIdx.x; i < P::Nblk; i += P::Nthreads) {
-      auto idx = blockIdx.y * P::Nblk + i;
-      syNorm[i] = idx < this->n ? yn[idx] : maxVal;
-    }
-    __syncthreads();
-    DataT regxn[P::AccRowsPerTh], regyn[P::AccColsPerTh];
-#pragma unroll
-    for (int i = 0; i < P::AccRowsPerTh; ++i) {
-      regxn[i] = sxNorm[i * P::AccThRows + this->accrowid];
-    }
-#pragma unroll
-    for (int i = 0; i < P::AccColsPerTh; ++i) {
-      regyn[i] = syNorm[i * P::AccThCols + this->acccolid];
-    }
 #pragma unroll
     for (int i = 0; i < P::AccRowsPerTh; ++i) {
 #pragma unroll
       for (int j = 0; j < P::AccColsPerTh; ++j) {
-        acc[i][j] = regxn[i] + regyn[j] - Two * acc[i][j];
+        acc[i][j] = regxn[i] + regyn[j] - (DataT)2.0 * acc[i][j];
       }
     }
     if (Sqrt) {
@@ -190,146 +155,62 @@ struct FusedL2NN : public BaseClass {
         }
       }
     }
-    // reduce
-    cub::KeyValuePair<IdxT, DataT> val[P::AccRowsPerTh];
-    auto lid = raft::laneId();
+
+    // intra thread reduce
+    const auto acccolid = threadIdx.x % P::AccThCols;
+    const auto accrowid = threadIdx.x / P::AccThCols;
 #pragma unroll
     for (int i = 0; i < P::AccRowsPerTh; ++i) {
-      val[i] = {-1, maxVal};
 #pragma unroll
       for (int j = 0; j < P::AccColsPerTh; ++j) {
-        auto tmpkey = this->acccolid + j * P::AccThCols + blockIdx.y * P::Nblk;
-        cub::KeyValuePair<IdxT, DataT> tmp = {tmpkey, acc[i][j]};
-        if (tmpkey < this->n)
+        auto tmpkey = acccolid + j * P::AccThCols + gridStrideX;
+        KVPair tmp = {tmpkey, acc[i][j]};
+        if (tmpkey < n) {
           val[i] =
-            pairRedOp(this->accrowid + i * P::AccThRows + blockIdx.x * P::Mblk,
-                      tmp, val[i]);
+            pairRed_op(accrowid + i * P::AccThRows + gridStrideY, tmp, val[i]);
+        }
       }
-      __syncthreads();
+    }
+  };
+
+  auto rowEpilog_lambda = [m, mutex, min, pairRedOp, redOp, &val,
+                           maxVal] __device__(IdxT gridStrideY) {
+    KVPReduceOpT pairRed_op(pairRedOp);
+    ReduceOpT red_op(redOp);
+
+    const auto accrowid = threadIdx.x / P::AccThCols;
+    const auto lid = raft::laneId();
+
+    // reduce
+#pragma unroll
+    for (int i = 0; i < P::AccRowsPerTh; ++i) {
 #pragma unroll
       for (int j = P::AccThCols / 2; j > 0; j >>= 1) {
         auto tmpkey = raft::shfl(val[i].key, lid + j);
         auto tmpvalue = raft::shfl(val[i].value, lid + j);
-        cub::KeyValuePair<IdxT, DataT> tmp = {tmpkey, tmpvalue};
+        KVPair tmp = {tmpkey, tmpvalue};
         val[i] =
-          pairRedOp(this->accrowid + i * P::AccThRows + blockIdx.x * P::Mblk,
-                    tmp, val[i]);
+          pairRed_op(accrowid + i * P::AccThRows + gridStrideY, tmp, val[i]);
       }
     }
-    if (lid % P::AccThCols == 0) {
-#pragma unroll
-      for (int i = 0; i < P::AccRowsPerTh; ++i) {
-        sRed[i * P::AccThCols + this->accrowid] = val[i];
-      }
-    }
-    __syncthreads();
-    updateResults();
-  }
 
-  /*
-   * todo: From Volta onwards see if "coalesced" atomicCAS approach as
-   *        written below helps improve perf
-   * ```
-   *   auto tid = threadIdx.x;
-   *   auto rid = IdxT(blockIdx.x) * P::Mblk + tid;
-   *   if (rid < m) {
-   *     auto val = sRed[i];
-   *     while (atomicCAS(mutex + rid, 0, 1) == 1)
-   *       ;
-   *     __threadfence();
-   *     redOp(rid, min + rid, val);
-   *     __threadfence();
-   *     atomicCAS(mutex + rid, 1, 0);
-   *   }
-   * ```
-   */
-  DI void updateResults() {
-    // for now have first lane from each warp update a unique output row. This
-    // will resolve hang issues with pre-Volta architectures
-    auto nWarps = blockDim.x / raft::WarpSize;
-    auto lid = raft::laneId();
-    auto ridx = IdxT(blockIdx.x) * P::Mblk;
-    if (lid == 0) {
-      for (int i = threadIdx.x / raft::WarpSize; i < P::Mblk; i += nWarps) {
-        auto rid = ridx + i;
-        if (rid < this->m) {
-          auto val = sRed[i];
-          while (atomicCAS(mutex + rid, 0, 1) == 1)
-            ;
-          __threadfence();
-          redOp(rid, min + rid, val);
-          __threadfence();
-          atomicCAS(mutex + rid, 1, 0);
-        }
-      }
-    }
-  }
+    updateReducedVal<P, OutT, IdxT, KVPair, ReduceOpT>(mutex, min, val, red_op,
+                                                       m, gridStrideY);
 
-  DI void accumulate() {
+    // reset the val array.
 #pragma unroll
-    for (int ki = 0; ki < P::Kblk; ki += P::Veclen) {
-      this->ldsXY(ki);
-#pragma unroll
-      for (int i = 0; i < P::AccRowsPerTh; ++i) {
-#pragma unroll
-        for (int j = 0; j < P::AccColsPerTh; ++j) {
-#pragma unroll
-          for (int v = 0; v < P::Veclen; ++v) {
-            acc[i][j] += this->regx[i][v] * this->regy[j][v];
-          }
-        }
-      }
+    for (int i = 0; i < P::AccRowsPerTh; ++i) {
+      val[i] = {-1, maxVal};
     }
-  }
+  };
 
-#if (ENABLE_MEMCPY_ASYNC == 1)
-  DI void ldgXY(IdxT kidx) {
-    auto koffset = kidx + this->scolid;
-    auto offset =
-      this->pageWr * P::SmemPage + this->srowid * P::SmemStride + this->scolid;
-    auto* saddrx = this->sx + offset;
-    for (int i = 0; i < P::LdgPerThX; ++i) {
-      auto* sax = saddrx + i * P::LdgRowsX * P::SmemStride;
-      auto* gax = this->x + i * P::LdgRowsX * this->k + koffset;
-      auto inside =
-        koffset < this->k && (this->xrowid + i * P::LdgRowsX) < this->m;
-      __pipeline_memcpy_async(sax, inside ? gax : nullptr, SizeAndAlign,
-                              inside ? 0 : SizeAndAlign);
-    }
-    auto* saddry = this->sy + offset;
-    for (int i = 0; i < P::LdgPerThY; ++i) {
-      auto* say = saddry + i * P::LdgRowsY * P::SmemStride;
-      auto* gay = this->y + i * P::LdgRowsY * this->k + koffset;
-      auto inside =
-        koffset < this->k && (this->yrowid + i * P::LdgRowsY) < this->n;
-      __pipeline_memcpy_async(say, inside ? gay : nullptr, SizeAndAlign,
-                              inside ? 0 : SizeAndAlign);
-    }
-    pipe.commit();
-  }
-
-  DI void stsXY() { pipe.wait_prior<0>(); }
-#endif  // ENABLE_MEMCPY_ASYNC
-};      // struct FusedL2NN
-
-template <typename DataT, typename OutT, typename IdxT, bool Sqrt,
-          typename Policy, typename ReduceOpT, typename KVPReduceOpT>
-__global__ __launch_bounds__(Policy::Nthreads, 2) void fusedL2NNkernel(
-  OutT* min, const DataT* x, const DataT* y, const DataT* xn, const DataT* yn,
-  IdxT m, IdxT n, IdxT k, DataT maxVal, int* mutex, ReduceOpT redOp,
-  KVPReduceOpT pairRedOp) {
-  extern __shared__ char smem[];
-  FusedL2NN<DataT, OutT, IdxT, Sqrt, Policy, ReduceOpT, KVPReduceOpT> obj(
-    min, x, y, xn, yn, m, n, k, smem, maxVal, mutex, redOp, pairRedOp);
+  IdxT lda = k, ldb = k, ldd = n;
+  PairwiseDistances<true, DataT, DataT, DataT, IdxT, P, CoreLambda,
+                    decltype(epilog_lambda), FinalLambda,
+                    decltype(rowEpilog_lambda), true, false>
+    obj(x, y, m, n, k, lda, ldb, ldd, xn, yn, nullptr, smem, core_op,
+        epilog_lambda, fin_op, rowEpilog_lambda);
   obj.run();
-}
-
-template <typename DataT, typename OutT, typename IdxT, typename ReduceOpT>
-__global__ void initKernel(OutT* min, IdxT m, DataT maxVal, ReduceOpT redOp) {
-  auto tid = IdxT(blockIdx.x) * blockDim.x + threadIdx.x;
-  if (tid < m) {
-    redOp.init(min + tid, maxVal);
-  }
 }
 
 template <typename DataT, typename OutT, typename IdxT, int VecLen,
@@ -338,27 +219,48 @@ void fusedL2NNImpl(OutT* min, const DataT* x, const DataT* y, const DataT* xn,
                    const DataT* yn, IdxT m, IdxT n, IdxT k, int* workspace,
                    ReduceOpT redOp, KVPReduceOpT pairRedOp, bool sqrt,
                    bool initOutBuffer, cudaStream_t stream) {
-  typedef typename linalg::Policy4x4<DataT, VecLen>::Policy Policy;
-  dim3 grid(raft::ceildiv<int>(m, Policy::Mblk),
-            raft::ceildiv<int>(n, Policy::Nblk));
-  dim3 blk(Policy::Nthreads);
-  auto nblks = raft::ceildiv<int>(m, Policy::Nthreads);
-  auto maxVal = std::numeric_limits<DataT>::max();
+  typedef typename linalg::Policy4x4<DataT, VecLen>::Policy P;
+
+  dim3 blk(P::Nthreads);
+  auto nblks = raft::ceildiv<int>(m, P::Nthreads);
+  constexpr auto maxVal = std::numeric_limits<DataT>::max();
+  typedef cub::KeyValuePair<IdxT, DataT> KVPair;
+
+  // Accumulation operation lambda
+  auto core_lambda = [] __device__(DataT & acc, DataT & x, DataT & y) {
+    acc += x * y;
+  };
+
   CUDA_CHECK(cudaMemsetAsync(workspace, 0, sizeof(int) * m, stream));
   if (initOutBuffer) {
     initKernel<DataT, OutT, IdxT, ReduceOpT>
-      <<<nblks, Policy::Nthreads, 0, stream>>>(min, m, maxVal, redOp);
+      <<<nblks, P::Nthreads, 0, stream>>>(min, m, maxVal, redOp);
     CUDA_CHECK(cudaGetLastError());
   }
+
+  auto fin_op = [] __device__(DataT d_val, int g_d_idx) { return d_val; };
+
+  constexpr size_t shmemSize =
+    P::SmemSize + ((P::Mblk + P::Nblk) * sizeof(DataT));
   if (sqrt) {
-    fusedL2NNkernel<DataT, OutT, IdxT, true, Policy, ReduceOpT>
-      <<<grid, blk, Policy::SmemSize, stream>>>(
-        min, x, y, xn, yn, m, n, k, maxVal, workspace, redOp, pairRedOp);
+    auto fusedL2NNSqrt =
+      fusedL2NNkernel<DataT, OutT, IdxT, true, P, ReduceOpT, KVPReduceOpT,
+                      decltype(core_lambda), decltype(fin_op)>;
+    dim3 grid = launchConfigGenerator<P>(m, n, shmemSize, fusedL2NNSqrt);
+
+    fusedL2NNSqrt<<<grid, blk, shmemSize, stream>>>(
+      min, x, y, xn, yn, m, n, k, maxVal, workspace, redOp, pairRedOp,
+      core_lambda, fin_op);
   } else {
-    fusedL2NNkernel<DataT, OutT, IdxT, false, Policy, ReduceOpT>
-      <<<grid, blk, Policy::SmemSize, stream>>>(
-        min, x, y, xn, yn, m, n, k, maxVal, workspace, redOp, pairRedOp);
+    auto fusedL2NN =
+      fusedL2NNkernel<DataT, OutT, IdxT, false, P, ReduceOpT, KVPReduceOpT,
+                      decltype(core_lambda), decltype(fin_op)>;
+    dim3 grid = launchConfigGenerator<P>(m, n, shmemSize, fusedL2NN);
+    fusedL2NN<<<grid, blk, shmemSize, stream>>>(min, x, y, xn, yn, m, n, k,
+                                                maxVal, workspace, redOp,
+                                                pairRedOp, core_lambda, fin_op);
   }
+
   CUDA_CHECK(cudaGetLastError());
 }
 
