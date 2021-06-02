@@ -147,13 +147,23 @@ struct PairwiseDistances : public BaseClass {
       updateIndicesXY();
     }
 
-    this->ldgXY(0);
     typedef TxN_t<DataT, P::Veclen> VecType;
     VecType zeros;
     zeros.fill(BaseClass::Zero);
 #pragma unroll
+    for (int j = 0; j < P::LdgPerThX; ++j) {
+      zeros.store(&this->ldgDataX[j][0], 0);
+    }
+#pragma unroll
+    for (int j = 0; j < P::LdgPerThY; ++j) {
+      zeros.store(&this->ldgDataY[j][0], 0);
+    }
+
+    this->ldgXY(0);
+
+#pragma unroll
     for (int i = 0; i < P::AccRowsPerTh; ++i) {
-      zeros.store(&(this->regx[i][0]), 0);
+      zeros.store(&this->regx[i][0], 0);
 #pragma unroll
       for (int j = 0; j < P::AccColsPerTh; ++j) {
         acc[i][j] = BaseClass::Zero;
@@ -161,7 +171,7 @@ struct PairwiseDistances : public BaseClass {
     }
 #pragma unroll
     for (int j = 0; j < P::AccColsPerTh; ++j) {
-      zeros.store(&(this->regy[j][0]), 0);
+      zeros.store(&this->regy[j][0], 0);
     }
 
     this->stsXY();
