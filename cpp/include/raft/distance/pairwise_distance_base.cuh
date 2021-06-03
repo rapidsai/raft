@@ -241,6 +241,10 @@ struct PairwiseDistances : public BaseClass {
       epilog_op(acc, regxn, regyn, gridStrideX, gridStrideY);
     } else {
       epilog_op(acc, nullptr, nullptr, gridStrideX, gridStrideY);
+      // This sync is needed for making sure next grid stride of
+      // non-norm based metrics doesn't make shmem dirty until current
+      // this iteration is complete.
+      __syncthreads();
     }
 
     if (writeOut) {
