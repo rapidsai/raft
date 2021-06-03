@@ -92,16 +92,18 @@ class ConnectComponentsTest : public ::testing::TestWithParam<
      */
     rmm::device_uvector<value_idx> colors(params.n_row, stream);
 
-    auto mst_coo = raft::mst::mst<value_idx, value_idx, value_t>(
+    auto mst_coo = raft::mst::mst<value_idx, value_idx, value_t, double>(
       handle, indptr.data(), knn_graph_coo.cols(), knn_graph_coo.vals(),
       params.n_row, knn_graph_coo.nnz, colors.data(), stream, false, true);
 
     /**
      * 3. connect_components to fix connectivities
      */
+    raft::linkage::FixConnectivitiesRedOp<value_idx, value_t> red_op(
+      colors.data(), params.n_row);
     raft::linkage::connect_components<value_idx, value_t>(
-      handle, out_edges, data.data(), colors.data(), params.n_row,
-      params.n_col);
+      handle, out_edges, data.data(), colors.data(), params.n_row, params.n_col,
+      red_op);
 
     /**
      * Construct final edge list

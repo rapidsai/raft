@@ -92,6 +92,29 @@ void coo_sort(COO<T> *const in,
   coo_sort<T>(in->n_rows, in->n_cols, in->nnz, in->rows(), in->cols(),
               in->vals(), d_alloc, stream);
 }
+
+/**
+ * Sorts a COO by its weight
+ * @tparam value_idx
+ * @tparam value_t
+ * @param[inout] rows source edges
+ * @param[inout] cols dest edges
+ * @param[inout] data edge weights
+ * @param[in] nnz number of edges in edge list
+ * @param[in] stream cuda stream for which to order cuda operations
+ */
+template <typename value_idx, typename value_t>
+void coo_sort_by_weight(value_idx *rows, value_idx *cols, value_t *data,
+                        value_idx nnz, cudaStream_t stream) {
+  thrust::device_ptr<value_idx> t_rows = thrust::device_pointer_cast(rows);
+  thrust::device_ptr<value_idx> t_cols = thrust::device_pointer_cast(cols);
+  thrust::device_ptr<value_t> t_data = thrust::device_pointer_cast(data);
+
+  auto first = thrust::make_zip_iterator(thrust::make_tuple(rows, cols));
+
+  thrust::sort_by_key(thrust::cuda::par.on(stream), t_data, t_data + nnz,
+                      first);
+}
 };  // namespace op
 };  // end NAMESPACE sparse
 };  // end NAMESPACE raft

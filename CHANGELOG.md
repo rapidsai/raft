@@ -1,3 +1,7 @@
+# raft 21.08.00 (Date TBD)
+
+Please see https://github.com/rapidsai/raft/releases/tag/v21.08.00a for the latest changes to this development branch.
+
 # raft 21.06.00 (Date TBD)
 
 Please see https://github.com/rapidsai/raft/releases/tag/v21.06.00a for the latest changes to this development branch.

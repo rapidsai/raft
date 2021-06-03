@@ -73,9 +73,15 @@ class UnionFind {
 };
 
 /**
- * Standard single-threaded agglomerative labeling on host. This should work
- * well for smaller sizes of m. This is a C++ port of the original reference
- * implementation of HDBSCAN.
+ * Agglomerative labeling on host. This has not been found to be a bottleneck
+ * in the algorithm. A parallel version of this can be done using a parallel
+ * variant of Kruskal's MST algorithm
+ * (ref http://cucis.ece.northwestern.edu/publications/pdf/HenPat12.pdf),
+ * which breaks apart the sorted MST results into overlapping subsets and
+ * independently runs Kruskal's algorithm on each subset, merging them back
+ * together into a single hierarchy when complete. Unfortunately,
+ * this is nontrivial and the speedup wouldn't be useful until this
+ * becomes a bottleneck.
  *
  * @tparam value_idx
  * @tparam value_t
@@ -91,9 +97,8 @@ class UnionFind {
 template <typename value_idx, typename value_t>
 void build_dendrogram_host(const handle_t &handle, const value_idx *rows,
                            const value_idx *cols, const value_t *data,
-                           size_t nnz, value_idx *children,
-                           rmm::device_uvector<value_t> &out_delta,
-                           rmm::device_uvector<value_idx> &out_size) {
+                           size_t nnz, value_idx *children, value_t *out_delta,
+                           value_idx *out_size) {
   auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
 
@@ -103,8 +108,6 @@ void build_dendrogram_host(const handle_t &handle, const value_idx *rows,
   std::vector<value_idx> mst_dst_h(n_edges);
   std::vector<value_t> mst_weights_h(n_edges);
 
-  printf("n_edges: %d\n", n_edges);
-
   update_host(mst_src_h.data(), rows, n_edges, stream);
   update_host(mst_dst_h.data(), cols, n_edges, stream);
   update_host(mst_weights_h.data(), data, n_edges, stream);
@@ -113,12 +116,14 @@ void build_dendrogram_host(const handle_t &handle, const value_idx *rows,
 
   std::vector<value_idx> children_h(n_edges * 2);
   std::vector<value_idx> out_size_h(n_edges);
+  std::vector<value_t> out_delta_h(n_edges);
 
   UnionFind<value_idx, value_t> U(nnz + 1);
 
   for (value_idx i = 0; i < nnz; i++) {
     value_idx a = mst_src_h[i];
     value_idx b = mst_dst_h[i];
+    value_t delta = mst_weights_h[i];
 
     value_idx aa = U.find(a);
     value_idx bb = U.find(b);
@@ -127,72 +132,15 @@ void build_dendrogram_host(const handle_t &handle, const value_idx *rows,
 
     children_h[children_idx] = aa;
     children_h[children_idx + 1] = bb;
+    out_delta_h[i] = delta;
     out_size_h[i] = U.size[aa] + U.size[bb];
 
     U.perform_union(aa, bb);
   }
 
-  out_size.resize(n_edges, stream);
-
-  printf("Finished dendrogram\n");
-
   raft::update_device(children, children_h.data(), n_edges * 2, stream);
-  raft::update_device(out_size.data(), out_size_h.data(), n_edges, stream);
-}
-
-/**
- * Parallel agglomerative labeling. This amounts to a parallel Kruskal's
- * MST algorithm, which breaks apart the sorted MST results into overlapping
- * subsets and independently runs Kruskal's algorithm on each subset,
- * merging them back together into a single hierarchy when complete.
- *
- * This outputs the same format as the reference HDBSCAN, but as 4 separate
- * arrays, rather than a single 2D array.
- *
- * Reference: http://cucis.ece.northwestern.edu/publications/pdf/HenPat12.pdf
- *
- * TODO: Investigate potential for the following end-to-end single-hierarchy batching:
- *    For each of k (independent) batches over the input:
- *    - Sample n elements from X
- *    - Compute mutual reachability graph of batch
- *    - Construct labels from batch
- *
- * The sampled datasets should have some overlap across batches. This will
- * allow for the cluster hierarchies to be merged. Being able to batch
- * will reduce the memory cost so that the full n^2 pairwise distances
- * don't need to be materialized in memory all at once.
- *
- * @tparam value_idx
- * @tparam value_t
- * @param[in] handle the raft handle
- * @param[in] rows src edges of the sorted MST
- * @param[in] cols dst edges of the sorted MST
- * @param[in] nnz the number of edges in the sorted MST
- * @param[out] out_src parents of output
- * @param[out] out_dst children of output
- * @param[out] out_delta distances of output
- * @param[out] out_size cluster sizes of output
- * @param[in] k_folds number of folds for parallelizing label step
- */
-template <typename value_idx, typename value_t>
-void build_dendrogram_device(const handle_t &handle, const value_idx *rows,
-                             const value_idx *cols, const value_t *data,
-                             value_idx nnz, value_idx *children,
-                             value_t *out_delta, value_idx *out_size,
-                             value_idx k_folds) {
-  ASSERT(k_folds < nnz / 2, "k_folds must be < n_edges / 2");
-  /**
-   * divide (sorted) mst coo into overlapping subsets. Easiest way to do this is to
-   * break it into k-folds and iterate through two folds at a time.
-   */
-
-  // 1. Generate ranges for the overlapping subsets
-
-  // 2. Run union-find in parallel for each pair of folds
-
-  // 3. Sort individual label hierarchies
-
-  // 4. Merge label hierarchies together
+  raft::update_device(out_size, out_size_h.data(), n_edges, stream);
+  raft::update_device(out_delta, out_delta_h.data(), n_edges, stream);
 }
 
 template <typename value_idx>
