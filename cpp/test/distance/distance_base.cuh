@@ -124,10 +124,7 @@ __global__ void naiveHellingerDistanceKernel(DataType *dist, const DataType *x,
     int yidx = isRowMajor ? i + nidx * k : i * n + nidx;
     auto a = x[xidx];
     auto b = y[yidx];
-    // Adjust to replace NaN in sqrt with 0 if input to sqrt is negative
-    auto rectifierX = (!signbit(a));
-    auto rectifierY = (!signbit(b));
-    acc_ab += raft::mySqrt(rectifierX * a) * raft::mySqrt(rectifierY * b);
+    acc_ab += raft::mySqrt(a) * raft::mySqrt(b);
   }
 
   int outidx = isRowMajor ? midx * n + nidx : midx + m * nidx;
@@ -139,9 +136,31 @@ __global__ void naiveHellingerDistanceKernel(DataType *dist, const DataType *x,
 }
 
 template <typename DataType>
+__global__ void naiveLpUnexpDistanceKernel(DataType *dist, const DataType *x,
+                                           const DataType *y, int m, int n,
+                                           int k, bool isRowMajor, DataType p) {
+  int midx = threadIdx.x + blockIdx.x * blockDim.x;
+  int nidx = threadIdx.y + blockIdx.y * blockDim.y;
+  if (midx >= m || nidx >= n) return;
+  DataType acc = DataType(0);
+  for (int i = 0; i < k; ++i) {
+    int xidx = isRowMajor ? i + midx * k : i * m + midx;
+    int yidx = isRowMajor ? i + nidx * k : i * n + nidx;
+    auto a = x[xidx];
+    auto b = y[yidx];
+    auto diff = raft::L1Op<DataType>()(a - b);
+    acc += raft::myPow(diff, p);
+  }
+  auto one_over_p = 1 / p;
+  acc = raft::myPow(acc, one_over_p);
+  int outidx = isRowMajor ? midx * n + nidx : midx + m * nidx;
+  dist[outidx] = acc;
+}
+
+template <typename DataType>
 void naiveDistance(DataType *dist, const DataType *x, const DataType *y, int m,
                    int n, int k, raft::distance::DistanceType type,
-                   bool isRowMajor) {
+                   bool isRowMajor, DataType metric_arg = 2.0f) {
   static const dim3 TPB(16, 32, 1);
   dim3 nblks(raft::ceildiv(m, (int)TPB.x), raft::ceildiv(n, (int)TPB.y), 1);
 
@@ -163,8 +182,12 @@ void naiveDistance(DataType *dist, const DataType *x, const DataType *y, int m,
         <<<nblks, TPB>>>(dist, x, y, m, n, k, isRowMajor);
       break;
     case raft::distance::DistanceType::HellingerExpanded:
-      naiveHellingerDistanceKernel<<<nblks, TPB>>>(dist, x, y, m, n, k,
-                                                   isRowMajor);
+      naiveHellingerDistanceKernel<DataType>
+        <<<nblks, TPB>>>(dist, x, y, m, n, k, isRowMajor);
+      break;
+    case raft::distance::DistanceType::LpUnexpanded:
+      naiveLpUnexpDistanceKernel<DataType>
+        <<<nblks, TPB>>>(dist, x, y, m, n, k, isRowMajor, metric_arg);
       break;
     default:
       FAIL() << "should be here\n";
@@ -178,6 +201,7 @@ struct DistanceInputs {
   int m, n, k;
   bool isRowMajor;
   unsigned long long int seed;
+  DataType metric_arg = 2.0f;
 };
 
 template <typename DataType>
@@ -190,13 +214,15 @@ template <raft::distance::DistanceType distanceType, typename DataType>
 void distanceLauncher(DataType *x, DataType *y, DataType *dist, DataType *dist2,
                       int m, int n, int k, DistanceInputs<DataType> &params,
                       DataType threshold, char *workspace, size_t worksize,
-                      cudaStream_t stream, bool isRowMajor) {
+                      cudaStream_t stream, bool isRowMajor,
+                      DataType metric_arg = 2.0f) {
   auto fin_op = [dist2, threshold] __device__(DataType d_val, int g_d_idx) {
     dist2[g_d_idx] = (d_val < threshold) ? 0.f : d_val;
     return d_val;
   };
   raft::distance::distance<distanceType, DataType, DataType, DataType>(
-    x, y, dist, m, n, k, workspace, worksize, fin_op, stream, isRowMajor);
+    x, y, dist, m, n, k, workspace, worksize, fin_op, stream, isRowMajor,
+    metric_arg);
 }
 
 template <raft::distance::DistanceType distanceType, typename DataType>
@@ -208,6 +234,7 @@ class DistanceTest : public ::testing::TestWithParam<DistanceInputs<DataType>> {
     int m = params.m;
     int n = params.n;
     int k = params.k;
+    DataType metric_arg = params.metric_arg;
     bool isRowMajor = params.isRowMajor;
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
@@ -216,9 +243,17 @@ class DistanceTest : public ::testing::TestWithParam<DistanceInputs<DataType>> {
     raft::allocate(dist_ref, m * n);
     raft::allocate(dist, m * n);
     raft::allocate(dist2, m * n);
-    r.uniform(x, m * k, DataType(-1.0), DataType(1.0), stream);
-    r.uniform(y, n * k, DataType(-1.0), DataType(1.0), stream);
-    naiveDistance(dist_ref, x, y, m, n, k, distanceType, isRowMajor);
+    if (distanceType == raft::distance::DistanceType::HellingerExpanded) {
+      // Hellinger works only on positive numbers as it applies sqrt on inputs
+      r.uniform(x, m * k, DataType(0.0), DataType(2.0), stream);
+      r.uniform(y, n * k, DataType(0.0), DataType(2.0), stream);
+    } else {
+      r.uniform(x, m * k, DataType(-1.0), DataType(1.0), stream);
+      r.uniform(y, n * k, DataType(-1.0), DataType(1.0), stream);
+    }
+
+    naiveDistance(dist_ref, x, y, m, n, k, distanceType, isRowMajor,
+                  metric_arg);
     char *workspace = nullptr;
     size_t worksize =
       raft::distance::getWorkspaceSize<distanceType, DataType, DataType,
@@ -230,7 +265,7 @@ class DistanceTest : public ::testing::TestWithParam<DistanceInputs<DataType>> {
     DataType threshold = -10000.f;
     distanceLauncher<distanceType, DataType>(x, y, dist, dist2, m, n, k, params,
                                              threshold, workspace, worksize,
-                                             stream, isRowMajor);
+                                             stream, isRowMajor, metric_arg);
     CUDA_CHECK(cudaStreamDestroy(stream));
     CUDA_CHECK(cudaFree(workspace));
   }
