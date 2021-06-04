@@ -120,8 +120,11 @@ struct PairwiseDistances : public BaseClass {
       this->y += stride;
     }
     this->yrowid += stride;
-    this->pageWr = 0;
-    this->pageRd = 0;
+    // This is needed for making sure next grid stride of
+    // non-norm based metrics uses previously accumulated buffer so
+    // it doesn't make shmem dirty until previous iteration
+    // is complete.
+    this->pageRd = this->pageWr;
   }
 
   DI void updateIndicesXY() {
@@ -136,8 +139,7 @@ struct PairwiseDistances : public BaseClass {
       this->y = yBase + this->yrowid + this->srowid * this->ldb;
     }
     this->xrowid += stride;
-    this->pageWr = 0;
-    this->pageRd = 0;
+    this->pageRd = this->pageWr;
   }
 
   DI void prolog(IdxT gridStrideX, IdxT gridStrideY) {
@@ -241,10 +243,6 @@ struct PairwiseDistances : public BaseClass {
       epilog_op(acc, regxn, regyn, gridStrideX, gridStrideY);
     } else {
       epilog_op(acc, nullptr, nullptr, gridStrideX, gridStrideY);
-      // This sync is needed for making sure next grid stride of
-      // non-norm based metrics doesn't make shmem dirty until current
-      // this iteration is complete.
-      __syncthreads();
     }
 
     if (writeOut) {
