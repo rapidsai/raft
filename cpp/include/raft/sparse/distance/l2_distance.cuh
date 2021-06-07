@@ -93,20 +93,17 @@ __global__ void compute_correlation_warp_kernel(
   if (i >= n_rows || j >= n_cols) return;
 
   value_t dot = C[(size_t)i * n_cols + j];
-  value_t Q_mu = Q_norms[i];
-  value_t R_mu = R_norms[j];
+  value_t Q_l1 = Q_norms[i];
+  value_t R_l1 = R_norms[j];
 
-  value_t mu_squared = Q_mu * R_mu;
+  value_t Q_l2 = Q_sq_norms[i];
+  value_t R_l2 = R_sq_norms[j];
 
-  value_t Q_sigma = sqrt(Q_sq_norms[i] - mu_squared);
-  value_t R_sigma = sqrt(R_sq_norms[j] - mu_squared);
+  value_t numer = n_cols * dot - (Q_l1 * R_l1);
+  value_t Q_denom = k * Q_l2 - (Q_l1 * Q_l1);
+  value_t R_denom = k * R_l2 - (R_l1 * R_l1);
 
-  value_t sigma_squared = Q_sigma * R_sigma;
-
-  printf("i=%d, j=%d, dot=%f, Q_mu=%f, R_mu=%f, mu_squared=%f, Q_sigma=%f, "
-    "R_sigma=%f, sigma_squared=%f\n", i, j, dot, Q_mu, R_mu, mu_squared, Q_sigma, R_sigma, sigma_squared);
-
-  value_t val = 1.0 - ((dot - mu_squared) / sigma_squared);
+  value_t val = numer / sqrt(Q_denom * R_denom);
 
   // correct for small instabilities
   C[(size_t)i * n_cols + j] = val * (fabs(val) >= 0.0001);
@@ -191,25 +188,6 @@ void compute_corr(value_t *out, const value_idx *Q_coo_rows,
     Q_norms.data(), Q_coo_rows, Q_data, Q_nnz);
   compute_row_sum_kernel<<<raft::ceildiv(R_nnz, tpb), tpb, 0, stream>>>(
     R_norms.data(), R_coo_rows, R_data, R_nnz);
-
-  value_t n_cols_div = 1.0 / n_cols;
-
-  raft::linalg::unaryOp<value_t>(
-    Q_sq_norms.data(), Q_sq_norms.data(), m,
-    [=] __device__(value_t input) { return input * n_cols_div; }, stream);
-  raft::linalg::unaryOp<value_t>(
-    Q_norms.data(), Q_norms.data(), m,
-    [=] __device__(value_t input) { return input * n_cols_div; }, stream);
-  raft::linalg::unaryOp<value_t>(
-    R_sq_norms.data(), R_sq_norms.data(), n,
-    [=] __device__(value_t input) { return input * n_cols_div; }, stream);
-  raft::linalg::unaryOp<value_t>(
-    R_norms.data(), R_norms.data(), n,
-    [=] __device__(value_t input) { return input * n_cols_div; }, stream);
-  raft::linalg::unaryOp<value_t>(
-    out, out, m*n,
-    [=] __device__(value_t input) { return input * n_cols_div; }, stream);
-
 
   compute_correlation(out, Q_sq_norms.data(), R_sq_norms.data(), Q_norms.data(),
                       R_norms.data(), m, n, stream);
