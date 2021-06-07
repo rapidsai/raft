@@ -73,9 +73,15 @@ class UnionFind {
 };
 
 /**
- * Standard single-threaded agglomerative labeling on host. This should work
- * well for smaller sizes of m. This is a C++ port of the original reference
- * implementation of HDBSCAN.
+ * Agglomerative labeling on host. This has not been found to be a bottleneck
+ * in the algorithm. A parallel version of this can be done using a parallel
+ * variant of Kruskal's MST algorithm
+ * (ref http://cucis.ece.northwestern.edu/publications/pdf/HenPat12.pdf),
+ * which breaks apart the sorted MST results into overlapping subsets and
+ * independently runs Kruskal's algorithm on each subset, merging them back
+ * together into a single hierarchy when complete. Unfortunately,
+ * this is nontrivial and the speedup wouldn't be useful until this
+ * becomes a bottleneck.
  *
  * @tparam value_idx
  * @tparam value_t
@@ -91,9 +97,8 @@ class UnionFind {
 template <typename value_idx, typename value_t>
 void build_dendrogram_host(const handle_t &handle, const value_idx *rows,
                            const value_idx *cols, const value_t *data,
-                           size_t nnz, value_idx *children,
-                           rmm::device_uvector<value_t> &out_delta,
-                           rmm::device_uvector<value_idx> &out_size) {
+                           size_t nnz, value_idx *children, value_t *out_delta,
+                           value_idx *out_size) {
   auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
 
@@ -103,8 +108,6 @@ void build_dendrogram_host(const handle_t &handle, const value_idx *rows,
   std::vector<value_idx> mst_dst_h(n_edges);
   std::vector<value_t> mst_weights_h(n_edges);
 
-  printf("n_edges: %d\n", n_edges);
-
   update_host(mst_src_h.data(), rows, n_edges, stream);
   update_host(mst_dst_h.data(), cols, n_edges, stream);
   update_host(mst_weights_h.data(), data, n_edges, stream);
@@ -113,12 +116,14 @@ void build_dendrogram_host(const handle_t &handle, const value_idx *rows,
 
   std::vector<value_idx> children_h(n_edges * 2);
   std::vector<value_idx> out_size_h(n_edges);
+  std::vector<value_t> out_delta_h(n_edges);
 
   UnionFind<value_idx, value_t> U(nnz + 1);
 
   for (value_idx i = 0; i < nnz; i++) {
     value_idx a = mst_src_h[i];
     value_idx b = mst_dst_h[i];
+    value_t delta = mst_weights_h[i];
 
     value_idx aa = U.find(a);
     value_idx bb = U.find(b);
@@ -127,72 +132,15 @@ void build_dendrogram_host(const handle_t &handle, const value_idx *rows,
 
     children_h[children_idx] = aa;
     children_h[children_idx + 1] = bb;
+    out_delta_h[i] = delta;
     out_size_h[i] = U.size[aa] + U.size[bb];
 
     U.perform_union(aa, bb);
   }
 
-  out_size.resize(n_edges, stream);
-
-  printf("Finished dendrogram\n");
-
   raft::update_device(children, children_h.data(), n_edges * 2, stream);
-  raft::update_device(out_size.data(), out_size_h.data(), n_edges, stream);
-}
-
-/**
- * Parallel agglomerative labeling. This amounts to a parallel Kruskal's
- * MST algorithm, which breaks apart the sorted MST results into overlapping
- * subsets and independently runs Kruskal's algorithm on each subset,
- * merging them back together into a single hierarchy when complete.
- *
- * This outputs the same format as the reference HDBSCAN, but as 4 separate
- * arrays, rather than a single 2D array.
- *
- * Reference: http://cucis.ece.northwestern.edu/publications/pdf/HenPat12.pdf
- *
- * TODO: Investigate potential for the following end-to-end single-hierarchy batching:
- *    For each of k (independent) batches over the input:
- *    - Sample n elements from X
- *    - Compute mutual reachability graph of batch
- *    - Construct labels from batch
- *
- * The sampled datasets should have some overlap across batches. This will
- * allow for the cluster hierarchies to be merged. Being able to batch
- * will reduce the memory cost so that the full n^2 pairwise distances
- * don't need to be materialized in memory all at once.
- *
- * @tparam value_idx
- * @tparam value_t
- * @param[in] handle the raft handle
- * @param[in] rows src edges of the sorted MST
- * @param[in] cols dst edges of the sorted MST
- * @param[in] nnz the number of edges in the sorted MST
- * @param[out] out_src parents of output
- * @param[out] out_dst children of output
- * @param[out] out_delta distances of output
- * @param[out] out_size cluster sizes of output
- * @param[in] k_folds number of folds for parallelizing label step
- */
-template <typename value_idx, typename value_t>
-void build_dendrogram_device(const handle_t &handle, const value_idx *rows,
-                             const value_idx *cols, const value_t *data,
-                             value_idx nnz, value_idx *children,
-                             value_t *out_delta, value_idx *out_size,
-                             value_idx k_folds) {
-  ASSERT(k_folds < nnz / 2, "k_folds must be < n_edges / 2");
-  /**
-   * divide (sorted) mst coo into overlapping subsets. Easiest way to do this is to
-   * break it into k-folds and iterate through two folds at a time.
-   */
-
-  // 1. Generate ranges for the overlapping subsets
-
-  // 2. Run union-find in parallel for each pair of folds
-
-  // 3. Sort individual label hierarchies
-
-  // 4. Merge label hierarchies together
+  raft::update_device(out_size, out_size_h.data(), n_edges, stream);
+  raft::update_device(out_delta, out_delta_h.data(), n_edges, stream);
 }
 
 template <typename value_idx>
@@ -278,83 +226,89 @@ void extract_flattened_clusters(const raft::handle_t &handle, value_idx *labels,
                                 size_t n_leaves) {
   auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
-  auto thrust_policy = rmm::exec_policy(stream);
+  auto thrust_policy = rmm::exec_policy(rmm::cuda_stream_view{stream});
 
-  /**
-   * Compute levels for each node
-   *
-   *     1. Initialize "levels" array of size n_leaves * 2
-   *
-   *     2. For each entry in children, write parent
-   *        out for each of the children
-   */
+  // Handle special case where n_clusters == 1
+  if (n_clusters == 1) {
+    thrust::fill(thrust_policy, labels, labels + n_leaves, 0);
+  } else {
+    /**
+     * Compute levels for each node
+     *
+     *     1. Initialize "levels" array of size n_leaves * 2
+     *
+     *     2. For each entry in children, write parent
+     *        out for each of the children
+     */
 
-  size_t n_edges = (n_leaves - 1) * 2;
+    size_t n_edges = (n_leaves - 1) * 2;
 
-  thrust::device_ptr<const value_idx> d_ptr =
-    thrust::device_pointer_cast(children);
-  value_idx n_vertices =
-    *(thrust::max_element(thrust_policy, d_ptr, d_ptr + n_edges)) + 1;
+    thrust::device_ptr<const value_idx> d_ptr =
+      thrust::device_pointer_cast(children);
+    value_idx n_vertices =
+      *(thrust::max_element(thrust_policy, d_ptr, d_ptr + n_edges)) + 1;
 
-  // Prevent potential infinite loop from labeling disconnected
-  // connectivities graph.
-  RAFT_EXPECTS(n_vertices == (n_leaves - 1) * 2,
-               "Multiple components found in MST or MST is invalid. "
-               "Cannot find single-linkage solution.");
+    // Prevent potential infinite loop from labeling disconnected
+    // connectivities graph.
+    RAFT_EXPECTS(n_vertices == (n_leaves - 1) * 2,
+                 "Multiple components found in MST or MST is invalid. "
+                 "Cannot find single-linkage solution.");
 
-  rmm::device_uvector<value_idx> levels(n_vertices, stream);
+    rmm::device_uvector<value_idx> levels(n_vertices, stream);
 
-  value_idx n_blocks = ceildiv(n_vertices, (value_idx)tpb);
-  write_levels_kernel<<<n_blocks, tpb, 0, stream>>>(children, levels.data(),
-                                                    n_vertices);
-  /**
-   * Step 1: Find label roots:
-   *
-   *     1. Copying children[children.size()-(n_clusters-1):] entries to
-   *        separate arrayo
-   *     2. sort array
-   *     3. take first n_clusters entries
-   */
+    value_idx n_blocks = ceildiv(n_vertices, (value_idx)tpb);
+    write_levels_kernel<<<n_blocks, tpb, 0, stream>>>(children, levels.data(),
+                                                      n_vertices);
+    /**
+     * Step 1: Find label roots:
+     *
+     *     1. Copying children[children.size()-(n_clusters-1):] entries to
+     *        separate arrayo
+     *     2. sort array
+     *     3. take first n_clusters entries
+     */
 
-  value_idx child_size = (n_clusters - 1) * 2;
-  rmm::device_uvector<value_idx> label_roots(child_size, stream);
+    value_idx child_size = (n_clusters - 1) * 2;
+    rmm::device_uvector<value_idx> label_roots(child_size, stream);
 
-  value_idx children_cpy_start = n_edges - child_size;
-  raft::copy_async(label_roots.data(), children + children_cpy_start,
-                   child_size, stream);
+    value_idx children_cpy_start = n_edges - child_size;
+    raft::copy_async(label_roots.data(), children + children_cpy_start,
+                     child_size, stream);
 
-  thrust::sort(thrust_policy, label_roots.data(),
-               label_roots.data() + (child_size), thrust::greater<value_idx>());
+    thrust::sort(thrust_policy, label_roots.data(),
+                 label_roots.data() + (child_size),
+                 thrust::greater<value_idx>());
 
-  rmm::device_uvector<value_idx> tmp_labels(n_vertices, stream);
+    rmm::device_uvector<value_idx> tmp_labels(n_vertices, stream);
 
-  // Init labels to -1
-  thrust::fill(thrust_policy, tmp_labels.data(), tmp_labels.data() + n_vertices,
-               -1);
+    // Init labels to -1
+    thrust::fill(thrust_policy, tmp_labels.data(),
+                 tmp_labels.data() + n_vertices, -1);
 
-  // Write labels for cluster roots to "labels"
-  thrust::counting_iterator<uint> first(0);
+    // Write labels for cluster roots to "labels"
+    thrust::counting_iterator<uint> first(0);
 
-  auto z_iter = thrust::make_zip_iterator(thrust::make_tuple(
-    first, label_roots.data() + (label_roots.size() - n_clusters)));
+    auto z_iter = thrust::make_zip_iterator(thrust::make_tuple(
+      first, label_roots.data() + (label_roots.size() - n_clusters)));
 
-  thrust::for_each(thrust_policy, z_iter, z_iter + n_clusters,
-                   init_label_roots<value_idx>(tmp_labels.data()));
+    thrust::for_each(thrust_policy, z_iter, z_iter + n_clusters,
+                     init_label_roots<value_idx>(tmp_labels.data()));
 
-  /**
-   * Step 2: Propagate labels by having children iterate through their parents
-   *     1. Initialize labels to -1
-   *     2. For each element in levels array, propagate until parent's
-   *        label is !=-1
-   */
-  value_idx cut_level = (n_edges / 2) - (n_clusters - 1);
+    /**
+     * Step 2: Propagate labels by having children iterate through their parents
+     *     1. Initialize labels to -1
+     *     2. For each element in levels array, propagate until parent's
+     *        label is !=-1
+     */
+    value_idx cut_level = (n_edges / 2) - (n_clusters - 1);
 
-  inherit_labels<<<n_blocks, tpb, 0, stream>>>(children, levels.data(),
-                                               n_leaves, tmp_labels.data(),
-                                               cut_level, n_vertices);
+    inherit_labels<<<n_blocks, tpb, 0, stream>>>(children, levels.data(),
+                                                 n_leaves, tmp_labels.data(),
+                                                 cut_level, n_vertices);
 
-  // copy tmp labels to actual labels
-  raft::copy_async(labels, tmp_labels.data(), n_leaves, stream);
+    // copy tmp labels to actual labels
+    raft::copy_async(labels, tmp_labels.data(), n_leaves, stream);
+  }
 }
 
 };  // namespace detail

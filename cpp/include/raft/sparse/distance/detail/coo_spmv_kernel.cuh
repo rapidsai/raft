@@ -78,12 +78,12 @@ namespace distance {
   * @param[in] write_func atomic semiring sum() function
   */
 template <typename strategy_t, typename indptr_it, typename value_idx,
-          typename value_t, bool rev, typename product_f, typename accum_f,
-          typename write_f>
+          typename value_t, bool rev, int tpb, typename product_f,
+          typename accum_f, typename write_f>
 __global__ void balanced_coo_generalized_spmv_kernel(
   strategy_t strategy, indptr_it indptrA, value_idx *indicesA, value_t *dataA,
   value_idx nnz_a, value_idx *rowsB, value_idx *indicesB, value_t *dataB,
-  value_idx m, value_idx n, int dim, int tpb, value_idx nnz_b, value_t *out,
+  value_idx m, value_idx n, int dim, value_idx nnz_b, value_t *out,
   int n_blocks_per_row, int chunk_size, value_idx b_ncols,
   product_f product_func, accum_f accum_func, write_f write_func) {
   typedef cub::WarpReduce<value_t> warp_reduce;
@@ -121,12 +121,12 @@ __global__ void balanced_coo_generalized_spmv_kernel(
   // Convert current row vector in A to dense
   for (int i = tid; i <= (stop_offset_a - start_offset_a); i += blockDim.x) {
     strategy.insert(inserter, indicesA[start_offset_a + i],
-                    dataA[start_offset_a + i], dim);
+                    dataA[start_offset_a + i]);
   }
 
   __syncthreads();
 
-  auto finder = strategy.init_find(A);
+  auto finder = strategy.init_find(A, dim);
 
   if (cur_row_a > m || cur_chunk_offset > n_blocks_per_row) return;
   if (ind >= nnz_b) return;
@@ -149,8 +149,7 @@ __global__ void balanced_coo_generalized_spmv_kernel(
       indptrA.check_indices_bounds(start_index_a, stop_index_a, index_b);
 
     if (in_bounds) {
-      value_t a_col = strategy.find(finder, index_b, indicesA, dataA,
-                                    start_offset_a, stop_offset_a, dim);
+      value_t a_col = strategy.find(finder, index_b);
       if (!rev || a_col == 0.0) {
         c = product_func(a_col, dataB[ind]);
       }
@@ -192,8 +191,7 @@ __global__ void balanced_coo_generalized_spmv_kernel(
       auto in_bounds =
         indptrA.check_indices_bounds(start_index_a, stop_index_a, index_b);
       if (in_bounds) {
-        value_t a_col = strategy.find(finder, index_b, indicesA, dataA,
-                                      start_offset_a, stop_offset_a, dim);
+        value_t a_col = strategy.find(finder, index_b);
 
         if (!rev || a_col == 0.0) {
           c = accum_func(c, product_func(a_col, dataB[ind]));

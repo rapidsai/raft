@@ -25,7 +25,7 @@ namespace sparse {
 namespace distance {
 
 template <typename value_idx, typename value_t, int tpb>
-class hash_strategy : public coo_spmv_strategy<value_idx, value_t> {
+class hash_strategy : public coo_spmv_strategy<value_idx, value_t, tpb> {
  public:
   using insert_type =
     typename cuco::static_map<value_idx, value_t,
@@ -36,11 +36,10 @@ class hash_strategy : public coo_spmv_strategy<value_idx, value_t> {
                               cuda::thread_scope_block>::device_view;
 
   hash_strategy(const distances_config_t<value_idx, value_t> &config_,
-                float capacity_threshold_ = 0.5)
-    : coo_spmv_strategy<value_idx, value_t>(config_),
-      capacity_threshold(capacity_threshold_) {
-    this->smem = raft::getSharedMemPerBlock();
-  }
+                float capacity_threshold_ = 0.5, int map_size_ = get_map_size())
+    : coo_spmv_strategy<value_idx, value_t, tpb>(config_),
+      capacity_threshold(capacity_threshold_),
+      map_size(map_size_) {}
 
   void chunking_needed(const value_idx *indptr, const value_idx n_rows,
                        rmm::device_uvector<value_idx> &mask_indptr,
@@ -51,13 +50,13 @@ class hash_strategy : public coo_spmv_strategy<value_idx, value_t> {
     auto less = thrust::copy_if(
       policy, thrust::make_counting_iterator(value_idx(0)),
       thrust::make_counting_iterator(n_rows), mask_indptr.data(),
-      fits_in_hash_table(indptr, 0, capacity_threshold * map_size()));
+      fits_in_hash_table(indptr, 0, capacity_threshold * map_size));
     std::get<0>(n_rows_divided) = less - mask_indptr.data();
 
     auto more = thrust::copy_if(
       policy, thrust::make_counting_iterator(value_idx(0)),
       thrust::make_counting_iterator(n_rows), less,
-      fits_in_hash_table(indptr, capacity_threshold * map_size(),
+      fits_in_hash_table(indptr, capacity_threshold * map_size,
                          std::numeric_limits<value_idx>::max()));
     std::get<1>(n_rows_divided) = more - less;
   }
@@ -80,22 +79,22 @@ class hash_strategy : public coo_spmv_strategy<value_idx, value_t> {
                                   mask_indptr.data());
 
       auto n_less_blocks = less_rows * n_blocks_per_row;
-      this->_dispatch_base(*this, this->smem, map_size(), less, out_dists,
-                           coo_rows_b, product_func, accum_func, write_func,
-                           chunk_size, n_less_blocks, n_blocks_per_row);
+      this->_dispatch_base(*this, map_size, less, out_dists, coo_rows_b,
+                           product_func, accum_func, write_func, chunk_size,
+                           n_less_blocks, n_blocks_per_row);
     }
 
     auto more_rows = std::get<1>(n_rows_divided);
     if (more_rows > 0) {
       chunked_mask_row_it<value_idx> more(
         this->config.a_indptr, more_rows, mask_indptr.data() + less_rows,
-        capacity_threshold * map_size(), this->config.handle.get_stream());
+        capacity_threshold * map_size, this->config.handle.get_stream());
       more.init();
 
       auto n_more_blocks = more.total_row_blocks * n_blocks_per_row;
-      this->_dispatch_base(*this, this->smem, map_size(), more, out_dists,
-                           coo_rows_b, product_func, accum_func, write_func,
-                           chunk_size, n_more_blocks, n_blocks_per_row);
+      this->_dispatch_base(*this, map_size, more, out_dists, coo_rows_b,
+                           product_func, accum_func, write_func, chunk_size,
+                           n_more_blocks, n_blocks_per_row);
     }
   }
 
@@ -117,44 +116,42 @@ class hash_strategy : public coo_spmv_strategy<value_idx, value_t> {
                                   mask_indptr.data());
 
       auto n_less_blocks = less_rows * n_blocks_per_row;
-      this->_dispatch_base_rev(*this, this->smem, map_size(), less, out_dists,
-                               coo_rows_a, product_func, accum_func, write_func,
-                               chunk_size, n_less_blocks, n_blocks_per_row);
+      this->_dispatch_base_rev(*this, map_size, less, out_dists, coo_rows_a,
+                               product_func, accum_func, write_func, chunk_size,
+                               n_less_blocks, n_blocks_per_row);
     }
 
     auto more_rows = std::get<1>(n_rows_divided);
     if (more_rows > 0) {
       chunked_mask_row_it<value_idx> more(
         this->config.b_indptr, more_rows, mask_indptr.data() + less_rows,
-        capacity_threshold * map_size(), this->config.handle.get_stream());
+        capacity_threshold * map_size, this->config.handle.get_stream());
       more.init();
 
       auto n_more_blocks = more.total_row_blocks * n_blocks_per_row;
-      this->_dispatch_base_rev(*this, this->smem, map_size(), more, out_dists,
-                               coo_rows_a, product_func, accum_func, write_func,
-                               chunk_size, n_more_blocks, n_blocks_per_row);
+      this->_dispatch_base_rev(*this, map_size, more, out_dists, coo_rows_a,
+                               product_func, accum_func, write_func, chunk_size,
+                               n_more_blocks, n_blocks_per_row);
     }
   }
 
   __device__ inline insert_type init_insert(smem_type cache,
-                                            value_idx &cache_size) {
+                                            const value_idx &cache_size) {
     return insert_type::make_from_uninitialized_slots(
-      cooperative_groups::this_thread_block(), cache, map_size(), -1, 0);
+      cooperative_groups::this_thread_block(), cache, cache_size, -1, 0);
   }
 
-  __device__ inline void insert(insert_type cache, value_idx &key,
-                                value_t &value, int &size) {
+  __device__ inline void insert(insert_type cache, const value_idx &key,
+                                const value_t &value) {
     auto success = cache.insert(thrust::make_pair(key, value));
   }
 
-  __device__ inline find_type init_find(smem_type cache) {
-    return find_type(cache, map_size(), -1, 0);
+  __device__ inline find_type init_find(smem_type cache,
+                                        const value_idx &cache_size) {
+    return find_type(cache, cache_size, -1, 0);
   }
 
-  __device__ inline value_t find(find_type cache, value_idx &key,
-                                 value_idx *indices, value_t *data,
-                                 value_idx start_offset, value_idx stop_offset,
-                                 int &size) {
+  __device__ inline value_t find(find_type cache, const value_idx &key) {
     auto a_pair = cache.find(key);
 
     value_t a_col = 0.0;
@@ -183,8 +180,10 @@ class hash_strategy : public coo_spmv_strategy<value_idx, value_t> {
 
  private:
   float capacity_threshold;
-  __host__ __device__ constexpr static int map_size() {
-    return (48000 - ((tpb / raft::warp_size()) * sizeof(value_t))) /
+  int map_size;
+  inline static int get_map_size() {
+    return (raft::getSharedMemPerBlock() -
+            ((tpb / raft::warp_size()) * sizeof(value_t))) /
            sizeof(typename insert_type::slot_type);
   }
 };

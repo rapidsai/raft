@@ -120,16 +120,6 @@ void compute_euclidean(value_t *C, const value_t *Q_sq_norms,
     C, Q_sq_norms, R_sq_norms, n_rows, n_cols, expansion_func);
 }
 
-template <typename value_idx, typename value_t, int tpb = 256>
-void compute_correlation(value_t *C, const value_t *Q_sq_norms,
-                         const value_t *R_sq_norms, const value_t *Q_norms,
-                         const value_t *R_norms, value_idx n_rows,
-                         value_idx n_cols, cudaStream_t stream) {
-  int blocks = raft::ceildiv<size_t>((size_t)n_rows * n_cols, tpb);
-  compute_correlation_warp_kernel<<<blocks, tpb, 0, stream>>>(
-    C, Q_sq_norms, R_sq_norms, Q_norms, R_norms, n_rows, n_cols);
-}
-
 template <typename value_idx, typename value_t, int tpb = 256,
           typename expansion_f>
 void compute_l2(value_t *out, const value_idx *Q_coo_rows,
@@ -227,40 +217,6 @@ class l2_expanded_distances_t : public distances_t<value_t> {
   }
 
   ~l2_expanded_distances_t() = default;
-
- protected:
-  const distances_config_t<value_idx, value_t> *config_;
-  ip_distances_t<value_idx, value_t> ip_dists;
-};
-
-template <typename value_idx, typename value_t>
-class correlation_expanded_distances_t : public distances_t<value_t> {
- public:
-  explicit correlation_expanded_distances_t(
-    const distances_config_t<value_idx, value_t> &config)
-    : config_(&config), ip_dists(config) {}
-
-  void compute(value_t *out_dists) {
-    ip_dists.compute(out_dists);
-
-    value_idx *b_indices = ip_dists.b_rows_coo();
-    value_t *b_data = ip_dists.b_data_coo();
-
-    raft::mr::device::buffer<value_idx> search_coo_rows(
-      config_->handle.get_device_allocator(), config_->handle.get_stream(),
-      config_->a_nnz);
-    raft::sparse::convert::csr_to_coo(config_->a_indptr, config_->a_nrows,
-                                      search_coo_rows.data(), config_->a_nnz,
-                                      config_->handle.get_stream());
-
-    compute_corr(out_dists, search_coo_rows.data(), config_->a_data,
-                 config_->a_nnz, b_indices, b_data, config_->b_nnz,
-                 config_->a_nrows, config_->b_nrows, config_->b_ncols,
-                 config_->handle.get_device_allocator(),
-                 config_->handle.get_stream());
-  }
-
-  ~correlation_expanded_distances_t() = default;
 
  protected:
   const distances_config_t<value_idx, value_t> *config_;
@@ -391,34 +347,6 @@ class hellinger_expanded_distances_t : public distances_t<value_t> {
  private:
   const distances_config_t<value_idx, value_t> *config_;
   raft::mr::device::buffer<char> workspace;
-};
-
-template <typename value_idx = int, typename value_t = float>
-class russelrao_expanded_distances_t : public distances_t<value_t> {
- public:
-  explicit russelrao_expanded_distances_t(
-    const distances_config_t<value_idx, value_t> &config)
-    : config_(&config),
-      workspace(config.handle.get_device_allocator(),
-                config.handle.get_stream(), 0),
-      ip_dists(config) {}
-
-  void compute(value_t *out_dists) {
-    ip_dists.compute(out_dists);
-
-    value_idx n_cols = 1 / config_->a_ncols;
-    raft::linalg::unaryOp<value_t>(
-      out_dists, out_dists, config_->a_nrows * config_->b_nrows,
-      [=] __device__(value_t input) { return (n_cols - input) * n_cols; },
-      config_->handle.get_stream());
-  }
-
-  ~russelrao_expanded_distances_t() = default;
-
- private:
-  const distances_config_t<value_idx, value_t> *config_;
-  raft::mr::device::buffer<char> workspace;
-  ip_distances_t<value_idx, value_t> ip_dists;
 };
 
 };  // END namespace distance
