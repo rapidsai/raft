@@ -47,11 +47,9 @@ __global__ void naiveDistanceKernel(DataType *dist, const DataType *x,
 }
 
 template <typename DataType>
-__global__ void naiveL1_LinfDistanceKernel(DataType *dist, const DataType *x,
-                                           const DataType *y, int m, int n,
-                                           int k,
-                                           raft::distance::DistanceType type,
-                                           bool isRowMajor) {
+__global__ void naiveL1_Linf_CanberraDistanceKernel(
+  DataType *dist, const DataType *x, const DataType *y, int m, int n, int k,
+  raft::distance::DistanceType type, bool isRowMajor) {
   int midx = threadIdx.x + blockIdx.x * blockDim.x;
   int nidx = threadIdx.y + blockIdx.y * blockDim.y;
   if (midx >= m || nidx >= n) {
@@ -67,6 +65,11 @@ __global__ void naiveL1_LinfDistanceKernel(DataType *dist, const DataType *x,
     auto diff = (a > b) ? (a - b) : (b - a);
     if (type == raft::distance::DistanceType::Linf) {
       acc = raft::myMax(acc, diff);
+    } else if (type == raft::distance::DistanceType::Canberra) {
+      const auto add = raft::myAbs(a) + raft::myAbs(b);
+      // deal with potential for 0 in denominator by
+      // forcing 1/0 instead
+      acc += ((add != 0) * diff / (add + (add == 0)));
     } else {
       acc += diff;
     }
@@ -165,9 +168,10 @@ void naiveDistance(DataType *dist, const DataType *x, const DataType *y, int m,
   dim3 nblks(raft::ceildiv(m, (int)TPB.x), raft::ceildiv(n, (int)TPB.y), 1);
 
   switch (type) {
+    case raft::distance::DistanceType::Canberra:
     case raft::distance::DistanceType::Linf:
     case raft::distance::DistanceType::L1:
-      naiveL1_LinfDistanceKernel<DataType>
+      naiveL1_Linf_CanberraDistanceKernel<DataType>
         <<<nblks, TPB>>>(dist, x, y, m, n, k, type, isRowMajor);
       break;
     case raft::distance::DistanceType::L2SqrtUnexpanded:

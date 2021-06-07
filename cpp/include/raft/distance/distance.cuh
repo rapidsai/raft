@@ -19,6 +19,7 @@
 #include <cuda_runtime_api.h>
 #include <raft/linalg/distance_type.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/distance/canberra.cuh>
 #include <raft/distance/chebyshev.cuh>
 #include <raft/distance/cosine.cuh>
 #include <raft/distance/euclidean.cuh>
@@ -154,6 +155,18 @@ struct DistanceImpl<raft::distance::DistanceType::LpUnexpanded, InType, AccType,
            cudaStream_t stream, bool isRowMajor, InType metric_arg) {
     raft::distance::minkowski<InType, AccType, OutType, FinalLambda, Index_>(
       m, n, k, x, y, dist, fin_op, stream, isRowMajor, metric_arg);
+  }
+};
+
+template <typename InType, typename AccType, typename OutType,
+          typename FinalLambda, typename Index_>
+struct DistanceImpl<raft::distance::DistanceType::Canberra, InType, AccType,
+                    OutType, FinalLambda, Index_> {
+  void run(const InType *x, const InType *y, OutType *dist, Index_ m, Index_ n,
+           Index_ k, void *workspace, size_t worksize, FinalLambda fin_op,
+           cudaStream_t stream, bool isRowMajor, InType metric_arg) {
+    raft::distance::canberraImpl<InType, AccType, OutType, FinalLambda, Index_>(
+      m, n, k, x, y, dist, fin_op, stream, isRowMajor);
   }
 };
 
@@ -345,6 +358,11 @@ void pairwise_distance(const Type *x, const Type *y, Type *dist, Index_ m,
     case raft::distance::DistanceType::LpUnexpanded:
       pairwise_distance_impl<Type, Index_,
                              raft::distance::DistanceType::LpUnexpanded>(
+        x, y, dist, m, n, k, workspace, stream, isRowMajor, metric_arg);
+      break;
+    case raft::distance::DistanceType::Canberra:
+      pairwise_distance_impl<Type, Index_,
+                             raft::distance::DistanceType::Canberra>(
         x, y, dist, m, n, k, workspace, stream, isRowMajor, metric_arg);
       break;
     default:
