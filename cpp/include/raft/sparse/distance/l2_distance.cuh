@@ -85,7 +85,7 @@ template <typename value_idx, typename value_t>
 __global__ void compute_correlation_warp_kernel(
   value_t *__restrict__ C, const value_t *__restrict__ Q_sq_norms,
   const value_t *__restrict__ R_sq_norms, const value_t *__restrict__ Q_norms,
-  const value_t *__restrict__ R_norms, value_idx n_rows, value_idx n_cols) {
+  const value_t *__restrict__ R_norms, value_idx n_rows, value_idx n_cols, value_idx n) {
   value_idx tid = blockDim.x * blockIdx.x + threadIdx.x;
   value_idx i = tid / n_cols;
   value_idx j = tid % n_cols;
@@ -99,11 +99,11 @@ __global__ void compute_correlation_warp_kernel(
   value_t Q_l2 = Q_sq_norms[i];
   value_t R_l2 = R_sq_norms[j];
 
-  value_t numer = n_cols * dot - (Q_l1 * R_l1);
-  value_t Q_denom = n_cols * Q_l2 - (Q_l1 * Q_l1);
-  value_t R_denom = n_cols * R_l2 - (R_l1 * R_l1);
+  value_t numer = n * dot - (Q_l1 * R_l1);
+  value_t Q_denom = n * Q_l2 - (Q_l1 * Q_l1);
+  value_t R_denom = n * R_l2 - (R_l1 * R_l1);
 
-  value_t val = numer / sqrt(Q_denom * R_denom);
+  value_t val = 1  - (numer / sqrt(Q_denom * R_denom));
 
   // correct for small instabilities
   C[(size_t)i * n_cols + j] = val * (fabs(val) >= 0.0001);
@@ -119,6 +119,8 @@ void compute_euclidean(value_t *C, const value_t *Q_sq_norms,
   compute_euclidean_warp_kernel<<<blocks, tpb, 0, stream>>>(
     C, Q_sq_norms, R_sq_norms, n_rows, n_cols, expansion_func);
 }
+
+
 
 template <typename value_idx, typename value_t, int tpb = 256,
           typename expansion_f>
@@ -145,10 +147,22 @@ void compute_l2(value_t *out, const value_idx *Q_coo_rows,
 }
 
 template <typename value_idx, typename value_t, int tpb = 256>
+void compute_correlation(value_t *C, const value_t *Q_sq_norms,
+                         const value_t *R_sq_norms, const value_t *Q_norms,
+                         const value_t *R_norms, value_idx n_rows,
+                         value_idx n_cols, value_idx n, cudaStream_t stream) {
+  int blocks = raft::ceildiv<size_t>((size_t)n_rows * n_cols, tpb);
+  compute_correlation_warp_kernel<<<blocks, tpb, 0, stream>>>(
+    C, Q_sq_norms, R_sq_norms, Q_norms, R_norms, n_rows, n_cols, n);
+}
+
+
+template <typename value_idx, typename value_t, int tpb = 256>
 void compute_corr(value_t *out, const value_idx *Q_coo_rows,
                   const value_t *Q_data, value_idx Q_nnz,
                   const value_idx *R_coo_rows, const value_t *R_data,
-                  value_idx R_nnz, value_idx m, value_idx n, value_idx n_cols,
+                  value_idx R_nnz, value_idx m, value_idx n,
+                  value_idx n_cols,
                   std::shared_ptr<raft::mr::device::allocator> alloc,
                   cudaStream_t stream) {
   // sum_sq for std dev
@@ -180,7 +194,7 @@ void compute_corr(value_t *out, const value_idx *Q_coo_rows,
     R_norms.data(), R_coo_rows, R_data, R_nnz);
 
   compute_correlation(out, Q_sq_norms.data(), R_sq_norms.data(), Q_norms.data(),
-                      R_norms.data(), m, n, stream);
+                      R_norms.data(), m, n, n_cols, stream);
 }
 
 /**
@@ -249,6 +263,41 @@ class l2_sqrt_expanded_distances_t
 
   ~l2_sqrt_expanded_distances_t() = default;
 };
+
+template <typename value_idx, typename value_t>
+class correlation_expanded_distances_t : public distances_t<value_t> {
+ public:
+  explicit correlation_expanded_distances_t(
+    const distances_config_t<value_idx, value_t> &config)
+    : config_(&config), ip_dists(config) {}
+
+  void compute(value_t *out_dists) {
+    ip_dists.compute(out_dists);
+
+    value_idx *b_indices = ip_dists.b_rows_coo();
+    value_t *b_data = ip_dists.b_data_coo();
+
+    raft::mr::device::buffer<value_idx> search_coo_rows(
+      config_->handle.get_device_allocator(), config_->handle.get_stream(),
+      config_->a_nnz);
+    raft::sparse::convert::csr_to_coo(config_->a_indptr, config_->a_nrows,
+                                      search_coo_rows.data(), config_->a_nnz,
+                                      config_->handle.get_stream());
+
+    compute_corr(out_dists, search_coo_rows.data(), config_->a_data,
+                 config_->a_nnz, b_indices, b_data, config_->b_nnz,
+                 config_->a_nrows, config_->b_nrows, config_->b_ncols,
+                 config_->handle.get_device_allocator(),
+                 config_->handle.get_stream());
+  }
+
+  ~correlation_expanded_distances_t() = default;
+
+ protected:
+  const distances_config_t<value_idx, value_t> *config_;
+  ip_distances_t<value_idx, value_t> ip_dists;
+};
+
 
 /**
  * Cosine distance using the expanded form: 1 - ( sum(x_k * y_k) / (sqrt(sum(x_k)^2) * sqrt(sum(y_k)^2)))
