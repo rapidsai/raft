@@ -100,8 +100,8 @@ __global__ void compute_correlation_warp_kernel(
   value_t R_l2 = R_sq_norms[j];
 
   value_t numer = n_cols * dot - (Q_l1 * R_l1);
-  value_t Q_denom = k * Q_l2 - (Q_l1 * Q_l1);
-  value_t R_denom = k * R_l2 - (R_l1 * R_l1);
+  value_t Q_denom = n_cols * Q_l2 - (Q_l1 * Q_l1);
+  value_t R_denom = n_cols * R_l2 - (R_l1 * R_l1);
 
   value_t val = numer / sqrt(Q_denom * R_denom);
 
