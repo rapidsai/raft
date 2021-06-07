@@ -58,7 +58,7 @@ weight_t prims(CSRHost<vertex_t, edge_t, weight_t> &csr_h) {
   auto n_vertices = csr_h.offsets.size() - 1;
 
   bool active_vertex[n_vertices];
-  // bool mst_set[csr_h.n_edges];
+  //  bool mst_set[csr_h.n_edges];
   weight_t curr_edge[n_vertices];
 
   for (auto i = 0; i < n_vertices; i++) {
