@@ -49,7 +49,7 @@ class mask_row_it {
   }
 
   __device__ constexpr inline void get_indices_boundary(
-    value_idx *indices, value_idx &indices_len, value_idx &start_offset,
+    const value_idx *indices, value_idx &indices_len, value_idx &start_offset,
     value_idx &stop_offset, value_idx &start_index, value_idx &stop_index,
     bool &first_a_chunk, bool &last_a_chunk) {
     // do nothing;
@@ -140,7 +140,7 @@ class chunked_mask_row_it : public mask_row_it<value_idx> {
   }
 
   __device__ inline void get_indices_boundary(
-    value_idx *indices, value_idx &row_idx, value_idx &start_offset,
+    const value_idx *indices, value_idx &row_idx, value_idx &start_offset,
     value_idx &stop_offset, value_idx &start_index, value_idx &stop_index,
     bool &first_a_chunk, bool &last_a_chunk) {
     start_index = first_a_chunk ? start_index : indices[start_offset - 1] + 1;

@@ -75,20 +75,20 @@ namespace distance {
  * @param[in] write_func atomic semiring sum() function
  */
 template <typename value_idx, typename value_t, int threads_per_block = 1024,
-          int chunk_size = 500000, typename product_f, typename accum_f,
+          typename product_f, typename accum_f,
           typename write_f>
 inline void balanced_coo_pairwise_generalized_spmv(
   value_t *out_dists, const distances_config_t<value_idx, value_t> &config_,
   value_idx *coo_rows_b, product_f product_func, accum_f accum_func,
-  write_f write_func) {
+  write_f write_func, int chunk_size = 500000) {
   CUDA_CHECK(cudaMemsetAsync(
     out_dists, 0, sizeof(value_t) * config_.a_nrows * config_.b_nrows,
     config_.handle.get_stream()));
 
-  auto smem =
-    dense_smem_strategy<value_idx, value_t>::smem_per_block(config_.a_ncols);
-  if (smem != -1) {
-    dense_smem_strategy<value_idx, value_t> strategy(config_, smem);
+  int max_cols = max_cols_per_block<value_idx, value_t>();
+
+  if (max_cols > config_.a_ncols) {
+    dense_smem_strategy<value_idx, value_t, threads_per_block> strategy(config_);
     strategy.dispatch(out_dists, coo_rows_b, product_func, accum_func,
                       write_func, chunk_size);
   } else {
@@ -135,24 +135,21 @@ inline void balanced_coo_pairwise_generalized_spmv(
  * @param[in] write_func atomic semiring sum() function
  */
 template <typename value_idx, typename value_t, int threads_per_block = 1024,
-          int chunk_size = 500000, typename product_f, typename accum_f,
+          typename product_f, typename accum_f,
           typename write_f>
 inline void balanced_coo_pairwise_generalized_spmv_rev(
   value_t *out_dists, const distances_config_t<value_idx, value_t> &config_,
   value_idx *coo_rows_a, product_f product_func, accum_f accum_func,
-  write_f write_func) {
+  write_f write_func, int chunk_size = 500000) {
   // try dense first
-  auto smem =
-    dense_smem_strategy<value_idx, value_t>::smem_per_block(config_.a_ncols);
-  if (smem != -1) {
-    dense_smem_strategy<value_idx, value_t> strategy(config_, smem);
+  int max_cols = max_cols_per_block<value_idx, value_t>();
+
+  if (max_cols > config_.b_ncols) {
+    dense_smem_strategy<value_idx, value_t, threads_per_block> strategy(config_);
     strategy.dispatch_rev(out_dists, coo_rows_a, product_func, accum_func,
                           write_func, chunk_size);
   } else {
     hash_strategy<value_idx, value_t, threads_per_block> strategy(config_);
-    // mask_row_it<value_idx> b_indptr(config_.b_indptr,
-    // config_.b_nrows);
-    // bloom_filter_strategy<value_idx, value_t, threads_per_block> strategy(config_, b_indptr);
     strategy.dispatch_rev(out_dists, coo_rows_a, product_func, accum_func,
                           write_func, chunk_size);
   }
