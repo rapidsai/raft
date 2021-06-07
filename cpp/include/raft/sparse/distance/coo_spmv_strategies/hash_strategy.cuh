@@ -36,12 +36,10 @@ class hash_strategy : public coo_spmv_strategy<value_idx, value_t, tpb> {
                               cuda::thread_scope_block>::device_view;
 
   hash_strategy(const distances_config_t<value_idx, value_t> &config_,
-                float capacity_threshold_ = 0.5,
-                int map_size_ = get_map_size())
+                float capacity_threshold_ = 0.5, int map_size_ = get_map_size())
     : coo_spmv_strategy<value_idx, value_t, tpb>(config_),
       capacity_threshold(capacity_threshold_),
-      map_size(map_size_) {
-  }
+      map_size(map_size_) {}
 
   void chunking_needed(const value_idx *indptr, const value_idx n_rows,
                        rmm::device_uvector<value_idx> &mask_indptr,
@@ -81,9 +79,9 @@ class hash_strategy : public coo_spmv_strategy<value_idx, value_t, tpb> {
                                   mask_indptr.data());
 
       auto n_less_blocks = less_rows * n_blocks_per_row;
-      this->_dispatch_base(*this, map_size, less, out_dists,
-                           coo_rows_b, product_func, accum_func, write_func,
-                           chunk_size, n_less_blocks, n_blocks_per_row);
+      this->_dispatch_base(*this, map_size, less, out_dists, coo_rows_b,
+                           product_func, accum_func, write_func, chunk_size,
+                           n_less_blocks, n_blocks_per_row);
     }
 
     auto more_rows = std::get<1>(n_rows_divided);
@@ -94,9 +92,9 @@ class hash_strategy : public coo_spmv_strategy<value_idx, value_t, tpb> {
       more.init();
 
       auto n_more_blocks = more.total_row_blocks * n_blocks_per_row;
-      this->_dispatch_base(*this, map_size, more, out_dists,
-                           coo_rows_b, product_func, accum_func, write_func,
-                           chunk_size, n_more_blocks, n_blocks_per_row);
+      this->_dispatch_base(*this, map_size, more, out_dists, coo_rows_b,
+                           product_func, accum_func, write_func, chunk_size,
+                           n_more_blocks, n_blocks_per_row);
     }
   }
 
@@ -118,9 +116,9 @@ class hash_strategy : public coo_spmv_strategy<value_idx, value_t, tpb> {
                                   mask_indptr.data());
 
       auto n_less_blocks = less_rows * n_blocks_per_row;
-      this->_dispatch_base_rev(*this, map_size, less, out_dists,
-                               coo_rows_a, product_func, accum_func, write_func,
-                               chunk_size, n_less_blocks, n_blocks_per_row);
+      this->_dispatch_base_rev(*this, map_size, less, out_dists, coo_rows_a,
+                               product_func, accum_func, write_func, chunk_size,
+                               n_less_blocks, n_blocks_per_row);
     }
 
     auto more_rows = std::get<1>(n_rows_divided);
@@ -131,9 +129,9 @@ class hash_strategy : public coo_spmv_strategy<value_idx, value_t, tpb> {
       more.init();
 
       auto n_more_blocks = more.total_row_blocks * n_blocks_per_row;
-      this->_dispatch_base_rev(*this, map_size, more, out_dists,
-                               coo_rows_a, product_func, accum_func, write_func,
-                               chunk_size, n_more_blocks, n_blocks_per_row);
+      this->_dispatch_base_rev(*this, map_size, more, out_dists, coo_rows_a,
+                               product_func, accum_func, write_func, chunk_size,
+                               n_more_blocks, n_blocks_per_row);
     }
   }
 
@@ -148,7 +146,8 @@ class hash_strategy : public coo_spmv_strategy<value_idx, value_t, tpb> {
     auto success = cache.insert(thrust::make_pair(key, value));
   }
 
-  __device__ inline find_type init_find(smem_type cache, const value_idx &cache_size) {
+  __device__ inline find_type init_find(smem_type cache,
+                                        const value_idx &cache_size) {
     return find_type(cache, cache_size, -1, 0);
   }
 
@@ -183,7 +182,8 @@ class hash_strategy : public coo_spmv_strategy<value_idx, value_t, tpb> {
   float capacity_threshold;
   int map_size;
   inline static int get_map_size() {
-    return (raft::getSharedMemPerBlock() - ((tpb / raft::warp_size()) * sizeof(value_t))) /
+    return (raft::getSharedMemPerBlock() -
+            ((tpb / raft::warp_size()) * sizeof(value_t))) /
            sizeof(typename insert_type::slot_type);
   }
 };

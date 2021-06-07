@@ -30,8 +30,7 @@ class dense_smem_strategy : public coo_spmv_strategy<value_idx, value_t, tpb> {
   using find_type = smem_type;
 
   dense_smem_strategy(const distances_config_t<value_idx, value_t> &config_)
-    : coo_spmv_strategy<value_idx, value_t, tpb>(config_) {
-  }
+    : coo_spmv_strategy<value_idx, value_t, tpb>(config_) {}
 
   inline static int smem_per_block(int n_cols) {
     return (n_cols * sizeof(value_t)) +
@@ -49,9 +48,9 @@ class dense_smem_strategy : public coo_spmv_strategy<value_idx, value_t, tpb> {
     mask_row_it<value_idx> a_indptr(this->config.a_indptr,
                                     this->config.a_nrows);
 
-    this->_dispatch_base(*this, this->config.b_ncols, a_indptr,
-                         out_dists, coo_rows_b, product_func, accum_func,
-                         write_func, chunk_size, n_blocks, n_blocks_per_row);
+    this->_dispatch_base(*this, this->config.b_ncols, a_indptr, out_dists,
+                         coo_rows_b, product_func, accum_func, write_func,
+                         chunk_size, n_blocks, n_blocks_per_row);
   }
 
   template <typename product_f, typename accum_f, typename write_f>
@@ -65,9 +64,9 @@ class dense_smem_strategy : public coo_spmv_strategy<value_idx, value_t, tpb> {
     mask_row_it<value_idx> b_indptr(this->config.b_indptr,
                                     this->config.b_nrows);
 
-    this->_dispatch_base_rev(*this, this->config.a_ncols, b_indptr,
-                             out_dists, coo_rows_a, product_func, accum_func,
-                             write_func, chunk_size, n_blocks, n_blocks_per_row);
+    this->_dispatch_base_rev(*this, this->config.a_ncols, b_indptr, out_dists,
+                             coo_rows_a, product_func, accum_func, write_func,
+                             chunk_size, n_blocks, n_blocks_per_row);
   }
 
   __device__ inline insert_type init_insert(smem_type cache,
@@ -83,7 +82,10 @@ class dense_smem_strategy : public coo_spmv_strategy<value_idx, value_t, tpb> {
     cache[key] = value;
   }
 
-  __device__ inline find_type init_find(smem_type cache, const value_idx &cache_size) { return cache; }
+  __device__ inline find_type init_find(smem_type cache,
+                                        const value_idx &cache_size) {
+    return cache;
+  }
 
   __device__ inline value_t find(find_type cache, const value_idx &key) {
     return cache[key];
