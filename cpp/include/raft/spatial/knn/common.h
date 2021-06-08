@@ -34,7 +34,7 @@ struct knnIndex {
     delete index;
     delete gpu_res;
   }
-}
+};
 
 enum QuantizerType : unsigned int {
   QT_8bit,
@@ -44,16 +44,16 @@ enum QuantizerType : unsigned int {
   QT_fp16,
   QT_8bit_direct,
   QT_6bit
-}
+};
 
 struct knnIndexParam {
   virtual ~knnIndexParam() {}
-}
+};
 
 struct IVFParam : knnIndexParam {
   int nlist;
   int nprobe;
-}
+};
 
 struct IVFFlatParam : IVFParam {};
 
@@ -61,13 +61,13 @@ struct IVFPQParam : IVFParam {
   int M;
   int n_bits;
   bool usePrecomputedTables;
-}
+};
 
 struct IVFSQParam : IVFParam {
   QuantizerType qtype;
   bool encodeResidual;
-}
+};
 
-}  // namespace knn
-}  // namespace spatial
-}  // namespace raft
+};  // namespace knn
+};  // namespace spatial
+};  // namespace raft
