@@ -33,6 +33,15 @@ namespace knn {
 using deviceAllocator = raft::mr::device::allocator;
 
 
+template <typename value_idx = int64_t, typename value_t = float>
+inline void knn_merge_parts(value_t *inK, value_idx *inV, value_t *outK,
+                            value_idx *outV, size_t n_samples, int n_parts,
+                            int k, cudaStream_t stream,
+                            value_idx *translations) {
+  detail::knn_merge_parts(inK, inV, outK, outV, n_samples,
+                          n_parts, k, stream, translations);
+}
+
 /**
  * @brief Flat C++ API function to build an approximate nearest neighbors index
  * from an index array and a set of parameters.
