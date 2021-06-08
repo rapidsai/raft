@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "common.h"
 #include "detail/brute_force_knn.cuh"
 #include "detail/ivf_pq_ann.cuh"
 
@@ -30,51 +31,6 @@ namespace spatial {
 namespace knn {
 
 using deviceAllocator = raft::mr::device::allocator;
-
-struct knnIndex {
-  faiss::gpu::GpuIndex *index;
-  raft::distance::DistanceType metric;
-  float metricArg;
-
-  faiss::gpu::StandardGpuResources *gpu_res;
-  int device;
-  ~knnIndex() {
-    delete index;
-    delete gpu_res;
-  }
-};
-
-enum QuantizerType {
-  QT_8bit,
-  QT_4bit,
-  QT_8bit_uniform,
-  QT_4bit_uniform,
-  QT_fp16,
-  QT_8bit_direct,
-  QT_6bit
-};
-
-struct knnIndexParam {
-  virtual ~knnIndexParam() {}
-};
-
-struct IVFParam : knnIndexParam {
-  int nlist;
-  int nprobe;
-};
-
-struct IVFFlatParam : IVFParam {};
-
-struct IVFPQParam : IVFParam {
-  int M;
-  int n_bits;
-  bool usePrecomputedTables;
-};
-
-struct IVFSQParam : IVFParam {
-  QuantizerType qtype;
-  bool encodeResidual;
-};
 
 
 /**
