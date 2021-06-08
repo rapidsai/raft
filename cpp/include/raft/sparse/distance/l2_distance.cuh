@@ -417,6 +417,14 @@ class russelrao_expanded_distances_t : public distances_t<value_t> {
       out_dists, out_dists, config_->a_nrows * config_->b_nrows,
       [=] __device__(value_t input) { return (n_cols - input) * n_cols_inv; },
       config_->handle.get_stream());
+
+    auto exec_policy = rmm::exec_policy(config_->handle.get_stream());
+    auto diags = thrust::counting_iterator<value_idx>(0);
+    value_idx b_nrows = config_->b_nrows;
+    thrust::for_each(exec_policy, diags, diags + config_->a_nrows,
+                     [=] __device__ (value_idx input) {
+                       out_dists[input * b_nrows + input] = 0.0;
+                     });
   }
 
   ~russelrao_expanded_distances_t() = default;
