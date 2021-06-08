@@ -16,14 +16,8 @@
 
 #pragma once
 
-#include "detail/brute_force_knn.cuh"
-#include "detail/ivf_pq_ann.cuh"
-
 #include <faiss/gpu/StandardGpuResources.h>
 #include <faiss/gpu/GpuIndex.h>
-
-#include <raft/mr/device/allocator.hpp>
-#include <raft/mr/device/buffer.hpp>
 
 namespace raft {
 namespace spatial {
