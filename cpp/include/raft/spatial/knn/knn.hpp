@@ -44,7 +44,7 @@ struct knnIndex {
   }
 };
 
-typedef enum {
+enum QuantizerType {
   QT_8bit,
   QT_4bit,
   QT_8bit_uniform,
@@ -52,7 +52,7 @@ typedef enum {
   QT_fp16,
   QT_8bit_direct,
   QT_6bit
-} QuantizerType;
+};
 
 struct knnIndexParam {
   virtual ~knnIndexParam() {}
@@ -90,11 +90,14 @@ struct IVFSQParam : IVFParam {
  * @param[in] n number of rows in the index array
  * @param[in] D the dimensionality of the index array
  */
-void approx_knn_build_index(raft::handle_t &handle, ML::knnIndex *index,
-                            ML::knnIndexParam *params,
+void approx_knn_build_index(raft::handle_t &handle, knnIndex *index,
+                            knnIndexParam *params,
                             raft::distance::DistanceType metric,
                             float metricArg, float *index_array, IntType n,
-                            IntType D);
+                            IntType D) {
+  detail::approx_knn_build_index(handle, index, params, metric,
+                                 metricArg, index_array, n, D);
+}
 
 /**
  * @brief Flat C++ API function to perform an approximate nearest neighbors
@@ -110,8 +113,13 @@ void approx_knn_build_index(raft::handle_t &handle, ML::knnIndex *index,
  * @param[in] n number of rows in the query array
  */
 void approx_knn_search(raft::handle_t &handle, float *distances,
-                       int64_t *indices, ML::knnIndex *index, IntType k,
-                       float *query_array, IntType n);
+                       int64_t *indices, knnIndex *index, IntType k,
+                       float *query_array, IntType n) {
+
+  detail::approx_knn_search(handle, distances, indices, index, k,
+                           query_array, n);
+
+}
 
 /**
  * @brief Flat C++ API function to perform a brute force knn on
