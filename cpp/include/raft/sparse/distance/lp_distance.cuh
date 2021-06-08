@@ -91,8 +91,8 @@ class l1_unexpanded_distances_t : public distances_t<value_t> {
                                                 Sum(), AtomicAdd());
   }
 
-  private:
-    const distances_config_t<value_idx, value_t> *config_;
+ private:
+  const distances_config_t<value_idx, value_t> *config_;
 };
 
 template <typename value_idx = int, typename value_t = float>
@@ -107,8 +107,8 @@ class l2_unexpanded_distances_t : public distances_t<value_t> {
                                                 Sum(), AtomicAdd());
   }
 
-  protected:
-    const distances_config_t<value_idx, value_t> *config_;
+ protected:
+  const distances_config_t<value_idx, value_t> *config_;
 };
 
 template <typename value_idx = int, typename value_t = float>
@@ -144,8 +144,8 @@ class linf_unexpanded_distances_t : public distances_t<value_t> {
                                                 Max(), AtomicMax());
   }
 
-  private:
-    const distances_config_t<value_idx, value_t> *config_;
+ private:
+  const distances_config_t<value_idx, value_t> *config_;
 };
 
 template <typename value_idx = int, typename value_t = float>
@@ -168,8 +168,8 @@ class canberra_unexpanded_distances_t : public distances_t<value_t> {
       Sum(), AtomicAdd());
   }
 
-  private:
-    const distances_config_t<value_idx, value_t> *config_;
+ private:
+  const distances_config_t<value_idx, value_t> *config_;
 };
 
 template <typename value_idx = int, typename value_t = float>
@@ -190,9 +190,9 @@ class lp_unexpanded_distances_t : public distances_t<value_t> {
       config_->handle.get_stream());
   }
 
-  private:
-    const distances_config_t<value_idx, value_t> *config_;
-    value_t p;
+ private:
+  const distances_config_t<value_idx, value_t> *config_;
+  value_t p;
 };
 
 template <typename value_idx = int, typename value_t = float>
@@ -213,8 +213,8 @@ class hamming_unexpanded_distances_t : public distances_t<value_t> {
       config_->handle.get_stream());
   }
 
-  private:
-    const distances_config_t<value_idx, value_t> *config_;
+ private:
+  const distances_config_t<value_idx, value_t> *config_;
 };
 
 template <typename value_idx = int, typename value_t = float>
@@ -229,17 +229,23 @@ class jensen_shannon_unexpanded_distances_t : public distances_t<value_t> {
       out_dists, config_,
       [] __device__(value_t a, value_t b) {
         value_t m = 0.5f * (a + b);
+        bool a_zero = a == 0;
+        bool b_zero = b == 0;
 
-        value_t x = m / a;
-        value_t y = m / b;
+        value_t x = (!a_zero * m) / (a_zero + a);
+        value_t y = (!b_zero * m) / (b_zero + b);
 
-        return (-a * log(x)) + -b * log(y);
+        bool x_zero = x == 0;
+        bool y_zero = y == 0;
+
+        return (-a * (!x_zero * log(x + x_zero))) +
+               (-b * (!y_zero * log(y + y_zero)));
       },
       Sum(), AtomicAdd());
 
     raft::linalg::unaryOp<value_t>(
       out_dists, out_dists, config_->a_nrows * config_->b_nrows,
-      [=] __device__(value_t input) { return 0.5 * input; },
+      [=] __device__(value_t input) { return sqrt(0.5 * input); },
       config_->handle.get_stream());
   }
 

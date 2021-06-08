@@ -85,7 +85,8 @@ template <typename value_idx, typename value_t>
 __global__ void compute_correlation_warp_kernel(
   value_t *__restrict__ C, const value_t *__restrict__ Q_sq_norms,
   const value_t *__restrict__ R_sq_norms, const value_t *__restrict__ Q_norms,
-  const value_t *__restrict__ R_norms, value_idx n_rows, value_idx n_cols, value_idx n) {
+  const value_t *__restrict__ R_norms, value_idx n_rows, value_idx n_cols,
+  value_idx n) {
   value_idx tid = blockDim.x * blockIdx.x + threadIdx.x;
   value_idx i = tid / n_cols;
   value_idx j = tid % n_cols;
@@ -103,7 +104,7 @@ __global__ void compute_correlation_warp_kernel(
   value_t Q_denom = n * Q_l2 - (Q_l1 * Q_l1);
   value_t R_denom = n * R_l2 - (R_l1 * R_l1);
 
-  value_t val = 1  - (numer / sqrt(Q_denom * R_denom));
+  value_t val = 1 - (numer / sqrt(Q_denom * R_denom));
 
   // correct for small instabilities
   C[(size_t)i * n_cols + j] = val * (fabs(val) >= 0.0001);
@@ -119,8 +120,6 @@ void compute_euclidean(value_t *C, const value_t *Q_sq_norms,
   compute_euclidean_warp_kernel<<<blocks, tpb, 0, stream>>>(
     C, Q_sq_norms, R_sq_norms, n_rows, n_cols, expansion_func);
 }
-
-
 
 template <typename value_idx, typename value_t, int tpb = 256,
           typename expansion_f>
@@ -156,13 +155,11 @@ void compute_correlation(value_t *C, const value_t *Q_sq_norms,
     C, Q_sq_norms, R_sq_norms, Q_norms, R_norms, n_rows, n_cols, n);
 }
 
-
 template <typename value_idx, typename value_t, int tpb = 256>
 void compute_corr(value_t *out, const value_idx *Q_coo_rows,
                   const value_t *Q_data, value_idx Q_nnz,
                   const value_idx *R_coo_rows, const value_t *R_data,
-                  value_idx R_nnz, value_idx m, value_idx n,
-                  value_idx n_cols,
+                  value_idx R_nnz, value_idx m, value_idx n, value_idx n_cols,
                   std::shared_ptr<raft::mr::device::allocator> alloc,
                   cudaStream_t stream) {
   // sum_sq for std dev
@@ -298,7 +295,6 @@ class correlation_expanded_distances_t : public distances_t<value_t> {
   ip_distances_t<value_idx, value_t> ip_dists;
 };
 
-
 /**
  * Cosine distance using the expanded form: 1 - ( sum(x_k * y_k) / (sqrt(sum(x_k)^2) * sqrt(sum(y_k)^2)))
  * The expanded form is more efficient for sparse data.
@@ -422,7 +418,7 @@ class russelrao_expanded_distances_t : public distances_t<value_t> {
     auto diags = thrust::counting_iterator<value_idx>(0);
     value_idx b_nrows = config_->b_nrows;
     thrust::for_each(exec_policy, diags, diags + config_->a_nrows,
-                     [=] __device__ (value_idx input) {
+                     [=] __device__(value_idx input) {
                        out_dists[input * b_nrows + input] = 0.0;
                      });
   }
