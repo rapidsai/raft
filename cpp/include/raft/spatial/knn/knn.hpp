@@ -17,6 +17,10 @@
 #pragma once
 
 #include "detail/brute_force_knn.cuh"
+#include "detail/ivf_pq_ann.cuh"
+
+#include <faiss/gpu/StandardGpuResources.h>
+#include <faiss/gpu/GpuIndex.h>
 
 #include <raft/mr/device/allocator.hpp>
 #include <raft/mr/device/buffer.hpp>
@@ -26,6 +30,88 @@ namespace spatial {
 namespace knn {
 
 using deviceAllocator = raft::mr::device::allocator;
+
+struct knnIndex {
+  faiss::gpu::GpuIndex *index;
+  raft::distance::DistanceType metric;
+  float metricArg;
+
+  faiss::gpu::StandardGpuResources *gpu_res;
+  int device;
+  ~knnIndex() {
+    delete index;
+    delete gpu_res;
+  }
+};
+
+typedef enum {
+  QT_8bit,
+  QT_4bit,
+  QT_8bit_uniform,
+  QT_4bit_uniform,
+  QT_fp16,
+  QT_8bit_direct,
+  QT_6bit
+} QuantizerType;
+
+struct knnIndexParam {
+  virtual ~knnIndexParam() {}
+};
+
+struct IVFParam : knnIndexParam {
+  int nlist;
+  int nprobe;
+};
+
+struct IVFFlatParam : IVFParam {};
+
+struct IVFPQParam : IVFParam {
+  int M;
+  int n_bits;
+  bool usePrecomputedTables;
+};
+
+struct IVFSQParam : IVFParam {
+  QuantizerType qtype;
+  bool encodeResidual;
+};
+
+
+/**
+ * @brief Flat C++ API function to build an approximate nearest neighbors index
+ * from an index array and a set of parameters.
+ *
+ * @param[in] handle RAFT handle
+ * @param[out] index index to be built
+ * @param[in] params parametrization of the index to be built
+ * @param[in] metric distance metric to use. Euclidean (L2) is used by default
+ * @param[in] metricArg metric argument
+ * @param[in] index_array the index array to build the index with
+ * @param[in] n number of rows in the index array
+ * @param[in] D the dimensionality of the index array
+ */
+void approx_knn_build_index(raft::handle_t &handle, ML::knnIndex *index,
+                            ML::knnIndexParam *params,
+                            raft::distance::DistanceType metric,
+                            float metricArg, float *index_array, IntType n,
+                            IntType D);
+
+/**
+ * @brief Flat C++ API function to perform an approximate nearest neighbors
+ * search from previously built index and a query array
+ *
+ * @param[in] handle RAFT handle
+ * @param[out] distances distances of the nearest neighbors toward
+ *                       their query point
+ * @param[out] indices indices of the nearest neighbors
+ * @param[in] index index to perform a search with
+ * @param[in] k the number of nearest neighbors to search for
+ * @param[in] query_array the query to perform a search with
+ * @param[in] n number of rows in the query array
+ */
+void approx_knn_search(raft::handle_t &handle, float *distances,
+                       int64_t *indices, ML::knnIndex *index, IntType k,
+                       float *query_array, IntType n);
 
 /**
  * @brief Flat C++ API function to perform a brute force knn on
