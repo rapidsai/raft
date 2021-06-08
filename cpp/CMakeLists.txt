@@ -140,8 +140,8 @@ install(TARGETS raft
         )
 
 include(GNUInstallDirs)
-install(DIRECTORY include/
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+install(DIRECTORY include/raft/
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/raft
         )
 
 ##############################################################################
