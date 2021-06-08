@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include <raft/spatial/knn/common.h>
+#include "../ann_common.h"
 
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
