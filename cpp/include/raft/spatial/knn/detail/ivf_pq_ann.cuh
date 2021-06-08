@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 #pragma once
 
 #include "../ann_common.h"
@@ -48,7 +47,6 @@
 
 #include <iostream>
 #include <set>
-
 
 namespace raft {
 namespace spatial {
@@ -199,14 +197,13 @@ void approx_knn_search(raft::handle_t &handle, float *distances,
       p = 1.0 / index->metricArg;
     raft::linalg::unaryOp<float>(
       distances, distances, n * k,
-    [p] __device__(float input) { return powf(input, p); },
-    handle.get_stream());
+      [p] __device__(float input) { return powf(input, p); },
+      handle.get_stream());
   }
   query_metric_processor->postprocess(distances);
 }
 
-
-}
-}
-}
-}
+}  // namespace detail
+}  // namespace knn
+}  // namespace spatial
+}  // namespace raft
