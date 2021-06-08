@@ -59,8 +59,8 @@ gpuci_conda_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvid
 # Install the master version of dask, distributed, and dask-ml
 gpuci_logger "Install the master version of dask and distributed"
 set -x
-pip install "git+https://github.com/dask/distributed.git" --upgrade --no-deps
-pip install "git+https://github.com/dask/dask.git" --upgrade --no-deps
+pip install "git+https://github.com/dask/distributed.git@2021.05.1" --upgrade --no-deps
+pip install "git+https://github.com/dask/dask.git@2021.05.1" --upgrade --no-deps
 set +x
 
 

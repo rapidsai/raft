@@ -80,10 +80,10 @@ if [ "$RUN_CUGRAPH_LIBCUGRAPH_TESTS" = "ON" ] || [ "$RUN_CUGRAPH_PYTHON_TESTS" =
 fi
 
 # Install the master version of dask, distributed, and dask-ml
-gpuci_logger "pip install git+https://github.com/dask/distributed.git --upgrade --no-deps"
-pip install "git+https://github.com/dask/distributed.git" --upgrade --no-deps
-gpuci_logger "pip install git+https://github.com/dask/dask.git --upgrade --no-deps"
-pip install "git+https://github.com/dask/dask.git" --upgrade --no-deps
+set -x
+pip install "git+https://github.com/dask/distributed.git@2021.05.1" --upgrade --no-deps
+pip install "git+https://github.com/dask/dask.git@2021.05.1" --upgrade --no-deps
+set +x
 
 
 gpuci_logger "Check versions"
