@@ -46,11 +46,12 @@ using deviceAllocator = raft::mr::device::allocator;
  * @param[in] n number of rows in the index array
  * @param[in] D the dimensionality of the index array
  */
-void approx_knn_build_index(raft::handle_t &handle, knnIndex *index,
+template<typename value_idx = int>
+inline void approx_knn_build_index(raft::handle_t &handle, knnIndex *index,
                             knnIndexParam *params,
                             raft::distance::DistanceType metric,
-                            float metricArg, float *index_array, IntType n,
-                            IntType D) {
+                            float metricArg, float *index_array, value_idx n,
+                                   value_idx D) {
   detail::approx_knn_build_index(handle, index, params, metric,
                                  metricArg, index_array, n, D);
 }
@@ -68,9 +69,10 @@ void approx_knn_build_index(raft::handle_t &handle, knnIndex *index,
  * @param[in] query_array the query to perform a search with
  * @param[in] n number of rows in the query array
  */
-void approx_knn_search(raft::handle_t &handle, float *distances,
-                       int64_t *indices, knnIndex *index, IntType k,
-                       float *query_array, IntType n) {
+template<typename value_idx = int>
+inline void approx_knn_search(raft::handle_t &handle, float *distances,
+                       int64_t *indices, knnIndex *index, value_idx k,
+                       float *query_array, value_idx n) {
 
   detail::approx_knn_search(handle, distances, indices, index, k,
                            query_array, n);
