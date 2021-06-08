@@ -54,19 +54,19 @@ namespace knn {
 namespace detail {
 
 inline faiss::ScalarQuantizer::QuantizerType build_faiss_qtype(
-  ML::QuantizerType qtype) {
+  raft::spatial::knn::QuantizerType qtype) {
   switch (qtype) {
-    case ML::QuantizerType::QT_8bit:
+    case raft::spatial::knn::QuantizerType::QT_8bit:
       return faiss::ScalarQuantizer::QuantizerType::QT_8bit;
-    case ML::QuantizerType::QT_8bit_uniform:
+    case raft::spatial::knn::QuantizerType::QT_8bit_uniform:
       return faiss::ScalarQuantizer::QuantizerType::QT_8bit_uniform;
-    case ML::QuantizerType::QT_4bit_uniform:
+    case raft::spatial::knn::QuantizerType::QT_4bit_uniform:
       return faiss::ScalarQuantizer::QuantizerType::QT_4bit_uniform;
-    case ML::QuantizerType::QT_fp16:
+    case raft::spatial::knn::QuantizerType::QT_fp16:
       return faiss::ScalarQuantizer::QuantizerType::QT_fp16;
-    case ML::QuantizerType::QT_8bit_direct:
+    case raft::spatial::knn::QuantizerType::QT_8bit_direct:
       return faiss::ScalarQuantizer::QuantizerType::QT_8bit_direct;
-    case ML::QuantizerType::QT_6bit:
+    case raft::spatial::knn::QuantizerType::QT_6bit:
       return faiss::ScalarQuantizer::QuantizerType::QT_6bit;
     default:
       return (faiss::ScalarQuantizer::QuantizerType)qtype;
@@ -74,7 +74,7 @@ inline faiss::ScalarQuantizer::QuantizerType build_faiss_qtype(
 }
 
 template <typename IntType = int>
-void approx_knn_ivfflat_build_index(ML::knnIndex *index, ML::IVFParam *params,
+void approx_knn_ivfflat_build_index(raft::spatial::knn::knnIndex *index, raft::spatial::knn::IVFParam *params,
                                     raft::distance::DistanceType metric,
                                     IntType n, IntType D) {
   faiss::gpu::GpuIndexIVFFlatConfig config;
@@ -87,7 +87,7 @@ void approx_knn_ivfflat_build_index(ML::knnIndex *index, ML::IVFParam *params,
 }
 
 template <typename IntType = int>
-void approx_knn_ivfpq_build_index(ML::knnIndex *index, ML::IVFPQParam *params,
+void approx_knn_ivfpq_build_index(raft::spatial::knn::knnIndex *index, raft::spatial::knn::IVFPQParam *params,
                                   raft::distance::DistanceType metric,
                                   IntType n, IntType D) {
   faiss::gpu::GpuIndexIVFPQConfig config;
@@ -103,7 +103,7 @@ void approx_knn_ivfpq_build_index(ML::knnIndex *index, ML::IVFPQParam *params,
 }
 
 template <typename IntType = int>
-void approx_knn_ivfsq_build_index(ML::knnIndex *index, ML::IVFSQParam *params,
+void approx_knn_ivfsq_build_index(raft::spatial::knn::knnIndex *index, raft::spatial::knn::IVFSQParam *params,
                                   raft::distance::DistanceType metric,
                                   IntType n, IntType D) {
   faiss::gpu::GpuIndexIVFScalarQuantizerConfig config;
@@ -120,8 +120,8 @@ void approx_knn_ivfsq_build_index(ML::knnIndex *index, ML::IVFSQParam *params,
 }
 
 template <typename IntType = int>
-void approx_knn_build_index(raft::handle_t &handle, ML::knnIndex *index,
-                            ML::knnIndexParam *params,
+void approx_knn_build_index(raft::handle_t &handle, raft::spatial::knn::knnIndex *index,
+                            raft::spatial::knn::knnIndexParam *params,
                             raft::distance::DistanceType metric,
                             float metricArg, float *index_array, IntType n,
                             IntType D) {
@@ -146,8 +146,8 @@ void approx_knn_build_index(raft::handle_t &handle, ML::knnIndex *index,
 
   query_metric_processor->preprocess(index_array);
 
-  if (dynamic_cast<ML::IVFFlatParam *>(params)) {
-    ML::IVFFlatParam *IVFFlat_param = dynamic_cast<ML::IVFFlatParam *>(params);
+  if (dynamic_cast<raft::spatial::knn::IVFFlatParam *>(params)) {
+    raft::spatial::knn::IVFFlatParam *IVFFlat_param = dynamic_cast<raft::spatial::knn::IVFFlatParam *>(params);
     approx_knn_ivfflat_build_index(index, IVFFlat_param, metric, n, D);
     std::vector<float> h_index_array(n * D);
     raft::update_host(h_index_array.data(), index_array, h_index_array.size(),
@@ -156,11 +156,11 @@ void approx_knn_build_index(raft::handle_t &handle, ML::knnIndex *index,
     index->index->train(n, h_index_array.data());
     index->index->add(n, h_index_array.data());
   } else {
-    if (dynamic_cast<ML::IVFPQParam *>(params)) {
-      ML::IVFPQParam *IVFPQ_param = dynamic_cast<ML::IVFPQParam *>(params);
+    if (dynamic_cast<raft::spatial::knn::IVFPQParam *>(params)) {
+      raft::spatial::knn::IVFPQParam *IVFPQ_param = dynamic_cast<raft::spatial::knn::IVFPQParam *>(params);
       approx_knn_ivfpq_build_index(index, IVFPQ_param, metric, n, D);
-    } else if (dynamic_cast<ML::IVFSQParam *>(params)) {
-      ML::IVFSQParam *IVFSQ_param = dynamic_cast<ML::IVFSQParam *>(params);
+    } else if (dynamic_cast<raft::spatial::knn::IVFSQParam *>(params)) {
+      raft::spatial::knn::IVFSQParam *IVFSQ_param = dynamic_cast<raft::spatial::knn::IVFSQParam *>(params);
       approx_knn_ivfsq_build_index(index, IVFSQ_param, metric, n, D);
     } else {
       ASSERT(index->index, "KNN index could not be initialized");
@@ -174,7 +174,7 @@ void approx_knn_build_index(raft::handle_t &handle, ML::knnIndex *index,
 
 template <typename IntType = int>
 void approx_knn_search(raft::handle_t &handle, float *distances,
-                       int64_t *indices, ML::knnIndex *index, IntType k,
+                       int64_t *indices, raft::spatial::knn::knnIndex *index, IntType k,
                        float *query_array, IntType n) {
   // perform preprocessing
   std::unique_ptr<MetricProcessor<float>> query_metric_processor =
