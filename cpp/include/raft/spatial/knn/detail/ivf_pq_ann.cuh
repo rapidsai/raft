@@ -39,9 +39,6 @@
 #include <thrust/iterator/transform_iterator.h>
 
 #include <raft/linalg/distance_type.h>
-#include "processing.cuh"
-
-#include "haversine_knn.cuh"
 
 #include <cuml/common/device_buffer.hpp>
 #include <cuml/neighbors/knn.hpp>
