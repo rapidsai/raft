@@ -57,7 +57,9 @@ static const std::unordered_set<raft::distance::DistanceType> supportedDistance{
   raft::distance::DistanceType::CosineExpanded,
   raft::distance::DistanceType::HellingerExpanded,
   raft::distance::DistanceType::DiceExpanded,
-  raft::distance::DistanceType::CorrelationExpanded};
+  raft::distance::DistanceType::CorrelationExpanded,
+  raft::distance::DistanceType::RusselRaoExpanded
+};
 
 /**
  * Compute pairwise distances between A and B, using the provided
@@ -123,6 +125,9 @@ void pairwiseDistance(value_t *out,
       break;
     case raft::distance::DistanceType::CorrelationExpanded:
       correlation_expanded_distances_t<value_idx, value_t>(input_config).compute(out);
+      break;
+    case raft::distance::DistanceType::RusselRaoExpanded:
+      russelrao_expanded_distances_t<value_idx, value_t>(input_config).compute(out);
       break;
 
     default:

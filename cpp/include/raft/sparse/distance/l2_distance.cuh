@@ -411,8 +411,8 @@ class russelrao_expanded_distances_t : public distances_t<value_t> {
   void compute(value_t *out_dists) {
     ip_dists.compute(out_dists);
 
-    value_idx n_cols = config_->a_ncols;
-    value_idx n_cols_inv = 1.0 / n_cols;
+    value_t n_cols = config_->a_ncols;
+    value_t n_cols_inv = 1.0 / n_cols;
     raft::linalg::unaryOp<value_t>(
       out_dists, out_dists, config_->a_nrows * config_->b_nrows,
       [=] __device__(value_t input) { return (n_cols - input) * n_cols_inv; },
