@@ -91,8 +91,8 @@ class l1_unexpanded_distances_t : public distances_t<value_t> {
                                                 Sum(), AtomicAdd());
   }
 
- private:
-  const distances_config_t<value_idx, value_t> *config_;
+  private:
+    const distances_config_t<value_idx, value_t> *config_;
 };
 
 template <typename value_idx = int, typename value_t = float>
@@ -107,8 +107,8 @@ class l2_unexpanded_distances_t : public distances_t<value_t> {
                                                 Sum(), AtomicAdd());
   }
 
- protected:
-  const distances_config_t<value_idx, value_t> *config_;
+  protected:
+    const distances_config_t<value_idx, value_t> *config_;
 };
 
 template <typename value_idx = int, typename value_t = float>
@@ -144,8 +144,8 @@ class linf_unexpanded_distances_t : public distances_t<value_t> {
                                                 Max(), AtomicMax());
   }
 
- private:
-  const distances_config_t<value_idx, value_t> *config_;
+  private:
+    const distances_config_t<value_idx, value_t> *config_;
 };
 
 template <typename value_idx = int, typename value_t = float>
@@ -168,8 +168,8 @@ class canberra_unexpanded_distances_t : public distances_t<value_t> {
       Sum(), AtomicAdd());
   }
 
- private:
-  const distances_config_t<value_idx, value_t> *config_;
+  private:
+    const distances_config_t<value_idx, value_t> *config_;
 };
 
 template <typename value_idx = int, typename value_t = float>
@@ -190,9 +190,31 @@ class lp_unexpanded_distances_t : public distances_t<value_t> {
       config_->handle.get_stream());
   }
 
- private:
-  const distances_config_t<value_idx, value_t> *config_;
-  value_t p;
+  private:
+    const distances_config_t<value_idx, value_t> *config_;
+    value_t p;
+};
+
+template <typename value_idx = int, typename value_t = float>
+class hamming_unexpanded_distances_t : public distances_t<value_t> {
+ public:
+  explicit hamming_unexpanded_distances_t(
+    const distances_config_t<value_idx, value_t> &config)
+    : config_(&config) {}
+
+  void compute(value_t *out_dists) {
+    unexpanded_lp_distances<value_idx, value_t>(out_dists, config_, NotEqual(),
+                                                Sum(), AtomicAdd());
+
+    value_t n_cols = 1.0 / config_->a_ncols;
+    raft::linalg::unaryOp<value_t>(
+      out_dists, out_dists, config_->a_nrows * config_->b_nrows,
+      [=] __device__(value_t input) { return input * n_cols; },
+      config_->handle.get_stream());
+  }
+
+  private:
+    const distances_config_t<value_idx, value_t> *config_;
 };
 };  // END namespace distance
 };  // END namespace sparse
