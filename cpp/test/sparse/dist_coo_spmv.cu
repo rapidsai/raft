@@ -78,9 +78,20 @@ class SparseDistanceCOOSPMVTest
                                       coo_rows.data(), dist_config.b_nnz,
                                       dist_config.handle.get_stream());
 
+    dense_smem_strategy<value_idx, value_t, 1024> dense(dist_config);
     balanced_coo_pairwise_generalized_spmv<value_idx, value_t>(
-      out_dists, dist_config, coo_rows.data(), reduce_func, accum_func,
-      write_func);
+      out_dists_dense, dist_config, coo_rows.data(), reduce_func, accum_func,
+      write_func, dense);
+
+    hash_strategy<value_idx, value_t, 1024> hash(dist_config);
+    balanced_coo_pairwise_generalized_spmv<value_idx, value_t>(
+      out_dists_hash, dist_config, coo_rows.data(), reduce_func, accum_func,
+      write_func, hash);
+
+    hash_strategy<value_idx, value_t, 1024> chunk(dist_config, 0.5, 2);
+    balanced_coo_pairwise_generalized_spmv<value_idx, value_t>(
+      out_dists_chunk, dist_config, coo_rows.data(), reduce_func, accum_func,
+      write_func, chunk);
 
     if (rev) {
       raft::sparse::convert::csr_to_coo(
@@ -88,8 +99,16 @@ class SparseDistanceCOOSPMVTest
         dist_config.a_nnz, dist_config.handle.get_stream());
 
       balanced_coo_pairwise_generalized_spmv_rev<value_idx, value_t>(
-        out_dists, dist_config, coo_rows.data(), reduce_func, accum_func,
-        write_func);
+        out_dists_dense, dist_config, coo_rows.data(), reduce_func, accum_func,
+        write_func, dense);
+
+      balanced_coo_pairwise_generalized_spmv_rev<value_idx, value_t>(
+        out_dists_hash, dist_config, coo_rows.data(), reduce_func, accum_func,
+        write_func, hash);
+
+      balanced_coo_pairwise_generalized_spmv_rev<value_idx, value_t>(
+        out_dists_chunk, dist_config, coo_rows.data(), reduce_func, accum_func,
+        write_func, chunk);
     }
   }
 
@@ -118,7 +137,20 @@ class SparseDistanceCOOSPMVTest
         compute_dist(PDiff(params.metric_arg), Sum(), AtomicAdd());
         float p = 1.0f / params.metric_arg;
         raft::linalg::unaryOp<value_t>(
-          out_dists, out_dists, dist_config.a_nrows * dist_config.b_nrows,
+          out_dists_dense, out_dists_dense,
+          dist_config.a_nrows * dist_config.b_nrows,
+          [=] __device__(value_t input) { return powf(input, p); },
+          dist_config.handle.get_stream());
+
+        raft::linalg::unaryOp<value_t>(
+          out_dists_hash, out_dists_hash,
+          dist_config.a_nrows * dist_config.b_nrows,
+          [=] __device__(value_t input) { return powf(input, p); },
+          dist_config.handle.get_stream());
+
+        raft::linalg::unaryOp<value_t>(
+          out_dists_chunk, out_dists_chunk,
+          dist_config.a_nrows * dist_config.b_nrows,
           [=] __device__(value_t input) { return powf(input, p); },
           dist_config.handle.get_stream());
 
@@ -173,7 +205,9 @@ class SparseDistanceCOOSPMVTest
 
     int out_size = dist_config.a_nrows * dist_config.b_nrows;
 
-    allocate(out_dists, out_size);
+    allocate(out_dists_dense, out_size);
+    allocate(out_dists_hash, out_size);
+    allocate(out_dists_chunk, out_size);
 
     run_spmv();
 
@@ -185,18 +219,28 @@ class SparseDistanceCOOSPMVTest
     CUDA_CHECK(cudaFree(indptr));
     CUDA_CHECK(cudaFree(indices));
     CUDA_CHECK(cudaFree(data));
-    CUDA_CHECK(cudaFree(out_dists));
+    CUDA_CHECK(cudaFree(out_dists_dense));
+    CUDA_CHECK(cudaFree(out_dists_hash));
+    CUDA_CHECK(cudaFree(out_dists_chunk));
     CUDA_CHECK(cudaFree(out_dists_ref));
   }
 
   void compare() {
     raft::print_device_vector("expected: ", out_dists_ref,
                               params.out_dists_ref_h.size(), std::cout);
-    raft::print_device_vector("out_dists: ", out_dists,
+    raft::print_device_vector("out_dists_chunk: ", out_dists_chunk,
                               params.out_dists_ref_h.size(), std::cout);
-    ASSERT_TRUE(devArrMatch(out_dists_ref, out_dists,
+    ASSERT_TRUE(devArrMatch(out_dists_ref, out_dists_dense,
                             params.out_dists_ref_h.size(),
                             CompareApprox<value_t>(1e-3)));
+
+    ASSERT_TRUE(devArrMatch(out_dists_ref, out_dists_hash,
+                            params.out_dists_ref_h.size(),
+                            CompareApprox<value_t>(1e-3)));
+
+    ASSERT_TRUE(devArrMatch(out_dists_ref, out_dists_chunk,
+                            params.out_dists_ref_h.size(),
+                            CompareApprox<value_t>(1e-1)));
   }
 
  protected:
@@ -207,7 +251,7 @@ class SparseDistanceCOOSPMVTest
   value_t *data;
 
   // output data
-  value_t *out_dists, *out_dists_ref;
+  value_t *out_dists_dense, *out_dists_hash, *out_dists_chunk, *out_dists_ref;
 
   raft::sparse::distance::distances_config_t<value_idx, value_t> dist_config;
 

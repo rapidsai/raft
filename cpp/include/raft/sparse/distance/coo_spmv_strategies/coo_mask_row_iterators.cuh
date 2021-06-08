@@ -114,6 +114,9 @@ class chunked_mask_row_it : public mask_row_it<value_idx> {
                       stream);
 
     fill_chunk_indices();
+    std::cout << "total row blocks: " << total_row_blocks << std::endl;
+    raft::print_device_vector("n_chunks_per_row", n_chunks_per_row_ptr,
+                              this->n_rows + 1, std::cout);
   }
 
   __device__ inline value_idx get_row_idx(const int &n_blocks_nnz_b) {
@@ -150,8 +153,7 @@ class chunked_mask_row_it : public mask_row_it<value_idx> {
   __device__ inline bool check_indices_bounds(value_idx &start_index_a,
                                               value_idx &stop_index_a,
                                               value_idx &index_b) {
-    return (index_b >= start_index_a && index_b <= stop_index_a) ||
-           (index_b == start_index_a == stop_index_a);
+    return (index_b >= start_index_a && index_b <= stop_index_a);
   }
 
   value_idx total_row_blocks;
@@ -186,6 +188,9 @@ class chunked_mask_row_it : public mask_row_it<value_idx> {
 
     fill_chunk_indices_kernel<value_idx><<<n_blocks, n_threads, 0, stream>>>(
       n_chunks_per_row_ptr, chunk_indices_ptr, this->n_rows);
+
+    raft::print_device_vector("chunk_indices", chunk_indices_ptr,
+                              total_row_blocks, std::cout);
   }
 };
 

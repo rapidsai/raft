@@ -59,6 +59,8 @@ class hash_strategy : public coo_spmv_strategy<value_idx, value_t, tpb> {
       fits_in_hash_table(indptr, capacity_threshold * map_size,
                          std::numeric_limits<value_idx>::max()));
     std::get<1>(n_rows_divided) = more - less;
+    std::cout << "less rows: " << less - mask_indptr.data()
+              << ", more rows: " << more - less << std::endl;
   }
 
   template <typename product_f, typename accum_f, typename write_f>

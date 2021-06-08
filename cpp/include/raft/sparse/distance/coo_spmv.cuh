@@ -41,6 +41,21 @@ namespace raft {
 namespace sparse {
 namespace distance {
 
+template <typename value_idx, typename value_t, int threads_per_block = 1024,
+          typename product_f, typename accum_f, typename write_f,
+          typename strategy_t>
+inline void balanced_coo_pairwise_generalized_spmv(
+  value_t *out_dists, const distances_config_t<value_idx, value_t> &config_,
+  value_idx *coo_rows_b, product_f product_func, accum_f accum_func,
+  write_f write_func, strategy_t strategy, int chunk_size = 500000) {
+  CUDA_CHECK(cudaMemsetAsync(
+    out_dists, 0, sizeof(value_t) * config_.a_nrows * config_.b_nrows,
+    config_.handle.get_stream()));
+
+  strategy.dispatch(out_dists, coo_rows_b, product_func, accum_func, write_func,
+                    chunk_size);
+};
+
 /**
  * Performs generalized sparse-matrix-sparse-matrix multiplication via a
  * sparse-matrix-sparse-vector layout `out=A*B` where generalized product()
@@ -96,6 +111,17 @@ inline void balanced_coo_pairwise_generalized_spmv(
     strategy.dispatch(out_dists, coo_rows_b, product_func, accum_func,
                       write_func, chunk_size);
   }
+};
+
+template <typename value_idx, typename value_t, int threads_per_block = 1024,
+          typename product_f, typename accum_f, typename write_f,
+          typename strategy_t>
+inline void balanced_coo_pairwise_generalized_spmv_rev(
+  value_t *out_dists, const distances_config_t<value_idx, value_t> &config_,
+  value_idx *coo_rows_a, product_f product_func, accum_f accum_func,
+  write_f write_func, strategy_t strategy, int chunk_size = 500000) {
+  strategy.dispatch_rev(out_dists, coo_rows_a, product_func, accum_func,
+                        write_func, chunk_size);
 };
 
 /**
