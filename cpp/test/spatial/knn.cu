@@ -107,11 +107,13 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
       }
     }
     rmm::device_buffer input_d = rmm::device_buffer(
-      row_major_input.data(), row_major_input.size() * sizeof(float));
+      row_major_input.data(), row_major_input.size() * sizeof(float),
+      handle_.get_stream());
     float *input_ptr = static_cast<float *>(input_d.data());
 
     rmm::device_buffer labels_d = rmm::device_buffer(
-      params_.labels.data(), params_.labels.size() * sizeof(int));
+      params_.labels.data(), params_.labels.size() * sizeof(int),
+      handle_.get_stream());
     int *labels_ptr = static_cast<int *>(labels_d.data());
 
     raft::allocate(input_, rows_ * cols_, true);
