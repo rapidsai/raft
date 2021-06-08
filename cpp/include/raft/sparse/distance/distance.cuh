@@ -59,7 +59,9 @@ static const std::unordered_set<raft::distance::DistanceType> supportedDistance{
   raft::distance::DistanceType::DiceExpanded,
   raft::distance::DistanceType::CorrelationExpanded,
   raft::distance::DistanceType::RusselRaoExpanded,
-  raft::distance::DistanceType::HammingUnexpanded
+  raft::distance::DistanceType::HammingUnexpanded,
+  raft::distance::DistanceType::JensenShannon,
+  raft::distance::DistanceType::KLDivergence
 };
 
 /**
@@ -132,6 +134,12 @@ void pairwiseDistance(value_t *out,
       break;
     case raft::distance::DistanceType::HammingUnexpanded:
       hamming_unexpanded_distances_t<value_idx, value_t>(input_config).compute(out);
+      break;
+    case raft::distance::DistanceType::JensenShannon:
+      jensen_shannon_unexpanded_distances_t<value_idx, value_t>(input_config).compute(out);
+      break;
+    case raft::distance::DistanceType::KLDivergence:
+      kl_divergence_unexpanded_distances_t<value_idx, value_t>(input_config).compute(out);
       break;
 
     default:
