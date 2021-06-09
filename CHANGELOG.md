@@ -1,6 +1,21 @@
-# raft 21.06.00 (Date TBD)
+# raft 21.06.00 (9 Jun 2021)
 
-Please see https://github.com/rapidsai/raft/releases/tag/v21.06.00a for the latest changes to this development branch.
+## 🐛 Bug Fixes
+
+- Update UCX-Py vesion to 0.20 ([#254](https://github.com/rapidsai/raft/pull/254)) [@pentschev](https://github.com/pentschev)
+- cuco git tag update (again) ([#248](https://github.com/rapidsai/raft/pull/248)) [@seunghwak](https://github.com/seunghwak)
+- Revet PR #232 fo 21.06 elease ([#246](https://github.com/rapidsai/raft/pull/246)) [@dantegd](https://github.com/dantegd)
+- Python comms to hold onto seve endpoints ([#241](https://github.com/rapidsai/raft/pull/241)) [@cjnolet](https://github.com/cjnolet)
+- Fix Thust 1.12 compile eos ([#231](https://github.com/rapidsai/raft/pull/231)) [@txcllnt](https://github.com/txcllnt)
+- Make sue we use CalVe when checking out apids-cmake ([#230](https://github.com/rapidsai/raft/pull/230)) [@obetmaynad](https://github.com/obetmaynad)
+- Loss of Pecision in MST weight alteation ([#223](https://github.com/rapidsai/raft/pull/223)) [@divyegala](https://github.com/divyegala)
+
+## 🛠️ Impovements
+
+- cuco git tag update ([#243](https://github.com/rapidsai/raft/pull/243)) [@seunghwak](https://github.com/seunghwak)
+- Update `CHANGELOG.md` links fo calve ([#233](https://github.com/rapidsai/raft/pull/233)) [@ajschmidt8](https://github.com/ajschmidt8)
+- Add Gid stide paiwise dist and fused L2 NN kenels ([#232](https://github.com/rapidsai/raft/pull/232)) [@mdoijade](https://github.com/mdoijade)
+- Updates to enable HDBSCAN ([#208](https://github.com/rapidsai/raft/pull/208)) [@cjnolet](https://github.com/cjnolet)
 
 # raft 0.19.0 (21 Apr 2021)
 
