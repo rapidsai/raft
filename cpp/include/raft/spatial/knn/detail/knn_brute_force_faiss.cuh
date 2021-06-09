@@ -36,6 +36,8 @@
 #include "haversine_distance.cuh"
 #include "processing.hpp"
 
+#include "common_faiss.h"
+
 namespace raft {
 namespace spatial {
 namespace knn {
@@ -167,39 +169,6 @@ inline void knn_merge_parts(value_t *inK, value_idx *inV, value_t *outK,
       inK, inV, outK, outV, n_samples, n_parts, k, stream, translations);
 }
 
-inline faiss::MetricType build_faiss_metric(
-  raft::distance::DistanceType metric) {
-  switch (metric) {
-    case raft::distance::DistanceType::CosineExpanded:
-      return faiss::MetricType::METRIC_INNER_PRODUCT;
-    case raft::distance::DistanceType::CorrelationExpanded:
-      return faiss::MetricType::METRIC_INNER_PRODUCT;
-    case raft::distance::DistanceType::L2Expanded:
-      return faiss::MetricType::METRIC_L2;
-    case raft::distance::DistanceType::L2Unexpanded:
-      return faiss::MetricType::METRIC_L2;
-    case raft::distance::DistanceType::L2SqrtExpanded:
-      return faiss::MetricType::METRIC_L2;
-    case raft::distance::DistanceType::L2SqrtUnexpanded:
-      return faiss::MetricType::METRIC_L2;
-    case raft::distance::DistanceType::L1:
-      return faiss::MetricType::METRIC_L1;
-    case raft::distance::DistanceType::InnerProduct:
-      return faiss::MetricType::METRIC_INNER_PRODUCT;
-    case raft::distance::DistanceType::LpUnexpanded:
-      return faiss::MetricType::METRIC_Lp;
-    case raft::distance::DistanceType::Linf:
-      return faiss::MetricType::METRIC_Linf;
-    case raft::distance::DistanceType::Canberra:
-      return faiss::MetricType::METRIC_Canberra;
-    case raft::distance::DistanceType::BrayCurtis:
-      return faiss::MetricType::METRIC_BrayCurtis;
-    case raft::distance::DistanceType::JensenShannon:
-      return faiss::MetricType::METRIC_JensenShannon;
-    default:
-      THROW("MetricType not supported: %d", metric);
-  }
-}
 
 /**
  * Search the kNN for the k-nearest neighbors of a set of query vectors

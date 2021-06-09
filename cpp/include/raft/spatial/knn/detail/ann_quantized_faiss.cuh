@@ -18,6 +18,9 @@
 
 #include "../ann_common.h"
 
+#include "common_faiss.h"
+#include "processing.hpp"
+
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
 
