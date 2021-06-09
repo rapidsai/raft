@@ -169,7 +169,6 @@ inline void knn_merge_parts(value_t *inK, value_idx *inV, value_t *outK,
       inK, inV, outK, outV, n_samples, n_parts, k, stream, translations);
 }
 
-
 /**
  * Search the kNN for the k-nearest neighbors of a set of query vectors
  * @param[in] input vector of device device memory array pointers to search

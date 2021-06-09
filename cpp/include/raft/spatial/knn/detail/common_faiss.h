@@ -22,12 +22,10 @@
 #include <faiss/gpu/GpuDistance.h>
 #include <raft/linalg/distance_type.h>
 
-
 namespace raft {
 namespace spatial {
 namespace knn {
 namespace detail {
-
 
 inline faiss::MetricType build_faiss_metric(
   raft::distance::DistanceType metric) {
