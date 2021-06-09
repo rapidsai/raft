@@ -120,8 +120,8 @@ void approx_knn_ivfsq_build_index(knnIndex *index, IVFSQParam *params,
 }
 
 template <typename IntType = int>
-void approx_knn_build_index(raft::handle_t &handle, knnIndex *index,
-                            knnIndexParam *params,
+void approx_knn_build_index(raft::handle_t &handle, raft::spatial::knn::knnIndex *index,
+                            raft::spatial::knn::knnIndexParam *params,
                             raft::distance::DistanceType metric,
                             float metricArg, float *index_array, IntType n,
                             IntType D) {
@@ -174,7 +174,7 @@ void approx_knn_build_index(raft::handle_t &handle, knnIndex *index,
 
 template <typename IntType = int>
 void approx_knn_search(raft::handle_t &handle, float *distances,
-                       int64_t *indices, knnIndex *index, IntType k,
+                       int64_t *indices, raft::spatial::knn::knnIndex *index, IntType k,
                        float *query_array, IntType n) {
   // perform preprocessing
   std::unique_ptr<MetricProcessor<float>> query_metric_processor =

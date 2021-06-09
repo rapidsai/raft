@@ -17,7 +17,7 @@
 #pragma once
 
 #include "ann_common.h"
-#include "detail/ivf_pq_ann.cuh"
+#include "detail/ann_quantized_faiss.cuh"
 
 #include <faiss/gpu/GpuIndex.h>
 #include <faiss/gpu/StandardGpuResources.h>
@@ -45,7 +45,8 @@ using deviceAllocator = raft::mr::device::allocator;
  * @param[in] D the dimensionality of the index array
  */
 template <typename value_idx = int>
-inline void approx_knn_build_index(raft::handle_t &handle, knnIndex *index,
+inline void approx_knn_build_index(raft::handle_t &handle,
+                                   raft::spatial::knn::knnIndex *index,
                                    knnIndexParam *params,
                                    raft::distance::DistanceType metric,
                                    float metricArg, float *index_array,
@@ -69,7 +70,8 @@ inline void approx_knn_build_index(raft::handle_t &handle, knnIndex *index,
  */
 template <typename value_idx = int>
 inline void approx_knn_search(raft::handle_t &handle, float *distances,
-                              int64_t *indices, knnIndex *index, value_idx k,
+                              int64_t *indices,
+                              raft::spatial::knn::knnIndex *index, value_idx k,
                               float *query_array, value_idx n) {
   detail::approx_knn_search(handle, distances, indices, index, k, query_array,
                             n);
