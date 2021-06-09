@@ -144,6 +144,11 @@ install(DIRECTORY include/raft/
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/raft
         )
 
+# Temporary install of raft.hpp while the file is removed
+install(FILES include/raft.hpp
+	DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/raft
+	)
+
 ##############################################################################
 # - install export -----------------------------------------------------------
 set(doc_string
