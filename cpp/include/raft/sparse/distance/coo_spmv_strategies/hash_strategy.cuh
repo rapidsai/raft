@@ -20,6 +20,16 @@
 
 #include <cuco/static_map.cuh>
 
+// this is needed by cuco as key, value must be bitwise comparable.
+// compilers don't declare float/double as bitwise comparable
+// but that is too strict
+// for example, the following is true (or 0):
+// float a = 5;
+// float b = 5;
+// memcmp(&a, &b, sizeof(float));
+CUCO_DECLARE_BITWISE_COMPARABLE(float);
+CUCO_DECLARE_BITWISE_COMPARABLE(double);
+
 namespace raft {
 namespace sparse {
 namespace distance {
@@ -59,8 +69,6 @@ class hash_strategy : public coo_spmv_strategy<value_idx, value_t, tpb> {
       fits_in_hash_table(indptr, capacity_threshold * map_size,
                          std::numeric_limits<value_idx>::max()));
     std::get<1>(n_rows_divided) = more - less;
-    std::cout << "less rows: " << less - mask_indptr.data()
-              << ", more rows: " << more - less << std::endl;
   }
 
   template <typename product_f, typename accum_f, typename write_f>
@@ -145,7 +153,7 @@ class hash_strategy : public coo_spmv_strategy<value_idx, value_t, tpb> {
 
   __device__ inline void insert(insert_type cache, const value_idx &key,
                                 const value_t &value) {
-    auto success = cache.insert(thrust::make_pair(key, value));
+    auto success = cache.insert(cuco::pair<value_idx, value_t>(key, value));
   }
 
   __device__ inline find_type init_find(smem_type cache,
