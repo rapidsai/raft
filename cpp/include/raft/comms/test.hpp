@@ -378,7 +378,7 @@ bool test_pointToPoint_device_send_or_recv(const handle_t &h, int numTrials) {
 
     communicator.sync_stream(stream);
 
-    if (!sender && received_data.value() != rank - 1) {
+    if (!sender && received_data.value(stream) != rank - 1) {
       ret = false;
     }
 
@@ -424,8 +424,8 @@ bool test_pointToPoint_device_sendrecv(const handle_t &h, int numTrials) {
 
     communicator.sync_stream(stream);
 
-    if (((rank % 2 == 0) && (received_data.value() != rank + 1)) ||
-        ((rank % 2 == 1) && (received_data.value() != rank - 1))) {
+    if (((rank % 2 == 0) && (received_data.value(stream) != rank + 1)) ||
+        ((rank % 2 == 1) && (received_data.value(stream) != rank - 1))) {
       ret = false;
     }
 
