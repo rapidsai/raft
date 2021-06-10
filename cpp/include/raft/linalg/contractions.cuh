@@ -167,6 +167,40 @@ struct Policy4x4<double, _veclen> {
 /** @} */
 
 /**
+ * @defgroup Policy1x1 1 elements per thread Policy with k-block = 32
+ * @{
+ */
+template <typename DataT, int _veclen = 1>
+struct Policy1x1 {};
+
+template <int _veclen>
+struct Policy1x1<float, _veclen> {
+#if 0
+  typedef KernelPolicy<float, _veclen, 32, 1, 1, 8, 32> Policy;
+  typedef ColKernelPolicy<float, _veclen, 32, 1, 1, 8, 32> ColPolicy;
+#else
+  typedef KernelPolicy<float, _veclen, 32, 1, 4, 8, 32> Policy;
+  typedef ColKernelPolicy<float, _veclen, 32, 1, 4, 8, 32> ColPolicy;
+
+/*  typedef KernelPolicy<float, _veclen, 16, 1, 16, 16, 16> Policy;
+  typedef ColKernelPolicy<float, _veclen, 16, 1, 16, 16, 16> ColPolicy;*/
+#endif
+};
+
+template <int _veclen>
+struct Policy1x1<double, _veclen> {
+#if 0
+  typedef KernelPolicy<double, _veclen, 32, 1, 1, 8, 32> Policy;
+  typedef ColKernelPolicy<double, _veclen, 32, 1, 1, 8, 32> ColPolicy;
+#else
+  typedef KernelPolicy<double, _veclen, 32, 1, 2, 8, 32> Policy;
+  typedef ColKernelPolicy<double, _veclen, 32, 1, 2, 8, 32> ColPolicy;
+#endif
+};
+/** @} */
+
+
+/**
  * @brief Base class for gemm-like NT contractions
  *
  * This class does not provide any arithmetic operations, but only provides the

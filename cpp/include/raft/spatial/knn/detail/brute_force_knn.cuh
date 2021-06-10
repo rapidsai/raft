@@ -35,6 +35,7 @@
 
 #include "haversine_distance.cuh"
 #include "processing.hpp"
+#include "fused_l2_knn.cuh"
 
 namespace raft {
 namespace spatial {
@@ -237,7 +238,7 @@ void brute_force_knn_impl(std::vector<float *> &input, std::vector<int> &sizes,
                           bool rowMajorQuery = true,
                           std::vector<int64_t> *translations = nullptr,
                           raft::distance::DistanceType metric =
-                            raft::distance::DistanceType::L2Expanded,
+                            raft::distance::DistanceType::L2Unexpanded,
                           float metricArg = 0) {
   ASSERT(input.size() == sizes.size(),
          "input and sizes vectors should be the same size");
@@ -313,6 +314,19 @@ void brute_force_knn_impl(std::vector<float *> &input, std::vector<int> &sizes,
 
         haversine_knn(out_i_ptr, out_d_ptr, input[i], search_items, sizes[i], n,
                       k, stream);
+        break;
+      case raft::distance::DistanceType::L2Unexpanded:
+        l2_unexpanded_knn<raft::distance::DistanceType::L2Unexpanded,
+        int64_t, float>(D, out_i_ptr, out_d_ptr, input[i], search_items,
+                       sizes[i], n, k, rowMajorIndex, rowMajorQuery, stream,
+                       allocator);
+        break;
+      case raft::distance::DistanceType::L2SqrtUnexpanded:
+        l2_unexpanded_knn<raft::distance::DistanceType::L2SqrtUnexpanded,
+        int64_t, float>(D, out_i_ptr, out_d_ptr, input[i], search_items,
+                       sizes[i], n, k, rowMajorIndex, rowMajorQuery, stream,
+                       allocator);
+
         break;
       default:
         faiss::MetricType m = build_faiss_metric(metric);
