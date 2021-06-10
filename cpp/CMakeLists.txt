@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,162 +14,171 @@
 # limitations under the License.
 #=============================================================================
 
+cmake_minimum_required(VERSION 3.20.1 FATAL_ERROR)
+include(FetchContent)
+FetchContent_Declare(
+  rapids-cmake
+  GIT_REPOSITORY https://github.com/rapidsai/rapids-cmake.git
+  GIT_TAG        origin/branch-21.06
+  )
+FetchContent_MakeAvailable(rapids-cmake)
+include(rapids-cmake)
+include(rapids-cpm)
+include(rapids-cuda)
+include(rapids-export)
+include(rapids-find)
 
-cmake_minimum_required(VERSION 3.14 FATAL_ERROR)
+rapids_cuda_init_architectures(RAFT)
 
-project(CUML VERSION 0.14.0 LANGUAGES CXX CUDA)
+project(RAFT VERSION 21.06.00 LANGUAGES CXX CUDA)
 
 ##############################################################################
 # - build type ---------------------------------------------------------------
 
 # Set a default build type if none was specified
-set(DEFAULT_BUILD_TYPE "Release")
+rapids_cmake_build_type(Release)
 
-if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
-  message(STATUS "Setting build type to '${DEFAULT_BUILD_TYPE}' since none specified.")
-  set(CMAKE_BUILD_TYPE "${DEFAULT_BUILD_TYPE}" CACHE
-      STRING "Choose the type of build." FORCE)
-  # Set the possible values of build type for cmake-gui
-  set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
-    "Debug" "Release")
-endif()
+# this is needed for clang-tidy runs
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 ##############################################################################
 # - User Options  ------------------------------------------------------------
 
-option(EMPTY_MARKER_KERNEL "Enable empty marker kernel after nvtxRangePop" ON)
-
-option(KERNEL_INFO "Enable kernel resource usage info" OFF)
-
-option(LINE_INFO "Enable lineinfo in nvcc" OFF)
-
+option(BUILD_TESTS "Build raft unit-tests" ON)
+option(CUDA_ENABLE_KERNELINFO "Enable kernel resource usage info" OFF)
+option(CUDA_ENABLE_LINEINFO "Enable the -lineinfo option for nvcc (useful for cuda-memcheck / profiler)" OFF)
+option(CUDA_STATIC_RUNTIME "Statically link the CUDA runtime" OFF)
+option(DETECT_CONDA_ENV "Enable detection of conda environment for dependencies" ON)
+option(DISABLE_DEPRECATION_WARNINGS "Disable depreaction warnings " ON)
+option(DISABLE_OPENMP "Disable OpenMP" OFF)
 option(NVTX "Enable nvtx markers" OFF)
 
-set(PARALLEL_LEVEL "" CACHE STRING
-    "Sub-projects parallel level for compilation. Currently only affects FAISS" )
+message(VERBOSE "RAFT: Build RAFT unit-tests: ${BUILD_TESTS}")
+message(VERBOSE "RAFT: Enable detection of conda environment for dependencies: ${DETECT_CONDA_ENV}")
+message(VERBOSE "RAFT: Disable depreaction warnings " ${DISABLE_DEPRECATION_WARNINGS})
+message(VERBOSE "RAFT: Disable OpenMP: ${DISABLE_OPENMP}")
+message(VERBOSE "RAFT: Enable kernel resource usage info: ${CUDA_ENABLE_KERNELINFO}")
+message(VERBOSE "RAFT: Enable lineinfo in nvcc: ${CUDA_ENABLE_LINEINFO}")
+message(VERBOSE "RAFT: Enable nvtx markers: ${NVTX}")
+message(VERBOSE "RAFT: Statically link the CUDA runtime: ${CUDA_STATIC_RUNTIME}")
 
-set(GPU_ARCHS "" CACHE STRING
-    "List of GPU architectures (semicolon-separated) to be compiled for.
-    Pass 'ALL' if you want to compile for all supported GPU architectures.
-    Empty string means to auto-detect the GPUs on the current system")
+# Set RMM logging level
+set(RMM_LOGGING_LEVEL "INFO" CACHE STRING "Choose the logging level.")
+set_property(CACHE RMM_LOGGING_LEVEL PROPERTY STRINGS "TRACE" "DEBUG" "INFO" "WARN" "ERROR" "CRITICAL" "OFF")
+message(VERBOSE "RAFT: RMM_LOGGING_LEVEL = '${RMM_LOGGING_LEVEL}'.")
 
+##############################################################################
+# - Conda environment detection ----------------------------------------------
+
+if(DETECT_CONDA_ENV)
+  rapids_cmake_support_conda_env( conda_env MODIFY_PREFIX_PATH )
+  if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT AND DEFINED ENV{CONDA_PREFIX})
+      message(STATUS "RAFT: No CMAKE_INSTALL_PREFIX argument detected, setting to: $ENV{CONDA_PREFIX}")
+      set(CMAKE_INSTALL_PREFIX "$ENV{CONDA_PREFIX}")
+  endif()
+endif()
+
+##############################################################################
+# - compiler options ---------------------------------------------------------
+
+# * find CUDAToolkit package
+# * determine GPU architectures
+# * enable the CMake CUDA language
+# * set other CUDA compilation flags
+rapids_find_package(CUDAToolkit REQUIRED
+    BUILD_EXPORT_SET raft-exports
+    INSTALL_EXPORT_SET raft-exports
+    )
+include(cmake/modules/ConfigureCUDA.cmake)
 
 ##############################################################################
 # - Requirements -------------------------------------------------------------
 
-find_package(CUDA 10.0 REQUIRED)
+if (NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
+  find_package(OpenMP)
+  if(OPENMP_FOUND)
+    message(VERBOSE "RAFT: OpenMP found in ${OpenMP_CXX_INCLUDE_DIRS}")
+  endif(OPENMP_FOUND)
+endif(NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
 
-##############################################################################
-# - Compiler Options  --------------------------------------------------------
+# add third party dependencies using CPM
+rapids_cpm_init()
 
-set(CMAKE_CXX_STANDARD 14)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
+include(cmake/thirdparty/get_rmm.cmake)
+include(cmake/thirdparty/get_cuco.cmake)
 
-if(CMAKE_CUDA_HOST_COMPILER)
-  # If CMAKE_CUDA_HOST_COMPILER is set to a nonempty string cmake was called with the environment variable CUDAHOSTCXX set or -DCMAKE_CUDA_HOST_COMPILER
-  if(NOT CMAKE_CUDA_HOST_COMPILER STREQUAL CMAKE_CXX_COMPILER)
-    message(WARNING "CMAKE_CUDA_HOST_COMPILER=${CMAKE_CUDA_HOST_COMPILER} and CMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER} are inconsistent!")
-  endif(NOT CMAKE_CUDA_HOST_COMPILER STREQUAL CMAKE_CXX_COMPILER)
-else()
-  # No attempt to set CMAKE_CUDA_HOST_COMPILER has been made. Make sure CMAKE_CXX_COMPILER is used as CUDA host compiler.
-  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -ccbin ${CMAKE_CXX_COMPILER}")
-endif(CMAKE_CUDA_HOST_COMPILER)
-
-if(OPENMP_FOUND)
-  message(STATUS "Building with OpenMP support")
-  find_package(Threads REQUIRED)
-  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler ${OpenMP_CXX_FLAGS}")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
-endif(OPENMP_FOUND)
-
-set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-extended-lambda")
-
-if(${CMAKE_VERSION} VERSION_LESS "3.17.0")
-  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --std=c++11")
-endif(${CMAKE_VERSION} VERSION_LESS "3.17.0")
-
-if(LINE_INFO)
-  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -lineinfo")
-endif(LINE_INFO)
-
-if(KERNEL_INFO)
-  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xptxas=-v")
-endif(KERNEL_INFO)
-
-if(NVTX)
-  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DNVTX_ENABLED")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DNVTX_ENABLED")
-  if(EMPTY_MARKER_KERNEL)
-  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DENABLE_EMPTY_MARKER_KERNEL")
-  endif(EMPTY_MARKER_KERNEL)
-endif(NVTX)
-
-if(CMAKE_BUILD_TYPE MATCHES Debug)
-  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -G -g")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
+if(BUILD_TESTS)
+  include(cmake/thirdparty/get_faiss.cmake)
+  include(cmake/thirdparty/get_gtest.cmake)
+  include(cmake/thirdparty/get_nccl.cmake)
+  include(cmake/thirdparty/get_ucx.cmake)
 endif()
 
-if("${GPU_ARCHS}" STREQUAL "")
-  include(cmake/EvalGpuArchs.cmake)
-  evaluate_gpu_archs(GPU_ARCHS)
-endif()
+##############################################################################
+# - install targets-----------------------------------------------------------
 
-if("${GPU_ARCHS}" STREQUAL "ALL")
-  set(GPU_ARCHS "60")
-  if((CUDA_VERSION_MAJOR EQUAL 9) OR (CUDA_VERSION_MAJOR GREATER 9))
-    set(GPU_ARCHS "${GPU_ARCHS};70")
-  endif()
-  if((CUDA_VERSION_MAJOR EQUAL 10) OR (CUDA_VERSION_MAJOR GREATER 10))
-    set(GPU_ARCHS "${GPU_ARCHS};75")
-  endif()
-endif()
+add_library(raft INTERFACE)
+add_library(raft::raft ALIAS raft)
+target_include_directories(raft INTERFACE "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/include>"
+                                          "$<INSTALL_INTERFACE:include>")
 
-message("-- Building for GPU_ARCHS = ${GPU_ARCHS}")
+target_link_libraries(raft
+INTERFACE
+  CUDA::cublas
+  CUDA::curand
+  CUDA::cusolver
+  CUDA::cudart
+  CUDA::cusparse
+  rmm::rmm
+  )
 
-foreach(arch ${GPU_ARCHS})
-  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${arch},code=sm_${arch}")
-  set(FAISS_GPU_ARCHS "${FAISS_GPU_ARCHS} -gencode arch=compute_${arch},code=sm_${arch}")
-endforeach()
+target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
 
-list(GET GPU_ARCHS -1 ptx)
-set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${ptx},code=compute_${ptx}")
-set(FAISS_GPU_ARCHS "${FAISS_GPU_ARCHS} -gencode arch=compute_${ptx},code=compute_${ptx}")
+install(TARGETS raft
+        DESTINATION lib
+        EXPORT raft-exports
+        )
 
-if(CMAKE_COMPILER_IS_GNUCXX)
-  if(NOT CMAKE_CXX11_ABI)
-    message(STATUS "Disabling the GLIBCXX11 ABI")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0")
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler -D_GLIBCXX_USE_CXX11_ABI=0")
-  elseif(CMAKE_CXX11_ABI)
-    message(STATUS "Enabling the GLIBCXX11 ABI")
-  endif(NOT CMAKE_CXX11_ABI)
-endif(CMAKE_COMPILER_IS_GNUCXX)
-
-set(CMAKE_CUDA_FLAGS
-  "${CMAKE_CUDA_FLAGS} -Xcudafe --diag_suppress=unrecognized_gcc_pragma")
-
-
-
+include(GNUInstallDirs)
+install(DIRECTORY include/
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+        )
 
 ##############################################################################
-# - include paths ------------------------------------------------------------
+# - install export -----------------------------------------------------------
+set(doc_string
+[=[
+Provide targets for the RAFT: RAPIDS Analytics Frameworks Toolset.
 
-set(RAFT_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include CACHE STRING
-  "Path to RAFT include directories")
+RAFT is a repository containining shared utilities, mathematical operations
+and common functions for the analytics components of RAPIDS.
 
-set(RAFT_INCLUDE_DIRECTORIES
-    ${RAFT_INCLUDE_DIR}
-)
+]=])
+
+ rapids_export(INSTALL raft
+    EXPORT_SET raft-exports
+    GLOBAL_TARGETS raft # since we can't hook into EXPORT SETS
+    NAMESPACE raft::
+    DOCUMENTATION doc_string
+    )
 
 ##############################################################################
-# - build test executables ---------------------------------------------------
+# - build export -------------------------------------------------------------
 
-add_executable(test_raft
-               test/test.cpp)
+rapids_export(BUILD raft
+    EXPORT_SET raft-exports
+    GLOBAL_TARGETS raft # since we can't hook into EXPORT SETS
+    LANGUAGES CUDA
+    DOCUMENTATION doc_string
+    NAMESPACE raft::
+    )
 
-target_include_directories(test_raft PRIVATE
-                           ${RAFT_INCLUDE_DIRECTORIES})
+##############################################################################
+# - build test executable ----------------------------------------------------
+
+if(BUILD_TESTS)
+  include(test/CMakeLists.txt)
+endif()
 
 ##############################################################################
 # - doxygen targets ----------------------------------------------------------

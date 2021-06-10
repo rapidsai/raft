@@ -18,7 +18,7 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean cppraft pyraft -v -g --allgpuarch --nvtx --show_depr_warn -h"
+VALIDARGS="clean cppraft pyraft -v -g --allgpuarch --nvtx --show_depr_warn -h --buildgtest --buildfaiss"
 HELP="$0 [<target> ...] [<flag> ...]
  where <target> is:
    clean            - remove all existing build artifacts and configuration (start over)
@@ -29,6 +29,7 @@ HELP="$0 [<target> ...] [<flag> ...]
    -v               - verbose build mode
    -g               - build for debug
    --allgpuarch     - build for all supported GPU architectures
+   --buildfaiss     - build faiss statically into raft
    --nvtx           - Enable nvtx for profiling support
    --show_depr_warn - show cmake deprecation warnings
    -h               - print this text
@@ -41,8 +42,10 @@ PYTHON_DEPS_CLONE=${REPODIR}/python/external_repositories
 BUILD_DIRS="${CPP_RAFT_BUILD_DIR} ${PY_RAFT_BUILD_DIR} ${PYTHON_DEPS_CLONE}"
 
 # Set defaults for vars modified by flags to this script
-VERBOSE=""
+VERBOSE_FLAG=""
 BUILD_ALL_GPU_ARCH=0
+BUILD_GTEST=OFF
+BUILD_STATIC_FAISS=OFF
 SINGLEGPU=""
 NVTX=OFF
 CLEAN=0
@@ -54,6 +57,9 @@ BUILD_DISABLE_DEPRECATION_WARNING=ON
 INSTALL_PREFIX=${INSTALL_PREFIX:=${PREFIX:=${CONDA_PREFIX}}}
 PARALLEL_LEVEL=${PARALLEL_LEVEL:=""}
 BUILD_ABI=${BUILD_ABI:=ON}
+
+# Default to Ninja if generator is not specified
+export CMAKE_GENERATOR="${CMAKE_GENERATOR:=Ninja}"
 
 function hasArg {
     (( ${NUMARGS} != 0 )) && (echo " ${ARGS} " | grep -q " $1 ")
@@ -76,7 +82,8 @@ fi
 
 # Process flags
 if hasArg -v; then
-    VERBOSE=1
+    VERBOSE_FLAG=-v
+    set -x
 fi
 if hasArg -g; then
     BUILD_TYPE=Debug
@@ -84,6 +91,12 @@ fi
 
 if hasArg --allgpuarch; then
     BUILD_ALL_GPU_ARCH=1
+fi
+if hasArg --buildgtest; then
+    BUILD_GTEST=ON
+fi
+if hasArg --buildfaiss; then
+      BUILD_STATIC_FAISS=ON
 fi
 if hasArg --singlegpu; then
     SINGLEGPU="--singlegpu"
@@ -121,44 +134,29 @@ fi
 # Configure for building all C++ targets
 if (( ${NUMARGS} == 0 )) || hasArg cppraft; then
     if (( ${BUILD_ALL_GPU_ARCH} == 0 )); then
-        GPU_ARCH=""
+        RAFT_CMAKE_CUDA_ARCHITECTURES="NATIVE"
         echo "Building for the architecture of the GPU in the system..."
     else
-        GPU_ARCH="-DGPU_ARCHS=ALL"
+        RAFT_CMAKE_CUDA_ARCHITECTURES="ALL"
         echo "Building for *ALL* supported GPU architectures..."
     fi
 
-    mkdir -p ${CPP_RAFT_BUILD_DIR}
-    cd ${CPP_RAFT_BUILD_DIR}
-
-    cmake -DNVTX=${NVTX} \
-          -DPARALLEL_LEVEL=${PARALLEL_LEVEL} \
-          -DNCCL_PATH=${INSTALL_PREFIX} \
+    cmake -S ${REPODIR}/cpp -B ${CPP_RAFT_BUILD_DIR} \
+          -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} \
+          -DCMAKE_CUDA_ARCHITECTURES=${RAFT_CMAKE_CUDA_ARCHITECTURES} \
+          -DNVTX=${NVTX} \
           -DDISABLE_DEPRECATION_WARNING=${BUILD_DISABLE_DEPRECATION_WARNING} \
-          ..
-
-fi
-
-# Run all make targets at once
-
-MAKE_TARGETS=
-if hasArg cppraft; then
-    MAKE_TARGETS="${MAKE_TARGETS} test_raft"
-fi
+          -DBUILD_GTEST=${BUILD_GTEST} \
+          -DBUILD_STATIC_FAISS=${BUILD_STATIC_FAISS}
 
 
-# If `./build.sh pyraft` is called, don't build C/C++ components
-if (( ${NUMARGS} == 0 )) || hasArg cppraft; then
-# If there are no targets specified when calling build.sh, it will
-# just call `make -j`. This avoids a lot of extra printing
-    cd ${CPP_RAFT_BUILD_DIR}
-    make -j${PARALLEL_LEVEL} ${MAKE_TARGETS} VERBOSE=${VERBOSE}
-
+    # Run all c++ targets at once
+    cmake --build  ${CPP_RAFT_BUILD_DIR} -j${PARALLEL_LEVEL} ${MAKE_TARGETS} ${VERBOSE_FLAG}
 fi
 
 
 # Build and (optionally) install the cuml Python package
-if (( ${NUMARGS} == 0 )) || hasArg cuml; then
+if (( ${NUMARGS} == 0 )) || hasArg pyraft; then
 
     cd ${REPODIR}/python
     if [[ ${INSTALL_TARGET} != "" ]]; then

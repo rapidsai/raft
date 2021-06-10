@@ -1,15 +1,16 @@
 #!/bin/bash
 # Copyright (c) 2020, NVIDIA CORPORATION.
 #####################
-# cuML Style Tester #
+# RAFT Style Tester #
 #####################
 
 # Ignore errors and set path
 set +e
-PATH=/conda/bin:$PATH
+PATH=/opt/conda/bin:$PATH
 
 # Activate common conda env
-source activate gdf
+. /opt/conda/etc/profile.d/conda.sh
+conda activate rapids
 
 # Run flake8 and get results/return code
 FLAKE=`flake8 --exclude=cpp,thirdparty,__init__.py,versioneer.py && flake8 --config=python/.flake8.cython`
@@ -41,15 +42,9 @@ else
 fi
 
 # Check for a consistent #include syntax
-# TODO: keep adding more dirs as and when we update the syntax
 HASH_INCLUDE=`python cpp/scripts/include_checker.py \
-                     cpp/bench \
-                     cpp/comms/mpi/include \
-                     cpp/comms/mpi/src \
-                     cpp/comms/std/include \
-                     cpp/comms/std/src \
                      cpp/include \
-                     cpp/examples \
+                     cpp/test \
                      2>&1`
 HASH_RETVAL=$?
 if [ "$RETVAL" = "0" ]; then
@@ -66,7 +61,6 @@ else
 fi
 
 # Check for a consistent code format
-# TODO: keep adding more dirs when we add more source folders in cuml
 FORMAT=`python cpp/scripts/run-clang-format.py 2>&1`
 FORMAT_RETVAL=$?
 if [ "$RETVAL" = "0" ]; then

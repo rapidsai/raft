@@ -40,7 +40,7 @@ except ImportError:
 # - Dependencies include and lib folder setup --------------------------------
 
 install_requires = [
-    'cython'
+    'cython',
 ]
 
 cuda_home = get_environment_option("CUDA_HOME")
@@ -74,7 +74,7 @@ if clean_artifacts:
         clean_folder(setup_file_path + '/raft')
         shutil.rmtree(setup_file_path + '/build')
 
-    except IOError as e:
+    except IOError:
         pass
 
     # need to terminate script so cythonizing doesn't get triggered after
@@ -92,10 +92,11 @@ if clean_artifacts:
 # - Cython extensions build and parameters -----------------------------------
 
 
-libs = []
+libs = ["nccl", "cusolver", "cusparse", "cublas"]
 
 include_dirs = [cuda_include_dir,
                 numpy.get_include(),
+                "../cpp/include/",
                 os.path.dirname(sysconfig.get_path("include"))]
 
 cmdclass = dict()
@@ -111,7 +112,7 @@ extensions = [
                                     os.path.join(os.sys.prefix, "lib")],
               libraries=libs,
               language='c++',
-              extra_compile_args=['-std=c++11'])
+              extra_compile_args=['-std=c++14'])
 ]
 
 
