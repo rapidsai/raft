@@ -24,6 +24,10 @@ namespace raft {
  * @defgroup SmemStores Shared memory store operations
  * @{
  * @brief Stores to shared memory (both vectorized and non-vectorized forms)
+ *        requires the given shmem pointer to be aligned by the vector
+          length, like for float4 lds/sts shmem pointer should be aligned
+          by 16 bytes else it might silently fail or can also give
+          runtime error.
  * @param[out] addr shared memory address (should be aligned to vector size)
  * @param[in]  x    data to be stored at this address
  */
@@ -68,8 +72,13 @@ DI void sts(double* addr, const double (&x)[2]) {
  * @defgroup SmemLoads Shared memory load operations
  * @{
  * @brief Loads from shared memory (both vectorized and non-vectorized forms)
+          requires the given shmem pointer to be aligned by the vector
+          length, like for float4 lds/sts shmem pointer should be aligned
+          by 16 bytes else it might silently fail or can also give
+          runtime error.
  * @param[out] x    the data to be loaded
  * @param[in]  addr shared memory address from where to load
+ *                  (should be aligned to vector size)
  */
 DI void lds(float& x, float* addr) {
   auto s1 = __cvta_generic_to_shared(reinterpret_cast<float*>(addr));
