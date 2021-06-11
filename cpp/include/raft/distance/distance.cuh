@@ -363,7 +363,7 @@ void pairwise_distance(const Type *x, const Type *y, Type *dist, Index_ m,
     case raft::distance::DistanceType::Canberra:
       pairwise_distance_impl<Type, Index_,
                              raft::distance::DistanceType::Canberra>(
-        x, y, dist, m, n, k, workspace, stream, isRowMajor, metric_arg);
+        x, y, dist, m, n, k, workspace, stream, isRowMajor);
       break;
     default:
       THROW("Unknown or unsupported distance metric '%d'!", (int)metric);
