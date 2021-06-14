@@ -187,14 +187,12 @@ inline int computeRowCovers(raft::handle_t const &handle,
 
 // Function for covering the zeros in uncovered rows and expanding the frontier.
 template <typename vertex_t, typename weight_t>
-inline void coverZeroAndExpand(raft::handle_t const &handle,
-                               weight_t const *d_costs_dev,
-                               vertex_t const *d_rows_csr_neighbors,
-                               vertex_t const *d_rows_csr_ptrs,
-                               Vertices<vertex_t, weight_t> &d_vertices_dev,
-                               VertexData<vertex_t> &d_row_data_dev,
-                               VertexData<vertex_t> &d_col_data_dev,
-                               bool *d_flag, int SP, vertex_t N, weight_t epsilon) {
+inline void coverZeroAndExpand(
+  raft::handle_t const &handle, weight_t const *d_costs_dev,
+  vertex_t const *d_rows_csr_neighbors, vertex_t const *d_rows_csr_ptrs,
+  Vertices<vertex_t, weight_t> &d_vertices_dev,
+  VertexData<vertex_t> &d_row_data_dev, VertexData<vertex_t> &d_col_data_dev,
+  bool *d_flag, int SP, vertex_t N, weight_t epsilon) {
   int total_blocks = 0;
   dim3 blocks_per_grid;
   dim3 threads_per_block;
@@ -214,7 +212,8 @@ inline vertex_t zeroCoverIteration(raft::handle_t const &handle,
                                    Vertices<vertex_t, weight_t> &d_vertices_dev,
                                    VertexData<vertex_t> &d_row_data_dev,
                                    VertexData<vertex_t> &d_col_data_dev,
-                                   bool *d_flag, int SP, vertex_t N, weight_t epsilon) {
+                                   bool *d_flag, int SP, vertex_t N,
+                                   weight_t epsilon) {
   vertex_t M;
 
   raft::mr::device::buffer<vertex_t> csr_ptrs_v(handle.get_device_allocator(),
@@ -415,8 +414,8 @@ template <typename vertex_t, typename weight_t>
 inline void dualUpdate(raft::handle_t const &handle,
                        Vertices<vertex_t, weight_t> &d_vertices_dev,
                        VertexData<vertex_t> &d_row_data_dev,
-                       VertexData<vertex_t> &d_col_data_dev, int SP,
-                       vertex_t N, weight_t epsilon) {
+                       VertexData<vertex_t> &d_col_data_dev, int SP, vertex_t N,
+                       weight_t epsilon) {
   dim3 blocks_per_grid;
   dim3 threads_per_block;
   int total_blocks;
@@ -440,7 +439,8 @@ inline void dualUpdate(raft::handle_t const &handle,
     sp_min_v.data(), d_vertices_dev.row_duals, d_vertices_dev.col_duals,
     d_vertices_dev.col_slacks, d_vertices_dev.row_covers,
     d_vertices_dev.col_covers, d_row_data_dev.is_visited,
-    d_col_data_dev.parents, SP, N, std::numeric_limits<weight_t>::max(), epsilon);
+    d_col_data_dev.parents, SP, N, std::numeric_limits<weight_t>::max(),
+    epsilon);
 
   CHECK_CUDA(handle.get_stream());
 }

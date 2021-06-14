@@ -238,7 +238,8 @@ class LinearAssignmentProblem {
     raft::update_device(flag_v.data(), &h_flag, 1, handle_.get_stream());
 
     detail::executeZeroCover(handle_, d_costs_, d_vertices_dev, d_row_data_dev,
-                             d_col_data_dev, flag_v.data(), batchsize_, size_, epsilon_);
+                             d_col_data_dev, flag_v.data(), batchsize_, size_,
+                             epsilon_);
 
     raft::update_host(&h_flag, flag_v.data(), 1, handle_.get_stream());
 

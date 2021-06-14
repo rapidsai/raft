@@ -306,8 +306,8 @@ __global__ void kernel_coverAndExpand(bool *d_flag, vertex_t const *d_ptrs,
   if (spid < SP && colid < N) {
     thrust::for_each(
       thrust::seq, d_neighbors + d_ptrs[spid], d_neighbors + d_ptrs[spid + 1],
-      [d_elements, d_vertices, d_flag, d_row_data, d_col_data, spid, colid,
-       N, epsilon] __device__(vertex_t rowid) {
+      [d_elements, d_vertices, d_flag, d_row_data, d_col_data, spid, colid, N,
+       epsilon] __device__(vertex_t rowid) {
         cover_and_expand_row(
           d_elements, d_vertices.row_duals, d_vertices.col_duals,
           d_vertices.col_slacks, d_vertices.row_covers, d_vertices.col_covers,
