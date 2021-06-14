@@ -36,6 +36,7 @@ template <typename vertex_t, typename weight_t>
 class LinearAssignmentProblem {
   vertex_t size_;
   vertex_t batchsize_;
+  weight_t epsilon_;
 
   weight_t const *d_costs_;
 
@@ -59,10 +60,11 @@ class LinearAssignmentProblem {
 
  public:
   LinearAssignmentProblem(raft::handle_t const &handle, vertex_t size,
-                          vertex_t batchsize)
+                          vertex_t batchsize, weight_t epsilon)
     : handle_(handle),
       size_(size),
       batchsize_(batchsize),
+      epsilon_(epsilon),
       d_costs_(nullptr),
       row_covers_v(handle_.get_device_allocator(), handle_.get_stream(), 0),
       col_covers_v(handle_.get_device_allocator(), handle_.get_stream(), 0),
@@ -199,7 +201,7 @@ class LinearAssignmentProblem {
   // Function for calculating initial zeros by subtracting row and column minima from each element.
   int hungarianStep1() {
     detail::computeInitialAssignments(handle_, d_costs_, d_vertices_dev,
-                                      batchsize_, size_);
+                                      batchsize_, size_, epsilon_);
 
     int next = 2;
 
@@ -236,7 +238,7 @@ class LinearAssignmentProblem {
     raft::update_device(flag_v.data(), &h_flag, 1, handle_.get_stream());
 
     detail::executeZeroCover(handle_, d_costs_, d_vertices_dev, d_row_data_dev,
-                             d_col_data_dev, flag_v.data(), batchsize_, size_);
+                             d_col_data_dev, flag_v.data(), batchsize_, size_, epsilon_);
 
     raft::update_host(&h_flag, flag_v.data(), 1, handle_.get_stream());
 
@@ -259,7 +261,7 @@ class LinearAssignmentProblem {
   // Function for updating dual solution to introduce new zero-cost arcs.
   int hungarianStep5() {
     detail::dualUpdate(handle_, d_vertices_dev, d_row_data_dev, d_col_data_dev,
-                       batchsize_, size_);
+                       batchsize_, size_, epsilon_);
 
     return 3;
   }
