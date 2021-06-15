@@ -83,7 +83,7 @@ void hungarian_test(int problemsize, int costrange, int problemcount,
 
       // Create an instance of LinearAssignmentProblem using problem size, number of subproblems
       raft::lap::LinearAssignmentProblem<vertex_t, weight_t> lpx(
-        handle, problemsize, batchsize);
+        handle, problemsize, batchsize, weight_t{0});
 
       // Solve LAP(s) for given cost matrix
       lpx.solve(elements_v.data(), row_assignment_v.data(),
