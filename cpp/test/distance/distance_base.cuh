@@ -248,9 +248,9 @@ class DistanceTest : public ::testing::TestWithParam<DistanceInputs<DataType>> {
     raft::allocate(dist, m * n);
     raft::allocate(dist2, m * n);
     if (distanceType == raft::distance::DistanceType::HellingerExpanded) {
-      // Hellinger works only on positive numbers as it applies sqrt on inputs
-      r.uniform(x, m * k, DataType(0.0), DataType(2.0), stream);
-      r.uniform(y, n * k, DataType(0.0), DataType(2.0), stream);
+      // Hellinger works only on positive numbers
+      r.uniform(x, m * k, DataType(0.0), DataType(1.0), stream);
+      r.uniform(y, n * k, DataType(0.0), DataType(1.0), stream);
     } else {
       r.uniform(x, m * k, DataType(-1.0), DataType(1.0), stream);
       r.uniform(y, n * k, DataType(-1.0), DataType(1.0), stream);
