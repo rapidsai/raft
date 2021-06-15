@@ -96,10 +96,19 @@ class hash_strategy : public coo_spmv_strategy<value_idx, value_t, tpb> {
 
     auto more_rows = std::get<1>(n_rows_divided);
     if (more_rows > 0) {
+      rmm::device_uvector<value_idx> n_chunks_per_row(
+        more_rows + 1, this->config.handle.get_stream());
+      rmm::device_uvector<value_idx> chunk_indices(
+        0, this->config.handle.get_stream());
+      chunked_mask_row_it<value_idx>::init(
+        this->config.a_indptr, mask_indptr.data() + less_rows, more_rows,
+        capacity_threshold * map_size, n_chunks_per_row, chunk_indices,
+        this->config.handle.get_stream());
+
       chunked_mask_row_it<value_idx> more(
         this->config.a_indptr, more_rows, mask_indptr.data() + less_rows,
-        capacity_threshold * map_size, this->config.handle.get_stream());
-      more.init();
+        capacity_threshold * map_size, n_chunks_per_row.data(),
+        chunk_indices.data(), this->config.handle.get_stream());
 
       auto n_more_blocks = more.total_row_blocks * n_blocks_per_row;
       this->_dispatch_base(*this, map_size, more, out_dists, coo_rows_b,
@@ -133,10 +142,19 @@ class hash_strategy : public coo_spmv_strategy<value_idx, value_t, tpb> {
 
     auto more_rows = std::get<1>(n_rows_divided);
     if (more_rows > 0) {
+      rmm::device_uvector<value_idx> n_chunks_per_row(
+        more_rows + 1, this->config.handle.get_stream());
+      rmm::device_uvector<value_idx> chunk_indices(
+        0, this->config.handle.get_stream());
+      chunked_mask_row_it<value_idx>::init(
+        this->config.b_indptr, mask_indptr.data() + less_rows, more_rows,
+        capacity_threshold * map_size, n_chunks_per_row, chunk_indices,
+        this->config.handle.get_stream());
+
       chunked_mask_row_it<value_idx> more(
         this->config.b_indptr, more_rows, mask_indptr.data() + less_rows,
-        capacity_threshold * map_size, this->config.handle.get_stream());
-      more.init();
+        capacity_threshold * map_size, n_chunks_per_row.data(),
+        chunk_indices.data(), this->config.handle.get_stream());
 
       auto n_more_blocks = more.total_row_blocks * n_blocks_per_row;
       this->_dispatch_base_rev(*this, map_size, more, out_dists, coo_rows_a,
