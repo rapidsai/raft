@@ -58,8 +58,7 @@ static void hellingerImpl(const DataT *x, const DataT *y, IdxT m, IdxT n,
 
   // Accumulation operation lambda
   auto core_lambda = [] __device__(AccT & acc, DataT & x, DataT & y) {
-    // Adjust to replace NaN in sqrt with 0 if input to sqrt is negative
-    const auto product = raft::mySqrt(x) * raft::mySqrt(y);
+    const auto product = raft::mySqrt(x * y);
     acc += product;
   };
 
@@ -75,7 +74,6 @@ static void hellingerImpl(const DataT *x, const DataT *y, IdxT m, IdxT n,
         // Adjust to replace NaN in sqrt with 0 if input to sqrt is negative
         const auto finalVal = (1 - acc[i][j]);
         const auto rectifier = (!signbit(finalVal));
-        ;
         acc[i][j] = raft::mySqrt(rectifier * finalVal);
       }
     }
