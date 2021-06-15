@@ -23,7 +23,7 @@ namespace distance {
 /**
  * @brief the Hellinger distance matrix using the expanded form:
  *  It computes the following equation: 
-    cij = sqrt(1 - sum(sqrt(x_k) * sqrt(y_k)))
+    cij = sqrt(1 - sum(sqrt(x_k * y_k)))
  * @tparam DataT          input data-type (for A and B matrices)
  * @tparam AccT           accumulation data-type
  * @tparam OutT           output data-type (for C and D matrices)
@@ -129,7 +129,7 @@ void hellinger(IdxT m, IdxT n, IdxT k, IdxT lda, IdxT ldb, IdxT ldd,
 /**
  * @brief the Hellinger distance matrix calculation
  *  It computes the following equation: 
-    sqrt(1 - sum(sqrt(x_k) * sqrt(y_k)))
+    sqrt(1 - sum(sqrt(x_k * y_k))
  * @tparam InType input data-type (for A and B matrices)
  * @tparam AccType accumulation data-type
  * @tparam OutType output data-type (for C and D matrices)
