@@ -53,7 +53,7 @@ bool __device__ near_zero(weight_t w, weight_t epsilon) {
 }
 
 template <>
-bool __device__ near_zero<int64_t>(int64_t w, int64_t epsilon) {
+bool __device__ near_zero<int32_t>(int32_t w, int32_t epsilon) {
   return (w == 0);
 }
 
