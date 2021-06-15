@@ -153,8 +153,9 @@ struct DistanceImpl<raft::distance::DistanceType::LpUnexpanded, InType, AccType,
   void run(const InType *x, const InType *y, OutType *dist, Index_ m, Index_ n,
            Index_ k, void *workspace, size_t worksize, FinalLambda fin_op,
            cudaStream_t stream, bool isRowMajor, InType metric_arg) {
-    raft::distance::minkowskiImpl<InType, AccType, OutType, FinalLambda, Index_>(
-      m, n, k, x, y, dist, fin_op, stream, isRowMajor, metric_arg);
+    raft::distance::minkowskiImpl<InType, AccType, OutType, FinalLambda,
+                                  Index_>(m, n, k, x, y, dist, fin_op, stream,
+                                          isRowMajor, metric_arg);
   }
 };
 
