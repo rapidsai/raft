@@ -44,15 +44,6 @@ template <typename value_idx = int, typename value_t = float,
 void unexpanded_lp_distances(
   value_t *out_dists, const distances_config_t<value_idx, value_t> *config_,
   product_f product_func, accum_f accum_func, write_f write_func) {
-  /**
-   *
-   *  - if n_cols < available smem, just use dense conversion for rows of A
-   *  - if n_cols > available smem but max nnz < available smem, use hashing
-   *    (not yet available)
-   *  - if n_cols > available smem & max_nnz > available smem,
-   *              use batching + hashing only for those large cols
-   */
-
   raft::mr::device::buffer<value_idx> coo_rows(
     config_->handle.get_device_allocator(), config_->handle.get_stream(),
     max(config_->b_nnz, config_->a_nnz));

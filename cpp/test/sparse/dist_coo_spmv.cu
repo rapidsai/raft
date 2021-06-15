@@ -61,8 +61,6 @@ template <typename value_idx, typename value_t, typename strategy_t>
 struct SparseDistanceCOOSPMVInputs {
   InputConfiguration<value_idx, value_t> input_configuration;
 
-  using strategy = strategy_t;
-
   float capacity_threshold = 0.5;
   int map_size = hash_strategy<value_idx, value_t, 1024>::get_map_size();
 };
