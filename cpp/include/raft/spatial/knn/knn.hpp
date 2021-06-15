@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "detail/brute_force_knn.cuh"
+#include "detail/knn_brute_force_faiss.cuh"
 
 #include <raft/mr/device/allocator.hpp>
 #include <raft/mr/device/buffer.hpp>
@@ -26,6 +26,15 @@ namespace spatial {
 namespace knn {
 
 using deviceAllocator = raft::mr::device::allocator;
+
+template <typename value_idx = int64_t, typename value_t = float>
+inline void knn_merge_parts(value_t *inK, value_idx *inV, value_t *outK,
+                            value_idx *outV, size_t n_samples, int n_parts,
+                            int k, cudaStream_t stream,
+                            value_idx *translations) {
+  detail::knn_merge_parts(inK, inV, outK, outV, n_samples, n_parts, k, stream,
+                          translations);
+}
 
 /**
  * @brief Flat C++ API function to perform a brute force knn on
