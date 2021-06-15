@@ -80,8 +80,6 @@ class SparseKNNTest
       params.batch_size_index, params.batch_size_query, params.metric);
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
-
-    printf("Done.");
   }
 
   void TearDown() override {

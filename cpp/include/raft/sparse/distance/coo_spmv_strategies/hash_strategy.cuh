@@ -206,14 +206,15 @@ class hash_strategy : public coo_spmv_strategy<value_idx, value_t, tpb> {
     const value_idx degree_l, degree_r;
   };
 
- private:
-  float capacity_threshold;
-  int map_size;
   inline static int get_map_size() {
     return (raft::getSharedMemPerBlock() -
             ((tpb / raft::warp_size()) * sizeof(value_t))) /
            sizeof(typename insert_type::slot_type);
   }
+
+ private:
+  float capacity_threshold;
+  int map_size;
 };
 
 }  // namespace distance
