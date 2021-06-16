@@ -16,6 +16,7 @@
 
 #pragma once
 #include <raft/distance/pairwise_distance_base.cuh>
+#include <raft/linalg/unary_op.cuh>
 
 namespace raft {
 namespace distance {
@@ -24,6 +25,11 @@ namespace distance {
  * @brief the Hellinger distance matrix using the expanded form:
  *  It computes the following equation: 
     cij = sqrt(1 - sum(sqrt(x_k * y_k)))
+ * This distance computation modifies A and B by computing a sqrt
+ * and then performing a `pow(x, 2)` to convert it back. Because of this,
+ * it is possible that the values in A and B might differ slightly
+ * after this is invoked.
+ *
  * @tparam DataT          input data-type (for A and B matrices)
  * @tparam AccT           accumulation data-type
  * @tparam OutT           output data-type (for C and D matrices)
@@ -58,9 +64,19 @@ static void hellingerImpl(const DataT *x, const DataT *y, IdxT m, IdxT n,
 
   dim3 blk(KPolicy::Nthreads);
 
+  // First sqrt x and y
+  raft::linalg::unaryOp<DataT>(
+      (DataT*) x, (DataT*) x, m * k,
+      [=] __device__(DataT input) { return raft::mySqrt(input); }, stream);
+  raft::linalg::unaryOp<DataT>(
+      (DataT*) y, (DataT*) y, n * k,
+      [=] __device__(DataT input) { return raft::mySqrt(input); }, stream);
+
+
   // Accumulation operation lambda
   auto core_lambda = [] __device__(AccT & acc, DataT & x, DataT & y) {
-    const auto product = raft::mySqrt(x * y);
+    // This is sqrt(x) * sqrt(y).
+    const auto product = x * y;
     acc += product;
   };
 
@@ -104,6 +120,14 @@ static void hellingerImpl(const DataT *x, const DataT *y, IdxT m, IdxT n,
       epilog_lambda, fin_op);
   }
 
+  // Revert sqrt of x and y
+  raft::linalg::unaryOp<DataT>(
+      (DataT*) x, (DataT*) x, m * k,
+      [=] __device__(DataT input) { return input * input; }, stream);
+  raft::linalg::unaryOp<DataT>(
+      (DataT*) y, (DataT*) y, n * k,
+      [=] __device__(DataT input) { return input * input; }, stream);
+
   CUDA_CHECK(cudaGetLastError());
 }
 
@@ -132,6 +156,11 @@ void hellinger(IdxT m, IdxT n, IdxT k, IdxT lda, IdxT ldb, IdxT ldd,
  * @brief the Hellinger distance matrix calculation
  *  It computes the following equation: 
     sqrt(1 - sum(sqrt(x_k * y_k))
+ * This distance computation modifies A and B by computing a sqrt
+ * and then performing a `pow(x, 2)` to convert it back. Because of this,
+ * it is possible that the values in A and B might differ slightly
+ * after this is invoked.
+ *
  * @tparam InType input data-type (for A and B matrices)
  * @tparam AccType accumulation data-type
  * @tparam OutType output data-type (for C and D matrices)
