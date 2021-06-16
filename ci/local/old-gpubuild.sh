@@ -56,7 +56,7 @@ gpuci_conda_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvid
       "distributed>=2.12.0" \
       "dask-cudf=${MINOR_VERSION}" \
       "dask-cuda=${MINOR_VERSION}" \
-      "ucx-py=${MINOR_VERSION}"
+      "ucx-py=0.21.*"
 
 if [ "$RUN_CUML_LIBCUML_TESTS" = "ON" ] || [ "$RUN_CUML_PRIMS_TESTS" = "ON" ] || [ "$RUN_CUML_PYTHON_TESTS" = "ON" ]; then
   gpuci_conda_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
@@ -71,7 +71,7 @@ if [ "$RUN_CUML_LIBCUML_TESTS" = "ON" ] || [ "$RUN_CUML_PRIMS_TESTS" = "ON" ] ||
 fi
 
 if [ "$RUN_CUGRAPH_LIBCUGRAPH_TESTS" = "ON" ] || [ "$RUN_CUGRAPH_PYTHON_TESTS" = "ON" ]; then
-  gpuci_conda_retry install -c nvidia -c rapidsai -c rapidsai-nightly -c conda-forge -c defaults \
+  gpuci_conda_retry install -c nvidia -c rapidsai -c rapidsai-nightly -c conda-forge \
       "networkx>=2.3" \
       "python-louvain" \
       "libcypher-parser" \
@@ -80,10 +80,10 @@ if [ "$RUN_CUGRAPH_LIBCUGRAPH_TESTS" = "ON" ] || [ "$RUN_CUGRAPH_PYTHON_TESTS" =
 fi
 
 # Install the master version of dask, distributed, and dask-ml
-gpuci_logger "pip install git+https://github.com/dask/distributed.git --upgrade --no-deps"
-pip install "git+https://github.com/dask/distributed.git" --upgrade --no-deps
-gpuci_logger "pip install git+https://github.com/dask/dask.git --upgrade --no-deps"
-pip install "git+https://github.com/dask/dask.git" --upgrade --no-deps
+set -x
+pip install "git+https://github.com/dask/distributed.git@2021.05.1" --upgrade --no-deps
+pip install "git+https://github.com/dask/dask.git@2021.05.1" --upgrade --no-deps
+set +x
 
 
 gpuci_logger "Check versions"

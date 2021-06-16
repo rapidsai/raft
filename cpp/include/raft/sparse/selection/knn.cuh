@@ -33,7 +33,7 @@
 #include <raft/sparse/csr.cuh>
 #include <raft/sparse/distance/distance.cuh>
 #include <raft/sparse/selection/selection.cuh>
-#include <raft/spatial/knn/detail/brute_force_knn.cuh>
+
 #include <raft/spatial/knn/knn.hpp>
 
 #include <raft/cudart_utils.h>
@@ -310,7 +310,7 @@ class sparse_knn_t {
                         stream);
 
     // combine merge buffers only if there's more than 1 partition to combine
-    raft::spatial::knn::detail::knn_merge_parts(
+    raft::spatial::knn::knn_merge_parts(
       merge_buffer_dists, merge_buffer_indices, out_dists, out_indices,
       query_batcher.batch_rows(), 2, k, stream, trans.data());
   }

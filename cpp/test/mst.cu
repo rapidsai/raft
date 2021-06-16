@@ -17,7 +17,6 @@
 #include <bits/stdc++.h>
 
 #include <gtest/gtest.h>
-#include <rmm/thrust_rmm_allocator.h>
 #include <iostream>
 #include <rmm/device_buffer.hpp>
 #include <vector>
@@ -59,7 +58,7 @@ weight_t prims(CSRHost<vertex_t, edge_t, weight_t> &csr_h) {
   auto n_vertices = csr_h.offsets.size() - 1;
 
   bool active_vertex[n_vertices];
-  // bool mst_set[csr_h.n_edges];
+  //  bool mst_set[csr_h.n_edges];
   weight_t curr_edge[n_vertices];
 
   for (auto i = 0; i < n_vertices; i++) {
@@ -137,12 +136,12 @@ class MSTTest
     vertex_t *color_ptr = thrust::raw_pointer_cast(color.data());
 
     if (iterations == 0) {
-      MST_solver<vertex_t, edge_t, weight_t> symmetric_solver(
+      MST_solver<vertex_t, edge_t, weight_t, float> symmetric_solver(
         handle, offsets, indices, weights, v, e, color_ptr, handle.get_stream(),
         true, true, 0);
       auto symmetric_result = symmetric_solver.solve();
 
-      MST_solver<vertex_t, edge_t, weight_t> non_symmetric_solver(
+      MST_solver<vertex_t, edge_t, weight_t, float> non_symmetric_solver(
         handle, offsets, indices, weights, v, e, color_ptr, handle.get_stream(),
         false, true, 0);
       auto non_symmetric_result = non_symmetric_solver.solve();
@@ -153,12 +152,12 @@ class MSTTest
       return std::make_pair(std::move(symmetric_result),
                             std::move(non_symmetric_result));
     } else {
-      MST_solver<vertex_t, edge_t, weight_t> intermediate_solver(
+      MST_solver<vertex_t, edge_t, weight_t, float> intermediate_solver(
         handle, offsets, indices, weights, v, e, color_ptr, handle.get_stream(),
         true, true, iterations);
       auto intermediate_result = intermediate_solver.solve();
 
-      MST_solver<vertex_t, edge_t, weight_t> symmetric_solver(
+      MST_solver<vertex_t, edge_t, weight_t, float> symmetric_solver(
         handle, offsets, indices, weights, v, e, color_ptr, handle.get_stream(),
         true, false, 0);
       auto symmetric_result = symmetric_solver.solve();
@@ -181,7 +180,7 @@ class MSTTest
                  intermediate_result.n_edges, handle.get_stream());
       symmetric_result.n_edges = total_edge_size;
 
-      MST_solver<vertex_t, edge_t, weight_t> non_symmetric_solver(
+      MST_solver<vertex_t, edge_t, weight_t, float> non_symmetric_solver(
         handle, offsets, indices, weights, v, e, color_ptr, handle.get_stream(),
         false, true, 0);
       auto non_symmetric_result = non_symmetric_solver.solve();
@@ -199,15 +198,15 @@ class MSTTest
       MSTTestInput<vertex_t, edge_t, weight_t>>::GetParam();
     iterations = mst_input.iterations;
 
-    csr_d.offsets =
-      rmm::device_buffer(mst_input.csr_h.offsets.data(),
-                         mst_input.csr_h.offsets.size() * sizeof(edge_t));
-    csr_d.indices =
-      rmm::device_buffer(mst_input.csr_h.indices.data(),
-                         mst_input.csr_h.indices.size() * sizeof(vertex_t));
-    csr_d.weights =
-      rmm::device_buffer(mst_input.csr_h.weights.data(),
-                         mst_input.csr_h.weights.size() * sizeof(weight_t));
+    csr_d.offsets = rmm::device_buffer(
+      mst_input.csr_h.offsets.data(),
+      mst_input.csr_h.offsets.size() * sizeof(edge_t), handle.get_stream());
+    csr_d.indices = rmm::device_buffer(
+      mst_input.csr_h.indices.data(),
+      mst_input.csr_h.indices.size() * sizeof(vertex_t), handle.get_stream());
+    csr_d.weights = rmm::device_buffer(
+      mst_input.csr_h.weights.data(),
+      mst_input.csr_h.weights.size() * sizeof(weight_t), handle.get_stream());
   }
 
   void TearDown() override {}
