@@ -60,7 +60,7 @@ class LinearAssignmentProblem {
 
  public:
   LinearAssignmentProblem(raft::handle_t const &handle, vertex_t size,
-                          vertex_t batchsize, weight_t epsilon)
+                          vertex_t batchsize, weight_t epsilon=1e-6)
     : handle_(handle),
       size_(size),
       batchsize_(batchsize),
