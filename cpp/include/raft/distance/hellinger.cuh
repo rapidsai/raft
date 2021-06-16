@@ -66,12 +66,11 @@ static void hellingerImpl(const DataT *x, const DataT *y, IdxT m, IdxT n,
 
   // First sqrt x and y
   raft::linalg::unaryOp<DataT>(
-      (DataT*) x, (DataT*) x, m * k,
-      [=] __device__(DataT input) { return raft::mySqrt(input); }, stream);
+    (DataT *)x, (DataT *)x, m * k,
+    [=] __device__(DataT input) { return raft::mySqrt(input); }, stream);
   raft::linalg::unaryOp<DataT>(
-      (DataT*) y, (DataT*) y, n * k,
-      [=] __device__(DataT input) { return raft::mySqrt(input); }, stream);
-
+    (DataT *)y, (DataT *)y, n * k,
+    [=] __device__(DataT input) { return raft::mySqrt(input); }, stream);
 
   // Accumulation operation lambda
   auto core_lambda = [] __device__(AccT & acc, DataT & x, DataT & y) {
@@ -122,11 +121,11 @@ static void hellingerImpl(const DataT *x, const DataT *y, IdxT m, IdxT n,
 
   // Revert sqrt of x and y
   raft::linalg::unaryOp<DataT>(
-      (DataT*) x, (DataT*) x, m * k,
-      [=] __device__(DataT input) { return input * input; }, stream);
+    (DataT *)x, (DataT *)x, m * k,
+    [=] __device__(DataT input) { return input * input; }, stream);
   raft::linalg::unaryOp<DataT>(
-      (DataT*) y, (DataT*) y, n * k,
-      [=] __device__(DataT input) { return input * input; }, stream);
+    (DataT *)y, (DataT *)y, n * k,
+    [=] __device__(DataT input) { return input * input; }, stream);
 
   CUDA_CHECK(cudaGetLastError());
 }
