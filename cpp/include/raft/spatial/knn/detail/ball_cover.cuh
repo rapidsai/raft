@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-#include "brute_force_knn.cuh"
 #include <raft/handle.hpp>
+#include "brute_force_knn.cuh"
 
-#include <raft/random/rng.cuh>
 #include <raft/matrix/matrix.cuh>
+#include <raft/random/rng.cuh>
 #include <raft/sparse/convert/csr.cuh>
 
 #include <rmm/device_uvector.hpp>
@@ -29,7 +29,6 @@ namespace raft {
 namespace spatial {
 namespace knn {
 namespace detail {
-
 
 struct NNComp {
   template <typename one, typename two>
@@ -42,8 +41,6 @@ struct NNComp {
     return thrust::get<1>(t1) < thrust::get<1>(t2);
   }
 };
-
-
 
 /**
  * Random ball cover algorithm uses the triangle inequality
@@ -67,7 +64,8 @@ void random_ball_cover(const raft::handle_t &handle, const value_t *X,
 
   rmm::device_uvector<value_idx> R_indices(n_samples, handle.get_stream());
   rmm::device_uvector<value_t> R(n_samples * n, handle.get_stream());
-  raft::random::uniformInt(R_indices.data(), n_samples, 0, m-1, handle.get_stream());
+  raft::random::uniformInt(R_indices.data(), n_samples, 0, m - 1,
+                           handle.get_stream());
 
   raft::matrix::copyRows(X, m, n, R.data(), R_indices.data(), n_samples,
                          handle.get_stream(), true);
@@ -75,8 +73,9 @@ void random_ball_cover(const raft::handle_t &handle, const value_t *X,
   /**
    * 2. Perform knn = bfknn(X, R, k)
    */
-  brute_force_knn_impl({X}, {m}, n, R.data(), n_samples, R_knn_inds.data(), R_knn_dists.data(), k,
-                       handle.get_device_allocator(), handle.get_stream());
+  brute_force_knn_impl({X}, {m}, n, R.data(), n_samples, R_knn_inds.data(),
+                       R_knn_dists.data(), k, handle.get_device_allocator(),
+                       handle.get_stream());
 
   /**
    * 3. Create L_r = knn[:,0].T (CSR)
@@ -88,16 +87,18 @@ void random_ball_cover(const raft::handle_t &handle, const value_t *X,
   rmm::device_uvector<value_t> R_1nn_dists(m, handle.get_stream());
   rmm::device_uvector<value_idx> R_1nn_cols(m, handle.get_stream());
 
-  raft::matrix::sliceMatrix(R_knn_inds.data(), m, k, R_1nn_inds.data(), 0,
-                   1, m, 2, handle.get_stream());
-  raft::matrix::sliceMatrix(R_knn_dists.data(), m, k, R_1nn_dists.data(), 0,https://arxiv.org/search/cs?searchtype=author&query=Domingos%2C+P
-                            1, m, 2, handle.get_stream());
+  raft::matrix::sliceMatrix(R_knn_inds.data(), m, k, R_1nn_inds.data(), 0, 1, m,
+                            2, handle.get_stream());
+  raft::matrix::sliceMatrix(
+    R_knn_dists.data(), m, k, R_1nn_dists.data(), 0, https
+    :  //arxiv.org/search/cs?searchtype=author&query=Domingos%2C+P
+    1, m, 2, handle.get_stream());
 
   thrust::sequence(thrust::cuda::par.on(handle.get_stream()), R_1nn_cols.data(),
-                   R_1nn_cols.data()+m, 1);
+                   R_1nn_cols.data() + m, 1);
 
-  auto keys = thrust::make_zip_iterator(thrust::make_tuple(
-    R_1nn_inds.data(), R_1nn_dists.data()));
+  auto keys = thrust::make_zip_iterator(
+    thrust::make_tuple(R_1nn_inds.data(), R_1nn_dists.data()));
   auto vals = thrust::make_zip_iterator(thrust::make_tuple(R_1nn_cols.data()));
 
   // group neighborhoods for each reference landmark and sort each group by distance
@@ -106,7 +107,8 @@ void random_ball_cover(const raft::handle_t &handle, const value_t *X,
 
   // convert to CSR for fast lookup
   rmm::device_uvector<value_idx> R_indptr(n_samples, handle.get_stream());
-  raft::sparse::convert::sorted_coo_to_csr(R_1nn_inds.data(), m, R_indptr.data(), n_samples+1,
+  raft::sparse::convert::sorted_coo_to_csr(
+    R_1nn_inds.data(), m, R_indptr.data(), n_samples + 1,
     handle.get_device_allocator(), handle.get_stream());
 
   /**
@@ -118,9 +120,8 @@ void random_ball_cover(const raft::handle_t &handle, const value_t *X,
    * of distances y from R and marking the distance to be computed between x, y only
    * if current knn[k].distance >= d(x_i, R_k) + d(R_k, y)
    */
-
 }
-};
-};
-};
-};
+};  // namespace detail
+};  // namespace knn
+};  // namespace spatial
+};  // namespace raft
