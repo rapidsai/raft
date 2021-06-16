@@ -28,20 +28,22 @@ namespace distance {
  * @tparam AccT           accumulation data-type
  * @tparam OutT           output data-type (for C and D matrices)
  * @tparam IdxT           index data-type
-
+ * @tparam Veclen         number of k-elements loaded by each thread
+                          for every LDG call. details in contractions.cuh
  * @tparam FinalLambda    final lambda called on final distance value
  * @tparam isRowMajor     true if input/output is row major,
                           false for column major
  * @param[in]       x input matrix
  * @param[in]       y input matrix
  * @param[in]       m number of rows of A and C/D
- * @param[in]       n number of columns of B and C/D
- * @param[in]       k number of cols of A and rows of B
+ * @param[in]       n number of rows of B and C/D
+ * @param[in]       k number of cols of A and B
  * @param[in]       lda leading dimension of A
  * @param[in]       ldb leading dimension of B
  * @param[in]       ldd leading dimension of C/D
- * @param[output]   pD output matrix
- * @param fin_op    the final gemm epilogue lambda
+ * @param[output]   dOutput output matrix
+ * @param[in]       fin_op the final gemm epilogue lambda
+ * @param[in]       stream cuda stream to launch work
  */
 template <typename DataT, typename AccT, typename OutT, typename IdxT,
           int VecLen, typename FinalLambda, bool isRowMajor>
