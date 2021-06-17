@@ -69,11 +69,11 @@ static void hellingerImpl(const DataT *x, const DataT *y, IdxT m, IdxT n,
   };
   // First sqrt x and y
   raft::linalg::unaryOp<DataT, decltype(unaryOp_lambda), IdxT>(
-      (DataT*) x, x, m * k, unaryOp_lambda, stream);
+    (DataT *)x, x, m * k, unaryOp_lambda, stream);
 
   if (x != y) {
     raft::linalg::unaryOp<DataT, decltype(unaryOp_lambda), IdxT>(
-        (DataT*) y, y, n * k, unaryOp_lambda, stream);
+      (DataT *)y, y, n * k, unaryOp_lambda, stream);
   }
 
   // Accumulation operation lambda
@@ -125,10 +125,10 @@ static void hellingerImpl(const DataT *x, const DataT *y, IdxT m, IdxT n,
 
   // Revert sqrt of x and y
   raft::linalg::unaryOp<DataT, decltype(unaryOp_lambda), IdxT>(
-      (DataT*) x, x, m * k, unaryOp_lambda, stream);
+    (DataT *)x, x, m * k, unaryOp_lambda, stream);
   if (x != y) {
     raft::linalg::unaryOp<DataT, decltype(unaryOp_lambda), IdxT>(
-      (DataT*) y, y, n * k, unaryOp_lambda, stream);
+      (DataT *)y, y, n * k, unaryOp_lambda, stream);
   }
 
   CUDA_CHECK(cudaGetLastError());
