@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "detail/ball_cover.cuh"
 #include "detail/knn_brute_force_faiss.cuh"
 
 #include <raft/mr/device/allocator.hpp>
@@ -76,6 +77,13 @@ inline void brute_force_knn(
                                handle.get_stream(), int_streams.data(),
                                handle.get_num_internal_streams(), rowMajorIndex,
                                rowMajorQuery, translations, metric, metric_arg);
+}
+
+template <typename value_idx, typename value_t>
+inline void random_ball_cover(const raft::handle_t &handle, const value_t *X,
+                              value_idx m, value_idx n, int k, value_idx *inds,
+                              value_t *dists) {
+  detail::random_ball_cover(handle, X, m, n, k, inds, dists);
 }
 
 }  // namespace knn

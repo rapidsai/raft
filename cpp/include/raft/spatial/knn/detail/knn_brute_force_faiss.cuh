@@ -226,30 +226,30 @@ inline faiss::MetricType build_faiss_metric(
  * @param[in] metric corresponds to the raft::distance::DistanceType enum (default is L2Expanded)
  * @param[in] metricArg metric argument to use. Corresponds to the p arg for lp norm
  */
-template <typename IntType = int>
+template <typename IntType = int, typename IdxType = int64_t>
 void brute_force_knn_impl(std::vector<float *> &input, std::vector<int> &sizes,
                           IntType D, float *search_items, IntType n,
-                          int64_t *res_I, float *res_D, IntType k,
+                          IdxType *res_I, float *res_D, IntType k,
                           std::shared_ptr<deviceAllocator> allocator,
                           cudaStream_t userStream,
                           cudaStream_t *internalStreams = nullptr,
                           int n_int_streams = 0, bool rowMajorIndex = true,
                           bool rowMajorQuery = true,
-                          std::vector<int64_t> *translations = nullptr,
+                          std::vector<IdxType> *translations = nullptr,
                           raft::distance::DistanceType metric =
                             raft::distance::DistanceType::L2Expanded,
                           float metricArg = 0) {
   ASSERT(input.size() == sizes.size(),
          "input and sizes vectors should be the same size");
 
-  std::vector<int64_t> *id_ranges;
+  std::vector<IdxType> *id_ranges;
   if (translations == nullptr) {
     // If we don't have explicit translations
     // for offsets of the indices, build them
     // from the local partitions
-    id_ranges = new std::vector<int64_t>();
-    int64_t total_n = 0;
-    for (size_t i = 0; i < input.size(); i++) {
+    id_ranges = new std::vector<IdxType>();
+    IdxType total_n = 0;
+    for (IdxType i = 0; i < input.size(); i++) {
       id_ranges->push_back(total_n);
       total_n += sizes[i];
     }
@@ -275,16 +275,16 @@ void brute_force_knn_impl(std::vector<float *> &input, std::vector<int> &sizes,
   int device;
   CUDA_CHECK(cudaGetDevice(&device));
 
-  raft::mr::device::buffer<int64_t> trans(allocator, userStream,
+  raft::mr::device::buffer<IdxType> trans(allocator, userStream,
                                           id_ranges->size());
   raft::update_device(trans.data(), id_ranges->data(), id_ranges->size(),
                       userStream);
 
   raft::mr::device::buffer<float> all_D(allocator, userStream, 0);
-  raft::mr::device::buffer<int64_t> all_I(allocator, userStream, 0);
+  raft::mr::device::buffer<IdxType> all_I(allocator, userStream, 0);
 
   float *out_D = res_D;
-  int64_t *out_I = res_I;
+  IdxType *out_I = res_I;
 
   if (input.size() > 1) {
     all_D.resize(input.size() * k * n, userStream);
@@ -299,7 +299,7 @@ void brute_force_knn_impl(std::vector<float *> &input, std::vector<int> &sizes,
 
   for (size_t i = 0; i < input.size(); i++) {
     float *out_d_ptr = out_D + (i * k * n);
-    int64_t *out_i_ptr = out_I + (i * k * n);
+    IdxType *out_i_ptr = out_I + (i * k * n);
 
     cudaStream_t stream =
       raft::select_stream(userStream, internalStreams, n_int_streams, i);

@@ -80,6 +80,7 @@ add_executable(test_raft
     test/sparse/symmetrize.cu
     test/spatial/knn.cu
     test/spatial/haversine.cu
+    test/spatial/ball_cover.cu
     test/spectral_matrix.cu
     test/stats/mean.cu
     test/stats/mean_center.cu

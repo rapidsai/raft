@@ -81,15 +81,6 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
     build_expected_output<<<raft::ceildiv(rows_ * k_, 32), 32, 0, stream>>>(
       expected_labels_, rows_, k_, search_labels_);
 
-    raft::print_device_vector("Output indices: ", indices_, rows_ * k_,
-                              std::cout);
-    raft::print_device_vector("Output distances: ", distances_, rows_ * k_,
-                              std::cout);
-    raft::print_device_vector("Output labels: ", actual_labels_, rows_ * k_,
-                              std::cout);
-    raft::print_device_vector("Expected labels: ", expected_labels_, rows_ * k_,
-                              std::cout);
-
     ASSERT_TRUE(devArrMatch(expected_labels_, actual_labels_, rows_ * k_,
                             raft::Compare<int>()));
   }
