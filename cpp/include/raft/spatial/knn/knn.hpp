@@ -82,8 +82,8 @@ inline void brute_force_knn(
 template <typename value_idx, typename value_t>
 inline void random_ball_cover(const raft::handle_t &handle, const value_t *X,
                               value_idx m, value_idx n, int k, value_idx *inds,
-                              value_t *dists) {
-  detail::random_ball_cover(handle, X, m, n, k, inds, dists);
+                              value_t *dists, value_idx n_samples=-1) {
+  detail::random_ball_cover(handle, X, m, n, k, inds, dists, n_samples);
 }
 
 }  // namespace knn

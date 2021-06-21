@@ -34,6 +34,7 @@
 #include <set>
 
 #include "haversine_distance.cuh"
+#include "ball_cover.cuh"
 #include "processing.hpp"
 
 namespace raft {

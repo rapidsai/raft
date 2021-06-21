@@ -17,7 +17,7 @@
 #include <gtest/gtest.h>
 #include <raft/linalg/distance_type.h>
 #include <iostream>
-#include <raft/spatial/knn/detail/ball_cover.cuh>
+#include <raft/spatial/knn/knn.hpp>
 #include <rmm/device_buffer.hpp>
 #include <vector>
 #include "../test_utils.h"
@@ -73,7 +73,7 @@ class BallCoverKNNTest : public ::testing::Test {
     std::vector<value_t *> input_vec = {d_train_inputs};
     std::vector<value_idx> sizes_vec = {n};
 
-    raft::spatial::knn::detail::random_ball_cover(handle, d_train_inputs, n, d,
+    raft::spatial::knn::random_ball_cover(handle, d_train_inputs, n, d,
                                                   k, d_pred_I, d_pred_D, s);
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
