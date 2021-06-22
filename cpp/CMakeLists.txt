@@ -104,6 +104,7 @@ endif(NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
 # add third party dependencies using CPM
 rapids_cpm_init()
 
+include(cmake/thirdparty/get_thrust.cmake)
 include(cmake/thirdparty/get_rmm.cmake)
 include(cmake/thirdparty/get_cuco.cmake)
 
