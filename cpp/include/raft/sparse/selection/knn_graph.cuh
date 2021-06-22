@@ -88,11 +88,12 @@ void conv_indices(in_t *inds, out_t *out, size_t size, cudaStream_t stream) {
  * @param[in] n number of observations (columns) in X
  * @param[in] metric distance metric to use when constructing neighborhoods
  * @param[out] out output edge list
+ * @param[out] out output edge list
  * @param c
  */
 template <typename value_idx = int, typename value_t = float>
 void knn_graph(const handle_t &handle, const value_t *X, size_t m, size_t n,
-               distance::DistanceType metric,
+               raft::distance::DistanceType metric,
                raft::sparse::COO<value_t, value_idx> &out, int c = 15) {
   int k = build_k(m, c);
 

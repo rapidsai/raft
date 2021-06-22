@@ -73,10 +73,12 @@ class BallCoverKNNTest : public ::testing::Test {
     std::vector<value_t *> input_vec = {d_train_inputs};
     std::vector<value_idx> sizes_vec = {n};
 
-    raft::spatial::knn::random_ball_cover(handle, d_train_inputs, n, d,
-                                                  k, d_pred_I, d_pred_D, s);
+    raft::spatial::knn::random_ball_cover(handle, d_train_inputs, n, d, k,
+                                          d_pred_I, d_pred_D, s);
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+
+    printf("Done.\n");
 
     raft::print_device_vector("inds", d_pred_I, n * k, std::cout);
     raft::print_device_vector("dists", d_pred_D, n * k, std::cout);
@@ -109,7 +111,7 @@ class BallCoverKNNTest : public ::testing::Test {
   value_t *d_ref_D;
 };
 
-typedef BallCoverKNNTest<int, float> BallCoverKNNTestF;
+typedef BallCoverKNNTest<int64_t, float> BallCoverKNNTestF;
 
 TEST_F(BallCoverKNNTestF, Fit) {
   ASSERT_TRUE(raft::devArrMatch(d_ref_D, d_pred_D, n * n,

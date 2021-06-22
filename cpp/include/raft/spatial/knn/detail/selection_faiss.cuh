@@ -16,15 +16,6 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
-#include <raft/sparse/cusparse_wrappers.h>
-#include <raft/cuda_utils.cuh>
-#include <raft/matrix/matrix.cuh>
-
-#include <raft/sparse/coo.cuh>
-#include <raft/sparse/csr.cuh>
-#include <raft/sparse/distance/distance.cuh>
-
 #include <faiss/gpu/GpuDistance.h>
 #include <faiss/gpu/GpuIndexFlat.h>
 #include <faiss/gpu/GpuResources.h>
@@ -33,11 +24,10 @@
 #include <faiss/gpu/utils/Limits.cuh>
 #include <faiss/gpu/utils/Select.cuh>
 
-#include <cusparse_v2.h>
-
 namespace raft {
-namespace sparse {
-namespace selection {
+namespace spatial {
+namespace knn {
+namespace detail {
 
 template <typename K, typename IndexType, bool select_min, int warp_q,
           int thread_q, int tpb>
@@ -152,6 +142,7 @@ inline void select_k(value_t *inK, value_idx *inV, size_t n_rows, size_t n_cols,
                                                outV, select_min, k, stream);
 }
 
-};  // namespace selection
-};  // namespace sparse
+};  // namespace detail
+};  // namespace knn
+};  // namespace spatial
 };  // namespace raft

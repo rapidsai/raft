@@ -28,6 +28,30 @@ namespace knn {
 
 using deviceAllocator = raft::mr::device::allocator;
 
+/**
+ * Performs a k-select across row partitioned index/distance
+ * matrices formatted like the following:
+ * row1: k0, k1, k2
+ * row2: k0, k1, k2
+ * row3: k0, k1, k2
+ * row1: k0, k1, k2
+ * row2: k0, k1, k2
+ * row3: k0, k1, k2
+ *
+ * etc...
+ *
+ * @tparam value_idx
+ * @tparam value_t
+ * @param inK
+ * @param inV
+ * @param outK
+ * @param outV
+ * @param n_samples
+ * @param n_parts
+ * @param k
+ * @param stream
+ * @param translations
+ */
 template <typename value_idx = int64_t, typename value_t = float>
 inline void knn_merge_parts(value_t *inK, value_idx *inV, value_t *outK,
                             value_idx *outV, size_t n_samples, int n_parts,
@@ -35,6 +59,34 @@ inline void knn_merge_parts(value_t *inK, value_idx *inV, value_t *outK,
                             value_idx *translations) {
   detail::knn_merge_parts(inK, inV, outK, outV, n_samples, n_parts, k, stream,
                           translations);
+}
+
+/**
+ * Performs a k-select across column-partitioned index/distance
+ * matrices formatted like the following:
+ * row1: k0, k1, k2, k0, k1, k2
+ * row2: k0, k1, k2, k0, k1, k2
+ * row3: k0, k1, k2, k0, k1, k2
+ *
+ * etc...
+ *
+ * @tparam value_idx
+ * @tparam value_t
+ * @param inK
+ * @param inV
+ * @param n_rows
+ * @param n_cols
+ * @param outK
+ * @param outV
+ * @param select_min
+ * @param k
+ * @param stream
+ */
+template <typename value_idx = int, typename value_t = float>
+inline void select_k(value_t *inK, value_idx *inV, size_t n_rows, size_t n_cols,
+                     value_t *outK, value_idx *outV, bool select_min, int k,
+                     cudaStream_t stream) {
+  detail::select_k(inK, inV, n_rows, n_cols, outK, outV, select_min, k, stream);
 }
 
 /**
@@ -79,10 +131,27 @@ inline void brute_force_knn(
                                rowMajorQuery, translations, metric, metric_arg);
 }
 
-template <typename value_idx, typename value_t>
+/**
+ * Performs a faster exact knn in metric spaces using the triangle
+ * inequality with a number of landmark points to reduce the
+ * number of distance computations from O(n^2) to O(sqrt(n))
+ * @tparam value_idx
+ * @tparam value_t
+ * @tparam value_int
+ * @param handle
+ * @param X
+ * @param m
+ * @param n
+ * @param k
+ * @param inds
+ * @param dists
+ * @param n_samples
+ */
+template <typename value_idx = int64_t, typename value_t,
+          typename value_int = int>
 inline void random_ball_cover(const raft::handle_t &handle, const value_t *X,
-                              value_idx m, value_idx n, int k, value_idx *inds,
-                              value_t *dists, value_idx n_samples=-1) {
+                              value_int m, value_int n, int k, value_idx *inds,
+                              value_t *dists, value_int n_samples = -1) {
   detail::random_ball_cover(handle, X, m, n, k, inds, dists, n_samples);
 }
 
