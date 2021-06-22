@@ -125,10 +125,8 @@ __global__ void rbc_kernel(const value_t *X, const value_int n_cols,
       value_t y2 = y_ptr[1];
 
       value_t dist = compute_haversine(x1, y1, x2, y2);
-      heap.addThreadQ(dist, cur_candidate_ind);
+      heap.add(dist, cur_candidate_ind);
     }
-
-    heap.checkThreadQ();
   }
 
   if (i < R_size) {
@@ -241,10 +239,12 @@ void random_ball_cover(const raft::handle_t &handle, const value_t *X,
                       keys + R_1nn_inds.size(), vals, NNComp());
 
   // convert to CSR for fast lookup
-  rmm::device_uvector<value_idx> R_indptr(n_samples, handle.get_stream());
+  rmm::device_uvector<value_idx> R_indptr(n_samples+1, handle.get_stream());
   raft::sparse::convert::sorted_coo_to_csr(
     R_1nn_inds.data(), m, R_indptr.data(), n_samples + 1,
     handle.get_device_allocator(), handle.get_stream());
+
+  raft::print_device_vector("R_indptr", R_indptr.data(), R_indptr.size(), std::cout);
 
   /**
    * 4. Perform k-select over original KNN, using L_r to filter distances
@@ -256,12 +256,14 @@ void random_ball_cover(const raft::handle_t &handle, const value_t *X,
    * marking the distance to be computed between x, y only
    * if knn[k].distance >= d(x_i, R_k) + d(R_k, y)
    */
-
   // Compute nearest k for each neighborhood in each closest R
   rbc_kernel<<<m * k, 32, 0, handle.get_stream()>>>(
     X, n, R_knn_inds.data(), R_knn_dists.data(), m, k, R_indptr.data(),
     R_1nn_cols.data(), R_1nn_dists.data(), out_inds_full.data(),
     out_dists_full.data(), R_indices.data());
+
+  raft::print_device_vector("out_dists_full", out_dists_full.data() + (3070433 * k * k), k * k, std::cout);
+  raft::print_device_vector("out_inds_full", out_inds_full.data() + (3070433 * k * k), k * k, std::cout);
 
   // Reduce k * k to final k
   select_k(out_dists_full.data(), out_inds_full.data(), m, k * k, dists, inds,
