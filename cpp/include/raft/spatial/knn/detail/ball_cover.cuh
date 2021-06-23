@@ -53,6 +53,7 @@ struct NNComp {
   }
 };
 
+
 /**
  * Kernel for more narrow data sizes (n_cols <= 32)
  * @tparam value_idx
@@ -73,13 +74,19 @@ struct NNComp {
 template <typename value_idx = int64_t, typename value_t,
           typename value_int = int, int warp_q = 1024, int thread_q = 1,
           int tpb = 32>
-__global__ void rbc_kernel(const value_t *X, const value_int n_cols,
+__global__ void rbc_kernel(const value_t *X,
+                           value_int n_cols,
                            const value_idx *R_knn_inds,
-                           const value_t *R_knn_dists, value_int m, int k,
+                           const value_t *R_knn_dists,
+                           value_int m,
+                           int k,
                            const value_idx *R_indptr,
                            const value_idx *R_1nn_cols,
-                           const value_t *R_1nn_dists, value_idx *out_inds,
-                           value_t *out_dists, value_idx *sampled_inds_map) {
+                           const value_t *R_1nn_dists,
+                           value_idx *out_inds,
+                           value_t *out_dists,
+                           value_idx *sampled_inds_map,
+                           value_int debug_row = -1) {
   int row = blockIdx.x / k;
   int cur_k = blockIdx.x % k;
 
@@ -119,6 +126,12 @@ __global__ void rbc_kernel(const value_t *X, const value_int n_cols,
   for (; i < limit; i += tpb) {
     value_idx cur_candidate_ind = R_1nn_cols[R_start_offset + i];
     value_idx cur_candidate_dist = R_1nn_dists[R_start_offset + i];
+
+    if(row == debug_row) {
+      printf("row=%d, cur_R_ind=%d, cur_R_dist=%f, cur_candidate_ind=%d, cur_candidate_dist=%f",
+             row, cur_R_ind, cur_R_dist, cur_candidate_ind, cur_candidate_dist);
+    }
+
     if (i < k || heap.warpKTop >= cur_candidate_dist + cur_R_dist) {
       const value_t *y_ptr = X + (n_cols * cur_candidate_ind);
       value_t y1 = y_ptr[0];
