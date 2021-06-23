@@ -175,16 +175,8 @@ struct Policy1x1 {};
 
 template <int _veclen>
 struct Policy1x1<float, _veclen> {
-#if 0
-  typedef KernelPolicy<float, _veclen, 32, 1, 1, 8, 32> Policy;
-  typedef ColKernelPolicy<float, _veclen, 32, 1, 1, 8, 32> ColPolicy;
-#else
-  typedef KernelPolicy<float, _veclen, 32, 1, 4, 8, 32> Policy;
-  typedef ColKernelPolicy<float, _veclen, 32, 1, 4, 8, 32> ColPolicy;
-
-/*  typedef KernelPolicy<float, _veclen, 16, 1, 16, 16, 16> Policy;
-  typedef ColKernelPolicy<float, _veclen, 16, 1, 16, 16, 16> ColPolicy;*/
-#endif
+  typedef KernelPolicy<float, _veclen, 16, 2, 8, 8, 32> Policy;
+  typedef ColKernelPolicy<float, _veclen, 16, 2, 8, 8, 32> ColPolicy;
 };
 
 template <int _veclen>
@@ -193,6 +185,7 @@ struct Policy1x1<double, _veclen> {
   typedef KernelPolicy<double, _veclen, 32, 1, 1, 8, 32> Policy;
   typedef ColKernelPolicy<double, _veclen, 32, 1, 1, 8, 32> ColPolicy;
 #else
+  // this is not used just for keeping compiler happy for testing L2
   typedef KernelPolicy<double, _veclen, 32, 1, 2, 8, 32> Policy;
   typedef ColKernelPolicy<double, _veclen, 32, 1, 2, 8, 32> ColPolicy;
 #endif
