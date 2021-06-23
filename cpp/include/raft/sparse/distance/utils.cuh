@@ -16,42 +16,31 @@
 
 #pragma once
 
-#include <raft/handle.hpp>
+#include <raft/mr/device/allocator.hpp>
+#include <raft/mr/device/buffer.hpp>
+
+#include <cub/cub.cuh>
+
+#include <rmm/device_vector.hpp>
 
 namespace raft {
 namespace sparse {
 namespace distance {
 
-template <typename value_idx, typename value_t>
-struct distances_config_t {
-  distances_config_t(raft::handle_t &handle_) : handle(handle_) {}
+/**
+ * Computes the maximum number of columns that can be stored
+ * in shared memory in dense form with the given block size
+ * and precision.
+ * @return the maximum number of columns that can be stored in smem
+ */
+template <typename value_idx, typename value_t, int tpb = 1024>
+inline int max_cols_per_block() {
+  // max cols = (total smem available - cub reduction smem)
+  return (raft::getSharedMemPerBlock() -
+          ((tpb / raft::warp_size()) * sizeof(value_t))) /
+         sizeof(value_t);
+}
 
-  // left side
-  value_idx a_nrows;
-  value_idx a_ncols;
-  value_idx a_nnz;
-  value_idx *a_indptr;
-  value_idx *a_indices;
-  value_t *a_data;
-
-  // right side
-  value_idx b_nrows;
-  value_idx b_ncols;
-  value_idx b_nnz;
-  value_idx *b_indptr;
-  value_idx *b_indices;
-  value_t *b_data;
-
-  raft::handle_t &handle;
-};
-
-template <typename value_t>
-class distances_t {
- public:
-  virtual void compute(value_t *out) {}
-  virtual ~distances_t() = default;
-};
-
-};  // namespace distance
+}  // namespace distance
 }  // namespace sparse
-};  // namespace raft
+}  // namespace raft

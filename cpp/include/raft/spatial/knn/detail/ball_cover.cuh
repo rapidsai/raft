@@ -140,7 +140,7 @@ __global__ void rbc_kernel(const value_t *X,
       value_t dist = compute_haversine(x1, y1, x2, y2);
       heap.addThreadQ(dist, cur_candidate_ind);
     }
-    heap.checkThreadQ(dist, cur_candidate_ind);
+    heap.checkThreadQ();
   }
 
   if (i < R_size) {
