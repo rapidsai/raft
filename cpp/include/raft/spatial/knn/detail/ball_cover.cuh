@@ -125,10 +125,10 @@ __global__ void rbc_kernel(const value_t *X,
   int i = threadIdx.x;
   for (; i < limit; i += tpb) {
     value_idx cur_candidate_ind = R_1nn_cols[R_start_offset + i];
-    value_idx cur_candidate_dist = R_1nn_dists[R_start_offset + i];
+    value_t cur_candidate_dist = R_1nn_dists[R_start_offset + i];
 
     if(row == debug_row) {
-      printf("row=%d, cur_R_ind=%d, cur_R_dist=%f, cur_candidate_ind=%d, cur_candidate_dist=%f",
+      printf("row=%d, cur_R_ind=%ld, cur_R_dist=%f, cur_candidate_ind=%ld, cur_candidate_dist=%f\n",
              row, cur_R_ind, cur_R_dist, cur_candidate_ind, cur_candidate_dist);
     }
 
@@ -138,13 +138,14 @@ __global__ void rbc_kernel(const value_t *X,
       value_t y2 = y_ptr[1];
 
       value_t dist = compute_haversine(x1, y1, x2, y2);
-      heap.add(dist, cur_candidate_ind);
+      heap.addThreadQ(dist, cur_candidate_ind);
     }
+    heap.checkThreadQ(dist, cur_candidate_ind);
   }
 
   if (i < R_size) {
     value_idx cur_candidate_ind = R_1nn_cols[R_start_offset + i];
-    value_idx cur_candidate_dist = R_1nn_dists[R_start_offset + i];
+    value_t cur_candidate_dist = R_1nn_dists[R_start_offset + i];
 
     if (i < k || heap.warpKTop >= cur_candidate_dist + cur_R_dist) {
       const value_t *y_ptr = X + (n_cols * cur_candidate_ind);
@@ -269,11 +270,12 @@ void random_ball_cover(const raft::handle_t &handle, const value_t *X,
    * marking the distance to be computed between x, y only
    * if knn[k].distance >= d(x_i, R_k) + d(R_k, y)
    */
+
   // Compute nearest k for each neighborhood in each closest R
   rbc_kernel<<<m * k, 32, 0, handle.get_stream()>>>(
     X, n, R_knn_inds.data(), R_knn_dists.data(), m, k, R_indptr.data(),
     R_1nn_cols.data(), R_1nn_dists.data(), out_inds_full.data(),
-    out_dists_full.data(), R_indices.data());
+    out_dists_full.data(), R_indices.data(), 3070433);
 
   raft::print_device_vector("out_dists_full", out_dists_full.data() + (3070433 * k * k), k * k, std::cout);
   raft::print_device_vector("out_inds_full", out_inds_full.data() + (3070433 * k * k), k * k, std::cout);
