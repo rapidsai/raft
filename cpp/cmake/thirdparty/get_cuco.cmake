@@ -16,6 +16,10 @@
 
 function(find_and_configure_cuco VERSION)
 
+    if(TARGET cuco::cuco)
+      return()
+    endif()
+
     rapids_cpm_find(cuco ${VERSION}
       GLOBAL_TARGETS cuco cuco::cuco
       BUILD_EXPORT_SET    raft-exports
