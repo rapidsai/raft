@@ -18,6 +18,8 @@ function(find_and_configure_cuco VERSION)
 
     rapids_cpm_find(cuco ${VERSION}
       GLOBAL_TARGETS cuco cuco::cuco
+      BUILD_EXPORT_SET    raft-exports
+      INSTALL_EXPORT_SET  raft-exports
       CPM_ARGS
         GIT_REPOSITORY https://github.com/NVIDIA/cuCollections.git
         GIT_TAG        e5e2abe55152608ef449ecf162a1ef52ded19801
