@@ -31,7 +31,6 @@
 
 #include <raft/sparse/distance/common.h>
 #include <raft/sparse/convert/coo.cuh>
-#include <raft/sparse/distance/csr_spmv.cuh>
 #include <raft/sparse/distance/operators.cuh>
 
 #include <nvfunctional>
@@ -42,51 +41,26 @@ namespace distance {
 
 template <typename value_idx = int, typename value_t = float,
           typename product_f, typename accum_f, typename write_f>
-
 void unexpanded_lp_distances(
   value_t *out_dists, const distances_config_t<value_idx, value_t> *config_,
   product_f product_func, accum_f accum_func, write_f write_func) {
-  /**
- * @TODO: Main logic here:
- *
- *  - if n_cols < available smem, just use dense conversion for rows of A
- *  - if n_cols > available smem but max nnz < available smem, use hashing
- *    (not yet available)
- *  - if n_cols > available smem & max_nnz > available smem,
- *              use batching + hashing only for those large cols
- *  Ref: https://github.com/rapidsai/cuml/issues/3371
- */
+  raft::mr::device::buffer<value_idx> coo_rows(
+    config_->handle.get_device_allocator(), config_->handle.get_stream(),
+    max(config_->b_nnz, config_->a_nnz));
 
-  if (config_->a_ncols < max_cols_per_block<value_idx, value_t>()) {
-    // TODO: Use n_cols to set shared memory and threads per block
-    // for max occupancy.
-    // Ref: https://github.com/rapidsai/cuml/issues/3371
+  raft::sparse::convert::csr_to_coo(config_->b_indptr, config_->b_nrows,
+                                    coo_rows.data(), config_->b_nnz,
+                                    config_->handle.get_stream());
 
-    raft::mr::device::buffer<value_idx> coo_rows(
-      config_->allocator, config_->stream, max(config_->b_nnz, config_->a_nnz));
+  balanced_coo_pairwise_generalized_spmv<value_idx, value_t>(
+    out_dists, *config_, coo_rows.data(), product_func, accum_func, write_func);
 
-    raft::sparse::convert::csr_to_coo(config_->b_indptr, config_->b_nrows,
-                                      coo_rows.data(), config_->b_nnz,
-                                      config_->stream);
+  raft::sparse::convert::csr_to_coo(config_->a_indptr, config_->a_nrows,
+                                    coo_rows.data(), config_->a_nnz,
+                                    config_->handle.get_stream());
 
-    balanced_coo_pairwise_generalized_spmv<value_idx, value_t>(
-      out_dists, *config_, coo_rows.data(), product_func, accum_func,
-      write_func);
-
-    raft::sparse::convert::csr_to_coo(config_->a_indptr, config_->a_nrows,
-                                      coo_rows.data(), config_->a_nnz,
-                                      config_->stream);
-
-    balanced_coo_pairwise_generalized_spmv_rev<value_idx, value_t>(
-      out_dists, *config_, coo_rows.data(), product_func, accum_func,
-      write_func);
-
-  } else {
-    // TODO: Find max nnz and set smem based on this value.
-    // Ref: https://github.com/rapidsai/cuml/issues/3371
-    generalized_csr_pairwise_semiring<value_idx, value_t>(
-      out_dists, *config_, product_func, accum_func);
-  }
+  balanced_coo_pairwise_generalized_spmv_rev<value_idx, value_t>(
+    out_dists, *config_, coo_rows.data(), product_func, accum_func, write_func);
 }
 
 /**
@@ -145,7 +119,7 @@ class l2_sqrt_unexpanded_distances_t
         int neg = input < 0 ? -1 : 1;
         return sqrt(abs(input) * neg);
       },
-      this->config_->stream);
+      this->config_->handle.get_stream());
   }
 };
 
@@ -204,14 +178,13 @@ class lp_unexpanded_distances_t : public distances_t<value_t> {
     raft::linalg::unaryOp<value_t>(
       out_dists, out_dists, config_->a_nrows * config_->b_nrows,
       [=] __device__(value_t input) { return pow(input, one_over_p); },
-      config_->stream);
+      config_->handle.get_stream());
   }
 
  private:
   const distances_config_t<value_idx, value_t> *config_;
   value_t p;
 };
-
 };  // END namespace distance
 };  // END namespace sparse
 };  // END namespace raft
