@@ -61,8 +61,6 @@ void cosineImpl(const DataT *x, const DataT *y, const DataT *xn,
   typedef
     typename std::conditional<isRowMajor, RowPolicy, ColPolicy>::type KPolicy;
 
-  dim3 grid(raft::ceildiv<int>(m, KPolicy::Mblk),
-            raft::ceildiv<int>(n, KPolicy::Nblk));
   dim3 blk(KPolicy::Nthreads);
 
   // Accumulation operation lambda
@@ -73,7 +71,8 @@ void cosineImpl(const DataT *x, const DataT *y, const DataT *xn,
   // epilogue operation lambda for final value calculation
   auto epilog_lambda = [] __device__(
                          AccT acc[KPolicy::AccRowsPerTh][KPolicy::AccColsPerTh],
-                         DataT * regxn, DataT * regyn) {
+                         DataT * regxn, DataT * regyn, IdxT gridStrideX,
+                         IdxT gridStrideY) {
 #pragma unroll
     for (int i = 0; i < KPolicy::AccRowsPerTh; ++i) {
 #pragma unroll
@@ -83,20 +82,26 @@ void cosineImpl(const DataT *x, const DataT *y, const DataT *xn,
     }
   };
 
+  constexpr size_t shmemSize =
+    KPolicy::SmemSize + ((KPolicy::Mblk + KPolicy::Nblk) * sizeof(DataT));
   if (isRowMajor) {
-    pairwiseDistanceMatKernel<true, DataT, AccT, OutT, IdxT, KPolicy,
-                              decltype(core_lambda), decltype(epilog_lambda),
-                              FinalLambda, true>
-      <<<grid, blk, KPolicy::SmemSize, stream>>>(x, y, xn, yn, m, n, k, lda,
-                                                 ldb, ldd, dOutput, core_lambda,
-                                                 epilog_lambda, fin_op);
+    auto cosineRowMajor =
+      pairwiseDistanceMatKernel<true, DataT, AccT, OutT, IdxT, KPolicy,
+                                decltype(core_lambda), decltype(epilog_lambda),
+                                FinalLambda, true>;
+    dim3 grid = launchConfigGenerator<KPolicy>(m, n, shmemSize, cosineRowMajor);
+    cosineRowMajor<<<grid, blk, shmemSize, stream>>>(
+      x, y, xn, yn, m, n, k, lda, ldb, ldd, dOutput, core_lambda, epilog_lambda,
+      fin_op);
   } else {
-    pairwiseDistanceMatKernel<true, DataT, AccT, OutT, IdxT, KPolicy,
-                              decltype(core_lambda), decltype(epilog_lambda),
-                              FinalLambda, false>
-      <<<grid, blk, KPolicy::SmemSize, stream>>>(x, y, xn, yn, m, n, k, lda,
-                                                 ldb, ldd, dOutput, core_lambda,
-                                                 epilog_lambda, fin_op);
+    auto cosineColMajor =
+      pairwiseDistanceMatKernel<true, DataT, AccT, OutT, IdxT, KPolicy,
+                                decltype(core_lambda), decltype(epilog_lambda),
+                                FinalLambda, false>;
+    dim3 grid = launchConfigGenerator<KPolicy>(m, n, shmemSize, cosineColMajor);
+    cosineColMajor<<<grid, blk, shmemSize, stream>>>(
+      x, y, xn, yn, m, n, k, lda, ldb, ldd, dOutput, core_lambda, epilog_lambda,
+      fin_op);
   }
 
   CUDA_CHECK(cudaGetLastError());
