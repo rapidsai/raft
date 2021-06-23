@@ -75,9 +75,6 @@ inline void balanced_coo_pairwise_generalized_spmv(
  * @tparam value_idx index type
  * @tparam value_t value type
  * @tparam threads_per_block block size
- * @tparam chunk_size number of nonzeros of B to process for each row of A
- *         this value was found through profiling and represents a reasonable
- *         setting for both large and small densities
  * @tparam product_f semiring product() function
  * @tparam accum_f semiring sum() function
  * @tparam write_f atomic semiring sum() function
@@ -88,6 +85,9 @@ inline void balanced_coo_pairwise_generalized_spmv(
  * @param[in] product_func semiring product() function
  * @param[in] accum_func semiring sum() function
  * @param[in] write_func atomic semiring sum() function
+ * @param[in] chunk_size number of nonzeros of B to process for each row of A
+ *            this value was found through profiling and represents a reasonable
+ *            setting for both large and small densities
  */
 template <typename value_idx, typename value_t, int threads_per_block = 1024,
           typename product_f, typename accum_f, typename write_f>
@@ -147,9 +147,6 @@ inline void balanced_coo_pairwise_generalized_spmv_rev(
  * @tparam value_idx index type
  * @tparam value_t value type
  * @tparam threads_per_block block size
- * @tparam chunk_size number of nonzeros of B to process for each row of A
- *         this value was found through profiling and represents a reasonable
- *         setting for both large and small densities
  * @tparam product_f semiring product() function
  * @tparam accum_f semiring sum() function
  * @tparam write_f atomic semiring sum() function
@@ -159,6 +156,9 @@ inline void balanced_coo_pairwise_generalized_spmv_rev(
  * @param[in] product_func semiring product() function
  * @param[in] accum_func semiring sum() function
  * @param[in] write_func atomic semiring sum() function
+ * @param[in] chunk_size number of nonzeros of B to process for each row of A
+ *            this value was found through profiling and represents a reasonable
+ *            setting for both large and small densities
  */
 template <typename value_idx, typename value_t, int threads_per_block = 1024,
           typename product_f, typename accum_f, typename write_f>

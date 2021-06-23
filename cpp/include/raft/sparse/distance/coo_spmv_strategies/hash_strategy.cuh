@@ -20,6 +20,16 @@
 
 #include <cuco/static_map.cuh>
 
+// this is needed by cuco as key, value must be bitwise comparable.
+// compilers don't declare float/double as bitwise comparable
+// but that is too strict
+// for example, the following is true (or 0):
+// float a = 5;
+// float b = 5;
+// memcmp(&a, &b, sizeof(float));
+CUCO_DECLARE_BITWISE_COMPARABLE(float);
+CUCO_DECLARE_BITWISE_COMPARABLE(double);
+
 namespace raft {
 namespace sparse {
 namespace distance {
@@ -59,8 +69,6 @@ class hash_strategy : public coo_spmv_strategy<value_idx, value_t, tpb> {
       fits_in_hash_table(indptr, capacity_threshold * map_size,
                          std::numeric_limits<value_idx>::max()));
     std::get<1>(n_rows_divided) = more - less;
-    std::cout << "less rows: " << less - mask_indptr.data()
-              << ", more rows: " << more - less << std::endl;
   }
 
   template <typename product_f, typename accum_f, typename write_f>
@@ -88,10 +96,19 @@ class hash_strategy : public coo_spmv_strategy<value_idx, value_t, tpb> {
 
     auto more_rows = std::get<1>(n_rows_divided);
     if (more_rows > 0) {
+      rmm::device_uvector<value_idx> n_chunks_per_row(
+        more_rows + 1, this->config.handle.get_stream());
+      rmm::device_uvector<value_idx> chunk_indices(
+        0, this->config.handle.get_stream());
+      chunked_mask_row_it<value_idx>::init(
+        this->config.a_indptr, mask_indptr.data() + less_rows, more_rows,
+        capacity_threshold * map_size, n_chunks_per_row, chunk_indices,
+        this->config.handle.get_stream());
+
       chunked_mask_row_it<value_idx> more(
         this->config.a_indptr, more_rows, mask_indptr.data() + less_rows,
-        capacity_threshold * map_size, this->config.handle.get_stream());
-      more.init();
+        capacity_threshold * map_size, n_chunks_per_row.data(),
+        chunk_indices.data(), this->config.handle.get_stream());
 
       auto n_more_blocks = more.total_row_blocks * n_blocks_per_row;
       this->_dispatch_base(*this, map_size, more, out_dists, coo_rows_b,
@@ -125,10 +142,19 @@ class hash_strategy : public coo_spmv_strategy<value_idx, value_t, tpb> {
 
     auto more_rows = std::get<1>(n_rows_divided);
     if (more_rows > 0) {
+      rmm::device_uvector<value_idx> n_chunks_per_row(
+        more_rows + 1, this->config.handle.get_stream());
+      rmm::device_uvector<value_idx> chunk_indices(
+        0, this->config.handle.get_stream());
+      chunked_mask_row_it<value_idx>::init(
+        this->config.b_indptr, mask_indptr.data() + less_rows, more_rows,
+        capacity_threshold * map_size, n_chunks_per_row, chunk_indices,
+        this->config.handle.get_stream());
+
       chunked_mask_row_it<value_idx> more(
         this->config.b_indptr, more_rows, mask_indptr.data() + less_rows,
-        capacity_threshold * map_size, this->config.handle.get_stream());
-      more.init();
+        capacity_threshold * map_size, n_chunks_per_row.data(),
+        chunk_indices.data(), this->config.handle.get_stream());
 
       auto n_more_blocks = more.total_row_blocks * n_blocks_per_row;
       this->_dispatch_base_rev(*this, map_size, more, out_dists, coo_rows_a,
@@ -145,7 +171,7 @@ class hash_strategy : public coo_spmv_strategy<value_idx, value_t, tpb> {
 
   __device__ inline void insert(insert_type cache, const value_idx &key,
                                 const value_t &value) {
-    auto success = cache.insert(thrust::make_pair(key, value));
+    auto success = cache.insert(cuco::pair<value_idx, value_t>(key, value));
   }
 
   __device__ inline find_type init_find(smem_type cache,
@@ -180,14 +206,15 @@ class hash_strategy : public coo_spmv_strategy<value_idx, value_t, tpb> {
     const value_idx degree_l, degree_r;
   };
 
- private:
-  float capacity_threshold;
-  int map_size;
   inline static int get_map_size() {
     return (raft::getSharedMemPerBlock() -
             ((tpb / raft::warp_size()) * sizeof(value_t))) /
            sizeof(typename insert_type::slot_type);
   }
+
+ private:
+  float capacity_threshold;
+  int map_size;
 };
 
 }  // namespace distance

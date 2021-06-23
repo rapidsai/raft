@@ -19,7 +19,7 @@ include(FetchContent)
 FetchContent_Declare(
   rapids-cmake
   GIT_REPOSITORY https://github.com/rapidsai/rapids-cmake.git
-  GIT_TAG        origin/branch-21.06
+  GIT_TAG        origin/branch-21.08
   )
 FetchContent_MakeAvailable(rapids-cmake)
 include(rapids-cmake)
@@ -104,6 +104,7 @@ endif(NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
 # add third party dependencies using CPM
 rapids_cpm_init()
 
+include(cmake/thirdparty/get_thrust.cmake)
 include(cmake/thirdparty/get_rmm.cmake)
 include(cmake/thirdparty/get_cuco.cmake)
 
@@ -140,9 +141,14 @@ install(TARGETS raft
         )
 
 include(GNUInstallDirs)
-install(DIRECTORY include/
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+install(DIRECTORY include/raft/
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/raft
         )
+
+# Temporary install of raft.hpp while the file is removed
+install(FILES include/raft.hpp
+	DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/raft
+	)
 
 ##############################################################################
 # - install export -----------------------------------------------------------
