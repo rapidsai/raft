@@ -24,7 +24,7 @@ namespace distance {
 
 template <typename value_idx, typename value_t>
 struct distances_config_t {
-  distances_config_t(raft::handle_t &handle_) : handle(handle_) {}
+  distances_config_t(const raft::handle_t &handle_) : handle(handle_) {}
 
   // left side
   value_idx a_nrows;
@@ -42,7 +42,7 @@ struct distances_config_t {
   value_idx *b_indices;
   value_t *b_data;
 
-  raft::handle_t &handle;
+  const raft::handle_t &handle;
 };
 
 template <typename value_t>

@@ -394,7 +394,7 @@ class sparse_knn_t {
 
   int n_idx_rows, n_idx_cols, n_query_rows, n_query_cols, k;
 
-  raft::handle_t &handle;
+  const raft::handle_t &handle;
 };
 
 /**
