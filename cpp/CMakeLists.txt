@@ -131,6 +131,7 @@ INTERFACE
   CUDA::cudart
   CUDA::cusparse
   rmm::rmm
+  cuco::cuco
   )
 
 target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
