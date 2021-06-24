@@ -59,7 +59,6 @@ __global__ __launch_bounds__( Policy::Nthreads, 2) void fusedL2kNN(
     }
 
     volatile int *mutex = mutexes;
-    extern __shared__ char smem[];
     Pair *shDumpKV = (Pair*)(&smem[Policy::SmemSize]);
     // make the thread distribution to be 8x32 from previous 16x16
     constexpr auto newAccRowsPerTh = Policy::AccRowsPerTh;
@@ -203,9 +202,8 @@ __global__ __launch_bounds__( Policy::Nthreads, 2) void fusedL2kNN(
         }
       }
     }
-    extern __shared__ char smem[];
     Pair *shDumpKV = (Pair*)(&smem[Policy::SmemSize]);
-    // make the thread distribution to be 8x32 from previous 16x16
+
     constexpr auto newAccRowsPerTh = Policy::AccRowsPerTh;
     constexpr auto newAccThRows = Policy::AccThRows;
     constexpr auto newAccColsPerTh = Policy::AccColsPerTh;
