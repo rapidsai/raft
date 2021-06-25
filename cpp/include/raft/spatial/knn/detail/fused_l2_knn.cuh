@@ -416,9 +416,6 @@ void fusedL2kNNImpl(const DataT *x, const DataT *y, IdxT m, IdxT n, IdxT k,
     auto fusedL2kNNRowMajor = fusedL2kNN<false, DataT, AccT, OutT, IdxT, KPolicy,
                               decltype(core_lambda), decltype(fin_op), true>;
     dim3 grid = raft::distance::launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize, fusedL2kNNRowMajor);
-    auto temp = grid.x;
-    grid.x = grid.y;
-    grid.y = temp;
     int *mutexes = (int*)workspace;
     raft::mr::device::buffer<int> d_mutexes(allocator, stream, 0);
     // initialize d_mutexes with 0 to allow producers to fill the buffer.
