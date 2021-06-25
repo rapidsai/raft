@@ -208,11 +208,11 @@ __global__ __launch_bounds__( Policy::Nthreads, 2) void fusedL2kNN(
     constexpr auto newAccThRows = Policy::AccThRows;
     constexpr auto newAccColsPerTh = Policy::AccColsPerTh;
     constexpr auto newAccThCols = Policy::AccThCols;
+    constexpr uint32_t mask = 0xffffffffu;
     const auto starty = gridStrideY + (threadIdx.x / newAccThCols);
     const auto startx = gridStrideX + (threadIdx.x % newAccThCols);
     const int lid = raft::laneId();
 
-    //const auto startx = gridStrideX + raft::laneId();
     myWarpSelect heapArr1(identity, keyMax, numOfNN);
     myWarpSelect heapArr2(identity, keyMax, numOfNN);
     myWarpSelect *heapArr[] = {&heapArr1, &heapArr2};
@@ -237,34 +237,117 @@ __global__ __launch_bounds__( Policy::Nthreads, 2) void fusedL2kNN(
       }
     }
 
+    int anyWarpTopKs = 1;
+    if (gridStrideX > blockIdx.x * Policy::Nblk) {
+      // total vals can atmost be 256, (32*8)
+      int numValsWarpTopK[newAccRowsPerTh];
+      int checkIfAny = 0;
 #pragma unroll
-    for (int i = 0; i < newAccRowsPerTh; ++i) {
-      const auto rowId = starty + i * newAccThRows;
-      if (rowId < m) {
+      for (int i = 0; i < newAccRowsPerTh; ++i) {
+        const auto rowId = starty + i * newAccThRows;
+        numValsWarpTopK[i] = 0;
+        if (rowId < m) {
 #pragma unroll
-        for (int j = 0; j < newAccColsPerTh; ++j) {
-          const auto colId = startx + j * newAccThCols;
-          Pair otherKV = {keyMax, identity};
-          if (colId < ldd) {
-            otherKV.value = acc[i][j];
-            otherKV.key = colId;
+          for (int j = 0; j < newAccColsPerTh; ++j) {
+            const auto colId = startx + j * newAccThCols;
+            if (colId < ldd) {
+              if (acc[i][j] < heapArr[i]->warpKTop) {
+                numValsWarpTopK[i]++;
+              }
+            }
           }
-          heapArr[i]->add(otherKV.value, otherKV.key);
+          int myVals = numValsWarpTopK[i];
+#pragma unroll
+          for (unsigned int k = 1; k <= 16; k *= 2) {
+            const unsigned int n = __shfl_up_sync(mask, numValsWarpTopK[i], k);
+            if (lid >= k) {
+              numValsWarpTopK[i] += n;
+            }
+          }
+          // As each thread will know its total vals to write.
+          // we only store its starting location.
+          numValsWarpTopK[i] -= myVals;
+        }
+        checkIfAny += numValsWarpTopK[i];
+      }
+      anyWarpTopKs = __syncthreads_or(checkIfAny > 0);
+      if (anyWarpTopKs) {
+        Pair *allWarpTopKs = (Pair*)(&smem[0]);
+        //
+        bool needSort = (checkIfAny > 0);
+        needSort = __any_sync(mask, needSort);
+
+        if (needSort) {
+#pragma unroll
+          for (int i = 0; i < newAccRowsPerTh; ++i) {
+            const auto rowId = (threadIdx.x / newAccThCols) + i * newAccThRows;
+            const auto gmemRowId = starty + i * newAccThRows;
+            if (gmemRowId < m) {
+#pragma unroll
+              for (int j = 0; j < newAccColsPerTh; ++j) {
+                const auto colId = startx + j * newAccThCols;
+                if (colId < ldd) {
+                  if (acc[i][j] < heapArr[i]->warpKTop) {
+                    Pair otherKV = {colId, acc[i][j]};
+                    allWarpTopKs[rowId * (256) + numValsWarpTopK[i]] = otherKV;
+                    numValsWarpTopK[i]++;
+                  }
+                }
+              }
+            }
+          }
+          __syncwarp();
+#pragma unroll
+          for (int i = 0; i < newAccRowsPerTh; ++i) {
+            const auto rowId = (threadIdx.x / newAccThCols) + i * newAccThRows;
+            const auto gmemRowId = starty + i * newAccThRows;
+            const int finalNumVals = raft::shfl(numValsWarpTopK[i], 31);
+            int limit = faiss::gpu::utils::roundDown(finalNumVals, warpSize);
+            if (gmemRowId < m) {
+              int j = lid;
+              for (; j < limit; j += warpSize) {
+                Pair otherKV = allWarpTopKs[rowId * (256) + j];
+                heapArr[i]->add(otherKV.value, otherKV.key);
+              }
+              if (j < finalNumVals) {
+                Pair otherKV = allWarpTopKs[rowId * (256) + j];
+                heapArr[i]->addThreadQ(otherKV.value, otherKV.key);
+              }
+            }
+          }
+        }
+        __syncthreads();
+      }
+    } else {
+#pragma unroll
+      for (int i = 0; i < newAccRowsPerTh; ++i) {
+        const auto rowId = starty + i * newAccThRows;
+        if (rowId < m) {
+  #pragma unroll
+          for (int j = 0; j < newAccColsPerTh; ++j) {
+            const auto colId = startx + j * newAccThCols;
+            Pair otherKV = {keyMax, identity};
+            if (colId < ldd) {
+              otherKV.value = acc[i][j];
+              otherKV.key = colId;
+            }
+            heapArr[i]->add(otherKV.value, otherKV.key);
+          }
         }
       }
     }
-
 #pragma unroll
     for (int i = 0; i < newAccRowsPerTh; ++i) {
       const auto rowId = (threadIdx.x / newAccThCols) + i * newAccThRows;
       const auto gmemRowId = starty + i * newAccThRows;
       if (gmemRowId < m) {
-        bool needSort = (heapArr[i]->numVals > 0);
-        needSort = __any_sync(0xffffffff, needSort);
-        if (needSort) {
-          heapArr[i]->reduce();
+        if (anyWarpTopKs) {
+          bool needSort = (heapArr[i]->numVals > 0);
+          needSort = __any_sync(mask, needSort);
+          if (needSort) {
+            heapArr[i]->reduce();
+          }
         }
-
         if (((gridStrideX + Policy::Nblk * gridDim.x) > n) && gridDim.x == 1) {
           // This is last iteration of grid stride X
 #pragma unroll
@@ -276,12 +359,14 @@ __global__ __launch_bounds__( Policy::Nthreads, 2) void fusedL2kNN(
             }
           }
         } else {
+          if (anyWarpTopKs) {
 #pragma unroll
-          for (int j = 0; j < heapArr[i]->kNumWarpQRegisters; ++j) {
-            const int idx = j * warpSize + lid;
-            if (idx < numOfNN) {
-              Pair otherKV = {heapArr[i]->warpV[j], heapArr[i]->warpK[j]};
-              shDumpKV[rowId * numOfNN + idx] = otherKV;
+            for (int j = 0; j < heapArr[i]->kNumWarpQRegisters; ++j) {
+              const int idx = j * warpSize + lid;
+              if (idx < numOfNN) {
+                Pair otherKV = {heapArr[i]->warpV[j], heapArr[i]->warpK[j]};
+                shDumpKV[rowId * numOfNN + idx] = otherKV;
+              }
             }
           }
         }
@@ -337,6 +422,7 @@ void fusedL2kNNImpl(const DataT *x, const DataT *y, IdxT m, IdxT n, IdxT k,
     typedef cub::KeyValuePair<uint32_t, AccT> Pair;
     const auto sharedMemSize = KPolicy::SmemSize + (KPolicy::Mblk * numOfNN * sizeof(Pair));
 
+    //printf("sqrt = %d grid.x = %d grid.y = %d \n", (int)sqrt, (int)grid.x, (int)grid.y);
     fusedL2kNNRowMajor<<<grid, blk, sharedMemSize, stream>>>(
         x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, core_lambda,
         fin_op, sqrt, (uint32_t)numOfNN, mutexes, out_dists, out_inds);
