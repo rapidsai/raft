@@ -389,7 +389,8 @@ template <typename DataT, typename AccT, typename OutT, typename IdxT,
 void fusedL2kNNImpl(const DataT *x, const DataT *y, IdxT m, IdxT n, IdxT k,
                     IdxT lda, IdxT ldb, IdxT ldd, bool sqrt, OutT *out_dists,
                     IdxT *out_inds, IdxT numOfNN, cudaStream_t stream, 
-                    std::shared_ptr<deviceAllocator> allocator) {
+                    std::shared_ptr<deviceAllocator> allocator,
+                    void *workspace, size_t worksize) {
   typedef typename raft::linalg::Policy1x1<DataT, 1>::Policy RowPolicy;
   typedef typename raft::linalg::Policy4x4<DataT, VecLen>::ColPolicy ColPolicy;
 
@@ -415,10 +416,20 @@ void fusedL2kNNImpl(const DataT *x, const DataT *y, IdxT m, IdxT n, IdxT k,
     auto fusedL2kNNRowMajor = fusedL2kNN<false, DataT, AccT, OutT, IdxT, KPolicy,
                               decltype(core_lambda), decltype(fin_op), true>;
     dim3 grid = raft::distance::launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize, fusedL2kNNRowMajor);
+    auto temp = grid.x;
+    grid.x = grid.y;
+    grid.y = temp;
+    int *mutexes = (int*)workspace;
+    raft::mr::device::buffer<int> d_mutexes(allocator, stream, 0);
     // initialize d_mutexes with 0 to allow producers to fill the buffer.
-    raft::mr::device::buffer<int> d_mutexes(allocator, stream, raft::ceildiv<int>(m, KPolicy::Mblk));
-    int *mutexes = d_mutexes.data();
-    CUDA_CHECK(cudaMemsetAsync(d_mutexes.data(), 0, sizeof(int32_t) * raft::ceildiv<int>(m, KPolicy::Mblk), stream));
+    if (grid.x > 1) {
+      if (workspace == NULL || worksize < (sizeof(int32_t) * raft::ceildiv<int>(m, KPolicy::Mblk))) {
+        d_mutexes.resize(raft::ceildiv<int>(m, KPolicy::Mblk));
+        mutexes = d_mutexes.data();
+      }
+      CUDA_CHECK(cudaMemsetAsync(mutexes, 0, sizeof(int32_t) * raft::ceildiv<int>(m, KPolicy::Mblk), stream));
+    }
+
     typedef cub::KeyValuePair<uint32_t, AccT> Pair;
     const auto sharedMemSize = KPolicy::SmemSize + (KPolicy::Mblk * numOfNN * sizeof(Pair));
 
@@ -437,21 +448,23 @@ template <typename DataT, typename AccT, typename OutT, typename IdxT,
 void fusedL2kNN(IdxT m, IdxT n, IdxT k, IdxT lda, IdxT ldb, IdxT ldd,
                   const DataT *x, const DataT *y, bool sqrt, OutT *out_dists,
                   IdxT *out_inds, IdxT numOfNN, cudaStream_t stream, 
-                  std::shared_ptr<deviceAllocator> allocator) {
+                  std::shared_ptr<deviceAllocator> allocator,
+                  void *workspace, size_t worksize) {
   //printf("D = %ld K = %ld m = %ld n = %ld \n", k, numOfNN, m, n);
   size_t bytesA = sizeof(DataT) * lda;
   size_t bytesB = sizeof(DataT) * ldb;
   if (16 % sizeof(DataT) == 0 && bytesA % 16 == 0 && bytesB % 16 == 0) {
     fusedL2kNNImpl<DataT, AccT, OutT, IdxT, 16 / sizeof(DataT), isRowMajor>
-            (x, y, m, n, k, lda, ldb, ldd, sqrt, out_dists, out_inds, numOfNN, stream, allocator);
+            (x, y, m, n, k, lda, ldb, ldd, sqrt, out_dists, out_inds, numOfNN,
+              stream, allocator, workspace, worksize);
   } else if (8 % sizeof(DataT) == 0 && bytesA % 8 == 0 && bytesB % 8 == 0) {
     fusedL2kNNImpl<DataT, AccT, OutT, IdxT, 8 / sizeof(DataT), isRowMajor>
         (x, y, m, n, k, lda, ldb, ldd, sqrt, out_dists, out_inds, numOfNN,
-          stream, allocator);
+          stream, allocator, workspace, worksize);
   } else {
     fusedL2kNNImpl<DataT, AccT, OutT, IdxT, 1, isRowMajor>(
       x, y, m, n, k, lda, ldb, ldd, sqrt, out_dists, out_inds, numOfNN,
-        stream, allocator);
+        stream, allocator, workspace, worksize);
   }
 }
 
@@ -478,7 +491,8 @@ void l2_unexpanded_knn(size_t D, value_idx *out_inds, value_t *out_dists,
                        size_t n_index_rows, size_t n_query_rows, int k,
                        bool rowMajorIndex, bool rowMajorQuery,
                        cudaStream_t stream, 
-                       std::shared_ptr<deviceAllocator> allocator) {
+                       std::shared_ptr<deviceAllocator> allocator,
+                       void *workspace, size_t worksize) {
 /*
         args.k = k;
         args.dims = D;
@@ -508,7 +522,7 @@ void l2_unexpanded_knn(size_t D, value_idx *out_inds, value_t *out_dists,
     value_idx lda = D, ldb = D, ldd = n_index_rows;
     fusedL2kNN<value_t, value_t, value_t, value_idx, true>(n_query_rows,
           n_index_rows, D, lda, ldb, ldd, query, index, sqrt, out_dists, out_inds, k,
-          stream, allocator);
+          stream, allocator, workspace, worksize);
   } else {
 /*    IdxT lda = D, ldb = D, ldd = n_query_rows;
     fusedL2kNN<value_t, value_t, value_t, value_idx, false>(n_index_rows,

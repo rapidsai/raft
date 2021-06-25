@@ -319,13 +319,13 @@ void brute_force_knn_impl(std::vector<float *> &input, std::vector<int> &sizes,
         l2_unexpanded_knn<raft::distance::DistanceType::L2Unexpanded,
         int64_t, float>(D, out_i_ptr, out_d_ptr, input[i], search_items,
                        sizes[i], n, k, rowMajorIndex, rowMajorQuery, stream,
-                       allocator);
+                       allocator, nullptr, 0);
         break;
       case raft::distance::DistanceType::L2SqrtUnexpanded:
         l2_unexpanded_knn<raft::distance::DistanceType::L2SqrtUnexpanded,
         int64_t, float>(D, out_i_ptr, out_d_ptr, input[i], search_items,
                        sizes[i], n, k, rowMajorIndex, rowMajorQuery, stream,
-                       allocator);
+                       allocator, nullptr, 0);
 
         break;
       default:
