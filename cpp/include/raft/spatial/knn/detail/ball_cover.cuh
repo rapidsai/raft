@@ -285,12 +285,17 @@ __global__ void rbc_kernel(const value_t *X, value_int n_cols,
       value_t y1 = y_ptr[0];
       value_t y2 = y_ptr[1];
 
+      value_t z = (abs(heap.warpKTop - heap.warpKTopRDist) *
+                   abs(heap.warpKTopRDist - cur_candidate_dist) -
+                   heap.warpKTop * cur_candidate_dist) /
+                  heap.warpKTopRDist;
+
       value_t dist = compute_haversine(x1, y1, x2, y2);
       printf(
         "row=%d, cur_R_ind=%ld, cur_R_dist=%f, cur_candidate_ind=%ld, "
-        "cur_candidate_dist=%f, actual_dist=%f\n",
+        "cur_candidate_dist=%f, actual_dist=%f, z=%f, warpKTop=%f, warpKTopRDist=%f\n",
         row, cur_R_ind, cur_R_dist, cur_candidate_ind, cur_candidate_dist,
-        dist);
+        dist, z, heap.warpKTop, heap.warpKTopRDist);
     }
 
     // Take 2 landmarks l_1 and l_2 where l_1 is the furthest point in the heap
