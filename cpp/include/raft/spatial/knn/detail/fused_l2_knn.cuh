@@ -241,6 +241,7 @@ __global__ __launch_bounds__( Policy::Nthreads, 2) void fusedL2kNN(
     if (gridStrideX > blockIdx.x * Policy::Nblk) {
       // total vals can atmost be 256, (32*8)
       int numValsWarpTopK[newAccRowsPerTh];
+      int needScanSort[newAccRowsPerTh];
       int checkIfAny = 0;
 #pragma unroll
       for (int i = 0; i < newAccRowsPerTh; ++i) {
@@ -257,7 +258,8 @@ __global__ __launch_bounds__( Policy::Nthreads, 2) void fusedL2kNN(
             }
           }
           int myVals = numValsWarpTopK[i];
-          if (__any_sync(mask, myVals > 0)) {
+          needScanSort[i] = __any_sync(mask, myVals > 0);
+          if (needScanSort[i]) {
 #pragma unroll
             for (unsigned int k = 1; k <= 16; k *= 2) {
               const unsigned int n = __shfl_up_sync(mask, numValsWarpTopK[i], k);
@@ -270,18 +272,15 @@ __global__ __launch_bounds__( Policy::Nthreads, 2) void fusedL2kNN(
           // we only store its starting location.
           numValsWarpTopK[i] -= myVals;
         }
-        checkIfAny += numValsWarpTopK[i];
+        checkIfAny += needScanSort[i];
       }
       anyWarpTopKs = __syncthreads_or(checkIfAny > 0);
       if (anyWarpTopKs) {
         Pair *allWarpTopKs = (Pair*)(&smem[0]);
-        //
-        bool needSort = (checkIfAny > 0);
-        needSort = __any_sync(mask, needSort);
 
-        if (needSort) {
 #pragma unroll
-          for (int i = 0; i < newAccRowsPerTh; ++i) {
+        for (int i = 0; i < newAccRowsPerTh; ++i) {
+          if (needScanSort[i]) {
             const auto rowId = (threadIdx.x / newAccThCols) + i * newAccThRows;
             const auto gmemRowId = starty + i * newAccThRows;
             if (gmemRowId < m) {
@@ -296,15 +295,8 @@ __global__ __launch_bounds__( Policy::Nthreads, 2) void fusedL2kNN(
                   }
                 }
               }
-            }
-          }
-#pragma unroll
-          for (int i = 0; i < newAccRowsPerTh; ++i) {
-            const auto rowId = (threadIdx.x / newAccThCols) + i * newAccThRows;
-            const auto gmemRowId = starty + i * newAccThRows;
-            const int finalNumVals = raft::shfl(numValsWarpTopK[i], 31);
-            int limit = faiss::gpu::utils::roundDown(finalNumVals, warpSize);
-            if (gmemRowId < m) {
+              const int finalNumVals = raft::shfl(numValsWarpTopK[i], 31);
+              int limit = faiss::gpu::utils::roundDown(finalNumVals, warpSize);
               int j = lid;
               for (; j < limit; j += warpSize) {
                 Pair otherKV = allWarpTopKs[rowId * (256) + j];
