@@ -241,7 +241,7 @@ __global__ __launch_bounds__( Policy::Nthreads, 2) void fusedL2kNN(
     if (gridStrideX > blockIdx.x * Policy::Nblk) {
       // total vals can atmost be 256, (32*8)
       int numValsWarpTopK[newAccRowsPerTh];
-      int needScanSort[newAccRowsPerTh];
+      uint32_t needScanSort[newAccRowsPerTh];
       int checkIfAny = 0;
 #pragma unroll
       for (int i = 0; i < newAccRowsPerTh; ++i) {
@@ -258,7 +258,7 @@ __global__ __launch_bounds__( Policy::Nthreads, 2) void fusedL2kNN(
             }
           }
           int myVals = numValsWarpTopK[i];
-          needScanSort[i] = __any_sync(mask, myVals > 0);
+          needScanSort[i] = __ballot_sync(mask, myVals > 0);
           if (needScanSort[i]) {
 #pragma unroll
             for (unsigned int k = 1; k <= 16; k *= 2) {
@@ -271,8 +271,8 @@ __global__ __launch_bounds__( Policy::Nthreads, 2) void fusedL2kNN(
           // As each thread will know its total vals to write.
           // we only store its starting location.
           numValsWarpTopK[i] -= myVals;
+          checkIfAny += (needScanSort[i] > 0);
         }
-        checkIfAny += needScanSort[i];
       }
       anyWarpTopKs = __syncthreads_or(checkIfAny > 0);
       if (anyWarpTopKs) {
@@ -284,14 +284,16 @@ __global__ __launch_bounds__( Policy::Nthreads, 2) void fusedL2kNN(
             const auto rowId = (threadIdx.x / newAccThCols) + i * newAccThRows;
             const auto gmemRowId = starty + i * newAccThRows;
             if (gmemRowId < m) {
+              if (needScanSort[i] & ((uint32_t)1 << lid)) {
 #pragma unroll
-              for (int j = 0; j < newAccColsPerTh; ++j) {
-                const auto colId = startx + j * newAccThCols;
-                if (colId < ldd) {
-                  if (acc[i][j] < heapArr[i]->warpKTop) {
-                    Pair otherKV = {colId, acc[i][j]};
-                    allWarpTopKs[rowId * (256) + numValsWarpTopK[i]] = otherKV;
-                    numValsWarpTopK[i]++;
+                for (int j = 0; j < newAccColsPerTh; ++j) {
+                  const auto colId = startx + j * newAccThCols;
+                  if (colId < ldd) {
+                    if (acc[i][j] < heapArr[i]->warpKTop) {
+                      Pair otherKV = {colId, acc[i][j]};
+                      allWarpTopKs[rowId * (256) + numValsWarpTopK[i]] = otherKV;
+                      numValsWarpTopK[i]++;
+                    }
                   }
                 }
               }
