@@ -24,27 +24,47 @@ namespace raft {
  * @defgroup SmemStores Shared memory store operations
  * @{
  * @brief Stores to shared memory (both vectorized and non-vectorized forms)
- * @param[out] addr shared memory address
+ *        requires the given shmem pointer to be aligned by the vector
+          length, like for float4 lds/sts shmem pointer should be aligned
+          by 16 bytes else it might silently fail or can also give
+          runtime error.
+ * @param[out] addr shared memory address (should be aligned to vector size)
  * @param[in]  x    data to be stored at this address
  */
-DI void sts(float* addr, const float& x) { *addr = x; }
-DI void sts(float* addr, const float (&x)[1]) { *addr = x[0]; }
+DI void sts(float* addr, const float& x) {
+  auto s1 = __cvta_generic_to_shared(reinterpret_cast<float*>(addr));
+  asm volatile("st.shared.f32 [%0], {%1};" : : "l"(s1), "f"(x));
+}
+DI void sts(float* addr, const float (&x)[1]) {
+  auto s1 = __cvta_generic_to_shared(reinterpret_cast<float*>(addr));
+  asm volatile("st.shared.f32 [%0], {%1};" : : "l"(s1), "f"(x[0]));
+}
 DI void sts(float* addr, const float (&x)[2]) {
-  float2 v2 = make_float2(x[0], x[1]);
-  auto* s2 = reinterpret_cast<float2*>(addr);
-  *s2 = v2;
+  auto s2 = __cvta_generic_to_shared(reinterpret_cast<float2*>(addr));
+  asm volatile("st.shared.v2.f32 [%0], {%1, %2};"
+               :
+               : "l"(s2), "f"(x[0]), "f"(x[1]));
 }
 DI void sts(float* addr, const float (&x)[4]) {
-  float4 v4 = make_float4(x[0], x[1], x[2], x[3]);
-  auto* s4 = reinterpret_cast<float4*>(addr);
-  *s4 = v4;
+  auto s4 = __cvta_generic_to_shared(reinterpret_cast<float4*>(addr));
+  asm volatile("st.shared.v4.f32 [%0], {%1, %2, %3, %4};"
+               :
+               : "l"(s4), "f"(x[0]), "f"(x[1]), "f"(x[2]), "f"(x[3]));
 }
-DI void sts(double* addr, const double& x) { *addr = x; }
-DI void sts(double* addr, const double (&x)[1]) { *addr = x[0]; }
+
+DI void sts(double* addr, const double& x) {
+  auto s1 = __cvta_generic_to_shared(reinterpret_cast<double*>(addr));
+  asm volatile("st.shared.f64 [%0], {%1};" : : "l"(s1), "d"(x));
+}
+DI void sts(double* addr, const double (&x)[1]) {
+  auto s1 = __cvta_generic_to_shared(reinterpret_cast<double*>(addr));
+  asm volatile("st.shared.f64 [%0], {%1};" : : "l"(s1), "d"(x[0]));
+}
 DI void sts(double* addr, const double (&x)[2]) {
-  double2 v2 = make_double2(x[0], x[1]);
-  auto* s2 = reinterpret_cast<double2*>(addr);
-  *s2 = v2;
+  auto s2 = __cvta_generic_to_shared(reinterpret_cast<double2*>(addr));
+  asm volatile("st.shared.v2.f64 [%0], {%1, %2};"
+               :
+               : "l"(s2), "d"(x[0]), "d"(x[1]));
 }
 /** @} */
 
@@ -52,32 +72,47 @@ DI void sts(double* addr, const double (&x)[2]) {
  * @defgroup SmemLoads Shared memory load operations
  * @{
  * @brief Loads from shared memory (both vectorized and non-vectorized forms)
+          requires the given shmem pointer to be aligned by the vector
+          length, like for float4 lds/sts shmem pointer should be aligned
+          by 16 bytes else it might silently fail or can also give
+          runtime error.
  * @param[out] x    the data to be loaded
  * @param[in]  addr shared memory address from where to load
+ *                  (should be aligned to vector size)
  */
-DI void lds(float& x, float* addr) { x = *addr; }
-DI void lds(float (&x)[1], float* addr) { x[0] = *addr; }
+DI void lds(float& x, float* addr) {
+  auto s1 = __cvta_generic_to_shared(reinterpret_cast<float*>(addr));
+  asm volatile("ld.shared.f32 {%0}, [%1];" : "=f"(x) : "l"(s1));
+}
+DI void lds(float (&x)[1], float* addr) {
+  auto s1 = __cvta_generic_to_shared(reinterpret_cast<float*>(addr));
+  asm volatile("ld.shared.f32 {%0}, [%1];" : "=f"(x[0]) : "l"(s1));
+}
 DI void lds(float (&x)[2], float* addr) {
-  auto* s2 = reinterpret_cast<float2*>(addr);
-  auto v2 = *s2;
-  x[0] = v2.x;
-  x[1] = v2.y;
+  auto s2 = __cvta_generic_to_shared(reinterpret_cast<float2*>(addr));
+  asm volatile("ld.shared.v2.f32 {%0, %1}, [%2];"
+               : "=f"(x[0]), "=f"(x[1])
+               : "l"(s2));
 }
 DI void lds(float (&x)[4], float* addr) {
-  auto* s4 = reinterpret_cast<float4*>(addr);
-  auto v4 = *s4;
-  x[0] = v4.x;
-  x[1] = v4.y;
-  x[2] = v4.z;
-  x[3] = v4.w;
+  auto s4 = __cvta_generic_to_shared(reinterpret_cast<float4*>(addr));
+  asm volatile("ld.shared.v4.f32 {%0, %1, %2, %3}, [%4];"
+               : "=f"(x[0]), "=f"(x[1]), "=f"(x[2]), "=f"(x[3])
+               : "l"(s4));
 }
-DI void lds(double& x, double* addr) { x = *addr; }
-DI void lds(double (&x)[1], double* addr) { x[0] = *addr; }
+DI void lds(double& x, double* addr) {
+  auto s1 = __cvta_generic_to_shared(reinterpret_cast<double*>(addr));
+  asm volatile("ld.shared.f64 {%0}, [%1];" : "=d"(x) : "l"(s1));
+}
+DI void lds(double (&x)[1], double* addr) {
+  auto s1 = __cvta_generic_to_shared(reinterpret_cast<double*>(addr));
+  asm volatile("ld.shared.f64 {%0}, [%1];" : "=d"(x[0]) : "l"(s1));
+}
 DI void lds(double (&x)[2], double* addr) {
-  auto* s2 = reinterpret_cast<double2*>(addr);
-  auto v2 = *s2;
-  x[0] = v2.x;
-  x[1] = v2.y;
+  auto s2 = __cvta_generic_to_shared(reinterpret_cast<double2*>(addr));
+  asm volatile("ld.shared.v2.f64 {%0, %1}, [%2];"
+               : "=d"(x[0]), "=d"(x[1])
+               : "l"(s2));
 }
 /** @} */
 
