@@ -216,7 +216,7 @@ __global__ __launch_bounds__( Policy::Nthreads, 2) void fusedL2kNN(
     myWarpSelect heapArr1(identity, keyMax, numOfNN);
     myWarpSelect heapArr2(identity, keyMax, numOfNN);
     myWarpSelect *heapArr[] = {&heapArr1, &heapArr2};
-
+    int anyWarpTopKs = 1;
     if (gridStrideX > blockIdx.x * Policy::Nblk) {
 #pragma unroll
       for (int i = 0; i < newAccRowsPerTh; ++i) {
@@ -235,10 +235,6 @@ __global__ __launch_bounds__( Policy::Nthreads, 2) void fusedL2kNN(
           heapArr[i]->warpKTop = raft::shfl(heapArr[i]->warpK[kLaneWarpKTop], heapArr[i]->kLane);
         }
       }
-    }
-
-    int anyWarpTopKs = 1;
-    if (gridStrideX > blockIdx.x * Policy::Nblk) {
       // total vals can atmost be 256, (32*8)
       int numValsWarpTopK[newAccRowsPerTh];
       uint32_t needScanSort[newAccRowsPerTh];
