@@ -22,7 +22,7 @@
 #include <raft/distance/cosine.cuh>
 #include <raft/distance/euclidean.cuh>
 #include <raft/distance/l1.cuh>
-#include <raft/mr/device/buffer.hpp>
+#include <rmm/device_uvector.hpp>
 
 namespace raft {
 namespace distance {
@@ -243,7 +243,7 @@ void distance(const InType *x, const InType *y, OutType *dist, Index_ m,
 template <typename Type, typename Index_, raft::distance::DistanceType DistType>
 void pairwise_distance_impl(const Type *x, const Type *y, Type *dist, Index_ m,
                             Index_ n, Index_ k,
-                            raft::mr::device::buffer<char> &workspace,
+                            rmm::device_uvector<char> &workspace,
                             cudaStream_t stream, bool isRowMajor) {
   auto worksize =
     getWorkspaceSize<DistType, Type, Type, Type, Index_>(x, y, m, n, k);
@@ -254,8 +254,7 @@ void pairwise_distance_impl(const Type *x, const Type *y, Type *dist, Index_ m,
 
 template <typename Type, typename Index_ = int>
 void pairwise_distance(const Type *x, const Type *y, Type *dist, Index_ m,
-                       Index_ n, Index_ k,
-                       raft::mr::device::buffer<char> &workspace,
+                       Index_ n, Index_ k, rmm::device_uvector<char> &workspace,
                        raft::distance::DistanceType metric, cudaStream_t stream,
                        bool isRowMajor = true) {
   switch (metric) {

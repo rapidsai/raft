@@ -34,9 +34,8 @@
 
 #include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
-#include <raft/mr/device/buffer.hpp>
-
 #include <raft/lap/lap_kernels.cuh>
+#include <rmm/device_uvector.hpp>
 
 namespace raft {
 namespace lap {
@@ -127,10 +126,8 @@ inline void computeInitialAssignments(raft::handle_t const &handle,
 
   std::size_t size = SP * N;
 
-  raft::mr::device::buffer<int> row_lock_v(handle.get_device_allocator(),
-                                           handle.get_stream(), size);
-  raft::mr::device::buffer<int> col_lock_v(handle.get_device_allocator(),
-                                           handle.get_stream(), size);
+  rmm::device_uvector<int> row_lock_v(size, handle.get_stream());
+  rmm::device_uvector<int> col_lock_v(size, handle.get_stream());
 
   thrust::fill_n(thrust::device, d_vertices.row_assignments, size, -1);
   thrust::fill_n(thrust::device, d_vertices.col_assignments, size, -1);
@@ -216,25 +213,21 @@ inline vertex_t zeroCoverIteration(raft::handle_t const &handle,
                                    weight_t epsilon) {
   vertex_t M;
 
-  raft::mr::device::buffer<vertex_t> csr_ptrs_v(handle.get_device_allocator(),
-                                                handle.get_stream(), 0);
-  raft::mr::device::buffer<vertex_t> csr_neighbors_v(
-    handle.get_device_allocator(), handle.get_stream(), 0);
+  rmm::device_uvector<vertex_t> csr_ptrs_v(0, handle.get_stream());
+  rmm::device_uvector<vertex_t> csr_neighbors_v(0, handle.get_stream());
 
   {
     dim3 blocks_per_grid;
     dim3 threads_per_block;
     int total_blocks = 0;
 
-    raft::mr::device::buffer<bool> predicates_v(handle.get_device_allocator(),
-                                                handle.get_stream(), SP * N);
-    raft::mr::device::buffer<vertex_t> addresses_v(
-      handle.get_device_allocator(), handle.get_stream(), SP * N);
+    rmm::device_uvector<bool> predicates_v(SP * N, handle.get_stream());
+    rmm::device_uvector<vertex_t> addresses_v(SP * N, handle.get_stream());
 
     thrust::fill_n(thrust::device, predicates_v.data(), SP * N, false);
     thrust::fill_n(thrust::device, addresses_v.data(), SP * N, vertex_t{0});
 
-    csr_ptrs_v.resize(SP + 1);
+    csr_ptrs_v.resize(SP + 1, handle.get_stream());
 
     thrust::fill_n(thrust::device, csr_ptrs_v.data(), (SP + 1), vertex_t{-1});
 
@@ -253,7 +246,7 @@ inline vertex_t zeroCoverIteration(raft::handle_t const &handle,
                            addresses_v.end(), addresses_v.begin());
 
     if (M > 0) {
-      csr_neighbors_v.resize(M);
+      csr_neighbors_v.resize(M, handle.get_stream());
 
       kernel_rowScatterCSR<<<blocks_per_grid, threads_per_block, 0,
                              handle.get_stream()>>>(
@@ -302,10 +295,8 @@ inline void reversePass(raft::handle_t const &handle,
   raft::lap::detail::calculateLinearDims(blocks_per_grid, threads_per_block,
                                          total_blocks, size);
 
-  raft::mr::device::buffer<bool> predicates_v(handle.get_device_allocator(),
-                                              handle.get_stream(), size);
-  raft::mr::device::buffer<vertex_t> addresses_v(handle.get_device_allocator(),
-                                                 handle.get_stream(), size);
+  rmm::device_uvector<bool> predicates_v(size, handle.get_stream());
+  rmm::device_uvector<vertex_t> addresses_v(size, handle.get_stream());
 
   thrust::fill_n(thrust::device, predicates_v.data(), size, false);
   thrust::fill_n(thrust::device, addresses_v.data(), size, vertex_t{0});
@@ -331,8 +322,7 @@ inline void reversePass(raft::handle_t const &handle,
     raft::lap::detail::calculateLinearDims(
       blocks_per_grid_1, threads_per_block_1, total_blocks_1, csr_size);
 
-    raft::mr::device::buffer<vertex_t> elements_v(
-      handle.get_device_allocator(), handle.get_stream(), csr_size);
+    rmm::device_uvector<vertex_t> elements_v(csr_size, handle.get_stream());
 
     kernel_augmentScatter<<<blocks_per_grid, threads_per_block, 0,
                             handle.get_stream()>>>(
@@ -360,10 +350,8 @@ inline void augmentationPass(raft::handle_t const &handle,
   raft::lap::detail::calculateLinearDims(blocks_per_grid, threads_per_block,
                                          total_blocks, SP * N);
 
-  raft::mr::device::buffer<bool> predicates_v(handle.get_device_allocator(),
-                                              handle.get_stream(), SP * N);
-  raft::mr::device::buffer<vertex_t> addresses_v(handle.get_device_allocator(),
-                                                 handle.get_stream(), SP * N);
+  rmm::device_uvector<bool> predicates_v(SP * N, handle.get_stream());
+  rmm::device_uvector<vertex_t> addresses_v(SP * N, handle.get_stream());
 
   thrust::fill_n(thrust::device, predicates_v.data(), SP * N, false);
   thrust::fill_n(thrust::device, addresses_v.data(), SP * N, vertex_t{0});
@@ -390,8 +378,8 @@ inline void augmentationPass(raft::handle_t const &handle,
     raft::lap::detail::calculateLinearDims(
       blocks_per_grid_1, threads_per_block_1, total_blocks_1, row_ids_csr_size);
 
-    raft::mr::device::buffer<vertex_t> elements_v(
-      handle.get_device_allocator(), handle.get_stream(), row_ids_csr_size);
+    rmm::device_uvector<vertex_t> elements_v(row_ids_csr_size,
+                                             handle.get_stream());
 
     kernel_augmentScatter<<<blocks_per_grid, threads_per_block, 0,
                             handle.get_stream()>>>(
@@ -420,8 +408,7 @@ inline void dualUpdate(raft::handle_t const &handle,
   dim3 threads_per_block;
   int total_blocks;
 
-  raft::mr::device::buffer<weight_t> sp_min_v(handle.get_device_allocator(),
-                                              handle.get_stream(), 1);
+  rmm::device_uvector<weight_t> sp_min_v(1, handle.get_stream());
 
   raft::lap::detail::calculateLinearDims(blocks_per_grid, threads_per_block,
                                          total_blocks, SP);

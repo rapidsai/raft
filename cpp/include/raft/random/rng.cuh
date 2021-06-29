@@ -25,8 +25,8 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
 #include <raft/mr/device/allocator.hpp>
-#include <raft/mr/device/buffer.hpp>
 #include <random>
+#include <rmm/device_uvector.hpp>
 #include <type_traits>
 #include "rng_impl.cuh"
 
@@ -512,10 +512,10 @@ class Rng {
     std::shared_ptr<raft::mr::device::allocator> allocator =
       handle.get_device_allocator();
 
-    raft::mr::device::buffer<WeightsT> expWts(allocator, stream, len);
-    raft::mr::device::buffer<WeightsT> sortedWts(allocator, stream, len);
-    raft::mr::device::buffer<IdxT> inIdx(allocator, stream, len);
-    raft::mr::device::buffer<IdxT> outIdxBuff(allocator, stream, len);
+    rmm::device_uvector<WeightsT> expWts(len, stream);
+    rmm::device_uvector<WeightsT> sortedWts(len, stream);
+    rmm::device_uvector<IdxT> inIdx(len, stream);
+    rmm::device_uvector<IdxT> outIdxBuff(len, stream);
     auto *inIdxPtr = inIdx.data();
     // generate modified weights
     custom_distribution(
@@ -533,7 +533,7 @@ class Rng {
     ///@todo: use a more efficient partitioning scheme instead of full sort
     // sort the array and pick the top sampledLen items
     IdxT *outIdxPtr = outIdxBuff.data();
-    raft::mr::device::buffer<char> workspace(allocator, stream);
+    rmm::device_uvector<char> workspace(0, stream);
     sortPairs(workspace, expWts.data(), sortedWts.data(), inIdxPtr, outIdxPtr,
               (int)len, stream);
     if (outIdx != nullptr) {

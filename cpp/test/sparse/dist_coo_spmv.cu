@@ -23,6 +23,7 @@
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/mr/device/allocator.hpp>
+#include <rmm/device_uvector.hpp>
 
 #include <raft/sparse/convert/coo.cuh>
 #include <raft/sparse/distance/coo_spmv.cuh>
@@ -67,9 +68,8 @@ class SparseDistanceCOOSPMVTest
   template <typename reduce_f, typename accum_f, typename write_f>
   void compute_dist(reduce_f reduce_func, accum_f accum_func,
                     write_f write_func, bool rev = true) {
-    raft::mr::device::buffer<value_idx> coo_rows(
-      dist_config.allocator, dist_config.stream,
-      max(dist_config.b_nnz, dist_config.a_nnz));
+    rmm::device_uvector<value_idx> coo_rows(
+      max(dist_config.b_nnz, dist_config.a_nnz), dist_config.stream);
 
     raft::sparse::convert::csr_to_coo(dist_config.b_indptr, dist_config.b_nrows,
                                       coo_rows.data(), dist_config.b_nnz,

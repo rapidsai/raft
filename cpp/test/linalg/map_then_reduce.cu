@@ -19,6 +19,7 @@
 #include <limits>
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/random/rng.cuh>
+#include <rmm/device_uvector.hpp>
 #include "../test_utils.h"
 
 namespace raft {
@@ -131,9 +132,7 @@ class MapGenericReduceTest : public ::testing::Test {
 
  protected:
   MapGenericReduceTest()
-    : allocator(handle.get_device_allocator()),
-      input(allocator, handle.get_stream(), n),
-      output(allocator, handle.get_stream(), 1) {
+    : input(n, handle.get_stream()), output(1, handle.get_stream()) {
     CUDA_CHECK(cudaStreamCreate(&stream));
     handle.set_stream(stream);
     initInput(input.data(), input.size(), stream);
@@ -172,9 +171,8 @@ class MapGenericReduceTest : public ::testing::Test {
   int n = 1237;
   raft::handle_t handle;
   cudaStream_t stream;
-  std::shared_ptr<raft::mr::device::allocator> allocator;
-  raft::mr::device::buffer<InType> input;
-  raft::mr::device::buffer<OutType> output;
+  rmm::device_uvector<InType> input;
+  rmm::device_uvector<OutType> output;
 };
 
 using IoTypePair =

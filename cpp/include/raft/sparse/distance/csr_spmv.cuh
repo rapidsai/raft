@@ -20,7 +20,7 @@
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/mr/device/allocator.hpp>
-#include <raft/mr/device/buffer.hpp>
+#include <rmm/device_uvector.hpp>
 
 #include <raft/sparse/distance/common.h>
 #include <raft/sparse/utils.h>
@@ -346,7 +346,7 @@ template <typename value_idx>
 inline value_idx max_degree(
   value_idx *indptr, value_idx n_rows,
   std::shared_ptr<raft::mr::device::allocator> allocator, cudaStream_t stream) {
-  raft::mr::device::buffer<value_idx> max_d(allocator, stream, 1);
+  rmm::device_uvector<value_idx> max_d(1, stream);
   CUDA_CHECK(cudaMemsetAsync(max_d.data(), 0, sizeof(value_idx), stream));
 
   /**

@@ -22,7 +22,7 @@
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/mr/device/allocator.hpp>
-#include <raft/mr/device/buffer.hpp>
+#include <rmm/device_uvector.hpp>
 
 namespace raft {
 namespace matrix {
@@ -294,10 +294,7 @@ void ratio(const raft::handle_t &handle, math_t *src, math_t *dest, IdxType len,
   auto d_src = src;
   auto d_dest = dest;
 
-  std::shared_ptr<raft::mr::device::allocator> allocator =
-    handle.get_device_allocator();
-
-  raft::mr::device::buffer<math_t> d_sum(allocator, stream, 1);
+  rmm::device_uvector<math_t> d_sum(1, stream);
   auto *d_sum_ptr = d_sum.data();
   auto no_op = [] __device__(math_t in) { return in; };
   raft::linalg::mapThenSumReduce(d_sum_ptr, len, no_op, stream, src);

@@ -25,6 +25,7 @@
 #pragma once
 
 #include <raft/handle.hpp>
+#include <rmm/device_uvector.hpp>
 
 #include "d_structs.h"
 #include "lap_functions.cuh"
@@ -44,19 +45,19 @@ class LinearAssignmentProblem {
   VertexData<vertex_t> d_row_data_dev, d_col_data_dev;
 
   raft::handle_t const &handle_;
-  raft::mr::device::buffer<int> row_covers_v;
-  raft::mr::device::buffer<int> col_covers_v;
-  raft::mr::device::buffer<weight_t> row_duals_v;
-  raft::mr::device::buffer<weight_t> col_duals_v;
-  raft::mr::device::buffer<weight_t> col_slacks_v;
-  raft::mr::device::buffer<int> row_is_visited_v;
-  raft::mr::device::buffer<int> col_is_visited_v;
-  raft::mr::device::buffer<vertex_t> row_parents_v;
-  raft::mr::device::buffer<vertex_t> col_parents_v;
-  raft::mr::device::buffer<vertex_t> row_children_v;
-  raft::mr::device::buffer<vertex_t> col_children_v;
-  raft::mr::device::buffer<weight_t> obj_val_primal_v;
-  raft::mr::device::buffer<weight_t> obj_val_dual_v;
+  rmm::device_uvector<int> row_covers_v;
+  rmm::device_uvector<int> col_covers_v;
+  rmm::device_uvector<weight_t> row_duals_v;
+  rmm::device_uvector<weight_t> col_duals_v;
+  rmm::device_uvector<weight_t> col_slacks_v;
+  rmm::device_uvector<int> row_is_visited_v;
+  rmm::device_uvector<int> col_is_visited_v;
+  rmm::device_uvector<vertex_t> row_parents_v;
+  rmm::device_uvector<vertex_t> col_parents_v;
+  rmm::device_uvector<vertex_t> row_children_v;
+  rmm::device_uvector<vertex_t> col_children_v;
+  rmm::device_uvector<weight_t> obj_val_primal_v;
+  rmm::device_uvector<weight_t> obj_val_dual_v;
 
  public:
   LinearAssignmentProblem(raft::handle_t const &handle, vertex_t size,
@@ -66,19 +67,19 @@ class LinearAssignmentProblem {
       batchsize_(batchsize),
       epsilon_(epsilon),
       d_costs_(nullptr),
-      row_covers_v(handle_.get_device_allocator(), handle_.get_stream(), 0),
-      col_covers_v(handle_.get_device_allocator(), handle_.get_stream(), 0),
-      row_duals_v(handle_.get_device_allocator(), handle_.get_stream(), 0),
-      col_duals_v(handle_.get_device_allocator(), handle_.get_stream(), 0),
-      col_slacks_v(handle_.get_device_allocator(), handle_.get_stream(), 0),
-      row_is_visited_v(handle_.get_device_allocator(), handle_.get_stream(), 0),
-      col_is_visited_v(handle_.get_device_allocator(), handle_.get_stream(), 0),
-      row_parents_v(handle_.get_device_allocator(), handle_.get_stream(), 0),
-      col_parents_v(handle_.get_device_allocator(), handle_.get_stream(), 0),
-      row_children_v(handle_.get_device_allocator(), handle_.get_stream(), 0),
-      col_children_v(handle_.get_device_allocator(), handle_.get_stream(), 0),
-      obj_val_primal_v(handle_.get_device_allocator(), handle_.get_stream(), 0),
-      obj_val_dual_v(handle_.get_device_allocator(), handle_.get_stream(), 0) {}
+      row_covers_v(0, handle_.get_stream()),
+      col_covers_v(0, handle_.get_stream()),
+      row_duals_v(0, handle_.get_stream()),
+      col_duals_v(0, handle_.get_stream()),
+      col_slacks_v(0, handle_.get_stream()),
+      row_is_visited_v(0, handle_.get_stream()),
+      col_is_visited_v(0, handle_.get_stream()),
+      row_parents_v(0, handle_.get_stream()),
+      col_parents_v(0, handle_.get_stream()),
+      row_children_v(0, handle_.get_stream()),
+      col_children_v(0, handle_.get_stream()),
+      obj_val_primal_v(0, handle_.get_stream()),
+      obj_val_dual_v(0, handle_.get_stream()) {}
 
   // Executes Hungarian algorithm on the input cost matrix.
   void solve(weight_t const *d_cost_matrix, vertex_t *d_row_assignment,
@@ -152,19 +153,20 @@ class LinearAssignmentProblem {
  private:
   // Helper function for initializing global variables and arrays on a single host.
   void initializeDevice() {
-    row_covers_v.resize(batchsize_ * size_);
-    col_covers_v.resize(batchsize_ * size_);
-    row_duals_v.resize(batchsize_ * size_);
-    col_duals_v.resize(batchsize_ * size_);
-    col_slacks_v.resize(batchsize_ * size_);
-    row_is_visited_v.resize(batchsize_ * size_);
-    col_is_visited_v.resize(batchsize_ * size_);
-    row_parents_v.resize(batchsize_ * size_);
-    col_parents_v.resize(batchsize_ * size_);
-    row_children_v.resize(batchsize_ * size_);
-    col_children_v.resize(batchsize_ * size_);
-    obj_val_primal_v.resize(batchsize_);
-    obj_val_dual_v.resize(batchsize_);
+    cudaStream_t stream = handle_.get_stream();
+    row_covers_v.resize(batchsize_ * size_, stream);
+    col_covers_v.resize(batchsize_ * size_, stream);
+    row_duals_v.resize(batchsize_ * size_, stream);
+    col_duals_v.resize(batchsize_ * size_, stream);
+    col_slacks_v.resize(batchsize_ * size_, stream);
+    row_is_visited_v.resize(batchsize_ * size_, stream);
+    col_is_visited_v.resize(batchsize_ * size_, stream);
+    row_parents_v.resize(batchsize_ * size_, stream);
+    col_parents_v.resize(batchsize_ * size_, stream);
+    row_children_v.resize(batchsize_ * size_, stream);
+    col_children_v.resize(batchsize_ * size_, stream);
+    obj_val_primal_v.resize(batchsize_, stream);
+    obj_val_dual_v.resize(batchsize_, stream);
 
     d_vertices_dev.row_covers = row_covers_v.data();
     d_vertices_dev.col_covers = col_covers_v.data();
@@ -231,8 +233,7 @@ class LinearAssignmentProblem {
   int hungarianStep3() {
     int next;
 
-    raft::mr::device::buffer<bool> flag_v(handle_.get_device_allocator(),
-                                          handle_.get_stream(), 1);
+    rmm::device_uvector<bool> flag_v(1, handle_.get_stream());
 
     bool h_flag = false;
     raft::update_device(flag_v.data(), &h_flag, 1, handle_.get_stream());

@@ -19,8 +19,8 @@
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/mr/device/allocator.hpp>
-#include <raft/mr/device/buffer.hpp>
 #include <raft/spectral/partition.hpp>
+#include <rmm/device_uvector.hpp>
 
 #include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/coo.cuh>
@@ -36,15 +36,15 @@ void fit_embedding(const raft::handle_t &handle, int *rows, int *cols, T *vals,
                    unsigned long long seed = 1234567) {
   auto stream = handle.get_stream();
   auto d_alloc = handle.get_device_allocator();
-  raft::mr::device::buffer<int> src_offsets(d_alloc, stream, n + 1);
-  raft::mr::device::buffer<int> dst_cols(d_alloc, stream, nnz);
-  raft::mr::device::buffer<T> dst_vals(d_alloc, stream, nnz);
+  rmm::device_uvector<int> src_offsets(n + 1, stream);
+  rmm::device_uvector<int> dst_cols(nnz, stream);
+  rmm::device_uvector<T> dst_vals(nnz, stream);
   convert::coo_to_csr(handle, rows, cols, vals, nnz, n, src_offsets.data(),
                       dst_cols.data(), dst_vals.data());
 
-  raft::mr::device::buffer<T> eigVals(d_alloc, stream, n_components + 1);
-  raft::mr::device::buffer<T> eigVecs(d_alloc, stream, n * (n_components + 1));
-  raft::mr::device::buffer<int> labels(d_alloc, stream, n);
+  rmm::device_uvector<T> eigVals(n_components + 1, stream);
+  rmm::device_uvector<T> eigVecs(n * (n_components + 1), stream);
+  rmm::device_uvector<int> labels(n, stream);
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
 

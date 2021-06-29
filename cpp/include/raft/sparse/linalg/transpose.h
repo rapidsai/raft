@@ -22,7 +22,7 @@
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/mr/device/allocator.hpp>
-#include <raft/mr/device/buffer.hpp>
+#include <rmm/device_uvector.hpp>
 
 #include <thrust/device_ptr.h>
 #include <thrust/scan.h>
@@ -72,8 +72,8 @@ void csr_transpose(cusparseHandle_t handle, const value_idx *csr_indptr,
     CUSPARSE_INDEX_BASE_ZERO, CUSPARSE_CSR2CSC_ALG1,
     &convert_csc_workspace_size, stream));
 
-  raft::mr::device::buffer<char> convert_csc_workspace(
-    allocator, stream, convert_csc_workspace_size);
+  rmm::device_uvector<char> convert_csc_workspace(convert_csc_workspace_size,
+                                                  stream);
 
   CUSPARSE_CHECK(raft::sparse::cusparsecsr2csc(
     handle, csr_nrows, csr_ncols, nnz, csr_data, csr_indptr, csr_indices,

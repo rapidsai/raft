@@ -18,6 +18,7 @@
 #include <raft/cudart_utils.h>
 #include <raft/matrix/matrix.cuh>
 #include <raft/random/rng.cuh>
+#include <rmm/device_uvector.hpp>
 #include "../test_utils.h"
 
 namespace raft {
@@ -102,10 +103,9 @@ class MatrixCopyRowsTest : public ::testing::Test {
 
  protected:
   MatrixCopyRowsTest()
-    : allocator(handle.get_device_allocator()),
-      input(allocator, handle.get_stream(), n_cols * n_rows),
-      indices(allocator, handle.get_stream(), n_selected),
-      output(allocator, handle.get_stream(), n_cols * n_selected) {
+    : input(n_cols * n_rows, handle.get_stream()),
+      indices(n_selected, handle.get_stream()),
+      output(n_cols * n_selected, handle.get_stream()) {
     CUDA_CHECK(cudaStreamCreate(&stream));
     handle.set_stream(stream);
     raft::update_device(indices.data(), indices_host, n_selected, stream);
@@ -143,10 +143,9 @@ class MatrixCopyRowsTest : public ::testing::Test {
                                     14, 21, 22, 23, 27, 28, 29};
   raft::handle_t handle;
   cudaStream_t stream;
-  std::shared_ptr<raft::mr::device::allocator> allocator;
-  raft::mr::device::buffer<math_t> input;
-  raft::mr::device::buffer<math_t> output;
-  raft::mr::device::buffer<idx_array_t> indices;
+  rmm::device_uvector<math_t> input;
+  rmm::device_uvector<math_t> output;
+  rmm::device_uvector<idx_array_t> indices;
 };
 
 using TypeTuple =

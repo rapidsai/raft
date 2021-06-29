@@ -22,7 +22,7 @@
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/mr/device/allocator.hpp>
-#include <raft/mr/device/buffer.hpp>
+#include <rmm/device_uvector.hpp>
 
 #include <raft/sparse/op/sort.h>
 #include <thrust/device_ptr.h>
@@ -31,7 +31,6 @@
 
 #include <cuda_runtime.h>
 #include <stdio.h>
-#include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
 
 #include <algorithm>
@@ -135,7 +134,7 @@ void coo_symmetrize(COO<T> *in, COO<T> *out,
 
   ASSERT(!out->validate_mem(), "Expecting unallocated COO for output");
 
-  raft::mr::device::buffer<int> in_row_ind(d_alloc, stream, in->n_rows);
+  rmm::device_uvector<int> in_row_ind(in->n_rows, stream);
 
   convert::sorted_coo_to_csr(in, in_row_ind.data(), d_alloc, stream);
 
@@ -265,11 +264,11 @@ void from_knn_symmetrize_matrix(
                        raft::ceildiv(k, TPB_Y));
 
   // Notice n+1 since we can reuse these arrays for transpose_edges, original_edges in step (4)
-  raft::mr::device::buffer<value_idx> row_sizes(d_alloc, stream, n);
+  rmm::device_uvector<value_idx> row_sizes(n, stream);
   CUDA_CHECK(
     cudaMemsetAsync(row_sizes.data(), 0, sizeof(value_idx) * n, stream));
 
-  raft::mr::device::buffer<value_idx> row_sizes2(d_alloc, stream, n);
+  rmm::device_uvector<value_idx> row_sizes2(n, stream);
   CUDA_CHECK(
     cudaMemsetAsync(row_sizes2.data(), 0, sizeof(value_idx) * n, stream));
 

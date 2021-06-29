@@ -23,7 +23,7 @@
 #include <raft/cuda_utils.cuh>
 
 #include <raft/mr/device/allocator.hpp>
-#include <raft/mr/device/buffer.hpp>
+#include <rmm/device_uvector.hpp>
 
 #include <raft/sparse/distance/common.h>
 #include <raft/sparse/linalg/transpose.h>
@@ -92,10 +92,10 @@ class ip_distances_gemm_t : public ip_trans_getters_t<value_idx, value_t> {
   explicit ip_distances_gemm_t(
     const distances_config_t<value_idx, value_t> &config)
     : config_(&config),
-      workspace(config.allocator, config.stream, 0),
-      csc_indptr(config.allocator, config.stream, 0),
-      csc_indices(config.allocator, config.stream, 0),
-      csc_data(config.allocator, config.stream, 0),
+      workspace(0, config.stream),
+      csc_indptr(0, config.stream),
+      csc_indices(0, config.stream),
+      csc_data(0, config.stream),
       alpha(1.0) {
     init_mat_descriptor(matA);
     init_mat_descriptor(matB);
@@ -118,12 +118,10 @@ class ip_distances_gemm_t : public ip_trans_getters_t<value_idx, value_t> {
     /**
 	   * Compute pairwise distances and return dense matrix in column-major format
 	   */
-    raft::mr::device::buffer<value_idx> out_batch_indptr(
-      config_->allocator, config_->stream, config_->a_nrows + 1);
-    raft::mr::device::buffer<value_idx> out_batch_indices(config_->allocator,
-                                                          config_->stream, 0);
-    raft::mr::device::buffer<value_t> out_batch_data(config_->allocator,
-                                                     config_->stream, 0);
+    rmm::device_uvector<value_idx> out_batch_indptr(config_->a_nrows + 1,
+                                                    config_->stream);
+    rmm::device_uvector<value_idx> out_batch_indices(0, config_->stream);
+    rmm::device_uvector<value_t> out_batch_data(0, config_->stream);
 
     value_idx out_batch_nnz = get_nnz(out_batch_indptr.data());
 
@@ -219,10 +217,10 @@ class ip_distances_gemm_t : public ip_trans_getters_t<value_idx, value_t> {
   cusparseMatDescr_t matC;
   cusparseMatDescr_t matD;
   cusparsePointerMode_t orig_ptr_mode;
-  raft::mr::device::buffer<char> workspace;
-  raft::mr::device::buffer<value_idx> csc_indptr;
-  raft::mr::device::buffer<value_idx> csc_indices;
-  raft::mr::device::buffer<value_t> csc_data;
+  rmm::device_uvector<char> workspace;
+  rmm::device_uvector<value_idx> csc_indptr;
+  rmm::device_uvector<value_idx> csc_indices;
+  rmm::device_uvector<value_t> csc_data;
   const distances_config_t<value_idx, value_t> *config_;
 };
 
@@ -234,8 +232,7 @@ class ip_distances_spmv_t : public ip_trans_getters_t<value_idx, value_t> {
    * @param[in] config specifies inputs, outputs, and sizes
    */
   ip_distances_spmv_t(const distances_config_t<value_idx, value_t> &config)
-    : config_(&config),
-      coo_rows_b(config.allocator, config.stream, config.b_nnz) {
+    : config_(&config), coo_rows_b(config.b_nnz, config.stream) {
     raft::sparse::convert::csr_to_coo(config_->b_indptr, config_->b_nrows,
                                       coo_rows_b.data(), config_->b_nnz,
                                       config_->stream);
@@ -262,7 +259,7 @@ class ip_distances_spmv_t : public ip_trans_getters_t<value_idx, value_t> {
 
  private:
   const distances_config_t<value_idx, value_t> *config_;
-  raft::mr::device::buffer<value_idx> coo_rows_b;
+  rmm::device_uvector<value_idx> coo_rows_b;
 };
 
 template <typename value_idx = int, typename value_t = float>

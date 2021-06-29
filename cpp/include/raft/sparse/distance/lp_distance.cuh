@@ -24,7 +24,7 @@
 #include <raft/cuda_utils.cuh>
 
 #include <raft/mr/device/allocator.hpp>
-#include <raft/mr/device/buffer.hpp>
+#include <rmm/device_uvector.hpp>
 
 #include <raft/sparse/utils.h>
 #include <raft/sparse/csr.cuh>
@@ -62,8 +62,8 @@ void unexpanded_lp_distances(
     // for max occupancy.
     // Ref: https://github.com/rapidsai/cuml/issues/3371
 
-    raft::mr::device::buffer<value_idx> coo_rows(
-      config_->allocator, config_->stream, max(config_->b_nnz, config_->a_nnz));
+    rmm::device_uvector<value_idx> coo_rows(max(config_->b_nnz, config_->a_nnz),
+                                            config_->stream);
 
     raft::sparse::convert::csr_to_coo(config_->b_indptr, config_->b_nrows,
                                       coo_rows.data(), config_->b_nnz,

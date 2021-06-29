@@ -21,7 +21,7 @@
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/mr/device/allocator.hpp>
-#include <raft/mr/device/buffer.hpp>
+#include <rmm/device_uvector.hpp>
 
 #include <thrust/device_ptr.h>
 #include <thrust/scan.h>
@@ -219,7 +219,7 @@ void weak_cc(Index_ *labels, const Index_ *row_ind, const Index_ *row_ind_ptr,
              Index_ nnz, Index_ N,
              std::shared_ptr<raft::mr::device::allocator> d_alloc,
              cudaStream_t stream, Lambda filter_op) {
-  raft::mr::device::buffer<bool> m(d_alloc, stream, 1);
+  rmm::device_uvector<bool> m(1, stream);
 
   WeakCCState state(m.data());
   weak_cc_batched<Index_, TPB_X>(labels, row_ind, row_ind_ptr, nnz, N, 0, N,
@@ -253,7 +253,7 @@ void weak_cc(Index_ *labels, const Index_ *row_ind, const Index_ *row_ind_ptr,
              Index_ nnz, Index_ N,
              std::shared_ptr<raft::mr::device::allocator> d_alloc,
              cudaStream_t stream) {
-  raft::mr::device::buffer<bool> m(d_alloc, stream, 1);
+  rmm::device_uvector<bool> m(1, stream);
   WeakCCState state(m.data());
   weak_cc_batched<Index_, TPB_X>(labels, row_ind, row_ind_ptr, nnz, N, 0, N,
                                  stream, [](Index_) { return true; });

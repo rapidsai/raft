@@ -20,9 +20,9 @@
 #include <raft/linalg/norm.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/mr/device/allocator.hpp>
-#include <raft/mr/device/buffer.hpp>
 #include <raft/stats/mean.cuh>
 #include <raft/stats/mean_center.cuh>
+#include <rmm/device_uvector.hpp>
 
 namespace raft {
 namespace spatial {
@@ -57,7 +57,7 @@ class CosineMetricProcessor : public MetricProcessor<math_t> {
   size_t n_cols_;
   cudaStream_t stream_;
   std::shared_ptr<deviceAllocator> device_allocator_;
-  raft::mr::device::buffer<math_t> colsums_;
+  rmm::device_uvector<math_t> colsums_;
 
  public:
   CosineMetricProcessor(size_t n_rows, size_t n_cols, int k, bool row_major,
@@ -65,7 +65,7 @@ class CosineMetricProcessor : public MetricProcessor<math_t> {
                         std::shared_ptr<deviceAllocator> allocator)
     : device_allocator_(allocator),
       stream_(stream),
-      colsums_(allocator, stream, n_rows),
+      colsums_(n_rows, stream),
       n_cols_(n_cols),
       n_rows_(n_rows),
       row_major_(row_major),
@@ -108,7 +108,7 @@ class CorrelationMetricProcessor : public CosineMetricProcessor<math_t> {
                              std::shared_ptr<deviceAllocator> allocator)
     : CosineMetricProcessor<math_t>(n_rows, n_cols, k, row_major, stream,
                                     allocator),
-      means_(allocator, stream, n_rows) {}
+      means_(n_rows, stream) {}
 
   void preprocess(math_t *data) {
     math_t normalizer_const = 1.0 / (math_t)cosine::n_cols_;
@@ -143,7 +143,7 @@ class CorrelationMetricProcessor : public CosineMetricProcessor<math_t> {
 
   ~CorrelationMetricProcessor() = default;
 
-  raft::mr::device::buffer<math_t> means_;
+  rmm::device_uvector<math_t> means_;
 };
 
 template <typename math_t>

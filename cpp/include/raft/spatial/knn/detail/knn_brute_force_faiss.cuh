@@ -19,6 +19,8 @@
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
 
+#include <rmm/device_uvector.hpp>
+
 #include <faiss/gpu/GpuDistance.h>
 #include <faiss/gpu/GpuResources.h>
 #include <faiss/gpu/StandardGpuResources.h>
@@ -243,13 +245,12 @@ void brute_force_knn_impl(std::vector<float *> &input, std::vector<int> &sizes,
   int device;
   CUDA_CHECK(cudaGetDevice(&device));
 
-  raft::mr::device::buffer<int64_t> trans(allocator, userStream,
-                                          id_ranges->size());
+  rmm::device_uvector<int64_t> trans(id_ranges->size(), userStream);
   raft::update_device(trans.data(), id_ranges->data(), id_ranges->size(),
                       userStream);
 
-  raft::mr::device::buffer<float> all_D(allocator, userStream, 0);
-  raft::mr::device::buffer<int64_t> all_I(allocator, userStream, 0);
+  rmm::device_uvector<float> all_D(0, userStream);
+  rmm::device_uvector<int64_t> all_I(0, userStream);
 
   float *out_D = res_D;
   int64_t *out_I = res_I;

@@ -17,11 +17,12 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <raft/random/rng.cuh>
-#include "../test_utils.h"
-
 #include <raft/sparse/convert/coo.cuh>
 #include <raft/sparse/coo.cuh>
 #include <raft/sparse/linalg/symmetrize.cuh>
+#include <rmm/device_uvector.hpp>
+
+#include "../test_utils.h"
 
 #include <iostream>
 
@@ -87,7 +88,7 @@ class SparseSymmetrizeTest : public ::testing::TestWithParam<
     value_idx n = params.n_cols;
     value_idx nnz = params.indices_h.size();
 
-    raft::mr::device::buffer<value_idx> coo_rows(alloc, stream, nnz);
+    rmm::device_uvector<value_idx> coo_rows(nnz, stream);
 
     raft::sparse::convert::csr_to_coo(indptr, m, coo_rows.data(), nnz, stream);
 
@@ -96,7 +97,7 @@ class SparseSymmetrizeTest : public ::testing::TestWithParam<
     raft::sparse::linalg::symmetrize(handle, coo_rows.data(), indices, data, m,
                                      n, coo_rows.size(), out);
 
-    raft::mr::device::buffer<value_idx> sum(alloc, stream, 1);
+    rmm::device_uvector<value_idx> sum(1, stream);
 
     CUDA_CHECK(cudaMemsetAsync(sum.data(), 0, 1 * sizeof(value_idx), stream));
 

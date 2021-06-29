@@ -117,7 +117,7 @@ double compute_rand_index(
   ASSERT(size >= 2, "Rand Index for size less than 2 not defined!");
 
   //allocating and initializing memory for a and b in the GPU
-  raft::mr::device::buffer<uint64_t> arr_buf(allocator, stream, 2);
+  rmm::device_uvector<uint64_t> arr_buf(2, stream);
   CUDA_CHECK(cudaMemsetAsync(arr_buf.data(), 0, 2 * sizeof(uint64_t), stream));
 
   //kernel configuration

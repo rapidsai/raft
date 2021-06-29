@@ -22,7 +22,7 @@
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/mr/device/allocator.hpp>
-#include <raft/mr/device/buffer.hpp>
+#include <rmm/device_uvector.hpp>
 
 #include <thrust/device_ptr.h>
 #include <thrust/scan.h>
@@ -168,7 +168,7 @@ size_t csr_add_calc_inds(const int *a_ind, const int *a_indptr, const T *a_val,
   dim3 grid(raft::ceildiv(m, TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
 
-  raft::mr::device::buffer<int> row_counts(d_alloc, stream, m + 1);
+  rmm::device_uvector<int> row_counts(m + 1, stream);
   CUDA_CHECK(
     cudaMemsetAsync(row_counts.data(), 0, (m + 1) * sizeof(int), stream));
 
