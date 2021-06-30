@@ -49,6 +49,17 @@ __global__ void compute_row_norm_kernel(value_t *out,
   }
 }
 
+template <typename value_idx, typename value_t>
+__global__ void compute_row_sum_kernel(value_t *out,
+                                       const value_idx *__restrict__ coo_rows,
+                                       const value_t *__restrict__ data,
+                                       value_idx nnz) {
+  value_idx i = blockDim.x * blockIdx.x + threadIdx.x;
+  if (i < nnz) {
+    atomicAdd(&out[coo_rows[i]], data[i]);
+  }
+}
+
 template <typename value_idx, typename value_t, typename expansion_f>
 __global__ void compute_euclidean_warp_kernel(
   value_t *__restrict__ C, const value_t *__restrict__ Q_sq_norms,
@@ -66,12 +77,10 @@ __global__ void compute_euclidean_warp_kernel(
   value_t val = expansion_func(dot, Q_sq_norms[i], R_sq_norms[j]);
 
   // correct for small instabilities
-  if (fabs(val) < 0.0001) val = 0.0;
-
-  C[(size_t)i * n_cols + j] = val;
+  C[(size_t)i * n_cols + j] = val * (fabs(val) >= 0.0001);
 }
 
-template <typename value_idx, typename value_t, int tpb = 1024,
+template <typename value_idx, typename value_t, int tpb = 256,
           typename expansion_f>
 void compute_euclidean(value_t *C, const value_t *Q_sq_norms,
                        const value_t *R_sq_norms, value_idx n_rows,
@@ -82,13 +91,12 @@ void compute_euclidean(value_t *C, const value_t *Q_sq_norms,
     C, Q_sq_norms, R_sq_norms, n_rows, n_cols, expansion_func);
 }
 
-template <typename value_idx, typename value_t, int tpb = 1024,
+template <typename value_idx, typename value_t, int tpb = 256,
           typename expansion_f>
 void compute_l2(value_t *out, const value_idx *Q_coo_rows,
                 const value_t *Q_data, value_idx Q_nnz,
                 const value_idx *R_coo_rows, const value_t *R_data,
-                value_idx R_nnz, value_idx m, value_idx n,
-                cusparseHandle_t handle, cudaStream_t stream,
+                value_idx R_nnz, value_idx m, value_idx n, cudaStream_t stream,
                 expansion_f expansion_func) {
   rmm::device_uvector<value_t> Q_sq_norms(m, stream);
   rmm::device_uvector<value_t> R_sq_norms(n, stream);
@@ -115,7 +123,7 @@ class l2_expanded_distances_t : public distances_t<value_t> {
  public:
   explicit l2_expanded_distances_t(
     const distances_config_t<value_idx, value_t> &config)
-    : config_(&config), workspace(0, config.stream), ip_dists(config) {}
+    : config_(&config), ip_dists(config) {}
 
   void compute(value_t *out_dists) {
     ip_dists.compute(out_dists);
@@ -123,16 +131,16 @@ class l2_expanded_distances_t : public distances_t<value_t> {
     value_idx *b_indices = ip_dists.b_rows_coo();
     value_t *b_data = ip_dists.b_data_coo();
 
-    rmm::device_uvector<value_idx> search_coo_rows(config_->a_nnz,
-                                                   config_->stream);
+    rmm::device_uvector<value_idx> search_coo_rows(
+      config_->a_nnz, config_->handle.get_stream());
     raft::sparse::convert::csr_to_coo(config_->a_indptr, config_->a_nrows,
                                       search_coo_rows.data(), config_->a_nnz,
-                                      config_->stream);
+                                      config_->handle.get_stream());
 
     compute_l2(
       out_dists, search_coo_rows.data(), config_->a_data, config_->a_nnz,
       b_indices, b_data, config_->b_nnz, config_->a_nrows, config_->b_nrows,
-      config_->handle, config_->stream,
+      config_->handle.get_stream(),
       [] __device__ __host__(value_t dot, value_t q_norm, value_t r_norm) {
         return -2 * dot + q_norm + r_norm;
       });
@@ -142,7 +150,6 @@ class l2_expanded_distances_t : public distances_t<value_t> {
 
  protected:
   const distances_config_t<value_idx, value_t> *config_;
-  rmm::device_uvector<char> workspace;
   ip_distances_t<value_idx, value_t> ip_dists;
 };
 
@@ -167,7 +174,7 @@ class l2_sqrt_expanded_distances_t
         int neg = input < 0 ? -1 : 1;
         return sqrt(abs(input) * neg);
       },
-      this->config_->stream);
+      this->config_->handle.get_stream());
   }
 
   ~l2_sqrt_expanded_distances_t() = default;
@@ -182,7 +189,9 @@ class cosine_expanded_distances_t : public distances_t<value_t> {
  public:
   explicit cosine_expanded_distances_t(
     const distances_config_t<value_idx, value_t> &config)
-    : config_(&config), workspace(0, config.stream), ip_dists(config) {}
+    : config_(&config),
+      workspace(0, config.handle.get_stream()),
+      ip_dists(config) {}
 
   void compute(value_t *out_dists) {
     ip_dists.compute(out_dists);
@@ -190,16 +199,16 @@ class cosine_expanded_distances_t : public distances_t<value_t> {
     value_idx *b_indices = ip_dists.b_rows_coo();
     value_t *b_data = ip_dists.b_data_coo();
 
-    rmm::device_uvector<value_idx> search_coo_rows(config_->a_nnz,
-                                                   config_->stream);
+    rmm::device_uvector<value_idx> search_coo_rows(
+      config_->a_nnz, config_->handle.get_stream());
     raft::sparse::convert::csr_to_coo(config_->a_indptr, config_->a_nrows,
                                       search_coo_rows.data(), config_->a_nnz,
-                                      config_->stream);
+                                      config_->handle.get_stream());
 
     compute_l2(
       out_dists, search_coo_rows.data(), config_->a_data, config_->a_nnz,
       b_indices, b_data, config_->b_nnz, config_->a_nrows, config_->b_nrows,
-      config_->handle, config_->stream,
+      config_->handle.get_stream(),
       [] __device__ __host__(value_t dot, value_t q_norm, value_t r_norm) {
         value_t norms = sqrt(q_norm) * sqrt(r_norm);
         // deal with potential for 0 in denominator by forcing 0/1 instead
@@ -233,32 +242,21 @@ class hellinger_expanded_distances_t : public distances_t<value_t> {
  public:
   explicit hellinger_expanded_distances_t(
     const distances_config_t<value_idx, value_t> &config)
-    : config_(&config), workspace(0, config.stream), ip_dists(config) {}
+    : config_(&config), workspace(0, config.handle.get_stream()) {}
 
   void compute(value_t *out_dists) {
-    // First sqrt A and B
-    raft::linalg::unaryOp<value_t>(
-      config_->a_data, config_->a_data, config_->a_nnz,
-      [=] __device__(value_t input) { return sqrt(input); }, config_->stream);
+    raft::mr::device::buffer<value_idx> coo_rows(
+      config_->handle.get_device_allocator(), config_->handle.get_stream(),
+      max(config_->b_nnz, config_->a_nnz));
 
-    if (config_->a_data != config_->b_data) {
-      raft::linalg::unaryOp<value_t>(
-        config_->b_data, config_->b_data, config_->b_nnz,
-        [=] __device__(value_t input) { return sqrt(input); }, config_->stream);
-    }
+    raft::sparse::convert::csr_to_coo(config_->b_indptr, config_->b_nrows,
+                                      coo_rows.data(), config_->b_nnz,
+                                      config_->handle.get_stream());
 
-    ip_dists.compute(out_dists);
-
-    // Revert sqrt of A and B
-    raft::linalg::unaryOp<value_t>(
-      config_->a_data, config_->a_data, config_->a_nnz,
-      [=] __device__(value_t input) { return input * input; }, config_->stream);
-    if (config_->a_data != config_->b_data) {
-      raft::linalg::unaryOp<value_t>(
-        config_->b_data, config_->b_data, config_->b_nnz,
-        [=] __device__(value_t input) { return input * input; },
-        config_->stream);
-    }
+    balanced_coo_pairwise_generalized_spmv<value_idx, value_t>(
+      out_dists, *config_, coo_rows.data(),
+      [] __device__(value_t a, value_t b) { return sqrt(a) * sqrt(b); }, Sum(),
+      AtomicAdd());
 
     raft::linalg::unaryOp<value_t>(
       out_dists, out_dists, config_->a_nrows * config_->b_nrows,
@@ -267,7 +265,7 @@ class hellinger_expanded_distances_t : public distances_t<value_t> {
         bool rectifier = (1 - input) > 0;
         return sqrt(rectifier * (1 - input));
       },
-      config_->stream);
+      config_->handle.get_stream());
   }
 
   ~hellinger_expanded_distances_t() = default;
@@ -275,7 +273,6 @@ class hellinger_expanded_distances_t : public distances_t<value_t> {
  private:
   const distances_config_t<value_idx, value_t> *config_;
   rmm::device_uvector<char> workspace;
-  ip_distances_t<value_idx, value_t> ip_dists;
 };
 
 };  // END namespace distance
