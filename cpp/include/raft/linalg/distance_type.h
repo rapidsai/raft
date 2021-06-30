@@ -52,10 +52,16 @@ enum DistanceType : unsigned short {
   Haversine = 13,
   /** Bray-Curtis distance **/
   BrayCurtis = 14,
-  /** Jensen-Shannon distance **/
+  /** Jensen-Shannon distance**/
   JensenShannon = 15,
+  /** Hamming distance **/
+  HammingUnexpanded = 16,
+  /** KLDivergence **/
+  KLDivergence = 17,
+  /** RusselRao **/
+  RusselRaoExpanded = 18,
   /** Dice-Sorensen distance **/
-  DiceExpanded = 16,
+  DiceExpanded = 19,
   /** Precomputed (special value) **/
   Precomputed = 100
 };
