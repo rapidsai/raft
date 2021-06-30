@@ -20,8 +20,6 @@
 
 #include <raft/cudart_utils.h>
 #include <raft/sparse/cusparse_wrappers.h>
-#include <raft/mr/device/allocator.hpp>
-#include <raft/mr/device/buffer.hpp>
 
 #include <raft/sparse/linalg/transpose.h>
 
@@ -94,8 +92,6 @@ class CSRTransposeTest
   void SetUp() override {
     params = ::testing::TestWithParam<
       CSRTransposeInputs<value_idx, value_t>>::GetParam();
-    std::shared_ptr<raft::mr::device::allocator> alloc(
-      new raft::mr::device::default_allocator);
     CUDA_CHECK(cudaStreamCreate(&stream));
     CUSPARSE_CHECK(cusparseCreate(&handle));
 
@@ -103,7 +99,7 @@ class CSRTransposeTest
 
     raft::sparse::linalg::csr_transpose(
       handle, indptr, indices, data, out_indptr, out_indices, out_data,
-      params.nrows, params.ncols, params.nnz, alloc, stream);
+      params.nrows, params.ncols, params.nnz, stream);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
     CUSPARSE_CHECK(cusparseDestroy(handle));

@@ -21,7 +21,6 @@
 
 #include <raft/linalg/distance_type.h>
 #include <raft/linalg/transpose.h>
-#include <raft/mr/device/allocator.hpp>
 #include <raft/sparse/coo.cuh>
 #include <raft/sparse/hierarchy/single_linkage.hpp>
 #include <rmm/device_uvector.hpp>
@@ -106,13 +105,11 @@ __global__ void computeTheNumerator(const T* firstClusterArray,
 * @param firstClusterArray: the array of classes of type T
 * @param secondClusterArray: the array of classes of type T
 * @param size: the size of the data points of type uint64_t
-* @param allocator: object that takes care of temporary device memory allocation of type std::shared_ptr<MLCommon::deviceAllocator>
 * @param stream: the cudaStream object
 */
 template <typename T>
-double compute_rand_index(
-  T* firstClusterArray, T* secondClusterArray, uint64_t size,
-  std::shared_ptr<raft::mr::device::allocator> allocator, cudaStream_t stream) {
+double compute_rand_index(T* firstClusterArray, T* secondClusterArray,
+                          uint64_t size, cudaStream_t stream) {
   //rand index for size less than 2 is not defined
   ASSERT(size >= 2, "Rand Index for size less than 2 not defined!");
 
@@ -190,8 +187,7 @@ class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
     score =
-      compute_rand_index(labels, labels_ref, params.n_row,
-                         handle.get_device_allocator(), handle.get_stream());
+      compute_rand_index(labels, labels_ref, params.n_row, handle.get_stream());
   }
 
   void SetUp() override { basicTest(); }

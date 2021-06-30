@@ -24,7 +24,6 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/matrix/matrix.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include <raft/mr/device/buffer.hpp>
 
 #include <raft/sparse/op/slice.h>
@@ -120,9 +119,7 @@ class sparse_knn_t {
                const value_idx *queryIndices_, const value_t *queryData_,
                size_t queryNNZ_, int n_query_rows_, int n_query_cols_,
                value_idx *output_indices_, value_t *output_dists_, int k_,
-               cusparseHandle_t cusparseHandle_,
-               std::shared_ptr<raft::mr::device::allocator> allocator_,
-               cudaStream_t stream_,
+               cusparseHandle_t cusparseHandle_, cudaStream_t stream_,
                size_t batch_size_index_ = 2 << 14,  // approx 1M
                size_t batch_size_query_ = 2 << 14,
                raft::distance::DistanceType metric_ =
@@ -144,7 +141,6 @@ class sparse_knn_t {
       output_dists(output_dists_),
       k(k_),
       cusparseHandle(cusparseHandle_),
-      allocator(allocator_),
       stream(stream_),
       batch_size_index(batch_size_index_),
       batch_size_query(batch_size_query_),
@@ -369,7 +365,6 @@ class sparse_knn_t {
     dist_config.a_data = query_batch_data;
 
     dist_config.handle = cusparseHandle;
-    dist_config.allocator = allocator;
     dist_config.stream = stream;
 
     if (raft::sparse::distance::supportedDistance.find(metric) ==
@@ -395,8 +390,6 @@ class sparse_knn_t {
 
   cusparseHandle_t cusparseHandle;
 
-  std::shared_ptr<raft::mr::device::allocator> allocator;
-
   cudaStream_t stream;
 };
 
@@ -418,7 +411,6 @@ class sparse_knn_t {
    * @param[out] output_dists dense matrix for output distances (size n_query_rows * k)
    * @param[in] k the number of neighbors to query
    * @param[in] cusparseHandle the initialized cusparseHandle instance to use
-   * @param[in] allocator device allocator instance to use
    * @param[in] stream CUDA stream to order operations with respect to
    * @param[in] batch_size_index maximum number of rows to use from index matrix per batch
    * @param[in] batch_size_query maximum number of rows to use from query matrix per batch
@@ -432,9 +424,7 @@ void brute_force_knn(const value_idx *idxIndptr, const value_idx *idxIndices,
                      const value_idx *queryIndices, const value_t *queryData,
                      size_t queryNNZ, int n_query_rows, int n_query_cols,
                      value_idx *output_indices, value_t *output_dists, int k,
-                     cusparseHandle_t cusparseHandle,
-                     std::shared_ptr<raft::mr::device::allocator> allocator,
-                     cudaStream_t stream,
+                     cusparseHandle_t cusparseHandle, cudaStream_t stream,
                      size_t batch_size_index = 2 << 14,  // approx 1M
                      size_t batch_size_query = 2 << 14,
                      raft::distance::DistanceType metric =
@@ -443,8 +433,8 @@ void brute_force_knn(const value_idx *idxIndptr, const value_idx *idxIndices,
   sparse_knn_t<value_idx, value_t>(
     idxIndptr, idxIndices, idxData, idxNNZ, n_idx_rows, n_idx_cols, queryIndptr,
     queryIndices, queryData, queryNNZ, n_query_rows, n_query_cols,
-    output_indices, output_dists, k, cusparseHandle, allocator, stream,
-    batch_size_index, batch_size_query, metric, metricArg)
+    output_indices, output_dists, k, cusparseHandle, stream, batch_size_index,
+    batch_size_query, metric, metricArg)
     .run();
 }
 

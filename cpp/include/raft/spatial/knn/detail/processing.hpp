@@ -19,7 +19,6 @@
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/linalg/unary_op.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include <raft/stats/mean.cuh>
 #include <raft/stats/mean_center.cuh>
 #include <rmm/device_uvector.hpp>
@@ -28,7 +27,6 @@ namespace raft {
 namespace spatial {
 namespace knn {
 
-using deviceAllocator = raft::mr::device::allocator;
 /**
  * @brief A virtual class defining pre- and post-processing
  * for metrics. This class will temporarily modify its given
@@ -56,15 +54,12 @@ class CosineMetricProcessor : public MetricProcessor<math_t> {
   size_t n_rows_;
   size_t n_cols_;
   cudaStream_t stream_;
-  std::shared_ptr<deviceAllocator> device_allocator_;
   rmm::device_uvector<math_t> colsums_;
 
  public:
   CosineMetricProcessor(size_t n_rows, size_t n_cols, int k, bool row_major,
-                        cudaStream_t stream,
-                        std::shared_ptr<deviceAllocator> allocator)
-    : device_allocator_(allocator),
-      stream_(stream),
+                        cudaStream_t stream)
+    : stream_(stream),
       colsums_(n_rows, stream),
       n_cols_(n_cols),
       n_rows_(n_rows),
@@ -104,10 +99,8 @@ class CorrelationMetricProcessor : public CosineMetricProcessor<math_t> {
 
  public:
   CorrelationMetricProcessor(size_t n_rows, size_t n_cols, int k,
-                             bool row_major, cudaStream_t stream,
-                             std::shared_ptr<deviceAllocator> allocator)
-    : CosineMetricProcessor<math_t>(n_rows, n_cols, k, row_major, stream,
-                                    allocator),
+                             bool row_major, cudaStream_t stream)
+    : CosineMetricProcessor<math_t>(n_rows, n_cols, k, row_major, stream),
       means_(n_rows, stream) {}
 
   void preprocess(math_t *data) {
@@ -161,18 +154,18 @@ class DefaultMetricProcessor : public MetricProcessor<math_t> {
 template <typename math_t>
 inline std::unique_ptr<MetricProcessor<math_t>> create_processor(
   distance::DistanceType metric, int n, int D, int k, bool rowMajorQuery,
-  cudaStream_t userStream, std::shared_ptr<deviceAllocator> allocator) {
+  cudaStream_t userStream) {
   MetricProcessor<math_t> *mp = nullptr;
 
   switch (metric) {
     case distance::DistanceType::CosineExpanded:
-      mp = new CosineMetricProcessor<math_t>(n, D, k, rowMajorQuery, userStream,
-                                             allocator);
+      mp =
+        new CosineMetricProcessor<math_t>(n, D, k, rowMajorQuery, userStream);
       break;
 
     case distance::DistanceType::CorrelationExpanded:
       mp = new CorrelationMetricProcessor<math_t>(n, D, k, rowMajorQuery,
-                                                  userStream, allocator);
+                                                  userStream);
       break;
     default:
       mp = new DefaultMetricProcessor<math_t>();

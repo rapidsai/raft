@@ -20,7 +20,6 @@
 #include <raft/cudart_utils.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include <thrust/device_ptr.h>
@@ -208,7 +207,6 @@ void weak_cc_batched(Index_ *labels, const Index_ *row_ind,
  * @param row_ind_ptr the row index pointer of the CSR array
  * @param nnz the size of row_ind_ptr array
  * @param N number of vertices
- * @param d_alloc: deviceAllocator to use for temp memory
  * @param stream the cuda stream to use
  * @param filter_op an optional filtering function to determine which points
  * should get considered for labeling. It gets global indexes (not batch-wide!)
@@ -216,9 +214,7 @@ void weak_cc_batched(Index_ *labels, const Index_ *row_ind,
 template <typename Index_ = int, int TPB_X = 256,
           typename Lambda = auto(Index_)->bool>
 void weak_cc(Index_ *labels, const Index_ *row_ind, const Index_ *row_ind_ptr,
-             Index_ nnz, Index_ N,
-             std::shared_ptr<raft::mr::device::allocator> d_alloc,
-             cudaStream_t stream, Lambda filter_op) {
+             Index_ nnz, Index_ N, cudaStream_t stream, Lambda filter_op) {
   rmm::device_uvector<bool> m(1, stream);
 
   WeakCCState state(m.data());
@@ -245,14 +241,11 @@ void weak_cc(Index_ *labels, const Index_ *row_ind, const Index_ *row_ind_ptr,
  * @param row_ind_ptr the row index pointer of the CSR array
  * @param nnz the size of row_ind_ptr array
  * @param N number of vertices
- * @param d_alloc: deviceAllocator to use for temp memory
  * @param stream the cuda stream to use
  */
 template <typename Index_, int TPB_X = 256>
 void weak_cc(Index_ *labels, const Index_ *row_ind, const Index_ *row_ind_ptr,
-             Index_ nnz, Index_ N,
-             std::shared_ptr<raft::mr::device::allocator> d_alloc,
-             cudaStream_t stream) {
+             Index_ nnz, Index_ N, cudaStream_t stream) {
   rmm::device_uvector<bool> m(1, stream);
   WeakCCState state(m.data());
   weak_cc_batched<Index_, TPB_X>(labels, row_ind, row_ind_ptr, nnz, N, 0, N,

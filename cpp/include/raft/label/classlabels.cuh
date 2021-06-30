@@ -21,7 +21,6 @@
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/unary_op.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include <rmm/device_uvector.hpp>
 
 namespace raft {
@@ -40,12 +39,11 @@ namespace label {
  *   on exit it has size [n_unique]
  * \param [out] n_unique number of unique labels
  * \param [in] stream cuda stream
- * \param [in] allocator device allocator
  */
 template <typename value_t>
-void getUniquelabels(value_t *y, size_t n, value_t **y_unique, int *n_unique,
-                     cudaStream_t stream,
-                     std::shared_ptr<raft::mr::device::allocator> allocator) {
+int getUniquelabels(rmm::device_uvector<value_t> &y_unique, value_t *y,
+                    size_t n, cudaStream_t stream) {
+  int n_unique;
   rmm::device_uvector<value_t> y2(n, stream);
   rmm::device_uvector<value_t> y3(n, stream);
   rmm::device_uvector<int> d_num_selected(1, stream);
@@ -64,13 +62,13 @@ void getUniquelabels(value_t *y, size_t n, value_t **y_unique, int *n_unique,
   cub::DeviceRadixSort::SortKeys(cub_storage.data(), bytes, y, y2.data(), n);
   cub::DeviceSelect::Unique(cub_storage.data(), bytes, y2.data(), y3.data(),
                             d_num_selected.data(), n);
-  raft::update_host(n_unique, d_num_selected.data(), 1, stream);
+  raft::update_host(&n_unique, d_num_selected.data(), 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   // Copy unique classes to output
-  *y_unique =
-    (value_t *)allocator->allocate(*n_unique * sizeof(value_t), stream);
-  raft::copy(*y_unique, y3.data(), *n_unique, stream);
+  y_unique.resize(n_unique, stream);
+  raft::copy(y_unique.data(), y3.data(), n_unique, stream);
+  return n_unique;
 }
 
 /**
@@ -147,22 +145,17 @@ __global__ void map_label_kernel(Type *map_ids, size_t N_labels, Type *in,
    */
 template <typename Type, typename Lambda>
 void make_monotonic(Type *out, Type *in, size_t N, cudaStream_t stream,
-                    Lambda filter_op,
-                    std::shared_ptr<raft::mr::device::allocator> allocator,
-                    bool zero_based = false) {
+                    Lambda filter_op, bool zero_based = false) {
   static const size_t TPB_X = 256;
 
   dim3 blocks(raft::ceildiv(N, TPB_X));
   dim3 threads(TPB_X);
 
-  Type *map_ids;
-  int num_clusters;
-  getUniquelabels(in, N, &map_ids, &num_clusters, stream, allocator);
+  rmm::device_uvector<Type> map_ids(0, stream);
+  int num_clusters = getUniquelabels(map_ids, in, N, stream);
 
   map_label_kernel<Type, TPB_X><<<blocks, threads, 0, stream>>>(
-    map_ids, num_clusters, in, out, N, filter_op, zero_based);
-
-  allocator->deallocate(map_ids, num_clusters * sizeof(Type), stream);
+    map_ids.data(), num_clusters, in, out, N, filter_op, zero_based);
 }
 
 /**
@@ -184,11 +177,9 @@ void make_monotonic(Type *out, Type *in, size_t N, cudaStream_t stream,
    */
 template <typename Type>
 void make_monotonic(Type *out, Type *in, size_t N, cudaStream_t stream,
-                    std::shared_ptr<raft::mr::device::allocator> allocator,
                     bool zero_based = false) {
   make_monotonic<Type>(
-    out, in, N, stream, [] __device__(Type val) { return false; }, allocator,
-    zero_based);
+    out, in, N, stream, [] __device__(Type val) { return false; }, zero_based);
 }
 };  // namespace label
 };  // end namespace raft

@@ -24,7 +24,6 @@
 #include <raft/common/scatter.cuh>
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
-#include <raft/mr/device/allocator.hpp>
 #include <random>
 #include <rmm/device_uvector.hpp>
 #include <type_traits>
@@ -498,7 +497,6 @@ class Rng {
    * sampling is desired
    * @param sampledLen output sampled array length
    * @param len input array length
-   * @param allocator device allocator for allocating any workspace required
    * @param stream cuda stream
    */
   template <typename DataT, typename WeightsT, typename IdxT = int>
@@ -508,9 +506,6 @@ class Rng {
                                 cudaStream_t stream) {
     ASSERT(sampledLen <= len,
            "sampleWithoutReplacement: 'sampledLen' cant be more than 'len'.");
-
-    std::shared_ptr<raft::mr::device::allocator> allocator =
-      handle.get_device_allocator();
 
     rmm::device_uvector<WeightsT> expWts(len, stream);
     rmm::device_uvector<WeightsT> sortedWts(len, stream);

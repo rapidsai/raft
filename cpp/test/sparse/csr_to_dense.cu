@@ -16,8 +16,6 @@
 
 #include <cusparse_v2.h>
 #include <raft/cudart_utils.h>
-#include <raft/mr/device/allocator.hpp>
-#include <raft/mr/device/buffer.hpp>
 
 #include <gtest/gtest.h>
 #include <raft/sparse/cusparse_wrappers.h>
@@ -77,8 +75,6 @@ class CSRToDenseTest
   void SetUp() override {
     params = ::testing::TestWithParam<
       CSRToDenseInputs<value_idx, value_t>>::GetParam();
-    std::shared_ptr<raft::mr::device::allocator> alloc(
-      new raft::mr::device::default_allocator);
     CUDA_CHECK(cudaStreamCreate(&stream));
     CUSPARSE_CHECK(cusparseCreate(&handle));
 

@@ -19,8 +19,6 @@
 
 #include <gtest/gtest.h>
 #include <raft/sparse/cusparse_wrappers.h>
-#include <raft/mr/device/allocator.hpp>
-#include <raft/mr/device/buffer.hpp>
 
 #include <raft/sparse/op/slice.h>
 
@@ -92,8 +90,6 @@ class CSRRowSliceTest
   void SetUp() override {
     params = ::testing::TestWithParam<
       CSRRowSliceInputs<value_idx, value_t>>::GetParam();
-    std::shared_ptr<raft::mr::device::allocator> alloc(
-      new raft::mr::device::default_allocator);
     CUDA_CHECK(cudaStreamCreate(&stream));
 
     make_data();

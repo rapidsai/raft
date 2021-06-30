@@ -64,10 +64,9 @@ class KNNGraphTest
 
     raft::handle_t handle;
 
-    auto alloc = handle.get_device_allocator();
     stream = handle.get_stream();
 
-    out = new raft::sparse::COO<value_t, value_idx>(alloc, stream);
+    out = new raft::sparse::COO<value_t, value_idx>(stream);
 
     allocate(X, params.X.size());
 

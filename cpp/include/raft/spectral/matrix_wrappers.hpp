@@ -19,6 +19,7 @@
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/handle.hpp>
+#include <rmm/device_uvector.hpp>
 
 #include <thrust/fill.h>
 #include <thrust/reduce.h>
@@ -72,52 +73,30 @@ struct vector_view_t {
     : buffer_(buffer), size_(sz) {}
 
   vector_view_t(vector_view_t&& other)
-    : buffer_(other.buffer_), size_(other.size_) {
-    other.buffer_ = nullptr;
-    other.size_ = 0;
-  }
+    : buffer_(other.raw()), size_(other.size()) {}
 
   vector_view_t& operator=(vector_view_t&& other) {
-    buffer_ = other.buffer_;
-    size_ = other.size_;
-
-    other.buffer_ = nullptr;
-    other.size_ = 0;
+    buffer_ = other.raw();
+    size_ = other.size();
   }
 };
 
-// allocatable vector, using raft handle allocator
-//
 template <typename value_type>
 class vector_t {
-  handle_t const& handle_;
-  value_type* buffer_;
-  size_type size_;
-  cudaStream_t stream_;
-
  public:
   vector_t(handle_t const& raft_handle, size_type sz)
-    : handle_(raft_handle),
-      buffer_(
-        static_cast<value_type*>(raft_handle.get_device_allocator()->allocate(
-          sz * sizeof(value_type), raft_handle.get_stream()))),
-      size_(sz),
-      stream_(raft_handle.get_stream()) {}
+    : buffer_(sz, raft_handle.get_stream()) {}
 
-  ~vector_t(void) {
-    handle_.get_device_allocator()->deallocate(
-      buffer_, size_ * sizeof(value_type), stream_);
-  }
+  size_type size(void) const { return buffer_.size(); }
 
-  size_type size(void) const { return size_; }
+  value_type* raw(void) { return buffer_.data(); }
 
-  value_type* raw(void) { return buffer_; }
-
-  value_type const* raw(void) const { return buffer_; }
+  value_type const* raw(void) const { return buffer_.data(); }
 
   template <typename ThrustExecPolicy>
   value_type nrm1(ThrustExecPolicy t_exe_pol) const {
-    return thrust::reduce(t_exe_pol, buffer_, buffer_ + size_, value_type{0},
+    return thrust::reduce(t_exe_pol, buffer_.data(),
+                          buffer_.data() + buffer_.size(), value_type{0},
                           [] __device__(auto left, auto right) {
                             auto abs_left = left > 0 ? left : -left;
                             auto abs_right = right > 0 ? right : -right;
@@ -127,8 +106,11 @@ class vector_t {
 
   template <typename ThrustExecPolicy>
   void fill(ThrustExecPolicy t_exe_pol, value_type value) {
-    thrust::fill_n(t_exe_pol, buffer_, size_, value);
+    thrust::fill_n(t_exe_pol, buffer_.data(), buffer_.size(), value);
   }
+
+ private:
+  rmm::device_uvector<value_type> buffer_;
 };
 
 template <typename index_type, typename value_type>

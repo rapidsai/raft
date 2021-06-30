@@ -18,7 +18,6 @@
 #include <raft/cudart_utils.h>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/map.cuh>
-#include <raft/mr/device/buffer.hpp>
 #include <raft/random/rng.cuh>
 #include "../test_utils.h"
 

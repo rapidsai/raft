@@ -74,9 +74,6 @@ class CSRAddTest
   }
 
   void Run() {
-    std::shared_ptr<raft::mr::device::allocator> alloc(
-      new raft::mr::device::default_allocator);
-
     raft::update_device(ind_a, params.matrix_a.row_ind.data(), n_rows, stream);
     raft::update_device(ind_ptr_a, params.matrix_a.row_ind_ptr.data(), nnz_a,
                         stream);
@@ -96,7 +93,7 @@ class CSRAddTest
 
     Index_ nnz = linalg::csr_add_calc_inds<Type_f, 32>(
       ind_a, ind_ptr_a, values_a, nnz_a, ind_b, ind_ptr_b, values_b, nnz_b,
-      n_rows, ind_result, alloc, stream);
+      n_rows, ind_result, stream);
 
     ASSERT_TRUE(nnz == nnz_result);
     ASSERT_TRUE(raft::devArrMatch<Index_>(ind_verify, ind_result, n_rows,

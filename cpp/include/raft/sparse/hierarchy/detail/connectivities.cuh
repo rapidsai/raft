@@ -60,12 +60,11 @@ struct distance_graph_impl<raft::hierarchy::LinkageDistance::KNN_GRAPH,
            rmm::device_uvector<value_idx> &indptr,
            rmm::device_uvector<value_idx> &indices,
            rmm::device_uvector<value_t> &data, int c) {
-    auto d_alloc = handle.get_device_allocator();
     auto stream = handle.get_stream();
     auto exec_policy = rmm::exec_policy(rmm::cuda_stream_view{stream});
 
     // Need to symmetrize knn into undirected graph
-    raft::sparse::COO<value_t, value_idx> knn_graph_coo(d_alloc, stream);
+    raft::sparse::COO<value_t, value_idx> knn_graph_coo(stream);
 
     raft::sparse::selection::knn_graph(handle, X, m, n, metric, knn_graph_coo,
                                        c);
@@ -86,9 +85,8 @@ struct distance_graph_impl<raft::hierarchy::LinkageDistance::KNN_GRAPH,
                (!self_loop * thrust::get<2>(tup));
       });
 
-    raft::sparse::convert::sorted_coo_to_csr(knn_graph_coo.rows(),
-                                             knn_graph_coo.nnz, indptr.data(),
-                                             m + 1, d_alloc, stream);
+    raft::sparse::convert::sorted_coo_to_csr(
+      knn_graph_coo.rows(), knn_graph_coo.nnz, indptr.data(), m + 1, stream);
 
     // TODO: Wouldn't need to copy here if we could compute knn
     // graph directly on the device uvectors

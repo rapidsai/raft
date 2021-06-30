@@ -79,7 +79,6 @@ class SparseSymmetrizeTest : public ::testing::TestWithParam<
 
     raft::handle_t handle;
 
-    auto alloc = handle.get_device_allocator();
     stream = handle.get_stream();
 
     make_data();
@@ -92,7 +91,7 @@ class SparseSymmetrizeTest : public ::testing::TestWithParam<
 
     raft::sparse::convert::csr_to_coo(indptr, m, coo_rows.data(), nnz, stream);
 
-    raft::sparse::COO<value_t, value_idx> out(alloc, stream);
+    raft::sparse::COO<value_t, value_idx> out(stream);
 
     raft::sparse::linalg::symmetrize(handle, coo_rows.data(), indices, data, m,
                                      n, coo_rows.size(), out);
@@ -149,9 +148,6 @@ TEST_P(COOSymmetrize, Result) {
   cudaStream_t stream;
   cudaStreamCreate(&stream);
 
-  std::shared_ptr<raft::mr::device::default_allocator> alloc(
-    new raft::mr::device::default_allocator);
-
   int nnz = 8;
 
   int *in_rows_h = new int[nnz]{0, 0, 1, 1, 2, 2, 3, 3};
@@ -165,19 +161,19 @@ TEST_P(COOSymmetrize, Result) {
   float *exp_vals_h = new float[nnz * 2]{0.5, 0.5, 1.5, 0, 0.5, 0.5, 0.5, 0,
                                          0.5, 0.5, 0.5, 0, 1.5, 0.5, 0.5, 0.0};
 
-  COO<float> in(alloc, stream, nnz, 4, 4);
+  COO<float> in(stream, nnz, 4, 4);
   raft::update_device(in.rows(), *&in_rows_h, nnz, stream);
   raft::update_device(in.cols(), *&in_cols_h, nnz, stream);
   raft::update_device(in.vals(), *&in_vals_h, nnz, stream);
 
-  COO<float> out(alloc, stream);
+  COO<float> out(stream);
 
   linalg::coo_symmetrize<32, float>(
     &in, &out,
     [] __device__(int row, int col, float val, float trans) {
       return val + trans;
     },
-    alloc, stream);
+    stream);
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
   std::cout << out << std::endl;

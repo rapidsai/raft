@@ -23,7 +23,6 @@
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
 
-#include <raft/mr/device/allocator.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include <raft/sparse/utils.h>

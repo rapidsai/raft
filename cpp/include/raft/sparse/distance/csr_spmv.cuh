@@ -19,7 +19,6 @@
 #include <raft/cudart_utils.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include <raft/sparse/distance/common.h>
@@ -343,9 +342,8 @@ __global__ void max_kernel(value_idx *out, value_idx *in, value_idx n) {
 }
 
 template <typename value_idx>
-inline value_idx max_degree(
-  value_idx *indptr, value_idx n_rows,
-  std::shared_ptr<raft::mr::device::allocator> allocator, cudaStream_t stream) {
+inline value_idx max_degree(value_idx *indptr, value_idx n_rows,
+                            cudaStream_t stream) {
   rmm::device_uvector<value_idx> max_d(1, stream);
   CUDA_CHECK(cudaMemsetAsync(max_d.data(), 0, sizeof(value_idx), stream));
 
@@ -466,9 +464,9 @@ void generalized_csr_pairwise_semiring(
   int nnz_upper_bound = max_nnz_per_block<value_idx, value_t>();
 
   // max_nnz set from max(diff(indptrA))
-  value_idx max_nnz = max_degree<value_idx>(config_.a_indptr, config_.a_nrows,
-                                            config_.allocator, config_.stream) +
-                      1;
+  value_idx max_nnz =
+    max_degree<value_idx>(config_.a_indptr, config_.a_nrows, config_.stream) +
+    1;
 
   if (max_nnz <= nnz_upper_bound)
     // use smem

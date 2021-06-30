@@ -159,14 +159,10 @@ struct CubKVPMinReduce {
  */
 template <typename value_idx>
 value_idx get_n_components(value_idx *colors, size_t n_rows,
-                           std::shared_ptr<raft::mr::device::allocator> d_alloc,
                            cudaStream_t stream) {
-  value_idx *map_ids;
-  int num_clusters;
-  raft::label::getUniquelabels(colors, n_rows, &map_ids, &num_clusters, stream,
-                               d_alloc);
-  d_alloc->deallocate(map_ids, num_clusters * sizeof(value_idx), stream);
-
+  rmm::device_uvector<value_idx> map_ids(0, stream);
+  int num_clusters =
+    raft::label::getUniquelabels(map_ids, colors, n_rows, stream);
   return num_clusters;
 }
 
@@ -197,15 +193,13 @@ struct LookupColorOp {
  * @param[in] X original dense data
  * @param[in] n_rows number of rows in original dense data
  * @param[in] n_cols number of columns in original dense data
- * @param[in] d_alloc device allocator to use
  * @param[in] stream cuda stream for which to order cuda operations
  */
 template <typename value_idx, typename value_t, typename red_op>
 void perform_1nn(cub::KeyValuePair<value_idx, value_t> *kvp,
                  value_idx *nn_colors, value_idx *colors, const value_t *X,
-                 size_t n_rows, size_t n_cols,
-                 std::shared_ptr<raft::mr::device::allocator> d_alloc,
-                 cudaStream_t stream, red_op reduction_op) {
+                 size_t n_rows, size_t n_cols, cudaStream_t stream,
+                 red_op reduction_op) {
   rmm::device_uvector<int> workspace(n_rows, stream);
   rmm::device_uvector<value_t> x_norm(n_rows, stream);
 
@@ -324,7 +318,6 @@ void connect_components(const raft::handle_t &handle,
                         size_t n_rows, size_t n_cols, red_op reduction_op,
                         raft::distance::DistanceType metric =
                           raft::distance::DistanceType::L2SqrtExpanded) {
-  auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
 
   RAFT_EXPECTS(metric == raft::distance::DistanceType::L2SqrtExpanded,
@@ -336,10 +329,9 @@ void connect_components(const raft::handle_t &handle,
 
   // Normalize colors so they are drawn from a monotonically increasing set
   raft::label::make_monotonic(colors.data(), colors.data(), n_rows, stream,
-                              d_alloc, true);
+                              true);
 
-  value_idx n_components =
-    get_n_components(colors.data(), n_rows, d_alloc, stream);
+  value_idx n_components = get_n_components(colors.data(), n_rows, stream);
 
   /**
    * First compute 1-nn for all colors where the color of each data point
@@ -351,7 +343,7 @@ void connect_components(const raft::handle_t &handle,
   rmm::device_uvector<value_idx> src_indices(n_rows, stream);
 
   perform_1nn(temp_inds_dists.data(), nn_colors.data(), colors.data(), X,
-              n_rows, n_cols, d_alloc, stream, reduction_op);
+              n_rows, n_cols, stream, reduction_op);
 
   /**
    * Sort data points by color (neighbors are not sorted)
@@ -380,7 +372,7 @@ void connect_components(const raft::handle_t &handle,
 
   size++;
 
-  raft::sparse::COO<value_t, value_idx> min_edges(d_alloc, stream);
+  raft::sparse::COO<value_t, value_idx> min_edges(stream);
   min_edges.allocate(size, n_rows, n_rows, true, stream);
 
   min_components_by_color(min_edges, out_index.data(), src_indices.data(),

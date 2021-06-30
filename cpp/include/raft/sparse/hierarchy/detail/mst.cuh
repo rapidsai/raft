@@ -80,18 +80,16 @@ void connect_knn_graph(const raft::handle_t &handle, const value_t *X,
                        red_op reduction_op,
                        raft::distance::DistanceType metric =
                          raft::distance::DistanceType::L2SqrtExpanded) {
-  auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
 
-  raft::sparse::COO<value_t, value_idx> connected_edges(d_alloc, stream);
+  raft::sparse::COO<value_t, value_idx> connected_edges(stream);
 
   raft::linkage::connect_components<value_idx, value_t>(
     handle, connected_edges, X, color, m, n, reduction_op);
 
   rmm::device_uvector<value_idx> indptr2(m + 1, stream);
-  raft::sparse::convert::sorted_coo_to_csr(connected_edges.rows(),
-                                           connected_edges.nnz, indptr2.data(),
-                                           m + 1, d_alloc, stream);
+  raft::sparse::convert::sorted_coo_to_csr(
+    connected_edges.rows(), connected_edges.nnz, indptr2.data(), m + 1, stream);
 
   // On the second call, we hand the MST the original colors
   // and the new set of edges and let it restart the optimization process
@@ -136,7 +134,6 @@ void build_sorted_mst(const raft::handle_t &handle, const value_t *X,
                       raft::distance::DistanceType metric =
                         raft::distance::DistanceType::L2SqrtExpanded,
                       int max_iter = 10) {
-  auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
 
   // We want to have MST initialize colors on first call.
@@ -145,7 +142,7 @@ void build_sorted_mst(const raft::handle_t &handle, const value_t *X,
     true);
 
   int iters = 1;
-  int n_components = linkage::get_n_components(color, m, d_alloc, stream);
+  int n_components = linkage::get_n_components(color, m, stream);
 
   while (n_components > 1 && iters < max_iter) {
     connect_knn_graph<value_idx, value_t>(handle, X, mst_coo, m, n, color,
@@ -153,7 +150,7 @@ void build_sorted_mst(const raft::handle_t &handle, const value_t *X,
 
     iters++;
 
-    n_components = linkage::get_n_components(color, m, d_alloc, stream);
+    n_components = linkage::get_n_components(color, m, stream);
   }
 
   /**

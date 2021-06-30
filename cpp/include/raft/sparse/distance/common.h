@@ -17,7 +17,6 @@
 #pragma once
 
 #include <cusparse_v2.h>
-#include <raft/mr/device/allocator.hpp>
 
 namespace raft {
 namespace sparse {
@@ -42,8 +41,6 @@ struct distances_config_t {
   value_t *b_data;
 
   cusparseHandle_t handle;
-
-  std::shared_ptr<raft::mr::device::allocator> allocator;
   cudaStream_t stream;
 };
 

@@ -81,8 +81,6 @@ class SparseSelectionTest
   void SetUp() override {
     params = ::testing::TestWithParam<
       SparseSelectionInputs<value_idx, value_t>>::GetParam();
-    std::shared_ptr<raft::mr::device::allocator> alloc(
-      new raft::mr::device::default_allocator);
     CUDA_CHECK(cudaStreamCreate(&stream));
 
     n_rows = params.n_rows;

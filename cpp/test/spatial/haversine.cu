@@ -18,7 +18,6 @@
 #include <raft/linalg/distance_type.h>
 #include <iostream>
 #include <raft/spatial/knn/detail/haversine_distance.cuh>
-#include <rmm/device_buffer.hpp>
 #include <vector>
 #include "../test_utils.h"
 
@@ -30,8 +29,6 @@ template <typename value_idx, typename value_t>
 class HaversineKNNTest : public ::testing::Test {
  protected:
   void basicTest() {
-    auto alloc = std::make_shared<raft::mr::device::default_allocator>();
-
     // Allocate input
     raft::allocate(d_train_inputs, n * d);
 

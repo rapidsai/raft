@@ -44,7 +44,6 @@ template <typename math_t>
 void eigDC(const raft::handle_t &handle, const math_t *in, int n_rows,
            int n_cols, math_t *eig_vectors, math_t *eig_vals,
            cudaStream_t stream) {
-  auto allocator = handle.get_device_allocator();
   cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
 
   int lwork;
@@ -93,7 +92,6 @@ template <typename math_t>
 void eigSelDC(const raft::handle_t &handle, math_t *in, int n_rows, int n_cols,
               int n_eig_vals, math_t *eig_vectors, math_t *eig_vals,
               EigVecMemUsage memUsage, cudaStream_t stream) {
-  auto allocator = handle.get_device_allocator();
   cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
 
   int lwork;
@@ -163,7 +161,6 @@ template <typename math_t>
 void eigJacobi(const raft::handle_t &handle, const math_t *in, int n_rows,
                int n_cols, math_t *eig_vectors, math_t *eig_vals,
                cudaStream_t stream, math_t tol = 1.e-7, int sweeps = 15) {
-  auto allocator = handle.get_device_allocator();
   cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
 
   syevjInfo_t syevj_params = nullptr;

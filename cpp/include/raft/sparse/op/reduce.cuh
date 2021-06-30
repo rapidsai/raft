@@ -21,7 +21,6 @@
 #include <raft/cudart_utils.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include <raft/mr/device/buffer.hpp>
 
 #include <raft/sparse/op/sort.h>
@@ -126,7 +125,6 @@ void max_duplicates(const raft::handle_t &handle,
                     raft::sparse::COO<value_t, value_idx> &out,
                     const value_idx *rows, const value_idx *cols,
                     const value_t *vals, size_t nnz, size_t m, size_t n) {
-  auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
 
   auto exec_policy = rmm::exec_policy(rmm::cuda_stream_view{stream});

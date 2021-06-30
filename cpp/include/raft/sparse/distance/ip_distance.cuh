@@ -22,7 +22,6 @@
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
 
-#include <raft/mr/device/allocator.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include <raft/sparse/distance/common.h>
@@ -207,7 +206,7 @@ class ip_distances_gemm_t : public ip_trans_getters_t<value_idx, value_t> {
     raft::sparse::linalg::csr_transpose(
       config_->handle, config_->b_indptr, config_->b_indices, config_->b_data,
       csc_indptr.data(), csc_indices.data(), csc_data.data(), config_->b_nrows,
-      config_->b_ncols, config_->b_nnz, config_->allocator, config_->stream);
+      config_->b_ncols, config_->b_nnz, config_->stream);
   }
 
   value_t alpha;

@@ -21,7 +21,6 @@
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/unary_op.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include <rmm/device_uvector.hpp>
 
 namespace raft {
@@ -285,7 +284,6 @@ void setValue(math_t *out, const math_t *in, math_t scalar, int len,
  * @param src: input matrix
  * @param dest: output matrix. The result is stored in the dest matrix
  * @param len: number elements of input matrix
- * @param allocator device allocator
  * @param stream cuda stream
  */
 template <typename math_t, typename IdxType = int>

@@ -18,7 +18,6 @@
 
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include <raft/spectral/partition.hpp>
 #include <rmm/device_uvector.hpp>
 
@@ -35,7 +34,6 @@ void fit_embedding(const raft::handle_t &handle, int *rows, int *cols, T *vals,
                    int nnz, int n, int n_components, T *out,
                    unsigned long long seed = 1234567) {
   auto stream = handle.get_stream();
-  auto d_alloc = handle.get_device_allocator();
   rmm::device_uvector<int> src_offsets(n + 1, stream);
   rmm::device_uvector<int> dst_cols(nnz, stream);
   rmm::device_uvector<T> dst_vals(nnz, stream);

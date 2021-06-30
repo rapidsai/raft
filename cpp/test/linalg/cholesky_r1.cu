@@ -19,7 +19,6 @@
 #include <raft/linalg/cusolver_wrappers.h>
 #include <raft/handle.hpp>
 #include <raft/linalg/cholesky_r1_update.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include <sstream>

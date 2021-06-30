@@ -20,7 +20,6 @@
 #include "../test_utils.h"
 
 #include <raft/sparse/op/sort.h>
-#include <raft/mr/device/allocator.hpp>
 
 #include <iostream>
 
@@ -55,8 +54,6 @@ TEST_P(COOSort, Result) {
   raft::random::Rng r(params.seed);
   cudaStream_t stream;
   CUDA_CHECK(cudaStreamCreate(&stream));
-  std::shared_ptr<raft::mr::device::allocator> alloc(
-    new raft::mr::device::default_allocator);
 
   raft::allocate(in_vals, params.nnz);
   r.uniform(in_vals, params.nnz, float(-1.0), float(1.0), stream);
@@ -80,7 +77,7 @@ TEST_P(COOSort, Result) {
   raft::update_device(in_cols, in_cols_h, params.nnz, stream);
   raft::update_device(verify, verify_h, params.nnz, stream);
 
-  op::coo_sort(params.m, params.n, params.nnz, in_rows, in_cols, in_vals, alloc,
+  op::coo_sort(params.m, params.n, params.nnz, in_rows, in_cols, in_vals,
                stream);
 
   ASSERT_TRUE(

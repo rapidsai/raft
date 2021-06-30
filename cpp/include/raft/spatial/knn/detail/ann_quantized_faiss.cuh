@@ -46,7 +46,6 @@
 
 #include <cuml/common/device_buffer.hpp>
 #include <cuml/neighbors/knn.hpp>
-#include <raft/mr/device/allocator.hpp>
 
 #include <iostream>
 #include <set>
@@ -145,8 +144,7 @@ void approx_knn_build_index(raft::handle_t &handle,
   // perform preprocessing
   // k set to 0 (unused during preprocessing / revertion)
   std::unique_ptr<MetricProcessor<float>> query_metric_processor =
-    create_processor<float>(metric, n, D, 0, false, handle.get_stream(),
-                            handle.get_device_allocator());
+    create_processor<float>(metric, n, D, 0, false, handle.get_stream());
 
   query_metric_processor->preprocess(index_array);
 
@@ -183,7 +181,7 @@ void approx_knn_search(raft::handle_t &handle, float *distances,
   // perform preprocessing
   std::unique_ptr<MetricProcessor<float>> query_metric_processor =
     create_processor<float>(index->metric, n, index->index->d, k, false,
-                            handle.get_stream(), handle.get_device_allocator());
+                            handle.get_stream());
 
   query_metric_processor->preprocess(query_array);
   index->index->search(n, query_array, k, distances, indices);

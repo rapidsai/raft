@@ -20,7 +20,6 @@
 #include <raft/cudart_utils.h>
 #include <thrust/device_ptr.h>
 #include <raft/handle.hpp>
-#include <raft/mr/device/allocator.hpp>
 #include <rmm/device_uvector.hpp>
 #include "../test_utils.h"
 

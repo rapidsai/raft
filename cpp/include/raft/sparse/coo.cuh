@@ -17,7 +17,6 @@
 #include <raft/cudart_utils.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include <cusparse_v2.h>
@@ -68,10 +67,9 @@ class COO {
   Index_Type n_cols;
 
   /**
-    * @param d_alloc: the device allocator to use for the underlying buffers
     * @param stream: CUDA stream to use
     */
-  COO(std::shared_ptr<raft::mr::device::allocator> d_alloc, cudaStream_t stream)
+  COO(cudaStream_t stream)
     : rows_arr(0, stream),
       cols_arr(0, stream),
       vals_arr(0, stream),
@@ -98,16 +96,14 @@ class COO {
       n_cols(n_cols) {}
 
   /**
-    * @param d_alloc: the device allocator use
     * @param stream: CUDA stream to use
     * @param nnz: size of the rows/cols/vals arrays
     * @param n_rows: number of rows in the dense matrix
     * @param n_cols: number of cols in the dense matrix
     * @param init: initialize arrays with zeros
     */
-  COO(std::shared_ptr<raft::mr::device::allocator> d_alloc, cudaStream_t stream,
-      Index_Type nnz, Index_Type n_rows = 0, Index_Type n_cols = 0,
-      bool init = true)
+  COO(cudaStream_t stream, Index_Type nnz, Index_Type n_rows = 0,
+      Index_Type n_cols = 0, bool init = true)
     : rows_arr(nnz, stream),
       cols_arr(nnz, stream),
       vals_arr(nnz, stream),

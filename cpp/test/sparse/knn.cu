@@ -24,8 +24,6 @@
 
 #include <raft/cudart_utils.h>
 #include <raft/sparse/cusparse_wrappers.h>
-#include <raft/mr/device/allocator.hpp>
-#include <raft/mr/device/buffer.hpp>
 
 namespace raft {
 namespace sparse {
@@ -95,8 +93,6 @@ class SparseKNNTest
   void SetUp() override {
     params =
       ::testing::TestWithParam<SparseKNNInputs<value_idx, value_t>>::GetParam();
-    std::shared_ptr<raft::mr::device::allocator> alloc(
-      new raft::mr::device::default_allocator);
     CUDA_CHECK(cudaStreamCreate(&stream));
 
     CUSPARSE_CHECK(cusparseCreate(&cusparseHandle));
@@ -110,8 +106,7 @@ class SparseKNNTest
     raft::sparse::selection::brute_force_knn<value_idx, value_t>(
       indptr, indices, data, nnz, n_rows, params.n_cols, indptr, indices, data,
       nnz, n_rows, params.n_cols, out_indices, out_dists, k, cusparseHandle,
-      alloc, stream, params.batch_size_index, params.batch_size_query,
-      params.metric);
+      stream, params.batch_size_index, params.batch_size_query, params.metric);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }

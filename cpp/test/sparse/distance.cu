@@ -21,7 +21,6 @@
 #include <raft/cudart_utils.h>
 #include <raft/linalg/distance_type.h>
 #include <raft/sparse/cusparse_wrappers.h>
-#include <raft/mr/device/allocator.hpp>
 
 #include <raft/sparse/distance/distance.cuh>
 
@@ -83,8 +82,6 @@ class SparseDistanceTest
   void SetUp() override {
     params = ::testing::TestWithParam<
       SparseDistanceInputs<value_idx, value_t>>::GetParam();
-    std::shared_ptr<raft::mr::device::allocator> alloc(
-      new raft::mr::device::default_allocator);
     CUDA_CHECK(cudaStreamCreate(&stream));
 
     CUSPARSE_CHECK(cusparseCreate(&cusparseHandle));
@@ -106,7 +103,6 @@ class SparseDistanceTest
     dist_config.a_indices = indices;
     dist_config.a_data = data;
     dist_config.handle = cusparseHandle;
-    dist_config.allocator = alloc;
     dist_config.stream = stream;
 
     int out_size = dist_config.a_nrows * dist_config.b_nrows;
