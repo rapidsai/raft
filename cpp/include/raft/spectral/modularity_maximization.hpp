@@ -79,19 +79,18 @@ using namespace linalg;
  *    performed.
  *  @return error flag.
  */
-template <typename vertex_t, typename weight_t, typename ThrustExePolicy,
-          typename EigenSolver, typename ClusterSolver>
+template <typename vertex_t, typename weight_t, typename EigenSolver,
+          typename ClusterSolver>
 std::tuple<vertex_t, weight_t, vertex_t> modularity_maximization(
-  handle_t const &handle, ThrustExePolicy thrust_exec_policy,
-  sparse_matrix_t<vertex_t, weight_t> const &csr_m,
+  handle_t const &handle, sparse_matrix_t<vertex_t, weight_t> const &csr_m,
   EigenSolver const &eigen_solver, ClusterSolver const &cluster_solver,
   vertex_t *__restrict__ clusters, weight_t *eigVals, weight_t *eigVecs) {
   RAFT_EXPECTS(clusters != nullptr, "Null clusters buffer.");
   RAFT_EXPECTS(eigVals != nullptr, "Null eigVals buffer.");
   RAFT_EXPECTS(eigVecs != nullptr, "Null eigVecs buffer.");
 
-  auto cublas_h = handle.get_cublas_handle();
   auto stream = handle.get_stream();
+  auto cublas_h = handle.get_cublas_handle();
 
   std::tuple<vertex_t, weight_t, vertex_t>
     stats;  // # iters eigen solver, cluster solver residual, # iters cluster solver
@@ -101,7 +100,7 @@ std::tuple<vertex_t, weight_t, vertex_t> modularity_maximization(
   // Compute eigenvectors of Modularity Matrix
 
   // Initialize Modularity Matrix
-  modularity_matrix_t<vertex_t, weight_t> B{handle, thrust_exec_policy, csr_m};
+  modularity_matrix_t<vertex_t, weight_t> B{handle, csr_m};
 
   auto eigen_config = eigen_solver.get_config();
   auto nEigVecs = eigen_config.n_eigVecs;
@@ -111,7 +110,7 @@ std::tuple<vertex_t, weight_t, vertex_t> modularity_maximization(
     eigen_solver.solve_largest_eigenvectors(handle, B, eigVals, eigVecs);
 
   // Whiten eigenvector matrix
-  transform_eigen_matrix(handle, thrust_exec_policy, n, nEigVecs, eigVecs);
+  transform_eigen_matrix(handle, n, nEigVecs, eigVecs);
 
   // notice that at this point the matrix has already been transposed, so we are scaling
   // columns
@@ -119,8 +118,8 @@ std::tuple<vertex_t, weight_t, vertex_t> modularity_maximization(
   CHECK_CUDA(stream);
 
   // Find partition clustering
-  auto pair_cluster = cluster_solver.solve(handle, thrust_exec_policy, n,
-                                           nEigVecs, eigVecs, clusters);
+  auto pair_cluster =
+    cluster_solver.solve(handle, n, nEigVecs, eigVecs, clusters);
 
   std::get<1>(stats) = pair_cluster.first;
   std::get<2>(stats) = pair_cluster.second;
@@ -138,9 +137,8 @@ std::tuple<vertex_t, weight_t, vertex_t> modularity_maximization(
  *  @param clusters (Input, device memory, n entries) Cluster assignments.
  *  @param modularity On exit, modularity
  */
-template <typename vertex_t, typename weight_t, typename ThrustExePolicy>
+template <typename vertex_t, typename weight_t>
 void analyzeModularity(handle_t const &handle,
-                       ThrustExePolicy thrust_exec_policy,
                        sparse_matrix_t<vertex_t, weight_t> const &csr_m,
                        vertex_t nClusters,
                        vertex_t const *__restrict__ clusters,
@@ -163,15 +161,15 @@ void analyzeModularity(handle_t const &handle,
     cublassetpointermode(cublas_h, CUBLAS_POINTER_MODE_HOST, stream));
 
   // Initialize Modularity
-  modularity_matrix_t<vertex_t, weight_t> B{handle, thrust_exec_policy, csr_m};
+  modularity_matrix_t<vertex_t, weight_t> B{handle, csr_m};
 
   // Initialize output
   modularity = 0;
 
   // Iterate through partitions
   for (i = 0; i < nClusters; ++i) {
-    if (!construct_indicator(handle, thrust_exec_policy, i, n, clustersize,
-                             partModularity, clusters, part_i, Bx, B)) {
+    if (!construct_indicator(handle, i, n, clustersize, partModularity,
+                             clusters, part_i, Bx, B)) {
       WARNING("empty partition");
       continue;
     }
@@ -180,7 +178,7 @@ void analyzeModularity(handle_t const &handle,
     modularity += partModularity;
   }
 
-  modularity = modularity / B.diagonal_.nrm1(thrust_exec_policy);
+  modularity = modularity / B.diagonal_.nrm1();
 }
 
 }  // namespace spectral

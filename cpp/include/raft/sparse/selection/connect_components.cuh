@@ -30,7 +30,6 @@
 #include <thrust/device_ptr.h>
 #include <thrust/sort.h>
 #include <rmm/device_uvector.hpp>
-#include <rmm/exec_policy.hpp>
 
 #include <cub/cub.cuh>
 
@@ -361,7 +360,7 @@ void connect_components(const raft::handle_t &handle,
   raft::sparse::op::compute_duplicates_mask(out_index.data(), colors.data(),
                                             nn_colors.data(), n_rows, stream);
 
-  thrust::exclusive_scan(thrust::cuda::par.on(stream), out_index.data(),
+  thrust::exclusive_scan(handle.get_thrust_policy(), out_index.data(),
                          out_index.data() + out_index.size(), out_index.data());
 
   // compute final size

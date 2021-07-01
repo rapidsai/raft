@@ -25,12 +25,9 @@
 #include <raft/sparse/selection/connect_components.cuh>
 #include <rmm/device_uvector.hpp>
 
-#include <rmm/exec_policy.hpp>
-
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
 #include <thrust/sort.h>
-#include <rmm/exec_policy.hpp>
 
 namespace raft {
 namespace hierarchy {

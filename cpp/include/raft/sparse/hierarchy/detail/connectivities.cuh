@@ -22,7 +22,6 @@
 
 #include <raft/linalg/unary_op.cuh>
 #include <rmm/device_uvector.hpp>
-#include <rmm/exec_policy.hpp>
 
 #include <raft/linalg/distance_type.h>
 #include <raft/sparse/hierarchy/common.h>
@@ -61,7 +60,7 @@ struct distance_graph_impl<raft::hierarchy::LinkageDistance::KNN_GRAPH,
            rmm::device_uvector<value_idx> &indices,
            rmm::device_uvector<value_t> &data, int c) {
     auto stream = handle.get_stream();
-    auto exec_policy = rmm::exec_policy(rmm::cuda_stream_view{stream});
+    auto thrust_policy = handle.get_thrust_policy();
 
     // Need to symmetrize knn into undirected graph
     raft::sparse::COO<value_t, value_idx> knn_graph_coo(stream);
@@ -77,7 +76,7 @@ struct distance_graph_impl<raft::hierarchy::LinkageDistance::KNN_GRAPH,
       knn_graph_coo.rows(), knn_graph_coo.cols(), knn_graph_coo.vals()));
 
     thrust::transform(
-      exec_policy, transform_in, transform_in + knn_graph_coo.nnz,
+      thrust_policy, transform_in, transform_in + knn_graph_coo.nnz,
       knn_graph_coo.vals(),
       [=] __device__(const thrust::tuple<value_idx, value_idx, value_t> &tup) {
         bool self_loop = thrust::get<0>(tup) == thrust::get<1>(tup);

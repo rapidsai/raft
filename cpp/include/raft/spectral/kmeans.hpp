@@ -325,7 +325,6 @@ static __global__ void divideCentroids(
  *    Centroid is randomly chosen with k-means++ algorithm.
  *  @tparam index_type_t the type of data used for indexing.
  *  @tparam value_type_t the type of data used for weights, distances.
- *  @tparam thrust_exe_pol_t the type of thrust execution policy.
  *  @param handle the raft handle.
  *  @param n Number of observation vectors.
  *  @param d Dimension of observation vectors.
@@ -341,12 +340,9 @@ static __global__ void divideCentroids(
  *    coordinates.
  *  @return Zero if successful. Otherwise non-zero.
  */
-template <typename index_type_t, typename value_type_t,
-          typename thrust_exe_pol_t>
-static int chooseNewCentroid(handle_t const& handle,
-                             thrust_exe_pol_t thrust_exec_policy,
-                             index_type_t n, index_type_t d, index_type_t k,
-                             value_type_t rand,
+template <typename index_type_t, typename value_type_t>
+static int chooseNewCentroid(handle_t const& handle, index_type_t n,
+                             index_type_t d, index_type_t k, value_type_t rand,
                              const value_type_t* __restrict__ obs,
                              value_type_t* __restrict__ dists,
                              value_type_t* __restrict__ centroid) {
@@ -357,8 +353,9 @@ static int chooseNewCentroid(handle_t const& handle,
   // Observation vector that is chosen as new centroid
   index_type_t obsIndex;
 
-  auto cublas_h = handle.get_cublas_handle();
   auto stream = handle.get_stream();
+  auto cublas_h = handle.get_cublas_handle();
+  auto thrust_exec_policy = handle.get_thrust_policy();
 
   // Compute cumulative sum of distances
   thrust::inclusive_scan(thrust_exec_policy, thrust::device_pointer_cast(dists),
@@ -417,10 +414,7 @@ static int chooseNewCentroid(handle_t const& handle,
  *    Centroids are randomly chosen with k-means++ algorithm
  *  @tparam index_type_t the type of data used for indexing.
  *  @tparam value_type_t the type of data used for weights, distances.
- *  @tparam thrust_exe_pol_t the type of thrust execution policy.
  *  @param handle the raft handle.
- *  @param  thrust_exec_policy thrust execution policy 
- *    (assumed to have same stream as handle.stream).
  *  @param n Number of observation vectors.
  *  @param d Dimension of observation vectors.
  *  @param k Number of clusters.
@@ -439,14 +433,12 @@ static int chooseNewCentroid(handle_t const& handle,
  *    distance between observation vectors and the closest centroid.
  *  @return Zero if successful. Otherwise non-zero.
  */
-template <typename index_type_t, typename value_type_t,
-          typename thrust_exe_pol_t>
+template <typename index_type_t, typename value_type_t>
 static int initializeCentroids(
-  handle_t const& handle, thrust_exe_pol_t thrust_exec_policy, index_type_t n,
-  index_type_t d, index_type_t k, const value_type_t* __restrict__ obs,
-  value_type_t* __restrict__ centroids, index_type_t* __restrict__ codes,
-  index_type_t* __restrict__ clusterSizes, value_type_t* __restrict__ dists,
-  unsigned long long seed) {
+  handle_t const& handle, index_type_t n, index_type_t d, index_type_t k,
+  const value_type_t* __restrict__ obs, value_type_t* __restrict__ centroids,
+  index_type_t* __restrict__ codes, index_type_t* __restrict__ clusterSizes,
+  value_type_t* __restrict__ dists, unsigned long long seed) {
   // -------------------------------------------------------
   // Variable declarations
   // -------------------------------------------------------
@@ -458,8 +450,9 @@ static int initializeCentroids(
   thrust::default_random_engine rng(seed);
   thrust::uniform_real_distribution<value_type_t> uniformDist(0, 1);
 
-  auto cublas_h = handle.get_cublas_handle();
   auto stream = handle.get_stream();
+  auto cublas_h = handle.get_cublas_handle();
+  auto thrust_exec_policy = handle.get_thrust_policy();
 
   constexpr index_type_t grid_lower_bound{65535};
 
@@ -486,8 +479,8 @@ static int initializeCentroids(
   thrust::fill(thrust_exec_policy, thrust::device_pointer_cast(dists),
                thrust::device_pointer_cast(dists + n), 1);
   CHECK_CUDA(stream);
-  if (chooseNewCentroid(handle, thrust_exec_policy, n, d, k, uniformDist(rng),
-                        obs, dists, centroids))
+  if (chooseNewCentroid(handle, n, d, k, uniformDist(rng), obs, dists,
+                        centroids))
     WARNING("error in k-means++ (could not pick centroid)");
 
   // Compute distances from first centroid
@@ -499,8 +492,8 @@ static int initializeCentroids(
   // Choose remaining centroids
   for (i = 1; i < k; ++i) {
     // Choose ith centroid
-    if (chooseNewCentroid(handle, thrust_exec_policy, n, d, k, uniformDist(rng),
-                          obs, dists, centroids + IDX(0, i, d)))
+    if (chooseNewCentroid(handle, n, d, k, uniformDist(rng), obs, dists,
+                          centroids + IDX(0, i, d)))
       WARNING("error in k-means++ (could not pick centroid)");
 
     // Compute distances from ith centroid
@@ -529,10 +522,7 @@ static int initializeCentroids(
  *    Distance is measured with Euclidean norm.
  *  @tparam index_type_t the type of data used for indexing.
  *  @tparam value_type_t the type of data used for weights, distances.
- *  @tparam thrust_exe_pol_t the type of thrust execution policy.
  *  @param handle the raft handle.
- *  @param  thrust_exec_policy thrust execution policy
- *    (assumed to have same stream as handle.stream).
  *  @param n Number of observation vectors.
  *  @param d Dimension of observation vectors.
  *  @param k Number of clusters.
@@ -553,16 +543,18 @@ static int initializeCentroids(
  *    of squares of assignment.
  *  @return Zero if successful. Otherwise non-zero.
  */
-template <typename index_type_t, typename value_type_t,
-          typename thrust_exe_pol_t>
-static int assignCentroids(
-  handle_t const& handle, thrust_exe_pol_t thrust_exec_policy, index_type_t n,
-  index_type_t d, index_type_t k, const value_type_t* __restrict__ obs,
-  const value_type_t* __restrict__ centroids, value_type_t* __restrict__ dists,
-  index_type_t* __restrict__ codes, index_type_t* __restrict__ clusterSizes,
-  value_type_t* residual_host) {
-  auto cublas_h = handle.get_cublas_handle();
+template <typename index_type_t, typename value_type_t>
+static int assignCentroids(handle_t const& handle, index_type_t n,
+                           index_type_t d, index_type_t k,
+                           const value_type_t* __restrict__ obs,
+                           const value_type_t* __restrict__ centroids,
+                           value_type_t* __restrict__ dists,
+                           index_type_t* __restrict__ codes,
+                           index_type_t* __restrict__ clusterSizes,
+                           value_type_t* residual_host) {
   auto stream = handle.get_stream();
+  auto cublas_h = handle.get_cublas_handle();
+  auto thrust_exec_policy = handle.get_thrust_policy();
 
   // Compute distance between centroids and observation vectors
   CUDA_TRY(cudaMemsetAsync(dists, 0, n * k * sizeof(value_type_t), stream));
@@ -606,10 +598,7 @@ static int assignCentroids(
  *    All clusters are assumed to be non-empty.
  *  @tparam index_type_t the type of data used for indexing.
  *  @tparam value_type_t the type of data used for weights, distances.
- *  @tparam thrust_exe_pol_t the type of thrust execution policy.
  *  @param handle the raft handle.
- *  @param  thrust_exec_policy thrust execution policy
- *    (assumed to have same stream as handle.stream).
  *  @param n Number of observation vectors.
  *  @param d Dimension of observation vectors.
  *  @param k Number of clusters.
@@ -628,10 +617,8 @@ static int assignCentroids(
  *    Workspace.
  *  @return Zero if successful. Otherwise non-zero.
  */
-template <typename index_type_t, typename value_type_t,
-          typename thrust_exe_pol_t>
-static int updateCentroids(handle_t const& handle,
-                           thrust_exe_pol_t thrust_exec_policy, index_type_t n,
+template <typename index_type_t, typename value_type_t>
+static int updateCentroids(handle_t const& handle, index_type_t n,
                            index_type_t d, index_type_t k,
                            const value_type_t* __restrict__ obs,
                            const index_type_t* __restrict__ codes,
@@ -649,8 +636,9 @@ static int updateCentroids(handle_t const& handle,
 
   constexpr index_type_t grid_lower_bound{65535};
 
-  auto cublas_h = handle.get_cublas_handle();
   auto stream = handle.get_stream();
+  auto cublas_h = handle.get_cublas_handle();
+  auto thrust_exec_policy = handle.get_thrust_policy();
 
   // Device memory
   thrust::device_ptr<value_type_t> obs_copy(work);
@@ -722,10 +710,7 @@ namespace raft {
  *    k-means++ algorithm.
  *  @tparam index_type_t the type of data used for indexing.
  *  @tparam value_type_t the type of data used for weights, distances.
- *  @tparam thrust_exe_pol_t the type of thrust execution policy.
  *  @param handle the raft handle.
- *  @param  thrust_exec_policy thrust execution policy
- *    (assumed to have same stream as handle.stream).
  *  @param n Number of observation vectors.
  *  @param d Dimension of observation vectors.
  *  @param k Number of clusters.
@@ -754,11 +739,10 @@ namespace raft {
  *  @param seed random seed to be used.
  *  @return error flag.
  */
-template <typename index_type_t, typename value_type_t,
-          typename thrust_exe_pol_t>
-int kmeans(handle_t const& handle, thrust_exe_pol_t thrust_exec_policy,
-           index_type_t n, index_type_t d, index_type_t k, value_type_t tol,
-           index_type_t maxiter, const value_type_t* __restrict__ obs,
+template <typename index_type_t, typename value_type_t>
+int kmeans(handle_t const& handle, index_type_t n, index_type_t d,
+           index_type_t k, value_type_t tol, index_type_t maxiter,
+           const value_type_t* __restrict__ obs,
            index_type_t* __restrict__ codes,
            index_type_t* __restrict__ clusterSizes,
            value_type_t* __restrict__ centroids,
@@ -785,16 +769,17 @@ int kmeans(handle_t const& handle, thrust_exe_pol_t thrust_exec_policy,
   // Initialization
   // -------------------------------------------------------
 
-  auto cublas_h = handle.get_cublas_handle();
   auto stream = handle.get_stream();
+  auto cublas_h = handle.get_cublas_handle();
+  auto thrust_exec_policy = handle.get_thrust_policy();
 
   // Trivial cases
   if (k == 1) {
     CUDA_TRY(cudaMemsetAsync(codes, 0, n * sizeof(index_type_t), stream));
     CUDA_TRY(cudaMemcpyAsync(clusterSizes, &n, sizeof(index_type_t),
                              cudaMemcpyHostToDevice, stream));
-    if (updateCentroids(handle, thrust_exec_policy, n, d, k, obs, codes,
-                        clusterSizes, centroids, work, work_int))
+    if (updateCentroids(handle, n, d, k, obs, codes, clusterSizes, centroids,
+                        work, work_int))
       WARNING("could not compute k-means centroids");
 
     dim3 blockDim{WARP_SIZE, 1, BLOCK_SIZE / WARP_SIZE};
@@ -840,21 +825,21 @@ int kmeans(handle_t const& handle, thrust_exe_pol_t thrust_exec_policy,
   // -------------------------------------------------------
 
   // Choose initial cluster centroids
-  if (initializeCentroids(handle, thrust_exec_policy, n, d, k, obs, centroids,
-                          codes, clusterSizes, work, seed))
+  if (initializeCentroids(handle, n, d, k, obs, centroids, codes, clusterSizes,
+                          work, seed))
     WARNING("could not initialize k-means centroids");
 
   // Apply k-means iteration until convergence
   for (iter = 0; iter < maxiter; ++iter) {
     // Update cluster centroids
-    if (updateCentroids(handle, thrust_exec_policy, n, d, k, obs, codes,
-                        clusterSizes, centroids, work, work_int))
+    if (updateCentroids(handle, n, d, k, obs, codes, clusterSizes, centroids,
+                        work, work_int))
       WARNING("could not update k-means centroids");
 
     // Determine centroid closest to each observation
     residualPrev = *residual_host;
-    if (assignCentroids(handle, thrust_exec_policy, n, d, k, obs, centroids,
-                        work, codes, clusterSizes, residual_host))
+    if (assignCentroids(handle, n, d, k, obs, centroids, work, codes,
+                        clusterSizes, residual_host))
       WARNING("could not assign observation vectors to k-means clusters");
 
     // Reinitialize empty clusters with new centroids
@@ -868,12 +853,11 @@ int kmeans(handle_t const& handle, thrust_exe_pol_t thrust_exec_policy,
     // conditions, such as if obs is corrupt (as seen as a result of a
     // DataFrame column of NULL edge vals used to create the Graph)
     while (emptyCentroid < k) {
-      if (chooseNewCentroid(handle, thrust_exec_policy, n, d, k,
-                            uniformDist(rng), obs, work,
+      if (chooseNewCentroid(handle, n, d, k, uniformDist(rng), obs, work,
                             centroids + IDX(0, emptyCentroid, d)))
         WARNING("could not replace empty centroid");
-      if (assignCentroids(handle, thrust_exec_policy, n, d, k, obs, centroids,
-                          work, codes, clusterSizes, residual_host))
+      if (assignCentroids(handle, n, d, k, obs, centroids, work, codes,
+                          clusterSizes, residual_host))
         WARNING("could not assign observation vectors to k-means clusters");
       emptyCentroid =
         (thrust::find(thrust_exec_policy,
@@ -905,10 +889,7 @@ int kmeans(handle_t const& handle, thrust_exe_pol_t thrust_exec_policy,
  *    k-means++ algorithm.
  *  @tparam index_type_t the type of data used for indexing.
  *  @tparam value_type_t the type of data used for weights, distances.
- *  @tparam thrust_exe_pol_t the type of thrust execution policy.
  *  @param handle the raft handle.
- *  @param  thrust_exec_policy thrust execution policy
- *    (assumed to have same stream as handle.stream).
  *  @param n Number of observation vectors.
  *  @param d Dimension of observation vectors.
  *  @param k Number of clusters.
@@ -926,11 +907,10 @@ int kmeans(handle_t const& handle, thrust_exe_pol_t thrust_exec_policy,
  *  @param seed random seed to be used.
  *  @return error flag
  */
-template <typename index_type_t, typename value_type_t,
-          typename thrust_exe_pol_t>
-int kmeans(handle_t const& handle, thrust_exe_pol_t thrust_exec_policy,
-           index_type_t n, index_type_t d, index_type_t k, value_type_t tol,
-           index_type_t maxiter, const value_type_t* __restrict__ obs,
+template <typename index_type_t, typename value_type_t>
+int kmeans(handle_t const& handle, index_type_t n, index_type_t d,
+           index_type_t k, value_type_t tol, index_type_t maxiter,
+           const value_type_t* __restrict__ obs,
            index_type_t* __restrict__ codes, value_type_t& residual,
            index_type_t& iters, unsigned long long seed = 123456) {
   using namespace matrix;
@@ -950,9 +930,8 @@ int kmeans(handle_t const& handle, thrust_exe_pol_t thrust_exec_policy,
 
   // Perform k-means
   return kmeans<index_type_t, value_type_t>(
-    handle, thrust_exec_policy, n, d, k, tol, maxiter, obs, codes,
-    clusterSizes.raw(), centroids.raw(), work.raw(), work_int.raw(), &residual,
-    &iters, seed);
+    handle, n, d, k, tol, maxiter, obs, codes, clusterSizes.raw(),
+    centroids.raw(), work.raw(), work_int.raw(), &residual, &iters, seed);
 }
 
 }  // namespace raft

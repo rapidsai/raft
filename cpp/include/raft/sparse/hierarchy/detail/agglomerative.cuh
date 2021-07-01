@@ -21,7 +21,6 @@
 #include <raft/handle.hpp>
 #include <raft/mr/device/buffer.hpp>
 #include <rmm/device_uvector.hpp>
-#include <rmm/exec_policy.hpp>
 
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
@@ -224,7 +223,7 @@ void extract_flattened_clusters(const raft::handle_t &handle, value_idx *labels,
                                 const value_idx *children, size_t n_clusters,
                                 size_t n_leaves) {
   auto stream = handle.get_stream();
-  auto thrust_policy = rmm::exec_policy(rmm::cuda_stream_view{stream});
+  auto thrust_policy = handle.get_thrust_policy();
 
   // Handle special case where n_clusters == 1
   if (n_clusters == 1) {

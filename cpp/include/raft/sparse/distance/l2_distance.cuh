@@ -245,9 +245,8 @@ class hellinger_expanded_distances_t : public distances_t<value_t> {
     : config_(&config), workspace(0, config.handle.get_stream()) {}
 
   void compute(value_t *out_dists) {
-    raft::mr::device::buffer<value_idx> coo_rows(
-      config_->handle.get_device_allocator(), config_->handle.get_stream(),
-      max(config_->b_nnz, config_->a_nnz));
+    rmm::device_uvector<value_idx> coo_rows(max(config_->b_nnz, config_->a_nnz),
+                                            config_->handle.get_stream());
 
     raft::sparse::convert::csr_to_coo(config_->b_indptr, config_->b_nrows,
                                       coo_rows.data(), config_->b_nnz,

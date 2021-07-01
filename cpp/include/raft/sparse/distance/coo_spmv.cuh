@@ -34,8 +34,6 @@
 
 #include <cusparse_v2.h>
 
-#include <rmm/exec_policy.hpp>
-
 namespace raft {
 namespace sparse {
 namespace distance {

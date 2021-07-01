@@ -108,13 +108,12 @@ cudaError_t scale_obs(index_type_t m, index_type_t n, value_type_t* obs) {
   return cudaSuccess;
 }
 
-template <typename vertex_t, typename edge_t, typename weight_t,
-          typename ThrustExePolicy>
-void transform_eigen_matrix(handle_t const& handle,
-                            ThrustExePolicy thrust_exec_policy, edge_t n,
-                            vertex_t nEigVecs, weight_t* eigVecs) {
-  auto cublas_h = handle.get_cublas_handle();
+template <typename vertex_t, typename edge_t, typename weight_t>
+void transform_eigen_matrix(handle_t const& handle, edge_t n, vertex_t nEigVecs,
+                            weight_t* eigVecs) {
   auto stream = handle.get_stream();
+  auto cublas_h = handle.get_cublas_handle();
+  auto thrust_exec_policy = handle.get_thrust_policy();
 
   const weight_t zero{0.0};
   const weight_t one{1.0};
@@ -187,16 +186,15 @@ struct equal_to_i_op {
 
 // Construct indicator vector for ith partition
 //
-template <typename vertex_t, typename edge_t, typename weight_t,
-          typename ThrustExePolicy>
-bool construct_indicator(handle_t const& handle,
-                         ThrustExePolicy thrust_exec_policy, edge_t index,
-                         edge_t n, weight_t& clustersize, weight_t& partStats,
+template <typename vertex_t, typename edge_t, typename weight_t>
+bool construct_indicator(handle_t const& handle, edge_t index, edge_t n,
+                         weight_t& clustersize, weight_t& partStats,
                          vertex_t const* __restrict__ clusters,
                          vector_t<weight_t>& part_i, vector_t<weight_t>& Bx,
                          laplacian_matrix_t<vertex_t, weight_t> const& B) {
-  auto cublas_h = handle.get_cublas_handle();
   auto stream = handle.get_stream();
+  auto cublas_h = handle.get_cublas_handle();
+  auto thrust_exec_policy = handle.get_thrust_policy();
 
   thrust::for_each(thrust_exec_policy,
                    thrust::make_zip_iterator(thrust::make_tuple(

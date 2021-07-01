@@ -30,7 +30,6 @@
 
 #include <cuda_runtime.h>
 #include <stdio.h>
-#include <rmm/exec_policy.hpp>
 
 #include <algorithm>
 #include <iostream>

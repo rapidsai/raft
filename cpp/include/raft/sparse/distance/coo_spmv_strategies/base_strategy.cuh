@@ -23,7 +23,6 @@
 
 #include <rmm/device_uvector.hpp>
 #include <rmm/device_vector.hpp>
-#include <rmm/exec_policy.hpp>
 
 namespace raft {
 namespace sparse {

@@ -63,7 +63,7 @@ void fit_embedding(const raft::handle_t &handle, int *rows, int *cols, T *vals,
   index_type maxiter = 4000;  //default reset value (when set to 0);
   value_type tol = 0.01;
   index_type restart_iter = 15 + neigvs;  //what cugraph is using
-  auto t_exe_p = thrust::cuda::par.on(stream);
+  auto t_exe_p = handle.get_thrust_policy();
   using thrust_exe_policy_t = decltype(t_exe_p);
 
   raft::eigen_solver_config_t<index_type, value_type> cfg{neigvs, maxiter,
@@ -83,8 +83,7 @@ void fit_embedding(const raft::handle_t &handle, int *rows, int *cols, T *vals,
     using value_type_t = value_type;
 
     std::pair<value_type_t, index_type_t> solve(
-      handle_t const &handle, thrust_exe_policy_t t_exe_policy,
-      size_type_t n_obs_vecs, size_type_t dim,
+      handle_t const &handle, size_type_t n_obs_vecs, size_type_t dim,
       value_type_t const *__restrict__ obs,
       index_type_t *__restrict__ codes) const {
       return std::make_pair<value_type_t, index_type_t>(0, 0);

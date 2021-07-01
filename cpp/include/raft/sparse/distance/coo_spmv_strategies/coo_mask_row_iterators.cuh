@@ -20,7 +20,6 @@
 #include "../utils.cuh"
 
 #include <rmm/device_uvector.hpp>
-#include <rmm/exec_policy.hpp>
 
 namespace raft {
 namespace sparse {
