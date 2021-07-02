@@ -20,6 +20,7 @@
 #include <raft/handle.hpp>
 #include <raft/linalg/cholesky_r1_update.cuh>
 #include <raft/mr/device/allocator.hpp>
+#include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include <sstream>
@@ -35,7 +36,7 @@ class CholeskyR1Test : public ::testing::Test {
     : G(n_rows * n_rows, handle.get_stream()),
       L(n_rows * n_rows, handle.get_stream()),
       L_exp(n_rows * n_rows, handle.get_stream()),
-      devInfo(1, handle.get_stream()),
+      devInfo(handle.get_stream()),
       workspace(0, handle.get_stream()) {
     CUDA_CHECK(cudaStreamCreate(&stream));
     handle.set_stream(stream);
@@ -119,7 +120,7 @@ class CholeskyR1Test : public ::testing::Test {
 
   math_t G2_host[4] = {3, 4, 2, 1};
 
-  rmm::device_uvector<int> devInfo;
+  rmm::device_scalar<int> devInfo;
   rmm::device_uvector<math_t> G;
   rmm::device_uvector<math_t> L_exp;
   rmm::device_uvector<math_t> L;

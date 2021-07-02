@@ -22,6 +22,7 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/mr/device/allocator.hpp>
+#include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
 namespace raft {
@@ -48,7 +49,7 @@ void getUniquelabels(value_t *y, size_t n, value_t **y_unique, int *n_unique,
                      std::shared_ptr<raft::mr::device::allocator> allocator) {
   rmm::device_uvector<value_t> y2(n, stream);
   rmm::device_uvector<value_t> y3(n, stream);
-  rmm::device_uvector<int> d_num_selected(1, stream);
+  rmm::device_scalar<int> d_num_selected(stream);
   size_t bytes = 0;
   size_t bytes2 = 0;
 
@@ -64,7 +65,7 @@ void getUniquelabels(value_t *y, size_t n, value_t **y_unique, int *n_unique,
   cub::DeviceRadixSort::SortKeys(cub_storage.data(), bytes, y, y2.data(), n);
   cub::DeviceSelect::Unique(cub_storage.data(), bytes, y2.data(), y3.data(),
                             d_num_selected.data(), n);
-  raft::update_host(n_unique, d_num_selected.data(), 1, stream);
+  *n_unique = d_num_selected.value(stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   // Copy unique classes to output

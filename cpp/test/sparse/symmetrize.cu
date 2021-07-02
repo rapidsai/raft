@@ -20,6 +20,7 @@
 #include <raft/sparse/convert/coo.cuh>
 #include <raft/sparse/coo.cuh>
 #include <raft/sparse/linalg/symmetrize.cuh>
+#include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include "../test_utils.h"
@@ -97,14 +98,13 @@ class SparseSymmetrizeTest : public ::testing::TestWithParam<
     raft::sparse::linalg::symmetrize(handle, coo_rows.data(), indices, data, m,
                                      n, coo_rows.size(), out);
 
-    rmm::device_uvector<value_idx> sum(1, stream);
-
-    CUDA_CHECK(cudaMemsetAsync(sum.data(), 0, 1 * sizeof(value_idx), stream));
+    rmm::device_scalar<value_idx> sum(stream);
+    sum.set_value_to_zero_async(stream);
 
     assert_symmetry<<<raft::ceildiv(out.nnz, 256), 256, 0, stream>>>(
       out.rows(), out.cols(), out.vals(), out.nnz, sum.data());
 
-    raft::update_host(&sum_h, sum.data(), 1, stream);
+    sum_h = sum.value(stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 

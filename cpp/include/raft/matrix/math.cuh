@@ -22,6 +22,7 @@
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/mr/device/allocator.hpp>
+#include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
 namespace raft {
@@ -294,7 +295,7 @@ void ratio(const raft::handle_t &handle, math_t *src, math_t *dest, IdxType len,
   auto d_src = src;
   auto d_dest = dest;
 
-  rmm::device_uvector<math_t> d_sum(1, stream);
+  rmm::device_scalar<math_t> d_sum(stream);
   auto *d_sum_ptr = d_sum.data();
   auto no_op = [] __device__(math_t in) { return in; };
   raft::linalg::mapThenSumReduce(d_sum_ptr, len, no_op, stream, src);

@@ -35,6 +35,7 @@
 #include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
 #include <raft/lap/lap_kernels.cuh>
+#include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
 namespace raft {
@@ -408,7 +409,7 @@ inline void dualUpdate(raft::handle_t const &handle,
   dim3 threads_per_block;
   int total_blocks;
 
-  rmm::device_uvector<weight_t> sp_min_v(1, handle.get_stream());
+  rmm::device_scalar<weight_t> sp_min_v(handle.get_stream());
 
   raft::lap::detail::calculateLinearDims(blocks_per_grid, threads_per_block,
                                          total_blocks, SP);
