@@ -23,6 +23,7 @@
 #include <raft/handle.hpp>
 #include <raft/matrix/math.cuh>
 #include <raft/matrix/matrix.cuh>
+#include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 #include "eig.cuh"
 #include "gemm.cuh"
@@ -69,7 +70,7 @@ void svdQR(const raft::handle_t &handle, T *in, int n_rows, int n_cols,
   const int m = n_rows;
   const int n = n_cols;
 
-  rmm::device_uvector<int> devInfo(1, stream);
+  rmm::device_scalar<int> devInfo(stream);
   T *d_rwork = nullptr;
 
   int lwork = 0;
@@ -170,7 +171,7 @@ void svdJacobi(const raft::handle_t &handle, math_t *in, int n_rows, int n_cols,
   int m = n_rows;
   int n = n_cols;
 
-  rmm::device_uvector<int> devInfo(1, stream);
+  rmm::device_scalar<int> devInfo(stream);
 
   int lwork = 0;
   int econ = 1;

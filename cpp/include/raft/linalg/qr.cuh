@@ -19,6 +19,7 @@
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/cusolver_wrappers.h>
 #include <raft/matrix/matrix.cuh>
+#include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
 namespace raft {
@@ -52,7 +53,7 @@ void qrGetQ(const raft::handle_t &handle, const math_t *M, math_t *Q,
   rmm::device_uvector<math_t> tau(k, stream);
   CUDA_CHECK(cudaMemsetAsync(tau.data(), 0, sizeof(math_t) * k, stream));
 
-  rmm::device_uvector<int> devInfo(1, stream);
+  rmm::device_scalar<int> devInfo(stream);
   int Lwork;
 
   CUSOLVER_CHECK(cusolverDngeqrf_bufferSize(cusolverH, m, n, Q, m, &Lwork));
@@ -97,7 +98,7 @@ void qrGetQR(const raft::handle_t &handle, math_t *M, math_t *Q, math_t *R,
                              cudaMemcpyDeviceToDevice, stream));
 
   int Lwork;
-  rmm::device_uvector<int> devInfo(1, stream);
+  rmm::device_scalar<int> devInfo(stream);
 
   CUSOLVER_CHECK(cusolverDngeqrf_bufferSize(cusolverH, R_full_nrows,
                                             R_full_ncols, R_full.data(),

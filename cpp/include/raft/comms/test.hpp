@@ -43,7 +43,7 @@ bool test_collective_allreduce(const handle_t &handle, int root) {
 
   cudaStream_t stream = handle.get_stream();
 
-  rmm::device_uvector<int> temp_d(1, stream);
+  rmm::device_scalar<int> temp_d(stream);
   CUDA_CHECK(
     cudaMemcpyAsync(temp_d.data(), &send, 1, cudaMemcpyHostToDevice, stream));
 
@@ -74,7 +74,7 @@ bool test_collective_broadcast(const handle_t &handle, int root) {
 
   cudaStream_t stream = handle.get_stream();
 
-  rmm::device_uvector<int> temp_d(1, stream);
+  rmm::device_scalar<int> temp_d(stream);
 
   if (communicator.get_rank() == root)
     CUDA_CHECK(cudaMemcpyAsync(temp_d.data(), &send, sizeof(int),
@@ -101,7 +101,7 @@ bool test_collective_reduce(const handle_t &handle, int root) {
 
   cudaStream_t stream = handle.get_stream();
 
-  rmm::device_uvector<int> temp_d(1, stream);
+  rmm::device_scalar<int> temp_d(stream);
 
   CUDA_CHECK(cudaMemcpyAsync(temp_d.data(), &send, sizeof(int),
                              cudaMemcpyHostToDevice, stream));
@@ -130,7 +130,7 @@ bool test_collective_allgather(const handle_t &handle, int root) {
 
   cudaStream_t stream = handle.get_stream();
 
-  rmm::device_uvector<int> temp_d(1, stream);
+  rmm::device_scalar<int> temp_d(stream);
   rmm::device_uvector<int> recv_d(communicator.get_size(), stream);
 
   CUDA_CHECK(cudaMemcpyAsync(temp_d.data(), &send, sizeof(int),
@@ -162,7 +162,7 @@ bool test_collective_gather(const handle_t &handle, int root) {
 
   cudaStream_t stream = handle.get_stream();
 
-  rmm::device_uvector<int> temp_d(1, stream);
+  rmm::device_scalar<int> temp_d(stream);
   rmm::device_uvector<int> recv_d(
     communicator.get_rank() == root ? communicator.get_size() : 0, stream);
 
@@ -244,7 +244,7 @@ bool test_collective_reducescatter(const handle_t &handle, int root) {
   cudaStream_t stream = handle.get_stream();
 
   rmm::device_uvector<int> temp_d(sends.size(), stream);
-  rmm::device_uvector<int> recv_d(1, stream);
+  rmm::device_scalar<int> recv_d(stream);
 
   CUDA_CHECK(cudaMemcpyAsync(temp_d.data(), sends.data(),
                              sends.size() * sizeof(int), cudaMemcpyHostToDevice,
