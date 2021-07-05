@@ -19,7 +19,6 @@
 #include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
 
-#include <thrust/device_vector.h>
 #include <thrust/fill.h>
 #include <thrust/reduce.h>
 #include <thrust/transform.h>

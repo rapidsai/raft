@@ -38,7 +38,6 @@ TEST(Raft, EigenSolvers) {
   index_type nnz = 0;
   index_type nrows = 0;
   auto stream = h.get_stream();
-  auto t_exe_pol = thrust::cuda::par.on(stream);
 
   sparse_matrix_t<index_type, value_type> sm1{h, ro, ci, vs, nrows, nnz};
   ASSERT_EQ(nullptr, sm1.row_offsets_);

@@ -21,7 +21,6 @@
 
 #include <cuda.h>
 #include <thrust/binary_search.h>
-#include <thrust/device_vector.h>
 #include <thrust/gather.h>
 #include <thrust/iterator/constant_iterator.h>
 #include <thrust/random.h>

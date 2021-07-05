@@ -29,7 +29,6 @@
 #include <faiss/gpu/utils/Select.cuh>
 
 #include <raft/linalg/distance_type.h>
-#include <thrust/device_vector.h>
 #include <thrust/iterator/transform_iterator.h>
 #include <iostream>
 #include <raft/handle.hpp>

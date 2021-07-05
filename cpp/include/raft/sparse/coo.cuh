@@ -22,7 +22,6 @@
 #include <cusparse_v2.h>
 
 #include <thrust/device_ptr.h>
-#include <thrust/device_vector.h>
 #include <thrust/scan.h>
 
 #include <cuda_runtime.h>

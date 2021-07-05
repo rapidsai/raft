@@ -22,6 +22,7 @@
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
 #include <rmm/device_uvector.hpp>
+#include <rmm/exec_policy.hpp>
 
 #include <raft/sparse/op/sort.h>
 #include <thrust/device_ptr.h>
@@ -293,8 +294,8 @@ void from_knn_symmetrize_matrix(const value_idx *restrict knn_indices,
     thrust::device_pointer_cast(row_sizes.data());
 
   // Rolling cumulative sum
-  thrust::exclusive_scan(thrust::cuda::par.on(stream), __row_sizes,
-                         __row_sizes + n, __edges);
+  thrust::exclusive_scan(rmm::exec_policy(stream), __row_sizes, __row_sizes + n,
+                         __edges);
 
   // (5) Perform final data + data.T operation in tandem with memcpying
   symmetric_sum<<<numBlocks, threadsPerBlock, 0, stream>>>(

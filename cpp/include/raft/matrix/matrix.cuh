@@ -20,13 +20,13 @@
 #include <cusolverDn.h>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
-#include <thrust/device_vector.h>
 #include <thrust/execution_policy.h>
 #include <algorithm>
 #include <cstddef>
 #include <raft/cache/cache_util.cuh>
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
+#include <rmm/exec_policy.hpp>
 
 namespace raft {
 namespace matrix {
@@ -64,7 +64,7 @@ void copyRows(const m_t *in, idx_t n_rows, idx_t n_cols, m_t *out,
   idx_t size = n_rows_indices * n_cols;
   auto counting = thrust::make_counting_iterator<idx_t>(0);
 
-  thrust::for_each(thrust::cuda::par.on(stream), counting, counting + size,
+  thrust::for_each(rmm::exec_policy(stream), counting, counting + size,
                    [=] __device__(idx_t idx) {
                      idx_t row = idx % n_rows_indices;
                      idx_t col = idx / n_rows_indices;
@@ -108,7 +108,7 @@ void truncZeroOrigin(m_t *in, idx_t in_n_rows, m_t *out, idx_t out_n_rows,
   auto d_q_trunc = out;
   auto counting = thrust::make_counting_iterator<idx_t>(0);
 
-  thrust::for_each(thrust::cuda::par.on(stream), counting, counting + size,
+  thrust::for_each(rmm::exec_policy(stream), counting, counting + size,
                    [=] __device__(idx_t idx) {
                      idx_t row = idx % m;
                      idx_t col = idx / m;
@@ -133,8 +133,8 @@ void colReverse(m_t *inout, idx_t n_rows, idx_t n_cols, cudaStream_t stream) {
   auto d_q_reversed = inout;
   auto counting = thrust::make_counting_iterator<idx_t>(0);
 
-  thrust::for_each(thrust::cuda::par.on(stream), counting,
-                   counting + (size / 2), [=] __device__(idx_t idx) {
+  thrust::for_each(rmm::exec_policy(stream), counting, counting + (size / 2),
+                   [=] __device__(idx_t idx) {
                      idx_t dest_row = idx % m;
                      idx_t dest_col = idx / m;
                      idx_t src_row = dest_row;
@@ -161,8 +161,8 @@ void rowReverse(m_t *inout, idx_t n_rows, idx_t n_cols, cudaStream_t stream) {
   auto d_q_reversed = inout;
   auto counting = thrust::make_counting_iterator<idx_t>(0);
 
-  thrust::for_each(thrust::cuda::par.on(stream), counting,
-                   counting + (size / 2), [=] __device__(idx_t idx) {
+  thrust::for_each(rmm::exec_policy(stream), counting, counting + (size / 2),
+                   [=] __device__(idx_t idx) {
                      idx_t dest_row = idx % m;
                      idx_t dest_col = idx / m;
                      idx_t src_row = (m - dest_row) - 1;

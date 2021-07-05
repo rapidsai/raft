@@ -21,7 +21,7 @@
 #include <raft/cudart_utils.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
-#include <raft/mr/device/buffer.hpp>
+#include <rmm/exec_policy.hpp>
 
 #include <thrust/device_ptr.h>
 #include <thrust/scan.h>
@@ -69,8 +69,8 @@ void coo_sort(int m, int n, int nnz, int *rows, int *cols, T *vals,
   auto coo_indices = thrust::make_zip_iterator(thrust::make_tuple(rows, cols));
 
   // get all the colors in contiguous locations so we can map them to warps.
-  thrust::sort_by_key(thrust::cuda::par.on(stream), coo_indices,
-                      coo_indices + nnz, vals, TupleComp());
+  thrust::sort_by_key(rmm::exec_policy(stream), coo_indices, coo_indices + nnz,
+                      vals, TupleComp());
 }
 
 /**
@@ -104,8 +104,7 @@ void coo_sort_by_weight(value_idx *rows, value_idx *cols, value_t *data,
 
   auto first = thrust::make_zip_iterator(thrust::make_tuple(rows, cols));
 
-  thrust::sort_by_key(thrust::cuda::par.on(stream), t_data, t_data + nnz,
-                      first);
+  thrust::sort_by_key(rmm::exec_policy(stream), t_data, t_data + nnz, first);
 }
 };  // namespace op
 };  // end NAMESPACE sparse

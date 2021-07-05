@@ -112,7 +112,7 @@ class MatrixCopyRowsTest : public ::testing::Test {
     // Init input array
     thrust::counting_iterator<idx_t> first(0);
     thrust::device_ptr<math_t> ptr(input.data());
-    thrust::copy(thrust::cuda::par.on(stream), first, first + n_cols * n_rows,
+    thrust::copy(handle.get_thrust_policy(), first, first + n_cols * n_rows,
                  ptr);
   }
 

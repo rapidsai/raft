@@ -22,6 +22,7 @@
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
 #include <rmm/device_uvector.hpp>
+#include <rmm/exec_policy.hpp>
 
 #include <thrust/device_ptr.h>
 #include <thrust/scan.h>
@@ -181,7 +182,7 @@ size_t csr_add_calc_inds(const int *a_ind, const int *a_indptr, const T *a_val,
   thrust::device_ptr<int> row_counts_d =
     thrust::device_pointer_cast(row_counts.data());
   thrust::device_ptr<int> c_ind_d = thrust::device_pointer_cast(out_ind);
-  exclusive_scan(thrust::cuda::par.on(stream), row_counts_d, row_counts_d + m,
+  exclusive_scan(rmm::exec_policy(stream), row_counts_d, row_counts_d + m,
                  c_ind_d);
 
   return cnnz;

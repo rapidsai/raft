@@ -160,7 +160,7 @@ void sorted_coo_to_csr(const T *rows, int nnz, T *row_ind, int m,
   thrust::device_ptr<T> row_counts_d =
     thrust::device_pointer_cast(row_counts.data());
   thrust::device_ptr<T> c_ind_d = thrust::device_pointer_cast(row_ind);
-  exclusive_scan(thrust::cuda::par.on(stream), row_counts_d, row_counts_d + m,
+  exclusive_scan(rmm::exec_policy(stream), row_counts_d, row_counts_d + m,
                  c_ind_d);
 }
 

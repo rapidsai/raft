@@ -39,7 +39,6 @@
 #include <faiss/gpu/utils/Select.cuh>
 #include <faiss/gpu/utils/Tensor.cuh>
 
-#include <thrust/device_vector.h>
 #include <thrust/iterator/transform_iterator.h>
 
 #include <raft/linalg/distance_type.h>

@@ -30,6 +30,7 @@
 #include <thrust/device_ptr.h>
 #include <thrust/sort.h>
 #include <rmm/device_uvector.hpp>
+#include <rmm/exec_policy.hpp>
 
 #include <cub/cub.cuh>
 
@@ -211,7 +212,7 @@ void perform_1nn(cub::KeyValuePair<value_idx, value_t> *kvp,
     workspace.data(), reduction_op, reduction_op, true, true, stream);
 
   LookupColorOp<value_idx, value_t> extract_colors_op(colors);
-  thrust::transform(thrust::cuda::par.on(stream), kvp, kvp + n_rows, nn_colors,
+  thrust::transform(rmm::exec_policy(stream), kvp, kvp + n_rows, nn_colors,
                     extract_colors_op);
 }
 
@@ -232,15 +233,15 @@ void sort_by_color(value_idx *colors, value_idx *nn_colors,
                    cub::KeyValuePair<value_idx, value_t> *kvp,
                    value_idx *src_indices, size_t n_rows, cudaStream_t stream) {
   thrust::counting_iterator<value_idx> arg_sort_iter(0);
-  thrust::copy(thrust::cuda::par.on(stream), arg_sort_iter,
-               arg_sort_iter + n_rows, src_indices);
+  thrust::copy(rmm::exec_policy(stream), arg_sort_iter, arg_sort_iter + n_rows,
+               src_indices);
 
   auto keys = thrust::make_zip_iterator(thrust::make_tuple(
     colors, nn_colors, (raft::linkage::KeyValuePair<value_idx, value_t> *)kvp));
   auto vals = thrust::make_zip_iterator(thrust::make_tuple(src_indices));
 
   // get all the colors in contiguous locations so we can map them to warps.
-  thrust::sort_by_key(thrust::cuda::par.on(stream), keys, keys + n_rows, vals,
+  thrust::sort_by_key(rmm::exec_policy(stream), keys, keys + n_rows, vals,
                       TupleComp());
 }
 

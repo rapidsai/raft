@@ -20,7 +20,6 @@
 #include <stdio.h>
 
 #include <cuda.h>
-#include <thrust/device_vector.h>
 #include <thrust/fill.h>
 #include <thrust/reduce.h>
 #include <thrust/transform.h>

@@ -22,7 +22,6 @@
 #include "coo_mask_row_iterators.cuh"
 
 #include <rmm/device_uvector.hpp>
-#include <rmm/device_vector.hpp>
 
 namespace raft {
 namespace sparse {
