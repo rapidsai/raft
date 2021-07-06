@@ -305,6 +305,9 @@ void brute_force_knn_impl(std::vector<float *> &input, std::vector<int> &sizes,
     cudaStream_t stream =
       raft::select_stream(userStream, internalStreams, n_int_streams, i);
 
+    size_t worksize = 0;
+    void *workspace = nullptr;
+
     switch (metric) {
       case raft::distance::DistanceType::Haversine:
 
@@ -319,14 +322,29 @@ void brute_force_knn_impl(std::vector<float *> &input, std::vector<int> &sizes,
         l2_unexpanded_knn<raft::distance::DistanceType::L2Unexpanded,
         int64_t, float>(D, out_i_ptr, out_d_ptr, input[i], search_items,
                        sizes[i], n, k, rowMajorIndex, rowMajorQuery, stream,
-                       allocator, nullptr, 0);
+                       workspace, worksize);
+        if (worksize) {
+          raft::mr::device::buffer<int> d_mutexes(allocator, stream, worksize);
+          workspace = d_mutexes.data();
+          l2_unexpanded_knn<raft::distance::DistanceType::L2Unexpanded,
+            int64_t, float>(D, out_i_ptr, out_d_ptr, input[i], search_items,
+                           sizes[i], n, k, rowMajorIndex, rowMajorQuery, stream,
+                           workspace, worksize);
+        }
         break;
       case raft::distance::DistanceType::L2SqrtUnexpanded:
         l2_unexpanded_knn<raft::distance::DistanceType::L2SqrtUnexpanded,
         int64_t, float>(D, out_i_ptr, out_d_ptr, input[i], search_items,
                        sizes[i], n, k, rowMajorIndex, rowMajorQuery, stream,
-                       allocator, nullptr, 0);
-
+                       workspace, worksize);
+        if (worksize) {
+          raft::mr::device::buffer<int> d_mutexes(allocator, stream, worksize);
+          workspace = d_mutexes.data();
+          l2_unexpanded_knn<raft::distance::DistanceType::L2SqrtUnexpanded,
+            int64_t, float>(D, out_i_ptr, out_d_ptr, input[i], search_items,
+                           sizes[i], n, k, rowMajorIndex, rowMajorQuery, stream,
+                           workspace, worksize);
+        }
         break;
       default:
         faiss::MetricType m = build_faiss_metric(metric);
