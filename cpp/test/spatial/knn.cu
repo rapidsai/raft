@@ -128,10 +128,8 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
   }
 
   void TearDown() override {
-    CUDA_CHECK(cudaFree(search_data_));
-    CUDA_CHECK(cudaFree(indices_));
-    CUDA_CHECK(cudaFree(distances_));
-    CUDA_CHECK(cudaFree(actual_labels_));
+    cudaStream_t stream = handle_.get_stream();
+    raft::deallocate_all(stream);
   }
 
  private:

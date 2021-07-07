@@ -97,15 +97,7 @@ class SparseSelectionTest
   }
 
   void TearDown() override {
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-
-    CUDA_CHECK(cudaFree(dists));
-    CUDA_CHECK(cudaFree(inds));
-    CUDA_CHECK(cudaFree(out_indices));
-    CUDA_CHECK(cudaFree(out_dists));
-    CUDA_CHECK(cudaFree(out_indices_ref));
-    CUDA_CHECK(cudaFree(out_dists_ref));
-
+    raft::deallocate_all(stream);
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
 

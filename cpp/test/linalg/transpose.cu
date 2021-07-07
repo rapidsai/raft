@@ -63,11 +63,7 @@ class TransposeTest : public ::testing::TestWithParam<TranposeInputs<T>> {
     transpose(data, params.n_row, stream);
   }
 
-  void TearDown() override {
-    CUDA_CHECK(cudaFree(data));
-    CUDA_CHECK(cudaFree(data_trans));
-    CUDA_CHECK(cudaFree(data_trans_ref));
-  }
+  void TearDown() override { raft::deallocate_all(stream); }
 
  protected:
   TranposeInputs<T> params;

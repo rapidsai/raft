@@ -26,6 +26,8 @@
 #include <cstdio>
 #include <iomanip>
 #include <iostream>
+#include <mutex>
+#include <unordered_map>
 
 ///@todo: enable once logging has been enabled in raft
 //#include "logger.hpp"
@@ -260,19 +262,36 @@ void print_device_vector(const char* variable_name, const T* devMem,
 }
 /** @} */
 
+static std::mutex mutex_;
+static std::unordered_map<void*, size_t> allocations;
+
 template <typename Type>
 void allocate(Type*& ptr, size_t len, cudaStream_t stream,
               bool setZero = false) {
-  ptr = (Type*)rmm::mr::get_current_device_resource()->allocate(
-    len * sizeof(Type), stream);
-  if (setZero) CUDA_CHECK(cudaMemset(ptr, 0, len * sizeof(Type)));
+  size_t size = len * sizeof(Type);
+  ptr = (Type*)rmm::mr::get_current_device_resource()->allocate(size, stream);
+  if (setZero) CUDA_CHECK(cudaMemset((void*)ptr, 0, size));
+
+  std::lock_guard<std::mutex> _(mutex_);
+  allocations[ptr] = size;
 }
 
 template <typename Type>
-void deallocate(Type*& ptr, size_t len, cudaStream_t stream,
-                bool setZero = false) {
-  rmm::mr::get_current_device_resource()->deallocate(ptr, len * sizeof(Type),
-                                                     stream);
+void deallocate(Type*& ptr, cudaStream_t stream) {
+  std::lock_guard<std::mutex> _(mutex_);
+  size_t size = allocations[ptr];
+  allocations.erase(ptr);
+  rmm::mr::get_current_device_resource()->deallocate((void*)ptr, size, stream);
+}
+
+inline void deallocate_all(cudaStream_t stream) {
+  std::lock_guard<std::mutex> _(mutex_);
+  for (auto& alloc : allocations) {
+    void* ptr = alloc.first;
+    size_t size = alloc.second;
+    rmm::mr::get_current_device_resource()->deallocate(ptr, size, stream);
+  }
+  allocations.clear();
 }
 
 /** helper method to get max usable shared mem per block parameter */

@@ -106,16 +106,8 @@ class CSRTransposeTest
   }
 
   void TearDown() override {
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-    CUDA_CHECK(cudaFree(indptr));
-    CUDA_CHECK(cudaFree(indices));
-    CUDA_CHECK(cudaFree(data));
-    CUDA_CHECK(cudaFree(out_indptr));
-    CUDA_CHECK(cudaFree(out_indices));
-    CUDA_CHECK(cudaFree(out_data));
-    CUDA_CHECK(cudaFree(out_indptr_ref));
-    CUDA_CHECK(cudaFree(out_indices_ref));
-    CUDA_CHECK(cudaFree(out_data_ref));
+    raft::deallocate_all(stream);
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
   void compare() {

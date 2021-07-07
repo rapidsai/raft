@@ -44,7 +44,6 @@ class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
     params = ::testing::TestWithParam<MatrixInputs<T>>::GetParam();
     raft::random::Rng r(params.seed);
     int len = params.n_row * params.n_col;
-    cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
     raft::allocate(in1, len, stream);
     raft::allocate(in2, len, stream);
@@ -58,18 +57,18 @@ class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
     T *outTrunc;
     raft::allocate(outTrunc, 6, stream);
     truncZeroOrigin(in1, params.n_row, outTrunc, 3, 2, stream);
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
   void TearDown() override {
-    CUDA_CHECK(cudaFree(in1));
-    CUDA_CHECK(cudaFree(in2));
-    // CUDA_CHECK(cudaFree(in1_revr));
+    raft::deallocate_all(stream);
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
  protected:
   MatrixInputs<T> params;
   T *in1, *in2, *in1_revr;
+  cudaStream_t stream;
 };
 
 const std::vector<MatrixInputs<float>> inputsf2 = {{0.000001f, 4, 4, 1234ULL}};

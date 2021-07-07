@@ -77,7 +77,6 @@ class DistanceAdjTest
     int n = params.n;
     int k = params.k;
     bool isRowMajor = params.isRowMajor;
-    cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
     raft::allocate(x, m * k, stream);
     raft::allocate(y, n * k, stream);
@@ -103,21 +102,16 @@ class DistanceAdjTest
     raft::distance::distance<raft::distance::DistanceType::L2Expanded, DataType,
                              DataType, bool>(
       x, y, dist, m, n, k, workspace, worksize, fin_op, stream, isRowMajor);
-    CUDA_CHECK(cudaStreamDestroy(stream));
-    CUDA_CHECK(cudaFree(workspace));
+    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
-  void TearDown() override {
-    CUDA_CHECK(cudaFree(x));
-    CUDA_CHECK(cudaFree(y));
-    CUDA_CHECK(cudaFree(dist_ref));
-    CUDA_CHECK(cudaFree(dist));
-  }
+  void TearDown() override {}
 
  protected:
   DistanceAdjInputs<DataType> params;
   DataType *x, *y;
   bool *dist_ref, *dist;
+  cudaStream_t stream;
 };
 
 const std::vector<DistanceAdjInputs<float>> inputsf = {

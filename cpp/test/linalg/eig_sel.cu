@@ -72,15 +72,10 @@ class EigSelTest : public ::testing::TestWithParam<EigSelInputs<T>> {
 
     eigSelDC(handle, cov_matrix, params.n_row, params.n_col, 3, eig_vectors,
              eig_vals, EigVecMemUsage::OVERWRITE_INPUT, stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
-  void TearDown() override {
-    CUDA_CHECK(cudaFree(cov_matrix));
-    CUDA_CHECK(cudaFree(eig_vectors));
-    CUDA_CHECK(cudaFree(eig_vals));
-    CUDA_CHECK(cudaFree(eig_vectors_ref));
-    CUDA_CHECK(cudaFree(eig_vals_ref));
-  }
+  void TearDown() override { raft::deallocate_all(stream); }
 
  protected:
   EigSelInputs<T> params;

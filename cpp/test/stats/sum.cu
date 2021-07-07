@@ -43,7 +43,6 @@ class SumTest : public ::testing::TestWithParam<SumInputs<T>> {
     params = ::testing::TestWithParam<SumInputs<T>>::GetParam();
     int rows = params.rows, cols = params.cols;
     int len = rows * cols;
-    cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
     raft::allocate(data, len, stream);
 
@@ -56,17 +55,18 @@ class SumTest : public ::testing::TestWithParam<SumInputs<T>> {
 
     raft::allocate(sum_act, cols, stream);
     sum(sum_act, data, cols, rows, false, stream);
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
   void TearDown() override {
-    CUDA_CHECK(cudaFree(data));
-    CUDA_CHECK(cudaFree(sum_act));
+    raft::deallocate_all(stream);
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
  protected:
   SumInputs<T> params;
   T *data, *sum_act;
+  cudaStream_t stream;
 };
 
 const std::vector<SumInputs<float>> inputsf = {{0.05f, 1024, 32, 1234ULL},

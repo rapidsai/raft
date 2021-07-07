@@ -70,7 +70,6 @@ class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
     params = ::testing::TestWithParam<RngInputs<T>>::GetParam();
     Rng r(params.seed, params.gtype);
 
-    cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
     raft::allocate(data, params.len, stream);
     raft::allocate(stats, 2, stream, true);
@@ -87,12 +86,12 @@ class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
     CUDA_CHECK(cudaStreamSynchronize(stream));
     h_stats[0] /= params.len;
     h_stats[1] = (h_stats[1] / params.len) - (h_stats[0] * h_stats[0]);
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
   void TearDown() override {
-    CUDA_CHECK(cudaFree(data));
-    CUDA_CHECK(cudaFree(stats));
+    raft::deallocate_all(stream);
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
   void getExpectedMeanVar(float meanvar[2]) {
@@ -110,6 +109,7 @@ class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
   T *data;
   float *stats;
   float h_stats[2];  // mean, var
+  cudaStream_t stream;
 };
 
 typedef RngTest<uint32_t> RngTestU32;

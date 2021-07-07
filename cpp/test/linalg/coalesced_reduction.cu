@@ -57,7 +57,6 @@ class coalescedReductionTest
     raft::random::Rng r(params.seed);
     int rows = params.rows, cols = params.cols;
     int len = rows * cols;
-    cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
     raft::allocate(data, len, stream);
     raft::allocate(dots_exp, rows, stream);
@@ -70,18 +69,18 @@ class coalescedReductionTest
     // Add to result with inplace = true next
     coalescedReductionLaunch(dots_act, data, cols, rows, stream, true);
 
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
   void TearDown() override {
-    CUDA_CHECK(cudaFree(data));
-    CUDA_CHECK(cudaFree(dots_exp));
-    CUDA_CHECK(cudaFree(dots_act));
+    raft::deallocate_all(stream);
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
  protected:
   coalescedReductionInputs<T> params;
   T *data, *dots_exp, *dots_act;
+  cudaStream_t stream;
 };
 
 const std::vector<coalescedReductionInputs<float>> inputsf = {

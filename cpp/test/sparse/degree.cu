@@ -67,8 +67,7 @@ TEST_P(COODegree, Result) {
 
   ASSERT_TRUE(raft::devArrMatch<int>(verify, results, 5, raft::Compare<int>()));
 
-  CUDA_CHECK(cudaFree(in_rows));
-  CUDA_CHECK(cudaFree(verify));
+  raft::deallocate_all(stream);
   CUDA_CHECK(cudaStreamDestroy(stream));
 }
 
@@ -98,9 +97,7 @@ TEST_P(COODegreeNonzero, Result) {
 
   ASSERT_TRUE(raft::devArrMatch<int>(verify, results, 5, raft::Compare<int>()));
 
-  CUDA_CHECK(cudaFree(in_rows));
-  CUDA_CHECK(cudaFree(verify));
-
+  raft::deallocate_all(stream);
   CUDA_CHECK(cudaStreamDestroy(stream));
 }
 

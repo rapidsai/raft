@@ -91,7 +91,8 @@ class KNNGraphTest
   }
 
   void TearDown() override {
-    CUDA_CHECK(cudaFree(X));
+    raft::deallocate_all(stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
 
     delete out;
   }

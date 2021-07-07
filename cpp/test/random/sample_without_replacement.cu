@@ -67,12 +67,8 @@ class SWoRTest : public ::testing::TestWithParam<SWoRInputs<T>> {
   }
 
   void TearDown() override {
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    raft::deallocate_all(stream);
     CUDA_CHECK(cudaStreamDestroy(stream));
-    CUDA_CHECK(cudaFree(in));
-    CUDA_CHECK(cudaFree(wts));
-    CUDA_CHECK(cudaFree(out));
-    CUDA_CHECK(cudaFree(outIdx));
   }
 
  protected:

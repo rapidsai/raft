@@ -88,12 +88,8 @@ class CSRToDenseTest
   }
 
   void TearDown() override {
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-    CUDA_CHECK(cudaFree(indptr));
-    CUDA_CHECK(cudaFree(indices));
-    CUDA_CHECK(cudaFree(data));
-    CUDA_CHECK(cudaFree(out));
-    CUDA_CHECK(cudaFree(out_ref));
+    raft::deallocate_all(stream);
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
   void compare() {

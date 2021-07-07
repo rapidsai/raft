@@ -157,13 +157,11 @@ class ColNormTest : public ::testing::TestWithParam<NormInputs<T>> {
     } else {
       colNorm(dots_act, data, cols, rows, params.type, params.rowMajor, stream);
     }
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
   void TearDown() override {
-    CUDA_CHECK(cudaFree(data));
-    CUDA_CHECK(cudaFree(dots_exp));
-    CUDA_CHECK(cudaFree(dots_act));
+    raft::deallocate_all(stream);
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
 

@@ -97,15 +97,7 @@ class EigTest : public ::testing::TestWithParam<EigInputs<T>> {
               sweeps);
   }
 
-  void TearDown() override {
-    CUDA_CHECK(cudaFree(cov_matrix));
-    CUDA_CHECK(cudaFree(eig_vectors));
-    CUDA_CHECK(cudaFree(eig_vectors_jacobi));
-    CUDA_CHECK(cudaFree(eig_vals));
-    CUDA_CHECK(cudaFree(eig_vals_jacobi));
-    CUDA_CHECK(cudaFree(eig_vectors_ref));
-    CUDA_CHECK(cudaFree(eig_vals_ref));
-  }
+  void TearDown() override { raft::deallocate_all(stream); }
 
  protected:
   EigInputs<T> params;

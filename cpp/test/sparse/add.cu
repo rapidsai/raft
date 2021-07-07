@@ -110,18 +110,8 @@ class CSRAddTest
   }
 
   void TearDown() override {
-    CUDA_CHECK(cudaFree(ind_a));
-    CUDA_CHECK(cudaFree(ind_b));
-    CUDA_CHECK(cudaFree(ind_result));
-    CUDA_CHECK(cudaFree(ind_ptr_a));
-    CUDA_CHECK(cudaFree(ind_ptr_b));
-    CUDA_CHECK(cudaFree(ind_ptr_verify));
-    CUDA_CHECK(cudaFree(ind_ptr_result));
-    CUDA_CHECK(cudaFree(values_a));
-    CUDA_CHECK(cudaFree(values_b));
-    CUDA_CHECK(cudaFree(values_verify));
-    CUDA_CHECK(cudaFree(values_result));
-    cudaStreamDestroy(stream);
+    raft::deallocate_all(stream);
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
  protected:

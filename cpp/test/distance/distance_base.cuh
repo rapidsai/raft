@@ -167,7 +167,6 @@ class DistanceTest : public ::testing::TestWithParam<DistanceInputs<DataType>> {
     int n = params.n;
     int k = params.k;
     bool isRowMajor = params.isRowMajor;
-    cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
     raft::allocate(x, m * k, stream);
     raft::allocate(y, n * k, stream);
@@ -189,21 +188,18 @@ class DistanceTest : public ::testing::TestWithParam<DistanceInputs<DataType>> {
     distanceLauncher<distanceType, DataType>(x, y, dist, dist2, m, n, k, params,
                                              threshold, workspace, worksize,
                                              stream, isRowMajor);
-    CUDA_CHECK(cudaStreamDestroy(stream));
-    CUDA_CHECK(cudaFree(workspace));
+    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
   void TearDown() override {
-    CUDA_CHECK(cudaFree(x));
-    CUDA_CHECK(cudaFree(y));
-    CUDA_CHECK(cudaFree(dist_ref));
-    CUDA_CHECK(cudaFree(dist));
-    CUDA_CHECK(cudaFree(dist2));
+    raft::deallocate_all(stream);
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
  protected:
   DistanceInputs<DataType> params;
   DataType *x, *y, *dist_ref, *dist, *dist2;
+  cudaStream_t stream;
 };
 
 }  // end namespace distance

@@ -132,11 +132,8 @@ class CSRAdjGraphTest
   }
 
   void TearDown() override {
-    CUDA_CHECK(cudaFree(row_ind));
-    CUDA_CHECK(cudaFree(adj));
-    CUDA_CHECK(cudaFree(verify));
-    CUDA_CHECK(cudaFree(result));
-    cudaStreamDestroy(stream);
+    raft::deallocate_all(stream);
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
  protected:

@@ -116,7 +116,7 @@ class MathTest : public ::testing::TestWithParam<MathInputs<T>> {
     int len = params.len;
 
     raft::handle_t handle;
-    cudaStream_t stream;
+    stream = handle.get_stream();
     CUDA_CHECK(cudaStreamCreate(&stream));
 
     raft::allocate(in_power, len, stream);
@@ -174,31 +174,16 @@ class MathTest : public ::testing::TestWithParam<MathInputs<T>> {
     update_device(out_smallzero_ref, in_small_val_zero_ref_h.data(), 4, stream);
     setSmallValuesZero(out_smallzero, in_smallzero, 4, stream);
     setSmallValuesZero(in_smallzero, 4, stream);
-    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
-  void TearDown() override {
-    CUDA_CHECK(cudaFree(in_power));
-    CUDA_CHECK(cudaFree(out_power_ref));
-    CUDA_CHECK(cudaFree(in_sqrt));
-    CUDA_CHECK(cudaFree(out_sqrt_ref));
-    CUDA_CHECK(cudaFree(in_ratio));
-    CUDA_CHECK(cudaFree(out_ratio_ref));
-    CUDA_CHECK(cudaFree(in_sign_flip));
-    CUDA_CHECK(cudaFree(out_sign_flip_ref));
-    CUDA_CHECK(cudaFree(in_recip));
-    CUDA_CHECK(cudaFree(in_recip_ref));
-    CUDA_CHECK(cudaFree(out_recip));
-    CUDA_CHECK(cudaFree(in_smallzero));
-    CUDA_CHECK(cudaFree(out_smallzero));
-    CUDA_CHECK(cudaFree(out_smallzero_ref));
-  }
+  void TearDown() override { raft::deallocate_all(stream); }
 
  protected:
   MathInputs<T> params;
   T *in_power, *out_power_ref, *in_sqrt, *out_sqrt_ref, *in_ratio,
     *out_ratio_ref, *in_sign_flip, *out_sign_flip_ref, *in_recip, *in_recip_ref,
     *out_recip, *in_smallzero, *out_smallzero, *out_smallzero_ref;
+  cudaStream_t stream;
 };
 
 const std::vector<MathInputs<float>> inputsf = {

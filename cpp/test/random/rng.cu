@@ -85,7 +85,6 @@ class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
     // 4 x sigma indicates the test shouldn't fail 99.9% of the time.
     num_sigma = 10;
     params = ::testing::TestWithParam<RngInputs<T>>::GetParam();
-    cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
     Rng r(params.seed, params.gtype);
     raft::allocate(data, params.len, stream);
@@ -124,12 +123,12 @@ class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
     CUDA_CHECK(cudaStreamSynchronize(stream));
     h_stats[0] /= params.len;
     h_stats[1] = (h_stats[1] / params.len) - (h_stats[0] * h_stats[0]);
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
   void TearDown() override {
-    CUDA_CHECK(cudaFree(data));
-    CUDA_CHECK(cudaFree(stats));
+    raft::deallocate_all(stream);
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
   void getExpectedMeanVar(T meanvar[2]) {
@@ -182,6 +181,7 @@ class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
   T *data, *stats;
   T h_stats[2];  // mean, var
   int num_sigma;
+  cudaStream_t stream;
 };
 
 // The measured mean and standard deviation for each tested distribution are,
@@ -416,10 +416,8 @@ TEST(Rng, MeanError) {
     ASSERT_TRUE(
       (diff_expected_vs_measured_mean_error / d_std_of_mean_analytical < 0.5));
   }
+  raft::deallocate_all(stream);
   CUDA_CHECK(cudaStreamDestroy(stream));
-  CUDA_CHECK(cudaFree(data));
-  CUDA_CHECK(cudaFree(mean_result));
-  CUDA_CHECK(cudaFree(std_result));
 
   // std::cout << "mean_res:" << h_mean_result << "\n";
 }
@@ -515,7 +513,6 @@ class RngNormalTableTest
     params = ::testing::TestWithParam<RngNormalTableInputs<T>>::GetParam();
     int len = params.rows * params.cols;
 
-    cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
     Rng r(params.seed, params.gtype);
     raft::allocate(data, len, stream);
@@ -532,13 +529,12 @@ class RngNormalTableTest
     CUDA_CHECK(cudaStreamSynchronize(stream));
     h_stats[0] /= len;
     h_stats[1] = (h_stats[1] / len) - (h_stats[0] * h_stats[0]);
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
   void TearDown() override {
-    CUDA_CHECK(cudaFree(data));
-    CUDA_CHECK(cudaFree(stats));
-    CUDA_CHECK(cudaFree(mu_vec));
+    raft::deallocate_all(stream);
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
   void getExpectedMeanVar(T meanvar[2]) {
@@ -551,6 +547,7 @@ class RngNormalTableTest
   T *data, *stats, *mu_vec;
   T h_stats[2];  // mean, var
   int num_sigma;
+  cudaStream_t stream;
 };
 
 typedef RngNormalTableTest<float> RngNormalTableTestF;

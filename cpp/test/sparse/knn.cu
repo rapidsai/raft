@@ -80,15 +80,7 @@ class SparseKNNTest
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
   }
 
-  void TearDown() override {
-    CUDA_CHECK(cudaFree(indptr));
-    CUDA_CHECK(cudaFree(indices));
-    CUDA_CHECK(cudaFree(data));
-    CUDA_CHECK(cudaFree(out_indices));
-    CUDA_CHECK(cudaFree(out_dists));
-    CUDA_CHECK(cudaFree(out_indices_ref));
-    CUDA_CHECK(cudaFree(out_dists_ref));
-  }
+  void TearDown() override { raft::deallocate_all(handle.get_stream()); }
 
   void compare() {
     ASSERT_TRUE(devArrMatch(out_dists_ref, out_dists, n_rows * k,

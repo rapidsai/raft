@@ -29,7 +29,6 @@ template <typename value_idx, typename value_t>
 class HaversineKNNTest : public ::testing::Test {
  protected:
   void basicTest() {
-    cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
 
     // Allocate input
@@ -74,17 +73,14 @@ class HaversineKNNTest : public ::testing::Test {
     raft::spatial::knn::detail::haversine_knn(
       d_pred_I, d_pred_D, d_train_inputs, d_train_inputs, n, n, k, stream);
 
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
   void SetUp() override { basicTest(); }
 
   void TearDown() override {
-    CUDA_CHECK(cudaFree(d_train_inputs));
-    CUDA_CHECK(cudaFree(d_pred_I));
-    CUDA_CHECK(cudaFree(d_pred_D));
-    CUDA_CHECK(cudaFree(d_ref_I));
-    CUDA_CHECK(cudaFree(d_ref_D));
+    raft::deallocate_all(stream);
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
  protected:
@@ -100,6 +96,8 @@ class HaversineKNNTest : public ::testing::Test {
 
   value_idx *d_ref_I;
   value_t *d_ref_D;
+
+  cudaStream_t stream;
 };
 
 typedef HaversineKNNTest<int, float> HaversineKNNTestF;

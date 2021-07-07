@@ -122,15 +122,8 @@ class FusedL2NNTest : public ::testing::TestWithParam<Inputs<DataT>> {
   }
 
   void TearDown() override {
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    raft::deallocate_all(stream);
     CUDA_CHECK(cudaStreamDestroy(stream));
-    CUDA_CHECK(cudaFree(x));
-    CUDA_CHECK(cudaFree(y));
-    CUDA_CHECK(cudaFree(xn));
-    CUDA_CHECK(cudaFree(yn));
-    CUDA_CHECK(cudaFree(workspace));
-    CUDA_CHECK(cudaFree(min_ref));
-    CUDA_CHECK(cudaFree(min));
   }
 
  protected:
@@ -286,10 +279,7 @@ class FusedL2NNDetTest : public FusedL2NNTest<DataT, Sqrt> {
     raft::allocate(min1, m, stream);
   }
 
-  void TearDown() override {
-    FusedL2NNTest<DataT, Sqrt>::TearDown();
-    CUDA_CHECK(cudaFree(min1));
-  }
+  void TearDown() override { FusedL2NNTest<DataT, Sqrt>::TearDown(); }
 
  protected:
   cub::KeyValuePair<int, DataT> *min1;

@@ -51,7 +51,6 @@ void create_ref(OutType *out_ref, const InType *in1, const InType *in2,
   eltwiseAdd(tmp, in1, in2, len, stream);
   eltwiseAdd(out_ref, tmp, in3, len, stream);
   scalarAdd(out_ref, out_ref, (OutType)scalar, len, stream);
-  CUDA_CHECK(cudaFree(tmp));
 }
 
 template <typename InType, typename IdxType, typename OutType = InType>
@@ -63,7 +62,6 @@ class MapTest
       ::testing::TestWithParam<MapInputs<InType, IdxType, OutType>>::GetParam();
     raft::random::Rng r(params.seed);
 
-    cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
     IdxType len = params.len;
     raft::allocate(in1, len, stream);
@@ -77,21 +75,19 @@ class MapTest
 
     create_ref(out_ref, in1, in2, in3, params.scalar, len, stream);
     mapLaunch(out, in1, in2, in3, params.scalar, len, stream);
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
   void TearDown() override {
-    CUDA_CHECK(cudaFree(in1));
-    CUDA_CHECK(cudaFree(in2));
-    CUDA_CHECK(cudaFree(in3));
-    CUDA_CHECK(cudaFree(out_ref));
-    CUDA_CHECK(cudaFree(out));
+    raft::deallocate_all(stream);
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
  protected:
   MapInputs<InType, IdxType, OutType> params;
   InType *in1, *in2, *in3;
   OutType *out_ref, *out;
+  cudaStream_t stream;
 };
 
 const std::vector<MapInputs<float, int>> inputsf_i32 = {

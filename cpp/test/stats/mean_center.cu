@@ -47,7 +47,6 @@ class MeanCenterTest
     params = ::testing::TestWithParam<MeanCenterInputs<T, IdxType>>::GetParam();
     raft::random::Rng r(params.seed);
 
-    cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
 
     auto rows = params.rows, cols = params.cols;
@@ -65,19 +64,18 @@ class MeanCenterTest
                params.bcastAlongRows, stream);
     raft::linalg::naiveMatVec(out_ref, data, meanVec, cols, rows,
                               params.rowMajor, params.bcastAlongRows, (T)-1.0);
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
   void TearDown() override {
-    CUDA_CHECK(cudaFree(out));
-    CUDA_CHECK(cudaFree(out_ref));
-    CUDA_CHECK(cudaFree(data));
-    CUDA_CHECK(cudaFree(meanVec));
+    raft::deallocate_all(stream);
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
  protected:
   MeanCenterInputs<T, IdxType> params;
   T *data, *meanVec, *out, *out_ref;
+  cudaStream_t stream;
 };
 
 const std::vector<MeanCenterInputs<float, int>> inputsf_i32 = {
