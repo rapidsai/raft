@@ -54,160 +54,6 @@ struct NNComp {
   }
 };
 
-// `Dir` true, produce largest values.
-// `Dir` false, produce smallest values.
-template <typename K, typename V, bool Dir, typename Comp, int NumWarpQ,
-          int NumThreadQ, int ThreadsPerBlock>
-struct KeyValueWarpSelect {
-  static constexpr int kNumWarpQRegisters = NumWarpQ / faiss::gpu::kWarpSize;
-
-  __device__ inline KeyValueWarpSelect(K initKVal,
-                                       faiss::gpu::KeyValuePair<K, V> initVVal,
-                                       int k)
-    : initK(initKVal),
-      initV(initVVal),
-      numVals(0),
-      warpKTop(initKVal),
-      kLane((k - 1) % faiss::gpu::kWarpSize) {
-    static_assert(faiss::gpu::utils::isPowerOf2(ThreadsPerBlock),
-                  "threads must be a power-of-2");
-    static_assert(faiss::gpu::utils::isPowerOf2(NumWarpQ),
-                  "warp queue must be power-of-2");
-
-    // Fill the per-thread queue keys with the default value
-#pragma unroll
-    for (int i = 0; i < NumThreadQ; ++i) {
-      threadK[i] = initK;
-      threadV[i] = initV;
-    }
-
-    // Fill the warp queue with the default value
-#pragma unroll
-    for (int i = 0; i < kNumWarpQRegisters; ++i) {
-      warpK[i] = initK;
-      warpV[i] = initV;
-    }
-  }
-
-  __device__ inline void addThreadQ(K k, faiss::gpu::KeyValuePair<K, V> v) {
-    if (Dir ? Comp::gt(k, warpKTop) : Comp::lt(k, warpKTop)) {
-      // Rotate right
-#pragma unroll
-      for (int i = NumThreadQ - 1; i > 0; --i) {
-        threadK[i] = threadK[i - 1];
-        threadV[i] = threadV[i - 1];
-      }
-
-      threadK[0] = k;
-      threadV[0] = faiss::gpu::KeyValuePair(v.key, v.value);
-      ++numVals;
-    }
-  }
-  /// This function handles sorting and merging together the
-  /// per-thread queues with the warp-wide queue, creating a sorted
-  /// list across both
-
-  // TODO
-  __device__ inline void mergeWarpQ() {
-    // Sort all of the per-thread queues
-    faiss::gpu::warpSortAnyRegistersKVP<K, V, NumThreadQ, !Dir, Comp>(threadK,
-                                                                      threadV);
-
-    // The warp queue is already sorted, and now that we've sorted the
-    // per-thread queue, merge both sorted lists together, producing
-    // one sorted list
-    faiss::gpu::warpMergeAnyRegistersKVP<K, V, kNumWarpQRegisters, NumThreadQ,
-                                         !Dir, Comp, false>(warpK, warpV,
-                                                            threadK, threadV);
-  }
-
-  /// WARNING: all threads in a warp must participate in this.
-  /// Otherwise, you must call the constituent parts separately.
-  __device__ inline void add(K k, faiss::gpu::KeyValuePair<K, V> v) {
-    addThreadQ(k, v);
-    checkThreadQ();
-  }
-
-  __device__ inline void reduce() {
-    // Have all warps dump and merge their queues; this will produce
-    // the final per-warp results
-    mergeWarpQ();
-  }
-
-  __device__ inline void checkThreadQ() {
-    bool needSort = (numVals == NumThreadQ);
-
-#if CUDA_VERSION >= 9000
-    needSort = __any_sync(0xffffffff, needSort);
-#else
-    needSort = __any(needSort);
-#endif
-
-    if (!needSort) {
-      // no lanes have triggered a sort
-      return;
-    }
-
-    mergeWarpQ();
-
-    // Any top-k elements have been merged into the warp queue; we're
-    // free to reset the thread queues
-    numVals = 0;
-
-#pragma unroll
-    for (int i = 0; i < NumThreadQ; ++i) {
-      threadK[i] = initK;
-      threadV[i] = initV;
-    }
-
-    // We have to beat at least this element
-
-    warpKTopRDist = shfl(warpV[kNumWarpQRegisters - 1].value, kLane);
-    warpKTop = shfl(warpK[kNumWarpQRegisters - 1], kLane);
-  }
-
-  /// Dump final k selected values for this warp out
-  __device__ inline void writeOut(K *outK, V *outV, int k) {
-    int laneId = faiss::gpu::getLaneId();
-
-#pragma unroll
-    for (int i = 0; i < kNumWarpQRegisters; ++i) {
-      int idx = i * faiss::gpu::kWarpSize + laneId;
-
-      if (idx < k) {
-        outK[idx] = warpK[i];
-        outV[idx] = warpV[i].value;
-      }
-    }
-  }
-
-  // Default element key
-  const K initK;
-
-  // Default element value
-  const faiss::gpu::KeyValuePair<K, V> initV;
-
-  // Number of valid elements in our thread queue
-  int numVals;
-
-  // The k-th highest (Dir) or lowest (!Dir) element
-  K warpKTop;
-  K warpKTopRDist;
-
-  // Thread queue values
-  K threadK[NumThreadQ];
-  faiss::gpu::KeyValuePair<K, V> threadV[NumThreadQ];
-
-  // warpK[0] is highest (Dir) or lowest (!Dir)
-  K warpK[kNumWarpQRegisters];
-  faiss::gpu::KeyValuePair<K, V> warpV[kNumWarpQRegisters];
-
-  // This is what lane we should load an approximation (>=k) to the
-  // kth element from the last register in the warp queue (i.e.,
-  // warpK[kNumWarpQRegisters - 1]).
-  int kLane;
-};
-
 /**
  * Kernel for more narrow data sizes (n_cols <= 32)
  * @tparam value_idx
@@ -244,8 +90,9 @@ __global__ void rbc_kernel(const value_t *X, value_int n_cols,
   value_t x2 = x_ptr[1];
 
   // Each warp works on 1 R
-  KeyValueWarpSelect<value_t, value_idx, false, faiss::gpu::Comparator<value_t>,
-                     warp_q, thread_q, tpb>
+  faiss::gpu::KeyValueWarpSelect<value_t, value_idx, false,
+                                 faiss::gpu::Comparator<value_t>, warp_q,
+                                 thread_q, tpb>
     heap(faiss::gpu::Limits<value_t>::getMax(),
          faiss::gpu::KeyValuePair<value_t, value_idx>(
            faiss::gpu::Limits<value_t>::getMax(), -1),
@@ -266,6 +113,9 @@ __global__ void rbc_kernel(const value_t *X, value_int n_cols,
   value_t cur_R_dist = R_knn_dists[row * k + cur_k];
   value_idx cur_R_ind = R_knn_inds[row * k + cur_k];
 
+  // Equation (2) in Cayton's paper- prune out R's which are > 3 * p(q, r_q)
+  if (cur_R_dist > 3 * min_R_dist) return;
+
   // The whole warp should iterate through the elements in the current R
   value_idx R_start_offset = R_indptr[cur_R_ind];
   value_idx R_stop_offset = R_indptr[cur_R_ind + 1];
@@ -280,22 +130,25 @@ __global__ void rbc_kernel(const value_t *X, value_int n_cols,
     value_idx cur_candidate_ind = R_1nn_cols[R_start_offset + i];
     value_t cur_candidate_dist = R_1nn_dists[R_start_offset + i];
 
-    if (row == debug_row && cur_candidate_ind == row) {
+    if (row == 2547454 && cur_candidate_ind == 2547455) {
       const value_t *y_ptr = X + (n_cols * cur_candidate_ind);
       value_t y1 = y_ptr[0];
       value_t y2 = y_ptr[1];
 
-      value_t z = (abs(heap.warpKTop - heap.warpKTopRDist) *
-                   abs(heap.warpKTopRDist - cur_candidate_dist) -
-                   heap.warpKTop * cur_candidate_dist) /
-                  heap.warpKTopRDist;
+      value_t z = heap.warpKTopRDist == 0.00
+                    ? 0.0
+                    : (abs(heap.warpKTop - heap.warpKTopRDist) *
+                         abs(heap.warpKTopRDist - cur_candidate_dist) -
+                       heap.warpKTop * cur_candidate_dist) /
+                        heap.warpKTopRDist;
 
       value_t dist = compute_haversine(x1, y1, x2, y2);
       printf(
         "row=%d, cur_R_ind=%ld, cur_R_dist=%f, cur_candidate_ind=%ld, "
-        "cur_candidate_dist=%f, actual_dist=%f, z=%f, warpKTop=%f, warpKTopRDist=%f\n",
-        row, cur_R_ind, cur_R_dist, cur_candidate_ind, cur_candidate_dist,
-        dist, z, heap.warpKTop, heap.warpKTopRDist);
+        "cur_candidate_dist=%f, actual_dist=%f, z=%f, warpKTop=%f, "
+        "warpKTopRDist=%f\n",
+        row, cur_R_ind, cur_R_dist, cur_candidate_ind, cur_candidate_dist, dist,
+        z, heap.warpKTop, heap.warpKTopRDist);
     }
 
     // Take 2 landmarks l_1 and l_2 where l_1 is the furthest point in the heap
@@ -308,10 +161,12 @@ __global__ void rbc_kernel(const value_t *X, value_int n_cols,
     // distance because it's possible it could be smaller.
     //
 
-    value_t z = (abs(heap.warpKTop - heap.warpKTopRDist) *
-                   abs(heap.warpKTopRDist - cur_candidate_dist) -
-                 heap.warpKTop * cur_candidate_dist) /
-                heap.warpKTopRDist;
+    value_t z = heap.warpKTopRDist == 0.00
+                  ? 0.0
+                  : (abs(heap.warpKTop - heap.warpKTopRDist) *
+                       abs(heap.warpKTopRDist - cur_candidate_dist) -
+                     heap.warpKTop * cur_candidate_dist) /
+                      heap.warpKTopRDist;
     if (i < k || z < heap.warpKTop) {
       const value_t *y_ptr = X + (n_cols * cur_candidate_ind);
       value_t y1 = y_ptr[0];
@@ -330,10 +185,12 @@ __global__ void rbc_kernel(const value_t *X, value_int n_cols,
   if (i < R_size) {
     value_idx cur_candidate_ind = R_1nn_cols[R_start_offset + i];
     value_t cur_candidate_dist = R_1nn_dists[R_start_offset + i];
-    value_t z = (abs(heap.warpKTop - heap.warpKTopRDist) *
-                   abs(heap.warpKTopRDist - cur_candidate_dist) -
-                 heap.warpKTop * cur_candidate_dist) /
-                heap.warpKTopRDist;
+    value_t z = heap.warpKTopRDist == 0.0
+                  ? 0.0
+                  : (abs(heap.warpKTop - heap.warpKTopRDist) *
+                       abs(heap.warpKTopRDist - cur_candidate_dist) -
+                     heap.warpKTop * cur_candidate_dist) /
+                      heap.warpKTopRDist;
 
     if (i < k || z < heap.warpKTop) {
       const value_t *y_ptr = X + (n_cols * cur_candidate_ind);
@@ -356,6 +213,9 @@ __global__ void rbc_kernel(const value_t *X, value_int n_cols,
   atomicAdd(dist_counter + row, n_dists_computed);
 }
 
+//template<typename value_idx, typename value_t>
+//void compute_landmark_radius()
+
 /**
  * Random ball cover algorithm uses the triangle inequality
  * (which can be used for any valid metric or distance
@@ -377,6 +237,10 @@ void random_ball_cover(const raft::handle_t &handle, const value_t *X,
 
   rmm::device_uvector<value_idx> out_inds_full(k * k * m, handle.get_stream());
   rmm::device_uvector<value_t> out_dists_full(k * k * m, handle.get_stream());
+
+  thrust::fill(exec_policy, out_dists_full.data(),
+               out_dists_full.data() + out_dists_full.size(),
+               std::numeric_limits<value_t>::max());
 
   n_samples = n_samples < 1 ? int(sqrt(m)) : n_samples;
 
@@ -403,6 +267,9 @@ void random_ball_cover(const raft::handle_t &handle, const value_t *X,
   raft::matrix::copyRows<value_t, value_idx, size_t>(
     X, m, n, R.data(), R_1nn_cols2.data(), n_samples, handle.get_stream(),
     true);
+
+  raft::print_device_vector("R sampled indices", R_indices.data(),
+                            R_indices.size(), std::cout);
 
   /**
    * 2. Perform knn = bfknn(X, R, k)
@@ -471,17 +338,26 @@ void random_ball_cover(const raft::handle_t &handle, const value_t *X,
   rbc_kernel<<<m * k, 32, 0, handle.get_stream()>>>(
     X, n, R_knn_inds.data(), R_knn_dists.data(), m, k, R_indptr.data(),
     R_1nn_cols.data(), R_1nn_dists.data(), out_inds_full.data(),
-    out_dists_full.data(), R_indices.data(), dists_counter.data(), 3070433);
+    out_dists_full.data(), R_indices.data(), dists_counter.data(), 2547454);
 
   raft::print_device_vector("dists_counter", dists_counter.data(), 15,
                             std::cout);
 
   raft::print_device_vector("out_dists_full",
-                            out_dists_full.data() + (3070433 * k * k), k * k,
+                            out_dists_full.data() + (2547454 * k * k), k * k,
                             std::cout);
   raft::print_device_vector("out_inds_full",
-                            out_inds_full.data() + (3070433 * k * k), k * k,
+                            out_inds_full.data() + (2547454 * k * k), k * k,
                             std::cout);
+
+  raft::print_device_vector(
+    "2547454 R knn: ", R_knn_inds.data() + (2547454 * k), k, std::cout);
+  raft::print_device_vector(
+    "2547454 R knn dists: ", R_knn_dists.data() + (2547454 * k), k, std::cout);
+  raft::print_device_vector(
+    "2547455 R knn: ", R_knn_inds.data() + (2547455 * k), k, std::cout);
+  raft::print_device_vector(
+    "2547455 R knn dists: ", R_knn_dists.data() + (2547455 * k), k, std::cout);
 
   // Reduce k * k to final k
   select_k(out_dists_full.data(), out_inds_full.data(), m, k * k, dists, inds,
