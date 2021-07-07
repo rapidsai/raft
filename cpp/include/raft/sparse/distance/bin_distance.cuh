@@ -87,8 +87,8 @@ void compute_bin_distance(value_t *out, const value_idx *Q_coo_rows,
                           value_idx R_nnz, value_idx m, value_idx n,
                           std::shared_ptr<raft::mr::device::allocator> alloc,
                           cudaStream_t stream, expansion_f expansion_func) {
-  raft::mr::device::buffer<value_t> Q_norms(alloc, stream, m);
-  raft::mr::device::buffer<value_t> R_norms(alloc, stream, n);
+  rmm::device_uvector<value_t> Q_norms(m, stream);
+  rmm::device_uvector<value_t> R_norms(n, stream);
   CUDA_CHECK(
     cudaMemsetAsync(Q_norms.data(), 0, Q_norms.size() * sizeof(value_t)));
   CUDA_CHECK(
@@ -113,8 +113,7 @@ class jaccard_expanded_distances_t : public distances_t<value_t> {
   explicit jaccard_expanded_distances_t(
     const distances_config_t<value_idx, value_t> &config)
     : config_(&config),
-      workspace(config.handle.get_device_allocator(),
-                config.handle.get_stream(), 0),
+      workspace(0, config.handle.get_stream()),
       ip_dists(config) {}
 
   void compute(value_t *out_dists) {
@@ -123,9 +122,8 @@ class jaccard_expanded_distances_t : public distances_t<value_t> {
     value_idx *b_indices = ip_dists.b_rows_coo();
     value_t *b_data = ip_dists.b_data_coo();
 
-    raft::mr::device::buffer<value_idx> search_coo_rows(
-      config_->handle.get_device_allocator(), config_->handle.get_stream(),
-      config_->a_nnz);
+    rmm::device_uvector<value_idx> search_coo_rows(
+      config_->a_nnz, config_->handle.get_stream());
     raft::sparse::convert::csr_to_coo(config_->a_indptr, config_->a_nrows,
                                       search_coo_rows.data(), config_->a_nnz,
                                       config_->handle.get_stream());
@@ -150,7 +148,7 @@ class jaccard_expanded_distances_t : public distances_t<value_t> {
 
  private:
   const distances_config_t<value_idx, value_t> *config_;
-  raft::mr::device::buffer<char> workspace;
+  rmm::device_uvector<char> workspace;
   ip_distances_t<value_idx, value_t> ip_dists;
 };
 
@@ -164,8 +162,7 @@ class dice_expanded_distances_t : public distances_t<value_t> {
   explicit dice_expanded_distances_t(
     const distances_config_t<value_idx, value_t> &config)
     : config_(&config),
-      workspace(config.handle.get_device_allocator(),
-                config.handle.get_stream(), 0),
+      workspace(0, config.handle.get_stream()),
       ip_dists(config) {}
 
   void compute(value_t *out_dists) {
@@ -174,9 +171,8 @@ class dice_expanded_distances_t : public distances_t<value_t> {
     value_idx *b_indices = ip_dists.b_rows_coo();
     value_t *b_data = ip_dists.b_data_coo();
 
-    raft::mr::device::buffer<value_idx> search_coo_rows(
-      config_->handle.get_device_allocator(), config_->handle.get_stream(),
-      config_->a_nnz);
+    rmm::device_uvector<value_idx> search_coo_rows(
+      config_->a_nnz, config_->handle.get_stream());
     raft::sparse::convert::csr_to_coo(config_->a_indptr, config_->a_nrows,
                                       search_coo_rows.data(), config_->a_nnz,
                                       config_->handle.get_stream());
@@ -197,7 +193,7 @@ class dice_expanded_distances_t : public distances_t<value_t> {
 
  private:
   const distances_config_t<value_idx, value_t> *config_;
-  raft::mr::device::buffer<char> workspace;
+  rmm::device_uvector<char> workspace;
   ip_distances_t<value_idx, value_t> ip_dists;
 };
 
