@@ -27,7 +27,8 @@ namespace detail {
 
 template <bool useNorms, typename DataT, typename AccT, typename OutT,
           typename IdxT, typename Policy, typename CoreLambda,
-          typename FinalLambda, bool isRowMajor = true>
+          typename FinalLambda, bool usePrevTopKs = false,
+          bool isRowMajor = true>
 __global__ __launch_bounds__( Policy::Nthreads, 2) void fusedL2kNN(
                       const DataT* x, const DataT* y,
                       const DataT* _xn, const DataT* _yn, IdxT m,
@@ -216,6 +217,27 @@ __global__ __launch_bounds__( Policy::Nthreads, 2) void fusedL2kNN(
     myWarpSelect heapArr1(identity, keyMax, numOfNN);
     myWarpSelect heapArr2(identity, keyMax, numOfNN);
     myWarpSelect *heapArr[] = {&heapArr1, &heapArr2};
+    if (usePrevTopKs) {
+      if (gridStrideX == blockIdx.x * Policy::Nblk) {
+#pragma unroll
+        for (int i = 0; i < newAccRowsPerTh; ++i) {
+          const auto gmemRowId = starty + i * newAccThRows;
+          if (gmemRowId < m) {
+    #pragma unroll
+            for (int j = 0; j < heapArr[i]->kNumWarpQRegisters; ++j) {
+              const auto idx = j * warpSize + lid;
+              if (idx < numOfNN) {
+                heapArr[i]->warpK[j] = out_dists[gmemRowId * numOfNN + idx];
+                heapArr[i]->warpV[j] = (uint32_t)out_inds[gmemRowId * numOfNN + idx];
+              }
+            }
+            auto constexpr kLaneWarpKTop = heapArr[i]->kNumWarpQRegisters - 1;
+            heapArr[i]->warpKTop = raft::shfl(heapArr[i]->warpK[kLaneWarpKTop], heapArr[i]->kLane);
+          }
+        }
+      }
+    }
+
     if (gridStrideX > blockIdx.x * Policy::Nblk) {
 #pragma unroll
       for (int i = 0; i < newAccRowsPerTh; ++i) {
@@ -395,7 +417,7 @@ __global__ __launch_bounds__( Policy::Nthreads, 2) void fusedL2kNN(
 
 
 template <typename DataT, typename AccT, typename OutT, typename IdxT,
-          int VecLen, bool isRowMajor>
+          int VecLen, bool usePrevTopKs, bool isRowMajor>
 void fusedL2kNNImpl(const DataT *x, const DataT *y, IdxT m, IdxT n, IdxT k,
                     IdxT lda, IdxT ldb, IdxT ldd, bool sqrt, OutT *out_dists,
                     IdxT *out_inds, IdxT numOfNN, cudaStream_t stream,
@@ -423,7 +445,7 @@ void fusedL2kNNImpl(const DataT *x, const DataT *y, IdxT m, IdxT n, IdxT k,
 
   if (isRowMajor) {
     auto fusedL2kNNRowMajor = fusedL2kNN<false, DataT, AccT, OutT, IdxT, KPolicy,
-                              decltype(core_lambda), decltype(fin_op), true>;
+                              decltype(core_lambda), decltype(fin_op), usePrevTopKs, true>;
     dim3 grid = raft::distance::launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize, fusedL2kNNRowMajor);
     if (grid.x > 1) {
       const auto numMutexes = raft::ceildiv<int>(m, KPolicy::Mblk);
@@ -449,7 +471,7 @@ void fusedL2kNNImpl(const DataT *x, const DataT *y, IdxT m, IdxT n, IdxT k,
 }
 
 template <typename DataT, typename AccT, typename OutT, typename IdxT,
-          bool isRowMajor>
+          bool usePrevTopKs, bool isRowMajor>
 void fusedL2kNN(IdxT m, IdxT n, IdxT k, IdxT lda, IdxT ldb, IdxT ldd,
                   const DataT *x, const DataT *y, bool sqrt, OutT *out_dists,
                   IdxT *out_inds, IdxT numOfNN, cudaStream_t stream,
@@ -458,15 +480,15 @@ void fusedL2kNN(IdxT m, IdxT n, IdxT k, IdxT lda, IdxT ldb, IdxT ldd,
   size_t bytesA = sizeof(DataT) * lda;
   size_t bytesB = sizeof(DataT) * ldb;
   if (16 % sizeof(DataT) == 0 && bytesA % 16 == 0 && bytesB % 16 == 0) {
-    fusedL2kNNImpl<DataT, AccT, OutT, IdxT, 16 / sizeof(DataT), isRowMajor>
-            (x, y, m, n, k, lda, ldb, ldd, sqrt, out_dists, out_inds, numOfNN,
-              stream, workspace, worksize);
+    fusedL2kNNImpl<DataT, AccT, OutT, IdxT, 16 / sizeof(DataT), usePrevTopKs,
+            isRowMajor>(x, y, m, n, k, lda, ldb, ldd, sqrt, out_dists,
+              out_inds, numOfNN, stream, workspace, worksize);
   } else if (8 % sizeof(DataT) == 0 && bytesA % 8 == 0 && bytesB % 8 == 0) {
-    fusedL2kNNImpl<DataT, AccT, OutT, IdxT, 8 / sizeof(DataT), isRowMajor>
-        (x, y, m, n, k, lda, ldb, ldd, sqrt, out_dists, out_inds, numOfNN,
-          stream, workspace, worksize);
+    fusedL2kNNImpl<DataT, AccT, OutT, IdxT, 8 / sizeof(DataT), usePrevTopKs,
+            isRowMajor> (x, y, m, n, k, lda, ldb, ldd, sqrt, out_dists,
+              out_inds, numOfNN, stream, workspace, worksize);
   } else {
-    fusedL2kNNImpl<DataT, AccT, OutT, IdxT, 1, isRowMajor>(
+    fusedL2kNNImpl<DataT, AccT, OutT, IdxT, 1, usePrevTopKs, isRowMajor>(
       x, y, m, n, k, lda, ldb, ldd, sqrt, out_dists, out_inds, numOfNN,
         stream, workspace, worksize);
   }
@@ -489,7 +511,7 @@ void fusedL2kNN(IdxT m, IdxT n, IdxT k, IdxT lda, IdxT ldb, IdxT ldd,
  * @param[in] stream stream to order kernel launch
  */
 template <raft::distance::DistanceType distanceType, typename value_idx,
-        typename value_t>
+        typename value_t, bool usePrevTopKs>
 void l2_unexpanded_knn(size_t D, value_idx *out_inds, value_t *out_dists,
                       const value_t *index, const value_t *query,
                       size_t n_index_rows, size_t n_query_rows, int k,
@@ -522,9 +544,9 @@ void l2_unexpanded_knn(size_t D, value_idx *out_inds, value_t *out_dists,
 
   if (rowMajorIndex) {
     value_idx lda = D, ldb = D, ldd = n_index_rows;
-    fusedL2kNN<value_t, value_t, value_t, value_idx, true>(n_query_rows,
-          n_index_rows, D, lda, ldb, ldd, query, index, sqrt, out_dists, out_inds, k,
-          stream, workspace, worksize);
+    fusedL2kNN<value_t, value_t, value_t, value_idx, usePrevTopKs,
+            true>(n_query_rows, n_index_rows, D, lda, ldb, ldd, query,
+            index, sqrt, out_dists, out_inds, k, stream, workspace, worksize);
   } else {
 /*    IdxT lda = D, ldb = D, ldd = n_query_rows;
     fusedL2kNN<value_t, value_t, value_t, value_idx, false>(n_index_rows,

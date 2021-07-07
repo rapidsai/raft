@@ -320,30 +320,30 @@ void brute_force_knn_impl(std::vector<float *> &input, std::vector<int> &sizes,
         break;
       case raft::distance::DistanceType::L2Unexpanded:
         l2_unexpanded_knn<raft::distance::DistanceType::L2Unexpanded,
-        int64_t, float>(D, out_i_ptr, out_d_ptr, input[i], search_items,
+        int64_t, float, false>(D, out_i_ptr, out_d_ptr, input[i], search_items,
                        sizes[i], n, k, rowMajorIndex, rowMajorQuery, stream,
                        workspace, worksize);
         if (worksize) {
           raft::mr::device::buffer<int> d_mutexes(allocator, stream, worksize);
           workspace = d_mutexes.data();
           l2_unexpanded_knn<raft::distance::DistanceType::L2Unexpanded,
-            int64_t, float>(D, out_i_ptr, out_d_ptr, input[i], search_items,
-                           sizes[i], n, k, rowMajorIndex, rowMajorQuery, stream,
-                           workspace, worksize);
+            int64_t, float, false>(D, out_i_ptr, out_d_ptr, input[i],
+            search_items, sizes[i], n, k, rowMajorIndex, rowMajorQuery,
+            stream, workspace, worksize);
         }
         break;
       case raft::distance::DistanceType::L2SqrtUnexpanded:
         l2_unexpanded_knn<raft::distance::DistanceType::L2SqrtUnexpanded,
-        int64_t, float>(D, out_i_ptr, out_d_ptr, input[i], search_items,
+        int64_t, float, false>(D, out_i_ptr, out_d_ptr, input[i], search_items,
                        sizes[i], n, k, rowMajorIndex, rowMajorQuery, stream,
                        workspace, worksize);
         if (worksize) {
           raft::mr::device::buffer<int> d_mutexes(allocator, stream, worksize);
           workspace = d_mutexes.data();
           l2_unexpanded_knn<raft::distance::DistanceType::L2SqrtUnexpanded,
-            int64_t, float>(D, out_i_ptr, out_d_ptr, input[i], search_items,
-                           sizes[i], n, k, rowMajorIndex, rowMajorQuery, stream,
-                           workspace, worksize);
+            int64_t, float, false>(D, out_i_ptr, out_d_ptr, input[i],
+              search_items, sizes[i], n, k, rowMajorIndex, rowMajorQuery,
+              stream, workspace, worksize);
         }
         break;
       default:
