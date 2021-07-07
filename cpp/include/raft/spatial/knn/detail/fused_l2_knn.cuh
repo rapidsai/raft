@@ -25,6 +25,94 @@ namespace spatial {
 namespace knn {
 namespace detail {
 
+template<typename Policy, typename Pair, typename myWarpSelect,
+        typename IdxT>
+DI void loadWarpQShmem(myWarpSelect &heapArr, Pair *shDumpKV, const IdxT m,
+                          const unsigned int numOfNN) {
+  const int lid = raft::laneId();
+#pragma unroll
+  for (int i = 0; i < Policy::AccRowsPerTh; ++i) {
+    const auto rowId = (threadIdx.x / Policy::AccThCols) + i * Policy::AccThRows;
+    if (rowId < m) {
+#pragma unroll
+      for (int j = 0; j < heapArr[i]->kNumWarpQRegisters; ++j) {
+        const int idx = j * warpSize + lid;
+        if (idx < numOfNN) {
+          Pair KVPair = shDumpKV[rowId * numOfNN + idx];
+          heapArr[i]->warpV[j] = KVPair.key;
+          heapArr[i]->warpK[j] = KVPair.value;
+        }
+      }
+      auto constexpr kLaneWarpKTop = heapArr[i]->kNumWarpQRegisters - 1;
+      heapArr[i]->warpKTop = raft::shfl(heapArr[i]->warpK[kLaneWarpKTop],
+                                        heapArr[i]->kLane);
+    }
+  }
+}
+
+template<typename Policy, typename Pair, typename myWarpSelect,
+        typename IdxT>
+DI void storeWarpQShmem(myWarpSelect &heapArr, Pair *shDumpKV,
+                        const IdxT rowId, const unsigned int numOfNN) {
+  const int lid = raft::laneId();
+
+#pragma unroll
+  for (int j = 0; j < heapArr->kNumWarpQRegisters; ++j) {
+    const int idx = j * warpSize + lid;
+    if (idx < numOfNN) {
+      Pair otherKV = {heapArr->warpV[j], heapArr->warpK[j]};
+      shDumpKV[rowId * numOfNN + idx] = otherKV;
+    }
+  }
+}
+
+template<typename Policy, typename Pair, typename myWarpSelect,
+        typename IdxT, typename OutT>
+DI void storeWarpQGmem(myWarpSelect &heapArr, OutT *out_dists,
+                       IdxT *out_inds, const IdxT m,
+                       const unsigned int numOfNN, const IdxT starty) {
+  const int lid = raft::laneId();
+#pragma unroll
+  for (int i = 0; i < Policy::AccRowsPerTh; ++i) {
+    const auto gmemRowId = starty + i * Policy::AccThRows;
+    if (gmemRowId < m) {
+#pragma unroll
+      for (int j = 0; j < heapArr[i]->kNumWarpQRegisters; ++j) {
+        const auto idx = j * warpSize + lid;
+        if (idx < numOfNN) {
+          out_dists[gmemRowId * numOfNN + idx] = heapArr[i]->warpK[j];
+          out_inds[gmemRowId * numOfNN + idx] = (IdxT)heapArr[i]->warpV[j];
+        }
+      }
+    }
+  }
+}
+
+template<typename Policy, typename Pair, typename myWarpSelect,
+        typename IdxT, typename OutT>
+DI void loadPrevTopKsGmemWarpQ(myWarpSelect &heapArr, OutT *out_dists,
+                              IdxT *out_inds, const IdxT m,
+                              const unsigned int numOfNN, const IdxT starty) {
+  const int lid = raft::laneId();
+#pragma unroll
+  for (int i = 0; i < Policy::AccRowsPerTh; ++i) {
+    const auto gmemRowId = starty + i * Policy::AccThRows;
+    if (gmemRowId < m) {
+#pragma unroll
+      for (int j = 0; j < heapArr[i]->kNumWarpQRegisters; ++j) {
+        const auto idx = j * warpSize + lid;
+        if (idx < numOfNN) {
+          heapArr[i]->warpK[j] = out_dists[gmemRowId * numOfNN + idx];
+          heapArr[i]->warpV[j] = (uint32_t)out_inds[gmemRowId * numOfNN + idx];
+        }
+      }
+      auto constexpr kLaneWarpKTop = heapArr[i]->kNumWarpQRegisters - 1;
+      heapArr[i]->warpKTop = raft::shfl(heapArr[i]->warpK[kLaneWarpKTop],
+                                          heapArr[i]->kLane);
+    }
+  }
+}
+
 template <bool useNorms, typename DataT, typename AccT, typename OutT,
           typename IdxT, typename Policy, typename CoreLambda,
           typename FinalLambda, bool usePrevTopKs = false,
@@ -79,23 +167,8 @@ __global__ __launch_bounds__( Policy::Nthreads, 2) void fusedL2kNN(
       myWarpSelect heapArr2(identity, keyMax, numOfNN);
       myWarpSelect *heapArr[] = {&heapArr1, &heapArr2};
       __syncthreads();
-#pragma unroll
-      for (int i = 0; i < newAccRowsPerTh; ++i) {
-        const auto rowId = (threadIdx.x / newAccThCols) + i * newAccThRows;
-        if (rowId < m) {
-#pragma unroll
-          for (int j = 0; j < heapArr[i]->kNumWarpQRegisters; ++j) {
-            const int idx = j * warpSize + lid;
-            if (idx < numOfNN) {
-              Pair KVPair = shDumpKV[rowId * numOfNN + idx];
-              heapArr[i]->warpV[j] = KVPair.key;
-              heapArr[i]->warpK[j] = KVPair.value;
-            }
-          }
-          auto constexpr kLaneWarpKTop = heapArr[i]->kNumWarpQRegisters - 1;
-          heapArr[i]->warpKTop = raft::shfl(heapArr[i]->warpK[kLaneWarpKTop], heapArr[i]->kLane);
-        }
-      }
+
+      loadWarpQShmem<Policy, Pair>(heapArr, &shDumpKV[0], m, numOfNN);
 
       while (cta_processed < gridDim.x-1) {
         Pair otherKV[newAccRowsPerTh];
@@ -147,16 +220,9 @@ __global__ __launch_bounds__( Policy::Nthreads, 2) void fusedL2kNN(
           if (needSort) {
             heapArr[i]->reduce();
           }
-#pragma unroll
-          for (int j = 0; j < heapArr[i]->kNumWarpQRegisters; ++j) {
-            const auto idx = j * warpSize + lid;
-            if (idx < numOfNN) {
-              out_dists[rowId * numOfNN + idx] = heapArr[i]->warpK[j];
-              out_inds[rowId * numOfNN + idx] = (IdxT)heapArr[i]->warpV[j];
-            }
-          }
         }
       }
+      storeWarpQGmem<Policy, Pair>(heapArr, out_dists, out_inds, m, numOfNN, starty);
     } else {
       if (threadIdx.x == 0) {
         int32_t old = -1;
@@ -219,43 +285,15 @@ __global__ __launch_bounds__( Policy::Nthreads, 2) void fusedL2kNN(
     myWarpSelect *heapArr[] = {&heapArr1, &heapArr2};
     if (usePrevTopKs) {
       if (gridStrideX == blockIdx.x * Policy::Nblk) {
-#pragma unroll
-        for (int i = 0; i < newAccRowsPerTh; ++i) {
-          const auto gmemRowId = starty + i * newAccThRows;
-          if (gmemRowId < m) {
-    #pragma unroll
-            for (int j = 0; j < heapArr[i]->kNumWarpQRegisters; ++j) {
-              const auto idx = j * warpSize + lid;
-              if (idx < numOfNN) {
-                heapArr[i]->warpK[j] = out_dists[gmemRowId * numOfNN + idx];
-                heapArr[i]->warpV[j] = (uint32_t)out_inds[gmemRowId * numOfNN + idx];
-              }
-            }
-            auto constexpr kLaneWarpKTop = heapArr[i]->kNumWarpQRegisters - 1;
-            heapArr[i]->warpKTop = raft::shfl(heapArr[i]->warpK[kLaneWarpKTop], heapArr[i]->kLane);
-          }
-        }
+        loadPrevTopKsGmemWarpQ<Policy, Pair>(heapArr, out_dists, out_inds, m,
+                                              numOfNN, starty);
       }
     }
 
     if (gridStrideX > blockIdx.x * Policy::Nblk) {
-#pragma unroll
-      for (int i = 0; i < newAccRowsPerTh; ++i) {
-        const auto rowId = (threadIdx.x / newAccThCols) + i * newAccThRows;
-        if (rowId < m) {
-#pragma unroll
-          for (int j = 0; j < heapArr[i]->kNumWarpQRegisters; ++j) {
-            const int idx = j * warpSize + lid;
-            if (idx < numOfNN) {
-              Pair KVPair = shDumpKV[rowId * numOfNN + idx];
-              heapArr[i]->warpV[j] = KVPair.key;
-              heapArr[i]->warpK[j] = KVPair.value;
-            }
-          }
-          auto constexpr kLaneWarpKTop = heapArr[i]->kNumWarpQRegisters - 1;
-          heapArr[i]->warpKTop = raft::shfl(heapArr[i]->warpK[kLaneWarpKTop], heapArr[i]->kLane);
-        }
-      }
+
+      loadWarpQShmem<Policy, Pair>(heapArr, &shDumpKV[0], m, numOfNN);
+
       // total vals can atmost be 256, (32*8)
       int numValsWarpTopK[newAccRowsPerTh];
       uint32_t needScanSort[newAccRowsPerTh];
@@ -341,14 +379,7 @@ __global__ __launch_bounds__( Policy::Nthreads, 2) void fusedL2kNN(
               if (needSort) {
                 heapArr[i]->reduce();
               }
-#pragma unroll
-              for (int j = 0; j < heapArr[i]->kNumWarpQRegisters; ++j) {
-                const int idx = j * warpSize + lid;
-                if (idx < numOfNN) {
-                  Pair otherKV = {heapArr[i]->warpV[j], heapArr[i]->warpK[j]};
-                  shDumpKV[rowId * numOfNN + idx] = otherKV;
-                }
-              }
+              storeWarpQShmem<Policy, Pair>(heapArr[i], shDumpKV, rowId, numOfNN);
             }
           }
         }
@@ -375,34 +406,15 @@ __global__ __launch_bounds__( Policy::Nthreads, 2) void fusedL2kNN(
           if (needSort) {
             heapArr[i]->reduce();
           }
-#pragma unroll
-          for (int j = 0; j < heapArr[i]->kNumWarpQRegisters; ++j) {
-            const int idx = j * warpSize + lid;
-            if (idx < numOfNN) {
-              Pair otherKV = {heapArr[i]->warpV[j], heapArr[i]->warpK[j]};
-              shDumpKV[shMemRowId * numOfNN + idx] = otherKV;
-            }
-          }
+          storeWarpQShmem<Policy, Pair>(heapArr[i], shDumpKV, shMemRowId, numOfNN);
         }
       }
     }
 
     if (((gridStrideX + Policy::Nblk * gridDim.x) > n) && gridDim.x == 1) {
           // This is last iteration of grid stride X
-#pragma unroll
-      for (int i = 0; i < newAccRowsPerTh; ++i) {
-        const auto gmemRowId = starty + i * newAccThRows;
-        if (gmemRowId < m) {
-#pragma unroll
-          for (int j = 0; j < heapArr[i]->kNumWarpQRegisters; ++j) {
-            const auto idx = j * warpSize + lid;
-            if (idx < numOfNN) {
-              out_dists[gmemRowId * numOfNN + idx] = heapArr[i]->warpK[j];
-              out_inds[gmemRowId * numOfNN + idx] = (IdxT)heapArr[i]->warpV[j];
-            }
-          }
-        }
-      }
+      storeWarpQGmem<Policy, Pair>(heapArr, out_dists, out_inds, m, numOfNN,
+                                    starty);
     }
   };
 
@@ -413,7 +425,6 @@ __global__ __launch_bounds__( Policy::Nthreads, 2) void fusedL2kNN(
         epilog_lambda, fin_op, rowEpilog_lambda);
   obj.run();
 }
-
 
 
 template <typename DataT, typename AccT, typename OutT, typename IdxT,
@@ -447,6 +458,7 @@ void fusedL2kNNImpl(const DataT *x, const DataT *y, IdxT m, IdxT n, IdxT k,
     auto fusedL2kNNRowMajor = fusedL2kNN<false, DataT, AccT, OutT, IdxT, KPolicy,
                               decltype(core_lambda), decltype(fin_op), usePrevTopKs, true>;
     dim3 grid = raft::distance::launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize, fusedL2kNNRowMajor);
+
     if (grid.x > 1) {
       const auto numMutexes = raft::ceildiv<int>(m, KPolicy::Mblk);
       if (workspace == nullptr || worksize < (sizeof(int32_t) * numMutexes)) {
