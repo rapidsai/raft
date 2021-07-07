@@ -272,6 +272,13 @@ void random_ball_cover(const raft::handle_t &handle, const value_t *X,
                             R_indices.size(), std::cout);
 
   /**
+   * Compute radius of each R for filtering: p(q, r) <= p(q, q_r) + radius(r)
+   */
+
+
+
+
+  /**
    * 2. Perform knn = bfknn(X, R, k)
    */
   std::vector<value_t *> input = {R.data()};
