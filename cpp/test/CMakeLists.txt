@@ -19,14 +19,10 @@ add_executable(test_raft
     test/cudart_utils.cpp
     test/cluster_solvers.cu
     test/distance/dist_adj.cu
-    test/distance/dist_canberra.cu
-    test/distance/dist_chebyshev.cu
     test/distance/dist_cos.cu
     test/distance/dist_euc_exp.cu
     test/distance/dist_euc_unexp.cu
-    test/distance/dist_hellinger.cu
     test/distance/dist_l1.cu
-    test/distance/dist_minkowski.cu
     test/distance/fused_l2_nn.cu
     test/eigen_solvers.cu
     test/handle.cpp

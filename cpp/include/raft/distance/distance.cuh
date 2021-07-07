@@ -19,13 +19,9 @@
 #include <cuda_runtime_api.h>
 #include <raft/linalg/distance_type.h>
 #include <raft/cuda_utils.cuh>
-#include <raft/distance/canberra.cuh>
-#include <raft/distance/chebyshev.cuh>
 #include <raft/distance/cosine.cuh>
 #include <raft/distance/euclidean.cuh>
-#include <raft/distance/hellinger.cuh>
 #include <raft/distance/l1.cuh>
-#include <raft/distance/minkowski.cuh>
 #include <raft/mr/device/buffer.hpp>
 
 namespace raft {
@@ -38,7 +34,7 @@ template <raft::distance::DistanceType distanceType, typename InType,
 struct DistanceImpl {
   void run(const InType *x, const InType *y, OutType *dist, Index_ m, Index_ n,
            Index_ k, void *workspace, size_t worksize, FinalLambda fin_op,
-           cudaStream_t stream, bool isRowMajor, InType metric_arg = 2.0f) {}
+           cudaStream_t stream, bool isRowMajor) {}
 };
 
 template <typename InType, typename AccType, typename OutType,
@@ -47,7 +43,7 @@ struct DistanceImpl<raft::distance::DistanceType::L2Expanded, InType, AccType,
                     OutType, FinalLambda, Index_> {
   void run(const InType *x, const InType *y, OutType *dist, Index_ m, Index_ n,
            Index_ k, void *workspace, size_t worksize, FinalLambda fin_op,
-           cudaStream_t stream, bool isRowMajor, InType metric_arg) {
+           cudaStream_t stream, bool isRowMajor) {
     raft::distance::euclideanAlgo1<InType, AccType, OutType, FinalLambda,
                                    Index_>(m, n, k, x, y, dist, false,
                                            (AccType *)workspace, worksize,
@@ -61,7 +57,7 @@ struct DistanceImpl<raft::distance::DistanceType::L2SqrtExpanded, InType,
                     AccType, OutType, FinalLambda, Index_> {
   void run(const InType *x, const InType *y, OutType *dist, Index_ m, Index_ n,
            Index_ k, void *workspace, size_t worksize, FinalLambda fin_op,
-           cudaStream_t stream, bool isRowMajor, InType metric_arg) {
+           cudaStream_t stream, bool isRowMajor) {
     raft::distance::euclideanAlgo1<InType, AccType, OutType, FinalLambda,
                                    Index_>(m, n, k, x, y, dist, true,
                                            (AccType *)workspace, worksize,
@@ -75,7 +71,7 @@ struct DistanceImpl<raft::distance::DistanceType::CosineExpanded, InType,
                     AccType, OutType, FinalLambda, Index_> {
   void run(const InType *x, const InType *y, OutType *dist, Index_ m, Index_ n,
            Index_ k, void *workspace, size_t worksize, FinalLambda fin_op,
-           cudaStream_t stream, bool isRowMajor, InType metric_arg) {
+           cudaStream_t stream, bool isRowMajor) {
     raft::distance::cosineAlgo1<InType, AccType, OutType, FinalLambda, Index_>(
       m, n, k, x, y, dist, (AccType *)workspace, worksize, fin_op, stream,
       isRowMajor);
@@ -88,7 +84,7 @@ struct DistanceImpl<raft::distance::DistanceType::L2Unexpanded, InType, AccType,
                     OutType, FinalLambda, Index_> {
   void run(const InType *x, const InType *y, OutType *dist, Index_ m, Index_ n,
            Index_ k, void *workspace, size_t worksize, FinalLambda fin_op,
-           cudaStream_t stream, bool isRowMajor, InType metric_arg) {
+           cudaStream_t stream, bool isRowMajor) {
     raft::distance::euclideanAlgo2<InType, AccType, OutType, FinalLambda,
                                    Index_>(m, n, k, x, y, dist, false, fin_op,
                                            stream, isRowMajor);
@@ -101,7 +97,7 @@ struct DistanceImpl<raft::distance::DistanceType::L2SqrtUnexpanded, InType,
                     AccType, OutType, FinalLambda, Index_> {
   void run(const InType *x, const InType *y, OutType *dist, Index_ m, Index_ n,
            Index_ k, void *workspace, size_t worksize, FinalLambda fin_op,
-           cudaStream_t stream, bool isRowMajor, InType metric_arg) {
+           cudaStream_t stream, bool isRowMajor) {
     raft::distance::euclideanAlgo2<InType, AccType, OutType, FinalLambda,
                                    Index_>(m, n, k, x, y, dist, true, fin_op,
                                            stream, isRowMajor);
@@ -114,59 +110,8 @@ struct DistanceImpl<raft::distance::DistanceType::L1, InType, AccType, OutType,
                     FinalLambda, Index_> {
   void run(const InType *x, const InType *y, OutType *dist, Index_ m, Index_ n,
            Index_ k, void *workspace, size_t worksize, FinalLambda fin_op,
-           cudaStream_t stream, bool isRowMajor, InType metric_arg) {
+           cudaStream_t stream, bool isRowMajor) {
     raft::distance::l1Impl<InType, AccType, OutType, FinalLambda, Index_>(
-      m, n, k, x, y, dist, fin_op, stream, isRowMajor);
-  }
-};
-
-template <typename InType, typename AccType, typename OutType,
-          typename FinalLambda, typename Index_>
-struct DistanceImpl<raft::distance::DistanceType::Linf, InType, AccType,
-                    OutType, FinalLambda, Index_> {
-  void run(const InType *x, const InType *y, OutType *dist, Index_ m, Index_ n,
-           Index_ k, void *workspace, size_t worksize, FinalLambda fin_op,
-           cudaStream_t stream, bool isRowMajor, InType metric_arg) {
-    raft::distance::chebyshevImpl<InType, AccType, OutType, FinalLambda,
-                                  Index_>(m, n, k, x, y, dist, fin_op, stream,
-                                          isRowMajor);
-  }
-};
-
-template <typename InType, typename AccType, typename OutType,
-          typename FinalLambda, typename Index_>
-struct DistanceImpl<raft::distance::DistanceType::HellingerExpanded, InType,
-                    AccType, OutType, FinalLambda, Index_> {
-  void run(const InType *x, const InType *y, OutType *dist, Index_ m, Index_ n,
-           Index_ k, void *workspace, size_t worksize, FinalLambda fin_op,
-           cudaStream_t stream, bool isRowMajor, InType metric_arg) {
-    raft::distance::hellingerImpl<InType, AccType, OutType, FinalLambda,
-                                  Index_>(m, n, k, x, y, dist, fin_op, stream,
-                                          isRowMajor);
-  }
-};
-
-template <typename InType, typename AccType, typename OutType,
-          typename FinalLambda, typename Index_>
-struct DistanceImpl<raft::distance::DistanceType::LpUnexpanded, InType, AccType,
-                    OutType, FinalLambda, Index_> {
-  void run(const InType *x, const InType *y, OutType *dist, Index_ m, Index_ n,
-           Index_ k, void *workspace, size_t worksize, FinalLambda fin_op,
-           cudaStream_t stream, bool isRowMajor, InType metric_arg) {
-    raft::distance::minkowskiImpl<InType, AccType, OutType, FinalLambda,
-                                  Index_>(m, n, k, x, y, dist, fin_op, stream,
-                                          isRowMajor, metric_arg);
-  }
-};
-
-template <typename InType, typename AccType, typename OutType,
-          typename FinalLambda, typename Index_>
-struct DistanceImpl<raft::distance::DistanceType::Canberra, InType, AccType,
-                    OutType, FinalLambda, Index_> {
-  void run(const InType *x, const InType *y, OutType *dist, Index_ m, Index_ n,
-           Index_ k, void *workspace, size_t worksize, FinalLambda fin_op,
-           cudaStream_t stream, bool isRowMajor, InType metric_arg) {
-    raft::distance::canberraImpl<InType, AccType, OutType, FinalLambda, Index_>(
       m, n, k, x, y, dist, fin_op, stream, isRowMajor);
   }
 };
@@ -233,12 +178,11 @@ template <raft::distance::DistanceType distanceType, typename InType,
           typename Index_ = int>
 void distance(const InType *x, const InType *y, OutType *dist, Index_ m,
               Index_ n, Index_ k, void *workspace, size_t worksize,
-              FinalLambda fin_op, cudaStream_t stream, bool isRowMajor = true,
-              InType metric_arg = 2.0f) {
+              FinalLambda fin_op, cudaStream_t stream, bool isRowMajor = true) {
   DistanceImpl<distanceType, InType, AccType, OutType, FinalLambda, Index_>
     distImpl;
   distImpl.run(x, y, dist, m, n, k, workspace, worksize, fin_op, stream,
-               isRowMajor, metric_arg);
+               isRowMajor);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
@@ -267,14 +211,13 @@ template <raft::distance::DistanceType distanceType, typename InType,
           typename AccType, typename OutType, typename Index_ = int>
 void distance(const InType *x, const InType *y, OutType *dist, Index_ m,
               Index_ n, Index_ k, void *workspace, size_t worksize,
-              cudaStream_t stream, bool isRowMajor = true,
-              InType metric_arg = 2.0f) {
+              cudaStream_t stream, bool isRowMajor = true) {
   auto default_fin_op = [] __device__(AccType d_val, Index_ g_d_idx) {
     return d_val;
   };
   distance<distanceType, InType, AccType, OutType, decltype(default_fin_op),
            Index_>(x, y, dist, m, n, k, workspace, worksize, default_fin_op,
-                   stream, isRowMajor, metric_arg);
+                   stream, isRowMajor);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
@@ -301,14 +244,12 @@ template <typename Type, typename Index_, raft::distance::DistanceType DistType>
 void pairwise_distance_impl(const Type *x, const Type *y, Type *dist, Index_ m,
                             Index_ n, Index_ k,
                             raft::mr::device::buffer<char> &workspace,
-                            cudaStream_t stream, bool isRowMajor,
-                            Type metric_arg = 2.0f) {
+                            cudaStream_t stream, bool isRowMajor) {
   auto worksize =
     getWorkspaceSize<DistType, Type, Type, Type, Index_>(x, y, m, n, k);
   workspace.resize(worksize, stream);
-  distance<DistType, Type, Type, Type, Index_>(x, y, dist, m, n, k,
-                                               workspace.data(), worksize,
-                                               stream, isRowMajor, metric_arg);
+  distance<DistType, Type, Type, Type, Index_>(
+    x, y, dist, m, n, k, workspace.data(), worksize, stream, isRowMajor);
 }
 
 template <typename Type, typename Index_ = int>
@@ -316,7 +257,7 @@ void pairwise_distance(const Type *x, const Type *y, Type *dist, Index_ m,
                        Index_ n, Index_ k,
                        raft::mr::device::buffer<char> &workspace,
                        raft::distance::DistanceType metric, cudaStream_t stream,
-                       bool isRowMajor = true, Type metric_arg = 2.0f) {
+                       bool isRowMajor = true) {
   switch (metric) {
     case raft::distance::DistanceType::L2Expanded:
       pairwise_distance_impl<Type, Index_,
@@ -345,25 +286,6 @@ void pairwise_distance(const Type *x, const Type *y, Type *dist, Index_ m,
     case raft::distance::DistanceType::L2SqrtUnexpanded:
       pairwise_distance_impl<Type, Index_,
                              raft::distance::DistanceType::L2SqrtUnexpanded>(
-        x, y, dist, m, n, k, workspace, stream, isRowMajor);
-      break;
-    case raft::distance::DistanceType::Linf:
-      pairwise_distance_impl<Type, Index_, raft::distance::DistanceType::Linf>(
-        x, y, dist, m, n, k, workspace, stream, isRowMajor);
-      break;
-    case raft::distance::DistanceType::HellingerExpanded:
-      pairwise_distance_impl<Type, Index_,
-                             raft::distance::DistanceType::HellingerExpanded>(
-        x, y, dist, m, n, k, workspace, stream, isRowMajor);
-      break;
-    case raft::distance::DistanceType::LpUnexpanded:
-      pairwise_distance_impl<Type, Index_,
-                             raft::distance::DistanceType::LpUnexpanded>(
-        x, y, dist, m, n, k, workspace, stream, isRowMajor, metric_arg);
-      break;
-    case raft::distance::DistanceType::Canberra:
-      pairwise_distance_impl<Type, Index_,
-                             raft::distance::DistanceType::Canberra>(
         x, y, dist, m, n, k, workspace, stream, isRowMajor);
       break;
     default:
