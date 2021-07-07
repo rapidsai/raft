@@ -24,7 +24,6 @@
 #include <raft/cuda_utils.cuh>
 
 #include <raft/mr/device/allocator.hpp>
-#include <raft/mr/device/buffer.hpp>
 
 #include <raft/sparse/distance/common.h>
 #include <raft/sparse/utils.h>
