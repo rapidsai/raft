@@ -11,6 +11,7 @@ PATH=/opt/conda/bin:$PATH
 # Activate common conda env
 . /opt/conda/etc/profile.d/conda.sh
 conda activate rapids
+conda install -c conda-forge clang=8.0.1 clang-tools=8.0.1
 
 # Run flake8 and get results/return code
 FLAKE=`flake8 --exclude=cpp,thirdparty,__init__.py,versioneer.py && flake8 --config=python/.flake8.cython`
