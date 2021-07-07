@@ -43,9 +43,9 @@ TEST_F(MakeMonotonicTest, Result) {
 
   float *data, *actual, *expected;
 
-  raft::allocate(data, m, true);
-  raft::allocate(actual, m, true);
-  raft::allocate(expected, m, true);
+  raft::allocate(data, m, stream, true);
+  raft::allocate(actual, m, stream, true);
+  raft::allocate(expected, m, stream, true);
 
   float *data_h =
     new float[m]{1.0, 2.0, 2.0, 2.0, 2.0, 3.0, 8.0, 7.0, 8.0, 8.0, 25.0, 80.0};
@@ -76,7 +76,7 @@ TEST(labelTest, Classlabels) {
 
   int n_rows = 6;
   float *y_d;
-  raft::allocate(y_d, n_rows);
+  raft::allocate(y_d, n_rows, stream);
 
   float y_h[] = {2, -1, 1, 2, 1, 1};
   raft::update_device(y_d, y_h, n_rows, stream);
@@ -91,7 +91,7 @@ TEST(labelTest, Classlabels) {
                               raft::Compare<float>(), stream));
 
   float *y_relabeled_d;
-  raft::allocate(y_relabeled_d, n_rows);
+  raft::allocate(y_relabeled_d, n_rows, stream);
 
   getOvrlabels(y_d, n_rows, y_unique_d.data(), n_classes, y_relabeled_d, 2,
                stream);

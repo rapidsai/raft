@@ -78,9 +78,9 @@ class RowNormTest : public ::testing::TestWithParam<NormInputs<T>> {
     int rows = params.rows, cols = params.cols, len = rows * cols;
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
-    raft::allocate(data, len);
-    raft::allocate(dots_exp, rows);
-    raft::allocate(dots_act, rows);
+    raft::allocate(data, len, stream);
+    raft::allocate(dots_exp, rows, stream);
+    raft::allocate(dots_act, rows, stream);
     r.uniform(data, len, T(-1.0), T(1.0), stream);
     naiveRowNorm(dots_exp, data, cols, rows, params.type, params.do_sqrt,
                  stream);
@@ -143,10 +143,10 @@ class ColNormTest : public ::testing::TestWithParam<NormInputs<T>> {
     int rows = params.rows, cols = params.cols, len = rows * cols;
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
-    raft::allocate(data, len);
+    raft::allocate(data, len, stream);
     r.uniform(data, len, T(-1.0), T(1.0), stream);
-    raft::allocate(dots_exp, cols);
-    raft::allocate(dots_act, cols);
+    raft::allocate(dots_exp, cols, stream);
+    raft::allocate(dots_act, cols, stream);
 
     naiveColNorm(dots_exp, data, cols, rows, params.type, params.do_sqrt,
                  stream);

@@ -43,9 +43,9 @@ class CSRtoCOOTest : public ::testing::TestWithParam<CSRtoCOOInputs<Index_>> {
     params = ::testing::TestWithParam<CSRtoCOOInputs<Index_>>::GetParam();
 
     cudaStreamCreate(&stream);
-    raft::allocate(ex_scan, params.ex_scan.size());
-    raft::allocate(verify, params.verify.size());
-    raft::allocate(result, params.verify.size(), true);
+    raft::allocate(ex_scan, params.ex_scan.size(), stream);
+    raft::allocate(verify, params.verify.size(), stream);
+    raft::allocate(result, params.verify.size(), stream, true);
   }
 
   void Run() {

@@ -47,10 +47,10 @@ class CSRRowNormalizeTest
       CSRRowNormalizeInputs<Type_f, Index_>>::GetParam();
     cudaStreamCreate(&stream);
 
-    raft::allocate(in_vals, params.in_vals.size());
-    raft::allocate(verify, params.verify.size());
-    raft::allocate(ex_scan, params.ex_scan.size());
-    raft::allocate(result, params.verify.size(), true);
+    raft::allocate(in_vals, params.in_vals.size(), stream);
+    raft::allocate(verify, params.verify.size(), stream);
+    raft::allocate(ex_scan, params.ex_scan.size(), stream);
+    raft::allocate(result, params.verify.size(), stream, true);
   }
 
   void Run() {

@@ -68,9 +68,9 @@ TEST_P(SortedCOOToCSR, Result) {
   int *in_h = new int[nnz]{0, 0, 1, 1, 2, 2, 3, 3};
   int *exp_h = new int[4]{0, 2, 4, 6};
 
-  raft::allocate(in, nnz, true);
-  raft::allocate(exp, 4, true);
-  raft::allocate(out, 4, true);
+  raft::allocate(in, nnz, stream, true);
+  raft::allocate(exp, 4, stream, true);
+  raft::allocate(out, 4, stream, true);
 
   raft::update_device(in, in_h, nnz, stream);
   raft::update_device(exp, exp_h, 4, stream);
@@ -112,10 +112,10 @@ class CSRAdjGraphTest
     cudaStreamCreate(&stream);
     nnz = params.verify.size();
 
-    raft::allocate(row_ind, params.n_rows);
-    raft::allocate(adj, params.n_rows * params.n_cols);
-    raft::allocate(result, nnz, true);
-    raft::allocate(verify, nnz);
+    raft::allocate(row_ind, params.n_rows, stream);
+    raft::allocate(adj, params.n_rows * params.n_cols, stream);
+    raft::allocate(result, nnz, stream, true);
+    raft::allocate(verify, nnz, stream);
   }
 
   void Run() {

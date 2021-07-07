@@ -29,16 +29,19 @@ template <typename value_idx, typename value_t>
 class HaversineKNNTest : public ::testing::Test {
  protected:
   void basicTest() {
+    cudaStream_t stream;
+    CUDA_CHECK(cudaStreamCreate(&stream));
+
     // Allocate input
-    raft::allocate(d_train_inputs, n * d);
+    raft::allocate(d_train_inputs, n * d, stream);
 
     // Allocate reference arrays
-    raft::allocate<value_idx>(d_ref_I, n * n);
-    raft::allocate(d_ref_D, n * n);
+    raft::allocate<value_idx>(d_ref_I, n * n, stream);
+    raft::allocate(d_ref_D, n * n, stream);
 
     // Allocate predicted arrays
-    raft::allocate<value_idx>(d_pred_I, n * n);
-    raft::allocate(d_pred_D, n * n);
+    raft::allocate<value_idx>(d_pred_I, n * n, stream);
+    raft::allocate(d_pred_D, n * n, stream);
 
     // make testdata on host
     std::vector<value_t> h_train_inputs = {
@@ -67,9 +70,6 @@ class HaversineKNNTest : public ::testing::Test {
 
     std::vector<value_t *> input_vec = {d_train_inputs};
     std::vector<value_idx> sizes_vec = {n};
-
-    cudaStream_t stream;
-    CUDA_CHECK(cudaStreamCreate(&stream));
 
     raft::spatial::knn::detail::haversine_knn(
       d_pred_I, d_pred_D, d_train_inputs, d_train_inputs, n, n, k, stream);

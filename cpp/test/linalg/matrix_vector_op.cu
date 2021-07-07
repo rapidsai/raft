@@ -68,12 +68,12 @@ class MatVecOpTest
 
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
-    allocate(in, len);
-    allocate(out_ref, len);
-    allocate(out, len);
+    raft::allocate(in, len, stream);
+    raft::allocate(out_ref, len, stream);
+    raft::allocate(out, len, stream);
     IdxType vecLen = params.bcastAlongRows ? D : N;
-    allocate(vec1, vecLen);
-    allocate(vec2, vecLen);
+    raft::allocate(vec1, vecLen, stream);
+    raft::allocate(vec2, vecLen, stream);
     r.uniform(in, len, (T)-1.0, (T)1.0, stream);
     r.uniform(vec1, vecLen, (T)-1.0, (T)1.0, stream);
     r.uniform(vec2, vecLen, (T)-1.0, (T)1.0, stream);

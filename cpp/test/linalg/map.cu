@@ -47,7 +47,7 @@ void create_ref(OutType *out_ref, const InType *in1, const InType *in2,
                 const InType *in3, InType scalar, IdxType len,
                 cudaStream_t stream) {
   InType *tmp;
-  allocate(tmp, len);
+  raft::allocate(tmp, len, stream);
   eltwiseAdd(tmp, in1, in2, len, stream);
   eltwiseAdd(out_ref, tmp, in3, len, stream);
   scalarAdd(out_ref, out_ref, (OutType)scalar, len, stream);
@@ -66,11 +66,11 @@ class MapTest
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
     IdxType len = params.len;
-    allocate(in1, len);
-    allocate(in2, len);
-    allocate(in3, len);
-    allocate(out_ref, len);
-    allocate(out, len);
+    raft::allocate(in1, len, stream);
+    raft::allocate(in2, len, stream);
+    raft::allocate(in3, len, stream);
+    raft::allocate(out_ref, len, stream);
+    raft::allocate(out, len, stream);
     r.uniform(in1, len, InType(-1.0), InType(1.0), stream);
     r.uniform(in2, len, InType(-1.0), InType(1.0), stream);
     r.uniform(in3, len, InType(-1.0), InType(1.0), stream);

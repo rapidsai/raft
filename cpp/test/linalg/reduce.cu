@@ -58,9 +58,9 @@ class ReduceTest : public ::testing::TestWithParam<ReduceInputs<T>> {
     int rows = params.rows, cols = params.cols;
     int len = rows * cols;
     outlen = params.alongRows ? rows : cols;
-    raft::allocate(data, len);
-    raft::allocate(dots_exp, outlen);
-    raft::allocate(dots_act, outlen);
+    raft::allocate(data, len, stream);
+    raft::allocate(dots_exp, outlen, stream);
+    raft::allocate(dots_act, outlen, stream);
     r.uniform(data, len, T(-1.0), T(1.0), stream);
     naiveReduction(dots_exp, data, cols, rows, params.rowMajor,
                    params.alongRows, stream);

@@ -45,7 +45,7 @@ class SumTest : public ::testing::TestWithParam<SumInputs<T>> {
     int len = rows * cols;
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
-    raft::allocate(data, len);
+    raft::allocate(data, len, stream);
 
     T data_h[len];
     for (int i = 0; i < len; i++) {
@@ -54,7 +54,7 @@ class SumTest : public ::testing::TestWithParam<SumInputs<T>> {
 
     raft::update_device(data, data_h, len, stream);
 
-    raft::allocate(sum_act, cols);
+    raft::allocate(sum_act, cols, stream);
     sum(sum_act, data, cols, rows, false, stream);
     CUDA_CHECK(cudaStreamDestroy(stream));
   }

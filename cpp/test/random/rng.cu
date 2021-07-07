@@ -88,8 +88,8 @@ class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
     Rng r(params.seed, params.gtype);
-    allocate(data, params.len);
-    allocate(stats, 2, true);
+    raft::allocate(data, params.len, stream);
+    raft::allocate(stats, 2, stream, true);
     switch (params.type) {
       case RNG_Normal:
         r.normal(data, params.len, params.start, params.end, stream);
@@ -383,9 +383,9 @@ TEST(Rng, MeanError) {
   cudaStream_t stream;
   CUDA_CHECK(cudaStreamCreate(&stream));
 
-  allocate(data, len);
-  allocate(mean_result, num_experiments);
-  allocate(std_result, num_experiments);
+  raft::allocate(data, len, stream);
+  raft::allocate(mean_result, num_experiments, stream);
+  raft::allocate(std_result, num_experiments, stream);
 
   for (auto rtype : {GenPhilox, GenKiss99 /*, raft::random::GenTaps */}) {
     Rng r(seed, rtype);
@@ -432,7 +432,7 @@ class ScaledBernoulliTest : public ::testing::Test {
 
     Rng r(42);
 
-    allocate(data, len * sizeof(T), stream);
+    raft::allocate(data, len * sizeof(T), stream);
     r.scaled_bernoulli(data, len, T(0.5), T(scale), stream);
   }
 
@@ -463,7 +463,7 @@ class BernoulliTest : public ::testing::Test {
   void SetUp() override {
     CUDA_CHECK(cudaStreamCreate(&stream));
     Rng r(42);
-    allocate(data, len * sizeof(bool), stream);
+    raft::allocate(data, len * sizeof(bool), stream);
     r.bernoulli(data, len, T(0.5), stream);
   }
 
@@ -518,9 +518,9 @@ class RngNormalTableTest
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
     Rng r(params.seed, params.gtype);
-    allocate(data, len);
-    allocate(stats, 2, true);
-    allocate(mu_vec, params.cols);
+    raft::allocate(data, len, stream);
+    raft::allocate(stats, 2, stream, true);
+    raft::allocate(mu_vec, params.cols, stream);
     r.fill(mu_vec, params.cols, params.mu, stream);
     T* sigma_vec = nullptr;
     r.normalTable(data, params.rows, params.cols, mu_vec, sigma_vec,

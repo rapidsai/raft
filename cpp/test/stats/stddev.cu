@@ -49,10 +49,10 @@ class StdDevTest : public ::testing::TestWithParam<StdDevInputs<T>> {
 
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
-    allocate(data, len);
-    allocate(mean_act, cols);
-    allocate(stddev_act, cols);
-    allocate(vars_act, cols);
+    raft::allocate(data, len, stream);
+    raft::allocate(mean_act, cols, stream);
+    raft::allocate(stddev_act, cols, stream);
+    raft::allocate(vars_act, cols, stream);
     r.normal(data, len, params.mean, params.stddev, stream);
     stdVarSGtest(data, stream);
     CUDA_CHECK(cudaStreamDestroy(stream));

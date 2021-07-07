@@ -107,13 +107,13 @@ class FusedL2NNTest : public ::testing::TestWithParam<Inputs<DataT>> {
     int n = params.n;
     int k = params.k;
     CUDA_CHECK(cudaStreamCreate(&stream));
-    raft::allocate(x, m * k);
-    raft::allocate(y, n * k);
-    raft::allocate(xn, m);
-    raft::allocate(yn, n);
-    raft::allocate(workspace, sizeof(int) * m);
-    raft::allocate(min, m);
-    raft::allocate(min_ref, m);
+    raft::allocate(x, m * k, stream);
+    raft::allocate(y, n * k, stream);
+    raft::allocate(xn, m, stream);
+    raft::allocate(yn, n, stream);
+    raft::allocate(workspace, sizeof(int) * m, stream);
+    raft::allocate(min, m, stream);
+    raft::allocate(min_ref, m, stream);
     r.uniform(x, m * k, DataT(-1.0), DataT(1.0), stream);
     r.uniform(y, n * k, DataT(-1.0), DataT(1.0), stream);
     generateGoldenResult();
@@ -282,7 +282,8 @@ class FusedL2NNDetTest : public FusedL2NNTest<DataT, Sqrt> {
   void SetUp() override {
     FusedL2NNTest<DataT, Sqrt>::SetUp();
     int m = this->params.m;
-    raft::allocate(min1, m);
+    CUDA_CHECK(cudaStreamCreate(&stream));
+    raft::allocate(min1, m, stream);
   }
 
   void TearDown() override {
@@ -294,6 +295,7 @@ class FusedL2NNDetTest : public FusedL2NNTest<DataT, Sqrt> {
   cub::KeyValuePair<int, DataT> *min1;
 
   static const int NumRepeats = 100;
+  cudaStream_t stream;
 
   void generateGoldenResult() override {}
 };

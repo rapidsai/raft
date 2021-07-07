@@ -103,9 +103,9 @@ class SparseKNNTest
     std::vector<value_idx> indices_h = params.indices_h;
     std::vector<value_t> data_h = params.data_h;
 
-    allocate(indptr, indptr_h.size());
-    allocate(indices, indices_h.size());
-    allocate(data, data_h.size());
+    raft::allocate(indptr, indptr_h.size(), handle.get_stream());
+    raft::allocate(indices, indices_h.size(), handle.get_stream());
+    raft::allocate(data, data_h.size(), handle.get_stream());
 
     update_device(indptr, indptr_h.data(), indptr_h.size(),
                   handle.get_stream());
@@ -116,16 +116,17 @@ class SparseKNNTest
     std::vector<value_t> out_dists_ref_h = params.out_dists_ref_h;
     std::vector<value_idx> out_indices_ref_h = params.out_indices_ref_h;
 
-    allocate(out_indices_ref, out_indices_ref_h.size());
-    allocate(out_dists_ref, out_dists_ref_h.size());
+    raft::allocate(out_indices_ref, out_indices_ref_h.size(),
+                   handle.get_stream());
+    raft::allocate(out_dists_ref, out_dists_ref_h.size(), handle.get_stream());
 
     update_device(out_indices_ref, out_indices_ref_h.data(),
                   out_indices_ref_h.size(), handle.get_stream());
     update_device(out_dists_ref, out_dists_ref_h.data(), out_dists_ref_h.size(),
                   handle.get_stream());
 
-    allocate(out_dists, n_rows * k);
-    allocate(out_indices, n_rows * k);
+    raft::allocate(out_dists, n_rows * k, handle.get_stream());
+    raft::allocate(out_indices, n_rows * k, handle.get_stream());
   }
 
   raft::handle_t handle;

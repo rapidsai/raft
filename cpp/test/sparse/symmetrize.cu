@@ -64,9 +64,9 @@ class SparseSymmetrizeTest : public ::testing::TestWithParam<
     std::vector<value_idx> indices_h = params.indices_h;
     std::vector<value_t> data_h = params.data_h;
 
-    allocate(indptr, indptr_h.size());
-    allocate(indices, indices_h.size());
-    allocate(data, data_h.size());
+    raft::allocate(indptr, indptr_h.size(), stream);
+    raft::allocate(indices, indices_h.size(), stream);
+    raft::allocate(data, data_h.size(), stream);
 
     update_device(indptr, indptr_h.data(), indptr_h.size(), stream);
     update_device(indices, indices_h.data(), indices_h.size(), stream);

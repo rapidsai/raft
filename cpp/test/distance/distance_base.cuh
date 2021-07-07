@@ -169,11 +169,11 @@ class DistanceTest : public ::testing::TestWithParam<DistanceInputs<DataType>> {
     bool isRowMajor = params.isRowMajor;
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
-    raft::allocate(x, m * k);
-    raft::allocate(y, n * k);
-    raft::allocate(dist_ref, m * n);
-    raft::allocate(dist, m * n);
-    raft::allocate(dist2, m * n);
+    raft::allocate(x, m * k, stream);
+    raft::allocate(y, n * k, stream);
+    raft::allocate(dist_ref, m * n, stream);
+    raft::allocate(dist, m * n, stream);
+    raft::allocate(dist2, m * n, stream);
     r.uniform(x, m * k, DataType(-1.0), DataType(1.0), stream);
     r.uniform(y, n * k, DataType(-1.0), DataType(1.0), stream);
     naiveDistance(dist_ref, x, y, m, n, k, distanceType, isRowMajor);
@@ -182,7 +182,7 @@ class DistanceTest : public ::testing::TestWithParam<DistanceInputs<DataType>> {
       raft::distance::getWorkspaceSize<distanceType, DataType, DataType,
                                        DataType>(x, y, m, n, k);
     if (worksize != 0) {
-      raft::allocate(workspace, worksize);
+      raft::allocate(workspace, worksize, stream);
     }
 
     DataType threshold = -10000.f;

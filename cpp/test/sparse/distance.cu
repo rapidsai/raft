@@ -81,7 +81,7 @@ class SparseDistanceTest
 
     int out_size = dist_config.a_nrows * dist_config.b_nrows;
 
-    allocate(out_dists, out_size);
+    raft::allocate(out_dists, out_size, handle.get_stream());
 
     pairwiseDistance(out_dists, dist_config, params.metric, params.metric_arg);
 
@@ -109,9 +109,9 @@ class SparseDistanceTest
     std::vector<value_idx> indices_h = params.indices_h;
     std::vector<value_t> data_h = params.data_h;
 
-    allocate(indptr, indptr_h.size());
-    allocate(indices, indices_h.size());
-    allocate(data, data_h.size());
+    raft::allocate(indptr, indptr_h.size(), handle.get_stream());
+    raft::allocate(indices, indices_h.size(), handle.get_stream());
+    raft::allocate(data, data_h.size(), handle.get_stream());
 
     update_device(indptr, indptr_h.data(), indptr_h.size(),
                   handle.get_stream());
@@ -121,7 +121,8 @@ class SparseDistanceTest
 
     std::vector<value_t> out_dists_ref_h = params.out_dists_ref_h;
 
-    allocate(out_dists_ref, (indptr_h.size() - 1) * (indptr_h.size() - 1));
+    raft::allocate(out_dists_ref, (indptr_h.size() - 1) * (indptr_h.size() - 1),
+                   handle.get_stream());
 
     update_device(out_dists_ref, out_dists_ref_h.data(), out_dists_ref_h.size(),
                   dist_config.handle.get_stream());

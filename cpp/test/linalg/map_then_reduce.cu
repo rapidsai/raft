@@ -77,9 +77,9 @@ class MapReduceTest : public ::testing::TestWithParam<MapReduceInputs<InType>> {
 
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
-    allocate(in, len);
-    allocate(out_ref, len);
-    allocate(out, len);
+    raft::allocate(in, len, stream);
+    raft::allocate(out_ref, len, stream);
+    raft::allocate(out, len, stream);
     r.uniform(in, len, InType(-1.0), InType(1.0), stream);
     mapReduceLaunch(out_ref, out, in, len, stream);
     CUDA_CHECK(cudaStreamDestroy(stream));

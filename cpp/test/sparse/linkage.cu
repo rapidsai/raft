@@ -162,8 +162,8 @@ class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
                                 handle.get_stream());
 
     // Allocate result labels and expected labels on device
-    raft::allocate(labels, params.n_row);
-    raft::allocate(labels_ref, params.n_row);
+    raft::allocate(labels, params.n_row, handle.get_stream());
+    raft::allocate(labels_ref, params.n_row, handle.get_stream());
 
     raft::copy(data.data(), params.data.data(), data.size(),
                handle.get_stream());

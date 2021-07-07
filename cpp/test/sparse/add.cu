@@ -56,21 +56,21 @@ class CSRAddTest
 
     cudaStreamCreate(&stream);
 
-    raft::allocate(ind_a, n_rows);
-    raft::allocate(ind_ptr_a, nnz_a);
-    raft::allocate(values_a, nnz_a);
+    raft::allocate(ind_a, n_rows, stream);
+    raft::allocate(ind_ptr_a, nnz_a, stream);
+    raft::allocate(values_a, nnz_a, stream);
 
-    raft::allocate(ind_b, n_rows);
-    raft::allocate(ind_ptr_b, nnz_b);
-    raft::allocate(values_b, nnz_b);
+    raft::allocate(ind_b, n_rows, stream);
+    raft::allocate(ind_ptr_b, nnz_b, stream);
+    raft::allocate(values_b, nnz_b, stream);
 
-    raft::allocate(ind_verify, n_rows);
-    raft::allocate(ind_ptr_verify, nnz_result);
-    raft::allocate(values_verify, nnz_result);
+    raft::allocate(ind_verify, n_rows, stream);
+    raft::allocate(ind_ptr_verify, nnz_result, stream);
+    raft::allocate(values_verify, nnz_result, stream);
 
-    raft::allocate(ind_result, n_rows);
-    raft::allocate(ind_ptr_result, nnz_result);
-    raft::allocate(values_result, nnz_result);
+    raft::allocate(ind_result, n_rows, stream);
+    raft::allocate(ind_ptr_result, nnz_result, stream);
+    raft::allocate(values_result, nnz_result, stream);
   }
 
   void Run() {

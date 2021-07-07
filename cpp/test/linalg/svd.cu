@@ -49,7 +49,7 @@ class SvdTest : public ::testing::TestWithParam<SvdInputs<T>> {
     raft::random::Rng r(params.seed);
     int len = params.len;
     cudaStream_t stream = handle.get_stream();
-    raft::allocate(data, len);
+    raft::allocate(data, len, stream);
 
     ASSERT(params.n_row == 3, "This test only supports nrows=3!");
     ASSERT(params.len == 6, "This test only supports len=6!");
@@ -59,9 +59,9 @@ class SvdTest : public ::testing::TestWithParam<SvdInputs<T>> {
     int left_evl = params.n_row * params.n_col;
     int right_evl = params.n_col * params.n_col;
 
-    raft::allocate(left_eig_vectors_qr, left_evl);
-    raft::allocate(right_eig_vectors_trans_qr, right_evl);
-    raft::allocate(sing_vals_qr, params.n_col);
+    raft::allocate(left_eig_vectors_qr, left_evl, stream);
+    raft::allocate(right_eig_vectors_trans_qr, right_evl, stream);
+    raft::allocate(sing_vals_qr, params.n_col, stream);
 
     // allocate(left_eig_vectors_jacobi, left_evl);
     // allocate(right_eig_vectors_trans_jacobi, right_evl);
@@ -74,9 +74,9 @@ class SvdTest : public ::testing::TestWithParam<SvdInputs<T>> {
 
     T sing_vals_ref_h[] = {7.065283, 1.040081};
 
-    raft::allocate(left_eig_vectors_ref, left_evl);
-    raft::allocate(right_eig_vectors_ref, right_evl);
-    raft::allocate(sing_vals_ref, params.n_col);
+    raft::allocate(left_eig_vectors_ref, left_evl, stream);
+    raft::allocate(right_eig_vectors_ref, right_evl, stream);
+    raft::allocate(sing_vals_ref, params.n_col, stream);
 
     raft::update_device(left_eig_vectors_ref, left_eig_vectors_ref_h, left_evl,
                         stream);

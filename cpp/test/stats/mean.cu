@@ -52,8 +52,8 @@ class MeanTest : public ::testing::TestWithParam<MeanInputs<T>> {
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
 
-    allocate(data, len);
-    allocate(mean_act, cols);
+    raft::allocate(data, len, stream);
+    raft::allocate(mean_act, cols, stream);
     r.normal(data, len, params.mean, (T)1.0, stream);
 
     meanSGtest(data, stream);

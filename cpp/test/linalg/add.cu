@@ -32,10 +32,10 @@ class AddTest : public ::testing::TestWithParam<AddInputs<InT, OutT>> {
     raft::random::Rng r(params.seed);
     int len = params.len;
     CUDA_CHECK(cudaStreamCreate(&stream));
-    raft::allocate(in1, len);
-    raft::allocate(in2, len);
-    raft::allocate(out_ref, len);
-    raft::allocate(out, len);
+    raft::allocate(in1, len, stream);
+    raft::allocate(in2, len, stream);
+    raft::allocate(out_ref, len, stream);
+    raft::allocate(out, len, stream);
     r.uniform(in1, len, InT(-1.0), InT(1.0), stream);
     r.uniform(in2, len, InT(-1.0), InT(1.0), stream);
     naiveAddElem<InT, OutT>(out_ref, in1, in2, len);

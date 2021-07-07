@@ -34,9 +34,9 @@ class MultiplyTest : public ::testing::TestWithParam<UnaryOpInputs<T>> {
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
 
-    raft::allocate(in, len);
-    raft::allocate(out_ref, len);
-    raft::allocate(out, len);
+    raft::allocate(in, len, stream);
+    raft::allocate(out_ref, len, stream);
+    raft::allocate(out, len, stream);
     r.uniform(in, len, T(-1.0), T(1.0), stream);
     naiveScale(out_ref, in, params.scalar, len, stream);
     multiplyScalar(out, in, params.scalar, len, stream);

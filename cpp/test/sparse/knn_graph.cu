@@ -68,7 +68,7 @@ class KNNGraphTest
 
     out = new raft::sparse::COO<value_t, value_idx>(stream);
 
-    allocate(X, params.X.size());
+    raft::allocate(X, params.X.size(), stream);
 
     update_device(X, params.X.data(), params.X.size(), stream);
 

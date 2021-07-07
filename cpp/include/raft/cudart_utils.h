@@ -17,6 +17,7 @@
 #pragma once
 
 #include <raft/error.hpp>
+#include <rmm/mr/device/per_device_resource.hpp>
 
 #include <cuda_runtime.h>
 
@@ -259,11 +260,19 @@ void print_device_vector(const char* variable_name, const T* devMem,
 }
 /** @} */
 
-/** cuda malloc */
 template <typename Type>
-void allocate(Type*& ptr, size_t len, bool setZero = false) {
-  CUDA_CHECK(cudaMalloc((void**)&ptr, sizeof(Type) * len));
-  if (setZero) CUDA_CHECK(cudaMemset(ptr, 0, sizeof(Type) * len));
+void allocate(Type*& ptr, size_t len, cudaStream_t stream,
+              bool setZero = false) {
+  ptr = (Type*)rmm::mr::get_current_device_resource()->allocate(
+    len * sizeof(Type), stream);
+  if (setZero) CUDA_CHECK(cudaMemset(ptr, 0, len * sizeof(Type)));
+}
+
+template <typename Type>
+void deallocate(Type*& ptr, size_t len, cudaStream_t stream,
+                bool setZero = false) {
+  rmm::mr::get_current_device_resource()->deallocate(ptr, len * sizeof(Type),
+                                                     stream);
 }
 
 /** helper method to get max usable shared mem per block parameter */

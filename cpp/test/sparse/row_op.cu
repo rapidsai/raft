@@ -59,9 +59,9 @@ class CSRRowOpTest
     n_rows = params.ex_scan.size();
     nnz = params.verify.size();
 
-    raft::allocate(verify, nnz);
-    raft::allocate(ex_scan, n_rows);
-    raft::allocate(result, nnz, true);
+    raft::allocate(verify, nnz, stream);
+    raft::allocate(ex_scan, n_rows, stream);
+    raft::allocate(result, nnz, stream, true);
   }
 
   void Run() {

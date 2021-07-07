@@ -48,14 +48,16 @@ const std::vector<SparseDegreeInputs<float>> inputsf = {{5, 10, 5, 1234ULL}};
 
 typedef SparseDegreeTests<float> COODegree;
 TEST_P(COODegree, Result) {
+  cudaStream_t stream;
+  cudaStreamCreate(&stream);
   int *in_rows, *verify, *results;
 
   int in_rows_h[5] = {0, 0, 1, 2, 2};
   int verify_h[5] = {2, 1, 2, 0, 0};
 
-  raft::allocate(in_rows, 5);
-  raft::allocate(verify, 5, true);
-  raft::allocate(results, 5, true);
+  raft::allocate(in_rows, 5, stream);
+  raft::allocate(verify, 5, stream, true);
+  raft::allocate(results, 5, stream, true);
 
   raft::update_device(in_rows, *&in_rows_h, 5, 0);
   raft::update_device(verify, *&verify_h, 5, 0);
@@ -67,6 +69,7 @@ TEST_P(COODegree, Result) {
 
   CUDA_CHECK(cudaFree(in_rows));
   CUDA_CHECK(cudaFree(verify));
+  CUDA_CHECK(cudaStreamDestroy(stream));
 }
 
 typedef SparseDegreeTests<float> COODegreeNonzero;
@@ -81,10 +84,10 @@ TEST_P(COODegreeNonzero, Result) {
   float in_vals_h[5] = {0.0, 5.0, 0.0, 1.0, 1.0};
   int verify_h[5] = {1, 0, 2, 0, 0};
 
-  raft::allocate(in_rows, 5);
-  raft::allocate(verify, 5, true);
-  raft::allocate(results, 5, true);
-  raft::allocate(in_vals, 5, true);
+  raft::allocate(in_rows, 5, stream);
+  raft::allocate(verify, 5, stream, true);
+  raft::allocate(results, 5, stream, true);
+  raft::allocate(in_vals, 5, stream, true);
 
   raft::update_device(in_rows, *&in_rows_h, 5, 0);
   raft::update_device(verify, *&verify_h, 5, 0);

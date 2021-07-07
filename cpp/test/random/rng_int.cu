@@ -72,8 +72,8 @@ class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
 
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
-    allocate(data, params.len);
-    allocate(stats, 2, true);
+    raft::allocate(data, params.len, stream);
+    raft::allocate(stats, 2, stream, true);
     switch (params.type) {
       case RNG_Uniform:
         r.uniformInt(data, params.len, params.start, params.end, stream);

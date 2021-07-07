@@ -55,9 +55,9 @@ class CSRToDenseTest
     std::vector<value_idx> indices_h = params.indices_h;
     std::vector<value_t> data_h = params.data_h;
 
-    allocate(indptr, indptr_h.size());
-    allocate(indices, indices_h.size());
-    allocate(data, data_h.size());
+    raft::allocate(indptr, indptr_h.size(), stream);
+    raft::allocate(indices, indices_h.size(), stream);
+    raft::allocate(data, data_h.size(), stream);
 
     update_device(indptr, indptr_h.data(), indptr_h.size(), stream);
     update_device(indices, indices_h.data(), indices_h.size(), stream);
@@ -65,11 +65,11 @@ class CSRToDenseTest
 
     std::vector<value_t> out_ref_h = params.out_ref_h;
 
-    allocate(out_ref, out_ref_h.size());
+    raft::allocate(out_ref, out_ref_h.size(), stream);
 
     update_device(out_ref, out_ref_h.data(), out_ref_h.size(), stream);
 
-    allocate(out, out_ref_h.size());
+    raft::allocate(out, out_ref_h.size(), stream);
   }
 
   void SetUp() override {

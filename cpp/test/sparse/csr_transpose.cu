@@ -61,9 +61,9 @@ class CSRTransposeTest
     std::vector<value_idx> indices_h = params.indices_h;
     std::vector<value_t> data_h = params.data_h;
 
-    allocate(indptr, indptr_h.size());
-    allocate(indices, indices_h.size());
-    allocate(data, data_h.size());
+    raft::allocate(indptr, indptr_h.size(), stream);
+    raft::allocate(indices, indices_h.size(), stream);
+    raft::allocate(data, data_h.size(), stream);
 
     update_device(indptr, indptr_h.data(), indptr_h.size(), stream);
     update_device(indices, indices_h.data(), indices_h.size(), stream);
@@ -73,9 +73,9 @@ class CSRTransposeTest
     std::vector<value_idx> out_indices_ref_h = params.out_indices_ref_h;
     std::vector<value_t> out_data_ref_h = params.out_data_ref_h;
 
-    allocate(out_indptr_ref, out_indptr_ref_h.size());
-    allocate(out_indices_ref, out_indices_ref_h.size());
-    allocate(out_data_ref, out_data_ref_h.size());
+    raft::allocate(out_indptr_ref, out_indptr_ref_h.size(), stream);
+    raft::allocate(out_indices_ref, out_indices_ref_h.size(), stream);
+    raft::allocate(out_data_ref, out_data_ref_h.size(), stream);
 
     update_device(out_indptr_ref, out_indptr_ref_h.data(),
                   out_indptr_ref_h.size(), stream);
@@ -84,9 +84,9 @@ class CSRTransposeTest
     update_device(out_data_ref, out_data_ref_h.data(), out_data_ref_h.size(),
                   stream);
 
-    allocate(out_indptr, out_indptr_ref_h.size());
-    allocate(out_indices, out_indices_ref_h.size());
-    allocate(out_data, out_data_ref_h.size());
+    raft::allocate(out_indptr, out_indptr_ref_h.size(), stream);
+    raft::allocate(out_indices, out_indices_ref_h.size(), stream);
+    raft::allocate(out_data, out_data_ref_h.size(), stream);
   }
 
   void SetUp() override {
