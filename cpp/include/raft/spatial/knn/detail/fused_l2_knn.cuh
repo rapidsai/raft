@@ -113,6 +113,31 @@ DI void loadPrevTopKsGmemWarpQ(myWarpSelect &heapArr, OutT *out_dists,
   }
 }
 
+template<typename Pair, typename myWarpSelect>
+DI void updateSortedWarpQ(myWarpSelect &heapArr, Pair *allWarpTopKs,
+                          int rowId, int finalNumVals, int startId = 0) {
+  constexpr uint32_t mask = 0xffffffffu;
+  const int lid = raft::laneId();
+
+  for (int k = startId; k < finalNumVals; k++) {
+    Pair KVPair = allWarpTopKs[rowId * (256) + k];
+    unsigned activeLanes = __ballot_sync(mask, KVPair.value < heapArr->warpK[0]);
+    if (activeLanes) {
+      Pair tempKV;
+      tempKV.value = __shfl_up_sync(mask, heapArr->warpK[0], 1);
+      tempKV.key = __shfl_up_sync(mask, heapArr->warpV[0], 1);
+      const auto firstActiveLane = __ffs(activeLanes);
+      if (firstActiveLane == (lid + 1)) {
+        heapArr->warpK[0] = KVPair.value;
+        heapArr->warpV[0] = KVPair.key;
+      } else if (activeLanes & ((uint32_t)1 << lid)) {
+        heapArr->warpK[0] = tempKV.value;
+        heapArr->warpV[0] = tempKV.key;
+      }
+    }
+  }
+}
+
 template <bool useNorms, typename DataT, typename AccT, typename OutT,
           typename IdxT, typename Policy, typename CoreLambda,
           typename FinalLambda, bool usePrevTopKs = false,
@@ -291,7 +316,6 @@ __global__ __launch_bounds__( Policy::Nthreads, 2) void fusedL2kNN(
     }
 
     if (gridStrideX > blockIdx.x * Policy::Nblk) {
-
       loadWarpQShmem<Policy, Pair>(heapArr, &shDumpKV[0], m, numOfNN);
 
       // total vals can atmost be 256, (32*8)
@@ -354,16 +378,8 @@ __global__ __launch_bounds__( Policy::Nthreads, 2) void fusedL2kNN(
                 }
               }
               const int finalNumVals = raft::shfl(numValsWarpTopK[i], 31);
-              int limit = faiss::gpu::utils::roundDown(finalNumVals, warpSize);
-              int j = lid;
-              for (; j < limit; j += warpSize) {
-                Pair otherKV = allWarpTopKs[rowId * (256) + j];
-                heapArr[i]->add(otherKV.value, otherKV.key);
-              }
-              if (j < finalNumVals) {
-                Pair otherKV = allWarpTopKs[rowId * (256) + j];
-                heapArr[i]->addThreadQ(otherKV.value, otherKV.key);
-              }
+              updateSortedWarpQ<Pair>(heapArr[i], &allWarpTopKs[0],
+                                          rowId, finalNumVals);
             }
           }
         }
@@ -374,11 +390,6 @@ __global__ __launch_bounds__( Policy::Nthreads, 2) void fusedL2kNN(
             const auto rowId = (threadIdx.x / newAccThCols) + i * newAccThRows;
             const auto gmemRowId = starty + i * newAccThRows;
             if (gmemRowId < m) {
-              bool needSort = (heapArr[i]->numVals > 0);
-              needSort = __any_sync(mask, needSort);
-              if (needSort) {
-                heapArr[i]->reduce();
-              }
               storeWarpQShmem<Policy, Pair>(heapArr[i], shDumpKV, rowId, numOfNN);
             }
           }
