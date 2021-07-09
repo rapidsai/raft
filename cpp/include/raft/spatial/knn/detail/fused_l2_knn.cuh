@@ -320,7 +320,6 @@ __global__ __launch_bounds__( Policy::Nthreads, 2) void fusedL2kNN(
 
       // total vals can atmost be 256, (32*8)
       int numValsWarpTopK[newAccRowsPerTh];
-      uint32_t needScanSort[newAccRowsPerTh];
       int anyWarpTopKs = 0;
 
 #pragma unroll
@@ -337,32 +336,37 @@ __global__ __launch_bounds__( Policy::Nthreads, 2) void fusedL2kNN(
               }
             }
           }
-          int myVals = numValsWarpTopK[i];
-          needScanSort[i] = __ballot_sync(mask, myVals > 0);
-          if (needScanSort[i]) {
-#pragma unroll
-            for (unsigned int k = 1; k <= 16; k *= 2) {
-              const unsigned int n = __shfl_up_sync(mask, numValsWarpTopK[i], k);
-              if (lid >= k) {
-                numValsWarpTopK[i] += n;
-              }
-            }
-          }
-          // As each thread will know its total vals to write.
-          // we only store its starting location.
-          numValsWarpTopK[i] -= myVals;
-          anyWarpTopKs += (needScanSort[i] > 0);
+          anyWarpTopKs += (numValsWarpTopK[i] > 0);
         }
       }
       anyWarpTopKs = __syncthreads_or(anyWarpTopKs > 0);
       if (anyWarpTopKs) {
         Pair *allWarpTopKs = (Pair*)(&smem[0]);
+        uint32_t needScanSort[newAccRowsPerTh];
 
 #pragma unroll
         for (int i = 0; i < newAccRowsPerTh; ++i) {
+          const auto gmemRowId = starty + i * newAccThRows;
+          needScanSort[i] = 0;
+          if (gmemRowId < m) {
+            int myVals = numValsWarpTopK[i];
+            needScanSort[i] = __ballot_sync(mask, myVals > 0);
+            if (needScanSort[i]) {
+#pragma unroll
+              for (unsigned int k = 1; k <= 16; k *= 2) {
+                const unsigned int n = __shfl_up_sync(mask, numValsWarpTopK[i], k);
+                if (lid >= k) {
+                  numValsWarpTopK[i] += n;
+                }
+              }
+            }
+            // As each thread will know its total vals to write.
+            // we only store its starting location.
+            numValsWarpTopK[i] -= myVals;
+          }
+
           if (needScanSort[i]) {
             const auto rowId = (threadIdx.x / newAccThCols) + i * newAccThRows;
-            const auto gmemRowId = starty + i * newAccThRows;
             if (gmemRowId < m) {
               if (needScanSort[i] & ((uint32_t)1 << lid)) {
 #pragma unroll
