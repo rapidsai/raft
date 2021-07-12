@@ -23,7 +23,6 @@
 #include <raft/cuda_utils.cuh>
 
 #include <raft/mr/device/allocator.hpp>
-#include <raft/mr/device/buffer.hpp>
 
 #include <raft/sparse/distance/common.h>
 #include <raft/sparse/linalg/transpose.h>
@@ -47,9 +46,7 @@ class ip_distances_t : public distances_t<value_t> {
    * @param[in] config specifies inputs, outputs, and sizes
    */
   ip_distances_t(const distances_config_t<value_idx, value_t> &config)
-    : config_(&config),
-      coo_rows_b(config.handle.get_device_allocator(),
-                 config.handle.get_stream(), config.b_nnz) {
+    : config_(&config), coo_rows_b(config.b_nnz, config.handle.get_stream()) {
     raft::sparse::convert::csr_to_coo(config_->b_indptr, config_->b_nrows,
                                       coo_rows_b.data(), config_->b_nnz,
                                       config_->handle.get_stream());
@@ -74,7 +71,7 @@ class ip_distances_t : public distances_t<value_t> {
 
  private:
   const distances_config_t<value_idx, value_t> *config_;
-  raft::mr::device::buffer<value_idx> coo_rows_b;
+  rmm::device_uvector<value_idx> coo_rows_b;
 };
 };  // END namespace distance
 };  // END namespace sparse
