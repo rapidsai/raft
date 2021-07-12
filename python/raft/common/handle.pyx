@@ -21,6 +21,7 @@
 
 # import raft
 from libcpp.memory cimport shared_ptr
+from rmm._lib.cuda_stream_view cimport cuda_stream_default
 
 from .cuda cimport _Stream, _Error, cudaStreamSynchronize
 from .cuda import CudaRuntimeError
@@ -50,51 +51,27 @@ cdef class Handle:
         del handle  # optional!
     """
 
-    # handle_t doesn't have copy operator. So, use pointer for the object
-    # python world cannot access to this raw object directly, hence use
-    # 'size_t'!
-    cdef size_t h
-
-    # not using __dict__ unless we need it to keep this Extension as lean as
-    # possible
-    cdef int n_streams
-
     def __cinit__(self, n_streams=0):
         self.n_streams = n_streams
-        self.h = <size_t>(new handle_t(n_streams))
+        self.stream_pool.reset(new cuda_stream_pool(n_streams))
 
-    def __dealloc__(self):
-        h_ = <handle_t*>self.h
-        del h_
+        # this constructor will construct a "main" handle on null stream
+        self.c_obj.reset(new handle_t(cuda_stream_default, self.stream_pool.get()[0]))
 
-    def setStream(self, stream):
-        cdef size_t s = <size_t>stream.getStream()
-        cdef handle_t* h_ = <handle_t*>self.h
-        h_.set_stream(<_Stream>s)
-
-    def sync(self):
+    cdef void sync(self) nogil except *:
         """
         Issues a sync on the stream set for this handle.
-
-        Once we make `raft.common.cuda.Stream` as a mandatory option
-        for creating `raft.common.Handle`, this should go away
         """
-        cdef handle_t* h_ = <handle_t*>self.h
-        cdef _Stream stream = h_.get_stream()
-        cdef _Error e = cudaStreamSynchronize(stream)
-        if e != 0:
-            raise CudaRuntimeError("Stream sync")
+        self.c_obj.get()[0].sync_stream()
 
-    def getHandle(self):
-        return self.h
-
-    def getNumInternalStreams(self):
-        cdef handle_t* h_ = <handle_t*>self.h
-        return h_.get_num_internal_streams()
+    def get_handle(self):
+        return <size_t> self.c_obj.get()
 
     def __getstate__(self):
         return self.n_streams
 
     def __setstate__(self, state):
         self.n_streams = state
-        self.h = <size_t>(new handle_t(self.n_streams))
+        self.stream_pool.reset(new cuda_stream_pool(self.n_streams))
+
+        self.c_obj.reset(new handle_t(cuda_stream_default, self.stream_pool.get()[0]))

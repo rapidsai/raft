@@ -83,7 +83,7 @@ def perform_test_comms_allreduce(handle, root):
     handle : raft.common.Handle
              handle containing comms_t to use
     """
-    cdef const handle_t* h = <handle_t*><size_t>handle.getHandle()
+    cdef const handle_t* h = <handle_t*><size_t>handle.get_handle()
     return test_collective_allreduce(deref(h), root)
 
 
@@ -96,7 +96,7 @@ def perform_test_comms_reduce(handle, root):
     handle : raft.common.Handle
              handle containing comms_t to use
     """
-    cdef const handle_t* h = <handle_t*><size_t>handle.getHandle()
+    cdef const handle_t* h = <handle_t*><size_t>handle.get_handle()
     return test_collective_reduce(deref(h), root)
 
 
@@ -109,7 +109,7 @@ def perform_test_comms_reducescatter(handle, root):
     handle : raft.common.Handle
              handle containing comms_t to use
     """
-    cdef const handle_t* h = <handle_t*><size_t>handle.getHandle()
+    cdef const handle_t* h = <handle_t*><size_t>handle.get_handle()
     return test_collective_reducescatter(deref(h), root)
 
 
@@ -122,7 +122,7 @@ def perform_test_comms_bcast(handle, root):
     handle : raft.common.Handle
              handle containing comms_t to use
     """
-    cdef const handle_t* h = <handle_t*><size_t>handle.getHandle()
+    cdef const handle_t* h = <handle_t*><size_t>handle.get_handle()
     return test_collective_broadcast(deref(h), root)
 
 
@@ -135,7 +135,7 @@ def perform_test_comms_allgather(handle, root):
     handle : raft.common.Handle
              handle containing comms_t to use
     """
-    cdef const handle_t* h = <handle_t*><size_t>handle.getHandle()
+    cdef const handle_t* h = <handle_t*><size_t>handle.get_handle()
     return test_collective_allgather(deref(h), root)
 
 
@@ -150,7 +150,7 @@ def perform_test_comms_gather(handle, root):
     root : int
            Rank of the root worker
     """
-    cdef const handle_t* h = <handle_t*><size_t>handle.getHandle()
+    cdef const handle_t* h = <handle_t*><size_t>handle.get_handle()
     return test_collective_gather(deref(h), root)
 
 
@@ -165,7 +165,7 @@ def perform_test_comms_gatherv(handle, root):
     root : int
            Rank of the root worker
     """
-    cdef const handle_t* h = <handle_t*><size_t>handle.getHandle()
+    cdef const handle_t* h = <handle_t*><size_t>handle.get_handle()
     return test_collective_gatherv(deref(h), root)
 
 
@@ -180,7 +180,7 @@ def perform_test_comms_send_recv(handle, n_trials):
     n_trilas : int
                Number of test trials
     """
-    cdef const handle_t *h = <handle_t*><size_t>handle.getHandle()
+    cdef const handle_t *h = <handle_t*><size_t>handle.get_handle()
     return test_pointToPoint_simple_send_recv(deref(h), <int>n_trials)
 
 
@@ -195,7 +195,7 @@ def perform_test_comms_device_send_or_recv(handle, n_trials):
     n_trilas : int
                Number of test trials
     """
-    cdef const handle_t *h = <handle_t*><size_t>handle.getHandle()
+    cdef const handle_t *h = <handle_t*><size_t>handle.get_handle()
     return test_pointToPoint_device_send_or_recv(deref(h), <int>n_trials)
 
 
@@ -210,7 +210,7 @@ def perform_test_comms_device_sendrecv(handle, n_trials):
     n_trilas : int
                Number of test trials
     """
-    cdef const handle_t *h = <handle_t*><size_t>handle.getHandle()
+    cdef const handle_t *h = <handle_t*><size_t>handle.get_handle()
     return test_pointToPoint_device_sendrecv(deref(h), <int>n_trials)
 
 
@@ -225,7 +225,7 @@ def perform_test_comms_device_multicast_sendrecv(handle, n_trials):
     n_trilas : int
                Number of test trials
     """
-    cdef const handle_t *h = <handle_t*><size_t>handle.getHandle()
+    cdef const handle_t *h = <handle_t *> <size_t> handle.get_handle()
     return test_pointToPoint_device_multicast_sendrecv(deref(h), <int>n_trials)
 
 
@@ -238,7 +238,7 @@ def perform_test_comm_split(handle, n_colors):
     handle : raft.common.Handle
              handle containing comms_t to use
     """
-    cdef const handle_t * h = < handle_t * > < size_t > handle.getHandle()
+    cdef const handle_t * h = < handle_t * > < size_t > handle.get_handle()
     return test_commsplit(deref(h), < int > n_colors)
 
 
@@ -260,7 +260,7 @@ def inject_comms_on_handle_coll_only(handle, nccl_inst, size, rank, verbose):
 
     """
 
-    cdef size_t handle_size_t = <size_t>handle.getHandle()
+    cdef size_t handle_size_t = <size_t>handle.get_handle()
     handle_ = <handle_t*>handle_size_t
 
     cdef size_t nccl_comm_size_t = <size_t>nccl_inst.get_comm()
@@ -302,7 +302,7 @@ def inject_comms_on_handle(handle, nccl_inst, ucp_worker, eps, size,
 
     cdef void* ucp_worker_st = <void*><size_t>ucp_worker
 
-    cdef size_t handle_size_t = <size_t>handle.getHandle()
+    cdef size_t handle_size_t = <size_t>handle.get_handle()
     handle_ = <handle_t*>handle_size_t
 
     cdef size_t nccl_comm_size_t = <size_t>nccl_inst.get_comm()

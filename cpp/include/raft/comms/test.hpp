@@ -19,6 +19,8 @@
 #include <raft/comms/comms.hpp>
 #include <raft/handle.hpp>
 #include <raft/mr/device/buffer.hpp>
+#include <rmm/cuda_stream_pool.hpp>
+#include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
@@ -513,7 +515,9 @@ bool test_commsplit(const handle_t &h, int n_colors) {
   int color = rank % n_colors;
   int key = rank / n_colors;
 
-  handle_t new_handle(1);
+
+  rmm::cuda_stream_pool stream_pool(1);
+  handle_t new_handle(rmm::cuda_stream_default, stream_pool);
   auto shared_comm =
     std::make_shared<comms_t>(communicator.comm_split(color, key));
   new_handle.set_comms(shared_comm);

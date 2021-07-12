@@ -134,27 +134,29 @@ class MapGenericReduceTest : public ::testing::Test {
     : allocator(handle.get_device_allocator()),
       input(allocator, handle.get_stream(), n),
       output(allocator, handle.get_stream(), 1) {
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    handle.set_stream(stream);
-    initInput(input.data(), input.size(), stream);
+    // CUDA_CHECK(cudaStreamCreate(&stream));
+    // handle.set_stream(stream);
+    initInput(input.data(), input.size(), handle.get_stream());
   }
 
-  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
+  void TearDown() override { 
+    // CUDA_CHECK(cudaStreamDestroy(stream)); 
+  }
 
  public:
   void initInput(InType *input, int n, cudaStream_t stream) {
     raft::random::Rng r(137);
-    r.uniform(input, n, InType(2), InType(3), stream);
+    r.uniform(input, n, InType(2), InType(3), handle.get_stream());
     InType val = 1;
-    raft::update_device(input + 42, &val, 1, stream);
+    raft::update_device(input + 42, &val, 1, handle.get_stream());
     val = 5;
-    raft::update_device(input + 337, &val, 1, stream);
+    raft::update_device(input + 337, &val, 1, handle.get_stream());
   }
 
   void testMin() {
     auto op = [] __device__(InType in) { return in; };
     const OutType neutral = std::numeric_limits<InType>::max();
-    mapThenReduce(output.data(), input.size(), neutral, op, cub::Min(), stream,
+    mapThenReduce(output.data(), input.size(), neutral, op, cub::Min(), handle.get_stream(),
                   input.data());
     EXPECT_TRUE(raft::devArrMatch(OutType(1), output.data(), 1,
                                   raft::Compare<OutType>()));
@@ -162,7 +164,7 @@ class MapGenericReduceTest : public ::testing::Test {
   void testMax() {
     auto op = [] __device__(InType in) { return in; };
     const OutType neutral = std::numeric_limits<InType>::min();
-    mapThenReduce(output.data(), input.size(), neutral, op, cub::Max(), stream,
+    mapThenReduce(output.data(), input.size(), neutral, op, cub::Max(), handle.get_stream(),
                   input.data());
     EXPECT_TRUE(raft::devArrMatch(OutType(5), output.data(), 1,
                                   raft::Compare<OutType>()));
@@ -171,7 +173,7 @@ class MapGenericReduceTest : public ::testing::Test {
  protected:
   int n = 1237;
   raft::handle_t handle;
-  cudaStream_t stream;
+  // cudaStream_t stream;
   std::shared_ptr<raft::mr::device::allocator> allocator;
   raft::mr::device::buffer<InType> input;
   raft::mr::device::buffer<OutType> output;

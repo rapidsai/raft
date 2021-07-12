@@ -106,26 +106,28 @@ class MatrixCopyRowsTest : public ::testing::Test {
       input(allocator, handle.get_stream(), n_cols * n_rows),
       indices(allocator, handle.get_stream(), n_selected),
       output(allocator, handle.get_stream(), n_cols * n_selected) {
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    handle.set_stream(stream);
-    raft::update_device(indices.data(), indices_host, n_selected, stream);
+    // CUDA_CHECK(cudaStreamCreate(&stream));
+    // handle.set_stream(stream);
+    raft::update_device(indices.data(), indices_host, n_selected, handle.get_stream());
     // Init input array
     thrust::counting_iterator<idx_t> first(0);
     thrust::device_ptr<math_t> ptr(input.data());
-    thrust::copy(thrust::cuda::par.on(stream), first, first + n_cols * n_rows,
+    thrust::copy(thrust::cuda::par.on(handle.get_stream()), first, first + n_cols * n_rows,
                  ptr);
   }
 
-  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
+  void TearDown() override { 
+    // CUDA_CHECK(cudaStreamDestroy(stream)); 
+  }
 
   void testCopyRows() {
     copyRows(input.data(), n_rows, n_cols, output.data(), indices.data(),
-             n_selected, stream, false);
+             n_selected, handle.get_stream(), false);
     EXPECT_TRUE(raft::devArrMatchHost(output_exp_colmajor, output.data(),
                                       n_selected * n_cols,
                                       raft::Compare<math_t>()));
     copyRows(input.data(), n_rows, n_cols, output.data(), indices.data(),
-             n_selected, stream, true);
+             n_selected, handle.get_stream(), true);
     EXPECT_TRUE(raft::devArrMatchHost(output_exp_rowmajor, output.data(),
                                       n_selected * n_cols,
                                       raft::Compare<math_t>()));
@@ -142,7 +144,7 @@ class MatrixCopyRowsTest : public ::testing::Test {
   math_t output_exp_rowmajor[15] = {0,  1,  2,  9,  10, 11, 12, 13,
                                     14, 21, 22, 23, 27, 28, 29};
   raft::handle_t handle;
-  cudaStream_t stream;
+  // cudaStream_t stream;
   std::shared_ptr<raft::mr::device::allocator> allocator;
   raft::mr::device::buffer<math_t> input;
   raft::mr::device::buffer<math_t> output;

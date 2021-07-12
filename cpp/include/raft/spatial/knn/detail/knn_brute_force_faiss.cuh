@@ -18,6 +18,7 @@
 
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
+#include <rmm/cuda_stream_pool.hpp>
 
 #include <faiss/gpu/GpuDistance.h>
 #include <faiss/gpu/GpuResources.h>
@@ -200,8 +201,7 @@ void brute_force_knn_impl(std::vector<float *> &input, std::vector<int> &sizes,
                           int64_t *res_I, float *res_D, IntType k,
                           std::shared_ptr<deviceAllocator> allocator,
                           cudaStream_t userStream,
-                          cudaStream_t *internalStreams = nullptr,
-                          int n_int_streams = 0, bool rowMajorIndex = true,
+                          const rmm::cuda_stream_pool& internalStreams, bool rowMajorIndex = true,
                           bool rowMajorQuery = true,
                           std::vector<int64_t> *translations = nullptr,
                           raft::distance::DistanceType metric =
@@ -263,14 +263,15 @@ void brute_force_knn_impl(std::vector<float *> &input, std::vector<int> &sizes,
   }
 
   // Sync user stream only if using other streams to parallelize query
-  if (n_int_streams > 0) CUDA_CHECK(cudaStreamSynchronize(userStream));
+  if (internalStreams.get_pool_size() > 0) CUDA_CHECK(cudaStreamSynchronize(userStream));
 
   for (size_t i = 0; i < input.size(); i++) {
     float *out_d_ptr = out_D + (i * k * n);
     int64_t *out_i_ptr = out_I + (i * k * n);
 
-    cudaStream_t stream =
-      raft::select_stream(userStream, internalStreams, n_int_streams, i);
+    cudaStream_t stream = internalStreams.get_stream();
+    // cudaStream_t stream =
+    //   raft::select_stream(userStream, internalStreams, n_int_streams, i);
 
     switch (metric) {
       case raft::distance::DistanceType::Haversine:
@@ -318,8 +319,8 @@ void brute_force_knn_impl(std::vector<float *> &input, std::vector<int> &sizes,
   // Sync internal streams if used. We don't need to
   // sync the user stream because we'll already have
   // fully serial execution.
-  for (int i = 0; i < n_int_streams; i++) {
-    CUDA_CHECK(cudaStreamSynchronize(internalStreams[i]));
+  for (std::size_t i = 0; i < internalStreams.get_pool_size(); i++) {
+    CUDA_CHECK(cudaStreamSynchronize(internalStreams.get_stream(i)));
   }
 
   if (input.size() > 1 || translations != nullptr) {
