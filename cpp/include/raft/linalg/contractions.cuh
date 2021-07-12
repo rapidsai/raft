@@ -338,6 +338,7 @@ struct Contractions_NT {
     if (isRowMajor) {
       auto numRows = m;
       auto koffset = kidx + scolid;
+#pragma unroll
       for (int i = 0; i < P::LdgPerThX; ++i) {
         if (koffset < lda && (xrowid + i * P::LdgRowsX) < numRows) {
           ldg(ldgDataX[i], x + i * P::LdgRowsX * lda + koffset);
@@ -351,6 +352,7 @@ struct Contractions_NT {
     } else {
       const auto numRows = k;
       auto koffset = scolid;
+#pragma unroll
       for (int i = 0; i < P::LdgPerThX; ++i) {
         if ((koffset + xrowid) < lda &&
             (srowid + kidx + i * P::LdgRowsX) < numRows) {
@@ -369,6 +371,7 @@ struct Contractions_NT {
     if (isRowMajor) {
       auto numRows = n;
       auto koffset = kidx + scolid;
+#pragma unroll
       for (int i = 0; i < P::LdgPerThY; ++i) {
         if (koffset < ldb && (yrowid + i * P::LdgRowsY) < numRows) {
           ldg(ldgDataY[i], y + i * P::LdgRowsY * ldb + koffset);
@@ -382,6 +385,7 @@ struct Contractions_NT {
     } else {
       auto numRows = k;
       auto koffset = scolid;
+#pragma unroll
       for (int i = 0; i < P::LdgPerThY; ++i) {
         if ((koffset + yrowid) < ldb &&
             (srowid + kidx + i * P::LdgRowsY) < numRows) {
