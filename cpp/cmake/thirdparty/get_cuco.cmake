@@ -21,20 +21,16 @@ function(find_and_configure_cuco VERSION)
     endif()
 
     rapids_cpm_find(cuco ${VERSION}
-      GLOBAL_TARGETS cuco cuco::cuco
+      GLOBAL_TARGETS      cuco::cuco
       BUILD_EXPORT_SET    raft-exports
       INSTALL_EXPORT_SET  raft-exports
       CPM_ARGS
-        GIT_REPOSITORY https://github.com/trxcllnt/cuCollections.git
+        GIT_REPOSITORY https://github.com/NVIDIA/cuCollections.git
         GIT_TAG        dev
         OPTIONS        "BUILD_TESTS OFF"
                        "BUILD_BENCHMARKS OFF"
                        "BUILD_EXAMPLES OFF"
     )
-
-    if(NOT TARGET cuco::cuco)
-      add_library(cuco::cuco ALIAS cuco)
-    endif()
 
 endfunction()
 
