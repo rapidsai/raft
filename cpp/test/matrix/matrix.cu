@@ -115,10 +115,6 @@ class MatrixCopyRowsTest : public ::testing::Test {
                  first + n_cols * n_rows, ptr);
   }
 
-  void TearDown() override {
-    // CUDA_CHECK(cudaStreamDestroy(stream));
-  }
-
   void testCopyRows() {
     copyRows(input.data(), n_rows, n_cols, output.data(), indices.data(),
              n_selected, handle.get_stream(), false);
