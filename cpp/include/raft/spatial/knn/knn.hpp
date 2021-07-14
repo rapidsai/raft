@@ -69,12 +69,11 @@ inline void brute_force_knn(
   ASSERT(input.size() == sizes.size(),
          "input and sizes vectors must be the same size");
 
-//   std::vector<cudaStream_t> int_streams = handle.get_internal_streams();
-
   detail::brute_force_knn_impl(input, sizes, D, search_items, n, res_I, res_D,
                                k, handle.get_device_allocator(),
-                               handle.get_stream(), handle.get_stream_pool(), rowMajorIndex,
-                               rowMajorQuery, translations, metric, metric_arg);
+                               handle.get_stream(), handle.get_stream_pool(),
+                               rowMajorIndex, rowMajorQuery, translations,
+                               metric, metric_arg);
 }
 
 }  // namespace knn

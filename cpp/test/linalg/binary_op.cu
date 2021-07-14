@@ -125,31 +125,27 @@ INSTANTIATE_TEST_SUITE_P(BinaryOpTests, BinaryOpTestD_i64,
 template <typename math_t>
 class BinaryOpAlignment : public ::testing::Test {
  protected:
-  BinaryOpAlignment() {
-    // CUDA_CHECK(cudaStreamCreate(&stream));
-    // handle.set_stream(stream);
-  }
-  void TearDown() override { 
-    // CUDA_CHECK(cudaStreamDestroy(stream)); 
-  }
-
  public:
   void Misaligned() {
     // Test to trigger cudaErrorMisalignedAddress if veclen is incorrectly
     // chosen.
     int n = 1024;
-    mr::device::buffer<math_t> x(handle.get_device_allocator(), handle.get_stream(), n);
-    mr::device::buffer<math_t> y(handle.get_device_allocator(), handle.get_stream(), n);
-    mr::device::buffer<math_t> z(handle.get_device_allocator(), handle.get_stream(), n);
-    CUDA_CHECK(cudaMemsetAsync(x.data(), 0, n * sizeof(math_t), handle.get_stream()));
-    CUDA_CHECK(cudaMemsetAsync(y.data(), 0, n * sizeof(math_t), handle.get_stream()));
+    mr::device::buffer<math_t> x(handle.get_device_allocator(),
+                                 handle.get_stream(), n);
+    mr::device::buffer<math_t> y(handle.get_device_allocator(),
+                                 handle.get_stream(), n);
+    mr::device::buffer<math_t> z(handle.get_device_allocator(),
+                                 handle.get_stream(), n);
+    CUDA_CHECK(
+      cudaMemsetAsync(x.data(), 0, n * sizeof(math_t), handle.get_stream()));
+    CUDA_CHECK(
+      cudaMemsetAsync(y.data(), 0, n * sizeof(math_t), handle.get_stream()));
     raft::linalg::binaryOp(
       z.data() + 9, x.data() + 137, y.data() + 19, 256,
       [] __device__(math_t x, math_t y) { return x + y; }, handle.get_stream());
   }
 
   raft::handle_t handle;
-  // cudaStream_t stream;
 };
 typedef ::testing::Types<float, double> FloatTypes;
 TYPED_TEST_CASE(BinaryOpAlignment, FloatTypes);

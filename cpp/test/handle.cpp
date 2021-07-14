@@ -35,7 +35,7 @@ TEST(Raft, HandleDefault) {
 
 TEST(Raft, Handle) {
   // test stream pool creation
-  rmm::cuda_stream_pool stream_pool {4};
+  rmm::cuda_stream_pool stream_pool{4};
   handle_t h(rmm::cuda_stream_default, stream_pool);
   ASSERT_EQ(4, h.get_stream_pool().get_pool_size());
 
@@ -55,10 +55,10 @@ TEST(Raft, GetHandleFromPool) {
   handle_t parent(rmm::cuda_stream_default, stream_pool);
 
   for (std::size_t i = 0; i < n_streams; i++) {
-      auto worker_stream = parent.get_stream_pool().get_stream(i);
-      handle_t child(worker_stream);
-      ASSERT_EQ(parent.get_stream_pool().get_stream(i), child.get_stream());
+    auto worker_stream = parent.get_stream_pool().get_stream(i);
+    handle_t child(worker_stream);
+    ASSERT_EQ(parent.get_stream_pool().get_stream(i), child.get_stream());
   }
 }
 
-}
+}  // namespace raft

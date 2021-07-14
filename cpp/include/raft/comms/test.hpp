@@ -515,7 +515,6 @@ bool test_commsplit(const handle_t &h, int n_colors) {
   int color = rank % n_colors;
   int key = rank / n_colors;
 
-
   rmm::cuda_stream_pool stream_pool(1);
   handle_t new_handle(rmm::cuda_stream_default, stream_pool);
   auto shared_comm =
