@@ -112,7 +112,7 @@ extensions = [
                                     os.path.join(os.sys.prefix, "lib")],
               libraries=libs,
               language='c++',
-              extra_compile_args=['-std=c++14'])
+              extra_compile_args=['-std=c++17'])
 ]
 
 

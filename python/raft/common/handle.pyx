@@ -22,6 +22,7 @@
 # import raft
 from libcpp.memory cimport shared_ptr
 from rmm._lib.cuda_stream_view cimport cuda_stream_default
+from rmm._lib.cuda_stream_view cimport cuda_stream_view
 
 from .cuda cimport _Stream, _Error, cudaStreamSynchronize
 from .cuda import CudaRuntimeError
@@ -39,8 +40,7 @@ cdef class Handle:
 
         from raft.common import Stream, Handle
         stream = Stream()
-        handle = Handle()
-        handle.setStream(stream)
+        handle = Handle(stream)
 
         # call algos here
 
@@ -51,12 +51,20 @@ cdef class Handle:
         del handle  # optional!
     """
 
-    def __cinit__(self, n_streams=0):
+    def __cinit__(self, stream=None, n_streams=0):
         self.n_streams = n_streams
         self.stream_pool.reset(new cuda_stream_pool(n_streams))
 
-        # this constructor will construct a "main" handle on null stream
-        self.c_obj.reset(new handle_t(cuda_stream_default, self.stream_pool.get()[0]))
+        cdef cuda_stream_view c_stream
+        if stream is None:
+            # this constructor will construct a "main" handle on null stream
+            self.c_obj.reset(new handle_t(cuda_stream_default,
+                                          self.stream_pool.get()[0]))
+        else:
+            # this constructor constructs a handle on user stream
+            c_stream = cuda_stream_view(<_Stream><size_t> stream.getStream())
+            self.c_obj.reset(new handle_t(c_stream,
+                                          self.stream_pool.get()[0]))
 
     cdef void sync(self) nogil except *:
         """
@@ -64,7 +72,7 @@ cdef class Handle:
         """
         self.c_obj.get()[0].sync_stream()
 
-    def get_handle(self):
+    def getHandle(self):
         return <size_t> self.c_obj.get()
 
     def __getstate__(self):
@@ -74,4 +82,5 @@ cdef class Handle:
         self.n_streams = state
         self.stream_pool.reset(new cuda_stream_pool(self.n_streams))
 
-        self.c_obj.reset(new handle_t(cuda_stream_default, self.stream_pool.get()[0]))
+        self.c_obj.reset(new handle_t(cuda_stream_default,
+                                      self.stream_pool.get()[0]))
