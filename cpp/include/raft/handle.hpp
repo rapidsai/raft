@@ -113,7 +113,7 @@ class handle_t {
     std::lock_guard<std::mutex> _(mutex_);
     if (!cublas_initialized_) {
       CUBLAS_CHECK(cublasCreate(&cublas_handle_));
-      CUBLAS_CHECK(cublasSetStream(cublas_handle, stream_view));
+      CUBLAS_CHECK(cublasSetStream(cublas_handle, stream_view_));
       cublas_initialized_ = true;
     }
     return cublas_handle_;
@@ -123,7 +123,7 @@ class handle_t {
     std::lock_guard<std::mutex> _(mutex_);
     if (!cusolver_dn_initialized_) {
       CUSOLVER_CHECK(cusolverDnCreate(&cusolver_dn_handle_));
-      CUSOLVER_CHECK(cusolverDnSetStream(cusolver_dn_handle_, stream_view));
+      CUSOLVER_CHECK(cusolverDnSetStream(cusolver_dn_handle_, stream_view_));
       cusolver_dn_initialized_ = true;
     }
     return cusolver_dn_handle_;
@@ -133,7 +133,7 @@ class handle_t {
     std::lock_guard<std::mutex> _(mutex_);
     if (!cusolver_sp_initialized_) {
       CUSOLVER_CHECK(cusolverSpCreate(&cusolver_sp_handle_));
-      CUSOLVER_CHECK(cusolverSpSetStream(cusolver_sp_handle_, stream_view));
+      CUSOLVER_CHECK(cusolverSpSetStream(cusolver_sp_handle_, stream_view_));
       cusolver_sp_initialized_ = true;
     }
     return cusolver_sp_handle_;
@@ -143,7 +143,7 @@ class handle_t {
     std::lock_guard<std::mutex> _(mutex_);
     if (!cusparse_initialized_) {
       CUSPARSE_CHECK(cusparseCreate(&cusparse_handle_));
-      CUSPARSE_CHECK(cusparseSetStream(cusparse_handle_, stream_view));
+      CUSPARSE_CHECK(cusparseSetStream(cusparse_handle_, stream_view_));
       cusparse_initialized_ = true;
     }
     return cusparse_handle_;
