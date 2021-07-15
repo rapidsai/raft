@@ -31,6 +31,7 @@ add_executable(test_raft
     test/eigen_solvers.cu
     test/handle.cpp
     test/integer_utils.cpp
+    test/iterator_traits.cpp
     test/label/label.cu
     test/label/merge_labels.cu
     test/lap/lap.cu
