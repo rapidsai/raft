@@ -35,9 +35,10 @@ TEST(Raft, HandleDefault) {
 
 TEST(Raft, Handle) {
   // test stream pool creation
-  rmm::cuda_stream_pool stream_pool{4};
+  constexpr std::size_t n_streams = 4;
+  rmm::cuda_stream_pool stream_pool{n_streams};
   handle_t h(rmm::cuda_stream_default, stream_pool);
-  ASSERT_EQ(4, h.get_stream_pool().get_pool_size());
+  ASSERT_EQ(n_streams, h.get_stream_pool().get_pool_size());
 
   // test non default stream handle
   cudaStream_t stream;

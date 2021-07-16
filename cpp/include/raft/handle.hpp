@@ -113,7 +113,7 @@ class handle_t {
     std::lock_guard<std::mutex> _(mutex_);
     if (!cublas_initialized_) {
       CUBLAS_CHECK(cublasCreate(&cublas_handle_));
-      CUBLAS_CHECK(cublasSetStream(cublas_handle, stream_view_));
+      CUBLAS_CHECK(cublasSetStream(cublas_handle_, stream_view_));
       cublas_initialized_ = true;
     }
     return cublas_handle_;
@@ -160,6 +160,17 @@ class handle_t {
   void sync_stream_pool() const {
     for (std::size_t i = 0; i < stream_pool_.get_pool_size(); i++) {
       stream_pool_.get_stream(i).synchronize();
+    }
+  }
+
+  /**
+   * @brief synchronize subset of stream pool
+   * 
+   * @param[in] stream_indices the indices of the streams in the stream pool to synchronize
+   */
+  void sync_stream_pool(const std::vector<std::size_t> stream_indices) const {
+    for (const auto& stream_index : stream_indices) {
+      stream_pool_.get_stream(stream_index).synchronize();
     }
   }
 

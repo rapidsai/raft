@@ -270,8 +270,9 @@ void brute_force_knn_impl(std::vector<float *> &input, std::vector<int> &sizes,
     float *out_d_ptr = out_D + (i * k * n);
     int64_t *out_i_ptr = out_I + (i * k * n);
 
-    cudaStream_t stream =
-      n_internal_streams > 0 ? internalStreams.get_stream() : userStream;
+    cudaStream_t stream = n_internal_streams > 0
+                            ? internalStreams.get_stream().value()
+                            : userStream;
 
     switch (metric) {
       case raft::distance::DistanceType::Haversine:
