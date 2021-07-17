@@ -1,20 +1,25 @@
+#include <thrust/iterator/iterator_traits.h>
+#include <iterator>
 #include <type_traits>
 
 namespace raft {
 
-template <typename T, typename = void>
-struct has_access_operator : std::false_type {};
-
+/**
+ * @brief SFINAE check to allow for RAFT APIs to accept any random access buffer. 
+ * specializing for T * const and T const * const by using `std::remove_const`
+ * these types are not considered random access iterators, but it should
+ * be okay for us to do so as we only need random access buffers
+ * 
+ * Example:
+ * template <typename Buf, std::enable_if_t<is_random_access_buffer<Buf>::value> * = nullptr>
+ * void raft_prim(const raft::handle& handle, Buf input_begin, Buf input_end,
+ *                Buf output_begin) {...}
+ */
 template <typename T>
-struct has_access_operator<T, std::void_t<decltype(std::declval<T>()[0])>>
-  : std::true_type {};
-
-template <typename T, typename = void>
-struct is_random_access_iterator : std::false_type {};
-
-template <typename T>
-struct is_random_access_iterator<
-  T, std::enable_if_t<has_access_operator<T>::value and std::is_pointer_v<T>>>
-  : std::true_type {};
+struct is_random_access_buffer
+  : std::bool_constant<
+      std::is_convertible_v<typename thrust::iterator_traits<
+                              std::remove_const_t<T>>::iterator_category,
+                            std::random_access_iterator_tag>> {};
 
 }  // namespace raft

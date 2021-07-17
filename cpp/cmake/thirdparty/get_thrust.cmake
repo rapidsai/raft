@@ -20,8 +20,8 @@ function(find_and_configure_thrust VERSION)
     BUILD_EXPORT_SET raft-exports
     INSTALL_EXPORT_SET raft-exports
     CPM_ARGS
-    GIT_REPOSITORY https://github.com/NVIDIA/thrust.git
-    GIT_TAG ${VERSION}
+    GIT_REPOSITORY https://github.com/divyegala/thrust.git
+    GIT_TAG update-iterator-traits
     GIT_SHALLOW TRUE
     OPTIONS "THRUST_INSTALL OFF")
 
