@@ -144,9 +144,9 @@ template <bool useNorms, typename DataT, typename AccT, typename OutT,
           bool isRowMajor = true>
 __global__ __launch_bounds__( Policy::Nthreads, 2) void fusedL2kNN(
                       const DataT* x, const DataT* y,
-                      const DataT* _xn, const DataT* _yn, IdxT m,
-                      IdxT n, IdxT k, IdxT lda, IdxT ldb,
-                      IdxT ldd,
+                      const DataT* _xn, const DataT* _yn, const IdxT m,
+                      const IdxT n, const IdxT k, const IdxT lda, const IdxT ldb,
+                      const IdxT ldd,
                       CoreLambda core_op,
                       FinalLambda fin_op,
                       bool sqrt,
@@ -180,7 +180,7 @@ __global__ __launch_bounds__( Policy::Nthreads, 2) void fusedL2kNN(
     constexpr auto newAccThCols = Policy::AccThCols;
 
     const int lid = threadIdx.x % warpSize;
-    const auto starty = gridStrideY + (threadIdx.x / newAccThCols);
+    const IdxT starty = gridStrideY + (threadIdx.x / newAccThCols);
 
     //  0 -> consumer done consuming the buffer.
     // -1 -> consumer started consuming the buffer
@@ -301,8 +301,8 @@ __global__ __launch_bounds__( Policy::Nthreads, 2) void fusedL2kNN(
     constexpr auto newAccColsPerTh = Policy::AccColsPerTh;
     constexpr auto newAccThCols = Policy::AccThCols;
     constexpr uint32_t mask = 0xffffffffu;
-    const auto starty = gridStrideY + (threadIdx.x / newAccThCols);
-    const auto startx = gridStrideX + (threadIdx.x % newAccThCols);
+    const IdxT starty = gridStrideY + (threadIdx.x / newAccThCols);
+    const IdxT startx = gridStrideX + (threadIdx.x % newAccThCols);
     const int lid = raft::laneId();
 
     myWarpSelect heapArr1(identity, keyMax, numOfNN);
