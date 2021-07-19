@@ -263,7 +263,6 @@ void brute_force_knn_impl(const raft::handle_t &handle,
     out_I = all_I.data();
   }
 
-  auto n_internal_streams = handle.get_stream_pool().get_pool_size();
   // Make other streams from pool wait on main stream
   handle.wait_stream_pool_on_stream();
 
@@ -271,8 +270,7 @@ void brute_force_knn_impl(const raft::handle_t &handle,
     float *out_d_ptr = out_D + (i * k * n);
     int64_t *out_i_ptr = out_I + (i * k * n);
 
-    auto stream = n_internal_streams > 0 ? handle.get_stream_pool().get_stream()
-                                         : userStream;
+    auto stream = handle.get_stream_from_stream_pool();
 
     switch (metric) {
       case raft::distance::DistanceType::Haversine:
