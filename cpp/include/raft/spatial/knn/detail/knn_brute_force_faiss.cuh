@@ -196,17 +196,18 @@ inline void knn_merge_parts(value_t *inK, value_idx *inV, value_t *outK,
  * @param[in] metricArg metric argument to use. Corresponds to the p arg for lp norm
  */
 template <typename IntType = int>
-void brute_force_knn_impl(std::vector<float *> &input, std::vector<int> &sizes,
+void brute_force_knn_impl(const raft::handle_t &handle,
+                          std::vector<float *> &input, std::vector<int> &sizes,
                           IntType D, float *search_items, IntType n,
                           int64_t *res_I, float *res_D, IntType k,
                           std::shared_ptr<deviceAllocator> allocator,
-                          cudaStream_t userStream,
-                          const rmm::cuda_stream_pool &internalStreams,
                           bool rowMajorIndex = true, bool rowMajorQuery = true,
                           std::vector<int64_t> *translations = nullptr,
                           raft::distance::DistanceType metric =
                             raft::distance::DistanceType::L2Expanded,
                           float metricArg = 0) {
+  auto userStream = handle.get_stream();
+
   ASSERT(input.size() == sizes.size(),
          "input and sizes vectors should be the same size");
 
@@ -262,17 +263,16 @@ void brute_force_knn_impl(std::vector<float *> &input, std::vector<int> &sizes,
     out_I = all_I.data();
   }
 
-  // Sync user stream only if using other streams to parallelize query
-  auto n_internal_streams = internalStreams.get_pool_size();
-  if (n_internal_streams > 0) CUDA_CHECK(cudaStreamSynchronize(userStream));
+  auto n_internal_streams = handle.get_stream_pool().get_pool_size();
+  // Make other streams from pool wait on main stream
+  handle.wait_stream_pool_on_stream();
 
   for (size_t i = 0; i < input.size(); i++) {
     float *out_d_ptr = out_D + (i * k * n);
     int64_t *out_i_ptr = out_I + (i * k * n);
 
-    cudaStream_t stream = n_internal_streams > 0
-                            ? internalStreams.get_stream().value()
-                            : userStream;
+    auto stream = n_internal_streams > 0 ? handle.get_stream_pool().get_stream()
+                                         : userStream;
 
     switch (metric) {
       case raft::distance::DistanceType::Haversine:
@@ -320,9 +320,7 @@ void brute_force_knn_impl(std::vector<float *> &input, std::vector<int> &sizes,
   // Sync internal streams if used. We don't need to
   // sync the user stream because we'll already have
   // fully serial execution.
-  for (std::size_t i = 0; i < internalStreams.get_pool_size(); i++) {
-    CUDA_CHECK(cudaStreamSynchronize(internalStreams.get_stream(i)));
-  }
+  handle.sync_stream_pool();
 
   if (input.size() > 1 || translations != nullptr) {
     // This is necessary for proper index translations. If there are
