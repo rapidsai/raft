@@ -21,7 +21,7 @@
 
 # import raft
 from libcpp.memory cimport shared_ptr
-from rmm._lib.cuda_stream_view cimport cuda_stream_default
+from rmm._lib.cuda_stream_view cimport cuda_stream_per_thread
 from rmm._lib.cuda_stream_view cimport cuda_stream_view
 
 from .cuda cimport _Stream, _Error, cudaStreamSynchronize
@@ -57,8 +57,9 @@ cdef class Handle:
 
         cdef cuda_stream_view c_stream
         if stream is None:
-            # this constructor will construct a "main" handle on null stream
-            self.c_obj.reset(new handle_t(cuda_stream_default,
+            # this constructor will construct a "main" handle on
+            # per-thread default stream, which is non-blocking
+            self.c_obj.reset(new handle_t(cuda_stream_per_thread,
                                           self.stream_pool.get()[0]))
         else:
             # this constructor constructs a handle on user stream

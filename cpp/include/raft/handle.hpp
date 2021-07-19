@@ -66,7 +66,7 @@ class handle_t {
    * @param[in] stream the default stream (which has the default value of nullptr if unspecified)
    * @param[in] stream_pool the stream pool used (which has default pool of size 0 if unspecified)
    */
-  handle_t(rmm::cuda_stream_view stream = {},
+  handle_t(rmm::cuda_stream_view stream = rmm::cuda_stream_per_thread,
            const rmm::cuda_stream_pool& stream_pool = rmm::cuda_stream_pool{0})
     : dev_id_([]() -> int {
         int cur_dev = -1;
