@@ -63,7 +63,7 @@ class handle_t {
   /**
    * @brief Construct a handle with a stream view and stream pool
    *
-   * @param[in] stream the default stream (which has the default value of nullptr if unspecified)
+   * @param[in] stream the default stream (which has the default per-thread stream if unspecified)
    * @param[in] stream_pool the stream pool used (which has default pool of size 0 if unspecified)
    */
   handle_t(rmm::cuda_stream_view stream = rmm::cuda_stream_per_thread,
