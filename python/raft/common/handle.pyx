@@ -83,5 +83,5 @@ cdef class Handle:
         self.n_streams = state
         self.stream_pool.reset(new cuda_stream_pool(self.n_streams))
 
-        self.c_obj.reset(new handle_t(cuda_stream_default,
+        self.c_obj.reset(new handle_t(cuda_stream_per_thread,
                                       self.stream_pool.get()[0]))

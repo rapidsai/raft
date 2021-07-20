@@ -88,7 +88,7 @@ class handle_t {
   /**
    * @brief returns main stream on the handle
    */
-  const rmm::cuda_stream_view& get_stream() const { return stream_view_; }
+  rmm::cuda_stream_view get_stream() const { return stream_view_; }
 
   /**
    * @brief returns stream pool on the handle, could be 0 sized
@@ -98,7 +98,7 @@ class handle_t {
   /**
    * @brief returns stream from stream pool if size > 0, else main stream
    */
-  const rmm::cuda_stream_view& get_stream_from_stream_pool() const {
+  rmm::cuda_stream_view get_stream_from_stream_pool() const {
     if (stream_pool_.get_pool_size() > 0) {
       return stream_pool_.get_stream();
     }
