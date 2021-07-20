@@ -186,12 +186,11 @@ __global__ void perform_post_filter(const value_t *X,
   value_t x1 = x_ptr[0];
   value_t x2 = x_ptr[1];
 
-  // allocate array of size n / 8 / 4 ints
+  // allocate array of size n_landmarks / 32 ints
   extern __shared__ uint32_t smem[];
 
-
   // Start with all bits on
-  for(int i = 0; i < bitset_size; i++) {
+  for(int i = tid; i < bitset_size; i+=blockDim.x) {
     smem[i] = 0xffffffff;
   }
 
@@ -511,7 +510,8 @@ void random_ball_cover(const raft::handle_t &handle, const value_t *X,
 
   thrust::for_each(exec_policy, entries, entries+n_samples,
     [=] __device__ (value_idx input) {
-     R_radius_ptr[input] = R_1nn_dists_ptr[R_indptr_ptr[input+1]];
+     value_idx last_row_idx = R_indptr_ptr[input+1]-1;
+     R_radius_ptr[input] = R_1nn_dists_ptr[last_row_idx];
     });
 
   /**
