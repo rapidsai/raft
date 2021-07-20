@@ -95,28 +95,6 @@ class handle_t {
    */
   const rmm::cuda_stream_pool& get_stream_pool() const { return stream_pool_; }
 
-  /**
-   * @brief returns stream from stream pool if size > 0, else main stream
-   */
-  rmm::cuda_stream_view get_stream_from_stream_pool() const {
-    if (stream_pool_.get_pool_size() > 0) {
-      return stream_pool_.get_stream();
-    }
-    return stream_view_;
-  }
-
-  /**
-   * @brief returns stream id from stream pool if size > 0, else main stream
-   * 
-   * @param[in] sid stream id
-   */
-  rmm::cuda_stream_view get_stream_from_stream_pool(std::size_t sid) const {
-    if (stream_pool_.get_pool_size() > 0) {
-      return stream_pool_.get_stream(sid);
-    }
-    return stream_view_;
-  }
-
   void set_device_allocator(std::shared_ptr<mr::device::allocator> allocator) {
     device_allocator_ = allocator;
   }

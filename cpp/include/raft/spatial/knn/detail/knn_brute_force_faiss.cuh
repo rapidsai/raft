@@ -264,13 +264,15 @@ void brute_force_knn_impl(const raft::handle_t &handle,
   }
 
   // Make other streams from pool wait on main stream
+  const auto &stream_pool = handle.get_stream_pool();
   handle.wait_stream_pool_on_stream();
 
   for (size_t i = 0; i < input.size(); i++) {
     float *out_d_ptr = out_D + (i * k * n);
     int64_t *out_i_ptr = out_I + (i * k * n);
 
-    auto stream = handle.get_stream_from_stream_pool();
+    auto stream = stream_pool.get_pool_size() > 0 ? stream_pool.get_stream()
+                                                  : handle.get_stream();
 
     switch (metric) {
       case raft::distance::DistanceType::Haversine:
