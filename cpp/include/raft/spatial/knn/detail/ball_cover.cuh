@@ -72,7 +72,6 @@ __device__ inline bool _get_val(uint32_t *arr, uint32_t h) {
   return (arr[idx] & (1 << bit)) > 0;
 }
 
-
 template<typename value_idx, typename value_t, typename value_int = int,
   typename bitset_type, int warp_q=1024, int thread_q=1, int tpb=32>
 __global__ void compute_final_dists(const value_t *X,
@@ -205,6 +204,9 @@ __global__ void perform_post_filter(const value_t *X,
   __syncthreads();
 
   // Discard any landmarks where p(q, r) > p(q, r_q) + radius(r)
+  // That is, the distance between the current point and the current
+  // landmark is > the distance between the current point and
+  // its closest landmark + the radius of the current landmark.
   for(int i = tid; i < n_landmarks; i+=blockDim.x) {
 
     // compute p(q, r)
@@ -213,8 +215,15 @@ __global__ void perform_post_filter(const value_t *X,
     value_t y2 = y_ptr[1];
 
     value_t p_q_r = compute_haversine(x1, y1, x2, y2);
-    if(p_q_r > closest_R_dist + R_radius[i])
+    if(p_q_r > closest_R_dist + R_radius[i]) {
+      if(row == 0)
+        printf("row 0 is zeroing landmark %d\n", i);
       _zero_bit(smem, i);
+    }
+    else {
+      if(row == 0)
+        printf("row 0 is keeping landmark %d\n", i);
+    }
   }
 
   __syncthreads();
@@ -500,7 +509,7 @@ void random_ball_cover(const raft::handle_t &handle, const value_t *X,
 
   /**
    * Compute radius of each R for filtering: p(q, r) <= p(q, q_r) + radius(r)
-   * (need to take furthest neighbor from each R)
+   * (need to take the
    */
   rmm::device_uvector<value_t> R_radius(n_samples, handle.get_stream());
 
@@ -557,12 +566,14 @@ void random_ball_cover(const raft::handle_t &handle, const value_t *X,
            true, k, handle.get_stream());
 
   // perform k-select of remaining landmarks
-//  int bitset_size = n_samples / 32;
-//  rmm::device_uvector<uint32_t> bitset(bitset_size, handle.get_stream());
+  int bitset_size = n_samples / 32;
+  rmm::device_uvector<uint32_t> bitset(bitset_size, handle.get_stream());
 
-//  perform_post_filter<<<m, 32, bitset_size * sizeof(uint32_t), handle.get_stream()>>>(
-//    X, n, R_knn_inds.data(), R_knn_dists.data(), R_radius.data(),
-//    R.data(), n_samples, bitset_size, k, bitset.data());
+  perform_post_filter<<<m, 32, bitset_size * sizeof(uint32_t), handle.get_stream()>>>(
+    X, n, R_knn_inds.data(), R_knn_dists.data(), R_radius.data(),
+    R.data(), n_samples, bitset_size, k, bitset.data());
+
+
 //
 //  rmm::device_uvector<int> post_dists_counter(m, handle.get_stream());
 //
