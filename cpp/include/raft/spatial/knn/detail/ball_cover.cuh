@@ -557,24 +557,24 @@ void random_ball_cover(const raft::handle_t &handle, const value_t *X,
            true, k, handle.get_stream());
 
   // perform k-select of remaining landmarks
-  int bitset_size = n_samples / 32;
-  rmm::device_uvector<uint32_t> bitset(bitset_size, handle.get_stream());
+//  int bitset_size = n_samples / 32;
+//  rmm::device_uvector<uint32_t> bitset(bitset_size, handle.get_stream());
 
-  perform_post_filter<<<m, 32, bitset_size * sizeof(uint32_t), handle.get_stream()>>>(
-    X, n, R_knn_inds.data(), R_knn_dists.data(), R_radius.data(),
-    R.data(), n_samples, bitset_size, k, bitset.data());
-
-  rmm::device_uvector<int> post_dists_counter(m, handle.get_stream());
-
-  // Compute any distances from the landmarks that remain in the bitset
-  compute_final_dists<<<m, 32, 0, handle.get_stream()>>>(
-                      X, n, bitset.data(), bitset_size,
-                      R_knn_dists.data(),  R_indptr.data(), R_1nn_inds.data(),
-                      R_1nn_dists.data(), inds,
-                      dists, n_samples, k, post_dists_counter.data());
-
-  raft::print_device_vector("dists_counter 2nd phase", post_dists_counter.data(), 15,
-                            std::cout);
+//  perform_post_filter<<<m, 32, bitset_size * sizeof(uint32_t), handle.get_stream()>>>(
+//    X, n, R_knn_inds.data(), R_knn_dists.data(), R_radius.data(),
+//    R.data(), n_samples, bitset_size, k, bitset.data());
+//
+//  rmm::device_uvector<int> post_dists_counter(m, handle.get_stream());
+//
+//  // Compute any distances from the landmarks that remain in the bitset
+//  compute_final_dists<<<m, 32, 0, handle.get_stream()>>>(
+//                      X, n, bitset.data(), bitset_size,
+//                      R_knn_dists.data(),  R_indptr.data(), R_1nn_inds.data(),
+//                      R_1nn_dists.data(), inds,
+//                      dists, n_samples, k, post_dists_counter.data());
+//
+//  raft::print_device_vector("dists_counter 2nd phase", post_dists_counter.data(), 15,
+//                            std::cout);
 
   //   Thoughts:
   //   For n_cols < 32, we could probably just have each thread compute the distance
