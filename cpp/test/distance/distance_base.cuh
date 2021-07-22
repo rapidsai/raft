@@ -161,6 +161,26 @@ __global__ void naiveLpUnexpDistanceKernel(DataType *dist, const DataType *x,
 }
 
 template <typename DataType>
+__global__ void naiveHammingDistanceKernel(DataType *dist, const DataType *x,
+                                           const DataType *y, int m, int n,
+                                           int k, bool isRowMajor) {
+  int midx = threadIdx.x + blockIdx.x * blockDim.x;
+  int nidx = threadIdx.y + blockIdx.y * blockDim.y;
+  if (midx >= m || nidx >= n) return;
+  DataType acc = DataType(0);
+  for (int i = 0; i < k; ++i) {
+    int xidx = isRowMajor ? i + midx * k : i * m + midx;
+    int yidx = isRowMajor ? i + nidx * k : i * n + nidx;
+    auto a = x[xidx];
+    auto b = y[yidx];
+    acc += (a != b);
+  }
+  acc = acc / k;
+  int outidx = isRowMajor ? midx * n + nidx : midx + m * nidx;
+  dist[outidx] = acc;
+}
+
+template <typename DataType>
 void naiveDistance(DataType *dist, const DataType *x, const DataType *y, int m,
                    int n, int k, raft::distance::DistanceType type,
                    bool isRowMajor, DataType metric_arg = 2.0f) {
@@ -192,6 +212,10 @@ void naiveDistance(DataType *dist, const DataType *x, const DataType *y, int m,
     case raft::distance::DistanceType::LpUnexpanded:
       naiveLpUnexpDistanceKernel<DataType>
         <<<nblks, TPB>>>(dist, x, y, m, n, k, isRowMajor, metric_arg);
+      break;
+    case raft::distance::DistanceType::HammingUnexpanded:
+      naiveHammingDistanceKernel<DataType>
+        <<<nblks, TPB>>>(dist, x, y, m, n, k, isRowMajor);
       break;
     default:
       FAIL() << "should be here\n";
