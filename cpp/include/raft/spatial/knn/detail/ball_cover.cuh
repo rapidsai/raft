@@ -72,6 +72,28 @@ __device__ inline bool _get_val(uint32_t *arr, uint32_t h) {
   return (arr[idx] & (1 << bit)) > 0;
 }
 
+/**
+ * @tparam value_idx
+ * @tparam value_t
+ * @tparam value_int
+ * @tparam bitset_type
+ * @tparam warp_q number of registers to use per warp
+ * @tparam thread_q number of registers to use within each thread
+ * @tparam tpb number of threads per block
+ * @param X
+ * @param n_cols
+ * @param bitset
+ * @param bitset_size
+ * @param R_knn_dists
+ * @param R_indptr
+ * @param R_1nn_inds
+ * @param R_1nn_dists
+ * @param knn_inds
+ * @param knn_dists
+ * @param n_landmarks
+ * @param k
+ * @param dist_counter
+ */
 template<typename value_idx, typename value_t, typename value_int = int,
   typename bitset_type, int warp_q=1024, int thread_q=1, int tpb=32>
 __global__ void compute_final_dists(const value_t *X,
@@ -106,12 +128,15 @@ __global__ void compute_final_dists(const value_t *X,
          k);
 
   // First add current top k to the k-selector
-  for(int i = tid; i < k; i+= blockDim.x) {
+  // TODO: When k > warp size, we need to do this in 2 steps
+
+  int n_k = k > 32 ? floor(k / 32) * 32 : k;
+  for(int i = tid; i < n_k; i+= blockDim.x) {
     value_idx ind = knn_inds[row * k + i];
     value_t cur_candidate_dist = R_knn_dists[ind * k];
-    heap.addThreadQ(knn_dists[row * k + i], faiss::gpu::KeyValuePair(cur_candidate_dist, ind));
+    heap.addThreadQ(knn_dists[row * k + i],
+                    faiss::gpu::KeyValuePair(cur_candidate_dist, ind));
   }
-
   heap.checkThreadQ();
   heap.reduce();
 
@@ -126,11 +151,16 @@ __global__ void compute_final_dists(const value_t *X,
       value_idx R_size = R_stop_offset - R_start_offset;
 
       // Loop through R's neighborhood in parallel
-      for(int i = tid; i < R_size; i += blockDim.x) {
+
+      // TODO: Round R_size to the nearest warp threads so they can
+      // all be computing in parallel.
+
+      int n_r = floor(R_size / 32) * 32; // round to n_warps
+      int i = tid;
+      for(; i < n_r; i += blockDim.x) {
 
         value_idx cur_candidate_ind = R_1nn_inds[R_start_offset + i];
-        value_t cur_candidate_dist = R_1nn_dists[R_start_offset + i];
-
+        value_t   cur_candidate_dist = R_1nn_dists[R_start_offset + i];
         value_t z = heap.warpKTopRDist == 0.00
                     ? 0.0
                     : (abs(heap.warpKTop - heap.warpKTopRDist) *
@@ -148,14 +178,37 @@ __global__ void compute_final_dists(const value_t *X,
           value_t dist = compute_haversine(x1, y1, x2, y2);
           heap.addThreadQ(
             dist, faiss::gpu::KeyValuePair(cur_candidate_dist, cur_candidate_ind));
-
           n_dists_computed++;
-
-          printf("n_dists_computed=%d, row=%d\n", n_dists_computed, row);
         }
-
         heap.checkThreadQ();
       }
+
+      // TODO: second round guarantees to be 1 or less per warp
+      if(i < n_r) {
+
+        value_idx cur_candidate_ind = R_1nn_inds[R_start_offset + i];
+        value_t   cur_candidate_dist = R_1nn_dists[R_start_offset + i];
+
+        value_t z = heap.warpKTopRDist == 0.00
+                    ? 0.0
+                    : (abs(heap.warpKTop - heap.warpKTopRDist) *
+                       abs(heap.warpKTopRDist - cur_candidate_dist) -
+                       heap.warpKTop * cur_candidate_dist) /
+                      heap.warpKTopRDist;
+
+        // If lower bound on distance could possibly be in
+        // the closest k neighbors, compute it and add to k-select
+        if (z < heap.warpKTop) {
+          const value_t *y_ptr = X + (n_cols * cur_candidate_ind);
+          value_t y1 = y_ptr[0];
+          value_t y2 = y_ptr[1];
+          value_t dist = compute_haversine(x1, y1, x2, y2);
+          heap.addThreadQ(
+            dist, faiss::gpu::KeyValuePair(cur_candidate_dist, cur_candidate_ind));
+          n_dists_computed++;
+        }
+      }
+      heap.checkThreadQ();
     }
   }
 
@@ -163,7 +216,6 @@ __global__ void compute_final_dists(const value_t *X,
 
   value_idx cur_idx = row * k;
   heap.writeOut(knn_dists + cur_idx, knn_inds + cur_idx, k);
-
   atomicAdd(dist_counter + row, n_dists_computed);
 }
 
@@ -198,8 +250,9 @@ __global__ void perform_post_filter(const value_t *X,
   value_t closest_R_dist = R_knn_dists[row * k];
 
   // zero out bits for closest k landmarks
-  for(int i = tid; i < k; i += blockDim.x)
-    _zero_bit(smem, (uint32_t)R_knn_inds[row * k + i]);
+  for(int j = tid; j < k; j += blockDim.x) {
+    _zero_bit(smem, (uint32_t)R_knn_inds[row * k + j]);
+  }
 
   __syncthreads();
 
@@ -207,22 +260,22 @@ __global__ void perform_post_filter(const value_t *X,
   // That is, the distance between the current point and the current
   // landmark is > the distance between the current point and
   // its closest landmark + the radius of the current landmark.
-  for(int i = tid; i < n_landmarks; i+=blockDim.x) {
+  for(int k = tid; k < n_landmarks; k+=blockDim.x) {
 
     // compute p(q, r)
-    const value_t *y_ptr = landmarks + (n_cols * i);
+    const value_t *y_ptr = landmarks + (n_cols * k);
     value_t y1 = y_ptr[0];
     value_t y2 = y_ptr[1];
 
     value_t p_q_r = compute_haversine(x1, y1, x2, y2);
-    if(p_q_r > closest_R_dist + R_radius[i]) {
+    if(p_q_r > closest_R_dist + R_radius[k]) {
       if(row == 0)
-        printf("row 0 is zeroing landmark %d\n", i);
-      _zero_bit(smem, i);
+        printf("row 0 is zeroing landmark %d\n", k);
+      _zero_bit(smem, k);
     }
     else {
       if(row == 0)
-        printf("row 0 is keeping landmark %d\n", i);
+        printf("row 0 is keeping landmark %d\n", k);
     }
   }
 
@@ -231,8 +284,8 @@ __global__ void perform_post_filter(const value_t *X,
   /**
    * Output bitset
    */
-  for(int i = tid; i < bitset_size; i+=blockDim.x)
-    output[row * bitset_size + i] = smem[i];
+  for(int l = tid; l < bitset_size; l+=blockDim.x)
+    output[row * bitset_size + l] = smem[l];
 }
 
 /**
@@ -311,26 +364,26 @@ __global__ void rbc_kernel(const value_t *X, value_int n_cols,
     value_idx cur_candidate_ind = R_1nn_cols[R_start_offset + i];
     value_t cur_candidate_dist = R_1nn_dists[R_start_offset + i];
 
-    if (row == 2547454 && cur_candidate_ind == 2547455) {
-      const value_t *y_ptr = X + (n_cols * cur_candidate_ind);
-      value_t y1 = y_ptr[0];
-      value_t y2 = y_ptr[1];
-
-      value_t z = heap.warpKTopRDist == 0.00
-                    ? 0.0
-                    : (abs(heap.warpKTop - heap.warpKTopRDist) *
-                         abs(heap.warpKTopRDist - cur_candidate_dist) -
-                       heap.warpKTop * cur_candidate_dist) /
-                        heap.warpKTopRDist;
-
-      value_t dist = compute_haversine(x1, y1, x2, y2);
-      printf(
-        "row=%d, cur_R_ind=%ld, cur_R_dist=%f, cur_candidate_ind=%ld, "
-        "cur_candidate_dist=%f, actual_dist=%f, z=%f, warpKTop=%f, "
-        "warpKTopRDist=%f\n",
-        row, cur_R_ind, cur_R_dist, cur_candidate_ind, cur_candidate_dist, dist,
-        z, heap.warpKTop, heap.warpKTopRDist);
-    }
+//    if (row == 2547454 && cur_candidate_ind == 2547455) {
+//      const value_t *y_ptr = X + (n_cols * cur_candidate_ind);
+//      value_t y1 = y_ptr[0];
+//      value_t y2 = y_ptr[1];
+//
+//      value_t z = heap.warpKTopRDist == 0.00
+//                    ? 0.0
+//                    : (abs(heap.warpKTop - heap.warpKTopRDist) *
+//                         abs(heap.warpKTopRDist - cur_candidate_dist) -
+//                       heap.warpKTop * cur_candidate_dist) /
+//                        heap.warpKTopRDist;
+//
+//      value_t dist = compute_haversine(x1, y1, x2, y2);
+//      printf(
+//        "row=%d, cur_R_ind=%ld, cur_R_dist=%f, cur_candidate_ind=%ld, "
+//        "cur_candidate_dist=%f, actual_dist=%f, z=%f, warpKTop=%f, "
+//        "warpKTopRDist=%f\n",
+//        row, cur_R_ind, cur_R_dist, cur_candidate_ind, cur_candidate_dist, dist,
+//        z, heap.warpKTop, heap.warpKTopRDist);
+//    }
 
     // Take 2 landmarks l_1 and l_2 where l_1 is the furthest point in the heap
     // and l_2 is the current landmark R. s is the current data point and
@@ -461,7 +514,6 @@ void random_ball_cover(const raft::handle_t &handle, const value_t *X,
   std::vector<value_t *> input = {R.data()};
   std::vector<int> sizes = {n_samples};
 
-
   // TODO: Using k=n_samples here for now because pairwise dists don't yet support haversine
   brute_force_knn_impl<int, int64_t>(
     input, sizes, n, const_cast<value_t *>(X), m, R_knn_inds.data(),
@@ -540,52 +592,56 @@ void random_ball_cover(const raft::handle_t &handle, const value_t *X,
   rbc_kernel<<<m * k, 32, 0, handle.get_stream()>>>(
     X, n, R_knn_inds.data(), R_knn_dists.data(), m, k, R_indptr.data(),
     R_1nn_cols.data(), R_1nn_dists.data(), out_inds_full.data(),
-    out_dists_full.data(), R_indices.data(), dists_counter.data(), 2547454);
+    out_dists_full.data(), R_indices.data(), dists_counter.data(), 0);
+
+  CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
   raft::print_device_vector("dists_counter", dists_counter.data(), 15,
                             std::cout);
-
+//
   raft::print_device_vector("out_dists_full",
-                            out_dists_full.data() + (2547454 * k * k), k * k,
+                            out_dists_full.data() + (13057 * k * k), k * k,
                             std::cout);
   raft::print_device_vector("out_inds_full",
-                            out_inds_full.data() + (2547454 * k * k), k * k,
+                            out_inds_full.data() + (13057 * k * k), k * k,
                             std::cout);
 
-  raft::print_device_vector(
-    "2547454 R knn: ", R_knn_inds.data() + (2547454 * k), k, std::cout);
-  raft::print_device_vector(
-    "2547454 R knn dists: ", R_knn_dists.data() + (2547454 * k), k, std::cout);
-  raft::print_device_vector(
-    "2547455 R knn: ", R_knn_inds.data() + (2547455 * k), k, std::cout);
-  raft::print_device_vector(
-    "2547455 R knn dists: ", R_knn_dists.data() + (2547455 * k), k, std::cout);
+//  raft::print_device_vector(
+//    "2547454 R knn: ", R_knn_inds.data() + (2547454 * k), k, std::cout);
+//  raft::print_device_vector(
+//    "2547454 R knn dists: ", R_knn_dists.data() + (2547454 * k), k, std::cout);
+//  raft::print_device_vector(
+//    "2547455 R knn: ", R_knn_inds.data() + (2547455 * k), k, std::cout);
+//  raft::print_device_vector(
+//    "2547455 R knn dists: ", R_knn_dists.data() + (2547455 * k), k, std::cout);
 
   // Reduce k * k to final k
   select_k(out_dists_full.data(), out_inds_full.data(), m, k * k, dists, inds,
            true, k, handle.get_stream());
 
   // perform k-select of remaining landmarks
-  int bitset_size = n_samples / 32;
-  rmm::device_uvector<uint32_t> bitset(bitset_size, handle.get_stream());
+  int bitset_size = ceil(n_samples / 32.0);
 
+  printf("bitset_size=%d\n", bitset_size);
+
+  rmm::device_uvector<uint32_t> bitset(bitset_size * m, handle.get_stream());
   perform_post_filter<<<m, 32, bitset_size * sizeof(uint32_t), handle.get_stream()>>>(
     X, n, R_knn_inds.data(), R_knn_dists.data(), R_radius.data(),
     R.data(), n_samples, bitset_size, k, bitset.data());
 
+  CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
-//
-//  rmm::device_uvector<int> post_dists_counter(m, handle.get_stream());
-//
-//  // Compute any distances from the landmarks that remain in the bitset
-//  compute_final_dists<<<m, 32, 0, handle.get_stream()>>>(
-//                      X, n, bitset.data(), bitset_size,
-//                      R_knn_dists.data(),  R_indptr.data(), R_1nn_inds.data(),
-//                      R_1nn_dists.data(), inds,
-//                      dists, n_samples, k, post_dists_counter.data());
-//
-//  raft::print_device_vector("dists_counter 2nd phase", post_dists_counter.data(), 15,
-//                            std::cout);
+  rmm::device_uvector<int> post_dists_counter(m, handle.get_stream());
+
+  // Compute any distances from the landmarks that remain in the bitset
+  compute_final_dists<<<m, 32, 0, handle.get_stream()>>>(
+                      X, n, bitset.data(), bitset_size,
+                      R_knn_dists.data(),  R_indptr.data(), R_1nn_inds.data(),
+                      R_1nn_dists.data(), inds,
+                      dists, n_samples, k, post_dists_counter.data());
+
+  raft::print_device_vector("dists_counter 2nd phase", post_dists_counter.data(), 15,
+                            std::cout);
 
   //   Thoughts:
   //   For n_cols < 32, we could probably just have each thread compute the distance

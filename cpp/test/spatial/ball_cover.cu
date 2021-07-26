@@ -17,108 +17,169 @@
 #include <gtest/gtest.h>
 #include <raft/linalg/distance_type.h>
 #include <iostream>
-#include <raft/spatial/knn/knn.hpp>
-#include <rmm/device_buffer.hpp>
+#include <raft/cudart_utils.h>
+#include <raft/spatial/knn/detail/knn_brute_force_faiss.cuh>
+#include <raft/spatial/knn/detail/ball_cover.cuh>
+#include <rmm/device_uvector.hpp>
 #include <vector>
 #include "../test_utils.h"
+
+#include <thrust/transform.h>
+#include <rmm/exec_policy.hpp>
 
 namespace raft {
 namespace spatial {
 namespace knn {
 
+using namespace std;
+
+std::vector<std::string> split(std::string str, std::string delim) {
+
+  std::vector<std::string> tokens;
+  std::string token;
+  auto start = 0U;
+  auto end = str.find(delim);
+  while(end != std::string::npos) {
+    token = str.substr(start, end-start);
+    tokens.push_back(token);
+    start = end + delim.length();
+    end = str.find(delim, start);
+  }
+  tokens.push_back(str.substr(start, end));
+
+  return tokens;
+}
+
+inline std::vector<float> read_csv2(std::string filename, int lines_to_read=200000){
+  std::vector<float> result;
+  std::ifstream myFile(filename);
+  if(!myFile.is_open()) throw std::runtime_error("Could not open file");
+
+  std::string line;
+
+  int n_lines = 0;
+  if(myFile.good()) {
+    while (std::getline(myFile, line) && n_lines < lines_to_read) {
+      if(n_lines > 0) {
+          std::vector<std::string> tokens = split(line, ",");
+          for(int i = 0; i < tokens.size(); i++) {
+            float val = stof(tokens[i]);
+            result.push_back(val);
+          }
+      }
+      n_lines++;
+    }
+  }
+
+  printf("lines read: %d\n", n_lines);
+  myFile.close();
+  return result;
+}
+
+struct ToRadians {
+
+  __device__ __host__ float operator()(float a) {
+    return a * (CUDART_PI_F / 180.0);
+  }
+};
+
 template <typename value_idx, typename value_t>
 class BallCoverKNNTest : public ::testing::Test {
+
  protected:
   void basicTest() {
-    auto alloc = std::make_shared<raft::mr::device::default_allocator>();
-
     raft::handle_t handle;
 
-    // Allocate input
-    raft::allocate(d_train_inputs, n * d);
+    auto exec_policy = rmm::exec_policy(handle.get_stream());
 
-    // Allocate reference arrays
-    raft::allocate<value_idx>(d_ref_I, n * n);
-    raft::allocate(d_ref_D, n * n);
-
-    // Allocate predicted arrays
-    raft::allocate<value_idx>(d_pred_I, n * n);
-    raft::allocate(d_pred_D, n * n);
+    cout << "Reading CSV" << endl;
 
     // make testdata on host
-    std::vector<value_t> h_train_inputs = {
-      0.71113885, -1.29215058, 0.59613176, -2.08048115,
-      0.74932804, -1.33634042, 0.51486728, -1.65962873,
-      0.53154002, -1.47049808, 0.72891737, -1.54095137};
+    std::vector<value_t> h_train_inputs = read_csv2(
+      "/share/workspace/reproducers/miguel_haversine_knn/OSM_KNN.csv");
 
-    h_train_inputs.resize(n);
-    raft::update_device(d_train_inputs, h_train_inputs.data(), n * d, 0);
+    cout << "Done" << endl;
 
-    std::vector<value_t> h_res_D = {
-      0., 0.05041587, 0.18767063, 0.23048252, 0.35749438, 0.62925595,
-      0., 0.36575755, 0.44288665, 0.5170737,  0.59501296, 0.62925595,
-      0., 0.05041587, 0.152463,   0.2426416,  0.34925285, 0.59501296,
-      0., 0.16461092, 0.2345792,  0.34925285, 0.35749438, 0.36575755,
-      0., 0.16461092, 0.20535265, 0.23048252, 0.2426416,  0.5170737,
-      0., 0.152463,   0.18767063, 0.20535265, 0.2345792,  0.44288665};
-    h_res_D.resize(n * n);
-    raft::update_device(d_ref_D, h_res_D.data(), n * n, 0);
+    int n = h_train_inputs.size() / d;
 
-    std::vector<value_idx> h_res_I = {0, 2, 5, 4, 3, 1, 1, 3, 5, 4, 2, 0,
-                                      2, 0, 5, 4, 3, 1, 3, 4, 5, 2, 0, 1,
-                                      4, 3, 5, 0, 2, 1, 5, 2, 0, 4, 3, 1};
-    h_res_I.resize(n * n);
-    raft::update_device<value_idx>(d_ref_I, h_res_I.data(), n * n, 0);
+    cout << "n_inputs " << n << endl;
 
-    std::vector<value_t *> input_vec = {d_train_inputs};
-    std::vector<value_idx> sizes_vec = {n};
+    // Allocate input
+    rmm::device_uvector<value_t> d_train_inputs(n * d, handle.get_stream());
+    raft::update_device(d_train_inputs.data(), h_train_inputs.data(), n * d, handle.get_stream());
 
-    raft::spatial::knn::random_ball_cover(handle, d_train_inputs, n, d, k,
-                                          d_pred_I, d_pred_D, s);
+    rmm::device_uvector<value_idx> d_ref_I(n * k, handle.get_stream());
+    rmm::device_uvector<value_t>   d_ref_D(n * k, handle.get_stream());
+
+    std::vector<float *> input_vec = {d_train_inputs.data()};
+    std::vector<int> sizes_vec = {n};
+
+    cudaStream_t *int_streams = nullptr;
+    std::vector<int64_t> *translations = nullptr;
+
+    thrust::transform(exec_policy, d_train_inputs.data(),
+                      d_train_inputs.data()+d_train_inputs.size(),
+                      d_train_inputs.data(), ToRadians());
+
+    cout << "Calling brute force knn " << endl;
+
+    auto bfknn_start = curTimeMillis();
+    // Perform bfknn for comparison
+    raft::spatial::knn::detail::brute_force_knn_impl(
+      input_vec, sizes_vec,
+      d, d_train_inputs.data(), n,
+      d_ref_I.data(), d_ref_D.data(), k,
+      handle.get_device_allocator(),
+      handle.get_stream(), int_streams, 0,
+      true, true, translations,
+      raft::distance::DistanceType::Haversine);
+
+    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+    cout << "Done in: " << curTimeMillis() - bfknn_start << "ms." << endl;
+
+    // Allocate predicted arrays
+    rmm::device_uvector<value_idx> d_pred_I(n * k, handle.get_stream());
+    rmm::device_uvector<value_t> d_pred_D(n * k, handle.get_stream());
+
+    cout << "Calling ball cover" << endl;
+    auto rbc_start = curTimeMillis();
+
+    raft::spatial::knn::detail::random_ball_cover(handle, d_train_inputs.data(), n, d, k,
+                                          d_pred_I.data(), d_pred_D.data());
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
+    cout << "Done in: " << curTimeMillis() -  rbc_start << "ms." << endl;
+
     printf("Done.\n");
 
-    raft::print_device_vector("inds", d_pred_I, n * k, std::cout);
-    raft::print_device_vector("dists", d_pred_D, n * k, std::cout);
+    raft::print_device_vector("inds", d_pred_I.data(), 4 * k, std::cout);
+    raft::print_device_vector("dists", d_pred_D.data(), 4 * k, std::cout);
+
+    raft::print_device_vector("actual inds", d_ref_I.data(), 4 * k, std::cout);
+    raft::print_device_vector("actual dists", d_ref_D.data(), 4 * k, std::cout);
+
+    // What we really want are for the distances to match exactly. The
+    // indices may or may not match exactly, depending upon the ordering which
+    // can be nondeterministic.
+    ASSERT_TRUE(raft::devArrMatch(d_ref_D.data(), d_pred_D.data(), n * k,
+                                  raft::CompareApprox<float>(1e-4)));
+//    ASSERT_TRUE(
+//      raft::devArrMatch(d_ref_I.data(), d_pred_I.data(), n * k, raft::Compare<int>()));
   }
 
-  void SetUp() override { basicTest(); }
+  void SetUp() override { }
 
-  void TearDown() override {
-    CUDA_CHECK(cudaFree(d_train_inputs));
-    CUDA_CHECK(cudaFree(d_pred_I));
-    CUDA_CHECK(cudaFree(d_pred_D));
-    CUDA_CHECK(cudaFree(d_ref_I));
-    CUDA_CHECK(cudaFree(d_ref_D));
-  }
+  void TearDown() override {}
 
  protected:
-  value_t *d_train_inputs;
-
-  int n = 6;
   int d = 2;
-
-  int k = 2;
-
-  int s = 2;
-
-  value_idx *d_pred_I;
-  value_t *d_pred_D;
-
-  value_idx *d_ref_I;
-  value_t *d_ref_D;
+  int k = 7;
 };
 
 typedef BallCoverKNNTest<int64_t, float> BallCoverKNNTestF;
 
-TEST_F(BallCoverKNNTestF, Fit) {
-  ASSERT_TRUE(raft::devArrMatch(d_ref_D, d_pred_D, n * n,
-                                raft::CompareApprox<float>(1e-3)));
-  ASSERT_TRUE(
-    raft::devArrMatch(d_ref_I, d_pred_I, n * n, raft::Compare<int>()));
-}
+TEST_F(BallCoverKNNTestF, Fit) { basicTest();}
 
 }  // namespace knn
 }  // namespace spatial

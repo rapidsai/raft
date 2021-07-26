@@ -21,6 +21,15 @@
 #include <memory>
 #include <raft/cuda_utils.cuh>
 
+#include <string>
+#include <fstream>
+#include <vector>
+#include <utility>
+#include <stdexcept>
+#include <sstream>
+
+
+
 namespace raft {
 
 template <typename T>
@@ -248,5 +257,38 @@ testing::AssertionResult match(const T expected, T actual, L eq_compare) {
     CUDA_CHECK(cudaEventElapsedTime(&ms, start, stop)); \
     ms /= args.runs;                                    \
   } while (0)
+
+inline std::vector<float> read_csv(std::string filename, bool skip_first_n_columns=1){
+  std::vector<float> result;
+  std::ifstream myFile(filename);
+  if(!myFile.is_open()) throw std::runtime_error("Could not open file");
+
+  std::string line, colname;
+  int val;
+
+  if(myFile.good()) {
+    std::getline(myFile, line);
+    std::stringstream ss(line);
+    while(std::getline(ss, colname, ',')) {}
+  }
+
+  int n_lines = 0;
+  while(std::getline(myFile, line)) {
+    std::stringstream ss(line);
+    int colIdx = 0;
+    while(ss >> val) {
+      if(colIdx >= skip_first_n_columns) {
+        result.push_back(val);
+        if(ss.peek() == ',') ss.ignore();
+      }
+      colIdx++;
+    }
+    n_lines++;
+  }
+
+  printf("lines read: %d\n", n_lines);
+  myFile.close();
+  return result;
+}
 
 };  // end namespace raft
