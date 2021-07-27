@@ -24,21 +24,24 @@ namespace distance {
 
 struct Sum {
   template <typename value_t>
-  __host__ __device__ __forceinline__ value_t operator()(value_t a, value_t b) {
+  __host__ __device__ __forceinline__ value_t operator()(value_t a, value_t b)
+  {
     return a + b;
   }
 };
 
 struct NotEqual {
   template <typename value_t>
-  __host__ __device__ __forceinline__ value_t operator()(value_t a, value_t b) {
+  __host__ __device__ __forceinline__ value_t operator()(value_t a, value_t b)
+  {
     return a != b;
   }
 };
 
 struct SqDiff {
   template <typename value_t>
-  __host__ __device__ __forceinline__ value_t operator()(value_t a, value_t b) {
+  __host__ __device__ __forceinline__ value_t operator()(value_t a, value_t b)
+  {
     return (a - b) * (a - b);
   }
 };
@@ -49,44 +52,48 @@ struct PDiff {
   PDiff(float p_) : p(p_) {}
 
   template <typename value_t>
-  __host__ __device__ __forceinline__ value_t operator()(value_t a, value_t b) {
+  __host__ __device__ __forceinline__ value_t operator()(value_t a, value_t b)
+  {
     return pow(a - b, p);
   }
 };
 
 struct Max {
   template <typename value_t>
-  __host__ __device__ __forceinline__ value_t operator()(value_t a, value_t b) {
+  __host__ __device__ __forceinline__ value_t operator()(value_t a, value_t b)
+  {
     return fmax(a, b);
   }
 };
 
 struct AtomicAdd {
   template <typename value_t>
-  __host__ __device__ __forceinline__ value_t operator()(value_t *a,
-                                                         value_t b) {
+  __host__ __device__ __forceinline__ value_t operator()(value_t* a, value_t b)
+  {
     return atomicAdd(a, b);
   }
 };
 
 struct AtomicMax {
   template <typename value_t>
-  __host__ __device__ __forceinline__ value_t operator()(value_t *a,
-                                                         value_t b) {
+  __host__ __device__ __forceinline__ value_t operator()(value_t* a, value_t b)
+  {
     return atomicMax(a, b);
   }
 };
 
 struct Product {
   template <typename value_t>
-  __host__ __device__ __forceinline__ value_t operator()(value_t a, value_t b) {
+  __host__ __device__ __forceinline__ value_t operator()(value_t a, value_t b)
+  {
     return a * b;
   }
 };
 
 struct AbsDiff {
   template <typename value_t>
-  __host__ __device__ __forceinline__ value_t operator()(value_t a, value_t b) {
+  __host__ __device__ __forceinline__ value_t operator()(value_t a, value_t b)
+  {
     return fabs(a - b);
   }
 };

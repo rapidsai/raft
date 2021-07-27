@@ -24,7 +24,7 @@ namespace distance {
 
 /**
  * @brief the cosine distance matrix calculation implementer
- *  It computes the following equation: 
+ *  It computes the following equation:
  *    C = 1 - op(A * B / sqrt(A^2) * sqrt(B^2)))
  * @tparam DataT input data-type (for A and B matrices)
  * @tparam AccT   accumulation data-type
@@ -49,30 +49,43 @@ namespace distance {
  * @param fin_op  the final gemm epilogue lambda
 *  @param stream  cuda stream to launch cuda operations.
  */
-template <typename DataT, typename AccT, typename OutT, typename IdxT,
-          int VecLen, typename FinalLambda, bool isRowMajor>
-void cosineImpl(const DataT *x, const DataT *y, const DataT *xn,
-                const DataT *yn, IdxT m, IdxT n, IdxT k, IdxT lda, IdxT ldb,
-                IdxT ldd, OutT *dOutput, FinalLambda fin_op,
-                cudaStream_t stream) {
+template <typename DataT,
+          typename AccT,
+          typename OutT,
+          typename IdxT,
+          int VecLen,
+          typename FinalLambda,
+          bool isRowMajor>
+void cosineImpl(const DataT* x,
+                const DataT* y,
+                const DataT* xn,
+                const DataT* yn,
+                IdxT m,
+                IdxT n,
+                IdxT k,
+                IdxT lda,
+                IdxT ldb,
+                IdxT ldd,
+                OutT* dOutput,
+                FinalLambda fin_op,
+                cudaStream_t stream)
+{
   typedef typename raft::linalg::Policy4x4<DataT, VecLen>::Policy RowPolicy;
   typedef typename raft::linalg::Policy4x4<DataT, VecLen>::ColPolicy ColPolicy;
 
-  typedef
-    typename std::conditional<isRowMajor, RowPolicy, ColPolicy>::type KPolicy;
+  typedef typename std::conditional<isRowMajor, RowPolicy, ColPolicy>::type KPolicy;
 
   dim3 blk(KPolicy::Nthreads);
 
   // Accumulation operation lambda
-  auto core_lambda = [] __device__(AccT & acc, DataT & x, DataT & y) {
-    acc += x * y;
-  };
+  auto core_lambda = [] __device__(AccT & acc, DataT & x, DataT & y) { acc += x * y; };
 
   // epilogue operation lambda for final value calculation
-  auto epilog_lambda = [] __device__(
-                         AccT acc[KPolicy::AccRowsPerTh][KPolicy::AccColsPerTh],
-                         DataT * regxn, DataT * regyn, IdxT gridStrideX,
-                         IdxT gridStrideY) {
+  auto epilog_lambda = [] __device__(AccT acc[KPolicy::AccRowsPerTh][KPolicy::AccColsPerTh],
+                                     DataT * regxn,
+                                     DataT * regyn,
+                                     IdxT gridStrideX,
+                                     IdxT gridStrideY) {
 #pragma unroll
     for (int i = 0; i < KPolicy::AccRowsPerTh; ++i) {
 #pragma unroll
@@ -85,43 +98,66 @@ void cosineImpl(const DataT *x, const DataT *y, const DataT *xn,
   constexpr size_t shmemSize =
     KPolicy::SmemSize + ((KPolicy::Mblk + KPolicy::Nblk) * sizeof(DataT));
   if (isRowMajor) {
-    auto cosineRowMajor =
-      pairwiseDistanceMatKernel<true, DataT, AccT, OutT, IdxT, KPolicy,
-                                decltype(core_lambda), decltype(epilog_lambda),
-                                FinalLambda, true>;
-    dim3 grid = launchConfigGenerator<KPolicy>(m, n, shmemSize, cosineRowMajor);
+    auto cosineRowMajor = pairwiseDistanceMatKernel<true,
+                                                    DataT,
+                                                    AccT,
+                                                    OutT,
+                                                    IdxT,
+                                                    KPolicy,
+                                                    decltype(core_lambda),
+                                                    decltype(epilog_lambda),
+                                                    FinalLambda,
+                                                    true>;
+    dim3 grid           = launchConfigGenerator<KPolicy>(m, n, shmemSize, cosineRowMajor);
     cosineRowMajor<<<grid, blk, shmemSize, stream>>>(
-      x, y, xn, yn, m, n, k, lda, ldb, ldd, dOutput, core_lambda, epilog_lambda,
-      fin_op);
+      x, y, xn, yn, m, n, k, lda, ldb, ldd, dOutput, core_lambda, epilog_lambda, fin_op);
   } else {
-    auto cosineColMajor =
-      pairwiseDistanceMatKernel<true, DataT, AccT, OutT, IdxT, KPolicy,
-                                decltype(core_lambda), decltype(epilog_lambda),
-                                FinalLambda, false>;
-    dim3 grid = launchConfigGenerator<KPolicy>(m, n, shmemSize, cosineColMajor);
+    auto cosineColMajor = pairwiseDistanceMatKernel<true,
+                                                    DataT,
+                                                    AccT,
+                                                    OutT,
+                                                    IdxT,
+                                                    KPolicy,
+                                                    decltype(core_lambda),
+                                                    decltype(epilog_lambda),
+                                                    FinalLambda,
+                                                    false>;
+    dim3 grid           = launchConfigGenerator<KPolicy>(m, n, shmemSize, cosineColMajor);
     cosineColMajor<<<grid, blk, shmemSize, stream>>>(
-      x, y, xn, yn, m, n, k, lda, ldb, ldd, dOutput, core_lambda, epilog_lambda,
-      fin_op);
+      x, y, xn, yn, m, n, k, lda, ldb, ldd, dOutput, core_lambda, epilog_lambda, fin_op);
   }
 
   CUDA_CHECK(cudaGetLastError());
 }
 
-template <typename DataT, typename AccT, typename OutT, typename IdxT,
-          typename FinalLambda, bool isRowMajor>
-void cosine(IdxT m, IdxT n, IdxT k, IdxT lda, IdxT ldb, IdxT ldd,
-            const DataT *x, const DataT *y, const DataT *xn, const DataT *yn,
-            OutT *dOutput, FinalLambda fin_op, cudaStream_t stream) {
+template <typename DataT,
+          typename AccT,
+          typename OutT,
+          typename IdxT,
+          typename FinalLambda,
+          bool isRowMajor>
+void cosine(IdxT m,
+            IdxT n,
+            IdxT k,
+            IdxT lda,
+            IdxT ldb,
+            IdxT ldd,
+            const DataT* x,
+            const DataT* y,
+            const DataT* xn,
+            const DataT* yn,
+            OutT* dOutput,
+            FinalLambda fin_op,
+            cudaStream_t stream)
+{
   size_t bytesA = sizeof(DataT) * lda;
   size_t bytesB = sizeof(DataT) * ldb;
   if (16 % sizeof(DataT) == 0 && bytesA % 16 == 0 && bytesB % 16 == 0) {
-    cosineImpl<DataT, AccT, OutT, IdxT, 16 / sizeof(DataT), FinalLambda,
-               isRowMajor>(x, y, xn, yn, m, n, k, lda, ldb, ldd, dOutput,
-                           fin_op, stream);
+    cosineImpl<DataT, AccT, OutT, IdxT, 16 / sizeof(DataT), FinalLambda, isRowMajor>(
+      x, y, xn, yn, m, n, k, lda, ldb, ldd, dOutput, fin_op, stream);
   } else if (8 % sizeof(DataT) == 0 && bytesA % 8 == 0 && bytesB % 8 == 0) {
-    cosineImpl<DataT, AccT, OutT, IdxT, 8 / sizeof(DataT), FinalLambda,
-               isRowMajor>(x, y, xn, yn, m, n, k, lda, ldb, ldd, dOutput,
-                           fin_op, stream);
+    cosineImpl<DataT, AccT, OutT, IdxT, 8 / sizeof(DataT), FinalLambda, isRowMajor>(
+      x, y, xn, yn, m, n, k, lda, ldb, ldd, dOutput, fin_op, stream);
   } else {
     cosineImpl<DataT, AccT, OutT, IdxT, 1, FinalLambda, isRowMajor>(
       x, y, xn, yn, m, n, k, lda, ldb, ldd, dOutput, fin_op, stream);
@@ -130,7 +166,7 @@ void cosine(IdxT m, IdxT n, IdxT k, IdxT lda, IdxT ldb, IdxT ldd,
 
 /**
  * @brief the expanded cosine distance matrix calculation
- *  It computes the following equation: 
+ *  It computes the following equation:
  *              C = 1 - op(A * B / sqrt(A^2) * sqrt(B^2)))
  * @tparam IType input data-type (for A and B matrices)
  * @tparam AccType accumulation data-type
@@ -151,12 +187,23 @@ void cosine(IdxT m, IdxT n, IdxT k, IdxT lda, IdxT ldb, IdxT ldd,
  * @param stream cuda stream where to launch work
  * @param isRowMajor whether the input and output matrices are row major
  */
-template <typename InType, typename AccType, typename OutType,
-          typename FinalLambda, typename Index_ = int>
-void cosineAlgo1(Index_ m, Index_ n, Index_ k, const InType *pA,
-                 const InType *pB, OutType *pD, AccType *workspace,
-                 size_t worksize, FinalLambda fin_op, cudaStream_t stream,
-                 bool isRowMajor) {
+template <typename InType,
+          typename AccType,
+          typename OutType,
+          typename FinalLambda,
+          typename Index_ = int>
+void cosineAlgo1(Index_ m,
+                 Index_ n,
+                 Index_ k,
+                 const InType* pA,
+                 const InType* pB,
+                 OutType* pD,
+                 AccType* workspace,
+                 size_t worksize,
+                 FinalLambda fin_op,
+                 cudaStream_t stream,
+                 bool isRowMajor)
+{
   auto norm_op = [] __device__(AccType in) { return raft::mySqrt(in); };
 
   // Wrap fin_op to allow computing 1 - pA before calling fin_op
@@ -165,39 +212,33 @@ void cosineAlgo1(Index_ m, Index_ n, Index_ k, const InType *pA,
   };
 
   typedef std::is_same<OutType, bool> is_bool;
-  typedef typename std::conditional<is_bool::value, OutType, AccType>::type
-    CosOutType;
-  CosOutType *pDcast = reinterpret_cast<CosOutType *>(pD);
+  typedef typename std::conditional<is_bool::value, OutType, AccType>::type CosOutType;
+  CosOutType* pDcast = reinterpret_cast<CosOutType*>(pD);
 
-  ASSERT(!(((pA != pB) && (worksize < (m + n) * sizeof(AccType))) ||
-           (worksize < m * sizeof(AccType))),
-         "workspace size error");
+  ASSERT(
+    !(((pA != pB) && (worksize < (m + n) * sizeof(AccType))) || (worksize < m * sizeof(AccType))),
+    "workspace size error");
   ASSERT(workspace != nullptr, "workspace is null");
 
   Index_ lda, ldb, ldd;
-  InType *col_vec = workspace;
-  InType *row_vec = workspace;
+  InType* col_vec = workspace;
+  InType* row_vec = workspace;
   if (pA != pB) {
     row_vec += m;
-    raft::linalg::rowNorm(col_vec, pA, k, m, raft::linalg::L2Norm, isRowMajor,
-                          stream, norm_op);
-    raft::linalg::rowNorm(row_vec, pB, k, n, raft::linalg::L2Norm, isRowMajor,
-                          stream, norm_op);
+    raft::linalg::rowNorm(col_vec, pA, k, m, raft::linalg::L2Norm, isRowMajor, stream, norm_op);
+    raft::linalg::rowNorm(row_vec, pB, k, n, raft::linalg::L2Norm, isRowMajor, stream, norm_op);
   } else {
-    raft::linalg::rowNorm(col_vec, pA, k, m, raft::linalg::L2Norm, isRowMajor,
-                          stream, norm_op);
+    raft::linalg::rowNorm(col_vec, pA, k, m, raft::linalg::L2Norm, isRowMajor, stream, norm_op);
   }
 
   if (isRowMajor) {
     lda = k, ldb = k, ldd = n;
     cosine<InType, AccType, CosOutType, Index_, decltype(wrapped_fin_op), true>(
-      m, n, k, lda, ldb, ldd, pA, pB, col_vec, row_vec, pDcast, wrapped_fin_op,
-      stream);
+      m, n, k, lda, ldb, ldd, pA, pB, col_vec, row_vec, pDcast, wrapped_fin_op, stream);
   } else {
     lda = n, ldb = m, ldd = m;
-    cosine<InType, AccType, CosOutType, Index_, decltype(wrapped_fin_op),
-           false>(n, m, k, lda, ldb, ldd, pB, pA, row_vec, col_vec, pDcast,
-                  wrapped_fin_op, stream);
+    cosine<InType, AccType, CosOutType, Index_, decltype(wrapped_fin_op), false>(
+      n, m, k, lda, ldb, ldd, pB, pA, row_vec, col_vec, pDcast, wrapped_fin_op, stream);
   }
 }
 

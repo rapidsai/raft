@@ -36,14 +36,13 @@ const std::vector<DistanceInputs<float>> inputsf = {
   {0.003f, 1024, 1024, 1024, false, 1234ULL},
 };
 typedef DistanceEucUnexpTest<float> DistanceEucUnexpTestF;
-TEST_P(DistanceEucUnexpTestF, Result) {
+TEST_P(DistanceEucUnexpTestF, Result)
+{
   int m = params.isRowMajor ? params.m : params.n;
   int n = params.isRowMajor ? params.n : params.m;
-  ASSERT_TRUE(devArrMatch(dist_ref, dist, m, n,
-                          raft::CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(dist_ref, dist, m, n, raft::CompareApprox<float>(params.tolerance)));
 }
-INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceEucUnexpTestF,
-                        ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceEucUnexpTestF, ::testing::ValuesIn(inputsf));
 
 const std::vector<DistanceInputs<double>> inputsd = {
   {0.001, 1024, 1024, 32, true, 1234ULL},
@@ -56,14 +55,13 @@ const std::vector<DistanceInputs<double>> inputsd = {
   {0.003, 1024, 1024, 1024, false, 1234ULL},
 };
 typedef DistanceEucUnexpTest<double> DistanceEucUnexpTestD;
-TEST_P(DistanceEucUnexpTestD, Result) {
+TEST_P(DistanceEucUnexpTestD, Result)
+{
   int m = params.isRowMajor ? params.m : params.n;
   int n = params.isRowMajor ? params.n : params.m;
-  ASSERT_TRUE(devArrMatch(dist_ref, dist, m, n,
-                          raft::CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(dist_ref, dist, m, n, raft::CompareApprox<double>(params.tolerance)));
 }
-INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceEucUnexpTestD,
-                        ::testing::ValuesIn(inputsd));
+INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceEucUnexpTestD, ::testing::ValuesIn(inputsd));
 
 }  // end namespace distance
 }  // end namespace raft

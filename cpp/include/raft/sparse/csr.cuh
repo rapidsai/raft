@@ -41,57 +41,64 @@ namespace sparse {
 
 struct WeakCCState {
  public:
-  bool *m;
-  WeakCCState(bool *m) : m(m) {}
+  bool* m;
+  WeakCCState(bool* m) : m(m) {}
 };
 
 template <typename Index_, int TPB_X = 256, typename Lambda>
-__global__ void weak_cc_label_device(Index_ *__restrict__ labels,
-                                     const Index_ *__restrict__ row_ind,
-                                     const Index_ *__restrict__ row_ind_ptr,
-                                     Index_ nnz, bool *__restrict__ m,
-                                     Index_ start_vertex_id, Index_ batch_size,
-                                     Index_ N, Lambda filter_op) {
-  Index_ tid = threadIdx.x + blockIdx.x * TPB_X;
+__global__ void weak_cc_label_device(Index_* __restrict__ labels,
+                                     const Index_* __restrict__ row_ind,
+                                     const Index_* __restrict__ row_ind_ptr,
+                                     Index_ nnz,
+                                     bool* __restrict__ m,
+                                     Index_ start_vertex_id,
+                                     Index_ batch_size,
+                                     Index_ N,
+                                     Lambda filter_op)
+{
+  Index_ tid       = threadIdx.x + blockIdx.x * TPB_X;
   Index_ global_id = tid + start_vertex_id;
   if (tid < batch_size && global_id < N) {
     Index_ start = __ldg(row_ind + tid);
 
     Index_ ci, cj;
-    bool ci_mod = false;
-    ci = labels[global_id];
+    bool ci_mod        = false;
+    ci                 = labels[global_id];
     bool ci_allow_prop = filter_op(global_id);
 
     Index_ end = get_stop_idx(tid, batch_size, nnz, row_ind);
     /// TODO: add one element to row_ind and avoid get_stop_idx
     for (Index_ j = start; j < end; j++) {
-      Index_ j_ind = __ldg(row_ind_ptr + j);
-      cj = labels[j_ind];
+      Index_ j_ind       = __ldg(row_ind_ptr + j);
+      cj                 = labels[j_ind];
       bool cj_allow_prop = filter_op(j_ind);
       if (ci < cj && ci_allow_prop) {
         if (sizeof(Index_) == 4)
-          atomicMin((int *)(labels + j_ind), ci);
+          atomicMin((int*)(labels + j_ind), ci);
         else if (sizeof(Index_) == 8)
-          atomicMin((long long int *)(labels + j_ind), ci);
+          atomicMin((long long int*)(labels + j_ind), ci);
         if (cj_allow_prop) *m = true;
       } else if (ci > cj && cj_allow_prop) {
-        ci = cj;
+        ci     = cj;
         ci_mod = true;
       }
     }
     if (ci_mod) {
       if (sizeof(Index_) == 4)
-        atomicMin((int *)(labels + global_id), ci);
+        atomicMin((int*)(labels + global_id), ci);
       else if (sizeof(Index_) == 8)
-        atomicMin((long long int *)(labels + global_id), ci);
+        atomicMin((long long int*)(labels + global_id), ci);
       if (ci_allow_prop) *m = true;
     }
   }
 }
 
 template <typename Index_, int TPB_X = 256, typename Lambda>
-__global__ void weak_cc_init_all_kernel(Index_ *labels, Index_ N,
-                                        Index_ MAX_LABEL, Lambda filter_op) {
+__global__ void weak_cc_init_all_kernel(Index_* labels,
+                                        Index_ N,
+                                        Index_ MAX_LABEL,
+                                        Lambda filter_op)
+{
   Index_ tid = threadIdx.x + blockIdx.x * TPB_X;
   if (tid < N) {
     if (filter_op(tid))
@@ -123,22 +130,25 @@ __global__ void weak_cc_init_all_kernel(Index_ *labels, Index_ N,
  * @param filter_op an optional filtering function to determine which points
  * should get considered for labeling. It gets global indexes (not batch-wide!)
  */
-template <typename Index_, int TPB_X = 256,
-          typename Lambda = auto(Index_)->bool>
-void weak_cc_batched(Index_ *labels, const Index_ *row_ind,
-                     const Index_ *row_ind_ptr, Index_ nnz, Index_ N,
-                     Index_ start_vertex_id, Index_ batch_size,
-                     WeakCCState *state, cudaStream_t stream,
-                     Lambda filter_op) {
-  ASSERT(sizeof(Index_) == 4 || sizeof(Index_) == 8,
-         "Index_ should be 4 or 8 bytes");
+template <typename Index_, int TPB_X = 256, typename Lambda = auto(Index_)->bool>
+void weak_cc_batched(Index_* labels,
+                     const Index_* row_ind,
+                     const Index_* row_ind_ptr,
+                     Index_ nnz,
+                     Index_ N,
+                     Index_ start_vertex_id,
+                     Index_ batch_size,
+                     WeakCCState* state,
+                     cudaStream_t stream,
+                     Lambda filter_op)
+{
+  ASSERT(sizeof(Index_) == 4 || sizeof(Index_) == 8, "Index_ should be 4 or 8 bytes");
 
   bool host_m;
 
   Index_ MAX_LABEL = std::numeric_limits<Index_>::max();
   weak_cc_init_all_kernel<Index_, TPB_X>
-    <<<raft::ceildiv(N, Index_(TPB_X)), TPB_X, 0, stream>>>(
-      labels, N, MAX_LABEL, filter_op);
+    <<<raft::ceildiv(N, Index_(TPB_X)), TPB_X, 0, stream>>>(labels, N, MAX_LABEL, filter_op);
   CUDA_CHECK(cudaPeekAtLastError());
 
   int n_iters = 0;
@@ -147,8 +157,7 @@ void weak_cc_batched(Index_ *labels, const Index_ *row_ind,
 
     weak_cc_label_device<Index_, TPB_X>
       <<<raft::ceildiv(batch_size, Index_(TPB_X)), TPB_X, 0, stream>>>(
-        labels, row_ind, row_ind_ptr, nnz, state->m, start_vertex_id,
-        batch_size, N, filter_op);
+        labels, row_ind, row_ind_ptr, nnz, state->m, start_vertex_id, batch_size, N, filter_op);
     CUDA_CHECK(cudaPeekAtLastError());
 
     //** Updating m *
@@ -180,12 +189,25 @@ void weak_cc_batched(Index_ *labels, const Index_ *row_ind,
  * @param stream the cuda stream to use
  */
 template <typename Index_, int TPB_X = 256>
-void weak_cc_batched(Index_ *labels, const Index_ *row_ind,
-                     const Index_ *row_ind_ptr, Index_ nnz, Index_ N,
-                     Index_ start_vertex_id, Index_ batch_size,
-                     WeakCCState *state, cudaStream_t stream) {
-  weak_cc_batched(labels, row_ind, row_ind_ptr, nnz, N, start_vertex_id,
-                  batch_size, state, stream,
+void weak_cc_batched(Index_* labels,
+                     const Index_* row_ind,
+                     const Index_* row_ind_ptr,
+                     Index_ nnz,
+                     Index_ N,
+                     Index_ start_vertex_id,
+                     Index_ batch_size,
+                     WeakCCState* state,
+                     cudaStream_t stream)
+{
+  weak_cc_batched(labels,
+                  row_ind,
+                  row_ind_ptr,
+                  nnz,
+                  N,
+                  start_vertex_id,
+                  batch_size,
+                  state,
+                  stream,
                   [] __device__(Index_ tid) { return true; });
 }
 
@@ -213,17 +235,20 @@ void weak_cc_batched(Index_ *labels, const Index_ *row_ind,
  * @param filter_op an optional filtering function to determine which points
  * should get considered for labeling. It gets global indexes (not batch-wide!)
  */
-template <typename Index_ = int, int TPB_X = 256,
-          typename Lambda = auto(Index_)->bool>
-void weak_cc(Index_ *labels, const Index_ *row_ind, const Index_ *row_ind_ptr,
-             Index_ nnz, Index_ N,
+template <typename Index_ = int, int TPB_X = 256, typename Lambda = auto(Index_)->bool>
+void weak_cc(Index_* labels,
+             const Index_* row_ind,
+             const Index_* row_ind_ptr,
+             Index_ nnz,
+             Index_ N,
              std::shared_ptr<raft::mr::device::allocator> d_alloc,
-             cudaStream_t stream, Lambda filter_op) {
+             cudaStream_t stream,
+             Lambda filter_op)
+{
   raft::mr::device::buffer<bool> m(d_alloc, stream, 1);
 
   WeakCCState state(m.data());
-  weak_cc_batched<Index_, TPB_X>(labels, row_ind, row_ind_ptr, nnz, N, 0, N,
-                                 stream, filter_op);
+  weak_cc_batched<Index_, TPB_X>(labels, row_ind, row_ind_ptr, nnz, N, 0, N, stream, filter_op);
 }
 
 /**
@@ -249,14 +274,18 @@ void weak_cc(Index_ *labels, const Index_ *row_ind, const Index_ *row_ind_ptr,
  * @param stream the cuda stream to use
  */
 template <typename Index_, int TPB_X = 256>
-void weak_cc(Index_ *labels, const Index_ *row_ind, const Index_ *row_ind_ptr,
-             Index_ nnz, Index_ N,
+void weak_cc(Index_* labels,
+             const Index_* row_ind,
+             const Index_* row_ind_ptr,
+             Index_ nnz,
+             Index_ N,
              std::shared_ptr<raft::mr::device::allocator> d_alloc,
-             cudaStream_t stream) {
+             cudaStream_t stream)
+{
   raft::mr::device::buffer<bool> m(d_alloc, stream, 1);
   WeakCCState state(m.data());
-  weak_cc_batched<Index_, TPB_X>(labels, row_ind, row_ind_ptr, nnz, N, 0, N,
-                                 stream, [](Index_) { return true; });
+  weak_cc_batched<Index_, TPB_X>(
+    labels, row_ind, row_ind_ptr, nnz, N, 0, N, stream, [](Index_) { return true; });
 }
 
 };  // namespace sparse

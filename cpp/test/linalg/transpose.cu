@@ -34,14 +34,16 @@ struct TranposeInputs {
 };
 
 template <typename T>
-::std::ostream &operator<<(::std::ostream &os, const TranposeInputs<T> &dims) {
+::std::ostream& operator<<(::std::ostream& os, const TranposeInputs<T>& dims)
+{
   return os;
 }
 
 template <typename T>
 class TransposeTest : public ::testing::TestWithParam<TranposeInputs<T>> {
  protected:
-  void SetUp() override {
+  void SetUp() override
+  {
     params = ::testing::TestWithParam<TranposeInputs<T>>::GetParam();
 
     stream = handle.get_stream();
@@ -63,7 +65,8 @@ class TransposeTest : public ::testing::TestWithParam<TranposeInputs<T>> {
     transpose(data, params.n_row, stream);
   }
 
-  void TearDown() override {
+  void TearDown() override
+  {
     CUDA_CHECK(cudaFree(data));
     CUDA_CHECK(cudaFree(data_trans));
     CUDA_CHECK(cudaFree(data_trans_ref));
@@ -76,39 +79,33 @@ class TransposeTest : public ::testing::TestWithParam<TranposeInputs<T>> {
   cudaStream_t stream;
 };
 
-const std::vector<TranposeInputs<float>> inputsf2 = {
-  {0.1f, 3 * 3, 3, 3, 1234ULL}};
+const std::vector<TranposeInputs<float>> inputsf2 = {{0.1f, 3 * 3, 3, 3, 1234ULL}};
 
-const std::vector<TranposeInputs<double>> inputsd2 = {
-  {0.1, 3 * 3, 3, 3, 1234ULL}};
+const std::vector<TranposeInputs<double>> inputsd2 = {{0.1, 3 * 3, 3, 3, 1234ULL}};
 
 typedef TransposeTest<float> TransposeTestValF;
-TEST_P(TransposeTestValF, Result) {
-  ASSERT_TRUE(
-    raft::devArrMatch(data_trans_ref, data_trans, params.len,
-                      raft::CompareApproxAbs<float>(params.tolerance)));
+TEST_P(TransposeTestValF, Result)
+{
+  ASSERT_TRUE(raft::devArrMatch(
+    data_trans_ref, data_trans, params.len, raft::CompareApproxAbs<float>(params.tolerance)));
 
-  ASSERT_TRUE(
-    raft::devArrMatch(data_trans_ref, data, params.len,
-                      raft::CompareApproxAbs<float>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(
+    data_trans_ref, data, params.len, raft::CompareApproxAbs<float>(params.tolerance)));
 }
 
 typedef TransposeTest<double> TransposeTestValD;
-TEST_P(TransposeTestValD, Result) {
-  ASSERT_TRUE(
-    raft::devArrMatch(data_trans_ref, data_trans, params.len,
-                      raft::CompareApproxAbs<double>(params.tolerance)));
+TEST_P(TransposeTestValD, Result)
+{
+  ASSERT_TRUE(raft::devArrMatch(
+    data_trans_ref, data_trans, params.len, raft::CompareApproxAbs<double>(params.tolerance)));
 
-  ASSERT_TRUE(
-    raft::devArrMatch(data_trans_ref, data, params.len,
-                      raft::CompareApproxAbs<double>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(
+    data_trans_ref, data, params.len, raft::CompareApproxAbs<double>(params.tolerance)));
 }
 
-INSTANTIATE_TEST_SUITE_P(TransposeTests, TransposeTestValF,
-                         ::testing::ValuesIn(inputsf2));
+INSTANTIATE_TEST_SUITE_P(TransposeTests, TransposeTestValF, ::testing::ValuesIn(inputsf2));
 
-INSTANTIATE_TEST_SUITE_P(TransposeTests, TransposeTestValD,
-                         ::testing::ValuesIn(inputsd2));
+INSTANTIATE_TEST_SUITE_P(TransposeTests, TransposeTestValD, ::testing::ValuesIn(inputsd2));
 
 }  // end namespace linalg
 }  // end namespace raft

@@ -27,12 +27,13 @@ namespace random {
 enum RandomType { RNG_Uniform };
 
 template <typename T, int TPB>
-__global__ void meanKernel(float *out, const T *data, int len) {
+__global__ void meanKernel(float* out, const T* data, int len)
+{
   typedef cub::BlockReduce<float, TPB> BlockReduce;
   __shared__ typename BlockReduce::TempStorage temp_storage;
-  int tid = threadIdx.x + blockIdx.x * blockDim.x;
+  int tid   = threadIdx.x + blockIdx.x * blockDim.x;
   float val = tid < len ? data[tid] : T(0);
-  float x = BlockReduce(temp_storage).Sum(val);
+  float x   = BlockReduce(temp_storage).Sum(val);
   __syncthreads();
   float xx = BlockReduce(temp_storage).Sum(val * val);
   __syncthreads();
@@ -59,14 +60,16 @@ struct RngInputs {
 };
 
 template <typename T>
-::std::ostream &operator<<(::std::ostream &os, const RngInputs<T> &dims) {
+::std::ostream& operator<<(::std::ostream& os, const RngInputs<T>& dims)
+{
   return os;
 }
 
 template <typename T>
 class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
  protected:
-  void SetUp() override {
+  void SetUp() override
+  {
     params = ::testing::TestWithParam<RngInputs<T>>::GetParam();
     Rng r(params.seed, params.gtype);
 
@@ -75,14 +78,11 @@ class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
     allocate(data, params.len);
     allocate(stats, 2, true);
     switch (params.type) {
-      case RNG_Uniform:
-        r.uniformInt(data, params.len, params.start, params.end, stream);
-        break;
+      case RNG_Uniform: r.uniformInt(data, params.len, params.start, params.end, stream); break;
     };
     static const int threads = 128;
     meanKernel<T, threads>
-      <<<raft::ceildiv(params.len, threads), threads, 0, stream>>>(stats, data,
-                                                                   params.len);
+      <<<raft::ceildiv(params.len, threads), threads, 0, stream>>>(stats, data, params.len);
     update_host<float>(h_stats, stats, 2, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     h_stats[0] /= params.len;
@@ -90,12 +90,14 @@ class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
-  void TearDown() override {
+  void TearDown() override
+  {
     CUDA_CHECK(cudaFree(data));
     CUDA_CHECK(cudaFree(stats));
   }
 
-  void getExpectedMeanVar(float meanvar[2]) {
+  void getExpectedMeanVar(float meanvar[2])
+  {
     switch (params.type) {
       case RNG_Uniform:
         meanvar[0] = (params.start + params.end) * 0.5f;
@@ -107,8 +109,8 @@ class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
 
  protected:
   RngInputs<T> params;
-  T *data;
-  float *stats;
+  T* data;
+  float* stats;
   float h_stats[2];  // mean, var
 };
 
@@ -120,13 +122,12 @@ const std::vector<RngInputs<uint32_t>> inputs_u32 = {
   {0.1f, 8 * 1024, 0, 20, RNG_Uniform, GenTaps, 1234ULL},
   {0.1f, 32 * 1024, 0, 20, RNG_Uniform, GenKiss99, 1234ULL},
   {0.1f, 8 * 1024, 0, 20, RNG_Uniform, GenKiss99, 1234ULL}};
-TEST_P(RngTestU32, Result) {
+TEST_P(RngTestU32, Result)
+{
   float meanvar[2];
   getExpectedMeanVar(meanvar);
-  ASSERT_TRUE(
-    match(meanvar[0], h_stats[0], CompareApprox<float>(params.tolerance)));
-  ASSERT_TRUE(
-    match(meanvar[1], h_stats[1], CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(match(meanvar[0], h_stats[0], CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(match(meanvar[1], h_stats[1], CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_SUITE_P(RngTests, RngTestU32, ::testing::ValuesIn(inputs_u32));
 
@@ -138,13 +139,12 @@ const std::vector<RngInputs<uint64_t>> inputs_u64 = {
   {0.1f, 8 * 1024, 0, 20, RNG_Uniform, GenTaps, 1234ULL},
   {0.1f, 32 * 1024, 0, 20, RNG_Uniform, GenKiss99, 1234ULL},
   {0.1f, 8 * 1024, 0, 20, RNG_Uniform, GenKiss99, 1234ULL}};
-TEST_P(RngTestU64, Result) {
+TEST_P(RngTestU64, Result)
+{
   float meanvar[2];
   getExpectedMeanVar(meanvar);
-  ASSERT_TRUE(
-    match(meanvar[0], h_stats[0], CompareApprox<float>(params.tolerance)));
-  ASSERT_TRUE(
-    match(meanvar[1], h_stats[1], CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(match(meanvar[0], h_stats[0], CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(match(meanvar[1], h_stats[1], CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_SUITE_P(RngTests, RngTestU64, ::testing::ValuesIn(inputs_u64));
 
@@ -156,13 +156,12 @@ const std::vector<RngInputs<int32_t>> inputs_s32 = {
   {0.1f, 8 * 1024, 0, 20, RNG_Uniform, GenTaps, 1234ULL},
   {0.1f, 32 * 1024, 0, 20, RNG_Uniform, GenKiss99, 1234ULL},
   {0.1f, 8 * 1024, 0, 20, RNG_Uniform, GenKiss99, 1234ULL}};
-TEST_P(RngTestS32, Result) {
+TEST_P(RngTestS32, Result)
+{
   float meanvar[2];
   getExpectedMeanVar(meanvar);
-  ASSERT_TRUE(
-    match(meanvar[0], h_stats[0], CompareApprox<float>(params.tolerance)));
-  ASSERT_TRUE(
-    match(meanvar[1], h_stats[1], CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(match(meanvar[0], h_stats[0], CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(match(meanvar[1], h_stats[1], CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_SUITE_P(RngTests, RngTestS32, ::testing::ValuesIn(inputs_s32));
 
@@ -174,13 +173,12 @@ const std::vector<RngInputs<int64_t>> inputs_s64 = {
   {0.1f, 8 * 1024, 0, 20, RNG_Uniform, GenTaps, 1234ULL},
   {0.1f, 32 * 1024, 0, 20, RNG_Uniform, GenKiss99, 1234ULL},
   {0.1f, 8 * 1024, 0, 20, RNG_Uniform, GenKiss99, 1234ULL}};
-TEST_P(RngTestS64, Result) {
+TEST_P(RngTestS64, Result)
+{
   float meanvar[2];
   getExpectedMeanVar(meanvar);
-  ASSERT_TRUE(
-    match(meanvar[0], h_stats[0], CompareApprox<float>(params.tolerance)));
-  ASSERT_TRUE(
-    match(meanvar[1], h_stats[1], CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(match(meanvar[0], h_stats[0], CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(match(meanvar[1], h_stats[1], CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_SUITE_P(RngTests, RngTestS64, ::testing::ValuesIn(inputs_s64));
 

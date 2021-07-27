@@ -34,14 +34,16 @@ struct StdDevInputs {
 };
 
 template <typename T>
-::std::ostream &operator<<(::std::ostream &os, const StdDevInputs<T> &dims) {
+::std::ostream& operator<<(::std::ostream& os, const StdDevInputs<T>& dims)
+{
   return os;
 }
 
 template <typename T>
 class StdDevTest : public ::testing::TestWithParam<StdDevInputs<T>> {
  protected:
-  void SetUp() override {
+  void SetUp() override
+  {
     params = ::testing::TestWithParam<StdDevInputs<T>>::GetParam();
     random::Rng r(params.seed);
     int rows = params.rows, cols = params.cols;
@@ -58,21 +60,21 @@ class StdDevTest : public ::testing::TestWithParam<StdDevInputs<T>> {
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
-  void stdVarSGtest(T *data, cudaStream_t stream) {
+  void stdVarSGtest(T* data, cudaStream_t stream)
+  {
     int rows = params.rows, cols = params.cols;
 
     mean(mean_act, data, cols, rows, params.sample, params.rowMajor, stream);
 
-    stddev(stddev_act, data, mean_act, cols, rows, params.sample,
-           params.rowMajor, stream);
+    stddev(stddev_act, data, mean_act, cols, rows, params.sample, params.rowMajor, stream);
 
-    vars(vars_act, data, mean_act, cols, rows, params.sample, params.rowMajor,
-         stream);
+    vars(vars_act, data, mean_act, cols, rows, params.sample, params.rowMajor, stream);
 
     raft::matrix::seqRoot(vars_act, T(1), cols, stream);
   }
 
-  void TearDown() override {
+  void TearDown() override
+  {
     CUDA_CHECK(cudaFree(data));
     CUDA_CHECK(cudaFree(mean_act));
     CUDA_CHECK(cudaFree(stddev_act));
@@ -121,28 +123,28 @@ const std::vector<StdDevInputs<double>> inputsd = {
   {0.1, -1.0, 2.0, 1024, 256, false, true, 1234ULL}};
 
 typedef StdDevTest<float> StdDevTestF;
-TEST_P(StdDevTestF, Result) {
-  ASSERT_TRUE(devArrMatch(params.stddev, stddev_act, params.cols,
-                          CompareApprox<float>(params.tolerance)));
+TEST_P(StdDevTestF, Result)
+{
+  ASSERT_TRUE(
+    devArrMatch(params.stddev, stddev_act, params.cols, CompareApprox<float>(params.tolerance)));
 
-  ASSERT_TRUE(devArrMatch(stddev_act, vars_act, params.cols,
-                          CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(
+    devArrMatch(stddev_act, vars_act, params.cols, CompareApprox<float>(params.tolerance)));
 }
 
 typedef StdDevTest<double> StdDevTestD;
-TEST_P(StdDevTestD, Result) {
-  ASSERT_TRUE(devArrMatch(params.stddev, stddev_act, params.cols,
-                          CompareApprox<double>(params.tolerance)));
+TEST_P(StdDevTestD, Result)
+{
+  ASSERT_TRUE(
+    devArrMatch(params.stddev, stddev_act, params.cols, CompareApprox<double>(params.tolerance)));
 
-  ASSERT_TRUE(devArrMatch(stddev_act, vars_act, params.cols,
-                          CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(
+    devArrMatch(stddev_act, vars_act, params.cols, CompareApprox<double>(params.tolerance)));
 }
 
-INSTANTIATE_TEST_SUITE_P(StdDevTests, StdDevTestF,
-                         ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_SUITE_P(StdDevTests, StdDevTestF, ::testing::ValuesIn(inputsf));
 
-INSTANTIATE_TEST_SUITE_P(StdDevTests, StdDevTestD,
-                         ::testing::ValuesIn(inputsd));
+INSTANTIATE_TEST_SUITE_P(StdDevTests, StdDevTestD, ::testing::ValuesIn(inputsd));
 
 }  // end namespace stats
 }  // end namespace raft

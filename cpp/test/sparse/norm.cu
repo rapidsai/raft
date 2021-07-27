@@ -39,12 +39,11 @@ struct CSRRowNormalizeInputs {
 };
 
 template <typename Type_f, typename Index_>
-class CSRRowNormalizeTest
-  : public ::testing::TestWithParam<CSRRowNormalizeInputs<Type_f, Index_>> {
+class CSRRowNormalizeTest : public ::testing::TestWithParam<CSRRowNormalizeInputs<Type_f, Index_>> {
  protected:
-  void SetUp() override {
-    params = ::testing::TestWithParam<
-      CSRRowNormalizeInputs<Type_f, Index_>>::GetParam();
+  void SetUp() override
+  {
+    params = ::testing::TestWithParam<CSRRowNormalizeInputs<Type_f, Index_>>::GetParam();
     cudaStreamCreate(&stream);
 
     raft::allocate(in_vals, params.in_vals.size());
@@ -53,9 +52,10 @@ class CSRRowNormalizeTest
     raft::allocate(result, params.verify.size(), true);
   }
 
-  void Run() {
+  void Run()
+  {
     Index_ n_rows = params.ex_scan.size();
-    Index_ nnz = params.in_vals.size();
+    Index_ nnz    = params.in_vals.size();
 
     raft::update_device(ex_scan, params.ex_scan.data(), n_rows, stream);
     raft::update_device(in_vals, params.in_vals.data(), nnz, stream);
@@ -63,20 +63,18 @@ class CSRRowNormalizeTest
 
     switch (params.method) {
       case MAX:
-        linalg::csr_row_normalize_max<32, Type_f>(ex_scan, in_vals, nnz, n_rows,
-                                                  result, stream);
+        linalg::csr_row_normalize_max<32, Type_f>(ex_scan, in_vals, nnz, n_rows, result, stream);
         break;
       case L1:
-        linalg::csr_row_normalize_l1<32, Type_f>(ex_scan, in_vals, nnz, n_rows,
-                                                 result, stream);
+        linalg::csr_row_normalize_l1<32, Type_f>(ex_scan, in_vals, nnz, n_rows, result, stream);
         break;
     }
 
-    ASSERT_TRUE(
-      raft::devArrMatch<Type_f>(verify, result, nnz, raft::Compare<Type_f>()));
+    ASSERT_TRUE(raft::devArrMatch<Type_f>(verify, result, nnz, raft::Compare<Type_f>()));
   }
 
-  void TearDown() override {
+  void TearDown() override
+  {
     CUDA_CHECK(cudaFree(ex_scan));
     CUDA_CHECK(cudaFree(in_vals));
     CUDA_CHECK(cudaFree(verify));
@@ -87,7 +85,7 @@ class CSRRowNormalizeTest
  protected:
   CSRRowNormalizeInputs<Type_f, Index_> params;
   cudaStream_t stream;
-  Index_ *ex_scan;
+  Index_* ex_scan;
   Type_f *in_vals, *result, *verify;
 };
 
@@ -118,9 +116,11 @@ const std::vector<CSRRowNormalizeInputs<double, int>> csrnormalize_inputs_d = {
    {0.5, 0.5, 0.0, 0.0, 0.5, 0.5, 0.0, 0.0, 1, 0.0}},
 };
 
-INSTANTIATE_TEST_CASE_P(SparseNormTest, CSRRowNormalizeTestF,
+INSTANTIATE_TEST_CASE_P(SparseNormTest,
+                        CSRRowNormalizeTestF,
                         ::testing::ValuesIn(csrnormalize_inputs_f));
-INSTANTIATE_TEST_CASE_P(SparseNormTest, CSRRowNormalizeTestD,
+INSTANTIATE_TEST_CASE_P(SparseNormTest,
+                        CSRRowNormalizeTestD,
                         ::testing::ValuesIn(csrnormalize_inputs_d));
 
 }  // namespace sparse

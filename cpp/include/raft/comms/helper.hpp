@@ -36,9 +36,9 @@ namespace comms {
  * @param num_ranks number of ranks in communicator clique
  * @param rank rank of local instance
  */
-void build_comms_nccl_only(handle_t *handle, ncclComm_t nccl_comm,
-                           int num_ranks, int rank) {
-  auto d_alloc = handle->get_device_allocator();
+void build_comms_nccl_only(handle_t* handle, ncclComm_t nccl_comm, int num_ranks, int rank)
+{
+  auto d_alloc        = handle->get_device_allocator();
   cudaStream_t stream = handle->get_stream();
 
   auto communicator = std::make_shared<comms_t>(std::unique_ptr<comms_iface>(
@@ -61,40 +61,41 @@ void build_comms_nccl_only(handle_t *handle, ncclComm_t nccl_comm,
  * @param num_ranks number of ranks in communicator clique
  * @param rank rank of local instance
  */
-void build_comms_nccl_ucx(handle_t *handle, ncclComm_t nccl_comm,
-                          void *ucp_worker, void *eps, int num_ranks,
-                          int rank) {
-  auto eps_sp = std::make_shared<ucp_ep_h *>(new ucp_ep_h[num_ranks]);
+void build_comms_nccl_ucx(
+  handle_t* handle, ncclComm_t nccl_comm, void* ucp_worker, void* eps, int num_ranks, int rank)
+{
+  auto eps_sp = std::make_shared<ucp_ep_h*>(new ucp_ep_h[num_ranks]);
 
-  auto size_t_ep_arr = reinterpret_cast<size_t *>(eps);
+  auto size_t_ep_arr = reinterpret_cast<size_t*>(eps);
 
   for (int i = 0; i < num_ranks; i++) {
-    size_t ptr = size_t_ep_arr[i];
-    auto ucp_ep_v = reinterpret_cast<ucp_ep_h *>(*eps_sp);
+    size_t ptr    = size_t_ep_arr[i];
+    auto ucp_ep_v = reinterpret_cast<ucp_ep_h*>(*eps_sp);
 
     if (ptr != 0) {
       auto eps_ptr = reinterpret_cast<ucp_ep_h>(size_t_ep_arr[i]);
-      ucp_ep_v[i] = eps_ptr;
+      ucp_ep_v[i]  = eps_ptr;
     } else {
       ucp_ep_v[i] = nullptr;
     }
   }
 
-  auto d_alloc = handle->get_device_allocator();
+  auto d_alloc        = handle->get_device_allocator();
   cudaStream_t stream = handle->get_stream();
 
-  auto communicator = std::make_shared<comms_t>(std::unique_ptr<comms_iface>(
-    new raft::comms::std_comms(nccl_comm, (ucp_worker_h)ucp_worker, eps_sp,
-                               num_ranks, rank, d_alloc, stream)));
+  auto communicator =
+    std::make_shared<comms_t>(std::unique_ptr<comms_iface>(new raft::comms::std_comms(
+      nccl_comm, (ucp_worker_h)ucp_worker, eps_sp, num_ranks, rank, d_alloc, stream)));
   handle->set_comms(communicator);
 }
 
-inline void nccl_unique_id_from_char(ncclUniqueId *id, char *uniqueId,
-                                     int size) {
+inline void nccl_unique_id_from_char(ncclUniqueId* id, char* uniqueId, int size)
+{
   memcpy(id->internal, uniqueId, size);
 }
 
-inline void get_unique_id(char *uid, int size) {
+inline void get_unique_id(char* uid, int size)
+{
   ncclUniqueId id;
   ncclGetUniqueId(&id);
 

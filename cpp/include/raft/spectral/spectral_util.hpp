@@ -28,20 +28,18 @@ namespace raft {
 namespace spectral {
 
 template <typename index_type_t, typename value_type_t>
-static __global__ void scale_obs_kernel(index_type_t m, index_type_t n,
-                                        value_type_t* obs) {
+static __global__ void scale_obs_kernel(index_type_t m, index_type_t n, value_type_t* obs)
+{
   index_type_t i, j, k, index, mm;
   value_type_t alpha, v, last;
   bool valid;
   // ASSUMPTION: kernel is launched with either 2, 4, 8, 16 or 32 threads in x-dimension
 
   // compute alpha
-  mm = (((m + blockDim.x - 1) / blockDim.x) *
-        blockDim.x);  // m in multiple of blockDim.x
+  mm    = (((m + blockDim.x - 1) / blockDim.x) * blockDim.x);  // m in multiple of blockDim.x
   alpha = 0.0;
 
-  for (j = threadIdx.y + blockIdx.y * blockDim.y; j < n;
-       j += blockDim.y * gridDim.y) {
+  for (j = threadIdx.y + blockIdx.y * blockDim.y; j < n; j += blockDim.y * gridDim.y) {
     for (i = threadIdx.x; i < mm; i += blockDim.x) {
       // check if the thread is valid
       valid = i < m;
@@ -66,17 +64,17 @@ static __global__ void scale_obs_kernel(index_type_t m, index_type_t n,
   // scale by alpha
   alpha = __shfl_sync(warp_full_mask(), alpha, blockDim.x - 1, blockDim.x);
   alpha = std::sqrt(alpha);
-  for (j = threadIdx.y + blockIdx.y * blockDim.y; j < n;
-       j += blockDim.y * gridDim.y) {
+  for (j = threadIdx.y + blockIdx.y * blockDim.y; j < n; j += blockDim.y * gridDim.y) {
     for (i = threadIdx.x; i < m; i += blockDim.x) {  // blockDim.x=32
-      index = i + j * m;
+      index      = i + j * m;
       obs[index] = obs[index] / alpha;
     }
   }
 }
 
 template <typename index_type_t>
-index_type_t next_pow2(index_type_t n) {
+index_type_t next_pow2(index_type_t n)
+{
   index_type_t v;
   // Reference:
   // http://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2Float
@@ -90,7 +88,8 @@ index_type_t next_pow2(index_type_t n) {
 }
 
 template <typename index_type_t, typename value_type_t>
-cudaError_t scale_obs(index_type_t m, index_type_t n, value_type_t* obs) {
+cudaError_t scale_obs(index_type_t m, index_type_t n, value_type_t* obs)
+{
   index_type_t p2m;
 
   // find next power of 2
@@ -102,19 +101,20 @@ cudaError_t scale_obs(index_type_t m, index_type_t n, value_type_t* obs) {
   dim3 nblocks{1, (n + nthreads.y - 1) / nthreads.y, 1};
 
   // launch scaling kernel (scale each column of obs by its norm)
-  scale_obs_kernel<index_type_t, value_type_t>
-    <<<nblocks, nthreads>>>(m, n, obs);
+  scale_obs_kernel<index_type_t, value_type_t><<<nblocks, nthreads>>>(m, n, obs);
 
   return cudaSuccess;
 }
 
-template <typename vertex_t, typename edge_t, typename weight_t,
-          typename ThrustExePolicy>
+template <typename vertex_t, typename edge_t, typename weight_t, typename ThrustExePolicy>
 void transform_eigen_matrix(handle_t const& handle,
-                            ThrustExePolicy thrust_exec_policy, edge_t n,
-                            vertex_t nEigVecs, weight_t* eigVecs) {
+                            ThrustExePolicy thrust_exec_policy,
+                            edge_t n,
+                            vertex_t nEigVecs,
+                            weight_t* eigVecs)
+{
   auto cublas_h = handle.get_cublas_handle();
-  auto stream = handle.get_stream();
+  auto stream   = handle.get_stream();
 
   const weight_t zero{0.0};
   const weight_t one{1.0};
@@ -123,9 +123,9 @@ void transform_eigen_matrix(handle_t const& handle,
   for (auto i = 0; i < nEigVecs; ++i) {
     weight_t mean, std;
 
-    mean = thrust::reduce(
-      thrust_exec_policy, thrust::device_pointer_cast(eigVecs + IDX(0, i, n)),
-      thrust::device_pointer_cast(eigVecs + IDX(0, i + 1, n)));
+    mean = thrust::reduce(thrust_exec_policy,
+                          thrust::device_pointer_cast(eigVecs + IDX(0, i, n)),
+                          thrust::device_pointer_cast(eigVecs + IDX(0, i + 1, n)));
     CHECK_CUDA(stream);
     mean /= n;
     thrust::transform(thrust_exec_policy,
@@ -136,8 +136,7 @@ void transform_eigen_matrix(handle_t const& handle,
                       thrust::minus<weight_t>());
     CHECK_CUDA(stream);
 
-    CUBLAS_CHECK(
-      cublasnrm2(cublas_h, n, eigVecs + IDX(0, i, n), 1, &std, stream));
+    CUBLAS_CHECK(cublasnrm2(cublas_h, n, eigVecs + IDX(0, i, n), 1, &std, stream));
 
     std /= std::sqrt(static_cast<weight_t>(n));
 
@@ -154,16 +153,25 @@ void transform_eigen_matrix(handle_t const& handle,
   //   TODO: in-place transpose
   {
     vector_t<weight_t> work(handle, nEigVecs * n);
-    CUBLAS_CHECK(
-      cublassetpointermode(cublas_h, CUBLAS_POINTER_MODE_HOST, stream));
+    CUBLAS_CHECK(cublassetpointermode(cublas_h, CUBLAS_POINTER_MODE_HOST, stream));
 
-    CUBLAS_CHECK(cublasgeam(cublas_h, CUBLAS_OP_T, CUBLAS_OP_N, nEigVecs, n,
-                            &one, eigVecs, n, &zero, (weight_t*)NULL, nEigVecs,
-                            work.raw(), nEigVecs, stream));
+    CUBLAS_CHECK(cublasgeam(cublas_h,
+                            CUBLAS_OP_T,
+                            CUBLAS_OP_N,
+                            nEigVecs,
+                            n,
+                            &one,
+                            eigVecs,
+                            n,
+                            &zero,
+                            (weight_t*)NULL,
+                            nEigVecs,
+                            work.raw(),
+                            nEigVecs,
+                            stream));
 
-    CUDA_TRY(cudaMemcpyAsync(eigVecs, work.raw(),
-                             nEigVecs * n * sizeof(weight_t),
-                             cudaMemcpyDeviceToDevice, stream));
+    CUDA_TRY(cudaMemcpyAsync(
+      eigVecs, work.raw(), nEigVecs * n * sizeof(weight_t), cudaMemcpyDeviceToDevice, stream));
   }
 }
 
@@ -178,49 +186,48 @@ struct equal_to_i_op {
  public:
   equal_to_i_op(index_type_t _i) : i(_i) {}
   template <typename Tuple_>
-  __host__ __device__ void operator()(Tuple_ t) {
-    thrust::get<1>(t) =
-      (thrust::get<0>(t) == i) ? (value_type_t)1.0 : (value_type_t)0.0;
+  __host__ __device__ void operator()(Tuple_ t)
+  {
+    thrust::get<1>(t) = (thrust::get<0>(t) == i) ? (value_type_t)1.0 : (value_type_t)0.0;
   }
 };
 }  // namespace
 
 // Construct indicator vector for ith partition
 //
-template <typename vertex_t, typename edge_t, typename weight_t,
-          typename ThrustExePolicy>
+template <typename vertex_t, typename edge_t, typename weight_t, typename ThrustExePolicy>
 bool construct_indicator(handle_t const& handle,
-                         ThrustExePolicy thrust_exec_policy, edge_t index,
-                         edge_t n, weight_t& clustersize, weight_t& partStats,
+                         ThrustExePolicy thrust_exec_policy,
+                         edge_t index,
+                         edge_t n,
+                         weight_t& clustersize,
+                         weight_t& partStats,
                          vertex_t const* __restrict__ clusters,
-                         vector_t<weight_t>& part_i, vector_t<weight_t>& Bx,
-                         laplacian_matrix_t<vertex_t, weight_t> const& B) {
+                         vector_t<weight_t>& part_i,
+                         vector_t<weight_t>& Bx,
+                         laplacian_matrix_t<vertex_t, weight_t> const& B)
+{
   auto cublas_h = handle.get_cublas_handle();
-  auto stream = handle.get_stream();
+  auto stream   = handle.get_stream();
 
-  thrust::for_each(thrust_exec_policy,
-                   thrust::make_zip_iterator(thrust::make_tuple(
-                     thrust::device_pointer_cast(clusters),
-                     thrust::device_pointer_cast(part_i.raw()))),
-                   thrust::make_zip_iterator(thrust::make_tuple(
-                     thrust::device_pointer_cast(clusters + n),
-                     thrust::device_pointer_cast(part_i.raw() + n))),
-                   equal_to_i_op<vertex_t, weight_t>(index));
+  thrust::for_each(
+    thrust_exec_policy,
+    thrust::make_zip_iterator(thrust::make_tuple(thrust::device_pointer_cast(clusters),
+                                                 thrust::device_pointer_cast(part_i.raw()))),
+    thrust::make_zip_iterator(thrust::make_tuple(thrust::device_pointer_cast(clusters + n),
+                                                 thrust::device_pointer_cast(part_i.raw() + n))),
+    equal_to_i_op<vertex_t, weight_t>(index));
   CHECK_CUDA(stream);
 
   // Compute size of ith partition
-  CUBLAS_CHECK(cublasdot(cublas_h, n, part_i.raw(), 1, part_i.raw(), 1,
-                         &clustersize, stream));
+  CUBLAS_CHECK(cublasdot(cublas_h, n, part_i.raw(), 1, part_i.raw(), 1, &clustersize, stream));
 
   clustersize = round(clustersize);
-  if (clustersize < 0.5) {
-    return false;
-  }
+  if (clustersize < 0.5) { return false; }
 
   // Compute part stats
   B.mv(1, part_i.raw(), 0, Bx.raw());
-  CUBLAS_CHECK(
-    cublasdot(cublas_h, n, Bx.raw(), 1, part_i.raw(), 1, &partStats, stream));
+  CUBLAS_CHECK(cublasdot(cublas_h, n, Bx.raw(), 1, part_i.raw(), 1, &partStats, stream));
 
   return true;
 }

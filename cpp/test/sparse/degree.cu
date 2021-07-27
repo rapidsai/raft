@@ -33,8 +33,7 @@ struct SparseDegreeInputs {
 };
 
 template <typename T>
-class SparseDegreeTests
-  : public ::testing::TestWithParam<SparseDegreeInputs<T>> {
+class SparseDegreeTests : public ::testing::TestWithParam<SparseDegreeInputs<T>> {
  protected:
   void SetUp() override {}
 
@@ -47,11 +46,12 @@ class SparseDegreeTests
 const std::vector<SparseDegreeInputs<float>> inputsf = {{5, 10, 5, 1234ULL}};
 
 typedef SparseDegreeTests<float> COODegree;
-TEST_P(COODegree, Result) {
+TEST_P(COODegree, Result)
+{
   int *in_rows, *verify, *results;
 
   int in_rows_h[5] = {0, 0, 1, 2, 2};
-  int verify_h[5] = {2, 1, 2, 0, 0};
+  int verify_h[5]  = {2, 1, 2, 0, 0};
 
   raft::allocate(in_rows, 5);
   raft::allocate(verify, 5, true);
@@ -70,16 +70,17 @@ TEST_P(COODegree, Result) {
 }
 
 typedef SparseDegreeTests<float> COODegreeNonzero;
-TEST_P(COODegreeNonzero, Result) {
+TEST_P(COODegreeNonzero, Result)
+{
   cudaStream_t stream;
   cudaStreamCreate(&stream);
 
   int *in_rows, *verify, *results;
-  float *in_vals;
+  float* in_vals;
 
-  int in_rows_h[5] = {0, 0, 1, 2, 2};
+  int in_rows_h[5]   = {0, 0, 1, 2, 2};
   float in_vals_h[5] = {0.0, 5.0, 0.0, 1.0, 1.0};
-  int verify_h[5] = {1, 0, 2, 0, 0};
+  int verify_h[5]    = {1, 0, 2, 0, 0};
 
   raft::allocate(in_rows, 5);
   raft::allocate(verify, 5, true);
@@ -101,10 +102,8 @@ TEST_P(COODegreeNonzero, Result) {
   CUDA_CHECK(cudaStreamDestroy(stream));
 }
 
-INSTANTIATE_TEST_CASE_P(SparseDegreeTests, COODegree,
-                        ::testing::ValuesIn(inputsf));
-INSTANTIATE_TEST_CASE_P(SparseDegreeTests, COODegreeNonzero,
-                        ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_CASE_P(SparseDegreeTests, COODegree, ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_CASE_P(SparseDegreeTests, COODegreeNonzero, ::testing::ValuesIn(inputsf));
 
 }  // namespace sparse
 }  // namespace raft

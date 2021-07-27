@@ -25,7 +25,8 @@ namespace raft {
 namespace mr {
 namespace device {
 
-TEST(Raft, DeviceBufferAlloc) {
+TEST(Raft, DeviceBufferAlloc)
+{
   auto alloc = std::make_shared<default_allocator>();
   cudaStream_t stream;
   CUDA_CHECK(cudaStreamCreate(&stream));
@@ -52,13 +53,14 @@ TEST(Raft, DeviceBufferAlloc) {
   CUDA_CHECK(cudaStreamDestroy(stream));
 }
 
-TEST(Raft, DeviceBufferZeroResize) {
+TEST(Raft, DeviceBufferZeroResize)
+{
   // Create a limiting_resource_adaptor to track allocations
-  auto curr_mr = dynamic_cast<rmm::mr::cuda_memory_resource*>(
-    rmm::mr::get_current_device_resource());
-  auto limit_mr = std::make_shared<
-    rmm::mr::limiting_resource_adaptor<rmm::mr::cuda_memory_resource>>(curr_mr,
-                                                                       1000);
+  auto curr_mr =
+    dynamic_cast<rmm::mr::cuda_memory_resource*>(rmm::mr::get_current_device_resource());
+  auto limit_mr =
+    std::make_shared<rmm::mr::limiting_resource_adaptor<rmm::mr::cuda_memory_resource>>(curr_mr,
+                                                                                        1000);
 
   rmm::mr::set_current_device_resource(limit_mr.get());
 

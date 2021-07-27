@@ -47,27 +47,27 @@ class SparseSortTest : public ::testing::TestWithParam<SparseSortInput<T>> {
 const std::vector<SparseSortInput<float>> inputsf = {{5, 10, 5, 1234ULL}};
 
 typedef SparseSortTest<float> COOSort;
-TEST_P(COOSort, Result) {
+TEST_P(COOSort, Result)
+{
   int *in_rows, *in_cols, *verify;
-  float *in_vals;
+  float* in_vals;
 
   params = ::testing::TestWithParam<SparseSortInput<float>>::GetParam();
   raft::random::Rng r(params.seed);
   cudaStream_t stream;
   CUDA_CHECK(cudaStreamCreate(&stream));
-  std::shared_ptr<raft::mr::device::allocator> alloc(
-    new raft::mr::device::default_allocator);
+  std::shared_ptr<raft::mr::device::allocator> alloc(new raft::mr::device::default_allocator);
 
   raft::allocate(in_vals, params.nnz);
   r.uniform(in_vals, params.nnz, float(-1.0), float(1.0), stream);
 
-  int *in_rows_h = (int *)malloc(params.nnz * sizeof(int));
-  int *in_cols_h = (int *)malloc(params.nnz * sizeof(int));
-  int *verify_h = (int *)malloc(params.nnz * sizeof(int));
+  int* in_rows_h = (int*)malloc(params.nnz * sizeof(int));
+  int* in_cols_h = (int*)malloc(params.nnz * sizeof(int));
+  int* verify_h  = (int*)malloc(params.nnz * sizeof(int));
 
   for (int i = 0; i < params.nnz; i++) {
     in_rows_h[i] = params.nnz - i - 1;
-    verify_h[i] = i;
+    verify_h[i]  = i;
     in_cols_h[i] = i;
   }
 
@@ -80,11 +80,9 @@ TEST_P(COOSort, Result) {
   raft::update_device(in_cols, in_cols_h, params.nnz, stream);
   raft::update_device(verify, verify_h, params.nnz, stream);
 
-  op::coo_sort(params.m, params.n, params.nnz, in_rows, in_cols, in_vals, alloc,
-               stream);
+  op::coo_sort(params.m, params.n, params.nnz, in_rows, in_cols, in_vals, alloc, stream);
 
-  ASSERT_TRUE(
-    raft::devArrMatch<int>(verify, in_rows, params.nnz, raft::Compare<int>()));
+  ASSERT_TRUE(raft::devArrMatch<int>(verify, in_rows, params.nnz, raft::Compare<int>()));
 
   delete[] in_rows_h;
   delete[] in_cols_h;

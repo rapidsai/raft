@@ -32,15 +32,17 @@ struct SumInputs {
 };
 
 template <typename T>
-::std::ostream &operator<<(::std::ostream &os, const SumInputs<T> &dims) {
+::std::ostream& operator<<(::std::ostream& os, const SumInputs<T>& dims)
+{
   return os;
 }
 
 template <typename T>
 class SumTest : public ::testing::TestWithParam<SumInputs<T>> {
  protected:
-  void SetUp() override {
-    params = ::testing::TestWithParam<SumInputs<T>>::GetParam();
+  void SetUp() override
+  {
+    params   = ::testing::TestWithParam<SumInputs<T>>::GetParam();
     int rows = params.rows, cols = params.cols;
     int len = rows * cols;
     cudaStream_t stream;
@@ -59,7 +61,8 @@ class SumTest : public ::testing::TestWithParam<SumInputs<T>> {
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
-  void TearDown() override {
+  void TearDown() override
+  {
     CUDA_CHECK(cudaFree(data));
     CUDA_CHECK(cudaFree(sum_act));
   }
@@ -76,15 +79,17 @@ const std::vector<SumInputs<double>> inputsd = {{0.05, 1024, 32, 1234ULL},
                                                 {0.05, 1024, 256, 1234ULL}};
 
 typedef SumTest<float> SumTestF;
-TEST_P(SumTestF, Result) {
-  ASSERT_TRUE(raft::devArrMatch(float(params.rows), sum_act, params.cols,
-                                raft::CompareApprox<float>(params.tolerance)));
+TEST_P(SumTestF, Result)
+{
+  ASSERT_TRUE(raft::devArrMatch(
+    float(params.rows), sum_act, params.cols, raft::CompareApprox<float>(params.tolerance)));
 }
 
 typedef SumTest<double> SumTestD;
-TEST_P(SumTestD, Result) {
-  ASSERT_TRUE(raft::devArrMatch(double(params.rows), sum_act, params.cols,
-                                raft::CompareApprox<double>(params.tolerance)));
+TEST_P(SumTestD, Result)
+{
+  ASSERT_TRUE(raft::devArrMatch(
+    double(params.rows), sum_act, params.cols, raft::CompareApprox<double>(params.tolerance)));
 }
 
 INSTANTIATE_TEST_CASE_P(SumTests, SumTestF, ::testing::ValuesIn(inputsf));

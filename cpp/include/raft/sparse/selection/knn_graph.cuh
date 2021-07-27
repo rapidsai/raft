@@ -45,31 +45,34 @@ namespace selection {
  * @param m
  */
 template <typename value_idx>
-__global__ void fill_indices(value_idx *indices, size_t m, size_t nnz) {
+__global__ void fill_indices(value_idx* indices, size_t m, size_t nnz)
+{
   value_idx tid = (blockIdx.x * blockDim.x) + threadIdx.x;
   if (tid >= nnz) return;
-  value_idx v = tid / m;
+  value_idx v  = tid / m;
   indices[tid] = v;
 }
 
 template <typename value_idx>
-value_idx build_k(value_idx n_samples, int c) {
+value_idx build_k(value_idx n_samples, int c)
+{
   // from "kNN-MST-Agglomerative: A fast & scalable graph-based data clustering
   // approach on GPU"
-  return min(n_samples,
-             max((value_idx)2, (value_idx)floor(log2(n_samples)) + c));
+  return min(n_samples, max((value_idx)2, (value_idx)floor(log2(n_samples)) + c));
 }
 
 template <typename in_t, typename out_t>
-__global__ void conv_indices_kernel(in_t *inds, out_t *out, size_t nnz) {
+__global__ void conv_indices_kernel(in_t* inds, out_t* out, size_t nnz)
+{
   size_t tid = blockDim.x * blockIdx.x + threadIdx.x;
   if (tid >= nnz) return;
-  out_t v = inds[tid];
+  out_t v  = inds[tid];
   out[tid] = v;
 }
 
 template <typename in_t, typename out_t, int tpb = 256>
-void conv_indices(in_t *inds, out_t *out, size_t size, cudaStream_t stream) {
+void conv_indices(in_t* inds, out_t* out, size_t size, cudaStream_t stream)
+{
   size_t blocks = ceildiv(size, (size_t)tpb);
   conv_indices_kernel<<<blocks, tpb, 0, stream>>>(inds, out, size);
 }
@@ -91,13 +94,18 @@ void conv_indices(in_t *inds, out_t *out, size_t size, cudaStream_t stream) {
  * @param c
  */
 template <typename value_idx = int, typename value_t = float>
-void knn_graph(const handle_t &handle, const value_t *X, size_t m, size_t n,
+void knn_graph(const handle_t& handle,
+               const value_t* X,
+               size_t m,
+               size_t n,
                distance::DistanceType metric,
-               raft::sparse::COO<value_t, value_idx> &out, int c = 15) {
+               raft::sparse::COO<value_t, value_idx>& out,
+               int c = 15)
+{
   int k = build_k(m, c);
 
   auto d_alloc = handle.get_device_allocator();
-  auto stream = handle.get_stream();
+  auto stream  = handle.get_stream();
 
   size_t nnz = m * k;
 
@@ -108,8 +116,8 @@ void knn_graph(const handle_t &handle, const value_t *X, size_t m, size_t n,
   size_t blocks = ceildiv(nnz, (size_t)256);
   fill_indices<value_idx><<<blocks, 256, 0, stream>>>(rows.data(), k, nnz);
 
-  std::vector<value_t *> inputs;
-  inputs.push_back(const_cast<value_t *>(X));
+  std::vector<value_t*> inputs;
+  inputs.push_back(const_cast<value_t*>(X));
 
   std::vector<int> sizes;
   sizes.push_back(m);
@@ -119,15 +127,25 @@ void knn_graph(const handle_t &handle, const value_t *X, size_t m, size_t n,
   rmm::device_uvector<int64_t> int64_indices(nnz, stream);
 
   uint32_t knn_start = curTimeMillis();
-  raft::spatial::knn::brute_force_knn(
-    handle, inputs, sizes, n, const_cast<value_t *>(X), m, int64_indices.data(),
-    data.data(), k, true, true, nullptr, metric);
+  raft::spatial::knn::brute_force_knn(handle,
+                                      inputs,
+                                      sizes,
+                                      n,
+                                      const_cast<value_t*>(X),
+                                      m,
+                                      int64_indices.data(),
+                                      data.data(),
+                                      k,
+                                      true,
+                                      true,
+                                      nullptr,
+                                      metric);
 
   // convert from current knn's 64-bit to 32-bit.
   conv_indices(int64_indices.data(), indices.data(), nnz, stream);
 
-  raft::sparse::linalg::symmetrize(handle, rows.data(), indices.data(),
-                                   data.data(), m, k, nnz, out);
+  raft::sparse::linalg::symmetrize(
+    handle, rows.data(), indices.data(), data.data(), m, k, nnz, out);
 }
 
 };  // namespace selection

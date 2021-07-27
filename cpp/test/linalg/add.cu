@@ -27,7 +27,8 @@ namespace linalg {
 template <typename InT, typename OutT = InT>
 class AddTest : public ::testing::TestWithParam<AddInputs<InT, OutT>> {
  protected:
-  void SetUp() override {
+  void SetUp() override
+  {
     params = ::testing::TestWithParam<AddInputs<InT, OutT>>::GetParam();
     raft::random::Rng r(params.seed);
     int len = params.len;
@@ -42,7 +43,8 @@ class AddTest : public ::testing::TestWithParam<AddInputs<InT, OutT>> {
     add<InT, OutT>(out, in1, in2, len, stream);
   }
 
-  void TearDown() override {
+  void TearDown() override
+  {
     CUDA_CHECK(cudaStreamSynchronize(stream));
     CUDA_CHECK(cudaFree(in1));
     CUDA_CHECK(cudaFree(in2));
@@ -51,9 +53,10 @@ class AddTest : public ::testing::TestWithParam<AddInputs<InT, OutT>> {
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
-  void compare() {
-    ASSERT_TRUE(raft::devArrMatch(out_ref, out, params.len,
-                                  raft::CompareApprox<OutT>(params.tolerance)));
+  void compare()
+  {
+    ASSERT_TRUE(
+      raft::devArrMatch(out_ref, out, params.len, raft::CompareApprox<OutT>(params.tolerance)));
   }
 
  protected:

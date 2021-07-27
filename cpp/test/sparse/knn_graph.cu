@@ -29,8 +29,9 @@ namespace raft {
 namespace sparse {
 
 template <typename value_idx, typename value_t>
-__global__ void assert_symmetry(value_idx *rows, value_idx *cols, value_t *vals,
-                                value_idx nnz, value_idx *sum) {
+__global__ void assert_symmetry(
+  value_idx* rows, value_idx* cols, value_t* vals, value_idx nnz, value_idx* sum)
+{
   int tid = blockDim.x * blockIdx.x + threadIdx.x;
 
   if (tid >= nnz) return;
@@ -50,22 +51,21 @@ struct KNNGraphInputs {
 };
 
 template <typename value_idx, typename value_t>
-::std::ostream &operator<<(::std::ostream &os,
-                           const KNNGraphInputs<value_idx, value_t> &dims) {
+::std::ostream& operator<<(::std::ostream& os, const KNNGraphInputs<value_idx, value_t>& dims)
+{
   return os;
 }
 
 template <typename value_idx, typename value_t>
-class KNNGraphTest
-  : public ::testing::TestWithParam<KNNGraphInputs<value_idx, value_t>> {
-  void SetUp() override {
-    params =
-      ::testing::TestWithParam<KNNGraphInputs<value_idx, value_t>>::GetParam();
+class KNNGraphTest : public ::testing::TestWithParam<KNNGraphInputs<value_idx, value_t>> {
+  void SetUp() override
+  {
+    params = ::testing::TestWithParam<KNNGraphInputs<value_idx, value_t>>::GetParam();
 
     raft::handle_t handle;
 
     auto alloc = handle.get_device_allocator();
-    stream = handle.get_stream();
+    stream     = handle.get_stream();
 
     out = new raft::sparse::COO<value_t, value_idx>(alloc, stream);
 
@@ -74,8 +74,7 @@ class KNNGraphTest
     update_device(X, params.X.data(), params.X.size(), stream);
 
     raft::sparse::selection::knn_graph(
-      handle, X, params.m, params.n, raft::distance::DistanceType::L2Unexpanded,
-      *out);
+      handle, X, params.m, params.n, raft::distance::DistanceType::L2Unexpanded, *out);
 
     rmm::device_uvector<value_idx> sum(1, stream);
 
@@ -91,7 +90,8 @@ class KNNGraphTest
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
-  void TearDown() override {
+  void TearDown() override
+  {
     CUDA_CHECK(cudaFree(X));
 
     delete out;
@@ -101,9 +101,9 @@ class KNNGraphTest
   cudaStream_t stream;
 
   // input data
-  raft::sparse::COO<value_t, value_idx> *out;
+  raft::sparse::COO<value_t, value_idx>* out;
 
-  value_t *X;
+  value_t* X;
 
   value_idx sum_h;
 
@@ -115,13 +115,15 @@ const std::vector<KNNGraphInputs<int, float>> knn_graph_inputs_fint = {
   {4, 2, {0, 100, 0.01, 0.02, 5000, 10000, -5, -2}, 2}};
 
 typedef KNNGraphTest<int, float> KNNGraphTestF_int;
-TEST_P(KNNGraphTestF_int, Result) {
+TEST_P(KNNGraphTestF_int, Result)
+{
   // nnz should not be larger than twice m * k
   ASSERT_TRUE(out->nnz <= (params.m * params.k * 2));
   ASSERT_TRUE(sum_h == 0);
 }
 
-INSTANTIATE_TEST_CASE_P(KNNGraphTest, KNNGraphTestF_int,
+INSTANTIATE_TEST_CASE_P(KNNGraphTest,
+                        KNNGraphTestF_int,
                         ::testing::ValuesIn(knn_graph_inputs_fint));
 
 }  // namespace sparse

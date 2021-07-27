@@ -23,10 +23,15 @@ namespace raft {
 namespace linalg {
 
 template <typename Type, int veclen_, typename Lambda, typename IdxType>
-__global__ void matrixVectorOpKernel(Type *out, const Type *matrix,
-                                     const Type *vector, IdxType D, IdxType N,
-                                     bool rowMajor, bool bcastAlongRows,
-                                     Lambda op) {
+__global__ void matrixVectorOpKernel(Type* out,
+                                     const Type* matrix,
+                                     const Type* vector,
+                                     IdxType D,
+                                     IdxType N,
+                                     bool rowMajor,
+                                     bool bcastAlongRows,
+                                     Lambda op)
+{
   typedef TxN_t<Type, veclen_> VecType;
   IdxType len = N * D;
   IdxType idx = threadIdx.x;
@@ -57,17 +62,21 @@ __global__ void matrixVectorOpKernel(Type *out, const Type *matrix,
   mat.store(out, idx);
 }
 
-template <typename Type, int veclen_, typename Lambda, typename IdxType,
-          int TPB>
-void matrixVectorOpImpl(Type *out, const Type *matrix, const Type *vec,
-                        IdxType D, IdxType N, bool rowMajor,
-                        bool bcastAlongRows, Lambda op, cudaStream_t stream) {
-  IdxType len = N * D;
-  IdxType nblks =
-    raft::ceildiv(veclen_ ? len / veclen_ : veclen_, (IdxType)TPB);
+template <typename Type, int veclen_, typename Lambda, typename IdxType, int TPB>
+void matrixVectorOpImpl(Type* out,
+                        const Type* matrix,
+                        const Type* vec,
+                        IdxType D,
+                        IdxType N,
+                        bool rowMajor,
+                        bool bcastAlongRows,
+                        Lambda op,
+                        cudaStream_t stream)
+{
+  IdxType len   = N * D;
+  IdxType nblks = raft::ceildiv(veclen_ ? len / veclen_ : veclen_, (IdxType)TPB);
   matrixVectorOpKernel<Type, veclen_, Lambda, IdxType>
-    <<<nblks, TPB, 0, stream>>>(out, matrix, vec, D, N, rowMajor,
-                                bcastAlongRows, op);
+    <<<nblks, TPB, 0, stream>>>(out, matrix, vec, D, N, rowMajor, bcastAlongRows, op);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
@@ -89,11 +98,18 @@ void matrixVectorOpImpl(Type *out, const Type *matrix, const Type *vec,
  * @param stream cuda stream where to launch work
  */
 template <typename Type, typename Lambda, typename IdxType = int, int TPB = 256>
-void matrixVectorOp(Type *out, const Type *matrix, const Type *vec, IdxType D,
-                    IdxType N, bool rowMajor, bool bcastAlongRows, Lambda op,
-                    cudaStream_t stream) {
+void matrixVectorOp(Type* out,
+                    const Type* matrix,
+                    const Type* vec,
+                    IdxType D,
+                    IdxType N,
+                    bool rowMajor,
+                    bool bcastAlongRows,
+                    Lambda op,
+                    cudaStream_t stream)
+{
   IdxType stride = rowMajor ? D : N;
-  size_t bytes = stride * sizeof(Type);
+  size_t bytes   = stride * sizeof(Type);
   if (16 / sizeof(Type) && bytes % 16 == 0) {
     matrixVectorOpImpl<Type, 16 / sizeof(Type), Lambda, IdxType, TPB>(
       out, matrix, vec, D, N, rowMajor, bcastAlongRows, op, stream);
@@ -118,10 +134,16 @@ void matrixVectorOp(Type *out, const Type *matrix, const Type *vec, IdxType D,
 ///@todo: come up with a cleaner interface to support these cases in future!
 
 template <typename Type, int veclen_, typename Lambda, typename IdxType>
-__global__ void matrixVectorOpKernel(Type *out, const Type *matrix,
-                                     const Type *vector1, const Type *vector2,
-                                     IdxType D, IdxType N, bool rowMajor,
-                                     bool bcastAlongRows, Lambda op) {
+__global__ void matrixVectorOpKernel(Type* out,
+                                     const Type* matrix,
+                                     const Type* vector1,
+                                     const Type* vector2,
+                                     IdxType D,
+                                     IdxType N,
+                                     bool rowMajor,
+                                     bool bcastAlongRows,
+                                     Lambda op)
+{
   typedef TxN_t<Type, veclen_> VecType;
   IdxType len = N * D;
   IdxType idx = (threadIdx.x + (blockIdx.x * blockDim.x)) * VecType::Ratio;
@@ -154,15 +176,21 @@ __global__ void matrixVectorOpKernel(Type *out, const Type *matrix,
   mat.store(out, idx);
 }
 
-template <typename Type, int veclen_, typename Lambda, typename IdxType,
-          int TPB>
-void matrixVectorOpImpl(Type *out, const Type *matrix, const Type *vec1,
-                        const Type *vec2, IdxType D, IdxType N, bool rowMajor,
-                        bool bcastAlongRows, Lambda op, cudaStream_t stream) {
+template <typename Type, int veclen_, typename Lambda, typename IdxType, int TPB>
+void matrixVectorOpImpl(Type* out,
+                        const Type* matrix,
+                        const Type* vec1,
+                        const Type* vec2,
+                        IdxType D,
+                        IdxType N,
+                        bool rowMajor,
+                        bool bcastAlongRows,
+                        Lambda op,
+                        cudaStream_t stream)
+{
   IdxType nblks = raft::ceildiv(N * D, (IdxType)TPB);
   matrixVectorOpKernel<Type, veclen_, Lambda, IdxType>
-    <<<nblks, TPB, 0, stream>>>(out, matrix, vec1, vec2, D, N, rowMajor,
-                                bcastAlongRows, op);
+    <<<nblks, TPB, 0, stream>>>(out, matrix, vec1, vec2, D, N, rowMajor, bcastAlongRows, op);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
@@ -185,11 +213,19 @@ void matrixVectorOpImpl(Type *out, const Type *matrix, const Type *vec1,
  * @param stream cuda stream where to launch work
  */
 template <typename Type, typename Lambda, typename IdxType = int, int TPB = 256>
-void matrixVectorOp(Type *out, const Type *matrix, const Type *vec1,
-                    const Type *vec2, IdxType D, IdxType N, bool rowMajor,
-                    bool bcastAlongRows, Lambda op, cudaStream_t stream) {
+void matrixVectorOp(Type* out,
+                    const Type* matrix,
+                    const Type* vec1,
+                    const Type* vec2,
+                    IdxType D,
+                    IdxType N,
+                    bool rowMajor,
+                    bool bcastAlongRows,
+                    Lambda op,
+                    cudaStream_t stream)
+{
   IdxType stride = rowMajor ? D : N;
-  size_t bytes = stride * sizeof(Type);
+  size_t bytes   = stride * sizeof(Type);
   if (16 / sizeof(Type) && bytes % 16 == 0) {
     matrixVectorOpImpl<Type, 16 / sizeof(Type), Lambda, IdxType, TPB>(
       out, matrix, vec1, vec2, D, N, rowMajor, bcastAlongRows, op, stream);

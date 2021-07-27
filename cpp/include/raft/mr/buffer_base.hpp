@@ -35,11 +35,11 @@ namespace mr {
 template <typename T, typename AllocatorT>
 class buffer_base {
  public:
-  using size_type = std::size_t;
-  using value_type = T;
-  using iterator = value_type*;
-  using const_iterator = const value_type*;
-  using reference = T&;
+  using size_type       = std::size_t;
+  using value_type      = T;
+  using iterator        = value_type*;
+  using const_iterator  = const value_type*;
+  using reference       = T&;
   using const_reference = const T&;
 
   buffer_base() = delete;
@@ -55,16 +55,12 @@ class buffer_base {
    * @param[in] stream    cuda stream where this allocation operations are async
    * @param[in] n         size of the buffer (in number of elements)
    */
-  buffer_base(std::shared_ptr<AllocatorT> allocator, cudaStream_t stream,
-              size_type n = 0)
-    : data_(nullptr),
-      size_(n),
-      capacity_(n),
-      stream_(stream),
-      allocator_(std::move(allocator)) {
+  buffer_base(std::shared_ptr<AllocatorT> allocator, cudaStream_t stream, size_type n = 0)
+    : data_(nullptr), size_(n), capacity_(n), stream_(stream), allocator_(std::move(allocator))
+  {
     if (capacity_ > 0) {
-      data_ = static_cast<value_type*>(
-        allocator_->allocate(capacity_ * sizeof(value_type), stream_));
+      data_ =
+        static_cast<value_type*>(allocator_->allocate(capacity_ * sizeof(value_type), stream_));
       CUDA_CHECK(cudaStreamSynchronize(stream_));
     }
   }
@@ -98,23 +94,23 @@ class buffer_base {
    * @param[in] stream       cuda stream where allocation operations are queued
    * @{
    */
-  void reserve(size_type new_capacity) {
+  void reserve(size_type new_capacity)
+  {
     if (new_capacity > capacity_) {
-      auto* new_data = static_cast<value_type*>(
-        allocator_->allocate(new_capacity * sizeof(value_type), stream_));
-      if (size_ > 0) {
-        raft::copy(new_data, data_, size_, stream_);
-      }
+      auto* new_data =
+        static_cast<value_type*>(allocator_->allocate(new_capacity * sizeof(value_type), stream_));
+      if (size_ > 0) { raft::copy(new_data, data_, size_, stream_); }
       // Only deallocate if we have allocated a pointer
       if (nullptr != data_) {
         allocator_->deallocate(data_, capacity_ * sizeof(value_type), stream_);
       }
-      data_ = new_data;
+      data_     = new_data;
       capacity_ = new_capacity;
     }
   }
 
-  void reserve(size_type new_capacity, cudaStream_t stream) {
+  void reserve(size_type new_capacity, cudaStream_t stream)
+  {
     set_stream(stream);
     reserve(new_capacity);
   }
@@ -127,12 +123,14 @@ class buffer_base {
    * @param[in] stream   cuda stream where the work will be queued
    * @{
    */
-  void resize(const size_type new_size) {
+  void resize(const size_type new_size)
+  {
     reserve(new_size);
     size_ = new_size;
   }
 
-  void resize(const size_type new_size, cudaStream_t stream) {
+  void resize(const size_type new_size, cudaStream_t stream)
+  {
     set_stream(stream);
     resize(new_size);
   }
@@ -146,16 +144,18 @@ class buffer_base {
    * @param[in] stream   cuda stream where the work will be queued
    * @{
    */
-  void release() {
+  void release()
+  {
     if (nullptr != data_) {
       allocator_->deallocate(data_, capacity_ * sizeof(value_type), stream_);
     }
-    data_ = nullptr;
+    data_     = nullptr;
     capacity_ = 0;
-    size_ = 0;
+    size_     = 0;
   }
 
-  void release(cudaStream_t stream) {
+  void release(cudaStream_t stream)
+  {
     set_stream(stream);
     release();
   }
@@ -195,7 +195,8 @@ class buffer_base {
    * @param[in] stream new cuda stream to be set. If it is the same as the
    *                   current one, then this method will be a no-op.
    */
-  void set_stream(cudaStream_t stream) {
+  void set_stream(cudaStream_t stream)
+  {
     if (stream_ != stream) {
       cudaEvent_t event;
       CUDA_CHECK(cudaEventCreateWithFlags(&event, cudaEventDisableTiming));
