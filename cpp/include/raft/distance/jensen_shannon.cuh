@@ -74,14 +74,10 @@ static void jensenShannonImpl(const DataT *x, const DataT *y, IdxT m, IdxT n,
   // Accumulation operation lambda
   auto core_lambda = [] __device__(AccT & acc, DataT & x, DataT & y) {
     const DataT m = 0.5f * (x + y);
-
     const bool m_zero = (m == 0);
-    const auto logM = (!m_zero) * fastLog(m + m_zero);
-    const bool x_zero = x == 0;
-    const bool y_zero = y == 0;
+    const auto logM = (!m_zero) * fastLog(m);
 
-    acc += (-x * (logM - fastLog(x_zero + x))) +
-           (-y * (logM - fastLog(y_zero + y)));
+    acc += (-x * (logM - fastLog(x))) + (-y * (logM - fastLog(y)));
   };
 
   // epilogue operation lambda for final value calculation
