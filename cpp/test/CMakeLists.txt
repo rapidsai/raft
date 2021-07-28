@@ -29,6 +29,7 @@ add_executable(test_raft
     test/distance/dist_jensen_shannon.cu
     test/distance/dist_l1.cu
     test/distance/dist_minkowski.cu
+    test/distance/dist_russell_rao.cu
     test/distance/fused_l2_nn.cu
     test/eigen_solvers.cu
     test/handle.cpp

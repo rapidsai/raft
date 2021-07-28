@@ -212,6 +212,26 @@ __global__ void naiveJensenShannonDistanceKernel(DataType *dist,
   dist[outidx] = acc;
 }
 
+template <typename DataType, typename OutType>
+__global__ void naiveRussellRaoDistanceKernel(OutType *dist, const DataType *x,
+                                           const DataType *y, int m, int n,
+                                           int k, bool isRowMajor) {
+  int midx = threadIdx.x + blockIdx.x * blockDim.x;
+  int nidx = threadIdx.y + blockIdx.y * blockDim.y;
+  if (midx >= m || nidx >= n) return;
+  OutType acc = OutType(0);
+  for (int i = 0; i < k; ++i) {
+    int xidx = isRowMajor ? i + midx * k : i * m + midx;
+    int yidx = isRowMajor ? i + nidx * k : i * n + nidx;
+    auto a = x[xidx];
+    auto b = y[yidx];
+    acc += (a * b);
+  }
+  acc = (k - acc) / k;
+  int outidx = isRowMajor ? midx * n + nidx : midx + m * nidx;
+  dist[outidx] = acc;
+}
+
 template <typename DataType>
 void naiveDistance(DataType *dist, const DataType *x, const DataType *y, int m,
                    int n, int k, raft::distance::DistanceType type,
@@ -251,6 +271,10 @@ void naiveDistance(DataType *dist, const DataType *x, const DataType *y, int m,
       break;
     case raft::distance::DistanceType::JensenShannon:
       naiveJensenShannonDistanceKernel<DataType>
+        <<<nblks, TPB>>>(dist, x, y, m, n, k, isRowMajor);
+      break;
+    case raft::distance::DistanceType::RusselRaoExpanded:
+      naiveRussellRaoDistanceKernel<DataType>
         <<<nblks, TPB>>>(dist, x, y, m, n, k, isRowMajor);
       break;
     default:
@@ -312,6 +336,12 @@ class DistanceTest : public ::testing::TestWithParam<DistanceInputs<DataType>> {
       // Hellinger works only on positive numbers
       r.uniform(x, m * k, DataType(0.0), DataType(1.0), stream);
       r.uniform(y, n * k, DataType(0.0), DataType(1.0), stream);
+    } else if (distanceType == raft::distance::DistanceType::RusselRaoExpanded) {
+      r.uniform(x, m * k, DataType(0.0), DataType(1.0), stream);
+      r.uniform(y, n * k, DataType(0.0), DataType(1.0), stream);
+      // Russel rao works on boolean values.
+      r.bernoulli(x, m * k, 0.5f, stream);
+      r.bernoulli(y, n * k, 0.5f, stream);
     } else {
       r.uniform(x, m * k, DataType(-1.0), DataType(1.0), stream);
       r.uniform(y, n * k, DataType(-1.0), DataType(1.0), stream);
