@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,19 +14,20 @@
  * limitations under the License.
  */
 
-#include <bits/stdc++.h>
-
-#include <gtest/gtest.h>
-#include <iostream>
-#include <rmm/device_buffer.hpp>
-#include <vector>
+#include "test_utils.h"
 
 #include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
-
 #include <raft/sparse/mst/mst.cuh>
 
-#include "test_utils.h"
+#include <rmm/device_buffer.hpp>
+
+#include <gtest/gtest.h>
+
+#include <bits/stdc++.h>
+
+#include <cstddef>
+#include <vector>
 
 template <typename vertex_t, typename edge_t, typename weight_t>
 struct CSRHost {
@@ -55,25 +56,25 @@ namespace mst {
 // Returns total weight of MST
 template <typename vertex_t, typename edge_t, typename weight_t>
 weight_t prims(CSRHost<vertex_t, edge_t, weight_t> &csr_h) {
-  auto n_vertices = csr_h.offsets.size() - 1;
+  std::size_t n_vertices = csr_h.offsets.size() - 1;
 
   bool active_vertex[n_vertices];
   //  bool mst_set[csr_h.n_edges];
   weight_t curr_edge[n_vertices];
 
-  for (auto i = 0; i < n_vertices; i++) {
+  for (std::size_t i = 0; i < n_vertices; i++) {
     active_vertex[i] = false;
-    curr_edge[i] = INT_MAX;
+    curr_edge[i] = static_cast<weight_t>(std::numeric_limits<int>::max());
   }
   curr_edge[0] = 0;
 
   // function to pick next min vertex-edge
   auto min_vertex_edge = [](auto *curr_edge, auto *active_vertex,
                             auto n_vertices) {
-    weight_t min = INT_MAX;
-    vertex_t min_vertex;
+    auto min = static_cast<weight_t>(std::numeric_limits<int>::max());
+    vertex_t min_vertex{};
 
-    for (auto v = 0; v < n_vertices; v++) {
+    for (std::size_t v = 0; v < n_vertices; v++) {
       if (!active_vertex[v] && curr_edge[v] < min) {
         min = curr_edge[v];
         min_vertex = v;
@@ -84,7 +85,7 @@ weight_t prims(CSRHost<vertex_t, edge_t, weight_t> &csr_h) {
   };
 
   // iterate over n vertices
-  for (auto v = 0; v < n_vertices - 1; v++) {
+  for (std::size_t v = 0; v < n_vertices - 1; v++) {
     // pick min vertex-edge
     auto curr_v = min_vertex_edge(curr_edge, active_vertex, n_vertices);
 
@@ -106,7 +107,7 @@ weight_t prims(CSRHost<vertex_t, edge_t, weight_t> &csr_h) {
 
   // find sum of MST
   weight_t total_weight = 0;
-  for (auto v = 1; v < n_vertices; v++) {
+  for (std::size_t v = 1; v < n_vertices; v++) {
     total_weight += curr_edge[v];
   }
 
