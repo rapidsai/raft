@@ -26,6 +26,7 @@ add_executable(test_raft
     test/distance/dist_euc_unexp.cu
     test/distance/dist_hamming.cu
     test/distance/dist_hellinger.cu
+    test/distance/dist_jensen_shannon.cu
     test/distance/dist_l1.cu
     test/distance/dist_minkowski.cu
     test/distance/fused_l2_nn.cu

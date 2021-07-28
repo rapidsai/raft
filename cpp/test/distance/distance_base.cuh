@@ -181,6 +181,38 @@ __global__ void naiveHammingDistanceKernel(DataType *dist, const DataType *x,
 }
 
 template <typename DataType>
+__global__ void naiveJensenShannonDistanceKernel(DataType *dist,
+                        const DataType *x, const DataType *y,
+                        int m, int n, int k, bool isRowMajor) {
+  int midx = threadIdx.x + blockIdx.x * blockDim.x;
+  int nidx = threadIdx.y + blockIdx.y * blockDim.y;
+  if (midx >= m || nidx >= n) return;
+  DataType acc = DataType(0);
+  for (int i = 0; i < k; ++i) {
+    int xidx = isRowMajor ? i + midx * k : i * m + midx;
+    int yidx = isRowMajor ? i + nidx * k : i * n + nidx;
+    auto a = x[xidx];
+    auto b = y[yidx];
+
+    DataType m = 0.5f * (a + b);
+    bool a_zero = a == 0;
+    bool b_zero = b == 0;
+
+    DataType p = (!a_zero * m) / (a_zero + a);
+    DataType q = (!b_zero * m) / (b_zero + b);
+
+    bool p_zero = p == 0;
+    bool q_zero = q == 0;
+
+    acc += (-a * (!p_zero * log(p + p_zero))) +
+           (-b * (!q_zero * log(q + q_zero)));
+  }
+  acc = raft::mySqrt(0.5f * acc);
+  int outidx = isRowMajor ? midx * n + nidx : midx + m * nidx;
+  dist[outidx] = acc;
+}
+
+template <typename DataType>
 void naiveDistance(DataType *dist, const DataType *x, const DataType *y, int m,
                    int n, int k, raft::distance::DistanceType type,
                    bool isRowMajor, DataType metric_arg = 2.0f) {
@@ -215,6 +247,10 @@ void naiveDistance(DataType *dist, const DataType *x, const DataType *y, int m,
       break;
     case raft::distance::DistanceType::HammingUnexpanded:
       naiveHammingDistanceKernel<DataType>
+        <<<nblks, TPB>>>(dist, x, y, m, n, k, isRowMajor);
+      break;
+    case raft::distance::DistanceType::JensenShannon:
+      naiveJensenShannonDistanceKernel<DataType>
         <<<nblks, TPB>>>(dist, x, y, m, n, k, isRowMajor);
       break;
     default:
@@ -271,7 +307,8 @@ class DistanceTest : public ::testing::TestWithParam<DistanceInputs<DataType>> {
     raft::allocate(dist_ref, m * n);
     raft::allocate(dist, m * n);
     raft::allocate(dist2, m * n);
-    if (distanceType == raft::distance::DistanceType::HellingerExpanded) {
+    if (distanceType == raft::distance::DistanceType::HellingerExpanded ||
+        distanceType == raft::distance::DistanceType::JensenShannon) {
       // Hellinger works only on positive numbers
       r.uniform(x, m * k, DataType(0.0), DataType(1.0), stream);
       r.uniform(y, n * k, DataType(0.0), DataType(1.0), stream);
