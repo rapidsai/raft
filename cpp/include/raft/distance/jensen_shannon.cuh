@@ -80,8 +80,8 @@ static void jensenShannonImpl(const DataT *x, const DataT *y, IdxT m, IdxT n,
     const bool x_zero = x == 0;
     const bool y_zero = y == 0;
 
-    acc += (-x * (logM - (!x_zero) * fastLog(x_zero + x))) +
-           (-y * (logM - (!y_zero) * fastLog(y_zero + y)));
+    acc += (-x * (logM - fastLog(x_zero + x))) +
+           (-y * (logM - fastLog(y_zero + y)));
   };
 
   // epilogue operation lambda for final value calculation
