@@ -39,13 +39,13 @@ env
 gpuci_logger "Check GPU usage"
 nvidia-smi
 
-# temporary usage of gpuci_conda_retry install with packages listed here, looking into
+# temporary usage of gpuci_mamba_retry install with packages listed here, looking into
 # using the repos yaml files for this
 gpuci_logger "Activate conda env"
 . /opt/conda/etc/profile.d/conda.sh
 conda activate rapids
 gpuci_logger "Installing packages needed for RAFT"
-gpuci_conda_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
+gpuci_mamba_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
       "cudatoolkit=${CUDA_REL}" \
       "cudf=${MINOR_VERSION}" \
       "rmm=${MINOR_VERSION}" \
