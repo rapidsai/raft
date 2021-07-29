@@ -232,6 +232,29 @@ __global__ void naiveRussellRaoDistanceKernel(OutType *dist, const DataType *x,
   dist[outidx] = acc;
 }
 
+template <typename DataType, typename OutType>
+__global__ void naiveKLDivergenceDistanceKernel(OutType *dist, const DataType *x,
+                                           const DataType *y, int m, int n,
+                                           int k, bool isRowMajor) {
+  int midx = threadIdx.x + blockIdx.x * blockDim.x;
+  int nidx = threadIdx.y + blockIdx.y * blockDim.y;
+  if (midx >= m || nidx >= n) return;
+  OutType acc = OutType(0);
+  for (int i = 0; i < k; ++i) {
+    int xidx = isRowMajor ? i + midx * k : i * m + midx;
+    int yidx = isRowMajor ? i + nidx * k : i * n + nidx;
+    auto a = x[xidx];
+    auto b = y[yidx];
+    bool b_zero = (b == 0);
+    const auto m = (!b_zero) * (a / b);
+    const bool m_zero = (m == 0);
+    acc += (a * (!m_zero) * log(m + m_zero));
+  }
+  acc = 0.5f * acc;
+  int outidx = isRowMajor ? midx * n + nidx : midx + m * nidx;
+  dist[outidx] = acc;
+}
+
 template <typename DataType>
 void naiveDistance(DataType *dist, const DataType *x, const DataType *y, int m,
                    int n, int k, raft::distance::DistanceType type,
@@ -275,6 +298,10 @@ void naiveDistance(DataType *dist, const DataType *x, const DataType *y, int m,
       break;
     case raft::distance::DistanceType::RusselRaoExpanded:
       naiveRussellRaoDistanceKernel<DataType>
+        <<<nblks, TPB>>>(dist, x, y, m, n, k, isRowMajor);
+      break;
+    case raft::distance::DistanceType::KLDivergence:
+      naiveKLDivergenceDistanceKernel<DataType>
         <<<nblks, TPB>>>(dist, x, y, m, n, k, isRowMajor);
       break;
     default:
@@ -332,7 +359,8 @@ class DistanceTest : public ::testing::TestWithParam<DistanceInputs<DataType>> {
     raft::allocate(dist, m * n);
     raft::allocate(dist2, m * n);
     if (distanceType == raft::distance::DistanceType::HellingerExpanded ||
-        distanceType == raft::distance::DistanceType::JensenShannon) {
+        distanceType == raft::distance::DistanceType::JensenShannon ||
+        distanceType == raft::distance::DistanceType::KLDivergence) {
       // Hellinger works only on positive numbers
       r.uniform(x, m * k, DataType(0.0), DataType(1.0), stream);
       r.uniform(y, n * k, DataType(0.0), DataType(1.0), stream);
