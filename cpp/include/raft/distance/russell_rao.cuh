@@ -24,8 +24,7 @@ namespace distance {
 /**
  * @brief the Russell Rao distance matrix:
  *  It computes the following equation: 
-    Cij = sqrt(0.5 * sum( -x_i * (log(0.5 * (x_i + y_i)) - log(x_i))
-            + (-y_i * (log(0.5 * (x_i + y_i)) - log(y_i)))))
+    Cij = (k - sum(x_i * y_i)) / k
  *
  * @tparam DataT          input data-type (for A and B matrices)
  * @tparam AccT           accumulation data-type
@@ -131,8 +130,7 @@ void russellRao(IdxT m, IdxT n, IdxT k, IdxT lda, IdxT ldb, IdxT ldd,
 /**
  * @brief the Russell Rao distance matrix calculation
  *  It computes the following equation: 
-    Cij = sqrt(0.5 * sum( -x_i * (log(0.5 * (x_i + y_i)) - log(x_i))
-            + (-y_i * (log(0.5 * (x_i + y_i)) - log(y_i)))))
+    Cij = (k - sum(x_i * y_i)) / k
  *
  * @tparam InType input data-type (for A and B matrices)
  * @tparam AccType accumulation data-type
