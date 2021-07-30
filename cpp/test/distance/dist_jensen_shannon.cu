@@ -22,8 +22,8 @@ namespace distance {
 
 template <typename DataType>
 class DistanceJensenShannon
-  : public DistanceTest<raft::distance::DistanceType::JensenShannon,
-                        DataType> {};
+  : public DistanceTest<raft::distance::DistanceType::JensenShannon, DataType> {
+};
 
 const std::vector<DistanceInputs<float>> inputsf = {
   {0.001f, 1024, 1024, 32, true, 1234ULL},

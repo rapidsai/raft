@@ -15,13 +15,12 @@
  */
 
 #pragma once
+#include <raft/cuda_utils.cuh>
 #include <raft/distance/pairwise_distance_base.cuh>
 #include <raft/linalg/reduce.cuh>
-#include <raft/cuda_utils.cuh>
 
 namespace raft {
 namespace distance {
-
 
 /**
  * @brief the Correlation distance matrix:
@@ -50,10 +49,10 @@ namespace distance {
 template <typename DataT, typename AccT, typename OutT, typename IdxT,
           int VecLen, typename FinalLambda, bool isRowMajor>
 static void correlationImpl(const DataT *x, const DataT *y, const DataT *xn,
-                        const DataT *yn, const DataT *x2n, const DataT *y2n,
-                        IdxT m, IdxT n, IdxT k, IdxT lda, IdxT ldb, IdxT ldd,
-                        OutT *dOutput, FinalLambda fin_op,
-                        cudaStream_t stream) {
+                            const DataT *yn, const DataT *x2n, const DataT *y2n,
+                            IdxT m, IdxT n, IdxT k, IdxT lda, IdxT ldb,
+                            IdxT ldd, OutT *dOutput, FinalLambda fin_op,
+                            cudaStream_t stream) {
   typedef typename raft::linalg::Policy4x4<DataT, VecLen>::Policy RowPolicy;
   typedef typename raft::linalg::Policy4x4<DataT, VecLen>::ColPolicy ColPolicy;
 
@@ -75,9 +74,10 @@ static void correlationImpl(const DataT *x, const DataT *y, const DataT *xn,
     DataT regx2n[KPolicy::AccRowsPerTh], regy2n[KPolicy::AccColsPerTh];
 
     extern __shared__ char smem[];
-    DataT* sx2Norm = (DataT*)(&smem[KPolicy::SmemSize +
+    DataT *sx2Norm =
+      (DataT *)(&smem[KPolicy::SmemSize +
                       (KPolicy::Mblk + KPolicy::Nblk) * sizeof(DataT)]);
-    DataT* sy2Norm = (&sx2Norm[KPolicy::Mblk]);
+    DataT *sy2Norm = (&sx2Norm[KPolicy::Mblk]);
 
     // Load x & y norms required by this threadblock in shmem buffer
     if (gridStrideX == blockIdx.x * KPolicy::Nblk) {
@@ -95,11 +95,13 @@ static void correlationImpl(const DataT *x, const DataT *y, const DataT *xn,
 
 #pragma unroll
     for (int i = 0; i < KPolicy::AccRowsPerTh; ++i) {
-      regx2n[i] = sx2Norm[i * KPolicy::AccThRows + (threadIdx.x / KPolicy::AccThCols)];
+      regx2n[i] =
+        sx2Norm[i * KPolicy::AccThRows + (threadIdx.x / KPolicy::AccThCols)];
     }
 #pragma unroll
     for (int i = 0; i < KPolicy::AccColsPerTh; ++i) {
-      regy2n[i] = sy2Norm[i * KPolicy::AccThCols + (threadIdx.x % KPolicy::AccThCols)];
+      regy2n[i] =
+        sy2Norm[i * KPolicy::AccThCols + (threadIdx.x % KPolicy::AccThCols)];
     }
 
 #pragma unroll
@@ -128,8 +130,8 @@ static void correlationImpl(const DataT *x, const DataT *y, const DataT *xn,
     dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize,
                                                correlationRowMajor);
     correlationRowMajor<<<grid, blk, shmemSize, stream>>>(
-      x, y, xn, yn, m, n, k, lda, ldb, ldd, dOutput, core_lambda,
-      epilog_lambda, fin_op);
+      x, y, xn, yn, m, n, k, lda, ldb, ldd, dOutput, core_lambda, epilog_lambda,
+      fin_op);
   } else {
     constexpr auto correlationColMajor =
       pairwiseDistanceMatKernel<true, DataT, AccT, OutT, IdxT, KPolicy,
@@ -138,8 +140,8 @@ static void correlationImpl(const DataT *x, const DataT *y, const DataT *xn,
     dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize,
                                                correlationColMajor);
     correlationColMajor<<<grid, blk, shmemSize, stream>>>(
-      x, y, xn, yn, m, n, k, lda, ldb, ldd, dOutput, core_lambda,
-      epilog_lambda, fin_op);
+      x, y, xn, yn, m, n, k, lda, ldb, ldd, dOutput, core_lambda, epilog_lambda,
+      fin_op);
   }
 
   CUDA_CHECK(cudaGetLastError());
@@ -148,19 +150,19 @@ static void correlationImpl(const DataT *x, const DataT *y, const DataT *xn,
 template <typename DataT, typename AccT, typename OutT, typename IdxT,
           typename FinalLambda, bool isRowMajor>
 void correlation(IdxT m, IdxT n, IdxT k, IdxT lda, IdxT ldb, IdxT ldd,
-               const DataT *x, const DataT *y, const DataT *xn, const DataT *yn,
-               const DataT *x2n, const DataT *y2n,
-               OutT *dOutput, FinalLambda fin_op, cudaStream_t stream) {
+                 const DataT *x, const DataT *y, const DataT *xn,
+                 const DataT *yn, const DataT *x2n, const DataT *y2n,
+                 OutT *dOutput, FinalLambda fin_op, cudaStream_t stream) {
   size_t bytesA = sizeof(DataT) * lda;
   size_t bytesB = sizeof(DataT) * ldb;
   if (16 % sizeof(DataT) == 0 && bytesA % 16 == 0 && bytesB % 16 == 0) {
     correlationImpl<DataT, AccT, OutT, IdxT, 16 / sizeof(DataT), FinalLambda,
-                  isRowMajor>(x, y, xn, yn, x2n, y2n, m, n, k, lda, ldb, ldd,
-                            dOutput, fin_op, stream);
+                    isRowMajor>(x, y, xn, yn, x2n, y2n, m, n, k, lda, ldb, ldd,
+                                dOutput, fin_op, stream);
   } else if (8 % sizeof(DataT) == 0 && bytesA % 8 == 0 && bytesB % 8 == 0) {
     correlationImpl<DataT, AccT, OutT, IdxT, 8 / sizeof(DataT), FinalLambda,
-                  isRowMajor>(x, y, xn, yn, x2n, y2n, m, n, k, lda, ldb, ldd,
-                            dOutput, fin_op, stream);
+                    isRowMajor>(x, y, xn, yn, x2n, y2n, m, n, k, lda, ldb, ldd,
+                                dOutput, fin_op, stream);
   } else {
     correlationImpl<DataT, AccT, OutT, IdxT, 1, FinalLambda, isRowMajor>(
       x, y, xn, yn, x2n, y2n, m, n, k, lda, ldb, ldd, dOutput, fin_op, stream);
@@ -188,8 +190,8 @@ void correlation(IdxT m, IdxT n, IdxT k, IdxT lda, IdxT ldb, IdxT ldd,
 template <typename InType, typename AccType, typename OutType,
           typename FinalLambda, typename Index_ = int>
 void correlationImpl(int m, int n, int k, const InType *pA, const InType *pB,
-                   OutType *pD, AccType *workspace, size_t &worksize, 
-                   FinalLambda fin_op, cudaStream_t stream, bool isRowMajor) {
+                     OutType *pD, AccType *workspace, size_t &worksize,
+                     FinalLambda fin_op, cudaStream_t stream, bool isRowMajor) {
   typedef std::is_same<OutType, bool> is_bool;
   typedef typename std::conditional<is_bool::value, OutType, AccType>::type
     correlationOutType;
@@ -197,7 +199,8 @@ void correlationImpl(int m, int n, int k, const InType *pA, const InType *pB,
   correlationOutType *pDcast = reinterpret_cast<correlationOutType *>(pD);
 
   ASSERT(!(((pA != pB) && (worksize < 2 * (m + n) * sizeof(AccType))) ||
-         (worksize < 2 * m * sizeof(AccType))), "workspace size error");
+           (worksize < 2 * m * sizeof(AccType))),
+         "workspace size error");
   ASSERT(workspace != nullptr, "workspace is null");
 
   AccType *norm_col_vec = workspace;
@@ -208,35 +211,39 @@ void correlationImpl(int m, int n, int k, const InType *pA, const InType *pB,
     norm_row_vec += m;
 
     raft::linalg::reduce(norm_col_vec, pA, k, m, (AccType)0, isRowMajor, true,
-            stream, false, raft::Nop<InType>(), raft::Sum<InType>());
+                         stream, false, raft::Nop<InType>(),
+                         raft::Sum<InType>());
     raft::linalg::reduce(norm_row_vec, pB, k, n, (AccType)0, isRowMajor, true,
-            stream, false, raft::Nop<InType>(), raft::Sum<InType>());
+                         stream, false, raft::Nop<InType>(),
+                         raft::Sum<InType>());
 
     sq_norm_col_vec += (m + n);
     sq_norm_row_vec = sq_norm_col_vec + m;
-    raft::linalg::rowNorm(sq_norm_col_vec, pA, k, m, raft::linalg::L2Norm, isRowMajor,
-                          stream);
-    raft::linalg::rowNorm(sq_norm_row_vec, pB, k, n, raft::linalg::L2Norm, isRowMajor,
-                          stream);
+    raft::linalg::rowNorm(sq_norm_col_vec, pA, k, m, raft::linalg::L2Norm,
+                          isRowMajor, stream);
+    raft::linalg::rowNorm(sq_norm_row_vec, pB, k, n, raft::linalg::L2Norm,
+                          isRowMajor, stream);
   } else {
     raft::linalg::reduce(norm_col_vec, pA, k, m, (AccType)0, isRowMajor, true,
-            stream, false, raft::Nop<InType>(), raft::Sum<InType>());
+                         stream, false, raft::Nop<InType>(),
+                         raft::Sum<InType>());
     sq_norm_col_vec += m;
     sq_norm_row_vec = sq_norm_col_vec;
-    raft::linalg::rowNorm(sq_norm_col_vec, pA, k, m, raft::linalg::L2Norm, isRowMajor,
-                          stream);
+    raft::linalg::rowNorm(sq_norm_col_vec, pA, k, m, raft::linalg::L2Norm,
+                          isRowMajor, stream);
   }
 
   if (isRowMajor) {
     lda = k, ldb = k, ldd = n;
     correlation<InType, AccType, correlationOutType, Index_, FinalLambda, true>(
-                    m, n, k, lda, ldb, ldd, pA, pB, norm_col_vec, norm_row_vec,
-                    sq_norm_col_vec, sq_norm_row_vec, pDcast, fin_op, stream);
+      m, n, k, lda, ldb, ldd, pA, pB, norm_col_vec, norm_row_vec,
+      sq_norm_col_vec, sq_norm_row_vec, pDcast, fin_op, stream);
   } else {
     lda = n, ldb = m, ldd = m;
-    correlation<InType, AccType, correlationOutType, Index_, FinalLambda, false>(
-                n, m, k, lda, ldb, ldd, pB, pA, norm_row_vec, norm_col_vec,
-                 sq_norm_row_vec, sq_norm_col_vec, pDcast, fin_op, stream);
+    correlation<InType, AccType, correlationOutType, Index_, FinalLambda,
+                false>(n, m, k, lda, ldb, ldd, pB, pA, norm_row_vec,
+                       norm_col_vec, sq_norm_row_vec, sq_norm_col_vec, pDcast,
+                       fin_op, stream);
   }
 }
 }  // namespace distance

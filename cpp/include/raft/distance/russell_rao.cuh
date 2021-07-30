@@ -20,7 +20,6 @@
 namespace raft {
 namespace distance {
 
-
 /**
  * @brief the Russell Rao distance matrix:
  *  It computes the following equation: 
@@ -50,8 +49,8 @@ namespace distance {
 template <typename DataT, typename AccT, typename OutT, typename IdxT,
           int VecLen, typename FinalLambda, bool isRowMajor>
 static void russellRaoImpl(const DataT *x, const DataT *y, IdxT m, IdxT n,
-                          IdxT k, IdxT lda, IdxT ldb, IdxT ldd, OutT *dOutput,
-                          FinalLambda fin_op, cudaStream_t stream) {
+                           IdxT k, IdxT lda, IdxT ldb, IdxT ldd, OutT *dOutput,
+                           FinalLambda fin_op, cudaStream_t stream) {
   typedef typename raft::linalg::Policy4x4<DataT, VecLen>::Policy RowPolicy;
   typedef typename raft::linalg::Policy4x4<DataT, VecLen>::ColPolicy ColPolicy;
 
@@ -109,18 +108,18 @@ static void russellRaoImpl(const DataT *x, const DataT *y, IdxT m, IdxT n,
 template <typename DataT, typename AccT, typename OutT, typename IdxT,
           typename FinalLambda, bool isRowMajor>
 void russellRao(IdxT m, IdxT n, IdxT k, IdxT lda, IdxT ldb, IdxT ldd,
-               const DataT *x, const DataT *y, OutT *dOutput,
-               FinalLambda fin_op, cudaStream_t stream) {
+                const DataT *x, const DataT *y, OutT *dOutput,
+                FinalLambda fin_op, cudaStream_t stream) {
   size_t bytesA = sizeof(DataT) * lda;
   size_t bytesB = sizeof(DataT) * ldb;
   if (16 % sizeof(DataT) == 0 && bytesA % 16 == 0 && bytesB % 16 == 0) {
     russellRaoImpl<DataT, AccT, OutT, IdxT, 16 / sizeof(DataT), FinalLambda,
-                  isRowMajor>(x, y, m, n, k, lda, ldb, ldd, dOutput, fin_op,
-                              stream);
+                   isRowMajor>(x, y, m, n, k, lda, ldb, ldd, dOutput, fin_op,
+                               stream);
   } else if (8 % sizeof(DataT) == 0 && bytesA % 8 == 0 && bytesB % 8 == 0) {
     russellRaoImpl<DataT, AccT, OutT, IdxT, 8 / sizeof(DataT), FinalLambda,
-                  isRowMajor>(x, y, m, n, k, lda, ldb, ldd, dOutput, fin_op,
-                              stream);
+                   isRowMajor>(x, y, m, n, k, lda, ldb, ldd, dOutput, fin_op,
+                               stream);
   } else {
     russellRaoImpl<DataT, AccT, OutT, IdxT, 1, FinalLambda, isRowMajor>(
       x, y, m, n, k, lda, ldb, ldd, dOutput, fin_op, stream);
@@ -150,8 +149,8 @@ void russellRao(IdxT m, IdxT n, IdxT k, IdxT lda, IdxT ldb, IdxT ldd,
 template <typename InType, typename AccType, typename OutType,
           typename FinalLambda, typename Index_ = int>
 void russellRaoImpl(int m, int n, int k, const InType *pA, const InType *pB,
-                   OutType *pD, FinalLambda fin_op, cudaStream_t stream,
-                   bool isRowMajor) {
+                    OutType *pD, FinalLambda fin_op, cudaStream_t stream,
+                    bool isRowMajor) {
   typedef std::is_same<OutType, bool> is_bool;
   typedef typename std::conditional<is_bool::value, OutType, AccType>::type
     russellRaoOutType;

@@ -182,8 +182,10 @@ __global__ void naiveHammingDistanceKernel(DataType *dist, const DataType *x,
 
 template <typename DataType>
 __global__ void naiveJensenShannonDistanceKernel(DataType *dist,
-                        const DataType *x, const DataType *y,
-                        int m, int n, int k, bool isRowMajor) {
+                                                 const DataType *x,
+                                                 const DataType *y, int m,
+                                                 int n, int k,
+                                                 bool isRowMajor) {
   int midx = threadIdx.x + blockIdx.x * blockDim.x;
   int nidx = threadIdx.y + blockIdx.y * blockDim.y;
   if (midx >= m || nidx >= n) return;
@@ -204,8 +206,8 @@ __global__ void naiveJensenShannonDistanceKernel(DataType *dist,
     bool p_zero = p == 0;
     bool q_zero = q == 0;
 
-    acc += (-a * (!p_zero * log(p + p_zero))) +
-           (-b * (!q_zero * log(q + q_zero)));
+    acc +=
+      (-a * (!p_zero * log(p + p_zero))) + (-b * (!q_zero * log(q + q_zero)));
   }
   acc = raft::mySqrt(0.5f * acc);
   int outidx = isRowMajor ? midx * n + nidx : midx + m * nidx;
@@ -214,8 +216,8 @@ __global__ void naiveJensenShannonDistanceKernel(DataType *dist,
 
 template <typename DataType, typename OutType>
 __global__ void naiveRussellRaoDistanceKernel(OutType *dist, const DataType *x,
-                                           const DataType *y, int m, int n,
-                                           int k, bool isRowMajor) {
+                                              const DataType *y, int m, int n,
+                                              int k, bool isRowMajor) {
   int midx = threadIdx.x + blockIdx.x * blockDim.x;
   int nidx = threadIdx.y + blockIdx.y * blockDim.y;
   if (midx >= m || nidx >= n) return;
@@ -233,9 +235,10 @@ __global__ void naiveRussellRaoDistanceKernel(OutType *dist, const DataType *x,
 }
 
 template <typename DataType, typename OutType>
-__global__ void naiveKLDivergenceDistanceKernel(OutType *dist, const DataType *x,
-                                           const DataType *y, int m, int n,
-                                           int k, bool isRowMajor) {
+__global__ void naiveKLDivergenceDistanceKernel(OutType *dist,
+                                                const DataType *x,
+                                                const DataType *y, int m, int n,
+                                                int k, bool isRowMajor) {
   int midx = threadIdx.x + blockIdx.x * blockDim.x;
   int nidx = threadIdx.y + blockIdx.y * blockDim.y;
   if (midx >= m || nidx >= n) return;
@@ -257,8 +260,8 @@ __global__ void naiveKLDivergenceDistanceKernel(OutType *dist, const DataType *x
 
 template <typename DataType, typename OutType>
 __global__ void naiveCorrelationDistanceKernel(OutType *dist, const DataType *x,
-                                           const DataType *y, int m, int n,
-                                           int k, bool isRowMajor) {
+                                               const DataType *y, int m, int n,
+                                               int k, bool isRowMajor) {
   int midx = threadIdx.x + blockIdx.x * blockDim.x;
   int nidx = threadIdx.y + blockIdx.y * blockDim.y;
   if (midx >= m || nidx >= n) return;
@@ -289,7 +292,6 @@ __global__ void naiveCorrelationDistanceKernel(OutType *dist, const DataType *x,
   int outidx = isRowMajor ? midx * n + nidx : midx + m * nidx;
   dist[outidx] = acc;
 }
-
 
 template <typename DataType>
 void naiveDistance(DataType *dist, const DataType *x, const DataType *y, int m,
@@ -404,7 +406,8 @@ class DistanceTest : public ::testing::TestWithParam<DistanceInputs<DataType>> {
       // Hellinger works only on positive numbers
       r.uniform(x, m * k, DataType(0.0), DataType(1.0), stream);
       r.uniform(y, n * k, DataType(0.0), DataType(1.0), stream);
-    } else if (distanceType == raft::distance::DistanceType::RusselRaoExpanded) {
+    } else if (distanceType ==
+               raft::distance::DistanceType::RusselRaoExpanded) {
       r.uniform(x, m * k, DataType(0.0), DataType(1.0), stream);
       r.uniform(y, n * k, DataType(0.0), DataType(1.0), stream);
       // Russel rao works on boolean values.
