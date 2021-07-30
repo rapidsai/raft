@@ -26,8 +26,8 @@ endif()
 list(APPEND RAFT_CUDA_FLAGS --expt-extended-lambda --expt-relaxed-constexpr)
 
 # set warnings as errors
-# list(APPEND RAFT_CUDA_FLAGS -Werror=cross-execution-space-call)
-# list(APPEND RAFT_CUDA_FLAGS -Xcompiler=-Wall,-Werror,-Wno-error=deprecated-declarations)
+list(APPEND RAFT_CUDA_FLAGS -Werror=cross-execution-space-call)
+list(APPEND RAFT_CUDA_FLAGS -Xcompiler=-Wall,-Werror,-Wno-error=deprecated-declarations)
 
 # Option to enable line info in CUDA device compilation to allow introspection when profiling / memchecking
 if(CUDA_ENABLE_LINEINFO)
