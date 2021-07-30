@@ -21,6 +21,7 @@ add_executable(test_raft
     test/distance/dist_adj.cu
     test/distance/dist_canberra.cu
     test/distance/dist_chebyshev.cu
+    test/distance/dist_correlation.cu
     test/distance/dist_cos.cu
     test/distance/dist_euc_exp.cu
     test/distance/dist_euc_unexp.cu

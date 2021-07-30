@@ -255,6 +255,42 @@ __global__ void naiveKLDivergenceDistanceKernel(OutType *dist, const DataType *x
   dist[outidx] = acc;
 }
 
+template <typename DataType, typename OutType>
+__global__ void naiveCorrelationDistanceKernel(OutType *dist, const DataType *x,
+                                           const DataType *y, int m, int n,
+                                           int k, bool isRowMajor) {
+  int midx = threadIdx.x + blockIdx.x * blockDim.x;
+  int nidx = threadIdx.y + blockIdx.y * blockDim.y;
+  if (midx >= m || nidx >= n) return;
+  OutType acc = OutType(0);
+  auto a_norm = DataType(0);
+  auto b_norm = DataType(0);
+  auto a_sq_norm = DataType(0);
+  auto b_sq_norm = DataType(0);
+  for (int i = 0; i < k; ++i) {
+    int xidx = isRowMajor ? i + midx * k : i * m + midx;
+    int yidx = isRowMajor ? i + nidx * k : i * n + nidx;
+    auto a = x[xidx];
+    auto b = y[yidx];
+    a_norm += a;
+    b_norm += b;
+    a_sq_norm += (a * a);
+    b_sq_norm += (b * b);
+    acc += (a * b);
+  }
+
+  auto numer = k * acc - (a_norm * b_norm);
+  auto Q_denom = k * a_sq_norm - (a_norm * a_norm);
+  auto R_denom = k * b_sq_norm - (b_norm * b_norm);
+
+  acc = 1 - (numer / raft::mySqrt(Q_denom * R_denom));
+  acc = acc * (fabs(acc) >= 0.0001);
+
+  int outidx = isRowMajor ? midx * n + nidx : midx + m * nidx;
+  dist[outidx] = acc;
+}
+
+
 template <typename DataType>
 void naiveDistance(DataType *dist, const DataType *x, const DataType *y, int m,
                    int n, int k, raft::distance::DistanceType type,
@@ -302,6 +338,10 @@ void naiveDistance(DataType *dist, const DataType *x, const DataType *y, int m,
       break;
     case raft::distance::DistanceType::KLDivergence:
       naiveKLDivergenceDistanceKernel<DataType>
+        <<<nblks, TPB>>>(dist, x, y, m, n, k, isRowMajor);
+      break;
+    case raft::distance::DistanceType::CorrelationExpanded:
+      naiveCorrelationDistanceKernel<DataType>
         <<<nblks, TPB>>>(dist, x, y, m, n, k, isRowMajor);
       break;
     default:
