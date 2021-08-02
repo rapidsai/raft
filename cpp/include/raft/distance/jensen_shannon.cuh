@@ -20,17 +20,6 @@
 namespace raft {
 namespace distance {
 
-template <typename T>
-DI T fastLog(T x);
-template <>
-DI float fastLog(float x) {
-  return __logf(x);
-}
-template <>
-DI double fastLog(double x) {
-  return log(x);
-}
-
 /**
  * @brief the Jensen Shannon distance matrix:
  *  It computes the following equation: 
@@ -76,9 +65,9 @@ static void jensenShannonImpl(const DataT *x, const DataT *y, IdxT m, IdxT n,
   auto core_lambda = [] __device__(AccT & acc, DataT & x, DataT & y) {
     const DataT m = 0.5f * (x + y);
     const bool m_zero = (m == 0);
-    const auto logM = (!m_zero) * fastLog(m);
+    const auto logM = (!m_zero) * raft::myLog(m);
 
-    acc += (-x * (logM - fastLog(x))) + (-y * (logM - fastLog(y)));
+    acc += (-x * (logM - raft::myLog(x))) + (-y * (logM - raft::myLog(y)));
   };
 
   // epilogue operation lambda for final value calculation

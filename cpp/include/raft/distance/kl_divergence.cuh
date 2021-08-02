@@ -15,7 +15,6 @@
  */
 
 #pragma once
-#include <raft/distance/jensen_shannon.cuh>
 #include <raft/distance/pairwise_distance_base.cuh>
 
 namespace raft {
@@ -65,10 +64,10 @@ static void klDivergenceImpl(const DataT *x, const DataT *y, IdxT m, IdxT n,
   auto core_lambda = [] __device__(AccT & acc, DataT & x, DataT & y) {
     if (isRowMajor) {
       const bool y_zero = (y == 0);
-      acc += x * (fastLog(x) - (!y_zero) * fastLog(y));
+      acc += x * (raft::myLog(x) - (!y_zero) * raft::myLog(y));
     } else {
       const bool x_zero = (x == 0);
-      acc += y * (fastLog(y) - (!x_zero) * fastLog(x));
+      acc += y * (raft::myLog(y) - (!x_zero) * raft::myLog(x));
     }
   };
 
