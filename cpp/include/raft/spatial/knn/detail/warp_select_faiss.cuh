@@ -138,12 +138,14 @@ inline __device__ void warpBitonicMergeLE16KVP(K& k, KeyValuePair<K, V>& v) {
       // alternatives in practice
       bool s = small ? Comp::gt(k, otherK) : Comp::lt(k, otherK);
       assign(s, k, otherK);
-      assign(s, v, otherV);
+      assign(s, v.key, otherV.key);
+      assign(s, v.value, otherV.value);
 
     } else {
       bool s = small ? Comp::lt(k, otherK) : Comp::gt(k, otherK);
       assign(s, k, otherK);
-      assign(s, v, otherV);
+      assign(s, v.value, otherV.value);
+      assign(s, v.key, otherV.key);
     }
   }
 
@@ -161,12 +163,14 @@ inline __device__ void warpBitonicMergeLE16KVP(K& k, KeyValuePair<K, V>& v) {
     if (Dir) {
       bool s = small ? Comp::gt(k, otherK) : Comp::lt(k, otherK);
       assign(s, k, otherK);
-      assign(s, v, otherV);
+      assign(s, v.key, otherV.key);
+      assign(s, v.value, otherV.value);
 
     } else {
       bool s = small ? Comp::lt(k, otherK) : Comp::gt(k, otherK);
       assign(s, k, otherK);
-      assign(s, v, otherV);
+      assign(s, v.value, otherV.value);
+      assign(s, v.key, otherV.key);
     }
   }
 }
@@ -206,7 +210,8 @@ struct BitonicMergeStepKVP<K, V, N, Dir, Comp, Low, true> {
 
       bool s = Dir ? Comp::gt(ka, kb) : Comp::lt(ka, kb);
       swap(s, ka, kb);
-      swap(s, va, vb);
+      swap(s, va.key, vb.key);
+      swap(s, va.value, vb.value);
     }
 
     {
@@ -216,7 +221,8 @@ struct BitonicMergeStepKVP<K, V, N, Dir, Comp, Low, true> {
 #pragma unroll
       for (int i = 0; i < N / 2; ++i) {
         newK[i] = k[i];
-        newV[i] = v[i];
+        newV[i].key = v[i].key;
+        newV[i].value = v[i].value;
       }
 
       BitonicMergeStepKVP<K, V, N / 2, Dir, Comp, true, true>::merge(newK,
@@ -225,7 +231,8 @@ struct BitonicMergeStepKVP<K, V, N, Dir, Comp, Low, true> {
 #pragma unroll
       for (int i = 0; i < N / 2; ++i) {
         k[i] = newK[i];
-        v[i] = newV[i];
+        v[i].key = newV[i].key;
+        v[i].value = newV[i].value;
       }
     }
 
@@ -236,7 +243,8 @@ struct BitonicMergeStepKVP<K, V, N, Dir, Comp, Low, true> {
 #pragma unroll
       for (int i = 0; i < N / 2; ++i) {
         newK[i] = k[i + N / 2];
-        newV[i] = v[i + N / 2];
+        newV[i].key = v[i + N / 2].key;
+        newV[i].value = v[i + N / 2].value;
       }
 
       BitonicMergeStepKVP<K, V, N / 2, Dir, Comp, false, true>::merge(newK,
@@ -245,7 +253,8 @@ struct BitonicMergeStepKVP<K, V, N, Dir, Comp, Low, true> {
 #pragma unroll
       for (int i = 0; i < N / 2; ++i) {
         k[i + N / 2] = newK[i];
-        v[i + N / 2] = newV[i];
+        v[i + N / 2].key = newV[i].key;
+        v[i + N / 2].value = newV[i].value;
       }
     }
   }
@@ -274,7 +283,8 @@ struct BitonicMergeStepKVP<K, V, N, Dir, Comp, true, false> {
 
       bool s = Dir ? Comp::gt(ka, kb) : Comp::lt(ka, kb);
       swap(s, ka, kb);
-      swap(s, va, vb);
+      swap(s, va.key, vb.key);
+      swap(s, va.value, vb.value);
     }
 
     constexpr int kLowSize = N - kNextHighestPowerOf2 / 2;
@@ -286,7 +296,8 @@ struct BitonicMergeStepKVP<K, V, N, Dir, Comp, true, false> {
 #pragma unroll
       for (int i = 0; i < kLowSize; ++i) {
         newK[i] = k[i];
-        newV[i] = v[i];
+        newV[i].key = v[i].key;
+        newV[i].value = v[i].value;
       }
 
       constexpr bool kLowIsPowerOf2 =
@@ -300,7 +311,8 @@ struct BitonicMergeStepKVP<K, V, N, Dir, Comp, true, false> {
 #pragma unroll
       for (int i = 0; i < kLowSize; ++i) {
         k[i] = newK[i];
-        v[i] = newV[i];
+        v[i].key = newV[i].key;
+        v[i].value = newV[i].value;
       }
     }
 
@@ -311,7 +323,8 @@ struct BitonicMergeStepKVP<K, V, N, Dir, Comp, true, false> {
 #pragma unroll
       for (int i = 0; i < kHighSize; ++i) {
         newK[i] = k[i + kLowSize];
-        newV[i] = v[i + kLowSize];
+        newV[i].key = v[i + kLowSize].key;
+        newV[i].value = v[i + kLowSize].value;
       }
 
       constexpr bool kHighIsPowerOf2 =
@@ -325,7 +338,8 @@ struct BitonicMergeStepKVP<K, V, N, Dir, Comp, true, false> {
 #pragma unroll
       for (int i = 0; i < kHighSize; ++i) {
         k[i + kLowSize] = newK[i];
-        v[i + kLowSize] = newV[i];
+        v[i + kLowSize].key = newV[i].key;
+        v[i + kLowSize].value = newV[i].value;
       }
     }
   }
@@ -350,7 +364,8 @@ struct BitonicMergeStepKVP<K, V, N, Dir, Comp, false, false> {
 
       bool s = Dir ? Comp::gt(ka, kb) : Comp::lt(ka, kb);
       swap(s, ka, kb);
-      swap(s, va, vb);
+      swap(s, va.key, vb.key);
+      swap(s, va.value, vb.value);
     }
 
     constexpr int kLowSize = kNextHighestPowerOf2 / 2;
@@ -362,7 +377,8 @@ struct BitonicMergeStepKVP<K, V, N, Dir, Comp, false, false> {
 #pragma unroll
       for (int i = 0; i < kLowSize; ++i) {
         newK[i] = k[i];
-        newV[i] = v[i];
+        newV[i].key = v[i].key;
+        newV[i].value = v[i].value;
       }
 
       constexpr bool kLowIsPowerOf2 =
@@ -376,7 +392,8 @@ struct BitonicMergeStepKVP<K, V, N, Dir, Comp, false, false> {
 #pragma unroll
       for (int i = 0; i < kLowSize; ++i) {
         k[i] = newK[i];
-        v[i] = newV[i];
+        v[i].key = newV[i].key;
+        v[i].value = newV[i].value;
       }
     }
 
@@ -387,7 +404,8 @@ struct BitonicMergeStepKVP<K, V, N, Dir, Comp, false, false> {
 #pragma unroll
       for (int i = 0; i < kHighSize; ++i) {
         newK[i] = k[i + kLowSize];
-        newV[i] = v[i + kLowSize];
+        newV[i].key = v[i + kLowSize].key;
+        newV[i].value = v[i + kLowSize].value;
       }
 
       constexpr bool kHighIsPowerOf2 =
@@ -401,7 +419,8 @@ struct BitonicMergeStepKVP<K, V, N, Dir, Comp, false, false> {
 #pragma unroll
       for (int i = 0; i < kHighSize; ++i) {
         k[i + kLowSize] = newK[i];
-        v[i + kLowSize] = newV[i];
+        v[i + kLowSize].key = newV[i].key;
+        v[i + kLowSize].value = newV[i].value;
       }
     }
   }
@@ -447,7 +466,8 @@ inline __device__ void warpMergeAnyRegistersKVP(K k1[N1],
     // in this comparison
     bool swapa = Dir ? Comp::gt(ka, otherKb) : Comp::lt(ka, otherKb);
     assign(swapa, ka, otherKb);
-    assign(swapa, va, otherVb);
+    assign(swapa, va.key, otherVb.key);
+    assign(swapa, va.value, otherVb.value);
 
     // kb is always second in the list, so we needn't use our lane
     // in this comparison
@@ -455,6 +475,8 @@ inline __device__ void warpMergeAnyRegistersKVP(K k1[N1],
       bool swapb = Dir ? Comp::lt(kb, otherKa) : Comp::gt(kb, otherKa);
       assign(swapb, kb, otherKa);
       assign(swapb, vb, otherVa);
+      assign(swapb, vb.key, otherVa.key);
+      assign(swapb, vb.value, otherVa.value);
 
     } else {
       // We don't care about updating elements in the second list
@@ -487,7 +509,8 @@ struct BitonicSortStepKVP {
 #pragma unroll
     for (int i = 0; i < kSizeA; ++i) {
       aK[i] = k[i];
-      aV[i] = v[i];
+      aV[i].key = v[i].key;
+      aV[i].value = v[i].value;
     }
 
     BitonicSortStepKVP<K, V, kSizeA, Dir, Comp>::sort(aK, aV);
@@ -498,7 +521,8 @@ struct BitonicSortStepKVP {
 #pragma unroll
     for (int i = 0; i < kSizeB; ++i) {
       bK[i] = k[i + kSizeA];
-      bV[i] = v[i + kSizeA];
+      bV[i].key = v[i + kSizeA].key;
+      bV[i].value = v[i + kSizeA].value;
     }
 
     BitonicSortStepKVP<K, V, kSizeB, Dir, Comp>::sort(bK, bV);
@@ -509,13 +533,15 @@ struct BitonicSortStepKVP {
 #pragma unroll
     for (int i = 0; i < kSizeA; ++i) {
       k[i] = aK[i];
-      v[i] = aV[i];
+      v[i].key = aV[i].key;
+      v[i].value = aV[i].value;
     }
 
 #pragma unroll
     for (int i = 0; i < kSizeB; ++i) {
       k[i + kSizeA] = bK[i];
-      v[i + kSizeA] = bV[i];
+      v[i + kSizeA].key = bV[i].key;
+      v[i + kSizeA].value = bV[i].value;
     }
   }
 };
@@ -568,14 +594,16 @@ struct KeyValueWarpSelect {
 #pragma unroll
     for (int i = 0; i < NumThreadQ; ++i) {
       threadK[i] = initK;
-      threadV[i] = initV;
+      threadV[i].key = initV.key;
+      threadV[i].value = initV.value;
     }
 
     // Fill the warp queue with the default value
 #pragma unroll
     for (int i = 0; i < kNumWarpQRegisters; ++i) {
       warpK[i] = initK;
-      warpV[i] = initV;
+      warpV[i].key = initV.key;
+      warpV[i].value = initV.value;
     }
   }
 
@@ -585,7 +613,8 @@ struct KeyValueWarpSelect {
 #pragma unroll
       for (int i = NumThreadQ - 1; i > 0; --i) {
         threadK[i] = threadK[i - 1];
-        threadV[i] = threadV[i - 1];
+        threadV[i].key = threadV[i - 1].key;
+        threadV[i].value = threadV[i - 1].value;
       }
 
       threadK[0] = k;
@@ -647,11 +676,11 @@ struct KeyValueWarpSelect {
 #pragma unroll
     for (int i = 0; i < NumThreadQ; ++i) {
       threadK[i] = initK;
-      threadV[i] = initV;
+      threadV[i].key = initV.key;
+      threadV[i].value = initV.value;
     }
 
     // We have to beat at least this element
-
     warpKTopRDist = shfl(warpV[kNumWarpQRegisters - 1].key, kLane);
     warpKTop = shfl(warpK[kNumWarpQRegisters - 1], kLane);
   }
