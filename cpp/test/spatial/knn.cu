@@ -14,13 +14,18 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include <raft/linalg/distance_type.h>
-#include <iostream>
-#include <raft/spatial/knn/knn.hpp>
-#include <rmm/device_buffer.hpp>
-#include <vector>
 #include "../test_utils.h"
+
+#include <raft/linalg/distance_type.h>
+#include <raft/spatial/knn/knn.hpp>
+
+#include <rmm/device_buffer.hpp>
+
+#include <gtest/gtest.h>
+
+#include <cstddef>
+#include <iostream>
+#include <vector>
 
 namespace raft {
 namespace spatial {
@@ -37,8 +42,7 @@ __global__ void build_actual_output(int *output, int n_rows, int k,
   int element = threadIdx.x + blockDim.x * blockIdx.x;
   if (element >= n_rows * k) return;
 
-  int ind = (int)indices[element];
-  output[element] = idx_labels[ind];
+  output[element] = idx_labels[indices[element]];
 }
 
 __global__ void build_expected_output(int *output, int n_rows, int k,
@@ -103,8 +107,8 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
     cudaStream_t stream = handle_.get_stream();
 
     std::vector<float> row_major_input;
-    for (int i = 0; i < params_.input.size(); ++i) {
-      for (int j = 0; j < params_.input[i].size(); ++j) {
+    for (std::size_t i = 0; i < params_.input.size(); ++i) {
+      for (std::size_t j = 0; j < params_.input[i].size(); ++j) {
         row_major_input.push_back(params_.input[i][j]);
       }
     }

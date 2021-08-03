@@ -16,24 +16,21 @@
 
 #pragma once
 
-#include <cusparse_v2.h>
-
 #include <raft/cudart_utils.h>
 #include <raft/sparse/cusparse_wrappers.h>
+#include <raft/sparse/utils.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/sparse/coo.cuh>
 #include <rmm/exec_policy.hpp>
 
 #include <thrust/device_ptr.h>
 #include <thrust/scan.h>
 
+#include <cusparse_v2.h>
+
 #include <cuda_runtime.h>
-#include <stdio.h>
 
 #include <algorithm>
-#include <iostream>
-
-#include <raft/sparse/utils.h>
-#include <raft/sparse/coo.cuh>
 
 namespace raft {
 namespace sparse {
@@ -98,8 +95,6 @@ void coo_sort(COO<T> *const in, cudaStream_t stream) {
 template <typename value_idx, typename value_t>
 void coo_sort_by_weight(value_idx *rows, value_idx *cols, value_t *data,
                         value_idx nnz, cudaStream_t stream) {
-  thrust::device_ptr<value_idx> t_rows = thrust::device_pointer_cast(rows);
-  thrust::device_ptr<value_idx> t_cols = thrust::device_pointer_cast(cols);
   thrust::device_ptr<value_t> t_data = thrust::device_pointer_cast(data);
 
   auto first = thrust::make_zip_iterator(thrust::make_tuple(rows, cols));

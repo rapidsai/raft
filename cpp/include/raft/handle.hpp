@@ -149,7 +149,7 @@ class handle_t {
     return *thrust_policy_;
   }
 
-  thrust_exec_policy_t get_thrust_policy(cudaStream_t stream) const {
+  rmm::exec_policy get_thrust_policy(cudaStream_t stream) const {
     return rmm::exec_policy(stream);
   }
 
@@ -265,6 +265,9 @@ class handle_t {
     if (cublas_initialized_) {
       //CUBLAS_CHECK_NO_THROW(cublasDestroy(cublas_handle_));
       CUBLAS_CHECK(cublasDestroy(cublas_handle_));
+    }
+    if (thrust_policy_initialized_) {
+      delete thrust_policy_;
     }
     //CUDA_CHECK_NO_THROW(cudaEventDestroy(event_));
     CUDA_CHECK(cudaEventDestroy(event_));

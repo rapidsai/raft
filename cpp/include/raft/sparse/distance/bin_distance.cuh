@@ -21,13 +21,11 @@
 #include <raft/cudart_utils.h>
 #include <raft/linalg/distance_type.h>
 #include <raft/sparse/cusparse_wrappers.h>
-#include <raft/cuda_utils.cuh>
-
-#include <rmm/device_uvector.hpp>
-
 #include <raft/sparse/distance/common.h>
 #include <raft/sparse/utils.h>
+#include <raft/cuda_utils.cuh>
 #include <raft/sparse/distance/ip_distance.cuh>
+#include <rmm/device_uvector.hpp>
 
 #include <nvfunctional>
 
