@@ -17,6 +17,7 @@
 #pragma once
 
 #include <raft/error.hpp>
+#include <rmm/cuda_stream_view.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
 
 #include <cuda_runtime.h>
@@ -203,9 +204,10 @@ class grid_1d_block_t {
  * @param stream cuda stream
  */
 template <typename Type>
-void copy(Type* dst, const Type* src, size_t len, cudaStream_t stream) {
-  CUDA_CHECK(
-    cudaMemcpyAsync(dst, src, len * sizeof(Type), cudaMemcpyDefault, stream));
+void copy(Type* dst, const Type* src, size_t len,
+          rmm::cuda_stream_view stream) {
+  CUDA_CHECK(cudaMemcpyAsync(dst, src, len * sizeof(Type), cudaMemcpyDefault,
+                             stream.value()));
 }
 
 /**
@@ -217,22 +219,22 @@ void copy(Type* dst, const Type* src, size_t len, cudaStream_t stream) {
 /** performs a host to device copy */
 template <typename Type>
 void update_device(Type* d_ptr, const Type* h_ptr, size_t len,
-                   cudaStream_t stream) {
-  copy(d_ptr, h_ptr, len, stream);
+                   rmm::cuda_stream_view stream) {
+  copy(d_ptr, h_ptr, len, stream.value());
 }
 
 /** performs a device to host copy */
 template <typename Type>
 void update_host(Type* h_ptr, const Type* d_ptr, size_t len,
-                 cudaStream_t stream) {
-  copy(h_ptr, d_ptr, len, stream);
+                 rmm::cuda_stream_view stream) {
+  copy(h_ptr, d_ptr, len, stream.value());
 }
 
 template <typename Type>
 void copy_async(Type* d_ptr1, const Type* d_ptr2, size_t len,
-                cudaStream_t stream) {
+                rmm::cuda_stream_view stream) {
   CUDA_CHECK(cudaMemcpyAsync(d_ptr1, d_ptr2, len * sizeof(Type),
-                             cudaMemcpyDeviceToDevice, stream));
+                             cudaMemcpyDeviceToDevice, stream.value()));
 }
 /** @} */
 
@@ -266,30 +268,33 @@ static std::mutex mutex_;
 static std::unordered_map<void*, size_t> allocations;
 
 template <typename Type>
-void allocate(Type*& ptr, size_t len, cudaStream_t stream,
+void allocate(Type*& ptr, size_t len, rmm::cuda_stream_view stream,
               bool setZero = false) {
   size_t size = len * sizeof(Type);
-  ptr = (Type*)rmm::mr::get_current_device_resource()->allocate(size, stream);
-  if (setZero) CUDA_CHECK(cudaMemset((void*)ptr, 0, size));
+  ptr = (Type*)rmm::mr::get_current_device_resource()->allocate(size,
+                                                                stream.value());
+  if (setZero) CUDA_CHECK(cudaMemsetAsync((void*)ptr, 0, size, stream.value()));
 
   std::lock_guard<std::mutex> _(mutex_);
   allocations[ptr] = size;
 }
 
 template <typename Type>
-void deallocate(Type*& ptr, cudaStream_t stream) {
+void deallocate(Type*& ptr, rmm::cuda_stream_view stream) {
   std::lock_guard<std::mutex> _(mutex_);
   size_t size = allocations[ptr];
   allocations.erase(ptr);
-  rmm::mr::get_current_device_resource()->deallocate((void*)ptr, size, stream);
+  rmm::mr::get_current_device_resource()->deallocate((void*)ptr, size,
+                                                     stream.value());
 }
 
-inline void deallocate_all(cudaStream_t stream) {
+inline void deallocate_all(rmm::cuda_stream_view stream) {
   std::lock_guard<std::mutex> _(mutex_);
   for (auto& alloc : allocations) {
     void* ptr = alloc.first;
     size_t size = alloc.second;
-    rmm::mr::get_current_device_resource()->deallocate(ptr, size, stream);
+    rmm::mr::get_current_device_resource()->deallocate(ptr, size,
+                                                       stream.value());
   }
   allocations.clear();
 }
