@@ -169,8 +169,8 @@ inline __device__ void warpBitonicMergeLE16KVP(K& k, KeyValuePair<K, V>& v) {
     } else {
       bool s = small ? Comp::lt(k, otherK) : Comp::gt(k, otherK);
       assign(s, k, otherK);
-      assign(s, v.value, otherV.value);
       assign(s, v.key, otherV.key);
+      assign(s, v.value, otherV.value);
     }
   }
 }
@@ -460,21 +460,19 @@ inline __device__ void warpMergeAnyRegistersKVP(K k1[N1],
     K otherKb = shfl_xor(kb, kWarpSize - 1);
     K otherVbk = shfl_xor(vb.key, kWarpSize - 1);
     V otherVbv = shfl_xor(vb.value, kWarpSize - 1);
-    KeyValuePair<K, V> otherVb = KeyValuePair(otherVbk, otherVbv);
 
     // ka is always first in the list, so we needn't use our lane
     // in this comparison
     bool swapa = Dir ? Comp::gt(ka, otherKb) : Comp::lt(ka, otherKb);
     assign(swapa, ka, otherKb);
-    assign(swapa, va.key, otherVb.key);
-    assign(swapa, va.value, otherVb.value);
+    assign(swapa, va.key, otherVbk);
+    assign(swapa, va.value, otherVbv);
 
     // kb is always second in the list, so we needn't use our lane
     // in this comparison
     if (FullMerge) {
       bool swapb = Dir ? Comp::lt(kb, otherKa) : Comp::gt(kb, otherKa);
       assign(swapb, kb, otherKa);
-      assign(swapb, vb, otherVa);
       assign(swapb, vb.key, otherVa.key);
       assign(swapb, vb.value, otherVa.value);
 
@@ -584,6 +582,7 @@ struct KeyValueWarpSelect {
       initV(initVVal),
       numVals(0),
       warpKTop(initKVal),
+      warpKTopRDist(initKVal),
       kLane((k - 1) % faiss::gpu::kWarpSize) {
     static_assert(faiss::gpu::utils::isPowerOf2(ThreadsPerBlock),
                   "threads must be a power-of-2");
@@ -607,7 +606,7 @@ struct KeyValueWarpSelect {
     }
   }
 
-  __device__ inline void addThreadQ(K k, faiss::gpu::KeyValuePair<K, V> v) {
+  __device__ inline void addThreadQ(K k, faiss::gpu::KeyValuePair<K, V> &v) {
     if (Dir ? Comp::gt(k, warpKTop) : Comp::lt(k, warpKTop)) {
       // Rotate right
 #pragma unroll
@@ -618,7 +617,8 @@ struct KeyValueWarpSelect {
       }
 
       threadK[0] = k;
-      threadV[0] = faiss::gpu::KeyValuePair(v.key, v.value);
+      threadV[0].key = v.key;
+      threadV[0].value= v.value;
       ++numVals;
     }
   }
@@ -642,7 +642,7 @@ struct KeyValueWarpSelect {
 
   /// WARNING: all threads in a warp must participate in this.
   /// Otherwise, you must call the constituent parts separately.
-  __device__ inline void add(K k, faiss::gpu::KeyValuePair<K, V> v) {
+  __device__ inline void add(K k, faiss::gpu::KeyValuePair<K, V> &v) {
     addThreadQ(k, v);
     checkThreadQ();
   }

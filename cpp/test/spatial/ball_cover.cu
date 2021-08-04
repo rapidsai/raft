@@ -244,9 +244,6 @@ class BallCoverKNNTest : public ::testing::Test {
     raft::print_device_vector("actual inds", d_ref_I.data() + (326622 * k), k, std::cout);
     raft::print_device_vector("actual dists", d_ref_D.data() + (326622 * k), k, std::cout);
 
-    raft::print_device_vector("actual inds", d_ref_I.data() + (326623 * k), k, std::cout);
-    raft::print_device_vector("actual dists", d_ref_D.data() + (326623 * k), k, std::cout);
-
 //    std::vector<value_t> host_D(d_ref_D.size());
 //    std::vector<value_idx> host_I(d_ref_I.size());
 //
