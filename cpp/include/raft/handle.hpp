@@ -47,9 +47,6 @@ namespace raft {
  *        necessary cuda kernels and/or libraries
  */
 class handle_t {
-  using thrust_exec_policy_t = thrust::detail::execute_with_allocator<
-    rmm::mr::thrust_allocator<char>, thrust::cuda_cub::execute_on_stream_base>;
-
  private:
   static constexpr int kNumDefaultWorkerStreams = 0;
 

@@ -43,7 +43,6 @@
 
 #include <raft/linalg/distance_type.h>
 
-#include <cuml/common/device_buffer.hpp>
 #include <cuml/neighbors/knn.hpp>
 
 #include <iostream>

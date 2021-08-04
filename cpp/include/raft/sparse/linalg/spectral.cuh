@@ -63,8 +63,6 @@ void fit_embedding(const raft::handle_t &handle, int *rows, int *cols, T *vals,
   index_type maxiter = 4000;  //default reset value (when set to 0);
   value_type tol = 0.01;
   index_type restart_iter = 15 + neigvs;  //what cugraph is using
-  auto t_exe_p = handle.get_thrust_policy();
-  using thrust_exe_policy_t = decltype(t_exe_p);
 
   raft::eigen_solver_config_t<index_type, value_type> cfg{neigvs, maxiter,
                                                           restart_iter, tol};
@@ -90,7 +88,7 @@ void fit_embedding(const raft::handle_t &handle, int *rows, int *cols, T *vals,
     }
   };
 
-  raft::spectral::partition(handle, t_exe_p, r_csr_m, eig_solver,
+  raft::spectral::partition(handle, r_csr_m, eig_solver,
                             no_op_cluster_solver_t{}, labels.data(),
                             eigVals.data(), eigVecs.data());
 
