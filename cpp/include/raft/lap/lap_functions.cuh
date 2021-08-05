@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION.
  * Copyright 2020 KETAN DATE & RAKESH NAGI
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -24,12 +24,6 @@
  */
 #pragma once
 
-#include <cuda.h>
-#include <cuda_runtime.h>
-#include <device_launch_parameters.h>
-#include <thrust/device_ptr.h>
-#include <thrust/reduce.h>
-#include <thrust/scan.h>
 #include "d_structs.h"
 
 #include <raft/cudart_utils.h>
@@ -37,6 +31,11 @@
 #include <raft/lap/lap_kernels.cuh>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
+
+#include <thrust/reduce.h>
+#include <thrust/scan.h>
+
+#include <cstddef>
 
 namespace raft {
 namespace lap {

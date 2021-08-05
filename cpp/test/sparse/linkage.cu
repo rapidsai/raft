@@ -14,19 +14,21 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
-#include <raft/cuda_utils.cuh>
-#include <vector>
+#include "../test_utils.h"
 
+#include <raft/cudart_utils.h>
 #include <raft/linalg/distance_type.h>
 #include <raft/linalg/transpose.h>
+#include <raft/cuda_utils.cuh>
 #include <raft/mr/device/allocator.hpp>
 #include <raft/sparse/coo.cuh>
 #include <raft/sparse/hierarchy/single_linkage.hpp>
+
 #include <rmm/device_uvector.hpp>
 
-#include "../test_utils.h"
+#include <gtest/gtest.h>
+
+#include <vector>
 
 namespace raft {
 
