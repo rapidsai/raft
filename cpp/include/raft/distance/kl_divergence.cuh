@@ -24,6 +24,10 @@ namespace distance {
  * @brief the KL Divergence distance matrix:
  *  It computes the following equation: 
     Cij = 0.5 * sum(x * log (x / y));
+ * This distance computation modifies A or B by computing a log(x)
+ * and then performing a `pow(e, log(x))` to convert it back. Because of this,
+ * it is possible that the values in A or B might differ slightly
+ * after this is invoked.
  *
  * @tparam DataT          input data-type (for A and B matrices)
  * @tparam AccT           accumulation data-type
@@ -63,13 +67,30 @@ static void klDivergenceImpl(const DataT *x, const DataT *y, IdxT m, IdxT n,
   // Accumulation operation lambda
   auto core_lambda = [] __device__(AccT & acc, DataT & x, DataT & y) {
     if (isRowMajor) {
-      const bool y_zero = (y == 0);
-      acc += x * (raft::myLog(x) - (!y_zero) * raft::myLog(y));
+      acc += x * (raft::myLog(x) - y);
     } else {
-      const bool x_zero = (x == 0);
-      acc += y * (raft::myLog(y) - (!x_zero) * raft::myLog(x));
+      acc += y * (raft::myLog(y) - x);
     }
   };
+
+  auto unaryOp_lambda = [] __device__(DataT input) {
+    const bool x_zero = (input == 0);
+    return (!x_zero) * raft::myLog(input);
+  };
+
+  auto unaryOp_lambda_reverse = [] __device__(DataT input) {
+    // reverse previous log (x) back to x using (e ^ log(x))
+    const bool x_zero = (input == 0);
+    return (!x_zero) * raft::myPow((DataT)M_E, input);
+  };
+
+  if (x != y && isRowMajor) {
+    raft::linalg::unaryOp<DataT, decltype(unaryOp_lambda), IdxT>(
+      (DataT *)y, y, n * k, unaryOp_lambda, stream);
+  } else if (x != y && !isRowMajor) {
+    raft::linalg::unaryOp<DataT, decltype(unaryOp_lambda), IdxT>(
+      (DataT *)x, x, m * k, unaryOp_lambda, stream);
+  }
 
   // epilogue operation lambda for final value calculation
   auto epilog_lambda = [] __device__(
@@ -108,6 +129,15 @@ static void klDivergenceImpl(const DataT *x, const DataT *y, IdxT m, IdxT n,
       epilog_lambda, fin_op);
   }
 
+  // Now reverse previous log (x) back to x using (e ^ log(x))
+  if (x != y && isRowMajor) {
+    raft::linalg::unaryOp<DataT, decltype(unaryOp_lambda_reverse), IdxT>(
+      (DataT *)y, y, n * k, unaryOp_lambda_reverse, stream);
+  } else if (x != y && !isRowMajor) {
+    raft::linalg::unaryOp<DataT, decltype(unaryOp_lambda_reverse), IdxT>(
+      (DataT *)x, x, m * k, unaryOp_lambda_reverse, stream);
+  }
+
   CUDA_CHECK(cudaGetLastError());
 }
 
@@ -136,7 +166,10 @@ void klDivergence(IdxT m, IdxT n, IdxT k, IdxT lda, IdxT ldb, IdxT ldd,
  * @brief the KL Divergence distance matrix calculation
  *  It computes the following equation: 
       Cij = 0.5 * sum(x * log (x / y));
- *
+ * This distance computation modifies A or B by computing a log(x)
+ * and then performing a `pow(e, log(x))` to convert it back. Because of this,
+ * it is possible that the values in A or B might differ slightly
+ * after this is invoked.
  * @tparam InType input data-type (for A and B matrices)
  * @tparam AccType accumulation data-type
  * @tparam OutType output data-type (for C and D matrices)
