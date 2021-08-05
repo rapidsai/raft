@@ -23,11 +23,11 @@
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
 
-#include <rmm/device_uvector.hpp>
-
 #include <raft/sparse/distance/common.h>
 #include <raft/sparse/utils.h>
 #include <raft/sparse/distance/ip_distance.cuh>
+
+#include <rmm/device_uvector.hpp>
 
 #include <nvfunctional>
 
