@@ -113,9 +113,6 @@ static void correlationImpl(const DataT *x, const DataT *y, const DataT *xn,
         auto R_denom = k * regy2n[j] - (regyn[j] * regyn[j]);
 
         acc[i][j] = 1 - (numer / raft::mySqrt(Q_denom * R_denom));
-
-        // correct for small instabilities
-        acc[i][j] = acc[i][j] * (fabs(acc[i][j]) >= 0.0001);
       }
     }
   };

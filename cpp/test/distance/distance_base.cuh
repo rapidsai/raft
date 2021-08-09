@@ -287,7 +287,6 @@ __global__ void naiveCorrelationDistanceKernel(OutType *dist, const DataType *x,
   auto R_denom = k * b_sq_norm - (b_norm * b_norm);
 
   acc = 1 - (numer / raft::mySqrt(Q_denom * R_denom));
-  acc = acc * (fabs(acc) >= 0.0001);
 
   int outidx = isRowMajor ? midx * n + nidx : midx + m * nidx;
   dist[outidx] = acc;
