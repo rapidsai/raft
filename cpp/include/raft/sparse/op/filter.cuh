@@ -22,6 +22,7 @@
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
 #include <rmm/device_uvector.hpp>
+#include <rmm/exec_policy.hpp>
 
 #include <thrust/device_ptr.h>
 #include <thrust/scan.h>
@@ -93,14 +94,14 @@ void coo_remove_scalar(const int *rows, const int *cols, const T *vals, int nnz,
   thrust::device_ptr<int> dev_cnnz = thrust::device_pointer_cast(cnnz);
   thrust::device_ptr<int> dev_ex_scan =
     thrust::device_pointer_cast(ex_scan.data());
-  thrust::exclusive_scan(thrust::cuda::par.on(stream), dev_cnnz, dev_cnnz + n,
+  thrust::exclusive_scan(rmm::exec_policy(stream), dev_cnnz, dev_cnnz + n,
                          dev_ex_scan);
   CUDA_CHECK(cudaPeekAtLastError());
 
   thrust::device_ptr<int> dev_cur_cnnz = thrust::device_pointer_cast(cur_cnnz);
   thrust::device_ptr<int> dev_cur_ex_scan =
     thrust::device_pointer_cast(cur_ex_scan.data());
-  thrust::exclusive_scan(thrust::cuda::par.on(stream), dev_cur_cnnz,
+  thrust::exclusive_scan(rmm::exec_policy(stream), dev_cur_cnnz,
                          dev_cur_cnnz + n, dev_cur_ex_scan);
   CUDA_CHECK(cudaPeekAtLastError());
 
@@ -140,7 +141,7 @@ void coo_remove_scalar(COO<T> *in, COO<T> *out, T scalar, cudaStream_t stream) {
 
   thrust::device_ptr<int> d_row_count_nz =
     thrust::device_pointer_cast(row_count_nz.data());
-  int out_nnz = thrust::reduce(thrust::cuda::par.on(stream), d_row_count_nz,
+  int out_nnz = thrust::reduce(rmm::exec_policy(stream), d_row_count_nz,
                                d_row_count_nz + in->n_rows);
 
   out->allocate(out_nnz, in->n_rows, in->n_cols, false, stream);
