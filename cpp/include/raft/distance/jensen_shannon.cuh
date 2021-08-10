@@ -69,7 +69,8 @@ static void jensenShannonImpl(const DataT *x, const DataT *y, IdxT m, IdxT n,
 
     const bool x_zero = (x == 0);
     const bool y_zero = (y == 0);
-    acc += (-x * (logM - raft::myLog(x + x_zero))) + (-y * (logM - raft::myLog(y + y_zero)));
+    acc += (-x * (logM - raft::myLog(x + x_zero))) +
+           (-y * (logM - raft::myLog(y + y_zero)));
   };
 
   // epilogue operation lambda for final value calculation
