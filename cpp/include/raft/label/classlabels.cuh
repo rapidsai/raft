@@ -66,7 +66,6 @@ void getUniquelabels(value_t *y, size_t n, value_t **y_unique, int *n_unique,
   cub::DeviceSelect::Unique(cub_storage.data(), bytes, y2.data(), y3.data(),
                             d_num_selected.data(), n);
   *n_unique = d_num_selected.value(stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
 
   // Copy unique classes to output
   *y_unique =

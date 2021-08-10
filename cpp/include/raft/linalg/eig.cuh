@@ -65,7 +65,6 @@ void eigDC(const raft::handle_t &handle, const math_t *in, int n_rows,
   CUDA_CHECK(cudaGetLastError());
 
   int dev_info = d_dev_info.value(stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
   ASSERT(dev_info == 0,
          "eig.cuh: eigensolver couldn't converge to a solution. "
          "This usually occurs when some of the features do not vary enough.");
@@ -128,7 +127,6 @@ void eigSelDC(const raft::handle_t &handle, math_t *in, int n_rows, int n_cols,
   CUDA_CHECK(cudaGetLastError());
 
   int dev_info = d_dev_info.value(stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
   ASSERT(dev_info == 0,
          "eig.cuh: eigensolver couldn't converge to a solution. "
          "This usually occurs when some of the features do not vary enough.");
