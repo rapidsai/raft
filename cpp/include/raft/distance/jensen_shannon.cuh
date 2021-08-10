@@ -65,9 +65,11 @@ static void jensenShannonImpl(const DataT *x, const DataT *y, IdxT m, IdxT n,
   auto core_lambda = [] __device__(AccT & acc, DataT & x, DataT & y) {
     const DataT m = 0.5f * (x + y);
     const bool m_zero = (m == 0);
-    const auto logM = (!m_zero) * raft::myLog(m);
+    const auto logM = (!m_zero) * raft::myLog(m + m_zero);
 
-    acc += (-x * (logM - raft::myLog(x))) + (-y * (logM - raft::myLog(y)));
+    const bool x_zero = (x == 0);
+    const bool y_zero = (y == 0);
+    acc += (-x * (logM - raft::myLog(x + x_zero))) + (-y * (logM - raft::myLog(y + y_zero)));
   };
 
   // epilogue operation lambda for final value calculation
