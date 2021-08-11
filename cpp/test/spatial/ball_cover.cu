@@ -278,11 +278,11 @@ class BallCoverKNNTest : public ::testing::Test {
     printf("Done.\n");
 
     //Diff in idx=326622, expected=326720, actual=326623
-
-    raft::print_device_vector("inds", d_pred_I.data() + (326622 * k), k,
-                              std::cout);
-    raft::print_device_vector("dists", d_pred_D.data() + (326622 * k), k,
-                              std::cout);
+//
+//    raft::print_device_vector("inds", d_pred_I.data() + (326622 * k), k,
+//                              std::cout);
+//    raft::print_device_vector("dists", d_pred_D.data() + (326622 * k), k,
+//                              std::cout);
 
     //    raft::print_device_vector("actual inds", d_ref_I.data() + (326622 * k), k, std::cout);
     //    raft::print_device_vector("actual dists", d_ref_D.data() + (326622 * k), k, std::cout);

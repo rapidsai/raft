@@ -12,6 +12,7 @@
 #include <faiss/gpu/utils/MergeNetworkUtils.cuh>
 #include <faiss/gpu/utils/PtxUtils.cuh>
 #include <faiss/gpu/utils/WarpShuffles.cuh>
+#include <faiss/gpu/utils/Select.cuh>
 
 #include "warp_select_faiss.cuh"
 
