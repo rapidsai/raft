@@ -27,9 +27,13 @@ struct KeyValuePair {
   /// Constructor
   __host__ __device__ __forceinline__ KeyValuePair() {}
 
-  /// Copy Constructor
+  /// Copy Constructors
   __host__ __device__ __forceinline__
-  KeyValuePair(cub::KeyValuePair<_Key, _Value> kvp)
+  KeyValuePair(cub::KeyValuePair<_Key, _Value>& kvp)
+    : key(kvp.key), value(kvp.value) {}
+
+  __host__ __device__ __forceinline__
+  KeyValuePair(faiss::gpu::KeyValuePair<_Key, _Value>& kvp)
     : key(kvp.key), value(kvp.value) {}
 
   /// Constructor
@@ -606,7 +610,7 @@ struct KeyValueWarpSelect {
     }
   }
 
-  __device__ inline void addThreadQ(K k, faiss::gpu::KeyValuePair<K, V> &v) {
+  __device__ inline void addThreadQ(K k, faiss::gpu::KeyValuePair<K, V>& v) {
     if (Dir ? Comp::gt(k, warpKTop) : Comp::lt(k, warpKTop)) {
       // Rotate right
 #pragma unroll
@@ -618,7 +622,7 @@ struct KeyValueWarpSelect {
 
       threadK[0] = k;
       threadV[0].key = v.key;
-      threadV[0].value= v.value;
+      threadV[0].value = v.value;
       ++numVals;
     }
   }
@@ -642,7 +646,7 @@ struct KeyValueWarpSelect {
 
   /// WARNING: all threads in a warp must participate in this.
   /// Otherwise, you must call the constituent parts separately.
-  __device__ inline void add(K k, faiss::gpu::KeyValuePair<K, V> &v) {
+  __device__ inline void add(K k, faiss::gpu::KeyValuePair<K, V>& v) {
     addThreadQ(k, v);
     checkThreadQ();
   }

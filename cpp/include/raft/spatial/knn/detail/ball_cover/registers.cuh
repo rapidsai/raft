@@ -1,0 +1,374 @@
+/*
+ * Copyright (c) 2021, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#pragma once
+
+#include "common.cuh"
+
+#include "../block_select_faiss.cuh"
+#include "../haversine_distance.cuh"
+#include "../selection_faiss.cuh"
+
+#include <limits.h>
+
+#include <raft/cuda_utils.cuh>
+
+#include <faiss/utils/Heap.h>
+#include <faiss/gpu/utils/Limits.cuh>
+#include <faiss/gpu/utils/Select.cuh>
+
+namespace raft {
+namespace spatial {
+namespace knn {
+namespace detail {
+
+/**
+ * @tparam value_idx
+ * @tparam value_t
+ * @tparam value_int
+ * @tparam bitset_type
+ * @tparam warp_q number of registers to use per warp
+ * @tparam thread_q number of registers to use within each thread
+ * @tparam tpb number of threads per block
+ * @param X
+ * @param n_cols
+ * @param bitset
+ * @param bitset_size
+ * @param R_knn_dists
+ * @param R_indptr
+ * @param R_1nn_inds
+ * @param R_1nn_dists
+ * @param knn_inds
+ * @param knn_dists
+ * @param n_landmarks
+ * @param k
+ * @param dist_counter
+ */
+template <typename value_idx, typename value_t, typename value_int = int,
+          typename bitset_type = uint32_t, typename dist_func, int warp_q = 32,
+          int thread_q = 2, int tpb = 128, int col_q = 2>
+__global__ void compute_final_dists_registers(
+  const value_t *X, const value_int n_cols, bitset_type *bitset,
+  int bitset_size, const value_t *R_knn_dists, const value_idx *R_indptr,
+  const value_idx *R_1nn_inds, const value_t *R_1nn_dists, value_idx *knn_inds,
+  value_t *knn_dists, int n_landmarks, int k, dist_func dfunc,
+  value_int *dist_counter) {
+  static constexpr int kNumWarps = tpb / faiss::gpu::kWarpSize;
+
+  int row = blockIdx.x;
+  int tid = threadIdx.x;
+
+  int n_dists_computed = 0;
+
+  __shared__ value_t smemK[kNumWarps * warp_q];
+  __shared__ faiss::gpu::KeyValuePair<value_t, value_idx>
+    smemV[kNumWarps * warp_q];
+
+  const value_t *x_ptr = X + (n_cols * row);
+  value_t local_x_ptr[col_q];
+  for (int j = 0; j < n_cols; j++) local_x_ptr[j] = x_ptr[j];
+
+  faiss::gpu::KeyValuePair<value_t, value_idx> initV(
+    faiss::gpu::Limits<value_t>::getMax(), -1);
+  faiss::gpu::KeyValuePair cur_V(initV.key, initV.value);
+
+  faiss::gpu::KeyValueBlockSelect<value_t, value_idx, false,
+                                  faiss::gpu::Comparator<value_t>, warp_q,
+                                  thread_q, tpb>
+    heap(faiss::gpu::Limits<value_t>::getMax(), initV, smemK, smemV, k);
+
+  int n_k = faiss::gpu::utils::roundDown(k, faiss::gpu::kWarpSize);
+  int i = tid;
+  for (; i < n_k; i += blockDim.x) {
+    value_idx ind = knn_inds[row * k + i];
+    value_t cur_candidate_dist = R_knn_dists[ind * k];
+
+    cur_V.key = cur_candidate_dist;
+    cur_V.value = ind;
+    heap.add(knn_dists[row * k + i], cur_V);
+  }
+
+  if (i < k) {
+    value_idx ind = knn_inds[row * k + i];
+    value_t cur_candidate_dist = R_knn_dists[ind * k];
+
+    cur_V.key = cur_candidate_dist;
+    cur_V.value = ind;
+    heap.addThreadQ(knn_dists[row * k + i], cur_V);
+  }
+
+  heap.checkThreadQ();
+
+  for (int cur_R_ind = 0; cur_R_ind < n_landmarks; cur_R_ind++) {
+    // if cur R overlaps cur point's closest R, it could be a
+    // candidate
+    if (_get_val(bitset + (row * bitset_size), cur_R_ind)) {
+      value_idx R_start_offset = R_indptr[cur_R_ind];
+      value_idx R_stop_offset = R_indptr[cur_R_ind + 1];
+      value_idx R_size = R_stop_offset - R_start_offset;
+
+      // Loop through R's neighborhood in parallel
+
+      // Round R_size to the nearest warp threads so they can
+      // all be computing in parallel.
+
+      int limit = faiss::gpu::utils::roundDown(R_size, faiss::gpu::kWarpSize);
+      int i = tid;
+
+      for (; i < limit; i += tpb) {
+        value_idx cur_candidate_ind = R_1nn_inds[R_start_offset + i];
+        value_t cur_candidate_dist = R_1nn_dists[R_start_offset + i];
+        value_t z = heap.warpKTopRDist == 0.00
+                      ? 0.0
+                      : (abs(heap.warpKTop - heap.warpKTopRDist) *
+                           abs(heap.warpKTopRDist - cur_candidate_dist) -
+                         heap.warpKTop * cur_candidate_dist) /
+                          heap.warpKTopRDist;
+
+        z = isnan(z) ? 0.0 : z;
+
+        // If lower bound on distance could possibly be in
+        // the closest k neighbors, compute it and add to k-select
+        value_t dist = std::numeric_limits<value_t>::max();
+        if (z <= heap.warpKTop) {
+          const value_t *y_ptr = X + (n_cols * cur_candidate_ind);
+          value_t local_y_ptr[col_q];
+          for (int j = 0; j < n_cols; j++) local_y_ptr[j] = y_ptr[j];
+
+          dist = dfunc(local_x_ptr, local_y_ptr, n_cols);
+          n_dists_computed++;
+        }
+
+        cur_V.key = cur_candidate_dist;
+        cur_V.value = cur_candidate_ind;
+        heap.add(dist, cur_V);
+      }
+
+      // second round guarantees to be only a single warp.
+      if (i < R_size) {
+        value_idx cur_candidate_ind = R_1nn_inds[R_start_offset + i];
+        value_t cur_candidate_dist = R_1nn_dists[R_start_offset + i];
+
+        value_t z = heap.warpKTopRDist == 0.00
+                      ? 0.0
+                      : (abs(heap.warpKTop - heap.warpKTopRDist) *
+                           abs(heap.warpKTopRDist - cur_candidate_dist) -
+                         heap.warpKTop * cur_candidate_dist) /
+                          heap.warpKTopRDist;
+
+        z = isnan(z) ? 0.0 : z;
+
+        // If lower bound on distance could possibly be in
+        // the closest k neighbors, compute it and add to k-select
+        value_t dist = std::numeric_limits<value_t>::max();
+        if (z <= heap.warpKTop) {
+          const value_t *y_ptr = X + (n_cols * cur_candidate_ind);
+          value_t local_y_ptr[col_q];
+          for (int j = 0; j < n_cols; j++) local_y_ptr[j] = y_ptr[j];
+
+          dist = dfunc(local_x_ptr, local_y_ptr, n_cols);
+          n_dists_computed++;
+        }
+        cur_V.key = cur_candidate_dist;
+        cur_V.value = cur_candidate_ind;
+        heap.addThreadQ(dist, cur_V);
+      }
+      heap.checkThreadQ();
+    }
+  }
+
+  heap.reduce();
+
+  for (int i = threadIdx.x; i < k; i += tpb) {
+    knn_dists[blockIdx.x * k + i] = smemK[i];
+    knn_inds[blockIdx.x * k + i] = smemV[i].value;
+  }
+  //
+  //  if(n_dists_computed > 0)
+  //    atomicAdd(dist_counter + row, n_dists_computed);
+}
+
+/**
+ * Random ball cover kernel for n_dims == 2
+ * @tparam value_idx
+ * @tparam value_t
+ * @tparam warp_q
+ * @tparam thread_q
+ * @tparam tpb
+ * @tparam value_idx
+ * @tparam value_t
+ * @param R_knn_inds
+ * @param R_knn_dists
+ * @param m
+ * @param k
+ * @param R_indptr
+ * @param R_1nn_cols
+ * @param R_1nn_dists
+ */
+template <typename value_idx = int64_t, typename value_t, int warp_q = 32,
+          int thread_q = 2, int tpb = 128, int col_q = 2,
+          typename value_int = int, typename distance_func>
+__global__ void block_rbc_kernel_registers(
+  const value_t *X,
+  value_int n_cols,  // n_cols should be 2 or 3 dims
+  const value_idx *R_knn_inds, const value_t *R_knn_dists, value_int m, int k,
+  const value_idx *R_indptr, const value_idx *R_1nn_cols,
+  const value_t *R_1nn_dists, value_idx *out_inds, value_t *out_dists,
+  value_idx *sampled_inds_map, int *dist_counter, value_t *R_radius,
+  distance_func dfunc, float weight = 1.0) {
+  static constexpr int kNumWarps = tpb / faiss::gpu::kWarpSize;
+
+  // Each block works on a single query row
+  int row = blockIdx.x;
+
+  int n_dists_computed = 0;
+
+  __shared__ value_t smemK[kNumWarps * warp_q];
+  __shared__ faiss::gpu::KeyValuePair<value_t, value_idx>
+    smemV[kNumWarps * warp_q];
+
+  // TODO: Separate kernels for different widths:
+  // 1. Very small (between 3 and 32) just use registers for columns of "row"
+  // 2. Can fit comfortably in shared memory (32 to a few thousand?)
+  // 3. Load each time individually.
+  const value_t *x_ptr = X + (n_cols * row);
+
+  // Use registers only for 2d or 3d
+  value_t local_x_ptr[col_q];
+  for (int i = 0; i < n_cols; i++) {
+    local_x_ptr[i] = x_ptr[i];
+  }
+
+  faiss::gpu::KeyValuePair<value_t, value_idx> initV(
+    faiss::gpu::Limits<value_t>::getMax(), -1);
+
+  faiss::gpu::KeyValuePair cur_V(initV.key, initV.value);
+
+  // Each warp works on 1 R
+  faiss::gpu::KeyValueBlockSelect<value_t, value_idx, false,
+                                  faiss::gpu::Comparator<value_t>, warp_q,
+                                  thread_q, tpb>
+    heap(faiss::gpu::Limits<value_t>::getMax(), initV, smemK, smemV, k);
+
+  value_t min_R_dist = R_knn_dists[row * k];
+
+  /**
+   * First add distances for k closest neighbors of R
+   * to the heap
+   */
+  // Start iterating through elements of each set from closest R elements,
+  // determining if the distance could even potentially be in the heap.
+  for (int cur_k = 0; cur_k < k; cur_k++) {
+    // index and distance to current row's closest landmark
+    value_t cur_R_dist = R_knn_dists[row * k + cur_k];
+    value_idx cur_R_ind = R_knn_inds[row * k + cur_k];
+
+    // Equation (2) in Cayton's paper- prune out R's which are > 3 * p(q, r_q)
+    if (cur_R_dist > weight * (min_R_dist + R_radius[cur_R_ind])) continue;
+    //  if (cur_R_dist > 3 * min_R_dist) return;
+
+    // The whole warp should iterate through the elements in the current R
+    value_idx R_start_offset = R_indptr[cur_R_ind];
+    value_idx R_stop_offset = R_indptr[cur_R_ind + 1];
+
+    value_idx R_size = R_stop_offset - R_start_offset;
+
+    int limit = faiss::gpu::utils::roundDown(R_size, faiss::gpu::kWarpSize);
+    int i = threadIdx.x;
+    for (; i < limit; i += tpb) {
+      // Index and distance of current candidate's nearest landmark
+      value_idx cur_candidate_ind = R_1nn_cols[R_start_offset + i];
+      value_t cur_candidate_dist = R_1nn_dists[R_start_offset + i];
+
+      // Take 2 landmarks l_1 and l_2 where l_1 is the furthest point in the heap
+      // and l_2 is the current landmark R. s is the current data point and
+      // t is the new candidate data point. We know that:
+      // d(s, t) cannot possibly be any smaller than | d(s, l_1) - d(l_1, l_2) | * | d(l_1, l_2) - d(l_2, t) | - d(s, l_1) * d(l_2, t)
+
+      // Therefore, if d(s, t) >= d(s, l_1) from the computation above, we know that the distance to the candidate point
+      // cannot possibly be in the nearest neighbors. However, if d(s, t) < d(s, l_1) then we should compute the
+      // distance because it's possible it could be smaller.
+      //
+      value_t z = heap.warpKTopRDist == 0.00
+                    ? 0.0
+                    : (abs(heap.warpKTop - heap.warpKTopRDist) *
+                         abs(heap.warpKTopRDist - cur_candidate_dist) -
+                       heap.warpKTop * cur_candidate_dist) /
+                        heap.warpKTopRDist;
+
+      z = isnan(z) ? 0.0 : z;
+      value_t dist = std::numeric_limits<value_t>::max();
+      if (n_dists_computed < k || z <= heap.warpKTop) {
+        const value_t *y_ptr = X + (n_cols * cur_candidate_ind);
+        value_t local_y_ptr[col_q];
+        for (int j = 0; j < n_cols; j++) local_y_ptr[j] = y_ptr[j];
+
+        // TODO: Make this a generic function that accepts arr pointers an
+        dist = dfunc(local_x_ptr, local_y_ptr, n_cols);
+        ++n_dists_computed;
+      }
+
+      cur_V.key = cur_candidate_dist;
+      cur_V.value = cur_candidate_ind;
+      heap.add(dist, cur_V);
+    }
+
+    if (i < R_size) {
+      value_idx cur_candidate_ind = R_1nn_cols[R_start_offset + i];
+      value_t cur_candidate_dist = R_1nn_dists[R_start_offset + i];
+      value_t z = heap.warpKTopRDist == 0.0
+                    ? 0.0
+                    : (abs(heap.warpKTop - heap.warpKTopRDist) *
+                         abs(heap.warpKTopRDist - cur_candidate_dist) -
+                       heap.warpKTop * cur_candidate_dist) /
+                        heap.warpKTopRDist;
+
+      z = isnan(z) ? 0.0 : z;
+
+      value_t dist = std::numeric_limits<value_t>::max();
+      if (n_dists_computed < k || z <= heap.warpKTop) {
+        const value_t *y_ptr = X + (n_cols * cur_candidate_ind);
+        value_t local_y_ptr[col_q];
+        for (int j = 0; j < n_cols; j++) local_y_ptr[j] = y_ptr[j];
+
+        // TODO: Make this a generic function that accepts arr pointers an
+        dist = dfunc(local_x_ptr, local_y_ptr, n_cols);
+
+        ++n_dists_computed;
+      }
+
+      cur_V.key = cur_candidate_dist;
+      cur_V.value = cur_candidate_ind;
+      heap.addThreadQ(dist, cur_V);
+    }
+
+    heap.checkThreadQ();
+  }
+
+  heap.reduce();
+
+  for (int i = threadIdx.x; i < k; i += tpb) {
+    out_dists[blockIdx.x * k + i] = smemK[i];
+    out_inds[blockIdx.x * k + i] = smemV[i].value;
+  }
+  //  if(n_dists_computed > 0)
+  //    atomicAdd(dist_counter + row, n_dists_computed);
+}
+
+};  // namespace detail
+};  // namespace knn
+};  // namespace spatial
+};  // namespace raft

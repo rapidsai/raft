@@ -148,11 +148,17 @@ inline void brute_force_knn(
  * @param n_samples
  */
 template <typename value_idx = int64_t, typename value_t,
-          typename value_int = int>
-inline void random_ball_cover(const raft::handle_t &handle, const value_t *X,
-                              value_int m, value_int n, int k, value_idx *inds,
-                              value_t *dists, value_int n_samples = -1) {
-  detail::random_ball_cover(handle, X, m, n, k, inds, dists, n_samples);
+          typename value_int = int, typename dist_func>
+inline void random_ball_cover_all_neigh_knn(const raft::handle_t &handle,
+                                            const value_t *X, value_int m,
+                                            value_int n, int k, value_idx *inds,
+                                            value_t *dists, dist_func dfunc,
+                                            value_int n_samples = -1,
+                                            bool perform_post_filtering = true,
+                                            float weight = 1.0) {
+  detail::random_ball_cover_all_neigh_knn(handle, X, m, n, k, inds, dists,
+                                          dfunc, n_samples,
+                                          perform_post_filtering, weight);
 }
 
 }  // namespace knn
