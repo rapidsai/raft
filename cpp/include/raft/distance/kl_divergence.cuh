@@ -67,30 +67,38 @@ static void klDivergenceImpl(const DataT *x, const DataT *y, IdxT m, IdxT n,
   // Accumulation operation lambda
   auto core_lambda = [] __device__(AccT & acc, DataT & x, DataT & y) {
     if (isRowMajor) {
-      acc += x * (raft::myLog(x) - y);
+      const bool x_zero = (x == 0);
+      acc += x * (raft::myLog(x + x_zero) - y);
     } else {
-      acc += y * (raft::myLog(y) - x);
+      const bool y_zero = (y == 0);
+      acc += y * (raft::myLog(y + y_zero) - x);
+    }
+  };
+
+  auto core_lambda_x_equal_y = [] __device__(AccT & acc, DataT & x, DataT & y) {
+    if (isRowMajor) {
+      const bool x_zero = (x == 0);
+      const bool y_zero = (y == 0);
+      acc +=
+        x * (raft::myLog(x + x_zero) - (!y_zero) * raft::myLog(y + y_zero));
+    } else {
+      const bool y_zero = (y == 0);
+      const bool x_zero = (x == 0);
+      acc +=
+        y * (raft::myLog(y + y_zero) - (!x_zero) * raft::myLog(x + x_zero));
     }
   };
 
   auto unaryOp_lambda = [] __device__(DataT input) {
     const bool x_zero = (input == 0);
-    return (!x_zero) * raft::myLog(input);
+    return (!x_zero) * raft::myLog(input + x_zero);
   };
 
   auto unaryOp_lambda_reverse = [] __device__(DataT input) {
     // reverse previous log (x) back to x using (e ^ log(x))
     const bool x_zero = (input == 0);
-    return (!x_zero) * raft::myPow((DataT)M_E, input);
+    return (!x_zero) * raft::myExp(input);
   };
-
-  if (x != y && isRowMajor) {
-    raft::linalg::unaryOp<DataT, decltype(unaryOp_lambda), IdxT>(
-      (DataT *)y, y, n * k, unaryOp_lambda, stream);
-  } else if (x != y && !isRowMajor) {
-    raft::linalg::unaryOp<DataT, decltype(unaryOp_lambda), IdxT>(
-      (DataT *)x, x, m * k, unaryOp_lambda, stream);
-  }
 
   // epilogue operation lambda for final value calculation
   auto epilog_lambda = [] __device__(
@@ -111,31 +119,55 @@ static void klDivergenceImpl(const DataT *x, const DataT *y, IdxT m, IdxT n,
       pairwiseDistanceMatKernel<false, DataT, AccT, OutT, IdxT, KPolicy,
                                 decltype(core_lambda), decltype(epilog_lambda),
                                 FinalLambda, true>;
-    dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize,
-                                               klDivergenceRowMajor);
-
-    klDivergenceRowMajor<<<grid, blk, KPolicy::SmemSize, stream>>>(
-      x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput, core_lambda,
-      epilog_lambda, fin_op);
+    constexpr auto klDivergenceRowMajorXequalY =
+      pairwiseDistanceMatKernel<false, DataT, AccT, OutT, IdxT, KPolicy,
+                                decltype(core_lambda_x_equal_y),
+                                decltype(epilog_lambda), FinalLambda, true>;
+    if (x != y) {
+      raft::linalg::unaryOp<DataT, decltype(unaryOp_lambda), IdxT>(
+        (DataT *)y, y, n * k, unaryOp_lambda, stream);
+      dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize,
+                                                 klDivergenceRowMajor);
+      klDivergenceRowMajor<<<grid, blk, KPolicy::SmemSize, stream>>>(
+        x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput, core_lambda,
+        epilog_lambda, fin_op);
+      // Now reverse previous log (x) back to x using (e ^ log(x))
+      raft::linalg::unaryOp<DataT, decltype(unaryOp_lambda_reverse), IdxT>(
+        (DataT *)y, y, n * k, unaryOp_lambda_reverse, stream);
+    } else {
+      dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize,
+                                                 klDivergenceRowMajorXequalY);
+      klDivergenceRowMajorXequalY<<<grid, blk, KPolicy::SmemSize, stream>>>(
+        x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput,
+        core_lambda_x_equal_y, epilog_lambda, fin_op);
+    }
   } else {
     constexpr auto klDivergenceColMajor =
       pairwiseDistanceMatKernel<false, DataT, AccT, OutT, IdxT, KPolicy,
                                 decltype(core_lambda), decltype(epilog_lambda),
                                 FinalLambda, false>;
-    dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize,
-                                               klDivergenceColMajor);
-    klDivergenceColMajor<<<grid, blk, KPolicy::SmemSize, stream>>>(
-      x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput, core_lambda,
-      epilog_lambda, fin_op);
-  }
-
-  // Now reverse previous log (x) back to x using (e ^ log(x))
-  if (x != y && isRowMajor) {
-    raft::linalg::unaryOp<DataT, decltype(unaryOp_lambda_reverse), IdxT>(
-      (DataT *)y, y, n * k, unaryOp_lambda_reverse, stream);
-  } else if (x != y && !isRowMajor) {
-    raft::linalg::unaryOp<DataT, decltype(unaryOp_lambda_reverse), IdxT>(
-      (DataT *)x, x, m * k, unaryOp_lambda_reverse, stream);
+    constexpr auto klDivergenceColMajorXequalY =
+      pairwiseDistanceMatKernel<false, DataT, AccT, OutT, IdxT, KPolicy,
+                                decltype(core_lambda_x_equal_y),
+                                decltype(epilog_lambda), FinalLambda, false>;
+    if (x != y) {
+      raft::linalg::unaryOp<DataT, decltype(unaryOp_lambda), IdxT>(
+        (DataT *)x, x, m * k, unaryOp_lambda, stream);
+      dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize,
+                                                 klDivergenceColMajor);
+      klDivergenceColMajor<<<grid, blk, KPolicy::SmemSize, stream>>>(
+        x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput, core_lambda,
+        epilog_lambda, fin_op);
+      // Now reverse previous log (x) back to x using (e ^ log(x))
+      raft::linalg::unaryOp<DataT, decltype(unaryOp_lambda_reverse), IdxT>(
+        (DataT *)x, x, m * k, unaryOp_lambda_reverse, stream);
+    } else {
+      dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize,
+                                                 klDivergenceColMajorXequalY);
+      klDivergenceColMajorXequalY<<<grid, blk, KPolicy::SmemSize, stream>>>(
+        x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput,
+        core_lambda_x_equal_y, epilog_lambda, fin_op);
+    }
   }
 
   CUDA_CHECK(cudaGetLastError());
