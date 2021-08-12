@@ -181,8 +181,8 @@ template <typename InType, typename AccType, typename OutType,
 struct DistanceImpl<raft::distance::DistanceType::HammingUnexpanded, InType,
                     AccType, OutType, FinalLambda, Index_> {
   void run(const InType *x, const InType *y, OutType *dist, Index_ m, Index_ n,
-           Index_ k, void *workspace, size_t worksize, FinalLambda fin_op,
-           cudaStream_t stream, bool isRowMajor, InType) {
+           Index_ k, void *, size_t, FinalLambda fin_op, cudaStream_t stream,
+           bool isRowMajor, InType) {
     raft::distance::hammingUnexpandedImpl<InType, AccType, OutType, FinalLambda,
                                           Index_>(m, n, k, x, y, dist, fin_op,
                                                   stream, isRowMajor);
@@ -194,8 +194,8 @@ template <typename InType, typename AccType, typename OutType,
 struct DistanceImpl<raft::distance::DistanceType::JensenShannon, InType,
                     AccType, OutType, FinalLambda, Index_> {
   void run(const InType *x, const InType *y, OutType *dist, Index_ m, Index_ n,
-           Index_ k, void *workspace, size_t worksize, FinalLambda fin_op,
-           cudaStream_t stream, bool isRowMajor, InType) {
+           Index_ k, void *, size_t, FinalLambda fin_op, cudaStream_t stream,
+           bool isRowMajor, InType) {
     raft::distance::jensenShannonImpl<InType, AccType, OutType, FinalLambda,
                                       Index_>(m, n, k, x, y, dist, fin_op,
                                               stream, isRowMajor);
@@ -207,8 +207,8 @@ template <typename InType, typename AccType, typename OutType,
 struct DistanceImpl<raft::distance::DistanceType::RusselRaoExpanded, InType,
                     AccType, OutType, FinalLambda, Index_> {
   void run(const InType *x, const InType *y, OutType *dist, Index_ m, Index_ n,
-           Index_ k, void *workspace, size_t worksize, FinalLambda fin_op,
-           cudaStream_t stream, bool isRowMajor, InType) {
+           Index_ k, void *, size_t, FinalLambda fin_op, cudaStream_t stream,
+           bool isRowMajor, InType) {
     raft::distance::russellRaoImpl<InType, AccType, OutType, FinalLambda,
                                    Index_>(m, n, k, x, y, dist, fin_op, stream,
                                            isRowMajor);
@@ -220,8 +220,8 @@ template <typename InType, typename AccType, typename OutType,
 struct DistanceImpl<raft::distance::DistanceType::KLDivergence, InType, AccType,
                     OutType, FinalLambda, Index_> {
   void run(const InType *x, const InType *y, OutType *dist, Index_ m, Index_ n,
-           Index_ k, void *workspace, size_t worksize, FinalLambda fin_op,
-           cudaStream_t stream, bool isRowMajor, InType) {
+           Index_ k, void *, size_t, FinalLambda fin_op, cudaStream_t stream,
+           bool isRowMajor, InType) {
     raft::distance::klDivergenceImpl<InType, AccType, OutType, FinalLambda,
                                      Index_>(m, n, k, x, y, dist, fin_op,
                                              stream, isRowMajor);
