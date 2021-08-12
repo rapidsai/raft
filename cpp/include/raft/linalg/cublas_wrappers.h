@@ -86,10 +86,8 @@ inline const char *cublas_error_to_string(cublasStatus_t err) {
 /** FIXME: temporary alias for cuML compatibility */
 #define CUBLAS_CHECK(call) CUBLAS_TRY(call)
 
-///@todo: enable this once we have logging enabled
-#if 0
 /** check for cublas runtime API errors but do not assert */
-define CUBLAS_CHECK_NO_THROW(call)                                          \
+#define CUBLAS_CHECK_NO_THROW(call)                                          \
   do {                                                                       \
     cublasStatus_t err = call;                                               \
     if (err != CUBLAS_STATUS_SUCCESS) {                                      \
@@ -97,7 +95,6 @@ define CUBLAS_CHECK_NO_THROW(call)                                          \
                      raft::linalg::detail::cublas_error_to_string(err));     \
     }                                                                        \
   } while (0)
-#endif
 
 namespace raft {
 namespace linalg {
