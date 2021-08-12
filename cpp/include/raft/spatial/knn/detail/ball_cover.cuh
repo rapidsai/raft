@@ -179,6 +179,8 @@ void random_ball_cover_all_neigh_knn(const raft::handle_t &handle,
 
   rmm::device_uvector<int> dists_counter(m, handle.get_stream());
 
+  constexpr int rbc_tpb = 64;
+
   constexpr int max_vals = 328;
   if (n <= 3) {
     // Compute nearest k for each neighborhood in each closest R
@@ -193,8 +195,8 @@ void random_ball_cover_all_neigh_knn(const raft::handle_t &handle,
 //      cudaFuncCachePreferShared));
 
     // Compute nearest k for each neighborhood in each closest R
-    block_rbc_kernel_smem<value_idx, value_t, 32, 2, 128, max_vals>
-      <<<m, 128, 0, handle.get_stream()>>>(
+    block_rbc_kernel_smem<value_idx, value_t, 32, 2, rbc_tpb, max_vals>
+      <<<m, rbc_tpb, 0, handle.get_stream()>>>(
         X, n, R_knn_inds.data(), R_knn_dists.data(), m, k, R_indptr.data(),
         R_1nn_cols.data(), R_1nn_dists.data(), inds, dists, R_indices.data(),
         dists_counter.data(), R_radius.data(), dfunc, weight);
@@ -237,8 +239,8 @@ void random_ball_cover_all_neigh_knn(const raft::handle_t &handle,
 //        cudaFuncCachePreferShared));
 
       // Compute any distances from the landmarks that remain in the bitset
-      compute_final_dists_smem<value_idx, value_t, 32, 2, 128, max_vals>
-        <<<m, 128, 0, handle.get_stream()>>>(
+      compute_final_dists_smem<value_idx, value_t, 32, 2, rbc_tpb, max_vals>
+        <<<m, rbc_tpb, 0, handle.get_stream()>>>(
           X, n, bitset.data(), bitset_size, R_knn_dists.data(), R_indptr.data(),
           R_1nn_cols.data(), R_1nn_dists.data(), inds, dists, n_samples, k,
           dfunc, post_dists_counter.data());

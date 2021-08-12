@@ -34,6 +34,33 @@ namespace spatial {
 namespace knn {
 namespace detail {
 
+static constexpr float warp_reciprocal = 1.0 / faiss::gpu::kWarpSize;
+
+
+/**
+ * Uses a whole warp to compute distances, maximizing uniformity,
+ * parallelism, and coalesced reads from global memory. Each warp
+ * thread holds the index to a potential distance and determines
+ * whether that distance should be computed. The whole warp
+ * collectively iterates through each distance that needs to be
+ * computed, performing the actual distance computation in parallel.
+ *
+ * @tparam value_idx
+ * @tparam value_t
+ * @tparam Dir
+ * @tparam Comp
+ * @tparam numwarpq
+ * @tparam numthreadq
+ * @tparam tpb
+ * @param heap
+ * @param lane_id
+ * @param n_cols
+ * @param x_ptr
+ * @param X
+ * @param z
+ * @param cur_candidate_dist
+ * @param cur_candidate_ind
+ */
 template <typename value_idx, typename value_t, bool Dir, typename Comp,
           int numwarpq, int numthreadq, int tpb>
 __device__ void compute_dist_full_warp(
@@ -71,6 +98,39 @@ __device__ void compute_dist_full_warp(
   }
 }
 
+/**
+ * Helper function to use the triangle inequality for the points
+ * in a single row of a sparse matrix and computing distances /
+ * adding to k-select heap as necessary. This function parallelizes
+ * over the entire block but any distances that need to be computed
+ * are parallelized over entire warps to increase uniformity and
+ * coalesced reads to the global memory where possible.
+ *
+ * While this approach is very fast and makes good use of the hardware
+ * resources, it does use an excessive amount of registers (~72 at the
+ * time of writing for a moderately small size of k). Future upgrades
+ * to this design should consider ways to reduce the register usage.
+ *
+ * @tparam value_idx
+ * @tparam value_t
+ * @tparam Dir
+ * @tparam Comp
+ * @tparam numwarpq
+ * @tparam numthreadq
+ * @tparam tpb
+ * @param heap
+ * @param warp_id
+ * @param lane_id
+ * @param kNumWarps
+ * @param n_cols
+ * @param k
+ * @param local_x_ptr
+ * @param X
+ * @param R_1nn_cols
+ * @param R_1nn_dists
+ * @param R_start_offset
+ * @param R_size
+ */
 template <typename value_idx, typename value_t, bool Dir, typename Comp,
           int numwarpq, int numthreadq, int tpb>
 __device__ void compute_dist_block(
@@ -95,15 +155,14 @@ __device__ void compute_dist_block(
     const value_idx cur_candidate_ind = R_1nn_cols[R_start_offset + i];
     const value_t cur_candidate_dist = R_1nn_dists[R_start_offset + i];
 
-    // Take 2 landmarks l_1 and l_2 where l_1 is the furthest point in the heap
-    // and l_2 is the current landmark R. s is the current data point and
-    // t is the new candidate data point. We know that:
-    // d(s, t) cannot possibly be any smaller than | d(s, l_1) - d(l_1, l_2) | * | d(l_1, l_2) - d(l_2, t) | - d(s, l_1) * d(l_2, t)
-
-    // Therefore, if d(s, t) >= d(s, l_1) from the computation above, we know that the distance to the candidate point
-    // cannot possibly be in the nearest neighbors. However, if d(s, t) < d(s, l_1) then we should compute the
-    // distance because it's possible it could be smaller.
-    //
+    /** Take 2 landmarks l_1 and l_2 where l_1 is the furthest point in the heap
+      * and l_2 is the current landmark R. s is the current data point and
+      * t is the new candidate data point. We know that:
+      * d(s, t) cannot possibly be any smaller than | d(s, l_1) - d(l_1, l_2) | * | d(l_1, l_2) - d(l_2, t) | - d(s, l_1) * d(l_2, t)
+      * Therefore, if d(s, t) >= d(s, l_1) from the computation above, we know that the distance to the candidate point
+      * cannot possibly be in the nearest neighbors. However, if d(s, t) < d(s, l_1) then we should compute the
+      * distance because it's possible it could be smaller.
+      **/
     value_t z = heap.warpKTopRDist == 0.00
                   ? 0.0
                   : (abs(heap.warpKTop - heap.warpKTopRDist) *
@@ -112,10 +171,10 @@ __device__ void compute_dist_block(
                       heap.warpKTopRDist;
     z = isnan(z) ? 0.0 : z;
     compute_dist_full_warp<value_idx, value_t, false,
-                                               faiss::gpu::Comparator<value_t>,
-                                               numwarpq, numthreadq, tpb>(
-      heap, lane_id, n_cols, local_x_ptr, X, z, cur_candidate_dist,
-      cur_candidate_ind);
+                           faiss::gpu::Comparator<value_t>,
+                           numwarpq, numthreadq, tpb> (
+      heap, lane_id, n_cols, local_x_ptr, X, z,
+      cur_candidate_dist, cur_candidate_ind);
 
     heap.checkThreadQ();
   }
@@ -165,6 +224,7 @@ __global__ void compute_final_dists_smem(
   int n_landmarks, const int k,
   dist_func dfunc,
   value_int *dist_counter) {
+
   static constexpr int kNumWarps = tpb / faiss::gpu::kWarpSize;
 
   __shared__ value_t smemK[kNumWarps * warp_q];
@@ -172,8 +232,8 @@ __global__ void compute_final_dists_smem(
     smemV[kNumWarps * warp_q];
   __shared__ value_t local_x_ptr[col_q];
 
-  const int warp_id = threadIdx.x / 32;
-  const int lane_id = threadIdx.x % 32;
+  const int warp_id = threadIdx.x * warp_reciprocal;
+  const int lane_id = warp_id - warp_id * 32;
 
   for (int j = threadIdx.x; j < n_cols; j+=tpb)
     local_x_ptr[j] = X[n_cols * blockIdx.x + j];
@@ -204,6 +264,8 @@ __global__ void compute_final_dists_smem(
     // if cur R overlaps cur point's closest R, it could be a
     // candidate
     if (_get_val(bitset + (blockIdx.x * bitset_size), cur_R_ind)) {
+
+      // TODO: see if putting these values in smem can reduce register count
       const value_idx R_start_offset = R_indptr[cur_R_ind];
       const value_idx R_size = R_indptr[cur_R_ind + 1] - R_start_offset;
       compute_dist_block<value_idx, value_t, false,
@@ -222,18 +284,43 @@ __global__ void compute_final_dists_smem(
   }
 }
 
+/**
+ * To find exact neighbors, we perform a post-processing stage
+ * that filters out those points which might have neighbors outside
+ * of their k closest landmarks. This is usually a very small portion
+ * of the total points.
+ * @tparam value_idx
+ * @tparam value_t
+ * @tparam value_int
+ * @tparam tpb
+ * @param X
+ * @param n_cols
+ * @param R_knn_inds
+ * @param R_knn_dists
+ * @param R_radius
+ * @param landmarks
+ * @param n_landmarks
+ * @param bitset_size
+ * @param k
+ * @param output
+ * @param weight
+ */
 template <typename value_idx, typename value_t, typename value_int = int,
           int tpb = 32>
 __global__ void perform_post_filter(const value_t *X, value_int n_cols,
                                     const value_idx *R_knn_inds,
                                     const value_t *R_knn_dists,
                                     const value_t *R_radius,
-                                    const value_t *landmarks, int n_landmarks,
-                                    int bitset_size, int k, uint32_t *output,
+                                    const value_t *landmarks,
+                                    int n_landmarks,
+                                    int bitset_size,
+                                    int k,
+                                    uint32_t *output,
                                     float weight = 1.0) {
-  static constexpr int num_warps = (tpb / 32);
 
-  int lane_id = threadIdx.x % 32;
+  static constexpr int kNumWarps = tpb / faiss::gpu::kWarpSize;
+
+  const int lane_id = threadIdx.x % 32;
 
   // allocate array of size n_landmarks / 32 ints
   extern __shared__ uint32_t smem[];
@@ -256,13 +343,11 @@ __global__ void perform_post_filter(const value_t *X, value_int n_cols,
   // That is, the distance between the current point and the current
   // landmark is > the distance between the current point and
   // its closest landmark + the radius of the current landmark.
-  for (int l = threadIdx.x / 32; l < n_landmarks; l += num_warps) {
+  for (int l = threadIdx.x / 32; l < n_landmarks; l += kNumWarps) {
     // compute p(q, r)
     const value_t *y_ptr = landmarks + (n_cols * l);
 
-    bool compute = true;
-    if (lane_id == 0) compute = _get_val(smem, l);
-
+    bool compute = lane_id == 0 ? _get_val(smem, l) : true;
     compute = __shfl_sync(0xffffffff, compute, 0);
 
     if (compute) {
@@ -295,7 +380,19 @@ __global__ void perform_post_filter(const value_t *X, value_int n_cols,
 }
 
 /**
- * Random ball cover kernel for n_dims > 2.
+ * Random ball cover kernel for high dimensionality (greater than 2 or 3).
+ * This kernel loops through each of the k-closest landmarks and tries to
+ * maximize uniformity of distance computations by having each warp compute
+ * the distances. This also increases coalesced reads and writes and enables
+ * random access to each individual datapoint on the right-hand side while
+ * still allowing warp threads to load the distances for subsequent columns
+ * in parallel.
+ *
+ * One downside to this technique is that the more complex usage of the
+ * warp-level primitives increases register pressure to the point where
+ * it's reducing the occupancy. A moderate amount of shared memory is
+ * used to store the columns from the left-hand side, since it will
+ * need to be loaded each time a distance is computed.
  *
  * This function parallelizes distance computations within
  * warps to maximize the parallelism and uniformity of
@@ -306,7 +403,7 @@ __global__ void perform_post_filter(const value_t *X, value_int n_cols,
  *        closest neighbors found so far
  * 3.   - within each warp, use whole warp to compute distances for this threads that
  *        require it and each individual thread adds to their local heap, compacting
- *        if possible (block synchronously) after each warp iteration.
+ *        if possible (block synchronously if necessary) after each warp iteration.
  * @tparam value_idx
  * @tparam value_t
  * @tparam warp_q
@@ -351,8 +448,8 @@ __global__  void block_rbc_kernel_smem(
   __shared__ value_t
     local_x_ptr[col_q];  // TODO: cols_q should be power of 2 up to some max val
 
-  const int warp_id = threadIdx.x / 32;
-  const int lane_id = threadIdx.x % 32;
+  const int warp_id = threadIdx.x * warp_reciprocal;
+  const int lane_id = threadIdx.x % faiss::gpu::kWarpSize;
 
   // TODO: Separate kernels for different widths:
   // 1. Very small (between 3 and 32) just use registers for columns of "blockIdx.x"
@@ -392,8 +489,8 @@ __global__  void block_rbc_kernel_smem(
     const value_idx R_size = R_indptr[cur_R_ind + 1] - R_start_offset;
 
     compute_dist_block<value_idx, value_t, false,
-                                           faiss::gpu::Comparator<value_t>,
-                                           warp_q, thread_q, tpb>(
+                       faiss::gpu::Comparator<value_t>,
+                       warp_q, thread_q, tpb>(
       heap, warp_id, lane_id, kNumWarps, n_cols, k, local_x_ptr, X,
       R_1nn_cols, R_1nn_dists, R_start_offset, R_size);
   }
