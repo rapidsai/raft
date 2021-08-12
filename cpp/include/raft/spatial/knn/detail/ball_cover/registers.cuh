@@ -81,14 +81,10 @@ __global__ void compute_final_dists_registers(
   value_t local_x_ptr[col_q];
   for (int j = 0; j < n_cols; j++) local_x_ptr[j] = x_ptr[j];
 
-  faiss::gpu::KeyValuePair<value_t, value_idx> initV(
-    faiss::gpu::Limits<value_t>::getMax(), -1);
-  faiss::gpu::KeyValuePair cur_V(initV.key, initV.value);
-
   faiss::gpu::KeyValueBlockSelect<value_t, value_idx, false,
                                   faiss::gpu::Comparator<value_t>, warp_q,
                                   thread_q, tpb>
-    heap(faiss::gpu::Limits<value_t>::getMax(), initV, smemK, smemV, k);
+    heap(faiss::gpu::Limits<value_t>::getMax(), faiss::gpu::Limits<value_t>::getMax(), -1, smemK, smemV, k);
 
   int n_k = faiss::gpu::utils::roundDown(k, faiss::gpu::kWarpSize);
   int i = tid;
@@ -96,18 +92,14 @@ __global__ void compute_final_dists_registers(
     value_idx ind = knn_inds[row * k + i];
     value_t cur_candidate_dist = R_knn_dists[ind * k];
 
-    cur_V.key = cur_candidate_dist;
-    cur_V.value = ind;
-    heap.add(knn_dists[row * k + i], cur_V);
+    heap.add(knn_dists[row * k + i], cur_candidate_dist, ind);
   }
 
   if (i < k) {
     value_idx ind = knn_inds[row * k + i];
     value_t cur_candidate_dist = R_knn_dists[ind * k];
 
-    cur_V.key = cur_candidate_dist;
-    cur_V.value = ind;
-    heap.addThreadQ(knn_dists[row * k + i], cur_V);
+    heap.addThreadQ(knn_dists[row * k + i], cur_candidate_dist, ind);
   }
 
   heap.checkThreadQ();
@@ -152,9 +144,7 @@ __global__ void compute_final_dists_registers(
           n_dists_computed++;
         }
 
-        cur_V.key = cur_candidate_dist;
-        cur_V.value = cur_candidate_ind;
-        heap.add(dist, cur_V);
+        heap.add(dist, cur_candidate_dist, cur_candidate_ind);
       }
 
       // second round guarantees to be only a single warp.
@@ -182,9 +172,7 @@ __global__ void compute_final_dists_registers(
           dist = dfunc(local_x_ptr, local_y_ptr, n_cols);
           n_dists_computed++;
         }
-        cur_V.key = cur_candidate_dist;
-        cur_V.value = cur_candidate_ind;
-        heap.addThreadQ(dist, cur_V);
+        heap.addThreadQ(dist, cur_candidate_dist, cur_candidate_ind);
       }
       heap.checkThreadQ();
     }
@@ -252,16 +240,11 @@ __global__ void block_rbc_kernel_registers(
     local_x_ptr[i] = x_ptr[i];
   }
 
-  faiss::gpu::KeyValuePair<value_t, value_idx> initV(
-    faiss::gpu::Limits<value_t>::getMax(), -1);
-
-  faiss::gpu::KeyValuePair cur_V(initV.key, initV.value);
-
   // Each warp works on 1 R
   faiss::gpu::KeyValueBlockSelect<value_t, value_idx, false,
                                   faiss::gpu::Comparator<value_t>, warp_q,
                                   thread_q, tpb>
-    heap(faiss::gpu::Limits<value_t>::getMax(), initV, smemK, smemV, k);
+    heap(faiss::gpu::Limits<value_t>::getMax(), faiss::gpu::Limits<value_t>::getMax(), -1, smemK, smemV, k);
 
   value_t min_R_dist = R_knn_dists[row * k];
 
@@ -321,9 +304,7 @@ __global__ void block_rbc_kernel_registers(
         ++n_dists_computed;
       }
 
-      cur_V.key = cur_candidate_dist;
-      cur_V.value = cur_candidate_ind;
-      heap.add(dist, cur_V);
+      heap.add(dist, cur_candidate_dist, cur_candidate_ind);
     }
 
     if (i < R_size) {
@@ -346,13 +327,9 @@ __global__ void block_rbc_kernel_registers(
 
         // TODO: Make this a generic function that accepts arr pointers an
         dist = dfunc(local_x_ptr, local_y_ptr, n_cols);
-
-        ++n_dists_computed;
       }
 
-      cur_V.key = cur_candidate_dist;
-      cur_V.value = cur_candidate_ind;
-      heap.addThreadQ(dist, cur_V);
+      heap.addThreadQ(dist, cur_candidate_dist, cur_candidate_ind);
     }
 
     heap.checkThreadQ();

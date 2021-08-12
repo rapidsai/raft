@@ -31,11 +31,12 @@ struct KeyValueBlockSelect {
   static constexpr int kNumWarps = ThreadsPerBlock / kWarpSize;
   static constexpr int kTotalWarpSortSize = NumWarpQ;
 
-  __device__ inline KeyValueBlockSelect(K initKVal, KeyValuePair<K, V> initVVal,
+  __device__ inline KeyValueBlockSelect(K initKVal, K initVKey, V initVVal,
                                         K* smemK, KeyValuePair<K, V>* smemV,
                                         int k)
     : initK(initKVal),
-      initV(initVVal),
+      initVk(initVKey),
+      initVv(initVVal),
       numVals(0),
       warpKTop(initKVal),
       warpKTopRDist(initKVal),
@@ -50,8 +51,8 @@ struct KeyValueBlockSelect {
 #pragma unroll
     for (int i = 0; i < NumThreadQ; ++i) {
       threadK[i] = initK;
-      threadV[i].key = initV.key;
-      threadV[i].value = initV.value;
+      threadV[i].key = initVk;
+      threadV[i].value = initVv;
     }
 
     int laneId = getLaneId();
@@ -63,14 +64,14 @@ struct KeyValueBlockSelect {
     // we write the per-thread queues for merging)
     for (int i = laneId; i < NumWarpQ; i += kWarpSize) {
       warpK[i] = initK;
-      warpV[i].key = initV.key;
-      warpV[i].value = initV.value;
+      warpV[i].key = initVk;
+      warpV[i].value = initVv;
     }
 
     warpFence();
   }
 
-  __device__ inline void addThreadQ(K k, KeyValuePair<K, V>& v) {
+  __device__ inline void addThreadQ(K k, K vk, V vv) {
     if (Dir ? Comp::gt(k, warpKTop) : Comp::lt(k, warpKTop)) {
       // Rotate right
 #pragma unroll
@@ -81,8 +82,8 @@ struct KeyValueBlockSelect {
       }
 
       threadK[0] = k;
-      threadV[0].key = v.key;
-      threadV[0].value = v.value;
+      threadV[0].key = vk;
+      threadV[0].value = vv;
       ++numVals;
     }
   }
@@ -111,8 +112,8 @@ struct KeyValueBlockSelect {
 #pragma unroll
     for (int i = 0; i < NumThreadQ; ++i) {
       threadK[i] = initK;
-      threadV[i].key = initV.key;
-      threadV[i].value = initV.value;
+      threadV[i].key = initVk;
+      threadV[i].value = initVv;
     }
 
     // We have to beat at least this element
@@ -164,8 +165,8 @@ struct KeyValueBlockSelect {
 
   /// WARNING: all threads in a warp must participate in this.
   /// Otherwise, you must call the constituent parts separately.
-  __device__ inline void add(K k, KeyValuePair<K, V>& v) {
-    addThreadQ(k, v);
+  __device__ inline void add(K k, K vk, V vv) {
+    addThreadQ(k, vk, vv);
     checkThreadQ();
   }
 
@@ -191,7 +192,8 @@ struct KeyValueBlockSelect {
   const K initK;
 
   // Default element value
-  const KeyValuePair<K, V> initV;
+  const K initVk;
+  const V initVv;
 
   // Number of valid elements in our thread queue
   int numVals;

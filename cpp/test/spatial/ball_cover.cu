@@ -208,7 +208,7 @@ class BallCoverKNNTest : public ::testing::Test {
     // make testdata on host
     std::vector<value_t> h_train_inputs =
       read_csv2("/share/workspace/reproducers/miguel_haversine_knn/OSM_KNN.csv",
-                10000, 1, dim_mult);
+                3000000, 1, dim_mult);
 
     //    std::vector<value_t> h_bfknn_dists = read_csv2("/share/workspace/brute_force_dists.csv",
     //                                                   3000000, 0);
@@ -279,10 +279,10 @@ class BallCoverKNNTest : public ::testing::Test {
 
     //Diff in idx=326622, expected=326720, actual=326623
 //
-//    raft::print_device_vector("inds", d_pred_I.data() + (326622 * k), k,
-//                              std::cout);
-//    raft::print_device_vector("dists", d_pred_D.data() + (326622 * k), k,
-//                              std::cout);
+    raft::print_device_vector("inds", d_pred_I.data() + (326622 * k), k,
+                              std::cout);
+    raft::print_device_vector("dists", d_pred_D.data() + (326622 * k), k,
+                              std::cout);
 
     //    raft::print_device_vector("actual inds", d_ref_I.data() + (326622 * k), k, std::cout);
     //    raft::print_device_vector("actual dists", d_ref_D.data() + (326622 * k), k, std::cout);
@@ -326,7 +326,7 @@ class BallCoverKNNTest : public ::testing::Test {
 
  protected:
   int d = 2;
-  int k = 25;
+  int k = 7;
 };
 
 typedef BallCoverKNNTest<int64_t, float> BallCoverKNNTestF;

@@ -188,6 +188,10 @@ void random_ball_cover_all_neigh_knn(const raft::handle_t &handle,
         R_1nn_cols.data(), R_1nn_dists.data(), inds, dists, R_indices.data(),
         dists_counter.data(), R_radius.data(), dfunc, weight);
   } else if (n <= max_vals) {
+//    CUDA_CHECK(cudaFuncSetCacheConfig(
+//      block_rbc_kernel_smem<value_idx, value_t, 32, 2, 128, max_vals>,
+//      cudaFuncCachePreferShared));
+
     // Compute nearest k for each neighborhood in each closest R
     block_rbc_kernel_smem<value_idx, value_t, 32, 2, 128, max_vals>
       <<<m, 128, 0, handle.get_stream()>>>(
@@ -197,7 +201,7 @@ void random_ball_cover_all_neigh_knn(const raft::handle_t &handle,
   }
   //
 
-  //  CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
   //  raft::print_device_vector("dists", dists_counter.data(), 500, std::cout);
   //
   if (perform_post_filtering) {
@@ -212,7 +216,7 @@ void random_ball_cover_all_neigh_knn(const raft::handle_t &handle,
         X, n, R_knn_inds.data(), R_knn_dists.data(), R_radius.data(), R.data(),
         n_samples, bitset_size, k, bitset.data(), weight);
 
-    //    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+        CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
     //
     printf("computing final dists\n");
 
@@ -227,6 +231,11 @@ void random_ball_cover_all_neigh_knn(const raft::handle_t &handle,
         R_1nn_cols.data(), R_1nn_dists.data(), inds, dists, n_samples, k, dfunc,
         post_dists_counter.data());
     } else if (n <= max_vals) {
+
+//      CUDA_CHECK(cudaFuncSetCacheConfig(
+//        compute_final_dists_smem<value_idx, value_t, 32, 2, 128, max_vals>,
+//        cudaFuncCachePreferShared));
+
       // Compute any distances from the landmarks that remain in the bitset
       compute_final_dists_smem<value_idx, value_t, 32, 2, 128, max_vals>
         <<<m, 128, 0, handle.get_stream()>>>(
@@ -235,7 +244,7 @@ void random_ball_cover_all_neigh_knn(const raft::handle_t &handle,
           dfunc, post_dists_counter.data());
     }
     //
-    //    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+        CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
     //    raft::print_device_vector("dists", post_dists_counter.data(), 500, std::cout);
 
     printf("Done.\n");
