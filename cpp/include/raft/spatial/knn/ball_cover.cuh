@@ -40,17 +40,14 @@ namespace knn {
  * @param n_samples
  */
 template <typename value_idx = int64_t, typename value_t,
-  typename value_int = int, typename dist_func>
+          typename value_int = int, typename dist_func>
 inline void rbc_all_knn_query(const raft::handle_t &handle,
-                                  BallCoverIndex<value_idx, value_t> &index
-                                  int k,
-                                  value_idx *inds,
-                                  value_t *dists,
-                                  dist_func dfunc,
-                                  bool perform_post_filtering = true,
-                                  float weight = 1.0) {
-  detail::rbc_all_knn_query(handle, index, k, inds, dists,
-                                          dfunc, perform_post_filtering, weight);
+                              BallCoverIndex<value_idx, value_t> &index int k,
+                              value_idx *inds, value_t *dists, dist_func dfunc,
+                              bool perform_post_filtering = true,
+                              float weight = 1.0) {
+  detail::rbc_all_knn_query(handle, index, k, inds, dists, dfunc,
+                            perform_post_filtering, weight);
   index.index_trained = true;
 }
 

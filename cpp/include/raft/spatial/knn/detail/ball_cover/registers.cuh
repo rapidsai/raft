@@ -35,7 +35,6 @@ namespace spatial {
 namespace knn {
 namespace detail {
 
-
 /**
  * To find exact neighbors, we perform a post-processing stage
  * that filters out those points which might have neighbors outside
@@ -57,23 +56,13 @@ namespace detail {
  * @param output
  * @param weight
  */
-template <typename value_idx,
-          typename value_t,
-          typename value_int = int,
-          int tpb = 32,
-          typename distance_func>
-__global__ void perform_post_filter_registers(const value_t *X, value_int n_cols,
-                                    const value_idx *R_knn_inds,
-                                    const value_t *R_knn_dists,
-                                    const value_t *R_radius,
-                                    const value_t *landmarks,
-                                    int n_landmarks,
-                                    int bitset_size,
-                                    int k,
-                                    distance_func dfunc,
-                                    uint32_t *output,
-                                    float weight = 1.0) {
-
+template <typename value_idx, typename value_t, typename value_int = int,
+          int tpb = 32, typename distance_func>
+__global__ void perform_post_filter_registers(
+  const value_t *X, value_int n_cols, const value_idx *R_knn_inds,
+  const value_t *R_knn_dists, const value_t *R_radius, const value_t *landmarks,
+  int n_landmarks, int bitset_size, int k, distance_func dfunc,
+  uint32_t *output, float weight = 1.0) {
   // allocate array of size n_landmarks / 32 ints
   extern __shared__ uint32_t smem[];
 
@@ -84,8 +73,7 @@ __global__ void perform_post_filter_registers(const value_t *X, value_int n_cols
 
   // TODO: Would it be faster to use L1 for this?
   value_t local_x_ptr[2];
-  for (int j = 0; j < n_cols; j++)
-    local_x_ptr[j] = X[n_cols * blockIdx.x + j];
+  for (int j = 0; j < n_cols; j++) local_x_ptr[j] = X[n_cols * blockIdx.x + j];
 
   value_t closest_R_dist = R_knn_dists[blockIdx.x * k];
 
@@ -102,8 +90,7 @@ __global__ void perform_post_filter_registers(const value_t *X, value_int n_cols
   for (int l = threadIdx.x; l < n_landmarks; l += tpb) {
     // compute p(q, r)
     value_t dist = dfunc(local_x_ptr, landmarks + (n_cols * l), n_cols);
-    if(dist > weight * (closest_R_dist + R_radius[l]))
-        _zero_bit(smem, l);
+    if (dist > weight * (closest_R_dist + R_radius[l])) _zero_bit(smem, l);
   }
 
   __syncthreads();
@@ -115,7 +102,6 @@ __global__ void perform_post_filter_registers(const value_t *X, value_int n_cols
     output[blockIdx.x * bitset_size + l] = smem[l];
   }
 }
-
 
 /**
  * @tparam value_idx
@@ -162,8 +148,7 @@ __global__ void compute_final_dists_registers(
                                   faiss::gpu::Comparator<value_t>, warp_q,
                                   thread_q, tpb>
     heap(faiss::gpu::Limits<value_t>::getMax(),
-         faiss::gpu::Limits<value_t>::getMax(),
-         -1, smemK, smemV, k);
+         faiss::gpu::Limits<value_t>::getMax(), -1, smemK, smemV, k);
 
   const int n_k = faiss::gpu::utils::roundDown(k, faiss::gpu::kWarpSize);
   int i = threadIdx.x;
@@ -183,7 +168,6 @@ __global__ void compute_final_dists_registers(
     // if cur R overlaps cur point's closest R, it could be a
     // candidate
     if (_get_val(bitset + (blockIdx.x * bitset_size), cur_R_ind)) {
-
       value_idx R_start_offset = R_indptr[cur_R_ind];
       value_idx R_stop_offset = R_indptr[cur_R_ind + 1];
       value_idx R_size = R_stop_offset - R_start_offset;
@@ -193,13 +177,12 @@ __global__ void compute_final_dists_registers(
       // Round R_size to the nearest warp threads so they can
       // all be computing in parallel.
 
-      const int limit = faiss::gpu::utils::roundDown(R_size, faiss::gpu::kWarpSize);
+      const int limit =
+        faiss::gpu::utils::roundDown(R_size, faiss::gpu::kWarpSize);
 
       i = threadIdx.x;
       for (; i < limit; i += tpb) {
-
         value_idx cur_candidate_ind = R_1nn_inds[R_start_offset + i];
-
 
         value_t cur_candidate_dist = R_1nn_dists[R_start_offset + i];
         value_t z = heap.warpKTopRDist == 0.00
