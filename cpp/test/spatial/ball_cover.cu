@@ -209,7 +209,7 @@ class BallCoverKNNTest : public ::testing::Test {
     // make testdata on host
     std::vector<value_t> h_train_inputs =
       read_csv2("/share/workspace/reproducers/miguel_haversine_knn/OSM_KNN.csv",
-                2000000, 1, dim_mult);
+                3000000, 1, dim_mult);
 
 
     /**
@@ -245,9 +245,12 @@ class BallCoverKNNTest : public ::testing::Test {
     std::vector<float *> input_vec = {d_train_inputs.data()};
     std::vector<int> sizes_vec = {n};
 
-    thrust::transform(exec_policy, d_train_inputs.data(),
-                      d_train_inputs.data() + d_train_inputs.size(),
-                      d_train_inputs.data(), ToRadians());
+    /**
+     * FOr haversine, convert degrees to radians
+     */
+//    thrust::transform(exec_policy, d_train_inputs.data(),
+//                      d_train_inputs.data() + d_train_inputs.size(),
+//                      d_train_inputs.data(), ToRadians());
 
     cout << "Calling brute force knn " << endl;
 
@@ -263,12 +266,12 @@ class BallCoverKNNTest : public ::testing::Test {
     // Perform bfknn for comparison
     raft::spatial::knn::detail::brute_force_knn_impl(
       input_vec, sizes_vec,
-      d, d_train_inputs.data(), n,
+      d * dim_mult, d_train_inputs.data(), n,
       d_ref_I.data(), d_ref_D.data(), k,
       handle.get_device_allocator(),
       handle.get_stream(), int_streams, 0,
       true, true, translations,
-      raft::distance::DistanceType::L2Expanded);
+      raft::distance::DistanceType::L2Unexpanded);
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
     cout << "Done in: " << curTimeMillis() - bfknn_start << "ms." << endl;
@@ -293,13 +296,13 @@ class BallCoverKNNTest : public ::testing::Test {
     printf("Done.\n");
 
     //Diff in idx=326622, expected=326720, actual=326623
-    raft::print_device_vector("inds", d_pred_I.data() + (k), k * 4,
+    raft::print_device_vector("inds", d_pred_I.data(), k * 4,
                               std::cout);
-    raft::print_device_vector("dists", d_pred_D.data() + (k), k * 4,
+    raft::print_device_vector("dists", d_pred_D.data(), k * 4,
                               std::cout);
 //
-//    raft::print_device_vector("actual inds", d_ref_I.data() + (326718 * k), k, std::cout);
-//    raft::print_device_vector("actual dists", d_ref_D.data() + (326718 * k), k, std::cout);
+    raft::print_device_vector("actual inds", d_ref_I.data(), k*4, std::cout);
+    raft::print_device_vector("actual dists", d_ref_D.data(), k*4, std::cout);
 //
 
     /**

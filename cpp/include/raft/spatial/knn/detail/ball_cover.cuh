@@ -33,6 +33,7 @@
 #include <raft/matrix/matrix.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/sparse/convert/csr.cuh>
+#include <raft/sparse/distance/operators.cuh>
 
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
@@ -107,6 +108,8 @@ void random_ball_cover_all_neigh_knn(const raft::handle_t &handle,
   raft::matrix::copyRows<value_t, value_idx, size_t>(
     X, m, n, R.data(), R_1nn_cols2.data(), n_samples, handle.get_stream(),
     true);
+
+
 
   /**
    * 2. Perform knn = bfknn(X, R, k)
@@ -196,12 +199,14 @@ void random_ball_cover_all_neigh_knn(const raft::handle_t &handle,
         dists_counter.data(), R_radius.data(), dfunc, weight);
   } else if (n <= max_vals) {
 
+    printf("Calling smem rbc kernel\n");
     // Compute nearest k for each neighborhood in each closest R
     block_rbc_kernel_smem<value_idx, value_t, 32, 2, rbc_tpb, max_vals>
       <<<m, rbc_tpb, 0, handle.get_stream()>>>(
         X, n, R_knn_inds.data(), R_knn_dists.data(), m, k, R_indptr.data(),
         R_1nn_cols.data(), R_1nn_dists.data(), inds, dists, R_indices.data(),
-        dists_counter.data(), R_radius.data(), dfunc, weight);
+        dists_counter.data(), R_radius.data(), dfunc,
+        raft::sparse::distance::SqDiff(), raft::sparse::distance::Sum(), weight);
   }
 
   if (perform_post_filtering) {
@@ -227,17 +232,20 @@ void random_ball_cover_all_neigh_knn(const raft::handle_t &handle,
         post_dists_counter.data());
     } else if (n <= max_vals) {
 
+      printf("Calling smem post processing kernels\n");
       perform_post_filter<value_idx, value_t, int, 128>
       <<<m, 128, bitset_size * sizeof(uint32_t), handle.get_stream()>>>(
         X, n, R_knn_inds.data(), R_knn_dists.data(), R_radius.data(), R.data(),
-        n_samples, bitset_size, k, bitset.data(), weight);
+        n_samples, bitset_size, k, bitset.data(),
+        raft::sparse::distance::SqDiff(), raft::sparse::distance::Sum(), weight);
 
       // Compute any distances from the landmarks that remain in the bitset
       compute_final_dists_smem<value_idx, value_t, 32, 2, rbc_tpb, max_vals>
         <<<m, rbc_tpb, 0, handle.get_stream()>>>(
           X, n, bitset.data(), bitset_size, R_knn_dists.data(), R_indptr.data(),
-          R_1nn_cols.data(), R_1nn_dists.data(), inds, dists, n_samples, k,
-          dfunc, post_dists_counter.data());
+          R_1nn_cols.data(), R_1nn_dists.data(), inds, dists, n_samples, k, dfunc,
+          raft::sparse::distance::SqDiff(), raft::sparse::distance::Sum(),
+          post_dists_counter.data());
     }
 
     printf("Done.\n");
@@ -245,8 +253,7 @@ void random_ball_cover_all_neigh_knn(const raft::handle_t &handle,
     //    printf("total post_dists: %d\n", additional_dists);
   }
 
-//  raft::print_device_vector("R_knn 326719", R_knn_inds_ptr + (326719 * k), k, std::cout);
-//  raft::print_device_vector("R_knn 326718", R_knn_inds_ptr + (326718 * k), k, std::cout);
+  raft::print_device_vector("R_knn", R_knn_inds_ptr, k * 10, std::cout);
 
 }
 

@@ -62,7 +62,8 @@ static constexpr float warp_reciprocal = 1.0 / faiss::gpu::kWarpSize;
  * @param cur_candidate_ind
  */
 template <typename value_idx, typename value_t, bool Dir, typename Comp,
-          int numwarpq, int numthreadq, int tpb>
+          int numwarpq, int numthreadq, int tpb,
+          typename reduce_func, typename accum_func>
 __device__ void compute_dist_full_warp(
   faiss::gpu::KeyValueBlockSelect<value_t, int, Dir, Comp, numwarpq,
                                   numthreadq, tpb> &heap,
@@ -72,29 +73,30 @@ __device__ void compute_dist_full_warp(
   const value_t *__restrict__ X,
   value_t z,
   value_t cur_candidate_dist,
-  value_idx cur_candidate_ind) {
+  value_idx cur_candidate_ind,
+  reduce_func redfunc, accum_func accfunc) {
 
   unsigned int mask = __ballot_sync(
-    0xffffffff, (z <= heap.warpKTop) && cur_candidate_ind > -1);
+    0xffffffff, z <= heap.warpKTop && cur_candidate_ind > -1);
 
   while (__popc(mask) > 0) {
-    const unsigned int lowest_peer = __ffs(mask)-1;
+    const unsigned int lowest_peer = __ffs(mask) - 1;
     const value_idx idx = __shfl_sync(0xffffffff, cur_candidate_ind, lowest_peer);
 
     value_t sq_diff = 0;
     for (int j = lane_id; j < n_cols; j += 32) {
-      const value_t d = X[n_cols * idx + j] - x_ptr[j];
-      sq_diff += d * d;
+      const value_t d = redfunc(X[n_cols * idx + j], x_ptr[j]);//X[n_cols * idx + j] - x_ptr[j];
+      sq_diff = accfunc(sq_diff, d);
     }
 
     for (int offset = 16; offset > 0; offset /= 2)
-      sq_diff += __shfl_down_sync(0xffffffff, sq_diff, offset);
+      sq_diff = accfunc(sq_diff, __shfl_down_sync(0xffffffff, sq_diff, offset));
 
     sq_diff = __shfl_sync(0xffffffff, sq_diff, 0);
 
     mask = mask ^ (1 << lowest_peer);
-    if (lowest_peer == lane_id) heap.addThreadQ(
-      sq_diff, cur_candidate_dist, (int)cur_candidate_ind);
+    if (lowest_peer == lane_id)
+      heap.addThreadQ(sq_diff, cur_candidate_dist, (int)cur_candidate_ind);
   }
 }
 
@@ -132,7 +134,8 @@ __device__ void compute_dist_full_warp(
  * @param R_size
  */
 template <typename value_idx, typename value_t, bool Dir, typename Comp,
-          int numwarpq, int numthreadq, int tpb>
+          int numwarpq, int numthreadq, int tpb,
+          typename reduce_func, typename accum_func>
 __device__ void compute_dist_block(
   faiss::gpu::KeyValueBlockSelect<value_t, int, Dir, Comp, numwarpq,
                                   numthreadq, tpb> &heap,
@@ -145,7 +148,8 @@ __device__ void compute_dist_block(
   const value_t *__restrict__ X,
   const value_idx *__restrict__ R_1nn_cols,
   const value_t *__restrict__ R_1nn_dists,
-  value_idx R_start_offset, value_idx R_size) {
+  value_idx R_start_offset, value_idx R_size,
+  reduce_func redfunc, accum_func accfunc) {
 
   const value_idx limit = faiss::gpu::utils::roundDown(R_size, faiss::gpu::kWarpSize);
 
@@ -170,18 +174,19 @@ __device__ void compute_dist_block(
                      heap.warpKTop * cur_candidate_dist) /
                       heap.warpKTopRDist;
     z = isnan(z) ? 0.0 : z;
+
     compute_dist_full_warp<value_idx, value_t, false,
                            faiss::gpu::Comparator<value_t>,
                            numwarpq, numthreadq, tpb> (
       heap, lane_id, n_cols, local_x_ptr, X, z,
-      cur_candidate_dist, cur_candidate_ind);
+      cur_candidate_dist, cur_candidate_ind, redfunc, accfunc);
 
     heap.checkThreadQ();
   }
 
   // R_size - `i` should have <=32 elements left to process.
   // e.g. all threads in last warp will need to process it.
-  if (warp_id == (R_size % tpb) / kNumWarps) {
+  if (warp_id == (R_size / faiss::gpu::kWarpSize) % kNumWarps) {
     const value_idx cur_candidate_ind =
       i < R_size ? R_1nn_cols[R_start_offset + i] : -1;
     const value_t cur_candidate_dist = i < R_size
@@ -195,13 +200,13 @@ __device__ void compute_dist_block(
                      heap.warpKTop * cur_candidate_dist) /
                       heap.warpKTopRDist;
 
-    z = isnan(z) ? 0.0 : z;
 
+    z = isnan(z) ? 0.0 : z;
     compute_dist_full_warp<value_idx, value_t, false,
                            faiss::gpu::Comparator<value_t>,
                            numwarpq, numthreadq, tpb>(
       heap, lane_id, n_cols, local_x_ptr, X, z, cur_candidate_dist,
-      cur_candidate_ind);
+      cur_candidate_ind, redfunc, accfunc);
   }
   heap.checkThreadQ();
 }
@@ -209,7 +214,7 @@ __device__ void compute_dist_block(
 template <typename value_idx, typename value_t, int warp_q = 32,
           int thread_q = 2, int tpb = 128, int col_q = 1024,
           typename value_int = int, typename bitset_type = uint32_t,
-          typename dist_func>
+          typename dist_func, typename reduce_func, typename accum_func>
 __global__ void compute_final_dists_smem(
   const value_t *__restrict__ X,
   const value_int n_cols,
@@ -223,6 +228,8 @@ __global__ void compute_final_dists_smem(
   value_t *knn_dists,
   int n_landmarks, const int k,
   dist_func dfunc,
+  reduce_func redfunc,
+  accum_func accfunc,
   value_int *dist_counter) {
 
   static constexpr int kNumWarps = tpb / faiss::gpu::kWarpSize;
@@ -230,13 +237,13 @@ __global__ void compute_final_dists_smem(
   __shared__ value_t smemK[kNumWarps * warp_q];
   __shared__ faiss::gpu::KeyValuePair<value_t, int>
     smemV[kNumWarps * warp_q];
-  __shared__ value_t local_x_ptr[col_q];
+  __shared__ value_t shared_x_ptr[col_q];
 
   const int warp_id = threadIdx.x * warp_reciprocal;
   const int lane_id = threadIdx.x % 32;
 
   for (int j = threadIdx.x; j < n_cols; j+=tpb)
-    local_x_ptr[j] = X[n_cols * blockIdx.x + j];
+    shared_x_ptr[j] = X[n_cols * blockIdx.x + j];
   __syncthreads();
 
   faiss::gpu::KeyValueBlockSelect<value_t, int, false,
@@ -271,8 +278,8 @@ __global__ void compute_final_dists_smem(
       compute_dist_block<value_idx, value_t, false,
                                             faiss::gpu::Comparator<value_t>,
                                             warp_q, thread_q, tpb>(
-        heap, warp_id, lane_id, kNumWarps, n_cols, k, local_x_ptr, X,
-        R_1nn_inds, R_1nn_dists, R_start_offset, R_size);
+        heap, warp_id, lane_id, kNumWarps, n_cols, k, shared_x_ptr, X,
+        R_1nn_inds, R_1nn_dists, R_start_offset, R_size, redfunc, accfunc);
     }
   }
 
@@ -306,7 +313,7 @@ __global__ void compute_final_dists_smem(
  * @param weight
  */
 template <typename value_idx, typename value_t, typename value_int = int,
-          int tpb = 32>
+          int tpb = 32, typename reduce_func, typename accum_func>
 __global__ void perform_post_filter(const value_t *X, value_int n_cols,
                                     const value_idx *R_knn_inds,
                                     const value_t *R_knn_dists,
@@ -316,6 +323,8 @@ __global__ void perform_post_filter(const value_t *X, value_int n_cols,
                                     int bitset_size,
                                     int k,
                                     uint32_t *output,
+                                    reduce_func redfunc,
+                                    accum_func accfunc,
                                     float weight = 1.0) {
 
   static constexpr int kNumWarps = tpb / faiss::gpu::kWarpSize;
@@ -355,12 +364,12 @@ __global__ void perform_post_filter(const value_t *X, value_int n_cols,
       // Euclidean
       value_t p_q_r = 0;
       for (int i = lane_id; i < n_cols; i += 32) {
-        value_t d = y_ptr[i] - X[blockIdx.x * n_cols + i];
-        p_q_r += d * d;
+        value_t d = redfunc(y_ptr[i], X[blockIdx.x * n_cols + i]);
+        p_q_r = accfunc(p_q_r, d);
       }
 
       for (int offset = 16; offset > 0; offset /= 2)
-        p_q_r += __shfl_down_sync(0xffffffff, p_q_r, offset);
+        p_q_r = accfunc(p_q_r, __shfl_down_sync(0xffffffff, p_q_r, offset));
 
       const bool in_bound = (p_q_r > weight * (closest_R_dist + R_radius[l]) ||
                        p_q_r > 3 * closest_R_dist);
@@ -422,7 +431,8 @@ __global__ void perform_post_filter(const value_t *X, value_int n_cols,
  */
 template <typename value_idx = int64_t, typename value_t, int warp_q = 32,
           int thread_q = 2, int tpb = 128, int col_q = 1024,
-          typename value_int = int, typename distance_func>
+          typename value_int = int, typename distance_func,
+          typename reduce_func, typename accum_func>
 __global__  void block_rbc_kernel_smem(
   const value_t *__restrict__ X,
   const value_int n_cols,  // n_cols should be 2 or 3 dims
@@ -438,6 +448,8 @@ __global__  void block_rbc_kernel_smem(
   int *dist_counter,
   value_t *R_radius,
   distance_func dfunc,
+  reduce_func redfunc,
+  accum_func accfunc,
   float weight = 1.0) {
 
   static constexpr int kNumWarps = tpb / faiss::gpu::kWarpSize;
@@ -447,18 +459,13 @@ __global__  void block_rbc_kernel_smem(
   __shared__ faiss::gpu::KeyValuePair<value_t, int>
     smemV[kNumWarps * warp_q];
   __shared__ value_t
-    local_x_ptr[col_q];  // TODO: cols_q should be power of 2 up to some max val
+    shared_x_ptr[col_q];  // TODO: cols_q should be power of 2 up to some max val
 
   const int warp_id = threadIdx.x * warp_reciprocal;
   const int lane_id = threadIdx.x % faiss::gpu::kWarpSize;
 
-  // TODO: Separate kernels for different widths:
-  // 1. Very small (between 3 and 32) just use registers for columns of "blockIdx.x"
-  // 2. Can fit comfortably in shared memory (32 to a few thousand?)
-  // 3. Load each time individually.
-  // populate smem for x in parallel
   for (int i = threadIdx.x; i < n_cols; i+=tpb )
-    local_x_ptr[i] = X[n_cols * blockIdx.x + i];
+    shared_x_ptr[i] = X[blockIdx.x * n_cols + i];
 
   __syncthreads();
 
@@ -469,6 +476,7 @@ __global__  void block_rbc_kernel_smem(
          faiss::gpu::Limits<value_t>::getMax(), -1, smemK, smemV, k);
 
   const value_t min_R_dist = R_knn_dists[blockIdx.x * k];
+
 
   /**
    * First add distances for k closest neighbors of R
@@ -481,6 +489,7 @@ __global__  void block_rbc_kernel_smem(
     const value_t cur_R_dist = R_knn_dists[blockIdx.x * k + cur_k];
     const value_idx cur_R_ind = R_knn_inds[blockIdx.x * k + cur_k];
 
+
     // Equation (2) in Cayton's paper- prune out R's which are > 3 * p(q, r_q)
     if (cur_R_dist > weight * (min_R_dist + R_radius[cur_R_ind])) continue;
     if (cur_R_dist > 3 * min_R_dist) continue;
@@ -492,8 +501,8 @@ __global__  void block_rbc_kernel_smem(
     compute_dist_block<value_idx, value_t, false,
                        faiss::gpu::Comparator<value_t>,
                        warp_q, thread_q, tpb>(
-      heap, warp_id, lane_id, kNumWarps, n_cols, k, local_x_ptr, X,
-      R_1nn_cols, R_1nn_dists, R_start_offset, R_size);
+      heap, warp_id, lane_id, kNumWarps, n_cols, k, shared_x_ptr, X,
+      R_1nn_cols, R_1nn_dists, R_start_offset, R_size, redfunc, accfunc);
   }
 
   heap.reduce();
@@ -503,6 +512,8 @@ __global__  void block_rbc_kernel_smem(
     out_inds[blockIdx.x * k + i] = smemV[i].value;
   }
 }
+
+// TODO: Need to create wrapper functions to invoke block_rbc, post_filter_bitset, compute_final_dists
 
 };  // namespace detail
 };  // namespace knn
