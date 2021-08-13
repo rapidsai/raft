@@ -203,19 +203,11 @@ void random_ball_cover_all_neigh_knn(const raft::handle_t &handle,
         R_1nn_cols.data(), R_1nn_dists.data(), inds, dists, R_indices.data(),
         dists_counter.data(), R_radius.data(), dfunc, weight);
   }
-  //
 
-  //  raft::print_device_vector("dists", dists_counter.data(), 500, std::cout);
-  //
   if (perform_post_filtering) {
     int bitset_size = ceil(n_samples / 32.0);
 
     rmm::device_uvector<uint32_t> bitset(bitset_size * m, handle.get_stream());
-
-    printf("performing post filter\n");
-
-    //
-    printf("computing final dists\n");
 
     rmm::device_uvector<int> post_dists_counter(m, handle.get_stream());
     thrust::fill(exec_policy, post_dists_counter.data(),
@@ -240,8 +232,6 @@ void random_ball_cover_all_neigh_knn(const raft::handle_t &handle,
         X, n, R_knn_inds.data(), R_knn_dists.data(), R_radius.data(), R.data(),
         n_samples, bitset_size, k, bitset.data(), weight);
 
-      CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
-
       // Compute any distances from the landmarks that remain in the bitset
       compute_final_dists_smem<value_idx, value_t, 32, 2, rbc_tpb, max_vals>
         <<<m, rbc_tpb, 0, handle.get_stream()>>>(
@@ -255,8 +245,8 @@ void random_ball_cover_all_neigh_knn(const raft::handle_t &handle,
     //    printf("total post_dists: %d\n", additional_dists);
   }
 
-  raft::print_device_vector("R_knn 326719", R_knn_inds_ptr + (326719 * k), k, std::cout);
-  raft::print_device_vector("R_knn 326718", R_knn_inds_ptr + (326718 * k), k, std::cout);
+//  raft::print_device_vector("R_knn 326719", R_knn_inds_ptr + (326719 * k), k, std::cout);
+//  raft::print_device_vector("R_knn 326718", R_knn_inds_ptr + (326718 * k), k, std::cout);
 
 }
 

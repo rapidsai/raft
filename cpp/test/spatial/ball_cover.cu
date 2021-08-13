@@ -138,9 +138,9 @@ __global__ void count_discrepancies_kernel(value_idx *actual_idx,
       value_t d = actual[row * n + i] - expected[row * n + i];
       bool matches = fabsf(d) <= thres;
       n_diffs += !matches;
-            if(!matches)
-              printf("Diff in idx=%d, expected=%ld, actual=%ld, dist1=%f, dist2=%f\n",
-                     row, expected_idx[row*n+i], actual_idx[row*n+i], expected[row*n+i], actual[row*n+1]);
+//            if(!matches)
+//              printf("Diff in idx=%d, expected=%ld, actual=%ld, dist1=%f, dist2=%f\n",
+//                     row, expected_idx[row*n+i], actual_idx[row*n+i], expected[row*n+i], actual[row*n+1]);
       out[row] = n_diffs;
     }
   }
@@ -204,17 +204,27 @@ class BallCoverKNNTest : public ::testing::Test {
 
     cout << "Reading CSV" << endl;
 
-    int dim_mult = 1;
+    int dim_mult = 150;
 
     // make testdata on host
     std::vector<value_t> h_train_inputs =
       read_csv2("/share/workspace/reproducers/miguel_haversine_knn/OSM_KNN.csv",
                 2000000, 1, dim_mult);
+
+
+    /**
+     * Load reference data from CSV files
+     */
 //
 //        std::vector<value_t> h_bfknn_dists = read_csv2("/share/workspace/brute_force_dists.csv",
 //                                                       2000000, 0);
 //        std::vector<value_idx> h_bfknn_inds = read_csv2_i("/share/workspace/brute_force_inds.csv",
 //                                                          2000000, 0);
+
+    ////
+//        raft::copy(d_ref_I.data(), h_bfknn_inds.data(), n * k, handle.get_stream());
+//        raft::copy(d_ref_D.data(), h_bfknn_dists.data(), n * k, handle.get_stream());
+
 
     cout << "Done" << endl;
 
@@ -222,17 +232,15 @@ class BallCoverKNNTest : public ::testing::Test {
 
     cout << "n_inputs " << n << endl;
 
+
     // Allocate input
     rmm::device_uvector<value_t> d_train_inputs(n * (d * dim_mult),
                                                 handle.get_stream());
     raft::update_device(d_train_inputs.data(), h_train_inputs.data(),
                         n * (d * dim_mult), handle.get_stream());
 
-        rmm::device_uvector<value_idx> d_ref_I(n * k, handle.get_stream());
-        rmm::device_uvector<value_t>   d_ref_D(n * k, handle.get_stream());
-////
-//        raft::copy(d_ref_I.data(), h_bfknn_inds.data(), n * k, handle.get_stream());
-//        raft::copy(d_ref_D.data(), h_bfknn_dists.data(), n * k, handle.get_stream());
+    rmm::device_uvector<value_idx> d_ref_I(n * k, handle.get_stream());
+    rmm::device_uvector<value_t>   d_ref_D(n * k, handle.get_stream());
 
     std::vector<float *> input_vec = {d_train_inputs.data()};
     std::vector<int> sizes_vec = {n};
@@ -243,21 +251,27 @@ class BallCoverKNNTest : public ::testing::Test {
 
     cout << "Calling brute force knn " << endl;
 
-        cudaStream_t *int_streams = nullptr;
-        std::vector<int64_t> *translations = nullptr;
-        auto bfknn_start = curTimeMillis();
-        // Perform bfknn for comparison
-        raft::spatial::knn::detail::brute_force_knn_impl(
-          input_vec, sizes_vec,
-          d, d_train_inputs.data(), n,
-          d_ref_I.data(), d_ref_D.data(), k,
-          handle.get_device_allocator(),
-          handle.get_stream(), int_streams, 0,
-          true, true, translations,
-          raft::distance::DistanceType::Haversine);
 
-        CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
-        cout << "Done in: " << curTimeMillis() - bfknn_start << "ms." << endl;
+    /**
+     * Or execute brute-force knn
+     */
+
+    cudaStream_t *int_streams = nullptr;
+    std::vector<int64_t> *translations = nullptr;
+    auto bfknn_start = curTimeMillis();
+
+    // Perform bfknn for comparison
+    raft::spatial::knn::detail::brute_force_knn_impl(
+      input_vec, sizes_vec,
+      d, d_train_inputs.data(), n,
+      d_ref_I.data(), d_ref_D.data(), k,
+      handle.get_device_allocator(),
+      handle.get_stream(), int_streams, 0,
+      true, true, translations,
+      raft::distance::DistanceType::L2Expanded);
+
+    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+    cout << "Done in: " << curTimeMillis() - bfknn_start << "ms." << endl;
 
     // Allocate predicted arrays
     rmm::device_uvector<value_idx> d_pred_I(n * k, handle.get_stream());
@@ -269,7 +283,7 @@ class BallCoverKNNTest : public ::testing::Test {
     float weight = 1.0;
     raft::spatial::knn::detail::random_ball_cover_all_neigh_knn(
       handle, d_train_inputs.data(), n, d * dim_mult, k, d_pred_I.data(),
-      d_pred_D.data(), HaversineFunc(), raft::distance::DistanceType::Haversine,
+      d_pred_D.data(), EuclideanFunc(), raft::distance::DistanceType::L2Expanded,
       -1, true, weight);
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
@@ -279,14 +293,18 @@ class BallCoverKNNTest : public ::testing::Test {
     printf("Done.\n");
 
     //Diff in idx=326622, expected=326720, actual=326623
-    raft::print_device_vector("inds", d_pred_I.data() + (326718 * k), k,
+    raft::print_device_vector("inds", d_pred_I.data() + (k), k * 4,
                               std::cout);
-    raft::print_device_vector("dists", d_pred_D.data() + (326718 * k), k,
+    raft::print_device_vector("dists", d_pred_D.data() + (k), k * 4,
                               std::cout);
+//
+//    raft::print_device_vector("actual inds", d_ref_I.data() + (326718 * k), k, std::cout);
+//    raft::print_device_vector("actual dists", d_ref_D.data() + (326718 * k), k, std::cout);
+//
 
-    raft::print_device_vector("actual inds", d_ref_I.data() + (326718 * k), k, std::cout);
-    raft::print_device_vector("actual dists", d_ref_D.data() + (326718 * k), k, std::cout);
-
+    /**
+     * Write brute-force results to CSV files
+     */
 //    std::vector<value_t> host_D(d_ref_D.size());
 //    std::vector<value_idx> host_I(d_ref_I.size());
 //
@@ -300,6 +318,10 @@ class BallCoverKNNTest : public ::testing::Test {
     // indices may or may not match exactly, depending upon the ordering which
     // can be nondeterministic.
 
+    /**
+     * Evaluate discrepancies for debugging
+     */
+
         rmm::device_uvector<int> discrepancies(n, handle.get_stream());
         thrust::fill(exec_policy, discrepancies.data(), discrepancies.data()+discrepancies.size(), 0);
 
@@ -312,6 +334,9 @@ class BallCoverKNNTest : public ::testing::Test {
         raft::print_device_vector("discrepancies", discrepancies.data(), 16, std::cout);
         ASSERT_TRUE(res == 0);
 
+        /**
+         * Final Assertion
+         */
         ASSERT_TRUE(raft::devArrMatch(d_ref_D.data(), d_pred_D.data(), n * k,
                                       raft::CompareApprox<float>(1e-7)));
 //        ASSERT_TRUE(

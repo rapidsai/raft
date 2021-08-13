@@ -233,7 +233,7 @@ __global__ void compute_final_dists_smem(
   __shared__ value_t local_x_ptr[col_q];
 
   const int warp_id = threadIdx.x * warp_reciprocal;
-  const int lane_id = warp_id - warp_id * 32;
+  const int lane_id = threadIdx.x % 32;
 
   for (int j = threadIdx.x; j < n_cols; j+=tpb)
     local_x_ptr[j] = X[n_cols * blockIdx.x + j];
