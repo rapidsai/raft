@@ -60,9 +60,14 @@ namespace detail {
 template <typename value_idx = int64_t, typename value_t,
           typename value_int = int, typename distance_func>
 void random_ball_cover_all_neigh_knn(const raft::handle_t &handle,
-                                     const value_t *X, value_int m, value_int n,
-                                     int k, value_idx *inds, value_t *dists,
+                                     const value_t *X,
+                                     value_int m,
+                                     value_int n,
+                                     int k,
+                                     value_idx *inds,
+                                     value_t *dists,
                                      distance_func dfunc,
+                                     raft::distance::DistanceType metric,
                                      value_int n_samples = -1,
                                      bool perform_post_filtering = true,
                                      float weight = 1.0) {
@@ -112,8 +117,7 @@ void random_ball_cover_all_neigh_knn(const raft::handle_t &handle,
   brute_force_knn_impl<int, int64_t>(
     input, sizes, n, const_cast<value_t *>(X), m, R_knn_inds.data(),
     R_knn_dists.data(), k, handle.get_device_allocator(), handle.get_stream(),
-    nullptr, 0, (bool)true, (bool)true, nullptr,
-    raft::distance::DistanceType::L2Expanded);
+    nullptr, 0, (bool)true, (bool)true, nullptr, metric);
 
   /**
    * 3. Create L_r = knn[:,0].T (CSR)
@@ -121,7 +125,6 @@ void random_ball_cover_all_neigh_knn(const raft::handle_t &handle,
    * Slice closest neighboring R
    * Secondary sort by (R_knn_inds, R_knn_dists)
    */
-
   rmm::device_uvector<value_idx> R_1nn_inds(m, handle.get_stream());
   rmm::device_uvector<value_t> R_1nn_dists(m, handle.get_stream());
 
@@ -181,8 +184,10 @@ void random_ball_cover_all_neigh_knn(const raft::handle_t &handle,
 
   constexpr int rbc_tpb = 64;
 
+  // TODO: This will be a power of 2 cutoff for the number of dimensions
+  // that will in smem in different buckets
   constexpr int max_vals = 328;
-  if (n <= 3) {
+  if (n <= 2) {
     // Compute nearest k for each neighborhood in each closest R
     block_rbc_kernel_registers<value_idx, value_t, 32, 2, 128, 2>
       <<<m, 128, 0, handle.get_stream()>>>(
@@ -190,9 +195,6 @@ void random_ball_cover_all_neigh_knn(const raft::handle_t &handle,
         R_1nn_cols.data(), R_1nn_dists.data(), inds, dists, R_indices.data(),
         dists_counter.data(), R_radius.data(), dfunc, weight);
   } else if (n <= max_vals) {
-//    CUDA_CHECK(cudaFuncSetCacheConfig(
-//      block_rbc_kernel_smem<value_idx, value_t, 32, 2, 128, max_vals>,
-//      cudaFuncCachePreferShared));
 
     // Compute nearest k for each neighborhood in each closest R
     block_rbc_kernel_smem<value_idx, value_t, 32, 2, rbc_tpb, max_vals>
@@ -203,7 +205,6 @@ void random_ball_cover_all_neigh_knn(const raft::handle_t &handle,
   }
   //
 
-    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
   //  raft::print_device_vector("dists", dists_counter.data(), 500, std::cout);
   //
   if (perform_post_filtering) {
@@ -213,12 +214,6 @@ void random_ball_cover_all_neigh_knn(const raft::handle_t &handle,
 
     printf("performing post filter\n");
 
-    perform_post_filter<value_idx, value_t, int, 128>
-      <<<m, 128, bitset_size * sizeof(uint32_t), handle.get_stream()>>>(
-        X, n, R_knn_inds.data(), R_knn_dists.data(), R_radius.data(), R.data(),
-        n_samples, bitset_size, k, bitset.data(), weight);
-
-        CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
     //
     printf("computing final dists\n");
 
@@ -226,7 +221,13 @@ void random_ball_cover_all_neigh_knn(const raft::handle_t &handle,
     thrust::fill(exec_policy, post_dists_counter.data(),
                  post_dists_counter.data() + m, 0);
 
-    if (n <= 3) {
+    if (n <= 2) {
+
+      perform_post_filter_registers<value_idx, value_t, int, 128>
+      <<<m, 128, bitset_size * sizeof(uint32_t), handle.get_stream()>>>(
+        X, n, R_knn_inds.data(), R_knn_dists.data(), R_radius.data(), R.data(),
+        n_samples, bitset_size, k, dfunc, bitset.data(), weight);
+
       // Compute any distances from the landmarks that remain in the bitset
       compute_final_dists_registers<<<m, 128, 0, handle.get_stream()>>>(
         X, n, bitset.data(), bitset_size, R_knn_dists.data(), R_indptr.data(),
@@ -234,9 +235,12 @@ void random_ball_cover_all_neigh_knn(const raft::handle_t &handle,
         post_dists_counter.data());
     } else if (n <= max_vals) {
 
-//      CUDA_CHECK(cudaFuncSetCacheConfig(
-//        compute_final_dists_smem<value_idx, value_t, 32, 2, 128, max_vals>,
-//        cudaFuncCachePreferShared));
+      perform_post_filter<value_idx, value_t, int, 128>
+      <<<m, 128, bitset_size * sizeof(uint32_t), handle.get_stream()>>>(
+        X, n, R_knn_inds.data(), R_knn_dists.data(), R_radius.data(), R.data(),
+        n_samples, bitset_size, k, bitset.data(), weight);
+
+      CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
       // Compute any distances from the landmarks that remain in the bitset
       compute_final_dists_smem<value_idx, value_t, 32, 2, rbc_tpb, max_vals>
@@ -245,14 +249,15 @@ void random_ball_cover_all_neigh_knn(const raft::handle_t &handle,
           R_1nn_cols.data(), R_1nn_dists.data(), inds, dists, n_samples, k,
           dfunc, post_dists_counter.data());
     }
-    //
-        CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
-    //    raft::print_device_vector("dists", post_dists_counter.data(), 500, std::cout);
 
     printf("Done.\n");
     //
     //    printf("total post_dists: %d\n", additional_dists);
   }
+
+  raft::print_device_vector("R_knn 326719", R_knn_inds_ptr + (326719 * k), k, std::cout);
+  raft::print_device_vector("R_knn 326718", R_knn_inds_ptr + (326718 * k), k, std::cout);
+
 }
 
 };  // namespace detail

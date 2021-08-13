@@ -320,6 +320,7 @@ __global__ void perform_post_filter(const value_t *X, value_int n_cols,
 
   static constexpr int kNumWarps = tpb / faiss::gpu::kWarpSize;
 
+  const int warp_id = threadIdx.x * warp_reciprocal;
   const int lane_id = threadIdx.x % 32;
 
   // allocate array of size n_landmarks / 32 ints
@@ -333,7 +334,7 @@ __global__ void perform_post_filter(const value_t *X, value_int n_cols,
   value_t closest_R_dist = R_knn_dists[blockIdx.x * k];
 
   // zero out bits for closest k landmarks
-  for (int j = threadIdx.x; j < k; j += blockDim.x) {
+  for (int j = threadIdx.x; j < k; j += tpb) {
     _zero_bit(smem, (uint32_t)R_knn_inds[blockIdx.x * k + j]);
   }
 
@@ -343,7 +344,7 @@ __global__ void perform_post_filter(const value_t *X, value_int n_cols,
   // That is, the distance between the current point and the current
   // landmark is > the distance between the current point and
   // its closest landmark + the radius of the current landmark.
-  for (int l = threadIdx.x / 32; l < n_landmarks; l += kNumWarps) {
+  for (int l = warp_id; l < n_landmarks; l += kNumWarps) {
     // compute p(q, r)
     const value_t *y_ptr = landmarks + (n_cols * l);
 
