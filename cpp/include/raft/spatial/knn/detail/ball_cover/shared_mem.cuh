@@ -167,6 +167,8 @@ __device__ void compute_dist_block(
       * cannot possibly be in the nearest neighbors. However, if d(s, t) < d(s, l_1) then we should compute the
       * distance because it's possible it could be smaller.
       **/
+
+    // TODO: Pull this out into a function triangle_inequality()
     value_t z = heap.warpKTopRDist == 0.00
                   ? 0.0
                   : (abs(heap.warpKTop - heap.warpKTopRDist) *

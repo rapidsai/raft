@@ -130,38 +130,6 @@ inline void brute_force_knn(
                                handle.get_num_internal_streams(), rowMajorIndex,
                                rowMajorQuery, translations, metric, metric_arg);
 }
-
-/**
- * Performs a faster exact knn in metric spaces using the triangle
- * inequality with a number of landmark points to reduce the
- * number of distance computations from O(n^2) to O(sqrt(n))
- * @tparam value_idx
- * @tparam value_t
- * @tparam value_int
- * @param handle
- * @param X
- * @param m
- * @param n
- * @param k
- * @param inds
- * @param dists
- * @param n_samples
- */
-template <typename value_idx = int64_t, typename value_t,
-          typename value_int = int, typename dist_func>
-inline void random_ball_cover_all_neigh_knn(const raft::handle_t &handle,
-                                            const value_t *X, value_int m,
-                                            value_int n, int k, value_idx *inds,
-                                            value_t *dists, dist_func dfunc,
-                                            raft::distance::DistanceType metric,
-                                            value_int n_samples = -1,
-                                            bool perform_post_filtering = true,
-                                            float weight = 1.0) {
-  detail::random_ball_cover_all_neigh_knn(handle, X, m, n, k, inds, dists,
-                                          dfunc, metric, n_samples,
-                                          perform_post_filtering, weight);
-}
-
 }  // namespace knn
 }  // namespace spatial
 }  // namespace raft

@@ -283,11 +283,13 @@ class BallCoverKNNTest : public ::testing::Test {
     cout << "Calling ball cover" << endl;
     auto rbc_start = curTimeMillis();
 
+    BallCoverIndex<value_idx, value_t> index(handle, d_train_inputs.data(),
+    n, d * dim_mult,  raft::distance::DistanceType::L2Expanded);
+
     float weight = 1.0;
-    raft::spatial::knn::detail::random_ball_cover_all_neigh_knn(
-      handle, d_train_inputs.data(), n, d * dim_mult, k, d_pred_I.data(),
-      d_pred_D.data(), EuclideanFunc(), raft::distance::DistanceType::L2Expanded,
-      -1, true, weight);
+    raft::spatial::knn::detail::rbc_all_knn_query(
+      handle, index, k, d_pred_I.data(), d_pred_D.data(), EuclideanFunc(),
+      true, weight);
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
