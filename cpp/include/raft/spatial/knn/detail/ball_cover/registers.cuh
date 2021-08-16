@@ -268,7 +268,7 @@ __global__ void block_rbc_kernel_registers(
   const value_idx *R_knn_inds, const value_t *R_knn_dists, value_int m, int k,
   const value_idx *R_indptr, const value_idx *R_1nn_cols,
   const value_t *R_1nn_dists, value_idx *out_inds, value_t *out_dists,
-  value_idx *sampled_inds_map, int *dist_counter, value_t *R_radius,
+  int *dist_counter, value_t *R_radius,
   distance_func dfunc, float weight = 1.0) {
   static constexpr int kNumWarps = tpb / faiss::gpu::kWarpSize;
 

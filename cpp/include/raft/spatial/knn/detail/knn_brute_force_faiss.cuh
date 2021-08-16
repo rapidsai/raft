@@ -195,13 +195,19 @@ inline void knn_merge_parts(value_t *inK, value_idx *inV, value_t *outK,
  * @param[in] metricArg metric argument to use. Corresponds to the p arg for lp norm
  */
 template <typename IntType = int, typename IdxType = int64_t>
-void brute_force_knn_impl(std::vector<float *> &input, std::vector<int> &sizes,
-                          IntType D, float *search_items, IntType n,
-                          IdxType *res_I, float *res_D, IntType k,
+void brute_force_knn_impl(std::vector<float *> &input,
+                          std::vector<int> &sizes,
+                          IntType D,
+                          float *search_items,
+                          IntType n,
+                          IdxType *res_I,
+                          float *res_D,
+                          IntType k,
                           std::shared_ptr<deviceAllocator> allocator,
                           cudaStream_t userStream,
                           cudaStream_t *internalStreams = nullptr,
-                          int n_int_streams = 0, bool rowMajorIndex = true,
+                          int n_int_streams = 0,
+                          bool rowMajorIndex = true,
                           bool rowMajorQuery = true,
                           std::vector<IdxType> *translations = nullptr,
                           raft::distance::DistanceType metric =

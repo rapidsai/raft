@@ -412,7 +412,7 @@ __global__ void block_rbc_kernel_smem(
   const value_idx *__restrict__ R_indptr,
   const value_idx *__restrict__ R_1nn_cols,
   const value_t *__restrict__ R_1nn_dists, value_idx *out_inds,
-  value_t *out_dists, value_idx *sampled_inds_map, int *dist_counter,
+  value_t *out_dists, int *dist_counter,
   value_t *R_radius, distance_func dfunc, reduce_func redfunc,
   accum_func accfunc, float weight = 1.0) {
   static constexpr int kNumWarps = tpb / faiss::gpu::kWarpSize;

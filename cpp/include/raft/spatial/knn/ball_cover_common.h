@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <raft/linalg/distance_type.h>
 #include <rmm/device_uvector.hpp>
 
 namespace raft {
@@ -26,8 +27,7 @@ template <typename value_idx, typename value_t, typename value_int = int>
 struct BallCoverIndex {
  public:
   BallCoverIndex(const raft::handle_t &handle_, const value_t *X_, value_int m_,
-                 value_int n_, raft::distance::DistanceType metric_,
-                 int n_landmarks_ = -1)
+                 value_int n_, raft::distance::DistanceType metric_)
     : handle(handle_),
       X(X_),
       m(m_),
@@ -38,12 +38,12 @@ struct BallCoverIndex {
       *
       * Total memory footprint of index: (2 * sqrt(m)) + (n * sqrt(m)) + (2 * m)
       */
-      n_landmarks(n_landmarks < 1 ? int(sqrt(m_)) : n_landmarks),
-      R_indptr(n_landmarks, handle.get_stream()),
+      n_landmarks(sqrt(m_)),
+      R_indptr(sqrt(m_), handle.get_stream()),
       R_1nn_cols(m_, handle.get_stream()),
       R_1nn_dists(m_, handle.get_stream()),
       R(n_landmarks * n_, handle.get_stream()),
-      R_radius(n_landmarks, handle.get_stream()),
+      R_radius(sqrt(m_), handle.get_stream()),
       index_trained(false) {}
 
   value_idx *get_R_indptr() { return R_indptr.data(); }
