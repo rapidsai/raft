@@ -161,7 +161,7 @@ void construct_landmark_1nn(const raft::handle_t &handle,
  * @param R_knn_dists
  */
 template<typename value_idx, typename value_t, typename value_int=int>
-void landmark_bfknn(const raft::handle_t &handle,
+void k_closest_landmarks(const raft::handle_t &handle,
                     BallCoverIndex<value_idx, value_t> &index,
                     const value_t *query_pts, value_int n_query_pts,
                     int k,
@@ -272,7 +272,7 @@ void rbc_all_knn_query(const raft::handle_t &handle,
   /**
    * 2. Perform knn = bfknn(X, R, k)
    */
-  landmark_bfknn(handle, index, index.get_X(), index.m, k,
+  k_closest_landmarks(handle, index, index.get_X(), index.m, k,
                  R_knn_inds.data(), R_knn_dists.data());
 
   /**
@@ -282,6 +282,7 @@ void rbc_all_knn_query(const raft::handle_t &handle,
    * Secondary sort by (R_knn_inds, R_knn_dists)
    */
   construct_landmark_1nn(handle, R_knn_inds.data(), R_knn_dists.data(), k, index);
+
   /**
    * Compute radius of each R for filtering: p(q, r) <= p(q, q_r) + radius(r)
    * (need to take the
