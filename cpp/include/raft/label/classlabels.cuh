@@ -21,6 +21,7 @@
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/unary_op.cuh>
+#include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
 namespace raft {
@@ -35,39 +36,38 @@ namespace label {
  * \tparam value_t numeric type of the arrays with class labels
  * \param [in] y device array of labels, size [n]
  * \param [in] n number of labels
- * \param [out] y_unique device array of unique labels, unallocated on entry,
+ * \param [out] unique device array of unique labels, unallocated on entry,
  *   on exit it has size [n_unique]
  * \param [out] n_unique number of unique labels
  * \param [in] stream cuda stream
  */
 template <typename value_t>
-int getUniquelabels(rmm::device_uvector<value_t> &y_unique, value_t *y,
-                    size_t n, cudaStream_t stream) {
-  int n_unique;
-  rmm::device_uvector<value_t> y2(n, stream);
-  rmm::device_uvector<value_t> y3(n, stream);
-  rmm::device_uvector<int> d_num_selected(1, stream);
+int getUniquelabels(rmm::device_uvector<value_t> &unique, value_t *y, size_t n,
+                    cudaStream_t stream) {
+  rmm::device_scalar<int> d_num_selected(stream);
+  rmm::device_uvector<value_t> workspace(n, stream);
   size_t bytes = 0;
   size_t bytes2 = 0;
 
   // Query how much temporary storage we will need for cub operations
   // and allocate it
-  cub::DeviceRadixSort::SortKeys(NULL, bytes, y, y2.data(), n);
-  cub::DeviceSelect::Unique(NULL, bytes2, y2.data(), y3.data(),
+  cub::DeviceRadixSort::SortKeys(NULL, bytes, y, workspace.data(), n);
+  cub::DeviceSelect::Unique(NULL, bytes2, workspace.data(), workspace.data(),
                             d_num_selected.data(), n);
   bytes = max(bytes, bytes2);
   rmm::device_uvector<char> cub_storage(bytes, stream);
 
   // Select Unique classes
-  cub::DeviceRadixSort::SortKeys(cub_storage.data(), bytes, y, y2.data(), n);
-  cub::DeviceSelect::Unique(cub_storage.data(), bytes, y2.data(), y3.data(),
-                            d_num_selected.data(), n);
-  raft::update_host(&n_unique, d_num_selected.data(), 1, stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  cub::DeviceRadixSort::SortKeys(cub_storage.data(), bytes, y, workspace.data(),
+                                 n);
+  cub::DeviceSelect::Unique(cub_storage.data(), bytes, workspace.data(),
+                            workspace.data(), d_num_selected.data(), n);
 
+  int n_unique = d_num_selected.value(stream);
   // Copy unique classes to output
-  y_unique.resize(n_unique, stream);
-  raft::copy(y_unique.data(), y3.data(), n_unique, stream);
+  unique.resize(n_unique, stream);
+  raft::copy(unique.data(), workspace.data(), n_unique, stream);
+
   return n_unique;
 }
 

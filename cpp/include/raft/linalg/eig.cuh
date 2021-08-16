@@ -22,6 +22,7 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
 #include <raft/matrix/matrix.cuh>
+#include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
 namespace raft {
@@ -52,7 +53,7 @@ void eigDC(const raft::handle_t &handle, const math_t *in, int n_rows,
                                             n_cols, eig_vals, &lwork));
 
   rmm::device_uvector<math_t> d_work(lwork, stream);
-  rmm::device_uvector<int> d_dev_info(1, stream);
+  rmm::device_scalar<int> d_dev_info(stream);
 
   raft::matrix::copy(in, eig_vectors, n_rows, n_cols, stream);
 
@@ -62,9 +63,7 @@ void eigDC(const raft::handle_t &handle, const math_t *in, int n_rows,
                                  d_dev_info.data(), stream));
   CUDA_CHECK(cudaGetLastError());
 
-  int dev_info;
-  raft::update_host(&dev_info, d_dev_info.data(), 1, stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  int dev_info = d_dev_info.value(stream);
   ASSERT(dev_info == 0,
          "eig.cuh: eigensolver couldn't converge to a solution. "
          "This usually occurs when some of the features do not vary enough.");
@@ -103,7 +102,7 @@ void eigSelDC(const raft::handle_t &handle, math_t *in, int n_rows, int n_cols,
     n_cols - n_eig_vals + 1, n_cols, &h_meig, eig_vals, &lwork));
 
   rmm::device_uvector<math_t> d_work(lwork, stream);
-  rmm::device_uvector<int> d_dev_info(1, stream);
+  rmm::device_scalar<int> d_dev_info(stream);
   rmm::device_uvector<math_t> d_eig_vectors(0, stream);
 
   if (memUsage == OVERWRITE_INPUT) {
@@ -125,9 +124,7 @@ void eigSelDC(const raft::handle_t &handle, math_t *in, int n_rows, int n_cols,
 
   CUDA_CHECK(cudaGetLastError());
 
-  int dev_info;
-  raft::update_host(&dev_info, d_dev_info.data(), 1, stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  int dev_info = d_dev_info.value(stream);
   ASSERT(dev_info == 0,
          "eig.cuh: eigensolver couldn't converge to a solution. "
          "This usually occurs when some of the features do not vary enough.");
@@ -174,7 +171,7 @@ void eigJacobi(const raft::handle_t &handle, const math_t *in, int n_rows,
     eig_vectors, n_cols, eig_vals, &lwork, syevj_params));
 
   rmm::device_uvector<math_t> d_work(lwork, stream);
-  rmm::device_uvector<int> dev_info(1, stream);
+  rmm::device_scalar<int> dev_info(stream);
 
   raft::matrix::copy(in, eig_vectors, n_rows, n_cols, stream);
 
