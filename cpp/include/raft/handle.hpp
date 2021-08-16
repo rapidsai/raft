@@ -146,10 +146,6 @@ class handle_t {
     return *thrust_policy_;
   }
 
-  rmm::exec_policy get_thrust_policy(cudaStream_t stream) const {
-    return rmm::exec_policy(stream);
-  }
-
   // legacy compatibility for cuML
   cudaStream_t get_internal_stream(int sid) const {
     return streams_.get_stream(sid).value();
