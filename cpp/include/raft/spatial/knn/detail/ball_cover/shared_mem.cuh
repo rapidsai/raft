@@ -294,8 +294,11 @@ __global__ void compute_final_dists_smem(
 template <typename value_idx, typename value_t, typename value_int = int,
           int tpb = 32, typename reduce_func, typename accum_func>
 __global__ void perform_post_filter(
-  const value_t *X, value_int n_cols, const value_idx *R_knn_inds,
-  const value_t *R_knn_dists, const value_t *R_radius, const value_t *landmarks,
+  const value_t *X, value_int n_cols,
+  const value_idx *R_knn_inds,
+  const value_t *R_knn_dists,
+  const value_t *R_radius,
+  const value_t *landmarks,
   int n_landmarks, int bitset_size, int k, uint32_t *output,
   reduce_func redfunc, accum_func accfunc, float weight = 1.0) {
   static constexpr int kNumWarps = tpb / faiss::gpu::kWarpSize;
@@ -342,9 +345,10 @@ __global__ void perform_post_filter(
       for (int offset = 16; offset > 0; offset /= 2)
         p_q_r = accfunc(p_q_r, __shfl_down_sync(0xffffffff, p_q_r, offset));
 
-      const bool in_bound = (p_q_r > weight * (closest_R_dist + R_radius[l]) ||
+      const bool oob = (p_q_r > weight * (closest_R_dist + R_radius[l]) ||
                              p_q_r > 3 * closest_R_dist);
-      if (lane_id == 0 && in_bound) {
+
+      if (lane_id == 0 && oob) {
         _zero_bit(smem, l);
       }
     }

@@ -42,7 +42,7 @@ struct BallCoverIndex {
       R_indptr(sqrt(m_), handle.get_stream()),
       R_1nn_cols(m_, handle.get_stream()),
       R_1nn_dists(m_, handle.get_stream()),
-      R(n_landmarks * n_, handle.get_stream()),
+      R(sqrt(m_) * n_, handle.get_stream()),
       R_radius(sqrt(m_), handle.get_stream()),
       index_trained(false) {}
 

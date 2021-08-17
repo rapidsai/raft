@@ -120,8 +120,6 @@ void construct_landmark_1nn(const raft::handle_t &handle,
 
   rmm::device_uvector<value_idx> R_1nn_inds(index.m, handle.get_stream());
 
-
-
   value_idx *R_1nn_inds_ptr = R_1nn_inds.data();
   value_t *R_1nn_dists_ptr = index.get_R_1nn_dists();
 
@@ -176,6 +174,7 @@ void k_closest_landmarks(const raft::handle_t &handle,
     handle.get_stream(), nullptr, 0, (bool)true, (bool)true, nullptr,
     index.metric);
 }
+
 
 /**
  * Uses the sorted data points in the 1-nn landmark index to compute
@@ -326,7 +325,7 @@ void rbc_all_knn_query(const raft::handle_t &handle,
         k, index.get_R_indptr(), index.get_R_1nn_cols(),
         index.get_R_1nn_dists(), inds, dists,
         dists_counter.data(), index.get_R_radius(), dfunc,
-        raft::sparse::distance::SqDiff(), raft::sparse::distance::Sum(),
+        raft::sparse::distance::AbsDiff(), raft::sparse::distance::Sum(),
         weight);
   }
 
@@ -353,7 +352,7 @@ void rbc_all_knn_query(const raft::handle_t &handle,
         <<<index.m, 128, bitset_size * sizeof(uint32_t), handle.get_stream()>>>(
           index.get_X(), index.n, R_knn_inds.data(), R_knn_dists.data(),
           index.get_R_radius(), index.get_R(), index.n_landmarks, bitset_size,
-          k, bitset.data(), raft::sparse::distance::SqDiff(),
+          k, bitset.data(), raft::sparse::distance::AbsDiff(),
           raft::sparse::distance::Sum(), weight);
 
       // Compute any distances from the landmarks that remain in the bitset
@@ -362,7 +361,7 @@ void rbc_all_knn_query(const raft::handle_t &handle,
           index.get_X(), index.n, bitset.data(), bitset_size,
           R_knn_dists.data(), index.get_R_indptr(), index.get_R_1nn_cols(),
           index.get_R_1nn_dists(), inds, dists, index.n_landmarks, k, dfunc,
-          raft::sparse::distance::SqDiff(), raft::sparse::distance::Sum(),
+          raft::sparse::distance::AbsDiff(), raft::sparse::distance::Sum(),
           post_dists_counter.data());
     }
 
@@ -371,7 +370,13 @@ void rbc_all_knn_query(const raft::handle_t &handle,
     //    printf("total post_dists: %d\n", additional_dists);
   }
 
-  raft::print_device_vector("R_knn", R_knn_inds.data(), k * 10, std::cout);
+//  raft::print_device_vector("R_knn 39077", R_knn_inds.data() + (k * 39077), k, std::cout);
+//  raft::print_device_vector("R_knn 39077 dists", R_knn_dists.data() + (k * 39077), k, std::cout);
+//  raft::print_device_vector("R_knn 35468", R_knn_inds.data() + (k * 35468), k, std::cout);
+//  raft::print_device_vector("R_knn 29384", R_knn_inds.data() + (k * 29384), k, std::cout);
+//  raft::print_device_vector("R_knn 29384 dists", R_knn_dists.data() + (k * 29384), k, std::cout);
+//  raft::print_device_vector("R 8", index.get_R() + (index.n * 8), index.n, std::cout);
+//  raft::print_device_vector("R 120", index.get_R() + (index.n * 120), index.n, std::cout);
 }
 
 };  // namespace detail
