@@ -39,7 +39,7 @@ struct BallCoverIndex {
       * Total memory footprint of index: (2 * sqrt(m)) + (n * sqrt(m)) + (2 * m)
       */
       n_landmarks(sqrt(m_)),
-      R_indptr(sqrt(m_), handle.get_stream()),
+      R_indptr(sqrt(m_)+1, handle.get_stream()),
       R_1nn_cols(m_, handle.get_stream()),
       R_1nn_dists(m_, handle.get_stream()),
       R(sqrt(m_) * n_, handle.get_stream()),

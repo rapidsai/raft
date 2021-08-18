@@ -213,7 +213,7 @@ class BallCoverKNNTest : public ::testing::Test {
     std::vector<value_t> h_train_inputs =
 //      read_csv2("/share/workspace/reproducers/miguel_haversine_knn/OSM_KNN.csv",
 //                500, 1, dim_mult);
-      read_csv2("/share/workspace/blobs.csv",500000, 1, dim_mult);
+      read_csv2("/share/workspace/blobs.csv",50000, 1, dim_mult);
 
     /**
      * Load reference data from CSV files
@@ -273,10 +273,10 @@ class BallCoverKNNTest : public ::testing::Test {
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
     cout << "Done in: " << curTimeMillis() - bfknn_start << "ms." << endl;
 
-//    raft::print_device_vector("actual inds", d_ref_I.data() + (k * 39077),
-//                              k * 100, std::cout);
-//    raft::print_device_vector("actual dists", d_ref_D.data() + (k * 39077),
-//                              k * 100, std::cout);
+    raft::print_device_vector("actual inds", d_ref_I.data() + (1686*k),
+                              k * 100, std::cout);
+    raft::print_device_vector("actual dists", d_ref_D.data() + (1686*k),
+                              k * 100, std::cout);
 
     // Allocate predicted arrays
     rmm::device_uvector<value_idx> d_pred_I(n * k, handle.get_stream());
@@ -303,10 +303,10 @@ class BallCoverKNNTest : public ::testing::Test {
     printf("Done.\n");
 
     //Diff in idx=326622, expected=326720, actual=326623
-//    raft::print_device_vector("inds", d_pred_I.data() + (k * 39077),
-//                              k * 100, std::cout);
-//    raft::print_device_vector("dists", d_pred_D.data() + (k * 39077),
-//                              k * 100, std::cout);
+    raft::print_device_vector("inds", d_pred_I.data() + (1686*k),
+                              k * 100, std::cout);
+    raft::print_device_vector("dists", d_pred_D.data() + (1686*k),
+                              k * 100, std::cout);
 //
 //    raft::print_device_vector("landmark 39077", index.get_X() + (index.n * 39077),
 //                              index.n, std::cout);

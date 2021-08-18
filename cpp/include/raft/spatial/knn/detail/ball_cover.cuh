@@ -359,6 +359,8 @@ void rbc_all_knn_query(const raft::handle_t &handle,
 
       CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
+      raft::print_device_vector("bitset", bitset.data(), bitset_size*5, std::cout);
+
       printf("Computing final dists\n");
       // Compute any distances from the landmarks that remain in the bitset
       compute_final_dists_smem<value_idx, value_t, 32, 2, rbc_tpb, max_vals>
