@@ -206,8 +206,8 @@ class grid_1d_block_t {
 template <typename Type>
 void copy(Type* dst, const Type* src, size_t len,
           rmm::cuda_stream_view stream) {
-  CUDA_CHECK(cudaMemcpyAsync(dst, src, len * sizeof(Type), cudaMemcpyDefault,
-                             stream.value()));
+  CUDA_CHECK(
+    cudaMemcpyAsync(dst, src, len * sizeof(Type), cudaMemcpyDefault, stream));
 }
 
 /**
@@ -220,21 +220,21 @@ void copy(Type* dst, const Type* src, size_t len,
 template <typename Type>
 void update_device(Type* d_ptr, const Type* h_ptr, size_t len,
                    rmm::cuda_stream_view stream) {
-  copy(d_ptr, h_ptr, len, stream.value());
+  copy(d_ptr, h_ptr, len, stream);
 }
 
 /** performs a device to host copy */
 template <typename Type>
 void update_host(Type* h_ptr, const Type* d_ptr, size_t len,
                  rmm::cuda_stream_view stream) {
-  copy(h_ptr, d_ptr, len, stream.value());
+  copy(h_ptr, d_ptr, len, stream);
 }
 
 template <typename Type>
 void copy_async(Type* d_ptr1, const Type* d_ptr2, size_t len,
                 rmm::cuda_stream_view stream) {
   CUDA_CHECK(cudaMemcpyAsync(d_ptr1, d_ptr2, len * sizeof(Type),
-                             cudaMemcpyDeviceToDevice, stream.value()));
+                             cudaMemcpyDeviceToDevice, stream));
 }
 /** @} */
 
@@ -271,9 +271,8 @@ template <typename Type>
 void allocate(Type*& ptr, size_t len, rmm::cuda_stream_view stream,
               bool setZero = false) {
   size_t size = len * sizeof(Type);
-  ptr = (Type*)rmm::mr::get_current_device_resource()->allocate(size,
-                                                                stream.value());
-  if (setZero) CUDA_CHECK(cudaMemsetAsync((void*)ptr, 0, size, stream.value()));
+  ptr = (Type*)rmm::mr::get_current_device_resource()->allocate(size, stream);
+  if (setZero) CUDA_CHECK(cudaMemsetAsync((void*)ptr, 0, size, stream));
 
   std::lock_guard<std::mutex> _(mutex_);
   allocations[ptr] = size;
@@ -284,8 +283,7 @@ void deallocate(Type*& ptr, rmm::cuda_stream_view stream) {
   std::lock_guard<std::mutex> _(mutex_);
   size_t size = allocations[ptr];
   allocations.erase(ptr);
-  rmm::mr::get_current_device_resource()->deallocate((void*)ptr, size,
-                                                     stream.value());
+  rmm::mr::get_current_device_resource()->deallocate((void*)ptr, size, stream);
 }
 
 inline void deallocate_all(rmm::cuda_stream_view stream) {
@@ -293,8 +291,7 @@ inline void deallocate_all(rmm::cuda_stream_view stream) {
   for (auto& alloc : allocations) {
     void* ptr = alloc.first;
     size_t size = alloc.second;
-    rmm::mr::get_current_device_resource()->deallocate(ptr, size,
-                                                       stream.value());
+    rmm::mr::get_current_device_resource()->deallocate(ptr, size, stream);
   }
   allocations.clear();
 }
