@@ -19,6 +19,7 @@
 
 #include "../test_utils.h"
 
+#include <raft/sparse/utils.h>
 #include <raft/spatial/knn/knn.hpp>
 
 namespace raft {

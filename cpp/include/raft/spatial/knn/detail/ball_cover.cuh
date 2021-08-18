@@ -325,9 +325,11 @@ void rbc_all_knn_query(const raft::handle_t &handle,
         k, index.get_R_indptr(), index.get_R_1nn_cols(),
         index.get_R_1nn_dists(), inds, dists,
         dists_counter.data(), index.get_R_radius(), dfunc,
-        raft::sparse::distance::AbsDiff(), raft::sparse::distance::Sum(),
+        raft::sparse::distance::SqDiff(), raft::sparse::distance::Sum(),
         weight);
   }
+
+  CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
   // TODO: pull this out into "post_process()" function
   if (perform_post_filtering) {
@@ -351,18 +353,23 @@ void rbc_all_knn_query(const raft::handle_t &handle,
       perform_post_filter<value_idx, value_t, int, 128>
         <<<index.m, 128, bitset_size * sizeof(uint32_t), handle.get_stream()>>>(
           index.get_X(), index.n, R_knn_inds.data(), R_knn_dists.data(),
-          index.get_R_radius(), index.get_R(), index.n_landmarks, bitset_size,
-          k, bitset.data(), raft::sparse::distance::AbsDiff(),
+          index.get_R_radius(), index.get_R(), dists, index.n_landmarks, bitset_size,
+          k, bitset.data(), raft::sparse::distance::SqDiff(),
           raft::sparse::distance::Sum(), weight);
 
+      CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+
+      printf("Computing final dists\n");
       // Compute any distances from the landmarks that remain in the bitset
       compute_final_dists_smem<value_idx, value_t, 32, 2, rbc_tpb, max_vals>
         <<<index.m, rbc_tpb, 0, handle.get_stream()>>>(
           index.get_X(), index.n, bitset.data(), bitset_size,
           R_knn_dists.data(), index.get_R_indptr(), index.get_R_1nn_cols(),
           index.get_R_1nn_dists(), inds, dists, index.n_landmarks, k, dfunc,
-          raft::sparse::distance::AbsDiff(), raft::sparse::distance::Sum(),
+          raft::sparse::distance::SqDiff(), raft::sparse::distance::Sum(),
           post_dists_counter.data());
+
+      CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
     }
 
     printf("Done.\n");

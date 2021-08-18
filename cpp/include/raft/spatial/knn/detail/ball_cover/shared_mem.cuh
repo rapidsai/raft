@@ -69,18 +69,16 @@ __device__ void compute_dist_full_warp(
   const int lane_id, const int n_cols, const value_t *__restrict__ x_ptr,
   const value_t *__restrict__ X, value_t z, value_t cur_candidate_dist,
   value_idx cur_candidate_ind, reduce_func redfunc, accum_func accfunc) {
-  unsigned int mask =
-    __ballot_sync(0xffffffff, z <= heap.warpKTop && cur_candidate_ind > -1);
+  unsigned int mask = __ballot_sync(
+    0xffffffff, z <= heap.warpKTop && cur_candidate_ind > -1);
 
   while (__popc(mask) > 0) {
     const unsigned int lowest_peer = __ffs(mask) - 1;
-    const value_idx idx =
-      __shfl_sync(0xffffffff, cur_candidate_ind, lowest_peer);
+    const value_idx idx = __shfl_sync(0xffffffff, cur_candidate_ind, lowest_peer);
 
     value_t sq_diff = 0;
     for (int j = lane_id; j < n_cols; j += 32) {
-      const value_t d = redfunc(X[n_cols * idx + j],
-                                x_ptr[j]);  //X[n_cols * idx + j] - x_ptr[j];
+      const value_t d = redfunc(X[n_cols * idx + j], x_ptr[j]);//X[n_cols * idx + j] - x_ptr[j];
       sq_diff = accfunc(sq_diff, d);
     }
 
@@ -139,8 +137,7 @@ __device__ void compute_dist_block(
   const value_t *__restrict__ X, const value_idx *__restrict__ R_1nn_cols,
   const value_t *__restrict__ R_1nn_dists, value_idx R_start_offset,
   value_idx R_size, reduce_func redfunc, accum_func accfunc) {
-  const value_idx limit =
-    faiss::gpu::utils::roundDown(R_size, faiss::gpu::kWarpSize);
+  const value_idx limit = faiss::gpu::utils::roundDown(R_size, faiss::gpu::kWarpSize);
 
   int i = threadIdx.x;
   for (; i < limit; i += tpb) {
@@ -156,21 +153,19 @@ __device__ void compute_dist_block(
       * cannot possibly be in the nearest neighbors. However, if d(s, t) < d(s, l_1) then we should compute the
       * distance because it's possible it could be smaller.
       **/
-
-    // TODO: Pull this out into a function triangle_inequality()
     value_t z = heap.warpKTopRDist == 0.00
-                  ? 0.0
-                  : (abs(heap.warpKTop - heap.warpKTopRDist) *
-                       abs(heap.warpKTopRDist - cur_candidate_dist) -
-                     heap.warpKTop * cur_candidate_dist) /
-                      heap.warpKTopRDist;
+                ? 0.0
+                : (abs(heap.warpKTop - heap.warpKTopRDist) *
+                   abs(heap.warpKTopRDist - cur_candidate_dist) -
+                   heap.warpKTop * cur_candidate_dist) /
+                  heap.warpKTopRDist;
     z = isnan(z) ? 0.0 : z;
 
     compute_dist_full_warp<value_idx, value_t, false,
-                           faiss::gpu::Comparator<value_t>, numwarpq,
-                           numthreadq, tpb>(
-      heap, lane_id, n_cols, local_x_ptr, X, z, cur_candidate_dist,
-      cur_candidate_ind, redfunc, accfunc);
+      faiss::gpu::Comparator<value_t>,
+      numwarpq, numthreadq, tpb> (
+      heap, lane_id, n_cols, local_x_ptr, X, z,
+      cur_candidate_dist, cur_candidate_ind, redfunc, accfunc);
 
     heap.checkThreadQ();
   }
@@ -181,20 +176,21 @@ __device__ void compute_dist_block(
     const value_idx cur_candidate_ind =
       i < R_size ? R_1nn_cols[R_start_offset + i] : -1;
     const value_t cur_candidate_dist = i < R_size
-                                         ? R_1nn_dists[R_start_offset + i]
-                                         : std::numeric_limits<value_t>::max();
+                                       ? R_1nn_dists[R_start_offset + i]
+                                       : std::numeric_limits<value_t>::max();
 
     value_t z = heap.warpKTopRDist == 0.00
-                  ? 0.0
-                  : (abs(heap.warpKTop - heap.warpKTopRDist) *
-                       abs(heap.warpKTopRDist - cur_candidate_dist) -
-                     heap.warpKTop * cur_candidate_dist) /
-                      heap.warpKTopRDist;
+                ? 0.0
+                : (abs(heap.warpKTop - heap.warpKTopRDist) *
+                   abs(heap.warpKTopRDist - cur_candidate_dist) -
+                   heap.warpKTop * cur_candidate_dist) /
+                  heap.warpKTopRDist;
+
 
     z = isnan(z) ? 0.0 : z;
     compute_dist_full_warp<value_idx, value_t, false,
-                           faiss::gpu::Comparator<value_t>, numwarpq,
-                           numthreadq, tpb>(
+      faiss::gpu::Comparator<value_t>,
+      numwarpq, numthreadq, tpb>(
       heap, lane_id, n_cols, local_x_ptr, X, z, cur_candidate_dist,
       cur_candidate_ind, redfunc, accfunc);
   }
@@ -211,8 +207,9 @@ __global__ void compute_final_dists_smem(
   const value_t *__restrict__ R_knn_dists,
   const value_idx *__restrict__ R_indptr,
   const value_idx *__restrict__ R_1nn_inds,
-  const value_t *__restrict__ R_1nn_dists, value_idx *knn_inds,
-  value_t *knn_dists, int n_landmarks, const int k, dist_func dfunc,
+  const value_t *__restrict__ R_1nn_dists,
+  value_idx *knn_inds, value_t *knn_dists,
+  int n_landmarks, const int k, dist_func dfunc,
   reduce_func redfunc, accum_func accfunc, value_int *dist_counter) {
   static constexpr int kNumWarps = tpb / faiss::gpu::kWarpSize;
 
@@ -299,6 +296,7 @@ __global__ void perform_post_filter(
   const value_t *R_knn_dists,
   const value_t *R_radius,
   const value_t *landmarks,
+  const value_t *knn_dists,
   int n_landmarks, int bitset_size, int k, uint32_t *output,
   reduce_func redfunc, accum_func accfunc, float weight = 1.0) {
   static constexpr int kNumWarps = tpb / faiss::gpu::kWarpSize;
@@ -345,10 +343,9 @@ __global__ void perform_post_filter(
       for (int offset = 16; offset > 0; offset /= 2)
         p_q_r = accfunc(p_q_r, __shfl_down_sync(0xffffffff, p_q_r, offset));
 
-      const bool oob = (p_q_r > weight * (closest_R_dist + R_radius[l]) ||
+      const bool in_bound = (p_q_r > weight * (closest_R_dist + R_radius[l]) ||
                              p_q_r > 3 * closest_R_dist);
-
-      if (lane_id == 0 && oob) {
+      if (lane_id == 0 && in_bound) {
         _zero_bit(smem, l);
       }
     }
@@ -361,8 +358,7 @@ __global__ void perform_post_filter(
    */
   for (int l = threadIdx.x; l < bitset_size; l += tpb) {
     output[blockIdx.x * bitset_size + l] = smem[l];
-  }
-}
+  }}
 
 /**
  * Random ball cover kernel for high dimensionality (greater than 2 or 3).
@@ -440,7 +436,7 @@ __global__ void block_rbc_kernel_smem(
     heap(faiss::gpu::Limits<value_t>::getMax(),
          faiss::gpu::Limits<value_t>::getMax(), -1, smemK, smemV, k);
 
-  const value_t min_R_dist = R_knn_dists[blockIdx.x * k];
+  const value_t max_R_dist = R_knn_dists[blockIdx.x * k];
 
   /**
    * First add distances for k closest neighbors of R
@@ -453,9 +449,14 @@ __global__ void block_rbc_kernel_smem(
     const value_t cur_R_dist = R_knn_dists[blockIdx.x * k + cur_k];
     const value_idx cur_R_ind = R_knn_inds[blockIdx.x * k + cur_k];
 
+    // Equation (1) in Cayton's paper- prune out landmarks which are > the radius
+    // of the current point + landmark's radius
+    if (cur_R_dist > weight * (max_R_dist + R_radius[cur_R_ind])) continue;
     // Equation (2) in Cayton's paper- prune out R's which are > 3 * p(q, r_q)
-    if (cur_R_dist > weight * (min_R_dist + R_radius[cur_R_ind])) continue;
-    if (cur_R_dist > 3 * min_R_dist) continue;
+    if (cur_R_dist > 3 * max_R_dist) continue;
+    // Adjustment of equation 1 to also make sure the distance COULD
+    // potentially exist in the current knn.
+//    if (cur_R_dist > heap.warpKTop + radius) continue;
 
     // The whole warp should iterate through the elements in the current R
     const value_idx R_start_offset = R_indptr[cur_R_ind];

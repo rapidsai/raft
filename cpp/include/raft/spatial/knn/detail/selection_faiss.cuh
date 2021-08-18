@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include <raft/cudart_utils.h>
+
 #include <faiss/gpu/GpuDistance.h>
 #include <faiss/gpu/GpuIndexFlat.h>
 #include <faiss/gpu/GpuResources.h>

@@ -188,8 +188,8 @@ struct EuclideanFunc {
                                                          const int n_dims) {
     value_t sum_sq = 0;
     for (int i = 0; i < n_dims; i++) {
-      return a[i] - b[i];
-//      sum_sq += diff * diff;
+      value_t diff = a[i] - b[i];
+      sum_sq += diff * diff;
     }
 
     return sum_sq;
@@ -213,7 +213,7 @@ class BallCoverKNNTest : public ::testing::Test {
     std::vector<value_t> h_train_inputs =
 //      read_csv2("/share/workspace/reproducers/miguel_haversine_knn/OSM_KNN.csv",
 //                500, 1, dim_mult);
-      read_csv2("/share/workspace/blobs.csv",50000, 1, dim_mult);
+      read_csv2("/share/workspace/blobs.csv",500000, 1, dim_mult);
 
     /**
      * Load reference data from CSV files
@@ -268,7 +268,7 @@ class BallCoverKNNTest : public ::testing::Test {
       input_vec, sizes_vec, d, d_train_inputs.data(), n,
       d_ref_I.data(), d_ref_D.data(), k, handle.get_device_allocator(),
       handle.get_stream(), int_streams, 0, true, true, translations,
-      raft::distance::DistanceType::L1);
+      raft::distance::DistanceType::L2Expanded);
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
     cout << "Done in: " << curTimeMillis() - bfknn_start << "ms." << endl;
@@ -287,7 +287,9 @@ class BallCoverKNNTest : public ::testing::Test {
 
     BallCoverIndex<value_idx, value_t> index(
       handle, d_train_inputs.data(), n, d,
-      raft::distance::DistanceType::L1);
+      raft::distance::DistanceType::L2Expanded);
+
+    printf("n_landmarks=%d\n", index.n_landmarks);
 
     float weight = 1.0;
     raft::spatial::knn::detail::rbc_all_knn_query(
@@ -301,13 +303,13 @@ class BallCoverKNNTest : public ::testing::Test {
     printf("Done.\n");
 
     //Diff in idx=326622, expected=326720, actual=326623
-    raft::print_device_vector("inds", d_pred_I.data() + (k * 39077),
-                              k * 100, std::cout);
-    raft::print_device_vector("dists", d_pred_D.data() + (k * 39077),
-                              k * 100, std::cout);
-
-    raft::print_device_vector("landmark 39077", index.get_X() + (index.n * 39077),
-                              index.n, std::cout);
+//    raft::print_device_vector("inds", d_pred_I.data() + (k * 39077),
+//                              k * 100, std::cout);
+//    raft::print_device_vector("dists", d_pred_D.data() + (k * 39077),
+//                              k * 100, std::cout);
+//
+//    raft::print_device_vector("landmark 39077", index.get_X() + (index.n * 39077),
+//                              index.n, std::cout);
 
     //
     //
