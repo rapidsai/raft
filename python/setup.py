@@ -30,6 +30,8 @@ from setuputils import clean_folder
 from setuputils import get_environment_option
 from setuputils import get_cli_option
 
+from Cython.Build import cythonize
+
 try:
     from Cython.Distutils.build_ext import new_build_ext as build_ext
 except ImportError:
@@ -101,24 +103,42 @@ include_dirs = [cuda_include_dir,
 
 cmdclass = dict()
 cmdclass.update(versioneer.get_cmdclass())
-cmdclass["build_ext"] = build_ext
+
+class build_ext_no_debug(build_ext):
+    def build_extensions(self):
+        try:
+            # Don't compile debug symbols
+            self.compiler.compiler_so.remove("-g")
+            # Silence the '-Wstrict-prototypes' warning
+            self.compiler.compiler_so.remove("-Wstrict-prototypes")
+        except Exception:
+            pass
+        build_ext.build_extensions(self)
+
+
+cmdclass["build_ext"] = build_ext_no_debug
 
 extensions = [
     Extension("*",
-              sources=["raft/**/**/*.pyx"],
+              sources=["raft/**/*.pyx"],
               include_dirs=include_dirs,
               library_dirs=[get_python_lib()],
               runtime_library_dirs=[cuda_lib_dir,
                                     os.path.join(os.sys.prefix, "lib")],
               libraries=libs,
               language='c++',
-              extra_compile_args=['-std=c++14'])
+              extra_compile_args=['-std=c++17'])
 ]
 
 
 ##############################################################################
 # - Python package generation ------------------------------------------------
 
+
+try:
+    nthreads = int(os.environ.get("PARALLEL_LEVEL", "0") or "0")
+except Exception:
+    nthreads = 0
 
 setup(name='raft',
       description="RAPIDS Analytics Frameworks Toolset",
@@ -131,7 +151,13 @@ setup(name='raft',
       ],
       author="NVIDIA Corporation",
       setup_requires=['cython'],
-      ext_modules=extensions,
+      ext_modules=cythonize(
+          extensions,
+          nthreads=nthreads,
+          compiler_directives=dict(
+              profile=False, language_level=3, embedsignature=True
+          ),
+      ),
       packages=find_packages(include=['cuml', 'cuml.*']),
       install_requires=install_requires,
       license="Apache",
