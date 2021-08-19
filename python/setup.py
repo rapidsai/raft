@@ -104,6 +104,7 @@ include_dirs = [cuda_include_dir,
 cmdclass = dict()
 cmdclass.update(versioneer.get_cmdclass())
 
+
 class build_ext_no_debug(build_ext):
     def build_extensions(self):
         try:
