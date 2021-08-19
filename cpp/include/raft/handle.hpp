@@ -64,6 +64,7 @@ class handle_t {
       }()),
       streams_(n_streams) {
     create_resources();
+    thrust_policy_ = std::make_unique<rmm::exec_policy>(user_stream_);
   }
 
   /**
@@ -85,6 +86,7 @@ class handle_t {
     device_prop_initialized_ = true;
     create_resources();
     set_stream(other.get_internal_stream(stream_id));
+    thrust_policy_ = std::make_unique<rmm::exec_policy>(user_stream_);
   }
 
   /** Destroys all held-up resources */
@@ -92,10 +94,7 @@ class handle_t {
 
   int get_device() const { return dev_id_; }
 
-  void set_stream(cudaStream_t stream) {
-    thrust_policy_initialized_ = false;
-    user_stream_ = stream;
-  }
+  void set_stream(cudaStream_t stream) { user_stream_ = stream; }
   cudaStream_t get_stream() const { return user_stream_; }
   rmm::cuda_stream_view get_stream_view() const {
     return rmm::cuda_stream_view(user_stream_);
@@ -137,14 +136,7 @@ class handle_t {
     return cusparse_handle_;
   }
 
-  rmm::exec_policy get_thrust_policy() const {
-    std::lock_guard<std::mutex> _(mutex_);
-    if (!thrust_policy_initialized_) {
-      thrust_policy_ = new rmm::exec_policy(get_stream());
-      thrust_policy_initialized_ = true;
-    }
-    return *thrust_policy_;
-  }
+  rmm::exec_policy& get_thrust_policy() const { return *thrust_policy_; }
 
   // legacy compatibility for cuML
   cudaStream_t get_internal_stream(int sid) const {
@@ -229,8 +221,7 @@ class handle_t {
   mutable bool cusolver_sp_initialized_{false};
   mutable cusparseHandle_t cusparse_handle_;
   mutable bool cusparse_initialized_{false};
-  mutable rmm::exec_policy* thrust_policy_{nullptr};
-  mutable bool thrust_policy_initialized_{false};
+  std::unique_ptr<rmm::exec_policy> thrust_policy_{nullptr};
   cudaStream_t user_stream_{nullptr};
   cudaEvent_t event_;
   mutable cudaDeviceProp prop_;
@@ -258,9 +249,6 @@ class handle_t {
     if (cublas_initialized_) {
       //CUBLAS_CHECK_NO_THROW(cublasDestroy(cublas_handle_));
       CUBLAS_CHECK(cublasDestroy(cublas_handle_));
-    }
-    if (thrust_policy_initialized_) {
-      delete thrust_policy_;
     }
     //CUDA_CHECK_NO_THROW(cudaEventDestroy(event_));
     CUDA_CHECK(cudaEventDestroy(event_));
