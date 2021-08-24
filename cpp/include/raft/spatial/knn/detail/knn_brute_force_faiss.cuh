@@ -33,9 +33,9 @@
 #include <raft/handle.hpp>
 #include <set>
 
+#include "fused_l2_knn.cuh"
 #include "haversine_distance.cuh"
 #include "processing.hpp"
-#include "fused_l2_knn.cuh"
 
 #include "common_faiss.h"
 
@@ -273,75 +273,86 @@ void brute_force_knn_impl(std::vector<float *> &input, std::vector<int> &sizes,
     cudaStream_t stream =
       raft::select_stream(userStream, internalStreams, n_int_streams, i);
 
-    size_t worksize = 0;
-    void *workspace = nullptr;
+    if (k <= 64 && rowMajorQuery == rowMajorIndex && rowMajorQuery == true &&
+        (metric == raft::distance::DistanceType::L2Unexpanded ||
+         metric == raft::distance::DistanceType::L2SqrtUnexpanded)) {
+      size_t worksize = 0;
+      void *workspace = nullptr;
 
-    switch (metric) {
-      case raft::distance::DistanceType::Haversine:
-
-        ASSERT(D == 2,
-               "Haversine distance requires 2 dimensions "
-               "(latitude / longitude).");
-
-        haversine_knn(out_i_ptr, out_d_ptr, input[i], search_items, sizes[i], n,
-                      k, stream);
-        break;
-      case raft::distance::DistanceType::L2Unexpanded:
-        l2_unexpanded_knn<raft::distance::DistanceType::L2Unexpanded,
-        int64_t, float, false>(D, out_i_ptr, out_d_ptr, input[i], search_items,
-                       sizes[i], n, k, rowMajorIndex, rowMajorQuery, stream,
-                       workspace, worksize);
-        if (worksize) {
-          raft::mr::device::buffer<int> d_mutexes(allocator, stream, worksize);
-          workspace = d_mutexes.data();
-          l2_unexpanded_knn<raft::distance::DistanceType::L2Unexpanded,
-            int64_t, float, false>(D, out_i_ptr, out_d_ptr, input[i],
-            search_items, sizes[i], n, k, rowMajorIndex, rowMajorQuery,
-            stream, workspace, worksize);
-        }
-        break;
-      case raft::distance::DistanceType::L2SqrtUnexpanded:
-        l2_unexpanded_knn<raft::distance::DistanceType::L2SqrtUnexpanded,
-        int64_t, float, false>(D, out_i_ptr, out_d_ptr, input[i], search_items,
-                       sizes[i], n, k, rowMajorIndex, rowMajorQuery, stream,
-                       workspace, worksize);
-        if (worksize) {
-          raft::mr::device::buffer<int> d_mutexes(allocator, stream, worksize);
-          workspace = d_mutexes.data();
+      switch (metric) {
+        case raft::distance::DistanceType::L2Unexpanded:
+          l2_unexpanded_knn<raft::distance::DistanceType::L2Unexpanded, int64_t,
+                            float, false>(
+            D, out_i_ptr, out_d_ptr, input[i], search_items, sizes[i], n, k,
+            rowMajorIndex, rowMajorQuery, stream, workspace, worksize);
+          if (worksize) {
+            raft::mr::device::buffer<int> d_mutexes(allocator, stream,
+                                                    worksize);
+            workspace = d_mutexes.data();
+            l2_unexpanded_knn<raft::distance::DistanceType::L2Unexpanded,
+                              int64_t, float, false>(
+              D, out_i_ptr, out_d_ptr, input[i], search_items, sizes[i], n, k,
+              rowMajorIndex, rowMajorQuery, stream, workspace, worksize);
+          }
+          break;
+        case raft::distance::DistanceType::L2SqrtUnexpanded:
           l2_unexpanded_knn<raft::distance::DistanceType::L2SqrtUnexpanded,
-            int64_t, float, false>(D, out_i_ptr, out_d_ptr, input[i],
-              search_items, sizes[i], n, k, rowMajorIndex, rowMajorQuery,
-              stream, workspace, worksize);
-        }
-        break;
-      default:
-        faiss::MetricType m = build_faiss_metric(metric);
+                            int64_t, float, false>(
+            D, out_i_ptr, out_d_ptr, input[i], search_items, sizes[i], n, k,
+            rowMajorIndex, rowMajorQuery, stream, workspace, worksize);
+          if (worksize) {
+            raft::mr::device::buffer<int> d_mutexes(allocator, stream,
+                                                    worksize);
+            workspace = d_mutexes.data();
+            l2_unexpanded_knn<raft::distance::DistanceType::L2SqrtUnexpanded,
+                              int64_t, float, false>(
+              D, out_i_ptr, out_d_ptr, input[i], search_items, sizes[i], n, k,
+              rowMajorIndex, rowMajorQuery, stream, workspace, worksize);
+          }
+          break;
+        default:
+          break;
+      }
+    } else {
+      switch (metric) {
+        case raft::distance::DistanceType::Haversine:
 
-        faiss::gpu::StandardGpuResources gpu_res;
+          ASSERT(D == 2,
+                 "Haversine distance requires 2 dimensions "
+                 "(latitude / longitude).");
 
-        gpu_res.noTempMemory();
-        gpu_res.setDefaultStream(device, stream);
+          haversine_knn(out_i_ptr, out_d_ptr, input[i], search_items, sizes[i],
+                        n, k, stream);
+          break;
+        default:
+          faiss::MetricType m = build_faiss_metric(metric);
 
-        faiss::gpu::GpuDistanceParams args;
-        args.metric = m;
-        args.metricArg = metricArg;
-        args.k = k;
-        args.dims = D;
-        args.vectors = input[i];
-        args.vectorsRowMajor = rowMajorIndex;
-        args.numVectors = sizes[i];
-        args.queries = search_items;
-        args.queriesRowMajor = rowMajorQuery;
-        args.numQueries = n;
-        args.outDistances = out_d_ptr;
-        args.outIndices = out_i_ptr;
+          faiss::gpu::StandardGpuResources gpu_res;
 
-        /**
-         * @todo: Until FAISS supports pluggable allocation strategies,
-         * we will not reap the benefits of the pool allocator for
-         * avoiding device-wide synchronizations from cudaMalloc/cudaFree
-         */
-        bfKnn(&gpu_res, args);
+          gpu_res.noTempMemory();
+          gpu_res.setDefaultStream(device, stream);
+
+          faiss::gpu::GpuDistanceParams args;
+          args.metric = m;
+          args.metricArg = metricArg;
+          args.k = k;
+          args.dims = D;
+          args.vectors = input[i];
+          args.vectorsRowMajor = rowMajorIndex;
+          args.numVectors = sizes[i];
+          args.queries = search_items;
+          args.queriesRowMajor = rowMajorQuery;
+          args.numQueries = n;
+          args.outDistances = out_d_ptr;
+          args.outIndices = out_i_ptr;
+
+          /**
+           * @todo: Until FAISS supports pluggable allocation strategies,
+           * we will not reap the benefits of the pool allocator for
+           * avoiding device-wide synchronizations from cudaMalloc/cudaFree
+           */
+          bfKnn(&gpu_res, args);
+      }
     }
 
     CUDA_CHECK(cudaPeekAtLastError());

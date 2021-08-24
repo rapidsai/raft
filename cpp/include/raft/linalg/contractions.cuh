@@ -192,7 +192,6 @@ struct Policy1x1<double, _veclen> {
 };
 /** @} */
 
-
 /**
  * @brief Base class for gemm-like NT contractions
  *
