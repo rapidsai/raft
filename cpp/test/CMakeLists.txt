@@ -126,7 +126,7 @@ PRIVATE
   FAISS::FAISS
   GTest::gtest
   GTest::gtest_main
-  OpenMP::OpenMP_CXX
   Threads::Threads
+  $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
   $<TARGET_NAME_IF_EXISTS:conda_env>
 )

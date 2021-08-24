@@ -90,12 +90,12 @@ include(cmake/modules/ConfigureCUDA.cmake)
 ##############################################################################
 # - Requirements -------------------------------------------------------------
 
-if (NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
+if (NOT DISABLE_OPENMP)
   find_package(OpenMP)
   if(OPENMP_FOUND)
     message(VERBOSE "RAFT: OpenMP found in ${OpenMP_CXX_INCLUDE_DIRS}")
-  endif(OPENMP_FOUND)
-endif(NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
+  endif()
+endif()
 
 # add third party dependencies using CPM
 rapids_cpm_init()
