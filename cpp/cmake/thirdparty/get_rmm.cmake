@@ -16,6 +16,12 @@
 
 function(find_and_configure_rmm VERSION)
 
+    # No way to override the version rapids-cmake pulls
+    # so we need to manually checkout when needing a diverged
+    # version
+    # include(${rapids-cmake-dir}/cpm/rmm.cmake)
+    # rapids_cpm_rmm()
+
     if(${VERSION} MATCHES [=[([0-9]+)\.([0-9]+)\.([0-9]+)]=])
         set(MAJOR_AND_MINOR "${CMAKE_MATCH_1}.${CMAKE_MATCH_2}")
     else()
