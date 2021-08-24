@@ -16,10 +16,6 @@
 
 function(find_and_configure_rmm VERSION)
 
-    if(TARGET rmm::rmm)
-        return()
-    endif()
-
     if(${VERSION} MATCHES [=[([0-9]+)\.([0-9]+)\.([0-9]+)]=])
         set(MAJOR_AND_MINOR "${CMAKE_MATCH_1}.${CMAKE_MATCH_2}")
     else()

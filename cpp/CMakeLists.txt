@@ -113,7 +113,7 @@ endif()
 
 ##############################################################################
 # - install targets-----------------------------------------------------------
-
+rapids_cmake_install_lib_dir( lib_dir )
 add_library(raft INTERFACE)
 add_library(raft::raft ALIAS raft)
 target_include_directories(raft INTERFACE "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/include>"
@@ -133,7 +133,7 @@ INTERFACE
 target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
 
 install(TARGETS raft
-        DESTINATION lib
+        DESTINATION ${lib_dir}
         EXPORT raft-exports
         )
 
