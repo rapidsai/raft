@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION.
  * Copyright 2020 KETAN DATE & RAKESH NAGI
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -24,19 +24,17 @@
  */
 #pragma once
 
-#include <cuda.h>
-#include <cuda_runtime.h>
-#include <device_launch_parameters.h>
-#include <thrust/device_ptr.h>
-#include <thrust/reduce.h>
-#include <thrust/scan.h>
 #include "d_structs.h"
 
 #include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
+#include <raft/lap/lap_kernels.cuh>
 #include <raft/mr/device/buffer.hpp>
 
-#include <raft/lap/lap_kernels.cuh>
+#include <thrust/reduce.h>
+#include <thrust/scan.h>
+
+#include <cstddef>
 
 namespace raft {
 namespace lap {
@@ -120,7 +118,7 @@ template <typename vertex_t, typename weight_t>
 inline void computeInitialAssignments(raft::handle_t const &handle,
                                       weight_t const *d_costs,
                                       Vertices<vertex_t, weight_t> &d_vertices,
-                                      int SP, vertex_t N) {
+                                      int SP, vertex_t N, weight_t epsilon) {
   dim3 blocks_per_grid;
   dim3 threads_per_block;
   int total_blocks = 0;
@@ -144,7 +142,7 @@ inline void computeInitialAssignments(raft::handle_t const &handle,
                                      handle.get_stream()>>>(
     d_costs, d_vertices.row_duals, d_vertices.col_duals,
     d_vertices.row_assignments, d_vertices.col_assignments, row_lock_v.data(),
-    col_lock_v.data(), SP, N);
+    col_lock_v.data(), SP, N, epsilon);
   CHECK_CUDA(handle.get_stream());
 }
 
@@ -187,14 +185,12 @@ inline int computeRowCovers(raft::handle_t const &handle,
 
 // Function for covering the zeros in uncovered rows and expanding the frontier.
 template <typename vertex_t, typename weight_t>
-inline void coverZeroAndExpand(raft::handle_t const &handle,
-                               weight_t const *d_costs_dev,
-                               vertex_t const *d_rows_csr_neighbors,
-                               vertex_t const *d_rows_csr_ptrs,
-                               Vertices<vertex_t, weight_t> &d_vertices_dev,
-                               VertexData<vertex_t> &d_row_data_dev,
-                               VertexData<vertex_t> &d_col_data_dev,
-                               bool *d_flag, int SP, vertex_t N) {
+inline void coverZeroAndExpand(
+  raft::handle_t const &handle, weight_t const *d_costs_dev,
+  vertex_t const *d_rows_csr_neighbors, vertex_t const *d_rows_csr_ptrs,
+  Vertices<vertex_t, weight_t> &d_vertices_dev,
+  VertexData<vertex_t> &d_row_data_dev, VertexData<vertex_t> &d_col_data_dev,
+  bool *d_flag, int SP, vertex_t N, weight_t epsilon) {
   int total_blocks = 0;
   dim3 blocks_per_grid;
   dim3 threads_per_block;
@@ -205,7 +201,7 @@ inline void coverZeroAndExpand(raft::handle_t const &handle,
   kernel_coverAndExpand<<<blocks_per_grid, threads_per_block, 0,
                           handle.get_stream()>>>(
     d_flag, d_rows_csr_ptrs, d_rows_csr_neighbors, d_costs_dev, d_vertices_dev,
-    d_row_data_dev, d_col_data_dev, SP, N);
+    d_row_data_dev, d_col_data_dev, SP, N, epsilon);
 }
 
 template <typename vertex_t, typename weight_t>
@@ -214,7 +210,8 @@ inline vertex_t zeroCoverIteration(raft::handle_t const &handle,
                                    Vertices<vertex_t, weight_t> &d_vertices_dev,
                                    VertexData<vertex_t> &d_row_data_dev,
                                    VertexData<vertex_t> &d_col_data_dev,
-                                   bool *d_flag, int SP, vertex_t N) {
+                                   bool *d_flag, int SP, vertex_t N,
+                                   weight_t epsilon) {
   vertex_t M;
 
   raft::mr::device::buffer<vertex_t> csr_ptrs_v(handle.get_device_allocator(),
@@ -268,7 +265,7 @@ inline vertex_t zeroCoverIteration(raft::handle_t const &handle,
   if (M > 0) {
     coverZeroAndExpand(handle, d_costs_dev, csr_neighbors_v.data(),
                        csr_ptrs_v.data(), d_vertices_dev, d_row_data_dev,
-                       d_col_data_dev, d_flag, SP, N);
+                       d_col_data_dev, d_flag, SP, N, epsilon);
   }
 
   return M;
@@ -281,11 +278,11 @@ inline void executeZeroCover(raft::handle_t const &handle,
                              Vertices<vertex_t, weight_t> &d_vertices_dev,
                              VertexData<vertex_t> &d_row_data_dev,
                              VertexData<vertex_t> &d_col_data_dev, bool *d_flag,
-                             int SP, vertex_t N) {
+                             int SP, vertex_t N, weight_t epsilon) {
   vertex_t M = 1;
   while (M > 0) {
     M = zeroCoverIteration(handle, d_costs_dev, d_vertices_dev, d_row_data_dev,
-                           d_col_data_dev, d_flag, SP, N);
+                           d_col_data_dev, d_flag, SP, N, epsilon);
   }
 }
 
@@ -415,8 +412,8 @@ template <typename vertex_t, typename weight_t>
 inline void dualUpdate(raft::handle_t const &handle,
                        Vertices<vertex_t, weight_t> &d_vertices_dev,
                        VertexData<vertex_t> &d_row_data_dev,
-                       VertexData<vertex_t> &d_col_data_dev, int SP,
-                       vertex_t N) {
+                       VertexData<vertex_t> &d_col_data_dev, int SP, vertex_t N,
+                       weight_t epsilon) {
   dim3 blocks_per_grid;
   dim3 threads_per_block;
   int total_blocks;
@@ -440,7 +437,8 @@ inline void dualUpdate(raft::handle_t const &handle,
     sp_min_v.data(), d_vertices_dev.row_duals, d_vertices_dev.col_duals,
     d_vertices_dev.col_slacks, d_vertices_dev.row_covers,
     d_vertices_dev.col_covers, d_row_data_dev.is_visited,
-    d_col_data_dev.parents, SP, N, std::numeric_limits<weight_t>::max());
+    d_col_data_dev.parents, SP, N, std::numeric_limits<weight_t>::max(),
+    epsilon);
 
   CHECK_CUDA(handle.get_stream());
 }

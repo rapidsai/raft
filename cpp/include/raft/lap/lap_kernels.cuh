@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION.
  * Copyright 2020 KETAN DATE & RAKESH NAGI
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -24,18 +24,15 @@
  */
 #pragma once
 
-#include <cuda.h>
-#include <cuda_runtime.h>
-#include <device_launch_parameters.h>
-#include <thrust/device_ptr.h>
-#include <thrust/reduce.h>
-#include <thrust/scan.h>
 #include "d_structs.h"
 
 #include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
 #include <raft/mr/device/buffer.hpp>
 
+#include <thrust/for_each.h>
+
+#include <cstddef>
 namespace raft {
 namespace lap {
 namespace detail {
@@ -48,20 +45,18 @@ const int AUGMENT{4};
 const int MODIFIED{5};
 
 template <typename weight_t>
-bool __device__ near_zero(weight_t w) {
+bool __device__ near_zero(weight_t w, weight_t epsilon) {
+  return ((w > -epsilon) && (w < epsilon));
+}
+
+template <>
+bool __device__ near_zero<int32_t>(int32_t w, int32_t epsilon) {
   return (w == 0);
 }
 
 template <>
-bool __device__ near_zero<float>(float w) {
-  const float epsilon{1e-6};
-  return ((w > -epsilon) && (w < epsilon));
-}
-
-template <>
-bool __device__ near_zero<double>(double w) {
-  const double epsilon{1e-6};
-  return ((w > -epsilon) && (w < epsilon));
+bool __device__ near_zero<int64_t>(int64_t w, int64_t epsilon) {
+  return (w == 0);
 }
 
 // Device function for traversing the neighbors from start pointer to end pointer and updating the covers.
@@ -72,7 +67,8 @@ __device__ void cover_and_expand_row(
   weight_t const *d_col_duals, weight_t *d_col_slacks, int *d_row_covers,
   int *d_col_covers, vertex_t const *d_col_assignments, bool *d_flag,
   vertex_t *d_row_parents, vertex_t *d_col_parents, int *d_row_visited,
-  int *d_col_visited, vertex_t rowid, int spid, int colid, vertex_t N) {
+  int *d_col_visited, vertex_t rowid, int spid, int colid, vertex_t N,
+  weight_t epsilon) {
   int ROWID = spid * N + rowid;
   int COLID = spid * N + colid;
 
@@ -88,7 +84,7 @@ __device__ void cover_and_expand_row(
       d_col_parents[COLID] = ROWID;
     }
 
-    if (near_zero(d_col_slacks[COLID])) {
+    if (near_zero(d_col_slacks[COLID], epsilon)) {
       if (nxt_rowid != -1) {
         d_row_parents[NXT_ROWID] = COLID;  // update parent info
 
@@ -201,7 +197,7 @@ __global__ void kernel_computeInitialAssignments(
   weight_t const *d_costs, weight_t const *d_row_duals,
   weight_t const *d_col_duals, vertex_t *d_row_assignments,
   vertex_t *d_col_assignments, int *d_row_lock, int *d_col_lock, int SP,
-  vertex_t N) {
+  vertex_t N, weight_t epsilon) {
   int spid = blockIdx.y * blockDim.y + threadIdx.y;
   int colid = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -218,7 +214,7 @@ __global__ void kernel_computeInitialAssignments(
       weight_t row_dual = d_row_duals[overall_rowid];
       weight_t slack = cost - row_dual - col_dual;
 
-      if (near_zero(slack)) {
+      if (near_zero(slack, epsilon)) {
         if (atomicCAS(&d_row_lock[overall_rowid], 0, 1) == 0) {
           d_row_assignments[overall_rowid] = colid;
           d_col_assignments[overall_colid] = rowid;
@@ -303,7 +299,7 @@ __global__ void kernel_coverAndExpand(bool *d_flag, vertex_t const *d_ptrs,
                                       Vertices<vertex_t, weight_t> d_vertices,
                                       VertexData<vertex_t> d_row_data,
                                       VertexData<vertex_t> d_col_data, int SP,
-                                      vertex_t N) {
+                                      vertex_t N, weight_t epsilon) {
   int spid = blockIdx.y * blockDim.y + threadIdx.y;
   int colid = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -312,14 +308,14 @@ __global__ void kernel_coverAndExpand(bool *d_flag, vertex_t const *d_ptrs,
   if (spid < SP && colid < N) {
     thrust::for_each(
       thrust::seq, d_neighbors + d_ptrs[spid], d_neighbors + d_ptrs[spid + 1],
-      [d_elements, d_vertices, d_flag, d_row_data, d_col_data, spid, colid,
-       N] __device__(vertex_t rowid) {
+      [d_elements, d_vertices, d_flag, d_row_data, d_col_data, spid, colid, N,
+       epsilon] __device__(vertex_t rowid) {
         cover_and_expand_row(
           d_elements, d_vertices.row_duals, d_vertices.col_duals,
           d_vertices.col_slacks, d_vertices.row_covers, d_vertices.col_covers,
           d_vertices.col_assignments, d_flag, d_row_data.parents,
           d_col_data.parents, d_row_data.is_visited, d_col_data.is_visited,
-          rowid, spid, colid, N);
+          rowid, spid, colid, N, epsilon);
       });
   }
 }
@@ -422,7 +418,7 @@ __global__ void kernel_dualUpdate_2(
   weight_t const *d_sp_min, weight_t *d_row_duals, weight_t *d_col_duals,
   weight_t *d_col_slacks, int const *d_row_covers, int const *d_col_covers,
   int *d_row_visited, vertex_t *d_col_parents, int SP, vertex_t N,
-  weight_t infinity) {
+  weight_t infinity, weight_t epsilon) {
   int spid = blockIdx.y * blockDim.y + threadIdx.y;
   int id = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -443,7 +439,7 @@ __global__ void kernel_dualUpdate_2(
         // Col vertex is unreachable from source.
         d_col_slacks[index] -= d_sp_min[spid];
 
-        if (near_zero(d_col_slacks[index])) {
+        if (near_zero(d_col_slacks[index], epsilon)) {
           int par_rowid = d_col_parents[index];
           if (par_rowid != -1) d_row_visited[par_rowid] = ACTIVE;
         }

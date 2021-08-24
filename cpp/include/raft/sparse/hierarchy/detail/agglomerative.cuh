@@ -20,12 +20,15 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
 #include <raft/mr/device/buffer.hpp>
+
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
 
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
 #include <thrust/sort.h>
+
+#include <cstddef>
 
 namespace raft {
 
@@ -97,8 +100,8 @@ class UnionFind {
 template <typename value_idx, typename value_t>
 void build_dendrogram_host(const handle_t &handle, const value_idx *rows,
                            const value_idx *cols, const value_t *data,
-                           size_t nnz, value_idx *children, value_t *out_delta,
-                           value_idx *out_size) {
+                           std::size_t nnz, value_idx *children,
+                           value_t *out_delta, value_idx *out_size) {
   auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
 
@@ -120,7 +123,7 @@ void build_dendrogram_host(const handle_t &handle, const value_idx *rows,
 
   UnionFind<value_idx, value_t> U(nnz + 1);
 
-  for (value_idx i = 0; i < nnz; i++) {
+  for (std::size_t i = 0; i < nnz; i++) {
     value_idx a = mst_src_h[i];
     value_idx b = mst_dst_h[i];
     value_t delta = mst_weights_h[i];
@@ -167,7 +170,7 @@ __global__ void write_levels_kernel(const value_idx *children,
  */
 template <typename value_idx>
 __global__ void inherit_labels(const value_idx *children,
-                               const value_idx *levels, size_t n_leaves,
+                               const value_idx *levels, std::size_t n_leaves,
                                value_idx *labels, int cut_level,
                                value_idx n_vertices) {
   value_idx tid = blockDim.x * blockIdx.x + threadIdx.x;
@@ -222,8 +225,8 @@ struct init_label_roots {
  */
 template <typename value_idx, int tpb = 256>
 void extract_flattened_clusters(const raft::handle_t &handle, value_idx *labels,
-                                const value_idx *children, size_t n_clusters,
-                                size_t n_leaves) {
+                                const value_idx *children,
+                                std::size_t n_clusters, std::size_t n_leaves) {
   auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
   auto thrust_policy = rmm::exec_policy(rmm::cuda_stream_view{stream});
@@ -241,7 +244,7 @@ void extract_flattened_clusters(const raft::handle_t &handle, value_idx *labels,
      *        out for each of the children
      */
 
-    size_t n_edges = (n_leaves - 1) * 2;
+    auto n_edges = (n_leaves - 1) * 2;
 
     thrust::device_ptr<const value_idx> d_ptr =
       thrust::device_pointer_cast(children);
@@ -250,7 +253,9 @@ void extract_flattened_clusters(const raft::handle_t &handle, value_idx *labels,
 
     // Prevent potential infinite loop from labeling disconnected
     // connectivities graph.
-    RAFT_EXPECTS(n_vertices == (n_leaves - 1) * 2,
+    RAFT_EXPECTS(n_leaves > 0, "n_leaves must be positive");
+    RAFT_EXPECTS(static_cast<std::size_t>(n_vertices) ==
+                   static_cast<std::size_t>((n_leaves - 1) * 2),
                  "Multiple components found in MST or MST is invalid. "
                  "Cannot find single-linkage solution.");
 
