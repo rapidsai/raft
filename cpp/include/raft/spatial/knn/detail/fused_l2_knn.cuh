@@ -468,7 +468,7 @@ void fusedL2kNNImpl(const DataT *x, const DataT *y, IdxT m, IdxT n, IdxT k,
                     IdxT lda, IdxT ldb, IdxT ldd, bool sqrt, OutT *out_dists,
                     IdxT *out_inds, IdxT numOfNN, cudaStream_t stream,
                     void *workspace, size_t &worksize) {
-  typedef typename raft::linalg::Policy1x1<DataT, 1>::Policy RowPolicy;
+  typedef typename raft::linalg::Policy2x8<DataT, 1>::Policy RowPolicy;
   typedef typename raft::linalg::Policy4x4<DataT, VecLen>::ColPolicy ColPolicy;
 
   typedef typename std::conditional<true, RowPolicy, ColPolicy>::type KPolicy;
