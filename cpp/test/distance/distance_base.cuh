@@ -161,6 +161,138 @@ __global__ void naiveLpUnexpDistanceKernel(DataType *dist, const DataType *x,
 }
 
 template <typename DataType>
+__global__ void naiveHammingDistanceKernel(DataType *dist, const DataType *x,
+                                           const DataType *y, int m, int n,
+                                           int k, bool isRowMajor) {
+  int midx = threadIdx.x + blockIdx.x * blockDim.x;
+  int nidx = threadIdx.y + blockIdx.y * blockDim.y;
+  if (midx >= m || nidx >= n) return;
+  DataType acc = DataType(0);
+  for (int i = 0; i < k; ++i) {
+    int xidx = isRowMajor ? i + midx * k : i * m + midx;
+    int yidx = isRowMajor ? i + nidx * k : i * n + nidx;
+    auto a = x[xidx];
+    auto b = y[yidx];
+    acc += (a != b);
+  }
+  acc = acc / k;
+  int outidx = isRowMajor ? midx * n + nidx : midx + m * nidx;
+  dist[outidx] = acc;
+}
+
+template <typename DataType>
+__global__ void naiveJensenShannonDistanceKernel(DataType *dist,
+                                                 const DataType *x,
+                                                 const DataType *y, int m,
+                                                 int n, int k,
+                                                 bool isRowMajor) {
+  int midx = threadIdx.x + blockIdx.x * blockDim.x;
+  int nidx = threadIdx.y + blockIdx.y * blockDim.y;
+  if (midx >= m || nidx >= n) return;
+  DataType acc = DataType(0);
+  for (int i = 0; i < k; ++i) {
+    int xidx = isRowMajor ? i + midx * k : i * m + midx;
+    int yidx = isRowMajor ? i + nidx * k : i * n + nidx;
+    auto a = x[xidx];
+    auto b = y[yidx];
+
+    DataType m = 0.5f * (a + b);
+    bool a_zero = a == 0;
+    bool b_zero = b == 0;
+
+    DataType p = (!a_zero * m) / (a_zero + a);
+    DataType q = (!b_zero * m) / (b_zero + b);
+
+    bool p_zero = p == 0;
+    bool q_zero = q == 0;
+
+    acc +=
+      (-a * (!p_zero * log(p + p_zero))) + (-b * (!q_zero * log(q + q_zero)));
+  }
+  acc = raft::mySqrt(0.5f * acc);
+  int outidx = isRowMajor ? midx * n + nidx : midx + m * nidx;
+  dist[outidx] = acc;
+}
+
+template <typename DataType, typename OutType>
+__global__ void naiveRussellRaoDistanceKernel(OutType *dist, const DataType *x,
+                                              const DataType *y, int m, int n,
+                                              int k, bool isRowMajor) {
+  int midx = threadIdx.x + blockIdx.x * blockDim.x;
+  int nidx = threadIdx.y + blockIdx.y * blockDim.y;
+  if (midx >= m || nidx >= n) return;
+  OutType acc = OutType(0);
+  for (int i = 0; i < k; ++i) {
+    int xidx = isRowMajor ? i + midx * k : i * m + midx;
+    int yidx = isRowMajor ? i + nidx * k : i * n + nidx;
+    auto a = x[xidx];
+    auto b = y[yidx];
+    acc += (a * b);
+  }
+  acc = (k - acc) / k;
+  int outidx = isRowMajor ? midx * n + nidx : midx + m * nidx;
+  dist[outidx] = acc;
+}
+
+template <typename DataType, typename OutType>
+__global__ void naiveKLDivergenceDistanceKernel(OutType *dist,
+                                                const DataType *x,
+                                                const DataType *y, int m, int n,
+                                                int k, bool isRowMajor) {
+  int midx = threadIdx.x + blockIdx.x * blockDim.x;
+  int nidx = threadIdx.y + blockIdx.y * blockDim.y;
+  if (midx >= m || nidx >= n) return;
+  OutType acc = OutType(0);
+  for (int i = 0; i < k; ++i) {
+    int xidx = isRowMajor ? i + midx * k : i * m + midx;
+    int yidx = isRowMajor ? i + nidx * k : i * n + nidx;
+    auto a = x[xidx];
+    auto b = y[yidx];
+    bool b_zero = (b == 0);
+    const auto m = (!b_zero) * (a / b);
+    const bool m_zero = (m == 0);
+    acc += (a * (!m_zero) * log(m + m_zero));
+  }
+  acc = 0.5f * acc;
+  int outidx = isRowMajor ? midx * n + nidx : midx + m * nidx;
+  dist[outidx] = acc;
+}
+
+template <typename DataType, typename OutType>
+__global__ void naiveCorrelationDistanceKernel(OutType *dist, const DataType *x,
+                                               const DataType *y, int m, int n,
+                                               int k, bool isRowMajor) {
+  int midx = threadIdx.x + blockIdx.x * blockDim.x;
+  int nidx = threadIdx.y + blockIdx.y * blockDim.y;
+  if (midx >= m || nidx >= n) return;
+  OutType acc = OutType(0);
+  auto a_norm = DataType(0);
+  auto b_norm = DataType(0);
+  auto a_sq_norm = DataType(0);
+  auto b_sq_norm = DataType(0);
+  for (int i = 0; i < k; ++i) {
+    int xidx = isRowMajor ? i + midx * k : i * m + midx;
+    int yidx = isRowMajor ? i + nidx * k : i * n + nidx;
+    auto a = x[xidx];
+    auto b = y[yidx];
+    a_norm += a;
+    b_norm += b;
+    a_sq_norm += (a * a);
+    b_sq_norm += (b * b);
+    acc += (a * b);
+  }
+
+  auto numer = k * acc - (a_norm * b_norm);
+  auto Q_denom = k * a_sq_norm - (a_norm * a_norm);
+  auto R_denom = k * b_sq_norm - (b_norm * b_norm);
+
+  acc = 1 - (numer / raft::mySqrt(Q_denom * R_denom));
+
+  int outidx = isRowMajor ? midx * n + nidx : midx + m * nidx;
+  dist[outidx] = acc;
+}
+
+template <typename DataType>
 void naiveDistance(DataType *dist, const DataType *x, const DataType *y, int m,
                    int n, int k, raft::distance::DistanceType type,
                    bool isRowMajor, DataType metric_arg = 2.0f) {
@@ -192,6 +324,26 @@ void naiveDistance(DataType *dist, const DataType *x, const DataType *y, int m,
     case raft::distance::DistanceType::LpUnexpanded:
       naiveLpUnexpDistanceKernel<DataType>
         <<<nblks, TPB>>>(dist, x, y, m, n, k, isRowMajor, metric_arg);
+      break;
+    case raft::distance::DistanceType::HammingUnexpanded:
+      naiveHammingDistanceKernel<DataType>
+        <<<nblks, TPB>>>(dist, x, y, m, n, k, isRowMajor);
+      break;
+    case raft::distance::DistanceType::JensenShannon:
+      naiveJensenShannonDistanceKernel<DataType>
+        <<<nblks, TPB>>>(dist, x, y, m, n, k, isRowMajor);
+      break;
+    case raft::distance::DistanceType::RusselRaoExpanded:
+      naiveRussellRaoDistanceKernel<DataType>
+        <<<nblks, TPB>>>(dist, x, y, m, n, k, isRowMajor);
+      break;
+    case raft::distance::DistanceType::KLDivergence:
+      naiveKLDivergenceDistanceKernel<DataType>
+        <<<nblks, TPB>>>(dist, x, y, m, n, k, isRowMajor);
+      break;
+    case raft::distance::DistanceType::CorrelationExpanded:
+      naiveCorrelationDistanceKernel<DataType>
+        <<<nblks, TPB>>>(dist, x, y, m, n, k, isRowMajor);
       break;
     default:
       FAIL() << "should be here\n";
@@ -247,10 +399,19 @@ class DistanceTest : public ::testing::TestWithParam<DistanceInputs<DataType>> {
     raft::allocate(dist_ref, m * n);
     raft::allocate(dist, m * n);
     raft::allocate(dist2, m * n);
-    if (distanceType == raft::distance::DistanceType::HellingerExpanded) {
+    if (distanceType == raft::distance::DistanceType::HellingerExpanded ||
+        distanceType == raft::distance::DistanceType::JensenShannon ||
+        distanceType == raft::distance::DistanceType::KLDivergence) {
       // Hellinger works only on positive numbers
       r.uniform(x, m * k, DataType(0.0), DataType(1.0), stream);
       r.uniform(y, n * k, DataType(0.0), DataType(1.0), stream);
+    } else if (distanceType ==
+               raft::distance::DistanceType::RusselRaoExpanded) {
+      r.uniform(x, m * k, DataType(0.0), DataType(1.0), stream);
+      r.uniform(y, n * k, DataType(0.0), DataType(1.0), stream);
+      // Russel rao works on boolean values.
+      r.bernoulli(x, m * k, 0.5f, stream);
+      r.bernoulli(y, n * k, 0.5f, stream);
     } else {
       r.uniform(x, m * k, DataType(-1.0), DataType(1.0), stream);
       r.uniform(y, n * k, DataType(-1.0), DataType(1.0), stream);
