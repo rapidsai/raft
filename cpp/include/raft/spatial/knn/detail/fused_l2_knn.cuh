@@ -270,7 +270,8 @@ __global__ __launch_bounds__(Policy::Nthreads, 2) void fusedL2kNN(
 #pragma unroll
       for (int i = 0; i < Policy::AccRowsPerTh; ++i) {
         const auto rowId = starty + i * Policy::AccThRows;
-        const auto shMemRowId = (threadIdx.x / Policy::AccThCols) + i * Policy::AccThRows;
+        const auto shMemRowId =
+          (threadIdx.x / Policy::AccThCols) + i * Policy::AccThRows;
         if (rowId < m) {
           for (int idx = lid; idx < numOfNN; idx += warpSize) {
             Pair KVPair = shDumpKV[shMemRowId * numOfNN + idx];
@@ -293,163 +294,164 @@ __global__ __launch_bounds__(Policy::Nthreads, 2) void fusedL2kNN(
     [numOfNN, sqrt, m, n, ldd, out_dists, out_inds] __device__(
       AccT acc[Policy::AccRowsPerTh][Policy::AccColsPerTh], DataT * regxn,
       DataT * regyn, IdxT gridStrideX, IdxT gridStrideY) {
-    if (sqrt) {
-#pragma unroll
-      for (int i = 0; i < Policy::AccRowsPerTh; ++i) {
-#pragma unroll
-        for (int j = 0; j < Policy::AccColsPerTh; ++j) {
-          acc[i][j] = raft::mySqrt(acc[i][j]);
-        }
-      }
-    }
-    Pair *shDumpKV = (Pair *)(&smem[Policy::SmemSize]);
-
-    constexpr uint32_t mask = 0xffffffffu;
-    const IdxT starty = gridStrideY + (threadIdx.x / Policy::AccThCols);
-    const IdxT startx = gridStrideX + (threadIdx.x % Policy::AccThCols);
-    const int lid = raft::laneId();
-
-    myWarpSelect heapArr1(identity, keyMax, numOfNN);
-    myWarpSelect heapArr2(identity, keyMax, numOfNN);
-    myWarpSelect *heapArr[] = {&heapArr1, &heapArr2};
-    if (usePrevTopKs) {
-      if (gridStrideX == blockIdx.x * Policy::Nblk) {
-        loadPrevTopKsGmemWarpQ<Policy, Pair>(heapArr, out_dists, out_inds, m,
-                                             numOfNN, starty);
-      }
-    }
-
-    if (gridStrideX > blockIdx.x * Policy::Nblk) {
-#pragma unroll
-      for (int i = 0; i < Policy::AccRowsPerTh; ++i) {
-        const auto rowId = (threadIdx.x / Policy::AccThCols) + i * Policy::AccThRows;
-        Pair tempKV = shDumpKV[(rowId * numOfNN) + numOfNN - 1];
-        heapArr[i]->warpKTop = tempKV.value;
-      }
-
-      // total vals can atmost be 256, (32*8)
-      int numValsWarpTopK[Policy::AccRowsPerTh];
-      int anyWarpTopKs = 0;
-#pragma unroll
-      for (int i = 0; i < Policy::AccRowsPerTh; ++i) {
-        const auto rowId = starty + i * Policy::AccThRows;
-        numValsWarpTopK[i] = 0;
-        if (rowId < m) {
-#pragma unroll
-          for (int j = 0; j < Policy::AccColsPerTh; ++j) {
-            const auto colId = startx + j * Policy::AccThCols;
-            if (colId < ldd) {
-              if (acc[i][j] < heapArr[i]->warpKTop) {
-                numValsWarpTopK[i]++;
-              }
-            }
-          }
-          anyWarpTopKs += (numValsWarpTopK[i] > 0);
-        }
-      }
-      anyWarpTopKs = __syncthreads_or(anyWarpTopKs > 0);
-      if (anyWarpTopKs) {
-        Pair *allWarpTopKs = (Pair *)(&smem[0]);
-        uint32_t needScanSort[Policy::AccRowsPerTh];
-
+      if (sqrt) {
 #pragma unroll
         for (int i = 0; i < Policy::AccRowsPerTh; ++i) {
-          const auto gmemRowId = starty + i * Policy::AccThRows;
-          needScanSort[i] = 0;
-          if (gmemRowId < m) {
-            int myVals = numValsWarpTopK[i];
-            needScanSort[i] = __ballot_sync(mask, myVals > 0);
-            if (needScanSort[i]) {
 #pragma unroll
-              for (unsigned int k = 1; k <= 16; k *= 2) {
-                const unsigned int n =
-                  __shfl_up_sync(mask, numValsWarpTopK[i], k);
-                if (lid >= k) {
-                  numValsWarpTopK[i] += n;
+          for (int j = 0; j < Policy::AccColsPerTh; ++j) {
+            acc[i][j] = raft::mySqrt(acc[i][j]);
+          }
+        }
+      }
+      Pair *shDumpKV = (Pair *)(&smem[Policy::SmemSize]);
+
+      constexpr uint32_t mask = 0xffffffffu;
+      const IdxT starty = gridStrideY + (threadIdx.x / Policy::AccThCols);
+      const IdxT startx = gridStrideX + (threadIdx.x % Policy::AccThCols);
+      const int lid = raft::laneId();
+
+      myWarpSelect heapArr1(identity, keyMax, numOfNN);
+      myWarpSelect heapArr2(identity, keyMax, numOfNN);
+      myWarpSelect *heapArr[] = {&heapArr1, &heapArr2};
+      if (usePrevTopKs) {
+        if (gridStrideX == blockIdx.x * Policy::Nblk) {
+          loadPrevTopKsGmemWarpQ<Policy, Pair>(heapArr, out_dists, out_inds, m,
+                                               numOfNN, starty);
+        }
+      }
+
+      if (gridStrideX > blockIdx.x * Policy::Nblk) {
+#pragma unroll
+        for (int i = 0; i < Policy::AccRowsPerTh; ++i) {
+          const auto rowId =
+            (threadIdx.x / Policy::AccThCols) + i * Policy::AccThRows;
+          Pair tempKV = shDumpKV[(rowId * numOfNN) + numOfNN - 1];
+          heapArr[i]->warpKTop = tempKV.value;
+        }
+
+        // total vals can atmost be 256, (32*8)
+        int numValsWarpTopK[Policy::AccRowsPerTh];
+        int anyWarpTopKs = 0;
+#pragma unroll
+        for (int i = 0; i < Policy::AccRowsPerTh; ++i) {
+          const auto rowId = starty + i * Policy::AccThRows;
+          numValsWarpTopK[i] = 0;
+          if (rowId < m) {
+#pragma unroll
+            for (int j = 0; j < Policy::AccColsPerTh; ++j) {
+              const auto colId = startx + j * Policy::AccThCols;
+              if (colId < ldd) {
+                if (acc[i][j] < heapArr[i]->warpKTop) {
+                  numValsWarpTopK[i]++;
                 }
               }
             }
-            // As each thread will know its total vals to write.
-            // we only store its starting location.
-            numValsWarpTopK[i] -= myVals;
+            anyWarpTopKs += (numValsWarpTopK[i] > 0);
           }
+        }
+        anyWarpTopKs = __syncthreads_or(anyWarpTopKs > 0);
+        if (anyWarpTopKs) {
+          Pair *allWarpTopKs = (Pair *)(&smem[0]);
+          uint32_t needScanSort[Policy::AccRowsPerTh];
 
-          if (needScanSort[i]) {
-            const auto rowId =
-              (threadIdx.x / Policy::AccThCols) + i * Policy::AccThRows;
-            if (gmemRowId < m) {
-              if (needScanSort[i] & ((uint32_t)1 << lid)) {
 #pragma unroll
-                for (int j = 0; j < Policy::AccColsPerTh; ++j) {
-                  const auto colId = startx + j * Policy::AccThCols;
-                  if (colId < ldd) {
-                    if (acc[i][j] < heapArr[i]->warpKTop) {
-                      Pair otherKV = {colId, acc[i][j]};
-                      allWarpTopKs[rowId * (256) + numValsWarpTopK[i]] =
-                        otherKV;
-                      numValsWarpTopK[i]++;
-                    }
+          for (int i = 0; i < Policy::AccRowsPerTh; ++i) {
+            const auto gmemRowId = starty + i * Policy::AccThRows;
+            needScanSort[i] = 0;
+            if (gmemRowId < m) {
+              int myVals = numValsWarpTopK[i];
+              needScanSort[i] = __ballot_sync(mask, myVals > 0);
+              if (needScanSort[i]) {
+#pragma unroll
+                for (unsigned int k = 1; k <= 16; k *= 2) {
+                  const unsigned int n =
+                    __shfl_up_sync(mask, numValsWarpTopK[i], k);
+                  if (lid >= k) {
+                    numValsWarpTopK[i] += n;
                   }
                 }
               }
-              const int finalNumVals = raft::shfl(numValsWarpTopK[i], 31);
-              loadWarpQShmem<Policy, Pair>(heapArr[i], &shDumpKV[0], rowId,
-                                           numOfNN);
-              updateSortedWarpQ<Pair, heapArr[i]->kNumWarpQRegisters>(
-                heapArr[i], &allWarpTopKs[0], rowId, finalNumVals);
+              // As each thread will know its total vals to write.
+              // we only store its starting location.
+              numValsWarpTopK[i] -= myVals;
+            }
+
+            if (needScanSort[i]) {
+              const auto rowId =
+                (threadIdx.x / Policy::AccThCols) + i * Policy::AccThRows;
+              if (gmemRowId < m) {
+                if (needScanSort[i] & ((uint32_t)1 << lid)) {
+#pragma unroll
+                  for (int j = 0; j < Policy::AccColsPerTh; ++j) {
+                    const auto colId = startx + j * Policy::AccThCols;
+                    if (colId < ldd) {
+                      if (acc[i][j] < heapArr[i]->warpKTop) {
+                        Pair otherKV = {colId, acc[i][j]};
+                        allWarpTopKs[rowId * (256) + numValsWarpTopK[i]] =
+                          otherKV;
+                        numValsWarpTopK[i]++;
+                      }
+                    }
+                  }
+                }
+                const int finalNumVals = raft::shfl(numValsWarpTopK[i], 31);
+                loadWarpQShmem<Policy, Pair>(heapArr[i], &shDumpKV[0], rowId,
+                                             numOfNN);
+                updateSortedWarpQ<Pair, heapArr[i]->kNumWarpQRegisters>(
+                  heapArr[i], &allWarpTopKs[0], rowId, finalNumVals);
+              }
+            }
+          }
+          __syncthreads();
+#pragma unroll
+          for (int i = 0; i < Policy::AccRowsPerTh; ++i) {
+            if (needScanSort[i]) {
+              const auto rowId =
+                (threadIdx.x / Policy::AccThCols) + i * Policy::AccThRows;
+              const auto gmemRowId = starty + i * Policy::AccThRows;
+              if (gmemRowId < m) {
+                storeWarpQShmem<Policy, Pair>(heapArr[i], shDumpKV, rowId,
+                                              numOfNN);
+              }
             }
           }
         }
-        __syncthreads();
+      } else {
 #pragma unroll
         for (int i = 0; i < Policy::AccRowsPerTh; ++i) {
-          if (needScanSort[i]) {
-            const auto rowId =
-              (threadIdx.x / Policy::AccThCols) + i * Policy::AccThRows;
-            const auto gmemRowId = starty + i * Policy::AccThRows;
-            if (gmemRowId < m) {
-              storeWarpQShmem<Policy, Pair>(heapArr[i], shDumpKV, rowId,
-                                            numOfNN);
+          const auto gmemRowId = starty + i * Policy::AccThRows;
+          const auto shMemRowId =
+            (threadIdx.x / Policy::AccThCols) + i * Policy::AccThRows;
+          if (gmemRowId < m) {
+#pragma unroll
+            for (int j = 0; j < Policy::AccColsPerTh; ++j) {
+              const auto colId = startx + j * Policy::AccThCols;
+              Pair otherKV = {keyMax, identity};
+              if (colId < ldd) {
+                otherKV.value = acc[i][j];
+                otherKV.key = colId;
+              }
+              heapArr[i]->add(otherKV.value, otherKV.key);
             }
+
+            bool needSort = (heapArr[i]->numVals > 0);
+            needSort = __any_sync(mask, needSort);
+            if (needSort) {
+              heapArr[i]->reduce();
+            }
+            storeWarpQShmem<Policy, Pair>(heapArr[i], shDumpKV, shMemRowId,
+                                          numOfNN);
           }
         }
       }
-    } else {
-#pragma unroll
-      for (int i = 0; i < Policy::AccRowsPerTh; ++i) {
-        const auto gmemRowId = starty + i * Policy::AccThRows;
-        const auto shMemRowId =
-          (threadIdx.x / Policy::AccThCols) + i * Policy::AccThRows;
-        if (gmemRowId < m) {
-#pragma unroll
-          for (int j = 0; j < Policy::AccColsPerTh; ++j) {
-            const auto colId = startx + j * Policy::AccThCols;
-            Pair otherKV = {keyMax, identity};
-            if (colId < ldd) {
-              otherKV.value = acc[i][j];
-              otherKV.key = colId;
-            }
-            heapArr[i]->add(otherKV.value, otherKV.key);
-          }
 
-          bool needSort = (heapArr[i]->numVals > 0);
-          needSort = __any_sync(mask, needSort);
-          if (needSort) {
-            heapArr[i]->reduce();
-          }
-          storeWarpQShmem<Policy, Pair>(heapArr[i], shDumpKV, shMemRowId,
-                                        numOfNN);
-        }
+      if (((gridStrideX + Policy::Nblk * gridDim.x) > n) && gridDim.x == 1) {
+        // This is last iteration of grid stride X
+        loadAllWarpQShmem<Policy, Pair>(heapArr, &shDumpKV[0], m, numOfNN);
+        storeWarpQGmem<Policy, Pair>(heapArr, out_dists, out_inds, m, numOfNN,
+                                     starty);
       }
-    }
-
-    if (((gridStrideX + Policy::Nblk * gridDim.x) > n) && gridDim.x == 1) {
-      // This is last iteration of grid stride X
-      loadAllWarpQShmem<Policy, Pair>(heapArr, &shDumpKV[0], m, numOfNN);
-      storeWarpQGmem<Policy, Pair>(heapArr, out_dists, out_inds, m, numOfNN,
-                                   starty);
-    }
-  };
+    };
 
   raft::distance::PairwiseDistances<useNorms, DataT, AccT, OutT, IdxT, Policy,
                                     CoreLambda, decltype(epilog_lambda),
@@ -594,7 +596,7 @@ void l2_unexpanded_knn(size_t D, value_idx *out_inds, value_t *out_dists,
       n_query_rows, n_index_rows, D, lda, ldb, ldd, query, index, sqrt,
       out_dists, out_inds, k, stream, workspace, worksize);
   } else {
-  // TODO: Add support for column major layout
+    // TODO: Add support for column major layout
   }
 }
 
