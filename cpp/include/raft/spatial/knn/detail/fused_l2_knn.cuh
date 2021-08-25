@@ -346,7 +346,7 @@ __global__ __launch_bounds__(Policy::Nthreads, 2) void fusedL2kNN(
                 }
               }
             }
-            anyWarpTopKs += (numValsWarpTopK[i] > 0);
+            anyWarpTopKs += numValsWarpTopK[i];
           }
         }
         anyWarpTopKs = __syncthreads_or(anyWarpTopKs > 0);
