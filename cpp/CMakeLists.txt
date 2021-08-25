@@ -118,6 +118,8 @@ endif()
 ##############################################################################
 # - install targets-----------------------------------------------------------
 
+include(CPack)
+
 add_library(raft INTERFACE)
 add_library(raft::raft ALIAS raft)
 target_include_directories(raft INTERFACE "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/include>"
