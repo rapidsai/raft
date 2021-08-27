@@ -59,9 +59,9 @@ class CSRRowOpTest
     n_rows = params.ex_scan.size();
     nnz = params.verify.size();
 
-    raft::allocate(verify, nnz);
-    raft::allocate(ex_scan, n_rows);
-    raft::allocate(result, nnz, true);
+    raft::allocate(verify, nnz, stream);
+    raft::allocate(ex_scan, n_rows, stream);
+    raft::allocate(result, nnz, stream, true);
   }
 
   void Run() {
@@ -75,10 +75,8 @@ class CSRRowOpTest
   }
 
   void TearDown() override {
-    CUDA_CHECK(cudaFree(ex_scan));
-    CUDA_CHECK(cudaFree(verify));
-    CUDA_CHECK(cudaFree(result));
-    cudaStreamDestroy(stream);
+    raft::deallocate_all(stream);
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
  protected:

@@ -63,9 +63,9 @@ class ReduceTest
     int rows = params.rows, cols = params.cols;
     int len = rows * cols;
     outlen = params.alongRows ? rows : cols;
-    raft::allocate(data, len);
-    raft::allocate(dots_exp, outlen);
-    raft::allocate(dots_act, outlen);
+    raft::allocate(data, len, stream);
+    raft::allocate(dots_exp, outlen, stream);
+    raft::allocate(dots_act, outlen, stream);
     r.uniform(data, len, InType(-1.0), InType(1.0), stream);
     naiveReduction(dots_exp, data, cols, rows, params.rowMajor,
                    params.alongRows, stream);
@@ -82,9 +82,7 @@ class ReduceTest
   }
 
   void TearDown() override {
-    CUDA_CHECK(cudaFree(data));
-    CUDA_CHECK(cudaFree(dots_exp));
-    CUDA_CHECK(cudaFree(dots_act));
+    raft::deallocate_all(stream);
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
 

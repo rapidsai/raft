@@ -51,27 +51,26 @@ class DivideTest
       ::testing::TestWithParam<raft::linalg::UnaryOpInputs<T>>::GetParam();
     raft::random::Rng r(params.seed);
     int len = params.len;
-    cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
 
-    raft::allocate(in, len);
-    raft::allocate(out_ref, len);
-    raft::allocate(out, len);
+    raft::allocate(in, len, stream);
+    raft::allocate(out_ref, len, stream);
+    raft::allocate(out, len, stream);
     r.uniform(in, len, T(-1.0), T(1.0), stream);
     naiveDivide(out_ref, in, params.scalar, len, stream);
     divideScalar(out, in, params.scalar, len, stream);
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
   void TearDown() override {
-    CUDA_CHECK(cudaFree(in));
-    CUDA_CHECK(cudaFree(out_ref));
-    CUDA_CHECK(cudaFree(out));
+    raft::deallocate_all(stream);
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
  protected:
   UnaryOpInputs<T> params;
   T *in, *out_ref, *out;
+  cudaStream_t stream;
 };
 
 const std::vector<UnaryOpInputs<float>> inputsf = {

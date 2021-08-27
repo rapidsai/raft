@@ -55,7 +55,7 @@ class hash_strategy : public coo_spmv_strategy<value_idx, value_t, tpb> {
                        rmm::device_uvector<value_idx> &mask_indptr,
                        std::tuple<value_idx, value_idx> &n_rows_divided,
                        cudaStream_t stream) {
-    auto policy = rmm::exec_policy(stream);
+    auto policy = this->config.handle.get_thrust_policy();
 
     auto less = thrust::copy_if(
       policy, thrust::make_counting_iterator(value_idx(0)),

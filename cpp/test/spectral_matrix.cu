@@ -57,27 +57,24 @@ TEST(Raft, SpectralMatrices) {
   ASSERT_EQ(nullptr, sm2.row_offsets_);
 
   auto stream = h.get_stream();
-  auto t_exe_pol = thrust::cuda::par.on(stream);
 
-  auto cnstr_lm1 = [&h, t_exe_pol, ro, ci, vs, nrows, nnz](void) {
-    laplacian_matrix_t<index_type, value_type> lm1{h,  t_exe_pol, ro, ci,
-                                                   vs, nrows,     nnz};
+  auto cnstr_lm1 = [&h, ro, ci, vs, nrows, nnz](void) {
+    laplacian_matrix_t<index_type, value_type> lm1{h, ro, ci, vs, nrows, nnz};
   };
   EXPECT_ANY_THROW(cnstr_lm1());  // because of nullptr ptr args
 
-  auto cnstr_lm2 = [&h, t_exe_pol, &sm2](void) {
-    laplacian_matrix_t<index_type, value_type> lm2{h, t_exe_pol, sm2};
+  auto cnstr_lm2 = [&h, &sm2](void) {
+    laplacian_matrix_t<index_type, value_type> lm2{h, sm2};
   };
   EXPECT_ANY_THROW(cnstr_lm2());  // because of nullptr ptr args
 
-  auto cnstr_mm1 = [&h, t_exe_pol, ro, ci, vs, nrows, nnz](void) {
-    modularity_matrix_t<index_type, value_type> mm1{h,  t_exe_pol, ro, ci,
-                                                    vs, nrows,     nnz};
+  auto cnstr_mm1 = [&h, ro, ci, vs, nrows, nnz](void) {
+    modularity_matrix_t<index_type, value_type> mm1{h, ro, ci, vs, nrows, nnz};
   };
   EXPECT_ANY_THROW(cnstr_mm1());  // because of nullptr ptr args
 
-  auto cnstr_mm2 = [&h, t_exe_pol, &sm2](void) {
-    modularity_matrix_t<index_type, value_type> mm2{h, t_exe_pol, sm2};
+  auto cnstr_mm2 = [&h, &sm2](void) {
+    modularity_matrix_t<index_type, value_type> mm2{h, sm2};
   };
   EXPECT_ANY_THROW(cnstr_mm2());  // because of nullptr ptr args
 }

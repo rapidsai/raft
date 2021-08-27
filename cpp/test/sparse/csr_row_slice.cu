@@ -19,8 +19,6 @@
 
 #include <gtest/gtest.h>
 #include <raft/sparse/cusparse_wrappers.h>
-#include <raft/mr/device/allocator.hpp>
-#include <raft/mr/device/buffer.hpp>
 
 #include <raft/sparse/op/slice.h>
 
@@ -61,9 +59,9 @@ class CSRRowSliceTest
     std::vector<value_idx> indices_h = params.indices_h;
     std::vector<value_t> data_h = params.data_h;
 
-    allocate(indptr, indptr_h.size());
-    allocate(indices, indices_h.size());
-    allocate(data, data_h.size());
+    raft::allocate(indptr, indptr_h.size(), stream);
+    raft::allocate(indices, indices_h.size(), stream);
+    raft::allocate(data, data_h.size(), stream);
 
     update_device(indptr, indptr_h.data(), indptr_h.size(), stream);
     update_device(indices, indices_h.data(), indices_h.size(), stream);
@@ -73,9 +71,9 @@ class CSRRowSliceTest
     std::vector<value_idx> out_indices_ref_h = params.out_indices_ref_h;
     std::vector<value_t> out_data_ref_h = params.out_data_ref_h;
 
-    allocate(out_indptr_ref, out_indptr_ref_h.size());
-    allocate(out_indices_ref, out_indices_ref_h.size());
-    allocate(out_data_ref, out_data_ref_h.size());
+    raft::allocate(out_indptr_ref, out_indptr_ref_h.size(), stream);
+    raft::allocate(out_indices_ref, out_indices_ref_h.size(), stream);
+    raft::allocate(out_data_ref, out_data_ref_h.size(), stream);
 
     update_device(out_indptr_ref, out_indptr_ref_h.data(),
                   out_indptr_ref_h.size(), stream);
@@ -84,16 +82,14 @@ class CSRRowSliceTest
     update_device(out_data_ref, out_data_ref_h.data(), out_data_ref_h.size(),
                   stream);
 
-    allocate(out_indptr, out_indptr_ref_h.size());
-    allocate(out_indices, out_indices_ref_h.size());
-    allocate(out_data, out_data_ref_h.size());
+    raft::allocate(out_indptr, out_indptr_ref_h.size(), stream);
+    raft::allocate(out_indices, out_indices_ref_h.size(), stream);
+    raft::allocate(out_data, out_data_ref_h.size(), stream);
   }
 
   void SetUp() override {
     params = ::testing::TestWithParam<
       CSRRowSliceInputs<value_idx, value_t>>::GetParam();
-    std::shared_ptr<raft::mr::device::allocator> alloc(
-      new raft::mr::device::default_allocator);
     CUDA_CHECK(cudaStreamCreate(&stream));
 
     make_data();
@@ -113,16 +109,8 @@ class CSRRowSliceTest
   }
 
   void TearDown() override {
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-    CUDA_CHECK(cudaFree(indptr));
-    CUDA_CHECK(cudaFree(indices));
-    CUDA_CHECK(cudaFree(data));
-    CUDA_CHECK(cudaFree(out_indptr));
-    CUDA_CHECK(cudaFree(out_indices));
-    CUDA_CHECK(cudaFree(out_data));
-    CUDA_CHECK(cudaFree(out_indptr_ref));
-    CUDA_CHECK(cudaFree(out_indices_ref));
-    CUDA_CHECK(cudaFree(out_data_ref));
+    raft::deallocate_all(stream);
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
   void compare() {

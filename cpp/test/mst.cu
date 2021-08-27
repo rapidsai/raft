@@ -14,6 +14,12 @@
  * limitations under the License.
  */
 
+#include <bits/stdc++.h>
+
+#include <gtest/gtest.h>
+#include <iostream>
+#include <rmm/device_uvector.hpp>
+#include <vector>
 #include "test_utils.h"
 
 #include <raft/cudart_utils.h>
@@ -128,11 +134,18 @@ class MSTTest
     v = static_cast<vertex_t>((csr_d.offsets.size() / sizeof(vertex_t)) - 1);
     e = static_cast<edge_t>(csr_d.indices.size() / sizeof(edge_t));
 
-    rmm::device_vector<vertex_t> mst_src(2 * v - 2,
-                                         std::numeric_limits<vertex_t>::max());
-    rmm::device_vector<vertex_t> mst_dst(2 * v - 2,
-                                         std::numeric_limits<vertex_t>::max());
-    rmm::device_vector<vertex_t> color(v, 0);
+    rmm::device_uvector<vertex_t> mst_src(2 * v - 2, handle.get_stream());
+    rmm::device_uvector<vertex_t> mst_dst(2 * v - 2, handle.get_stream());
+    rmm::device_uvector<vertex_t> color(v, handle.get_stream());
+
+    CUDA_CHECK(
+      cudaMemsetAsync(mst_src.data(), std::numeric_limits<vertex_t>::max(),
+                      mst_src.size() * sizeof(vertex_t), handle.get_stream()));
+    CUDA_CHECK(
+      cudaMemsetAsync(mst_dst.data(), std::numeric_limits<vertex_t>::max(),
+                      mst_dst.size() * sizeof(vertex_t), handle.get_stream()));
+    CUDA_CHECK(cudaMemsetAsync(color.data(), 0, color.size() * sizeof(vertex_t),
+                               handle.get_stream()));
 
     vertex_t *color_ptr = thrust::raw_pointer_cast(color.data());
 
@@ -215,7 +228,6 @@ class MSTTest
  protected:
   MSTTestInput<vertex_t, edge_t, weight_t> mst_input;
   CSRDevice<vertex_t, edge_t, weight_t> csr_d;
-  rmm::device_vector<bool> mst_edge;
   vertex_t v;
   edge_t e;
   int iterations;

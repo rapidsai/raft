@@ -392,13 +392,12 @@ class DistanceTest : public ::testing::TestWithParam<DistanceInputs<DataType>> {
     int k = params.k;
     DataType metric_arg = params.metric_arg;
     bool isRowMajor = params.isRowMajor;
-    cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
-    raft::allocate(x, m * k);
-    raft::allocate(y, n * k);
-    raft::allocate(dist_ref, m * n);
-    raft::allocate(dist, m * n);
-    raft::allocate(dist2, m * n);
+    raft::allocate(x, m * k, stream);
+    raft::allocate(y, n * k, stream);
+    raft::allocate(dist_ref, m * n, stream);
+    raft::allocate(dist, m * n, stream);
+    raft::allocate(dist2, m * n, stream);
     if (distanceType == raft::distance::DistanceType::HellingerExpanded ||
         distanceType == raft::distance::DistanceType::JensenShannon ||
         distanceType == raft::distance::DistanceType::KLDivergence) {
@@ -416,7 +415,6 @@ class DistanceTest : public ::testing::TestWithParam<DistanceInputs<DataType>> {
       r.uniform(x, m * k, DataType(-1.0), DataType(1.0), stream);
       r.uniform(y, n * k, DataType(-1.0), DataType(1.0), stream);
     }
-
     naiveDistance(dist_ref, x, y, m, n, k, distanceType, isRowMajor,
                   metric_arg);
     char *workspace = nullptr;
@@ -424,28 +422,24 @@ class DistanceTest : public ::testing::TestWithParam<DistanceInputs<DataType>> {
       raft::distance::getWorkspaceSize<distanceType, DataType, DataType,
                                        DataType>(x, y, m, n, k);
     if (worksize != 0) {
-      raft::allocate(workspace, worksize);
+      raft::allocate(workspace, worksize, stream);
     }
 
     DataType threshold = -10000.f;
     distanceLauncher<distanceType, DataType>(x, y, dist, dist2, m, n, k, params,
                                              threshold, workspace, worksize,
                                              stream, isRowMajor, metric_arg);
-    CUDA_CHECK(cudaStreamDestroy(stream));
-    CUDA_CHECK(cudaFree(workspace));
   }
 
   void TearDown() override {
-    CUDA_CHECK(cudaFree(x));
-    CUDA_CHECK(cudaFree(y));
-    CUDA_CHECK(cudaFree(dist_ref));
-    CUDA_CHECK(cudaFree(dist));
-    CUDA_CHECK(cudaFree(dist2));
+    raft::deallocate_all(stream);
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
  protected:
   DistanceInputs<DataType> params;
   DataType *x, *y, *dist_ref, *dist, *dist2;
+  cudaStream_t stream;
 };
 
 }  // end namespace distance

@@ -21,8 +21,6 @@
 
 #include <cub/cub.cuh>
 
-#include <rmm/device_vector.hpp>
-
 namespace raft {
 namespace sparse {
 namespace distance {

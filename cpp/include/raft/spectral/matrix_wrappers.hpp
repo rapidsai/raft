@@ -19,6 +19,7 @@
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/handle.hpp>
+#include <rmm/device_uvector.hpp>
 
 #include <thrust/fill.h>
 #include <thrust/reduce.h>
@@ -72,52 +73,30 @@ struct vector_view_t {
     : buffer_(buffer), size_(sz) {}
 
   vector_view_t(vector_view_t&& other)
-    : buffer_(other.buffer_), size_(other.size_) {
-    other.buffer_ = nullptr;
-    other.size_ = 0;
-  }
+    : buffer_(other.raw()), size_(other.size()) {}
 
   vector_view_t& operator=(vector_view_t&& other) {
-    buffer_ = other.buffer_;
-    size_ = other.size_;
-
-    other.buffer_ = nullptr;
-    other.size_ = 0;
+    buffer_ = other.raw();
+    size_ = other.size();
   }
 };
 
-// allocatable vector, using raft handle allocator
-//
 template <typename value_type>
 class vector_t {
-  handle_t const& handle_;
-  value_type* buffer_;
-  size_type size_;
-  cudaStream_t stream_;
-
  public:
   vector_t(handle_t const& raft_handle, size_type sz)
-    : handle_(raft_handle),
-      buffer_(
-        static_cast<value_type*>(raft_handle.get_device_allocator()->allocate(
-          sz * sizeof(value_type), raft_handle.get_stream()))),
-      size_(sz),
-      stream_(raft_handle.get_stream()) {}
+    : buffer_(sz, raft_handle.get_stream()),
+      thrust_policy(raft_handle.get_thrust_policy()) {}
 
-  ~vector_t(void) {
-    handle_.get_device_allocator()->deallocate(
-      buffer_, size_ * sizeof(value_type), stream_);
-  }
+  size_type size(void) const { return buffer_.size(); }
 
-  size_type size(void) const { return size_; }
+  value_type* raw(void) { return buffer_.data(); }
 
-  value_type* raw(void) { return buffer_; }
+  value_type const* raw(void) const { return buffer_.data(); }
 
-  value_type const* raw(void) const { return buffer_; }
-
-  template <typename ThrustExecPolicy>
-  value_type nrm1(ThrustExecPolicy t_exe_pol) const {
-    return thrust::reduce(t_exe_pol, buffer_, buffer_ + size_, value_type{0},
+  value_type nrm1() const {
+    return thrust::reduce(thrust_policy, buffer_.data(),
+                          buffer_.data() + buffer_.size(), value_type{0},
                           [] __device__(auto left, auto right) {
                             auto abs_left = left > 0 ? left : -left;
                             auto abs_right = right > 0 ? right : -right;
@@ -125,10 +104,15 @@ class vector_t {
                           });
   }
 
-  template <typename ThrustExecPolicy>
-  void fill(ThrustExecPolicy t_exe_pol, value_type value) {
-    thrust::fill_n(t_exe_pol, buffer_, size_, value);
+  void fill(value_type value) {
+    thrust::fill_n(thrust_policy, buffer_.data(), buffer_.size(), value);
   }
+
+ private:
+  using thrust_exec_policy_t = thrust::detail::execute_with_allocator<
+    rmm::mr::thrust_allocator<char>, thrust::cuda_cub::execute_on_stream_base>;
+  rmm::device_uvector<value_type> buffer_;
+  const thrust_exec_policy_t thrust_policy;
 };
 
 template <typename index_type, typename value_type>
@@ -280,31 +264,26 @@ struct sparse_matrix_t {
 
 template <typename index_type, typename value_type>
 struct laplacian_matrix_t : sparse_matrix_t<index_type, value_type> {
-  template <typename ThrustExePolicy>
-  laplacian_matrix_t(handle_t const& raft_handle,
-                     ThrustExePolicy thrust_exec_policy,
-                     index_type const* row_offsets,
+  laplacian_matrix_t(handle_t const& raft_handle, index_type const* row_offsets,
                      index_type const* col_indices, value_type const* values,
                      index_type const nrows, index_type const nnz)
     : sparse_matrix_t<index_type, value_type>(raft_handle, row_offsets,
                                               col_indices, values, nrows, nnz),
       diagonal_(raft_handle, nrows) {
     vector_t<value_type> ones{raft_handle, nrows};
-    ones.fill(thrust_exec_policy, 1.0);
+    ones.fill(1.0);
     sparse_matrix_t<index_type, value_type>::mv(1, ones.raw(), 0,
                                                 diagonal_.raw());
   }
 
-  template <typename ThrustExePolicy>
   laplacian_matrix_t(handle_t const& raft_handle,
-                     ThrustExePolicy thrust_exec_policy,
                      sparse_matrix_t<index_type, value_type> const& csr_m)
     : sparse_matrix_t<index_type, value_type>(raft_handle, csr_m.row_offsets_,
                                               csr_m.col_indices_, csr_m.values_,
                                               csr_m.nrows_, csr_m.nnz_),
       diagonal_(raft_handle, csr_m.nrows_) {
     vector_t<value_type> ones{raft_handle, csr_m.nrows_};
-    ones.fill(thrust_exec_policy, 1.0);
+    ones.fill(1.0);
     sparse_matrix_t<index_type, value_type>::mv(1, ones.raw(), 0,
                                                 diagonal_.raw());
   }
@@ -351,27 +330,19 @@ struct laplacian_matrix_t : sparse_matrix_t<index_type, value_type> {
 
 template <typename index_type, typename value_type>
 struct modularity_matrix_t : laplacian_matrix_t<index_type, value_type> {
-  template <typename ThrustExePolicy>
   modularity_matrix_t(handle_t const& raft_handle,
-                      ThrustExePolicy thrust_exec_policy,
                       index_type const* row_offsets,
                       index_type const* col_indices, value_type const* values,
                       index_type const nrows, index_type const nnz)
     : laplacian_matrix_t<index_type, value_type>(
-        raft_handle, thrust_exec_policy, row_offsets, col_indices, values,
-        nrows, nnz) {
-    edge_sum_ = laplacian_matrix_t<index_type, value_type>::diagonal_.nrm1(
-      thrust_exec_policy);
+        raft_handle, row_offsets, col_indices, values, nrows, nnz) {
+    edge_sum_ = laplacian_matrix_t<index_type, value_type>::diagonal_.nrm1();
   }
 
-  template <typename ThrustExePolicy>
   modularity_matrix_t(handle_t const& raft_handle,
-                      ThrustExePolicy thrust_exec_policy,
                       sparse_matrix_t<index_type, value_type> const& csr_m)
-    : laplacian_matrix_t<index_type, value_type>(raft_handle,
-                                                 thrust_exec_policy, csr_m) {
-    edge_sum_ = laplacian_matrix_t<index_type, value_type>::diagonal_.nrm1(
-      thrust_exec_policy);
+    : laplacian_matrix_t<index_type, value_type>(raft_handle, csr_m) {
+    edge_sum_ = laplacian_matrix_t<index_type, value_type>::diagonal_.nrm1();
   }
 
   // y = alpha*A*x + beta*y
