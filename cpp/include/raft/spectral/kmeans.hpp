@@ -476,8 +476,7 @@ static int initializeCentroids(
   thrust::fill(thrust_exec_policy, thrust::device_pointer_cast(dists),
                thrust::device_pointer_cast(dists + n), 1);
   CHECK_CUDA(stream);
-  if (chooseNewCentroid(handle, n, d, uniformDist(rng), obs, dists,
-                        centroids))
+  if (chooseNewCentroid(handle, n, d, uniformDist(rng), obs, dists, centroids))
     WARNING("error in k-means++ (could not pick centroid)");
 
   // Compute distances from first centroid
