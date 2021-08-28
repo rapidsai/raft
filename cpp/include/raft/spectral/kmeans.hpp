@@ -256,7 +256,7 @@ static __global__ void minDistances2(index_type_t n,
  */
 template <typename index_type_t>
 static __global__ void computeClusterSizes(
-  index_type_t n, index_type_t k, const index_type_t* __restrict__ codes,
+  index_type_t n, const index_type_t* __restrict__ codes,
   index_type_t* __restrict__ clusterSizes) {
   index_type_t i = threadIdx.x + blockIdx.x * blockDim.x;
   while (i < n) {
@@ -341,7 +341,7 @@ static __global__ void divideCentroids(
  */
 template <typename index_type_t, typename value_type_t>
 static int chooseNewCentroid(handle_t const& handle, index_type_t n,
-                             index_type_t d, index_type_t k, value_type_t rand,
+                             index_type_t d, value_type_t rand,
                              const value_type_t* __restrict__ obs,
                              value_type_t* __restrict__ dists,
                              value_type_t* __restrict__ centroid) {
@@ -353,7 +353,6 @@ static int chooseNewCentroid(handle_t const& handle, index_type_t n,
   index_type_t obsIndex;
 
   auto stream = handle.get_stream();
-  auto cublas_h = handle.get_cublas_handle();
   auto thrust_exec_policy = handle.get_thrust_policy();
 
   // Compute cumulative sum of distances
@@ -450,7 +449,6 @@ static int initializeCentroids(
   thrust::uniform_real_distribution<value_type_t> uniformDist(0, 1);
 
   auto stream = handle.get_stream();
-  auto cublas_h = handle.get_cublas_handle();
   auto thrust_exec_policy = handle.get_thrust_policy();
 
   constexpr index_type_t grid_lower_bound{65535};
@@ -478,7 +476,7 @@ static int initializeCentroids(
   thrust::fill(thrust_exec_policy, thrust::device_pointer_cast(dists),
                thrust::device_pointer_cast(dists + n), 1);
   CHECK_CUDA(stream);
-  if (chooseNewCentroid(handle, n, d, k, uniformDist(rng), obs, dists,
+  if (chooseNewCentroid(handle, n, d, uniformDist(rng), obs, dists,
                         centroids))
     WARNING("error in k-means++ (could not pick centroid)");
 
@@ -491,7 +489,7 @@ static int initializeCentroids(
   // Choose remaining centroids
   for (i = 1; i < k; ++i) {
     // Choose ith centroid
-    if (chooseNewCentroid(handle, n, d, k, uniformDist(rng), obs, dists,
+    if (chooseNewCentroid(handle, n, d, uniformDist(rng), obs, dists,
                           centroids + IDX(0, i, d)))
       WARNING("error in k-means++ (could not pick centroid)");
 
@@ -509,7 +507,7 @@ static int initializeCentroids(
 
   // Compute cluster sizes
   CUDA_TRY(cudaMemsetAsync(clusterSizes, 0, k * sizeof(index_type_t), stream));
-  computeClusterSizes<<<gridDim_block, BLOCK_SIZE, 0, stream>>>(n, k, codes,
+  computeClusterSizes<<<gridDim_block, BLOCK_SIZE, 0, stream>>>(n, codes,
                                                                 clusterSizes);
   CHECK_CUDA(stream);
 
@@ -552,7 +550,6 @@ static int assignCentroids(handle_t const& handle, index_type_t n,
                            index_type_t* __restrict__ clusterSizes,
                            value_type_t* residual_host) {
   auto stream = handle.get_stream();
-  auto cublas_h = handle.get_cublas_handle();
   auto thrust_exec_policy = handle.get_thrust_policy();
 
   // Compute distance between centroids and observation vectors
@@ -852,7 +849,7 @@ int kmeans(handle_t const& handle, index_type_t n, index_type_t d,
     // conditions, such as if obs is corrupt (as seen as a result of a
     // DataFrame column of NULL edge vals used to create the Graph)
     while (emptyCentroid < k) {
-      if (chooseNewCentroid(handle, n, d, k, uniformDist(rng), obs, work,
+      if (chooseNewCentroid(handle, n, d, uniformDist(rng), obs, work,
                             centroids + IDX(0, emptyCentroid, d)))
         WARNING("could not replace empty centroid");
       if (assignCentroids(handle, n, d, k, obs, centroids, work, codes,
