@@ -129,19 +129,19 @@ DI void updateSortedWarpQ(myWarpSelect &heapArr, Pair *allWarpTopKs, int rowId,
                           int finalNumVals, int startId = 0) {
   constexpr uint32_t mask = 0xffffffffu;
   const int lid = raft::laneId();
+  // calculate srcLane such that tid 0 -> 31, 1 -> 0,... 31 -> 30.
+  // warp around 0 to 31 required for NN > 32
+  const auto srcLane = (warpSize + (lid - 1)) & (warpSize - 1);
 
   for (int k = startId; k < finalNumVals; k++) {
     Pair KVPair = allWarpTopKs[rowId * (256) + k];
 #pragma unroll
     for (int i = 0; i < NumWarpQRegs; i++) {
-      unsigned activeLanes =
-        __ballot_sync(mask, KVPair.value < heapArr->warpK[i]);
+      unsigned activeLanes = __ballot_sync(mask, KVPair.value < heapArr->warpK[i]);
       if (activeLanes) {
-        Pair tempKV, tempWarpQ;
-        tempKV.value = __shfl_up_sync(mask, heapArr->warpK[i], 1);
-        tempKV.key = __shfl_up_sync(mask, heapArr->warpV[i], 1);
-        tempWarpQ.value = heapArr->warpK[i];
-        tempWarpQ.key = heapArr->warpV[i];
+        Pair tempKV;
+        tempKV.value = raft::shfl(heapArr->warpK[i], srcLane);
+        tempKV.key = raft::shfl(heapArr->warpV[i], srcLane);
         const auto firstActiveLane = __ffs(activeLanes);
         if (firstActiveLane == (lid + 1)) {
           heapArr->warpK[i] = KVPair.value;
@@ -151,8 +151,13 @@ DI void updateSortedWarpQ(myWarpSelect &heapArr, Pair *allWarpTopKs, int rowId,
           heapArr->warpV[i] = tempKV.key;
         }
         if (i == 0 && NumWarpQRegs > 1) {
-          KVPair.value = raft::shfl(tempWarpQ.value, 31);
-          KVPair.key = raft::shfl(tempWarpQ.key, 31);
+          if (lid == 0) {
+            heapArr->warpK[1] = tempKV.value;
+            heapArr->warpV[1] = tempKV.key;
+          }
+          heapArr->warpK[1] = __shfl_up_sync(mask, heapArr->warpK[1], 1);
+          heapArr->warpV[1] = __shfl_up_sync(mask, heapArr->warpV[1], 1);
+          break;
         }
       }
     }
