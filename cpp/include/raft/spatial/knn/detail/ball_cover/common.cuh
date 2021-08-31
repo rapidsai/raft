@@ -17,6 +17,7 @@
 #pragma once
 
 #include <thrust/functional.h>
+#include "../haversine_distance.cuh"
 
 namespace raft {
 namespace spatial {
@@ -32,6 +33,31 @@ struct NNComp {
 
     // then by closest neighbor,
     return thrust::get<1>(t1) < thrust::get<1>(t2);
+  }
+};
+
+struct HaversineFunc {
+  template <typename value_t>
+  __device__ __host__ __forceinline__ value_t operator()(const value_t *a,
+                                                         const value_t *b,
+                                                         const int n_dims) {
+    return raft::spatial::knn::detail::compute_haversine(a[0], b[0], a[1],
+                                                         b[1]);
+  }
+};
+
+struct EuclideanFunc {
+  template <typename value_t>
+  __device__ __host__ __forceinline__ value_t operator()(const value_t *a,
+                                                         const value_t *b,
+                                                         const int n_dims) {
+    value_t sum_sq = 0;
+    for (int i = 0; i < n_dims; i++) {
+      value_t diff = a[i] - b[i];
+      sum_sq += diff * diff;
+    }
+
+    return sum_sq;
   }
 };
 

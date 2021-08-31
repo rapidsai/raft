@@ -21,7 +21,6 @@
 #include "../ball_cover_common.h"
 #include "ball_cover/common.cuh"
 #include "ball_cover/registers.cuh"
-#include "ball_cover/shared_mem.cuh"
 #include "block_select_faiss.cuh"
 #include "haversine_distance.cuh"
 #include "knn_brute_force_faiss.cuh"
@@ -69,7 +68,6 @@ void sample_landmarks(const raft::handle_t &handle,
   rmm::device_uvector<value_idx> R_1nn_cols2(index.n_landmarks,
                                              handle.get_stream());
   rmm::device_uvector<value_t> R_1nn_ones(index.m, handle.get_stream());
-
   rmm::device_uvector<value_idx> R_indices(index.n_landmarks,
                                            handle.get_stream());
 
@@ -204,13 +202,13 @@ void compute_landmark_radii(const raft::handle_t &handle,
  * @tparam value_idx
  * @tparam value_t
  * @tparam value_int
- * @tparam distance_func TODO: Remove
+ * @tparam distance_func
  * @param[in] handle raft handle for resource management
  * @param[inout] index previously untrained index
  * @param[in] k number neighbors to return
  * @param[out] inds output indices
  * @param[out] dists output distances
- * @param[in] dfunc TODO: Remove
+ * @param[in] dfunc
  * @param[in] perform_post_filtering turn off computing distances for
  *            additional landmarks outside of the closest k, if necessary.
  *            This can save a little computation time for approximate
@@ -234,18 +232,14 @@ void rbc_all_knn_query(const raft::handle_t &handle,
                        // approximate nn options
                        bool perform_post_filtering = true, float weight = 1.0) {
   auto exec_policy = rmm::exec_policy(handle.get_stream());
+
+  ASSERT(index.n == 2,
+         "only 2d vectors are supported in current implementation");
   ASSERT(index.n_landmarks >= k, "number of landmark samples must be >= k");
   ASSERT(!index.is_index_trained(), "index cannot be previously trained");
 
-  const int bitset_size = ceil(index.n_landmarks / 32.0);
-
-  // Allocate all device memory upfront to increase asynchronicity
-
   rmm::device_uvector<value_idx> R_knn_inds(k * index.m, handle.get_stream());
   rmm::device_uvector<value_t> R_knn_dists(k * index.m, handle.get_stream());
-
-  rmm::device_uvector<uint32_t> bitset(bitset_size * index.m,
-                                       handle.get_stream());
 
   // For debugging / verification. Remove before releasing
   rmm::device_uvector<int> dists_counter(index.m, handle.get_stream());
@@ -287,99 +281,18 @@ void rbc_all_knn_query(const raft::handle_t &handle,
    * marking the distance to be computed between x, y only
    * if knn[k].distance >= d(x_i, R_k) + d(R_k, y)
    */
+  // Compute nearest k for each neighborhood in each closest R
+  rbc_low_dim_pass_one(handle, index, k, R_knn_inds.data(), R_knn_dists.data(),
+                       dfunc, inds, dists, weight, dists_counter.data());
 
-  /**
-   * TODO: Separate out the kernel invocations
-   */
-
-  // TODO: This will be a power of 2 cutoff for the number of dimensions
-  // that will in smem in different buckets
-  constexpr int rbc_tpb = 64;
-  constexpr int max_vals = 300;
-
-  if (index.n <= 2) {
-    // Compute nearest k for each neighborhood in each closest R
-    block_rbc_kernel_registers<value_idx, value_t, 32, 2, 128, 2>
-      <<<index.m, 128, 0, handle.get_stream()>>>(
-        index.get_X(), index.n, R_knn_inds.data(), R_knn_dists.data(), index.m,
-        k, index.get_R_indptr(), index.get_R_1nn_cols(),
-        index.get_R_1nn_dists(), inds, dists, dists_counter.data(),
-        index.get_R_radius(), dfunc, weight);
-  } else if (index.n <= max_vals) {
-    printf("Calling smem rbc kernel\n");
-    // Compute nearest k for each neighborhood in each closest R
-    block_rbc_kernel_smem<value_idx, value_t, 32, 2, rbc_tpb, max_vals>
-      <<<index.m, rbc_tpb, 0, handle.get_stream()>>>(
-        index.get_X(), index.n, R_knn_inds.data(), R_knn_dists.data(), index.m,
-        k, index.get_R_indptr(), index.get_R_1nn_cols(),
-        index.get_R_1nn_dists(), inds, dists, dists_counter.data(),
-        index.get_R_radius(), dfunc, raft::sparse::distance::SqDiff(),
-        raft::sparse::distance::Sum(), weight);
-  }
-
-  CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
-
-  raft::print_device_vector("dists", dists_counter.data(), 500, std::cout);
-
-  // TODO: pull this out into "post_process()" function
   if (perform_post_filtering) {
     thrust::fill(exec_policy, post_dists_counter.data(),
                  post_dists_counter.data() + index.m, 0);
 
-    if (index.n <= 2) {
-      perform_post_filter_registers<value_idx, value_t, int, 128>
-        <<<index.m, 128, bitset_size * sizeof(uint32_t), handle.get_stream()>>>(
-          index.get_X(), index.n, R_knn_inds.data(), R_knn_dists.data(),
-          index.get_R_radius(), index.get_R(), index.n_landmarks, bitset_size,
-          k, dfunc, bitset.data(), weight);
-
-      // Compute any distances from the landmarks that remain in the bitset
-      compute_final_dists_registers<<<index.m, 128, 0, handle.get_stream()>>>(
-        index.get_X(), index.n, bitset.data(), bitset_size, R_knn_dists.data(),
-        index.get_R_indptr(), index.get_R_1nn_cols(), index.get_R_1nn_dists(),
-        inds, dists, index.n_landmarks, k, dfunc, post_dists_counter.data());
-    } else if (index.n <= max_vals) {
-      printf("Calling smem post processing kernels\n");
-      perform_post_filter<value_idx, value_t, int, 128>
-        <<<index.m, 128, bitset_size * sizeof(uint32_t), handle.get_stream()>>>(
-          index.get_X(), index.n, R_knn_inds.data(), R_knn_dists.data(),
-          index.get_R_radius(), index.get_R(), dists, index.n_landmarks,
-          bitset_size, k, bitset.data(), raft::sparse::distance::SqDiff(),
-          raft::sparse::distance::Sum(), weight);
-
-      CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
-
-      raft::print_device_vector("bitset", bitset.data(), bitset_size * 5,
-                                std::cout);
-
-      printf("Computing final dists\n");
-      // Compute any distances from the landmarks that remain in the bitset
-      compute_final_dists_smem<value_idx, value_t, 32, 2, rbc_tpb, max_vals>
-        <<<index.m, rbc_tpb, 0, handle.get_stream()>>>(
-          index.get_X(), index.n, bitset.data(), bitset_size,
-          R_knn_dists.data(), index.get_R_indptr(), index.get_R_1nn_cols(),
-          index.get_R_1nn_dists(), inds, dists, index.n_landmarks, k, dfunc,
-          raft::sparse::distance::SqDiff(), raft::sparse::distance::Sum(),
-          post_dists_counter.data());
-
-      CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
-    }
-
-    raft::print_device_vector("post dists", post_dists_counter.data(), 500,
-                              std::cout);
-
-    printf("Done.\n");
-    //
-    //    printf("total post_dists: %d\n", additional_dists);
+    rbc_low_dim_pass_two(handle, index, k, R_knn_inds.data(),
+                         R_knn_dists.data(), dfunc, inds, dists, weight,
+                         post_dists_counter.data());
   }
-
-  //  raft::print_device_vector("R_knn 39077", R_knn_inds.data() + (k * 39077), k, std::cout);
-  //  raft::print_device_vector("R_knn 39077 dists", R_knn_dists.data() + (k * 39077), k, std::cout);
-  //  raft::print_device_vector("R_knn 35468", R_knn_inds.data() + (k * 35468), k, std::cout);
-  //  raft::print_device_vector("R_knn 29384", R_knn_inds.data() + (k * 29384), k, std::cout);
-  //  raft::print_device_vector("R_knn 29384 dists", R_knn_dists.data() + (k * 29384), k, std::cout);
-  //  raft::print_device_vector("R 8", index.get_R() + (index.n * 8), index.n, std::cout);
-  //  raft::print_device_vector("R 120", index.get_R() + (index.n * 120), index.n, std::cout);
 }
 
 };  // namespace detail

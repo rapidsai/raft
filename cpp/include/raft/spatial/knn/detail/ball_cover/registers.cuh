@@ -18,6 +18,7 @@
 
 #include "common.cuh"
 
+#include "../../ball_cover_common.h"
 #include "../block_select_faiss.cuh"
 #include "../haversine_distance.cuh"
 #include "../selection_faiss.cuh"
@@ -75,7 +76,7 @@ __global__ void perform_post_filter_registers(
   value_t local_x_ptr[2];
   for (int j = 0; j < n_cols; j++) local_x_ptr[j] = X[n_cols * blockIdx.x + j];
 
-  value_t closest_R_dist = R_knn_dists[blockIdx.x * k];
+  value_t closest_R_dist = R_knn_dists[blockIdx.x * k + (k - 1)];
 
   // zero out bits for closest k landmarks
   for (int j = threadIdx.x; j < k; j += tpb)
@@ -295,7 +296,7 @@ __global__ void block_rbc_kernel_registers(
     heap(faiss::gpu::Limits<value_t>::getMax(),
          faiss::gpu::Limits<value_t>::getMax(), -1, smemK, smemV, k);
 
-  value_t min_R_dist = R_knn_dists[blockIdx.x * k];
+  value_t min_R_dist = R_knn_dists[blockIdx.x * k + (k - 1)];
 
   int n_dists_computed = 0;
 
@@ -388,6 +389,119 @@ __global__ void block_rbc_kernel_registers(
     out_dists[blockIdx.x * k + i] = smemK[i];
     out_inds[blockIdx.x * k + i] = smemV[i].value;
   }
+}
+
+template <typename value_idx, typename value_t, typename value_int = int,
+          typename dist_func>
+void rbc_low_dim_pass_one(const raft::handle_t &handle,
+                          BallCoverIndex<value_idx, value_t> &index, int k,
+                          const value_idx *R_knn_inds,
+                          const value_t *R_knn_dists, dist_func dfunc,
+                          value_idx *inds, value_t *dists, float weight,
+                          value_int *dists_counter) {
+  if (k <= 32)
+    block_rbc_kernel_registers<value_idx, value_t, 32, 2, 128, 2>
+      <<<index.m, 128, 0, handle.get_stream()>>>(
+        index.get_X(), index.n, R_knn_inds, R_knn_dists, index.m, k,
+        index.get_R_indptr(), index.get_R_1nn_cols(), index.get_R_1nn_dists(),
+        inds, dists, dists_counter, index.get_R_radius(), dfunc, weight);
+
+  else if (k <= 64)
+    block_rbc_kernel_registers<value_idx, value_t, 64, 3, 128, 2>
+      <<<index.m, 128, 0, handle.get_stream()>>>(
+        index.get_X(), index.n, R_knn_inds, R_knn_dists, index.m, k,
+        index.get_R_indptr(), index.get_R_1nn_cols(), index.get_R_1nn_dists(),
+        inds, dists, dists_counter, index.get_R_radius(), dfunc, weight);
+  else if (k <= 128)
+    block_rbc_kernel_registers<value_idx, value_t, 128, 3, 128, 2>
+      <<<index.m, 128, 0, handle.get_stream()>>>(
+        index.get_X(), index.n, R_knn_inds, R_knn_dists, index.m, k,
+        index.get_R_indptr(), index.get_R_1nn_cols(), index.get_R_1nn_dists(),
+        inds, dists, dists_counter, index.get_R_radius(), dfunc, weight);
+
+  else if (k <= 256)
+    block_rbc_kernel_registers<value_idx, value_t, 256, 4, 128, 2>
+      <<<index.m, 128, 0, handle.get_stream()>>>(
+        index.get_X(), index.n, R_knn_inds, R_knn_dists, index.m, k,
+        index.get_R_indptr(), index.get_R_1nn_cols(), index.get_R_1nn_dists(),
+        inds, dists, dists_counter, index.get_R_radius(), dfunc, weight);
+
+  else if (k <= 512)
+    block_rbc_kernel_registers<value_idx, value_t, 512, 8, 64, 2>
+      <<<index.m, 64, 0, handle.get_stream()>>>(
+        index.get_X(), index.n, R_knn_inds, R_knn_dists, index.m, k,
+        index.get_R_indptr(), index.get_R_1nn_cols(), index.get_R_1nn_dists(),
+        inds, dists, dists_counter, index.get_R_radius(), dfunc, weight);
+
+  else if (k <= 1024)
+    block_rbc_kernel_registers<value_idx, value_t, 1024, 8, 64, 2>
+      <<<index.m, 64, 0, handle.get_stream()>>>(
+        index.get_X(), index.n, R_knn_inds, R_knn_dists, index.m, k,
+        index.get_R_indptr(), index.get_R_1nn_cols(), index.get_R_1nn_dists(),
+        inds, dists, dists_counter, index.get_R_radius(), dfunc, weight);
+}
+
+template <typename value_idx, typename value_t, typename value_int = int,
+          typename dist_func>
+void rbc_low_dim_pass_two(const raft::handle_t &handle,
+                          BallCoverIndex<value_idx, value_t> &index, int k,
+                          const value_idx *R_knn_inds,
+                          const value_t *R_knn_dists, dist_func dfunc,
+                          value_idx *inds, value_t *dists, float weight,
+                          value_int *post_dists_counter) {
+  const int bitset_size = ceil(index.n_landmarks / 32.0);
+
+  rmm::device_uvector<uint32_t> bitset(bitset_size * index.m,
+                                       handle.get_stream());
+
+  perform_post_filter_registers<value_idx, value_t, value_int, 128, dist_func>
+    <<<index.m, 128, bitset_size * sizeof(uint32_t), handle.get_stream()>>>(
+      index.get_X(), index.n, R_knn_inds, R_knn_dists, index.get_R_radius(),
+      index.get_R(), index.n_landmarks, bitset_size, k, dfunc, bitset.data(),
+      weight);
+
+  if (k <= 32)
+    compute_final_dists_registers<value_idx, value_t, value_int, uint32_t,
+                                  dist_func, 32, 2, 128, 2>
+      <<<index.m, 128, 0, handle.get_stream()>>>(
+        index.get_X(), index.n, bitset.data(), bitset_size, R_knn_dists,
+        index.get_R_indptr(), index.get_R_1nn_cols(), index.get_R_1nn_dists(),
+        inds, dists, index.n_landmarks, k, dfunc, post_dists_counter);
+  else if (k <= 64)
+    compute_final_dists_registers<value_idx, value_t, value_int, uint32_t,
+                                  dist_func, 64, 3, 128, 2>
+      <<<index.m, 128, 0, handle.get_stream()>>>(
+        index.get_X(), index.n, bitset.data(), bitset_size, R_knn_dists,
+        index.get_R_indptr(), index.get_R_1nn_cols(), index.get_R_1nn_dists(),
+        inds, dists, index.n_landmarks, k, dfunc, post_dists_counter);
+  else if (k <= 128)
+    compute_final_dists_registers<value_idx, value_t, value_int, uint32_t,
+                                  dist_func, 128, 3, 128, 2>
+      <<<index.m, 128, 0, handle.get_stream()>>>(
+        index.get_X(), index.n, bitset.data(), bitset_size, R_knn_dists,
+        index.get_R_indptr(), index.get_R_1nn_cols(), index.get_R_1nn_dists(),
+        inds, dists, index.n_landmarks, k, dfunc, post_dists_counter);
+  else if (k <= 256)
+    compute_final_dists_registers<value_idx, value_t, value_int, uint32_t,
+                                  dist_func, 256, 4, 128, 2>
+      <<<index.m, 128, 0, handle.get_stream()>>>(
+        index.get_X(), index.n, bitset.data(), bitset_size, R_knn_dists,
+        index.get_R_indptr(), index.get_R_1nn_cols(), index.get_R_1nn_dists(),
+        inds, dists, index.n_landmarks, k, dfunc, post_dists_counter);
+  else if (k <= 512)
+    compute_final_dists_registers<value_idx, value_t, value_int, uint32_t,
+                                  dist_func, 512, 8, 64, 2>
+      <<<index.m, 64, 0, handle.get_stream()>>>(
+        index.get_X(), index.n, bitset.data(), bitset_size, R_knn_dists,
+        index.get_R_indptr(), index.get_R_1nn_cols(), index.get_R_1nn_dists(),
+        inds, dists, index.n_landmarks, k, dfunc, post_dists_counter);
+  else if (k <= 1024)
+    compute_final_dists_registers<value_idx, value_t, value_int, uint32_t,
+                                  dist_func, 1024, 8, 64, 2>
+      <<<index.m, 64, 0, handle.get_stream()>>>(
+        index.get_X(), index.n, bitset.data(), bitset_size, R_knn_dists,
+        index.get_R_indptr(), index.get_R_1nn_cols(), index.get_R_1nn_dists(),
+        inds, dists, index.n_landmarks, k, dfunc, post_dists_counter);
 }
 
 };  // namespace detail
