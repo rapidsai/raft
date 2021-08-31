@@ -79,12 +79,11 @@ class SubtractTest : public ::testing::TestWithParam<SubtractInputs<T>> {
     params = ::testing::TestWithParam<SubtractInputs<T>>::GetParam();
     raft::random::Rng r(params.seed);
     int len = params.len;
-    cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
-    raft::allocate(in1, len);
-    raft::allocate(in2, len);
-    raft::allocate(out_ref, len);
-    raft::allocate(out, len);
+    raft::allocate(in1, len, stream);
+    raft::allocate(in2, len, stream);
+    raft::allocate(out_ref, len, stream);
+    raft::allocate(out, len, stream);
     r.uniform(in1, len, T(-1.0), T(1.0), stream);
     r.uniform(in2, len, T(-1.0), T(1.0), stream);
 
@@ -95,19 +94,18 @@ class SubtractTest : public ::testing::TestWithParam<SubtractInputs<T>> {
     subtractScalar(out, out, T(1), len, stream);
     subtract(in1, in1, in2, len, stream);
     subtractScalar(in1, in1, T(1), len, stream);
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
   void TearDown() override {
-    CUDA_CHECK(cudaFree(in1));
-    CUDA_CHECK(cudaFree(in2));
-    CUDA_CHECK(cudaFree(out_ref));
-    CUDA_CHECK(cudaFree(out));
+    raft::deallocate_all(stream);
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
  protected:
   SubtractInputs<T> params;
   T *in1, *in2, *out_ref, *out;
+  cudaStream_t stream;
 };
 
 const std::vector<SubtractInputs<float>> inputsf2 = {

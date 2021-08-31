@@ -24,7 +24,6 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/matrix/matrix.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include <raft/mr/device/buffer.hpp>
 
 #include <raft/sparse/op/slice.h>
@@ -414,7 +413,6 @@ class sparse_knn_t {
    * @param[out] output_dists dense matrix for output distances (size n_query_rows * k)
    * @param[in] k the number of neighbors to query
    * @param[in] cusparseHandle the initialized cusparseHandle instance to use
-   * @param[in] allocator device allocator instance to use
    * @param[in] handle.get_stream() CUDA handle.get_stream() to order operations with respect to
    * @param[in] batch_size_index maximum number of rows to use from index matrix per batch
    * @param[in] batch_size_query maximum number of rows to use from query matrix per batch

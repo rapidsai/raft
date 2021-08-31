@@ -25,43 +25,48 @@
 namespace raft {
 namespace linalg {
 
-template <typename T>
+template <typename InType, typename OutType>
 struct ReduceInputs {
-  T tolerance;
+  OutType tolerance;
   int rows, cols;
   bool rowMajor, alongRows;
   unsigned long long int seed;
 };
 
-template <typename T>
-::std::ostream &operator<<(::std::ostream &os, const ReduceInputs<T> &dims) {
+template <typename InType, typename OutType>
+::std::ostream &operator<<(::std::ostream &os,
+                           const ReduceInputs<InType, OutType> &dims) {
   return os;
 }
 
 // Or else, we get the following compilation error
 // for an extended __device__ lambda cannot have private or protected access
 // within its class
-template <typename T>
-void reduceLaunch(T *dots, const T *data, int cols, int rows, bool rowMajor,
-                  bool alongRows, bool inplace, cudaStream_t stream) {
-  reduce(dots, data, cols, rows, (T)0, rowMajor, alongRows, stream, inplace,
-         [] __device__(T in, int i) { return in * in; });
+template <typename InType, typename OutType>
+void reduceLaunch(OutType *dots, const InType *data, int cols, int rows,
+                  bool rowMajor, bool alongRows, bool inplace,
+                  cudaStream_t stream) {
+  reduce(
+    dots, data, cols, rows, (OutType)0, rowMajor, alongRows, stream, inplace,
+    [] __device__(InType in, int i) { return static_cast<OutType>(in * in); });
 }
 
-template <typename T>
-class ReduceTest : public ::testing::TestWithParam<ReduceInputs<T>> {
+template <typename InType, typename OutType>
+class ReduceTest
+  : public ::testing::TestWithParam<ReduceInputs<InType, OutType>> {
  protected:
   void SetUp() override {
     CUDA_CHECK(cudaStreamCreate(&stream));
-    params = ::testing::TestWithParam<ReduceInputs<T>>::GetParam();
+    params =
+      ::testing::TestWithParam<ReduceInputs<InType, OutType>>::GetParam();
     raft::random::Rng r(params.seed);
     int rows = params.rows, cols = params.cols;
     int len = rows * cols;
     outlen = params.alongRows ? rows : cols;
-    raft::allocate(data, len);
-    raft::allocate(dots_exp, outlen);
-    raft::allocate(dots_act, outlen);
-    r.uniform(data, len, T(-1.0), T(1.0), stream);
+    raft::allocate(data, len, stream);
+    raft::allocate(dots_exp, outlen, stream);
+    raft::allocate(dots_act, outlen, stream);
+    r.uniform(data, len, InType(-1.0), InType(1.0), stream);
     naiveReduction(dots_exp, data, cols, rows, params.rowMajor,
                    params.alongRows, stream);
 
@@ -77,20 +82,19 @@ class ReduceTest : public ::testing::TestWithParam<ReduceInputs<T>> {
   }
 
   void TearDown() override {
-    CUDA_CHECK(cudaFree(data));
-    CUDA_CHECK(cudaFree(dots_exp));
-    CUDA_CHECK(cudaFree(dots_act));
+    raft::deallocate_all(stream);
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
  protected:
-  ReduceInputs<T> params;
-  T *data, *dots_exp, *dots_act;
+  ReduceInputs<InType, OutType> params;
+  InType *data;
+  OutType *dots_exp, *dots_act;
   int outlen;
   cudaStream_t stream;
 };
 
-const std::vector<ReduceInputs<float>> inputsf = {
+const std::vector<ReduceInputs<float, float>> inputsff = {
   {0.000002f, 1024, 32, true, true, 1234ULL},
   {0.000002f, 1024, 64, true, true, 1234ULL},
   {0.000002f, 1024, 128, true, true, 1234ULL},
@@ -108,7 +112,7 @@ const std::vector<ReduceInputs<float>> inputsf = {
   {0.000002f, 1024, 128, false, false, 1234ULL},
   {0.000002f, 1024, 256, false, false, 1234ULL}};
 
-const std::vector<ReduceInputs<double>> inputsd = {
+const std::vector<ReduceInputs<double, double>> inputsdd = {
   {0.000000001, 1024, 32, true, true, 1234ULL},
   {0.000000001, 1024, 64, true, true, 1234ULL},
   {0.000000001, 1024, 128, true, true, 1234ULL},
@@ -126,21 +130,50 @@ const std::vector<ReduceInputs<double>> inputsd = {
   {0.000000001, 1024, 128, false, false, 1234ULL},
   {0.000000001, 1024, 256, false, false, 1234ULL}};
 
-typedef ReduceTest<float> ReduceTestF;
-TEST_P(ReduceTestF, Result) {
+const std::vector<ReduceInputs<float, double>> inputsfd = {
+  {0.000002f, 1024, 32, true, true, 1234ULL},
+  {0.000002f, 1024, 64, true, true, 1234ULL},
+  {0.000002f, 1024, 128, true, true, 1234ULL},
+  {0.000002f, 1024, 256, true, true, 1234ULL},
+  {0.000002f, 1024, 32, true, false, 1234ULL},
+  {0.000002f, 1024, 64, true, false, 1234ULL},
+  {0.000002f, 1024, 128, true, false, 1234ULL},
+  {0.000002f, 1024, 256, true, false, 1234ULL},
+  {0.000002f, 1024, 32, false, true, 1234ULL},
+  {0.000002f, 1024, 64, false, true, 1234ULL},
+  {0.000002f, 1024, 128, false, true, 1234ULL},
+  {0.000002f, 1024, 256, false, true, 1234ULL},
+  {0.000002f, 1024, 32, false, false, 1234ULL},
+  {0.000002f, 1024, 64, false, false, 1234ULL},
+  {0.000002f, 1024, 128, false, false, 1234ULL},
+  {0.000002f, 1024, 256, false, false, 1234ULL}};
+
+typedef ReduceTest<float, float> ReduceTestFF;
+TEST_P(ReduceTestFF, Result) {
   ASSERT_TRUE(devArrMatch(dots_exp, dots_act, outlen,
                           raft::CompareApprox<float>(params.tolerance)));
 }
 
-typedef ReduceTest<double> ReduceTestD;
-TEST_P(ReduceTestD, Result) {
+typedef ReduceTest<double, double> ReduceTestDD;
+TEST_P(ReduceTestDD, Result) {
   ASSERT_TRUE(devArrMatch(dots_exp, dots_act, outlen,
                           raft::CompareApprox<double>(params.tolerance)));
 }
 
-INSTANTIATE_TEST_CASE_P(ReduceTests, ReduceTestF, ::testing::ValuesIn(inputsf));
+typedef ReduceTest<float, double> ReduceTestFD;
+TEST_P(ReduceTestFD, Result) {
+  ASSERT_TRUE(devArrMatch(dots_exp, dots_act, outlen,
+                          raft::CompareApprox<double>(params.tolerance)));
+}
 
-INSTANTIATE_TEST_CASE_P(ReduceTests, ReduceTestD, ::testing::ValuesIn(inputsd));
+INSTANTIATE_TEST_CASE_P(ReduceTests, ReduceTestFF,
+                        ::testing::ValuesIn(inputsff));
+
+INSTANTIATE_TEST_CASE_P(ReduceTests, ReduceTestDD,
+                        ::testing::ValuesIn(inputsdd));
+
+INSTANTIATE_TEST_CASE_P(ReduceTests, ReduceTestFD,
+                        ::testing::ValuesIn(inputsfd));
 
 }  // end namespace linalg
 }  // end namespace raft

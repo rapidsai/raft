@@ -147,8 +147,8 @@ void stridedReduction(OutType *dots, const InType *data, IdxType D, IdxType N,
 
   ///@todo: this complication should go away once we have eliminated the need
   /// for atomics in stridedKernel (redesign for this is already underway)
-  if (std::is_same<ReduceLambda, raft::Sum<OutType>>::value &&
-      std::is_same<InType, OutType>::value)
+  if constexpr (std::is_same<ReduceLambda, raft::Sum<OutType>>::value &&
+                std::is_same<InType, OutType>::value)
     stridedSummationKernel<InType>
       <<<nblks, thrds, shmemSize, stream>>>(dots, data, D, N, init, main_op);
   else

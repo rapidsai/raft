@@ -20,6 +20,8 @@
 #include <raft/linalg/norm.cuh>
 #include <raft/vectorized.cuh>
 
+#include <cstddef>
+
 namespace raft {
 namespace distance {
 
@@ -312,20 +314,20 @@ __global__ __launch_bounds__(
 }
 
 template <typename P, typename IdxT, typename T>
-dim3 launchConfigGenerator(IdxT m, IdxT n, size_t sMemSize, T func) {
+dim3 launchConfigGenerator(IdxT m, IdxT n, std::size_t sMemSize, T func) {
   const auto numSMs = raft::getMultiProcessorCount();
   int numBlocksPerSm = 0;
   dim3 grid;
 
   CUDA_CHECK(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
     &numBlocksPerSm, func, P::Nthreads, sMemSize));
-  int minGridSize = numSMs * numBlocksPerSm;
-  int yChunks = raft::ceildiv<int>(m, P::Mblk);
-  int xChunks = raft::ceildiv<int>(n, P::Nblk);
+  std::size_t minGridSize = numSMs * numBlocksPerSm;
+  std::size_t yChunks = raft::ceildiv<int>(m, P::Mblk);
+  std::size_t xChunks = raft::ceildiv<int>(n, P::Nblk);
   grid.y = yChunks > minGridSize ? minGridSize : yChunks;
   grid.x = (minGridSize - grid.y) <= 0 ? 1 : xChunks;
   if (grid.x != 1) {
-    int i = 1;
+    std::size_t i = 1;
     while (grid.y * i < minGridSize) {
       i++;
     }

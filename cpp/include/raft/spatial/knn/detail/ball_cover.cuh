@@ -306,7 +306,7 @@ void rbc_all_knn_query(const raft::handle_t &handle,
   // TODO: This will be a power of 2 cutoff for the number of dimensions
   // that will in smem in different buckets
   constexpr int rbc_tpb = 64;
-  constexpr int max_vals = 328;
+  constexpr int max_vals = 300;
 
   if (index.n <= 2) {
     // Compute nearest k for each neighborhood in each closest R
@@ -330,6 +330,8 @@ void rbc_all_knn_query(const raft::handle_t &handle,
   }
 
   CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+
+  raft::print_device_vector("dists", dists_counter.data(), 500, std::cout);
 
   // TODO: pull this out into "post_process()" function
   if (perform_post_filtering) {
@@ -373,6 +375,9 @@ void rbc_all_knn_query(const raft::handle_t &handle,
 
       CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
     }
+
+    raft::print_device_vector("post dists", post_dists_counter.data(), 500, std::cout);
+
 
     printf("Done.\n");
     //

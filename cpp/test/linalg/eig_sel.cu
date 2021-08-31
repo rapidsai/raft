@@ -51,36 +51,31 @@ class EigSelTest : public ::testing::TestWithParam<EigSelInputs<T>> {
     params = ::testing::TestWithParam<EigSelInputs<T>>::GetParam();
     int len = params.len;
 
-    raft::allocate(cov_matrix, len);
+    raft::allocate(cov_matrix, len, stream);
     T cov_matrix_h[] = {1.0,  0.9, 0.81, 0.729, 0.9,   1.0,  0.9, 0.81,
                         0.81, 0.9, 1.0,  0.9,   0.729, 0.81, 0.9, 1.0};
     ASSERT(len == 16, "This test only works with 4x4 matrices!");
     raft::update_device(cov_matrix, cov_matrix_h, len, stream);
 
-    raft::allocate(eig_vectors, 12);
-    raft::allocate(eig_vals, params.n_col);
+    raft::allocate(eig_vectors, 12, stream);
+    raft::allocate(eig_vals, params.n_col, stream);
 
     T eig_vectors_ref_h[] = {-0.5123, 0.4874,  0.4874, -0.5123, 0.6498, 0.2789,
                              -0.2789, -0.6498, 0.4874, 0.5123,  0.5123, 0.4874};
     T eig_vals_ref_h[] = {0.1024, 0.3096, 3.5266, 3.5266};
 
-    raft::allocate(eig_vectors_ref, 12);
-    raft::allocate(eig_vals_ref, params.n_col);
+    raft::allocate(eig_vectors_ref, 12, stream);
+    raft::allocate(eig_vals_ref, params.n_col, stream);
 
     raft::update_device(eig_vectors_ref, eig_vectors_ref_h, 12, stream);
     raft::update_device(eig_vals_ref, eig_vals_ref_h, 4, stream);
 
     eigSelDC(handle, cov_matrix, params.n_row, params.n_col, 3, eig_vectors,
              eig_vals, EigVecMemUsage::OVERWRITE_INPUT, stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
-  void TearDown() override {
-    CUDA_CHECK(cudaFree(cov_matrix));
-    CUDA_CHECK(cudaFree(eig_vectors));
-    CUDA_CHECK(cudaFree(eig_vals));
-    CUDA_CHECK(cudaFree(eig_vectors_ref));
-    CUDA_CHECK(cudaFree(eig_vals_ref));
-  }
+  void TearDown() override { raft::deallocate_all(stream); }
 
  protected:
   EigSelInputs<T> params;

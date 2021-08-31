@@ -43,9 +43,9 @@ class CSRtoCOOTest : public ::testing::TestWithParam<CSRtoCOOInputs<Index_>> {
     params = ::testing::TestWithParam<CSRtoCOOInputs<Index_>>::GetParam();
 
     cudaStreamCreate(&stream);
-    raft::allocate(ex_scan, params.ex_scan.size());
-    raft::allocate(verify, params.verify.size());
-    raft::allocate(result, params.verify.size(), true);
+    raft::allocate(ex_scan, params.ex_scan.size(), stream);
+    raft::allocate(verify, params.verify.size(), stream);
+    raft::allocate(result, params.verify.size(), stream, true);
   }
 
   void Run() {
@@ -62,9 +62,7 @@ class CSRtoCOOTest : public ::testing::TestWithParam<CSRtoCOOInputs<Index_>> {
   }
 
   void TearDown() override {
-    CUDA_CHECK(cudaFree(ex_scan));
-    CUDA_CHECK(cudaFree(verify));
-    CUDA_CHECK(cudaFree(result));
+    raft::deallocate_all(stream);
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
 

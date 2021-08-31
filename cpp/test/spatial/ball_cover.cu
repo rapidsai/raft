@@ -139,9 +139,9 @@ __global__ void count_discrepancies_kernel(value_idx *actual_idx,
       value_t d = actual[row * n + i] - expected[row * n + i];
       bool matches = fabsf(d) <= thres;
       n_diffs += !matches;
-      if(!matches)
-        printf("Diff in idx=%d, expected=%ld, actual=%ld, dist1=%f, dist2=%f\n",
-               row, expected_idx[row*n+i], actual_idx[row*n+i], expected[row*n+i], actual[row*n+i]);
+//      if(!matches)
+//        printf("Diff in idx=%d, expected=%ld, actual=%ld, dist1=%f, dist2=%f\n",
+//               row, expected_idx[row*n+i], actual_idx[row*n+i], expected[row*n+i], actual[row*n+i]);
       out[row] = n_diffs;
     }
   }
@@ -213,7 +213,7 @@ class BallCoverKNNTest : public ::testing::Test {
     std::vector<value_t> h_train_inputs =
 //      read_csv2("/share/workspace/reproducers/miguel_haversine_knn/OSM_KNN.csv",
 //                500, 1, dim_mult);
-      read_csv2("/share/workspace/blobs.csv",50000, 1, dim_mult);
+      read_csv2("/share/workspace/blobs.csv",500000, 1, dim_mult);
 
     /**
      * Load reference data from CSV files

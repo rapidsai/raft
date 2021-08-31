@@ -63,7 +63,7 @@ static constexpr float warp_reciprocal = 1.0 / faiss::gpu::kWarpSize;
 template <typename value_idx, typename value_t, bool Dir, typename Comp,
           int numwarpq, int numthreadq, int tpb, typename reduce_func,
           typename accum_func>
-__device__ void compute_dist_full_warp(
+__device__ int compute_dist_full_warp(
   faiss::gpu::KeyValueBlockSelect<value_t, int, Dir, Comp, numwarpq, numthreadq,
                                   tpb> &heap,
   const int lane_id, const int n_cols, const value_t *__restrict__ x_ptr,
@@ -88,7 +88,7 @@ __device__ void compute_dist_full_warp(
 
     sq_diff = __shfl_sync(0xffffffff, sq_diff, 0);
 
-    if(lane_id == 0)
+    if(lane_id == lowest_peer)
       ++n_dists;
 
     mask = mask ^ (1 << lowest_peer);
@@ -97,9 +97,7 @@ __device__ void compute_dist_full_warp(
     }
   }
 
-  if(lane_id == 0 && blockIdx.x == 1686) {
-    printf("dist_computed=%d\n", n_dists);
-  }
+  return n_dists;
 }
 
 /**
@@ -138,7 +136,7 @@ __device__ void compute_dist_full_warp(
 template <typename value_idx, typename value_t, bool Dir, typename Comp,
           int numwarpq, int numthreadq, int tpb, typename reduce_func,
           typename accum_func>
-__device__ void compute_dist_block(
+__device__ int compute_dist_block(
   faiss::gpu::KeyValueBlockSelect<value_t, int, Dir, Comp, numwarpq, numthreadq,
                                   tpb> &heap,
   const int warp_id, const int lane_id, const int kNumWarps, const int n_cols,
@@ -149,6 +147,7 @@ __device__ void compute_dist_block(
 
   const value_idx limit = faiss::gpu::utils::roundDown(R_size, faiss::gpu::kWarpSize);
 
+  int n_dists = 0;
   int i = threadIdx.x;
   for (; i < limit; i += tpb) {
     // Index and distance of current candidate's nearest landmark
@@ -171,7 +170,7 @@ __device__ void compute_dist_block(
                   heap.warpKTopRDist;
     z = isnan(z) ? 0.0 : z;
 
-    compute_dist_full_warp<value_idx, value_t, false,
+    n_dists += compute_dist_full_warp<value_idx, value_t, false,
       faiss::gpu::Comparator<value_t>,
       numwarpq, numthreadq, tpb> (
       heap, lane_id, n_cols, local_x_ptr, X, z,
@@ -198,13 +197,15 @@ __device__ void compute_dist_block(
 
 
     z = isnan(z) ? 0.0 : z;
-    compute_dist_full_warp<value_idx, value_t, false,
+    n_dists += compute_dist_full_warp<value_idx, value_t, false,
       faiss::gpu::Comparator<value_t>,
       numwarpq, numthreadq, tpb>(
       heap, lane_id, n_cols, local_x_ptr, X, z, cur_candidate_dist,
       cur_candidate_ind, redfunc, accfunc);
   }
   heap.checkThreadQ();
+
+  return n_dists;
 }
 
 template <typename value_idx, typename value_t, int warp_q = 32,
@@ -243,6 +244,8 @@ __global__ void compute_final_dists_smem(
          faiss::gpu::Limits<value_t>::getMax(),
          -1, smemK, smemV, k);
 
+  int n_dists = 0;
+
   int i = threadIdx.x;
   const value_idx limit = faiss::gpu::utils::roundDown(k, faiss::gpu::kWarpSize);
   for (; i < limit; i += blockDim.x) {
@@ -265,7 +268,7 @@ __global__ void compute_final_dists_smem(
       // TODO: see if putting these values in smem can reduce register count
       const value_idx R_start_offset = R_indptr[cur_R_ind];
       const value_idx R_size = R_indptr[cur_R_ind + 1] - R_start_offset;
-      compute_dist_block<value_idx, value_t, false,
+      n_dists += compute_dist_block<value_idx, value_t, false,
         faiss::gpu::Comparator<value_t>,
         warp_q, thread_q, tpb>(
         heap, warp_id, lane_id, kNumWarps, n_cols, k, shared_x_ptr, X,
@@ -279,6 +282,8 @@ __global__ void compute_final_dists_smem(
     knn_dists[blockIdx.x * k + i] = smemK[i];
     knn_inds[blockIdx.x * k + i] = smemV[i].value;
   }
+
+  atomicAdd(dist_counter + blockIdx.x, n_dists);
 }
 
 /**
@@ -357,8 +362,9 @@ __global__ void perform_post_filter(
       for (int offset = 16; offset > 0; offset /= 2)
         p_q_r = accfunc(p_q_r, __shfl_down_sync(0xffffffff, p_q_r, offset));
 
-      const bool in_bound = (p_q_r > weight * (closest_R_dist + R_radius[l]) ||
-                             p_q_r > 3 * closest_R_dist);
+      const bool in_bound = true;//(p_q_r > weight * (closest_R_dist + R_radius[l]) ||
+                             //p_q_r > 3 * closest_R_dist ||
+                            // knn_dists[blockIdx.x * k + (k-1)] < p_q_r - R_radius[l]);
       if (lane_id == 0 && in_bound) {
         _zero_bit(smem, l);
       }
@@ -372,7 +378,8 @@ __global__ void perform_post_filter(
    */
   for (int l = threadIdx.x; l < bitset_size; l += tpb) {
     output[blockIdx.x * bitset_size + l] = smem[l];
-  }}
+  }
+}
 
 /**
  * Random ball cover kernel for high dimensionality (greater than 2 or 3).
@@ -422,12 +429,16 @@ __global__ void block_rbc_kernel_smem(
   const value_t *__restrict__ X,
   const value_int n_cols,  // n_cols should be 2 or 3 dims
   const value_idx *__restrict__ R_knn_inds,
-  const value_t *__restrict__ R_knn_dists, const value_int m, const int k,
+  const value_t *__restrict__ R_knn_dists,
+  const value_int m, const int k,
   const value_idx *__restrict__ R_indptr,
   const value_idx *__restrict__ R_1nn_cols,
-  const value_t *__restrict__ R_1nn_dists, value_idx *out_inds,
-  value_t *out_dists, int *dist_counter,
-  value_t *R_radius, distance_func dfunc, reduce_func redfunc,
+  const value_t *__restrict__ R_1nn_dists,
+  value_idx *out_inds,
+  value_t *out_dists,
+  int *dist_counter,
+  value_t *R_radius, distance_func dfunc,
+  reduce_func redfunc,
   accum_func accfunc, float weight = 1.0) {
   static constexpr int kNumWarps = tpb / faiss::gpu::kWarpSize;
 
@@ -454,6 +465,7 @@ __global__ void block_rbc_kernel_smem(
 
   const value_t min_R_dist = R_knn_dists[blockIdx.x * k + (k-1)];
 
+  int n_dists = 0;
 
   /**
    * First add distances for k closest neighbors of R
@@ -474,7 +486,7 @@ __global__ void block_rbc_kernel_smem(
     const value_idx R_start_offset = R_indptr[cur_R_ind];
     const value_idx R_size = R_indptr[cur_R_ind + 1] - R_start_offset;
 
-    compute_dist_block<value_idx, value_t, false,
+    n_dists += compute_dist_block<value_idx, value_t, false,
       faiss::gpu::Comparator<value_t>,
       warp_q, thread_q, tpb>(
       heap, warp_id, lane_id, kNumWarps, n_cols, k, shared_x_ptr, X,
@@ -487,6 +499,8 @@ __global__ void block_rbc_kernel_smem(
     out_dists[blockIdx.x * k + i] = smemK[i];
     out_inds[blockIdx.x * k + i] = smemV[i].value;
   }
+
+  atomicAdd(dist_counter + blockIdx.x, n_dists);
 }
 
 // TODO: Need to create wrapper functions to invoke block_rbc, post_filter_bitset, compute_final_dists

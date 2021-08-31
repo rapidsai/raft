@@ -19,7 +19,6 @@
 #include "detail/selection_faiss.cuh"
 #include "detail/knn_brute_force_faiss.cuh"
 
-#include <raft/mr/device/allocator.hpp>
 #include <raft/mr/device/buffer.hpp>
 
 namespace raft {
@@ -125,8 +124,7 @@ inline void brute_force_knn(
   std::vector<cudaStream_t> int_streams = handle.get_internal_streams();
 
   detail::brute_force_knn_impl(input, sizes, D, search_items, n, res_I, res_D,
-                               k, handle.get_device_allocator(),
-                               handle.get_stream(), int_streams.data(),
+                               k, handle.get_stream(), int_streams.data(),
                                handle.get_num_internal_streams(), rowMajorIndex,
                                rowMajorQuery, translations, metric, metric_arg);
 }

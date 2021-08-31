@@ -21,8 +21,8 @@
 #include <raft/cudart_utils.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
-#include <raft/mr/device/allocator.hpp>
-#include <raft/mr/device/buffer.hpp>
+#include <rmm/device_uvector.hpp>
+#include <rmm/exec_policy.hpp>
 
 #include <raft/sparse/op/sort.h>
 #include <thrust/device_ptr.h>
@@ -31,8 +31,6 @@
 
 #include <cuda_runtime.h>
 #include <stdio.h>
-#include <rmm/device_uvector.hpp>
-#include <rmm/exec_policy.hpp>
 
 #include <algorithm>
 #include <iostream>
@@ -122,22 +120,20 @@ __global__ void coo_symmetrize_kernel(int *row_ind, int *rows, int *cols,
  * @param in: Input COO matrix
  * @param out: Output symmetrized COO matrix
  * @param reduction_op: a custom reduction function
- * @param d_alloc device allocator for temporary buffers
  * @param stream: cuda stream to use
  */
 template <int TPB_X = 128, typename T, typename Lambda>
 void coo_symmetrize(COO<T> *in, COO<T> *out,
                     Lambda reduction_op,  // two-argument reducer
-                    std::shared_ptr<raft::mr::device::allocator> d_alloc,
                     cudaStream_t stream) {
   dim3 grid(raft::ceildiv(in->n_rows, TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
 
   ASSERT(!out->validate_mem(), "Expecting unallocated COO for output");
 
-  raft::mr::device::buffer<int> in_row_ind(d_alloc, stream, in->n_rows);
+  rmm::device_uvector<int> in_row_ind(in->n_rows, stream);
 
-  convert::sorted_coo_to_csr(in, in_row_ind.data(), d_alloc, stream);
+  convert::sorted_coo_to_csr(in, in_row_ind.data(), stream);
 
   out->allocate(in->nnz * 2, in->n_rows, in->n_cols, true, stream);
 
@@ -250,14 +246,14 @@ __global__ static void symmetric_sum(value_idx *restrict edges,
  * @param k: Number of n_neighbors
  * @param out: Output COO Matrix class
  * @param stream: Input cuda stream
- * @param d_alloc device allocator for temporary buffers
  */
 template <typename value_idx = int64_t, typename value_t = float,
           int TPB_X = 32, int TPB_Y = 32>
-void from_knn_symmetrize_matrix(
-  const value_idx *restrict knn_indices, const value_t *restrict knn_dists,
-  const value_idx n, const int k, COO<value_t, value_idx> *out,
-  cudaStream_t stream, std::shared_ptr<raft::mr::device::allocator> d_alloc) {
+void from_knn_symmetrize_matrix(const value_idx *restrict knn_indices,
+                                const value_t *restrict knn_dists,
+                                const value_idx n, const int k,
+                                COO<value_t, value_idx> *out,
+                                cudaStream_t stream) {
   // (1) Find how much space needed in each row
   // We look through all datapoints and increment the count for each row.
   const dim3 threadsPerBlock(TPB_X, TPB_Y);
@@ -265,11 +261,11 @@ void from_knn_symmetrize_matrix(
                        raft::ceildiv(k, TPB_Y));
 
   // Notice n+1 since we can reuse these arrays for transpose_edges, original_edges in step (4)
-  raft::mr::device::buffer<value_idx> row_sizes(d_alloc, stream, n);
+  rmm::device_uvector<value_idx> row_sizes(n, stream);
   CUDA_CHECK(
     cudaMemsetAsync(row_sizes.data(), 0, sizeof(value_idx) * n, stream));
 
-  raft::mr::device::buffer<value_idx> row_sizes2(d_alloc, stream, n);
+  rmm::device_uvector<value_idx> row_sizes2(n, stream);
   CUDA_CHECK(
     cudaMemsetAsync(row_sizes2.data(), 0, sizeof(value_idx) * n, stream));
 
@@ -298,8 +294,8 @@ void from_knn_symmetrize_matrix(
     thrust::device_pointer_cast(row_sizes.data());
 
   // Rolling cumulative sum
-  thrust::exclusive_scan(thrust::cuda::par.on(stream), __row_sizes,
-                         __row_sizes + n, __edges);
+  thrust::exclusive_scan(rmm::exec_policy(stream), __row_sizes, __row_sizes + n,
+                         __edges);
 
   // (5) Perform final data + data.T operation in tandem with memcpying
   symmetric_sum<<<numBlocks, threadsPerBlock, 0, stream>>>(
@@ -314,7 +310,6 @@ template <typename value_idx, typename value_t>
 void symmetrize(const raft::handle_t &handle, const value_idx *rows,
                 const value_idx *cols, const value_t *vals, size_t m, size_t n,
                 size_t nnz, raft::sparse::COO<value_t, value_idx> &out) {
-  auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
 
   // copy rows to cols and cols to rows
@@ -333,7 +328,7 @@ void symmetrize(const raft::handle_t &handle, const value_idx *rows,
   // sort COO
   raft::sparse::op::coo_sort((value_idx)m, (value_idx)n, (value_idx)nnz * 2,
                              symm_rows.data(), symm_cols.data(),
-                             symm_vals.data(), d_alloc, stream);
+                             symm_vals.data(), stream);
 
   raft::sparse::op::max_duplicates(handle, out, symm_rows.data(),
                                    symm_cols.data(), symm_vals.data(), nnz * 2,

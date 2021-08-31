@@ -19,7 +19,6 @@
 #include <stdio.h>
 
 #include <cuda.h>
-#include <thrust/device_vector.h>
 #include <thrust/fill.h>
 #include <thrust/reduce.h>
 #include <thrust/transform.h>
@@ -62,19 +61,18 @@ using namespace linalg;
  *    performed.
  *  @return statistics: number of eigensolver iterations, .
  */
-template <typename vertex_t, typename weight_t, typename ThrustExePolicy,
-          typename EigenSolver, typename ClusterSolver>
+template <typename vertex_t, typename weight_t, typename EigenSolver,
+          typename ClusterSolver>
 std::tuple<vertex_t, weight_t, vertex_t> partition(
-  handle_t const &handle, ThrustExePolicy thrust_exec_policy,
-  sparse_matrix_t<vertex_t, weight_t> const &csr_m,
+  handle_t const &handle, sparse_matrix_t<vertex_t, weight_t> const &csr_m,
   EigenSolver const &eigen_solver, ClusterSolver const &cluster_solver,
   vertex_t *__restrict__ clusters, weight_t *eigVals, weight_t *eigVecs) {
   RAFT_EXPECTS(clusters != nullptr, "Null clusters buffer.");
   RAFT_EXPECTS(eigVals != nullptr, "Null eigVals buffer.");
   RAFT_EXPECTS(eigVecs != nullptr, "Null eigVecs buffer.");
 
-  auto cublas_h = handle.get_cublas_handle();
   auto stream = handle.get_stream();
+  auto cublas_h = handle.get_cublas_handle();
 
   std::tuple<vertex_t, weight_t, vertex_t>
     stats;  //{iters_eig_solver,residual_cluster,iters_cluster_solver} // # iters eigen solver, cluster solver residual, # iters cluster solver
@@ -89,7 +87,7 @@ std::tuple<vertex_t, weight_t, vertex_t> partition(
 
   // Initialize Laplacian
   ///sparse_matrix_t<vertex_t, weight_t> A{handle, graph};
-  laplacian_matrix_t<vertex_t, weight_t> L{handle, thrust_exec_policy, csr_m};
+  laplacian_matrix_t<vertex_t, weight_t> L{handle, csr_m};
 
   auto eigen_config = eigen_solver.get_config();
   auto nEigVecs = eigen_config.n_eigVecs;
@@ -99,11 +97,11 @@ std::tuple<vertex_t, weight_t, vertex_t> partition(
     eigen_solver.solve_smallest_eigenvectors(handle, L, eigVals, eigVecs);
 
   // Whiten eigenvector matrix
-  transform_eigen_matrix(handle, thrust_exec_policy, n, nEigVecs, eigVecs);
+  transform_eigen_matrix(handle, n, nEigVecs, eigVecs);
 
   // Find partition clustering
-  auto pair_cluster = cluster_solver.solve(handle, thrust_exec_policy, n,
-                                           nEigVecs, eigVecs, clusters);
+  auto pair_cluster =
+    cluster_solver.solve(handle, n, nEigVecs, eigVecs, clusters);
 
   std::get<1>(stats) = pair_cluster.first;
   std::get<2>(stats) = pair_cluster.second;
@@ -129,9 +127,8 @@ std::tuple<vertex_t, weight_t, vertex_t> partition(
  *  @param cost On exit, partition cost function.
  *  @return error flag.
  */
-template <typename vertex_t, typename weight_t, typename ThrustExePolicy>
+template <typename vertex_t, typename weight_t>
 void analyzePartition(handle_t const &handle,
-                      ThrustExePolicy thrust_exec_policy,
                       sparse_matrix_t<vertex_t, weight_t> const &csr_m,
                       vertex_t nClusters, const vertex_t *__restrict__ clusters,
                       weight_t &edgeCut, weight_t &cost) {
@@ -140,8 +137,8 @@ void analyzePartition(handle_t const &handle,
   vertex_t i;
   vertex_t n = csr_m.nrows_;
 
-  auto cublas_h = handle.get_cublas_handle();
   auto stream = handle.get_stream();
+  auto cublas_h = handle.get_cublas_handle();
 
   weight_t partEdgesCut, clustersize;
 
@@ -155,7 +152,7 @@ void analyzePartition(handle_t const &handle,
 
   // Initialize Laplacian
   ///sparse_matrix_t<vertex_t, weight_t> A{handle, graph};
-  laplacian_matrix_t<vertex_t, weight_t> L{handle, thrust_exec_policy, csr_m};
+  laplacian_matrix_t<vertex_t, weight_t> L{handle, csr_m};
 
   // Initialize output
   cost = 0;
@@ -164,8 +161,8 @@ void analyzePartition(handle_t const &handle,
   // Iterate through partitions
   for (i = 0; i < nClusters; ++i) {
     // Construct indicator vector for ith partition
-    if (!construct_indicator(handle, thrust_exec_policy, i, n, clustersize,
-                             partEdgesCut, clusters, part_i, Lx, L)) {
+    if (!construct_indicator(handle, i, n, clustersize, partEdgesCut, clusters,
+                             part_i, Lx, L)) {
       WARNING("empty partition");
       continue;
     }

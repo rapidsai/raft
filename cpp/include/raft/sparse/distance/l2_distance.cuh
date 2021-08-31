@@ -21,17 +21,13 @@
 #include <raft/cudart_utils.h>
 #include <raft/linalg/distance_type.h>
 #include <raft/sparse/cusparse_wrappers.h>
+#include <raft/sparse/distance/common.h>
+#include <raft/sparse/utils.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/unary_op.cuh>
-#include <raft/mr/device/allocator.hpp>
-
-#include <rmm/device_uvector.hpp>
-
-#include <raft/sparse/utils.h>
 #include <raft/sparse/csr.cuh>
-
-#include <raft/sparse/distance/common.h>
 #include <raft/sparse/distance/ip_distance.cuh>
+#include <rmm/device_uvector.hpp>
 
 #include <nvfunctional>
 
@@ -127,9 +123,8 @@ template <typename value_idx, typename value_t, int tpb = 256,
 void compute_l2(value_t *out, const value_idx *Q_coo_rows,
                 const value_t *Q_data, value_idx Q_nnz,
                 const value_idx *R_coo_rows, const value_t *R_data,
-                value_idx R_nnz, value_idx m, value_idx n,
-                std::shared_ptr<raft::mr::device::allocator> alloc,
-                cudaStream_t stream, expansion_f expansion_func) {
+                value_idx R_nnz, value_idx m, value_idx n, cudaStream_t stream,
+                expansion_f expansion_func) {
   rmm::device_uvector<value_t> Q_sq_norms(m, stream);
   rmm::device_uvector<value_t> R_sq_norms(n, stream);
   CUDA_CHECK(
@@ -161,7 +156,6 @@ void compute_corr(value_t *out, const value_idx *Q_coo_rows,
                   const value_t *Q_data, value_idx Q_nnz,
                   const value_idx *R_coo_rows, const value_t *R_data,
                   value_idx R_nnz, value_idx m, value_idx n, value_idx n_cols,
-                  std::shared_ptr<raft::mr::device::allocator> alloc,
                   cudaStream_t stream) {
   // sum_sq for std dev
   rmm::device_uvector<value_t> Q_sq_norms(m, stream);
@@ -221,7 +215,7 @@ class l2_expanded_distances_t : public distances_t<value_t> {
     compute_l2(
       out_dists, search_coo_rows.data(), config_->a_data, config_->a_nnz,
       b_indices, b_data, config_->b_nnz, config_->a_nrows, config_->b_nrows,
-      config_->handle.get_device_allocator(), config_->handle.get_stream(),
+      config_->handle.get_stream(),
       [] __device__ __host__(value_t dot, value_t q_norm, value_t r_norm) {
         return -2 * dot + q_norm + r_norm;
       });
@@ -283,7 +277,6 @@ class correlation_expanded_distances_t : public distances_t<value_t> {
     compute_corr(out_dists, search_coo_rows.data(), config_->a_data,
                  config_->a_nnz, b_indices, b_data, config_->b_nnz,
                  config_->a_nrows, config_->b_nrows, config_->b_ncols,
-                 config_->handle.get_device_allocator(),
                  config_->handle.get_stream());
   }
 
@@ -322,7 +315,7 @@ class cosine_expanded_distances_t : public distances_t<value_t> {
     compute_l2(
       out_dists, search_coo_rows.data(), config_->a_data, config_->a_nnz,
       b_indices, b_data, config_->b_nnz, config_->a_nrows, config_->b_nrows,
-      config_->handle.get_device_allocator(), config_->handle.get_stream(),
+      config_->handle.get_stream(),
       [] __device__ __host__(value_t dot, value_t q_norm, value_t r_norm) {
         value_t norms = sqrt(q_norm) * sqrt(r_norm);
         // deal with potential for 0 in denominator by forcing 0/1 instead

@@ -15,22 +15,21 @@
  */
 
 #include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
 #include <iostream>
 #include <memory>
-#include <raft/mr/device/buffer.hpp>
+#include <rmm/device_uvector.hpp>
 #include <rmm/mr/device/limiting_resource_adaptor.hpp>
-#include <rmm/mr/device/per_device_resource.hpp>
 
 namespace raft {
 namespace mr {
 namespace device {
 
 TEST(Raft, DeviceBufferAlloc) {
-  auto alloc = std::make_shared<default_allocator>();
   cudaStream_t stream;
   CUDA_CHECK(cudaStreamCreate(&stream));
   // no allocation at construction
-  buffer<char> buff(alloc, stream);
+  rmm::device_uvector<char> buff(0, stream);
   ASSERT_EQ(0, buff.size());
   // explicit allocation after construction
   buff.resize(20, stream);
@@ -39,12 +38,12 @@ TEST(Raft, DeviceBufferAlloc) {
   buff.resize(10, stream);
   ASSERT_EQ(10, buff.size());
   // explicit deallocation
-  buff.release(stream);
+  buff.release();
   ASSERT_EQ(0, buff.size());
   // use these methods without the explicit stream parameter
-  buff.resize(20);
+  buff.resize(20, stream);
   ASSERT_EQ(20, buff.size());
-  buff.resize(10);
+  buff.resize(10, stream);
   ASSERT_EQ(10, buff.size());
   buff.release();
   ASSERT_EQ(0, buff.size());
@@ -62,11 +61,10 @@ TEST(Raft, DeviceBufferZeroResize) {
 
   rmm::mr::set_current_device_resource(limit_mr.get());
 
-  auto alloc = std::make_shared<default_allocator>();
   cudaStream_t stream;
   CUDA_CHECK(cudaStreamCreate(&stream));
   // no allocation at construction
-  buffer<char> buff(alloc, stream, 10);
+  rmm::device_uvector<char> buff(10, stream);
   ASSERT_EQ(10, buff.size());
   // explicit allocation after construction
   buff.resize(0, stream);
@@ -75,7 +73,7 @@ TEST(Raft, DeviceBufferZeroResize) {
   buff.resize(20, stream);
   ASSERT_EQ(20, buff.size());
   // explicit deallocation
-  buff.release(stream);
+  buff.release();
   ASSERT_EQ(0, buff.size());
 
   // Now check that there is no memory left. (Used to not be true)

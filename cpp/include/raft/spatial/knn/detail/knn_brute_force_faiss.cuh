@@ -19,6 +19,8 @@
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
 
+#include <rmm/device_uvector.hpp>
+
 #include <faiss/gpu/GpuDistance.h>
 #include <faiss/gpu/GpuResources.h>
 #include <faiss/gpu/StandardGpuResources.h>
@@ -27,7 +29,6 @@
 #include <faiss/gpu/utils/Select.cuh>
 
 #include <raft/linalg/distance_type.h>
-#include <thrust/device_vector.h>
 #include <thrust/iterator/transform_iterator.h>
 #include <iostream>
 #include <raft/handle.hpp>
@@ -179,7 +180,6 @@ inline void knn_merge_parts(value_t *inK, value_idx *inV, value_t *outK,
  * @param[out] res_I    pointer to device memory for returning k nearest indices
  * @param[out] res_D    pointer to device memory for returning k nearest distances
  * @param[in] k        number of neighbors to query
- * @param[in] allocator the device memory allocator to use for temporary scratch memory
  * @param[in] userStream the main cuda stream to use
  * @param[in] internalStreams optional when n_params > 0, the index partitions can be
  *        queried in parallel using these streams. Note that n_int_streams also
@@ -203,7 +203,6 @@ void brute_force_knn_impl(std::vector<float *> &input,
                           IdxType *res_I,
                           float *res_D,
                           IntType k,
-                          std::shared_ptr<deviceAllocator> allocator,
                           cudaStream_t userStream,
                           cudaStream_t *internalStreams = nullptr,
                           int n_int_streams = 0,
@@ -234,28 +233,26 @@ void brute_force_knn_impl(std::vector<float *> &input,
 
   // perform preprocessing
   std::unique_ptr<MetricProcessor<float>> query_metric_processor =
-    create_processor<float>(metric, n, D, k, rowMajorQuery, userStream,
-                            allocator);
+    create_processor<float>(metric, n, D, k, rowMajorQuery, userStream);
   query_metric_processor->preprocess(search_items);
 
   std::vector<std::unique_ptr<MetricProcessor<float>>> metric_processors(
     input.size());
   for (size_t i = 0; i < input.size(); i++) {
-    metric_processors[i] = create_processor<float>(
-      metric, sizes[i], D, k, rowMajorQuery, userStream, allocator);
+    metric_processors[i] = create_processor<float>(metric, sizes[i], D, k,
+                                                   rowMajorQuery, userStream);
     metric_processors[i]->preprocess(input[i]);
   }
 
   int device;
   CUDA_CHECK(cudaGetDevice(&device));
 
-  raft::mr::device::buffer<IdxType> trans(allocator, userStream,
-                                          id_ranges->size());
+  rmm::device_uvector<int64_t> trans(id_ranges->size(), userStream);
   raft::update_device(trans.data(), id_ranges->data(), id_ranges->size(),
                       userStream);
 
-  raft::mr::device::buffer<float> all_D(allocator, userStream, 0);
-  raft::mr::device::buffer<IdxType> all_I(allocator, userStream, 0);
+  rmm::device_uvector<float> all_D(0, userStream);
+  rmm::device_uvector<int64_t> all_I(0, userStream);
 
   float *out_D = res_D;
   IdxType *out_I = res_I;

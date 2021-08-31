@@ -53,18 +53,15 @@ class UnaryOpTest
     raft::random::Rng r(params.seed);
     CUDA_CHECK(cudaStreamCreate(&stream));
     auto len = params.len;
-    allocate(in, len);
-    allocate(out_ref, len);
-    allocate(out, len);
+    raft::allocate(in, len, stream);
+    raft::allocate(out_ref, len, stream);
+    raft::allocate(out, len, stream);
     r.uniform(in, len, InType(-1.0), InType(1.0), stream);
   }
 
   void TearDown() override {
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    raft::deallocate_all(stream);
     CUDA_CHECK(cudaStreamDestroy(stream));
-    CUDA_CHECK(cudaFree(in));
-    CUDA_CHECK(cudaFree(out_ref));
-    CUDA_CHECK(cudaFree(out));
   }
 
   virtual void DoTest() {

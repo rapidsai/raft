@@ -17,8 +17,8 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/binary_op.cuh>
-#include <raft/mr/device/buffer.hpp>
 #include <raft/random/rng.cuh>
+#include <rmm/device_uvector.hpp>
 #include "../test_utils.h"
 #include "binary_op.cuh"
 
@@ -48,10 +48,10 @@ class BinaryOpTest
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
     IdxType len = params.len;
-    allocate(in1, len);
-    allocate(in2, len);
-    allocate(out_ref, len);
-    allocate(out, len);
+    raft::allocate(in1, len, stream);
+    raft::allocate(in2, len, stream);
+    raft::allocate(out_ref, len, stream);
+    raft::allocate(out, len, stream);
     r.uniform(in1, len, InType(-1.0), InType(1.0), stream);
     r.uniform(in2, len, InType(-1.0), InType(1.0), stream);
     naiveAdd(out_ref, in1, in2, len);
@@ -136,9 +136,9 @@ class BinaryOpAlignment : public ::testing::Test {
     // Test to trigger cudaErrorMisalignedAddress if veclen is incorrectly
     // chosen.
     int n = 1024;
-    mr::device::buffer<math_t> x(handle.get_device_allocator(), stream, n);
-    mr::device::buffer<math_t> y(handle.get_device_allocator(), stream, n);
-    mr::device::buffer<math_t> z(handle.get_device_allocator(), stream, n);
+    rmm::device_uvector<math_t> x(n, stream);
+    rmm::device_uvector<math_t> y(n, stream);
+    rmm::device_uvector<math_t> z(n, stream);
     CUDA_CHECK(cudaMemsetAsync(x.data(), 0, n * sizeof(math_t), stream));
     CUDA_CHECK(cudaMemsetAsync(y.data(), 0, n * sizeof(math_t), stream));
     raft::linalg::binaryOp(
