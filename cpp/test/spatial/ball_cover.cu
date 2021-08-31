@@ -68,8 +68,7 @@ std::vector<std::string> split(std::string str, std::string delim) {
 
 inline std::vector<float> read_csv2(std::string filename,
                                     int lines_to_read = 3000000,
-                                    int lines_to_skip = 1,
-                                    int dupe_cols = 1) {
+                                    int lines_to_skip = 1, int dupe_cols = 1) {
   std::vector<float> result;
   std::ifstream myFile(filename);
   if (!myFile.is_open()) throw std::runtime_error("Could not open file");
@@ -82,7 +81,7 @@ inline std::vector<float> read_csv2(std::string filename,
       if (n_lines > lines_to_skip - 1) {
         for (int k = 0; k < dupe_cols; k++) {
           std::vector<std::string> tokens = split(line, ",");
-          for (int i = 0; i < tokens.size(); i++) {
+          for (size_t i = 0; i < tokens.size(); i++) {
             float val = stof(tokens[i]);
             result.push_back(val);
           }
@@ -111,7 +110,7 @@ inline std::vector<int64_t> read_csv2_i(std::string filename,
     while (std::getline(myFile, line) && n_lines < lines_to_read) {
       if (n_lines > lines_to_skip - 1) {
         std::vector<std::string> tokens = split(line, ",");
-        for (int i = 0; i < tokens.size(); i++) {
+        for (size_t i = 0; i < tokens.size(); i++) {
           int64_t val = stoi(tokens[i]);
           result.push_back(val);
         }
@@ -139,9 +138,9 @@ __global__ void count_discrepancies_kernel(value_idx *actual_idx,
       value_t d = actual[row * n + i] - expected[row * n + i];
       bool matches = fabsf(d) <= thres;
       n_diffs += !matches;
-//      if(!matches)
-//        printf("Diff in idx=%d, expected=%ld, actual=%ld, dist1=%f, dist2=%f\n",
-//               row, expected_idx[row*n+i], actual_idx[row*n+i], expected[row*n+i], actual[row*n+i]);
+      //      if(!matches)
+      //        printf("Diff in idx=%d, expected=%ld, actual=%ld, dist1=%f, dist2=%f\n",
+      //               row, expected_idx[row*n+i], actual_idx[row*n+i], expected[row*n+i], actual[row*n+i]);
       out[row] = n_diffs;
     }
   }
@@ -155,8 +154,7 @@ template <typename value_idx, typename value_t>
 int count_discrepancies(value_idx *actual_idx, value_idx *expected_idx,
                         value_t *actual, value_t *expected, int m, int n,
                         int *out, cudaStream_t stream) {
-  count_discrepancies_kernel<<<raft::ceildiv(m, 256),
-                               256, 0, stream>>>(
+  count_discrepancies_kernel<<<raft::ceildiv(m, 256), 256, 0, stream>>>(
     actual_idx, expected_idx, actual, expected, m, n, out);
 
   auto exec_policy = rmm::exec_policy(stream);
@@ -211,9 +209,9 @@ class BallCoverKNNTest : public ::testing::Test {
 
     // make testdata on host
     std::vector<value_t> h_train_inputs =
-//      read_csv2("/share/workspace/reproducers/miguel_haversine_knn/OSM_KNN.csv",
-//                500, 1, dim_mult);
-      read_csv2("/share/workspace/blobs.csv",500000, 1, dim_mult);
+      //      read_csv2("/share/workspace/reproducers/miguel_haversine_knn/OSM_KNN.csv",
+      //                500, 1, dim_mult);
+      read_csv2("/share/workspace/blobs.csv", 500000, 1, dim_mult);
 
     /**
      * Load reference data from CSV files
@@ -236,12 +234,11 @@ class BallCoverKNNTest : public ::testing::Test {
 
     // Allocate input
     rmm::device_uvector<value_t> d_train_inputs(n * d, handle.get_stream());
-    raft::update_device(d_train_inputs.data(), h_train_inputs.data(),
-                        n * d, handle.get_stream());
+    raft::update_device(d_train_inputs.data(), h_train_inputs.data(), n * d,
+                        handle.get_stream());
 
     rmm::device_uvector<value_idx> d_ref_I(n * k, handle.get_stream());
     rmm::device_uvector<value_t> d_ref_D(n * k, handle.get_stream());
-
 
     /**
      * FOr haversine, convert degrees to radians
@@ -265,17 +262,16 @@ class BallCoverKNNTest : public ::testing::Test {
 
     // Perform bfknn for comparison
     raft::spatial::knn::detail::brute_force_knn_impl<int, int64_t>(
-      input_vec, sizes_vec, d, d_train_inputs.data(), n,
-      d_ref_I.data(), d_ref_D.data(), k, handle.get_device_allocator(),
-      handle.get_stream(), int_streams, 0, true, true, translations,
-      raft::distance::DistanceType::L2Expanded);
+      input_vec, sizes_vec, d, d_train_inputs.data(), n, d_ref_I.data(),
+      d_ref_D.data(), k, handle.get_stream(), int_streams, 0, true, true,
+      translations, raft::distance::DistanceType::L2Expanded);
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
     cout << "Done in: " << curTimeMillis() - bfknn_start << "ms." << endl;
 
-    raft::print_device_vector("actual inds", d_ref_I.data() + (1686*k),
+    raft::print_device_vector("actual inds", d_ref_I.data() + (1686 * k),
                               k * 100, std::cout);
-    raft::print_device_vector("actual dists", d_ref_D.data() + (1686*k),
+    raft::print_device_vector("actual dists", d_ref_D.data() + (1686 * k),
                               k * 100, std::cout);
 
     // Allocate predicted arrays
@@ -293,8 +289,8 @@ class BallCoverKNNTest : public ::testing::Test {
 
     float weight = 1.0;
     raft::spatial::knn::detail::rbc_all_knn_query(
-      handle, index, k, d_pred_I.data(), d_pred_D.data(),
-      EuclideanFunc(), true, weight);
+      handle, index, k, d_pred_I.data(), d_pred_D.data(), EuclideanFunc(), true,
+      weight);
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
@@ -303,13 +299,13 @@ class BallCoverKNNTest : public ::testing::Test {
     printf("Done.\n");
 
     //Diff in idx=326622, expected=326720, actual=326623
-    raft::print_device_vector("inds", d_pred_I.data() + (1686*k),
-                              k * 100, std::cout);
-    raft::print_device_vector("dists", d_pred_D.data() + (1686*k),
-                              k * 100, std::cout);
-//
-//    raft::print_device_vector("landmark 39077", index.get_X() + (index.n * 39077),
-//                              index.n, std::cout);
+    raft::print_device_vector("inds", d_pred_I.data() + (1686 * k), k * 100,
+                              std::cout);
+    raft::print_device_vector("dists", d_pred_D.data() + (1686 * k), k * 100,
+                              std::cout);
+    //
+    //    raft::print_device_vector("landmark 39077", index.get_X() + (index.n * 39077),
+    //                              index.n, std::cout);
 
     //
     //
@@ -345,19 +341,17 @@ class BallCoverKNNTest : public ::testing::Test {
     printf("res=%d\n", res);
 
     // Print knn indices / dists for discrepancies
-    raft::print_device_vector("discrepancies",
-                              discrepancies.data(), 16,
+    raft::print_device_vector("discrepancies", discrepancies.data(), 16,
                               std::cout);
-//    ASSERT_TRUE(res == 0);
+    //    ASSERT_TRUE(res == 0);
 
     /**
          * Final Assertion
          */
-//    ASSERT_TRUE(raft::devArrMatch(d_ref_D.data(), d_pred_D.data(), n * k,
-//                                  raft::CompareApprox<float>(1e-7)));
-            ASSERT_TRUE(
-              raft::devArrMatch(d_ref_I.data(), d_pred_I.data(), n * k,
-                        raft::Compare<int>()));
+    //    ASSERT_TRUE(raft::devArrMatch(d_ref_D.data(), d_pred_D.data(), n * k,
+    //                                  raft::CompareApprox<float>(1e-7)));
+    ASSERT_TRUE(raft::devArrMatch(d_ref_I.data(), d_pred_I.data(), n * k,
+                                  raft::Compare<int>()));
   }
 
   void SetUp() override {}

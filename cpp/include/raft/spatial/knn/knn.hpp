@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include "detail/selection_faiss.cuh"
 #include "detail/knn_brute_force_faiss.cuh"
+#include "detail/selection_faiss.cuh"
 
 #include <raft/mr/device/buffer.hpp>
 
