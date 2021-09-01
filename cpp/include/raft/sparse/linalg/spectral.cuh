@@ -18,9 +18,8 @@
 
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
-#include <raft/mr/device/allocator.hpp>
-#include <raft/mr/device/buffer.hpp>
 #include <raft/spectral/partition.hpp>
+#include <rmm/device_uvector.hpp>
 
 #include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/coo.cuh>
@@ -35,16 +34,15 @@ void fit_embedding(const raft::handle_t &handle, int *rows, int *cols, T *vals,
                    int nnz, int n, int n_components, T *out,
                    unsigned long long seed = 1234567) {
   auto stream = handle.get_stream();
-  auto d_alloc = handle.get_device_allocator();
-  raft::mr::device::buffer<int> src_offsets(d_alloc, stream, n + 1);
-  raft::mr::device::buffer<int> dst_cols(d_alloc, stream, nnz);
-  raft::mr::device::buffer<T> dst_vals(d_alloc, stream, nnz);
+  rmm::device_uvector<int> src_offsets(n + 1, stream);
+  rmm::device_uvector<int> dst_cols(nnz, stream);
+  rmm::device_uvector<T> dst_vals(nnz, stream);
   convert::coo_to_csr(handle, rows, cols, vals, nnz, n, src_offsets.data(),
                       dst_cols.data(), dst_vals.data());
 
-  raft::mr::device::buffer<T> eigVals(d_alloc, stream, n_components + 1);
-  raft::mr::device::buffer<T> eigVecs(d_alloc, stream, n * (n_components + 1));
-  raft::mr::device::buffer<int> labels(d_alloc, stream, n);
+  rmm::device_uvector<T> eigVals(n_components + 1, stream);
+  rmm::device_uvector<T> eigVecs(n * (n_components + 1), stream);
+  rmm::device_uvector<int> labels(n, stream);
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
@@ -65,8 +63,6 @@ void fit_embedding(const raft::handle_t &handle, int *rows, int *cols, T *vals,
   index_type maxiter = 4000;  //default reset value (when set to 0);
   value_type tol = 0.01;
   index_type restart_iter = 15 + neigvs;  //what cugraph is using
-  auto t_exe_p = thrust::cuda::par.on(stream);
-  using thrust_exe_policy_t = decltype(t_exe_p);
 
   raft::eigen_solver_config_t<index_type, value_type> cfg{neigvs, maxiter,
                                                           restart_iter, tol};
@@ -85,15 +81,14 @@ void fit_embedding(const raft::handle_t &handle, int *rows, int *cols, T *vals,
     using value_type_t = value_type;
 
     std::pair<value_type_t, index_type_t> solve(
-      handle_t const &handle, thrust_exe_policy_t t_exe_policy,
-      size_type_t n_obs_vecs, size_type_t dim,
+      handle_t const &handle, size_type_t n_obs_vecs, size_type_t dim,
       value_type_t const *__restrict__ obs,
       index_type_t *__restrict__ codes) const {
       return std::make_pair<value_type_t, index_type_t>(0, 0);
     }
   };
 
-  raft::spectral::partition(handle, t_exe_p, r_csr_m, eig_solver,
+  raft::spectral::partition(handle, r_csr_m, eig_solver,
                             no_op_cluster_solver_t{}, labels.data(),
                             eigVals.data(), eigVecs.data());
 

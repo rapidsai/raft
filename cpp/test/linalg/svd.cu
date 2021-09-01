@@ -48,8 +48,8 @@ class SvdTest : public ::testing::TestWithParam<SvdInputs<T>> {
     params = ::testing::TestWithParam<SvdInputs<T>>::GetParam();
     raft::random::Rng r(params.seed);
     int len = params.len;
-    cudaStream_t stream = handle.get_stream();
-    raft::allocate(data, len);
+    stream = handle.get_stream();
+    raft::allocate(data, len, stream);
 
     ASSERT(params.n_row == 3, "This test only supports nrows=3!");
     ASSERT(params.len == 6, "This test only supports len=6!");
@@ -59,9 +59,9 @@ class SvdTest : public ::testing::TestWithParam<SvdInputs<T>> {
     int left_evl = params.n_row * params.n_col;
     int right_evl = params.n_col * params.n_col;
 
-    raft::allocate(left_eig_vectors_qr, left_evl);
-    raft::allocate(right_eig_vectors_trans_qr, right_evl);
-    raft::allocate(sing_vals_qr, params.n_col);
+    raft::allocate(left_eig_vectors_qr, left_evl, stream);
+    raft::allocate(right_eig_vectors_trans_qr, right_evl, stream);
+    raft::allocate(sing_vals_qr, params.n_col, stream);
 
     // allocate(left_eig_vectors_jacobi, left_evl);
     // allocate(right_eig_vectors_trans_jacobi, right_evl);
@@ -74,9 +74,9 @@ class SvdTest : public ::testing::TestWithParam<SvdInputs<T>> {
 
     T sing_vals_ref_h[] = {7.065283, 1.040081};
 
-    raft::allocate(left_eig_vectors_ref, left_evl);
-    raft::allocate(right_eig_vectors_ref, right_evl);
-    raft::allocate(sing_vals_ref, params.n_col);
+    raft::allocate(left_eig_vectors_ref, left_evl, stream);
+    raft::allocate(right_eig_vectors_ref, right_evl, stream);
+    raft::allocate(sing_vals_ref, params.n_col, stream);
 
     raft::update_device(left_eig_vectors_ref, left_eig_vectors_ref_h, left_evl,
                         stream);
@@ -87,22 +87,16 @@ class SvdTest : public ::testing::TestWithParam<SvdInputs<T>> {
     svdQR(handle, data, params.n_row, params.n_col, sing_vals_qr,
           left_eig_vectors_qr, right_eig_vectors_trans_qr, true, true, true,
           stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
-  void TearDown() override {
-    CUDA_CHECK(cudaFree(data));
-    CUDA_CHECK(cudaFree(left_eig_vectors_qr));
-    CUDA_CHECK(cudaFree(right_eig_vectors_trans_qr));
-    CUDA_CHECK(cudaFree(sing_vals_qr));
-    CUDA_CHECK(cudaFree(left_eig_vectors_ref));
-    CUDA_CHECK(cudaFree(right_eig_vectors_ref));
-    CUDA_CHECK(cudaFree(sing_vals_ref));
-  }
+  void TearDown() override { raft::deallocate_all(stream); }
 
  protected:
   SvdInputs<T> params;
   T *data, *left_eig_vectors_qr, *right_eig_vectors_trans_qr, *sing_vals_qr,
     *left_eig_vectors_ref, *right_eig_vectors_ref, *sing_vals_ref;
+  cudaStream_t stream;
 };
 
 const std::vector<SvdInputs<float>> inputsf2 = {

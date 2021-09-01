@@ -21,7 +21,6 @@
 #include <raft/cudart_utils.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include <raft/mr/device/buffer.hpp>
 
 #include <raft/sparse/op/sort.h>
@@ -32,7 +31,6 @@
 #include <cuda_runtime.h>
 #include <stdio.h>
 #include <rmm/device_uvector.hpp>
-#include <rmm/exec_policy.hpp>
 
 #include <algorithm>
 #include <iostream>
@@ -126,18 +124,16 @@ void max_duplicates(const raft::handle_t &handle,
                     raft::sparse::COO<value_t, value_idx> &out,
                     const value_idx *rows, const value_idx *cols,
                     const value_t *vals, size_t nnz, size_t m, size_t n) {
-  auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
-
-  auto exec_policy = rmm::exec_policy(rmm::cuda_stream_view{stream});
+  auto thrust_policy = handle.get_thrust_policy();
 
   // compute diffs & take exclusive scan
   rmm::device_uvector<value_idx> diff(nnz + 1, stream);
 
   compute_duplicates_mask(diff.data(), rows, cols, nnz, stream);
 
-  thrust::exclusive_scan(thrust::cuda::par.on(stream), diff.data(),
-                         diff.data() + diff.size(), diff.data());
+  thrust::exclusive_scan(thrust_policy, diff.data(), diff.data() + diff.size(),
+                         diff.data());
 
   // compute final size
   value_idx size = 0;

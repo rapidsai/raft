@@ -22,7 +22,6 @@
 #include <raft/mr/device/buffer.hpp>
 
 #include <rmm/device_uvector.hpp>
-#include <rmm/exec_policy.hpp>
 
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
@@ -100,9 +99,8 @@ class UnionFind {
 template <typename value_idx, typename value_t>
 void build_dendrogram_host(const handle_t &handle, const value_idx *rows,
                            const value_idx *cols, const value_t *data,
-                           std::size_t nnz, value_idx *children,
-                           value_t *out_delta, value_idx *out_size) {
-  auto d_alloc = handle.get_device_allocator();
+                           size_t nnz, value_idx *children, value_t *out_delta,
+                           value_idx *out_size) {
   auto stream = handle.get_stream();
 
   value_idx n_edges = nnz;
@@ -225,11 +223,10 @@ struct init_label_roots {
  */
 template <typename value_idx, int tpb = 256>
 void extract_flattened_clusters(const raft::handle_t &handle, value_idx *labels,
-                                const value_idx *children,
-                                std::size_t n_clusters, std::size_t n_leaves) {
-  auto d_alloc = handle.get_device_allocator();
+                                const value_idx *children, size_t n_clusters,
+                                size_t n_leaves) {
   auto stream = handle.get_stream();
-  auto thrust_policy = rmm::exec_policy(rmm::cuda_stream_view{stream});
+  auto thrust_policy = handle.get_thrust_policy();
 
   // Handle special case where n_clusters == 1
   if (n_clusters == 1) {

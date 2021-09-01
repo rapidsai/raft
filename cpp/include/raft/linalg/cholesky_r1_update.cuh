@@ -63,11 +63,11 @@ namespace linalg {
  * @code{.cpp}
  * // Initialize arrays
  * int ld_L = n_rows;
- * device_buffer<math_t> L(allocator, stream, ld_L * n_rows);
+ * rmm::device_uvector<math_t> L(ld_L * n_rows, stream);
  * MLCommon::LinAlg::choleskyRank1Update(handle, L, n_rows, ld_L, nullptr,
  *                                       &n_bytes, CUBLAS_FILL_MODE_LOWER,
  *                                       stream);
- * device_buffer<char> workspace(allocator, stream, n_bytes);
+ * rmm::device_uvector<char> workspace(n_bytes, stream);
  *
  * for (n=1; n<=n_rows; rank++) {
  *   // Calculate a new row/column of matrix A into A_new
@@ -87,11 +87,11 @@ namespace linalg {
  * @code{.cpp}
  * // Initialize arrays
  * int ld_U = n_rows;
- * device_buffer<math_t> U(allocator, stream, ld_U * n_rows);
+ * rmm::device_uvector<math_t> U(ld_U * n_rows, stream);
  * MLCommon::LinAlg::choleskyRank1Update(handle, L, n_rows, ld_U, nullptr,
  *                                       &n_bytes, CUBLAS_FILL_MODE_UPPER,
  *                                       stream);
- * device_buffer<char> workspace(allocator, stream, n_bytes);
+ * rmm::device_uvector<char> workspace(stream, n_bytes, stream);
  *
  * for (n=1; n<=n_rows; n++) {
  *   // Calculate a new row/column of matrix A into array A_new

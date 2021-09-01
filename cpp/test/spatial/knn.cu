@@ -68,8 +68,8 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
 
     auto stream = handle_.get_stream();
 
-    raft::allocate(actual_labels_, rows_ * k_, true);
-    raft::allocate(expected_labels_, rows_ * k_, true);
+    raft::allocate(actual_labels_, rows_ * k_, stream, true);
+    raft::allocate(expected_labels_, rows_ * k_, stream, true);
 
     std::vector<float *> input_vec;
     std::vector<int> sizes_vec;
@@ -104,6 +104,8 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
     cols_ = params_.input[0].size();
     k_ = params_.k;
 
+    cudaStream_t stream = handle_.get_stream();
+
     std::vector<float> row_major_input;
     for (std::size_t i = 0; i < params_.input.size(); ++i) {
       for (std::size_t j = 0; j < params_.input[i].size(); ++j) {
@@ -111,31 +113,27 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
       }
     }
     rmm::device_buffer input_d = rmm::device_buffer(
-      row_major_input.data(), row_major_input.size() * sizeof(float),
-      handle_.get_stream());
+      row_major_input.data(), row_major_input.size() * sizeof(float), stream);
     float *input_ptr = static_cast<float *>(input_d.data());
 
     rmm::device_buffer labels_d = rmm::device_buffer(
-      params_.labels.data(), params_.labels.size() * sizeof(int),
-      handle_.get_stream());
+      params_.labels.data(), params_.labels.size() * sizeof(int), stream);
     int *labels_ptr = static_cast<int *>(labels_d.data());
 
-    raft::allocate(input_, rows_ * cols_, true);
-    raft::allocate(search_data_, rows_ * cols_, true);
-    raft::allocate(indices_, rows_ * k_, true);
-    raft::allocate(distances_, rows_ * k_, true);
-    raft::allocate(search_labels_, rows_, true);
+    raft::allocate(input_, rows_ * cols_, stream, true);
+    raft::allocate(search_data_, rows_ * cols_, stream, true);
+    raft::allocate(indices_, rows_ * k_, stream, true);
+    raft::allocate(distances_, rows_ * k_, stream, true);
+    raft::allocate(search_labels_, rows_, stream, true);
 
-    raft::copy(input_, input_ptr, rows_ * cols_, handle_.get_stream());
-    raft::copy(search_data_, input_ptr, rows_ * cols_, handle_.get_stream());
-    raft::copy(search_labels_, labels_ptr, rows_, handle_.get_stream());
+    raft::copy(input_, input_ptr, rows_ * cols_, stream);
+    raft::copy(search_data_, input_ptr, rows_ * cols_, stream);
+    raft::copy(search_labels_, labels_ptr, rows_, stream);
   }
 
   void TearDown() override {
-    CUDA_CHECK(cudaFree(search_data_));
-    CUDA_CHECK(cudaFree(indices_));
-    CUDA_CHECK(cudaFree(distances_));
-    CUDA_CHECK(cudaFree(actual_labels_));
+    cudaStream_t stream = handle_.get_stream();
+    raft::deallocate_all(stream);
   }
 
  private:

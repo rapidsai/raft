@@ -19,6 +19,7 @@
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>
 #include <thrust/iterator/counting_iterator.h>
+#include <rmm/exec_policy.hpp>
 
 namespace raft {
 namespace linalg {
@@ -40,7 +41,7 @@ void range(T *out, int start, int end, cudaStream_t stream) {
   thrust::counting_iterator<int> first(start);
   thrust::counting_iterator<int> last = first + (end - start);
   thrust::device_ptr<T> ptr(out);
-  thrust::copy(thrust::cuda::par.on(stream), first, last, ptr);
+  thrust::copy(rmm::exec_policy(stream), first, last, ptr);
 }
 
 /**

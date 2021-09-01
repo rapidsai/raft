@@ -58,7 +58,6 @@ void single_linkage(const raft::handle_t &handle, const value_t *X, size_t m,
          "n_clusters must be less than or equal to the number of data points");
 
   auto stream = handle.get_stream();
-  auto d_alloc = handle.get_device_allocator();
 
   rmm::device_uvector<value_idx> indptr(EMPTY, stream);
   rmm::device_uvector<value_idx> indices(EMPTY, stream);

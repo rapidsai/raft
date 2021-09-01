@@ -47,15 +47,14 @@ class StdDevTest : public ::testing::TestWithParam<StdDevInputs<T>> {
     int rows = params.rows, cols = params.cols;
     int len = rows * cols;
 
-    cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
-    allocate(data, len);
-    allocate(mean_act, cols);
-    allocate(stddev_act, cols);
-    allocate(vars_act, cols);
+    raft::allocate(data, len, stream);
+    raft::allocate(mean_act, cols, stream);
+    raft::allocate(stddev_act, cols, stream);
+    raft::allocate(vars_act, cols, stream);
     r.normal(data, len, params.mean, params.stddev, stream);
     stdVarSGtest(data, stream);
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
   void stdVarSGtest(T *data, cudaStream_t stream) {
@@ -73,15 +72,14 @@ class StdDevTest : public ::testing::TestWithParam<StdDevInputs<T>> {
   }
 
   void TearDown() override {
-    CUDA_CHECK(cudaFree(data));
-    CUDA_CHECK(cudaFree(mean_act));
-    CUDA_CHECK(cudaFree(stddev_act));
-    CUDA_CHECK(cudaFree(vars_act));
+    raft::deallocate_all(stream);
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
  protected:
   StdDevInputs<T> params;
   T *data, *mean_act, *stddev_act, *vars_act;
+  cudaStream_t stream;
 };
 
 const std::vector<StdDevInputs<float>> inputsf = {
