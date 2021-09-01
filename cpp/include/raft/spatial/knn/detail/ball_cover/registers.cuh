@@ -91,7 +91,9 @@ __global__ void perform_post_filter_registers(
   for (int l = threadIdx.x; l < n_landmarks; l += tpb) {
     // compute p(q, r)
     value_t dist = dfunc(local_x_ptr, landmarks + (n_cols * l), n_cols);
-    if (dist > weight * (closest_R_dist + R_radius[l])) _zero_bit(smem, l);
+    if (dist > weight * (closest_R_dist + R_radius[l]) ||
+        dist > 3 * closest_R_dist)
+      _zero_bit(smem, l);
   }
 
   __syncthreads();
@@ -130,11 +132,11 @@ template <typename value_idx, typename value_t, typename value_int = int,
           typename bitset_type = uint32_t, typename dist_func, int warp_q = 32,
           int thread_q = 2, int tpb = 128, int col_q = 2>
 __global__ void compute_final_dists_registers(
-  const value_t *X, const value_int n_cols, bitset_type *bitset,
-  int bitset_size, const value_t *R_knn_dists, const value_idx *R_indptr,
-  const value_idx *R_1nn_inds, const value_t *R_1nn_dists, value_idx *knn_inds,
-  value_t *knn_dists, int n_landmarks, int k, dist_func dfunc,
-  value_int *dist_counter) {
+  const value_t *X_index, const value_t *X, const value_int n_cols,
+  bitset_type *bitset, int bitset_size, const value_t *R_knn_dists,
+  const value_idx *R_indptr, const value_idx *R_1nn_inds,
+  const value_t *R_1nn_dists, value_idx *knn_inds, value_t *knn_dists,
+  int n_landmarks, int k, dist_func dfunc, value_int *dist_counter) {
   static constexpr int kNumWarps = tpb / faiss::gpu::kWarpSize;
 
   __shared__ value_t smemK[kNumWarps * warp_q];
@@ -184,7 +186,6 @@ __global__ void compute_final_dists_registers(
       i = threadIdx.x;
       for (; i < limit; i += tpb) {
         value_idx cur_candidate_ind = R_1nn_inds[R_start_offset + i];
-
         value_t cur_candidate_dist = R_1nn_dists[R_start_offset + i];
         value_t z = heap.warpKTopRDist == 0.00
                       ? 0.0
@@ -197,7 +198,7 @@ __global__ void compute_final_dists_registers(
         // the closest k neighbors, compute it and add to k-select
         value_t dist = std::numeric_limits<value_t>::max();
         if (z <= heap.warpKTop) {
-          const value_t *y_ptr = X + (n_cols * cur_candidate_ind);
+          const value_t *y_ptr = X_index + (n_cols * cur_candidate_ind);
           value_t local_y_ptr[col_q];
           for (int j = 0; j < n_cols; j++) local_y_ptr[j] = y_ptr[j];
 
@@ -224,7 +225,7 @@ __global__ void compute_final_dists_registers(
         // the closest k neighbors, compute it and add to k-select
         value_t dist = std::numeric_limits<value_t>::max();
         if (z <= heap.warpKTop) {
-          const value_t *y_ptr = X + (n_cols * cur_candidate_ind);
+          const value_t *y_ptr = X_index + (n_cols * cur_candidate_ind);
           value_t local_y_ptr[col_q];
           for (int j = 0; j < n_cols; j++) local_y_ptr[j] = y_ptr[j];
           dist = dfunc(local_x_ptr, local_y_ptr, n_cols);
@@ -264,7 +265,7 @@ template <typename value_idx = int64_t, typename value_t, int warp_q = 32,
           int thread_q = 2, int tpb = 128, int col_q = 2,
           typename value_int = int, typename distance_func>
 __global__ void block_rbc_kernel_registers(
-  const value_t *X,
+  const value_t *X_index, const value_t *X,
   value_int n_cols,  // n_cols should be 2 or 3 dims
   const value_idx *R_knn_inds, const value_t *R_knn_dists, value_int m, int k,
   const value_idx *R_indptr, const value_idx *R_1nn_cols,
@@ -313,7 +314,7 @@ __global__ void block_rbc_kernel_registers(
 
     // Equation (2) in Cayton's paper- prune out R's which are > 3 * p(q, r_q)
     if (cur_R_dist > weight * (min_R_dist + R_radius[cur_R_ind])) continue;
-    //  if (cur_R_dist > 3 * min_R_dist) return;
+    if (cur_R_dist > 3 * min_R_dist) return;
 
     // The whole warp should iterate through the elements in the current R
     value_idx R_start_offset = R_indptr[cur_R_ind];
@@ -347,7 +348,7 @@ __global__ void block_rbc_kernel_registers(
       z = isnan(z) ? 0.0 : z;
       value_t dist = std::numeric_limits<value_t>::max();
       if (i < k || z <= heap.warpKTop) {
-        const value_t *y_ptr = X + (n_cols * cur_candidate_ind);
+        const value_t *y_ptr = X_index + (n_cols * cur_candidate_ind);
         value_t local_y_ptr[col_q];
         for (int j = 0; j < n_cols; j++) local_y_ptr[j] = y_ptr[j];
         dist = dfunc(local_x_ptr, local_y_ptr, n_cols);
@@ -370,7 +371,7 @@ __global__ void block_rbc_kernel_registers(
       z = isnan(z) ? 0.0 : z;
       value_t dist = std::numeric_limits<value_t>::max();
       if (i < k || z <= heap.warpKTop) {
-        const value_t *y_ptr = X + (n_cols * cur_candidate_ind);
+        const value_t *y_ptr = X_index + (n_cols * cur_candidate_ind);
         value_t local_y_ptr[col_q];
         for (int j = 0; j < n_cols; j++) local_y_ptr[j] = y_ptr[j];
         dist = dfunc(local_x_ptr, local_y_ptr, n_cols);
@@ -394,49 +395,50 @@ __global__ void block_rbc_kernel_registers(
 template <typename value_idx, typename value_t, typename value_int = int,
           typename dist_func>
 void rbc_low_dim_pass_one(const raft::handle_t &handle,
-                          BallCoverIndex<value_idx, value_t> &index, int k,
-                          const value_idx *R_knn_inds,
+                          BallCoverIndex<value_idx, value_t> &index,
+                          const value_t *query, const value_int n_query_rows,
+                          int k, const value_idx *R_knn_inds,
                           const value_t *R_knn_dists, dist_func dfunc,
                           value_idx *inds, value_t *dists, float weight,
                           value_int *dists_counter) {
   if (k <= 32)
     block_rbc_kernel_registers<value_idx, value_t, 32, 2, 128, 2>
-      <<<index.m, 128, 0, handle.get_stream()>>>(
-        index.get_X(), index.n, R_knn_inds, R_knn_dists, index.m, k,
+      <<<n_query_rows, 128, 0, handle.get_stream()>>>(
+        index.get_X(), query, index.n, R_knn_inds, R_knn_dists, index.m, k,
         index.get_R_indptr(), index.get_R_1nn_cols(), index.get_R_1nn_dists(),
         inds, dists, dists_counter, index.get_R_radius(), dfunc, weight);
 
   else if (k <= 64)
     block_rbc_kernel_registers<value_idx, value_t, 64, 3, 128, 2>
-      <<<index.m, 128, 0, handle.get_stream()>>>(
-        index.get_X(), index.n, R_knn_inds, R_knn_dists, index.m, k,
+      <<<n_query_rows, 128, 0, handle.get_stream()>>>(
+        index.get_X(), query, index.n, R_knn_inds, R_knn_dists, index.m, k,
         index.get_R_indptr(), index.get_R_1nn_cols(), index.get_R_1nn_dists(),
         inds, dists, dists_counter, index.get_R_radius(), dfunc, weight);
   else if (k <= 128)
     block_rbc_kernel_registers<value_idx, value_t, 128, 3, 128, 2>
-      <<<index.m, 128, 0, handle.get_stream()>>>(
-        index.get_X(), index.n, R_knn_inds, R_knn_dists, index.m, k,
+      <<<n_query_rows, 128, 0, handle.get_stream()>>>(
+        index.get_X(), query, index.n, R_knn_inds, R_knn_dists, index.m, k,
         index.get_R_indptr(), index.get_R_1nn_cols(), index.get_R_1nn_dists(),
         inds, dists, dists_counter, index.get_R_radius(), dfunc, weight);
 
   else if (k <= 256)
     block_rbc_kernel_registers<value_idx, value_t, 256, 4, 128, 2>
-      <<<index.m, 128, 0, handle.get_stream()>>>(
-        index.get_X(), index.n, R_knn_inds, R_knn_dists, index.m, k,
+      <<<n_query_rows, 128, 0, handle.get_stream()>>>(
+        index.get_X(), query, index.n, R_knn_inds, R_knn_dists, index.m, k,
         index.get_R_indptr(), index.get_R_1nn_cols(), index.get_R_1nn_dists(),
         inds, dists, dists_counter, index.get_R_radius(), dfunc, weight);
 
   else if (k <= 512)
     block_rbc_kernel_registers<value_idx, value_t, 512, 8, 64, 2>
-      <<<index.m, 64, 0, handle.get_stream()>>>(
-        index.get_X(), index.n, R_knn_inds, R_knn_dists, index.m, k,
+      <<<n_query_rows, 64, 0, handle.get_stream()>>>(
+        index.get_X(), query, index.n, R_knn_inds, R_knn_dists, index.m, k,
         index.get_R_indptr(), index.get_R_1nn_cols(), index.get_R_1nn_dists(),
         inds, dists, dists_counter, index.get_R_radius(), dfunc, weight);
 
   else if (k <= 1024)
     block_rbc_kernel_registers<value_idx, value_t, 1024, 8, 64, 2>
-      <<<index.m, 64, 0, handle.get_stream()>>>(
-        index.get_X(), index.n, R_knn_inds, R_knn_dists, index.m, k,
+      <<<n_query_rows, 64, 0, handle.get_stream()>>>(
+        index.get_X(), query, index.n, R_knn_inds, R_knn_dists, index.m, k,
         index.get_R_indptr(), index.get_R_1nn_cols(), index.get_R_1nn_dists(),
         inds, dists, dists_counter, index.get_R_radius(), dfunc, weight);
 }
@@ -444,8 +446,9 @@ void rbc_low_dim_pass_one(const raft::handle_t &handle,
 template <typename value_idx, typename value_t, typename value_int = int,
           typename dist_func>
 void rbc_low_dim_pass_two(const raft::handle_t &handle,
-                          BallCoverIndex<value_idx, value_t> &index, int k,
-                          const value_idx *R_knn_inds,
+                          BallCoverIndex<value_idx, value_t> &index,
+                          const value_t *query, const value_int n_query_rows,
+                          int k, const value_idx *R_knn_inds,
                           const value_t *R_knn_dists, dist_func dfunc,
                           value_idx *inds, value_t *dists, float weight,
                           value_int *post_dists_counter) {
@@ -455,51 +458,52 @@ void rbc_low_dim_pass_two(const raft::handle_t &handle,
                                        handle.get_stream());
 
   perform_post_filter_registers<value_idx, value_t, value_int, 128, dist_func>
-    <<<index.m, 128, bitset_size * sizeof(uint32_t), handle.get_stream()>>>(
-      index.get_X(), index.n, R_knn_inds, R_knn_dists, index.get_R_radius(),
-      index.get_R(), index.n_landmarks, bitset_size, k, dfunc, bitset.data(),
-      weight);
+    <<<n_query_rows, 128, bitset_size * sizeof(uint32_t),
+       handle.get_stream()>>>(index.get_X(), index.n, R_knn_inds, R_knn_dists,
+                              index.get_R_radius(), index.get_R(),
+                              index.n_landmarks, bitset_size, k, dfunc,
+                              bitset.data(), weight);
 
   if (k <= 32)
     compute_final_dists_registers<value_idx, value_t, value_int, uint32_t,
                                   dist_func, 32, 2, 128, 2>
-      <<<index.m, 128, 0, handle.get_stream()>>>(
-        index.get_X(), index.n, bitset.data(), bitset_size, R_knn_dists,
+      <<<n_query_rows, 128, 0, handle.get_stream()>>>(
+        index.get_X(), query, index.n, bitset.data(), bitset_size, R_knn_dists,
         index.get_R_indptr(), index.get_R_1nn_cols(), index.get_R_1nn_dists(),
         inds, dists, index.n_landmarks, k, dfunc, post_dists_counter);
   else if (k <= 64)
     compute_final_dists_registers<value_idx, value_t, value_int, uint32_t,
                                   dist_func, 64, 3, 128, 2>
-      <<<index.m, 128, 0, handle.get_stream()>>>(
-        index.get_X(), index.n, bitset.data(), bitset_size, R_knn_dists,
+      <<<n_query_rows, 128, 0, handle.get_stream()>>>(
+        index.get_X(), query, index.n, bitset.data(), bitset_size, R_knn_dists,
         index.get_R_indptr(), index.get_R_1nn_cols(), index.get_R_1nn_dists(),
         inds, dists, index.n_landmarks, k, dfunc, post_dists_counter);
   else if (k <= 128)
     compute_final_dists_registers<value_idx, value_t, value_int, uint32_t,
                                   dist_func, 128, 3, 128, 2>
-      <<<index.m, 128, 0, handle.get_stream()>>>(
-        index.get_X(), index.n, bitset.data(), bitset_size, R_knn_dists,
+      <<<n_query_rows, 128, 0, handle.get_stream()>>>(
+        index.get_X(), query, index.n, bitset.data(), bitset_size, R_knn_dists,
         index.get_R_indptr(), index.get_R_1nn_cols(), index.get_R_1nn_dists(),
         inds, dists, index.n_landmarks, k, dfunc, post_dists_counter);
   else if (k <= 256)
     compute_final_dists_registers<value_idx, value_t, value_int, uint32_t,
                                   dist_func, 256, 4, 128, 2>
-      <<<index.m, 128, 0, handle.get_stream()>>>(
-        index.get_X(), index.n, bitset.data(), bitset_size, R_knn_dists,
+      <<<n_query_rows, 128, 0, handle.get_stream()>>>(
+        index.get_X(), query, index.n, bitset.data(), bitset_size, R_knn_dists,
         index.get_R_indptr(), index.get_R_1nn_cols(), index.get_R_1nn_dists(),
         inds, dists, index.n_landmarks, k, dfunc, post_dists_counter);
   else if (k <= 512)
     compute_final_dists_registers<value_idx, value_t, value_int, uint32_t,
                                   dist_func, 512, 8, 64, 2>
-      <<<index.m, 64, 0, handle.get_stream()>>>(
-        index.get_X(), index.n, bitset.data(), bitset_size, R_knn_dists,
+      <<<n_query_rows, 64, 0, handle.get_stream()>>>(
+        index.get_X(), query, index.n, bitset.data(), bitset_size, R_knn_dists,
         index.get_R_indptr(), index.get_R_1nn_cols(), index.get_R_1nn_dists(),
         inds, dists, index.n_landmarks, k, dfunc, post_dists_counter);
   else if (k <= 1024)
     compute_final_dists_registers<value_idx, value_t, value_int, uint32_t,
                                   dist_func, 1024, 8, 64, 2>
-      <<<index.m, 64, 0, handle.get_stream()>>>(
-        index.get_X(), index.n, bitset.data(), bitset_size, R_knn_dists,
+      <<<n_query_rows, 64, 0, handle.get_stream()>>>(
+        index.get_X(), query, index.n, bitset.data(), bitset_size, R_knn_dists,
         index.get_R_indptr(), index.get_R_1nn_cols(), index.get_R_1nn_dists(),
         inds, dists, index.n_landmarks, k, dfunc, post_dists_counter);
 }
