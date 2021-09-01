@@ -32,19 +32,13 @@ inline void rbc_build_index(const raft::handle_t &handle,
   ASSERT(index.n == 2,
          "Random ball cover currently only works in 2-dimensions");
   if (index.metric == raft::distance::DistanceType::Haversine) {
-    detail::rbc_build_index(handle, index, k, inds, dists,
-                            detail::HaversineFunc(), perform_post_filtering,
-                            weight);
+    detail::rbc_build_index(handle, index, k, detail::HaversineFunc());
   } else if (index.metric == raft::distance::DistanceType::L2Expanded ||
              index.metric == raft::distance::DistanceType::L2Unexpanded) {
-    detail::rbc_build_index(handle, index, k, inds, dists,
-                            detail::EuclideanFunc(), perform_post_filtering,
-                            weight);
+    detail::rbc_build_index(handle, index, k, detail::EuclideanFunc());
   } else if (index.metric == raft::distance::DistanceType::L2SqrtExpanded ||
              index.metric == raft::distance::DistanceType::L2SqrtUnexpanded) {
-    detail::rbc_build_index(handle, index, k, inds, dists,
-                            detail::EuclideanFunc(), perform_post_filtering,
-                            weight);
+    detail::rbc_build_index(handle, index, k, detail::EuclideanFunc());
 
     // TODO: Call sqrt on distances
   }

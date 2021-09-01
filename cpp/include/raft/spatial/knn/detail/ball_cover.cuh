@@ -256,13 +256,7 @@ template <typename value_idx = int64_t, typename value_t,
           typename value_int = int, typename distance_func>
 void rbc_build_index(const raft::handle_t &handle,
                      BallCoverIndex<value_idx, value_t> &index, int k,
-                     value_idx *inds, value_t *dists,
-                     // TODO: Remove this from user-facing API
-                     distance_func dfunc,
-                     // approximate nn options
-                     bool perform_post_filtering = true, float weight = 1.0) {
-  auto exec_policy = rmm::exec_policy(handle.get_stream());
-
+                     distance_func dfunc) {
   ASSERT(index.n == 2,
          "only 2d vectors are supported in current implementation");
   ASSERT(index.n_landmarks >= k, "number of landmark samples must be >= k");
