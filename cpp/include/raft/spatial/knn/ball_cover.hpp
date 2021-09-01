@@ -49,7 +49,7 @@ inline void rbc_build_index(const raft::handle_t &handle,
     // TODO: Call sqrt on distances
   }
 
-  index.index_trained = true;
+  index.set_index_trained();
 }
 
 /**
@@ -71,7 +71,7 @@ inline void rbc_build_index(const raft::handle_t &handle,
 template <typename value_idx = int64_t, typename value_t,
           typename value_int = int>
 inline void rbc_all_knn_query(const raft::handle_t &handle,
-                              BallCoverIndex<value_idx, value_t> &index int k,
+                              BallCoverIndex<value_idx, value_t> &index, int k,
                               value_idx *inds, value_t *dists,
                               bool perform_post_filtering = true,
                               float weight = 1.0) {
@@ -95,13 +95,13 @@ inline void rbc_all_knn_query(const raft::handle_t &handle,
     // TODO: Call sqrt on distances
   }
 
-  index.index_trained = true;
+  index.set_index_trained();
 }
 
 template <typename value_idx = int64_t, typename value_t,
           typename value_int = int>
 inline void rbc_knn_query(const raft::handle_t &handle,
-                          BallCoverIndex<value_idx, value_t> &index int k,
+                          BallCoverIndex<value_idx, value_t> &index, int k,
                           const value_t *query, value_int n_query_pts,
                           value_idx *inds, value_t *dists,
                           bool perform_post_filtering = true,
