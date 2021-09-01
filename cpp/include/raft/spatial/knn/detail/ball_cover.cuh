@@ -398,7 +398,7 @@ void rbc_knn_query(const raft::handle_t &handle,
   perform_rbc_query(handle, index, query, n_query_pts, k, R_knn_inds.data(),
                     R_knn_dists.data(), dfunc, inds, dists,
                     dists_counter.data(), post_dists_counter.data(), weight,
-                    perform_post_processing);
+                    perform_post_filtering);
 }
 
 };  // namespace detail
