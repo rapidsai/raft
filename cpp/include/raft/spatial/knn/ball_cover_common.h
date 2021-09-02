@@ -25,7 +25,7 @@ namespace spatial {
 namespace knn {
 
 template <typename value_idx, typename value_t, typename value_int = int>
-struct BallCoverIndex {
+class BallCoverIndex {
  public:
   BallCoverIndex(const raft::handle_t &handle_, const value_t *X_, value_int m_,
                  value_int n_, raft::distance::DistanceType metric_)
