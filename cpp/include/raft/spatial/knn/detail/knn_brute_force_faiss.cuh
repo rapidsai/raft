@@ -283,8 +283,7 @@ void brute_force_knn_impl(std::vector<float *> &input, std::vector<int> &sizes,
             D, out_i_ptr, out_d_ptr, input[i], search_items, sizes[i], n, k,
             rowMajorIndex, rowMajorQuery, stream, workspace, worksize);
           if (worksize) {
-            raft::mr::device::buffer<int> d_mutexes(allocator, stream,
-                                                    worksize);
+            rmm::device_uvector<int> d_mutexes(worksize, stream);
             workspace = d_mutexes.data();
             l2_unexpanded_knn<raft::distance::DistanceType::L2Unexpanded,
                               int64_t, float, false>(
@@ -298,8 +297,7 @@ void brute_force_knn_impl(std::vector<float *> &input, std::vector<int> &sizes,
             D, out_i_ptr, out_d_ptr, input[i], search_items, sizes[i], n, k,
             rowMajorIndex, rowMajorQuery, stream, workspace, worksize);
           if (worksize) {
-            raft::mr::device::buffer<int> d_mutexes(allocator, stream,
-                                                    worksize);
+            rmm::device_uvector<int> d_mutexes(worksize, stream);
             workspace = d_mutexes.data();
             l2_unexpanded_knn<raft::distance::DistanceType::L2SqrtUnexpanded,
                               int64_t, float, false>(
