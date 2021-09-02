@@ -22,7 +22,6 @@
 #include <raft/cudart_utils.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include <raft/mr/device/buffer.hpp>
 
 #include "../csr.cuh"
@@ -34,8 +33,6 @@
 #include <nvfunctional>
 
 #include <cusparse_v2.h>
-
-#include <rmm/exec_policy.hpp>
 
 namespace raft {
 namespace sparse {

@@ -57,32 +57,30 @@ class SparseSelectionTest
   void make_data() {
     std::vector<value_t> dists_h = params.dists_h;
 
-    allocate(dists, n_rows * n_cols);
+    raft::allocate(dists, n_rows * n_cols, stream);
     update_device(dists, dists_h.data(), dists_h.size(), stream);
 
-    allocate(inds, n_rows * n_cols);
+    raft::allocate(inds, n_rows * n_cols, stream);
     iota_fill(inds, n_rows, n_cols, stream);
 
     std::vector<value_t> out_dists_ref_h = params.out_dists_ref_h;
     std::vector<value_idx> out_indices_ref_h = params.out_indices_ref_h;
 
-    allocate(out_indices_ref, out_indices_ref_h.size());
-    allocate(out_dists_ref, out_dists_ref_h.size());
+    raft::allocate(out_indices_ref, out_indices_ref_h.size(), stream);
+    raft::allocate(out_dists_ref, out_dists_ref_h.size(), stream);
 
     update_device(out_indices_ref, out_indices_ref_h.data(),
                   out_indices_ref_h.size(), stream);
     update_device(out_dists_ref, out_dists_ref_h.data(), out_dists_ref_h.size(),
                   stream);
 
-    allocate(out_dists, n_rows * k);
-    allocate(out_indices, n_rows * k);
+    raft::allocate(out_dists, n_rows * k, stream);
+    raft::allocate(out_indices, n_rows * k, stream);
   }
 
   void SetUp() override {
     params = ::testing::TestWithParam<
       SparseSelectionInputs<value_idx, value_t>>::GetParam();
-    std::shared_ptr<raft::mr::device::allocator> alloc(
-      new raft::mr::device::default_allocator);
     CUDA_CHECK(cudaStreamCreate(&stream));
 
     n_rows = params.n_rows;
@@ -99,15 +97,7 @@ class SparseSelectionTest
   }
 
   void TearDown() override {
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-
-    CUDA_CHECK(cudaFree(dists));
-    CUDA_CHECK(cudaFree(inds));
-    CUDA_CHECK(cudaFree(out_indices));
-    CUDA_CHECK(cudaFree(out_dists));
-    CUDA_CHECK(cudaFree(out_indices_ref));
-    CUDA_CHECK(cudaFree(out_dists_ref));
-
+    raft::deallocate_all(stream);
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
 

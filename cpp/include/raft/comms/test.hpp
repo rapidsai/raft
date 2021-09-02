@@ -18,7 +18,6 @@
 
 #include <raft/comms/comms.hpp>
 #include <raft/handle.hpp>
-#include <raft/mr/device/buffer.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
@@ -44,8 +43,7 @@ bool test_collective_allreduce(const handle_t &handle, int root) {
 
   cudaStream_t stream = handle.get_stream();
 
-  raft::mr::device::buffer<int> temp_d(handle.get_device_allocator(), stream);
-  temp_d.resize(1, stream);
+  rmm::device_scalar<int> temp_d(stream);
   CUDA_CHECK(
     cudaMemcpyAsync(temp_d.data(), &send, 1, cudaMemcpyHostToDevice, stream));
 
@@ -76,8 +74,7 @@ bool test_collective_broadcast(const handle_t &handle, int root) {
 
   cudaStream_t stream = handle.get_stream();
 
-  raft::mr::device::buffer<int> temp_d(handle.get_device_allocator(), stream);
-  temp_d.resize(1, stream);
+  rmm::device_scalar<int> temp_d(stream);
 
   if (communicator.get_rank() == root)
     CUDA_CHECK(cudaMemcpyAsync(temp_d.data(), &send, sizeof(int),
@@ -104,8 +101,7 @@ bool test_collective_reduce(const handle_t &handle, int root) {
 
   cudaStream_t stream = handle.get_stream();
 
-  raft::mr::device::buffer<int> temp_d(handle.get_device_allocator(), stream);
-  temp_d.resize(1, stream);
+  rmm::device_scalar<int> temp_d(stream);
 
   CUDA_CHECK(cudaMemcpyAsync(temp_d.data(), &send, sizeof(int),
                              cudaMemcpyHostToDevice, stream));
@@ -134,11 +130,8 @@ bool test_collective_allgather(const handle_t &handle, int root) {
 
   cudaStream_t stream = handle.get_stream();
 
-  raft::mr::device::buffer<int> temp_d(handle.get_device_allocator(), stream);
-  temp_d.resize(1, stream);
-
-  raft::mr::device::buffer<int> recv_d(handle.get_device_allocator(), stream,
-                                       communicator.get_size());
+  rmm::device_scalar<int> temp_d(stream);
+  rmm::device_uvector<int> recv_d(communicator.get_size(), stream);
 
   CUDA_CHECK(cudaMemcpyAsync(temp_d.data(), &send, sizeof(int),
                              cudaMemcpyHostToDevice, stream));
@@ -169,12 +162,9 @@ bool test_collective_gather(const handle_t &handle, int root) {
 
   cudaStream_t stream = handle.get_stream();
 
-  raft::mr::device::buffer<int> temp_d(handle.get_device_allocator(), stream);
-  temp_d.resize(1, stream);
-
-  raft::mr::device::buffer<int> recv_d(
-    handle.get_device_allocator(), stream,
-    communicator.get_rank() == root ? communicator.get_size() : 0);
+  rmm::device_scalar<int> temp_d(stream);
+  rmm::device_uvector<int> recv_d(
+    communicator.get_rank() == root ? communicator.get_size() : 0, stream);
 
   CUDA_CHECK(cudaMemcpyAsync(temp_d.data(), &send, sizeof(int),
                              cudaMemcpyHostToDevice, stream));
@@ -211,12 +201,9 @@ bool test_collective_gatherv(const handle_t &handle, int root) {
 
   cudaStream_t stream = handle.get_stream();
 
-  raft::mr::device::buffer<int> temp_d(handle.get_device_allocator(), stream);
-  temp_d.resize(sends.size(), stream);
-
-  raft::mr::device::buffer<int> recv_d(
-    handle.get_device_allocator(), stream,
-    communicator.get_rank() == root ? displacements.back() : 0);
+  rmm::device_uvector<int> temp_d(sends.size(), stream);
+  rmm::device_uvector<int> recv_d(
+    communicator.get_rank() == root ? displacements.back() : 0, stream);
 
   CUDA_CHECK(cudaMemcpyAsync(temp_d.data(), sends.data(),
                              sends.size() * sizeof(int), cudaMemcpyHostToDevice,
@@ -256,10 +243,8 @@ bool test_collective_reducescatter(const handle_t &handle, int root) {
 
   cudaStream_t stream = handle.get_stream();
 
-  raft::mr::device::buffer<int> temp_d(handle.get_device_allocator(), stream,
-                                       sends.size());
-  raft::mr::device::buffer<int> recv_d(handle.get_device_allocator(), stream,
-                                       1);
+  rmm::device_uvector<int> temp_d(sends.size(), stream);
+  rmm::device_scalar<int> recv_d(stream);
 
   CUDA_CHECK(cudaMemcpyAsync(temp_d.data(), sends.data(),
                              sends.size() * sizeof(int), cudaMemcpyHostToDevice,

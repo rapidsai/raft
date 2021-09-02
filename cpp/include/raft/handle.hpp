@@ -36,9 +36,8 @@
 #include <raft/linalg/cusolver_wrappers.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/comms/comms.hpp>
-#include <raft/mr/device/allocator.hpp>
-#include <raft/mr/host/allocator.hpp>
 #include <rmm/cuda_stream_pool.hpp>
+#include <rmm/exec_policy.hpp>
 #include "cudart_utils.h"
 
 namespace raft {
@@ -63,10 +62,9 @@ class handle_t {
         CUDA_CHECK(cudaGetDevice(&cur_dev));
         return cur_dev;
       }()),
-      streams_(n_streams),
-      device_allocator_(std::make_shared<mr::device::default_allocator>()),
-      host_allocator_(std::make_shared<mr::host::default_allocator>()) {
+      streams_(n_streams) {
     create_resources();
+    thrust_policy_ = std::make_unique<rmm::exec_policy>(user_stream_);
   }
 
   /**
@@ -86,10 +84,9 @@ class handle_t {
       "ERROR: the main handle must have at least one worker stream\n");
     prop_ = other.get_device_properties();
     device_prop_initialized_ = true;
-    device_allocator_ = other.get_device_allocator();
-    host_allocator_ = other.get_host_allocator();
     create_resources();
     set_stream(other.get_internal_stream(stream_id));
+    thrust_policy_ = std::make_unique<rmm::exec_policy>(user_stream_);
   }
 
   /** Destroys all held-up resources */
@@ -101,20 +98,6 @@ class handle_t {
   cudaStream_t get_stream() const { return user_stream_; }
   rmm::cuda_stream_view get_stream_view() const {
     return rmm::cuda_stream_view(user_stream_);
-  }
-
-  void set_device_allocator(std::shared_ptr<mr::device::allocator> allocator) {
-    device_allocator_ = allocator;
-  }
-  std::shared_ptr<mr::device::allocator> get_device_allocator() const {
-    return device_allocator_;
-  }
-
-  void set_host_allocator(std::shared_ptr<mr::host::allocator> allocator) {
-    host_allocator_ = allocator;
-  }
-  std::shared_ptr<mr::host::allocator> get_host_allocator() const {
-    return host_allocator_;
   }
 
   cublasHandle_t get_cublas_handle() const {
@@ -152,6 +135,8 @@ class handle_t {
     }
     return cusparse_handle_;
   }
+
+  rmm::exec_policy& get_thrust_policy() const { return *thrust_policy_; }
 
   // legacy compatibility for cuML
   cudaStream_t get_internal_stream(int sid) const {
@@ -236,8 +221,7 @@ class handle_t {
   mutable bool cusolver_sp_initialized_{false};
   mutable cusparseHandle_t cusparse_handle_;
   mutable bool cusparse_initialized_{false};
-  std::shared_ptr<mr::device::allocator> device_allocator_;
-  std::shared_ptr<mr::host::allocator> host_allocator_;
+  std::unique_ptr<rmm::exec_policy> thrust_policy_{nullptr};
   cudaStream_t user_stream_{nullptr};
   cudaEvent_t event_;
   mutable cudaDeviceProp prop_;

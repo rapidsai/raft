@@ -47,17 +47,16 @@ class MeanCenterTest
     params = ::testing::TestWithParam<MeanCenterInputs<T, IdxType>>::GetParam();
     raft::random::Rng r(params.seed);
 
-    cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
 
     auto rows = params.rows, cols = params.cols;
     auto len = rows * cols;
     IdxType vecLen = params.bcastAlongRows ? cols : rows;
 
-    raft::allocate(out, len);
-    raft::allocate(out_ref, len);
-    raft::allocate(data, len);
-    raft::allocate(meanVec, vecLen);
+    raft::allocate(out, len, stream);
+    raft::allocate(out_ref, len, stream);
+    raft::allocate(data, len, stream);
+    raft::allocate(meanVec, vecLen, stream);
     r.normal(data, len, params.mean, (T)1.0, stream);
     raft::stats::mean(meanVec, data, cols, rows, params.sample, params.rowMajor,
                       stream);
@@ -65,19 +64,18 @@ class MeanCenterTest
                params.bcastAlongRows, stream);
     raft::linalg::naiveMatVec(out_ref, data, meanVec, cols, rows,
                               params.rowMajor, params.bcastAlongRows, (T)-1.0);
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
   void TearDown() override {
-    CUDA_CHECK(cudaFree(out));
-    CUDA_CHECK(cudaFree(out_ref));
-    CUDA_CHECK(cudaFree(data));
-    CUDA_CHECK(cudaFree(meanVec));
+    raft::deallocate_all(stream);
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
  protected:
   MeanCenterInputs<T, IdxType> params;
   T *data, *meanVec, *out, *out_ref;
+  cudaStream_t stream;
 };
 
 const std::vector<MeanCenterInputs<float, int>> inputsf_i32 = {

@@ -23,7 +23,8 @@
 #include <raft/handle.hpp>
 #include <raft/matrix/math.cuh>
 #include <raft/matrix/matrix.cuh>
-#include <raft/mr/device/buffer.hpp>
+#include <rmm/device_scalar.hpp>
+#include <rmm/device_uvector.hpp>
 #include "eig.cuh"
 #include "gemm.cuh"
 #include "transpose.h"
@@ -54,8 +55,6 @@ void svdQR(const raft::handle_t &handle, T *in, int n_rows, int n_cols,
            T *sing_vals, T *left_sing_vecs, T *right_sing_vecs,
            bool trans_right, bool gen_left_vec, bool gen_right_vec,
            cudaStream_t stream) {
-  std::shared_ptr<raft::mr::device::allocator> allocator =
-    handle.get_device_allocator();
   cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
   cublasHandle_t cublasH = handle.get_cublas_handle();
 
@@ -71,13 +70,13 @@ void svdQR(const raft::handle_t &handle, T *in, int n_rows, int n_cols,
   const int m = n_rows;
   const int n = n_cols;
 
-  raft::mr::device::buffer<int> devInfo(allocator, stream, 1);
+  rmm::device_scalar<int> devInfo(stream);
   T *d_rwork = nullptr;
 
   int lwork = 0;
   CUSOLVER_CHECK(
     cusolverDngesvd_bufferSize<T>(cusolverH, n_rows, n_cols, &lwork));
-  raft::mr::device::buffer<T> d_work(allocator, stream, lwork);
+  rmm::device_uvector<T> d_work(lwork, stream);
 
   char jobu = 'S';
   char jobvt = 'A';
@@ -112,12 +111,11 @@ void svdQR(const raft::handle_t &handle, T *in, int n_rows, int n_cols,
 template <typename T>
 void svdEig(const raft::handle_t &handle, T *in, int n_rows, int n_cols, T *S,
             T *U, T *V, bool gen_left_vec, cudaStream_t stream) {
-  auto allocator = handle.get_device_allocator();
   cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
   cublasHandle_t cublasH = handle.get_cublas_handle();
 
   int len = n_cols * n_cols;
-  raft::mr::device::buffer<T> in_cross_mult(allocator, stream, len);
+  rmm::device_uvector<T> in_cross_mult(len, stream);
 
   T alpha = T(1);
   T beta = T(0);
@@ -162,7 +160,6 @@ void svdJacobi(const raft::handle_t &handle, math_t *in, int n_rows, int n_cols,
                math_t *sing_vals, math_t *left_sing_vecs,
                math_t *right_sing_vecs, bool gen_left_vec, bool gen_right_vec,
                math_t tol, int max_sweeps, cudaStream_t stream) {
-  auto allocator = handle.get_device_allocator();
   cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
 
   gesvdjInfo_t gesvdj_params = NULL;
@@ -174,7 +171,7 @@ void svdJacobi(const raft::handle_t &handle, math_t *in, int n_rows, int n_cols,
   int m = n_rows;
   int n = n_cols;
 
-  raft::mr::device::buffer<int> devInfo(allocator, stream, 1);
+  rmm::device_scalar<int> devInfo(stream);
 
   int lwork = 0;
   int econ = 1;
@@ -183,7 +180,7 @@ void svdJacobi(const raft::handle_t &handle, math_t *in, int n_rows, int n_cols,
     cusolverH, CUSOLVER_EIG_MODE_VECTOR, econ, m, n, in, m, sing_vals,
     left_sing_vecs, m, right_sing_vecs, n, &lwork, gesvdj_params));
 
-  raft::mr::device::buffer<math_t> d_work(allocator, stream, lwork);
+  rmm::device_uvector<math_t> d_work(lwork, stream);
 
   CUSOLVER_CHECK(raft::linalg::cusolverDngesvdj(
     cusolverH, CUSOLVER_EIG_MODE_VECTOR, econ, m, n, in, m, sing_vals,
@@ -210,10 +207,8 @@ template <typename math_t>
 void svdReconstruction(const raft::handle_t &handle, math_t *U, math_t *S,
                        math_t *V, math_t *out, int n_rows, int n_cols, int k,
                        cudaStream_t stream) {
-  auto allocator = handle.get_device_allocator();
-
   const math_t alpha = 1.0, beta = 0.0;
-  raft::mr::device::buffer<math_t> SVT(allocator, stream, k * n_cols);
+  rmm::device_uvector<math_t> SVT(k * n_cols, stream);
 
   raft::linalg::gemm(handle, S, k, k, V, SVT.data(), k, n_cols, CUBLAS_OP_N,
                      CUBLAS_OP_T, alpha, beta, stream);
@@ -239,14 +234,13 @@ template <typename math_t>
 bool evaluateSVDByL2Norm(const raft::handle_t &handle, math_t *A_d, math_t *U,
                          math_t *S_vec, math_t *V, int n_rows, int n_cols,
                          int k, math_t tol, cudaStream_t stream) {
-  auto allocator = handle.get_device_allocator();
   cublasHandle_t cublasH = handle.get_cublas_handle();
 
   int m = n_rows, n = n_cols;
 
   // form product matrix
-  raft::mr::device::buffer<math_t> P_d(allocator, stream, m * n);
-  raft::mr::device::buffer<math_t> S_mat(allocator, stream, k * k);
+  rmm::device_uvector<math_t> P_d(m * n, stream);
+  rmm::device_uvector<math_t> S_mat(k * k, stream);
   CUDA_CHECK(cudaMemsetAsync(P_d.data(), 0, sizeof(math_t) * m * n, stream));
   CUDA_CHECK(cudaMemsetAsync(S_mat.data(), 0, sizeof(math_t) * k * k, stream));
 
@@ -262,7 +256,7 @@ bool evaluateSVDByL2Norm(const raft::handle_t &handle, math_t *A_d, math_t *U,
 
   // calculate percent error
   const math_t alpha = 1.0, beta = -1.0;
-  raft::mr::device::buffer<math_t> A_minus_P(allocator, stream, m * n);
+  rmm::device_uvector<math_t> A_minus_P(m * n, stream);
   CUDA_CHECK(
     cudaMemsetAsync(A_minus_P.data(), 0, sizeof(math_t) * m * n, stream));
 

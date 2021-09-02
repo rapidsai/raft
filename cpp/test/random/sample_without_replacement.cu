@@ -50,10 +50,10 @@ class SWoRTest : public ::testing::TestWithParam<SWoRInputs<T>> {
     CUDA_CHECK(cudaStreamCreate(&stream));
 
     Rng r(params.seed, params.gtype);
-    allocate(in, params.len);
-    allocate(wts, params.len);
-    allocate(out, params.sampledLen);
-    allocate(outIdx, params.sampledLen);
+    raft::allocate(in, params.len, stream);
+    raft::allocate(wts, params.len, stream);
+    raft::allocate(out, params.sampledLen, stream);
+    raft::allocate(outIdx, params.sampledLen, stream);
     h_outIdx.resize(params.sampledLen);
     r.uniform(in, params.len, T(-1.0), T(1.0), stream);
     r.uniform(wts, params.len, T(1.0), T(2.0), stream);
@@ -67,12 +67,8 @@ class SWoRTest : public ::testing::TestWithParam<SWoRInputs<T>> {
   }
 
   void TearDown() override {
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    raft::deallocate_all(stream);
     CUDA_CHECK(cudaStreamDestroy(stream));
-    CUDA_CHECK(cudaFree(in));
-    CUDA_CHECK(cudaFree(wts));
-    CUDA_CHECK(cudaFree(out));
-    CUDA_CHECK(cudaFree(outIdx));
   }
 
  protected:

@@ -24,8 +24,6 @@
 
 #include <raft/cudart_utils.h>
 #include <raft/sparse/cusparse_wrappers.h>
-#include <raft/mr/device/allocator.hpp>
-#include <raft/mr/device/buffer.hpp>
 
 namespace raft {
 namespace sparse {
@@ -82,15 +80,7 @@ class SparseKNNTest
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
   }
 
-  void TearDown() override {
-    CUDA_CHECK(cudaFree(indptr));
-    CUDA_CHECK(cudaFree(indices));
-    CUDA_CHECK(cudaFree(data));
-    CUDA_CHECK(cudaFree(out_indices));
-    CUDA_CHECK(cudaFree(out_dists));
-    CUDA_CHECK(cudaFree(out_indices_ref));
-    CUDA_CHECK(cudaFree(out_dists_ref));
-  }
+  void TearDown() override { raft::deallocate_all(handle.get_stream()); }
 
   void compare() {
     ASSERT_TRUE(devArrMatch(out_dists_ref, out_dists, n_rows * k,
@@ -105,9 +95,9 @@ class SparseKNNTest
     std::vector<value_idx> indices_h = params.indices_h;
     std::vector<value_t> data_h = params.data_h;
 
-    allocate(indptr, indptr_h.size());
-    allocate(indices, indices_h.size());
-    allocate(data, data_h.size());
+    raft::allocate(indptr, indptr_h.size(), handle.get_stream());
+    raft::allocate(indices, indices_h.size(), handle.get_stream());
+    raft::allocate(data, data_h.size(), handle.get_stream());
 
     update_device(indptr, indptr_h.data(), indptr_h.size(),
                   handle.get_stream());
@@ -118,16 +108,17 @@ class SparseKNNTest
     std::vector<value_t> out_dists_ref_h = params.out_dists_ref_h;
     std::vector<value_idx> out_indices_ref_h = params.out_indices_ref_h;
 
-    allocate(out_indices_ref, out_indices_ref_h.size());
-    allocate(out_dists_ref, out_dists_ref_h.size());
+    raft::allocate(out_indices_ref, out_indices_ref_h.size(),
+                   handle.get_stream());
+    raft::allocate(out_dists_ref, out_dists_ref_h.size(), handle.get_stream());
 
     update_device(out_indices_ref, out_indices_ref_h.data(),
                   out_indices_ref_h.size(), handle.get_stream());
     update_device(out_dists_ref, out_dists_ref_h.data(), out_dists_ref_h.size(),
                   handle.get_stream());
 
-    allocate(out_dists, n_rows * k);
-    allocate(out_indices, n_rows * k);
+    raft::allocate(out_dists, n_rows * k, handle.get_stream());
+    raft::allocate(out_indices, n_rows * k, handle.get_stream());
   }
 
   raft::handle_t handle;

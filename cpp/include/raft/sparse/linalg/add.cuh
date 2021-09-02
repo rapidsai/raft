@@ -21,8 +21,8 @@
 #include <raft/cudart_utils.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
-#include <raft/mr/device/allocator.hpp>
-#include <raft/mr/device/buffer.hpp>
+#include <rmm/device_uvector.hpp>
+#include <rmm/exec_policy.hpp>
 
 #include <thrust/device_ptr.h>
 #include <thrust/scan.h>
@@ -156,19 +156,17 @@ __global__ void csr_add_kernel(const int *a_ind, const int *a_indptr,
  * @param nnz2: size of right hand index_ptr and val arrays
  * @param m: size of output array (number of rows in final matrix)
  * @param out_ind: output row_ind array
- * @param d_alloc: device allocator to use for temp memory
  * @param stream: cuda stream to use
  */
 template <typename T, int TPB_X = 128>
 size_t csr_add_calc_inds(const int *a_ind, const int *a_indptr, const T *a_val,
                          int nnz1, const int *b_ind, const int *b_indptr,
                          const T *b_val, int nnz2, int m, int *out_ind,
-                         std::shared_ptr<raft::mr::device::allocator> d_alloc,
                          cudaStream_t stream) {
   dim3 grid(raft::ceildiv(m, TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
 
-  raft::mr::device::buffer<int> row_counts(d_alloc, stream, m + 1);
+  rmm::device_uvector<int> row_counts(m + 1, stream);
   CUDA_CHECK(
     cudaMemsetAsync(row_counts.data(), 0, (m + 1) * sizeof(int), stream));
 
@@ -184,7 +182,7 @@ size_t csr_add_calc_inds(const int *a_ind, const int *a_indptr, const T *a_val,
   thrust::device_ptr<int> row_counts_d =
     thrust::device_pointer_cast(row_counts.data());
   thrust::device_ptr<int> c_ind_d = thrust::device_pointer_cast(out_ind);
-  exclusive_scan(thrust::cuda::par.on(stream), row_counts_d, row_counts_d + m,
+  exclusive_scan(rmm::exec_policy(stream), row_counts_d, row_counts_d + m,
                  c_ind_d);
 
   return cnnz;

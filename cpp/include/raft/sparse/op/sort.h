@@ -20,9 +20,8 @@
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/sparse/utils.h>
 #include <raft/cuda_utils.cuh>
-#include <raft/mr/device/allocator.hpp>
-#include <raft/mr/device/buffer.hpp>
 #include <raft/sparse/coo.cuh>
+#include <rmm/exec_policy.hpp>
 
 #include <thrust/device_ptr.h>
 #include <thrust/scan.h>
@@ -59,35 +58,28 @@ struct TupleComp {
  * @param rows rows array from coo matrix
  * @param cols cols array from coo matrix
  * @param vals vals array from coo matrix
- * @param d_alloc device allocator for temporary buffers
  * @param stream: cuda stream to use
  */
 template <typename T>
 void coo_sort(int m, int n, int nnz, int *rows, int *cols, T *vals,
-              // TODO: Remove this
-              std::shared_ptr<raft::mr::device::allocator> d_alloc,
               cudaStream_t stream) {
   auto coo_indices = thrust::make_zip_iterator(thrust::make_tuple(rows, cols));
 
   // get all the colors in contiguous locations so we can map them to warps.
-  thrust::sort_by_key(thrust::cuda::par.on(stream), coo_indices,
-                      coo_indices + nnz, vals, TupleComp());
+  thrust::sort_by_key(rmm::exec_policy(stream), coo_indices, coo_indices + nnz,
+                      vals, TupleComp());
 }
 
 /**
  * @brief Sort the underlying COO arrays by row
  * @tparam T: the type name of the underlying value array
  * @param in: COO to sort by row
- * @param d_alloc device allocator for temporary buffers
  * @param stream: the cuda stream to use
  */
 template <typename T>
-void coo_sort(COO<T> *const in,
-              // TODO: Remove this
-              std::shared_ptr<raft::mr::device::allocator> d_alloc,
-              cudaStream_t stream) {
+void coo_sort(COO<T> *const in, cudaStream_t stream) {
   coo_sort<T>(in->n_rows, in->n_cols, in->nnz, in->rows(), in->cols(),
-              in->vals(), d_alloc, stream);
+              in->vals(), stream);
 }
 
 /**
@@ -107,8 +99,7 @@ void coo_sort_by_weight(value_idx *rows, value_idx *cols, value_t *data,
 
   auto first = thrust::make_zip_iterator(thrust::make_tuple(rows, cols));
 
-  thrust::sort_by_key(thrust::cuda::par.on(stream), t_data, t_data + nnz,
-                      first);
+  thrust::sort_by_key(rmm::exec_policy(stream), t_data, t_data + nnz, first);
 }
 };  // namespace op
 };  // end NAMESPACE sparse

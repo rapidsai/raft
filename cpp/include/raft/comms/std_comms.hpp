@@ -20,7 +20,7 @@
 
 #include <raft/comms/ucp_helper.hpp>
 #include <raft/handle.hpp>
-#include <raft/mr/device/buffer.hpp>
+#include <rmm/device_uvector.hpp>
 
 #include <raft/error.hpp>
 
@@ -64,17 +64,16 @@ class std_comms : public comms_iface {
    */
   std_comms(ncclComm_t nccl_comm, ucp_worker_h ucp_worker,
             std::shared_ptr<ucp_ep_h *> eps, int num_ranks, int rank,
-            const std::shared_ptr<mr::device::allocator> device_allocator,
             cudaStream_t stream, bool subcomms_ucp = true)
     : nccl_comm_(nccl_comm),
       stream_(stream),
+      status_(2, stream),
       num_ranks_(num_ranks),
       rank_(rank),
       subcomms_ucp_(subcomms_ucp),
       ucp_worker_(ucp_worker),
       ucp_eps_(eps),
-      next_request_id_(0),
-      device_allocator_(device_allocator) {
+      next_request_id_(0) {
     initialize();
   };
 
@@ -85,27 +84,19 @@ class std_comms : public comms_iface {
    * @param rank rank of the current worker
    */
   std_comms(const ncclComm_t nccl_comm, int num_ranks, int rank,
-            const std::shared_ptr<mr::device::allocator> device_allocator,
             cudaStream_t stream)
     : nccl_comm_(nccl_comm),
       stream_(stream),
+      status_(2, stream),
       num_ranks_(num_ranks),
       rank_(rank),
-      subcomms_ucp_(false),
-      device_allocator_(device_allocator) {
+      subcomms_ucp_(false) {
     initialize();
   };
 
-  virtual ~std_comms() {
-    device_allocator_->deallocate(sendbuff_, sizeof(int), stream_);
-    device_allocator_->deallocate(recvbuff_, sizeof(int), stream_);
-  }
-
   void initialize() {
-    sendbuff_ = reinterpret_cast<int *>(
-      device_allocator_->allocate(sizeof(int), stream_));
-    recvbuff_ = reinterpret_cast<int *>(
-      device_allocator_->allocate(sizeof(int), stream_));
+    sendbuff_ = status_.data();
+    recvbuff_ = status_.data() + 1;
   }
 
   int get_size() const { return num_ranks_; }
@@ -113,8 +104,8 @@ class std_comms : public comms_iface {
   int get_rank() const { return rank_; }
 
   std::unique_ptr<comms_iface> comm_split(int color, int key) const {
-    mr::device::buffer<int> d_colors(device_allocator_, stream_, get_size());
-    mr::device::buffer<int> d_keys(device_allocator_, stream_, get_size());
+    rmm::device_uvector<int> d_colors(get_size(), stream_);
+    rmm::device_uvector<int> d_keys(get_size(), stream_);
 
     update_device(d_colors.data() + get_rank(), &color, 1, stream_);
     update_device(d_keys.data() + get_rank(), &key, 1, stream_);
@@ -167,12 +158,12 @@ class std_comms : public comms_iface {
 
     if (ucp_worker_ != nullptr && subcomms_ucp_) {
       auto eps_sp = std::make_shared<ucp_ep_h *>(new_ucx_ptrs.data());
-      return std::unique_ptr<comms_iface>(new std_comms(
-        nccl_comm, (ucp_worker_h)ucp_worker_, eps_sp, subcomm_ranks.size(), key,
-        device_allocator_, stream_, subcomms_ucp_));
+      return std::unique_ptr<comms_iface>(
+        new std_comms(nccl_comm, (ucp_worker_h)ucp_worker_, eps_sp,
+                      subcomm_ranks.size(), key, stream_, subcomms_ucp_));
     } else {
-      return std::unique_ptr<comms_iface>(new std_comms(
-        nccl_comm, subcomm_ranks.size(), key, device_allocator_, stream_));
+      return std::unique_ptr<comms_iface>(
+        new std_comms(nccl_comm, subcomm_ranks.size(), key, stream_));
     }
   }
 
@@ -465,6 +456,7 @@ class std_comms : public comms_iface {
   cudaStream_t stream_;
 
   int *sendbuff_, *recvbuff_;
+  rmm::device_uvector<int> status_;
 
   int num_ranks_;
   int rank_;
@@ -478,8 +470,6 @@ class std_comms : public comms_iface {
   mutable std::unordered_map<request_t, struct ucp_request *>
     requests_in_flight_;
   mutable std::unordered_set<request_t> free_requests_;
-
-  std::shared_ptr<mr::device::allocator> device_allocator_;
 };
 }  // end namespace comms
 }  // end namespace raft

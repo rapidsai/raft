@@ -49,11 +49,10 @@ class MeanTest : public ::testing::TestWithParam<MeanInputs<T>> {
     int rows = params.rows, cols = params.cols;
     int len = rows * cols;
 
-    cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
 
-    allocate(data, len);
-    allocate(mean_act, cols);
+    raft::allocate(data, len, stream);
+    raft::allocate(mean_act, cols, stream);
     r.normal(data, len, params.mean, (T)1.0, stream);
 
     meanSGtest(data, stream);
@@ -66,13 +65,14 @@ class MeanTest : public ::testing::TestWithParam<MeanInputs<T>> {
   }
 
   void TearDown() override {
-    CUDA_CHECK(cudaFree(data));
-    CUDA_CHECK(cudaFree(mean_act));
+    raft::deallocate_all(stream);
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
  protected:
   MeanInputs<T> params;
   T *data, *mean_act;
+  cudaStream_t stream;
 };
 
 // Note: For 1024 samples, 256 experiments, a mean of 1.0 with stddev=1.0, the

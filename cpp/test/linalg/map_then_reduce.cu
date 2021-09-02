@@ -19,6 +19,8 @@
 #include <limits>
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/random/rng.cuh>
+#include <rmm/device_scalar.hpp>
+#include <rmm/device_uvector.hpp>
 #include "../test_utils.h"
 
 namespace raft {
@@ -74,26 +76,25 @@ class MapReduceTest : public ::testing::TestWithParam<MapReduceInputs<InType>> {
     raft::random::Rng r(params.seed);
     auto len = params.len;
 
-    cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
-    allocate(in, len);
-    allocate(out_ref, len);
-    allocate(out, len);
+    raft::allocate(in, len, stream);
+    raft::allocate(out_ref, len, stream);
+    raft::allocate(out, len, stream);
     r.uniform(in, len, InType(-1.0), InType(1.0), stream);
     mapReduceLaunch(out_ref, out, in, len, stream);
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
   void TearDown() override {
-    CUDA_CHECK(cudaFree(in));
-    CUDA_CHECK(cudaFree(out_ref));
-    CUDA_CHECK(cudaFree(out));
+    raft::deallocate_all(stream);
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
  protected:
   MapReduceInputs<InType> params;
   InType *in;
   OutType *out_ref, *out;
+  cudaStream_t stream;
 };
 
 const std::vector<MapReduceInputs<float>> inputsf = {
@@ -131,9 +132,7 @@ class MapGenericReduceTest : public ::testing::Test {
 
  protected:
   MapGenericReduceTest()
-    : allocator(handle.get_device_allocator()),
-      input(allocator, handle.get_stream(), n),
-      output(allocator, handle.get_stream(), 1) {
+    : input(n, handle.get_stream()), output(handle.get_stream()) {
     CUDA_CHECK(cudaStreamCreate(&stream));
     handle.set_stream(stream);
     initInput(input.data(), input.size(), stream);
@@ -172,9 +171,8 @@ class MapGenericReduceTest : public ::testing::Test {
   int n = 1237;
   raft::handle_t handle;
   cudaStream_t stream;
-  std::shared_ptr<raft::mr::device::allocator> allocator;
-  raft::mr::device::buffer<InType> input;
-  raft::mr::device::buffer<OutType> output;
+  rmm::device_uvector<InType> input;
+  rmm::device_scalar<OutType> output;
 };
 
 using IoTypePair =
