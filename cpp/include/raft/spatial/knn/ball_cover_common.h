@@ -27,8 +27,9 @@ namespace knn {
 template <typename value_idx, typename value_t, typename value_int = int>
 class BallCoverIndex {
  public:
-  BallCoverIndex(const raft::handle_t &handle_, const value_t *X_, value_int m_,
-                 value_int n_, raft::distance::DistanceType metric_)
+  explicit BallCoverIndex(const raft::handle_t &handle_, const value_t *X_,
+                          value_int m_, value_int n_,
+                          raft::distance::DistanceType metric_)
     : handle(handle_),
       X(X_),
       m(m_),
@@ -58,6 +59,7 @@ class BallCoverIndex {
 
   // This should only be set by internal functions
   void set_index_trained() { index_trained = true; }
+
   const raft::handle_t &handle;
 
   const value_int m;
@@ -68,6 +70,7 @@ class BallCoverIndex {
 
   raft::distance::DistanceType metric;
 
+ private:
   // CSR storing the neighborhoods for each data point
   rmm::device_uvector<value_idx> R_indptr;
   rmm::device_uvector<value_idx> R_1nn_cols;

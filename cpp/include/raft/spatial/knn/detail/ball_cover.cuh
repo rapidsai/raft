@@ -387,7 +387,7 @@ void rbc_knn_query(const raft::handle_t &handle,
   rmm::device_uvector<int> dists_counter(index.m, handle.get_stream());
   rmm::device_uvector<int> post_dists_counter(index.m, handle.get_stream());
   thrust::fill(exec_policy, post_dists_counter.data(),
-               post_dists_counter + index.m, 0);
+               post_dists_counter.data() + index.m, 0);
 
   perform_rbc_query(handle, index, query, n_query_pts, k, R_knn_inds.data(),
                     R_knn_dists.data(), dfunc, inds, dists,

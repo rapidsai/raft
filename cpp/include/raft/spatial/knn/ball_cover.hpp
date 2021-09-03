@@ -103,17 +103,17 @@ inline void rbc_knn_query(const raft::handle_t &handle,
   ASSERT(index.n == 2,
          "Random ball cover currently only works in 2-dimensions");
   if (index.metric == raft::distance::DistanceType::Haversine) {
-    detail::rbc_knn_query(handle, index, query, n_query_pts, k, inds, dists,
+    detail::rbc_knn_query(handle, index, k, query, n_query_pts, inds, dists,
                           detail::HaversineFunc(), perform_post_filtering,
                           weight);
   } else if (index.metric == raft::distance::DistanceType::L2Expanded ||
              index.metric == raft::distance::DistanceType::L2Unexpanded) {
-    detail::rbc_knn_query(handle, index, query, n_query_pts, k, inds, dists,
+    detail::rbc_knn_query(handle, index, k, query, n_query_pts, inds, dists,
                           detail::EuclideanFunc(), perform_post_filtering,
                           weight);
   } else if (index.metric == raft::distance::DistanceType::L2SqrtExpanded ||
              index.metric == raft::distance::DistanceType::L2SqrtUnexpanded) {
-    detail::rbc_knn_query(handle, index, query, n_query_pts, k, inds, dists,
+    detail::rbc_knn_query(handle, index, k, query, n_query_pts, inds, dists,
                           detail::EuclideanFunc(), perform_post_filtering,
                           weight);
 
