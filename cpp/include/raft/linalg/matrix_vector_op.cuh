@@ -96,9 +96,8 @@ void matrixVectorOp(Type *out, const Type *matrix, const Type *vec, IdxType D,
   size_t stride_bytes = stride * sizeof(Type);
 
   auto test_aligned_access = [stride_bytes, matrix](const int n_bytes) {
-    return n_bytes / sizeof(Type) &&
-    stride_bytes % n_bytes == 0 &&
-    reinterpret_cast<uintptr_t>(matrix) % sizeof(Type);
+    return n_bytes / sizeof(Type) && stride_bytes % n_bytes == 0 &&
+           reinterpret_cast<uintptr_t>(matrix) % sizeof(Type);
   };
 
   if (test_aligned_access(16)) {
@@ -199,9 +198,8 @@ void matrixVectorOp(Type *out, const Type *matrix, const Type *vec1,
   size_t stride_bytes = stride * sizeof(Type);
 
   auto test_aligned_access = [stride_bytes, matrix](const int n_bytes) {
-    return n_bytes / sizeof(Type) &&
-    stride_bytes % n_bytes == 0 &&
-    reinterpret_cast<uintptr_t>(matrix) % sizeof(Type);
+    return n_bytes / sizeof(Type) && stride_bytes % n_bytes == 0 &&
+           reinterpret_cast<uintptr_t>(matrix) % sizeof(Type);
   };
 
   if (test_aligned_access(16)) {
