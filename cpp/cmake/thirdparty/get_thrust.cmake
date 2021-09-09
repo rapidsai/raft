@@ -13,18 +13,15 @@
 # =============================================================================
 
 # Use CPM to find or clone thrust
-function(find_and_configure_thrust VERSION)
+function(find_and_configure_thrust)
+  include(${rapids-cmake-dir}/cpm/thrust.cmake)
 
-  rapids_cpm_find(
-    Thrust ${VERSION}
+  rapids_cpm_thrust(
+    NAMESPACE raft
     BUILD_EXPORT_SET raft-exports
     INSTALL_EXPORT_SET raft-exports
-    CPM_ARGS
-    GIT_REPOSITORY https://github.com/NVIDIA/thrust.git
-    GIT_TAG ${VERSION}
-    GIT_SHALLOW TRUE
-    OPTIONS "THRUST_INSTALL OFF")
+  )
 
 endfunction()
 
-find_and_configure_thrust(1.12.0)
+find_and_configure_thrust()
