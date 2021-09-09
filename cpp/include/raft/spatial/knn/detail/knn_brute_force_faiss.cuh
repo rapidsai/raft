@@ -272,11 +272,14 @@ void brute_force_knn_impl(std::vector<float *> &input, std::vector<int> &sizes,
 
     if (k <= 64 && rowMajorQuery == rowMajorIndex && rowMajorQuery == true &&
         (metric == raft::distance::DistanceType::L2Unexpanded ||
-         metric == raft::distance::DistanceType::L2SqrtUnexpanded)) {
+         metric == raft::distance::DistanceType::L2SqrtUnexpanded ||
+         metric == raft::distance::DistanceType::L2Expanded ||
+         metric == raft::distance::DistanceType::L2SqrtExpanded)) {
       size_t worksize = 0;
       void *workspace = nullptr;
 
       switch (metric) {
+        case raft::distance::DistanceType::L2Expanded:
         case raft::distance::DistanceType::L2Unexpanded:
           l2_unexpanded_knn<raft::distance::DistanceType::L2Unexpanded, int64_t,
                             float, false>(
@@ -291,6 +294,7 @@ void brute_force_knn_impl(std::vector<float *> &input, std::vector<int> &sizes,
               rowMajorIndex, rowMajorQuery, stream, workspace, worksize);
           }
           break;
+        case raft::distance::DistanceType::L2SqrtExpanded:
         case raft::distance::DistanceType::L2SqrtUnexpanded:
           l2_unexpanded_knn<raft::distance::DistanceType::L2SqrtUnexpanded,
                             int64_t, float, false>(
