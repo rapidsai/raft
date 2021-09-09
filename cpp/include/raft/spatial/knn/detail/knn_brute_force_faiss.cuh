@@ -205,7 +205,7 @@ void brute_force_knn_impl(std::vector<float *> &input, std::vector<int> &sizes,
                           bool rowMajorQuery = true,
                           std::vector<int64_t> *translations = nullptr,
                           raft::distance::DistanceType metric =
-                            raft::distance::DistanceType::L2Unexpanded,
+                            raft::distance::DistanceType::L2Expanded,
                           float metricArg = 0) {
   ASSERT(input.size() == sizes.size(),
          "input and sizes vectors should be the same size");
