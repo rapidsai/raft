@@ -137,7 +137,8 @@ DI void updateSortedWarpQ(myWarpSelect &heapArr, Pair *allWarpTopKs, int rowId,
     Pair KVPair = allWarpTopKs[rowId * (256) + k];
 #pragma unroll
     for (int i = 0; i < NumWarpQRegs; i++) {
-      unsigned activeLanes = __ballot_sync(mask, KVPair.value < heapArr->warpK[i]);
+      unsigned activeLanes =
+        __ballot_sync(mask, KVPair.value < heapArr->warpK[i]);
       if (activeLanes) {
         Pair tempKV;
         tempKV.value = raft::shfl(heapArr->warpK[i], srcLane);
