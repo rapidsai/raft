@@ -491,6 +491,46 @@ __global__ void block_rbc_kernel_smem(
 }
 
 // TODO: Need to create wrapper functions to invoke block_rbc, post_filter_bitset, compute_final_dists
+void compute_plan() {
+    /**
+     * Query Plan is a COO matrix mapping (query_point_id, landmark_id, landmark_index_start_offset)
+     * for each query point. This is meant to be done in batches over a pairwise distance matrix
+     * between the query points and landmarks and increase uniformity of distance computations.
+     */
+
+    /**
+     * Steps (this can be done in batches both by query points and landmarks:
+     * 1. Compute pairwise_distances(query_points, landmarks)
+     * 2. Sort rows individually by column
+     * 3. Apply triangle inequality and bounds checking to create "plan" COO
+     */
+}
+
+void execute_plan() {
+    /**
+     * Using the plan COO constructed above, schedule nnz blocks. Each should have fairly uniform
+     * number of distances to compute. Each block is 1d, where:
+     *
+     * int cur_block = blockIdx.x
+     * int query_id = plan_coo_rows[cur_block] # Query point index (same for all threads)
+     * int landmark = plan_coo_cols[cur_block]
+     * int start_offset = plan_coo_vals[cur_block]
+     * int stop_offset = rbc_index[landmark+1]
+     * stop_offset = min(start_offset + chunk_size, stop_offset)
+     * int idx_start = rbc_index[landmark][start_offset + threadIdx.y] # unique per thread
+     *
+     * We might not need smem here if the L1 cache can speed this up:
+     *
+     * value_t dist = 0;
+     * for(int i = threadIdx.x; i < stop_offset - start_offset; i+=blockDim.x) {
+     *   for(int j = threadIdx.y; j < n_dims; i += blockDim.y) {
+     *      dist += query[i] * X[index[idx_start] * n_dims + j];
+     *   }
+     * }
+     *
+     * out_dists[query_id * n_dists + ] += dist;
+     */
+
 
 };  // namespace detail
 };  // namespace knn
