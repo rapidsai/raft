@@ -29,6 +29,9 @@
 #include <faiss/gpu/utils/Limits.cuh>
 #include <faiss/gpu/utils/Select.cuh>
 
+#include <raft/distance/distance.cuh>
+#include <raft/selection/col_wise_sort.cuh>
+
 namespace raft {
 namespace spatial {
 namespace knn {
@@ -490,21 +493,7 @@ __global__ void block_rbc_kernel_smem(
   atomicAdd(dist_counter + blockIdx.x, n_dists);
 }
 
-// TODO: Need to create wrapper functions to invoke block_rbc, post_filter_bitset, compute_final_dists
-void compute_plan() {
-    /**
-     * Query Plan is a COO matrix mapping (query_point_id, landmark_id, landmark_index_start_offset)
-     * for each query point. This is meant to be done in batches over a pairwise distance matrix
-     * between the query points and landmarks and increase uniformity of distance computations.
-     */
 
-    /**
-     * Steps (this can be done in batches both by query points and landmarks:
-     * 1. Compute pairwise_distances(query_points, landmarks)
-     * 2. Sort rows individually by column
-     * 3. Apply triangle inequality and bounds checking to create "plan" COO
-     */
-}
 
 void execute_plan() {
     /**
@@ -531,6 +520,7 @@ void execute_plan() {
      * out_dists[query_id * n_dists + ] += dist;
      */
 
+}
 
 };  // namespace detail
 };  // namespace knn
