@@ -48,9 +48,9 @@ void gemv(const raft::handle_t &handle, const math_t *A, const int n_rows,
  *     set it when you need to use only the first n_rows_a rows of the matrix A, which has
  *     (perhaps, due to padding) lda rows.
  *
- * @param x is a vector of size n_cols_a.
+ * @param x is a vector of size `trans_a ? n_rows_a : n_cols_a`.
  *
- * @param y is a vector of size n_rows_a.
+ * @param y is a vector of size `trans_a ? n_cols_a : n_rows_a`.
  */
 template <typename math_t>
 void gemv(const raft::handle_t &handle, const math_t *A, const int n_rows_a,
@@ -67,9 +67,9 @@ void gemv(const raft::handle_t &handle, const math_t *A, const int n_rows_a,
  * @param A is a column-major matrix of size n_rows_a * n_cols_a.
  *   op(A) is either the transpose operation (trans_a == true) or identity.
  *
- * @param x is a vector of size n_cols_a.
+ * @param x is a vector of size `trans_a ? n_rows_a : n_cols_a`.
  *
- * @param y is a vector of size n_rows_a.
+ * @param y is a vector of size `trans_a ? n_cols_a : n_rows_a`.
  */
 template <typename math_t>
 void gemv(const raft::handle_t &handle, const math_t *A, const int n_rows_a,
@@ -97,9 +97,9 @@ void gemv(const raft::handle_t &handle, const math_t *A, const int n_rows_a,
  *     set it when you need to use only the first n_rows_a rows of the matrix A, which has
  *     (perhaps, due to padding) lda rows.
  *
- * @param x is a vector of size n_cols_a.
+ * @param x is a vector of size `trans_a ? n_rows_a : n_cols_a`.
  *
- * @param y is a vector of size n_rows_a.
+ * @param y is a vector of size `trans_a ? n_cols_a : n_rows_a`.
  */
 template <typename math_t>
 void gemv(const raft::handle_t &handle, const math_t *A, const int n_rows_a,
@@ -124,9 +124,9 @@ void gemv(const raft::handle_t &handle, const math_t *A, const int n_rows_a,
  *     set it when you need to use only the first n_rows_a rows of the matrix A, which has
  *     (perhaps, due to padding) lda rows.
  *
- * @param x is a vector of size n_cols_a.
+ * @param x is a vector of size `trans_a ? n_rows_a : n_cols_a`.
  *
- * @param y is a vector of size n_rows_a.
+ * @param y is a vector of size `trans_a ? n_cols_a : n_rows_a`.
  *
  */
 template <typename math_t>
