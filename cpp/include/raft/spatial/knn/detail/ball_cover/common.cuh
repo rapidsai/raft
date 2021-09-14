@@ -80,7 +80,7 @@ __device__ inline void _zero_bit(uint32_t *arr, uint32_t h) {
  * Returns whether or not bit at location h is nonzero in a one-hot
  * encoded 32-bit in array.
  */
-__device__ inline bool _get_val(uint32_t *arr, uint32_t h) {
+__device__ inline bool _get_val(const uint32_t *arr, uint32_t h) {
   int bit = h % 32;
   int idx = h / 32;
   return (arr[idx] & (1 << bit)) > 0;

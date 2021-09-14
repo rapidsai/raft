@@ -21,6 +21,7 @@
 #include "../ball_cover_common.h"
 #include "ball_cover/common.cuh"
 #include "ball_cover/registers.cuh"
+#include "ball_cover/plan.cuh"
 #include "block_select_faiss.cuh"
 #include "haversine_distance.cuh"
 #include "knn_brute_force_faiss.cuh"
@@ -372,27 +373,34 @@ void rbc_knn_query(const raft::handle_t &handle,
                    // approximate nn options
                    bool perform_post_filtering = true, float weight = 1.0) {
   auto exec_policy = rmm::exec_policy(handle.get_stream());
-  ASSERT(index.n == 2,
-         "only 2d vectors are supported in current implementation");
+  ASSERT(index.n >= 2,
+         "only 2d vectors or higher are supported in current implementation");
   ASSERT(index.n_landmarks >= k, "number of landmark samples must be >= k");
   ASSERT(index.is_index_trained(), "index must be previously trained");
 
   rmm::device_uvector<value_idx> R_knn_inds(k * index.m, handle.get_stream());
   rmm::device_uvector<value_t> R_knn_dists(k * index.m, handle.get_stream());
 
-  k_closest_landmarks(handle, index, query, n_query_pts, k, R_knn_inds.data(),
-                      R_knn_dists.data());
+  if(index.n == 2) {
+      k_closest_landmarks(handle, index, query, n_query_pts, k, R_knn_inds.data(),
+                          R_knn_dists.data());
 
-  // For debugging / verification. Remove before releasing
-  rmm::device_uvector<int> dists_counter(index.m, handle.get_stream());
-  rmm::device_uvector<int> post_dists_counter(index.m, handle.get_stream());
-  thrust::fill(exec_policy, post_dists_counter.data(),
-               post_dists_counter.data() + index.m, 0);
+      // For debugging / verification. Remove before releasing
+      rmm::device_uvector<int> dists_counter(index.m, handle.get_stream());
+      rmm::device_uvector<int> post_dists_counter(index.m, handle.get_stream());
+      thrust::fill(exec_policy, post_dists_counter.data(),
+                   post_dists_counter.data() + index.m, 0);
 
-  perform_rbc_query(handle, index, query, n_query_pts, k, R_knn_inds.data(),
-                    R_knn_dists.data(), dfunc, inds, dists,
-                    dists_counter.data(), post_dists_counter.data(), weight,
-                    perform_post_filtering);
+      perform_rbc_query(handle, index, query, n_query_pts, k, R_knn_inds.data(),
+                        R_knn_dists.data(), dfunc, inds, dists,
+                        dists_counter.data(), post_dists_counter.data(), weight,
+                        perform_post_filtering);
+
+  } else if(index.n > 2) {
+      raft::sparse::COO<value_t, value_idx> plan_coo;
+      compute_plan(handle, index, k, query,  n_query_pts, inds, dists, plan_coo);
+      execute_plan(handle, index, plan_coo, query, n_query_pts, inds, dists);
+  }
 }
 
 };  // namespace detail
