@@ -275,8 +275,7 @@ namespace detail {
         prune_landmarks<<<n_query_pts, 128, 0, handle.get_stream()>>>(
                 ql_dists.data(), index.n, R_knn_inds.data(),
                 R_knn_dists.data(), index.get_R_radius(),
-                index.get_R_radius(), index.get_R(),
-                knn_dists, index.get_R_indptr(),
+                index.get_R(), index.get_R_indptr(),
                 index.get_n_landmarks(), bitset_size, k,
                 bitset.data(), landmark_batches.data(),
                 weight);
@@ -443,7 +442,7 @@ namespace detail {
     template<typename value_idx, typename value_t, typename value_int = int, int batch_size=2048>
     void execute_plan(const raft::handle_t &handle,
                       BallCoverIndex<value_idx, value_t> &index,
-                      const raft::sparse::COO<value_t, value_idx> &plan_coo,
+                      const raft::sparse::COO<value_idx, value_idx> &plan_coo,
                       int k, const value_t *query,
                       value_int n_query_pts,
                       value_idx *knn_inds,
