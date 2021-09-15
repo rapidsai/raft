@@ -93,18 +93,20 @@ namespace detail {
     template <typename value_idx, typename value_t, typename value_int = int,
             int tpb = 32, typename reduce_func, typename accum_func>
     __global__ void prune_landmarks(
-            const value_t *landmark_dists, value_int n_cols,
+            const value_t *landmark_dists,
+            const value_int n_cols,
             const value_idx *R_knn_inds,
             const value_t *R_knn_dists,
             const value_t *R_radius,
             const value_t *landmarks,
             const value_t *knn_dists,
             const value_idx *landmarks_indptr,
-            int n_landmarks,
-            int bitset_size, int k,
-            int batch_size,
+            const int n_landmarks,
+            const int bitset_size,
+            const int k,
+            const int batch_size,
             uint32_t *output_bitset,
-            value_idx *total_landmark_points,
+            value_int *total_landmark_points,
             float weight = 1.0) {
         static constexpr int kNumWarps = tpb / faiss::gpu::kWarpSize;
 
@@ -153,9 +155,9 @@ namespace detail {
     __global__ void write_plan_coo(const value_idx *landmark_indptr,
                                    const value_idx *coo_write_plan,
                                    const uint32_t *bitset,
-                                   int bitset_size,
-                                   int n_landmarks,
-                                   int batch_size,
+                                   const int bitset_size,
+                                   const int n_landmarks,
+                                   const int batch_size,
                                    value_idx *plan_query_ids_coo,
                                    value_idx *plan_landmark_ids_coo,
                                    value_idx *plan_offset_ids_coo) {
@@ -190,7 +192,7 @@ namespace detail {
         rmm::device_uvector<char> pw_workspace(0, handle.get_stream());
 
         // Compute pairwise dists between queries and landmarks.
-        raft::distance::pairwise_distance(queries, index.get_landmarks(), out_dists,
+        raft::distance::pairwise_distance(queries, index.get_R(), out_dists,
                                  n_queries, index.get_n_landmarks(), index.n,
                                  pw_workspace, index.get_metric(), handle.get_stream());
     }
@@ -228,7 +230,7 @@ namespace detail {
                       value_int n_query_pts,
                       const value_idx *knn_inds,
                       const value_t *knn_dists,
-                      raft::sparse::COO<value_t, value_idx> &plan_coo,
+                      raft::sparse::COO<value_idx, value_idx> &plan_coo,
                       float weight = 1.0) {
 
         ASSERT(plan_coo.nnz == 0, "Plan COO is expecteo be uninitialized");
@@ -280,15 +282,15 @@ namespace detail {
                 weight);
 
         // Sum of cardinality array is nnz of plan
-        value_idx n_batches = thrust::reduce(exec_policy, landmark_batches.data(),
+        int n_batches = thrust::reduce(exec_policy, landmark_batches.data(),
                                              landmark_batches.data()+n_query_pts, 0);
 
-        rmm::device_uvector<value_int> coo_write_plan(n_query_pts, handle.get_stream());
+        rmm::device_uvector<value_idx> coo_write_plan(n_query_pts, handle.get_stream());
         thrust::exclusive_scan(exec_policy, landmark_batches.data(), landmark_batches.data()+n_query_pts,
                                coo_write_plan.data(), 0);
 
         // Construct COO where nnz=n_batches
-        plan_coo.allocate(n_batches);
+        plan_coo.allocate(n_batches, 0, handle.get_stream());
 
         write_plan_coo<<<raft::ceildiv(n_query_pts, 256), 256, 0, handle.get_stream()>>>(
                 index.get_R_indptr(), coo_write_plan.data(), bitset.data(),

@@ -55,6 +55,9 @@ class BallCoverIndex {
   value_t *get_R() { return R.data(); }
   const value_t *get_X() { return X; }
 
+  int get_n_landmarks() { return n_landmarks; }
+  raft::distance::DistanceType get_metric() { return metric; }
+
   bool is_index_trained() const { return index_trained; };
 
   // This should only be set by internal functions

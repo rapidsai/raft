@@ -397,9 +397,9 @@ void rbc_knn_query(const raft::handle_t &handle,
                         perform_post_filtering);
 
   } else if(index.n > 2) {
-      raft::sparse::COO<value_t, value_idx> plan_coo;
+      raft::sparse::COO<value_idx, value_idx> plan_coo(handle.get_stream());
       compute_plan(handle, index, k, query,  n_query_pts, inds, dists, plan_coo);
-      execute_plan(handle, index, plan_coo, query, n_query_pts, inds, dists);
+      execute_plan(handle, index, plan_coo, k, query, n_query_pts, inds, dists);
   }
 }
 
