@@ -181,7 +181,7 @@ struct Policy2x8<float, _veclen> {
 
 template <int _veclen>
 struct Policy2x8<double, _veclen> {
-  // this is not used just for keeping compiler happy for testing L2
+  // this is not used just for keeping compiler happy.
   typedef KernelPolicy<double, _veclen, 32, 1, 2, 8, 32> Policy;
   typedef ColKernelPolicy<double, _veclen, 32, 1, 2, 8, 32> ColPolicy;
 };
