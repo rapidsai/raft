@@ -61,6 +61,19 @@ __global__ void naiveGemv(T *y, const T *A, const T *x, const int n_rows,
 template <typename T>
 class GemvTest : public ::testing::TestWithParam<GemvInputs<T>> {
  protected:
+  GemvInputs<T> params;
+  rmm::device_uvector<T> refy;  // Reference result for comparison
+  rmm::device_uvector<T> y;     // Computed result
+
+ public:
+  GemvTest()
+    : testing::TestWithParam<GemvInputs<T>>(),
+      refy(0, rmm::cuda_stream_default),
+      y(0, rmm::cuda_stream_default) {
+    rmm::cuda_stream_default.synchronize();
+  }
+
+ protected:
   void SetUp() override {
     params = ::testing::TestWithParam<GemvInputs<T>>::GetParam();
 
@@ -70,41 +83,30 @@ class GemvTest : public ::testing::TestWithParam<GemvInputs<T>> {
     raft::random::Rng r(params.seed);
 
     // We compute y = op(A) * x and compare against reference result
-
-    T *A = NULL;  // Argument A
-    T *x = NULL;  // Argument x
-
     size_t aElems = params.lda * params.n_cols;
     size_t xElems = params.trans_a ? params.n_rows : params.n_cols;
     size_t yElems = params.trans_a ? params.n_cols : params.n_rows;
 
-    CUDA_CHECK(cudaMalloc(&A, aElems * sizeof(T)));
-    CUDA_CHECK(cudaMalloc(&x, xElems * sizeof(T)));
-    CUDA_CHECK(cudaMalloc(&refy, yElems * sizeof(T)));
-    CUDA_CHECK(cudaMalloc(&y, yElems * sizeof(T)));
+    rmm::device_uvector<T> A(aElems, stream);
+    rmm::device_uvector<T> x(xElems, stream);
+    refy.resize(yElems, stream);
+    y.resize(yElems, stream);
 
-    r.uniform(x, xElems, T(-10.0), T(10.0), stream);
-    r.uniform(A, aElems, T(-10.0), T(10.0), stream);
+    r.uniform(x.data(), xElems, T(-10.0), T(10.0), stream);
+    r.uniform(A.data(), aElems, T(-10.0), T(10.0), stream);
 
     dim3 blocks(raft::ceildiv<int>(yElems, 256), 1, 1);
     dim3 threads(256, 1, 1);
 
-    naiveGemv<<<blocks, threads>>>(refy, A, x, params.n_rows, params.n_cols,
-                                   params.lda, params.trans_a);
+    naiveGemv<<<blocks, threads>>>(refy.data(), A.data(), x.data(),
+                                   params.n_rows, params.n_cols, params.lda,
+                                   params.trans_a);
 
-    gemv(handle, A, params.n_rows, params.n_cols, params.lda, x, y,
-         params.trans_a, stream);
+    gemv(handle, A.data(), params.n_rows, params.n_cols, params.lda, x.data(),
+         y.data(), params.trans_a, stream);
   }
 
-  void TearDown() override {
-    CUDA_CHECK(cudaFree(refy));
-    CUDA_CHECK(cudaFree(y));
-  }
-
- protected:
-  GemvInputs<T> params;
-  T *refy = NULL;  // Reference result for comparison
-  T *y = NULL;     // Computed result
+  void TearDown() override {}
 };
 
 const std::vector<GemvInputs<float>> inputsf = {
@@ -121,14 +123,14 @@ const std::vector<GemvInputs<double>> inputsd = {
 
 typedef GemvTest<float> GemvTestF;
 TEST_P(GemvTestF, Result) {
-  ASSERT_TRUE(raft::devArrMatch(refy, y,
+  ASSERT_TRUE(raft::devArrMatch(refy.data(), y.data(),
                                 params.trans_a ? params.n_cols : params.n_rows,
                                 raft::CompareApprox<float>(1e-4)));
 }
 
 typedef GemvTest<double> GemvTestD;
 TEST_P(GemvTestD, Result) {
-  ASSERT_TRUE(raft::devArrMatch(refy, y,
+  ASSERT_TRUE(raft::devArrMatch(refy.data(), y.data(),
                                 params.trans_a ? params.n_cols : params.n_rows,
                                 raft::CompareApprox<float>(1e-6)));
 }
