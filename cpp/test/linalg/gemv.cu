@@ -135,11 +135,9 @@ TEST_P(GemvTestD, Result) {
                                 raft::CompareApprox<float>(1e-6)));
 }
 
-INSTANTIATE_TEST_SUITE_P(GemmLayoutTests, GemvTestF,
-                         ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_SUITE_P(GemvTests, GemvTestF, ::testing::ValuesIn(inputsf));
 
-INSTANTIATE_TEST_SUITE_P(GemmLayoutTests, GemvTestD,
-                         ::testing::ValuesIn(inputsd));
+INSTANTIATE_TEST_SUITE_P(GemvTests, GemvTestD, ::testing::ValuesIn(inputsd));
 
 }  // end namespace linalg
 }  // end namespace raft
