@@ -19,7 +19,7 @@ include(FetchContent)
 FetchContent_Declare(
   rapids-cmake
   GIT_REPOSITORY https://github.com/rapidsai/rapids-cmake.git
-  GIT_TAG        origin/branch-21.06
+  GIT_TAG        origin/branch-21.08
   )
 FetchContent_MakeAvailable(rapids-cmake)
 include(rapids-cmake)
@@ -30,7 +30,7 @@ include(rapids-find)
 
 rapids_cuda_init_architectures(RAFT)
 
-project(RAFT VERSION 21.06.00 LANGUAGES CXX CUDA)
+project(RAFT VERSION 21.08.00 LANGUAGES CXX CUDA)
 
 ##############################################################################
 # - build type ---------------------------------------------------------------
@@ -104,6 +104,7 @@ endif(NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
 # add third party dependencies using CPM
 rapids_cpm_init()
 
+include(cmake/thirdparty/get_thrust.cmake)
 include(cmake/thirdparty/get_rmm.cmake)
 include(cmake/thirdparty/get_cuco.cmake)
 
@@ -116,6 +117,8 @@ endif()
 
 ##############################################################################
 # - install targets-----------------------------------------------------------
+
+include(CPack)
 
 add_library(raft INTERFACE)
 add_library(raft::raft ALIAS raft)
@@ -130,6 +133,7 @@ INTERFACE
   CUDA::cudart
   CUDA::cusparse
   rmm::rmm
+  cuco::cuco
   )
 
 target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
@@ -140,9 +144,14 @@ install(TARGETS raft
         )
 
 include(GNUInstallDirs)
-install(DIRECTORY include/
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+install(DIRECTORY include/raft/
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/raft
         )
+
+# Temporary install of raft.hpp while the file is removed
+install(FILES include/raft.hpp
+	DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/raft
+	)
 
 ##############################################################################
 # - install export -----------------------------------------------------------

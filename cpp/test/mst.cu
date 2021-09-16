@@ -58,7 +58,7 @@ weight_t prims(CSRHost<vertex_t, edge_t, weight_t> &csr_h) {
   auto n_vertices = csr_h.offsets.size() - 1;
 
   bool active_vertex[n_vertices];
-  // bool mst_set[csr_h.n_edges];
+  //  bool mst_set[csr_h.n_edges];
   weight_t curr_edge[n_vertices];
 
   for (auto i = 0; i < n_vertices; i++) {
@@ -198,15 +198,15 @@ class MSTTest
       MSTTestInput<vertex_t, edge_t, weight_t>>::GetParam();
     iterations = mst_input.iterations;
 
-    csr_d.offsets =
-      rmm::device_buffer(mst_input.csr_h.offsets.data(),
-                         mst_input.csr_h.offsets.size() * sizeof(edge_t));
-    csr_d.indices =
-      rmm::device_buffer(mst_input.csr_h.indices.data(),
-                         mst_input.csr_h.indices.size() * sizeof(vertex_t));
-    csr_d.weights =
-      rmm::device_buffer(mst_input.csr_h.weights.data(),
-                         mst_input.csr_h.weights.size() * sizeof(weight_t));
+    csr_d.offsets = rmm::device_buffer(
+      mst_input.csr_h.offsets.data(),
+      mst_input.csr_h.offsets.size() * sizeof(edge_t), handle.get_stream());
+    csr_d.indices = rmm::device_buffer(
+      mst_input.csr_h.indices.data(),
+      mst_input.csr_h.indices.size() * sizeof(vertex_t), handle.get_stream());
+    csr_d.weights = rmm::device_buffer(
+      mst_input.csr_h.weights.data(),
+      mst_input.csr_h.weights.size() * sizeof(weight_t), handle.get_stream());
   }
 
   void TearDown() override {}

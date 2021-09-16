@@ -56,7 +56,8 @@ void generateProblem(weight_t *cost_matrix, int SP, int N, int costrange) {
 
 template <typename vertex_t, typename weight_t>
 void hungarian_test(int problemsize, int costrange, int problemcount,
-                    int repetitions, int batchsize, bool verbose = false) {
+                    int repetitions, int batchsize, weight_t epsilon,
+                    bool verbose = false) {
   raft::handle_t handle;
 
   weight_t *h_cost = new weight_t[batchsize * problemsize * problemsize];
@@ -83,7 +84,7 @@ void hungarian_test(int problemsize, int costrange, int problemcount,
 
       // Create an instance of LinearAssignmentProblem using problem size, number of subproblems
       raft::lap::LinearAssignmentProblem<vertex_t, weight_t> lpx(
-        handle, problemsize, batchsize);
+        handle, problemsize, batchsize, epsilon);
 
       // Solve LAP(s) for given cost matrix
       lpx.solve(elements_v.data(), row_assignment_v.data(),
@@ -110,32 +111,32 @@ void hungarian_test(int problemsize, int costrange, int problemcount,
 
 TEST(Raft, HungarianIntFloat) {
   hungarian_test<int, float>(PROBLEMSIZE, COSTRANGE, PROBLEMCOUNT, REPETITIONS,
-                             BATCHSIZE);
+                             BATCHSIZE, float{1e-6});
 }
 
 TEST(Raft, HungarianIntDouble) {
   hungarian_test<int, double>(PROBLEMSIZE, COSTRANGE, PROBLEMCOUNT, REPETITIONS,
-                              BATCHSIZE);
+                              BATCHSIZE, double{1e-6});
 }
 
 TEST(Raft, HungarianIntLong) {
   hungarian_test<int, long>(PROBLEMSIZE, COSTRANGE, PROBLEMCOUNT, REPETITIONS,
-                            BATCHSIZE);
+                            BATCHSIZE, long{0});
 }
 
 TEST(Raft, HungarianLongFloat) {
   hungarian_test<long, float>(PROBLEMSIZE, COSTRANGE, PROBLEMCOUNT, REPETITIONS,
-                              BATCHSIZE);
+                              BATCHSIZE, float{1e-6});
 }
 
 TEST(Raft, HungarianLongDouble) {
   hungarian_test<long, double>(PROBLEMSIZE, COSTRANGE, PROBLEMCOUNT,
-                               REPETITIONS, BATCHSIZE);
+                               REPETITIONS, BATCHSIZE, double{1e-6});
 }
 
 TEST(Raft, HungarianLongLong) {
   hungarian_test<long, long>(PROBLEMSIZE, COSTRANGE, PROBLEMCOUNT, REPETITIONS,
-                             BATCHSIZE);
+                             BATCHSIZE, long{0});
 }
 
 }  // namespace raft

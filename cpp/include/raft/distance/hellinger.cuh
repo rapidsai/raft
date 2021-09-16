@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,37 +16,46 @@
 
 #pragma once
 #include <raft/distance/pairwise_distance_base.cuh>
+#include <raft/linalg/unary_op.cuh>
 
 namespace raft {
 namespace distance {
 
 /**
- * @brief the L1 distance matrix calculation implementer
- *  It computes the following equation: cij = op(ai-bj)
+ * @brief the Hellinger distance matrix using the expanded form:
+ *  It computes the following equation: 
+    cij = sqrt(1 - sum(sqrt(x_k * y_k)))
+ * This distance computation modifies A and B by computing a sqrt
+ * and then performing a `pow(x, 2)` to convert it back. Because of this,
+ * it is possible that the values in A and B might differ slightly
+ * after this is invoked.
+ *
  * @tparam DataT          input data-type (for A and B matrices)
  * @tparam AccT           accumulation data-type
  * @tparam OutT           output data-type (for C and D matrices)
  * @tparam IdxT           index data-type
-
+ * @tparam Veclen         number of k-elements loaded by each thread
+                          for every LDG call. details in contractions.cuh
  * @tparam FinalLambda    final lambda called on final distance value
  * @tparam isRowMajor     true if input/output is row major,
                           false for column major
  * @param[in]       x input matrix
  * @param[in]       y input matrix
  * @param[in]       m number of rows of A and C/D
- * @param[in]       n number of columns of B and C/D
- * @param[in]       k number of cols of A and rows of B
+ * @param[in]       n number of rows of B and C/D
+ * @param[in]       k number of cols of A and B
  * @param[in]       lda leading dimension of A
  * @param[in]       ldb leading dimension of B
  * @param[in]       ldd leading dimension of C/D
- * @param[output]   pD output matrix
- * @param fin_op    the final gemm epilogue lambda
+ * @param[output]   dOutput output matrix
+ * @param[in]       fin_op the final gemm epilogue lambda
+ * @param[in]       stream cuda stream to launch work
  */
 template <typename DataT, typename AccT, typename OutT, typename IdxT,
           int VecLen, typename FinalLambda, bool isRowMajor>
-static void l1Impl(const DataT *x, const DataT *y, IdxT m, IdxT n, IdxT k,
-                   IdxT lda, IdxT ldb, IdxT ldd, OutT *dOutput,
-                   FinalLambda fin_op, cudaStream_t stream) {
+static void hellingerImpl(const DataT *x, const DataT *y, IdxT m, IdxT n,
+                          IdxT k, IdxT lda, IdxT ldb, IdxT ldd, OutT *dOutput,
+                          FinalLambda fin_op, cudaStream_t stream) {
   typedef typename raft::linalg::Policy4x4<DataT, VecLen>::Policy RowPolicy;
   typedef typename raft::linalg::Policy4x4<DataT, VecLen>::ColPolicy ColPolicy;
 
@@ -55,39 +64,71 @@ static void l1Impl(const DataT *x, const DataT *y, IdxT m, IdxT n, IdxT k,
 
   dim3 blk(KPolicy::Nthreads);
 
+  auto unaryOp_lambda = [] __device__(DataT input) {
+    return raft::mySqrt(input);
+  };
+  // First sqrt x and y
+  raft::linalg::unaryOp<DataT, decltype(unaryOp_lambda), IdxT>(
+    (DataT *)x, x, m * k, unaryOp_lambda, stream);
+
+  if (x != y) {
+    raft::linalg::unaryOp<DataT, decltype(unaryOp_lambda), IdxT>(
+      (DataT *)y, y, n * k, unaryOp_lambda, stream);
+  }
+
   // Accumulation operation lambda
   auto core_lambda = [] __device__(AccT & acc, DataT & x, DataT & y) {
-    const auto diff = raft::L1Op<AccT, IdxT>()(x - y);
-    acc += diff;
+    // This is sqrt(x) * sqrt(y).
+    const auto product = x * y;
+    acc += product;
   };
 
   // epilogue operation lambda for final value calculation
   auto epilog_lambda = [] __device__(
                          AccT acc[KPolicy::AccRowsPerTh][KPolicy::AccColsPerTh],
                          DataT * regxn, DataT * regyn, IdxT gridStrideX,
-                         IdxT gridStrideY) { return; };
+                         IdxT gridStrideY) {
+#pragma unroll
+    for (int i = 0; i < KPolicy::AccRowsPerTh; ++i) {
+#pragma unroll
+      for (int j = 0; j < KPolicy::AccColsPerTh; ++j) {
+        // Adjust to replace NaN in sqrt with 0 if input to sqrt is negative
+        const auto finalVal = (1 - acc[i][j]);
+        const auto rectifier = (!signbit(finalVal));
+        acc[i][j] = raft::mySqrt(rectifier * finalVal);
+      }
+    }
+  };
 
   if (isRowMajor) {
-    auto l1RowMajor =
+    auto hellingerRowMajor =
       pairwiseDistanceMatKernel<false, DataT, AccT, OutT, IdxT, KPolicy,
                                 decltype(core_lambda), decltype(epilog_lambda),
                                 FinalLambda, true>;
-    dim3 grid =
-      launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize, l1RowMajor);
+    dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize,
+                                               hellingerRowMajor);
 
-    l1RowMajor<<<grid, blk, KPolicy::SmemSize, stream>>>(
+    hellingerRowMajor<<<grid, blk, KPolicy::SmemSize, stream>>>(
       x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput, core_lambda,
       epilog_lambda, fin_op);
   } else {
-    auto l1ColMajor =
+    auto hellingerColMajor =
       pairwiseDistanceMatKernel<false, DataT, AccT, OutT, IdxT, KPolicy,
                                 decltype(core_lambda), decltype(epilog_lambda),
                                 FinalLambda, false>;
-    dim3 grid =
-      launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize, l1ColMajor);
-    l1ColMajor<<<grid, blk, KPolicy::SmemSize, stream>>>(
+    dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize,
+                                               hellingerColMajor);
+    hellingerColMajor<<<grid, blk, KPolicy::SmemSize, stream>>>(
       x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput, core_lambda,
       epilog_lambda, fin_op);
+  }
+
+  // Revert sqrt of x and y
+  raft::linalg::unaryOp<DataT, decltype(unaryOp_lambda), IdxT>(
+    (DataT *)x, x, m * k, unaryOp_lambda, stream);
+  if (x != y) {
+    raft::linalg::unaryOp<DataT, decltype(unaryOp_lambda), IdxT>(
+      (DataT *)y, y, n * k, unaryOp_lambda, stream);
   }
 
   CUDA_CHECK(cudaGetLastError());
@@ -95,26 +136,34 @@ static void l1Impl(const DataT *x, const DataT *y, IdxT m, IdxT n, IdxT k,
 
 template <typename DataT, typename AccT, typename OutT, typename IdxT,
           typename FinalLambda, bool isRowMajor>
-void l1(IdxT m, IdxT n, IdxT k, IdxT lda, IdxT ldb, IdxT ldd, const DataT *x,
-        const DataT *y, OutT *dOutput, FinalLambda fin_op,
-        cudaStream_t stream) {
+void hellinger(IdxT m, IdxT n, IdxT k, IdxT lda, IdxT ldb, IdxT ldd,
+               const DataT *x, const DataT *y, OutT *dOutput,
+               FinalLambda fin_op, cudaStream_t stream) {
   size_t bytesA = sizeof(DataT) * lda;
   size_t bytesB = sizeof(DataT) * ldb;
   if (16 % sizeof(DataT) == 0 && bytesA % 16 == 0 && bytesB % 16 == 0) {
-    l1Impl<DataT, AccT, OutT, IdxT, 16 / sizeof(DataT), FinalLambda,
-           isRowMajor>(x, y, m, n, k, lda, ldb, ldd, dOutput, fin_op, stream);
+    hellingerImpl<DataT, AccT, OutT, IdxT, 16 / sizeof(DataT), FinalLambda,
+                  isRowMajor>(x, y, m, n, k, lda, ldb, ldd, dOutput, fin_op,
+                              stream);
   } else if (8 % sizeof(DataT) == 0 && bytesA % 8 == 0 && bytesB % 8 == 0) {
-    l1Impl<DataT, AccT, OutT, IdxT, 8 / sizeof(DataT), FinalLambda, isRowMajor>(
-      x, y, m, n, k, lda, ldb, ldd, dOutput, fin_op, stream);
+    hellingerImpl<DataT, AccT, OutT, IdxT, 8 / sizeof(DataT), FinalLambda,
+                  isRowMajor>(x, y, m, n, k, lda, ldb, ldd, dOutput, fin_op,
+                              stream);
   } else {
-    l1Impl<DataT, AccT, OutT, IdxT, 1, FinalLambda, isRowMajor>(
+    hellingerImpl<DataT, AccT, OutT, IdxT, 1, FinalLambda, isRowMajor>(
       x, y, m, n, k, lda, ldb, ldd, dOutput, fin_op, stream);
   }
 }
 
 /**
- * @brief the L1 distance matrix calculation
- *  It computes the following equation: cij = op(ai-bj)
+ * @brief the Hellinger distance matrix calculation
+ *  It computes the following equation: 
+    sqrt(1 - sum(sqrt(x_k * y_k))
+ * This distance computation modifies A and B by computing a sqrt
+ * and then performing a `pow(x, 2)` to convert it back. Because of this,
+ * it is possible that the values in A and B might differ slightly
+ * after this is invoked.
+ *
  * @tparam InType input data-type (for A and B matrices)
  * @tparam AccType accumulation data-type
  * @tparam OutType output data-type (for C and D matrices)
@@ -132,22 +181,22 @@ void l1(IdxT m, IdxT n, IdxT k, IdxT lda, IdxT ldb, IdxT ldd, const DataT *x,
  */
 template <typename InType, typename AccType, typename OutType,
           typename FinalLambda, typename Index_ = int>
-void l1Impl(int m, int n, int k, const InType *pA, const InType *pB,
-            OutType *pD, FinalLambda fin_op, cudaStream_t stream,
-            bool isRowMajor) {
+void hellingerImpl(int m, int n, int k, const InType *pA, const InType *pB,
+                   OutType *pD, FinalLambda fin_op, cudaStream_t stream,
+                   bool isRowMajor) {
   typedef std::is_same<OutType, bool> is_bool;
-  typedef
-    typename std::conditional<is_bool::value, OutType, AccType>::type L1OutType;
+  typedef typename std::conditional<is_bool::value, OutType, AccType>::type
+    hellingerOutType;
   Index_ lda, ldb, ldd;
-  L1OutType *pDcast = reinterpret_cast<L1OutType *>(pD);
+  hellingerOutType *pDcast = reinterpret_cast<hellingerOutType *>(pD);
   if (isRowMajor) {
     lda = k, ldb = k, ldd = n;
-    l1<InType, AccType, L1OutType, Index_, FinalLambda, true>(
+    hellinger<InType, AccType, hellingerOutType, Index_, FinalLambda, true>(
       m, n, k, lda, ldb, ldd, pA, pB, pDcast, fin_op, stream);
 
   } else {
     lda = n, ldb = m, ldd = m;
-    l1<InType, AccType, L1OutType, Index_, FinalLambda, false>(
+    hellinger<InType, AccType, hellingerOutType, Index_, FinalLambda, false>(
       n, m, k, lda, ldb, ldd, pB, pA, pDcast, fin_op, stream);
   }
 }
