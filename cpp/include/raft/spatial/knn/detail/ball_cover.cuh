@@ -69,9 +69,8 @@ void sample_landmarks(const raft::handle_t &handle,
   rmm::device_uvector<value_idx> R_indices(index.n_landmarks,
                                            handle.get_stream());
 
-  thrust::sequence(handle.get_thrust_policy(),
-                   index.get_R_1nn_cols(), index.get_R_1nn_cols() + index.m,
-                   (value_idx)0);
+  thrust::sequence(handle.get_thrust_policy(), index.get_R_1nn_cols(),
+                   index.get_R_1nn_cols() + index.m, (value_idx)0);
 
   thrust::fill(handle.get_thrust_policy(), R_1nn_ones.data(),
                R_1nn_ones.data() + R_1nn_ones.size(), 1.0);
@@ -121,8 +120,8 @@ void construct_landmark_1nn(const raft::handle_t &handle,
     thrust::make_tuple(R_1nn_inds.data(), index.get_R_1nn_dists()));
 
   // group neighborhoods for each reference landmark and sort each group by distance
-  thrust::sort_by_key(handle.get_thrust_policy(), keys,
-                      keys + index.m, index.get_R_1nn_cols(), NNComp());
+  thrust::sort_by_key(handle.get_thrust_policy(), keys, keys + index.m,
+                      index.get_R_1nn_cols(), NNComp());
 
   // convert to CSR for fast lookup
   raft::sparse::convert::sorted_coo_to_csr(
@@ -168,13 +167,13 @@ void k_closest_landmarks(const raft::handle_t &handle,
 template <typename value_idx, typename value_t>
 void compute_landmark_radii(const raft::handle_t &handle,
                             BallCoverIndex<value_idx, value_t> &index) {
-
   auto entries = thrust::make_counting_iterator<value_idx>(0);
 
   const value_idx *R_indptr_ptr = index.get_R_indptr();
   const value_t *R_1nn_dists_ptr = index.get_R_1nn_dists();
   value_t *R_radius_ptr = index.get_R_radius();
-  thrust::for_each(handle.get_thrust_policy(), entries, entries + index.n_landmarks,
+  thrust::for_each(handle.get_thrust_policy(), entries,
+                   entries + index.n_landmarks,
                    [=] __device__(value_idx input) {
                      value_idx last_row_idx = R_indptr_ptr[input + 1] - 1;
                      R_radius_ptr[input] = R_1nn_dists_ptr[last_row_idx];
