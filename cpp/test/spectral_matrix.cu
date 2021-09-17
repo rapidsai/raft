@@ -38,7 +38,6 @@ TEST(Raft, SpectralMatrices) {
   using value_type = double;
 
   handle_t h;
-  ASSERT_EQ(0, h.get_num_internal_streams());
   ASSERT_EQ(0, h.get_device());
 
   csr_view_t<index_type, value_type> csr_v{nullptr, nullptr, nullptr, 0, 0};
