@@ -17,6 +17,7 @@
 #pragma once
 
 #include <raft/linalg/distance_type.h>
+#include <thrust/transform.h>
 #include "ball_cover_common.h"
 #include "detail/ball_cover.cuh"
 #include "detail/ball_cover/common.cuh"
@@ -39,8 +40,6 @@ inline void rbc_build_index(const raft::handle_t &handle,
   } else if (index.metric == raft::distance::DistanceType::L2SqrtExpanded ||
              index.metric == raft::distance::DistanceType::L2SqrtUnexpanded) {
     detail::rbc_build_index(handle, index, k, detail::EuclideanFunc());
-
-    // TODO: Call sqrt on distances
   }
 
   index.set_index_trained();
@@ -86,7 +85,8 @@ inline void rbc_all_knn_query(const raft::handle_t &handle,
                               detail::EuclideanFunc(), perform_post_filtering,
                               weight);
 
-    // TODO: Call sqrt on distances
+    thrust::transform(handle.get_thrust_policy(), dists, dists + (index.m * k),
+                      dists, [] __device__(value_t in) { return sqrt(in); });
   }
 
   index.set_index_trained();
@@ -117,14 +117,13 @@ inline void rbc_knn_query(const raft::handle_t &handle,
                           detail::EuclideanFunc(), perform_post_filtering,
                           weight);
 
-    // TODO: Call sqrt on distances
+    thrust::transform(handle.get_thrust_policy(), dists,
+                      dists + (n_query_pts * k), dists,
+                      [] __device__(value_t in) { return sqrt(in); });
   }
 }
 
 // TODO: implement functions for:
-//  1. rbc_build_index() - populate a BallCoverIndex
-//  2. rbc_knn_query() - given a populated index, perform query against different query array
-//  3. rbc_all_knn_query() - populate a BallCoverIndex and query against training data
 //  4. rbc_eps_neigh() - given a populated index, perform query against different query array
 //  5. rbc_all_eps_neigh() - populate a BallCoverIndex and query against training data
 
