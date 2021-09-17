@@ -91,7 +91,7 @@ namespace detail {
      * @param weight
      */
     template <typename value_idx, typename value_t, typename value_int = int,
-            int tpb = 32, typename reduce_func, typename accum_func>
+            int tpb = 32>
     __global__ void prune_landmarks(
             const value_t *landmark_dists,
             const value_int n_cols,
@@ -150,8 +150,7 @@ namespace detail {
         atomicAdd(total_landmark_points+blockIdx.x, n_points);
     }
 
-    template <typename value_idx, typename value_t, typename value_int = int,
-            int tpb = 32, typename reduce_func, typename accum_func>
+    template <typename value_idx>
     __global__ void write_plan_coo(const value_idx *landmark_indptr,
                                    const value_idx *coo_write_plan,
                                    const uint32_t *bitset,
@@ -275,9 +274,9 @@ namespace detail {
         prune_landmarks<<<n_query_pts, 128, 0, handle.get_stream()>>>(
                 ql_dists.data(), index.n, R_knn_inds.data(),
                 R_knn_dists.data(), index.get_R_radius(),
-                index.get_R(), index.get_R_indptr(),
+                index.get_R(), knn_dists, index.get_R_indptr(),
                 index.get_n_landmarks(), bitset_size, k,
-                bitset.data(), landmark_batches.data(),
+                batch_size, bitset.data(), landmark_batches.data(),
                 weight);
 
         // Sum of cardinality array is nnz of plan
@@ -298,16 +297,22 @@ namespace detail {
     }
 
     template<typename value_idx, typename value_t, int warp_q, int thread_q, int tpb>
-    __device__ void topk_merge(value_t smemK, value_idx smemV,
-                           value_idx query_id, value_idx *batch_inds, value_t *batch_dists,
-                          int batch_size, int k, bool *mutex,
-                          value_idx *knn_inds, value_t *knn_dists) {
+    __device__ void topk_merge(value_t *smemK,
+                               value_idx *smemV,
+                               value_idx query_id,
+                               value_idx *batch_inds,
+                               value_t *batch_dists,
+                               int batch_size,
+                               int k,
+                               bool *mutex,
+                               value_idx *knn_inds,
+                               value_t *knn_dists) {
 
-        faiss::gpu::BlockSelect<value_t, value_idx, false,
+        faiss::gpu::BlockSelect<value_t, value_idx, true,
                 faiss::gpu::Comparator<value_t>, warp_q,
                 thread_q, tpb>
                 heap(faiss::gpu::Limits<value_t>::getMax(),
-                     faiss::gpu::Limits<value_t>::getMax(), -1, smemK, smemV, k);
+                     faiss::gpu::Limits<value_t>::getMax(), smemK, smemV, k);
 
         /**
          * First add batch
@@ -324,7 +329,7 @@ namespace detail {
 
         if(threadIdx.x == 0) {
             bool isSet = false;
-            do { isSet = atomicCAS(mutex+query_id, 0, 1) == 0; } while (!isSet);
+            do { isSet = atomicCAS(mutex+query_id, false, true) == 0; } while (!isSet);
         }
 
         __syncthreads();
@@ -344,7 +349,7 @@ namespace detail {
             knn_inds[query_id * k + i] = smemV[i];
         }
 
-        mutex[query_id] = 0;
+        mutex[query_id] = false;
     }
 
     /**
@@ -370,8 +375,8 @@ namespace detail {
             int warp_q, int thread_q, int tpb, int batch_size=2048>
     __global__ void compute_dists(const value_t *X,
                                   const value_t *query,
-                                  int k,
-                                  int n_cols,
+                                  const int k,
+                                  const int n_cols,
                                   const value_idx *R_indptr,
                                   const value_idx *R_1nn_cols,
                                   const value_idx *plan_query_ids_coo,
@@ -397,10 +402,10 @@ namespace detail {
 
         __syncthreads();
 
-        int offset_start = plan_offset_ids_coo[blockIdx.x];
-        int offset_stop = R_indptr[plan_landmark_ids_coo[blockIdx.x]+1];
+        value_idx offset_start = plan_offset_ids_coo[blockIdx.x];
+        value_idx offset_stop = R_indptr[plan_landmark_ids_coo[blockIdx.x]+1];
 
-        int working_batch_size = min(offset_stop-offset_start, batch_size);
+        int working_batch_size = min(offset_stop-offset_start, (value_idx)batch_size);
 
         for(int i = threadIdx.x; i < working_batch_size; i+= blockDim.x)
             batch_inds[i] =  R_1nn_cols[offset_start + i];
@@ -410,7 +415,7 @@ namespace detail {
         // in chunks of block_dims, compute distances, store to smem / registers
         for(int i = threadIdx.x; i < working_batch_size; i+=blockDim.x) {
 
-            value_t point_index = batch_inds[i];
+            value_idx point_index = batch_inds[i];
 
             value_t dist = 0;
             for(int j =  threadIdx.y; j < n_cols; j+=blockDim.y)
@@ -420,7 +425,7 @@ namespace detail {
         }
 
         topk_merge<value_idx, value_t, warp_q, thread_q, tpb>(
-                smemK, smemV, mutex, batch_inds, batch_dists, working_batch_size, k, knn_inds, knn_dists);
+                smemK, smemV, query_id, batch_inds, batch_dists, working_batch_size, k, mutex, knn_inds, knn_dists);
     }
 
 
@@ -442,7 +447,7 @@ namespace detail {
     template<typename value_idx, typename value_t, typename value_int = int, int batch_size=2048>
     void execute_plan(const raft::handle_t &handle,
                       BallCoverIndex<value_idx, value_t> &index,
-                      const raft::sparse::COO<value_idx, value_idx> &plan_coo,
+                      raft::sparse::COO<value_idx, value_idx> &plan_coo,
                       int k, const value_t *query,
                       value_int n_query_pts,
                       value_idx *knn_inds,
@@ -452,11 +457,11 @@ namespace detail {
         // Each block of the resulting distances kernel needs to look up the current knn to see if the distances
         // are still worth computing, then they need to compute
         rmm::device_uvector<bool> mutex(n_query_pts, handle.get_stream());
-        compute_dists<value_idx, value_t, 32, 2, 128, batch_size>
+        compute_dists<value_idx, value_t, value_int, 32, 2, 128, batch_size>
                 <<<n_query_pts, 128, 0, handle.get_stream()>>>(
                 index.get_X(), query, k, index.n,
                 index.get_R_indptr(), index.get_R_1nn_cols(),
-                plan_coo.rows(), plan_coo.cols(), plan_coo.vals(), mutex,
+                plan_coo.rows(), plan_coo.cols(), plan_coo.vals(), mutex.data(),
                 knn_inds, knn_dists);
     }
 

@@ -325,6 +325,10 @@ void rbc_all_knn_query(const raft::handle_t &handle,
   rmm::device_uvector<value_idx> R_knn_inds(k * index.m, handle.get_stream());
   rmm::device_uvector<value_t> R_knn_dists(k * index.m, handle.get_stream());
 
+  /**
+   * Build index first. This is done once, rather than explicitly invoking `rbc_build_index`
+   * so that we can reuse the radii and k closest landmarks.
+   */
   // For debugging / verification. Remove before releasing
   rmm::device_uvector<int> dists_counter(index.m, handle.get_stream());
   rmm::device_uvector<int> post_dists_counter(index.m, handle.get_stream());
@@ -339,10 +343,18 @@ void rbc_all_knn_query(const raft::handle_t &handle,
 
   compute_landmark_radii(handle, index);
 
-  perform_rbc_query(handle, index, index.get_X(), index.m, k, R_knn_inds.data(),
-                    R_knn_dists.data(), dfunc, inds, dists,
-                    dists_counter.data(), post_dists_counter.data(), weight,
-                    perform_post_filtering);
+  if(index.n == 2) {
+    perform_rbc_query(handle, index, index.get_X(), index.m, k, R_knn_inds.data(),
+      R_knn_dists.data(), dfunc, inds, dists,
+      dists_counter.data(), post_dists_counter.data(), weight,
+      perform_post_filtering);
+  } else if(index.n > 2) {
+      raft::sparse::COO<value_idx, value_idx> plan_coo(handle.get_stream());
+      compute_plan(handle, index, k, index.get_X(),  index.m, inds, dists, plan_coo);
+      execute_plan(handle, index, plan_coo, k, index.get_X(), index.m, inds, dists);
+  } else {
+      // TODO: Raise exception
+  }
 }
 
 /**
@@ -400,6 +412,8 @@ void rbc_knn_query(const raft::handle_t &handle,
       raft::sparse::COO<value_idx, value_idx> plan_coo(handle.get_stream());
       compute_plan(handle, index, k, query,  n_query_pts, inds, dists, plan_coo);
       execute_plan(handle, index, plan_coo, k, query, n_query_pts, inds, dists);
+  } else {
+      // TODO: Raise exception
   }
 }
 
