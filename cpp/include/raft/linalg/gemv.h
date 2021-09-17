@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,49 +26,116 @@ namespace raft {
 namespace linalg {
 
 template <typename math_t>
-void gemv(const raft::handle_t& handle, const math_t* a, int n_rows, int n_cols,
-          const math_t* x, int incx, math_t* y, int incy, bool trans_a,
-          math_t alpha, math_t beta, cudaStream_t stream) {
+void gemv(const raft::handle_t &handle, const math_t *A, const int n_rows,
+          const int n_cols, const math_t *x, const int incx, math_t *y,
+          const int incy, const bool trans_a, const math_t alpha,
+          const math_t beta, cudaStream_t stream) {
   cublasHandle_t cublas_h = handle.get_cublas_handle();
-
   cublasOperation_t op_a = trans_a ? CUBLAS_OP_T : CUBLAS_OP_N;
-
-  // Unfortunately there is a clash of terminology
-  // in BLAS https://docs.nvidia.com/cuda/cublas/index.html is opposite to Machine Learning
-  // In blas:
-  //  m - number of rows in input matrix
-  //  n - number of columns in input matrix
-  //  lda - purpose of it  to have ability to operate on submatrices of matrix without copying.
-  //        If you're not think about it it's always should be equal to m
-  //  lda has deal with memory layout, but has nothing with the requirement for cuBLAS perform transpose
-
-  // In Machine Learning:
-  //  m - nunmber of columns in design matrix(number of features)
-  //  n - number of rows in designed matrix (number of train examples)
-
-  int m = n_rows;
-  int n = n_cols;
-  int lda = trans_a ? m : n;
-
-  CUBLAS_CHECK(cublasgemv(cublas_h, op_a, m, n, &alpha, a, lda, x, incx, &beta,
-                          y, incy, stream));
+  CUBLAS_CHECK(cublasgemv(cublas_h, op_a, n_rows, n_cols, &alpha, A, n_rows, x,
+                          incx, &beta, y, incy, stream));
 }
 
+/**
+ * y = alpha * op(A) * x + beta * y
+ *
+ * where
+ *
+ * @param A is a column-major matrix of size n_rows_a * n_cols_a.
+ *   op(A) is either the transpose operation (trans_a == true) or identity.
+ *
+ * @param lda is the leading dimension of A (number of rows); lda must be not smaller than n_rows_a.
+ *     set it when you need to use only the first n_rows_a rows of the matrix A, which has
+ *     (perhaps, due to padding) lda rows.
+ *
+ * @param x is a vector of size `trans_a ? n_rows_a : n_cols_a`.
+ *
+ * @param y is a vector of size `trans_a ? n_cols_a : n_rows_a`.
+ */
 template <typename math_t>
-void gemv(const raft::handle_t& handle, const math_t* a, int n_rows_a,
-          int n_cols_a, const math_t* x, math_t* y, bool trans_a, math_t alpha,
-          math_t beta, cudaStream_t stream) {
-  gemv(handle, a, n_rows_a, n_cols_a, x, 1, y, 1, trans_a, alpha, beta, stream);
+void gemv(const raft::handle_t &handle, const math_t *A, const int n_rows_a,
+          const int n_cols_a, const math_t *x, math_t *y, const bool trans_a,
+          const math_t alpha, const math_t beta, cudaStream_t stream) {
+  gemv(handle, A, n_rows_a, n_cols_a, x, 1, y, 1, trans_a, alpha, beta, stream);
 }
 
+/**
+ * y = op(A) * x
+ *
+ * where
+ *
+ * @param A is a column-major matrix of size n_rows_a * n_cols_a.
+ *   op(A) is either the transpose operation (trans_a == true) or identity.
+ *
+ * @param x is a vector of size `trans_a ? n_rows_a : n_cols_a`.
+ *
+ * @param y is a vector of size `trans_a ? n_cols_a : n_rows_a`.
+ */
 template <typename math_t>
-void gemv(const raft::handle_t& handle, const math_t* a, int n_rows_a,
-          int n_cols_a, const math_t* x, math_t* y, bool trans_a,
+void gemv(const raft::handle_t &handle, const math_t *A, const int n_rows_a,
+          const int n_cols_a, const math_t *x, math_t *y, const bool trans_a,
           cudaStream_t stream) {
   math_t alpha = math_t(1);
   math_t beta = math_t(0);
 
-  gemv(handle, a, n_rows_a, n_cols_a, x, 1, y, 1, trans_a, alpha, beta, stream);
+  gemv(handle, A, n_rows_a, n_cols_a, x, 1, y, 1, trans_a, alpha, beta, stream);
+}
+
+/**
+ * y = alpha * op(A) * x + beta * y
+ *
+ * where
+ *
+ * @param alpha is a scalar scale of Ax.
+ *
+ * @param beta is a scalar scale of y.
+ *
+ * @param A is a column-major matrix of size n_rows_a * n_cols_a.
+ *   op(A) is either the transpose operation (trans_a == true) or identity.
+ *
+ * @param lda is the leading dimension of A (number of rows); lda must be not smaller than n_rows_a.
+ *     set it when you need to use only the first n_rows_a rows of the matrix A, which has
+ *     (perhaps, due to padding) lda rows.
+ *
+ * @param x is a vector of size `trans_a ? n_rows_a : n_cols_a`.
+ *
+ * @param y is a vector of size `trans_a ? n_cols_a : n_rows_a`.
+ */
+template <typename math_t>
+void gemv(const raft::handle_t &handle, const math_t *A, const int n_rows_a,
+          const int n_cols_a, const int lda, const math_t *x, math_t *y,
+          const bool trans_a, const math_t alpha, const math_t beta,
+          cudaStream_t stream) {
+  cublasHandle_t cublas_h = handle.get_cublas_handle();
+  cublasOperation_t op_a = trans_a ? CUBLAS_OP_T : CUBLAS_OP_N;
+  CUBLAS_CHECK(cublasgemv(cublas_h, op_a, n_rows_a, n_cols_a, &alpha, A, lda, x,
+                          1, &beta, y, 1, stream));
+}
+
+/**
+ * y = op(A) * x
+ *
+ * where
+ *
+ * @param A is a column-major matrix of size n_rows_a * n_cols_a.
+ *   op(A) is either the transpose operation (trans_a == true) or identity.
+ *
+ * @param lda is the leading dimension of A (number of rows); lda must be not smaller than n_rows_a.
+ *     set it when you need to use only the first n_rows_a rows of the matrix A, which has
+ *     (perhaps, due to padding) lda rows.
+ *
+ * @param x is a vector of size `trans_a ? n_rows_a : n_cols_a`.
+ *
+ * @param y is a vector of size `trans_a ? n_cols_a : n_rows_a`.
+ *
+ */
+template <typename math_t>
+void gemv(const raft::handle_t &handle, const math_t *A, const int n_rows_a,
+          const int n_cols_a, const int lda, const math_t *x, math_t *y,
+          const bool trans_a, cudaStream_t stream) {
+  math_t alpha = math_t(1);
+  math_t beta = math_t(0);
+  gemv(handle, A, n_rows_a, n_cols_a, lda, x, y, trans_a, alpha, beta, stream);
 }
 
 };  // namespace linalg

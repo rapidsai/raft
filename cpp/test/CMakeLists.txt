@@ -47,6 +47,7 @@ add_executable(test_raft
     test/linalg/eig.cu
     test/linalg/eig_sel.cu
     test/linalg/gemm_layout.cu
+    test/linalg/gemv.cu
     test/linalg/map.cu
     test/linalg/map_then_reduce.cu
     test/linalg/matrix_vector_op.cu
@@ -131,7 +132,7 @@ PRIVATE
   FAISS::FAISS
   GTest::gtest
   GTest::gtest_main
-  OpenMP::OpenMP_CXX
   Threads::Threads
+  $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
   $<TARGET_NAME_IF_EXISTS:conda_env>
 )
