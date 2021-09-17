@@ -159,7 +159,7 @@ class handle_t {
     return streams_->get_stream(sid);
   }
 
-  int get_num_internal_streams() const { return streams_.get_pool_size(); }
+  int get_num_internal_streams() const { return streams_->get_pool_size(); }
   std::vector<cudaStream_t> get_internal_streams() const {
     std::vector<cudaStream_t> int_streams_vec;
     for (int i = 0; i < get_num_internal_streams(); i++) {
