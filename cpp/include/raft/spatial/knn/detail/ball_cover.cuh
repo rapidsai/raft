@@ -63,19 +63,17 @@ namespace detail {
 template <typename value_idx, typename value_t>
 void sample_landmarks(const raft::handle_t &handle,
                       BallCoverIndex<value_idx, value_t> &index) {
-  auto exec_policy = rmm::exec_policy(handle.get_stream());
-
   rmm::device_uvector<value_idx> R_1nn_cols2(index.n_landmarks,
                                              handle.get_stream());
   rmm::device_uvector<value_t> R_1nn_ones(index.m, handle.get_stream());
   rmm::device_uvector<value_idx> R_indices(index.n_landmarks,
                                            handle.get_stream());
 
-  thrust::sequence(thrust::cuda::par.on(handle.get_stream()),
+  thrust::sequence(handle.get_thrust_policy(),
                    index.get_R_1nn_cols(), index.get_R_1nn_cols() + index.m,
                    (value_idx)0);
 
-  thrust::fill(exec_policy, R_1nn_ones.data(),
+  thrust::fill(handle.get_thrust_policy(), R_1nn_ones.data(),
                R_1nn_ones.data() + R_1nn_ones.size(), 1.0);
 
   /**
@@ -107,15 +105,13 @@ void construct_landmark_1nn(const raft::handle_t &handle,
                             const value_idx *R_knn_inds_ptr,
                             const value_t *R_knn_dists_ptr, int k,
                             BallCoverIndex<value_idx, value_t> &index) {
-  auto exec_policy = rmm::exec_policy(handle.get_stream());
-
   rmm::device_uvector<value_idx> R_1nn_inds(index.m, handle.get_stream());
 
   value_idx *R_1nn_inds_ptr = R_1nn_inds.data();
   value_t *R_1nn_dists_ptr = index.get_R_1nn_dists();
 
   auto idxs = thrust::make_counting_iterator<value_idx>(0);
-  thrust::for_each(exec_policy, idxs, idxs + index.m,
+  thrust::for_each(handle.get_thrust_policy(), idxs, idxs + index.m,
                    [=] __device__(value_idx i) {
                      R_1nn_inds_ptr[i] = R_knn_inds_ptr[i * k];
                      R_1nn_dists_ptr[i] = R_knn_dists_ptr[i * k];
@@ -123,12 +119,10 @@ void construct_landmark_1nn(const raft::handle_t &handle,
 
   auto keys = thrust::make_zip_iterator(
     thrust::make_tuple(R_1nn_inds.data(), index.get_R_1nn_dists()));
-  auto vals =
-    thrust::make_zip_iterator(thrust::make_tuple(index.get_R_1nn_cols()));
 
   // group neighborhoods for each reference landmark and sort each group by distance
-  thrust::sort_by_key(thrust::cuda::par.on(handle.get_stream()), keys,
-                      keys + index.m, vals, NNComp());
+  thrust::sort_by_key(handle.get_thrust_policy(), keys,
+                      keys + index.m, index.get_R_1nn_cols(), NNComp());
 
   // convert to CSR for fast lookup
   raft::sparse::convert::sorted_coo_to_csr(
@@ -160,7 +154,7 @@ void k_closest_landmarks(const raft::handle_t &handle,
   brute_force_knn_impl<int, int64_t>(
     input, sizes, index.n, const_cast<value_t *>(query_pts), n_query_pts,
     R_knn_inds, R_knn_dists, k, handle.get_stream(), nullptr, 0, (bool)true,
-    (bool)true, nullptr, index.metric);
+    true, nullptr, index.metric);
 }
 
 /**
@@ -174,14 +168,13 @@ void k_closest_landmarks(const raft::handle_t &handle,
 template <typename value_idx, typename value_t>
 void compute_landmark_radii(const raft::handle_t &handle,
                             BallCoverIndex<value_idx, value_t> &index) {
-  auto exec_policy = rmm::exec_policy(handle.get_stream());
 
   auto entries = thrust::make_counting_iterator<value_idx>(0);
 
   const value_idx *R_indptr_ptr = index.get_R_indptr();
   const value_t *R_1nn_dists_ptr = index.get_R_1nn_dists();
   value_t *R_radius_ptr = index.get_R_radius();
-  thrust::for_each(exec_policy, entries, entries + index.n_landmarks,
+  thrust::for_each(handle.get_thrust_policy(), entries, entries + index.n_landmarks,
                    [=] __device__(value_idx input) {
                      value_idx last_row_idx = R_indptr_ptr[input + 1] - 1;
                      R_radius_ptr[input] = R_1nn_dists_ptr[last_row_idx];
@@ -371,7 +364,6 @@ void rbc_knn_query(const raft::handle_t &handle,
                    distance_func dfunc,
                    // approximate nn options
                    bool perform_post_filtering = true, float weight = 1.0) {
-  auto exec_policy = rmm::exec_policy(handle.get_stream());
   ASSERT(index.n == 2,
          "only 2d vectors are supported in current implementation");
   ASSERT(index.n_landmarks >= k, "number of landmark samples must be >= k");
@@ -386,7 +378,7 @@ void rbc_knn_query(const raft::handle_t &handle,
   // For debugging / verification. Remove before releasing
   rmm::device_uvector<int> dists_counter(index.m, handle.get_stream());
   rmm::device_uvector<int> post_dists_counter(index.m, handle.get_stream());
-  thrust::fill(exec_policy, post_dists_counter.data(),
+  thrust::fill(handle.get_thrust_policy(), post_dists_counter.data(),
                post_dists_counter.data() + index.m, 0);
 
   perform_rbc_query(handle, index, query, n_query_pts, k, R_knn_inds.data(),
