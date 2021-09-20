@@ -24,6 +24,15 @@ namespace raft {
 namespace spatial {
 namespace knn {
 
+/**
+ * Stores raw index data points, sampled landmarks, the 1-nns of index points
+ * to their closest landmarks, and the ball radii of each landmark. This
+ * class is intended to be constructed once and reused across subsequent
+ * queries.
+ * @tparam value_idx
+ * @tparam value_t
+ * @tparam value_int
+ */
 template <typename value_idx, typename value_t, typename value_int = int>
 class BallCoverIndex {
  public:
