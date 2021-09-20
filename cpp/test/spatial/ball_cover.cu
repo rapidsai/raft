@@ -39,13 +39,13 @@ template <typename value_idx, typename value_t>
 __global__ void count_discrepancies_kernel(value_idx *actual_idx,
                                            value_idx *expected_idx,
                                            value_t *actual, value_t *expected,
-                                           int m, int n, int *out,
+                                           uint32_t m, uint32_t n, uint32_t *out,
                                            float thres = 1e-1) {
-  int row = blockDim.x * blockIdx.x + threadIdx.x;
+    uint32_t row = blockDim.x * blockIdx.x + threadIdx.x;
 
   int n_diffs = 0;
   if (row < m) {
-    for (int i = 0; i < n; i++) {
+    for (uint32_t i = 0; i < n; i++) {
       value_t d = actual[row * n + i] - expected[row * n + i];
       bool matches = fabsf(d) <= thres;
       n_diffs += !matches;
@@ -55,19 +55,20 @@ __global__ void count_discrepancies_kernel(value_idx *actual_idx,
 }
 
 struct is_nonzero {
-  __host__ __device__ bool operator()(int &i) { return i > 0; }
+  __host__ __device__ bool operator()(uint32_t &i) { return i > 0; }
 };
 
 template <typename value_idx, typename value_t>
-int count_discrepancies(value_idx *actual_idx, value_idx *expected_idx,
-                        value_t *actual, value_t *expected, int m, int n,
-                        int *out, cudaStream_t stream) {
-  count_discrepancies_kernel<<<raft::ceildiv(m, 256), 256, 0, stream>>>(
+uint32_t count_discrepancies(value_idx *actual_idx, value_idx *expected_idx,
+                        value_t *actual, value_t *expected, uint32_t m, uint32_t n,
+                        uint32_t *out, cudaStream_t stream) {
+    uint32_t tpb = 256;
+  count_discrepancies_kernel<<<raft::ceildiv(m, tpb), tpb, 0, stream>>>(
     actual_idx, expected_idx, actual, expected, m, n, out);
 
   auto exec_policy = rmm::exec_policy(stream);
 
-  int result = thrust::count_if(exec_policy, out, out + m, is_nonzero());
+    uint32_t result = thrust::count_if(exec_policy, out, out + m, is_nonzero());
   return result;
 }
 
@@ -78,7 +79,7 @@ struct ToRadians {
 };
 
 struct BallCoverInputs {
-  int k = 2;
+  uint32_t k = 2;
   float weight = 1.0;
   raft::distance::DistanceType metric = raft::distance::DistanceType::Haversine;
 };
@@ -90,13 +91,13 @@ class BallCoverKNNQueryTest : public ::testing::TestWithParam<BallCoverInputs> {
     params = ::testing::TestWithParam<BallCoverInputs>::GetParam();
     raft::handle_t handle;
 
-    int k = params.k;
-    int weight = params.weight;
+    uint32_t k = params.k;
+    float weight = params.weight;
     auto metric = params.metric;
 
     std::vector<value_t> h_train_inputs = spatial_data;
 
-    int n = h_train_inputs.size() / d;
+    uint32_t n = h_train_inputs.size() / d;
 
     rmm::device_uvector<value_idx> d_ref_I(n * k, handle.get_stream());
     rmm::device_uvector<value_t> d_ref_D(n * k, handle.get_stream());
@@ -116,9 +117,9 @@ class BallCoverKNNQueryTest : public ::testing::TestWithParam<BallCoverInputs> {
     std::vector<int64_t> *translations = nullptr;
 
     std::vector<float *> input_vec = {d_train_inputs.data()};
-    std::vector<int> sizes_vec = {n};
+    std::vector<uint32_t> sizes_vec = {n};
 
-    raft::spatial::knn::detail::brute_force_knn_impl<int, int64_t>(
+    raft::spatial::knn::detail::brute_force_knn_impl<uint32_t, int64_t>(
       input_vec, sizes_vec, d, d_train_inputs.data(), n, d_ref_I.data(),
       d_ref_D.data(), k, handle.get_stream(), int_streams, 0, true, true,
       translations, metric);
@@ -132,7 +133,7 @@ class BallCoverKNNQueryTest : public ::testing::TestWithParam<BallCoverInputs> {
     BallCoverIndex<value_idx, value_t> index(handle, d_train_inputs.data(), n,
                                              d, metric);
 
-    raft::spatial::knn::rbc_build_index(handle, index, k);
+    raft::spatial::knn::rbc_build_index(handle, index);
     raft::spatial::knn::rbc_knn_query(handle, index, k, d_train_inputs.data(),
                                       n, d_pred_I.data(), d_pred_D.data(), true,
                                       weight);
@@ -142,7 +143,7 @@ class BallCoverKNNQueryTest : public ::testing::TestWithParam<BallCoverInputs> {
     // indices may or may not match exactly, depending upon the ordering which
     // can be nondeterministic.
 
-    rmm::device_uvector<int> discrepancies(n, handle.get_stream());
+    rmm::device_uvector<uint32_t> discrepancies(n, handle.get_stream());
     thrust::fill(handle.get_thrust_policy(), discrepancies.data(),
                  discrepancies.data() + discrepancies.size(), 0);
     //
@@ -160,7 +161,7 @@ class BallCoverKNNQueryTest : public ::testing::TestWithParam<BallCoverInputs> {
   void TearDown() override {}
 
  protected:
-  int d = 2;
+  uint32_t d = 2;
   BallCoverInputs params;
 };
 
@@ -171,13 +172,13 @@ class BallCoverAllKNNTest : public ::testing::TestWithParam<BallCoverInputs> {
     params = ::testing::TestWithParam<BallCoverInputs>::GetParam();
     raft::handle_t handle;
 
-    int k = params.k;
-    int weight = params.weight;
+    uint32_t k = params.k;
+    float weight = params.weight;
     auto metric = params.metric;
 
     std::vector<value_t> h_train_inputs = spatial_data;
 
-    int n = h_train_inputs.size() / d;
+      uint32_t n = h_train_inputs.size() / d;
 
     rmm::device_uvector<value_idx> d_ref_I(n * k, handle.get_stream());
     rmm::device_uvector<value_t> d_ref_D(n * k, handle.get_stream());
@@ -197,9 +198,9 @@ class BallCoverAllKNNTest : public ::testing::TestWithParam<BallCoverInputs> {
     std::vector<int64_t> *translations = nullptr;
 
     std::vector<float *> input_vec = {d_train_inputs.data()};
-    std::vector<int> sizes_vec = {n};
+    std::vector<uint32_t> sizes_vec = {n};
 
-    raft::spatial::knn::detail::brute_force_knn_impl<int, int64_t>(
+    raft::spatial::knn::detail::brute_force_knn_impl<uint32_t, int64_t>(
       input_vec, sizes_vec, d, d_train_inputs.data(), n, d_ref_I.data(),
       d_ref_D.data(), k, handle.get_stream(), int_streams, 0, true, true,
       translations, metric);
@@ -221,11 +222,11 @@ class BallCoverAllKNNTest : public ::testing::TestWithParam<BallCoverInputs> {
     // indices may or may not match exactly, depending upon the ordering which
     // can be nondeterministic.
 
-    rmm::device_uvector<int> discrepancies(n, handle.get_stream());
+    rmm::device_uvector<uint32_t> discrepancies(n, handle.get_stream());
     thrust::fill(handle.get_thrust_policy(), discrepancies.data(),
                  discrepancies.data() + discrepancies.size(), 0);
     //
-    int res = count_discrepancies(d_ref_I.data(), d_pred_I.data(),
+      uint32_t res = count_discrepancies(d_ref_I.data(), d_pred_I.data(),
                                   d_ref_D.data(), d_pred_D.data(), n, k,
                                   discrepancies.data(), handle.get_stream());
     ASSERT_TRUE(res == 0);
@@ -236,7 +237,7 @@ class BallCoverAllKNNTest : public ::testing::TestWithParam<BallCoverInputs> {
   void TearDown() override {}
 
  protected:
-  int d = 2;
+    uint32_t d = 2;
   BallCoverInputs params;
 };
 

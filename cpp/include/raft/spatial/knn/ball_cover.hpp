@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include <cstdint>
+
 #include <raft/linalg/distance_type.h>
 #include <thrust/transform.h>
 #include "ball_cover_common.h"
@@ -26,20 +28,20 @@ namespace raft {
 namespace spatial {
 namespace knn {
 
-template <typename value_idx = int64_t, typename value_t,
-          typename value_int = int>
-inline void rbc_build_index(const raft::handle_t &handle,
-                            BallCoverIndex<value_idx, value_t> &index, int k) {
+template <typename value_idx = std::int64_t, typename value_t,
+          typename value_int = std::uint32_t>
+void rbc_build_index(const raft::handle_t &handle,
+                     BallCoverIndex<value_idx, value_t, value_int> &index) {
   ASSERT(index.n == 2,
          "Random ball cover currently only works in 2-dimensions");
   if (index.metric == raft::distance::DistanceType::Haversine) {
-    detail::rbc_build_index(handle, index, k, detail::HaversineFunc());
+    detail::rbc_build_index(handle, index, detail::HaversineFunc());
   } else if (index.metric == raft::distance::DistanceType::L2Expanded ||
              index.metric == raft::distance::DistanceType::L2Unexpanded) {
-    detail::rbc_build_index(handle, index, k, detail::EuclideanFunc());
+    detail::rbc_build_index(handle, index, detail::EuclideanFunc());
   } else if (index.metric == raft::distance::DistanceType::L2SqrtExpanded ||
              index.metric == raft::distance::DistanceType::L2SqrtUnexpanded) {
-    detail::rbc_build_index(handle, index, k, detail::EuclideanFunc());
+    detail::rbc_build_index(handle, index, detail::EuclideanFunc());
   }
 
   index.set_index_trained();
@@ -73,13 +75,12 @@ inline void rbc_build_index(const raft::handle_t &handle,
  *               many datasets can still have great recall even by only
  *               looking in the closest landmark.
  */
-template <typename value_idx = int64_t, typename value_t,
-          typename value_int = int>
-inline void rbc_all_knn_query(const raft::handle_t &handle,
-                              BallCoverIndex<value_idx, value_t> &index, int k,
-                              value_idx *inds, value_t *dists,
-                              bool perform_post_filtering = true,
-                              float weight = 1.0) {
+template <typename value_idx = std::int64_t, typename value_t,
+          typename value_int = std::uint32_t>
+void rbc_all_knn_query(const raft::handle_t &handle,
+                       BallCoverIndex<value_idx, value_t, value_int> &index,
+                       value_int k, value_idx *inds, value_t *dists,
+                       bool perform_post_filtering = true, float weight = 1.0) {
   ASSERT(index.n == 2,
          "Random ball cover currently only works in 2-dimensions");
   if (index.metric == raft::distance::DistanceType::Haversine) {
@@ -136,14 +137,13 @@ inline void rbc_all_knn_query(const raft::handle_t &handle,
  * @param dists
  * @param n_samples
  */
-template <typename value_idx = int64_t, typename value_t,
-          typename value_int = int>
-inline void rbc_knn_query(const raft::handle_t &handle,
-                          BallCoverIndex<value_idx, value_t> &index, int k,
-                          const value_t *query, value_int n_query_pts,
-                          value_idx *inds, value_t *dists,
-                          bool perform_post_filtering = true,
-                          float weight = 1.0) {
+template <typename value_idx = std::int64_t, typename value_t,
+          typename value_int = std::uint32_t>
+void rbc_knn_query(const raft::handle_t &handle,
+                   BallCoverIndex<value_idx, value_t, value_int> &index,
+                   value_int k, const value_t *query, value_int n_query_pts,
+                   value_idx *inds, value_t *dists,
+                   bool perform_post_filtering = true, float weight = 1.0) {
   ASSERT(index.n == 2,
          "Random ball cover currently only works in 2-dimensions");
   if (index.metric == raft::distance::DistanceType::Haversine) {

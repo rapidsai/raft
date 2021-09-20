@@ -17,6 +17,7 @@
 #pragma once
 
 #include <thrust/functional.h>
+#include <cstdint>
 #include "../haversine_distance.cuh"
 
 namespace raft {
@@ -37,22 +38,20 @@ struct NNComp {
 };
 
 struct HaversineFunc {
-  template <typename value_t>
-  __device__ __host__ __forceinline__ value_t operator()(const value_t *a,
-                                                         const value_t *b,
-                                                         const int n_dims) {
+  template <typename value_t, typename value_int = std::uint32_t>
+  __device__ __host__ __forceinline__ value_t
+  operator()(const value_t *a, const value_t *b, const value_int n_dims) {
     return raft::spatial::knn::detail::compute_haversine(a[0], b[0], a[1],
                                                          b[1]);
   }
 };
 
 struct EuclideanFunc {
-  template <typename value_t>
-  __device__ __host__ __forceinline__ value_t operator()(const value_t *a,
-                                                         const value_t *b,
-                                                         const int n_dims) {
+  template <typename value_t, typename value_int = std::uint32_t>
+  __device__ __host__ __forceinline__ value_t
+  operator()(const value_t *a, const value_t *b, const value_int n_dims) {
     value_t sum_sq = 0;
-    for (int i = 0; i < n_dims; i++) {
+    for (value_int i = 0; i < n_dims; ++i) {
       value_t diff = a[i] - b[i];
       sum_sq += diff * diff;
     }
@@ -64,12 +63,12 @@ struct EuclideanFunc {
 /**
  * Zeros the bit at location h in a one-hot encoded 32-bit int array
  */
-__device__ inline void _zero_bit(uint32_t *arr, uint32_t h) {
+__device__ inline void _zero_bit(std::uint32_t *arr, std::uint32_t h) {
   int bit = h % 32;
   int idx = h / 32;
 
-  uint32_t assumed;
-  uint32_t old = arr[idx];
+  std::uint32_t assumed;
+  std::uint32_t old = arr[idx];
   do {
     assumed = old;
     old = atomicCAS(arr + idx, assumed, assumed & ~(1 << bit));
@@ -80,7 +79,7 @@ __device__ inline void _zero_bit(uint32_t *arr, uint32_t h) {
  * Returns whether or not bit at location h is nonzero in a one-hot
  * encoded 32-bit in array.
  */
-__device__ inline bool _get_val(uint32_t *arr, uint32_t h) {
+__device__ inline bool _get_val(std::uint32_t *arr, std::uint32_t h) {
   int bit = h % 32;
   int idx = h / 32;
   return (arr[idx] & (1 << bit)) > 0;
