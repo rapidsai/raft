@@ -96,31 +96,33 @@ inline void rbc_all_knn_query(const raft::handle_t &handle,
                               value_idx *inds, value_t *dists,
                               bool perform_post_filtering = true,
                               float weight = 1.0) {
-  ASSERT(index.n == 2,
-         "Random ball cover currently only works in 2-dimensions");
-  if (index.metric == raft::distance::DistanceType::Haversine) {
-    detail::rbc_all_knn_query(handle, index, k, inds, dists,
-                              detail::HaversineFunc(), perform_post_filtering,
-                              weight);
-  } else if (index.metric == raft::distance::DistanceType::L2Expanded ||
-             index.metric == raft::distance::DistanceType::L2Unexpanded) {
-    detail::rbc_all_knn_query(handle, index, k, inds, dists,
-                              detail::EuclideanFunc(), perform_post_filtering,
-                              weight);
-  } else if (index.metric == raft::distance::DistanceType::L2SqrtExpanded ||
-             index.metric == raft::distance::DistanceType::L2SqrtUnexpanded) {
-    detail::rbc_all_knn_query(handle, index, k, inds, dists,
-                              detail::EuclideanFunc(), perform_post_filtering,
-                              weight);
+      ASSERT(index.n == 2,
+             "Random ball cover currently only works in 2-dimensions");
+      if (index.metric == raft::distance::DistanceType::Haversine) {
+        detail::rbc_all_knn_query(handle, index, k, inds, dists,
+                                  detail::HaversineFunc(),
+                                  perform_post_filtering, weight);
+      } else if (index.metric == raft::distance::DistanceType::L2Expanded ||
+                 index.metric == raft::distance::DistanceType::L2Unexpanded) {
+        detail::rbc_all_knn_query(handle, index, k, inds, dists,
+                                  detail::EuclideanFunc(),
+                                  perform_post_filtering, weight);
+      } else if (index.metric == raft::distance::DistanceType::L2SqrtExpanded ||
+                 index.metric ==
+                   raft::distance::DistanceType::L2SqrtUnexpanded) {
+        detail::rbc_all_knn_query(handle, index, k, inds, dists,
+                                  detail::EuclideanFunc(),
+                                  perform_post_filtering, weight);
 
-    thrust::transform(handle.get_thrust_policy(), dists, dists + (index.m * k),
-                      dists, [] __device__(value_t in) { return sqrt(in); });
-  }
+        thrust::transform(handle.get_thrust_policy(), dists,
+                          dists + (index.m * k), dists,
+                          [] __device__(value_t in) { return sqrt(in); });
+      }
 
-  index.set_index_trained();
-}
+      index.set_index_trained();
+    }
 
-/**
+    /**
  * Performs a faster exact knn in metric spaces using the triangle
  * inequality with a number of landmark points to reduce the
  * number of distance computations from O(n^2) to O(sqrt(n)). This
@@ -152,41 +154,42 @@ inline void rbc_all_knn_query(const raft::handle_t &handle,
  * @param dists
  * @param n_samples
  */
-template <typename value_idx = int64_t, typename value_t,
-          typename value_int = int>
-inline void rbc_knn_query(const raft::handle_t &handle,
-                          BallCoverIndex<value_idx, value_t> &index, int k,
-                          const value_t *query, value_int n_query_pts,
-                          value_idx *inds, value_t *dists,
-                          bool perform_post_filtering = true,
-                          float weight = 1.0) {
-  ASSERT(index.n == 2,
-         "Random ball cover currently only works in 2-dimensions");
-  if (index.metric == raft::distance::DistanceType::Haversine) {
-    detail::rbc_knn_query(handle, index, k, query, n_query_pts, inds, dists,
-                          detail::HaversineFunc(), perform_post_filtering,
-                          weight);
-  } else if (index.metric == raft::distance::DistanceType::L2Expanded ||
-             index.metric == raft::distance::DistanceType::L2Unexpanded) {
-    detail::rbc_knn_query(handle, index, k, query, n_query_pts, inds, dists,
-                          detail::EuclideanFunc(), perform_post_filtering,
-                          weight);
-  } else if (index.metric == raft::distance::DistanceType::L2SqrtExpanded ||
-             index.metric == raft::distance::DistanceType::L2SqrtUnexpanded) {
-    detail::rbc_knn_query(handle, index, k, query, n_query_pts, inds, dists,
-                          detail::EuclideanFunc(), perform_post_filtering,
-                          weight);
+    template <typename value_idx = int64_t, typename value_t,
+              typename value_int = int>
+    inline void rbc_knn_query(const raft::handle_t &handle,
+                              BallCoverIndex<value_idx, value_t> &index, int k,
+                              const value_t *query, value_int n_query_pts,
+                              value_idx *inds, value_t *dists,
+                              bool perform_post_filtering = true,
+                              float weight = 1.0) {
+      ASSERT(index.n == 2,
+             "Random ball cover currently only works in 2-dimensions");
+      if (index.metric == raft::distance::DistanceType::Haversine) {
+        detail::rbc_knn_query(handle, index, k, query, n_query_pts, inds, dists,
+                              detail::HaversineFunc(), perform_post_filtering,
+                              weight);
+      } else if (index.metric == raft::distance::DistanceType::L2Expanded ||
+                 index.metric == raft::distance::DistanceType::L2Unexpanded) {
+        detail::rbc_knn_query(handle, index, k, query, n_query_pts, inds, dists,
+                              detail::EuclideanFunc(), perform_post_filtering,
+                              weight);
+      } else if (index.metric == raft::distance::DistanceType::L2SqrtExpanded ||
+                 index.metric ==
+                   raft::distance::DistanceType::L2SqrtUnexpanded) {
+        detail::rbc_knn_query(handle, index, k, query, n_query_pts, inds, dists,
+                              detail::EuclideanFunc(), perform_post_filtering,
+                              weight);
 
-    thrust::transform(handle.get_thrust_policy(), dists,
-                      dists + (n_query_pts * k), dists,
-                      [] __device__(value_t in) { return sqrt(in); });
-  }
-}
+        thrust::transform(handle.get_thrust_policy(), dists,
+                          dists + (n_query_pts * k), dists,
+                          [] __device__(value_t in) { return sqrt(in); });
+      }
+    }
 
-// TODO: implement functions for:
-//  4. rbc_eps_neigh() - given a populated index, perform query against different query array
-//  5. rbc_all_eps_neigh() - populate a BallCoverIndex and query against training data
+    // TODO: implement functions for:
+    //  4. rbc_eps_neigh() - given a populated index, perform query against different query array
+    //  5. rbc_all_eps_neigh() - populate a BallCoverIndex and query against training data
 
-}  // namespace knn
-}  // namespace spatial
-}  // namespace raft
+    }  // namespace knn
+    }  // namespace spatial
+    }  // namespace raft

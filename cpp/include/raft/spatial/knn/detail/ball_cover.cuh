@@ -310,8 +310,7 @@ template <typename value_idx = int64_t, typename value_t,
 void rbc_knn_query(const raft::handle_t &handle,
                    BallCoverIndex<value_idx, value_t> &index, int k,
                    const value_t *query, value_int n_query_pts, value_idx *inds,
-                   value_t *dists,
-                   distance_func dfunc,
+                   value_t *dists, distance_func dfunc,
                    // approximate nn options
                    bool perform_post_filtering = true, float weight = 1.0) {
   ASSERT(index.n == 2,
