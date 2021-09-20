@@ -493,10 +493,8 @@ __global__ void block_rbc_kernel_smem(
   atomicAdd(dist_counter + blockIdx.x, n_dists);
 }
 
-
-
 void execute_plan() {
-    /**
+  /**
      * Using the plan COO constructed above, schedule nnz blocks. Each should have fairly uniform
      * number of distances to compute. Each block is 1d, where:
      *
@@ -519,7 +517,6 @@ void execute_plan() {
      *
      * out_dists[query_id * n_dists + ] += dist;
      */
-
 }
 
 };  // namespace detail

@@ -20,8 +20,8 @@
 
 #include "../ball_cover_common.h"
 #include "ball_cover/common.cuh"
-#include "ball_cover/registers.cuh"
 #include "ball_cover/plan.cuh"
+#include "ball_cover/registers.cuh"
 #include "block_select_faiss.cuh"
 #include "haversine_distance.cuh"
 #include "knn_brute_force_faiss.cuh"
@@ -300,17 +300,19 @@ void rbc_all_knn_query(const raft::handle_t &handle,
 
   compute_landmark_radii(handle, index);
 
-  if(index.n == 2) {
-    perform_rbc_query(handle, index, index.get_X(), index.m, k, R_knn_inds.data(),
-      R_knn_dists.data(), dfunc, inds, dists,
-      dists_counter.data(), post_dists_counter.data(), weight,
-      perform_post_filtering);
-  } else if(index.n > 2) {
-      raft::sparse::COO<value_idx, value_idx> plan_coo(handle.get_stream());
-      compute_plan(handle, index, k, index.get_X(),  index.m, inds, dists, plan_coo);
-      execute_plan(handle, index, plan_coo, k, index.get_X(), index.m, inds, dists);
+  if (index.n == 2) {
+    perform_rbc_query(handle, index, index.get_X(), index.m, k,
+                      R_knn_inds.data(), R_knn_dists.data(), dfunc, inds, dists,
+                      dists_counter.data(), post_dists_counter.data(), weight,
+                      perform_post_filtering);
+  } else if (index.n > 2) {
+    raft::sparse::COO<value_idx, value_idx> plan_coo(handle.get_stream());
+    compute_plan(handle, index, k, index.get_X(), index.m, inds, dists,
+                 plan_coo);
+    execute_plan(handle, index, plan_coo, k, index.get_X(), index.m, inds,
+                 dists);
   } else {
-      // TODO: Raise exception
+    // TODO: Raise exception
   }
 }
 
@@ -334,27 +336,27 @@ void rbc_knn_query(const raft::handle_t &handle,
   rmm::device_uvector<value_idx> R_knn_inds(k * index.m, handle.get_stream());
   rmm::device_uvector<value_t> R_knn_dists(k * index.m, handle.get_stream());
 
-  if(index.n == 2) {
-      k_closest_landmarks(handle, index, query, n_query_pts, k, R_knn_inds.data(),
-                          R_knn_dists.data());
+  if (index.n == 2) {
+    k_closest_landmarks(handle, index, query, n_query_pts, k, R_knn_inds.data(),
+                        R_knn_dists.data());
 
-      // For debugging / verification. Remove before releasing
-      rmm::device_uvector<int> dists_counter(index.m, handle.get_stream());
-      rmm::device_uvector<int> post_dists_counter(index.m, handle.get_stream());
-      thrust::fill(handle.get_thrust_policy(), post_dists_counter.data(),
-                   post_dists_counter.data() + index.m, 0);
+    // For debugging / verification. Remove before releasing
+    rmm::device_uvector<int> dists_counter(index.m, handle.get_stream());
+    rmm::device_uvector<int> post_dists_counter(index.m, handle.get_stream());
+    thrust::fill(handle.get_thrust_policy(), post_dists_counter.data(),
+                 post_dists_counter.data() + index.m, 0);
 
-      perform_rbc_query(handle, index, query, n_query_pts, k, R_knn_inds.data(),
-                        R_knn_dists.data(), dfunc, inds, dists,
-                        dists_counter.data(), post_dists_counter.data(), weight,
-                        perform_post_filtering);
+    perform_rbc_query(handle, index, query, n_query_pts, k, R_knn_inds.data(),
+                      R_knn_dists.data(), dfunc, inds, dists,
+                      dists_counter.data(), post_dists_counter.data(), weight,
+                      perform_post_filtering);
 
-  } else if(index.n > 2) {
-      raft::sparse::COO<value_idx, value_idx> plan_coo(handle.get_stream());
-      compute_plan(handle, index, k, query,  n_query_pts, inds, dists, plan_coo);
-      execute_plan(handle, index, plan_coo, k, query, n_query_pts, inds, dists);
+  } else if (index.n > 2) {
+    raft::sparse::COO<value_idx, value_idx> plan_coo(handle.get_stream());
+    compute_plan(handle, index, k, query, n_query_pts, inds, dists, plan_coo);
+    execute_plan(handle, index, plan_coo, k, query, n_query_pts, inds, dists);
   } else {
-      // TODO: Raise exception
+    // TODO: Raise exception
   }
 }
 
