@@ -39,9 +39,9 @@ template <typename value_idx, typename value_t>
 __global__ void count_discrepancies_kernel(value_idx *actual_idx,
                                            value_idx *expected_idx,
                                            value_t *actual, value_t *expected,
-                                           uint32_t m, uint32_t n, uint32_t *out,
-                                           float thres = 1e-1) {
-    uint32_t row = blockDim.x * blockIdx.x + threadIdx.x;
+                                           uint32_t m, uint32_t n,
+                                           uint32_t *out, float thres = 1e-1) {
+  uint32_t row = blockDim.x * blockIdx.x + threadIdx.x;
 
   int n_diffs = 0;
   if (row < m) {
@@ -60,15 +60,15 @@ struct is_nonzero {
 
 template <typename value_idx, typename value_t>
 uint32_t count_discrepancies(value_idx *actual_idx, value_idx *expected_idx,
-                        value_t *actual, value_t *expected, uint32_t m, uint32_t n,
-                        uint32_t *out, cudaStream_t stream) {
-    uint32_t tpb = 256;
+                             value_t *actual, value_t *expected, uint32_t m,
+                             uint32_t n, uint32_t *out, cudaStream_t stream) {
+  uint32_t tpb = 256;
   count_discrepancies_kernel<<<raft::ceildiv(m, tpb), tpb, 0, stream>>>(
     actual_idx, expected_idx, actual, expected, m, n, out);
 
   auto exec_policy = rmm::exec_policy(stream);
 
-    uint32_t result = thrust::count_if(exec_policy, out, out + m, is_nonzero());
+  uint32_t result = thrust::count_if(exec_policy, out, out + m, is_nonzero());
   return result;
 }
 
@@ -178,7 +178,7 @@ class BallCoverAllKNNTest : public ::testing::TestWithParam<BallCoverInputs> {
 
     std::vector<value_t> h_train_inputs = spatial_data;
 
-      uint32_t n = h_train_inputs.size() / d;
+    uint32_t n = h_train_inputs.size() / d;
 
     rmm::device_uvector<value_idx> d_ref_I(n * k, handle.get_stream());
     rmm::device_uvector<value_t> d_ref_D(n * k, handle.get_stream());
@@ -226,9 +226,9 @@ class BallCoverAllKNNTest : public ::testing::TestWithParam<BallCoverInputs> {
     thrust::fill(handle.get_thrust_policy(), discrepancies.data(),
                  discrepancies.data() + discrepancies.size(), 0);
     //
-      uint32_t res = count_discrepancies(d_ref_I.data(), d_pred_I.data(),
-                                  d_ref_D.data(), d_pred_D.data(), n, k,
-                                  discrepancies.data(), handle.get_stream());
+    uint32_t res = count_discrepancies(
+      d_ref_I.data(), d_pred_I.data(), d_ref_D.data(), d_pred_D.data(), n, k,
+      discrepancies.data(), handle.get_stream());
     ASSERT_TRUE(res == 0);
   }
 
@@ -237,7 +237,7 @@ class BallCoverAllKNNTest : public ::testing::TestWithParam<BallCoverInputs> {
   void TearDown() override {}
 
  protected:
-    uint32_t d = 2;
+  uint32_t d = 2;
   BallCoverInputs params;
 };
 
