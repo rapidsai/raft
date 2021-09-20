@@ -220,29 +220,6 @@ void perform_rbc_query(const raft::handle_t &handle,
  * This function variant performs an all nearest neighbors
  * query which is useful for algorithms that need to perform
  * A * A.T.
- *
- * @tparam value_idx
- * @tparam value_t
- * @tparam value_int
- * @tparam distance_func
- * @param[in] handle raft handle for resource management
- * @param[inout] index previously untrained index
- * @param[in] k number neighbors to return
- * @param[out] inds output indices
- * @param[out] dists output distances
- * @param[in] dfunc
- * @param[in] perform_post_filtering turn off computing distances for
- *            additional landmarks outside of the closest k, if necessary.
- *            This can save a little computation time for approximate
- *            nearest neighbors and will generally return great recall.
- * @param[in] weight a weight for overlap between the closest landmark and
- *                   the radius of other landmarks when pruning distances.
- *                   Setting this value below 1 can effectively turn off
- *                   computing distances against many other balls, enabling
- *                   approximate nearest neighbors. Recall can be adjusted
- *                   based on how many relevant balls are ignored. Note that
- *                   many datasets can still have great recall even by only
- *                   looking in the closest landmark.
  */
 template <typename value_idx = int64_t, typename value_t,
           typename value_int = int, typename distance_func>
@@ -285,19 +262,7 @@ void rbc_build_index(const raft::handle_t &handle,
 }
 
 /**
- *
- * @tparam value_idx
- * @tparam value_t
- * @tparam value_int
- * @tparam distance_func
- * @param handle
- * @param index
- * @param k
- * @param inds
- * @param dists
- * @param dfunc
- * @param perform_post_filtering
- * @param weight
+ * Performs an all neighbors knn query (e.g. index == query)
  */
 template <typename value_idx = int64_t, typename value_t,
           typename value_int = int, typename distance_func>
@@ -337,21 +302,8 @@ void rbc_all_knn_query(const raft::handle_t &handle,
 }
 
 /**
- *
- * @tparam value_idx
- * @tparam value_t
- * @tparam value_int
- * @tparam distance_func
- * @param handle
- * @param index
- * @param k
- * @param query
- * @param n_query_pts
- * @param inds
- * @param dists
- * @param dfunc
- * @param perform_post_filtering
- * @param weight
+ * Performs a knn query against an index. This assumes the index has
+ * already been built.
  */
 template <typename value_idx = int64_t, typename value_t,
           typename value_int = int, typename distance_func>
@@ -359,7 +311,6 @@ void rbc_knn_query(const raft::handle_t &handle,
                    BallCoverIndex<value_idx, value_t> &index, int k,
                    const value_t *query, value_int n_query_pts, value_idx *inds,
                    value_t *dists,
-                   // TODO: Remove this from user-facing API
                    distance_func dfunc,
                    // approximate nn options
                    bool perform_post_filtering = true, float weight = 1.0) {

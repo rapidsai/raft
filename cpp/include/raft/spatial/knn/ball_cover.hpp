@@ -45,21 +45,49 @@ inline void rbc_build_index(const raft::handle_t &handle,
   index.set_index_trained();
 }
 
+    * @tparam value_idx
+    * @tparam value_t
+    * @tparam value_int
+    * @tparam distance_func
+    * @param[in] handle raft handle for resource management
+    * @param[inout] index previously untrained index
+    * @param[in] k number neighbors to return
+    * @param[out] inds output indices
+    * @param[out] dists output distances
+    * @param[in] dfunc
+    * @param[in] perform_post_filtering turn off computing distances for
+    *            additional landmarks outside of the closest k, if necessary.
+    *            This can save a little computation time for approximate
+            *            nearest neighbors and will generally return great recall.
+
+
 /**
  * Performs a faster exact knn in metric spaces using the triangle
  * inequality with a number of landmark points to reduce the
- * number of distance computations from O(n^2) to O(sqrt(n))
- * @tparam value_idx
- * @tparam value_t
- * @tparam value_int
- * @param handle
- * @param X
- * @param m
- * @param n
- * @param k
- * @param inds
- * @param dists
- * @param n_samples
+ * number of distance computations from O(n^2) to O(sqrt(n)). This
+ * performs an all neighbors knn, which can reuse memory when
+ * the index and query are the same array. This function will
+ * build the index and assumes rbc_build_index() has not already
+ * been called.
+ * @tparam value_idx knn index type
+ * @tparam value_t knn distance type
+ * @tparam value_int type for integers, such as number of rows/cols
+ * @param handle raft handle for resource management
+ * @param index ball cover index which has not yet been built
+ * @param k number of nearest neighbors to find
+ * @param perform_post_filtering if this is false, only the closest k landmarks
+ *                               are considered (which will return approximate
+ *                               results).
+ * @param[out] inds output knn indices
+ * @param[out] dists output knn distances
+ * @param weight a weight for overlap between the closest landmark and
+ *               the radius of other landmarks when pruning distances.
+ *               Setting this value below 1 can effectively turn off
+ *               computing distances against many other balls, enabling
+ *               approximate nearest neighbors. Recall can be adjusted
+ *               based on how many relevant balls are ignored. Note that
+ *               many datasets can still have great recall even by only
+ *               looking in the closest landmark.
  */
 template <typename value_idx = int64_t, typename value_t,
           typename value_int = int>
@@ -92,6 +120,38 @@ inline void rbc_all_knn_query(const raft::handle_t &handle,
   index.set_index_trained();
 }
 
+/**
+ * Performs a faster exact knn in metric spaces using the triangle
+ * inequality with a number of landmark points to reduce the
+ * number of distance computations from O(n^2) to O(sqrt(n)). This
+ * function does not build the index and assumes rbc_build_index() has
+ * already been called. Use this function when the index and
+ * query arrays are different, otherwise use rbc_all_knn_query().
+ * @tparam value_idx index type
+ * @tparam value_t distances type
+ * @tparam value_int integer type for size info
+ * @param handle raft handle for resource management
+ * @param index ball cover index which has not yet been built
+ * @param k number of nearest neighbors to find
+ * @param query the
+ * @param perform_post_filtering if this is false, only the closest k landmarks
+ *                               are considered (which will return approximate
+ *                               results).
+ * @param[out] inds output knn indices
+ * @param[out] dists output knn distances
+ * @param weight a weight for overlap between the closest landmark and
+ *               the radius of other landmarks when pruning distances.
+ *               Setting this value below 1 can effectively turn off
+ *               computing distances against many other balls, enabling
+ *               approximate nearest neighbors. Recall can be adjusted
+ *               based on how many relevant balls are ignored. Note that
+ *               many datasets can still have great recall even by only
+ *               looking in the closest landmark.
+ * @param k
+ * @param inds
+ * @param dists
+ * @param n_samples
+ */
 template <typename value_idx = int64_t, typename value_t,
           typename value_int = int>
 inline void rbc_knn_query(const raft::handle_t &handle,
