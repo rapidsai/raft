@@ -202,6 +202,13 @@ class mpi_comms : public comms_iface {
                            nccl_comm_, stream));
   }
 
+  void bcast(const void* sendbuff, void* recvbuff, size_t count,
+             datatype_t datatype, int root, cudaStream_t stream) const {
+    NCCL_TRY(ncclBroadcast(sendbuff, recvbuff, count,
+                           get_nccl_datatype(datatype), root, nccl_comm_,
+                           stream));
+  }
+
   void reduce(const void* sendbuff, void* recvbuff, size_t count,
               datatype_t datatype, op_t op, int root,
               cudaStream_t stream) const {
