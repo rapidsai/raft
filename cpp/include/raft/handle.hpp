@@ -61,8 +61,10 @@ class handle_t {
         int cur_dev = -1;
         CUDA_CHECK(cudaGetDevice(&cur_dev));
         return cur_dev;
-      }()),
-      streams_(n_streams) {
+      }()) {
+    if (n_streams != 0) {
+      streams_ = std::make_unique<rmm::cuda_stream_pool>(n_streams);
+    }
     create_resources();
     thrust_policy_ = std::make_unique<rmm::exec_policy>(user_stream_);
   }
@@ -78,10 +80,13 @@ class handle_t {
    */
   handle_t(const handle_t& other, int stream_id,
            int n_streams = kNumDefaultWorkerStreams)
-    : dev_id_(other.get_device()), streams_(n_streams) {
+    : dev_id_(other.get_device()) {
     RAFT_EXPECTS(
       other.get_num_internal_streams() > 0,
       "ERROR: the main handle must have at least one worker stream\n");
+    if (n_streams != 0) {
+      streams_ = std::make_unique<rmm::cuda_stream_pool>(n_streams);
+    }
     prop_ = other.get_device_properties();
     device_prop_initialized_ = true;
     create_resources();
@@ -140,14 +145,23 @@ class handle_t {
 
   // legacy compatibility for cuML
   cudaStream_t get_internal_stream(int sid) const {
-    return streams_.get_stream(sid).value();
+    RAFT_EXPECTS(
+      streams_.get() != nullptr,
+      "ERROR: rmm::cuda_stream_pool was not initialized with a non-zero value");
+    return streams_->get_stream(sid).value();
   }
   // new accessor return rmm::cuda_stream_view
   rmm::cuda_stream_view get_internal_stream_view(int sid) const {
-    return streams_.get_stream(sid);
+    RAFT_EXPECTS(
+      streams_.get() != nullptr,
+      "ERROR: rmm::cuda_stream_pool was not initialized with a non-zero value");
+    return streams_->get_stream(sid);
   }
 
-  int get_num_internal_streams() const { return streams_.get_pool_size(); }
+  int get_num_internal_streams() const {
+    return streams_.get() != nullptr ? streams_->get_pool_size() : 0;
+  }
+
   std::vector<cudaStream_t> get_internal_streams() const {
     std::vector<cudaStream_t> int_streams_vec;
     for (int i = 0; i < get_num_internal_streams(); i++) {
@@ -212,7 +226,7 @@ class handle_t {
   std::unordered_map<std::string, std::shared_ptr<comms::comms_t>> subcomms_;
 
   const int dev_id_;
-  rmm::cuda_stream_pool streams_{0};
+  std::unique_ptr<rmm::cuda_stream_pool> streams_{nullptr};
   mutable cublasHandle_t cublas_handle_;
   mutable bool cublas_initialized_{false};
   mutable cusolverDnHandle_t cusolver_dn_handle_;
