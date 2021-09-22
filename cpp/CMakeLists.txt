@@ -114,6 +114,9 @@ endif()
 ##############################################################################
 # - install targets-----------------------------------------------------------
 rapids_cmake_install_lib_dir( lib_dir )
+
+include(CPack)
+
 add_library(raft INTERFACE)
 add_library(raft::raft ALIAS raft)
 target_include_directories(raft INTERFACE "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/include>"
