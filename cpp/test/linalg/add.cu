@@ -38,8 +38,9 @@ class AddTest : public ::testing::TestWithParam<AddInputs<InT, OutT>> {
     raft::allocate(out, len, stream);
     r.uniform(in1, len, InT(-1.0), InT(1.0), stream);
     r.uniform(in2, len, InT(-1.0), InT(1.0), stream);
-    naiveAddElem<InT, OutT>(out_ref, in1, in2, len);
+    naiveAddElem<InT, OutT>(out_ref, in1, in2, len, stream);
     add<InT, OutT>(out, in1, in2, len, stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
   void TearDown() override {

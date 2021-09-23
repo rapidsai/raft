@@ -76,8 +76,6 @@ class RowNormTest : public ::testing::TestWithParam<NormInputs<T>> {
     params = ::testing::TestWithParam<NormInputs<T>>::GetParam();
     raft::random::Rng r(params.seed);
     int rows = params.rows, cols = params.cols, len = rows * cols;
-    cudaStream_t stream;
-    CUDA_CHECK(cudaStreamCreate(&stream));
     raft::allocate(data, len, stream);
     raft::allocate(dots_exp, rows, stream);
     raft::allocate(dots_act, rows, stream);
@@ -91,7 +89,7 @@ class RowNormTest : public ::testing::TestWithParam<NormInputs<T>> {
     } else {
       rowNorm(dots_act, data, cols, rows, params.type, params.rowMajor, stream);
     }
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
   void TearDown() override {
@@ -141,8 +139,6 @@ class ColNormTest : public ::testing::TestWithParam<NormInputs<T>> {
     params = ::testing::TestWithParam<NormInputs<T>>::GetParam();
     raft::random::Rng r(params.seed);
     int rows = params.rows, cols = params.cols, len = rows * cols;
-    cudaStream_t stream;
-    CUDA_CHECK(cudaStreamCreate(&stream));
     raft::allocate(data, len, stream);
     r.uniform(data, len, T(-1.0), T(1.0), stream);
     raft::allocate(dots_exp, cols, stream);

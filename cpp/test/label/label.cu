@@ -82,6 +82,7 @@ TEST(labelTest, Classlabels) {
 
   rmm::device_uvector<float> y_unique_d(0, stream);
   int n_classes = getUniquelabels(y_unique_d, y_d, n_rows, stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 
   ASSERT_EQ(n_classes, 3);
 
@@ -94,6 +95,7 @@ TEST(labelTest, Classlabels) {
 
   getOvrlabels(y_d, n_rows, y_unique_d.data(), n_classes, y_relabeled_d, 2,
                stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 
   float y_relabeled_exp[] = {1, -1, -1, 1, -1, -1};
   EXPECT_TRUE(devArrMatchHost(y_relabeled_exp, y_relabeled_d, n_rows,

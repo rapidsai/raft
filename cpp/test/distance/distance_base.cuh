@@ -295,7 +295,8 @@ __global__ void naiveCorrelationDistanceKernel(OutType *dist, const DataType *x,
 template <typename DataType>
 void naiveDistance(DataType *dist, const DataType *x, const DataType *y, int m,
                    int n, int k, raft::distance::DistanceType type,
-                   bool isRowMajor, DataType metric_arg = 2.0f) {
+                   bool isRowMajor, DataType metric_arg = 2.0f,
+                   cudaStream_t stream = 0) {
   static const dim3 TPB(16, 32, 1);
   dim3 nblks(raft::ceildiv(m, (int)TPB.x), raft::ceildiv(n, (int)TPB.y), 1);
 
@@ -304,46 +305,46 @@ void naiveDistance(DataType *dist, const DataType *x, const DataType *y, int m,
     case raft::distance::DistanceType::Linf:
     case raft::distance::DistanceType::L1:
       naiveL1_Linf_CanberraDistanceKernel<DataType>
-        <<<nblks, TPB>>>(dist, x, y, m, n, k, type, isRowMajor);
+        <<<nblks, TPB, 0, stream>>>(dist, x, y, m, n, k, type, isRowMajor);
       break;
     case raft::distance::DistanceType::L2SqrtUnexpanded:
     case raft::distance::DistanceType::L2Unexpanded:
     case raft::distance::DistanceType::L2SqrtExpanded:
     case raft::distance::DistanceType::L2Expanded:
       naiveDistanceKernel<DataType>
-        <<<nblks, TPB>>>(dist, x, y, m, n, k, type, isRowMajor);
+        <<<nblks, TPB, 0, stream>>>(dist, x, y, m, n, k, type, isRowMajor);
       break;
     case raft::distance::DistanceType::CosineExpanded:
       naiveCosineDistanceKernel<DataType>
-        <<<nblks, TPB>>>(dist, x, y, m, n, k, isRowMajor);
+        <<<nblks, TPB, 0, stream>>>(dist, x, y, m, n, k, isRowMajor);
       break;
     case raft::distance::DistanceType::HellingerExpanded:
       naiveHellingerDistanceKernel<DataType>
-        <<<nblks, TPB>>>(dist, x, y, m, n, k, isRowMajor);
+        <<<nblks, TPB, 0, stream>>>(dist, x, y, m, n, k, isRowMajor);
       break;
     case raft::distance::DistanceType::LpUnexpanded:
-      naiveLpUnexpDistanceKernel<DataType>
-        <<<nblks, TPB>>>(dist, x, y, m, n, k, isRowMajor, metric_arg);
+      naiveLpUnexpDistanceKernel<DataType><<<nblks, TPB, 0, stream>>>(
+        dist, x, y, m, n, k, isRowMajor, metric_arg);
       break;
     case raft::distance::DistanceType::HammingUnexpanded:
       naiveHammingDistanceKernel<DataType>
-        <<<nblks, TPB>>>(dist, x, y, m, n, k, isRowMajor);
+        <<<nblks, TPB, 0, stream>>>(dist, x, y, m, n, k, isRowMajor);
       break;
     case raft::distance::DistanceType::JensenShannon:
       naiveJensenShannonDistanceKernel<DataType>
-        <<<nblks, TPB>>>(dist, x, y, m, n, k, isRowMajor);
+        <<<nblks, TPB, 0, stream>>>(dist, x, y, m, n, k, isRowMajor);
       break;
     case raft::distance::DistanceType::RusselRaoExpanded:
       naiveRussellRaoDistanceKernel<DataType>
-        <<<nblks, TPB>>>(dist, x, y, m, n, k, isRowMajor);
+        <<<nblks, TPB, 0, stream>>>(dist, x, y, m, n, k, isRowMajor);
       break;
     case raft::distance::DistanceType::KLDivergence:
       naiveKLDivergenceDistanceKernel<DataType>
-        <<<nblks, TPB>>>(dist, x, y, m, n, k, isRowMajor);
+        <<<nblks, TPB, 0, stream>>>(dist, x, y, m, n, k, isRowMajor);
       break;
     case raft::distance::DistanceType::CorrelationExpanded:
       naiveCorrelationDistanceKernel<DataType>
-        <<<nblks, TPB>>>(dist, x, y, m, n, k, isRowMajor);
+        <<<nblks, TPB, 0, stream>>>(dist, x, y, m, n, k, isRowMajor);
       break;
     default:
       FAIL() << "should be here\n";
@@ -415,8 +416,8 @@ class DistanceTest : public ::testing::TestWithParam<DistanceInputs<DataType>> {
       r.uniform(x, m * k, DataType(-1.0), DataType(1.0), stream);
       r.uniform(y, n * k, DataType(-1.0), DataType(1.0), stream);
     }
-    naiveDistance(dist_ref, x, y, m, n, k, distanceType, isRowMajor,
-                  metric_arg);
+    naiveDistance(dist_ref, x, y, m, n, k, distanceType, isRowMajor, metric_arg,
+                  stream);
     char *workspace = nullptr;
     size_t worksize =
       raft::distance::getWorkspaceSize<distanceType, DataType, DataType,
@@ -429,6 +430,7 @@ class DistanceTest : public ::testing::TestWithParam<DistanceInputs<DataType>> {
     distanceLauncher<distanceType, DataType>(x, y, dist, dist2, m, n, k, params,
                                              threshold, workspace, worksize,
                                              stream, isRowMajor, metric_arg);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
   void TearDown() override {

@@ -48,10 +48,10 @@ __global__ void nativeSqrtKernel(Type *in, Type *out, int len) {
 }
 
 template <typename Type>
-void naiveSqrt(Type *in, Type *out, int len) {
+void naiveSqrt(Type *in, Type *out, int len, cudaStream_t stream) {
   static const int TPB = 64;
   int nblks = raft::ceildiv(len, TPB);
-  nativeSqrtKernel<Type><<<nblks, TPB>>>(in, out, len);
+  nativeSqrtKernel<Type><<<nblks, TPB, 0, stream>>>(in, out, len);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
@@ -88,8 +88,10 @@ __global__ void naiveSignFlipKernel(Type *in, Type *out, int rowCount,
 }
 
 template <typename Type>
-void naiveSignFlip(Type *in, Type *out, int rowCount, int colCount) {
-  naiveSignFlipKernel<Type><<<colCount, 1>>>(in, out, rowCount, colCount);
+void naiveSignFlip(Type *in, Type *out, int rowCount, int colCount,
+                   cudaStream_t stream) {
+  naiveSignFlipKernel<Type>
+    <<<colCount, 1, 0, stream>>>(in, out, rowCount, colCount);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
@@ -142,12 +144,13 @@ class MathTest : public ::testing::TestWithParam<MathInputs<T>> {
     naivePower(in_power, out_power_ref, len, stream);
     power(in_power, len, stream);
 
-    naiveSqrt(in_sqrt, out_sqrt_ref, len);
+    naiveSqrt(in_sqrt, out_sqrt_ref, len, stream);
     seqRoot(in_sqrt, len, stream);
 
     ratio(handle, in_ratio, in_ratio, 4, stream);
 
-    naiveSignFlip(in_sign_flip, out_sign_flip_ref, params.n_row, params.n_col);
+    naiveSignFlip(in_sign_flip, out_sign_flip_ref, params.n_row, params.n_col,
+                  stream);
     signFlip(in_sign_flip, params.n_row, params.n_col, stream);
 
     raft::allocate(in_recip, 4, stream);
