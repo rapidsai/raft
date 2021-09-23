@@ -53,19 +53,20 @@ cdef class Handle:
 
     def __cinit__(self, stream=None, n_streams=0):
         self.n_streams = n_streams
-        self.stream_pool.reset(new cuda_stream_pool(n_streams))
+        if n_streams > 0:
+            self.stream_pool.reset(new cuda_stream_pool(n_streams))
 
         cdef cuda_stream_view c_stream
         if stream is None:
             # this constructor will construct a "main" handle on
             # per-thread default stream, which is non-blocking
             self.c_obj.reset(new handle_t(cuda_stream_per_thread,
-                                          self.stream_pool.get()[0]))
+                                          self.stream_pool))
         else:
             # this constructor constructs a handle on user stream
             c_stream = cuda_stream_view(<_Stream><size_t> stream.getStream())
             self.c_obj.reset(new handle_t(c_stream,
-                                          self.stream_pool.get()[0]))
+                                          self.stream_pool))
 
     cdef void sync(self) nogil except *:
         """
@@ -81,7 +82,8 @@ cdef class Handle:
 
     def __setstate__(self, state):
         self.n_streams = state
-        self.stream_pool.reset(new cuda_stream_pool(self.n_streams))
+        if self.n_streams > 0:
+            self.stream_pool.reset(new cuda_stream_pool(self.n_streams))
 
         self.c_obj.reset(new handle_t(cuda_stream_per_thread,
-                                      self.stream_pool.get()[0]))
+                                      self.stream_pool))

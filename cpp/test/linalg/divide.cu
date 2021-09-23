@@ -51,27 +51,26 @@ class DivideTest
       ::testing::TestWithParam<raft::linalg::UnaryOpInputs<T>>::GetParam();
     raft::random::Rng r(params.seed);
     int len = params.len;
-    cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
 
-    raft::allocate(in, len);
-    raft::allocate(out_ref, len);
-    raft::allocate(out, len);
+    raft::allocate(in, len, stream);
+    raft::allocate(out_ref, len, stream);
+    raft::allocate(out, len, stream);
     r.uniform(in, len, T(-1.0), T(1.0), stream);
     naiveDivide(out_ref, in, params.scalar, len, stream);
     divideScalar(out, in, params.scalar, len, stream);
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
   void TearDown() override {
-    CUDA_CHECK(cudaFree(in));
-    CUDA_CHECK(cudaFree(out_ref));
-    CUDA_CHECK(cudaFree(out));
+    raft::deallocate_all(stream);
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
  protected:
   UnaryOpInputs<T> params;
   T *in, *out_ref, *out;
+  cudaStream_t stream;
 };
 
 const std::vector<UnaryOpInputs<float>> inputsf = {
@@ -79,7 +78,8 @@ const std::vector<UnaryOpInputs<float>> inputsf = {
 typedef DivideTest<float> DivideTestF;
 TEST_P(DivideTestF, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
-                          raft::CompareApprox<float>(params.tolerance)));
+                          raft::CompareApprox<float>(params.tolerance),
+                          stream));
 }
 INSTANTIATE_TEST_SUITE_P(DivideTests, DivideTestF,
                          ::testing::ValuesIn(inputsf));
@@ -89,7 +89,8 @@ const std::vector<UnaryOpInputs<double>> inputsd = {
   {0.000001f, 1024 * 1024, 2.f, 1234ULL}};
 TEST_P(DivideTestD, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
-                          raft::CompareApprox<double>(params.tolerance)));
+                          raft::CompareApprox<double>(params.tolerance),
+                          stream));
 }
 INSTANTIATE_TEST_SUITE_P(DivideTests, DivideTestD,
                          ::testing::ValuesIn(inputsd));

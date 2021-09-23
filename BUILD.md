@@ -29,14 +29,14 @@ else(DEFINED ENV{RAFT_PATH})
   set(RAFT_GIT_DIR ${CMAKE_CURRENT_BINARY_DIR}/raft CACHE STRING "Path to RAFT repo")
 
   ExternalProject_Add(raft
-    GIT_REPOSITORY    git@github.com:dantegd/barge.git
+    GIT_REPOSITORY    git@github.com:rapidsai/raft.git
     GIT_TAG           pinned_commit/git_tag/branch
     PREFIX            ${RAFT_GIT_DIR}
     CONFIGURE_COMMAND ""
     BUILD_COMMAND     ""
     INSTALL_COMMAND   "")
 
-  set(RAFT_INCLUDE_DIR ${RAFT_DIR}/src/raft/cpp/include CACHE STRING "RAFT include variable")
+  set(RAFT_INCLUDE_DIR ${RAFT_GIT_DIR}/src/raft/cpp/include CACHE STRING "RAFT include variable")
 endif(DEFINED ENV{RAFT_PATH})
 
 ```

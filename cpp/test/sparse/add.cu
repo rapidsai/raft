@@ -56,27 +56,24 @@ class CSRAddTest
 
     cudaStreamCreate(&stream);
 
-    raft::allocate(ind_a, n_rows);
-    raft::allocate(ind_ptr_a, nnz_a);
-    raft::allocate(values_a, nnz_a);
+    raft::allocate(ind_a, n_rows, stream);
+    raft::allocate(ind_ptr_a, nnz_a, stream);
+    raft::allocate(values_a, nnz_a, stream);
 
-    raft::allocate(ind_b, n_rows);
-    raft::allocate(ind_ptr_b, nnz_b);
-    raft::allocate(values_b, nnz_b);
+    raft::allocate(ind_b, n_rows, stream);
+    raft::allocate(ind_ptr_b, nnz_b, stream);
+    raft::allocate(values_b, nnz_b, stream);
 
-    raft::allocate(ind_verify, n_rows);
-    raft::allocate(ind_ptr_verify, nnz_result);
-    raft::allocate(values_verify, nnz_result);
+    raft::allocate(ind_verify, n_rows, stream);
+    raft::allocate(ind_ptr_verify, nnz_result, stream);
+    raft::allocate(values_verify, nnz_result, stream);
 
-    raft::allocate(ind_result, n_rows);
-    raft::allocate(ind_ptr_result, nnz_result);
-    raft::allocate(values_result, nnz_result);
+    raft::allocate(ind_result, n_rows, stream);
+    raft::allocate(ind_ptr_result, nnz_result, stream);
+    raft::allocate(values_result, nnz_result, stream);
   }
 
   void Run() {
-    std::shared_ptr<raft::mr::device::allocator> alloc(
-      new raft::mr::device::default_allocator);
-
     raft::update_device(ind_a, params.matrix_a.row_ind.data(), n_rows, stream);
     raft::update_device(ind_ptr_a, params.matrix_a.row_ind_ptr.data(), nnz_a,
                         stream);
@@ -96,7 +93,8 @@ class CSRAddTest
 
     Index_ nnz = linalg::csr_add_calc_inds<Type_f, 32>(
       ind_a, ind_ptr_a, values_a, nnz_a, ind_b, ind_ptr_b, values_b, nnz_b,
-      n_rows, ind_result, alloc, stream);
+      n_rows, ind_result, stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
 
     ASSERT_TRUE(nnz == nnz_result);
     ASSERT_TRUE(raft::devArrMatch<Index_>(ind_verify, ind_result, n_rows,
@@ -105,6 +103,7 @@ class CSRAddTest
     linalg::csr_add_finalize<Type_f, 32>(
       ind_a, ind_ptr_a, values_a, nnz_a, ind_b, ind_ptr_b, values_b, nnz_b,
       n_rows, ind_result, ind_ptr_result, values_result, stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
 
     ASSERT_TRUE(raft::devArrMatch<Index_>(ind_ptr_verify, ind_ptr_result, nnz,
                                           raft::Compare<Index_>()));
@@ -113,18 +112,8 @@ class CSRAddTest
   }
 
   void TearDown() override {
-    CUDA_CHECK(cudaFree(ind_a));
-    CUDA_CHECK(cudaFree(ind_b));
-    CUDA_CHECK(cudaFree(ind_result));
-    CUDA_CHECK(cudaFree(ind_ptr_a));
-    CUDA_CHECK(cudaFree(ind_ptr_b));
-    CUDA_CHECK(cudaFree(ind_ptr_verify));
-    CUDA_CHECK(cudaFree(ind_ptr_result));
-    CUDA_CHECK(cudaFree(values_a));
-    CUDA_CHECK(cudaFree(values_b));
-    CUDA_CHECK(cudaFree(values_verify));
-    CUDA_CHECK(cudaFree(values_result));
-    cudaStreamDestroy(stream);
+    raft::deallocate_all(stream);
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
  protected:

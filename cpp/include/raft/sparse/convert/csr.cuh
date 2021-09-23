@@ -22,8 +22,7 @@
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
-#include <raft/mr/device/allocator.hpp>
-#include <raft/mr/device/buffer.hpp>
+#include <rmm/device_uvector.hpp>
 
 #include <thrust/device_ptr.h>
 #include <thrust/scan.h>
@@ -49,16 +48,15 @@ void coo_to_csr(const raft::handle_t &handle, const int *srcRows,
                 int *dst_offsets, int *dstCols, value_t *dstVals) {
   auto stream = handle.get_stream();
   auto cusparseHandle = handle.get_cusparse_handle();
-  auto d_alloc = handle.get_device_allocator();
-  raft::mr::device::buffer<int> dstRows(d_alloc, stream, nnz);
+  rmm::device_uvector<int> dstRows(nnz, stream);
   CUDA_CHECK(cudaMemcpyAsync(dstRows.data(), srcRows, sizeof(int) * nnz,
                              cudaMemcpyDeviceToDevice, stream));
   CUDA_CHECK(cudaMemcpyAsync(dstCols, srcCols, sizeof(int) * nnz,
                              cudaMemcpyDeviceToDevice, stream));
   auto buffSize = raft::sparse::cusparsecoosort_bufferSizeExt(
     cusparseHandle, m, m, nnz, srcRows, srcCols, stream);
-  raft::mr::device::buffer<char> pBuffer(d_alloc, stream, buffSize);
-  raft::mr::device::buffer<int> P(d_alloc, stream, nnz);
+  rmm::device_uvector<char> pBuffer(buffSize, stream);
+  rmm::device_uvector<int> P(nnz, stream);
   CUSPARSE_CHECK(
     cusparseCreateIdentityPermutation(cusparseHandle, nnz, P.data()));
   raft::sparse::cusparsecoosortByRow(cusparseHandle, m, m, nnz, dstRows.data(),
@@ -147,14 +145,12 @@ void csr_adj_graph(const Index_ *row_ind, Index_ total_rows, Index_ nnz,
  * @param nnz: size of COO rows array
  * @param row_ind: output row indices array
  * @param m: number of rows in dense matrix
- * @param d_alloc device allocator for temporary buffers
  * @param stream: cuda stream to use
  */
 template <typename T>
 void sorted_coo_to_csr(const T *rows, int nnz, T *row_ind, int m,
-                       std::shared_ptr<raft::mr::device::allocator> d_alloc,
                        cudaStream_t stream) {
-  raft::mr::device::buffer<T> row_counts(d_alloc, stream, m);
+  rmm::device_uvector<T> row_counts(m, stream);
 
   CUDA_CHECK(cudaMemsetAsync(row_counts.data(), 0, m * sizeof(T), stream));
 
@@ -164,7 +160,7 @@ void sorted_coo_to_csr(const T *rows, int nnz, T *row_ind, int m,
   thrust::device_ptr<T> row_counts_d =
     thrust::device_pointer_cast(row_counts.data());
   thrust::device_ptr<T> c_ind_d = thrust::device_pointer_cast(row_ind);
-  exclusive_scan(thrust::cuda::par.on(stream), row_counts_d, row_counts_d + m,
+  exclusive_scan(rmm::exec_policy(stream), row_counts_d, row_counts_d + m,
                  c_ind_d);
 }
 
@@ -173,15 +169,11 @@ void sorted_coo_to_csr(const T *rows, int nnz, T *row_ind, int m,
  *
  * @param coo: Input COO matrix
  * @param row_ind: output row indices array
- * @param d_alloc device allocator for temporary buffers
  * @param stream: cuda stream to use
  */
 template <typename T>
-void sorted_coo_to_csr(COO<T> *coo, int *row_ind,
-                       std::shared_ptr<raft::mr::device::allocator> d_alloc,
-                       cudaStream_t stream) {
-  sorted_coo_to_csr(coo->rows(), coo->nnz, row_ind, coo->n_rows, d_alloc,
-                    stream);
+void sorted_coo_to_csr(COO<T> *coo, int *row_ind, cudaStream_t stream) {
+  sorted_coo_to_csr(coo->rows(), coo->nnz, row_ind, coo->n_rows, stream);
 }
 
 };  // end NAMESPACE convert

@@ -36,10 +36,8 @@
 #include <raft/linalg/cusolver_wrappers.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/comms/comms.hpp>
-#include <raft/mr/device/allocator.hpp>
-#include <raft/mr/host/allocator.hpp>
 #include <rmm/cuda_stream_pool.hpp>
-#include <rmm/cuda_stream_view.hpp>
+#include <rmm/exec_policy.hpp>
 #include "cudart_utils.h"
 
 namespace raft {
@@ -49,9 +47,6 @@ namespace raft {
  *        necessary cuda kernels and/or libraries
  */
 class handle_t {
- private:
-  static constexpr int kNumDefaultWorkerStreams = 0;
-
  public:
   // delete copy/move constructors and assignment operators as
   // copying and moving underlying resources is unsafe
@@ -64,19 +59,17 @@ class handle_t {
    * @brief Construct a handle with a stream view and stream pool
    *
    * @param[in] stream the default stream (which has the default per-thread stream if unspecified)
-   * @param[in] stream_pool the stream pool used (which has default pool of size 0 if unspecified)
+   * @param[in] stream_pool the stream pool used (which has default of nullptr if unspecified)
    */
-  handle_t(rmm::cuda_stream_view stream = rmm::cuda_stream_per_thread,
-           const rmm::cuda_stream_pool& stream_pool = rmm::cuda_stream_pool{0})
+  handle_t(rmm::cuda_stream_view stream_view = rmm::cuda_stream_per_thread,
+           std::shared_ptr<rmm::cuda_stream_pool> stream_pool = {nullptr})
     : dev_id_([]() -> int {
         int cur_dev = -1;
         CUDA_CHECK(cudaGetDevice(&cur_dev));
         return cur_dev;
       }()),
-      device_allocator_(std::make_shared<mr::device::default_allocator>()),
-      host_allocator_(std::make_shared<mr::host::default_allocator>()),
-      stream_view_(stream),
-      stream_pool_(stream_pool) {
+      stream_view_{stream_view},
+      stream_pool_{stream_pool} {
     create_resources();
   }
 
@@ -84,30 +77,6 @@ class handle_t {
   virtual ~handle_t() { destroy_resources(); }
 
   int get_device() const { return dev_id_; }
-
-  /**
-   * @brief returns main stream on the handle
-   */
-  rmm::cuda_stream_view get_stream() const { return stream_view_; }
-
-  /**
-   * @brief returns stream pool on the handle, could be 0 sized
-   */
-  const rmm::cuda_stream_pool& get_stream_pool() const { return stream_pool_; }
-
-  void set_device_allocator(std::shared_ptr<mr::device::allocator> allocator) {
-    device_allocator_ = allocator;
-  }
-  std::shared_ptr<mr::device::allocator> get_device_allocator() const {
-    return device_allocator_;
-  }
-
-  void set_host_allocator(std::shared_ptr<mr::host::allocator> allocator) {
-    host_allocator_ = allocator;
-  }
-  std::shared_ptr<mr::host::allocator> get_host_allocator() const {
-    return host_allocator_;
-  }
 
   cublasHandle_t get_cublas_handle() const {
     std::lock_guard<std::mutex> _(mutex_);
@@ -149,17 +118,66 @@ class handle_t {
     return cusparse_handle_;
   }
 
+  rmm::exec_policy& get_thrust_policy() const { return *thrust_policy_; }
+
   /**
    * @brief synchronize main stream on the handle
    */
   void sync_stream() const { stream_view_.synchronize(); }
 
   /**
+   * @brief returns main stream on the handle
+   */
+  rmm::cuda_stream_view get_stream() const { return stream_view_; }
+
+  /**
+   * @brief returns whether stream pool was initialized on the handle
+   */
+
+  bool is_stream_pool_initialized() const {
+    return stream_pool_.get() != nullptr;
+  }
+
+  /**
+   * @brief returns stream pool on the handle
+   */
+  const rmm::cuda_stream_pool& get_stream_pool() const {
+    RAFT_EXPECTS(stream_pool_,
+                 "ERROR: rmm::cuda_stream_pool was not initialized");
+    return *stream_pool_;
+  }
+
+  std::size_t get_stream_pool_size() const {
+    return is_stream_pool_initialized() ? stream_pool_->get_pool_size() : 0;
+  }
+
+  /**
+   * @brief return stream from pool
+   */
+  rmm::cuda_stream_view get_stream_from_stream_pool() const {
+    RAFT_EXPECTS(stream_pool_,
+                 "ERROR: rmm::cuda_stream_pool was not initialized");
+    return stream_pool_->get_stream();
+  }
+
+  /**
+   * @brief return stream from pool at index
+   */
+  rmm::cuda_stream_view get_stream_from_stream_pool(
+    std::size_t stream_idx) const {
+    RAFT_EXPECTS(stream_pool_,
+                 "ERROR: rmm::cuda_stream_pool was not initialized");
+    return stream_pool_->get_stream(stream_idx);
+  }
+
+  /**
    * @brief synchronize the stream pool on the handle
    */
   void sync_stream_pool() const {
-    for (std::size_t i = 0; i < stream_pool_.get_pool_size(); i++) {
-      stream_pool_.get_stream(i).synchronize();
+    RAFT_EXPECTS(stream_pool_,
+                 "ERROR: rmm::cuda_stream_pool was not initialized");
+    for (std::size_t i = 0; i < stream_pool_->get_pool_size(); i++) {
+      stream_pool_->get_stream(i).synchronize();
     }
   }
 
@@ -169,8 +187,10 @@ class handle_t {
    * @param[in] stream_indices the indices of the streams in the stream pool to synchronize
    */
   void sync_stream_pool(const std::vector<std::size_t> stream_indices) const {
+    RAFT_EXPECTS(stream_pool_,
+                 "ERROR: rmm::cuda_stream_pool was not initialized");
     for (const auto& stream_index : stream_indices) {
-      stream_pool_.get_stream(stream_index).synchronize();
+      stream_pool_->get_stream(stream_index).synchronize();
     }
   }
 
@@ -178,9 +198,11 @@ class handle_t {
    * @brief ask stream pool to wait on last event in main stream
    */
   void wait_stream_pool_on_stream() const {
+    RAFT_EXPECTS(stream_pool_,
+                 "ERROR: rmm::cuda_stream_pool was not initialized");
     CUDA_CHECK(cudaEventRecord(event_, stream_view_));
-    for (std::size_t i = 0; i < stream_pool_.get_pool_size(); i++) {
-      CUDA_CHECK(cudaStreamWaitEvent(stream_pool_.get_stream(i), event_, 0));
+    for (std::size_t i = 0; i < stream_pool_->get_pool_size(); i++) {
+      CUDA_CHECK(cudaStreamWaitEvent(stream_pool_->get_stream(i), event_, 0));
     }
   }
 
@@ -234,16 +256,17 @@ class handle_t {
   mutable bool cusolver_sp_initialized_{false};
   mutable cusparseHandle_t cusparse_handle_;
   mutable bool cusparse_initialized_{false};
-  std::shared_ptr<mr::device::allocator> device_allocator_;
-  std::shared_ptr<mr::host::allocator> host_allocator_;
-  rmm::cuda_stream_view stream_view_;
-  const rmm::cuda_stream_pool& stream_pool_;
+  std::unique_ptr<rmm::exec_policy> thrust_policy_{nullptr};
+  rmm::cuda_stream_view stream_view_{rmm::cuda_stream_per_thread};
+  std::shared_ptr<rmm::cuda_stream_pool> stream_pool_{nullptr};
   cudaEvent_t event_;
   mutable cudaDeviceProp prop_;
   mutable bool device_prop_initialized_{false};
   mutable std::mutex mutex_;
 
   void create_resources() {
+    thrust_policy_ = std::make_unique<rmm::exec_policy>(stream_view_);
+
     CUDA_CHECK(cudaEventCreateWithFlags(&event_, cudaEventDisableTiming));
   }
 

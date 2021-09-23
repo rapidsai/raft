@@ -21,8 +21,7 @@
 #include <raft/cudart_utils.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
-#include <raft/mr/device/allocator.hpp>
-#include <raft/mr/device/buffer.hpp>
+#include <rmm/device_uvector.hpp>
 
 #include <thrust/device_ptr.h>
 #include <thrust/scan.h>
@@ -53,7 +52,6 @@ namespace linalg {
  * @param[in] csr_nrows : Number of rows in CSR
  * @param[in] csr_ncols : Number of columns in CSR
  * @param[in] nnz : Number of nonzeros of CSR
- * @param[in] allocator : Allocator for intermediate memory
  * @param[in] stream : Cuda stream for ordering events
  */
 template <typename value_idx, typename value_t>
@@ -61,9 +59,7 @@ void csr_transpose(cusparseHandle_t handle, const value_idx *csr_indptr,
                    const value_idx *csr_indices, const value_t *csr_data,
                    value_idx *csc_indptr, value_idx *csc_indices,
                    value_t *csc_data, value_idx csr_nrows, value_idx csr_ncols,
-                   value_idx nnz,
-                   std::shared_ptr<raft::mr::device::allocator> allocator,
-                   cudaStream_t stream) {
+                   value_idx nnz, cudaStream_t stream) {
   size_t convert_csc_workspace_size = 0;
 
   CUSPARSE_CHECK(raft::sparse::cusparsecsr2csc_bufferSize(
@@ -72,8 +68,8 @@ void csr_transpose(cusparseHandle_t handle, const value_idx *csr_indptr,
     CUSPARSE_INDEX_BASE_ZERO, CUSPARSE_CSR2CSC_ALG1,
     &convert_csc_workspace_size, stream));
 
-  raft::mr::device::buffer<char> convert_csc_workspace(
-    allocator, stream, convert_csc_workspace_size);
+  rmm::device_uvector<char> convert_csc_workspace(convert_csc_workspace_size,
+                                                  stream);
 
   CUSPARSE_CHECK(raft::sparse::cusparsecsr2csc(
     handle, csr_nrows, csr_ncols, nnz, csr_data, csr_indptr, csr_indices,

@@ -19,8 +19,9 @@
 #include <raft/linalg/cusolver_wrappers.h>
 #include <raft/handle.hpp>
 #include <raft/linalg/cholesky_r1_update.cuh>
-#include <raft/mr/device/allocator.hpp>
-#include <raft/mr/device/buffer.hpp>
+#include <rmm/device_scalar.hpp>
+#include <rmm/device_uvector.hpp>
+
 #include <sstream>
 #include <vector>
 #include "../test_utils.h"
@@ -31,12 +32,11 @@ template <typename math_t>
 class CholeskyR1Test : public ::testing::Test {
  protected:
   CholeskyR1Test()
-    : allocator(handle.get_device_allocator()),
-      G(allocator, handle.get_stream(), n_rows * n_rows),
-      L(allocator, handle.get_stream(), n_rows * n_rows),
-      L_exp(allocator, handle.get_stream(), n_rows * n_rows),
-      devInfo(allocator, handle.get_stream(), 1),
-      workspace(allocator, handle.get_stream()) {
+    : G(n_rows * n_rows, handle.get_stream()),
+      L(n_rows * n_rows, handle.get_stream()),
+      L_exp(n_rows * n_rows, handle.get_stream()),
+      devInfo(handle.get_stream()),
+      workspace(0, handle.get_stream()) {
     raft::update_device(G.data(), G_host, n_rows * n_rows, handle.get_stream());
 
     // Allocate workspace
@@ -78,7 +78,8 @@ class CholeskyR1Test : public ::testing::Test {
                                           handle.get_stream());
 
         ASSERT_TRUE(raft::devArrMatch(L_exp.data(), L.data(), n_rows * rank,
-                                      raft::CompareApprox<math_t>(3e-3)));
+                                      raft::CompareApprox<math_t>(3e-3),
+                                      handle.get_stream()));
       }
     }
   }
@@ -105,7 +106,6 @@ class CholeskyR1Test : public ::testing::Test {
   }
 
   raft::handle_t handle;
-  std::shared_ptr<raft::mr::device::allocator> allocator;
   cusolverDnHandle_t solver_handle;
 
   int n_rows = 4;
@@ -119,11 +119,11 @@ class CholeskyR1Test : public ::testing::Test {
 
   math_t G2_host[4] = {3, 4, 2, 1};
 
-  raft::mr::device::buffer<int> devInfo;
-  raft::mr::device::buffer<math_t> G;
-  raft::mr::device::buffer<math_t> L_exp;
-  raft::mr::device::buffer<math_t> L;
-  raft::mr::device::buffer<char> workspace;
+  rmm::device_scalar<int> devInfo;
+  rmm::device_uvector<math_t> G;
+  rmm::device_uvector<math_t> L_exp;
+  rmm::device_uvector<math_t> L;
+  rmm::device_uvector<char> workspace;
 };
 
 typedef ::testing::Types<float, double> FloatTypes;

@@ -21,8 +21,8 @@
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/unary_op.cuh>
-#include <raft/mr/device/allocator.hpp>
-#include <raft/mr/device/buffer.hpp>
+#include <rmm/device_scalar.hpp>
+#include <rmm/device_uvector.hpp>
 
 namespace raft {
 namespace matrix {
@@ -285,7 +285,6 @@ void setValue(math_t *out, const math_t *in, math_t scalar, int len,
  * @param src: input matrix
  * @param dest: output matrix. The result is stored in the dest matrix
  * @param len: number elements of input matrix
- * @param allocator device allocator
  * @param stream cuda stream
  */
 template <typename math_t, typename IdxType = int>
@@ -294,10 +293,7 @@ void ratio(const raft::handle_t &handle, math_t *src, math_t *dest, IdxType len,
   auto d_src = src;
   auto d_dest = dest;
 
-  std::shared_ptr<raft::mr::device::allocator> allocator =
-    handle.get_device_allocator();
-
-  raft::mr::device::buffer<math_t> d_sum(allocator, stream, 1);
+  rmm::device_scalar<math_t> d_sum(stream);
   auto *d_sum_ptr = d_sum.data();
   auto no_op = [] __device__(math_t in) { return in; };
   raft::linalg::mapThenSumReduce(d_sum_ptr, len, no_op, stream, src);

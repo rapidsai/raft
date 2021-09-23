@@ -24,9 +24,8 @@ namespace raft {
 
 TEST(Raft, HandleDefault) {
   handle_t h;
-  ASSERT_EQ(0, h.get_stream_pool().get_pool_size());
   ASSERT_EQ(0, h.get_device());
-  ASSERT_EQ(rmm::cuda_stream_default, h.get_stream());
+  ASSERT_EQ(rmm::cuda_stream_per_thread, h.get_stream());
   ASSERT_NE(nullptr, h.get_cublas_handle());
   ASSERT_NE(nullptr, h.get_cusolver_dn_handle());
   ASSERT_NE(nullptr, h.get_cusolver_sp_handle());
@@ -36,9 +35,9 @@ TEST(Raft, HandleDefault) {
 TEST(Raft, Handle) {
   // test stream pool creation
   constexpr std::size_t n_streams = 4;
-  rmm::cuda_stream_pool stream_pool{n_streams};
+  auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(n_streams);
   handle_t h(rmm::cuda_stream_default, stream_pool);
-  ASSERT_EQ(n_streams, h.get_stream_pool().get_pool_size());
+  ASSERT_EQ(n_streams, h.get_stream_pool_size());
 
   // test non default stream handle
   cudaStream_t stream;
@@ -52,13 +51,13 @@ TEST(Raft, Handle) {
 
 TEST(Raft, GetHandleFromPool) {
   constexpr std::size_t n_streams = 4;
-  rmm::cuda_stream_pool stream_pool(n_streams);
+  auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(n_streams);
   handle_t parent(rmm::cuda_stream_default, stream_pool);
 
   for (std::size_t i = 0; i < n_streams; i++) {
-    auto worker_stream = parent.get_stream_pool().get_stream(i);
+    auto worker_stream = parent.get_stream_from_stream_pool(i);
     handle_t child(worker_stream);
-    ASSERT_EQ(parent.get_stream_pool().get_stream(i), child.get_stream());
+    ASSERT_EQ(parent.get_stream_from_stream_pool(i), child.get_stream());
   }
 }
 

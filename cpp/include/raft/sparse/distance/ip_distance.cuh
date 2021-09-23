@@ -22,8 +22,6 @@
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
 
-#include <raft/mr/device/allocator.hpp>
-
 #include <raft/sparse/distance/common.h>
 #include <raft/sparse/linalg/transpose.h>
 #include <raft/sparse/utils.h>
@@ -31,6 +29,7 @@
 #include <raft/sparse/convert/dense.cuh>
 #include <raft/sparse/distance/coo_spmv.cuh>
 #include <raft/sparse/distance/operators.cuh>
+#include <rmm/device_uvector.hpp>
 
 #include <nvfunctional>
 

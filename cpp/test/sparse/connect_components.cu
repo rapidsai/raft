@@ -28,7 +28,6 @@
 
 #include <raft/linalg/distance_type.h>
 #include <raft/linalg/transpose.h>
-#include <raft/mr/device/allocator.hpp>
 #include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/coo.cuh>
 #include <raft/sparse/hierarchy/single_linkage.hpp>
@@ -57,14 +56,12 @@ class ConnectComponentsTest : public ::testing::TestWithParam<
   void basicTest() {
     raft::handle_t handle;
 
-    auto d_alloc = handle.get_device_allocator();
     auto stream = handle.get_stream();
 
     params = ::testing::TestWithParam<
       ConnectComponentsInputs<value_t, value_idx>>::GetParam();
 
-    raft::sparse::COO<value_t, value_idx> out_edges(
-      handle.get_device_allocator(), handle.get_stream());
+    raft::sparse::COO<value_t, value_idx> out_edges(handle.get_stream());
 
     rmm::device_uvector<value_t> data(params.n_row * params.n_col,
                                       handle.get_stream());
@@ -77,7 +74,7 @@ class ConnectComponentsTest : public ::testing::TestWithParam<
     /**
      * 1. Construct knn graph
      */
-    raft::sparse::COO<value_t, value_idx> knn_graph_coo(d_alloc, stream);
+    raft::sparse::COO<value_t, value_idx> knn_graph_coo(stream);
 
     raft::sparse::selection::knn_graph(
       handle, data.data(), params.n_row, params.n_col,
@@ -85,7 +82,7 @@ class ConnectComponentsTest : public ::testing::TestWithParam<
 
     raft::sparse::convert::sorted_coo_to_csr(knn_graph_coo.rows(),
                                              knn_graph_coo.nnz, indptr.data(),
-                                             params.n_row + 1, d_alloc, stream);
+                                             params.n_row + 1, stream);
 
     /**
      * 2. Construct MST, sorted by weights
@@ -112,7 +109,7 @@ class ConnectComponentsTest : public ::testing::TestWithParam<
 
     raft::sparse::convert::sorted_coo_to_csr(out_edges.rows(), out_edges.nnz,
                                              indptr2.data(), params.n_row + 1,
-                                             d_alloc, stream);
+                                             stream);
 
     auto output_mst = raft::mst::mst<value_idx, value_idx, value_t>(
       handle, indptr2.data(), out_edges.cols(), out_edges.vals(), params.n_row,

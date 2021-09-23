@@ -67,15 +67,12 @@ class ScalarMultiplyTest
     int len = params.len;
     T scalar = params.scalar;
 
-    cudaStream_t stream;
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    allocate(in, len);
-    allocate(out_ref, len);
-    allocate(out, len);
+    auto stream = handle.get_stream() raft::allocate(in, len, stream);
+    raft::allocate(out_ref, len, stream);
+    raft::allocate(out, len, stream);
     r.uniform(in, len, T(-1.0), T(1.0), stream);
     naiveScale(out_ref, in, scalar, len, stream);
     scalarMultiply(out, in, scalar, len, stream);
-    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
   void TearDown() override {
@@ -85,6 +82,7 @@ class ScalarMultiplyTest
   }
 
  protected:
+  raft::handle_t handle;
   ScalarMultiplyInputs<T> params;
   T *in, *out_ref, *out;
 };
@@ -98,13 +96,15 @@ const std::vector<ScalarMultiplyInputs<double>> inputsd1 = {
 typedef ScalarMultiplyTest<float> ScalarMultiplyTestF;
 TEST_P(ScalarMultiplyTestF, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
-                          CompareApprox<float>(params.tolerance)));
+                          CompareApprox<float>(params.tolerance),
+                          handle.get_stream()));
 }
 
 typedef ScalarMultiplyTest<double> ScalarMultiplyTestD;
 TEST_P(ScalarMultiplyTestD, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
-                          CompareApprox<double>(params.tolerance)));
+                          CompareApprox<double>(params.tolerance),
+                          handle.get_stream()));
 }
 
 INSTANTIATE_TEST_SUITE_P(ScalarMultiplyTests, ScalarMultiplyTestF,
@@ -153,18 +153,16 @@ class EltwiseAddTest : public ::testing::TestWithParam<EltwiseAddInputs<T>> {
     params = ::testing::TestWithParam<EltwiseAddInputs<T>>::GetParam();
     raft::random::Rng r(params.seed);
 
-    cudaStream_t stream;
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    auto stream = handle.get_stream();
     int len = params.len;
-    allocate(in1, len);
-    allocate(in2, len);
-    allocate(out_ref, len);
-    allocate(out, len);
+    raft::allocate(in1, len, stream);
+    raft::allocate(in2, len, stream);
+    raft::allocate(out_ref, len, stream);
+    raft::allocate(out, len, stream);
     r.uniform(in1, len, T(-1.0), T(1.0), stream);
     r.uniform(in2, len, T(-1.0), T(1.0), stream);
     naiveAdd(out_ref, in1, in2, len, stream);
     eltwiseAdd(out, in1, in2, len, stream);
-    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
   void TearDown() override {
@@ -175,6 +173,7 @@ class EltwiseAddTest : public ::testing::TestWithParam<EltwiseAddInputs<T>> {
   }
 
  protected:
+  raft::handle_t handle;
   EltwiseAddInputs<T> params;
   T *in1, *in2, *out_ref, *out;
 };
@@ -188,13 +187,15 @@ const std::vector<EltwiseAddInputs<double>> inputsd2 = {
 typedef EltwiseAddTest<float> EltwiseAddTestF;
 TEST_P(EltwiseAddTestF, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
-                          CompareApprox<float>(params.tolerance)));
+                          CompareApprox<float>(params.tolerance),
+                          handle.get_stream()));
 }
 
 typedef EltwiseAddTest<double> EltwiseAddTestD;
 TEST_P(EltwiseAddTestD, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
-                          CompareApprox<double>(params.tolerance)));
+                          CompareApprox<double>(params.tolerance),
+                          handle.get_stream()));
 }
 
 INSTANTIATE_TEST_SUITE_P(EltwiseAddTests, EltwiseAddTestF,

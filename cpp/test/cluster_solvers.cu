@@ -49,8 +49,7 @@ TEST(Raft, ClusterSolvers) {
 
   kmeans_solver_t<index_type, value_type> cluster_solver{cfg};
 
-  EXPECT_ANY_THROW(cluster_solver.solve(h, thrust::cuda::par.on(stream), n, d,
-                                        eigvecs, codes));
+  EXPECT_ANY_THROW(cluster_solver.solve(h, n, d, eigvecs, codes));
 }
 
 TEST(Raft, ModularitySolvers) {
@@ -88,14 +87,12 @@ TEST(Raft, ModularitySolvers) {
   auto stream = h.get_stream();
   sparse_matrix_t<index_type, value_type> sm{h,       nullptr, nullptr,
                                              nullptr, 0,       0};
-  auto t_exe_p = thrust::cuda::par.on(stream);
 
   EXPECT_ANY_THROW(spectral::modularity_maximization(
-    h, t_exe_p, sm, eig_solver, cluster_solver, clusters, eigvals, eigvecs));
+    h, sm, eig_solver, cluster_solver, clusters, eigvals, eigvecs));
 
   value_type modularity{0};
-  EXPECT_ANY_THROW(
-    spectral::analyzeModularity(h, t_exe_p, sm, k, clusters, modularity));
+  EXPECT_ANY_THROW(spectral::analyzeModularity(h, sm, k, clusters, modularity));
 }
 
 }  // namespace raft

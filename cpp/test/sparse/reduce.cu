@@ -53,7 +53,6 @@ class SparseReduceTest
   void Run() {
     raft::handle_t handle;
 
-    auto d_alloc = handle.get_device_allocator();
     auto stream = handle.get_stream();
 
     rmm::device_uvector<value_idx> in_rows(params.in_rows.size(), stream);
@@ -76,11 +75,11 @@ class SparseReduceTest
     raft::update_device(out_vals.data(), params.out_vals.data(),
                         params.out_vals.size(), stream);
 
-    raft::sparse::COO<value_t, value_idx> out(d_alloc, stream);
+    raft::sparse::COO<value_t, value_idx> out(stream);
     raft::sparse::op::max_duplicates(handle, out, in_rows.data(),
                                      in_cols.data(), in_vals.data(),
                                      params.in_rows.size(), params.m, params.n);
-
+    CUDA_CHECK(cudaStreamSynchronize(stream));
     ASSERT_TRUE(raft::devArrMatch<value_idx>(
       out_rows.data(), out.rows(), out.nnz, raft::Compare<value_idx>()));
     ASSERT_TRUE(raft::devArrMatch<value_idx>(

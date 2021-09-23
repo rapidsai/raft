@@ -96,7 +96,6 @@ void knn_graph(const handle_t &handle, const value_t *X, size_t m, size_t n,
                raft::sparse::COO<value_t, value_idx> &out, int c = 15) {
   int k = build_k(m, c);
 
-  auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
 
   size_t nnz = m * k;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,12 +14,14 @@
  * limitations under the License.
  */
 
+#include <raft/handle.hpp>
+#include <raft/spectral/partition.hpp>
+
 #include <gtest/gtest.h>
+
+#include <cstddef>
 #include <iostream>
 #include <memory>
-#include <raft/handle.hpp>
-
-#include <raft/spectral/partition.hpp>
 
 namespace raft {
 
@@ -36,8 +38,6 @@ TEST(Raft, EigenSolvers) {
   value_type* vs{nullptr};
   index_type nnz = 0;
   index_type nrows = 0;
-  auto stream = h.get_stream();
-  auto t_exe_pol = thrust::cuda::par.on(stream);
 
   sparse_matrix_t<index_type, value_type> sm1{h, ro, ci, vs, nrows, nnz};
   ASSERT_EQ(nullptr, sm1.row_offsets_);
@@ -52,7 +52,7 @@ TEST(Raft, EigenSolvers) {
   //
   value_type* eigvals{nullptr};
   value_type* eigvecs{nullptr};
-  unsigned long long seed{100110021003};
+  std::uint64_t seed{100110021003};
 
   eigen_solver_config_t<index_type, value_type> cfg{
     neigvs, maxiter, restart_iter, tol, reorthog, seed};
@@ -98,18 +98,15 @@ TEST(Raft, SpectralSolvers) {
                                                             seed};
   kmeans_solver_t<index_type, value_type> cluster_solver{clust_cfg};
 
-  auto stream = h.get_stream();
-
-  auto t_exe_p = thrust::cuda::par.on(stream);
   sparse_matrix_t<index_type, value_type> sm{h,       nullptr, nullptr,
                                              nullptr, 0,       0};
-  EXPECT_ANY_THROW(spectral::partition(
-    h, t_exe_p, sm, eig_solver, cluster_solver, clusters, eigvals, eigvecs));
+  EXPECT_ANY_THROW(spectral::partition(h, sm, eig_solver, cluster_solver,
+                                       clusters, eigvals, eigvecs));
 
   value_type edgeCut{0};
   value_type cost{0};
   EXPECT_ANY_THROW(
-    spectral::analyzePartition(h, t_exe_p, sm, k, clusters, edgeCut, cost));
+    spectral::analyzePartition(h, sm, k, clusters, edgeCut, cost));
 }
 
 }  // namespace raft

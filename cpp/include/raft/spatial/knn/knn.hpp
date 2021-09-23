@@ -18,14 +18,11 @@
 
 #include "detail/knn_brute_force_faiss.cuh"
 
-#include <raft/mr/device/allocator.hpp>
 #include <raft/mr/device/buffer.hpp>
 
 namespace raft {
 namespace spatial {
 namespace knn {
-
-using deviceAllocator = raft::mr::device::allocator;
 
 template <typename value_idx = int64_t, typename value_t = float>
 inline void knn_merge_parts(value_t *inK, value_idx *inV, value_t *outK,
@@ -70,9 +67,8 @@ inline void brute_force_knn(
          "input and sizes vectors must be the same size");
 
   detail::brute_force_knn_impl(handle, input, sizes, D, search_items, n, res_I,
-                               res_D, k, handle.get_device_allocator(),
-                               rowMajorIndex, rowMajorQuery, translations,
-                               metric, metric_arg);
+                               res_D, k, rowMajorIndex, rowMajorQuery,
+                               translations, metric, metric_arg);
 }
 
 }  // namespace knn

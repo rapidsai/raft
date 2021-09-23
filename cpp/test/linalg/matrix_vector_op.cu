@@ -66,14 +66,13 @@ class MatVecOpTest
     IdxType N = params.rows, D = params.cols;
     IdxType len = N * D;
 
-    cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
-    allocate(in, len);
-    allocate(out_ref, len);
-    allocate(out, len);
+    raft::allocate(in, len, stream);
+    raft::allocate(out_ref, len, stream);
+    raft::allocate(out, len, stream);
     IdxType vecLen = params.bcastAlongRows ? D : N;
-    allocate(vec1, vecLen);
-    allocate(vec2, vecLen);
+    raft::allocate(vec1, vecLen, stream);
+    raft::allocate(vec2, vecLen, stream);
     r.uniform(in, len, (T)-1.0, (T)1.0, stream);
     r.uniform(vec1, vecLen, (T)-1.0, (T)1.0, stream);
     r.uniform(vec2, vecLen, (T)-1.0, (T)1.0, stream);
@@ -86,20 +85,18 @@ class MatVecOpTest
     }
     matrixVectorOpLaunch(out, in, vec1, vec2, D, N, params.rowMajor,
                          params.bcastAlongRows, params.useTwoVectors, stream);
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
   void TearDown() override {
-    CUDA_CHECK(cudaFree(vec1));
-    CUDA_CHECK(cudaFree(vec2));
-    CUDA_CHECK(cudaFree(out));
-    CUDA_CHECK(cudaFree(out_ref));
-    CUDA_CHECK(cudaFree(in));
+    raft::deallocate_all(stream);
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
  protected:
   MatVecOpInputs<T, IdxType> params;
   T *in, *out, *out_ref, *vec1, *vec2;
+  cudaStream_t stream;
 };
 
 const std::vector<MatVecOpInputs<float, int>> inputsf_i32 = {

@@ -49,20 +49,19 @@ class stridedReductionTest
     int rows = params.rows, cols = params.cols;
     int len = rows * cols;
 
-    raft::allocate(data, len);
-    raft::allocate(dots_exp, cols);  //expected dot products (from test)
-    raft::allocate(dots_act, cols);  //actual dot products (from prim)
+    raft::allocate(data, len, stream);
+    raft::allocate(dots_exp, cols, stream);  //expected dot products (from test)
+    raft::allocate(dots_act, cols, stream);  //actual dot products (from prim)
     r.uniform(data, len, T(-1.0), T(1.0),
               stream);  //initialize matrix to random
 
     unaryAndGemv(dots_exp, data, cols, rows, stream);
     stridedReductionLaunch(dots_act, data, cols, rows, stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
   void TearDown() override {
-    CUDA_CHECK(cudaFree(data));
-    CUDA_CHECK(cudaFree(dots_exp));
-    CUDA_CHECK(cudaFree(dots_act));
+    raft::deallocate_all(stream);
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
 

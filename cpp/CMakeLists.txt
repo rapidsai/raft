@@ -15,13 +15,9 @@
 #=============================================================================
 
 cmake_minimum_required(VERSION 3.20.1 FATAL_ERROR)
-include(FetchContent)
-FetchContent_Declare(
-  rapids-cmake
-  GIT_REPOSITORY https://github.com/rapidsai/rapids-cmake.git
-  GIT_TAG        origin/branch-21.08
-  )
-FetchContent_MakeAvailable(rapids-cmake)
+file(DOWNLOAD https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-21.10/RAPIDS.cmake
+    ${CMAKE_BINARY_DIR}/RAPIDS.cmake)
+include(${CMAKE_BINARY_DIR}/RAPIDS.cmake)
 include(rapids-cmake)
 include(rapids-cpm)
 include(rapids-cuda)
@@ -30,7 +26,7 @@ include(rapids-find)
 
 rapids_cuda_init_architectures(RAFT)
 
-project(RAFT VERSION 21.08.00 LANGUAGES CXX CUDA)
+project(RAFT VERSION 21.10.00 LANGUAGES CXX CUDA)
 
 ##############################################################################
 # - build type ---------------------------------------------------------------
@@ -94,12 +90,12 @@ include(cmake/modules/ConfigureCUDA.cmake)
 ##############################################################################
 # - Requirements -------------------------------------------------------------
 
-if (NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
+if (NOT DISABLE_OPENMP)
   find_package(OpenMP)
   if(OPENMP_FOUND)
     message(VERBOSE "RAFT: OpenMP found in ${OpenMP_CXX_INCLUDE_DIRS}")
-  endif(OPENMP_FOUND)
-endif(NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
+  endif()
+endif()
 
 # add third party dependencies using CPM
 rapids_cpm_init()
@@ -117,6 +113,9 @@ endif()
 
 ##############################################################################
 # - install targets-----------------------------------------------------------
+rapids_cmake_install_lib_dir( lib_dir )
+
+include(CPack)
 
 add_library(raft INTERFACE)
 add_library(raft::raft ALIAS raft)
@@ -137,7 +136,7 @@ INTERFACE
 target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
 
 install(TARGETS raft
-        DESTINATION lib
+        DESTINATION ${lib_dir}
         EXPORT raft-exports
         )
 

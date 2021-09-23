@@ -19,7 +19,6 @@
 #include <raft/random/rng.cuh>
 #include "../test_utils.h"
 
-#include <raft/mr/device/allocator.hpp>
 #include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/coo.cuh>
 
@@ -61,8 +60,6 @@ typedef SparseConvertCSRTest<float> SortedCOOToCSR;
 TEST_P(SortedCOOToCSR, Result) {
   cudaStream_t stream;
   cudaStreamCreate(&stream);
-  std::shared_ptr<raft::mr::device::allocator> alloc(
-    new raft::mr::device::default_allocator);
 
   int nnz = 8;
 
@@ -71,14 +68,15 @@ TEST_P(SortedCOOToCSR, Result) {
   int *in_h = new int[nnz]{0, 0, 1, 1, 2, 2, 3, 3};
   int *exp_h = new int[4]{0, 2, 4, 6};
 
-  raft::allocate(in, nnz, true);
-  raft::allocate(exp, 4, true);
-  raft::allocate(out, 4, true);
+  raft::allocate(in, nnz, stream, true);
+  raft::allocate(exp, 4, stream, true);
+  raft::allocate(out, 4, stream, true);
 
   raft::update_device(in, in_h, nnz, stream);
   raft::update_device(exp, exp_h, 4, stream);
 
-  convert::sorted_coo_to_csr<int>(in, nnz, out, 4, alloc, stream);
+  convert::sorted_coo_to_csr<int>(in, nnz, out, 4, stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 
   ASSERT_TRUE(raft::devArrMatch<int>(out, exp, 4, raft::Compare<int>()));
 
@@ -115,10 +113,10 @@ class CSRAdjGraphTest
     cudaStreamCreate(&stream);
     nnz = params.verify.size();
 
-    raft::allocate(row_ind, params.n_rows);
-    raft::allocate(adj, params.n_rows * params.n_cols);
-    raft::allocate(result, nnz, true);
-    raft::allocate(verify, nnz);
+    raft::allocate(row_ind, params.n_rows, stream);
+    raft::allocate(adj, params.n_rows * params.n_cols, stream);
+    raft::allocate(result, nnz, stream, true);
+    raft::allocate(verify, nnz, stream);
   }
 
   void Run() {
@@ -135,11 +133,8 @@ class CSRAdjGraphTest
   }
 
   void TearDown() override {
-    CUDA_CHECK(cudaFree(row_ind));
-    CUDA_CHECK(cudaFree(adj));
-    CUDA_CHECK(cudaFree(verify));
-    CUDA_CHECK(cudaFree(result));
-    cudaStreamDestroy(stream);
+    raft::deallocate_all(stream);
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
  protected:

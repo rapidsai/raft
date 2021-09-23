@@ -17,8 +17,8 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/binary_op.cuh>
-#include <raft/mr/device/buffer.hpp>
 #include <raft/random/rng.cuh>
+#include <rmm/device_uvector.hpp>
 #include "../test_utils.h"
 #include "binary_op.cuh"
 
@@ -45,18 +45,16 @@ class BinaryOpTest
       BinaryOpInputs<InType, IdxType, OutType>>::GetParam();
     raft::random::Rng r(params.seed);
 
-    cudaStream_t stream;
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    auto stream = handle.get_stream();
     IdxType len = params.len;
-    allocate(in1, len);
-    allocate(in2, len);
-    allocate(out_ref, len);
-    allocate(out, len);
+    raft::allocate(in1, len, stream);
+    raft::allocate(in2, len, stream);
+    raft::allocate(out_ref, len, stream);
+    raft::allocate(out, len, stream);
     r.uniform(in1, len, InType(-1.0), InType(1.0), stream);
     r.uniform(in2, len, InType(-1.0), InType(1.0), stream);
     naiveAdd(out_ref, in1, in2, len);
     binaryOpLaunch(out, in1, in2, len, stream);
-    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
   void TearDown() override {
@@ -67,6 +65,7 @@ class BinaryOpTest
   }
 
  protected:
+  raft::handle_t handle;
   BinaryOpInputs<InType, IdxType, OutType> params;
   InType *in1, *in2;
   OutType *out_ref, *out;
@@ -77,7 +76,8 @@ const std::vector<BinaryOpInputs<float, int>> inputsf_i32 = {
 typedef BinaryOpTest<float, int> BinaryOpTestF_i32;
 TEST_P(BinaryOpTestF_i32, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
-                          CompareApprox<float>(params.tolerance)));
+                          CompareApprox<float>(params.tolerance),
+                          handle.get_stream()));
 }
 INSTANTIATE_TEST_SUITE_P(BinaryOpTests, BinaryOpTestF_i32,
                          ::testing::ValuesIn(inputsf_i32));
@@ -87,7 +87,8 @@ const std::vector<BinaryOpInputs<float, size_t>> inputsf_i64 = {
 typedef BinaryOpTest<float, size_t> BinaryOpTestF_i64;
 TEST_P(BinaryOpTestF_i64, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
-                          CompareApprox<float>(params.tolerance)));
+                          CompareApprox<float>(params.tolerance),
+                          handle.get_stream()));
 }
 INSTANTIATE_TEST_SUITE_P(BinaryOpTests, BinaryOpTestF_i64,
                          ::testing::ValuesIn(inputsf_i64));
@@ -97,7 +98,8 @@ const std::vector<BinaryOpInputs<float, int, double>> inputsf_i32_d = {
 typedef BinaryOpTest<float, int, double> BinaryOpTestF_i32_D;
 TEST_P(BinaryOpTestF_i32_D, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
-                          CompareApprox<double>(params.tolerance)));
+                          CompareApprox<double>(params.tolerance),
+                          handle.get_stream()));
 }
 INSTANTIATE_TEST_SUITE_P(BinaryOpTests, BinaryOpTestF_i32_D,
                          ::testing::ValuesIn(inputsf_i32_d));
@@ -107,7 +109,8 @@ const std::vector<BinaryOpInputs<double, int>> inputsd_i32 = {
 typedef BinaryOpTest<double, int> BinaryOpTestD_i32;
 TEST_P(BinaryOpTestD_i32, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
-                          CompareApprox<double>(params.tolerance)));
+                          CompareApprox<double>(params.tolerance),
+                          handle.get_stream()));
 }
 INSTANTIATE_TEST_SUITE_P(BinaryOpTests, BinaryOpTestD_i32,
                          ::testing::ValuesIn(inputsd_i32));
@@ -117,7 +120,8 @@ const std::vector<BinaryOpInputs<double, size_t>> inputsd_i64 = {
 typedef BinaryOpTest<double, size_t> BinaryOpTestD_i64;
 TEST_P(BinaryOpTestD_i64, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
-                          CompareApprox<double>(params.tolerance)));
+                          CompareApprox<double>(params.tolerance),
+                          handle.get_stream()));
 }
 INSTANTIATE_TEST_SUITE_P(BinaryOpTests, BinaryOpTestD_i64,
                          ::testing::ValuesIn(inputsd_i64));
@@ -127,19 +131,15 @@ class BinaryOpAlignment : public ::testing::Test {
  protected:
  public:
   void Misaligned() {
+    auto stream = handle.get_stream();
     // Test to trigger cudaErrorMisalignedAddress if veclen is incorrectly
     // chosen.
     int n = 1024;
-    mr::device::buffer<math_t> x(handle.get_device_allocator(),
-                                 handle.get_stream(), n);
-    mr::device::buffer<math_t> y(handle.get_device_allocator(),
-                                 handle.get_stream(), n);
-    mr::device::buffer<math_t> z(handle.get_device_allocator(),
-                                 handle.get_stream(), n);
-    CUDA_CHECK(
-      cudaMemsetAsync(x.data(), 0, n * sizeof(math_t), handle.get_stream()));
-    CUDA_CHECK(
-      cudaMemsetAsync(y.data(), 0, n * sizeof(math_t), handle.get_stream()));
+    rmm::device_uvector<math_t> x(n, stream);
+    rmm::device_uvector<math_t> y(n, stream);
+    rmm::device_uvector<math_t> z(n, stream);
+    CUDA_CHECK(cudaMemsetAsync(x.data(), 0, n * sizeof(math_t), stream));
+    CUDA_CHECK(cudaMemsetAsync(y.data(), 0, n * sizeof(math_t), stream));
     raft::linalg::binaryOp(
       z.data() + 9, x.data() + 137, y.data() + 19, 256,
       [] __device__(math_t x, math_t y) { return x + y; }, handle.get_stream());

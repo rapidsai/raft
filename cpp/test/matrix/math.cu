@@ -115,22 +115,22 @@ class MathTest : public ::testing::TestWithParam<MathInputs<T>> {
     random::Rng r(params.seed);
     int len = params.len;
 
-    allocate(in_power, len);
-    allocate(out_power_ref, len);
-    allocate(in_sqrt, len);
-    allocate(out_sqrt_ref, len);
-    allocate(in_sign_flip, len);
-    allocate(out_sign_flip_ref, len);
-
     raft::handle_t handle;
-    cudaStream_t stream;
+    stream = handle.get_stream();
     CUDA_CHECK(cudaStreamCreate(&stream));
 
-    allocate(in_ratio, 4);
+    raft::allocate(in_power, len, stream);
+    raft::allocate(out_power_ref, len, stream);
+    raft::allocate(in_sqrt, len, stream);
+    raft::allocate(out_sqrt_ref, len, stream);
+    raft::allocate(in_sign_flip, len, stream);
+    raft::allocate(out_sign_flip_ref, len, stream);
+
+    raft::allocate(in_ratio, 4, stream);
     T in_ratio_h[4] = {1.0, 2.0, 2.0, 3.0};
     update_device(in_ratio, in_ratio_h, 4, stream);
 
-    allocate(out_ratio_ref, 4);
+    raft::allocate(out_ratio_ref, 4, stream);
     T out_ratio_ref_h[4] = {0.125, 0.25, 0.25, 0.375};
     update_device(out_ratio_ref, out_ratio_ref_h, 4, stream);
 
@@ -150,9 +150,9 @@ class MathTest : public ::testing::TestWithParam<MathInputs<T>> {
     naiveSignFlip(in_sign_flip, out_sign_flip_ref, params.n_row, params.n_col);
     signFlip(in_sign_flip, params.n_row, params.n_col, stream);
 
-    allocate(in_recip, 4);
-    allocate(in_recip_ref, 4);
-    allocate(out_recip, 4);
+    raft::allocate(in_recip, 4, stream);
+    raft::allocate(in_recip_ref, 4, stream);
+    raft::allocate(out_recip, 4, stream);
     // default threshold is 1e-15
     std::vector<T> in_recip_h = {0.1, 0.01, -0.01, 0.1e-16};
     std::vector<T> in_recip_ref_h = {10.0, 100.0, -100.0, 0.0};
@@ -167,38 +167,24 @@ class MathTest : public ::testing::TestWithParam<MathInputs<T>> {
 
     std::vector<T> in_small_val_zero_h = {0.1, 1e-16, -1e-16, -0.1};
     std::vector<T> in_small_val_zero_ref_h = {0.1, 0.0, 0.0, -0.1};
-    allocate(in_smallzero, 4);
-    allocate(out_smallzero, 4);
-    allocate(out_smallzero_ref, 4);
+    raft::allocate(in_smallzero, 4, stream);
+    raft::allocate(out_smallzero, 4, stream);
+    raft::allocate(out_smallzero_ref, 4, stream);
     update_device(in_smallzero, in_small_val_zero_h.data(), 4, stream);
     update_device(out_smallzero_ref, in_small_val_zero_ref_h.data(), 4, stream);
     setSmallValuesZero(out_smallzero, in_smallzero, 4, stream);
     setSmallValuesZero(in_smallzero, 4, stream);
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
-  void TearDown() override {
-    CUDA_CHECK(cudaFree(in_power));
-    CUDA_CHECK(cudaFree(out_power_ref));
-    CUDA_CHECK(cudaFree(in_sqrt));
-    CUDA_CHECK(cudaFree(out_sqrt_ref));
-    CUDA_CHECK(cudaFree(in_ratio));
-    CUDA_CHECK(cudaFree(out_ratio_ref));
-    CUDA_CHECK(cudaFree(in_sign_flip));
-    CUDA_CHECK(cudaFree(out_sign_flip_ref));
-    CUDA_CHECK(cudaFree(in_recip));
-    CUDA_CHECK(cudaFree(in_recip_ref));
-    CUDA_CHECK(cudaFree(out_recip));
-    CUDA_CHECK(cudaFree(in_smallzero));
-    CUDA_CHECK(cudaFree(out_smallzero));
-    CUDA_CHECK(cudaFree(out_smallzero_ref));
-  }
+  void TearDown() override { raft::deallocate_all(stream); }
 
  protected:
   MathInputs<T> params;
   T *in_power, *out_power_ref, *in_sqrt, *out_sqrt_ref, *in_ratio,
     *out_ratio_ref, *in_sign_flip, *out_sign_flip_ref, *in_recip, *in_recip_ref,
     *out_recip, *in_smallzero, *out_smallzero, *out_smallzero_ref;
+  cudaStream_t stream;
 };
 
 const std::vector<MathInputs<float>> inputsf = {

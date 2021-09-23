@@ -57,11 +57,10 @@ class coalescedReductionTest
     raft::random::Rng r(params.seed);
     int rows = params.rows, cols = params.cols;
     int len = rows * cols;
-    cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
-    raft::allocate(data, len);
-    raft::allocate(dots_exp, rows);
-    raft::allocate(dots_act, rows);
+    raft::allocate(data, len, stream);
+    raft::allocate(dots_exp, rows, stream);
+    raft::allocate(dots_act, rows, stream);
     r.uniform(data, len, T(-1.0), T(1.0), stream);
     naiveCoalescedReduction(dots_exp, data, cols, rows, stream);
 
@@ -70,18 +69,18 @@ class coalescedReductionTest
     // Add to result with inplace = true next
     coalescedReductionLaunch(dots_act, data, cols, rows, stream, true);
 
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
   void TearDown() override {
-    CUDA_CHECK(cudaFree(data));
-    CUDA_CHECK(cudaFree(dots_exp));
-    CUDA_CHECK(cudaFree(dots_act));
+    raft::deallocate_all(stream);
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
  protected:
   coalescedReductionInputs<T> params;
   T *data, *dots_exp, *dots_act;
+  cudaStream_t stream;
 };
 
 const std::vector<coalescedReductionInputs<float>> inputsf = {
@@ -99,13 +98,15 @@ const std::vector<coalescedReductionInputs<double>> inputsd = {
 typedef coalescedReductionTest<float> coalescedReductionTestF;
 TEST_P(coalescedReductionTestF, Result) {
   ASSERT_TRUE(raft::devArrMatch(dots_exp, dots_act, params.rows,
-                                raft::CompareApprox<float>(params.tolerance)));
+                                raft::CompareApprox<float>(params.tolerance),
+                                stream));
 }
 
 typedef coalescedReductionTest<double> coalescedReductionTestD;
 TEST_P(coalescedReductionTestD, Result) {
   ASSERT_TRUE(raft::devArrMatch(dots_exp, dots_act, params.rows,
-                                raft::CompareApprox<double>(params.tolerance)));
+                                raft::CompareApprox<double>(params.tolerance),
+                                stream));
 }
 
 INSTANTIATE_TEST_CASE_P(coalescedReductionTests, coalescedReductionTestF,

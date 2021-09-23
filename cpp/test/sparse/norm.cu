@@ -47,10 +47,10 @@ class CSRRowNormalizeTest
       CSRRowNormalizeInputs<Type_f, Index_>>::GetParam();
     cudaStreamCreate(&stream);
 
-    raft::allocate(in_vals, params.in_vals.size());
-    raft::allocate(verify, params.verify.size());
-    raft::allocate(ex_scan, params.ex_scan.size());
-    raft::allocate(result, params.verify.size(), true);
+    raft::allocate(in_vals, params.in_vals.size(), stream);
+    raft::allocate(verify, params.verify.size(), stream);
+    raft::allocate(ex_scan, params.ex_scan.size(), stream);
+    raft::allocate(result, params.verify.size(), stream, true);
   }
 
   void Run() {
@@ -71,17 +71,15 @@ class CSRRowNormalizeTest
                                                  result, stream);
         break;
     }
+    CUDA_CHECK(cudaStreamSynchronize(stream));
 
     ASSERT_TRUE(
       raft::devArrMatch<Type_f>(verify, result, nnz, raft::Compare<Type_f>()));
   }
 
   void TearDown() override {
-    CUDA_CHECK(cudaFree(ex_scan));
-    CUDA_CHECK(cudaFree(in_vals));
-    CUDA_CHECK(cudaFree(verify));
-    CUDA_CHECK(cudaFree(result));
-    cudaStreamDestroy(stream);
+    raft::deallocate_all(stream);
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
  protected:

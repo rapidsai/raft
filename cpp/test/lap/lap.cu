@@ -24,6 +24,8 @@
  */
 #include <gtest/gtest.h>
 
+#include <rmm/device_uvector.hpp>
+
 #include <omp.h>
 #include <iostream>
 #include <raft/lap/lap.cuh>
@@ -65,15 +67,12 @@ void hungarian_test(int problemsize, int costrange, int problemcount,
   for (int j = 0; j < problemcount; j++) {
     generateProblem(h_cost, batchsize, problemsize, costrange);
 
-    raft::mr::device::buffer<weight_t> elements_v(
-      handle.get_device_allocator(), handle.get_stream(),
-      batchsize * problemsize * problemsize);
-    raft::mr::device::buffer<vertex_t> row_assignment_v(
-      handle.get_device_allocator(), handle.get_stream(),
-      batchsize * problemsize);
-    raft::mr::device::buffer<vertex_t> col_assignment_v(
-      handle.get_device_allocator(), handle.get_stream(),
-      batchsize * problemsize);
+    rmm::device_uvector<weight_t> elements_v(
+      batchsize * problemsize * problemsize, handle.get_stream());
+    rmm::device_uvector<vertex_t> row_assignment_v(batchsize * problemsize,
+                                                   handle.get_stream());
+    rmm::device_uvector<vertex_t> col_assignment_v(batchsize * problemsize,
+                                                   handle.get_stream());
 
     raft::update_device(elements_v.data(), h_cost,
                         batchsize * problemsize * problemsize,
