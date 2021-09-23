@@ -70,8 +70,9 @@ __global__ void perform_post_filter_registers(
   extern __shared__ std::uint32_t shared_mem[];
 
   // Start with all bits on
-  for (value_int i = threadIdx.x; i < bitset_size; i += tpb)
+  for (value_int i = threadIdx.x; i < bitset_size; i += tpb) {
     shared_mem[i] = 0xffffffff;
+  }
 
   __syncthreads();
 
@@ -84,8 +85,9 @@ __global__ void perform_post_filter_registers(
   value_t closest_R_dist = R_knn_dists[blockIdx.x * k + (k - 1)];
 
   // zero out bits for closest k landmarks
-  for (value_int j = threadIdx.x; j < k; j += tpb)
+  for (value_int j = threadIdx.x; j < k; j += tpb) {
     _zero_bit(shared_mem, (std::uint32_t)R_knn_inds[blockIdx.x * k + j]);
+  }
 
   __syncthreads();
 
@@ -97,8 +99,9 @@ __global__ void perform_post_filter_registers(
     // compute p(q, r)
     value_t dist = dfunc(local_x_ptr, landmarks + (n_cols * l), n_cols);
     if (dist > weight * (closest_R_dist + R_radius[l]) ||
-        dist > 3 * closest_R_dist)
+        dist > 3 * closest_R_dist) {
       _zero_bit(shared_mem, l);
+    }
   }
 
   __syncthreads();

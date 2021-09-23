@@ -56,7 +56,7 @@ struct EuclideanFunc {
       sum_sq += diff * diff;
     }
 
-    return sum_sq;
+    return sqrt(sum_sq);
   }
 };
 

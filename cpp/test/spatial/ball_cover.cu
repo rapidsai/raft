@@ -40,7 +40,7 @@ __global__ void count_discrepancies_kernel(value_idx *actual_idx,
                                            value_idx *expected_idx,
                                            value_t *actual, value_t *expected,
                                            uint32_t m, uint32_t n,
-                                           uint32_t *out, float thres = 1e-1) {
+                                           uint32_t *out, float thres = 1e-3) {
   uint32_t row = blockDim.x * blockIdx.x + threadIdx.x;
 
   int n_diffs = 0;
@@ -48,6 +48,11 @@ __global__ void count_discrepancies_kernel(value_idx *actual_idx,
     for (uint32_t i = 0; i < n; i++) {
       value_t d = actual[row * n + i] - expected[row * n + i];
       bool matches = fabsf(d) <= thres;
+      if (!matches) {
+        //          printf("row=%d, actual_idx=%ld, actual=%f, expected_id=%ld, expected=%f\n",
+        //                 row, actual_idx[row*n+i], actual[row*n+i], expected_idx[row*n+i], expected[row*n+i]);
+      }
+
       n_diffs += !matches;
       out[row] = n_diffs;
     }
@@ -79,9 +84,9 @@ struct ToRadians {
 };
 
 struct BallCoverInputs {
-  uint32_t k = 2;
-  float weight = 1.0;
-  raft::distance::DistanceType metric = raft::distance::DistanceType::Haversine;
+  uint32_t k;
+  float weight;
+  raft::distance::DistanceType metric;
 };
 
 template <typename value_idx, typename value_t>
@@ -150,8 +155,6 @@ class BallCoverKNNQueryTest : public ::testing::TestWithParam<BallCoverInputs> {
     int res = count_discrepancies(d_ref_I.data(), d_pred_I.data(),
                                   d_ref_D.data(), d_pred_D.data(), n, k,
                                   discrepancies.data(), handle.get_stream());
-
-    printf("res=%d\n", res);
 
     ASSERT_TRUE(res == 0);
   }
@@ -246,14 +249,11 @@ typedef BallCoverKNNQueryTest<int64_t, float> BallCoverKNNQueryTestF;
 
 const std::vector<BallCoverInputs> ballcover_inputs = {
   {2, 1.0, raft::distance::DistanceType::Haversine},
+  {4, 1.0, raft::distance::DistanceType::Haversine},
   {7, 1.0, raft::distance::DistanceType::Haversine},
-  {64, 1.0, raft::distance::DistanceType::Haversine},
-  {2, 1.0, raft::distance::DistanceType::L2Unexpanded},
-  {7, 1.0, raft::distance::DistanceType::L2Unexpanded},
-  {64, 1.0, raft::distance::DistanceType::L2Unexpanded},
   {2, 1.0, raft::distance::DistanceType::L2SqrtUnexpanded},
+  {4, 1.0, raft::distance::DistanceType::L2SqrtUnexpanded},
   {7, 1.0, raft::distance::DistanceType::L2SqrtUnexpanded},
-  {64, 1.0, raft::distance::DistanceType::L2SqrtUnexpanded},
 };
 
 INSTANTIATE_TEST_CASE_P(BallCoverAllKNNTest, BallCoverAllKNNTestF,
