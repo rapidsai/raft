@@ -31,8 +31,6 @@
 #include <raft/sparse/coo.cuh>
 #include <raft/sparse/csr.cuh>
 #include <raft/sparse/distance/distance.cuh>
-#include <raft/sparse/selection/selection.cuh>
-
 #include <raft/spatial/knn/knn.hpp>
 
 #include <raft/cudart_utils.h>
@@ -339,8 +337,9 @@ class sparse_knn_t {
     if (metric == raft::distance::DistanceType::InnerProduct) ascending = false;
 
     // kernel to slice first (min) k cols and copy into batched merge buffer
-    select_k(batch_dists, batch_indices, batch_rows, batch_cols, out_dists,
-             out_indices, ascending, n_neighbors, handle.get_stream());
+    raft::spatial::knn::select_k(batch_dists, batch_indices, batch_rows,
+                                 batch_cols, out_dists, out_indices, ascending,
+                                 n_neighbors, handle.get_stream());
   }
 
   void compute_distances(csr_batcher_t<value_idx, value_t> &idx_batcher,
