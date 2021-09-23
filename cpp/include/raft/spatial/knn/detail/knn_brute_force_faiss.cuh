@@ -30,6 +30,7 @@
 
 #include <raft/linalg/distance_type.h>
 #include <thrust/iterator/transform_iterator.h>
+#include <cstdint>
 #include <iostream>
 #include <raft/handle.hpp>
 #include <set>
@@ -45,8 +46,8 @@ namespace spatial {
 namespace knn {
 namespace detail {
 
-template <typename value_idx = int64_t, typename value_t = float, int warp_q,
-          int thread_q, int tpb>
+template <typename value_idx = std::int64_t, typename value_t = float,
+          int warp_q, int thread_q, int tpb>
 __global__ void knn_merge_parts_kernel(value_t *inK, value_idx *inV,
                                        value_t *outK, value_idx *outV,
                                        size_t n_samples, int n_parts,
@@ -110,8 +111,8 @@ __global__ void knn_merge_parts_kernel(value_t *inK, value_idx *inV,
   }
 }
 
-template <typename value_idx = int64_t, typename value_t = float, int warp_q,
-          int thread_q>
+template <typename value_idx = std::int64_t, typename value_t = float,
+          int warp_q, int thread_q>
 inline void knn_merge_parts_impl(value_t *inK, value_idx *inV, value_t *outK,
                                  value_idx *outV, size_t n_samples, int n_parts,
                                  int k, cudaStream_t stream,
@@ -143,7 +144,7 @@ inline void knn_merge_parts_impl(value_t *inK, value_idx *inV, value_t *outK,
  * @param stream CUDA stream to use
  * @param translations mapping of index offsets for each partition
  */
-template <typename value_idx = int64_t, typename value_t = float>
+template <typename value_idx = std::int64_t, typename value_t = float>
 inline void knn_merge_parts(value_t *inK, value_idx *inV, value_t *outK,
                             value_idx *outV, size_t n_samples, int n_parts,
                             int k, cudaStream_t stream,
@@ -195,28 +196,28 @@ inline void knn_merge_parts(value_t *inK, value_idx *inV, value_t *outK,
  * @param[in] metric corresponds to the raft::distance::DistanceType enum (default is L2Expanded)
  * @param[in] metricArg metric argument to use. Corresponds to the p arg for lp norm
  */
-template <typename IntType = int>
-void brute_force_knn_impl(std::vector<float *> &input, std::vector<int> &sizes,
-                          IntType D, float *search_items, IntType n,
-                          int64_t *res_I, float *res_D, IntType k,
-                          cudaStream_t userStream,
+template <typename IntType = int, typename IdxType = std::int64_t>
+void brute_force_knn_impl(std::vector<float *> &input,
+                          std::vector<IntType> &sizes, IntType D,
+                          float *search_items, IntType n, IdxType *res_I,
+                          float *res_D, IntType k, cudaStream_t userStream,
                           cudaStream_t *internalStreams = nullptr,
                           int n_int_streams = 0, bool rowMajorIndex = true,
                           bool rowMajorQuery = true,
-                          std::vector<int64_t> *translations = nullptr,
+                          std::vector<IdxType> *translations = nullptr,
                           raft::distance::DistanceType metric =
                             raft::distance::DistanceType::L2Expanded,
                           float metricArg = 0) {
   ASSERT(input.size() == sizes.size(),
          "input and sizes vectors should be the same size");
 
-  std::vector<int64_t> *id_ranges;
+  std::vector<IdxType> *id_ranges;
   if (translations == nullptr) {
     // If we don't have explicit translations
     // for offsets of the indices, build them
     // from the local partitions
-    id_ranges = new std::vector<int64_t>();
-    int64_t total_n = 0;
+    id_ranges = new std::vector<IdxType>();
+    IdxType total_n = 0;
     for (size_t i = 0; i < input.size(); i++) {
       id_ranges->push_back(total_n);
       total_n += sizes[i];
@@ -242,15 +243,15 @@ void brute_force_knn_impl(std::vector<float *> &input, std::vector<int> &sizes,
   int device;
   CUDA_CHECK(cudaGetDevice(&device));
 
-  rmm::device_uvector<int64_t> trans(id_ranges->size(), userStream);
+  rmm::device_uvector<std::int64_t> trans(id_ranges->size(), userStream);
   raft::update_device(trans.data(), id_ranges->data(), id_ranges->size(),
                       userStream);
 
   rmm::device_uvector<float> all_D(0, userStream);
-  rmm::device_uvector<int64_t> all_I(0, userStream);
+  rmm::device_uvector<std::int64_t> all_I(0, userStream);
 
   float *out_D = res_D;
-  int64_t *out_I = res_I;
+  IdxType *out_I = res_I;
 
   if (input.size() > 1) {
     all_D.resize(input.size() * k * n, userStream);
@@ -265,7 +266,7 @@ void brute_force_knn_impl(std::vector<float *> &input, std::vector<int> &sizes,
 
   for (size_t i = 0; i < input.size(); i++) {
     float *out_d_ptr = out_D + (i * k * n);
-    int64_t *out_i_ptr = out_I + (i * k * n);
+    IdxType *out_i_ptr = out_I + (i * k * n);
 
     cudaStream_t stream =
       raft::select_stream(userStream, internalStreams, n_int_streams, i);
