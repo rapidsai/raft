@@ -73,6 +73,12 @@ void matrixVectorOpImpl(Type *out, const Type *matrix, const Type *vec,
 
 /**
  * @brief Operations for all the columns or rows with a given vector.
+ * Caution : Threads process multiple elements to speed up processing. These
+ * are loaded in a single read thanks to type promotion. Faster processing
+ * would thus only be enabled when adresses are optimally aligned for it.
+ * Note : the function will also check that the size of the window of accesses
+ * is a multiple of the number of elements processed by a thread in order to
+ * enable faster processing
  * @tparam Type the matrix/vector type
  * @tparam Lambda a device function which represents a binary operator
  * @tparam IdxType Integer type used to for addressing
@@ -174,6 +180,12 @@ void matrixVectorOpImpl(Type *out, const Type *matrix, const Type *vec1,
 
 /**
  * @brief Operations for all the columns or rows with the given vectors.
+ * Caution : Threads process multiple elements to speed up processing. These
+ * are loaded in a single read thanks to type promotion. Faster processing
+ * would thus only be enabled when adresses are optimally aligned for it.
+ * Note : the function will also check that the size of the window of accesses
+ * is a multiple of the number of elements processed by a thread in order to
+ * enable faster processing
  * @tparam Type the matrix/vector type
  * @tparam Lambda a device function which represents a binary operator
  * @tparam IdxType Integer type used to for addressing
