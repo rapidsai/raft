@@ -18,6 +18,7 @@
 #include <faiss/gpu/utils/Select.cuh>
 #include <limits>
 #include <raft/distance/pairwise_distance_base.cuh>
+#include <raft/linalg/norm.cuh>
 #include "processing.hpp"
 
 namespace raft {
@@ -191,7 +192,16 @@ __global__ __launch_bounds__(Policy::Nthreads, 2) void fusedL2kNN(
     }
 
     volatile int *mutex = mutexes;
-    Pair *shDumpKV = (Pair *)(&smem[Policy::SmemSize]);
+
+    Pair *shDumpKV = nullptr;
+    if (useNorms) {
+      shDumpKV =
+        (Pair *)(&smem[Policy::SmemSize +
+                       ((Policy::Mblk + Policy::Nblk) * sizeof(DataT))]);
+    } else {
+      shDumpKV = (Pair *)(&smem[Policy::SmemSize]);
+    }
+
     const int lid = threadIdx.x % warpSize;
     const IdxT starty = gridStrideY + (threadIdx.x / Policy::AccThCols);
 
@@ -300,6 +310,16 @@ __global__ __launch_bounds__(Policy::Nthreads, 2) void fusedL2kNN(
     [numOfNN, sqrt, m, n, ldd, out_dists, out_inds] __device__(
       AccT acc[Policy::AccRowsPerTh][Policy::AccColsPerTh], DataT * regxn,
       DataT * regyn, IdxT gridStrideX, IdxT gridStrideY) {
+      if (useNorms) {
+#pragma unroll
+        for (int i = 0; i < Policy::AccRowsPerTh; ++i) {
+#pragma unroll
+          for (int j = 0; j < Policy::AccColsPerTh; ++j) {
+            acc[i][j] = regxn[i] + regyn[j] - (DataT)2.0 * acc[i][j];
+          }
+        }
+      }
+
       if (sqrt) {
 #pragma unroll
         for (int i = 0; i < Policy::AccRowsPerTh; ++i) {
@@ -309,7 +329,14 @@ __global__ __launch_bounds__(Policy::Nthreads, 2) void fusedL2kNN(
           }
         }
       }
-      Pair *shDumpKV = (Pair *)(&smem[Policy::SmemSize]);
+      Pair *shDumpKV = nullptr;
+      if (useNorms) {
+        shDumpKV =
+          (Pair *)(&smem[Policy::SmemSize +
+                         ((Policy::Mblk + Policy::Nblk) * sizeof(DataT))]);
+      } else {
+        shDumpKV = (Pair *)(&smem[Policy::SmemSize]);
+      }
 
       constexpr uint32_t mask = 0xffffffffu;
       const IdxT starty = gridStrideY + (threadIdx.x / Policy::AccThCols);
@@ -599,6 +626,154 @@ void l2_unexpanded_knn(size_t D, value_idx *out_inds, value_t *out_dists,
   if (rowMajorIndex) {
     value_idx lda = D, ldb = D, ldd = n_index_rows;
     fusedL2kNN<value_t, value_t, value_t, value_idx, usePrevTopKs, true>(
+      n_query_rows, n_index_rows, D, lda, ldb, ldd, query, index, sqrt,
+      out_dists, out_inds, k, stream, workspace, worksize);
+  } else {
+    // TODO: Add support for column major layout
+  }
+}
+
+template <typename DataT, typename AccT, typename OutT, typename IdxT,
+          int VecLen, bool usePrevTopKs, bool isRowMajor>
+void fusedL2ExpKNNImpl(const DataT *x, const DataT *y, IdxT m, IdxT n, IdxT k,
+                       IdxT lda, IdxT ldb, IdxT ldd, bool sqrt, OutT *out_dists,
+                       IdxT *out_inds, IdxT numOfNN, cudaStream_t stream,
+                       void *workspace, size_t &worksize) {
+  typedef typename raft::linalg::Policy2x8<DataT, 1>::Policy RowPolicy;
+  typedef typename raft::linalg::Policy4x4<DataT, VecLen>::ColPolicy ColPolicy;
+
+  typedef typename std::conditional<true, RowPolicy, ColPolicy>::type KPolicy;
+
+  ASSERT(isRowMajor, "Only Row major inputs are allowed");
+
+  ASSERT(!(((x != y) && (worksize < (m + n) * sizeof(AccT))) ||
+           (worksize < m * sizeof(AccT))),
+         "workspace size error");
+  ASSERT(workspace != nullptr, "workspace is null");
+
+  dim3 blk(KPolicy::Nthreads);
+  // Accumulation operation lambda
+  auto core_lambda = [] __device__(AccT & acc, DataT & x, DataT & y) {
+    acc += x * y;
+  };
+
+  auto fin_op = [] __device__(AccT d_val, int g_d_idx) { return d_val; };
+
+  typedef cub::KeyValuePair<uint32_t, AccT> Pair;
+
+  if (isRowMajor) {
+    constexpr auto fusedL2ExpkNN32RowMajor =
+      fusedL2kNN<true, DataT, AccT, OutT, IdxT, KPolicy, decltype(core_lambda),
+                 decltype(fin_op), 32, 2, usePrevTopKs, true>;
+    constexpr auto fusedL2ExpkNN64RowMajor =
+      fusedL2kNN<true, DataT, AccT, OutT, IdxT, KPolicy, decltype(core_lambda),
+                 decltype(fin_op), 64, 3, usePrevTopKs, true>;
+
+    auto fusedL2ExpKNNRowMajor = fusedL2ExpkNN32RowMajor;
+    if (numOfNN <= 32) {
+      fusedL2ExpKNNRowMajor = fusedL2ExpkNN32RowMajor;
+    } else if (numOfNN <= 64) {
+      fusedL2ExpKNNRowMajor = fusedL2ExpkNN64RowMajor;
+    } else {
+      ASSERT(numOfNN <= 64,
+             "fusedL2kNN: num of nearest neighbors must be <= 64");
+    }
+
+    const auto sharedMemSize =
+      KPolicy::SmemSize + ((KPolicy::Mblk + KPolicy::Nblk) * sizeof(DataT)) +
+      (KPolicy::Mblk * numOfNN * sizeof(Pair));
+    dim3 grid = raft::distance::launchConfigGenerator<KPolicy>(
+      m, n, sharedMemSize, fusedL2ExpKNNRowMajor);
+    int32_t *mutexes = nullptr;
+    if (grid.x > 1) {
+      const auto numMutexes = raft::ceildiv<int>(m, KPolicy::Mblk);
+      const auto normsSize =
+        (x != y) ? (m + n) * sizeof(DataT) : n * sizeof(DataT);
+      const auto requiredSize = sizeof(int32_t) * numMutexes + normsSize;
+      if (worksize < requiredSize) {
+        worksize = requiredSize;
+        return;
+      } else {
+        mutexes = (int32_t *)((char *)workspace + normsSize);
+        CUDA_CHECK(
+          cudaMemsetAsync(mutexes, 0, sizeof(int32_t) * numMutexes, stream));
+      }
+    }
+
+    DataT *xn = (DataT *)workspace;
+    DataT *yn = (DataT *)workspace;
+
+    auto norm_op = [] __device__(DataT in) { return in; };
+
+    if (x != y) {
+      yn += m;
+      raft::linalg::rowNorm(xn, x, k, m, raft::linalg::L2Norm, isRowMajor,
+                            stream, norm_op);
+      raft::linalg::rowNorm(yn, y, k, n, raft::linalg::L2Norm, isRowMajor,
+                            stream, norm_op);
+    } else {
+      raft::linalg::rowNorm(xn, x, k, n, raft::linalg::L2Norm, isRowMajor,
+                            stream, norm_op);
+    }
+    fusedL2ExpKNNRowMajor<<<grid, blk, sharedMemSize, stream>>>(
+      x, y, xn, yn, m, n, k, lda, ldb, ldd, core_lambda, fin_op, sqrt,
+      (uint32_t)numOfNN, mutexes, out_dists, out_inds);
+  } else {
+  }
+
+  CUDA_CHECK(cudaGetLastError());
+}
+
+template <typename DataT, typename AccT, typename OutT, typename IdxT,
+          bool usePrevTopKs, bool isRowMajor>
+void fusedL2ExpkNN(IdxT m, IdxT n, IdxT k, IdxT lda, IdxT ldb, IdxT ldd,
+                   const DataT *x, const DataT *y, bool sqrt, OutT *out_dists,
+                   IdxT *out_inds, IdxT numOfNN, cudaStream_t stream,
+                   void *workspace, size_t &worksize) {
+  size_t bytesA = sizeof(DataT) * lda;
+  size_t bytesB = sizeof(DataT) * ldb;
+  if (16 % sizeof(DataT) == 0 && bytesA % 16 == 0 && bytesB % 16 == 0) {
+    fusedL2ExpKNNImpl<DataT, AccT, OutT, IdxT, 16 / sizeof(DataT), usePrevTopKs,
+                      isRowMajor>(x, y, m, n, k, lda, ldb, ldd, sqrt, out_dists,
+                                  out_inds, numOfNN, stream, workspace,
+                                  worksize);
+  } else if (8 % sizeof(DataT) == 0 && bytesA % 8 == 0 && bytesB % 8 == 0) {
+    fusedL2ExpKNNImpl<DataT, AccT, OutT, IdxT, 8 / sizeof(DataT), usePrevTopKs,
+                      isRowMajor>(x, y, m, n, k, lda, ldb, ldd, sqrt, out_dists,
+                                  out_inds, numOfNN, stream, workspace,
+                                  worksize);
+  } else {
+    fusedL2ExpKNNImpl<DataT, AccT, OutT, IdxT, 1, usePrevTopKs, isRowMajor>(
+      x, y, m, n, k, lda, ldb, ldd, sqrt, out_dists, out_inds, numOfNN, stream,
+      workspace, worksize);
+  }
+}
+
+template <raft::distance::DistanceType distanceType, typename value_idx,
+          typename value_t, bool usePrevTopKs>
+void l2_expanded_knn(size_t D, value_idx *out_inds, value_t *out_dists,
+                     const value_t *index, const value_t *query,
+                     size_t n_index_rows, size_t n_query_rows, int k,
+                     bool rowMajorIndex, bool rowMajorQuery,
+                     cudaStream_t stream, void *workspace, size_t &worksize) {
+  // Validate the input data
+  ASSERT(k > 0, "l2Knn: k must be > 0");
+  ASSERT(D > 0, "l2Knn: D must be > 0");
+  ASSERT(n_index_rows > 0, "l2Knn: n_index_rows must be > 0");
+  ASSERT(index, "l2Knn: index must be provided (passed null)");
+  ASSERT(n_query_rows > 0, "l2Knn: n_query_rows must be > 0");
+  ASSERT(query, "l2Knn: query must be provided (passed null)");
+  ASSERT(out_dists, "l2Knn: out_dists must be provided (passed null)");
+  ASSERT(out_inds, "l2Knn: out_inds must be provided (passed null)");
+  // Currently we only support same layout for x & y inputs.
+  ASSERT(rowMajorIndex == rowMajorQuery,
+         "l2Knn: rowMajorIndex and rowMajorQuery should have same layout");
+
+  bool sqrt = (distanceType == raft::distance::DistanceType::L2SqrtExpanded);
+
+  if (rowMajorIndex) {
+    value_idx lda = D, ldb = D, ldd = n_index_rows;
+    fusedL2ExpkNN<value_t, value_t, value_t, value_idx, usePrevTopKs, true>(
       n_query_rows, n_index_rows, D, lda, ldb, ldd, query, index, sqrt,
       out_dists, out_inds, k, stream, workspace, worksize);
   } else {

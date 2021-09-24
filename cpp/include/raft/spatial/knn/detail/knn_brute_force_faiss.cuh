@@ -34,6 +34,7 @@
 #include <raft/handle.hpp>
 #include <set>
 
+#include <raft/distance/distance.cuh>
 #include "fused_l2_knn.cuh"
 #include "haversine_distance.cuh"
 #include "processing.hpp"
@@ -275,13 +276,29 @@ void brute_force_knn_impl(std::vector<float *> &input, std::vector<int> &sizes,
          metric == raft::distance::DistanceType::L2SqrtUnexpanded ||
          metric == raft::distance::DistanceType::L2Expanded ||
          metric == raft::distance::DistanceType::L2SqrtExpanded)) {
-      size_t worksize = 0;
-      void *workspace = nullptr;
-
+      size_t worksize = 0, tempWorksize = 0;
+      rmm::device_uvector<char> workspace(worksize, stream);
       switch (metric) {
         case raft::distance::DistanceType::L2Expanded:
-        case raft::distance::DistanceType::L2Unexpanded:
         case raft::distance::DistanceType::L2SqrtExpanded:
+          tempWorksize = raft::distance::getWorkspaceSize<
+            raft::distance::DistanceType::L2Expanded, float, float, float,
+            IntType>(search_items, input[i], n, sizes[i], D);
+          worksize = tempWorksize;
+          workspace.resize(worksize, stream);
+          l2_expanded_knn<raft::distance::DistanceType::L2Expanded, int64_t,
+                          float, false>(
+            D, out_i_ptr, out_d_ptr, input[i], search_items, sizes[i], n, k,
+            rowMajorIndex, rowMajorQuery, stream, workspace.data(), worksize);
+          if (worksize > tempWorksize) {
+            workspace.resize(worksize, stream);
+            l2_expanded_knn<raft::distance::DistanceType::L2Expanded, int64_t,
+                            float, false>(
+              D, out_i_ptr, out_d_ptr, input[i], search_items, sizes[i], n, k,
+              rowMajorIndex, rowMajorQuery, stream, workspace.data(), worksize);
+          }
+          break;
+        case raft::distance::DistanceType::L2Unexpanded:
         // Even for L2 Sqrt distance case we use non-sqrt version
         // as FAISS bfKNN only support non-sqrt metric & some tests
         // in RAFT/cuML (like Linkage) fails if we use L2 sqrt.
@@ -292,14 +309,13 @@ void brute_force_knn_impl(std::vector<float *> &input, std::vector<int> &sizes,
           l2_unexpanded_knn<raft::distance::DistanceType::L2Unexpanded, int64_t,
                             float, false>(
             D, out_i_ptr, out_d_ptr, input[i], search_items, sizes[i], n, k,
-            rowMajorIndex, rowMajorQuery, stream, workspace, worksize);
+            rowMajorIndex, rowMajorQuery, stream, workspace.data(), worksize);
           if (worksize) {
-            rmm::device_uvector<int> d_mutexes(worksize, stream);
-            workspace = d_mutexes.data();
+            workspace.resize(worksize, stream);
             l2_unexpanded_knn<raft::distance::DistanceType::L2Unexpanded,
                               int64_t, float, false>(
               D, out_i_ptr, out_d_ptr, input[i], search_items, sizes[i], n, k,
-              rowMajorIndex, rowMajorQuery, stream, workspace, worksize);
+              rowMajorIndex, rowMajorQuery, stream, workspace.data(), worksize);
           }
           break;
         default:
