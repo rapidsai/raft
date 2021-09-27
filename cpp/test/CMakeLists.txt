@@ -84,11 +84,12 @@ add_executable(test_raft
     test/sparse/norm.cu
     test/sparse/reduce.cu
     test/sparse/row_op.cu
-    test/sparse/selection.cu
     test/sparse/sort.cu
     test/sparse/symmetrize.cu
     test/spatial/knn.cu
     test/spatial/haversine.cu
+    test/spatial/ball_cover.cu
+    test/spatial/selection.cu
     test/spectral_matrix.cu
     test/stats/mean.cu
     test/stats/mean_center.cu

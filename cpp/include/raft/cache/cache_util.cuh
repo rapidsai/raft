@@ -41,9 +41,9 @@ namespace cache {
  * @param [in] n the number of elements that need to be collected
  * @param [out] out vectors collected from the cache, size [n_vec * n]
  */
-template <typename math_t>
-__global__ void get_vecs(const math_t *cache, int n_vec, const int *cache_idx,
-                         int n, math_t *out) {
+template <typename math_t, typename idx_t, typename int_t>
+__global__ void get_vecs(const math_t *cache, int_t n_vec,
+                         const idx_t *cache_idx, int_t n, math_t *out) {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   int row = tid % n_vec;  // row idx
   if (tid < n_vec * n) {

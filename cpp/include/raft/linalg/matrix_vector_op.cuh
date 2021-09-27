@@ -73,6 +73,12 @@ void matrixVectorOpImpl(Type *out, const Type *matrix, const Type *vec,
 
 /**
  * @brief Operations for all the columns or rows with a given vector.
+ * Caution : Threads process multiple elements to speed up processing. These
+ * are loaded in a single read thanks to type promotion. Faster processing
+ * would thus only be enabled when adresses are optimally aligned for it.
+ * Note : the function will also check that the size of the window of accesses
+ * is a multiple of the number of elements processed by a thread in order to
+ * enable faster processing
  * @tparam Type the matrix/vector type
  * @tparam Lambda a device function which represents a binary operator
  * @tparam IdxType Integer type used to for addressing
@@ -93,17 +99,23 @@ void matrixVectorOp(Type *out, const Type *matrix, const Type *vec, IdxType D,
                     IdxType N, bool rowMajor, bool bcastAlongRows, Lambda op,
                     cudaStream_t stream) {
   IdxType stride = rowMajor ? D : N;
-  size_t bytes = stride * sizeof(Type);
-  if (16 / sizeof(Type) && bytes % 16 == 0) {
+  size_t stride_bytes = stride * sizeof(Type);
+
+  auto test_aligned_access = [stride_bytes, matrix](const int n_bytes) {
+    return n_bytes / sizeof(Type) && stride_bytes % n_bytes == 0 &&
+           reinterpret_cast<uintptr_t>(matrix) % sizeof(Type);
+  };
+
+  if (test_aligned_access(16)) {
     matrixVectorOpImpl<Type, 16 / sizeof(Type), Lambda, IdxType, TPB>(
       out, matrix, vec, D, N, rowMajor, bcastAlongRows, op, stream);
-  } else if (8 / sizeof(Type) && bytes % 8 == 0) {
+  } else if (test_aligned_access(8)) {
     matrixVectorOpImpl<Type, 8 / sizeof(Type), Lambda, IdxType, TPB>(
       out, matrix, vec, D, N, rowMajor, bcastAlongRows, op, stream);
-  } else if (4 / sizeof(Type) && bytes % 4 == 0) {
+  } else if (test_aligned_access(4)) {
     matrixVectorOpImpl<Type, 4 / sizeof(Type), Lambda, IdxType, TPB>(
       out, matrix, vec, D, N, rowMajor, bcastAlongRows, op, stream);
-  } else if (2 / sizeof(Type) && bytes % 2 == 0) {
+  } else if (test_aligned_access(2)) {
     matrixVectorOpImpl<Type, 2 / sizeof(Type), Lambda, IdxType, TPB>(
       out, matrix, vec, D, N, rowMajor, bcastAlongRows, op, stream);
   } else if (1 / sizeof(Type)) {
@@ -168,6 +180,12 @@ void matrixVectorOpImpl(Type *out, const Type *matrix, const Type *vec1,
 
 /**
  * @brief Operations for all the columns or rows with the given vectors.
+ * Caution : Threads process multiple elements to speed up processing. These
+ * are loaded in a single read thanks to type promotion. Faster processing
+ * would thus only be enabled when adresses are optimally aligned for it.
+ * Note : the function will also check that the size of the window of accesses
+ * is a multiple of the number of elements processed by a thread in order to
+ * enable faster processing
  * @tparam Type the matrix/vector type
  * @tparam Lambda a device function which represents a binary operator
  * @tparam IdxType Integer type used to for addressing
@@ -189,17 +207,23 @@ void matrixVectorOp(Type *out, const Type *matrix, const Type *vec1,
                     const Type *vec2, IdxType D, IdxType N, bool rowMajor,
                     bool bcastAlongRows, Lambda op, cudaStream_t stream) {
   IdxType stride = rowMajor ? D : N;
-  size_t bytes = stride * sizeof(Type);
-  if (16 / sizeof(Type) && bytes % 16 == 0) {
+  size_t stride_bytes = stride * sizeof(Type);
+
+  auto test_aligned_access = [stride_bytes, matrix](const int n_bytes) {
+    return n_bytes / sizeof(Type) && stride_bytes % n_bytes == 0 &&
+           reinterpret_cast<uintptr_t>(matrix) % sizeof(Type);
+  };
+
+  if (test_aligned_access(16)) {
     matrixVectorOpImpl<Type, 16 / sizeof(Type), Lambda, IdxType, TPB>(
       out, matrix, vec1, vec2, D, N, rowMajor, bcastAlongRows, op, stream);
-  } else if (8 / sizeof(Type) && bytes % 8 == 0) {
+  } else if (test_aligned_access(8)) {
     matrixVectorOpImpl<Type, 8 / sizeof(Type), Lambda, IdxType, TPB>(
       out, matrix, vec1, vec2, D, N, rowMajor, bcastAlongRows, op, stream);
-  } else if (4 / sizeof(Type) && bytes % 4 == 0) {
+  } else if (test_aligned_access(4)) {
     matrixVectorOpImpl<Type, 4 / sizeof(Type), Lambda, IdxType, TPB>(
       out, matrix, vec1, vec2, D, N, rowMajor, bcastAlongRows, op, stream);
-  } else if (2 / sizeof(Type) && bytes % 2 == 0) {
+  } else if (test_aligned_access(2)) {
     matrixVectorOpImpl<Type, 2 / sizeof(Type), Lambda, IdxType, TPB>(
       out, matrix, vec1, vec2, D, N, rowMajor, bcastAlongRows, op, stream);
   } else if (1 / sizeof(Type)) {
