@@ -144,11 +144,11 @@ DI void updateSortedWarpQ(myWarpSelect &heapArr, Pair *allWarpTopKs, int rowId,
         Pair tempKV;
         tempKV.value = raft::shfl(heapArr->warpK[i], srcLane);
         tempKV.key = raft::shfl(heapArr->warpV[i], srcLane);
-        const auto firstActiveLane = __ffs(activeLanes);
-        if (firstActiveLane == (lid + 1)) {
+        const auto firstActiveLane = __ffs(activeLanes) - 1;
+        if (firstActiveLane == lid) {
           heapArr->warpK[i] = KVPair.value;
           heapArr->warpV[i] = KVPair.key;
-        } else if (activeLanes & ((uint32_t)1 << lid)) {
+        } else if (lid > firstActiveLane) {
           heapArr->warpK[i] = tempKV.value;
           heapArr->warpV[i] = tempKV.key;
         }
