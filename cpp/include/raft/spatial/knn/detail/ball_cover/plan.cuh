@@ -102,10 +102,10 @@ __global__ void prune_landmarks(
   static constexpr int kNumWarps = tpb / faiss::gpu::kWarpSize;
 
   // allocate array of size n_landmarks / 32 ints
-  extern __shared__ uint32_t smem[];
+  extern __shared__ uint32_t sh_mem[];
 
   // Start with all bits on
-  for (int i = threadIdx.x; i < bitset_size; i += tpb) smem[i] = 0xffffffff;
+  for (int i = threadIdx.x; i < bitset_size; i += tpb) sh_mem[i] = 0xffffffff;
 
   __syncthreads();
 
@@ -124,7 +124,7 @@ __global__ void prune_landmarks(
     if (p_q_r > weight * (closest_R_dist + R_radius[l]) ||
         p_q_r > 3 * closest_R_dist ||
         knn_dists[blockIdx.x * k + (k - 1)] < p_q_r - R_radius[l]) {
-      _zero_bit(smem, l);
+      _zero_bit(sh_mem, l);
       n_points += ceil(cardinality / batch_size);
     }
   }
@@ -135,7 +135,7 @@ __global__ void prune_landmarks(
          * Output bitset
          */
   for (int l = threadIdx.x; l < bitset_size; l += tpb) {
-    output_bitset[blockIdx.x * bitset_size + l] = smem[l];
+    output_bitset[blockIdx.x * bitset_size + l] = sh_mem[l];
   }
 
   atomicAdd(total_landmark_points + blockIdx.x, n_points);
@@ -285,15 +285,16 @@ void compute_plan(const raft::handle_t &handle,
 
 template <typename value_idx, typename value_t, int warp_q, int thread_q,
           int tpb>
-__device__ void topk_merge(value_t *smemK, value_idx *smemV, value_idx query_id,
-                           value_idx *batch_inds, value_t *batch_dists,
-                           int batch_size, int k, bool *mutex,
-                           value_idx *knn_inds, value_t *knn_dists) {
+__device__ void topk_merge(value_t *sh_memK, value_idx *sh_memV,
+                           value_idx query_id, value_idx *batch_inds,
+                           value_t *batch_dists, int batch_size, int k,
+                           bool *mutex, value_idx *knn_inds,
+                           value_t *knn_dists) {
   faiss::gpu::BlockSelect<value_t, value_idx, true,
                           faiss::gpu::Comparator<value_t>, warp_q, thread_q,
                           tpb>
     heap(faiss::gpu::Limits<value_t>::getMax(),
-         faiss::gpu::Limits<value_t>::getMax(), smemK, smemV, k);
+         faiss::gpu::Limits<value_t>::getMax(), sh_memK, sh_memV, k);
 
   /**
          * First add batch
@@ -327,8 +328,8 @@ __device__ void topk_merge(value_t *smemK, value_idx *smemV, value_idx query_id,
   heap.reduce();
 
   for (int i = threadIdx.x; i < k; i += blockDim.x) {
-    knn_dists[query_id * k + i] = smemK[i];
-    knn_inds[query_id * k + i] = smemV[i];
+    knn_dists[query_id * k + i] = sh_memK[i];
+    knn_inds[query_id * k + i] = sh_memV[i];
   }
 
   mutex[query_id] = false;
@@ -371,8 +372,8 @@ __global__ void compute_dists(const value_t *X, const value_t *query,
   __shared__ value_t batch_dists[batch_size];
   __shared__ value_idx batch_inds[batch_size];
 
-  __shared__ value_t smemK[kNumWarps * warp_q];
-  __shared__ value_idx smemV[kNumWarps * warp_q];
+  __shared__ value_t sh_memK[kNumWarps * warp_q];
+  __shared__ value_idx sh_memV[kNumWarps * warp_q];
 
   for (int i = threadIdx.x; i < batch_size; i += blockDim.x)
     batch_dists[i] = 0.0;
@@ -390,7 +391,7 @@ __global__ void compute_dists(const value_t *X, const value_t *query,
 
   __syncthreads();
 
-  // in chunks of block_dims, compute distances, store to smem / registers
+  // in chunks of block_dims, compute distances, store to sh_mem / registers
   for (int i = threadIdx.x; i < working_batch_size; i += blockDim.x) {
     value_idx point_index = batch_inds[i];
 
@@ -402,7 +403,7 @@ __global__ void compute_dists(const value_t *X, const value_t *query,
   }
 
   topk_merge<value_idx, value_t, warp_q, thread_q, tpb>(
-    smemK, smemV, query_id, batch_inds, batch_dists, working_batch_size, k,
+    sh_memK, sh_memV, query_id, batch_inds, batch_dists, working_batch_size, k,
     mutex, knn_inds, knn_dists);
 }
 

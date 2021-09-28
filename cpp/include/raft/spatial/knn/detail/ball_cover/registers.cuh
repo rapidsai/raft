@@ -102,7 +102,6 @@ __global__ void perform_post_filter_registers(
         dist > 3 * closest_R_dist) {
       _zero_bit(shared_mem, l);
     }
-
   }
 
   __syncthreads();

@@ -294,7 +294,6 @@ void rbc_all_knn_query(const raft::handle_t &handle,
   rmm::device_uvector<value_int> post_dists_counter(index.m,
                                                     handle.get_stream());
 
-
   sample_landmarks<value_idx, value_t>(handle, index);
 
   k_closest_landmarks(handle, index, index.get_X(), index.m, k,
