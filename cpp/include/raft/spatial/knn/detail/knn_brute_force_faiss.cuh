@@ -30,10 +30,12 @@
 
 #include <raft/linalg/distance_type.h>
 #include <thrust/iterator/transform_iterator.h>
+#include <cstdint>
 #include <iostream>
 #include <raft/handle.hpp>
 #include <set>
 
+#include "fused_l2_knn.cuh"
 #include "haversine_distance.cuh"
 #include "processing.hpp"
 
@@ -44,8 +46,8 @@ namespace spatial {
 namespace knn {
 namespace detail {
 
-template <typename value_idx = int64_t, typename value_t = float, int warp_q,
-          int thread_q, int tpb>
+template <typename value_idx = std::int64_t, typename value_t = float,
+          int warp_q, int thread_q, int tpb>
 __global__ void knn_merge_parts_kernel(value_t *inK, value_idx *inV,
                                        value_t *outK, value_idx *outV,
                                        size_t n_samples, int n_parts,
@@ -109,8 +111,8 @@ __global__ void knn_merge_parts_kernel(value_t *inK, value_idx *inV,
   }
 }
 
-template <typename value_idx = int64_t, typename value_t = float, int warp_q,
-          int thread_q>
+template <typename value_idx = std::int64_t, typename value_t = float,
+          int warp_q, int thread_q>
 inline void knn_merge_parts_impl(value_t *inK, value_idx *inV, value_t *outK,
                                  value_idx *outV, size_t n_samples, int n_parts,
                                  int k, cudaStream_t stream,
@@ -142,7 +144,7 @@ inline void knn_merge_parts_impl(value_t *inK, value_idx *inV, value_t *outK,
  * @param stream CUDA stream to use
  * @param translations mapping of index offsets for each partition
  */
-template <typename value_idx = int64_t, typename value_t = float>
+template <typename value_idx = std::int64_t, typename value_t = float>
 inline void knn_merge_parts(value_t *inK, value_idx *inV, value_t *outK,
                             value_idx *outV, size_t n_samples, int n_parts,
                             int k, cudaStream_t stream,
@@ -194,11 +196,11 @@ inline void knn_merge_parts(value_t *inK, value_idx *inV, value_t *outK,
  * @param[in] metric corresponds to the raft::distance::DistanceType enum (default is L2Expanded)
  * @param[in] metricArg metric argument to use. Corresponds to the p arg for lp norm
  */
-template <typename IntType = int, typename IdxType = int64_t>
-void brute_force_knn_impl(std::vector<float *> &input, std::vector<int> &sizes,
-                          IntType D, float *search_items, IntType n,
-                          IdxType *res_I, float *res_D, IntType k,
-                          cudaStream_t userStream,
+template <typename IntType = int, typename IdxType = std::int64_t>
+void brute_force_knn_impl(std::vector<float *> &input,
+                          std::vector<IntType> &sizes, IntType D,
+                          float *search_items, IntType n, IdxType *res_I,
+                          float *res_D, IntType k, cudaStream_t userStream,
                           cudaStream_t *internalStreams = nullptr,
                           int n_int_streams = 0, bool rowMajorIndex = true,
                           bool rowMajorQuery = true,
@@ -241,12 +243,12 @@ void brute_force_knn_impl(std::vector<float *> &input, std::vector<int> &sizes,
   int device;
   CUDA_CHECK(cudaGetDevice(&device));
 
-  rmm::device_uvector<int64_t> trans(id_ranges->size(), userStream);
+  rmm::device_uvector<std::int64_t> trans(id_ranges->size(), userStream);
   raft::update_device(trans.data(), id_ranges->data(), id_ranges->size(),
                       userStream);
 
   rmm::device_uvector<float> all_D(0, userStream);
-  rmm::device_uvector<int64_t> all_I(0, userStream);
+  rmm::device_uvector<std::int64_t> all_I(0, userStream);
 
   float *out_D = res_D;
   IdxType *out_I = res_I;
@@ -302,10 +304,10 @@ void brute_force_knn_impl(std::vector<float *> &input, std::vector<int> &sizes,
         args.outIndices = out_i_ptr;
 
         /**
-         * @todo: Until FAISS supports pluggable allocation strategies,
-         * we will not reap the benefits of the pool allocator for
-         * avoiding device-wide synchronizations from cudaMalloc/cudaFree
-         */
+           * @todo: Until FAISS supports pluggable allocation strategies,
+           * we will not reap the benefits of the pool allocator for
+           * avoiding device-wide synchronizations from cudaMalloc/cudaFree
+           */
         bfKnn(&gpu_res, args);
     }
 

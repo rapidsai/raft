@@ -31,7 +31,6 @@ TEST(Raft, EigenSolvers) {
   using value_type = double;
 
   handle_t h;
-  ASSERT_EQ(0, h.get_num_internal_streams());
   ASSERT_EQ(0, h.get_device());
 
   index_type* ro{nullptr};
@@ -73,7 +72,6 @@ TEST(Raft, SpectralSolvers) {
   using value_type = double;
 
   handle_t h;
-  ASSERT_EQ(0, h.get_num_internal_streams());
   ASSERT_EQ(0, h.get_device());
 
   index_type neigvs{10};

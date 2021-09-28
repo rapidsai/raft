@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -226,6 +226,14 @@ struct IOType<double, 2> {
      * when compared to their non-vectorized counterparts. Obviously, for whatever
      * reasons if one is unable to issue such vectorized operations, one can always
      * fallback to using POD types.
+     *
+     * Concept of vectorized accesses : Threads process multiple elements
+     * to speed up processing. These are loaded in a single read thanks
+     * to type promotion. It is then reinterpreted as a vector elements
+     * to perform the kernel's work.
+     *
+     * Caution : vectorized accesses requires input adresses to be memory aligned
+     * according not to the input type but to the promoted type used for reading.
      *
      * Example demonstrating the use of load operations, performing math on such
      * loaded data and finally storing it back.

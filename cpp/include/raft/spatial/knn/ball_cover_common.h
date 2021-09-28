@@ -17,6 +17,7 @@
 #pragma once
 
 #include <raft/linalg/distance_type.h>
+#include <cstdint>
 #include <raft/handle.hpp>
 #include <rmm/device_uvector.hpp>
 
@@ -33,7 +34,8 @@ namespace knn {
  * @tparam value_t
  * @tparam value_int
  */
-template <typename value_idx, typename value_t, typename value_int = int>
+template <typename value_idx, typename value_t,
+          typename value_int = std::uint32_t>
 class BallCoverIndex {
  public:
   explicit BallCoverIndex(const raft::handle_t &handle_, const value_t *X_,
@@ -64,9 +66,6 @@ class BallCoverIndex {
   value_t *get_R() { return R.data(); }
   const value_t *get_X() { return X; }
 
-  int get_n_landmarks() { return n_landmarks; }
-  raft::distance::DistanceType get_metric() { return metric; }
-
   bool is_index_trained() const { return index_trained; };
 
   // This should only be set by internal functions
@@ -76,7 +75,7 @@ class BallCoverIndex {
 
   const value_int m;
   const value_int n;
-  const int n_landmarks;
+  const value_int n_landmarks;
 
   const value_t *X;
 

@@ -19,21 +19,31 @@ import os
 import shutil
 import sys
 import sysconfig
-import versioneer
+
+# Must import in this order:
+#   setuptools -> Cython.Distutils.build_ext -> setuptools.command.build_ext
+# Otherwise, setuptools.command.build_ext ends up inheriting from
+# Cython.Distutils.old_build_ext which we do not want
+import setuptools
+
+try:
+    from Cython.Distutils.build_ext import new_build_ext as _build_ext
+except ImportError:
+    from setuptools.command.build_ext import build_ext as _build_ext
 
 from distutils.sysconfig import get_python_lib
-from pathlib import Path
-from setuptools import find_packages
-from setuptools import setup
+
+import setuptools.command.build_ext
+from setuptools import find_packages, setup
 from setuptools.extension import Extension
+
 from setuputils import clean_folder
 from setuputils import get_environment_option
 from setuputils import get_cli_option
 
-try:
-    from Cython.Distutils.build_ext import new_build_ext as build_ext
-except ImportError:
-    from setuptools.command.build_ext import build_ext
+from pathlib import Path
+
+import versioneer
 
 
 ##############################################################################
@@ -99,21 +109,61 @@ include_dirs = [cuda_include_dir,
                 "../cpp/include/",
                 os.path.dirname(sysconfig.get_path("include"))]
 
-cmdclass = dict()
-cmdclass.update(versioneer.get_cmdclass())
-cmdclass["build_ext"] = build_ext
-
 extensions = [
     Extension("*",
-              sources=["raft/**/**/*.pyx"],
+              sources=["raft/**/*.pyx"],
               include_dirs=include_dirs,
               library_dirs=[get_python_lib()],
               runtime_library_dirs=[cuda_lib_dir,
                                     os.path.join(os.sys.prefix, "lib")],
               libraries=libs,
               language='c++',
-              extra_compile_args=['-std=c++14'])
+              extra_compile_args=['-std=c++17'])
 ]
+
+
+class build_ext_no_debug(_build_ext):
+
+    def build_extensions(self):
+        def remove_flags(compiler, *flags):
+            for flag in flags:
+                try:
+                    compiler.compiler_so = list(
+                        filter((flag).__ne__, compiler.compiler_so)
+                    )
+                except Exception:
+                    pass
+        # Full optimization
+        self.compiler.compiler_so.append("-O3")
+        # No debug symbols, full optimization, no '-Wstrict-prototypes' warning
+        remove_flags(
+            self.compiler, "-g", "-G", "-O1", "-O2", "-Wstrict-prototypes"
+        )
+        super().build_extensions()
+
+    def finalize_options(self):
+        if self.distribution.ext_modules:
+            # Delay import this to allow for Cython-less installs
+            from Cython.Build.Dependencies import cythonize
+
+            nthreads = getattr(self, "parallel", None)  # -j option in Py3.5+
+            nthreads = int(nthreads) if nthreads else None
+            self.distribution.ext_modules = cythonize(
+                self.distribution.ext_modules,
+                nthreads=nthreads,
+                force=self.force,
+                gdb_debug=False,
+                compiler_directives=dict(
+                    profile=False, language_level=3, embedsignature=True
+                ),
+            )
+        # Skip calling super() and jump straight to setuptools
+        setuptools.command.build_ext.build_ext.finalize_options(self)
+
+
+cmdclass = dict()
+cmdclass.update(versioneer.get_cmdclass())
+cmdclass["build_ext"] = build_ext_no_debug
 
 
 ##############################################################################
