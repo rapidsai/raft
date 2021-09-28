@@ -219,7 +219,6 @@ __global__ __launch_bounds__(Policy::Nthreads, 2) void fusedL2kNN(
       loadAllWarpQShmem<Policy, Pair>(heapArr, &shDumpKV[0], m, numOfNN);
 
       while (cta_processed < gridDim.x - 1) {
-
         if (threadIdx.x == 0) {
           int32_t old = -3;
           while (old != -1) {
@@ -232,7 +231,8 @@ __global__ __launch_bounds__(Policy::Nthreads, 2) void fusedL2kNN(
 #pragma unroll
         for (int i = 0; i < Policy::AccRowsPerTh; ++i) {
           const auto rowId = starty + i * Policy::AccThRows;
-          const auto shMemRowId = (threadIdx.x / Policy::AccThCols) + i * Policy::AccThRows;
+          const auto shMemRowId =
+            (threadIdx.x / Policy::AccThCols) + i * Policy::AccThRows;
 #pragma unroll
           for (int j = 0; j < heapArr[i]->kNumWarpQRegisters; ++j) {
             Pair otherKV;
@@ -259,9 +259,10 @@ __global__ __launch_bounds__(Policy::Nthreads, 2) void fusedL2kNN(
 #pragma unroll
         for (int i = 0; i < Policy::AccRowsPerTh; ++i) {
           const auto rowId = starty + i * Policy::AccThRows;
-          const auto shMemRowId = (threadIdx.x / Policy::AccThCols) + i * Policy::AccThRows;
+          const auto shMemRowId =
+            (threadIdx.x / Policy::AccThCols) + i * Policy::AccThRows;
           if (rowId < m) {
-  #pragma unroll
+#pragma unroll
             for (int j = 0; j < heapArr[i]->kNumWarpQRegisters; ++j) {
               Pair otherKV;
               otherKV.value = identity;
