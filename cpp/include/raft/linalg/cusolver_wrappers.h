@@ -719,5 +719,82 @@ inline cusolverStatus_t cusolverSpcsrqrsvBatched(  // NOLINT
 }
 /** @} */
 
+/**
+ * @defgroup DnXsyevd cusolver DnXsyevd operations
+ * @{
+ */
+template <typename T>
+cusolverStatus_t cusolverDnxsyevd_bufferSize(  // NOLINT
+  cusolverDnHandle_t handle, cusolverDnParams_t params,
+  cusolverEigMode_t jobz, cublasFillMode_t uplo, int64_t n, const T *A,
+  int64_t lda, const T *W, size_t *workspaceInBytesOnDevice,
+  size_t *workspaceInBytesOnHost, cudaStream_t stream);
+
+
+template <>
+inline cusolverStatus_t cusolverDnxsyevd_bufferSize(  // NOLINT
+  cusolverDnHandle_t handle, cusolverDnParams_t params,
+  cusolverEigMode_t jobz, cublasFillMode_t uplo, int64_t n, const float *A,
+  int64_t lda, const float *W, size_t *workspaceInBytesOnDevice,
+  size_t *workspaceInBytesOnHost, cudaStream_t stream) {
+  CUSOLVER_CHECK(cusolverDnSetStream(handle, stream));
+  return cusolverDnXsyevd_bufferSize(
+    handle, params, jobz, uplo, n, CUDA_R_32F, A, lda,
+    CUDA_R_32F, W, CUDA_R_32F, workspaceInBytesOnDevice,
+    workspaceInBytesOnHost);
+}
+
+template <>
+inline cusolverStatus_t cusolverDnxsyevd_bufferSize(  // NOLINT
+  cusolverDnHandle_t handle, cusolverDnParams_t params,
+  cusolverEigMode_t jobz, cublasFillMode_t uplo, int64_t n, const double *A,
+  int64_t lda, const double *W, size_t *workspaceInBytesOnDevice,
+  size_t *workspaceInBytesOnHost, cudaStream_t stream) {
+  CUSOLVER_CHECK(cusolverDnSetStream(handle, stream));
+  return cusolverDnXsyevd_bufferSize(
+    handle, params, jobz, uplo, n, CUDA_R_64F, A, lda,
+    CUDA_R_64F, W, CUDA_R_64F, workspaceInBytesOnDevice,
+    workspaceInBytesOnHost);
+}
+
+
+template <typename T>
+cusolverStatus_t cusolverDnxsyevd(  // NOLINT
+  cusolverDnHandle_t handle, cusolverDnParams_t params,
+  cusolverEigMode_t jobz, cublasFillMode_t uplo, int64_t n, T *A,
+  int64_t lda, T *W, T *bufferOnDevice, size_t workspaceInBytesOnDevice,
+  T *bufferOnHost, size_t workspaceInBytesOnHost, int *info,
+  cudaStream_t stream);
+
+template <>
+inline cusolverStatus_t cusolverDnxsyevd(  // NOLINT
+  cusolverDnHandle_t handle, cusolverDnParams_t params,
+  cusolverEigMode_t jobz, cublasFillMode_t uplo, int64_t n, float *A,
+  int64_t lda, float *W, float *bufferOnDevice, size_t workspaceInBytesOnDevice,
+  float *bufferOnHost, size_t workspaceInBytesOnHost, int *info,
+  cudaStream_t stream) {
+  CUSOLVER_CHECK(cusolverDnSetStream(handle, stream));
+  return cusolverDnXsyevd(
+    handle, params, jobz, uplo, n, CUDA_R_32F, A, lda,
+    CUDA_R_32F, W, CUDA_R_32F, bufferOnDevice, workspaceInBytesOnDevice,
+    bufferOnHost, workspaceInBytesOnHost, info);
+}
+
+template <>
+inline cusolverStatus_t cusolverDnxsyevd(  // NOLINT
+  cusolverDnHandle_t handle, cusolverDnParams_t params,
+  cusolverEigMode_t jobz, cublasFillMode_t uplo, int64_t n, double *A,
+  int64_t lda, double *W, double *bufferOnDevice, size_t workspaceInBytesOnDevice,
+  double *bufferOnHost, size_t workspaceInBytesOnHost, int *info,
+  cudaStream_t stream) {
+  CUSOLVER_CHECK(cusolverDnSetStream(handle, stream));
+  return cusolverDnXsyevd(
+    handle, params, jobz, uplo, n, CUDA_R_64F, A, lda,
+    CUDA_R_64F, W, CUDA_R_64F, bufferOnDevice, workspaceInBytesOnDevice,
+    bufferOnHost, workspaceInBytesOnHost, info);
+}
+
+/** @} */
+
 }  // namespace linalg
 }  // namespace raft

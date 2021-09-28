@@ -155,15 +155,15 @@ void eigSelDC(const raft::handle_t &handle, math_t *in, int n_rows, int n_cols,
  * @{
  */
 template <typename math_t>
-void eigJacobi(const raft::handle_t &handle, const math_t *in, int n_rows,
-               int n_cols, math_t *eig_vectors, math_t *eig_vals,
-               cudaStream_t stream, math_t tol = 1.e-7, int sweeps = 15) {
+void eigJacobi(const raft::handle_t &handle, const math_t *in, std::size_t n_rows,
+               std::size_t n_cols, math_t *eig_vectors, math_t *eig_vals,
+               cudaStream_t stream, math_t tol = 1.e-7, std::size_t sweeps = 15) {
   cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
 
   syevjInfo_t syevj_params = nullptr;
   CUSOLVER_CHECK(cusolverDnCreateSyevjInfo(&syevj_params));
   CUSOLVER_CHECK(cusolverDnXsyevjSetTolerance(syevj_params, tol));
-  CUSOLVER_CHECK(cusolverDnXsyevjSetMaxSweeps(syevj_params, sweeps));
+  CUSOLVER_CHECK(cusolverDnXsyevjSetMaxSweeps(syevj_params, static_cast<int>(sweeps)));
 
   int lwork;
   CUSOLVER_CHECK(cusolverDnsyevj_bufferSize(
@@ -187,6 +187,75 @@ void eigJacobi(const raft::handle_t &handle, const math_t *in, int n_rows,
   CUDA_CHECK(cudaGetLastError());
   CUSOLVER_CHECK(cusolverDnDestroySyevjInfo(syevj_params));
 }
+
+
+/**
+ * @defgroup overloaded function for eig decomp with QR method for the
+ * column-major symmetric matrices (in parameter)
+ * @param handle: raft handle
+ * @param n_rows: number of rows of the input
+ * @param n_cols: number of cols of the input
+ * @param eig_vectors: eigenvectors
+ * @param eig_vals: eigen values
+ * @param tol: error tolerance for the jacobi method. Algorithm stops when the
+ * error is below tol
+ * @param sweeps: number of sweeps in the Jacobi algorithm. The more the better
+ * accuracy.
+ * @{
+ */
+ template <typename math_t>
+ void eigQR(const raft::handle_t &handle, const math_t *in, std::size_t n_rows,
+            std::size_t n_cols, math_t *eig_vectors, math_t *eig_vals,
+            cudaStream_t stream) {
+   cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
+ 
+   cusolverDnParams_t dn_params = nullptr;
+   CUSOLVER_CHECK(cusolverDnCreateParams(&dn_params));
+
+   size_t workspaceDevice = 0;
+   size_t workspaceHost = 0;
+   CUSOLVER_CHECK(cusolverDnxsyevd_bufferSize(
+     cusolverH,
+     dn_params,
+     CUSOLVER_EIG_MODE_VECTOR,
+     CUBLAS_FILL_MODE_UPPER,
+     static_cast<int64_t>(n_rows),
+     eig_vectors,
+     static_cast<int64_t>(n_cols),
+     eig_vals,
+     &workspaceDevice,
+     &workspaceHost,
+     stream
+   ));
+
+   rmm::device_uvector<math_t> d_work(workspaceDevice, stream);
+   rmm::device_scalar<int> dev_info(stream);
+   std::vector<math_t> h_work(workspaceHost);
+
+   raft::matrix::copy(in, eig_vectors, n_rows, n_cols, stream);
+
+   CUSOLVER_CHECK(cusolverDnxsyevd(
+     cusolverH,
+     dn_params,
+     CUSOLVER_EIG_MODE_VECTOR,
+     CUBLAS_FILL_MODE_UPPER,
+     static_cast<int64_t>(n_rows),
+     eig_vectors,
+     static_cast<int64_t>(n_cols),
+     eig_vals,
+     d_work.data(),
+     &workspaceDevice,
+     h_work.data(),
+     &workspaceHost,
+     dev_info.data(),
+     stream
+   ));
+
+
+   CUDA_CHECK(cudaGetLastError());
+   CUSOLVER_CHECK(cusolverDnDestroyParams(dn_params));
+ }
+ 
 
 };  // end namespace linalg
 };  // end namespace raft
