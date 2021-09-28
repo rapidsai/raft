@@ -214,12 +214,11 @@ __global__ __launch_bounds__(Policy::Nthreads, 2) void fusedL2kNN(
       myWarpSelect heapArr1(identity, keyMax, numOfNN);
       myWarpSelect heapArr2(identity, keyMax, numOfNN);
       myWarpSelect *heapArr[] = {&heapArr1, &heapArr2};
-      __syncthreads();
+      __syncwarp();
 
       loadAllWarpQShmem<Policy, Pair>(heapArr, &shDumpKV[0], m, numOfNN);
 
       while (cta_processed < gridDim.x - 1) {
-        Pair otherKV[Policy::AccRowsPerTh];
 
         if (threadIdx.x == 0) {
           int32_t old = -3;
@@ -233,12 +232,18 @@ __global__ __launch_bounds__(Policy::Nthreads, 2) void fusedL2kNN(
 #pragma unroll
         for (int i = 0; i < Policy::AccRowsPerTh; ++i) {
           const auto rowId = starty + i * Policy::AccThRows;
-          otherKV[i].value = identity;
-          otherKV[i].key = keyMax;
-
-          if (lid < numOfNN && rowId < m) {
-            otherKV[i].value = out_dists[rowId * numOfNN + lid];
-            otherKV[i].key = (uint32_t)out_inds[rowId * numOfNN + lid];
+          const auto shMemRowId = (threadIdx.x / Policy::AccThCols) + i * Policy::AccThRows;
+#pragma unroll
+          for (int j = 0; j < heapArr[i]->kNumWarpQRegisters; ++j) {
+            Pair otherKV;
+            otherKV.value = identity;
+            otherKV.key = keyMax;
+            const auto idx = j * warpSize + lid;
+            if (idx < numOfNN && rowId < m) {
+              otherKV.value = out_dists[rowId * numOfNN + idx];
+              otherKV.key = (uint32_t)out_inds[rowId * numOfNN + idx];
+              shDumpKV[shMemRowId * numOfNN + idx] = otherKV;
+            }
           }
         }
         __threadfence();
@@ -249,14 +254,26 @@ __global__ __launch_bounds__(Policy::Nthreads, 2) void fusedL2kNN(
         }
 
         // Perform merging of otherKV with topk's across warp.
+        __syncwarp();
+
 #pragma unroll
         for (int i = 0; i < Policy::AccRowsPerTh; ++i) {
           const auto rowId = starty + i * Policy::AccThRows;
+          const auto shMemRowId = (threadIdx.x / Policy::AccThCols) + i * Policy::AccThRows;
           if (rowId < m) {
-            heapArr[i]->add(otherKV[i].value, otherKV[i].key);
+  #pragma unroll
+            for (int j = 0; j < heapArr[i]->kNumWarpQRegisters; ++j) {
+              Pair otherKV;
+              otherKV.value = identity;
+              otherKV.key = keyMax;
+              const auto idx = j * warpSize + lid;
+              if (idx < numOfNN) {
+                otherKV = shDumpKV[shMemRowId * numOfNN + idx];
+              }
+              heapArr[i]->add(otherKV.value, otherKV.key);
+            }
           }
         }
-
         cta_processed++;
       }
 #pragma unroll
