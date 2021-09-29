@@ -423,7 +423,6 @@ struct typesAtomicCASImpl<T, 4> {
     T_int ret = atomicCAS(reinterpret_cast<T_int*>(addr),
                           type_reinterpret<T_int, T>(compare),
                           type_reinterpret<T_int, T>(update_value));
-
     return type_reinterpret<T, T_int>(ret);
   }
 };
@@ -548,6 +547,18 @@ __forceinline__ __device__ T atomicMax(T* address, T val) {
   return raft::genericAtomicOperation(
     address, val, raft::device_atomics::detail::DeviceMax{});
 }
+
+
+template <typename T>
+__forceinline__ __device__ T customAtomicMax(T* address, T val) {
+    float old;
+    val += T(0.0);
+    old = (val >= 0) ? __int_as_float(atomicMax((int *)address, __float_as_int(val))) :
+         __uint_as_float(atomicMin((unsigned int *)address, __float_as_uint(val)));
+
+    return old;
+}
+
 
 /**
  * @brief Overloads for `atomicCAS`
