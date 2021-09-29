@@ -228,9 +228,9 @@ void eigJacobi(const raft::handle_t &handle, const math_t *in, std::size_t n_row
      stream
    ));
 
-   rmm::device_uvector<math_t> d_work(workspaceDevice, stream);
+   rmm::device_uvector<math_t> d_work(workspaceDevice / sizeof(math_t), stream);
    rmm::device_scalar<int> dev_info(stream);
-   std::vector<math_t> h_work(workspaceHost);
+   std::vector<math_t> h_work(workspaceHost / sizeof(math_t));
 
    raft::matrix::copy(in, eig_vectors, n_rows, n_cols, stream);
 
@@ -244,9 +244,9 @@ void eigJacobi(const raft::handle_t &handle, const math_t *in, std::size_t n_row
      static_cast<int64_t>(n_cols),
      eig_vals,
      d_work.data(),
-     &workspaceDevice,
+     workspaceDevice,
      h_work.data(),
-     &workspaceHost,
+     workspaceHost,
      dev_info.data(),
      stream
    ));
