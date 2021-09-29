@@ -42,18 +42,18 @@ namespace knn {
 namespace detail {
 
 /**
-     * Computes the k closest landmarks to a set of query points.
-     * @tparam value_idx
-     * @tparam value_t
-     * @tparam value_int
-     * @param handle
-     * @param index
-     * @param query_pts
-     * @param n_query_pts
-     * @param k
-     * @param R_knn_inds
-     * @param R_knn_dists
-     */
+ * Computes the k closest landmarks to a set of query points.
+ * @tparam value_idx
+ * @tparam value_t
+ * @tparam value_int
+ * @param handle
+ * @param index
+ * @param query_pts
+ * @param n_query_pts
+ * @param k
+ * @param R_knn_inds
+ * @param R_knn_dists
+ */
 template <typename value_idx, typename value_t, typename value_int = int>
 void k_closest_landmarks2(const raft::handle_t &handle,
                           BallCoverIndex<value_idx, value_t> &index,
@@ -69,26 +69,26 @@ void k_closest_landmarks2(const raft::handle_t &handle,
 }
 
 /**
-     * To find exact neighbors, we perform a post-processing stage
-     * that filters out those points which might have neighbors outside
-     * of their k closest landmarks. This is usually a very small portion
-     * of the total points.
-     * @tparam value_idx
-     * @tparam value_t
-     * @tparam value_int
-     * @tparam tpb
-     * @param X
-     * @param n_cols
-     * @param R_knn_inds
-     * @param R_knn_dists
-     * @param R_radius
-     * @param landmarks
-     * @param n_landmarks
-     * @param bitset_size
-     * @param k
-     * @param output
-     * @param weight
-     */
+ * To find exact neighbors, we perform a post-processing stage
+ * that filters out those points which might have neighbors outside
+ * of their k closest landmarks. This is usually a very small portion
+ * of the total points.
+ * @tparam value_idx
+ * @tparam value_t
+ * @tparam value_int
+ * @tparam tpb
+ * @param X
+ * @param n_cols
+ * @param R_knn_inds
+ * @param R_knn_dists
+ * @param R_radius
+ * @param landmarks
+ * @param n_landmarks
+ * @param bitset_size
+ * @param k
+ * @param output
+ * @param weight
+ */
 template <typename value_idx, typename value_t, typename value_int = int,
           int tpb = 32>
 __global__ void prune_landmarks(
@@ -132,8 +132,8 @@ __global__ void prune_landmarks(
   __syncthreads();
 
   /**
-         * Output bitset
-         */
+     * Output bitset
+     */
   for (int l = threadIdx.x; l < bitset_size; l += tpb) {
     output_bitset[blockIdx.x * bitset_size + l] = sh_mem[l];
   }
@@ -184,30 +184,30 @@ void landmark_q_pw_dists(const raft::handle_t &handle,
 }
 
 /**
-     * Construct a "plan" for executing brute-force knn with random access loads
-     * of index points. This plan constructs a edge list in COOrdinate format
-     * where each tuple maps (query_id, landmark_id, batch_offset). Each
-     * batch_offset is the start offset for the batch in the ball cover index 1nn.
-     *
-     * This plan allows distance computations to be spread more uniformly across
-     * compute resources, increasing parallelism and lowering the potential for
-     * stragglers. The plan guarantees  block will need to compute greater than
-     * `batch_size` number of distances, though the actual number of distances
-     * computed can be much smaller depending on additional pruning and
-     * small landmarks.
-     *
-     * @tparam value_idx
-     * @tparam value_t
-     * @tparam value_int
-     * @param handle
-     * @param index
-     * @param k
-     * @param query
-     * @param n_query_pts
-     * @param knn_inds
-     * @param knn_dists
-     * @param weight
-     */
+ * Construct a "plan" for executing brute-force knn with random access loads
+ * of index points. This plan constructs a edge list in COOrdinate format
+ * where each tuple maps (query_id, landmark_id, batch_offset). Each
+ * batch_offset is the start offset for the batch in the ball cover index 1nn.
+ *
+ * This plan allows distance computations to be spread more uniformly across
+ * compute resources, increasing parallelism and lowering the potential for
+ * stragglers. The plan guarantees  block will need to compute greater than
+ * `batch_size` number of distances, though the actual number of distances
+ * computed can be much smaller depending on additional pruning and
+ * small landmarks.
+ *
+ * @tparam value_idx
+ * @tparam value_t
+ * @tparam value_int
+ * @param handle
+ * @param index
+ * @param k
+ * @param query
+ * @param n_query_pts
+ * @param knn_inds
+ * @param knn_dists
+ * @param weight
+ */
 template <typename value_idx, typename value_t, typename value_int = int,
           int batch_size = 2048>
 void compute_plan(const raft::handle_t &handle,
@@ -220,22 +220,22 @@ void compute_plan(const raft::handle_t &handle,
 
   auto exec_policy = rmm::exec_policy(handle.get_stream());
   /**
-         * Query Plan is a COO matrix mapping (query_point_id, landmark_id, landmark_index_start_offset)
-         * for each query point. This is meant to be done in batches over a pairwise distance matrix
-         * between the query points and landmarks and increase uniformity of distance computations.
-         */
+     * Query Plan is a COO matrix mapping (query_point_id, landmark_id, landmark_index_start_offset)
+     * for each query point. This is meant to be done in batches over a pairwise distance matrix
+     * between the query points and landmarks and increase uniformity of distance computations.
+     */
 
   /**
-         * Steps (this can be done in batches both by query points and landmarks:
-         * 1. Compute pairwise_distances(query_points, landmarks)
-         * 2. K-select to get radius for each query point
-         * 3. Apply triangle inequality and bounds checking
-         *      a) Compute cardinalities for each landmark set
-         *      b) Compute n_batches
-         *
-         * 4. Create coo w/ nnz = n_batches.sum()
-         * 5. Populate coo w/ batch information- rows=query_row_id, cols=landmark_id, vals=start_offset
-         */
+     * Steps (this can be done in batches both by query points and landmarks:
+     * 1. Compute pairwise_distances(query_points, landmarks)
+     * 2. K-select to get radius for each query point
+     * 3. Apply triangle inequality and bounds checking
+     *      a) Compute cardinalities for each landmark set
+     *      b) Compute n_batches
+     *
+     * 4. Create coo w/ nnz = n_batches.sum()
+     * 5. Populate coo w/ batch information- rows=query_row_id, cols=landmark_id, vals=start_offset
+     */
   rmm::device_uvector<value_t> ql_dists(n_query_pts * index.n_landmarks,
                                         handle.get_stream());
 
@@ -297,8 +297,8 @@ __device__ void topk_merge(value_t *sh_memK, value_idx *sh_memV,
          faiss::gpu::Limits<value_t>::getMax(), sh_memK, sh_memV, k);
 
   /**
-         * First add batch
-         */
+     * First add batch
+     */
   const int n_b =
     faiss::gpu::utils::roundDown(batch_size, faiss::gpu::kWarpSize);
   int i = threadIdx.x;
@@ -408,20 +408,20 @@ __global__ void compute_dists(const value_t *X, const value_t *query,
 }
 
 /**
-     * Executes plan coo across thread-blocks, computing distances for the batches (each edge is a batch).
-     * @tparam value_idx
-     * @tparam value_t
-     * @tparam value_int
-     * @param handle
-     * @param index
-     * @param k
-     * @param query
-     * @param n_query_pts
-     * @param knn_inds
-     * @param knn_dists
-     * @param batch_size
-     * @param weight
-     */
+ * Executes plan coo across thread-blocks, computing distances for the batches (each edge is a batch).
+ * @tparam value_idx
+ * @tparam value_t
+ * @tparam value_int
+ * @param handle
+ * @param index
+ * @param k
+ * @param query
+ * @param n_query_pts
+ * @param knn_inds
+ * @param knn_dists
+ * @param batch_size
+ * @param weight
+ */
 template <typename value_idx, typename value_t, typename value_int = int,
           int batch_size = 2048>
 void execute_plan(const raft::handle_t &handle,

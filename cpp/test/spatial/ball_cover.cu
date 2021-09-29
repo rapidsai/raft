@@ -115,24 +115,29 @@ struct ToRadians {
   }
 };
 
+template <typename value_t>
 struct BallCoverInputs {
+  std::vector<value_t> data;
+  uint32_t d;
   uint32_t k;
   float weight;
   raft::distance::DistanceType metric;
 };
 
 template <typename value_idx, typename value_t>
-class BallCoverKNNQueryTest : public ::testing::TestWithParam<BallCoverInputs> {
+class BallCoverKNNQueryTest
+  : public ::testing::TestWithParam<BallCoverInputs<value_t>> {
  protected:
   void basicTest() {
-    params = ::testing::TestWithParam<BallCoverInputs>::GetParam();
+    params = ::testing::TestWithParam<BallCoverInputs<value_t>>::GetParam();
     raft::handle_t handle;
 
+    uint32_t d = params.d;
     uint32_t k = params.k;
     float weight = params.weight;
     auto metric = params.metric;
 
-    std::vector<value_t> h_train_inputs = spatial_data;
+    std::vector<value_t> h_train_inputs = params.data;
 
     uint32_t n = h_train_inputs.size() / d;
 
@@ -188,22 +193,23 @@ class BallCoverKNNQueryTest : public ::testing::TestWithParam<BallCoverInputs> {
   void TearDown() override {}
 
  protected:
-  uint32_t d = 2;
-  BallCoverInputs params;
+  BallCoverInputs<value_t> params;
 };
 
 template <typename value_idx, typename value_t>
-class BallCoverAllKNNTest : public ::testing::TestWithParam<BallCoverInputs> {
+class BallCoverAllKNNTest
+  : public ::testing::TestWithParam<BallCoverInputs<value_t>> {
  protected:
   void basicTest() {
-    params = ::testing::TestWithParam<BallCoverInputs>::GetParam();
+    params = ::testing::TestWithParam<BallCoverInputs<value_t>>::GetParam();
     raft::handle_t handle;
 
+    uint32_t d = params.d;
     uint32_t k = params.k;
     float weight = params.weight;
     auto metric = params.metric;
 
-    std::vector<value_t> h_train_inputs = spatial_data;
+    std::vector<value_t> h_train_inputs = params.data;
 
     uint32_t n = h_train_inputs.size() / d;
 
@@ -259,21 +265,33 @@ class BallCoverAllKNNTest : public ::testing::TestWithParam<BallCoverInputs> {
   void TearDown() override {}
 
  protected:
-  uint32_t d = 2;
-  BallCoverInputs params;
+  BallCoverInputs<value_t> params;
 };
 
 typedef BallCoverAllKNNTest<int64_t, float> BallCoverAllKNNTestF;
 typedef BallCoverKNNQueryTest<int64_t, float> BallCoverKNNQueryTestF;
 
-const std::vector<BallCoverInputs> ballcover_inputs = {
-  {2, 1.0, raft::distance::DistanceType::Haversine},
-  {4, 1.0, raft::distance::DistanceType::Haversine},
-  {7, 1.0, raft::distance::DistanceType::Haversine},
-  {2, 1.0, raft::distance::DistanceType::L2SqrtUnexpanded},
-  {4, 1.0, raft::distance::DistanceType::L2SqrtUnexpanded},
-  {7, 1.0, raft::distance::DistanceType::L2SqrtUnexpanded},
-};
+const std::vector<BallCoverInputs<float>> ballcover_inputs = {
+
+  /**
+   * 2-dimension tests
+   */
+  {us_states, 2, 2, 1.0, raft::distance::DistanceType::Haversine},
+  {us_states, 2, 4, 1.0, raft::distance::DistanceType::Haversine},
+  {us_states, 2, 7, 1.0, raft::distance::DistanceType::Haversine},
+  {us_states, 2, 2, 1.0, raft::distance::DistanceType::L2SqrtUnexpanded},
+  {us_states, 2, 4, 1.0, raft::distance::DistanceType::L2SqrtUnexpanded},
+  {us_states, 2, 7, 1.0, raft::distance::DistanceType::L2SqrtUnexpanded},
+
+  /**
+   * 10-dimension tests
+   */
+  {spatial_data_dims_10, 10, 2, 1.0,
+   raft::distance::DistanceType::L2SqrtUnexpanded},
+  {spatial_data_dims_10, 10, 4, 1.0,
+   raft::distance::DistanceType::L2SqrtUnexpanded},
+  {spatial_data_dims_10, 10, 7, 1.0,
+   raft::distance::DistanceType::L2SqrtUnexpanded}};
 
 INSTANTIATE_TEST_CASE_P(BallCoverAllKNNTest, BallCoverAllKNNTestF,
                         ::testing::ValuesIn(ballcover_inputs));
