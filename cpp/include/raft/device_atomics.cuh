@@ -552,7 +552,7 @@ __forceinline__ __device__ T atomicMax(T* address, T val) {
 template <typename T>
 __forceinline__ __device__ T customAtomicMax(T* address, T val) {
     float old;
-    val += T(0.0);
+    //val += T(0.0);
     old = (val >= 0) ? __int_as_float(atomicMax((int *)address, __float_as_int(val))) :
          __uint_as_float(atomicMin((unsigned int *)address, __float_as_uint(val)));
 
