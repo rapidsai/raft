@@ -52,8 +52,6 @@ function(find_and_configure_faiss)
         add_library(FAISS::FAISS ALIAS faiss)
     endif()
 
-    rapids_export(BUILD faiss EXPORT_SET raft-exports)
-
 endfunction()
 
 find_and_configure_faiss(VERSION    1.7.0
