@@ -179,9 +179,14 @@ struct genericAtomicOperationImpl<T, Op, 4> {
   __forceinline__ __device__ T operator()(T* addr, T const& update_value,
                                           Op op) {
     using T_int = unsigned int;
-
     T old_value = *addr;
     T assumed{old_value};
+
+    if (std::is_same<T, float>{}) {
+      if (isnan(update_value)) {
+        return update_value;
+      }
+    }
 
     do {
       assumed = old_value;
@@ -191,7 +196,6 @@ struct genericAtomicOperationImpl<T, Op, 4> {
                             type_reinterpret<T_int, T>(assumed),
                             type_reinterpret<T_int, T>(new_value));
       old_value = type_reinterpret<T, T_int>(ret);
-
     } while (assumed != old_value);
 
     return old_value;
@@ -548,17 +552,16 @@ __forceinline__ __device__ T atomicMax(T* address, T val) {
     address, val, raft::device_atomics::detail::DeviceMax{});
 }
 
-
 template <typename T>
 __forceinline__ __device__ T customAtomicMax(T* address, T val) {
-    float old;
-    //val += T(0.0);
-    old = (val >= 0) ? __int_as_float(atomicMax((int *)address, __float_as_int(val))) :
-         __uint_as_float(atomicMin((unsigned int *)address, __float_as_uint(val)));
+  float old;
+  old = (val >= 0)
+          ? __int_as_float(atomicMax((int*)address, __float_as_int(val)))
+          : __uint_as_float(
+              atomicMin((unsigned int*)address, __float_as_uint(val)));
 
-    return old;
+  return old;
 }
-
 
 /**
  * @brief Overloads for `atomicCAS`
