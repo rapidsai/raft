@@ -19,18 +19,18 @@
 #include <cuda_runtime_api.h>
 #include <raft/linalg/distance_type.h>
 #include <raft/cuda_utils.cuh>
-#include <raft/distance/canberra.cuh>
-#include <raft/distance/chebyshev.cuh>
-#include <raft/distance/correlation.cuh>
-#include <raft/distance/cosine.cuh>
-#include <raft/distance/euclidean.cuh>
-#include <raft/distance/hamming.cuh>
-#include <raft/distance/hellinger.cuh>
-#include <raft/distance/jensen_shannon.cuh>
-#include <raft/distance/kl_divergence.cuh>
-#include <raft/distance/l1.cuh>
-#include <raft/distance/minkowski.cuh>
-#include <raft/distance/russell_rao.cuh>
+#include <raft/distance/detail/canberra.cuh>
+#include <raft/distance/detail/chebyshev.cuh>
+#include <raft/distance/detail/correlation.cuh>
+#include <raft/distance/detail/cosine.cuh>
+#include <raft/distance/detail/euclidean.cuh>
+#include <raft/distance/detail/hamming.cuh>
+#include <raft/distance/detail/hellinger.cuh>
+#include <raft/distance/detail/jensen_shannon.cuh>
+#include <raft/distance/detail/kl_divergence.cuh>
+#include <raft/distance/detail/l1.cuh>
+#include <raft/distance/detail/minkowski.cuh>
+#include <raft/distance/detail/russell_rao.cuh>
 #include <rmm/device_uvector.hpp>
 
 namespace raft {
