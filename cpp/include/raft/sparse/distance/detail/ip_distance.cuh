@@ -27,8 +27,8 @@
 #include <raft/sparse/utils.h>
 #include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/convert/dense.cuh>
-#include <raft/sparse/distance/coo_spmv.cuh>
-#include <raft/sparse/distance/operators.cuh>
+#include <raft/sparse/distance/detail/coo_spmv.cuh>
+#include <raft/sparse/distance/detail/operators.cuh>
 #include <rmm/device_uvector.hpp>
 
 #include <nvfunctional>

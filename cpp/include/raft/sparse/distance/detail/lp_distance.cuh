@@ -30,7 +30,7 @@
 
 #include <raft/sparse/distance/common.h>
 #include <raft/sparse/convert/coo.cuh>
-#include <raft/sparse/distance/operators.cuh>
+#include <raft/sparse/distance/detail/operators.cuh>
 
 #include <nvfunctional>
 

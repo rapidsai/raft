@@ -31,10 +31,10 @@
 #include <raft/sparse/convert/dense.cuh>
 #include <raft/sparse/csr.cuh>
 
-#include <raft/sparse/distance/bin_distance.cuh>
-#include <raft/sparse/distance/ip_distance.cuh>
-#include <raft/sparse/distance/l2_distance.cuh>
-#include <raft/sparse/distance/lp_distance.cuh>
+#include <raft/sparse/distance/detail/bin_distance.cuh>
+#include <raft/sparse/distance/detail/ip_distance.cuh>
+#include <raft/sparse/distance/detail/l2_distance.cuh>
+#include <raft/sparse/distance/detail/lp_distance.cuh>
 
 #include <cusparse_v2.h>
 

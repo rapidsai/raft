@@ -26,7 +26,7 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/sparse/csr.cuh>
-#include <raft/sparse/distance/ip_distance.cuh>
+#include <raft/sparse/distance/detail/ip_distance.cuh>
 #include <rmm/device_uvector.hpp>
 
 #include <nvfunctional>

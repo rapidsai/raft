@@ -24,9 +24,9 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/mr/device/buffer.hpp>
 
-#include "../csr.cuh"
-#include "../utils.h"
-#include "common.h"
+#include "../../csr.cuh"
+#include "../../utils.h"
+#include "../common.h"
 
 #include <limits.h>
 
