@@ -17,7 +17,7 @@
 #include <cub/cub.cuh>
 #include <faiss/gpu/utils/Select.cuh>
 #include <limits>
-#include <raft/distance/pairwise_distance_base.cuh>
+#include <raft/distance/detail/pairwise_distance_base.cuh>
 #include "processing.hpp"
 
 namespace raft {
