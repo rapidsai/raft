@@ -44,20 +44,19 @@ function(find_and_configure_faiss)
             "CMAKE_MESSAGE_LOG_LEVEL VERBOSE"
     )
 
-    if(FAISS_ADDED)
-        target_include_directories(faiss INTERFACE $<BUILD_INTERFACE:${FAISS_SOURCE_DIR}>)
-        rapids_export(BUILD faiss
-            EXPORT_SET faiss-exports
-            GLOBAL_TARGETS faiss
-            NAMESPACE raft::
-        )
-    endif()
-
     if(TARGET faiss AND NOT TARGET FAISS::FAISS)
         add_library(FAISS::FAISS ALIAS faiss)
     endif()
 
-    rapids_export_package(BUILD faiss cugraph-exports)
+    if(FAISS_ADDED)
+        target_include_directories(faiss INTERFACE $<BUILD_INTERFACE:${FAISS_SOURCE_DIR}>)
+        install(TARGETS faiss EXPORT faiss-exports)
+        rapids_export(BUILD faiss
+            EXPORT_SET faiss-exports
+            GLOBAL_TARGETS faiss
+            NAMESPACE raft::
+            LANGUAGES CUDA)
+    endif()
 
 endfunction()
 
