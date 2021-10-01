@@ -19,6 +19,7 @@
 
 namespace raft {
 namespace distance {
+namespace detail {
 
 /**
  * @brief the Russell Rao distance matrix:
@@ -84,8 +85,8 @@ static void russellRaoImpl(const DataT *x, const DataT *y, IdxT m, IdxT n,
       pairwiseDistanceMatKernel<false, DataT, AccT, OutT, IdxT, KPolicy,
                                 decltype(core_lambda), decltype(epilog_lambda),
                                 FinalLambda, true>;
-    dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize,
-                                               russellRaoRowMajor);
+    dim3 grid = detail::launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize,
+                                                       russellRaoRowMajor);
 
     russellRaoRowMajor<<<grid, blk, KPolicy::SmemSize, stream>>>(
       x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput, core_lambda,
@@ -95,8 +96,8 @@ static void russellRaoImpl(const DataT *x, const DataT *y, IdxT m, IdxT n,
       pairwiseDistanceMatKernel<false, DataT, AccT, OutT, IdxT, KPolicy,
                                 decltype(core_lambda), decltype(epilog_lambda),
                                 FinalLambda, false>;
-    dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize,
-                                               russellRaoColMajor);
+    dim3 grid = detail::launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize,
+                                                       russellRaoColMajor);
     russellRaoColMajor<<<grid, blk, KPolicy::SmemSize, stream>>>(
       x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput, core_lambda,
       epilog_lambda, fin_op);
@@ -167,5 +168,6 @@ void russellRaoImpl(int m, int n, int k, const InType *pA, const InType *pB,
       n, m, k, lda, ldb, ldd, pB, pA, pDcast, fin_op, stream);
   }
 }
+}  // namespace detail
 }  // namespace distance
 }  // namespace raft

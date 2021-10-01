@@ -19,6 +19,7 @@
 
 namespace raft {
 namespace distance {
+namespace detail {
 
 /**
  * @brief the canberra distance matrix calculation implementer
@@ -77,8 +78,8 @@ static void canberraImpl(const DataT *x, const DataT *y, IdxT m, IdxT n, IdxT k,
       pairwiseDistanceMatKernel<false, DataT, AccT, OutT, IdxT, KPolicy,
                                 decltype(core_lambda), decltype(epilog_lambda),
                                 FinalLambda, true>;
-    dim3 grid =
-      launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize, canberraRowMajor);
+    dim3 grid = detail::launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize,
+                                                       canberraRowMajor);
 
     canberraRowMajor<<<grid, blk, KPolicy::SmemSize, stream>>>(
       x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput, core_lambda,
@@ -88,8 +89,8 @@ static void canberraImpl(const DataT *x, const DataT *y, IdxT m, IdxT n, IdxT k,
       pairwiseDistanceMatKernel<false, DataT, AccT, OutT, IdxT, KPolicy,
                                 decltype(core_lambda), decltype(epilog_lambda),
                                 FinalLambda, false>;
-    dim3 grid =
-      launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize, canberraColMajor);
+    dim3 grid = detail::launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize,
+                                                       canberraColMajor);
     canberraColMajor<<<grid, blk, KPolicy::SmemSize, stream>>>(
       x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput, core_lambda,
       epilog_lambda, fin_op);
@@ -157,5 +158,7 @@ void canberraImpl(int m, int n, int k, const InType *pA, const InType *pB,
       n, m, k, lda, ldb, ldd, pB, pA, pDcast, fin_op, stream);
   }
 }
+
+}  // namespace detail
 }  // namespace distance
 }  // namespace raft

@@ -17,6 +17,9 @@
 #include <cub/cub.cuh>
 #include <faiss/gpu/utils/Select.cuh>
 #include <limits>
+
+// TODO: Need to hide the PairwiseDistance class impl and expose to public API
+#include <raft/distance/detail/pairwise_distance_base.cuh>
 #include "processing.hpp"
 
 namespace raft {
@@ -458,10 +461,10 @@ __global__ __launch_bounds__(Policy::Nthreads, 2) void fusedL2kNN(
       }
     };
 
-  raft::distance::PairwiseDistances<useNorms, DataT, AccT, OutT, IdxT, Policy,
-                                    CoreLambda, decltype(epilog_lambda),
-                                    FinalLambda, decltype(rowEpilog_lambda),
-                                    isRowMajor, false>
+  raft::distance::detail::PairwiseDistances<
+    useNorms, DataT, AccT, OutT, IdxT, Policy, CoreLambda,
+    decltype(epilog_lambda), FinalLambda, decltype(rowEpilog_lambda),
+    isRowMajor, false>
     obj(x, y, m, n, k, lda, ldb, ldd, _xn, _yn, nullptr, smem, core_op,
         epilog_lambda, fin_op, rowEpilog_lambda);
   obj.run();
@@ -509,7 +512,7 @@ void fusedL2kNNImpl(const DataT *x, const DataT *y, IdxT m, IdxT n, IdxT k,
              "fusedL2kNN: num of nearest neighbors must be <= 64");
     }
 
-    dim3 grid = raft::distance::launchConfigGenerator<KPolicy>(
+    dim3 grid = raft::distance::detail::launchConfigGenerator<KPolicy>(
       m, n, KPolicy::SmemSize, fusedL2kNNRowMajor);
     if (grid.x > 1) {
       const auto numMutexes = raft::ceildiv<int>(m, KPolicy::Mblk);

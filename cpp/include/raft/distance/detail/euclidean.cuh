@@ -20,6 +20,7 @@
 
 namespace raft {
 namespace distance {
+namespace detail {
 
 /**
  * @brief the expanded euclidean distance matrix calculation implementer
@@ -97,8 +98,8 @@ void euclideanExpImpl(const DataT *x, const DataT *y, const DataT *xn,
       pairwiseDistanceMatKernel<true, DataT, AccT, OutT, IdxT, KPolicy,
                                 decltype(core_lambda), decltype(epilog_lambda),
                                 FinalLambda, true>;
-    dim3 grid =
-      launchConfigGenerator<KPolicy>(m, n, shmemSize, euclideanExpRowMajor);
+    dim3 grid = detail::launchConfigGenerator<KPolicy>(m, n, shmemSize,
+                                                       euclideanExpRowMajor);
 
     euclideanExpRowMajor<<<grid, blk, shmemSize, stream>>>(
       x, y, xn, yn, m, n, k, lda, ldb, ldd, dOutput, core_lambda, epilog_lambda,
@@ -108,8 +109,8 @@ void euclideanExpImpl(const DataT *x, const DataT *y, const DataT *xn,
       pairwiseDistanceMatKernel<true, DataT, AccT, OutT, IdxT, KPolicy,
                                 decltype(core_lambda), decltype(epilog_lambda),
                                 FinalLambda, false>;
-    dim3 grid =
-      launchConfigGenerator<KPolicy>(m, n, shmemSize, euclideanExpColMajor);
+    dim3 grid = detail::launchConfigGenerator<KPolicy>(m, n, shmemSize,
+                                                       euclideanExpColMajor);
     euclideanExpColMajor<<<grid, blk, shmemSize, stream>>>(
       x, y, xn, yn, m, n, k, lda, ldb, ldd, dOutput, core_lambda, epilog_lambda,
       fin_op);
@@ -267,8 +268,8 @@ void euclideanUnExpImpl(const DataT *x, const DataT *y, IdxT m, IdxT n, IdxT k,
       pairwiseDistanceMatKernel<false, DataT, AccT, OutT, IdxT, KPolicy,
                                 decltype(core_lambda), decltype(epilog_lambda),
                                 FinalLambda, true>;
-    dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize,
-                                               euclideanUnExpRowMajor);
+    dim3 grid = detail::launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize,
+                                                       euclideanUnExpRowMajor);
 
     euclideanUnExpRowMajor<<<grid, blk, KPolicy::SmemSize, stream>>>(
       x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput, core_lambda,
@@ -279,8 +280,8 @@ void euclideanUnExpImpl(const DataT *x, const DataT *y, IdxT m, IdxT n, IdxT k,
       pairwiseDistanceMatKernel<false, DataT, AccT, OutT, IdxT, KPolicy,
                                 decltype(core_lambda), decltype(epilog_lambda),
                                 FinalLambda, false>;
-    dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize,
-                                               euclideanUnExpColMajor);
+    dim3 grid = detail::launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize,
+                                                       euclideanUnExpColMajor);
 
     euclideanUnExpColMajor<<<grid, blk, KPolicy::SmemSize, stream>>>(
       x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput, core_lambda,
@@ -352,5 +353,6 @@ void euclideanAlgo2(Index_ m, Index_ n, Index_ k, const InType *pA,
   }
 }
 
+};  // end namespace detail
 };  // end namespace distance
 };  // end namespace raft

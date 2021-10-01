@@ -21,6 +21,7 @@
 namespace raft {
 namespace sparse {
 namespace distance {
+namespace detail {
 
 template <typename value_idx, typename value_t, int tpb>
 class dense_smem_strategy : public coo_spmv_strategy<value_idx, value_t, tpb> {
@@ -92,6 +93,7 @@ class dense_smem_strategy : public coo_spmv_strategy<value_idx, value_t, tpb> {
   }
 };
 
+}  // namespace detail
 }  // namespace distance
 }  // namespace sparse
 }  // namespace raft

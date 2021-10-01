@@ -26,6 +26,7 @@
 namespace raft {
 namespace sparse {
 namespace distance {
+namespace detail {
 
 template <typename value_idx, typename value_t, int tpb>
 class coo_spmv_strategy {
@@ -84,6 +85,7 @@ class coo_spmv_strategy {
   const distances_config_t<value_idx, value_t> &config;
 };
 
+}  // namespace detail
 }  // namespace distance
 }  // namespace sparse
 }  // namespace raft

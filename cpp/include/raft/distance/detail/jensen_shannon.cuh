@@ -19,6 +19,7 @@
 
 namespace raft {
 namespace distance {
+namespace detail {
 
 /**
  * @brief the Jensen Shannon distance matrix:
@@ -92,8 +93,8 @@ static void jensenShannonImpl(const DataT *x, const DataT *y, IdxT m, IdxT n,
       pairwiseDistanceMatKernel<false, DataT, AccT, OutT, IdxT, KPolicy,
                                 decltype(core_lambda), decltype(epilog_lambda),
                                 FinalLambda, true>;
-    dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize,
-                                               jensenShannonRowMajor);
+    dim3 grid = detail::launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize,
+                                                       jensenShannonRowMajor);
 
     jensenShannonRowMajor<<<grid, blk, KPolicy::SmemSize, stream>>>(
       x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput, core_lambda,
@@ -103,8 +104,8 @@ static void jensenShannonImpl(const DataT *x, const DataT *y, IdxT m, IdxT n,
       pairwiseDistanceMatKernel<false, DataT, AccT, OutT, IdxT, KPolicy,
                                 decltype(core_lambda), decltype(epilog_lambda),
                                 FinalLambda, false>;
-    dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize,
-                                               jensenShannonColMajor);
+    dim3 grid = detail::launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize,
+                                                       jensenShannonColMajor);
     jensenShannonColMajor<<<grid, blk, KPolicy::SmemSize, stream>>>(
       x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput, core_lambda,
       epilog_lambda, fin_op);
@@ -177,5 +178,6 @@ void jensenShannonImpl(int m, int n, int k, const InType *pA, const InType *pB,
                          stream);
   }
 }
+}  // namespace detail
 }  // namespace distance
 }  // namespace raft

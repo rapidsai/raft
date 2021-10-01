@@ -21,6 +21,7 @@
 
 namespace raft {
 namespace distance {
+namespace detail {
 
 /**
  * @brief the Correlation distance matrix:
@@ -124,8 +125,8 @@ static void correlationImpl(const DataT *x, const DataT *y, const DataT *xn,
       pairwiseDistanceMatKernel<true, DataT, AccT, OutT, IdxT, KPolicy,
                                 decltype(core_lambda), decltype(epilog_lambda),
                                 FinalLambda, true>;
-    dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize,
-                                               correlationRowMajor);
+    dim3 grid = detail::launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize,
+                                                       correlationRowMajor);
     correlationRowMajor<<<grid, blk, shmemSize, stream>>>(
       x, y, xn, yn, m, n, k, lda, ldb, ldd, dOutput, core_lambda, epilog_lambda,
       fin_op);
@@ -134,8 +135,8 @@ static void correlationImpl(const DataT *x, const DataT *y, const DataT *xn,
       pairwiseDistanceMatKernel<true, DataT, AccT, OutT, IdxT, KPolicy,
                                 decltype(core_lambda), decltype(epilog_lambda),
                                 FinalLambda, false>;
-    dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize,
-                                               correlationColMajor);
+    dim3 grid = detail::launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize,
+                                                       correlationColMajor);
     correlationColMajor<<<grid, blk, shmemSize, stream>>>(
       x, y, xn, yn, m, n, k, lda, ldb, ldd, dOutput, core_lambda, epilog_lambda,
       fin_op);
@@ -243,5 +244,7 @@ void correlationImpl(int m, int n, int k, const InType *pA, const InType *pB,
                        fin_op, stream);
   }
 }
+
+}  // namespace detail
 }  // namespace distance
 }  // namespace raft

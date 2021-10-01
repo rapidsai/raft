@@ -19,6 +19,7 @@
 
 namespace raft {
 namespace distance {
+namespace detail {
 
 /**
  * @brief the KL Divergence distance matrix:
@@ -126,8 +127,8 @@ static void klDivergenceImpl(const DataT *x, const DataT *y, IdxT m, IdxT n,
     if (x != y) {
       raft::linalg::unaryOp<DataT, decltype(unaryOp_lambda), IdxT>(
         (DataT *)y, y, n * k, unaryOp_lambda, stream);
-      dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize,
-                                                 klDivergenceRowMajor);
+      dim3 grid = detail::launchConfigGenerator<KPolicy>(
+        m, n, KPolicy::SmemSize, klDivergenceRowMajor);
       klDivergenceRowMajor<<<grid, blk, KPolicy::SmemSize, stream>>>(
         x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput, core_lambda,
         epilog_lambda, fin_op);
@@ -135,8 +136,8 @@ static void klDivergenceImpl(const DataT *x, const DataT *y, IdxT m, IdxT n,
       raft::linalg::unaryOp<DataT, decltype(unaryOp_lambda_reverse), IdxT>(
         (DataT *)y, y, n * k, unaryOp_lambda_reverse, stream);
     } else {
-      dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize,
-                                                 klDivergenceRowMajorXequalY);
+      dim3 grid = detail::launchConfigGenerator<KPolicy>(
+        m, n, KPolicy::SmemSize, klDivergenceRowMajorXequalY);
       klDivergenceRowMajorXequalY<<<grid, blk, KPolicy::SmemSize, stream>>>(
         x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput,
         core_lambda_x_equal_y, epilog_lambda, fin_op);
@@ -153,8 +154,8 @@ static void klDivergenceImpl(const DataT *x, const DataT *y, IdxT m, IdxT n,
     if (x != y) {
       raft::linalg::unaryOp<DataT, decltype(unaryOp_lambda), IdxT>(
         (DataT *)x, x, m * k, unaryOp_lambda, stream);
-      dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize,
-                                                 klDivergenceColMajor);
+      dim3 grid = detail::launchConfigGenerator<KPolicy>(
+        m, n, KPolicy::SmemSize, klDivergenceColMajor);
       klDivergenceColMajor<<<grid, blk, KPolicy::SmemSize, stream>>>(
         x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput, core_lambda,
         epilog_lambda, fin_op);
@@ -162,8 +163,8 @@ static void klDivergenceImpl(const DataT *x, const DataT *y, IdxT m, IdxT n,
       raft::linalg::unaryOp<DataT, decltype(unaryOp_lambda_reverse), IdxT>(
         (DataT *)x, x, m * k, unaryOp_lambda_reverse, stream);
     } else {
-      dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize,
-                                                 klDivergenceColMajorXequalY);
+      dim3 grid = detail::launchConfigGenerator<KPolicy>(
+        m, n, KPolicy::SmemSize, klDivergenceColMajorXequalY);
       klDivergenceColMajorXequalY<<<grid, blk, KPolicy::SmemSize, stream>>>(
         x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput,
         core_lambda_x_equal_y, epilog_lambda, fin_op);
@@ -238,5 +239,6 @@ void klDivergenceImpl(int m, int n, int k, const InType *pA, const InType *pB,
                  false>(n, m, k, lda, ldb, ldd, pB, pA, pDcast, fin_op, stream);
   }
 }
+}  // namespace detail
 }  // namespace distance
 }  // namespace raft

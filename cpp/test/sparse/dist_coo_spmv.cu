@@ -25,8 +25,8 @@
 #include <rmm/device_uvector.hpp>
 
 #include <raft/sparse/convert/coo.cuh>
-#include <raft/sparse/distance/coo_spmv.cuh>
-#include <raft/sparse/distance/operators.cuh>
+#include <raft/sparse/distance/detail/coo_spmv.cuh>
+#include <raft/sparse/distance/detail/operators.cuh>
 
 #include "../test_utils.h"
 
@@ -54,15 +54,16 @@ struct InputConfiguration {
   float metric_arg = 0.0;
 };
 
-using dense_smem_strategy_t = dense_smem_strategy<int, float, 1024>;
-using hash_strategy_t = hash_strategy<int, float, 1024>;
+using dense_smem_strategy_t = detail::dense_smem_strategy<int, float, 1024>;
+using hash_strategy_t = detail::hash_strategy<int, float, 1024>;
 
 template <typename value_idx, typename value_t, typename strategy_t>
 struct SparseDistanceCOOSPMVInputs {
   InputConfiguration<value_idx, value_t> input_configuration;
 
   float capacity_threshold = 0.5;
-  int map_size = hash_strategy<value_idx, value_t, 1024>::get_map_size();
+  int map_size =
+    detail::hash_strategy<value_idx, value_t, 1024>::get_map_size();
 };
 
 template <typename value_idx, typename value_t, typename strategy_t>
@@ -103,7 +104,7 @@ class SparseDistanceCOOSPMVTest
                                       dist_config.handle.get_stream());
 
     strategy_t selected_strategy = make_strategy<strategy_t>();
-    balanced_coo_pairwise_generalized_spmv<value_idx, value_t>(
+    detail::balanced_coo_pairwise_generalized_spmv<value_idx, value_t>(
       out_dists, dist_config, coo_rows.data(), reduce_func, accum_func,
       write_func, selected_strategy);
 
@@ -112,7 +113,7 @@ class SparseDistanceCOOSPMVTest
         dist_config.a_indptr, dist_config.a_nrows, coo_rows.data(),
         dist_config.a_nnz, dist_config.handle.get_stream());
 
-      balanced_coo_pairwise_generalized_spmv_rev<value_idx, value_t>(
+      detail::balanced_coo_pairwise_generalized_spmv_rev<value_idx, value_t>(
         out_dists, dist_config, coo_rows.data(), reduce_func, accum_func,
         write_func, selected_strategy);
     }
@@ -121,27 +122,28 @@ class SparseDistanceCOOSPMVTest
   void run_spmv() {
     switch (params.input_configuration.metric) {
       case raft::distance::DistanceType::InnerProduct:
-        compute_dist(Product(), Sum(), AtomicAdd(), true);
+        compute_dist(detail::Product(), detail::Sum(), detail::AtomicAdd(),
+                     true);
         break;
       case raft::distance::DistanceType::L2Unexpanded:
-        compute_dist(SqDiff(), Sum(), AtomicAdd());
+        compute_dist(detail::SqDiff(), detail::Sum(), detail::AtomicAdd());
         break;
       case raft::distance::DistanceType::Canberra:
         compute_dist(
           [] __device__(value_t a, value_t b) {
             return fabsf(a - b) / (fabsf(a) + fabsf(b));
           },
-          Sum(), AtomicAdd());
+          detail::Sum(), detail::AtomicAdd());
         break;
       case raft::distance::DistanceType::L1:
-        compute_dist(AbsDiff(), Sum(), AtomicAdd());
+        compute_dist(detail::AbsDiff(), detail::Sum(), detail::AtomicAdd());
         break;
       case raft::distance::DistanceType::Linf:
-        compute_dist(AbsDiff(), Max(), AtomicMax());
+        compute_dist(detail::AbsDiff(), detail::Max(), detail::AtomicMax());
         break;
       case raft::distance::DistanceType::LpUnexpanded: {
-        compute_dist(PDiff(params.input_configuration.metric_arg), Sum(),
-                     AtomicAdd());
+        compute_dist(detail::PDiff(params.input_configuration.metric_arg),
+                     detail::Sum(), detail::AtomicAdd());
         float p = 1.0f / params.input_configuration.metric_arg;
         raft::linalg::unaryOp<value_t>(
           out_dists, out_dists, dist_config.a_nrows * dist_config.b_nrows,
