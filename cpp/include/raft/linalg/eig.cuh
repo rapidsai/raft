@@ -197,5 +197,6 @@ void eigJacobi(const raft::handle_t &handle, const math_t *in,
   CUDA_CHECK(cudaGetLastError());
   CUSOLVER_CHECK(cusolverDnDestroySyevjInfo(syevj_params));
 }
+
 };  // end namespace linalg
 };  // end namespace raft
