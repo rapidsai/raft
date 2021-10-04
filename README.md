@@ -16,7 +16,7 @@ RAFT is a header-only library of C++ primitives for building analytics and data 
 By taking a primitives-based approach to algorithm development, RAFT accelerates algorithm construction and maintenance 
 by maximizing reuse. RAFT relies on the RAPIDS memory manager (RMM) like all the other projects in the RAPIDS ecosystem.
 RMM eases the burden of configuring pool allocation and make use of the unified virtual memory space (UVM) and enables
-the configuration to be used globally across any library that uses it. RAFT also provides RAII wrappers around device 
+the configuration to be used globally across any library that uses it. RMM also provides RAII wrappers around device 
 arrays that handle the allocation and cleanup. 
 
 The example below demonstrates using RMM's `device_uvector` to allocate memory on device and using it to compute
