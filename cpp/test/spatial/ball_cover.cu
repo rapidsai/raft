@@ -89,12 +89,11 @@ void compute_bfknn(const raft::handle_t &handle, const value_t *X1,
   std::vector<uint32_t> sizes_vec = {n};
 
   if (metric == raft::distance::DistanceType::Haversine) {
-    cudaStream_t *int_streams = nullptr;
     std::vector<int64_t> *translations = nullptr;
 
     raft::spatial::knn::detail::brute_force_knn_impl<uint32_t, int64_t>(
-      input_vec, sizes_vec, d, const_cast<value_t *>(X2), n, inds, dists, k,
-      handle.get_stream(), int_streams, 0, true, true, translations, metric);
+      handle, input_vec, sizes_vec, d, const_cast<value_t *>(X2), n, inds,
+      dists, k, true, true, translations, metric);
   } else {
     size_t worksize = 0;
     void *workspace = nullptr;
