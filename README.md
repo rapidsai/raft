@@ -1,7 +1,7 @@
 # <div align="left"><img src="https://rapids.ai/assets/images/rapids_logo.png" width="90px"/>&nbsp;RAFT: RAPIDS Analytics Frameworks Toolkit</div>
 
 RAFT is a header-only library of C++ primitives for building analytics and data science algorithms in the RAPIDS ecosystem. RAFT primitives operate on both dense and sparse matrix formats in the following categories:
-##### 
+#####
 | Category | Description | Location(s) |
 | --- | --- | -- |
 | **Formats and conversion** | sparse / dense tensor representations and conversions | `sparse/`, `sparse/convert`, `matrix/` |
@@ -27,11 +27,10 @@ cpp/include/raft
      |------------ handle.hpp [raft handle]
 ```
 
-By taking a primitives-based approach to algorithm development, RAFT accelerates algorithm construction and maintenance 
-by maximizing reuse. RAFT relies on the RAPIDS memory manager (RMM) like all the other projects in the RAPIDS ecosystem.
-RMM eases the burden of configuring pool allocation and make use of the unified virtual memory space (UVM) and enables
-the configuration to be used globally across any library that uses it. RMM also provides RAII wrappers around device 
-arrays that handle the allocation and cleanup. 
+By taking a primitives-based approach to algorithm development, RAFT accelerates algorithm construction time and reduces
+the maintenance burden by maximizing reuse, even across projects. RAFT relies on the [RAPIDS memory manager (RMM)](https://github.com/rapidsai/rmm) 
+like other projects in the RAPIDS ecosystem. RMM eases the burden of configuring different allocation strategies globally 
+across the libraries that use it. RMM also provides RAII wrappers around device arrays that handle the allocation and cleanup.
 
 The example below demonstrates using RMM's `device_uvector` to allocate memory on device and using RAFT to compute
 pairwise Euclidean distances:
