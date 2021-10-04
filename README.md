@@ -1,7 +1,6 @@
 # <div align="left"><img src="https://rapids.ai/assets/images/rapids_logo.png" width="90px"/>&nbsp;RAFT: RAPIDS Analytics Frameworks Toolkit</div>
 
 RAFT is a header-only library of C++ primitives for building analytics and data science algorithms in the RAPIDS ecosystem. RAFT primitives operate on both dense and sparse matrix formats in the following categories:
-
 ##### 
 | Category | Description | Location(s) |
 | --- | --- | -- |
@@ -12,6 +11,21 @@ RAFT is a header-only library of C++ primitives for building analytics and data 
 | **Spatial algorithms** | pairwise distances, nearest neighbors, neighborhood / proximity graph construction | `distance/`, `spatial/knn`, `sparse/selection`, `sparse/distance` |
 | **Solvers** | linear solvers such as eigenvalue decomposition, svd, and lanczos | `linalg/`, `sparse/linalg` |
 | **Distributed GPU analytics** | synchronous communications abstraction layer (CAL) and Python integration w/ Dask | `comms/` |
+
+The library layout contains the following structure:
+```bash
+cpp/include/raft
+     |------------ comms      [communication abstraction layer]
+     |------------ distance   [dense pairwise distances]
+     |------------ linalg     [dense linear algebra]
+     |------------ matrix     [dense matrix format]
+     |------------ random     [random matrix generation]
+     |------------ sparse     [sparse matrix and graph algorithms]
+     |------------ spatial    [spatial algorithms]
+     |------------ spectral   [spectral clustering]
+     |------------ stats      [statistics primitives]
+     |------------ handle.hpp [raft handle]
+```
 
 By taking a primitives-based approach to algorithm development, RAFT accelerates algorithm construction and maintenance 
 by maximizing reuse. RAFT relies on the RAPIDS memory manager (RMM) like all the other projects in the RAPIDS ecosystem.
