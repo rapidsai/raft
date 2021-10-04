@@ -135,7 +135,7 @@ static void correlationImpl(const DataT *x, const DataT *y, const DataT *xn,
       pairwiseDistanceMatKernel<true, DataT, AccT, OutT, IdxT, KPolicy,
                                 decltype(core_lambda), decltype(epilog_lambda),
                                 FinalLambda, false>;
-    dim3 grid = detail::launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize,
+    dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize,
                                                        correlationColMajor);
     correlationColMajor<<<grid, blk, shmemSize, stream>>>(
       x, y, xn, yn, m, n, k, lda, ldb, ldd, dOutput, core_lambda, epilog_lambda,

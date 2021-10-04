@@ -78,7 +78,7 @@ static void canberraImpl(const DataT *x, const DataT *y, IdxT m, IdxT n, IdxT k,
       pairwiseDistanceMatKernel<false, DataT, AccT, OutT, IdxT, KPolicy,
                                 decltype(core_lambda), decltype(epilog_lambda),
                                 FinalLambda, true>;
-    dim3 grid = detail::launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize,
+    dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize,
                                                        canberraRowMajor);
 
     canberraRowMajor<<<grid, blk, KPolicy::SmemSize, stream>>>(
