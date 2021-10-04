@@ -19,7 +19,7 @@ RMM eases the burden of configuring pool allocation and make use of the unified 
 the configuration to be used globally across any library that uses it. RMM also provides RAII wrappers around device 
 arrays that handle the allocation and cleanup. 
 
-The example below demonstrates using RMM's `device_uvector` to allocate memory on device and using it to compute
+The example below demonstrates using RMM's `device_uvector` to allocate memory on device and using RAFT to compute
 pairwise Euclidean distances:
 ```c++
 #include <raft/handle.hpp>
