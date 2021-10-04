@@ -269,7 +269,7 @@ void euclideanUnExpImpl(const DataT *x, const DataT *y, IdxT m, IdxT n, IdxT k,
                                 decltype(core_lambda), decltype(epilog_lambda),
                                 FinalLambda, true>;
     dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize,
-                                                       euclideanUnExpRowMajor);
+                                               euclideanUnExpRowMajor);
 
     euclideanUnExpRowMajor<<<grid, blk, KPolicy::SmemSize, stream>>>(
       x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput, core_lambda,
@@ -281,7 +281,7 @@ void euclideanUnExpImpl(const DataT *x, const DataT *y, IdxT m, IdxT n, IdxT k,
                                 decltype(core_lambda), decltype(epilog_lambda),
                                 FinalLambda, false>;
     dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize,
-                                                       euclideanUnExpColMajor);
+                                               euclideanUnExpColMajor);
 
     euclideanUnExpColMajor<<<grid, blk, KPolicy::SmemSize, stream>>>(
       x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput, core_lambda,
