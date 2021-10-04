@@ -44,12 +44,13 @@ __global__ void naiveMatVecKernel(Type *out, const Type *mat, const Type *vec,
 
 template <typename Type, typename IdxType = int>
 void naiveMatVec(Type *out, const Type *mat, const Type *vec, IdxType D,
-                 IdxType N, bool rowMajor, bool bcastAlongRows, Type scalar) {
+                 IdxType N, bool rowMajor, bool bcastAlongRows, Type scalar,
+                 cudaStream_t stream) {
   static const IdxType TPB = 64;
   IdxType len = N * D;
   IdxType nblks = raft::ceildiv(len, TPB);
-  naiveMatVecKernel<Type>
-    <<<nblks, TPB>>>(out, mat, vec, D, N, rowMajor, bcastAlongRows, scalar);
+  naiveMatVecKernel<Type><<<nblks, TPB, 0, stream>>>(
+    out, mat, vec, D, N, rowMajor, bcastAlongRows, scalar);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
@@ -78,12 +79,12 @@ __global__ void naiveMatVecKernel(Type *out, const Type *mat, const Type *vec1,
 template <typename Type, typename IdxType = int>
 void naiveMatVec(Type *out, const Type *mat, const Type *vec1, const Type *vec2,
                  IdxType D, IdxType N, bool rowMajor, bool bcastAlongRows,
-                 Type scalar) {
+                 Type scalar, cudaStream_t stream) {
   static const IdxType TPB = 64;
   IdxType len = N * D;
   IdxType nblks = raft::ceildiv(len, TPB);
-  naiveMatVecKernel<Type><<<nblks, TPB>>>(out, mat, vec1, vec2, D, N, rowMajor,
-                                          bcastAlongRows, scalar);
+  naiveMatVecKernel<Type><<<nblks, TPB, 0, stream>>>(
+    out, mat, vec1, vec2, D, N, rowMajor, bcastAlongRows, scalar);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 

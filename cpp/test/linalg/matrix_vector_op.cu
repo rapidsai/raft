@@ -78,10 +78,10 @@ class MatVecOpTest
     r.uniform(vec2, vecLen, (T)-1.0, (T)1.0, stream);
     if (params.useTwoVectors) {
       naiveMatVec(out_ref, in, vec1, vec2, D, N, params.rowMajor,
-                  params.bcastAlongRows, (T)1.0);
+                  params.bcastAlongRows, (T)1.0, stream);
     } else {
       naiveMatVec(out_ref, in, vec1, D, N, params.rowMajor,
-                  params.bcastAlongRows, (T)1.0);
+                  params.bcastAlongRows, (T)1.0, stream);
     }
     matrixVectorOpLaunch(out, in, vec1, vec2, D, N, params.rowMajor,
                          params.bcastAlongRows, params.useTwoVectors, stream);

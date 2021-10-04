@@ -63,7 +63,8 @@ class MeanCenterTest
     meanCenter(out, data, meanVec, cols, rows, params.rowMajor,
                params.bcastAlongRows, stream);
     raft::linalg::naiveMatVec(out_ref, data, meanVec, cols, rows,
-                              params.rowMajor, params.bcastAlongRows, (T)-1.0);
+                              params.rowMajor, params.bcastAlongRows, (T)-1.0,
+                              stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
