@@ -65,6 +65,8 @@ class BallCoverIndex {
   value_t *get_R_radius() { return R_radius.data(); }
   value_t *get_R() { return R.data(); }
   const value_t *get_X() { return X; }
+  value_int get_n_landmarks() { return n_landmarks; }
+  raft::distance::DistanceType get_metric() { return metric; }
 
   bool is_index_trained() const { return index_trained; };
 

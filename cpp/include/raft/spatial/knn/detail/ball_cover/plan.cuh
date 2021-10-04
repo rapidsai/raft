@@ -54,18 +54,18 @@ namespace detail {
  * @param R_knn_inds
  * @param R_knn_dists
  */
-template <typename value_idx, typename value_t, typename value_int = int>
+template <typename value_idx, typename value_t, typename value_int = uint32_t>
 void k_closest_landmarks2(const raft::handle_t &handle,
-                          BallCoverIndex<value_idx, value_t> &index,
+                          BallCoverIndex<value_idx, value_t, value_int> &index,
                           const value_t *query_pts, value_int n_query_pts,
-                          int k, value_idx *R_knn_inds, value_t *R_knn_dists) {
+                          value_int k, value_idx *R_knn_inds, value_t *R_knn_dists) {
   std::vector<value_t *> input = {index.get_R()};
-  std::vector<int> sizes = {index.n_landmarks};
+  std::vector<value_int> sizes = {index.n_landmarks};
 
-  brute_force_knn_impl<int, int64_t>(
+  brute_force_knn_impl<value_int, int64_t>(
     input, sizes, index.n, const_cast<value_t *>(query_pts), n_query_pts,
-    R_knn_inds, R_knn_dists, k, handle.get_stream(), nullptr, 0, (bool)true,
-    (bool)true, nullptr, index.metric);
+    R_knn_inds, R_knn_dists, k, handle.get_stream(), nullptr, 0, true,
+    true, nullptr, index.metric);
 }
 
 /**
@@ -89,22 +89,27 @@ void k_closest_landmarks2(const raft::handle_t &handle,
  * @param output
  * @param weight
  */
-template <typename value_idx, typename value_t, typename value_int = int,
+template <typename value_idx, typename value_t, typename value_int = uint32_t,
           int tpb = 32>
 __global__ void prune_landmarks(
   const value_t *landmark_dists, const value_int n_cols,
   const value_idx *R_knn_inds, const value_t *R_knn_dists,
-  const value_t *R_radius, const value_t *landmarks, const value_t *knn_dists,
-  const value_idx *landmarks_indptr, const int n_landmarks,
-  const int bitset_size, const int k, const int batch_size,
-  uint32_t *output_bitset, value_int *total_landmark_points,
+  const value_t *R_radius, const value_t *landmarks,
+  const value_t *knn_dists,
+  const value_idx *landmarks_indptr,
+  const int n_landmarks,
+  const int bitset_size,
+  const int k,
+  const int batch_size,
+  uint32_t *output_bitset,
+  value_int *total_landmark_points,
   float weight = 1.0) {
-  static constexpr int kNumWarps = tpb / faiss::gpu::kWarpSize;
 
   // allocate array of size n_landmarks / 32 ints
   extern __shared__ uint32_t sh_mem[];
 
   // Start with all bits on
+#pragma unroll
   for (int i = threadIdx.x; i < bitset_size; i += tpb) sh_mem[i] = 0xffffffff;
 
   __syncthreads();
@@ -117,13 +122,22 @@ __global__ void prune_landmarks(
   // That is, the distance between the current point and the current
   // landmark is > the distance between the current point and
   // its closest landmark + the radius of the current landmark.
-  for (int l = threadIdx.x; l < n_landmarks; l += kNumWarps) {
+#pragma unroll
+  for (int l = threadIdx.x; l < n_landmarks; l += tpb) {
     value_idx cardinality = landmarks_indptr[l + 1] - landmarks_indptr[l];
+
+    if(blockIdx.x == 0) {
+        printf("landmark: %d, cardinality: %ld\n", l, cardinality);
+    }
     value_t p_q_r = landmark_dists[blockIdx.x * n_landmarks + threadIdx.x];
 
     if (p_q_r > weight * (closest_R_dist + R_radius[l]) ||
         p_q_r > 3 * closest_R_dist ||
         knn_dists[blockIdx.x * k + (k - 1)] < p_q_r - R_radius[l]) {
+
+      if(blockIdx.x == 0) {
+        printf("zeroing landmark: %d, p_q_r=%f, weight=%f, closest_R_dist=%f, R_radius=%f\n", l, p_q_r, weight, closest_R_dist, R_radius[l]);
+      }
       _zero_bit(sh_mem, l);
       n_points += ceil(cardinality / batch_size);
     }
@@ -132,8 +146,9 @@ __global__ void prune_landmarks(
   __syncthreads();
 
   /**
-     * Output bitset
-     */
+    * Output bitset
+    */
+#pragma unroll
   for (int l = threadIdx.x; l < bitset_size; l += tpb) {
     output_bitset[blockIdx.x * bitset_size + l] = sh_mem[l];
   }
@@ -141,25 +156,30 @@ __global__ void prune_landmarks(
   atomicAdd(total_landmark_points + blockIdx.x, n_points);
 }
 
-template <typename value_idx>
+template <typename value_idx, typename value_int = uint32_t>
 __global__ void write_plan_coo(const value_idx *landmark_indptr,
                                const value_idx *coo_write_plan,
-                               const uint32_t *bitset, const int bitset_size,
-                               const int n_landmarks, const int batch_size,
+                               const uint32_t *bitset,
+                               const value_int bitset_size,
+                               const value_int n_landmarks,
+                               const int batch_size,
+                               const value_int n_query_pts,
                                value_idx *plan_query_ids_coo,
                                value_idx *plan_landmark_ids_coo,
                                value_idx *plan_offset_ids_coo) {
   int query_id = blockIdx.x * blockDim.x + threadIdx.x;
 
+  if(query_id >= n_query_pts) return;
+
   int cur_plan_offset = coo_write_plan[query_id];
 
-  for (int cur_R_ind = 0; cur_R_ind < n_landmarks; cur_R_ind++) {
+  for (value_int cur_R_ind = 0; cur_R_ind < n_landmarks; cur_R_ind++) {
     // if cur R overlaps cur point's closest R, it could be a
     // candidate
     if (_get_val(bitset + (query_id * bitset_size), cur_R_ind)) {
       value_idx start_offset = landmark_indptr[cur_R_ind];
       value_idx stop_offset = landmark_indptr[cur_R_ind + 1];
-      for (int batch_offset = start_offset; batch_offset < stop_offset;
+      for (value_int batch_offset = start_offset; batch_offset < stop_offset;
            batch_offset += batch_size) {
         plan_query_ids_coo[cur_plan_offset] = query_id;
         plan_landmark_ids_coo[cur_plan_offset] = cur_R_ind;
@@ -170,7 +190,7 @@ __global__ void write_plan_coo(const value_idx *landmark_indptr,
   }
 }
 
-template <typename value_idx, typename value_t, typename value_int = int>
+template <typename value_idx, typename value_t, typename value_int = uint32_t>
 void landmark_q_pw_dists(const raft::handle_t &handle,
                          BallCoverIndex<value_idx, value_t> &index,
                          const value_t *queries, value_int n_queries,
@@ -208,11 +228,11 @@ void landmark_q_pw_dists(const raft::handle_t &handle,
  * @param knn_dists
  * @param weight
  */
-template <typename value_idx, typename value_t, typename value_int = int,
+template <typename value_idx, typename value_t, typename value_int = uint32_t,
           int batch_size = 2048>
 void compute_plan(const raft::handle_t &handle,
-                  BallCoverIndex<value_idx, value_t> &index, int k,
-                  const value_t *query, value_int n_query_pts,
+                  BallCoverIndex<value_idx, value_t, value_int> &index, value_int k,
+                  const value_t *query, const value_int n_query_pts,
                   const value_idx *knn_inds, const value_t *knn_dists,
                   raft::sparse::COO<value_idx, value_idx> &plan_coo,
                   float weight = 1.0) {
@@ -223,10 +243,12 @@ void compute_plan(const raft::handle_t &handle,
      * Query Plan is a COO matrix mapping (query_point_id, landmark_id, landmark_index_start_offset)
      * for each query point. This is meant to be done in batches over a pairwise distance matrix
      * between the query points and landmarks and increase uniformity of distance computations.
-     */
-
-  /**
-     * Steps (this can be done in batches both by query points and landmarks:
+     *
+     * The query plan edge list is guaranteed to be ordered such that query_point_id is
+     * increasing monotonically and within each query_id, the landmark_id should be ordered
+     * by its distance from the query_id.
+     *
+     * Steps (this can be done in batches both by query points and landmarks):
      * 1. Compute pairwise_distances(query_points, landmarks)
      * 2. K-select to get radius for each query point
      * 3. Apply triangle inequality and bounds checking
@@ -242,33 +264,44 @@ void compute_plan(const raft::handle_t &handle,
   // Compute pw dists between queries and landmarks
   landmark_q_pw_dists(handle, index, query, n_query_pts, ql_dists.data());
 
-  // K-select to get radius for each query point
+  // K-select to get radius bounds for each query point
   rmm::device_uvector<value_idx> R_knn_inds(k * index.m, handle.get_stream());
   rmm::device_uvector<value_t> R_knn_dists(k * index.m, handle.get_stream());
 
   k_closest_landmarks2(handle, index, query, n_query_pts, k, R_knn_inds.data(),
                        R_knn_dists.data());
 
+  raft::print_device_vector("R_knn_inds", R_knn_inds.data(), 10, std::cout);
+
+
   // Compute filtered balls for current batch based on k found so far
-  const int bitset_size = ceil(index.n_landmarks / 32.0);
+  const value_int bitset_size = ceil(index.get_n_landmarks() / 32.0);
   rmm::device_uvector<uint32_t> bitset(bitset_size * index.m,
                                        handle.get_stream());
 
   rmm::device_uvector<value_int> landmark_batches(n_query_pts,
                                                   handle.get_stream());
 
-  prune_landmarks<<<n_query_pts, 128, 0, handle.get_stream()>>>(
+  thrust::fill(handle.get_thrust_policy(), landmark_batches.data(), landmark_batches.data() + n_query_pts, 0.0);
+
+  prune_landmarks<value_idx, value_t, value_int, 128>
+          <<<n_query_pts, 128, bitset_size * sizeof(value_int), handle.get_stream()>>>(
     ql_dists.data(), index.n, R_knn_inds.data(), R_knn_dists.data(),
     index.get_R_radius(), index.get_R(), knn_dists, index.get_R_indptr(),
     index.get_n_landmarks(), bitset_size, k, batch_size, bitset.data(),
     landmark_batches.data(), weight);
 
   // Sum of cardinality array is nnz of plan
-  int n_batches = thrust::reduce(exec_policy, landmark_batches.data(),
+  value_int n_batches = thrust::reduce(exec_policy, landmark_batches.data(),
                                  landmark_batches.data() + n_query_pts, 0);
+
+  printf("n_batches=%d\n", n_batches);
+
+  raft::print_device_vector("landmark_batches", landmark_batches.data(), 10, std::cout);
 
   rmm::device_uvector<value_idx> coo_write_plan(n_query_pts,
                                                 handle.get_stream());
+
   thrust::exclusive_scan(exec_policy, landmark_batches.data(),
                          landmark_batches.data() + n_query_pts,
                          coo_write_plan.data(), 0);
@@ -276,11 +309,16 @@ void compute_plan(const raft::handle_t &handle,
   // Construct COO where nnz=n_batches
   plan_coo.allocate(n_batches, 0, handle.get_stream());
 
-  write_plan_coo<<<raft::ceildiv(n_query_pts, 256), 256, 0,
+  write_plan_coo<<<raft::ceildiv(n_query_pts, (value_int)256), 256, 0,
                    handle.get_stream()>>>(
     index.get_R_indptr(), coo_write_plan.data(), bitset.data(), bitset_size,
-    index.get_n_landmarks(), batch_size, plan_coo.rows(), plan_coo.cols(),
+    index.get_n_landmarks(), batch_size, n_query_pts, plan_coo.rows(), plan_coo.cols(),
     plan_coo.vals());
+
+    raft::print_device_vector("coo_write_plan", coo_write_plan.data(), 10, std::cout);
+
+    // TODO: Sort the COO plan so that the landmark_ids within each query_id are ordered by
+    // their distances.
 }
 
 template <typename value_idx, typename value_t, int warp_q, int thread_q,
@@ -297,14 +335,13 @@ __device__ void topk_merge(value_t *sh_memK, value_idx *sh_memV,
          faiss::gpu::Limits<value_t>::getMax(), sh_memK, sh_memV, k);
 
   /**
-     * First add batch
-     */
+   * First add batch
+   */
   const int n_b =
     faiss::gpu::utils::roundDown(batch_size, faiss::gpu::kWarpSize);
   int i = threadIdx.x;
-  for (; i < n_b; i += tpb) heap.add(batch_dists[i], batch_inds[i]);
-
-  if (i < batch_size) heap.addThreadQ(batch_dists[i], batch_inds[i]);
+  for (; i < n_b; i += tpb) heap.add(sqrt(batch_dists[i]), batch_inds[i]);
+  if (i < batch_size) heap.addThreadQ(sqrt(batch_dists[i]), batch_inds[i]);
 
   heap.checkThreadQ();
 
@@ -312,6 +349,7 @@ __device__ void topk_merge(value_t *sh_memK, value_idx *sh_memV,
     bool isSet = false;
     do {
       isSet = atomicCAS(mutex + query_id, false, true) == 0;
+      __threadfence();
     } while (!isSet);
   }
 
@@ -396,8 +434,10 @@ __global__ void compute_dists(const value_t *X, const value_t *query,
     value_idx point_index = batch_inds[i];
 
     value_t dist = 0;
-    for (int j = threadIdx.y; j < n_cols; j += blockDim.y)
-      dist += query[query_id * n_cols + j] * X[point_index * n_cols + j];
+    for (int j = threadIdx.y; j < n_cols; j += blockDim.y) {
+        value_t d = query[query_id * n_cols + j] - X[point_index * n_cols + j];
+        dist += d * d;
+    }
 
     atomicAdd(batch_dists + i, dist);
   }
@@ -422,13 +462,14 @@ __global__ void compute_dists(const value_t *X, const value_t *query,
  * @param batch_size
  * @param weight
  */
-template <typename value_idx, typename value_t, typename value_int = int,
+template <typename value_idx, typename value_t, typename value_int = uint32_t,
           int batch_size = 2048>
 void execute_plan(const raft::handle_t &handle,
-                  BallCoverIndex<value_idx, value_t> &index,
-                  raft::sparse::COO<value_idx, value_idx> &plan_coo, int k,
+                  BallCoverIndex<value_idx, value_t, value_int> &index,
+                  raft::sparse::COO<value_idx, value_idx> &plan_coo, value_int k,
                   const value_t *query, value_int n_query_pts,
-                  value_idx *knn_inds, value_t *knn_dists, float weight = 1.0) {
+                  value_idx *knn_inds, value_t *knn_dists,
+                  float weight = 1.0) {
   // Each block of the resulting distances kernel needs to look up the current knn to see if the distances
   // are still worth computing, then they need to compute
   rmm::device_uvector<bool> mutex(n_query_pts, handle.get_stream());
