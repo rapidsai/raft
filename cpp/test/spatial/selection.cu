@@ -20,10 +20,10 @@
 #include "../test_utils.h"
 
 #include <raft/sparse/utils.h>
-#include <raft/sparse/selection/selection.cuh>
+#include <raft/spatial/knn/knn.hpp>
 
 namespace raft {
-namespace sparse {
+namespace spatial {
 namespace selection {
 
 using namespace raft;
@@ -89,9 +89,8 @@ class SparseSelectionTest
 
     make_data();
 
-    raft::sparse::selection::select_k(dists, inds, n_rows, n_cols, out_dists,
-                                      out_indices, params.select_min, k,
-                                      stream);
+    raft::spatial::knn::select_k(dists, inds, n_rows, n_cols, out_dists,
+                                 out_indices, params.select_min, k, stream);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
@@ -143,5 +142,5 @@ INSTANTIATE_TEST_CASE_P(SparseSelectionTest, SparseSelectionTestF,
                         ::testing::ValuesIn(inputs_i32_f));
 
 };  // end namespace selection
-};  // end namespace sparse
+};  // end namespace spatial
 };  // end namespace raft
