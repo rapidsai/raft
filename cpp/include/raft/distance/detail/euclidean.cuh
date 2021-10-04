@@ -98,8 +98,8 @@ void euclideanExpImpl(const DataT *x, const DataT *y, const DataT *xn,
       pairwiseDistanceMatKernel<true, DataT, AccT, OutT, IdxT, KPolicy,
                                 decltype(core_lambda), decltype(epilog_lambda),
                                 FinalLambda, true>;
-    dim3 grid = detail::launchConfigGenerator<KPolicy>(m, n, shmemSize,
-                                                       euclideanExpRowMajor);
+    dim3 grid =
+      launchConfigGenerator<KPolicy>(m, n, shmemSize, euclideanExpRowMajor);
 
     euclideanExpRowMajor<<<grid, blk, shmemSize, stream>>>(
       x, y, xn, yn, m, n, k, lda, ldb, ldd, dOutput, core_lambda, epilog_lambda,
@@ -109,8 +109,8 @@ void euclideanExpImpl(const DataT *x, const DataT *y, const DataT *xn,
       pairwiseDistanceMatKernel<true, DataT, AccT, OutT, IdxT, KPolicy,
                                 decltype(core_lambda), decltype(epilog_lambda),
                                 FinalLambda, false>;
-    dim3 grid = detail::launchConfigGenerator<KPolicy>(m, n, shmemSize,
-                                                       euclideanExpColMajor);
+    dim3 grid =
+      launchConfigGenerator<KPolicy>(m, n, shmemSize, euclideanExpColMajor);
     euclideanExpColMajor<<<grid, blk, shmemSize, stream>>>(
       x, y, xn, yn, m, n, k, lda, ldb, ldd, dOutput, core_lambda, epilog_lambda,
       fin_op);

@@ -74,8 +74,8 @@ static void chebyshevImpl(const DataT *x, const DataT *y, IdxT m, IdxT n,
       pairwiseDistanceMatKernel<false, DataT, AccT, OutT, IdxT, KPolicy,
                                 decltype(core_lambda), decltype(epilog_lambda),
                                 FinalLambda, true>;
-    dim3 grid = detail::launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize,
-                                                       chebyshevRowMajor);
+    dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize,
+                                               chebyshevRowMajor);
 
     chebyshevRowMajor<<<grid, blk, KPolicy::SmemSize, stream>>>(
       x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput, core_lambda,

@@ -86,8 +86,8 @@ static void hammingUnexpandedImpl(const DataT *x, const DataT *y, IdxT m,
       pairwiseDistanceMatKernel<false, DataT, AccT, OutT, IdxT, KPolicy,
                                 decltype(core_lambda), decltype(epilog_lambda),
                                 FinalLambda, true>;
-    dim3 grid = detail::launchConfigGenerator<KPolicy>(
-      m, n, KPolicy::SmemSize, hammingUnexpandedRowMajor);
+    dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize,
+                                               hammingUnexpandedRowMajor);
 
     hammingUnexpandedRowMajor<<<grid, blk, KPolicy::SmemSize, stream>>>(
       x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput, core_lambda,
@@ -97,8 +97,8 @@ static void hammingUnexpandedImpl(const DataT *x, const DataT *y, IdxT m,
       pairwiseDistanceMatKernel<false, DataT, AccT, OutT, IdxT, KPolicy,
                                 decltype(core_lambda), decltype(epilog_lambda),
                                 FinalLambda, false>;
-    dim3 grid = detail::launchConfigGenerator<KPolicy>(
-      m, n, KPolicy::SmemSize, hammingUnexpandedColMajor);
+    dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize,
+                                               hammingUnexpandedColMajor);
     hammingUnexpandedColMajor<<<grid, blk, KPolicy::SmemSize, stream>>>(
       x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput, core_lambda,
       epilog_lambda, fin_op);

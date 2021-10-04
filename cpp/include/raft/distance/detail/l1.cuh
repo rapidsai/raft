@@ -73,8 +73,8 @@ static void l1Impl(const DataT *x, const DataT *y, IdxT m, IdxT n, IdxT k,
       pairwiseDistanceMatKernel<false, DataT, AccT, OutT, IdxT, KPolicy,
                                 decltype(core_lambda), decltype(epilog_lambda),
                                 FinalLambda, true>;
-    dim3 grid = detail::launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize,
-                                                       l1RowMajor);
+    dim3 grid =
+      launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize, l1RowMajor);
 
     l1RowMajor<<<grid, blk, KPolicy::SmemSize, stream>>>(
       x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput, core_lambda,
@@ -84,8 +84,8 @@ static void l1Impl(const DataT *x, const DataT *y, IdxT m, IdxT n, IdxT k,
       pairwiseDistanceMatKernel<false, DataT, AccT, OutT, IdxT, KPolicy,
                                 decltype(core_lambda), decltype(epilog_lambda),
                                 FinalLambda, false>;
-    dim3 grid = detail::launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize,
-                                                       l1ColMajor);
+    dim3 grid =
+      launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize, l1ColMajor);
     l1ColMajor<<<grid, blk, KPolicy::SmemSize, stream>>>(
       x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput, core_lambda,
       epilog_lambda, fin_op);
