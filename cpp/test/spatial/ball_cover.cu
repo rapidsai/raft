@@ -177,6 +177,10 @@ class BallCoverKNNQueryTest
     // indices may or may not match exactly, depending upon the ordering which
     // can be nondeterministic.
 
+
+    raft::print_device_vector("pred_d", d_pred_D.data(), 100, std::cout);
+    raft::print_device_vector("ref_d", d_ref_D.data(), 100, std::cout);
+
     rmm::device_uvector<uint32_t> discrepancies(n, handle.get_stream());
     thrust::fill(handle.get_thrust_policy(), discrepancies.data(),
                  discrepancies.data() + discrepancies.size(), 0);
@@ -185,6 +189,7 @@ class BallCoverKNNQueryTest
                                   d_ref_D.data(), d_pred_D.data(), n, k,
                                   discrepancies.data(), handle.get_stream());
 
+    printf("ref=%d\n", res);
     ASSERT_TRUE(res == 0);
   }
 
@@ -257,6 +262,8 @@ class BallCoverAllKNNTest
     uint32_t res = count_discrepancies(
       d_ref_I.data(), d_pred_I.data(), d_ref_D.data(), d_pred_D.data(), n, k,
       discrepancies.data(), handle.get_stream());
+
+    printf("ref=%d\n", res);
     ASSERT_TRUE(res == 0);
   }
 
