@@ -19,7 +19,6 @@
 #include <limits>
 #include <raft/distance/pairwise_distance_base.cuh>
 #include <raft/linalg/norm.cuh>
-#include "processing.hpp"
 
 namespace raft {
 namespace spatial {
