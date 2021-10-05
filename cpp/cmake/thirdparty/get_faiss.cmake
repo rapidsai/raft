@@ -29,35 +29,37 @@ function(find_and_configure_faiss)
         set(BUILD_SHARED_LIBS ON)
     endif()
 
-    rapids_cpm_find(FAISS ${PKG_VERSION}
-        GLOBAL_TARGETS   faiss FAISS::FAISS
-        BUILD_EXPORT_SET raft-exports
+    rapids_cpm_find(faiss ${PKG_VERSION}
+        GLOBAL_TARGETS     faiss::faiss
+        INSTALL_EXPORT_SET raft-exports
         CPM_ARGS
           GIT_REPOSITORY  https://github.com/facebookresearch/faiss.git
           GIT_TAG         ${PKG_PINNED_TAG}
           OPTIONS
             "FAISS_ENABLE_PYTHON OFF"
-            "BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS}"
             "CUDAToolkit_ROOT ${CUDAToolkit_LIBRARY_DIR}"
             "FAISS_ENABLE_GPU ON"
             "BUILD_TESTING OFF"
             "CMAKE_MESSAGE_LOG_LEVEL VERBOSE"
     )
 
-    if(TARGET faiss AND NOT TARGET FAISS::FAISS)
-        add_library(FAISS::FAISS ALIAS faiss)
+    if(TARGET faiss AND NOT TARGET faiss::faiss)
+        add_library(faiss::faiss ALIAS faiss)
     endif()
 
-    if(FAISS_ADDED)
-        target_include_directories(faiss INTERFACE $<BUILD_INTERFACE:${FAISS_SOURCE_DIR}>)
-        install(TARGETS faiss EXPORT faiss-exports)
+    if(faiss_ADDED)
         rapids_export(BUILD faiss
-            EXPORT_SET faiss-exports
-            GLOBAL_TARGETS faiss
-            NAMESPACE raft::
-            LANGUAGES CUDA)
+            EXPORT_SET faiss-targets
+            GLOBAL_TARGETS faiss::faiss
+            NAMESPACE faiss::)
     endif()
 
+    # We generate the faiss-config files when we built faiss locally, so always do `find_dependency`
+    rapids_export_package(BUILD faiss raft-exports)
+
+    # Tell cmake where it can find the generated faiss-config.cmake we wrote.
+    include("${rapids-cmake-dir}/export/find_package_root.cmake")
+    rapids_export_find_package_root(BUILD faiss [=[${CMAKE_CURRENT_LIST_DIR}]=] raft-exports)
 endfunction()
 
 find_and_configure_faiss(VERSION    1.7.0

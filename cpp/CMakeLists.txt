@@ -105,9 +105,9 @@ rapids_cpm_init()
 include(cmake/thirdparty/get_thrust.cmake)
 include(cmake/thirdparty/get_rmm.cmake)
 include(cmake/thirdparty/get_cuco.cmake)
+include(cmake/thirdparty/get_faiss.cmake)
 
 if(BUILD_TESTS)
-  include(cmake/thirdparty/get_faiss.cmake)
   include(cmake/thirdparty/get_gtest.cmake)
   include(cmake/thirdparty/get_nccl.cmake)
   include(cmake/thirdparty/get_ucx.cmake)
@@ -163,11 +163,20 @@ and common functions for the analytics components of RAPIDS.
 
 ]=])
 
+set(raft_code_string
+[=[
+if (TARGET faiss::faiss AND (NOT TARGET faiss))
+    add_library(faiss ALIAS faiss::faiss)
+endif()
+]=]
+)
+
  rapids_export(INSTALL raft
     EXPORT_SET raft-exports
     GLOBAL_TARGETS raft # since we can't hook into EXPORT SETS
     NAMESPACE raft::
     DOCUMENTATION doc_string
+    FINAL_CODE_BLOCK raft_code_string
     )
 
 ##############################################################################
@@ -179,6 +188,7 @@ rapids_export(BUILD raft
     LANGUAGES CUDA
     DOCUMENTATION doc_string
     NAMESPACE raft::
+    FINAL_CODE_BLOCK raft_code_string
     )
 
 ##############################################################################

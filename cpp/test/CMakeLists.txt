@@ -129,7 +129,7 @@ PRIVATE
   CUDA::cusparse
   rmm::rmm
   cuco::cuco
-  FAISS::FAISS
+  faiss::faiss
   GTest::gtest
   GTest::gtest_main
   Threads::Threads
