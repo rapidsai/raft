@@ -15,15 +15,25 @@ RAFT is a header-only library of C++ primitives for building analytics and data 
 The library layout contains the following structure:
 ```bash
 cpp/include/raft
+     |
      |------------ comms      [communication abstraction layer]
+     |
      |------------ distance   [dense pairwise distances]
+     |
      |------------ linalg     [dense linear algebra]
+     |
      |------------ matrix     [dense matrix format]
+     |
      |------------ random     [random matrix generation]
+     |
      |------------ sparse     [sparse matrix / graph primitives]
+     |
      |------------ spatial    [spatial primitives]
+     |
      |------------ spectral   [spectral clustering]
+     |
      |------------ stats      [statistics primitives]
+     |
      |------------ handle.hpp [raft handle]
 ```
 
