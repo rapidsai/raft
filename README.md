@@ -4,13 +4,13 @@ RAFT is a header-only library of C++ primitives for building analytics and data 
 #####
 | Category | Description | Location(s) |
 | --- | --- | -- |
-| **Formats and conversion** | sparse / dense tensor representations and conversions | `sparse/`, `sparse/convert`, `matrix/` |
-| **Data generation** | graph, spatial, and machine learning dataset generation | `random/`, TBD |
-| **Matrix operations** | sparse / dense matrix arithmetic and reductions | `linalg/`, `matrix/`, `sparse/linalg`, `sparse/op`|
-| **Graph algorithms** | clustering, layout, components analysis, spanning trees | `sparse/mst`, `sparse/hierarchy`, `sparse/linalg`, `spectral/` |
-| **Spatial algorithms** | pairwise distances, nearest neighbors, neighborhood / proximity graph construction | `distance/`, `spatial/knn`, `sparse/selection`, `sparse/distance` |
+| **Formats** | sparse / dense tensor representations and conversions | `sparse/`, `sparse/convert`, `matrix/` |
+| **Data Generation** | graph, spatial, and machine learning dataset generation | `random/`, TBD |
+| **Matrix Operations** | sparse / dense matrix arithmetic and reductions | `linalg/`, `matrix/`, `sparse/linalg`, `sparse/op`|
+| **Graph Primitives** | clustering, layout, components analysis, spanning trees | `sparse/mst`, `sparse/hierarchy`, `sparse/linalg`, `spectral/` |
+| **Spatial Primitives** | pairwise distances, nearest neighbors, neighborhood / proximity graph construction | `distance/`, `spatial/knn`, `sparse/selection`, `sparse/distance` |
 | **Solvers** | linear solvers such as eigenvalue decomposition, svd, and lanczos | `linalg/`, `sparse/linalg` |
-| **Distributed GPU analytics** | synchronous communications abstraction layer (CAL) and Python integration w/ Dask | `comms/` |
+| **Distributed Primitives** | synchronous communications abstraction layer (CAL) and Python integration w/ Dask | `comms/` |
 
 The library layout contains the following structure:
 ```bash
