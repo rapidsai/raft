@@ -4,7 +4,7 @@ RAFT is a header-only library of C++ primitives for building analytics and data 
 #####
 | Category | Description |
 | --- | --- |
-| **Formats** | sparse / dense tensor representations and conversions |
+| **Data Formats** | sparse / dense tensor representations and conversions |
 | **Data Generation** | graph, spatial, and machine learning dataset generation |
 | **Matrix Operations** | sparse / dense matrix arithmetic and reductions |
 | **Graph Primitives** | clustering, layout, components analysis, spanning trees |
