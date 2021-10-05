@@ -12,7 +12,7 @@ RAFT is a header-only library of C++ primitives for building analytics and data 
 | **Solvers** | linear solvers such as eigenvalue decomposition, svd, and lanczos |
 | **Distributed Primitives** | synchronous communications abstraction layer (CAL) and Python integration w/ Dask |
 
-The library layout contains the following structure:
+RAFT contains the following directory structure:
 ```bash
 cpp/include/raft
      |
