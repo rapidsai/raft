@@ -28,7 +28,7 @@ cpp/include/raft
      |
      |------------ sparse     [sparse matrix / graph primitives]
      |
-     |------------ spatial    [spatial primitives]
+     |------------ spatial    [spatial primitives] (might require SAISS)
      |
      |------------ spectral   [spectral clustering]
      |
