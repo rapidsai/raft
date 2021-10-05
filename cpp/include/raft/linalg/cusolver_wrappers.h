@@ -719,6 +719,7 @@ inline cusolverStatus_t cusolverSpcsrqrsvBatched(  // NOLINT
 }
 /** @} */
 
+#if CUDART_VERSION >= 11010
 /**
  * @defgroup DnXsyevd cusolver DnXsyevd operations
  * @{
@@ -786,6 +787,7 @@ inline cusolverStatus_t cusolverDnxsyevd(  // NOLINT
                           workspaceInBytesOnDevice, bufferOnHost,
                           workspaceInBytesOnHost, info);
 }
+#endif
 
 /** @} */
 

@@ -45,6 +45,9 @@ template <typename math_t>
 void eigDC(const raft::handle_t &handle, const math_t *in, std::size_t n_rows,
            std::size_t n_cols, math_t *eig_vectors, math_t *eig_vals,
            cudaStream_t stream) {
+#if CUDART_VERSION < 11010
+  eigDC_legacy(handle, in, n_rows, n_cols, eig_vectors, eig_vals, stream);
+#else
   cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
 
   cusolverDnParams_t dn_params = nullptr;
@@ -72,6 +75,35 @@ void eigDC(const raft::handle_t &handle, const math_t *in, std::size_t n_rows,
   CUDA_CHECK(cudaGetLastError());
   CUSOLVER_CHECK(cusolverDnDestroyParams(dn_params));
   int dev_info = d_dev_info.value(stream);
+  ASSERT(dev_info == 0,
+         "eig.cuh: eigensolver couldn't converge to a solution. "
+         "This usually occurs when some of the features do not vary enough.");
+#endif
+}
+
+template <typename math_t>
+void eigDC_legacy(const raft::handle_t &handle, const math_t *in,
+                  std::size_t n_rows, std::size_t n_cols, math_t *eig_vectors,
+                  math_t *eig_vals, cudaStream_t stream) {
+  cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
+
+  int lwork;
+  CUSOLVER_CHECK(cusolverDnsyevd_bufferSize(cusolverH, CUSOLVER_EIG_MODE_VECTOR,
+                                            CUBLAS_FILL_MODE_UPPER, n_rows, in,
+                                            n_cols, eig_vals, &lwork));
+
+  rmm::device_uvector<math_t> d_work(lwork, stream);
+  rmm::device_scalar<int> d_dev_info(stream);
+
+  raft::matrix::copy(in, eig_vectors, n_rows, n_cols, stream);
+
+  CUSOLVER_CHECK(cusolverDnsyevd(cusolverH, CUSOLVER_EIG_MODE_VECTOR,
+                                 CUBLAS_FILL_MODE_UPPER, n_rows, eig_vectors,
+                                 n_cols, eig_vals, d_work.data(), lwork,
+                                 d_dev_info.data(), stream));
+  CUDA_CHECK(cudaGetLastError());
+
+  auto dev_info = d_dev_info.value(stream);
   ASSERT(dev_info == 0,
          "eig.cuh: eigensolver couldn't converge to a solution. "
          "This usually occurs when some of the features do not vary enough.");
