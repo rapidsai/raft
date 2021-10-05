@@ -2,15 +2,15 @@
 
 RAFT is a header-only library of C++ primitives for building analytics and data science algorithms in the RAPIDS ecosystem. RAFT primitives operate on both dense and sparse matrix formats in the following categories:
 #####
-| Category | Description | Location(s) |
-| --- | --- | -- |
-| **Formats** | sparse / dense tensor representations and conversions | `sparse/`, `sparse/convert`, `matrix/` |
-| **Data Generation** | graph, spatial, and machine learning dataset generation | `random/`, TBD |
-| **Matrix Operations** | sparse / dense matrix arithmetic and reductions | `linalg/`, `matrix/`, `sparse/linalg`, `sparse/op`|
-| **Graph Primitives** | clustering, layout, components analysis, spanning trees | `sparse/mst`, `sparse/hierarchy`, `sparse/linalg`, `spectral/` |
-| **Spatial Primitives** | pairwise distances, nearest neighbors, neighborhood / proximity graph construction | `distance/`, `spatial/knn`, `sparse/selection`, `sparse/distance` |
-| **Solvers** | linear solvers such as eigenvalue decomposition, svd, and lanczos | `linalg/`, `sparse/linalg` |
-| **Distributed Primitives** | synchronous communications abstraction layer (CAL) and Python integration w/ Dask | `comms/` |
+| Category | Description |
+| --- | --- |
+| **Formats** | sparse / dense tensor representations and conversions |
+| **Data Generation** | graph, spatial, and machine learning dataset generation |
+| **Matrix Operations** | sparse / dense matrix arithmetic and reductions |
+| **Graph Primitives** | clustering, layout, components analysis, spanning trees |
+| **Spatial Primitives** | pairwise distances, nearest neighbors, neighborhood / proximity graph construction |
+| **Solvers** | linear solvers such as eigenvalue decomposition, svd, and lanczos |
+| **Distributed Primitives** | synchronous communications abstraction layer (CAL) and Python integration w/ Dask |
 
 The library layout contains the following structure:
 ```bash
@@ -20,8 +20,8 @@ cpp/include/raft
      |------------ linalg     [dense linear algebra]
      |------------ matrix     [dense matrix format]
      |------------ random     [random matrix generation]
-     |------------ sparse     [sparse matrix and graph algorithms]
-     |------------ spatial    [spatial algorithms]
+     |------------ sparse     [sparse matrix / graph primitives]
+     |------------ spatial    [spatial primitives]
      |------------ spectral   [spectral clustering]
      |------------ stats      [statistics primitives]
      |------------ handle.hpp [raft handle]
