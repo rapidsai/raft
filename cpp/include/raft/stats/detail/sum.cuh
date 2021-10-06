@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <raft/cuda_utils.h>
 #include <cub/cub.cuh>
 
 namespace raft {
