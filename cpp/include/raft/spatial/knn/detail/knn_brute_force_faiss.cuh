@@ -287,34 +287,31 @@ void brute_force_knn_impl(std::vector<float *> &input,
             IntType>(search_items, input[i], n, sizes[i], D);
           worksize = tempWorksize;
           workspace.resize(worksize, stream);
-          l2_expanded_knn<raft::distance::DistanceType::L2Expanded, int64_t,
-                          float, false>(
-            D, out_i_ptr, out_d_ptr, input[i], search_items, sizes[i], n, k,
-            rowMajorIndex, rowMajorQuery, stream, workspace.data(), worksize);
+          fusedL2Knn<raft::distance::DistanceType::L2Expanded, int64_t, float,
+                     false>(D, out_i_ptr, out_d_ptr, input[i], search_items,
+                            sizes[i], n, k, rowMajorIndex, rowMajorQuery,
+                            stream, workspace.data(), worksize);
           if (worksize > tempWorksize) {
             workspace.resize(worksize, stream);
-            l2_expanded_knn<raft::distance::DistanceType::L2Expanded, int64_t,
-                            float, false>(
-              D, out_i_ptr, out_d_ptr, input[i], search_items, sizes[i], n, k,
-              rowMajorIndex, rowMajorQuery, stream, workspace.data(), worksize);
+            fusedL2Knn<raft::distance::DistanceType::L2Expanded, int64_t, float,
+                       false>(D, out_i_ptr, out_d_ptr, input[i], search_items,
+                              sizes[i], n, k, rowMajorIndex, rowMajorQuery,
+                              stream, workspace.data(), worksize);
           }
           break;
         case raft::distance::DistanceType::L2Unexpanded:
         // Even for L2 Sqrt distance case we use non-sqrt version
         // as FAISS bfKNN only support non-sqrt metric & some tests
         // in RAFT/cuML (like Linkage) fails if we use L2 sqrt.
-        // Even for L2 Sqrt distance case we use non-sqrt version
-        // as FAISS bfKNN only support non-sqrt metric & some tests
-        // in RAFT/cuML (like Linkage) fails if we use L2 sqrt.
         case raft::distance::DistanceType::L2SqrtUnexpanded:
-          l2_unexpanded_knn<raft::distance::DistanceType::L2Unexpanded, int64_t,
-                            float, false>(
-            D, out_i_ptr, out_d_ptr, input[i], search_items, sizes[i], n, k,
-            rowMajorIndex, rowMajorQuery, stream, workspace.data(), worksize);
+          fusedL2Knn<raft::distance::DistanceType::L2Unexpanded, int64_t, float,
+                     false>(D, out_i_ptr, out_d_ptr, input[i], search_items,
+                            sizes[i], n, k, rowMajorIndex, rowMajorQuery,
+                            stream, workspace.data(), worksize);
           if (worksize) {
             workspace.resize(worksize, stream);
-            l2_unexpanded_knn<raft::distance::DistanceType::L2Unexpanded,
-                              int64_t, float, false>(
+            fusedL2Knn<raft::distance::DistanceType::L2Unexpanded, int64_t,
+                       float, false>(
               D, out_i_ptr, out_d_ptr, input[i], search_items, sizes[i], n, k,
               rowMajorIndex, rowMajorQuery, stream, workspace.data(), worksize);
           }

@@ -98,14 +98,14 @@ void compute_bfknn(const raft::handle_t &handle, const value_t *X1,
   } else {
     size_t worksize = 0;
     void *workspace = nullptr;
-    raft::spatial::knn::detail::l2_unexpanded_knn<
+    raft::spatial::knn::detail::fusedL2Knn<
       raft::distance::DistanceType::L2SqrtUnexpanded, int64_t, value_t, false>(
       (size_t)d, inds, dists, input_vec[0], X2, (size_t)sizes_vec[0], (size_t)n,
       (int)k, true, true, handle.get_stream(), workspace, worksize);
     if (worksize) {
       rmm::device_uvector<int> d_mutexes(worksize, handle.get_stream());
       workspace = d_mutexes.data();
-      raft::spatial::knn::detail::l2_unexpanded_knn<
+      raft::spatial::knn::detail::fusedL2Knn<
         raft::distance::DistanceType::L2SqrtUnexpanded, int64_t, value_t,
         false>((size_t)d, inds, dists, input_vec[0], X2, (size_t)sizes_vec[0],
                (size_t)n, (int)k, true, true, handle.get_stream(), workspace,
