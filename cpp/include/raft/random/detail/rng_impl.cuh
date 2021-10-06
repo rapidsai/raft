@@ -24,6 +24,67 @@ namespace raft {
 namespace random {
 namespace detail {
 
+/**
+ * @brief generator-agnostic way of generating random numbers
+ * @tparam GenType the generator object that expose 'next' method
+ */
+template <typename GenType>
+struct Generator {
+  DI Generator(uint64_t seed, uint64_t subsequence, uint64_t offset)
+    : gen(seed, subsequence, offset) {}
+
+  template <typename Type>
+  DI void next(Type& ret) {
+    gen.next(ret);
+  }
+
+ private:
+  /** the actual generator */
+  GenType gen;
+};
+
+template <typename OutType, typename MathType, typename GenType,
+          typename LenType, typename Lambda>
+__global__ void randKernel(uint64_t seed, uint64_t offset, OutType* ptr,
+                           LenType len, Lambda randOp) {
+  LenType tid = (blockIdx.x * blockDim.x) + threadIdx.x;
+  Generator<GenType> gen(seed, (uint64_t)tid, offset);
+  const LenType stride = gridDim.x * blockDim.x;
+  for (LenType idx = tid; idx < len; idx += stride) {
+    MathType val;
+    gen.next(val);
+    ptr[idx] = randOp(val, idx);
+  }
+}
+
+// used for Box-Muller type transformations
+template <typename OutType, typename MathType, typename GenType,
+          typename LenType, typename Lambda2>
+__global__ void rand2Kernel(uint64_t seed, uint64_t offset, OutType* ptr,
+                            LenType len, Lambda2 rand2Op) {
+  LenType tid = (blockIdx.x * blockDim.x) + threadIdx.x;
+  Generator<GenType> gen(seed, (uint64_t)tid, offset);
+  const LenType stride = gridDim.x * blockDim.x;
+  for (LenType idx = tid; idx < len; idx += stride) {
+    MathType val1, val2;
+    gen.next(val1);
+    gen.next(val2);
+    rand2Op(val1, val2, idx, idx + stride);
+    if (idx < len) ptr[idx] = (OutType)val1;
+    idx += stride;
+    if (idx < len) ptr[idx] = (OutType)val2;
+  }
+}
+
+template <typename Type>
+__global__ void constFillKernel(Type* ptr, int len, Type val) {
+  unsigned tid = (blockIdx.x * blockDim.x) + threadIdx.x;
+  const unsigned stride = gridDim.x * blockDim.x;
+  for (unsigned idx = tid; idx < len; idx += stride) {
+    ptr[idx] = val;
+  }
+}
+
 /** Philox-based random number generator */
 // Courtesy: Jakub Szuppe
 struct PhiloxGenerator {
@@ -264,25 +325,6 @@ struct Kiss99Generator {
     jsr = hash[2];
     jcong = hash[3];
   }
-};
-
-/**
- * @brief generator-agnostic way of generating random numbers
- * @tparam GenType the generator object that expose 'next' method
- */
-template <typename GenType>
-struct Generator {
-  DI Generator(uint64_t seed, uint64_t subsequence, uint64_t offset)
-    : gen(seed, subsequence, offset) {}
-
-  template <typename Type>
-  DI void next(Type& ret) {
-    gen.next(ret);
-  }
-
- private:
-  /** the actual generator */
-  GenType gen;
 };
 
 };  // end namespace detail

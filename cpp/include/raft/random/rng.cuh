@@ -27,7 +27,7 @@
 #include <random>
 #include <rmm/device_uvector.hpp>
 #include <type_traits>
-#include "rng_impl.cuh"
+#include "detail/rng_impl.cuh"
 
 namespace raft {
 namespace random {
@@ -41,48 +41,6 @@ enum GeneratorType {
   /** kiss99 generator (currently the fastest) */
   GenKiss99
 };
-
-template <typename OutType, typename MathType, typename GenType,
-          typename LenType, typename Lambda>
-__global__ void randKernel(uint64_t seed, uint64_t offset, OutType *ptr,
-                           LenType len, Lambda randOp) {
-  LenType tid = (blockIdx.x * blockDim.x) + threadIdx.x;
-  detail::Generator<GenType> gen(seed, (uint64_t)tid, offset);
-  const LenType stride = gridDim.x * blockDim.x;
-  for (LenType idx = tid; idx < len; idx += stride) {
-    MathType val;
-    gen.next(val);
-    ptr[idx] = randOp(val, idx);
-  }
-}
-
-// used for Box-Muller type transformations
-template <typename OutType, typename MathType, typename GenType,
-          typename LenType, typename Lambda2>
-__global__ void rand2Kernel(uint64_t seed, uint64_t offset, OutType *ptr,
-                            LenType len, Lambda2 rand2Op) {
-  LenType tid = (blockIdx.x * blockDim.x) + threadIdx.x;
-  detail::Generator<GenType> gen(seed, (uint64_t)tid, offset);
-  const LenType stride = gridDim.x * blockDim.x;
-  for (LenType idx = tid; idx < len; idx += stride) {
-    MathType val1, val2;
-    gen.next(val1);
-    gen.next(val2);
-    rand2Op(val1, val2, idx, idx + stride);
-    if (idx < len) ptr[idx] = (OutType)val1;
-    idx += stride;
-    if (idx < len) ptr[idx] = (OutType)val2;
-  }
-}
-
-template <typename Type>
-__global__ void constFillKernel(Type *ptr, int len, Type val) {
-  unsigned tid = (blockIdx.x * blockDim.x) + threadIdx.x;
-  const unsigned stride = gridDim.x * blockDim.x;
-  for (unsigned idx = tid; idx < len; idx += stride) {
-    ptr[idx] = val;
-  }
-}
 
 /**
  * @brief Helper method to compute Box Muller transform
@@ -291,7 +249,8 @@ class Rng {
    */
   template <typename Type, typename LenType = int>
   void fill(Type *ptr, LenType len, Type val, cudaStream_t stream) {
-    constFillKernel<Type><<<nBlocks, NumThreads, 0, stream>>>(ptr, len, val);
+    detail::constFillKernel<Type>
+      <<<nBlocks, NumThreads, 0, stream>>>(ptr, len, val);
     CUDA_CHECK(cudaPeekAtLastError());
   }
 
@@ -617,15 +576,18 @@ class Rng {
                                                            nThreads, nBlocks);
     switch (type) {
       case GenPhilox:
-        randKernel<OutType, MathType, detail::PhiloxGenerator, LenType, Lambda>
+        detail::randKernel<OutType, MathType, detail::PhiloxGenerator, LenType,
+                           Lambda>
           <<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr, len, randOp);
         break;
       case GenTaps:
-        randKernel<OutType, MathType, detail::TapsGenerator, LenType, Lambda>
+        detail::randKernel<OutType, MathType, detail::TapsGenerator, LenType,
+                           Lambda>
           <<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr, len, randOp);
         break;
       case GenKiss99:
-        randKernel<OutType, MathType, detail::Kiss99Generator, LenType, Lambda>
+        detail::randKernel<OutType, MathType, detail::Kiss99Generator, LenType,
+                           Lambda>
           <<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr, len, randOp);
         break;
       default:
@@ -646,17 +608,18 @@ class Rng {
                                                           nThreads, nBlocks);
     switch (type) {
       case GenPhilox:
-        rand2Kernel<OutType, MathType, detail::PhiloxGenerator, LenType,
-                    Lambda2>
+        detail::rand2Kernel<OutType, MathType, detail::PhiloxGenerator, LenType,
+                            Lambda2>
           <<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr, len, rand2Op);
         break;
       case GenTaps:
-        rand2Kernel<OutType, MathType, detail::TapsGenerator, LenType, Lambda2>
+        detail::rand2Kernel<OutType, MathType, detail::TapsGenerator, LenType,
+                            Lambda2>
           <<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr, len, rand2Op);
         break;
       case GenKiss99:
-        rand2Kernel<OutType, MathType, detail::Kiss99Generator, LenType,
-                    Lambda2>
+        detail::rand2Kernel<OutType, MathType, detail::Kiss99Generator, LenType,
+                            Lambda2>
           <<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr, len, rand2Op);
         break;
       default:
