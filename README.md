@@ -13,11 +13,20 @@ RAFT is a library containing shared formats, primitives, and utilities that acce
 | **Distributed Primitives** | synchronous communications abstraction layer (CAL) and Python integration w/ Dask |
 
 By taking a primitives-based approach to algorithm development, RAFT accelerates algorithm construction time and reduces
-the maintenance burden by maximizing reuse, even across projects. RAFT relies on the [RAPIDS memory manager (RMM)](https://github.com/rapidsai/rmm) 
-like other projects in the RAPIDS ecosystem. RMM eases the burden of configuring different allocation strategies globally 
+the maintenance burden by maximizing reuse across projects. RAFT relies on the [RAPIDS memory manager (RMM)](https://github.com/rapidsai/rmm) which, 
+like other projects in the RAPIDS ecosystem, eases the burden of configuring different allocation strategies globally 
 across the libraries that use it. RMM also provides RAII wrappers around device arrays that handle the allocation and cleanup.
 
-The example below demonstrates using RMM's `device_uvector` to allocate memory on device and using RAFT to compute
+## Getting started
+
+Refer to the [Build and Development Guide](BUILD.md) for details on RAFT's design, building, testing and development guidelines.
+
+Most of the primitives in RAFT accept a `raft::handle_t` object for the management of resources which are expensive to create, such CUDA streams, stream pools, and handles to other CUDA libraries like `cublas` and `cusolver`. 
+
+
+### C++ Example
+
+The example below demonstrates creating a RAFT handle and using it with RMM's `device_uvector` to allocate memory on device and compute
 pairwise Euclidean distances:
 ```c++
 #include <raft/handle.hpp>
@@ -43,7 +52,7 @@ raft::distance::pairwise_distance(handle, input.data(), input.data(),
 ```
 
 
-Refer to the [Build and Development Guide](BUILD.md) for details on RAFT's design, building, testing and development guidelines.
+
 
 ## Folder Structure and Contents
 
