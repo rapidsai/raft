@@ -50,7 +50,7 @@ function(find_and_configure_faiss)
     if(faiss_ADDED)
         rapids_export(BUILD faiss
             EXPORT_SET faiss-targets
-            GLOBAL_TARGETS faiss::faiss
+            GLOBAL_TARGETS faiss
             NAMESPACE faiss::)
     endif()
 
