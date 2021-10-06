@@ -15,6 +15,9 @@
  */
 
 #include <gtest/gtest.h>
+
+#include <rmm/device_uvector.hpp>
+
 #include <raft/cudart_utils.h>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/random/rng.cuh>
@@ -43,30 +46,29 @@ class SumTest : public ::testing::TestWithParam<SumInputs<T>> {
     params = ::testing::TestWithParam<SumInputs<T>>::GetParam();
     int rows = params.rows, cols = params.cols;
     int len = rows * cols;
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    raft::allocate(data, len, stream);
+
+    raft::handle_t handle;
+
+    rmm::device_uvector<T> data(len, handle.get_stream());
 
     T data_h[len];
     for (int i = 0; i < len; i++) {
       data_h[i] = T(1);
     }
 
-    raft::update_device(data, data_h, len, stream);
+    raft::update_device(data.data(), data_h, len, handle.get_stream());
 
-    raft::allocate(sum_act, cols, stream);
-    sum(sum_act, data, cols, rows, false, stream);
+    rmm::device_uvector<T> sum_act(cols, handle.get_stream());
+
+    sum(sum_act.data(), data.data(), cols, rows, false, handle.get_stream());
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
   void TearDown() override {
-    raft::deallocate_all(stream);
-    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
  protected:
   SumInputs<T> params;
-  T *data, *sum_act;
-  cudaStream_t stream;
 };
 
 const std::vector<SumInputs<float>> inputsf = {{0.05f, 1024, 32, 1234ULL},
