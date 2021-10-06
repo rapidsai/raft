@@ -1,6 +1,6 @@
 # <div align="left"><img src="https://rapids.ai/assets/images/rapids_logo.png" width="90px"/>&nbsp;RAFT: RAPIDS Analytics Frameworks Toolkit</div>
 
-RAFT is a header-only library of C++ primitives for building analytics and data science algorithms in the RAPIDS ecosystem. RAFT primitives operate on both dense and sparse matrix formats in the following categories:
+RAFT is a library containing shared formats, primitives, and utilities that accelerate building analytics and data science algorithms in the RAPIDS ecosystem. Both the C++ and Python components can be included in consuming libraries. RAFT primitives operate on both dense and sparse matrix formats, with building blocks spanning the following categories:
 #####
 | Category | Description |
 | --- | --- |
@@ -11,31 +11,6 @@ RAFT is a header-only library of C++ primitives for building analytics and data 
 | **Spatial Primitives** | pairwise distances, nearest neighbors, neighborhood / proximity graph construction |
 | **Solvers** | linear solvers such as eigenvalue decomposition, svd, and lanczos |
 | **Distributed Primitives** | synchronous communications abstraction layer (CAL) and Python integration w/ Dask |
-
-RAFT contains the following directory structure:
-```bash
-cpp/include/raft
-     |
-     |------------ comms      [communication abstraction layer]
-     |
-     |------------ distance   [dense pairwise distances]
-     |
-     |------------ linalg     [dense linear algebra]
-     |
-     |------------ matrix     [dense matrix format]
-     |
-     |------------ random     [random matrix generation]
-     |
-     |------------ sparse     [sparse matrix / graph primitives]
-     |
-     |------------ spatial    [spatial primitives] (might require SAISS)
-     |
-     |------------ spectral   [spectral clustering]
-     |
-     |------------ stats      [statistics primitives]
-     |
-     |------------ handle.hpp [raft handle]
-```
 
 By taking a primitives-based approach to algorithm development, RAFT accelerates algorithm construction time and reduces
 the maintenance burden by maximizing reuse, even across projects. RAFT relies on the [RAPIDS memory manager (RMM)](https://github.com/rapidsai/rmm) 
@@ -67,6 +42,7 @@ raft::distance::pairwise_distance(handle, input.data(), input.data(),
                                   workspace.data(), metric);
 ```
 
+
 Refer to the [Build and Development Guide](BUILD.md) for details on RAFT's design, building, testing and development guidelines.
 
 ## Folder Structure and Contents
@@ -76,5 +52,30 @@ The folder structure mirrors the main RAPIDS repos (cuDF, cuML, cuGraph...), wit
 - `cpp`: Source code for all C++ code. The code is header only, therefore it is in the `include` folder (with no `src`).
 - `python`: Source code for all Python source code.
 - `ci`: Scripts for running CI in PRs
+
+The C++ portion of RAFT is header-only and contains the following include directories:
+```bash
+cpp/include/raft
+     |
+     |------------ comms      [communications abstraction layer for distributed primitives]
+     |
+     |------------ distance   [dense pairwise distance primitives]
+     |
+     |------------ linalg     [dense linear algebra primitives]
+     |
+     |------------ matrix     [dense matrix format]
+     |
+     |------------ random     [random matrix generation]
+     |
+     |------------ sparse     [sparse matrix / graph primitives]
+     |
+     |------------ spatial    [spatial primitives] (might require FAISS)
+     |
+     |------------ spectral   [spectral clustering]
+     |
+     |------------ stats      [statistics primitives]
+     |
+     |------------ handle.hpp [raft handle]
+```
 
 
