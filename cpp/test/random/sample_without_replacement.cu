@@ -25,6 +25,8 @@
 namespace raft {
 namespace random {
 
+using namespace raft::random::detail;
+
 // Terminology:
 // SWoR - Sample Without Replacement
 

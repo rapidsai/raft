@@ -24,6 +24,8 @@
 namespace raft {
 namespace random {
 
+using namespace raft::random::detail;
+
 enum RandomType { RNG_Uniform };
 
 template <typename T, int TPB>
