@@ -182,8 +182,8 @@ struct genericAtomicOperationImpl<T, Op, 4> {
     T old_value = *addr;
     T assumed{old_value};
 
-    if (std::is_same<T, float>{} && (std::is_same<Op, DeviceMax>{} ||
-        std::is_same<Op, DeviceMin>{})) {
+    if (std::is_same<T, float>{} &&
+        (std::is_same<Op, DeviceMax>{} || std::is_same<Op, DeviceMin>{})) {
       if (isnan(update_value)) {
         return update_value;
       }
