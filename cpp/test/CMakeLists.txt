@@ -122,13 +122,8 @@ target_include_directories(test_raft
 
 target_link_libraries(test_raft
 PRIVATE
-  CUDA::cublas
-  CUDA::curand
-  CUDA::cusolver
-  CUDA::cudart
-  CUDA::cusparse
-  rmm::rmm
-  cuco::cuco
+  raft::raft
+  NCCL::NCCL
   faiss::faiss
   GTest::gtest
   GTest::gtest_main

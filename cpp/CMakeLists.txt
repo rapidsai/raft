@@ -102,13 +102,14 @@ endif()
 # add third party dependencies using CPM
 rapids_cpm_init()
 
-include(cmake/thirdparty/get_thrust.cmake)
 include(cmake/thirdparty/get_rmm.cmake)
 include(cmake/thirdparty/get_cuco.cmake)
+# CPMFindPackage(faiss) so it's available for raft consumers to use
 include(cmake/thirdparty/get_faiss.cmake)
+# CPMFindPackage(GTest) so it's available for raft consumers to use
+include(cmake/thirdparty/get_gtest.cmake)
 
 if(BUILD_TESTS)
-  include(cmake/thirdparty/get_gtest.cmake)
   include(cmake/thirdparty/get_nccl.cmake)
   include(cmake/thirdparty/get_ucx.cmake)
 endif()
