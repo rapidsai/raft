@@ -165,7 +165,9 @@ and common functions for the analytics components of RAPIDS.
 
 set(raft_code_string
 [=[
-if (TARGET faiss::faiss AND (NOT TARGET faiss))
+if(TARGET faiss AND (NOT TARGET faiss::faiss))
+    add_library(faiss::faiss ALIAS faiss)
+elseif(TARGET faiss::faiss AND (NOT TARGET faiss))
     add_library(faiss ALIAS faiss::faiss)
 endif()
 ]=]
