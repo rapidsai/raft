@@ -67,7 +67,7 @@ __global__ void max_duplicates_kernel(const value_idx *src_rows,
 
   if (tid < nnz) {
     value_idx idx = index[tid];
-    atomicMax(&out_vals[idx], src_vals[tid]);
+    customAtomicMax(&out_vals[idx], src_vals[tid]);
     out_rows[idx] = src_rows[tid];
     out_cols[idx] = src_cols[tid];
   }

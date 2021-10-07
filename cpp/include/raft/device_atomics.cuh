@@ -182,7 +182,8 @@ struct genericAtomicOperationImpl<T, Op, 4> {
     T old_value = *addr;
     T assumed{old_value};
 
-    if (std::is_same<T, float>{}) {
+    if (std::is_same<T, float>{} && (std::is_same<Op, DeviceMax>{} ||
+        std::is_same<Op, DeviceMin>{})) {
       if (isnan(update_value)) {
         return update_value;
       }
@@ -552,8 +553,8 @@ __forceinline__ __device__ T atomicMax(T* address, T val) {
     address, val, raft::device_atomics::detail::DeviceMax{});
 }
 
-template <typename T>
-__forceinline__ __device__ T customAtomicMax(T* address, T val) {
+// fp32 only atomicMax.
+__forceinline__ __device__ float customAtomicMax(float* address, float val) {
   float old;
   old = (val >= 0)
           ? __int_as_float(atomicMax((int*)address, __float_as_int(val)))
