@@ -329,8 +329,18 @@ __device__ void topk_merge(value_t *sh_memK, value_idx *sh_memV,
   const int n_b =
     faiss::gpu::utils::roundDown(batch_size, faiss::gpu::kWarpSize);
   int i = threadIdx.x;
-  for (; i < n_b; i += tpb) heap.add(sqrt(batch_dists[i]), batch_inds[i]);
-  if (i < batch_size) heap.addThreadQ(sqrt(batch_dists[i]), batch_inds[i]);
+  for (; i < n_b; i += tpb) {
+      if(query_id == 5) {
+          printf("initial block=%d, thread=%d, adding d=%f w/ index=%ld\n", blockIdx.x, threadIdx.x, batch_dists[i], batch_inds[i]);
+      }
+      heap.add(sqrt(batch_dists[i]), batch_inds[i]);
+  }
+  if (i < batch_size) {
+      if(query_id == 5) {
+          printf("initial block=%d, thread=%d, adding d=%f w/ index=%ld\n", blockIdx.x, threadIdx.x, batch_dists[i], batch_inds[i]);
+      }
+      heap.addThreadQ(sqrt(batch_dists[i]), batch_inds[i]);
+  }
 
   heap.checkThreadQ();
 
@@ -339,27 +349,40 @@ __device__ void topk_merge(value_t *sh_memK, value_idx *sh_memV,
     while (!isSet) {
       isSet = atomicCAS(mutex + query_id, 0, 1) == 0;
     }
+    __threadfence();
   }
 
   __syncthreads();
 
   const int n_k = faiss::gpu::utils::roundDown(k, faiss::gpu::kWarpSize);
   i = threadIdx.x;
-  for (; i < n_k; i += tpb)
-    heap.add(knn_dists[query_id * k + i], knn_inds[query_id * k + i]);
+  for (; i < n_k; i += tpb) {
+      heap.add(knn_dists[query_id * k + i], knn_inds[query_id * k + i]);
+      if(query_id == 5) {
+          printf("merging block=%d, thread=%d, adding d=%f w/ index=%ld\n", blockIdx.x, threadIdx.x, knn_dists[query_id * k + i], knn_inds[query_id * k + i]);
+      }
+  }
 
-  if (i < k)
-    heap.addThreadQ(knn_dists[query_id * k + i], knn_inds[query_id * k + i]);
+  if (i < k) {
+      heap.addThreadQ(knn_dists[query_id * k + i], knn_inds[query_id * k + i]);
+      if(query_id == 5) {
+          printf("merging block=%d, thread=%d, adding d=%f w/ index=%ld\n", blockIdx.x, threadIdx.x, knn_dists[query_id * k + i], knn_inds[query_id * k + i]);
+      }
+  }
   heap.checkThreadQ();
   heap.reduce();
 
   for (int i = threadIdx.x; i < k; i += blockDim.x) {
     knn_dists[query_id * k + i] = sh_memK[i];
     knn_inds[query_id * k + i] = sh_memV[i];
+      if(query_id == 5) {
+        printf("writing block=%d, thread=%d, d=%f w/ index=%ld\n", blockIdx.x, threadIdx.x, sh_memK[i], sh_memV[i]);
+    }
   }
 
   if (threadIdx.x == 0) {
     mutex[query_id] = 0;
+    __threadfence();
   }
 }
 
@@ -408,8 +431,9 @@ __global__ void compute_dists(const value_t *X, const value_t *query,
   __shared__ value_t sh_memK[kNumWarps * warp_q];
   __shared__ value_idx sh_memV[kNumWarps * warp_q];
 
-  for (int i = threadIdx.x; i < batch_size; i += blockDim.x)
-    batch_dists[i] = 0.0;
+  for (int i = threadIdx.x; i < batch_size; i += blockDim.x) {
+      batch_dists[i] = 0.0;
+  }
 
   __syncthreads();
 
@@ -419,8 +443,9 @@ __global__ void compute_dists(const value_t *X, const value_t *query,
   int working_batch_size =
     min(offset_stop - offset_start, (value_idx)batch_size);
 
-  for (int i = threadIdx.x; i < working_batch_size; i += blockDim.x)
-    batch_inds[i] = R_1nn_cols[offset_start + i];
+  for (int i = threadIdx.x; i < working_batch_size; i += blockDim.x) {
+      batch_inds[i] = R_1nn_cols[offset_start + i];
+  }
 
   __syncthreads();
 
@@ -467,6 +492,8 @@ void execute_plan(const raft::handle_t &handle,
                   value_idx *knn_inds, value_t *knn_dists, float weight = 1.0) {
   // Each block of the resulting distances kernel needs to look up the current knn to see if the distances
   // are still worth computing, then they need to compute
+  raft::print_device_vector("knn_dists", knn_dists, 100, std::cout);
+
   rmm::device_uvector<int> mutex(n_query_pts, handle.get_stream());
   thrust::fill(handle.get_thrust_policy(), mutex.data(),
                mutex.data() + n_query_pts, 0);

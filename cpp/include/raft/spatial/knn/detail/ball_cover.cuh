@@ -306,8 +306,8 @@ void rbc_all_knn_query(const raft::handle_t &handle,
     //                        dists_counter.data(), post_dists_counter.data(), weight,
     //                        perform_post_filtering);
   } else {
-    thrust::fill(handle.get_thrust_policy(), dists, dists,
-                 std::numeric_limits<value_t>::max());
+      thrust::fill(handle.get_thrust_policy(), dists, dists + (index.m * k),
+                   std::numeric_limits<value_t>::max());
     raft::sparse::COO<value_idx, value_idx> plan_coo(handle.get_stream());
 
     rbc_build_index(handle, index, EuclideanFunc());
@@ -352,8 +352,10 @@ void rbc_knn_query(const raft::handle_t &handle,
     //                        dists_counter.data(), post_dists_counter.data(), weight,
     //                        perform_post_filtering);
   } else {
-    thrust::fill(handle.get_thrust_policy(), dists, dists,
+    thrust::fill(handle.get_thrust_policy(), dists, dists + (n_query_pts * k),
                  std::numeric_limits<value_t>::max());
+
+    raft::print_device_vector("dists", dists, 100, std::cout);
     raft::sparse::COO<value_idx, value_idx> plan_coo(handle.get_stream());
     compute_plan(handle, index, k, query, n_query_pts, inds, dists, plan_coo,
                  weight);
