@@ -421,6 +421,8 @@ __global__ void compute_dists(const value_t *X, const value_t *query,
   __syncthreads();
 
   // in chunks of block_dims, compute distances, store to sh_mem / registers
+  // TODO: When n_cols is smaller than the number of threads in the block,
+  //  (like maybe warp_size * 4), have each warp compute their own chunks of points
   for (int i = 0; i < working_batch_size; ++i) {
     value_idx point_index = batch_inds[i];
 
