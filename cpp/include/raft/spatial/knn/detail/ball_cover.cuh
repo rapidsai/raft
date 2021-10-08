@@ -355,7 +355,6 @@ void rbc_knn_query(const raft::handle_t &handle,
     thrust::fill(handle.get_thrust_policy(), dists, dists + (n_query_pts * k),
                  std::numeric_limits<value_t>::max());
 
-    raft::print_device_vector("dists", dists, 100, std::cout);
     raft::sparse::COO<value_idx, value_idx> plan_coo(handle.get_stream());
     compute_plan(handle, index, k, query, n_query_pts, inds, dists, plan_coo,
                  weight);
