@@ -295,12 +295,12 @@ const std::vector<BallCoverInputs<float>> ballcover_inputs = {
   /**
    * 2-dimension tests
    */
-  //  {us_states, 2, 2, 1.0, raft::distance::DistanceType::Haversine},
-  //  {us_states, 2, 4, 1.0, raft::distance::DistanceType::Haversine},
-  //  {us_states, 2, 7, 1.0, raft::distance::DistanceType::Haversine},
-  //  {us_states, 2, 2, 1.0, raft::distance::DistanceType::L2SqrtUnexpanded},
-  //  {us_states, 2, 4, 1.0, raft::distance::DistanceType::L2SqrtUnexpanded},
-  //  {us_states, 2, 7, 1.0, raft::distance::DistanceType::L2SqrtUnexpanded},
+    {us_states, 2, 2, 1.0, raft::distance::DistanceType::Haversine},
+    {us_states, 2, 4, 1.0, raft::distance::DistanceType::Haversine},
+    {us_states, 2, 7, 1.0, raft::distance::DistanceType::Haversine},
+    {us_states, 2, 2, 1.0, raft::distance::DistanceType::L2SqrtUnexpanded},
+    {us_states, 2, 4, 1.0, raft::distance::DistanceType::L2SqrtUnexpanded},
+    {us_states, 2, 7, 1.0, raft::distance::DistanceType::L2SqrtUnexpanded},
 
   /**
    * 10-dimension tests
