@@ -50,8 +50,10 @@ __global__ void count_discrepancies_kernel(value_idx *actual_idx,
       value_t d = actual[row * n + i] - expected[row * n + i];
       bool matches = fabsf(d) <= thres;
       if (!matches) {
-        //          printf("row=%d, actual_idx=%ld, actual=%f, expected_id=%ld, expected=%f\n",
-        //                 row, actual_idx[row*n+i], actual[row*n+i], expected_idx[row*n+i], expected[row*n+i]);
+        printf(
+          "row=%d, actual_idx=%ld, actual=%f, expected_id=%ld, expected=%f\n",
+          row, actual_idx[row * n + i], actual[row * n + i],
+          expected_idx[row * n + i], expected[row * n + i]);
       }
 
       n_diffs += !matches;
@@ -270,7 +272,7 @@ class BallCoverAllKNNTest
                  discrepancies.data() + discrepancies.size(), 0);
     //
     std::uint32_t res = count_discrepancies(
-      d_ref_I.data(), d_pred_I.data(), d_ref_D.data(), d_pred_D.data(), n, k,
+      d_pred_I.data(), d_ref_I.data(), d_pred_D.data(), d_ref_D.data(), n, k,
       discrepancies.data(), handle.get_stream());
 
     printf("ref=%d\n", res);

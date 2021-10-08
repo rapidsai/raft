@@ -306,8 +306,8 @@ void rbc_all_knn_query(const raft::handle_t &handle,
     //                        dists_counter.data(), post_dists_counter.data(), weight,
     //                        perform_post_filtering);
   } else {
-      thrust::fill(handle.get_thrust_policy(), dists, dists + (index.m * k),
-                   std::numeric_limits<value_t>::max());
+    thrust::fill(handle.get_thrust_policy(), dists, dists + (index.m * k),
+                 std::numeric_limits<value_t>::max());
     raft::sparse::COO<value_idx, value_idx> plan_coo(handle.get_stream());
 
     rbc_build_index(handle, index, EuclideanFunc());

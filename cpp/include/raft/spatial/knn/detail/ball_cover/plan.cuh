@@ -253,8 +253,6 @@ void compute_plan(const raft::handle_t &handle,
   k_closest_landmarks2(handle, index, query, n_query_pts, k, R_knn_inds.data(),
                        R_knn_dists.data());
 
-  raft::print_device_vector("R_knn_inds", R_knn_inds.data(), 10, std::cout);
-
   // Compute filtered balls for current batch based on k found so far
   const value_int bitset_size = ceil(index.get_n_landmarks() / 32.0);
   rmm::device_uvector<uint32_t> bitset(bitset_size * index.m,
@@ -274,18 +272,10 @@ void compute_plan(const raft::handle_t &handle,
       index.get_n_landmarks(), bitset_size, k, batch_size, bitset.data(),
       landmark_batches.data(), weight);
 
-  raft::print_device_vector("landmark_batches", landmark_batches.data(), 50,
-                            std::cout);
-
   // Sum of cardinality array is nnz of plan
   value_int n_batches =
     thrust::reduce(exec_policy, landmark_batches.data(),
                    landmark_batches.data() + n_query_pts, 0);
-
-  printf("n_batches=%d\n", n_batches);
-
-  raft::print_device_vector("landmark_batches", landmark_batches.data(), 10,
-                            std::cout);
 
   rmm::device_uvector<value_idx> coo_write_plan(n_query_pts,
                                                 handle.get_stream());
@@ -302,9 +292,6 @@ void compute_plan(const raft::handle_t &handle,
     index.get_R_indptr(), coo_write_plan.data(), bitset.data(), bitset_size,
     index.get_n_landmarks(), batch_size, n_query_pts, plan_coo.rows(),
     plan_coo.cols(), plan_coo.vals());
-
-  raft::print_device_vector("coo_write_plan", coo_write_plan.data(), 10,
-                            std::cout);
 
   // TODO: Sort the COO plan so that the landmark_ids within each query_id are ordered by
   // their distances.
@@ -330,16 +317,10 @@ __device__ void topk_merge(value_t *sh_memK, value_idx *sh_memV,
     faiss::gpu::utils::roundDown(batch_size, faiss::gpu::kWarpSize);
   int i = threadIdx.x;
   for (; i < n_b; i += tpb) {
-      if(query_id == 5) {
-          printf("initial block=%d, thread=%d, adding d=%f w/ index=%ld\n", blockIdx.x, threadIdx.x, batch_dists[i], batch_inds[i]);
-      }
-      heap.add(sqrt(batch_dists[i]), batch_inds[i]);
+    heap.add(sqrt(batch_dists[i]), batch_inds[i]);
   }
   if (i < batch_size) {
-      if(query_id == 5) {
-          printf("initial block=%d, thread=%d, adding d=%f w/ index=%ld\n", blockIdx.x, threadIdx.x, batch_dists[i], batch_inds[i]);
-      }
-      heap.addThreadQ(sqrt(batch_dists[i]), batch_inds[i]);
+    heap.addThreadQ(sqrt(batch_dists[i]), batch_inds[i]);
   }
 
   heap.checkThreadQ();
@@ -357,17 +338,11 @@ __device__ void topk_merge(value_t *sh_memK, value_idx *sh_memV,
   const int n_k = faiss::gpu::utils::roundDown(k, faiss::gpu::kWarpSize);
   i = threadIdx.x;
   for (; i < n_k; i += tpb) {
-      heap.add(knn_dists[query_id * k + i], knn_inds[query_id * k + i]);
-      if(query_id == 5) {
-          printf("merging block=%d, thread=%d, adding d=%f w/ index=%ld\n", blockIdx.x, threadIdx.x, knn_dists[query_id * k + i], knn_inds[query_id * k + i]);
-      }
+    heap.add(knn_dists[query_id * k + i], knn_inds[query_id * k + i]);
   }
 
   if (i < k) {
-      heap.addThreadQ(knn_dists[query_id * k + i], knn_inds[query_id * k + i]);
-      if(query_id == 5) {
-          printf("merging block=%d, thread=%d, adding d=%f w/ index=%ld\n", blockIdx.x, threadIdx.x, knn_dists[query_id * k + i], knn_inds[query_id * k + i]);
-      }
+    heap.addThreadQ(knn_dists[query_id * k + i], knn_inds[query_id * k + i]);
   }
   heap.checkThreadQ();
   heap.reduce();
@@ -375,9 +350,6 @@ __device__ void topk_merge(value_t *sh_memK, value_idx *sh_memV,
   for (int i = threadIdx.x; i < k; i += blockDim.x) {
     knn_dists[query_id * k + i] = sh_memK[i];
     knn_inds[query_id * k + i] = sh_memV[i];
-      if(query_id == 5) {
-        printf("writing block=%d, thread=%d, d=%f w/ index=%ld\n", blockIdx.x, threadIdx.x, sh_memK[i], sh_memV[i]);
-    }
   }
 
   if (threadIdx.x == 0) {
@@ -432,9 +404,8 @@ __global__ void compute_dists(const value_t *X, const value_t *query,
   __shared__ value_idx sh_memV[kNumWarps * warp_q];
 
   for (int i = threadIdx.x; i < batch_size; i += blockDim.x) {
-      batch_dists[i] = 0.0;
+    batch_dists[i] = 0.0;
   }
-
   __syncthreads();
 
   value_idx offset_start = plan_offset_ids_coo[blockIdx.x];
@@ -444,7 +415,7 @@ __global__ void compute_dists(const value_t *X, const value_t *query,
     min(offset_stop - offset_start, (value_idx)batch_size);
 
   for (int i = threadIdx.x; i < working_batch_size; i += blockDim.x) {
-      batch_inds[i] = R_1nn_cols[offset_start + i];
+    batch_inds[i] = R_1nn_cols[offset_start + i];
   }
 
   __syncthreads();
@@ -462,6 +433,8 @@ __global__ void compute_dists(const value_t *X, const value_t *query,
     // TODO: Use warp-reduction to minimize atomics to smem
     atomicAdd(batch_dists + i, dist);
   }
+
+  __syncthreads();
 
   topk_merge<value_idx, value_t, warp_q, thread_q, tpb>(
     sh_memK, sh_memV, query_id, batch_inds, batch_dists, working_batch_size, k,
@@ -492,13 +465,11 @@ void execute_plan(const raft::handle_t &handle,
                   value_idx *knn_inds, value_t *knn_dists, float weight = 1.0) {
   // Each block of the resulting distances kernel needs to look up the current knn to see if the distances
   // are still worth computing, then they need to compute
-  raft::print_device_vector("knn_dists", knn_dists, 100, std::cout);
-
   rmm::device_uvector<int> mutex(n_query_pts, handle.get_stream());
   thrust::fill(handle.get_thrust_policy(), mutex.data(),
                mutex.data() + n_query_pts, 0);
   compute_dists<value_idx, value_t, value_int, 32, 2, 128, batch_size>
-    <<<n_query_pts, 128, 0, handle.get_stream()>>>(
+    <<<plan_coo.nnz, 128, 0, handle.get_stream()>>>(
       index.get_X(), query, k, index.n, index.get_R_indptr(),
       index.get_R_1nn_cols(), plan_coo.rows(), plan_coo.cols(), plan_coo.vals(),
       mutex.data(), knn_inds, knn_dists);
