@@ -306,11 +306,11 @@ const std::vector<BallCoverInputs<float>> ballcover_inputs = {
    * 10-dimension tests
    */
   {spatial_data_dims_10, 10, 2, 1.0,
+   raft::distance::DistanceType::L2SqrtUnexpanded},
+  {spatial_data_dims_10, 10, 4, 1.0,
+   raft::distance::DistanceType::L2SqrtUnexpanded},
+  {spatial_data_dims_10, 10, 7, 1.0,
    raft::distance::DistanceType::L2SqrtUnexpanded}};
-//  {spatial_data_dims_10, 10, 4, 1.0,
-//   raft::distance::DistanceType::L2SqrtUnexpanded},
-//  {spatial_data_dims_10, 10, 7, 1.0,
-//   raft::distance::DistanceType::L2SqrtUnexpanded}};
 
 INSTANTIATE_TEST_CASE_P(BallCoverAllKNNTest, BallCoverAllKNNTestF,
                         ::testing::ValuesIn(ballcover_inputs));
