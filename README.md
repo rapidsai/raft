@@ -10,7 +10,7 @@ RAFT is a library containing shared formats, primitives, and utilities that acce
 | **Graph Primitives** | clustering, layout, components analysis, spanning trees |
 | **Spatial Primitives** | pairwise distances, nearest neighbors, neighborhood / proximity graph construction |
 | **Solvers** | linear solvers such as eigenvalue decomposition, svd, and lanczos |
-| **Distributed Primitives** | synchronous communications abstraction layer (CAL) and Python integration w/ Dask |
+| **Communicator** | synchronous communications abstraction layer (CAL) and Python integration w/ Dask |
 
 By taking a primitives-based approach to algorithm development, RAFT accelerates algorithm construction time and reduces
 the maintenance burden by maximizing reuse across projects. RAFT relies on the [RAPIDS memory manager (RMM)](https://github.com/rapidsai/rmm) which, 
