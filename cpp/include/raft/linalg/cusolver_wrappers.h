@@ -787,9 +787,8 @@ inline cusolverStatus_t cusolverDnxsyevd(  // NOLINT
                           workspaceInBytesOnDevice, bufferOnHost,
                           workspaceInBytesOnHost, info);
 }
-#endif
-
 /** @} */
+#endif
 
 }  // namespace linalg
 }  // namespace raft
