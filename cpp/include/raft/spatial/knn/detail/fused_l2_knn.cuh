@@ -737,13 +737,12 @@ void fusedL2ExpKnn(IdxT m, IdxT n, IdxT k, IdxT lda, IdxT ldb, IdxT ldd,
  * @param[in] rowMajorQuery are the query array in row-major layout?
  * @param[in] stream stream to order kernel launch
  */
-template <raft::distance::DistanceType distanceType, typename value_idx,
-          typename value_t, bool usePrevTopKs>
+template <typename value_idx, typename value_t, bool usePrevTopKs = false>
 void fusedL2Knn(size_t D, value_idx *out_inds, value_t *out_dists,
                 const value_t *index, const value_t *query, size_t n_index_rows,
                 size_t n_query_rows, int k, bool rowMajorIndex,
-                bool rowMajorQuery, cudaStream_t stream, void *workspace,
-                size_t &worksize) {
+                bool rowMajorQuery, cudaStream_t stream,
+                raft::distance::DistanceType metric) {
   // Validate the input data
   ASSERT(k > 0, "l2Knn: k must be > 0");
   ASSERT(D > 0, "l2Knn: D must be > 0");
@@ -762,23 +761,41 @@ void fusedL2Knn(size_t D, value_idx *out_inds, value_t *out_dists,
 
   // Even for L2 Sqrt distance case we use non-sqrt version as FAISS bfKNN only support
   // non-sqrt metric & some tests in RAFT/cuML (like Linkage) fails if we use L2 sqrt.
-  bool sqrt =
-    (distanceType == raft::distance::DistanceType::L2SqrtUnexpanded) ||
-    (distanceType == raft::distance::DistanceType::L2SqrtExpanded);
+  bool sqrt = (metric == raft::distance::DistanceType::L2SqrtUnexpanded) ||
+              (metric == raft::distance::DistanceType::L2SqrtExpanded);
 
+  size_t worksize = 0, tempWorksize = 0;
+  rmm::device_uvector<char> workspace(worksize, stream);
   value_idx lda = D, ldb = D, ldd = n_index_rows;
-  switch (distanceType) {
+
+  switch (metric) {
     case raft::distance::DistanceType::L2SqrtExpanded:
     case raft::distance::DistanceType::L2Expanded:
+      tempWorksize = raft::distance::getWorkspaceSize<
+        raft::distance::DistanceType::L2Expanded, float, float, float,
+        value_idx>(query, index, n_query_rows, n_index_rows, D);
+      worksize = tempWorksize;
+      workspace.resize(worksize, stream);
       fusedL2ExpKnn<value_t, value_t, value_t, value_idx, usePrevTopKs, true>(
         n_query_rows, n_index_rows, D, lda, ldb, ldd, query, index, sqrt,
-        out_dists, out_inds, k, stream, workspace, worksize);
+        out_dists, out_inds, k, stream, workspace.data(), worksize);
+      if (worksize > tempWorksize) {
+        fusedL2ExpKnn<value_t, value_t, value_t, value_idx, usePrevTopKs, true>(
+          n_query_rows, n_index_rows, D, lda, ldb, ldd, query, index, sqrt,
+          out_dists, out_inds, k, stream, workspace.data(), worksize);
+      }
       break;
     case raft::distance::DistanceType::L2Unexpanded:
     case raft::distance::DistanceType::L2SqrtUnexpanded:
       fusedL2UnexpKnn<value_t, value_t, value_t, value_idx, usePrevTopKs, true>(
         n_query_rows, n_index_rows, D, lda, ldb, ldd, query, index, sqrt,
-        out_dists, out_inds, k, stream, workspace, worksize);
+        out_dists, out_inds, k, stream, workspace.data(), worksize);
+      if (worksize) {
+        fusedL2UnexpKnn<value_t, value_t, value_t, value_idx, usePrevTopKs,
+                        true>(n_query_rows, n_index_rows, D, lda, ldb, ldd,
+                              query, index, sqrt, out_dists, out_inds, k,
+                              stream, workspace.data(), worksize);
+      }
       break;
     default:
       printf("only L2 distance metric is supported\n");
