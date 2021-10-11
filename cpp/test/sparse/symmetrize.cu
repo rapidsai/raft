@@ -59,29 +59,27 @@ template <typename value_idx, typename value_t>
 template <typename value_idx, typename value_t>
 class SparseSymmetrizeTest : public ::testing::TestWithParam<
                                SparseSymmetrizeInputs<value_idx, value_t>> {
+ public:
+  SparseSymmetrizeTest()
+    : params(::testing::TestWithParam<
+             SparseSymmetrizeInputs<value_idx, value_t>>::GetParam()),
+      stream(handle.get_stream()),
+      indptr(params.indptr_h.size(), stream),
+      indices(params.indices_h.size(), stream),
+      data(params.data_h.size(), stream) {}
+
  protected:
   void make_data() {
     std::vector<value_idx> indptr_h = params.indptr_h;
     std::vector<value_idx> indices_h = params.indices_h;
     std::vector<value_t> data_h = params.data_h;
 
-    raft::allocate(indptr, indptr_h.size(), stream);
-    raft::allocate(indices, indices_h.size(), stream);
-    raft::allocate(data, data_h.size(), stream);
-
-    update_device(indptr, indptr_h.data(), indptr_h.size(), stream);
-    update_device(indices, indices_h.data(), indices_h.size(), stream);
-    update_device(data, data_h.data(), data_h.size(), stream);
+    update_device(indptr.data(), indptr_h.data(), indptr_h.size(), stream);
+    update_device(indices.data(), indices_h.data(), indices_h.size(), stream);
+    update_device(data.data(), data_h.data(), data_h.size(), stream);
   }
 
   void SetUp() override {
-    params = ::testing::TestWithParam<
-      SparseSymmetrizeInputs<value_idx, value_t>>::GetParam();
-
-    raft::handle_t handle;
-
-    stream = handle.get_stream();
-
     make_data();
 
     value_idx m = params.indptr_h.size() - 1;
@@ -90,12 +88,13 @@ class SparseSymmetrizeTest : public ::testing::TestWithParam<
 
     rmm::device_uvector<value_idx> coo_rows(nnz, stream);
 
-    raft::sparse::convert::csr_to_coo(indptr, m, coo_rows.data(), nnz, stream);
+    raft::sparse::convert::csr_to_coo(indptr.data(), m, coo_rows.data(), nnz,
+                                      stream);
 
     raft::sparse::COO<value_t, value_idx> out(stream);
 
-    raft::sparse::linalg::symmetrize(handle, coo_rows.data(), indices, data, m,
-                                     n, coo_rows.size(), out);
+    raft::sparse::linalg::symmetrize(handle, coo_rows.data(), indices.data(),
+                                     data.data(), m, n, coo_rows.size(), out);
 
     rmm::device_scalar<value_idx> sum(stream);
     sum.set_value_to_zero_async(stream);
@@ -107,19 +106,13 @@ class SparseSymmetrizeTest : public ::testing::TestWithParam<
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
-  void TearDown() override {
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-    CUDA_CHECK(cudaFree(indptr));
-    CUDA_CHECK(cudaFree(indices));
-    CUDA_CHECK(cudaFree(data));
-  }
-
  protected:
+  raft::handle_t handle;
   cudaStream_t stream;
 
   // input data
-  value_idx *indptr, *indices;
-  value_t *data;
+  rmm::device_uvector<value_idx> indptr, indices;
+  rmm::device_uvector<value_t> data;
 
   value_idx sum_h;
 

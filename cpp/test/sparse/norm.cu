@@ -41,51 +41,49 @@ struct CSRRowNormalizeInputs {
 template <typename Type_f, typename Index_>
 class CSRRowNormalizeTest
   : public ::testing::TestWithParam<CSRRowNormalizeInputs<Type_f, Index_>> {
- protected:
-  void SetUp() override {
-    params = ::testing::TestWithParam<
-      CSRRowNormalizeInputs<Type_f, Index_>>::GetParam();
-    cudaStreamCreate(&stream);
+ public:
+  CSRRowNormalizeTest()
+    : params(::testing::TestWithParam<
+             CSRRowNormalizeInputs<Type_f, Index_>>::GetParam()),
+      stream(handle.get_stream()),
+      in_vals(params.in_vals.size(), stream),
+      verify(params.verify.size(), stream),
+      ex_scan(params.ex_scan.size(), stream),
+      result(params.verify.size(), stream) {}
 
-    raft::allocate(in_vals, params.in_vals.size(), stream);
-    raft::allocate(verify, params.verify.size(), stream);
-    raft::allocate(ex_scan, params.ex_scan.size(), stream);
-    raft::allocate(result, params.verify.size(), stream, true);
-  }
+ protected:
+  void SetUp() override {}
 
   void Run() {
     Index_ n_rows = params.ex_scan.size();
     Index_ nnz = params.in_vals.size();
 
-    raft::update_device(ex_scan, params.ex_scan.data(), n_rows, stream);
-    raft::update_device(in_vals, params.in_vals.data(), nnz, stream);
-    raft::update_device(verify, params.verify.data(), nnz, stream);
+    raft::update_device(ex_scan.data(), params.ex_scan.data(), n_rows, stream);
+    raft::update_device(in_vals.data(), params.in_vals.data(), nnz, stream);
+    raft::update_device(verify.data(), params.verify.data(), nnz, stream);
 
     switch (params.method) {
       case MAX:
-        linalg::csr_row_normalize_max<32, Type_f>(ex_scan, in_vals, nnz, n_rows,
-                                                  result, stream);
+        linalg::csr_row_normalize_max<32, Type_f>(
+          ex_scan.data(), in_vals.data(), nnz, n_rows, result.data(), stream);
         break;
       case L1:
-        linalg::csr_row_normalize_l1<32, Type_f>(ex_scan, in_vals, nnz, n_rows,
-                                                 result, stream);
+        linalg::csr_row_normalize_l1<32, Type_f>(
+          ex_scan.data(), in_vals.data(), nnz, n_rows, result.data(), stream);
         break;
     }
 
-    ASSERT_TRUE(
-      raft::devArrMatch<Type_f>(verify, result, nnz, raft::Compare<Type_f>()));
-  }
-
-  void TearDown() override {
-    raft::deallocate_all(stream);
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    ASSERT_TRUE(raft::devArrMatch<Type_f>(verify.data(), result.data(), nnz,
+                                          raft::Compare<Type_f>()));
   }
 
  protected:
   CSRRowNormalizeInputs<Type_f, Index_> params;
+  rmm::device_uvector<Index_> ex_scan;
+  rmm::device_uvector<Type_f> in_vals, result, verify;
+
+  raft::handle_t handle;
   cudaStream_t stream;
-  Index_ *ex_scan;
-  Type_f *in_vals, *result, *verify;
 };
 
 using CSRRowNormalizeTestF = CSRRowNormalizeTest<float, int>;

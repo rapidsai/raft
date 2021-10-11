@@ -39,35 +39,33 @@ template <typename T>
 
 template <typename T>
 class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
+ public:
+  MatrixTest()
+    : params(::testing::TestWithParam<MatrixInputs<T>>::GetParam()),
+      stream(handle.get_stream()),
+      in1(params.n_row * params.n_col, stream),
+      in2(params.n_row * params.n_col, stream),
+      in1_revr(params.n_row * params.n_col, stream) {}
+
  protected:
   void SetUp() override {
-    params = ::testing::TestWithParam<MatrixInputs<T>>::GetParam();
     raft::random::Rng r(params.seed);
     int len = params.n_row * params.n_col;
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    raft::allocate(in1, len, stream);
-    raft::allocate(in2, len, stream);
-    raft::allocate(in1_revr, len, stream);
-    r.uniform(in1, len, T(-1.0), T(1.0), stream);
+    r.uniform(in1.data(), len, T(-1.0), T(1.0), stream);
 
-    copy(in1, in2, params.n_row, params.n_col, stream);
+    copy(in1.data(), in2.data(), params.n_row, params.n_col, stream);
     // copy(in1, in1_revr, params.n_row, params.n_col);
     // colReverse(in1_revr, params.n_row, params.n_col);
 
-    T *outTrunc;
-    raft::allocate(outTrunc, 6, stream);
-    truncZeroOrigin(in1, params.n_row, outTrunc, 3, 2, stream);
+    rmm::device_uvector<T> outTrunc(6, stream);
+    truncZeroOrigin(in1.data(), params.n_row, outTrunc.data(), 3, 2, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
-  }
-
-  void TearDown() override {
-    raft::deallocate_all(stream);
-    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
  protected:
   MatrixInputs<T> params;
-  T *in1, *in2, *in1_revr;
+  rmm::device_uvector<T> in1, in2, in1_revr;
+  raft::handle_t handle;
   cudaStream_t stream;
 };
 
@@ -78,13 +76,15 @@ const std::vector<MatrixInputs<double>> inputsd2 = {
 
 typedef MatrixTest<float> MatrixTestF;
 TEST_P(MatrixTestF, Result) {
-  ASSERT_TRUE(raft::devArrMatch(in1, in2, params.n_row * params.n_col,
+  ASSERT_TRUE(raft::devArrMatch(in1.data(), in2.data(),
+                                params.n_row * params.n_col,
                                 raft::CompareApprox<float>(params.tolerance)));
 }
 
 typedef MatrixTest<double> MatrixTestD;
 TEST_P(MatrixTestD, Result) {
-  ASSERT_TRUE(raft::devArrMatch(in1, in2, params.n_row * params.n_col,
+  ASSERT_TRUE(raft::devArrMatch(in1.data(), in2.data(),
+                                params.n_row * params.n_col,
                                 raft::CompareApprox<double>(params.tolerance)));
 }
 

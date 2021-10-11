@@ -38,34 +38,35 @@ template <typename T>
 
 template <typename T>
 class SumTest : public ::testing::TestWithParam<SumInputs<T>> {
+ public:
+  SumTest()
+    : params(::testing::TestWithParam<SumInputs<T>>::GetParam()),
+      stream(handle.get_stream()),
+      rows(params.rows),
+      cols(params.cols),
+      data(rows * cols, stream),
+      sum_act(cols, stream) {}
+
  protected:
   void SetUp() override {
-    params = ::testing::TestWithParam<SumInputs<T>>::GetParam();
-    int rows = params.rows, cols = params.cols;
     int len = rows * cols;
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    raft::allocate(data, len, stream);
 
     T data_h[len];
     for (int i = 0; i < len; i++) {
       data_h[i] = T(1);
     }
 
-    raft::update_device(data, data_h, len, stream);
-
-    raft::allocate(sum_act, cols, stream);
-    sum(sum_act, data, cols, rows, false, stream);
+    raft::update_device(data.data(), data_h, len, stream);
+    sum(sum_act.data(), data.data(), cols, rows, false, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
-  }
-
-  void TearDown() override {
-    raft::deallocate_all(stream);
-    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
  protected:
   SumInputs<T> params;
-  T *data, *sum_act;
+  int rows, cols;
+  rmm::device_uvector<T> data, sum_act;
+
+  raft::handle_t handle;
   cudaStream_t stream;
 };
 
@@ -77,13 +78,14 @@ const std::vector<SumInputs<double>> inputsd = {{0.05, 1024, 32, 1234ULL},
 
 typedef SumTest<float> SumTestF;
 TEST_P(SumTestF, Result) {
-  ASSERT_TRUE(raft::devArrMatch(float(params.rows), sum_act, params.cols,
+  ASSERT_TRUE(raft::devArrMatch(float(params.rows), sum_act.data(), params.cols,
                                 raft::CompareApprox<float>(params.tolerance)));
 }
 
 typedef SumTest<double> SumTestD;
 TEST_P(SumTestD, Result) {
-  ASSERT_TRUE(raft::devArrMatch(double(params.rows), sum_act, params.cols,
+  ASSERT_TRUE(raft::devArrMatch(double(params.rows), sum_act.data(),
+                                params.cols,
                                 raft::CompareApprox<double>(params.tolerance)));
 }
 

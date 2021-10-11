@@ -59,23 +59,22 @@ template <typename value_idx, typename value_t>
 template <typename value_idx, typename value_t>
 class KNNGraphTest
   : public ::testing::TestWithParam<KNNGraphInputs<value_idx, value_t>> {
+ public:
+  KNNGraphTest()
+    : params(::testing::TestWithParam<
+             KNNGraphInputs<value_idx, value_t>>::GetParam()),
+      stream(handle.get_stream()),
+      X(params.X.size(), stream) {}
+
+ protected:
   void SetUp() override {
-    params =
-      ::testing::TestWithParam<KNNGraphInputs<value_idx, value_t>>::GetParam();
-
-    raft::handle_t handle;
-
-    stream = handle.get_stream();
-
     out = new raft::sparse::COO<value_t, value_idx>(stream);
 
-    raft::allocate(X, params.X.size(), stream);
-
-    update_device(X, params.X.data(), params.X.size(), stream);
+    update_device(X.data(), params.X.data(), params.X.size(), stream);
 
     raft::sparse::selection::knn_graph(
-      handle, X, params.m, params.n, raft::distance::DistanceType::L2Unexpanded,
-      *out);
+      handle, X.data(), params.m, params.n,
+      raft::distance::DistanceType::L2Unexpanded, *out);
 
     rmm::device_scalar<value_idx> sum(stream);
     sum.set_value_to_zero_async(stream);
@@ -90,24 +89,20 @@ class KNNGraphTest
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
-  void TearDown() override {
-    raft::deallocate_all(stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-
-    delete out;
-  }
+  void TearDown() override { delete out; }
 
  protected:
-  cudaStream_t stream;
-
   // input data
   raft::sparse::COO<value_t, value_idx> *out;
 
-  value_t *X;
+  rmm::device_uvector<value_t> X;
 
   value_idx sum_h;
 
   KNNGraphInputs<value_idx, value_t> params;
+
+  raft::handle_t handle;
+  cudaStream_t stream;
 };
 
 const std::vector<KNNGraphInputs<int, float>> knn_graph_inputs_fint = {
