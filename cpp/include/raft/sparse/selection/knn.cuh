@@ -30,7 +30,7 @@
 #include <raft/sparse/utils.h>
 #include <raft/sparse/coo.cuh>
 #include <raft/sparse/csr.cuh>
-#include <raft/sparse/distance/distance.cuh>
+#include <raft/sparse/distance/distance.hpp>
 #include <raft/spatial/knn/knn.hpp>
 
 #include <raft/cudart_utils.h>
