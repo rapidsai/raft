@@ -147,7 +147,7 @@ if (( ${NUMARGS} == 0 )) || hasArg cppraft; then
           -DNVTX=${NVTX} \
           -DDISABLE_DEPRECATION_WARNING=${BUILD_DISABLE_DEPRECATION_WARNING} \
           -DBUILD_GTEST=${BUILD_GTEST} \
-          -DBUILD_STATIC_FAISS=${BUILD_STATIC_FAISS}
+          -DRAFT_USE_FAISS_STATIC=${BUILD_STATIC_FAISS}
 
 
     # Run all c++ targets at once
