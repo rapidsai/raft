@@ -311,10 +311,8 @@ void rbc_all_knn_query(const raft::handle_t &handle,
     raft::sparse::COO<value_idx, value_idx> plan_coo(handle.get_stream());
 
     rbc_build_index(handle, index, EuclideanFunc());
-    compute_plan(handle, index, k, index.get_X(), index.m, inds, dists,
-                 plan_coo, weight);
-    execute_plan(handle, index, plan_coo, k, index.get_X(), index.m, inds,
-                 dists, weight);
+    compute_and_execute_plan(handle, index, k, index.get_X(), index.m, inds,
+                             dists, plan_coo, weight);
   }
 }
 
@@ -356,10 +354,8 @@ void rbc_knn_query(const raft::handle_t &handle,
                  std::numeric_limits<value_t>::max());
 
     raft::sparse::COO<value_idx, value_idx> plan_coo(handle.get_stream());
-    compute_plan(handle, index, k, query, n_query_pts, inds, dists, plan_coo,
-                 weight);
-    execute_plan(handle, index, plan_coo, k, query, n_query_pts, inds, dists,
-                 weight);
+    compute_and_execute_plan(handle, index, k, query, n_query_pts, inds, dists,
+                             plan_coo, weight);
   }
 }
 
