@@ -22,7 +22,7 @@ function(find_and_configure_cuco VERSION)
       INSTALL_EXPORT_SET  raft-exports
       CPM_ARGS
         GIT_REPOSITORY https://github.com/NVIDIA/cuCollections.git
-        GIT_TAG        729857a5698a0e8d8f812e0464f65f37854ae17b
+        GIT_TAG        23c9a1fdbc06c29687c54016f6bb0b503535032c
         OPTIONS        "BUILD_TESTS OFF"
                        "BUILD_BENCHMARKS OFF"
                        "BUILD_EXAMPLES OFF"
