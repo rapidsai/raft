@@ -64,15 +64,19 @@ class SparseSymmetrizeTest : public ::testing::TestWithParam<
     : params(::testing::TestWithParam<
              SparseSymmetrizeInputs<value_idx, value_t>>::GetParam()),
       stream(handle.get_stream()),
-      indptr(params.indptr_h.size(), stream),
-      indices(params.indices_h.size(), stream),
-      data(params.data_h.size(), stream) {}
+      indptr(0, stream),
+      indices(0, stream),
+      data(0, stream) {}
 
  protected:
   void make_data() {
     std::vector<value_idx> indptr_h = params.indptr_h;
     std::vector<value_idx> indices_h = params.indices_h;
     std::vector<value_t> data_h = params.data_h;
+
+    indptr.resize(indptr_h.size(), stream);
+    indices.resize(indices_h.size(), stream);
+    data.resize(data_h.size(), stream);
 
     update_device(indptr.data(), indptr_h.data(), indptr_h.size(), stream);
     update_device(indices.data(), indices_h.data(), indices_h.size(), stream);
@@ -107,9 +111,6 @@ class SparseSymmetrizeTest : public ::testing::TestWithParam<
   }
 
  protected:
-  raft::handle_t handle;
-  cudaStream_t stream;
-
   // input data
   rmm::device_uvector<value_idx> indptr, indices;
   rmm::device_uvector<value_t> data;
@@ -117,6 +118,9 @@ class SparseSymmetrizeTest : public ::testing::TestWithParam<
   value_idx sum_h;
 
   SparseSymmetrizeInputs<value_idx, value_t> params;
+
+  raft::handle_t handle;
+  cudaStream_t stream;
 };
 
 template <typename T>

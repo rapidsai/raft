@@ -69,6 +69,9 @@ TEST_P(SortedCOOToCSR, Result) {
   rmm::device_uvector<int> in(nnz, stream);
   rmm::device_uvector<int> exp(4, stream);
   rmm::device_uvector<int> out(4, stream);
+  CUDA_CHECK(cudaMemsetAsync(in.data(), 0, in.size() * sizeof(int), stream));
+  CUDA_CHECK(cudaMemsetAsync(exp.data(), 0, exp.size() * sizeof(int), stream));
+  CUDA_CHECK(cudaMemsetAsync(out.data(), 0, out.size() * sizeof(int), stream));
 
   raft::update_device(in.data(), in_h, nnz, stream);
   raft::update_device(exp.data(), exp_h, 4, stream);
@@ -104,6 +107,7 @@ class CSRAdjGraphTest
  public:
   CSRAdjGraphTest()
     : params(::testing::TestWithParam<CSRAdjGraphInputs<Index_>>::GetParam()),
+      stream(handle.get_stream()),
       row_ind(params.n_rows, stream),
       adj(params.n_rows * params.n_cols, stream),
       result(params.verify.size(), stream),

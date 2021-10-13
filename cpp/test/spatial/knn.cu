@@ -62,16 +62,13 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
   KNNTest()
     : params_(::testing::TestWithParam<KNNInputs>::GetParam()),
       stream(handle.get_stream()),
-      rows_(params_.input.size()),
-      cols_(params_.input[0].size()),
-      k_(params_.k),
-      actual_labels_(rows_ * k_, stream),
-      expected_labels_(rows_ * k_, stream),
-      input_(rows_ * cols_, stream),
-      search_data_(rows_ * cols_, stream),
-      indices_(rows_ * k_, stream),
-      distances_(rows_ * k_, stream),
-      search_labels_(rows_, stream) {}
+      actual_labels_(0, stream),
+      expected_labels_(0, stream),
+      input_(0, stream),
+      search_data_(0, stream),
+      indices_(0, stream),
+      distances_(0, stream),
+      search_labels_(0, stream) {}
 
  protected:
   void testBruteForce() {
@@ -103,6 +100,29 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
     rows_ = params_.input.size();
     cols_ = params_.input[0].size();
     k_ = params_.k;
+
+    actual_labels_.resize(rows_ * k_, stream);
+    expected_labels_.resize(rows_ * k_, stream);
+    input_.resize(rows_ * cols_, stream);
+    search_data_.resize(rows_ * cols_, stream);
+    indices_.resize(rows_ * k_, stream);
+    distances_.resize(rows_ * k_, stream);
+    search_labels_.resize(rows_, stream);
+
+    CUDA_CHECK(cudaMemsetAsync(actual_labels_.data(), 0,
+                               actual_labels_.size() * sizeof(int), stream));
+    CUDA_CHECK(cudaMemsetAsync(expected_labels_.data(), 0,
+                               expected_labels_.size() * sizeof(int), stream));
+    CUDA_CHECK(
+      cudaMemsetAsync(input_.data(), 0, input_.size() * sizeof(float), stream));
+    CUDA_CHECK(cudaMemsetAsync(search_data_.data(), 0,
+                               search_data_.size() * sizeof(float), stream));
+    CUDA_CHECK(cudaMemsetAsync(indices_.data(), 0,
+                               indices_.size() * sizeof(int64_t), stream));
+    CUDA_CHECK(cudaMemsetAsync(distances_.data(), 0,
+                               distances_.size() * sizeof(float), stream));
+    CUDA_CHECK(cudaMemsetAsync(search_labels_.data(), 0,
+                               search_labels_.size() * sizeof(int), stream));
 
     std::vector<float> row_major_input;
     for (std::size_t i = 0; i < params_.input.size(); ++i) {

@@ -58,26 +58,29 @@ class SparseSelectionTest
     : params(::testing::TestWithParam<
              SparseSelectionInputs<value_idx, value_t>>::GetParam()),
       stream(handle.get_stream()),
-      n_rows(params.n_rows),
-      n_cols(params.n_cols),
-      k(params.k),
-      dists(n_rows * n_cols, stream),
-      inds(n_rows * n_cols, stream),
-      out_indices_ref(params.out_indices_ref_h.size(), stream),
-      out_dists_ref(params.out_dists_ref_h.size(), stream),
-      out_dists(n_rows * k, stream),
-      out_indices(n_rows * k, stream) {}
+      dists(0, stream),
+      inds(0, stream),
+      out_indices_ref(0, stream),
+      out_dists_ref(0, stream),
+      out_dists(0, stream),
+      out_indices(0, stream) {}
 
  protected:
   void make_data() {
     std::vector<value_t> dists_h = params.dists_h;
 
-    update_device(dists.data(), dists_h.data(), dists_h.size(), stream);
+    dists.resize(n_rows * n_cols, stream);
+    inds.resize(n_rows * n_cols, stream);
+    out_dists.resize(n_rows * k, stream);
+    out_indices.resize(n_rows * k, stream);
 
+    update_device(dists.data(), dists_h.data(), dists_h.size(), stream);
     iota_fill(inds.data(), n_rows, n_cols, stream);
 
     std::vector<value_t> out_dists_ref_h = params.out_dists_ref_h;
     std::vector<value_idx> out_indices_ref_h = params.out_indices_ref_h;
+    out_indices_ref.resize(out_indices_ref_h.size(), stream);
+    out_dists_ref.resize(out_dists_ref_h.size(), stream);
 
     update_device(out_indices_ref.data(), out_indices_ref_h.data(),
                   out_indices_ref_h.size(), stream);
@@ -86,6 +89,10 @@ class SparseSelectionTest
   }
 
   void SetUp() override {
+    n_rows = params.n_rows;
+    n_cols = params.n_cols;
+    k = params.k;
+
     make_data();
 
     raft::spatial::knn::select_k(dists.data(), inds.data(), n_rows, n_cols,

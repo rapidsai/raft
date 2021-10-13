@@ -64,7 +64,9 @@ class KNNGraphTest
     : params(::testing::TestWithParam<
              KNNGraphInputs<value_idx, value_t>>::GetParam()),
       stream(handle.get_stream()),
-      X(params.X.size(), stream) {}
+      X(0, stream) {
+    X.resize(params.X.size(), stream);
+  }
 
  protected:
   void SetUp() override {

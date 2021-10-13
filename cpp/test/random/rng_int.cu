@@ -69,8 +69,11 @@ class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
   RngTest()
     : params(::testing::TestWithParam<RngInputs<T>>::GetParam()),
       stream(handle.get_stream()),
-      data(params.len, stream),
-      stats(2, stream) {}
+      data(0, stream),
+      stats(2, stream) {
+    data.resize(params.len, stream);
+    CUDA_CHECK(cudaMemsetAsync(stats.data(), 0, 2 * sizeof(float), stream));
+  }
 
  protected:
   void SetUp() override {

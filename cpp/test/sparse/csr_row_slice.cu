@@ -60,15 +60,25 @@ class CSRRowSliceTest
     : params(::testing::TestWithParam<
              CSRRowSliceInputs<value_idx, value_t>>::GetParam()),
       stream(handle.get_stream()),
-      indptr(params.indptr_h.size(), stream),
-      indices(params.indices_h.size(), stream),
-      data(params.data_h.size(), stream),
-      out_indptr_ref(params.out_indptr_ref_h.size(), stream),
-      out_indices_ref(params.out_indices_ref_h.size(), stream),
-      out_data_ref(params.out_data_ref_h.size(), stream),
-      out_indptr(params.out_indptr_ref_h.size(), stream),
-      out_indices(params.out_indices_ref_h.size(), stream),
-      out_data(params.out_data_ref_h.size(), stream) {}
+      indptr(0, stream),
+      indices(0, stream),
+      data(0, stream),
+      out_indptr_ref(0, stream),
+      out_indices_ref(0, stream),
+      out_data_ref(0, stream),
+      out_indptr(0, stream),
+      out_indices(0, stream),
+      out_data(0, stream) {
+    indptr.resize(params.indptr_h.size(), stream);
+    indices.resize(params.indices_h.size(), stream);
+    data.resize(params.data_h.size(), stream);
+    out_indptr_ref.resize(params.out_indptr_ref_h.size(), stream);
+    out_indices_ref.resize(params.out_indices_ref_h.size(), stream);
+    out_data_ref.resize(params.out_data_ref_h.size(), stream);
+    out_indptr.resize(params.out_indptr_ref_h.size(), stream);
+    out_indices.resize(params.out_indices_ref_h.size(), stream);
+    out_data.resize(params.out_data_ref_h.size(), stream);
+  }
 
  protected:
   void make_data() {

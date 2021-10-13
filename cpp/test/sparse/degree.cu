@@ -57,6 +57,10 @@ TEST_P(COODegree, Result) {
   rmm::device_uvector<int> in_rows(5, stream);
   rmm::device_uvector<int> verify(5, stream);
   rmm::device_uvector<int> results(5, stream);
+  CUDA_CHECK(
+    cudaMemsetAsync(verify.data(), 0, verify.size() * sizeof(int), stream));
+  CUDA_CHECK(
+    cudaMemsetAsync(results.data(), 0, results.size() * sizeof(int), stream));
 
   raft::update_device(in_rows.data(), *&in_rows_h, 5, stream);
   raft::update_device(verify.data(), *&verify_h, 5, stream);
@@ -83,6 +87,12 @@ TEST_P(COODegreeNonzero, Result) {
   rmm::device_uvector<int> verify(5, stream);
   rmm::device_uvector<int> results(5, stream);
   rmm::device_uvector<float> in_vals(5, stream);
+  CUDA_CHECK(
+    cudaMemsetAsync(verify.data(), 0, verify.size() * sizeof(int), stream));
+  CUDA_CHECK(
+    cudaMemsetAsync(results.data(), 0, results.size() * sizeof(int), stream));
+  CUDA_CHECK(
+    cudaMemsetAsync(in_vals.data(), 0, in_vals.size() * sizeof(float), stream));
 
   raft::update_device(in_rows.data(), *&in_rows_h, 5, stream);
   raft::update_device(verify.data(), *&verify_h, 5, stream);

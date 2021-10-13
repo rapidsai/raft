@@ -58,11 +58,17 @@ class CSRToDenseTest
     : params(::testing::TestWithParam<
              CSRToDenseInputs<value_idx, value_t>>::GetParam()),
       stream(raft_handle.get_stream()),
-      indptr(params.indptr_h.size(), stream),
-      indices(params.indices_h.size(), stream),
-      data(params.data_h.size(), stream),
-      out_ref(params.out_ref_h.size(), stream),
-      out(params.out_ref_h.size(), stream) {}
+      indptr(0, stream),
+      indices(0, stream),
+      data(0, stream),
+      out_ref(0, stream),
+      out(0, stream) {
+    indptr.resize(params.indptr_h.size(), stream);
+    indices.resize(params.indices_h.size(), stream);
+    data.resize(params.data_h.size(), stream);
+    out_ref.resize(params.out_ref_h.size(), stream);
+    out.resize(params.out_ref_h.size(), stream);
+  }
 
  protected:
   void make_data() {
