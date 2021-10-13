@@ -770,6 +770,7 @@ void fusedL2Knn(size_t D, value_idx *out_inds, value_t *out_dists,
         n_query_rows, n_index_rows, D, lda, ldb, ldd, query, index, sqrt,
         out_dists, out_inds, k, stream, workspace.data(), worksize);
       if (worksize > tempWorksize) {
+        workspace.resize(worksize, stream);
         fusedL2ExpKnn<value_t, value_t, value_t, value_idx, usePrevTopKs, true>(
           n_query_rows, n_index_rows, D, lda, ldb, ldd, query, index, sqrt,
           out_dists, out_inds, k, stream, workspace.data(), worksize);
@@ -781,6 +782,7 @@ void fusedL2Knn(size_t D, value_idx *out_inds, value_t *out_dists,
         n_query_rows, n_index_rows, D, lda, ldb, ldd, query, index, sqrt,
         out_dists, out_inds, k, stream, workspace.data(), worksize);
       if (worksize) {
+        workspace.resize(worksize, stream);
         fusedL2UnexpKnn<value_t, value_t, value_t, value_idx, usePrevTopKs,
                         true>(n_query_rows, n_index_rows, D, lda, ldb, ldd,
                               query, index, sqrt, out_dists, out_inds, k,
