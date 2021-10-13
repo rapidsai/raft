@@ -6,9 +6,9 @@ RAFT is a library containing shared formats, primitives, and utilities that acce
 | --- | --- |
 | **Data Formats** | tensor representations and conversions for both sparse and dense formats |
 | **Data Generation** | graph, spatial, and machine learning dataset generation |
-| **Dense Linear Algebra** | dense matrix arithmetic and reductions |
-| **Sparse Linear Algebra** | sparse matrix arithmetic and reductions |
-| **Graph** | spanning tree, spectral clustering,  |
+| **Dense Linear Algebra** | matrix multiplication, norms, reduction, transposition, element-wise arithmetic |
+| **Sparse Linear Algebra** | symmetrization, norms, reduction, transposition, element-wise arithmetic  |
+| **Graph** | spanning tree, spectral clustering, single-linkage clustering, vertex degree |
 | **Spatial** | spatial distances, nearest neighbors, neighborhood / proximity graph construction |
 | **Solvers** | eigenvalue decomposition, svd, lanczos, quasi-newton, coordinate descent |
 | **Communicator** | UCX/NCCL communications abstraction and Python integration w/ Dask |
