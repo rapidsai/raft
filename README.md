@@ -1,15 +1,16 @@
 # <div align="left"><img src="https://rapids.ai/assets/images/rapids_logo.png" width="90px"/>&nbsp;RAFT: RAPIDS Analytics Frameworks Toolkit</div>
 
-RAFT is a library containing shared formats, primitives, and utilities that accelerate building analytics and data science algorithms in the RAPIDS ecosystem. Both the C++ and Python components can be included in consuming libraries. RAFT primitives operate on both dense and sparse matrix formats, with building blocks spanning the following categories:
+RAFT is a library containing shared formats, primitives, and utilities that accelerate building analytics and data science algorithms in the RAPIDS ecosystem. Both the C++ and Python components can be included in consuming libraries, providing building-blocks in both dense and sparse matrix formats from the following general categories:
 #####
-| Category | Description |
+| Category | Description / Examples |
 | --- | --- |
 | **Data Formats** | tensor representations and conversions for both sparse and dense formats |
 | **Data Generation** | graph, spatial, and machine learning dataset generation |
-| **Dense Matrix Operations** | dense matrix arithmetic and reductions |
-| **Sparse Matrix Operations** | sparse matrix arithmetic and reductions, graph primitives |
-| **Spatial Primitives** | pairwise distances, nearest neighbors, neighborhood / proximity graph construction |
-| **Solvers** | eigenvalue decomposition, svd, lanczos |
+| **Dense Linear Algebra** | dense matrix arithmetic and reductions |
+| **Sparse Linear Algebra** | sparse matrix arithmetic and reductions |
+| **Graph** | spanning tree, spectral clustering,  |
+| **Spatial** | spatial distances, nearest neighbors, neighborhood / proximity graph construction |
+| **Solvers** | eigenvalue decomposition, svd, lanczos, quasi-newton, coordinate descent |
 | **Communicator** | UCX/NCCL communications abstraction and Python integration w/ Dask |
 
 By taking a primitives-based approach to algorithm development, RAFT accelerates algorithm construction time and reduces
