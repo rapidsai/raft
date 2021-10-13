@@ -185,7 +185,7 @@ struct genericAtomicOperationImpl<T, Op, 4> {
     if (std::is_same<T, float>{} &&
         (std::is_same<Op, DeviceMax>{} || std::is_same<Op, DeviceMin>{})) {
       if (isnan(update_value)) {
-        return update_value;
+        return old_value;
       }
     }
 
@@ -556,6 +556,12 @@ __forceinline__ __device__ T atomicMax(T* address, T val) {
 // fp32 only atomicMax.
 __forceinline__ __device__ float customAtomicMax(float* address, float val) {
   float old;
+
+  if (isnan(val)) {
+    // if NaN input, simply return value at address.
+    return *address;
+  }
+
   old = (val >= 0)
           ? __int_as_float(atomicMax((int*)address, __float_as_int(val)))
           : __uint_as_float(
