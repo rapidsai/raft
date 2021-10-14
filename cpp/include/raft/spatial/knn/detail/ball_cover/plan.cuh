@@ -540,11 +540,11 @@ void compute_and_execute_plan(
     thrust::reduce(handle.get_thrust_policy(), landmark_batches.data(),
                    landmark_batches.data() + n_query_pts, 0);
 
-  rmm::device_uvector<value_idx> coo_write_plan(n_query_pts + 1,
+  rmm::device_uvector<value_idx> coo_write_plan(n_query_pts,
                                                 handle.get_stream());
 
   thrust::exclusive_scan(handle.get_thrust_policy(), landmark_batches.data(),
-                         landmark_batches.data() + n_query_pts + 1,
+                         landmark_batches.data() + n_query_pts,
                          coo_write_plan.data(), 0);
 
   // Construct COO where nnz=n_batches
@@ -560,8 +560,8 @@ void compute_and_execute_plan(
     plan_coo.cols(), plan_coo.vals(), batch_landmark_dists.data(),
     ql_dists.data());
 
-  //    order_plan_incremental(handle, coo_write_plan.data(), plan_coo,
-  //                           batch_landmark_dists.data(), n_query_pts);
+      order_plan_incremental(handle, coo_write_plan.data(), plan_coo,
+                             batch_landmark_dists.data(), n_query_pts);
 
   rmm::device_uvector<int> mutex(n_query_pts, handle.get_stream());
   thrust::fill(handle.get_thrust_policy(), mutex.data(),
