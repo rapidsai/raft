@@ -59,44 +59,44 @@ void matrixVectorOpLaunch(T *out, const T *in, const T *vec1, const T *vec2,
 template <typename T, typename IdxType>
 class MatVecOpTest
   : public ::testing::TestWithParam<MatVecOpInputs<T, IdxType>> {
+ public:
+  MatVecOpTest()
+    : params(::testing::TestWithParam<MatVecOpInputs<T, IdxType>>::GetParam()),
+      stream(handle.get_stream()),
+      in(params.rows * params.cols, stream),
+      out_ref(params.rows * params.cols, stream),
+      out(params.rows * params.cols, stream),
+      vec1(params.bcastAlongRows ? params.cols : params.rows, stream),
+      vec2(params.bcastAlongRows ? params.cols : params.rows, stream) {}
+
  protected:
   void SetUp() override {
-    params = ::testing::TestWithParam<MatVecOpInputs<T, IdxType>>::GetParam();
     raft::random::Rng r(params.seed);
     IdxType N = params.rows, D = params.cols;
     IdxType len = N * D;
-
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    raft::allocate(in, len, stream);
-    raft::allocate(out_ref, len, stream);
-    raft::allocate(out, len, stream);
     IdxType vecLen = params.bcastAlongRows ? D : N;
-    raft::allocate(vec1, vecLen, stream);
-    raft::allocate(vec2, vecLen, stream);
-    r.uniform(in, len, (T)-1.0, (T)1.0, stream);
-    r.uniform(vec1, vecLen, (T)-1.0, (T)1.0, stream);
-    r.uniform(vec2, vecLen, (T)-1.0, (T)1.0, stream);
+    r.uniform(in.data(), len, (T)-1.0, (T)1.0, stream);
+    r.uniform(vec1.data(), vecLen, (T)-1.0, (T)1.0, stream);
+    r.uniform(vec2.data(), vecLen, (T)-1.0, (T)1.0, stream);
     if (params.useTwoVectors) {
-      naiveMatVec(out_ref, in, vec1, vec2, D, N, params.rowMajor,
-                  params.bcastAlongRows, (T)1.0);
+      naiveMatVec(out_ref.data(), in.data(), vec1.data(), vec2.data(), D, N,
+                  params.rowMajor, params.bcastAlongRows, (T)1.0);
     } else {
-      naiveMatVec(out_ref, in, vec1, D, N, params.rowMajor,
+      naiveMatVec(out_ref.data(), in.data(), vec1.data(), D, N, params.rowMajor,
                   params.bcastAlongRows, (T)1.0);
     }
-    matrixVectorOpLaunch(out, in, vec1, vec2, D, N, params.rowMajor,
-                         params.bcastAlongRows, params.useTwoVectors, stream);
+    matrixVectorOpLaunch(out.data(), in.data(), vec1.data(), vec2.data(), D, N,
+                         params.rowMajor, params.bcastAlongRows,
+                         params.useTwoVectors, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
-  void TearDown() override {
-    raft::deallocate_all(stream);
-    CUDA_CHECK(cudaStreamDestroy(stream));
-  }
-
  protected:
-  MatVecOpInputs<T, IdxType> params;
-  T *in, *out, *out_ref, *vec1, *vec2;
+  raft::handle_t handle;
   cudaStream_t stream;
+
+  MatVecOpInputs<T, IdxType> params;
+  rmm::device_uvector<T> in, out, out_ref, vec1, vec2;
 };
 
 const std::vector<MatVecOpInputs<float, int>> inputsf_i32 = {
@@ -119,7 +119,7 @@ const std::vector<MatVecOpInputs<float, int>> inputsf_i32 = {
   {0.00001f, 1024, 64, false, false, true, 1234ULL}};
 typedef MatVecOpTest<float, int> MatVecOpTestF_i32;
 TEST_P(MatVecOpTestF_i32, Result) {
-  ASSERT_TRUE(devArrMatch(out_ref, out, params.rows * params.cols,
+  ASSERT_TRUE(devArrMatch(out_ref.data(), out.data(), params.rows * params.cols,
                           CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_SUITE_P(MatVecOpTests, MatVecOpTestF_i32,
@@ -130,7 +130,7 @@ const std::vector<MatVecOpInputs<float, size_t>> inputsf_i64 = {
   {0.00001f, 2500, 250, false, false, true, 1234ULL}};
 typedef MatVecOpTest<float, size_t> MatVecOpTestF_i64;
 TEST_P(MatVecOpTestF_i64, Result) {
-  ASSERT_TRUE(devArrMatch(out_ref, out, params.rows * params.cols,
+  ASSERT_TRUE(devArrMatch(out_ref.data(), out.data(), params.rows * params.cols,
                           CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_SUITE_P(MatVecOpTests, MatVecOpTestF_i64,
@@ -156,7 +156,7 @@ const std::vector<MatVecOpInputs<double, int>> inputsd_i32 = {
   {0.0000001, 1024, 64, false, false, true, 1234ULL}};
 typedef MatVecOpTest<double, int> MatVecOpTestD_i32;
 TEST_P(MatVecOpTestD_i32, Result) {
-  ASSERT_TRUE(devArrMatch(out_ref, out, params.rows * params.cols,
+  ASSERT_TRUE(devArrMatch(out_ref.data(), out.data(), params.rows * params.cols,
                           CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_SUITE_P(MatVecOpTests, MatVecOpTestD_i32,
@@ -167,7 +167,7 @@ const std::vector<MatVecOpInputs<double, size_t>> inputsd_i64 = {
   {0.0000001, 2500, 250, false, false, true, 1234ULL}};
 typedef MatVecOpTest<double, size_t> MatVecOpTestD_i64;
 TEST_P(MatVecOpTestD_i64, Result) {
-  ASSERT_TRUE(devArrMatch(out_ref, out, params.rows * params.cols,
+  ASSERT_TRUE(devArrMatch(out_ref.data(), out.data(), params.rows * params.cols,
                           CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_SUITE_P(MatVecOpTests, MatVecOpTestD_i64,
