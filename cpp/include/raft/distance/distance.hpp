@@ -24,7 +24,7 @@
 namespace raft {
 namespace distance {
 
-    /**
+/**
 * @brief Evaluate pairwise distances with the user epilogue lamba allowed
 * @tparam DistanceType which distance to evaluate
 * @tparam InType input argument type
@@ -92,7 +92,6 @@ void distance(const InType *x, const InType *y, OutType *dist, Index_ m,
     x, y, dist, m, n, k, workspace, worksize, stream, isRowMajor, metric_arg);
 }
 
-
 /**
 * @brief Return the exact workspace size to compute the distance
 * @tparam DistanceType which distance to evaluate
@@ -109,14 +108,13 @@ void distance(const InType *x, const InType *y, OutType *dist, Index_ m,
 * @note If the specified distanceType doesn't need the workspace at all, it
 * returns 0.
 */
-    template <raft::distance::DistanceType distanceType, typename InType,
-            typename AccType, typename OutType, typename Index_ = int>
-    size_t getWorkspaceSize(const InType *x, const InType *y, Index_ m, Index_ n,
-                            Index_ k) {
-        return detail::getWorkspaceSize<distanceType, InType, AccType, OutType,
-                Index_>(x, y, m, n, k);
-    }
-
+template <raft::distance::DistanceType distanceType, typename InType,
+          typename AccType, typename OutType, typename Index_ = int>
+size_t getWorkspaceSize(const InType *x, const InType *y, Index_ m, Index_ n,
+                        Index_ k) {
+  return detail::getWorkspaceSize<distanceType, InType, AccType, OutType,
+                                  Index_>(x, y, m, n, k);
+}
 
 /**
 * @brief Evaluate pairwise distances for the simple use case
@@ -140,19 +138,19 @@ void distance(const InType *x, const InType *y, OutType *dist, Index_ m,
 *  worksize, the number of bytes of workspace required
 */
 template <raft::distance::DistanceType distanceType, typename InType,
-        typename AccType, typename OutType, typename Index_ = int>
+          typename AccType, typename OutType, typename Index_ = int>
 void distance(const InType *x, const InType *y, OutType *dist, Index_ m,
               Index_ n, Index_ k, cudaStream_t stream, bool isRowMajor = true,
               InType metric_arg = 2.0f) {
-
-    rmm::device_uvector<char> workspace(0, stream);
-    auto worksize =
-            getWorkspaceSize<distanceType, InType, AccType, OutType, Index_>(x, y, m, n, k);
-    workspace.resize(worksize, stream);
-    detail::distance<distanceType, InType, AccType, OutType, Index_>(
-            x, y, dist, m, n, k, workspace.data(), worksize, stream, isRowMajor, metric_arg);
+  rmm::device_uvector<char> workspace(0, stream);
+  auto worksize =
+    getWorkspaceSize<distanceType, InType, AccType, OutType, Index_>(x, y, m, n,
+                                                                     k);
+  workspace.resize(worksize, stream);
+  detail::distance<distanceType, InType, AccType, OutType, Index_>(
+    x, y, dist, m, n, k, workspace.data(), worksize, stream, isRowMajor,
+    metric_arg);
 }
-
 
 /**
  * @defgroup pairwise_distance pairwise distance prims
