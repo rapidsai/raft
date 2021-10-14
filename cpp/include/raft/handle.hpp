@@ -171,12 +171,29 @@ class handle_t {
   }
 
   /**
+   * @brief return stream from pool if size > 0, else main stream on handle
+   */
+  rmm::cuda_stream_view get_next_usable_stream() const {
+    return is_stream_pool_initialized() ? get_stream_from_stream_pool()
+                                        : stream_view_;
+  }
+
+  /**
+   * @brief return stream from pool at index if size > 0, else main stream on handle
+   * 
+   * @param[in] stream_index the required index of the stream in the stream pool if available
+   */
+  rmm::cuda_stream_view get_next_usable_stream(std::size_t stream_idx) const {
+    return is_stream_pool_initialized()
+             ? get_stream_from_stream_pool(stream_idx)
+             : stream_view_;
+  }
+
+  /**
    * @brief synchronize the stream pool on the handle
    */
   void sync_stream_pool() const {
-    RAFT_EXPECTS(stream_pool_,
-                 "ERROR: rmm::cuda_stream_pool was not initialized");
-    for (std::size_t i = 0; i < stream_pool_->get_pool_size(); i++) {
+    for (std::size_t i = 0; i < get_stream_pool_size(); i++) {
       stream_pool_->get_stream(i).synchronize();
     }
   }
@@ -198,10 +215,8 @@ class handle_t {
    * @brief ask stream pool to wait on last event in main stream
    */
   void wait_stream_pool_on_stream() const {
-    RAFT_EXPECTS(stream_pool_,
-                 "ERROR: rmm::cuda_stream_pool was not initialized");
     CUDA_CHECK(cudaEventRecord(event_, stream_view_));
-    for (std::size_t i = 0; i < stream_pool_->get_pool_size(); i++) {
+    for (std::size_t i = 0; i < get_stream_pool_size(); i++) {
       CUDA_CHECK(cudaStreamWaitEvent(stream_pool_->get_stream(i), event_, 0));
     }
   }

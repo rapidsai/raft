@@ -264,17 +264,13 @@ void brute_force_knn_impl(const raft::handle_t &handle,
   }
 
   // Make other streams from pool wait on main stream
-  if (handle.is_stream_pool_initialized()) {
-    handle.wait_stream_pool_on_stream();
-  }
+  handle.wait_stream_pool_on_stream();
 
   for (size_t i = 0; i < input.size(); i++) {
     float *out_d_ptr = out_D + (i * k * n);
     IdxType *out_i_ptr = out_I + (i * k * n);
 
-    auto stream = handle.is_stream_pool_initialized()
-                    ? handle.get_stream_from_stream_pool()
-                    : handle.get_stream();
+    auto stream = handle.get_next_usable_stream();
 
     switch (metric) {
       case raft::distance::DistanceType::Haversine:
@@ -322,9 +318,7 @@ void brute_force_knn_impl(const raft::handle_t &handle,
   // Sync internal streams if used. We don't need to
   // sync the user stream because we'll already have
   // fully serial execution.
-  if (handle.is_stream_pool_initialized()) {
-    handle.sync_stream_pool();
-  }
+  handle.sync_stream_pool();
 
   if (input.size() > 1 || translations != nullptr) {
     // This is necessary for proper index translations. If there are
