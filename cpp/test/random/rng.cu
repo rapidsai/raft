@@ -178,13 +178,13 @@ class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
   }
 
  protected:
+  raft::handle_t handle;
+  cudaStream_t stream;
+
   RngInputs<T> params;
   rmm::device_uvector<T> data, stats;
   T h_stats[2];  // mean, var
   int num_sigma;
-
-  raft::handle_t handle;
-  cudaStream_t stream;
 };
 
 // The measured mean and standard deviation for each tested distribution are,
@@ -444,10 +444,10 @@ class ScaledBernoulliTest : public ::testing::Test {
     delete[] h_data;
   }
 
-  rmm::device_uvector<T> data;
-
   raft::handle_t handle;
   cudaStream_t stream;
+
+  rmm::device_uvector<T> data;
 };
 
 typedef ScaledBernoulliTest<float, 500, 35> ScaledBernoulliTest1;
@@ -477,10 +477,10 @@ class BernoulliTest : public ::testing::Test {
     delete[] h_data;
   }
 
-  rmm::device_uvector<bool> data;
-
   raft::handle_t handle;
   cudaStream_t stream;
+
+  rmm::device_uvector<bool> data;
 };
 
 typedef BernoulliTest<float, 1000> BernoulliTest1;
@@ -545,13 +545,13 @@ class RngNormalTableTest
   }
 
  protected:
+  raft::handle_t handle;
+  cudaStream_t stream;
+
   RngNormalTableInputs<T> params;
   rmm::device_uvector<T> data, stats, mu_vec;
   T h_stats[2];  // mean, var
   int num_sigma;
-
-  raft::handle_t handle;
-  cudaStream_t stream;
 };
 
 typedef RngNormalTableTest<float> RngNormalTableTestF;

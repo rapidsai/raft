@@ -71,13 +71,13 @@ class SWoRTest : public ::testing::TestWithParam<SWoRInputs<T>> {
   }
 
  protected:
+  raft::handle_t handle;
+  cudaStream_t stream;
+
   SWoRInputs<T> params;
   rmm::device_uvector<T> in, out, wts;
   rmm::device_uvector<int> outIdx;
   std::vector<int> h_outIdx;
-
-  raft::handle_t handle;
-  cudaStream_t stream;
 };
 
 typedef SWoRTest<float> SWoRTestF;

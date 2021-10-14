@@ -191,12 +191,12 @@ class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
   void SetUp() override { basicTest(); }
 
  protected:
+  raft::handle_t handle;
+  cudaStream_t stream;
+
   LinkageInputs<T, IdxT> params;
   rmm::device_uvector<IdxT> labels, labels_ref;
   double score;
-
-  raft::handle_t handle;
-  cudaStream_t stream;
 };
 
 const std::vector<LinkageInputs<float, int>> linkage_inputsf2 = {

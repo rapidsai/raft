@@ -105,6 +105,9 @@ class CSRToDenseTest
   }
 
  protected:
+  raft::handle_t raft_handle;
+  cudaStream_t stream;
+
   cusparseHandle_t handle;
 
   // input data
@@ -118,9 +121,6 @@ class CSRToDenseTest
   rmm::device_uvector<value_t> out_ref;
 
   CSRToDenseInputs<value_idx, value_t> params;
-
-  raft::handle_t raft_handle;
-  cudaStream_t stream;
 };
 
 const std::vector<CSRToDenseInputs<int, float>> inputs_i32_f = {

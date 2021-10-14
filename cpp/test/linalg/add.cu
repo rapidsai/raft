@@ -53,14 +53,14 @@ class AddTest : public ::testing::TestWithParam<AddInputs<InT, OutT>> {
   }
 
  protected:
+  raft::handle_t handle;
+  cudaStream_t stream;
+
   AddInputs<InT, OutT> params;
   rmm::device_uvector<InT> in1;
   rmm::device_uvector<InT> in2;
   rmm::device_uvector<OutT> out_ref;
   rmm::device_uvector<OutT> out;
-
-  raft::handle_t handle;
-  cudaStream_t stream;
 };
 
 const std::vector<AddInputs<float>> inputsf = {

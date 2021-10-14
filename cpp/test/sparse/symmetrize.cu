@@ -111,6 +111,9 @@ class SparseSymmetrizeTest : public ::testing::TestWithParam<
   }
 
  protected:
+  raft::handle_t handle;
+  cudaStream_t stream;
+
   // input data
   rmm::device_uvector<value_idx> indptr, indices;
   rmm::device_uvector<value_t> data;
@@ -118,9 +121,6 @@ class SparseSymmetrizeTest : public ::testing::TestWithParam<
   value_idx sum_h;
 
   SparseSymmetrizeInputs<value_idx, value_t> params;
-
-  raft::handle_t handle;
-  cudaStream_t stream;
 };
 
 template <typename T>

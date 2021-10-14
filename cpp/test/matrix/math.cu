@@ -179,13 +179,13 @@ class MathTest : public ::testing::TestWithParam<MathInputs<T>> {
   }
 
  protected:
+  raft::handle_t handle;
+  cudaStream_t stream;
+
   MathInputs<T> params;
   rmm::device_uvector<T> in_power, out_power_ref, in_sqrt, out_sqrt_ref,
     in_ratio, out_ratio_ref, in_sign_flip, out_sign_flip_ref, in_recip,
     in_recip_ref, out_recip, in_smallzero, out_smallzero, out_smallzero_ref;
-
-  raft::handle_t handle;
-  cudaStream_t stream;
 };
 
 const std::vector<MathInputs<float>> inputsf = {

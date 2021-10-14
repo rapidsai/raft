@@ -70,12 +70,12 @@ class MeanCenterTest
   }
 
  protected:
+  raft::handle_t handle;
+  cudaStream_t stream;
+
   MeanCenterInputs<T, IdxType> params;
   int rows, cols;
   rmm::device_uvector<T> data, meanVec, out, out_ref;
-
-  raft::handle_t handle;
-  cudaStream_t stream;
 };
 
 const std::vector<MeanCenterInputs<float, int>> inputsf_i32 = {

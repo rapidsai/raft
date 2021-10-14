@@ -74,11 +74,12 @@ class UnaryOpTest
   }
 
  protected:
+  raft::handle_t handle;
+  cudaStream_t stream;
+
   UnaryOpInputs<InType, IdxType, OutType> params;
   rmm::device_uvector<InType> in;
   rmm::device_uvector<OutType> out_ref, out;
-  raft::handle_t handle;
-  cudaStream_t stream;
 };
 
 template <typename OutType, typename IdxType>

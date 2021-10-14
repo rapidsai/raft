@@ -78,12 +78,12 @@ class CSRRowNormalizeTest
   }
 
  protected:
+  raft::handle_t handle;
+  cudaStream_t stream;
+
   CSRRowNormalizeInputs<Type_f, Index_> params;
   rmm::device_uvector<Index_> ex_scan;
   rmm::device_uvector<Type_f> in_vals, result, verify;
-
-  raft::handle_t handle;
-  cudaStream_t stream;
 };
 
 using CSRRowNormalizeTestF = CSRRowNormalizeTest<float, int>;

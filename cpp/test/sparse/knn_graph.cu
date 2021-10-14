@@ -94,6 +94,9 @@ class KNNGraphTest
   void TearDown() override { delete out; }
 
  protected:
+  raft::handle_t handle;
+  cudaStream_t stream;
+
   // input data
   raft::sparse::COO<value_t, value_idx> *out;
 
@@ -102,9 +105,6 @@ class KNNGraphTest
   value_idx sum_h;
 
   KNNGraphInputs<value_idx, value_t> params;
-
-  raft::handle_t handle;
-  cudaStream_t stream;
 };
 
 const std::vector<KNNGraphInputs<int, float>> knn_graph_inputs_fint = {

@@ -87,11 +87,12 @@ class SvdTest : public ::testing::TestWithParam<SvdInputs<T>> {
   }
 
  protected:
+  raft::handle_t handle;
+  cudaStream_t stream;
+
   SvdInputs<T> params;
   rmm::device_uvector<T> data, left_eig_vectors_qr, right_eig_vectors_trans_qr,
     sing_vals_qr, left_eig_vectors_ref, right_eig_vectors_ref, sing_vals_ref;
-  raft::handle_t handle;
-  cudaStream_t stream;
 };
 
 const std::vector<SvdInputs<float>> inputsf2 = {

@@ -145,6 +145,9 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
   }
 
  private:
+  raft::handle_t handle;
+  cudaStream_t stream;
+
   KNNInputs params_;
   int rows_;
   int cols_;
@@ -157,9 +160,6 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
   rmm::device_uvector<int> search_labels_;
   rmm::device_uvector<int> actual_labels_;
   rmm::device_uvector<int> expected_labels_;
-
-  raft::handle_t handle;
-  cudaStream_t stream;
 };
 
 const std::vector<KNNInputs> inputs = {

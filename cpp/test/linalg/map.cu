@@ -84,11 +84,12 @@ class MapTest
   }
 
  protected:
+  raft::handle_t handle;
+  cudaStream_t stream;
+
   MapInputs<InType, IdxType, OutType> params;
   rmm::device_uvector<InType> in1, in2, in3;
   rmm::device_uvector<OutType> out_ref, out;
-  raft::handle_t handle;
-  cudaStream_t stream;
 };
 
 const std::vector<MapInputs<float, int>> inputsf_i32 = {

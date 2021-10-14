@@ -96,10 +96,11 @@ class RowNormTest : public ::testing::TestWithParam<NormInputs<T>> {
   }
 
  protected:
-  NormInputs<T> params;
-  rmm::device_uvector<T> data, dots_exp, dots_act;
   raft::handle_t handle;
   cudaStream_t stream;
+
+  NormInputs<T> params;
+  rmm::device_uvector<T> data, dots_exp, dots_act;
 };
 
 ///// Column-wise norm test definitisons
@@ -157,11 +158,11 @@ class ColNormTest : public ::testing::TestWithParam<NormInputs<T>> {
   }
 
  protected:
-  NormInputs<T> params;
-  rmm::device_uvector<T> data, dots_exp, dots_act;
-
   raft::handle_t handle;
   cudaStream_t stream;
+
+  NormInputs<T> params;
+  rmm::device_uvector<T> data, dots_exp, dots_act;
 };
 
 ///// Row- and column-wise tests

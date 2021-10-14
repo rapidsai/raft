@@ -132,6 +132,9 @@ class CSRRowSliceTest
   }
 
  protected:
+  raft::handle_t handle;
+  cudaStream_t stream;
+
   // input data
   rmm::device_uvector<value_idx> indptr, indices;
   rmm::device_uvector<value_t> data;
@@ -145,9 +148,6 @@ class CSRRowSliceTest
   rmm::device_uvector<value_t> out_data_ref;
 
   CSRRowSliceInputs<value_idx, value_t> params;
-
-  raft::handle_t handle;
-  cudaStream_t stream;
 };
 
 const std::vector<CSRRowSliceInputs<int, float>> inputs_i32_f = {

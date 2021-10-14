@@ -101,10 +101,11 @@ class SubtractTest : public ::testing::TestWithParam<SubtractInputs<T>> {
   }
 
  protected:
-  SubtractInputs<T> params;
-  rmm::device_uvector<T> in1, in2, out_ref, out;
   raft::handle_t handle;
   cudaStream_t stream;
+
+  SubtractInputs<T> params;
+  rmm::device_uvector<T> in1, in2, out_ref, out;
 };
 
 const std::vector<SubtractInputs<float>> inputsf2 = {

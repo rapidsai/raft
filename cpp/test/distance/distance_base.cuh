@@ -432,10 +432,11 @@ class DistanceTest : public ::testing::TestWithParam<DistanceInputs<DataType>> {
   }
 
  protected:
-  DistanceInputs<DataType> params;
-  rmm::device_uvector<DataType> x, y, dist_ref, dist, dist2;
   raft::handle_t handle;
   cudaStream_t stream;
+
+  DistanceInputs<DataType> params;
+  rmm::device_uvector<DataType> x, y, dist_ref, dist, dist2;
 };
 
 }  // end namespace distance

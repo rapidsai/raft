@@ -62,12 +62,12 @@ class SumTest : public ::testing::TestWithParam<SumInputs<T>> {
   }
 
  protected:
+  raft::handle_t handle;
+  cudaStream_t stream;
+
   SumInputs<T> params;
   int rows, cols;
   rmm::device_uvector<T> data, sum_act;
-
-  raft::handle_t handle;
-  cudaStream_t stream;
 };
 
 const std::vector<SumInputs<float>> inputsf = {{0.05f, 1024, 32, 1234ULL},

@@ -81,12 +81,12 @@ class StdDevTest : public ::testing::TestWithParam<StdDevInputs<T>> {
   }
 
  protected:
+  raft::handle_t handle;
+  cudaStream_t stream;
+
   StdDevInputs<T> params;
   int rows, cols;
   rmm::device_uvector<T> data, mean_act, stddev_act, vars_act;
-
-  raft::handle_t handle;
-  cudaStream_t stream;
 };
 
 const std::vector<StdDevInputs<float>> inputsf = {

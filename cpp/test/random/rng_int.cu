@@ -106,13 +106,13 @@ class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
   }
 
  protected:
+  raft::handle_t handle;
+  cudaStream_t stream;
+
   RngInputs<T> params;
   rmm::device_uvector<T> data;
   rmm::device_uvector<float> stats;
   float h_stats[2];  // mean, var
-
-  raft::handle_t handle;
-  cudaStream_t stream;
 };
 
 typedef RngTest<uint32_t> RngTestU32;

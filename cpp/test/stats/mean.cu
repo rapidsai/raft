@@ -65,12 +65,12 @@ class MeanTest : public ::testing::TestWithParam<MeanInputs<T>> {
   }
 
  protected:
+  raft::handle_t handle;
+  cudaStream_t stream;
+
   MeanInputs<T> params;
   int rows, cols;
   rmm::device_uvector<T> data, mean_act;
-
-  raft::handle_t handle;
-  cudaStream_t stream;
 };
 
 // Note: For 1024 samples, 256 experiments, a mean of 1.0 with stddev=1.0, the

@@ -64,10 +64,11 @@ class TransposeTest : public ::testing::TestWithParam<TranposeInputs<T>> {
   }
 
  protected:
-  TranposeInputs<T> params;
-  rmm::device_uvector<T> data, data_trans, data_trans_ref;
   raft::handle_t handle;
   cudaStream_t stream;
+
+  TranposeInputs<T> params;
+  rmm::device_uvector<T> data, data_trans, data_trans_ref;
 };
 
 const std::vector<TranposeInputs<float>> inputsf2 = {

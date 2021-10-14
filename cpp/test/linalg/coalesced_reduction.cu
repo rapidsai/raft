@@ -77,12 +77,13 @@ class coalescedReductionTest
   }
 
  protected:
+  raft::handle_t handle;
+  cudaStream_t stream;
+
   coalescedReductionInputs<T> params;
   rmm::device_uvector<T> data;
   rmm::device_uvector<T> dots_exp;
   rmm::device_uvector<T> dots_act;
-  raft::handle_t handle;
-  cudaStream_t stream;
 };
 
 const std::vector<coalescedReductionInputs<float>> inputsf = {

@@ -86,12 +86,13 @@ class ReduceTest
   }
 
  protected:
+  raft::handle_t handle;
+  cudaStream_t stream;
+
   ReduceInputs<InType, OutType> params;
   rmm::device_uvector<InType> data;
   rmm::device_uvector<OutType> dots_exp, dots_act;
   int outlen;
-  raft::handle_t handle;
-  cudaStream_t stream;
 };
 
 const std::vector<ReduceInputs<float, float>> inputsff = {

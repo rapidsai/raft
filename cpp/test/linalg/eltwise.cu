@@ -80,10 +80,11 @@ class ScalarMultiplyTest
   }
 
  protected:
-  ScalarMultiplyInputs<T> params;
-  rmm::device_uvector<T> in, out_ref, out;
   raft::handle_t handle;
   cudaStream_t stream;
+
+  ScalarMultiplyInputs<T> params;
+  rmm::device_uvector<T> in, out_ref, out;
 };
 
 const std::vector<ScalarMultiplyInputs<float>> inputsf1 = {
@@ -167,10 +168,11 @@ class EltwiseAddTest : public ::testing::TestWithParam<EltwiseAddInputs<T>> {
   }
 
  protected:
-  EltwiseAddInputs<T> params;
-  rmm::device_uvector<T> in1, in2, out_ref, out;
   raft::handle_t handle;
   cudaStream_t stream;
+
+  EltwiseAddInputs<T> params;
+  rmm::device_uvector<T> in1, in2, out_ref, out;
 };
 
 const std::vector<EltwiseAddInputs<float>> inputsf2 = {

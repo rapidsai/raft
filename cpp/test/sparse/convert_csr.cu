@@ -132,13 +132,13 @@ class CSRAdjGraphTest
   }
 
  protected:
+  raft::handle_t handle;
+  cudaStream_t stream;
+
   CSRAdjGraphInputs<Index_> params;
   Index_ nnz;
   rmm::device_uvector<Index_> row_ind, result, verify;
   rmm::device_uvector<bool> adj;
-
-  raft::handle_t handle;
-  cudaStream_t stream;
 };
 
 using CSRAdjGraphTestI = CSRAdjGraphTest<int>;

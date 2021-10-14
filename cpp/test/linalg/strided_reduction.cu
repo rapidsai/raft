@@ -64,10 +64,11 @@ class stridedReductionTest
   }
 
  protected:
-  stridedReductionInputs<T> params;
-  rmm::device_uvector<T> data, dots_exp, dots_act;
   raft::handle_t handle;
   cudaStream_t stream;
+
+  stridedReductionInputs<T> params;
+  rmm::device_uvector<T> data, dots_exp, dots_act;
 };
 
 const std::vector<stridedReductionInputs<float>> inputsf = {

@@ -90,6 +90,9 @@ class HaversineKNNTest : public ::testing::Test {
   void SetUp() override { basicTest(); }
 
  protected:
+  raft::handle_t handle;
+  cudaStream_t stream;
+
   rmm::device_uvector<value_t> d_train_inputs;
 
   int n = 6;
@@ -102,9 +105,6 @@ class HaversineKNNTest : public ::testing::Test {
 
   rmm::device_uvector<value_idx> d_ref_I;
   rmm::device_uvector<value_t> d_ref_D;
-
-  raft::handle_t handle;
-  cudaStream_t stream;
 };
 
 typedef HaversineKNNTest<int, float> HaversineKNNTestF;

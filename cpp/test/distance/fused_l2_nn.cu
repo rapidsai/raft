@@ -293,11 +293,12 @@ class FusedL2NNDetTest : public FusedL2NNTest<DataT, Sqrt> {
   void TearDown() override { FusedL2NNTest<DataT, Sqrt>::TearDown(); }
 
  protected:
+  raft::handle_t handle;
+  cudaStream_t stream;
+
   rmm::device_uvector<cub::KeyValuePair<int, DataT>> min1;
 
   static const int NumRepeats = 100;
-  raft::handle_t handle;
-  cudaStream_t stream;
 
   void generateGoldenResult() override {}
 };

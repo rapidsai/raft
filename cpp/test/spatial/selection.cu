@@ -110,6 +110,9 @@ class SparseSelectionTest
   }
 
  protected:
+  raft::handle_t handle;
+  cudaStream_t stream;
+
   int n_rows, n_cols, k;
 
   // input data
@@ -124,9 +127,6 @@ class SparseSelectionTest
   rmm::device_uvector<value_t> out_dists_ref;
 
   SparseSelectionInputs<value_idx, value_t> params;
-
-  raft::handle_t handle;
-  cudaStream_t stream;
 };
 
 const std::vector<SparseSelectionInputs<int, float>> inputs_i32_f = {

@@ -64,11 +64,11 @@ class CSRtoCOOTest : public ::testing::TestWithParam<CSRtoCOOInputs<Index_>> {
   }
 
  protected:
-  CSRtoCOOInputs<Index_> params;
-  rmm::device_uvector<Index_> ex_scan, verify, result;
-
   raft::handle_t handle;
   cudaStream_t stream;
+
+  CSRtoCOOInputs<Index_> params;
+  rmm::device_uvector<Index_> ex_scan, verify, result;
 };
 
 using CSRtoCOOTestI = CSRtoCOOTest<int>;

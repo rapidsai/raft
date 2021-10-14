@@ -61,13 +61,14 @@ class BinaryOpTest
   }
 
  protected:
+  raft::handle_t handle;
+  cudaStream_t stream;
+
   BinaryOpInputs<InType, IdxType, OutType> params;
   rmm::device_uvector<InType> in1;
   rmm::device_uvector<InType> in2;
   rmm::device_uvector<OutType> out_ref;
   rmm::device_uvector<OutType> out;
-  raft::handle_t handle;
-  cudaStream_t stream;
 };
 
 const std::vector<BinaryOpInputs<float, int>> inputsf_i32 = {

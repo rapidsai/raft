@@ -46,10 +46,11 @@ class MultiplyTest : public ::testing::TestWithParam<UnaryOpInputs<T>> {
   }
 
  protected:
-  UnaryOpInputs<T> params;
-  rmm::device_uvector<T> in, out_ref, out;
   raft::handle_t handle;
   cudaStream_t stream;
+
+  UnaryOpInputs<T> params;
+  rmm::device_uvector<T> in, out_ref, out;
 };
 
 const std::vector<UnaryOpInputs<float>> inputsf = {

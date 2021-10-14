@@ -100,6 +100,9 @@ class EigTest : public ::testing::TestWithParam<EigInputs<T>> {
   }
 
  protected:
+  raft::handle_t handle;
+  cudaStream_t stream;
+
   EigInputs<T> params;
 
   rmm::device_uvector<T> cov_matrix, eig_vectors, eig_vectors_jacobi,
@@ -107,9 +110,6 @@ class EigTest : public ::testing::TestWithParam<EigInputs<T>> {
 
   rmm::device_uvector<T> cov_matrix_large, eig_vectors_large,
     eig_vectors_jacobi_large, eig_vals_large, eig_vals_jacobi_large;
-
-  raft::handle_t handle;
-  cudaStream_t stream;
 };
 
 const std::vector<EigInputs<float>> inputsf2 = {

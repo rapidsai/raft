@@ -90,11 +90,12 @@ class MapReduceTest : public ::testing::TestWithParam<MapReduceInputs<InType>> {
   }
 
  protected:
+  raft::handle_t handle;
+  cudaStream_t stream;
+
   MapReduceInputs<InType> params;
   rmm::device_uvector<InType> in;
   rmm::device_uvector<OutType> out_ref, out;
-  raft::handle_t handle;
-  cudaStream_t stream;
 };
 
 const std::vector<MapReduceInputs<float>> inputsf = {
@@ -168,9 +169,10 @@ class MapGenericReduceTest : public ::testing::Test {
   }
 
  protected:
-  int n = 1237;
   raft::handle_t handle;
   cudaStream_t stream;
+
+  int n = 1237;
   rmm::device_uvector<InType> input;
   rmm::device_scalar<OutType> output;
 };

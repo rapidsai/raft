@@ -66,12 +66,13 @@ class DivideTest
   }
 
  protected:
+  raft::handle_t handle;
+  cudaStream_t stream;
+
   UnaryOpInputs<T> params;
   rmm::device_uvector<T> in;
   rmm::device_uvector<T> out_ref;
   rmm::device_uvector<T> out;
-  raft::handle_t handle;
-  cudaStream_t stream;
 };
 
 const std::vector<UnaryOpInputs<float>> inputsf = {

@@ -92,10 +92,11 @@ class MatVecOpTest
   }
 
  protected:
-  MatVecOpInputs<T, IdxType> params;
-  rmm::device_uvector<T> in, out, out_ref, vec1, vec2;
   raft::handle_t handle;
   cudaStream_t stream;
+
+  MatVecOpInputs<T, IdxType> params;
+  rmm::device_uvector<T> in, out, out_ref, vec1, vec2;
 };
 
 const std::vector<MatVecOpInputs<float, int>> inputsf_i32 = {

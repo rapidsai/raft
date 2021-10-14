@@ -118,14 +118,14 @@ class CSRAddTest
   }
 
  protected:
+  raft::handle_t handle;
+  cudaStream_t stream;
+
   CSRAddInputs<Type_f, Index_> params;
   Index_ n_rows, nnz_a, nnz_b, nnz_result;
   rmm::device_uvector<Index_> ind_a, ind_b, ind_verify, ind_result, ind_ptr_a,
     ind_ptr_b, ind_ptr_verify, ind_ptr_result;
   rmm::device_uvector<Type_f> values_a, values_b, values_verify, values_result;
-
-  raft::handle_t handle;
-  cudaStream_t stream;
 };
 
 using CSRAddTestF = CSRAddTest<float, int>;

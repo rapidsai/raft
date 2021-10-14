@@ -76,14 +76,15 @@ class EigSelTest : public ::testing::TestWithParam<EigSelInputs<T>> {
   }
 
  protected:
+  raft::handle_t handle;
+  cudaStream_t stream;
+
   EigSelInputs<T> params;
   rmm::device_uvector<T> cov_matrix;
   rmm::device_uvector<T> eig_vectors;
   rmm::device_uvector<T> eig_vectors_ref;
   rmm::device_uvector<T> eig_vals;
   rmm::device_uvector<T> eig_vals_ref;
-  raft::handle_t handle;
-  cudaStream_t stream;
 };
 
 const std::vector<EigSelInputs<float>> inputsf2 = {

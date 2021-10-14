@@ -128,6 +128,9 @@ class CSRTransposeTest
   }
 
  protected:
+  raft::handle_t raft_handle;
+  cudaStream_t stream;
+
   cusparseHandle_t handle;
 
   // input data
@@ -143,9 +146,6 @@ class CSRTransposeTest
   rmm::device_uvector<value_t> out_data_ref;
 
   CSRTransposeInputs<value_idx, value_t> params;
-
-  cudaStream_t stream;
-  raft::handle_t raft_handle;
 };
 
 const std::vector<CSRTransposeInputs<int, float>> inputs_i32_f = {

@@ -63,10 +63,11 @@ class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
   }
 
  protected:
-  MatrixInputs<T> params;
-  rmm::device_uvector<T> in1, in2, in1_revr;
   raft::handle_t handle;
   cudaStream_t stream;
+
+  MatrixInputs<T> params;
+  rmm::device_uvector<T> in1, in2, in1_revr;
 };
 
 const std::vector<MatrixInputs<float>> inputsf2 = {{0.000001f, 4, 4, 1234ULL}};
@@ -131,6 +132,9 @@ class MatrixCopyRowsTest : public ::testing::Test {
   }
 
  protected:
+  raft::handle_t handle;
+  cudaStream_t stream;
+
   int n_rows = 10;
   int n_cols = 3;
   int n_selected = 5;
@@ -140,8 +144,6 @@ class MatrixCopyRowsTest : public ::testing::Test {
                                     17, 19, 20, 23, 24, 27, 29};
   math_t output_exp_rowmajor[15] = {0,  1,  2,  9,  10, 11, 12, 13,
                                     14, 21, 22, 23, 27, 28, 29};
-  raft::handle_t handle;
-  cudaStream_t stream;
   rmm::device_uvector<math_t> input;
   rmm::device_uvector<math_t> output;
   rmm::device_uvector<idx_array_t> indices;
