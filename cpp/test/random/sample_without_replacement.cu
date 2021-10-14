@@ -44,40 +44,40 @@ template <typename T>
 
 template <typename T>
 class SWoRTest : public ::testing::TestWithParam<SWoRInputs<T>> {
+ public:
+  SWoRTest()
+    : params(::testing::TestWithParam<SWoRInputs<T>>::GetParam()),
+      stream(handle.get_stream()),
+      in(params.len, stream),
+      wts(params.len, stream),
+      out(params.sampledLen, stream),
+      outIdx(params.sampledLen, stream) {}
+
  protected:
   void SetUp() override {
-    params = ::testing::TestWithParam<SWoRInputs<T>>::GetParam();
-    CUDA_CHECK(cudaStreamCreate(&stream));
-
     Rng r(params.seed, params.gtype);
-    raft::allocate(in, params.len, stream);
-    raft::allocate(wts, params.len, stream);
-    raft::allocate(out, params.sampledLen, stream);
-    raft::allocate(outIdx, params.sampledLen, stream);
     h_outIdx.resize(params.sampledLen);
-    r.uniform(in, params.len, T(-1.0), T(1.0), stream);
-    r.uniform(wts, params.len, T(1.0), T(2.0), stream);
+    r.uniform(in.data(), params.len, T(-1.0), T(1.0), stream);
+    r.uniform(wts.data(), params.len, T(1.0), T(2.0), stream);
     if (params.largeWeightIndex >= 0) {
-      update_device(wts + params.largeWeightIndex, &params.largeWeight, 1,
-                    stream);
+      update_device(wts.data() + params.largeWeightIndex, &params.largeWeight,
+                    1, stream);
     }
-    r.sampleWithoutReplacement(handle, out, outIdx, in, wts, params.sampledLen,
-                               params.len, stream);
-    update_host(&(h_outIdx[0]), outIdx, params.sampledLen, stream);
-  }
-
-  void TearDown() override {
-    raft::deallocate_all(stream);
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    r.sampleWithoutReplacement(handle, out.data(), outIdx.data(), in.data(),
+                               wts.data(), params.sampledLen, params.len,
+                               stream);
+    update_host(&(h_outIdx[0]), outIdx.data(), params.sampledLen, stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
  protected:
-  SWoRInputs<T> params;
-  T *in, *out, *wts;
-  int* outIdx;
-  std::vector<int> h_outIdx;
-  cudaStream_t stream;
   raft::handle_t handle;
+  cudaStream_t stream;
+
+  SWoRInputs<T> params;
+  rmm::device_uvector<T> in, out, wts;
+  rmm::device_uvector<int> outIdx;
+  std::vector<int> h_outIdx;
 };
 
 typedef SWoRTest<float> SWoRTestF;
