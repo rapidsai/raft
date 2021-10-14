@@ -58,40 +58,44 @@ template <typename value_idx, typename value_t>
 class SparseDistanceTest
   : public ::testing::TestWithParam<SparseDistanceInputs<value_idx, value_t>> {
  public:
-  SparseDistanceTest() : dist_config(handle) {}
+  SparseDistanceTest()
+    : params(::testing::TestWithParam<
+             SparseDistanceInputs<value_idx, value_t>>::GetParam()),
+      dist_config(handle),
+      indptr(0, handle.get_stream()),
+      indices(0, handle.get_stream()),
+      data(0, handle.get_stream()),
+      out_dists(0, handle.get_stream()),
+      out_dists_ref(0, handle.get_stream()) {}
 
   void SetUp() override {
-    params = ::testing::TestWithParam<
-      SparseDistanceInputs<value_idx, value_t>>::GetParam();
-
     make_data();
 
     dist_config.b_nrows = params.indptr_h.size() - 1;
     dist_config.b_ncols = params.n_cols;
     dist_config.b_nnz = params.indices_h.size();
-    dist_config.b_indptr = indptr;
-    dist_config.b_indices = indices;
-    dist_config.b_data = data;
+    dist_config.b_indptr = indptr.data();
+    dist_config.b_indices = indices.data();
+    dist_config.b_data = data.data();
     dist_config.a_nrows = params.indptr_h.size() - 1;
     dist_config.a_ncols = params.n_cols;
     dist_config.a_nnz = params.indices_h.size();
-    dist_config.a_indptr = indptr;
-    dist_config.a_indices = indices;
-    dist_config.a_data = data;
+    dist_config.a_indptr = indptr.data();
+    dist_config.a_indices = indices.data();
+    dist_config.a_data = data.data();
 
     int out_size = dist_config.a_nrows * dist_config.b_nrows;
 
-    raft::allocate(out_dists, out_size, handle.get_stream());
+    out_dists.resize(out_size, handle.get_stream());
 
-    pairwiseDistance(out_dists, dist_config, params.metric, params.metric_arg);
+    pairwiseDistance(out_dists.data(), dist_config, params.metric,
+                     params.metric_arg);
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
   }
 
-  void TearDown() override { raft::deallocate_all(handle.get_stream()); }
-
   void compare() {
-    ASSERT_TRUE(devArrMatch(out_dists_ref, out_dists,
+    ASSERT_TRUE(devArrMatch(out_dists_ref.data(), out_dists.data(),
                             params.out_dists_ref_h.size(),
                             CompareApprox<value_t>(1e-3)));
   }
@@ -102,33 +106,31 @@ class SparseDistanceTest
     std::vector<value_idx> indices_h = params.indices_h;
     std::vector<value_t> data_h = params.data_h;
 
-    raft::allocate(indptr, indptr_h.size(), handle.get_stream());
-    raft::allocate(indices, indices_h.size(), handle.get_stream());
-    raft::allocate(data, data_h.size(), handle.get_stream());
+    auto stream = handle.get_stream();
+    indptr.resize(indptr_h.size(), stream);
+    indices.resize(indices_h.size(), stream);
+    data.resize(data_h.size(), stream);
 
-    update_device(indptr, indptr_h.data(), indptr_h.size(),
-                  handle.get_stream());
-    update_device(indices, indices_h.data(), indices_h.size(),
-                  handle.get_stream());
-    update_device(data, data_h.data(), data_h.size(), handle.get_stream());
+    update_device(indptr.data(), indptr_h.data(), indptr_h.size(), stream);
+    update_device(indices.data(), indices_h.data(), indices_h.size(), stream);
+    update_device(data.data(), data_h.data(), data_h.size(), stream);
 
     std::vector<value_t> out_dists_ref_h = params.out_dists_ref_h;
 
-    raft::allocate(out_dists_ref, (indptr_h.size() - 1) * (indptr_h.size() - 1),
-                   handle.get_stream());
+    out_dists_ref.resize((indptr_h.size() - 1) * (indptr_h.size() - 1), stream);
 
-    update_device(out_dists_ref, out_dists_ref_h.data(), out_dists_ref_h.size(),
-                  dist_config.handle.get_stream());
+    update_device(out_dists_ref.data(), out_dists_ref_h.data(),
+                  out_dists_ref_h.size(), dist_config.handle.get_stream());
   }
 
   raft::handle_t handle;
 
   // input data
-  value_idx *indptr, *indices;
-  value_t *data;
+  rmm::device_uvector<value_idx> indptr, indices;
+  rmm::device_uvector<value_t> data;
 
   // output data
-  value_t *out_dists, *out_dists_ref;
+  rmm::device_uvector<value_t> out_dists, out_dists_ref;
 
   SparseDistanceInputs<value_idx, value_t> params;
   raft::sparse::distance::distances_config_t<value_idx, value_t> dist_config;

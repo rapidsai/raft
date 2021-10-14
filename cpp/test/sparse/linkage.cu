@@ -153,23 +153,23 @@ template <typename T, typename IdxT>
 
 template <typename T, typename IdxT>
 class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
+ public:
+  LinkageTest()
+    : params(::testing::TestWithParam<LinkageInputs<T, IdxT>>::GetParam()),
+      stream(handle.get_stream()),
+      labels(params.n_row, stream),
+      labels_ref(params.n_row, stream) {}
+
  protected:
   void basicTest() {
-    CUDA_CHECK(cudaStreamCreate(&stream));
-
-    params = ::testing::TestWithParam<LinkageInputs<T, IdxT>>::GetParam();
-
     rmm::device_uvector<T> data(params.n_row * params.n_col, stream);
 
-    // Allocate result labels and expected labels on device
-    raft::allocate(labels, params.n_row, stream);
-    raft::allocate(labels_ref, params.n_row, stream);
-
     raft::copy(data.data(), params.data.data(), data.size(), stream);
-    raft::copy(labels_ref, params.expected_labels.data(), params.n_row, stream);
+    raft::copy(labels_ref.data(), params.expected_labels.data(), params.n_row,
+               stream);
 
     raft::hierarchy::linkage_output<IdxT, T> out_arrs;
-    out_arrs.labels = labels;
+    out_arrs.labels = labels.data();
 
     rmm::device_uvector<IdxT> out_children(params.n_row * 2, stream);
 
@@ -182,23 +182,21 @@ class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
       raft::distance::DistanceType::L2SqrtExpanded, &out_arrs, params.c,
       params.n_clusters);
 
-    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+    CUDA_CHECK(cudaStreamSynchronize(stream));
 
-    score = compute_rand_index(labels, labels_ref, params.n_row, stream);
+    score = compute_rand_index(labels.data(), labels_ref.data(), params.n_row,
+                               stream);
   }
 
   void SetUp() override { basicTest(); }
 
-  void TearDown() override {
-    raft::deallocate_all(stream);
-    CUDA_CHECK(cudaStreamDestroy(stream));
-  }
-
  protected:
-  LinkageInputs<T, IdxT> params;
-  IdxT *labels, *labels_ref;
-  double score;
+  raft::handle_t handle;
   cudaStream_t stream;
+
+  LinkageInputs<T, IdxT> params;
+  rmm::device_uvector<IdxT> labels, labels_ref;
+  double score;
 };
 
 const std::vector<LinkageInputs<float, int>> linkage_inputsf2 = {
