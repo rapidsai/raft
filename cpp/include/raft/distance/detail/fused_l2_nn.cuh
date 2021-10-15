@@ -78,6 +78,14 @@ __global__ void initKernel(OutT* min, IdxT m, DataT maxVal, ReduceOpT redOp) {
   }
 }
 
+template <typename DataT, typename OutT, typename IdxT, typename ReduceOpT>
+void initialize(OutT* min, IdxT m, DataT maxVal, ReduceOpT redOp,
+                cudaStream_t stream) {
+  auto blks = raft::ceildiv(m, 256);
+  initKernel<DataT, OutT, IdxT>
+    <<<blks, 256, 0, stream>>>(min, m, maxVal, redOp);
+}
+
 // TODO: specialize this function for MinAndDistanceReduceOp<int, float>
 // with atomicCAS of 64 bit which will eliminate mutex and shfls
 template <typename P, typename OutT, typename IdxT, typename KVPair,

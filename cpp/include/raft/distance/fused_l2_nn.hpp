@@ -21,6 +21,7 @@
 #include <limits>
 #include <raft/cuda_utils.cuh>
 #include <raft/distance/detail/fused_l2_nn.cuh>
+#include <raft/handle.hpp>
 
 namespace raft {
 namespace distance {
@@ -34,6 +35,16 @@ using MinAndDistanceReduceOp =
 
 template <typename LabelT, typename DataT>
 using MinReduceOp = detail::MinReduceOpImpl<LabelT, DataT>;
+
+/**
+ * Initialize array using init value from reduction op
+ */
+template <typename DataT, typename OutT, typename IdxT, typename ReduceOpT>
+void initialize(const raft::handle_t& handle, OutT* min, IdxT m, DataT maxVal,
+                ReduceOpT redOp) {
+  detail::initialize<DataT, OutT, IdxT, ReduceOpT>(min, m, maxVal, redOp,
+                                                   handle.get_stream());
+}
 
 /**
  * @brief Fused L2 distance and 1-nearest-neighbor computation in a single call.
