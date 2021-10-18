@@ -73,35 +73,16 @@ class ScalarMultiplyTest
     raft::random::Rng r(params.seed);
     int len = params.len;
     T scalar = params.scalar;
-<<<<<<< HEAD
-
-    auto stream = handle.get_stream() raft::allocate(in, len, stream);
-    raft::allocate(out_ref, len, stream);
-    raft::allocate(out, len, stream);
-    r.uniform(in, len, T(-1.0), T(1.0), stream);
-    naiveScale(out_ref, in, scalar, len, stream);
-    scalarMultiply(out, in, scalar, len, stream);
-  }
-
-  void TearDown() override {
-    CUDA_CHECK(cudaFree(in));
-    CUDA_CHECK(cudaFree(out_ref));
-    CUDA_CHECK(cudaFree(out));
-=======
     r.uniform(in, len, T(-1.0), T(1.0), stream);
     naiveScale(out_ref, in, scalar, len, stream);
     scalarMultiply(out, in, scalar, len, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
->>>>>>> a45219262fcb99a8dd6fcd49e1e34be351e664a0
   }
 
  protected:
   raft::handle_t handle;
-<<<<<<< HEAD
-=======
   cudaStream_t stream;
 
->>>>>>> a45219262fcb99a8dd6fcd49e1e34be351e664a0
   ScalarMultiplyInputs<T> params;
   rmm::device_uvector<T> in, out_ref, out;
 };
@@ -114,26 +95,14 @@ const std::vector<ScalarMultiplyInputs<double>> inputsd1 = {
 
 typedef ScalarMultiplyTest<float> ScalarMultiplyTestF;
 TEST_P(ScalarMultiplyTestF, Result) {
-<<<<<<< HEAD
-  ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
-                          CompareApprox<float>(params.tolerance),
-                          handle.get_stream()));
-=======
   ASSERT_TRUE(devArrMatch(out_ref.data(), out.data(), params.len,
-                          CompareApprox<float>(params.tolerance)));
->>>>>>> a45219262fcb99a8dd6fcd49e1e34be351e664a0
+                          CompareApprox<float>(params.tolerance), stream));
 }
 
 typedef ScalarMultiplyTest<double> ScalarMultiplyTestD;
 TEST_P(ScalarMultiplyTestD, Result) {
-<<<<<<< HEAD
-  ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
-                          CompareApprox<double>(params.tolerance),
-                          handle.get_stream()));
-=======
   ASSERT_TRUE(devArrMatch(out_ref.data(), out.data(), params.len,
-                          CompareApprox<double>(params.tolerance)));
->>>>>>> a45219262fcb99a8dd6fcd49e1e34be351e664a0
+                          CompareApprox<double>(params.tolerance), stream));
 }
 
 INSTANTIATE_TEST_SUITE_P(ScalarMultiplyTests, ScalarMultiplyTestF,
