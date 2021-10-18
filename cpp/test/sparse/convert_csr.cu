@@ -63,31 +63,28 @@ TEST_P(SortedCOOToCSR, Result) {
 
   int nnz = 8;
 
-  int *in, *out, *exp;
-
   int *in_h = new int[nnz]{0, 0, 1, 1, 2, 2, 3, 3};
   int *exp_h = new int[4]{0, 2, 4, 6};
 
-  raft::allocate(in, nnz, stream, true);
-  raft::allocate(exp, 4, stream, true);
-  raft::allocate(out, 4, stream, true);
+  rmm::device_uvector<int> in(nnz, stream);
+  rmm::device_uvector<int> exp(4, stream);
+  rmm::device_uvector<int> out(4, stream);
+  CUDA_CHECK(cudaMemsetAsync(in.data(), 0, in.size() * sizeof(int), stream));
+  CUDA_CHECK(cudaMemsetAsync(exp.data(), 0, exp.size() * sizeof(int), stream));
+  CUDA_CHECK(cudaMemsetAsync(out.data(), 0, out.size() * sizeof(int), stream));
 
-  raft::update_device(in, in_h, nnz, stream);
-  raft::update_device(exp, exp_h, 4, stream);
+  raft::update_device(in.data(), in_h, nnz, stream);
+  raft::update_device(exp.data(), exp_h, 4, stream);
 
-  convert::sorted_coo_to_csr<int>(in, nnz, out, 4, stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  convert::sorted_coo_to_csr<int>(in.data(), nnz, out.data(), 4, stream);
 
-  ASSERT_TRUE(raft::devArrMatch<int>(out, exp, 4, raft::Compare<int>()));
+  ASSERT_TRUE(raft::devArrMatch<int>(out.data(), exp.data(), 4,
+                                     raft::Compare<int>(), stream));
 
   cudaStreamDestroy(stream);
 
   delete[] in_h;
   delete[] exp_h;
-
-  CUDA_CHECK(cudaFree(in));
-  CUDA_CHECK(cudaFree(exp));
-  CUDA_CHECK(cudaFree(out));
 }
 
 INSTANTIATE_TEST_CASE_P(SparseConvertCSRTest, SortedCOOToCSR,
@@ -107,42 +104,41 @@ struct CSRAdjGraphInputs {
 template <typename Index_>
 class CSRAdjGraphTest
   : public ::testing::TestWithParam<CSRAdjGraphInputs<Index_>> {
- protected:
-  void SetUp() override {
-    params = ::testing::TestWithParam<CSRAdjGraphInputs<Index_>>::GetParam();
-    cudaStreamCreate(&stream);
-    nnz = params.verify.size();
+ public:
+  CSRAdjGraphTest()
+    : params(::testing::TestWithParam<CSRAdjGraphInputs<Index_>>::GetParam()),
+      stream(handle.get_stream()),
+      row_ind(params.n_rows, stream),
+      adj(params.n_rows * params.n_cols, stream),
+      result(params.verify.size(), stream),
+      verify(params.verify.size(), stream) {}
 
-    raft::allocate(row_ind, params.n_rows, stream);
-    raft::allocate(adj, params.n_rows * params.n_cols, stream);
-    raft::allocate(result, nnz, stream, true);
-    raft::allocate(verify, nnz, stream);
-  }
+ protected:
+  void SetUp() override { nnz = params.verify.size(); }
 
   void Run() {
-    raft::update_device(row_ind, params.row_ind.data(), params.n_rows, stream);
-    raft::update_device(adj, reinterpret_cast<bool *>(params.adj.data()),
+    raft::update_device(row_ind.data(), params.row_ind.data(), params.n_rows,
+                        stream);
+    raft::update_device(adj.data(), reinterpret_cast<bool *>(params.adj.data()),
                         params.n_rows * params.n_cols, stream);
-    raft::update_device(verify, params.verify.data(), nnz, stream);
+    raft::update_device(verify.data(), params.verify.data(), nnz, stream);
 
-    convert::csr_adj_graph_batched<Index_, 32>(
-      row_ind, params.n_cols, nnz, params.n_rows, adj, result, stream);
+    convert::csr_adj_graph_batched<Index_, 32>(row_ind.data(), params.n_cols,
+                                               nnz, params.n_rows, adj.data(),
+                                               result.data(), stream);
 
-    ASSERT_TRUE(
-      raft::devArrMatch<Index_>(verify, result, nnz, raft::Compare<Index_>()));
-  }
-
-  void TearDown() override {
-    raft::deallocate_all(stream);
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    ASSERT_TRUE(raft::devArrMatch<Index_>(verify.data(), result.data(), nnz,
+                                          raft::Compare<Index_>()));
   }
 
  protected:
-  CSRAdjGraphInputs<Index_> params;
+  raft::handle_t handle;
   cudaStream_t stream;
+
+  CSRAdjGraphInputs<Index_> params;
   Index_ nnz;
-  Index_ *row_ind, *result, *verify;
-  bool *adj;
+  rmm::device_uvector<Index_> row_ind, result, verify;
+  rmm::device_uvector<bool> adj;
 };
 
 using CSRAdjGraphTestI = CSRAdjGraphTest<int>;

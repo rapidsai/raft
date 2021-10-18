@@ -38,7 +38,7 @@ typedef DistanceEucExpTest<float> DistanceEucExpTestF;
 TEST_P(DistanceEucExpTestF, Result) {
   int m = params.isRowMajor ? params.m : params.n;
   int n = params.isRowMajor ? params.n : params.m;
-  ASSERT_TRUE(devArrMatch(dist_ref, dist, m, n,
+  ASSERT_TRUE(devArrMatch(dist_ref.data(), dist.data(), m, n,
                           raft::CompareApprox<float>(params.tolerance),
                           stream));
 }
@@ -59,7 +59,7 @@ typedef DistanceEucExpTest<double> DistanceEucExpTestD;
 TEST_P(DistanceEucExpTestD, Result) {
   int m = params.isRowMajor ? params.m : params.n;
   int n = params.isRowMajor ? params.n : params.m;
-  ASSERT_TRUE(devArrMatch(dist_ref, dist, m, n,
+  ASSERT_TRUE(devArrMatch(dist_ref.data(), dist.data(), m, n,
                           raft::CompareApprox<double>(params.tolerance),
                           stream));
 }

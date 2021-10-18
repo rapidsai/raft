@@ -74,38 +74,38 @@ template <typename T>
 
 template <typename T>
 class SubtractTest : public ::testing::TestWithParam<SubtractInputs<T>> {
+ public:
+  SubtractTest()
+    : params(::testing::TestWithParam<SubtractInputs<T>>::GetParam()),
+      stream(handle.get_stream()),
+      in1(params.len, stream),
+      in2(params.len, stream),
+      out_ref(params.len, stream),
+      out(params.len, stream) {}
+
  protected:
   void SetUp() override {
-    params = ::testing::TestWithParam<SubtractInputs<T>>::GetParam();
     raft::random::Rng r(params.seed);
     int len = params.len;
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    raft::allocate(in1, len, stream);
-    raft::allocate(in2, len, stream);
-    raft::allocate(out_ref, len, stream);
-    raft::allocate(out, len, stream);
-    r.uniform(in1, len, T(-1.0), T(1.0), stream);
-    r.uniform(in2, len, T(-1.0), T(1.0), stream);
+    r.uniform(in1.data(), len, T(-1.0), T(1.0), stream);
+    r.uniform(in2.data(), len, T(-1.0), T(1.0), stream);
 
-    naiveSubtractElem(out_ref, in1, in2, len, stream);
-    naiveSubtractScalar(out_ref, out_ref, T(1), len, stream);
+    naiveSubtractElem(out_ref.data(), in1.data(), in2.data(), len, stream);
+    naiveSubtractScalar(out_ref.data(), out_ref.data(), T(1), len, stream);
 
-    subtract(out, in1, in2, len, stream);
-    subtractScalar(out, out, T(1), len, stream);
-    subtract(in1, in1, in2, len, stream);
-    subtractScalar(in1, in1, T(1), len, stream);
+    subtract(out.data(), in1.data(), in2.data(), len, stream);
+    subtractScalar(out.data(), out.data(), T(1), len, stream);
+    subtract(in1.data(), in1.data(), in2.data(), len, stream);
+    subtractScalar(in1.data(), in1.data(), T(1), len, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
-  void TearDown() override {
-    raft::deallocate_all(stream);
-    CUDA_CHECK(cudaStreamDestroy(stream));
-  }
-
  protected:
-  SubtractInputs<T> params;
-  T *in1, *in2, *out_ref, *out;
+  raft::handle_t handle;
   cudaStream_t stream;
+
+  SubtractInputs<T> params;
+  rmm::device_uvector<T> in1, in2, out_ref, out;
 };
 
 const std::vector<SubtractInputs<float>> inputsf2 = {
@@ -116,19 +116,19 @@ const std::vector<SubtractInputs<double>> inputsd2 = {
 
 typedef SubtractTest<float> SubtractTestF;
 TEST_P(SubtractTestF, Result) {
-  ASSERT_TRUE(raft::devArrMatch(out_ref, out, params.len,
+  ASSERT_TRUE(raft::devArrMatch(out_ref.data(), out.data(), params.len,
                                 raft::CompareApprox<float>(params.tolerance)));
 
-  ASSERT_TRUE(raft::devArrMatch(out_ref, in1, params.len,
+  ASSERT_TRUE(raft::devArrMatch(out_ref.data(), in1.data(), params.len,
                                 raft::CompareApprox<float>(params.tolerance)));
 }
 
 typedef SubtractTest<double> SubtractTestD;
 TEST_P(SubtractTestD, Result) {
-  ASSERT_TRUE(raft::devArrMatch(out_ref, out, params.len,
+  ASSERT_TRUE(raft::devArrMatch(out_ref.data(), out.data(), params.len,
                                 raft::CompareApprox<double>(params.tolerance)));
 
-  ASSERT_TRUE(raft::devArrMatch(out_ref, in1, params.len,
+  ASSERT_TRUE(raft::devArrMatch(out_ref.data(), in1.data(), params.len,
                                 raft::CompareApprox<double>(params.tolerance)));
 }
 

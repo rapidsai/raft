@@ -41,34 +41,34 @@ void stridedReductionLaunch(T *dots, const T *data, int cols, int rows,
 template <typename T>
 class stridedReductionTest
   : public ::testing::TestWithParam<stridedReductionInputs<T>> {
+ public:
+  stridedReductionTest()
+    : params(::testing::TestWithParam<stridedReductionInputs<T>>::GetParam()),
+      stream(handle.get_stream()),
+      data(params.rows * params.cols, stream),
+      dots_exp(params.cols, stream),  // expected dot products (from test)
+      dots_act(params.cols, stream)   // actual dot products (from prim)
+  {}
+
  protected:
   void SetUp() override {
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    params = ::testing::TestWithParam<stridedReductionInputs<T>>::GetParam();
     raft::random::Rng r(params.seed);
     int rows = params.rows, cols = params.cols;
     int len = rows * cols;
-
-    raft::allocate(data, len, stream);
-    raft::allocate(dots_exp, cols, stream);  //expected dot products (from test)
-    raft::allocate(dots_act, cols, stream);  //actual dot products (from prim)
-    r.uniform(data, len, T(-1.0), T(1.0),
+    r.uniform(data.data(), len, T(-1.0), T(1.0),
               stream);  //initialize matrix to random
 
-    unaryAndGemv(dots_exp, data, cols, rows, stream);
-    stridedReductionLaunch(dots_act, data, cols, rows, stream);
+    unaryAndGemv(dots_exp.data(), data.data(), cols, rows, stream);
+    stridedReductionLaunch(dots_act.data(), data.data(), cols, rows, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
-  void TearDown() override {
-    raft::deallocate_all(stream);
-    CUDA_CHECK(cudaStreamDestroy(stream));
-  }
-
  protected:
-  stridedReductionInputs<T> params;
-  T *data, *dots_exp, *dots_act;
+  raft::handle_t handle;
   cudaStream_t stream;
+
+  stridedReductionInputs<T> params;
+  rmm::device_uvector<T> data, dots_exp, dots_act;
 };
 
 const std::vector<stridedReductionInputs<float>> inputsf = {
@@ -85,13 +85,13 @@ const std::vector<stridedReductionInputs<double>> inputsd = {
 
 typedef stridedReductionTest<float> stridedReductionTestF;
 TEST_P(stridedReductionTestF, Result) {
-  ASSERT_TRUE(devArrMatch(dots_exp, dots_act, params.cols,
+  ASSERT_TRUE(devArrMatch(dots_exp.data(), dots_act.data(), params.cols,
                           raft::CompareApprox<float>(params.tolerance)));
 }
 
 typedef stridedReductionTest<double> stridedReductionTestD;
 TEST_P(stridedReductionTestD, Result) {
-  ASSERT_TRUE(devArrMatch(dots_exp, dots_act, params.cols,
+  ASSERT_TRUE(devArrMatch(dots_exp.data(), dots_act.data(), params.cols,
                           raft::CompareApprox<double>(params.tolerance)));
 }
 

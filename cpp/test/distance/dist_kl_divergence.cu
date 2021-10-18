@@ -39,7 +39,7 @@ typedef DistanceKLDivergence<float> DistanceKLDivergenceF;
 TEST_P(DistanceKLDivergenceF, Result) {
   int m = params.isRowMajor ? params.m : params.n;
   int n = params.isRowMajor ? params.n : params.m;
-  ASSERT_TRUE(raft::devArrMatch(dist_ref, dist, m, n,
+  ASSERT_TRUE(raft::devArrMatch(dist_ref.data(), dist.data(), m, n,
                                 raft::CompareApprox<float>(params.tolerance),
                                 stream));
 }
@@ -60,7 +60,7 @@ typedef DistanceKLDivergence<double> DistanceKLDivergenceD;
 TEST_P(DistanceKLDivergenceD, Result) {
   int m = params.isRowMajor ? params.m : params.n;
   int n = params.isRowMajor ? params.n : params.m;
-  ASSERT_TRUE(raft::devArrMatch(dist_ref, dist, m, n,
+  ASSERT_TRUE(raft::devArrMatch(dist_ref.data(), dist.data(), m, n,
                                 raft::CompareApprox<double>(params.tolerance),
                                 stream));
 }
