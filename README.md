@@ -6,12 +6,11 @@ RAFT is a library containing shared formats, primitives, and utilities that acce
 | --- | --- |
 | **Data Formats** | tensor representations and conversions for both sparse and dense formats |
 | **Data Generation** | graph, spatial, and machine learning dataset generation |
-| **Dense Matrix Operations** | linear algebra, statistics, model evaluation scores |
-| **Sparse Matrix Operations** | linear algebra, statistics, slicing |
-| **Graph** | spanning tree, spectral clustering, single-linkage clustering, vertex degree |
-| **Spatial** | spatial distances, nearest neighbors, neighborhood / proximity graph construction |
-| **Solvers** | eigenvalue decomposition, svd, lanczos |
-| **Communicator** | UCX/NCCL communications abstraction and Python integration w/ Dask |
+| **Dense Operations** | linear algebra, statistics, model evaluation scores |
+| **Distance** | pairwise distances, nearest neighbors, neighborhood / proximity graph construction |
+| **Sparse/Graph Operations** | linear algebra, statistics, slicing, msf, spectral embedding/clustering, slhc, vertex degree |
+| **Solvers** | cusolver wrappers, quasi-newton, coordinate descent, stochastic gradient descent, lanczos |
+| **Tools** | communicator, utilities |
 
 By taking a primitives-based approach to algorithm development, RAFT accelerates algorithm construction time and reduces
 the maintenance burden by maximizing reuse across projects. RAFT relies on the [RAPIDS memory manager (RMM)](https://github.com/rapidsai/rmm) which, 
