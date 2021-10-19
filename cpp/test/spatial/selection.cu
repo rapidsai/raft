@@ -53,75 +53,78 @@ template <typename value_idx, typename value_t>
 template <typename value_idx, typename value_t>
 class SparseSelectionTest
   : public ::testing::TestWithParam<SparseSelectionInputs<value_idx, value_t>> {
+ public:
+  SparseSelectionTest()
+    : params(::testing::TestWithParam<
+             SparseSelectionInputs<value_idx, value_t>>::GetParam()),
+      stream(handle.get_stream()),
+      dists(0, stream),
+      inds(0, stream),
+      out_indices_ref(0, stream),
+      out_dists_ref(0, stream),
+      out_dists(0, stream),
+      out_indices(0, stream) {}
+
  protected:
   void make_data() {
     std::vector<value_t> dists_h = params.dists_h;
 
-    raft::allocate(dists, n_rows * n_cols, stream);
-    update_device(dists, dists_h.data(), dists_h.size(), stream);
+    dists.resize(n_rows * n_cols, stream);
+    inds.resize(n_rows * n_cols, stream);
+    out_dists.resize(n_rows * k, stream);
+    out_indices.resize(n_rows * k, stream);
 
-    raft::allocate(inds, n_rows * n_cols, stream);
-    iota_fill(inds, n_rows, n_cols, stream);
+    update_device(dists.data(), dists_h.data(), dists_h.size(), stream);
+    iota_fill(inds.data(), n_rows, n_cols, stream);
 
     std::vector<value_t> out_dists_ref_h = params.out_dists_ref_h;
     std::vector<value_idx> out_indices_ref_h = params.out_indices_ref_h;
+    out_indices_ref.resize(out_indices_ref_h.size(), stream);
+    out_dists_ref.resize(out_dists_ref_h.size(), stream);
 
-    raft::allocate(out_indices_ref, out_indices_ref_h.size(), stream);
-    raft::allocate(out_dists_ref, out_dists_ref_h.size(), stream);
-
-    update_device(out_indices_ref, out_indices_ref_h.data(),
+    update_device(out_indices_ref.data(), out_indices_ref_h.data(),
                   out_indices_ref_h.size(), stream);
-    update_device(out_dists_ref, out_dists_ref_h.data(), out_dists_ref_h.size(),
-                  stream);
-
-    raft::allocate(out_dists, n_rows * k, stream);
-    raft::allocate(out_indices, n_rows * k, stream);
+    update_device(out_dists_ref.data(), out_dists_ref_h.data(),
+                  out_dists_ref_h.size(), stream);
   }
 
   void SetUp() override {
-    params = ::testing::TestWithParam<
-      SparseSelectionInputs<value_idx, value_t>>::GetParam();
-    CUDA_CHECK(cudaStreamCreate(&stream));
-
     n_rows = params.n_rows;
     n_cols = params.n_cols;
     k = params.k;
 
     make_data();
 
-    raft::spatial::knn::select_k(dists, inds, n_rows, n_cols, out_dists,
-                                 out_indices, params.select_min, k, stream);
+    raft::spatial::knn::select_k(dists.data(), inds.data(), n_rows, n_cols,
+                                 out_dists.data(), out_indices.data(),
+                                 params.select_min, k, stream);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
-  void TearDown() override {
-    raft::deallocate_all(stream);
-    CUDA_CHECK(cudaStreamDestroy(stream));
-  }
-
   void compare() {
-    ASSERT_TRUE(
-      devArrMatch(out_dists_ref, out_dists, n_rows * k, Compare<value_t>()));
-    ASSERT_TRUE(devArrMatch(out_indices_ref, out_indices, n_rows * k,
-                            Compare<value_idx>()));
+    ASSERT_TRUE(devArrMatch(out_dists_ref.data(), out_dists.data(), n_rows * k,
+                            Compare<value_t>()));
+    ASSERT_TRUE(devArrMatch(out_indices_ref.data(), out_indices.data(),
+                            n_rows * k, Compare<value_idx>()));
   }
 
  protected:
+  raft::handle_t handle;
   cudaStream_t stream;
 
   int n_rows, n_cols, k;
 
   // input data
-  value_t *dists;
-  value_idx *inds;
+  rmm::device_uvector<value_t> dists;
+  rmm::device_uvector<value_idx> inds;
 
   // output data
-  value_idx *out_indices;
-  value_t *out_dists;
+  rmm::device_uvector<value_idx> out_indices;
+  rmm::device_uvector<value_t> out_dists;
 
-  value_idx *out_indices_ref;
-  value_t *out_dists_ref;
+  rmm::device_uvector<value_idx> out_indices_ref;
+  rmm::device_uvector<value_t> out_dists_ref;
 
   SparseSelectionInputs<value_idx, value_t> params;
 };

@@ -81,56 +81,57 @@ template <typename T>
 
 template <typename T>
 class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
+ public:
+  RngTest()
+    : params(::testing::TestWithParam<RngInputs<T>>::GetParam()),
+      stream(handle.get_stream()),
+      data(0, stream),
+      stats(2, stream) {
+    data.resize(params.len, stream);
+    CUDA_CHECK(cudaMemsetAsync(stats.data(), 0, 2 * sizeof(T), stream));
+  }
+
  protected:
   void SetUp() override {
     // Tests are configured with their expected test-values sigma. For example,
     // 4 x sigma indicates the test shouldn't fail 99.9% of the time.
     num_sigma = 10;
-    params = ::testing::TestWithParam<RngInputs<T>>::GetParam();
-    CUDA_CHECK(cudaStreamCreate(&stream));
     Rng r(params.seed, params.gtype);
-    raft::allocate(data, params.len, stream);
-    raft::allocate(stats, 2, stream, true);
     switch (params.type) {
       case RNG_Normal:
-        r.normal(data, params.len, params.start, params.end, stream);
+        r.normal(data.data(), params.len, params.start, params.end, stream);
         break;
       case RNG_LogNormal:
-        r.lognormal(data, params.len, params.start, params.end, stream);
+        r.lognormal(data.data(), params.len, params.start, params.end, stream);
         break;
       case RNG_Uniform:
-        r.uniform(data, params.len, params.start, params.end, stream);
+        r.uniform(data.data(), params.len, params.start, params.end, stream);
         break;
       case RNG_Gumbel:
-        r.gumbel(data, params.len, params.start, params.end, stream);
+        r.gumbel(data.data(), params.len, params.start, params.end, stream);
         break;
       case RNG_Logistic:
-        r.logistic(data, params.len, params.start, params.end, stream);
+        r.logistic(data.data(), params.len, params.start, params.end, stream);
         break;
       case RNG_Exp:
-        r.exponential(data, params.len, params.start, stream);
+        r.exponential(data.data(), params.len, params.start, stream);
         break;
       case RNG_Rayleigh:
-        r.rayleigh(data, params.len, params.start, stream);
+        r.rayleigh(data.data(), params.len, params.start, stream);
         break;
       case RNG_Laplace:
-        r.laplace(data, params.len, params.start, params.end, stream);
+        r.laplace(data.data(), params.len, params.start, params.end, stream);
         break;
     };
     static const int threads = 128;
     meanKernel<T, threads>
-      <<<raft::ceildiv(params.len, threads), threads, 0, stream>>>(stats, data,
-                                                                   params.len);
-    update_host<T>(h_stats, stats, 2, stream);
+      <<<raft::ceildiv(params.len, threads), threads, 0, stream>>>(
+        stats.data(), data.data(), params.len);
+    update_host<T>(h_stats, stats.data(), 2, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     h_stats[0] /= params.len;
     h_stats[1] = (h_stats[1] / params.len) - (h_stats[0] * h_stats[0]);
     CUDA_CHECK(cudaStreamSynchronize(stream));
-  }
-
-  void TearDown() override {
-    raft::deallocate_all(stream);
-    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
   void getExpectedMeanVar(T meanvar[2]) {
@@ -179,11 +180,13 @@ class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
   }
 
  protected:
+  raft::handle_t handle;
+  cudaStream_t stream;
+
   RngInputs<T> params;
-  T *data, *stats;
+  rmm::device_uvector<T> data, stats;
   T h_stats[2];  // mean, var
   int num_sigma;
-  cudaStream_t stream;
 };
 
 // The measured mean and standard deviation for each tested distribution are,
@@ -377,30 +380,29 @@ TEST(Rng, MeanError) {
   int seed = time_struct.millitm;
   int num_samples = 1024;
   int num_experiments = 1024;
-  float* data;
-  float* mean_result;
-  float* std_result;
   int len = num_samples * num_experiments;
 
   cudaStream_t stream;
   CUDA_CHECK(cudaStreamCreate(&stream));
 
-  raft::allocate(data, len, stream);
-  raft::allocate(mean_result, num_experiments, stream);
-  raft::allocate(std_result, num_experiments, stream);
+  rmm::device_uvector<float> data(len, stream);
+  rmm::device_uvector<float> mean_result(num_experiments, stream);
+  rmm::device_uvector<float> std_result(num_experiments, stream);
 
   for (auto rtype : {GenPhilox, GenKiss99 /*, raft::random::GenTaps */}) {
     Rng r(seed, rtype);
-    r.normal(data, len, 3.3f, 0.23f, stream);
+    r.normal(data.data(), len, 3.3f, 0.23f, stream);
     // r.uniform(data, len, -1.0, 2.0);
-    raft::stats::mean(mean_result, data, num_samples, num_experiments, false,
-                      false, stream);
-    raft::stats::stddev(std_result, data, mean_result, num_samples,
-                        num_experiments, false, false, stream);
+    raft::stats::mean(mean_result.data(), data.data(), num_samples,
+                      num_experiments, false, false, stream);
+    raft::stats::stddev(std_result.data(), data.data(), mean_result.data(),
+                        num_samples, num_experiments, false, false, stream);
     std::vector<float> h_mean_result(num_experiments);
     std::vector<float> h_std_result(num_experiments);
-    update_host(h_mean_result.data(), mean_result, num_experiments, stream);
-    update_host(h_std_result.data(), std_result, num_experiments, stream);
+    update_host(h_mean_result.data(), mean_result.data(), num_experiments,
+                stream);
+    update_host(h_std_result.data(), std_result.data(), num_experiments,
+                stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     auto d_mean = quick_mean(h_mean_result);
 
@@ -418,7 +420,6 @@ TEST(Rng, MeanError) {
     ASSERT_TRUE(
       (diff_expected_vs_measured_mean_error / d_std_of_mean_analytical < 0.5));
   }
-  raft::deallocate_all(stream);
   CUDA_CHECK(cudaStreamDestroy(stream));
 
   // std::cout << "mean_res:" << h_mean_result << "\n";
@@ -426,29 +427,29 @@ TEST(Rng, MeanError) {
 
 template <typename T, int len, int scale>
 class ScaledBernoulliTest : public ::testing::Test {
+ public:
+  ScaledBernoulliTest() : stream(handle.get_stream()), data(len, stream) {}
+
  protected:
   void SetUp() override {
     CUDA_CHECK(cudaStreamCreate(&stream));
-
     Rng r(42);
-
-    raft::allocate(data, len * sizeof(T), stream);
-    r.scaled_bernoulli(data, len, T(0.5), T(scale), stream);
+    r.scaled_bernoulli(data.data(), len, T(0.5), T(scale), stream);
   }
-
-  void TearDown() override { CUDA_CHECK(cudaFree(data)); }
 
   void rangeCheck() {
     T* h_data = new T[len];
-    update_host(h_data, data, len, stream);
+    update_host(h_data, data.data(), len, stream);
     ASSERT_TRUE(std::none_of(h_data, h_data + len, [](const T& a) {
       return a < -scale || a > scale;
     }));
     delete[] h_data;
   }
 
-  T* data;
+  raft::handle_t handle;
   cudaStream_t stream;
+
+  rmm::device_uvector<T> data;
 };
 
 typedef ScaledBernoulliTest<float, 500, 35> ScaledBernoulliTest1;
@@ -459,27 +460,29 @@ TEST_F(ScaledBernoulliTest2, RangeCheck) { rangeCheck(); }
 
 template <typename T, int len>
 class BernoulliTest : public ::testing::Test {
+ public:
+  BernoulliTest() : stream(handle.get_stream()), data(len, stream) {}
+
  protected:
   void SetUp() override {
-    CUDA_CHECK(cudaStreamCreate(&stream));
     Rng r(42);
-    raft::allocate(data, len * sizeof(bool), stream);
-    r.bernoulli(data, len, T(0.5), stream);
+    r.bernoulli(data.data(), len, T(0.5), stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
-
-  void TearDown() override { CUDA_CHECK(cudaFree(data)); }
 
   void trueFalseCheck() {
     // both true and false values must be present
     bool* h_data = new bool[len];
-    update_host(h_data, data, len, stream);
+    update_host(h_data, data.data(), len, stream);
     ASSERT_TRUE(std::any_of(h_data, h_data + len, [](bool a) { return a; }));
     ASSERT_TRUE(std::any_of(h_data, h_data + len, [](bool a) { return !a; }));
     delete[] h_data;
   }
 
-  bool* data;
+  raft::handle_t handle;
   cudaStream_t stream;
+
+  rmm::device_uvector<bool> data;
 };
 
 typedef BernoulliTest<float, 1000> BernoulliTest1;
@@ -507,36 +510,35 @@ template <typename T>
 template <typename T>
 class RngNormalTableTest
   : public ::testing::TestWithParam<RngNormalTableInputs<T>> {
+ public:
+  RngNormalTableTest()
+    : params(::testing::TestWithParam<RngNormalTableInputs<T>>::GetParam()),
+      stream(handle.get_stream()),
+      data(params.rows * params.cols, stream),
+      stats(2, stream),
+      mu_vec(params.cols, stream) {
+    CUDA_CHECK(cudaMemsetAsync(stats.data(), 0, 2 * sizeof(T), stream));
+  }
+
  protected:
   void SetUp() override {
     // Tests are configured with their expected test-values sigma. For example,
     // 4 x sigma indicates the test shouldn't fail 99.9% of the time.
     num_sigma = 10;
-    params = ::testing::TestWithParam<RngNormalTableInputs<T>>::GetParam();
     int len = params.rows * params.cols;
-
-    CUDA_CHECK(cudaStreamCreate(&stream));
     Rng r(params.seed, params.gtype);
-    raft::allocate(data, len, stream);
-    raft::allocate(stats, 2, stream, true);
-    raft::allocate(mu_vec, params.cols, stream);
-    r.fill(mu_vec, params.cols, params.mu, stream);
+    r.fill(mu_vec.data(), params.cols, params.mu, stream);
     T* sigma_vec = nullptr;
-    r.normalTable(data, params.rows, params.cols, mu_vec, sigma_vec,
-                  params.sigma, stream);
+    r.normalTable(data.data(), params.rows, params.cols, mu_vec.data(),
+                  sigma_vec, params.sigma, stream);
     static const int threads = 128;
-    meanKernel<T, threads>
-      <<<raft::ceildiv(len, threads), threads, 0, stream>>>(stats, data, len);
-    update_host<T>(h_stats, stats, 2, stream);
+    meanKernel<T, threads><<<raft::ceildiv(len, threads), threads, 0, stream>>>(
+      stats.data(), data.data(), len);
+    update_host<T>(h_stats, stats.data(), 2, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     h_stats[0] /= len;
     h_stats[1] = (h_stats[1] / len) - (h_stats[0] * h_stats[0]);
     CUDA_CHECK(cudaStreamSynchronize(stream));
-  }
-
-  void TearDown() override {
-    raft::deallocate_all(stream);
-    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
   void getExpectedMeanVar(T meanvar[2]) {
@@ -545,11 +547,13 @@ class RngNormalTableTest
   }
 
  protected:
+  raft::handle_t handle;
+  cudaStream_t stream;
+
   RngNormalTableInputs<T> params;
-  T *data, *stats, *mu_vec;
+  rmm::device_uvector<T> data, stats, mu_vec;
   T h_stats[2];  // mean, var
   int num_sigma;
-  cudaStream_t stream;
 };
 
 typedef RngNormalTableTest<float> RngNormalTableTestF;

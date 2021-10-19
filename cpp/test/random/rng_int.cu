@@ -67,33 +67,34 @@ template <typename T>
 
 template <typename T>
 class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
+ public:
+  RngTest()
+    : params(::testing::TestWithParam<RngInputs<T>>::GetParam()),
+      stream(handle.get_stream()),
+      data(0, stream),
+      stats(2, stream) {
+    data.resize(params.len, stream);
+    CUDA_CHECK(cudaMemsetAsync(stats.data(), 0, 2 * sizeof(float), stream));
+  }
+
  protected:
   void SetUp() override {
-    params = ::testing::TestWithParam<RngInputs<T>>::GetParam();
     Rng r(params.seed, params.gtype);
 
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    raft::allocate(data, params.len, stream);
-    raft::allocate(stats, 2, stream, true);
     switch (params.type) {
       case RNG_Uniform:
-        r.uniformInt(data, params.len, params.start, params.end, stream);
+        r.uniformInt(data.data(), params.len, params.start, params.end, stream);
         break;
     };
     static const int threads = 128;
     meanKernel<T, threads>
-      <<<raft::ceildiv(params.len, threads), threads, 0, stream>>>(stats, data,
-                                                                   params.len);
-    update_host<float>(h_stats, stats, 2, stream);
+      <<<raft::ceildiv(params.len, threads), threads, 0, stream>>>(
+        stats.data(), data.data(), params.len);
+    update_host<float>(h_stats, stats.data(), 2, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     h_stats[0] /= params.len;
     h_stats[1] = (h_stats[1] / params.len) - (h_stats[0] * h_stats[0]);
     CUDA_CHECK(cudaStreamSynchronize(stream));
-  }
-
-  void TearDown() override {
-    raft::deallocate_all(stream);
-    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
   void getExpectedMeanVar(float meanvar[2]) {
@@ -107,11 +108,13 @@ class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
   }
 
  protected:
-  RngInputs<T> params;
-  T *data;
-  float *stats;
-  float h_stats[2];  // mean, var
+  raft::handle_t handle;
   cudaStream_t stream;
+
+  RngInputs<T> params;
+  rmm::device_uvector<T> data;
+  rmm::device_uvector<float> stats;
+  float h_stats[2];  // mean, var
 };
 
 typedef RngTest<uint32_t> RngTestU32;

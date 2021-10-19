@@ -38,38 +38,37 @@ struct CSRtoCOOInputs {
 
 template <typename Index_>
 class CSRtoCOOTest : public ::testing::TestWithParam<CSRtoCOOInputs<Index_>> {
- protected:
-  void SetUp() override {
-    params = ::testing::TestWithParam<CSRtoCOOInputs<Index_>>::GetParam();
+ public:
+  CSRtoCOOTest()
+    : params(::testing::TestWithParam<CSRtoCOOInputs<Index_>>::GetParam()),
+      stream(handle.get_stream()),
+      ex_scan(params.ex_scan.size(), stream),
+      verify(params.verify.size(), stream),
+      result(params.verify.size(), stream) {}
 
-    cudaStreamCreate(&stream);
-    raft::allocate(ex_scan, params.ex_scan.size(), stream);
-    raft::allocate(verify, params.verify.size(), stream);
-    raft::allocate(result, params.verify.size(), stream, true);
-  }
+ protected:
+  void SetUp() override {}
 
   void Run() {
     Index_ n_rows = params.ex_scan.size();
     Index_ nnz = params.verify.size();
 
-    raft::update_device(ex_scan, params.ex_scan.data(), n_rows, stream);
-    raft::update_device(verify, params.verify.data(), nnz, stream);
+    raft::update_device(ex_scan.data(), params.ex_scan.data(), n_rows, stream);
+    raft::update_device(verify.data(), params.verify.data(), nnz, stream);
 
-    convert::csr_to_coo<Index_, 32>(ex_scan, n_rows, result, nnz, stream);
+    convert::csr_to_coo<Index_, 32>(ex_scan.data(), n_rows, result.data(), nnz,
+                                    stream);
 
-    ASSERT_TRUE(raft::devArrMatch<Index_>(verify, result, nnz,
+    ASSERT_TRUE(raft::devArrMatch<Index_>(verify.data(), result.data(), nnz,
                                           raft::Compare<float>(), stream));
   }
 
-  void TearDown() override {
-    raft::deallocate_all(stream);
-    CUDA_CHECK(cudaStreamDestroy(stream));
-  }
-
  protected:
-  CSRtoCOOInputs<Index_> params;
+  raft::handle_t handle;
   cudaStream_t stream;
-  Index_ *ex_scan, *verify, *result;
+
+  CSRtoCOOInputs<Index_> params;
+  rmm::device_uvector<Index_> ex_scan, verify, result;
 };
 
 using CSRtoCOOTestI = CSRtoCOOTest<int>;
