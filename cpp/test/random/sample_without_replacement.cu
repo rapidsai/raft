@@ -17,7 +17,7 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng.hpp>
 #include <set>
 #include <vector>
 #include "../test_utils.h"

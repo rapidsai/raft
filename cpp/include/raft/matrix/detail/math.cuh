@@ -46,6 +46,23 @@ __global__ void argmaxKernel(const T *d_in, int D, int N, T *argmax) {
   }
 }
 
+template <typename math_t>
+void argmax(const math_t *in, int n_rows, int n_cols, math_t *out,
+            cudaStream_t stream) {
+  int D = n_rows;
+  int N = n_cols;
+  if (D <= 32) {
+    argmaxKernel<math_t, 32><<<N, 32, 0, stream>>>(in, D, N, out);
+  } else if (D <= 64) {
+    argmaxKernel<math_t, 64><<<N, 64, 0, stream>>>(in, D, N, out);
+  } else if (D <= 128) {
+    argmaxKernel<math_t, 128><<<N, 128, 0, stream>>>(in, D, N, out);
+  } else {
+    argmaxKernel<math_t, 256><<<N, 256, 0, stream>>>(in, D, N, out);
+  }
+  CUDA_CHECK(cudaPeekAtLastError());
+}
+
 // Utility kernel needed for signFlip.
 // Computes the argmax(abs(d_in)) column-wise in a DxN matrix followed by
 // flipping the sign if the |max| value for each column is negative.
@@ -77,6 +94,23 @@ __global__ void signFlipKernel(T *d_in, int D, int N) {
       d_in[idx] = -d_in[idx];
     }
   }
+}
+
+template <typename math_t>
+void signFlip(math_t *inout, int n_rows, int n_cols, cudaStream_t stream) {
+  int D = n_rows;
+  int N = n_cols;
+  auto data = inout;
+  if (D <= 32) {
+    signFlipKernel<math_t, 32><<<N, 32, 0, stream>>>(data, D, N);
+  } else if (D <= 64) {
+    signFlipKernel<math_t, 64><<<N, 64, 0, stream>>>(data, D, N);
+  } else if (D <= 128) {
+    signFlipKernel<math_t, 128><<<N, 128, 0, stream>>>(data, D, N);
+  } else {
+    signFlipKernel<math_t, 256><<<N, 256, 0, stream>>>(data, D, N);
+  }
+  CUDA_CHECK(cudaPeekAtLastError());
 }
 
 }  // end namespace detail

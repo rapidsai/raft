@@ -16,7 +16,9 @@
 
 #pragma once
 
-#include <raft/cuda_utils.h>
+#include <raft/cuda_utils.cuh>
+#include <raft/linalg/binary_op.cuh>
+
 #include <cub/cub.cuh>
 
 namespace raft {
@@ -82,6 +84,93 @@ __global__ void varsKernelColMajor(Type *var, const Type *data, const Type *mu,
   if (threadIdx.x == 0) {
     var[blockIdx.x] = acc / N;
   }
+}
+
+/**
+ * @brief Compute stddev of the input matrix
+ *
+ * Stddev operation is assumed to be performed on a given column.
+ *
+ * @tparam Type the data type
+ * @tparam IdxType Integer type used to for addressing
+ * @param std the output stddev vector
+ * @param data the input matrix
+ * @param mu the mean vector
+ * @param D number of columns of data
+ * @param N number of rows of data
+ * @param sample whether to evaluate sample stddev or not. In other words,
+ * whether
+ *  to normalize the output using N-1 or N, for true or false, respectively
+ * @param rowMajor whether the input data is row or col major
+ * @param stream cuda stream where to launch work
+ */
+template <typename Type, typename IdxType = int>
+void stddev(Type *std, const Type *data, const Type *mu, IdxType D, IdxType N,
+            bool sample, bool rowMajor, cudaStream_t stream) {
+  static const int TPB = 256;
+  if (rowMajor) {
+    static const int RowsPerThread = 4;
+    static const int ColsPerBlk = 32;
+    static const int RowsPerBlk = (TPB / ColsPerBlk) * RowsPerThread;
+    dim3 grid(raft::ceildiv(N, (IdxType)RowsPerBlk),
+              raft::ceildiv(D, (IdxType)ColsPerBlk));
+    CUDA_CHECK(cudaMemset(std, 0, sizeof(Type) * D));
+    stddevKernelRowMajor<Type, IdxType, TPB, ColsPerBlk>
+      <<<grid, TPB, 0, stream>>>(std, data, D, N);
+    Type ratio = Type(1) / (sample ? Type(N - 1) : Type(N));
+    raft::linalg::binaryOp(
+      std, std, mu, D,
+      [ratio] __device__(Type a, Type b) {
+        return raft::mySqrt(a * ratio - b * b);
+      },
+      stream);
+  } else {
+    stddevKernelColMajor<Type, IdxType, TPB>
+      <<<D, TPB, 0, stream>>>(std, data, mu, D, N);
+  }
+  CUDA_CHECK(cudaPeekAtLastError());
+}
+
+/**
+  * @brief Compute variance of the input matrix
+  *
+  * Variance operation is assumed to be performed on a given column.
+  *
+  * @tparam Type the data type
+  * @tparam IdxType Integer type used to for addressing
+  * @param var the output stddev vector
+  * @param data the input matrix
+  * @param mu the mean vector
+  * @param D number of columns of data
+  * @param N number of rows of data
+  * @param sample whether to evaluate sample stddev or not. In other words,
+  * whether
+  *  to normalize the output using N-1 or N, for true or false, respectively
+  * @param rowMajor whether the input data is row or col major
+  * @param stream cuda stream where to launch work
+  */
+template <typename Type, typename IdxType = int>
+void vars(Type *var, const Type *data, const Type *mu, IdxType D, IdxType N,
+          bool sample, bool rowMajor, cudaStream_t stream) {
+  static const int TPB = 256;
+  if (rowMajor) {
+    static const int RowsPerThread = 4;
+    static const int ColsPerBlk = 32;
+    static const int RowsPerBlk = (TPB / ColsPerBlk) * RowsPerThread;
+    dim3 grid(raft::ceildiv(N, (IdxType)RowsPerBlk),
+              raft::ceildiv(D, (IdxType)ColsPerBlk));
+    CUDA_CHECK(cudaMemset(var, 0, sizeof(Type) * D));
+    stddevKernelRowMajor<Type, IdxType, TPB, ColsPerBlk>
+      <<<grid, TPB, 0, stream>>>(var, data, D, N);
+    Type ratio = Type(1) / (sample ? Type(N - 1) : Type(N));
+    raft::linalg::binaryOp(
+      var, var, mu, D,
+      [ratio] __device__(Type a, Type b) { return a * ratio - b * b; }, stream);
+  } else {
+    varsKernelColMajor<Type, IdxType, TPB>
+      <<<D, TPB, 0, stream>>>(var, data, mu, D, N);
+  }
+  CUDA_CHECK(cudaPeekAtLastError());
 }
 
 }  // namespace detail

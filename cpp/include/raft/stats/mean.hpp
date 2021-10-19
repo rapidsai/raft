@@ -18,9 +18,7 @@
 
 #include "detail/mean.cuh"
 
-#include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
-#include <raft/linalg/eltwise.cuh>
 
 namespace raft {
 namespace stats {
@@ -45,24 +43,7 @@ namespace stats {
 template <typename Type, typename IdxType = int>
 void mean(Type *mu, const Type *data, IdxType D, IdxType N, bool sample,
           bool rowMajor, cudaStream_t stream) {
-  static const int TPB = 256;
-  if (rowMajor) {
-    static const int RowsPerThread = 4;
-    static const int ColsPerBlk = 32;
-    static const int RowsPerBlk = (TPB / ColsPerBlk) * RowsPerThread;
-    dim3 grid(raft::ceildiv(N, (IdxType)RowsPerBlk),
-              raft::ceildiv(D, (IdxType)ColsPerBlk));
-    CUDA_CHECK(cudaMemsetAsync(mu, 0, sizeof(Type) * D, stream));
-    detail::meanKernelRowMajor<Type, IdxType, TPB, ColsPerBlk>
-      <<<grid, TPB, 0, stream>>>(mu, data, D, N);
-    CUDA_CHECK(cudaPeekAtLastError());
-    Type ratio = Type(1) / (sample ? Type(N - 1) : Type(N));
-    raft::linalg::scalarMultiply(mu, mu, ratio, D, stream);
-  } else {
-    detail::meanKernelColMajor<Type, IdxType, TPB>
-      <<<D, TPB, 0, stream>>>(mu, data, D, N);
-  }
-  CUDA_CHECK(cudaPeekAtLastError());
+  detail::mean(mu, data, D, N, sample, rowMajor, stream);
 }
 
 };  // namespace stats

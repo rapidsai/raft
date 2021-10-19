@@ -19,8 +19,6 @@
 #include "detail/sum.cuh"
 
 #include <raft/cudart_utils.h>
-#include <raft/cuda_utils.cuh>
-#include <raft/linalg/eltwise.cuh>
 
 namespace raft {
 namespace stats {
@@ -42,21 +40,7 @@ namespace stats {
 template <typename Type, typename IdxType = int>
 void sum(Type *output, const Type *input, IdxType D, IdxType N, bool rowMajor,
          cudaStream_t stream) {
-  static const int TPB = 256;
-  if (rowMajor) {
-    static const int RowsPerThread = 4;
-    static const int ColsPerBlk = 32;
-    static const int RowsPerBlk = (TPB / ColsPerBlk) * RowsPerThread;
-    dim3 grid(raft::ceildiv(N, (IdxType)RowsPerBlk),
-              raft::ceildiv(D, (IdxType)ColsPerBlk));
-    CUDA_CHECK(cudaMemset(output, 0, sizeof(Type) * D));
-    detail::sumKernelRowMajor<Type, IdxType, TPB, ColsPerBlk>
-      <<<grid, TPB, 0, stream>>>(output, input, D, N);
-  } else {
-    detail::sumKernelColMajor<Type, IdxType, TPB>
-      <<<D, TPB, 0, stream>>>(output, input, D, N);
-  }
-  CUDA_CHECK(cudaPeekAtLastError());
+  detail::sum(output, input, D, N, rowMajor, stream);
 }
 
 };  // end namespace stats

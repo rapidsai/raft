@@ -22,13 +22,9 @@
 #include <cusolverDn.h>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
-#include <thrust/execution_policy.h>
 #include <algorithm>
 #include <cstddef>
-#include <raft/cache/cache_util.cuh>
-#include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
-#include <rmm/exec_policy.hpp>
 
 namespace raft {
 namespace matrix {
@@ -54,26 +50,8 @@ template <typename m_t, typename idx_array_t = int, typename idx_t = size_t>
 void copyRows(const m_t *in, idx_t n_rows, idx_t n_cols, m_t *out,
               const idx_array_t *indices, idx_t n_rows_indices,
               cudaStream_t stream, bool rowMajor = false) {
-  if (rowMajor) {
-    const idx_t TPB = 256;
-    cache::
-      get_vecs<<<raft::ceildiv(n_rows_indices * n_cols, TPB), TPB, 0, stream>>>(
-        in, n_cols, indices, n_rows_indices, out);
-    CUDA_CHECK(cudaPeekAtLastError());
-    return;
-  }
-
-  idx_t size = n_rows_indices * n_cols;
-  auto counting = thrust::make_counting_iterator<idx_t>(0);
-
-  thrust::for_each(rmm::exec_policy(stream), counting, counting + size,
-                   [=] __device__(idx_t idx) {
-                     idx_t row = idx % n_rows_indices;
-                     idx_t col = idx / n_rows_indices;
-
-                     out[col * n_rows_indices + row] =
-                       in[col * n_rows + indices[row]];
-                   });
+  detail::copyRows(in, n_rows, n_cols, out, indices, n_rows_indices, stream,
+                   rowMajor);
 }
 
 /**
@@ -187,10 +165,10 @@ void rowReverse(m_t *inout, idx_t n_rows, idx_t n_cols, cudaStream_t stream) {
  */
 template <typename m_t, typename idx_t = int>
 void print(const m_t *in, idx_t n_rows, idx_t n_cols, char h_separator = ' ',
-           char v_separator = '\n') {
+           char v_separator = '\n',
+           cudaStream_t stream = rmm::cuda_stream_default) {
   std::vector<m_t> h_matrix = std::vector<m_t>(n_cols * n_rows);
-  CUDA_CHECK(cudaMemcpy(h_matrix.data(), in, n_cols * n_rows * sizeof(m_t),
-                        cudaMemcpyDeviceToHost));
+  raft::update_host(h_matrix.data(), in, n_cols * n_rows, stream);
 
   for (idx_t i = 0; i < n_rows; i++) {
     for (idx_t j = 0; j < n_cols; j++) {
@@ -232,11 +210,7 @@ void printHost(const m_t *in, idx_t n_rows, idx_t n_cols) {
 template <typename m_t, typename idx_t = int>
 void sliceMatrix(m_t *in, idx_t n_rows, idx_t n_cols, m_t *out, idx_t x1,
                  idx_t y1, idx_t x2, idx_t y2, cudaStream_t stream) {
-  // Slicing
-  dim3 block(64);
-  dim3 grid(((x2 - x1) * (y2 - y1) + block.x - 1) / block.x);
-  detail::slice<<<grid, block, 0, stream>>>(in, n_rows, n_cols, out, x1, y1, x2,
-                                            y2);
+  detail::sliceMatrix(in, n_rows, n_cols, out, x1, y1, x2, y2, stream);
 }
 
 /**
@@ -250,11 +224,7 @@ void sliceMatrix(m_t *in, idx_t n_rows, idx_t n_cols, m_t *out, idx_t x1,
 template <typename m_t, typename idx_t = int>
 void copyUpperTriangular(m_t *src, m_t *dst, idx_t n_rows, idx_t n_cols,
                          cudaStream_t stream) {
-  idx_t m = n_rows, n = n_cols;
-  idx_t k = min(m, n);
-  dim3 block(64);
-  dim3 grid((m * n + block.x - 1) / block.x);
-  detail::getUpperTriangular<<<grid, block, 0, stream>>>(src, dst, m, n, k);
+  detail::copyUpperTriangular(src, dst, n_rows, n_cols, stream);
 }
 
 /**
@@ -268,11 +238,7 @@ void copyUpperTriangular(m_t *src, m_t *dst, idx_t n_rows, idx_t n_cols,
 template <typename m_t, typename idx_t = int>
 void initializeDiagonalMatrix(m_t *vec, m_t *matrix, idx_t n_rows, idx_t n_cols,
                               cudaStream_t stream) {
-  idx_t k = min(n_rows, n_cols);
-  dim3 block(64);
-  dim3 grid((k + block.x - 1) / block.x);
-  detail::copyVectorToMatrixDiagonal<<<grid, block, 0, stream>>>(
-    vec, matrix, n_rows, n_cols, k);
+  detail::initializeDiagonalMatrix(vec, matrix, n_rows, n_cols, stream);
 }
 
 /**
@@ -283,9 +249,7 @@ void initializeDiagonalMatrix(m_t *vec, m_t *matrix, idx_t n_rows, idx_t n_cols,
  */
 template <typename m_t, typename idx_t = int>
 void getDiagonalInverseMatrix(m_t *in, idx_t len, cudaStream_t stream) {
-  dim3 block(64);
-  dim3 grid((len + block.x - 1) / block.x);
-  detail::matrixDiagonalInverse<m_t><<<grid, block, 0, stream>>>(in, len);
+  detail::getDiagonalInverseMatrix(in, len, stream);
 }
 
 /**

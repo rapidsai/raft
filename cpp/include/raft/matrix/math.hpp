@@ -317,18 +317,7 @@ void ratio(const raft::handle_t &handle, math_t *src, math_t *dest, IdxType len,
 template <typename math_t>
 void argmax(const math_t *in, int n_rows, int n_cols, math_t *out,
             cudaStream_t stream) {
-  int D = n_rows;
-  int N = n_cols;
-  if (D <= 32) {
-    detail::argmaxKernel<math_t, 32><<<N, 32, 0, stream>>>(in, D, N, out);
-  } else if (D <= 64) {
-    detail::argmaxKernel<math_t, 64><<<N, 64, 0, stream>>>(in, D, N, out);
-  } else if (D <= 128) {
-    detail::argmaxKernel<math_t, 128><<<N, 128, 0, stream>>>(in, D, N, out);
-  } else {
-    detail::argmaxKernel<math_t, 256><<<N, 256, 0, stream>>>(in, D, N, out);
-  }
-  CUDA_CHECK(cudaPeekAtLastError());
+  detail::argmax(in, n_rows, n_cols, out, stream);
 }
 
 /**
@@ -341,19 +330,7 @@ void argmax(const math_t *in, int n_rows, int n_cols, math_t *out,
  */
 template <typename math_t>
 void signFlip(math_t *inout, int n_rows, int n_cols, cudaStream_t stream) {
-  int D = n_rows;
-  int N = n_cols;
-  auto data = inout;
-  if (D <= 32) {
-    detail::signFlipKernel<math_t, 32><<<N, 32, 0, stream>>>(data, D, N);
-  } else if (D <= 64) {
-    detail::signFlipKernel<math_t, 64><<<N, 64, 0, stream>>>(data, D, N);
-  } else if (D <= 128) {
-    detail::signFlipKernel<math_t, 128><<<N, 128, 0, stream>>>(data, D, N);
-  } else {
-    detail::signFlipKernel<math_t, 256><<<N, 256, 0, stream>>>(data, D, N);
-  }
-  CUDA_CHECK(cudaPeekAtLastError());
+  detail::signFlip(inout, n_rows, n_cols, stream);
 }
 
 template <typename Type, typename IdxType = int, int TPB = 256>
