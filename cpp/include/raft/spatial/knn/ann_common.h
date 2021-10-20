@@ -19,7 +19,7 @@
 #include <raft/linalg/distance_type.h>
 
 #include <faiss/gpu/GpuIndex.h>
-#include <faiss/gpu/StandardGpuResources.h>
+#include <raft/mr/faiss_mr.hpp>
 
 namespace raft {
 namespace spatial {
@@ -30,7 +30,7 @@ struct knnIndex {
   raft::distance::DistanceType metric;
   float metricArg;
 
-  faiss::gpu::StandardGpuResources *gpu_res;
+  raft::mr::RmmGpuResources *gpu_res;
   int device;
   ~knnIndex() {
     delete index;

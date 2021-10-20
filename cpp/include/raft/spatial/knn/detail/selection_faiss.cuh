@@ -17,11 +17,11 @@
 #pragma once
 
 #include <raft/cudart_utils.h>
+#include <raft/mr/faiss_mr.hpp>
 
 #include <faiss/gpu/GpuDistance.h>
 #include <faiss/gpu/GpuIndexFlat.h>
 #include <faiss/gpu/GpuResources.h>
-#include <faiss/gpu/StandardGpuResources.h>
 #include <faiss/utils/Heap.h>
 #include <faiss/gpu/utils/Limits.cuh>
 #include <faiss/gpu/utils/Select.cuh>
