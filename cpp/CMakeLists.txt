@@ -118,13 +118,18 @@ rapids_cmake_install_lib_dir( lib_dir )
 include(CPack)
 
 add_library(raft_distance SHARED
-        src/distance/detail/specializations/canberra_specializations.cu
-        src/distance/detail/specializations/chebyshev_specializations.cu
-        src/distance/detail/specializations/correlation_specializations.cu
-        src/distance/detail/specializations/cosine_specializations.cu
-        src/distance/detail/specializations/l1_specializations.cu
-        src/distance/detail/specializations/l2_expanded_specializations.cu
-        src/distance/detail/specializations/l2_unexpanded_specializations.cu
+        src/distance/specializations/canberra_specializations.cu
+        src/distance/specializations/chebyshev_specializations.cu
+        src/distance/specializations/correlation_specializations.cu
+        src/distance/specializations/cosine_specializations.cu
+        src/distance/specializations/hamming_unexpanded_specializations.cu
+        src/distance/specializations/hellinger_expanded_specializations.cu
+        src/distance/specializations/jensen_shannon_specializations.cu
+        src/distance/specializations/kl_divergence_specializations.cu
+        src/distance/specializations/l1_specializations.cu
+        src/distance/specializations/l2_expanded_specializations.cu
+        src/distance/specializations/l2_unexpanded_specializations.cu
+        src/distance/specializations/lp_unexpanded_specializations.cu
         )
 
 add_library(raft INTERFACE)
