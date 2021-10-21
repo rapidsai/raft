@@ -131,6 +131,7 @@ PRIVATE
   rmm::rmm
   cuco::cuco
   FAISS::FAISS
+  raft_distance
   GTest::gtest
   GTest::gtest_main
   Threads::Threads
