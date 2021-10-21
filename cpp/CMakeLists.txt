@@ -205,7 +205,7 @@ and common functions for the analytics components of RAPIDS.
 
 rapids_export(INSTALL raft_distance
         EXPORT_SET raft-exports
-        GLOBAL_TARGETS raft_distance # since we can't hook into EXPORT SETS
+        GLOBAL_TARGETS raft # since we can't hook into EXPORT SETS
         NAMESPACE raft::
         DOCUMENTATION doc_string
         )
@@ -223,7 +223,7 @@ rapids_export(INSTALL raft_distance
 
 rapids_export(BUILD raft_distance
         EXPORT_SET raft-exports
-        GLOBAL_TARGETS raft_distance # since we can't hook into EXPORT SETS
+        GLOBAL_TARGETS raft # since we can't hook into EXPORT SETS
         LANGUAGES CUDA
         DOCUMENTATION doc_string
         NAMESPACE raft::
