@@ -26,7 +26,7 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/sparse/csr.cuh>
-#include <raft/sparse/distance/ip_distance.cuh>
+#include <raft/sparse/distance/detail/ip_distance.cuh>
 #include <rmm/device_uvector.hpp>
 
 #include <nvfunctional>
@@ -34,6 +34,7 @@
 namespace raft {
 namespace sparse {
 namespace distance {
+namespace detail {
 
 // @TODO: Move this into sparse prims (coo_norm)
 template <typename value_idx, typename value_t>
@@ -417,6 +418,7 @@ class russelrao_expanded_distances_t : public distances_t<value_t> {
   ip_distances_t<value_idx, value_t> ip_dists;
 };
 
+};  // END namespace detail
 };  // END namespace distance
 };  // END namespace sparse
 };  // END namespace raft

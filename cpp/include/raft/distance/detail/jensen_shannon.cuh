@@ -15,10 +15,11 @@
  */
 
 #pragma once
-#include <raft/distance/pairwise_distance_base.cuh>
+#include <raft/distance/detail/pairwise_distance_base.cuh>
 
 namespace raft {
 namespace distance {
+namespace detail {
 
 /**
  * @brief the Jensen Shannon distance matrix:
@@ -177,5 +178,6 @@ void jensenShannonImpl(int m, int n, int k, const InType *pA, const InType *pB,
                          stream);
   }
 }
+}  // namespace detail
 }  // namespace distance
 }  // namespace raft
