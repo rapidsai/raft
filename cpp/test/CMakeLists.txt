@@ -130,8 +130,8 @@ PRIVATE
   CUDA::cusparse
   rmm::rmm
   cuco::cuco
-  FAISS::FAISS
-  raft::raft_distance
+  raft_distance
+  raft_nn
   GTest::gtest
   GTest::gtest_main
   Threads::Threads

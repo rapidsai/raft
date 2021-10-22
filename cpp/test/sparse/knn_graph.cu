@@ -22,7 +22,9 @@
 #include "../test_utils.h"
 
 #include <raft/sparse/coo.cuh>
+
 #include <raft/sparse/selection/knn_graph.cuh>
+#include <raft/spatial/knn/knn_specializations.hpp>
 
 #include <iostream>
 

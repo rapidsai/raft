@@ -196,11 +196,12 @@ inline void knn_merge_parts(value_t *inK, value_idx *inV, value_t *outK,
  * @param[in] metric corresponds to the raft::distance::DistanceType enum (default is L2Expanded)
  * @param[in] metricArg metric argument to use. Corresponds to the p arg for lp norm
  */
-template <typename IntType = int, typename IdxType = std::int64_t>
-void brute_force_knn_impl(std::vector<float *> &input,
+template <typename IntType = int, typename IdxType = std::int64_t,
+          typename value_t = float>
+void brute_force_knn_impl(std::vector<value_t *> &input,
                           std::vector<IntType> &sizes, IntType D,
-                          float *search_items, IntType n, IdxType *res_I,
-                          float *res_D, IntType k, cudaStream_t userStream,
+                          value_t *search_items, IntType n, IdxType *res_I,
+                          value_t *res_D, IntType k, cudaStream_t userStream,
                           cudaStream_t *internalStreams = nullptr,
                           int n_int_streams = 0, bool rowMajorIndex = true,
                           bool rowMajorQuery = true,
@@ -228,15 +229,15 @@ void brute_force_knn_impl(std::vector<float *> &input,
   }
 
   // perform preprocessing
-  std::unique_ptr<MetricProcessor<float>> query_metric_processor =
-    create_processor<float>(metric, n, D, k, rowMajorQuery, userStream);
+  std::unique_ptr<MetricProcessor<value_t>> query_metric_processor =
+    create_processor<value_t>(metric, n, D, k, rowMajorQuery, userStream);
   query_metric_processor->preprocess(search_items);
 
-  std::vector<std::unique_ptr<MetricProcessor<float>>> metric_processors(
+  std::vector<std::unique_ptr<MetricProcessor<value_t>>> metric_processors(
     input.size());
   for (size_t i = 0; i < input.size(); i++) {
-    metric_processors[i] = create_processor<float>(metric, sizes[i], D, k,
-                                                   rowMajorQuery, userStream);
+    metric_processors[i] = create_processor<value_t>(metric, sizes[i], D, k,
+                                                     rowMajorQuery, userStream);
     metric_processors[i]->preprocess(input[i]);
   }
 
@@ -247,10 +248,10 @@ void brute_force_knn_impl(std::vector<float *> &input,
   raft::update_device(trans.data(), id_ranges->data(), id_ranges->size(),
                       userStream);
 
-  rmm::device_uvector<float> all_D(0, userStream);
+  rmm::device_uvector<value_t> all_D(0, userStream);
   rmm::device_uvector<std::int64_t> all_I(0, userStream);
 
-  float *out_D = res_D;
+  value_t *out_D = res_D;
   IdxType *out_I = res_I;
 
   if (input.size() > 1) {
@@ -265,7 +266,7 @@ void brute_force_knn_impl(std::vector<float *> &input,
   if (n_int_streams > 0) CUDA_CHECK(cudaStreamSynchronize(userStream));
 
   for (size_t i = 0; i < input.size(); i++) {
-    float *out_d_ptr = out_D + (i * k * n);
+    value_t *out_d_ptr = out_D + (i * k * n);
     IdxType *out_i_ptr = out_I + (i * k * n);
 
     cudaStream_t stream =
@@ -338,9 +339,9 @@ void brute_force_knn_impl(std::vector<float *> &input,
     float p = 0.5;  // standard l2
     if (metric == raft::distance::DistanceType::LpUnexpanded)
       p = 1.0 / metricArg;
-    raft::linalg::unaryOp<float>(
+    raft::linalg::unaryOp<value_t>(
       res_D, res_D, n * k,
-      [p] __device__(float input) { return powf(input, p); }, userStream);
+      [p] __device__(value_t input) { return powf(input, p); }, userStream);
   }
 
   query_metric_processor->revert(search_items);

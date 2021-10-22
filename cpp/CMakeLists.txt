@@ -118,9 +118,13 @@ rapids_cmake_install_lib_dir( lib_dir )
 include(CPack)
 
 file(GLOB RAFT_DISTANCE_SOURCES "src/distance/specializations/*.cu")
+file(GLOB RAFT_NN_SOURCES "src/nn/specializations/*.cu")
 
 add_library(raft_distance SHARED ${RAFT_DISTANCE_SOURCES})
 add_library(raft::raft_distance ALIAS raft_distance)
+
+add_library(raft_nn SHARED ${RAFT_NN_SOURCES})
+add_library(raft::raft_nn ALIAS raft_nn)
 
 add_library(raft INTERFACE)
 add_library(raft::raft ALIAS raft)
@@ -128,6 +132,9 @@ target_include_directories(raft INTERFACE "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/
                                           "$<INSTALL_INTERFACE:include>")
 
 target_include_directories(raft_distance PUBLIC "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/include>"
+        "$<INSTALL_INTERFACE:include>")
+
+target_include_directories(raft_nn PUBLIC "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/include>"
         "$<INSTALL_INTERFACE:include>")
 
 target_link_libraries(raft_distance
@@ -141,15 +148,38 @@ PUBLIC
     cuco::cuco
     )
 
+target_link_libraries(raft_nn
+        PUBLIC
+        CUDA::cublas
+        CUDA::curand
+        CUDA::cusolver
+        CUDA::cudart
+        CUDA::cusparse
+        rmm::rmm
+        cuco::cuco
+        FAISS::FAISS
+        )
+
 target_compile_options(raft_distance
         PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
         "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
         )
 
 
+target_compile_options(raft_nn
+        PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
+        "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
+        )
+
 target_compile_features(raft_distance PUBLIC cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
+target_compile_features(raft_nn PUBLIC cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
 
 install(TARGETS raft_distance
+        DESTINATION ${lib_dir}
+        EXPORT raft-exports
+        )
+
+install(TARGETS raft_nn
         DESTINATION ${lib_dir}
         EXPORT raft-exports
         )
@@ -205,7 +235,7 @@ and common functions for the analytics components of RAPIDS.
 
 rapids_export(BUILD raft
     EXPORT_SET raft-exports
-    GLOBAL_TARGETS raft raft_distance# since we can't hook into EXPORT SETS
+    GLOBAL_TARGETS raft raft_distance raft_nn# since we can't hook into EXPORT SETS
     LANGUAGES CUDA
     DOCUMENTATION doc_string
     NAMESPACE raft::

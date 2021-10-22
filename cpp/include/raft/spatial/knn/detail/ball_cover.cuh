@@ -18,12 +18,12 @@
 
 #include <raft/handle.hpp>
 
+#include <raft/spatial/knn/knn.hpp>
 #include "../ball_cover_common.h"
 #include "ball_cover/common.cuh"
 #include "ball_cover/registers.cuh"
 #include "block_select_faiss.cuh"
 #include "haversine_distance.cuh"
-#include "knn_brute_force_faiss.cuh"
 #include "selection_faiss.cuh"
 
 #include <limits.h>
@@ -152,12 +152,11 @@ void k_closest_landmarks(const raft::handle_t &handle,
                          value_int k, value_idx *R_knn_inds,
                          value_t *R_knn_dists) {
   std::vector<value_t *> input = {index.get_R()};
-  std::vector<std::uint32_t> sizes = {index.n_landmarks};
+  std::vector<value_int> sizes = {index.n_landmarks};
 
-  brute_force_knn_impl<std::uint32_t, std::int64_t>(
-    input, sizes, index.n, const_cast<value_t *>(query_pts), n_query_pts,
-    R_knn_inds, R_knn_dists, k, handle.get_stream(), nullptr, 0, true, true,
-    nullptr, index.metric);
+  brute_force_knn<std::int64_t, value_t, value_int>(
+    handle, input, sizes, (value_int)index.n, const_cast<value_t *>(query_pts),
+    n_query_pts, R_knn_inds, R_knn_dists, k, true, true, nullptr, index.metric);
 }
 
 /**
