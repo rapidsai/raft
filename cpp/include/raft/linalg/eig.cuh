@@ -198,7 +198,7 @@ template <typename math_t>
 void eigJacobi(const raft::handle_t &handle, const math_t *in,
                std::size_t n_rows, std::size_t n_cols, math_t *eig_vectors,
                math_t *eig_vals, cudaStream_t stream, math_t tol = 1.e-7,
-               std::size_t sweeps = 15) {
+               std::uint32_t sweeps = 15) {
   cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
 
   syevjInfo_t syevj_params = nullptr;
