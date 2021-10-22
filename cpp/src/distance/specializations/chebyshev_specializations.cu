@@ -23,6 +23,7 @@
 
 namespace raft {
 namespace distance {
+
 template void distance<raft::distance::DistanceType::Linf, float, float, float,
                        int>(const float *x, const float *y, float *dist, int m,
                             int n, int k, void *workspace, size_t worksize,
@@ -35,19 +36,16 @@ template void distance<raft::distance::DistanceType::Linf, double, double,
                                     void *workspace, size_t worksize,
                                     cudaStream_t stream, bool isRowMajor,
                                     double metric_arg);
-
 template void distance<raft::distance::DistanceType::Linf, float, float, float,
-                       uint32_t>(const float *x, const float *y, float *dist,
-                                 uint32_t m, uint32_t n, uint32_t k,
-                                 void *workspace, size_t worksize,
-                                 cudaStream_t stream, bool isRowMajor,
-                                 float metric_arg);
+                       int>(const float *x, const float *y, float *dist, int m,
+                            int n, int k, cudaStream_t stream, bool isRowMajor,
+                            float metric_arg);
 
 template void distance<raft::distance::DistanceType::Linf, double, double,
-                       double, uint32_t>(const double *x, const double *y,
-                                         double *dist, uint32_t m, uint32_t n,
-                                         uint32_t k, void *workspace,
-                                         size_t worksize, cudaStream_t stream,
-                                         bool isRowMajor, double metric_arg);
+                       double, int>(const double *x, const double *y,
+                                    double *dist, int m, int n, int k,
+                                    cudaStream_t stream, bool isRowMajor,
+                                    double metric_arg);
+
 }  // namespace distance
 }  // namespace raft

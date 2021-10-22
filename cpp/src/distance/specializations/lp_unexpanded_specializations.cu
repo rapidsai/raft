@@ -37,16 +37,15 @@ template void distance<raft::distance::DistanceType::LpUnexpanded, double,
                                             bool isRowMajor, double metric_arg);
 
 template void distance<raft::distance::DistanceType::LpUnexpanded, float, float,
-                       float, uint32_t>(const float *x, const float *y,
-                                        float *dist, uint32_t m, uint32_t n,
-                                        uint32_t k, void *workspace,
-                                        size_t worksize, cudaStream_t stream,
-                                        bool isRowMajor, float metric_arg);
+                       float, int>(const float *x, const float *y, float *dist,
+                                   int m, int n, int k, cudaStream_t stream,
+                                   bool isRowMajor, float metric_arg);
 
 template void distance<raft::distance::DistanceType::LpUnexpanded, double,
-                       double, double, uint32_t>(
-  const double *x, const double *y, double *dist, uint32_t m, uint32_t n,
-  uint32_t k, void *workspace, size_t worksize, cudaStream_t stream,
-  bool isRowMajor, double metric_arg);
+                       double, double, int>(const double *x, const double *y,
+                                            double *dist, int m, int n, int k,
+                                            cudaStream_t stream,
+                                            bool isRowMajor, double metric_arg);
+
 }  // namespace distance
 }  // namespace raft

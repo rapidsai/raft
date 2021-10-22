@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include <raft/distance/distance.hpp>
+
 namespace raft {
 namespace distance {
 extern template void distance<raft::distance::DistanceType::L1, float, float,
@@ -32,16 +34,17 @@ extern template void distance<raft::distance::DistanceType::L1, double, double,
                                            cudaStream_t stream, bool isRowMajor,
                                            double metric_arg);
 
-extern template void
-distance<raft::distance::DistanceType::L1, float, float, float, uint32_t>(
-  const float *x, const float *y, float *dist, uint32_t m, uint32_t n,
-  uint32_t k, void *workspace, size_t worksize, cudaStream_t stream,
-  bool isRowMajor, float metric_arg);
+extern template void distance<raft::distance::DistanceType::L1, float, float,
+                              float, int>(const float *x, const float *y,
+                                          float *dist, int m, int n, int k,
+                                          cudaStream_t stream, bool isRowMajor,
+                                          float metric_arg);
 
-extern template void
-distance<raft::distance::DistanceType::L1, double, double, double, uint32_t>(
-  const double *x, const double *y, double *dist, uint32_t m, uint32_t n,
-  uint32_t k, void *workspace, size_t worksize, cudaStream_t stream,
-  bool isRowMajor, double metric_arg);
+extern template void distance<raft::distance::DistanceType::L1, double, double,
+                              double, int>(const double *x, const double *y,
+                                           double *dist, int m, int n, int k,
+                                           cudaStream_t stream, bool isRowMajor,
+                                           double metric_arg);
+
 }  // namespace distance
 }  // namespace raft

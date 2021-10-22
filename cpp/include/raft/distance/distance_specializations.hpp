@@ -14,15 +14,15 @@
  * limitations under the License.
  */
 
-#include "specializations/canberra_specializations.hpp"
-#include "specializations/chebyshev_specializations.hpp"
-#include "specializations/correlation_specializations.hpp"
-#include "specializations/cosine_specializations.hpp"
-#include "specializations/hamming_unexpanded_specializations.hpp"
-#include "specializations/hellinger_expanded_specializations.hpp"
-#include "specializations/jensen_shannon_specializations.hpp"
-#include "specializations/kl_divergence_specializations.hpp"
-#include "specializations/l1_specializations.hpp"
-#include "specializations/l2_expanded_specializations.hpp"
-#include "specializations/l2_unexpanded_specializations.hpp"
-#include "specializations/lp_unexpanded_specializations.hpp"
+#include <raft/distance/specializations/canberra_specializations.hpp>
+#include <raft/distance/specializations/chebyshev_specializations.hpp>
+#include <raft/distance/specializations/correlation_specializations.hpp>
+#include <raft/distance/specializations/cosine_specializations.hpp>
+#include <raft/distance/specializations/hamming_unexpanded_specializations.hpp>
+#include <raft/distance/specializations/hellinger_expanded_specializations.hpp>
+#include <raft/distance/specializations/jensen_shannon_specializations.hpp>
+#include <raft/distance/specializations/kl_divergence_specializations.hpp>
+#include <raft/distance/specializations/l1_specializations.hpp>
+#include <raft/distance/specializations/l2_expanded_specializations.hpp>
+#include <raft/distance/specializations/l2_unexpanded_specializations.hpp>
+#include <raft/distance/specializations/lp_unexpanded_specializations.hpp>
