@@ -117,20 +117,10 @@ rapids_cmake_install_lib_dir( lib_dir )
 
 include(CPack)
 
-add_library(raft_distance SHARED
-        src/distance/specializations/canberra_specializations.cu
-        src/distance/specializations/chebyshev_specializations.cu
-        src/distance/specializations/correlation_specializations.cu
-        src/distance/specializations/cosine_specializations.cu
-        src/distance/specializations/hamming_unexpanded_specializations.cu
-        src/distance/specializations/hellinger_expanded_specializations.cu
-        src/distance/specializations/jensen_shannon_specializations.cu
-        src/distance/specializations/kl_divergence_specializations.cu
-        src/distance/specializations/l1_specializations.cu
-        src/distance/specializations/l2_expanded_specializations.cu
-        src/distance/specializations/l2_unexpanded_specializations.cu
-        src/distance/specializations/lp_unexpanded_specializations.cu
-        )
+file(GLOB RAFT_DISTANCE_SOURCES "src/distance/specializations/*.cu")
+
+add_library(raft_distance SHARED ${RAFT_DISTANCE_SOURCES})
+add_library(raft::raft_distance ALIAS raft_distance)
 
 add_library(raft INTERFACE)
 add_library(raft::raft ALIAS raft)
@@ -203,17 +193,9 @@ and common functions for the analytics components of RAPIDS.
 
 ]=])
 
-rapids_export(INSTALL raft_distance
-        EXPORT_SET raft-exports
-        GLOBAL_TARGETS raft # since we can't hook into EXPORT SETS
-        NAMESPACE raft::
-        DOCUMENTATION doc_string
-        )
-
-
  rapids_export(INSTALL raft
     EXPORT_SET raft-exports
-    GLOBAL_TARGETS raft # since we can't hook into EXPORT SETS
+    GLOBAL_TARGETS raft raft_distance# since we can't hook into EXPORT SETS
     NAMESPACE raft::
     DOCUMENTATION doc_string
     )
@@ -221,17 +203,9 @@ rapids_export(INSTALL raft_distance
 ##############################################################################
 # - build export -------------------------------------------------------------
 
-rapids_export(BUILD raft_distance
-        EXPORT_SET raft-exports
-        GLOBAL_TARGETS raft # since we can't hook into EXPORT SETS
-        LANGUAGES CUDA
-        DOCUMENTATION doc_string
-        NAMESPACE raft::
-        )
-
 rapids_export(BUILD raft
     EXPORT_SET raft-exports
-    GLOBAL_TARGETS raft # since we can't hook into EXPORT SETS
+    GLOBAL_TARGETS raft raft_distance# since we can't hook into EXPORT SETS
     LANGUAGES CUDA
     DOCUMENTATION doc_string
     NAMESPACE raft::
