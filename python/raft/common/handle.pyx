@@ -68,7 +68,7 @@ cdef class Handle:
             self.c_obj.reset(new handle_t(c_stream,
                                           self.stream_pool))
 
-    cdef void sync(self) nogil except *:
+    def sync(self):
         """
         Issues a sync on the stream set for this handle.
         """
