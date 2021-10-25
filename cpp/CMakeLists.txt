@@ -137,19 +137,7 @@ target_include_directories(raft_distance PUBLIC "$<BUILD_INTERFACE:${RAFT_SOURCE
 target_include_directories(raft_nn PUBLIC "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/include>"
         "$<INSTALL_INTERFACE:include>")
 
-target_link_libraries(raft_distance
-PUBLIC
-    CUDA::cublas
-    CUDA::curand
-    CUDA::cusolver
-    CUDA::cudart
-    CUDA::cusparse
-    rmm::rmm
-    cuco::cuco
-    )
-
-target_link_libraries(raft_nn
-        PUBLIC
+set(RAFT_LINK_LIBRARIES
         CUDA::cublas
         CUDA::curand
         CUDA::cusolver
@@ -157,8 +145,11 @@ target_link_libraries(raft_nn
         CUDA::cusparse
         rmm::rmm
         cuco::cuco
-        FAISS::FAISS
         )
+
+target_link_libraries(raft INTERFACE ${RAFT_LINK_LIBRARIES})
+target_link_libraries(raft_distance PUBLIC ${RAFT_LINK_LIBRARIES})
+target_link_libraries(raft_nn PUBLIC ${RAFT_LINK_LIBRARIES} FAISS::FAISS)
 
 target_compile_options(raft_distance
         PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
@@ -173,34 +164,19 @@ target_compile_options(raft_nn
 
 target_compile_features(raft_distance PUBLIC cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
 target_compile_features(raft_nn PUBLIC cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
+target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
 
 install(TARGETS raft_distance
         DESTINATION ${lib_dir}
-        EXPORT raft-exports
-        )
+        EXPORT raft-exports)
 
 install(TARGETS raft_nn
         DESTINATION ${lib_dir}
-        EXPORT raft-exports
-        )
-
-target_link_libraries(raft
-INTERFACE
-  CUDA::cublas
-  CUDA::curand
-  CUDA::cusolver
-  CUDA::cudart
-  CUDA::cusparse
-  rmm::rmm
-  cuco::cuco
-  )
-
-target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
+        EXPORT raft-exports)
 
 install(TARGETS raft
         DESTINATION ${lib_dir}
-        EXPORT raft-exports
-        )
+        EXPORT raft-exports)
 
 include(GNUInstallDirs)
 install(DIRECTORY include/raft/
@@ -209,8 +185,7 @@ install(DIRECTORY include/raft/
 
 # Temporary install of raft.hpp while the file is removed
 install(FILES include/raft.hpp
-	DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/raft
-	)
+	DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/raft)
 
 ##############################################################################
 # - install export -----------------------------------------------------------
