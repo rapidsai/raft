@@ -424,10 +424,13 @@ class RmmGpuResourcesImpl : public GpuResources {
     }
 
     if (req.space == MemorySpace::Temporary) {
+      std::cout << "dealloc Temporary" << std::endl;
       tempMemory_[device]->deallocMemory(device, req.stream, req.size, p);
     } else if (req.space == MemorySpace::Device) {
+      std::cout << "dealloc Device" << std::endl;
       cmr->deallocate(p, req.size, req.stream);
     } else if (req.space == MemorySpace::Unified) {
+      std::cout << "dealloc Unified" << std::endl;
       mmr->deallocate(p, req.size, req.stream);
     } else {
       FAISS_ASSERT_FMT(false, "unknown MemorySpace %d", (int)req.space);
