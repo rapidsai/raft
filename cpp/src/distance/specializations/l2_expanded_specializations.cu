@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-#include <raft/linalg/distance_type.h>
-#include <raft/distance/distance.hpp>
+#include <raft/distance/detail/distance.cuh>
 
 namespace raft {
 namespace distance {
+namespace detail {
 template void distance<raft::distance::DistanceType::L2Expanded, float, float,
                        float, int>(const float *x, const float *y, float *dist,
                                    int m, int n, int k, void *workspace,
@@ -33,15 +33,13 @@ template void distance<raft::distance::DistanceType::L2Expanded, double, double,
                                     double metric_arg);
 
 template void distance<raft::distance::DistanceType::L2Expanded, float, float,
-                       float, int>(const float *x, const float *y, float *dist,
-                                   int m, int n, int k, cudaStream_t stream,
-                                   bool isRowMajor, float metric_arg);
+                       float, std::uint32_t>(const float *x, const float *y,
+                                             float *dist, std::uint32_t m,
+                                             std::uint32_t n, std::uint32_t k,
+                                             void *workspace, size_t worksize,
+                                             cudaStream_t stream,
+                                             bool isRowMajor, float metric_arg);
 
-template void distance<raft::distance::DistanceType::L2Expanded, double, double,
-                       double, int>(const double *x, const double *y,
-                                    double *dist, int m, int n, int k,
-                                    cudaStream_t stream, bool isRowMajor,
-                                    double metric_arg);
-
+}  // namespace detail
 }  // namespace distance
 }  // namespace raft

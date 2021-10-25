@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#pragma once
+
 #include <raft/distance/specializations/canberra_specializations.hpp>
 #include <raft/distance/specializations/chebyshev_specializations.hpp>
 #include <raft/distance/specializations/correlation_specializations.hpp>
@@ -24,5 +26,7 @@
 #include <raft/distance/specializations/kl_divergence_specializations.hpp>
 #include <raft/distance/specializations/l1_specializations.hpp>
 #include <raft/distance/specializations/l2_expanded_specializations.hpp>
+#include <raft/distance/specializations/l2_sqrt_expanded_specializations.hpp>
+#include <raft/distance/specializations/l2_sqrt_unexpanded_specializations.hpp>
 #include <raft/distance/specializations/l2_unexpanded_specializations.hpp>
 #include <raft/distance/specializations/lp_unexpanded_specializations.hpp>

@@ -20,8 +20,8 @@
 
 #include <cub/cub.cuh>
 
+#include <raft/spatial/knn/knn.hpp>
 #include "../block_select_faiss.cuh"
-#include "../knn_brute_force_faiss.cuh"
 #include "../selection_faiss.cuh"
 
 #include <limits.h>
@@ -32,7 +32,7 @@
 #include <faiss/gpu/utils/Limits.cuh>
 #include <faiss/gpu/utils/Select.cuh>
 
-#include <raft/distance/distance.cuh>
+#include <raft/distance/distance.hpp>
 #include <raft/selection/col_wise_sort.cuh>
 #include <raft/sparse/coo.cuh>
 
@@ -63,10 +63,9 @@ void k_closest_landmarks2(const raft::handle_t &handle,
   std::vector<value_t *> input = {index.get_R()};
   std::vector<value_int> sizes = {index.n_landmarks};
 
-  brute_force_knn_impl<value_int, int64_t>(
-    input, sizes, index.n, const_cast<value_t *>(query_pts), n_query_pts,
-    R_knn_inds, R_knn_dists, k, handle.get_stream(), nullptr, 0, true, true,
-    nullptr, index.metric);
+  brute_force_knn<std::int64_t, value_t, value_int>(
+    handle, input, sizes, (value_int)index.n, const_cast<value_t *>(query_pts),
+    n_query_pts, R_knn_inds, R_knn_dists, k, true, true, nullptr, index.metric);
 }
 
 /**
@@ -285,12 +284,10 @@ void landmark_q_pw_dists(const raft::handle_t &handle,
                          BallCoverIndex<value_idx, value_t> &index,
                          const value_t *queries, value_int n_queries,
                          value_t *out_dists) {
-  rmm::device_uvector<char> pw_workspace(0, handle.get_stream());
-
   // Compute pairwise dists between queries and landmarks.
-  raft::distance::pairwise_distance(
-    queries, index.get_R(), out_dists, n_queries, index.get_n_landmarks(),
-    index.n, pw_workspace, index.get_metric(), handle.get_stream());
+  raft::distance::pairwise_distance(handle, queries, index.get_R(), out_dists,
+                                    n_queries, index.get_n_landmarks(), index.n,
+                                    index.get_metric());
 }
 
 template <typename value_idx, typename value_t, int warp_q, int thread_q,
@@ -560,8 +557,8 @@ void compute_and_execute_plan(
     plan_coo.cols(), plan_coo.vals(), batch_landmark_dists.data(),
     ql_dists.data());
 
-      order_plan_incremental(handle, coo_write_plan.data(), plan_coo,
-                             batch_landmark_dists.data(), n_query_pts);
+  //      order_plan_incremental(handle, coo_write_plan.data(), plan_coo,
+  //                             batch_landmark_dists.data(), n_query_pts);
 
   rmm::device_uvector<int> mutex(n_query_pts, handle.get_stream());
   thrust::fill(handle.get_thrust_policy(), mutex.data(),

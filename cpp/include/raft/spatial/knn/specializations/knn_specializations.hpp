@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#pragma once
+
 #include <raft/spatial/knn/knn.hpp>
 
 namespace raft {
