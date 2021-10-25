@@ -27,7 +27,7 @@
 #include "processing.hpp"
 
 #include <label/classlabels.cuh>
-#include <raft/distance/distance.cuh>
+#include <raft/distance/distance.hpp>
 #include <raft/mr/faiss_mr.hpp>
 
 #include <faiss/gpu/GpuDistance.h>

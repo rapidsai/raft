@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,42 +15,39 @@
  */
 
 #pragma once
-#include <raft/distance/pairwise_distance_base.cuh>
+#include <raft/distance/detail/pairwise_distance_base.cuh>
 
 namespace raft {
 namespace distance {
+namespace detail {
 
 /**
- * @brief the Russell Rao distance matrix:
- *  It computes the following equation: 
-    Cij = (k - sum(x_i * y_i)) / k
- *
+ * @brief the L1 distance matrix calculation implementer
+ *  It computes the following equation: cij = op(ai-bj)
  * @tparam DataT          input data-type (for A and B matrices)
  * @tparam AccT           accumulation data-type
  * @tparam OutT           output data-type (for C and D matrices)
  * @tparam IdxT           index data-type
- * @tparam Veclen         number of k-elements loaded by each thread
-                          for every LDG call. details in contractions.cuh
+
  * @tparam FinalLambda    final lambda called on final distance value
  * @tparam isRowMajor     true if input/output is row major,
                           false for column major
  * @param[in]       x input matrix
  * @param[in]       y input matrix
  * @param[in]       m number of rows of A and C/D
- * @param[in]       n number of rows of B and C/D
- * @param[in]       k number of cols of A and B
+ * @param[in]       n number of columns of B and C/D
+ * @param[in]       k number of cols of A and rows of B
  * @param[in]       lda leading dimension of A
  * @param[in]       ldb leading dimension of B
  * @param[in]       ldd leading dimension of C/D
- * @param[output]   dOutput output matrix
- * @param[in]       fin_op the final gemm epilogue lambda
- * @param[in]       stream cuda stream to launch work
+ * @param[output]   pD output matrix
+ * @param fin_op    the final gemm epilogue lambda
  */
 template <typename DataT, typename AccT, typename OutT, typename IdxT,
           int VecLen, typename FinalLambda, bool isRowMajor>
-static void russellRaoImpl(const DataT *x, const DataT *y, IdxT m, IdxT n,
-                           IdxT k, IdxT lda, IdxT ldb, IdxT ldd, OutT *dOutput,
-                           FinalLambda fin_op, cudaStream_t stream) {
+static void l1Impl(const DataT *x, const DataT *y, IdxT m, IdxT n, IdxT k,
+                   IdxT lda, IdxT ldb, IdxT ldd, OutT *dOutput,
+                   FinalLambda fin_op, cudaStream_t stream) {
   typedef typename raft::linalg::Policy4x4<DataT, VecLen>::Policy RowPolicy;
   typedef typename raft::linalg::Policy4x4<DataT, VecLen>::ColPolicy ColPolicy;
 
@@ -61,43 +58,35 @@ static void russellRaoImpl(const DataT *x, const DataT *y, IdxT m, IdxT n,
 
   // Accumulation operation lambda
   auto core_lambda = [] __device__(AccT & acc, DataT & x, DataT & y) {
-    acc += x * y;
+    const auto diff = raft::L1Op<AccT, IdxT>()(x - y);
+    acc += diff;
   };
 
-  const float one_over_k = 1.0 / k;
   // epilogue operation lambda for final value calculation
-  auto epilog_lambda = [k, one_over_k] __device__(
+  auto epilog_lambda = [] __device__(
                          AccT acc[KPolicy::AccRowsPerTh][KPolicy::AccColsPerTh],
                          DataT * regxn, DataT * regyn, IdxT gridStrideX,
-                         IdxT gridStrideY) {
-#pragma unroll
-    for (int i = 0; i < KPolicy::AccRowsPerTh; ++i) {
-#pragma unroll
-      for (int j = 0; j < KPolicy::AccColsPerTh; ++j) {
-        acc[i][j] = (k - acc[i][j]) * one_over_k;
-      }
-    }
-  };
+                         IdxT gridStrideY) { return; };
 
   if (isRowMajor) {
-    constexpr auto russellRaoRowMajor =
+    auto l1RowMajor =
       pairwiseDistanceMatKernel<false, DataT, AccT, OutT, IdxT, KPolicy,
                                 decltype(core_lambda), decltype(epilog_lambda),
                                 FinalLambda, true>;
-    dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize,
-                                               russellRaoRowMajor);
+    dim3 grid =
+      launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize, l1RowMajor);
 
-    russellRaoRowMajor<<<grid, blk, KPolicy::SmemSize, stream>>>(
+    l1RowMajor<<<grid, blk, KPolicy::SmemSize, stream>>>(
       x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput, core_lambda,
       epilog_lambda, fin_op);
   } else {
-    constexpr auto russellRaoColMajor =
+    auto l1ColMajor =
       pairwiseDistanceMatKernel<false, DataT, AccT, OutT, IdxT, KPolicy,
                                 decltype(core_lambda), decltype(epilog_lambda),
                                 FinalLambda, false>;
-    dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize,
-                                               russellRaoColMajor);
-    russellRaoColMajor<<<grid, blk, KPolicy::SmemSize, stream>>>(
+    dim3 grid =
+      launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize, l1ColMajor);
+    l1ColMajor<<<grid, blk, KPolicy::SmemSize, stream>>>(
       x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput, core_lambda,
       epilog_lambda, fin_op);
   }
@@ -107,30 +96,26 @@ static void russellRaoImpl(const DataT *x, const DataT *y, IdxT m, IdxT n,
 
 template <typename DataT, typename AccT, typename OutT, typename IdxT,
           typename FinalLambda, bool isRowMajor>
-void russellRao(IdxT m, IdxT n, IdxT k, IdxT lda, IdxT ldb, IdxT ldd,
-                const DataT *x, const DataT *y, OutT *dOutput,
-                FinalLambda fin_op, cudaStream_t stream) {
+void l1(IdxT m, IdxT n, IdxT k, IdxT lda, IdxT ldb, IdxT ldd, const DataT *x,
+        const DataT *y, OutT *dOutput, FinalLambda fin_op,
+        cudaStream_t stream) {
   size_t bytesA = sizeof(DataT) * lda;
   size_t bytesB = sizeof(DataT) * ldb;
   if (16 % sizeof(DataT) == 0 && bytesA % 16 == 0 && bytesB % 16 == 0) {
-    russellRaoImpl<DataT, AccT, OutT, IdxT, 16 / sizeof(DataT), FinalLambda,
-                   isRowMajor>(x, y, m, n, k, lda, ldb, ldd, dOutput, fin_op,
-                               stream);
+    l1Impl<DataT, AccT, OutT, IdxT, 16 / sizeof(DataT), FinalLambda,
+           isRowMajor>(x, y, m, n, k, lda, ldb, ldd, dOutput, fin_op, stream);
   } else if (8 % sizeof(DataT) == 0 && bytesA % 8 == 0 && bytesB % 8 == 0) {
-    russellRaoImpl<DataT, AccT, OutT, IdxT, 8 / sizeof(DataT), FinalLambda,
-                   isRowMajor>(x, y, m, n, k, lda, ldb, ldd, dOutput, fin_op,
-                               stream);
+    l1Impl<DataT, AccT, OutT, IdxT, 8 / sizeof(DataT), FinalLambda, isRowMajor>(
+      x, y, m, n, k, lda, ldb, ldd, dOutput, fin_op, stream);
   } else {
-    russellRaoImpl<DataT, AccT, OutT, IdxT, 1, FinalLambda, isRowMajor>(
+    l1Impl<DataT, AccT, OutT, IdxT, 1, FinalLambda, isRowMajor>(
       x, y, m, n, k, lda, ldb, ldd, dOutput, fin_op, stream);
   }
 }
 
 /**
- * @brief the Russell Rao distance matrix calculation
- *  It computes the following equation: 
-    Cij = (k - sum(x_i * y_i)) / k
- *
+ * @brief the L1 distance matrix calculation
+ *  It computes the following equation: cij = op(ai-bj)
  * @tparam InType input data-type (for A and B matrices)
  * @tparam AccType accumulation data-type
  * @tparam OutType output data-type (for C and D matrices)
@@ -148,24 +133,25 @@ void russellRao(IdxT m, IdxT n, IdxT k, IdxT lda, IdxT ldb, IdxT ldd,
  */
 template <typename InType, typename AccType, typename OutType,
           typename FinalLambda, typename Index_ = int>
-void russellRaoImpl(int m, int n, int k, const InType *pA, const InType *pB,
-                    OutType *pD, FinalLambda fin_op, cudaStream_t stream,
-                    bool isRowMajor) {
+void l1Impl(int m, int n, int k, const InType *pA, const InType *pB,
+            OutType *pD, FinalLambda fin_op, cudaStream_t stream,
+            bool isRowMajor) {
   typedef std::is_same<OutType, bool> is_bool;
-  typedef typename std::conditional<is_bool::value, OutType, AccType>::type
-    russellRaoOutType;
+  typedef
+    typename std::conditional<is_bool::value, OutType, AccType>::type L1OutType;
   Index_ lda, ldb, ldd;
-  russellRaoOutType *pDcast = reinterpret_cast<russellRaoOutType *>(pD);
+  L1OutType *pDcast = reinterpret_cast<L1OutType *>(pD);
   if (isRowMajor) {
     lda = k, ldb = k, ldd = n;
-    russellRao<InType, AccType, russellRaoOutType, Index_, FinalLambda, true>(
+    l1<InType, AccType, L1OutType, Index_, FinalLambda, true>(
       m, n, k, lda, ldb, ldd, pA, pB, pDcast, fin_op, stream);
 
   } else {
     lda = n, ldb = m, ldd = m;
-    russellRao<InType, AccType, russellRaoOutType, Index_, FinalLambda, false>(
+    l1<InType, AccType, L1OutType, Index_, FinalLambda, false>(
       n, m, k, lda, ldb, ldd, pB, pA, pDcast, fin_op, stream);
   }
 }
+}  // namespace detail
 }  // namespace distance
 }  // namespace raft
