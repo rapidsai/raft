@@ -62,10 +62,19 @@ template <typename value_idx, typename value_t>
 class SparseKNNTest
   : public ::testing::TestWithParam<SparseKNNInputs<value_idx, value_t>> {
  public:
-  void SetUp() override {
-    params =
-      ::testing::TestWithParam<SparseKNNInputs<value_idx, value_t>>::GetParam();
+  SparseKNNTest()
+    : params(::testing::TestWithParam<
+             SparseKNNInputs<value_idx, value_t>>::GetParam()),
+      indptr(0, handle.get_stream()),
+      indices(0, handle.get_stream()),
+      data(0, handle.get_stream()),
+      out_indices(0, handle.get_stream()),
+      out_dists(0, handle.get_stream()),
+      out_indices_ref(0, handle.get_stream()),
+      out_dists_ref(0, handle.get_stream()) {}
 
+ protected:
+  void SetUp() override {
     n_rows = params.indptr_h.size() - 1;
     nnz = params.indices_h.size();
     k = params.k;
@@ -73,20 +82,19 @@ class SparseKNNTest
     make_data();
 
     raft::sparse::selection::brute_force_knn<value_idx, value_t>(
-      indptr, indices, data, nnz, n_rows, params.n_cols, indptr, indices, data,
-      nnz, n_rows, params.n_cols, out_indices, out_dists, k, handle,
-      params.batch_size_index, params.batch_size_query, params.metric);
+      indptr.data(), indices.data(), data.data(), nnz, n_rows, params.n_cols,
+      indptr.data(), indices.data(), data.data(), nnz, n_rows, params.n_cols,
+      out_indices.data(), out_dists.data(), k, handle, params.batch_size_index,
+      params.batch_size_query, params.metric);
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
   }
 
-  void TearDown() override { raft::deallocate_all(handle.get_stream()); }
-
   void compare() {
-    ASSERT_TRUE(devArrMatch(out_dists_ref, out_dists, n_rows * k,
+    ASSERT_TRUE(devArrMatch(out_dists_ref.data(), out_dists.data(), n_rows * k,
                             CompareApprox<value_t>(1e-4)));
-    ASSERT_TRUE(devArrMatch(out_indices_ref, out_indices, n_rows * k,
-                            Compare<value_idx>()));
+    ASSERT_TRUE(devArrMatch(out_indices_ref.data(), out_indices.data(),
+                            n_rows * k, Compare<value_idx>()));
   }
 
  protected:
@@ -95,30 +103,28 @@ class SparseKNNTest
     std::vector<value_idx> indices_h = params.indices_h;
     std::vector<value_t> data_h = params.data_h;
 
-    raft::allocate(indptr, indptr_h.size(), handle.get_stream());
-    raft::allocate(indices, indices_h.size(), handle.get_stream());
-    raft::allocate(data, data_h.size(), handle.get_stream());
+    auto stream = handle.get_stream();
+    indptr.resize(indptr_h.size(), stream);
+    indices.resize(indices_h.size(), stream);
+    data.resize(data_h.size(), stream);
 
-    update_device(indptr, indptr_h.data(), indptr_h.size(),
-                  handle.get_stream());
-    update_device(indices, indices_h.data(), indices_h.size(),
-                  handle.get_stream());
-    update_device(data, data_h.data(), data_h.size(), handle.get_stream());
+    update_device(indptr.data(), indptr_h.data(), indptr_h.size(), stream);
+    update_device(indices.data(), indices_h.data(), indices_h.size(), stream);
+    update_device(data.data(), data_h.data(), data_h.size(), stream);
 
     std::vector<value_t> out_dists_ref_h = params.out_dists_ref_h;
     std::vector<value_idx> out_indices_ref_h = params.out_indices_ref_h;
 
-    raft::allocate(out_indices_ref, out_indices_ref_h.size(),
-                   handle.get_stream());
-    raft::allocate(out_dists_ref, out_dists_ref_h.size(), handle.get_stream());
+    out_indices_ref.resize(out_indices_ref_h.size(), stream);
+    out_dists_ref.resize(out_dists_ref_h.size(), stream);
 
-    update_device(out_indices_ref, out_indices_ref_h.data(),
-                  out_indices_ref_h.size(), handle.get_stream());
-    update_device(out_dists_ref, out_dists_ref_h.data(), out_dists_ref_h.size(),
-                  handle.get_stream());
+    update_device(out_indices_ref.data(), out_indices_ref_h.data(),
+                  out_indices_ref_h.size(), stream);
+    update_device(out_dists_ref.data(), out_dists_ref_h.data(),
+                  out_dists_ref_h.size(), stream);
 
-    raft::allocate(out_dists, n_rows * k, handle.get_stream());
-    raft::allocate(out_indices, n_rows * k, handle.get_stream());
+    out_dists.resize(n_rows * k, stream);
+    out_indices.resize(n_rows * k, stream);
   }
 
   raft::handle_t handle;
@@ -126,15 +132,15 @@ class SparseKNNTest
   int n_rows, nnz, k;
 
   // input data
-  value_idx *indptr, *indices;
-  value_t *data;
+  rmm::device_uvector<value_idx> indptr, indices;
+  rmm::device_uvector<value_t> data;
 
   // output data
-  value_idx *out_indices;
-  value_t *out_dists;
+  rmm::device_uvector<value_idx> out_indices;
+  rmm::device_uvector<value_t> out_dists;
 
-  value_idx *out_indices_ref;
-  value_t *out_dists_ref;
+  rmm::device_uvector<value_idx> out_indices_ref;
+  rmm::device_uvector<value_t> out_dists_ref;
 
   SparseKNNInputs<value_idx, value_t> params;
 };

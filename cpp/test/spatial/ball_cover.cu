@@ -16,10 +16,14 @@
 
 #include <raft/cudart_utils.h>
 #include <raft/linalg/distance_type.h>
+
+#include <raft/spatial/knn/knn.hpp>
+#include <raft/spatial/knn/knn_specializations.hpp>
+
 #include <raft/spatial/knn/ball_cover.hpp>
 #include <raft/spatial/knn/detail/fused_l2_knn.cuh>
 #include <raft/spatial/knn/detail/haversine_distance.cuh>
-#include <raft/spatial/knn/detail/knn_brute_force_faiss.cuh>
+
 #include <rmm/device_uvector.hpp>
 #include "../test_utils.h"
 #include "spatial_data.h"
@@ -92,13 +96,10 @@ void compute_bfknn(const raft::handle_t &handle, const value_t *X1,
   std::vector<std::uint32_t> sizes_vec = {n};
 
   if (metric == raft::distance::DistanceType::Haversine) {
-    cudaStream_t *int_streams = nullptr;
-    std::vector<std::int64_t> *translations = nullptr;
-
-    raft::spatial::knn::detail::brute_force_knn_impl<std::uint32_t,
-                                                     std::int64_t>(
-      input_vec, sizes_vec, d, const_cast<value_t *>(X2), n, inds, dists, k,
-      handle.get_stream(), int_streams, 0, true, true, translations, metric);
+    std::vector<int64_t> *translations = nullptr;
+    raft::spatial::knn::brute_force_knn<long, float, unsigned int>(
+      handle, input_vec, sizes_vec, d, const_cast<value_t *>(X2), n, inds,
+      dists, k, true, true, translations, metric);
   } else {
     size_t worksize = 0;
     void *workspace = nullptr;

@@ -42,40 +42,40 @@ template <typename T, typename IdxType>
 template <typename T, typename IdxType>
 class MeanCenterTest
   : public ::testing::TestWithParam<MeanCenterInputs<T, IdxType>> {
+ public:
+  MeanCenterTest()
+    : params(
+        ::testing::TestWithParam<MeanCenterInputs<T, IdxType>>::GetParam()),
+      stream(handle.get_stream()),
+      rows(params.rows),
+      cols(params.cols),
+      out(rows * cols, stream),
+      out_ref(rows * cols, stream),
+      data(rows * cols, stream),
+      meanVec(params.bcastAlongRows ? cols : rows, stream) {}
+
  protected:
   void SetUp() override {
-    params = ::testing::TestWithParam<MeanCenterInputs<T, IdxType>>::GetParam();
     raft::random::Rng r(params.seed);
-
-    CUDA_CHECK(cudaStreamCreate(&stream));
-
-    auto rows = params.rows, cols = params.cols;
     auto len = rows * cols;
-    IdxType vecLen = params.bcastAlongRows ? cols : rows;
-
-    raft::allocate(out, len, stream);
-    raft::allocate(out_ref, len, stream);
-    raft::allocate(data, len, stream);
-    raft::allocate(meanVec, vecLen, stream);
-    r.normal(data, len, params.mean, (T)1.0, stream);
-    raft::stats::mean(meanVec, data, cols, rows, params.sample, params.rowMajor,
-                      stream);
-    meanCenter(out, data, meanVec, cols, rows, params.rowMajor,
-               params.bcastAlongRows, stream);
-    raft::linalg::naiveMatVec(out_ref, data, meanVec, cols, rows,
-                              params.rowMajor, params.bcastAlongRows, (T)-1.0);
+    r.normal(data.data(), len, params.mean, (T)1.0, stream);
+    raft::stats::mean(meanVec.data(), data.data(), cols, rows, params.sample,
+                      params.rowMajor, stream);
+    meanCenter(out.data(), data.data(), meanVec.data(), cols, rows,
+               params.rowMajor, params.bcastAlongRows, stream);
+    raft::linalg::naiveMatVec(out_ref.data(), data.data(), meanVec.data(), cols,
+                              rows, params.rowMajor, params.bcastAlongRows,
+                              (T)-1.0);
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
-  void TearDown() override {
-    raft::deallocate_all(stream);
-    CUDA_CHECK(cudaStreamDestroy(stream));
-  }
-
  protected:
-  MeanCenterInputs<T, IdxType> params;
-  T *data, *meanVec, *out, *out_ref;
+  raft::handle_t handle;
   cudaStream_t stream;
+
+  MeanCenterInputs<T, IdxType> params;
+  int rows, cols;
+  rmm::device_uvector<T> data, meanVec, out, out_ref;
 };
 
 const std::vector<MeanCenterInputs<float, int>> inputsf_i32 = {
@@ -105,7 +105,7 @@ const std::vector<MeanCenterInputs<float, int>> inputsf_i32 = {
   {0.05f, -1.f, 1024, 128, false, true, false, 1234ULL}};
 typedef MeanCenterTest<float, int> MeanCenterTestF_i32;
 TEST_P(MeanCenterTestF_i32, Result) {
-  ASSERT_TRUE(devArrMatch(out, out_ref, params.cols,
+  ASSERT_TRUE(devArrMatch(out.data(), out_ref.data(), params.cols,
                           raft::CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_SUITE_P(MeanCenterTests, MeanCenterTestF_i32,
@@ -138,7 +138,7 @@ const std::vector<MeanCenterInputs<float, size_t>> inputsf_i64 = {
   {0.05f, -1.f, 1024, 128, false, true, false, 1234ULL}};
 typedef MeanCenterTest<float, size_t> MeanCenterTestF_i64;
 TEST_P(MeanCenterTestF_i64, Result) {
-  ASSERT_TRUE(devArrMatch(out, out_ref, params.cols,
+  ASSERT_TRUE(devArrMatch(out.data(), out_ref.data(), params.cols,
                           raft::CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_SUITE_P(MeanCenterTests, MeanCenterTestF_i64,
@@ -171,7 +171,7 @@ const std::vector<MeanCenterInputs<double, int>> inputsd_i32 = {
   {0.05, -1.0, 1024, 128, false, true, false, 1234ULL}};
 typedef MeanCenterTest<double, int> MeanCenterTestD_i32;
 TEST_P(MeanCenterTestD_i32, Result) {
-  ASSERT_TRUE(devArrMatch(out, out_ref, params.cols,
+  ASSERT_TRUE(devArrMatch(out.data(), out_ref.data(), params.cols,
                           raft::CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_SUITE_P(MeanCenterTests, MeanCenterTestD_i32,
@@ -204,7 +204,7 @@ const std::vector<MeanCenterInputs<double, size_t>> inputsd_i64 = {
   {0.05, -1.0, 1024, 128, false, true, false, 1234ULL}};
 typedef MeanCenterTest<double, size_t> MeanCenterTestD_i64;
 TEST_P(MeanCenterTestD_i64, Result) {
-  ASSERT_TRUE(devArrMatch(out, out_ref, params.cols,
+  ASSERT_TRUE(devArrMatch(out.data(), out_ref.data(), params.cols,
                           raft::CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_SUITE_P(MeanCenterTests, MeanCenterTestD_i64,

@@ -111,11 +111,14 @@ inline void select_k(value_t *inK, value_idx *inV, size_t n_rows, size_t n_cols,
  * @param[in] expanded should lp-based distances be returned in their expanded
  * 					 form (e.g., without raising to the 1/p power).
  */
-inline void brute_force_knn(
-  raft::handle_t const &handle, std::vector<float *> &input,
-  std::vector<int> &sizes, int D, float *search_items, int n, int64_t *res_I,
-  float *res_D, int k, bool rowMajorIndex = true, bool rowMajorQuery = true,
-  std::vector<int64_t> *translations = nullptr,
+template <typename value_idx = std::int64_t, typename value_t = float,
+          typename value_int = int>
+void brute_force_knn(
+  raft::handle_t const &handle, std::vector<value_t *> &input,
+  std::vector<value_int> &sizes, value_int D, value_t *search_items,
+  value_int n, value_idx *res_I, value_t *res_D, value_int k,
+  bool rowMajorIndex = true, bool rowMajorQuery = true,
+  std::vector<value_idx> *translations = nullptr,
   distance::DistanceType metric = distance::DistanceType::L2Unexpanded,
   float metric_arg = 2.0f) {
   ASSERT(input.size() == sizes.size(),

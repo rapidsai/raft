@@ -17,7 +17,8 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
-#include <raft/distance/distance.cuh>
+#include <raft/distance/distance.hpp>
+#include <raft/distance/distance_specializations.hpp>
 #include <raft/random/rng.cuh>
 #include "../test_utils.h"
 
@@ -372,74 +373,66 @@ void distanceLauncher(DataType *x, DataType *y, DataType *dist, DataType *dist2,
                       DataType threshold, char *workspace, size_t worksize,
                       cudaStream_t stream, bool isRowMajor,
                       DataType metric_arg = 2.0f) {
-  auto fin_op = [dist2, threshold] __device__(DataType d_val, int g_d_idx) {
-    dist2[g_d_idx] = (d_val < threshold) ? 0.f : d_val;
-    return d_val;
-  };
   raft::distance::distance<distanceType, DataType, DataType, DataType>(
-    x, y, dist, m, n, k, workspace, worksize, fin_op, stream, isRowMajor,
-    metric_arg);
+    x, y, dist, m, n, k, workspace, worksize, stream, isRowMajor, metric_arg);
 }
 
 template <raft::distance::DistanceType distanceType, typename DataType>
 class DistanceTest : public ::testing::TestWithParam<DistanceInputs<DataType>> {
  public:
+  DistanceTest()
+    : params(::testing::TestWithParam<DistanceInputs<DataType>>::GetParam()),
+      stream(handle.get_stream()),
+      x(params.m * params.k, stream),
+      y(params.n * params.k, stream),
+      dist_ref(params.m * params.n, stream),
+      dist(params.m * params.n, stream),
+      dist2(params.m * params.n, stream) {}
+
   void SetUp() override {
-    params = ::testing::TestWithParam<DistanceInputs<DataType>>::GetParam();
     raft::random::Rng r(params.seed);
     int m = params.m;
     int n = params.n;
     int k = params.k;
     DataType metric_arg = params.metric_arg;
     bool isRowMajor = params.isRowMajor;
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    raft::allocate(x, m * k, stream);
-    raft::allocate(y, n * k, stream);
-    raft::allocate(dist_ref, m * n, stream);
-    raft::allocate(dist, m * n, stream);
-    raft::allocate(dist2, m * n, stream);
     if (distanceType == raft::distance::DistanceType::HellingerExpanded ||
         distanceType == raft::distance::DistanceType::JensenShannon ||
         distanceType == raft::distance::DistanceType::KLDivergence) {
       // Hellinger works only on positive numbers
-      r.uniform(x, m * k, DataType(0.0), DataType(1.0), stream);
-      r.uniform(y, n * k, DataType(0.0), DataType(1.0), stream);
+      r.uniform(x.data(), m * k, DataType(0.0), DataType(1.0), stream);
+      r.uniform(y.data(), n * k, DataType(0.0), DataType(1.0), stream);
     } else if (distanceType ==
                raft::distance::DistanceType::RusselRaoExpanded) {
-      r.uniform(x, m * k, DataType(0.0), DataType(1.0), stream);
-      r.uniform(y, n * k, DataType(0.0), DataType(1.0), stream);
+      r.uniform(x.data(), m * k, DataType(0.0), DataType(1.0), stream);
+      r.uniform(y.data(), n * k, DataType(0.0), DataType(1.0), stream);
       // Russel rao works on boolean values.
-      r.bernoulli(x, m * k, 0.5f, stream);
-      r.bernoulli(y, n * k, 0.5f, stream);
+      r.bernoulli(x.data(), m * k, 0.5f, stream);
+      r.bernoulli(y.data(), n * k, 0.5f, stream);
     } else {
-      r.uniform(x, m * k, DataType(-1.0), DataType(1.0), stream);
-      r.uniform(y, n * k, DataType(-1.0), DataType(1.0), stream);
+      r.uniform(x.data(), m * k, DataType(-1.0), DataType(1.0), stream);
+      r.uniform(y.data(), n * k, DataType(-1.0), DataType(1.0), stream);
     }
-    naiveDistance(dist_ref, x, y, m, n, k, distanceType, isRowMajor,
-                  metric_arg);
-    char *workspace = nullptr;
+    naiveDistance(dist_ref.data(), x.data(), y.data(), m, n, k, distanceType,
+                  isRowMajor, metric_arg);
     size_t worksize =
       raft::distance::getWorkspaceSize<distanceType, DataType, DataType,
-                                       DataType>(x, y, m, n, k);
-    if (worksize != 0) {
-      raft::allocate(workspace, worksize, stream);
-    }
+                                       DataType>(x.data(), y.data(), m, n, k);
+    rmm::device_uvector<char> workspace(worksize, stream);
 
     DataType threshold = -10000.f;
-    distanceLauncher<distanceType, DataType>(x, y, dist, dist2, m, n, k, params,
-                                             threshold, workspace, worksize,
-                                             stream, isRowMajor, metric_arg);
-  }
-
-  void TearDown() override {
-    raft::deallocate_all(stream);
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    distanceLauncher<distanceType, DataType>(
+      x.data(), y.data(), dist.data(), dist2.data(), m, n, k, params, threshold,
+      workspace.data(), workspace.size(), stream, isRowMajor, metric_arg);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
  protected:
-  DistanceInputs<DataType> params;
-  DataType *x, *y, *dist_ref, *dist, *dist2;
+  raft::handle_t handle;
   cudaStream_t stream;
+
+  DistanceInputs<DataType> params;
+  rmm::device_uvector<DataType> x, y, dist_ref, dist, dist2;
 };
 
 }  // end namespace distance
