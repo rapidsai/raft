@@ -28,7 +28,7 @@
 
 #include <label/classlabels.cuh>
 #include <raft/distance/distance.hpp>
-#include <raft/mr/faiss_mr.hpp>
+#include <raft/spatial/knn/faiss_mr.hpp>
 
 #include <faiss/gpu/GpuDistance.h>
 #include <faiss/gpu/GpuIndexFlat.h>
@@ -131,7 +131,8 @@ void approx_knn_build_index(raft::handle_t &handle,
   int device;
   CUDA_CHECK(cudaGetDevice(&device));
 
-  raft::mr::RmmGpuResources *gpu_res = new raft::mr::RmmGpuResources();
+  raft::spatial::knn::RmmGpuResources *gpu_res =
+    new raft::spatial::knn::RmmGpuResources();
   gpu_res->noTempMemory();
   gpu_res->setDefaultStream(device, handle.get_stream());
   index->gpu_res = gpu_res;

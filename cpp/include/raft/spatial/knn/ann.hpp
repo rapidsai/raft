@@ -20,7 +20,7 @@
 #include "detail/ann_quantized_faiss.cuh"
 
 #include <faiss/gpu/GpuIndex.h>
-#include <raft/mr/faiss_mr.hpp>
+#include <raft/spatial/knn/faiss_mr.hpp>
 
 #include <raft/mr/device/buffer.hpp>
 

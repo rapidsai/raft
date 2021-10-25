@@ -27,7 +27,7 @@
 
 #include <raft/linalg/distance_type.h>
 #include <raft/handle.hpp>
-#include <raft/mr/faiss_mr.hpp>
+#include <raft/spatial/knn/faiss_mr.hpp>
 
 namespace raft {
 namespace spatial {

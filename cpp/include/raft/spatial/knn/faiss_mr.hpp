@@ -25,7 +25,8 @@
 #include <rmm/mr/host/pinned_memory_resource.hpp>
 
 namespace raft {
-namespace mr {
+namespace spatial {
+namespace knn {
 
 using namespace faiss::gpu;
 
@@ -641,5 +642,6 @@ class RmmGpuResources : public GpuResourcesProvider {
   std::shared_ptr<RmmGpuResourcesImpl> res_;
 };
 
-}  // namespace mr
+}  // namespace knn
+}  // namespace spatial
 }  // namespace raft

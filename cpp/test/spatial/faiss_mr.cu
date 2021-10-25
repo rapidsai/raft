@@ -60,7 +60,7 @@ class FAISS_MR_Test : public ::testing::TestWithParam<AllocInputs> {
   }
 
   void testAllocs(MemorySpace mem_space) {
-    raft::mr::RmmGpuResources faiss_mr;
+    raft::spatial::knn::RmmGpuResources faiss_mr;
     auto faiss_mr_impl = faiss_mr.getResources();
     size_t free_before = getFreeMemory(mem_space);
     AllocRequest req(AllocType::Other, 0, mem_space, stream, params_.size);

@@ -32,7 +32,7 @@
 #include <cstdint>
 #include <iostream>
 #include <raft/handle.hpp>
-#include <raft/mr/faiss_mr.hpp>
+#include <raft/spatial/knn/faiss_mr.hpp>
 #include <set>
 
 #include "fused_l2_knn.cuh"
@@ -284,7 +284,7 @@ void brute_force_knn_impl(std::vector<float *> &input,
       default:
         faiss::MetricType m = build_faiss_metric(metric);
 
-        raft::mr::RmmGpuResources gpu_res;
+        raft::spatial::knn::RmmGpuResources gpu_res;
 
         gpu_res.noTempMemory();
         gpu_res.setDefaultStream(device, stream);
