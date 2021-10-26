@@ -15,11 +15,12 @@
  */
 
 #pragma once
-#include <raft/distance/pairwise_distance_base.cuh>
+#include <raft/distance/detail/pairwise_distance_base.cuh>
 #include <raft/linalg/unary_op.cuh>
 
 namespace raft {
 namespace distance {
+namespace detail {
 
 /**
  * @brief the Hellinger distance matrix using the expanded form:
@@ -200,5 +201,6 @@ void hellingerImpl(int m, int n, int k, const InType *pA, const InType *pB,
       n, m, k, lda, ldb, ldd, pB, pA, pDcast, fin_op, stream);
   }
 }
+}  // namespace detail
 }  // namespace distance
 }  // namespace raft
