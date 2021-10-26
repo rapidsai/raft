@@ -24,6 +24,7 @@
 namespace raft {
 namespace sparse {
 namespace distance {
+namespace detail {
 
 /**
  * Computes the maximum number of columns that can be stored
@@ -39,6 +40,7 @@ inline int max_cols_per_block() {
          sizeof(value_t);
 }
 
+}  // namespace detail
 }  // namespace distance
 }  // namespace sparse
 }  // namespace raft

@@ -34,7 +34,6 @@
 #include <raft/matrix/matrix.hpp>
 #include <raft/random/rng.hpp>
 #include <raft/sparse/convert/csr.cuh>
-#include <raft/sparse/distance/operators.cuh>
 
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>

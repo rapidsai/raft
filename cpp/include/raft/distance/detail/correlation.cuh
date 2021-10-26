@@ -16,11 +16,12 @@
 
 #pragma once
 #include <raft/cuda_utils.cuh>
-#include <raft/distance/pairwise_distance_base.cuh>
+#include <raft/distance/detail/pairwise_distance_base.cuh>
 #include <raft/linalg/reduce.cuh>
 
 namespace raft {
 namespace distance {
+namespace detail {
 
 /**
  * @brief the Correlation distance matrix:
@@ -243,5 +244,7 @@ void correlationImpl(int m, int n, int k, const InType *pA, const InType *pB,
                        fin_op, stream);
   }
 }
+
+}  // namespace detail
 }  // namespace distance
 }  // namespace raft

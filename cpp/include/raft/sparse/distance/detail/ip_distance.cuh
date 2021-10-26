@@ -27,8 +27,8 @@
 #include <raft/sparse/utils.h>
 #include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/convert/dense.cuh>
-#include <raft/sparse/distance/coo_spmv.cuh>
-#include <raft/sparse/distance/operators.cuh>
+#include <raft/sparse/distance/detail/coo_spmv.cuh>
+#include <raft/sparse/distance/detail/operators.cuh>
 #include <rmm/device_uvector.hpp>
 
 #include <nvfunctional>
@@ -36,14 +36,15 @@
 namespace raft {
 namespace sparse {
 namespace distance {
+namespace detail {
 
 template <typename value_idx, typename value_t>
 class ip_distances_t : public distances_t<value_t> {
  public:
   /**
-   * Computes simple sparse inner product distances as sum(x_y * y_k)
-   * @param[in] config specifies inputs, outputs, and sizes
-   */
+         * Computes simple sparse inner product distances as sum(x_y * y_k)
+         * @param[in] config specifies inputs, outputs, and sizes
+         */
   ip_distances_t(const distances_config_t<value_idx, value_t> &config)
     : config_(&config), coo_rows_b(config.b_nnz, config.handle.get_stream()) {
     raft::sparse::convert::csr_to_coo(config_->b_indptr, config_->b_nrows,
@@ -52,13 +53,13 @@ class ip_distances_t : public distances_t<value_t> {
   }
 
   /**
-   * Performs pairwise distance computation and computes output distances
-   * @param out_distances dense output matrix (size a_nrows * b_nrows)
-   */
+         * Performs pairwise distance computation and computes output distances
+         * @param out_distances dense output matrix (size a_nrows * b_nrows)
+         */
   void compute(value_t *out_distances) {
     /**
-	   * Compute pairwise distances and return dense matrix in row-major format
-	   */
+               * Compute pairwise distances and return dense matrix in row-major format
+               */
     balanced_coo_pairwise_generalized_spmv<value_idx, value_t>(
       out_distances, *config_, coo_rows_b.data(), Product(), Sum(),
       AtomicAdd());
@@ -72,6 +73,8 @@ class ip_distances_t : public distances_t<value_t> {
   const distances_config_t<value_idx, value_t> *config_;
   rmm::device_uvector<value_idx> coo_rows_b;
 };
+
+};  // END namespace detail
 };  // END namespace distance
 };  // END namespace sparse
 };  // END namespace raft
