@@ -89,14 +89,13 @@ __global__ void build_part_sort_index(value_idx *plan_csr_indptr,
                                       value_int n_query_pts) {
   value_idx query_id = blockIdx.x * blockDim.x + threadIdx.x;
 
-  if (query_id > n_query_pts) {
+  if (query_id >= n_query_pts) {
     return;
   }
-
   value_idx start_offset = plan_csr_indptr[query_id];
   value_idx stop_offset = plan_csr_indptr[query_id + 1];
 
-  int cur_offset = 0;
+  int cur_offset = start_offset;
   for (int i = start_offset; i < stop_offset; ++i) {
     sort_idx[cur_offset] = n_query_pts * cur_offset;
     ++cur_offset;
@@ -148,7 +147,7 @@ void order_plan_incremental(const raft::handle_t &handle, value_idx *plan_csr,
   auto initial_keys = thrust::make_zip_iterator(
     thrust::make_tuple(plan_coo.rows(), batch_landmark_dists));
   auto initial_vals = thrust::make_zip_iterator(
-    thrust::make_tuple(plan_coo.cols(), plan_coo.vals()));
+    thrust::make_tuple(plan_coo.rows(), plan_coo.cols(), plan_coo.vals()));
   thrust::sort_by_key(handle.get_thrust_policy(), initial_keys,
                       initial_keys + plan_coo.nnz, initial_vals, TupleComp());
 
@@ -533,16 +532,19 @@ void compute_and_execute_plan(
       landmark_batches.data(), weight);
 
   // Sum of cardinality array is nnz of plan
-  value_int n_batches =
+  value_idx n_batches =
     thrust::reduce(handle.get_thrust_policy(), landmark_batches.data(),
                    landmark_batches.data() + n_query_pts, 0);
 
-  rmm::device_uvector<value_idx> coo_write_plan(n_query_pts,
+  rmm::device_uvector<value_idx> coo_write_plan(n_query_pts + 1,
                                                 handle.get_stream());
 
   thrust::exclusive_scan(handle.get_thrust_policy(), landmark_batches.data(),
                          landmark_batches.data() + n_query_pts,
                          coo_write_plan.data(), 0);
+
+  raft::update_device(coo_write_plan.data() + n_query_pts, &n_batches, 1,
+                      handle.get_stream());
 
   // Construct COO where nnz=n_batches
   plan_coo.allocate(n_batches, 0, handle.get_stream());
@@ -557,8 +559,8 @@ void compute_and_execute_plan(
     plan_coo.cols(), plan_coo.vals(), batch_landmark_dists.data(),
     ql_dists.data());
 
-  //      order_plan_incremental(handle, coo_write_plan.data(), plan_coo,
-  //                             batch_landmark_dists.data(), n_query_pts);
+  order_plan_incremental(handle, coo_write_plan.data(), plan_coo,
+                         batch_landmark_dists.data(), n_query_pts);
 
   rmm::device_uvector<int> mutex(n_query_pts, handle.get_stream());
   thrust::fill(handle.get_thrust_policy(), mutex.data(),

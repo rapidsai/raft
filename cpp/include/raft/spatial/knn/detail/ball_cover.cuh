@@ -299,16 +299,16 @@ void rbc_all_knn_query(const raft::handle_t &handle,
   compute_landmark_radii(handle, index);
 
   if (index.n == 2) {
-    //    perform_rbc_query(handle, index, index.get_X(), index.m, k,
-    //                      R_knn_inds.data(), R_knn_dists.data(), dfunc, inds, dists,
-    //                      dists_counter.data(), post_dists_counter.data(), weight,
-    //                      perform_post_filtering);
+    perform_rbc_query(handle, index, index.get_X(), index.m, k,
+                      R_knn_inds.data(), R_knn_dists.data(), dfunc, inds, dists,
+                      dists_counter.data(), post_dists_counter.data(), weight,
+                      perform_post_filtering);
   } else {
     thrust::fill(handle.get_thrust_policy(), dists, dists + (index.m * k),
                  std::numeric_limits<value_t>::max());
     raft::sparse::COO<value_idx, value_idx> plan_coo(handle.get_stream());
 
-    rbc_build_index(handle, index, EuclideanFunc());
+    rbc_build_index(handle, index, EuclideanFunc<value_t, value_int>());
     compute_and_execute_plan(handle, index, k, index.get_X(), index.m, inds,
                              dists, plan_coo, weight);
   }
@@ -343,10 +343,10 @@ void rbc_knn_query(const raft::handle_t &handle,
                post_dists_counter.data() + index.m, 0);
 
   if (index.n == 2) {
-    //    perform_rbc_query(handle, index, query, n_query_pts, k, R_knn_inds.data(),
-    //                      R_knn_dists.data(), dfunc, inds, dists,
-    //                      dists_counter.data(), post_dists_counter.data(), weight,
-    //                      perform_post_filtering);
+    perform_rbc_query(handle, index, query, n_query_pts, k, R_knn_inds.data(),
+                      R_knn_dists.data(), dfunc, inds, dists,
+                      dists_counter.data(), post_dists_counter.data(), weight,
+                      perform_post_filtering);
   } else {
     thrust::fill(handle.get_thrust_policy(), dists, dists + (n_query_pts * k),
                  std::numeric_limits<value_t>::max());
