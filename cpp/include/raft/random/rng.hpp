@@ -30,6 +30,13 @@ using detail::GenTaps;
 /** GenKiss99 : kiss99 generator (currently the fastest) */
 using detail::GenKiss99;
 
+/** Philox-based random number generator */
+using detail::PhiloxGenerator;
+/** LFSR taps-filter for generating random numbers. */
+using detail::TapsGenerator;
+/** Kiss99-based random number generator */
+using detail::Kiss99Generator;
+
 /**
  * @brief Helper method to compute Box Muller transform
  *
