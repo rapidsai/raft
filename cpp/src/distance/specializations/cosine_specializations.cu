@@ -22,21 +22,22 @@ namespace detail {
 template void distance<raft::distance::DistanceType::CosineExpanded, float,
                        float, float, int>(const float *x, const float *y,
                                           float *dist, int m, int n, int k,
-                                          void *workspace, size_t worksize,
+                                          void *workspace, std::size_t worksize,
                                           cudaStream_t stream, bool isRowMajor,
                                           float metric_arg);
 
 template void distance<raft::distance::DistanceType::CosineExpanded, double,
                        double, double, int>(const double *x, const double *y,
                                             double *dist, int m, int n, int k,
-                                            void *workspace, size_t worksize,
+                                            void *workspace,
+                                            std::size_t worksize,
                                             cudaStream_t stream,
                                             bool isRowMajor, double metric_arg);
 
 template void distance<raft::distance::DistanceType::CosineExpanded, float,
                        float, float, std::uint32_t>(
   const float *x, const float *y, float *dist, std::uint32_t m, std::uint32_t n,
-  std::uint32_t k, void *workspace, size_t worksize, cudaStream_t stream,
+  std::uint32_t k, void *workspace, std::size_t worksize, cudaStream_t stream,
   bool isRowMajor, float metric_arg);
 
 }  // namespace detail

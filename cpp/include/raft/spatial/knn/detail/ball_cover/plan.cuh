@@ -54,7 +54,8 @@ namespace detail {
  * @param R_knn_inds
  * @param R_knn_dists
  */
-template <typename value_idx, typename value_t, typename value_int = uint32_t>
+template <typename value_idx, typename value_t,
+          typename value_int = std::uint32_t>
 void k_closest_landmarks2(const raft::handle_t &handle,
                           BallCoverIndex<value_idx, value_t, value_int> &index,
                           const value_t *query_pts, value_int n_query_pts,
@@ -72,7 +73,8 @@ void k_closest_landmarks2(const raft::handle_t &handle,
  * A simple device function to apply the triangle inequality and determine
  * whether a distance is worth computing.
  */
-template <typename value_t, typename value_idx, typename value_int = uint32_t>
+template <typename value_t, typename value_idx,
+          typename value_int = std::uint32_t>
 __device__ bool should_prune(value_idx l, value_int k, value_t p_q_r,
                              value_t closest_R_dist, const value_t *R_radius,
                              const value_t knn_dist, float weight) {
@@ -83,7 +85,7 @@ __device__ bool should_prune(value_idx l, value_int k, value_t p_q_r,
 /**
  * Builds a transposed sort index using a segmented counter
  */
-template <typename value_idx, typename value_int = uint32_t>
+template <typename value_idx, typename value_int = std::uint32_t>
 __global__ void build_part_sort_index(value_idx *plan_csr_indptr,
                                       value_idx *sort_idx,
                                       value_int n_query_pts) {
@@ -188,8 +190,8 @@ void order_plan_incremental(const raft::handle_t &handle, value_idx *plan_csr,
  * @param output
  * @param weight
  */
-template <typename value_idx, typename value_t, typename value_int = uint32_t,
-          int tpb = 32>
+template <typename value_idx, typename value_t,
+          typename value_int = std::uint32_t, int tpb = 32>
 __global__ void prune_landmarks(
   const value_t *landmark_dists, const value_int n_cols,
   const value_idx *R_knn_inds, const value_t *R_knn_dists,
@@ -240,7 +242,8 @@ __global__ void prune_landmarks(
   atomicAdd(total_landmark_points + blockIdx.x, n_points);
 }
 
-template <typename value_idx, typename value_t, typename value_int = uint32_t>
+template <typename value_idx, typename value_t,
+          typename value_int = std::uint32_t>
 __global__ void write_plan_coo(
   const value_idx *landmark_indptr, const value_idx *coo_write_plan,
   const uint32_t *bitset, const value_int bitset_size,
@@ -278,7 +281,8 @@ __global__ void write_plan_coo(
   }
 }
 
-template <typename value_idx, typename value_t, typename value_int = uint32_t>
+template <typename value_idx, typename value_t,
+          typename value_int = std::uint32_t>
 void landmark_q_pw_dists(const raft::handle_t &handle,
                          BallCoverIndex<value_idx, value_t> &index,
                          const value_t *queries, value_int n_queries,
@@ -375,8 +379,9 @@ __device__ void topk_merge(value_t *sh_memK, value_idx *sh_memV,
      * @param plan_landmark_ids_coo
      * @param plan_offset_ids_coo
      */
-template <typename value_idx, typename value_t, typename value_int = uint32_t,
-          int warp_q, int thread_q, int tpb, int batch_size = 2048>
+template <typename value_idx, typename value_t,
+          typename value_int = std::uint32_t, int warp_q, int thread_q, int tpb,
+          int batch_size = 2048>
 __global__ void compute_dists(
   const value_t *X, const value_t *query, const value_int k,
   const value_int n_cols, const value_idx *R_indptr,
@@ -469,8 +474,8 @@ __global__ void compute_dists(
  * @param knn_dists
  * @param weight
  */
-template <typename value_idx, typename value_t, typename value_int = uint32_t,
-          int batch_size = 2048>
+template <typename value_idx, typename value_t,
+          typename value_int = std::uint32_t, int batch_size = 2048>
 void compute_and_execute_plan(
   const raft::handle_t &handle,
   BallCoverIndex<value_idx, value_t, value_int> &index, value_int k,
