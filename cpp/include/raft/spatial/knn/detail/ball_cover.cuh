@@ -280,25 +280,25 @@ void rbc_all_knn_query(const raft::handle_t &handle,
   ASSERT(index.n_landmarks >= k, "number of landmark samples must be >= k");
   ASSERT(!index.is_index_trained(), "index cannot be previously trained");
 
-  rmm::device_uvector<value_idx> R_knn_inds(k * index.m, handle.get_stream());
-  rmm::device_uvector<value_t> R_knn_dists(k * index.m, handle.get_stream());
-
-  // For debugging / verification. Remove before releasing
-  rmm::device_uvector<value_int> dists_counter(index.m, handle.get_stream());
-  rmm::device_uvector<value_int> post_dists_counter(index.m,
-                                                    handle.get_stream());
-
-  sample_landmarks<value_idx, value_t>(handle, index);
-
-  k_closest_landmarks(handle, index, index.get_X(), index.m, k,
-                      R_knn_inds.data(), R_knn_dists.data());
-
-  construct_landmark_1nn(handle, R_knn_inds.data(), R_knn_dists.data(), k,
-                         index);
-
-  compute_landmark_radii(handle, index);
-
   if (index.n == 2) {
+    rmm::device_uvector<value_idx> R_knn_inds(k * index.m, handle.get_stream());
+    rmm::device_uvector<value_t> R_knn_dists(k * index.m, handle.get_stream());
+
+    // For debugging / verification. Remove before releasing
+    rmm::device_uvector<value_int> dists_counter(index.m, handle.get_stream());
+    rmm::device_uvector<value_int> post_dists_counter(index.m,
+                                                      handle.get_stream());
+
+    sample_landmarks<value_idx, value_t>(handle, index);
+
+    k_closest_landmarks(handle, index, index.get_X(), index.m, k,
+                        R_knn_inds.data(), R_knn_dists.data());
+
+    construct_landmark_1nn(handle, R_knn_inds.data(), R_knn_dists.data(), k,
+                           index);
+
+    compute_landmark_radii(handle, index);
+
     perform_rbc_query(handle, index, index.get_X(), index.m, k,
                       R_knn_inds.data(), R_knn_dists.data(), dfunc, inds, dists,
                       dists_counter.data(), post_dists_counter.data(), weight,
