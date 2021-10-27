@@ -38,7 +38,7 @@ typedef DistanceLinf<float> DistanceLinfF;
 TEST_P(DistanceLinfF, Result) {
   int m = params.isRowMajor ? params.m : params.n;
   int n = params.isRowMajor ? params.n : params.m;
-  ASSERT_TRUE(raft::devArrMatch(dist_ref, dist, m, n,
+  ASSERT_TRUE(raft::devArrMatch(dist_ref.data(), dist.data(), m, n,
                                 raft::CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceLinfF,
@@ -58,7 +58,7 @@ typedef DistanceLinf<double> DistanceLinfD;
 TEST_P(DistanceLinfD, Result) {
   int m = params.isRowMajor ? params.m : params.n;
   int n = params.isRowMajor ? params.n : params.m;
-  ASSERT_TRUE(raft::devArrMatch(dist_ref, dist, m, n,
+  ASSERT_TRUE(raft::devArrMatch(dist_ref.data(), dist.data(), m, n,
                                 raft::CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceLinfD,

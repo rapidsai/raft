@@ -25,7 +25,7 @@
 namespace raft {
 namespace sparse {
 namespace distance {
-
+namespace detail {
 /**
   * Load-balanced sparse-matrix-sparse-matrix multiplication (SPMM) kernel with
   * sparse-matrix-sparse-vector multiplication layout (SPMV).
@@ -203,6 +203,7 @@ __global__ void balanced_coo_generalized_spmv_kernel(
   }
 }
 
+}  // namespace detail
 }  // namespace distance
 }  // namespace sparse
 }  // namespace raft

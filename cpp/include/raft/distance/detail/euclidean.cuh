@@ -15,11 +15,12 @@
  */
 
 #pragma once
-#include <raft/distance/pairwise_distance_base.cuh>
+#include <raft/distance/detail/pairwise_distance_base.cuh>
 #include <raft/linalg/norm.cuh>
 
 namespace raft {
 namespace distance {
+namespace detail {
 
 /**
  * @brief the expanded euclidean distance matrix calculation implementer
@@ -352,5 +353,6 @@ void euclideanAlgo2(Index_ m, Index_ n, Index_ k, const InType *pA,
   }
 }
 
+};  // end namespace detail
 };  // end namespace distance
 };  // end namespace raft

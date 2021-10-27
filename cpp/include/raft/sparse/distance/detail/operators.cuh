@@ -21,6 +21,7 @@
 namespace raft {
 namespace sparse {
 namespace distance {
+namespace detail {
 
 struct Sum {
   template <typename value_t>
@@ -90,6 +91,7 @@ struct AbsDiff {
     return fabs(a - b);
   }
 };
+}  // namespace detail
 }  // namespace distance
 }  // namespace sparse
 };  // namespace raft

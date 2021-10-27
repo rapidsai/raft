@@ -47,16 +47,17 @@ const std::vector<SparseSortInput<float>> inputsf = {{5, 10, 5, 1234ULL}};
 
 typedef SparseSortTest<float> COOSort;
 TEST_P(COOSort, Result) {
-  int *in_rows, *in_cols, *verify;
-  float *in_vals;
-
   params = ::testing::TestWithParam<SparseSortInput<float>>::GetParam();
   raft::random::Rng r(params.seed);
   cudaStream_t stream;
   CUDA_CHECK(cudaStreamCreate(&stream));
 
-  raft::allocate(in_vals, params.nnz, stream);
-  r.uniform(in_vals, params.nnz, float(-1.0), float(1.0), stream);
+  rmm::device_uvector<int> in_rows(params.nnz, stream);
+  rmm::device_uvector<int> in_cols(params.nnz, stream);
+  rmm::device_uvector<int> verify(params.nnz, stream);
+  rmm::device_uvector<float> in_vals(params.nnz, stream);
+
+  r.uniform(in_vals.data(), params.nnz, float(-1.0), float(1.0), stream);
 
   int *in_rows_h = (int *)malloc(params.nnz * sizeof(int));
   int *in_cols_h = (int *)malloc(params.nnz * sizeof(int));
@@ -68,29 +69,21 @@ TEST_P(COOSort, Result) {
     in_cols_h[i] = i;
   }
 
-  raft::allocate(in_rows, params.nnz, stream);
-  raft::allocate(in_cols, params.nnz, stream);
-  raft::allocate(verify, params.nnz, stream);
+  raft::update_device(in_rows.data(), in_rows_h, params.nnz, stream);
 
-  raft::update_device(in_rows, in_rows_h, params.nnz, stream);
+  raft::update_device(in_cols.data(), in_cols_h, params.nnz, stream);
+  raft::update_device(verify.data(), verify_h, params.nnz, stream);
 
-  raft::update_device(in_cols, in_cols_h, params.nnz, stream);
-  raft::update_device(verify, verify_h, params.nnz, stream);
+  op::coo_sort(params.m, params.n, params.nnz, in_rows.data(), in_cols.data(),
+               in_vals.data(), stream);
 
-  op::coo_sort(params.m, params.n, params.nnz, in_rows, in_cols, in_vals,
-               stream);
-
-  ASSERT_TRUE(
-    raft::devArrMatch<int>(verify, in_rows, params.nnz, raft::Compare<int>()));
+  ASSERT_TRUE(raft::devArrMatch<int>(verify.data(), in_rows.data(), params.nnz,
+                                     raft::Compare<int>()));
 
   delete[] in_rows_h;
   delete[] in_cols_h;
   delete[] verify_h;
 
-  CUDA_CHECK(cudaFree(in_rows));
-  CUDA_CHECK(cudaFree(in_cols));
-  CUDA_CHECK(cudaFree(in_vals));
-  CUDA_CHECK(cudaFree(verify));
   CUDA_CHECK(cudaStreamDestroy(stream));
 }
 

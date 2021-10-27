@@ -15,10 +15,11 @@
  */
 
 #pragma once
-#include <raft/distance/pairwise_distance_base.cuh>
+#include <raft/distance/detail/pairwise_distance_base.cuh>
 
 namespace raft {
 namespace distance {
+namespace detail {
 
 /**
  * @brief the KL Divergence distance matrix:
@@ -238,5 +239,6 @@ void klDivergenceImpl(int m, int n, int k, const InType *pA, const InType *pB,
                  false>(n, m, k, lda, ldb, ldd, pB, pA, pDcast, fin_op, stream);
   }
 }
+}  // namespace detail
 }  // namespace distance
 }  // namespace raft

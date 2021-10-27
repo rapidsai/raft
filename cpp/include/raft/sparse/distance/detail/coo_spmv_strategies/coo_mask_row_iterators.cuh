@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "../common.h"
+#include "../../common.h"
 #include "../utils.cuh"
 
 #include <rmm/device_uvector.hpp>
@@ -24,6 +24,7 @@
 namespace raft {
 namespace sparse {
 namespace distance {
+namespace detail {
 
 template <typename value_idx>
 class mask_row_it {
@@ -186,6 +187,7 @@ class chunked_mask_row_it : public mask_row_it<value_idx> {
   }
 };
 
+}  // namespace detail
 }  // namespace distance
 }  // namespace sparse
 }  // namespace raft

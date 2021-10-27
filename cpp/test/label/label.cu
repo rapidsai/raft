@@ -41,11 +41,9 @@ TEST_F(MakeMonotonicTest, Result) {
 
   int m = 12;
 
-  float *data, *actual, *expected;
-
-  raft::allocate(data, m, stream, true);
-  raft::allocate(actual, m, stream, true);
-  raft::allocate(expected, m, stream, true);
+  rmm::device_uvector<float> data(m, stream);
+  rmm::device_uvector<float> actual(m, stream);
+  rmm::device_uvector<float> expected(m, stream);
 
   float *data_h =
     new float[m]{1.0, 2.0, 2.0, 2.0, 2.0, 3.0, 8.0, 7.0, 8.0, 8.0, 25.0, 80.0};
@@ -53,17 +51,15 @@ TEST_F(MakeMonotonicTest, Result) {
   float *expected_h =
     new float[m]{1.0, 2.0, 2.0, 2.0, 2.0, 3.0, 5.0, 4.0, 5.0, 5.0, 6.0, 7.0};
 
-  raft::update_device(data, data_h, m, stream);
-  raft::update_device(expected, expected_h, m, stream);
+  raft::update_device(data.data(), data_h, m, stream);
+  raft::update_device(expected.data(), expected_h, m, stream);
 
-  make_monotonic(actual, data, m, stream);
+  make_monotonic(actual.data(), data.data(), m, stream);
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
-  ASSERT_TRUE(devArrMatch(actual, expected, m, raft::Compare<bool>(), stream));
-
-  raft::deallocate_all(stream);
-  CUDA_CHECK(cudaStreamDestroy(stream));
+  ASSERT_TRUE(devArrMatch(actual.data(), expected.data(), m,
+                          raft::Compare<bool>(), stream));
 
   delete data_h;
   delete expected_h;
@@ -74,14 +70,13 @@ TEST(labelTest, Classlabels) {
   CUDA_CHECK(cudaStreamCreate(&stream));
 
   int n_rows = 6;
-  float *y_d;
-  raft::allocate(y_d, n_rows, stream);
+  rmm::device_uvector<float> y_d(n_rows, stream);
 
   float y_h[] = {2, -1, 1, 2, 1, 1};
-  raft::update_device(y_d, y_h, n_rows, stream);
+  raft::update_device(y_d.data(), y_h, n_rows, stream);
 
   rmm::device_uvector<float> y_unique_d(0, stream);
-  int n_classes = getUniquelabels(y_unique_d, y_d, n_rows, stream);
+  int n_classes = getUniquelabels(y_unique_d, y_d.data(), n_rows, stream);
 
   ASSERT_EQ(n_classes, 3);
 
@@ -89,18 +84,14 @@ TEST(labelTest, Classlabels) {
   EXPECT_TRUE(devArrMatchHost(y_unique_exp, y_unique_d.data(), n_classes,
                               raft::Compare<float>(), stream));
 
-  float *y_relabeled_d;
-  raft::allocate(y_relabeled_d, n_rows, stream);
+  rmm::device_uvector<float> y_relabeled_d(n_rows, stream);
 
-  getOvrlabels(y_d, n_rows, y_unique_d.data(), n_classes, y_relabeled_d, 2,
-               stream);
+  getOvrlabels(y_d.data(), n_rows, y_unique_d.data(), n_classes,
+               y_relabeled_d.data(), 2, stream);
 
   float y_relabeled_exp[] = {1, -1, -1, 1, -1, -1};
-  EXPECT_TRUE(devArrMatchHost(y_relabeled_exp, y_relabeled_d, n_rows,
+  EXPECT_TRUE(devArrMatchHost(y_relabeled_exp, y_relabeled_d.data(), n_rows,
                               raft::Compare<float>(), stream));
-
-  raft::deallocate_all(stream);
-  CUDA_CHECK(cudaStreamDestroy(stream));
 }
 };  // namespace label
 };  // namespace raft

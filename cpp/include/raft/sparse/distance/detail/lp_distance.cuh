@@ -30,13 +30,14 @@
 
 #include <raft/sparse/distance/common.h>
 #include <raft/sparse/convert/coo.cuh>
-#include <raft/sparse/distance/operators.cuh>
+#include <raft/sparse/distance/detail/operators.cuh>
 
 #include <nvfunctional>
 
 namespace raft {
 namespace sparse {
 namespace distance {
+namespace detail {
 
 template <typename value_idx = int, typename value_t = float,
           typename product_f, typename accum_f, typename write_f>
@@ -272,6 +273,7 @@ class kl_divergence_unexpanded_distances_t : public distances_t<value_t> {
   const distances_config_t<value_idx, value_t> *config_;
 };
 
+};  // END namespace detail
 };  // END namespace distance
 };  // END namespace sparse
 };  // END namespace raft
