@@ -47,4 +47,3 @@ cdef class Handle:
     cdef unique_ptr[handle_t] c_obj
     cdef shared_ptr[cuda_stream_pool] stream_pool
     cdef int n_streams
-    cdef void sync(self) nogil except *
