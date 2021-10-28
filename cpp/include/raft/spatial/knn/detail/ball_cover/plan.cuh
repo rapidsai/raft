@@ -33,7 +33,6 @@
 #include <faiss/gpu/utils/Select.cuh>
 
 #include <raft/distance/distance.hpp>
-#include <raft/selection/col_wise_sort.cuh>
 #include <raft/sparse/coo.cuh>
 
 namespace raft {
