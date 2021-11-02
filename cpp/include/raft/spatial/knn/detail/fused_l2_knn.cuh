@@ -546,8 +546,11 @@ void fusedL2UnexpKnnImpl(const DataT *x, const DataT *y, IdxT m, IdxT n, IdxT k,
              "fusedL2kNN: num of nearest neighbors must be <= 64");
     }
 
+    const auto sharedMemSize =
+      KPolicy::SmemSize + (KPolicy::Mblk * numOfNN * sizeof(Pair));
     dim3 grid = raft::distance::launchConfigGenerator<KPolicy>(
-      m, n, KPolicy::SmemSize, fusedL2UnexpKnnRowMajor);
+      m, n, sharedMemSize, fusedL2UnexpKnnRowMajor);
+
     if (grid.x > 1) {
       const auto numMutexes = raft::ceildiv<int>(m, KPolicy::Mblk);
       if (workspace == nullptr || worksize < (sizeof(int32_t) * numMutexes)) {
@@ -558,9 +561,6 @@ void fusedL2UnexpKnnImpl(const DataT *x, const DataT *y, IdxT m, IdxT n, IdxT k,
           cudaMemsetAsync(workspace, 0, sizeof(int32_t) * numMutexes, stream));
       }
     }
-
-    const auto sharedMemSize =
-      KPolicy::SmemSize + (KPolicy::Mblk * numOfNN * sizeof(Pair));
 
     fusedL2UnexpKnnRowMajor<<<grid, blk, sharedMemSize, stream>>>(
       x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, core_lambda, fin_op, sqrt,
