@@ -182,8 +182,7 @@ struct genericAtomicOperationImpl<T, Op, 4> {
     T old_value = *addr;
     T assumed{old_value};
 
-    if constexpr(std::is_same<T, float>{} &&
-        (std::is_same<Op, DeviceMin>{})) {
+    if constexpr (std::is_same<T, float>{} && (std::is_same<Op, DeviceMin>{})) {
       if (isnan(update_value)) {
         return old_value;
       }
@@ -213,10 +212,11 @@ struct genericAtomicOperationImpl<float, DeviceMax, 4> {
       return *addr;
     }
 
-    T old = (update_value >= 0)
-            ? __int_as_float(atomicMax((int*)addr, __float_as_int(update_value)))
-            : __uint_as_float(
-                atomicMin((unsigned int*)addr, __float_as_uint(update_value)));
+    T old =
+      (update_value >= 0)
+        ? __int_as_float(atomicMax((int*)addr, __float_as_int(update_value)))
+        : __uint_as_float(
+            atomicMin((unsigned int*)addr, __float_as_uint(update_value)));
 
     return old;
   }
