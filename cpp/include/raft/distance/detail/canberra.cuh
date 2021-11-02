@@ -15,10 +15,11 @@
  */
 
 #pragma once
-#include <raft/distance/pairwise_distance_base.cuh>
+#include <raft/distance/detail/pairwise_distance_base.cuh>
 
 namespace raft {
 namespace distance {
+namespace detail {
 
 /**
  * @brief the canberra distance matrix calculation implementer
@@ -157,5 +158,7 @@ void canberraImpl(int m, int n, int k, const InType *pA, const InType *pB,
       n, m, k, lda, ldb, ldd, pB, pA, pDcast, fin_op, stream);
   }
 }
+
+}  // namespace detail
 }  // namespace distance
 }  // namespace raft

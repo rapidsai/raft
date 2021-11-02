@@ -24,9 +24,9 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/mr/device/buffer.hpp>
 
-#include "../csr.cuh"
-#include "../utils.h"
-#include "common.h"
+#include "../../csr.cuh"
+#include "../../utils.h"
+#include "../common.h"
 
 #include <limits.h>
 
@@ -37,6 +37,7 @@
 namespace raft {
 namespace sparse {
 namespace distance {
+namespace detail {
 
 template <typename value_idx, typename value_t, int threads_per_block = 1024,
           typename product_f, typename accum_f, typename write_f,
@@ -178,6 +179,7 @@ inline void balanced_coo_pairwise_generalized_spmv_rev(
   }
 };
 
+}  // namespace detail
 }  // namespace distance
 }  // namespace sparse
 };  // namespace raft

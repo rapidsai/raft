@@ -15,10 +15,11 @@
  */
 
 #pragma once
-#include <raft/distance/pairwise_distance_base.cuh>
+#include <raft/distance/detail/pairwise_distance_base.cuh>
 
 namespace raft {
 namespace distance {
+namespace detail {
 
 /**
  * @brief the unexpanded Minkowski distance matrix calculation 
@@ -167,6 +168,6 @@ void minkowskiImpl(Index_ m, Index_ n, Index_ k, const InType *pA,
       n, m, k, lda, ldb, ldd, pB, pA, pDcast, fin_op, stream, metric_arg);
   }
 }
-
+};  // end namespace detail
 };  // end namespace distance
 };  // end namespace raft

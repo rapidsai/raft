@@ -15,10 +15,11 @@
  */
 
 #pragma once
-#include <raft/distance/pairwise_distance_base.cuh>
+#include <raft/distance/detail/pairwise_distance_base.cuh>
 
 namespace raft {
 namespace distance {
+namespace detail {
 
 /**
  * @brief the Hamming distance matrix using the unexpanded form:
@@ -171,5 +172,7 @@ void hammingUnexpandedImpl(int m, int n, int k, const InType *pA,
                                           pDcast, fin_op, stream);
   }
 }
+
+}  // namespace detail
 }  // namespace distance
 }  // namespace raft

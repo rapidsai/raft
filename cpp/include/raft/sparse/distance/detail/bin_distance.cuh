@@ -24,7 +24,7 @@
 #include <raft/sparse/distance/common.h>
 #include <raft/sparse/utils.h>
 #include <raft/cuda_utils.cuh>
-#include <raft/sparse/distance/ip_distance.cuh>
+#include <raft/sparse/distance/detail/ip_distance.cuh>
 #include <rmm/device_uvector.hpp>
 
 #include <nvfunctional>
@@ -32,7 +32,7 @@
 namespace raft {
 namespace sparse {
 namespace distance {
-
+namespace detail {
 // @TODO: Move this into sparse prims (coo_norm)
 template <typename value_idx, typename value_t>
 __global__ void compute_binary_row_norm_kernel(
@@ -54,7 +54,7 @@ __global__ void compute_binary_warp_kernel(value_t *__restrict__ C,
                                            const value_t *__restrict__ R_norms,
                                            value_idx n_rows, value_idx n_cols,
                                            expansion_f expansion_func) {
-  value_idx tid = blockDim.x * blockIdx.x + threadIdx.x;
+  std::size_t tid = blockDim.x * blockIdx.x + threadIdx.x;
   value_idx i = tid / n_cols;
   value_idx j = tid % n_cols;
 
@@ -193,6 +193,7 @@ class dice_expanded_distances_t : public distances_t<value_t> {
   ip_distances_t<value_idx, value_t> ip_dists;
 };
 
+}  // END namespace detail
 };  // END namespace distance
 };  // END namespace sparse
 };  // END namespace raft

@@ -105,8 +105,9 @@ class CholeskyR1Test : public ::testing::Test {
   }
 
   raft::handle_t handle;
-  cusolverDnHandle_t solver_handle;
   cudaStream_t stream;
+
+  cusolverDnHandle_t solver_handle;
 
   int n_rows = 4;
   int Lwork;

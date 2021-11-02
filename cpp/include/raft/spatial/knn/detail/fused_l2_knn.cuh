@@ -17,8 +17,11 @@
 #include <cub/cub.cuh>
 #include <faiss/gpu/utils/Select.cuh>
 #include <limits>
-#include <raft/distance/pairwise_distance_base.cuh>
 #include <raft/linalg/norm.cuh>
+// TODO: Need to hide the PairwiseDistance class impl and expose to public API
+#include <raft/distance/detail/distance.cuh>
+#include <raft/distance/detail/pairwise_distance_base.cuh>
+#include "processing.hpp"
 
 namespace raft {
 namespace spatial {
@@ -494,10 +497,10 @@ __global__ __launch_bounds__(Policy::Nthreads, 2) void fusedL2kNN(
     }
   };
 
-  raft::distance::PairwiseDistances<useNorms, DataT, AccT, OutT, IdxT, Policy,
-                                    CoreLambda, decltype(epilog_lambda),
-                                    FinalLambda, decltype(rowEpilog_lambda),
-                                    isRowMajor, false>
+  raft::distance::detail::PairwiseDistances<
+    useNorms, DataT, AccT, OutT, IdxT, Policy, CoreLambda,
+    decltype(epilog_lambda), FinalLambda, decltype(rowEpilog_lambda),
+    isRowMajor, false>
     obj(x, y, m, n, k, lda, ldb, ldd, _xn, _yn, nullptr, smem, core_op,
         epilog_lambda, fin_op, rowEpilog_lambda);
   obj.run();
@@ -548,7 +551,7 @@ void fusedL2UnexpKnnImpl(const DataT *x, const DataT *y, IdxT m, IdxT n, IdxT k,
 
     const auto sharedMemSize =
       KPolicy::SmemSize + (KPolicy::Mblk * numOfNN * sizeof(Pair));
-    dim3 grid = raft::distance::launchConfigGenerator<KPolicy>(
+    dim3 grid = raft::distance::detail::launchConfigGenerator<KPolicy>(
       m, n, sharedMemSize, fusedL2UnexpKnnRowMajor);
 
     if (grid.x > 1) {
@@ -645,7 +648,7 @@ void fusedL2ExpKnnImpl(const DataT *x, const DataT *y, IdxT m, IdxT n, IdxT k,
     const auto sharedMemSize =
       KPolicy::SmemSize + ((KPolicy::Mblk + KPolicy::Nblk) * sizeof(DataT)) +
       (KPolicy::Mblk * numOfNN * sizeof(Pair));
-    dim3 grid = raft::distance::launchConfigGenerator<KPolicy>(
+    dim3 grid = raft::distance::detail::launchConfigGenerator<KPolicy>(
       m, n, sharedMemSize, fusedL2ExpKnnRowMajor);
     int32_t *mutexes = nullptr;
     if (grid.x > 1) {
@@ -761,7 +764,7 @@ void fusedL2Knn(size_t D, value_idx *out_inds, value_t *out_dists,
   switch (metric) {
     case raft::distance::DistanceType::L2SqrtExpanded:
     case raft::distance::DistanceType::L2Expanded:
-      tempWorksize = raft::distance::getWorkspaceSize<
+      tempWorksize = raft::distance::detail::getWorkspaceSize<
         raft::distance::DistanceType::L2Expanded, float, float, float,
         value_idx>(query, index, n_query_rows, n_index_rows, D);
       worksize = tempWorksize;
