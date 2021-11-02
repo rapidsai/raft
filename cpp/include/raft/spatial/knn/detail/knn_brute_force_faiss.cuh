@@ -35,7 +35,6 @@
 #include <raft/handle.hpp>
 #include <set>
 
-#include <raft/distance/distance.cuh>
 #include "fused_l2_knn.cuh"
 #include "haversine_distance.cuh"
 #include "processing.hpp"
