@@ -54,11 +54,11 @@ class FusedL2KNNTest : public ::testing::TestWithParam<FusedL2KNNInputs> {
   void testBruteForce() {
     cudaStream_t stream = handle_.get_stream();
 
+    launchFaissBfknn();
     detail::fusedL2Knn(dim, raft_indices_, raft_distances_, database,
                        search_queries, num_db_vecs, num_queries, k_, true, true,
                        stream, metric);
 
-    launchFaissBfknn();
     // Only verifying indices.
     ASSERT_TRUE(devArrMatchInRange(faiss_indices_, raft_indices_, num_queries,
                                    k_, raft::Compare<int64_t>(), stream));
