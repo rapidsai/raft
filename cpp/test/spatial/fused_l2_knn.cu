@@ -48,6 +48,55 @@ struct FusedL2KNNInputs {
   raft::distance::DistanceType metric_;
 };
 
+template <typename IdxT, typename DistT, typename compareDist>
+struct idx_dist_pair {
+  IdxT idx;
+  DistT dist;
+  compareDist eq_compare;
+  bool operator==(const idx_dist_pair<IdxT, DistT, compareDist> &a) const {
+    if (idx == a.idx) return true;
+    if (eq_compare(dist, a.dist)) return true;
+    return false;
+  }
+  idx_dist_pair(IdxT x, DistT y, compareDist op)
+    : idx(x), dist(y), eq_compare(op) {}
+};
+
+template <typename T, typename DistT>
+testing::AssertionResult devArrMatchKnnPair(
+  const T *expected_idx, const T *actual_idx, const DistT *expected_dist,
+  const DistT *actual_dist, size_t rows, size_t cols, const DistT eps,
+  cudaStream_t stream = 0) {
+  size_t size = rows * cols;
+  std::unique_ptr<T[]> exp_idx_h(new T[size]);
+  std::unique_ptr<T[]> act_idx_h(new T[size]);
+  std::unique_ptr<DistT[]> exp_dist_h(new DistT[size]);
+  std::unique_ptr<DistT[]> act_dist_h(new DistT[size]);
+  raft::update_host<T>(exp_idx_h.get(), expected_idx, size, stream);
+  raft::update_host<T>(act_idx_h.get(), actual_idx, size, stream);
+  raft::update_host<DistT>(exp_dist_h.get(), expected_dist, size, stream);
+  raft::update_host<DistT>(act_dist_h.get(), actual_dist, size, stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+  for (size_t i(0); i < rows; ++i) {
+    for (size_t j(0); j < cols; ++j) {
+      auto idx = i * cols + j;  // row major assumption!
+      auto exp_idx = exp_idx_h.get()[idx];
+      auto act_idx = act_idx_h.get()[idx];
+      auto exp_dist = exp_dist_h.get()[idx];
+      auto act_dist = act_dist_h.get()[idx];
+      idx_dist_pair exp_kvp(exp_idx, exp_dist, raft::CompareApprox<DistT>(eps));
+      idx_dist_pair act_kvp(act_idx, act_dist, raft::CompareApprox<DistT>(eps));
+      if (!(exp_kvp == act_kvp)) {
+        return testing::AssertionFailure()
+               << "actual=" << act_kvp.idx << "," << act_kvp.dist << "!="
+               << "expected" << exp_kvp.idx << "," << exp_kvp.dist << " @" << i
+               << "," << j;
+      }
+    }
+  }
+  return testing::AssertionSuccess();
+}
+
 template <typename T>
 class FusedL2KNNTest : public ::testing::TestWithParam<FusedL2KNNInputs> {
  protected:
@@ -59,9 +108,9 @@ class FusedL2KNNTest : public ::testing::TestWithParam<FusedL2KNNInputs> {
                        search_queries, num_db_vecs, num_queries, k_, true, true,
                        stream, metric);
 
-    // Only verifying indices.
-    ASSERT_TRUE(devArrMatchInRange(faiss_indices_, raft_indices_, num_queries,
-                                   k_, raft::Compare<int64_t>(), stream));
+    // verify.
+    devArrMatchKnnPair(faiss_indices_, raft_indices_, faiss_distances_,
+                       raft_distances_, num_queries, k_, float(0.001), stream);
   }
 
   void SetUp() override {
