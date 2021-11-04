@@ -100,8 +100,10 @@ endif()
 # add third party dependencies using CPM
 rapids_cpm_init()
 
+# thrust and libcudacxx need to be before cuco!
 include(cmake/thirdparty/get_thrust.cmake)
 include(cmake/thirdparty/get_rmm.cmake)
+include(cmake/thirdparty/get_libcudacxx.cmake)
 include(cmake/thirdparty/get_cuco.cmake)
 
 if(BUILD_TESTS)
