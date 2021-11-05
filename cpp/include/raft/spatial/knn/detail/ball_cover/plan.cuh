@@ -96,22 +96,20 @@ __global__ void build_part_sort_index(value_idx *plan_csr_indptr,
   value_idx start_offset = plan_csr_indptr[query_id];
   value_idx stop_offset = plan_csr_indptr[query_id + 1];
 
-  int cur_offset = start_offset;
   for (int i = start_offset; i < stop_offset; ++i) {
-    sort_idx[cur_offset] = n_query_pts * cur_offset;
-    ++cur_offset;
+      sort_idx[i] = n_query_pts * i;
   }
 }
 
 struct TupleComp {
   template <typename one, typename two>
   __host__ __device__ bool operator()(const one &t1, const two &t2) {
-    // sort first by each sample's color,
+    // sort first by query id
     if (thrust::get<0>(t1) < thrust::get<0>(t2)) return true;
     if (thrust::get<0>(t1) > thrust::get<0>(t2)) return false;
 
-    // then sort by value in descending order
-    return thrust::get<1>(t1) > thrust::get<1>(t2);
+    // then sort by landmark distance (ascending order)
+    return thrust::get<1>(t1) < thrust::get<1>(t2);
   }
 };
 
@@ -152,21 +150,31 @@ void order_plan_incremental(const raft::handle_t &handle, value_idx *plan_csr,
   thrust::sort_by_key(handle.get_thrust_policy(), initial_keys,
                       initial_keys + plan_coo.nnz, initial_vals, TupleComp());
 
+  CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+  std::cout << "Initial sort by key" << std::endl;
+
   // For each query id, increment index for each partition by n_query_pts. It would be nice if there were a way
   // to affectively transpose the matrix into column-major ordering without losing the ordering of the partitions
   // wrt query ids but for now we create an index to do that ordering (by taking a cumulative sum
   // over the leading dimension)
   rmm::device_uvector<value_idx> sort_idx(plan_coo.nnz, handle.get_stream());
-  build_part_sort_index<<<raft::ceildiv(n_query_pts, (value_int)256), 256, 0,
+  build_part_sort_index<<<raft::ceildiv((std::uint64_t)n_query_pts, (std::uint64_t)256), 256, 0,
                           handle.get_stream()>>>(plan_csr, sort_idx.data(),
                                                  n_query_pts);
 
-  // Sort plan_coo by newly created sort_idx
+        CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+        std::cout << "Build part sort index" << std::endl;
+
+        // Sort plan_coo by newly created sort_idx
   auto final_vals = thrust::make_zip_iterator(
     thrust::make_tuple(plan_coo.rows(), plan_coo.cols(), plan_coo.vals()));
   thrust::sort_by_key(handle.get_thrust_policy(), sort_idx.data(),
                       sort_idx.data() + plan_coo.nnz, final_vals);
-}
+
+        CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+        std::cout << "second sort by key" << std::endl;
+
+    }
 
 /**
  * To find exact neighbors, we perform a post-processing stage
@@ -263,8 +271,6 @@ __global__ void write_plan_coo(
       value_idx start_offset = landmark_indptr[cur_R_ind];
       value_idx stop_offset = landmark_indptr[cur_R_ind + 1];
 
-      // TODO: Compute landmark distance here and output to an array for further sorting
-
       // Chunk potentially large landmarks into smaller batches to create an
       // upper bound on potential stragglers
       for (value_int batch_offset = start_offset; batch_offset < stop_offset;
@@ -346,6 +352,7 @@ __device__ void topk_merge(value_t *sh_memK, value_idx *sh_memV,
   for (int i = threadIdx.x; i < k; i += blockDim.x) {
     knn_dists[query_id * k + i] = sh_memK[i];
     knn_inds[query_id * k + i] = sh_memV[i];
+
   }
 
   if (threadIdx.x == 0) {
@@ -380,7 +387,7 @@ __device__ void topk_merge(value_t *sh_memK, value_idx *sh_memV,
      */
 template <typename value_idx, typename value_t,
           typename value_int = std::uint32_t, int warp_q, int thread_q, int tpb,
-          int batch_size = 2048>
+          int batch_size>
 __global__ void compute_dists(
   const value_t *X, const value_t *query, const value_int k,
   const value_int n_cols, const value_idx *R_indptr,
@@ -389,17 +396,34 @@ __global__ void compute_dists(
   int *mutex, const value_t *landmark_dists, const value_t *R_radius,
   const value_t *R_knn_dists, value_idx *knn_inds, value_t *knn_dists,
   float weight) {
-  static constexpr int kNumWarps = tpb / faiss::gpu::kWarpSize;
+//  static constexpr int kNumWarps = tpb / faiss::gpu::kWarpSize;
 
+//    // Specialize BlockReduce for a 1D block of 128 threads on type int
+    typedef cub::BlockReduce<value_t, tpb> BlockReduce;
+//    // Allocate shared memory for BlockReduce
+    __shared__ typename BlockReduce::TempStorage temp_storage;
+//    typedef cub::BlockRadixSort<value_t, tpb, 1, int> BlockRadixSort;
+//    __shared__ typename BlockRadixSort::TempStorage temp_storage;
+
+  auto lane_id = threadIdx.x & (32 - 1);
+//  auto warp_id = threadIdx.x / 32;
+
+    // Break distances up across threads
+//  value_t t_dist[batch_size/tpb];
+//  t_dist[0] = std::numeric_limits<value_t>::max();
+//  value_idx t_ind[batch_size/tpb];
+//  t_ind[0] = std::numeric_limits<value_idx>::max();
   value_idx query_id = plan_query_ids_coo[blockIdx.x];
   value_idx landmark_id = plan_landmark_ids_coo[blockIdx.x];
 
-  // Batch size is an upper bound
+//  // Batch size is an upper bound
+
+//__shared__ value_t q[500];
   __shared__ value_t batch_dists[batch_size];
   __shared__ value_idx batch_inds[batch_size];
-
-  __shared__ value_t sh_memK[kNumWarps * warp_q];
-  __shared__ value_idx sh_memV[kNumWarps * warp_q];
+//
+//  __shared__ value_t sh_memK[kNumWarps * warp_q];
+//  __shared__ value_idx sh_memV[kNumWarps * warp_q];
 
   // Evaluate whether this landmark can now be pruned
   if (should_prune(landmark_id, k, landmark_dists[blockIdx.x],
@@ -408,44 +432,127 @@ __global__ void compute_dists(
     return;
   }
 
+//#pragma unroll
   for (int i = threadIdx.x; i < batch_size; i += blockDim.x) {
-    batch_dists[i] = 0.0;
+    batch_dists[i] = std::numeric_limits<value_t>::max();
   }
   __syncthreads();
 
   value_idx offset_start = plan_offset_ids_coo[blockIdx.x];
-  value_idx offset_stop = R_indptr[landmark_id + 1];
 
   int working_batch_size =
-    min(offset_stop - offset_start, (value_idx)batch_size);
+    min(R_indptr[landmark_id + 1] - offset_start, (value_idx)batch_size);
 
-  for (int i = threadIdx.x; i < working_batch_size; i += blockDim.x) {
-    batch_inds[i] = R_1nn_cols[offset_start + i];
-  }
+//#pragma unroll
+//  for (int i = threadIdx.x; i < working_batch_size; i += blockDim.x) {
+//    batch_inds[i] = R_1nn_cols[offset_start + i];
+//  }
 
-  __syncthreads();
+//    for(int i = threadIdx.x; i < n_cols; i+=blockDim.x) {
+//        q[i] = query[query_id * n_cols + i];
+//    }
+//
+//  __syncthreads();
 
   // in chunks of block_dims, compute distances, store to sh_mem / registers
   // TODO: When n_cols is smaller than the number of threads in the block,
   //  (like maybe warp_size * 4), have each warp compute their own chunks of points
-  for (int i = 0; i < working_batch_size; ++i) {
-    value_idx point_index = batch_inds[i];
 
-    value_t dist = 0.0;
-    for (int j = threadIdx.x; j < n_cols; j += blockDim.x) {
-      value_t d = query[query_id * n_cols + j] - X[point_index * n_cols + j];
-      dist += d * d;
-    }
+  // Can break this up to chunk d  >= 16 && d < 32 -> half-warp,
+  // d >= 32 && d < block_size -> full warp
+  // d >= block_size, use block
 
-    // TODO: Use warp-reduction to minimize atomics to smem
-    atomicAdd(batch_dists + i, dist);
+        for (int i = 0; i < working_batch_size; ++i) {
+
+            value_idx point_index;
+            if(lane_id == 0) {
+                point_index = R_1nn_cols[offset_start + i];
+            }
+
+            point_index = __shfl_sync(0xffffff, point_index, 0);
+
+            value_t dist = 0.0;
+            #pragma unroll
+            for (int j = threadIdx.x; j < n_cols; j += blockDim.x) {
+                value_t d = query[query_id * n_cols + j] - X[point_index * n_cols + j];
+                dist += d * d;
+            }
+//
+//            for (int offset = 16; offset > 0; offset /= 2) {
+//                dist += __shfl_down_sync(0xffffff, dist, offset);
+//            }
+
+//            value_t di = __shfl_sync(0xffffff, dist, 0);
+//            int lid = i / kNumWarps;
+//            if(lane_id == lid) {
+//                int idx = lid / faiss::gpu::kWarpSize;
+//                t_ind[idx] = point_index;
+//                t_dist[idx] = sqrt(di);
+//            }
+
+//    if(lane_id == 0) {
+//        batch_dists[i] = dist;
+//    }
+            dist = BlockReduce(temp_storage).Sum(dist);
+            if(threadIdx.x == 0) {
+                batch_dists[i] = dist;
+                batch_inds[i] = point_index;
+            }
+        }
+          __syncthreads();
+
+
+//  for (int i = warp_id; i < working_batch_size; i+=kNumWarps) {
+//
+//    value_idx point_index;
+//    if(lane_id == 0) {
+//        point_index = R_1nn_cols[offset_start + i];
+//    }
+//
+//    point_index = __shfl_sync(0xffffff, point_index, 0);
+//
+//    value_t dist = 0.0;
+//    #pragma unroll
+//    for (int j = lane_id; j < n_cols; j += faiss::gpu::kWarpSize) {
+//      value_t d = q[j] - X[point_index * n_cols + j];
+//      dist += d * d;
+//    }
+//
+//    for (int offset = 16; offset > 0; offset /= 2) {
+//        dist += __shfl_down_sync(0xffffff, dist, offset);
+//    }
+//
+//    value_t di = __shfl_sync(0xffffff, dist, 0);
+//    int lid = i / kNumWarps;
+//    if(lane_id == lid) {
+//        int idx = lid / faiss::gpu::kWarpSize;
+//        t_ind[idx] = point_index;
+//        t_dist[idx] = sqrt(di);
+//    }
+//
+////    if(lane_id == 0) {
+////        batch_dists[i] = dist;
+////    }
+//  }
+//
+//  __syncthreads();
+
+//
+//  if(threadIdx.x < working_batch_size) {
+//      dist[0] = batch_dists[threadIdx.x];
+//      ind[0] = batch_inds[threadIdx.x];
+//  }
+
+//  BlockRadixSort(temp_storage).Sort(dist, ind);
+
+  for(int i = threadIdx.x; i < k; i += blockDim.x) {
+      knn_dists[query_id * k + i] = batch_dists[i];
+      knn_inds[query_id * k + i] = batch_inds[i];
   }
 
-  __syncthreads();
-
-  topk_merge<value_idx, value_t, warp_q, thread_q, tpb>(
-    sh_memK, sh_memV, query_id, batch_inds, batch_dists, working_batch_size, k,
-    mutex, knn_inds, knn_dists);
+//  topk_merge<value_idx, value_t, warp_q, thread_q, tpb>(
+//    sh_memK, sh_memV, query_id, batch_inds, batch_dists, working_batch_size, k,
+//    mutex, knn_inds, knn_dists);
 }
 
 /**
@@ -474,7 +581,8 @@ __global__ void compute_dists(
  * @param weight
  */
 template <typename value_idx, typename value_t,
-          typename value_int = std::uint32_t, int batch_size = 2048>
+          typename value_int = std::uint32_t,
+          int batch_size = 64>
 void compute_and_execute_plan(
   const raft::handle_t &handle,
   BallCoverIndex<value_idx, value_t, value_int> &index, value_int k,
@@ -500,6 +608,7 @@ void compute_and_execute_plan(
        * 4. Create coo w/ nnz = n_batches.sum()
        * 5. Populate coo w/ batch information- rows=query_row_id, cols=landmark_id, vals=start_offset
        */
+
   rmm::device_uvector<value_t> ql_dists(n_query_pts * index.n_landmarks,
                                         handle.get_stream());
 
@@ -521,8 +630,10 @@ void compute_and_execute_plan(
   rmm::device_uvector<uint32_t> bitset(bitset_size * index.m,
                                        handle.get_stream());
 
-  rmm::device_uvector<value_int> landmark_batches(n_query_pts,
-                                                  handle.get_stream());
+    auto plan_build_time = curTimeMillis();
+
+    rmm::device_uvector<value_int> landmark_batches(n_query_pts,
+                                              handle.get_stream());
 
   thrust::fill(handle.get_thrust_policy(), landmark_batches.data(),
                landmark_batches.data() + n_query_pts, 0);
@@ -539,6 +650,8 @@ void compute_and_execute_plan(
   value_idx n_batches =
     thrust::reduce(handle.get_thrust_policy(), landmark_batches.data(),
                    landmark_batches.data() + n_query_pts, 0);
+
+  raft::print_device_vector("landmark_batches", landmark_batches.data(), 25, std::cout);
 
   rmm::device_uvector<value_idx> coo_write_plan(n_query_pts + 1,
                                                 handle.get_stream());
@@ -563,19 +676,38 @@ void compute_and_execute_plan(
     plan_coo.cols(), plan_coo.vals(), batch_landmark_dists.data(),
     ql_dists.data());
 
+  CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+    std::cout << "Plan nnz " << plan_coo.nnz << std::endl;
+
+  std::cout << "Plan build time: " << (curTimeMillis() - plan_build_time) / 1000.0 << std::endl;
+
+  auto order_plan_time = curTimeMillis();
   order_plan_incremental(handle, coo_write_plan.data(), plan_coo,
                          batch_landmark_dists.data(), n_query_pts);
 
+  CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+  std::cout << "Order plan time: " << (curTimeMillis() - order_plan_time) / 1000.0 << std::endl;
+
+  auto compute_dists_time = curTimeMillis();
+
+  // TODO: Batch through this
   rmm::device_uvector<int> mutex(n_query_pts, handle.get_stream());
   thrust::fill(handle.get_thrust_policy(), mutex.data(),
                mutex.data() + n_query_pts, 0);
+
+    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+
   compute_dists<value_idx, value_t, value_int, 32, 2, 128, batch_size>
     <<<plan_coo.nnz, 128, 0, handle.get_stream()>>>(
       index.get_X(), query, k, index.n, index.get_R_indptr(),
       index.get_R_1nn_cols(), plan_coo.rows(), plan_coo.cols(), plan_coo.vals(),
       mutex.data(), batch_landmark_dists.data(), index.get_R_radius(),
       R_knn_dists.data(), knn_inds, knn_dists, weight);
-}
+
+  CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+  std::cout << "Compute dists time: " << (curTimeMillis() - compute_dists_time) / 1000.0 << std::endl;
+
+    }
 
 };  // namespace detail
 };  // namespace knn
