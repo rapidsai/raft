@@ -16,6 +16,8 @@
 
  #pragma once
 
+ #include <raft/vectorized.cuh>
+
  namespace raft {
  namespace linalg {
  namespace detail {

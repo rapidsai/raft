@@ -17,12 +17,15 @@
 #pragma once
 
 #include "detail/add.cuh"
+#include "detail/functional.cuh"
 
 #include "binary_op.cuh"
 #include "unary_op.cuh"
 
 namespace raft {
 namespace linalg {
+
+using detail::adds_scalar;
 
 /**
  * @brief Elementwise scalar add operation on the input buffer
@@ -41,8 +44,7 @@ namespace linalg {
 template <typename InT, typename OutT = InT, typename IdxType = int>
 void addScalar(OutT *out, const InT *in, InT scalar, IdxType len,
                cudaStream_t stream) {
-  auto op = [scalar] __device__(InT in) { return OutT(in + scalar); };
-  unaryOp<InT, decltype(op), IdxType, OutT>(out, in, len, op, stream);
+  unaryOp(out, in, len, adds_scalar<InT, OutT>(scalar), stream);
 }
 
 /**
@@ -61,8 +63,7 @@ void addScalar(OutT *out, const InT *in, InT scalar, IdxType len,
 template <typename InT, typename OutT = InT, typename IdxType = int>
 void add(OutT *out, const InT *in1, const InT *in2, IdxType len,
          cudaStream_t stream) {
-  auto op = [] __device__(InT a, InT b) { return OutT(a + b); };
-  binaryOp<InT, decltype(op), OutT, IdxType>(out, in1, in2, len, op, stream);
+  binaryOp(out, in1, in2, len, thrust::plus<InT>(), stream);
 }
 
 /** Substract single value pointed by singleScalarDev parameter in device memory from inDev[i] and write result to outDev[i]

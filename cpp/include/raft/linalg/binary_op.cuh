@@ -19,7 +19,6 @@
 #include "detail/binary_op.cuh"
 
 #include <raft/cuda_utils.cuh>
-#include <raft/vectorized.cuh>
 
 namespace raft {
 namespace linalg {

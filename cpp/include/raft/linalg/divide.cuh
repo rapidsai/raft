@@ -16,10 +16,13 @@
 
 #pragma once
 
+#include "detail/functional.cuh"
 #include "unary_op.cuh"
 
 namespace raft {
 namespace linalg {
+
+using detail::divides_scalar;
 
 /**
  * @defgroup ScalarOps Scalar operations on the input buffer
@@ -36,7 +39,7 @@ template <typename math_t, typename IdxType = int>
 void divideScalar(math_t *out, const math_t *in, math_t scalar, IdxType len,
                   cudaStream_t stream) {
   unaryOp(
-    out, in, len, [scalar] __device__(math_t in) { return in / scalar; },
+    out, in, len, divides_scalar<math_t>(scalar),
     stream);
 }
 /** @} */
