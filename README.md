@@ -1,15 +1,15 @@
 # <div align="left"><img src="https://rapids.ai/assets/images/rapids_logo.png" width="90px"/>&nbsp;RAFT: RAPIDS Analytics Framework Toolkit</div>
 
-RAFT is a library containing building-blocks for rapid composition of RAPIDS Analytics. These building-blocks include shared formats, primitives, mathematical operations, and utilities that accelerate building analytics and data science algorithms in the RAPIDS ecosystem. Both the C++ and Python components can be included in consuming libraries, providing building-blocks in both dense and sparse matrix formats from the following general categories:
+RAFT is a library containing building-blocks for rapid composition of RAPIDS Analytics. These building-blocks include shared representations, mathematical computational primitives, and utilities that accelerate building analytics and data science algorithms in the RAPIDS ecosystem. Both the C++ and Python components can be included in consuming libraries, providing building-blocks for both dense and sparse matrix formats in the following general categories:
 #####
 | Category | Description / Examples |
 | --- | --- |
 | **Data Formats** | tensor representations and conversions for both sparse and dense formats |
 | **Data Generation** | graph, spatial, and machine learning dataset generation |
-| **Dense Operations** | linear algebra, statistics, model evaluation scores |
+| **Dense Operations** | linear algebra, statistics |
 | **Spatial** | pairwise distances, nearest neighbors, neighborhood / proximity graph construction |
 | **Sparse/Graph Operations** | linear algebra, statistics, slicing, msf, spectral embedding/clustering, slhc, vertex degree |
-| **Solvers** | cusolver wrappers, quasi-newton, coordinate descent, stochastic gradient descent, lanczos |
+| **Solvers** | eigenvalue decomposition, lanczos |
 | **Tools** | multi-node multi-gpu communicator, utilities |
 
 By taking a primitives-based approach to algorithm development, RAFT accelerates algorithm construction time and reduces
