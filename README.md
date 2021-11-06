@@ -1,13 +1,13 @@
 # <div align="left"><img src="https://rapids.ai/assets/images/rapids_logo.png" width="90px"/>&nbsp;RAFT: RAPIDS Analytics Frameworks Toolkit</div>
 
-RAFT is a library containing shared formats, primitives, and utilities that accelerate building analytics and data science algorithms in the RAPIDS ecosystem. Both the C++ and Python components can be included in consuming libraries, providing building-blocks in both dense and sparse matrix formats from the following general categories:
+RAFT is a library containing building-blocks for rapid composition of RAPIDS Analytics. These building-blocks include shared formats, primitives, and utilities that accelerate building analytics and data science algorithms in the RAPIDS ecosystem. Both the C++ and Python components can be included in consuming libraries, providing building-blocks in both dense and sparse matrix formats from the following general categories:
 #####
 | Category | Description / Examples |
 | --- | --- |
 | **Data Formats** | tensor representations and conversions for both sparse and dense formats |
 | **Data Generation** | graph, spatial, and machine learning dataset generation |
 | **Dense Operations** | linear algebra, statistics, model evaluation scores |
-| **Distance** | pairwise distances, nearest neighbors, neighborhood / proximity graph construction |
+| **Spatial** | pairwise distances, nearest neighbors, neighborhood / proximity graph construction |
 | **Sparse/Graph Operations** | linear algebra, statistics, slicing, msf, spectral embedding/clustering, slhc, vertex degree |
 | **Solvers** | cusolver wrappers, quasi-newton, coordinate descent, stochastic gradient descent, lanczos |
 | **Tools** | communicator, utilities |
@@ -58,33 +58,37 @@ raft::distance::pairwise_distance(handle, input.data(), input.data(),
 
 The folder structure mirrors the main RAPIDS repos (cuDF, cuML, cuGraph...), with the following folders:
 
-- `cpp`: Source code for all C++ code. The code is header only, therefore it is in the `include` folder (with no `src`).
+- `cpp`: Source code for all C++ code. The code is currently header-only, therefore it is in the `include` folder (with no `src`).
 - `python`: Source code for all Python source code.
 - `ci`: Scripts for running CI in PRs
 
-The C++ portion of RAFT is header-only and contains the following include directories:
-```bash
-cpp/include/raft
-     |
-     |------------ comms      [communications abstraction layer for distributed primitives]
-     |
-     |------------ distance   [dense pairwise distance primitives]
-     |
-     |------------ linalg     [dense linear algebra primitives]
-     |
-     |------------ matrix     [dense matrix format]
-     |
-     |------------ random     [random matrix generation]
-     |
-     |------------ sparse     [sparse matrix / graph primitives]
-     |
-     |------------ spatial    [spatial primitives] (might require FAISS)
-     |
-     |------------ spectral   [spectral clustering]
-     |
-     |------------ stats      [statistics primitives]
-     |
-     |------------ handle.hpp [raft handle]
-```
+[comment]: <> (TODO: This needs to be updated after the public API is established)
+[comment]: <> (The library layout contains the following structure:)
+
+[comment]: <> (```bash)
+
+[comment]: <> (cpp/include/raft)
+
+[comment]: <> (     |------------ comms      [communication abstraction layer])
+
+[comment]: <> (     |------------ distance   [dense pairwise distances])
+
+[comment]: <> (     |------------ linalg     [dense linear algebra])
+
+[comment]: <> (     |------------ matrix     [dense matrix format])
+
+[comment]: <> (     |------------ random     [random matrix generation])
+
+[comment]: <> (     |------------ sparse     [sparse matrix and graph algorithms])
+
+[comment]: <> (     |------------ spatial    [spatial algorithms])
+
+[comment]: <> (     |------------ spectral   [spectral clustering])
+
+[comment]: <> (     |------------ stats      [statistics primitives])
+
+[comment]: <> (     |------------ handle.hpp [raft handle])
+
+[comment]: <> (```)
 
 
