@@ -1,6 +1,6 @@
 # <div align="left"><img src="https://rapids.ai/assets/images/rapids_logo.png" width="90px"/>&nbsp;RAFT: RAPIDS Analytics Frameworks Toolkit</div>
 
-RAFT is a library containing building-blocks for rapid composition of RAPIDS Analytics. These building-blocks include shared formats, primitives, and utilities that accelerate building analytics and data science algorithms in the RAPIDS ecosystem. Both the C++ and Python components can be included in consuming libraries, providing building-blocks in both dense and sparse matrix formats from the following general categories:
+RAFT is a library containing building-blocks for rapid composition of RAPIDS Analytics. These building-blocks include shared formats, primitives, mathematical operations, and utilities that accelerate building analytics and data science algorithms in the RAPIDS ecosystem. Both the C++ and Python components can be included in consuming libraries, providing building-blocks in both dense and sparse matrix formats from the following general categories:
 #####
 | Category | Description / Examples |
 | --- | --- |
