@@ -56,7 +56,7 @@ raft::distance::pairwise_distance(handle, input.data(), input.data(),
 
 ## Folder Structure and Contents
 
-The folder structure mirrors the main RAPIDS repos (cuDF, cuML, cuGraph...), with the following folders:
+The folder structure mirrors other RAPIDS repos (cuDF, cuML, cuGraph...), with the following folders:
 
 - `cpp`: Source code for all C++ code. The code is currently header-only, therefore it is in the `include` folder (with no `src`).
 - `python`: Source code for all Python source code.
