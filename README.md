@@ -9,7 +9,7 @@ RAFT is a library containing building-blocks for rapid composition of RAPIDS Ana
 | **Dense Operations** | linear algebra, statistics |
 | **Spatial** | pairwise distances, nearest neighbors, neighborhood / proximity graph construction |
 | **Sparse/Graph Operations** | linear algebra, statistics, slicing, msf, spectral embedding/clustering, slhc, vertex degree |
-| **Solvers** | eigenvalue decomposition, lanczos |
+| **Solvers** | eigenvalue decomposition, least squares, lanczos |
 | **Tools** | multi-node multi-gpu communicator, utilities |
 
 By taking a primitives-based approach to algorithm development, RAFT accelerates algorithm construction time and reduces
