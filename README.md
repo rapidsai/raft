@@ -10,7 +10,7 @@ RAFT is a library containing building-blocks for rapid composition of RAPIDS Ana
 | **Spatial** | pairwise distances, nearest neighbors, neighborhood / proximity graph construction |
 | **Sparse/Graph Operations** | linear algebra, statistics, slicing, msf, spectral embedding/clustering, slhc, vertex degree |
 | **Solvers** | cusolver wrappers, quasi-newton, coordinate descent, stochastic gradient descent, lanczos |
-| **Tools** | communicator, utilities |
+| **Tools** | multi-node multi-gpu communicator, utilities |
 
 By taking a primitives-based approach to algorithm development, RAFT accelerates algorithm construction time and reduces
 the maintenance burden by maximizing reuse across projects. RAFT relies on the [RAPIDS memory manager (RMM)](https://github.com/rapidsai/rmm) which, 
