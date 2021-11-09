@@ -21,10 +21,6 @@ function(find_and_configure_libcudacxx)
     --reject-file=- -p1 -N < ${RAFT_SOURCE_DIR}/cmake/libcudacxx.patch || true
   )
 
-  set(LIBCUDACXX_INCLUDE_DIR
-      "${libcudacxx_SOURCE_DIR}/include"
-      PARENT_SCOPE
-  )
 endfunction()
 
 find_and_configure_libcudacxx()
