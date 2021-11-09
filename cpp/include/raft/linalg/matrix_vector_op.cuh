@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <raft/coalesced_access.cuh>
 #include <raft/cuda_utils.cuh>
 #include <raft/vectorized.cuh>
 
