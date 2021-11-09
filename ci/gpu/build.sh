@@ -15,7 +15,7 @@ function hasArg {
 
 # Set path and build parallel level
 export PATH=/opt/conda/bin:/usr/local/cuda/bin:$PATH
-export PARALLEL_LEVEL=${PARALLEL_LEVEL:-4}
+export PARALLEL_LEVEL=${PARALLEL_LEVEL:-8}
 export CUDA_REL=${CUDA_VERSION%.*}
 
 # Set home to the job's workspace
