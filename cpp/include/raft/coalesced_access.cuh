@@ -37,12 +37,6 @@ struct CoalescedAccess {
  public:
   static_assert((VecBytes & VecMod) == 0, "VecBytes must be power of two.");
 
-  /** Number of elements fitting in a chunk of memory of size VecBytes. */
-  template <typename T>
-  static constexpr HDI std::size_t nElems() {
-    return VecBytes / sizeof(T);
-  }
-
   /** Tell whether the pointer is VecBytes-aligned. */
   template <typename PtrT>
   static constexpr HDI bool isAligned(PtrT p) noexcept {
