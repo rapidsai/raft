@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#pragma once
+
 #include "cuda_utils.cuh"
 
 namespace raft {
@@ -37,7 +39,9 @@ struct CoalescedAccess {
 
   /** Number of elements fitting in a chunk of memory of size VecBytes. */
   template <typename T>
-  static constexpr std::size_t nElems = VecBytes / sizeof(T);
+  static constexpr HDI std::size_t nElems() {
+    return VecBytes / sizeof(T);
+  }
 
   /** Tell whether the pointer is VecBytes-aligned. */
   template <typename PtrT>
