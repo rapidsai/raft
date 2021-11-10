@@ -24,6 +24,7 @@
 
 namespace raft {
 namespace distance {
+namespace detail {
 
 /**
  * @brief Device class for L1, L2 and cosine distance metrics.
@@ -69,11 +70,11 @@ template <bool useNorms, typename DataT, typename AccT, typename OutT,
 struct PairwiseDistances : public BaseClass {
  private:
   typedef Policy P;
-  const DataT* xn;
-  const DataT* yn;
-  const DataT* const yBase;
-  OutT* dOutput;
-  char* smem;
+  const DataT *xn;
+  const DataT *yn;
+  const DataT *const yBase;
+  OutT *dOutput;
+  char *smem;
   CoreLambda core_op;
   EpilogueLambda epilog_op;
   FinalLambda fin_op;
@@ -83,10 +84,10 @@ struct PairwiseDistances : public BaseClass {
 
  public:
   // Constructor
-  DI PairwiseDistances(const DataT* _x, const DataT* _y, IdxT _m, IdxT _n,
+  DI PairwiseDistances(const DataT *_x, const DataT *_y, IdxT _m, IdxT _n,
                        IdxT _k, IdxT _lda, IdxT _ldb, IdxT _ldd,
-                       const DataT* _xn, const DataT* _yn, OutT* _dOutput,
-                       char* _smem, CoreLambda _core_op,
+                       const DataT *_xn, const DataT *_yn, OutT *_dOutput,
+                       char *_smem, CoreLambda _core_op,
                        EpilogueLambda _epilog_op, FinalLambda _fin_op,
                        rowEpilogueLambda _rowEpilog_op)
     : BaseClass(_x, _y, _m, _n, _k, _lda, _ldb, _ldd, _smem),
@@ -203,8 +204,8 @@ struct PairwiseDistances : public BaseClass {
 
   DI void epilog(IdxT gridStrideX, IdxT gridStrideY) {
     if (useNorms) {
-      DataT* sxNorm = (DataT*)(&smem[P::SmemSize]);
-      DataT* syNorm = (&sxNorm[P::Mblk]);
+      DataT *sxNorm = (DataT *)(&smem[P::SmemSize]);
+      DataT *syNorm = (&sxNorm[P::Mblk]);
 
       // Load x & y norms required by this threadblock in shmem buffer
       if (gridStrideX == blockIdx.x * P::Nblk) {
@@ -294,14 +295,13 @@ template <bool useNorms, typename DataT, typename AccT, typename OutT,
           typename IdxT, typename Policy, typename CoreLambda,
           typename EpilogueLambda, typename FinalLambda, bool isRowMajor = true,
           bool writeOut = true>
-__global__ __launch_bounds__(
-  Policy::Nthreads,
-  2) void pairwiseDistanceMatKernel(const DataT* x, const DataT* y,
-                                    const DataT* _xn, const DataT* _yn, IdxT m,
-                                    IdxT n, IdxT k, IdxT lda, IdxT ldb,
-                                    IdxT ldd, OutT* dOutput, CoreLambda core_op,
-                                    EpilogueLambda epilog_op,
-                                    FinalLambda fin_op) {
+__global__ __launch_bounds__(Policy::Nthreads, 2)
+
+  void pairwiseDistanceMatKernel(const DataT *x, const DataT *y,
+                                 const DataT *_xn, const DataT *_yn, IdxT m,
+                                 IdxT n, IdxT k, IdxT lda, IdxT ldb, IdxT ldd,
+                                 OutT *dOutput, CoreLambda core_op,
+                                 EpilogueLambda epilog_op, FinalLambda fin_op) {
   extern __shared__ char smem[];
   auto rowEpilog = [] __device__(IdxT starty) { return; };
 
@@ -337,5 +337,6 @@ dim3 launchConfigGenerator(IdxT m, IdxT n, std::size_t sMemSize, T func) {
   return grid;
 }
 
+};  // namespace detail
 };  // namespace distance
 };  // namespace raft

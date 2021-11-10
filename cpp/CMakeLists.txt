@@ -103,6 +103,7 @@ endif()
 rapids_cpm_init()
 
 include(cmake/thirdparty/get_rmm.cmake)
+include(cmake/thirdparty/get_libcudacxx.cmake)
 include(cmake/thirdparty/get_cuco.cmake)
 # CPMFindPackage(faiss) so it's available for raft consumers to use
 include(cmake/thirdparty/get_faiss.cmake)

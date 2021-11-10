@@ -31,10 +31,10 @@
 #include <raft/sparse/convert/dense.cuh>
 #include <raft/sparse/csr.cuh>
 
-#include <raft/sparse/distance/bin_distance.cuh>
-#include <raft/sparse/distance/ip_distance.cuh>
-#include <raft/sparse/distance/l2_distance.cuh>
-#include <raft/sparse/distance/lp_distance.cuh>
+#include <raft/sparse/distance/detail/bin_distance.cuh>
+#include <raft/sparse/distance/detail/ip_distance.cuh>
+#include <raft/sparse/distance/detail/l2_distance.cuh>
+#include <raft/sparse/distance/detail/lp_distance.cuh>
 
 #include <cusparse_v2.h>
 
@@ -78,70 +78,77 @@ void pairwiseDistance(value_t *out,
                       raft::distance::DistanceType metric, float metric_arg) {
   switch (metric) {
     case raft::distance::DistanceType::L2Expanded:
-      l2_expanded_distances_t<value_idx, value_t>(input_config).compute(out);
+      detail::l2_expanded_distances_t<value_idx, value_t>(input_config)
+        .compute(out);
       break;
     case raft::distance::DistanceType::L2SqrtExpanded:
-      l2_sqrt_expanded_distances_t<value_idx, value_t>(input_config)
+      detail::l2_sqrt_expanded_distances_t<value_idx, value_t>(input_config)
         .compute(out);
       break;
     case raft::distance::DistanceType::InnerProduct:
-      ip_distances_t<value_idx, value_t>(input_config).compute(out);
+      detail::ip_distances_t<value_idx, value_t>(input_config).compute(out);
       break;
     case raft::distance::DistanceType::L2Unexpanded:
-      l2_unexpanded_distances_t<value_idx, value_t>(input_config).compute(out);
+      detail::l2_unexpanded_distances_t<value_idx, value_t>(input_config)
+        .compute(out);
       break;
     case raft::distance::DistanceType::L2SqrtUnexpanded:
-      l2_sqrt_unexpanded_distances_t<value_idx, value_t>(input_config)
+      detail::l2_sqrt_unexpanded_distances_t<value_idx, value_t>(input_config)
         .compute(out);
       break;
     case raft::distance::DistanceType::L1:
-      l1_unexpanded_distances_t<value_idx, value_t>(input_config).compute(out);
+      detail::l1_unexpanded_distances_t<value_idx, value_t>(input_config)
+        .compute(out);
       break;
     case raft::distance::DistanceType::LpUnexpanded:
-      lp_unexpanded_distances_t<value_idx, value_t>(input_config, metric_arg)
+      detail::lp_unexpanded_distances_t<value_idx, value_t>(input_config,
+                                                            metric_arg)
         .compute(out);
       break;
     case raft::distance::DistanceType::Linf:
-      linf_unexpanded_distances_t<value_idx, value_t>(input_config)
+      detail::linf_unexpanded_distances_t<value_idx, value_t>(input_config)
         .compute(out);
       break;
     case raft::distance::DistanceType::Canberra:
-      canberra_unexpanded_distances_t<value_idx, value_t>(input_config)
+      detail::canberra_unexpanded_distances_t<value_idx, value_t>(input_config)
         .compute(out);
       break;
     case raft::distance::DistanceType::JaccardExpanded:
-      jaccard_expanded_distances_t<value_idx, value_t>(input_config)
+      detail::jaccard_expanded_distances_t<value_idx, value_t>(input_config)
         .compute(out);
       break;
     case raft::distance::DistanceType::CosineExpanded:
-      cosine_expanded_distances_t<value_idx, value_t>(input_config)
+      detail::cosine_expanded_distances_t<value_idx, value_t>(input_config)
         .compute(out);
       break;
     case raft::distance::DistanceType::HellingerExpanded:
-      hellinger_expanded_distances_t<value_idx, value_t>(input_config)
+      detail::hellinger_expanded_distances_t<value_idx, value_t>(input_config)
         .compute(out);
       break;
     case raft::distance::DistanceType::DiceExpanded:
-      dice_expanded_distances_t<value_idx, value_t>(input_config).compute(out);
+      detail::dice_expanded_distances_t<value_idx, value_t>(input_config)
+        .compute(out);
       break;
     case raft::distance::DistanceType::CorrelationExpanded:
-      correlation_expanded_distances_t<value_idx, value_t>(input_config)
+      detail::correlation_expanded_distances_t<value_idx, value_t>(input_config)
         .compute(out);
       break;
     case raft::distance::DistanceType::RusselRaoExpanded:
-      russelrao_expanded_distances_t<value_idx, value_t>(input_config)
+      detail::russelrao_expanded_distances_t<value_idx, value_t>(input_config)
         .compute(out);
       break;
     case raft::distance::DistanceType::HammingUnexpanded:
-      hamming_unexpanded_distances_t<value_idx, value_t>(input_config)
+      detail::hamming_unexpanded_distances_t<value_idx, value_t>(input_config)
         .compute(out);
       break;
     case raft::distance::DistanceType::JensenShannon:
-      jensen_shannon_unexpanded_distances_t<value_idx, value_t>(input_config)
+      detail::jensen_shannon_unexpanded_distances_t<value_idx, value_t>(
+        input_config)
         .compute(out);
       break;
     case raft::distance::DistanceType::KLDivergence:
-      kl_divergence_unexpanded_distances_t<value_idx, value_t>(input_config)
+      detail::kl_divergence_unexpanded_distances_t<value_idx, value_t>(
+        input_config)
         .compute(out);
       break;
 
