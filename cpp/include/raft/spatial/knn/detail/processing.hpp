@@ -19,8 +19,8 @@
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/linalg/unary_op.cuh>
-#include <raft/stats/mean.cuh>
-#include <raft/stats/mean_center.cuh>
+#include <raft/stats/mean.hpp>
+#include <raft/stats/mean_center.hpp>
 #include <rmm/device_uvector.hpp>
 
 namespace raft {

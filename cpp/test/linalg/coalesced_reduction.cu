@@ -18,7 +18,7 @@
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/coalesced_reduction.cuh>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng.hpp>
 #include "../test_utils.h"
 #include "reduce.cuh"
 
