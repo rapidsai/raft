@@ -95,7 +95,7 @@ template <typename value_idx = int, typename value_t = float>
 void knn_graph(const handle_t &handle, const value_t *X, size_t m, size_t n,
                raft::distance::DistanceType metric,
                raft::sparse::COO<value_t, value_idx> &out, int c = 15) {
-  int k = build_k(m, c);
+  size_t k = build_k(m, c);
 
   auto stream = handle.get_stream();
 
@@ -111,7 +111,7 @@ void knn_graph(const handle_t &handle, const value_t *X, size_t m, size_t n,
   std::vector<value_t *> inputs;
   inputs.push_back(const_cast<value_t *>(X));
 
-  std::vector<int> sizes;
+  std::vector<size_t> sizes;
   sizes.push_back(m);
 
   // This is temporary. Once faiss is updated, we should be able to
@@ -119,7 +119,7 @@ void knn_graph(const handle_t &handle, const value_t *X, size_t m, size_t n,
   rmm::device_uvector<int64_t> int64_indices(nnz, stream);
 
   uint32_t knn_start = curTimeMillis();
-  raft::spatial::knn::brute_force_knn(
+  raft::spatial::knn::brute_force_knn<int64_t, value_t, size_t>(
     handle, inputs, sizes, n, const_cast<value_t *>(X), m, int64_indices.data(),
     data.data(), k, true, true, nullptr, metric);
 

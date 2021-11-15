@@ -21,6 +21,7 @@
 
 #include <raft/sparse/utils.h>
 #include <raft/spatial/knn/knn.hpp>
+#include <raft/spatial/knn/knn_specializations.hpp>
 
 namespace raft {
 namespace spatial {
