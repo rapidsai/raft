@@ -54,7 +54,7 @@ __global__ void compute_binary_warp_kernel(value_t *__restrict__ C,
                                            const value_t *__restrict__ R_norms,
                                            value_idx n_rows, value_idx n_cols,
                                            expansion_f expansion_func) {
-  value_idx tid = blockDim.x * blockIdx.x + threadIdx.x;
+  std::size_t tid = blockDim.x * blockIdx.x + threadIdx.x;
   value_idx i = tid / n_cols;
   value_idx j = tid % n_cols;
 

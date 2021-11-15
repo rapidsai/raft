@@ -64,7 +64,7 @@ __global__ void compute_euclidean_warp_kernel(
   value_t *__restrict__ C, const value_t *__restrict__ Q_sq_norms,
   const value_t *__restrict__ R_sq_norms, value_idx n_rows, value_idx n_cols,
   expansion_f expansion_func) {
-  value_idx tid = blockDim.x * blockIdx.x + threadIdx.x;
+  std::size_t tid = blockDim.x * blockIdx.x + threadIdx.x;
   value_idx i = tid / n_cols;
   value_idx j = tid % n_cols;
 
@@ -85,7 +85,7 @@ __global__ void compute_correlation_warp_kernel(
   const value_t *__restrict__ R_sq_norms, const value_t *__restrict__ Q_norms,
   const value_t *__restrict__ R_norms, value_idx n_rows, value_idx n_cols,
   value_idx n) {
-  value_idx tid = blockDim.x * blockIdx.x + threadIdx.x;
+  std::size_t tid = blockDim.x * blockIdx.x + threadIdx.x;
   value_idx i = tid / n_cols;
   value_idx j = tid % n_cols;
 
