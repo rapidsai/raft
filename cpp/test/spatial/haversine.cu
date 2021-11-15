@@ -56,7 +56,7 @@ class HaversineKNNTest : public ::testing::Test {
       0.74932804, -1.33634042, 0.51486728, -1.65962873,
       0.53154002, -1.47049808, 0.72891737, -1.54095137};
 
-    h_train_inputs.resize(n);
+    h_train_inputs.resize(n * d);
     raft::update_device(d_train_inputs.data(), h_train_inputs.data(), n * d,
                         stream);
 
