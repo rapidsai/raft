@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <raft/coalesced_access.cuh>
 #include <raft/cuda_utils.cuh>
+#include <raft/pow2_utils.cuh>
 #include <raft/vectorized.cuh>
 
 namespace raft {
@@ -28,9 +28,9 @@ template <size_t VecBytes>
 struct AlignedAccess {
   template <typename T>
   static inline bool test(const T *matrix, size_t strideBytes) {
-    return CoalescedAccess<VecBytes>::isAligned(matrix) &&
-           CoalescedAccess<VecBytes>::isAligned(strideBytes) &&
-           CoalescedAccess<sizeof(T)>::isAligned(VecBytes);
+    return Pow2<VecBytes>::isAligned(matrix) &&
+           Pow2<VecBytes>::isAligned(strideBytes) &&
+           Pow2<sizeof(T)>::isAligned(VecBytes);
   }
 };
 };  // namespace
