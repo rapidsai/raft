@@ -77,9 +77,6 @@ class HaversineKNNTest : public ::testing::Test {
     raft::update_device<value_idx>(d_ref_I.data(), h_res_I.data(), n * n,
                                    stream);
 
-    std::vector<value_t *> input_vec = {d_train_inputs.data()};
-    std::vector<value_idx> sizes_vec = {n};
-
     raft::spatial::knn::detail::haversine_knn(
       d_pred_I.data(), d_pred_D.data(), d_train_inputs.data(),
       d_train_inputs.data(), n, n, k, stream);
