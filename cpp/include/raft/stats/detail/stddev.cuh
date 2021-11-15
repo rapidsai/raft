@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,13 +16,14 @@
 
 #pragma once
 
-#include <cub/cub.cuh>
 #include <raft/cuda_utils.cuh>
-#include <raft/handle.hpp>
 #include <raft/linalg/binary_op.cuh>
+
+#include <cub/cub.cuh>
 
 namespace raft {
 namespace stats {
+namespace detail {
 
 ///@todo: ColPerBlk has been tested only for 32!
 template <typename Type, typename IdxType, int TPB, int ColsPerBlk = 32>
@@ -131,23 +132,23 @@ void stddev(Type *std, const Type *data, const Type *mu, IdxType D, IdxType N,
 }
 
 /**
- * @brief Compute variance of the input matrix
- *
- * Variance operation is assumed to be performed on a given column.
- *
- * @tparam Type the data type
- * @tparam IdxType Integer type used to for addressing
- * @param var the output stddev vector
- * @param data the input matrix
- * @param mu the mean vector
- * @param D number of columns of data
- * @param N number of rows of data
- * @param sample whether to evaluate sample stddev or not. In other words,
- * whether
- *  to normalize the output using N-1 or N, for true or false, respectively
- * @param rowMajor whether the input data is row or col major
- * @param stream cuda stream where to launch work
- */
+  * @brief Compute variance of the input matrix
+  *
+  * Variance operation is assumed to be performed on a given column.
+  *
+  * @tparam Type the data type
+  * @tparam IdxType Integer type used to for addressing
+  * @param var the output stddev vector
+  * @param data the input matrix
+  * @param mu the mean vector
+  * @param D number of columns of data
+  * @param N number of rows of data
+  * @param sample whether to evaluate sample stddev or not. In other words,
+  * whether
+  *  to normalize the output using N-1 or N, for true or false, respectively
+  * @param rowMajor whether the input data is row or col major
+  * @param stream cuda stream where to launch work
+  */
 template <typename Type, typename IdxType = int>
 void vars(Type *var, const Type *data, const Type *mu, IdxType D, IdxType N,
           bool sample, bool rowMajor, cudaStream_t stream) {
@@ -172,5 +173,6 @@ void vars(Type *var, const Type *data, const Type *mu, IdxType D, IdxType N,
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
-};  // namespace stats
-};  // namespace raft
+}  // namespace detail
+}  // namespace stats
+}  // namespace raft
