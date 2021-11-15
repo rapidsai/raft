@@ -31,11 +31,11 @@ class HaversineKNNTest : public ::testing::Test {
  public:
   HaversineKNNTest()
     : stream(handle.get_stream()),
-      d_train_inputs(n * d, stream),
-      d_ref_I(n * n, stream),
-      d_ref_D(n * n, stream),
-      d_pred_I(n * n, stream),
-      d_pred_D(n * n, stream) {}
+      d_train_inputs(0, stream),
+      d_ref_I(0, stream),
+      d_ref_D(0, stream),
+      d_pred_I(0, stream),
+      d_pred_D(0, stream) {}
 
  protected:
   void basicTest() {
