@@ -20,7 +20,7 @@
 #include <raft/sparse/linalg/add.hpp>
 
 #include <raft/cudart_utils.h>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng.hpp>
 #include "../test_utils.h"
 
 #include <iostream>
