@@ -16,8 +16,8 @@
 
 #pragma once
 
+#include <raft/sparse/op/detail  //sort.h>
 #include <raft/handle.hpp>
-#include <raft/sparse/op/detail//sort.h>
 
 namespace raft {
 namespace sparse {
@@ -38,7 +38,7 @@ namespace op {
 template <typename T>
 void coo_sort(int m, int n, int nnz, int *rows, int *cols, T *vals,
               cudaStream_t stream) {
-    detail::coo_sort(m, n, nnz, rows, cols, vals, stream);
+  detail::coo_sort(m, n, nnz, rows, cols, vals, stream);
 }
 
 /**
@@ -66,7 +66,7 @@ void coo_sort(COO<T> *const in, cudaStream_t stream) {
 template <typename value_idx, typename value_t>
 void coo_sort_by_weight(value_idx *rows, value_idx *cols, value_t *data,
                         value_idx nnz, cudaStream_t stream) {
-    detail::coo_sort_by_weight(rows, cols, data, nnz, stream);
+  detail::coo_sort_by_weight(rows, cols, data, nnz, stream);
 }
 };  // namespace op
 };  // end NAMESPACE sparse

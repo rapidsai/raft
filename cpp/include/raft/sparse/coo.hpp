@@ -14,13 +14,12 @@
  * limitations under the License.
  */
 
-
 #include <raft/sparse/detail/coo.cuh>
 
 #pragma once
 
 namespace raft {
-    namespace sparse {
+namespace sparse {
 
 /** @brief A Container object for sparse coordinate. There are two motivations
  * behind using a container for COO arrays.
@@ -40,8 +39,8 @@ namespace raft {
  * @tparam value_idx: the type of index array
  *
  */
-template<typename value_t, typename value_idx = int>
+template <typename value_t, typename value_idx = int>
 using COO = detail::COO<value_t, value_idx>;
 
-    };  // namespace sparse
+};  // namespace sparse
 };  // namespace raft

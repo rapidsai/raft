@@ -64,7 +64,8 @@ void brute_force_knn(const value_idx *idxIndptr, const value_idx *idxIndices,
     idxIndptr, idxIndices, idxData, idxNNZ, n_idx_rows, n_idx_cols, queryIndptr,
     queryIndices, queryData, queryNNZ, n_query_rows, n_query_cols,
     output_indices, output_dists, k, handle, batch_size_index, batch_size_query,
-    metric, metricArg).run();
+    metric, metricArg)
+    .run();
 }
 
 };  // namespace selection

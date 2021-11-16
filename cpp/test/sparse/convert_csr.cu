@@ -123,9 +123,9 @@ class CSRAdjGraphTest
                         params.n_rows * params.n_cols, stream);
     raft::update_device(verify.data(), params.verify.data(), nnz, stream);
 
-    convert::csr_adj_graph_batched<Index_>(row_ind.data(), params.n_cols,
-                                               nnz, params.n_rows, adj.data(),
-                                               result.data(), stream);
+    convert::csr_adj_graph_batched<Index_>(row_ind.data(), params.n_cols, nnz,
+                                           params.n_rows, adj.data(),
+                                           result.data(), stream);
 
     ASSERT_TRUE(raft::devArrMatch<Index_>(verify.data(), result.data(), nnz,
                                           raft::Compare<Index_>()));

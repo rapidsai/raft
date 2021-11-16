@@ -53,8 +53,9 @@ void weak_cc_batched(Index_ *labels, const Index_ *row_ind,
                      Index_ start_vertex_id, Index_ batch_size,
                      WeakCCState *state, cudaStream_t stream,
                      Lambda filter_op) {
-    detail::weak_cc_batched<Index_, TPB_X, Lambda>(labels, row_ind, row_ind_ptr, nnz, N, start_vertex_id,
-                                                   batch_size, state, stream, filter_op);
+  detail::weak_cc_batched<Index_, TPB_X, Lambda>(
+    labels, row_ind, row_ind_ptr, nnz, N, start_vertex_id, batch_size, state,
+    stream, filter_op);
 }
 
 /**
@@ -110,8 +111,7 @@ void weak_cc_batched(Index_ *labels, const Index_ *row_ind,
  * @param filter_op an optional filtering function to determine which points
  * should get considered for labeling. It gets global indexes (not batch-wide!)
  */
-template <typename Index_ = int,
-          typename Lambda = auto(Index_)->bool>
+template <typename Index_ = int, typename Lambda = auto(Index_)->bool>
 void weak_cc(Index_ *labels, const Index_ *row_ind, const Index_ *row_ind_ptr,
              Index_ nnz, Index_ N, cudaStream_t stream, Lambda filter_op) {
   rmm::device_scalar<bool> m(stream);

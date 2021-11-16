@@ -17,8 +17,8 @@
 #pragma once
 
 #include <raft/handle.hpp>
-#include <raft/sparse/op/detail/reduce.cuh>
 #include <raft/sparse/coo.hpp>
+#include <raft/sparse/op/detail/reduce.cuh>
 
 namespace raft {
 namespace sparse {
@@ -43,13 +43,12 @@ namespace op {
  * @param[in] nnz number of nonzeros in input arrays
  * @param[in] stream cuda ops will be ordered wrt this stream
  */
-template<typename value_idx>
+template <typename value_idx>
 void compute_duplicates_mask(value_idx *mask, const value_idx *rows,
                              const value_idx *cols, size_t nnz,
                              cudaStream_t stream) {
-    detail::compute_duplicates_mask(mask, rows, cols, nnz, stream);
+  detail::compute_duplicates_mask(mask, rows, cols, nnz, stream);
 }
-
 
 /**
  * Performs a COO reduce of duplicate columns per row, taking the max weight
@@ -72,7 +71,7 @@ void max_duplicates(const raft::handle_t &handle,
                     raft::sparse::COO<value_t, value_idx> &out,
                     const value_idx *rows, const value_idx *cols,
                     const value_t *vals, size_t nnz, size_t m, size_t n) {
-    detail::max_duplicates(handle, out, rows, cols, vals, nnz, m, n);
+  detail::max_duplicates(handle, out, rows, cols, vals, nnz, m, n);
 }
 };  // END namespace op
 };  // END namespace sparse

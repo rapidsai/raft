@@ -49,8 +49,7 @@ static const size_t EMPTY = 0;
  *            of k. The algorithm will set `k = log(n) + c`
  * @param[in] n_clusters number of clusters to assign data samples
  */
-template <typename value_idx, typename value_t,
-          LinkageDistance dist_type>
+template <typename value_idx, typename value_t, LinkageDistance dist_type>
 void single_linkage(const raft::handle_t &handle, const value_t *X, size_t m,
                     size_t n, raft::distance::DistanceType metric,
                     linkage_output<value_idx, value_t> *out, int c,

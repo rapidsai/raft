@@ -45,7 +45,8 @@ template <typename T>
 void coo_remove_scalar(const int *rows, const int *cols, const T *vals, int nnz,
                        int *crows, int *ccols, T *cvals, int *cnnz,
                        int *cur_cnnz, T scalar, int n, cudaStream_t stream) {
-    detail::coo_remove_scalar<128, T>(rows, cols, vals, nnz, crows, ccols, cvals, cnnz, cur_cnnz, scalar, n, stream);
+  detail::coo_remove_scalar<128, T>(rows, cols, vals, nnz, crows, ccols, cvals,
+                                    cnnz, cur_cnnz, scalar, n, stream);
 }
 
 /**
@@ -56,9 +57,9 @@ void coo_remove_scalar(const int *rows, const int *cols, const T *vals, int nnz,
  * @param scalar: scalar to remove from arrays
  * @param stream: cuda stream to use
  */
-template<typename T>
+template <typename T>
 void coo_remove_scalar(COO<T> *in, COO<T> *out, T scalar, cudaStream_t stream) {
-    detail::coo_remove_scalar<128, T>(in, out, scalar, stream);
+  detail::coo_remove_scalar<128, T>(in, out, scalar, stream);
 }
 
 /**

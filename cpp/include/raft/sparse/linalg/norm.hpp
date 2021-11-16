@@ -22,7 +22,6 @@ namespace raft {
 namespace sparse {
 namespace linalg {
 
-
 /**
  * @brief Perform L1 normalization on the rows of a given CSR-formatted sparse matrix
  *
@@ -40,9 +39,8 @@ void csr_row_normalize_l1(const int *ia,  // csr row ex_scan (sorted by row)
                           int m,    // num rows in csr
                           T *result,
                           cudaStream_t stream) {  // output array
-    detail::csr_row_normalize_l1(ia, vals, nnz, m, result, stream);
+  detail::csr_row_normalize_l1(ia, vals, nnz, m, result, stream);
 }
-
 
 /**
  * @brief Perform L_inf normalization on a given CSR-formatted sparse matrix
@@ -60,7 +58,7 @@ void csr_row_normalize_max(const int *ia,  // csr row ind array (sorted by row)
                            int nnz,  // array of values and number of non-zeros
                            int m,    // num total rows in csr
                            T *result, cudaStream_t stream) {
-    detail::csr_row_normalize_max(ia, vals, nnz, m, result, stream);
+  detail::csr_row_normalize_max(ia, vals, nnz, m, result, stream);
 }
 
 };  // end NAMESPACE linalg

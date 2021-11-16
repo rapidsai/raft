@@ -35,73 +35,73 @@
 #include <raft/sparse/detail/utils.h>
 
 namespace raft {
-    namespace sparse {
-        namespace detail {
+namespace sparse {
+namespace detail {
 
 //@TODO: Pull this out into a separate file
 
-            struct WeakCCState {
-            public:
-                bool *m;
+struct WeakCCState {
+ public:
+  bool *m;
 
-                WeakCCState(bool *m) : m(m) {}
-            };
+  WeakCCState(bool *m) : m(m) {}
+};
 
-            template<typename Index_, int TPB_X = 256, typename Lambda>
-            __global__ void weak_cc_label_device(Index_ *__restrict__ labels,
-                                                 const Index_ *__restrict__ row_ind,
-                                                 const Index_ *__restrict__ row_ind_ptr,
-                                                 Index_ nnz, bool *__restrict__ m,
-                                                 Index_ start_vertex_id, Index_ batch_size,
-                                                 Index_ N, Lambda filter_op) {
-                Index_ tid = threadIdx.x + blockIdx.x * TPB_X;
-                Index_ global_id = tid + start_vertex_id;
-                if (tid < batch_size && global_id < N) {
-                    Index_ start = __ldg(row_ind + tid);
+template <typename Index_, int TPB_X = 256, typename Lambda>
+__global__ void weak_cc_label_device(Index_ *__restrict__ labels,
+                                     const Index_ *__restrict__ row_ind,
+                                     const Index_ *__restrict__ row_ind_ptr,
+                                     Index_ nnz, bool *__restrict__ m,
+                                     Index_ start_vertex_id, Index_ batch_size,
+                                     Index_ N, Lambda filter_op) {
+  Index_ tid = threadIdx.x + blockIdx.x * TPB_X;
+  Index_ global_id = tid + start_vertex_id;
+  if (tid < batch_size && global_id < N) {
+    Index_ start = __ldg(row_ind + tid);
 
-                    Index_ ci, cj;
-                    bool ci_mod = false;
-                    ci = labels[global_id];
-                    bool ci_allow_prop = filter_op(global_id);
+    Index_ ci, cj;
+    bool ci_mod = false;
+    ci = labels[global_id];
+    bool ci_allow_prop = filter_op(global_id);
 
-                    Index_ end = get_stop_idx(tid, batch_size, nnz, row_ind);
-                    /// TODO: add one element to row_ind and avoid get_stop_idx
-                    for (Index_ j = start; j < end; j++) {
-                        Index_ j_ind = __ldg(row_ind_ptr + j);
-                        cj = labels[j_ind];
-                        bool cj_allow_prop = filter_op(j_ind);
-                        if (ci < cj && ci_allow_prop) {
-                            if (sizeof(Index_) == 4)
-                                atomicMin((int *) (labels + j_ind), ci);
-                            else if (sizeof(Index_) == 8)
-                                atomicMin((long long int *) (labels + j_ind), ci);
-                            if (cj_allow_prop) *m = true;
-                        } else if (ci > cj && cj_allow_prop) {
-                            ci = cj;
-                            ci_mod = true;
-                        }
-                    }
-                    if (ci_mod) {
-                        if (sizeof(Index_) == 4)
-                            atomicMin((int *) (labels + global_id), ci);
-                        else if (sizeof(Index_) == 8)
-                            atomicMin((long long int *) (labels + global_id), ci);
-                        if (ci_allow_prop) *m = true;
-                    }
-                }
-            }
+    Index_ end = get_stop_idx(tid, batch_size, nnz, row_ind);
+    /// TODO: add one element to row_ind and avoid get_stop_idx
+    for (Index_ j = start; j < end; j++) {
+      Index_ j_ind = __ldg(row_ind_ptr + j);
+      cj = labels[j_ind];
+      bool cj_allow_prop = filter_op(j_ind);
+      if (ci < cj && ci_allow_prop) {
+        if (sizeof(Index_) == 4)
+          atomicMin((int *)(labels + j_ind), ci);
+        else if (sizeof(Index_) == 8)
+          atomicMin((long long int *)(labels + j_ind), ci);
+        if (cj_allow_prop) *m = true;
+      } else if (ci > cj && cj_allow_prop) {
+        ci = cj;
+        ci_mod = true;
+      }
+    }
+    if (ci_mod) {
+      if (sizeof(Index_) == 4)
+        atomicMin((int *)(labels + global_id), ci);
+      else if (sizeof(Index_) == 8)
+        atomicMin((long long int *)(labels + global_id), ci);
+      if (ci_allow_prop) *m = true;
+    }
+  }
+}
 
-            template<typename Index_, int TPB_X = 256, typename Lambda>
-            __global__ void weak_cc_init_all_kernel(Index_ *labels, Index_ N,
-                                                    Index_ MAX_LABEL, Lambda filter_op) {
-                Index_ tid = threadIdx.x + blockIdx.x * TPB_X;
-                if (tid < N) {
-                    if (filter_op(tid))
-                        labels[tid] = tid + 1;
-                    else
-                        labels[tid] = MAX_LABEL;
-                }
-            }  // namespace sparse
+template <typename Index_, int TPB_X = 256, typename Lambda>
+__global__ void weak_cc_init_all_kernel(Index_ *labels, Index_ N,
+                                        Index_ MAX_LABEL, Lambda filter_op) {
+  Index_ tid = threadIdx.x + blockIdx.x * TPB_X;
+  if (tid < N) {
+    if (filter_op(tid))
+      labels[tid] = tid + 1;
+    else
+      labels[tid] = MAX_LABEL;
+  }
+}  // namespace sparse
 
 /**
  * @brief Partial calculation of the weakly connected components in the
@@ -125,43 +125,42 @@ namespace raft {
  * @param filter_op an optional filtering function to determine which points
  * should get considered for labeling. It gets global indexes (not batch-wide!)
  */
-            template<typename Index_, int TPB_X = 256,
-                    typename Lambda = auto(Index_)->bool>
-            void weak_cc_batched(Index_ *labels, const Index_ *row_ind,
-                                 const Index_ *row_ind_ptr, Index_ nnz, Index_ N,
-                                 Index_ start_vertex_id, Index_ batch_size,
-                                 WeakCCState *state, cudaStream_t stream,
-                                 Lambda filter_op) {
-                ASSERT(sizeof(Index_) == 4 || sizeof(Index_) == 8,
-                       "Index_ should be 4 or 8 bytes");
+template <typename Index_, int TPB_X = 256,
+          typename Lambda = auto(Index_)->bool>
+void weak_cc_batched(Index_ *labels, const Index_ *row_ind,
+                     const Index_ *row_ind_ptr, Index_ nnz, Index_ N,
+                     Index_ start_vertex_id, Index_ batch_size,
+                     WeakCCState *state, cudaStream_t stream,
+                     Lambda filter_op) {
+  ASSERT(sizeof(Index_) == 4 || sizeof(Index_) == 8,
+         "Index_ should be 4 or 8 bytes");
 
-                bool host_m;
+  bool host_m;
 
-                Index_ MAX_LABEL = std::numeric_limits<Index_>::max();
-                weak_cc_init_all_kernel<Index_, TPB_X>
-                <<<raft::ceildiv(N, Index_(TPB_X)), TPB_X, 0, stream>>>(
-                        labels, N, MAX_LABEL, filter_op);
-                CUDA_CHECK(cudaPeekAtLastError());
+  Index_ MAX_LABEL = std::numeric_limits<Index_>::max();
+  weak_cc_init_all_kernel<Index_, TPB_X>
+    <<<raft::ceildiv(N, Index_(TPB_X)), TPB_X, 0, stream>>>(
+      labels, N, MAX_LABEL, filter_op);
+  CUDA_CHECK(cudaPeekAtLastError());
 
-                int n_iters = 0;
-                do {
-                    CUDA_CHECK(cudaMemsetAsync(state->m, false, sizeof(bool), stream));
+  int n_iters = 0;
+  do {
+    CUDA_CHECK(cudaMemsetAsync(state->m, false, sizeof(bool), stream));
 
-                    weak_cc_label_device<Index_, TPB_X>
-                    <<<raft::ceildiv(batch_size, Index_(TPB_X)), TPB_X, 0, stream>>>(
-                            labels, row_ind, row_ind_ptr, nnz, state->m, start_vertex_id,
-                            batch_size, N, filter_op);
-                    CUDA_CHECK(cudaPeekAtLastError());
+    weak_cc_label_device<Index_, TPB_X>
+      <<<raft::ceildiv(batch_size, Index_(TPB_X)), TPB_X, 0, stream>>>(
+        labels, row_ind, row_ind_ptr, nnz, state->m, start_vertex_id,
+        batch_size, N, filter_op);
+    CUDA_CHECK(cudaPeekAtLastError());
 
-                    //** Updating m *
-                    raft::update_host(&host_m, state->m, 1, stream);
-                    CUDA_CHECK(cudaStreamSynchronize(stream));
+    //** Updating m *
+    raft::update_host(&host_m, state->m, 1, stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
 
-                    n_iters++;
-                } while (host_m);
-            }
+    n_iters++;
+  } while (host_m);
+}
 
-
-        }; // namespace detail
-    };  // namespace sparse
+};  // namespace detail
+};  // namespace sparse
 };  // namespace raft

@@ -22,7 +22,8 @@ namespace raft {
 namespace linkage {
 
 template <typename value_idx, typename value_t>
-using FixConnectivitiesRedOp = detail::FixConnectivitiesRedOp<value_idx, value_t>;
+using FixConnectivitiesRedOp =
+  detail::FixConnectivitiesRedOp<value_idx, value_t>;
 
 /**
  * Gets the number of unique components from array of
@@ -34,12 +35,11 @@ using FixConnectivitiesRedOp = detail::FixConnectivitiesRedOp<value_idx, value_t
  * @param[in] stream cuda stream for which to order cuda operations
  * @return total number of components
  */
-template<typename value_idx>
+template <typename value_idx>
 value_idx get_n_components(value_idx *colors, size_t n_rows,
                            cudaStream_t stream) {
-    return detail::get_n_components(colors, n_rows, stream);
+  return detail::get_n_components(colors, n_rows, stream);
 }
-
 
 /**
  * Connects the components of an otherwise unconnected knn graph
@@ -66,7 +66,8 @@ void connect_components(const raft::handle_t &handle,
                         size_t n_rows, size_t n_cols, red_op reduction_op,
                         raft::distance::DistanceType metric =
                           raft::distance::DistanceType::L2SqrtExpanded) {
-    detail::connect_components(handle, out, X, orig_colors, n_rows, n_cols, reduction_op, metric);
+  detail::connect_components(handle, out, X, orig_colors, n_rows, n_cols,
+                             reduction_op, metric);
 }
 
 };  // end namespace linkage

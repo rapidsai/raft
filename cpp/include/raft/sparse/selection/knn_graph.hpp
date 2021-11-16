@@ -45,7 +45,7 @@ template <typename value_idx = int, typename value_t = float>
 void knn_graph(const handle_t &handle, const value_t *X, size_t m, size_t n,
                raft::distance::DistanceType metric,
                raft::sparse::COO<value_t, value_idx> &out, int c = 15) {
-    detail::knn_graph(handle, X, m, n, metric, out, c);
+  detail::knn_graph(handle, X, m, n, metric, out, c);
 }
 
 };  // namespace selection
