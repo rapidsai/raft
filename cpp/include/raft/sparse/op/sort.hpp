@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <raft/sparse/op/detail  //sort.h>
+#include <raft/sparse/op/detail/sort.h>
 #include <raft/handle.hpp>
 
 namespace raft {
