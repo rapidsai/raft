@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
+#pragma once
+
 #include <raft/sparse/detail/coo.cuh>
 
-#pragma once
 
 namespace raft {
 namespace sparse {
