@@ -17,7 +17,7 @@
 #include <gtest/gtest.h>
 #include <raft/linalg/gemv.h>
 #include <raft/cuda_utils.cuh>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng.hpp>
 #include "../test_utils.h"
 
 namespace raft {

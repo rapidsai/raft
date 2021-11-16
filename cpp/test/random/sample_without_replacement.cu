@@ -17,13 +17,15 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng.hpp>
 #include <set>
 #include <vector>
 #include "../test_utils.h"
 
 namespace raft {
 namespace random {
+
+using namespace raft::random::detail;
 
 // Terminology:
 // SWoR - Sample Without Replacement

@@ -76,6 +76,7 @@ void initialize(const raft::handle_t& handle, OutT* min, IdxT m, DataT maxVal,
  * @param[in]  k             gemm k
  * @param[in]  workspace     temp workspace. Size = sizeof(int)*m. (on device)
  * @param[in]  redOp         reduction operator in the epilogue
+ * @param[in] pairRedOp reduction operation on key value pairs
  * @param[in]  sqrt          Whether the output `minDist` should contain L2-sqrt
  * @param[in]  initOutBuffer whether to initialize the output buffer before the
  *                           main kernel launch
