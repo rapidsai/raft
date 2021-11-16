@@ -20,8 +20,8 @@
 #include <raft/sparse/hierarchy/detail/single_linkage.hpp>
 
 namespace raft {
-    namespace hierarchy {
-        namespace detail {
+namespace hierarchy {
+namespace detail {
 
 /**
  * Single-linkage clustering, capable of constructing a KNN graph to
@@ -42,14 +42,15 @@ namespace raft {
  *            of k. The algorithm will set `k = log(n) + c`
  * @param[in] n_clusters number of clusters to assign data samples
  */
-            template<typename value_idx, typename value_t,
-                    LinkageDistance dist_type = LinkageDistance::KNN_GRAPH>
-            void single_linkage(const raft::handle_t &handle, const value_t *X, size_t m,
-                                size_t n, raft::distance::DistanceType metric,
-                                linkage_output <value_idx, value_t> *out, int c,
-                                size_t n_clusters) {
-                detail::single_linkage<value_idx, value_t, dist_type>(handle, X, m, n, metric, out, c, n_clusters);
-            }
-        }; // namespace detail
-    };  // namespace hierarchy
+template <typename value_idx, typename value_t,
+          LinkageDistance dist_type = LinkageDistance::KNN_GRAPH>
+void single_linkage(const raft::handle_t &handle, const value_t *X, size_t m,
+                    size_t n, raft::distance::DistanceType metric,
+                    linkage_output<value_idx, value_t> *out, int c,
+                    size_t n_clusters) {
+  detail::single_linkage<value_idx, value_t, dist_type>(handle, X, m, n, metric,
+                                                        out, c, n_clusters);
+}
+};  // namespace detail
+};  // namespace hierarchy
 };  // namespace raft

@@ -26,9 +26,9 @@
 
 namespace raft {
 namespace hierarchy {
-    namespace detail {
+namespace detail {
 
-        static const size_t EMPTY = 0;
+static const size_t EMPTY = 0;
 
 /**
  * Single-linkage clustering, capable of constructing a KNN graph to
@@ -49,62 +49,62 @@ namespace hierarchy {
  *            of k. The algorithm will set `k = log(n) + c`
  * @param[in] n_clusters number of clusters to assign data samples
  */
-        template<typename value_idx, typename value_t,
-                LinkageDistance dist_type = LinkageDistance::KNN_GRAPH>
-        void single_linkage(const raft::handle_t &handle, const value_t *X, size_t m,
-                            size_t n, raft::distance::DistanceType metric,
-                            linkage_output <value_idx, value_t> *out, int c,
-                            size_t n_clusters) {
-            ASSERT(n_clusters <= m,
-                   "n_clusters must be less than or equal to the number of data points");
+template <typename value_idx, typename value_t,
+          LinkageDistance dist_type = LinkageDistance::KNN_GRAPH>
+void single_linkage(const raft::handle_t &handle, const value_t *X, size_t m,
+                    size_t n, raft::distance::DistanceType metric,
+                    linkage_output<value_idx, value_t> *out, int c,
+                    size_t n_clusters) {
+  ASSERT(n_clusters <= m,
+         "n_clusters must be less than or equal to the number of data points");
 
-            auto stream = handle.get_stream();
+  auto stream = handle.get_stream();
 
-            rmm::device_uvector <value_idx> indptr(EMPTY, stream);
-            rmm::device_uvector <value_idx> indices(EMPTY, stream);
-            rmm::device_uvector <value_t> pw_dists(EMPTY, stream);
+  rmm::device_uvector<value_idx> indptr(EMPTY, stream);
+  rmm::device_uvector<value_idx> indices(EMPTY, stream);
+  rmm::device_uvector<value_t> pw_dists(EMPTY, stream);
 
-            /**
+  /**
              * 1. Construct distance graph
              */
-            detail::get_distance_graph<value_idx, value_t, dist_type>(
-                    handle, X, m, n, metric, indptr, indices, pw_dists, c);
+  detail::get_distance_graph<value_idx, value_t, dist_type>(
+    handle, X, m, n, metric, indptr, indices, pw_dists, c);
 
-            rmm::device_uvector <value_idx> mst_rows(m - 1, stream);
-            rmm::device_uvector <value_idx> mst_cols(m - 1, stream);
-            rmm::device_uvector <value_t> mst_data(m - 1, stream);
+  rmm::device_uvector<value_idx> mst_rows(m - 1, stream);
+  rmm::device_uvector<value_idx> mst_cols(m - 1, stream);
+  rmm::device_uvector<value_t> mst_data(m - 1, stream);
 
-            /**
+  /**
              * 2. Construct MST, sorted by weights
              */
-            rmm::device_uvector <value_idx> color(m, stream);
-            raft::linkage::FixConnectivitiesRedOp<value_idx, value_t> op(color.data(), m);
-            detail::build_sorted_mst<value_idx, value_t>(
-                    handle, X, indptr.data(), indices.data(), pw_dists.data(), m, n,
-                    mst_rows.data(), mst_cols.data(), mst_data.data(), color.data(),
-                    indices.size(), op, metric);
+  rmm::device_uvector<value_idx> color(m, stream);
+  raft::linkage::FixConnectivitiesRedOp<value_idx, value_t> op(color.data(), m);
+  detail::build_sorted_mst<value_idx, value_t>(
+    handle, X, indptr.data(), indices.data(), pw_dists.data(), m, n,
+    mst_rows.data(), mst_cols.data(), mst_data.data(), color.data(),
+    indices.size(), op, metric);
 
-            pw_dists.release();
+  pw_dists.release();
 
-            /**
+  /**
              * Perform hierarchical labeling
              */
-            size_t n_edges = mst_rows.size();
+  size_t n_edges = mst_rows.size();
 
-            rmm::device_uvector <value_t> out_delta(n_edges, stream);
-            rmm::device_uvector <value_idx> out_size(n_edges, stream);
-            // Create dendrogram
-            detail::build_dendrogram_host<value_idx, value_t>(
-                    handle, mst_rows.data(), mst_cols.data(), mst_data.data(), n_edges,
-                    out->children, out_delta.data(), out_size.data());
-            detail::extract_flattened_clusters(handle, out->labels, out->children,
-                                               n_clusters, m);
+  rmm::device_uvector<value_t> out_delta(n_edges, stream);
+  rmm::device_uvector<value_idx> out_size(n_edges, stream);
+  // Create dendrogram
+  detail::build_dendrogram_host<value_idx, value_t>(
+    handle, mst_rows.data(), mst_cols.data(), mst_data.data(), n_edges,
+    out->children, out_delta.data(), out_size.data());
+  detail::extract_flattened_clusters(handle, out->labels, out->children,
+                                     n_clusters, m);
 
-            out->m = m;
-            out->n_clusters = n_clusters;
-            out->n_leaves = m;
-            out->n_connected_components = 1;
-        }
-    }; // namespace detail
+  out->m = m;
+  out->n_clusters = n_clusters;
+  out->n_leaves = m;
+  out->n_connected_components = 1;
+}
+};  // namespace detail
 };  // namespace hierarchy
 };  // namespace raft

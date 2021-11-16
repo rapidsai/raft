@@ -27,7 +27,8 @@ template <typename value_t>
 void coo_to_csr(const raft::handle_t &handle, const int *srcRows,
                 const int *srcCols, const value_t *srcVals, int nnz, int m,
                 int *dst_offsets, int *dstCols, value_t *dstVals) {
-    detail::coo_to_csr(handle, srcRows, srcCols, srcVals, nnz, m, dst_offsets, dstCols, dstVals);
+  detail::coo_to_csr(handle, srcRows, srcCols, srcVals, nnz, m, dst_offsets,
+                     dstCols, dstVals);
 }
 
 /**
@@ -50,14 +51,16 @@ void csr_adj_graph_batched(const Index_ *row_ind, Index_ total_rows, Index_ nnz,
                            Index_ batchSize, const bool *adj,
                            Index_ *row_ind_ptr, cudaStream_t stream,
                            Lambda fused_op) {
-    detail::csr_adj_graph_batched<Index_, 32, Lambda>(row_ind, total_rows, nnz, batchSize, adj, row_ind_ptr, stream, fused_op);
+  detail::csr_adj_graph_batched<Index_, 32, Lambda>(
+    row_ind, total_rows, nnz, batchSize, adj, row_ind_ptr, stream, fused_op);
 }
 
 template <typename Index_, typename Lambda = auto(Index_, Index_, Index_)->void>
 void csr_adj_graph_batched(const Index_ *row_ind, Index_ total_rows, Index_ nnz,
                            Index_ batchSize, const bool *adj,
                            Index_ *row_ind_ptr, cudaStream_t stream) {
-    detail::csr_adj_graph_batched<Index_, 32, Lambda>(row_ind, total_rows, nnz, batchSize, adj, row_ind_ptr, stream);
+  detail::csr_adj_graph_batched<Index_, 32, Lambda>(
+    row_ind, total_rows, nnz, batchSize, adj, row_ind_ptr, stream);
 }
 
 /**
@@ -77,7 +80,8 @@ template <typename Index_, typename Lambda = auto(Index_, Index_, Index_)->void>
 void csr_adj_graph(const Index_ *row_ind, Index_ total_rows, Index_ nnz,
                    const bool *adj, Index_ *row_ind_ptr, cudaStream_t stream,
                    Lambda fused_op) {
-    detail::csr_adj_graph<Index_, 32, Lambda>(row_ind, total_rows, nnz, adj, row_ind_ptr, stream, fused_op);
+  detail::csr_adj_graph<Index_, 32, Lambda>(row_ind, total_rows, nnz, adj,
+                                            row_ind_ptr, stream, fused_op);
 }
 
 /**
@@ -92,7 +96,7 @@ void csr_adj_graph(const Index_ *row_ind, Index_ total_rows, Index_ nnz,
 template <typename T>
 void sorted_coo_to_csr(const T *rows, int nnz, T *row_ind, int m,
                        cudaStream_t stream) {
-    detail::sorted_coo_to_csr(rows, nnz, row_ind, m, stream);
+  detail::sorted_coo_to_csr(rows, nnz, row_ind, m, stream);
 }
 
 /**
@@ -104,7 +108,8 @@ void sorted_coo_to_csr(const T *rows, int nnz, T *row_ind, int m,
  */
 template <typename T>
 void sorted_coo_to_csr(COO<T> *coo, int *row_ind, cudaStream_t stream) {
-  detail::sorted_coo_to_csr(coo->rows(), coo->nnz, row_ind, coo->n_rows, stream);
+  detail::sorted_coo_to_csr(coo->rows(), coo->nnz, row_ind, coo->n_rows,
+                            stream);
 }
 
 };  // end NAMESPACE convert
