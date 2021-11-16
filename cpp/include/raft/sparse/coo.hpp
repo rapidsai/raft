@@ -18,7 +18,6 @@
 
 #include <raft/sparse/detail/coo.cuh>
 
-
 namespace raft {
 namespace sparse {
 
