@@ -23,6 +23,33 @@
 namespace raft {
 namespace sparse {
 namespace op {
+/**
+ * Computes a mask from a sorted COO matrix where 0's denote
+ * duplicate values and 1's denote new values. This mask can
+ * be useful for computing an exclusive scan to pre-build offsets
+ * for reducing duplicates, such as when symmetrizing
+ * or taking the min of each duplicated value.
+ *
+ * Note that this function always marks the first value as 0 so that
+ * a cumulative sum can be performed as a follow-on. However, even
+ * if the mask is used direclty, any duplicates should always have a
+ * 1 when first encountered so it can be assumed that the first element
+ * is always a 1 otherwise.
+ *
+ * @tparam value_idx
+ * @param[out] mask output mask, size nnz
+ * @param[in] rows COO rows array, size nnz
+ * @param[in] cols COO cols array, size nnz
+ * @param[in] nnz number of nonzeros in input arrays
+ * @param[in] stream cuda ops will be ordered wrt this stream
+ */
+template<typename value_idx>
+void compute_duplicates_mask(value_idx *mask, const value_idx *rows,
+                             const value_idx *cols, size_t nnz,
+                             cudaStream_t stream) {
+    detail::compute_duplicates_mask(mask, rows, cols, nnz, stream);
+}
+
 
 /**
  * Performs a COO reduce of duplicate columns per row, taking the max weight
@@ -45,7 +72,7 @@ void max_duplicates(const raft::handle_t &handle,
                     raft::sparse::COO<value_t, value_idx> &out,
                     const value_idx *rows, const value_idx *cols,
                     const value_t *vals, size_t nnz, size_t m, size_t n) {
-    detail::max_duplicates(handle, out, rows, cols, vals, nnz, m, n,);
+    detail::max_duplicates(handle, out, rows, cols, vals, nnz, m, n);
 }
 };  // END namespace op
 };  // END namespace sparse

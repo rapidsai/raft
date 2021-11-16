@@ -248,7 +248,7 @@ namespace raft {
                          src_indices);
 
             auto keys = thrust::make_zip_iterator(thrust::make_tuple(
-                    colors, nn_colors, (raft::linkage::KeyValuePair<value_idx, value_t> *) kvp));
+                    colors, nn_colors, (KeyValuePair<value_idx, value_t> *) kvp));
             auto vals = thrust::make_zip_iterator(thrust::make_tuple(src_indices));
 
             // get all the colors in contiguous locations so we can map them to warps.

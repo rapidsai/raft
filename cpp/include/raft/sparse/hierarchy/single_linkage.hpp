@@ -21,7 +21,6 @@
 
 namespace raft {
 namespace hierarchy {
-namespace detail {
 
 /**
  * Single-linkage clustering, capable of constructing a KNN graph to
@@ -51,6 +50,5 @@ void single_linkage(const raft::handle_t &handle, const value_t *X, size_t m,
   detail::single_linkage<value_idx, value_t, dist_type>(handle, X, m, n, metric,
                                                         out, c, n_clusters);
 }
-};  // namespace detail
 };  // namespace hierarchy
 };  // namespace raft

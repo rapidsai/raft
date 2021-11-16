@@ -29,8 +29,8 @@
 #include <algorithm>
 #include <iostream>
 
-#include <raft/sparse/utils.h>
-#include <raft/sparse/coo.cuh>
+#include <raft/sparse/detail/utils.h>
+#include <raft/sparse/coo.hpp>
 
 namespace raft {
 namespace sparse {

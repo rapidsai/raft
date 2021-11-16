@@ -70,7 +70,7 @@ void coo_remove_scalar(COO<T> *in, COO<T> *out, T scalar, cudaStream_t stream) {
  */
 template <typename T>
 void coo_remove_zeros(COO<T> *in, COO<T> *out, cudaStream_t stream) {
-  coo_remove_scalar<128, T>(in, out, T(0.0), stream);
+  coo_remove_scalar<T>(in, out, T(0.0), stream);
 }
 
 };  // namespace op

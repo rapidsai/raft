@@ -133,10 +133,10 @@ namespace raft {
                     CUDA_CHECK(
                             cudaMemsetAsync(row_count.data(), 0, in->n_rows * sizeof(int), stream));
 
-                    linalg::coo_degree<TPB_X>(in->rows(), in->nnz, row_count.data(), stream);
+                    linalg::coo_degree(in->rows(), in->nnz, row_count.data(), stream);
                     CUDA_CHECK(cudaPeekAtLastError());
 
-                    linalg::coo_degree_scalar<TPB_X>(in->rows(), in->vals(), in->nnz, scalar,
+                    linalg::coo_degree_scalar(in->rows(), in->vals(), in->nnz, scalar,
                                                      row_count_nz.data(), stream);
                     CUDA_CHECK(cudaPeekAtLastError());
 

@@ -64,11 +64,11 @@ class CSRRowNormalizeTest
 
     switch (params.method) {
       case MAX:
-        linalg::csr_row_normalize_max<32, Type_f>(
+        linalg::csr_row_normalize_max<Type_f>(
           ex_scan.data(), in_vals.data(), nnz, n_rows, result.data(), stream);
         break;
       case L1:
-        linalg::csr_row_normalize_l1<32, Type_f>(
+        linalg::csr_row_normalize_l1<Type_f>(
           ex_scan.data(), in_vals.data(), nnz, n_rows, result.data(), stream);
         break;
     }

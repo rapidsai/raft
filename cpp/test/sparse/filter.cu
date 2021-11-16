@@ -95,7 +95,7 @@ TEST_P(COORemoveZeros, Result) {
   raft::update_device(out_ref.cols(), *&out_cols_ref_h, 2, stream);
   raft::update_device(out_ref.vals(), out_vals_ref_h, 2, stream);
 
-  op::coo_remove_zeros<32, float>(&in, &out, stream);
+  op::coo_remove_zeros<float>(&in, &out, stream);
 
   ASSERT_TRUE(raft::devArrMatch<int>(out_ref.rows(), out.rows(), 2,
                                      raft::Compare<int>()));

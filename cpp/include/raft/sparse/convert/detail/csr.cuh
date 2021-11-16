@@ -90,7 +90,7 @@ void csr_adj_graph_batched(const Index_ *row_ind, Index_ total_rows, Index_ nnz,
                            Index_ batchSize, const bool *adj,
                            Index_ *row_ind_ptr, cudaStream_t stream,
                            Lambda fused_op) {
-  op::csr_row_op<Index_, TPB_X>(
+  op::csr_row_op<Index_>(
     row_ind, batchSize, nnz,
     [fused_op, adj, total_rows, row_ind_ptr, batchSize, nnz] __device__(
       Index_ row, Index_ start_idx, Index_ stop_idx) {
@@ -155,7 +155,7 @@ void sorted_coo_to_csr(const T *rows, int nnz, T *row_ind, int m,
 
   CUDA_CHECK(cudaMemsetAsync(row_counts.data(), 0, m * sizeof(T), stream));
 
-  linalg::coo_degree<32>(rows, nnz, row_counts.data(), stream);
+  linalg::coo_degree(rows, nnz, row_counts.data(), stream);
 
   // create csr compressed row index from row counts
   thrust::device_ptr<T> row_counts_d =

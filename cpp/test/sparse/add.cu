@@ -95,7 +95,7 @@ class CSRAddTest
     raft::update_device(values_verify.data(),
                         params.matrix_verify.values.data(), nnz_result, stream);
 
-    Index_ nnz = linalg::csr_add_calc_inds<Type_f, 32>(
+    Index_ nnz = linalg::csr_add_calc_inds<Type_f>(
       ind_a.data(), ind_ptr_a.data(), values_a.data(), nnz_a, ind_b.data(),
       ind_ptr_b.data(), values_b.data(), nnz_b, n_rows, ind_result.data(),
       stream);
@@ -104,7 +104,7 @@ class CSRAddTest
     ASSERT_TRUE(raft::devArrMatch<Index_>(ind_verify.data(), ind_result.data(),
                                           n_rows, raft::Compare<Index_>()));
 
-    linalg::csr_add_finalize<Type_f, 32>(
+    linalg::csr_add_finalize<Type_f>(
       ind_a.data(), ind_ptr_a.data(), values_a.data(), nnz_a, ind_b.data(),
       ind_ptr_b.data(), values_b.data(), nnz_b, n_rows, ind_result.data(),
       ind_ptr_result.data(), values_result.data(), stream);

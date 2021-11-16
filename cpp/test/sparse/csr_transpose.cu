@@ -103,7 +103,7 @@ class CSRTransposeTest
   }
 
   void SetUp() override {
-    CUSPARSE_CHECK(cusparseCreate(&handle));
+    raft::handle_t handle;
 
     make_data();
 
@@ -113,7 +113,6 @@ class CSRTransposeTest
       params.nnz, stream);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
-    CUSPARSE_CHECK(cusparseDestroy(handle));
   }
 
   void compare() {

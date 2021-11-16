@@ -38,7 +38,7 @@ namespace op {
 template <typename T>
 void coo_sort(int m, int n, int nnz, int *rows, int *cols, T *vals,
               cudaStream_t stream) {
-    detail::coo_sort(m, n, nnz, row, cols, vals, stream);
+    detail::coo_sort(m, n, nnz, rows, cols, vals, stream);
 }
 
 /**

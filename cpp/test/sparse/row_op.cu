@@ -40,7 +40,7 @@ struct CSRRowOpInputs {
 template <typename Type_f, typename Index_>
 void csr_row_op_wrapper(const Index_ *row_ind, Index_ n_rows, Index_ nnz,
                         Type_f *result, cudaStream_t stream) {
-  op::csr_row_op<Index_, 32>(
+  op::csr_row_op<Index_>(
     row_ind, n_rows, nnz,
     [result] __device__(Index_ row, Index_ start_idx, Index_ stop_idx) {
       for (Index_ i = start_idx; i < stop_idx; i++) result[i] = row;

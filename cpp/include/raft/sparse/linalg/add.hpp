@@ -43,7 +43,7 @@ size_t csr_add_calc_inds(const int *a_ind, const int *a_indptr, const T *a_val,
                          const T *b_val, int nnz2, int m, int *out_ind,
                          cudaStream_t stream) {
 
-    detail::csr_add_calc_inds(a_ind, a_indptr, a_val, nnz1, b_ind, b_indptr, b_val, nnz2, m, out_ind, stream);
+    return detail::csr_add_calc_inds(a_ind, a_indptr, a_val, nnz1, b_ind, b_indptr, b_val, nnz2, m, out_ind, stream);
 }
 
 /**
@@ -69,7 +69,7 @@ void csr_add_finalize(const int *a_ind, const int *a_indptr, const T *a_val,
                       const T *b_val, int nnz2, int m, int *c_ind,
                       int *c_indptr, T *c_val, cudaStream_t stream) {
 
-    detail::csr_add_finalize(a_ind, a_indptr, a_val, b_val, nnz2, m, c_ind, c_indptr, c_val, stream);
+    detail::csr_add_finalize(a_ind, a_indptr, a_val, nnz1, b_ind, b_indptr, b_val, nnz2, m, c_ind, c_indptr, c_val, stream);
 }
 
         };  // end NAMESPACE linalg

@@ -65,7 +65,7 @@ TEST_P(COODegree, Result) {
   raft::update_device(in_rows.data(), *&in_rows_h, 5, stream);
   raft::update_device(verify.data(), *&verify_h, 5, stream);
 
-  linalg::coo_degree<32>(in_rows.data(), 5, results.data(), stream);
+  linalg::coo_degree(in_rows.data(), 5, results.data(), stream);
   cudaDeviceSynchronize();
 
   ASSERT_TRUE(raft::devArrMatch<int>(verify.data(), results.data(), 5,
@@ -98,7 +98,7 @@ TEST_P(COODegreeNonzero, Result) {
   raft::update_device(verify.data(), *&verify_h, 5, stream);
   raft::update_device(in_vals.data(), *&in_vals_h, 5, stream);
 
-  linalg::coo_degree_nz<32, float>(in_rows.data(), in_vals.data(), 5,
+  linalg::coo_degree_nz<float>(in_rows.data(), in_vals.data(), 5,
                                    results.data(), stream);
   cudaDeviceSynchronize();
 

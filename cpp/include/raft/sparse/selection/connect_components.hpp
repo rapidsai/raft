@@ -25,6 +25,23 @@ template <typename value_idx, typename value_t>
 using FixConnectivitiesRedOp = detail::FixConnectivitiesRedOp<value_idx, value_t>;
 
 /**
+ * Gets the number of unique components from array of
+ * colors or labels. This does not assume the components are
+ * drawn from a monotonically increasing set.
+ * @tparam value_idx
+ * @param[in] colors array of components
+ * @param[in] n_rows size of components array
+ * @param[in] stream cuda stream for which to order cuda operations
+ * @return total number of components
+ */
+template<typename value_idx>
+value_idx get_n_components(value_idx *colors, size_t n_rows,
+                           cudaStream_t stream) {
+    return detail::get_n_components(colors, n_rows, stream);
+}
+
+
+/**
  * Connects the components of an otherwise unconnected knn graph
  * by computing a 1-nn to neighboring components of each data point
  * (e.g. component(nn) != component(self)) and reducing the results to
