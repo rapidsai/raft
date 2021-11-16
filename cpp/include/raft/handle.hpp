@@ -61,7 +61,7 @@ class handle_t {
    * @param[in] stream the default stream (which has the default per-thread stream if unspecified)
    * @param[in] stream_pool the stream pool used (which has default of nullptr if unspecified)
    */
-  handle_t(rmm::cuda_stream_view stream_view = rmm::cuda_stream_legacy,
+  handle_t(rmm::cuda_stream_view stream_view = rmm::cuda_stream_per_thread,
            std::shared_ptr<rmm::cuda_stream_pool> stream_pool = {nullptr})
     : dev_id_([]() -> int {
         int cur_dev = -1;
