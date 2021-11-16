@@ -19,7 +19,7 @@
 
 #include <raft/linalg/distance_type.h>
 #include <raft/sparse/cusparse_wrappers.h>
-#include <raft/sparse/selection/knn.cuh>
+#include <raft/sparse/selection/knn.hpp>
 #include "../test_utils.h"
 
 #include <raft/cudart_utils.h>

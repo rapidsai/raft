@@ -19,7 +19,7 @@
 #include <raft/cudart_utils.h>
 #include <raft/linalg/distance_type.h>
 #include <raft/linalg/transpose.h>
-#include <raft/sparse/coo.cuh>
+#include <raft/sparse/coo.hpp>
 #include <raft/sparse/hierarchy/single_linkage.hpp>
 
 #include <rmm/device_uvector.hpp>

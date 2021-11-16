@@ -19,8 +19,8 @@
 #include <raft/random/rng.cuh>
 #include "../test_utils.h"
 
-#include <raft/sparse/convert/csr.cuh>
-#include <raft/sparse/coo.cuh>
+#include <raft/sparse/convert/csr.hpp>
+#include <raft/sparse/coo.hpp>
 
 #include <iostream>
 

@@ -19,7 +19,7 @@
 #include <raft/random/rng.cuh>
 #include "../test_utils.h"
 
-#include <raft/sparse/linalg/degree.cuh>
+#include <raft/sparse/linalg/degree.hpp>
 
 #include <iostream>
 

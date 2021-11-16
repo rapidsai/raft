@@ -25,11 +25,11 @@
 
 #include <rmm/device_uvector.hpp>
 
-#include <raft/sparse/utils.h>
-#include <raft/sparse/csr.cuh>
+#include <raft/sparse/detail/utils.h>
+#include <raft/sparse/csr.hpp>
 
 #include <raft/sparse/distance/common.h>
-#include <raft/sparse/convert/coo.cuh>
+#include <raft/sparse/convert/coo.hpp>
 #include <raft/sparse/distance/detail/operators.cuh>
 
 #include <nvfunctional>

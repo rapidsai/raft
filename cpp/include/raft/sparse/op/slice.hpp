@@ -16,23 +16,8 @@
 
 #pragma once
 
-#include <cusparse_v2.h>
-
-#include <raft/cudart_utils.h>
-#include <raft/sparse/cusparse_wrappers.h>
-#include <raft/cuda_utils.cuh>
-#include <raft/linalg/unary_op.cuh>
-
-#include <thrust/device_ptr.h>
-#include <thrust/scan.h>
-
-#include <cuda_runtime.h>
-#include <stdio.h>
-
-#include <algorithm>
-#include <iostream>
-
-#include <raft/sparse/utils.h>
+#include <raft/handle.hpp>
+#include <raft/sparse/op/detail/slice.h>
 
 namespace raft {
 namespace sparse {
@@ -54,22 +39,7 @@ void csr_row_slice_indptr(value_idx start_row, value_idx stop_row,
                           const value_idx *indptr, value_idx *indptr_out,
                           value_idx *start_offset, value_idx *stop_offset,
                           cudaStream_t stream) {
-  raft::update_host(start_offset, indptr + start_row, 1, stream);
-  raft::update_host(stop_offset, indptr + stop_row + 1, 1, stream);
-
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-
-  value_idx s_offset = *start_offset;
-
-  // 0-based indexing so we need to add 1 to stop row. Because we want n_rows+1,
-  // we add another 1 to stop row.
-  raft::copy_async(indptr_out, indptr + start_row, (stop_row + 2) - start_row,
-                   stream);
-
-  raft::linalg::unaryOp<value_idx>(
-    indptr_out, indptr_out, (stop_row + 2) - start_row,
-    [s_offset] __device__(value_idx input) { return input - s_offset; },
-    stream);
+    detail::csr_row_slice_indptr(start_row, stop_row, indptr, indptr_out, start_offset, stop_offset, stream);
 }
 
 /**
@@ -89,9 +59,7 @@ void csr_row_slice_populate(value_idx start_offset, value_idx stop_offset,
                             const value_idx *indices, const value_t *data,
                             value_idx *indices_out, value_t *data_out,
                             cudaStream_t stream) {
-  raft::copy(indices_out, indices + start_offset, stop_offset - start_offset,
-             stream);
-  raft::copy(data_out, data + start_offset, stop_offset - start_offset, stream);
+    detail::csr_row_slice_populate(start_offset, stop_offset, indices, data, indices_out, data_out, stream);
 }
 
 };  // namespace op

@@ -19,7 +19,7 @@
 #include <raft/random/rng.cuh>
 #include "../test_utils.h"
 
-#include <raft/sparse/op/sort.h>
+#include <raft/sparse/op/sort.hpp>
 
 #include <iostream>
 

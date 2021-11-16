@@ -16,8 +16,8 @@
 
 #include <gtest/gtest.h>
 
-#include <raft/sparse/convert/coo.cuh>
-#include <raft/sparse/csr.cuh>
+#include <raft/sparse/convert/coo.hpp>
+#include <raft/sparse/csr.hpp>
 
 #include <raft/cudart_utils.h>
 #include <raft/random/rng.cuh>

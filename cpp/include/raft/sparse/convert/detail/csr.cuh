@@ -33,10 +33,10 @@
 #include <algorithm>
 #include <iostream>
 
-#include <raft/sparse/utils.h>
-#include <raft/sparse/coo.cuh>
-#include <raft/sparse/linalg/degree.cuh>
-#include <raft/sparse/op/row_op.cuh>
+#include <raft/sparse/detail/utils.h>
+#include <raft/sparse/coo.hpp>
+#include <raft/sparse/linalg/degree.hpp>
+#include <raft/sparse/op/row_op.hpp>
 
 namespace raft {
 namespace sparse {

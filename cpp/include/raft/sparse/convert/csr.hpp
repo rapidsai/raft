@@ -17,7 +17,7 @@
 #pragma once
 
 #include <raft/sparse/convert/detail/csr.cuh>
-#include <raft/sparse/csr.cuh>
+#include <raft/sparse/csr.hpp>
 
 namespace raft {
 namespace sparse {
