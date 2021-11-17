@@ -85,5 +85,5 @@ cdef class Handle:
         if self.n_streams > 0:
             self.stream_pool.reset(new cuda_stream_pool(self.n_streams))
 
-        self.c_obj.reset(new handle_t(cuda_stream_legacy,
+        self.c_obj.reset(new handle_t(cuda_stream_per_thread,
                                       self.stream_pool))
