@@ -17,11 +17,24 @@
 #pragma once
 
 #include <raft/cuda_utils.cuh>
+#include <raft/pow2_utils.cuh>
 #include <raft/vectorized.cuh>
 
 namespace raft {
 namespace linalg {
 namespace detail {
+
+namespace {
+template <size_t VecBytes>
+struct AlignedAccess {
+  template <typename T>
+  static inline bool test(const T *matrix, size_t strideBytes) {
+    return Pow2<VecBytes>::isAligned(matrix) &&
+           Pow2<VecBytes>::isAligned(strideBytes) &&
+           Pow2<sizeof(T)>::isAligned(VecBytes);
+  }
+};
+};  // namespace
 
 template <typename Type, int veclen_, typename Lambda, typename IdxType>
 __global__ void matrixVectorOpKernel(Type *out, const Type *matrix,
@@ -79,24 +92,19 @@ void matrixVectorOp(Type *out, const Type *matrix, const Type *vec, IdxType D,
   IdxType stride = rowMajor ? D : N;
   size_t stride_bytes = stride * sizeof(Type);
 
-  auto test_aligned_access = [stride_bytes, matrix](const int n_bytes) {
-    return n_bytes / sizeof(Type) && stride_bytes % n_bytes == 0 &&
-           reinterpret_cast<uintptr_t>(matrix) % sizeof(Type);
-  };
-
-  if (test_aligned_access(16)) {
+  if (AlignedAccess<16>::test(matrix, stride_bytes)) {
     matrixVectorOpImpl<Type, 16 / sizeof(Type), Lambda, IdxType, TPB>(
       out, matrix, vec, D, N, rowMajor, bcastAlongRows, op, stream);
-  } else if (test_aligned_access(8)) {
+  } else if (AlignedAccess<8>::test(matrix, stride_bytes)) {
     matrixVectorOpImpl<Type, 8 / sizeof(Type), Lambda, IdxType, TPB>(
       out, matrix, vec, D, N, rowMajor, bcastAlongRows, op, stream);
-  } else if (test_aligned_access(4)) {
+  } else if (AlignedAccess<4>::test(matrix, stride_bytes)) {
     matrixVectorOpImpl<Type, 4 / sizeof(Type), Lambda, IdxType, TPB>(
       out, matrix, vec, D, N, rowMajor, bcastAlongRows, op, stream);
-  } else if (test_aligned_access(2)) {
+  } else if (AlignedAccess<2>::test(matrix, stride_bytes)) {
     matrixVectorOpImpl<Type, 2 / sizeof(Type), Lambda, IdxType, TPB>(
       out, matrix, vec, D, N, rowMajor, bcastAlongRows, op, stream);
-  } else if (1 / sizeof(Type)) {
+  } else if (AlignedAccess<1>::test(matrix, stride_bytes)) {
     matrixVectorOpImpl<Type, 1 / sizeof(Type), Lambda, IdxType, TPB>(
       out, matrix, vec, D, N, rowMajor, bcastAlongRows, op, stream);
   } else {
@@ -163,24 +171,19 @@ void matrixVectorOp(Type *out, const Type *matrix, const Type *vec1,
   IdxType stride = rowMajor ? D : N;
   size_t stride_bytes = stride * sizeof(Type);
 
-  auto test_aligned_access = [stride_bytes, matrix](const int n_bytes) {
-    return n_bytes / sizeof(Type) && stride_bytes % n_bytes == 0 &&
-           reinterpret_cast<uintptr_t>(matrix) % sizeof(Type);
-  };
-
-  if (test_aligned_access(16)) {
+  if (AlignedAccess<16>::test(matrix, stride_bytes)) {
     matrixVectorOpImpl<Type, 16 / sizeof(Type), Lambda, IdxType, TPB>(
       out, matrix, vec1, vec2, D, N, rowMajor, bcastAlongRows, op, stream);
-  } else if (test_aligned_access(8)) {
+  } else if (AlignedAccess<8>::test(matrix, stride_bytes)) {
     matrixVectorOpImpl<Type, 8 / sizeof(Type), Lambda, IdxType, TPB>(
       out, matrix, vec1, vec2, D, N, rowMajor, bcastAlongRows, op, stream);
-  } else if (test_aligned_access(4)) {
+  } else if (AlignedAccess<4>::test(matrix, stride_bytes)) {
     matrixVectorOpImpl<Type, 4 / sizeof(Type), Lambda, IdxType, TPB>(
       out, matrix, vec1, vec2, D, N, rowMajor, bcastAlongRows, op, stream);
-  } else if (test_aligned_access(2)) {
+  } else if (AlignedAccess<2>::test(matrix, stride_bytes)) {
     matrixVectorOpImpl<Type, 2 / sizeof(Type), Lambda, IdxType, TPB>(
       out, matrix, vec1, vec2, D, N, rowMajor, bcastAlongRows, op, stream);
-  } else if (1 / sizeof(Type)) {
+  } else if (AlignedAccess<1>::test(matrix, stride_bytes)) {
     matrixVectorOpImpl<Type, 1 / sizeof(Type), Lambda, IdxType, TPB>(
       out, matrix, vec1, vec2, D, N, rowMajor, bcastAlongRows, op, stream);
   } else {
