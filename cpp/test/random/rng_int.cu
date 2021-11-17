@@ -18,11 +18,13 @@
 #include <raft/cudart_utils.h>
 #include <cub/cub.cuh>
 #include <raft/cuda_utils.cuh>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng.hpp>
 #include "../test_utils.h"
 
 namespace raft {
 namespace random {
+
+using namespace raft::random::detail;
 
 enum RandomType { RNG_Uniform };
 

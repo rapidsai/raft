@@ -56,11 +56,13 @@ class std_comms : public comms_iface {
 
   /**
    * @brief Constructor for collective + point-to-point operation.
-   * @param comm initialized nccl comm
+   * @param nccl_comm initialized nccl comm
    * @param ucp_worker initialized ucp_worker instance
    * @param eps shared pointer to array of ucp endpoints
-   * @param size size of the cluster
+   * @param num_ranks number of ranks in the cluster
    * @param rank rank of the current worker
+   * @param stream cuda stream for synchronizing and ordering collective operations
+   * @param subcomms_ucp use ucp for subcommunicators
    */
   std_comms(ncclComm_t nccl_comm, ucp_worker_h ucp_worker,
             std::shared_ptr<ucp_ep_h *> eps, int num_ranks, int rank,
@@ -79,9 +81,10 @@ class std_comms : public comms_iface {
 
   /**
    * @brief constructor for collective-only operation
-   * @param comm initilized nccl communicator
-   * @param size size of the cluster
+   * @param nccl_comm initilized nccl communicator
+   * @param num_ranks size of the cluster
    * @param rank rank of the current worker
+   * @param stream stream for ordering collective operations
    */
   std_comms(const ncclComm_t nccl_comm, int num_ranks, int rank,
             cudaStream_t stream)

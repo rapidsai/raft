@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <curand_kernel.h>
 #include <raft/cudart_utils.h>
 #include <stdint.h>
 #include <cstdio>
@@ -27,10 +28,10 @@
 #include <random>
 #include <rmm/device_uvector.hpp>
 #include <type_traits>
-#include "rng_impl.cuh"
 
 namespace raft {
 namespace random {
+namespace detail {
 
 /** all different generator types used */
 enum GeneratorType {
@@ -42,12 +43,48 @@ enum GeneratorType {
   GenKiss99
 };
 
+template <typename Type>
+DI void box_muller_transform(Type &val1, Type &val2, Type sigma1, Type mu1,
+                             Type sigma2, Type mu2) {
+  constexpr Type twoPi = Type(2.0) * Type(3.141592654);
+  constexpr Type minus2 = -Type(2.0);
+  Type R = raft::mySqrt(minus2 * raft::myLog(val1));
+  Type theta = twoPi * val2;
+  Type s, c;
+  raft::mySinCos(theta, s, c);
+  val1 = R * c * sigma1 + mu1;
+  val2 = R * s * sigma2 + mu2;
+}
+template <typename Type>
+DI void box_muller_transform(Type &val1, Type &val2, Type sigma1, Type mu1) {
+  box_muller_transform<Type>(val1, val2, sigma1, mu1, sigma1, mu1);
+}
+
+/**
+ * @brief generator-agnostic way of generating random numbers
+ * @tparam GenType the generator object that expose 'next' method
+ */
+template <typename GenType>
+struct Generator {
+  DI Generator(uint64_t seed, uint64_t subsequence, uint64_t offset)
+    : gen(seed, subsequence, offset) {}
+
+  template <typename Type>
+  DI void next(Type &ret) {
+    gen.next(ret);
+  }
+
+ private:
+  /** the actual generator */
+  GenType gen;
+};
+
 template <typename OutType, typename MathType, typename GenType,
           typename LenType, typename Lambda>
 __global__ void randKernel(uint64_t seed, uint64_t offset, OutType *ptr,
                            LenType len, Lambda randOp) {
   LenType tid = (blockIdx.x * blockDim.x) + threadIdx.x;
-  detail::Generator<GenType> gen(seed, (uint64_t)tid, offset);
+  Generator<GenType> gen(seed, (uint64_t)tid, offset);
   const LenType stride = gridDim.x * blockDim.x;
   for (LenType idx = tid; idx < len; idx += stride) {
     MathType val;
@@ -62,7 +99,7 @@ template <typename OutType, typename MathType, typename GenType,
 __global__ void rand2Kernel(uint64_t seed, uint64_t offset, OutType *ptr,
                             LenType len, Lambda2 rand2Op) {
   LenType tid = (blockIdx.x * blockDim.x) + threadIdx.x;
-  detail::Generator<GenType> gen(seed, (uint64_t)tid, offset);
+  Generator<GenType> gen(seed, (uint64_t)tid, offset);
   const LenType stride = gridDim.x * blockDim.x;
   for (LenType idx = tid; idx < len; idx += stride) {
     MathType val1, val2;
@@ -84,47 +121,252 @@ __global__ void constFillKernel(Type *ptr, int len, Type val) {
   }
 }
 
-/**
- * @brief Helper method to compute Box Muller transform
- *
- * @tparam Type data type
- *
- * @param[inout] val1   first value
- * @param[inout] val2   second value
- * @param[in]    sigma1 standard deviation of output gaussian for first value
- * @param[in]    mu1    mean of output gaussian for first value
- * @param[in]    sigma2 standard deviation of output gaussian for second value
- * @param[in]    mu2    mean of output gaussian for second value
- * @{
- */
-template <typename Type>
-DI void box_muller_transform(Type &val1, Type &val2, Type sigma1, Type mu1,
-                             Type sigma2, Type mu2) {
-  constexpr Type twoPi = Type(2.0) * Type(3.141592654);
-  constexpr Type minus2 = -Type(2.0);
-  Type R = raft::mySqrt(minus2 * raft::myLog(val1));
-  Type theta = twoPi * val2;
-  Type s, c;
-  raft::mySinCos(theta, s, c);
-  val1 = R * c * sigma1 + mu1;
-  val2 = R * s * sigma2 + mu2;
-}
-template <typename Type>
-DI void box_muller_transform(Type &val1, Type &val2, Type sigma1, Type mu1) {
-  box_muller_transform<Type>(val1, val2, sigma1, mu1, sigma1, mu1);
-}
-/** @} */
+/** Philox-based random number generator */
+// Courtesy: Jakub Szuppe
+struct PhiloxGenerator {
+  /**
+   * @brief ctor. Initializes the state for RNG
+   * @param seed random seed (can be same across all threads)
+   * @param subsequence as found in curand docs
+   * @param offset as found in curand docs
+   */
+  DI PhiloxGenerator(uint64_t seed, uint64_t subsequence, uint64_t offset) {
+    curand_init(seed, subsequence, offset, &state);
+  }
+
+  /**
+   * @defgroup NextRand Generate the next random number
+   * @{
+   */
+  DI void next(float &ret) { ret = curand_uniform(&(this->state)); }
+  DI void next(double &ret) { ret = curand_uniform_double(&(this->state)); }
+  DI void next(uint32_t &ret) { ret = curand(&(this->state)); }
+  DI void next(uint64_t &ret) {
+    uint32_t a, b;
+    next(a);
+    next(b);
+    ret = (uint64_t)a | ((uint64_t)b << 32);
+  }
+  DI void next(int32_t &ret) {
+    uint32_t val;
+    next(val);
+    ret = int32_t(val & 0x7fffffff);
+  }
+  DI void next(int64_t &ret) {
+    uint64_t val;
+    next(val);
+    ret = int64_t(val & 0x7fffffffffffffff);
+  }
+  /** @} */
+
+ private:
+  /** the state for RNG */
+  curandStatePhilox4_32_10_t state;
+};
+
+/** LFSR taps-filter for generating random numbers. */
+// Courtesy: Vinay Deshpande
+struct TapsGenerator {
+  /**
+   * @brief ctor. Initializes the state for RNG
+   * @param seed the seed (can be same across all threads)
+   * @param subsequence unused
+   * @param offset unused
+   */
+  DI TapsGenerator(uint64_t seed, uint64_t subsequence, uint64_t offset) {
+    uint64_t delta = (blockIdx.x * blockDim.x) + threadIdx.x;
+    uint64_t stride = blockDim.x * gridDim.x;
+    delta += ((blockIdx.y * blockDim.y) + threadIdx.y) * stride;
+    stride *= blockDim.y * gridDim.y;
+    delta += ((blockIdx.z * blockDim.z) + threadIdx.z) * stride;
+    state = seed + delta + 1;
+  }
+
+  /**
+   * @defgroup NextRand Generate the next random number
+   * @{
+   */
+  template <typename Type>
+  DI void next(Type &ret) {
+    constexpr double ULL_LARGE = 1.8446744073709551614e19;
+    uint64_t val;
+    next(val);
+    ret = static_cast<Type>(val);
+    ret /= static_cast<Type>(ULL_LARGE);
+  }
+  DI void next(uint64_t &ret) {
+    constexpr uint64_t TAPS = 0x8000100040002000ULL;
+    constexpr int ROUNDS = 128;
+    for (int i = 0; i < ROUNDS; i++)
+      state = (state >> 1) ^ (-(state & 1ULL) & TAPS);
+    ret = state;
+  }
+  DI void next(uint32_t &ret) {
+    uint64_t val;
+    next(val);
+    ret = (uint32_t)val;
+  }
+  DI void next(int32_t &ret) {
+    uint32_t val;
+    next(val);
+    ret = int32_t(val & 0x7fffffff);
+  }
+  DI void next(int64_t &ret) {
+    uint64_t val;
+    next(val);
+    ret = int64_t(val & 0x7fffffffffffffff);
+  }
+  /** @} */
+
+ private:
+  /** the state for RNG */
+  uint64_t state;
+};
+
+/** Kiss99-based random number generator */
+
+struct Kiss99Generator {
+  /**
+   * @brief ctor. Initializes the state for RNG
+   * @param seed the seed (can be same across all threads)
+   * @param subsequence unused
+   * @param offset unused
+   */
+  DI Kiss99Generator(uint64_t seed, uint64_t subsequence, uint64_t offset) {
+    initKiss99(seed);
+  }
+
+  /**
+   * @defgroup NextRand Generate the next random number
+   * @{
+   */
+  template <typename Type>
+  DI void next(Type &ret) {
+    constexpr double U_LARGE = 4.294967295e9;
+    uint32_t val;
+    next(val);
+    ret = static_cast<Type>(val);
+    ret /= static_cast<Type>(U_LARGE);
+  }
+  DI void next(uint32_t &ret) {
+    uint32_t MWC;
+    z = 36969 * (z & 65535) + (z >> 16);
+    w = 18000 * (w & 65535) + (w >> 16);
+    MWC = ((z << 16) + w);
+    jsr ^= (jsr << 17);
+    jsr ^= (jsr >> 13);
+    jsr ^= (jsr << 5);
+    jcong = 69069 * jcong + 1234567;
+    MWC = ((MWC ^ jcong) + jsr);
+    ret = MWC;
+  }
+  DI void next(uint64_t &ret) {
+    uint32_t a, b;
+    next(a);
+    next(b);
+    ret = (uint64_t)a | ((uint64_t)b << 32);
+  }
+  DI void next(int32_t &ret) {
+    uint32_t val;
+    next(val);
+    ret = int32_t(val & 0x7fffffff);
+  }
+  DI void next(int64_t &ret) {
+    uint64_t val;
+    next(val);
+    ret = int64_t(val & 0x7fffffffffffffff);
+  }
+  /** @} */
+
+ private:
+  /** one of the kiss99 states */
+  uint32_t z;
+  /** one of the kiss99 states */
+  uint32_t w;
+  /** one of the kiss99 states */
+  uint32_t jsr;
+  /** one of the kiss99 states */
+  uint32_t jcong;
+
+  // This function multiplies 128-bit hash by 128-bit FNV prime and returns lower
+  // 128 bits. It uses 32-bit wide multiply only.
+  DI void mulByFnv1a128Prime(uint32_t *h) {
+    typedef union {
+      uint32_t u32[2];
+      uint64_t u64[1];
+    } words64;
+
+    // 128-bit FNV prime = p3 * 2^96 + p2 * 2^64 + p1 * 2^32 + p0
+    // Here p0 = 315, p2 = 16777216, p1 = p3 = 0
+    const uint32_t p0 = uint32_t(315), p2 = uint32_t(16777216);
+    // Partial products
+    words64 h0p0, h1p0, h2p0, h0p2, h3p0, h1p2;
+
+    h0p0.u64[0] = uint64_t(h[0]) * p0;
+    h1p0.u64[0] = uint64_t(h[1]) * p0;
+    h2p0.u64[0] = uint64_t(h[2]) * p0;
+    h0p2.u64[0] = uint64_t(h[0]) * p2;
+    h3p0.u64[0] = uint64_t(h[3]) * p0;
+    h1p2.u64[0] = uint64_t(h[1]) * p2;
+
+    // h_n[0] = LO(h[0]*p[0]);
+    // h_n[1] = HI(h[0]*p[0]) + LO(h[1]*p[0]);
+    // h_n[2] = HI(h[1]*p[0]) + LO(h[2]*p[0]) + LO(h[0]*p[2]);
+    // h_n[3] = HI(h[2]*p[0]) + HI(h[0]*p[2]) + LO(h[3]*p[0]) + LO(h[1]*p[2]);
+    uint32_t carry = 0;
+    h[0] = h0p0.u32[0];
+
+    h[1] = h0p0.u32[1] + h1p0.u32[0];
+    carry = h[1] < h0p0.u32[1] ? 1 : 0;
+
+    h[2] = h1p0.u32[1] + carry;
+    carry = h[2] < h1p0.u32[1] ? 1 : 0;
+    h[2] += h2p0.u32[0];
+    carry = h[2] < h2p0.u32[0] ? carry + 1 : carry;
+    h[2] += h0p2.u32[0];
+    carry = h[2] < h0p2.u32[0] ? carry + 1 : carry;
+
+    h[3] = h2p0.u32[1] + h0p2.u32[1] + h3p0.u32[0] + h1p2.u32[0] + carry;
+    return;
+  }
+
+  DI void fnv1a128(uint32_t *hash, uint32_t txt) {
+    hash[0] ^= (txt >> 0) & 0xFF;
+    mulByFnv1a128Prime(hash);
+    hash[0] ^= (txt >> 8) & 0xFF;
+    mulByFnv1a128Prime(hash);
+    hash[0] ^= (txt >> 16) & 0xFF;
+    mulByFnv1a128Prime(hash);
+    hash[0] ^= (txt >> 24) & 0xFF;
+    mulByFnv1a128Prime(hash);
+  }
+
+  DI void initKiss99(uint64_t seed) {
+    // Initialize hash to 128-bit FNV1a basis
+    uint32_t hash[4] = {1653982605UL, 1656234357UL, 129696066UL, 1818371886UL};
+
+    // Digest threadIdx, blockIdx and seed
+    fnv1a128(hash, threadIdx.x);
+    fnv1a128(hash, threadIdx.y);
+    fnv1a128(hash, threadIdx.z);
+    fnv1a128(hash, blockIdx.x);
+    fnv1a128(hash, blockIdx.y);
+    fnv1a128(hash, blockIdx.z);
+    fnv1a128(hash, uint32_t(seed));
+    fnv1a128(hash, uint32_t(seed >> 32));
+
+    // Initialize KISS99 state with hash
+    z = hash[0];
+    w = hash[1];
+    jsr = hash[2];
+    jcong = hash[3];
+  }
+};
 
 /** The main random number generator class, fully on GPUs */
-class Rng {
+class RngImpl {
  public:
-  /**
-   * @brief ctor
-   * @param _s 64b seed used to initialize the RNG
-   * @param _t backend device RNG generator type
-   * @note Refer to the `Rng::seed` method for details about seeding the engine
-   */
-  Rng(uint64_t _s, GeneratorType _t = GenPhilox)
+  RngImpl(uint64_t _s, GeneratorType _t = GenPhilox)
     : type(_t),
       offset(0),
       // simple heuristic to make sure all SMs will be occupied properly
@@ -134,28 +376,11 @@ class Rng {
     seed(_s);
   }
 
-  /**
-   * @brief Seed (and thus re-initialize) the underlying RNG engine
-   * @param _s 64b seed used to initialize the RNG
-   * @note If you need non-reproducibility, pass a seed that's, for example, a
-   *       function of timestamp. Another example is to use the c++11's
-   *       `std::random_device` for setting seed.
-   */
   void seed(uint64_t _s) {
     gen.seed(_s);
     offset = 0;
   }
 
-  /**
-   * @brief Generates the 'a' and 'b' parameters for a modulo affine
-   *        transformation equation: `(ax + b) % n`
-   *
-   * @tparam IdxT integer type
-   *
-   * @param[in]  n the modulo range
-   * @param[out] a slope parameter
-   * @param[out] b intercept parameter
-   */
   template <typename IdxT>
   void affine_transform_params(IdxT n, IdxT &a, IdxT &b) {
     // always keep 'a' to be coprime to 'n'
@@ -168,17 +393,6 @@ class Rng {
     b = gen() % n;
   }
 
-  /**
-   * @brief Generate uniformly distributed numbers in the given range
-   * @tparam Type data type of output random number
-   * @tparam LenType data type used to represent length of the arrays
-   * @param ptr the output array
-   * @param len the number of elements in the output
-   * @param start start of the range
-   * @param end end of the range
-   * @param stream stream where to launch the kernel
-   * @{
-   */
   template <typename Type, typename LenType = int>
   void uniform(Type *ptr, LenType len, Type start, Type end,
                cudaStream_t stream) {
@@ -203,19 +417,7 @@ class Rng {
       },
       stream);
   }
-  /** @} */
 
-  /**
-   * @brief Generate normal distributed numbers
-   * @tparam Type data type of output random number
-   * @tparam LenType data type used to represent length of the arrays
-   * @param ptr the output array
-   * @param len the number of elements in the output
-   * @param mu mean of the distribution
-   * @param sigma std-dev of the distribution
-   * @param stream stream where to launch the kernel
-   * @{
-   */
   template <typename Type, typename LenType = int>
   void normal(Type *ptr, LenType len, Type mu, Type sigma,
               cudaStream_t stream) {
@@ -240,28 +442,7 @@ class Rng {
       },
       NumThreads, nBlocks, type, stream);
   }
-  /** @} */
 
-  /**
-   * @brief Generate normal distributed table according to the given set of
-   * means and scalar standard deviations.
-   *
-   * Each row in this table conforms to a normally distributed n-dim vector
-   * whose mean is the input vector and standard deviation is the corresponding
-   * vector or scalar. Correlations among the dimensions itself is assumed to
-   * be absent.
-   *
-   * @tparam Type data type of output random number
-   * @tparam LenType data type used to represent length of the arrays
-   * @param ptr the output table (dim = n_rows x n_cols)
-   * @param n_rows number of rows in the table
-   * @param n_cols number of columns in the table
-   * @param mu mean vector (dim = n_cols x 1).
-   * @param sigma_vec std-dev vector of each component (dim = n_cols x 1). Pass
-   * a nullptr to use the same scalar 'sigma' across all components
-   * @param sigma scalar sigma to be used if 'sigma_vec' is nullptr
-   * @param stream stream where to launch the kernel
-   */
   template <typename Type, typename LenType = int>
   void normalTable(Type *ptr, LenType n_rows, LenType n_cols, const Type *mu,
                    const Type *sigma_vec, Type sigma, cudaStream_t stream) {
@@ -280,33 +461,13 @@ class Rng {
       NumThreads, nBlocks, type, stream);
   }
 
-  /**
-   * @brief Fill an array with the given value
-   * @tparam Type data type of output random number
-   * @tparam LenType data type used to represent length of the arrays
-   * @param ptr the output array
-   * @param len the number of elements in the output
-   * @param val value to be filled
-   * @param stream stream where to launch the kernel
-   */
   template <typename Type, typename LenType = int>
   void fill(Type *ptr, LenType len, Type val, cudaStream_t stream) {
-    constFillKernel<Type><<<nBlocks, NumThreads, 0, stream>>>(ptr, len, val);
+    detail::constFillKernel<Type>
+      <<<nBlocks, NumThreads, 0, stream>>>(ptr, len, val);
     CUDA_CHECK(cudaPeekAtLastError());
   }
 
-  /**
-   * @brief Generate bernoulli distributed boolean array
-   *
-   * @tparam Type    data type in which to compute the probabilities
-   * @tparam OutType output data type
-   * @tparam LenType data type used to represent length of the arrays
-   *
-   * @param[out] ptr    the output array
-   * @param[in]  len    the number of elements in the output
-   * @param[in]  prob   coin-toss probability for heads
-   * @param[in]  stream stream where to launch the kernel
-   */
   template <typename Type, typename OutType = bool, typename LenType = int>
   void bernoulli(OutType *ptr, LenType len, Type prob, cudaStream_t stream) {
     custom_distribution<OutType, Type>(
@@ -314,16 +475,6 @@ class Rng {
       stream);
   }
 
-  /**
-   * @brief Generate bernoulli distributed array and applies scale
-   * @tparam Type data type in which to compute the probabilities
-   * @tparam LenType data type used to represent length of the arrays
-   * @param ptr the output array
-   * @param len the number of elements in the output
-   * @param prob coin-toss probability for heads
-   * @param scale scaling factor
-   * @param stream stream where to launch the kernel
-   */
   template <typename Type, typename LenType = int>
   void scaled_bernoulli(Type *ptr, LenType len, Type prob, Type scale,
                         cudaStream_t stream) {
@@ -337,17 +488,6 @@ class Rng {
       stream);
   }
 
-  /**
-   * @brief Generate gumbel distributed random numbers
-   * @tparam Type data type of output random number
-   * @tparam LenType data type used to represent length of the arrays
-   * @param ptr output array
-   * @param len number of elements in the output array
-   * @param mu mean value
-   * @param beta scale value
-   * @param stream stream where to launch the kernel
-   * @note https://en.wikipedia.org/wiki/Gumbel_distribution
-   */
   template <typename Type, typename LenType = int>
   void gumbel(Type *ptr, LenType len, Type mu, Type beta, cudaStream_t stream) {
     custom_distribution(
@@ -358,16 +498,6 @@ class Rng {
       stream);
   }
 
-  /**
-   * @brief Generate lognormal distributed numbers
-   * @tparam Type data type of output random number
-   * @tparam LenType data type used to represent length of the arrays
-   * @param ptr the output array
-   * @param len the number of elements in the output
-   * @param mu mean of the distribution
-   * @param sigma std-dev of the distribution
-   * @param stream stream where to launch the kernel
-   */
   template <typename Type, typename LenType = int>
   void lognormal(Type *ptr, LenType len, Type mu, Type sigma,
                  cudaStream_t stream) {
@@ -381,16 +511,6 @@ class Rng {
       NumThreads, nBlocks, type, stream);
   }
 
-  /**
-   * @brief Generate logistic distributed random numbers
-   * @tparam Type data type of output random number
-   * @tparam LenType data type used to represent length of the arrays
-   * @param ptr output array
-   * @param len number of elements in the output array
-   * @param mu mean value
-   * @param scale scale value
-   * @param stream stream where to launch the kernel
-   */
   template <typename Type, typename LenType = int>
   void logistic(Type *ptr, LenType len, Type mu, Type scale,
                 cudaStream_t stream) {
@@ -403,15 +523,6 @@ class Rng {
       stream);
   }
 
-  /**
-   * @brief Generate exponentially distributed random numbers
-   * @tparam Type data type of output random number
-   * @tparam LenType data type used to represent length of the arrays
-   * @param ptr output array
-   * @param len number of elements in the output array
-   * @param lambda the lambda
-   * @param stream stream where to launch the kernel
-   */
   template <typename Type, typename LenType = int>
   void exponential(Type *ptr, LenType len, Type lambda, cudaStream_t stream) {
     custom_distribution(
@@ -423,15 +534,6 @@ class Rng {
       stream);
   }
 
-  /**
-   * @brief Generate rayleigh distributed random numbers
-   * @tparam Type data type of output random number
-   * @tparam LenType data type used to represent length of the arrays
-   * @param ptr output array
-   * @param len number of elements in the output array
-   * @param sigma the sigma
-   * @param stream stream where to launch the kernel
-   */
   template <typename Type, typename LenType = int>
   void rayleigh(Type *ptr, LenType len, Type sigma, cudaStream_t stream) {
     custom_distribution(
@@ -444,16 +546,6 @@ class Rng {
       stream);
   }
 
-  /**
-   * @brief Generate laplace distributed random numbers
-   * @tparam Type data type of output random number
-   * @tparam LenType data type used to represent length of the arrays
-   * @param ptr output array
-   * @param len number of elements in the output array
-   * @param mu the mean
-   * @param scale the scale
-   * @param stream stream where to launch the kernel
-   */
   template <typename Type, typename LenType = int>
   void laplace(Type *ptr, LenType len, Type mu, Type scale,
                cudaStream_t stream) {
@@ -474,31 +566,6 @@ class Rng {
       stream);
   }
 
-  /**
-   * @brief Sample the input array without replacement, optionally based on the
-   * input weight vector for each element in the array
-   *
-   * Implementation here is based on the `one-pass sampling` algo described here:
-   * https://www.ethz.ch/content/dam/ethz/special-interest/baug/ivt/ivt-dam/vpl/reports/1101-1200/ab1141.pdf
-   *
-   * @note In the sampled array the elements which are picked will always appear
-   * in the increasing order of their weights as computed using the exponential
-   * distribution. So, if you're particular about the order (for eg. array
-   * permutations), then this might not be the right choice!
-   *
-   * @tparam DataT data type
-   * @tparam WeightsT weights type
-   * @tparam IdxT index type
-   * @param out output sampled array (of length 'sampledLen')
-   * @param outIdx indices of the sampled array (of length 'sampledLen'). Pass
-   * a nullptr if this is not required.
-   * @param in input array to be sampled (of length 'len')
-   * @param wts weights array (of length 'len'). Pass a nullptr if uniform
-   * sampling is desired
-   * @param sampledLen output sampled array length
-   * @param len input array length
-   * @param stream cuda stream
-   */
   template <typename DataT, typename WeightsT, typename IdxT = int>
   void sampleWithoutReplacement(const raft::handle_t &handle, DataT *out,
                                 IdxT *outIdx, const DataT *in,
@@ -535,24 +602,9 @@ class Rng {
       CUDA_CHECK(cudaMemcpyAsync(outIdx, outIdxPtr, sizeof(IdxT) * sampledLen,
                                  cudaMemcpyDeviceToDevice, stream));
     }
-    scatter<DataT, IdxT>(out, in, outIdxPtr, sampledLen, stream);
+    raft::scatter<DataT, IdxT>(out, in, outIdxPtr, sampledLen, stream);
   }
 
-  /**
-   * @brief Core method to generate a pdf based on the cdf that is defined in
-   *        the input device lambda
-   *
-   * @tparam OutType  output type
-   * @tparam MathType type on which arithmetic is done
-   * @tparam LenTyp   index type
-   * @tparam Lambda   device lambda (or operator)
-   *
-   * @param[out] ptr    output buffer [on device] [len = len]
-   * @param[in]  len    number of elements to be generated
-   * @param[in]  randOp the device lambda or operator
-   * @param[in]  stream cuda stream
-   * @{
-   */
   template <typename OutType, typename MathType = OutType,
             typename LenType = int, typename Lambda>
   void custom_distribution(OutType *ptr, LenType len, Lambda randOp,
@@ -573,10 +625,10 @@ class Rng {
   /** generator type */
   GeneratorType type;
   /**
-   * offset is also used to initialize curand state.
-   * Limits period of Philox RNG from (4 * 2^128) to (Blocks * Threads * 2^64),
-   * but is still a large period.
-   */
+  * offset is also used to initialize curand state.
+  * Limits period of Philox RNG from (4 * 2^128) to (Blocks * Threads * 2^64),
+  * but is still a large period.
+  */
   uint64_t offset;
   /** number of blocks to launch */
   int nBlocks;
@@ -617,15 +669,18 @@ class Rng {
                                                            nThreads, nBlocks);
     switch (type) {
       case GenPhilox:
-        randKernel<OutType, MathType, detail::PhiloxGenerator, LenType, Lambda>
+        detail::randKernel<OutType, MathType, detail::PhiloxGenerator, LenType,
+                           Lambda>
           <<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr, len, randOp);
         break;
       case GenTaps:
-        randKernel<OutType, MathType, detail::TapsGenerator, LenType, Lambda>
+        detail::randKernel<OutType, MathType, detail::TapsGenerator, LenType,
+                           Lambda>
           <<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr, len, randOp);
         break;
       case GenKiss99:
-        randKernel<OutType, MathType, detail::Kiss99Generator, LenType, Lambda>
+        detail::randKernel<OutType, MathType, detail::Kiss99Generator, LenType,
+                           Lambda>
           <<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr, len, randOp);
         break;
       default:
@@ -646,17 +701,18 @@ class Rng {
                                                           nThreads, nBlocks);
     switch (type) {
       case GenPhilox:
-        rand2Kernel<OutType, MathType, detail::PhiloxGenerator, LenType,
-                    Lambda2>
+        detail::rand2Kernel<OutType, MathType, detail::PhiloxGenerator, LenType,
+                            Lambda2>
           <<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr, len, rand2Op);
         break;
       case GenTaps:
-        rand2Kernel<OutType, MathType, detail::TapsGenerator, LenType, Lambda2>
+        detail::rand2Kernel<OutType, MathType, detail::TapsGenerator, LenType,
+                            Lambda2>
           <<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr, len, rand2Op);
         break;
       case GenKiss99:
-        rand2Kernel<OutType, MathType, detail::Kiss99Generator, LenType,
-                    Lambda2>
+        detail::rand2Kernel<OutType, MathType, detail::Kiss99Generator, LenType,
+                            Lambda2>
           <<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr, len, rand2Op);
         break;
       default:
@@ -667,5 +723,6 @@ class Rng {
   }
 };
 
+};  // end namespace detail
 };  // end namespace random
 };  // end namespace raft
