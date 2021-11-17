@@ -44,7 +44,9 @@ void svdQR(const raft::handle_t &handle, T *in, int n_rows, int n_cols,
            T *sing_vals, T *left_sing_vecs, T *right_sing_vecs,
            bool trans_right, bool gen_left_vec, bool gen_right_vec,
            cudaStream_t stream) {
- detail::svdQR(handle, in, n_rows, n_cols, sing_vals, left_sing_vecs, right_sing_vecs, trans_right, gen_left_vec, gen_right_vec, stream);
+  detail::svdQR(handle, in, n_rows, n_cols, sing_vals, left_sing_vecs,
+                right_sing_vecs, trans_right, gen_left_vec, gen_right_vec,
+                stream);
 }
 
 template <typename T>
@@ -75,7 +77,9 @@ void svdJacobi(const raft::handle_t &handle, math_t *in, int n_rows, int n_cols,
                math_t *sing_vals, math_t *left_sing_vecs,
                math_t *right_sing_vecs, bool gen_left_vec, bool gen_right_vec,
                math_t tol, int max_sweeps, cudaStream_t stream) {
-  detail::svdJacobi(handle, in, n_rows, n_cols, sing_vals, left_sing_vecs, right_sing_vecs, gen_left_vec, gen_right_vec, tol, max_sweeps, stream);
+  detail::svdJacobi(handle, in, n_rows, n_cols, sing_vals, left_sing_vecs,
+                    right_sing_vecs, gen_left_vec, gen_right_vec, tol,
+                    max_sweeps, stream);
 }
 
 /**
@@ -122,7 +126,8 @@ template <typename math_t>
 bool evaluateSVDByL2Norm(const raft::handle_t &handle, math_t *A_d, math_t *U,
                          math_t *S_vec, math_t *V, int n_rows, int n_cols,
                          int k, math_t tol, cudaStream_t stream) {
-  return detail::evaluateSVDByL2Norm(handle, A_d, U, S_vec, V, n_rows, n_cols, k, tol, stream);
+  return detail::evaluateSVDByL2Norm(handle, A_d, U, S_vec, V, n_rows, n_cols,
+                                     k, tol, stream);
 }
 
 };  // end namespace linalg

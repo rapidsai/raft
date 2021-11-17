@@ -24,26 +24,26 @@ namespace detail {
 
 template <class math_t, typename IdxType>
 __global__ void add_dev_scalar_kernel(math_t *outDev, const math_t *inDev,
-                                    const math_t *singleScalarDev,
-                                    IdxType len) {
-IdxType i = ((IdxType)blockIdx.x * (IdxType)blockDim.x) + threadIdx.x;
-if (i < len) {
+                                      const math_t *singleScalarDev,
+                                      IdxType len) {
+  IdxType i = ((IdxType)blockIdx.x * (IdxType)blockDim.x) + threadIdx.x;
+  if (i < len) {
     outDev[i] = inDev[i] + *singleScalarDev;
-}
+  }
 }
 
 template <typename math_t, typename IdxType = int>
 void addDevScalar(math_t *outDev, const math_t *inDev,
-                const math_t *singleScalarDev, IdxType len,
-                cudaStream_t stream) {
-// TODO: block dimension has not been tuned
-dim3 block(256);
-dim3 grid(raft::ceildiv(len, (IdxType)block.x));
-add_dev_scalar_kernel<math_t>
+                  const math_t *singleScalarDev, IdxType len,
+                  cudaStream_t stream) {
+  // TODO: block dimension has not been tuned
+  dim3 block(256);
+  dim3 grid(raft::ceildiv(len, (IdxType)block.x));
+  add_dev_scalar_kernel<math_t>
     <<<grid, block, 0, stream>>>(outDev, inDev, singleScalarDev, len);
-CUDA_CHECK(cudaPeekAtLastError());
+  CUDA_CHECK(cudaPeekAtLastError());
 }
 
-} // namespace detail
-} // namespace linalg
-} // namespace raft
+}  // namespace detail
+}  // namespace linalg
+}  // namespace raft

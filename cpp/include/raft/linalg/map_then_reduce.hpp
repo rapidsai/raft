@@ -39,8 +39,9 @@ template <typename InType, typename MapOp, int TPB = 256, typename... Args,
           typename OutType = InType>
 void mapThenSumReduce(OutType *out, size_t len, MapOp map, cudaStream_t stream,
                       const InType *in, Args... args) {
-  detail::mapThenReduceImpl<InType, OutType, MapOp, detail::sum_tag, TPB, Args...>(
-    out, len, (OutType)0, map, detail::sum_tag(), stream, in, args...);
+  detail::mapThenReduceImpl<InType, OutType, MapOp, detail::sum_tag, TPB,
+                            Args...>(out, len, (OutType)0, map,
+                                     detail::sum_tag(), stream, in, args...);
 }
 
 /**

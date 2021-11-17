@@ -596,7 +596,7 @@ static int lanczosRestart(
   return 0;
 }
 
-} // namespace detail
+}  // namespace detail
 }  // namespace spectral
 
 namespace detail {

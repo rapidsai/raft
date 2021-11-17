@@ -119,6 +119,6 @@ void gemm(const raft::handle_t &handle, T *z, T *x, T *y, int _M, int _N,
                           b, ldb, &beta, c, ldc, stream));
 }
 
-} // namespace detail
-} // namespace linalg
-} // namespace raft
+}  // namespace detail
+}  // namespace linalg
+}  // namespace raft

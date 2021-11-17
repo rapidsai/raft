@@ -29,51 +29,51 @@ struct sum_tag {};
 
 template <typename InType, typename OutType, int TPB>
 __device__ void reduce(OutType *out, const InType acc, sum_tag) {
-typedef cub::BlockReduce<InType, TPB> BlockReduce;
-__shared__ typename BlockReduce::TempStorage temp_storage;
-OutType tmp = BlockReduce(temp_storage).Sum(acc);
-if (threadIdx.x == 0) {
+  typedef cub::BlockReduce<InType, TPB> BlockReduce;
+  __shared__ typename BlockReduce::TempStorage temp_storage;
+  OutType tmp = BlockReduce(temp_storage).Sum(acc);
+  if (threadIdx.x == 0) {
     raft::myAtomicAdd(out, tmp);
-}
+  }
 }
 
 template <typename InType, typename OutType, int TPB, typename ReduceLambda>
 __device__ void reduce(OutType *out, const InType acc, ReduceLambda op) {
-typedef cub::BlockReduce<InType, TPB> BlockReduce;
-__shared__ typename BlockReduce::TempStorage temp_storage;
-OutType tmp = BlockReduce(temp_storage).Reduce(acc, op);
-if (threadIdx.x == 0) {
+  typedef cub::BlockReduce<InType, TPB> BlockReduce;
+  __shared__ typename BlockReduce::TempStorage temp_storage;
+  OutType tmp = BlockReduce(temp_storage).Reduce(acc, op);
+  if (threadIdx.x == 0) {
     raft::myAtomicReduce(out, tmp, op);
-}
+  }
 }
 
 template <typename InType, typename OutType, typename MapOp,
-        typename ReduceLambda, int TPB, typename... Args>
+          typename ReduceLambda, int TPB, typename... Args>
 __global__ void mapThenReduceKernel(OutType *out, size_t len, OutType neutral,
                                     MapOp map, ReduceLambda op,
                                     const InType *in, Args... args) {
-OutType acc = neutral;
-auto idx = (threadIdx.x + (blockIdx.x * blockDim.x));
+  OutType acc = neutral;
+  auto idx = (threadIdx.x + (blockIdx.x * blockDim.x));
 
-if (idx < len) {
+  if (idx < len) {
     acc = map(in[idx], args[idx]...);
-}
+  }
 
-__syncthreads();
+  __syncthreads();
 
-reduce<InType, OutType, TPB>(out, acc, op);
+  reduce<InType, OutType, TPB>(out, acc, op);
 }
 
 template <typename InType, typename OutType, typename MapOp,
-        typename ReduceLambda, int TPB, typename... Args>
+          typename ReduceLambda, int TPB, typename... Args>
 void mapThenReduceImpl(OutType *out, size_t len, OutType neutral, MapOp map,
-                    ReduceLambda op, cudaStream_t stream, const InType *in,
-                    Args... args) {
-raft::update_device(out, &neutral, 1, stream);
-const int nblks = raft::ceildiv(len, (size_t)TPB);
-mapThenReduceKernel<InType, OutType, MapOp, ReduceLambda, TPB, Args...>
+                       ReduceLambda op, cudaStream_t stream, const InType *in,
+                       Args... args) {
+  raft::update_device(out, &neutral, 1, stream);
+  const int nblks = raft::ceildiv(len, (size_t)TPB);
+  mapThenReduceKernel<InType, OutType, MapOp, ReduceLambda, TPB, Args...>
     <<<nblks, TPB, 0, stream>>>(out, len, neutral, map, op, in, args...);
-CUDA_CHECK(cudaPeekAtLastError());
+  CUDA_CHECK(cudaPeekAtLastError());
 }
 
 };  // end namespace detail

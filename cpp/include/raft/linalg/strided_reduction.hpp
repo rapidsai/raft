@@ -57,7 +57,8 @@ void stridedReduction(OutType *dots, const InType *data, IdxType D, IdxType N,
                       MainLambda main_op = raft::Nop<InType, IdxType>(),
                       ReduceLambda reduce_op = raft::Sum<OutType>(),
                       FinalLambda final_op = raft::Nop<OutType>()) {
-  detail::stridedReduction(dots, data, D, N, init, stream, inplace, main_op, reduce_op, final_op);
+  detail::stridedReduction(dots, data, D, N, init, stream, inplace, main_op,
+                           reduce_op, final_op);
 }
 
 };  // end namespace linalg

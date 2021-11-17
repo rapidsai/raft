@@ -14,67 +14,61 @@
  * limitations under the License.
  */
 
- #pragma once
+#pragma once
 
- #include <thrust/functional.h>
+#include <thrust/functional.h>
 
- namespace raft {
- namespace linalg {
- namespace detail {
+namespace raft {
+namespace linalg {
+namespace detail {
 
 template <typename ArgType, typename ReturnType = ArgType>
 struct divides_scalar {
+ public:
+  divides_scalar(ArgType scalar) : scalar_(scalar) {}
 
-public:
-    divides_scalar(ArgType scalar) : scalar_(scalar) {} 
+  __host__ __device__ inline ReturnType operator()(ArgType in) {
+    return in / scalar_;
+  }
 
-    __host__ __device__ inline ReturnType operator()(ArgType in) {
-        return in / scalar_;
-    }
-
-private:
-    ArgType scalar_;
+ private:
+  ArgType scalar_;
 };
 
 template <typename ArgType, typename ReturnType = ArgType>
 struct adds_scalar {
+ public:
+  adds_scalar(ArgType scalar) : scalar_(scalar) {}
 
-public:
-    adds_scalar(ArgType scalar) : scalar_(scalar) {} 
+  __host__ __device__ inline ReturnType operator()(ArgType in) {
+    return in + scalar_;
+  }
 
-    __host__ __device__ inline ReturnType operator()(ArgType in) {
-        return in + scalar_;
-    }
-
-private:
-    ArgType scalar_;
+ private:
+  ArgType scalar_;
 };
 
 template <typename ArgType, typename ReturnType = ArgType>
 struct multiplies_scalar {
+ public:
+  multiplies_scalar(ArgType scalar) : scalar_(scalar) {}
 
-public:
-    multiplies_scalar(ArgType scalar) : scalar_(scalar) {} 
+  __host__ __device__ inline ReturnType operator()(ArgType in) {
+    return in * scalar_;
+  }
 
-    __host__ __device__ inline ReturnType operator()(ArgType in) {
-        return in * scalar_;
-    }
-
-private:
-    ArgType scalar_;
+ private:
+  ArgType scalar_;
 };
 
 template <typename ArgType, typename ReturnType = ArgType>
 struct divides_check_zero {
-
-public:
-    __host__ __device__ inline ReturnType operator()(ArgType a, ArgType b) {
-        return (b == static_cast<ArgType>(0)) ? 0.0 : a / b;
-    }
-
+ public:
+  __host__ __device__ inline ReturnType operator()(ArgType a, ArgType b) {
+    return (b == static_cast<ArgType>(0)) ? 0.0 : a / b;
+  }
 };
 
-
-} // namespace detail
-} // namespace linalg
-} // namespace raft
+}  // namespace detail
+}  // namespace linalg
+}  // namespace raft

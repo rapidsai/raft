@@ -121,7 +121,8 @@ template <typename math_t>
 void choleskyRank1Update(const raft::handle_t &handle, math_t *L, int n, int ld,
                          void *workspace, int *n_bytes, cublasFillMode_t uplo,
                          cudaStream_t stream, math_t eps = -1) {
-  detail::choleskyRank1Update(handle, L, n, ld, workspace, n_bytes, uplo, stream, eps);
+  detail::choleskyRank1Update(handle, L, n, ld, workspace, n_bytes, uplo,
+                              stream, eps);
 }
 };  // namespace linalg
 };  // namespace raft

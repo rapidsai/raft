@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
- #pragma once
+#pragma once
 
 #include <cub/cub.cuh>
 #include <raft/cuda_utils.cuh>
 
- namespace raft {
- namespace linalg {
- namespace detail {
+namespace raft {
+namespace linalg {
+namespace detail {
 
 // Kernel (based on norm.cuh) to perform reductions along the coalesced dimension
 // of the matrix, i.e. reduce along rows for row major or reduce along columns
@@ -84,6 +84,6 @@ void coalescedReduction(OutType *dots, const InType *data, int D, int N,
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
-    } // namespace detail
-} // namespace linalg
-} // namespace raft
+}  // namespace detail
+}  // namespace linalg
+}  // namespace raft

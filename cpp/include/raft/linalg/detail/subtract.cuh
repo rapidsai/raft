@@ -14,40 +14,39 @@
  * limitations under the License.
  */
 
- #pragma once
+#pragma once
 
- #include <raft/cuda_utils.cuh>
- #include <raft/linalg/binary_op.hpp>
- #include <raft/linalg/unary_op.hpp>
- 
- namespace raft {
- namespace linalg {
- namespace detail {
- 
- template <class math_t, typename IdxType>
- __global__ void subtract_dev_scalar_kernel(math_t *outDev, const math_t *inDev,
-                                            const math_t *singleScalarDev,
-                                            IdxType len) {
-   //TODO: kernel do not use shared memory in current implementation
-   int i = ((IdxType)blockIdx.x * (IdxType)blockDim.x) + threadIdx.x;
-   if (i < len) {
-     outDev[i] = inDev[i] - *singleScalarDev;
-   }
- }
- 
- template <typename math_t, typename IdxType = int, int TPB = 256>
- void subtractDevScalar(math_t *outDev, const math_t *inDev,
-                        const math_t *singleScalarDev, IdxType len,
-                        cudaStream_t stream) {
-   // Just for the note - there is no way to express such operation with cuBLAS in effective way
-   // https://stackoverflow.com/questions/14051064/add-scalar-to-vector-in-blas-cublas-cuda
-   const IdxType nblks = raft::ceildiv(len, (IdxType)TPB);
-   subtract_dev_scalar_kernel<math_t>
-     <<<nblks, TPB, 0, stream>>>(outDev, inDev, singleScalarDev, len);
-   CUDA_CHECK(cudaPeekAtLastError());
- }
- 
- };  // end namespace detail
- };  // end namespace linalg
- };  // end namespace raft
- 
+#include <raft/cuda_utils.cuh>
+#include <raft/linalg/binary_op.hpp>
+#include <raft/linalg/unary_op.hpp>
+
+namespace raft {
+namespace linalg {
+namespace detail {
+
+template <class math_t, typename IdxType>
+__global__ void subtract_dev_scalar_kernel(math_t *outDev, const math_t *inDev,
+                                           const math_t *singleScalarDev,
+                                           IdxType len) {
+  //TODO: kernel do not use shared memory in current implementation
+  int i = ((IdxType)blockIdx.x * (IdxType)blockDim.x) + threadIdx.x;
+  if (i < len) {
+    outDev[i] = inDev[i] - *singleScalarDev;
+  }
+}
+
+template <typename math_t, typename IdxType = int, int TPB = 256>
+void subtractDevScalar(math_t *outDev, const math_t *inDev,
+                       const math_t *singleScalarDev, IdxType len,
+                       cudaStream_t stream) {
+  // Just for the note - there is no way to express such operation with cuBLAS in effective way
+  // https://stackoverflow.com/questions/14051064/add-scalar-to-vector-in-blas-cublas-cuda
+  const IdxType nblks = raft::ceildiv(len, (IdxType)TPB);
+  subtract_dev_scalar_kernel<math_t>
+    <<<nblks, TPB, 0, stream>>>(outDev, inDev, singleScalarDev, len);
+  CUDA_CHECK(cudaPeekAtLastError());
+}
+
+};  // end namespace detail
+};  // end namespace linalg
+};  // end namespace raft

@@ -14,15 +14,15 @@
  * limitations under the License.
  */
 
- #pragma once
+#pragma once
 
- #include <raft/vectorized.cuh>
+#include <raft/vectorized.cuh>
 
- namespace raft {
- namespace linalg {
- namespace detail {
+namespace raft {
+namespace linalg {
+namespace detail {
 
-    template <typename InType, int VecLen, typename Lambda, typename IdxType,
+template <typename InType, int VecLen, typename Lambda, typename IdxType,
           typename OutType>
 __global__ void binaryOpKernel(OutType *out, const InType *in1,
                                const InType *in2, IdxType len, Lambda op) {
@@ -73,19 +73,19 @@ void binaryOp(OutType *out, const InType *in1, const InType *in2, IdxType len,
   uint64_t outAddr = uint64_t(out);
   if (16 / maxSize && bytes % 16 == 0 &&
       addressAligned(in1Addr, in2Addr, outAddr, 16)) {
-        binaryOpImpl<InType, 16 / maxSize, Lambda, IdxType, OutType, TPB>(
+    binaryOpImpl<InType, 16 / maxSize, Lambda, IdxType, OutType, TPB>(
       out, in1, in2, len, op, stream);
   } else if (8 / maxSize && bytes % 8 == 0 &&
              addressAligned(in1Addr, in2Addr, outAddr, 8)) {
-              binaryOpImpl<InType, 8 / maxSize, Lambda, IdxType, OutType, TPB>(
+    binaryOpImpl<InType, 8 / maxSize, Lambda, IdxType, OutType, TPB>(
       out, in1, in2, len, op, stream);
   } else if (4 / maxSize && bytes % 4 == 0 &&
-    addressAligned(in1Addr, in2Addr, outAddr, 4)) {
-               binaryOpImpl<InType, 4 / maxSize, Lambda, IdxType, OutType, TPB>(
+             addressAligned(in1Addr, in2Addr, outAddr, 4)) {
+    binaryOpImpl<InType, 4 / maxSize, Lambda, IdxType, OutType, TPB>(
       out, in1, in2, len, op, stream);
   } else if (2 / maxSize && bytes % 2 == 0 &&
-    addressAligned(in1Addr, in2Addr, outAddr, 2)) {
-              binaryOpImpl<InType, 2 / maxSize, Lambda, IdxType, OutType, TPB>(
+             addressAligned(in1Addr, in2Addr, outAddr, 2)) {
+    binaryOpImpl<InType, 2 / maxSize, Lambda, IdxType, OutType, TPB>(
       out, in1, in2, len, op, stream);
   } else if (1 / maxSize) {
     binaryOpImpl<InType, 1 / maxSize, Lambda, IdxType, OutType, TPB>(
@@ -96,6 +96,6 @@ void binaryOp(OutType *out, const InType *in1, const InType *in2, IdxType len,
   }
 }
 
-    } // namespace detail
-} // namespace linalg
-} // namespace raft
+}  // namespace detail
+}  // namespace linalg
+}  // namespace raft

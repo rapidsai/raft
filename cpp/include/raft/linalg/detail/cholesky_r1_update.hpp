@@ -28,8 +28,8 @@ namespace detail {
 
 template <typename math_t>
 void choleskyRank1Update(const raft::handle_t &handle, math_t *L, int n, int ld,
-                        void *workspace, int *n_bytes, cublasFillMode_t uplo,
-                        cudaStream_t stream, math_t eps = -1) {
+                         void *workspace, int *n_bytes, cublasFillMode_t uplo,
+                         cudaStream_t stream, math_t eps = -1) {
   // The matrix A' is defined as:
   // A' = [[A_11, A_12]
   //       [A_21, A_22]]
@@ -50,8 +50,8 @@ void choleskyRank1Update(const raft::handle_t &handle, math_t *L, int n, int ld,
   // CUBLAS_FILL_MODE_LOWER we need space for n-1 floats.
   const int align = 256;
   int offset = (uplo == CUBLAS_FILL_MODE_LOWER)
-                ? raft::alignTo<int>(sizeof(math_t) * (n - 1), align)
-                : 0;
+                 ? raft::alignTo<int>(sizeof(math_t) * (n - 1), align)
+                 : 0;
   if (workspace == nullptr) {
     *n_bytes = offset + 1 * sizeof(math_t);
     return;
@@ -84,7 +84,7 @@ void choleskyRank1Update(const raft::handle_t &handle, math_t *L, int n, int ld,
 
     // A_new now stores L_12, we calculate s = L_12 * L_12
     CUBLAS_CHECK(raft::linalg::cublasdot(handle.get_cublas_handle(), n - 1,
-                                        A_new, 1, A_new, 1, s, stream));
+                                         A_new, 1, A_new, 1, s, stream));
 
     if (uplo == CUBLAS_FILL_MODE_LOWER) {
       // Copy back the L_12 elements as the n-th row of L
@@ -114,6 +114,6 @@ void choleskyRank1Update(const raft::handle_t &handle, math_t *L, int n, int ld,
   raft::update_device(L_22, &L_22_host, 1, stream);
 }
 
-} // namespace detail
-} // namespace linalg
-} // namespace raft
+}  // namespace detail
+}  // namespace linalg
+}  // namespace raft

@@ -41,9 +41,9 @@ void eigDC(const raft::handle_t &handle, const math_t *in, std::size_t n_rows,
   detail::eigDC(handle, in, n_rows, n_cols, eig_vectors, eig_vals, stream);
 }
 
+using detail::COPY_INPUT;
 using detail::EigVecMemUsage;
 using detail::OVERWRITE_INPUT;
-using detail::COPY_INPUT;
 
 #if CUDART_VERSION >= 10010
 
@@ -65,7 +65,8 @@ template <typename math_t>
 void eigSelDC(const raft::handle_t &handle, math_t *in, int n_rows, int n_cols,
               int n_eig_vals, math_t *eig_vectors, math_t *eig_vals,
               EigVecMemUsage memUsage, cudaStream_t stream) {
-  detail::eigSelDC(handle, in, n_rows, n_cols, n_eig_vals, eig_vectors, eig_vals, memUsage, stream);
+  detail::eigSelDC(handle, in, n_rows, n_cols, n_eig_vals, eig_vectors,
+                   eig_vals, memUsage, stream);
 }
 
 #endif
@@ -88,7 +89,8 @@ template <typename math_t>
 void eigJacobi(const raft::handle_t &handle, const math_t *in, int n_rows,
                int n_cols, math_t *eig_vectors, math_t *eig_vals,
                cudaStream_t stream, math_t tol = 1.e-7, int sweeps = 15) {
-  detail::eigJacobi(handle, in, n_rows, n_cols, eig_vectors, eig_vals, stream, tol, sweeps);
+  detail::eigJacobi(handle, in, n_rows, n_cols, eig_vectors, eig_vals, stream,
+                    tol, sweeps);
 }
 
 };  // end namespace linalg

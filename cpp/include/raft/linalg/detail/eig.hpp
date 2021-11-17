@@ -202,6 +202,6 @@ void eigJacobi(const raft::handle_t &handle, const math_t *in, int n_rows,
   CUSOLVER_CHECK(cusolverDnDestroySyevjInfo(syevj_params));
 }
 
-} // namespace detail
-} // namespace linalg
-} // namespace raft
+}  // namespace detail
+}  // namespace linalg
+}  // namespace raft

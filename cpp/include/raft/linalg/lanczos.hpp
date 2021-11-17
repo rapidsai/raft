@@ -83,8 +83,10 @@ int computeSmallestEigenvectors(
   value_type_t *__restrict__ lanczosVecs_dev,
   value_type_t *__restrict__ work_dev, value_type_t *__restrict__ eigVals_dev,
   value_type_t *__restrict__ eigVecs_dev, unsigned long long seed) {
-  return raft::detail::computeSmallestEigenvectors(handle, A, nEigVecs, maxIter, restartIter, tol, reorthogonalize, effIter, totalIter, shift,
-    alpha_host, beta_host, lanczosVecs_dev, work_dev, eigVals_dev, eigVecs_dev, seed);
+  return raft::detail::computeSmallestEigenvectors(
+    handle, A, nEigVecs, maxIter, restartIter, tol, reorthogonalize, effIter,
+    totalIter, shift, alpha_host, beta_host, lanczosVecs_dev, work_dev,
+    eigVals_dev, eigVecs_dev, seed);
 }
 
 /**  
@@ -131,7 +133,9 @@ int computeSmallestEigenvectors(
   value_type_t tol, bool reorthogonalize, index_type_t &iter,
   value_type_t *__restrict__ eigVals_dev,
   value_type_t *__restrict__ eigVecs_dev, unsigned long long seed = 1234567) {
-  return raft::detail::computeSmallestEigenvectors(handle, A, nEigVecs, maxIter, restartIter, tol, reorthogonalize, iter, eigVals_dev, eigVecs_dev, seed);
+  return raft::detail::computeSmallestEigenvectors(
+    handle, A, nEigVecs, maxIter, restartIter, tol, reorthogonalize, iter,
+    eigVals_dev, eigVecs_dev, seed);
 }
 
 // =========================================================
@@ -192,8 +196,10 @@ int computeLargestEigenvectors(
   value_type_t *__restrict__ lanczosVecs_dev,
   value_type_t *__restrict__ work_dev, value_type_t *__restrict__ eigVals_dev,
   value_type_t *__restrict__ eigVecs_dev, unsigned long long seed) {
-  return raft::detail::computeLargestEigenvectors(handle, A, nEigVecs, maxIter, restartIter, tol, reorthogonalize, effIter, totalIter, alpha_host, beta_host,
-    lanczosVecs_dev, work_dev, eigVals_dev, eigVecs_dev, seed);
+  return raft::detail::computeLargestEigenvectors(
+    handle, A, nEigVecs, maxIter, restartIter, tol, reorthogonalize, effIter,
+    totalIter, alpha_host, beta_host, lanczosVecs_dev, work_dev, eigVals_dev,
+    eigVecs_dev, seed);
 }
 
 /**  
@@ -240,7 +246,9 @@ int computeLargestEigenvectors(
   value_type_t tol, bool reorthogonalize, index_type_t &iter,
   value_type_t *__restrict__ eigVals_dev,
   value_type_t *__restrict__ eigVecs_dev, unsigned long long seed = 123456) {
-  return raft::detail::computeLargestEigenvectors(handle, A, nEigVecs, maxIter, restartIter, tol, reorthogonalize, iter, eigVals_dev, eigVecs_dev, seed);
+  return raft::detail::computeLargestEigenvectors(
+    handle, A, nEigVecs, maxIter, restartIter, tol, reorthogonalize, iter,
+    eigVals_dev, eigVecs_dev, seed);
 }
 
 }  // namespace raft

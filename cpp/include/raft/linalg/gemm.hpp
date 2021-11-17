@@ -44,7 +44,8 @@ void gemm(const raft::handle_t &handle, const math_t *a, int n_rows_a,
           int n_cols_a, const math_t *b, math_t *c, int n_rows_c, int n_cols_c,
           cublasOperation_t trans_a, cublasOperation_t trans_b, math_t alpha,
           math_t beta, cudaStream_t stream) {
-  detail::gemm(handle, a, n_rows_a, n_cols_a, b, c, n_rows_c, n_cols_c, trans_a, trans_b, alpha, beta, stream);
+  detail::gemm(handle, a, n_rows_a, n_cols_a, b, c, n_rows_c, n_cols_c, trans_a,
+               trans_b, alpha, beta, stream);
 }
 
 template <typename math_t>
@@ -81,7 +82,8 @@ template <typename T>
 void gemm(const raft::handle_t &handle, T *z, T *x, T *y, int _M, int _N,
           int _K, bool isZColMajor, bool isXColMajor, bool isYColMajor,
           cudaStream_t stream, T alpha = T(1.0), T beta = T(0.0)) {
-  detail::gemm(handle, z, x, y, _M, _N, _K, isZColMajor, isXColMajor, isYColMajor, stream, alpha, beta);
+  detail::gemm(handle, z, x, y, _M, _N, _K, isZColMajor, isXColMajor,
+               isYColMajor, stream, alpha, beta);
 }
 
 }  // end namespace linalg
