@@ -22,7 +22,7 @@ function(add_doxygen_target)
     set(multiValueArgs "")
     cmake_parse_arguments(dox "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
     configure_file(${dox_IN_DOXYFILE} ${dox_OUT_DOXYFILE} @ONLY)
-    add_custom_target(doc
+    add_custom_target(docs_raft
       ${DOXYGEN_EXECUTABLE} ${dox_OUT_DOXYFILE}
       WORKING_DIRECTORY ${dox_CWD}
       VERBATIM
