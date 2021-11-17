@@ -339,9 +339,9 @@ class comms_t {
 
   /**
    * Gathers data from all ranks and delivers to combined data to all ranks
-   * @param value_t datatype of underlying buffers
-   * @param sendbuff buffer containing data to send
-   * @param recvbuff buffer containing data to receive
+   * @tparam value_t datatype of underlying buffers
+   * @param sendbuf buffer containing data to send
+   * @param recvbuf buffer containing data to receive
    * @param recvcounts pointer to an array (of length num_ranks size) containing the number of
    *                   elements that are to be received from each rank
    * @param displs pointer to an array (of length num_ranks size) to specify the displacement
@@ -376,9 +376,9 @@ class comms_t {
 
   /**
    * Gathers data from all ranks and delivers to combined data to all ranks
-   * @param value_t datatype of underlying buffers
-   * @param sendbuff buffer containing data to send
-   * @param recvbuff buffer containing data to receive
+   * @tparam value_t datatype of underlying buffers
+   * @param sendbuf buffer containing data to send
+   * @param recvbuf buffer containing data to receive
    * @param sendcount number of elements in send buffer
    * @param recvcounts pointer to an array (of length num_ranks size) containing the number of
    *                   elements that are to be received from each rank
@@ -401,6 +401,7 @@ class comms_t {
    * @tparam value_t datatype of underlying buffers
    * @param sendbuff buffer containing data to send (size recvcount * num_ranks)
    * @param recvbuff buffer containing received data
+   * @param recvcount number of items to receive
    * @param op reduction operation to perform
    * @param stream CUDA stream to synchronize operation
    */
@@ -476,7 +477,7 @@ class comms_t {
    * @param sendbuf pointer to array of data to send
    * @param sendsizes numbers of elements to send
    * @param sendoffsets offsets in a number of elements from sendbuf
-   * @param dest destination ranks
+   * @param dests destination ranks
    * @param recvbuf pointer to (initialized) array that will hold received data
    * @param recvsizes numbers of elements to recv
    * @param recvoffsets offsets in a number of elements from recvbuf

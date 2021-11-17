@@ -18,8 +18,8 @@
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/svd.cuh>
-#include <raft/matrix/matrix.cuh>
-#include <raft/random/rng.cuh>
+#include <raft/matrix/matrix.hpp>
+#include <raft/random/rng.hpp>
 #include "../test_utils.h"
 
 namespace raft {
