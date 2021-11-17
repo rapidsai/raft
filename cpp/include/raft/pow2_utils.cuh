@@ -137,7 +137,7 @@ struct Pow2 {
   static constexpr HDI PtrT roundUp(PtrT p) noexcept {
     Pow2_CHECK_TYPE(PtrT);
     if constexpr (Pow2_IsRepresentableAs(PtrT))
-      return p + PtrT(Mask) - mod(p - PtrT(Mask));
+      return p + PtrT(Mask) - mod(p + PtrT(Mask));
     if constexpr (!Pow2_IsRepresentableAs(PtrT)) {
       auto x = reinterpret_cast<Type>(p);
       return reinterpret_cast<PtrT>(x + Mask - mod(x + Mask));

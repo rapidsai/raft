@@ -25,7 +25,7 @@ struct Pow2Test : public ::testing::Test {
   std::vector<TargetT> data;
 
   void SetUp() override {
-    std::vector<TargetT> pos = {0, 1, 2, 7, 15, 16, 17, 35, 1024, 1623};
+    std::vector<TargetT> pos = {0, 1, 2, 7, 15, 16, 17, 31, 35, 1024, 1623};
     data.insert(data.end(), pos.begin(), pos.end());
     if constexpr (std::is_signed<TargetT>::value) {
       std::vector<TargetT> neg = {-0, -1, -2, -5, -15, -16, -17, -156};
@@ -56,8 +56,9 @@ struct Pow2Test : public ::testing::Test {
         ASSERT_GE(P::roundUp(x), x);
       if (x >= std::numeric_limits<TargetT>::min() + TargetT(P::Value))
         ASSERT_LE(P::roundDown(x), x);
-      ASSERT_LE(P::roundUp(x) - x, P::Value);
-      ASSERT_LE(x - P::roundDown(x), P::Value);
+      ASSERT_EQ(x - P::roundDown(x), P::mod(x)) << "  where x = " << x;
+      ASSERT_EQ(P::mod(P::roundUp(x) + P::mod(x) - x), 0)
+        << "  where x = " << x;
     }
   }
 
