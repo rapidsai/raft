@@ -32,8 +32,8 @@ template <typename value_idx = std::int64_t, typename value_t,
           typename value_int = std::uint32_t>
 void rbc_build_index(const raft::handle_t &handle,
                      BallCoverIndex<value_idx, value_t, value_int> &index) {
-  ASSERT(index.n == 2,
-         "Random ball cover currently only works in 2-dimensions");
+  ASSERT(index.n < 16,
+         "Random ball cover currently only works in dimensions < 16");
   if (index.metric == raft::distance::DistanceType::Haversine) {
     detail::rbc_build_index(handle, index, detail::HaversineFunc());
   } else if (index.metric == raft::distance::DistanceType::L2SqrtExpanded ||
@@ -80,8 +80,8 @@ void rbc_all_knn_query(const raft::handle_t &handle,
                        BallCoverIndex<value_idx, value_t, value_int> &index,
                        value_int k, value_idx *inds, value_t *dists,
                        bool perform_post_filtering = true, float weight = 1.0) {
-  ASSERT(index.n == 2,
-         "Random ball cover currently only works in 2-dimensions");
+  ASSERT(index.n < 16,
+         "Random ball cover currently only works dimensions < 16");
   if (index.metric == raft::distance::DistanceType::Haversine) {
     detail::rbc_all_knn_query(handle, index, k, inds, dists,
                               detail::HaversineFunc(), perform_post_filtering,
@@ -137,8 +137,8 @@ void rbc_knn_query(const raft::handle_t &handle,
                    value_int k, const value_t *query, value_int n_query_pts,
                    value_idx *inds, value_t *dists,
                    bool perform_post_filtering = true, float weight = 1.0) {
-  ASSERT(index.n == 2,
-         "Random ball cover currently only works in 2-dimensions");
+  ASSERT(index.n < 16,
+         "Random ball cover currently only works dimensions < 16");
   if (index.metric == raft::distance::DistanceType::Haversine) {
     detail::rbc_knn_query(handle, index, k, query, n_query_pts, inds, dists,
                           detail::HaversineFunc(), perform_post_filtering,
