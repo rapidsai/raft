@@ -16,8 +16,8 @@
 
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/multiply.cuh>
-#include <raft/random/rng.cuh>
+#include <raft/linalg/multiply.hpp>
+#include <raft/random/rng.hpp>
 #include "../test_utils.h"
 #include "unary_op.cuh"
 

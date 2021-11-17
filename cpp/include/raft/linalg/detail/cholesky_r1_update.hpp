@@ -20,7 +20,7 @@
 #include <raft/linalg/cusolver_wrappers.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
-#include <raft/linalg/binary_op.cuh>
+#include <raft/linalg/binary_op.hpp>
 
 namespace raft {
 namespace linalg {

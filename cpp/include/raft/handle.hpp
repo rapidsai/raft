@@ -73,7 +73,8 @@ class handle_t {
    * @brief Construct a light handle copy from another 
    * user stream, cuda handles, comms and worker pool are not copied
    * The user_stream of the returned handle is set to the specified stream 
-   * of the other handle worker pool 
+   * of the other handle worker pool
+   * @param[in] other other handle for which to use streams
    * @param[in] stream_id stream id in `other` worker streams 
    * to be set as user stream in the constructed handle
    * @param[in] n_streams number worker streams to be created

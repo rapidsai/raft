@@ -19,7 +19,7 @@
 #include <cublas_v2.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/cuda_utils.cuh>
-#include <raft/linalg/unary_op.cuh>
+#include <raft/linalg/unary_op.hpp>
 #include <rmm/device_uvector.hpp>
 
 namespace raft {

@@ -16,9 +16,9 @@
 
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/eltwise.cuh>
-#include <raft/random/rng.cuh>
-#include <raft/stats/sum.cuh>
+#include <raft/linalg/eltwise.hpp>
+#include <raft/random/rng.hpp>
+#include <raft/stats/sum.hpp>
 #include "../test_utils.h"
 
 namespace raft {

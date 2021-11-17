@@ -17,9 +17,10 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
-#include <raft/distance/fused_l2_nn.cuh>
-#include <raft/linalg/norm.cuh>
-#include <raft/random/rng.cuh>
+#include <raft/distance/detail/fused_l2_nn.cuh>
+#include <raft/distance/fused_l2_nn.hpp>
+#include <raft/linalg/norm.hpp>
+#include <raft/random/rng.hpp>
 #include "../test_utils.h"
 
 namespace raft {
@@ -81,7 +82,7 @@ void naive(cub::KeyValuePair<int, DataT> *min, DataT *x, DataT *y, int m, int n,
   CUDA_CHECK(cudaMemsetAsync(workspace, 0, sizeof(int) * m, stream));
   auto blks = raft::ceildiv(m, 256);
   MinAndDistanceReduceOp<int, DataT> op;
-  initKernel<DataT, cub::KeyValuePair<int, DataT>, int>
+  detail::initKernel<DataT, cub::KeyValuePair<int, DataT>, int>
     <<<blks, 256, 0, stream>>>(min, m, std::numeric_limits<DataT>::max(), op);
   CUDA_CHECK(cudaGetLastError());
   naiveKernel<DataT, Sqrt, MinAndDistanceReduceOp<int, DataT>, 16>

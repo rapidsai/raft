@@ -31,10 +31,11 @@ namespace raft {
 namespace comms {
 
 /**
- * A simple sanity check that NCCL is able to perform a collective operation
+ * @brief A simple sanity check that NCCL is able to perform a collective operation
  *
- * @param the raft handle to use. This is expected to already have an
+ * @param[in] handle the raft handle to use. This is expected to already have an
  *        initialized comms instance.
+*  @param[in] root the root rank id
  */
 bool test_collective_allreduce(const handle_t &handle, int root) {
   comms_t const &communicator = handle.get_comms();
@@ -62,10 +63,11 @@ bool test_collective_allreduce(const handle_t &handle, int root) {
 }
 
 /**
- * A simple sanity check that NCCL is able to perform a collective operation
+ * @brief A simple sanity check that NCCL is able to perform a collective operation
  *
- * @param the raft handle to use. This is expected to already have an
+ * @param[in] handle the raft handle to use. This is expected to already have an
  *        initialized comms instance.
+*  @param[in] root the root rank id
  */
 bool test_collective_broadcast(const handle_t &handle, int root) {
   comms_t const &communicator = handle.get_comms();
@@ -94,6 +96,13 @@ bool test_collective_broadcast(const handle_t &handle, int root) {
   return temp_h == root;
 }
 
+/**
+ * @brief A simple sanity check that NCCL is able to perform a collective reduce
+ *
+ * @param[in] handle the raft handle to use. This is expected to already have an
+ *        initialized comms instance.
+*  @param[in] root the root rank id
+ */
 bool test_collective_reduce(const handle_t &handle, int root) {
   comms_t const &communicator = handle.get_comms();
 
@@ -123,6 +132,13 @@ bool test_collective_reduce(const handle_t &handle, int root) {
     return true;
 }
 
+/**
+ * @brief A simple sanity check that NCCL is able to perform a collective allgather
+ *
+ * @param[in] handle the raft handle to use. This is expected to already have an
+ *        initialized comms instance.
+*  @param[in] root the root rank id
+ */
 bool test_collective_allgather(const handle_t &handle, int root) {
   comms_t const &communicator = handle.get_comms();
 
@@ -155,6 +171,13 @@ bool test_collective_allgather(const handle_t &handle, int root) {
   return true;
 }
 
+/**
+ * @brief A simple sanity check that NCCL is able to perform a collective gather
+ *
+ * @param[in] handle the raft handle to use. This is expected to already have an
+ *        initialized comms instance.
+*  @param[in] root the root rank id
+ */
 bool test_collective_gather(const handle_t &handle, int root) {
   comms_t const &communicator = handle.get_comms();
 
@@ -186,6 +209,13 @@ bool test_collective_gather(const handle_t &handle, int root) {
   return true;
 }
 
+/**
+ * @brief A simple sanity check that NCCL is able to perform a collective gatherv
+ *
+ * @param[in] handle the raft handle to use. This is expected to already have an
+ *        initialized comms instance.
+*  @param[in] root the root rank id
+ */
 bool test_collective_gatherv(const handle_t &handle, int root) {
   comms_t const &communicator = handle.get_comms();
 
@@ -236,6 +266,13 @@ bool test_collective_gatherv(const handle_t &handle, int root) {
   return true;
 }
 
+/**
+ * @brief A simple sanity check that NCCL is able to perform a collective reducescatter
+ *
+ * @param[in] handle the raft handle to use. This is expected to already have an
+ *        initialized comms instance.
+*  @param[in] root the root rank id
+ */
 bool test_collective_reducescatter(const handle_t &handle, int root) {
   comms_t const &communicator = handle.get_comms();
 
@@ -268,9 +305,9 @@ bool test_collective_reducescatter(const handle_t &handle, int root) {
 /**
  * A simple sanity check that UCX is able to send messages between all ranks
  *
- * @param the raft handle to use. This is expected to already have an
+ * @param[in] h the raft handle to use. This is expected to already have an
  *        initialized comms instance.
- * @param number of iterations of all-to-all messaging to perform
+ * @param[in] numTrials number of iterations of all-to-all messaging to perform
  */
 bool test_pointToPoint_simple_send_recv(const handle_t &h, int numTrials) {
   comms_t const &communicator = h.get_comms();
@@ -333,9 +370,9 @@ bool test_pointToPoint_simple_send_recv(const handle_t &h, int numTrials) {
 /**
  * A simple sanity check that device is able to send OR receive.
  *
- * @param the raft handle to use. This is expected to already have an
+ * @param h the raft handle to use. This is expected to already have an
  *        initialized comms instance.
- * @param number of iterations of send or receive messaging to perform
+ * @param numTrials number of iterations of send or receive messaging to perform
  */
 bool test_pointToPoint_device_send_or_recv(const handle_t &h, int numTrials) {
   comms_t const &communicator = h.get_comms();
@@ -378,9 +415,9 @@ bool test_pointToPoint_device_send_or_recv(const handle_t &h, int numTrials) {
 /**
  * A simple sanity check that device is able to send and receive at the same time.
  *
- * @param the raft handle to use. This is expected to already have an
+ * @param h the raft handle to use. This is expected to already have an
  *        initialized comms instance.
- * @param number of iterations of send or receive messaging to perform
+ * @param numTrials number of iterations of send or receive messaging to perform
  */
 bool test_pointToPoint_device_sendrecv(const handle_t &h, int numTrials) {
   comms_t const &communicator = h.get_comms();
@@ -425,9 +462,9 @@ bool test_pointToPoint_device_sendrecv(const handle_t &h, int numTrials) {
 /**
  * A simple sanity check that device is able to perform multiple concurrent sends and receives.
  *
- * @param the raft handle to use. This is expected to already have an
+ * @param h the raft handle to use. This is expected to already have an
  *        initialized comms instance.
- * @param number of iterations of send or receive messaging to perform
+ * @param numTrials number of iterations of send or receive messaging to perform
  */
 bool test_pointToPoint_device_multicast_sendrecv(const handle_t &h,
                                                  int numTrials) {
@@ -483,7 +520,7 @@ bool test_pointToPoint_device_multicast_sendrecv(const handle_t &h,
 /**
  * A simple test that the comms can be split into 2 separate subcommunicators
  *
- * @param the raft handle to use. This is expected to already have an
+ * @param h the raft handle to use. This is expected to already have an
  *        initialized comms instance.
  * @param n_colors number of different colors to test
  */
