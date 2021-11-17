@@ -71,6 +71,7 @@ static const std::unordered_set<raft::distance::DistanceType> supportedDistance{
  * @param[out] out dense output array (size A.nrows * B.nrows)
  * @param[in] input_config input argument configuration
  * @param[in] metric distance metric to use
+* @param[in] metric_arg metric argument (used for Minkowski distance)
  */
 template <typename value_idx = int, typename value_t = float>
 void pairwiseDistance(value_t *out,
