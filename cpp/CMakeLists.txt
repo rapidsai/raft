@@ -128,7 +128,7 @@ target_link_libraries(raft
 INTERFACE
   CUDA::cublas
   CUDA::curand
-  CUDA::cusolver
+  CUDA::cusolver_static
   CUDA::cudart
   CUDA::cusparse
   rmm::rmm
