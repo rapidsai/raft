@@ -82,6 +82,7 @@ gpuci_logger "Adding ${CONDA_PREFIX}/lib to LD_LIBRARY_PATH"
 
 export LD_LIBRARY_PATH_CACHED=$LD_LIBRARY_PATH
 export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
+export CUDA_PATH=/usr/local/cuda
 
 gpuci_logger "Build C++ and Python targets"
 "$WORKSPACE/build.sh" cppraft pyraft -v
