@@ -43,6 +43,7 @@ namespace distance {
 * @param fin_op the final gemm epilogue lambda
 * @param stream cuda stream
 * @param isRowMajor whether the matrices are row-major or col-major
+* @param metric_arg metric argument (used for Minkowski distance)
 *
 * @note fin_op: This is a device lambda which is supposed to operate upon the
 * input which is AccType and returns the output in OutType. It's signature is
@@ -78,6 +79,7 @@ void distance(const InType *x, const InType *y, OutType *dist, Index_ m,
 * @param worksize number of bytes of the workspace
 * @param stream cuda stream
 * @param isRowMajor whether the matrices are row-major or col-major
+* @param metric_arg metric argument (used for Minkowski distance)
 *
 * @note if workspace is passed as nullptr, this will return in
 *  worksize, the number of bytes of workspace required
@@ -129,10 +131,9 @@ size_t getWorkspaceSize(const InType *x, const InType *y, Index_ m, Index_ n,
 * @param m number of points in x
 * @param n number of points in y
 * @param k dimensionality
-* @param workspace temporary workspace needed for computations
-* @param worksize number of bytes of the workspace
 * @param stream cuda stream
 * @param isRowMajor whether the matrices are row-major or col-major
+* @param metric_arg metric argument (used for Minkowski distance)
 *
 * @note if workspace is passed as nullptr, this will return in
 *  worksize, the number of bytes of workspace required

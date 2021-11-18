@@ -53,6 +53,7 @@ struct cuda_error : public raft::exception {
  * exception detailing the CUDA error that occurred
  *
  */
+#ifndef CUDA_TRY
 #define CUDA_TRY(call)                                                        \
   do {                                                                        \
     cudaError_t const status = call;                                          \
@@ -65,7 +66,7 @@ struct cuda_error : public raft::exception {
       throw raft::cuda_error(msg);                                            \
     }                                                                         \
   } while (0)
-
+#endif
 /**
  * @brief Debug macro to check for CUDA errors
  *
@@ -86,13 +87,16 @@ struct cuda_error : public raft::exception {
 #endif
 
 /** FIXME: temporary alias for cuML compatibility */
+#ifndef CUDA_CHECK
 #define CUDA_CHECK(call) CUDA_TRY(call)
+#endif
 
 ///@todo: enable this only after we have added logging support in raft
 // /**
 //  * @brief check for cuda runtime API errors but log error instead of raising
 //  *        exception.
 //  */
+#ifndef CUDA_CHECK_NO_THROW
 #define CUDA_CHECK_NO_THROW(call)                                         \
   do {                                                                    \
     cudaError_t const status = call;                                      \
@@ -101,6 +105,15 @@ struct cuda_error : public raft::exception {
              __FILE__, __LINE__, cudaGetErrorString(status));             \
     }                                                                     \
   } while (0)
+#endif
+
+/**
+ * Alias to raft scope for now.
+ * TODO: Rename original implementations in 22.04 to fix
+ * https://github.com/rapidsai/raft/issues/128
+ */
+#define RAFT_CUDA_CHECK(call) CUDA_CHECK(call)
+#define RAFT_CUDA_CHECK_NO_THROW(call) CUDA_CHECK_NO_THROW(call)
 
 namespace raft {
 
@@ -121,13 +134,13 @@ class grid_1d_thread_t {
   int const num_blocks{0};
 
   /**
-   * @param overall_num_elements The number of elements the kernel needs to handle/process
-   * @param num_threads_per_block The grid block size, determined according to the kernel's
-   * specific features (amount of shared memory necessary, SM functional units use pattern etc.);
-   * this can't be determined generically/automatically (as opposed to the number of blocks)
-   * @param elements_per_thread Typically, a single kernel thread processes more than a single
-   * element; this affects the number of threads the grid must contain
-   */
+         * @param overall_num_elements The number of elements the kernel needs to handle/process
+         * @param num_threads_per_block The grid block size, determined according to the kernel's
+         * specific features (amount of shared memory necessary, SM functional units use pattern etc.);
+         * this can't be determined generically/automatically (as opposed to the number of blocks)
+         * @param elements_per_thread Typically, a single kernel thread processes more than a single
+         * element; this affects the number of threads the grid must contain
+         */
   grid_1d_thread_t(size_t overall_num_elements, size_t num_threads_per_block,
                    size_t max_num_blocks_1d, size_t elements_per_thread = 1)
     : block_size(num_threads_per_block),
@@ -152,11 +165,11 @@ class grid_1d_warp_t {
   int const num_blocks{0};
 
   /**
-   * @param overall_num_elements The number of elements the kernel needs to handle/process
-   * @param num_threads_per_block The grid block size, determined according to the kernel's
-   * specific features (amount of shared memory necessary, SM functional units use pattern etc.);
-   * this can't be determined generically/automatically (as opposed to the number of blocks)
-   */
+         * @param overall_num_elements The number of elements the kernel needs to handle/process
+         * @param num_threads_per_block The grid block size, determined according to the kernel's
+         * specific features (amount of shared memory necessary, SM functional units use pattern etc.);
+         * this can't be determined generically/automatically (as opposed to the number of blocks)
+         */
   grid_1d_warp_t(size_t overall_num_elements, size_t num_threads_per_block,
                  size_t max_num_blocks_1d)
     : block_size(num_threads_per_block),
@@ -180,11 +193,11 @@ class grid_1d_block_t {
   int const num_blocks{0};
 
   /**
-   * @param overall_num_elements The number of elements the kernel needs to handle/process
-   * @param num_threads_per_block The grid block size, determined according to the kernel's
-   * specific features (amount of shared memory necessary, SM functional units use pattern etc.);
-   * this can't be determined generically/automatically (as opposed to the number of blocks)
-   */
+         * @param overall_num_elements The number of elements the kernel needs to handle/process
+         * @param num_threads_per_block The grid block size, determined according to the kernel's
+         * specific features (amount of shared memory necessary, SM functional units use pattern etc.);
+         * this can't be determined generically/automatically (as opposed to the number of blocks)
+         */
   grid_1d_block_t(size_t overall_num_elements, size_t num_threads_per_block,
                   size_t max_num_blocks_1d)
     : block_size(num_threads_per_block),

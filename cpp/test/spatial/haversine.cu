@@ -31,11 +31,11 @@ class HaversineKNNTest : public ::testing::Test {
  public:
   HaversineKNNTest()
     : stream(handle.get_stream()),
-      d_train_inputs(n * d, stream),
-      d_ref_I(n * n, stream),
-      d_ref_D(n * n, stream),
-      d_pred_I(n * n, stream),
-      d_pred_D(n * n, stream) {}
+      d_train_inputs(0, stream),
+      d_ref_I(0, stream),
+      d_ref_D(0, stream),
+      d_pred_I(0, stream),
+      d_pred_D(0, stream) {}
 
  protected:
   void basicTest() {
@@ -56,9 +56,9 @@ class HaversineKNNTest : public ::testing::Test {
       0.74932804, -1.33634042, 0.51486728, -1.65962873,
       0.53154002, -1.47049808, 0.72891737, -1.54095137};
 
-    h_train_inputs.resize(n);
-    raft::update_device(d_train_inputs.data(), h_train_inputs.data(), n * d,
-                        stream);
+    h_train_inputs.resize(d_train_inputs.size());
+    raft::update_device(d_train_inputs.data(), h_train_inputs.data(),
+                        d_train_inputs.size(), stream);
 
     std::vector<value_t> h_res_D = {
       0., 0.05041587, 0.18767063, 0.23048252, 0.35749438, 0.62925595,
@@ -76,9 +76,6 @@ class HaversineKNNTest : public ::testing::Test {
     h_res_I.resize(n * n);
     raft::update_device<value_idx>(d_ref_I.data(), h_res_I.data(), n * n,
                                    stream);
-
-    std::vector<value_t *> input_vec = {d_train_inputs.data()};
-    std::vector<value_idx> sizes_vec = {n};
 
     raft::spatial::knn::detail::haversine_knn(
       d_pred_I.data(), d_pred_D.data(), d_train_inputs.data(),

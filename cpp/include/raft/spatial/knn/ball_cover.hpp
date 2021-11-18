@@ -125,10 +125,7 @@ void rbc_all_knn_query(const raft::handle_t &handle,
  *               based on how many relevant balls are ignored. Note that
  *               many datasets can still have great recall even by only
  *               looking in the closest landmark.
- * @param k
- * @param inds
- * @param dists
- * @param n_samples
+ * @param[in] n_query_pts number of query points
  */
 template <typename value_idx = std::int64_t, typename value_t,
           typename value_int = std::uint32_t>
