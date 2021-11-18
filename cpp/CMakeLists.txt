@@ -87,6 +87,12 @@ rapids_find_package(CUDAToolkit REQUIRED
     )
 include(cmake/modules/ConfigureCUDA.cmake)
 
+set(cusolver_target CUDA::cusolver_static)
+if(NOT TARGET CUDA::cusolver_static)
+  message(STATUS "RAFT: FALLING BACK TO SHARED CUDA::cusolver")
+  set(cusolver_target CUDA::cusolver)
+endif()
+
 ##############################################################################
 # - Requirements -------------------------------------------------------------
 
@@ -128,7 +134,7 @@ target_link_libraries(raft
 INTERFACE
   CUDA::cublas
   CUDA::curand
-  CUDA::cusolver_static
+  ${cusolver_target}
   CUDA::cudart
   CUDA::cusparse
   rmm::rmm

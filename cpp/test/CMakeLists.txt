@@ -126,7 +126,7 @@ target_link_libraries(test_raft
 PRIVATE
   CUDA::cublas
   CUDA::curand
-  CUDA::cusolver_static
+  ${cusolver_target}
   CUDA::cudart
   CUDA::cusparse
   rmm::rmm
