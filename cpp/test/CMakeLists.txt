@@ -51,6 +51,7 @@ add_executable(test_raft
     test/linalg/gemv.cu
     test/linalg/map.cu
     test/linalg/map_then_reduce.cu
+    test/linalg/matrix_linewise_op.cu
     test/linalg/matrix_vector_op.cu
     test/linalg/multiply.cu
     test/linalg/norm.cu
@@ -130,6 +131,7 @@ PRIVATE
   CUDA::cusolver
   CUDA::cudart
   CUDA::cusparse
+  $<$<BOOL:${NVTX}>:CUDA::nvToolsExt>
   rmm::rmm
   cuco::cuco
   FAISS::FAISS
