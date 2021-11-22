@@ -22,7 +22,7 @@ import argparse
 import tempfile
 
 
-EXPECTED_VERSION = "11.0.0"
+EXPECTED_VERSION = "11.1.0"
 VERSION_REGEX = re.compile(r"clang-format version ([0-9.]+)")
 # NOTE: populate this list with more top-level dirs as we add more of them to
 #       to the cuml repo
@@ -68,7 +68,7 @@ def parse_args():
     if version is None:
         raise Exception("Failed to figure out clang-format version!")
     version = version.group(1)
-    if version != EXPECTED_VERSION:
+    if version < EXPECTED_VERSION:
         raise Exception("clang-format exe must be v%s found '%s'" % \
                         (EXPECTED_VERSION, version))
     if len(args.dirs) == 0:
