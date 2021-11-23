@@ -88,6 +88,7 @@ add_executable(test_raft
     test/sparse/sort.cu
     test/sparse/symmetrize.cu
     test/spatial/knn.cu
+    test/spatial/fused_l2_knn.cu
     test/spatial/haversine.cu
     test/spatial/ball_cover.cu
     test/spatial/faiss_mr.cu

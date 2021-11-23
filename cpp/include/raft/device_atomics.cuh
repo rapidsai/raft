@@ -179,9 +179,14 @@ struct genericAtomicOperationImpl<T, Op, 4> {
   __forceinline__ __device__ T operator()(T* addr, T const& update_value,
                                           Op op) {
     using T_int = unsigned int;
-
     T old_value = *addr;
     T assumed{old_value};
+
+    if constexpr (std::is_same<T, float>{} && (std::is_same<Op, DeviceMin>{})) {
+      if (isnan(update_value)) {
+        return old_value;
+      }
+    }
 
     do {
       assumed = old_value;
@@ -191,10 +196,29 @@ struct genericAtomicOperationImpl<T, Op, 4> {
                             type_reinterpret<T_int, T>(assumed),
                             type_reinterpret<T_int, T>(new_value));
       old_value = type_reinterpret<T, T_int>(ret);
-
     } while (assumed != old_value);
 
     return old_value;
+  }
+};
+
+// 4 bytes fp32 atomic Max operation
+template <>
+struct genericAtomicOperationImpl<float, DeviceMax, 4> {
+  using T = float;
+  __forceinline__ __device__ T operator()(T* addr, T const& update_value,
+                                          DeviceMax op) {
+    if (isnan(update_value)) {
+      return *addr;
+    }
+
+    T old =
+      (update_value >= 0)
+        ? __int_as_float(atomicMax((int*)addr, __float_as_int(update_value)))
+        : __uint_as_float(
+            atomicMin((unsigned int*)addr, __float_as_uint(update_value)));
+
+    return old;
   }
 };
 
@@ -423,7 +447,6 @@ struct typesAtomicCASImpl<T, 4> {
     T_int ret = atomicCAS(reinterpret_cast<T_int*>(addr),
                           type_reinterpret<T_int, T>(compare),
                           type_reinterpret<T_int, T>(update_value));
-
     return type_reinterpret<T, T_int>(ret);
   }
 };
