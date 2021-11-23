@@ -16,13 +16,9 @@
 
 #pragma once
 
-#include <cusparse_v2.h>
 #include <raft/cudart_utils.h>
-#include <raft/sparse/cusparse_wrappers.h>
-#include <raft/cuda_utils.cuh>
+#include <raft/device_atomics.cuh>
 
-#include <thrust/device_ptr.h>
-#include <thrust/scan.h>
 
 #include <cuda_runtime.h>
 #include <stdio.h>
