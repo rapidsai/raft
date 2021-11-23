@@ -17,15 +17,11 @@
 #include "../test_utils.h"
 
 #include <faiss/gpu/GpuDistance.h>
-#include <faiss/gpu/GpuResources.h>
 #include <faiss/gpu/StandardGpuResources.h>
-#include <faiss/utils/Heap.h>
-#include <faiss/gpu/utils/Limits.cuh>
-#include <faiss/gpu/utils/Select.cuh>
 
 #include <raft/linalg/distance_type.h>
 #include <raft/spatial/knn/detail/common_faiss.h>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng.hpp>
 #include <raft/spatial/knn/detail/fused_l2_knn.cuh>
 #include <raft/spatial/knn/knn.hpp>
 
