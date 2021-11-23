@@ -15,6 +15,7 @@
  */
 
 #include <rmm/device_uvector.hpp>
+#include <raft/cudart_utils.h>
 #include <iostream>
 
 #pragma once
