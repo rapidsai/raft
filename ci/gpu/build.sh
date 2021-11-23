@@ -15,7 +15,7 @@ function hasArg {
 
 # Set path and build parallel level
 export PATH=/opt/conda/bin:/usr/local/cuda/bin:$PATH
-export PARALLEL_LEVEL=${PARALLEL_LEVEL:-4}
+export PARALLEL_LEVEL=${PARALLEL_LEVEL:-8}
 export CUDA_REL=${CUDA_VERSION%.*}
 
 # Set home to the job's workspace
@@ -59,8 +59,8 @@ gpuci_mamba_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvid
 # Install the master version of dask, distributed, and dask-ml
 gpuci_logger "Install the master version of dask and distributed"
 set -x
-pip install "git+https://github.com/dask/distributed.git@main" --upgrade --no-deps
-pip install "git+https://github.com/dask/dask.git@main" --upgrade --no-deps
+pip install "git+https://github.com/dask/distributed.git@2021.11.2" --upgrade --no-deps
+pip install "git+https://github.com/dask/dask.git@2021.11.2" --upgrade --no-deps
 set +x
 
 
