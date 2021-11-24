@@ -25,8 +25,6 @@ namespace raft {
 namespace spatial {
 namespace knn {
 
-using deviceAllocator = raft::mr::device::allocator;
-
 /**
  * Performs a k-select across row partitioned index/distance
  * matrices formatted like the following:

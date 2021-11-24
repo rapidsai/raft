@@ -24,11 +24,6 @@ from libcpp.memory cimport shared_ptr
 from .cuda cimport _Stream
 
 
-cdef extern from "raft/mr/device/allocator.hpp" \
-        namespace "raft::mr::device" nogil:
-    cdef cppclass allocator:
-        pass
-
 cdef extern from "raft/handle.hpp" namespace "raft" nogil:
     cdef cppclass handle_t:
         handle_t() except +
