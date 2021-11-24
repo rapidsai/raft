@@ -79,7 +79,7 @@ std::tuple<vertex_t, weight_t, vertex_t> partition(handle_t const& handle,
 
   std::tuple<vertex_t, weight_t, vertex_t>
     stats;  //{iters_eig_solver,residual_cluster,iters_cluster_solver} // # iters eigen solver,
-            //cluster solver residual, # iters cluster solver
+            // cluster solver residual, # iters cluster solver
 
   vertex_t n = csr_m.nrows_;
 
