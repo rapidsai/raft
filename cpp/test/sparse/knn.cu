@@ -48,60 +48,76 @@ struct SparseKNNInputs {
   int batch_size_index = 2;
   int batch_size_query = 2;
 
-  raft::distance::DistanceType metric =
-    raft::distance::DistanceType::L2SqrtExpanded;
+  raft::distance::DistanceType metric = raft::distance::DistanceType::L2SqrtExpanded;
 };
 
 template <typename value_idx, typename value_t>
-::std::ostream &operator<<(::std::ostream &os,
-                           const SparseKNNInputs<value_idx, value_t> &dims) {
+::std::ostream& operator<<(::std::ostream& os, const SparseKNNInputs<value_idx, value_t>& dims)
+{
   return os;
 }
 
 template <typename value_idx, typename value_t>
-class SparseKNNTest
-  : public ::testing::TestWithParam<SparseKNNInputs<value_idx, value_t>> {
+class SparseKNNTest : public ::testing::TestWithParam<SparseKNNInputs<value_idx, value_t>> {
  public:
   SparseKNNTest()
-    : params(::testing::TestWithParam<
-             SparseKNNInputs<value_idx, value_t>>::GetParam()),
+    : params(::testing::TestWithParam<SparseKNNInputs<value_idx, value_t>>::GetParam()),
       indptr(0, handle.get_stream()),
       indices(0, handle.get_stream()),
       data(0, handle.get_stream()),
       out_indices(0, handle.get_stream()),
       out_dists(0, handle.get_stream()),
       out_indices_ref(0, handle.get_stream()),
-      out_dists_ref(0, handle.get_stream()) {}
+      out_dists_ref(0, handle.get_stream())
+  {
+  }
 
  protected:
-  void SetUp() override {
+  void SetUp() override
+  {
     n_rows = params.indptr_h.size() - 1;
-    nnz = params.indices_h.size();
-    k = params.k;
+    nnz    = params.indices_h.size();
+    k      = params.k;
 
     make_data();
 
-    raft::sparse::selection::brute_force_knn<value_idx, value_t>(
-      indptr.data(), indices.data(), data.data(), nnz, n_rows, params.n_cols,
-      indptr.data(), indices.data(), data.data(), nnz, n_rows, params.n_cols,
-      out_indices.data(), out_dists.data(), k, handle, params.batch_size_index,
-      params.batch_size_query, params.metric);
+    raft::sparse::selection::brute_force_knn<value_idx, value_t>(indptr.data(),
+                                                                 indices.data(),
+                                                                 data.data(),
+                                                                 nnz,
+                                                                 n_rows,
+                                                                 params.n_cols,
+                                                                 indptr.data(),
+                                                                 indices.data(),
+                                                                 data.data(),
+                                                                 nnz,
+                                                                 n_rows,
+                                                                 params.n_cols,
+                                                                 out_indices.data(),
+                                                                 out_dists.data(),
+                                                                 k,
+                                                                 handle,
+                                                                 params.batch_size_index,
+                                                                 params.batch_size_query,
+                                                                 params.metric);
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
   }
 
-  void compare() {
-    ASSERT_TRUE(devArrMatch(out_dists_ref.data(), out_dists.data(), n_rows * k,
-                            CompareApprox<value_t>(1e-4)));
-    ASSERT_TRUE(devArrMatch(out_indices_ref.data(), out_indices.data(),
-                            n_rows * k, Compare<value_idx>()));
+  void compare()
+  {
+    ASSERT_TRUE(devArrMatch(
+      out_dists_ref.data(), out_dists.data(), n_rows * k, CompareApprox<value_t>(1e-4)));
+    ASSERT_TRUE(
+      devArrMatch(out_indices_ref.data(), out_indices.data(), n_rows * k, Compare<value_idx>()));
   }
 
  protected:
-  void make_data() {
-    std::vector<value_idx> indptr_h = params.indptr_h;
+  void make_data()
+  {
+    std::vector<value_idx> indptr_h  = params.indptr_h;
     std::vector<value_idx> indices_h = params.indices_h;
-    std::vector<value_t> data_h = params.data_h;
+    std::vector<value_t> data_h      = params.data_h;
 
     auto stream = handle.get_stream();
     indptr.resize(indptr_h.size(), stream);
@@ -112,16 +128,15 @@ class SparseKNNTest
     update_device(indices.data(), indices_h.data(), indices_h.size(), stream);
     update_device(data.data(), data_h.data(), data_h.size(), stream);
 
-    std::vector<value_t> out_dists_ref_h = params.out_dists_ref_h;
+    std::vector<value_t> out_dists_ref_h     = params.out_dists_ref_h;
     std::vector<value_idx> out_indices_ref_h = params.out_indices_ref_h;
 
     out_indices_ref.resize(out_indices_ref_h.size(), stream);
     out_dists_ref.resize(out_dists_ref_h.size(), stream);
 
-    update_device(out_indices_ref.data(), out_indices_ref_h.data(),
-                  out_indices_ref_h.size(), stream);
-    update_device(out_dists_ref.data(), out_dists_ref_h.data(),
-                  out_dists_ref_h.size(), stream);
+    update_device(
+      out_indices_ref.data(), out_indices_ref_h.data(), out_indices_ref_h.size(), stream);
+    update_device(out_dists_ref.data(), out_dists_ref_h.data(), out_dists_ref_h.size(), stream);
 
     out_dists.resize(n_rows * k, stream);
     out_indices.resize(n_rows * k, stream);
@@ -158,8 +173,7 @@ const std::vector<SparseKNNInputs<int, float>> inputs_i32_f = {
    raft::distance::DistanceType::L2SqrtExpanded}};
 typedef SparseKNNTest<int, float> SparseKNNTestF;
 TEST_P(SparseKNNTestF, Result) { compare(); }
-INSTANTIATE_TEST_CASE_P(SparseKNNTest, SparseKNNTestF,
-                        ::testing::ValuesIn(inputs_i32_f));
+INSTANTIATE_TEST_CASE_P(SparseKNNTest, SparseKNNTestF, ::testing::ValuesIn(inputs_i32_f));
 
 };  // end namespace selection
 };  // end namespace sparse

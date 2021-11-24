@@ -22,8 +22,8 @@ namespace distance {
 
 template <typename DataType>
 class DistanceCorrelation
-  : public DistanceTest<raft::distance::DistanceType::CorrelationExpanded,
-                        DataType> {};
+  : public DistanceTest<raft::distance::DistanceType::CorrelationExpanded, DataType> {
+};
 
 const std::vector<DistanceInputs<float>> inputsf = {
   {0.001f, 1024, 1024, 32, true, 1234ULL},
@@ -36,14 +36,14 @@ const std::vector<DistanceInputs<float>> inputsf = {
   {0.003f, 1024, 1024, 1024, false, 1234ULL},
 };
 typedef DistanceCorrelation<float> DistanceCorrelationF;
-TEST_P(DistanceCorrelationF, Result) {
+TEST_P(DistanceCorrelationF, Result)
+{
   int m = params.isRowMajor ? params.m : params.n;
   int n = params.isRowMajor ? params.n : params.m;
-  ASSERT_TRUE(raft::devArrMatch(dist_ref.data(), dist.data(), m, n,
-                                raft::CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(
+    dist_ref.data(), dist.data(), m, n, raft::CompareApprox<float>(params.tolerance)));
 }
-INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceCorrelationF,
-                        ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceCorrelationF, ::testing::ValuesIn(inputsf));
 
 const std::vector<DistanceInputs<double>> inputsd = {
   {0.001, 1024, 1024, 32, true, 1234ULL},
@@ -56,14 +56,14 @@ const std::vector<DistanceInputs<double>> inputsd = {
   {0.003, 1024, 1024, 1024, false, 1234ULL},
 };
 typedef DistanceCorrelation<double> DistanceCorrelationD;
-TEST_P(DistanceCorrelationD, Result) {
+TEST_P(DistanceCorrelationD, Result)
+{
   int m = params.isRowMajor ? params.m : params.n;
   int n = params.isRowMajor ? params.n : params.m;
-  ASSERT_TRUE(raft::devArrMatch(dist_ref.data(), dist.data(), m, n,
-                                raft::CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(
+    dist_ref.data(), dist.data(), m, n, raft::CompareApprox<double>(params.tolerance)));
 }
-INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceCorrelationD,
-                        ::testing::ValuesIn(inputsd));
+INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceCorrelationD, ::testing::ValuesIn(inputsd));
 
 }  // end namespace distance
 }  // end namespace raft

@@ -55,8 +55,7 @@ namespace linalg {
  *                 thread block. This also determines the number of threads per
  *                 thread block
  */
-template <typename DataT, int _veclen, int _kblk, int _rpt, int _cpt, int _tr,
-          int _tc>
+template <typename DataT, int _veclen, int _kblk, int _rpt, int _cpt, int _tr, int _tc>
 struct KernelPolicy {
   enum {
     /** number of elements along K worked upon per main loop iteration */
@@ -101,8 +100,7 @@ struct KernelPolicy {
 
 };  // struct KernelPolicy
 
-template <typename DataT, int _veclen, int _kblk, int _rpt, int _cpt, int _tr,
-          int _tc>
+template <typename DataT, int _veclen, int _kblk, int _rpt, int _cpt, int _tr, int _tc>
 struct ColKernelPolicy {
   enum {
     /** number of elements along K worked upon per main loop iteration */
@@ -151,7 +149,8 @@ struct ColKernelPolicy {
  * @{
  */
 template <typename DataT, int _veclen>
-struct Policy4x4 {};
+struct Policy4x4 {
+};
 
 template <int _veclen>
 struct Policy4x4<float, _veclen> {
@@ -171,7 +170,8 @@ struct Policy4x4<double, _veclen> {
  * @{
  */
 template <typename DataT, int _veclen = 1>
-struct Policy2x8 {};
+struct Policy2x8 {
+};
 
 template <int _veclen>
 struct Policy2x8<float, _veclen> {
@@ -201,8 +201,7 @@ struct Policy2x8<double, _veclen> {
  * @tparam Policy policy used to customize memory access behavior.
  *                See documentation for `KernelPolicy` to know more.
  */
-template <typename DataT, typename IdxT, typename Policy,
-          bool isRowMajor = true>
+template <typename DataT, typename IdxT, typename Policy, bool isRowMajor = true>
 struct Contractions_NT {
  protected:
   typedef Policy P;
@@ -268,8 +267,7 @@ struct Contractions_NT {
    * @param[in] _k number of cols of X and Y
    * @param[in] _smem shared memory region used during computations
    */
-  DI Contractions_NT(const DataT* _x, const DataT* _y, IdxT _m, IdxT _n,
-                     IdxT _k, char* _smem)
+  DI Contractions_NT(const DataT* _x, const DataT* _y, IdxT _m, IdxT _n, IdxT _k, char* _smem)
     : m(_m),
       n(_n),
       k(_k),
@@ -286,7 +284,9 @@ struct Contractions_NT {
       sx((DataT*)_smem),
       sy(&(sx[P::SmemPageX])),
       pageWr(0),
-      pageRd(0) {}
+      pageRd(0)
+  {
+  }
 
   /**
    * @brief Ctor
@@ -297,8 +297,15 @@ struct Contractions_NT {
    * @param[in] _k number of cols of X and Y
    * @param[in] _smem shared memory region used during computations
    */
-  DI Contractions_NT(const DataT* _x, const DataT* _y, IdxT _m, IdxT _n,
-                     IdxT _k, IdxT _lda, IdxT _ldb, IdxT _ldd, char* _smem)
+  DI Contractions_NT(const DataT* _x,
+                     const DataT* _y,
+                     IdxT _m,
+                     IdxT _n,
+                     IdxT _k,
+                     IdxT _lda,
+                     IdxT _ldb,
+                     IdxT _ldd,
+                     char* _smem)
     : m(_m),
       n(_n),
       k(_k),
@@ -312,17 +319,18 @@ struct Contractions_NT {
       sx((DataT*)_smem),
       sy(&(sx[P::SmemPageX])),
       pageWr(0),
-      pageRd(0) {
+      pageRd(0)
+  {
     if (isRowMajor) {
       xrowid = IdxT(blockIdx.y) * P::Mblk + srowid;
       yrowid = IdxT(blockIdx.x) * P::Nblk + srowid;
-      x = _x + xrowid * lda;
-      y = _y + yrowid * ldb;
+      x      = _x + xrowid * lda;
+      y      = _y + yrowid * ldb;
     } else {
       xrowid = IdxT(blockIdx.y) * P::Mblk;
       yrowid = IdxT(blockIdx.x) * P::Nblk;
-      x = _x + xrowid + srowid * lda;
-      y = _y + yrowid + srowid * ldb;
+      x      = _x + xrowid + srowid * lda;
+      y      = _y + yrowid + srowid * ldb;
     }
   }
 
@@ -331,7 +339,8 @@ struct Contractions_NT {
    * @brief Load current block of X/Y from global memory to registers
    * @param[in] kidx current start index of k to be loaded
    */
-  DI void ldgXY(IdxT kidx) {
+  DI void ldgXY(IdxT kidx)
+  {
     ldgX(kidx);
     ldgY(kidx);
   }
@@ -340,7 +349,8 @@ struct Contractions_NT {
    * @brief Store current block of X/Y from registers to smem
    * @param[in] kidx current start index of k to be loaded
    */
-  DI void stsXY() {
+  DI void stsXY()
+  {
     stsX(sx + pageWr * P::SmemPage);
     stsY(sy + pageWr * P::SmemPage);
   }
@@ -349,13 +359,15 @@ struct Contractions_NT {
    * @brief Load X and Y block from shared memory to registers
    * @param[in] kidx k value from the current k-block to be loaded from smem
    */
-  DI void ldsXY(int kidx) {
+  DI void ldsXY(int kidx)
+  {
     ldsX(kidx, sx + pageRd * P::SmemPage);
     ldsY(kidx, sy + pageRd * P::SmemPage);
   }
 
  private:
-  DI void ldgX(IdxT kidx) {
+  DI void ldgX(IdxT kidx)
+  {
     if (isRowMajor) {
       auto numRows = m;
       auto koffset = kidx + scolid;
@@ -372,11 +384,10 @@ struct Contractions_NT {
       }
     } else {
       const auto numRows = k;
-      auto koffset = scolid;
+      auto koffset       = scolid;
 #pragma unroll
       for (int i = 0; i < P::LdgPerThX; ++i) {
-        if ((koffset + xrowid) < lda &&
-            (srowid + kidx + i * P::LdgRowsX) < numRows) {
+        if ((koffset + xrowid) < lda && (srowid + kidx + i * P::LdgRowsX) < numRows) {
           ldg(ldgDataX[i], x + (kidx + i * P::LdgRowsX) * lda + koffset);
         } else {
 #pragma unroll
@@ -388,7 +399,8 @@ struct Contractions_NT {
     }
   }
 
-  DI void ldgY(IdxT kidx) {
+  DI void ldgY(IdxT kidx)
+  {
     if (isRowMajor) {
       auto numRows = n;
       auto koffset = kidx + scolid;
@@ -408,8 +420,7 @@ struct Contractions_NT {
       auto koffset = scolid;
 #pragma unroll
       for (int i = 0; i < P::LdgPerThY; ++i) {
-        if ((koffset + yrowid) < ldb &&
-            (srowid + kidx + i * P::LdgRowsY) < numRows) {
+        if ((koffset + yrowid) < ldb && (srowid + kidx + i * P::LdgRowsY) < numRows) {
           ldg(ldgDataY[i], y + (kidx + i * P::LdgRowsY) * ldb + koffset);
         } else {
 #pragma unroll
@@ -421,7 +432,8 @@ struct Contractions_NT {
     }
   }
 
-  DI void stsX(DataT* smem) {
+  DI void stsX(DataT* smem)
+  {
     auto* saddr = smem + srowid * P::SmemStride + scolid;
 #pragma unroll
     for (int i = 0; i < P::LdgPerThX; ++i) {
@@ -429,7 +441,8 @@ struct Contractions_NT {
     }
   }
 
-  DI void stsY(DataT* smem) {
+  DI void stsY(DataT* smem)
+  {
     auto* saddr = smem + srowid * P::SmemStride + scolid;
 #pragma unroll
     for (int i = 0; i < P::LdgPerThY; ++i) {
@@ -437,7 +450,8 @@ struct Contractions_NT {
     }
   }
 
-  DI void ldsX(int kidx, DataT* smem) {
+  DI void ldsX(int kidx, DataT* smem)
+  {
     if (isRowMajor) {
       auto* saddr = smem + accrowid * P::SmemStride + kidx;
 #pragma unroll
@@ -456,7 +470,8 @@ struct Contractions_NT {
     }
   }
 
-  DI void ldsY(int kidx, DataT* smem) {
+  DI void ldsY(int kidx, DataT* smem)
+  {
     if (isRowMajor) {
       auto* saddr = smem + acccolid * P::SmemStride + kidx;
 #pragma unroll

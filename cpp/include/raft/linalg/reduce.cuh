@@ -52,28 +52,33 @@ namespace linalg {
  * @param reduce_op binary reduction operation
  * @param final_op elementwise operation to apply before storing results
  */
-template <typename InType, typename OutType = InType, typename IdxType = int,
-          typename MainLambda = raft::Nop<InType, IdxType>,
+template <typename InType,
+          typename OutType      = InType,
+          typename IdxType      = int,
+          typename MainLambda   = raft::Nop<InType, IdxType>,
           typename ReduceLambda = raft::Sum<OutType>,
-          typename FinalLambda = raft::Nop<OutType>>
-void reduce(OutType *dots, const InType *data, int D, int N, OutType init,
-            bool rowMajor, bool alongRows, cudaStream_t stream,
-            bool inplace = false,
-            MainLambda main_op = raft::Nop<InType, IdxType>(),
+          typename FinalLambda  = raft::Nop<OutType>>
+void reduce(OutType* dots,
+            const InType* data,
+            int D,
+            int N,
+            OutType init,
+            bool rowMajor,
+            bool alongRows,
+            cudaStream_t stream,
+            bool inplace           = false,
+            MainLambda main_op     = raft::Nop<InType, IdxType>(),
             ReduceLambda reduce_op = raft::Sum<OutType>(),
-            FinalLambda final_op = raft::Nop<OutType>()) {
+            FinalLambda final_op   = raft::Nop<OutType>())
+{
   if (rowMajor && alongRows) {
-    coalescedReduction(dots, data, D, N, init, stream, inplace, main_op,
-                       reduce_op, final_op);
+    coalescedReduction(dots, data, D, N, init, stream, inplace, main_op, reduce_op, final_op);
   } else if (rowMajor && !alongRows) {
-    stridedReduction(dots, data, D, N, init, stream, inplace, main_op,
-                     reduce_op, final_op);
+    stridedReduction(dots, data, D, N, init, stream, inplace, main_op, reduce_op, final_op);
   } else if (!rowMajor && alongRows) {
-    stridedReduction(dots, data, N, D, init, stream, inplace, main_op,
-                     reduce_op, final_op);
+    stridedReduction(dots, data, N, D, init, stream, inplace, main_op, reduce_op, final_op);
   } else {
-    coalescedReduction(dots, data, N, D, init, stream, inplace, main_op,
-                       reduce_op, final_op);
+    coalescedReduction(dots, data, N, D, init, stream, inplace, main_op, reduce_op, final_op);
   }
 }
 

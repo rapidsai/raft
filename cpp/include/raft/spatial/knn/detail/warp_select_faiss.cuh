@@ -30,21 +30,25 @@ struct KeyValuePair {
   __host__ __device__ __forceinline__ KeyValuePair() {}
 
   /// Copy Constructors
-  __host__ __device__ __forceinline__
-  KeyValuePair(cub::KeyValuePair<_Key, _Value>& kvp)
-    : key(kvp.key), value(kvp.value) {}
+  __host__ __device__ __forceinline__ KeyValuePair(cub::KeyValuePair<_Key, _Value>& kvp)
+    : key(kvp.key), value(kvp.value)
+  {
+  }
 
-  __host__ __device__ __forceinline__
-  KeyValuePair(faiss::gpu::KeyValuePair<_Key, _Value>& kvp)
-    : key(kvp.key), value(kvp.value) {}
+  __host__ __device__ __forceinline__ KeyValuePair(faiss::gpu::KeyValuePair<_Key, _Value>& kvp)
+    : key(kvp.key), value(kvp.value)
+  {
+  }
 
   /// Constructor
-  __host__ __device__ __forceinline__ KeyValuePair(Key const& key,
-                                                   Value const& value)
-    : key(key), value(value) {}
+  __host__ __device__ __forceinline__ KeyValuePair(Key const& key, Value const& value)
+    : key(key), value(value)
+  {
+  }
 
   /// Inequality operator
-  __host__ __device__ __forceinline__ bool operator!=(const KeyValuePair& b) {
+  __host__ __device__ __forceinline__ bool operator!=(const KeyValuePair& b)
+  {
     return (value != b.value) || (key != b.key);
   }
 };
@@ -117,9 +121,9 @@ struct KeyValuePair {
 //
 // If IsBitonic is false, the first stage is reversed, so we don't
 // need to sort directionally. It's still technically a bitonic sort.
-template <typename K, typename V, int L, bool Dir, typename Comp,
-          bool IsBitonic>
-inline __device__ void warpBitonicMergeLE16KVP(K& k, KeyValuePair<K, V>& v) {
+template <typename K, typename V, int L, bool Dir, typename Comp, bool IsBitonic>
+inline __device__ void warpBitonicMergeLE16KVP(K& k, KeyValuePair<K, V>& v)
+{
   static_assert(utils::isPowerOf2(L), "L must be a power-of-2");
   static_assert(L <= kWarpSize / 2, "merge list size must be <= 16");
 
@@ -129,7 +133,7 @@ inline __device__ void warpBitonicMergeLE16KVP(K& k, KeyValuePair<K, V>& v) {
     // Reverse the first comparison stage.
     // For example, merging a list of size 8 has the exchanges:
     // 0 <-> 15, 1 <-> 14, ...
-    K otherK = shfl_xor(k, 2 * L - 1);
+    K otherK  = shfl_xor(k, 2 * L - 1);
     K otherVk = shfl_xor(v.key, 2 * L - 1);
     V otherVv = shfl_xor(v.value, 2 * L - 1);
 
@@ -157,7 +161,7 @@ inline __device__ void warpBitonicMergeLE16KVP(K& k, KeyValuePair<K, V>& v) {
 
 #pragma unroll
   for (int stride = IsBitonic ? L : L / 2; stride > 0; stride /= 2) {
-    K otherK = shfl_xor(k, stride);
+    K otherK  = shfl_xor(k, stride);
     K otherVk = shfl_xor(v.key, stride);
     V otherVv = shfl_xor(v.value, stride);
 
@@ -183,9 +187,9 @@ inline __device__ void warpBitonicMergeLE16KVP(K& k, KeyValuePair<K, V>& v) {
 
 // Template for performing a bitonic merge of an arbitrary set of
 // registers
-template <typename K, typename V, int N, bool Dir, typename Comp, bool Low,
-          bool Pow2>
-struct BitonicMergeStepKVP {};
+template <typename K, typename V, int N, bool Dir, typename Comp, bool Low, bool Pow2>
+struct BitonicMergeStepKVP {
+};
 
 //
 // Power-of-2 merge specialization
@@ -194,7 +198,8 @@ struct BitonicMergeStepKVP {};
 // All merges eventually call this
 template <typename K, typename V, bool Dir, typename Comp, bool Low>
 struct BitonicMergeStepKVP<K, V, 1, Dir, Comp, Low, true> {
-  static inline __device__ void merge(K k[1], KeyValuePair<K, V> v[1]) {
+  static inline __device__ void merge(K k[1], KeyValuePair<K, V> v[1])
+  {
     // Use warp shuffles
     warpBitonicMergeLE16KVP<K, V, 16, Dir, Comp, true>(k[0], v[0]);
   }
@@ -202,16 +207,17 @@ struct BitonicMergeStepKVP<K, V, 1, Dir, Comp, Low, true> {
 
 template <typename K, typename V, int N, bool Dir, typename Comp, bool Low>
 struct BitonicMergeStepKVP<K, V, N, Dir, Comp, Low, true> {
-  static inline __device__ void merge(K k[N], KeyValuePair<K, V> v[N]) {
+  static inline __device__ void merge(K k[N], KeyValuePair<K, V> v[N])
+  {
     static_assert(utils::isPowerOf2(N), "must be power of 2");
     static_assert(N > 1, "must be N > 1");
 
 #pragma unroll
     for (int i = 0; i < N / 2; ++i) {
-      K& ka = k[i];
+      K& ka                  = k[i];
       KeyValuePair<K, V>& va = v[i];
 
-      K& kb = k[i + N / 2];
+      K& kb                  = k[i + N / 2];
       KeyValuePair<K, V>& vb = v[i + N / 2];
 
       bool s = Dir ? Comp::gt(ka, kb) : Comp::lt(ka, kb);
@@ -226,18 +232,17 @@ struct BitonicMergeStepKVP<K, V, N, Dir, Comp, Low, true> {
 
 #pragma unroll
       for (int i = 0; i < N / 2; ++i) {
-        newK[i] = k[i];
-        newV[i].key = v[i].key;
+        newK[i]       = k[i];
+        newV[i].key   = v[i].key;
         newV[i].value = v[i].value;
       }
 
-      BitonicMergeStepKVP<K, V, N / 2, Dir, Comp, true, true>::merge(newK,
-                                                                     newV);
+      BitonicMergeStepKVP<K, V, N / 2, Dir, Comp, true, true>::merge(newK, newV);
 
 #pragma unroll
       for (int i = 0; i < N / 2; ++i) {
-        k[i] = newK[i];
-        v[i].key = newV[i].key;
+        k[i]       = newK[i];
+        v[i].key   = newV[i].key;
         v[i].value = newV[i].value;
       }
     }
@@ -248,18 +253,17 @@ struct BitonicMergeStepKVP<K, V, N, Dir, Comp, Low, true> {
 
 #pragma unroll
       for (int i = 0; i < N / 2; ++i) {
-        newK[i] = k[i + N / 2];
-        newV[i].key = v[i + N / 2].key;
+        newK[i]       = k[i + N / 2];
+        newV[i].key   = v[i + N / 2].key;
         newV[i].value = v[i + N / 2].value;
       }
 
-      BitonicMergeStepKVP<K, V, N / 2, Dir, Comp, false, true>::merge(newK,
-                                                                      newV);
+      BitonicMergeStepKVP<K, V, N / 2, Dir, Comp, false, true>::merge(newK, newV);
 
 #pragma unroll
       for (int i = 0; i < N / 2; ++i) {
-        k[i + N / 2] = newK[i];
-        v[i + N / 2].key = newV[i].key;
+        k[i + N / 2]       = newK[i];
+        v[i + N / 2].key   = newV[i].key;
         v[i + N / 2].value = newV[i].value;
       }
     }
@@ -273,7 +277,8 @@ struct BitonicMergeStepKVP<K, V, N, Dir, Comp, Low, true> {
 // Low recursion
 template <typename K, typename V, int N, bool Dir, typename Comp>
 struct BitonicMergeStepKVP<K, V, N, Dir, Comp, true, false> {
-  static inline __device__ void merge(K k[N], KeyValuePair<K, V> v[N]) {
+  static inline __device__ void merge(K k[N], KeyValuePair<K, V> v[N])
+  {
     static_assert(!utils::isPowerOf2(N), "must be non-power-of-2");
     static_assert(N >= 3, "must be N >= 3");
 
@@ -281,10 +286,10 @@ struct BitonicMergeStepKVP<K, V, N, Dir, Comp, true, false> {
 
 #pragma unroll
     for (int i = 0; i < N - kNextHighestPowerOf2 / 2; ++i) {
-      K& ka = k[i];
+      K& ka                  = k[i];
       KeyValuePair<K, V>& va = v[i];
 
-      K& kb = k[i + kNextHighestPowerOf2 / 2];
+      K& kb                  = k[i + kNextHighestPowerOf2 / 2];
       KeyValuePair<K, V>& vb = v[i + kNextHighestPowerOf2 / 2];
 
       bool s = Dir ? Comp::gt(ka, kb) : Comp::lt(ka, kb);
@@ -293,7 +298,7 @@ struct BitonicMergeStepKVP<K, V, N, Dir, Comp, true, false> {
       swap(s, va.value, vb.value);
     }
 
-    constexpr int kLowSize = N - kNextHighestPowerOf2 / 2;
+    constexpr int kLowSize  = N - kNextHighestPowerOf2 / 2;
     constexpr int kHighSize = kNextHighestPowerOf2 / 2;
     {
       K newK[kLowSize];
@@ -301,23 +306,26 @@ struct BitonicMergeStepKVP<K, V, N, Dir, Comp, true, false> {
 
 #pragma unroll
       for (int i = 0; i < kLowSize; ++i) {
-        newK[i] = k[i];
-        newV[i].key = v[i].key;
+        newK[i]       = k[i];
+        newV[i].key   = v[i].key;
         newV[i].value = v[i].value;
       }
 
-      constexpr bool kLowIsPowerOf2 =
-        utils::isPowerOf2(N - kNextHighestPowerOf2 / 2);
+      constexpr bool kLowIsPowerOf2 = utils::isPowerOf2(N - kNextHighestPowerOf2 / 2);
       // FIXME: compiler doesn't like this expression? compiler bug?
       //      constexpr bool kLowIsPowerOf2 = utils::isPowerOf2(kLowSize);
-      BitonicMergeStepKVP<K, V, kLowSize, Dir, Comp,
+      BitonicMergeStepKVP<K,
+                          V,
+                          kLowSize,
+                          Dir,
+                          Comp,
                           true,  // low
                           kLowIsPowerOf2>::merge(newK, newV);
 
 #pragma unroll
       for (int i = 0; i < kLowSize; ++i) {
-        k[i] = newK[i];
-        v[i].key = newV[i].key;
+        k[i]       = newK[i];
+        v[i].key   = newV[i].key;
         v[i].value = newV[i].value;
       }
     }
@@ -328,23 +336,26 @@ struct BitonicMergeStepKVP<K, V, N, Dir, Comp, true, false> {
 
 #pragma unroll
       for (int i = 0; i < kHighSize; ++i) {
-        newK[i] = k[i + kLowSize];
-        newV[i].key = v[i + kLowSize].key;
+        newK[i]       = k[i + kLowSize];
+        newV[i].key   = v[i + kLowSize].key;
         newV[i].value = v[i + kLowSize].value;
       }
 
-      constexpr bool kHighIsPowerOf2 =
-        utils::isPowerOf2(kNextHighestPowerOf2 / 2);
+      constexpr bool kHighIsPowerOf2 = utils::isPowerOf2(kNextHighestPowerOf2 / 2);
       // FIXME: compiler doesn't like this expression? compiler bug?
       //      constexpr bool kHighIsPowerOf2 = utils::isPowerOf2(kHighSize);
-      BitonicMergeStepKVP<K, V, kHighSize, Dir, Comp,
+      BitonicMergeStepKVP<K,
+                          V,
+                          kHighSize,
+                          Dir,
+                          Comp,
                           false,  // high
                           kHighIsPowerOf2>::merge(newK, newV);
 
 #pragma unroll
       for (int i = 0; i < kHighSize; ++i) {
-        k[i + kLowSize] = newK[i];
-        v[i + kLowSize].key = newV[i].key;
+        k[i + kLowSize]       = newK[i];
+        v[i + kLowSize].key   = newV[i].key;
         v[i + kLowSize].value = newV[i].value;
       }
     }
@@ -354,7 +365,8 @@ struct BitonicMergeStepKVP<K, V, N, Dir, Comp, true, false> {
 // High recursion
 template <typename K, typename V, int N, bool Dir, typename Comp>
 struct BitonicMergeStepKVP<K, V, N, Dir, Comp, false, false> {
-  static inline __device__ void merge(K k[N], KeyValuePair<K, V> v[N]) {
+  static inline __device__ void merge(K k[N], KeyValuePair<K, V> v[N])
+  {
     static_assert(!utils::isPowerOf2(N), "must be non-power-of-2");
     static_assert(N >= 3, "must be N >= 3");
 
@@ -362,10 +374,10 @@ struct BitonicMergeStepKVP<K, V, N, Dir, Comp, false, false> {
 
 #pragma unroll
     for (int i = 0; i < N - kNextHighestPowerOf2 / 2; ++i) {
-      K& ka = k[i];
+      K& ka                  = k[i];
       KeyValuePair<K, V>& va = v[i];
 
-      K& kb = k[i + kNextHighestPowerOf2 / 2];
+      K& kb                  = k[i + kNextHighestPowerOf2 / 2];
       KeyValuePair<K, V>& vb = v[i + kNextHighestPowerOf2 / 2];
 
       bool s = Dir ? Comp::gt(ka, kb) : Comp::lt(ka, kb);
@@ -374,7 +386,7 @@ struct BitonicMergeStepKVP<K, V, N, Dir, Comp, false, false> {
       swap(s, va.value, vb.value);
     }
 
-    constexpr int kLowSize = kNextHighestPowerOf2 / 2;
+    constexpr int kLowSize  = kNextHighestPowerOf2 / 2;
     constexpr int kHighSize = N - kNextHighestPowerOf2 / 2;
     {
       K newK[kLowSize];
@@ -382,23 +394,26 @@ struct BitonicMergeStepKVP<K, V, N, Dir, Comp, false, false> {
 
 #pragma unroll
       for (int i = 0; i < kLowSize; ++i) {
-        newK[i] = k[i];
-        newV[i].key = v[i].key;
+        newK[i]       = k[i];
+        newV[i].key   = v[i].key;
         newV[i].value = v[i].value;
       }
 
-      constexpr bool kLowIsPowerOf2 =
-        utils::isPowerOf2(kNextHighestPowerOf2 / 2);
+      constexpr bool kLowIsPowerOf2 = utils::isPowerOf2(kNextHighestPowerOf2 / 2);
       // FIXME: compiler doesn't like this expression? compiler bug?
       //      constexpr bool kLowIsPowerOf2 = utils::isPowerOf2(kLowSize);
-      BitonicMergeStepKVP<K, V, kLowSize, Dir, Comp,
+      BitonicMergeStepKVP<K,
+                          V,
+                          kLowSize,
+                          Dir,
+                          Comp,
                           true,  // low
                           kLowIsPowerOf2>::merge(newK, newV);
 
 #pragma unroll
       for (int i = 0; i < kLowSize; ++i) {
-        k[i] = newK[i];
-        v[i].key = newV[i].key;
+        k[i]       = newK[i];
+        v[i].key   = newV[i].key;
         v[i].value = newV[i].value;
       }
     }
@@ -409,23 +424,26 @@ struct BitonicMergeStepKVP<K, V, N, Dir, Comp, false, false> {
 
 #pragma unroll
       for (int i = 0; i < kHighSize; ++i) {
-        newK[i] = k[i + kLowSize];
-        newV[i].key = v[i + kLowSize].key;
+        newK[i]       = k[i + kLowSize];
+        newV[i].key   = v[i + kLowSize].key;
         newV[i].value = v[i + kLowSize].value;
       }
 
-      constexpr bool kHighIsPowerOf2 =
-        utils::isPowerOf2(N - kNextHighestPowerOf2 / 2);
+      constexpr bool kHighIsPowerOf2 = utils::isPowerOf2(N - kNextHighestPowerOf2 / 2);
       // FIXME: compiler doesn't like this expression? compiler bug?
       //      constexpr bool kHighIsPowerOf2 = utils::isPowerOf2(kHighSize);
-      BitonicMergeStepKVP<K, V, kHighSize, Dir, Comp,
+      BitonicMergeStepKVP<K,
+                          V,
+                          kHighSize,
+                          Dir,
+                          Comp,
                           false,  // high
                           kHighIsPowerOf2>::merge(newK, newV);
 
 #pragma unroll
       for (int i = 0; i < kHighSize; ++i) {
-        k[i + kLowSize] = newK[i];
-        v[i + kLowSize].key = newV[i].key;
+        k[i + kLowSize]       = newK[i];
+        v[i + kLowSize].key   = newV[i].key;
         v[i + kLowSize].value = newV[i].value;
       }
     }
@@ -436,20 +454,20 @@ struct BitonicMergeStepKVP<K, V, N, Dir, Comp, false, false> {
 /// i.e., merges a sorted k/v list of size kWarpSize * N1 with a
 /// sorted k/v list of size kWarpSize * N2, where N1 and N2 are any
 /// value >= 1
-template <typename K, typename V, int N1, int N2, bool Dir, typename Comp,
-          bool FullMerge = true>
+template <typename K, typename V, int N1, int N2, bool Dir, typename Comp, bool FullMerge = true>
 inline __device__ void warpMergeAnyRegistersKVP(K k1[N1],
                                                 KeyValuePair<K, V> v1[N1],
                                                 K k2[N2],
-                                                KeyValuePair<K, V> v2[N2]) {
+                                                KeyValuePair<K, V> v2[N2])
+{
   constexpr int kSmallestN = N1 < N2 ? N1 : N2;
 
 #pragma unroll
   for (int i = 0; i < kSmallestN; ++i) {
-    K& ka = k1[N1 - 1 - i];
+    K& ka                  = k1[N1 - 1 - i];
     KeyValuePair<K, V>& va = v1[N1 - 1 - i];
 
-    K& kb = k2[i];
+    K& kb                  = k2[i];
     KeyValuePair<K, V>& vb = v2[i];
 
     K otherKa;
@@ -457,13 +475,13 @@ inline __device__ void warpMergeAnyRegistersKVP(K k1[N1],
 
     if (FullMerge) {
       // We need the other values
-      otherKa = shfl_xor(ka, kWarpSize - 1);
+      otherKa    = shfl_xor(ka, kWarpSize - 1);
       K otherVak = shfl_xor(va.key, kWarpSize - 1);
       V otherVav = shfl_xor(va.value, kWarpSize - 1);
-      otherVa = KeyValuePair(otherVak, otherVav);
+      otherVa    = KeyValuePair(otherVak, otherVav);
     }
 
-    K otherKb = shfl_xor(kb, kWarpSize - 1);
+    K otherKb  = shfl_xor(kb, kWarpSize - 1);
     K otherVbk = shfl_xor(vb.key, kWarpSize - 1);
     V otherVbv = shfl_xor(vb.value, kWarpSize - 1);
 
@@ -487,12 +505,10 @@ inline __device__ void warpMergeAnyRegistersKVP(K k1[N1],
     }
   }
 
-  BitonicMergeStepKVP<K, V, N1, Dir, Comp, true, utils::isPowerOf2(N1)>::merge(
-    k1, v1);
+  BitonicMergeStepKVP<K, V, N1, Dir, Comp, true, utils::isPowerOf2(N1)>::merge(k1, v1);
   if (FullMerge) {
     // Only if we care about N2 do we need to bother merging it fully
-    BitonicMergeStepKVP<K, V, N2, Dir, Comp, false,
-                        utils::isPowerOf2(N2)>::merge(k2, v2);
+    BitonicMergeStepKVP<K, V, N2, Dir, Comp, false, utils::isPowerOf2(N2)>::merge(k2, v2);
   }
 }
 
@@ -500,7 +516,8 @@ inline __device__ void warpMergeAnyRegistersKVP(K k1[N1],
 // bitonic sort
 template <typename K, typename V, int N, bool Dir, typename Comp>
 struct BitonicSortStepKVP {
-  static inline __device__ void sort(K k[N], KeyValuePair<K, V> v[N]) {
+  static inline __device__ void sort(K k[N], KeyValuePair<K, V> v[N])
+  {
     static_assert(N > 1, "did not hit specialized case");
 
     // Sort recursively
@@ -512,8 +529,8 @@ struct BitonicSortStepKVP {
 
 #pragma unroll
     for (int i = 0; i < kSizeA; ++i) {
-      aK[i] = k[i];
-      aV[i].key = v[i].key;
+      aK[i]       = k[i];
+      aV[i].key   = v[i].key;
       aV[i].value = v[i].value;
     }
 
@@ -524,8 +541,8 @@ struct BitonicSortStepKVP {
 
 #pragma unroll
     for (int i = 0; i < kSizeB; ++i) {
-      bK[i] = k[i + kSizeA];
-      bV[i].key = v[i + kSizeA].key;
+      bK[i]       = k[i + kSizeA];
+      bV[i].key   = v[i + kSizeA].key;
       bV[i].value = v[i + kSizeA].value;
     }
 
@@ -536,15 +553,15 @@ struct BitonicSortStepKVP {
 
 #pragma unroll
     for (int i = 0; i < kSizeA; ++i) {
-      k[i] = aK[i];
-      v[i].key = aV[i].key;
+      k[i]       = aK[i];
+      v[i].key   = aV[i].key;
       v[i].value = aV[i].value;
     }
 
 #pragma unroll
     for (int i = 0; i < kSizeB; ++i) {
-      k[i + kSizeA] = bK[i];
-      v[i + kSizeA].key = bV[i].key;
+      k[i + kSizeA]       = bK[i];
+      v[i + kSizeA].key   = bV[i].key;
       v[i + kSizeA].value = bV[i].value;
     }
   }
@@ -553,7 +570,8 @@ struct BitonicSortStepKVP {
 // Single warp (N == 1) sorting specialization
 template <typename K, typename V, bool Dir, typename Comp>
 struct BitonicSortStepKVP<K, V, 1, Dir, Comp> {
-  static inline __device__ void sort(K k[1], KeyValuePair<K, V> v[1]) {
+  static inline __device__ void sort(K k[1], KeyValuePair<K, V> v[1])
+  {
     // Update this code if this changes
     // should go from 1 -> kWarpSize in multiples of 2
     static_assert(kWarpSize == 32, "unexpected warp size");
@@ -569,61 +587,64 @@ struct BitonicSortStepKVP<K, V, 1, Dir, Comp> {
 /// Sort a list of kWarpSize * N elements in registers, where N is an
 /// arbitrary >= 1
 template <typename K, typename V, int N, bool Dir, typename Comp>
-inline __device__ void warpSortAnyRegistersKVP(K k[N],
-                                               KeyValuePair<K, V> v[N]) {
+inline __device__ void warpSortAnyRegistersKVP(K k[N], KeyValuePair<K, V> v[N])
+{
   BitonicSortStepKVP<K, V, N, Dir, Comp>::sort(k, v);
 }
 
 // `Dir` true, produce largest values.
 // `Dir` false, produce smallest values.
-template <typename K, typename V, bool Dir, typename Comp, int NumWarpQ,
-          int NumThreadQ, int ThreadsPerBlock>
+template <typename K,
+          typename V,
+          bool Dir,
+          typename Comp,
+          int NumWarpQ,
+          int NumThreadQ,
+          int ThreadsPerBlock>
 struct KeyValueWarpSelect {
   static constexpr int kNumWarpQRegisters = NumWarpQ / faiss::gpu::kWarpSize;
 
-  __device__ inline KeyValueWarpSelect(K initKVal,
-                                       faiss::gpu::KeyValuePair<K, V> initVVal,
-                                       int k)
+  __device__ inline KeyValueWarpSelect(K initKVal, faiss::gpu::KeyValuePair<K, V> initVVal, int k)
     : initK(initKVal),
       initV(initVVal),
       numVals(0),
       warpKTop(initKVal),
       warpKTopRDist(initKVal),
-      kLane((k - 1) % faiss::gpu::kWarpSize) {
-    static_assert(faiss::gpu::utils::isPowerOf2(ThreadsPerBlock),
-                  "threads must be a power-of-2");
-    static_assert(faiss::gpu::utils::isPowerOf2(NumWarpQ),
-                  "warp queue must be power-of-2");
+      kLane((k - 1) % faiss::gpu::kWarpSize)
+  {
+    static_assert(faiss::gpu::utils::isPowerOf2(ThreadsPerBlock), "threads must be a power-of-2");
+    static_assert(faiss::gpu::utils::isPowerOf2(NumWarpQ), "warp queue must be power-of-2");
 
     // Fill the per-thread queue keys with the default value
 #pragma unroll
     for (int i = 0; i < NumThreadQ; ++i) {
-      threadK[i] = initK;
-      threadV[i].key = initV.key;
+      threadK[i]       = initK;
+      threadV[i].key   = initV.key;
       threadV[i].value = initV.value;
     }
 
     // Fill the warp queue with the default value
 #pragma unroll
     for (int i = 0; i < kNumWarpQRegisters; ++i) {
-      warpK[i] = initK;
-      warpV[i].key = initV.key;
+      warpK[i]       = initK;
+      warpV[i].key   = initV.key;
       warpV[i].value = initV.value;
     }
   }
 
-  __device__ inline void addThreadQ(K k, faiss::gpu::KeyValuePair<K, V>& v) {
+  __device__ inline void addThreadQ(K k, faiss::gpu::KeyValuePair<K, V>& v)
+  {
     if (Dir ? Comp::gt(k, warpKTop) : Comp::lt(k, warpKTop)) {
       // Rotate right
 #pragma unroll
       for (int i = NumThreadQ - 1; i > 0; --i) {
-        threadK[i] = threadK[i - 1];
-        threadV[i].key = threadV[i - 1].key;
+        threadK[i]       = threadK[i - 1];
+        threadV[i].key   = threadV[i - 1].key;
         threadV[i].value = threadV[i - 1].value;
       }
 
-      threadK[0] = k;
-      threadV[0].key = v.key;
+      threadK[0]       = k;
+      threadV[0].key   = v.key;
       threadV[0].value = v.value;
       ++numVals;
     }
@@ -633,33 +654,35 @@ struct KeyValueWarpSelect {
   /// list across both
 
   // TODO
-  __device__ inline void mergeWarpQ() {
+  __device__ inline void mergeWarpQ()
+  {
     // Sort all of the per-thread queues
-    faiss::gpu::warpSortAnyRegistersKVP<K, V, NumThreadQ, !Dir, Comp>(threadK,
-                                                                      threadV);
+    faiss::gpu::warpSortAnyRegistersKVP<K, V, NumThreadQ, !Dir, Comp>(threadK, threadV);
 
     // The warp queue is already sorted, and now that we've sorted the
     // per-thread queue, merge both sorted lists together, producing
     // one sorted list
-    faiss::gpu::warpMergeAnyRegistersKVP<K, V, kNumWarpQRegisters, NumThreadQ,
-                                         !Dir, Comp, false>(warpK, warpV,
-                                                            threadK, threadV);
+    faiss::gpu::warpMergeAnyRegistersKVP<K, V, kNumWarpQRegisters, NumThreadQ, !Dir, Comp, false>(
+      warpK, warpV, threadK, threadV);
   }
 
   /// WARNING: all threads in a warp must participate in this.
   /// Otherwise, you must call the constituent parts separately.
-  __device__ inline void add(K k, faiss::gpu::KeyValuePair<K, V>& v) {
+  __device__ inline void add(K k, faiss::gpu::KeyValuePair<K, V>& v)
+  {
     addThreadQ(k, v);
     checkThreadQ();
   }
 
-  __device__ inline void reduce() {
+  __device__ inline void reduce()
+  {
     // Have all warps dump and merge their queues; this will produce
     // the final per-warp results
     mergeWarpQ();
   }
 
-  __device__ inline void checkThreadQ() {
+  __device__ inline void checkThreadQ()
+  {
     bool needSort = (numVals == NumThreadQ);
 
 #if CUDA_VERSION >= 9000
@@ -681,18 +704,19 @@ struct KeyValueWarpSelect {
 
 #pragma unroll
     for (int i = 0; i < NumThreadQ; ++i) {
-      threadK[i] = initK;
-      threadV[i].key = initV.key;
+      threadK[i]       = initK;
+      threadV[i].key   = initV.key;
       threadV[i].value = initV.value;
     }
 
     // We have to beat at least this element
     warpKTopRDist = shfl(warpV[kNumWarpQRegisters - 1].key, kLane);
-    warpKTop = shfl(warpK[kNumWarpQRegisters - 1], kLane);
+    warpKTop      = shfl(warpK[kNumWarpQRegisters - 1], kLane);
   }
 
   /// Dump final k selected values for this warp out
-  __device__ inline void writeOut(K* outK, V* outV, int k) {
+  __device__ inline void writeOut(K* outK, V* outV, int k)
+  {
     int laneId = faiss::gpu::getLaneId();
 
 #pragma unroll

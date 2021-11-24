@@ -46,11 +46,11 @@ namespace device {
 template <typename T>
 class buffer : public buffer_base<T, allocator> {
  public:
-  using size_type = typename buffer_base<T, allocator>::size_type;
-  using value_type = typename buffer_base<T, allocator>::value_type;
-  using iterator = typename buffer_base<T, allocator>::iterator;
-  using const_iterator = typename buffer_base<T, allocator>::const_iterator;
-  using reference = typename buffer_base<T, allocator>::reference;
+  using size_type       = typename buffer_base<T, allocator>::size_type;
+  using value_type      = typename buffer_base<T, allocator>::value_type;
+  using iterator        = typename buffer_base<T, allocator>::iterator;
+  using const_iterator  = typename buffer_base<T, allocator>::const_iterator;
+  using reference       = typename buffer_base<T, allocator>::reference;
   using const_reference = typename buffer_base<T, allocator>::const_reference;
 
   buffer() = delete;
@@ -60,7 +60,9 @@ class buffer : public buffer_base<T, allocator> {
   buffer& operator=(const buffer& other) = delete;
 
   buffer(std::shared_ptr<allocator> alloc, cudaStream_t stream, size_type n = 0)
-    : buffer_base<T, device::allocator>(alloc, stream, n) {}
+    : buffer_base<T, device::allocator>(alloc, stream, n)
+  {
+  }
 };  // class buffer
 
 };  // namespace device

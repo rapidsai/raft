@@ -51,12 +51,13 @@ using detail::Kiss99Generator;
  * @{
  */
 template <typename Type>
-DI void box_muller_transform(Type &val1, Type &val2, Type sigma1, Type mu1,
-                             Type sigma2, Type mu2) {
+DI void box_muller_transform(Type& val1, Type& val2, Type sigma1, Type mu1, Type sigma2, Type mu2)
+{
   detail::box_muller_transform(val1, val2, sigma1, mu1, sigma1, mu2);
 }
 template <typename Type>
-DI void box_muller_transform(Type &val1, Type &val2, Type sigma1, Type mu1) {
+DI void box_muller_transform(Type& val1, Type& val2, Type sigma1, Type mu1)
+{
   detail::box_muller_transform(val1, val2, sigma1, mu1);
 }
 /** @} */
@@ -92,7 +93,8 @@ class Rng : public detail::RngImpl {
    * @param[out] b intercept parameter
    */
   template <typename IdxT>
-  void affine_transform_params(IdxT n, IdxT &a, IdxT &b) {
+  void affine_transform_params(IdxT n, IdxT& a, IdxT& b)
+  {
     detail::RngImpl::affine_transform_params(n, a, b);
   }
 
@@ -108,13 +110,13 @@ class Rng : public detail::RngImpl {
    * @{
    */
   template <typename Type, typename LenType = int>
-  void uniform(Type *ptr, LenType len, Type start, Type end,
-               cudaStream_t stream) {
+  void uniform(Type* ptr, LenType len, Type start, Type end, cudaStream_t stream)
+  {
     detail::RngImpl::uniform(ptr, len, start, end, stream);
   }
   template <typename IntType, typename LenType = int>
-  void uniformInt(IntType *ptr, LenType len, IntType start, IntType end,
-                  cudaStream_t stream) {
+  void uniformInt(IntType* ptr, LenType len, IntType start, IntType end, cudaStream_t stream)
+  {
     detail::RngImpl::uniformInt(ptr, len, start, end, stream);
   }
   /** @} */
@@ -131,13 +133,13 @@ class Rng : public detail::RngImpl {
    * @{
    */
   template <typename Type, typename LenType = int>
-  void normal(Type *ptr, LenType len, Type mu, Type sigma,
-              cudaStream_t stream) {
+  void normal(Type* ptr, LenType len, Type mu, Type sigma, cudaStream_t stream)
+  {
     detail::RngImpl::normal(ptr, len, mu, sigma, stream);
   }
   template <typename IntType, typename LenType = int>
-  void normalInt(IntType *ptr, LenType len, IntType mu, IntType sigma,
-                 cudaStream_t stream) {
+  void normalInt(IntType* ptr, LenType len, IntType mu, IntType sigma, cudaStream_t stream)
+  {
     detail::RngImpl::normalInt(ptr, len, mu, sigma, stream);
   }
   /** @} */
@@ -163,10 +165,15 @@ class Rng : public detail::RngImpl {
    * @param stream stream where to launch the kernel
    */
   template <typename Type, typename LenType = int>
-  void normalTable(Type *ptr, LenType n_rows, LenType n_cols, const Type *mu,
-                   const Type *sigma_vec, Type sigma, cudaStream_t stream) {
-    detail::RngImpl::normalTable(ptr, n_rows, n_cols, mu, sigma_vec, sigma,
-                                 stream);
+  void normalTable(Type* ptr,
+                   LenType n_rows,
+                   LenType n_cols,
+                   const Type* mu,
+                   const Type* sigma_vec,
+                   Type sigma,
+                   cudaStream_t stream)
+  {
+    detail::RngImpl::normalTable(ptr, n_rows, n_cols, mu, sigma_vec, sigma, stream);
   }
 
   /**
@@ -179,7 +186,8 @@ class Rng : public detail::RngImpl {
    * @param stream stream where to launch the kernel
    */
   template <typename Type, typename LenType = int>
-  void fill(Type *ptr, LenType len, Type val, cudaStream_t stream) {
+  void fill(Type* ptr, LenType len, Type val, cudaStream_t stream)
+  {
     detail::RngImpl::fill(ptr, len, val, stream);
   }
 
@@ -196,7 +204,8 @@ class Rng : public detail::RngImpl {
    * @param[in]  stream stream where to launch the kernel
    */
   template <typename Type, typename OutType = bool, typename LenType = int>
-  void bernoulli(OutType *ptr, LenType len, Type prob, cudaStream_t stream) {
+  void bernoulli(OutType* ptr, LenType len, Type prob, cudaStream_t stream)
+  {
     detail::RngImpl::bernoulli(ptr, len, prob, stream);
   }
 
@@ -211,8 +220,8 @@ class Rng : public detail::RngImpl {
    * @param stream stream where to launch the kernel
    */
   template <typename Type, typename LenType = int>
-  void scaled_bernoulli(Type *ptr, LenType len, Type prob, Type scale,
-                        cudaStream_t stream) {
+  void scaled_bernoulli(Type* ptr, LenType len, Type prob, Type scale, cudaStream_t stream)
+  {
     detail::RngImpl::scaled_bernoulli(ptr, len, prob, scale, stream);
   }
 
@@ -228,7 +237,8 @@ class Rng : public detail::RngImpl {
    * @note https://en.wikipedia.org/wiki/Gumbel_distribution
    */
   template <typename Type, typename LenType = int>
-  void gumbel(Type *ptr, LenType len, Type mu, Type beta, cudaStream_t stream) {
+  void gumbel(Type* ptr, LenType len, Type mu, Type beta, cudaStream_t stream)
+  {
     detail::RngImpl::gumbel(ptr, len, mu, beta, stream);
   }
 
@@ -243,8 +253,8 @@ class Rng : public detail::RngImpl {
    * @param stream stream where to launch the kernel
    */
   template <typename Type, typename LenType = int>
-  void lognormal(Type *ptr, LenType len, Type mu, Type sigma,
-                 cudaStream_t stream) {
+  void lognormal(Type* ptr, LenType len, Type mu, Type sigma, cudaStream_t stream)
+  {
     detail::RngImpl::lognormal(ptr, len, mu, sigma, stream);
   }
 
@@ -259,8 +269,8 @@ class Rng : public detail::RngImpl {
    * @param stream stream where to launch the kernel
    */
   template <typename Type, typename LenType = int>
-  void logistic(Type *ptr, LenType len, Type mu, Type scale,
-                cudaStream_t stream) {
+  void logistic(Type* ptr, LenType len, Type mu, Type scale, cudaStream_t stream)
+  {
     detail::RngImpl::logistic(ptr, len, mu, scale, stream);
   }
 
@@ -274,7 +284,8 @@ class Rng : public detail::RngImpl {
    * @param stream stream where to launch the kernel
    */
   template <typename Type, typename LenType = int>
-  void exponential(Type *ptr, LenType len, Type lambda, cudaStream_t stream) {
+  void exponential(Type* ptr, LenType len, Type lambda, cudaStream_t stream)
+  {
     detail::RngImpl::exponential(ptr, len, lambda, stream);
   }
 
@@ -288,7 +299,8 @@ class Rng : public detail::RngImpl {
    * @param stream stream where to launch the kernel
    */
   template <typename Type, typename LenType = int>
-  void rayleigh(Type *ptr, LenType len, Type sigma, cudaStream_t stream) {
+  void rayleigh(Type* ptr, LenType len, Type sigma, cudaStream_t stream)
+  {
     detail::RngImpl::rayleigh(ptr, len, sigma, stream);
   }
 
@@ -303,8 +315,8 @@ class Rng : public detail::RngImpl {
    * @param stream stream where to launch the kernel
    */
   template <typename Type, typename LenType = int>
-  void laplace(Type *ptr, LenType len, Type mu, Type scale,
-               cudaStream_t stream) {
+  void laplace(Type* ptr, LenType len, Type mu, Type scale, cudaStream_t stream)
+  {
     detail::RngImpl::laplace(ptr, len, mu, scale, stream);
   }
 
@@ -334,12 +346,17 @@ class Rng : public detail::RngImpl {
    * @param stream cuda stream
    */
   template <typename DataT, typename WeightsT, typename IdxT = int>
-  void sampleWithoutReplacement(const raft::handle_t &handle, DataT *out,
-                                IdxT *outIdx, const DataT *in,
-                                const WeightsT *wts, IdxT sampledLen, IdxT len,
-                                cudaStream_t stream) {
-    detail::RngImpl::sampleWithoutReplacement(handle, out, outIdx, in, wts,
-                                              sampledLen, len, stream);
+  void sampleWithoutReplacement(const raft::handle_t& handle,
+                                DataT* out,
+                                IdxT* outIdx,
+                                const DataT* in,
+                                const WeightsT* wts,
+                                IdxT sampledLen,
+                                IdxT len,
+                                cudaStream_t stream)
+  {
+    detail::RngImpl::sampleWithoutReplacement(
+      handle, out, outIdx, in, wts, sampledLen, len, stream);
   }
 
   /**
@@ -357,16 +374,14 @@ class Rng : public detail::RngImpl {
    * @param[in]  stream cuda stream
    * @{
    */
-  template <typename OutType, typename MathType = OutType,
-            typename LenType = int, typename Lambda>
-  void custom_distribution(OutType *ptr, LenType len, Lambda randOp,
-                           cudaStream_t stream) {
+  template <typename OutType, typename MathType = OutType, typename LenType = int, typename Lambda>
+  void custom_distribution(OutType* ptr, LenType len, Lambda randOp, cudaStream_t stream)
+  {
     detail::RngImpl::custom_distribution(ptr, len, randOp, stream);
   }
-  template <typename OutType, typename MathType = OutType,
-            typename LenType = int, typename Lambda>
-  void custom_distribution2(OutType *ptr, LenType len, Lambda randOp,
-                            cudaStream_t stream) {
+  template <typename OutType, typename MathType = OutType, typename LenType = int, typename Lambda>
+  void custom_distribution2(OutType* ptr, LenType len, Lambda randOp, cudaStream_t stream)
+  {
     detail::RngImpl::custom_distribution2(ptr, len, randOp, stream);
   }
   /** @} */
