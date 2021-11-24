@@ -16,8 +16,9 @@
 
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
-#include <raft/matrix/matrix.cuh>
-#include <raft/random/rng.cuh>
+#include <raft/matrix/matrix.hpp>
+#include <raft/random/rng.hpp>
+#include <rmm/device_uvector.hpp>
 #include "../test_utils.h"
 
 namespace raft {
@@ -38,37 +39,35 @@ template <typename T>
 
 template <typename T>
 class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
+ public:
+  MatrixTest()
+    : params(::testing::TestWithParam<MatrixInputs<T>>::GetParam()),
+      stream(handle.get_stream()),
+      in1(params.n_row * params.n_col, stream),
+      in2(params.n_row * params.n_col, stream),
+      in1_revr(params.n_row * params.n_col, stream) {}
+
  protected:
   void SetUp() override {
-    params = ::testing::TestWithParam<MatrixInputs<T>>::GetParam();
     raft::random::Rng r(params.seed);
     int len = params.n_row * params.n_col;
-    cudaStream_t stream;
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    raft::allocate(in1, len);
-    raft::allocate(in2, len);
-    raft::allocate(in1_revr, len);
-    r.uniform(in1, len, T(-1.0), T(1.0), stream);
+    r.uniform(in1.data(), len, T(-1.0), T(1.0), stream);
 
-    copy(in1, in2, params.n_row, params.n_col, stream);
+    copy(in1.data(), in2.data(), params.n_row, params.n_col, stream);
     // copy(in1, in1_revr, params.n_row, params.n_col);
     // colReverse(in1_revr, params.n_row, params.n_col);
 
-    T *outTrunc;
-    raft::allocate(outTrunc, 6);
-    truncZeroOrigin(in1, params.n_row, outTrunc, 3, 2, stream);
-    CUDA_CHECK(cudaStreamDestroy(stream));
-  }
-
-  void TearDown() override {
-    CUDA_CHECK(cudaFree(in1));
-    CUDA_CHECK(cudaFree(in2));
-    // CUDA_CHECK(cudaFree(in1_revr));
+    rmm::device_uvector<T> outTrunc(6, stream);
+    truncZeroOrigin(in1.data(), params.n_row, outTrunc.data(), 3, 2, stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
  protected:
+  raft::handle_t handle;
+  cudaStream_t stream;
+
   MatrixInputs<T> params;
-  T *in1, *in2, *in1_revr;
+  rmm::device_uvector<T> in1, in2, in1_revr;
 };
 
 const std::vector<MatrixInputs<float>> inputsf2 = {{0.000001f, 4, 4, 1234ULL}};
@@ -78,13 +77,15 @@ const std::vector<MatrixInputs<double>> inputsd2 = {
 
 typedef MatrixTest<float> MatrixTestF;
 TEST_P(MatrixTestF, Result) {
-  ASSERT_TRUE(raft::devArrMatch(in1, in2, params.n_row * params.n_col,
+  ASSERT_TRUE(raft::devArrMatch(in1.data(), in2.data(),
+                                params.n_row * params.n_col,
                                 raft::CompareApprox<float>(params.tolerance)));
 }
 
 typedef MatrixTest<double> MatrixTestD;
 TEST_P(MatrixTestD, Result) {
-  ASSERT_TRUE(raft::devArrMatch(in1, in2, params.n_row * params.n_col,
+  ASSERT_TRUE(raft::devArrMatch(in1.data(), in2.data(),
+                                params.n_row * params.n_col,
                                 raft::CompareApprox<double>(params.tolerance)));
 }
 
@@ -102,17 +103,16 @@ class MatrixCopyRowsTest : public ::testing::Test {
 
  protected:
   MatrixCopyRowsTest()
-    : allocator(handle.get_device_allocator()),
-      input(allocator, handle.get_stream(), n_cols * n_rows),
-      indices(allocator, handle.get_stream(), n_selected),
-      output(allocator, handle.get_stream(), n_cols * n_selected) {
+    : input(n_cols * n_rows, handle.get_stream()),
+      indices(n_selected, handle.get_stream()),
+      output(n_cols * n_selected, handle.get_stream()) {
     CUDA_CHECK(cudaStreamCreate(&stream));
     handle.set_stream(stream);
     raft::update_device(indices.data(), indices_host, n_selected, stream);
     // Init input array
     thrust::counting_iterator<idx_t> first(0);
     thrust::device_ptr<math_t> ptr(input.data());
-    thrust::copy(thrust::cuda::par.on(stream), first, first + n_cols * n_rows,
+    thrust::copy(handle.get_thrust_policy(), first, first + n_cols * n_rows,
                  ptr);
   }
 
@@ -132,6 +132,9 @@ class MatrixCopyRowsTest : public ::testing::Test {
   }
 
  protected:
+  raft::handle_t handle;
+  cudaStream_t stream;
+
   int n_rows = 10;
   int n_cols = 3;
   int n_selected = 5;
@@ -141,12 +144,9 @@ class MatrixCopyRowsTest : public ::testing::Test {
                                     17, 19, 20, 23, 24, 27, 29};
   math_t output_exp_rowmajor[15] = {0,  1,  2,  9,  10, 11, 12, 13,
                                     14, 21, 22, 23, 27, 28, 29};
-  raft::handle_t handle;
-  cudaStream_t stream;
-  std::shared_ptr<raft::mr::device::allocator> allocator;
-  raft::mr::device::buffer<math_t> input;
-  raft::mr::device::buffer<math_t> output;
-  raft::mr::device::buffer<idx_array_t> indices;
+  rmm::device_uvector<math_t> input;
+  rmm::device_uvector<math_t> output;
+  rmm::device_uvector<idx_array_t> indices;
 };
 
 using TypeTuple =

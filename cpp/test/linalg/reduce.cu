@@ -18,7 +18,7 @@
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/reduce.cuh>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng.hpp>
 #include "../test_utils.h"
 #include "reduce.cuh"
 
@@ -54,46 +54,45 @@ void reduceLaunch(OutType *dots, const InType *data, int cols, int rows,
 template <typename InType, typename OutType>
 class ReduceTest
   : public ::testing::TestWithParam<ReduceInputs<InType, OutType>> {
+ public:
+  ReduceTest()
+    : params(
+        ::testing::TestWithParam<ReduceInputs<InType, OutType>>::GetParam()),
+      stream(handle.get_stream()),
+      data(params.rows * params.cols, stream),
+      dots_exp(params.alongRows ? params.rows : params.cols, stream),
+      dots_act(params.alongRows ? params.rows : params.cols, stream) {}
+
  protected:
   void SetUp() override {
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    params =
-      ::testing::TestWithParam<ReduceInputs<InType, OutType>>::GetParam();
     raft::random::Rng r(params.seed);
     int rows = params.rows, cols = params.cols;
     int len = rows * cols;
     outlen = params.alongRows ? rows : cols;
-    raft::allocate(data, len);
-    raft::allocate(dots_exp, outlen);
-    raft::allocate(dots_act, outlen);
-    r.uniform(data, len, InType(-1.0), InType(1.0), stream);
-    naiveReduction(dots_exp, data, cols, rows, params.rowMajor,
+    r.uniform(data.data(), len, InType(-1.0), InType(1.0), stream);
+    naiveReduction(dots_exp.data(), data.data(), cols, rows, params.rowMajor,
                    params.alongRows, stream);
 
     // Perform reduction with default inplace = false first
-    reduceLaunch(dots_act, data, cols, rows, params.rowMajor, params.alongRows,
-                 false, stream);
+    reduceLaunch(dots_act.data(), data.data(), cols, rows, params.rowMajor,
+                 params.alongRows, false, stream);
     // Add to result with inplace = true next, which shouldn't affect
     // in the case of coalescedReduction!
     if (!(params.rowMajor ^ params.alongRows)) {
-      reduceLaunch(dots_act, data, cols, rows, params.rowMajor,
+      reduceLaunch(dots_act.data(), data.data(), cols, rows, params.rowMajor,
                    params.alongRows, true, stream);
     }
-  }
-
-  void TearDown() override {
-    CUDA_CHECK(cudaFree(data));
-    CUDA_CHECK(cudaFree(dots_exp));
-    CUDA_CHECK(cudaFree(dots_act));
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
  protected:
-  ReduceInputs<InType, OutType> params;
-  InType *data;
-  OutType *dots_exp, *dots_act;
-  int outlen;
+  raft::handle_t handle;
   cudaStream_t stream;
+
+  ReduceInputs<InType, OutType> params;
+  rmm::device_uvector<InType> data;
+  rmm::device_uvector<OutType> dots_exp, dots_act;
+  int outlen;
 };
 
 const std::vector<ReduceInputs<float, float>> inputsff = {
@@ -152,19 +151,19 @@ const std::vector<ReduceInputs<float, double>> inputsfd = {
 
 typedef ReduceTest<float, float> ReduceTestFF;
 TEST_P(ReduceTestFF, Result) {
-  ASSERT_TRUE(devArrMatch(dots_exp, dots_act, outlen,
+  ASSERT_TRUE(devArrMatch(dots_exp.data(), dots_act.data(), outlen,
                           raft::CompareApprox<float>(params.tolerance)));
 }
 
 typedef ReduceTest<double, double> ReduceTestDD;
 TEST_P(ReduceTestDD, Result) {
-  ASSERT_TRUE(devArrMatch(dots_exp, dots_act, outlen,
+  ASSERT_TRUE(devArrMatch(dots_exp.data(), dots_act.data(), outlen,
                           raft::CompareApprox<double>(params.tolerance)));
 }
 
 typedef ReduceTest<float, double> ReduceTestFD;
 TEST_P(ReduceTestFD, Result) {
-  ASSERT_TRUE(devArrMatch(dots_exp, dots_act, outlen,
+  ASSERT_TRUE(devArrMatch(dots_exp.data(), dots_act.data(), outlen,
                           raft::CompareApprox<double>(params.tolerance)));
 }
 

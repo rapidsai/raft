@@ -16,12 +16,14 @@
 
 #include <cusparse_v2.h>
 #include <raft/cudart_utils.h>
-#include <raft/mr/device/allocator.hpp>
-#include <raft/mr/device/buffer.hpp>
+#include <raft/handle.hpp>
 
 #include <gtest/gtest.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/sparse/convert/dense.cuh>
+
+#include <rmm/device_uvector.hpp>
+
 #include "../test_utils.h"
 
 namespace raft {
@@ -51,73 +53,72 @@ template <typename value_idx, typename value_t>
 template <typename value_idx, typename value_t>
 class CSRToDenseTest
   : public ::testing::TestWithParam<CSRToDenseInputs<value_idx, value_t>> {
+ public:
+  CSRToDenseTest()
+    : params(::testing::TestWithParam<
+             CSRToDenseInputs<value_idx, value_t>>::GetParam()),
+      stream(raft_handle.get_stream()),
+      indptr(0, stream),
+      indices(0, stream),
+      data(0, stream),
+      out_ref(0, stream),
+      out(0, stream) {
+    indptr.resize(params.indptr_h.size(), stream);
+    indices.resize(params.indices_h.size(), stream);
+    data.resize(params.data_h.size(), stream);
+    out_ref.resize(params.out_ref_h.size(), stream);
+    out.resize(params.out_ref_h.size(), stream);
+  }
+
  protected:
   void make_data() {
     std::vector<value_idx> indptr_h = params.indptr_h;
     std::vector<value_idx> indices_h = params.indices_h;
     std::vector<value_t> data_h = params.data_h;
 
-    allocate(indptr, indptr_h.size());
-    allocate(indices, indices_h.size());
-    allocate(data, data_h.size());
-
-    update_device(indptr, indptr_h.data(), indptr_h.size(), stream);
-    update_device(indices, indices_h.data(), indices_h.size(), stream);
-    update_device(data, data_h.data(), data_h.size(), stream);
+    update_device(indptr.data(), indptr_h.data(), indptr_h.size(), stream);
+    update_device(indices.data(), indices_h.data(), indices_h.size(), stream);
+    update_device(data.data(), data_h.data(), data_h.size(), stream);
 
     std::vector<value_t> out_ref_h = params.out_ref_h;
 
-    allocate(out_ref, out_ref_h.size());
-
-    update_device(out_ref, out_ref_h.data(), out_ref_h.size(), stream);
-
-    allocate(out, out_ref_h.size());
+    update_device(out_ref.data(), out_ref_h.data(), out_ref_h.size(), stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
   void SetUp() override {
-    params = ::testing::TestWithParam<
-      CSRToDenseInputs<value_idx, value_t>>::GetParam();
-    std::shared_ptr<raft::mr::device::allocator> alloc(
-      new raft::mr::device::default_allocator);
-    CUDA_CHECK(cudaStreamCreate(&stream));
     CUSPARSE_CHECK(cusparseCreate(&handle));
 
     make_data();
 
-    convert::csr_to_dense(handle, params.nrows, params.ncols, indptr, indices,
-                          data, params.nrows, out, stream, true);
+    convert::csr_to_dense(handle, params.nrows, params.ncols, indptr.data(),
+                          indices.data(), data.data(), params.nrows, out.data(),
+                          stream, true);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
     CUSPARSE_CHECK(cusparseDestroy(handle));
   }
 
-  void TearDown() override {
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-    CUDA_CHECK(cudaFree(indptr));
-    CUDA_CHECK(cudaFree(indices));
-    CUDA_CHECK(cudaFree(data));
-    CUDA_CHECK(cudaFree(out));
-    CUDA_CHECK(cudaFree(out_ref));
-  }
-
   void compare() {
-    ASSERT_TRUE(
-      devArrMatch(out, out_ref, params.out_ref_h.size(), Compare<value_t>()));
+    ASSERT_TRUE(devArrMatch(out.data(), out_ref.data(), params.out_ref_h.size(),
+                            Compare<value_t>()));
   }
 
  protected:
+  raft::handle_t raft_handle;
   cudaStream_t stream;
+
   cusparseHandle_t handle;
 
   // input data
-  value_idx *indptr, *indices;
-  value_t *data;
+  rmm::device_uvector<value_idx> indptr, indices;
+  rmm::device_uvector<value_t> data;
 
   // output data
-  value_t *out;
+  rmm::device_uvector<value_t> out;
 
   // expected output data
-  value_t *out_ref;
+  rmm::device_uvector<value_t> out_ref;
 
   CSRToDenseInputs<value_idx, value_t> params;
 };

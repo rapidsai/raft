@@ -18,7 +18,7 @@
 #include <raft/cudart_utils.h>
 #include <raft/linalg/transpose.h>
 #include <raft/cuda_utils.cuh>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng.hpp>
 #include "../test_utils.h"
 
 namespace raft {
@@ -40,40 +40,35 @@ template <typename T>
 
 template <typename T>
 class TransposeTest : public ::testing::TestWithParam<TranposeInputs<T>> {
+ public:
+  TransposeTest()
+    : params(::testing::TestWithParam<TranposeInputs<T>>::GetParam()),
+      stream(handle.get_stream()),
+      data(params.len, stream),
+      data_trans_ref(params.len, stream),
+      data_trans(params.len, stream) {}
+
  protected:
   void SetUp() override {
-    params = ::testing::TestWithParam<TranposeInputs<T>>::GetParam();
-
-    stream = handle.get_stream();
-
     int len = params.len;
-
-    raft::allocate(data, len);
     ASSERT(params.len == 9, "This test works only with len=9!");
     T data_h[] = {1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0};
-    raft::update_device(data, data_h, len, stream);
-
-    raft::allocate(data_trans_ref, len);
+    raft::update_device(data.data(), data_h, len, stream);
     T data_ref_h[] = {1.0, 4.0, 7.0, 2.0, 5.0, 8.0, 3.0, 6.0, 9.0};
-    raft::update_device(data_trans_ref, data_ref_h, len, stream);
+    raft::update_device(data_trans_ref.data(), data_ref_h, len, stream);
 
-    raft::allocate(data_trans, len);
-
-    transpose(handle, data, data_trans, params.n_row, params.n_col, stream);
-    transpose(data, params.n_row, stream);
-  }
-
-  void TearDown() override {
-    CUDA_CHECK(cudaFree(data));
-    CUDA_CHECK(cudaFree(data_trans));
-    CUDA_CHECK(cudaFree(data_trans_ref));
+    transpose(handle, data.data(), data_trans.data(), params.n_row,
+              params.n_col, stream);
+    transpose(data.data(), params.n_row, stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
  protected:
-  TranposeInputs<T> params;
-  T *data, *data_trans, *data_trans_ref;
   raft::handle_t handle;
   cudaStream_t stream;
+
+  TranposeInputs<T> params;
+  rmm::device_uvector<T> data, data_trans, data_trans_ref;
 };
 
 const std::vector<TranposeInputs<float>> inputsf2 = {
@@ -85,22 +80,22 @@ const std::vector<TranposeInputs<double>> inputsd2 = {
 typedef TransposeTest<float> TransposeTestValF;
 TEST_P(TransposeTestValF, Result) {
   ASSERT_TRUE(
-    raft::devArrMatch(data_trans_ref, data_trans, params.len,
+    raft::devArrMatch(data_trans_ref.data(), data_trans.data(), params.len,
                       raft::CompareApproxAbs<float>(params.tolerance)));
 
   ASSERT_TRUE(
-    raft::devArrMatch(data_trans_ref, data, params.len,
+    raft::devArrMatch(data_trans_ref.data(), data.data(), params.len,
                       raft::CompareApproxAbs<float>(params.tolerance)));
 }
 
 typedef TransposeTest<double> TransposeTestValD;
 TEST_P(TransposeTestValD, Result) {
   ASSERT_TRUE(
-    raft::devArrMatch(data_trans_ref, data_trans, params.len,
+    raft::devArrMatch(data_trans_ref.data(), data_trans.data(), params.len,
                       raft::CompareApproxAbs<double>(params.tolerance)));
 
   ASSERT_TRUE(
-    raft::devArrMatch(data_trans_ref, data, params.len,
+    raft::devArrMatch(data_trans_ref.data(), data.data(), params.len,
                       raft::CompareApproxAbs<double>(params.tolerance)));
 }
 

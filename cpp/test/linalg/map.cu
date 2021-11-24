@@ -18,8 +18,7 @@
 #include <raft/cudart_utils.h>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/map.cuh>
-#include <raft/mr/device/buffer.hpp>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng.hpp>
 #include "../test_utils.h"
 
 namespace raft {
@@ -47,59 +46,57 @@ template <typename InType, typename IdxType, typename OutType = InType>
 void create_ref(OutType *out_ref, const InType *in1, const InType *in2,
                 const InType *in3, InType scalar, IdxType len,
                 cudaStream_t stream) {
-  InType *tmp;
-  allocate(tmp, len);
-  eltwiseAdd(tmp, in1, in2, len, stream);
-  eltwiseAdd(out_ref, tmp, in3, len, stream);
+  rmm::device_uvector<InType> tmp(len, stream);
+  eltwiseAdd(tmp.data(), in1, in2, len, stream);
+  eltwiseAdd(out_ref, tmp.data(), in3, len, stream);
   scalarAdd(out_ref, out_ref, (OutType)scalar, len, stream);
-  CUDA_CHECK(cudaFree(tmp));
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
 template <typename InType, typename IdxType, typename OutType = InType>
 class MapTest
   : public ::testing::TestWithParam<MapInputs<InType, IdxType, OutType>> {
+ public:
+  MapTest()
+    : params(::testing::TestWithParam<
+             MapInputs<InType, IdxType, OutType>>::GetParam()),
+      stream(handle.get_stream()),
+      in1(params.len, stream),
+      in2(params.len, stream),
+      in3(params.len, stream),
+      out_ref(params.len, stream),
+      out(params.len, stream) {}
+
  protected:
   void SetUp() override {
-    params =
-      ::testing::TestWithParam<MapInputs<InType, IdxType, OutType>>::GetParam();
     raft::random::Rng r(params.seed);
 
-    cudaStream_t stream;
-    CUDA_CHECK(cudaStreamCreate(&stream));
     IdxType len = params.len;
-    allocate(in1, len);
-    allocate(in2, len);
-    allocate(in3, len);
-    allocate(out_ref, len);
-    allocate(out, len);
-    r.uniform(in1, len, InType(-1.0), InType(1.0), stream);
-    r.uniform(in2, len, InType(-1.0), InType(1.0), stream);
-    r.uniform(in3, len, InType(-1.0), InType(1.0), stream);
+    r.uniform(in1.data(), len, InType(-1.0), InType(1.0), stream);
+    r.uniform(in2.data(), len, InType(-1.0), InType(1.0), stream);
+    r.uniform(in3.data(), len, InType(-1.0), InType(1.0), stream);
 
-    create_ref(out_ref, in1, in2, in3, params.scalar, len, stream);
-    mapLaunch(out, in1, in2, in3, params.scalar, len, stream);
-    CUDA_CHECK(cudaStreamDestroy(stream));
-  }
-
-  void TearDown() override {
-    CUDA_CHECK(cudaFree(in1));
-    CUDA_CHECK(cudaFree(in2));
-    CUDA_CHECK(cudaFree(in3));
-    CUDA_CHECK(cudaFree(out_ref));
-    CUDA_CHECK(cudaFree(out));
+    create_ref(out_ref.data(), in1.data(), in2.data(), in3.data(),
+               params.scalar, len, stream);
+    mapLaunch(out.data(), in1.data(), in2.data(), in3.data(), params.scalar,
+              len, stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
  protected:
+  raft::handle_t handle;
+  cudaStream_t stream;
+
   MapInputs<InType, IdxType, OutType> params;
-  InType *in1, *in2, *in3;
-  OutType *out_ref, *out;
+  rmm::device_uvector<InType> in1, in2, in3;
+  rmm::device_uvector<OutType> out_ref, out;
 };
 
 const std::vector<MapInputs<float, int>> inputsf_i32 = {
   {0.000001f, 1024 * 1024, 1234ULL, 3.2}};
 typedef MapTest<float, int> MapTestF_i32;
 TEST_P(MapTestF_i32, Result) {
-  ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
+  ASSERT_TRUE(devArrMatch(out_ref.data(), out.data(), params.len,
                           CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_SUITE_P(MapTests, MapTestF_i32,
@@ -109,7 +106,7 @@ const std::vector<MapInputs<float, size_t>> inputsf_i64 = {
   {0.000001f, 1024 * 1024, 1234ULL, 9.4}};
 typedef MapTest<float, size_t> MapTestF_i64;
 TEST_P(MapTestF_i64, Result) {
-  ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
+  ASSERT_TRUE(devArrMatch(out_ref.data(), out.data(), params.len,
                           CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_SUITE_P(MapTests, MapTestF_i64,
@@ -119,7 +116,7 @@ const std::vector<MapInputs<float, int, double>> inputsf_i32_d = {
   {0.000001f, 1024 * 1024, 1234ULL, 5.9}};
 typedef MapTest<float, int, double> MapTestF_i32_D;
 TEST_P(MapTestF_i32_D, Result) {
-  ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
+  ASSERT_TRUE(devArrMatch(out_ref.data(), out.data(), params.len,
                           CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_SUITE_P(MapTests, MapTestF_i32_D,
@@ -129,7 +126,7 @@ const std::vector<MapInputs<double, int>> inputsd_i32 = {
   {0.00000001, 1024 * 1024, 1234ULL, 7.5}};
 typedef MapTest<double, int> MapTestD_i32;
 TEST_P(MapTestD_i32, Result) {
-  ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
+  ASSERT_TRUE(devArrMatch(out_ref.data(), out.data(), params.len,
                           CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_SUITE_P(MapTests, MapTestD_i32,
@@ -139,7 +136,7 @@ const std::vector<MapInputs<double, size_t>> inputsd_i64 = {
   {0.00000001, 1024 * 1024, 1234ULL, 5.2}};
 typedef MapTest<double, size_t> MapTestD_i64;
 TEST_P(MapTestD_i64, Result) {
-  ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
+  ASSERT_TRUE(devArrMatch(out_ref.data(), out.data(), params.len,
                           CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_SUITE_P(MapTests, MapTestD_i64,

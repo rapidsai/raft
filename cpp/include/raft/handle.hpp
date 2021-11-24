@@ -36,9 +36,8 @@
 #include <raft/linalg/cusolver_wrappers.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/comms/comms.hpp>
-#include <raft/mr/device/allocator.hpp>
-#include <raft/mr/host/allocator.hpp>
 #include <rmm/cuda_stream_pool.hpp>
+#include <rmm/exec_policy.hpp>
 #include "cudart_utils.h"
 
 namespace raft {
@@ -62,34 +61,38 @@ class handle_t {
         int cur_dev = -1;
         CUDA_CHECK(cudaGetDevice(&cur_dev));
         return cur_dev;
-      }()),
-      streams_(n_streams),
-      device_allocator_(std::make_shared<mr::device::default_allocator>()),
-      host_allocator_(std::make_shared<mr::host::default_allocator>()) {
+      }()) {
+    if (n_streams != 0) {
+      streams_ = std::make_unique<rmm::cuda_stream_pool>(n_streams);
+    }
     create_resources();
+    thrust_policy_ = std::make_unique<rmm::exec_policy>(user_stream_);
   }
 
   /**
    * @brief Construct a light handle copy from another 
    * user stream, cuda handles, comms and worker pool are not copied
    * The user_stream of the returned handle is set to the specified stream 
-   * of the other handle worker pool 
+   * of the other handle worker pool
+   * @param[in] other other handle for which to use streams
    * @param[in] stream_id stream id in `other` worker streams 
    * to be set as user stream in the constructed handle
    * @param[in] n_streams number worker streams to be created
    */
   handle_t(const handle_t& other, int stream_id,
            int n_streams = kNumDefaultWorkerStreams)
-    : dev_id_(other.get_device()), streams_(n_streams) {
+    : dev_id_(other.get_device()) {
     RAFT_EXPECTS(
       other.get_num_internal_streams() > 0,
       "ERROR: the main handle must have at least one worker stream\n");
+    if (n_streams != 0) {
+      streams_ = std::make_unique<rmm::cuda_stream_pool>(n_streams);
+    }
     prop_ = other.get_device_properties();
     device_prop_initialized_ = true;
-    device_allocator_ = other.get_device_allocator();
-    host_allocator_ = other.get_host_allocator();
     create_resources();
     set_stream(other.get_internal_stream(stream_id));
+    thrust_policy_ = std::make_unique<rmm::exec_policy>(user_stream_);
   }
 
   /** Destroys all held-up resources */
@@ -101,20 +104,6 @@ class handle_t {
   cudaStream_t get_stream() const { return user_stream_; }
   rmm::cuda_stream_view get_stream_view() const {
     return rmm::cuda_stream_view(user_stream_);
-  }
-
-  void set_device_allocator(std::shared_ptr<mr::device::allocator> allocator) {
-    device_allocator_ = allocator;
-  }
-  std::shared_ptr<mr::device::allocator> get_device_allocator() const {
-    return device_allocator_;
-  }
-
-  void set_host_allocator(std::shared_ptr<mr::host::allocator> allocator) {
-    host_allocator_ = allocator;
-  }
-  std::shared_ptr<mr::host::allocator> get_host_allocator() const {
-    return host_allocator_;
   }
 
   cublasHandle_t get_cublas_handle() const {
@@ -153,16 +142,27 @@ class handle_t {
     return cusparse_handle_;
   }
 
+  rmm::exec_policy& get_thrust_policy() const { return *thrust_policy_; }
+
   // legacy compatibility for cuML
   cudaStream_t get_internal_stream(int sid) const {
-    return streams_.get_stream(sid).value();
+    RAFT_EXPECTS(
+      streams_.get() != nullptr,
+      "ERROR: rmm::cuda_stream_pool was not initialized with a non-zero value");
+    return streams_->get_stream(sid).value();
   }
   // new accessor return rmm::cuda_stream_view
   rmm::cuda_stream_view get_internal_stream_view(int sid) const {
-    return streams_.get_stream(sid);
+    RAFT_EXPECTS(
+      streams_.get() != nullptr,
+      "ERROR: rmm::cuda_stream_pool was not initialized with a non-zero value");
+    return streams_->get_stream(sid);
   }
 
-  int get_num_internal_streams() const { return streams_.get_pool_size(); }
+  int get_num_internal_streams() const {
+    return streams_.get() != nullptr ? streams_->get_pool_size() : 0;
+  }
+
   std::vector<cudaStream_t> get_internal_streams() const {
     std::vector<cudaStream_t> int_streams_vec;
     for (int i = 0; i < get_num_internal_streams(); i++) {
@@ -227,7 +227,7 @@ class handle_t {
   std::unordered_map<std::string, std::shared_ptr<comms::comms_t>> subcomms_;
 
   const int dev_id_;
-  rmm::cuda_stream_pool streams_{0};
+  std::unique_ptr<rmm::cuda_stream_pool> streams_{nullptr};
   mutable cublasHandle_t cublas_handle_;
   mutable bool cublas_initialized_{false};
   mutable cusolverDnHandle_t cusolver_dn_handle_;
@@ -236,8 +236,7 @@ class handle_t {
   mutable bool cusolver_sp_initialized_{false};
   mutable cusparseHandle_t cusparse_handle_;
   mutable bool cusparse_initialized_{false};
-  std::shared_ptr<mr::device::allocator> device_allocator_;
-  std::shared_ptr<mr::host::allocator> host_allocator_;
+  std::unique_ptr<rmm::exec_policy> thrust_policy_{nullptr};
   cudaStream_t user_stream_{nullptr};
   cudaEvent_t event_;
   mutable cudaDeviceProp prop_;

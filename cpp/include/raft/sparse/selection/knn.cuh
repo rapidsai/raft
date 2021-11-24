@@ -20,28 +20,17 @@
 
 #include <raft/cudart_utils.h>
 #include <raft/linalg/distance_type.h>
-#include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/unary_op.cuh>
-#include <raft/matrix/matrix.cuh>
-#include <raft/mr/device/allocator.hpp>
+#include <raft/matrix/matrix.hpp>
 #include <raft/mr/device/buffer.hpp>
 
 #include <raft/sparse/op/slice.h>
 #include <raft/sparse/utils.h>
 #include <raft/sparse/coo.cuh>
 #include <raft/sparse/csr.cuh>
-#include <raft/sparse/distance/distance.cuh>
-#include <raft/sparse/selection/selection.cuh>
-
+#include <raft/sparse/distance/distance.hpp>
 #include <raft/spatial/knn/knn.hpp>
-
-#include <raft/cudart_utils.h>
-#include <raft/linalg/distance_type.h>
-#include <raft/sparse/cusparse_wrappers.h>
-#include <raft/cuda_utils.cuh>
-
-#include <cusparse_v2.h>
 
 namespace raft {
 namespace sparse {
@@ -340,8 +329,9 @@ class sparse_knn_t {
     if (metric == raft::distance::DistanceType::InnerProduct) ascending = false;
 
     // kernel to slice first (min) k cols and copy into batched merge buffer
-    select_k(batch_dists, batch_indices, batch_rows, batch_cols, out_dists,
-             out_indices, ascending, n_neighbors, handle.get_stream());
+    raft::spatial::knn::select_k(batch_dists, batch_indices, batch_rows,
+                                 batch_cols, out_dists, out_indices, ascending,
+                                 n_neighbors, handle.get_stream());
   }
 
   void compute_distances(csr_batcher_t<value_idx, value_t> &idx_batcher,
@@ -414,8 +404,6 @@ class sparse_knn_t {
    * @param[out] output_indices dense matrix for output indices (size n_query_rows * k)
    * @param[out] output_dists dense matrix for output distances (size n_query_rows * k)
    * @param[in] k the number of neighbors to query
-   * @param[in] cusparseHandle the initialized cusparseHandle instance to use
-   * @param[in] allocator device allocator instance to use
    * @param[in] handle.get_stream() CUDA handle.get_stream() to order operations with respect to
    * @param[in] batch_size_index maximum number of rows to use from index matrix per batch
    * @param[in] batch_size_query maximum number of rows to use from query matrix per batch

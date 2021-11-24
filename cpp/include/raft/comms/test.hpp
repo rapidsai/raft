@@ -18,7 +18,6 @@
 
 #include <raft/comms/comms.hpp>
 #include <raft/handle.hpp>
-#include <raft/mr/device/buffer.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
@@ -32,10 +31,11 @@ namespace raft {
 namespace comms {
 
 /**
- * A simple sanity check that NCCL is able to perform a collective operation
+ * @brief A simple sanity check that NCCL is able to perform a collective operation
  *
- * @param the raft handle to use. This is expected to already have an
+ * @param[in] handle the raft handle to use. This is expected to already have an
  *        initialized comms instance.
+*  @param[in] root the root rank id
  */
 bool test_collective_allreduce(const handle_t &handle, int root) {
   comms_t const &communicator = handle.get_comms();
@@ -44,8 +44,7 @@ bool test_collective_allreduce(const handle_t &handle, int root) {
 
   cudaStream_t stream = handle.get_stream();
 
-  raft::mr::device::buffer<int> temp_d(handle.get_device_allocator(), stream);
-  temp_d.resize(1, stream);
+  rmm::device_scalar<int> temp_d(stream);
   CUDA_CHECK(
     cudaMemcpyAsync(temp_d.data(), &send, 1, cudaMemcpyHostToDevice, stream));
 
@@ -64,10 +63,11 @@ bool test_collective_allreduce(const handle_t &handle, int root) {
 }
 
 /**
- * A simple sanity check that NCCL is able to perform a collective operation
+ * @brief A simple sanity check that NCCL is able to perform a collective operation
  *
- * @param the raft handle to use. This is expected to already have an
+ * @param[in] handle the raft handle to use. This is expected to already have an
  *        initialized comms instance.
+*  @param[in] root the root rank id
  */
 bool test_collective_broadcast(const handle_t &handle, int root) {
   comms_t const &communicator = handle.get_comms();
@@ -76,8 +76,7 @@ bool test_collective_broadcast(const handle_t &handle, int root) {
 
   cudaStream_t stream = handle.get_stream();
 
-  raft::mr::device::buffer<int> temp_d(handle.get_device_allocator(), stream);
-  temp_d.resize(1, stream);
+  rmm::device_scalar<int> temp_d(stream);
 
   if (communicator.get_rank() == root)
     CUDA_CHECK(cudaMemcpyAsync(temp_d.data(), &send, sizeof(int),
@@ -97,6 +96,13 @@ bool test_collective_broadcast(const handle_t &handle, int root) {
   return temp_h == root;
 }
 
+/**
+ * @brief A simple sanity check that NCCL is able to perform a collective reduce
+ *
+ * @param[in] handle the raft handle to use. This is expected to already have an
+ *        initialized comms instance.
+*  @param[in] root the root rank id
+ */
 bool test_collective_reduce(const handle_t &handle, int root) {
   comms_t const &communicator = handle.get_comms();
 
@@ -104,8 +110,7 @@ bool test_collective_reduce(const handle_t &handle, int root) {
 
   cudaStream_t stream = handle.get_stream();
 
-  raft::mr::device::buffer<int> temp_d(handle.get_device_allocator(), stream);
-  temp_d.resize(1, stream);
+  rmm::device_scalar<int> temp_d(stream);
 
   CUDA_CHECK(cudaMemcpyAsync(temp_d.data(), &send, sizeof(int),
                              cudaMemcpyHostToDevice, stream));
@@ -127,6 +132,13 @@ bool test_collective_reduce(const handle_t &handle, int root) {
     return true;
 }
 
+/**
+ * @brief A simple sanity check that NCCL is able to perform a collective allgather
+ *
+ * @param[in] handle the raft handle to use. This is expected to already have an
+ *        initialized comms instance.
+*  @param[in] root the root rank id
+ */
 bool test_collective_allgather(const handle_t &handle, int root) {
   comms_t const &communicator = handle.get_comms();
 
@@ -134,11 +146,8 @@ bool test_collective_allgather(const handle_t &handle, int root) {
 
   cudaStream_t stream = handle.get_stream();
 
-  raft::mr::device::buffer<int> temp_d(handle.get_device_allocator(), stream);
-  temp_d.resize(1, stream);
-
-  raft::mr::device::buffer<int> recv_d(handle.get_device_allocator(), stream,
-                                       communicator.get_size());
+  rmm::device_scalar<int> temp_d(stream);
+  rmm::device_uvector<int> recv_d(communicator.get_size(), stream);
 
   CUDA_CHECK(cudaMemcpyAsync(temp_d.data(), &send, sizeof(int),
                              cudaMemcpyHostToDevice, stream));
@@ -162,6 +171,13 @@ bool test_collective_allgather(const handle_t &handle, int root) {
   return true;
 }
 
+/**
+ * @brief A simple sanity check that NCCL is able to perform a collective gather
+ *
+ * @param[in] handle the raft handle to use. This is expected to already have an
+ *        initialized comms instance.
+*  @param[in] root the root rank id
+ */
 bool test_collective_gather(const handle_t &handle, int root) {
   comms_t const &communicator = handle.get_comms();
 
@@ -169,12 +185,9 @@ bool test_collective_gather(const handle_t &handle, int root) {
 
   cudaStream_t stream = handle.get_stream();
 
-  raft::mr::device::buffer<int> temp_d(handle.get_device_allocator(), stream);
-  temp_d.resize(1, stream);
-
-  raft::mr::device::buffer<int> recv_d(
-    handle.get_device_allocator(), stream,
-    communicator.get_rank() == root ? communicator.get_size() : 0);
+  rmm::device_scalar<int> temp_d(stream);
+  rmm::device_uvector<int> recv_d(
+    communicator.get_rank() == root ? communicator.get_size() : 0, stream);
 
   CUDA_CHECK(cudaMemcpyAsync(temp_d.data(), &send, sizeof(int),
                              cudaMemcpyHostToDevice, stream));
@@ -196,6 +209,13 @@ bool test_collective_gather(const handle_t &handle, int root) {
   return true;
 }
 
+/**
+ * @brief A simple sanity check that NCCL is able to perform a collective gatherv
+ *
+ * @param[in] handle the raft handle to use. This is expected to already have an
+ *        initialized comms instance.
+*  @param[in] root the root rank id
+ */
 bool test_collective_gatherv(const handle_t &handle, int root) {
   comms_t const &communicator = handle.get_comms();
 
@@ -211,12 +231,9 @@ bool test_collective_gatherv(const handle_t &handle, int root) {
 
   cudaStream_t stream = handle.get_stream();
 
-  raft::mr::device::buffer<int> temp_d(handle.get_device_allocator(), stream);
-  temp_d.resize(sends.size(), stream);
-
-  raft::mr::device::buffer<int> recv_d(
-    handle.get_device_allocator(), stream,
-    communicator.get_rank() == root ? displacements.back() : 0);
+  rmm::device_uvector<int> temp_d(sends.size(), stream);
+  rmm::device_uvector<int> recv_d(
+    communicator.get_rank() == root ? displacements.back() : 0, stream);
 
   CUDA_CHECK(cudaMemcpyAsync(temp_d.data(), sends.data(),
                              sends.size() * sizeof(int), cudaMemcpyHostToDevice,
@@ -249,6 +266,13 @@ bool test_collective_gatherv(const handle_t &handle, int root) {
   return true;
 }
 
+/**
+ * @brief A simple sanity check that NCCL is able to perform a collective reducescatter
+ *
+ * @param[in] handle the raft handle to use. This is expected to already have an
+ *        initialized comms instance.
+*  @param[in] root the root rank id
+ */
 bool test_collective_reducescatter(const handle_t &handle, int root) {
   comms_t const &communicator = handle.get_comms();
 
@@ -256,10 +280,8 @@ bool test_collective_reducescatter(const handle_t &handle, int root) {
 
   cudaStream_t stream = handle.get_stream();
 
-  raft::mr::device::buffer<int> temp_d(handle.get_device_allocator(), stream,
-                                       sends.size());
-  raft::mr::device::buffer<int> recv_d(handle.get_device_allocator(), stream,
-                                       1);
+  rmm::device_uvector<int> temp_d(sends.size(), stream);
+  rmm::device_scalar<int> recv_d(stream);
 
   CUDA_CHECK(cudaMemcpyAsync(temp_d.data(), sends.data(),
                              sends.size() * sizeof(int), cudaMemcpyHostToDevice,
@@ -283,9 +305,9 @@ bool test_collective_reducescatter(const handle_t &handle, int root) {
 /**
  * A simple sanity check that UCX is able to send messages between all ranks
  *
- * @param the raft handle to use. This is expected to already have an
+ * @param[in] h the raft handle to use. This is expected to already have an
  *        initialized comms instance.
- * @param number of iterations of all-to-all messaging to perform
+ * @param[in] numTrials number of iterations of all-to-all messaging to perform
  */
 bool test_pointToPoint_simple_send_recv(const handle_t &h, int numTrials) {
   comms_t const &communicator = h.get_comms();
@@ -348,9 +370,9 @@ bool test_pointToPoint_simple_send_recv(const handle_t &h, int numTrials) {
 /**
  * A simple sanity check that device is able to send OR receive.
  *
- * @param the raft handle to use. This is expected to already have an
+ * @param h the raft handle to use. This is expected to already have an
  *        initialized comms instance.
- * @param number of iterations of send or receive messaging to perform
+ * @param numTrials number of iterations of send or receive messaging to perform
  */
 bool test_pointToPoint_device_send_or_recv(const handle_t &h, int numTrials) {
   comms_t const &communicator = h.get_comms();
@@ -393,9 +415,9 @@ bool test_pointToPoint_device_send_or_recv(const handle_t &h, int numTrials) {
 /**
  * A simple sanity check that device is able to send and receive at the same time.
  *
- * @param the raft handle to use. This is expected to already have an
+ * @param h the raft handle to use. This is expected to already have an
  *        initialized comms instance.
- * @param number of iterations of send or receive messaging to perform
+ * @param numTrials number of iterations of send or receive messaging to perform
  */
 bool test_pointToPoint_device_sendrecv(const handle_t &h, int numTrials) {
   comms_t const &communicator = h.get_comms();
@@ -440,9 +462,9 @@ bool test_pointToPoint_device_sendrecv(const handle_t &h, int numTrials) {
 /**
  * A simple sanity check that device is able to perform multiple concurrent sends and receives.
  *
- * @param the raft handle to use. This is expected to already have an
+ * @param h the raft handle to use. This is expected to already have an
  *        initialized comms instance.
- * @param number of iterations of send or receive messaging to perform
+ * @param numTrials number of iterations of send or receive messaging to perform
  */
 bool test_pointToPoint_device_multicast_sendrecv(const handle_t &h,
                                                  int numTrials) {
@@ -498,7 +520,7 @@ bool test_pointToPoint_device_multicast_sendrecv(const handle_t &h,
 /**
  * A simple test that the comms can be split into 2 separate subcommunicators
  *
- * @param the raft handle to use. This is expected to already have an
+ * @param h the raft handle to use. This is expected to already have an
  *        initialized comms instance.
  * @param n_colors number of different colors to test
  */

@@ -22,11 +22,11 @@
 #include <raft/linalg/distance_type.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/linalg/unary_op.cuh>
-#include <raft/mr/device/allocator.hpp>
+#include <rmm/device_uvector.hpp>
 
 #include <raft/sparse/convert/coo.cuh>
-#include <raft/sparse/distance/coo_spmv.cuh>
-#include <raft/sparse/distance/operators.cuh>
+#include <raft/sparse/distance/detail/coo_spmv.cuh>
+#include <raft/sparse/distance/detail/operators.cuh>
 
 #include "../test_utils.h"
 
@@ -54,15 +54,16 @@ struct InputConfiguration {
   float metric_arg = 0.0;
 };
 
-using dense_smem_strategy_t = dense_smem_strategy<int, float, 1024>;
-using hash_strategy_t = hash_strategy<int, float, 1024>;
+using dense_smem_strategy_t = detail::dense_smem_strategy<int, float, 1024>;
+using hash_strategy_t = detail::hash_strategy<int, float, 1024>;
 
 template <typename value_idx, typename value_t, typename strategy_t>
 struct SparseDistanceCOOSPMVInputs {
   InputConfiguration<value_idx, value_t> input_configuration;
 
   float capacity_threshold = 0.5;
-  int map_size = hash_strategy<value_idx, value_t, 1024>::get_map_size();
+  int map_size =
+    detail::hash_strategy<value_idx, value_t, 1024>::get_map_size();
 };
 
 template <typename value_idx, typename value_t, typename strategy_t>
@@ -77,7 +78,13 @@ class SparseDistanceCOOSPMVTest
   : public ::testing::TestWithParam<
       SparseDistanceCOOSPMVInputs<value_idx, value_t, strategy_t>> {
  public:
-  SparseDistanceCOOSPMVTest() : dist_config(handle) {}
+  SparseDistanceCOOSPMVTest()
+    : dist_config(handle),
+      indptr(0, handle.get_stream()),
+      indices(0, handle.get_stream()),
+      data(0, handle.get_stream()),
+      out_dists(0, handle.get_stream()),
+      out_dists_ref(0, handle.get_stream()) {}
 
   template <typename U,
             std::enable_if_t<std::is_same_v<U, hash_strategy_t>> * = nullptr>
@@ -94,18 +101,17 @@ class SparseDistanceCOOSPMVTest
   template <typename reduce_f, typename accum_f, typename write_f>
   void compute_dist(reduce_f reduce_func, accum_f accum_func,
                     write_f write_func, bool rev = true) {
-    raft::mr::device::buffer<value_idx> coo_rows(
-      dist_config.handle.get_device_allocator(),
-      dist_config.handle.get_stream(),
-      max(dist_config.b_nnz, dist_config.a_nnz));
+    rmm::device_uvector<value_idx> coo_rows(
+      max(dist_config.b_nnz, dist_config.a_nnz),
+      dist_config.handle.get_stream());
 
     raft::sparse::convert::csr_to_coo(dist_config.b_indptr, dist_config.b_nrows,
                                       coo_rows.data(), dist_config.b_nnz,
                                       dist_config.handle.get_stream());
 
     strategy_t selected_strategy = make_strategy<strategy_t>();
-    balanced_coo_pairwise_generalized_spmv<value_idx, value_t>(
-      out_dists, dist_config, coo_rows.data(), reduce_func, accum_func,
+    detail::balanced_coo_pairwise_generalized_spmv<value_idx, value_t>(
+      out_dists.data(), dist_config, coo_rows.data(), reduce_func, accum_func,
       write_func, selected_strategy);
 
     if (rev) {
@@ -113,8 +119,8 @@ class SparseDistanceCOOSPMVTest
         dist_config.a_indptr, dist_config.a_nrows, coo_rows.data(),
         dist_config.a_nnz, dist_config.handle.get_stream());
 
-      balanced_coo_pairwise_generalized_spmv_rev<value_idx, value_t>(
-        out_dists, dist_config, coo_rows.data(), reduce_func, accum_func,
+      detail::balanced_coo_pairwise_generalized_spmv_rev<value_idx, value_t>(
+        out_dists.data(), dist_config, coo_rows.data(), reduce_func, accum_func,
         write_func, selected_strategy);
     }
   }
@@ -122,30 +128,32 @@ class SparseDistanceCOOSPMVTest
   void run_spmv() {
     switch (params.input_configuration.metric) {
       case raft::distance::DistanceType::InnerProduct:
-        compute_dist(Product(), Sum(), AtomicAdd(), true);
+        compute_dist(detail::Product(), detail::Sum(), detail::AtomicAdd(),
+                     true);
         break;
       case raft::distance::DistanceType::L2Unexpanded:
-        compute_dist(SqDiff(), Sum(), AtomicAdd());
+        compute_dist(detail::SqDiff(), detail::Sum(), detail::AtomicAdd());
         break;
       case raft::distance::DistanceType::Canberra:
         compute_dist(
           [] __device__(value_t a, value_t b) {
             return fabsf(a - b) / (fabsf(a) + fabsf(b));
           },
-          Sum(), AtomicAdd());
+          detail::Sum(), detail::AtomicAdd());
         break;
       case raft::distance::DistanceType::L1:
-        compute_dist(AbsDiff(), Sum(), AtomicAdd());
+        compute_dist(detail::AbsDiff(), detail::Sum(), detail::AtomicAdd());
         break;
       case raft::distance::DistanceType::Linf:
-        compute_dist(AbsDiff(), Max(), AtomicMax());
+        compute_dist(detail::AbsDiff(), detail::Max(), detail::AtomicMax());
         break;
       case raft::distance::DistanceType::LpUnexpanded: {
-        compute_dist(PDiff(params.input_configuration.metric_arg), Sum(),
-                     AtomicAdd());
+        compute_dist(detail::PDiff(params.input_configuration.metric_arg),
+                     detail::Sum(), detail::AtomicAdd());
         float p = 1.0f / params.input_configuration.metric_arg;
         raft::linalg::unaryOp<value_t>(
-          out_dists, out_dists, dist_config.a_nrows * dist_config.b_nrows,
+          out_dists.data(), out_dists.data(),
+          dist_config.a_nrows * dist_config.b_nrows,
           [=] __device__(value_t input) { return powf(input, p); },
           dist_config.handle.get_stream());
 
@@ -161,23 +169,22 @@ class SparseDistanceCOOSPMVTest
     std::vector<value_idx> indices_h = params.input_configuration.indices_h;
     std::vector<value_t> data_h = params.input_configuration.data_h;
 
-    allocate(indptr, indptr_h.size());
-    allocate(indices, indices_h.size());
-    allocate(data, data_h.size());
+    auto stream = handle.get_stream();
+    indptr.resize(indptr_h.size(), stream);
+    indices.resize(indices_h.size(), stream);
+    data.resize(data_h.size(), stream);
 
-    update_device(indptr, indptr_h.data(), indptr_h.size(),
-                  handle.get_stream());
-    update_device(indices, indices_h.data(), indices_h.size(),
-                  handle.get_stream());
-    update_device(data, data_h.data(), data_h.size(), handle.get_stream());
+    update_device(indptr.data(), indptr_h.data(), indptr_h.size(), stream);
+    update_device(indices.data(), indices_h.data(), indices_h.size(), stream);
+    update_device(data.data(), data_h.data(), data_h.size(), stream);
 
     std::vector<value_t> out_dists_ref_h =
       params.input_configuration.out_dists_ref_h;
 
-    allocate(out_dists_ref, (indptr_h.size() - 1) * (indptr_h.size() - 1));
+    out_dists_ref.resize((indptr_h.size() - 1) * (indptr_h.size() - 1), stream);
 
-    update_device(out_dists_ref, out_dists_ref_h.data(), out_dists_ref_h.size(),
-                  handle.get_stream());
+    update_device(out_dists_ref.data(), out_dists_ref_h.data(),
+                  out_dists_ref_h.size(), stream);
   }
 
   void SetUp() override {
@@ -189,36 +196,27 @@ class SparseDistanceCOOSPMVTest
     dist_config.b_nrows = params.input_configuration.indptr_h.size() - 1;
     dist_config.b_ncols = params.input_configuration.n_cols;
     dist_config.b_nnz = params.input_configuration.indices_h.size();
-    dist_config.b_indptr = indptr;
-    dist_config.b_indices = indices;
-    dist_config.b_data = data;
+    dist_config.b_indptr = indptr.data();
+    dist_config.b_indices = indices.data();
+    dist_config.b_data = data.data();
     dist_config.a_nrows = params.input_configuration.indptr_h.size() - 1;
     dist_config.a_ncols = params.input_configuration.n_cols;
     dist_config.a_nnz = params.input_configuration.indices_h.size();
-    dist_config.a_indptr = indptr;
-    dist_config.a_indices = indices;
-    dist_config.a_data = data;
+    dist_config.a_indptr = indptr.data();
+    dist_config.a_indices = indices.data();
+    dist_config.a_data = data.data();
 
     int out_size = dist_config.a_nrows * dist_config.b_nrows;
 
-    allocate(out_dists, out_size);
+    out_dists.resize(out_size, handle.get_stream());
 
     run_spmv();
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
   }
 
-  void TearDown() override {
-    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
-    CUDA_CHECK(cudaFree(indptr));
-    CUDA_CHECK(cudaFree(indices));
-    CUDA_CHECK(cudaFree(data));
-    CUDA_CHECK(cudaFree(out_dists));
-    CUDA_CHECK(cudaFree(out_dists_ref));
-  }
-
   void compare() {
-    ASSERT_TRUE(devArrMatch(out_dists_ref, out_dists,
+    ASSERT_TRUE(devArrMatch(out_dists_ref.data(), out_dists.data(),
                             params.input_configuration.out_dists_ref_h.size(),
                             CompareApprox<value_t>(1e-3)));
   }
@@ -227,11 +225,11 @@ class SparseDistanceCOOSPMVTest
   raft::handle_t handle;
 
   // input data
-  value_idx *indptr, *indices;
-  value_t *data;
+  rmm::device_uvector<value_idx> indptr, indices;
+  rmm::device_uvector<value_t> data;
 
   // output data
-  value_t *out_dists, *out_dists_ref;
+  rmm::device_uvector<value_t> out_dists, out_dists_ref;
 
   raft::sparse::distance::distances_config_t<value_idx, value_t> dist_config;
 

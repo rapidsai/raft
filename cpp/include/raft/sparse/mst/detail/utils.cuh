@@ -18,7 +18,7 @@
 #pragma once
 
 #include <iostream>
-#include <rmm/device_vector.hpp>
+#include <rmm/device_uvector.hpp>
 #define MST_TIME
 
 namespace raft {
@@ -32,7 +32,7 @@ __device__ idx_t get_1D_idx() {
 
 // somewhat smart vector print
 template <typename T>
-void printv(rmm::device_vector<T>& vec, const std::string& name = "",
+void printv(rmm::device_uvector<T>& vec, const std::string& name = "",
             const size_t displ = 5) {
 #ifdef MST_TIME
   std::cout.precision(15);

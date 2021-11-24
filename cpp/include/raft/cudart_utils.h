@@ -17,6 +17,8 @@
 #pragma once
 
 #include <raft/error.hpp>
+#include <rmm/cuda_stream_view.hpp>
+#include <rmm/mr/device/per_device_resource.hpp>
 
 #include <cuda_runtime.h>
 
@@ -25,6 +27,8 @@
 #include <cstdio>
 #include <iomanip>
 #include <iostream>
+#include <mutex>
+#include <unordered_map>
 
 ///@todo: enable once logging has been enabled in raft
 //#include "logger.hpp"
@@ -49,6 +53,7 @@ struct cuda_error : public raft::exception {
  * exception detailing the CUDA error that occurred
  *
  */
+#ifndef CUDA_TRY
 #define CUDA_TRY(call)                                                        \
   do {                                                                        \
     cudaError_t const status = call;                                          \
@@ -61,7 +66,7 @@ struct cuda_error : public raft::exception {
       throw raft::cuda_error(msg);                                            \
     }                                                                         \
   } while (0)
-
+#endif
 /**
  * @brief Debug macro to check for CUDA errors
  *
@@ -82,13 +87,16 @@ struct cuda_error : public raft::exception {
 #endif
 
 /** FIXME: temporary alias for cuML compatibility */
+#ifndef CUDA_CHECK
 #define CUDA_CHECK(call) CUDA_TRY(call)
+#endif
 
 ///@todo: enable this only after we have added logging support in raft
 // /**
 //  * @brief check for cuda runtime API errors but log error instead of raising
 //  *        exception.
 //  */
+#ifndef CUDA_CHECK_NO_THROW
 #define CUDA_CHECK_NO_THROW(call)                                         \
   do {                                                                    \
     cudaError_t const status = call;                                      \
@@ -97,6 +105,15 @@ struct cuda_error : public raft::exception {
              __FILE__, __LINE__, cudaGetErrorString(status));             \
     }                                                                     \
   } while (0)
+#endif
+
+/**
+ * Alias to raft scope for now.
+ * TODO: Rename original implementations in 22.04 to fix
+ * https://github.com/rapidsai/raft/issues/128
+ */
+#define RAFT_CUDA_CHECK(call) CUDA_CHECK(call)
+#define RAFT_CUDA_CHECK_NO_THROW(call) CUDA_CHECK_NO_THROW(call)
 
 namespace raft {
 
@@ -117,13 +134,13 @@ class grid_1d_thread_t {
   int const num_blocks{0};
 
   /**
-   * @param overall_num_elements The number of elements the kernel needs to handle/process
-   * @param num_threads_per_block The grid block size, determined according to the kernel's
-   * specific features (amount of shared memory necessary, SM functional units use pattern etc.);
-   * this can't be determined generically/automatically (as opposed to the number of blocks)
-   * @param elements_per_thread Typically, a single kernel thread processes more than a single
-   * element; this affects the number of threads the grid must contain
-   */
+         * @param overall_num_elements The number of elements the kernel needs to handle/process
+         * @param num_threads_per_block The grid block size, determined according to the kernel's
+         * specific features (amount of shared memory necessary, SM functional units use pattern etc.);
+         * this can't be determined generically/automatically (as opposed to the number of blocks)
+         * @param elements_per_thread Typically, a single kernel thread processes more than a single
+         * element; this affects the number of threads the grid must contain
+         */
   grid_1d_thread_t(size_t overall_num_elements, size_t num_threads_per_block,
                    size_t max_num_blocks_1d, size_t elements_per_thread = 1)
     : block_size(num_threads_per_block),
@@ -148,11 +165,11 @@ class grid_1d_warp_t {
   int const num_blocks{0};
 
   /**
-   * @param overall_num_elements The number of elements the kernel needs to handle/process
-   * @param num_threads_per_block The grid block size, determined according to the kernel's
-   * specific features (amount of shared memory necessary, SM functional units use pattern etc.);
-   * this can't be determined generically/automatically (as opposed to the number of blocks)
-   */
+         * @param overall_num_elements The number of elements the kernel needs to handle/process
+         * @param num_threads_per_block The grid block size, determined according to the kernel's
+         * specific features (amount of shared memory necessary, SM functional units use pattern etc.);
+         * this can't be determined generically/automatically (as opposed to the number of blocks)
+         */
   grid_1d_warp_t(size_t overall_num_elements, size_t num_threads_per_block,
                  size_t max_num_blocks_1d)
     : block_size(num_threads_per_block),
@@ -176,11 +193,11 @@ class grid_1d_block_t {
   int const num_blocks{0};
 
   /**
-   * @param overall_num_elements The number of elements the kernel needs to handle/process
-   * @param num_threads_per_block The grid block size, determined according to the kernel's
-   * specific features (amount of shared memory necessary, SM functional units use pattern etc.);
-   * this can't be determined generically/automatically (as opposed to the number of blocks)
-   */
+         * @param overall_num_elements The number of elements the kernel needs to handle/process
+         * @param num_threads_per_block The grid block size, determined according to the kernel's
+         * specific features (amount of shared memory necessary, SM functional units use pattern etc.);
+         * this can't be determined generically/automatically (as opposed to the number of blocks)
+         */
   grid_1d_block_t(size_t overall_num_elements, size_t num_threads_per_block,
                   size_t max_num_blocks_1d)
     : block_size(num_threads_per_block),
@@ -200,7 +217,8 @@ class grid_1d_block_t {
  * @param stream cuda stream
  */
 template <typename Type>
-void copy(Type* dst, const Type* src, size_t len, cudaStream_t stream) {
+void copy(Type* dst, const Type* src, size_t len,
+          rmm::cuda_stream_view stream) {
   CUDA_CHECK(
     cudaMemcpyAsync(dst, src, len * sizeof(Type), cudaMemcpyDefault, stream));
 }
@@ -214,20 +232,20 @@ void copy(Type* dst, const Type* src, size_t len, cudaStream_t stream) {
 /** performs a host to device copy */
 template <typename Type>
 void update_device(Type* d_ptr, const Type* h_ptr, size_t len,
-                   cudaStream_t stream) {
+                   rmm::cuda_stream_view stream) {
   copy(d_ptr, h_ptr, len, stream);
 }
 
 /** performs a device to host copy */
 template <typename Type>
 void update_host(Type* h_ptr, const Type* d_ptr, size_t len,
-                 cudaStream_t stream) {
+                 rmm::cuda_stream_view stream) {
   copy(h_ptr, d_ptr, len, stream);
 }
 
 template <typename Type>
 void copy_async(Type* d_ptr1, const Type* d_ptr2, size_t len,
-                cudaStream_t stream) {
+                rmm::cuda_stream_view stream) {
   CUDA_CHECK(cudaMemcpyAsync(d_ptr1, d_ptr2, len * sizeof(Type),
                              cudaMemcpyDeviceToDevice, stream));
 }
@@ -259,11 +277,36 @@ void print_device_vector(const char* variable_name, const T* devMem,
 }
 /** @} */
 
-/** cuda malloc */
+static std::mutex mutex_;
+static std::unordered_map<void*, size_t> allocations;
+
 template <typename Type>
-void allocate(Type*& ptr, size_t len, bool setZero = false) {
-  CUDA_CHECK(cudaMalloc((void**)&ptr, sizeof(Type) * len));
-  if (setZero) CUDA_CHECK(cudaMemset(ptr, 0, sizeof(Type) * len));
+void allocate(Type*& ptr, size_t len, rmm::cuda_stream_view stream,
+              bool setZero = false) {
+  size_t size = len * sizeof(Type);
+  ptr = (Type*)rmm::mr::get_current_device_resource()->allocate(size, stream);
+  if (setZero) CUDA_CHECK(cudaMemsetAsync((void*)ptr, 0, size, stream));
+
+  std::lock_guard<std::mutex> _(mutex_);
+  allocations[ptr] = size;
+}
+
+template <typename Type>
+void deallocate(Type*& ptr, rmm::cuda_stream_view stream) {
+  std::lock_guard<std::mutex> _(mutex_);
+  size_t size = allocations[ptr];
+  allocations.erase(ptr);
+  rmm::mr::get_current_device_resource()->deallocate((void*)ptr, size, stream);
+}
+
+inline void deallocate_all(rmm::cuda_stream_view stream) {
+  std::lock_guard<std::mutex> _(mutex_);
+  for (auto& alloc : allocations) {
+    void* ptr = alloc.first;
+    size_t size = alloc.second;
+    rmm::mr::get_current_device_resource()->deallocate(ptr, size, stream);
+  }
+  allocations.clear();
 }
 
 /** helper method to get max usable shared mem per block parameter */

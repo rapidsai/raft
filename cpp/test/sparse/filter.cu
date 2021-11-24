@@ -16,11 +16,10 @@
 
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng.hpp>
 #include "../test_utils.h"
 
 #include <raft/sparse/op/sort.h>
-#include <raft/mr/device/allocator.hpp>
 #include <raft/sparse/coo.cuh>
 #include <raft/sparse/op/filter.cuh>
 
@@ -53,13 +52,11 @@ typedef SparseFilterTests<float> COORemoveZeros;
 TEST_P(COORemoveZeros, Result) {
   cudaStream_t stream;
   cudaStreamCreate(&stream);
-  std::shared_ptr<raft::mr::device::allocator> alloc(
-    new raft::mr::device::default_allocator);
   params = ::testing::TestWithParam<SparseFilterInputs<float>>::GetParam();
 
   float *in_h_vals = new float[params.nnz];
 
-  COO<float> in(alloc, stream, params.nnz, 5, 5);
+  COO<float> in(stream, params.nnz, 5, 5);
 
   raft::random::Rng r(params.seed);
   r.uniform(in.vals(), params.nnz, float(-1.0), float(1.0), stream);
@@ -82,7 +79,7 @@ TEST_P(COORemoveZeros, Result) {
   raft::update_device(in.cols(), in_h_cols, params.nnz, stream);
   raft::update_device(in.vals(), in_h_vals, params.nnz, stream);
 
-  op::coo_sort<float>(&in, alloc, stream);
+  op::coo_sort<float>(&in, stream);
 
   int out_rows_ref_h[2] = {0, 3};
   int out_cols_ref_h[2] = {4, 1};
@@ -91,14 +88,14 @@ TEST_P(COORemoveZeros, Result) {
   out_vals_ref_h[0] = in_h_vals[4];
   out_vals_ref_h[1] = in_h_vals[1];
 
-  COO<float> out_ref(alloc, stream, 2, 5, 5);
-  COO<float> out(alloc, stream);
+  COO<float> out_ref(stream, 2, 5, 5);
+  COO<float> out(stream);
 
   raft::update_device(out_ref.rows(), *&out_rows_ref_h, 2, stream);
   raft::update_device(out_ref.cols(), *&out_cols_ref_h, 2, stream);
   raft::update_device(out_ref.vals(), out_vals_ref_h, 2, stream);
 
-  op::coo_remove_zeros<32, float>(&in, &out, alloc, stream);
+  op::coo_remove_zeros<32, float>(&in, &out, stream);
 
   ASSERT_TRUE(raft::devArrMatch<int>(out_ref.rows(), out.rows(), 2,
                                      raft::Compare<int>()));

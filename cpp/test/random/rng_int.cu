@@ -18,11 +18,13 @@
 #include <raft/cudart_utils.h>
 #include <cub/cub.cuh>
 #include <raft/cuda_utils.cuh>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng.hpp>
 #include "../test_utils.h"
 
 namespace raft {
 namespace random {
+
+using namespace raft::random::detail;
 
 enum RandomType { RNG_Uniform };
 
@@ -65,34 +67,34 @@ template <typename T>
 
 template <typename T>
 class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
+ public:
+  RngTest()
+    : params(::testing::TestWithParam<RngInputs<T>>::GetParam()),
+      stream(handle.get_stream()),
+      data(0, stream),
+      stats(2, stream) {
+    data.resize(params.len, stream);
+    CUDA_CHECK(cudaMemsetAsync(stats.data(), 0, 2 * sizeof(float), stream));
+  }
+
  protected:
   void SetUp() override {
-    params = ::testing::TestWithParam<RngInputs<T>>::GetParam();
     Rng r(params.seed, params.gtype);
 
-    cudaStream_t stream;
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    allocate(data, params.len);
-    allocate(stats, 2, true);
     switch (params.type) {
       case RNG_Uniform:
-        r.uniformInt(data, params.len, params.start, params.end, stream);
+        r.uniformInt(data.data(), params.len, params.start, params.end, stream);
         break;
     };
     static const int threads = 128;
     meanKernel<T, threads>
-      <<<raft::ceildiv(params.len, threads), threads, 0, stream>>>(stats, data,
-                                                                   params.len);
-    update_host<float>(h_stats, stats, 2, stream);
+      <<<raft::ceildiv(params.len, threads), threads, 0, stream>>>(
+        stats.data(), data.data(), params.len);
+    update_host<float>(h_stats, stats.data(), 2, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     h_stats[0] /= params.len;
     h_stats[1] = (h_stats[1] / params.len) - (h_stats[0] * h_stats[0]);
-    CUDA_CHECK(cudaStreamDestroy(stream));
-  }
-
-  void TearDown() override {
-    CUDA_CHECK(cudaFree(data));
-    CUDA_CHECK(cudaFree(stats));
+    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
   void getExpectedMeanVar(float meanvar[2]) {
@@ -106,9 +108,12 @@ class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
   }
 
  protected:
+  raft::handle_t handle;
+  cudaStream_t stream;
+
   RngInputs<T> params;
-  T *data;
-  float *stats;
+  rmm::device_uvector<T> data;
+  rmm::device_uvector<float> stats;
   float h_stats[2];  // mean, var
 };
 

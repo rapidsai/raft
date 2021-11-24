@@ -21,8 +21,8 @@
 #include <raft/cudart_utils.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
-#include <raft/mr/device/allocator.hpp>
-#include <raft/mr/device/buffer.hpp>
+#include <rmm/device_uvector.hpp>
+#include <rmm/exec_policy.hpp>
 
 #include <thrust/device_ptr.h>
 #include <thrust/scan.h>
@@ -84,11 +84,9 @@ __global__ void coo_remove_scalar_kernel(const int *rows, const int *cols,
 template <int TPB_X, typename T>
 void coo_remove_scalar(const int *rows, const int *cols, const T *vals, int nnz,
                        int *crows, int *ccols, T *cvals, int *cnnz,
-                       int *cur_cnnz, T scalar, int n,
-                       std::shared_ptr<raft::mr::device::allocator> d_alloc,
-                       cudaStream_t stream) {
-  raft::mr::device::buffer<int> ex_scan(d_alloc, stream, n);
-  raft::mr::device::buffer<int> cur_ex_scan(d_alloc, stream, n);
+                       int *cur_cnnz, T scalar, int n, cudaStream_t stream) {
+  rmm::device_uvector<int> ex_scan(n, stream);
+  rmm::device_uvector<int> cur_ex_scan(n, stream);
 
   CUDA_CHECK(cudaMemsetAsync(ex_scan.data(), 0, n * sizeof(int), stream));
   CUDA_CHECK(cudaMemsetAsync(cur_ex_scan.data(), 0, n * sizeof(int), stream));
@@ -96,14 +94,14 @@ void coo_remove_scalar(const int *rows, const int *cols, const T *vals, int nnz,
   thrust::device_ptr<int> dev_cnnz = thrust::device_pointer_cast(cnnz);
   thrust::device_ptr<int> dev_ex_scan =
     thrust::device_pointer_cast(ex_scan.data());
-  thrust::exclusive_scan(thrust::cuda::par.on(stream), dev_cnnz, dev_cnnz + n,
+  thrust::exclusive_scan(rmm::exec_policy(stream), dev_cnnz, dev_cnnz + n,
                          dev_ex_scan);
   CUDA_CHECK(cudaPeekAtLastError());
 
   thrust::device_ptr<int> dev_cur_cnnz = thrust::device_pointer_cast(cur_cnnz);
   thrust::device_ptr<int> dev_cur_ex_scan =
     thrust::device_pointer_cast(cur_ex_scan.data());
-  thrust::exclusive_scan(thrust::cuda::par.on(stream), dev_cur_cnnz,
+  thrust::exclusive_scan(rmm::exec_policy(stream), dev_cur_cnnz,
                          dev_cur_cnnz + n, dev_cur_ex_scan);
   CUDA_CHECK(cudaPeekAtLastError());
 
@@ -122,15 +120,12 @@ void coo_remove_scalar(const int *rows, const int *cols, const T *vals, int nnz,
  * @param in: input COO matrix
  * @param out: output COO matrix
  * @param scalar: scalar to remove from arrays
- * @param d_alloc device allocator for temporary buffers
  * @param stream: cuda stream to use
  */
 template <int TPB_X, typename T>
-void coo_remove_scalar(COO<T> *in, COO<T> *out, T scalar,
-                       std::shared_ptr<raft::mr::device::allocator> d_alloc,
-                       cudaStream_t stream) {
-  raft::mr::device::buffer<int> row_count_nz(d_alloc, stream, in->n_rows);
-  raft::mr::device::buffer<int> row_count(d_alloc, stream, in->n_rows);
+void coo_remove_scalar(COO<T> *in, COO<T> *out, T scalar, cudaStream_t stream) {
+  rmm::device_uvector<int> row_count_nz(in->n_rows, stream);
+  rmm::device_uvector<int> row_count(in->n_rows, stream);
 
   CUDA_CHECK(
     cudaMemsetAsync(row_count_nz.data(), 0, in->n_rows * sizeof(int), stream));
@@ -146,7 +141,7 @@ void coo_remove_scalar(COO<T> *in, COO<T> *out, T scalar,
 
   thrust::device_ptr<int> d_row_count_nz =
     thrust::device_pointer_cast(row_count_nz.data());
-  int out_nnz = thrust::reduce(thrust::cuda::par.on(stream), d_row_count_nz,
+  int out_nnz = thrust::reduce(rmm::exec_policy(stream), d_row_count_nz,
                                d_row_count_nz + in->n_rows);
 
   out->allocate(out_nnz, in->n_rows, in->n_cols, false, stream);
@@ -154,7 +149,7 @@ void coo_remove_scalar(COO<T> *in, COO<T> *out, T scalar,
   coo_remove_scalar<TPB_X, T>(in->rows(), in->cols(), in->vals(), in->nnz,
                               out->rows(), out->cols(), out->vals(),
                               row_count_nz.data(), row_count.data(), scalar,
-                              in->n_rows, d_alloc, stream);
+                              in->n_rows, stream);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
@@ -163,14 +158,11 @@ void coo_remove_scalar(COO<T> *in, COO<T> *out, T scalar,
  *
  * @param in: input COO matrix
  * @param out: output COO matrix
- * @param d_alloc device allocator for temporary buffers
  * @param stream: cuda stream to use
  */
 template <int TPB_X, typename T>
-void coo_remove_zeros(COO<T> *in, COO<T> *out,
-                      std::shared_ptr<raft::mr::device::allocator> d_alloc,
-                      cudaStream_t stream) {
-  coo_remove_scalar<TPB_X, T>(in, out, T(0.0), d_alloc, stream);
+void coo_remove_zeros(COO<T> *in, COO<T> *out, cudaStream_t stream) {
+  coo_remove_scalar<TPB_X, T>(in, out, T(0.0), stream);
 }
 
 };  // namespace op

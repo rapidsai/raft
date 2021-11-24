@@ -17,8 +17,8 @@
 #pragma once
 
 #include "detail/knn_brute_force_faiss.cuh"
+#include "detail/selection_faiss.cuh"
 
-#include <raft/mr/device/allocator.hpp>
 #include <raft/mr/device/buffer.hpp>
 
 namespace raft {
@@ -27,6 +27,30 @@ namespace knn {
 
 using deviceAllocator = raft::mr::device::allocator;
 
+/**
+ * Performs a k-select across row partitioned index/distance
+ * matrices formatted like the following:
+ * row1: k0, k1, k2
+ * row2: k0, k1, k2
+ * row3: k0, k1, k2
+ * row1: k0, k1, k2
+ * row2: k0, k1, k2
+ * row3: k0, k1, k2
+ *
+ * etc...
+ *
+ * @tparam value_idx
+ * @tparam value_t
+ * @param inK
+ * @param inV
+ * @param outK
+ * @param outV
+ * @param n_samples
+ * @param n_parts
+ * @param k
+ * @param stream
+ * @param translations
+ */
 template <typename value_idx = int64_t, typename value_t = float>
 inline void knn_merge_parts(value_t *inK, value_idx *inV, value_t *outK,
                             value_idx *outV, size_t n_samples, int n_parts,
@@ -34,6 +58,34 @@ inline void knn_merge_parts(value_t *inK, value_idx *inV, value_t *outK,
                             value_idx *translations) {
   detail::knn_merge_parts(inK, inV, outK, outV, n_samples, n_parts, k, stream,
                           translations);
+}
+
+/**
+ * Performs a k-select across column-partitioned index/distance
+ * matrices formatted like the following:
+ * row1: k0, k1, k2, k0, k1, k2
+ * row2: k0, k1, k2, k0, k1, k2
+ * row3: k0, k1, k2, k0, k1, k2
+ *
+ * etc...
+ *
+ * @tparam value_idx
+ * @tparam value_t
+ * @param inK
+ * @param inV
+ * @param n_rows
+ * @param n_cols
+ * @param outK
+ * @param outV
+ * @param select_min
+ * @param k
+ * @param stream
+ */
+template <typename value_idx = int, typename value_t = float>
+inline void select_k(value_t *inK, value_idx *inV, size_t n_rows, size_t n_cols,
+                     value_t *outK, value_idx *outV, bool select_min, int k,
+                     cudaStream_t stream) {
+  detail::select_k(inK, inV, n_rows, n_cols, outK, outV, select_min, k, stream);
 }
 
 /**
@@ -56,15 +108,15 @@ inline void knn_merge_parts(value_t *inK, value_idx *inV, value_t *outK,
  * 			   default
  * @param[in] metric_arg the value of `p` for Minkowski (l-p) distances. This
  * 					 is ignored if the metric_type is not Minkowski.
- * @param[in] expanded should lp-based distances be returned in their expanded
- * 					 form (e.g., without raising to the 1/p power).
+ * @param[in] translations starting offsets for partitions. should be the same size
+ *            as input vector.
  */
 inline void brute_force_knn(
   raft::handle_t const &handle, std::vector<float *> &input,
   std::vector<int> &sizes, int D, float *search_items, int n, int64_t *res_I,
   float *res_D, int k, bool rowMajorIndex = true, bool rowMajorQuery = true,
   std::vector<int64_t> *translations = nullptr,
-  distance::DistanceType metric = distance::DistanceType::L2Unexpanded,
+  distance::DistanceType metric = distance::DistanceType::L2Expanded,
   float metric_arg = 2.0f) {
   ASSERT(input.size() == sizes.size(),
          "input and sizes vectors must be the same size");
@@ -72,12 +124,10 @@ inline void brute_force_knn(
   std::vector<cudaStream_t> int_streams = handle.get_internal_streams();
 
   detail::brute_force_knn_impl(input, sizes, D, search_items, n, res_I, res_D,
-                               k, handle.get_device_allocator(),
-                               handle.get_stream(), int_streams.data(),
+                               k, handle.get_stream(), int_streams.data(),
                                handle.get_num_internal_streams(), rowMajorIndex,
                                rowMajorQuery, translations, metric, metric_arg);
 }
-
 }  // namespace knn
 }  // namespace spatial
 }  // namespace raft

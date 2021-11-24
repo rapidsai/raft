@@ -16,10 +16,10 @@
 
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
-#include <raft/matrix/math.cuh>
-#include <raft/random/rng.cuh>
-#include <raft/stats/mean.cuh>
-#include <raft/stats/stddev.cuh>
+#include <raft/matrix/math.hpp>
+#include <raft/random/rng.hpp>
+#include <raft/stats/mean.hpp>
+#include <raft/stats/stddev.hpp>
 #include "../test_utils.h"
 
 namespace raft {
@@ -40,48 +40,53 @@ template <typename T>
 
 template <typename T>
 class StdDevTest : public ::testing::TestWithParam<StdDevInputs<T>> {
+ public:
+  StdDevTest()
+    : params(::testing::TestWithParam<StdDevInputs<T>>::GetParam()),
+      stream(handle.get_stream()),
+      rows(params.rows),
+      cols(params.cols),
+      data(rows * cols, stream),
+      mean_act(cols, stream),
+      stddev_act(cols, stream),
+      vars_act(cols, stream) {}
+
  protected:
   void SetUp() override {
-    params = ::testing::TestWithParam<StdDevInputs<T>>::GetParam();
     random::Rng r(params.seed);
-    int rows = params.rows, cols = params.cols;
     int len = rows * cols;
 
-    cudaStream_t stream;
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    allocate(data, len);
-    allocate(mean_act, cols);
-    allocate(stddev_act, cols);
-    allocate(vars_act, cols);
-    r.normal(data, len, params.mean, params.stddev, stream);
-    stdVarSGtest(data, stream);
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    data.resize(len, stream);
+    mean_act.resize(cols, stream);
+    stddev_act.resize(cols, stream);
+    vars_act.resize(cols, stream);
+    r.normal(data.data(), len, params.mean, params.stddev, stream);
+    stdVarSGtest(data.data(), stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
   void stdVarSGtest(T *data, cudaStream_t stream) {
     int rows = params.rows, cols = params.cols;
 
-    mean(mean_act, data, cols, rows, params.sample, params.rowMajor, stream);
-
-    stddev(stddev_act, data, mean_act, cols, rows, params.sample,
-           params.rowMajor, stream);
-
-    vars(vars_act, data, mean_act, cols, rows, params.sample, params.rowMajor,
+    mean(mean_act.data(), data, cols, rows, params.sample, params.rowMajor,
          stream);
 
-    raft::matrix::seqRoot(vars_act, T(1), cols, stream);
-  }
+    stddev(stddev_act.data(), data, mean_act.data(), cols, rows, params.sample,
+           params.rowMajor, stream);
 
-  void TearDown() override {
-    CUDA_CHECK(cudaFree(data));
-    CUDA_CHECK(cudaFree(mean_act));
-    CUDA_CHECK(cudaFree(stddev_act));
-    CUDA_CHECK(cudaFree(vars_act));
+    vars(vars_act.data(), data, mean_act.data(), cols, rows, params.sample,
+         params.rowMajor, stream);
+
+    raft::matrix::seqRoot(vars_act.data(), T(1), cols, stream);
   }
 
  protected:
+  raft::handle_t handle;
+  cudaStream_t stream;
+
   StdDevInputs<T> params;
-  T *data, *mean_act, *stddev_act, *vars_act;
+  int rows, cols;
+  rmm::device_uvector<T> data, mean_act, stddev_act, vars_act;
 };
 
 const std::vector<StdDevInputs<float>> inputsf = {
@@ -122,19 +127,19 @@ const std::vector<StdDevInputs<double>> inputsd = {
 
 typedef StdDevTest<float> StdDevTestF;
 TEST_P(StdDevTestF, Result) {
-  ASSERT_TRUE(devArrMatch(params.stddev, stddev_act, params.cols,
+  ASSERT_TRUE(devArrMatch(params.stddev, stddev_act.data(), params.cols,
                           CompareApprox<float>(params.tolerance)));
 
-  ASSERT_TRUE(devArrMatch(stddev_act, vars_act, params.cols,
+  ASSERT_TRUE(devArrMatch(stddev_act.data(), vars_act.data(), params.cols,
                           CompareApprox<float>(params.tolerance)));
 }
 
 typedef StdDevTest<double> StdDevTestD;
 TEST_P(StdDevTestD, Result) {
-  ASSERT_TRUE(devArrMatch(params.stddev, stddev_act, params.cols,
+  ASSERT_TRUE(devArrMatch(params.stddev, stddev_act.data(), params.cols,
                           CompareApprox<double>(params.tolerance)));
 
-  ASSERT_TRUE(devArrMatch(stddev_act, vars_act, params.cols,
+  ASSERT_TRUE(devArrMatch(stddev_act.data(), vars_act.data(), params.cols,
                           CompareApprox<double>(params.tolerance)));
 }
 

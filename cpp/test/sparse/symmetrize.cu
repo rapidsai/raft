@@ -16,12 +16,14 @@
 
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
-#include <raft/random/rng.cuh>
-#include "../test_utils.h"
-
+#include <raft/random/rng.hpp>
 #include <raft/sparse/convert/coo.cuh>
 #include <raft/sparse/coo.cuh>
 #include <raft/sparse/linalg/symmetrize.cuh>
+#include <rmm/device_scalar.hpp>
+#include <rmm/device_uvector.hpp>
+
+#include "../test_utils.h"
 
 #include <iostream>
 
@@ -57,69 +59,64 @@ template <typename value_idx, typename value_t>
 template <typename value_idx, typename value_t>
 class SparseSymmetrizeTest : public ::testing::TestWithParam<
                                SparseSymmetrizeInputs<value_idx, value_t>> {
+ public:
+  SparseSymmetrizeTest()
+    : params(::testing::TestWithParam<
+             SparseSymmetrizeInputs<value_idx, value_t>>::GetParam()),
+      stream(handle.get_stream()),
+      indptr(0, stream),
+      indices(0, stream),
+      data(0, stream) {}
+
  protected:
   void make_data() {
     std::vector<value_idx> indptr_h = params.indptr_h;
     std::vector<value_idx> indices_h = params.indices_h;
     std::vector<value_t> data_h = params.data_h;
 
-    allocate(indptr, indptr_h.size());
-    allocate(indices, indices_h.size());
-    allocate(data, data_h.size());
+    indptr.resize(indptr_h.size(), stream);
+    indices.resize(indices_h.size(), stream);
+    data.resize(data_h.size(), stream);
 
-    update_device(indptr, indptr_h.data(), indptr_h.size(), stream);
-    update_device(indices, indices_h.data(), indices_h.size(), stream);
-    update_device(data, data_h.data(), data_h.size(), stream);
+    update_device(indptr.data(), indptr_h.data(), indptr_h.size(), stream);
+    update_device(indices.data(), indices_h.data(), indices_h.size(), stream);
+    update_device(data.data(), data_h.data(), data_h.size(), stream);
   }
 
   void SetUp() override {
-    params = ::testing::TestWithParam<
-      SparseSymmetrizeInputs<value_idx, value_t>>::GetParam();
-
-    raft::handle_t handle;
-
-    auto alloc = handle.get_device_allocator();
-    stream = handle.get_stream();
-
     make_data();
 
     value_idx m = params.indptr_h.size() - 1;
     value_idx n = params.n_cols;
     value_idx nnz = params.indices_h.size();
 
-    raft::mr::device::buffer<value_idx> coo_rows(alloc, stream, nnz);
+    rmm::device_uvector<value_idx> coo_rows(nnz, stream);
 
-    raft::sparse::convert::csr_to_coo(indptr, m, coo_rows.data(), nnz, stream);
+    raft::sparse::convert::csr_to_coo(indptr.data(), m, coo_rows.data(), nnz,
+                                      stream);
 
-    raft::sparse::COO<value_t, value_idx> out(alloc, stream);
+    raft::sparse::COO<value_t, value_idx> out(stream);
 
-    raft::sparse::linalg::symmetrize(handle, coo_rows.data(), indices, data, m,
-                                     n, coo_rows.size(), out);
+    raft::sparse::linalg::symmetrize(handle, coo_rows.data(), indices.data(),
+                                     data.data(), m, n, coo_rows.size(), out);
 
-    raft::mr::device::buffer<value_idx> sum(alloc, stream, 1);
-
-    CUDA_CHECK(cudaMemsetAsync(sum.data(), 0, 1 * sizeof(value_idx), stream));
+    rmm::device_scalar<value_idx> sum(stream);
+    sum.set_value_to_zero_async(stream);
 
     assert_symmetry<<<raft::ceildiv(out.nnz, 256), 256, 0, stream>>>(
       out.rows(), out.cols(), out.vals(), out.nnz, sum.data());
 
-    raft::update_host(&sum_h, sum.data(), 1, stream);
+    sum_h = sum.value(stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
-  }
-
-  void TearDown() override {
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-    CUDA_CHECK(cudaFree(indptr));
-    CUDA_CHECK(cudaFree(indices));
-    CUDA_CHECK(cudaFree(data));
   }
 
  protected:
+  raft::handle_t handle;
   cudaStream_t stream;
 
   // input data
-  value_idx *indptr, *indices;
-  value_t *data;
+  rmm::device_uvector<value_idx> indptr, indices;
+  rmm::device_uvector<value_t> data;
 
   value_idx sum_h;
 
@@ -148,9 +145,6 @@ TEST_P(COOSymmetrize, Result) {
   cudaStream_t stream;
   cudaStreamCreate(&stream);
 
-  std::shared_ptr<raft::mr::device::default_allocator> alloc(
-    new raft::mr::device::default_allocator);
-
   int nnz = 8;
 
   int *in_rows_h = new int[nnz]{0, 0, 1, 1, 2, 2, 3, 3};
@@ -164,19 +158,19 @@ TEST_P(COOSymmetrize, Result) {
   float *exp_vals_h = new float[nnz * 2]{0.5, 0.5, 1.5, 0, 0.5, 0.5, 0.5, 0,
                                          0.5, 0.5, 0.5, 0, 1.5, 0.5, 0.5, 0.0};
 
-  COO<float> in(alloc, stream, nnz, 4, 4);
+  COO<float> in(stream, nnz, 4, 4);
   raft::update_device(in.rows(), *&in_rows_h, nnz, stream);
   raft::update_device(in.cols(), *&in_cols_h, nnz, stream);
   raft::update_device(in.vals(), *&in_vals_h, nnz, stream);
 
-  COO<float> out(alloc, stream);
+  COO<float> out(stream);
 
   linalg::coo_symmetrize<32, float>(
     &in, &out,
     [] __device__(int row, int col, float val, float trans) {
       return val + trans;
     },
-    alloc, stream);
+    stream);
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
   std::cout << out << std::endl;

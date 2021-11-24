@@ -16,7 +16,8 @@
 
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng.hpp>
+#include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 #include "../test_utils.h"
 
@@ -58,28 +59,27 @@ template <typename value_idx, typename value_t>
 template <typename value_idx, typename value_t>
 class KNNGraphTest
   : public ::testing::TestWithParam<KNNGraphInputs<value_idx, value_t>> {
+ public:
+  KNNGraphTest()
+    : params(::testing::TestWithParam<
+             KNNGraphInputs<value_idx, value_t>>::GetParam()),
+      stream(handle.get_stream()),
+      X(0, stream) {
+    X.resize(params.X.size(), stream);
+  }
+
+ protected:
   void SetUp() override {
-    params =
-      ::testing::TestWithParam<KNNGraphInputs<value_idx, value_t>>::GetParam();
+    out = new raft::sparse::COO<value_t, value_idx>(stream);
 
-    raft::handle_t handle;
-
-    auto alloc = handle.get_device_allocator();
-    stream = handle.get_stream();
-
-    out = new raft::sparse::COO<value_t, value_idx>(alloc, stream);
-
-    allocate(X, params.X.size());
-
-    update_device(X, params.X.data(), params.X.size(), stream);
+    update_device(X.data(), params.X.data(), params.X.size(), stream);
 
     raft::sparse::selection::knn_graph(
-      handle, X, params.m, params.n, raft::distance::DistanceType::L2Unexpanded,
-      *out);
+      handle, X.data(), params.m, params.n,
+      raft::distance::DistanceType::L2Unexpanded, *out);
 
-    rmm::device_uvector<value_idx> sum(1, stream);
-
-    CUDA_CHECK(cudaMemsetAsync(sum.data(), 0, 1 * sizeof(value_idx), stream));
+    rmm::device_scalar<value_idx> sum(stream);
+    sum.set_value_to_zero_async(stream);
 
     /**
      * Assert the knn graph is symmetric
@@ -87,23 +87,20 @@ class KNNGraphTest
     assert_symmetry<<<raft::ceildiv(out->nnz, 256), 256, 0, stream>>>(
       out->rows(), out->cols(), out->vals(), out->nnz, sum.data());
 
-    raft::update_host(&sum_h, sum.data(), 1, stream);
+    sum_h = sum.value(stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
-  void TearDown() override {
-    CUDA_CHECK(cudaFree(X));
-
-    delete out;
-  }
+  void TearDown() override { delete out; }
 
  protected:
+  raft::handle_t handle;
   cudaStream_t stream;
 
   // input data
   raft::sparse::COO<value_t, value_idx> *out;
 
-  value_t *X;
+  rmm::device_uvector<value_t> X;
 
   value_idx sum_h;
 

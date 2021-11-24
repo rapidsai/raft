@@ -18,7 +18,7 @@
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/coalesced_reduction.cuh>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng.hpp>
 #include "../test_utils.h"
 #include "reduce.cuh"
 
@@ -51,37 +51,39 @@ void coalescedReductionLaunch(T *dots, const T *data, int cols, int rows,
 template <typename T>
 class coalescedReductionTest
   : public ::testing::TestWithParam<coalescedReductionInputs<T>> {
+ public:
+  coalescedReductionTest()
+    : params(::testing::TestWithParam<coalescedReductionInputs<T>>::GetParam()),
+      stream(handle.get_stream()),
+      data(params.rows * params.cols, stream),
+      dots_exp(params.rows * params.cols, stream),
+      dots_act(params.rows * params.cols, stream) {}
+
  protected:
   void SetUp() override {
-    params = ::testing::TestWithParam<coalescedReductionInputs<T>>::GetParam();
     raft::random::Rng r(params.seed);
     int rows = params.rows, cols = params.cols;
     int len = rows * cols;
-    cudaStream_t stream;
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    raft::allocate(data, len);
-    raft::allocate(dots_exp, rows);
-    raft::allocate(dots_act, rows);
-    r.uniform(data, len, T(-1.0), T(1.0), stream);
-    naiveCoalescedReduction(dots_exp, data, cols, rows, stream);
+    r.uniform(data.data(), len, T(-1.0), T(1.0), stream);
+    naiveCoalescedReduction(dots_exp.data(), data.data(), cols, rows, stream);
 
     // Perform reduction with default inplace = false first
-    coalescedReductionLaunch(dots_act, data, cols, rows, stream);
+    coalescedReductionLaunch(dots_act.data(), data.data(), cols, rows, stream);
     // Add to result with inplace = true next
-    coalescedReductionLaunch(dots_act, data, cols, rows, stream, true);
+    coalescedReductionLaunch(dots_act.data(), data.data(), cols, rows, stream,
+                             true);
 
-    CUDA_CHECK(cudaStreamDestroy(stream));
-  }
-
-  void TearDown() override {
-    CUDA_CHECK(cudaFree(data));
-    CUDA_CHECK(cudaFree(dots_exp));
-    CUDA_CHECK(cudaFree(dots_act));
+    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
  protected:
+  raft::handle_t handle;
+  cudaStream_t stream;
+
   coalescedReductionInputs<T> params;
-  T *data, *dots_exp, *dots_act;
+  rmm::device_uvector<T> data;
+  rmm::device_uvector<T> dots_exp;
+  rmm::device_uvector<T> dots_act;
 };
 
 const std::vector<coalescedReductionInputs<float>> inputsf = {
@@ -98,13 +100,13 @@ const std::vector<coalescedReductionInputs<double>> inputsd = {
 
 typedef coalescedReductionTest<float> coalescedReductionTestF;
 TEST_P(coalescedReductionTestF, Result) {
-  ASSERT_TRUE(raft::devArrMatch(dots_exp, dots_act, params.rows,
+  ASSERT_TRUE(raft::devArrMatch(dots_exp.data(), dots_act.data(), params.rows,
                                 raft::CompareApprox<float>(params.tolerance)));
 }
 
 typedef coalescedReductionTest<double> coalescedReductionTestD;
 TEST_P(coalescedReductionTestD, Result) {
-  ASSERT_TRUE(raft::devArrMatch(dots_exp, dots_act, params.rows,
+  ASSERT_TRUE(raft::devArrMatch(dots_exp.data(), dots_act.data(), params.rows,
                                 raft::CompareApprox<double>(params.tolerance)));
 }
 

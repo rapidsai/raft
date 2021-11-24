@@ -16,8 +16,11 @@
 
 #pragma once
 
-#include <cuda_runtime.h>
 #include <raft/cudart_utils.h>
+
+#include <cuda_runtime.h>
+
+#include <cstddef>
 #include <memory>
 #include <utility>
 
@@ -95,7 +98,6 @@ class buffer_base {
    * removes the old one.
    *
    * @param[in] new_capacity new capacity (in number of elements)
-   * @param[in] stream       cuda stream where allocation operations are queued
    * @{
    */
   void reserve(size_type new_capacity) {
@@ -124,7 +126,6 @@ class buffer_base {
    * @brief Resize the underlying buffer (uses `reserve` method internally)
    *
    * @param[in] new_size new buffer size
-   * @param[in] stream   cuda stream where the work will be queued
    * @{
    */
   void resize(const size_type new_size) {
@@ -142,8 +143,6 @@ class buffer_base {
    * @brief Deletes the underlying buffer
    *
    * If this method is not explicitly called, it will be during the destructor
-   *
-   * @param[in] stream   cuda stream where the work will be queued
    * @{
    */
   void release() {

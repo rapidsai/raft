@@ -17,7 +17,7 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/norm.cuh>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng.hpp>
 #include "../test_utils.h"
 
 namespace raft {
@@ -71,40 +71,36 @@ void naiveRowNorm(Type *dots, const Type *data, int D, int N, NormType type,
 template <typename T>
 class RowNormTest : public ::testing::TestWithParam<NormInputs<T>> {
  public:
+  RowNormTest()
+    : params(::testing::TestWithParam<NormInputs<T>>::GetParam()),
+      stream(handle.get_stream()),
+      data(params.rows * params.cols, stream),
+      dots_exp(params.rows, stream),
+      dots_act(params.rows, stream) {}
+
   void SetUp() override {
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    params = ::testing::TestWithParam<NormInputs<T>>::GetParam();
     raft::random::Rng r(params.seed);
     int rows = params.rows, cols = params.cols, len = rows * cols;
-    cudaStream_t stream;
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    raft::allocate(data, len);
-    raft::allocate(dots_exp, rows);
-    raft::allocate(dots_act, rows);
-    r.uniform(data, len, T(-1.0), T(1.0), stream);
-    naiveRowNorm(dots_exp, data, cols, rows, params.type, params.do_sqrt,
-                 stream);
+    r.uniform(data.data(), len, T(-1.0), T(1.0), stream);
+    naiveRowNorm(dots_exp.data(), data.data(), cols, rows, params.type,
+                 params.do_sqrt, stream);
     if (params.do_sqrt) {
       auto fin_op = [] __device__(T in) { return raft::mySqrt(in); };
-      rowNorm(dots_act, data, cols, rows, params.type, params.rowMajor, stream,
-              fin_op);
+      rowNorm(dots_act.data(), data.data(), cols, rows, params.type,
+              params.rowMajor, stream, fin_op);
     } else {
-      rowNorm(dots_act, data, cols, rows, params.type, params.rowMajor, stream);
+      rowNorm(dots_act.data(), data.data(), cols, rows, params.type,
+              params.rowMajor, stream);
     }
-    CUDA_CHECK(cudaStreamDestroy(stream));
-  }
-
-  void TearDown() override {
-    CUDA_CHECK(cudaFree(data));
-    CUDA_CHECK(cudaFree(dots_exp));
-    CUDA_CHECK(cudaFree(dots_act));
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
  protected:
-  NormInputs<T> params;
-  T *data, *dots_exp, *dots_act;
+  raft::handle_t handle;
   cudaStream_t stream;
+
+  NormInputs<T> params;
+  rmm::device_uvector<T> data, dots_exp, dots_act;
 };
 
 ///// Column-wise norm test definitisons
@@ -136,41 +132,37 @@ void naiveColNorm(Type *dots, const Type *data, int D, int N, NormType type,
 template <typename T>
 class ColNormTest : public ::testing::TestWithParam<NormInputs<T>> {
  public:
+  ColNormTest()
+    : params(::testing::TestWithParam<NormInputs<T>>::GetParam()),
+      stream(handle.get_stream()),
+      data(params.rows * params.cols, stream),
+      dots_exp(params.cols, stream),
+      dots_act(params.cols, stream) {}
+
   void SetUp() override {
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    params = ::testing::TestWithParam<NormInputs<T>>::GetParam();
     raft::random::Rng r(params.seed);
     int rows = params.rows, cols = params.cols, len = rows * cols;
-    cudaStream_t stream;
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    raft::allocate(data, len);
-    r.uniform(data, len, T(-1.0), T(1.0), stream);
-    raft::allocate(dots_exp, cols);
-    raft::allocate(dots_act, cols);
+    r.uniform(data.data(), len, T(-1.0), T(1.0), stream);
 
-    naiveColNorm(dots_exp, data, cols, rows, params.type, params.do_sqrt,
-                 stream);
+    naiveColNorm(dots_exp.data(), data.data(), cols, rows, params.type,
+                 params.do_sqrt, stream);
     if (params.do_sqrt) {
       auto fin_op = [] __device__(T in) { return raft::mySqrt(in); };
-      colNorm(dots_act, data, cols, rows, params.type, params.rowMajor, stream,
-              fin_op);
+      colNorm(dots_act.data(), data.data(), cols, rows, params.type,
+              params.rowMajor, stream, fin_op);
     } else {
-      colNorm(dots_act, data, cols, rows, params.type, params.rowMajor, stream);
+      colNorm(dots_act.data(), data.data(), cols, rows, params.type,
+              params.rowMajor, stream);
     }
-    CUDA_CHECK(cudaStreamDestroy(stream));
-  }
-
-  void TearDown() override {
-    CUDA_CHECK(cudaFree(data));
-    CUDA_CHECK(cudaFree(dots_exp));
-    CUDA_CHECK(cudaFree(dots_act));
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
  protected:
-  NormInputs<T> params;
-  T *data, *dots_exp, *dots_act;
+  raft::handle_t handle;
   cudaStream_t stream;
+
+  NormInputs<T> params;
+  rmm::device_uvector<T> data, dots_exp, dots_act;
 };
 
 ///// Row- and column-wise tests
@@ -214,13 +206,13 @@ const std::vector<NormInputs<double>> inputsd = {
 
 typedef RowNormTest<float> RowNormTestF;
 TEST_P(RowNormTestF, Result) {
-  ASSERT_TRUE(raft::devArrMatch(dots_exp, dots_act, params.rows,
+  ASSERT_TRUE(raft::devArrMatch(dots_exp.data(), dots_act.data(), params.rows,
                                 raft::CompareApprox<float>(params.tolerance)));
 }
 
 typedef RowNormTest<double> RowNormTestD;
 TEST_P(RowNormTestD, Result) {
-  ASSERT_TRUE(raft::devArrMatch(dots_exp, dots_act, params.rows,
+  ASSERT_TRUE(raft::devArrMatch(dots_exp.data(), dots_act.data(), params.rows,
                                 raft::CompareApprox<double>(params.tolerance)));
 }
 
@@ -270,13 +262,13 @@ const std::vector<NormInputs<double>> inputscd = {
 
 typedef ColNormTest<float> ColNormTestF;
 TEST_P(ColNormTestF, Result) {
-  ASSERT_TRUE(raft::devArrMatch(dots_exp, dots_act, params.cols,
+  ASSERT_TRUE(raft::devArrMatch(dots_exp.data(), dots_act.data(), params.cols,
                                 raft::CompareApprox<float>(params.tolerance)));
 }
 
 typedef ColNormTest<double> ColNormTestD;
 TEST_P(ColNormTestD, Result) {
-  ASSERT_TRUE(raft::devArrMatch(dots_exp, dots_act, params.cols,
+  ASSERT_TRUE(raft::devArrMatch(dots_exp.data(), dots_act.data(), params.cols,
                                 raft::CompareApprox<double>(params.tolerance)));
 }
 

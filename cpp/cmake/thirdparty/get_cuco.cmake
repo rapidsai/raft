@@ -16,17 +16,13 @@
 
 function(find_and_configure_cuco VERSION)
 
-    if(TARGET cuco::cuco)
-      return()
-    endif()
-
     rapids_cpm_find(cuco ${VERSION}
       GLOBAL_TARGETS      cuco::cuco
       BUILD_EXPORT_SET    raft-exports
       INSTALL_EXPORT_SET  raft-exports
       CPM_ARGS
         GIT_REPOSITORY https://github.com/NVIDIA/cuCollections.git
-        GIT_TAG        dev
+        GIT_TAG        f0eecb203590f1f4ac4a9f1700229f4434ac64dc
         OPTIONS        "BUILD_TESTS OFF"
                        "BUILD_BENCHMARKS OFF"
                        "BUILD_EXAMPLES OFF"

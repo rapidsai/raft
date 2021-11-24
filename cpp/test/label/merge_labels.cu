@@ -20,7 +20,7 @@
 #include <raft/cudart_utils.h>
 #include <thrust/device_ptr.h>
 #include <raft/handle.hpp>
-#include <raft/mr/device/allocator.hpp>
+#include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 #include "../test_utils.h"
 
@@ -50,7 +50,7 @@ class MergeLabelsTest
       expected(params.N, stream),
       R(params.N, stream),
       mask(params.N, stream),
-      m(1, stream) {}
+      m(stream) {}
 
   void Run() {
     raft::update_device(labels_a.data(), params.labels_a.data(), params.N,
@@ -72,11 +72,12 @@ class MergeLabelsTest
   }
 
  protected:
-  MergeLabelsInputs<Index_> params;
   raft::handle_t handle;
   cudaStream_t stream;
+
+  MergeLabelsInputs<Index_> params;
   rmm::device_uvector<Index_> labels_a, labels_b, expected, R;
-  rmm::device_uvector<bool> mask, m;
+  rmm::device_scalar<bool> mask, m;
 };
 
 using MergeLabelsTestI = MergeLabelsTest<int>;

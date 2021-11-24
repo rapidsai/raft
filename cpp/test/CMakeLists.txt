@@ -21,16 +21,22 @@ add_executable(test_raft
     test/distance/dist_adj.cu
     test/distance/dist_canberra.cu
     test/distance/dist_chebyshev.cu
+    test/distance/dist_correlation.cu
     test/distance/dist_cos.cu
     test/distance/dist_euc_exp.cu
     test/distance/dist_euc_unexp.cu
+    test/distance/dist_hamming.cu
     test/distance/dist_hellinger.cu
+    test/distance/dist_jensen_shannon.cu
+    test/distance/dist_kl_divergence.cu
     test/distance/dist_l1.cu
     test/distance/dist_minkowski.cu
+    test/distance/dist_russell_rao.cu
     test/distance/fused_l2_nn.cu
     test/eigen_solvers.cu
     test/handle.cpp
     test/integer_utils.cpp
+    test/pow2_utils.cu
     test/label/label.cu
     test/label/merge_labels.cu
     test/lap/lap.cu
@@ -42,6 +48,7 @@ add_executable(test_raft
     test/linalg/eig.cu
     test/linalg/eig_sel.cu
     test/linalg/gemm_layout.cu
+    test/linalg/gemv.cu
     test/linalg/map.cu
     test/linalg/map_then_reduce.cu
     test/linalg/matrix_vector_op.cu
@@ -78,11 +85,13 @@ add_executable(test_raft
     test/sparse/norm.cu
     test/sparse/reduce.cu
     test/sparse/row_op.cu
-    test/sparse/selection.cu
     test/sparse/sort.cu
     test/sparse/symmetrize.cu
     test/spatial/knn.cu
+    test/spatial/fused_l2_knn.cu
     test/spatial/haversine.cu
+    test/spatial/ball_cover.cu
+    test/spatial/selection.cu
     test/spectral_matrix.cu
     test/stats/mean.cu
     test/stats/mean_center.cu
@@ -126,7 +135,7 @@ PRIVATE
   FAISS::FAISS
   GTest::gtest
   GTest::gtest_main
-  OpenMP::OpenMP_CXX
   Threads::Threads
+  $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
   $<TARGET_NAME_IF_EXISTS:conda_env>
 )

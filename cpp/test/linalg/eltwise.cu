@@ -17,7 +17,7 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/eltwise.cuh>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng.hpp>
 #include "../test_utils.h"
 
 namespace raft {
@@ -60,33 +60,31 @@ template <typename T>
 template <typename T>
 class ScalarMultiplyTest
   : public ::testing::TestWithParam<ScalarMultiplyInputs<T>> {
+ public:
+  ScalarMultiplyTest()
+    : params(::testing::TestWithParam<ScalarMultiplyInputs<T>>::GetParam()),
+      stream(handle.get_stream()),
+      in(len, stream),
+      out_ref(len, stream),
+      out(len, stream) {}
+
  protected:
   void SetUp() override {
-    params = ::testing::TestWithParam<ScalarMultiplyInputs<T>>::GetParam();
     raft::random::Rng r(params.seed);
     int len = params.len;
     T scalar = params.scalar;
-
-    cudaStream_t stream;
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    allocate(in, len);
-    allocate(out_ref, len);
-    allocate(out, len);
     r.uniform(in, len, T(-1.0), T(1.0), stream);
     naiveScale(out_ref, in, scalar, len, stream);
     scalarMultiply(out, in, scalar, len, stream);
-    CUDA_CHECK(cudaStreamDestroy(stream));
-  }
-
-  void TearDown() override {
-    CUDA_CHECK(cudaFree(in));
-    CUDA_CHECK(cudaFree(out_ref));
-    CUDA_CHECK(cudaFree(out));
+    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
  protected:
+  raft::handle_t handle;
+  cudaStream_t stream;
+
   ScalarMultiplyInputs<T> params;
-  T *in, *out_ref, *out;
+  rmm::device_uvector<T> in, out_ref, out;
 };
 
 const std::vector<ScalarMultiplyInputs<float>> inputsf1 = {
@@ -97,13 +95,13 @@ const std::vector<ScalarMultiplyInputs<double>> inputsd1 = {
 
 typedef ScalarMultiplyTest<float> ScalarMultiplyTestF;
 TEST_P(ScalarMultiplyTestF, Result) {
-  ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
+  ASSERT_TRUE(devArrMatch(out_ref.data(), out.data(), params.len,
                           CompareApprox<float>(params.tolerance)));
 }
 
 typedef ScalarMultiplyTest<double> ScalarMultiplyTestD;
 TEST_P(ScalarMultiplyTestD, Result) {
-  ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
+  ASSERT_TRUE(devArrMatch(out_ref.data(), out.data(), params.len,
                           CompareApprox<double>(params.tolerance)));
 }
 
@@ -148,35 +146,33 @@ template <typename T>
 
 template <typename T>
 class EltwiseAddTest : public ::testing::TestWithParam<EltwiseAddInputs<T>> {
+ public:
+  EltwiseAddTest()
+    : params(::testing::TestWithParam<EltwiseAddInputs<T>>::GetParam()),
+      stream(handle.get_stream()),
+      in1(params.len, stream),
+      in2(params.len, stream),
+      out_ref(params.len, stream),
+      out(params.len, stream) {}
+
  protected:
   void SetUp() override {
     params = ::testing::TestWithParam<EltwiseAddInputs<T>>::GetParam();
     raft::random::Rng r(params.seed);
-
-    cudaStream_t stream;
-    CUDA_CHECK(cudaStreamCreate(&stream));
     int len = params.len;
-    allocate(in1, len);
-    allocate(in2, len);
-    allocate(out_ref, len);
-    allocate(out, len);
     r.uniform(in1, len, T(-1.0), T(1.0), stream);
     r.uniform(in2, len, T(-1.0), T(1.0), stream);
     naiveAdd(out_ref, in1, in2, len, stream);
     eltwiseAdd(out, in1, in2, len, stream);
-    CUDA_CHECK(cudaStreamDestroy(stream));
-  }
-
-  void TearDown() override {
-    CUDA_CHECK(cudaFree(in1));
-    CUDA_CHECK(cudaFree(in2));
-    CUDA_CHECK(cudaFree(out_ref));
-    CUDA_CHECK(cudaFree(out));
+    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
  protected:
+  raft::handle_t handle;
+  cudaStream_t stream;
+
   EltwiseAddInputs<T> params;
-  T *in1, *in2, *out_ref, *out;
+  rmm::device_uvector<T> in1, in2, out_ref, out;
 };
 
 const std::vector<EltwiseAddInputs<float>> inputsf2 = {
@@ -187,13 +183,13 @@ const std::vector<EltwiseAddInputs<double>> inputsd2 = {
 
 typedef EltwiseAddTest<float> EltwiseAddTestF;
 TEST_P(EltwiseAddTestF, Result) {
-  ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
+  ASSERT_TRUE(devArrMatch(out_ref.data(), out.data(), params.len,
                           CompareApprox<float>(params.tolerance)));
 }
 
 typedef EltwiseAddTest<double> EltwiseAddTestD;
 TEST_P(EltwiseAddTestD, Result) {
-  ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
+  ASSERT_TRUE(devArrMatch(out_ref.data(), out.data(), params.len,
                           CompareApprox<double>(params.tolerance)));
 }
 

@@ -18,8 +18,8 @@
 #pragma once
 
 #include <raft/handle.hpp>
+#include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
-#include <rmm/device_vector.hpp>
 
 namespace raft {
 
@@ -68,24 +68,24 @@ class MST_solver {
   vertex_t sm_count;
 
   vertex_t* color_index;  // represent each supervertex as a color
-  rmm::device_vector<alteration_t>
+  rmm::device_uvector<alteration_t>
     min_edge_color;  // minimum incident edge weight per color
-  rmm::device_vector<edge_t> new_mst_edge;  // new minimum edge per vertex
-  rmm::device_vector<alteration_t>
+  rmm::device_uvector<edge_t> new_mst_edge;  // new minimum edge per vertex
+  rmm::device_uvector<alteration_t>
     altered_weights;  // weights to be used for mst
-  rmm::device_vector<edge_t>
+  rmm::device_scalar<edge_t>
     mst_edge_count;  // total number of edges added after every iteration
-  rmm::device_vector<edge_t>
+  rmm::device_scalar<edge_t>
     prev_mst_edge_count;  // total number of edges up to the previous iteration
-  rmm::device_vector<bool>
+  rmm::device_uvector<bool>
     mst_edge;  // mst output -  true if the edge belongs in mst
-  rmm::device_vector<vertex_t> next_color;  //  next iteration color
-  rmm::device_vector<vertex_t> color;  // index of color that vertex points to
+  rmm::device_uvector<vertex_t> next_color;  //  next iteration color
+  rmm::device_uvector<vertex_t> color;  // index of color that vertex points to
 
   // new src-dst pairs found per iteration
-  rmm::device_vector<vertex_t> temp_src;
-  rmm::device_vector<vertex_t> temp_dst;
-  rmm::device_vector<weight_t> temp_weights;
+  rmm::device_uvector<vertex_t> temp_src;
+  rmm::device_uvector<vertex_t> temp_dst;
+  rmm::device_uvector<weight_t> temp_weights;
 
   void label_prop(vertex_t* mst_src, vertex_t* mst_dst);
   void min_edge_per_vertex();

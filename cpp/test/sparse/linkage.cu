@@ -14,19 +14,19 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
-#include <raft/cuda_utils.cuh>
-#include <vector>
+#include "../test_utils.h"
 
+#include <raft/cudart_utils.h>
 #include <raft/linalg/distance_type.h>
 #include <raft/linalg/transpose.h>
-#include <raft/mr/device/allocator.hpp>
 #include <raft/sparse/coo.cuh>
 #include <raft/sparse/hierarchy/single_linkage.hpp>
+
 #include <rmm/device_uvector.hpp>
 
-#include "../test_utils.h"
+#include <gtest/gtest.h>
+
+#include <vector>
 
 namespace raft {
 
@@ -106,18 +106,16 @@ __global__ void computeTheNumerator(const T* firstClusterArray,
 * @param firstClusterArray: the array of classes of type T
 * @param secondClusterArray: the array of classes of type T
 * @param size: the size of the data points of type uint64_t
-* @param allocator: object that takes care of temporary device memory allocation of type std::shared_ptr<MLCommon::deviceAllocator>
 * @param stream: the cudaStream object
 */
 template <typename T>
-double compute_rand_index(
-  T* firstClusterArray, T* secondClusterArray, uint64_t size,
-  std::shared_ptr<raft::mr::device::allocator> allocator, cudaStream_t stream) {
+double compute_rand_index(T* firstClusterArray, T* secondClusterArray,
+                          uint64_t size, cudaStream_t stream) {
   //rand index for size less than 2 is not defined
   ASSERT(size >= 2, "Rand Index for size less than 2 not defined!");
 
   //allocating and initializing memory for a and b in the GPU
-  raft::mr::device::buffer<uint64_t> arr_buf(allocator, stream, 2);
+  rmm::device_uvector<uint64_t> arr_buf(2, stream);
   CUDA_CHECK(cudaMemsetAsync(arr_buf.data(), 0, 2 * sizeof(uint64_t), stream));
 
   //kernel configuration
@@ -155,56 +153,49 @@ template <typename T, typename IdxT>
 
 template <typename T, typename IdxT>
 class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
+ public:
+  LinkageTest()
+    : params(::testing::TestWithParam<LinkageInputs<T, IdxT>>::GetParam()),
+      stream(handle.get_stream()),
+      labels(params.n_row, stream),
+      labels_ref(params.n_row, stream) {}
+
  protected:
   void basicTest() {
-    raft::handle_t handle;
+    rmm::device_uvector<T> data(params.n_row * params.n_col, stream);
 
-    params = ::testing::TestWithParam<LinkageInputs<T, IdxT>>::GetParam();
-
-    rmm::device_uvector<T> data(params.n_row * params.n_col,
-                                handle.get_stream());
-
-    // Allocate result labels and expected labels on device
-    raft::allocate(labels, params.n_row);
-    raft::allocate(labels_ref, params.n_row);
-
-    raft::copy(data.data(), params.data.data(), data.size(),
-               handle.get_stream());
-    raft::copy(labels_ref, params.expected_labels.data(), params.n_row,
-               handle.get_stream());
+    raft::copy(data.data(), params.data.data(), data.size(), stream);
+    raft::copy(labels_ref.data(), params.expected_labels.data(), params.n_row,
+               stream);
 
     raft::hierarchy::linkage_output<IdxT, T> out_arrs;
-    out_arrs.labels = labels;
+    out_arrs.labels = labels.data();
 
-    rmm::device_uvector<IdxT> out_children(params.n_row * 2,
-                                           handle.get_stream());
+    rmm::device_uvector<IdxT> out_children(params.n_row * 2, stream);
 
     out_arrs.children = out_children.data();
 
+    raft::handle_t handle;
     raft::hierarchy::single_linkage<
       IdxT, T, raft::hierarchy::LinkageDistance::KNN_GRAPH>(
       handle, data.data(), params.n_row, params.n_col,
       raft::distance::DistanceType::L2SqrtExpanded, &out_arrs, params.c,
       params.n_clusters);
 
-    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+    CUDA_CHECK(cudaStreamSynchronize(stream));
 
-    score =
-      compute_rand_index(labels, labels_ref, params.n_row,
-                         handle.get_device_allocator(), handle.get_stream());
+    score = compute_rand_index(labels.data(), labels_ref.data(), params.n_row,
+                               stream);
   }
 
   void SetUp() override { basicTest(); }
 
-  void TearDown() override {
-    CUDA_CHECK(cudaFree(labels));
-    CUDA_CHECK(cudaFree(labels_ref));
-  }
-
  protected:
-  LinkageInputs<T, IdxT> params;
-  IdxT *labels, *labels_ref;
+  raft::handle_t handle;
+  cudaStream_t stream;
 
+  LinkageInputs<T, IdxT> params;
+  rmm::device_uvector<IdxT> labels, labels_ref;
   double score;
 };
 

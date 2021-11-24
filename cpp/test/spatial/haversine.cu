@@ -18,7 +18,7 @@
 #include <raft/linalg/distance_type.h>
 #include <iostream>
 #include <raft/spatial/knn/detail/haversine_distance.cuh>
-#include <rmm/device_buffer.hpp>
+#include <rmm/device_uvector.hpp>
 #include <vector>
 #include "../test_utils.h"
 
@@ -28,20 +28,27 @@ namespace knn {
 
 template <typename value_idx, typename value_t>
 class HaversineKNNTest : public ::testing::Test {
+ public:
+  HaversineKNNTest()
+    : stream(handle.get_stream()),
+      d_train_inputs(0, stream),
+      d_ref_I(0, stream),
+      d_ref_D(0, stream),
+      d_pred_I(0, stream),
+      d_pred_D(0, stream) {}
+
  protected:
   void basicTest() {
-    auto alloc = std::make_shared<raft::mr::device::default_allocator>();
-
     // Allocate input
-    raft::allocate(d_train_inputs, n * d);
+    d_train_inputs.resize(n * d, stream);
 
     // Allocate reference arrays
-    raft::allocate<value_idx>(d_ref_I, n * n);
-    raft::allocate(d_ref_D, n * n);
+    d_ref_I.resize(n * n, stream);
+    d_ref_D.resize(n * n, stream);
 
     // Allocate predicted arrays
-    raft::allocate<value_idx>(d_pred_I, n * n);
-    raft::allocate(d_pred_D, n * n);
+    d_pred_I.resize(n * n, stream);
+    d_pred_D.resize(n * n, stream);
 
     // make testdata on host
     std::vector<value_t> h_train_inputs = {
@@ -49,8 +56,9 @@ class HaversineKNNTest : public ::testing::Test {
       0.74932804, -1.33634042, 0.51486728, -1.65962873,
       0.53154002, -1.47049808, 0.72891737, -1.54095137};
 
-    h_train_inputs.resize(n);
-    raft::update_device(d_train_inputs, h_train_inputs.data(), n * d, 0);
+    h_train_inputs.resize(d_train_inputs.size());
+    raft::update_device(d_train_inputs.data(), h_train_inputs.data(),
+                        d_train_inputs.size(), stream);
 
     std::vector<value_t> h_res_D = {
       0., 0.05041587, 0.18767063, 0.23048252, 0.35749438, 0.62925595,
@@ -60,58 +68,49 @@ class HaversineKNNTest : public ::testing::Test {
       0., 0.16461092, 0.20535265, 0.23048252, 0.2426416,  0.5170737,
       0., 0.152463,   0.18767063, 0.20535265, 0.2345792,  0.44288665};
     h_res_D.resize(n * n);
-    raft::update_device(d_ref_D, h_res_D.data(), n * n, 0);
+    raft::update_device(d_ref_D.data(), h_res_D.data(), n * n, stream);
 
     std::vector<value_idx> h_res_I = {0, 2, 5, 4, 3, 1, 1, 3, 5, 4, 2, 0,
                                       2, 0, 5, 4, 3, 1, 3, 4, 5, 2, 0, 1,
                                       4, 3, 5, 0, 2, 1, 5, 2, 0, 4, 3, 1};
     h_res_I.resize(n * n);
-    raft::update_device<value_idx>(d_ref_I, h_res_I.data(), n * n, 0);
-
-    std::vector<value_t *> input_vec = {d_train_inputs};
-    std::vector<value_idx> sizes_vec = {n};
-
-    cudaStream_t stream;
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    raft::update_device<value_idx>(d_ref_I.data(), h_res_I.data(), n * n,
+                                   stream);
 
     raft::spatial::knn::detail::haversine_knn(
-      d_pred_I, d_pred_D, d_train_inputs, d_train_inputs, n, n, k, stream);
+      d_pred_I.data(), d_pred_D.data(), d_train_inputs.data(),
+      d_train_inputs.data(), n, n, k, stream);
 
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
   void SetUp() override { basicTest(); }
 
-  void TearDown() override {
-    CUDA_CHECK(cudaFree(d_train_inputs));
-    CUDA_CHECK(cudaFree(d_pred_I));
-    CUDA_CHECK(cudaFree(d_pred_D));
-    CUDA_CHECK(cudaFree(d_ref_I));
-    CUDA_CHECK(cudaFree(d_ref_D));
-  }
-
  protected:
-  value_t *d_train_inputs;
+  raft::handle_t handle;
+  cudaStream_t stream;
+
+  rmm::device_uvector<value_t> d_train_inputs;
 
   int n = 6;
   int d = 2;
 
   int k = 6;
 
-  value_idx *d_pred_I;
-  value_t *d_pred_D;
+  rmm::device_uvector<value_idx> d_pred_I;
+  rmm::device_uvector<value_t> d_pred_D;
 
-  value_idx *d_ref_I;
-  value_t *d_ref_D;
+  rmm::device_uvector<value_idx> d_ref_I;
+  rmm::device_uvector<value_t> d_ref_D;
 };
 
 typedef HaversineKNNTest<int, float> HaversineKNNTestF;
 
 TEST_F(HaversineKNNTestF, Fit) {
-  ASSERT_TRUE(raft::devArrMatch(d_ref_D, d_pred_D, n * n,
+  ASSERT_TRUE(raft::devArrMatch(d_ref_D.data(), d_pred_D.data(), n * n,
                                 raft::CompareApprox<float>(1e-3)));
-  ASSERT_TRUE(
-    raft::devArrMatch(d_ref_I, d_pred_I, n * n, raft::Compare<int>()));
+  ASSERT_TRUE(raft::devArrMatch(d_ref_I.data(), d_pred_I.data(), n * n,
+                                raft::Compare<int>()));
 }
 
 }  // namespace knn

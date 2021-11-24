@@ -17,7 +17,7 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/divide.cuh>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng.hpp>
 #include "../test_utils.h"
 #include "unary_op.cuh"
 
@@ -45,40 +45,41 @@ void naiveDivide(Type *out, const Type *in, Type scalar, int len,
 template <typename T>
 class DivideTest
   : public ::testing::TestWithParam<raft::linalg::UnaryOpInputs<T>> {
+ public:
+  DivideTest()
+    : params(
+        ::testing::TestWithParam<raft::linalg::UnaryOpInputs<T>>::GetParam()),
+      stream(handle.get_stream()),
+      in(params.len, stream),
+      out_ref(params.len, stream),
+      out(params.len, stream) {}
+
  protected:
   void SetUp() override {
-    params =
-      ::testing::TestWithParam<raft::linalg::UnaryOpInputs<T>>::GetParam();
     raft::random::Rng r(params.seed);
     int len = params.len;
-    cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
-
-    raft::allocate(in, len);
-    raft::allocate(out_ref, len);
-    raft::allocate(out, len);
-    r.uniform(in, len, T(-1.0), T(1.0), stream);
-    naiveDivide(out_ref, in, params.scalar, len, stream);
-    divideScalar(out, in, params.scalar, len, stream);
-    CUDA_CHECK(cudaStreamDestroy(stream));
-  }
-
-  void TearDown() override {
-    CUDA_CHECK(cudaFree(in));
-    CUDA_CHECK(cudaFree(out_ref));
-    CUDA_CHECK(cudaFree(out));
+    r.uniform(in.data(), len, T(-1.0), T(1.0), stream);
+    naiveDivide(out_ref.data(), in.data(), params.scalar, len, stream);
+    divideScalar(out.data(), in.data(), params.scalar, len, stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
  protected:
+  raft::handle_t handle;
+  cudaStream_t stream;
+
   UnaryOpInputs<T> params;
-  T *in, *out_ref, *out;
+  rmm::device_uvector<T> in;
+  rmm::device_uvector<T> out_ref;
+  rmm::device_uvector<T> out;
 };
 
 const std::vector<UnaryOpInputs<float>> inputsf = {
   {0.000001f, 1024 * 1024, 2.f, 1234ULL}};
 typedef DivideTest<float> DivideTestF;
 TEST_P(DivideTestF, Result) {
-  ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
+  ASSERT_TRUE(devArrMatch(out_ref.data(), out.data(), params.len,
                           raft::CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_SUITE_P(DivideTests, DivideTestF,
@@ -88,7 +89,7 @@ typedef DivideTest<double> DivideTestD;
 const std::vector<UnaryOpInputs<double>> inputsd = {
   {0.000001f, 1024 * 1024, 2.f, 1234ULL}};
 TEST_P(DivideTestD, Result) {
-  ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
+  ASSERT_TRUE(devArrMatch(out_ref.data(), out.data(), params.len,
                           raft::CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_SUITE_P(DivideTests, DivideTestD,

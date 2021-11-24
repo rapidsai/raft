@@ -19,6 +19,8 @@
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
 
+#include <rmm/device_uvector.hpp>
+
 #include <faiss/gpu/GpuDistance.h>
 #include <faiss/gpu/GpuResources.h>
 #include <faiss/gpu/StandardGpuResources.h>
@@ -27,12 +29,13 @@
 #include <faiss/gpu/utils/Select.cuh>
 
 #include <raft/linalg/distance_type.h>
-#include <thrust/device_vector.h>
 #include <thrust/iterator/transform_iterator.h>
+#include <cstdint>
 #include <iostream>
 #include <raft/handle.hpp>
 #include <set>
 
+#include "fused_l2_knn.cuh"
 #include "haversine_distance.cuh"
 #include "processing.hpp"
 
@@ -43,8 +46,8 @@ namespace spatial {
 namespace knn {
 namespace detail {
 
-template <typename value_idx = int64_t, typename value_t = float, int warp_q,
-          int thread_q, int tpb>
+template <typename value_idx = std::int64_t, typename value_t = float,
+          int warp_q, int thread_q, int tpb>
 __global__ void knn_merge_parts_kernel(value_t *inK, value_idx *inV,
                                        value_t *outK, value_idx *outV,
                                        size_t n_samples, int n_parts,
@@ -108,8 +111,8 @@ __global__ void knn_merge_parts_kernel(value_t *inK, value_idx *inV,
   }
 }
 
-template <typename value_idx = int64_t, typename value_t = float, int warp_q,
-          int thread_q>
+template <typename value_idx = std::int64_t, typename value_t = float,
+          int warp_q, int thread_q>
 inline void knn_merge_parts_impl(value_t *inK, value_idx *inV, value_t *outK,
                                  value_idx *outV, size_t n_samples, int n_parts,
                                  int k, cudaStream_t stream,
@@ -141,7 +144,7 @@ inline void knn_merge_parts_impl(value_t *inK, value_idx *inV, value_t *outK,
  * @param stream CUDA stream to use
  * @param translations mapping of index offsets for each partition
  */
-template <typename value_idx = int64_t, typename value_t = float>
+template <typename value_idx = std::int64_t, typename value_t = float>
 inline void knn_merge_parts(value_t *inK, value_idx *inV, value_t *outK,
                             value_idx *outV, size_t n_samples, int n_parts,
                             int k, cudaStream_t stream,
@@ -179,7 +182,6 @@ inline void knn_merge_parts(value_t *inK, value_idx *inV, value_t *outK,
  * @param[out] res_I    pointer to device memory for returning k nearest indices
  * @param[out] res_D    pointer to device memory for returning k nearest distances
  * @param[in] k        number of neighbors to query
- * @param[in] allocator the device memory allocator to use for temporary scratch memory
  * @param[in] userStream the main cuda stream to use
  * @param[in] internalStreams optional when n_params > 0, the index partitions can be
  *        queried in parallel using these streams. Note that n_int_streams also
@@ -194,29 +196,28 @@ inline void knn_merge_parts(value_t *inK, value_idx *inV, value_t *outK,
  * @param[in] metric corresponds to the raft::distance::DistanceType enum (default is L2Expanded)
  * @param[in] metricArg metric argument to use. Corresponds to the p arg for lp norm
  */
-template <typename IntType = int>
-void brute_force_knn_impl(std::vector<float *> &input, std::vector<int> &sizes,
-                          IntType D, float *search_items, IntType n,
-                          int64_t *res_I, float *res_D, IntType k,
-                          std::shared_ptr<deviceAllocator> allocator,
-                          cudaStream_t userStream,
+template <typename IntType = int, typename IdxType = std::int64_t>
+void brute_force_knn_impl(std::vector<float *> &input,
+                          std::vector<IntType> &sizes, IntType D,
+                          float *search_items, IntType n, IdxType *res_I,
+                          float *res_D, IntType k, cudaStream_t userStream,
                           cudaStream_t *internalStreams = nullptr,
                           int n_int_streams = 0, bool rowMajorIndex = true,
                           bool rowMajorQuery = true,
-                          std::vector<int64_t> *translations = nullptr,
+                          std::vector<IdxType> *translations = nullptr,
                           raft::distance::DistanceType metric =
                             raft::distance::DistanceType::L2Expanded,
                           float metricArg = 0) {
   ASSERT(input.size() == sizes.size(),
          "input and sizes vectors should be the same size");
 
-  std::vector<int64_t> *id_ranges;
+  std::vector<IdxType> *id_ranges;
   if (translations == nullptr) {
     // If we don't have explicit translations
     // for offsets of the indices, build them
     // from the local partitions
-    id_ranges = new std::vector<int64_t>();
-    int64_t total_n = 0;
+    id_ranges = new std::vector<IdxType>();
+    IdxType total_n = 0;
     for (size_t i = 0; i < input.size(); i++) {
       id_ranges->push_back(total_n);
       total_n += sizes[i];
@@ -228,31 +229,29 @@ void brute_force_knn_impl(std::vector<float *> &input, std::vector<int> &sizes,
 
   // perform preprocessing
   std::unique_ptr<MetricProcessor<float>> query_metric_processor =
-    create_processor<float>(metric, n, D, k, rowMajorQuery, userStream,
-                            allocator);
+    create_processor<float>(metric, n, D, k, rowMajorQuery, userStream);
   query_metric_processor->preprocess(search_items);
 
   std::vector<std::unique_ptr<MetricProcessor<float>>> metric_processors(
     input.size());
   for (size_t i = 0; i < input.size(); i++) {
-    metric_processors[i] = create_processor<float>(
-      metric, sizes[i], D, k, rowMajorQuery, userStream, allocator);
+    metric_processors[i] = create_processor<float>(metric, sizes[i], D, k,
+                                                   rowMajorQuery, userStream);
     metric_processors[i]->preprocess(input[i]);
   }
 
   int device;
   CUDA_CHECK(cudaGetDevice(&device));
 
-  raft::mr::device::buffer<int64_t> trans(allocator, userStream,
-                                          id_ranges->size());
+  rmm::device_uvector<std::int64_t> trans(id_ranges->size(), userStream);
   raft::update_device(trans.data(), id_ranges->data(), id_ranges->size(),
                       userStream);
 
-  raft::mr::device::buffer<float> all_D(allocator, userStream, 0);
-  raft::mr::device::buffer<int64_t> all_I(allocator, userStream, 0);
+  rmm::device_uvector<float> all_D(0, userStream);
+  rmm::device_uvector<std::int64_t> all_I(0, userStream);
 
   float *out_D = res_D;
-  int64_t *out_I = res_I;
+  IdxType *out_I = res_I;
 
   if (input.size() > 1) {
     all_D.resize(input.size() * k * n, userStream);
@@ -267,49 +266,58 @@ void brute_force_knn_impl(std::vector<float *> &input, std::vector<int> &sizes,
 
   for (size_t i = 0; i < input.size(); i++) {
     float *out_d_ptr = out_D + (i * k * n);
-    int64_t *out_i_ptr = out_I + (i * k * n);
+    IdxType *out_i_ptr = out_I + (i * k * n);
 
     cudaStream_t stream =
       raft::select_stream(userStream, internalStreams, n_int_streams, i);
 
-    switch (metric) {
-      case raft::distance::DistanceType::Haversine:
+    if (k <= 64 && rowMajorQuery == rowMajorIndex && rowMajorQuery == true &&
+        (metric == raft::distance::DistanceType::L2Unexpanded ||
+         metric == raft::distance::DistanceType::L2SqrtUnexpanded ||
+         metric == raft::distance::DistanceType::L2Expanded ||
+         metric == raft::distance::DistanceType::L2SqrtExpanded)) {
+      fusedL2Knn(D, out_i_ptr, out_d_ptr, input[i], search_items, sizes[i], n,
+                 k, rowMajorIndex, rowMajorQuery, stream, metric);
+    } else {
+      switch (metric) {
+        case raft::distance::DistanceType::Haversine:
 
-        ASSERT(D == 2,
-               "Haversine distance requires 2 dimensions "
-               "(latitude / longitude).");
+          ASSERT(D == 2,
+                 "Haversine distance requires 2 dimensions "
+                 "(latitude / longitude).");
 
-        haversine_knn(out_i_ptr, out_d_ptr, input[i], search_items, sizes[i], n,
-                      k, stream);
-        break;
-      default:
-        faiss::MetricType m = build_faiss_metric(metric);
+          haversine_knn(out_i_ptr, out_d_ptr, input[i], search_items, sizes[i],
+                        n, k, stream);
+          break;
+        default:
+          faiss::MetricType m = build_faiss_metric(metric);
 
-        faiss::gpu::StandardGpuResources gpu_res;
+          faiss::gpu::StandardGpuResources gpu_res;
 
-        gpu_res.noTempMemory();
-        gpu_res.setDefaultStream(device, stream);
+          gpu_res.noTempMemory();
+          gpu_res.setDefaultStream(device, stream);
 
-        faiss::gpu::GpuDistanceParams args;
-        args.metric = m;
-        args.metricArg = metricArg;
-        args.k = k;
-        args.dims = D;
-        args.vectors = input[i];
-        args.vectorsRowMajor = rowMajorIndex;
-        args.numVectors = sizes[i];
-        args.queries = search_items;
-        args.queriesRowMajor = rowMajorQuery;
-        args.numQueries = n;
-        args.outDistances = out_d_ptr;
-        args.outIndices = out_i_ptr;
+          faiss::gpu::GpuDistanceParams args;
+          args.metric = m;
+          args.metricArg = metricArg;
+          args.k = k;
+          args.dims = D;
+          args.vectors = input[i];
+          args.vectorsRowMajor = rowMajorIndex;
+          args.numVectors = sizes[i];
+          args.queries = search_items;
+          args.queriesRowMajor = rowMajorQuery;
+          args.numQueries = n;
+          args.outDistances = out_d_ptr;
+          args.outIndices = out_i_ptr;
 
-        /**
-         * @todo: Until FAISS supports pluggable allocation strategies,
-         * we will not reap the benefits of the pool allocator for
-         * avoiding device-wide synchronizations from cudaMalloc/cudaFree
-         */
-        bfKnn(&gpu_res, args);
+          /**
+           * @todo: Until FAISS supports pluggable allocation strategies,
+           * we will not reap the benefits of the pool allocator for
+           * avoiding device-wide synchronizations from cudaMalloc/cudaFree
+           */
+          bfKnn(&gpu_res, args);
+      }
     }
 
     CUDA_CHECK(cudaPeekAtLastError());

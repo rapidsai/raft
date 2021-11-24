@@ -19,8 +19,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <raft/cuda_utils.cuh>
-#include <raft/random/rng.cuh>
-#include <raft/stats/mean.cuh>
+#include <raft/random/rng.hpp>
+#include <raft/stats/mean.hpp>
 #include "../test_utils.h"
 
 namespace raft {
@@ -41,38 +41,36 @@ template <typename T>
 
 template <typename T>
 class MeanTest : public ::testing::TestWithParam<MeanInputs<T>> {
+ public:
+  MeanTest()
+    : params(::testing::TestWithParam<MeanInputs<T>>::GetParam()),
+      stream(handle.get_stream()),
+      rows(params.rows),
+      cols(params.cols),
+      data(rows * cols, stream),
+      mean_act(rows * cols, stream) {}
+
  protected:
   void SetUp() override {
-    params = ::testing::TestWithParam<MeanInputs<T>>::GetParam();
     raft::random::Rng r(params.seed);
-
-    int rows = params.rows, cols = params.cols;
     int len = rows * cols;
-
-    cudaStream_t stream;
-    CUDA_CHECK(cudaStreamCreate(&stream));
-
-    allocate(data, len);
-    allocate(mean_act, cols);
-    r.normal(data, len, params.mean, (T)1.0, stream);
-
-    meanSGtest(data, stream);
+    r.normal(data.data(), len, params.mean, (T)1.0, stream);
+    meanSGtest(data.data(), stream);
   }
 
   void meanSGtest(T *data, cudaStream_t stream) {
     int rows = params.rows, cols = params.cols;
-
-    mean(mean_act, data, cols, rows, params.sample, params.rowMajor, stream);
-  }
-
-  void TearDown() override {
-    CUDA_CHECK(cudaFree(data));
-    CUDA_CHECK(cudaFree(mean_act));
+    mean(mean_act.data(), data, cols, rows, params.sample, params.rowMajor,
+         stream);
   }
 
  protected:
+  raft::handle_t handle;
+  cudaStream_t stream;
+
   MeanInputs<T> params;
-  T *data, *mean_act;
+  int rows, cols;
+  rmm::device_uvector<T> data, mean_act;
 };
 
 // Note: For 1024 samples, 256 experiments, a mean of 1.0 with stddev=1.0, the
@@ -116,13 +114,13 @@ const std::vector<MeanInputs<double>> inputsd = {
 
 typedef MeanTest<float> MeanTestF;
 TEST_P(MeanTestF, Result) {
-  ASSERT_TRUE(devArrMatch(params.mean, mean_act, params.cols,
+  ASSERT_TRUE(devArrMatch(params.mean, mean_act.data(), params.cols,
                           CompareApprox<float>(params.tolerance)));
 }
 
 typedef MeanTest<double> MeanTestD;
 TEST_P(MeanTestD, Result) {
-  ASSERT_TRUE(devArrMatch(params.mean, mean_act, params.cols,
+  ASSERT_TRUE(devArrMatch(params.mean, mean_act.data(), params.cols,
                           CompareApprox<double>(params.tolerance)));
 }
 
