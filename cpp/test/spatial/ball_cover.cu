@@ -24,6 +24,7 @@
 #include <raft/spatial/knn/detail/fused_l2_knn.cuh>
 #include <raft/spatial/knn/detail/haversine_distance.cuh>
 
+#include <raft/spatial/knn/detail/knn_brute_force_faiss.cuh>
 #include <rmm/device_uvector.hpp>
 #include "../test_utils.h"
 #include "spatial_data.h"
@@ -95,29 +96,12 @@ void compute_bfknn(const raft::handle_t &handle, const value_t *X1,
   std::vector<value_t *> input_vec = {const_cast<value_t *>(X1)};
   std::vector<std::uint32_t> sizes_vec = {n};
 
-  if (metric == raft::distance::DistanceType::Haversine) {
-    std::vector<int64_t> *translations = nullptr;
-    raft::spatial::knn::brute_force_knn<long, float, unsigned int>(
-      handle, input_vec, sizes_vec, d, const_cast<value_t *>(X2), n, inds,
-      dists, k, true, true, translations, metric);
-  } else {
-    size_t worksize = 0;
-    void *workspace = nullptr;
-    raft::spatial::knn::detail::l2_unexpanded_knn<
-      raft::distance::DistanceType::L2SqrtUnexpanded, std::int64_t, value_t,
-      false>((size_t)d, inds, dists, input_vec[0], X2, (size_t)sizes_vec[0],
-             (size_t)n, (int)k, true, true, handle.get_stream(), workspace,
-             worksize);
-    if (worksize) {
-      rmm::device_uvector<int> d_mutexes(worksize, handle.get_stream());
-      workspace = d_mutexes.data();
-      raft::spatial::knn::detail::l2_unexpanded_knn<
-        raft::distance::DistanceType::L2SqrtUnexpanded, std::int64_t, value_t,
-        false>((size_t)d, inds, dists, input_vec[0], X2, (size_t)sizes_vec[0],
-               (size_t)n, (int)k, true, true, handle.get_stream(), workspace,
-               worksize);
-    }
-  }
+  cudaStream_t *int_streams = nullptr;
+  std::vector<int64_t> *translations = nullptr;
+
+  raft::spatial::knn::detail::brute_force_knn_impl<uint32_t, int64_t>(
+    input_vec, sizes_vec, d, const_cast<value_t *>(X2), n, inds, dists, k,
+    handle.get_stream(), int_streams, 0, true, true, translations, metric);
 }
 
 struct ToRadians {
@@ -242,11 +226,16 @@ class BallCoverAllKNNTest
                         d_train_inputs.data(), ToRadians());
     }
 
+    cudaStream_t *int_streams = nullptr;
+    std::vector<int64_t> *translations = nullptr;
+
     std::vector<float *> input_vec = {d_train_inputs.data()};
     std::vector<std::uint32_t> sizes_vec = {n};
 
-    compute_bfknn(handle, d_train_inputs.data(), d_train_inputs.data(), n, d, k,
-                  metric, d_ref_D.data(), d_ref_I.data());
+    raft::spatial::knn::detail::brute_force_knn_impl<uint32_t, int64_t>(
+      input_vec, sizes_vec, d, d_train_inputs.data(), n, d_ref_I.data(),
+      d_ref_D.data(), k, handle.get_stream(), int_streams, 0, true, true,
+      translations, metric);
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 

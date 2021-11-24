@@ -36,6 +36,7 @@ add_executable(test_raft
     test/eigen_solvers.cu
     test/handle.cpp
     test/integer_utils.cpp
+    test/pow2_utils.cu
     test/label/label.cu
     test/label/merge_labels.cu
     test/lap/lap.cu
@@ -87,6 +88,7 @@ add_executable(test_raft
     test/sparse/sort.cu
     test/sparse/symmetrize.cu
     test/spatial/knn.cu
+    test/spatial/fused_l2_knn.cu
     test/spatial/haversine.cu
     test/spatial/ball_cover.cu
     test/spatial/selection.cu

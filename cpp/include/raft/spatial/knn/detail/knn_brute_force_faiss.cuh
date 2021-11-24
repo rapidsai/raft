@@ -272,44 +272,53 @@ void brute_force_knn_impl(std::vector<value_t *> &input,
     cudaStream_t stream =
       raft::select_stream(userStream, internalStreams, n_int_streams, i);
 
-    switch (metric) {
-      case raft::distance::DistanceType::Haversine:
+    if (k <= 64 && rowMajorQuery == rowMajorIndex && rowMajorQuery == true &&
+        (metric == raft::distance::DistanceType::L2Unexpanded ||
+         metric == raft::distance::DistanceType::L2SqrtUnexpanded ||
+         metric == raft::distance::DistanceType::L2Expanded ||
+         metric == raft::distance::DistanceType::L2SqrtExpanded)) {
+      fusedL2Knn(D, out_i_ptr, out_d_ptr, input[i], search_items, sizes[i], n,
+                 k, rowMajorIndex, rowMajorQuery, stream, metric);
+    } else {
+      switch (metric) {
+        case raft::distance::DistanceType::Haversine:
 
-        ASSERT(D == 2,
-               "Haversine distance requires 2 dimensions "
-               "(latitude / longitude).");
+          ASSERT(D == 2,
+                 "Haversine distance requires 2 dimensions "
+                 "(latitude / longitude).");
 
-        haversine_knn(out_i_ptr, out_d_ptr, input[i], search_items, sizes[i], n,
-                      k, stream);
-        break;
-      default:
-        faiss::MetricType m = build_faiss_metric(metric);
+          haversine_knn(out_i_ptr, out_d_ptr, input[i], search_items, sizes[i],
+                        n, k, stream);
+          break;
+        default:
+          faiss::MetricType m = build_faiss_metric(metric);
 
-        faiss::gpu::StandardGpuResources gpu_res;
+          faiss::gpu::StandardGpuResources gpu_res;
 
-        gpu_res.noTempMemory();
-        gpu_res.setDefaultStream(device, stream);
+          gpu_res.noTempMemory();
+          gpu_res.setDefaultStream(device, stream);
 
-        faiss::gpu::GpuDistanceParams args;
-        args.metric = m;
-        args.metricArg = metricArg;
-        args.k = k;
-        args.dims = D;
-        args.vectors = input[i];
-        args.vectorsRowMajor = rowMajorIndex;
-        args.numVectors = sizes[i];
-        args.queries = search_items;
-        args.queriesRowMajor = rowMajorQuery;
-        args.numQueries = n;
-        args.outDistances = out_d_ptr;
-        args.outIndices = out_i_ptr;
+          faiss::gpu::GpuDistanceParams args;
+          args.metric = m;
+          args.metricArg = metricArg;
+          args.k = k;
+          args.dims = D;
+          args.vectors = input[i];
+          args.vectorsRowMajor = rowMajorIndex;
+          args.numVectors = sizes[i];
+          args.queries = search_items;
+          args.queriesRowMajor = rowMajorQuery;
+          args.numQueries = n;
+          args.outDistances = out_d_ptr;
+          args.outIndices = out_i_ptr;
 
-        /**
+          /**
            * @todo: Until FAISS supports pluggable allocation strategies,
            * we will not reap the benefits of the pool allocator for
            * avoiding device-wide synchronizations from cudaMalloc/cudaFree
            */
-        bfKnn(&gpu_res, args);
+          bfKnn(&gpu_res, args);
+      }
     }
 
     CUDA_CHECK(cudaPeekAtLastError());

@@ -108,8 +108,8 @@ inline void select_k(value_t *inK, value_idx *inV, size_t n_rows, size_t n_cols,
  * 			   default
  * @param[in] metric_arg the value of `p` for Minkowski (l-p) distances. This
  * 					 is ignored if the metric_type is not Minkowski.
- * @param[in] expanded should lp-based distances be returned in their expanded
- * 					 form (e.g., without raising to the 1/p power).
+ * @param[in] translations starting offsets for partitions. should be the same size
+ *            as input vector.
  */
 template <typename value_idx = std::int64_t, typename value_t = float,
           typename value_int = int>
@@ -119,7 +119,7 @@ void brute_force_knn(
   value_int n, value_idx *res_I, value_t *res_D, value_int k,
   bool rowMajorIndex = true, bool rowMajorQuery = true,
   std::vector<value_idx> *translations = nullptr,
-  distance::DistanceType metric = distance::DistanceType::L2Unexpanded,
+  distance::DistanceType metric = distance::DistanceType::L2Expanded,
   float metric_arg = 2.0f) {
   ASSERT(input.size() == sizes.size(),
          "input and sizes vectors must be the same size");
