@@ -33,10 +33,11 @@ namespace linalg {
  * @{
  */
 template <typename math_t, typename IdxType = int>
-void multiplyScalar(math_t* out, const math_t* in, math_t scalar, IdxType len, cudaStream_t stream)
-{
+void multiplyScalar(math_t *out, const math_t *in, math_t scalar, IdxType len,
+                    cudaStream_t stream) {
   unaryOp(
-    out, in, len, [scalar] __device__(math_t in) { return in * scalar; }, stream);
+    out, in, len, [scalar] __device__(math_t in) { return in * scalar; },
+    stream);
 }
 /** @} */
 

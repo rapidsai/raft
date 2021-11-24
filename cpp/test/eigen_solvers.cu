@@ -23,8 +23,7 @@
 
 namespace raft {
 
-TEST(Raft, EigenSolvers)
-{
+TEST(Raft, EigenSolvers) {
   using namespace matrix;
   using index_type = int;
   using value_type = double;
@@ -36,10 +35,10 @@ TEST(Raft, EigenSolvers)
   index_type* ro{nullptr};
   index_type* ci{nullptr};
   value_type* vs{nullptr};
-  index_type nnz   = 0;
+  index_type nnz = 0;
   index_type nrows = 0;
-  auto stream      = h.get_stream();
-  auto t_exe_pol   = thrust::cuda::par.on(stream);
+  auto stream = h.get_stream();
+  auto t_exe_pol = thrust::cuda::par.on(stream);
 
   sparse_matrix_t<index_type, value_type> sm1{h, ro, ci, vs, nrows, nnz};
   ASSERT_EQ(nullptr, sm1.row_offsets_);
@@ -50,7 +49,7 @@ TEST(Raft, EigenSolvers)
   value_type tol{1.0e-10};
   bool reorthog{true};
 
-  // nullptr expected to trigger exceptions:
+  //nullptr expected to trigger exceptions:
   //
   value_type* eigvals{nullptr};
   value_type* eigvecs{nullptr};
@@ -61,13 +60,14 @@ TEST(Raft, EigenSolvers)
 
   lanczos_solver_t<index_type, value_type> eig_solver{cfg};
 
-  EXPECT_ANY_THROW(eig_solver.solve_smallest_eigenvectors(h, sm1, eigvals, eigvecs));
+  EXPECT_ANY_THROW(
+    eig_solver.solve_smallest_eigenvectors(h, sm1, eigvals, eigvecs));
 
-  EXPECT_ANY_THROW(eig_solver.solve_largest_eigenvectors(h, sm1, eigvals, eigvecs));
+  EXPECT_ANY_THROW(
+    eig_solver.solve_largest_eigenvectors(h, sm1, eigvals, eigvecs));
 }
 
-TEST(Raft, SpectralSolvers)
-{
+TEST(Raft, SpectralSolvers) {
   using namespace matrix;
   using index_type = int;
   using value_type = double;
@@ -82,7 +82,7 @@ TEST(Raft, SpectralSolvers)
   value_type tol{1.0e-10};
   bool reorthog{true};
 
-  // nullptr expected to trigger exceptions:
+  //nullptr expected to trigger exceptions:
   //
   index_type* clusters{nullptr};
   value_type* eigvals{nullptr};
@@ -96,19 +96,22 @@ TEST(Raft, SpectralSolvers)
 
   index_type k{5};
 
-  cluster_solver_config_t<index_type, value_type> clust_cfg{k, maxiter, tol, seed};
+  cluster_solver_config_t<index_type, value_type> clust_cfg{k, maxiter, tol,
+                                                            seed};
   kmeans_solver_t<index_type, value_type> cluster_solver{clust_cfg};
 
   auto stream = h.get_stream();
 
   auto t_exe_p = thrust::cuda::par.on(stream);
-  sparse_matrix_t<index_type, value_type> sm{h, nullptr, nullptr, nullptr, 0, 0};
-  EXPECT_ANY_THROW(
-    spectral::partition(h, t_exe_p, sm, eig_solver, cluster_solver, clusters, eigvals, eigvecs));
+  sparse_matrix_t<index_type, value_type> sm{h,       nullptr, nullptr,
+                                             nullptr, 0,       0};
+  EXPECT_ANY_THROW(spectral::partition(
+    h, t_exe_p, sm, eig_solver, cluster_solver, clusters, eigvals, eigvecs));
 
   value_type edgeCut{0};
   value_type cost{0};
-  EXPECT_ANY_THROW(spectral::analyzePartition(h, t_exe_p, sm, k, clusters, edgeCut, cost));
+  EXPECT_ANY_THROW(
+    spectral::analyzePartition(h, t_exe_p, sm, k, clusters, edgeCut, cost));
 }
 
 }  // namespace raft

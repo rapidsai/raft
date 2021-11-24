@@ -59,20 +59,17 @@ struct KeyValuePair {
   __host__ __device__ __forceinline__ KeyValuePair() {}
 
   /// Copy Constructor
-  __host__ __device__ __forceinline__ KeyValuePair(cub::KeyValuePair<_Key, _Value> kvp)
-    : key(kvp.key), value(kvp.value)
-  {
-  }
+  __host__ __device__ __forceinline__
+  KeyValuePair(cub::KeyValuePair<_Key, _Value> kvp)
+    : key(kvp.key), value(kvp.value) {}
 
   /// Constructor
-  __host__ __device__ __forceinline__ KeyValuePair(Key const& key, Value const& value)
-    : key(key), value(value)
-  {
-  }
+  __host__ __device__ __forceinline__ KeyValuePair(Key const &key,
+                                                   Value const &value)
+    : key(key), value(value) {}
 
   /// Inequality operator
-  __host__ __device__ __forceinline__ bool operator!=(const KeyValuePair& b)
-  {
+  __host__ __device__ __forceinline__ bool operator!=(const KeyValuePair &b) {
     return (value != b.value) || (key != b.key);
   }
 };
@@ -86,32 +83,31 @@ struct KeyValuePair {
  */
 template <typename value_idx, typename value_t>
 struct FixConnectivitiesRedOp {
-  value_idx* colors;
+  value_idx *colors;
   value_idx m;
 
-  FixConnectivitiesRedOp(value_idx* colors_, value_idx m_) : colors(colors_), m(m_){};
+  FixConnectivitiesRedOp(value_idx *colors_, value_idx m_)
+    : colors(colors_), m(m_){};
 
   typedef typename cub::KeyValuePair<value_idx, value_t> KVP;
-  DI void operator()(value_idx rit, KVP* out, const KVP& other)
-  {
-    if (rit < m && other.value < out->value && colors[rit] != colors[other.key]) {
-      out->key   = other.key;
+  DI void operator()(value_idx rit, KVP *out, const KVP &other) {
+    if (rit < m && other.value < out->value &&
+        colors[rit] != colors[other.key]) {
+      out->key = other.key;
       out->value = other.value;
     }
   }
 
-  DI KVP operator()(value_idx rit, const KVP& a, const KVP& b)
-  {
+  DI KVP operator()(value_idx rit, const KVP &a, const KVP &b) {
     if (rit < m && a.value < b.value && colors[rit] != colors[a.key]) {
       return a;
     } else
       return b;
   }
 
-  DI void init(value_t* out, value_t maxVal) { *out = maxVal; }
-  DI void init(KVP* out, value_t maxVal)
-  {
-    out->key   = -1;
+  DI void init(value_t *out, value_t maxVal) { *out = maxVal; }
+  DI void init(KVP *out, value_t maxVal) {
+    out->key = -1;
     out->value = maxVal;
   }
 };
@@ -123,8 +119,7 @@ struct FixConnectivitiesRedOp {
  */
 struct TupleComp {
   template <typename one, typename two>
-  __host__ __device__ bool operator()(const one& t1, const two& t2)
-  {
+  __host__ __device__ bool operator()(const one &t1, const two &t2) {
     // sort first by each sample's color,
     if (thrust::get<0>(t1) < thrust::get<0>(t2)) return true;
     if (thrust::get<0>(t1) > thrust::get<0>(t2)) return false;
@@ -142,9 +137,13 @@ template <typename LabelT, typename DataT>
 struct CubKVPMinReduce {
   typedef cub::KeyValuePair<LabelT, DataT> KVP;
 
-  DI KVP operator()(LabelT rit, const KVP& a, const KVP& b) { return b.value < a.value ? b : a; }
+  DI KVP operator()(LabelT rit, const KVP &a, const KVP &b) {
+    return b.value < a.value ? b : a;
+  }
 
-  DI KVP operator()(const KVP& a, const KVP& b) { return b.value < a.value ? b : a; }
+  DI KVP operator()(const KVP &a, const KVP &b) {
+    return b.value < a.value ? b : a;
+  }
 
 };  // KVPMinReduce
 
@@ -159,14 +158,13 @@ struct CubKVPMinReduce {
  * @return total number of components
  */
 template <typename value_idx>
-value_idx get_n_components(value_idx* colors,
-                           size_t n_rows,
+value_idx get_n_components(value_idx *colors, size_t n_rows,
                            std::shared_ptr<raft::mr::device::allocator> d_alloc,
-                           cudaStream_t stream)
-{
-  value_idx* map_ids;
+                           cudaStream_t stream) {
+  value_idx *map_ids;
   int num_clusters;
-  raft::label::getUniquelabels(colors, n_rows, &map_ids, &num_clusters, stream, d_alloc);
+  raft::label::getUniquelabels(colors, n_rows, &map_ids, &num_clusters, stream,
+                               d_alloc);
   d_alloc->deallocate(map_ids, num_clusters * sizeof(value_idx), stream);
 
   return num_clusters;
@@ -179,12 +177,11 @@ value_idx get_n_components(value_idx* colors,
  */
 template <typename value_idx, typename value_t>
 struct LookupColorOp {
-  value_idx* colors;
+  value_idx *colors;
 
-  LookupColorOp(value_idx* colors_) : colors(colors_) {}
+  LookupColorOp(value_idx *colors_) : colors(colors_) {}
 
-  DI value_idx operator()(const cub::KeyValuePair<value_idx, value_t>& kvp)
-  {
+  DI value_idx operator()(const cub::KeyValuePair<value_idx, value_t> &kvp) {
     return colors[kvp.key];
   }
 };
@@ -194,8 +191,7 @@ struct LookupColorOp {
  * the given array of components
  * @tparam value_idx
  * @tparam value_t
- * @param[out] kvp mapping of closest neighbor vertex and distance for each vertex in the given
- * array of components
+ * @param[out] kvp mapping of closest neighbor vertex and distance for each vertex in the given array of components
  * @param[out] nn_colors components of nearest neighbors for each vertex
  * @param[in] colors components of each vertex
  * @param[in] X original dense data
@@ -205,39 +201,25 @@ struct LookupColorOp {
  * @param[in] stream cuda stream for which to order cuda operations
  */
 template <typename value_idx, typename value_t, typename red_op>
-void perform_1nn(cub::KeyValuePair<value_idx, value_t>* kvp,
-                 value_idx* nn_colors,
-                 value_idx* colors,
-                 const value_t* X,
-                 size_t n_rows,
-                 size_t n_cols,
+void perform_1nn(cub::KeyValuePair<value_idx, value_t> *kvp,
+                 value_idx *nn_colors, value_idx *colors, const value_t *X,
+                 size_t n_rows, size_t n_cols,
                  std::shared_ptr<raft::mr::device::allocator> d_alloc,
-                 cudaStream_t stream,
-                 red_op reduction_op)
-{
+                 cudaStream_t stream, red_op reduction_op) {
   rmm::device_uvector<int> workspace(n_rows, stream);
   rmm::device_uvector<value_t> x_norm(n_rows, stream);
 
-  raft::linalg::rowNorm(x_norm.data(), X, n_cols, n_rows, raft::linalg::L2Norm, true, stream);
+  raft::linalg::rowNorm(x_norm.data(), X, n_cols, n_rows, raft::linalg::L2Norm,
+                        true, stream);
 
-  raft::distance::fusedL2NN<value_t, cub::KeyValuePair<value_idx, value_t>, value_idx>(
-    kvp,
-    X,
-    X,
-    x_norm.data(),
-    x_norm.data(),
-    n_rows,
-    n_rows,
-    n_cols,
-    workspace.data(),
-    reduction_op,
-    reduction_op,
-    true,
-    true,
-    stream);
+  raft::distance::fusedL2NN<value_t, cub::KeyValuePair<value_idx, value_t>,
+                            value_idx>(
+    kvp, X, X, x_norm.data(), x_norm.data(), n_rows, n_rows, n_cols,
+    workspace.data(), reduction_op, reduction_op, true, true, stream);
 
   LookupColorOp<value_idx, value_t> extract_colors_op(colors);
-  thrust::transform(thrust::cuda::par.on(stream), kvp, kvp + n_rows, nn_colors, extract_colors_op);
+  thrust::transform(thrust::cuda::par.on(stream), kvp, kvp + n_rows, nn_colors,
+                    extract_colors_op);
 }
 
 /**
@@ -253,33 +235,27 @@ void perform_1nn(cub::KeyValuePair<value_idx, value_t>* kvp,
  * @param stream stream for which to order CUDA operations
  */
 template <typename value_idx, typename value_t>
-void sort_by_color(value_idx* colors,
-                   value_idx* nn_colors,
-                   cub::KeyValuePair<value_idx, value_t>* kvp,
-                   value_idx* src_indices,
-                   size_t n_rows,
-                   cudaStream_t stream)
-{
+void sort_by_color(value_idx *colors, value_idx *nn_colors,
+                   cub::KeyValuePair<value_idx, value_t> *kvp,
+                   value_idx *src_indices, size_t n_rows, cudaStream_t stream) {
   thrust::counting_iterator<value_idx> arg_sort_iter(0);
-  thrust::copy(thrust::cuda::par.on(stream), arg_sort_iter, arg_sort_iter + n_rows, src_indices);
+  thrust::copy(thrust::cuda::par.on(stream), arg_sort_iter,
+               arg_sort_iter + n_rows, src_indices);
 
-  auto keys = thrust::make_zip_iterator(
-    thrust::make_tuple(colors, nn_colors, (raft::linkage::KeyValuePair<value_idx, value_t>*)kvp));
+  auto keys = thrust::make_zip_iterator(thrust::make_tuple(
+    colors, nn_colors, (raft::linkage::KeyValuePair<value_idx, value_t> *)kvp));
   auto vals = thrust::make_zip_iterator(thrust::make_tuple(src_indices));
 
   // get all the colors in contiguous locations so we can map them to warps.
-  thrust::sort_by_key(thrust::cuda::par.on(stream), keys, keys + n_rows, vals, TupleComp());
+  thrust::sort_by_key(thrust::cuda::par.on(stream), keys, keys + n_rows, vals,
+                      TupleComp());
 }
 
 template <typename value_idx, typename value_t>
-__global__ void min_components_by_color_kernel(value_idx* out_rows,
-                                               value_idx* out_cols,
-                                               value_t* out_vals,
-                                               const value_idx* out_index,
-                                               const value_idx* indices,
-                                               const cub::KeyValuePair<value_idx, value_t>* kvp,
-                                               size_t nnz)
-{
+__global__ void min_components_by_color_kernel(
+  value_idx *out_rows, value_idx *out_cols, value_t *out_vals,
+  const value_idx *out_index, const value_idx *indices,
+  const cub::KeyValuePair<value_idx, value_t> *kvp, size_t nnz) {
   size_t tid = blockDim.x * blockIdx.x + threadIdx.x;
 
   if (tid >= nnz) return;
@@ -308,20 +284,19 @@ __global__ void min_components_by_color_kernel(value_idx* out_rows,
  * @param[in] stream cuda stream for which to order cuda operations
  */
 template <typename value_idx, typename value_t>
-void min_components_by_color(raft::sparse::COO<value_t, value_idx>& coo,
-                             const value_idx* out_index,
-                             const value_idx* indices,
-                             const cub::KeyValuePair<value_idx, value_t>* kvp,
-                             size_t nnz,
-                             cudaStream_t stream)
-{
+void min_components_by_color(raft::sparse::COO<value_t, value_idx> &coo,
+                             const value_idx *out_index,
+                             const value_idx *indices,
+                             const cub::KeyValuePair<value_idx, value_t> *kvp,
+                             size_t nnz, cudaStream_t stream) {
   /**
    * Arrays should be ordered by: colors_indptr->colors_n->kvp.value
    * so the last element of each column in the input CSR should be
    * the min.
    */
-  min_components_by_color_kernel<<<raft::ceildiv(nnz, (size_t)256), 256, 0, stream>>>(
-    coo.rows(), coo.cols(), coo.vals(), out_index, indices, kvp, nnz);
+  min_components_by_color_kernel<<<raft::ceildiv(nnz, (size_t)256), 256, 0,
+                                   stream>>>(coo.rows(), coo.cols(), coo.vals(),
+                                             out_index, indices, kvp, nnz);
 }
 
 /**
@@ -343,18 +318,14 @@ void min_components_by_color(raft::sparse::COO<value_t, value_idx>& coo,
  * @param[in] n_cols number of cols in X
  */
 template <typename value_idx, typename value_t, typename red_op>
-void connect_components(
-  const raft::handle_t& handle,
-  raft::sparse::COO<value_t, value_idx>& out,
-  const value_t* X,
-  const value_idx* orig_colors,
-  size_t n_rows,
-  size_t n_cols,
-  red_op reduction_op,
-  raft::distance::DistanceType metric = raft::distance::DistanceType::L2SqrtExpanded)
-{
+void connect_components(const raft::handle_t &handle,
+                        raft::sparse::COO<value_t, value_idx> &out,
+                        const value_t *X, const value_idx *orig_colors,
+                        size_t n_rows, size_t n_cols, red_op reduction_op,
+                        raft::distance::DistanceType metric =
+                          raft::distance::DistanceType::L2SqrtExpanded) {
   auto d_alloc = handle.get_device_allocator();
-  auto stream  = handle.get_stream();
+  auto stream = handle.get_stream();
 
   RAFT_EXPECTS(metric == raft::distance::DistanceType::L2SqrtExpanded,
                "Fixing connectivities for an unconnected k-NN graph only "
@@ -364,52 +335,47 @@ void connect_components(
   raft::copy_async(colors.data(), orig_colors, n_rows, stream);
 
   // Normalize colors so they are drawn from a monotonically increasing set
-  raft::label::make_monotonic(colors.data(), colors.data(), n_rows, stream, d_alloc, true);
+  raft::label::make_monotonic(colors.data(), colors.data(), n_rows, stream,
+                              d_alloc, true);
 
-  value_idx n_components = get_n_components(colors.data(), n_rows, d_alloc, stream);
+  value_idx n_components =
+    get_n_components(colors.data(), n_rows, d_alloc, stream);
 
   /**
    * First compute 1-nn for all colors where the color of each data point
    * is guaranteed to be != color of its nearest neighbor.
    */
   rmm::device_uvector<value_idx> nn_colors(n_rows, stream);
-  rmm::device_uvector<cub::KeyValuePair<value_idx, value_t>> temp_inds_dists(n_rows, stream);
+  rmm::device_uvector<cub::KeyValuePair<value_idx, value_t>> temp_inds_dists(
+    n_rows, stream);
   rmm::device_uvector<value_idx> src_indices(n_rows, stream);
 
-  perform_1nn(temp_inds_dists.data(),
-              nn_colors.data(),
-              colors.data(),
-              X,
-              n_rows,
-              n_cols,
-              d_alloc,
-              stream,
-              reduction_op);
+  perform_1nn(temp_inds_dists.data(), nn_colors.data(), colors.data(), X,
+              n_rows, n_cols, d_alloc, stream, reduction_op);
 
   /**
    * Sort data points by color (neighbors are not sorted)
    */
   // max_color + 1 = number of connected components
   // sort nn_colors by key w/ original colors
-  sort_by_color(
-    colors.data(), nn_colors.data(), temp_inds_dists.data(), src_indices.data(), n_rows, stream);
+  sort_by_color(colors.data(), nn_colors.data(), temp_inds_dists.data(),
+                src_indices.data(), n_rows, stream);
 
   /**
    * Take the min for any duplicate colors
    */
   // Compute mask of duplicates
   rmm::device_uvector<value_idx> out_index(n_rows + 1, stream);
-  raft::sparse::op::compute_duplicates_mask(
-    out_index.data(), colors.data(), nn_colors.data(), n_rows, stream);
+  raft::sparse::op::compute_duplicates_mask(out_index.data(), colors.data(),
+                                            nn_colors.data(), n_rows, stream);
 
-  thrust::exclusive_scan(thrust::cuda::par.on(stream),
-                         out_index.data(),
-                         out_index.data() + out_index.size(),
-                         out_index.data());
+  thrust::exclusive_scan(thrust::cuda::par.on(stream), out_index.data(),
+                         out_index.data() + out_index.size(), out_index.data());
 
   // compute final size
   value_idx size = 0;
-  raft::update_host(&size, out_index.data() + (out_index.size() - 1), 1, stream);
+  raft::update_host(&size, out_index.data() + (out_index.size() - 1), 1,
+                    stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   size++;
@@ -417,14 +383,14 @@ void connect_components(
   raft::sparse::COO<value_t, value_idx> min_edges(d_alloc, stream);
   min_edges.allocate(size, n_rows, n_rows, true, stream);
 
-  min_components_by_color(
-    min_edges, out_index.data(), src_indices.data(), temp_inds_dists.data(), n_rows, stream);
+  min_components_by_color(min_edges, out_index.data(), src_indices.data(),
+                          temp_inds_dists.data(), n_rows, stream);
 
   /**
    * Symmetrize resulting edge list
    */
-  raft::sparse::linalg::symmetrize(
-    handle, min_edges.rows(), min_edges.cols(), min_edges.vals(), n_rows, n_rows, size, out);
+  raft::sparse::linalg::symmetrize(handle, min_edges.rows(), min_edges.cols(),
+                                   min_edges.vals(), n_rows, n_rows, size, out);
 }
 
 };  // end namespace linkage

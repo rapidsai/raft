@@ -33,8 +33,7 @@ struct PhiloxGenerator {
    * @param subsequence as found in curand docs
    * @param offset as found in curand docs
    */
-  DI PhiloxGenerator(uint64_t seed, uint64_t subsequence, uint64_t offset)
-  {
+  DI PhiloxGenerator(uint64_t seed, uint64_t subsequence, uint64_t offset) {
     curand_init(seed, subsequence, offset, &state);
   }
 
@@ -45,21 +44,18 @@ struct PhiloxGenerator {
   DI void next(float& ret) { ret = curand_uniform(&(this->state)); }
   DI void next(double& ret) { ret = curand_uniform_double(&(this->state)); }
   DI void next(uint32_t& ret) { ret = curand(&(this->state)); }
-  DI void next(uint64_t& ret)
-  {
+  DI void next(uint64_t& ret) {
     uint32_t a, b;
     next(a);
     next(b);
     ret = (uint64_t)a | ((uint64_t)b << 32);
   }
-  DI void next(int32_t& ret)
-  {
+  DI void next(int32_t& ret) {
     uint32_t val;
     next(val);
     ret = int32_t(val & 0x7fffffff);
   }
-  DI void next(int64_t& ret)
-  {
+  DI void next(int64_t& ret) {
     uint64_t val;
     next(val);
     ret = int64_t(val & 0x7fffffffffffffff);
@@ -80,9 +76,8 @@ struct TapsGenerator {
    * @param subsequence unused
    * @param offset unused
    */
-  DI TapsGenerator(uint64_t seed, uint64_t subsequence, uint64_t offset)
-  {
-    uint64_t delta  = (blockIdx.x * blockDim.x) + threadIdx.x;
+  DI TapsGenerator(uint64_t seed, uint64_t subsequence, uint64_t offset) {
+    uint64_t delta = (blockIdx.x * blockDim.x) + threadIdx.x;
     uint64_t stride = blockDim.x * gridDim.x;
     delta += ((blockIdx.y * blockDim.y) + threadIdx.y) * stride;
     stride *= blockDim.y * gridDim.y;
@@ -95,36 +90,31 @@ struct TapsGenerator {
    * @{
    */
   template <typename Type>
-  DI void next(Type& ret)
-  {
+  DI void next(Type& ret) {
     constexpr double ULL_LARGE = 1.8446744073709551614e19;
     uint64_t val;
     next(val);
     ret = static_cast<Type>(val);
     ret /= static_cast<Type>(ULL_LARGE);
   }
-  DI void next(uint64_t& ret)
-  {
+  DI void next(uint64_t& ret) {
     constexpr uint64_t TAPS = 0x8000100040002000ULL;
-    constexpr int ROUNDS    = 128;
+    constexpr int ROUNDS = 128;
     for (int i = 0; i < ROUNDS; i++)
       state = (state >> 1) ^ (-(state & 1ULL) & TAPS);
     ret = state;
   }
-  DI void next(uint32_t& ret)
-  {
+  DI void next(uint32_t& ret) {
     uint64_t val;
     next(val);
     ret = (uint32_t)val;
   }
-  DI void next(int32_t& ret)
-  {
+  DI void next(int32_t& ret) {
     uint32_t val;
     next(val);
     ret = int32_t(val & 0x7fffffff);
   }
-  DI void next(int64_t& ret)
-  {
+  DI void next(int64_t& ret) {
     uint64_t val;
     next(val);
     ret = int64_t(val & 0x7fffffffffffffff);
@@ -145,49 +135,46 @@ struct Kiss99Generator {
    * @param subsequence unused
    * @param offset unused
    */
-  DI Kiss99Generator(uint64_t seed, uint64_t subsequence, uint64_t offset) { initKiss99(seed); }
+  DI Kiss99Generator(uint64_t seed, uint64_t subsequence, uint64_t offset) {
+    initKiss99(seed);
+  }
 
   /**
    * @defgroup NextRand Generate the next random number
    * @{
    */
   template <typename Type>
-  DI void next(Type& ret)
-  {
+  DI void next(Type& ret) {
     constexpr double U_LARGE = 4.294967295e9;
     uint32_t val;
     next(val);
     ret = static_cast<Type>(val);
     ret /= static_cast<Type>(U_LARGE);
   }
-  DI void next(uint32_t& ret)
-  {
+  DI void next(uint32_t& ret) {
     uint32_t MWC;
-    z   = 36969 * (z & 65535) + (z >> 16);
-    w   = 18000 * (w & 65535) + (w >> 16);
+    z = 36969 * (z & 65535) + (z >> 16);
+    w = 18000 * (w & 65535) + (w >> 16);
     MWC = ((z << 16) + w);
     jsr ^= (jsr << 17);
     jsr ^= (jsr >> 13);
     jsr ^= (jsr << 5);
     jcong = 69069 * jcong + 1234567;
-    MWC   = ((MWC ^ jcong) + jsr);
-    ret   = MWC;
+    MWC = ((MWC ^ jcong) + jsr);
+    ret = MWC;
   }
-  DI void next(uint64_t& ret)
-  {
+  DI void next(uint64_t& ret) {
     uint32_t a, b;
     next(a);
     next(b);
     ret = (uint64_t)a | ((uint64_t)b << 32);
   }
-  DI void next(int32_t& ret)
-  {
+  DI void next(int32_t& ret) {
     uint32_t val;
     next(val);
     ret = int32_t(val & 0x7fffffff);
   }
-  DI void next(int64_t& ret)
-  {
+  DI void next(int64_t& ret) {
     uint64_t val;
     next(val);
     ret = int64_t(val & 0x7fffffffffffffff);
@@ -206,8 +193,7 @@ struct Kiss99Generator {
 
   // This function multiplies 128-bit hash by 128-bit FNV prime and returns lower
   // 128 bits. It uses 32-bit wide multiply only.
-  DI void mulByFnv1a128Prime(uint32_t* h)
-  {
+  DI void mulByFnv1a128Prime(uint32_t* h) {
     typedef union {
       uint32_t u32[2];
       uint64_t u64[1];
@@ -231,12 +217,12 @@ struct Kiss99Generator {
     // h_n[2] = HI(h[1]*p[0]) + LO(h[2]*p[0]) + LO(h[0]*p[2]);
     // h_n[3] = HI(h[2]*p[0]) + HI(h[0]*p[2]) + LO(h[3]*p[0]) + LO(h[1]*p[2]);
     uint32_t carry = 0;
-    h[0]           = h0p0.u32[0];
+    h[0] = h0p0.u32[0];
 
-    h[1]  = h0p0.u32[1] + h1p0.u32[0];
+    h[1] = h0p0.u32[1] + h1p0.u32[0];
     carry = h[1] < h0p0.u32[1] ? 1 : 0;
 
-    h[2]  = h1p0.u32[1] + carry;
+    h[2] = h1p0.u32[1] + carry;
     carry = h[2] < h1p0.u32[1] ? 1 : 0;
     h[2] += h2p0.u32[0];
     carry = h[2] < h2p0.u32[0] ? carry + 1 : carry;
@@ -247,8 +233,7 @@ struct Kiss99Generator {
     return;
   }
 
-  DI void fnv1a128(uint32_t* hash, uint32_t txt)
-  {
+  DI void fnv1a128(uint32_t* hash, uint32_t txt) {
     hash[0] ^= (txt >> 0) & 0xFF;
     mulByFnv1a128Prime(hash);
     hash[0] ^= (txt >> 8) & 0xFF;
@@ -259,8 +244,7 @@ struct Kiss99Generator {
     mulByFnv1a128Prime(hash);
   }
 
-  DI void initKiss99(uint64_t seed)
-  {
+  DI void initKiss99(uint64_t seed) {
     // Initialize hash to 128-bit FNV1a basis
     uint32_t hash[4] = {1653982605UL, 1656234357UL, 129696066UL, 1818371886UL};
 
@@ -275,9 +259,9 @@ struct Kiss99Generator {
     fnv1a128(hash, uint32_t(seed >> 32));
 
     // Initialize KISS99 state with hash
-    z     = hash[0];
-    w     = hash[1];
-    jsr   = hash[2];
+    z = hash[0];
+    w = hash[1];
+    jsr = hash[2];
     jcong = hash[3];
   }
 };
@@ -289,13 +273,10 @@ struct Kiss99Generator {
 template <typename GenType>
 struct Generator {
   DI Generator(uint64_t seed, uint64_t subsequence, uint64_t offset)
-    : gen(seed, subsequence, offset)
-  {
-  }
+    : gen(seed, subsequence, offset) {}
 
   template <typename Type>
-  DI void next(Type& ret)
-  {
+  DI void next(Type& ret) {
     gen.next(ret);
   }
 

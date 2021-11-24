@@ -20,8 +20,7 @@
 
 namespace raft {
 
-TEST(Raft, Utils)
-{
+TEST(Raft, Utils) {
   ASSERT_NO_THROW(ASSERT(1 == 1, "Should not assert!"));
   ASSERT_THROW(ASSERT(1 != 1, "Should assert!"), exception);
   ASSERT_THROW(THROW("Should throw!"), exception);

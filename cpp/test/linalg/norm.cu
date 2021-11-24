@@ -34,19 +34,17 @@ struct NormInputs {
 };
 
 template <typename T>
-::std::ostream& operator<<(::std::ostream& os, const NormInputs<T>& I)
-{
-  os << "{ " << I.tolerance << ", " << I.rows << ", " << I.cols << ", " << I.type << ", "
-     << I.do_sqrt << ", " << I.seed << '}' << std::endl;
+::std::ostream &operator<<(::std::ostream &os, const NormInputs<T> &I) {
+  os << "{ " << I.tolerance << ", " << I.rows << ", " << I.cols << ", "
+     << I.type << ", " << I.do_sqrt << ", " << I.seed << '}' << std::endl;
   return os;
 }
 
 ///// Row-wise norm test definitions
 template <typename Type>
-__global__ void naiveRowNormKernel(
-  Type* dots, const Type* data, int D, int N, NormType type, bool do_sqrt)
-{
-  Type acc     = (Type)0;
+__global__ void naiveRowNormKernel(Type *dots, const Type *data, int D, int N,
+                                   NormType type, bool do_sqrt) {
+  Type acc = (Type)0;
   int rowStart = threadIdx.x + blockIdx.x * blockDim.x;
   if (rowStart < N) {
     for (int i = 0; i < D; ++i) {
@@ -61,20 +59,19 @@ __global__ void naiveRowNormKernel(
 }
 
 template <typename Type>
-void naiveRowNorm(
-  Type* dots, const Type* data, int D, int N, NormType type, bool do_sqrt, cudaStream_t stream)
-{
+void naiveRowNorm(Type *dots, const Type *data, int D, int N, NormType type,
+                  bool do_sqrt, cudaStream_t stream) {
   static const int TPB = 64;
-  int nblks            = raft::ceildiv(N, TPB);
-  naiveRowNormKernel<Type><<<nblks, TPB, 0, stream>>>(dots, data, D, N, type, do_sqrt);
+  int nblks = raft::ceildiv(N, TPB);
+  naiveRowNormKernel<Type>
+    <<<nblks, TPB, 0, stream>>>(dots, data, D, N, type, do_sqrt);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
 template <typename T>
 class RowNormTest : public ::testing::TestWithParam<NormInputs<T>> {
  public:
-  void SetUp() override
-  {
+  void SetUp() override {
     CUDA_CHECK(cudaStreamCreate(&stream));
     params = ::testing::TestWithParam<NormInputs<T>>::GetParam();
     raft::random::Rng r(params.seed);
@@ -85,18 +82,19 @@ class RowNormTest : public ::testing::TestWithParam<NormInputs<T>> {
     raft::allocate(dots_exp, rows);
     raft::allocate(dots_act, rows);
     r.uniform(data, len, T(-1.0), T(1.0), stream);
-    naiveRowNorm(dots_exp, data, cols, rows, params.type, params.do_sqrt, stream);
+    naiveRowNorm(dots_exp, data, cols, rows, params.type, params.do_sqrt,
+                 stream);
     if (params.do_sqrt) {
       auto fin_op = [] __device__(T in) { return raft::mySqrt(in); };
-      rowNorm(dots_act, data, cols, rows, params.type, params.rowMajor, stream, fin_op);
+      rowNorm(dots_act, data, cols, rows, params.type, params.rowMajor, stream,
+              fin_op);
     } else {
       rowNorm(dots_act, data, cols, rows, params.type, params.rowMajor, stream);
     }
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
-  void TearDown() override
-  {
+  void TearDown() override {
     CUDA_CHECK(cudaFree(data));
     CUDA_CHECK(cudaFree(dots_exp));
     CUDA_CHECK(cudaFree(dots_act));
@@ -111,11 +109,10 @@ class RowNormTest : public ::testing::TestWithParam<NormInputs<T>> {
 
 ///// Column-wise norm test definitisons
 template <typename Type>
-__global__ void naiveColNormKernel(
-  Type* dots, const Type* data, int D, int N, NormType type, bool do_sqrt)
-{
+__global__ void naiveColNormKernel(Type *dots, const Type *data, int D, int N,
+                                   NormType type, bool do_sqrt) {
   int colID = threadIdx.x + blockIdx.x * blockDim.x;
-  if (colID > D) return;  // avoid out-of-bounds thread
+  if (colID > D) return;  //avoid out-of-bounds thread
 
   Type acc = 0;
   for (int i = 0; i < N; i++) {
@@ -127,20 +124,19 @@ __global__ void naiveColNormKernel(
 }
 
 template <typename Type>
-void naiveColNorm(
-  Type* dots, const Type* data, int D, int N, NormType type, bool do_sqrt, cudaStream_t stream)
-{
+void naiveColNorm(Type *dots, const Type *data, int D, int N, NormType type,
+                  bool do_sqrt, cudaStream_t stream) {
   static const int TPB = 64;
-  int nblks            = raft::ceildiv(D, TPB);
-  naiveColNormKernel<Type><<<nblks, TPB, 0, stream>>>(dots, data, D, N, type, do_sqrt);
+  int nblks = raft::ceildiv(D, TPB);
+  naiveColNormKernel<Type>
+    <<<nblks, TPB, 0, stream>>>(dots, data, D, N, type, do_sqrt);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
 template <typename T>
 class ColNormTest : public ::testing::TestWithParam<NormInputs<T>> {
  public:
-  void SetUp() override
-  {
+  void SetUp() override {
     CUDA_CHECK(cudaStreamCreate(&stream));
     params = ::testing::TestWithParam<NormInputs<T>>::GetParam();
     raft::random::Rng r(params.seed);
@@ -152,18 +148,19 @@ class ColNormTest : public ::testing::TestWithParam<NormInputs<T>> {
     raft::allocate(dots_exp, cols);
     raft::allocate(dots_act, cols);
 
-    naiveColNorm(dots_exp, data, cols, rows, params.type, params.do_sqrt, stream);
+    naiveColNorm(dots_exp, data, cols, rows, params.type, params.do_sqrt,
+                 stream);
     if (params.do_sqrt) {
       auto fin_op = [] __device__(T in) { return raft::mySqrt(in); };
-      colNorm(dots_act, data, cols, rows, params.type, params.rowMajor, stream, fin_op);
+      colNorm(dots_act, data, cols, rows, params.type, params.rowMajor, stream,
+              fin_op);
     } else {
       colNorm(dots_act, data, cols, rows, params.type, params.rowMajor, stream);
     }
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
-  void TearDown() override
-  {
+  void TearDown() override {
     CUDA_CHECK(cudaFree(data));
     CUDA_CHECK(cudaFree(dots_exp));
     CUDA_CHECK(cudaFree(dots_act));
@@ -177,23 +174,24 @@ class ColNormTest : public ::testing::TestWithParam<NormInputs<T>> {
 };
 
 ///// Row- and column-wise tests
-const std::vector<NormInputs<float>> inputsf = {{0.00001f, 1024, 32, L1Norm, false, true, 1234ULL},
-                                                {0.00001f, 1024, 64, L1Norm, false, true, 1234ULL},
-                                                {0.00001f, 1024, 128, L1Norm, false, true, 1234ULL},
-                                                {0.00001f, 1024, 256, L1Norm, false, true, 1234ULL},
-                                                {0.00001f, 1024, 32, L2Norm, false, true, 1234ULL},
-                                                {0.00001f, 1024, 64, L2Norm, false, true, 1234ULL},
-                                                {0.00001f, 1024, 128, L2Norm, false, true, 1234ULL},
-                                                {0.00001f, 1024, 256, L2Norm, false, true, 1234ULL},
+const std::vector<NormInputs<float>> inputsf = {
+  {0.00001f, 1024, 32, L1Norm, false, true, 1234ULL},
+  {0.00001f, 1024, 64, L1Norm, false, true, 1234ULL},
+  {0.00001f, 1024, 128, L1Norm, false, true, 1234ULL},
+  {0.00001f, 1024, 256, L1Norm, false, true, 1234ULL},
+  {0.00001f, 1024, 32, L2Norm, false, true, 1234ULL},
+  {0.00001f, 1024, 64, L2Norm, false, true, 1234ULL},
+  {0.00001f, 1024, 128, L2Norm, false, true, 1234ULL},
+  {0.00001f, 1024, 256, L2Norm, false, true, 1234ULL},
 
-                                                {0.00001f, 1024, 32, L1Norm, true, true, 1234ULL},
-                                                {0.00001f, 1024, 64, L1Norm, true, true, 1234ULL},
-                                                {0.00001f, 1024, 128, L1Norm, true, true, 1234ULL},
-                                                {0.00001f, 1024, 256, L1Norm, true, true, 1234ULL},
-                                                {0.00001f, 1024, 32, L2Norm, true, true, 1234ULL},
-                                                {0.00001f, 1024, 64, L2Norm, true, true, 1234ULL},
-                                                {0.00001f, 1024, 128, L2Norm, true, true, 1234ULL},
-                                                {0.00001f, 1024, 256, L2Norm, true, true, 1234ULL}};
+  {0.00001f, 1024, 32, L1Norm, true, true, 1234ULL},
+  {0.00001f, 1024, 64, L1Norm, true, true, 1234ULL},
+  {0.00001f, 1024, 128, L1Norm, true, true, 1234ULL},
+  {0.00001f, 1024, 256, L1Norm, true, true, 1234ULL},
+  {0.00001f, 1024, 32, L2Norm, true, true, 1234ULL},
+  {0.00001f, 1024, 64, L2Norm, true, true, 1234ULL},
+  {0.00001f, 1024, 128, L2Norm, true, true, 1234ULL},
+  {0.00001f, 1024, 256, L2Norm, true, true, 1234ULL}};
 
 const std::vector<NormInputs<double>> inputsd = {
   {0.00000001, 1024, 32, L1Norm, false, true, 1234ULL},
@@ -215,22 +213,22 @@ const std::vector<NormInputs<double>> inputsd = {
   {0.00000001, 1024, 256, L2Norm, true, true, 1234ULL}};
 
 typedef RowNormTest<float> RowNormTestF;
-TEST_P(RowNormTestF, Result)
-{
-  ASSERT_TRUE(raft::devArrMatch(
-    dots_exp, dots_act, params.rows, raft::CompareApprox<float>(params.tolerance)));
+TEST_P(RowNormTestF, Result) {
+  ASSERT_TRUE(raft::devArrMatch(dots_exp, dots_act, params.rows,
+                                raft::CompareApprox<float>(params.tolerance)));
 }
 
 typedef RowNormTest<double> RowNormTestD;
-TEST_P(RowNormTestD, Result)
-{
-  ASSERT_TRUE(raft::devArrMatch(
-    dots_exp, dots_act, params.rows, raft::CompareApprox<double>(params.tolerance)));
+TEST_P(RowNormTestD, Result) {
+  ASSERT_TRUE(raft::devArrMatch(dots_exp, dots_act, params.rows,
+                                raft::CompareApprox<double>(params.tolerance)));
 }
 
-INSTANTIATE_TEST_CASE_P(RowNormTests, RowNormTestF, ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_CASE_P(RowNormTests, RowNormTestF,
+                        ::testing::ValuesIn(inputsf));
 
-INSTANTIATE_TEST_CASE_P(RowNormTests, RowNormTestD, ::testing::ValuesIn(inputsd));
+INSTANTIATE_TEST_CASE_P(RowNormTests, RowNormTestD,
+                        ::testing::ValuesIn(inputsd));
 
 const std::vector<NormInputs<float>> inputscf = {
   {0.00001f, 32, 1024, L1Norm, false, true, 1234ULL},
@@ -271,22 +269,22 @@ const std::vector<NormInputs<double>> inputscd = {
   {0.00000001, 256, 1024, L2Norm, true, true, 1234ULL}};
 
 typedef ColNormTest<float> ColNormTestF;
-TEST_P(ColNormTestF, Result)
-{
-  ASSERT_TRUE(raft::devArrMatch(
-    dots_exp, dots_act, params.cols, raft::CompareApprox<float>(params.tolerance)));
+TEST_P(ColNormTestF, Result) {
+  ASSERT_TRUE(raft::devArrMatch(dots_exp, dots_act, params.cols,
+                                raft::CompareApprox<float>(params.tolerance)));
 }
 
 typedef ColNormTest<double> ColNormTestD;
-TEST_P(ColNormTestD, Result)
-{
-  ASSERT_TRUE(raft::devArrMatch(
-    dots_exp, dots_act, params.cols, raft::CompareApprox<double>(params.tolerance)));
+TEST_P(ColNormTestD, Result) {
+  ASSERT_TRUE(raft::devArrMatch(dots_exp, dots_act, params.cols,
+                                raft::CompareApprox<double>(params.tolerance)));
 }
 
-INSTANTIATE_TEST_CASE_P(ColNormTests, ColNormTestF, ::testing::ValuesIn(inputscf));
+INSTANTIATE_TEST_CASE_P(ColNormTests, ColNormTestF,
+                        ::testing::ValuesIn(inputscf));
 
-INSTANTIATE_TEST_CASE_P(ColNormTests, ColNormTestD, ::testing::ValuesIn(inputscd));
+INSTANTIATE_TEST_CASE_P(ColNormTests, ColNormTestD,
+                        ::testing::ValuesIn(inputscd));
 
 }  // end namespace linalg
 }  // end namespace raft

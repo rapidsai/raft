@@ -41,43 +41,26 @@ namespace linalg {
  * @{
  */
 template <typename math_t>
-void eigDC(const raft::handle_t& handle,
-           const math_t* in,
-           int n_rows,
-           int n_cols,
-           math_t* eig_vectors,
-           math_t* eig_vals,
-           cudaStream_t stream)
-{
-  auto allocator               = handle.get_device_allocator();
+void eigDC(const raft::handle_t &handle, const math_t *in, int n_rows,
+           int n_cols, math_t *eig_vectors, math_t *eig_vals,
+           cudaStream_t stream) {
+  auto allocator = handle.get_device_allocator();
   cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
 
   int lwork;
-  CUSOLVER_CHECK(cusolverDnsyevd_bufferSize(cusolverH,
-                                            CUSOLVER_EIG_MODE_VECTOR,
-                                            CUBLAS_FILL_MODE_UPPER,
-                                            n_rows,
-                                            in,
-                                            n_cols,
-                                            eig_vals,
-                                            &lwork));
+  CUSOLVER_CHECK(cusolverDnsyevd_bufferSize(cusolverH, CUSOLVER_EIG_MODE_VECTOR,
+                                            CUBLAS_FILL_MODE_UPPER, n_rows, in,
+                                            n_cols, eig_vals, &lwork));
 
   raft::mr::device::buffer<math_t> d_work(allocator, stream, lwork);
   raft::mr::device::buffer<int> d_dev_info(allocator, stream, 1);
 
   raft::matrix::copy(in, eig_vectors, n_rows, n_cols, stream);
 
-  CUSOLVER_CHECK(cusolverDnsyevd(cusolverH,
-                                 CUSOLVER_EIG_MODE_VECTOR,
-                                 CUBLAS_FILL_MODE_UPPER,
-                                 n_rows,
-                                 eig_vectors,
-                                 n_cols,
-                                 eig_vals,
-                                 d_work.data(),
-                                 lwork,
-                                 d_dev_info.data(),
-                                 stream));
+  CUSOLVER_CHECK(cusolverDnsyevd(cusolverH, CUSOLVER_EIG_MODE_VECTOR,
+                                 CUBLAS_FILL_MODE_UPPER, n_rows, eig_vectors,
+                                 n_cols, eig_vals, d_work.data(), lwork,
+                                 d_dev_info.data(), stream));
   CUDA_CHECK(cudaGetLastError());
 
   int dev_info;
@@ -107,80 +90,39 @@ enum EigVecMemUsage { OVERWRITE_INPUT, COPY_INPUT };
  * @{
  */
 template <typename math_t>
-void eigSelDC(const raft::handle_t& handle,
-              math_t* in,
-              int n_rows,
-              int n_cols,
-              int n_eig_vals,
-              math_t* eig_vectors,
-              math_t* eig_vals,
-              EigVecMemUsage memUsage,
-              cudaStream_t stream)
-{
-  auto allocator               = handle.get_device_allocator();
+void eigSelDC(const raft::handle_t &handle, math_t *in, int n_rows, int n_cols,
+              int n_eig_vals, math_t *eig_vectors, math_t *eig_vals,
+              EigVecMemUsage memUsage, cudaStream_t stream) {
+  auto allocator = handle.get_device_allocator();
   cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
 
   int lwork;
   int h_meig;
 
-  CUSOLVER_CHECK(cusolverDnsyevdx_bufferSize(cusolverH,
-                                             CUSOLVER_EIG_MODE_VECTOR,
-                                             CUSOLVER_EIG_RANGE_I,
-                                             CUBLAS_FILL_MODE_UPPER,
-                                             n_rows,
-                                             in,
-                                             n_cols,
-                                             math_t(0.0),
-                                             math_t(0.0),
-                                             n_cols - n_eig_vals + 1,
-                                             n_cols,
-                                             &h_meig,
-                                             eig_vals,
-                                             &lwork));
+  CUSOLVER_CHECK(cusolverDnsyevdx_bufferSize(
+    cusolverH, CUSOLVER_EIG_MODE_VECTOR, CUSOLVER_EIG_RANGE_I,
+    CUBLAS_FILL_MODE_UPPER, n_rows, in, n_cols, math_t(0.0), math_t(0.0),
+    n_cols - n_eig_vals + 1, n_cols, &h_meig, eig_vals, &lwork));
 
   raft::mr::device::buffer<math_t> d_work(allocator, stream, lwork);
   raft::mr::device::buffer<int> d_dev_info(allocator, stream, 1);
   raft::mr::device::buffer<math_t> d_eig_vectors(allocator, stream, 0);
 
   if (memUsage == OVERWRITE_INPUT) {
-    CUSOLVER_CHECK(cusolverDnsyevdx(cusolverH,
-                                    CUSOLVER_EIG_MODE_VECTOR,
-                                    CUSOLVER_EIG_RANGE_I,
-                                    CUBLAS_FILL_MODE_UPPER,
-                                    n_rows,
-                                    in,
-                                    n_cols,
-                                    math_t(0.0),
-                                    math_t(0.0),
-                                    n_cols - n_eig_vals + 1,
-                                    n_cols,
-                                    &h_meig,
-                                    eig_vals,
-                                    d_work.data(),
-                                    lwork,
-                                    d_dev_info.data(),
-                                    stream));
+    CUSOLVER_CHECK(cusolverDnsyevdx(
+      cusolverH, CUSOLVER_EIG_MODE_VECTOR, CUSOLVER_EIG_RANGE_I,
+      CUBLAS_FILL_MODE_UPPER, n_rows, in, n_cols, math_t(0.0), math_t(0.0),
+      n_cols - n_eig_vals + 1, n_cols, &h_meig, eig_vals, d_work.data(), lwork,
+      d_dev_info.data(), stream));
   } else if (memUsage == COPY_INPUT) {
     d_eig_vectors.resize(n_rows * n_cols, stream);
     raft::matrix::copy(in, d_eig_vectors.data(), n_rows, n_cols, stream);
 
-    CUSOLVER_CHECK(cusolverDnsyevdx(cusolverH,
-                                    CUSOLVER_EIG_MODE_VECTOR,
-                                    CUSOLVER_EIG_RANGE_I,
-                                    CUBLAS_FILL_MODE_UPPER,
-                                    n_rows,
-                                    eig_vectors,
-                                    n_cols,
-                                    math_t(0.0),
-                                    math_t(0.0),
-                                    n_cols - n_eig_vals + 1,
-                                    n_cols,
-                                    &h_meig,
-                                    eig_vals,
-                                    d_work.data(),
-                                    lwork,
-                                    d_dev_info.data(),
-                                    stream));
+    CUSOLVER_CHECK(cusolverDnsyevdx(
+      cusolverH, CUSOLVER_EIG_MODE_VECTOR, CUSOLVER_EIG_RANGE_I,
+      CUBLAS_FILL_MODE_UPPER, n_rows, eig_vectors, n_cols, math_t(0.0),
+      math_t(0.0), n_cols - n_eig_vals + 1, n_cols, &h_meig, eig_vals,
+      d_work.data(), lwork, d_dev_info.data(), stream));
   }
 
   CUDA_CHECK(cudaGetLastError());
@@ -193,10 +135,11 @@ void eigSelDC(const raft::handle_t& handle,
          "This usually occurs when some of the features do not vary enough.");
 
   if (memUsage == OVERWRITE_INPUT) {
-    raft::matrix::truncZeroOrigin(in, n_rows, eig_vectors, n_rows, n_eig_vals, stream);
+    raft::matrix::truncZeroOrigin(in, n_rows, eig_vectors, n_rows, n_eig_vals,
+                                  stream);
   } else if (memUsage == COPY_INPUT) {
-    raft::matrix::truncZeroOrigin(
-      d_eig_vectors.data(), n_rows, eig_vectors, n_rows, n_eig_vals, stream);
+    raft::matrix::truncZeroOrigin(d_eig_vectors.data(), n_rows, eig_vectors,
+                                  n_rows, n_eig_vals, stream);
   }
 }
 
@@ -217,17 +160,10 @@ void eigSelDC(const raft::handle_t& handle,
  * @{
  */
 template <typename math_t>
-void eigJacobi(const raft::handle_t& handle,
-               const math_t* in,
-               int n_rows,
-               int n_cols,
-               math_t* eig_vectors,
-               math_t* eig_vals,
-               cudaStream_t stream,
-               math_t tol = 1.e-7,
-               int sweeps = 15)
-{
-  auto allocator               = handle.get_device_allocator();
+void eigJacobi(const raft::handle_t &handle, const math_t *in, int n_rows,
+               int n_cols, math_t *eig_vectors, math_t *eig_vals,
+               cudaStream_t stream, math_t tol = 1.e-7, int sweeps = 15) {
+  auto allocator = handle.get_device_allocator();
   cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
 
   syevjInfo_t syevj_params = nullptr;
@@ -236,36 +172,23 @@ void eigJacobi(const raft::handle_t& handle,
   CUSOLVER_CHECK(cusolverDnXsyevjSetMaxSweeps(syevj_params, sweeps));
 
   int lwork;
-  CUSOLVER_CHECK(cusolverDnsyevj_bufferSize(cusolverH,
-                                            CUSOLVER_EIG_MODE_VECTOR,
-                                            CUBLAS_FILL_MODE_UPPER,
-                                            n_rows,
-                                            eig_vectors,
-                                            n_cols,
-                                            eig_vals,
-                                            &lwork,
-                                            syevj_params));
+  CUSOLVER_CHECK(cusolverDnsyevj_bufferSize(
+    cusolverH, CUSOLVER_EIG_MODE_VECTOR, CUBLAS_FILL_MODE_UPPER, n_rows,
+    eig_vectors, n_cols, eig_vals, &lwork, syevj_params));
 
   raft::mr::device::buffer<math_t> d_work(allocator, stream, lwork);
   raft::mr::device::buffer<int> dev_info(allocator, stream, 1);
 
   raft::matrix::copy(in, eig_vectors, n_rows, n_cols, stream);
 
-  CUSOLVER_CHECK(cusolverDnsyevj(cusolverH,
-                                 CUSOLVER_EIG_MODE_VECTOR,
-                                 CUBLAS_FILL_MODE_UPPER,
-                                 n_rows,
-                                 eig_vectors,
-                                 n_cols,
-                                 eig_vals,
-                                 d_work.data(),
-                                 lwork,
-                                 dev_info.data(),
-                                 syevj_params,
-                                 stream));
+  CUSOLVER_CHECK(cusolverDnsyevj(cusolverH, CUSOLVER_EIG_MODE_VECTOR,
+                                 CUBLAS_FILL_MODE_UPPER, n_rows, eig_vectors,
+                                 n_cols, eig_vals, d_work.data(), lwork,
+                                 dev_info.data(), syevj_params, stream));
 
   int executed_sweeps;
-  CUSOLVER_CHECK(cusolverDnXsyevjGetSweeps(cusolverH, syevj_params, &executed_sweeps));
+  CUSOLVER_CHECK(
+    cusolverDnXsyevjGetSweeps(cusolverH, syevj_params, &executed_sweeps));
 
   CUDA_CHECK(cudaGetLastError());
   CUSOLVER_CHECK(cusolverDnDestroySyevjInfo(syevj_params));

@@ -34,17 +34,19 @@ namespace linalg {
  * @{
  */
 template <typename InType, typename IdxType, typename OutType = InType>
-void scalarAdd(OutType* out, const InType* in, InType scalar, IdxType len, cudaStream_t stream)
-{
+void scalarAdd(OutType *out, const InType *in, InType scalar, IdxType len,
+               cudaStream_t stream) {
   raft::linalg::unaryOp(
-    out, in, len, [scalar] __device__(InType in) { return in + scalar; }, stream);
+    out, in, len, [scalar] __device__(InType in) { return in + scalar; },
+    stream);
 }
 
 template <typename InType, typename IdxType, typename OutType = InType>
-void scalarMultiply(OutType* out, const InType* in, InType scalar, IdxType len, cudaStream_t stream)
-{
+void scalarMultiply(OutType *out, const InType *in, InType scalar, IdxType len,
+                    cudaStream_t stream) {
   raft::linalg::unaryOp(
-    out, in, len, [scalar] __device__(InType in) { return in * scalar; }, stream);
+    out, in, len, [scalar] __device__(InType in) { return in * scalar; },
+    stream);
 }
 /** @} */
 
@@ -60,46 +62,42 @@ void scalarMultiply(OutType* out, const InType* in, InType scalar, IdxType len, 
  * @{
  */
 template <typename InType, typename IdxType, typename OutType = InType>
-void eltwiseAdd(
-  OutType* out, const InType* in1, const InType* in2, IdxType len, cudaStream_t stream)
-{
+void eltwiseAdd(OutType *out, const InType *in1, const InType *in2, IdxType len,
+                cudaStream_t stream) {
   binaryOp(
-    out, in1, in2, len, [] __device__(InType a, InType b) { return a + b; }, stream);
+    out, in1, in2, len, [] __device__(InType a, InType b) { return a + b; },
+    stream);
 }
 
 template <typename InType, typename IdxType, typename OutType = InType>
-void eltwiseSub(
-  OutType* out, const InType* in1, const InType* in2, IdxType len, cudaStream_t stream)
-{
+void eltwiseSub(OutType *out, const InType *in1, const InType *in2, IdxType len,
+                cudaStream_t stream) {
   binaryOp(
-    out, in1, in2, len, [] __device__(InType a, InType b) { return a - b; }, stream);
+    out, in1, in2, len, [] __device__(InType a, InType b) { return a - b; },
+    stream);
 }
 
 template <typename InType, typename IdxType, typename OutType = InType>
-void eltwiseMultiply(
-  OutType* out, const InType* in1, const InType* in2, IdxType len, cudaStream_t stream)
-{
+void eltwiseMultiply(OutType *out, const InType *in1, const InType *in2,
+                     IdxType len, cudaStream_t stream) {
   binaryOp(
-    out, in1, in2, len, [] __device__(InType a, InType b) { return a * b; }, stream);
+    out, in1, in2, len, [] __device__(InType a, InType b) { return a * b; },
+    stream);
 }
 
 template <typename InType, typename IdxType, typename OutType = InType>
-void eltwiseDivide(
-  OutType* out, const InType* in1, const InType* in2, IdxType len, cudaStream_t stream)
-{
+void eltwiseDivide(OutType *out, const InType *in1, const InType *in2,
+                   IdxType len, cudaStream_t stream) {
   binaryOp(
-    out, in1, in2, len, [] __device__(InType a, InType b) { return a / b; }, stream);
+    out, in1, in2, len, [] __device__(InType a, InType b) { return a / b; },
+    stream);
 }
 
 template <typename InType, typename IdxType, typename OutType = InType>
-void eltwiseDivideCheckZero(
-  OutType* out, const InType* in1, const InType* in2, IdxType len, cudaStream_t stream)
-{
+void eltwiseDivideCheckZero(OutType *out, const InType *in1, const InType *in2,
+                            IdxType len, cudaStream_t stream) {
   binaryOp(
-    out,
-    in1,
-    in2,
-    len,
+    out, in1, in2, len,
     [] __device__(InType a, InType b) {
       if (b == InType(0.0))
         return InType(0.0);

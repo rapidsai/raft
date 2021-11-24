@@ -20,8 +20,7 @@
 
 namespace raft {
 
-TEST(Raft, rounding_up)
-{
+TEST(Raft, rounding_up) {
   ASSERT_EQ(raft::div_rounding_up_safe(5, 3), 2);
   ASSERT_EQ(raft::div_rounding_up_safe(0, 3), 0);
   ASSERT_EQ(raft::div_rounding_up_safe(7, 8), 1);
@@ -30,8 +29,7 @@ TEST(Raft, rounding_up)
   ASSERT_EQ(raft::div_rounding_up_unsafe(7, 8), 1);
 }
 
-TEST(Raft, is_a_power_of_two)
-{
+TEST(Raft, is_a_power_of_two) {
   ASSERT_EQ(raft::is_a_power_of_two(1 << 5), true);
   ASSERT_EQ(raft::is_a_power_of_two((1 << 5) + 1), false);
 }

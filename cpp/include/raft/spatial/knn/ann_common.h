@@ -26,14 +26,13 @@ namespace spatial {
 namespace knn {
 
 struct knnIndex {
-  faiss::gpu::GpuIndex* index;
+  faiss::gpu::GpuIndex *index;
   raft::distance::DistanceType metric;
   float metricArg;
 
-  faiss::gpu::StandardGpuResources* gpu_res;
+  faiss::gpu::StandardGpuResources *gpu_res;
   int device;
-  ~knnIndex()
-  {
+  ~knnIndex() {
     delete index;
     delete gpu_res;
   }
@@ -58,8 +57,7 @@ struct IVFParam : knnIndexParam {
   int nprobe;
 };
 
-struct IVFFlatParam : IVFParam {
-};
+struct IVFFlatParam : IVFParam {};
 
 struct IVFPQParam : IVFParam {
   int M;

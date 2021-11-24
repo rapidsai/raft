@@ -21,8 +21,8 @@ namespace raft {
 namespace distance {
 
 template <typename DataType>
-class DistanceUnexpL1 : public DistanceTest<raft::distance::DistanceType::L1, DataType> {
-};
+class DistanceUnexpL1
+  : public DistanceTest<raft::distance::DistanceType::L1, DataType> {};
 
 const std::vector<DistanceInputs<float>> inputsf = {
   {0.001f, 1024, 1024, 32, true, 1234ULL},
@@ -35,14 +35,14 @@ const std::vector<DistanceInputs<float>> inputsf = {
   {0.003f, 1024, 1024, 1024, false, 1234ULL},
 };
 typedef DistanceUnexpL1<float> DistanceUnexpL1F;
-TEST_P(DistanceUnexpL1F, Result)
-{
+TEST_P(DistanceUnexpL1F, Result) {
   int m = params.isRowMajor ? params.m : params.n;
   int n = params.isRowMajor ? params.n : params.m;
-  ASSERT_TRUE(
-    raft::devArrMatch(dist_ref, dist, m, n, raft::CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(dist_ref, dist, m, n,
+                                raft::CompareApprox<float>(params.tolerance)));
 }
-INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceUnexpL1F, ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceUnexpL1F,
+                        ::testing::ValuesIn(inputsf));
 
 const std::vector<DistanceInputs<double>> inputsd = {
   {0.001, 1024, 1024, 32, true, 1234ULL},
@@ -55,14 +55,14 @@ const std::vector<DistanceInputs<double>> inputsd = {
   {0.003, 1024, 1024, 1024, false, 1234ULL},
 };
 typedef DistanceUnexpL1<double> DistanceUnexpL1D;
-TEST_P(DistanceUnexpL1D, Result)
-{
+TEST_P(DistanceUnexpL1D, Result) {
   int m = params.isRowMajor ? params.m : params.n;
   int n = params.isRowMajor ? params.n : params.m;
-  ASSERT_TRUE(
-    raft::devArrMatch(dist_ref, dist, m, n, raft::CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(dist_ref, dist, m, n,
+                                raft::CompareApprox<double>(params.tolerance)));
 }
-INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceUnexpL1D, ::testing::ValuesIn(inputsd));
+INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceUnexpL1D,
+                        ::testing::ValuesIn(inputsd));
 
 }  // end namespace distance
 }  // end namespace raft

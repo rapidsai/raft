@@ -24,18 +24,21 @@
 namespace raft {
 namespace linalg {
 
-template <typename InType, typename OutType, typename MapOp, int TPB, typename... Args>
-__global__ void mapKernel(OutType* out, size_t len, MapOp map, const InType* in, Args... args)
-{
+template <typename InType, typename OutType, typename MapOp, int TPB,
+          typename... Args>
+__global__ void mapKernel(OutType *out, size_t len, MapOp map, const InType *in,
+                          Args... args) {
   auto idx = (threadIdx.x + (blockIdx.x * blockDim.x));
 
-  if (idx < len) { out[idx] = map(in[idx], args[idx]...); }
+  if (idx < len) {
+    out[idx] = map(in[idx], args[idx]...);
+  }
 }
 
-template <typename InType, typename OutType, typename MapOp, int TPB, typename... Args>
-void mapImpl(
-  OutType* out, size_t len, MapOp map, cudaStream_t stream, const InType* in, Args... args)
-{
+template <typename InType, typename OutType, typename MapOp, int TPB,
+          typename... Args>
+void mapImpl(OutType *out, size_t len, MapOp map, cudaStream_t stream,
+             const InType *in, Args... args) {
   const int nblks = raft::ceildiv(len, (size_t)TPB);
   mapKernel<InType, OutType, MapOp, TPB, Args...>
     <<<nblks, TPB, 0, stream>>>(out, len, map, in, args...);
@@ -57,14 +60,12 @@ void mapImpl(
  * @param args additional input arrays
  */
 
-template <typename InType,
-          typename MapOp,
-          int TPB = 256,
-          typename... Args,
+template <typename InType, typename MapOp, int TPB = 256, typename... Args,
           typename OutType = InType>
-void map(OutType* out, size_t len, MapOp map, cudaStream_t stream, const InType* in, Args... args)
-{
-  mapImpl<InType, OutType, MapOp, TPB, Args...>(out, len, map, stream, in, args...);
+void map(OutType *out, size_t len, MapOp map, cudaStream_t stream,
+         const InType *in, Args... args) {
+  mapImpl<InType, OutType, MapOp, TPB, Args...>(out, len, map, stream, in,
+                                                args...);
 }
 
 }  // namespace linalg

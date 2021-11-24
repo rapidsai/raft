@@ -44,105 +44,72 @@ namespace distance {
  * @param[in]       fin_op the final gemm epilogue lambda
  * @param[in]       stream cuda stream to launch work
  */
-template <typename DataT,
-          typename AccT,
-          typename OutT,
-          typename IdxT,
-          int VecLen,
-          typename FinalLambda,
-          bool isRowMajor>
-static void chebyshevImpl(const DataT* x,
-                          const DataT* y,
-                          IdxT m,
-                          IdxT n,
-                          IdxT k,
-                          IdxT lda,
-                          IdxT ldb,
-                          IdxT ldd,
-                          OutT* dOutput,
-                          FinalLambda fin_op,
-                          cudaStream_t stream)
-{
+template <typename DataT, typename AccT, typename OutT, typename IdxT,
+          int VecLen, typename FinalLambda, bool isRowMajor>
+static void chebyshevImpl(const DataT *x, const DataT *y, IdxT m, IdxT n,
+                          IdxT k, IdxT lda, IdxT ldb, IdxT ldd, OutT *dOutput,
+                          FinalLambda fin_op, cudaStream_t stream) {
   typedef typename raft::linalg::Policy4x4<DataT, VecLen>::Policy RowPolicy;
   typedef typename raft::linalg::Policy4x4<DataT, VecLen>::ColPolicy ColPolicy;
 
-  typedef typename std::conditional<isRowMajor, RowPolicy, ColPolicy>::type KPolicy;
+  typedef
+    typename std::conditional<isRowMajor, RowPolicy, ColPolicy>::type KPolicy;
 
   dim3 blk(KPolicy::Nthreads);
 
   // Accumulation operation lambda
   auto core_lambda = [] __device__(AccT & acc, DataT & x, DataT & y) {
     const auto diff = raft::L1Op<AccT, IdxT>()(x - y);
-    acc             = raft::myMax(acc, diff);
+    acc = raft::myMax(acc, diff);
   };
 
   // epilogue operation lambda for final value calculation
-  auto epilog_lambda = [] __device__(AccT acc[KPolicy::AccRowsPerTh][KPolicy::AccColsPerTh],
-                                     DataT * regxn,
-                                     DataT * regyn,
-                                     IdxT gridStrideX,
-                                     IdxT gridStrideY) { return; };
+  auto epilog_lambda = [] __device__(
+                         AccT acc[KPolicy::AccRowsPerTh][KPolicy::AccColsPerTh],
+                         DataT * regxn, DataT * regyn, IdxT gridStrideX,
+                         IdxT gridStrideY) { return; };
 
   if (isRowMajor) {
-    auto chebyshevRowMajor = pairwiseDistanceMatKernel<false,
-                                                       DataT,
-                                                       AccT,
-                                                       OutT,
-                                                       IdxT,
-                                                       KPolicy,
-                                                       decltype(core_lambda),
-                                                       decltype(epilog_lambda),
-                                                       FinalLambda,
-                                                       true>;
-    dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize, chebyshevRowMajor);
+    auto chebyshevRowMajor =
+      pairwiseDistanceMatKernel<false, DataT, AccT, OutT, IdxT, KPolicy,
+                                decltype(core_lambda), decltype(epilog_lambda),
+                                FinalLambda, true>;
+    dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize,
+                                               chebyshevRowMajor);
 
     chebyshevRowMajor<<<grid, blk, KPolicy::SmemSize, stream>>>(
-      x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput, core_lambda, epilog_lambda, fin_op);
+      x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput, core_lambda,
+      epilog_lambda, fin_op);
   } else {
-    auto chebyshevColMajor = pairwiseDistanceMatKernel<false,
-                                                       DataT,
-                                                       AccT,
-                                                       OutT,
-                                                       IdxT,
-                                                       KPolicy,
-                                                       decltype(core_lambda),
-                                                       decltype(epilog_lambda),
-                                                       FinalLambda,
-                                                       false>;
-    dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize, chebyshevColMajor);
+    auto chebyshevColMajor =
+      pairwiseDistanceMatKernel<false, DataT, AccT, OutT, IdxT, KPolicy,
+                                decltype(core_lambda), decltype(epilog_lambda),
+                                FinalLambda, false>;
+    dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize,
+                                               chebyshevColMajor);
     chebyshevColMajor<<<grid, blk, KPolicy::SmemSize, stream>>>(
-      x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput, core_lambda, epilog_lambda, fin_op);
+      x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput, core_lambda,
+      epilog_lambda, fin_op);
   }
 
   CUDA_CHECK(cudaGetLastError());
 }
 
-template <typename DataT,
-          typename AccT,
-          typename OutT,
-          typename IdxT,
-          typename FinalLambda,
-          bool isRowMajor>
-void chebyshev(IdxT m,
-               IdxT n,
-               IdxT k,
-               IdxT lda,
-               IdxT ldb,
-               IdxT ldd,
-               const DataT* x,
-               const DataT* y,
-               OutT* dOutput,
-               FinalLambda fin_op,
-               cudaStream_t stream)
-{
+template <typename DataT, typename AccT, typename OutT, typename IdxT,
+          typename FinalLambda, bool isRowMajor>
+void chebyshev(IdxT m, IdxT n, IdxT k, IdxT lda, IdxT ldb, IdxT ldd,
+               const DataT *x, const DataT *y, OutT *dOutput,
+               FinalLambda fin_op, cudaStream_t stream) {
   size_t bytesA = sizeof(DataT) * lda;
   size_t bytesB = sizeof(DataT) * ldb;
   if (16 % sizeof(DataT) == 0 && bytesA % 16 == 0 && bytesB % 16 == 0) {
-    chebyshevImpl<DataT, AccT, OutT, IdxT, 16 / sizeof(DataT), FinalLambda, isRowMajor>(
-      x, y, m, n, k, lda, ldb, ldd, dOutput, fin_op, stream);
+    chebyshevImpl<DataT, AccT, OutT, IdxT, 16 / sizeof(DataT), FinalLambda,
+                  isRowMajor>(x, y, m, n, k, lda, ldb, ldd, dOutput, fin_op,
+                              stream);
   } else if (8 % sizeof(DataT) == 0 && bytesA % 8 == 0 && bytesB % 8 == 0) {
-    chebyshevImpl<DataT, AccT, OutT, IdxT, 8 / sizeof(DataT), FinalLambda, isRowMajor>(
-      x, y, m, n, k, lda, ldb, ldd, dOutput, fin_op, stream);
+    chebyshevImpl<DataT, AccT, OutT, IdxT, 8 / sizeof(DataT), FinalLambda,
+                  isRowMajor>(x, y, m, n, k, lda, ldb, ldd, dOutput, fin_op,
+                              stream);
   } else {
     chebyshevImpl<DataT, AccT, OutT, IdxT, 1, FinalLambda, isRowMajor>(
       x, y, m, n, k, lda, ldb, ldd, dOutput, fin_op, stream);
@@ -167,25 +134,16 @@ void chebyshev(IdxT m,
  * @param[in] stream cuda stream to launch work
  * @param[in] isRowMajor whether the input and output matrices are row major
  */
-template <typename InType,
-          typename AccType,
-          typename OutType,
-          typename FinalLambda,
-          typename Index_ = int>
-void chebyshevImpl(int m,
-                   int n,
-                   int k,
-                   const InType* pA,
-                   const InType* pB,
-                   OutType* pD,
-                   FinalLambda fin_op,
-                   cudaStream_t stream,
-                   bool isRowMajor)
-{
+template <typename InType, typename AccType, typename OutType,
+          typename FinalLambda, typename Index_ = int>
+void chebyshevImpl(int m, int n, int k, const InType *pA, const InType *pB,
+                   OutType *pD, FinalLambda fin_op, cudaStream_t stream,
+                   bool isRowMajor) {
   typedef std::is_same<OutType, bool> is_bool;
-  typedef typename std::conditional<is_bool::value, OutType, AccType>::type chebyshevOutType;
+  typedef typename std::conditional<is_bool::value, OutType, AccType>::type
+    chebyshevOutType;
   Index_ lda, ldb, ldd;
-  chebyshevOutType* pDcast = reinterpret_cast<chebyshevOutType*>(pD);
+  chebyshevOutType *pDcast = reinterpret_cast<chebyshevOutType *>(pD);
   if (isRowMajor) {
     lda = k, ldb = k, ldd = n;
     chebyshev<InType, AccType, chebyshevOutType, Index_, FinalLambda, true>(

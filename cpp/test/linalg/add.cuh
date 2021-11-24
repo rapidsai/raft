@@ -23,17 +23,18 @@ namespace raft {
 namespace linalg {
 
 template <typename InT, typename OutT = InT>
-__global__ void naiveAddElemKernel(OutT* out, const InT* in1, const InT* in2, int len)
-{
+__global__ void naiveAddElemKernel(OutT *out, const InT *in1, const InT *in2,
+                                   int len) {
   int idx = threadIdx.x + blockIdx.x * blockDim.x;
-  if (idx < len) { out[idx] = OutT(in1[idx] + in2[idx]); }
+  if (idx < len) {
+    out[idx] = OutT(in1[idx] + in2[idx]);
+  }
 }
 
 template <typename InT, typename OutT = InT>
-void naiveAddElem(OutT* out, const InT* in1, const InT* in2, int len)
-{
+void naiveAddElem(OutT *out, const InT *in1, const InT *in2, int len) {
   static const int TPB = 64;
-  int nblks            = raft::ceildiv(len, TPB);
+  int nblks = raft::ceildiv(len, TPB);
   naiveAddElemKernel<InT, OutT><<<nblks, TPB>>>(out, in1, in2, len);
   CUDA_CHECK(cudaPeekAtLastError());
 }
@@ -46,8 +47,8 @@ struct AddInputs {
 };
 
 template <typename InT, typename OutT = InT>
-::std::ostream& operator<<(::std::ostream& os, const AddInputs<InT, OutT>& dims)
-{
+::std::ostream &operator<<(::std::ostream &os,
+                           const AddInputs<InT, OutT> &dims) {
   return os;
 }
 

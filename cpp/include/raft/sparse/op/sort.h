@@ -42,8 +42,7 @@ namespace op {
 
 struct TupleComp {
   template <typename one, typename two>
-  __host__ __device__ bool operator()(const one& t1, const two& t2)
-  {
+  __host__ __device__ bool operator()(const one &t1, const two &t2) {
     // sort first by each sample's color,
     if (thrust::get<0>(t1) < thrust::get<0>(t2)) return true;
     if (thrust::get<0>(t1) > thrust::get<0>(t2)) return false;
@@ -67,21 +66,15 @@ struct TupleComp {
  * @param stream: cuda stream to use
  */
 template <typename T>
-void coo_sort(int m,
-              int n,
-              int nnz,
-              int* rows,
-              int* cols,
-              T* vals,
+void coo_sort(int m, int n, int nnz, int *rows, int *cols, T *vals,
               // TODO: Remove this
               std::shared_ptr<raft::mr::device::allocator> d_alloc,
-              cudaStream_t stream)
-{
+              cudaStream_t stream) {
   auto coo_indices = thrust::make_zip_iterator(thrust::make_tuple(rows, cols));
 
   // get all the colors in contiguous locations so we can map them to warps.
-  thrust::sort_by_key(
-    thrust::cuda::par.on(stream), coo_indices, coo_indices + nnz, vals, TupleComp());
+  thrust::sort_by_key(thrust::cuda::par.on(stream), coo_indices,
+                      coo_indices + nnz, vals, TupleComp());
 }
 
 /**
@@ -92,12 +85,12 @@ void coo_sort(int m,
  * @param stream: the cuda stream to use
  */
 template <typename T>
-void coo_sort(COO<T>* const in,
+void coo_sort(COO<T> *const in,
               // TODO: Remove this
               std::shared_ptr<raft::mr::device::allocator> d_alloc,
-              cudaStream_t stream)
-{
-  coo_sort<T>(in->n_rows, in->n_cols, in->nnz, in->rows(), in->cols(), in->vals(), d_alloc, stream);
+              cudaStream_t stream) {
+  coo_sort<T>(in->n_rows, in->n_cols, in->nnz, in->rows(), in->cols(),
+              in->vals(), d_alloc, stream);
 }
 
 /**
@@ -111,16 +104,16 @@ void coo_sort(COO<T>* const in,
  * @param[in] stream cuda stream for which to order cuda operations
  */
 template <typename value_idx, typename value_t>
-void coo_sort_by_weight(
-  value_idx* rows, value_idx* cols, value_t* data, value_idx nnz, cudaStream_t stream)
-{
+void coo_sort_by_weight(value_idx *rows, value_idx *cols, value_t *data,
+                        value_idx nnz, cudaStream_t stream) {
   thrust::device_ptr<value_idx> t_rows = thrust::device_pointer_cast(rows);
   thrust::device_ptr<value_idx> t_cols = thrust::device_pointer_cast(cols);
-  thrust::device_ptr<value_t> t_data   = thrust::device_pointer_cast(data);
+  thrust::device_ptr<value_t> t_data = thrust::device_pointer_cast(data);
 
   auto first = thrust::make_zip_iterator(thrust::make_tuple(rows, cols));
 
-  thrust::sort_by_key(thrust::cuda::par.on(stream), t_data, t_data + nnz, first);
+  thrust::sort_by_key(thrust::cuda::par.on(stream), t_data, t_data + nnz,
+                      first);
 }
 };  // namespace op
 };  // end NAMESPACE sparse

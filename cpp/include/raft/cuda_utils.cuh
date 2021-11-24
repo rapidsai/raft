@@ -36,17 +36,16 @@
 namespace raft {
 
 /** helper macro for device inlined functions */
-#define DI  inline __device__
+#define DI inline __device__
 #define HDI inline __host__ __device__
-#define HD  __host__ __device__
+#define HD __host__ __device__
 
 /**
  * @brief Provide a ceiling division operation ie. ceil(a / b)
  * @tparam IntType supposed to be only integers for now!
  */
 template <typename IntType>
-constexpr HDI IntType ceildiv(IntType a, IntType b)
-{
+constexpr HDI IntType ceildiv(IntType a, IntType b) {
   return (a + b - 1) / b;
 }
 
@@ -55,8 +54,7 @@ constexpr HDI IntType ceildiv(IntType a, IntType b)
  * @tparam IntType supposed to be only integers for now!
  */
 template <typename IntType>
-constexpr HDI IntType alignTo(IntType a, IntType b)
-{
+constexpr HDI IntType alignTo(IntType a, IntType b) {
   return ceildiv(a, b) * b;
 }
 
@@ -65,8 +63,7 @@ constexpr HDI IntType alignTo(IntType a, IntType b)
  * @tparam IntType supposed to be only integers for now!
  */
 template <typename IntType>
-constexpr HDI IntType alignDown(IntType a, IntType b)
-{
+constexpr HDI IntType alignDown(IntType a, IntType b) {
   return (a / b) * b;
 }
 
@@ -75,8 +72,7 @@ constexpr HDI IntType alignDown(IntType a, IntType b)
  * @tparam IntType data type (checked only for integers)
  */
 template <typename IntType>
-constexpr HDI bool isPo2(IntType num)
-{
+constexpr HDI bool isPo2(IntType num) {
   return (num && !(num & (num - 1)));
 }
 
@@ -85,16 +81,14 @@ constexpr HDI bool isPo2(IntType num)
  * @tparam IntType data type (checked only for integers)
  */
 template <typename IntType>
-constexpr HDI IntType log2(IntType num, IntType ret = IntType(0))
-{
+constexpr HDI IntType log2(IntType num, IntType ret = IntType(0)) {
   return num <= IntType(1) ? ret : log2(num >> IntType(1), ++ret);
 }
 
 /** Device function to apply the input lambda across threads in the grid */
 template <int ItemsPerThread, typename L>
-DI void forEach(int num, L lambda)
-{
-  int idx              = (blockDim.x * blockIdx.x) + threadIdx.x;
+DI void forEach(int num, L lambda) {
+  int idx = (blockDim.x * blockIdx.x) + threadIdx.x;
   const int numThreads = blockDim.x * gridDim.x;
 #pragma unroll
   for (int itr = 0; itr < ItemsPerThread; ++itr, idx += numThreads) {
@@ -106,8 +100,7 @@ DI void forEach(int num, L lambda)
 static const int WarpSize = 32;
 
 /** get the laneId of the current thread */
-DI int laneId()
-{
+DI int laneId() {
   int id;
   asm("mov.s32 %0, %laneid;" : "=r"(id));
   return id;
@@ -120,17 +113,15 @@ DI int laneId()
  * @param b second input
  */
 template <typename T>
-HDI void swapVals(T& a, T& b)
-{
+HDI void swapVals(T &a, T &b) {
   T tmp = a;
-  a     = b;
-  b     = tmp;
+  a = b;
+  b = tmp;
 }
 
 /** Device function to have atomic add support for older archs */
 template <typename Type>
-DI void myAtomicAdd(Type* address, Type val)
-{
+DI void myAtomicAdd(Type *address, Type val) {
   atomicAdd(address, val);
 }
 
@@ -138,114 +129,105 @@ DI void myAtomicAdd(Type* address, Type val)
 // Ref:
 // http://on-demand.gputechconf.com/gtc/2013/presentations/S3101-Atomic-Memory-Operations.pdf
 template <>
-DI void myAtomicAdd(double* address, double val)
-{
-  unsigned long long int* address_as_ull = (unsigned long long int*)address;
-  unsigned long long int old             = *address_as_ull, assumed;
+DI void myAtomicAdd(double *address, double val) {
+  unsigned long long int *address_as_ull = (unsigned long long int *)address;
+  unsigned long long int old = *address_as_ull, assumed;
   do {
     assumed = old;
-    old =
-      atomicCAS(address_as_ull, assumed, __double_as_longlong(val + __longlong_as_double(assumed)));
+    old = atomicCAS(address_as_ull, assumed,
+                    __double_as_longlong(val + __longlong_as_double(assumed)));
   } while (assumed != old);
 }
 #endif
 
 template <typename T, typename ReduceLambda>
-DI void myAtomicReduce(T* address, T val, ReduceLambda op);
+DI void myAtomicReduce(T *address, T val, ReduceLambda op);
 
 template <typename ReduceLambda>
-DI void myAtomicReduce(double* address, double val, ReduceLambda op)
-{
-  unsigned long long int* address_as_ull = (unsigned long long int*)address;
-  unsigned long long int old             = *address_as_ull, assumed;
+DI void myAtomicReduce(double *address, double val, ReduceLambda op) {
+  unsigned long long int *address_as_ull = (unsigned long long int *)address;
+  unsigned long long int old = *address_as_ull, assumed;
   do {
     assumed = old;
-    old     = atomicCAS(
-      address_as_ull, assumed, __double_as_longlong(op(val, __longlong_as_double(assumed))));
+    old =
+      atomicCAS(address_as_ull, assumed,
+                __double_as_longlong(op(val, __longlong_as_double(assumed))));
   } while (assumed != old);
 }
 
 template <typename ReduceLambda>
-DI void myAtomicReduce(float* address, float val, ReduceLambda op)
-{
-  unsigned int* address_as_uint = (unsigned int*)address;
-  unsigned int old              = *address_as_uint, assumed;
+DI void myAtomicReduce(float *address, float val, ReduceLambda op) {
+  unsigned int *address_as_uint = (unsigned int *)address;
+  unsigned int old = *address_as_uint, assumed;
   do {
     assumed = old;
-    old = atomicCAS(address_as_uint, assumed, __float_as_uint(op(val, __uint_as_float(assumed))));
+    old = atomicCAS(address_as_uint, assumed,
+                    __float_as_uint(op(val, __uint_as_float(assumed))));
   } while (assumed != old);
 }
 
 template <typename ReduceLambda>
-DI void myAtomicReduce(int* address, int val, ReduceLambda op)
-{
+DI void myAtomicReduce(int *address, int val, ReduceLambda op) {
   int old = *address, assumed;
   do {
     assumed = old;
-    old     = atomicCAS(address, assumed, op(val, assumed));
+    old = atomicCAS(address, assumed, op(val, assumed));
   } while (assumed != old);
 }
 
 template <typename ReduceLambda>
-DI void myAtomicReduce(long long* address, long long val, ReduceLambda op)
-{
+DI void myAtomicReduce(long long *address, long long val, ReduceLambda op) {
   long long old = *address, assumed;
   do {
     assumed = old;
-    old     = atomicCAS(address, assumed, op(val, assumed));
+    old = atomicCAS(address, assumed, op(val, assumed));
   } while (assumed != old);
 }
 
 template <typename ReduceLambda>
-DI void myAtomicReduce(unsigned long long* address, unsigned long long val, ReduceLambda op)
-{
+DI void myAtomicReduce(unsigned long long *address, unsigned long long val,
+                       ReduceLambda op) {
   unsigned long long old = *address, assumed;
   do {
     assumed = old;
-    old     = atomicCAS(address, assumed, op(val, assumed));
+    old = atomicCAS(address, assumed, op(val, assumed));
   } while (assumed != old);
 }
 
 /**
  * @brief Provide atomic min operation.
  * @tparam T: data type for input data (float or double).
- * @param[in] address: address to read old value from, and to atomically update w/ min(old value,
- * val)
+ * @param[in] address: address to read old value from, and to atomically update w/ min(old value, val)
  * @param[in] val: new value to compare with old
  */
 template <typename T>
-DI T myAtomicMin(T* address, T val);
+DI T myAtomicMin(T *address, T val);
 
 /**
  * @brief Provide atomic max operation.
  * @tparam T: data type for input data (float or double).
- * @param[in] address: address to read old value from, and to atomically update w/ max(old value,
- * val)
+ * @param[in] address: address to read old value from, and to atomically update w/ max(old value, val)
  * @param[in] val: new value to compare with old
  */
 template <typename T>
-DI T myAtomicMax(T* address, T val);
+DI T myAtomicMax(T *address, T val);
 
-DI float myAtomicMin(float* address, float val)
-{
+DI float myAtomicMin(float *address, float val) {
   myAtomicReduce(address, val, fminf);
   return *address;
 }
 
-DI float myAtomicMax(float* address, float val)
-{
+DI float myAtomicMax(float *address, float val) {
   myAtomicReduce(address, val, fmaxf);
   return *address;
 }
 
-DI double myAtomicMin(double* address, double val)
-{
+DI double myAtomicMin(double *address, double val) {
   myAtomicReduce<double(double, double)>(address, val, fmin);
   return *address;
 }
 
-DI double myAtomicMax(double* address, double val)
-{
+DI double myAtomicMax(double *address, double val) {
   myAtomicReduce<double(double, double)>(address, val, fmax);
   return *address;
 }
@@ -257,13 +239,11 @@ DI double myAtomicMax(double* address, double val)
 template <typename T>
 HDI T myMax(T x, T y);
 template <>
-HDI float myMax<float>(float x, float y)
-{
+HDI float myMax<float>(float x, float y) {
   return fmaxf(x, y);
 }
 template <>
-HDI double myMax<double>(double x, double y)
-{
+HDI double myMax<double>(double x, double y) {
   return fmax(x, y);
 }
 /** @} */
@@ -275,13 +255,11 @@ HDI double myMax<double>(double x, double y)
 template <typename T>
 HDI T myMin(T x, T y);
 template <>
-HDI float myMin<float>(float x, float y)
-{
+HDI float myMin<float>(float x, float y) {
   return fminf(x, y);
 }
 template <>
-HDI double myMin<double>(double x, double y)
-{
+HDI double myMin<double>(double x, double y) {
   return fmin(x, y);
 }
 /** @} */
@@ -289,13 +267,11 @@ HDI double myMin<double>(double x, double y)
 /**
  * @brief Provide atomic min operation.
  * @tparam T: data type for input data (float or double).
- * @param[in] address: address to read old value from, and to atomically update w/ min(old value,
- * val)
+ * @param[in] address: address to read old value from, and to atomically update w/ min(old value, val)
  * @param[in] val: new value to compare with old
  */
 template <typename T>
-DI T myAtomicMin(T* address, T val)
-{
+DI T myAtomicMin(T *address, T val) {
   myAtomicReduce(address, val, myMin<T>);
   return *address;
 }
@@ -303,13 +279,11 @@ DI T myAtomicMin(T* address, T val)
 /**
  * @brief Provide atomic max operation.
  * @tparam T: data type for input data (float or double).
- * @param[in] address: address to read old value from, and to atomically update w/ max(old value,
- * val)
+ * @param[in] address: address to read old value from, and to atomically update w/ max(old value, val)
  * @param[in] val: new value to compare with old
  */
 template <typename T>
-DI T myAtomicMax(T* address, T val)
-{
+DI T myAtomicMax(T *address, T val) {
   myAtomicReduce(address, val, myMax<T>);
   return *address;
 }
@@ -318,8 +292,7 @@ DI T myAtomicMax(T* address, T val)
  * Sign function
  */
 template <typename T>
-HDI int sgn(const T val)
-{
+HDI int sgn(const T val) {
   return (T(0) < val) - (val < T(0));
 }
 
@@ -330,13 +303,11 @@ HDI int sgn(const T val)
 template <typename T>
 HDI T myExp(T x);
 template <>
-HDI float myExp(float x)
-{
+HDI float myExp(float x) {
   return expf(x);
 }
 template <>
-HDI double myExp(double x)
-{
+HDI double myExp(double x) {
   return exp(x);
 }
 /** @} */
@@ -348,13 +319,11 @@ HDI double myExp(double x)
 template <typename T>
 inline __device__ T myInf();
 template <>
-inline __device__ float myInf<float>()
-{
+inline __device__ float myInf<float>() {
   return CUDART_INF_F;
 }
 template <>
-inline __device__ double myInf<double>()
-{
+inline __device__ double myInf<double>() {
   return CUDART_INF;
 }
 /** @} */
@@ -366,13 +335,11 @@ inline __device__ double myInf<double>()
 template <typename T>
 HDI T myLog(T x);
 template <>
-HDI float myLog(float x)
-{
+HDI float myLog(float x) {
   return logf(x);
 }
 template <>
-HDI double myLog(double x)
-{
+HDI double myLog(double x) {
   return log(x);
 }
 /** @} */
@@ -384,13 +351,11 @@ HDI double myLog(double x)
 template <typename T>
 HDI T mySqrt(T x);
 template <>
-HDI float mySqrt(float x)
-{
+HDI float mySqrt(float x) {
   return sqrtf(x);
 }
 template <>
-HDI double mySqrt(double x)
-{
+HDI double mySqrt(double x) {
   return sqrt(x);
 }
 /** @} */
@@ -400,15 +365,13 @@ HDI double mySqrt(double x)
  * @{
  */
 template <typename T>
-DI void mySinCos(T x, T& s, T& c);
+DI void mySinCos(T x, T &s, T &c);
 template <>
-DI void mySinCos(float x, float& s, float& c)
-{
+DI void mySinCos(float x, float &s, float &c) {
   sincosf(x, &s, &c);
 }
 template <>
-DI void mySinCos(double x, double& s, double& c)
-{
+DI void mySinCos(double x, double &s, double &c) {
   sincos(x, &s, &c);
 }
 /** @} */
@@ -420,13 +383,11 @@ DI void mySinCos(double x, double& s, double& c)
 template <typename T>
 DI T mySin(T x);
 template <>
-DI float mySin(float x)
-{
+DI float mySin(float x) {
   return sinf(x);
 }
 template <>
-DI double mySin(double x)
-{
+DI double mySin(double x) {
   return sin(x);
 }
 /** @} */
@@ -436,18 +397,15 @@ DI double mySin(double x)
  * @{
  */
 template <typename T>
-DI T myAbs(T x)
-{
+DI T myAbs(T x) {
   return x < 0 ? -x : x;
 }
 template <>
-DI float myAbs(float x)
-{
+DI float myAbs(float x) {
   return fabsf(x);
 }
 template <>
-DI double myAbs(double x)
-{
+DI double myAbs(double x) {
   return fabs(x);
 }
 /** @} */
@@ -459,13 +417,11 @@ DI double myAbs(double x)
 template <typename T>
 HDI T myPow(T x, T power);
 template <>
-HDI float myPow(float x, float power)
-{
+HDI float myPow(float x, float power) {
   return powf(x, power);
 }
 template <>
-HDI double myPow(double x, double power)
-{
+HDI double myPow(double x, double power) {
   return pow(x, power);
 }
 /** @} */
@@ -477,13 +433,11 @@ HDI double myPow(double x, double power)
 template <typename T>
 HDI T myTanh(T x);
 template <>
-HDI float myTanh(float x)
-{
+HDI float myTanh(float x) {
   return tanhf(x);
 }
 template <>
-HDI double myTanh(double x)
-{
+HDI double myTanh(double x) {
   return tanh(x);
 }
 /** @} */
@@ -495,13 +449,11 @@ HDI double myTanh(double x)
 template <typename T>
 HDI T myATanh(T x);
 template <>
-HDI float myATanh(float x)
-{
+HDI float myATanh(float x) {
   return atanhf(x);
 }
 template <>
-HDI double myATanh(double x)
-{
+HDI double myATanh(double x) {
   return atanh(x);
 }
 /** @} */
@@ -540,18 +492,15 @@ struct Sum {
  * @{
  */
 template <typename T>
-DI T signPrim(T x)
-{
+DI T signPrim(T x) {
   return x < 0 ? -1 : +1;
 }
 template <>
-DI float signPrim(float x)
-{
+DI float signPrim(float x) {
   return signbit(x) == true ? -1.0f : +1.0f;
 }
 template <>
-DI double signPrim(double x)
-{
+DI double signPrim(double x) {
   return signbit(x) == true ? -1.0 : +1.0;
 }
 /** @} */
@@ -565,33 +514,28 @@ DI double signPrim(double x)
  * @{
  */
 template <typename T>
-DI T maxPrim(T x, T y)
-{
+DI T maxPrim(T x, T y) {
   return x > y ? x : y;
 }
 template <>
-DI float maxPrim(float x, float y)
-{
+DI float maxPrim(float x, float y) {
   return fmaxf(x, y);
 }
 template <>
-DI double maxPrim(double x, double y)
-{
+DI double maxPrim(double x, double y) {
   return fmax(x, y);
 }
 /** @} */
 
 /** apply a warp-wide fence (useful from Volta+ archs) */
-DI void warpFence()
-{
+DI void warpFence() {
 #if __CUDA_ARCH__ >= 700
   __syncwarp();
 #endif
 }
 
 /** warp-wide any boolean aggregator */
-DI bool any(bool inFlag, uint32_t mask = 0xffffffffu)
-{
+DI bool any(bool inFlag, uint32_t mask = 0xffffffffu) {
 #if CUDART_VERSION >= 9000
   inFlag = __any_sync(mask, inFlag);
 #else
@@ -601,8 +545,7 @@ DI bool any(bool inFlag, uint32_t mask = 0xffffffffu)
 }
 
 /** warp-wide all boolean aggregator */
-DI bool all(bool inFlag, uint32_t mask = 0xffffffffu)
-{
+DI bool all(bool inFlag, uint32_t mask = 0xffffffffu) {
 #if CUDART_VERSION >= 9000
   inFlag = __all_sync(mask, inFlag);
 #else
@@ -621,8 +564,8 @@ DI bool all(bool inFlag, uint32_t mask = 0xffffffffu)
  * @return the shuffled data
  */
 template <typename T>
-DI T shfl(T val, int srcLane, int width = WarpSize, uint32_t mask = 0xffffffffu)
-{
+DI T shfl(T val, int srcLane, int width = WarpSize,
+          uint32_t mask = 0xffffffffu) {
 #if CUDART_VERSION >= 9000
   return __shfl_sync(mask, val, srcLane, width);
 #else
@@ -640,8 +583,8 @@ DI T shfl(T val, int srcLane, int width = WarpSize, uint32_t mask = 0xffffffffu)
  * @return the shuffled data
  */
 template <typename T>
-DI T shfl_xor(T val, int laneMask, int width = WarpSize, uint32_t mask = 0xffffffffu)
-{
+DI T shfl_xor(T val, int laneMask, int width = WarpSize,
+              uint32_t mask = 0xffffffffu) {
 #if CUDART_VERSION >= 9000
   return __shfl_xor_sync(mask, val, laneMask, width);
 #else
@@ -659,8 +602,7 @@ DI T shfl_xor(T val, int laneMask, int width = WarpSize, uint32_t mask = 0xfffff
  * @todo Expand this to support arbitrary reduction ops
  */
 template <typename T>
-DI T warpReduce(T val)
-{
+DI T warpReduce(T val) {
 #pragma unroll
   for (int i = WarpSize / 2; i > 0; i >>= 1) {
     T tmp = shfl(val, laneId() + i);
@@ -681,13 +623,12 @@ DI T warpReduce(T val)
  * @todo Expand this to support arbitrary reduction ops
  */
 template <typename T>
-DI T blockReduce(T val, char* smem)
-{
-  auto* sTemp = reinterpret_cast<T*>(smem);
-  int nWarps  = (blockDim.x + WarpSize - 1) / WarpSize;
-  int lid     = laneId();
-  int wid     = threadIdx.x / WarpSize;
-  val         = warpReduce(val);
+DI T blockReduce(T val, char *smem) {
+  auto *sTemp = reinterpret_cast<T *>(smem);
+  int nWarps = (blockDim.x + WarpSize - 1) / WarpSize;
+  int lid = laneId();
+  int wid = threadIdx.x / WarpSize;
+  val = warpReduce(val);
   if (lid == 0) sTemp[wid] = val;
   __syncthreads();
   val = lid < nWarps ? sTemp[lid] : T(0);
@@ -703,10 +644,8 @@ DI T blockReduce(T val, char* smem)
  * @param idx the index for which to query the stream
  */
 inline cudaStream_t select_stream(cudaStream_t user_stream,
-                                  cudaStream_t* int_streams,
-                                  int n_int_streams,
-                                  int idx)
-{
+                                  cudaStream_t *int_streams, int n_int_streams,
+                                  int idx) {
   return n_int_streams > 0 ? int_streams[idx % n_int_streams] : user_stream;
 }
 

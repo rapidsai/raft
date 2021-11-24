@@ -34,23 +34,20 @@ namespace host {
  * further to the ones listed in `Allocator`:
  * - Allocations don't need to be zero copy accessible form a device.
  */
-class allocator : public base_allocator {
-};
+class allocator : public base_allocator {};
 
 /** Default cudaMallocHost/cudaFreeHost based host allocator */
 class default_allocator : public allocator {
  public:
-  void* allocate(std::size_t n, cudaStream_t stream) override
-  {
+  void* allocate(std::size_t n, cudaStream_t stream) override {
     void* ptr = nullptr;
     CUDA_CHECK(cudaMallocHost(&ptr, n));
     return ptr;
   }
 
-  void deallocate(void* p, std::size_t n, cudaStream_t stream) override
-  {
-    // Must call _NO_THROW here since this is called frequently from object
-    // destructors which are "nothrow" by default
+  void deallocate(void* p, std::size_t n, cudaStream_t stream) override {
+    //Must call _NO_THROW here since this is called frequently from object
+    //destructors which are "nothrow" by default
     CUDA_CHECK_NO_THROW(cudaFreeHost(p));
   }
 };  // class default_allocator

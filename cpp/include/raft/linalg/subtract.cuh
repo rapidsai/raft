@@ -38,8 +38,8 @@ namespace linalg {
  * @param stream cuda stream where to launch work
  */
 template <typename InT, typename OutT = InT, typename IdxType = int>
-void subtractScalar(OutT* out, const InT* in, InT scalar, IdxType len, cudaStream_t stream)
-{
+void subtractScalar(OutT *out, const InT *in, InT scalar, IdxType len,
+                    cudaStream_t stream) {
   auto op = [scalar] __device__(InT in) { return OutT(in - scalar); };
   unaryOp<InT, decltype(op), IdxType, OutT>(out, in, len, op, stream);
 }
@@ -58,25 +58,24 @@ void subtractScalar(OutT* out, const InT* in, InT scalar, IdxType len, cudaStrea
  * @param stream cuda stream where to launch work
  */
 template <typename InT, typename OutT = InT, typename IdxType = int>
-void subtract(OutT* out, const InT* in1, const InT* in2, IdxType len, cudaStream_t stream)
-{
+void subtract(OutT *out, const InT *in1, const InT *in2, IdxType len,
+              cudaStream_t stream) {
   auto op = [] __device__(InT a, InT b) { return OutT(a - b); };
   binaryOp<InT, decltype(op), OutT, IdxType>(out, in1, in2, len, op, stream);
 }
 
 template <class math_t, typename IdxType>
-__global__ void subtract_dev_scalar_kernel(math_t* outDev,
-                                           const math_t* inDev,
-                                           const math_t* singleScalarDev,
-                                           IdxType len)
-{
-  // TODO: kernel do not use shared memory in current implementation
+__global__ void subtract_dev_scalar_kernel(math_t *outDev, const math_t *inDev,
+                                           const math_t *singleScalarDev,
+                                           IdxType len) {
+  //TODO: kernel do not use shared memory in current implementation
   int i = ((IdxType)blockIdx.x * (IdxType)blockDim.x) + threadIdx.x;
-  if (i < len) { outDev[i] = inDev[i] - *singleScalarDev; }
+  if (i < len) {
+    outDev[i] = inDev[i] - *singleScalarDev;
+  }
 }
 
-/** Substract single value pointed by singleScalarDev parameter in device memory from inDev[i] and
- * write result to outDev[i]
+/** Substract single value pointed by singleScalarDev parameter in device memory from inDev[i] and write result to outDev[i]
  * @tparam math_t data-type upon which the math operation will be performed
  * @tparam IdxType Integer type used to for addressing
  * @param outDev the output buffer
@@ -87,12 +86,9 @@ __global__ void subtract_dev_scalar_kernel(math_t* outDev,
  * @remark block size has not been tuned
  */
 template <typename math_t, typename IdxType = int, int TPB = 256>
-void subtractDevScalar(math_t* outDev,
-                       const math_t* inDev,
-                       const math_t* singleScalarDev,
-                       IdxType len,
-                       cudaStream_t stream)
-{
+void subtractDevScalar(math_t *outDev, const math_t *inDev,
+                       const math_t *singleScalarDev, IdxType len,
+                       cudaStream_t stream) {
   // Just for the note - there is no way to express such operation with cuBLAS in effective way
   // https://stackoverflow.com/questions/14051064/add-scalar-to-vector-in-blas-cublas-cuda
   const IdxType nblks = raft::ceildiv(len, (IdxType)TPB);

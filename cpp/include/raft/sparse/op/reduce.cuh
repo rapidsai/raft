@@ -46,29 +46,25 @@ namespace sparse {
 namespace op {
 
 template <typename value_idx>
-__global__ void compute_duplicates_diffs_kernel(const value_idx* rows,
-                                                const value_idx* cols,
-                                                value_idx* diff,
-                                                size_t nnz)
-{
+__global__ void compute_duplicates_diffs_kernel(const value_idx *rows,
+                                                const value_idx *cols,
+                                                value_idx *diff, size_t nnz) {
   size_t tid = blockDim.x * blockIdx.x + threadIdx.x;
   if (tid >= nnz) return;
 
   value_idx d = 1;
-  if (tid == 0 || (rows[tid - 1] == rows[tid] && cols[tid - 1] == cols[tid])) d = 0;
+  if (tid == 0 || (rows[tid - 1] == rows[tid] && cols[tid - 1] == cols[tid]))
+    d = 0;
   diff[tid] = d;
 }
 
 template <typename value_idx, typename value_t>
-__global__ void max_duplicates_kernel(const value_idx* src_rows,
-                                      const value_idx* src_cols,
-                                      const value_t* src_vals,
-                                      const value_idx* index,
-                                      value_idx* out_rows,
-                                      value_idx* out_cols,
-                                      value_t* out_vals,
-                                      size_t nnz)
-{
+__global__ void max_duplicates_kernel(const value_idx *src_rows,
+                                      const value_idx *src_cols,
+                                      const value_t *src_vals,
+                                      const value_idx *index,
+                                      value_idx *out_rows, value_idx *out_cols,
+                                      value_t *out_vals, size_t nnz) {
   size_t tid = blockDim.x * blockIdx.x + threadIdx.x;
 
   if (tid < nnz) {
@@ -100,13 +96,13 @@ __global__ void max_duplicates_kernel(const value_idx* src_rows,
  * @param[in] stream cuda ops will be ordered wrt this stream
  */
 template <typename value_idx>
-void compute_duplicates_mask(
-  value_idx* mask, const value_idx* rows, const value_idx* cols, size_t nnz, cudaStream_t stream)
-{
+void compute_duplicates_mask(value_idx *mask, const value_idx *rows,
+                             const value_idx *cols, size_t nnz,
+                             cudaStream_t stream) {
   CUDA_CHECK(cudaMemsetAsync(mask, 0, nnz * sizeof(value_idx), stream));
 
-  compute_duplicates_diffs_kernel<<<raft::ceildiv(nnz, (size_t)256), 256, 0, stream>>>(
-    rows, cols, mask, nnz);
+  compute_duplicates_diffs_kernel<<<raft::ceildiv(nnz, (size_t)256), 256, 0,
+                                    stream>>>(rows, cols, mask, nnz);
 }
 
 /**
@@ -126,17 +122,12 @@ void compute_duplicates_mask(
  * @param[in] stream cuda ops will be ordered wrt this stream
  */
 template <typename value_idx, typename value_t>
-void max_duplicates(const raft::handle_t& handle,
-                    raft::sparse::COO<value_t, value_idx>& out,
-                    const value_idx* rows,
-                    const value_idx* cols,
-                    const value_t* vals,
-                    size_t nnz,
-                    size_t m,
-                    size_t n)
-{
+void max_duplicates(const raft::handle_t &handle,
+                    raft::sparse::COO<value_t, value_idx> &out,
+                    const value_idx *rows, const value_idx *cols,
+                    const value_t *vals, size_t nnz, size_t m, size_t n) {
   auto d_alloc = handle.get_device_allocator();
-  auto stream  = handle.get_stream();
+  auto stream = handle.get_stream();
 
   auto exec_policy = rmm::exec_policy(rmm::cuda_stream_view{stream});
 
@@ -145,8 +136,8 @@ void max_duplicates(const raft::handle_t& handle,
 
   compute_duplicates_mask(diff.data(), rows, cols, nnz, stream);
 
-  thrust::exclusive_scan(
-    thrust::cuda::par.on(stream), diff.data(), diff.data() + diff.size(), diff.data());
+  thrust::exclusive_scan(thrust::cuda::par.on(stream), diff.data(),
+                         diff.data() + diff.size(), diff.data());
 
   // compute final size
   value_idx size = 0;

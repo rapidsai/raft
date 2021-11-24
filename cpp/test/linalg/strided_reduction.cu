@@ -32,17 +32,17 @@ struct stridedReductionInputs {
 };
 
 template <typename T>
-void stridedReductionLaunch(T* dots, const T* data, int cols, int rows, cudaStream_t stream)
-{
-  stridedReduction(
-    dots, data, cols, rows, (T)0, stream, false, [] __device__(T in, int i) { return in * in; });
+void stridedReductionLaunch(T *dots, const T *data, int cols, int rows,
+                            cudaStream_t stream) {
+  stridedReduction(dots, data, cols, rows, (T)0, stream, false,
+                   [] __device__(T in, int i) { return in * in; });
 }
 
 template <typename T>
-class stridedReductionTest : public ::testing::TestWithParam<stridedReductionInputs<T>> {
+class stridedReductionTest
+  : public ::testing::TestWithParam<stridedReductionInputs<T>> {
  protected:
-  void SetUp() override
-  {
+  void SetUp() override {
     CUDA_CHECK(cudaStreamCreate(&stream));
     params = ::testing::TestWithParam<stridedReductionInputs<T>>::GetParam();
     raft::random::Rng r(params.seed);
@@ -50,17 +50,16 @@ class stridedReductionTest : public ::testing::TestWithParam<stridedReductionInp
     int len = rows * cols;
 
     raft::allocate(data, len);
-    raft::allocate(dots_exp, cols);  // expected dot products (from test)
-    raft::allocate(dots_act, cols);  // actual dot products (from prim)
+    raft::allocate(dots_exp, cols);  //expected dot products (from test)
+    raft::allocate(dots_act, cols);  //actual dot products (from prim)
     r.uniform(data, len, T(-1.0), T(1.0),
-              stream);  // initialize matrix to random
+              stream);  //initialize matrix to random
 
     unaryAndGemv(dots_exp, data, cols, rows, stream);
     stridedReductionLaunch(dots_act, data, cols, rows, stream);
   }
 
-  void TearDown() override
-  {
+  void TearDown() override {
     CUDA_CHECK(cudaFree(data));
     CUDA_CHECK(cudaFree(dots_exp));
     CUDA_CHECK(cudaFree(dots_act));
@@ -73,33 +72,35 @@ class stridedReductionTest : public ::testing::TestWithParam<stridedReductionInp
   cudaStream_t stream;
 };
 
-const std::vector<stridedReductionInputs<float>> inputsf = {{0.00001f, 1024, 32, 1234ULL},
-                                                            {0.00001f, 1024, 64, 1234ULL},
-                                                            {0.00001f, 1024, 128, 1234ULL},
-                                                            {0.00001f, 1024, 256, 1234ULL}};
+const std::vector<stridedReductionInputs<float>> inputsf = {
+  {0.00001f, 1024, 32, 1234ULL},
+  {0.00001f, 1024, 64, 1234ULL},
+  {0.00001f, 1024, 128, 1234ULL},
+  {0.00001f, 1024, 256, 1234ULL}};
 
-const std::vector<stridedReductionInputs<double>> inputsd = {{0.000000001, 1024, 32, 1234ULL},
-                                                             {0.000000001, 1024, 64, 1234ULL},
-                                                             {0.000000001, 1024, 128, 1234ULL},
-                                                             {0.000000001, 1024, 256, 1234ULL}};
+const std::vector<stridedReductionInputs<double>> inputsd = {
+  {0.000000001, 1024, 32, 1234ULL},
+  {0.000000001, 1024, 64, 1234ULL},
+  {0.000000001, 1024, 128, 1234ULL},
+  {0.000000001, 1024, 256, 1234ULL}};
 
 typedef stridedReductionTest<float> stridedReductionTestF;
-TEST_P(stridedReductionTestF, Result)
-{
-  ASSERT_TRUE(
-    devArrMatch(dots_exp, dots_act, params.cols, raft::CompareApprox<float>(params.tolerance)));
+TEST_P(stridedReductionTestF, Result) {
+  ASSERT_TRUE(devArrMatch(dots_exp, dots_act, params.cols,
+                          raft::CompareApprox<float>(params.tolerance)));
 }
 
 typedef stridedReductionTest<double> stridedReductionTestD;
-TEST_P(stridedReductionTestD, Result)
-{
-  ASSERT_TRUE(
-    devArrMatch(dots_exp, dots_act, params.cols, raft::CompareApprox<double>(params.tolerance)));
+TEST_P(stridedReductionTestD, Result) {
+  ASSERT_TRUE(devArrMatch(dots_exp, dots_act, params.cols,
+                          raft::CompareApprox<double>(params.tolerance)));
 }
 
-INSTANTIATE_TEST_CASE_P(stridedReductionTests, stridedReductionTestF, ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_CASE_P(stridedReductionTests, stridedReductionTestF,
+                        ::testing::ValuesIn(inputsf));
 
-INSTANTIATE_TEST_CASE_P(stridedReductionTests, stridedReductionTestD, ::testing::ValuesIn(inputsd));
+INSTANTIATE_TEST_CASE_P(stridedReductionTests, stridedReductionTestD,
+                        ::testing::ValuesIn(inputsd));
 
 }  // end namespace linalg
 }  // end namespace raft

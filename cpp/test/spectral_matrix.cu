@@ -32,8 +32,7 @@ struct csr_view_t {
   index_type number_of_edges;
 };
 }  // namespace
-TEST(Raft, SpectralMatrices)
-{
+TEST(Raft, SpectralMatrices) {
   using namespace matrix;
   using index_type = int;
   using value_type = double;
@@ -50,18 +49,19 @@ TEST(Raft, SpectralMatrices)
   index_type* ro{nullptr};
   index_type* ci{nullptr};
   value_type* vs{nullptr};
-  index_type nnz   = 0;
+  index_type nnz = 0;
   index_type nrows = 0;
   sparse_matrix_t<index_type, value_type> sm1{h, ro, ci, vs, nrows, nnz};
   sparse_matrix_t<index_type, value_type> sm2{h, csr_v};
   ASSERT_EQ(nullptr, sm1.row_offsets_);
   ASSERT_EQ(nullptr, sm2.row_offsets_);
 
-  auto stream    = h.get_stream();
+  auto stream = h.get_stream();
   auto t_exe_pol = thrust::cuda::par.on(stream);
 
   auto cnstr_lm1 = [&h, t_exe_pol, ro, ci, vs, nrows, nnz](void) {
-    laplacian_matrix_t<index_type, value_type> lm1{h, t_exe_pol, ro, ci, vs, nrows, nnz};
+    laplacian_matrix_t<index_type, value_type> lm1{h,  t_exe_pol, ro, ci,
+                                                   vs, nrows,     nnz};
   };
   EXPECT_ANY_THROW(cnstr_lm1());  // because of nullptr ptr args
 
@@ -71,7 +71,8 @@ TEST(Raft, SpectralMatrices)
   EXPECT_ANY_THROW(cnstr_lm2());  // because of nullptr ptr args
 
   auto cnstr_mm1 = [&h, t_exe_pol, ro, ci, vs, nrows, nnz](void) {
-    modularity_matrix_t<index_type, value_type> mm1{h, t_exe_pol, ro, ci, vs, nrows, nnz};
+    modularity_matrix_t<index_type, value_type> mm1{h,  t_exe_pol, ro, ci,
+                                                    vs, nrows,     nnz};
   };
   EXPECT_ANY_THROW(cnstr_mm1());  // because of nullptr ptr args
 

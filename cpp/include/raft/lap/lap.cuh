@@ -38,12 +38,12 @@ class LinearAssignmentProblem {
   vertex_t batchsize_;
   weight_t epsilon_;
 
-  weight_t const* d_costs_;
+  weight_t const *d_costs_;
 
   Vertices<vertex_t, weight_t> d_vertices_dev;
   VertexData<vertex_t> d_row_data_dev, d_col_data_dev;
 
-  raft::handle_t const& handle_;
+  raft::handle_t const &handle_;
   raft::mr::device::buffer<int> row_covers_v;
   raft::mr::device::buffer<int> col_covers_v;
   raft::mr::device::buffer<weight_t> row_duals_v;
@@ -59,10 +59,8 @@ class LinearAssignmentProblem {
   raft::mr::device::buffer<weight_t> obj_val_dual_v;
 
  public:
-  LinearAssignmentProblem(raft::handle_t const& handle,
-                          vertex_t size,
-                          vertex_t batchsize,
-                          weight_t epsilon)
+  LinearAssignmentProblem(raft::handle_t const &handle, vertex_t size,
+                          vertex_t batchsize, weight_t epsilon)
     : handle_(handle),
       size_(size),
       batchsize_(batchsize),
@@ -80,13 +78,11 @@ class LinearAssignmentProblem {
       row_children_v(handle_.get_device_allocator(), handle_.get_stream(), 0),
       col_children_v(handle_.get_device_allocator(), handle_.get_stream(), 0),
       obj_val_primal_v(handle_.get_device_allocator(), handle_.get_stream(), 0),
-      obj_val_dual_v(handle_.get_device_allocator(), handle_.get_stream(), 0)
-  {
-  }
+      obj_val_dual_v(handle_.get_device_allocator(), handle_.get_stream(), 0) {}
 
   // Executes Hungarian algorithm on the input cost matrix.
-  void solve(weight_t const* d_cost_matrix, vertex_t* d_row_assignment, vertex_t* d_col_assignment)
-  {
+  void solve(weight_t const *d_cost_matrix, vertex_t *d_row_assignment,
+             vertex_t *d_col_assignment) {
     initializeDevice();
 
     d_vertices_dev.row_assignments = d_row_assignment;
@@ -98,13 +94,27 @@ class LinearAssignmentProblem {
 
     while (step != 100) {
       switch (step) {
-        case 0: step = hungarianStep0(); break;
-        case 1: step = hungarianStep1(); break;
-        case 2: step = hungarianStep2(); break;
-        case 3: step = hungarianStep3(); break;
-        case 4: step = hungarianStep4(); break;
-        case 5: step = hungarianStep5(); break;
-        case 6: step = hungarianStep6(); break;
+        case 0:
+          step = hungarianStep0();
+          break;
+        case 1:
+          step = hungarianStep1();
+          break;
+        case 2:
+          step = hungarianStep2();
+          break;
+        case 3:
+          step = hungarianStep3();
+          break;
+        case 4:
+          step = hungarianStep4();
+          break;
+        case 5:
+          step = hungarianStep5();
+          break;
+        case 6:
+          step = hungarianStep6();
+          break;
       }
     }
 
@@ -112,39 +122,36 @@ class LinearAssignmentProblem {
   }
 
   // Function for getting optimal row dual vector for subproblem spId.
-  std::pair<const weight_t*, vertex_t> getRowDualVector(int spId) const
-  {
+  std::pair<const weight_t *, vertex_t> getRowDualVector(int spId) const {
     return std::make_pair(row_duals_v.data() + spId * size_, size_);
   }
 
   // Function for getting optimal col dual vector for subproblem spId.
-  std::pair<const weight_t*, vertex_t> getColDualVector(int spId)
-  {
+  std::pair<const weight_t *, vertex_t> getColDualVector(int spId) {
     return std::make_pair(col_duals_v.data() + spId * size_, size_);
   }
 
   // Function for getting optimal primal objective value for subproblem spId.
-  weight_t getPrimalObjectiveValue(int spId)
-  {
+  weight_t getPrimalObjectiveValue(int spId) {
     weight_t result;
-    raft::update_host(&result, obj_val_primal_v.data() + spId, 1, handle_.get_stream());
+    raft::update_host(&result, obj_val_primal_v.data() + spId, 1,
+                      handle_.get_stream());
     CHECK_CUDA(handle_.get_stream());
     return result;
   }
 
   // Function for getting optimal dual objective value for subproblem spId.
-  weight_t getDualObjectiveValue(int spId)
-  {
+  weight_t getDualObjectiveValue(int spId) {
     weight_t result;
-    raft::update_host(&result, obj_val_dual_v.data() + spId, 1, handle_.get_stream());
+    raft::update_host(&result, obj_val_dual_v.data() + spId, 1,
+                      handle_.get_stream());
     CHECK_CUDA(handle_.get_stream());
     return result;
   }
 
  private:
   // Helper function for initializing global variables and arrays on a single host.
-  void initializeDevice()
-  {
+  void initializeDevice() {
     row_covers_v.resize(batchsize_ * size_);
     col_covers_v.resize(batchsize_ * size_);
     row_duals_v.resize(batchsize_ * size_);
@@ -162,36 +169,39 @@ class LinearAssignmentProblem {
     d_vertices_dev.row_covers = row_covers_v.data();
     d_vertices_dev.col_covers = col_covers_v.data();
 
-    d_vertices_dev.row_duals  = row_duals_v.data();
-    d_vertices_dev.col_duals  = col_duals_v.data();
+    d_vertices_dev.row_duals = row_duals_v.data();
+    d_vertices_dev.col_duals = col_duals_v.data();
     d_vertices_dev.col_slacks = col_slacks_v.data();
 
     d_row_data_dev.is_visited = row_is_visited_v.data();
     d_col_data_dev.is_visited = col_is_visited_v.data();
-    d_row_data_dev.parents    = row_parents_v.data();
-    d_row_data_dev.children   = row_children_v.data();
-    d_col_data_dev.parents    = col_parents_v.data();
-    d_col_data_dev.children   = col_children_v.data();
+    d_row_data_dev.parents = row_parents_v.data();
+    d_row_data_dev.children = row_children_v.data();
+    d_col_data_dev.parents = col_parents_v.data();
+    d_col_data_dev.children = col_children_v.data();
 
-    thrust::fill(thrust::device, row_covers_v.begin(), row_covers_v.end(), int{0});
-    thrust::fill(thrust::device, col_covers_v.begin(), col_covers_v.end(), int{0});
-    thrust::fill(thrust::device, row_duals_v.begin(), row_duals_v.end(), weight_t{0});
-    thrust::fill(thrust::device, col_duals_v.begin(), col_duals_v.end(), weight_t{0});
+    thrust::fill(thrust::device, row_covers_v.begin(), row_covers_v.end(),
+                 int{0});
+    thrust::fill(thrust::device, col_covers_v.begin(), col_covers_v.end(),
+                 int{0});
+    thrust::fill(thrust::device, row_duals_v.begin(), row_duals_v.end(),
+                 weight_t{0});
+    thrust::fill(thrust::device, col_duals_v.begin(), col_duals_v.end(),
+                 weight_t{0});
   }
 
   // Function for calculating initial zeros by subtracting row and column minima from each element.
-  int hungarianStep0()
-  {
-    detail::initialReduction(handle_, d_costs_, d_vertices_dev, batchsize_, size_);
+  int hungarianStep0() {
+    detail::initialReduction(handle_, d_costs_, d_vertices_dev, batchsize_,
+                             size_);
 
     return 1;
   }
 
   // Function for calculating initial zeros by subtracting row and column minima from each element.
-  int hungarianStep1()
-  {
-    detail::computeInitialAssignments(
-      handle_, d_costs_, d_vertices_dev, batchsize_, size_, epsilon_);
+  int hungarianStep1() {
+    detail::computeInitialAssignments(handle_, d_costs_, d_vertices_dev,
+                                      batchsize_, size_, epsilon_);
 
     int next = 2;
 
@@ -207,10 +217,10 @@ class LinearAssignmentProblem {
   }
 
   // Function for checking optimality and constructing predicates and covers.
-  int hungarianStep2()
-  {
-    int cover_count = detail::computeRowCovers(
-      handle_, d_vertices_dev, d_row_data_dev, d_col_data_dev, batchsize_, size_);
+  int hungarianStep2() {
+    int cover_count =
+      detail::computeRowCovers(handle_, d_vertices_dev, d_row_data_dev,
+                               d_col_data_dev, batchsize_, size_);
 
     int next = (cover_count == batchsize_ * size_) ? 6 : 3;
 
@@ -218,23 +228,17 @@ class LinearAssignmentProblem {
   }
 
   // Function for building alternating tree rooted at unassigned rows.
-  int hungarianStep3()
-  {
+  int hungarianStep3() {
     int next;
 
-    raft::mr::device::buffer<bool> flag_v(handle_.get_device_allocator(), handle_.get_stream(), 1);
+    raft::mr::device::buffer<bool> flag_v(handle_.get_device_allocator(),
+                                          handle_.get_stream(), 1);
 
     bool h_flag = false;
     raft::update_device(flag_v.data(), &h_flag, 1, handle_.get_stream());
 
-    detail::executeZeroCover(handle_,
-                             d_costs_,
-                             d_vertices_dev,
-                             d_row_data_dev,
-                             d_col_data_dev,
-                             flag_v.data(),
-                             batchsize_,
-                             size_,
+    detail::executeZeroCover(handle_, d_costs_, d_vertices_dev, d_row_data_dev,
+                             d_col_data_dev, flag_v.data(), batchsize_, size_,
                              epsilon_);
 
     raft::update_host(&h_flag, flag_v.data(), 1, handle_.get_stream());
@@ -245,36 +249,31 @@ class LinearAssignmentProblem {
   }
 
   // Function for augmenting the solution along multiple node-disjoint alternating trees.
-  int hungarianStep4()
-  {
-    detail::reversePass(handle_, d_row_data_dev, d_col_data_dev, batchsize_, size_);
+  int hungarianStep4() {
+    detail::reversePass(handle_, d_row_data_dev, d_col_data_dev, batchsize_,
+                        size_);
 
-    detail::augmentationPass(
-      handle_, d_vertices_dev, d_row_data_dev, d_col_data_dev, batchsize_, size_);
+    detail::augmentationPass(handle_, d_vertices_dev, d_row_data_dev,
+                             d_col_data_dev, batchsize_, size_);
 
     return 2;
   }
 
   // Function for updating dual solution to introduce new zero-cost arcs.
-  int hungarianStep5()
-  {
-    detail::dualUpdate(
-      handle_, d_vertices_dev, d_row_data_dev, d_col_data_dev, batchsize_, size_, epsilon_);
+  int hungarianStep5() {
+    detail::dualUpdate(handle_, d_vertices_dev, d_row_data_dev, d_col_data_dev,
+                       batchsize_, size_, epsilon_);
 
     return 3;
   }
 
   // Function for calculating primal and dual objective values at optimality.
-  int hungarianStep6()
-  {
-    detail::calcObjValPrimal(handle_,
-                             obj_val_primal_v.data(),
-                             d_costs_,
-                             d_vertices_dev.row_assignments,
-                             batchsize_,
-                             size_);
+  int hungarianStep6() {
+    detail::calcObjValPrimal(handle_, obj_val_primal_v.data(), d_costs_,
+                             d_vertices_dev.row_assignments, batchsize_, size_);
 
-    detail::calcObjValDual(handle_, obj_val_dual_v.data(), d_vertices_dev, batchsize_, size_);
+    detail::calcObjValDual(handle_, obj_val_dual_v.data(), d_vertices_dev,
+                           batchsize_, size_);
 
     return 100;
   }

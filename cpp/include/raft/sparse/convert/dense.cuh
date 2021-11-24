@@ -37,20 +37,22 @@ namespace sparse {
 namespace convert {
 
 template <typename value_t>
-__global__ void csr_to_dense_warp_per_row_kernel(
-  int n_cols, const value_t* csrVal, const int* csrRowPtr, const int* csrColInd, value_t* a)
-{
+__global__ void csr_to_dense_warp_per_row_kernel(int n_cols,
+                                                 const value_t *csrVal,
+                                                 const int *csrRowPtr,
+                                                 const int *csrColInd,
+                                                 value_t *a) {
   int row = blockIdx.x;
   int tid = threadIdx.x;
 
   int colStart = csrRowPtr[row];
-  int colEnd   = csrRowPtr[row + 1];
-  int rowNnz   = colEnd - colStart;
+  int colEnd = csrRowPtr[row + 1];
+  int rowNnz = colEnd - colStart;
 
   for (int i = tid; i < rowNnz; i += blockDim.x) {
     int colIdx = colStart + i;
     if (colIdx < colEnd) {
-      int col               = csrColInd[colIdx];
+      int col = csrColInd[colIdx];
       a[row * n_cols + col] = csrVal[colIdx];
     }
   }
@@ -75,17 +77,10 @@ __global__ void csr_to_dense_warp_per_row_kernel(
  * @param[in] row_major : Is row-major output desired?
  */
 template <typename value_idx, typename value_t>
-void csr_to_dense(cusparseHandle_t handle,
-                  value_idx nrows,
-                  value_idx ncols,
-                  const value_idx* csr_indptr,
-                  const value_idx* csr_indices,
-                  const value_t* csr_data,
-                  value_idx lda,
-                  value_t* out,
-                  cudaStream_t stream,
-                  bool row_major = true)
-{
+void csr_to_dense(cusparseHandle_t handle, value_idx nrows, value_idx ncols,
+                  const value_idx *csr_indptr, const value_idx *csr_indices,
+                  const value_t *csr_data, value_idx lda, value_t *out,
+                  cudaStream_t stream, bool row_major = true) {
   if (!row_major) {
     /**
      * If we need col-major, use cusparse.
@@ -96,13 +91,15 @@ void csr_to_dense(cusparseHandle_t handle,
     CUSPARSE_CHECK(cusparseSetMatType(out_mat, CUSPARSE_MATRIX_TYPE_GENERAL));
 
     CUSPARSE_CHECK(raft::sparse::cusparsecsr2dense(
-      handle, nrows, ncols, out_mat, csr_data, csr_indptr, csr_indices, out, lda, stream));
+      handle, nrows, ncols, out_mat, csr_data, csr_indptr, csr_indices, out,
+      lda, stream));
 
     CUSPARSE_CHECK_NO_THROW(cusparseDestroyMatDescr(out_mat));
 
   } else {
     int blockdim = block_dim(ncols);
-    CUDA_CHECK(cudaMemsetAsync(out, 0, nrows * ncols * sizeof(value_t), stream));
+    CUDA_CHECK(
+      cudaMemsetAsync(out, 0, nrows * ncols * sizeof(value_t), stream));
     csr_to_dense_warp_per_row_kernel<<<nrows, blockdim, 0, stream>>>(
       ncols, csr_data, csr_indptr, csr_indices, out);
   }

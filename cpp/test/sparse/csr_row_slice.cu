@@ -47,19 +47,19 @@ struct CSRRowSliceInputs {
 };
 
 template <typename value_idx, typename value_t>
-::std::ostream& operator<<(::std::ostream& os, const CSRRowSliceInputs<value_idx, value_t>& dims)
-{
+::std::ostream &operator<<(::std::ostream &os,
+                           const CSRRowSliceInputs<value_idx, value_t> &dims) {
   return os;
 }
 
 template <typename value_idx, typename value_t>
-class CSRRowSliceTest : public ::testing::TestWithParam<CSRRowSliceInputs<value_idx, value_t>> {
+class CSRRowSliceTest
+  : public ::testing::TestWithParam<CSRRowSliceInputs<value_idx, value_t>> {
  protected:
-  void make_data()
-  {
-    std::vector<value_idx> indptr_h  = params.indptr_h;
+  void make_data() {
+    std::vector<value_idx> indptr_h = params.indptr_h;
     std::vector<value_idx> indices_h = params.indices_h;
-    std::vector<value_t> data_h      = params.data_h;
+    std::vector<value_t> data_h = params.data_h;
 
     allocate(indptr, indptr_h.size());
     allocate(indices, indices_h.size());
@@ -69,27 +69,31 @@ class CSRRowSliceTest : public ::testing::TestWithParam<CSRRowSliceInputs<value_
     update_device(indices, indices_h.data(), indices_h.size(), stream);
     update_device(data, data_h.data(), data_h.size(), stream);
 
-    std::vector<value_idx> out_indptr_ref_h  = params.out_indptr_ref_h;
+    std::vector<value_idx> out_indptr_ref_h = params.out_indptr_ref_h;
     std::vector<value_idx> out_indices_ref_h = params.out_indices_ref_h;
-    std::vector<value_t> out_data_ref_h      = params.out_data_ref_h;
+    std::vector<value_t> out_data_ref_h = params.out_data_ref_h;
 
     allocate(out_indptr_ref, out_indptr_ref_h.size());
     allocate(out_indices_ref, out_indices_ref_h.size());
     allocate(out_data_ref, out_data_ref_h.size());
 
-    update_device(out_indptr_ref, out_indptr_ref_h.data(), out_indptr_ref_h.size(), stream);
-    update_device(out_indices_ref, out_indices_ref_h.data(), out_indices_ref_h.size(), stream);
-    update_device(out_data_ref, out_data_ref_h.data(), out_data_ref_h.size(), stream);
+    update_device(out_indptr_ref, out_indptr_ref_h.data(),
+                  out_indptr_ref_h.size(), stream);
+    update_device(out_indices_ref, out_indices_ref_h.data(),
+                  out_indices_ref_h.size(), stream);
+    update_device(out_data_ref, out_data_ref_h.data(), out_data_ref_h.size(),
+                  stream);
 
     allocate(out_indptr, out_indptr_ref_h.size());
     allocate(out_indices, out_indices_ref_h.size());
     allocate(out_data, out_data_ref_h.size());
   }
 
-  void SetUp() override
-  {
-    params = ::testing::TestWithParam<CSRRowSliceInputs<value_idx, value_t>>::GetParam();
-    std::shared_ptr<raft::mr::device::allocator> alloc(new raft::mr::device::default_allocator);
+  void SetUp() override {
+    params = ::testing::TestWithParam<
+      CSRRowSliceInputs<value_idx, value_t>>::GetParam();
+    std::shared_ptr<raft::mr::device::allocator> alloc(
+      new raft::mr::device::default_allocator);
     CUDA_CHECK(cudaStreamCreate(&stream));
 
     make_data();
@@ -97,22 +101,18 @@ class CSRRowSliceTest : public ::testing::TestWithParam<CSRRowSliceInputs<value_
     int csr_start_offset;
     int csr_stop_offset;
 
-    raft::sparse::op::csr_row_slice_indptr(params.start_row,
-                                           params.stop_row,
-                                           indptr,
-                                           out_indptr,
-                                           &csr_start_offset,
-                                           &csr_stop_offset,
-                                           stream);
+    raft::sparse::op::csr_row_slice_indptr(
+      params.start_row, params.stop_row, indptr, out_indptr, &csr_start_offset,
+      &csr_stop_offset, stream);
 
-    raft::sparse::op::csr_row_slice_populate(
-      csr_start_offset, csr_stop_offset, indices, data, out_indices, out_data, stream);
+    raft::sparse::op::csr_row_slice_populate(csr_start_offset, csr_stop_offset,
+                                             indices, data, out_indices,
+                                             out_data, stream);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
-  void TearDown() override
-  {
+  void TearDown() override {
     CUDA_CHECK(cudaStreamSynchronize(stream));
     CUDA_CHECK(cudaFree(indptr));
     CUDA_CHECK(cudaFree(indices));
@@ -125,14 +125,15 @@ class CSRRowSliceTest : public ::testing::TestWithParam<CSRRowSliceInputs<value_
     CUDA_CHECK(cudaFree(out_data_ref));
   }
 
-  void compare()
-  {
-    ASSERT_TRUE(
-      devArrMatch(out_indptr, out_indptr_ref, params.out_indptr_ref_h.size(), Compare<value_t>()));
-    ASSERT_TRUE(devArrMatch(
-      out_indices, out_indices_ref, params.out_indices_ref_h.size(), Compare<value_t>()));
-    ASSERT_TRUE(
-      devArrMatch(out_data, out_data_ref, params.out_data_ref_h.size(), Compare<value_t>()));
+  void compare() {
+    ASSERT_TRUE(devArrMatch(out_indptr, out_indptr_ref,
+                            params.out_indptr_ref_h.size(),
+                            Compare<value_t>()));
+    ASSERT_TRUE(devArrMatch(out_indices, out_indices_ref,
+                            params.out_indices_ref_h.size(),
+                            Compare<value_t>()));
+    ASSERT_TRUE(devArrMatch(out_data, out_data_ref,
+                            params.out_data_ref_h.size(), Compare<value_t>()));
   }
 
  protected:
@@ -140,15 +141,15 @@ class CSRRowSliceTest : public ::testing::TestWithParam<CSRRowSliceInputs<value_
 
   // input data
   value_idx *indptr, *indices;
-  value_t* data;
+  value_t *data;
 
   // output data
   value_idx *out_indptr, *out_indices;
-  value_t* out_data;
+  value_t *out_data;
 
   // expected output data
   value_idx *out_indptr_ref, *out_indices_ref;
-  value_t* out_data_ref;
+  value_t *out_data_ref;
 
   CSRRowSliceInputs<value_idx, value_t> params;
 };
@@ -176,7 +177,8 @@ const std::vector<CSRRowSliceInputs<int, float>> inputs_i32_f = {
 };
 typedef CSRRowSliceTest<int, float> CSRRowSliceTestF;
 TEST_P(CSRRowSliceTestF, Result) { compare(); }
-INSTANTIATE_TEST_CASE_P(CSRRowSliceTest, CSRRowSliceTestF, ::testing::ValuesIn(inputs_i32_f));
+INSTANTIATE_TEST_CASE_P(CSRRowSliceTest, CSRRowSliceTestF,
+                        ::testing::ValuesIn(inputs_i32_f));
 
 };  // end namespace sparse
 };  // end namespace raft

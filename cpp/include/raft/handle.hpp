@@ -65,29 +65,29 @@ class handle_t {
       }()),
       streams_(n_streams),
       device_allocator_(std::make_shared<mr::device::default_allocator>()),
-      host_allocator_(std::make_shared<mr::host::default_allocator>())
-  {
+      host_allocator_(std::make_shared<mr::host::default_allocator>()) {
     create_resources();
   }
 
   /**
-   * @brief Construct a light handle copy from another
+   * @brief Construct a light handle copy from another 
    * user stream, cuda handles, comms and worker pool are not copied
-   * The user_stream of the returned handle is set to the specified stream
-   * of the other handle worker pool
-   * @param[in] stream_id stream id in `other` worker streams
+   * The user_stream of the returned handle is set to the specified stream 
+   * of the other handle worker pool 
+   * @param[in] stream_id stream id in `other` worker streams 
    * to be set as user stream in the constructed handle
    * @param[in] n_streams number worker streams to be created
    */
-  handle_t(const handle_t& other, int stream_id, int n_streams = kNumDefaultWorkerStreams)
-    : dev_id_(other.get_device()), streams_(n_streams)
-  {
-    RAFT_EXPECTS(other.get_num_internal_streams() > 0,
-                 "ERROR: the main handle must have at least one worker stream\n");
-    prop_                    = other.get_device_properties();
+  handle_t(const handle_t& other, int stream_id,
+           int n_streams = kNumDefaultWorkerStreams)
+    : dev_id_(other.get_device()), streams_(n_streams) {
+    RAFT_EXPECTS(
+      other.get_num_internal_streams() > 0,
+      "ERROR: the main handle must have at least one worker stream\n");
+    prop_ = other.get_device_properties();
     device_prop_initialized_ = true;
-    device_allocator_        = other.get_device_allocator();
-    host_allocator_          = other.get_host_allocator();
+    device_allocator_ = other.get_device_allocator();
+    host_allocator_ = other.get_host_allocator();
     create_resources();
     set_stream(other.get_internal_stream(stream_id));
   }
@@ -99,22 +99,25 @@ class handle_t {
 
   void set_stream(cudaStream_t stream) { user_stream_ = stream; }
   cudaStream_t get_stream() const { return user_stream_; }
-  rmm::cuda_stream_view get_stream_view() const { return rmm::cuda_stream_view(user_stream_); }
+  rmm::cuda_stream_view get_stream_view() const {
+    return rmm::cuda_stream_view(user_stream_);
+  }
 
-  void set_device_allocator(std::shared_ptr<mr::device::allocator> allocator)
-  {
+  void set_device_allocator(std::shared_ptr<mr::device::allocator> allocator) {
     device_allocator_ = allocator;
   }
-  std::shared_ptr<mr::device::allocator> get_device_allocator() const { return device_allocator_; }
+  std::shared_ptr<mr::device::allocator> get_device_allocator() const {
+    return device_allocator_;
+  }
 
-  void set_host_allocator(std::shared_ptr<mr::host::allocator> allocator)
-  {
+  void set_host_allocator(std::shared_ptr<mr::host::allocator> allocator) {
     host_allocator_ = allocator;
   }
-  std::shared_ptr<mr::host::allocator> get_host_allocator() const { return host_allocator_; }
+  std::shared_ptr<mr::host::allocator> get_host_allocator() const {
+    return host_allocator_;
+  }
 
-  cublasHandle_t get_cublas_handle() const
-  {
+  cublasHandle_t get_cublas_handle() const {
     std::lock_guard<std::mutex> _(mutex_);
     if (!cublas_initialized_) {
       CUBLAS_CHECK(cublasCreate(&cublas_handle_));
@@ -123,8 +126,7 @@ class handle_t {
     return cublas_handle_;
   }
 
-  cusolverDnHandle_t get_cusolver_dn_handle() const
-  {
+  cusolverDnHandle_t get_cusolver_dn_handle() const {
     std::lock_guard<std::mutex> _(mutex_);
     if (!cusolver_dn_initialized_) {
       CUSOLVER_CHECK(cusolverDnCreate(&cusolver_dn_handle_));
@@ -133,8 +135,7 @@ class handle_t {
     return cusolver_dn_handle_;
   }
 
-  cusolverSpHandle_t get_cusolver_sp_handle() const
-  {
+  cusolverSpHandle_t get_cusolver_sp_handle() const {
     std::lock_guard<std::mutex> _(mutex_);
     if (!cusolver_sp_initialized_) {
       CUSOLVER_CHECK(cusolverSpCreate(&cusolver_sp_handle_));
@@ -143,8 +144,7 @@ class handle_t {
     return cusolver_sp_handle_;
   }
 
-  cusparseHandle_t get_cusparse_handle() const
-  {
+  cusparseHandle_t get_cusparse_handle() const {
     std::lock_guard<std::mutex> _(mutex_);
     if (!cusparse_initialized_) {
       CUSPARSE_CHECK(cusparseCreate(&cusparse_handle_));
@@ -154,13 +154,16 @@ class handle_t {
   }
 
   // legacy compatibility for cuML
-  cudaStream_t get_internal_stream(int sid) const { return streams_.get_stream(sid).value(); }
+  cudaStream_t get_internal_stream(int sid) const {
+    return streams_.get_stream(sid).value();
+  }
   // new accessor return rmm::cuda_stream_view
-  rmm::cuda_stream_view get_internal_stream_view(int sid) const { return streams_.get_stream(sid); }
+  rmm::cuda_stream_view get_internal_stream_view(int sid) const {
+    return streams_.get_stream(sid);
+  }
 
   int get_num_internal_streams() const { return streams_.get_pool_size(); }
-  std::vector<cudaStream_t> get_internal_streams() const
-  {
+  std::vector<cudaStream_t> get_internal_streams() const {
     std::vector<cudaStream_t> int_streams_vec;
     for (int i = 0; i < get_num_internal_streams(); i++) {
       int_streams_vec.push_back(get_internal_stream(i));
@@ -168,51 +171,49 @@ class handle_t {
     return int_streams_vec;
   }
 
-  void wait_on_user_stream() const
-  {
+  void wait_on_user_stream() const {
     CUDA_CHECK(cudaEventRecord(event_, user_stream_));
     for (int i = 0; i < get_num_internal_streams(); i++) {
       CUDA_CHECK(cudaStreamWaitEvent(get_internal_stream(i), event_, 0));
     }
   }
 
-  void wait_on_internal_streams() const
-  {
+  void wait_on_internal_streams() const {
     for (int i = 0; i < get_num_internal_streams(); i++) {
       CUDA_CHECK(cudaEventRecord(event_, get_internal_stream(i)));
       CUDA_CHECK(cudaStreamWaitEvent(user_stream_, event_, 0));
     }
   }
 
-  void set_comms(std::shared_ptr<comms::comms_t> communicator) { communicator_ = communicator; }
+  void set_comms(std::shared_ptr<comms::comms_t> communicator) {
+    communicator_ = communicator;
+  }
 
-  const comms::comms_t& get_comms() const
-  {
-    RAFT_EXPECTS(this->comms_initialized(), "ERROR: Communicator was not initialized\n");
+  const comms::comms_t& get_comms() const {
+    RAFT_EXPECTS(this->comms_initialized(),
+                 "ERROR: Communicator was not initialized\n");
     return *communicator_;
   }
 
-  void set_subcomm(std::string key, std::shared_ptr<comms::comms_t> subcomm)
-  {
+  void set_subcomm(std::string key, std::shared_ptr<comms::comms_t> subcomm) {
     subcomms_[key] = subcomm;
   }
 
-  const comms::comms_t& get_subcomm(std::string key) const
-  {
-    RAFT_EXPECTS(
-      subcomms_.find(key) != subcomms_.end(), "%s was not found in subcommunicators.", key.c_str());
+  const comms::comms_t& get_subcomm(std::string key) const {
+    RAFT_EXPECTS(subcomms_.find(key) != subcomms_.end(),
+                 "%s was not found in subcommunicators.", key.c_str());
 
     auto subcomm = subcomms_.at(key);
 
-    RAFT_EXPECTS(nullptr != subcomm.get(), "ERROR: Subcommunicator was not initialized");
+    RAFT_EXPECTS(nullptr != subcomm.get(),
+                 "ERROR: Subcommunicator was not initialized");
 
     return *subcomm;
   }
 
   bool comms_initialized() const { return (nullptr != communicator_.get()); }
 
-  const cudaDeviceProp& get_device_properties() const
-  {
+  const cudaDeviceProp& get_device_properties() const {
     std::lock_guard<std::mutex> _(mutex_);
     if (!device_prop_initialized_) {
       CUDA_CHECK(cudaGetDeviceProperties(&prop_, dev_id_));
@@ -243,28 +244,29 @@ class handle_t {
   mutable bool device_prop_initialized_{false};
   mutable std::mutex mutex_;
 
-  void create_resources() { CUDA_CHECK(cudaEventCreateWithFlags(&event_, cudaEventDisableTiming)); }
+  void create_resources() {
+    CUDA_CHECK(cudaEventCreateWithFlags(&event_, cudaEventDisableTiming));
+  }
 
-  void destroy_resources()
-  {
+  void destroy_resources() {
     ///@todo: enable *_NO_THROW variants once we have enabled logging
     if (cusparse_initialized_) {
-      // CUSPARSE_CHECK_NO_THROW(cusparseDestroy(cusparse_handle_));
+      //CUSPARSE_CHECK_NO_THROW(cusparseDestroy(cusparse_handle_));
       CUSPARSE_CHECK(cusparseDestroy(cusparse_handle_));
     }
     if (cusolver_dn_initialized_) {
-      // CUSOLVER_CHECK_NO_THROW(cusolverDnDestroy(cusolver_dn_handle_));
+      //CUSOLVER_CHECK_NO_THROW(cusolverDnDestroy(cusolver_dn_handle_));
       CUSOLVER_CHECK(cusolverDnDestroy(cusolver_dn_handle_));
     }
     if (cusolver_sp_initialized_) {
-      // CUSOLVER_CHECK_NO_THROW(cusolverSpDestroy(cusolver_sp_handle_));
+      //CUSOLVER_CHECK_NO_THROW(cusolverSpDestroy(cusolver_sp_handle_));
       CUSOLVER_CHECK(cusolverSpDestroy(cusolver_sp_handle_));
     }
     if (cublas_initialized_) {
-      // CUBLAS_CHECK_NO_THROW(cublasDestroy(cublas_handle_));
+      //CUBLAS_CHECK_NO_THROW(cublasDestroy(cublas_handle_));
       CUBLAS_CHECK(cublasDestroy(cublas_handle_));
     }
-    // CUDA_CHECK_NO_THROW(cudaEventDestroy(event_));
+    //CUDA_CHECK_NO_THROW(cudaEventDestroy(event_));
     CUDA_CHECK(cudaEventDestroy(event_));
   }
 };  // class handle_t
@@ -274,8 +276,7 @@ class handle_t {
  */
 class stream_syncer {
  public:
-  explicit stream_syncer(const handle_t& handle) : handle_(handle)
-  {
+  explicit stream_syncer(const handle_t& handle) : handle_(handle) {
     handle_.wait_on_user_stream();
   }
   ~stream_syncer() { handle_.wait_on_internal_streams(); }

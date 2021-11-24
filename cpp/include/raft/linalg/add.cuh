@@ -37,8 +37,8 @@ namespace linalg {
  * @param stream cuda stream where to launch work
  */
 template <typename InT, typename OutT = InT, typename IdxType = int>
-void addScalar(OutT* out, const InT* in, InT scalar, IdxType len, cudaStream_t stream)
-{
+void addScalar(OutT *out, const InT *in, InT scalar, IdxType len,
+               cudaStream_t stream) {
   auto op = [scalar] __device__(InT in) { return OutT(in + scalar); };
   unaryOp<InT, decltype(op), IdxType, OutT>(out, in, len, op, stream);
 }
@@ -57,24 +57,23 @@ void addScalar(OutT* out, const InT* in, InT scalar, IdxType len, cudaStream_t s
  * @param stream cuda stream where to launch work
  */
 template <typename InT, typename OutT = InT, typename IdxType = int>
-void add(OutT* out, const InT* in1, const InT* in2, IdxType len, cudaStream_t stream)
-{
+void add(OutT *out, const InT *in1, const InT *in2, IdxType len,
+         cudaStream_t stream) {
   auto op = [] __device__(InT a, InT b) { return OutT(a + b); };
   binaryOp<InT, decltype(op), OutT, IdxType>(out, in1, in2, len, op, stream);
 }
 
 template <class math_t, typename IdxType>
-__global__ void add_dev_scalar_kernel(math_t* outDev,
-                                      const math_t* inDev,
-                                      const math_t* singleScalarDev,
-                                      IdxType len)
-{
+__global__ void add_dev_scalar_kernel(math_t *outDev, const math_t *inDev,
+                                      const math_t *singleScalarDev,
+                                      IdxType len) {
   IdxType i = ((IdxType)blockIdx.x * (IdxType)blockDim.x) + threadIdx.x;
-  if (i < len) { outDev[i] = inDev[i] + *singleScalarDev; }
+  if (i < len) {
+    outDev[i] = inDev[i] + *singleScalarDev;
+  }
 }
 
-/** Substract single value pointed by singleScalarDev parameter in device memory from inDev[i] and
- * write result to outDev[i]
+/** Substract single value pointed by singleScalarDev parameter in device memory from inDev[i] and write result to outDev[i]
  * @tparam math_t data-type upon which the math operation will be performed
  * @tparam IdxType Integer type used to for addressing
  * @param outDev the output buffer
@@ -84,16 +83,14 @@ __global__ void add_dev_scalar_kernel(math_t* outDev,
  * @param stream cuda stream
  */
 template <typename math_t, typename IdxType = int>
-void addDevScalar(math_t* outDev,
-                  const math_t* inDev,
-                  const math_t* singleScalarDev,
-                  IdxType len,
-                  cudaStream_t stream)
-{
+void addDevScalar(math_t *outDev, const math_t *inDev,
+                  const math_t *singleScalarDev, IdxType len,
+                  cudaStream_t stream) {
   // TODO: block dimension has not been tuned
   dim3 block(256);
   dim3 grid(raft::ceildiv(len, (IdxType)block.x));
-  add_dev_scalar_kernel<math_t><<<grid, block, 0, stream>>>(outDev, inDev, singleScalarDev, len);
+  add_dev_scalar_kernel<math_t>
+    <<<grid, block, 0, stream>>>(outDev, inDev, singleScalarDev, len);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 

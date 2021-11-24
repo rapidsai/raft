@@ -26,29 +26,32 @@ namespace mst {
 namespace detail {
 
 template <typename idx_t>
-__device__ idx_t get_1D_idx()
-{
+__device__ idx_t get_1D_idx() {
   return blockIdx.x * blockDim.x + threadIdx.x;
 }
 
 // somewhat smart vector print
 template <typename T>
-void printv(rmm::device_vector<T>& vec, const std::string& name = "", const size_t displ = 5)
-{
+void printv(rmm::device_vector<T>& vec, const std::string& name = "",
+            const size_t displ = 5) {
 #ifdef MST_TIME
   std::cout.precision(15);
   std::cout << name << " size = " << vec.size() << std::endl;
   if (displ < vec.size()) {
-    thrust::copy(vec.begin(), vec.begin() + displ, std::ostream_iterator<T>(std::cout, " "));
+    thrust::copy(vec.begin(), vec.begin() + displ,
+                 std::ostream_iterator<T>(std::cout, " "));
     std::cout << " ... ";
-    thrust::copy(vec.end() - displ, vec.end(), std::ostream_iterator<T>(std::cout, " "));
+    thrust::copy(vec.end() - displ, vec.end(),
+                 std::ostream_iterator<T>(std::cout, " "));
   } else {
-    thrust::copy(vec.begin(), vec.end(), std::ostream_iterator<T>(std::cout, " "));
+    thrust::copy(vec.begin(), vec.end(),
+                 std::ostream_iterator<T>(std::cout, " "));
   }
   std::cout << std::endl << std::endl;
 #endif
 }
-#define duration_us(a) std::chrono::duration_cast<std::chrono::microseconds>(a).count()
+#define duration_us(a) \
+  std::chrono::duration_cast<std::chrono::microseconds>(a).count()
 
 }  // namespace detail
 }  // namespace mst

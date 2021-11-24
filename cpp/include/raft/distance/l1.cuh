@@ -42,29 +42,16 @@ namespace distance {
  * @param[output]   pD output matrix
  * @param fin_op    the final gemm epilogue lambda
  */
-template <typename DataT,
-          typename AccT,
-          typename OutT,
-          typename IdxT,
-          int VecLen,
-          typename FinalLambda,
-          bool isRowMajor>
-static void l1Impl(const DataT* x,
-                   const DataT* y,
-                   IdxT m,
-                   IdxT n,
-                   IdxT k,
-                   IdxT lda,
-                   IdxT ldb,
-                   IdxT ldd,
-                   OutT* dOutput,
-                   FinalLambda fin_op,
-                   cudaStream_t stream)
-{
+template <typename DataT, typename AccT, typename OutT, typename IdxT,
+          int VecLen, typename FinalLambda, bool isRowMajor>
+static void l1Impl(const DataT *x, const DataT *y, IdxT m, IdxT n, IdxT k,
+                   IdxT lda, IdxT ldb, IdxT ldd, OutT *dOutput,
+                   FinalLambda fin_op, cudaStream_t stream) {
   typedef typename raft::linalg::Policy4x4<DataT, VecLen>::Policy RowPolicy;
   typedef typename raft::linalg::Policy4x4<DataT, VecLen>::ColPolicy ColPolicy;
 
-  typedef typename std::conditional<isRowMajor, RowPolicy, ColPolicy>::type KPolicy;
+  typedef
+    typename std::conditional<isRowMajor, RowPolicy, ColPolicy>::type KPolicy;
 
   dim3 blk(KPolicy::Nthreads);
 
@@ -75,69 +62,47 @@ static void l1Impl(const DataT* x,
   };
 
   // epilogue operation lambda for final value calculation
-  auto epilog_lambda = [] __device__(AccT acc[KPolicy::AccRowsPerTh][KPolicy::AccColsPerTh],
-                                     DataT * regxn,
-                                     DataT * regyn,
-                                     IdxT gridStrideX,
-                                     IdxT gridStrideY) { return; };
+  auto epilog_lambda = [] __device__(
+                         AccT acc[KPolicy::AccRowsPerTh][KPolicy::AccColsPerTh],
+                         DataT * regxn, DataT * regyn, IdxT gridStrideX,
+                         IdxT gridStrideY) { return; };
 
   if (isRowMajor) {
-    auto l1RowMajor = pairwiseDistanceMatKernel<false,
-                                                DataT,
-                                                AccT,
-                                                OutT,
-                                                IdxT,
-                                                KPolicy,
-                                                decltype(core_lambda),
-                                                decltype(epilog_lambda),
-                                                FinalLambda,
-                                                true>;
-    dim3 grid       = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize, l1RowMajor);
+    auto l1RowMajor =
+      pairwiseDistanceMatKernel<false, DataT, AccT, OutT, IdxT, KPolicy,
+                                decltype(core_lambda), decltype(epilog_lambda),
+                                FinalLambda, true>;
+    dim3 grid =
+      launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize, l1RowMajor);
 
     l1RowMajor<<<grid, blk, KPolicy::SmemSize, stream>>>(
-      x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput, core_lambda, epilog_lambda, fin_op);
+      x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput, core_lambda,
+      epilog_lambda, fin_op);
   } else {
-    auto l1ColMajor = pairwiseDistanceMatKernel<false,
-                                                DataT,
-                                                AccT,
-                                                OutT,
-                                                IdxT,
-                                                KPolicy,
-                                                decltype(core_lambda),
-                                                decltype(epilog_lambda),
-                                                FinalLambda,
-                                                false>;
-    dim3 grid       = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize, l1ColMajor);
+    auto l1ColMajor =
+      pairwiseDistanceMatKernel<false, DataT, AccT, OutT, IdxT, KPolicy,
+                                decltype(core_lambda), decltype(epilog_lambda),
+                                FinalLambda, false>;
+    dim3 grid =
+      launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize, l1ColMajor);
     l1ColMajor<<<grid, blk, KPolicy::SmemSize, stream>>>(
-      x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput, core_lambda, epilog_lambda, fin_op);
+      x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput, core_lambda,
+      epilog_lambda, fin_op);
   }
 
   CUDA_CHECK(cudaGetLastError());
 }
 
-template <typename DataT,
-          typename AccT,
-          typename OutT,
-          typename IdxT,
-          typename FinalLambda,
-          bool isRowMajor>
-void l1(IdxT m,
-        IdxT n,
-        IdxT k,
-        IdxT lda,
-        IdxT ldb,
-        IdxT ldd,
-        const DataT* x,
-        const DataT* y,
-        OutT* dOutput,
-        FinalLambda fin_op,
-        cudaStream_t stream)
-{
+template <typename DataT, typename AccT, typename OutT, typename IdxT,
+          typename FinalLambda, bool isRowMajor>
+void l1(IdxT m, IdxT n, IdxT k, IdxT lda, IdxT ldb, IdxT ldd, const DataT *x,
+        const DataT *y, OutT *dOutput, FinalLambda fin_op,
+        cudaStream_t stream) {
   size_t bytesA = sizeof(DataT) * lda;
   size_t bytesB = sizeof(DataT) * ldb;
   if (16 % sizeof(DataT) == 0 && bytesA % 16 == 0 && bytesB % 16 == 0) {
-    l1Impl<DataT, AccT, OutT, IdxT, 16 / sizeof(DataT), FinalLambda, isRowMajor>(
-      x, y, m, n, k, lda, ldb, ldd, dOutput, fin_op, stream);
+    l1Impl<DataT, AccT, OutT, IdxT, 16 / sizeof(DataT), FinalLambda,
+           isRowMajor>(x, y, m, n, k, lda, ldb, ldd, dOutput, fin_op, stream);
   } else if (8 % sizeof(DataT) == 0 && bytesA % 8 == 0 && bytesB % 8 == 0) {
     l1Impl<DataT, AccT, OutT, IdxT, 8 / sizeof(DataT), FinalLambda, isRowMajor>(
       x, y, m, n, k, lda, ldb, ldd, dOutput, fin_op, stream);
@@ -165,25 +130,16 @@ void l1(IdxT m,
  * @param stream cuda stream where to launch work
  * @param isRowMajor whether the input and output matrices are row major
  */
-template <typename InType,
-          typename AccType,
-          typename OutType,
-          typename FinalLambda,
-          typename Index_ = int>
-void l1Impl(int m,
-            int n,
-            int k,
-            const InType* pA,
-            const InType* pB,
-            OutType* pD,
-            FinalLambda fin_op,
-            cudaStream_t stream,
-            bool isRowMajor)
-{
+template <typename InType, typename AccType, typename OutType,
+          typename FinalLambda, typename Index_ = int>
+void l1Impl(int m, int n, int k, const InType *pA, const InType *pB,
+            OutType *pD, FinalLambda fin_op, cudaStream_t stream,
+            bool isRowMajor) {
   typedef std::is_same<OutType, bool> is_bool;
-  typedef typename std::conditional<is_bool::value, OutType, AccType>::type L1OutType;
+  typedef
+    typename std::conditional<is_bool::value, OutType, AccType>::type L1OutType;
   Index_ lda, ldb, ldd;
-  L1OutType* pDcast = reinterpret_cast<L1OutType*>(pD);
+  L1OutType *pDcast = reinterpret_cast<L1OutType *>(pD);
   if (isRowMajor) {
     lda = k, ldb = k, ldd = n;
     l1<InType, AccType, L1OutType, Index_, FinalLambda, true>(

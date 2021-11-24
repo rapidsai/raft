@@ -31,18 +31,18 @@ struct KNNInputs {
   std::vector<int> labels;
 };
 
-__global__ void build_actual_output(
-  int* output, int n_rows, int k, const int* idx_labels, const int64_t* indices)
-{
+__global__ void build_actual_output(int *output, int n_rows, int k,
+                                    const int *idx_labels,
+                                    const int64_t *indices) {
   int element = threadIdx.x + blockDim.x * blockIdx.x;
   if (element >= n_rows * k) return;
 
-  int ind         = (int)indices[element];
+  int ind = (int)indices[element];
   output[element] = idx_labels[ind];
 }
 
-__global__ void build_expected_output(int* output, int n_rows, int k, const int* labels)
-{
+__global__ void build_expected_output(int *output, int n_rows, int k,
+                                      const int *labels) {
   int row = threadIdx.x + blockDim.x * blockIdx.x;
   if (row >= n_rows) return;
 
@@ -55,33 +55,25 @@ __global__ void build_expected_output(int* output, int n_rows, int k, const int*
 template <typename T>
 class KNNTest : public ::testing::TestWithParam<KNNInputs> {
  protected:
-  void testBruteForce()
-  {
-    raft::print_device_vector("Input array: ", input_, rows_ * cols_, std::cout);
+  void testBruteForce() {
+    raft::print_device_vector("Input array: ", input_, rows_ * cols_,
+                              std::cout);
     std::cout << "K: " << k_ << "\n";
-    raft::print_device_vector("Labels array: ", search_labels_, rows_, std::cout);
+    raft::print_device_vector("Labels array: ", search_labels_, rows_,
+                              std::cout);
 
     auto stream = handle_.get_stream();
 
     raft::allocate(actual_labels_, rows_ * k_, true);
     raft::allocate(expected_labels_, rows_ * k_, true);
 
-    std::vector<float*> input_vec;
+    std::vector<float *> input_vec;
     std::vector<int> sizes_vec;
     input_vec.push_back(input_);
     sizes_vec.push_back(rows_);
 
-    brute_force_knn(handle_,
-                    input_vec,
-                    sizes_vec,
-                    cols_,
-                    search_data_,
-                    rows_,
-                    indices_,
-                    distances_,
-                    k_,
-                    true,
-                    true);
+    brute_force_knn(handle_, input_vec, sizes_vec, cols_, search_data_, rows_,
+                    indices_, distances_, k_, true, true);
 
     build_actual_output<<<raft::ceildiv(rows_ * k_, 32), 32, 0, stream>>>(
       actual_labels_, rows_, k_, search_labels_, indices_);
@@ -89,20 +81,24 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
     build_expected_output<<<raft::ceildiv(rows_ * k_, 32), 32, 0, stream>>>(
       expected_labels_, rows_, k_, search_labels_);
 
-    raft::print_device_vector("Output indices: ", indices_, rows_ * k_, std::cout);
-    raft::print_device_vector("Output distances: ", distances_, rows_ * k_, std::cout);
-    raft::print_device_vector("Output labels: ", actual_labels_, rows_ * k_, std::cout);
-    raft::print_device_vector("Expected labels: ", expected_labels_, rows_ * k_, std::cout);
+    raft::print_device_vector("Output indices: ", indices_, rows_ * k_,
+                              std::cout);
+    raft::print_device_vector("Output distances: ", distances_, rows_ * k_,
+                              std::cout);
+    raft::print_device_vector("Output labels: ", actual_labels_, rows_ * k_,
+                              std::cout);
+    raft::print_device_vector("Expected labels: ", expected_labels_, rows_ * k_,
+                              std::cout);
 
-    ASSERT_TRUE(devArrMatch(expected_labels_, actual_labels_, rows_ * k_, raft::Compare<int>()));
+    ASSERT_TRUE(devArrMatch(expected_labels_, actual_labels_, rows_ * k_,
+                            raft::Compare<int>()));
   }
 
-  void SetUp() override
-  {
+  void SetUp() override {
     params_ = ::testing::TestWithParam<KNNInputs>::GetParam();
-    rows_   = params_.input.size();
-    cols_   = params_.input[0].size();
-    k_      = params_.k;
+    rows_ = params_.input.size();
+    cols_ = params_.input[0].size();
+    k_ = params_.k;
 
     std::vector<float> row_major_input;
     for (int i = 0; i < params_.input.size(); ++i) {
@@ -111,12 +107,14 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
       }
     }
     rmm::device_buffer input_d = rmm::device_buffer(
-      row_major_input.data(), row_major_input.size() * sizeof(float), handle_.get_stream());
-    float* input_ptr = static_cast<float*>(input_d.data());
+      row_major_input.data(), row_major_input.size() * sizeof(float),
+      handle_.get_stream());
+    float *input_ptr = static_cast<float *>(input_d.data());
 
     rmm::device_buffer labels_d = rmm::device_buffer(
-      params_.labels.data(), params_.labels.size() * sizeof(int), handle_.get_stream());
-    int* labels_ptr = static_cast<int*>(labels_d.data());
+      params_.labels.data(), params_.labels.size() * sizeof(int),
+      handle_.get_stream());
+    int *labels_ptr = static_cast<int *>(labels_d.data());
 
     raft::allocate(input_, rows_ * cols_, true);
     raft::allocate(search_data_, rows_ * cols_, true);
@@ -129,8 +127,7 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
     raft::copy(search_labels_, labels_ptr, rows_, handle_.get_stream());
   }
 
-  void TearDown() override
-  {
+  void TearDown() override {
     CUDA_CHECK(cudaFree(search_data_));
     CUDA_CHECK(cudaFree(indices_));
     CUDA_CHECK(cudaFree(distances_));
@@ -142,15 +139,15 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
   KNNInputs params_;
   int rows_;
   int cols_;
-  float* input_;
-  float* search_data_;
-  int64_t* indices_;
-  float* distances_;
+  float *input_;
+  float *search_data_;
+  int64_t *indices_;
+  float *distances_;
   int k_;
 
-  int* search_labels_;
-  int* actual_labels_;
-  int* expected_labels_;
+  int *search_labels_;
+  int *actual_labels_;
+  int *expected_labels_;
 };
 
 const std::vector<KNNInputs> inputs = {

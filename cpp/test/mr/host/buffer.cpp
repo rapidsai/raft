@@ -24,8 +24,7 @@ namespace raft {
 namespace mr {
 namespace host {
 
-TEST(Raft, HostBuffer)
-{
+TEST(Raft, HostBuffer) {
   auto alloc = std::make_shared<default_allocator>();
   cudaStream_t stream;
   CUDA_CHECK(cudaStreamCreate(&stream));
@@ -52,14 +51,14 @@ TEST(Raft, HostBuffer)
   CUDA_CHECK(cudaStreamDestroy(stream));
 }
 
-TEST(Raft, DeviceToHostBuffer)
-{
+TEST(Raft, DeviceToHostBuffer) {
   auto d_alloc = std::make_shared<device::default_allocator>();
   auto h_alloc = std::make_shared<default_allocator>();
   cudaStream_t stream;
   CUDA_CHECK(cudaStreamCreate(&stream));
   device::buffer<char> d_buff(d_alloc, stream, 32);
-  CUDA_CHECK(cudaMemsetAsync(d_buff.data(), 0, sizeof(char) * d_buff.size(), stream));
+  CUDA_CHECK(
+    cudaMemsetAsync(d_buff.data(), 0, sizeof(char) * d_buff.size(), stream));
   buffer<char> h_buff(h_alloc, d_buff);
   ASSERT_EQ(d_buff.size(), h_buff.size());
   CUDA_CHECK(cudaStreamSynchronize(stream));

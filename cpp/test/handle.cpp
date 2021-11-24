@@ -22,8 +22,7 @@
 
 namespace raft {
 
-TEST(Raft, HandleDefault)
-{
+TEST(Raft, HandleDefault) {
   handle_t h;
   ASSERT_EQ(0, h.get_num_internal_streams());
   ASSERT_EQ(0, h.get_device());
@@ -34,8 +33,7 @@ TEST(Raft, HandleDefault)
   ASSERT_NE(nullptr, h.get_cusparse_handle());
 }
 
-TEST(Raft, Handle)
-{
+TEST(Raft, Handle) {
   handle_t h(4);
   ASSERT_EQ(4, h.get_num_internal_streams());
   cudaStream_t stream;
@@ -46,15 +44,13 @@ TEST(Raft, Handle)
   CUDA_CHECK(cudaStreamDestroy(stream));
 }
 
-TEST(Raft, GetInternalStreams)
-{
+TEST(Raft, GetInternalStreams) {
   handle_t h(4);
   auto streams = h.get_internal_streams();
   ASSERT_EQ(4U, streams.size());
 }
 
-TEST(Raft, GetHandleFromPool)
-{
+TEST(Raft, GetHandleFromPool) {
   handle_t parent(4);
 
   handle_t child(parent, 2);
@@ -68,8 +64,7 @@ TEST(Raft, GetHandleFromPool)
   ASSERT_EQ(parent.get_device(), child.get_device());
 }
 
-TEST(Raft, GetHandleFromPoolPerf)
-{
+TEST(Raft, GetHandleFromPoolPerf) {
   handle_t parent(100);
   auto start = curTimeMillis();
   for (int i = 0; i < parent.get_num_internal_streams(); i++) {
@@ -81,13 +76,13 @@ TEST(Raft, GetHandleFromPoolPerf)
   ASSERT_LE(curTimeMillis() - start, 10);
 }
 
-TEST(Raft, GetHandleStreamViews)
-{
+TEST(Raft, GetHandleStreamViews) {
   handle_t parent(4);
 
   handle_t child(parent, 2);
   ASSERT_EQ(parent.get_internal_stream_view(2), child.get_stream_view());
-  ASSERT_EQ(parent.get_internal_stream_view(2).value(), child.get_stream_view().value());
+  ASSERT_EQ(parent.get_internal_stream_view(2).value(),
+            child.get_stream_view().value());
   EXPECT_FALSE(child.get_stream_view().is_default());
 }
 }  // namespace raft

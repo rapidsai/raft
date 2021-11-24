@@ -36,9 +36,9 @@ struct GemmLayoutInputs {
 
 // Reference GEMM implementation.
 template <typename T>
-__global__ void naiveGemm(
-  T* Z, T* X, T* Y, int M, int N, int K, bool isZColMajor, bool isXColMajor, bool isYColMajor)
-{
+__global__ void naiveGemm(T *Z, T *X, T *Y, int M, int N, int K,
+                          bool isZColMajor, bool isXColMajor,
+                          bool isYColMajor) {
   int tidx = blockIdx.x * blockDim.x + threadIdx.x;
   int tidy = blockIdx.y * blockDim.y + threadIdx.y;
 
@@ -51,7 +51,7 @@ __global__ void naiveGemm(
         temp += X[xIndex] * Y[yIndex];
       }
       int zIndex = isZColMajor ? m + n * M : m * N + n;
-      Z[zIndex]  = temp;
+      Z[zIndex] = temp;
     }
   }
 }
@@ -59,8 +59,7 @@ __global__ void naiveGemm(
 template <typename T>
 class GemmLayoutTest : public ::testing::TestWithParam<GemmLayoutInputs<T>> {
  protected:
-  void SetUp() override
-  {
+  void SetUp() override {
     params = ::testing::TestWithParam<GemmLayoutInputs<T>>::GetParam();
 
     raft::handle_t handle;
@@ -73,8 +72,8 @@ class GemmLayoutTest : public ::testing::TestWithParam<GemmLayoutInputs<T>> {
     // Dimensions of Y : K x N
     // Dimensions of Z : M x N
 
-    T* X = NULL;  // Argument X
-    T* Y = NULL;  // Argument Y
+    T *X = NULL;  // Argument X
+    T *Y = NULL;  // Argument Y
 
     size_t xElems = params.M * params.K;
     size_t yElems = params.K * params.N;
@@ -88,35 +87,27 @@ class GemmLayoutTest : public ::testing::TestWithParam<GemmLayoutInputs<T>> {
     r.uniform(X, xElems, T(-10.0), T(10.0), stream);
     r.uniform(Y, yElems, T(-10.0), T(10.0), stream);
 
-    dim3 blocks(raft::ceildiv<int>(params.M, 128), raft::ceildiv<int>(params.N, 4), 1);
+    dim3 blocks(raft::ceildiv<int>(params.M, 128),
+                raft::ceildiv<int>(params.N, 4), 1);
     dim3 threads(128, 4, 1);
 
-    naiveGemm<<<blocks, threads>>>(
-      refZ, X, Y, params.M, params.N, params.K, params.zLayout, params.xLayout, params.yLayout);
+    naiveGemm<<<blocks, threads>>>(refZ, X, Y, params.M, params.N, params.K,
+                                   params.zLayout, params.xLayout,
+                                   params.yLayout);
 
-    gemm(handle,
-         Z,
-         X,
-         Y,
-         params.M,
-         params.N,
-         params.K,
-         params.zLayout,
-         params.xLayout,
-         params.yLayout,
-         stream);
+    gemm(handle, Z, X, Y, params.M, params.N, params.K, params.zLayout,
+         params.xLayout, params.yLayout, stream);
   }
 
-  void TearDown() override
-  {
+  void TearDown() override {
     CUDA_CHECK(cudaFree(refZ));
     CUDA_CHECK(cudaFree(Z));
   }
 
  protected:
   GemmLayoutInputs<T> params;
-  T* refZ = NULL;  // Reference result for comparison
-  T* Z    = NULL;  // Computed result
+  T *refZ = NULL;  // Reference result for comparison
+  T *Z = NULL;     // Computed result
 };
 
 const std::vector<GemmLayoutInputs<float>> inputsf = {
@@ -140,20 +131,22 @@ const std::vector<GemmLayoutInputs<double>> inputsd = {
   {50, 80, 60, false, false, false, 893038ULL}};
 
 typedef GemmLayoutTest<float> GemmLayoutTestF;
-TEST_P(GemmLayoutTestF, Result)
-{
-  ASSERT_TRUE(raft::devArrMatch(refZ, Z, params.M * params.N, raft::CompareApprox<float>(1e-4)));
+TEST_P(GemmLayoutTestF, Result) {
+  ASSERT_TRUE(raft::devArrMatch(refZ, Z, params.M * params.N,
+                                raft::CompareApprox<float>(1e-4)));
 }
 
 typedef GemmLayoutTest<double> GemmLayoutTestD;
-TEST_P(GemmLayoutTestD, Result)
-{
-  ASSERT_TRUE(raft::devArrMatch(refZ, Z, params.M * params.N, raft::CompareApprox<float>(1e-6)));
+TEST_P(GemmLayoutTestD, Result) {
+  ASSERT_TRUE(raft::devArrMatch(refZ, Z, params.M * params.N,
+                                raft::CompareApprox<float>(1e-6)));
 }
 
-INSTANTIATE_TEST_SUITE_P(GemmLayoutTests, GemmLayoutTestF, ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_SUITE_P(GemmLayoutTests, GemmLayoutTestF,
+                         ::testing::ValuesIn(inputsf));
 
-INSTANTIATE_TEST_SUITE_P(GemmLayoutTests, GemmLayoutTestD, ::testing::ValuesIn(inputsd));
+INSTANTIATE_TEST_SUITE_P(GemmLayoutTests, GemmLayoutTestD,
+                         ::testing::ValuesIn(inputsd));
 
 }  // end namespace linalg
 }  // end namespace raft

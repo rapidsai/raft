@@ -31,14 +31,14 @@ class exception : public std::exception {
   explicit exception() noexcept : std::exception(), msg_() {}
 
   /** copy ctor */
-  exception(exception const& src) noexcept : std::exception(), msg_(src.what())
-  {
+  exception(exception const& src) noexcept
+    : std::exception(), msg_(src.what()) {
     collect_call_stack();
   }
 
   /** ctor from an input message */
-  explicit exception(std::string const msg) noexcept : std::exception(), msg_(std::move(msg))
-  {
+  explicit exception(std::string const msg) noexcept
+    : std::exception(), msg_(std::move(msg)) {
     collect_call_stack();
   }
 
@@ -51,8 +51,7 @@ class exception : public std::exception {
 
   /** append call stack info to this exception's message for ease of debug */
   // Courtesy: https://www.gnu.org/software/libc/manual/html_node/Backtraces.html
-  void collect_call_stack() noexcept
-  {
+  void collect_call_stack() noexcept {
 #ifdef __GNUC__
     constexpr int kMaxStackDepth = 64;
     void* stack[kMaxStackDepth];  // NOLINT
@@ -91,16 +90,16 @@ struct logic_error : public raft::exception {
 
 // FIXME: Need to be replaced with RAFT_FAIL
 /** macro to throw a runtime error */
-#define THROW(fmt, ...)                                                                    \
-  do {                                                                                     \
-    std::string msg;                                                                       \
-    char errMsg[2048]; /* NOLINT */                                                        \
-    std::snprintf(                                                                         \
-      errMsg, sizeof(errMsg), "exception occured! file=%s line=%d: ", __FILE__, __LINE__); \
-    msg += errMsg;                                                                         \
-    std::snprintf(errMsg, sizeof(errMsg), fmt, ##__VA_ARGS__);                             \
-    msg += errMsg;                                                                         \
-    throw raft::exception(msg);                                                            \
+#define THROW(fmt, ...)                                                        \
+  do {                                                                         \
+    std::string msg;                                                           \
+    char errMsg[2048]; /* NOLINT */                                            \
+    std::snprintf(errMsg, sizeof(errMsg),                                      \
+                  "exception occured! file=%s line=%d: ", __FILE__, __LINE__); \
+    msg += errMsg;                                                             \
+    std::snprintf(errMsg, sizeof(errMsg), fmt, ##__VA_ARGS__);                 \
+    msg += errMsg;                                                             \
+    throw raft::exception(msg);                                                \
   } while (0)
 
 // FIXME: Need to be replaced with RAFT_EXPECTS
@@ -110,15 +109,16 @@ struct logic_error : public raft::exception {
     if (!(check)) THROW(fmt, ##__VA_ARGS__); \
   } while (0)
 
-#define SET_ERROR_MSG(msg, location_prefix, fmt, ...)                                 \
-  do {                                                                                \
-    char err_msg[2048]; /* NOLINT */                                                  \
-    std::snprintf(err_msg, sizeof(err_msg), location_prefix);                         \
-    msg += err_msg;                                                                   \
-    std::snprintf(err_msg, sizeof(err_msg), "file=%s line=%d: ", __FILE__, __LINE__); \
-    msg += err_msg;                                                                   \
-    std::snprintf(err_msg, sizeof(err_msg), fmt, ##__VA_ARGS__);                      \
-    msg += err_msg;                                                                   \
+#define SET_ERROR_MSG(msg, location_prefix, fmt, ...)                      \
+  do {                                                                     \
+    char err_msg[2048]; /* NOLINT */                                       \
+    std::snprintf(err_msg, sizeof(err_msg), location_prefix);              \
+    msg += err_msg;                                                        \
+    std::snprintf(err_msg, sizeof(err_msg), "file=%s line=%d: ", __FILE__, \
+                  __LINE__);                                               \
+    msg += err_msg;                                                        \
+    std::snprintf(err_msg, sizeof(err_msg), fmt, ##__VA_ARGS__);           \
+    msg += err_msg;                                                        \
   } while (0)
 
 /**

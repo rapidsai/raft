@@ -32,20 +32,17 @@ namespace device {
  * further to the ones listed in `Allocator`:
  * - Allocations may be always on the device that was specified on construction.
  */
-class allocator : public base_allocator {
-};
+class allocator : public base_allocator {};
 
 /** Default device allocator based on the one provided by RMM */
 class default_allocator : public allocator {
  public:
-  void* allocate(std::size_t n, cudaStream_t stream) override
-  {
+  void* allocate(std::size_t n, cudaStream_t stream) override {
     void* ptr = rmm::mr::get_current_device_resource()->allocate(n, stream);
     return ptr;
   }
 
-  void deallocate(void* p, std::size_t n, cudaStream_t stream) override
-  {
+  void deallocate(void* p, std::size_t n, cudaStream_t stream) override {
     rmm::mr::get_current_device_resource()->deallocate(p, n, stream);
   }
 };  // class default_allocator

@@ -34,10 +34,10 @@ namespace distance {
  * @return the maximum number of columns that can be stored in smem
  */
 template <typename value_idx, typename value_t, int tpb = 1024>
-inline int max_cols_per_block()
-{
+inline int max_cols_per_block() {
   // max cols = (total smem available - cub reduction smem)
-  return (raft::getSharedMemPerBlock() - ((tpb / raft::warp_size()) * sizeof(value_t))) /
+  return (raft::getSharedMemPerBlock() -
+          ((tpb / raft::warp_size()) * sizeof(value_t))) /
          sizeof(value_t);
 }
 

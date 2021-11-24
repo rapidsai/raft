@@ -33,8 +33,8 @@ struct coalescedReductionInputs {
 };
 
 template <typename T>
-::std::ostream& operator<<(::std::ostream& os, const coalescedReductionInputs<T>& dims)
-{
+::std::ostream &operator<<(::std::ostream &os,
+                           const coalescedReductionInputs<T> &dims) {
   return os;
 }
 
@@ -42,18 +42,17 @@ template <typename T>
 // for an extended __device__ lambda cannot have private or protected access
 // within its class
 template <typename T>
-void coalescedReductionLaunch(
-  T* dots, const T* data, int cols, int rows, cudaStream_t stream, bool inplace = false)
-{
-  coalescedReduction(
-    dots, data, cols, rows, (T)0, stream, inplace, [] __device__(T in, int i) { return in * in; });
+void coalescedReductionLaunch(T *dots, const T *data, int cols, int rows,
+                              cudaStream_t stream, bool inplace = false) {
+  coalescedReduction(dots, data, cols, rows, (T)0, stream, inplace,
+                     [] __device__(T in, int i) { return in * in; });
 }
 
 template <typename T>
-class coalescedReductionTest : public ::testing::TestWithParam<coalescedReductionInputs<T>> {
+class coalescedReductionTest
+  : public ::testing::TestWithParam<coalescedReductionInputs<T>> {
  protected:
-  void SetUp() override
-  {
+  void SetUp() override {
     params = ::testing::TestWithParam<coalescedReductionInputs<T>>::GetParam();
     raft::random::Rng r(params.seed);
     int rows = params.rows, cols = params.cols;
@@ -74,8 +73,7 @@ class coalescedReductionTest : public ::testing::TestWithParam<coalescedReductio
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
-  void TearDown() override
-  {
+  void TearDown() override {
     CUDA_CHECK(cudaFree(data));
     CUDA_CHECK(cudaFree(dots_exp));
     CUDA_CHECK(cudaFree(dots_act));
@@ -86,36 +84,34 @@ class coalescedReductionTest : public ::testing::TestWithParam<coalescedReductio
   T *data, *dots_exp, *dots_act;
 };
 
-const std::vector<coalescedReductionInputs<float>> inputsf = {{0.000002f, 1024, 32, 1234ULL},
-                                                              {0.000002f, 1024, 64, 1234ULL},
-                                                              {0.000002f, 1024, 128, 1234ULL},
-                                                              {0.000002f, 1024, 256, 1234ULL}};
+const std::vector<coalescedReductionInputs<float>> inputsf = {
+  {0.000002f, 1024, 32, 1234ULL},
+  {0.000002f, 1024, 64, 1234ULL},
+  {0.000002f, 1024, 128, 1234ULL},
+  {0.000002f, 1024, 256, 1234ULL}};
 
-const std::vector<coalescedReductionInputs<double>> inputsd = {{0.000000001, 1024, 32, 1234ULL},
-                                                               {0.000000001, 1024, 64, 1234ULL},
-                                                               {0.000000001, 1024, 128, 1234ULL},
-                                                               {0.000000001, 1024, 256, 1234ULL}};
+const std::vector<coalescedReductionInputs<double>> inputsd = {
+  {0.000000001, 1024, 32, 1234ULL},
+  {0.000000001, 1024, 64, 1234ULL},
+  {0.000000001, 1024, 128, 1234ULL},
+  {0.000000001, 1024, 256, 1234ULL}};
 
 typedef coalescedReductionTest<float> coalescedReductionTestF;
-TEST_P(coalescedReductionTestF, Result)
-{
-  ASSERT_TRUE(raft::devArrMatch(
-    dots_exp, dots_act, params.rows, raft::CompareApprox<float>(params.tolerance)));
+TEST_P(coalescedReductionTestF, Result) {
+  ASSERT_TRUE(raft::devArrMatch(dots_exp, dots_act, params.rows,
+                                raft::CompareApprox<float>(params.tolerance)));
 }
 
 typedef coalescedReductionTest<double> coalescedReductionTestD;
-TEST_P(coalescedReductionTestD, Result)
-{
-  ASSERT_TRUE(raft::devArrMatch(
-    dots_exp, dots_act, params.rows, raft::CompareApprox<double>(params.tolerance)));
+TEST_P(coalescedReductionTestD, Result) {
+  ASSERT_TRUE(raft::devArrMatch(dots_exp, dots_act, params.rows,
+                                raft::CompareApprox<double>(params.tolerance)));
 }
 
-INSTANTIATE_TEST_CASE_P(coalescedReductionTests,
-                        coalescedReductionTestF,
+INSTANTIATE_TEST_CASE_P(coalescedReductionTests, coalescedReductionTestF,
                         ::testing::ValuesIn(inputsf));
 
-INSTANTIATE_TEST_CASE_P(coalescedReductionTests,
-                        coalescedReductionTestD,
+INSTANTIATE_TEST_CASE_P(coalescedReductionTests, coalescedReductionTestD,
                         ::testing::ValuesIn(inputsd));
 
 }  // end namespace linalg

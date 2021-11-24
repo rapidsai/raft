@@ -26,8 +26,7 @@ namespace sparse {
  * @param[in] ncols number of blocks to quantize
  */
 template <typename value_idx>
-inline int block_dim(value_idx ncols)
-{
+inline int block_dim(value_idx ncols) {
   int blockdim;
   if (ncols <= 32)
     blockdim = 32;
@@ -55,9 +54,9 @@ inline int block_dim(value_idx ncols)
  * @return
  */
 template <typename G>
-__device__ __inline__ unsigned int __match_any_sync(unsigned int init_mask, G key)
-{
-  unsigned int mask       = __ballot_sync(init_mask, true);
+__device__ __inline__ unsigned int __match_any_sync(unsigned int init_mask,
+                                                    G key) {
+  unsigned int mask = __ballot_sync(init_mask, true);
   unsigned int peer_group = 0;
   bool is_peer;
 
@@ -78,14 +77,12 @@ __device__ __inline__ unsigned int __match_any_sync(unsigned int init_mask, G ke
 }
 #endif
 
-__device__ __inline__ unsigned int get_lowest_peer(unsigned int peer_group)
-{
+__device__ __inline__ unsigned int get_lowest_peer(unsigned int peer_group) {
   return __ffs(peer_group) - 1;
 }
 
 template <typename value_idx>
-__global__ void iota_fill_block_kernel(value_idx* indices, value_idx ncols)
-{
+__global__ void iota_fill_block_kernel(value_idx *indices, value_idx ncols) {
   int row = blockIdx.x;
   int tid = threadIdx.x;
 
@@ -95,16 +92,15 @@ __global__ void iota_fill_block_kernel(value_idx* indices, value_idx ncols)
 }
 
 template <typename value_idx>
-void iota_fill(value_idx* indices, value_idx nrows, value_idx ncols, cudaStream_t stream)
-{
+void iota_fill(value_idx *indices, value_idx nrows, value_idx ncols,
+               cudaStream_t stream) {
   int blockdim = block_dim(ncols);
 
   iota_fill_block_kernel<<<nrows, blockdim, 0, stream>>>(indices, ncols);
 }
 
 template <typename T>
-__device__ int get_stop_idx(T row, T m, T nnz, const T* ind)
-{
+__device__ int get_stop_idx(T row, T m, T nnz, const T *ind) {
   int stop_idx = 0;
   if (row < (m - 1))
     stop_idx = ind[row + 1];
