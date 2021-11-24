@@ -116,7 +116,7 @@ inline void brute_force_knn(
   std::vector<int> &sizes, int D, float *search_items, int n, int64_t *res_I,
   float *res_D, int k, bool rowMajorIndex = true, bool rowMajorQuery = true,
   std::vector<int64_t> *translations = nullptr,
-  distance::DistanceType metric = distance::DistanceType::L2Unexpanded,
+  distance::DistanceType metric = distance::DistanceType::L2Expanded,
   float metric_arg = 2.0f) {
   ASSERT(input.size() == sizes.size(),
          "input and sizes vectors must be the same size");
