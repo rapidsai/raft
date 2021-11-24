@@ -19,7 +19,6 @@
 #include <raft/cudart_utils.h>
 #include <raft/device_atomics.cuh>
 
-
 #include <cuda_runtime.h>
 #include <stdio.h>
 
