@@ -52,12 +52,17 @@ using deviceAllocator = raft::mr::device::allocator;
  * @param translations
  */
 template <typename value_idx = int64_t, typename value_t = float>
-inline void knn_merge_parts(value_t *inK, value_idx *inV, value_t *outK,
-                            value_idx *outV, size_t n_samples, int n_parts,
-                            int k, cudaStream_t stream,
-                            value_idx *translations) {
-  detail::knn_merge_parts(inK, inV, outK, outV, n_samples, n_parts, k, stream,
-                          translations);
+inline void knn_merge_parts(value_t* inK,
+                            value_idx* inV,
+                            value_t* outK,
+                            value_idx* outV,
+                            size_t n_samples,
+                            int n_parts,
+                            int k,
+                            cudaStream_t stream,
+                            value_idx* translations)
+{
+  detail::knn_merge_parts(inK, inV, outK, outV, n_samples, n_parts, k, stream, translations);
 }
 
 /**
@@ -82,9 +87,16 @@ inline void knn_merge_parts(value_t *inK, value_idx *inV, value_t *outK,
  * @param stream
  */
 template <typename value_idx = int, typename value_t = float>
-inline void select_k(value_t *inK, value_idx *inV, size_t n_rows, size_t n_cols,
-                     value_t *outK, value_idx *outV, bool select_min, int k,
-                     cudaStream_t stream) {
+inline void select_k(value_t* inK,
+                     value_idx* inV,
+                     size_t n_rows,
+                     size_t n_cols,
+                     value_t* outK,
+                     value_idx* outV,
+                     bool select_min,
+                     int k,
+                     cudaStream_t stream)
+{
   detail::select_k(inK, inV, n_rows, n_cols, outK, outV, select_min, k, stream);
 }
 
@@ -111,22 +123,41 @@ inline void select_k(value_t *inK, value_idx *inV, size_t n_rows, size_t n_cols,
  * @param[in] translations starting offsets for partitions. should be the same size
  *            as input vector.
  */
-inline void brute_force_knn(
-  raft::handle_t const &handle, std::vector<float *> &input,
-  std::vector<int> &sizes, int D, float *search_items, int n, int64_t *res_I,
-  float *res_D, int k, bool rowMajorIndex = true, bool rowMajorQuery = true,
-  std::vector<int64_t> *translations = nullptr,
-  distance::DistanceType metric = distance::DistanceType::L2Expanded,
-  float metric_arg = 2.0f) {
-  ASSERT(input.size() == sizes.size(),
-         "input and sizes vectors must be the same size");
+inline void brute_force_knn(raft::handle_t const& handle,
+                            std::vector<float*>& input,
+                            std::vector<int>& sizes,
+                            int D,
+                            float* search_items,
+                            int n,
+                            int64_t* res_I,
+                            float* res_D,
+                            int k,
+                            bool rowMajorIndex                 = true,
+                            bool rowMajorQuery                 = true,
+                            std::vector<int64_t>* translations = nullptr,
+                            distance::DistanceType metric      = distance::DistanceType::L2Expanded,
+                            float metric_arg                   = 2.0f)
+{
+  ASSERT(input.size() == sizes.size(), "input and sizes vectors must be the same size");
 
   std::vector<cudaStream_t> int_streams = handle.get_internal_streams();
 
-  detail::brute_force_knn_impl(input, sizes, D, search_items, n, res_I, res_D,
-                               k, handle.get_stream(), int_streams.data(),
-                               handle.get_num_internal_streams(), rowMajorIndex,
-                               rowMajorQuery, translations, metric, metric_arg);
+  detail::brute_force_knn_impl(input,
+                               sizes,
+                               D,
+                               search_items,
+                               n,
+                               res_I,
+                               res_D,
+                               k,
+                               handle.get_stream(),
+                               int_streams.data(),
+                               handle.get_num_internal_streams(),
+                               rowMajorIndex,
+                               rowMajorQuery,
+                               translations,
+                               metric,
+                               metric_arg);
 }
 }  // namespace knn
 }  // namespace spatial

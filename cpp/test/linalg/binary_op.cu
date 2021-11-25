@@ -29,28 +29,29 @@ namespace linalg {
 // for an extended __device__ lambda cannot have private or protected access
 // within its class
 template <typename InType, typename IdxType, typename OutType>
-void binaryOpLaunch(OutType *out, const InType *in1, const InType *in2,
-                    IdxType len, cudaStream_t stream) {
+void binaryOpLaunch(
+  OutType* out, const InType* in1, const InType* in2, IdxType len, cudaStream_t stream)
+{
   binaryOp(
-    out, in1, in2, len, [] __device__(InType a, InType b) { return a + b; },
-    stream);
+    out, in1, in2, len, [] __device__(InType a, InType b) { return a + b; }, stream);
 }
 
 template <typename InType, typename IdxType, typename OutType = InType>
-class BinaryOpTest
-  : public ::testing::TestWithParam<BinaryOpInputs<InType, IdxType, OutType>> {
+class BinaryOpTest : public ::testing::TestWithParam<BinaryOpInputs<InType, IdxType, OutType>> {
  public:
   BinaryOpTest()
-    : params(::testing::TestWithParam<
-             BinaryOpInputs<InType, IdxType, OutType>>::GetParam()),
+    : params(::testing::TestWithParam<BinaryOpInputs<InType, IdxType, OutType>>::GetParam()),
       stream(handle.get_stream()),
       in1(params.len, stream),
       in2(params.len, stream),
       out_ref(params.len, stream),
-      out(params.len, stream) {}
+      out(params.len, stream)
+  {
+  }
 
  protected:
-  void SetUp() override {
+  void SetUp() override
+  {
     raft::random::Rng r(params.seed);
     IdxType len = params.len;
     r.uniform(in1.data(), len, InType(-1.0), InType(1.0), stream);
@@ -71,67 +72,66 @@ class BinaryOpTest
   rmm::device_uvector<OutType> out;
 };
 
-const std::vector<BinaryOpInputs<float, int>> inputsf_i32 = {
-  {0.000001f, 1024 * 1024, 1234ULL}};
+const std::vector<BinaryOpInputs<float, int>> inputsf_i32 = {{0.000001f, 1024 * 1024, 1234ULL}};
 typedef BinaryOpTest<float, int> BinaryOpTestF_i32;
-TEST_P(BinaryOpTestF_i32, Result) {
-  ASSERT_TRUE(devArrMatch(out_ref.data(), out.data(), params.len,
-                          CompareApprox<float>(params.tolerance)));
+TEST_P(BinaryOpTestF_i32, Result)
+{
+  ASSERT_TRUE(
+    devArrMatch(out_ref.data(), out.data(), params.len, CompareApprox<float>(params.tolerance)));
 }
-INSTANTIATE_TEST_SUITE_P(BinaryOpTests, BinaryOpTestF_i32,
-                         ::testing::ValuesIn(inputsf_i32));
+INSTANTIATE_TEST_SUITE_P(BinaryOpTests, BinaryOpTestF_i32, ::testing::ValuesIn(inputsf_i32));
 
-const std::vector<BinaryOpInputs<float, size_t>> inputsf_i64 = {
-  {0.000001f, 1024 * 1024, 1234ULL}};
+const std::vector<BinaryOpInputs<float, size_t>> inputsf_i64 = {{0.000001f, 1024 * 1024, 1234ULL}};
 typedef BinaryOpTest<float, size_t> BinaryOpTestF_i64;
-TEST_P(BinaryOpTestF_i64, Result) {
-  ASSERT_TRUE(devArrMatch(out_ref.data(), out.data(), params.len,
-                          CompareApprox<float>(params.tolerance)));
+TEST_P(BinaryOpTestF_i64, Result)
+{
+  ASSERT_TRUE(
+    devArrMatch(out_ref.data(), out.data(), params.len, CompareApprox<float>(params.tolerance)));
 }
-INSTANTIATE_TEST_SUITE_P(BinaryOpTests, BinaryOpTestF_i64,
-                         ::testing::ValuesIn(inputsf_i64));
+INSTANTIATE_TEST_SUITE_P(BinaryOpTests, BinaryOpTestF_i64, ::testing::ValuesIn(inputsf_i64));
 
 const std::vector<BinaryOpInputs<float, int, double>> inputsf_i32_d = {
   {0.000001f, 1024 * 1024, 1234ULL}};
 typedef BinaryOpTest<float, int, double> BinaryOpTestF_i32_D;
-TEST_P(BinaryOpTestF_i32_D, Result) {
-  ASSERT_TRUE(devArrMatch(out_ref.data(), out.data(), params.len,
-                          CompareApprox<double>(params.tolerance)));
+TEST_P(BinaryOpTestF_i32_D, Result)
+{
+  ASSERT_TRUE(
+    devArrMatch(out_ref.data(), out.data(), params.len, CompareApprox<double>(params.tolerance)));
 }
-INSTANTIATE_TEST_SUITE_P(BinaryOpTests, BinaryOpTestF_i32_D,
-                         ::testing::ValuesIn(inputsf_i32_d));
+INSTANTIATE_TEST_SUITE_P(BinaryOpTests, BinaryOpTestF_i32_D, ::testing::ValuesIn(inputsf_i32_d));
 
-const std::vector<BinaryOpInputs<double, int>> inputsd_i32 = {
-  {0.00000001, 1024 * 1024, 1234ULL}};
+const std::vector<BinaryOpInputs<double, int>> inputsd_i32 = {{0.00000001, 1024 * 1024, 1234ULL}};
 typedef BinaryOpTest<double, int> BinaryOpTestD_i32;
-TEST_P(BinaryOpTestD_i32, Result) {
-  ASSERT_TRUE(devArrMatch(out_ref.data(), out.data(), params.len,
-                          CompareApprox<double>(params.tolerance)));
+TEST_P(BinaryOpTestD_i32, Result)
+{
+  ASSERT_TRUE(
+    devArrMatch(out_ref.data(), out.data(), params.len, CompareApprox<double>(params.tolerance)));
 }
-INSTANTIATE_TEST_SUITE_P(BinaryOpTests, BinaryOpTestD_i32,
-                         ::testing::ValuesIn(inputsd_i32));
+INSTANTIATE_TEST_SUITE_P(BinaryOpTests, BinaryOpTestD_i32, ::testing::ValuesIn(inputsd_i32));
 
 const std::vector<BinaryOpInputs<double, size_t>> inputsd_i64 = {
   {0.00000001, 1024 * 1024, 1234ULL}};
 typedef BinaryOpTest<double, size_t> BinaryOpTestD_i64;
-TEST_P(BinaryOpTestD_i64, Result) {
-  ASSERT_TRUE(devArrMatch(out_ref.data(), out.data(), params.len,
-                          CompareApprox<double>(params.tolerance)));
+TEST_P(BinaryOpTestD_i64, Result)
+{
+  ASSERT_TRUE(
+    devArrMatch(out_ref.data(), out.data(), params.len, CompareApprox<double>(params.tolerance)));
 }
-INSTANTIATE_TEST_SUITE_P(BinaryOpTests, BinaryOpTestD_i64,
-                         ::testing::ValuesIn(inputsd_i64));
+INSTANTIATE_TEST_SUITE_P(BinaryOpTests, BinaryOpTestD_i64, ::testing::ValuesIn(inputsd_i64));
 
 template <typename math_t>
 class BinaryOpAlignment : public ::testing::Test {
  protected:
-  BinaryOpAlignment() {
+  BinaryOpAlignment()
+  {
     CUDA_CHECK(cudaStreamCreate(&stream));
     handle.set_stream(stream);
   }
   void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
 
  public:
-  void Misaligned() {
+  void Misaligned()
+  {
     // Test to trigger cudaErrorMisalignedAddress if veclen is incorrectly
     // chosen.
     int n = 1024;
@@ -141,8 +141,12 @@ class BinaryOpAlignment : public ::testing::Test {
     CUDA_CHECK(cudaMemsetAsync(x.data(), 0, n * sizeof(math_t), stream));
     CUDA_CHECK(cudaMemsetAsync(y.data(), 0, n * sizeof(math_t), stream));
     raft::linalg::binaryOp(
-      z.data() + 9, x.data() + 137, y.data() + 19, 256,
-      [] __device__(math_t x, math_t y) { return x + y; }, stream);
+      z.data() + 9,
+      x.data() + 137,
+      y.data() + 19,
+      256,
+      [] __device__(math_t x, math_t y) { return x + y; },
+      stream);
   }
 
   raft::handle_t handle;
