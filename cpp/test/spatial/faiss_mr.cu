@@ -42,11 +42,13 @@ template <typename T>
 class FAISS_MR_Test : public ::testing::TestWithParam<AllocInputs> {
  public:
   FAISS_MR_Test()
-    : params_(::testing::TestWithParam<AllocInputs>::GetParam()),
-      stream(handle.get_stream()) {}
+    : params_(::testing::TestWithParam<AllocInputs>::GetParam()), stream(handle.get_stream())
+  {
+  }
 
  protected:
-  size_t getFreeMemory(MemorySpace mem_space) {
+  size_t getFreeMemory(MemorySpace mem_space)
+  {
     if (mem_space == MemorySpace::Device) {
       rmm::mr::cuda_memory_resource cmr;
       rmm::mr::device_memory_resource* dmr = &cmr;
@@ -59,12 +61,13 @@ class FAISS_MR_Test : public ::testing::TestWithParam<AllocInputs> {
     return 0;
   }
 
-  void testAllocs(MemorySpace mem_space) {
+  void testAllocs(MemorySpace mem_space)
+  {
     raft::spatial::knn::RmmGpuResources faiss_mr;
     auto faiss_mr_impl = faiss_mr.getResources();
     size_t free_before = getFreeMemory(mem_space);
     AllocRequest req(AllocType::Other, 0, mem_space, stream, params_.size);
-    void* ptr = faiss_mr_impl->allocMemory(req);
+    void* ptr               = faiss_mr_impl->allocMemory(req);
     size_t free_after_alloc = getFreeMemory(mem_space);
     faiss_mr_impl->deallocMemory(0, ptr);
     ASSERT_TRUE(free_after_alloc <= free_before - params_.size);
@@ -78,13 +81,13 @@ class FAISS_MR_Test : public ::testing::TestWithParam<AllocInputs> {
 const std::vector<AllocInputs> inputs = {{19687}};
 
 typedef FAISS_MR_Test<float> FAISS_MR_TestF;
-TEST_P(FAISS_MR_TestF, TestAllocs) {
+TEST_P(FAISS_MR_TestF, TestAllocs)
+{
   testAllocs(MemorySpace::Device);
   testAllocs(MemorySpace::Unified);
 }
 
-INSTANTIATE_TEST_CASE_P(FAISS_MR_Test, FAISS_MR_TestF,
-                        ::testing::ValuesIn(inputs));
+INSTANTIATE_TEST_CASE_P(FAISS_MR_Test, FAISS_MR_TestF, ::testing::ValuesIn(inputs));
 
 }  // namespace knn
 }  // namespace spatial

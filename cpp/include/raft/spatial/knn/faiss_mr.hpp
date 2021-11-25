@@ -56,7 +56,8 @@ constexpr size_t k8GiBTempMem = (size_t)1024 * 1024 * 1024;
 // Maximum temporary memory allocation for all GPUs
 constexpr size_t kMaxTempMem = (size_t)1536 * 1024 * 1024;
 
-std::string allocsToString(const std::unordered_map<void*, AllocRequest>& map) {
+std::string allocsToString(const std::unordered_map<void*, AllocRequest>& map)
+{
   // Produce a sorted list of all outstanding allocations by type
   std::unordered_map<AllocType, std::pair<int, size_t>> stats;
 
@@ -74,9 +75,8 @@ std::string allocsToString(const std::unordered_map<void*, AllocRequest>& map) {
 
   std::stringstream ss;
   for (auto& entry : stats) {
-    ss << "Alloc type " << allocTypeToString(entry.first) << ": "
-       << entry.second.first << " allocations, " << entry.second.second
-       << " bytes\n";
+    ss << "Alloc type " << allocTypeToString(entry.first) << ": " << entry.second.first
+       << " allocations, " << entry.second.second << " bytes\n";
   }
 
   return ss.str();
@@ -93,15 +93,15 @@ class RmmGpuResourcesImpl : public GpuResources {
       pinnedMemAllocSize_(0),
       // let the adjustment function determine the memory size for us by passing
       // in a huge value that will then be adjusted
-      tempMemSize_(
-        getDefaultTempMemForGPU(-1, std::numeric_limits<size_t>::max())),
+      tempMemSize_(getDefaultTempMemForGPU(-1, std::numeric_limits<size_t>::max())),
       pinnedMemSize_(kDefaultPinnedMemoryAllocation),
       allocLogging_(false),
       cmr(new rmm::mr::cuda_memory_resource),
       mmr(new rmm::mr::managed_memory_resource),
       pmr(new rmm::mr::pinned_memory_resource){};
 
-  ~RmmGpuResourcesImpl() {
+  ~RmmGpuResourcesImpl()
+  {
     // The temporary memory allocator has allocated memory through us, so clean
     // that up before we finish fully de-initializing ourselves
     tempMemory_.clear();
@@ -120,8 +120,7 @@ class RmmGpuResourcesImpl : public GpuResources {
       }
     }
 
-    FAISS_ASSERT_MSG(!allocError,
-                     "GPU memory allocations not properly cleaned up");
+    FAISS_ASSERT_MSG(!allocError, "GPU memory allocations not properly cleaned up");
 
     for (auto& entry : defaultStreams_) {
       DeviceScope scope(entry.first);
@@ -151,9 +150,7 @@ class RmmGpuResourcesImpl : public GpuResources {
       FAISS_ASSERT(blasStatus == CUBLAS_STATUS_SUCCESS);
     }
 
-    if (pinnedMemAlloc_) {
-      pmr->deallocate(pinnedMemAlloc_, pinnedMemAllocSize_);
-    }
+    if (pinnedMemAlloc_) { pmr->deallocate(pinnedMemAlloc_, pinnedMemAllocSize_); }
   };
 
   /// Disable allocation of temporary memory; all temporary memory
@@ -165,7 +162,8 @@ class RmmGpuResourcesImpl : public GpuResources {
   /// memory that we will reserve. We will never go above 1.5 GiB on any GPU;
   /// smaller GPUs (with <= 4 GiB or <= 8 GiB) will use less memory than that.
   /// To avoid any temporary memory allocation, pass 0.
-  void setTempMemory(size_t size) {
+  void setTempMemory(size_t size)
+  {
     if (tempMemSize_ != size) {
       // adjust based on general limits
       tempMemSize_ = getDefaultTempMemForGPU(-1, size);
@@ -182,7 +180,8 @@ class RmmGpuResourcesImpl : public GpuResources {
 
         // Allocate new
         p.second = std::unique_ptr<StackDeviceMemory>(
-          new StackDeviceMemory(this, p.first,
+          new StackDeviceMemory(this,
+                                p.first,
                                 // adjust for this specific device
                                 getDefaultTempMemForGPU(device, tempMemSize_)));
       }
@@ -191,7 +190,8 @@ class RmmGpuResourcesImpl : public GpuResources {
 
   /// Set amount of pinned memory to allocate, for async GPU <-> CPU
   /// transfers
-  void setPinnedMemory(size_t size) {
+  void setPinnedMemory(size_t size)
+  {
     // Should not call this after devices have been initialized
     FAISS_ASSERT(defaultStreams_.size() == 0);
     FAISS_ASSERT(!pinnedMemAlloc_);
@@ -204,12 +204,13 @@ class RmmGpuResourcesImpl : public GpuResources {
   /// up.
   /// We are guaranteed that all Faiss GPU work is ordered with respect to
   /// this stream upon exit from an index or other Faiss GPU call.
-  void setDefaultStream(int device, cudaStream_t stream) {
+  void setDefaultStream(int device, cudaStream_t stream)
+  {
     if (isInitialized(device)) {
       // A new series of calls may not be ordered with what was the previous
       // stream, so if the stream being specified is different, then we need to
       // ensure ordering between the two (new stream waits on old).
-      auto it = userDefaultStreams_.find(device);
+      auto it                 = userDefaultStreams_.find(device);
       cudaStream_t prevStream = nullptr;
 
       if (it != userDefaultStreams_.end()) {
@@ -219,9 +220,7 @@ class RmmGpuResourcesImpl : public GpuResources {
         prevStream = defaultStreams_[device];
       }
 
-      if (prevStream != stream) {
-        streamWait({stream}, {prevStream});
-      }
+      if (prevStream != stream) { streamWait({stream}, {prevStream}); }
     }
 
     userDefaultStreams_[device] = stream;
@@ -229,7 +228,8 @@ class RmmGpuResourcesImpl : public GpuResources {
 
   /// Revert the default stream to the original stream managed by this resources
   /// object, in case someone called `setDefaultStream`.
-  void revertDefaultStream(int device) {
+  void revertDefaultStream(int device)
+  {
     if (isInitialized(device)) {
       auto it = userDefaultStreams_.find(device);
 
@@ -251,7 +251,8 @@ class RmmGpuResourcesImpl : public GpuResources {
   /// ordered.
   /// We are guaranteed that all Faiss GPU work is ordered with respect to
   /// this stream upon exit from an index or other Faiss GPU call.
-  cudaStream_t getDefaultStream(int device) {
+  cudaStream_t getDefaultStream(int device)
+  {
     initializeForDevice(device);
 
     auto it = userDefaultStreams_.find(device);
@@ -266,7 +267,8 @@ class RmmGpuResourcesImpl : public GpuResources {
 
   /// Called to change the work ordering streams to the null stream
   /// for all devices
-  void setDefaultNullStreamAllDevices() {
+  void setDefaultNullStreamAllDevices()
+  {
     for (int dev = 0; dev < getNumDevices(); ++dev) {
       setDefaultStream(dev, nullptr);
     }
@@ -280,15 +282,14 @@ class RmmGpuResourcesImpl : public GpuResources {
   /// Internal system calls
 
   /// Initialize resources for this device
-  void initializeForDevice(int device) {
-    if (isInitialized(device)) {
-      return;
-    }
+  void initializeForDevice(int device)
+  {
+    if (isInitialized(device)) { return; }
 
     // If this is the first device that we're initializing, create our
     // pinned memory allocation
     if (defaultStreams_.empty() && pinnedMemSize_ > 0) {
-      pinnedMemAlloc_ = pmr->allocate(pinnedMemSize_);
+      pinnedMemAlloc_     = pmr->allocate(pinnedMemSize_);
       pinnedMemAllocSize_ = pinnedMemSize_;
     }
 
@@ -302,18 +303,18 @@ class RmmGpuResourcesImpl : public GpuResources {
     FAISS_ASSERT_FMT(prop.major >= 3,
                      "Device id %d with CC %d.%d not supported, "
                      "need 3.0+ compute capability",
-                     device, prop.major, prop.minor);
+                     device,
+                     prop.major,
+                     prop.minor);
 
     // Create streams
     cudaStream_t defaultStream = 0;
-    CUDA_VERIFY(
-      cudaStreamCreateWithFlags(&defaultStream, cudaStreamNonBlocking));
+    CUDA_VERIFY(cudaStreamCreateWithFlags(&defaultStream, cudaStreamNonBlocking));
 
     defaultStreams_[device] = defaultStream;
 
     cudaStream_t asyncCopyStream = 0;
-    CUDA_VERIFY(
-      cudaStreamCreateWithFlags(&asyncCopyStream, cudaStreamNonBlocking));
+    CUDA_VERIFY(cudaStreamCreateWithFlags(&asyncCopyStream, cudaStreamNonBlocking));
 
     asyncCopyStreams_[device] = asyncCopyStream;
 
@@ -329,7 +330,7 @@ class RmmGpuResourcesImpl : public GpuResources {
 
     // Create cuBLAS handle
     cublasHandle_t blasHandle = 0;
-    auto blasStatus = cublasCreate(&blasHandle);
+    auto blasStatus           = cublasCreate(&blasHandle);
     FAISS_ASSERT(blasStatus == CUBLAS_STATUS_SUCCESS);
     blasHandles_[device] = blasHandle;
 
@@ -339,8 +340,7 @@ class RmmGpuResourcesImpl : public GpuResources {
     // For CUDA 11 / A100, only enable tensor core support if it doesn't result in
     // a loss of precision.
 #if CUDA_VERSION >= 11000
-    cublasSetMathMode(blasHandle,
-                      CUBLAS_MATH_DISALLOW_REDUCED_PRECISION_REDUCTION);
+    cublasSetMathMode(blasHandle, CUBLAS_MATH_DISALLOW_REDUCED_PRECISION_REDUCTION);
 #endif
 
     FAISS_ASSERT(allocs_.count(device) == 0);
@@ -348,31 +348,33 @@ class RmmGpuResourcesImpl : public GpuResources {
 
     FAISS_ASSERT(tempMemory_.count(device) == 0);
     auto mem = std::unique_ptr<StackDeviceMemory>(
-      new StackDeviceMemory(this, device,
+      new StackDeviceMemory(this,
+                            device,
                             // adjust for this specific device
                             getDefaultTempMemForGPU(device, tempMemSize_)));
 
     tempMemory_.emplace(device, std::move(mem));
   };
 
-  cublasHandle_t getBlasHandle(int device) {
+  cublasHandle_t getBlasHandle(int device)
+  {
     initializeForDevice(device);
     return blasHandles_[device];
   };
 
-  std::vector<cudaStream_t> getAlternateStreams(int device) {
+  std::vector<cudaStream_t> getAlternateStreams(int device)
+  {
     initializeForDevice(device);
     return alternateStreams_[device];
   };
 
   /// Allocate non-temporary GPU memory
-  void* allocMemory(const AllocRequest& req) {
+  void* allocMemory(const AllocRequest& req)
+  {
     initializeForDevice(req.device);
 
     // We don't allocate a placeholder for zero-sized allocations
-    if (req.size == 0) {
-      return nullptr;
-    }
+    if (req.size == 0) { return nullptr; }
 
     // Make sure that the allocation is a multiple of 16 bytes for alignment
     // purposes
@@ -381,9 +383,7 @@ class RmmGpuResourcesImpl : public GpuResources {
 
     void* p = nullptr;
 
-    if (allocLogging_) {
-      std::cout << "RmmGpuResources: alloc " << adjReq.toString() << "\n";
-    }
+    if (allocLogging_) { std::cout << "RmmGpuResources: alloc " << adjReq.toString() << "\n"; }
 
     if (adjReq.space == MemorySpace::Temporary) {
       // If we don't have enough space in our temporary memory manager, we need
@@ -393,8 +393,8 @@ class RmmGpuResourcesImpl : public GpuResources {
       if (adjReq.size > tempMem->getSizeAvailable()) {
         // We need to allocate this ourselves
         AllocRequest newReq = adjReq;
-        newReq.space = MemorySpace::Device;
-        newReq.type = AllocType::TemporaryMemoryOverflow;
+        newReq.space        = MemorySpace::Device;
+        newReq.type         = AllocType::TemporaryMemoryOverflow;
 
         return allocMemory(newReq);
       }
@@ -416,12 +416,11 @@ class RmmGpuResourcesImpl : public GpuResources {
   };
 
   /// Returns a previous allocation
-  void deallocMemory(int device, void* p) {
+  void deallocMemory(int device, void* p)
+  {
     FAISS_ASSERT(isInitialized(device));
 
-    if (!p) {
-      return;
-    }
+    if (!p) { return; }
 
     auto& a = allocs_[device];
     auto it = a.find(p);
@@ -429,9 +428,7 @@ class RmmGpuResourcesImpl : public GpuResources {
 
     auto& req = it->second;
 
-    if (allocLogging_) {
-      std::cout << "RmmGpuResources: dealloc " << req.toString() << "\n";
-    }
+    if (allocLogging_) { std::cout << "RmmGpuResources: dealloc " << req.toString() << "\n"; }
 
     if (req.space == MemorySpace::Temporary) {
       std::cout << "dealloc Temporary" << std::endl;
@@ -449,7 +446,8 @@ class RmmGpuResourcesImpl : public GpuResources {
     a.erase(it);
   };
 
-  size_t getTempMemoryAvailable(int device) const {
+  size_t getTempMemoryAvailable(int device) const
+  {
     FAISS_ASSERT(isInitialized(device));
 
     auto it = tempMemory_.find(device);
@@ -459,8 +457,8 @@ class RmmGpuResourcesImpl : public GpuResources {
   };
 
   /// Export a description of memory used for Python
-  std::map<int, std::map<std::string, std::pair<int, size_t>>> getMemoryInfo()
-    const {
+  std::map<int, std::map<std::string, std::pair<int, size_t>>> getMemoryInfo() const
+  {
     using AT = std::map<std::string, std::pair<int, size_t>>;
 
     std::map<int, AT> out;
@@ -480,18 +478,21 @@ class RmmGpuResourcesImpl : public GpuResources {
     return out;
   };
 
-  std::pair<void*, size_t> getPinnedMemory() {
+  std::pair<void*, size_t> getPinnedMemory()
+  {
     return std::make_pair(pinnedMemAlloc_, pinnedMemAllocSize_);
   };
 
-  cudaStream_t getAsyncCopyStream(int device) {
+  cudaStream_t getAsyncCopyStream(int device)
+  {
     initializeForDevice(device);
     return asyncCopyStreams_[device];
   };
 
  private:
   /// Have GPU resources been initialized for this device yet?
-  bool isInitialized(int device) const {
+  bool isInitialized(int device) const
+  {
     // Use default streams as a marker for whether or not a certain
     // device has been initialized
     return defaultStreams_.count(device) != 0;
@@ -499,27 +500,22 @@ class RmmGpuResourcesImpl : public GpuResources {
 
   /// Adjust the default temporary memory allocation based on the total GPU
   /// memory size
-  static size_t getDefaultTempMemForGPU(int device, size_t requested) {
+  static size_t getDefaultTempMemForGPU(int device, size_t requested)
+  {
     auto totalMem = device != -1 ? getDeviceProperties(device).totalGlobalMem
                                  : std::numeric_limits<size_t>::max();
 
     if (totalMem <= (size_t)4 * 1024 * 1024 * 1024) {
       // If the GPU has <= 4 GiB of memory, reserve 512 MiB
 
-      if (requested > k4GiBTempMem) {
-        return k4GiBTempMem;
-      }
+      if (requested > k4GiBTempMem) { return k4GiBTempMem; }
     } else if (totalMem <= (size_t)8 * 1024 * 1024 * 1024) {
       // If the GPU has <= 8 GiB of memory, reserve 1 GiB
 
-      if (requested > k8GiBTempMem) {
-        return k8GiBTempMem;
-      }
+      if (requested > k8GiBTempMem) { return k8GiBTempMem; }
     } else {
       // Never use more than 1.5 GiB
-      if (requested > kMaxTempMem) {
-        return kMaxTempMem;
-      }
+      if (requested > kMaxTempMem) { return kMaxTempMem; }
     }
 
     // use whatever lower limit the user requested
@@ -606,7 +602,8 @@ class RmmGpuResources : public GpuResourcesProvider {
   /// up.
   /// We are guaranteed that all Faiss GPU work is ordered with respect to
   /// this stream upon exit from an index or other Faiss GPU call.
-  void setDefaultStream(int device, cudaStream_t stream) {
+  void setDefaultStream(int device, cudaStream_t stream)
+  {
     res_->setDefaultStream(device, stream);
   };
 
@@ -616,36 +613,26 @@ class RmmGpuResources : public GpuResourcesProvider {
 
   /// Called to change the work ordering streams to the null stream
   /// for all devices
-  void setDefaultNullStreamAllDevices() {
-    res_->setDefaultNullStreamAllDevices();
-  };
+  void setDefaultNullStreamAllDevices() { res_->setDefaultNullStreamAllDevices(); };
 
   /// Export a description of memory used for Python
-  std::map<int, std::map<std::string, std::pair<int, size_t>>> getMemoryInfo()
-    const {
+  std::map<int, std::map<std::string, std::pair<int, size_t>>> getMemoryInfo() const
+  {
     return res_->getMemoryInfo();
   };
 
   /// Returns the current default stream
-  cudaStream_t getDefaultStream(int device) {
-    return res_->getDefaultStream(device);
-  };
+  cudaStream_t getDefaultStream(int device) { return res_->getDefaultStream(device); };
 
   /// Returns the current amount of temp memory available
-  size_t getTempMemoryAvailable(int device) const {
-    return res_->getTempMemoryAvailable(device);
-  };
+  size_t getTempMemoryAvailable(int device) const { return res_->getTempMemoryAvailable(device); };
 
   /// Synchronize our default stream with the CPU
-  void syncDefaultStreamCurrentDevice() {
-    res_->syncDefaultStreamCurrentDevice();
-  };
+  void syncDefaultStreamCurrentDevice() { res_->syncDefaultStreamCurrentDevice(); };
 
   /// If enabled, will print every GPU memory allocation and deallocation to
   /// standard output
-  void setLogMemoryAllocations(bool enable) {
-    res_->setLogMemoryAllocations(enable);
-  };
+  void setLogMemoryAllocations(bool enable) { res_->setLogMemoryAllocations(enable); };
 
  private:
   std::shared_ptr<RmmGpuResourcesImpl> res_;

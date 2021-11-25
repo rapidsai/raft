@@ -49,20 +49,25 @@ struct idx_dist_pair {
   IdxT idx;
   DistT dist;
   compareDist eq_compare;
-  bool operator==(const idx_dist_pair<IdxT, DistT, compareDist> &a) const {
+  bool operator==(const idx_dist_pair<IdxT, DistT, compareDist>& a) const
+  {
     if (idx == a.idx) return true;
     if (eq_compare(dist, a.dist)) return true;
     return false;
   }
-  idx_dist_pair(IdxT x, DistT y, compareDist op)
-    : idx(x), dist(y), eq_compare(op) {}
+  idx_dist_pair(IdxT x, DistT y, compareDist op) : idx(x), dist(y), eq_compare(op) {}
 };
 
 template <typename T, typename DistT>
-testing::AssertionResult devArrMatchKnnPair(
-  const T *expected_idx, const T *actual_idx, const DistT *expected_dist,
-  const DistT *actual_dist, size_t rows, size_t cols, const DistT eps,
-  cudaStream_t stream = 0) {
+testing::AssertionResult devArrMatchKnnPair(const T* expected_idx,
+                                            const T* actual_idx,
+                                            const DistT* expected_dist,
+                                            const DistT* actual_dist,
+                                            size_t rows,
+                                            size_t cols,
+                                            const DistT eps,
+                                            cudaStream_t stream = 0)
+{
   size_t size = rows * cols;
   std::unique_ptr<T[]> exp_idx_h(new T[size]);
   std::unique_ptr<T[]> act_idx_h(new T[size]);
@@ -75,9 +80,9 @@ testing::AssertionResult devArrMatchKnnPair(
   CUDA_CHECK(cudaStreamSynchronize(stream));
   for (size_t i(0); i < rows; ++i) {
     for (size_t j(0); j < cols; ++j) {
-      auto idx = i * cols + j;  // row major assumption!
-      auto exp_idx = exp_idx_h.get()[idx];
-      auto act_idx = act_idx_h.get()[idx];
+      auto idx      = i * cols + j;  // row major assumption!
+      auto exp_idx  = exp_idx_h.get()[idx];
+      auto act_idx  = act_idx_h.get()[idx];
       auto exp_dist = exp_dist_h.get()[idx];
       auto act_dist = act_dist_h.get()[idx];
       idx_dist_pair exp_kvp(exp_idx, exp_dist, raft::CompareApprox<DistT>(eps));
@@ -85,8 +90,7 @@ testing::AssertionResult devArrMatchKnnPair(
       if (!(exp_kvp == act_kvp)) {
         return testing::AssertionFailure()
                << "actual=" << act_kvp.idx << "," << act_kvp.dist << "!="
-               << "expected" << exp_kvp.idx << "," << exp_kvp.dist << " @" << i
-               << "," << j;
+               << "expected" << exp_kvp.idx << "," << exp_kvp.dist << " @" << i << "," << j;
       }
     }
   }
@@ -96,26 +100,43 @@ testing::AssertionResult devArrMatchKnnPair(
 template <typename T>
 class FusedL2KNNTest : public ::testing::TestWithParam<FusedL2KNNInputs> {
  protected:
-  void testBruteForce() {
+  void testBruteForce()
+  {
     cudaStream_t stream = handle_.get_stream();
 
     launchFaissBfknn();
-    detail::fusedL2Knn(dim, raft_indices_, raft_distances_, database,
-                       search_queries, num_db_vecs, num_queries, k_, true, true,
-                       stream, metric);
+    detail::fusedL2Knn(dim,
+                       raft_indices_,
+                       raft_distances_,
+                       database,
+                       search_queries,
+                       num_db_vecs,
+                       num_queries,
+                       k_,
+                       true,
+                       true,
+                       stream,
+                       metric);
 
     // verify.
-    devArrMatchKnnPair(faiss_indices_, raft_indices_, faiss_distances_,
-                       raft_distances_, num_queries, k_, float(0.001), stream);
+    devArrMatchKnnPair(faiss_indices_,
+                       raft_indices_,
+                       faiss_distances_,
+                       raft_distances_,
+                       num_queries,
+                       k_,
+                       float(0.001),
+                       stream);
   }
 
-  void SetUp() override {
-    params_ = ::testing::TestWithParam<FusedL2KNNInputs>::GetParam();
+  void SetUp() override
+  {
+    params_     = ::testing::TestWithParam<FusedL2KNNInputs>::GetParam();
     num_queries = params_.num_queries;
     num_db_vecs = params_.num_db_vecs;
-    dim = params_.dim;
-    k_ = params_.k;
-    metric = params_.metric_;
+    dim         = params_.dim;
+    k_          = params_.k;
+    metric      = params_.metric_;
 
     cudaStream_t stream = handle_.get_stream();
 
@@ -133,12 +154,14 @@ class FusedL2KNNTest : public ::testing::TestWithParam<FusedL2KNNInputs> {
     raft::allocate(faiss_distances_, num_queries * k_, stream, true);
   }
 
-  void TearDown() override {
+  void TearDown() override
+  {
     cudaStream_t stream = handle_.get_stream();
     raft::deallocate_all(stream);
   }
 
-  void launchFaissBfknn() {
+  void launchFaissBfknn()
+  {
     faiss::MetricType m = detail::build_faiss_metric(metric);
 
     faiss::gpu::StandardGpuResources gpu_res;
@@ -149,18 +172,18 @@ class FusedL2KNNTest : public ::testing::TestWithParam<FusedL2KNNInputs> {
     gpu_res.setDefaultStream(device, handle_.get_stream());
 
     faiss::gpu::GpuDistanceParams args;
-    args.metric = m;
-    args.metricArg = 0;
-    args.k = k_;
-    args.dims = dim;
-    args.vectors = database;
+    args.metric          = m;
+    args.metricArg       = 0;
+    args.k               = k_;
+    args.dims            = dim;
+    args.vectors         = database;
     args.vectorsRowMajor = true;
-    args.numVectors = num_db_vecs;
-    args.queries = search_queries;
+    args.numVectors      = num_db_vecs;
+    args.queries         = search_queries;
     args.queriesRowMajor = true;
-    args.numQueries = num_queries;
-    args.outDistances = faiss_distances_;
-    args.outIndices = faiss_indices_;
+    args.numQueries      = num_queries;
+    args.outDistances    = faiss_distances_;
+    args.outIndices      = faiss_indices_;
 
     bfKnn(&gpu_res, args);
   }
@@ -171,12 +194,12 @@ class FusedL2KNNTest : public ::testing::TestWithParam<FusedL2KNNInputs> {
   int num_queries;
   int num_db_vecs;
   int dim;
-  T *database;
-  T *search_queries;
-  int64_t *raft_indices_;
-  T *raft_distances_;
-  int64_t *faiss_indices_;
-  T *faiss_distances_;
+  T* database;
+  T* search_queries;
+  int64_t* raft_indices_;
+  T* raft_distances_;
+  int64_t* faiss_indices_;
+  T* faiss_distances_;
   int k_;
   raft::distance::DistanceType metric;
 };
@@ -201,8 +224,7 @@ const std::vector<FusedL2KNNInputs> inputs = {
 typedef FusedL2KNNTest<float> FusedL2KNNTestF;
 TEST_P(FusedL2KNNTestF, FusedBruteForce) { this->testBruteForce(); }
 
-INSTANTIATE_TEST_CASE_P(FusedL2KNNTest, FusedL2KNNTestF,
-                        ::testing::ValuesIn(inputs));
+INSTANTIATE_TEST_CASE_P(FusedL2KNNTest, FusedL2KNNTestF, ::testing::ValuesIn(inputs));
 
 }  // namespace knn
 }  // namespace spatial

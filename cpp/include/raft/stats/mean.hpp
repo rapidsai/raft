@@ -41,8 +41,9 @@ namespace stats {
  * @param stream: cuda stream
  */
 template <typename Type, typename IdxType = int>
-void mean(Type *mu, const Type *data, IdxType D, IdxType N, bool sample,
-          bool rowMajor, cudaStream_t stream) {
+void mean(
+  Type* mu, const Type* data, IdxType D, IdxType N, bool sample, bool rowMajor, cudaStream_t stream)
+{
   detail::mean(mu, data, D, N, sample, rowMajor, stream);
 }
 

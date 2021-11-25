@@ -23,7 +23,8 @@
 
 namespace raft {
 
-TEST(Raft, ClusterSolvers) {
+TEST(Raft, ClusterSolvers)
+{
   using namespace matrix;
   using index_type = int;
   using value_type = double;
@@ -40,7 +41,7 @@ TEST(Raft, ClusterSolvers) {
   index_type d{10};
   index_type k{5};
 
-  //nullptr expected to trigger exceptions:
+  // nullptr expected to trigger exceptions:
   //
   value_type* eigvecs{nullptr};
   index_type* codes{nullptr};
@@ -52,7 +53,8 @@ TEST(Raft, ClusterSolvers) {
   EXPECT_ANY_THROW(cluster_solver.solve(h, n, d, eigvecs, codes));
 }
 
-TEST(Raft, ModularitySolvers) {
+TEST(Raft, ModularitySolvers)
+{
   using namespace matrix;
   using index_type = int;
   using value_type = double;
@@ -66,7 +68,7 @@ TEST(Raft, ModularitySolvers) {
   value_type tol{1.0e-10};
   bool reorthog{true};
 
-  //nullptr expected to trigger exceptions:
+  // nullptr expected to trigger exceptions:
   //
   index_type* clusters{nullptr};
   value_type* eigvals{nullptr};
@@ -80,13 +82,11 @@ TEST(Raft, ModularitySolvers) {
 
   index_type k{5};
 
-  cluster_solver_config_t<index_type, value_type> clust_cfg{k, maxiter, tol,
-                                                            seed};
+  cluster_solver_config_t<index_type, value_type> clust_cfg{k, maxiter, tol, seed};
   kmeans_solver_t<index_type, value_type> cluster_solver{clust_cfg};
 
   auto stream = h.get_stream();
-  sparse_matrix_t<index_type, value_type> sm{h,       nullptr, nullptr,
-                                             nullptr, 0,       0};
+  sparse_matrix_t<index_type, value_type> sm{h, nullptr, nullptr, nullptr, 0, 0};
 
   EXPECT_ANY_THROW(spectral::modularity_maximization(
     h, sm, eig_solver, cluster_solver, clusters, eigvals, eigvecs));

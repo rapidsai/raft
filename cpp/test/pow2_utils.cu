@@ -24,7 +24,8 @@ struct Pow2Test : public ::testing::Test {
   typedef Pow2<Val> P;
   std::vector<TargetT> data;
 
-  void SetUp() override {
+  void SetUp() override
+  {
     std::vector<TargetT> pos = {0, 1, 2, 7, 15, 16, 17, 31, 35, 1024, 1623};
     data.insert(data.end(), pos.begin(), pos.end());
     if constexpr (std::is_signed<TargetT>::value) {
@@ -35,7 +36,8 @@ struct Pow2Test : public ::testing::Test {
     data.push_back(std::numeric_limits<TargetT>::max());
   }
 
-  void quotRem() {
+  void quotRem()
+  {
     for (auto x : data) {
       ASSERT_EQ(P::quot(x), x / P::Value) << "  where x = " << x;
       ASSERT_EQ(P::rem(x), x % P::Value) << "  where x = " << x;
@@ -43,31 +45,32 @@ struct Pow2Test : public ::testing::Test {
     }
   }
 
-  void divMod() {
+  void divMod()
+  {
     for (auto x : data) {
       ASSERT_GE(P::mod(x), 0) << "  where x = " << x;
       ASSERT_EQ(x, P::div(x) * P::Value + P::mod(x));
     }
   }
 
-  void round() {
+  void round()
+  {
     for (auto x : data) {
-      if (x <= std::numeric_limits<TargetT>::max() - TargetT(P::Value))
-        ASSERT_GE(P::roundUp(x), x);
+      if (x <= std::numeric_limits<TargetT>::max() - TargetT(P::Value)) ASSERT_GE(P::roundUp(x), x);
       if (x >= std::numeric_limits<TargetT>::min() + TargetT(P::Value))
         ASSERT_LE(P::roundDown(x), x);
       ASSERT_EQ(x - P::roundDown(x), P::mod(x)) << "  where x = " << x;
-      ASSERT_EQ(P::mod(P::roundUp(x) + P::mod(x) - x), 0)
-        << "  where x = " << x;
+      ASSERT_EQ(P::mod(P::roundUp(x) + P::mod(x) - x), 0) << "  where x = " << x;
     }
   }
 
-  void alignment() {
+  void alignment()
+  {
     for (auto x : data) {
       ASSERT_TRUE(P::areSameAlignOffsets(x, x));
       if (x <= std::numeric_limits<TargetT>::max() - TargetT(P::Value)) {
         ASSERT_TRUE(P::areSameAlignOffsets(x, x + TargetT(P::Value)));
-        int aligned_count = 0;
+        int aligned_count      = 0;
         int same_aligned_count = 0;
         for (int i = 0; i < int(P::Value); i++) {
           aligned_count += P::isAligned(x + i);
@@ -97,10 +100,11 @@ TEST_IT(Pow2_u64_i32_128);
 TEST_IT(Pow2_ll_u16_32);
 TEST_IT(Pow2_i32_u64_16);
 
-TEST(Pow2, pointers) {
+TEST(Pow2, pointers)
+{
   typedef Pow2<32UL> P;
   for (ptrdiff_t i = 0; i <= ptrdiff_t(P::Value); i++) {
-    auto *p = reinterpret_cast<float *>(16345 + i);
+    auto* p = reinterpret_cast<float*>(16345 + i);
     ASSERT_GE(P::roundUp(p), p);
     ASSERT_LE(P::roundDown(p), p);
   }
