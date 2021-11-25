@@ -35,16 +35,20 @@ struct Linewise {
   typedef raft::Pow2<raft::WarpSize> AlignWarp;
 
   template <typename Lambda, typename... Vecs>
-  static __device__ __forceinline__ void vectorCols(
-    typename Vec::io_t* out, const typename Vec::io_t* in,
-    const typename Vec::io_t* in_end, const IdxType rowLen, IdxType rowDiv,
-    IdxType rowMod, Lambda op, Vecs... vecs) noexcept {
+  static __device__ __forceinline__ void vectorCols(typename Vec::io_t* out,
+                                                    const typename Vec::io_t* in,
+                                                    const typename Vec::io_t* in_end,
+                                                    const IdxType rowLen,
+                                                    IdxType rowDiv,
+                                                    IdxType rowMod,
+                                                    Lambda op,
+                                                    Vecs... vecs) noexcept
+  {
     constexpr IdxType warpPad = (AlignWarp::Value - 1) * VecElems;
     Type args[sizeof...(Vecs)];
     Vec v, w;
     bool update = true;
-    for (; in < in_end;
-         in += AlignWarp::Value, out += AlignWarp::Value, rowMod += warpPad) {
+    for (; in < in_end; in += AlignWarp::Value, out += AlignWarp::Value, rowMod += warpPad) {
       v.val.internal = __ldcv(in);
       while (rowMod >= rowLen) {
         rowMod -= rowLen;
@@ -64,7 +68,7 @@ struct Linewise {
           int l = 0;
           ((args[l] = vecs[rowDiv], l++), ...);
         }
-        int l = 0;
+        int l         = 0;
         w.val.data[k] = op(v.val.data[k], (std::ignore = vecs, args[l++])...);
       }
       *out = w.val.internal;
@@ -72,9 +76,12 @@ struct Linewise {
   }
 
   template <typename Lambda, typename... Args>
-  static __device__ __forceinline__ void vectorRows(
-    typename Vec::io_t* out, const typename Vec::io_t* in, const IdxType len,
-    Lambda op, Args... args) noexcept {
+  static __device__ __forceinline__ void vectorRows(typename Vec::io_t* out,
+                                                    const typename Vec::io_t* in,
+                                                    const IdxType len,
+                                                    Lambda op,
+                                                    Args... args) noexcept
+  {
     Vec v;
     const IdxType d = BlockSize * gridDim.x;
     for (IdxType i = threadIdx.x + blockIdx.x * BlockSize; i < len; i += d) {
@@ -88,54 +95,68 @@ struct Linewise {
 
   static __device__ __forceinline__ Vec loadVec(const Type* p,
                                                 const IdxType blockOffset,
-                                                const IdxType rowLen) noexcept {
+                                                const IdxType rowLen) noexcept
+  {
     __shared__ alignas(sizeof(Type) * VecElems) Type shm[VecElems * BlockSize];
     IdxType j = blockOffset + threadIdx.x;
 #pragma unroll VecElems
-    for (int k = threadIdx.x; k < VecElems * BlockSize;
-         k += BlockSize, j += BlockSize) {
-      while (j >= rowLen) j -= rowLen;
+    for (int k = threadIdx.x; k < VecElems * BlockSize; k += BlockSize, j += BlockSize) {
+      while (j >= rowLen)
+        j -= rowLen;
       shm[k] = p[j];
     }
     __syncthreads();
     {
       Vec out;
-      out.val.internal =
-        reinterpret_cast<typename Vec::io_t*>(shm)[threadIdx.x];
+      out.val.internal = reinterpret_cast<typename Vec::io_t*>(shm)[threadIdx.x];
       return out;
     }
   }
 };
 
-template <typename Type, typename IdxType, std::size_t VecBytes, int BlockSize,
-          typename Lambda, typename... Vecs>
+template <typename Type,
+          typename IdxType,
+          std::size_t VecBytes,
+          int BlockSize,
+          typename Lambda,
+          typename... Vecs>
 __global__ void __launch_bounds__(BlockSize)
-  matrixLinewiseVecColsMainKernel(Type* out, const Type* in,
-                                  const IdxType arrOffset, const IdxType rowLen,
+  matrixLinewiseVecColsMainKernel(Type* out,
+                                  const Type* in,
+                                  const IdxType arrOffset,
+                                  const IdxType rowLen,
                                   const IdxType len,
-                                  const IdxType elemsPerThread, Lambda op,
-                                  Vecs... vecs) {
+                                  const IdxType elemsPerThread,
+                                  Lambda op,
+                                  Vecs... vecs)
+{
   typedef Linewise<Type, IdxType, VecBytes, BlockSize> L;
 
   IdxType t = L::AlignWarp::mod(threadIdx.x);
-  t = arrOffset + elemsPerThread * (blockIdx.x * BlockSize + threadIdx.x - t) +
-      t * L::VecElems;
+  t = arrOffset + elemsPerThread * (blockIdx.x * BlockSize + threadIdx.x - t) + t * L::VecElems;
 
-  return L::vectorCols(
-    reinterpret_cast<typename L::Vec::io_t*>(out + t),
-    reinterpret_cast<const typename L::Vec::io_t*>(in + t),
-    reinterpret_cast<const typename L::Vec::io_t*>(
-      in + min(t + elemsPerThread * L::AlignWarp::Value, len)),
-    rowLen, t / rowLen, t % rowLen, op, vecs...);
+  return L::vectorCols(reinterpret_cast<typename L::Vec::io_t*>(out + t),
+                       reinterpret_cast<const typename L::Vec::io_t*>(in + t),
+                       reinterpret_cast<const typename L::Vec::io_t*>(
+                         in + min(t + elemsPerThread * L::AlignWarp::Value, len)),
+                       rowLen,
+                       t / rowLen,
+                       t % rowLen,
+                       op,
+                       vecs...);
 }
 
-template <typename Type, typename IdxType, std::size_t MaxOffset,
-          typename Lambda, typename... Vecs>
+template <typename Type, typename IdxType, std::size_t MaxOffset, typename Lambda, typename... Vecs>
 __global__ void __launch_bounds__(MaxOffset, 2)
-  matrixLinewiseVecColsTailKernel(Type* out, const Type* in,
+  matrixLinewiseVecColsTailKernel(Type* out,
+                                  const Type* in,
                                   const IdxType arrOffset,
-                                  const IdxType arrTail, const IdxType rowLen,
-                                  const IdxType len, Lambda op, Vecs... vecs) {
+                                  const IdxType arrTail,
+                                  const IdxType rowLen,
+                                  const IdxType len,
+                                  Lambda op,
+                                  Vecs... vecs)
+{
   typedef Linewise<Type, IdxType, sizeof(Type), MaxOffset> L;
   IdxType threadOffset, elemsPerWarp;
   if (blockIdx.x == 0) {
@@ -150,58 +171,85 @@ __global__ void __launch_bounds__(MaxOffset, 2)
   return L::vectorCols(
     reinterpret_cast<typename L::Vec::io_t*>(out + threadOffset),
     reinterpret_cast<const typename L::Vec::io_t*>(in + threadOffset),
-    reinterpret_cast<const typename L::Vec::io_t*>(in + threadOffset +
-                                                   elemsPerWarp),
-    rowLen, rowDiv, rowMod, op, vecs...);
+    reinterpret_cast<const typename L::Vec::io_t*>(in + threadOffset + elemsPerWarp),
+    rowLen,
+    rowDiv,
+    rowMod,
+    op,
+    vecs...);
 }
 
-template <typename Type, typename IdxType, std::size_t VecBytes, int BlockSize,
-          typename Lambda, typename... Vecs>
+template <typename Type,
+          typename IdxType,
+          std::size_t VecBytes,
+          int BlockSize,
+          typename Lambda,
+          typename... Vecs>
 __global__ void __launch_bounds__(BlockSize)
-  matrixLinewiseVecRowsMainKernel(Type* out, const Type* in,
-                                  const IdxType arrOffset, const IdxType rowLen,
-                                  const IdxType len, Lambda op, Vecs... vecs) {
+  matrixLinewiseVecRowsMainKernel(Type* out,
+                                  const Type* in,
+                                  const IdxType arrOffset,
+                                  const IdxType rowLen,
+                                  const IdxType len,
+                                  Lambda op,
+                                  Vecs... vecs)
+{
   typedef Linewise<Type, IdxType, VecBytes, BlockSize> L;
-  const IdxType blockOffset =
-    (arrOffset + BlockSize * L::VecElems * blockIdx.x) % rowLen;
+  const IdxType blockOffset = (arrOffset + BlockSize * L::VecElems * blockIdx.x) % rowLen;
   return L::vectorRows(reinterpret_cast<typename L::Vec::io_t*>(out),
                        reinterpret_cast<const typename L::Vec::io_t*>(in),
-                       L::AlignElems::div(len), op,
+                       L::AlignElems::div(len),
+                       op,
                        L::loadVec(vecs, blockOffset, rowLen)...);
 }
 
-template <typename Type, typename IdxType, std::size_t MaxOffset,
-          typename Lambda, typename... Vecs>
+template <typename Type, typename IdxType, std::size_t MaxOffset, typename Lambda, typename... Vecs>
 __global__ void __launch_bounds__(MaxOffset, 2)
-  matrixLinewiseVecRowsTailKernel(Type* out, const Type* in,
+  matrixLinewiseVecRowsTailKernel(Type* out,
+                                  const Type* in,
                                   const IdxType arrOffset,
-                                  const IdxType arrTail, const IdxType rowLen,
-                                  const IdxType len, Lambda op, Vecs... vecs) {
+                                  const IdxType arrTail,
+                                  const IdxType rowLen,
+                                  const IdxType len,
+                                  Lambda op,
+                                  Vecs... vecs)
+{
   typedef Linewise<Type, IdxType, sizeof(Type), MaxOffset> L;
   if (blockIdx.x == 0)
     L::vectorRows(reinterpret_cast<typename L::Vec::io_t*>(out),
-                  reinterpret_cast<const typename L::Vec::io_t*>(in), arrOffset,
-                  op, L::loadVec(vecs, 0, rowLen)...);
+                  reinterpret_cast<const typename L::Vec::io_t*>(in),
+                  arrOffset,
+                  op,
+                  L::loadVec(vecs, 0, rowLen)...);
   else
-    L::vectorRows(
-      reinterpret_cast<typename L::Vec::io_t*>(out + arrTail - MaxOffset),
-      reinterpret_cast<const typename L::Vec::io_t*>(in + arrTail - MaxOffset),
-      len - arrTail + MaxOffset, op,
-      L::loadVec(vecs, arrTail % rowLen, rowLen)...);
+    L::vectorRows(reinterpret_cast<typename L::Vec::io_t*>(out + arrTail - MaxOffset),
+                  reinterpret_cast<const typename L::Vec::io_t*>(in + arrTail - MaxOffset),
+                  len - arrTail + MaxOffset,
+                  op,
+                  L::loadVec(vecs, arrTail % rowLen, rowLen)...);
 }
 
-template <typename Type, typename IdxType, std::size_t VecBytes, int BlockSize,
-          typename Lambda, typename... Vecs>
-void matrixLinewiseVecCols(Type* out, const Type* in, const IdxType rowLen,
-                           const IdxType nRows, Lambda op, cudaStream_t stream,
-                           Vecs... vecs) {
+template <typename Type,
+          typename IdxType,
+          std::size_t VecBytes,
+          int BlockSize,
+          typename Lambda,
+          typename... Vecs>
+void matrixLinewiseVecCols(Type* out,
+                           const Type* in,
+                           const IdxType rowLen,
+                           const IdxType nRows,
+                           Lambda op,
+                           cudaStream_t stream,
+                           Vecs... vecs)
+{
   typedef raft::Pow2<VecBytes> AlignBytes;
   constexpr std::size_t VecElems = VecBytes / sizeof(Type);
-  const IdxType totalLen = rowLen * nRows;
-  const Type* alignedStart = AlignBytes::roundUp(in);
-  const IdxType alignedOff = IdxType(alignedStart - in);
-  const IdxType alignedEnd = IdxType(AlignBytes::roundDown(in + totalLen) - in);
-  const IdxType alignedLen = alignedEnd - alignedOff;
+  const IdxType totalLen         = rowLen * nRows;
+  const Type* alignedStart       = AlignBytes::roundUp(in);
+  const IdxType alignedOff       = IdxType(alignedStart - in);
+  const IdxType alignedEnd       = IdxType(AlignBytes::roundDown(in + totalLen) - in);
+  const IdxType alignedLen       = alignedEnd - alignedOff;
   constexpr dim3 bs(BlockSize, 1, 1);
   // Minimum size of the grid to make the device well occupied
   const uint occupy = raft::getMultiProcessorCount() * (16384 / BlockSize);
@@ -211,9 +259,8 @@ void matrixLinewiseVecCols(Type* out, const Type* in, const IdxType rowLen,
 
   const IdxType elemsPerThread =
     raft::ceildiv<IdxType>(alignedLen, gs.x * VecElems * BlockSize) * VecElems;
-  matrixLinewiseVecColsMainKernel<Type, IdxType, VecBytes, BlockSize, Lambda,
-                                  Vecs...><<<gs, bs, 0, stream>>>(
-    out, in, alignedOff, rowLen, alignedLen, elemsPerThread, op, vecs...);
+  matrixLinewiseVecColsMainKernel<Type, IdxType, VecBytes, BlockSize, Lambda, Vecs...>
+    <<<gs, bs, 0, stream>>>(out, in, alignedOff, rowLen, alignedLen, elemsPerThread, op, vecs...);
   CUDA_CHECK(cudaPeekAtLastError());
   if (alignedLen < totalLen) {
     // should be not smaller than the warp size for better branching
@@ -225,20 +272,28 @@ void matrixLinewiseVecCols(Type* out, const Type* in, const IdxType rowLen,
   }
 }
 
-template <typename Type, typename IdxType, std::size_t VecBytes, int BlockSize,
-          typename Lambda, typename... Vecs>
-void matrixLinewiseVecRows(Type* out, const Type* in, const IdxType rowLen,
-                           const IdxType nRows, Lambda op, cudaStream_t stream,
-                           Vecs... vecs) {
+template <typename Type,
+          typename IdxType,
+          std::size_t VecBytes,
+          int BlockSize,
+          typename Lambda,
+          typename... Vecs>
+void matrixLinewiseVecRows(Type* out,
+                           const Type* in,
+                           const IdxType rowLen,
+                           const IdxType nRows,
+                           Lambda op,
+                           cudaStream_t stream,
+                           Vecs... vecs)
+{
   typedef raft::Pow2<VecBytes> AlignBytes;
   constexpr std::size_t VecElems = VecBytes / sizeof(Type);
-  const IdxType totalLen = rowLen * nRows;
+  const IdxType totalLen         = rowLen * nRows;
   // blockSize
   constexpr dim3 bs(BlockSize, 1, 1);
   // if we have `stride` number of blocks, then each block processes always the same
   // indices along dimension rowLen; this means a block needs to index `vecs` only once!
-  const uint stride =
-    (rowLen / raft::gcd(bs.x * uint(VecElems), uint(rowLen))) * VecElems;
+  const uint stride = (rowLen / raft::gcd(bs.x * uint(VecElems), uint(rowLen))) * VecElems;
   // Minimum size of the grid to make the device well occupied
   const uint occupy = raft::getMultiProcessorCount() * (16384 / BlockSize);
   const dim3 gs(min(
@@ -246,16 +301,16 @@ void matrixLinewiseVecRows(Type* out, const Type* in, const IdxType rowLen,
                   raft::ceildiv<uint>(uint(totalLen), bs.x * VecElems),
                   // increase the stride size if necessary
                   raft::ceildiv<uint>(occupy, stride) * stride),
-                1, 1);
+                1,
+                1);
 
   const Type* alignedStart = AlignBytes::roundUp(in);
   const IdxType alignedOff = IdxType(alignedStart - in);
   const IdxType alignedEnd = IdxType(AlignBytes::roundDown(in + totalLen) - in);
   const IdxType alignedLen = alignedEnd - alignedOff;
-  matrixLinewiseVecRowsMainKernel<Type, IdxType, VecBytes, BlockSize, Lambda,
-                                  Vecs...>
-    <<<gs, bs, 0, stream>>>(out + alignedOff, alignedStart, alignedOff, rowLen,
-                            alignedLen, op, vecs...);
+  matrixLinewiseVecRowsMainKernel<Type, IdxType, VecBytes, BlockSize, Lambda, Vecs...>
+    <<<gs, bs, 0, stream>>>(
+      out + alignedOff, alignedStart, alignedOff, rowLen, alignedLen, op, vecs...);
   CUDA_CHECK(cudaPeekAtLastError());
   if (alignedLen < totalLen) {
     // should be not smaller than the warp size for better branching
@@ -279,24 +334,26 @@ void matrixLinewiseVecRows(Type* out, const Type* in, const IdxType rowLen,
 template <std::size_t VecBytes = 16, int BlockSize = 256>
 struct MatrixLinewiseOp {
   template <typename Type, typename IdxType, typename Lambda, typename... Vecs>
-  static void run(Type* out, const Type* in, const IdxType lineLen,
-                  const IdxType nLines, const bool alongLines, Lambda op,
-                  cudaStream_t stream, Vecs... vecs) {
+  static void run(Type* out,
+                  const Type* in,
+                  const IdxType lineLen,
+                  const IdxType nLines,
+                  const bool alongLines,
+                  Lambda op,
+                  cudaStream_t stream,
+                  Vecs... vecs)
+  {
     if constexpr (VecBytes > sizeof(Type)) {
       if (!raft::Pow2<VecBytes>::areSameAlignOffsets(in, out))
-        return MatrixLinewiseOp<std::max((VecBytes >> 1), sizeof(Type)),
-                                BlockSize>::run(out, in, lineLen, nLines,
-                                                alongLines, op, stream,
-                                                vecs...);
+        return MatrixLinewiseOp<std::max((VecBytes >> 1), sizeof(Type)), BlockSize>::run(
+          out, in, lineLen, nLines, alongLines, op, stream, vecs...);
     }
     if (alongLines)
-      return matrixLinewiseVecRows<Type, IdxType, VecBytes, BlockSize, Lambda,
-                                   Vecs...>(out, in, lineLen, nLines, op,
-                                            stream, vecs...);
+      return matrixLinewiseVecRows<Type, IdxType, VecBytes, BlockSize, Lambda, Vecs...>(
+        out, in, lineLen, nLines, op, stream, vecs...);
     else
-      return matrixLinewiseVecCols<Type, IdxType, VecBytes, BlockSize, Lambda,
-                                   Vecs...>(out, in, lineLen, nLines, op,
-                                            stream, vecs...);
+      return matrixLinewiseVecCols<Type, IdxType, VecBytes, BlockSize, Lambda, Vecs...>(
+        out, in, lineLen, nLines, op, stream, vecs...);
   }
 };
 
@@ -313,7 +370,8 @@ struct MatrixLinewiseOp {
  * @param [out] out result of the operation; can be same as `in`; should be aligned the same
  *        as `in` to allow faster vectorized memory transfers.
  * @param [in] in input matrix consisting of `nLines` lines, each `lineLen`-long.
- * @param [in] lineLen length of matrix line in elements (`=nCols` in row-major or `=nRows` in col-major)
+ * @param [in] lineLen length of matrix line in elements (`=nCols` in row-major or `=nRows` in
+ * col-major)
  * @param [in] nLines number of matrix lines (`=nRows` in row-major or `=nCols` in col-major)
  * @param [in] alongLines whether vectors are indices along or across lines.
  * @param [in] op the operation applied on each line:
@@ -326,9 +384,15 @@ struct MatrixLinewiseOp {
  *    size of each vector is `alongLines ? lineLen : nLines`.
  */
 template <typename Type, typename IdxType, typename Lambda, typename... Vecs>
-void matrixLinewiseOp(Type* out, const Type* in, const IdxType lineLen,
-                      const IdxType nLines, const bool alongLines, Lambda op,
-                      cudaStream_t stream, Vecs... vecs) {
+void matrixLinewiseOp(Type* out,
+                      const Type* in,
+                      const IdxType lineLen,
+                      const IdxType nLines,
+                      const bool alongLines,
+                      Lambda op,
+                      cudaStream_t stream,
+                      Vecs... vecs)
+{
   linewise_impl::MatrixLinewiseOp<16, 256>::run<Type, IdxType, Lambda, Vecs...>(
     out, in, lineLen, nLines, alongLines, op, stream, vecs...);
 }
