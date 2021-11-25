@@ -180,36 +180,6 @@ struct LinewiseTest
 
     return testing::AssertionSuccess();
   }
-
-  testing::AssertionResult runTemp() {
-    rmm::device_uvector<T> blob = genData();
-    I n = 257;
-    I m = 420227;
-    auto [out, in, vec1, vec2] = assignSafePtrs(blob, n, m);
-
-    stream.synchronize();
-    cudaProfilerStart();
-    PUSH_RANGE(stream, params.useVanillaMatrixVectorOp ? "method: original"
-                                                       : "method: linewise");
-    for (auto alongRows : ::testing::Bool()) {
-      PUSH_RANGE(stream, alongRows ? "alongRows" : "acrossRows");
-      I lineLen = alongRows ? m : n;
-      I nLines = alongRows ? n : m;
-      {
-        PUSH_RANGE(stream, "one vec");
-        runLinewiseSum(out, in, lineLen, nLines, alongRows, vec1);
-        POP_RANGE(stream);
-        PUSH_RANGE(stream, "two vecs");
-        runLinewiseSum(out, in, lineLen, nLines, alongRows, vec1, vec2);
-        POP_RANGE(stream);
-      }
-      POP_RANGE(stream);
-    }
-    POP_RANGE(stream);
-    cudaProfilerStop();
-
-    return testing::AssertionSuccess();
-  }
 };
 
 #define TEST_IT(fun, TestClass, ElemType, IndexType)                         \
@@ -257,12 +227,10 @@ struct TenGigs {
 
 TEST_IT(run, Megabyte, float, int);
 TEST_IT(run, Megabyte, double, int);
-// TEST_IT(run, Gigabyte, float, int);
-// TEST_IT(run, Gigabyte, double, int);
+TEST_IT(run, Gigabyte, float, int);
+TEST_IT(run, Gigabyte, double, int);
 TEST_IT(run, TenGigs, float, uint64_t);
 TEST_IT(run, TenGigs, double, uint64_t);
-
-TEST_IT(runTemp, Gigabyte, float, int);
 
 }  // end namespace linalg
 }  // end namespace raft
