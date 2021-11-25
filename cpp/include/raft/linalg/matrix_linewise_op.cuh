@@ -190,7 +190,7 @@ __global__ void __launch_bounds__(MaxOffset, 2)
       L::loadVec(vecs, arrTail % rowLen, rowLen)...);
 }
 
-template <typename Type, typename IdxType, std::size_t VecBytes,
+template <typename Type, typename IdxType, std::size_t VecBytes, int BlockSize,
           typename Lambda, typename... Vecs>
 void matrixLinewiseVecCols(Type* out, const Type* in, const IdxType rowLen,
                            const IdxType nRows, Lambda op, cudaStream_t stream,
@@ -202,11 +202,9 @@ void matrixLinewiseVecCols(Type* out, const Type* in, const IdxType rowLen,
   const IdxType alignedOff = IdxType(alignedStart - in);
   const IdxType alignedEnd = IdxType(AlignBytes::roundDown(in + totalLen) - in);
   const IdxType alignedLen = alignedEnd - alignedOff;
-  // blockSize
-  constexpr int BlockSize = 256;
   constexpr dim3 bs(BlockSize, 1, 1);
-  // Minimum size of the grid to make device well occupied
-  const uint occupy = raft::getMultiProcessorCount() * 64;
+  // Minimum size of the grid to make the device well occupied
+  const uint occupy = raft::getMultiProcessorCount() * (16384 / BlockSize);
   // does not make sense to have more blocks than this
   const uint maxBlocks = raft::ceildiv<uint>(uint(alignedLen), bs.x * VecElems);
   const dim3 gs(min(maxBlocks, occupy), 1, 1);
@@ -227,7 +225,7 @@ void matrixLinewiseVecCols(Type* out, const Type* in, const IdxType rowLen,
   }
 }
 
-template <typename Type, typename IdxType, std::size_t VecBytes,
+template <typename Type, typename IdxType, std::size_t VecBytes, int BlockSize,
           typename Lambda, typename... Vecs>
 void matrixLinewiseVecRows(Type* out, const Type* in, const IdxType rowLen,
                            const IdxType nRows, Lambda op, cudaStream_t stream,
@@ -236,14 +234,13 @@ void matrixLinewiseVecRows(Type* out, const Type* in, const IdxType rowLen,
   constexpr std::size_t VecElems = VecBytes / sizeof(Type);
   const IdxType totalLen = rowLen * nRows;
   // blockSize
-  constexpr int BlockSize = 256;
   constexpr dim3 bs(BlockSize, 1, 1);
   // if we have `stride` number of blocks, then each block processes always the same
   // indices along dimension rowLen; this means a block needs to index `vecs` only once!
   const uint stride =
     (rowLen / raft::gcd(bs.x * uint(VecElems), uint(rowLen))) * VecElems;
-  // Minimum size of the grid to make device well occupied
-  const uint occupy = raft::getMultiProcessorCount() * 64;
+  // Minimum size of the grid to make the device well occupied
+  const uint occupy = raft::getMultiProcessorCount() * (16384 / BlockSize);
   const dim3 gs(min(
                   // does not make sense to have more blocks than this
                   raft::ceildiv<uint>(uint(totalLen), bs.x * VecElems),
@@ -270,7 +267,16 @@ void matrixLinewiseVecRows(Type* out, const Type* in, const IdxType rowLen,
   }
 }
 
-template <std::size_t VecBytes = 16>
+/**
+ * Select one of the implementations:
+ *   a. vectors applied along/across lines
+ *   b. recursively try different VecBytes, such that alignments of `in` and `out`
+ *      are the same.
+ *
+ * @tparam VecBytes - size of the load/store ops in bytes.
+ * @tparam BlockSize - is fixed and should not affect the performance.
+ */
+template <std::size_t VecBytes = 16, int BlockSize = 256>
 struct MatrixLinewiseOp {
   template <typename Type, typename IdxType, typename Lambda, typename... Vecs>
   static void run(Type* out, const Type* in, const IdxType lineLen,
@@ -278,15 +284,19 @@ struct MatrixLinewiseOp {
                   cudaStream_t stream, Vecs... vecs) {
     if constexpr (VecBytes > sizeof(Type)) {
       if (!raft::Pow2<VecBytes>::areSameAlignOffsets(in, out))
-        return MatrixLinewiseOp<std::max((VecBytes >> 1), sizeof(Type))>::run(
-          out, in, lineLen, nLines, alongLines, op, stream, vecs...);
+        return MatrixLinewiseOp<std::max((VecBytes >> 1), sizeof(Type)),
+                                BlockSize>::run(out, in, lineLen, nLines,
+                                                alongLines, op, stream,
+                                                vecs...);
     }
     if (alongLines)
-      return matrixLinewiseVecRows<Type, IdxType, VecBytes, Lambda, Vecs...>(
-        out, in, lineLen, nLines, op, stream, vecs...);
+      return matrixLinewiseVecRows<Type, IdxType, VecBytes, BlockSize, Lambda,
+                                   Vecs...>(out, in, lineLen, nLines, op,
+                                            stream, vecs...);
     else
-      return matrixLinewiseVecCols<Type, IdxType, VecBytes, Lambda, Vecs...>(
-        out, in, lineLen, nLines, op, stream, vecs...);
+      return matrixLinewiseVecCols<Type, IdxType, VecBytes, BlockSize, Lambda,
+                                   Vecs...>(out, in, lineLen, nLines, op,
+                                            stream, vecs...);
   }
 };
 
@@ -297,29 +307,29 @@ struct MatrixLinewiseOp {
  * row-vectors or column-vectors.
  * The term `line` here signifies that the lines can be either columns or rows,
  * depending on the matrix layout.
- * What matters is if vectors are applied along lines (indices of vectors correspond
- * indices within lines), or across lines (indices of vectors correspond to line indices).
+ * What matters is if the vectors are applied along lines (indices of vectors correspond to
+ * indices within lines), or across lines (indices of vectors correspond to line numbers).
  *
- * @param out result of the operation; can be same as `in`; should be aligned the same as `in`
- *        to allow faster vectorized memory transfers.
- * @param in input matrix consisting of `nLines` lines, each `lineLen`-long.
- * @param lineLen length of matrix line in elements (`=nCols` in row-major or `=nRows` in col-major)
- * @param nLines number of matrix lines (`=nRows` in row-major or `=nCols` in col-major)
- * @param alongLines whether vectors are indices along or across lines.
- * @param op the operation applied on each line:
+ * @param [out] out result of the operation; can be same as `in`; should be aligned the same
+ *        as `in` to allow faster vectorized memory transfers.
+ * @param [in] in input matrix consisting of `nLines` lines, each `lineLen`-long.
+ * @param [in] lineLen length of matrix line in elements (`=nCols` in row-major or `=nRows` in col-major)
+ * @param [in] nLines number of matrix lines (`=nRows` in row-major or `=nCols` in col-major)
+ * @param [in] alongLines whether vectors are indices along or across lines.
+ * @param [in] op the operation applied on each line:
  *    for i in [0..lineLen) and j in [0..nLines):
  *      out[i, j] = op(in[i, j], vec1[i], vec2[i], ... veck[i])   if alongLines = true
  *      out[i, j] = op(in[i, j], vec1[j], vec2[j], ... veck[j])   if alongLines = false
  *    where matrix indexing is row-major ([i, j] = [i + lineLen * j]).
- * @param stream a cuda stream for the kernels
- * @param vecs zero or more vectors to be passed as arguments,
+ * @param [in] stream a cuda stream for the kernels
+ * @param [in] vecs zero or more vectors to be passed as arguments,
  *    size of each vector is `alongLines ? lineLen : nLines`.
  */
 template <typename Type, typename IdxType, typename Lambda, typename... Vecs>
 void matrixLinewiseOp(Type* out, const Type* in, const IdxType lineLen,
                       const IdxType nLines, const bool alongLines, Lambda op,
                       cudaStream_t stream, Vecs... vecs) {
-  linewise_impl::MatrixLinewiseOp<16>::run<Type, IdxType, Lambda, Vecs...>(
+  linewise_impl::MatrixLinewiseOp<16, 256>::run<Type, IdxType, Lambda, Vecs...>(
     out, in, lineLen, nLines, alongLines, op, stream, vecs...);
 }
 

@@ -23,6 +23,7 @@
 #include <raft/random/rng.hpp>
 #include <rmm/device_uvector.hpp>
 #include "../test_utils.h"
+#include "matrix_vector_op.cuh"
 
 namespace raft {
 namespace linalg {
@@ -54,6 +55,9 @@ struct LinewiseTestParams {
   std::size_t workSizeBytes;
   uint64_t seed;
   bool useVanillaMatrixVectorOp;
+  bool checkCorrectness;
+  int inAlignOffset;
+  int outAlignOffset;
 };
 
 template <typename T, typename I, typename ParamsReader>
@@ -124,7 +128,7 @@ struct LinewiseTest
       I m = I(floor(y));
       if (n > 0 && m > 0) out.push_back(std::make_tuple(n, m));
     };
-    std::vector<double> sizes = {15, 16, 17, 256, 257, 263};
+    std::vector<double> sizes = {15, 16, 17, 256, 257, 263, 1024};
     addIfMakesSense(squareN, squareN);
     for (I k : sizes) {
       addIfMakesSense(solveForN(k), k);
@@ -137,9 +141,10 @@ struct LinewiseTest
   std::tuple<T*, const T*, const T*, const T*> assignSafePtrs(
     rmm::device_uvector<T>& blob, I n, I m) {
     typedef raft::Pow2<PTR_PADDING> Align;
-    T* out = Align::roundUp(blob.data());
+    T* out = Align::roundUp(blob.data()) + params.outAlignOffset;
     const T* in =
-      const_cast<const T*>(Align::roundUp(out + n * m + PTR_PADDING));
+      const_cast<const T*>(Align::roundUp(out + n * m + PTR_PADDING)) +
+      params.inAlignOffset;
     const T* vec1 = Align::roundUp(in + n * m + PTR_PADDING);
     const T* vec2 = Align::roundUp(vec1 + m + PTR_PADDING);
     ASSERT(blob.data() + blob.size() >= vec2 + PTR_PADDING,
@@ -149,6 +154,8 @@ struct LinewiseTest
 
   testing::AssertionResult run() {
     rmm::device_uvector<T> blob = genData();
+    rmm::device_uvector<T> blob_val(
+      params.checkCorrectness ? blob.size() / 2 : 0, stream);
 
     auto dims = suggestDimensions(2);
 
@@ -167,9 +174,25 @@ struct LinewiseTest
           PUSH_RANGE(stream, "one vec");
           runLinewiseSum(out, in, lineLen, nLines, alongRows, vec1);
           POP_RANGE(stream);
+          if (params.checkCorrectness) {
+            naiveMatVec(blob_val.data(), in, vec1, lineLen, nLines, true,
+                        alongRows, T(1));
+            EXPECT_NO_FATAL_FAILURE(
+              devArrMatch(blob_val.data(), out, n * m,
+                          CompareApprox<float>(params.tolerance)))
+              << "with one vec";
+          }
           PUSH_RANGE(stream, "two vecs");
           runLinewiseSum(out, in, lineLen, nLines, alongRows, vec1, vec2);
           POP_RANGE(stream);
+          if (params.checkCorrectness) {
+            naiveMatVec(blob_val.data(), in, vec1, vec2, lineLen, nLines, true,
+                        alongRows, T(1));
+            EXPECT_NO_FATAL_FAILURE(
+              devArrMatch(blob_val.data(), out, n * m,
+                          CompareApprox<float>(params.tolerance)))
+              << "with two vecs";
+          }
         }
         POP_RANGE(stream);
       }
@@ -189,39 +212,51 @@ struct LinewiseTest
   INSTANTIATE_TEST_SUITE_P(LinewiseOp, TestClass##_##ElemType##_##IndexType, \
                            TestClass##Params)
 
-auto MegabyteParams = ::testing::Bool();
+auto MegabyteParams =
+  ::testing::Combine(::testing::Bool(), ::testing::Values(0, 1, 2, 4),
+                     ::testing::Values(0, 1, 2, 3));
 
 struct Megabyte {
-  typedef bool Params;
+  typedef std::tuple<bool, int, int> Params;
   static LinewiseTestParams read(Params ps) {
     return {/** .tolerance */ 0.00001,
             /** .workSizeBytes */ 1024 * 1024,
             /** .seed */ 42ULL,
-            /** .useVanillaMatrixVectorOp */ ps};
+            /** .useVanillaMatrixVectorOp */ std::get<0>(ps),
+            /** .checkCorrectness */ true,
+            /** .inAlignOffset */ std::get<1>(ps),
+            /** .outAlignOffset */ std::get<2>(ps)};
   }
 };
 
-auto GigabyteParams = ::testing::Bool();
+auto GigabyteParams = ::testing::Combine(
+  ::testing::Bool(), ::testing::Values(0, 1, 2), ::testing::Values(0, 1, 2));
 
 struct Gigabyte {
-  typedef bool Params;
+  typedef std::tuple<bool, int, int> Params;
   static LinewiseTestParams read(Params ps) {
     return {/** .tolerance */ 0.00001,
             /** .workSizeBytes */ 1024 * 1024 * 1024,
             /** .seed */ 42ULL,
-            /** .useVanillaMatrixVectorOp */ ps};
+            /** .useVanillaMatrixVectorOp */ std::get<0>(ps),
+            /** .checkCorrectness */ false,
+            /** .inAlignOffset */ std::get<1>(ps),
+            /** .outAlignOffset */ std::get<2>(ps)};
   }
 };
 
-auto TenGigsParams = ::testing::Bool();
+auto TenGigsParams = GigabyteParams;
 
 struct TenGigs {
-  typedef bool Params;
+  typedef std::tuple<bool, int, int> Params;
   static LinewiseTestParams read(Params ps) {
     return {/** .tolerance */ 0.00001,
             /** .workSizeBytes */ 10ULL * 1024ULL * 1024ULL * 1024ULL,
             /** .seed */ 42ULL,
-            /** .useVanillaMatrixVectorOp */ ps};
+            /** .useVanillaMatrixVectorOp */ std::get<0>(ps),
+            /** .checkCorrectness */ false,
+            /** .inAlignOffset */ std::get<1>(ps),
+            /** .outAlignOffset */ std::get<2>(ps)};
   }
 };
 
