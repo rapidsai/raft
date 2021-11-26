@@ -141,3 +141,8 @@ PRIVATE
   $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
   $<TARGET_NAME_IF_EXISTS:conda_env>
 )
+
+target_compile_definitions(test_raft
+PRIVATE
+  $<$<BOOL:${NVTX}>:NVTX_ENABLED>
+)

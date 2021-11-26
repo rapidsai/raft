@@ -16,7 +16,6 @@
 
 #include <cuda_profiler_api.h>
 #include <gtest/gtest.h>
-#include <nvToolsExt.h>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/matrix_linewise_op.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
@@ -24,6 +23,10 @@
 #include <rmm/device_uvector.hpp>
 #include "../test_utils.h"
 #include "matrix_vector_op.cuh"
+
+#ifdef NVTX_ENABLED
+#include <nvToolsExt.h>
+#endif
 
 namespace raft {
 namespace linalg {
@@ -38,19 +41,25 @@ void PUSH_RANGE(rmm::cuda_stream_view stream, const char* name, Args... args)
   auto buf = std::make_unique<char[]>(length + 1);
   std::snprintf(buf.get(), length + 1, name, args...);
   stream.synchronize();
+#ifdef NVTX_ENABLED
   nvtxRangePushA(buf.get());
+#endif
 }
 template <>
 void PUSH_RANGE(rmm::cuda_stream_view stream, const char* name)
 {
   stream.synchronize();
+#ifdef NVTX_ENABLED
   nvtxRangePushA(name);
+#endif
 }
 
 void POP_RANGE(rmm::cuda_stream_view stream)
 {
   stream.synchronize();
+#ifdef NVTX_ENABLED
   nvtxRangePop();
+#endif
 }
 
 struct LinewiseTestParams {
