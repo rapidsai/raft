@@ -154,6 +154,12 @@ install(FILES include/raft.hpp
 	DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/raft
 	)
 
+include("${rapids-cmake-dir}/export/write_dependencies.cmake")
+rapids_export_write_dependencies(
+  INSTALL raft-faiss-exports
+  "${PROJECT_BINARY_DIR}/rapids-cmake/raft/export/raft-faiss-dependencies.cmake"
+)
+
 ##############################################################################
 # - install export -----------------------------------------------------------
 set(doc_string
@@ -165,7 +171,7 @@ and common functions for the analytics components of RAPIDS.
 
 ]=])
 
-set(raft_code_string
+set(common_code_string
 [=[
 if(TARGET faiss AND (NOT TARGET faiss::faiss))
     add_library(faiss::faiss ALIAS faiss)
@@ -175,16 +181,38 @@ endif()
 ]=]
 )
 
- rapids_export(INSTALL raft
+set(install_code_string
+[=[
+if(faiss IN_LIST raft_FIND_COMPONENTS)
+  if(EXISTS "${CMAKE_CURRENT_LIST_DIR}/raft-faiss-dependencies.cmake")
+    include("${CMAKE_CURRENT_LIST_DIR}/raft-faiss-dependencies.cmake")
+  endif()
+endif()
+]=]
+)
+
+string(APPEND install_code_string ${common_code_string})
+
+rapids_export(INSTALL raft
     EXPORT_SET raft-exports
     GLOBAL_TARGETS raft # since we can't hook into EXPORT SETS
     NAMESPACE raft::
     DOCUMENTATION doc_string
-    FINAL_CODE_BLOCK raft_code_string
+    FINAL_CODE_BLOCK install_code_string
     )
 
 ##############################################################################
 # - build export -------------------------------------------------------------
+
+set(build_code_string
+[=[
+if(EXISTS "${CMAKE_CURRENT_LIST_DIR}/raft-faiss-dependencies.cmake")
+  include("${CMAKE_CURRENT_LIST_DIR}/raft-faiss-dependencies.cmake")
+endif()
+]=]
+)
+
+string(APPEND build_code_string ${common_code_string})
 
 rapids_export(BUILD raft
     EXPORT_SET raft-exports
@@ -192,8 +220,12 @@ rapids_export(BUILD raft
     LANGUAGES CUDA
     DOCUMENTATION doc_string
     NAMESPACE raft::
-    FINAL_CODE_BLOCK raft_code_string
+    FINAL_CODE_BLOCK build_code_string
     )
+
+rapids_export_write_dependencies(
+  BUILD raft-faiss-exports "${PROJECT_BINARY_DIR}/raft-faiss-dependencies.cmake"
+)
 
 ##############################################################################
 # - build test executable ----------------------------------------------------
