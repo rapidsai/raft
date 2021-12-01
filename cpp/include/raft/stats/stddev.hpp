@@ -42,8 +42,15 @@ namespace stats {
  * @param stream cuda stream where to launch work
  */
 template <typename Type, typename IdxType = int>
-void stddev(Type *std, const Type *data, const Type *mu, IdxType D, IdxType N,
-            bool sample, bool rowMajor, cudaStream_t stream) {
+void stddev(Type* std,
+            const Type* data,
+            const Type* mu,
+            IdxType D,
+            IdxType N,
+            bool sample,
+            bool rowMajor,
+            cudaStream_t stream)
+{
   detail::stddev(std, data, mu, D, N, sample, rowMajor, stream);
 }
 
@@ -66,8 +73,15 @@ void stddev(Type *std, const Type *data, const Type *mu, IdxType D, IdxType N,
  * @param stream cuda stream where to launch work
  */
 template <typename Type, typename IdxType = int>
-void vars(Type *var, const Type *data, const Type *mu, IdxType D, IdxType N,
-          bool sample, bool rowMajor, cudaStream_t stream) {
+void vars(Type* var,
+          const Type* data,
+          const Type* mu,
+          IdxType D,
+          IdxType N,
+          bool sample,
+          bool rowMajor,
+          cudaStream_t stream)
+{
   detail::vars(var, data, mu, D, N, sample, rowMajor, stream);
 }
 

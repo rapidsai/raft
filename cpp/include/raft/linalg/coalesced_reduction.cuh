@@ -26,18 +26,27 @@ namespace linalg {
 // of the matrix, i.e. reduce along rows for row major or reduce along columns
 // for column major layout. Kernel does an inplace reduction adding to original
 // values of dots.
-template <typename InType, typename OutType, typename IdxType, int TPB,
-          typename MainLambda, typename ReduceLambda, typename FinalLambda>
-__global__ void coalescedReductionKernel(OutType *dots, const InType *data,
-                                         int D, int N, OutType init,
+template <typename InType,
+          typename OutType,
+          typename IdxType,
+          int TPB,
+          typename MainLambda,
+          typename ReduceLambda,
+          typename FinalLambda>
+__global__ void coalescedReductionKernel(OutType* dots,
+                                         const InType* data,
+                                         int D,
+                                         int N,
+                                         OutType init,
                                          MainLambda main_op,
                                          ReduceLambda reduce_op,
                                          FinalLambda final_op,
-                                         bool inplace = false) {
+                                         bool inplace = false)
+{
   typedef cub::BlockReduce<OutType, TPB> BlockReduce;
   __shared__ typename BlockReduce::TempStorage temp_storage;
   OutType thread_data = init;
-  IdxType rowStart = blockIdx.x * D;
+  IdxType rowStart    = blockIdx.x * D;
   for (IdxType i = threadIdx.x; i < D; i += TPB) {
     IdxType idx = rowStart + i;
     thread_data = reduce_op(thread_data, main_op(data[idx], i));
@@ -79,33 +88,37 @@ __global__ void coalescedReductionKernel(OutType *dots, const InType *data,
  * @param inplace reduction result added inplace or overwrites old values?
  * @param stream cuda stream where to launch work
  */
-template <typename InType, typename OutType = InType, typename IdxType = int,
-          typename MainLambda = raft::Nop<InType, IdxType>,
+template <typename InType,
+          typename OutType      = InType,
+          typename IdxType      = int,
+          typename MainLambda   = raft::Nop<InType, IdxType>,
           typename ReduceLambda = raft::Sum<OutType>,
-          typename FinalLambda = raft::Nop<OutType>>
-void coalescedReduction(OutType *dots, const InType *data, int D, int N,
-                        OutType init, cudaStream_t stream, bool inplace = false,
-                        MainLambda main_op = raft::Nop<InType, IdxType>(),
+          typename FinalLambda  = raft::Nop<OutType>>
+void coalescedReduction(OutType* dots,
+                        const InType* data,
+                        int D,
+                        int N,
+                        OutType init,
+                        cudaStream_t stream,
+                        bool inplace           = false,
+                        MainLambda main_op     = raft::Nop<InType, IdxType>(),
                         ReduceLambda reduce_op = raft::Sum<OutType>(),
-                        FinalLambda final_op = raft::Nop<OutType>()) {
+                        FinalLambda final_op   = raft::Nop<OutType>())
+{
   // One block per reduction
   // Efficient only for large leading dimensions
   if (D <= 32) {
     coalescedReductionKernel<InType, OutType, IdxType, 32>
-      <<<N, 32, 0, stream>>>(dots, data, D, N, init, main_op, reduce_op,
-                             final_op, inplace);
+      <<<N, 32, 0, stream>>>(dots, data, D, N, init, main_op, reduce_op, final_op, inplace);
   } else if (D <= 64) {
     coalescedReductionKernel<InType, OutType, IdxType, 64>
-      <<<N, 64, 0, stream>>>(dots, data, D, N, init, main_op, reduce_op,
-                             final_op, inplace);
+      <<<N, 64, 0, stream>>>(dots, data, D, N, init, main_op, reduce_op, final_op, inplace);
   } else if (D <= 128) {
     coalescedReductionKernel<InType, OutType, IdxType, 128>
-      <<<N, 128, 0, stream>>>(dots, data, D, N, init, main_op, reduce_op,
-                              final_op, inplace);
+      <<<N, 128, 0, stream>>>(dots, data, D, N, init, main_op, reduce_op, final_op, inplace);
   } else {
     coalescedReductionKernel<InType, OutType, IdxType, 256>
-      <<<N, 256, 0, stream>>>(dots, data, D, N, init, main_op, reduce_op,
-                              final_op, inplace);
+      <<<N, 256, 0, stream>>>(dots, data, D, N, init, main_op, reduce_op, final_op, inplace);
   }
   CUDA_CHECK(cudaPeekAtLastError());
 }

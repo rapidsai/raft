@@ -47,6 +47,7 @@ conda activate rapids
 gpuci_logger "Installing packages needed for RAFT"
 gpuci_mamba_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
       "cudatoolkit=${CUDA_REL}" \
+      "libcusolver>=11.2.1" \
       "cudf=${MINOR_VERSION}" \
       "rmm=${MINOR_VERSION}" \
       "dask-cudf=${MINOR_VERSION}" \
@@ -59,8 +60,8 @@ gpuci_mamba_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvid
 # Install the master version of dask, distributed, and dask-ml
 gpuci_logger "Install the master version of dask and distributed"
 set -x
-pip install "git+https://github.com/dask/distributed.git@main" --upgrade --no-deps
-pip install "git+https://github.com/dask/dask.git@main" --upgrade --no-deps
+pip install "git+https://github.com/dask/distributed.git@2021.11.2" --upgrade --no-deps
+pip install "git+https://github.com/dask/dask.git@2021.11.2" --upgrade --no-deps
 set +x
 
 
