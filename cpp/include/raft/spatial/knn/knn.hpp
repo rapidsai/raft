@@ -135,8 +135,8 @@ inline void brute_force_knn(raft::handle_t const& handle,
                             bool rowMajorIndex                 = true,
                             bool rowMajorQuery                 = true,
                             std::vector<int64_t>* translations = nullptr,
-                            distance::DistanceType metric      = distance::DistanceType::L2Unexpanded,
-                            float metric_arg                   = 2.0f)
+                            distance::DistanceType metric = distance::DistanceType::L2Unexpanded,
+                            float metric_arg              = 2.0f)
 {
   ASSERT(input.size() == sizes.size(), "input and sizes vectors must be the same size");
 
