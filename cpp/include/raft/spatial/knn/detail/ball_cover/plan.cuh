@@ -462,6 +462,7 @@ __global__ void compute_dists(
   // d >= 32 && d < block_size -> full warp
   // d >= block_size, use block
 
+        int query_idx = query_id * n_cols;
         for (int i = 0; i < working_batch_size; ++i) {
 
             value_idx point_index;
@@ -472,9 +473,10 @@ __global__ void compute_dists(
             point_index = __shfl_sync(0xffffff, point_index, 0);
 
             value_t dist = 0.0;
-            #pragma unroll
+//            #pragma unroll
+            int point_idx = point_index * n_cols;
             for (int j = threadIdx.x; j < n_cols; j += blockDim.x) {
-                value_t d = query[query_id * n_cols + j] - X[point_index * n_cols + j];
+                value_t d = query[query_idx + j] - X[point_idx + j];
                 dist += d * d;
             }
 //
