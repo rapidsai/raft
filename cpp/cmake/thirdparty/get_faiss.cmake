@@ -35,6 +35,7 @@ function(find_and_configure_faiss)
         CPM_ARGS
           GIT_REPOSITORY  https://github.com/facebookresearch/faiss.git
           GIT_TAG         ${PKG_PINNED_TAG}
+          EXCLUDE_FROM_ALL
           OPTIONS
             "FAISS_ENABLE_PYTHON OFF"
             "CUDAToolkit_ROOT ${CUDAToolkit_LIBRARY_DIR}"
