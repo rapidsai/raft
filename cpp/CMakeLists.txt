@@ -183,6 +183,7 @@ if(faiss IN_LIST raft_FIND_COMPONENTS)
   elseif(TARGET faiss::faiss AND (NOT TARGET faiss))
       add_library(faiss ALIAS faiss::faiss)
   endif()
+  target_link_libraries(raft INTERFACE faiss::faiss)
 endif()
 ]=]
 )
