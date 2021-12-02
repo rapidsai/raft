@@ -174,6 +174,7 @@ and common functions for the analytics components of RAPIDS.
 set(code_string
 [=[
 if(faiss IN_LIST raft_FIND_COMPONENTS)
+  enable_language(CUDA)
   if(EXISTS "${CMAKE_CURRENT_LIST_DIR}/raft-faiss-dependencies.cmake")
     include("${CMAKE_CURRENT_LIST_DIR}/raft-faiss-dependencies.cmake")
   endif()
