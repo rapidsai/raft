@@ -33,9 +33,9 @@ function(find_and_configure_faiss)
         GLOBAL_TARGETS     faiss::faiss
         INSTALL_EXPORT_SET raft-faiss-exports
         CPM_ARGS
-          GIT_REPOSITORY  https://github.com/facebookresearch/faiss.git
-          GIT_TAG         ${PKG_PINNED_TAG}
-          EXCLUDE_FROM_ALL
+          GIT_REPOSITORY   https://github.com/facebookresearch/faiss.git
+          GIT_TAG          ${PKG_PINNED_TAG}
+          EXCLUDE_FROM_ALL TRUE
           OPTIONS
             "FAISS_ENABLE_PYTHON OFF"
             "CUDAToolkit_ROOT ${CUDAToolkit_LIBRARY_DIR}"
