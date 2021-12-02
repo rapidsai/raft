@@ -201,7 +201,6 @@ rapids_export(INSTALL raft
 rapids_export(BUILD raft
     EXPORT_SET raft-exports
     GLOBAL_TARGETS raft # since we can't hook into EXPORT SETS
-    LANGUAGES CUDA
     DOCUMENTATION doc_string
     NAMESPACE raft::
     FINAL_CODE_BLOCK code_string
