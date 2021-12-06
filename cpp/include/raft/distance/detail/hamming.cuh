@@ -23,7 +23,7 @@ namespace detail {
 
 /**
  * @brief the Hamming distance matrix using the unexpanded form:
- *  It computes the following equation: 
+ *  It computes the following equation:
     Cij = sum(x_i != y_i) / k
  *
  * @tparam DataT          input data-type (for A and B matrices)
@@ -47,30 +47,41 @@ namespace detail {
  * @param[in]       fin_op the final gemm epilogue lambda
  * @param[in]       stream cuda stream to launch work
  */
-template <typename DataT, typename AccT, typename OutT, typename IdxT,
-          int VecLen, typename FinalLambda, bool isRowMajor>
-static void hammingUnexpandedImpl(const DataT *x, const DataT *y, IdxT m,
-                                  IdxT n, IdxT k, IdxT lda, IdxT ldb, IdxT ldd,
-                                  OutT *dOutput, FinalLambda fin_op,
-                                  cudaStream_t stream) {
+template <typename DataT,
+          typename AccT,
+          typename OutT,
+          typename IdxT,
+          int VecLen,
+          typename FinalLambda,
+          bool isRowMajor>
+static void hammingUnexpandedImpl(const DataT* x,
+                                  const DataT* y,
+                                  IdxT m,
+                                  IdxT n,
+                                  IdxT k,
+                                  IdxT lda,
+                                  IdxT ldb,
+                                  IdxT ldd,
+                                  OutT* dOutput,
+                                  FinalLambda fin_op,
+                                  cudaStream_t stream)
+{
   typedef typename raft::linalg::Policy4x4<DataT, VecLen>::Policy RowPolicy;
   typedef typename raft::linalg::Policy4x4<DataT, VecLen>::ColPolicy ColPolicy;
 
-  typedef
-    typename std::conditional<isRowMajor, RowPolicy, ColPolicy>::type KPolicy;
+  typedef typename std::conditional<isRowMajor, RowPolicy, ColPolicy>::type KPolicy;
 
   dim3 blk(KPolicy::Nthreads);
 
   // Accumulation operation lambda
-  auto core_lambda = [] __device__(AccT & acc, DataT & x, DataT & y) {
-    acc += (x != y);
-  };
+  auto core_lambda = [] __device__(AccT & acc, DataT & x, DataT & y) { acc += (x != y); };
 
   // epilogue operation lambda for final value calculation
-  auto epilog_lambda = [k] __device__(
-                         AccT acc[KPolicy::AccRowsPerTh][KPolicy::AccColsPerTh],
-                         DataT * regxn, DataT * regyn, IdxT gridStrideX,
-                         IdxT gridStrideY) {
+  auto epilog_lambda = [k] __device__(AccT acc[KPolicy::AccRowsPerTh][KPolicy::AccColsPerTh],
+                                      DataT * regxn,
+                                      DataT * regyn,
+                                      IdxT gridStrideX,
+                                      IdxT gridStrideY) {
     const DataT one_over_k = DataT(1.0) / k;
 #pragma unroll
     for (int i = 0; i < KPolicy::AccRowsPerTh; ++i) {
@@ -82,46 +93,65 @@ static void hammingUnexpandedImpl(const DataT *x, const DataT *y, IdxT m,
   };
 
   if (isRowMajor) {
-    auto hammingUnexpandedRowMajor =
-      pairwiseDistanceMatKernel<false, DataT, AccT, OutT, IdxT, KPolicy,
-                                decltype(core_lambda), decltype(epilog_lambda),
-                                FinalLambda, true>;
-    dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize,
-                                               hammingUnexpandedRowMajor);
+    auto hammingUnexpandedRowMajor = pairwiseDistanceMatKernel<false,
+                                                               DataT,
+                                                               AccT,
+                                                               OutT,
+                                                               IdxT,
+                                                               KPolicy,
+                                                               decltype(core_lambda),
+                                                               decltype(epilog_lambda),
+                                                               FinalLambda,
+                                                               true>;
+    dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize, hammingUnexpandedRowMajor);
 
     hammingUnexpandedRowMajor<<<grid, blk, KPolicy::SmemSize, stream>>>(
-      x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput, core_lambda,
-      epilog_lambda, fin_op);
+      x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput, core_lambda, epilog_lambda, fin_op);
   } else {
-    auto hammingUnexpandedColMajor =
-      pairwiseDistanceMatKernel<false, DataT, AccT, OutT, IdxT, KPolicy,
-                                decltype(core_lambda), decltype(epilog_lambda),
-                                FinalLambda, false>;
-    dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize,
-                                               hammingUnexpandedColMajor);
+    auto hammingUnexpandedColMajor = pairwiseDistanceMatKernel<false,
+                                                               DataT,
+                                                               AccT,
+                                                               OutT,
+                                                               IdxT,
+                                                               KPolicy,
+                                                               decltype(core_lambda),
+                                                               decltype(epilog_lambda),
+                                                               FinalLambda,
+                                                               false>;
+    dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize, hammingUnexpandedColMajor);
     hammingUnexpandedColMajor<<<grid, blk, KPolicy::SmemSize, stream>>>(
-      x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput, core_lambda,
-      epilog_lambda, fin_op);
+      x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput, core_lambda, epilog_lambda, fin_op);
   }
 
   CUDA_CHECK(cudaGetLastError());
 }
 
-template <typename DataT, typename AccT, typename OutT, typename IdxT,
-          typename FinalLambda, bool isRowMajor>
-void hammingUnexpanded(IdxT m, IdxT n, IdxT k, IdxT lda, IdxT ldb, IdxT ldd,
-                       const DataT *x, const DataT *y, OutT *dOutput,
-                       FinalLambda fin_op, cudaStream_t stream) {
+template <typename DataT,
+          typename AccT,
+          typename OutT,
+          typename IdxT,
+          typename FinalLambda,
+          bool isRowMajor>
+void hammingUnexpanded(IdxT m,
+                       IdxT n,
+                       IdxT k,
+                       IdxT lda,
+                       IdxT ldb,
+                       IdxT ldd,
+                       const DataT* x,
+                       const DataT* y,
+                       OutT* dOutput,
+                       FinalLambda fin_op,
+                       cudaStream_t stream)
+{
   size_t bytesA = sizeof(DataT) * lda;
   size_t bytesB = sizeof(DataT) * ldb;
   if (16 % sizeof(DataT) == 0 && bytesA % 16 == 0 && bytesB % 16 == 0) {
-    hammingUnexpandedImpl<DataT, AccT, OutT, IdxT, 16 / sizeof(DataT),
-                          FinalLambda, isRowMajor>(x, y, m, n, k, lda, ldb, ldd,
-                                                   dOutput, fin_op, stream);
+    hammingUnexpandedImpl<DataT, AccT, OutT, IdxT, 16 / sizeof(DataT), FinalLambda, isRowMajor>(
+      x, y, m, n, k, lda, ldb, ldd, dOutput, fin_op, stream);
   } else if (8 % sizeof(DataT) == 0 && bytesA % 8 == 0 && bytesB % 8 == 0) {
-    hammingUnexpandedImpl<DataT, AccT, OutT, IdxT, 8 / sizeof(DataT),
-                          FinalLambda, isRowMajor>(x, y, m, n, k, lda, ldb, ldd,
-                                                   dOutput, fin_op, stream);
+    hammingUnexpandedImpl<DataT, AccT, OutT, IdxT, 8 / sizeof(DataT), FinalLambda, isRowMajor>(
+      x, y, m, n, k, lda, ldb, ldd, dOutput, fin_op, stream);
   } else {
     hammingUnexpandedImpl<DataT, AccT, OutT, IdxT, 1, FinalLambda, isRowMajor>(
       x, y, m, n, k, lda, ldb, ldd, dOutput, fin_op, stream);
@@ -130,7 +160,7 @@ void hammingUnexpanded(IdxT m, IdxT n, IdxT k, IdxT lda, IdxT ldb, IdxT ldd,
 
 /**
  * @brief the Hamming Unexpanded distance matrix calculation
- *  It computes the following equation: 
+ *  It computes the following equation:
     Cij = sum(x_i != y_i) / k
  *
  * @tparam InType input data-type (for A and B matrices)
@@ -148,28 +178,35 @@ void hammingUnexpanded(IdxT m, IdxT n, IdxT k, IdxT lda, IdxT ldb, IdxT ldd,
  * @param stream cuda stream where to launch work
  * @param isRowMajor whether the input and output matrices are row major
  */
-template <typename InType, typename AccType, typename OutType,
-          typename FinalLambda, typename Index_ = int>
-void hammingUnexpandedImpl(int m, int n, int k, const InType *pA,
-                           const InType *pB, OutType *pD, FinalLambda fin_op,
-                           cudaStream_t stream, bool isRowMajor) {
+template <typename InType,
+          typename AccType,
+          typename OutType,
+          typename FinalLambda,
+          typename Index_ = int>
+void hammingUnexpandedImpl(int m,
+                           int n,
+                           int k,
+                           const InType* pA,
+                           const InType* pB,
+                           OutType* pD,
+                           FinalLambda fin_op,
+                           cudaStream_t stream,
+                           bool isRowMajor)
+{
   typedef std::is_same<OutType, bool> is_bool;
-  typedef typename std::conditional<is_bool::value, OutType, AccType>::type
-    hammingUnexpandedOutType;
+  typedef
+    typename std::conditional<is_bool::value, OutType, AccType>::type hammingUnexpandedOutType;
   Index_ lda, ldb, ldd;
-  hammingUnexpandedOutType *pDcast =
-    reinterpret_cast<hammingUnexpandedOutType *>(pD);
+  hammingUnexpandedOutType* pDcast = reinterpret_cast<hammingUnexpandedOutType*>(pD);
   if (isRowMajor) {
     lda = k, ldb = k, ldd = n;
-    hammingUnexpanded<InType, AccType, hammingUnexpandedOutType, Index_,
-                      FinalLambda, true>(m, n, k, lda, ldb, ldd, pA, pB, pDcast,
-                                         fin_op, stream);
+    hammingUnexpanded<InType, AccType, hammingUnexpandedOutType, Index_, FinalLambda, true>(
+      m, n, k, lda, ldb, ldd, pA, pB, pDcast, fin_op, stream);
 
   } else {
     lda = n, ldb = m, ldd = m;
-    hammingUnexpanded<InType, AccType, hammingUnexpandedOutType, Index_,
-                      FinalLambda, false>(n, m, k, lda, ldb, ldd, pB, pA,
-                                          pDcast, fin_op, stream);
+    hammingUnexpanded<InType, AccType, hammingUnexpandedOutType, Index_, FinalLambda, false>(
+      n, m, k, lda, ldb, ldd, pB, pA, pDcast, fin_op, stream);
   }
 }
 

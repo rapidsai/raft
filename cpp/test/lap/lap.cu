@@ -31,11 +31,11 @@
 #include <raft/lap/lap.cuh>
 #include <random>
 
-#define PROBLEMSIZE 1000  // Number of rows/columns
-#define BATCHSIZE 10      // Number of problems in the batch
-#define COSTRANGE 1000
+#define PROBLEMSIZE  1000  // Number of rows/columns
+#define BATCHSIZE    10    // Number of problems in the batch
+#define COSTRANGE    1000
 #define PROBLEMCOUNT 1
-#define REPETITIONS 1
+#define REPETITIONS  1
 
 #define SEED 01010001
 
@@ -45,38 +45,41 @@ namespace raft {
 
 // Function for generating problem with uniformly distributed integer costs between [0, COSTRANGE].
 template <typename weight_t>
-void generateProblem(weight_t *cost_matrix, int SP, int N, int costrange) {
+void generateProblem(weight_t* cost_matrix, int SP, int N, int costrange)
+{
   long N2 = SP * N * N;
 
   std::uniform_int_distribution<int> distribution(0, costrange);
 
   for (long i = 0; i < N2; i++) {
-    int val = distribution(generator);
+    int val        = distribution(generator);
     cost_matrix[i] = (weight_t)val;
   }
 }
 
 template <typename vertex_t, typename weight_t>
-void hungarian_test(int problemsize, int costrange, int problemcount,
-                    int repetitions, int batchsize, weight_t epsilon,
-                    bool verbose = false) {
+void hungarian_test(int problemsize,
+                    int costrange,
+                    int problemcount,
+                    int repetitions,
+                    int batchsize,
+                    weight_t epsilon,
+                    bool verbose = false)
+{
   raft::handle_t handle;
 
-  weight_t *h_cost = new weight_t[batchsize * problemsize * problemsize];
+  weight_t* h_cost = new weight_t[batchsize * problemsize * problemsize];
 
   for (int j = 0; j < problemcount; j++) {
     generateProblem(h_cost, batchsize, problemsize, costrange);
 
-    rmm::device_uvector<weight_t> elements_v(
-      batchsize * problemsize * problemsize, handle.get_stream());
-    rmm::device_uvector<vertex_t> row_assignment_v(batchsize * problemsize,
-                                                   handle.get_stream());
-    rmm::device_uvector<vertex_t> col_assignment_v(batchsize * problemsize,
-                                                   handle.get_stream());
+    rmm::device_uvector<weight_t> elements_v(batchsize * problemsize * problemsize,
+                                             handle.get_stream());
+    rmm::device_uvector<vertex_t> row_assignment_v(batchsize * problemsize, handle.get_stream());
+    rmm::device_uvector<vertex_t> col_assignment_v(batchsize * problemsize, handle.get_stream());
 
-    raft::update_device(elements_v.data(), h_cost,
-                        batchsize * problemsize * problemsize,
-                        handle.get_stream());
+    raft::update_device(
+      elements_v.data(), h_cost, batchsize * problemsize * problemsize, handle.get_stream());
 
     for (int i = 0; i < repetitions; i++) {
       float start = omp_get_wtime();
@@ -86,20 +89,18 @@ void hungarian_test(int problemsize, int costrange, int problemcount,
         handle, problemsize, batchsize, epsilon);
 
       // Solve LAP(s) for given cost matrix
-      lpx.solve(elements_v.data(), row_assignment_v.data(),
-                col_assignment_v.data());
+      lpx.solve(elements_v.data(), row_assignment_v.data(), col_assignment_v.data());
 
       float end = omp_get_wtime();
 
       float total_time = (end - start);
 
       if (verbose) {
-        // Use getPrimalObjectiveValue and getDualObjectiveValue APIs to get primal and dual objectives. At optimality both values should match.
+        // Use getPrimalObjectiveValue and getDualObjectiveValue APIs to get primal and dual
+        // objectives. At optimality both values should match.
         for (int k = 0; k < batchsize; k++) {
-          std::cout << j << ":" << i << ":" << k << ":"
-                    << lpx.getPrimalObjectiveValue(k) << ":"
-                    << lpx.getDualObjectiveValue(k) << ":" << total_time
-                    << std::endl;
+          std::cout << j << ":" << i << ":" << k << ":" << lpx.getPrimalObjectiveValue(k) << ":"
+                    << lpx.getDualObjectiveValue(k) << ":" << total_time << std::endl;
         }
       }
     }
@@ -108,34 +109,38 @@ void hungarian_test(int problemsize, int costrange, int problemcount,
   delete[] h_cost;
 }
 
-TEST(Raft, HungarianIntFloat) {
-  hungarian_test<int, float>(PROBLEMSIZE, COSTRANGE, PROBLEMCOUNT, REPETITIONS,
-                             BATCHSIZE, float{1e-6});
+TEST(Raft, HungarianIntFloat)
+{
+  hungarian_test<int, float>(
+    PROBLEMSIZE, COSTRANGE, PROBLEMCOUNT, REPETITIONS, BATCHSIZE, float{1e-6});
 }
 
-TEST(Raft, HungarianIntDouble) {
-  hungarian_test<int, double>(PROBLEMSIZE, COSTRANGE, PROBLEMCOUNT, REPETITIONS,
-                              BATCHSIZE, double{1e-6});
+TEST(Raft, HungarianIntDouble)
+{
+  hungarian_test<int, double>(
+    PROBLEMSIZE, COSTRANGE, PROBLEMCOUNT, REPETITIONS, BATCHSIZE, double{1e-6});
 }
 
-TEST(Raft, HungarianIntLong) {
-  hungarian_test<int, long>(PROBLEMSIZE, COSTRANGE, PROBLEMCOUNT, REPETITIONS,
-                            BATCHSIZE, long{0});
+TEST(Raft, HungarianIntLong)
+{
+  hungarian_test<int, long>(PROBLEMSIZE, COSTRANGE, PROBLEMCOUNT, REPETITIONS, BATCHSIZE, long{0});
 }
 
-TEST(Raft, HungarianLongFloat) {
-  hungarian_test<long, float>(PROBLEMSIZE, COSTRANGE, PROBLEMCOUNT, REPETITIONS,
-                              BATCHSIZE, float{1e-6});
+TEST(Raft, HungarianLongFloat)
+{
+  hungarian_test<long, float>(
+    PROBLEMSIZE, COSTRANGE, PROBLEMCOUNT, REPETITIONS, BATCHSIZE, float{1e-6});
 }
 
-TEST(Raft, HungarianLongDouble) {
-  hungarian_test<long, double>(PROBLEMSIZE, COSTRANGE, PROBLEMCOUNT,
-                               REPETITIONS, BATCHSIZE, double{1e-6});
+TEST(Raft, HungarianLongDouble)
+{
+  hungarian_test<long, double>(
+    PROBLEMSIZE, COSTRANGE, PROBLEMCOUNT, REPETITIONS, BATCHSIZE, double{1e-6});
 }
 
-TEST(Raft, HungarianLongLong) {
-  hungarian_test<long, long>(PROBLEMSIZE, COSTRANGE, PROBLEMCOUNT, REPETITIONS,
-                             BATCHSIZE, long{0});
+TEST(Raft, HungarianLongLong)
+{
+  hungarian_test<long, long>(PROBLEMSIZE, COSTRANGE, PROBLEMCOUNT, REPETITIONS, BATCHSIZE, long{0});
 }
 
 }  // namespace raft

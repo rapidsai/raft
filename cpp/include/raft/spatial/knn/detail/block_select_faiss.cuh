@@ -25,15 +25,19 @@ namespace gpu {
 
 // `Dir` true, produce largest values.
 // `Dir` false, produce smallest values.
-template <typename K, typename V, bool Dir, typename Comp, int NumWarpQ,
-          int NumThreadQ, int ThreadsPerBlock>
+template <typename K,
+          typename V,
+          bool Dir,
+          typename Comp,
+          int NumWarpQ,
+          int NumThreadQ,
+          int ThreadsPerBlock>
 struct KeyValueBlockSelect {
-  static constexpr int kNumWarps = ThreadsPerBlock / kWarpSize;
+  static constexpr int kNumWarps          = ThreadsPerBlock / kWarpSize;
   static constexpr int kTotalWarpSortSize = NumWarpQ;
 
-  __device__ inline KeyValueBlockSelect(K initKVal, K initVKey, V initVVal,
-                                        K* smemK, KeyValuePair<K, V>* smemV,
-                                        int k)
+  __device__ inline KeyValueBlockSelect(
+    K initKVal, K initVKey, V initVVal, K* smemK, KeyValuePair<K, V>* smemV, int k)
     : initK(initKVal),
       initVk(initVKey),
       initVv(initVVal),
@@ -42,53 +46,55 @@ struct KeyValueBlockSelect {
       warpKTopRDist(initKVal),
       sharedK(smemK),
       sharedV(smemV),
-      kMinus1(k - 1) {
-    static_assert(utils::isPowerOf2(ThreadsPerBlock),
-                  "threads must be a power-of-2");
+      kMinus1(k - 1)
+  {
+    static_assert(utils::isPowerOf2(ThreadsPerBlock), "threads must be a power-of-2");
     static_assert(utils::isPowerOf2(NumWarpQ), "warp queue must be power-of-2");
 
     // Fill the per-thread queue keys with the default value
 #pragma unroll
     for (int i = 0; i < NumThreadQ; ++i) {
-      threadK[i] = initK;
-      threadV[i].key = initVk;
+      threadK[i]       = initK;
+      threadV[i].key   = initVk;
       threadV[i].value = initVv;
     }
 
     int laneId = getLaneId();
     int warpId = threadIdx.x / kWarpSize;
-    warpK = sharedK + warpId * kTotalWarpSortSize;
-    warpV = sharedV + warpId * kTotalWarpSortSize;
+    warpK      = sharedK + warpId * kTotalWarpSortSize;
+    warpV      = sharedV + warpId * kTotalWarpSortSize;
 
     // Fill warp queue (only the actual queue space is fine, not where
     // we write the per-thread queues for merging)
     for (int i = laneId; i < NumWarpQ; i += kWarpSize) {
-      warpK[i] = initK;
-      warpV[i].key = initVk;
+      warpK[i]       = initK;
+      warpV[i].key   = initVk;
       warpV[i].value = initVv;
     }
 
     warpFence();
   }
 
-  __device__ inline void addThreadQ(K k, K vk, V vv) {
+  __device__ inline void addThreadQ(K k, K vk, V vv)
+  {
     if (Dir ? Comp::gt(k, warpKTop) : Comp::lt(k, warpKTop)) {
       // Rotate right
 #pragma unroll
       for (int i = NumThreadQ - 1; i > 0; --i) {
-        threadK[i] = threadK[i - 1];
-        threadV[i].key = threadV[i - 1].key;
+        threadK[i]       = threadK[i - 1];
+        threadV[i].key   = threadV[i - 1].key;
         threadV[i].value = threadV[i - 1].value;
       }
 
-      threadK[0] = k;
-      threadV[0].key = vk;
+      threadK[0]       = k;
+      threadV[0].key   = vk;
       threadV[0].value = vv;
       ++numVals;
     }
   }
 
-  __device__ inline void checkThreadQ() {
+  __device__ inline void checkThreadQ()
+  {
     bool needSort = (numVals == NumThreadQ);
 
 #if CUDA_VERSION >= 9000
@@ -111,13 +117,13 @@ struct KeyValueBlockSelect {
 
 #pragma unroll
     for (int i = 0; i < NumThreadQ; ++i) {
-      threadK[i] = initK;
-      threadV[i].key = initVk;
+      threadK[i]       = initK;
+      threadV[i].key   = initVk;
       threadV[i].value = initVv;
     }
 
     // We have to beat at least this element
-    warpKTop = warpK[kMinus1];
+    warpKTop      = warpK[kMinus1];
     warpKTopRDist = warpV[kMinus1].key;
 
     warpFence();
@@ -126,7 +132,8 @@ struct KeyValueBlockSelect {
   /// This function handles sorting and merging together the
   /// per-thread queues with the warp-wide queue, creating a sorted
   /// list across both
-  __device__ inline void mergeWarpQ() {
+  __device__ inline void mergeWarpQ()
+  {
     int laneId = getLaneId();
 
     // Sort all of the per-thread queues
@@ -138,8 +145,8 @@ struct KeyValueBlockSelect {
 
 #pragma unroll
     for (int i = 0; i < kNumWarpQRegisters; ++i) {
-      warpKRegisters[i] = warpK[i * kWarpSize + laneId];
-      warpVRegisters[i].key = warpV[i * kWarpSize + laneId].key;
+      warpKRegisters[i]       = warpK[i * kWarpSize + laneId];
+      warpVRegisters[i].key   = warpV[i * kWarpSize + laneId].key;
       warpVRegisters[i].value = warpV[i * kWarpSize + laneId].value;
     }
 
@@ -148,15 +155,14 @@ struct KeyValueBlockSelect {
     // The warp queue is already sorted, and now that we've sorted the
     // per-thread queue, merge both sorted lists together, producing
     // one sorted list
-    warpMergeAnyRegistersKVP<K, V, kNumWarpQRegisters, NumThreadQ, !Dir, Comp,
-                             false>(warpKRegisters, warpVRegisters, threadK,
-                                    threadV);
+    warpMergeAnyRegistersKVP<K, V, kNumWarpQRegisters, NumThreadQ, !Dir, Comp, false>(
+      warpKRegisters, warpVRegisters, threadK, threadV);
 
     // Write back out the warp queue
 #pragma unroll
     for (int i = 0; i < kNumWarpQRegisters; ++i) {
-      warpK[i * kWarpSize + laneId] = warpKRegisters[i];
-      warpV[i * kWarpSize + laneId].key = warpVRegisters[i].key;
+      warpK[i * kWarpSize + laneId]       = warpKRegisters[i];
+      warpV[i * kWarpSize + laneId].key   = warpVRegisters[i].key;
       warpV[i * kWarpSize + laneId].value = warpVRegisters[i].value;
     }
 
@@ -165,12 +171,14 @@ struct KeyValueBlockSelect {
 
   /// WARNING: all threads in a warp must participate in this.
   /// Otherwise, you must call the constituent parts separately.
-  __device__ inline void add(K k, K vk, V vv) {
+  __device__ inline void add(K k, K vk, V vv)
+  {
     addThreadQ(k, vk, vv);
     checkThreadQ();
   }
 
-  __device__ inline void reduce() {
+  __device__ inline void reduce()
+  {
     // Have all warps dump and merge their queues; this will produce
     // the final per-warp results
     mergeWarpQ();
@@ -182,8 +190,8 @@ struct KeyValueBlockSelect {
     // All warp queues are contiguous in smem.
     // Now, we have kNumWarps lists of NumWarpQ elements.
     // This is a power of 2.
-    FinalBlockMerge<kNumWarps, ThreadsPerBlock, K, KeyValuePair<K, V>, NumWarpQ,
-                    Dir, Comp>::merge(sharedK, sharedV);
+    FinalBlockMerge<kNumWarps, ThreadsPerBlock, K, KeyValuePair<K, V>, NumWarpQ, Dir, Comp>::merge(
+      sharedK, sharedV);
 
     // The block-wide merge has a trailing syncthreads
   }

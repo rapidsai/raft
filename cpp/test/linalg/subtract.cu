@@ -24,39 +24,34 @@ namespace raft {
 namespace linalg {
 
 template <typename Type>
-__global__ void naiveSubtractElemKernel(Type *out, const Type *in1,
-                                        const Type *in2, int len) {
+__global__ void naiveSubtractElemKernel(Type* out, const Type* in1, const Type* in2, int len)
+{
   int idx = threadIdx.x + blockIdx.x * blockDim.x;
-  if (idx < len) {
-    out[idx] = in1[idx] - in2[idx];
-  }
+  if (idx < len) { out[idx] = in1[idx] - in2[idx]; }
 }
 
 template <typename Type>
-void naiveSubtractElem(Type *out, const Type *in1, const Type *in2, int len,
-                       cudaStream_t stream) {
+void naiveSubtractElem(Type* out, const Type* in1, const Type* in2, int len, cudaStream_t stream)
+{
   static const int TPB = 64;
-  int nblks = raft::ceildiv(len, TPB);
+  int nblks            = raft::ceildiv(len, TPB);
   naiveSubtractElemKernel<Type><<<nblks, TPB, 0, stream>>>(out, in1, in2, len);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
 template <typename Type>
-__global__ void naiveSubtractScalarKernel(Type *out, const Type *in1,
-                                          const Type in2, int len) {
+__global__ void naiveSubtractScalarKernel(Type* out, const Type* in1, const Type in2, int len)
+{
   int idx = threadIdx.x + blockIdx.x * blockDim.x;
-  if (idx < len) {
-    out[idx] = in1[idx] - in2;
-  }
+  if (idx < len) { out[idx] = in1[idx] - in2; }
 }
 
 template <typename Type>
-void naiveSubtractScalar(Type *out, const Type *in1, const Type in2, int len,
-                         cudaStream_t stream) {
+void naiveSubtractScalar(Type* out, const Type* in1, const Type in2, int len, cudaStream_t stream)
+{
   static const int TPB = 64;
-  int nblks = raft::ceildiv(len, TPB);
-  naiveSubtractScalarKernel<Type>
-    <<<nblks, TPB, 0, stream>>>(out, in1, in2, len);
+  int nblks            = raft::ceildiv(len, TPB);
+  naiveSubtractScalarKernel<Type><<<nblks, TPB, 0, stream>>>(out, in1, in2, len);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
@@ -68,7 +63,8 @@ struct SubtractInputs {
 };
 
 template <typename T>
-::std::ostream &operator<<(::std::ostream &os, const SubtractInputs<T> &dims) {
+::std::ostream& operator<<(::std::ostream& os, const SubtractInputs<T>& dims)
+{
   return os;
 }
 
@@ -81,10 +77,13 @@ class SubtractTest : public ::testing::TestWithParam<SubtractInputs<T>> {
       in1(params.len, stream),
       in2(params.len, stream),
       out_ref(params.len, stream),
-      out(params.len, stream) {}
+      out(params.len, stream)
+  {
+  }
 
  protected:
-  void SetUp() override {
+  void SetUp() override
+  {
     raft::random::Rng r(params.seed);
     int len = params.len;
     r.uniform(in1.data(), len, T(-1.0), T(1.0), stream);
@@ -108,35 +107,33 @@ class SubtractTest : public ::testing::TestWithParam<SubtractInputs<T>> {
   rmm::device_uvector<T> in1, in2, out_ref, out;
 };
 
-const std::vector<SubtractInputs<float>> inputsf2 = {
-  {0.000001f, 1024 * 1024, 1234ULL}};
+const std::vector<SubtractInputs<float>> inputsf2 = {{0.000001f, 1024 * 1024, 1234ULL}};
 
-const std::vector<SubtractInputs<double>> inputsd2 = {
-  {0.00000001, 1024 * 1024, 1234ULL}};
+const std::vector<SubtractInputs<double>> inputsd2 = {{0.00000001, 1024 * 1024, 1234ULL}};
 
 typedef SubtractTest<float> SubtractTestF;
-TEST_P(SubtractTestF, Result) {
-  ASSERT_TRUE(raft::devArrMatch(out_ref.data(), out.data(), params.len,
-                                raft::CompareApprox<float>(params.tolerance)));
+TEST_P(SubtractTestF, Result)
+{
+  ASSERT_TRUE(raft::devArrMatch(
+    out_ref.data(), out.data(), params.len, raft::CompareApprox<float>(params.tolerance)));
 
-  ASSERT_TRUE(raft::devArrMatch(out_ref.data(), in1.data(), params.len,
-                                raft::CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(
+    out_ref.data(), in1.data(), params.len, raft::CompareApprox<float>(params.tolerance)));
 }
 
 typedef SubtractTest<double> SubtractTestD;
-TEST_P(SubtractTestD, Result) {
-  ASSERT_TRUE(raft::devArrMatch(out_ref.data(), out.data(), params.len,
-                                raft::CompareApprox<double>(params.tolerance)));
+TEST_P(SubtractTestD, Result)
+{
+  ASSERT_TRUE(raft::devArrMatch(
+    out_ref.data(), out.data(), params.len, raft::CompareApprox<double>(params.tolerance)));
 
-  ASSERT_TRUE(raft::devArrMatch(out_ref.data(), in1.data(), params.len,
-                                raft::CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(
+    out_ref.data(), in1.data(), params.len, raft::CompareApprox<double>(params.tolerance)));
 }
 
-INSTANTIATE_TEST_SUITE_P(SubtractTests, SubtractTestF,
-                         ::testing::ValuesIn(inputsf2));
+INSTANTIATE_TEST_SUITE_P(SubtractTests, SubtractTestF, ::testing::ValuesIn(inputsf2));
 
-INSTANTIATE_TEST_SUITE_P(SubtractTests, SubtractTestD,
-                         ::testing::ValuesIn(inputsd2));
+INSTANTIATE_TEST_SUITE_P(SubtractTests, SubtractTestD, ::testing::ValuesIn(inputsd2));
 
 }  // end namespace linalg
 }  // end namespace raft

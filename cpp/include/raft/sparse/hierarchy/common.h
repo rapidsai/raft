@@ -37,13 +37,15 @@ class linkage_output {
   value_idx n_leaves;
   value_idx n_connected_components;
 
-  value_idx *labels;  // size: m
+  value_idx* labels;  // size: m
 
-  value_idx *children;  // size: (m-1, 2)
+  value_idx* children;  // size: (m-1, 2)
 };
 
-class linkage_output_int_float : public linkage_output<int, float> {};
-class linkage_output__int64_float : public linkage_output<int64_t, float> {};
+class linkage_output_int_float : public linkage_output<int, float> {
+};
+class linkage_output__int64_float : public linkage_output<int64_t, float> {
+};
 
 };  // namespace hierarchy
 };  // namespace raft

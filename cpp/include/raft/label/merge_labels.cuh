@@ -35,8 +35,10 @@ __global__ void __launch_bounds__(TPB_X)
   propagate_label_kernel(const value_idx* __restrict__ labels_a,
                          const value_idx* __restrict__ labels_b,
                          value_idx* __restrict__ R,
-                         const bool* __restrict__ mask, bool* __restrict__ m,
-                         value_idx N) {
+                         const bool* __restrict__ mask,
+                         bool* __restrict__ m,
+                         value_idx N)
+{
   value_idx tid = threadIdx.x + blockIdx.x * TPB_X;
   if (tid < N) {
     if (__ldg((char*)mask + tid)) {
@@ -65,15 +67,17 @@ template <typename value_idx, int TPB_X = 256>
 __global__ void __launch_bounds__(TPB_X)
   reassign_label_kernel(value_idx* __restrict__ labels_a,
                         const value_idx* __restrict__ labels_b,
-                        const value_idx* __restrict__ R, value_idx N,
-                        value_idx MAX_LABEL) {
+                        const value_idx* __restrict__ R,
+                        value_idx N,
+                        value_idx MAX_LABEL)
+{
   value_idx tid = threadIdx.x + blockIdx.x * TPB_X;
   if (tid < N) {
     // Note: labels are from 1 to N
-    value_idx la = labels_a[tid];
-    value_idx lb = __ldg(labels_b + tid);
-    value_idx ra = (la == MAX_LABEL) ? MAX_LABEL : __ldg(R + (la - 1)) + 1;
-    value_idx rb = (lb == MAX_LABEL) ? MAX_LABEL : __ldg(R + (lb - 1)) + 1;
+    value_idx la  = labels_a[tid];
+    value_idx lb  = __ldg(labels_b + tid);
+    value_idx ra  = (la == MAX_LABEL) ? MAX_LABEL : __ldg(R + (la - 1)) + 1;
+    value_idx rb  = (lb == MAX_LABEL) ? MAX_LABEL : __ldg(R + (lb - 1)) + 1;
     labels_a[tid] = min(ra, rb);
   }
 }
@@ -108,9 +112,14 @@ __global__ void __launch_bounds__(TPB_X)
  * @param[in]    stream      CUDA stream
  */
 template <typename value_idx = int, int TPB_X = 256>
-void merge_labels(value_idx* labels_a, const value_idx* labels_b,
-                  const bool* mask, value_idx* R, bool* m, value_idx N,
-                  cudaStream_t stream) {
+void merge_labels(value_idx* labels_a,
+                  const value_idx* labels_b,
+                  const bool* mask,
+                  value_idx* R,
+                  bool* m,
+                  value_idx N,
+                  cudaStream_t stream)
+{
   dim3 blocks(raft::ceildiv(N, value_idx(TPB_X)));
   dim3 threads(TPB_X);
   value_idx MAX_LABEL = std::numeric_limits<value_idx>::max();

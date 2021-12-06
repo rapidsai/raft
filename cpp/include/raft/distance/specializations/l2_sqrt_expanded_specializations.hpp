@@ -21,23 +21,47 @@
 namespace raft {
 namespace distance {
 namespace detail {
-extern template void distance<raft::distance::DistanceType::L2SqrtExpanded,
-                              float, float, float, int>(
-  const float *x, const float *y, float *dist, int m, int n, int k,
-  void *workspace, size_t worksize, cudaStream_t stream, bool isRowMajor,
+extern template void
+distance<raft::distance::DistanceType::L2SqrtExpanded, float, float, float, int>(
+  const float* x,
+  const float* y,
+  float* dist,
+  int m,
+  int n,
+  int k,
+  void* workspace,
+  size_t worksize,
+  cudaStream_t stream,
+  bool isRowMajor,
   float metric_arg);
 
-extern template void distance<raft::distance::DistanceType::L2SqrtExpanded,
-                              double, double, double, int>(
-  const double *x, const double *y, double *dist, int m, int n, int k,
-  void *workspace, size_t worksize, cudaStream_t stream, bool isRowMajor,
+extern template void
+distance<raft::distance::DistanceType::L2SqrtExpanded, double, double, double, int>(
+  const double* x,
+  const double* y,
+  double* dist,
+  int m,
+  int n,
+  int k,
+  void* workspace,
+  size_t worksize,
+  cudaStream_t stream,
+  bool isRowMajor,
   double metric_arg);
 
-extern template void distance<raft::distance::DistanceType::L2SqrtExpanded,
-                              float, float, float, std::uint32_t>(
-  const float *x, const float *y, float *dist, std::uint32_t m, std::uint32_t n,
-  std::uint32_t k, void *workspace, size_t worksize, cudaStream_t stream,
-  bool isRowMajor, float metric_arg);
+extern template void
+distance<raft::distance::DistanceType::L2SqrtExpanded, float, float, float, std::uint32_t>(
+  const float* x,
+  const float* y,
+  float* dist,
+  std::uint32_t m,
+  std::uint32_t n,
+  std::uint32_t k,
+  void* workspace,
+  size_t worksize,
+  cudaStream_t stream,
+  bool isRowMajor,
+  float metric_arg);
 
 }  // namespace detail
 }  // namespace distance
