@@ -52,12 +52,14 @@ __global__ void count_discrepancies_kernel(value_idx* actual_idx,
   if (row < m) {
     for (uint32_t i = 0; i < n; i++) {
       value_t d    = actual[row * n + i] - expected[row * n + i];
-      bool matches = fabsf(d) <= thres;
-      if (!matches) {
-        //          printf("row=%d, actual_idx=%ld, actual=%f, expected_id=%ld, expected=%f\n",
-        //                 row, actual_idx[row*n+i], actual[row*n+i], expected_idx[row*n+i],
-        //                 expected[row*n+i]);
-      }
+      bool matches = (fabsf(d) <= thres) || (actual_idx[row * n + i] == expected_idx[row * n + i] &&
+                                             actual_idx[row * n + i] == row);
+      //      if (!matches) {
+      //                  printf("row=%d, actual_idx=%ld, actual=%f, expected_id=%ld,
+      //                  expected=%f\n",
+      //                         row, actual_idx[row*n+i], actual[row*n+i], expected_idx[row*n+i],
+      //                         expected[row*n+i]);
+      //      }
 
       n_diffs += !matches;
       out[row] = n_diffs;
