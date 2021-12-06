@@ -37,18 +37,25 @@ namespace hierarchy {
  * @param[in] n number of columns in X
  * @param[in] metric distance metrix to use when constructing connectivities graph
  * @param[out] out struct containing output dendrogram and cluster assignments
- * @param[in] c a constant used when constructing connectivities from knn graph. Allows the indirect control
+ * @param[in] c a constant used when constructing connectivities from knn graph. Allows the indirect
+ control
  *            of k. The algorithm will set `k = log(n) + c`
  * @param[in] n_clusters number of clusters to assign data samples
  */
-template <typename value_idx, typename value_t,
+template <typename value_idx,
+          typename value_t,
           LinkageDistance dist_type = LinkageDistance::KNN_GRAPH>
-void single_linkage(const raft::handle_t &handle, const value_t *X, size_t m,
-                    size_t n, raft::distance::DistanceType metric,
-                    linkage_output<value_idx, value_t> *out, int c,
-                    size_t n_clusters) {
-  detail::single_linkage<value_idx, value_t, dist_type>(handle, X, m, n, metric,
-                                                        out, c, n_clusters);
+void single_linkage(const raft::handle_t& handle,
+                    const value_t* X,
+                    size_t m,
+                    size_t n,
+                    raft::distance::DistanceType metric,
+                    linkage_output<value_idx, value_t>* out,
+                    int c,
+                    size_t n_clusters)
+{
+  detail::single_linkage<value_idx, value_t, dist_type>(
+    handle, X, m, n, metric, out, c, n_clusters);
 }
 };  // namespace hierarchy
 };  // namespace raft

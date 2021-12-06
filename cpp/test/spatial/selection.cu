@@ -45,8 +45,9 @@ struct SparseSelectionInputs {
 };
 
 template <typename value_idx, typename value_t>
-::std::ostream &operator<<(
-  ::std::ostream &os, const SparseSelectionInputs<value_idx, value_t> &dims) {
+::std::ostream& operator<<(::std::ostream& os,
+                           const SparseSelectionInputs<value_idx, value_t>& dims)
+{
   return os;
 }
 
@@ -55,18 +56,20 @@ class SparseSelectionTest
   : public ::testing::TestWithParam<SparseSelectionInputs<value_idx, value_t>> {
  public:
   SparseSelectionTest()
-    : params(::testing::TestWithParam<
-             SparseSelectionInputs<value_idx, value_t>>::GetParam()),
+    : params(::testing::TestWithParam<SparseSelectionInputs<value_idx, value_t>>::GetParam()),
       stream(handle.get_stream()),
       dists(0, stream),
       inds(0, stream),
       out_indices_ref(0, stream),
       out_dists_ref(0, stream),
       out_dists(0, stream),
-      out_indices(0, stream) {}
+      out_indices(0, stream)
+  {
+  }
 
  protected:
-  void make_data() {
+  void make_data()
+  {
     std::vector<value_t> dists_h = params.dists_h;
 
     dists.resize(n_rows * n_cols, stream);
@@ -77,36 +80,43 @@ class SparseSelectionTest
     update_device(dists.data(), dists_h.data(), dists_h.size(), stream);
     iota_fill(inds.data(), n_rows, n_cols, stream);
 
-    std::vector<value_t> out_dists_ref_h = params.out_dists_ref_h;
+    std::vector<value_t> out_dists_ref_h     = params.out_dists_ref_h;
     std::vector<value_idx> out_indices_ref_h = params.out_indices_ref_h;
     out_indices_ref.resize(out_indices_ref_h.size(), stream);
     out_dists_ref.resize(out_dists_ref_h.size(), stream);
 
-    update_device(out_indices_ref.data(), out_indices_ref_h.data(),
-                  out_indices_ref_h.size(), stream);
-    update_device(out_dists_ref.data(), out_dists_ref_h.data(),
-                  out_dists_ref_h.size(), stream);
+    update_device(
+      out_indices_ref.data(), out_indices_ref_h.data(), out_indices_ref_h.size(), stream);
+    update_device(out_dists_ref.data(), out_dists_ref_h.data(), out_dists_ref_h.size(), stream);
   }
 
-  void SetUp() override {
+  void SetUp() override
+  {
     n_rows = params.n_rows;
     n_cols = params.n_cols;
-    k = params.k;
+    k      = params.k;
 
     make_data();
 
-    raft::spatial::knn::select_k(dists.data(), inds.data(), n_rows, n_cols,
-                                 out_dists.data(), out_indices.data(),
-                                 params.select_min, k, stream);
+    raft::spatial::knn::select_k(dists.data(),
+                                 inds.data(),
+                                 n_rows,
+                                 n_cols,
+                                 out_dists.data(),
+                                 out_indices.data(),
+                                 params.select_min,
+                                 k,
+                                 stream);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
-  void compare() {
-    ASSERT_TRUE(devArrMatch(out_dists_ref.data(), out_dists.data(), n_rows * k,
-                            Compare<value_t>()));
-    ASSERT_TRUE(devArrMatch(out_indices_ref.data(), out_indices.data(),
-                            n_rows * k, Compare<value_idx>()));
+  void compare()
+  {
+    ASSERT_TRUE(
+      devArrMatch(out_dists_ref.data(), out_dists.data(), n_rows * k, Compare<value_t>()));
+    ASSERT_TRUE(
+      devArrMatch(out_indices_ref.data(), out_indices.data(), n_rows * k, Compare<value_idx>()));
   }
 
  protected:
@@ -141,7 +151,8 @@ const std::vector<SparseSelectionInputs<int, float>> inputs_i32_f = {
    true}};
 typedef SparseSelectionTest<int, float> SparseSelectionTestF;
 TEST_P(SparseSelectionTestF, Result) { compare(); }
-INSTANTIATE_TEST_CASE_P(SparseSelectionTest, SparseSelectionTestF,
+INSTANTIATE_TEST_CASE_P(SparseSelectionTest,
+                        SparseSelectionTestF,
                         ::testing::ValuesIn(inputs_i32_f));
 
 };  // end namespace selection

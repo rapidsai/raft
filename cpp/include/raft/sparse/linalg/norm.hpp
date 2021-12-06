@@ -33,12 +33,13 @@ namespace linalg {
  * @param stream: cuda stream to use
  */
 template <typename T>
-void csr_row_normalize_l1(const int *ia,  // csr row ex_scan (sorted by row)
-                          const T *vals,
+void csr_row_normalize_l1(const int* ia,  // csr row ex_scan (sorted by row)
+                          const T* vals,
                           int nnz,  // array of values and number of non-zeros
                           int m,    // num rows in csr
-                          T *result,
-                          cudaStream_t stream) {  // output array
+                          T* result,
+                          cudaStream_t stream)
+{  // output array
   detail::csr_row_normalize_l1(ia, vals, nnz, m, result, stream);
 }
 
@@ -53,11 +54,13 @@ void csr_row_normalize_l1(const int *ia,  // csr row ex_scan (sorted by row)
  * @param stream: cuda stream to use
  */
 template <typename T>
-void csr_row_normalize_max(const int *ia,  // csr row ind array (sorted by row)
-                           const T *vals,
+void csr_row_normalize_max(const int* ia,  // csr row ind array (sorted by row)
+                           const T* vals,
                            int nnz,  // array of values and number of non-zeros
                            int m,    // num total rows in csr
-                           T *result, cudaStream_t stream) {
+                           T* result,
+                           cudaStream_t stream)
+{
   detail::csr_row_normalize_max(ia, vals, nnz, m, result, stream);
 }
 

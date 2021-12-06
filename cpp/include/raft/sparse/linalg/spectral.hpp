@@ -22,11 +22,17 @@ namespace sparse {
 namespace spectral {
 
 template <typename T>
-void fit_embedding(const raft::handle_t &handle, int *rows, int *cols, T *vals,
-                   int nnz, int n, int n_components, T *out,
-                   unsigned long long seed = 1234567) {
-  detail::fit_embedding(handle, rows, cols, vals, nnz, n, n_components, out,
-                        seed);
+void fit_embedding(const raft::handle_t& handle,
+                   int* rows,
+                   int* cols,
+                   T* vals,
+                   int nnz,
+                   int n,
+                   int n_components,
+                   T* out,
+                   unsigned long long seed = 1234567)
+{
+  detail::fit_embedding(handle, rows, cols, vals, nnz, n, n_components, out, seed);
 }
 };  // namespace spectral
 };  // namespace sparse

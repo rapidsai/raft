@@ -36,8 +36,8 @@ namespace op {
  * @param stream: cuda stream to use
  */
 template <typename T>
-void coo_sort(int m, int n, int nnz, int *rows, int *cols, T *vals,
-              cudaStream_t stream) {
+void coo_sort(int m, int n, int nnz, int* rows, int* cols, T* vals, cudaStream_t stream)
+{
   detail::coo_sort(m, n, nnz, rows, cols, vals, stream);
 }
 
@@ -48,9 +48,9 @@ void coo_sort(int m, int n, int nnz, int *rows, int *cols, T *vals,
  * @param stream: the cuda stream to use
  */
 template <typename T>
-void coo_sort(COO<T> *const in, cudaStream_t stream) {
-  coo_sort<T>(in->n_rows, in->n_cols, in->nnz, in->rows(), in->cols(),
-              in->vals(), stream);
+void coo_sort(COO<T>* const in, cudaStream_t stream)
+{
+  coo_sort<T>(in->n_rows, in->n_cols, in->nnz, in->rows(), in->cols(), in->vals(), stream);
 }
 
 /**
@@ -64,8 +64,9 @@ void coo_sort(COO<T> *const in, cudaStream_t stream) {
  * @param[in] stream cuda stream for which to order cuda operations
  */
 template <typename value_idx, typename value_t>
-void coo_sort_by_weight(value_idx *rows, value_idx *cols, value_t *data,
-                        value_idx nnz, cudaStream_t stream) {
+void coo_sort_by_weight(
+  value_idx* rows, value_idx* cols, value_t* data, value_idx nnz, cudaStream_t stream)
+{
   detail::coo_sort_by_weight(rows, cols, data, nnz, stream);
 }
 };  // namespace op

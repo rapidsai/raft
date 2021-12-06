@@ -34,9 +34,11 @@ namespace linalg {
  * @param stream: cuda stream to use
  */
 template <typename T, typename Lambda>
-void coo_symmetrize(COO<T> *in, COO<T> *out,
+void coo_symmetrize(COO<T>* in,
+                    COO<T>* out,
                     Lambda reduction_op,  // two-argument reducer
-                    cudaStream_t stream) {
+                    cudaStream_t stream)
+{
   detail::coo_symmetrize(in, out, reduction_op, stream);
 }
 
@@ -53,10 +55,13 @@ void coo_symmetrize(COO<T> *in, COO<T> *out,
  * @param row_sizes2: Input empty row sum 2 array(n) for faster reduction
  */
 template <typename value_idx = int64_t, typename value_t = float>
-__global__ static void symmetric_find_size(
-  const value_t *__restrict__ data, const value_idx *__restrict__ indices,
-  const value_idx n, const int k, value_idx *__restrict__ row_sizes,
-  value_idx *__restrict__ row_sizes2) {
+__global__ static void symmetric_find_size(const value_t* __restrict__ data,
+                                           const value_idx* __restrict__ indices,
+                                           const value_idx n,
+                                           const int k,
+                                           value_idx* __restrict__ row_sizes,
+                                           value_idx* __restrict__ row_sizes2)
+{
   detail::symmetric_find_size(data, indices, n, k, row_sizes, row_sizes2);
 }
 
@@ -71,9 +76,11 @@ __global__ static void symmetric_find_size(
  * @param row_sizes2: Input row sum 2 array(n) for faster reduction
  */
 template <typename value_idx>
-__global__ static void reduce_find_size(
-  const value_idx n, const int k, value_idx *__restrict__ row_sizes,
-  const value_idx *__restrict__ row_sizes2) {
+__global__ static void reduce_find_size(const value_idx n,
+                                        const int k,
+                                        value_idx* __restrict__ row_sizes,
+                                        const value_idx* __restrict__ row_sizes2)
+{
   detail::reduce_find_size(n, k, row_sizes, row_sizes2);
 }
 
@@ -94,13 +101,15 @@ __global__ static void reduce_find_size(
  * @param k: Number of n_neighbors
  */
 template <typename value_idx = int64_t, typename value_t = float>
-__global__ static void symmetric_sum(value_idx *__restrict__ edges,
-                                     const value_t *__restrict__ data,
-                                     const value_idx *__restrict__ indices,
-                                     value_t *__restrict__ VAL,
-                                     value_idx *__restrict__ COL,
-                                     value_idx *__restrict__ ROW,
-                                     const value_idx n, const int k) {
+__global__ static void symmetric_sum(value_idx* __restrict__ edges,
+                                     const value_t* __restrict__ data,
+                                     const value_idx* __restrict__ indices,
+                                     value_t* __restrict__ VAL,
+                                     value_idx* __restrict__ COL,
+                                     value_idx* __restrict__ ROW,
+                                     const value_idx n,
+                                     const int k)
+{
   detail::symmetric_sum(edges, data, indices, VAL, COL, ROW, n, k);
 }
 
@@ -123,13 +132,14 @@ __global__ static void symmetric_sum(value_idx *__restrict__ edges,
  * @param out: Output COO Matrix class
  * @param stream: Input cuda stream
  */
-template <typename value_idx = int64_t, typename value_t = float,
-          int TPB_X = 32, int TPB_Y = 32>
-void from_knn_symmetrize_matrix(const value_idx *__restrict__ knn_indices,
-                                const value_t *__restrict__ knn_dists,
-                                const value_idx n, const int k,
-                                COO<value_t, value_idx> *out,
-                                cudaStream_t stream) {
+template <typename value_idx = int64_t, typename value_t = float, int TPB_X = 32, int TPB_Y = 32>
+void from_knn_symmetrize_matrix(const value_idx* __restrict__ knn_indices,
+                                const value_t* __restrict__ knn_dists,
+                                const value_idx n,
+                                const int k,
+                                COO<value_t, value_idx>* out,
+                                cudaStream_t stream)
+{
   detail::from_knn_symmetrize_matrix(knn_indices, knn_dists, n, k, out, stream);
 }
 
@@ -137,9 +147,15 @@ void from_knn_symmetrize_matrix(const value_idx *__restrict__ knn_indices,
  * Symmetrizes a COO matrix
  */
 template <typename value_idx, typename value_t>
-void symmetrize(const raft::handle_t &handle, const value_idx *rows,
-                const value_idx *cols, const value_t *vals, size_t m, size_t n,
-                size_t nnz, raft::sparse::COO<value_t, value_idx> &out) {
+void symmetrize(const raft::handle_t& handle,
+                const value_idx* rows,
+                const value_idx* cols,
+                const value_t* vals,
+                size_t m,
+                size_t n,
+                size_t nnz,
+                raft::sparse::COO<value_t, value_idx>& out)
+{
   detail::symmetrize(handle, rows, cols, vals, m, n, nnz, out);
 }
 

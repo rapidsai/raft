@@ -48,14 +48,19 @@ using WeakCCState = detail::WeakCCState;
  * should get considered for labeling. It gets global indexes (not batch-wide!)
  */
 template <typename Index_, typename Lambda = auto(Index_)->bool>
-void weak_cc_batched(Index_ *labels, const Index_ *row_ind,
-                     const Index_ *row_ind_ptr, Index_ nnz, Index_ N,
-                     Index_ start_vertex_id, Index_ batch_size,
-                     WeakCCState *state, cudaStream_t stream,
-                     Lambda filter_op) {
+void weak_cc_batched(Index_* labels,
+                     const Index_* row_ind,
+                     const Index_* row_ind_ptr,
+                     Index_ nnz,
+                     Index_ N,
+                     Index_ start_vertex_id,
+                     Index_ batch_size,
+                     WeakCCState* state,
+                     cudaStream_t stream,
+                     Lambda filter_op)
+{
   detail::weak_cc_batched<Index_, TPB_X, Lambda>(
-    labels, row_ind, row_ind_ptr, nnz, N, start_vertex_id, batch_size, state,
-    stream, filter_op);
+    labels, row_ind, row_ind_ptr, nnz, N, start_vertex_id, batch_size, state, stream, filter_op);
 }
 
 /**
@@ -79,12 +84,25 @@ void weak_cc_batched(Index_ *labels, const Index_ *row_ind,
  * @param stream the cuda stream to use
  */
 template <typename Index_>
-void weak_cc_batched(Index_ *labels, const Index_ *row_ind,
-                     const Index_ *row_ind_ptr, Index_ nnz, Index_ N,
-                     Index_ start_vertex_id, Index_ batch_size,
-                     WeakCCState *state, cudaStream_t stream) {
-  weak_cc_batched(labels, row_ind, row_ind_ptr, nnz, N, start_vertex_id,
-                  batch_size, state, stream,
+void weak_cc_batched(Index_* labels,
+                     const Index_* row_ind,
+                     const Index_* row_ind_ptr,
+                     Index_ nnz,
+                     Index_ N,
+                     Index_ start_vertex_id,
+                     Index_ batch_size,
+                     WeakCCState* state,
+                     cudaStream_t stream)
+{
+  weak_cc_batched(labels,
+                  row_ind,
+                  row_ind_ptr,
+                  nnz,
+                  N,
+                  start_vertex_id,
+                  batch_size,
+                  state,
+                  stream,
                   [] __device__(Index_ tid) { return true; });
 }
 
@@ -112,12 +130,17 @@ void weak_cc_batched(Index_ *labels, const Index_ *row_ind,
  * should get considered for labeling. It gets global indexes (not batch-wide!)
  */
 template <typename Index_ = int, typename Lambda = auto(Index_)->bool>
-void weak_cc(Index_ *labels, const Index_ *row_ind, const Index_ *row_ind_ptr,
-             Index_ nnz, Index_ N, cudaStream_t stream, Lambda filter_op) {
+void weak_cc(Index_* labels,
+             const Index_* row_ind,
+             const Index_* row_ind_ptr,
+             Index_ nnz,
+             Index_ N,
+             cudaStream_t stream,
+             Lambda filter_op)
+{
   rmm::device_scalar<bool> m(stream);
   WeakCCState state(m.data());
-  weak_cc_batched<Index_, TPB_X>(labels, row_ind, row_ind_ptr, nnz, N, 0, N,
-                                 stream, filter_op);
+  weak_cc_batched<Index_, TPB_X>(labels, row_ind, row_ind_ptr, nnz, N, 0, N, stream, filter_op);
 }
 
 /**
@@ -142,12 +165,17 @@ void weak_cc(Index_ *labels, const Index_ *row_ind, const Index_ *row_ind_ptr,
  * @param stream the cuda stream to use
  */
 template <typename Index_>
-void weak_cc(Index_ *labels, const Index_ *row_ind, const Index_ *row_ind_ptr,
-             Index_ nnz, Index_ N, cudaStream_t stream) {
+void weak_cc(Index_* labels,
+             const Index_* row_ind,
+             const Index_* row_ind_ptr,
+             Index_ nnz,
+             Index_ N,
+             cudaStream_t stream)
+{
   rmm::device_scalar<bool> m(stream);
   WeakCCState state(m.data());
-  weak_cc_batched<Index_, TPB_X>(labels, row_ind, row_ind_ptr, nnz, N, 0, N,
-                                 stream, [](Index_) { return true; });
+  weak_cc_batched<Index_, TPB_X>(
+    labels, row_ind, row_ind_ptr, nnz, N, 0, N, stream, [](Index_) { return true; });
 }
 
 };  // namespace sparse

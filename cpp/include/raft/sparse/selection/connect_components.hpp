@@ -22,8 +22,7 @@ namespace raft {
 namespace linkage {
 
 template <typename value_idx, typename value_t>
-using FixConnectivitiesRedOp =
-  detail::FixConnectivitiesRedOp<value_idx, value_t>;
+using FixConnectivitiesRedOp = detail::FixConnectivitiesRedOp<value_idx, value_t>;
 
 /**
  * Gets the number of unique components from array of
@@ -36,8 +35,8 @@ using FixConnectivitiesRedOp =
  * @return total number of components
  */
 template <typename value_idx>
-value_idx get_n_components(value_idx *colors, size_t n_rows,
-                           cudaStream_t stream) {
+value_idx get_n_components(value_idx* colors, size_t n_rows, cudaStream_t stream)
+{
   return detail::get_n_components(colors, n_rows, stream);
 }
 
@@ -60,14 +59,17 @@ value_idx get_n_components(value_idx *colors, size_t n_rows,
  * @param[in] n_cols number of cols in X
  */
 template <typename value_idx, typename value_t, typename red_op>
-void connect_components(const raft::handle_t &handle,
-                        raft::sparse::COO<value_t, value_idx> &out,
-                        const value_t *X, const value_idx *orig_colors,
-                        size_t n_rows, size_t n_cols, red_op reduction_op,
-                        raft::distance::DistanceType metric =
-                          raft::distance::DistanceType::L2SqrtExpanded) {
-  detail::connect_components(handle, out, X, orig_colors, n_rows, n_cols,
-                             reduction_op, metric);
+void connect_components(
+  const raft::handle_t& handle,
+  raft::sparse::COO<value_t, value_idx>& out,
+  const value_t* X,
+  const value_idx* orig_colors,
+  size_t n_rows,
+  size_t n_cols,
+  red_op reduction_op,
+  raft::distance::DistanceType metric = raft::distance::DistanceType::L2SqrtExpanded)
+{
+  detail::connect_components(handle, out, X, orig_colors, n_rows, n_cols, reduction_op, metric);
 }
 
 };  // end namespace linkage

@@ -47,11 +47,16 @@ using namespace std;
  * @param rowMajor whether the matrix has row major layout
  */
 template <typename m_t, typename idx_array_t = int, typename idx_t = size_t>
-void copyRows(const m_t *in, idx_t n_rows, idx_t n_cols, m_t *out,
-              const idx_array_t *indices, idx_t n_rows_indices,
-              cudaStream_t stream, bool rowMajor = false) {
-  detail::copyRows(in, n_rows, n_cols, out, indices, n_rows_indices, stream,
-                   rowMajor);
+void copyRows(const m_t* in,
+              idx_t n_rows,
+              idx_t n_cols,
+              m_t* out,
+              const idx_array_t* indices,
+              idx_t n_rows_indices,
+              cudaStream_t stream,
+              bool rowMajor = false)
+{
+  detail::copyRows(in, n_rows, n_cols, out, indices, n_rows_indices, stream, rowMajor);
 }
 
 /**
@@ -63,8 +68,8 @@ void copyRows(const m_t *in, idx_t n_rows, idx_t n_cols, m_t *out,
  * @param stream: cuda stream
  */
 template <typename m_t, typename idx_t = int>
-void copy(const m_t *in, m_t *out, idx_t n_rows, idx_t n_cols,
-          cudaStream_t stream) {
+void copy(const m_t* in, m_t* out, idx_t n_rows, idx_t n_cols, cudaStream_t stream)
+{
   raft::copy_async(out, in, n_rows * n_cols, stream);
 }
 
@@ -79,21 +84,21 @@ void copy(const m_t *in, m_t *out, idx_t n_rows, idx_t n_cols,
  * @param stream: cuda stream
  */
 template <typename m_t, typename idx_t = int>
-void truncZeroOrigin(m_t *in, idx_t in_n_rows, m_t *out, idx_t out_n_rows,
-                     idx_t out_n_cols, cudaStream_t stream) {
-  auto m = out_n_rows;
-  auto k = in_n_rows;
-  idx_t size = out_n_rows * out_n_cols;
-  auto d_q = in;
+void truncZeroOrigin(
+  m_t* in, idx_t in_n_rows, m_t* out, idx_t out_n_rows, idx_t out_n_cols, cudaStream_t stream)
+{
+  auto m         = out_n_rows;
+  auto k         = in_n_rows;
+  idx_t size     = out_n_rows * out_n_cols;
+  auto d_q       = in;
   auto d_q_trunc = out;
-  auto counting = thrust::make_counting_iterator<idx_t>(0);
+  auto counting  = thrust::make_counting_iterator<idx_t>(0);
 
-  thrust::for_each(rmm::exec_policy(stream), counting, counting + size,
-                   [=] __device__(idx_t idx) {
-                     idx_t row = idx % m;
-                     idx_t col = idx / m;
-                     d_q_trunc[col * m + row] = d_q[col * k + row];
-                   });
+  thrust::for_each(rmm::exec_policy(stream), counting, counting + size, [=] __device__(idx_t idx) {
+    idx_t row                = idx % m;
+    idx_t col                = idx / m;
+    d_q_trunc[col * m + row] = d_q[col * k + row];
+  });
 }
 
 /**
@@ -105,24 +110,25 @@ void truncZeroOrigin(m_t *in, idx_t in_n_rows, m_t *out, idx_t out_n_rows,
  * @param stream: cuda stream
  */
 template <typename m_t, typename idx_t = int>
-void colReverse(m_t *inout, idx_t n_rows, idx_t n_cols, cudaStream_t stream) {
-  auto n = n_cols;
-  auto m = n_rows;
-  idx_t size = n_rows * n_cols;
-  auto d_q = inout;
+void colReverse(m_t* inout, idx_t n_rows, idx_t n_cols, cudaStream_t stream)
+{
+  auto n            = n_cols;
+  auto m            = n_rows;
+  idx_t size        = n_rows * n_cols;
+  auto d_q          = inout;
   auto d_q_reversed = inout;
-  auto counting = thrust::make_counting_iterator<idx_t>(0);
+  auto counting     = thrust::make_counting_iterator<idx_t>(0);
 
-  thrust::for_each(rmm::exec_policy(stream), counting, counting + (size / 2),
-                   [=] __device__(idx_t idx) {
-                     idx_t dest_row = idx % m;
-                     idx_t dest_col = idx / m;
-                     idx_t src_row = dest_row;
-                     idx_t src_col = (n - dest_col) - 1;
-                     m_t temp = (m_t)d_q_reversed[idx];
-                     d_q_reversed[idx] = d_q[src_col * m + src_row];
-                     d_q[src_col * m + src_row] = temp;
-                   });
+  thrust::for_each(
+    rmm::exec_policy(stream), counting, counting + (size / 2), [=] __device__(idx_t idx) {
+      idx_t dest_row             = idx % m;
+      idx_t dest_col             = idx / m;
+      idx_t src_row              = dest_row;
+      idx_t src_col              = (n - dest_col) - 1;
+      m_t temp                   = (m_t)d_q_reversed[idx];
+      d_q_reversed[idx]          = d_q[src_col * m + src_row];
+      d_q[src_col * m + src_row] = temp;
+    });
 }
 
 /**
@@ -134,25 +140,26 @@ void colReverse(m_t *inout, idx_t n_rows, idx_t n_cols, cudaStream_t stream) {
  * @param stream: cuda stream
  */
 template <typename m_t, typename idx_t = int>
-void rowReverse(m_t *inout, idx_t n_rows, idx_t n_cols, cudaStream_t stream) {
-  auto m = n_rows;
-  idx_t size = n_rows * n_cols;
-  auto d_q = inout;
+void rowReverse(m_t* inout, idx_t n_rows, idx_t n_cols, cudaStream_t stream)
+{
+  auto m            = n_rows;
+  idx_t size        = n_rows * n_cols;
+  auto d_q          = inout;
   auto d_q_reversed = inout;
-  auto counting = thrust::make_counting_iterator<idx_t>(0);
+  auto counting     = thrust::make_counting_iterator<idx_t>(0);
 
-  thrust::for_each(rmm::exec_policy(stream), counting, counting + (size / 2),
-                   [=] __device__(idx_t idx) {
-                     idx_t dest_row = idx % m;
-                     idx_t dest_col = idx / m;
-                     idx_t src_row = (m - dest_row) - 1;
-                     ;
-                     idx_t src_col = dest_col;
+  thrust::for_each(
+    rmm::exec_policy(stream), counting, counting + (size / 2), [=] __device__(idx_t idx) {
+      idx_t dest_row = idx % m;
+      idx_t dest_col = idx / m;
+      idx_t src_row  = (m - dest_row) - 1;
+      ;
+      idx_t src_col = dest_col;
 
-                     m_t temp = (m_t)d_q_reversed[idx];
-                     d_q_reversed[idx] = d_q[src_col * m + src_row];
-                     d_q[src_col * m + src_row] = temp;
-                   });
+      m_t temp                   = (m_t)d_q_reversed[idx];
+      d_q_reversed[idx]          = d_q[src_col * m + src_row];
+      d_q[src_col * m + src_row] = temp;
+    });
 }
 
 /**
@@ -164,16 +171,19 @@ void rowReverse(m_t *inout, idx_t n_rows, idx_t n_cols, cudaStream_t stream) {
  * @param v_separator: vertical separator character
  */
 template <typename m_t, typename idx_t = int>
-void print(const m_t *in, idx_t n_rows, idx_t n_cols, char h_separator = ' ',
-           char v_separator = '\n',
-           cudaStream_t stream = rmm::cuda_stream_default) {
+void print(const m_t* in,
+           idx_t n_rows,
+           idx_t n_cols,
+           char h_separator    = ' ',
+           char v_separator    = '\n',
+           cudaStream_t stream = rmm::cuda_stream_default)
+{
   std::vector<m_t> h_matrix = std::vector<m_t>(n_cols * n_rows);
   raft::update_host(h_matrix.data(), in, n_cols * n_rows, stream);
 
   for (idx_t i = 0; i < n_rows; i++) {
     for (idx_t j = 0; j < n_cols; j++) {
-      printf("%1.4f%c", h_matrix[j * n_rows + i],
-             j < n_cols - 1 ? h_separator : v_separator);
+      printf("%1.4f%c", h_matrix[j * n_rows + i], j < n_cols - 1 ? h_separator : v_separator);
     }
   }
 }
@@ -185,7 +195,8 @@ void print(const m_t *in, idx_t n_rows, idx_t n_cols, char h_separator = ' ',
  * @param n_cols: number of columns of input matrix
  */
 template <typename m_t, typename idx_t = int>
-void printHost(const m_t *in, idx_t n_rows, idx_t n_cols) {
+void printHost(const m_t* in, idx_t n_rows, idx_t n_cols)
+{
   for (idx_t i = 0; i < n_rows; i++) {
     for (idx_t j = 0; j < n_cols; j++) {
       printf("%1.4f ", in[j * n_rows + i]);
@@ -208,8 +219,16 @@ void printHost(const m_t *in, idx_t n_rows, idx_t n_cols) {
  * @param stream: cuda stream
  */
 template <typename m_t, typename idx_t = int>
-void sliceMatrix(m_t *in, idx_t n_rows, idx_t n_cols, m_t *out, idx_t x1,
-                 idx_t y1, idx_t x2, idx_t y2, cudaStream_t stream) {
+void sliceMatrix(m_t* in,
+                 idx_t n_rows,
+                 idx_t n_cols,
+                 m_t* out,
+                 idx_t x1,
+                 idx_t y1,
+                 idx_t x2,
+                 idx_t y2,
+                 cudaStream_t stream)
+{
   detail::sliceMatrix(in, n_rows, n_cols, out, x1, y1, x2, y2, stream);
 }
 
@@ -222,8 +241,8 @@ void sliceMatrix(m_t *in, idx_t n_rows, idx_t n_cols, m_t *out, idx_t x1,
  * @param stream: cuda stream
  */
 template <typename m_t, typename idx_t = int>
-void copyUpperTriangular(m_t *src, m_t *dst, idx_t n_rows, idx_t n_cols,
-                         cudaStream_t stream) {
+void copyUpperTriangular(m_t* src, m_t* dst, idx_t n_rows, idx_t n_cols, cudaStream_t stream)
+{
   detail::copyUpperTriangular(src, dst, n_rows, n_cols, stream);
 }
 
@@ -236,8 +255,9 @@ void copyUpperTriangular(m_t *src, m_t *dst, idx_t n_rows, idx_t n_cols,
  * @param stream: cuda stream
  */
 template <typename m_t, typename idx_t = int>
-void initializeDiagonalMatrix(m_t *vec, m_t *matrix, idx_t n_rows, idx_t n_cols,
-                              cudaStream_t stream) {
+void initializeDiagonalMatrix(
+  m_t* vec, m_t* matrix, idx_t n_rows, idx_t n_cols, cudaStream_t stream)
+{
   detail::initializeDiagonalMatrix(vec, matrix, n_rows, n_cols, stream);
 }
 
@@ -248,7 +268,8 @@ void initializeDiagonalMatrix(m_t *vec, m_t *matrix, idx_t n_rows, idx_t n_cols,
  * @param stream: cuda stream
  */
 template <typename m_t, typename idx_t = int>
-void getDiagonalInverseMatrix(m_t *in, idx_t len, cudaStream_t stream) {
+void getDiagonalInverseMatrix(m_t* in, idx_t len, cudaStream_t stream)
+{
   detail::getDiagonalInverseMatrix(in, len, stream);
 }
 
@@ -260,12 +281,11 @@ void getDiagonalInverseMatrix(m_t *in, idx_t len, cudaStream_t stream) {
  * @param stream: cuda stream
  */
 template <typename m_t, typename idx_t = int>
-m_t getL2Norm(const raft::handle_t &handle, m_t *in, idx_t size,
-              cudaStream_t stream) {
+m_t getL2Norm(const raft::handle_t& handle, m_t* in, idx_t size, cudaStream_t stream)
+{
   cublasHandle_t cublasH = handle.get_cublas_handle();
-  m_t normval = 0;
-  CUBLAS_CHECK(
-    raft::linalg::cublasnrm2(cublasH, size, in, 1, &normval, stream));
+  m_t normval            = 0;
+  CUBLAS_CHECK(raft::linalg::cublasnrm2(cublasH, size, in, 1, &normval, stream));
   return normval;
 }
 

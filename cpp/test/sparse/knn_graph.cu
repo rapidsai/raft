@@ -30,8 +30,9 @@ namespace raft {
 namespace sparse {
 
 template <typename value_idx, typename value_t>
-__global__ void assert_symmetry(value_idx *rows, value_idx *cols, value_t *vals,
-                                value_idx nnz, value_idx *sum) {
+__global__ void assert_symmetry(
+  value_idx* rows, value_idx* cols, value_t* vals, value_idx nnz, value_idx* sum)
+{
   int tid = blockDim.x * blockIdx.x + threadIdx.x;
 
   if (tid >= nnz) return;
@@ -51,32 +52,31 @@ struct KNNGraphInputs {
 };
 
 template <typename value_idx, typename value_t>
-::std::ostream &operator<<(::std::ostream &os,
-                           const KNNGraphInputs<value_idx, value_t> &dims) {
+::std::ostream& operator<<(::std::ostream& os, const KNNGraphInputs<value_idx, value_t>& dims)
+{
   return os;
 }
 
 template <typename value_idx, typename value_t>
-class KNNGraphTest
-  : public ::testing::TestWithParam<KNNGraphInputs<value_idx, value_t>> {
+class KNNGraphTest : public ::testing::TestWithParam<KNNGraphInputs<value_idx, value_t>> {
  public:
   KNNGraphTest()
-    : params(::testing::TestWithParam<
-             KNNGraphInputs<value_idx, value_t>>::GetParam()),
+    : params(::testing::TestWithParam<KNNGraphInputs<value_idx, value_t>>::GetParam()),
       stream(handle.get_stream()),
-      X(0, stream) {
+      X(0, stream)
+  {
     X.resize(params.X.size(), stream);
   }
 
  protected:
-  void SetUp() override {
+  void SetUp() override
+  {
     out = new raft::sparse::COO<value_t, value_idx>(stream);
 
     update_device(X.data(), params.X.data(), params.X.size(), stream);
 
     raft::sparse::selection::knn_graph(
-      handle, X.data(), params.m, params.n,
-      raft::distance::DistanceType::L2Unexpanded, *out);
+      handle, X.data(), params.m, params.n, raft::distance::DistanceType::L2Unexpanded, *out);
 
     rmm::device_scalar<value_idx> sum(stream);
     sum.set_value_to_zero_async(stream);
@@ -98,7 +98,7 @@ class KNNGraphTest
   cudaStream_t stream;
 
   // input data
-  raft::sparse::COO<value_t, value_idx> *out;
+  raft::sparse::COO<value_t, value_idx>* out;
 
   rmm::device_uvector<value_t> X;
 
@@ -112,13 +112,15 @@ const std::vector<KNNGraphInputs<int, float>> knn_graph_inputs_fint = {
   {4, 2, {0, 100, 0.01, 0.02, 5000, 10000, -5, -2}, 2}};
 
 typedef KNNGraphTest<int, float> KNNGraphTestF_int;
-TEST_P(KNNGraphTestF_int, Result) {
+TEST_P(KNNGraphTestF_int, Result)
+{
   // nnz should not be larger than twice m * k
   ASSERT_TRUE(out->nnz <= (params.m * params.k * 2));
   ASSERT_TRUE(sum_h == 0);
 }
 
-INSTANTIATE_TEST_CASE_P(KNNGraphTest, KNNGraphTestF_int,
+INSTANTIATE_TEST_CASE_P(KNNGraphTest,
+                        KNNGraphTestF_int,
                         ::testing::ValuesIn(knn_graph_inputs_fint));
 
 }  // namespace sparse

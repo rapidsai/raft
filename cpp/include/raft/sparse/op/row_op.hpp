@@ -35,8 +35,8 @@ namespace op {
  * @param stream cuda stream to use
  */
 template <typename Index_, typename Lambda = auto(Index_, Index_, Index_)->void>
-void csr_row_op(const Index_ *row_ind, Index_ n_rows, Index_ nnz, Lambda op,
-                cudaStream_t stream) {
+void csr_row_op(const Index_* row_ind, Index_ n_rows, Index_ nnz, Lambda op, cudaStream_t stream)
+{
   detail::csr_row_op<Index_, 128, Lambda>(row_ind, n_rows, nnz, op, stream);
 }
 

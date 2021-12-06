@@ -44,28 +44,32 @@ namespace convert {
 namespace detail {
 
 template <typename value_t>
-void coo_to_csr(const raft::handle_t &handle, const int *srcRows,
-                const int *srcCols, const value_t *srcVals, int nnz, int m,
-                int *dst_offsets, int *dstCols, value_t *dstVals) {
-  auto stream = handle.get_stream();
+void coo_to_csr(const raft::handle_t& handle,
+                const int* srcRows,
+                const int* srcCols,
+                const value_t* srcVals,
+                int nnz,
+                int m,
+                int* dst_offsets,
+                int* dstCols,
+                value_t* dstVals)
+{
+  auto stream         = handle.get_stream();
   auto cusparseHandle = handle.get_cusparse_handle();
   rmm::device_uvector<int> dstRows(nnz, stream);
-  CUDA_CHECK(cudaMemcpyAsync(dstRows.data(), srcRows, sizeof(int) * nnz,
-                             cudaMemcpyDeviceToDevice, stream));
-  CUDA_CHECK(cudaMemcpyAsync(dstCols, srcCols, sizeof(int) * nnz,
-                             cudaMemcpyDeviceToDevice, stream));
+  CUDA_CHECK(
+    cudaMemcpyAsync(dstRows.data(), srcRows, sizeof(int) * nnz, cudaMemcpyDeviceToDevice, stream));
+  CUDA_CHECK(
+    cudaMemcpyAsync(dstCols, srcCols, sizeof(int) * nnz, cudaMemcpyDeviceToDevice, stream));
   auto buffSize = raft::sparse::cusparsecoosort_bufferSizeExt(
     cusparseHandle, m, m, nnz, srcRows, srcCols, stream);
   rmm::device_uvector<char> pBuffer(buffSize, stream);
   rmm::device_uvector<int> P(nnz, stream);
-  CUSPARSE_CHECK(
-    cusparseCreateIdentityPermutation(cusparseHandle, nnz, P.data()));
-  raft::sparse::cusparsecoosortByRow(cusparseHandle, m, m, nnz, dstRows.data(),
-                                     dstCols, P.data(), pBuffer.data(), stream);
-  raft::sparse::cusparsegthr(cusparseHandle, nnz, srcVals, dstVals, P.data(),
-                             stream);
-  raft::sparse::cusparsecoo2csr(cusparseHandle, dstRows.data(), nnz, m,
-                                dst_offsets, stream);
+  CUSPARSE_CHECK(cusparseCreateIdentityPermutation(cusparseHandle, nnz, P.data()));
+  raft::sparse::cusparsecoosortByRow(
+    cusparseHandle, m, m, nnz, dstRows.data(), dstCols, P.data(), pBuffer.data(), stream);
+  raft::sparse::cusparsegthr(cusparseHandle, nnz, srcVals, dstVals, P.data(), stream);
+  raft::sparse::cusparsecoo2csr(cusparseHandle, dstRows.data(), nnz, m, dst_offsets, stream);
   CUDA_CHECK(cudaDeviceSynchronize());
 }
 
@@ -84,14 +88,20 @@ void coo_to_csr(const raft::handle_t &handle, const int *srcRows,
  * @param stream cuda stream to use
  * @param fused_op: the fused operation
  */
-template <typename Index_, int TPB_X = 32,
-          typename Lambda = auto(Index_, Index_, Index_)->void>
-void csr_adj_graph_batched(const Index_ *row_ind, Index_ total_rows, Index_ nnz,
-                           Index_ batchSize, const bool *adj,
-                           Index_ *row_ind_ptr, cudaStream_t stream,
-                           Lambda fused_op) {
+template <typename Index_, int TPB_X = 32, typename Lambda = auto(Index_, Index_, Index_)->void>
+void csr_adj_graph_batched(const Index_* row_ind,
+                           Index_ total_rows,
+                           Index_ nnz,
+                           Index_ batchSize,
+                           const bool* adj,
+                           Index_* row_ind_ptr,
+                           cudaStream_t stream,
+                           Lambda fused_op)
+{
   op::csr_row_op<Index_>(
-    row_ind, batchSize, nnz,
+    row_ind,
+    batchSize,
+    nnz,
     [fused_op, adj, total_rows, row_ind_ptr, batchSize, nnz] __device__(
       Index_ row, Index_ start_idx, Index_ stop_idx) {
       fused_op(row, start_idx, stop_idx);
@@ -107,14 +117,23 @@ void csr_adj_graph_batched(const Index_ *row_ind, Index_ total_rows, Index_ nnz,
     stream);
 }
 
-template <typename Index_, int TPB_X = 32,
-          typename Lambda = auto(Index_, Index_, Index_)->void>
-void csr_adj_graph_batched(const Index_ *row_ind, Index_ total_rows, Index_ nnz,
-                           Index_ batchSize, const bool *adj,
-                           Index_ *row_ind_ptr, cudaStream_t stream) {
-  csr_adj_graph_batched(
-    row_ind, total_rows, nnz, batchSize, adj, row_ind_ptr, stream,
-    [] __device__(Index_ row, Index_ start_idx, Index_ stop_idx) {});
+template <typename Index_, int TPB_X = 32, typename Lambda = auto(Index_, Index_, Index_)->void>
+void csr_adj_graph_batched(const Index_* row_ind,
+                           Index_ total_rows,
+                           Index_ nnz,
+                           Index_ batchSize,
+                           const bool* adj,
+                           Index_* row_ind_ptr,
+                           cudaStream_t stream)
+{
+  csr_adj_graph_batched(row_ind,
+                        total_rows,
+                        nnz,
+                        batchSize,
+                        adj,
+                        row_ind_ptr,
+                        stream,
+                        [] __device__(Index_ row, Index_ start_idx, Index_ stop_idx) {});
 }
 
 /**
@@ -130,13 +149,17 @@ void csr_adj_graph_batched(const Index_ *row_ind, Index_ total_rows, Index_ nnz,
  * @param stream cuda stream to use
  * @param fused_op the fused operation
  */
-template <typename Index_, int TPB_X = 32,
-          typename Lambda = auto(Index_, Index_, Index_)->void>
-void csr_adj_graph(const Index_ *row_ind, Index_ total_rows, Index_ nnz,
-                   const bool *adj, Index_ *row_ind_ptr, cudaStream_t stream,
-                   Lambda fused_op) {
-  csr_adj_graph_batched<Index_, TPB_X>(row_ind, total_rows, nnz, total_rows,
-                                       adj, row_ind_ptr, stream, fused_op);
+template <typename Index_, int TPB_X = 32, typename Lambda = auto(Index_, Index_, Index_)->void>
+void csr_adj_graph(const Index_* row_ind,
+                   Index_ total_rows,
+                   Index_ nnz,
+                   const bool* adj,
+                   Index_* row_ind_ptr,
+                   cudaStream_t stream,
+                   Lambda fused_op)
+{
+  csr_adj_graph_batched<Index_, TPB_X>(
+    row_ind, total_rows, nnz, total_rows, adj, row_ind_ptr, stream, fused_op);
 }
 
 /**
@@ -149,8 +172,8 @@ void csr_adj_graph(const Index_ *row_ind, Index_ total_rows, Index_ nnz,
  * @param stream: cuda stream to use
  */
 template <typename T>
-void sorted_coo_to_csr(const T *rows, int nnz, T *row_ind, int m,
-                       cudaStream_t stream) {
+void sorted_coo_to_csr(const T* rows, int nnz, T* row_ind, int m, cudaStream_t stream)
+{
   rmm::device_uvector<T> row_counts(m, stream);
 
   CUDA_CHECK(cudaMemsetAsync(row_counts.data(), 0, m * sizeof(T), stream));
@@ -158,11 +181,9 @@ void sorted_coo_to_csr(const T *rows, int nnz, T *row_ind, int m,
   linalg::coo_degree(rows, nnz, row_counts.data(), stream);
 
   // create csr compressed row index from row counts
-  thrust::device_ptr<T> row_counts_d =
-    thrust::device_pointer_cast(row_counts.data());
-  thrust::device_ptr<T> c_ind_d = thrust::device_pointer_cast(row_ind);
-  exclusive_scan(rmm::exec_policy(stream), row_counts_d, row_counts_d + m,
-                 c_ind_d);
+  thrust::device_ptr<T> row_counts_d = thrust::device_pointer_cast(row_counts.data());
+  thrust::device_ptr<T> c_ind_d      = thrust::device_pointer_cast(row_ind);
+  exclusive_scan(rmm::exec_policy(stream), row_counts_d, row_counts_d + m, c_ind_d);
 }
 
 };  // end NAMESPACE detail

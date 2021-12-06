@@ -40,14 +40,29 @@ namespace linalg {
  * @param[in] stream : Cuda stream for ordering events
  */
 template <typename value_idx, typename value_t>
-void csr_transpose(const raft::handle_t &handle, const value_idx *csr_indptr,
-                   const value_idx *csr_indices, const value_t *csr_data,
-                   value_idx *csc_indptr, value_idx *csc_indices,
-                   value_t *csc_data, value_idx csr_nrows, value_idx csr_ncols,
-                   value_idx nnz, cudaStream_t stream) {
-  detail::csr_transpose(handle.get_cusparse_handle(), csr_indptr, csr_indices,
-                        csr_data, csc_indptr, csc_indices, csc_data, csr_nrows,
-                        csr_ncols, nnz, stream);
+void csr_transpose(const raft::handle_t& handle,
+                   const value_idx* csr_indptr,
+                   const value_idx* csr_indices,
+                   const value_t* csr_data,
+                   value_idx* csc_indptr,
+                   value_idx* csc_indices,
+                   value_t* csc_data,
+                   value_idx csr_nrows,
+                   value_idx csr_ncols,
+                   value_idx nnz,
+                   cudaStream_t stream)
+{
+  detail::csr_transpose(handle.get_cusparse_handle(),
+                        csr_indptr,
+                        csr_indices,
+                        csr_data,
+                        csc_indptr,
+                        csc_indices,
+                        csc_data,
+                        csr_nrows,
+                        csr_ncols,
+                        nnz,
+                        stream);
 }
 
 };  // end NAMESPACE linalg

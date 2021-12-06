@@ -35,12 +35,16 @@ namespace op {
  * @param[in] stream : cuda stream for ordering events
  */
 template <typename value_idx>
-void csr_row_slice_indptr(value_idx start_row, value_idx stop_row,
-                          const value_idx *indptr, value_idx *indptr_out,
-                          value_idx *start_offset, value_idx *stop_offset,
-                          cudaStream_t stream) {
-  detail::csr_row_slice_indptr(start_row, stop_row, indptr, indptr_out,
-                               start_offset, stop_offset, stream);
+void csr_row_slice_indptr(value_idx start_row,
+                          value_idx stop_row,
+                          const value_idx* indptr,
+                          value_idx* indptr_out,
+                          value_idx* start_offset,
+                          value_idx* stop_offset,
+                          cudaStream_t stream)
+{
+  detail::csr_row_slice_indptr(
+    start_row, stop_row, indptr, indptr_out, start_offset, stop_offset, stream);
 }
 
 /**
@@ -56,12 +60,16 @@ void csr_row_slice_indptr(value_idx start_row, value_idx stop_row,
  * @param[in] stream : cuda stream for ordering events
  */
 template <typename value_idx, typename value_t>
-void csr_row_slice_populate(value_idx start_offset, value_idx stop_offset,
-                            const value_idx *indices, const value_t *data,
-                            value_idx *indices_out, value_t *data_out,
-                            cudaStream_t stream) {
-  detail::csr_row_slice_populate(start_offset, stop_offset, indices, data,
-                                 indices_out, data_out, stream);
+void csr_row_slice_populate(value_idx start_offset,
+                            value_idx stop_offset,
+                            const value_idx* indices,
+                            const value_t* data,
+                            value_idx* indices_out,
+                            value_t* data_out,
+                            cudaStream_t stream)
+{
+  detail::csr_row_slice_populate(
+    start_offset, stop_offset, indices, data, indices_out, data_out, stream);
 }
 
 };  // namespace op
