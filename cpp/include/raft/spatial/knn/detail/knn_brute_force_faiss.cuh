@@ -347,44 +347,43 @@ void brute_force_knn_impl(
         bfKnn(&gpu_res, args);
     }
   }
-}
 
-CUDA_CHECK(cudaPeekAtLastError());
-//  }
+  CUDA_CHECK(cudaPeekAtLastError());
+  //  }
 
-// Sync internal streams if used. We don't need to
-// sync the user stream because we'll already have
-// fully serial execution.
-for (int i = 0; i < n_int_streams; i++) {
-  CUDA_CHECK(cudaStreamSynchronize(internalStreams[i]));
-}
+  // Sync internal streams if used. We don't need to
+  // sync the user stream because we'll already have
+  // fully serial execution.
+  for (int i = 0; i < n_int_streams; i++) {
+    CUDA_CHECK(cudaStreamSynchronize(internalStreams[i]));
+  }
 
-if (input.size() > 1 || translations != nullptr) {
-  // This is necessary for proper index translations. If there are
-  // no translations or partitions to combine, it can be skipped.
-  knn_merge_parts(out_D, out_I, res_D, res_I, n, input.size(), k, userStream, trans.data());
-}
+  if (input.size() > 1 || translations != nullptr) {
+    // This is necessary for proper index translations. If there are
+    // no translations or partitions to combine, it can be skipped.
+    knn_merge_parts(out_D, out_I, res_D, res_I, n, input.size(), k, userStream, trans.data());
+  }
 
-// Perform necessary post-processing
-if (metric == raft::distance::DistanceType::L2SqrtExpanded ||
-    metric == raft::distance::DistanceType::L2SqrtUnexpanded ||
-    metric == raft::distance::DistanceType::LpUnexpanded) {
-  /**
-   * post-processing
-   */
-  float p = 0.5;  // standard l2
-  if (metric == raft::distance::DistanceType::LpUnexpanded) p = 1.0 / metricArg;
-  raft::linalg::unaryOp<float>(
-    res_D, res_D, n * k, [p] __device__(float input) { return powf(input, p); }, userStream);
-}
+  // Perform necessary post-processing
+  if (metric == raft::distance::DistanceType::L2SqrtExpanded ||
+      metric == raft::distance::DistanceType::L2SqrtUnexpanded ||
+      metric == raft::distance::DistanceType::LpUnexpanded) {
+    /**
+     * post-processing
+     */
+    float p = 0.5;  // standard l2
+    if (metric == raft::distance::DistanceType::LpUnexpanded) p = 1.0 / metricArg;
+    raft::linalg::unaryOp<float>(
+      res_D, res_D, n * k, [p] __device__(float input) { return powf(input, p); }, userStream);
+  }
 
-query_metric_processor->revert(search_items);
-query_metric_processor->postprocess(out_D);
-for (size_t i = 0; i < input.size(); i++) {
-  metric_processors[i]->revert(input[i]);
-}
+  query_metric_processor->revert(search_items);
+  query_metric_processor->postprocess(out_D);
+  for (size_t i = 0; i < input.size(); i++) {
+    metric_processors[i]->revert(input[i]);
+  }
 
-if (translations == nullptr) delete id_ranges;
+  if (translations == nullptr) delete id_ranges;
 };
 
 }  // namespace detail
