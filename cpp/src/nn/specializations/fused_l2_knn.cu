@@ -22,61 +22,57 @@ namespace spatial {
 namespace knn {
 namespace detail {
 
-template void l2_unexpanded_knn<raft::distance::DistanceType::L2SqrtUnexpanded,
-                                std::int64_t, float, true>(
-  std::size_t D, std::int64_t *out_inds, float *out_dists, const float *index,
-  const float *query, std::size_t n_index_rows, std::size_t n_query_rows, int k,
-  bool rowMajorIndex, bool rowMajorQuery, cudaStream_t stream, void *workspace,
-  std::size_t &worksize);
+template void fusedL2Knn<long, float, true>(size_t D,
+                                            long* out_inds,
+                                            float* out_dists,
+                                            const float* index,
+                                            const float* query,
+                                            size_t n_index_rows,
+                                            size_t n_query_rows,
+                                            int k,
+                                            bool rowMajorIndex,
+                                            bool rowMajorQuery,
+                                            cudaStream_t stream,
+                                            raft::distance::DistanceType metric);
 
-template void l2_unexpanded_knn<raft::distance::DistanceType::L2Unexpanded,
-                                std::int64_t, float, true>(
-  std::size_t D, std::int64_t *out_inds, float *out_dists, const float *index,
-  const float *query, std::size_t n_index_rows, std::size_t n_query_rows, int k,
-  bool rowMajorIndex, bool rowMajorQuery, cudaStream_t stream, void *workspace,
-  std::size_t &worksize);
+template void fusedL2Knn<long, float, false>(size_t D,
+                                             long* out_inds,
+                                             float* out_dists,
+                                             const float* index,
+                                             const float* query,
+                                             size_t n_index_rows,
+                                             size_t n_query_rows,
+                                             int k,
+                                             bool rowMajorIndex,
+                                             bool rowMajorQuery,
+                                             cudaStream_t stream,
+                                             raft::distance::DistanceType metric);
 
-template void l2_unexpanded_knn<raft::distance::DistanceType::L2SqrtUnexpanded,
-                                int, float, true>(
-  std::size_t D, int *out_inds, float *out_dists, const float *index,
-  const float *query, std::size_t n_index_rows, std::size_t n_query_rows, int k,
-  bool rowMajorIndex, bool rowMajorQuery, cudaStream_t stream, void *workspace,
-  std::size_t &worksize);
+template void fusedL2Knn<int, float, true>(size_t D,
+                                           int* out_inds,
+                                           float* out_dists,
+                                           const float* index,
+                                           const float* query,
+                                           size_t n_index_rows,
+                                           size_t n_query_rows,
+                                           int k,
+                                           bool rowMajorIndex,
+                                           bool rowMajorQuery,
+                                           cudaStream_t stream,
+                                           raft::distance::DistanceType metric);
 
-template void
-l2_unexpanded_knn<raft::distance::DistanceType::L2Unexpanded, int, float, true>(
-  std::size_t D, int *out_inds, float *out_dists, const float *index,
-  const float *query, std::size_t n_index_rows, std::size_t n_query_rows, int k,
-  bool rowMajorIndex, bool rowMajorQuery, cudaStream_t stream, void *workspace,
-  std::size_t &worksize);
-
-template void l2_unexpanded_knn<raft::distance::DistanceType::L2SqrtUnexpanded,
-                                std::int64_t, float, false>(
-  std::size_t D, std::int64_t *out_inds, float *out_dists, const float *index,
-  const float *query, std::size_t n_index_rows, std::size_t n_query_rows, int k,
-  bool rowMajorIndex, bool rowMajorQuery, cudaStream_t stream, void *workspace,
-  std::size_t &worksize);
-
-template void l2_unexpanded_knn<raft::distance::DistanceType::L2Unexpanded,
-                                std::int64_t, float, false>(
-  std::size_t D, std::int64_t *out_inds, float *out_dists, const float *index,
-  const float *query, std::size_t n_index_rows, std::size_t n_query_rows, int k,
-  bool rowMajorIndex, bool rowMajorQuery, cudaStream_t stream, void *workspace,
-  std::size_t &worksize);
-
-template void l2_unexpanded_knn<raft::distance::DistanceType::L2SqrtUnexpanded,
-                                int, float, false>(
-  std::size_t D, int *out_inds, float *out_dists, const float *index,
-  const float *query, std::size_t n_index_rows, std::size_t n_query_rows, int k,
-  bool rowMajorIndex, bool rowMajorQuery, cudaStream_t stream, void *workspace,
-  std::size_t &worksize);
-
-template void l2_unexpanded_knn<raft::distance::DistanceType::L2Unexpanded, int,
-                                float, false>(
-  std::size_t D, int *out_inds, float *out_dists, const float *index,
-  const float *query, std::size_t n_index_rows, std::size_t n_query_rows, int k,
-  bool rowMajorIndex, bool rowMajorQuery, cudaStream_t stream, void *workspace,
-  std::size_t &worksize);
+template void fusedL2Knn<int, float, false>(size_t D,
+                                            int* out_inds,
+                                            float* out_dists,
+                                            const float* index,
+                                            const float* query,
+                                            size_t n_index_rows,
+                                            size_t n_query_rows,
+                                            int k,
+                                            bool rowMajorIndex,
+                                            bool rowMajorQuery,
+                                            cudaStream_t stream,
+                                            raft::distance::DistanceType metric);
 
 };  // namespace detail
 };  // namespace knn
