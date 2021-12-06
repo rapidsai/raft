@@ -93,7 +93,6 @@ struct FixConnectivitiesRedOp {
   FixConnectivitiesRedOp(value_idx* colors_, value_idx m_) : colors(colors_), m(m_){};
 
   typedef typename cub::KeyValuePair<value_idx, value_t> KVP;
-
   DI void operator()(value_idx rit, KVP* out, const KVP& other)
   {
     if (rit < m && other.value < out->value && colors[rit] != colors[other.key]) {
@@ -113,7 +112,6 @@ struct FixConnectivitiesRedOp {
   }
 
   DI void init(value_t* out, value_t maxVal) { *out = maxVal; }
-
   DI void init(KVP* out, value_t maxVal)
   {
     out->key   = -1;

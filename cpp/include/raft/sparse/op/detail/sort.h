@@ -75,6 +75,18 @@ void coo_sort(int m, int n, int nnz, int* rows, int* cols, T* vals, cudaStream_t
 }
 
 /**
+ * @brief Sort the underlying COO arrays by row
+ * @tparam T: the type name of the underlying value array
+ * @param in: COO to sort by row
+ * @param stream: the cuda stream to use
+ */
+template <typename T>
+void coo_sort(COO<T>* const in, cudaStream_t stream)
+{
+  coo_sort<T>(in->n_rows, in->n_cols, in->nnz, in->rows(), in->cols(), in->vals(), stream);
+}
+
+/**
  * Sorts a COO by its weight
  * @tparam value_idx
  * @tparam value_t

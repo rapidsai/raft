@@ -47,6 +47,7 @@ conda activate rapids
 gpuci_logger "Installing packages needed for RAFT"
 gpuci_mamba_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
       "cudatoolkit=${CUDA_REL}" \
+      "libcusolver>=11.2.1" \
       "cudf=${MINOR_VERSION}" \
       "rmm=${MINOR_VERSION}" \
       "dask-cudf=${MINOR_VERSION}" \

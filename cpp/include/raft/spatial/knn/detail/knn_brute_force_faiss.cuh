@@ -293,6 +293,7 @@ void brute_force_knn_impl(
 
     cudaStream_t stream = raft::select_stream(userStream, internalStreams, n_int_streams, i);
 
+    // TODO: Enable this once we figure out why it's causing pytest failures in cuml.
     if (k <= 64 && rowMajorQuery == rowMajorIndex && rowMajorQuery == true &&
         (metric == raft::distance::DistanceType::L2Unexpanded ||
          metric == raft::distance::DistanceType::L2SqrtUnexpanded ||
