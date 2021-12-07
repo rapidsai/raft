@@ -22,14 +22,14 @@
 #include <raft/cuda_utils.cuh>
 #include <vector>
 
-#include <raft/sparse/linalg/symmetrize.cuh>
+#include <raft/sparse/linalg/symmetrize.hpp>
 #include <raft/sparse/mst/mst.cuh>
-#include <raft/sparse/selection/knn_graph.cuh>
+#include <raft/sparse/selection/knn_graph.hpp>
 
 #include <raft/linalg/distance_type.h>
 #include <raft/linalg/transpose.h>
-#include <raft/sparse/convert/csr.cuh>
-#include <raft/sparse/coo.cuh>
+#include <raft/sparse/convert/csr.hpp>
+#include <raft/sparse/coo.hpp>
 #include <raft/sparse/hierarchy/single_linkage.hpp>
 #include <rmm/device_uvector.hpp>
 

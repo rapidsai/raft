@@ -20,10 +20,10 @@
 #include <raft/label/classlabels.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/mr/device/buffer.hpp>
-#include <raft/sparse/convert/csr.cuh>
-#include <raft/sparse/coo.cuh>
-#include <raft/sparse/linalg/symmetrize.cuh>
-#include <raft/sparse/op/reduce.cuh>
+#include <raft/sparse/convert/csr.hpp>
+#include <raft/sparse/coo.hpp>
+#include <raft/sparse/linalg/symmetrize.hpp>
+#include <raft/sparse/op/reduce.hpp>
 
 #include <raft/cudart_utils.h>
 
@@ -38,6 +38,7 @@
 
 namespace raft {
 namespace linkage {
+namespace detail {
 
 /**
  * \brief A key identifier paired with a corresponding value
@@ -100,7 +101,9 @@ struct FixConnectivitiesRedOp {
     }
   }
 
-  DI KVP operator()(value_idx rit, const KVP& a, const KVP& b)
+  DI KVP
+
+  operator()(value_idx rit, const KVP& a, const KVP& b)
   {
     if (rit < m && a.value < b.value && colors[rit] != colors[a.key]) {
       return a;
@@ -142,9 +145,19 @@ template <typename LabelT, typename DataT>
 struct CubKVPMinReduce {
   typedef cub::KeyValuePair<LabelT, DataT> KVP;
 
-  DI KVP operator()(LabelT rit, const KVP& a, const KVP& b) { return b.value < a.value ? b : a; }
+  DI KVP
 
-  DI KVP operator()(const KVP& a, const KVP& b) { return b.value < a.value ? b : a; }
+  operator()(LabelT rit, const KVP& a, const KVP& b)
+  {
+    return b.value < a.value ? b : a;
+  }
+
+  DI KVP
+
+  operator()(const KVP& a, const KVP& b)
+  {
+    return b.value < a.value ? b : a;
+  }
 
 };  // KVPMinReduce
 
@@ -177,7 +190,9 @@ struct LookupColorOp {
 
   LookupColorOp(value_idx* colors_) : colors(colors_) {}
 
-  DI value_idx operator()(const cub::KeyValuePair<value_idx, value_t>& kvp)
+  DI value_idx
+
+  operator()(const cub::KeyValuePair<value_idx, value_t>& kvp)
   {
     return colors[kvp.key];
   }
@@ -256,7 +271,7 @@ void sort_by_color(value_idx* colors,
   thrust::copy(rmm::exec_policy(stream), arg_sort_iter, arg_sort_iter + n_rows, src_indices);
 
   auto keys = thrust::make_zip_iterator(
-    thrust::make_tuple(colors, nn_colors, (raft::linkage::KeyValuePair<value_idx, value_t>*)kvp));
+    thrust::make_tuple(colors, nn_colors, (KeyValuePair<value_idx, value_t>*)kvp));
   auto vals = thrust::make_zip_iterator(thrust::make_tuple(src_indices));
 
   // get all the colors in contiguous locations so we can map them to warps.
@@ -417,5 +432,6 @@ void connect_components(
     handle, min_edges.rows(), min_edges.cols(), min_edges.vals(), n_rows, n_rows, size, out);
 }
 
+};  // end namespace detail
 };  // end namespace linkage
 };  // end namespace raft

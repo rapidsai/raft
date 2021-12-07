@@ -15,25 +15,14 @@
  */
 
 #include <raft/cudart_utils.h>
-#include <raft/sparse/cusparse_wrappers.h>
-#include <raft/cuda_utils.cuh>
-#include <rmm/device_uvector.hpp>
-
-#include <cusparse_v2.h>
-
-#include <thrust/device_ptr.h>
-#include <thrust/scan.h>
-
-#include <cuda_runtime.h>
-#include <raft/device_atomics.cuh>
-
 #include <iostream>
-#define restrict __restrict__
+#include <rmm/device_uvector.hpp>
 
 #pragma once
 
 namespace raft {
 namespace sparse {
+namespace detail {
 
 /** @brief A Container object for sparse coordinate. There are two motivations
  * behind using a container for COO arrays.
@@ -247,5 +236,6 @@ class COO {
   }
 };
 
+};  // namespace detail
 };  // namespace sparse
 };  // namespace raft

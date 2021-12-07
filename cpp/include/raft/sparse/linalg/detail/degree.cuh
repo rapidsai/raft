@@ -16,23 +16,19 @@
 
 #pragma once
 
-#include <cusparse_v2.h>
 #include <raft/cudart_utils.h>
-#include <raft/sparse/cusparse_wrappers.h>
-#include <raft/cuda_utils.cuh>
-
-#include <thrust/device_ptr.h>
-#include <thrust/scan.h>
+#include <raft/device_atomics.cuh>
 
 #include <cuda_runtime.h>
 #include <stdio.h>
 
-#include <raft/sparse/utils.h>
-#include <raft/sparse/coo.cuh>
+#include <raft/sparse/detail/utils.h>
+#include <raft/sparse/coo.hpp>
 
 namespace raft {
 namespace sparse {
 namespace linalg {
+namespace detail {
 
 /**
  * @brief Count all the rows in the coo row array and place them in the
@@ -68,24 +64,6 @@ void coo_degree(const T* rows, int nnz, T* results, cudaStream_t stream)
   CUDA_CHECK(cudaGetLastError());
 }
 
-/**
- * @brief Count the number of values for each row
- * @tparam TPB_X: number of threads to use per block
- * @tparam T: type name of underlying values array
- * @param in: input COO object for counting rows
- * @param results: output array with row counts (size=in->n_rows)
- * @param stream: cuda stream to use
- */
-template <int TPB_X = 64, typename T>
-void coo_degree(COO<T>* in, int* results, cudaStream_t stream)
-{
-  dim3 grid_rc(raft::ceildiv(in->nnz, TPB_X), 1, 1);
-  dim3 blk_rc(TPB_X, 1, 1);
-
-  coo_degree_kernel<TPB_X><<<grid_rc, blk_rc, 0, stream>>>(in->rows(), in->nnz, results);
-  CUDA_CHECK(cudaGetLastError());
-}
-
 template <int TPB_X = 64, typename T>
 __global__ void coo_degree_nz_kernel(const int* rows, const T* vals, int nnz, int* results)
 {
@@ -99,25 +77,6 @@ __global__ void coo_degree_scalar_kernel(
 {
   int row = (blockIdx.x * TPB_X) + threadIdx.x;
   if (row < nnz && vals[row] != scalar) { raft::myAtomicAdd(results + rows[row], 1); }
-}
-
-/**
- * @brief Count the number of values for each row that doesn't match a particular scalar
- * @tparam TPB_X: number of threads to use per block
- * @tparam T: the type name of the underlying value arrays
- * @param in: Input COO array
- * @param scalar: scalar to match for counting rows
- * @param results: output row counts
- * @param stream: cuda stream to use
- */
-template <int TPB_X = 64, typename T>
-void coo_degree_scalar(COO<T>* in, T scalar, int* results, cudaStream_t stream)
-{
-  dim3 grid_rc(raft::ceildiv(in->nnz, TPB_X), 1, 1);
-  dim3 blk_rc(TPB_X, 1, 1);
-  coo_degree_scalar_kernel<TPB_X, T>
-    <<<grid_rc, blk_rc, 0, stream>>>(in->rows(), in->vals(), in->nnz, scalar, results);
-  CUDA_CHECK(cudaGetLastError());
 }
 
 /**
@@ -159,24 +118,7 @@ void coo_degree_nz(const int* rows, const T* vals, int nnz, int* results, cudaSt
   coo_degree_nz_kernel<TPB_X, T><<<grid_rc, blk_rc, 0, stream>>>(rows, vals, nnz, results);
 }
 
-/**
- * @brief Count the number of nonzero values for each row
- * @tparam TPB_X: number of threads to use per block
- * @tparam T: the type name of the underlying value arrays
- * @param in: Input COO array
- * @param results: output row counts
- * @param stream: cuda stream to use
- */
-template <int TPB_X = 64, typename T>
-void coo_degree_nz(COO<T>* in, int* results, cudaStream_t stream)
-{
-  dim3 grid_rc(raft::ceildiv(in->nnz, TPB_X), 1, 1);
-  dim3 blk_rc(TPB_X, 1, 1);
-
-  coo_degree_nz_kernel<TPB_X, T>
-    <<<grid_rc, blk_rc, 0, stream>>>(in->rows(), in->vals(), in->nnz, results);
-}
-
+};  // end NAMESPACE detail
 };  // end NAMESPACE linalg
 };  // end NAMESPACE sparse
 };  // end NAMESPACE raft

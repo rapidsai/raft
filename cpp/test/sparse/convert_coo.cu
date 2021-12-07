@@ -16,8 +16,8 @@
 
 #include <gtest/gtest.h>
 
-#include <raft/sparse/convert/coo.cuh>
-#include <raft/sparse/csr.cuh>
+#include <raft/sparse/convert/coo.hpp>
+#include <raft/sparse/csr.hpp>
 
 #include <raft/cudart_utils.h>
 #include <raft/random/rng.hpp>
@@ -59,7 +59,7 @@ class CSRtoCOOTest : public ::testing::TestWithParam<CSRtoCOOInputs<Index_>> {
     raft::update_device(ex_scan.data(), params.ex_scan.data(), n_rows, stream);
     raft::update_device(verify.data(), params.verify.data(), nnz, stream);
 
-    convert::csr_to_coo<Index_, 32>(ex_scan.data(), n_rows, result.data(), nnz, stream);
+    convert::csr_to_coo<Index_>(ex_scan.data(), n_rows, result.data(), nnz, stream);
 
     ASSERT_TRUE(
       raft::devArrMatch<Index_>(verify.data(), result.data(), nnz, raft::Compare<float>(), stream));
