@@ -19,8 +19,8 @@
 #include <raft/random/rng.hpp>
 #include "../test_utils.h"
 
-#include <raft/sparse/convert/csr.cuh>
-#include <raft/sparse/coo.cuh>
+#include <raft/sparse/convert/csr.hpp>
+#include <raft/sparse/coo.hpp>
 
 #include <iostream>
 
@@ -123,7 +123,7 @@ class CSRAdjGraphTest : public ::testing::TestWithParam<CSRAdjGraphInputs<Index_
                         stream);
     raft::update_device(verify.data(), params.verify.data(), nnz, stream);
 
-    convert::csr_adj_graph_batched<Index_, 32>(
+    convert::csr_adj_graph_batched<Index_>(
       row_ind.data(), params.n_cols, nnz, params.n_rows, adj.data(), result.data(), stream);
 
     ASSERT_TRUE(

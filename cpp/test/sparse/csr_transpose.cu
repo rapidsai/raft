@@ -20,8 +20,8 @@
 
 #include <raft/cudart_utils.h>
 #include <raft/sparse/cusparse_wrappers.h>
-#include <raft/sparse/linalg/transpose.h>
 #include <raft/handle.hpp>
+#include <raft/sparse/linalg/transpose.hpp>
 
 #include "../test_utils.h"
 
@@ -102,7 +102,7 @@ class CSRTransposeTest : public ::testing::TestWithParam<CSRTransposeInputs<valu
 
   void SetUp() override
   {
-    CUSPARSE_CHECK(cusparseCreate(&handle));
+    raft::handle_t handle;
 
     make_data();
 
@@ -119,7 +119,6 @@ class CSRTransposeTest : public ::testing::TestWithParam<CSRTransposeInputs<valu
                                         stream);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
-    CUSPARSE_CHECK(cusparseDestroy(handle));
   }
 
   void compare()

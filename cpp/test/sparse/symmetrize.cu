@@ -17,9 +17,9 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <raft/random/rng.hpp>
-#include <raft/sparse/convert/coo.cuh>
-#include <raft/sparse/coo.cuh>
-#include <raft/sparse/linalg/symmetrize.cuh>
+#include <raft/sparse/convert/coo.hpp>
+#include <raft/sparse/coo.hpp>
+#include <raft/sparse/linalg/symmetrize.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
@@ -167,7 +167,7 @@ TEST_P(COOSymmetrize, Result)
 
   COO<float> out(stream);
 
-  linalg::coo_symmetrize<32, float>(
+  linalg::coo_symmetrize<float>(
     &in,
     &out,
     [] __device__(int row, int col, float val, float trans) { return val + trans; },

@@ -19,9 +19,9 @@
 #include <raft/random/rng.hpp>
 #include "../test_utils.h"
 
-#include <raft/sparse/op/sort.h>
-#include <raft/sparse/coo.cuh>
-#include <raft/sparse/op/filter.cuh>
+#include <raft/sparse/coo.hpp>
+#include <raft/sparse/op/filter.hpp>
+#include <raft/sparse/op/sort.hpp>
 
 #include <iostream>
 

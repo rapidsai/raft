@@ -18,9 +18,9 @@
 
 #include <raft/cudart_utils.h>
 #include <raft/sparse/cusparse_wrappers.h>
-#include <raft/sparse/utils.h>
+#include <raft/sparse/detail/utils.h>
 #include <raft/cuda_utils.cuh>
-#include <raft/sparse/coo.cuh>
+#include <raft/sparse/coo.hpp>
 #include <rmm/exec_policy.hpp>
 
 #include <thrust/device_ptr.h>
@@ -35,10 +35,14 @@
 namespace raft {
 namespace sparse {
 namespace op {
+namespace detail {
 
 struct TupleComp {
   template <typename one, typename two>
-  __host__ __device__ bool operator()(const one& t1, const two& t2)
+  __host__ __device__
+
+    bool
+    operator()(const one& t1, const two& t2)
   {
     // sort first by each sample's color,
     if (thrust::get<0>(t1) < thrust::get<0>(t2)) return true;
@@ -102,6 +106,7 @@ void coo_sort_by_weight(
 
   thrust::sort_by_key(rmm::exec_policy(stream), t_data, t_data + nnz, first);
 }
+};  // namespace detail
 };  // namespace op
 };  // end NAMESPACE sparse
 };  // end NAMESPACE raft

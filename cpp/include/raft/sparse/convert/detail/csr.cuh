@@ -33,14 +33,15 @@
 #include <algorithm>
 #include <iostream>
 
-#include <raft/sparse/utils.h>
-#include <raft/sparse/coo.cuh>
-#include <raft/sparse/linalg/degree.cuh>
-#include <raft/sparse/op/row_op.cuh>
+#include <raft/sparse/detail/utils.h>
+#include <raft/sparse/coo.hpp>
+#include <raft/sparse/linalg/degree.hpp>
+#include <raft/sparse/op/row_op.hpp>
 
 namespace raft {
 namespace sparse {
 namespace convert {
+namespace detail {
 
 template <typename value_t>
 void coo_to_csr(const raft::handle_t& handle,
@@ -97,7 +98,7 @@ void csr_adj_graph_batched(const Index_* row_ind,
                            cudaStream_t stream,
                            Lambda fused_op)
 {
-  op::csr_row_op<Index_, TPB_X>(
+  op::csr_row_op<Index_>(
     row_ind,
     batchSize,
     nnz,
@@ -177,7 +178,7 @@ void sorted_coo_to_csr(const T* rows, int nnz, T* row_ind, int m, cudaStream_t s
 
   CUDA_CHECK(cudaMemsetAsync(row_counts.data(), 0, m * sizeof(T), stream));
 
-  linalg::coo_degree<32>(rows, nnz, row_counts.data(), stream);
+  linalg::coo_degree(rows, nnz, row_counts.data(), stream);
 
   // create csr compressed row index from row counts
   thrust::device_ptr<T> row_counts_d = thrust::device_pointer_cast(row_counts.data());
@@ -185,19 +186,7 @@ void sorted_coo_to_csr(const T* rows, int nnz, T* row_ind, int m, cudaStream_t s
   exclusive_scan(rmm::exec_policy(stream), row_counts_d, row_counts_d + m, c_ind_d);
 }
 
-/**
- * @brief Generate the row indices array for a sorted COO matrix
- *
- * @param coo: Input COO matrix
- * @param row_ind: output row indices array
- * @param stream: cuda stream to use
- */
-template <typename T>
-void sorted_coo_to_csr(COO<T>* coo, int* row_ind, cudaStream_t stream)
-{
-  sorted_coo_to_csr(coo->rows(), coo->nnz, row_ind, coo->n_rows, stream);
-}
-
+};  // end NAMESPACE detail
 };  // end NAMESPACE convert
 };  // end NAMESPACE sparse
 };  // end NAMESPACE raft

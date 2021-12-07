@@ -33,13 +33,14 @@
 #include <cstdio>
 #include <iostream>
 
-#include <raft/sparse/utils.h>
-#include <raft/sparse/coo.cuh>
-#include <raft/sparse/linalg/degree.cuh>
+#include <raft/sparse/detail/utils.h>
+#include <raft/sparse/coo.hpp>
+#include <raft/sparse/linalg/degree.hpp>
 
 namespace raft {
 namespace sparse {
 namespace op {
+namespace detail {
 
 template <int TPB_X, typename T>
 __global__ void coo_remove_scalar_kernel(const int* rows,
@@ -153,11 +154,10 @@ void coo_remove_scalar(COO<T>* in, COO<T>* out, T scalar, cudaStream_t stream)
   CUDA_CHECK(cudaMemsetAsync(row_count_nz.data(), 0, in->n_rows * sizeof(int), stream));
   CUDA_CHECK(cudaMemsetAsync(row_count.data(), 0, in->n_rows * sizeof(int), stream));
 
-  linalg::coo_degree<TPB_X>(in->rows(), in->nnz, row_count.data(), stream);
+  linalg::coo_degree(in->rows(), in->nnz, row_count.data(), stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
-  linalg::coo_degree_scalar<TPB_X>(
-    in->rows(), in->vals(), in->nnz, scalar, row_count_nz.data(), stream);
+  linalg::coo_degree_scalar(in->rows(), in->vals(), in->nnz, scalar, row_count_nz.data(), stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
   thrust::device_ptr<int> d_row_count_nz = thrust::device_pointer_cast(row_count_nz.data());
@@ -194,6 +194,7 @@ void coo_remove_zeros(COO<T>* in, COO<T>* out, cudaStream_t stream)
   coo_remove_scalar<TPB_X, T>(in, out, T(0.0), stream);
 }
 
+};  // namespace detail
 };  // namespace op
 };  // end NAMESPACE sparse
 };  // end NAMESPACE raft
