@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <raft/linalg/distance_type.h>
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/selection/detail/knn_graph.cuh>
@@ -44,8 +45,8 @@ namespace selection {
 template <typename value_idx = int, typename value_t = float>
 void knn_graph(const handle_t& handle,
                const value_t* X,
-               size_t m,
-               size_t n,
+               std::size_t m,
+               std::size_t n,
                raft::distance::DistanceType metric,
                raft::sparse::COO<value_t, value_idx>& out,
                int c = 15)
