@@ -24,13 +24,17 @@
 
 namespace raft {
 namespace comms {
+namespace detail {
 
 typedef void (*dlsym_print_info)(ucp_ep_h, FILE*);
+
 typedef void (*dlsym_rec_free)(void*);
+
 typedef int (*dlsym_worker_progress)(ucp_worker_h);
 
 typedef ucs_status_ptr_t (*dlsym_send)(
   ucp_ep_h, const void*, size_t, ucp_datatype_t, ucp_tag_t, ucp_send_callback_t);
+
 typedef ucs_status_ptr_t (*dlsym_recv)(ucp_worker_h,
                                        void*,
                                        size_t count,
@@ -250,5 +254,6 @@ class comms_ucp_handler {
            UCS_PTR_STATUS(recv_result));
   }
 };
+}  // end namespace detail
 }  // end namespace comms
 }  // end namespace raft

@@ -38,52 +38,70 @@ enum class status_t {
 };
 
 template <typename value_t>
-constexpr datatype_t get_type();
+constexpr datatype_t
+
+get_type();
 
 template <>
-constexpr datatype_t get_type<char>()
+constexpr datatype_t
+
+get_type<char>()
 {
   return datatype_t::CHAR;
 }
 
 template <>
-constexpr datatype_t get_type<uint8_t>()
+constexpr datatype_t
+
+get_type<uint8_t>()
 {
   return datatype_t::UINT8;
 }
 
 template <>
-constexpr datatype_t get_type<int>()
+constexpr datatype_t
+
+get_type<int>()
 {
   return datatype_t::INT32;
 }
 
 template <>
-constexpr datatype_t get_type<uint32_t>()
+constexpr datatype_t
+
+get_type<uint32_t>()
 {
   return datatype_t::UINT32;
 }
 
 template <>
-constexpr datatype_t get_type<int64_t>()
+constexpr datatype_t
+
+get_type<int64_t>()
 {
   return datatype_t::INT64;
 }
 
 template <>
-constexpr datatype_t get_type<uint64_t>()
+constexpr datatype_t
+
+get_type<uint64_t>()
 {
   return datatype_t::UINT64;
 }
 
 template <>
-constexpr datatype_t get_type<float>()
+constexpr datatype_t
+
+get_type<float>()
 {
   return datatype_t::FLOAT32;
 }
 
 template <>
-constexpr datatype_t get_type<double>()
+constexpr datatype_t
+
+get_type<double>()
 {
   return datatype_t::FLOAT64;
 }
@@ -91,10 +109,12 @@ constexpr datatype_t get_type<double>()
 class comms_iface {
  public:
   virtual int get_size() const = 0;
+
   virtual int get_rank() const = 0;
 
   virtual std::unique_ptr<comms_iface> comm_split(int color, int key) const = 0;
-  virtual void barrier() const                                              = 0;
+
+  virtual void barrier() const = 0;
 
   virtual status_t sync_stream(cudaStream_t stream) const = 0;
 

@@ -29,6 +29,7 @@
 
 namespace raft {
 namespace comms {
+namespace detail {
 
 /**
  * @brief A simple sanity check that NCCL is able to perform a collective operation
@@ -534,5 +535,6 @@ bool test_commsplit(const handle_t& h, int n_colors)
   return test_collective_allreduce(new_handle, 0);
 }
 
+}  // namespace detail
 }  // namespace comms
 };  // namespace raft
