@@ -33,11 +33,12 @@
 #include <algorithm>
 #include <iostream>
 
-#include <raft/sparse/utils.h>
+#include <raft/sparse/detail/utils.h>
 
 namespace raft {
 namespace sparse {
 namespace linalg {
+namespace detail {
 
 template <typename T, int TPB_X = 128>
 __global__ void csr_add_calc_row_counts_kernel(const int* a_ind,
@@ -245,6 +246,7 @@ void csr_add_finalize(const int* a_ind,
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
+};  // end NAMESPACE detail
 };  // end NAMESPACE linalg
 };  // end NAMESPACE sparse
 };  // end NAMESPACE raft

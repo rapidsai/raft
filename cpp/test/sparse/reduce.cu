@@ -20,8 +20,8 @@
 #include <iostream>
 #include <limits>
 #include <raft/handle.hpp>
-#include <raft/sparse/coo.cuh>
-#include <raft/sparse/op/reduce.cuh>
+#include <raft/sparse/coo.hpp>
+#include <raft/sparse/op/reduce.hpp>
 #include <rmm/device_uvector.hpp>
 #include "../test_utils.h"
 

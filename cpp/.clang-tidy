@@ -7,7 +7,7 @@ HeaderFilterRegex: ''
 AnalyzeTemporaryDtors: false
 FormatStyle:     none
 User:            snanditale
-CheckOptions:    
+CheckOptions:
   - key:             google-build-namespaces.HeaderFileExtensions
     value:           ',h,hh,hpp,hxx'
   - key:             google-global-names-in-headers.HeaderFileExtensions
@@ -227,4 +227,3 @@ CheckOptions:
   - key:             readability-identifier-naming.VariableSuffix
     value:           ''
 ...
-

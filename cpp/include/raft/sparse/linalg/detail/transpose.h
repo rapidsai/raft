@@ -32,11 +32,12 @@
 #include <algorithm>
 #include <iostream>
 
-#include <raft/sparse/utils.h>
+#include <raft/sparse/detail/utils.h>
 
 namespace raft {
 namespace sparse {
 namespace linalg {
+namespace detail {
 
 /**
  * Transpose a set of CSR arrays into a set of CSC arrays.
@@ -104,6 +105,7 @@ void csr_transpose(cusparseHandle_t handle,
                                                stream));
 }
 
+};  // end NAMESPACE detail
 };  // end NAMESPACE linalg
 };  // end NAMESPACE sparse
 };  // end NAMESPACE raft

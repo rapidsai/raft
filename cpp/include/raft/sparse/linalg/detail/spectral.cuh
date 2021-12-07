@@ -21,13 +21,13 @@
 #include <raft/spectral/partition.hpp>
 #include <rmm/device_uvector.hpp>
 
-#include <raft/sparse/convert/csr.cuh>
-#include <raft/sparse/coo.cuh>
-#include <selection/knn.cuh>
+#include <raft/sparse/convert/csr.hpp>
+#include <raft/sparse/coo.hpp>
 
 namespace raft {
 namespace sparse {
 namespace spectral {
+namespace detail {
 
 template <typename T>
 void fit_embedding(const raft::handle_t& handle,
@@ -107,6 +107,8 @@ void fit_embedding(const raft::handle_t& handle,
 
   CUDA_CHECK(cudaGetLastError());
 }
+
+};  // namespace detail
 };  // namespace spectral
 };  // namespace sparse
 };  // namespace raft

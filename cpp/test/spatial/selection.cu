@@ -19,7 +19,7 @@
 
 #include "../test_utils.h"
 
-#include <raft/sparse/utils.h>
+#include <raft/sparse/detail/utils.h>
 #include <raft/spatial/knn/knn.hpp>
 #include <raft/spatial/knn/knn_specializations.hpp>
 
