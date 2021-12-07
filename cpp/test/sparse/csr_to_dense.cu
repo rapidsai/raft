@@ -20,7 +20,7 @@
 
 #include <gtest/gtest.h>
 #include <raft/sparse/cusparse_wrappers.h>
-#include <raft/sparse/convert/dense.cuh>
+#include <raft/sparse/convert/dense.hpp>
 
 #include <rmm/device_uvector.hpp>
 
@@ -45,24 +45,23 @@ struct CSRToDenseInputs {
 };
 
 template <typename value_idx, typename value_t>
-::std::ostream &operator<<(::std::ostream &os,
-                           const CSRToDenseInputs<value_idx, value_t> &dims) {
+::std::ostream& operator<<(::std::ostream& os, const CSRToDenseInputs<value_idx, value_t>& dims)
+{
   return os;
 }
 
 template <typename value_idx, typename value_t>
-class CSRToDenseTest
-  : public ::testing::TestWithParam<CSRToDenseInputs<value_idx, value_t>> {
+class CSRToDenseTest : public ::testing::TestWithParam<CSRToDenseInputs<value_idx, value_t>> {
  public:
   CSRToDenseTest()
-    : params(::testing::TestWithParam<
-             CSRToDenseInputs<value_idx, value_t>>::GetParam()),
+    : params(::testing::TestWithParam<CSRToDenseInputs<value_idx, value_t>>::GetParam()),
       stream(raft_handle.get_stream()),
       indptr(0, stream),
       indices(0, stream),
       data(0, stream),
       out_ref(0, stream),
-      out(0, stream) {
+      out(0, stream)
+  {
     indptr.resize(params.indptr_h.size(), stream);
     indices.resize(params.indices_h.size(), stream);
     data.resize(params.data_h.size(), stream);
@@ -71,10 +70,11 @@ class CSRToDenseTest
   }
 
  protected:
-  void make_data() {
-    std::vector<value_idx> indptr_h = params.indptr_h;
+  void make_data()
+  {
+    std::vector<value_idx> indptr_h  = params.indptr_h;
     std::vector<value_idx> indices_h = params.indices_h;
-    std::vector<value_t> data_h = params.data_h;
+    std::vector<value_t> data_h      = params.data_h;
 
     update_device(indptr.data(), indptr_h.data(), indptr_h.size(), stream);
     update_device(indices.data(), indices_h.data(), indices_h.size(), stream);
@@ -86,22 +86,31 @@ class CSRToDenseTest
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
-  void SetUp() override {
+  void SetUp() override
+  {
     CUSPARSE_CHECK(cusparseCreate(&handle));
 
     make_data();
 
-    convert::csr_to_dense(handle, params.nrows, params.ncols, indptr.data(),
-                          indices.data(), data.data(), params.nrows, out.data(),
-                          stream, true);
+    convert::csr_to_dense(handle,
+                          params.nrows,
+                          params.ncols,
+                          indptr.data(),
+                          indices.data(),
+                          data.data(),
+                          params.nrows,
+                          out.data(),
+                          stream,
+                          true);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
     CUSPARSE_CHECK(cusparseDestroy(handle));
   }
 
-  void compare() {
-    ASSERT_TRUE(devArrMatch(out.data(), out_ref.data(), params.out_ref_h.size(),
-                            Compare<value_t>()));
+  void compare()
+  {
+    ASSERT_TRUE(
+      devArrMatch(out.data(), out_ref.data(), params.out_ref_h.size(), Compare<value_t>()));
   }
 
  protected:
@@ -129,13 +138,26 @@ const std::vector<CSRToDenseInputs<int, float>> inputs_i32_f = {
    {0, 2, 4, 6, 8},
    {0, 1, 2, 3, 0, 1, 2, 3},  // indices
    {1.0f, 3.0f, 1.0f, 5.0f, 50.0f, 28.0f, 16.0f, 2.0f},
-   {1.0f, 3.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 5.0f, 50.0f, 28.0f, 0.0f, 0.0f,
-    0.0f, 0.0f, 16.0f, 2.0f}},
+   {1.0f,
+    3.0f,
+    0.0f,
+    0.0f,
+    0.0f,
+    0.0f,
+    1.0f,
+    5.0f,
+    50.0f,
+    28.0f,
+    0.0f,
+    0.0f,
+    0.0f,
+    0.0f,
+    16.0f,
+    2.0f}},
 };
 typedef CSRToDenseTest<int, float> CSRToDenseTestF;
 TEST_P(CSRToDenseTestF, Result) { compare(); }
-INSTANTIATE_TEST_CASE_P(CSRToDenseTest, CSRToDenseTestF,
-                        ::testing::ValuesIn(inputs_i32_f));
+INSTANTIATE_TEST_CASE_P(CSRToDenseTest, CSRToDenseTestF, ::testing::ValuesIn(inputs_i32_f));
 
 };  // end namespace sparse
 };  // end namespace raft

@@ -42,14 +42,16 @@ namespace knn {
  * @param[in] D the dimensionality of the index array
  */
 template <typename value_idx = int>
-inline void approx_knn_build_index(raft::handle_t &handle,
-                                   raft::spatial::knn::knnIndex *index,
-                                   knnIndexParam *params,
+inline void approx_knn_build_index(raft::handle_t& handle,
+                                   raft::spatial::knn::knnIndex* index,
+                                   knnIndexParam* params,
                                    raft::distance::DistanceType metric,
-                                   float metricArg, float *index_array,
-                                   value_idx n, value_idx D) {
-  detail::approx_knn_build_index(handle, index, params, metric, metricArg,
-                                 index_array, n, D);
+                                   float metricArg,
+                                   float* index_array,
+                                   value_idx n,
+                                   value_idx D)
+{
+  detail::approx_knn_build_index(handle, index, params, metric, metricArg, index_array, n, D);
 }
 
 /**
@@ -66,12 +68,15 @@ inline void approx_knn_build_index(raft::handle_t &handle,
  * @param[in] n number of rows in the query array
  */
 template <typename value_idx = int>
-inline void approx_knn_search(raft::handle_t &handle, float *distances,
-                              int64_t *indices,
-                              raft::spatial::knn::knnIndex *index, value_idx k,
-                              float *query_array, value_idx n) {
-  detail::approx_knn_search(handle, distances, indices, index, k, query_array,
-                            n);
+inline void approx_knn_search(raft::handle_t& handle,
+                              float* distances,
+                              int64_t* indices,
+                              raft::spatial::knn::knnIndex* index,
+                              value_idx k,
+                              float* query_array,
+                              value_idx n)
+{
+  detail::approx_knn_search(handle, distances, indices, index, k, query_array, n);
 }
 
 }  // namespace knn

@@ -19,9 +19,9 @@
 #include <raft/random/rng.hpp>
 #include "../test_utils.h"
 
-#include <raft/sparse/op/sort.h>
-#include <raft/sparse/coo.cuh>
-#include <raft/sparse/op/filter.cuh>
+#include <raft/sparse/coo.hpp>
+#include <raft/sparse/op/filter.hpp>
+#include <raft/sparse/op/sort.hpp>
 
 #include <iostream>
 
@@ -35,8 +35,7 @@ struct SparseFilterInputs {
 };
 
 template <typename T>
-class SparseFilterTests
-  : public ::testing::TestWithParam<SparseFilterInputs<T>> {
+class SparseFilterTests : public ::testing::TestWithParam<SparseFilterInputs<T>> {
  protected:
   void SetUp() override {}
 
@@ -49,12 +48,13 @@ class SparseFilterTests
 const std::vector<SparseFilterInputs<float>> inputsf = {{5, 10, 5, 1234ULL}};
 
 typedef SparseFilterTests<float> COORemoveZeros;
-TEST_P(COORemoveZeros, Result) {
+TEST_P(COORemoveZeros, Result)
+{
   cudaStream_t stream;
   cudaStreamCreate(&stream);
   params = ::testing::TestWithParam<SparseFilterInputs<float>>::GetParam();
 
-  float *in_h_vals = new float[params.nnz];
+  float* in_h_vals = new float[params.nnz];
 
   COO<float> in(stream, params.nnz, 5, 5);
 
@@ -67,8 +67,8 @@ TEST_P(COORemoveZeros, Result) {
   in_h_vals[2] = 0;
   in_h_vals[3] = 0;
 
-  int *in_h_rows = new int[params.nnz];
-  int *in_h_cols = new int[params.nnz];
+  int* in_h_rows = new int[params.nnz];
+  int* in_h_cols = new int[params.nnz];
 
   for (int i = 0; i < params.nnz; i++) {
     in_h_rows[i] = params.nnz - i - 1;
@@ -84,9 +84,9 @@ TEST_P(COORemoveZeros, Result) {
   int out_rows_ref_h[2] = {0, 3};
   int out_cols_ref_h[2] = {4, 1};
 
-  float *out_vals_ref_h = (float *)malloc(2 * sizeof(float));
-  out_vals_ref_h[0] = in_h_vals[4];
-  out_vals_ref_h[1] = in_h_vals[1];
+  float* out_vals_ref_h = (float*)malloc(2 * sizeof(float));
+  out_vals_ref_h[0]     = in_h_vals[4];
+  out_vals_ref_h[1]     = in_h_vals[1];
 
   COO<float> out_ref(stream, 2, 5, 5);
   COO<float> out(stream);
@@ -95,14 +95,11 @@ TEST_P(COORemoveZeros, Result) {
   raft::update_device(out_ref.cols(), *&out_cols_ref_h, 2, stream);
   raft::update_device(out_ref.vals(), out_vals_ref_h, 2, stream);
 
-  op::coo_remove_zeros<32, float>(&in, &out, stream);
+  op::coo_remove_zeros<float>(&in, &out, stream);
 
-  ASSERT_TRUE(raft::devArrMatch<int>(out_ref.rows(), out.rows(), 2,
-                                     raft::Compare<int>()));
-  ASSERT_TRUE(raft::devArrMatch<int>(out_ref.cols(), out.cols(), 2,
-                                     raft::Compare<int>()));
-  ASSERT_TRUE(raft::devArrMatch<float>(out_ref.vals(), out.vals(), 2,
-                                       raft::Compare<float>()));
+  ASSERT_TRUE(raft::devArrMatch<int>(out_ref.rows(), out.rows(), 2, raft::Compare<int>()));
+  ASSERT_TRUE(raft::devArrMatch<int>(out_ref.cols(), out.cols(), 2, raft::Compare<int>()));
+  ASSERT_TRUE(raft::devArrMatch<float>(out_ref.vals(), out.vals(), 2, raft::Compare<float>()));
 
   CUDA_CHECK(cudaStreamDestroy(stream));
   free(out_vals_ref_h);
@@ -112,8 +109,7 @@ TEST_P(COORemoveZeros, Result) {
   delete[] in_h_vals;
 }
 
-INSTANTIATE_TEST_CASE_P(SparseFilterTests, COORemoveZeros,
-                        ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_CASE_P(SparseFilterTests, COORemoveZeros, ::testing::ValuesIn(inputsf));
 
 }  // namespace sparse
 }  // namespace raft
