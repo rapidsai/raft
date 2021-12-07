@@ -163,9 +163,6 @@ bool test_pointToPoint_device_multicast_sendrecv(const handle_t& h, int numTrial
  *        initialized comms instance.
  * @param n_colors number of different colors to test
  */
-bool test_commsplit(const handle_t& h, int n_colors)
-{
-    return detail::test_commsplit(h, n_colors);
-}
+bool test_commsplit(const handle_t& h, int n_colors) { return detail::test_commsplit(h, n_colors); }
 }  // namespace comms
 };  // namespace raft
