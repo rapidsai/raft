@@ -52,7 +52,7 @@ class handle_t {
   // copying and moving underlying resources is unsafe
   handle_t(const handle_t&) = delete;
   handle_t& operator=(const handle_t&) = delete;
-  handle_t(handle_t&&) = delete;
+  handle_t(handle_t&&)                 = delete;
   handle_t& operator=(handle_t&&) = delete;
 
   /**
@@ -61,7 +61,7 @@ class handle_t {
    * @param[in] stream the default stream (which has the default per-thread stream if unspecified)
    * @param[in] stream_pool the stream pool used (which has default of nullptr if unspecified)
    */
-  handle_t(rmm::cuda_stream_view stream_view = rmm::cuda_stream_per_thread,
+  handle_t(rmm::cuda_stream_view stream_view                  = rmm::cuda_stream_per_thread,
            std::shared_ptr<rmm::cuda_stream_pool> stream_pool = {nullptr})
     : dev_id_([]() -> int {
         int cur_dev = -1;
@@ -69,7 +69,8 @@ class handle_t {
         return cur_dev;
       }()),
       stream_view_{stream_view},
-      stream_pool_{stream_pool} {
+      stream_pool_{stream_pool}
+  {
     create_resources();
   }
 
@@ -78,7 +79,8 @@ class handle_t {
 
   int get_device() const { return dev_id_; }
 
-  cublasHandle_t get_cublas_handle() const {
+  cublasHandle_t get_cublas_handle() const
+  {
     std::lock_guard<std::mutex> _(mutex_);
     if (!cublas_initialized_) {
       CUBLAS_CHECK(cublasCreate(&cublas_handle_));
@@ -88,7 +90,8 @@ class handle_t {
     return cublas_handle_;
   }
 
-  cusolverDnHandle_t get_cusolver_dn_handle() const {
+  cusolverDnHandle_t get_cusolver_dn_handle() const
+  {
     std::lock_guard<std::mutex> _(mutex_);
     if (!cusolver_dn_initialized_) {
       CUSOLVER_CHECK(cusolverDnCreate(&cusolver_dn_handle_));
@@ -98,7 +101,8 @@ class handle_t {
     return cusolver_dn_handle_;
   }
 
-  cusolverSpHandle_t get_cusolver_sp_handle() const {
+  cusolverSpHandle_t get_cusolver_sp_handle() const
+  {
     std::lock_guard<std::mutex> _(mutex_);
     if (!cusolver_sp_initialized_) {
       CUSOLVER_CHECK(cusolverSpCreate(&cusolver_sp_handle_));
@@ -108,7 +112,8 @@ class handle_t {
     return cusolver_sp_handle_;
   }
 
-  cusparseHandle_t get_cusparse_handle() const {
+  cusparseHandle_t get_cusparse_handle() const
+  {
     std::lock_guard<std::mutex> _(mutex_);
     if (!cusparse_initialized_) {
       CUSPARSE_CHECK(cusparseCreate(&cusparse_handle_));
@@ -134,65 +139,63 @@ class handle_t {
    * @brief returns whether stream pool was initialized on the handle
    */
 
-  bool is_stream_pool_initialized() const {
-    return stream_pool_.get() != nullptr;
-  }
+  bool is_stream_pool_initialized() const { return stream_pool_.get() != nullptr; }
 
   /**
    * @brief returns stream pool on the handle
    */
-  const rmm::cuda_stream_pool& get_stream_pool() const {
-    RAFT_EXPECTS(stream_pool_,
-                 "ERROR: rmm::cuda_stream_pool was not initialized");
+  const rmm::cuda_stream_pool& get_stream_pool() const
+  {
+    RAFT_EXPECTS(stream_pool_, "ERROR: rmm::cuda_stream_pool was not initialized");
     return *stream_pool_;
   }
 
-  std::size_t get_stream_pool_size() const {
+  std::size_t get_stream_pool_size() const
+  {
     return is_stream_pool_initialized() ? stream_pool_->get_pool_size() : 0;
   }
 
   /**
    * @brief return stream from pool
    */
-  rmm::cuda_stream_view get_stream_from_stream_pool() const {
-    RAFT_EXPECTS(stream_pool_,
-                 "ERROR: rmm::cuda_stream_pool was not initialized");
+  rmm::cuda_stream_view get_stream_from_stream_pool() const
+  {
+    RAFT_EXPECTS(stream_pool_, "ERROR: rmm::cuda_stream_pool was not initialized");
     return stream_pool_->get_stream();
   }
 
   /**
    * @brief return stream from pool at index
    */
-  rmm::cuda_stream_view get_stream_from_stream_pool(
-    std::size_t stream_idx) const {
-    RAFT_EXPECTS(stream_pool_,
-                 "ERROR: rmm::cuda_stream_pool was not initialized");
+  rmm::cuda_stream_view get_stream_from_stream_pool(std::size_t stream_idx) const
+  {
+    RAFT_EXPECTS(stream_pool_, "ERROR: rmm::cuda_stream_pool was not initialized");
     return stream_pool_->get_stream(stream_idx);
   }
 
   /**
    * @brief return stream from pool if size > 0, else main stream on handle
    */
-  rmm::cuda_stream_view get_next_usable_stream() const {
-    return is_stream_pool_initialized() ? get_stream_from_stream_pool()
-                                        : stream_view_;
+  rmm::cuda_stream_view get_next_usable_stream() const
+  {
+    return is_stream_pool_initialized() ? get_stream_from_stream_pool() : stream_view_;
   }
 
   /**
    * @brief return stream from pool at index if size > 0, else main stream on handle
-   * 
+   *
    * @param[in] stream_index the required index of the stream in the stream pool if available
    */
-  rmm::cuda_stream_view get_next_usable_stream(std::size_t stream_idx) const {
-    return is_stream_pool_initialized()
-             ? get_stream_from_stream_pool(stream_idx)
-             : stream_view_;
+  rmm::cuda_stream_view get_next_usable_stream(std::size_t stream_idx) const
+  {
+    return is_stream_pool_initialized() ? get_stream_from_stream_pool(stream_idx) : stream_view_;
   }
 
   /**
    * @brief synchronize the stream pool on the handle
    */
-  void sync_stream_pool() const {
+  void sync_stream_pool() const
+  {
     for (std::size_t i = 0; i < get_stream_pool_size(); i++) {
       stream_pool_->get_stream(i).synchronize();
     }
@@ -200,12 +203,12 @@ class handle_t {
 
   /**
    * @brief synchronize subset of stream pool
-   * 
+   *
    * @param[in] stream_indices the indices of the streams in the stream pool to synchronize
    */
-  void sync_stream_pool(const std::vector<std::size_t> stream_indices) const {
-    RAFT_EXPECTS(stream_pool_,
-                 "ERROR: rmm::cuda_stream_pool was not initialized");
+  void sync_stream_pool(const std::vector<std::size_t> stream_indices) const
+  {
+    RAFT_EXPECTS(stream_pool_, "ERROR: rmm::cuda_stream_pool was not initialized");
     for (const auto& stream_index : stream_indices) {
       stream_pool_->get_stream(stream_index).synchronize();
     }
@@ -214,42 +217,43 @@ class handle_t {
   /**
    * @brief ask stream pool to wait on last event in main stream
    */
-  void wait_stream_pool_on_stream() const {
+  void wait_stream_pool_on_stream() const
+  {
     CUDA_CHECK(cudaEventRecord(event_, stream_view_));
     for (std::size_t i = 0; i < get_stream_pool_size(); i++) {
       CUDA_CHECK(cudaStreamWaitEvent(stream_pool_->get_stream(i), event_, 0));
     }
   }
 
-  void set_comms(std::shared_ptr<comms::comms_t> communicator) {
-    communicator_ = communicator;
-  }
+  void set_comms(std::shared_ptr<comms::comms_t> communicator) { communicator_ = communicator; }
 
-  const comms::comms_t& get_comms() const {
-    RAFT_EXPECTS(this->comms_initialized(),
-                 "ERROR: Communicator was not initialized\n");
+  const comms::comms_t& get_comms() const
+  {
+    RAFT_EXPECTS(this->comms_initialized(), "ERROR: Communicator was not initialized\n");
     return *communicator_;
   }
 
-  void set_subcomm(std::string key, std::shared_ptr<comms::comms_t> subcomm) {
+  void set_subcomm(std::string key, std::shared_ptr<comms::comms_t> subcomm)
+  {
     subcomms_[key] = subcomm;
   }
 
-  const comms::comms_t& get_subcomm(std::string key) const {
-    RAFT_EXPECTS(subcomms_.find(key) != subcomms_.end(),
-                 "%s was not found in subcommunicators.", key.c_str());
+  const comms::comms_t& get_subcomm(std::string key) const
+  {
+    RAFT_EXPECTS(
+      subcomms_.find(key) != subcomms_.end(), "%s was not found in subcommunicators.", key.c_str());
 
     auto subcomm = subcomms_.at(key);
 
-    RAFT_EXPECTS(nullptr != subcomm.get(),
-                 "ERROR: Subcommunicator was not initialized");
+    RAFT_EXPECTS(nullptr != subcomm.get(), "ERROR: Subcommunicator was not initialized");
 
     return *subcomm;
   }
 
   bool comms_initialized() const { return (nullptr != communicator_.get()); }
 
-  const cudaDeviceProp& get_device_properties() const {
+  const cudaDeviceProp& get_device_properties() const
+  {
     std::lock_guard<std::mutex> _(mutex_);
     if (!device_prop_initialized_) {
       CUDA_CHECK(cudaGetDeviceProperties(&prop_, dev_id_));
@@ -279,31 +283,33 @@ class handle_t {
   mutable bool device_prop_initialized_{false};
   mutable std::mutex mutex_;
 
-  void create_resources() {
+  void create_resources()
+  {
     thrust_policy_ = std::make_unique<rmm::exec_policy>(stream_view_);
 
     CUDA_CHECK(cudaEventCreateWithFlags(&event_, cudaEventDisableTiming));
   }
 
-  void destroy_resources() {
+  void destroy_resources()
+  {
     ///@todo: enable *_NO_THROW variants once we have enabled logging
     if (cusparse_initialized_) {
-      //CUSPARSE_CHECK_NO_THROW(cusparseDestroy(cusparse_handle_));
+      // CUSPARSE_CHECK_NO_THROW(cusparseDestroy(cusparse_handle_));
       CUSPARSE_CHECK(cusparseDestroy(cusparse_handle_));
     }
     if (cusolver_dn_initialized_) {
-      //CUSOLVER_CHECK_NO_THROW(cusolverDnDestroy(cusolver_dn_handle_));
+      // CUSOLVER_CHECK_NO_THROW(cusolverDnDestroy(cusolver_dn_handle_));
       CUSOLVER_CHECK(cusolverDnDestroy(cusolver_dn_handle_));
     }
     if (cusolver_sp_initialized_) {
-      //CUSOLVER_CHECK_NO_THROW(cusolverSpDestroy(cusolver_sp_handle_));
+      // CUSOLVER_CHECK_NO_THROW(cusolverSpDestroy(cusolver_sp_handle_));
       CUSOLVER_CHECK(cusolverSpDestroy(cusolver_sp_handle_));
     }
     if (cublas_initialized_) {
-      //CUBLAS_CHECK_NO_THROW(cublasDestroy(cublas_handle_));
+      // CUBLAS_CHECK_NO_THROW(cublasDestroy(cublas_handle_));
       CUBLAS_CHECK(cublasDestroy(cublas_handle_));
     }
-    //CUDA_CHECK_NO_THROW(cudaEventDestroy(event_));
+    // CUDA_CHECK_NO_THROW(cudaEventDestroy(event_));
     CUDA_CHECK(cudaEventDestroy(event_));
   }
 };  // class handle_t
@@ -313,10 +319,9 @@ class handle_t {
  */
 class stream_syncer {
  public:
-  explicit stream_syncer(const handle_t& handle) : handle_(handle) {
-    handle_.sync_stream();
-  }
-  ~stream_syncer() {
+  explicit stream_syncer(const handle_t& handle) : handle_(handle) { handle_.sync_stream(); }
+  ~stream_syncer()
+  {
     handle_.wait_stream_pool_on_stream();
     handle_.sync_stream_pool();
   }

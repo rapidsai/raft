@@ -21,8 +21,8 @@ namespace raft {
 namespace distance {
 
 template <typename DataType>
-class DistanceLinf
-  : public DistanceTest<raft::distance::DistanceType::Linf, DataType> {};
+class DistanceLinf : public DistanceTest<raft::distance::DistanceType::Linf, DataType> {
+};
 
 const std::vector<DistanceInputs<float>> inputsf = {
   {0.001f, 1024, 1024, 32, true, 1234ULL},
@@ -35,15 +35,14 @@ const std::vector<DistanceInputs<float>> inputsf = {
   {0.003f, 1024, 1024, 1024, false, 1234ULL},
 };
 typedef DistanceLinf<float> DistanceLinfF;
-TEST_P(DistanceLinfF, Result) {
+TEST_P(DistanceLinfF, Result)
+{
   int m = params.isRowMajor ? params.m : params.n;
   int n = params.isRowMajor ? params.n : params.m;
-  ASSERT_TRUE(raft::devArrMatch(dist_ref.data(), dist.data(), m, n,
-                                raft::CompareApprox<float>(params.tolerance),
-                                stream));
+  ASSERT_TRUE(raft::devArrMatch(
+    dist_ref.data(), dist.data(), m, n, raft::CompareApprox<float>(params.tolerance), stream));
 }
-INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceLinfF,
-                        ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceLinfF, ::testing::ValuesIn(inputsf));
 
 const std::vector<DistanceInputs<double>> inputsd = {
   {0.001, 1024, 1024, 32, true, 1234ULL},
@@ -56,15 +55,14 @@ const std::vector<DistanceInputs<double>> inputsd = {
   {0.003, 1024, 1024, 1024, false, 1234ULL},
 };
 typedef DistanceLinf<double> DistanceLinfD;
-TEST_P(DistanceLinfD, Result) {
+TEST_P(DistanceLinfD, Result)
+{
   int m = params.isRowMajor ? params.m : params.n;
   int n = params.isRowMajor ? params.n : params.m;
-  ASSERT_TRUE(raft::devArrMatch(dist_ref.data(), dist.data(), m, n,
-                                raft::CompareApprox<double>(params.tolerance),
-                                stream));
+  ASSERT_TRUE(raft::devArrMatch(
+    dist_ref.data(), dist.data(), m, n, raft::CompareApprox<double>(params.tolerance), stream));
 }
-INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceLinfD,
-                        ::testing::ValuesIn(inputsd));
+INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceLinfD, ::testing::ValuesIn(inputsd));
 
 }  // end namespace distance
 }  // end namespace raft

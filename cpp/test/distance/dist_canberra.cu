@@ -21,8 +21,8 @@ namespace raft {
 namespace distance {
 
 template <typename DataType>
-class DistanceCanberra
-  : public DistanceTest<raft::distance::DistanceType::Canberra, DataType> {};
+class DistanceCanberra : public DistanceTest<raft::distance::DistanceType::Canberra, DataType> {
+};
 
 const std::vector<DistanceInputs<float>> inputsf = {
   {0.001f, 1024, 1024, 32, true, 1234ULL},
@@ -35,15 +35,14 @@ const std::vector<DistanceInputs<float>> inputsf = {
   {0.003f, 1024, 1024, 1024, false, 1234ULL},
 };
 typedef DistanceCanberra<float> DistanceCanberraF;
-TEST_P(DistanceCanberraF, Result) {
+TEST_P(DistanceCanberraF, Result)
+{
   int m = params.isRowMajor ? params.m : params.n;
   int n = params.isRowMajor ? params.n : params.m;
-  ASSERT_TRUE(raft::devArrMatch(dist_ref.data(), dist.data(), m, n,
-                                raft::CompareApprox<float>(params.tolerance),
-                                stream));
+  ASSERT_TRUE(raft::devArrMatch(
+    dist_ref.data(), dist.data(), m, n, raft::CompareApprox<float>(params.tolerance), stream));
 }
-INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceCanberraF,
-                        ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceCanberraF, ::testing::ValuesIn(inputsf));
 
 const std::vector<DistanceInputs<double>> inputsd = {
   {0.001, 1024, 1024, 32, true, 1234ULL},
@@ -56,15 +55,14 @@ const std::vector<DistanceInputs<double>> inputsd = {
   {0.003, 1024, 1024, 1024, false, 1234ULL},
 };
 typedef DistanceCanberra<double> DistanceCanberraD;
-TEST_P(DistanceCanberraD, Result) {
+TEST_P(DistanceCanberraD, Result)
+{
   int m = params.isRowMajor ? params.m : params.n;
   int n = params.isRowMajor ? params.n : params.m;
-  ASSERT_TRUE(raft::devArrMatch(dist_ref.data(), dist.data(), m, n,
-                                raft::CompareApprox<double>(params.tolerance),
-                                stream));
+  ASSERT_TRUE(raft::devArrMatch(
+    dist_ref.data(), dist.data(), m, n, raft::CompareApprox<double>(params.tolerance), stream));
 }
-INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceCanberraD,
-                        ::testing::ValuesIn(inputsd));
+INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceCanberraD, ::testing::ValuesIn(inputsd));
 
 }  // end namespace distance
 }  // end namespace raft

@@ -50,10 +50,14 @@ namespace op {
  * @param[in] stream : cuda stream for ordering events
  */
 template <typename value_idx>
-void csr_row_slice_indptr(value_idx start_row, value_idx stop_row,
-                          const value_idx *indptr, value_idx *indptr_out,
-                          value_idx *start_offset, value_idx *stop_offset,
-                          cudaStream_t stream) {
+void csr_row_slice_indptr(value_idx start_row,
+                          value_idx stop_row,
+                          const value_idx* indptr,
+                          value_idx* indptr_out,
+                          value_idx* start_offset,
+                          value_idx* stop_offset,
+                          cudaStream_t stream)
+{
   raft::update_host(start_offset, indptr + start_row, 1, stream);
   raft::update_host(stop_offset, indptr + stop_row + 1, 1, stream);
 
@@ -63,11 +67,12 @@ void csr_row_slice_indptr(value_idx start_row, value_idx stop_row,
 
   // 0-based indexing so we need to add 1 to stop row. Because we want n_rows+1,
   // we add another 1 to stop row.
-  raft::copy_async(indptr_out, indptr + start_row, (stop_row + 2) - start_row,
-                   stream);
+  raft::copy_async(indptr_out, indptr + start_row, (stop_row + 2) - start_row, stream);
 
   raft::linalg::unaryOp<value_idx>(
-    indptr_out, indptr_out, (stop_row + 2) - start_row,
+    indptr_out,
+    indptr_out,
+    (stop_row + 2) - start_row,
     [s_offset] __device__(value_idx input) { return input - s_offset; },
     stream);
 }
@@ -85,12 +90,15 @@ void csr_row_slice_indptr(value_idx start_row, value_idx stop_row,
  * @param[in] stream : cuda stream for ordering events
  */
 template <typename value_idx, typename value_t>
-void csr_row_slice_populate(value_idx start_offset, value_idx stop_offset,
-                            const value_idx *indices, const value_t *data,
-                            value_idx *indices_out, value_t *data_out,
-                            cudaStream_t stream) {
-  raft::copy(indices_out, indices + start_offset, stop_offset - start_offset,
-             stream);
+void csr_row_slice_populate(value_idx start_offset,
+                            value_idx stop_offset,
+                            const value_idx* indices,
+                            const value_t* data,
+                            value_idx* indices_out,
+                            value_t* data_out,
+                            cudaStream_t stream)
+{
+  raft::copy(indices_out, indices + start_offset, stop_offset - start_offset, stream);
   raft::copy(data_out, data + start_offset, stop_offset - start_offset, stream);
 }
 

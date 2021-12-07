@@ -31,8 +31,9 @@ namespace raft {
 namespace sparse {
 
 template <typename value_idx, typename value_t>
-__global__ void assert_symmetry(value_idx *rows, value_idx *cols, value_t *vals,
-                                value_idx nnz, value_idx *sum) {
+__global__ void assert_symmetry(
+  value_idx* rows, value_idx* cols, value_t* vals, value_idx nnz, value_idx* sum)
+{
   int tid = blockDim.x * blockIdx.x + threadIdx.x;
 
   if (tid >= nnz) return;
@@ -51,28 +52,31 @@ struct SparseSymmetrizeInputs {
 };
 
 template <typename value_idx, typename value_t>
-::std::ostream &operator<<(
-  ::std::ostream &os, const SparseSymmetrizeInputs<value_idx, value_t> &dims) {
+::std::ostream& operator<<(::std::ostream& os,
+                           const SparseSymmetrizeInputs<value_idx, value_t>& dims)
+{
   return os;
 }
 
 template <typename value_idx, typename value_t>
-class SparseSymmetrizeTest : public ::testing::TestWithParam<
-                               SparseSymmetrizeInputs<value_idx, value_t>> {
+class SparseSymmetrizeTest
+  : public ::testing::TestWithParam<SparseSymmetrizeInputs<value_idx, value_t>> {
  public:
   SparseSymmetrizeTest()
-    : params(::testing::TestWithParam<
-             SparseSymmetrizeInputs<value_idx, value_t>>::GetParam()),
+    : params(::testing::TestWithParam<SparseSymmetrizeInputs<value_idx, value_t>>::GetParam()),
       stream(handle.get_stream()),
       indptr(0, stream),
       indices(0, stream),
-      data(0, stream) {}
+      data(0, stream)
+  {
+  }
 
  protected:
-  void make_data() {
-    std::vector<value_idx> indptr_h = params.indptr_h;
+  void make_data()
+  {
+    std::vector<value_idx> indptr_h  = params.indptr_h;
     std::vector<value_idx> indices_h = params.indices_h;
-    std::vector<value_t> data_h = params.data_h;
+    std::vector<value_t> data_h      = params.data_h;
 
     indptr.resize(indptr_h.size(), stream);
     indices.resize(indices_h.size(), stream);
@@ -83,22 +87,22 @@ class SparseSymmetrizeTest : public ::testing::TestWithParam<
     update_device(data.data(), data_h.data(), data_h.size(), stream);
   }
 
-  void SetUp() override {
+  void SetUp() override
+  {
     make_data();
 
-    value_idx m = params.indptr_h.size() - 1;
-    value_idx n = params.n_cols;
+    value_idx m   = params.indptr_h.size() - 1;
+    value_idx n   = params.n_cols;
     value_idx nnz = params.indices_h.size();
 
     rmm::device_uvector<value_idx> coo_rows(nnz, stream);
 
-    raft::sparse::convert::csr_to_coo(indptr.data(), m, coo_rows.data(), nnz,
-                                      stream);
+    raft::sparse::convert::csr_to_coo(indptr.data(), m, coo_rows.data(), nnz, stream);
 
     raft::sparse::COO<value_t, value_idx> out(stream);
 
-    raft::sparse::linalg::symmetrize(handle, coo_rows.data(), indices.data(),
-                                     data.data(), m, n, coo_rows.size(), out);
+    raft::sparse::linalg::symmetrize(
+      handle, coo_rows.data(), indices.data(), data.data(), m, n, coo_rows.size(), out);
 
     rmm::device_scalar<value_idx> sum(stream);
     sum.set_value_to_zero_async(stream);
@@ -130,8 +134,7 @@ struct COOSymmetrizeInputs {
 };
 
 template <typename T>
-class COOSymmetrizeTest
-  : public ::testing::TestWithParam<COOSymmetrizeInputs<T>> {
+class COOSymmetrizeTest : public ::testing::TestWithParam<COOSymmetrizeInputs<T>> {
  protected:
   void SetUp() override {}
 
@@ -141,22 +144,21 @@ class COOSymmetrizeTest
 const std::vector<COOSymmetrizeInputs<float>> inputsf = {{5, 10, 5, 1234ULL}};
 
 typedef COOSymmetrizeTest<float> COOSymmetrize;
-TEST_P(COOSymmetrize, Result) {
+TEST_P(COOSymmetrize, Result)
+{
   cudaStream_t stream;
   cudaStreamCreate(&stream);
 
   int nnz = 8;
 
-  int *in_rows_h = new int[nnz]{0, 0, 1, 1, 2, 2, 3, 3};
-  int *in_cols_h = new int[nnz]{1, 3, 2, 3, 0, 1, 0, 2};
-  float *in_vals_h = new float[nnz]{0.5, 1.0, 0.5, 0.5, 0.5, 0.0, 0.5, 0.5};
+  int* in_rows_h   = new int[nnz]{0, 0, 1, 1, 2, 2, 3, 3};
+  int* in_cols_h   = new int[nnz]{1, 3, 2, 3, 0, 1, 0, 2};
+  float* in_vals_h = new float[nnz]{0.5, 1.0, 0.5, 0.5, 0.5, 0.0, 0.5, 0.5};
 
-  int *exp_rows_h =
-    new int[nnz * 2]{1, 0, 0, 0, 1, 3, 1, 0, 0, 2, 2, 0, 3, 2, 3, 0};
-  int *exp_cols_h =
-    new int[nnz * 2]{0, 1, 3, 0, 2, 1, 3, 0, 2, 0, 1, 0, 0, 3, 2, 0};
-  float *exp_vals_h = new float[nnz * 2]{0.5, 0.5, 1.5, 0, 0.5, 0.5, 0.5, 0,
-                                         0.5, 0.5, 0.5, 0, 1.5, 0.5, 0.5, 0.0};
+  int* exp_rows_h = new int[nnz * 2]{1, 0, 0, 0, 1, 3, 1, 0, 0, 2, 2, 0, 3, 2, 3, 0};
+  int* exp_cols_h = new int[nnz * 2]{0, 1, 3, 0, 2, 1, 3, 0, 2, 0, 1, 0, 0, 3, 2, 0};
+  float* exp_vals_h =
+    new float[nnz * 2]{0.5, 0.5, 1.5, 0, 0.5, 0.5, 0.5, 0, 0.5, 0.5, 0.5, 0, 1.5, 0.5, 0.5, 0.0};
 
   COO<float> in(stream, nnz, 4, 4);
   raft::update_device(in.rows(), *&in_rows_h, nnz, stream);
@@ -166,22 +168,18 @@ TEST_P(COOSymmetrize, Result) {
   COO<float> out(stream);
 
   linalg::coo_symmetrize<32, float>(
-    &in, &out,
-    [] __device__(int row, int col, float val, float trans) {
-      return val + trans;
-    },
+    &in,
+    &out,
+    [] __device__(int row, int col, float val, float trans) { return val + trans; },
     stream);
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
   std::cout << out << std::endl;
 
   ASSERT_TRUE(out.nnz == nnz * 2);
-  ASSERT_TRUE(raft::devArrMatch<int>(out.rows(), exp_rows_h, out.nnz,
-                                     raft::Compare<int>()));
-  ASSERT_TRUE(raft::devArrMatch<int>(out.cols(), exp_cols_h, out.nnz,
-                                     raft::Compare<int>()));
-  ASSERT_TRUE(raft::devArrMatch<float>(out.vals(), exp_vals_h, out.nnz,
-                                       raft::Compare<float>()));
+  ASSERT_TRUE(raft::devArrMatch<int>(out.rows(), exp_rows_h, out.nnz, raft::Compare<int>()));
+  ASSERT_TRUE(raft::devArrMatch<int>(out.cols(), exp_cols_h, out.nnz, raft::Compare<int>()));
+  ASSERT_TRUE(raft::devArrMatch<float>(out.vals(), exp_vals_h, out.nnz, raft::Compare<float>()));
 
   cudaStreamDestroy(stream);
 
@@ -194,8 +192,7 @@ TEST_P(COOSymmetrize, Result) {
   delete[] exp_vals_h;
 }
 
-INSTANTIATE_TEST_CASE_P(COOSymmetrizeTest, COOSymmetrize,
-                        ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_CASE_P(COOSymmetrizeTest, COOSymmetrize, ::testing::ValuesIn(inputsf));
 
 const std::vector<SparseSymmetrizeInputs<int, float>> symm_inputs_fint = {
   // Test n_clusters == n_points
@@ -215,7 +212,8 @@ const std::vector<SparseSymmetrizeInputs<int, float>> symm_inputs_fint = {
 typedef SparseSymmetrizeTest<int, float> SparseSymmetrizeTestF_int;
 TEST_P(SparseSymmetrizeTestF_int, Result) { ASSERT_TRUE(sum_h == 0); }
 
-INSTANTIATE_TEST_CASE_P(SparseSymmetrizeTest, SparseSymmetrizeTestF_int,
+INSTANTIATE_TEST_CASE_P(SparseSymmetrizeTest,
+                        SparseSymmetrizeTestF_int,
                         ::testing::ValuesIn(symm_inputs_fint));
 
 }  // namespace sparse

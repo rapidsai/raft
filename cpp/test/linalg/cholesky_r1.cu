@@ -36,7 +36,8 @@ class CholeskyR1Test : public ::testing::Test {
       L(n_rows * n_rows, handle.get_stream()),
       L_exp(n_rows * n_rows, handle.get_stream()),
       devInfo(handle.get_stream()),
-      workspace(0, handle.get_stream()) {
+      workspace(0, handle.get_stream())
+  {
     raft::update_device(G.data(), G_host, n_rows * n_rows, handle.get_stream());
 
     // Allocate workspace
@@ -46,62 +47,69 @@ class CholeskyR1Test : public ::testing::Test {
     int n_bytes = 0;
     // Initializing in CUBLAS_FILL_MODE_LOWER, because that has larger workspace
     // requirements.
-    raft::linalg::choleskyRank1Update(handle, L.data(), n_rows, n_rows, nullptr,
-                                      &n_bytes, CUBLAS_FILL_MODE_LOWER,
+    raft::linalg::choleskyRank1Update(handle,
+                                      L.data(),
+                                      n_rows,
+                                      n_rows,
+                                      nullptr,
+                                      &n_bytes,
+                                      CUBLAS_FILL_MODE_LOWER,
                                       handle.get_stream());
     Lwork = std::max(Lwork * sizeof(math_t), (size_t)n_bytes);
     workspace.resize(Lwork, handle.get_stream());
   }
 
-  void testR1Update() {
+  void testR1Update()
+  {
     int n = n_rows * n_rows;
-    std::vector<cublasFillMode_t> fillmode{CUBLAS_FILL_MODE_LOWER,
-                                           CUBLAS_FILL_MODE_UPPER};
+    std::vector<cublasFillMode_t> fillmode{CUBLAS_FILL_MODE_LOWER, CUBLAS_FILL_MODE_UPPER};
     for (auto uplo : fillmode) {
       raft::copy(L.data(), G.data(), n, handle.get_stream());
       for (int rank = 1; rank <= n_rows; rank++) {
         std::stringstream ss;
-        ss << "Rank " << rank
-           << ((uplo == CUBLAS_FILL_MODE_LOWER) ? ", lower" : ", upper");
+        ss << "Rank " << rank << ((uplo == CUBLAS_FILL_MODE_LOWER) ? ", lower" : ", upper");
         SCOPED_TRACE(ss.str());
 
         // Expected solution using Cholesky factorization from scratch
         raft::copy(L_exp.data(), G.data(), n, handle.get_stream());
-        CUSOLVER_CHECK(raft::linalg::cusolverDnpotrf(
-          solver_handle, uplo, rank, L_exp.data(), n_rows,
-          (math_t*)workspace.data(), Lwork, devInfo.data(),
-          handle.get_stream()));
+        CUSOLVER_CHECK(raft::linalg::cusolverDnpotrf(solver_handle,
+                                                     uplo,
+                                                     rank,
+                                                     L_exp.data(),
+                                                     n_rows,
+                                                     (math_t*)workspace.data(),
+                                                     Lwork,
+                                                     devInfo.data(),
+                                                     handle.get_stream()));
 
         // Incremental Cholesky factorization using rank one updates.
-        raft::linalg::choleskyRank1Update(handle, L.data(), rank, n_rows,
-                                          workspace.data(), &Lwork, uplo,
-                                          handle.get_stream());
+        raft::linalg::choleskyRank1Update(
+          handle, L.data(), rank, n_rows, workspace.data(), &Lwork, uplo, handle.get_stream());
 
-        ASSERT_TRUE(raft::devArrMatch(L_exp.data(), L.data(), n_rows * rank,
+        ASSERT_TRUE(raft::devArrMatch(L_exp.data(),
+                                      L.data(),
+                                      n_rows * rank,
                                       raft::CompareApprox<math_t>(3e-3),
                                       handle.get_stream()));
       }
     }
   }
 
-  void testR1Error() {
+  void testR1Error()
+  {
     raft::update_device(G.data(), G2_host, 4, handle.get_stream());
-    std::vector<cublasFillMode_t> fillmode{CUBLAS_FILL_MODE_LOWER,
-                                           CUBLAS_FILL_MODE_UPPER};
+    std::vector<cublasFillMode_t> fillmode{CUBLAS_FILL_MODE_LOWER, CUBLAS_FILL_MODE_UPPER};
     for (auto uplo : fillmode) {
       raft::copy(L.data(), G.data(), 4, handle.get_stream());
       ASSERT_NO_THROW(raft::linalg::choleskyRank1Update(
-        handle, L.data(), 1, 2, workspace.data(), &Lwork, uplo,
-        handle.get_stream()));
-      ASSERT_THROW(raft::linalg::choleskyRank1Update(handle, L.data(), 2, 2,
-                                                     workspace.data(), &Lwork,
-                                                     uplo, handle.get_stream()),
+        handle, L.data(), 1, 2, workspace.data(), &Lwork, uplo, handle.get_stream()));
+      ASSERT_THROW(raft::linalg::choleskyRank1Update(
+                     handle, L.data(), 2, 2, workspace.data(), &Lwork, uplo, handle.get_stream()),
                    raft::exception);
 
       math_t eps = std::numeric_limits<math_t>::epsilon();
       ASSERT_NO_THROW(raft::linalg::choleskyRank1Update(
-        handle, L.data(), 2, 2, workspace.data(), &Lwork, uplo,
-        handle.get_stream(), eps));
+        handle, L.data(), 2, 2, workspace.data(), &Lwork, uplo, handle.get_stream(), eps));
     }
   }
 

@@ -48,11 +48,11 @@ namespace host {
 template <typename T>
 class buffer : public buffer_base<T, allocator> {
  public:
-  using size_type = typename buffer_base<T, allocator>::size_type;
-  using value_type = typename buffer_base<T, allocator>::value_type;
-  using iterator = typename buffer_base<T, allocator>::iterator;
-  using const_iterator = typename buffer_base<T, allocator>::const_iterator;
-  using reference = typename buffer_base<T, allocator>::reference;
+  using size_type       = typename buffer_base<T, allocator>::size_type;
+  using value_type      = typename buffer_base<T, allocator>::value_type;
+  using iterator        = typename buffer_base<T, allocator>::iterator;
+  using const_iterator  = typename buffer_base<T, allocator>::const_iterator;
+  using reference       = typename buffer_base<T, allocator>::reference;
   using const_reference = typename buffer_base<T, allocator>::const_reference;
 
   buffer() = delete;
@@ -62,14 +62,15 @@ class buffer : public buffer_base<T, allocator> {
   buffer& operator=(const buffer& other) = delete;
 
   buffer(std::shared_ptr<allocator> alloc, const device::buffer<T>& other)
-    : buffer_base<T, allocator>(alloc, other.get_stream(), other.size()) {
-    if (other.size() > 0) {
-      raft::copy(data_, other.data(), other.size(), other.get_stream());
-    }
+    : buffer_base<T, allocator>(alloc, other.get_stream(), other.size())
+  {
+    if (other.size() > 0) { raft::copy(data_, other.data(), other.size(), other.get_stream()); }
   }
 
   buffer(std::shared_ptr<allocator> alloc, cudaStream_t stream, size_type n = 0)
-    : buffer_base<T, allocator>(alloc, stream, n) {}
+    : buffer_base<T, allocator>(alloc, stream, n)
+  {
+  }
 
   reference operator[](size_type pos) { return data_[pos]; }
 

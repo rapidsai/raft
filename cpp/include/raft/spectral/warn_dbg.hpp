@@ -4,13 +4,13 @@
 #include <string>
 
 #define STRINGIFY_DETAIL(x) #x
-#define RAFT_STRINGIFY(x) STRINGIFY_DETAIL(x)
+#define RAFT_STRINGIFY(x)   STRINGIFY_DETAIL(x)
 
 #ifdef DEBUG
 #define COUT() (std::cout)
 #define CERR() (std::cerr)
 
-//nope:
+// nope:
 //
 #define WARNING(message)                                                  \
   do {                                                                    \

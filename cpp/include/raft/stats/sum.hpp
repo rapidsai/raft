@@ -38,8 +38,8 @@ namespace stats {
  * @param stream cuda stream where to launch work
  */
 template <typename Type, typename IdxType = int>
-void sum(Type *output, const Type *input, IdxType D, IdxType N, bool rowMajor,
-         cudaStream_t stream) {
+void sum(Type* output, const Type* input, IdxType D, IdxType N, bool rowMajor, cudaStream_t stream)
+{
   detail::sum(output, input, D, N, rowMajor, stream);
 }
 
