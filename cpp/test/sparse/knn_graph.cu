@@ -21,9 +21,9 @@
 #include <rmm/device_uvector.hpp>
 #include "../test_utils.h"
 
-#include <raft/spatial/knn/knn_specializations.hpp>
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/selection/knn_graph.hpp>
+#include <raft/spatial/knn/knn_specializations.hpp>
 
 #include <iostream>
 
