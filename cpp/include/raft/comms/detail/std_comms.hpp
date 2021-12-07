@@ -31,7 +31,6 @@
 
 #include <ucp/api/ucp.h>
 #include <ucp/api/ucp_def.h>
-#include <raft/comms/ucp_helper.hpp>
 
 #include <nccl.h>
 
