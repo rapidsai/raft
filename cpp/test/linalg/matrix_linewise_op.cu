@@ -112,10 +112,10 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
       matrixLinewiseOp(out, in, lineLen, nLines, alongLines, f, stream, vec1, vec2);
   }
 
-  rmm::device_uvector<T> genData()
+  rmm::device_uvector<T> genData(size_t workSizeBytes)
   {
     raft::random::Rng r(params.seed);
-    const std::size_t workSizeElems = params.workSizeBytes / sizeof(T);
+    const std::size_t workSizeElems = workSizeBytes / sizeof(T);
     rmm::device_uvector<T> blob(workSizeElems, stream);
     r.uniform(blob.data(), workSizeElems, T(-1.0), T(1.0), stream);
     return blob;
@@ -170,17 +170,16 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
     return std::make_tuple(out, in, vec1, vec2);
   }
 
-  testing::AssertionResult run()
+  testing::AssertionResult run(std::vector<std::tuple<I, I>>&& dims, rmm::device_uvector<T>&& blob)
   {
-    rmm::device_uvector<T> blob = genData();
     rmm::device_uvector<T> blob_val(params.checkCorrectness ? blob.size() / 2 : 0, stream);
-
-    auto dims = suggestDimensions(2);
 
     stream.synchronize();
     cudaProfilerStart();
+    testing::AssertionResult r = testing::AssertionSuccess();
     PUSH_RANGE(stream, params.useVanillaMatrixVectorOp ? "method: original" : "method: linewise");
     for (auto [n, m] : dims) {
+      if (!r) break;
       auto [out, in, vec1, vec2] = assignSafePtrs(blob, n, m);
       PUSH_RANGE(stream, "Dims-%zu-%zu", std::size_t(n), std::size_t(m));
       for (auto alongRows : ::testing::Bool()) {
@@ -193,18 +192,20 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
           POP_RANGE(stream);
           if (params.checkCorrectness) {
             naiveMatVec(blob_val.data(), in, vec1, lineLen, nLines, true, alongRows, T(1));
-            EXPECT_NO_FATAL_FAILURE(
-              devArrMatch(blob_val.data(), out, n * m, CompareApprox<float>(params.tolerance)))
-              << "with one vec";
+            r = devArrMatch(blob_val.data(), out, n * m, CompareApprox<T>(params.tolerance))
+                << " " << (alongRows ? "alongRows" : "acrossRows")
+                << " with one vec; lineLen: " << lineLen << "; nLines " << nLines;
+            if (!r) break;
           }
           PUSH_RANGE(stream, "two vecs");
           runLinewiseSum(out, in, lineLen, nLines, alongRows, vec1, vec2);
           POP_RANGE(stream);
           if (params.checkCorrectness) {
             naiveMatVec(blob_val.data(), in, vec1, vec2, lineLen, nLines, true, alongRows, T(1));
-            EXPECT_NO_FATAL_FAILURE(
-              devArrMatch(blob_val.data(), out, n * m, CompareApprox<float>(params.tolerance)))
-              << "with two vecs";
+            r = devArrMatch(blob_val.data(), out, n * m, CompareApprox<T>(params.tolerance))
+                << " " << (alongRows ? "alongRows" : "acrossRows")
+                << " with two vecs;  lineLen: " << lineLen << "; nLines " << nLines;
+            if (!r) break;
           }
         }
         POP_RANGE(stream);
@@ -214,7 +215,26 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
     POP_RANGE(stream);
     cudaProfilerStop();
 
-    return testing::AssertionSuccess();
+    return r;
+  }
+
+  testing::AssertionResult run()
+  {
+    return run(suggestDimensions(2), genData(params.workSizeBytes));
+  }
+
+  testing::AssertionResult runEdgeCases()
+  {
+    std::vector<I> sizes = {1, 2, 3, 4, 7, 16};
+    std::vector<std::tuple<I, I>> dims;
+    for (auto m : sizes) {
+      for (auto n : sizes) {
+        dims.push_back(std::make_tuple(n, m));
+        dims.push_back(std::make_tuple(m, n));
+      }
+    }
+
+    return run(std::move(dims), genData(1024 * 1024));
   }
 };
 
@@ -223,8 +243,24 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
   TEST_P(TestClass##_##ElemType##_##IndexType, fun) { ASSERT_TRUE(fun()); }                  \
   INSTANTIATE_TEST_SUITE_P(LinewiseOp, TestClass##_##ElemType##_##IndexType, TestClass##Params)
 
-auto MegabyteParams = ::testing::Combine(
+auto TinyParams = ::testing::Combine(
   ::testing::Bool(), ::testing::Values(0, 1, 2, 4), ::testing::Values(0, 1, 2, 3));
+
+struct Tiny {
+  typedef std::tuple<bool, int, int> Params;
+  static LinewiseTestParams read(Params ps)
+  {
+    return {/** .tolerance */ 0.00001,
+            /** .workSizeBytes */ 0 /* not used anyway */,
+            /** .seed */ 42ULL,
+            /** .useVanillaMatrixVectorOp */ std::get<0>(ps),
+            /** .checkCorrectness */ true,
+            /** .inAlignOffset */ std::get<1>(ps),
+            /** .outAlignOffset */ std::get<2>(ps)};
+  }
+};
+
+auto MegabyteParams = TinyParams;
 
 struct Megabyte {
   typedef std::tuple<bool, int, int> Params;
@@ -273,6 +309,8 @@ struct TenGigs {
   }
 };
 
+TEST_IT(runEdgeCases, Tiny, float, int);
+TEST_IT(runEdgeCases, Tiny, double, int);
 TEST_IT(run, Megabyte, float, int);
 TEST_IT(run, Megabyte, double, int);
 TEST_IT(run, Gigabyte, float, int);

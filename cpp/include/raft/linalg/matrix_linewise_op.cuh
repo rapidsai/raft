@@ -250,18 +250,20 @@ void matrixLinewiseVecCols(Type* out,
   const IdxType alignedOff       = IdxType(alignedStart - in);
   const IdxType alignedEnd       = IdxType(AlignBytes::roundDown(in + totalLen) - in);
   const IdxType alignedLen       = alignedEnd - alignedOff;
-  constexpr dim3 bs(BlockSize, 1, 1);
-  // Minimum size of the grid to make the device well occupied
-  const uint occupy = raft::getMultiProcessorCount() * (16384 / BlockSize);
-  // does not make sense to have more blocks than this
-  const uint maxBlocks = raft::ceildiv<uint>(uint(alignedLen), bs.x * VecElems);
-  const dim3 gs(min(maxBlocks, occupy), 1, 1);
+  if (alignedLen > 0) {
+    constexpr dim3 bs(BlockSize, 1, 1);
+    // Minimum size of the grid to make the device well occupied
+    const uint occupy = raft::getMultiProcessorCount() * (16384 / BlockSize);
+    // does not make sense to have more blocks than this
+    const uint maxBlocks = raft::ceildiv<uint>(uint(alignedLen), bs.x * VecElems);
+    const dim3 gs(min(maxBlocks, occupy), 1, 1);
 
-  const IdxType elemsPerThread =
-    raft::ceildiv<IdxType>(alignedLen, gs.x * VecElems * BlockSize) * VecElems;
-  matrixLinewiseVecColsMainKernel<Type, IdxType, VecBytes, BlockSize, Lambda, Vecs...>
-    <<<gs, bs, 0, stream>>>(out, in, alignedOff, rowLen, alignedLen, elemsPerThread, op, vecs...);
-  CUDA_CHECK(cudaPeekAtLastError());
+    const IdxType elemsPerThread =
+      raft::ceildiv<IdxType>(alignedLen, gs.x * VecElems * BlockSize) * VecElems;
+    matrixLinewiseVecColsMainKernel<Type, IdxType, VecBytes, BlockSize, Lambda, Vecs...>
+      <<<gs, bs, 0, stream>>>(out, in, alignedOff, rowLen, alignedLen, elemsPerThread, op, vecs...);
+    CUDA_CHECK(cudaPeekAtLastError());
+  }
   if (alignedLen < totalLen) {
     // should be not smaller than the warp size for better branching
     constexpr std::size_t MaxOffset = std::max(std::size_t(32), VecBytes);
@@ -289,29 +291,30 @@ void matrixLinewiseVecRows(Type* out,
   typedef raft::Pow2<VecBytes> AlignBytes;
   constexpr std::size_t VecElems = VecBytes / sizeof(Type);
   const IdxType totalLen         = rowLen * nRows;
-  // blockSize
-  constexpr dim3 bs(BlockSize, 1, 1);
-  // if we have `stride` number of blocks, then each block processes always the same
-  // indices along dimension rowLen; this means a block needs to index `vecs` only once!
-  const uint stride = (rowLen / raft::gcd(bs.x * uint(VecElems), uint(rowLen))) * VecElems;
-  // Minimum size of the grid to make the device well occupied
-  const uint occupy = raft::getMultiProcessorCount() * (16384 / BlockSize);
-  const dim3 gs(min(
-                  // does not make sense to have more blocks than this
-                  raft::ceildiv<uint>(uint(totalLen), bs.x * VecElems),
-                  // increase the stride size if necessary
-                  raft::ceildiv<uint>(occupy, stride) * stride),
-                1,
-                1);
+  const Type* alignedStart       = AlignBytes::roundUp(in);
+  const IdxType alignedOff       = IdxType(alignedStart - in);
+  const IdxType alignedEnd       = IdxType(AlignBytes::roundDown(in + totalLen) - in);
+  const IdxType alignedLen       = alignedEnd - alignedOff;
+  if (alignedLen > 0) {
+    constexpr dim3 bs(BlockSize, 1, 1);
+    // if we have `stride` number of blocks, then each block processes always the same
+    // indices along dimension rowLen; this means a block needs to index `vecs` only once!
+    const uint stride = (rowLen / raft::gcd(bs.x * uint(VecElems), uint(rowLen))) * VecElems;
+    // Minimum size of the grid to make the device well occupied
+    const uint occupy = raft::getMultiProcessorCount() * (16384 / BlockSize);
+    const dim3 gs(min(
+                    // does not make sense to have more blocks than this
+                    raft::ceildiv<uint>(uint(totalLen), bs.x * VecElems),
+                    // increase the stride size if necessary
+                    raft::ceildiv<uint>(occupy, stride) * stride),
+                  1,
+                  1);
 
-  const Type* alignedStart = AlignBytes::roundUp(in);
-  const IdxType alignedOff = IdxType(alignedStart - in);
-  const IdxType alignedEnd = IdxType(AlignBytes::roundDown(in + totalLen) - in);
-  const IdxType alignedLen = alignedEnd - alignedOff;
-  matrixLinewiseVecRowsMainKernel<Type, IdxType, VecBytes, BlockSize, Lambda, Vecs...>
-    <<<gs, bs, 0, stream>>>(
-      out + alignedOff, alignedStart, alignedOff, rowLen, alignedLen, op, vecs...);
-  CUDA_CHECK(cudaPeekAtLastError());
+    matrixLinewiseVecRowsMainKernel<Type, IdxType, VecBytes, BlockSize, Lambda, Vecs...>
+      <<<gs, bs, 0, stream>>>(
+        out + alignedOff, alignedStart, alignedOff, rowLen, alignedLen, op, vecs...);
+    CUDA_CHECK(cudaPeekAtLastError());
+  }
   if (alignedLen < totalLen) {
     // should be not smaller than the warp size for better branching
     constexpr std::size_t MaxOffset = std::max(std::size_t(32), VecBytes);
