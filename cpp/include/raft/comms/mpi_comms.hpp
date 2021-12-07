@@ -26,12 +26,10 @@ using mpi_comms = detail::mpi_comms;
 
 inline void initialize_mpi_comms(handle_t* handle, MPI_Comm comm)
 {
-    auto communicator =
-            std::make_shared<comms_t>(std::unique_ptr<comms_iface>(new mpi_comms(comm, true)));
-    handle->set_comms(communicator);
+  auto communicator =
+    std::make_shared<comms_t>(std::unique_ptr<comms_iface>(new mpi_comms(comm, true)));
+  handle->set_comms(communicator);
 };
-
-
 
 };  // namespace comms
 };  // end namespace raft
