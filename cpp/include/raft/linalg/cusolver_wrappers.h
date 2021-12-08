@@ -68,7 +68,7 @@ inline const char* cusolver_error_to_string(cusolverStatus_t err)
  * Invokes a cuSOLVER runtime API function call, if the call does not return
  * CUSolver_STATUS_SUCCESS, throws an exception detailing the cuSOLVER error that occurred
  */
-#define CUSOLVER_TRY(call)                                                   \
+#define RAFT_CUSOLVER_TRY(call)                                              \
   do {                                                                       \
     cusolverStatus_t const status = (call);                                  \
     if (CUSOLVER_STATUS_SUCCESS != status) {                                 \
@@ -83,20 +83,20 @@ inline const char* cusolver_error_to_string(cusolverStatus_t err)
     }                                                                        \
   } while (0)
 
-/** FIXME: temporary alias for cuML compatibility */
-#define CUSOLVER_CHECK(call) CUSOLVER_TRY(call)
+// FIXME: remove after consumer rename
+#ifndef CUSOLVER_TRY
+#define CUSOLVER_TRY(call) RAFT_CUSOLVER_TRY(call)
+#endif
 
-//@todo: enable this once logging is enabled
-#if 0
-** check for cusolver runtime API errors but do not assert */
-define CUSOLVER_CHECK_NO_THROW(call)                                          \
-  do {                                                                         \
-    cusolverStatus_t err = call;                                               \
-    if (err != CUSOLVER_STATUS_SUCCESS) {                                      \
-      CUML_LOG_ERROR("CUSOLVER call='%s' got errorcode=%d err=%s", #call, err, \
-                     raft::linalg::detail::cusolver_error_to_string(err));     \
-    }                                                                          \
-  } while (0)
+#ifndef NDEBUG
+#define RAFT_CHECK_CUSOLVER(stream) RAFT_CUSOLVER_TRY(cudaStreamSynchronize(stream));
+#else
+#define RAFT_CHECK_CUSOLVER(stream) RAFT_CUSOLVER_TRY(cudaPeekAtLastError());
+#endif
+
+// FIXME: remove after cuml rename
+#ifndef CUSOLVER_CHECK
+#define CUSOLVER_CHECK(call) CUSOLVER_TRY(call)
 #endif
 
 namespace raft {

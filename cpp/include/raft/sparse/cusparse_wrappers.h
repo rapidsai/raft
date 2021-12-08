@@ -80,7 +80,7 @@ inline const char* cusparse_error_to_string(cusparseStatus_t err)
  * Invokes a cuSparse runtime API function call, if the call does not return
  * CUSPARSE_STATUS_SUCCESS, throws an exception detailing the cuSparse error that occurred
  */
-#define CUSPARSE_TRY(call)                                                   \
+#define RAFT_CUSPARSE_TRY(call)                                              \
   do {                                                                       \
     cusparseStatus_t const status = (call);                                  \
     if (CUSPARSE_STATUS_SUCCESS != status) {                                 \
@@ -95,12 +95,25 @@ inline const char* cusparse_error_to_string(cusparseStatus_t err)
     }                                                                        \
   } while (0)
 
-/** FIXME: temporary alias for cuML compatibility */
+// FIXME: Remove after consumer rename
+#ifndef CUSPARSE_TRY
+#define CUSPARSE_TRY(call) RAFT_CUSPARSE_TRY(call)
+#endif
+
+#ifndef NDEBUG
+#define RAFT_CHECK_CUSPARSE(stream) RAFT_CUSPARSE_TRY(cudaStreamSynchronize(stream));
+#else
+#define RAFT_CHECK_CUSPARSE(stream) RAFT_CUSPARSE_TRY(cudaPeekAtLastError());
+#endif
+
+// FIXME: Remove after consumer rename
+#ifndef CUSPARSE_CHECK
 #define CUSPARSE_CHECK(call) CUSPARSE_TRY(call)
+#endif
 
 //@todo: use logger here once logging is enabled
 /** check for cusparse runtime API errors but do not assert */
-#define CUSPARSE_CHECK_NO_THROW(call)                              \
+#define RAFT_CHECK_CUSPARSE_NO_THROW(call)                         \
   do {                                                             \
     cusparseStatus_t err = call;                                   \
     if (err != CUSPARSE_STATUS_SUCCESS) {                          \
@@ -110,6 +123,11 @@ inline const char* cusparse_error_to_string(cusparseStatus_t err)
              raft::sparse::detail::cusparse_error_to_string(err)); \
     }                                                              \
   } while (0)
+
+// FIXME: Remove after consumer rename
+#ifndef CUSPARSE_CHECK_NO_THROW
+#define CUSPARSE_CHECK_NO_THROW(call) RAFT_CHECK_CUSPARSE_NO_THROW(call)
+#endif
 
 namespace raft {
 namespace sparse {

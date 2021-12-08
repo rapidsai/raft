@@ -53,8 +53,7 @@ struct cuda_error : public raft::exception {
  * exception detailing the CUDA error that occurred
  *
  */
-#ifndef CUDA_TRY
-#define CUDA_TRY(call)                             \
+#define RAFT_CUDA_TRY(call)                        \
   do {                                             \
     cudaError_t const status = call;               \
     if (status != cudaSuccess) {                   \
@@ -69,7 +68,12 @@ struct cuda_error : public raft::exception {
       throw raft::cuda_error(msg);                 \
     }                                              \
   } while (0)
+
+// FIXME: Remove after consumers rename
+#ifndef CUDA_TRY
+#define CUDA_TRY(call) RAFT_CUDA_TRY(call)
 #endif
+
 /**
  * @brief Debug macro to check for CUDA errors
  *
@@ -84,23 +88,26 @@ struct cuda_error : public raft::exception {
  * asynchronous kernel launch.
  */
 #ifndef NDEBUG
-#define CHECK_CUDA(stream) CUDA_TRY(cudaStreamSynchronize(stream));
+#define RAFT_CHECK_CUDA(stream) RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 #else
-#define CHECK_CUDA(stream) CUDA_TRY(cudaPeekAtLastError());
+#define RAFT_CHECK_CUDA(stream) RAFT_CUDA_TRY(cudaPeekAtLastError());
 #endif
 
-/** FIXME: temporary alias for cuML compatibility */
+// FIXME: Remove after consumers rename
+#ifndef CHECK_CUDA
+#define CHECK_CUDA(call) RAFT_CHECK_CUDA(call)
+#endif
+
+/** FIXME: remove after cuml rename */
 #ifndef CUDA_CHECK
-#define CUDA_CHECK(call) CUDA_TRY(call)
+#define CUDA_CHECK(call) RAFT_CUDA_TRY(call)
 #endif
 
-///@todo: enable this only after we have added logging support in raft
 // /**
 //  * @brief check for cuda runtime API errors but log error instead of raising
 //  *        exception.
 //  */
-#ifndef CUDA_CHECK_NO_THROW
-#define CUDA_CHECK_NO_THROW(call)                                  \
+#define RAFT_CHECK_CUDA_NO_THROW(call)                             \
   do {                                                             \
     cudaError_t const status = call;                               \
     if (cudaSuccess != status) {                                   \
@@ -111,6 +118,10 @@ struct cuda_error : public raft::exception {
              cudaGetErrorString(status));                          \
     }                                                              \
   } while (0)
+
+// FIXME: Remove after cuml rename
+#ifndef CUDA_CHECK_NO_THROW
+#define CUDA_CHECK_NO_THROW(call) RAFT_CHECK_CUDA_NO_THROW(call)
 #endif
 
 /**
@@ -118,8 +129,6 @@ struct cuda_error : public raft::exception {
  * TODO: Rename original implementations in 22.04 to fix
  * https://github.com/rapidsai/raft/issues/128
  */
-#define RAFT_CUDA_CHECK(call)          CUDA_CHECK(call)
-#define RAFT_CUDA_CHECK_NO_THROW(call) CUDA_CHECK_NO_THROW(call)
 
 namespace raft {
 

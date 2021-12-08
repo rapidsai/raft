@@ -32,7 +32,7 @@
 #include <raft/error.hpp>
 #include <raft/handle.hpp>
 
-#define MPI_TRY(call)                                                                         \
+#define RAFT_MPI_TRY(call)                                                                    \
   do {                                                                                        \
     int status = call;                                                                        \
     if (MPI_SUCCESS != status) {                                                              \
@@ -44,7 +44,12 @@
     }                                                                                         \
   } while (0)
 
-#define MPI_TRY_NO_THROW(call)                                              \
+// FIXME: Remove after consumer rename
+#ifndef MPI_TRY
+#define MPI_TRY(call) RAFT_MPI_TRY(call)
+#endif
+
+#define RAFT_MPI_TRY_NO_THROW(call)                                         \
   do {                                                                      \
     int status = call;                                                      \
     if (MPI_SUCCESS != status) {                                            \
@@ -58,6 +63,11 @@
              mpi_error_string);                                             \
     }                                                                       \
   } while (0)
+
+// FIXME: Remove after consumer rename
+#ifndef MPI_TRY_NO_THROW
+#define MPI_TRY_NO_THROW(call) RAFT_MPI_TRY_NO_THROW(call)
+#endif
 
 namespace raft {
 namespace comms {
