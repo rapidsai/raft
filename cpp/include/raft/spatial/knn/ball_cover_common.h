@@ -62,12 +62,12 @@ class BallCoverIndex {
   {
   }
 
-  value_idx *get_R_indptr() { return R_indptr.data(); }
-  value_idx *get_R_1nn_cols() { return R_1nn_cols.data(); }
-  value_t *get_R_1nn_dists() { return R_1nn_dists.data(); }
-  value_t *get_R_radius() { return R_radius.data(); }
-  value_t *get_R() { return R.data(); }
-  const value_t *get_X() { return X; }
+  value_idx* get_R_indptr() { return R_indptr.data(); }
+  value_idx* get_R_1nn_cols() { return R_1nn_cols.data(); }
+  value_t* get_R_1nn_dists() { return R_1nn_dists.data(); }
+  value_t* get_R_radius() { return R_radius.data(); }
+  value_t* get_R() { return R.data(); }
+  const value_t* get_X() { return X; }
   value_int get_n_landmarks() { return n_landmarks; }
   raft::distance::DistanceType get_metric() { return metric; }
 

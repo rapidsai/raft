@@ -153,19 +153,31 @@ void construct_landmark_1nn(const raft::handle_t& handle,
  * @param R_knn_inds
  * @param R_knn_dists
  */
-template <typename value_idx, typename value_t,
-          typename value_int = std::uint32_t>
-void k_closest_landmarks(const raft::handle_t &handle,
-                         BallCoverIndex<value_idx, value_t, value_int> &index,
-                         const value_t *query_pts, value_int n_query_pts,
-                         value_int k, value_idx *R_knn_inds,
-                         value_t *R_knn_dists) {
-  std::vector<value_t *> input = {index.get_R()};
+template <typename value_idx, typename value_t, typename value_int = std::uint32_t>
+void k_closest_landmarks(const raft::handle_t& handle,
+                         BallCoverIndex<value_idx, value_t, value_int>& index,
+                         const value_t* query_pts,
+                         value_int n_query_pts,
+                         value_int k,
+                         value_idx* R_knn_inds,
+                         value_t* R_knn_dists)
+{
+  std::vector<value_t*> input  = {index.get_R()};
   std::vector<value_int> sizes = {index.n_landmarks};
 
-  brute_force_knn<std::int64_t, value_t, value_int>(
-    handle, input, sizes, (value_int)index.n, const_cast<value_t *>(query_pts),
-    n_query_pts, R_knn_inds, R_knn_dists, k, true, true, nullptr, index.metric);
+  brute_force_knn<std::int64_t, value_t, value_int>(handle,
+                                                    input,
+                                                    sizes,
+                                                    (value_int)index.n,
+                                                    const_cast<value_t*>(query_pts),
+                                                    n_query_pts,
+                                                    R_knn_inds,
+                                                    R_knn_dists,
+                                                    k,
+                                                    true,
+                                                    true,
+                                                    nullptr,
+                                                    index.metric);
 }
 
 /**
@@ -264,11 +276,14 @@ void perform_rbc_query(const raft::handle_t& handle,
  * query which is useful for algorithms that need to perform
  * A * A.T.
  */
-template <typename value_idx = std::int64_t, typename value_t,
-          typename value_int = std::uint32_t, typename distance_func>
-void rbc_build_index(const raft::handle_t &handle,
-                     BallCoverIndex<value_idx, value_t, value_int> &index,
-                     distance_func dfunc) {
+template <typename value_idx = std::int64_t,
+          typename value_t,
+          typename value_int = std::uint32_t,
+          typename distance_func>
+void rbc_build_index(const raft::handle_t& handle,
+                     BallCoverIndex<value_idx, value_t, value_int>& index,
+                     distance_func dfunc)
+{
   ASSERT(!index.is_index_trained(), "index cannot be previously trained");
 
   rmm::device_uvector<value_idx> R_knn_inds(index.m, handle.get_stream());
@@ -315,7 +330,9 @@ void rbc_all_knn_query(const raft::handle_t& handle,
                        value_t* dists,
                        distance_func dfunc,
                        // approximate nn options
-                       bool perform_post_filtering = true, float weight = 1.0) {
+                       bool perform_post_filtering = true,
+                       float weight                = 1.0)
+{
   ASSERT(index.n_landmarks >= k, "number of landmark samples must be >= k");
   ASSERT(!index.is_index_trained(), "index cannot be previously trained");
 
@@ -325,31 +342,41 @@ void rbc_all_knn_query(const raft::handle_t& handle,
 
     // For debugging / verification. Remove before releasing
     rmm::device_uvector<value_int> dists_counter(index.m, handle.get_stream());
-    rmm::device_uvector<value_int> post_dists_counter(index.m,
-                                                      handle.get_stream());
+    rmm::device_uvector<value_int> post_dists_counter(index.m, handle.get_stream());
 
     sample_landmarks<value_idx, value_t>(handle, index);
 
-    k_closest_landmarks(handle, index, index.get_X(), index.m, k,
-                        R_knn_inds.data(), R_knn_dists.data());
+    k_closest_landmarks(
+      handle, index, index.get_X(), index.m, k, R_knn_inds.data(), R_knn_dists.data());
 
-    construct_landmark_1nn(handle, R_knn_inds.data(), R_knn_dists.data(), k,
-                           index);
+    construct_landmark_1nn(handle, R_knn_inds.data(), R_knn_dists.data(), k, index);
 
     compute_landmark_radii(handle, index);
 
-    perform_rbc_query(handle, index, index.get_X(), index.m, k,
-                      R_knn_inds.data(), R_knn_dists.data(), dfunc, inds, dists,
-                      dists_counter.data(), post_dists_counter.data(), weight,
+    perform_rbc_query(handle,
+                      index,
+                      index.get_X(),
+                      index.m,
+                      k,
+                      R_knn_inds.data(),
+                      R_knn_dists.data(),
+                      dfunc,
+                      inds,
+                      dists,
+                      dists_counter.data(),
+                      post_dists_counter.data(),
+                      weight,
                       perform_post_filtering);
   } else {
-    thrust::fill(handle.get_thrust_policy(), dists, dists + (index.m * k),
+    thrust::fill(handle.get_thrust_policy(),
+                 dists,
+                 dists + (index.m * k),
                  std::numeric_limits<value_t>::max());
     raft::sparse::COO<value_idx, value_idx> plan_coo(handle.get_stream());
 
     rbc_build_index(handle, index, EuclideanFunc<value_t, value_int>());
-    compute_and_execute_plan(handle, index, k, index.get_X(), index.m, inds,
-                             dists, plan_coo, weight);
+    compute_and_execute_plan(
+      handle, index, k, index.get_X(), index.m, inds, dists, plan_coo, weight);
   }
 }
 
@@ -370,7 +397,9 @@ void rbc_knn_query(const raft::handle_t& handle,
                    value_t* dists,
                    distance_func dfunc,
                    // approximate nn options
-                   bool perform_post_filtering = true, float weight = 1.0) {
+                   bool perform_post_filtering = true,
+                   float weight                = 1.0)
+{
   ASSERT(index.n_landmarks >= k, "number of landmark samples must be >= k");
   ASSERT(index.is_index_trained(), "index must be previously trained");
 
@@ -386,17 +415,28 @@ void rbc_knn_query(const raft::handle_t& handle,
     handle.get_thrust_policy(), post_dists_counter.data(), post_dists_counter.data() + index.m, 0);
 
   if (index.n == 2) {
-    perform_rbc_query(handle, index, query, n_query_pts, k, R_knn_inds.data(),
-                      R_knn_dists.data(), dfunc, inds, dists,
-                      dists_counter.data(), post_dists_counter.data(), weight,
+    perform_rbc_query(handle,
+                      index,
+                      query,
+                      n_query_pts,
+                      k,
+                      R_knn_inds.data(),
+                      R_knn_dists.data(),
+                      dfunc,
+                      inds,
+                      dists,
+                      dists_counter.data(),
+                      post_dists_counter.data(),
+                      weight,
                       perform_post_filtering);
   } else {
-    thrust::fill(handle.get_thrust_policy(), dists, dists + (n_query_pts * k),
+    thrust::fill(handle.get_thrust_policy(),
+                 dists,
+                 dists + (n_query_pts * k),
                  std::numeric_limits<value_t>::max());
 
     raft::sparse::COO<value_idx, value_idx> plan_coo(handle.get_stream());
-    compute_and_execute_plan(handle, index, k, query, n_query_pts, inds, dists,
-                             plan_coo, weight);
+    compute_and_execute_plan(handle, index, k, query, n_query_pts, inds, dists, plan_coo, weight);
   }
 }
 
