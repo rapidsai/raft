@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "detail/linewise_op.cuh"
 #include "detail/matrix.cuh"
 
 #include <cuda_runtime.h>
@@ -287,6 +288,44 @@ m_t getL2Norm(const raft::handle_t& handle, m_t* in, idx_t size, cudaStream_t st
   m_t normval            = 0;
   CUBLAS_CHECK(raft::linalg::cublasnrm2(cublasH, size, in, 1, &normval, stream));
   return normval;
+}
+
+/**
+ * Run a function over matrix lines (rows or columns) with a variable number
+ * row-vectors or column-vectors.
+ * The term `line` here signifies that the lines can be either columns or rows,
+ * depending on the matrix layout.
+ * What matters is if the vectors are applied along lines (indices of vectors correspond to
+ * indices within lines), or across lines (indices of vectors correspond to line numbers).
+ *
+ * @param [out] out result of the operation; can be same as `in`; should be aligned the same
+ *        as `in` to allow faster vectorized memory transfers.
+ * @param [in] in input matrix consisting of `nLines` lines, each `lineLen`-long.
+ * @param [in] lineLen length of matrix line in elements (`=nCols` in row-major or `=nRows` in
+ * col-major)
+ * @param [in] nLines number of matrix lines (`=nRows` in row-major or `=nCols` in col-major)
+ * @param [in] alongLines whether vectors are indices along or across lines.
+ * @param [in] op the operation applied on each line:
+ *    for i in [0..lineLen) and j in [0..nLines):
+ *      out[i, j] = op(in[i, j], vec1[i], vec2[i], ... veck[i])   if alongLines = true
+ *      out[i, j] = op(in[i, j], vec1[j], vec2[j], ... veck[j])   if alongLines = false
+ *    where matrix indexing is row-major ([i, j] = [i + lineLen * j]).
+ * @param [in] stream a cuda stream for the kernels
+ * @param [in] vecs zero or more vectors to be passed as arguments,
+ *    size of each vector is `alongLines ? lineLen : nLines`.
+ */
+template <typename m_t, typename idx_t = int, typename Lambda, typename... Vecs>
+void linewiseOp(m_t* out,
+                const m_t* in,
+                const idx_t lineLen,
+                const idx_t nLines,
+                const bool alongLines,
+                Lambda op,
+                cudaStream_t stream,
+                Vecs... vecs)
+{
+  detail::MatrixLinewiseOp<16, 256>::run<m_t, idx_t, Lambda, Vecs...>(
+    out, in, lineLen, nLines, alongLines, op, stream, vecs...);
 }
 
 };  // end namespace matrix

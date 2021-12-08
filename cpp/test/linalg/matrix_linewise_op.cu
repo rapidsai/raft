@@ -17,8 +17,8 @@
 #include <cuda_profiler_api.h>
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/matrix_linewise_op.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
+#include <raft/matrix/matrix.hpp>
 #include <raft/random/rng.hpp>
 #include <rmm/device_uvector.hpp>
 #include "../test_utils.h"
@@ -29,7 +29,7 @@
 #endif
 
 namespace raft {
-namespace linalg {
+namespace matrix {
 
 constexpr std::size_t PTR_PADDING = 128;
 
@@ -92,9 +92,9 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
   {
     auto f = [] __device__(T a, T b) -> T { return a + b; };
     if (params.useVanillaMatrixVectorOp)
-      matrixVectorOp(out, in, vec, lineLen, nLines, true, alongLines, f, stream);
+      linalg::matrixVectorOp(out, in, vec, lineLen, nLines, true, alongLines, f, stream);
     else
-      matrixLinewiseOp(out, in, lineLen, nLines, alongLines, f, stream, vec);
+      matrix::linewiseOp(out, in, lineLen, nLines, alongLines, f, stream, vec);
   }
 
   void runLinewiseSum(T* out,
@@ -107,9 +107,9 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
   {
     auto f = [] __device__(T a, T b, T c) -> T { return a + b + c; };
     if (params.useVanillaMatrixVectorOp)
-      matrixVectorOp(out, in, vec1, vec2, lineLen, nLines, true, alongLines, f, stream);
+      linalg::matrixVectorOp(out, in, vec1, vec2, lineLen, nLines, true, alongLines, f, stream);
     else
-      matrixLinewiseOp(out, in, lineLen, nLines, alongLines, f, stream, vec1, vec2);
+      matrix::linewiseOp(out, in, lineLen, nLines, alongLines, f, stream, vec1, vec2);
   }
 
   rmm::device_uvector<T> genData(size_t workSizeBytes)
@@ -191,7 +191,7 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
           runLinewiseSum(out, in, lineLen, nLines, alongRows, vec1);
           POP_RANGE(stream);
           if (params.checkCorrectness) {
-            naiveMatVec(blob_val.data(), in, vec1, lineLen, nLines, true, alongRows, T(1));
+            linalg::naiveMatVec(blob_val.data(), in, vec1, lineLen, nLines, true, alongRows, T(1));
             r = devArrMatch(blob_val.data(), out, n * m, CompareApprox<T>(params.tolerance))
                 << " " << (alongRows ? "alongRows" : "acrossRows")
                 << " with one vec; lineLen: " << lineLen << "; nLines " << nLines;
@@ -201,7 +201,8 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
           runLinewiseSum(out, in, lineLen, nLines, alongRows, vec1, vec2);
           POP_RANGE(stream);
           if (params.checkCorrectness) {
-            naiveMatVec(blob_val.data(), in, vec1, vec2, lineLen, nLines, true, alongRows, T(1));
+            linalg::naiveMatVec(
+              blob_val.data(), in, vec1, vec2, lineLen, nLines, true, alongRows, T(1));
             r = devArrMatch(blob_val.data(), out, n * m, CompareApprox<T>(params.tolerance))
                 << " " << (alongRows ? "alongRows" : "acrossRows")
                 << " with two vecs;  lineLen: " << lineLen << "; nLines " << nLines;
@@ -318,5 +319,5 @@ TEST_IT(run, Gigabyte, double, int);
 TEST_IT(run, TenGigs, float, uint64_t);
 TEST_IT(run, TenGigs, double, uint64_t);
 
-}  // end namespace linalg
+}  // namespace matrix
 }  // end namespace raft

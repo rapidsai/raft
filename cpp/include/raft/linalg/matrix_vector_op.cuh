@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <raft/linalg/matrix_linewise_op.cuh>
+#include <raft/matrix/matrix.hpp>
 
 namespace raft {
 namespace linalg {
@@ -57,7 +57,8 @@ void matrixVectorOp(Type* out,
 {
   IdxType stride = rowMajor ? D : N;
   IdxType nLines = rowMajor ? N : D;
-  return matrixLinewiseOp(out, matrix, stride, nLines, rowMajor == bcastAlongRows, op, stream, vec);
+  return matrix::linewiseOp(
+    out, matrix, stride, nLines, rowMajor == bcastAlongRows, op, stream, vec);
 }
 
 /**
@@ -98,7 +99,7 @@ void matrixVectorOp(Type* out,
 {
   IdxType stride = rowMajor ? D : N;
   IdxType nLines = rowMajor ? N : D;
-  return matrixLinewiseOp(
+  return matrix::linewiseOp(
     out, matrix, stride, nLines, rowMajor == bcastAlongRows, op, stream, vec1, vec2);
 }
 

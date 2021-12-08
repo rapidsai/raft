@@ -21,9 +21,8 @@
 #include <raft/vectorized.cuh>
 
 namespace raft {
-namespace linalg {
-
-namespace linewise_impl {
+namespace matrix {
+namespace detail {
 
 template <typename Type, typename IdxType, std::size_t VecBytes, int BlockSize>
 struct Linewise {
@@ -360,45 +359,6 @@ struct MatrixLinewiseOp {
   }
 };
 
-};  // namespace linewise_impl
-
-/**
- * Run a function over matrix lines (rows or columns) with a variable number
- * row-vectors or column-vectors.
- * The term `line` here signifies that the lines can be either columns or rows,
- * depending on the matrix layout.
- * What matters is if the vectors are applied along lines (indices of vectors correspond to
- * indices within lines), or across lines (indices of vectors correspond to line numbers).
- *
- * @param [out] out result of the operation; can be same as `in`; should be aligned the same
- *        as `in` to allow faster vectorized memory transfers.
- * @param [in] in input matrix consisting of `nLines` lines, each `lineLen`-long.
- * @param [in] lineLen length of matrix line in elements (`=nCols` in row-major or `=nRows` in
- * col-major)
- * @param [in] nLines number of matrix lines (`=nRows` in row-major or `=nCols` in col-major)
- * @param [in] alongLines whether vectors are indices along or across lines.
- * @param [in] op the operation applied on each line:
- *    for i in [0..lineLen) and j in [0..nLines):
- *      out[i, j] = op(in[i, j], vec1[i], vec2[i], ... veck[i])   if alongLines = true
- *      out[i, j] = op(in[i, j], vec1[j], vec2[j], ... veck[j])   if alongLines = false
- *    where matrix indexing is row-major ([i, j] = [i + lineLen * j]).
- * @param [in] stream a cuda stream for the kernels
- * @param [in] vecs zero or more vectors to be passed as arguments,
- *    size of each vector is `alongLines ? lineLen : nLines`.
- */
-template <typename Type, typename IdxType, typename Lambda, typename... Vecs>
-void matrixLinewiseOp(Type* out,
-                      const Type* in,
-                      const IdxType lineLen,
-                      const IdxType nLines,
-                      const bool alongLines,
-                      Lambda op,
-                      cudaStream_t stream,
-                      Vecs... vecs)
-{
-  linewise_impl::MatrixLinewiseOp<16, 256>::run<Type, IdxType, Lambda, Vecs...>(
-    out, in, lineLen, nLines, alongLines, op, stream, vecs...);
-}
-
-};  // end namespace linalg
-};  // end namespace raft
+}  // end namespace detail
+}  // end namespace matrix
+}  // end namespace raft
