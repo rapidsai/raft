@@ -18,7 +18,7 @@
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/distance/distance.hpp>
-#include <raft/distance/distance_specializations.hpp>
+#include <raft/distance/specializations.hpp>
 #include <raft/random/rng.hpp>
 #include "../test_utils.h"
 

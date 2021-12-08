@@ -19,7 +19,7 @@
 #include <raft/linalg/distance_type.h>
 
 #include <raft/spatial/knn/knn.hpp>
-#include <raft/spatial/knn/knn_specializations.hpp>
+#include <raft/spatial/knn/specializations.hpp>
 
 #include <rmm/device_buffer.hpp>
 
