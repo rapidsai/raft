@@ -19,7 +19,7 @@
 #include <raft/spatial/knn/ball_cover.hpp>
 
 // Ignore upstream specializations to avoid unnecessary recompiling
-#include <raft/distance/distance.hpp>
+#include <raft/distance/specializations.hpp>
 #include <raft/spatial/knn/specializations/fused_l2_knn.hpp>
 #include <raft/spatial/knn/specializations/knn.hpp>
 
