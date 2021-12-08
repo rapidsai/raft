@@ -23,7 +23,7 @@ namespace detail {
 
 /**
  * @brief the Russell Rao distance matrix:
- *  It computes the following equation: 
+ *  It computes the following equation:
     Cij = (k - sum(x_i * y_i)) / k
  *
  * @tparam DataT          input data-type (for A and B matrices)
@@ -47,29 +47,42 @@ namespace detail {
  * @param[in]       fin_op the final gemm epilogue lambda
  * @param[in]       stream cuda stream to launch work
  */
-template <typename DataT, typename AccT, typename OutT, typename IdxT,
-          int VecLen, typename FinalLambda, bool isRowMajor>
-static void russellRaoImpl(const DataT *x, const DataT *y, IdxT m, IdxT n,
-                           IdxT k, IdxT lda, IdxT ldb, IdxT ldd, OutT *dOutput,
-                           FinalLambda fin_op, cudaStream_t stream) {
+template <typename DataT,
+          typename AccT,
+          typename OutT,
+          typename IdxT,
+          int VecLen,
+          typename FinalLambda,
+          bool isRowMajor>
+static void russellRaoImpl(const DataT* x,
+                           const DataT* y,
+                           IdxT m,
+                           IdxT n,
+                           IdxT k,
+                           IdxT lda,
+                           IdxT ldb,
+                           IdxT ldd,
+                           OutT* dOutput,
+                           FinalLambda fin_op,
+                           cudaStream_t stream)
+{
   typedef typename raft::linalg::Policy4x4<DataT, VecLen>::Policy RowPolicy;
   typedef typename raft::linalg::Policy4x4<DataT, VecLen>::ColPolicy ColPolicy;
 
-  typedef
-    typename std::conditional<isRowMajor, RowPolicy, ColPolicy>::type KPolicy;
+  typedef typename std::conditional<isRowMajor, RowPolicy, ColPolicy>::type KPolicy;
 
   dim3 blk(KPolicy::Nthreads);
 
   // Accumulation operation lambda
-  auto core_lambda = [] __device__(AccT & acc, DataT & x, DataT & y) {
-    acc += x * y;
-  };
+  auto core_lambda = [] __device__(AccT & acc, DataT & x, DataT & y) { acc += x * y; };
 
   const float one_over_k = 1.0 / k;
   // epilogue operation lambda for final value calculation
   auto epilog_lambda = [k, one_over_k] __device__(
                          AccT acc[KPolicy::AccRowsPerTh][KPolicy::AccColsPerTh],
-                         DataT * regxn, DataT * regyn, IdxT gridStrideX,
+                         DataT * regxn,
+                         DataT * regyn,
+                         IdxT gridStrideX,
                          IdxT gridStrideY) {
 #pragma unroll
     for (int i = 0; i < KPolicy::AccRowsPerTh; ++i) {
@@ -81,46 +94,65 @@ static void russellRaoImpl(const DataT *x, const DataT *y, IdxT m, IdxT n,
   };
 
   if (isRowMajor) {
-    constexpr auto russellRaoRowMajor =
-      pairwiseDistanceMatKernel<false, DataT, AccT, OutT, IdxT, KPolicy,
-                                decltype(core_lambda), decltype(epilog_lambda),
-                                FinalLambda, true>;
-    dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize,
-                                               russellRaoRowMajor);
+    constexpr auto russellRaoRowMajor = pairwiseDistanceMatKernel<false,
+                                                                  DataT,
+                                                                  AccT,
+                                                                  OutT,
+                                                                  IdxT,
+                                                                  KPolicy,
+                                                                  decltype(core_lambda),
+                                                                  decltype(epilog_lambda),
+                                                                  FinalLambda,
+                                                                  true>;
+    dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize, russellRaoRowMajor);
 
     russellRaoRowMajor<<<grid, blk, KPolicy::SmemSize, stream>>>(
-      x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput, core_lambda,
-      epilog_lambda, fin_op);
+      x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput, core_lambda, epilog_lambda, fin_op);
   } else {
-    constexpr auto russellRaoColMajor =
-      pairwiseDistanceMatKernel<false, DataT, AccT, OutT, IdxT, KPolicy,
-                                decltype(core_lambda), decltype(epilog_lambda),
-                                FinalLambda, false>;
-    dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize,
-                                               russellRaoColMajor);
+    constexpr auto russellRaoColMajor = pairwiseDistanceMatKernel<false,
+                                                                  DataT,
+                                                                  AccT,
+                                                                  OutT,
+                                                                  IdxT,
+                                                                  KPolicy,
+                                                                  decltype(core_lambda),
+                                                                  decltype(epilog_lambda),
+                                                                  FinalLambda,
+                                                                  false>;
+    dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize, russellRaoColMajor);
     russellRaoColMajor<<<grid, blk, KPolicy::SmemSize, stream>>>(
-      x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput, core_lambda,
-      epilog_lambda, fin_op);
+      x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput, core_lambda, epilog_lambda, fin_op);
   }
 
   CUDA_CHECK(cudaGetLastError());
 }
 
-template <typename DataT, typename AccT, typename OutT, typename IdxT,
-          typename FinalLambda, bool isRowMajor>
-void russellRao(IdxT m, IdxT n, IdxT k, IdxT lda, IdxT ldb, IdxT ldd,
-                const DataT *x, const DataT *y, OutT *dOutput,
-                FinalLambda fin_op, cudaStream_t stream) {
+template <typename DataT,
+          typename AccT,
+          typename OutT,
+          typename IdxT,
+          typename FinalLambda,
+          bool isRowMajor>
+void russellRao(IdxT m,
+                IdxT n,
+                IdxT k,
+                IdxT lda,
+                IdxT ldb,
+                IdxT ldd,
+                const DataT* x,
+                const DataT* y,
+                OutT* dOutput,
+                FinalLambda fin_op,
+                cudaStream_t stream)
+{
   size_t bytesA = sizeof(DataT) * lda;
   size_t bytesB = sizeof(DataT) * ldb;
   if (16 % sizeof(DataT) == 0 && bytesA % 16 == 0 && bytesB % 16 == 0) {
-    russellRaoImpl<DataT, AccT, OutT, IdxT, 16 / sizeof(DataT), FinalLambda,
-                   isRowMajor>(x, y, m, n, k, lda, ldb, ldd, dOutput, fin_op,
-                               stream);
+    russellRaoImpl<DataT, AccT, OutT, IdxT, 16 / sizeof(DataT), FinalLambda, isRowMajor>(
+      x, y, m, n, k, lda, ldb, ldd, dOutput, fin_op, stream);
   } else if (8 % sizeof(DataT) == 0 && bytesA % 8 == 0 && bytesB % 8 == 0) {
-    russellRaoImpl<DataT, AccT, OutT, IdxT, 8 / sizeof(DataT), FinalLambda,
-                   isRowMajor>(x, y, m, n, k, lda, ldb, ldd, dOutput, fin_op,
-                               stream);
+    russellRaoImpl<DataT, AccT, OutT, IdxT, 8 / sizeof(DataT), FinalLambda, isRowMajor>(
+      x, y, m, n, k, lda, ldb, ldd, dOutput, fin_op, stream);
   } else {
     russellRaoImpl<DataT, AccT, OutT, IdxT, 1, FinalLambda, isRowMajor>(
       x, y, m, n, k, lda, ldb, ldd, dOutput, fin_op, stream);
@@ -129,7 +161,7 @@ void russellRao(IdxT m, IdxT n, IdxT k, IdxT lda, IdxT ldb, IdxT ldd,
 
 /**
  * @brief the Russell Rao distance matrix calculation
- *  It computes the following equation: 
+ *  It computes the following equation:
     Cij = (k - sum(x_i * y_i)) / k
  *
  * @tparam InType input data-type (for A and B matrices)
@@ -147,16 +179,25 @@ void russellRao(IdxT m, IdxT n, IdxT k, IdxT lda, IdxT ldb, IdxT ldd,
  * @param stream cuda stream where to launch work
  * @param isRowMajor whether the input and output matrices are row major
  */
-template <typename InType, typename AccType, typename OutType,
-          typename FinalLambda, typename Index_ = int>
-void russellRaoImpl(int m, int n, int k, const InType *pA, const InType *pB,
-                    OutType *pD, FinalLambda fin_op, cudaStream_t stream,
-                    bool isRowMajor) {
+template <typename InType,
+          typename AccType,
+          typename OutType,
+          typename FinalLambda,
+          typename Index_ = int>
+void russellRaoImpl(int m,
+                    int n,
+                    int k,
+                    const InType* pA,
+                    const InType* pB,
+                    OutType* pD,
+                    FinalLambda fin_op,
+                    cudaStream_t stream,
+                    bool isRowMajor)
+{
   typedef std::is_same<OutType, bool> is_bool;
-  typedef typename std::conditional<is_bool::value, OutType, AccType>::type
-    russellRaoOutType;
+  typedef typename std::conditional<is_bool::value, OutType, AccType>::type russellRaoOutType;
   Index_ lda, ldb, ldd;
-  russellRaoOutType *pDcast = reinterpret_cast<russellRaoOutType *>(pD);
+  russellRaoOutType* pDcast = reinterpret_cast<russellRaoOutType*>(pD);
   if (isRowMajor) {
     lda = k, ldb = k, ldd = n;
     russellRao<InType, AccType, russellRaoOutType, Index_, FinalLambda, true>(

@@ -24,8 +24,8 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/mr/device/buffer.hpp>
 
-#include "../../csr.cuh"
-#include "../../utils.h"
+#include "../../csr.hpp"
+#include "../../detail/utils.h"
 #include "../common.h"
 
 #include <limits.h>
@@ -39,19 +39,29 @@ namespace sparse {
 namespace distance {
 namespace detail {
 
-template <typename value_idx, typename value_t, int threads_per_block = 1024,
-          typename product_f, typename accum_f, typename write_f,
+template <typename value_idx,
+          typename value_t,
+          int threads_per_block = 1024,
+          typename product_f,
+          typename accum_f,
+          typename write_f,
           typename strategy_t>
 inline void balanced_coo_pairwise_generalized_spmv(
-  value_t *out_dists, const distances_config_t<value_idx, value_t> &config_,
-  value_idx *coo_rows_b, product_f product_func, accum_f accum_func,
-  write_f write_func, strategy_t strategy, int chunk_size = 500000) {
-  CUDA_CHECK(cudaMemsetAsync(
-    out_dists, 0, sizeof(value_t) * config_.a_nrows * config_.b_nrows,
-    config_.handle.get_stream()));
+  value_t* out_dists,
+  const distances_config_t<value_idx, value_t>& config_,
+  value_idx* coo_rows_b,
+  product_f product_func,
+  accum_f accum_func,
+  write_f write_func,
+  strategy_t strategy,
+  int chunk_size = 500000)
+{
+  CUDA_CHECK(cudaMemsetAsync(out_dists,
+                             0,
+                             sizeof(value_t) * config_.a_nrows * config_.b_nrows,
+                             config_.handle.get_stream()));
 
-  strategy.dispatch(out_dists, coo_rows_b, product_func, accum_func, write_func,
-                    chunk_size);
+  strategy.dispatch(out_dists, coo_rows_b, product_func, accum_func, write_func, chunk_size);
 };
 
 /**
@@ -87,39 +97,55 @@ inline void balanced_coo_pairwise_generalized_spmv(
  *            this value was found through profiling and represents a reasonable
  *            setting for both large and small densities
  */
-template <typename value_idx, typename value_t, int threads_per_block = 1024,
-          typename product_f, typename accum_f, typename write_f>
+template <typename value_idx,
+          typename value_t,
+          int threads_per_block = 1024,
+          typename product_f,
+          typename accum_f,
+          typename write_f>
 inline void balanced_coo_pairwise_generalized_spmv(
-  value_t *out_dists, const distances_config_t<value_idx, value_t> &config_,
-  value_idx *coo_rows_b, product_f product_func, accum_f accum_func,
-  write_f write_func, int chunk_size = 500000) {
-  CUDA_CHECK(cudaMemsetAsync(
-    out_dists, 0, sizeof(value_t) * config_.a_nrows * config_.b_nrows,
-    config_.handle.get_stream()));
+  value_t* out_dists,
+  const distances_config_t<value_idx, value_t>& config_,
+  value_idx* coo_rows_b,
+  product_f product_func,
+  accum_f accum_func,
+  write_f write_func,
+  int chunk_size = 500000)
+{
+  CUDA_CHECK(cudaMemsetAsync(out_dists,
+                             0,
+                             sizeof(value_t) * config_.a_nrows * config_.b_nrows,
+                             config_.handle.get_stream()));
 
   int max_cols = max_cols_per_block<value_idx, value_t>();
 
   if (max_cols > config_.a_ncols) {
-    dense_smem_strategy<value_idx, value_t, threads_per_block> strategy(
-      config_);
-    strategy.dispatch(out_dists, coo_rows_b, product_func, accum_func,
-                      write_func, chunk_size);
+    dense_smem_strategy<value_idx, value_t, threads_per_block> strategy(config_);
+    strategy.dispatch(out_dists, coo_rows_b, product_func, accum_func, write_func, chunk_size);
   } else {
     hash_strategy<value_idx, value_t, threads_per_block> strategy(config_);
-    strategy.dispatch(out_dists, coo_rows_b, product_func, accum_func,
-                      write_func, chunk_size);
+    strategy.dispatch(out_dists, coo_rows_b, product_func, accum_func, write_func, chunk_size);
   }
 };
 
-template <typename value_idx, typename value_t, int threads_per_block = 1024,
-          typename product_f, typename accum_f, typename write_f,
+template <typename value_idx,
+          typename value_t,
+          int threads_per_block = 1024,
+          typename product_f,
+          typename accum_f,
+          typename write_f,
           typename strategy_t>
 inline void balanced_coo_pairwise_generalized_spmv_rev(
-  value_t *out_dists, const distances_config_t<value_idx, value_t> &config_,
-  value_idx *coo_rows_a, product_f product_func, accum_f accum_func,
-  write_f write_func, strategy_t strategy, int chunk_size = 500000) {
-  strategy.dispatch_rev(out_dists, coo_rows_a, product_func, accum_func,
-                        write_func, chunk_size);
+  value_t* out_dists,
+  const distances_config_t<value_idx, value_t>& config_,
+  value_idx* coo_rows_a,
+  product_f product_func,
+  accum_f accum_func,
+  write_f write_func,
+  strategy_t strategy,
+  int chunk_size = 500000)
+{
+  strategy.dispatch_rev(out_dists, coo_rows_a, product_func, accum_func, write_func, chunk_size);
 };
 
 /**
@@ -158,24 +184,30 @@ inline void balanced_coo_pairwise_generalized_spmv_rev(
  *            this value was found through profiling and represents a reasonable
  *            setting for both large and small densities
  */
-template <typename value_idx, typename value_t, int threads_per_block = 1024,
-          typename product_f, typename accum_f, typename write_f>
+template <typename value_idx,
+          typename value_t,
+          int threads_per_block = 1024,
+          typename product_f,
+          typename accum_f,
+          typename write_f>
 inline void balanced_coo_pairwise_generalized_spmv_rev(
-  value_t *out_dists, const distances_config_t<value_idx, value_t> &config_,
-  value_idx *coo_rows_a, product_f product_func, accum_f accum_func,
-  write_f write_func, int chunk_size = 500000) {
+  value_t* out_dists,
+  const distances_config_t<value_idx, value_t>& config_,
+  value_idx* coo_rows_a,
+  product_f product_func,
+  accum_f accum_func,
+  write_f write_func,
+  int chunk_size = 500000)
+{
   // try dense first
   int max_cols = max_cols_per_block<value_idx, value_t>();
 
   if (max_cols > config_.b_ncols) {
-    dense_smem_strategy<value_idx, value_t, threads_per_block> strategy(
-      config_);
-    strategy.dispatch_rev(out_dists, coo_rows_a, product_func, accum_func,
-                          write_func, chunk_size);
+    dense_smem_strategy<value_idx, value_t, threads_per_block> strategy(config_);
+    strategy.dispatch_rev(out_dists, coo_rows_a, product_func, accum_func, write_func, chunk_size);
   } else {
     hash_strategy<value_idx, value_t, threads_per_block> strategy(config_);
-    strategy.dispatch_rev(out_dists, coo_rows_a, product_func, accum_func,
-                          write_func, chunk_size);
+    strategy.dispatch_rev(out_dists, coo_rows_a, product_func, accum_func, write_func, chunk_size);
   }
 };
 

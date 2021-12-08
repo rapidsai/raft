@@ -19,8 +19,8 @@
 #include <raft/random/rng.hpp>
 #include "../test_utils.h"
 
-#include <raft/sparse/convert/csr.cuh>
-#include <raft/sparse/coo.cuh>
+#include <raft/sparse/convert/csr.hpp>
+#include <raft/sparse/coo.hpp>
 
 #include <iostream>
 
@@ -36,14 +36,13 @@ struct SparseConvertCSRInputs {
 };
 
 template <typename T>
-::std::ostream &operator<<(::std::ostream &os,
-                           const SparseConvertCSRInputs<T> &dims) {
+::std::ostream& operator<<(::std::ostream& os, const SparseConvertCSRInputs<T>& dims)
+{
   return os;
 }
 
 template <typename T>
-class SparseConvertCSRTest
-  : public ::testing::TestWithParam<SparseConvertCSRInputs<T>> {
+class SparseConvertCSRTest : public ::testing::TestWithParam<SparseConvertCSRInputs<T>> {
  protected:
   void SetUp() override {}
 
@@ -53,18 +52,18 @@ class SparseConvertCSRTest
   SparseConvertCSRInputs<T> params;
 };
 
-const std::vector<SparseConvertCSRInputs<float>> inputsf = {
-  {5, 10, 5, 1234ULL}};
+const std::vector<SparseConvertCSRInputs<float>> inputsf = {{5, 10, 5, 1234ULL}};
 
 typedef SparseConvertCSRTest<float> SortedCOOToCSR;
-TEST_P(SortedCOOToCSR, Result) {
+TEST_P(SortedCOOToCSR, Result)
+{
   cudaStream_t stream;
   cudaStreamCreate(&stream);
 
   int nnz = 8;
 
-  int *in_h = new int[nnz]{0, 0, 1, 1, 2, 2, 3, 3};
-  int *exp_h = new int[4]{0, 2, 4, 6};
+  int* in_h  = new int[nnz]{0, 0, 1, 1, 2, 2, 3, 3};
+  int* exp_h = new int[4]{0, 2, 4, 6};
 
   rmm::device_uvector<int> in(nnz, stream);
   rmm::device_uvector<int> exp(4, stream);
@@ -78,8 +77,7 @@ TEST_P(SortedCOOToCSR, Result) {
 
   convert::sorted_coo_to_csr<int>(in.data(), nnz, out.data(), 4, stream);
 
-  ASSERT_TRUE(
-    raft::devArrMatch<int>(out.data(), exp.data(), 4, raft::Compare<int>()));
+  ASSERT_TRUE(raft::devArrMatch<int>(out.data(), exp.data(), 4, raft::Compare<int>()));
 
   cudaStreamDestroy(stream);
 
@@ -87,8 +85,7 @@ TEST_P(SortedCOOToCSR, Result) {
   delete[] exp_h;
 }
 
-INSTANTIATE_TEST_CASE_P(SparseConvertCSRTest, SortedCOOToCSR,
-                        ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_CASE_P(SparseConvertCSRTest, SortedCOOToCSR, ::testing::ValuesIn(inputsf));
 
 /******************************** adj graph ********************************/
 
@@ -102,8 +99,7 @@ struct CSRAdjGraphInputs {
 };
 
 template <typename Index_>
-class CSRAdjGraphTest
-  : public ::testing::TestWithParam<CSRAdjGraphInputs<Index_>> {
+class CSRAdjGraphTest : public ::testing::TestWithParam<CSRAdjGraphInputs<Index_>> {
  public:
   CSRAdjGraphTest()
     : params(::testing::TestWithParam<CSRAdjGraphInputs<Index_>>::GetParam()),
@@ -111,24 +107,27 @@ class CSRAdjGraphTest
       row_ind(params.n_rows, stream),
       adj(params.n_rows * params.n_cols, stream),
       result(params.verify.size(), stream),
-      verify(params.verify.size(), stream) {}
+      verify(params.verify.size(), stream)
+  {
+  }
 
  protected:
   void SetUp() override { nnz = params.verify.size(); }
 
-  void Run() {
-    raft::update_device(row_ind.data(), params.row_ind.data(), params.n_rows,
+  void Run()
+  {
+    raft::update_device(row_ind.data(), params.row_ind.data(), params.n_rows, stream);
+    raft::update_device(adj.data(),
+                        reinterpret_cast<bool*>(params.adj.data()),
+                        params.n_rows * params.n_cols,
                         stream);
-    raft::update_device(adj.data(), reinterpret_cast<bool *>(params.adj.data()),
-                        params.n_rows * params.n_cols, stream);
     raft::update_device(verify.data(), params.verify.data(), nnz, stream);
 
-    convert::csr_adj_graph_batched<Index_, 32>(row_ind.data(), params.n_cols,
-                                               nnz, params.n_rows, adj.data(),
-                                               result.data(), stream);
+    convert::csr_adj_graph_batched<Index_>(
+      row_ind.data(), params.n_cols, nnz, params.n_rows, adj.data(), result.data(), stream);
 
-    ASSERT_TRUE(raft::devArrMatch<Index_>(verify.data(), result.data(), nnz,
-                                          raft::Compare<Index_>()));
+    ASSERT_TRUE(
+      raft::devArrMatch<Index_>(verify.data(), result.data(), nnz, raft::Compare<Index_>()));
   }
 
  protected:
@@ -162,9 +161,11 @@ const std::vector<CSRAdjGraphInputs<int64_t>> csradjgraph_inputs_l = {
    {0, 1, 2, 0, 1, 2, 0, 1, 2}},
 };
 
-INSTANTIATE_TEST_CASE_P(SparseConvertCSRTest, CSRAdjGraphTestI,
+INSTANTIATE_TEST_CASE_P(SparseConvertCSRTest,
+                        CSRAdjGraphTestI,
                         ::testing::ValuesIn(csradjgraph_inputs_i));
-INSTANTIATE_TEST_CASE_P(SparseConvertCSRTest, CSRAdjGraphTestL,
+INSTANTIATE_TEST_CASE_P(SparseConvertCSRTest,
+                        CSRAdjGraphTestL,
                         ::testing::ValuesIn(csradjgraph_inputs_l));
 
 }  // namespace sparse

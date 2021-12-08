@@ -21,7 +21,8 @@ namespace raft {
 /* Function for testing RAFT include
  *
  * @return message indicating RAFT has been included succesfully*/
-inline std::string test_raft() {
+inline std::string test_raft()
+{
   std::string status = "RAFT Setup succesfully";
   return status;
 }

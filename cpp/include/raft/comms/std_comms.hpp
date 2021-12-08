@@ -64,9 +64,13 @@ class std_comms : public comms_iface {
    * @param stream cuda stream for synchronizing and ordering collective operations
    * @param subcomms_ucp use ucp for subcommunicators
    */
-  std_comms(ncclComm_t nccl_comm, ucp_worker_h ucp_worker,
-            std::shared_ptr<ucp_ep_h *> eps, int num_ranks, int rank,
-            cudaStream_t stream, bool subcomms_ucp = true)
+  std_comms(ncclComm_t nccl_comm,
+            ucp_worker_h ucp_worker,
+            std::shared_ptr<ucp_ep_h*> eps,
+            int num_ranks,
+            int rank,
+            cudaStream_t stream,
+            bool subcomms_ucp = true)
     : nccl_comm_(nccl_comm),
       stream_(stream),
       status_(2, stream),
@@ -75,7 +79,8 @@ class std_comms : public comms_iface {
       subcomms_ucp_(subcomms_ucp),
       ucp_worker_(ucp_worker),
       ucp_eps_(eps),
-      next_request_id_(0) {
+      next_request_id_(0)
+  {
     initialize();
   };
 
@@ -86,18 +91,19 @@ class std_comms : public comms_iface {
    * @param rank rank of the current worker
    * @param stream stream for ordering collective operations
    */
-  std_comms(const ncclComm_t nccl_comm, int num_ranks, int rank,
-            cudaStream_t stream)
+  std_comms(const ncclComm_t nccl_comm, int num_ranks, int rank, cudaStream_t stream)
     : nccl_comm_(nccl_comm),
       stream_(stream),
       status_(2, stream),
       num_ranks_(num_ranks),
       rank_(rank),
-      subcomms_ucp_(false) {
+      subcomms_ucp_(false)
+  {
     initialize();
   };
 
-  void initialize() {
+  void initialize()
+  {
     sendbuff_ = status_.data();
     recvbuff_ = status_.data() + 1;
   }
@@ -106,17 +112,16 @@ class std_comms : public comms_iface {
 
   int get_rank() const { return rank_; }
 
-  std::unique_ptr<comms_iface> comm_split(int color, int key) const {
+  std::unique_ptr<comms_iface> comm_split(int color, int key) const
+  {
     rmm::device_uvector<int> d_colors(get_size(), stream_);
     rmm::device_uvector<int> d_keys(get_size(), stream_);
 
     update_device(d_colors.data() + get_rank(), &color, 1, stream_);
     update_device(d_keys.data() + get_rank(), &key, 1, stream_);
 
-    allgather(d_colors.data() + get_rank(), d_colors.data(), 1,
-              datatype_t::INT32, stream_);
-    allgather(d_keys.data() + get_rank(), d_keys.data(), 1, datatype_t::INT32,
-              stream_);
+    allgather(d_colors.data() + get_rank(), d_colors.data(), 1, datatype_t::INT32, stream_);
+    allgather(d_keys.data() + get_rank(), d_keys.data(), 1, datatype_t::INT32, stream_);
     this->sync_stream(stream_);
 
     std::vector<int> h_colors(get_size());
@@ -133,9 +138,7 @@ class std_comms : public comms_iface {
     for (int i = 0; i < get_size(); ++i) {
       if (h_colors[i] == color) {
         subcomm_ranks.push_back(i);
-        if (ucp_worker_ != nullptr && subcomms_ucp_) {
-          new_ucx_ptrs.push_back((*ucp_eps_)[i]);
-        }
+        if (ucp_worker_ != nullptr && subcomms_ucp_) { new_ucx_ptrs.push_back((*ucp_eps_)[i]); }
       }
     }
 
@@ -144,8 +147,7 @@ class std_comms : public comms_iface {
       NCCL_TRY(ncclGetUniqueId(&id));
       std::vector<request_t> requests(subcomm_ranks.size() - 1);
       for (size_t i = 1; i < subcomm_ranks.size(); ++i) {
-        isend(&id, sizeof(ncclUniqueId), subcomm_ranks[i], color,
-              requests.data() + (i - 1));
+        isend(&id, sizeof(ncclUniqueId), subcomm_ranks[i], color, requests.data() + (i - 1));
       }
       waitall(requests.size(), requests.data());
     } else {
@@ -160,17 +162,22 @@ class std_comms : public comms_iface {
     NCCL_TRY(ncclCommInitRank(&nccl_comm, subcomm_ranks.size(), id, key));
 
     if (ucp_worker_ != nullptr && subcomms_ucp_) {
-      auto eps_sp = std::make_shared<ucp_ep_h *>(new_ucx_ptrs.data());
-      return std::unique_ptr<comms_iface>(
-        new std_comms(nccl_comm, (ucp_worker_h)ucp_worker_, eps_sp,
-                      subcomm_ranks.size(), key, stream_, subcomms_ucp_));
+      auto eps_sp = std::make_shared<ucp_ep_h*>(new_ucx_ptrs.data());
+      return std::unique_ptr<comms_iface>(new std_comms(nccl_comm,
+                                                        (ucp_worker_h)ucp_worker_,
+                                                        eps_sp,
+                                                        subcomm_ranks.size(),
+                                                        key,
+                                                        stream_,
+                                                        subcomms_ucp_));
     } else {
       return std::unique_ptr<comms_iface>(
         new std_comms(nccl_comm, subcomm_ranks.size(), key, stream_));
     }
   }
 
-  void barrier() const {
+  void barrier() const
+  {
     CUDA_CHECK(cudaMemsetAsync(sendbuff_, 1, sizeof(int), stream_));
     CUDA_CHECK(cudaMemsetAsync(recvbuff_, 1, sizeof(int), stream_));
 
@@ -180,39 +187,37 @@ class std_comms : public comms_iface {
            "ERROR: syncStream failed. This can be caused by a failed rank_.");
   }
 
-  void get_request_id(request_t *req) const {
+  void get_request_id(request_t* req) const
+  {
     request_t req_id;
 
     if (this->free_requests_.empty())
       req_id = this->next_request_id_++;
     else {
       auto it = this->free_requests_.begin();
-      req_id = *it;
+      req_id  = *it;
       this->free_requests_.erase(it);
     }
     *req = req_id;
   }
 
-  void isend(const void *buf, size_t size, int dest, int tag,
-             request_t *request) const {
-    ASSERT(ucp_worker_ != nullptr,
-           "ERROR: UCX comms not initialized on communicator.");
+  void isend(const void* buf, size_t size, int dest, int tag, request_t* request) const
+  {
+    ASSERT(ucp_worker_ != nullptr, "ERROR: UCX comms not initialized on communicator.");
 
     get_request_id(request);
     ucp_ep_h ep_ptr = (*ucp_eps_)[dest];
 
-    ucp_request *ucp_req = (ucp_request *)malloc(sizeof(ucp_request));
+    ucp_request* ucp_req = (ucp_request*)malloc(sizeof(ucp_request));
 
-    this->ucp_handler_.ucp_isend(ucp_req, ep_ptr, buf, size, tag,
-                                 default_tag_mask, get_rank());
+    this->ucp_handler_.ucp_isend(ucp_req, ep_ptr, buf, size, tag, default_tag_mask, get_rank());
 
     requests_in_flight_.insert(std::make_pair(*request, ucp_req));
   }
 
-  void irecv(void *buf, size_t size, int source, int tag,
-             request_t *request) const {
-    ASSERT(ucp_worker_ != nullptr,
-           "ERROR: UCX comms not initialized on communicator.");
+  void irecv(void* buf, size_t size, int source, int tag, request_t* request) const
+  {
+    ASSERT(ucp_worker_ != nullptr, "ERROR: UCX comms not initialized on communicator.");
 
     get_request_id(request);
 
@@ -220,18 +225,17 @@ class std_comms : public comms_iface {
 
     ucp_tag_t tag_mask = default_tag_mask;
 
-    ucp_request *ucp_req = (ucp_request *)malloc(sizeof(ucp_request));
-    ucp_handler_.ucp_irecv(ucp_req, ucp_worker_, ep_ptr, buf, size, tag,
-                           tag_mask, source);
+    ucp_request* ucp_req = (ucp_request*)malloc(sizeof(ucp_request));
+    ucp_handler_.ucp_irecv(ucp_req, ucp_worker_, ep_ptr, buf, size, tag, tag_mask, source);
 
     requests_in_flight_.insert(std::make_pair(*request, ucp_req));
   }
 
-  void waitall(int count, request_t array_of_requests[]) const {
-    ASSERT(ucp_worker_ != nullptr,
-           "ERROR: UCX comms not initialized on communicator.");
+  void waitall(int count, request_t array_of_requests[]) const
+  {
+    ASSERT(ucp_worker_ != nullptr, "ERROR: UCX comms not initialized on communicator.");
 
-    std::vector<ucp_request *> requests;
+    std::vector<ucp_request*> requests;
     requests.reserve(count);
 
     time_t start = time(NULL);
@@ -239,7 +243,8 @@ class std_comms : public comms_iface {
     for (int i = 0; i < count; ++i) {
       auto req_it = requests_in_flight_.find(array_of_requests[i]);
       ASSERT(requests_in_flight_.end() != req_it,
-             "ERROR: waitall on invalid request: %d", array_of_requests[i]);
+             "ERROR: waitall on invalid request: %d",
+             array_of_requests[i]);
       requests.push_back(req_it->second);
       free_requests_.insert(req_it->first);
       requests_in_flight_.erase(req_it);
@@ -252,8 +257,7 @@ class std_comms : public comms_iface {
       // in 10 or more seconds.
       ASSERT(now - start < 10, "Timed out waiting for requests.");
 
-      for (std::vector<ucp_request *>::iterator it = requests.begin();
-           it != requests.end();) {
+      for (std::vector<ucp_request*>::iterator it = requests.begin(); it != requests.end();) {
         bool restart = false;  // resets the timeout when any progress was made
 
         // Causes UCP to progress through the send/recv message queue
@@ -266,10 +270,8 @@ class std_comms : public comms_iface {
         // If the message needs release, we know it will be sent/received
         // asynchronously, so we will need to track and verify its state
         if (req->needs_release) {
-          ASSERT(UCS_PTR_IS_PTR(req->req),
-                 "UCX Request Error. Request is not valid UCX pointer");
-          ASSERT(!UCS_PTR_IS_ERR(req->req), "UCX Request Error: %d\n",
-                 UCS_PTR_STATUS(req->req));
+          ASSERT(UCS_PTR_IS_PTR(req->req), "UCX Request Error. Request is not valid UCX pointer");
+          ASSERT(!UCS_PTR_IS_ERR(req->req), "UCX Request Error: %d\n", UCS_PTR_STATUS(req->req));
           ASSERT(req->req->completed == 1 || req->req->completed == 0,
                  "request->completed not a valid value: %d\n",
                  req->req->completed);
@@ -290,101 +292,154 @@ class std_comms : public comms_iface {
           ++it;
         }
         // if any progress was made, reset the timeout start time
-        if (restart) {
-          start = time(NULL);
-        }
+        if (restart) { start = time(NULL); }
       }
     }
   }
 
-  void allreduce(const void *sendbuff, void *recvbuff, size_t count,
-                 datatype_t datatype, op_t op, cudaStream_t stream) const {
-    NCCL_TRY(ncclAllReduce(sendbuff, recvbuff, count,
-                           get_nccl_datatype(datatype), get_nccl_op(op),
-                           nccl_comm_, stream));
+  void allreduce(const void* sendbuff,
+                 void* recvbuff,
+                 size_t count,
+                 datatype_t datatype,
+                 op_t op,
+                 cudaStream_t stream) const
+  {
+    NCCL_TRY(ncclAllReduce(
+      sendbuff, recvbuff, count, get_nccl_datatype(datatype), get_nccl_op(op), nccl_comm_, stream));
   }
 
-  void bcast(void *buff, size_t count, datatype_t datatype, int root,
-             cudaStream_t stream) const {
-    NCCL_TRY(ncclBroadcast(buff, buff, count, get_nccl_datatype(datatype), root,
-                           nccl_comm_, stream));
+  void bcast(void* buff, size_t count, datatype_t datatype, int root, cudaStream_t stream) const
+  {
+    NCCL_TRY(
+      ncclBroadcast(buff, buff, count, get_nccl_datatype(datatype), root, nccl_comm_, stream));
   }
 
-  void bcast(const void *sendbuff, void *recvbuff, size_t count,
-             datatype_t datatype, int root, cudaStream_t stream) const {
-    NCCL_TRY(ncclBroadcast(sendbuff, recvbuff, count,
-                           get_nccl_datatype(datatype), root, nccl_comm_,
-                           stream));
+  void bcast(const void* sendbuff,
+             void* recvbuff,
+             size_t count,
+             datatype_t datatype,
+             int root,
+             cudaStream_t stream) const
+  {
+    NCCL_TRY(ncclBroadcast(
+      sendbuff, recvbuff, count, get_nccl_datatype(datatype), root, nccl_comm_, stream));
   }
 
-  void reduce(const void *sendbuff, void *recvbuff, size_t count,
-              datatype_t datatype, op_t op, int root,
-              cudaStream_t stream) const {
-    NCCL_TRY(ncclReduce(sendbuff, recvbuff, count, get_nccl_datatype(datatype),
-                        get_nccl_op(op), root, nccl_comm_, stream));
+  void reduce(const void* sendbuff,
+              void* recvbuff,
+              size_t count,
+              datatype_t datatype,
+              op_t op,
+              int root,
+              cudaStream_t stream) const
+  {
+    NCCL_TRY(ncclReduce(sendbuff,
+                        recvbuff,
+                        count,
+                        get_nccl_datatype(datatype),
+                        get_nccl_op(op),
+                        root,
+                        nccl_comm_,
+                        stream));
   }
 
-  void allgather(const void *sendbuff, void *recvbuff, size_t sendcount,
-                 datatype_t datatype, cudaStream_t stream) const {
-    NCCL_TRY(ncclAllGather(sendbuff, recvbuff, sendcount,
-                           get_nccl_datatype(datatype), nccl_comm_, stream));
+  void allgather(const void* sendbuff,
+                 void* recvbuff,
+                 size_t sendcount,
+                 datatype_t datatype,
+                 cudaStream_t stream) const
+  {
+    NCCL_TRY(ncclAllGather(
+      sendbuff, recvbuff, sendcount, get_nccl_datatype(datatype), nccl_comm_, stream));
   }
 
-  void allgatherv(const void *sendbuf, void *recvbuf, const size_t *recvcounts,
-                  const size_t *displs, datatype_t datatype,
-                  cudaStream_t stream) const {
-    //From: "An Empirical Evaluation of Allgatherv on Multi-GPU Systems" - https://arxiv.org/pdf/1812.05964.pdf
-    //Listing 1 on page 4.
+  void allgatherv(const void* sendbuf,
+                  void* recvbuf,
+                  const size_t* recvcounts,
+                  const size_t* displs,
+                  datatype_t datatype,
+                  cudaStream_t stream) const
+  {
+    // From: "An Empirical Evaluation of Allgatherv on Multi-GPU Systems" -
+    // https://arxiv.org/pdf/1812.05964.pdf Listing 1 on page 4.
     for (int root = 0; root < num_ranks_; ++root) {
       size_t dtype_size = get_datatype_size(datatype);
-      NCCL_TRY(ncclBroadcast(
-        sendbuf, static_cast<char *>(recvbuf) + displs[root] * dtype_size,
-        recvcounts[root], get_nccl_datatype(datatype), root, nccl_comm_,
-        stream));
+      NCCL_TRY(ncclBroadcast(sendbuf,
+                             static_cast<char*>(recvbuf) + displs[root] * dtype_size,
+                             recvcounts[root],
+                             get_nccl_datatype(datatype),
+                             root,
+                             nccl_comm_,
+                             stream));
     }
   }
 
-  void gather(const void *sendbuff, void *recvbuff, size_t sendcount,
-              datatype_t datatype, int root, cudaStream_t stream) const {
+  void gather(const void* sendbuff,
+              void* recvbuff,
+              size_t sendcount,
+              datatype_t datatype,
+              int root,
+              cudaStream_t stream) const
+  {
     size_t dtype_size = get_datatype_size(datatype);
     NCCL_TRY(ncclGroupStart());
     if (get_rank() == root) {
       for (int r = 0; r < get_size(); ++r) {
-        NCCL_TRY(ncclRecv(
-          static_cast<char *>(recvbuff) + sendcount * r * dtype_size, sendcount,
-          get_nccl_datatype(datatype), r, nccl_comm_, stream));
+        NCCL_TRY(ncclRecv(static_cast<char*>(recvbuff) + sendcount * r * dtype_size,
+                          sendcount,
+                          get_nccl_datatype(datatype),
+                          r,
+                          nccl_comm_,
+                          stream));
       }
     }
-    NCCL_TRY(ncclSend(sendbuff, sendcount, get_nccl_datatype(datatype), root,
-                      nccl_comm_, stream));
+    NCCL_TRY(ncclSend(sendbuff, sendcount, get_nccl_datatype(datatype), root, nccl_comm_, stream));
     NCCL_TRY(ncclGroupEnd());
   }
 
-  void gatherv(const void *sendbuff, void *recvbuff, size_t sendcount,
-               const size_t *recvcounts, const size_t *displs,
-               datatype_t datatype, int root, cudaStream_t stream) const {
+  void gatherv(const void* sendbuff,
+               void* recvbuff,
+               size_t sendcount,
+               const size_t* recvcounts,
+               const size_t* displs,
+               datatype_t datatype,
+               int root,
+               cudaStream_t stream) const
+  {
     size_t dtype_size = get_datatype_size(datatype);
     NCCL_TRY(ncclGroupStart());
     if (get_rank() == root) {
       for (int r = 0; r < get_size(); ++r) {
-        NCCL_TRY(ncclRecv(
-          static_cast<char *>(recvbuff) + displs[r] * dtype_size, recvcounts[r],
-          get_nccl_datatype(datatype), r, nccl_comm_, stream));
+        NCCL_TRY(ncclRecv(static_cast<char*>(recvbuff) + displs[r] * dtype_size,
+                          recvcounts[r],
+                          get_nccl_datatype(datatype),
+                          r,
+                          nccl_comm_,
+                          stream));
       }
     }
-    NCCL_TRY(ncclSend(sendbuff, sendcount, get_nccl_datatype(datatype), root,
-                      nccl_comm_, stream));
+    NCCL_TRY(ncclSend(sendbuff, sendcount, get_nccl_datatype(datatype), root, nccl_comm_, stream));
     NCCL_TRY(ncclGroupEnd());
   }
 
-  void reducescatter(const void *sendbuff, void *recvbuff, size_t recvcount,
-                     datatype_t datatype, op_t op, cudaStream_t stream) const {
-    NCCL_TRY(ncclReduceScatter(sendbuff, recvbuff, recvcount,
-                               get_nccl_datatype(datatype), get_nccl_op(op),
-                               nccl_comm_, stream));
+  void reducescatter(const void* sendbuff,
+                     void* recvbuff,
+                     size_t recvcount,
+                     datatype_t datatype,
+                     op_t op,
+                     cudaStream_t stream) const
+  {
+    NCCL_TRY(ncclReduceScatter(sendbuff,
+                               recvbuff,
+                               recvcount,
+                               get_nccl_datatype(datatype),
+                               get_nccl_op(op),
+                               nccl_comm_,
+                               stream));
   }
 
-  status_t sync_stream(cudaStream_t stream) const {
+  status_t sync_stream(cudaStream_t stream) const
+  {
     cudaError_t cudaErr;
     ncclResult_t ncclErr, ncclAsyncErr;
     while (1) {
@@ -417,45 +472,58 @@ class std_comms : public comms_iface {
   }
 
   // if a thread is sending & receiving at the same time, use device_sendrecv to avoid deadlock
-  void device_send(const void *buf, size_t size, int dest,
-                   cudaStream_t stream) const {
+  void device_send(const void* buf, size_t size, int dest, cudaStream_t stream) const
+  {
     NCCL_TRY(ncclSend(buf, size, ncclUint8, dest, nccl_comm_, stream));
   }
 
   // if a thread is sending & receiving at the same time, use device_sendrecv to avoid deadlock
-  void device_recv(void *buf, size_t size, int source,
-                   cudaStream_t stream) const {
+  void device_recv(void* buf, size_t size, int source, cudaStream_t stream) const
+  {
     NCCL_TRY(ncclRecv(buf, size, ncclUint8, source, nccl_comm_, stream));
   }
 
-  void device_sendrecv(const void *sendbuf, size_t sendsize, int dest,
-                       void *recvbuf, size_t recvsize, int source,
-                       cudaStream_t stream) const {
+  void device_sendrecv(const void* sendbuf,
+                       size_t sendsize,
+                       int dest,
+                       void* recvbuf,
+                       size_t recvsize,
+                       int source,
+                       cudaStream_t stream) const
+  {
     // ncclSend/ncclRecv pair needs to be inside ncclGroupStart/ncclGroupEnd to avoid deadlock
     NCCL_TRY(ncclGroupStart());
     NCCL_TRY(ncclSend(sendbuf, sendsize, ncclUint8, dest, nccl_comm_, stream));
-    NCCL_TRY(
-      ncclRecv(recvbuf, recvsize, ncclUint8, source, nccl_comm_, stream));
+    NCCL_TRY(ncclRecv(recvbuf, recvsize, ncclUint8, source, nccl_comm_, stream));
     NCCL_TRY(ncclGroupEnd());
   }
 
-  void device_multicast_sendrecv(const void *sendbuf,
-                                 std::vector<size_t> const &sendsizes,
-                                 std::vector<size_t> const &sendoffsets,
-                                 std::vector<int> const &dests, void *recvbuf,
-                                 std::vector<size_t> const &recvsizes,
-                                 std::vector<size_t> const &recvoffsets,
-                                 std::vector<int> const &sources,
-                                 cudaStream_t stream) const {
+  void device_multicast_sendrecv(const void* sendbuf,
+                                 std::vector<size_t> const& sendsizes,
+                                 std::vector<size_t> const& sendoffsets,
+                                 std::vector<int> const& dests,
+                                 void* recvbuf,
+                                 std::vector<size_t> const& recvsizes,
+                                 std::vector<size_t> const& recvoffsets,
+                                 std::vector<int> const& sources,
+                                 cudaStream_t stream) const
+  {
     // ncclSend/ncclRecv pair needs to be inside ncclGroupStart/ncclGroupEnd to avoid deadlock
     NCCL_TRY(ncclGroupStart());
     for (size_t i = 0; i < sendsizes.size(); ++i) {
-      NCCL_TRY(ncclSend(static_cast<const char *>(sendbuf) + sendoffsets[i],
-                        sendsizes[i], ncclUint8, dests[i], nccl_comm_, stream));
+      NCCL_TRY(ncclSend(static_cast<const char*>(sendbuf) + sendoffsets[i],
+                        sendsizes[i],
+                        ncclUint8,
+                        dests[i],
+                        nccl_comm_,
+                        stream));
     }
     for (size_t i = 0; i < recvsizes.size(); ++i) {
-      NCCL_TRY(ncclRecv(static_cast<char *>(recvbuf) + recvoffsets[i],
-                        recvsizes[i], ncclUint8, sources[i], nccl_comm_,
+      NCCL_TRY(ncclRecv(static_cast<char*>(recvbuf) + recvoffsets[i],
+                        recvsizes[i],
+                        ncclUint8,
+                        sources[i],
+                        nccl_comm_,
                         stream));
     }
     NCCL_TRY(ncclGroupEnd());
@@ -475,10 +543,9 @@ class std_comms : public comms_iface {
 
   comms_ucp_handler ucp_handler_;
   ucp_worker_h ucp_worker_;
-  std::shared_ptr<ucp_ep_h *> ucp_eps_;
+  std::shared_ptr<ucp_ep_h*> ucp_eps_;
   mutable request_t next_request_id_;
-  mutable std::unordered_map<request_t, struct ucp_request *>
-    requests_in_flight_;
+  mutable std::unordered_map<request_t, struct ucp_request*> requests_in_flight_;
   mutable std::unordered_set<request_t> free_requests_;
 };
 }  // end namespace comms

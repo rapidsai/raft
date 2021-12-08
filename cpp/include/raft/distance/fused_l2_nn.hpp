@@ -30,8 +30,7 @@ template <typename LabelT, typename DataT>
 using KVPMinReduce = detail::KVPMinReduceImpl<LabelT, DataT>;
 
 template <typename LabelT, typename DataT>
-using MinAndDistanceReduceOp =
-  detail::MinAndDistanceReduceOpImpl<LabelT, DataT>;
+using MinAndDistanceReduceOp = detail::MinAndDistanceReduceOpImpl<LabelT, DataT>;
 
 template <typename LabelT, typename DataT>
 using MinReduceOp = detail::MinReduceOpImpl<LabelT, DataT>;
@@ -40,10 +39,9 @@ using MinReduceOp = detail::MinReduceOpImpl<LabelT, DataT>;
  * Initialize array using init value from reduction op
  */
 template <typename DataT, typename OutT, typename IdxT, typename ReduceOpT>
-void initialize(const raft::handle_t& handle, OutT* min, IdxT m, DataT maxVal,
-                ReduceOpT redOp) {
-  detail::initialize<DataT, OutT, IdxT, ReduceOpT>(min, m, maxVal, redOp,
-                                                   handle.get_stream());
+void initialize(const raft::handle_t& handle, OutT* min, IdxT m, DataT maxVal, ReduceOpT redOp)
+{
+  detail::initialize<DataT, OutT, IdxT, ReduceOpT>(min, m, maxVal, redOp, handle.get_stream());
 }
 
 /**
@@ -82,25 +80,32 @@ void initialize(const raft::handle_t& handle, OutT* min, IdxT m, DataT maxVal,
  *                           main kernel launch
  * @param[in]  stream        cuda stream
  */
-template <typename DataT, typename OutT, typename IdxT, typename ReduceOpT,
-          typename KVPReduceOpT>
-void fusedL2NN(OutT* min, const DataT* x, const DataT* y, const DataT* xn,
-               const DataT* yn, IdxT m, IdxT n, IdxT k, void* workspace,
-               ReduceOpT redOp, KVPReduceOpT pairRedOp, bool sqrt,
-               bool initOutBuffer, cudaStream_t stream) {
+template <typename DataT, typename OutT, typename IdxT, typename ReduceOpT, typename KVPReduceOpT>
+void fusedL2NN(OutT* min,
+               const DataT* x,
+               const DataT* y,
+               const DataT* xn,
+               const DataT* yn,
+               IdxT m,
+               IdxT n,
+               IdxT k,
+               void* workspace,
+               ReduceOpT redOp,
+               KVPReduceOpT pairRedOp,
+               bool sqrt,
+               bool initOutBuffer,
+               cudaStream_t stream)
+{
   size_t bytes = sizeof(DataT) * k;
   if (16 % sizeof(DataT) == 0 && bytes % 16 == 0) {
     detail::fusedL2NNImpl<DataT, OutT, IdxT, 16 / sizeof(DataT), ReduceOpT>(
-      min, x, y, xn, yn, m, n, k, (int*)workspace, redOp, pairRedOp, sqrt,
-      initOutBuffer, stream);
+      min, x, y, xn, yn, m, n, k, (int*)workspace, redOp, pairRedOp, sqrt, initOutBuffer, stream);
   } else if (8 % sizeof(DataT) == 0 && bytes % 8 == 0) {
     detail::fusedL2NNImpl<DataT, OutT, IdxT, 8 / sizeof(DataT), ReduceOpT>(
-      min, x, y, xn, yn, m, n, k, (int*)workspace, redOp, pairRedOp, sqrt,
-      initOutBuffer, stream);
+      min, x, y, xn, yn, m, n, k, (int*)workspace, redOp, pairRedOp, sqrt, initOutBuffer, stream);
   } else {
     detail::fusedL2NNImpl<DataT, OutT, IdxT, 1, ReduceOpT>(
-      min, x, y, xn, yn, m, n, k, (int*)workspace, redOp, pairRedOp, sqrt,
-      initOutBuffer, stream);
+      min, x, y, xn, yn, m, n, k, (int*)workspace, redOp, pairRedOp, sqrt, initOutBuffer, stream);
   }
 }
 
