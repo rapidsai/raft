@@ -14,25 +14,24 @@
  * limitations under the License.
  */
 
-#include <raft/spatial/knn/ball_cover_common.h>
-#include <cstdint>
-#include <raft/spatial/knn/ball_cover.hpp>
+#pragma once
 
-// Ignore upstream specializations to avoid unnecessary recompiling
-#include <raft/distance/distance.hpp>
-#include <raft/spatial/knn/specializations/fused_l2_knn.hpp>
-#include <raft/spatial/knn/specializations/knn.hpp>
+#include <cstdint>
+
+#include <raft/spatial/knn/ball_cover_common.h>
+#include <raft/spatial/knn/ball_cover.hpp>
+#include <raft/spatial/knn/specializations/detail/ball_cover_lowdim.hpp>
 
 namespace raft {
 namespace spatial {
 namespace knn {
-template class BallCoverIndex<int, float, std::uint32_t>;
-template class BallCoverIndex<std::int64_t, float, std::uint32_t>;
+extern template class BallCoverIndex<int, float, std::uint32_t>;
+extern template class BallCoverIndex<std::int64_t, float, std::uint32_t>;
 
-template void rbc_build_index<std::int64_t, float, std::uint32_t>(
+extern template void rbc_build_index<std::int64_t, float, std::uint32_t>(
   const raft::handle_t& handle, BallCoverIndex<std::int64_t, float, std::uint32_t>& index);
 
-template void rbc_knn_query<std::int64_t, float, std::uint32_t>(
+extern template void rbc_knn_query<std::int64_t, float, std::uint32_t>(
   const raft::handle_t& handle,
   BallCoverIndex<std::int64_t, float, std::uint32_t>& index,
   std::uint32_t k,
@@ -43,7 +42,7 @@ template void rbc_knn_query<std::int64_t, float, std::uint32_t>(
   bool perform_post_filtering,
   float weight);
 
-template void rbc_all_knn_query<std::int64_t, float, std::uint32_t>(
+extern template void rbc_all_knn_query<std::int64_t, float, std::uint32_t>(
   const raft::handle_t& handle,
   BallCoverIndex<std::int64_t, float, std::uint32_t>& index,
   std::uint32_t k,
@@ -51,7 +50,6 @@ template void rbc_all_knn_query<std::int64_t, float, std::uint32_t>(
   float* dists,
   bool perform_post_filtering,
   float weight);
-
 };  // namespace knn
 };  // namespace spatial
 };  // namespace raft

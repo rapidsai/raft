@@ -119,8 +119,8 @@ rapids_cmake_install_lib_dir( lib_dir )
 
 include(CPack)
 
-file(GLOB RAFT_DISTANCE_SOURCES "src/distance/specializations/*.cu")
-file(GLOB RAFT_NN_SOURCES "src/nn/specializations/*.cu")
+file(GLOB_RECURSE RAFT_DISTANCE_SOURCES "src/distance/specializations/*.cu")
+file(GLOB_RECURSE RAFT_NN_SOURCES "src/nn/specializations/*.cu" )
 
 add_library(raft_distance SHARED ${RAFT_DISTANCE_SOURCES})
 add_library(raft::raft_distance ALIAS raft_distance)
@@ -193,11 +193,11 @@ install(FILES include/raft.hpp
 # - install export -----------------------------------------------------------
 set(doc_string
 [=[
-Provide targets for the RAFT: RAPIDS Analytics Frameworks Toolset.
+Provide targets for the RAFT: RAPIDS Analytics Framework Toolkit.
 
-RAFT is a repository containining shared utilities, mathematical operations
-and common functions for the analytics components of RAPIDS.
-
+RAPIDS Analytics Framework Toolkit contains shared representations,
+mathematical computational primitives, and utilities that accelerate
+building analytics and data science algorithms in the RAPIDS ecosystem.
 ]=])
 
  rapids_export(INSTALL raft

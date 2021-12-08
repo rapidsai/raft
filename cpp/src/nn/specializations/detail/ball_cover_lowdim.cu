@@ -14,44 +14,42 @@
  * limitations under the License.
  */
 
-#include <raft/spatial/knn/ball_cover_common.h>
 #include <cstdint>
-#include <raft/spatial/knn/ball_cover.hpp>
-
-// Ignore upstream specializations to avoid unnecessary recompiling
-#include <raft/distance/distance.hpp>
-#include <raft/spatial/knn/specializations/fused_l2_knn.hpp>
-#include <raft/spatial/knn/specializations/knn.hpp>
+#include <raft/spatial/knn/detail/ball_cover/registers.cuh>
 
 namespace raft {
 namespace spatial {
 namespace knn {
-template class BallCoverIndex<int, float, std::uint32_t>;
-template class BallCoverIndex<std::int64_t, float, std::uint32_t>;
+namespace detail {
 
-template void rbc_build_index<std::int64_t, float, std::uint32_t>(
-  const raft::handle_t& handle, BallCoverIndex<std::int64_t, float, std::uint32_t>& index);
-
-template void rbc_knn_query<std::int64_t, float, std::uint32_t>(
+template void rbc_low_dim_pass_one<std::int64_t, float, std::uint32_t>(
   const raft::handle_t& handle,
   BallCoverIndex<std::int64_t, float, std::uint32_t>& index,
-  std::uint32_t k,
   const float* query,
-  std::uint32_t n_query_pts,
+  const std::uint32_t n_query_rows,
+  std::uint32_t k,
+  const std::int64_t* R_knn_inds,
+  const float* R_knn_dists,
+  DistFunc<float, std::uint32_t>& dfunc,
   std::int64_t* inds,
   float* dists,
-  bool perform_post_filtering,
-  float weight);
+  float weight,
+  std::uint32_t* dists_counter);
 
-template void rbc_all_knn_query<std::int64_t, float, std::uint32_t>(
+template void rbc_low_dim_pass_two<std::int64_t, float, std::uint32_t>(
   const raft::handle_t& handle,
   BallCoverIndex<std::int64_t, float, std::uint32_t>& index,
+  const float* query,
+  const std::uint32_t n_query_rows,
   std::uint32_t k,
+  const std::int64_t* R_knn_inds,
+  const float* R_knn_dists,
+  DistFunc<float, std::uint32_t>& dfunc,
   std::int64_t* inds,
   float* dists,
-  bool perform_post_filtering,
-  float weight);
-
+  float weight,
+  std::uint32_t* post_dists_counter);
+};  // namespace detail
 };  // namespace knn
 };  // namespace spatial
 };  // namespace raft
