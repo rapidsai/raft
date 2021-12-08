@@ -46,12 +46,6 @@
 #define NCCL_TRY(call) RAFT_NCCL_TRY(call)
 #endif
 
-#ifndef NDEBUG
-#define RAFT_CHECK_NCCL(stream) RAFT_NCCL_TRY(cudaStreamSynchronize(stream));
-#else
-#define RAFT_CHECK_NCCL(stream) RAFT_NCCL_TRY(cudaPeekAtLastError());
-#endif
-
 #define RAFT_NCCL_TRY_NO_THROW(call)                                                   \
   do {                                                                                 \
     ncclResult_t status = call;                                                        \

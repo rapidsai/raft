@@ -247,7 +247,7 @@ class handle_t {
 
   void create_resources()
   {
-    RAFT_CHECK_CUDA(cudaEventCreateWithFlags(&event_, cudaEventDisableTiming));
+    RAFT_CUDA_TRY(cudaEventCreateWithFlags(&event_, cudaEventDisableTiming));
   }
 
   void destroy_resources()
