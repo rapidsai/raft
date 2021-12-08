@@ -100,12 +100,6 @@ inline const char* cusparse_error_to_string(cusparseStatus_t err)
 #define CUSPARSE_TRY(call) RAFT_CUSPARSE_TRY(call)
 #endif
 
-#ifndef NDEBUG
-#define RAFT_CHECK_CUSPARSE(stream) RAFT_CUSPARSE_TRY(cudaStreamSynchronize(stream));
-#else
-#define RAFT_CHECK_CUSPARSE(stream) RAFT_CUSPARSE_TRY(cudaPeekAtLastError());
-#endif
-
 // FIXME: Remove after consumer rename
 #ifndef CUSPARSE_CHECK
 #define CUSPARSE_CHECK(call) CUSPARSE_TRY(call)
@@ -113,7 +107,7 @@ inline const char* cusparse_error_to_string(cusparseStatus_t err)
 
 //@todo: use logger here once logging is enabled
 /** check for cusparse runtime API errors but do not assert */
-#define RAFT_CHECK_CUSPARSE_NO_THROW(call)                         \
+#define RAFT_CUSPARSE_TRY_NO_THROW(call)                           \
   do {                                                             \
     cusparseStatus_t err = call;                                   \
     if (err != CUSPARSE_STATUS_SUCCESS) {                          \
@@ -126,7 +120,7 @@ inline const char* cusparse_error_to_string(cusparseStatus_t err)
 
 // FIXME: Remove after consumer rename
 #ifndef CUSPARSE_CHECK_NO_THROW
-#define CUSPARSE_CHECK_NO_THROW(call) RAFT_CHECK_CUSPARSE_NO_THROW(call)
+#define CUSPARSE_CHECK_NO_THROW(call) RAFT_CUSPARSE_TRY_NO_THROW(call)
 #endif
 
 namespace raft {

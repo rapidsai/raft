@@ -130,7 +130,7 @@ class std_comms : public comms_iface {
     update_host(h_colors.data(), d_colors.data(), get_size(), stream_);
     update_host(h_keys.data(), d_keys.data(), get_size(), stream_);
 
-    CUDA_CHECK(cudaStreamSynchronize(stream_));
+    RAFT_CHECK_CUDA(cudaStreamSynchronize(stream_));
 
     std::vector<int> subcomm_ranks{};
     std::vector<ucp_ep_h> new_ucx_ptrs{};
@@ -144,7 +144,7 @@ class std_comms : public comms_iface {
 
     ncclUniqueId id{};
     if (get_rank() == subcomm_ranks[0]) {  // root of the new subcommunicator
-      NCCL_TRY(ncclGetUniqueId(&id));
+      RAFT_CHECK_NCCL(ncclGetUniqueId(&id));
       std::vector<request_t> requests(subcomm_ranks.size() - 1);
       for (size_t i = 1; i < subcomm_ranks.size(); ++i) {
         isend(&id, sizeof(ncclUniqueId), subcomm_ranks[i], color, requests.data() + (i - 1));
@@ -159,7 +159,7 @@ class std_comms : public comms_iface {
     barrier();
 
     ncclComm_t nccl_comm;
-    NCCL_TRY(ncclCommInitRank(&nccl_comm, subcomm_ranks.size(), id, key));
+    RAFT_CHECK_NCCL(ncclCommInitRank(&nccl_comm, subcomm_ranks.size(), id, key));
 
     if (ucp_worker_ != nullptr && subcomms_ucp_) {
       auto eps_sp = std::make_shared<ucp_ep_h*>(new_ucx_ptrs.data());
@@ -178,8 +178,8 @@ class std_comms : public comms_iface {
 
   void barrier() const
   {
-    CUDA_CHECK(cudaMemsetAsync(sendbuff_, 1, sizeof(int), stream_));
-    CUDA_CHECK(cudaMemsetAsync(recvbuff_, 1, sizeof(int), stream_));
+    RAFT_CHECK_CUDA(cudaMemsetAsync(sendbuff_, 1, sizeof(int), stream_));
+    RAFT_CHECK_CUDA(cudaMemsetAsync(recvbuff_, 1, sizeof(int), stream_));
 
     allreduce(sendbuff_, recvbuff_, 1, datatype_t::INT32, op_t::SUM, stream_);
 
@@ -304,13 +304,13 @@ class std_comms : public comms_iface {
                  op_t op,
                  cudaStream_t stream) const
   {
-    NCCL_TRY(ncclAllReduce(
+    RAFT_CHECK_NCCL(ncclAllReduce(
       sendbuff, recvbuff, count, get_nccl_datatype(datatype), get_nccl_op(op), nccl_comm_, stream));
   }
 
   void bcast(void* buff, size_t count, datatype_t datatype, int root, cudaStream_t stream) const
   {
-    NCCL_TRY(
+    RAFT_CHECK_NCCL(
       ncclBroadcast(buff, buff, count, get_nccl_datatype(datatype), root, nccl_comm_, stream));
   }
 
@@ -321,7 +321,7 @@ class std_comms : public comms_iface {
              int root,
              cudaStream_t stream) const
   {
-    NCCL_TRY(ncclBroadcast(
+    RAFT_CHECK_NCCL(ncclBroadcast(
       sendbuff, recvbuff, count, get_nccl_datatype(datatype), root, nccl_comm_, stream));
   }
 
@@ -333,14 +333,14 @@ class std_comms : public comms_iface {
               int root,
               cudaStream_t stream) const
   {
-    NCCL_TRY(ncclReduce(sendbuff,
-                        recvbuff,
-                        count,
-                        get_nccl_datatype(datatype),
-                        get_nccl_op(op),
-                        root,
-                        nccl_comm_,
-                        stream));
+    RAFT_CHECK_NCCL(ncclReduce(sendbuff,
+                               recvbuff,
+                               count,
+                               get_nccl_datatype(datatype),
+                               get_nccl_op(op),
+                               root,
+                               nccl_comm_,
+                               stream));
   }
 
   void allgather(const void* sendbuff,
@@ -349,7 +349,7 @@ class std_comms : public comms_iface {
                  datatype_t datatype,
                  cudaStream_t stream) const
   {
-    NCCL_TRY(ncclAllGather(
+    RAFT_CHECK_NCCL(ncclAllGather(
       sendbuff, recvbuff, sendcount, get_nccl_datatype(datatype), nccl_comm_, stream));
   }
 
@@ -364,13 +364,13 @@ class std_comms : public comms_iface {
     // https://arxiv.org/pdf/1812.05964.pdf Listing 1 on page 4.
     for (int root = 0; root < num_ranks_; ++root) {
       size_t dtype_size = get_datatype_size(datatype);
-      NCCL_TRY(ncclBroadcast(sendbuf,
-                             static_cast<char*>(recvbuf) + displs[root] * dtype_size,
-                             recvcounts[root],
-                             get_nccl_datatype(datatype),
-                             root,
-                             nccl_comm_,
-                             stream));
+      RAFT_CHECK_NCCL(ncclBroadcast(sendbuf,
+                                    static_cast<char*>(recvbuf) + displs[root] * dtype_size,
+                                    recvcounts[root],
+                                    get_nccl_datatype(datatype),
+                                    root,
+                                    nccl_comm_,
+                                    stream));
     }
   }
 
@@ -382,19 +382,20 @@ class std_comms : public comms_iface {
               cudaStream_t stream) const
   {
     size_t dtype_size = get_datatype_size(datatype);
-    NCCL_TRY(ncclGroupStart());
+    RAFT_CHECK_NCCL(ncclGroupStart());
     if (get_rank() == root) {
       for (int r = 0; r < get_size(); ++r) {
-        NCCL_TRY(ncclRecv(static_cast<char*>(recvbuff) + sendcount * r * dtype_size,
-                          sendcount,
-                          get_nccl_datatype(datatype),
-                          r,
-                          nccl_comm_,
-                          stream));
+        RAFT_CHECK_NCCL(ncclRecv(static_cast<char*>(recvbuff) + sendcount * r * dtype_size,
+                                 sendcount,
+                                 get_nccl_datatype(datatype),
+                                 r,
+                                 nccl_comm_,
+                                 stream));
       }
     }
-    NCCL_TRY(ncclSend(sendbuff, sendcount, get_nccl_datatype(datatype), root, nccl_comm_, stream));
-    NCCL_TRY(ncclGroupEnd());
+    RAFT_CHECK_NCCL(
+      ncclSend(sendbuff, sendcount, get_nccl_datatype(datatype), root, nccl_comm_, stream));
+    RAFT_CHECK_NCCL(ncclGroupEnd());
   }
 
   void gatherv(const void* sendbuff,
@@ -407,19 +408,20 @@ class std_comms : public comms_iface {
                cudaStream_t stream) const
   {
     size_t dtype_size = get_datatype_size(datatype);
-    NCCL_TRY(ncclGroupStart());
+    RAFT_CHECK_NCCL(ncclGroupStart());
     if (get_rank() == root) {
       for (int r = 0; r < get_size(); ++r) {
-        NCCL_TRY(ncclRecv(static_cast<char*>(recvbuff) + displs[r] * dtype_size,
-                          recvcounts[r],
-                          get_nccl_datatype(datatype),
-                          r,
-                          nccl_comm_,
-                          stream));
+        RAFT_CHECK_NCCL(ncclRecv(static_cast<char*>(recvbuff) + displs[r] * dtype_size,
+                                 recvcounts[r],
+                                 get_nccl_datatype(datatype),
+                                 r,
+                                 nccl_comm_,
+                                 stream));
       }
     }
-    NCCL_TRY(ncclSend(sendbuff, sendcount, get_nccl_datatype(datatype), root, nccl_comm_, stream));
-    NCCL_TRY(ncclGroupEnd());
+    RAFT_CHECK_NCCL(
+      ncclSend(sendbuff, sendcount, get_nccl_datatype(datatype), root, nccl_comm_, stream));
+    RAFT_CHECK_NCCL(ncclGroupEnd());
   }
 
   void reducescatter(const void* sendbuff,
@@ -429,13 +431,13 @@ class std_comms : public comms_iface {
                      op_t op,
                      cudaStream_t stream) const
   {
-    NCCL_TRY(ncclReduceScatter(sendbuff,
-                               recvbuff,
-                               recvcount,
-                               get_nccl_datatype(datatype),
-                               get_nccl_op(op),
-                               nccl_comm_,
-                               stream));
+    RAFT_CHECK_NCCL(ncclReduceScatter(sendbuff,
+                                      recvbuff,
+                                      recvcount,
+                                      get_nccl_datatype(datatype),
+                                      get_nccl_op(op),
+                                      nccl_comm_,
+                                      stream));
   }
 
   status_t sync_stream(cudaStream_t stream) const
@@ -474,13 +476,13 @@ class std_comms : public comms_iface {
   // if a thread is sending & receiving at the same time, use device_sendrecv to avoid deadlock
   void device_send(const void* buf, size_t size, int dest, cudaStream_t stream) const
   {
-    NCCL_TRY(ncclSend(buf, size, ncclUint8, dest, nccl_comm_, stream));
+    RAFT_CHECK_NCCL(ncclSend(buf, size, ncclUint8, dest, nccl_comm_, stream));
   }
 
   // if a thread is sending & receiving at the same time, use device_sendrecv to avoid deadlock
   void device_recv(void* buf, size_t size, int source, cudaStream_t stream) const
   {
-    NCCL_TRY(ncclRecv(buf, size, ncclUint8, source, nccl_comm_, stream));
+    RAFT_CHECK_NCCL(ncclRecv(buf, size, ncclUint8, source, nccl_comm_, stream));
   }
 
   void device_sendrecv(const void* sendbuf,
@@ -492,10 +494,10 @@ class std_comms : public comms_iface {
                        cudaStream_t stream) const
   {
     // ncclSend/ncclRecv pair needs to be inside ncclGroupStart/ncclGroupEnd to avoid deadlock
-    NCCL_TRY(ncclGroupStart());
-    NCCL_TRY(ncclSend(sendbuf, sendsize, ncclUint8, dest, nccl_comm_, stream));
-    NCCL_TRY(ncclRecv(recvbuf, recvsize, ncclUint8, source, nccl_comm_, stream));
-    NCCL_TRY(ncclGroupEnd());
+    RAFT_CHECK_NCCL(ncclGroupStart());
+    RAFT_CHECK_NCCL(ncclSend(sendbuf, sendsize, ncclUint8, dest, nccl_comm_, stream));
+    RAFT_CHECK_NCCL(ncclRecv(recvbuf, recvsize, ncclUint8, source, nccl_comm_, stream));
+    RAFT_CHECK_NCCL(ncclGroupEnd());
   }
 
   void device_multicast_sendrecv(const void* sendbuf,
@@ -509,24 +511,24 @@ class std_comms : public comms_iface {
                                  cudaStream_t stream) const
   {
     // ncclSend/ncclRecv pair needs to be inside ncclGroupStart/ncclGroupEnd to avoid deadlock
-    NCCL_TRY(ncclGroupStart());
+    RAFT_CHECK_NCCL(ncclGroupStart());
     for (size_t i = 0; i < sendsizes.size(); ++i) {
-      NCCL_TRY(ncclSend(static_cast<const char*>(sendbuf) + sendoffsets[i],
-                        sendsizes[i],
-                        ncclUint8,
-                        dests[i],
-                        nccl_comm_,
-                        stream));
+      RAFT_CHECK_NCCL(ncclSend(static_cast<const char*>(sendbuf) + sendoffsets[i],
+                               sendsizes[i],
+                               ncclUint8,
+                               dests[i],
+                               nccl_comm_,
+                               stream));
     }
     for (size_t i = 0; i < recvsizes.size(); ++i) {
-      NCCL_TRY(ncclRecv(static_cast<char*>(recvbuf) + recvoffsets[i],
-                        recvsizes[i],
-                        ncclUint8,
-                        sources[i],
-                        nccl_comm_,
-                        stream));
+      RAFT_CHECK_NCCL(ncclRecv(static_cast<char*>(recvbuf) + recvoffsets[i],
+                               recvsizes[i],
+                               ncclUint8,
+                               sources[i],
+                               nccl_comm_,
+                               stream));
     }
-    NCCL_TRY(ncclGroupEnd());
+    RAFT_CHECK_NCCL(ncclGroupEnd());
   }
 
  private:

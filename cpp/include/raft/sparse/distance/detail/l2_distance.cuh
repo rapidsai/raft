@@ -142,8 +142,8 @@ void compute_l2(value_t* out,
 {
   rmm::device_uvector<value_t> Q_sq_norms(m, stream);
   rmm::device_uvector<value_t> R_sq_norms(n, stream);
-  CUDA_CHECK(cudaMemsetAsync(Q_sq_norms.data(), 0, Q_sq_norms.size() * sizeof(value_t)));
-  CUDA_CHECK(cudaMemsetAsync(R_sq_norms.data(), 0, R_sq_norms.size() * sizeof(value_t)));
+  RAFT_CHECK_CUDA(cudaMemsetAsync(Q_sq_norms.data(), 0, Q_sq_norms.size() * sizeof(value_t)));
+  RAFT_CHECK_CUDA(cudaMemsetAsync(R_sq_norms.data(), 0, R_sq_norms.size() * sizeof(value_t)));
 
   compute_row_norm_kernel<<<raft::ceildiv(Q_nnz, tpb), tpb, 0, stream>>>(
     Q_sq_norms.data(), Q_coo_rows, Q_data, Q_nnz);
@@ -190,11 +190,11 @@ void compute_corr(value_t* out,
   rmm::device_uvector<value_t> Q_norms(m, stream);
   rmm::device_uvector<value_t> R_norms(n, stream);
 
-  CUDA_CHECK(cudaMemsetAsync(Q_sq_norms.data(), 0, Q_sq_norms.size() * sizeof(value_t)));
-  CUDA_CHECK(cudaMemsetAsync(R_sq_norms.data(), 0, R_sq_norms.size() * sizeof(value_t)));
+  RAFT_CHECK_CUDA(cudaMemsetAsync(Q_sq_norms.data(), 0, Q_sq_norms.size() * sizeof(value_t)));
+  RAFT_CHECK_CUDA(cudaMemsetAsync(R_sq_norms.data(), 0, R_sq_norms.size() * sizeof(value_t)));
 
-  CUDA_CHECK(cudaMemsetAsync(Q_norms.data(), 0, Q_norms.size() * sizeof(value_t)));
-  CUDA_CHECK(cudaMemsetAsync(R_norms.data(), 0, R_norms.size() * sizeof(value_t)));
+  RAFT_CHECK_CUDA(cudaMemsetAsync(Q_norms.data(), 0, Q_norms.size() * sizeof(value_t)));
+  RAFT_CHECK_CUDA(cudaMemsetAsync(R_norms.data(), 0, R_norms.size() * sizeof(value_t)));
 
   compute_row_norm_kernel<<<raft::ceildiv(Q_nnz, tpb), tpb, 0, stream>>>(
     Q_sq_norms.data(), Q_coo_rows, Q_data, Q_nnz);

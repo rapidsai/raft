@@ -88,12 +88,6 @@ inline const char* cusolver_error_to_string(cusolverStatus_t err)
 #define CUSOLVER_TRY(call) RAFT_CUSOLVER_TRY(call)
 #endif
 
-#ifndef NDEBUG
-#define RAFT_CHECK_CUSOLVER(stream) RAFT_CUSOLVER_TRY(cudaStreamSynchronize(stream));
-#else
-#define RAFT_CHECK_CUSOLVER(stream) RAFT_CUSOLVER_TRY(cudaPeekAtLastError());
-#endif
-
 // FIXME: remove after cuml rename
 #ifndef CUSOLVER_CHECK
 #define CUSOLVER_CHECK(call) CUSOLVER_TRY(call)

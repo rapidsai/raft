@@ -59,7 +59,7 @@ void argmax(const math_t* in, int n_rows, int n_cols, math_t* out, cudaStream_t 
   } else {
     argmaxKernel<math_t, 256><<<N, 256, 0, stream>>>(in, D, N, out);
   }
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CHECK_CUDA(cudaPeekAtLastError());
 }
 
 // Utility kernel needed for signFlip.
@@ -109,7 +109,7 @@ void signFlip(math_t* inout, int n_rows, int n_cols, cudaStream_t stream)
   } else {
     signFlipKernel<math_t, 256><<<N, 256, 0, stream>>>(data, D, N);
   }
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CHECK_CUDA(cudaPeekAtLastError());
 }
 
 }  // end namespace detail

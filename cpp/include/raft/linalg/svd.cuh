@@ -82,7 +82,7 @@ void svdQR(const raft::handle_t& handle,
   T* d_rwork = nullptr;
 
   int lwork = 0;
-  CUSOLVER_CHECK(cusolverDngesvd_bufferSize<T>(cusolverH, n_rows, n_cols, &lwork));
+  RAFT_CUSOLVER_TRY(cusolverDngesvd_bufferSize<T>(cusolverH, n_rows, n_cols, &lwork));
   rmm::device_uvector<T> d_work(lwork, stream);
 
   char jobu  = 'S';
@@ -98,32 +98,32 @@ void svdQR(const raft::handle_t& handle,
     strcpy(&jobvt, &new_vt);
   }
 
-  CUSOLVER_CHECK(cusolverDngesvd(cusolverH,
-                                 jobu,
-                                 jobvt,
-                                 m,
-                                 n,
-                                 in,
-                                 m,
-                                 sing_vals,
-                                 left_sing_vecs,
-                                 m,
-                                 right_sing_vecs,
-                                 n,
-                                 d_work.data(),
-                                 lwork,
-                                 d_rwork,
-                                 devInfo.data(),
-                                 stream));
+  RAFT_CUSOLVER_TRY(cusolverDngesvd(cusolverH,
+                                    jobu,
+                                    jobvt,
+                                    m,
+                                    n,
+                                    in,
+                                    m,
+                                    sing_vals,
+                                    left_sing_vecs,
+                                    m,
+                                    right_sing_vecs,
+                                    n,
+                                    d_work.data(),
+                                    lwork,
+                                    d_rwork,
+                                    devInfo.data(),
+                                    stream));
 
   // Transpose the right singular vector back
   if (trans_right) raft::linalg::transpose(right_sing_vecs, n_cols, stream);
 
-  CUDA_CHECK(cudaGetLastError());
+  RAFT_CHECK_CUDA(cudaGetLastError());
 
   int dev_info;
   raft::update_host(&dev_info, devInfo.data(), 1, stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  RAFT_CHECK_CUDA(cudaStreamSynchronize(stream));
   ASSERT(dev_info == 0,
          "svd.cuh: svd couldn't converge to a solution. "
          "This usually occurs when some of the features do not vary enough.");
@@ -222,9 +222,9 @@ void svdJacobi(const raft::handle_t& handle,
 
   gesvdjInfo_t gesvdj_params = NULL;
 
-  CUSOLVER_CHECK(cusolverDnCreateGesvdjInfo(&gesvdj_params));
-  CUSOLVER_CHECK(cusolverDnXgesvdjSetTolerance(gesvdj_params, tol));
-  CUSOLVER_CHECK(cusolverDnXgesvdjSetMaxSweeps(gesvdj_params, max_sweeps));
+  RAFT_CUSOLVER_TRY(cusolverDnCreateGesvdjInfo(&gesvdj_params));
+  RAFT_CUSOLVER_TRY(cusolverDnXgesvdjSetTolerance(gesvdj_params, tol));
+  RAFT_CUSOLVER_TRY(cusolverDnXgesvdjSetMaxSweeps(gesvdj_params, max_sweeps));
 
   int m = n_rows;
   int n = n_cols;
@@ -234,42 +234,42 @@ void svdJacobi(const raft::handle_t& handle,
   int lwork = 0;
   int econ  = 1;
 
-  CUSOLVER_CHECK(raft::linalg::cusolverDngesvdj_bufferSize(cusolverH,
-                                                           CUSOLVER_EIG_MODE_VECTOR,
-                                                           econ,
-                                                           m,
-                                                           n,
-                                                           in,
-                                                           m,
-                                                           sing_vals,
-                                                           left_sing_vecs,
-                                                           m,
-                                                           right_sing_vecs,
-                                                           n,
-                                                           &lwork,
-                                                           gesvdj_params));
+  RAFT_CUSOLVER_TRY(raft::linalg::cusolverDngesvdj_bufferSize(cusolverH,
+                                                              CUSOLVER_EIG_MODE_VECTOR,
+                                                              econ,
+                                                              m,
+                                                              n,
+                                                              in,
+                                                              m,
+                                                              sing_vals,
+                                                              left_sing_vecs,
+                                                              m,
+                                                              right_sing_vecs,
+                                                              n,
+                                                              &lwork,
+                                                              gesvdj_params));
 
   rmm::device_uvector<math_t> d_work(lwork, stream);
 
-  CUSOLVER_CHECK(raft::linalg::cusolverDngesvdj(cusolverH,
-                                                CUSOLVER_EIG_MODE_VECTOR,
-                                                econ,
-                                                m,
-                                                n,
-                                                in,
-                                                m,
-                                                sing_vals,
-                                                left_sing_vecs,
-                                                m,
-                                                right_sing_vecs,
-                                                n,
-                                                d_work.data(),
-                                                lwork,
-                                                devInfo.data(),
-                                                gesvdj_params,
-                                                stream));
+  RAFT_CUSOLVER_TRY(raft::linalg::cusolverDngesvdj(cusolverH,
+                                                   CUSOLVER_EIG_MODE_VECTOR,
+                                                   econ,
+                                                   m,
+                                                   n,
+                                                   in,
+                                                   m,
+                                                   sing_vals,
+                                                   left_sing_vecs,
+                                                   m,
+                                                   right_sing_vecs,
+                                                   n,
+                                                   d_work.data(),
+                                                   lwork,
+                                                   devInfo.data(),
+                                                   gesvdj_params,
+                                                   stream));
 
-  CUSOLVER_CHECK(cusolverDnDestroyGesvdjInfo(gesvdj_params));
+  RAFT_CUSOLVER_TRY(cusolverDnDestroyGesvdjInfo(gesvdj_params));
 }
 
 /**
@@ -349,8 +349,8 @@ bool evaluateSVDByL2Norm(const raft::handle_t& handle,
   // form product matrix
   rmm::device_uvector<math_t> P_d(m * n, stream);
   rmm::device_uvector<math_t> S_mat(k * k, stream);
-  CUDA_CHECK(cudaMemsetAsync(P_d.data(), 0, sizeof(math_t) * m * n, stream));
-  CUDA_CHECK(cudaMemsetAsync(S_mat.data(), 0, sizeof(math_t) * k * k, stream));
+  RAFT_CHECK_CUDA(cudaMemsetAsync(P_d.data(), 0, sizeof(math_t) * m * n, stream));
+  RAFT_CHECK_CUDA(cudaMemsetAsync(S_mat.data(), 0, sizeof(math_t) * k * k, stream));
 
   raft::matrix::initializeDiagonalMatrix(S_vec, S_mat.data(), k, k, stream);
   svdReconstruction(handle, U, S_mat.data(), V, P_d.data(), m, n, k, stream);
@@ -365,22 +365,22 @@ bool evaluateSVDByL2Norm(const raft::handle_t& handle,
   // calculate percent error
   const math_t alpha = 1.0, beta = -1.0;
   rmm::device_uvector<math_t> A_minus_P(m * n, stream);
-  CUDA_CHECK(cudaMemsetAsync(A_minus_P.data(), 0, sizeof(math_t) * m * n, stream));
+  RAFT_CHECK_CUDA(cudaMemsetAsync(A_minus_P.data(), 0, sizeof(math_t) * m * n, stream));
 
-  CUBLAS_CHECK(raft::linalg::cublasgeam(cublasH,
-                                        CUBLAS_OP_N,
-                                        CUBLAS_OP_N,
-                                        m,
-                                        n,
-                                        &alpha,
-                                        A_d,
-                                        m,
-                                        &beta,
-                                        P_d.data(),
-                                        m,
-                                        A_minus_P.data(),
-                                        m,
-                                        stream));
+  RAFT_CUBLAS_TRY(raft::linalg::cublasgeam(cublasH,
+                                           CUBLAS_OP_N,
+                                           CUBLAS_OP_N,
+                                           m,
+                                           n,
+                                           &alpha,
+                                           A_d,
+                                           m,
+                                           &beta,
+                                           P_d.data(),
+                                           m,
+                                           A_minus_P.data(),
+                                           m,
+                                           stream));
 
   math_t norm_A_minus_P = raft::matrix::getL2Norm(handle, A_minus_P.data(), m * n, stream);
   math_t percent_error  = 100.0 * norm_A_minus_P / normA;

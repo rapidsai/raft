@@ -51,7 +51,7 @@ void fit_embedding(const raft::handle_t& handle,
   rmm::device_uvector<T> eigVecs(n * (n_components + 1), stream);
   rmm::device_uvector<int> labels(n, stream);
 
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  RAFT_CHECK_CUDA(cudaStreamSynchronize(stream));
 
   /**
    * Raft spectral clustering
@@ -105,7 +105,7 @@ void fit_embedding(const raft::handle_t& handle,
 
   raft::copy<T>(out, eigVecs.data() + n, n * n_components, stream);
 
-  CUDA_CHECK(cudaGetLastError());
+  RAFT_CHECK_CUDA(cudaGetLastError());
 }
 
 };  // namespace detail

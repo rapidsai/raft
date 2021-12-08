@@ -232,7 +232,7 @@ class sparse_knn_t {
         size_t dense_size = idx_batcher.batch_rows() * query_batcher.batch_rows();
         rmm::device_uvector<value_t> batch_dists(dense_size, handle.get_stream());
 
-        CUDA_CHECK(cudaMemset(batch_dists.data(), 0, batch_dists.size() * sizeof(value_t)));
+        RAFT_CHECK_CUDA(cudaMemset(batch_dists.data(), 0, batch_dists.size() * sizeof(value_t)));
 
         compute_distances(idx_batcher,
                           query_batcher,

@@ -189,14 +189,14 @@ size_t csr_add_calc_inds(const int* a_ind,
   dim3 blk(TPB_X, 1, 1);
 
   rmm::device_uvector<int> row_counts(m + 1, stream);
-  CUDA_CHECK(cudaMemsetAsync(row_counts.data(), 0, (m + 1) * sizeof(int), stream));
+  RAFT_CHECK_CUDA(cudaMemsetAsync(row_counts.data(), 0, (m + 1) * sizeof(int), stream));
 
   csr_add_calc_row_counts_kernel<T, TPB_X><<<grid, blk, 0, stream>>>(
     a_ind, a_indptr, a_val, nnz1, b_ind, b_indptr, b_val, nnz2, m, row_counts.data());
 
   int cnnz = 0;
   raft::update_host(&cnnz, row_counts.data() + m, 1, stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  RAFT_CHECK_CUDA(cudaStreamSynchronize(stream));
 
   // create csr compressed row index from row counts
   thrust::device_ptr<int> row_counts_d = thrust::device_pointer_cast(row_counts.data());
@@ -243,7 +243,7 @@ void csr_add_finalize(const int* a_ind,
 
   csr_add_kernel<T, TPB_X><<<grid, blk, 0, stream>>>(
     a_ind, a_indptr, a_val, nnz1, b_ind, b_indptr, b_val, nnz2, m, c_ind, c_indptr, c_val);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CHECK_CUDA(cudaPeekAtLastError());
 }
 
 };  // end NAMESPACE detail

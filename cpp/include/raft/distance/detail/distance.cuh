@@ -591,7 +591,7 @@ void distance(const InType* x,
 {
   DistanceImpl<distanceType, InType, AccType, OutType, FinalLambda, Index_> distImpl;
   distImpl.run(x, y, dist, m, n, k, workspace, worksize, fin_op, stream, isRowMajor, metric_arg);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CHECK_CUDA(cudaPeekAtLastError());
 }
 
 /**
@@ -635,7 +635,7 @@ void distance(const InType* x,
   auto default_fin_op = [] __device__(AccType d_val, Index_ g_d_idx) { return d_val; };
   distance<distanceType, InType, AccType, OutType, decltype(default_fin_op), Index_>(
     x, y, dist, m, n, k, workspace, worksize, default_fin_op, stream, isRowMajor, metric_arg);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CHECK_CUDA(cudaPeekAtLastError());
 }
 
 /**

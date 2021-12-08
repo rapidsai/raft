@@ -44,7 +44,7 @@ class default_allocator : public allocator {
   void* allocate(std::size_t n, cudaStream_t stream) override
   {
     void* ptr = nullptr;
-    CUDA_CHECK(cudaMallocHost(&ptr, n));
+    RAFT_CHECK_CUDA(cudaMallocHost(&ptr, n));
     return ptr;
   }
 
@@ -52,7 +52,7 @@ class default_allocator : public allocator {
   {
     // Must call _NO_THROW here since this is called frequently from object
     // destructors which are "nothrow" by default
-    CUDA_CHECK_NO_THROW(cudaFreeHost(p));
+    RAFT_CHECK_CUDA_NO_THROW(cudaFreeHost(p));
   }
 };  // class default_allocator
 

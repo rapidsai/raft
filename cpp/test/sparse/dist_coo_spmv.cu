@@ -222,7 +222,7 @@ class SparseDistanceCOOSPMVTest
 
     run_spmv();
 
-    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
   }
 
   void compare()

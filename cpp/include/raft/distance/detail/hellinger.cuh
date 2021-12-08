@@ -152,7 +152,7 @@ static void hellingerImpl(const DataT* x,
       (DataT*)y, y, n * k, unaryOp_lambda, stream);
   }
 
-  CUDA_CHECK(cudaGetLastError());
+  RAFT_CHECK_CUDA(cudaGetLastError());
 }
 
 template <typename DataT,

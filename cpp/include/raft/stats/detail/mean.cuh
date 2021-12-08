@@ -71,15 +71,15 @@ void mean(
     static const int ColsPerBlk    = 32;
     static const int RowsPerBlk    = (TPB / ColsPerBlk) * RowsPerThread;
     dim3 grid(raft::ceildiv(N, (IdxType)RowsPerBlk), raft::ceildiv(D, (IdxType)ColsPerBlk));
-    CUDA_CHECK(cudaMemsetAsync(mu, 0, sizeof(Type) * D, stream));
+    RAFT_CHECK_CUDA(cudaMemsetAsync(mu, 0, sizeof(Type) * D, stream));
     meanKernelRowMajor<Type, IdxType, TPB, ColsPerBlk><<<grid, TPB, 0, stream>>>(mu, data, D, N);
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CHECK_CUDA(cudaPeekAtLastError());
     Type ratio = Type(1) / (sample ? Type(N - 1) : Type(N));
     raft::linalg::scalarMultiply(mu, mu, ratio, D, stream);
   } else {
     meanKernelColMajor<Type, IdxType, TPB><<<D, TPB, 0, stream>>>(mu, data, D, N);
   }
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CHECK_CUDA(cudaPeekAtLastError());
 }
 
 }  // namespace detail

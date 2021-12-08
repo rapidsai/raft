@@ -162,7 +162,7 @@ static void correlationImpl(const DataT* x,
       x, y, xn, yn, m, n, k, lda, ldb, ldd, dOutput, core_lambda, epilog_lambda, fin_op);
   }
 
-  CUDA_CHECK(cudaGetLastError());
+  RAFT_CHECK_CUDA(cudaGetLastError());
 }
 
 template <typename DataT,

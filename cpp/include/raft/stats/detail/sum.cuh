@@ -70,13 +70,13 @@ void sum(Type* output, const Type* input, IdxType D, IdxType N, bool rowMajor, c
     static const int ColsPerBlk    = 32;
     static const int RowsPerBlk    = (TPB / ColsPerBlk) * RowsPerThread;
     dim3 grid(raft::ceildiv(N, (IdxType)RowsPerBlk), raft::ceildiv(D, (IdxType)ColsPerBlk));
-    CUDA_CHECK(cudaMemset(output, 0, sizeof(Type) * D));
+    RAFT_CHECK_CUDA(cudaMemset(output, 0, sizeof(Type) * D));
     sumKernelRowMajor<Type, IdxType, TPB, ColsPerBlk>
       <<<grid, TPB, 0, stream>>>(output, input, D, N);
   } else {
     sumKernelColMajor<Type, IdxType, TPB><<<D, TPB, 0, stream>>>(output, input, D, N);
   }
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CHECK_CUDA(cudaPeekAtLastError());
 }
 
 }  // namespace detail

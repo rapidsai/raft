@@ -57,20 +57,20 @@ void coo_to_csr(const raft::handle_t& handle,
   auto stream         = handle.get_stream();
   auto cusparseHandle = handle.get_cusparse_handle();
   rmm::device_uvector<int> dstRows(nnz, stream);
-  CUDA_CHECK(
+  RAFT_CHECK_CUDA(
     cudaMemcpyAsync(dstRows.data(), srcRows, sizeof(int) * nnz, cudaMemcpyDeviceToDevice, stream));
-  CUDA_CHECK(
+  RAFT_CHECK_CUDA(
     cudaMemcpyAsync(dstCols, srcCols, sizeof(int) * nnz, cudaMemcpyDeviceToDevice, stream));
   auto buffSize = raft::sparse::cusparsecoosort_bufferSizeExt(
     cusparseHandle, m, m, nnz, srcRows, srcCols, stream);
   rmm::device_uvector<char> pBuffer(buffSize, stream);
   rmm::device_uvector<int> P(nnz, stream);
-  CUSPARSE_CHECK(cusparseCreateIdentityPermutation(cusparseHandle, nnz, P.data()));
+  RAFT_CUSPARSE_TRY(cusparseCreateIdentityPermutation(cusparseHandle, nnz, P.data()));
   raft::sparse::cusparsecoosortByRow(
     cusparseHandle, m, m, nnz, dstRows.data(), dstCols, P.data(), pBuffer.data(), stream);
   raft::sparse::cusparsegthr(cusparseHandle, nnz, srcVals, dstVals, P.data(), stream);
   raft::sparse::cusparsecoo2csr(cusparseHandle, dstRows.data(), nnz, m, dst_offsets, stream);
-  CUDA_CHECK(cudaDeviceSynchronize());
+  RAFT_CHECK_CUDA(cudaDeviceSynchronize());
 }
 
 /**
@@ -176,7 +176,7 @@ void sorted_coo_to_csr(const T* rows, int nnz, T* row_ind, int m, cudaStream_t s
 {
   rmm::device_uvector<T> row_counts(m, stream);
 
-  CUDA_CHECK(cudaMemsetAsync(row_counts.data(), 0, m * sizeof(T), stream));
+  RAFT_CHECK_CUDA(cudaMemsetAsync(row_counts.data(), 0, m * sizeof(T), stream));
 
   linalg::coo_degree(rows, nnz, row_counts.data(), stream);
 

@@ -118,7 +118,7 @@ void stddev(Type* std,
     static const int ColsPerBlk    = 32;
     static const int RowsPerBlk    = (TPB / ColsPerBlk) * RowsPerThread;
     dim3 grid(raft::ceildiv(N, (IdxType)RowsPerBlk), raft::ceildiv(D, (IdxType)ColsPerBlk));
-    CUDA_CHECK(cudaMemset(std, 0, sizeof(Type) * D));
+    RAFT_CHECK_CUDA(cudaMemset(std, 0, sizeof(Type) * D));
     stddevKernelRowMajor<Type, IdxType, TPB, ColsPerBlk><<<grid, TPB, 0, stream>>>(std, data, D, N);
     Type ratio = Type(1) / (sample ? Type(N - 1) : Type(N));
     raft::linalg::binaryOp(
@@ -131,7 +131,7 @@ void stddev(Type* std,
   } else {
     stddevKernelColMajor<Type, IdxType, TPB><<<D, TPB, 0, stream>>>(std, data, mu, D, N);
   }
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CHECK_CUDA(cudaPeekAtLastError());
 }
 
 /**
@@ -168,7 +168,7 @@ void vars(Type* var,
     static const int ColsPerBlk    = 32;
     static const int RowsPerBlk    = (TPB / ColsPerBlk) * RowsPerThread;
     dim3 grid(raft::ceildiv(N, (IdxType)RowsPerBlk), raft::ceildiv(D, (IdxType)ColsPerBlk));
-    CUDA_CHECK(cudaMemset(var, 0, sizeof(Type) * D));
+    RAFT_CHECK_CUDA(cudaMemset(var, 0, sizeof(Type) * D));
     stddevKernelRowMajor<Type, IdxType, TPB, ColsPerBlk><<<grid, TPB, 0, stream>>>(var, data, D, N);
     Type ratio = Type(1) / (sample ? Type(N - 1) : Type(N));
     raft::linalg::binaryOp(
@@ -176,7 +176,7 @@ void vars(Type* var,
   } else {
     varsKernelColMajor<Type, IdxType, TPB><<<D, TPB, 0, stream>>>(var, data, mu, D, N);
   }
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CHECK_CUDA(cudaPeekAtLastError());
 }
 
 }  // namespace detail

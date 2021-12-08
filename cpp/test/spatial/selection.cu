@@ -108,7 +108,7 @@ class SparseSelectionTest
                                  k,
                                  stream);
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
   void compare()

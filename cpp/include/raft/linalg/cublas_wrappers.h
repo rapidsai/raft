@@ -84,12 +84,6 @@ inline const char* cublas_error_to_string(cublasStatus_t err)
     }                                                                      \
   } while (0)
 
-#ifndef NDEBUG
-#define RAFT_CHECK_CUBLAS(stream) RAFT_CUBLAS_TRY(cudaStreamSynchronize(stream));
-#else
-#define RAFT_CHECK_CUBLAS(stream) RAFT_CUBLAS_TRY(cudaPeekAtLastError());
-#endif
-
 // FIXME: Remove after consumers rename
 #ifndef CUBLAS_TRY
 #define CUBLAS_TRY(call) RAFT_CUBLAS_TRY(call)

@@ -120,7 +120,7 @@ void coalescedReduction(OutType* dots,
     coalescedReductionKernel<InType, OutType, IdxType, 256>
       <<<N, 256, 0, stream>>>(dots, data, D, N, init, main_op, reduce_op, final_op, inplace);
   }
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CHECK_CUDA(cudaPeekAtLastError());
 }
 
 };  // end namespace linalg

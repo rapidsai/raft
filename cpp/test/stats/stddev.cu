@@ -66,7 +66,7 @@ class StdDevTest : public ::testing::TestWithParam<StdDevInputs<T>> {
     vars_act.resize(cols, stream);
     r.normal(data.data(), len, params.mean, params.stddev, stream);
     stdVarSGtest(data.data(), stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
   void stdVarSGtest(T* data, cudaStream_t stream)

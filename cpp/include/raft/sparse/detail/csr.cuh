@@ -151,20 +151,20 @@ void weak_cc_batched(Index_* labels,
   Index_ MAX_LABEL = std::numeric_limits<Index_>::max();
   weak_cc_init_all_kernel<Index_, TPB_X>
     <<<raft::ceildiv(N, Index_(TPB_X)), TPB_X, 0, stream>>>(labels, N, MAX_LABEL, filter_op);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CHECK_CUDA(cudaPeekAtLastError());
 
   int n_iters = 0;
   do {
-    CUDA_CHECK(cudaMemsetAsync(state->m, false, sizeof(bool), stream));
+    RAFT_CHECK_CUDA(cudaMemsetAsync(state->m, false, sizeof(bool), stream));
 
     weak_cc_label_device<Index_, TPB_X>
       <<<raft::ceildiv(batch_size, Index_(TPB_X)), TPB_X, 0, stream>>>(
         labels, row_ind, row_ind_ptr, nnz, state->m, start_vertex_id, batch_size, N, filter_op);
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CHECK_CUDA(cudaPeekAtLastError());
 
     //** Updating m *
     raft::update_host(&host_m, state->m, 1, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CHECK_CUDA(cudaStreamSynchronize(stream));
 
     n_iters++;
   } while (host_m);

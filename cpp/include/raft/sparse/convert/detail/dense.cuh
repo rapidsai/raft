@@ -92,18 +92,18 @@ void csr_to_dense(cusparseHandle_t handle,
      * If we need col-major, use cusparse.
      */
     cusparseMatDescr_t out_mat;
-    CUSPARSE_CHECK(cusparseCreateMatDescr(&out_mat));
-    CUSPARSE_CHECK(cusparseSetMatIndexBase(out_mat, CUSPARSE_INDEX_BASE_ZERO));
-    CUSPARSE_CHECK(cusparseSetMatType(out_mat, CUSPARSE_MATRIX_TYPE_GENERAL));
+    RAFT_CUSPARSE_TRY(cusparseCreateMatDescr(&out_mat));
+    RAFT_CUSPARSE_TRY(cusparseSetMatIndexBase(out_mat, CUSPARSE_INDEX_BASE_ZERO));
+    RAFT_CUSPARSE_TRY(cusparseSetMatType(out_mat, CUSPARSE_MATRIX_TYPE_GENERAL));
 
-    CUSPARSE_CHECK(raft::sparse::cusparsecsr2dense(
+    RAFT_CUSPARSE_TRY(raft::sparse::cusparsecsr2dense(
       handle, nrows, ncols, out_mat, csr_data, csr_indptr, csr_indices, out, lda, stream));
 
-    CUSPARSE_CHECK_NO_THROW(cusparseDestroyMatDescr(out_mat));
+    RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroyMatDescr(out_mat));
 
   } else {
     int blockdim = block_dim(ncols);
-    CUDA_CHECK(cudaMemsetAsync(out, 0, nrows * ncols * sizeof(value_t), stream));
+    RAFT_CHECK_CUDA(cudaMemsetAsync(out, 0, nrows * ncols * sizeof(value_t), stream));
     csr_to_dense_warp_per_row_kernel<<<nrows, blockdim, 0, stream>>>(
       ncols, csr_data, csr_indptr, csr_indices, out);
   }

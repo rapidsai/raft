@@ -415,7 +415,7 @@ void connect_components(
   // compute final size
   value_idx size = 0;
   raft::update_host(&size, out_index.data() + (out_index.size() - 1), 1, stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  RAFT_CHECK_CUDA(cudaStreamSynchronize(stream));
 
   size++;
 

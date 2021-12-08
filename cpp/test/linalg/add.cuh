@@ -35,7 +35,7 @@ void naiveAddElem(OutT* out, const InT* in1, const InT* in2, int len)
   static const int TPB = 64;
   int nblks            = raft::ceildiv(len, TPB);
   naiveAddElemKernel<InT, OutT><<<nblks, TPB>>>(out, in1, in2, len);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 template <typename InT, typename OutT = InT>

@@ -67,7 +67,7 @@ void csr_row_op(const Index_* row_ind, Index_ n_rows, Index_ nnz, Lambda op, cud
   dim3 blk(TPB_X, 1, 1);
   csr_row_op_kernel<Index_, TPB_X><<<grid, blk, 0, stream>>>(row_ind, n_rows, nnz, op);
 
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CHECK_CUDA(cudaPeekAtLastError());
 }
 
 };  // namespace detail

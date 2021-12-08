@@ -104,9 +104,11 @@ class COO {
 
   void init_arrays(cudaStream_t stream)
   {
-    CUDA_CHECK(cudaMemsetAsync(this->rows_arr.data(), 0, this->nnz * sizeof(Index_Type), stream));
-    CUDA_CHECK(cudaMemsetAsync(this->cols_arr.data(), 0, this->nnz * sizeof(Index_Type), stream));
-    CUDA_CHECK(cudaMemsetAsync(this->vals_arr.data(), 0, this->nnz * sizeof(T), stream));
+    RAFT_CHECK_CUDA(
+      cudaMemsetAsync(this->rows_arr.data(), 0, this->nnz * sizeof(Index_Type), stream));
+    RAFT_CHECK_CUDA(
+      cudaMemsetAsync(this->cols_arr.data(), 0, this->nnz * sizeof(Index_Type), stream));
+    RAFT_CHECK_CUDA(cudaMemsetAsync(this->vals_arr.data(), 0, this->nnz * sizeof(T), stream));
   }
 
   ~COO() {}
@@ -156,7 +158,7 @@ class COO {
   {
     if (c.validate_size() && c.validate_mem()) {
       cudaStream_t stream;
-      CUDA_CHECK(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));
+      RAFT_CUDA_TRY(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));
 
       out << raft::arr2Str(c.rows_arr.data(), c.nnz, "rows", stream) << std::endl;
       out << raft::arr2Str(c.cols_arr.data(), c.nnz, "cols", stream) << std::endl;
@@ -165,7 +167,7 @@ class COO {
       out << "n_rows=" << c.n_rows << std::endl;
       out << "n_cols=" << c.n_cols << std::endl;
 
-      CUDA_CHECK(cudaStreamDestroy(stream));
+      RAFT_CHECK_CUDA(cudaStreamDestroy(stream));
     } else {
       out << "Cannot print COO object: Uninitialized or invalid." << std::endl;
     }

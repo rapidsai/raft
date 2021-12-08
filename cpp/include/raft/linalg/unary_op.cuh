@@ -47,7 +47,7 @@ void unaryOpImpl(OutType* out, const InType* in, IdxType len, Lambda op, cudaStr
   const IdxType nblks = raft::ceildiv(VecLen ? len / VecLen : len, (IdxType)TPB);
   unaryOpKernel<InType, VecLen, Lambda, OutType, IdxType>
     <<<nblks, TPB, 0, stream>>>(out, in, len, op);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CHECK_CUDA(cudaPeekAtLastError());
 }
 
 /**
@@ -122,7 +122,7 @@ void writeOnlyUnaryOp(OutType* out, IdxType len, Lambda op, cudaStream_t stream)
   if (len <= 0) return;  // silently skip in case of 0 length input
   auto nblks = raft::ceildiv<IdxType>(len, TPB);
   writeOnlyUnaryOpKernel<OutType, Lambda, IdxType><<<nblks, TPB, 0, stream>>>(out, len, op);
-  CUDA_CHECK(cudaGetLastError());
+  RAFT_CHECK_CUDA(cudaGetLastError());
 }
 
 };  // end namespace linalg

@@ -62,7 +62,7 @@ void csr_row_slice_indptr(value_idx start_row,
   raft::update_host(start_offset, indptr + start_row, 1, stream);
   raft::update_host(stop_offset, indptr + stop_row + 1, 1, stream);
 
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  RAFT_CHECK_CUDA(cudaStreamSynchronize(stream));
 
   value_idx s_offset = *start_offset;
 
