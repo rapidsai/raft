@@ -21,8 +21,8 @@
 #include <raft/matrix/matrix.hpp>
 #include <raft/random/rng.hpp>
 #include <rmm/device_uvector.hpp>
+#include "../linalg/matrix_vector_op.cuh"
 #include "../test_utils.h"
-#include "matrix_vector_op.cuh"
 
 #ifdef NVTX_ENABLED
 #include <nvToolsExt.h>

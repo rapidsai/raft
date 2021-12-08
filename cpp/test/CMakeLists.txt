@@ -51,7 +51,6 @@ add_executable(test_raft
     test/linalg/gemv.cu
     test/linalg/map.cu
     test/linalg/map_then_reduce.cu
-    test/linalg/matrix_linewise_op.cu
     test/linalg/matrix_vector_op.cu
     test/linalg/multiply.cu
     test/linalg/norm.cu
@@ -63,6 +62,7 @@ add_executable(test_raft
     test/linalg/unary_op.cu
     test/matrix/math.cu
     test/matrix/matrix.cu
+    test/matrix/linewise_op.cu
     test/mr/device/buffer.cpp
     test/mr/host/buffer.cpp
     test/mst.cu
