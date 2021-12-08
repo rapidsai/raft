@@ -32,11 +32,12 @@
 #include <algorithm>
 #include <iostream>
 
-#include <raft/sparse/utils.h>
+#include <raft/sparse/detail/utils.h>
 
 namespace raft {
 namespace sparse {
 namespace op {
+namespace detail {
 
 /**
  * Slice consecutive rows from a CSR array and populate newly sliced indptr array
@@ -102,6 +103,7 @@ void csr_row_slice_populate(value_idx start_offset,
   raft::copy(data_out, data + start_offset, stop_offset - start_offset, stream);
 }
 
+};  // namespace detail
 };  // namespace op
 };  // end NAMESPACE sparse
 };  // end NAMESPACE raft

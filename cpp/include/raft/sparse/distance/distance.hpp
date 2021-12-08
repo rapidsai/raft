@@ -24,12 +24,12 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/mr/device/buffer.hpp>
 
-#include <raft/sparse/linalg/transpose.h>
-#include <raft/sparse/utils.h>
-#include <raft/sparse/convert/coo.cuh>
-#include <raft/sparse/convert/csr.cuh>
-#include <raft/sparse/convert/dense.cuh>
-#include <raft/sparse/csr.cuh>
+#include <raft/sparse/detail/utils.h>
+#include <raft/sparse/convert/coo.hpp>
+#include <raft/sparse/convert/csr.hpp>
+#include <raft/sparse/convert/dense.hpp>
+#include <raft/sparse/csr.hpp>
+#include <raft/sparse/linalg/transpose.hpp>
 
 #include <raft/sparse/distance/detail/bin_distance.cuh>
 #include <raft/sparse/distance/detail/ip_distance.cuh>

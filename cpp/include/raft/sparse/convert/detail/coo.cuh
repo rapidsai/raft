@@ -29,12 +29,13 @@
 #include <algorithm>
 #include <iostream>
 
-#include <raft/sparse/utils.h>
-#include <raft/sparse/coo.cuh>
+#include <raft/sparse/detail/utils.h>
+#include <raft/sparse/coo.hpp>
 
 namespace raft {
 namespace sparse {
 namespace convert {
+namespace detail {
 
 template <typename value_idx = int, int TPB_X = 32>
 __global__ void csr_to_coo_kernel(const value_idx* row_ind,
@@ -73,6 +74,7 @@ void csr_to_coo(
   CUDA_CHECK(cudaGetLastError());
 }
 
+};  // end NAMESPACE detail
 };  // end NAMESPACE convert
 };  // end NAMESPACE sparse
 };  // end NAMESPACE raft

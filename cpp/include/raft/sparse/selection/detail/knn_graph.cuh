@@ -19,8 +19,8 @@
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
 
-#include <raft/sparse/coo.cuh>
-#include <raft/sparse/linalg/symmetrize.cuh>
+#include <raft/sparse/coo.hpp>
+#include <raft/sparse/linalg/symmetrize.hpp>
 
 #include <raft/spatial/knn/knn.hpp>
 
@@ -37,6 +37,7 @@
 namespace raft {
 namespace sparse {
 namespace selection {
+namespace detail {
 
 /**
  * Fills indices array of pairwise distance array
@@ -148,6 +149,7 @@ void knn_graph(const handle_t& handle,
     handle, rows.data(), indices.data(), data.data(), m, k, nnz, out);
 }
 
+};  // namespace detail
 };  // namespace selection
 };  // namespace sparse
 };  // end namespace raft

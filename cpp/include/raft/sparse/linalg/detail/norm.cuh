@@ -30,11 +30,12 @@
 #include <iostream>
 #include <limits>
 
-#include <raft/sparse/utils.h>
+#include <raft/sparse/detail/utils.h>
 
 namespace raft {
 namespace sparse {
 namespace linalg {
+namespace detail {
 
 template <int TPB_X = 64, typename T>
 __global__ void csr_row_normalize_l1_kernel(
@@ -169,6 +170,7 @@ void csr_row_normalize_max(const int* ia,  // csr row ind array (sorted by row)
   CUDA_CHECK(cudaGetLastError());
 }
 
+};  // end NAMESPACE detail
 };  // end NAMESPACE linalg
 };  // end NAMESPACE sparse
 };  // end NAMESPACE raft
