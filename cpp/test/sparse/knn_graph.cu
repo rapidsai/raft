@@ -23,7 +23,7 @@
 
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/selection/knn_graph.hpp>
-#include <raft/spatial/knn/knn_specializations.hpp>
+#include <raft/spatial/knn/specializations.hpp>
 
 #include <iostream>
 

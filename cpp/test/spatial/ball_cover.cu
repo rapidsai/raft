@@ -17,6 +17,7 @@
 #include <raft/cudart_utils.h>
 #include <raft/linalg/distance_type.h>
 #include <raft/spatial/knn/ball_cover.hpp>
+#include <raft/spatial/specializations.hpp>
 #include <raft/spatial/knn/detail/knn_brute_force_faiss.cuh>
 #include <rmm/device_uvector.hpp>
 #include "../test_utils.h"
