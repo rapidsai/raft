@@ -16,8 +16,8 @@
 
 #include <gtest/gtest.h>
 
-#include <raft/sparse/convert/coo.cuh>
-#include <raft/sparse/csr.cuh>
+#include <raft/sparse/convert/coo.hpp>
+#include <raft/sparse/csr.hpp>
 
 #include <raft/cudart_utils.h>
 #include <raft/random/rng.hpp>
@@ -44,23 +44,25 @@ class CSRtoCOOTest : public ::testing::TestWithParam<CSRtoCOOInputs<Index_>> {
       stream(handle.get_stream()),
       ex_scan(params.ex_scan.size(), stream),
       verify(params.verify.size(), stream),
-      result(params.verify.size(), stream) {}
+      result(params.verify.size(), stream)
+  {
+  }
 
  protected:
   void SetUp() override {}
 
-  void Run() {
+  void Run()
+  {
     Index_ n_rows = params.ex_scan.size();
-    Index_ nnz = params.verify.size();
+    Index_ nnz    = params.verify.size();
 
     raft::update_device(ex_scan.data(), params.ex_scan.data(), n_rows, stream);
     raft::update_device(verify.data(), params.verify.data(), nnz, stream);
 
-    convert::csr_to_coo<Index_, 32>(ex_scan.data(), n_rows, result.data(), nnz,
-                                    stream);
+    convert::csr_to_coo<Index_>(ex_scan.data(), n_rows, result.data(), nnz, stream);
 
-    ASSERT_TRUE(raft::devArrMatch<Index_>(verify.data(), result.data(), nnz,
-                                          raft::Compare<float>(), stream));
+    ASSERT_TRUE(
+      raft::devArrMatch<Index_>(verify.data(), result.data(), nnz, raft::Compare<float>(), stream));
   }
 
  protected:
@@ -86,9 +88,11 @@ const std::vector<CSRtoCOOInputs<int64_t>> csrtocoo_inputs_64 = {
   {{0, 4, 8, 9}, {0, 0, 0, 0, 1, 1, 1, 1, 2, 3}},
 };
 
-INSTANTIATE_TEST_CASE_P(SparseConvertCOOTest, CSRtoCOOTestI,
+INSTANTIATE_TEST_CASE_P(SparseConvertCOOTest,
+                        CSRtoCOOTestI,
                         ::testing::ValuesIn(csrtocoo_inputs_32));
-INSTANTIATE_TEST_CASE_P(SparseConvertCOOTest, CSRtoCOOTestL,
+INSTANTIATE_TEST_CASE_P(SparseConvertCOOTest,
+                        CSRtoCOOTestL,
                         ::testing::ValuesIn(csrtocoo_inputs_64));
 
 }  // namespace sparse

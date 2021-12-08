@@ -34,12 +34,13 @@ namespace knn {
  * @tparam value_t
  * @tparam value_int
  */
-template <typename value_idx, typename value_t,
-          typename value_int = std::uint32_t>
+template <typename value_idx, typename value_t, typename value_int = std::uint32_t>
 class BallCoverIndex {
  public:
-  explicit BallCoverIndex(const raft::handle_t &handle_, const value_t *X_,
-                          value_int m_, value_int n_,
+  explicit BallCoverIndex(const raft::handle_t& handle_,
+                          const value_t* X_,
+                          value_int m_,
+                          value_int n_,
                           raft::distance::DistanceType metric_)
     : handle(handle_),
       X(X_),
@@ -47,17 +48,19 @@ class BallCoverIndex {
       n(n_),
       metric(metric_),
       /**
-      * the sqrt() here makes the sqrt(m)^2 a linear-time lower bound
-      *
-      * Total memory footprint of index: (2 * sqrt(m)) + (n * sqrt(m)) + (2 * m)
-      */
+       * the sqrt() here makes the sqrt(m)^2 a linear-time lower bound
+       *
+       * Total memory footprint of index: (2 * sqrt(m)) + (n * sqrt(m)) + (2 * m)
+       */
       n_landmarks(sqrt(m_)),
       R_indptr(sqrt(m_) + 1, handle.get_stream()),
       R_1nn_cols(m_, handle.get_stream()),
       R_1nn_dists(m_, handle.get_stream()),
       R(sqrt(m_) * n_, handle.get_stream()),
       R_radius(sqrt(m_), handle.get_stream()),
-      index_trained(false) {}
+      index_trained(false)
+  {
+  }
 
   value_idx *get_R_indptr() { return R_indptr.data(); }
   value_idx *get_R_1nn_cols() { return R_1nn_cols.data(); }
@@ -73,13 +76,13 @@ class BallCoverIndex {
   // This should only be set by internal functions
   void set_index_trained() { index_trained = true; }
 
-  const raft::handle_t &handle;
+  const raft::handle_t& handle;
 
   const value_int m;
   const value_int n;
   const value_int n_landmarks;
 
-  const value_t *X;
+  const value_t* X;
 
   raft::distance::DistanceType metric;
 

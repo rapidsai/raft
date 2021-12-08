@@ -27,7 +27,8 @@ namespace detail {
 
 struct NNComp {
   template <typename one, typename two>
-  __host__ __device__ bool operator()(const one &t1, const two &t2) {
+  __host__ __device__ bool operator()(const one& t1, const two& t2)
+  {
     // sort first by each sample's reference landmark,
     if (thrust::get<0>(t1) < thrust::get<0>(t2)) return true;
     if (thrust::get<0>(t1) > thrust::get<0>(t2)) return false;
@@ -71,7 +72,8 @@ struct EuclideanFunc : public DistFunc<value_t, value_int> {
 /**
  * Zeros the bit at location h in a one-hot encoded 32-bit int array
  */
-__device__ inline void _zero_bit(std::uint32_t *arr, std::uint32_t h) {
+__device__ inline void _zero_bit(std::uint32_t* arr, std::uint32_t h)
+{
   int bit = h % 32;
   int idx = h / 32;
 
@@ -79,7 +81,7 @@ __device__ inline void _zero_bit(std::uint32_t *arr, std::uint32_t h) {
   std::uint32_t old = arr[idx];
   do {
     assumed = old;
-    old = atomicCAS(arr + idx, assumed, assumed & ~(1 << bit));
+    old     = atomicCAS(arr + idx, assumed, assumed & ~(1 << bit));
   } while (assumed != old);
 }
 

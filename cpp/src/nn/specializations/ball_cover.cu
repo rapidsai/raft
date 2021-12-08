@@ -19,10 +19,9 @@
 #include <raft/spatial/knn/ball_cover.hpp>
 
 // Ignore upstream specializations to avoid unnecessary recompiling
-#include <raft/distance/distance_specializations.hpp>
-#include <raft/spatial/knn/specializations/ball_cover_lowdim_specializations.hpp>
-#include <raft/spatial/knn/specializations/fused_l2_knn_specializations.hpp>
-#include <raft/spatial/knn/specializations/knn_specializations.hpp>
+#include <raft/distance/specializations.hpp>
+#include <raft/spatial/knn/specializations/fused_l2_knn.hpp>
+#include <raft/spatial/knn/specializations/knn.hpp>
 
 namespace raft {
 namespace spatial {
@@ -31,19 +30,27 @@ template class BallCoverIndex<int, float, std::uint32_t>;
 template class BallCoverIndex<std::int64_t, float, std::uint32_t>;
 
 template void rbc_build_index<std::int64_t, float, std::uint32_t>(
-  const raft::handle_t &handle,
-  BallCoverIndex<std::int64_t, float, std::uint32_t> &index);
+  const raft::handle_t& handle, BallCoverIndex<std::int64_t, float, std::uint32_t>& index);
 
 template void rbc_knn_query<std::int64_t, float, std::uint32_t>(
-  const raft::handle_t &handle,
-  BallCoverIndex<std::int64_t, float, std::uint32_t> &index, std::uint32_t k,
-  const float *query, std::uint32_t n_query_pts, std::int64_t *inds,
-  float *dists, bool perform_post_filtering, float weight);
+  const raft::handle_t& handle,
+  BallCoverIndex<std::int64_t, float, std::uint32_t>& index,
+  std::uint32_t k,
+  const float* query,
+  std::uint32_t n_query_pts,
+  std::int64_t* inds,
+  float* dists,
+  bool perform_post_filtering,
+  float weight);
 
 template void rbc_all_knn_query<std::int64_t, float, std::uint32_t>(
-  const raft::handle_t &handle,
-  BallCoverIndex<std::int64_t, float, std::uint32_t> &index, std::uint32_t k,
-  std::int64_t *inds, float *dists, bool perform_post_filtering, float weight);
+  const raft::handle_t& handle,
+  BallCoverIndex<std::int64_t, float, std::uint32_t>& index,
+  std::uint32_t k,
+  std::int64_t* inds,
+  float* dists,
+  bool perform_post_filtering,
+  float weight);
 
 };  // namespace knn
 };  // namespace spatial

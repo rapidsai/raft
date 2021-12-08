@@ -35,24 +35,23 @@ namespace comms {
  *
  * @param[in] handle the raft handle to use. This is expected to already have an
  *        initialized comms instance.
-*  @param[in] root the root rank id
+ *  @param[in] root the root rank id
  */
-bool test_collective_allreduce(const handle_t &handle, int root) {
-  comms_t const &communicator = handle.get_comms();
+bool test_collective_allreduce(const handle_t& handle, int root)
+{
+  comms_t const& communicator = handle.get_comms();
 
   int const send = 1;
 
   cudaStream_t stream = handle.get_stream();
 
   rmm::device_scalar<int> temp_d(stream);
-  CUDA_CHECK(
-    cudaMemcpyAsync(temp_d.data(), &send, 1, cudaMemcpyHostToDevice, stream));
+  CUDA_CHECK(cudaMemcpyAsync(temp_d.data(), &send, 1, cudaMemcpyHostToDevice, stream));
 
   communicator.allreduce(temp_d.data(), temp_d.data(), 1, op_t::SUM, stream);
 
   int temp_h = 0;
-  CUDA_CHECK(
-    cudaMemcpyAsync(&temp_h, temp_d.data(), 1, cudaMemcpyDeviceToHost, stream));
+  CUDA_CHECK(cudaMemcpyAsync(&temp_h, temp_d.data(), 1, cudaMemcpyDeviceToHost, stream));
   CUDA_CHECK(cudaStreamSynchronize(stream));
   communicator.barrier();
 
@@ -67,10 +66,11 @@ bool test_collective_allreduce(const handle_t &handle, int root) {
  *
  * @param[in] handle the raft handle to use. This is expected to already have an
  *        initialized comms instance.
-*  @param[in] root the root rank id
+ *  @param[in] root the root rank id
  */
-bool test_collective_broadcast(const handle_t &handle, int root) {
-  comms_t const &communicator = handle.get_comms();
+bool test_collective_broadcast(const handle_t& handle, int root)
+{
+  comms_t const& communicator = handle.get_comms();
 
   int const send = root;
 
@@ -79,14 +79,12 @@ bool test_collective_broadcast(const handle_t &handle, int root) {
   rmm::device_scalar<int> temp_d(stream);
 
   if (communicator.get_rank() == root)
-    CUDA_CHECK(cudaMemcpyAsync(temp_d.data(), &send, sizeof(int),
-                               cudaMemcpyHostToDevice, stream));
+    CUDA_CHECK(cudaMemcpyAsync(temp_d.data(), &send, sizeof(int), cudaMemcpyHostToDevice, stream));
 
   communicator.bcast(temp_d.data(), 1, root, stream);
   communicator.sync_stream(stream);
   int temp_h = -1;  // Verify more than one byte is being sent
-  CUDA_CHECK(cudaMemcpyAsync(&temp_h, temp_d.data(), sizeof(int),
-                             cudaMemcpyDeviceToHost, stream));
+  CUDA_CHECK(cudaMemcpyAsync(&temp_h, temp_d.data(), sizeof(int), cudaMemcpyDeviceToHost, stream));
   CUDA_CHECK(cudaStreamSynchronize(stream));
   communicator.barrier();
 
@@ -101,10 +99,11 @@ bool test_collective_broadcast(const handle_t &handle, int root) {
  *
  * @param[in] handle the raft handle to use. This is expected to already have an
  *        initialized comms instance.
-*  @param[in] root the root rank id
+ *  @param[in] root the root rank id
  */
-bool test_collective_reduce(const handle_t &handle, int root) {
-  comms_t const &communicator = handle.get_comms();
+bool test_collective_reduce(const handle_t& handle, int root)
+{
+  comms_t const& communicator = handle.get_comms();
 
   int const send = root;
 
@@ -112,14 +111,12 @@ bool test_collective_reduce(const handle_t &handle, int root) {
 
   rmm::device_scalar<int> temp_d(stream);
 
-  CUDA_CHECK(cudaMemcpyAsync(temp_d.data(), &send, sizeof(int),
-                             cudaMemcpyHostToDevice, stream));
+  CUDA_CHECK(cudaMemcpyAsync(temp_d.data(), &send, sizeof(int), cudaMemcpyHostToDevice, stream));
 
   communicator.reduce(temp_d.data(), temp_d.data(), 1, op_t::SUM, root, stream);
   communicator.sync_stream(stream);
   int temp_h = -1;  // Verify more than one byte is being sent
-  CUDA_CHECK(cudaMemcpyAsync(&temp_h, temp_d.data(), sizeof(int),
-                             cudaMemcpyDeviceToHost, stream));
+  CUDA_CHECK(cudaMemcpyAsync(&temp_h, temp_d.data(), sizeof(int), cudaMemcpyDeviceToHost, stream));
   CUDA_CHECK(cudaStreamSynchronize(stream));
   communicator.barrier();
 
@@ -137,10 +134,11 @@ bool test_collective_reduce(const handle_t &handle, int root) {
  *
  * @param[in] handle the raft handle to use. This is expected to already have an
  *        initialized comms instance.
-*  @param[in] root the root rank id
+ *  @param[in] root the root rank id
  */
-bool test_collective_allgather(const handle_t &handle, int root) {
-  comms_t const &communicator = handle.get_comms();
+bool test_collective_allgather(const handle_t& handle, int root)
+{
+  comms_t const& communicator = handle.get_comms();
 
   int const send = communicator.get_rank();
 
@@ -149,16 +147,13 @@ bool test_collective_allgather(const handle_t &handle, int root) {
   rmm::device_scalar<int> temp_d(stream);
   rmm::device_uvector<int> recv_d(communicator.get_size(), stream);
 
-  CUDA_CHECK(cudaMemcpyAsync(temp_d.data(), &send, sizeof(int),
-                             cudaMemcpyHostToDevice, stream));
+  CUDA_CHECK(cudaMemcpyAsync(temp_d.data(), &send, sizeof(int), cudaMemcpyHostToDevice, stream));
 
   communicator.allgather(temp_d.data(), recv_d.data(), 1, stream);
   communicator.sync_stream(stream);
-  int
-    temp_h[communicator.get_size()];  // Verify more than one byte is being sent
-  CUDA_CHECK(cudaMemcpyAsync(&temp_h, recv_d.data(),
-                             sizeof(int) * communicator.get_size(),
-                             cudaMemcpyDeviceToHost, stream));
+  int temp_h[communicator.get_size()];  // Verify more than one byte is being sent
+  CUDA_CHECK(cudaMemcpyAsync(
+    &temp_h, recv_d.data(), sizeof(int) * communicator.get_size(), cudaMemcpyDeviceToHost, stream));
   CUDA_CHECK(cudaStreamSynchronize(stream));
   communicator.barrier();
 
@@ -176,30 +171,29 @@ bool test_collective_allgather(const handle_t &handle, int root) {
  *
  * @param[in] handle the raft handle to use. This is expected to already have an
  *        initialized comms instance.
-*  @param[in] root the root rank id
+ *  @param[in] root the root rank id
  */
-bool test_collective_gather(const handle_t &handle, int root) {
-  comms_t const &communicator = handle.get_comms();
+bool test_collective_gather(const handle_t& handle, int root)
+{
+  comms_t const& communicator = handle.get_comms();
 
   int const send = communicator.get_rank();
 
   cudaStream_t stream = handle.get_stream();
 
   rmm::device_scalar<int> temp_d(stream);
-  rmm::device_uvector<int> recv_d(
-    communicator.get_rank() == root ? communicator.get_size() : 0, stream);
+  rmm::device_uvector<int> recv_d(communicator.get_rank() == root ? communicator.get_size() : 0,
+                                  stream);
 
-  CUDA_CHECK(cudaMemcpyAsync(temp_d.data(), &send, sizeof(int),
-                             cudaMemcpyHostToDevice, stream));
+  CUDA_CHECK(cudaMemcpyAsync(temp_d.data(), &send, sizeof(int), cudaMemcpyHostToDevice, stream));
 
   communicator.gather(temp_d.data(), recv_d.data(), 1, root, stream);
   communicator.sync_stream(stream);
 
   if (communicator.get_rank() == root) {
     std::vector<int> temp_h(communicator.get_size(), 0);
-    CUDA_CHECK(cudaMemcpyAsync(temp_h.data(), recv_d.data(),
-                               sizeof(int) * temp_h.size(),
-                               cudaMemcpyDeviceToHost, stream));
+    CUDA_CHECK(cudaMemcpyAsync(
+      temp_h.data(), recv_d.data(), sizeof(int) * temp_h.size(), cudaMemcpyDeviceToHost, stream));
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
     for (int i = 0; i < communicator.get_size(); i++) {
@@ -214,45 +208,47 @@ bool test_collective_gather(const handle_t &handle, int root) {
  *
  * @param[in] handle the raft handle to use. This is expected to already have an
  *        initialized comms instance.
-*  @param[in] root the root rank id
+ *  @param[in] root the root rank id
  */
-bool test_collective_gatherv(const handle_t &handle, int root) {
-  comms_t const &communicator = handle.get_comms();
+bool test_collective_gatherv(const handle_t& handle, int root)
+{
+  comms_t const& communicator = handle.get_comms();
 
   std::vector<size_t> sendcounts(communicator.get_size());
   std::iota(sendcounts.begin(), sendcounts.end(), size_t{1});
   std::vector<size_t> displacements(communicator.get_size() + 1, 0);
-  std::partial_sum(sendcounts.begin(), sendcounts.end(),
-                   displacements.begin() + 1);
+  std::partial_sum(sendcounts.begin(), sendcounts.end(), displacements.begin() + 1);
 
-  std::vector<int> sends(displacements[communicator.get_rank() + 1] -
-                           displacements[communicator.get_rank()],
-                         communicator.get_rank());
+  std::vector<int> sends(
+    displacements[communicator.get_rank() + 1] - displacements[communicator.get_rank()],
+    communicator.get_rank());
 
   cudaStream_t stream = handle.get_stream();
 
   rmm::device_uvector<int> temp_d(sends.size(), stream);
-  rmm::device_uvector<int> recv_d(
-    communicator.get_rank() == root ? displacements.back() : 0, stream);
+  rmm::device_uvector<int> recv_d(communicator.get_rank() == root ? displacements.back() : 0,
+                                  stream);
 
-  CUDA_CHECK(cudaMemcpyAsync(temp_d.data(), sends.data(),
-                             sends.size() * sizeof(int), cudaMemcpyHostToDevice,
-                             stream));
+  CUDA_CHECK(cudaMemcpyAsync(
+    temp_d.data(), sends.data(), sends.size() * sizeof(int), cudaMemcpyHostToDevice, stream));
 
   communicator.gatherv(
-    temp_d.data(), recv_d.data(), temp_d.size(),
-    communicator.get_rank() == root ? sendcounts.data()
-                                    : static_cast<size_t *>(nullptr),
-    communicator.get_rank() == root ? displacements.data()
-                                    : static_cast<size_t *>(nullptr),
-    root, stream);
+    temp_d.data(),
+    recv_d.data(),
+    temp_d.size(),
+    communicator.get_rank() == root ? sendcounts.data() : static_cast<size_t*>(nullptr),
+    communicator.get_rank() == root ? displacements.data() : static_cast<size_t*>(nullptr),
+    root,
+    stream);
   communicator.sync_stream(stream);
 
   if (communicator.get_rank() == root) {
     std::vector<int> temp_h(displacements.back(), 0);
-    CUDA_CHECK(cudaMemcpyAsync(temp_h.data(), recv_d.data(),
+    CUDA_CHECK(cudaMemcpyAsync(temp_h.data(),
+                               recv_d.data(),
                                sizeof(int) * displacements.back(),
-                               cudaMemcpyDeviceToHost, stream));
+                               cudaMemcpyDeviceToHost,
+                               stream));
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
     for (int i = 0; i < communicator.get_size(); i++) {
@@ -271,10 +267,11 @@ bool test_collective_gatherv(const handle_t &handle, int root) {
  *
  * @param[in] handle the raft handle to use. This is expected to already have an
  *        initialized comms instance.
-*  @param[in] root the root rank id
+ *  @param[in] root the root rank id
  */
-bool test_collective_reducescatter(const handle_t &handle, int root) {
-  comms_t const &communicator = handle.get_comms();
+bool test_collective_reducescatter(const handle_t& handle, int root)
+{
+  comms_t const& communicator = handle.get_comms();
 
   std::vector<int> sends(communicator.get_size(), 1);
 
@@ -283,16 +280,13 @@ bool test_collective_reducescatter(const handle_t &handle, int root) {
   rmm::device_uvector<int> temp_d(sends.size(), stream);
   rmm::device_scalar<int> recv_d(stream);
 
-  CUDA_CHECK(cudaMemcpyAsync(temp_d.data(), sends.data(),
-                             sends.size() * sizeof(int), cudaMemcpyHostToDevice,
-                             stream));
+  CUDA_CHECK(cudaMemcpyAsync(
+    temp_d.data(), sends.data(), sends.size() * sizeof(int), cudaMemcpyHostToDevice, stream));
 
-  communicator.reducescatter(temp_d.data(), recv_d.data(), 1, op_t::SUM,
-                             stream);
+  communicator.reducescatter(temp_d.data(), recv_d.data(), 1, op_t::SUM, stream);
   communicator.sync_stream(stream);
   int temp_h = -1;  // Verify more than one byte is being sent
-  CUDA_CHECK(cudaMemcpyAsync(&temp_h, recv_d.data(), sizeof(int),
-                             cudaMemcpyDeviceToHost, stream));
+  CUDA_CHECK(cudaMemcpyAsync(&temp_h, recv_d.data(), sizeof(int), cudaMemcpyDeviceToHost, stream));
   CUDA_CHECK(cudaStreamSynchronize(stream));
   communicator.barrier();
 
@@ -309,9 +303,10 @@ bool test_collective_reducescatter(const handle_t &handle, int root) {
  *        initialized comms instance.
  * @param[in] numTrials number of iterations of all-to-all messaging to perform
  */
-bool test_pointToPoint_simple_send_recv(const handle_t &h, int numTrials) {
-  comms_t const &communicator = h.get_comms();
-  int const rank = communicator.get_rank();
+bool test_pointToPoint_simple_send_recv(const handle_t& h, int numTrials)
+{
+  comms_t const& communicator = h.get_comms();
+  int const rank              = communicator.get_rank();
 
   bool ret = true;
   for (int i = 0; i < numTrials; i++) {
@@ -320,11 +315,11 @@ bool test_pointToPoint_simple_send_recv(const handle_t &h, int numTrials) {
     std::vector<request_t> requests;
     requests.resize(2 * (communicator.get_size() - 1));
     int request_idx = 0;
-    //post receives
+    // post receives
     for (int r = 0; r < communicator.get_size(); ++r) {
       if (r != rank) {
-        communicator.irecv(received_data.data() + request_idx, 1, r, 0,
-                           requests.data() + request_idx);
+        communicator.irecv(
+          received_data.data() + request_idx, 1, r, 0, requests.data() + request_idx);
         ++request_idx;
       }
     }
@@ -360,8 +355,7 @@ bool test_pointToPoint_simple_send_recv(const handle_t &h, int numTrials) {
       communicator.barrier();
     }
 
-    if (communicator.get_rank() == 0)
-      std::cout << "=========================" << std::endl;
+    if (communicator.get_rank() == 0) std::cout << "=========================" << std::endl;
   }
 
   return ret;
@@ -374,10 +368,11 @@ bool test_pointToPoint_simple_send_recv(const handle_t &h, int numTrials) {
  *        initialized comms instance.
  * @param numTrials number of iterations of send or receive messaging to perform
  */
-bool test_pointToPoint_device_send_or_recv(const handle_t &h, int numTrials) {
-  comms_t const &communicator = h.get_comms();
-  int const rank = communicator.get_rank();
-  cudaStream_t stream = h.get_stream();
+bool test_pointToPoint_device_send_or_recv(const handle_t& h, int numTrials)
+{
+  comms_t const& communicator = h.get_comms();
+  int const rank              = communicator.get_rank();
+  cudaStream_t stream         = h.get_stream();
 
   bool ret = true;
   for (int i = 0; i < numTrials; i++) {
@@ -400,13 +395,9 @@ bool test_pointToPoint_device_send_or_recv(const handle_t &h, int numTrials) {
 
     communicator.sync_stream(stream);
 
-    if (!sender && received_data.value(stream) != rank - 1) {
-      ret = false;
-    }
+    if (!sender && received_data.value(stream) != rank - 1) { ret = false; }
 
-    if (communicator.get_rank() == 0) {
-      std::cout << "=========================" << std::endl;
-    }
+    if (communicator.get_rank() == 0) { std::cout << "=========================" << std::endl; }
   }
 
   return ret;
@@ -419,10 +410,11 @@ bool test_pointToPoint_device_send_or_recv(const handle_t &h, int numTrials) {
  *        initialized comms instance.
  * @param numTrials number of iterations of send or receive messaging to perform
  */
-bool test_pointToPoint_device_sendrecv(const handle_t &h, int numTrials) {
-  comms_t const &communicator = h.get_comms();
-  int const rank = communicator.get_rank();
-  cudaStream_t stream = h.get_stream();
+bool test_pointToPoint_device_sendrecv(const handle_t& h, int numTrials)
+{
+  comms_t const& communicator = h.get_comms();
+  int const rank              = communicator.get_rank();
+  cudaStream_t stream         = h.get_stream();
 
   bool ret = true;
   for (int i = 0; i < numTrials; i++) {
@@ -436,12 +428,12 @@ bool test_pointToPoint_device_sendrecv(const handle_t &h, int numTrials) {
 
     if (rank % 2 == 0) {
       if (rank + 1 < communicator.get_size()) {
-        communicator.device_sendrecv(sent_data.data(), 1, rank + 1,
-                                     received_data.data(), 1, rank + 1, stream);
+        communicator.device_sendrecv(
+          sent_data.data(), 1, rank + 1, received_data.data(), 1, rank + 1, stream);
       }
     } else {
-      communicator.device_sendrecv(sent_data.data(), 1, rank - 1,
-                                   received_data.data(), 1, rank - 1, stream);
+      communicator.device_sendrecv(
+        sent_data.data(), 1, rank - 1, received_data.data(), 1, rank - 1, stream);
     }
 
     communicator.sync_stream(stream);
@@ -451,9 +443,7 @@ bool test_pointToPoint_device_sendrecv(const handle_t &h, int numTrials) {
       ret = false;
     }
 
-    if (communicator.get_rank() == 0) {
-      std::cout << "=========================" << std::endl;
-    }
+    if (communicator.get_rank() == 0) { std::cout << "=========================" << std::endl; }
   }
 
   return ret;
@@ -466,11 +456,11 @@ bool test_pointToPoint_device_sendrecv(const handle_t &h, int numTrials) {
  *        initialized comms instance.
  * @param numTrials number of iterations of send or receive messaging to perform
  */
-bool test_pointToPoint_device_multicast_sendrecv(const handle_t &h,
-                                                 int numTrials) {
-  comms_t const &communicator = h.get_comms();
-  int const rank = communicator.get_rank();
-  cudaStream_t stream = h.get_stream();
+bool test_pointToPoint_device_multicast_sendrecv(const handle_t& h, int numTrials)
+{
+  comms_t const& communicator = h.get_comms();
+  int const rank              = communicator.get_rank();
+  cudaStream_t stream         = h.get_stream();
 
   bool ret = true;
   for (int i = 0; i < numTrials; i++) {
@@ -493,25 +483,26 @@ bool test_pointToPoint_device_multicast_sendrecv(const handle_t &h,
     std::vector<int> srcs(communicator.get_size());
     std::iota(srcs.begin(), srcs.end(), int{0});
 
-    communicator.device_multicast_sendrecv(
-      sent_data.data(), sendsizes, sendoffsets, dests, received_data.data(),
-      recvsizes, recvoffsets, srcs, stream);
+    communicator.device_multicast_sendrecv(sent_data.data(),
+                                           sendsizes,
+                                           sendoffsets,
+                                           dests,
+                                           received_data.data(),
+                                           recvsizes,
+                                           recvoffsets,
+                                           srcs,
+                                           stream);
 
     communicator.sync_stream(stream);
 
     std::vector<int> h_received_data(communicator.get_size());
-    raft::update_host(h_received_data.data(), received_data.data(),
-                      received_data.size(), stream);
+    raft::update_host(h_received_data.data(), received_data.data(), received_data.size(), stream);
     CUDA_TRY(cudaStreamSynchronize(stream));
     for (int i = 0; i < communicator.get_size(); ++i) {
-      if (h_received_data[i] != i) {
-        ret = false;
-      }
+      if (h_received_data[i] != i) { ret = false; }
     }
 
-    if (communicator.get_rank() == 0) {
-      std::cout << "=========================" << std::endl;
-    }
+    if (communicator.get_rank() == 0) { std::cout << "=========================" << std::endl; }
   }
 
   return ret;
@@ -524,20 +515,20 @@ bool test_pointToPoint_device_multicast_sendrecv(const handle_t &h,
  *        initialized comms instance.
  * @param n_colors number of different colors to test
  */
-bool test_commsplit(const handle_t &h, int n_colors) {
-  comms_t const &communicator = h.get_comms();
-  int const rank = communicator.get_rank();
-  int const size = communicator.get_size();
+bool test_commsplit(const handle_t& h, int n_colors)
+{
+  comms_t const& communicator = h.get_comms();
+  int const rank              = communicator.get_rank();
+  int const size              = communicator.get_size();
 
   if (n_colors > size) n_colors = size;
 
   // first we need to assign to a color, then assign the rank within the color
   int color = rank % n_colors;
-  int key = rank / n_colors;
+  int key   = rank / n_colors;
 
   handle_t new_handle(1);
-  auto shared_comm =
-    std::make_shared<comms_t>(communicator.comm_split(color, key));
+  auto shared_comm = std::make_shared<comms_t>(communicator.comm_split(color, key));
   new_handle.set_comms(shared_comm);
 
   return test_collective_allreduce(new_handle, 0);

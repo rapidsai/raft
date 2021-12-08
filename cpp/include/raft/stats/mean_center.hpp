@@ -38,12 +38,25 @@ namespace stats {
  * @param stream cuda stream where to launch work
  */
 template <typename Type, typename IdxType = int, int TPB = 256>
-void meanCenter(Type *out, const Type *data, const Type *mu, IdxType D,
-                IdxType N, bool rowMajor, bool bcastAlongRows,
-                cudaStream_t stream) {
+void meanCenter(Type* out,
+                const Type* data,
+                const Type* mu,
+                IdxType D,
+                IdxType N,
+                bool rowMajor,
+                bool bcastAlongRows,
+                cudaStream_t stream)
+{
   raft::linalg::matrixVectorOp(
-    out, data, mu, D, N, rowMajor, bcastAlongRows,
-    [] __device__(Type a, Type b) { return a - b; }, stream);
+    out,
+    data,
+    mu,
+    D,
+    N,
+    rowMajor,
+    bcastAlongRows,
+    [] __device__(Type a, Type b) { return a - b; },
+    stream);
 }
 
 /**
@@ -61,11 +74,25 @@ void meanCenter(Type *out, const Type *data, const Type *mu, IdxType D,
  * @param stream cuda stream where to launch work
  */
 template <typename Type, typename IdxType = int, int TPB = 256>
-void meanAdd(Type *out, const Type *data, const Type *mu, IdxType D, IdxType N,
-             bool rowMajor, bool bcastAlongRows, cudaStream_t stream) {
+void meanAdd(Type* out,
+             const Type* data,
+             const Type* mu,
+             IdxType D,
+             IdxType N,
+             bool rowMajor,
+             bool bcastAlongRows,
+             cudaStream_t stream)
+{
   raft::linalg::matrixVectorOp(
-    out, data, mu, D, N, rowMajor, bcastAlongRows,
-    [] __device__(Type a, Type b) { return a + b; }, stream);
+    out,
+    data,
+    mu,
+    D,
+    N,
+    rowMajor,
+    bcastAlongRows,
+    [] __device__(Type a, Type b) { return a + b; },
+    stream);
 }
 
 };  // end namespace stats
