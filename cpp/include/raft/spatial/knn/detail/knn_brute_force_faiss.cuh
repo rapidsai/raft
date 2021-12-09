@@ -140,7 +140,7 @@ inline void knn_merge_parts_impl(value_t* inK,
   knn_merge_parts_kernel<value_idx, value_t, warp_q, thread_q, n_threads>
     <<<grid, block, 0, stream>>>(
       inK, inV, outK, outV, n_samples, n_parts, kInit, vInit, k, translations);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 /**
@@ -265,7 +265,7 @@ void brute_force_knn_impl(
   }
 
   int device;
-  CUDA_CHECK(cudaGetDevice(&device));
+  RAFT_CUDA_TRY(cudaGetDevice(&device));
 
   rmm::device_uvector<std::int64_t> trans(id_ranges->size(), userStream);
   raft::update_device(trans.data(), id_ranges->data(), id_ranges->size(), userStream);
@@ -285,7 +285,7 @@ void brute_force_knn_impl(
   }
 
   // Sync user stream only if using other streams to parallelize query
-  if (n_int_streams > 0) CUDA_CHECK(cudaStreamSynchronize(userStream));
+  if (n_int_streams > 0) RAFT_CUDA_TRY(cudaStreamSynchronize(userStream));
 
   for (size_t i = 0; i < input.size(); i++) {
     float* out_d_ptr   = out_D + (i * k * n);
@@ -352,14 +352,14 @@ void brute_force_knn_impl(
       }
     }
 
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
 
   // Sync internal streams if used. We don't need to
   // sync the user stream because we'll already have
   // fully serial execution.
   for (int i = 0; i < n_int_streams; i++) {
-    CUDA_CHECK(cudaStreamSynchronize(internalStreams[i]));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(internalStreams[i]));
   }
 
   if (input.size() > 1 || translations != nullptr) {
