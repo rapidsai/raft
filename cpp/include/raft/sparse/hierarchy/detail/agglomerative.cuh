@@ -119,7 +119,7 @@ void build_dendrogram_host(const handle_t& handle,
   update_host(mst_dst_h.data(), cols, n_edges, stream);
   update_host(mst_weights_h.data(), data, n_edges, stream);
 
-  RAFT_CHECK_CUDA(cudaStreamSynchronize(stream));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
   std::vector<value_idx> children_h(n_edges * 2);
   std::vector<value_idx> out_size_h(n_edges);

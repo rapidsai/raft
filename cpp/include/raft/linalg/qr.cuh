@@ -52,10 +52,10 @@ void qrGetQ(const raft::handle_t& handle,
 
   int m = n_rows, n = n_cols;
   int k = min(m, n);
-  RAFT_CHECK_CUDA(cudaMemcpyAsync(Q, M, sizeof(math_t) * m * n, cudaMemcpyDeviceToDevice, stream));
+  RAFT_CUDA_TRY(cudaMemcpyAsync(Q, M, sizeof(math_t) * m * n, cudaMemcpyDeviceToDevice, stream));
 
   rmm::device_uvector<math_t> tau(k, stream);
-  RAFT_CHECK_CUDA(cudaMemsetAsync(tau.data(), 0, sizeof(math_t) * k, stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(tau.data(), 0, sizeof(math_t) * k, stream));
 
   rmm::device_scalar<int> devInfo(stream);
   int Lwork;
@@ -66,7 +66,7 @@ void qrGetQ(const raft::handle_t& handle,
     cusolverH, m, n, Q, m, tau.data(), workspace.data(), Lwork, devInfo.data(), stream));
   /// @note in v9.2, without deviceSynchronize *SquareMatrixNorm* ml-prims unit-tests fail.
 #if defined(CUDART_VERSION) && CUDART_VERSION <= 9020
-  RAFT_CHECK_CUDA(cudaDeviceSynchronize());
+  RAFT_CUDA_TRY(cudaDeviceSynchronize());
 #endif
   RAFT_CUSOLVER_TRY(cusolverDnorgqr_bufferSize(cusolverH, m, n, k, Q, m, tau.data(), &Lwork));
   workspace.resize(Lwork, stream);
@@ -98,9 +98,9 @@ void qrGetQR(const raft::handle_t& handle,
   int m = n_rows, n = n_cols;
   rmm::device_uvector<math_t> R_full(m * n, stream);
   rmm::device_uvector<math_t> tau(min(m, n), stream);
-  RAFT_CHECK_CUDA(cudaMemsetAsync(tau.data(), 0, sizeof(math_t) * min(m, n), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(tau.data(), 0, sizeof(math_t) * min(m, n), stream));
   int R_full_nrows = m, R_full_ncols = n;
-  RAFT_CHECK_CUDA(
+  RAFT_CUDA_TRY(
     cudaMemcpyAsync(R_full.data(), M, sizeof(math_t) * m * n, cudaMemcpyDeviceToDevice, stream));
 
   int Lwork;
@@ -121,12 +121,12 @@ void qrGetQR(const raft::handle_t& handle,
                                     stream));
   // @note in v9.2, without deviceSynchronize *SquareMatrixNorm* ml-prims unit-tests fail.
 #if defined(CUDART_VERSION) && CUDART_VERSION <= 9020
-  RAFT_CHECK_CUDA(cudaDeviceSynchronize());
+  RAFT_CUDA_TRY(cudaDeviceSynchronize());
 #endif
 
   raft::matrix::copyUpperTriangular(R_full.data(), R, m, n, stream);
 
-  RAFT_CHECK_CUDA(
+  RAFT_CUDA_TRY(
     cudaMemcpyAsync(Q, R_full.data(), sizeof(math_t) * m * n, cudaMemcpyDeviceToDevice, stream));
   int Q_nrows = m, Q_ncols = n;
 

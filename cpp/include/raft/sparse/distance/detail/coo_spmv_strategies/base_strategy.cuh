@@ -53,16 +53,16 @@ class coo_spmv_strategy {
                       int n_blocks,
                       int n_blocks_per_row)
   {
-    RAFT_CHECK_CUDA(cudaFuncSetCacheConfig(balanced_coo_generalized_spmv_kernel<strategy_t,
-                                                                                indptr_it,
-                                                                                value_idx,
-                                                                                value_t,
-                                                                                false,
-                                                                                tpb,
-                                                                                product_f,
-                                                                                accum_f,
-                                                                                write_f>,
-                                           cudaFuncCachePreferShared));
+    RAFT_CUDA_TRY(cudaFuncSetCacheConfig(balanced_coo_generalized_spmv_kernel<strategy_t,
+                                                                              indptr_it,
+                                                                              value_idx,
+                                                                              value_t,
+                                                                              false,
+                                                                              tpb,
+                                                                              product_f,
+                                                                              accum_f,
+                                                                              write_f>,
+                                         cudaFuncCachePreferShared));
 
     balanced_coo_generalized_spmv_kernel<strategy_t, indptr_it, value_idx, value_t, false, tpb>
       <<<n_blocks, tpb, smem, config.handle.get_stream()>>>(strategy,
@@ -103,16 +103,16 @@ class coo_spmv_strategy {
                           int n_blocks,
                           int n_blocks_per_row)
   {
-    RAFT_CHECK_CUDA(cudaFuncSetCacheConfig(balanced_coo_generalized_spmv_kernel<strategy_t,
-                                                                                indptr_it,
-                                                                                value_idx,
-                                                                                value_t,
-                                                                                true,
-                                                                                tpb,
-                                                                                product_f,
-                                                                                accum_f,
-                                                                                write_f>,
-                                           cudaFuncCachePreferShared));
+    RAFT_CUDA_TRY(cudaFuncSetCacheConfig(balanced_coo_generalized_spmv_kernel<strategy_t,
+                                                                              indptr_it,
+                                                                              value_idx,
+                                                                              value_t,
+                                                                              true,
+                                                                              tpb,
+                                                                              product_f,
+                                                                              accum_f,
+                                                                              write_f>,
+                                         cudaFuncCachePreferShared));
 
     balanced_coo_generalized_spmv_kernel<strategy_t, indptr_it, value_idx, value_t, true, tpb>
       <<<n_blocks, tpb, smem, config.handle.get_stream()>>>(strategy,

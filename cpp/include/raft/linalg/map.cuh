@@ -39,7 +39,7 @@ void mapImpl(
   const int nblks = raft::ceildiv(len, (size_t)TPB);
   mapKernel<InType, OutType, MapOp, TPB, Args...>
     <<<nblks, TPB, 0, stream>>>(out, len, map, in, args...);
-  RAFT_CHECK_CUDA(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 /**

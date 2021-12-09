@@ -83,7 +83,7 @@ class CSRToDenseTest : public ::testing::TestWithParam<CSRToDenseInputs<value_id
     std::vector<value_t> out_ref_h = params.out_ref_h;
 
     update_device(out_ref.data(), out_ref_h.data(), out_ref_h.size(), stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    RAFT_CHECK_CUDA(cudaStreamSynchronize(stream));
   }
 
   void SetUp() override

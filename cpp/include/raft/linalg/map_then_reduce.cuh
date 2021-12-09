@@ -88,7 +88,7 @@ void mapThenReduceImpl(OutType* out,
   const int nblks = raft::ceildiv(len, (size_t)TPB);
   mapThenReduceKernel<InType, OutType, MapOp, ReduceLambda, TPB, Args...>
     <<<nblks, TPB, 0, stream>>>(out, len, neutral, map, op, in, args...);
-  RAFT_CHECK_CUDA(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 /**

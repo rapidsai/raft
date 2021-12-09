@@ -119,11 +119,11 @@ void svdQR(const raft::handle_t& handle,
   // Transpose the right singular vector back
   if (trans_right) raft::linalg::transpose(right_sing_vecs, n_cols, stream);
 
-  RAFT_CHECK_CUDA(cudaGetLastError());
+  RAFT_CUDA_TRY(cudaGetLastError());
 
   int dev_info;
   raft::update_host(&dev_info, devInfo.data(), 1, stream);
-  RAFT_CHECK_CUDA(cudaStreamSynchronize(stream));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   ASSERT(dev_info == 0,
          "svd.cuh: svd couldn't converge to a solution. "
          "This usually occurs when some of the features do not vary enough.");
@@ -349,8 +349,8 @@ bool evaluateSVDByL2Norm(const raft::handle_t& handle,
   // form product matrix
   rmm::device_uvector<math_t> P_d(m * n, stream);
   rmm::device_uvector<math_t> S_mat(k * k, stream);
-  RAFT_CHECK_CUDA(cudaMemsetAsync(P_d.data(), 0, sizeof(math_t) * m * n, stream));
-  RAFT_CHECK_CUDA(cudaMemsetAsync(S_mat.data(), 0, sizeof(math_t) * k * k, stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(P_d.data(), 0, sizeof(math_t) * m * n, stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(S_mat.data(), 0, sizeof(math_t) * k * k, stream));
 
   raft::matrix::initializeDiagonalMatrix(S_vec, S_mat.data(), k, k, stream);
   svdReconstruction(handle, U, S_mat.data(), V, P_d.data(), m, n, k, stream);
@@ -365,7 +365,7 @@ bool evaluateSVDByL2Norm(const raft::handle_t& handle,
   // calculate percent error
   const math_t alpha = 1.0, beta = -1.0;
   rmm::device_uvector<math_t> A_minus_P(m * n, stream);
-  RAFT_CHECK_CUDA(cudaMemsetAsync(A_minus_P.data(), 0, sizeof(math_t) * m * n, stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(A_minus_P.data(), 0, sizeof(math_t) * m * n, stream));
 
   RAFT_CUBLAS_TRY(raft::linalg::cublasgeam(cublasH,
                                            CUBLAS_OP_N,

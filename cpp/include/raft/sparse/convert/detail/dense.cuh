@@ -103,7 +103,7 @@ void csr_to_dense(cusparseHandle_t handle,
 
   } else {
     int blockdim = block_dim(ncols);
-    RAFT_CHECK_CUDA(cudaMemsetAsync(out, 0, nrows * ncols * sizeof(value_t), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(out, 0, nrows * ncols * sizeof(value_t), stream));
     csr_to_dense_warp_per_row_kernel<<<nrows, blockdim, 0, stream>>>(
       ncols, csr_data, csr_indptr, csr_indices, out);
   }

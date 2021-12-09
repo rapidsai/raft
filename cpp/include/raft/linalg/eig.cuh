@@ -65,7 +65,7 @@ void eigDC_legacy(const raft::handle_t& handle,
                                     lwork,
                                     d_dev_info.data(),
                                     stream));
-  RAFT_CHECK_CUDA(cudaGetLastError());
+  RAFT_CUDA_TRY(cudaGetLastError());
 
   auto dev_info = d_dev_info.value(stream);
   ASSERT(dev_info == 0,
@@ -138,7 +138,7 @@ void eigDC(const raft::handle_t& handle,
                                      d_dev_info.data(),
                                      stream));
 
-  RAFT_CHECK_CUDA(cudaGetLastError());
+  RAFT_CUDA_TRY(cudaGetLastError());
   RAFT_CUSOLVER_TRY(cusolverDnDestroyParams(dn_params));
   int dev_info = d_dev_info.value(stream);
   ASSERT(dev_info == 0,
@@ -241,7 +241,7 @@ void eigSelDC(const raft::handle_t& handle,
                                        stream));
   }
 
-  RAFT_CHECK_CUDA(cudaGetLastError());
+  RAFT_CUDA_TRY(cudaGetLastError());
 
   int dev_info = d_dev_info.value(stream);
   ASSERT(dev_info == 0,
@@ -322,7 +322,7 @@ void eigJacobi(const raft::handle_t& handle,
   int executed_sweeps;
   RAFT_CUSOLVER_TRY(cusolverDnXsyevjGetSweeps(cusolverH, syevj_params, &executed_sweeps));
 
-  RAFT_CHECK_CUDA(cudaGetLastError());
+  RAFT_CUDA_TRY(cudaGetLastError());
   RAFT_CUSOLVER_TRY(cusolverDnDestroySyevjInfo(syevj_params));
 }
 

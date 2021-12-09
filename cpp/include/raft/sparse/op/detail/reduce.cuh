@@ -102,7 +102,7 @@ template <typename value_idx>
 void compute_duplicates_mask(
   value_idx* mask, const value_idx* rows, const value_idx* cols, size_t nnz, cudaStream_t stream)
 {
-  RAFT_CHECK_CUDA(cudaMemsetAsync(mask, 0, nnz * sizeof(value_idx), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(mask, 0, nnz * sizeof(value_idx), stream));
 
   compute_duplicates_diffs_kernel<<<raft::ceildiv(nnz, (size_t)256), 256, 0, stream>>>(
     rows, cols, mask, nnz);
@@ -147,7 +147,7 @@ void max_duplicates(const raft::handle_t& handle,
   // compute final size
   value_idx size = 0;
   raft::update_host(&size, diff.data() + (diff.size() - 1), 1, stream);
-  RAFT_CHECK_CUDA(cudaStreamSynchronize(stream));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   size++;
 
   out.allocate(size, m, n, true, stream);

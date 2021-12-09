@@ -100,7 +100,7 @@ void csr_row_normalize_l1(const int* ia,  // csr row ex_scan (sorted by row)
   dim3 blk(TPB_X, 1, 1);
 
   csr_row_normalize_l1_kernel<TPB_X, T><<<grid, blk, 0, stream>>>(ia, vals, nnz, m, result);
-  RAFT_CHECK_CUDA(cudaGetLastError());
+  RAFT_CUDA_TRY(cudaGetLastError());
 }
 
 template <int TPB_X = 64, typename T>
@@ -167,7 +167,7 @@ void csr_row_normalize_max(const int* ia,  // csr row ind array (sorted by row)
   dim3 blk(TPB_X, 1, 1);
 
   csr_row_normalize_max_kernel<TPB_X, T><<<grid, blk, 0, stream>>>(ia, vals, nnz, m, result);
-  RAFT_CHECK_CUDA(cudaGetLastError());
+  RAFT_CUDA_TRY(cudaGetLastError());
 }
 
 };  // end NAMESPACE detail

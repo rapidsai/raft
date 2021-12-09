@@ -130,7 +130,7 @@ class std_comms : public comms_iface {
     update_host(h_colors.data(), d_colors.data(), get_size(), stream_);
     update_host(h_keys.data(), d_keys.data(), get_size(), stream_);
 
-    RAFT_CHECK_CUDA(cudaStreamSynchronize(stream_));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream_));
 
     std::vector<int> subcomm_ranks{};
     std::vector<ucp_ep_h> new_ucx_ptrs{};
@@ -178,8 +178,8 @@ class std_comms : public comms_iface {
 
   void barrier() const
   {
-    RAFT_CHECK_CUDA(cudaMemsetAsync(sendbuff_, 1, sizeof(int), stream_));
-    RAFT_CHECK_CUDA(cudaMemsetAsync(recvbuff_, 1, sizeof(int), stream_));
+    RAFT_CUDA_TRY(cudaMemsetAsync(sendbuff_, 1, sizeof(int), stream_));
+    RAFT_CUDA_TRY(cudaMemsetAsync(recvbuff_, 1, sizeof(int), stream_));
 
     allreduce(sendbuff_, recvbuff_, 1, datatype_t::INT32, op_t::SUM, stream_);
 

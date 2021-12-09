@@ -621,7 +621,7 @@ void fusedL2UnexpKnnImpl(const DataT* x,
         worksize = sizeof(int32_t) * numMutexes;
         return;
       } else {
-        RAFT_CHECK_CUDA(cudaMemsetAsync(workspace, 0, sizeof(int32_t) * numMutexes, stream));
+        RAFT_CUDA_TRY(cudaMemsetAsync(workspace, 0, sizeof(int32_t) * numMutexes, stream));
       }
     }
 
@@ -645,7 +645,7 @@ void fusedL2UnexpKnnImpl(const DataT* x,
   } else {
   }
 
-  RAFT_CHECK_CUDA(cudaGetLastError());
+  RAFT_CUDA_TRY(cudaGetLastError());
 }
 
 template <typename DataT,
@@ -817,7 +817,7 @@ void fusedL2ExpKnnImpl(const DataT* x,
         return;
       } else {
         mutexes = (int32_t*)((char*)workspace + normsSize);
-        RAFT_CHECK_CUDA(cudaMemsetAsync(mutexes, 0, sizeof(int32_t) * numMutexes, stream));
+        RAFT_CUDA_TRY(cudaMemsetAsync(mutexes, 0, sizeof(int32_t) * numMutexes, stream));
       }
     }
 
@@ -853,7 +853,7 @@ void fusedL2ExpKnnImpl(const DataT* x,
   } else {
   }
 
-  RAFT_CHECK_CUDA(cudaGetLastError());
+  RAFT_CUDA_TRY(cudaGetLastError());
 }
 
 template <typename DataT,

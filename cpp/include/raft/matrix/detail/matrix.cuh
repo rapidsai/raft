@@ -41,7 +41,7 @@ void copyRows(const m_t* in,
     const idx_t TPB = 256;
     cache::get_vecs<<<raft::ceildiv(n_rows_indices * n_cols, TPB), TPB, 0, stream>>>(
       in, n_cols, indices, n_rows_indices, out);
-    RAFT_CHECK_CUDA(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
     return;
   }
 

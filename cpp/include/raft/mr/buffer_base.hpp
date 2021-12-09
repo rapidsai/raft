@@ -64,7 +64,7 @@ class buffer_base {
     if (capacity_ > 0) {
       data_ =
         static_cast<value_type*>(allocator_->allocate(capacity_ * sizeof(value_type), stream_));
-      RAFT_CHECK_CUDA(cudaStreamSynchronize(stream_));
+      RAFT_CUDA_TRY(cudaStreamSynchronize(stream_));
     }
   }
 

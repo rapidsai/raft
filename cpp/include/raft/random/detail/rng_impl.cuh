@@ -505,7 +505,7 @@ class RngImpl {
   void fill(Type* ptr, LenType len, Type val, cudaStream_t stream)
   {
     detail::constFillKernel<Type><<<nBlocks, NumThreads, 0, stream>>>(ptr, len, val);
-    RAFT_CHECK_CUDA(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
 
   template <typename Type, typename OutType = bool, typename LenType = int>
@@ -651,7 +651,7 @@ class RngImpl {
     rmm::device_uvector<char> workspace(0, stream);
     sortPairs(workspace, expWts.data(), sortedWts.data(), inIdxPtr, outIdxPtr, (int)len, stream);
     if (outIdx != nullptr) {
-      RAFT_CHECK_CUDA(cudaMemcpyAsync(
+      RAFT_CUDA_TRY(cudaMemcpyAsync(
         outIdx, outIdxPtr, sizeof(IdxT) * sampledLen, cudaMemcpyDeviceToDevice, stream));
     }
     raft::scatter<DataT, IdxT>(out, in, outIdxPtr, sampledLen, stream);
@@ -734,7 +734,7 @@ class RngImpl {
         break;
       default: ASSERT(false, "randImpl: Incorrect generator type! %d", type);
     };
-    RAFT_CHECK_CUDA(cudaGetLastError());
+    RAFT_CUDA_TRY(cudaGetLastError());
     offset = newOffset;
   }
 
@@ -766,7 +766,7 @@ class RngImpl {
         break;
       default: ASSERT(false, "rand2Impl: Incorrect generator type! %d", type);
     };
-    RAFT_CHECK_CUDA(cudaGetLastError());
+    RAFT_CUDA_TRY(cudaGetLastError());
     offset = newOffset;
   }
 };

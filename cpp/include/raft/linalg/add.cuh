@@ -94,7 +94,7 @@ void addDevScalar(math_t* outDev,
   dim3 block(256);
   dim3 grid(raft::ceildiv(len, (IdxType)block.x));
   add_dev_scalar_kernel<math_t><<<grid, block, 0, stream>>>(outDev, inDev, singleScalarDev, len);
-  RAFT_CHECK_CUDA(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 };  // end namespace linalg

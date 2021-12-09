@@ -285,7 +285,7 @@ void brute_force_knn_impl(
   }
 
   // Sync user stream only if using other streams to parallelize query
-  if (n_int_streams > 0) RAFT_CHECK_CUDA(cudaStreamSynchronize(userStream));
+  if (n_int_streams > 0) RAFT_CUDA_TRY(cudaStreamSynchronize(userStream));
 
   for (size_t i = 0; i < input.size(); i++) {
     float* out_d_ptr   = out_D + (i * k * n);
@@ -353,7 +353,7 @@ void brute_force_knn_impl(
     }
   }
 
-  RAFT_CHECK_CUDA(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
   //  }
 
   // Sync internal streams if used. We don't need to

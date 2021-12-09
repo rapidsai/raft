@@ -289,11 +289,11 @@ void fusedL2NNImpl(OutT* min,
   // Accumulation operation lambda
   auto core_lambda = [] __device__(DataT & acc, DataT & x, DataT & y) { acc += x * y; };
 
-  RAFT_CHECK_CUDA(cudaMemsetAsync(workspace, 0, sizeof(int) * m, stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(workspace, 0, sizeof(int) * m, stream));
   if (initOutBuffer) {
     initKernel<DataT, OutT, IdxT, ReduceOpT>
       <<<nblks, P::Nthreads, 0, stream>>>(min, m, maxVal, redOp);
-    RAFT_CHECK_CUDA(cudaGetLastError());
+    RAFT_CUDA_TRY(cudaGetLastError());
   }
 
   auto fin_op = [] __device__(DataT d_val, int g_d_idx) { return d_val; };
@@ -328,7 +328,7 @@ void fusedL2NNImpl(OutT* min,
       min, x, y, xn, yn, m, n, k, maxVal, workspace, redOp, pairRedOp, core_lambda, fin_op);
   }
 
-  RAFT_CHECK_CUDA(cudaGetLastError());
+  RAFT_CUDA_TRY(cudaGetLastError());
 }
 
 }  // namespace detail

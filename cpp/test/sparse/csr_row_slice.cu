@@ -124,7 +124,7 @@ class CSRRowSliceTest : public ::testing::TestWithParam<CSRRowSliceInputs<value_
                                              out_data.data(),
                                              stream);
 
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    RAFT_CHECK_CUDA(cudaStreamSynchronize(stream));
   }
 
   void compare()

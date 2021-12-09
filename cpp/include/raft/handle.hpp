@@ -59,7 +59,7 @@ class handle_t {
   explicit handle_t(int n_streams = kNumDefaultWorkerStreams)
     : dev_id_([]() -> int {
         int cur_dev = -1;
-        RAFT_CHECK_CUDA(cudaGetDevice(&cur_dev));
+        RAFT_CUDA_TRY(cudaGetDevice(&cur_dev));
         return cur_dev;
       }())
   {
@@ -173,17 +173,17 @@ class handle_t {
 
   void wait_on_user_stream() const
   {
-    RAFT_CHECK_CUDA(cudaEventRecord(event_, user_stream_));
+    RAFT_CUDA_TRY(cudaEventRecord(event_, user_stream_));
     for (int i = 0; i < get_num_internal_streams(); i++) {
-      RAFT_CHECK_CUDA(cudaStreamWaitEvent(get_internal_stream(i), event_, 0));
+      RAFT_CUDA_TRY(cudaStreamWaitEvent(get_internal_stream(i), event_, 0));
     }
   }
 
   void wait_on_internal_streams() const
   {
     for (int i = 0; i < get_num_internal_streams(); i++) {
-      RAFT_CHECK_CUDA(cudaEventRecord(event_, get_internal_stream(i)));
-      RAFT_CHECK_CUDA(cudaStreamWaitEvent(user_stream_, event_, 0));
+      RAFT_CUDA_TRY(cudaEventRecord(event_, get_internal_stream(i)));
+      RAFT_CUDA_TRY(cudaStreamWaitEvent(user_stream_, event_, 0));
     }
   }
 
@@ -218,7 +218,7 @@ class handle_t {
   {
     std::lock_guard<std::mutex> _(mutex_);
     if (!device_prop_initialized_) {
-      RAFT_CHECK_CUDA(cudaGetDeviceProperties(&prop_, dev_id_));
+      RAFT_CUDA_TRY(cudaGetDeviceProperties(&prop_, dev_id_));
       device_prop_initialized_ = true;
     }
     return prop_;

@@ -202,7 +202,7 @@ void choleskyRank1Update(const raft::handle_t& handle,
         raft::linalg::cublasCopy(handle.get_cublas_handle(), n - 1, A_new, 1, A_row, ld, stream));
     }
   } else {  // n == 1 case
-    RAFT_CHECK_CUDA(cudaMemsetAsync(s, 0, sizeof(math_t), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(s, 0, sizeof(math_t), stream));
   }
 
   // L_22 = sqrt(A_22 - L_12 * L_12)
@@ -210,7 +210,7 @@ void choleskyRank1Update(const raft::handle_t& handle,
   math_t L_22_host;
   raft::update_host(&s_host, s, 1, stream);
   raft::update_host(&L_22_host, L_22, 1, stream);  // L_22 stores A_22
-  RAFT_CHECK_CUDA(cudaStreamSynchronize(stream));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   L_22_host = std::sqrt(L_22_host - s_host);
 
   // Check for numeric error with sqrt. If the matrix is not positive definit or

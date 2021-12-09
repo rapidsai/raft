@@ -107,7 +107,7 @@ struct cuda_error : public raft::exception {
 //  * @brief check for cuda runtime API errors but log error instead of raising
 //  *        exception.
 //  */
-#define RAFT_CHECK_CUDA_NO_THROW(call)                             \
+#define RAFT_CUDA_TRY_NO_THROW(call)                               \
   do {                                                             \
     cudaError_t const status = call;                               \
     if (cudaSuccess != status) {                                   \
@@ -337,9 +337,9 @@ inline void deallocate_all(rmm::cuda_stream_view stream)
 inline int getSharedMemPerBlock()
 {
   int devId;
-  CUDA_CHECK(cudaGetDevice(&devId));
+  RAFT_CUDA_TRY(cudaGetDevice(&devId));
   int smemPerBlk;
-  CUDA_CHECK(cudaDeviceGetAttribute(&smemPerBlk, cudaDevAttrMaxSharedMemoryPerBlock, devId));
+  RAFT_CUDA_TRY(cudaDeviceGetAttribute(&smemPerBlk, cudaDevAttrMaxSharedMemoryPerBlock, devId));
   return smemPerBlk;
 }
 
@@ -347,9 +347,9 @@ inline int getSharedMemPerBlock()
 inline int getMultiProcessorCount()
 {
   int devId;
-  CUDA_CHECK(cudaGetDevice(&devId));
+  RAFT_CUDA_TRY(cudaGetDevice(&devId));
   int mpCount;
-  CUDA_CHECK(cudaDeviceGetAttribute(&mpCount, cudaDevAttrMultiProcessorCount, devId));
+  RAFT_CUDA_TRY(cudaDeviceGetAttribute(&mpCount, cudaDevAttrMultiProcessorCount, devId));
   return mpCount;
 }
 
@@ -361,7 +361,7 @@ std::string arr2Str(const T* arr, int size, std::string name, cudaStream_t strea
 
   T* arr_h = (T*)malloc(size * sizeof(T));
   update_host(arr_h, arr, size, stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
   ss << name << " = [ ";
   for (int i = 0; i < size; i++) {

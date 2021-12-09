@@ -250,7 +250,7 @@ static void klDivergenceImpl(const DataT* x,
     }
   }
 
-  RAFT_CHECK_CUDA(cudaGetLastError());
+  RAFT_CUDA_TRY(cudaGetLastError());
 }
 
 template <typename DataT,
