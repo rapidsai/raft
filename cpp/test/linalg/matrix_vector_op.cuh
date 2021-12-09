@@ -62,7 +62,7 @@ void naiveMatVec(Type* out,
   IdxType nblks            = raft::ceildiv(len, TPB);
   naiveMatVecKernel<Type>
     <<<nblks, TPB, 0, stream>>>(out, mat, vec, D, N, rowMajor, bcastAlongRows, scalar);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 template <typename Type, typename IdxType = int>
@@ -108,7 +108,7 @@ void naiveMatVec(Type* out,
   IdxType nblks            = raft::ceildiv(len, TPB);
   naiveMatVecKernel<Type>
     <<<nblks, TPB, 0, stream>>>(out, mat, vec1, vec2, D, N, rowMajor, bcastAlongRows, scalar);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 }  // end namespace linalg

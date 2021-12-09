@@ -361,7 +361,7 @@ void naiveDistance(DataType* dist,
       break;
     default: FAIL() << "should be here\n";
   }
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 template <typename DataType>
@@ -462,7 +462,7 @@ class DistanceTest : public ::testing::TestWithParam<DistanceInputs<DataType>> {
                                              stream,
                                              isRowMajor,
                                              metric_arg);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
  protected:

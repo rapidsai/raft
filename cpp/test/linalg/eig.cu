@@ -134,7 +134,7 @@ class EigTest : public ::testing::TestWithParam<EigInputs<T>> {
               stream,
               tol,
               sweeps);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
  protected:

@@ -39,7 +39,7 @@ void naiveMapReduce(OutType* out, const InType* in, size_t len, MapOp map, cudaS
   static const int TPB = 64;
   int nblks            = raft::ceildiv(len, (size_t)TPB);
   naiveMapReduceKernel<InType, OutType, MapOp><<<nblks, TPB, 0, stream>>>(out, in, len, map);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 template <typename T>
@@ -87,7 +87,7 @@ class MapReduceTest : public ::testing::TestWithParam<MapReduceInputs<InType>> {
     auto len = params.len;
     r.uniform(in.data(), len, InType(-1.0), InType(1.0), stream);
     mapReduceLaunch(out_ref.data(), out.data(), in.data(), len, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
  protected:

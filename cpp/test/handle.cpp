@@ -43,12 +43,12 @@ TEST(Raft, Handle)
 
   // test non default stream handle
   cudaStream_t stream;
-  CUDA_CHECK(cudaStreamCreate(&stream));
+  RAFT_CUDA_TRY(cudaStreamCreate(&stream));
   rmm::cuda_stream_view stream_view(stream);
   handle_t handle(stream_view);
   ASSERT_EQ(stream_view, handle.get_stream());
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-  CUDA_CHECK(cudaStreamDestroy(stream));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  RAFT_CUDA_TRY(cudaStreamDestroy(stream));
 }
 
 TEST(Raft, GetHandleFromPool)

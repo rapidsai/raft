@@ -141,7 +141,7 @@ inline void knn_merge_parts_impl(value_t* inK,
   knn_merge_parts_kernel<value_idx, value_t, warp_q, thread_q, n_threads>
     <<<grid, block, 0, stream>>>(
       inK, inV, outK, outV, n_samples, n_parts, kInit, vInit, k, translations);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 /**
@@ -266,7 +266,7 @@ void brute_force_knn_impl(
   }
 
   int device;
-  CUDA_CHECK(cudaGetDevice(&device));
+  RAFT_CUDA_TRY(cudaGetDevice(&device));
 
   rmm::device_uvector<std::int64_t> trans(id_ranges->size(), userStream);
   raft::update_device(trans.data(), id_ranges->data(), id_ranges->size(), userStream);
@@ -353,7 +353,7 @@ void brute_force_knn_impl(
       }
     }
 
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
 
   // Sync internal streams if used. We don't need to

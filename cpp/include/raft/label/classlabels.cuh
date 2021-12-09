@@ -108,7 +108,7 @@ void getOvrlabels(
     n,
     [idx, y_unique] __device__(value_t y) { return y == y_unique[idx] ? +1 : -1; },
     stream);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 // TODO: add one-versus-one selection: select two classes, relabel them to

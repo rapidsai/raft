@@ -42,7 +42,7 @@ class CholeskyR1Test : public ::testing::Test {
 
     // Allocate workspace
     solver_handle = handle.get_cusolver_dn_handle();
-    CUSOLVER_CHECK(raft::linalg::cusolverDnpotrf_bufferSize(
+    RAFT_CUSOLVER_TRY(raft::linalg::cusolverDnpotrf_bufferSize(
       solver_handle, CUBLAS_FILL_MODE_LOWER, n_rows, L.data(), n_rows, &Lwork));
     int n_bytes = 0;
     // Initializing in CUBLAS_FILL_MODE_LOWER, because that has larger workspace
@@ -72,15 +72,15 @@ class CholeskyR1Test : public ::testing::Test {
 
         // Expected solution using Cholesky factorization from scratch
         raft::copy(L_exp.data(), G.data(), n, handle.get_stream());
-        CUSOLVER_CHECK(raft::linalg::cusolverDnpotrf(solver_handle,
-                                                     uplo,
-                                                     rank,
-                                                     L_exp.data(),
-                                                     n_rows,
-                                                     (math_t*)workspace.data(),
-                                                     Lwork,
-                                                     devInfo.data(),
-                                                     handle.get_stream()));
+        RAFT_CUSOLVER_TRY(raft::linalg::cusolverDnpotrf(solver_handle,
+                                                        uplo,
+                                                        rank,
+                                                        L_exp.data(),
+                                                        n_rows,
+                                                        (math_t*)workspace.data(),
+                                                        Lwork,
+                                                        devInfo.data(),
+                                                        handle.get_stream()));
 
         // Incremental Cholesky factorization using rank one updates.
         raft::linalg::choleskyRank1Update(

@@ -45,7 +45,7 @@ class MultiplyTest : public ::testing::TestWithParam<UnaryOpInputs<T>> {
     r.uniform(in.data(), len, T(-1.0), T(1.0), stream);
     naiveScale(out_ref.data(), in.data(), params.scalar, len, stream);
     multiplyScalar(out.data(), in.data(), params.scalar, len, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
  protected:

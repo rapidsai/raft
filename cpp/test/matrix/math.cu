@@ -36,7 +36,7 @@ void naivePower(Type* in, Type* out, int len, cudaStream_t stream)
   static const int TPB = 64;
   int nblks            = raft::ceildiv(len, TPB);
   nativePowerKernel<Type><<<nblks, TPB, 0, stream>>>(in, out, len);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 template <typename Type>
@@ -52,7 +52,7 @@ void naiveSqrt(Type* in, Type* out, int len, cudaStream_t stream)
   static const int TPB = 64;
   int nblks            = raft::ceildiv(len, TPB);
   nativeSqrtKernel<Type><<<nblks, TPB, 0, stream>>>(in, out, len);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 template <typename Type>
@@ -89,7 +89,7 @@ template <typename Type>
 void naiveSignFlip(Type* in, Type* out, int rowCount, int colCount, cudaStream_t stream)
 {
   naiveSignFlipKernel<Type><<<colCount, 1, 0, stream>>>(in, out, rowCount, colCount);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 template <typename T>
@@ -177,7 +177,7 @@ class MathTest : public ::testing::TestWithParam<MathInputs<T>> {
     update_device(out_smallzero_ref.data(), in_small_val_zero_ref_h.data(), 4, stream);
     setSmallValuesZero(out_smallzero.data(), in_smallzero.data(), 4, stream);
     setSmallValuesZero(in_smallzero.data(), 4, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
  protected:

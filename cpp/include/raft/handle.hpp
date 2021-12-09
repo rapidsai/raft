@@ -65,7 +65,7 @@ class handle_t {
            std::shared_ptr<rmm::cuda_stream_pool> stream_pool = {nullptr})
     : dev_id_([]() -> int {
         int cur_dev = -1;
-        CUDA_CHECK(cudaGetDevice(&cur_dev));
+        RAFT_CUDA_TRY(cudaGetDevice(&cur_dev));
         return cur_dev;
       }()),
       stream_view_{stream_view},
@@ -83,8 +83,8 @@ class handle_t {
   {
     std::lock_guard<std::mutex> _(mutex_);
     if (!cublas_initialized_) {
-      CUBLAS_CHECK(cublasCreate(&cublas_handle_));
-      CUBLAS_CHECK(cublasSetStream(cublas_handle_, stream_view_));
+      RAFT_CUBLAS_TRY(cublasCreate(&cublas_handle_));
+      RAFT_CUBLAS_TRY(cublasSetStream(cublas_handle_, stream_view_));
       cublas_initialized_ = true;
     }
     return cublas_handle_;
@@ -94,8 +94,8 @@ class handle_t {
   {
     std::lock_guard<std::mutex> _(mutex_);
     if (!cusolver_dn_initialized_) {
-      CUSOLVER_CHECK(cusolverDnCreate(&cusolver_dn_handle_));
-      CUSOLVER_CHECK(cusolverDnSetStream(cusolver_dn_handle_, stream_view_));
+      RAFT_CUSOLVER_TRY(cusolverDnCreate(&cusolver_dn_handle_));
+      RAFT_CUSOLVER_TRY(cusolverDnSetStream(cusolver_dn_handle_, stream_view_));
       cusolver_dn_initialized_ = true;
     }
     return cusolver_dn_handle_;
@@ -105,8 +105,8 @@ class handle_t {
   {
     std::lock_guard<std::mutex> _(mutex_);
     if (!cusolver_sp_initialized_) {
-      CUSOLVER_CHECK(cusolverSpCreate(&cusolver_sp_handle_));
-      CUSOLVER_CHECK(cusolverSpSetStream(cusolver_sp_handle_, stream_view_));
+      RAFT_CUSOLVER_TRY(cusolverSpCreate(&cusolver_sp_handle_));
+      RAFT_CUSOLVER_TRY(cusolverSpSetStream(cusolver_sp_handle_, stream_view_));
       cusolver_sp_initialized_ = true;
     }
     return cusolver_sp_handle_;
@@ -116,8 +116,8 @@ class handle_t {
   {
     std::lock_guard<std::mutex> _(mutex_);
     if (!cusparse_initialized_) {
-      CUSPARSE_CHECK(cusparseCreate(&cusparse_handle_));
-      CUSPARSE_CHECK(cusparseSetStream(cusparse_handle_, stream_view_));
+      RAFT_CUSPARSE_TRY(cusparseCreate(&cusparse_handle_));
+      RAFT_CUSPARSE_TRY(cusparseSetStream(cusparse_handle_, stream_view_));
       cusparse_initialized_ = true;
     }
     return cusparse_handle_;
@@ -219,9 +219,9 @@ class handle_t {
    */
   void wait_stream_pool_on_stream() const
   {
-    CUDA_CHECK(cudaEventRecord(event_, stream_view_));
+    RAFT_CUDA_TRY(cudaEventRecord(event_, stream_view_));
     for (std::size_t i = 0; i < get_stream_pool_size(); i++) {
-      CUDA_CHECK(cudaStreamWaitEvent(stream_pool_->get_stream(i), event_, 0));
+      RAFT_CUDA_TRY(cudaStreamWaitEvent(stream_pool_->get_stream(i), event_, 0));
     }
   }
 
@@ -256,7 +256,7 @@ class handle_t {
   {
     std::lock_guard<std::mutex> _(mutex_);
     if (!device_prop_initialized_) {
-      CUDA_CHECK(cudaGetDeviceProperties(&prop_, dev_id_));
+      RAFT_CUDA_TRY(cudaGetDeviceProperties(&prop_, dev_id_));
       device_prop_initialized_ = true;
     }
     return prop_;
@@ -287,30 +287,17 @@ class handle_t {
   {
     thrust_policy_ = std::make_unique<rmm::exec_policy>(stream_view_);
 
-    CUDA_CHECK(cudaEventCreateWithFlags(&event_, cudaEventDisableTiming));
+    RAFT_CUDA_TRY(cudaEventCreateWithFlags(&event_, cudaEventDisableTiming));
   }
 
   void destroy_resources()
   {
     ///@todo: enable *_NO_THROW variants once we have enabled logging
-    if (cusparse_initialized_) {
-      // CUSPARSE_CHECK_NO_THROW(cusparseDestroy(cusparse_handle_));
-      CUSPARSE_CHECK(cusparseDestroy(cusparse_handle_));
-    }
-    if (cusolver_dn_initialized_) {
-      // CUSOLVER_CHECK_NO_THROW(cusolverDnDestroy(cusolver_dn_handle_));
-      CUSOLVER_CHECK(cusolverDnDestroy(cusolver_dn_handle_));
-    }
-    if (cusolver_sp_initialized_) {
-      // CUSOLVER_CHECK_NO_THROW(cusolverSpDestroy(cusolver_sp_handle_));
-      CUSOLVER_CHECK(cusolverSpDestroy(cusolver_sp_handle_));
-    }
-    if (cublas_initialized_) {
-      // CUBLAS_CHECK_NO_THROW(cublasDestroy(cublas_handle_));
-      CUBLAS_CHECK(cublasDestroy(cublas_handle_));
-    }
-    // CUDA_CHECK_NO_THROW(cudaEventDestroy(event_));
-    CUDA_CHECK(cudaEventDestroy(event_));
+    if (cusparse_initialized_) { RAFT_CUSPARSE_TRY(cusparseDestroy(cusparse_handle_)); }
+    if (cusolver_dn_initialized_) { RAFT_CUSOLVER_TRY(cusolverDnDestroy(cusolver_dn_handle_)); }
+    if (cusolver_sp_initialized_) { RAFT_CUSOLVER_TRY(cusolverSpDestroy(cusolver_sp_handle_)); }
+    if (cublas_initialized_) { RAFT_CUBLAS_TRY(cublasDestroy(cublas_handle_)); }
+    RAFT_CUDA_TRY(cudaEventDestroy(event_));
   }
 };  // class handle_t
 
