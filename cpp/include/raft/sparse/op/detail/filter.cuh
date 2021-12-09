@@ -18,9 +18,9 @@
 
 #include <cusparse_v2.h>
 
+#include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/sparse/cusparse_wrappers.h>
-#include <raft/cuda_utils.cuh>
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
 
@@ -33,8 +33,8 @@
 #include <cstdio>
 #include <iostream>
 
-#include <raft/sparse/detail/utils.h>
 #include <raft/sparse/coo.hpp>
+#include <raft/sparse/detail/utils.h>
 #include <raft/sparse/linalg/degree.hpp>
 
 namespace raft {

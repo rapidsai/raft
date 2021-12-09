@@ -22,9 +22,9 @@
 #include <faiss/gpu/GpuIndexFlat.h>
 #include <faiss/gpu/GpuResources.h>
 #include <faiss/gpu/StandardGpuResources.h>
-#include <faiss/utils/Heap.h>
 #include <faiss/gpu/utils/Limits.cuh>
 #include <faiss/gpu/utils/Select.cuh>
+#include <faiss/utils/Heap.h>
 
 namespace raft {
 namespace spatial {

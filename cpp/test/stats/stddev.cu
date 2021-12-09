@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
+#include "../test_utils.h"
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <raft/matrix/math.hpp>
 #include <raft/random/rng.hpp>
 #include <raft/stats/mean.hpp>
 #include <raft/stats/stddev.hpp>
-#include "../test_utils.h"
 
 namespace raft {
 namespace stats {

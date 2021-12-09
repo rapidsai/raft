@@ -23,14 +23,14 @@
 #include "../haversine_distance.cuh"
 #include "../selection_faiss.cuh"
 
-#include <limits.h>
 #include <cstdint>
+#include <limits.h>
 
 #include <raft/cuda_utils.cuh>
 
-#include <faiss/utils/Heap.h>
 #include <faiss/gpu/utils/Limits.cuh>
 #include <faiss/gpu/utils/Select.cuh>
+#include <faiss/utils/Heap.h>
 
 namespace raft {
 namespace spatial {

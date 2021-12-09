@@ -27,10 +27,10 @@
 
 #include <raft/cudart_utils.h>
 
-#include <thrust/device_ptr.h>
-#include <thrust/sort.h>
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
+#include <thrust/device_ptr.h>
+#include <thrust/sort.h>
 
 #include <cub/cub.cuh>
 

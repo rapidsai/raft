@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
+#include "../test_utils.h"
+#include "unary_op.cuh"
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/divide.cuh>
 #include <raft/random/rng.hpp>
-#include "../test_utils.h"
-#include "unary_op.cuh"
 
 namespace raft {
 namespace linalg {

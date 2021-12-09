@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <raft/cudart_utils.h>
 #include <iostream>
+#include <raft/cudart_utils.h>
 #include <rmm/device_uvector.hpp>
 
 #pragma once

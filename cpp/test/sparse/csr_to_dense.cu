@@ -19,8 +19,8 @@
 #include <raft/handle.hpp>
 
 #include <gtest/gtest.h>
-#include <raft/sparse/cusparse_wrappers.h>
 #include <raft/sparse/convert/dense.hpp>
+#include <raft/sparse/cusparse_wrappers.h>
 
 #include <rmm/device_uvector.hpp>
 

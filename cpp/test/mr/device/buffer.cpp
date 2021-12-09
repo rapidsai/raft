@@ -15,9 +15,9 @@
  */
 
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
 #include <iostream>
 #include <memory>
+#include <raft/cudart_utils.h>
 #include <rmm/device_uvector.hpp>
 #include <rmm/mr/device/limiting_resource_adaptor.hpp>
 

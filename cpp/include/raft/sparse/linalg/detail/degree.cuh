@@ -22,8 +22,8 @@
 #include <cuda_runtime.h>
 #include <stdio.h>
 
-#include <raft/sparse/detail/utils.h>
 #include <raft/sparse/coo.hpp>
+#include <raft/sparse/detail/utils.h>
 
 namespace raft {
 namespace sparse {

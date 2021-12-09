@@ -16,9 +16,9 @@
 
 #pragma once
 
+#include "allocator.hpp"
 #include <memory>
 #include <raft/mr/buffer_base.hpp>
-#include "allocator.hpp"
 
 namespace raft {
 namespace mr {

@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 #pragma once
-#include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/linalg/contractions.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/vectorized.cuh>

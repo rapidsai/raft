@@ -16,11 +16,11 @@
 
 #include <bits/stdc++.h>
 
+#include "test_utils.h"
 #include <gtest/gtest.h>
 #include <iostream>
 #include <rmm/device_uvector.hpp>
 #include <vector>
-#include "test_utils.h"
 
 #include <raft/cudart_utils.h>
 #include <raft/handle.hpp>

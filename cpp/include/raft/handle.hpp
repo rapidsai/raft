@@ -32,13 +32,13 @@
 ///@todo: enable once we have migrated cuml-comms layer too
 //#include <common/cuml_comms_int.hpp>
 
+#include "cudart_utils.h"
+#include <raft/comms/comms.hpp>
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/cusolver_wrappers.h>
 #include <raft/sparse/cusparse_wrappers.h>
-#include <raft/comms/comms.hpp>
 #include <rmm/cuda_stream_pool.hpp>
 #include <rmm/exec_policy.hpp>
-#include "cudart_utils.h"
 
 namespace raft {
 

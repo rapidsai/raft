@@ -20,8 +20,8 @@
 
 #include <raft/cudart_utils.h>
 #include <raft/linalg/distance_type.h>
-#include <raft/sparse/cusparse_wrappers.h>
 #include <raft/linalg/unary_op.cuh>
+#include <raft/sparse/cusparse_wrappers.h>
 #include <rmm/device_uvector.hpp>
 
 #include <raft/sparse/convert/coo.hpp>

@@ -22,9 +22,9 @@
 
 #include <cuda_runtime.h>
 
-#include <execinfo.h>
 #include <chrono>
 #include <cstdio>
+#include <execinfo.h>
 #include <iomanip>
 #include <iostream>
 #include <mutex>

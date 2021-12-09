@@ -26,8 +26,8 @@
 #include "knn_brute_force_faiss.cuh"
 #include "selection_faiss.cuh"
 
-#include <limits.h>
 #include <cstdint>
+#include <limits.h>
 
 #include <raft/cuda_utils.cuh>
 
@@ -38,9 +38,9 @@
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
 
-#include <faiss/utils/Heap.h>
 #include <faiss/gpu/utils/Limits.cuh>
 #include <faiss/gpu/utils/Select.cuh>
+#include <faiss/utils/Heap.h>
 
 #include <thrust/functional.h>
 #include <thrust/reduce.h>
