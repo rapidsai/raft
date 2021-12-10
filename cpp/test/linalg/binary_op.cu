@@ -58,7 +58,7 @@ class BinaryOpTest : public ::testing::TestWithParam<BinaryOpInputs<InType, IdxT
     r.uniform(in2.data(), len, InType(-1.0), InType(1.0), stream);
     naiveAdd(out_ref.data(), in1.data(), in2.data(), len);
     binaryOpLaunch(out.data(), in1.data(), in2.data(), len, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
  protected:
@@ -124,10 +124,10 @@ class BinaryOpAlignment : public ::testing::Test {
  protected:
   BinaryOpAlignment()
   {
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
     handle.set_stream(stream);
   }
-  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
+  void TearDown() override { RAFT_CUDA_TRY(cudaStreamDestroy(stream)); }
 
  public:
   void Misaligned()
@@ -138,8 +138,8 @@ class BinaryOpAlignment : public ::testing::Test {
     rmm::device_uvector<math_t> x(n, stream);
     rmm::device_uvector<math_t> y(n, stream);
     rmm::device_uvector<math_t> z(n, stream);
-    CUDA_CHECK(cudaMemsetAsync(x.data(), 0, n * sizeof(math_t), stream));
-    CUDA_CHECK(cudaMemsetAsync(y.data(), 0, n * sizeof(math_t), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(x.data(), 0, n * sizeof(math_t), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(y.data(), 0, n * sizeof(math_t), stream));
     raft::linalg::binaryOp(
       z.data() + 9,
       x.data() + 137,

@@ -124,7 +124,7 @@ void approx_knn_build_index(raft::handle_t& handle,
                             IntType D)
 {
   int device;
-  CUDA_CHECK(cudaGetDevice(&device));
+  RAFT_CUDA_TRY(cudaGetDevice(&device));
 
   faiss::gpu::StandardGpuResources* gpu_res = new faiss::gpu::StandardGpuResources();
   gpu_res->noTempMemory();

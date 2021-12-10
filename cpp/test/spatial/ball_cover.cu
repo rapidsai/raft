@@ -177,7 +177,7 @@ class BallCoverKNNQueryTest : public ::testing::TestWithParam<BallCoverInputs> {
                   d_ref_D.data(),
                   d_ref_I.data());
 
-    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
 
     // Allocate predicted arrays
     rmm::device_uvector<value_idx> d_pred_I(n * k, handle.get_stream());
@@ -189,7 +189,7 @@ class BallCoverKNNQueryTest : public ::testing::TestWithParam<BallCoverInputs> {
     raft::spatial::knn::rbc_knn_query(
       handle, index, k, d_train_inputs.data(), n, d_pred_I.data(), d_pred_D.data(), true, weight);
 
-    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
     // What we really want are for the distances to match exactly. The
     // indices may or may not match exactly, depending upon the ordering which
     // can be nondeterministic.
@@ -274,7 +274,7 @@ class BallCoverAllKNNTest : public ::testing::TestWithParam<BallCoverInputs> {
                                                                         translations,
                                                                         metric);
 
-    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
 
     // Allocate predicted arrays
     rmm::device_uvector<value_idx> d_pred_I(n * k, handle.get_stream());
@@ -285,7 +285,7 @@ class BallCoverAllKNNTest : public ::testing::TestWithParam<BallCoverInputs> {
     raft::spatial::knn::rbc_all_knn_query(
       handle, index, k, d_pred_I.data(), d_pred_D.data(), true, weight);
 
-    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
     // What we really want are for the distances to match exactly. The
     // indices may or may not match exactly, depending upon the ordering which
     // can be nondeterministic.

@@ -158,7 +158,7 @@ void coo_symmetrize(COO<T>* in,
                                                             in->n_rows,
                                                             in->nnz,
                                                             reduction_op);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 /**
@@ -284,18 +284,18 @@ void from_knn_symmetrize_matrix(const value_idx* __restrict__ knn_indices,
 
   // Notice n+1 since we can reuse these arrays for transpose_edges, original_edges in step (4)
   rmm::device_uvector<value_idx> row_sizes(n, stream);
-  CUDA_CHECK(cudaMemsetAsync(row_sizes.data(), 0, sizeof(value_idx) * n, stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(row_sizes.data(), 0, sizeof(value_idx) * n, stream));
 
   rmm::device_uvector<value_idx> row_sizes2(n, stream);
-  CUDA_CHECK(cudaMemsetAsync(row_sizes2.data(), 0, sizeof(value_idx) * n, stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(row_sizes2.data(), 0, sizeof(value_idx) * n, stream));
 
   symmetric_find_size<<<numBlocks, threadsPerBlock, 0, stream>>>(
     knn_dists, knn_indices, n, k, row_sizes.data(), row_sizes2.data());
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   reduce_find_size<<<raft::ceildiv(n, (value_idx)1024), 1024, 0, stream>>>(
     n, k, row_sizes.data(), row_sizes2.data());
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   // (2) Compute final space needed (n*k + sum(row_sizes)) == 2*n*k
   // Notice we don't do any merging and leave the result as 2*NNZ
@@ -318,7 +318,7 @@ void from_knn_symmetrize_matrix(const value_idx* __restrict__ knn_indices,
   // (5) Perform final data + data.T operation in tandem with memcpying
   symmetric_sum<<<numBlocks, threadsPerBlock, 0, stream>>>(
     edges, knn_dists, knn_indices, out->vals(), out->cols(), out->rows(), n, k);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 /**

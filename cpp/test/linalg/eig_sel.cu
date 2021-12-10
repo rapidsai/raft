@@ -92,7 +92,7 @@ class EigSelTest : public ::testing::TestWithParam<EigSelInputs<T>> {
              eig_vals.data(),
              EigVecMemUsage::OVERWRITE_INPUT,
              stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
  protected:
