@@ -19,6 +19,7 @@
 #include <raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/cusolver_wrappers.h>
+#include <raft/common/nvtx.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
 #include <raft/matrix/math.hpp>
@@ -63,6 +64,7 @@ void svdQR(const raft::handle_t& handle,
            bool gen_right_vec,
            cudaStream_t stream)
 {
+  RAFT_USING_RANGE("raft::linalg::svdQR(%d, %d)", n_rows, n_cols);
   cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
   cublasHandle_t cublasH       = handle.get_cublas_handle();
 
@@ -140,6 +142,7 @@ void svdEig(const raft::handle_t& handle,
             bool gen_left_vec,
             cudaStream_t stream)
 {
+  RAFT_USING_RANGE("raft::linalg::svdEig(%d, %d)", n_rows, n_cols);
   cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
   cublasHandle_t cublasH       = handle.get_cublas_handle();
 
@@ -218,6 +221,7 @@ void svdJacobi(const raft::handle_t& handle,
                int max_sweeps,
                cudaStream_t stream)
 {
+  RAFT_USING_RANGE("raft::linalg::svdJacobi(%d, %d)", n_rows, n_cols);
   cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
 
   gesvdjInfo_t gesvdj_params = NULL;

@@ -130,6 +130,7 @@ PRIVATE
   CUDA::cusolver
   CUDA::cudart
   CUDA::cusparse
+  $<$<BOOL:${NVTX}>:CUDA::nvToolsExt>
   rmm::rmm
   cuco::cuco
   FAISS::FAISS
@@ -138,4 +139,9 @@ PRIVATE
   Threads::Threads
   $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
   $<TARGET_NAME_IF_EXISTS:conda_env>
+)
+
+target_compile_definitions(test_raft
+PRIVATE
+  $<$<BOOL:${NVTX}>:NVTX_ENABLED>
 )
