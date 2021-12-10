@@ -88,9 +88,29 @@ inline const char* cusolver_error_to_string(cusolverStatus_t err)
 #define CUSOLVER_TRY(call) RAFT_CUSOLVER_TRY(call)
 #endif
 
+// /**
+//  * @brief check for cuda runtime API errors but log error instead of raising
+//  *        exception.
+//  */
+#define RAFT_CUBLAS_TRY_NO_THROW(call)                                 \
+  do {                                                                 \
+    cusolverStatus_t const status = call;                              \
+    if (CUSOLVER_STATUS_SUCCESS != status) {                           \
+      printf("CUSOLVER call='%s' at file=%s line=%d failed with %s\n", \
+             #call,                                                    \
+             __FILE__,                                                 \
+             __LINE__,                                                 \
+             raft::linalg::detail::cusolver_error_to_string(status));  \
+    }                                                                  \
+  } while (0)
+
 // FIXME: remove after cuml rename
 #ifndef CUSOLVER_CHECK
 #define CUSOLVER_CHECK(call) CUSOLVER_TRY(call)
+#endif
+
+#ifndef CUSOLVER_CHECK_NO_THROW
+#define CUSOLVER_CHECK_NO_THROW(call) CUSOLVER_TRY_NO_THROW(call)
 #endif
 
 namespace raft {
