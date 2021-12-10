@@ -21,35 +21,53 @@
 namespace raft {
 namespace spatial {
 namespace knn {
-extern template void brute_force_knn<long, float, int>(raft::handle_t const& handle,
-                                                       std::vector<float*>& input,
-                                                       std::vector<int>& sizes,
-                                                       int D,
-                                                       float* search_items,
-                                                       int n,
-                                                       long* res_I,
-                                                       float* res_D,
-                                                       int k,
-                                                       bool rowMajorIndex,
-                                                       bool rowMajorQuery,
-                                                       std::vector<long>* translations,
-                                                       distance::DistanceType metric,
-                                                       float metric_arg);
+extern template void brute_force_knn<int, float, int>(
+  raft::handle_t const& handle,
+  std::vector<float*>& input,
+  std::vector<int>& sizes,
+  int D,
+  float* search_items,
+  int n,
+  int* res_I,
+  float* res_D,
+  int k,
+  bool rowMajorIndex,
+  bool rowMajorQuery,
+  std::remove_reference_t<std::vector<int>*> translations,
+  distance::DistanceType metric,
+  float metric_arg);
 
-extern template void brute_force_knn<long, float, unsigned int>(raft::handle_t const& handle,
-                                                                std::vector<float*>& input,
-                                                                std::vector<unsigned int>& sizes,
-                                                                unsigned int D,
-                                                                float* search_items,
-                                                                unsigned int n,
-                                                                long* res_I,
-                                                                float* res_D,
-                                                                unsigned int k,
-                                                                bool rowMajorIndex,
-                                                                bool rowMajorQuery,
-                                                                std::vector<long>* translations,
-                                                                distance::DistanceType metric,
-                                                                float metric_arg);
+extern template void brute_force_knn<long, float, int>(
+  raft::handle_t const& handle,
+  std::vector<float*>& input,
+  std::vector<int>& sizes,
+  int D,
+  float* search_items,
+  int n,
+  long* res_I,
+  float* res_D,
+  int k,
+  bool rowMajorIndex,
+  bool rowMajorQuery,
+  std::remove_reference_t<std::vector<long>*> translations,
+  distance::DistanceType metric,
+  float metric_arg);
+
+extern template void brute_force_knn<long, float, unsigned int>(
+  raft::handle_t const& handle,
+  std::vector<float*>& input,
+  std::vector<unsigned int>& sizes,
+  unsigned int D,
+  float* search_items,
+  unsigned int n,
+  long* res_I,
+  float* res_D,
+  unsigned int k,
+  bool rowMajorIndex,
+  bool rowMajorQuery,
+  std::remove_reference_t<std::vector<long>*> translations,
+  distance::DistanceType metric,
+  float metric_arg);
 };  // namespace knn
 };  // namespace spatial
 };  // namespace raft
