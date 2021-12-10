@@ -96,7 +96,7 @@ class AUTO_RANGE {
   ~AUTO_RANGE()
   {
     if (streamMaybe.has_value())
-      POP_RANGE(streamMaybe.value());
+      POP_RANGE(*streamMaybe);
     else
       POP_RANGE();
   }
