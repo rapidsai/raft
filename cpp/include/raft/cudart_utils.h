@@ -121,7 +121,7 @@ struct cuda_error : public raft::exception {
 
 // FIXME: Remove after cuml rename
 #ifndef CUDA_CHECK_NO_THROW
-#define CUDA_CHECK_NO_THROW(call) RAFT_CHECK_CUDA_NO_THROW(call)
+#define CUDA_CHECK_NO_THROW(call) RAFT_CUDA_TRY_NO_THROW(call)
 #endif
 
 /**
