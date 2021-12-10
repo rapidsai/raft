@@ -17,6 +17,7 @@
 #include <cuda_profiler_api.h>
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
+#include <raft/common/nvtx.hpp>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/matrix/matrix.hpp>
 #include <raft/random/rng.hpp>
@@ -24,49 +25,15 @@
 #include "../linalg/matrix_vector_op.cuh"
 #include "../test_utils.h"
 
-#ifdef NVTX_ENABLED
-#include <nvToolsExt.h>
-#endif
-
 namespace raft {
 namespace matrix {
 
 constexpr std::size_t PTR_PADDING = 128;
 
-template <typename... Args>
-void PUSH_RANGE(rmm::cuda_stream_view stream, const char* name, Args... args)
-{
-  int length = std::snprintf(nullptr, 0, name, args...);
-  assert(length >= 0);
-  auto buf = std::make_unique<char[]>(length + 1);
-  std::snprintf(buf.get(), length + 1, name, args...);
-  stream.synchronize();
-#ifdef NVTX_ENABLED
-  nvtxRangePushA(buf.get());
-#endif
-}
-template <>
-void PUSH_RANGE(rmm::cuda_stream_view stream, const char* name)
-{
-  stream.synchronize();
-#ifdef NVTX_ENABLED
-  nvtxRangePushA(name);
-#endif
-}
-
-void POP_RANGE(rmm::cuda_stream_view stream)
-{
-  stream.synchronize();
-#ifdef NVTX_ENABLED
-  nvtxRangePop();
-#endif
-}
-
 struct LinewiseTestParams {
   double tolerance;
   std::size_t workSizeBytes;
   uint64_t seed;
-  bool useVanillaMatrixVectorOp;
   bool checkCorrectness;
   int inAlignOffset;
   int outAlignOffset;
@@ -91,10 +58,7 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
     T* out, const T* in, const I lineLen, const I nLines, const bool alongLines, const T* vec)
   {
     auto f = [] __device__(T a, T b) -> T { return a + b; };
-    if (params.useVanillaMatrixVectorOp)
-      linalg::matrixVectorOp(out, in, vec, lineLen, nLines, true, alongLines, f, stream);
-    else
-      matrix::linewiseOp(out, in, lineLen, nLines, alongLines, f, stream, vec);
+    matrix::linewiseOp(out, in, lineLen, nLines, alongLines, f, stream, vec);
   }
 
   void runLinewiseSum(T* out,
@@ -106,10 +70,7 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
                       const T* vec2)
   {
     auto f = [] __device__(T a, T b, T c) -> T { return a + b + c; };
-    if (params.useVanillaMatrixVectorOp)
-      linalg::matrixVectorOp(out, in, vec1, vec2, lineLen, nLines, true, alongLines, f, stream);
-    else
-      matrix::linewiseOp(out, in, lineLen, nLines, alongLines, f, stream, vec1, vec2);
+    matrix::linewiseOp(out, in, lineLen, nLines, alongLines, f, stream, vec1, vec2);
   }
 
   rmm::device_uvector<T> genData(size_t workSizeBytes)
@@ -177,19 +138,19 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
     stream.synchronize();
     cudaProfilerStart();
     testing::AssertionResult r = testing::AssertionSuccess();
-    PUSH_RANGE(stream, params.useVanillaMatrixVectorOp ? "method: original" : "method: linewise");
     for (auto [n, m] : dims) {
       if (!r) break;
       auto [out, in, vec1, vec2] = assignSafePtrs(blob, n, m);
-      PUSH_RANGE(stream, "Dims-%zu-%zu", std::size_t(n), std::size_t(m));
+      RAFT_USING_RANGE("Dims-%zu-%zu", std::size_t(n), std::size_t(m));
       for (auto alongRows : ::testing::Bool()) {
-        PUSH_RANGE(stream, alongRows ? "alongRows" : "acrossRows");
+        RAFT_USING_RANGE(alongRows ? "alongRows" : "acrossRows");
         auto lineLen = alongRows ? m : n;
         auto nLines  = alongRows ? n : m;
         {
-          PUSH_RANGE(stream, "one vec");
-          runLinewiseSum(out, in, lineLen, nLines, alongRows, vec1);
-          POP_RANGE(stream);
+          {
+            RAFT_USING_RANGE(stream, "one vec");
+            runLinewiseSum(out, in, lineLen, nLines, alongRows, vec1);
+          }
           if (params.checkCorrectness) {
             linalg::naiveMatVec(blob_val.data(), in, vec1, lineLen, nLines, true, alongRows, T(1));
             r = devArrMatch(blob_val.data(), out, n * m, CompareApprox<T>(params.tolerance))
@@ -197,9 +158,10 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
                 << " with one vec; lineLen: " << lineLen << "; nLines " << nLines;
             if (!r) break;
           }
-          PUSH_RANGE(stream, "two vecs");
-          runLinewiseSum(out, in, lineLen, nLines, alongRows, vec1, vec2);
-          POP_RANGE(stream);
+          {
+            RAFT_USING_RANGE(stream, "two vecs");
+            runLinewiseSum(out, in, lineLen, nLines, alongRows, vec1, vec2);
+          }
           if (params.checkCorrectness) {
             linalg::naiveMatVec(
               blob_val.data(), in, vec1, vec2, lineLen, nLines, true, alongRows, T(1));
@@ -209,11 +171,8 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
             if (!r) break;
           }
         }
-        POP_RANGE(stream);
       }
-      POP_RANGE(stream);
     }
-    POP_RANGE(stream);
     cudaProfilerStop();
 
     return r;
@@ -244,69 +203,63 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
   TEST_P(TestClass##_##ElemType##_##IndexType, fun) { ASSERT_TRUE(fun()); }                  \
   INSTANTIATE_TEST_SUITE_P(LinewiseOp, TestClass##_##ElemType##_##IndexType, TestClass##Params)
 
-auto TinyParams = ::testing::Combine(
-  ::testing::Bool(), ::testing::Values(0, 1, 2, 4), ::testing::Values(0, 1, 2, 3));
+auto TinyParams = ::testing::Combine(::testing::Values(0, 1, 2, 4), ::testing::Values(0, 1, 2, 3));
 
 struct Tiny {
-  typedef std::tuple<bool, int, int> Params;
+  typedef std::tuple<int, int> Params;
   static LinewiseTestParams read(Params ps)
   {
     return {/** .tolerance */ 0.00001,
             /** .workSizeBytes */ 0 /* not used anyway */,
             /** .seed */ 42ULL,
-            /** .useVanillaMatrixVectorOp */ std::get<0>(ps),
             /** .checkCorrectness */ true,
-            /** .inAlignOffset */ std::get<1>(ps),
-            /** .outAlignOffset */ std::get<2>(ps)};
+            /** .inAlignOffset */ std::get<0>(ps),
+            /** .outAlignOffset */ std::get<1>(ps)};
   }
 };
 
 auto MegabyteParams = TinyParams;
 
 struct Megabyte {
-  typedef std::tuple<bool, int, int> Params;
+  typedef std::tuple<int, int> Params;
   static LinewiseTestParams read(Params ps)
   {
     return {/** .tolerance */ 0.00001,
             /** .workSizeBytes */ 1024 * 1024,
             /** .seed */ 42ULL,
-            /** .useVanillaMatrixVectorOp */ std::get<0>(ps),
             /** .checkCorrectness */ true,
-            /** .inAlignOffset */ std::get<1>(ps),
-            /** .outAlignOffset */ std::get<2>(ps)};
+            /** .inAlignOffset */ std::get<0>(ps),
+            /** .outAlignOffset */ std::get<1>(ps)};
   }
 };
 
-auto GigabyteParams =
-  ::testing::Combine(::testing::Bool(), ::testing::Values(0, 1, 2), ::testing::Values(0, 1, 2));
+auto GigabyteParams = ::testing::Combine(::testing::Values(0, 1, 2), ::testing::Values(0, 1, 2));
 
 struct Gigabyte {
-  typedef std::tuple<bool, int, int> Params;
+  typedef std::tuple<int, int> Params;
   static LinewiseTestParams read(Params ps)
   {
     return {/** .tolerance */ 0.00001,
             /** .workSizeBytes */ 1024 * 1024 * 1024,
             /** .seed */ 42ULL,
-            /** .useVanillaMatrixVectorOp */ std::get<0>(ps),
             /** .checkCorrectness */ false,
-            /** .inAlignOffset */ std::get<1>(ps),
-            /** .outAlignOffset */ std::get<2>(ps)};
+            /** .inAlignOffset */ std::get<0>(ps),
+            /** .outAlignOffset */ std::get<1>(ps)};
   }
 };
 
 auto TenGigsParams = GigabyteParams;
 
 struct TenGigs {
-  typedef std::tuple<bool, int, int> Params;
+  typedef std::tuple<int, int> Params;
   static LinewiseTestParams read(Params ps)
   {
     return {/** .tolerance */ 0.00001,
             /** .workSizeBytes */ 10ULL * 1024ULL * 1024ULL * 1024ULL,
             /** .seed */ 42ULL,
-            /** .useVanillaMatrixVectorOp */ std::get<0>(ps),
             /** .checkCorrectness */ false,
-            /** .inAlignOffset */ std::get<1>(ps),
-            /** .outAlignOffset */ std::get<2>(ps)};
+            /** .inAlignOffset */ std::get<0>(ps),
+            /** .outAlignOffset */ std::get<1>(ps)};
   }
 };
 
