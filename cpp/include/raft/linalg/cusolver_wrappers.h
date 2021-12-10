@@ -92,7 +92,7 @@ inline const char* cusolver_error_to_string(cusolverStatus_t err)
 //  * @brief check for cuda runtime API errors but log error instead of raising
 //  *        exception.
 //  */
-#define RAFT_CUBLAS_TRY_NO_THROW(call)                                 \
+#define RAFT_CUSOLVER_TRY_NO_THROW(call)                               \
   do {                                                                 \
     cusolverStatus_t const status = call;                              \
     if (CUSOLVER_STATUS_SUCCESS != status) {                           \
