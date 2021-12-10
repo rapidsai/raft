@@ -462,7 +462,7 @@ __global__ void block_rbc_kernel_registers(const value_t* X_index,
 template <typename value_idx,
           typename value_t,
           typename value_int = std::uint32_t,
-          typename dist_func = DistFunc<value_t, value_int>>
+          typename dist_func>
 void rbc_low_dim_pass_one(const raft::handle_t& handle,
                           BallCoverIndex<value_idx, value_t, value_int>& index,
                           const value_t* query,
@@ -593,7 +593,7 @@ void rbc_low_dim_pass_one(const raft::handle_t& handle,
 template <typename value_idx,
           typename value_t,
           typename value_int = std::uint32_t,
-          typename dist_func = DistFunc<value_t, value_int>>
+          typename dist_func>
 void rbc_low_dim_pass_two(const raft::handle_t& handle,
                           BallCoverIndex<value_idx, value_t, value_int>& index,
                           const value_t* query,
