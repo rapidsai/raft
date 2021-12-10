@@ -63,7 +63,7 @@ class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
 
     rmm::device_uvector<T> outTrunc(6, stream);
     truncZeroOrigin(in1.data(), params.n_row, outTrunc.data(), 3, 2, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
  protected:
@@ -112,7 +112,7 @@ class MatrixCopyRowsTest : public ::testing::Test {
       indices(n_selected, handle.get_stream()),
       output(n_cols * n_selected, handle.get_stream())
   {
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
     handle.set_stream(stream);
     raft::update_device(indices.data(), indices_host, n_selected, stream);
     // Init input array
@@ -121,7 +121,7 @@ class MatrixCopyRowsTest : public ::testing::Test {
     thrust::copy(handle.get_thrust_policy(), first, first + n_cols * n_rows, ptr);
   }
 
-  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
+  void TearDown() override { RAFT_CUDA_TRY(cudaStreamDestroy(stream)); }
 
   void testCopyRows()
   {

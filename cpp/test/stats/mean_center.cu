@@ -78,7 +78,7 @@ class MeanCenterTest : public ::testing::TestWithParam<MeanCenterInputs<T, IdxTy
                               params.rowMajor,
                               params.bcastAlongRows,
                               (T)-1.0);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
  protected:

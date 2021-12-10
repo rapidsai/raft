@@ -69,7 +69,7 @@ inline const char* cublas_error_to_string(cublasStatus_t err)
  * Invokes a cuBLAS runtime API function call, if the call does not return
  * CUBLAS_STATUS_SUCCESS, throws an exception detailing the cuBLAS error that occurred
  */
-#define CUBLAS_TRY(call)                                                   \
+#define RAFT_CUBLAS_TRY(call)                                              \
   do {                                                                     \
     cublasStatus_t const status = (call);                                  \
     if (CUBLAS_STATUS_SUCCESS != status) {                                 \
@@ -84,20 +84,13 @@ inline const char* cublas_error_to_string(cublasStatus_t err)
     }                                                                      \
   } while (0)
 
-/** FIXME: temporary alias for cuML compatibility */
-#define CUBLAS_CHECK(call) CUBLAS_TRY(call)
+// FIXME: Remove after consumers rename
+#ifndef CUBLAS_TRY
+#define CUBLAS_TRY(call) RAFT_CUBLAS_TRY(call)
+#endif
 
-/** check for cublas runtime API errors but do not assert */
-#define CUBLAS_CHECK_NO_THROW(call)                                      \
-  do {                                                                   \
-    cublasStatus_t err = call;                                           \
-    if (err != CUBLAS_STATUS_SUCCESS) {                                  \
-      CUML_LOG_ERROR("CUBLAS call='%s' got errorcode=%d err=%s",         \
-                     #call,                                              \
-                     err,                                                \
-                     raft::linalg::detail::cublas_error_to_string(err)); \
-    }                                                                    \
-  } while (0)
+/** FIXME: remove after cuml rename */
+#define CUBLAS_CHECK(call) CUBLAS_TRY(call)
 
 namespace raft {
 namespace linalg {

@@ -38,11 +38,11 @@ TEST(Raft, Handle)
   handle_t h(4);
   ASSERT_EQ(4, h.get_num_internal_streams());
   cudaStream_t stream;
-  CUDA_CHECK(cudaStreamCreate(&stream));
+  RAFT_CUDA_TRY(cudaStreamCreate(&stream));
   h.set_stream(stream);
   ASSERT_EQ(stream, h.get_stream());
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-  CUDA_CHECK(cudaStreamDestroy(stream));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  RAFT_CUDA_TRY(cudaStreamDestroy(stream));
 }
 
 TEST(Raft, GetInternalStreams)

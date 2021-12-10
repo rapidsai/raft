@@ -41,7 +41,7 @@ void gemv(const raft::handle_t& handle,
 {
   cublasHandle_t cublas_h = handle.get_cublas_handle();
   cublasOperation_t op_a  = trans_a ? CUBLAS_OP_T : CUBLAS_OP_N;
-  CUBLAS_CHECK(
+  RAFT_CUBLAS_TRY(
     cublasgemv(cublas_h, op_a, n_rows, n_cols, &alpha, A, n_rows, x, incx, &beta, y, incy, stream));
 }
 
@@ -139,7 +139,7 @@ void gemv(const raft::handle_t& handle,
 {
   cublasHandle_t cublas_h = handle.get_cublas_handle();
   cublasOperation_t op_a  = trans_a ? CUBLAS_OP_T : CUBLAS_OP_N;
-  CUBLAS_CHECK(
+  RAFT_CUBLAS_TRY(
     cublasgemv(cublas_h, op_a, n_rows_a, n_cols_a, &alpha, A, lda, x, 1, &beta, y, 1, stream));
 }
 

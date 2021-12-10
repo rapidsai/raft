@@ -38,7 +38,7 @@ void naiveScale(Type* out, const Type* in, Type scalar, int len, cudaStream_t st
   static const int TPB = 64;
   int nblks            = raft::ceildiv(len, TPB);
   naiveScaleKernel<Type><<<nblks, TPB, 0, stream>>>(out, in, scalar, len);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 template <typename T>
@@ -76,7 +76,7 @@ class ScalarMultiplyTest : public ::testing::TestWithParam<ScalarMultiplyInputs<
     r.uniform(in, len, T(-1.0), T(1.0), stream);
     naiveScale(out_ref, in, scalar, len, stream);
     scalarMultiply(out, in, scalar, len, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
  protected:
@@ -125,7 +125,7 @@ void naiveAdd(Type* out, const Type* in1, const Type* in2, int len, cudaStream_t
   static const int TPB = 64;
   int nblks            = raft::ceildiv(len, TPB);
   naiveAddKernel<Type><<<nblks, TPB, 0, stream>>>(out, in1, in2, len);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 template <typename T>
@@ -164,7 +164,7 @@ class EltwiseAddTest : public ::testing::TestWithParam<EltwiseAddInputs<T>> {
     r.uniform(in2, len, T(-1.0), T(1.0), stream);
     naiveAdd(out_ref, in1, in2, len, stream);
     eltwiseAdd(out, in1, in2, len, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
  protected:
