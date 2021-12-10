@@ -27,7 +27,7 @@ namespace common {
  * @param args the arguments for the printf-style formatting
  */
 template <typename... Args>
-void PUSH_RANGE(const char* format, Args... args)
+inline void PUSH_RANGE(const char* format, Args... args)
 {
   detail::pushRange(format, args...);
 }
@@ -39,19 +39,19 @@ void PUSH_RANGE(const char* format, Args... args)
  * @param stream stream to synchronize
  */
 template <typename... Args>
-void PUSH_RANGE(rmm::cuda_stream_view stream, const char* format, Args... args)
+inline void PUSH_RANGE(rmm::cuda_stream_view stream, const char* format, Args... args)
 {
   detail::pushRange(stream, format, args...);
 }
 
 /** Pop the latest range */
-void POP_RANGE() { detail::popRange(); }
+inline void POP_RANGE() { detail::popRange(); }
 
 /**
  * @brief Synchronize CUDA stream and pop the latest nvtx range
  * @param stream stream to synchronize
  */
-void POP_RANGE(rmm::cuda_stream_view stream) { detail::popRange(stream); }
+inline void POP_RANGE(rmm::cuda_stream_view stream) { detail::popRange(stream); }
 
 /** Push a named nvtx range that would be popped at the end of the object lifetime. */
 class AUTO_RANGE {

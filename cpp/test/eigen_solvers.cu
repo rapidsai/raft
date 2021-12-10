@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <raft/common/nvtx.hpp>
 #include <raft/handle.hpp>
 #include <raft/spectral/partition.hpp>
 
@@ -27,6 +28,7 @@ namespace raft {
 
 TEST(Raft, EigenSolvers)
 {
+  RAFT_USING_RANGE("test::EigenSolvers");
   using namespace matrix;
   using index_type = int;
   using value_type = double;
@@ -67,6 +69,7 @@ TEST(Raft, EigenSolvers)
 
 TEST(Raft, SpectralSolvers)
 {
+  RAFT_USING_RANGE("test::SpectralSolvers");
   using namespace matrix;
   using index_type = int;
   using value_type = double;

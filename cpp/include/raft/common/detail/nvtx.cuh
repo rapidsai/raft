@@ -16,16 +16,20 @@
 
 #pragma once
 
-#include <stdint.h>
-#include <stdlib.h>
-#include <mutex>
 #include <rmm/cuda_stream_view.hpp>
-#include <string>
-#include <unordered_map>
 
 namespace raft {
 namespace common {
 namespace detail {
+
+#ifdef NVTX_ENABLED
+
+#include <nvToolsExt.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <mutex>
+#include <string>
+#include <unordered_map>
 
 /**
  * @brief An internal struct to store associated state with the color
@@ -33,25 +37,22 @@ namespace detail {
  */
 struct ColorGenState {
   /** collection of all tagged colors generated so far */
-  static std::unordered_map<std::string, uint32_t> allColors;
+  static inline std::unordered_map<std::string, uint32_t> allColors;
   /** mutex for accessing the above map */
-  static std::mutex mapMutex;
+  static inline std::mutex mapMutex;
   /** saturation */
-  static constexpr float S = 0.9f;
+  static inline constexpr float S = 0.9f;
   /** value */
-  static constexpr float V = 0.85f;
+  static inline constexpr float V = 0.85f;
   /** golden ratio */
-  static constexpr float Phi = 1.61803f;
+  static inline constexpr float Phi = 1.61803f;
   /** inverse golden ratio */
-  static constexpr float InvPhi = 1.f / Phi;
+  static inline constexpr float InvPhi = 1.f / Phi;
 };
-
-std::unordered_map<std::string, uint32_t> ColorGenState::allColors;
-std::mutex ColorGenState::mapMutex;
 
 // all h, s, v are in range [0, 1]
 // Ref: http://en.wikipedia.org/wiki/HSL_and_HSV#Converting_to_RGB
-uint32_t hsv2rgb(float h, float s, float v)
+inline uint32_t hsv2rgb(float h, float s, float v)
 {
   uint32_t out = 0xff000000u;
   if (s <= 0.0f) { return out; }
@@ -117,8 +118,11 @@ uint32_t hsv2rgb(float h, float s, float v)
  * associate the currently generated color with it
  * @return returns 32b RGB integer with alpha channel set of 0xff
  */
-uint32_t generateNextColor(const std::string& tag)
+inline uint32_t generateNextColor(const std::string& tag)
 {
+  // std::unordered_map<std::string, uint32_t> ColorGenState::allColors;
+  // std::mutex ColorGenState::mapMutex;
+
   std::lock_guard<std::mutex> guard(ColorGenState::mapMutex);
   if (!tag.empty()) {
     auto itr = ColorGenState::allColors.find(tag);
@@ -132,13 +136,9 @@ uint32_t generateNextColor(const std::string& tag)
   return rgb;
 }
 
-#ifdef NVTX_ENABLED
+static inline nvtxDomainHandle_t domain = nvtxDomainCreateA("raft");
 
-#include <nvToolsExt.h>
-
-nvtxDomainHandle_t domain = nvtxDomainCreateA("raft");
-
-void pushRange_name(const char* name)
+inline void pushRange_name(const char* name)
 {
   nvtxEventAttributes_t eventAttrib = {0};
   eventAttrib.version               = NVTX_VERSION;
@@ -151,7 +151,7 @@ void pushRange_name(const char* name)
 }
 
 template <typename... Args>
-void pushRange(const char* format, Args... args)
+inline void pushRange(const char* format, Args... args)
 {
   if constexpr (sizeof...(args) > 0) {
     int length = std::snprintf(nullptr, 0, format, args...);
@@ -165,15 +165,15 @@ void pushRange(const char* format, Args... args)
 }
 
 template <typename... Args>
-void pushRange(rmm::cuda_stream_view stream, const char* format, Args... args)
+inline void pushRange(rmm::cuda_stream_view stream, const char* format, Args... args)
 {
   stream.synchronize();
   pushRange(format, args...);
 }
 
-void popRange() { nvtxDomainRangePop(domain); }
+inline void popRange() { nvtxDomainRangePop(domain); }
 
-void popRange(rmm::cuda_stream_view stream)
+inline void popRange(rmm::cuda_stream_view stream)
 {
   stream.synchronize();
   popRange();
@@ -182,18 +182,18 @@ void popRange(rmm::cuda_stream_view stream)
 #else  // NVTX_ENABLED
 
 template <typename... Args>
-void pushRange(const char* format, Args... args)
+inline void pushRange(const char* format, Args... args)
 {
 }
 
 template <typename... Args>
-void pushRange(rmm::cuda_stream_view stream, const char* format, Args... args)
+inline void pushRange(rmm::cuda_stream_view stream, const char* format, Args... args)
 {
 }
 
-void popRange() {}
+inline void popRange() {}
 
-void popRange(rmm::cuda_stream_view stream) {}
+inline void popRange(rmm::cuda_stream_view stream) {}
 
 #endif  // NVTX_ENABLED
 

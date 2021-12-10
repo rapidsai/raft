@@ -16,6 +16,7 @@
 
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
+#include <raft/common/nvtx.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/distance/distance.hpp>
 #include <raft/random/rng.hpp>
@@ -410,6 +411,9 @@ class DistanceTest : public ::testing::TestWithParam<DistanceInputs<DataType>> {
 
   void SetUp() override
   {
+    auto testInfo = testing::UnitTest::GetInstance()->current_test_info();
+    RAFT_USING_RANGE("test::%s/%s", testInfo->test_suite_name(), testInfo->name());
+
     raft::random::Rng r(params.seed);
     int m               = params.m;
     int n               = params.n;
