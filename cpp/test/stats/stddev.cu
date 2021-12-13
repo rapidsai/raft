@@ -133,20 +133,29 @@ typedef StdDevTest<float> StdDevTestF;
 TEST_P(StdDevTestF, Result)
 {
   ASSERT_TRUE(devArrMatch(
-    params.stddev, stddev_act.data(), params.cols, CompareApprox<float>(params.tolerance)));
+    params.stddev, stddev_act.data(), params.cols, CompareApprox<float>(params.tolerance), stream));
 
-  ASSERT_TRUE(devArrMatch(
-    stddev_act.data(), vars_act.data(), params.cols, CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(stddev_act.data(),
+                          vars_act.data(),
+                          params.cols,
+                          CompareApprox<float>(params.tolerance),
+                          stream));
 }
 
 typedef StdDevTest<double> StdDevTestD;
 TEST_P(StdDevTestD, Result)
 {
-  ASSERT_TRUE(devArrMatch(
-    params.stddev, stddev_act.data(), params.cols, CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(params.stddev,
+                          stddev_act.data(),
+                          params.cols,
+                          CompareApprox<double>(params.tolerance),
+                          stream));
 
-  ASSERT_TRUE(devArrMatch(
-    stddev_act.data(), vars_act.data(), params.cols, CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(stddev_act.data(),
+                          vars_act.data(),
+                          params.cols,
+                          CompareApprox<double>(params.tolerance),
+                          stream));
 }
 
 INSTANTIATE_TEST_SUITE_P(StdDevTests, StdDevTestF, ::testing::ValuesIn(inputsf));

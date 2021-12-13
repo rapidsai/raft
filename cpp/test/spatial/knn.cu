@@ -103,7 +103,7 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
       expected_labels_.data(), rows_, k_, search_labels_.data());
 
     ASSERT_TRUE(devArrMatch(
-      expected_labels_.data(), actual_labels_.data(), rows_ * k_, raft::Compare<int>()));
+      expected_labels_.data(), actual_labels_.data(), rows_ * k_, raft::Compare<int>(), stream));
   }
 
   void SetUp() override

@@ -65,7 +65,7 @@ class MergeLabelsTest : public ::testing::TestWithParam<MergeLabelsInputs<Index_
 
     cudaStreamSynchronize(stream);
     ASSERT_TRUE(raft::devArrMatch<Index_>(
-      expected.data(), labels_a.data(), params.N, raft::Compare<Index_>()));
+      expected.data(), labels_a.data(), params.N, raft::Compare<Index_>(), stream));
   }
 
  protected:

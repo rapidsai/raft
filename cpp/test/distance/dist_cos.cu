@@ -39,8 +39,8 @@ TEST_P(DistanceExpCosF, Result)
 {
   int m = params.isRowMajor ? params.m : params.n;
   int n = params.isRowMajor ? params.n : params.m;
-  ASSERT_TRUE(
-    devArrMatch(dist_ref.data(), dist.data(), m, n, raft::CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(
+    dist_ref.data(), dist.data(), m, n, raft::CompareApprox<float>(params.tolerance), stream));
 }
 INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceExpCosF, ::testing::ValuesIn(inputsf));
 
@@ -59,8 +59,8 @@ TEST_P(DistanceExpCosD, Result)
 {
   int m = params.isRowMajor ? params.m : params.n;
   int n = params.isRowMajor ? params.n : params.m;
-  ASSERT_TRUE(
-    devArrMatch(dist_ref.data(), dist.data(), m, n, raft::CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(
+    dist_ref.data(), dist.data(), m, n, raft::CompareApprox<double>(params.tolerance), stream));
 }
 INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceExpCosD, ::testing::ValuesIn(inputsd));
 

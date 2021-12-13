@@ -22,7 +22,10 @@
 
 from libcpp.memory cimport shared_ptr
 from .cuda cimport _Stream
-
+from rmm._lib.cuda_stream_view cimport cuda_stream_view
+from rmm._lib.cuda_stream_pool cimport cuda_stream_pool
+from libcpp.memory cimport shared_ptr
+from libcpp.memory cimport unique_ptr
 
 cdef extern from "raft/mr/device/allocator.hpp" \
         namespace "raft::mr::device" nogil:
@@ -32,7 +35,15 @@ cdef extern from "raft/mr/device/allocator.hpp" \
 cdef extern from "raft/handle.hpp" namespace "raft" nogil:
     cdef cppclass handle_t:
         handle_t() except +
-        handle_t(int ns) except +
-        void set_stream(_Stream s) except +
-        _Stream get_stream() except +
-        int get_num_internal_streams() except +
+        handle_t(cuda_stream_view stream_view) except +
+        handle_t(cuda_stream_view stream_view,
+                 shared_ptr[cuda_stream_pool] stream_pool) except +
+        void set_device_allocator(shared_ptr[allocator] a) except +
+        shared_ptr[allocator] get_device_allocator() except +
+        cuda_stream_view get_stream() except +
+        void sync_stream() except +
+
+cdef class Handle:
+    cdef unique_ptr[handle_t] c_obj
+    cdef shared_ptr[cuda_stream_pool] stream_pool
+    cdef int n_streams
