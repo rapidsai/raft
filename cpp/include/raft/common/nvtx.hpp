@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "detail/nvtx.cuh"
+#include "detail/nvtx.hpp"
 
 namespace raft {
 namespace common {
