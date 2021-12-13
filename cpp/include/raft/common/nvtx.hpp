@@ -113,7 +113,10 @@ class NvtxRange {
   which pushes the range in its constructor and pops it in the destructor.
 */
 #ifdef NVTX_ENABLED
-#define RAFT_USING_NVTX_RANGE(...) raft::common::NvtxRange _AUTO_RANGE_##__LINE__(__VA_ARGS__)
+#define _RAFT_USING_NVTX_RANGE_CAT(a, b)       a##b
+#define _RAFT_USING_NVTX_RANGE_UNIQUE_NAME(ln) _RAFT_USING_NVTX_RANGE_CAT(_NvtxRange_, ln)
+#define RAFT_USING_NVTX_RANGE(...) \
+  raft::common::NvtxRange _RAFT_USING_NVTX_RANGE_UNIQUE_NAME(__LINE__)(__VA_ARGS__)
 #else
 #define RAFT_USING_NVTX_RANGE(...) (void)0
 #endif

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -34,3 +34,8 @@ cdef extern from "cuda_runtime_api.h" nogil:
     _Error cudaGetLastError()
     const char* cudaGetErrorString(_Error e)
     const char* cudaGetErrorName(_Error e)
+
+
+cdef extern from "raft/common/nvtx.hpp" namespace "raft::common":
+    void PUSH_NVTX_RANGE(const char* name)
+    void POP_NVTX_RANGE()
