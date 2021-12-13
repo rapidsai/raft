@@ -131,8 +131,14 @@ INTERFACE
   CUDA::cusolver
   CUDA::cudart
   CUDA::cusparse
+  $<$<BOOL:${NVTX}>:CUDA::nvToolsExt>
   rmm::rmm
   cuco::cuco
+  )
+
+target_compile_definitions(raft
+INTERFACE
+  $<$<BOOL:${NVTX}>:NVTX_ENABLED>
   )
 
 target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)

@@ -117,31 +117,18 @@ target_compile_options(test_raft
 )
 
 target_include_directories(test_raft
-    PUBLIC  "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/include>"
-            "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/test>"
+    PUBLIC  "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/test>"
             "${FAISS_GPU_HEADERS}"
 )
 
 
 target_link_libraries(test_raft
 PRIVATE
-  CUDA::cublas
-  CUDA::curand
-  CUDA::cusolver
-  CUDA::cudart
-  CUDA::cusparse
-  $<$<BOOL:${NVTX}>:CUDA::nvToolsExt>
-  rmm::rmm
-  cuco::cuco
+  raft # transitively links all CUDA libs, etc
   FAISS::FAISS
   GTest::gtest
   GTest::gtest_main
   Threads::Threads
   $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
   $<TARGET_NAME_IF_EXISTS:conda_env>
-)
-
-target_compile_definitions(test_raft
-PRIVATE
-  $<$<BOOL:${NVTX}>:NVTX_ENABLED>
 )
