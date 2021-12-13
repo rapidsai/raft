@@ -34,8 +34,3 @@ cdef extern from "cuda_runtime_api.h" nogil:
     _Error cudaGetLastError()
     const char* cudaGetErrorString(_Error e)
     const char* cudaGetErrorName(_Error e)
-
-
-cdef extern from "raft/common/nvtx.hpp" namespace "raft::common":
-    void PUSH_NVTX_RANGE(const char* name)
-    void POP_NVTX_RANGE()

@@ -19,10 +19,6 @@
 # cython: embedsignature = True
 # cython: language_level = 3
 
-import functools
-import contextlib
-from libcpp.string cimport string
-
 
 class CudaRuntimeError(RuntimeError):
     def __init__(self, extraMsg=None):
@@ -87,41 +83,3 @@ cdef class Stream:
 
     def getStream(self):
         return self.s
-
-
-def nvtx_range_push(name: str):
-    """
-    Create an NVTX range with name `name`.
-
-    NB: consider using `nvtx_range`, which guarantees to pop the range.
-    """
-    cdef string s = name.encode("UTF-8")
-    PUSH_NVTX_RANGE(s.c_str())
-
-
-def nvtx_range_pop():
-    """
-    End an NVTX range
-
-    NB: consider using `nvtx_range`, which guarantees to pop the range.
-    """
-    POP_NVTX_RANGE()
-
-
-@contextlib.contextmanager
-def nvtx_range(name: str):
-    """Annotate a code block with an NVTX range."""
-    nvtx_range_push(name)
-    try:
-        yield
-    finally:
-        nvtx_range_pop()
-
-
-def nvtx_range_wrap(func):
-    """Decorator that wraps the function into an `nvtx_range`."""
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        with nvtx_range(func.__name__):
-            return func(*args, **kwargs)
-    return wrapper
