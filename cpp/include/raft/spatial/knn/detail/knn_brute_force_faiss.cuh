@@ -297,10 +297,9 @@ void brute_force_knn_impl(
     //    // TODO: Enable this once we figure out why it's causing pytest failures in cuml.
     //    if (k <= 64 && rowMajorQuery == rowMajorIndex && rowMajorQuery == true &&
     //        (metric == raft::distance::DistanceType::L2Unexpanded ||
-    //         metric == raft::distance::DistanceType::L2SqrtUnexpanded  //||
-    //         //             metric == raft::distance::DistanceType::L2Expanded ||
-    //         //             metric == raft::distance::DistanceType::L2SqrtExpanded)
-    //         )) {
+    //         metric == raft::distance::DistanceType::L2SqrtUnexpanded ||
+    //         metric == raft::distance::DistanceType::L2Expanded ||
+    //         metric == raft::distance::DistanceType::L2SqrtExpanded)) {
     //      fusedL2Knn(D,
     //                 out_i_ptr,
     //                 out_d_ptr,
@@ -352,6 +351,7 @@ void brute_force_knn_impl(
          */
         bfKnn(&gpu_res, args);
     }
+    //    }
 
     RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
