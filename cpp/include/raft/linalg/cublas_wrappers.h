@@ -89,8 +89,31 @@ inline const char* cublas_error_to_string(cublasStatus_t err)
 #define CUBLAS_TRY(call) RAFT_CUBLAS_TRY(call)
 #endif
 
+// /**
+//  * @brief check for cuda runtime API errors but log error instead of raising
+//  *        exception.
+//  */
+#define RAFT_CUBLAS_TRY_NO_THROW(call)                               \
+  do {                                                               \
+    cublasStatus_t const status = call;                              \
+    if (CUBLAS_STATUS_SUCCESS != status) {                           \
+      printf("CUBLAS call='%s' at file=%s line=%d failed with %s\n", \
+             #call,                                                  \
+             __FILE__,                                               \
+             __LINE__,                                               \
+             raft::linalg::detail::cublas_error_to_string(status));  \
+    }                                                                \
+  } while (0)
+
 /** FIXME: remove after cuml rename */
+#ifndef CUBLAS_CHECK
 #define CUBLAS_CHECK(call) CUBLAS_TRY(call)
+#endif
+
+/** FIXME: remove after cuml rename */
+#ifndef CUBLAS_CHECK_NO_THROW
+#define CUBLAS_CHECK_NO_THROW(call) RAFT_CUBLAS_TRY_NO_THROW(call)
+#endif
 
 namespace raft {
 namespace linalg {
