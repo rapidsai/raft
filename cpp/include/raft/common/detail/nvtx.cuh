@@ -136,7 +136,7 @@ inline uint32_t generateNextColor(const std::string& tag)
   return rgb;
 }
 
-static inline nvtxDomainHandle_t domain = nvtxDomainCreateA("raft");
+static inline nvtxDomainHandle_t domain = nvtxDomainCreateA("application");
 
 inline void pushRange_name(const char* name)
 {

@@ -27,7 +27,7 @@ namespace common {
  * @param args the arguments for the printf-style formatting
  */
 template <typename... Args>
-inline void PUSH_RANGE(const char* format, Args... args)
+inline void PUSH_NVTX_RANGE(const char* format, Args... args)
 {
   detail::pushRange(format, args...);
 }
@@ -39,30 +39,32 @@ inline void PUSH_RANGE(const char* format, Args... args)
  * @param stream stream to synchronize
  */
 template <typename... Args>
-inline void PUSH_RANGE(rmm::cuda_stream_view stream, const char* format, Args... args)
+inline void PUSH_NVTX_RANGE(rmm::cuda_stream_view stream, const char* format, Args... args)
 {
   detail::pushRange(stream, format, args...);
 }
 
 /** Pop the latest range */
-inline void POP_RANGE() { detail::popRange(); }
+inline void POP_NVTX_RANGE() { detail::popRange(); }
 
 /**
  * @brief Synchronize CUDA stream and pop the latest nvtx range
  * @param stream stream to synchronize
  */
-inline void POP_RANGE(rmm::cuda_stream_view stream) { detail::popRange(stream); }
+inline void POP_NVTX_RANGE(rmm::cuda_stream_view stream) { detail::popRange(stream); }
 
 /** Push a named nvtx range that would be popped at the end of the object lifetime. */
-class AUTO_RANGE {
+class NvtxRange {
  private:
   std::optional<rmm::cuda_stream_view> streamMaybe;
 
   /* This object is not meant to be touched. */
-  AUTO_RANGE(const AUTO_RANGE&) = delete;
-  AUTO_RANGE(AUTO_RANGE&&)      = delete;
-  AUTO_RANGE& operator=(const AUTO_RANGE&) = delete;
-  AUTO_RANGE& operator=(AUTO_RANGE&&) = delete;
+  NvtxRange(const NvtxRange&) = delete;
+  NvtxRange(NvtxRange&&)      = delete;
+  NvtxRange& operator=(const NvtxRange&) = delete;
+  NvtxRange& operator=(NvtxRange&&)        = delete;
+  static void* operator new(std::size_t)   = delete;
+  static void* operator new[](std::size_t) = delete;
 
  public:
   /**
@@ -74,10 +76,10 @@ class AUTO_RANGE {
    * @param args the arguments for the printf-style formatting
    */
   template <typename... Args>
-  AUTO_RANGE(rmm::cuda_stream_view stream, const char* format, Args... args)
+  NvtxRange(rmm::cuda_stream_view stream, const char* format, Args... args)
     : streamMaybe(std::make_optional(stream))
   {
-    PUSH_RANGE(stream, format, args...);
+    PUSH_NVTX_RANGE(stream, format, args...);
   }
 
   /**
@@ -88,31 +90,32 @@ class AUTO_RANGE {
    * @param args the arguments for the printf-style formatting
    */
   template <typename... Args>
-  AUTO_RANGE(const char* format, Args... args) : streamMaybe(std::nullopt)
+  NvtxRange(const char* format, Args... args) : streamMaybe(std::nullopt)
   {
-    PUSH_RANGE(format, args...);
+    PUSH_NVTX_RANGE(format, args...);
   }
 
-  ~AUTO_RANGE()
+  ~NvtxRange()
   {
-    if (streamMaybe.has_value())
-      POP_RANGE(*streamMaybe);
-    else
-      POP_RANGE();
+    if (streamMaybe.has_value()) {
+      POP_NVTX_RANGE(*streamMaybe);
+    } else {
+      POP_NVTX_RANGE();
+    }
   }
 };
 
 /*!
-  \def RAFT_USING_RANGE(...)
+  \def RAFT_USING_NVTX_RANGE(...)
   When NVTX is enabled, push a named nvtx range and pop it at the end of the enclosing code block.
 
-  This macro initializes a dummy AUTO_RANGE variable on the stack,
+  This macro initializes a dummy NvtxRange variable on the stack,
   which pushes the range in its constructor and pops it in the destructor.
 */
 #ifdef NVTX_ENABLED
-#define RAFT_USING_RANGE(...) raft::common::AUTO_RANGE _AUTO_RANGE_##__LINE__(__VA_ARGS__)
+#define RAFT_USING_NVTX_RANGE(...) raft::common::NvtxRange _AUTO_RANGE_##__LINE__(__VA_ARGS__)
 #else
-#define RAFT_USING_RANGE(...) (void)0
+#define RAFT_USING_NVTX_RANGE(...) (void)0
 #endif
 
 }  // namespace common
