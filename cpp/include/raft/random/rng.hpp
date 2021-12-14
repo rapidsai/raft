@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,57 +21,36 @@
 namespace raft {
 namespace random {
 
-/** all different generator types used */
-using detail::GeneratorType;
-/** curand-based philox generator */
-using detail::GenPhilox;
-/** GenTaps : LFSR taps generator */
-using detail::GenTaps;
-/** GenKiss99 : kiss99 generator (currently the fastest) */
-using detail::GenKiss99;
-
-/** Philox-based random number generator */
-using detail::PhiloxGenerator;
-/** LFSR taps-filter for generating random numbers. */
-using detail::TapsGenerator;
-/** Kiss99-based random number generator */
-using detail::Kiss99Generator;
-
-/**
- * @brief Helper method to compute Box Muller transform
- *
- * @tparam Type data type
- *
- * @param[inout] val1   first value
- * @param[inout] val2   second value
- * @param[in]    sigma1 standard deviation of output gaussian for first value
- * @param[in]    mu1    mean of output gaussian for first value
- * @param[in]    sigma2 standard deviation of output gaussian for second value
- * @param[in]    mu2    mean of output gaussian for second value
- * @{
- */
-template <typename Type>
-DI void box_muller_transform(Type& val1, Type& val2, Type sigma1, Type mu1, Type sigma2, Type mu2)
-{
-  detail::box_muller_transform(val1, val2, sigma1, mu1, sigma1, mu2);
+template <typename OutType, typename LenType, typename GenType,
+          int ITEMS_PER_CALL, typename ParamType>
+__global__ void fillKernel(uint64_t seed, uint64_t offset, OutType *ptr, LenType len,
+                           ParamType params) {
+  LenType tid = threadIdx.x + blockIdx.x * blockDim.x;
+  GenType gen(seed, (uint64_t)tid, offset);
+  const LenType stride = gridDim.x * blockDim.x;
+  for (LenType idx = tid; idx < len; idx += stride * ITEMS_PER_CALL) {
+    OutType val[ITEMS_PER_CALL];
+    custom_next(gen, val, params, idx, stride);
+    #pragma unroll
+    for (int i = 0; i < ITEMS_PER_CALL; i++) {
+      if ((idx + i * stride) < len) ptr[idx + i * stride] = val[i]; 
+    }
+  }
+  return;
 }
-template <typename Type>
-DI void box_muller_transform(Type& val1, Type& val2, Type sigma1, Type mu1)
-{
-  detail::box_muller_transform(val1, val2, sigma1, mu1);
-}
-/** @} */
 
-/** The main random number generator class, fully on GPUs */
-class Rng : public detail::RngImpl {
- public:
-  /**
-   * @brief ctor
-   * @param _s 64b seed used to initialize the RNG
-   * @param _t backend device RNG generator type
-   * @note Refer to the `Rng::seed` method for details about seeding the engine
-   */
-  Rng(uint64_t _s, GeneratorType _t = GenPhilox) : detail::RngImpl{_s, _t} {}
+class Rng {
+public:
+  Rng(uint64_t _s, GeneratorType _t = GenPhilox) 
+    : seed(_s),
+      type(_t),
+      offset(0),
+      // simple heuristic to make sure all SMs will be occupied properly
+      // and also not too many initialization calls will be made by each thread
+      nBlocks(4 * getMultiProcessorCount()),
+      mt_gen() {
+      set_seed(_s);
+  }
 
   /**
    * @brief Seed (and thus re-initialize) the underlying RNG engine
@@ -80,7 +59,11 @@ class Rng : public detail::RngImpl {
    *       function of timestamp. Another example is to use the c++11's
    *       `std::random_device` for setting seed.
    */
-  void seed(uint64_t _s) { detail::RngImpl::seed(_s); }
+  void set_seed(uint64_t _s) {
+    mt_gen.seed(_s);
+    seed = mt_gen();
+    offset = 0;
+  }
 
   /**
    * @brief Generates the 'a' and 'b' parameters for a modulo affine
@@ -93,9 +76,15 @@ class Rng : public detail::RngImpl {
    * @param[out] b intercept parameter
    */
   template <typename IdxT>
-  void affine_transform_params(IdxT n, IdxT& a, IdxT& b)
-  {
-    detail::RngImpl::affine_transform_params(n, a, b);
+  void affine_transform_params(IdxT n, IdxT &a, IdxT &b) {
+    // always keep 'a' to be coprime to 'n'
+    a = mt_gen() % n;
+    while (gcd(a, n) != 1) {
+      ++a;
+      if (a >= n) a = 0;
+    }
+    // the bias term 'b' can be any number in the range of [0, n)
+    b = mt_gen() % n;
   }
 
   /**
@@ -109,15 +98,28 @@ class Rng : public detail::RngImpl {
    * @param stream stream where to launch the kernel
    * @{
    */
-  template <typename Type, typename LenType = int>
-  void uniform(Type* ptr, LenType len, Type start, Type end, cudaStream_t stream)
-  {
-    detail::RngImpl::uniform(ptr, len, start, end, stream);
+  template <typename OutType, typename LenType = int>
+  void uniform(OutType *ptr, LenType len, OutType start, OutType end,
+                  cudaStream_t stream) {
+    static_assert(std::is_floating_point<OutType>::value,
+                  "Type for 'uniform' can only be floating point!");
+    UniformDistParams<OutType> params;
+    params.start = start;
+    params.end = end;
+    kernel_dispatch<OutType, LenType, 1, UniformDistParams<OutType>>(
+      ptr, len, stream, params);
+
   }
-  template <typename IntType, typename LenType = int>
-  void uniformInt(IntType* ptr, LenType len, IntType start, IntType end, cudaStream_t stream)
-  {
-    detail::RngImpl::uniformInt(ptr, len, start, end, stream);
+
+  template <typename OutType, typename LenType = int>
+  void uniformInt(OutType *ptr, LenType len, OutType start, OutType end, cudaStream_t stream) {
+    static_assert(std::is_integral<OutType>::value,
+                  "Type for 'uniformInt' can only be integer!");
+    UniformIntDistParams<OutType> params;
+    params.start = start;
+    params.end = end;
+    kernel_dispatch<OutType, LenType, 1, UniformIntDistParams<OutType>>
+      (ptr, len, stream, params);
   }
   /** @} */
 
@@ -132,15 +134,27 @@ class Rng : public detail::RngImpl {
    * @param stream stream where to launch the kernel
    * @{
    */
-  template <typename Type, typename LenType = int>
-  void normal(Type* ptr, LenType len, Type mu, Type sigma, cudaStream_t stream)
-  {
-    detail::RngImpl::normal(ptr, len, mu, sigma, stream);
+  template <typename OutType, typename LenType = int>
+  void normal(OutType *ptr, LenType len, OutType mu, OutType sigma, cudaStream_t stream) {
+    static_assert(std::is_floating_point<OutType>::value,
+                  "Type for 'normal' can only be floating point!");
+    NormalDistParams<OutType> params;
+    params.mu = mu;
+    params.sigma = sigma;
+    kernel_dispatch<OutType, LenType, 2, NormalDistParams<OutType>>
+      (ptr, len, stream, params);
   }
+
   template <typename IntType, typename LenType = int>
-  void normalInt(IntType* ptr, LenType len, IntType mu, IntType sigma, cudaStream_t stream)
-  {
-    detail::RngImpl::normalInt(ptr, len, mu, sigma, stream);
+  void normalInt(IntType *ptr, LenType len, IntType mu, IntType sigma,
+                 cudaStream_t stream) {
+  static_assert(std::is_integral<IntType>::value,
+                  "Type for 'normalInt' can only be integer!");
+    NormalIntDistParams<IntType> params;
+    params.mu = mu;
+    params.sigma = sigma;
+    kernel_dispatch<IntType, LenType, 2, NormalIntDistParams<IntType>>
+      (ptr, len, stream, params);
   }
   /** @} */
 
@@ -164,16 +178,18 @@ class Rng : public detail::RngImpl {
    * @param sigma scalar sigma to be used if 'sigma_vec' is nullptr
    * @param stream stream where to launch the kernel
    */
-  template <typename Type, typename LenType = int>
-  void normalTable(Type* ptr,
-                   LenType n_rows,
-                   LenType n_cols,
-                   const Type* mu,
-                   const Type* sigma_vec,
-                   Type sigma,
-                   cudaStream_t stream)
-  {
-    detail::RngImpl::normalTable(ptr, n_rows, n_cols, mu, sigma_vec, sigma, stream);
+  template <typename OutType, typename LenType = int>
+  void normalTable(OutType *ptr, LenType n_rows, LenType n_cols, const OutType *mu_vec,
+                   const OutType *sigma_vec, OutType sigma, cudaStream_t stream) {
+    NormalTableDistParams<OutType, LenType> params;
+    params.n_rows = n_rows;
+    params.n_cols = n_cols;
+    params.mu_vec = mu_vec;
+    params.sigma = sigma;
+    params.sigma_vec = sigma_vec;
+    LenType len = n_rows * n_cols;
+    kernel_dispatch<OutType, LenType, 2, NormalTableDistParams<OutType, LenType>>
+      (ptr, len, stream, params);
   }
 
   /**
@@ -185,10 +201,12 @@ class Rng : public detail::RngImpl {
    * @param val value to be filled
    * @param stream stream where to launch the kernel
    */
-  template <typename Type, typename LenType = int>
-  void fill(Type* ptr, LenType len, Type val, cudaStream_t stream)
-  {
-    detail::RngImpl::fill(ptr, len, val, stream);
+  template <typename OutType, typename LenType = int>
+  void fill(OutType *ptr, LenType len, OutType val, cudaStream_t stream) {
+    InvariantDistParams<OutType> params;
+    params.const_val = val;
+    kernel_dispatch<OutType, LenType, 1, InvariantDistParams<OutType>>(
+      ptr, len, stream, params);
   }
 
   /**
@@ -202,11 +220,13 @@ class Rng : public detail::RngImpl {
    * @param[in]  len    the number of elements in the output
    * @param[in]  prob   coin-toss probability for heads
    * @param[in]  stream stream where to launch the kernel
-   */
+   */  
   template <typename Type, typename OutType = bool, typename LenType = int>
-  void bernoulli(OutType* ptr, LenType len, Type prob, cudaStream_t stream)
-  {
-    detail::RngImpl::bernoulli(ptr, len, prob, stream);
+  void bernoulli(OutType *ptr, LenType len, Type prob, cudaStream_t stream) {
+    BernoulliDistParams<Type> params;
+    params.prob = prob;
+    kernel_dispatch<OutType, LenType, 1, BernoulliDistParams<Type>>
+      (ptr, len, stream, params);
   }
 
   /**
@@ -219,14 +239,19 @@ class Rng : public detail::RngImpl {
    * @param scale scaling factor
    * @param stream stream where to launch the kernel
    */
-  template <typename Type, typename LenType = int>
-  void scaled_bernoulli(Type* ptr, LenType len, Type prob, Type scale, cudaStream_t stream)
-  {
-    detail::RngImpl::scaled_bernoulli(ptr, len, prob, scale, stream);
+  template <typename OutType, typename LenType = int>
+  void scaled_bernoulli(OutType *ptr, LenType len, OutType prob, OutType scale, cudaStream_t stream) {
+    static_assert(std::is_floating_point<OutType>::value,
+                  "Type for 'scaled_bernoulli' can only be floating point!");
+    ScaledBernoulliDistParams<OutType> params;
+    params.prob = prob;
+    params.scale = scale;
+    kernel_dispatch<OutType, LenType, 1, ScaledBernoulliDistParams<OutType>>
+      (ptr, len, stream, params);
   }
 
   /**
-   * @brief Generate gumbel distributed random numbers
+   * @brief Generate Gumbel distributed random numbers
    * @tparam Type data type of output random number
    * @tparam LenType data type used to represent length of the arrays
    * @param ptr output array
@@ -236,11 +261,15 @@ class Rng : public detail::RngImpl {
    * @param stream stream where to launch the kernel
    * @note https://en.wikipedia.org/wiki/Gumbel_distribution
    */
-  template <typename Type, typename LenType = int>
-  void gumbel(Type* ptr, LenType len, Type mu, Type beta, cudaStream_t stream)
-  {
-    detail::RngImpl::gumbel(ptr, len, mu, beta, stream);
+  template <typename OutType, typename LenType = int>
+  void gumbel(OutType *ptr, LenType len, OutType mu, OutType beta, cudaStream_t stream) {
+    GumbelDistParams<OutType> params;
+    params.mu = mu;
+    params.beta = beta;
+    kernel_dispatch<OutType, LenType, 1, GumbelDistParams<OutType>>
+      (ptr, len, stream, params);
   }
+
 
   /**
    * @brief Generate lognormal distributed numbers
@@ -252,10 +281,13 @@ class Rng : public detail::RngImpl {
    * @param sigma std-dev of the distribution
    * @param stream stream where to launch the kernel
    */
-  template <typename Type, typename LenType = int>
-  void lognormal(Type* ptr, LenType len, Type mu, Type sigma, cudaStream_t stream)
-  {
-    detail::RngImpl::lognormal(ptr, len, mu, sigma, stream);
+  template <typename OutType, typename LenType = int>
+  void lognormal(OutType *ptr, LenType len, OutType mu, OutType sigma, cudaStream_t stream) {
+    LogNormalDistParams<OutType> params;
+    params.mu = mu;
+    params.sigma = sigma;
+    kernel_dispatch<OutType, LenType, 2, LogNormalDistParams<OutType>>
+      (ptr, len, stream, params);
   }
 
   /**
@@ -268,10 +300,13 @@ class Rng : public detail::RngImpl {
    * @param scale scale value
    * @param stream stream where to launch the kernel
    */
-  template <typename Type, typename LenType = int>
-  void logistic(Type* ptr, LenType len, Type mu, Type scale, cudaStream_t stream)
-  {
-    detail::RngImpl::logistic(ptr, len, mu, scale, stream);
+  template <typename OutType, typename LenType = int>
+  void logistic(OutType *ptr, LenType len, OutType mu, OutType scale, cudaStream_t stream) {
+    LogisticDistParams<OutType> params;
+    params.mu = mu;
+    params.scale = scale;
+    kernel_dispatch<OutType, LenType, 1, LogisticDistParams<OutType>>
+      (ptr, len, stream, params);
   }
 
   /**
@@ -283,10 +318,12 @@ class Rng : public detail::RngImpl {
    * @param lambda the lambda
    * @param stream stream where to launch the kernel
    */
-  template <typename Type, typename LenType = int>
-  void exponential(Type* ptr, LenType len, Type lambda, cudaStream_t stream)
-  {
-    detail::RngImpl::exponential(ptr, len, lambda, stream);
+  template <typename OutType, typename LenType = int>
+  void exponential(OutType *ptr, LenType len, OutType lambda, cudaStream_t stream) {
+    ExponentialDistParams<OutType> params;
+    params.lambda = lambda;
+    kernel_dispatch<OutType, LenType, 1, ExponentialDistParams<OutType>>
+      (ptr, len, stream, params);
   }
 
   /**
@@ -298,10 +335,12 @@ class Rng : public detail::RngImpl {
    * @param sigma the sigma
    * @param stream stream where to launch the kernel
    */
-  template <typename Type, typename LenType = int>
-  void rayleigh(Type* ptr, LenType len, Type sigma, cudaStream_t stream)
-  {
-    detail::RngImpl::rayleigh(ptr, len, sigma, stream);
+  template <typename OutType, typename LenType = int>
+  void rayleigh(OutType *ptr, LenType len, OutType sigma, cudaStream_t stream) {
+    RayleighDistParams<OutType> params;
+    params.sigma = sigma;
+    kernel_dispatch<OutType, LenType, 1, RayleighDistParams<OutType>>
+      (ptr, len, stream, params);
   }
 
   /**
@@ -314,10 +353,31 @@ class Rng : public detail::RngImpl {
    * @param scale the scale
    * @param stream stream where to launch the kernel
    */
-  template <typename Type, typename LenType = int>
-  void laplace(Type* ptr, LenType len, Type mu, Type scale, cudaStream_t stream)
-  {
-    detail::RngImpl::laplace(ptr, len, mu, scale, stream);
+  template <typename OutType, typename LenType = int>
+  void laplace(OutType *ptr, LenType len, OutType mu, OutType scale, cudaStream_t stream) {
+    LaplaceDistParams<OutType> params;
+    params.mu = mu;
+    params.scale = scale;
+    kernel_dispatch<OutType, LenType, 1, LaplaceDistParams<OutType>>
+      (ptr, len, stream, params);
+  }
+
+  template <typename OutType, typename LenType, int ITEMS_PER_CALL, typename ParamType>
+  void kernel_dispatch(OutType* ptr, LenType len,
+                       cudaStream_t stream, ParamType params) {
+    switch (type) {
+      case GenPhilox:
+        fillKernel<OutType, LenType, PhiloxGenerator, ITEMS_PER_CALL>
+          <<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr, len, params);
+        break;
+      case GenPC:
+        fillKernel<OutType, LenType, PCGenerator, ITEMS_PER_CALL>
+          <<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr, len, params);
+        break;
+      default:
+        break;
+    }
+    return;
   }
 
   /**
@@ -346,45 +406,44 @@ class Rng : public detail::RngImpl {
    * @param stream cuda stream
    */
   template <typename DataT, typename WeightsT, typename IdxT = int>
-  void sampleWithoutReplacement(const raft::handle_t& handle,
-                                DataT* out,
-                                IdxT* outIdx,
-                                const DataT* in,
-                                const WeightsT* wts,
-                                IdxT sampledLen,
-                                IdxT len,
-                                cudaStream_t stream)
-  {
-    detail::RngImpl::sampleWithoutReplacement(
-      handle, out, outIdx, in, wts, sampledLen, len, stream);
+  void sampleWithoutReplacement(const raft::handle_t &handle, DataT *out,
+                                IdxT *outIdx, const DataT *in,
+                                const WeightsT *wts, IdxT sampledLen, IdxT len,
+                                cudaStream_t stream) {
+    ASSERT(sampledLen <= len,
+           "sampleWithoutReplacement: 'sampledLen' cant be more than 'len'.");
+
+    rmm::device_uvector<WeightsT> expWts(len, stream);
+    rmm::device_uvector<WeightsT> sortedWts(len, stream);
+    rmm::device_uvector<IdxT> inIdx(len, stream);
+    rmm::device_uvector<IdxT> outIdxBuff(len, stream);
+    auto *inIdxPtr = inIdx.data();
+    // generate modified weights
+    SamplingParams<WeightsT, IdxT> params;
+    params.inIdxPtr = inIdxPtr;
+    params.wts = wts;
+    kernel_dispatch<WeightsT, IdxT, 1, SamplingParams<WeightsT, IdxT>>
+      (expWts.data(), len, stream, params);
+    ///@todo: use a more efficient partitioning scheme instead of full sort
+    // sort the array and pick the top sampledLen items
+    IdxT *outIdxPtr = outIdxBuff.data();
+    rmm::device_uvector<char> workspace(0, stream);
+    sortPairs(workspace, expWts.data(), sortedWts.data(), inIdxPtr, outIdxPtr,
+              (int)len, stream);
+    if (outIdx != nullptr) {
+      CUDA_CHECK(cudaMemcpyAsync(outIdx, outIdxPtr, sizeof(IdxT) * sampledLen,
+                                 cudaMemcpyDeviceToDevice, stream));
+    }
+    scatter<DataT, IdxT>(out, in, outIdxPtr, sampledLen, stream);
   }
 
-  /**
-   * @brief Core method to generate a pdf based on the cdf that is defined in
-   *        the input device lambda
-   *
-   * @tparam OutType  output type
-   * @tparam MathType type on which arithmetic is done
-   * @tparam LenTyp   index type
-   * @tparam Lambda   device lambda (or operator)
-   *
-   * @param[out] ptr    output buffer [on device] [len = len]
-   * @param[in]  len    number of elements to be generated
-   * @param[in]  randOp the device lambda or operator
-   * @param[in]  stream cuda stream
-   * @{
-   */
-  template <typename OutType, typename MathType = OutType, typename LenType = int, typename Lambda>
-  void custom_distribution(OutType* ptr, LenType len, Lambda randOp, cudaStream_t stream)
-  {
-    detail::RngImpl::custom_distribution(ptr, len, randOp, stream);
-  }
-  template <typename OutType, typename MathType = OutType, typename LenType = int, typename Lambda>
-  void custom_distribution2(OutType* ptr, LenType len, Lambda randOp, cudaStream_t stream)
-  {
-    detail::RngImpl::custom_distribution2(ptr, len, randOp, stream);
-  }
-  /** @} */
+  GeneratorType type;
+  uint64_t offset;
+  uint64_t seed;
+  std::mt19937_64 mt_gen;
+  /** number of blocks to launch */
+  int nBlocks;
+  static const int nThreads = 256;
 };
 
 };  // end namespace random
