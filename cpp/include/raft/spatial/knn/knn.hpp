@@ -141,9 +141,8 @@ void brute_force_knn(raft::handle_t const& handle,
 {
   ASSERT(input.size() == sizes.size(), "input and sizes vectors must be the same size");
 
-  std::vector<cudaStream_t> int_streams = handle.get_internal_streams();
-
-  detail::brute_force_knn_impl(input,
+  detail::brute_force_knn_impl(handle,
+                               input,
                                sizes,
                                D,
                                search_items,
@@ -151,9 +150,6 @@ void brute_force_knn(raft::handle_t const& handle,
                                res_I,
                                res_D,
                                k,
-                               handle.get_stream(),
-                               int_streams.data(),
-                               handle.get_num_internal_streams(),
                                rowMajorIndex,
                                rowMajorQuery,
                                translations,

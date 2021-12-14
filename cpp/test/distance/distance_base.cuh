@@ -308,7 +308,8 @@ void naiveDistance(DataType* dist,
                    int k,
                    raft::distance::DistanceType type,
                    bool isRowMajor,
-                   DataType metric_arg = 2.0f)
+                   DataType metric_arg = 2.0f,
+                   cudaStream_t stream = 0)
 {
   static const dim3 TPB(16, 32, 1);
   dim3 nblks(raft::ceildiv(m, (int)TPB.x), raft::ceildiv(n, (int)TPB.y), 1);
@@ -318,38 +319,46 @@ void naiveDistance(DataType* dist,
     case raft::distance::DistanceType::Linf:
     case raft::distance::DistanceType::L1:
       naiveL1_Linf_CanberraDistanceKernel<DataType>
-        <<<nblks, TPB>>>(dist, x, y, m, n, k, type, isRowMajor);
+        <<<nblks, TPB, 0, stream>>>(dist, x, y, m, n, k, type, isRowMajor);
       break;
     case raft::distance::DistanceType::L2SqrtUnexpanded:
     case raft::distance::DistanceType::L2Unexpanded:
     case raft::distance::DistanceType::L2SqrtExpanded:
     case raft::distance::DistanceType::L2Expanded:
-      naiveDistanceKernel<DataType><<<nblks, TPB>>>(dist, x, y, m, n, k, type, isRowMajor);
+      naiveDistanceKernel<DataType>
+        <<<nblks, TPB, 0, stream>>>(dist, x, y, m, n, k, type, isRowMajor);
       break;
     case raft::distance::DistanceType::CosineExpanded:
-      naiveCosineDistanceKernel<DataType><<<nblks, TPB>>>(dist, x, y, m, n, k, isRowMajor);
+      naiveCosineDistanceKernel<DataType>
+        <<<nblks, TPB, 0, stream>>>(dist, x, y, m, n, k, isRowMajor);
       break;
     case raft::distance::DistanceType::HellingerExpanded:
-      naiveHellingerDistanceKernel<DataType><<<nblks, TPB>>>(dist, x, y, m, n, k, isRowMajor);
+      naiveHellingerDistanceKernel<DataType>
+        <<<nblks, TPB, 0, stream>>>(dist, x, y, m, n, k, isRowMajor);
       break;
     case raft::distance::DistanceType::LpUnexpanded:
       naiveLpUnexpDistanceKernel<DataType>
-        <<<nblks, TPB>>>(dist, x, y, m, n, k, isRowMajor, metric_arg);
+        <<<nblks, TPB, 0, stream>>>(dist, x, y, m, n, k, isRowMajor, metric_arg);
       break;
     case raft::distance::DistanceType::HammingUnexpanded:
-      naiveHammingDistanceKernel<DataType><<<nblks, TPB>>>(dist, x, y, m, n, k, isRowMajor);
+      naiveHammingDistanceKernel<DataType>
+        <<<nblks, TPB, 0, stream>>>(dist, x, y, m, n, k, isRowMajor);
       break;
     case raft::distance::DistanceType::JensenShannon:
-      naiveJensenShannonDistanceKernel<DataType><<<nblks, TPB>>>(dist, x, y, m, n, k, isRowMajor);
+      naiveJensenShannonDistanceKernel<DataType>
+        <<<nblks, TPB, 0, stream>>>(dist, x, y, m, n, k, isRowMajor);
       break;
     case raft::distance::DistanceType::RusselRaoExpanded:
-      naiveRussellRaoDistanceKernel<DataType><<<nblks, TPB>>>(dist, x, y, m, n, k, isRowMajor);
+      naiveRussellRaoDistanceKernel<DataType>
+        <<<nblks, TPB, 0, stream>>>(dist, x, y, m, n, k, isRowMajor);
       break;
     case raft::distance::DistanceType::KLDivergence:
-      naiveKLDivergenceDistanceKernel<DataType><<<nblks, TPB>>>(dist, x, y, m, n, k, isRowMajor);
+      naiveKLDivergenceDistanceKernel<DataType>
+        <<<nblks, TPB, 0, stream>>>(dist, x, y, m, n, k, isRowMajor);
       break;
     case raft::distance::DistanceType::CorrelationExpanded:
-      naiveCorrelationDistanceKernel<DataType><<<nblks, TPB>>>(dist, x, y, m, n, k, isRowMajor);
+      naiveCorrelationDistanceKernel<DataType>
+        <<<nblks, TPB, 0, stream>>>(dist, x, y, m, n, k, isRowMajor);
       break;
     default: FAIL() << "should be here\n";
   }
@@ -430,7 +439,7 @@ class DistanceTest : public ::testing::TestWithParam<DistanceInputs<DataType>> {
       r.uniform(y.data(), n * k, DataType(-1.0), DataType(1.0), stream);
     }
     naiveDistance(
-      dist_ref.data(), x.data(), y.data(), m, n, k, distanceType, isRowMajor, metric_arg);
+      dist_ref.data(), x.data(), y.data(), m, n, k, distanceType, isRowMajor, metric_arg, stream);
     size_t worksize = raft::distance::getWorkspaceSize<distanceType, DataType, DataType, DataType>(
       x.data(), y.data(), m, n, k);
     rmm::device_uvector<char> workspace(worksize, stream);

@@ -18,6 +18,7 @@
 
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
+#include <rmm/cuda_stream_pool.hpp>
 
 #include <rmm/device_uvector.hpp>
 
@@ -217,6 +218,7 @@ inline void knn_merge_parts(value_t* inK,
  */
 template <typename IntType = int, typename IdxType = std::int64_t, typename value_t = float>
 void brute_force_knn_impl(
+  const raft::handle_t& handle,
   std::vector<value_t*>& input,
   std::vector<IntType>& sizes,
   IntType D,
@@ -225,15 +227,14 @@ void brute_force_knn_impl(
   IdxType* res_I,
   value_t* res_D,
   IntType k,
-  cudaStream_t userStream,
-  cudaStream_t* internalStreams       = nullptr,
-  int n_int_streams                   = 0,
   bool rowMajorIndex                  = true,
   bool rowMajorQuery                  = true,
   std::vector<IdxType>* translations  = nullptr,
   raft::distance::DistanceType metric = raft::distance::DistanceType::L2Expanded,
   float metricArg                     = 0)
 {
+  auto userStream = handle.get_stream();
+
   ASSERT(input.size() == sizes.size(), "input and sizes vectors should be the same size");
 
   std::vector<IdxType>* id_ranges;
@@ -284,14 +285,14 @@ void brute_force_knn_impl(
     out_I = all_I.data();
   }
 
-  // Sync user stream only if using other streams to parallelize query
-  if (n_int_streams > 0) RAFT_CUDA_TRY(cudaStreamSynchronize(userStream));
+  // Make other streams from pool wait on main stream
+  handle.wait_stream_pool_on_stream();
 
   for (size_t i = 0; i < input.size(); i++) {
     value_t* out_d_ptr = out_D + (i * k * n);
     IdxType* out_i_ptr = out_I + (i * k * n);
 
-    cudaStream_t stream = raft::select_stream(userStream, internalStreams, n_int_streams, i);
+    auto stream = handle.get_next_usable_stream(i);
 
     //    // TODO: Enable this once we figure out why it's causing pytest failures in cuml.
     //    if (k <= 64 && rowMajorQuery == rowMajorIndex && rowMajorQuery == true &&
@@ -358,9 +359,7 @@ void brute_force_knn_impl(
   // Sync internal streams if used. We don't need to
   // sync the user stream because we'll already have
   // fully serial execution.
-  for (int i = 0; i < n_int_streams; i++) {
-    RAFT_CUDA_TRY(cudaStreamSynchronize(internalStreams[i]));
-  }
+  handle.sync_stream_pool();
 
   if (input.size() > 1 || translations != nullptr) {
     // This is necessary for proper index translations. If there are
@@ -378,11 +377,7 @@ void brute_force_knn_impl(
     float p = 0.5;  // standard l2
     if (metric == raft::distance::DistanceType::LpUnexpanded) p = 1.0 / metricArg;
     raft::linalg::unaryOp<float>(
-      res_D,
-      res_D,
-      n * k,
-      [p] __device__(float input) { return powf(fabsf(input), p); },
-      userStream);
+      res_D, res_D, n * k, [p] __device__(float input) { return powf(input, p); }, userStream);
   }
 
   query_metric_processor->revert(search_items);

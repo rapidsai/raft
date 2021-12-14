@@ -105,6 +105,7 @@ class GemmLayoutTest : public ::testing::TestWithParam<GemmLayoutInputs<T>> {
          params.xLayout,
          params.yLayout,
          stream);
+    handle.sync_stream();
   }
 
   void TearDown() override

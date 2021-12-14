@@ -250,7 +250,7 @@ TEST_P(FusedL2NNTestF_Sq, Result)
 {
   runTest(min.data());
   ASSERT_TRUE(devArrMatch(
-    min_ref.data(), min.data(), params.m, CompareApproxAbsKVP<float>(params.tolerance)));
+    min_ref.data(), min.data(), params.m, CompareApproxAbsKVP<float>(params.tolerance), stream));
 }
 INSTANTIATE_TEST_CASE_P(FusedL2NNTests, FusedL2NNTestF_Sq, ::testing::ValuesIn(inputsf));
 typedef FusedL2NNTest<float, true> FusedL2NNTestF_Sqrt;
@@ -258,7 +258,7 @@ TEST_P(FusedL2NNTestF_Sqrt, Result)
 {
   runTest(min.data());
   ASSERT_TRUE(devArrMatch(
-    min_ref.data(), min.data(), params.m, CompareApproxAbsKVP<float>(params.tolerance)));
+    min_ref.data(), min.data(), params.m, CompareApproxAbsKVP<float>(params.tolerance), stream));
 }
 INSTANTIATE_TEST_CASE_P(FusedL2NNTests, FusedL2NNTestF_Sqrt, ::testing::ValuesIn(inputsf));
 
@@ -285,7 +285,7 @@ TEST_P(FusedL2NNTestD_Sq, Result)
 {
   runTest(min.data());
   ASSERT_TRUE(devArrMatch(
-    min_ref.data(), min.data(), params.m, CompareApproxAbsKVP<double>(params.tolerance)));
+    min_ref.data(), min.data(), params.m, CompareApproxAbsKVP<double>(params.tolerance), stream));
 }
 INSTANTIATE_TEST_CASE_P(FusedL2NNTests, FusedL2NNTestD_Sq, ::testing::ValuesIn(inputsd));
 typedef FusedL2NNTest<double, true> FusedL2NNTestD_Sqrt;
@@ -293,7 +293,7 @@ TEST_P(FusedL2NNTestD_Sqrt, Result)
 {
   runTest(min.data());
   ASSERT_TRUE(devArrMatch(
-    min_ref.data(), min.data(), params.m, CompareApproxAbsKVP<double>(params.tolerance)));
+    min_ref.data(), min.data(), params.m, CompareApproxAbsKVP<double>(params.tolerance), stream));
 }
 INSTANTIATE_TEST_CASE_P(FusedL2NNTests, FusedL2NNTestD_Sqrt, ::testing::ValuesIn(inputsd));
 
@@ -330,7 +330,7 @@ TEST_P(FusedL2NNDetTestF_Sq, Result)
   runTest(min.data());  // assumed to be golden
   for (int i = 0; i < NumRepeats; ++i) {
     runTest(min1.data());
-    ASSERT_TRUE(devArrMatch(min.data(), min1.data(), params.m, CompareExactKVP<float>()));
+    ASSERT_TRUE(devArrMatch(min.data(), min1.data(), params.m, CompareExactKVP<float>(), stream));
   }
 }
 INSTANTIATE_TEST_CASE_P(FusedL2NNDetTests, FusedL2NNDetTestF_Sq, ::testing::ValuesIn(inputsf));
@@ -340,7 +340,7 @@ TEST_P(FusedL2NNDetTestF_Sqrt, Result)
   runTest(min.data());  // assumed to be golden
   for (int i = 0; i < NumRepeats; ++i) {
     runTest(min1.data());
-    ASSERT_TRUE(devArrMatch(min.data(), min1.data(), params.m, CompareExactKVP<float>()));
+    ASSERT_TRUE(devArrMatch(min.data(), min1.data(), params.m, CompareExactKVP<float>(), stream));
   }
 }
 INSTANTIATE_TEST_CASE_P(FusedL2NNDetTests, FusedL2NNDetTestF_Sqrt, ::testing::ValuesIn(inputsf));
@@ -351,7 +351,7 @@ TEST_P(FusedL2NNDetTestD_Sq, Result)
   runTest(min.data());  // assumed to be golden
   for (int i = 0; i < NumRepeats; ++i) {
     runTest(min1.data());
-    ASSERT_TRUE(devArrMatch(min.data(), min1.data(), params.m, CompareExactKVP<double>()));
+    ASSERT_TRUE(devArrMatch(min.data(), min1.data(), params.m, CompareExactKVP<double>(), stream));
   }
 }
 INSTANTIATE_TEST_CASE_P(FusedL2NNDetTests, FusedL2NNDetTestD_Sq, ::testing::ValuesIn(inputsd));
@@ -361,7 +361,7 @@ TEST_P(FusedL2NNDetTestD_Sqrt, Result)
   runTest(min.data());  // assumed to be golden
   for (int i = 0; i < NumRepeats; ++i) {
     runTest(min1.data());
-    ASSERT_TRUE(devArrMatch(min.data(), min1.data(), params.m, CompareExactKVP<double>()));
+    ASSERT_TRUE(devArrMatch(min.data(), min1.data(), params.m, CompareExactKVP<double>(), stream));
   }
 }
 INSTANTIATE_TEST_CASE_P(FusedL2NNDetTests, FusedL2NNDetTestD_Sqrt, ::testing::ValuesIn(inputsd));

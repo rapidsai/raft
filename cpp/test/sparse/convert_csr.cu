@@ -77,7 +77,7 @@ TEST_P(SortedCOOToCSR, Result)
 
   convert::sorted_coo_to_csr<int>(in.data(), nnz, out.data(), 4, stream);
 
-  ASSERT_TRUE(raft::devArrMatch<int>(out.data(), exp.data(), 4, raft::Compare<int>()));
+  ASSERT_TRUE(raft::devArrMatch<int>(out.data(), exp.data(), 4, raft::Compare<int>(), stream));
 
   cudaStreamDestroy(stream);
 
