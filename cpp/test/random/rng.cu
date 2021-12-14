@@ -26,7 +26,7 @@
 namespace raft {
 namespace random {
 
-using namespace raft::random::detail;
+using namespace raft::random;
 
 enum RandomType {
   RNG_Normal,
