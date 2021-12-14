@@ -55,8 +55,7 @@ namespace linalg {
  *                 thread block. This also determines the number of threads per
  *                 thread block
  */
-template <typename DataT, int _veclen, int _kblk, int _rpt, int _cpt, int _tr,
-          int _tc>
+template <typename DataT, int _veclen, int _kblk, int _rpt, int _cpt, int _tr, int _tc>
 struct KernelPolicy {
   enum {
     /** number of elements along K worked upon per main loop iteration */
@@ -101,8 +100,7 @@ struct KernelPolicy {
 
 };  // struct KernelPolicy
 
-template <typename DataT, int _veclen, int _kblk, int _rpt, int _cpt, int _tr,
-          int _tc>
+template <typename DataT, int _veclen, int _kblk, int _rpt, int _cpt, int _tr, int _tc>
 struct ColKernelPolicy {
   enum {
     /** number of elements along K worked upon per main loop iteration */
@@ -151,7 +149,8 @@ struct ColKernelPolicy {
  * @{
  */
 template <typename DataT, int _veclen>
-struct Policy4x4 {};
+struct Policy4x4 {
+};
 
 template <int _veclen>
 struct Policy4x4<float, _veclen> {
@@ -171,7 +170,8 @@ struct Policy4x4<double, _veclen> {
  * @{
  */
 template <typename DataT, int _veclen = 1>
-struct Policy2x8 {};
+struct Policy2x8 {
+};
 
 template <int _veclen>
 struct Policy2x8<float, _veclen> {

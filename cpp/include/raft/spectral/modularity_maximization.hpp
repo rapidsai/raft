@@ -39,7 +39,8 @@
 #endif
 
 #ifdef COLLECT_TIME_STATISTICS
-static double timer(void) {
+static double timer(void)
+{
   struct timeval tv;
   cudaDeviceSynchronize();
   gettimeofday(&tv, NULL);
@@ -78,17 +79,21 @@ using namespace linalg;
  *    performed.
  *  @return error flag.
  */
-template <typename vertex_t, typename weight_t, typename EigenSolver,
-          typename ClusterSolver>
+template <typename vertex_t, typename weight_t, typename EigenSolver, typename ClusterSolver>
 std::tuple<vertex_t, weight_t, vertex_t> modularity_maximization(
-  handle_t const &handle, sparse_matrix_t<vertex_t, weight_t> const &csr_m,
-  EigenSolver const &eigen_solver, ClusterSolver const &cluster_solver,
-  vertex_t *__restrict__ clusters, weight_t *eigVals, weight_t *eigVecs) {
+  handle_t const& handle,
+  sparse_matrix_t<vertex_t, weight_t> const& csr_m,
+  EigenSolver const& eigen_solver,
+  ClusterSolver const& cluster_solver,
+  vertex_t* __restrict__ clusters,
+  weight_t* eigVals,
+  weight_t* eigVecs)
+{
   RAFT_EXPECTS(clusters != nullptr, "Null clusters buffer.");
   RAFT_EXPECTS(eigVals != nullptr, "Null eigVals buffer.");
   RAFT_EXPECTS(eigVecs != nullptr, "Null eigVecs buffer.");
 
-  auto stream = handle.get_stream();
+  auto stream   = handle.get_stream();
   auto cublas_h = handle.get_cublas_handle();
 
   std::tuple<vertex_t, weight_t, vertex_t>
@@ -102,11 +107,10 @@ std::tuple<vertex_t, weight_t, vertex_t> modularity_maximization(
   modularity_matrix_t<vertex_t, weight_t> B{handle, csr_m};
 
   auto eigen_config = eigen_solver.get_config();
-  auto nEigVecs = eigen_config.n_eigVecs;
+  auto nEigVecs     = eigen_config.n_eigVecs;
 
   // Compute eigenvectors corresponding to largest eigenvalues
-  std::get<0>(stats) =
-    eigen_solver.solve_largest_eigenvectors(handle, B, eigVals, eigVecs);
+  std::get<0>(stats) = eigen_solver.solve_largest_eigenvectors(handle, B, eigVals, eigVecs);
 
   // Whiten eigenvector matrix
   transform_eigen_matrix(handle, n, nEigVecs, eigVecs);
@@ -114,11 +118,10 @@ std::tuple<vertex_t, weight_t, vertex_t> modularity_maximization(
   // notice that at this point the matrix has already been transposed, so we are scaling
   // columns
   scale_obs(nEigVecs, n, eigVecs);
-  CHECK_CUDA(stream);
+  RAFT_CHECK_CUDA(stream);
 
   // Find partition clustering
-  auto pair_cluster =
-    cluster_solver.solve(handle, n, nEigVecs, eigVecs, clusters);
+  auto pair_cluster = cluster_solver.solve(handle, n, nEigVecs, eigVecs, clusters);
 
   std::get<1>(stats) = pair_cluster.first;
   std::get<2>(stats) = pair_cluster.second;
@@ -137,11 +140,12 @@ std::tuple<vertex_t, weight_t, vertex_t> modularity_maximization(
  *  @param modularity On exit, modularity
  */
 template <typename vertex_t, typename weight_t>
-void analyzeModularity(handle_t const &handle,
-                       sparse_matrix_t<vertex_t, weight_t> const &csr_m,
+void analyzeModularity(handle_t const& handle,
+                       sparse_matrix_t<vertex_t, weight_t> const& csr_m,
                        vertex_t nClusters,
-                       vertex_t const *__restrict__ clusters,
-                       weight_t &modularity) {
+                       vertex_t const* __restrict__ clusters,
+                       weight_t& modularity)
+{
   RAFT_EXPECTS(clusters != nullptr, "Null clusters buffer.");
 
   vertex_t i;
@@ -149,15 +153,14 @@ void analyzeModularity(handle_t const &handle,
   weight_t partModularity, clustersize;
 
   auto cublas_h = handle.get_cublas_handle();
-  auto stream = handle.get_stream();
+  auto stream   = handle.get_stream();
 
   // Device memory
   vector_t<weight_t> part_i(handle, n);
   vector_t<weight_t> Bx(handle, n);
 
   // Initialize cuBLAS
-  CUBLAS_CHECK(
-    cublassetpointermode(cublas_h, CUBLAS_POINTER_MODE_HOST, stream));
+  RAFT_CUBLAS_TRY(cublassetpointermode(cublas_h, CUBLAS_POINTER_MODE_HOST, stream));
 
   // Initialize Modularity
   modularity_matrix_t<vertex_t, weight_t> B{handle, csr_m};
@@ -167,8 +170,7 @@ void analyzeModularity(handle_t const &handle,
 
   // Iterate through partitions
   for (i = 0; i < nClusters; ++i) {
-    if (!construct_indicator(handle, i, n, clustersize, partModularity,
-                             clusters, part_i, Bx, B)) {
+    if (!construct_indicator(handle, i, n, clustersize, partModularity, clusters, part_i, Bx, B)) {
       WARNING("empty partition");
       continue;
     }

@@ -61,7 +61,8 @@ namespace mst {
 // Sequential prims function
 // Returns total weight of MST
 template <typename vertex_t, typename edge_t, typename weight_t>
-weight_t prims(CSRHost<vertex_t, edge_t, weight_t> &csr_h) {
+weight_t prims(CSRHost<vertex_t, edge_t, weight_t>& csr_h)
+{
   std::size_t n_vertices = csr_h.offsets.size() - 1;
 
   bool active_vertex[n_vertices];
@@ -70,19 +71,18 @@ weight_t prims(CSRHost<vertex_t, edge_t, weight_t> &csr_h) {
 
   for (std::size_t i = 0; i < n_vertices; i++) {
     active_vertex[i] = false;
-    curr_edge[i] = static_cast<weight_t>(std::numeric_limits<int>::max());
+    curr_edge[i]     = static_cast<weight_t>(std::numeric_limits<int>::max());
   }
   curr_edge[0] = 0;
 
   // function to pick next min vertex-edge
-  auto min_vertex_edge = [](auto *curr_edge, auto *active_vertex,
-                            auto n_vertices) {
+  auto min_vertex_edge = [](auto* curr_edge, auto* active_vertex, auto n_vertices) {
     auto min = static_cast<weight_t>(std::numeric_limits<int>::max());
     vertex_t min_vertex{};
 
     for (std::size_t v = 0; v < n_vertices; v++) {
       if (!active_vertex[v] && curr_edge[v] < min) {
-        min = curr_edge[v];
+        min        = curr_edge[v];
         min_vertex = v;
       }
     }
@@ -98,14 +98,13 @@ weight_t prims(CSRHost<vertex_t, edge_t, weight_t> &csr_h) {
     active_vertex[curr_v] = true;  // set to active
 
     // iterate through edges of current active vertex
-    auto edge_st = csr_h.offsets[curr_v];
+    auto edge_st  = csr_h.offsets[curr_v];
     auto edge_end = csr_h.offsets[curr_v + 1];
 
     for (auto e = edge_st; e < edge_end; e++) {
       // put edges to be considered for next iteration
       auto neighbor_idx = csr_h.indices[e];
-      if (!active_vertex[neighbor_idx] &&
-          csr_h.weights[e] < curr_edge[neighbor_idx]) {
+      if (!active_vertex[neighbor_idx] && csr_h.weights[e] < curr_edge[neighbor_idx]) {
         curr_edge[neighbor_idx] = csr_h.weights[e];
       }
     }
@@ -121,15 +120,15 @@ weight_t prims(CSRHost<vertex_t, edge_t, weight_t> &csr_h) {
 }
 
 template <typename vertex_t, typename edge_t, typename weight_t>
-class MSTTest
-  : public ::testing::TestWithParam<MSTTestInput<vertex_t, edge_t, weight_t>> {
+class MSTTest : public ::testing::TestWithParam<MSTTestInput<vertex_t, edge_t, weight_t>> {
  protected:
   std::pair<raft::Graph_COO<vertex_t, edge_t, weight_t>,
             raft::Graph_COO<vertex_t, edge_t, weight_t>>
-  mst_gpu() {
-    edge_t *offsets = static_cast<edge_t *>(csr_d.offsets.data());
-    vertex_t *indices = static_cast<vertex_t *>(csr_d.indices.data());
-    weight_t *weights = static_cast<weight_t *>(csr_d.weights.data());
+  mst_gpu()
+  {
+    edge_t* offsets   = static_cast<edge_t*>(csr_d.offsets.data());
+    vertex_t* indices = static_cast<vertex_t*>(csr_d.indices.data());
+    weight_t* weights = static_cast<weight_t*>(csr_d.weights.data());
 
     v = static_cast<vertex_t>((csr_d.offsets.size() / sizeof(vertex_t)) - 1);
     e = static_cast<edge_t>(csr_d.indices.size() / sizeof(edge_t));
@@ -138,89 +137,95 @@ class MSTTest
     rmm::device_uvector<vertex_t> mst_dst(2 * v - 2, handle.get_stream());
     rmm::device_uvector<vertex_t> color(v, handle.get_stream());
 
-    CUDA_CHECK(
-      cudaMemsetAsync(mst_src.data(), std::numeric_limits<vertex_t>::max(),
-                      mst_src.size() * sizeof(vertex_t), handle.get_stream()));
-    CUDA_CHECK(
-      cudaMemsetAsync(mst_dst.data(), std::numeric_limits<vertex_t>::max(),
-                      mst_dst.size() * sizeof(vertex_t), handle.get_stream()));
-    CUDA_CHECK(cudaMemsetAsync(color.data(), 0, color.size() * sizeof(vertex_t),
-                               handle.get_stream()));
+    RAFT_CUDA_TRY(cudaMemsetAsync(mst_src.data(),
+                                  std::numeric_limits<vertex_t>::max(),
+                                  mst_src.size() * sizeof(vertex_t),
+                                  handle.get_stream()));
+    RAFT_CUDA_TRY(cudaMemsetAsync(mst_dst.data(),
+                                  std::numeric_limits<vertex_t>::max(),
+                                  mst_dst.size() * sizeof(vertex_t),
+                                  handle.get_stream()));
+    RAFT_CUDA_TRY(
+      cudaMemsetAsync(color.data(), 0, color.size() * sizeof(vertex_t), handle.get_stream()));
 
-    vertex_t *color_ptr = thrust::raw_pointer_cast(color.data());
+    vertex_t* color_ptr = thrust::raw_pointer_cast(color.data());
 
     if (iterations == 0) {
       MST_solver<vertex_t, edge_t, weight_t, float> symmetric_solver(
-        handle, offsets, indices, weights, v, e, color_ptr, handle.get_stream(),
-        true, true, 0);
+        handle, offsets, indices, weights, v, e, color_ptr, handle.get_stream(), true, true, 0);
       auto symmetric_result = symmetric_solver.solve();
 
       MST_solver<vertex_t, edge_t, weight_t, float> non_symmetric_solver(
-        handle, offsets, indices, weights, v, e, color_ptr, handle.get_stream(),
-        false, true, 0);
+        handle, offsets, indices, weights, v, e, color_ptr, handle.get_stream(), false, true, 0);
       auto non_symmetric_result = non_symmetric_solver.solve();
 
       EXPECT_LE(symmetric_result.n_edges, 2 * v - 2);
       EXPECT_LE(non_symmetric_result.n_edges, v - 1);
 
-      return std::make_pair(std::move(symmetric_result),
-                            std::move(non_symmetric_result));
+      return std::make_pair(std::move(symmetric_result), std::move(non_symmetric_result));
     } else {
-      MST_solver<vertex_t, edge_t, weight_t, float> intermediate_solver(
-        handle, offsets, indices, weights, v, e, color_ptr, handle.get_stream(),
-        true, true, iterations);
+      MST_solver<vertex_t, edge_t, weight_t, float> intermediate_solver(handle,
+                                                                        offsets,
+                                                                        indices,
+                                                                        weights,
+                                                                        v,
+                                                                        e,
+                                                                        color_ptr,
+                                                                        handle.get_stream(),
+                                                                        true,
+                                                                        true,
+                                                                        iterations);
       auto intermediate_result = intermediate_solver.solve();
 
       MST_solver<vertex_t, edge_t, weight_t, float> symmetric_solver(
-        handle, offsets, indices, weights, v, e, color_ptr, handle.get_stream(),
-        true, false, 0);
+        handle, offsets, indices, weights, v, e, color_ptr, handle.get_stream(), true, false, 0);
       auto symmetric_result = symmetric_solver.solve();
 
       // symmetric_result.n_edges += intermediate_result.n_edges;
-      auto total_edge_size =
-        symmetric_result.n_edges + intermediate_result.n_edges;
+      auto total_edge_size = symmetric_result.n_edges + intermediate_result.n_edges;
       symmetric_result.src.resize(total_edge_size, handle.get_stream());
       symmetric_result.dst.resize(total_edge_size, handle.get_stream());
       symmetric_result.weights.resize(total_edge_size, handle.get_stream());
 
       raft::copy(symmetric_result.src.data() + symmetric_result.n_edges,
-                 intermediate_result.src.data(), intermediate_result.n_edges,
+                 intermediate_result.src.data(),
+                 intermediate_result.n_edges,
                  handle.get_stream());
       raft::copy(symmetric_result.dst.data() + symmetric_result.n_edges,
-                 intermediate_result.dst.data(), intermediate_result.n_edges,
+                 intermediate_result.dst.data(),
+                 intermediate_result.n_edges,
                  handle.get_stream());
       raft::copy(symmetric_result.weights.data() + symmetric_result.n_edges,
                  intermediate_result.weights.data(),
-                 intermediate_result.n_edges, handle.get_stream());
+                 intermediate_result.n_edges,
+                 handle.get_stream());
       symmetric_result.n_edges = total_edge_size;
 
       MST_solver<vertex_t, edge_t, weight_t, float> non_symmetric_solver(
-        handle, offsets, indices, weights, v, e, color_ptr, handle.get_stream(),
-        false, true, 0);
+        handle, offsets, indices, weights, v, e, color_ptr, handle.get_stream(), false, true, 0);
       auto non_symmetric_result = non_symmetric_solver.solve();
 
       EXPECT_LE(symmetric_result.n_edges, 2 * v - 2);
       EXPECT_LE(non_symmetric_result.n_edges, v - 1);
 
-      return std::make_pair(std::move(symmetric_result),
-                            std::move(non_symmetric_result));
+      return std::make_pair(std::move(symmetric_result), std::move(non_symmetric_result));
     }
   }
 
-  void SetUp() override {
-    mst_input = ::testing::TestWithParam<
-      MSTTestInput<vertex_t, edge_t, weight_t>>::GetParam();
+  void SetUp() override
+  {
+    mst_input  = ::testing::TestWithParam<MSTTestInput<vertex_t, edge_t, weight_t>>::GetParam();
     iterations = mst_input.iterations;
 
-    csr_d.offsets = rmm::device_buffer(
-      mst_input.csr_h.offsets.data(),
-      mst_input.csr_h.offsets.size() * sizeof(edge_t), handle.get_stream());
-    csr_d.indices = rmm::device_buffer(
-      mst_input.csr_h.indices.data(),
-      mst_input.csr_h.indices.size() * sizeof(vertex_t), handle.get_stream());
-    csr_d.weights = rmm::device_buffer(
-      mst_input.csr_h.weights.data(),
-      mst_input.csr_h.weights.size() * sizeof(weight_t), handle.get_stream());
+    csr_d.offsets = rmm::device_buffer(mst_input.csr_h.offsets.data(),
+                                       mst_input.csr_h.offsets.size() * sizeof(edge_t),
+                                       handle.get_stream());
+    csr_d.indices = rmm::device_buffer(mst_input.csr_h.indices.data(),
+                                       mst_input.csr_h.indices.size() * sizeof(vertex_t),
+                                       handle.get_stream());
+    csr_d.weights = rmm::device_buffer(mst_input.csr_h.weights.data(),
+                                       mst_input.csr_h.weights.size() * sizeof(weight_t),
+                                       handle.get_stream());
   }
 
   void TearDown() override {}
@@ -272,41 +277,68 @@ const std::vector<MSTTestInput<int, int, float>> csr_in_h = {
 const std::vector<CSRHost<int, int, float>> csr_in4_h = {
   {{0, 3, 5, 8, 10, 12, 14, 16},
    {2, 4, 5, 3, 6, 0, 4, 5, 1, 6, 0, 2, 0, 2, 1, 3},
-   {5.0f, 9.0f, 1.0f, 8.0f, 7.0f, 5.0f, 2.0f, 6.0f, 8.0f, 10.0f, 9.0f, 2.0f,
-    1.0f, 6.0f, 7.0f, 10.0f}}};
+   {5.0f,
+    9.0f,
+    1.0f,
+    8.0f,
+    7.0f,
+    5.0f,
+    2.0f,
+    6.0f,
+    8.0f,
+    10.0f,
+    9.0f,
+    2.0f,
+    1.0f,
+    6.0f,
+    7.0f,
+    10.0f}}};
 
 //  singletons
 const std::vector<CSRHost<int, int, float>> csr_in5_h = {
   {{0, 3, 5, 8, 10, 10, 10, 12, 14, 16, 16},
    {2, 8, 7, 3, 8, 0, 8, 7, 1, 8, 0, 2, 0, 2, 1, 3},
-   {5.0f, 9.0f, 1.0f, 8.0f, 7.0f, 5.0f, 2.0f, 6.0f, 8.0f, 10.0f, 9.0f, 2.0f,
-    1.0f, 6.0f, 7.0f, 10.0f}}};
+   {5.0f,
+    9.0f,
+    1.0f,
+    8.0f,
+    7.0f,
+    5.0f,
+    2.0f,
+    6.0f,
+    8.0f,
+    10.0f,
+    9.0f,
+    2.0f,
+    1.0f,
+    6.0f,
+    7.0f,
+    10.0f}}};
 
 typedef MSTTest<int, int, float> MSTTestSequential;
-TEST_P(MSTTestSequential, Sequential) {
-  auto results_pair = mst_gpu();
-  auto &symmetric_result = results_pair.first;
-  auto &non_symmetric_result = results_pair.second;
+TEST_P(MSTTestSequential, Sequential)
+{
+  auto results_pair          = mst_gpu();
+  auto& symmetric_result     = results_pair.first;
+  auto& non_symmetric_result = results_pair.second;
 
   // do assertions here
   // in this case, running sequential MST
   auto prims_result = prims(mst_input.csr_h);
 
-  auto symmetric_sum =
-    thrust::reduce(thrust::device, symmetric_result.weights.data(),
-                   symmetric_result.weights.data() + symmetric_result.n_edges);
-  auto non_symmetric_sum = thrust::reduce(
-    thrust::device, non_symmetric_result.weights.data(),
-    non_symmetric_result.weights.data() + non_symmetric_result.n_edges);
+  auto symmetric_sum = thrust::reduce(thrust::device,
+                                      symmetric_result.weights.data(),
+                                      symmetric_result.weights.data() + symmetric_result.n_edges);
+  auto non_symmetric_sum =
+    thrust::reduce(thrust::device,
+                   non_symmetric_result.weights.data(),
+                   non_symmetric_result.weights.data() + non_symmetric_result.n_edges);
 
-  ASSERT_TRUE(raft::match(2 * prims_result, symmetric_sum,
-                          raft::CompareApprox<float>(0.1)));
-  ASSERT_TRUE(raft::match(prims_result, non_symmetric_sum,
-                          raft::CompareApprox<float>(0.1)));
+  ASSERT_TRUE(raft::match(2 * prims_result, symmetric_sum, raft::CompareApprox<float>(0.1)));
+  ASSERT_TRUE(raft::match(prims_result, non_symmetric_sum, raft::CompareApprox<float>(0.1)));
 }
 
-INSTANTIATE_TEST_SUITE_P(MSTTests, MSTTestSequential,
-                         ::testing::ValuesIn(csr_in_h));
+INSTANTIATE_TEST_SUITE_P(MSTTests, MSTTestSequential, ::testing::ValuesIn(csr_in_h));
 
 }  // namespace mst
 }  // namespace raft

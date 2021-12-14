@@ -19,7 +19,7 @@
 #include <raft/random/rng.hpp>
 #include "../test_utils.h"
 
-#include <raft/sparse/op/sort.h>
+#include <raft/sparse/op/sort.hpp>
 
 #include <iostream>
 
@@ -46,11 +46,12 @@ class SparseSortTest : public ::testing::TestWithParam<SparseSortInput<T>> {
 const std::vector<SparseSortInput<float>> inputsf = {{5, 10, 5, 1234ULL}};
 
 typedef SparseSortTest<float> COOSort;
-TEST_P(COOSort, Result) {
+TEST_P(COOSort, Result)
+{
   params = ::testing::TestWithParam<SparseSortInput<float>>::GetParam();
   raft::random::Rng r(params.seed);
   cudaStream_t stream;
-  CUDA_CHECK(cudaStreamCreate(&stream));
+  RAFT_CUDA_TRY(cudaStreamCreate(&stream));
 
   rmm::device_uvector<int> in_rows(params.nnz, stream);
   rmm::device_uvector<int> in_cols(params.nnz, stream);
@@ -59,13 +60,13 @@ TEST_P(COOSort, Result) {
 
   r.uniform(in_vals.data(), params.nnz, float(-1.0), float(1.0), stream);
 
-  int *in_rows_h = (int *)malloc(params.nnz * sizeof(int));
-  int *in_cols_h = (int *)malloc(params.nnz * sizeof(int));
-  int *verify_h = (int *)malloc(params.nnz * sizeof(int));
+  int* in_rows_h = (int*)malloc(params.nnz * sizeof(int));
+  int* in_cols_h = (int*)malloc(params.nnz * sizeof(int));
+  int* verify_h  = (int*)malloc(params.nnz * sizeof(int));
 
   for (int i = 0; i < params.nnz; i++) {
     in_rows_h[i] = params.nnz - i - 1;
-    verify_h[i] = i;
+    verify_h[i]  = i;
     in_cols_h[i] = i;
   }
 
@@ -74,17 +75,17 @@ TEST_P(COOSort, Result) {
   raft::update_device(in_cols.data(), in_cols_h, params.nnz, stream);
   raft::update_device(verify.data(), verify_h, params.nnz, stream);
 
-  op::coo_sort(params.m, params.n, params.nnz, in_rows.data(), in_cols.data(),
-               in_vals.data(), stream);
+  op::coo_sort(
+    params.m, params.n, params.nnz, in_rows.data(), in_cols.data(), in_vals.data(), stream);
 
-  ASSERT_TRUE(raft::devArrMatch<int>(verify.data(), in_rows.data(), params.nnz,
-                                     raft::Compare<int>()));
+  ASSERT_TRUE(raft::devArrMatch<int>(
+    verify.data(), in_rows.data(), params.nnz, raft::Compare<int>(), stream));
 
   delete[] in_rows_h;
   delete[] in_cols_h;
   delete[] verify_h;
 
-  CUDA_CHECK(cudaStreamDestroy(stream));
+  RAFT_CUDA_TRY(cudaStreamDestroy(stream));
 }
 
 INSTANTIATE_TEST_CASE_P(SparseSortTest, COOSort, ::testing::ValuesIn(inputsf));

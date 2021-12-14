@@ -16,23 +16,8 @@
 
 #pragma once
 
-#include <cusparse_v2.h>
-
-#include <raft/cudart_utils.h>
-#include <raft/sparse/cusparse_wrappers.h>
-#include <raft/cuda_utils.cuh>
-#include <rmm/device_uvector.hpp>
-
-#include <thrust/device_ptr.h>
-#include <thrust/scan.h>
-
-#include <cuda_runtime.h>
-#include <stdio.h>
-
-#include <algorithm>
-#include <iostream>
-
-#include <raft/sparse/utils.h>
+#include <raft/sparse/linalg/detail/transpose.h>
+#include <raft/handle.hpp>
 
 namespace raft {
 namespace sparse {
@@ -55,27 +40,29 @@ namespace linalg {
  * @param[in] stream : Cuda stream for ordering events
  */
 template <typename value_idx, typename value_t>
-void csr_transpose(cusparseHandle_t handle, const value_idx *csr_indptr,
-                   const value_idx *csr_indices, const value_t *csr_data,
-                   value_idx *csc_indptr, value_idx *csc_indices,
-                   value_t *csc_data, value_idx csr_nrows, value_idx csr_ncols,
-                   value_idx nnz, cudaStream_t stream) {
-  size_t convert_csc_workspace_size = 0;
-
-  CUSPARSE_CHECK(raft::sparse::cusparsecsr2csc_bufferSize(
-    handle, csr_nrows, csr_ncols, nnz, csr_data, csr_indptr, csr_indices,
-    csc_data, csc_indptr, csc_indices, CUSPARSE_ACTION_NUMERIC,
-    CUSPARSE_INDEX_BASE_ZERO, CUSPARSE_CSR2CSC_ALG1,
-    &convert_csc_workspace_size, stream));
-
-  rmm::device_uvector<char> convert_csc_workspace(convert_csc_workspace_size,
-                                                  stream);
-
-  CUSPARSE_CHECK(raft::sparse::cusparsecsr2csc(
-    handle, csr_nrows, csr_ncols, nnz, csr_data, csr_indptr, csr_indices,
-    csc_data, csc_indptr, csc_indices, CUSPARSE_ACTION_NUMERIC,
-    CUSPARSE_INDEX_BASE_ZERO, CUSPARSE_CSR2CSC_ALG1,
-    convert_csc_workspace.data(), stream));
+void csr_transpose(const raft::handle_t& handle,
+                   const value_idx* csr_indptr,
+                   const value_idx* csr_indices,
+                   const value_t* csr_data,
+                   value_idx* csc_indptr,
+                   value_idx* csc_indices,
+                   value_t* csc_data,
+                   value_idx csr_nrows,
+                   value_idx csr_ncols,
+                   value_idx nnz,
+                   cudaStream_t stream)
+{
+  detail::csr_transpose(handle.get_cusparse_handle(),
+                        csr_indptr,
+                        csr_indices,
+                        csr_data,
+                        csc_indptr,
+                        csc_indices,
+                        csc_data,
+                        csr_nrows,
+                        csr_ncols,
+                        nnz,
+                        stream);
 }
 
 };  // end NAMESPACE linalg

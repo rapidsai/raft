@@ -24,7 +24,7 @@ namespace detail {
 
 /**
  * @brief the Hellinger distance matrix using the expanded form:
- *  It computes the following equation: 
+ *  It computes the following equation:
     cij = sqrt(1 - sum(sqrt(x_k * y_k)))
  * This distance computation modifies A and B by computing a sqrt
  * and then performing a `pow(x, 2)` to convert it back. Because of this,
@@ -52,29 +52,40 @@ namespace detail {
  * @param[in]       fin_op the final gemm epilogue lambda
  * @param[in]       stream cuda stream to launch work
  */
-template <typename DataT, typename AccT, typename OutT, typename IdxT,
-          int VecLen, typename FinalLambda, bool isRowMajor>
-static void hellingerImpl(const DataT *x, const DataT *y, IdxT m, IdxT n,
-                          IdxT k, IdxT lda, IdxT ldb, IdxT ldd, OutT *dOutput,
-                          FinalLambda fin_op, cudaStream_t stream) {
+template <typename DataT,
+          typename AccT,
+          typename OutT,
+          typename IdxT,
+          int VecLen,
+          typename FinalLambda,
+          bool isRowMajor>
+static void hellingerImpl(const DataT* x,
+                          const DataT* y,
+                          IdxT m,
+                          IdxT n,
+                          IdxT k,
+                          IdxT lda,
+                          IdxT ldb,
+                          IdxT ldd,
+                          OutT* dOutput,
+                          FinalLambda fin_op,
+                          cudaStream_t stream)
+{
   typedef typename raft::linalg::Policy4x4<DataT, VecLen>::Policy RowPolicy;
   typedef typename raft::linalg::Policy4x4<DataT, VecLen>::ColPolicy ColPolicy;
 
-  typedef
-    typename std::conditional<isRowMajor, RowPolicy, ColPolicy>::type KPolicy;
+  typedef typename std::conditional<isRowMajor, RowPolicy, ColPolicy>::type KPolicy;
 
   dim3 blk(KPolicy::Nthreads);
 
-  auto unaryOp_lambda = [] __device__(DataT input) {
-    return raft::mySqrt(input);
-  };
+  auto unaryOp_lambda = [] __device__(DataT input) { return raft::mySqrt(input); };
   // First sqrt x and y
   raft::linalg::unaryOp<DataT, decltype(unaryOp_lambda), IdxT>(
-    (DataT *)x, x, m * k, unaryOp_lambda, stream);
+    (DataT*)x, x, m * k, unaryOp_lambda, stream);
 
   if (x != y) {
     raft::linalg::unaryOp<DataT, decltype(unaryOp_lambda), IdxT>(
-      (DataT *)y, y, n * k, unaryOp_lambda, stream);
+      (DataT*)y, y, n * k, unaryOp_lambda, stream);
   }
 
   // Accumulation operation lambda
@@ -85,71 +96,91 @@ static void hellingerImpl(const DataT *x, const DataT *y, IdxT m, IdxT n,
   };
 
   // epilogue operation lambda for final value calculation
-  auto epilog_lambda = [] __device__(
-                         AccT acc[KPolicy::AccRowsPerTh][KPolicy::AccColsPerTh],
-                         DataT * regxn, DataT * regyn, IdxT gridStrideX,
-                         IdxT gridStrideY) {
+  auto epilog_lambda = [] __device__(AccT acc[KPolicy::AccRowsPerTh][KPolicy::AccColsPerTh],
+                                     DataT * regxn,
+                                     DataT * regyn,
+                                     IdxT gridStrideX,
+                                     IdxT gridStrideY) {
 #pragma unroll
     for (int i = 0; i < KPolicy::AccRowsPerTh; ++i) {
 #pragma unroll
       for (int j = 0; j < KPolicy::AccColsPerTh; ++j) {
         // Adjust to replace NaN in sqrt with 0 if input to sqrt is negative
-        const auto finalVal = (1 - acc[i][j]);
+        const auto finalVal  = (1 - acc[i][j]);
         const auto rectifier = (!signbit(finalVal));
-        acc[i][j] = raft::mySqrt(rectifier * finalVal);
+        acc[i][j]            = raft::mySqrt(rectifier * finalVal);
       }
     }
   };
 
   if (isRowMajor) {
-    auto hellingerRowMajor =
-      pairwiseDistanceMatKernel<false, DataT, AccT, OutT, IdxT, KPolicy,
-                                decltype(core_lambda), decltype(epilog_lambda),
-                                FinalLambda, true>;
-    dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize,
-                                               hellingerRowMajor);
+    auto hellingerRowMajor = pairwiseDistanceMatKernel<false,
+                                                       DataT,
+                                                       AccT,
+                                                       OutT,
+                                                       IdxT,
+                                                       KPolicy,
+                                                       decltype(core_lambda),
+                                                       decltype(epilog_lambda),
+                                                       FinalLambda,
+                                                       true>;
+    dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize, hellingerRowMajor);
 
     hellingerRowMajor<<<grid, blk, KPolicy::SmemSize, stream>>>(
-      x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput, core_lambda,
-      epilog_lambda, fin_op);
+      x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput, core_lambda, epilog_lambda, fin_op);
   } else {
-    auto hellingerColMajor =
-      pairwiseDistanceMatKernel<false, DataT, AccT, OutT, IdxT, KPolicy,
-                                decltype(core_lambda), decltype(epilog_lambda),
-                                FinalLambda, false>;
-    dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize,
-                                               hellingerColMajor);
+    auto hellingerColMajor = pairwiseDistanceMatKernel<false,
+                                                       DataT,
+                                                       AccT,
+                                                       OutT,
+                                                       IdxT,
+                                                       KPolicy,
+                                                       decltype(core_lambda),
+                                                       decltype(epilog_lambda),
+                                                       FinalLambda,
+                                                       false>;
+    dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize, hellingerColMajor);
     hellingerColMajor<<<grid, blk, KPolicy::SmemSize, stream>>>(
-      x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput, core_lambda,
-      epilog_lambda, fin_op);
+      x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput, core_lambda, epilog_lambda, fin_op);
   }
 
   // Revert sqrt of x and y
   raft::linalg::unaryOp<DataT, decltype(unaryOp_lambda), IdxT>(
-    (DataT *)x, x, m * k, unaryOp_lambda, stream);
+    (DataT*)x, x, m * k, unaryOp_lambda, stream);
   if (x != y) {
     raft::linalg::unaryOp<DataT, decltype(unaryOp_lambda), IdxT>(
-      (DataT *)y, y, n * k, unaryOp_lambda, stream);
+      (DataT*)y, y, n * k, unaryOp_lambda, stream);
   }
 
-  CUDA_CHECK(cudaGetLastError());
+  RAFT_CUDA_TRY(cudaGetLastError());
 }
 
-template <typename DataT, typename AccT, typename OutT, typename IdxT,
-          typename FinalLambda, bool isRowMajor>
-void hellinger(IdxT m, IdxT n, IdxT k, IdxT lda, IdxT ldb, IdxT ldd,
-               const DataT *x, const DataT *y, OutT *dOutput,
-               FinalLambda fin_op, cudaStream_t stream) {
+template <typename DataT,
+          typename AccT,
+          typename OutT,
+          typename IdxT,
+          typename FinalLambda,
+          bool isRowMajor>
+void hellinger(IdxT m,
+               IdxT n,
+               IdxT k,
+               IdxT lda,
+               IdxT ldb,
+               IdxT ldd,
+               const DataT* x,
+               const DataT* y,
+               OutT* dOutput,
+               FinalLambda fin_op,
+               cudaStream_t stream)
+{
   size_t bytesA = sizeof(DataT) * lda;
   size_t bytesB = sizeof(DataT) * ldb;
   if (16 % sizeof(DataT) == 0 && bytesA % 16 == 0 && bytesB % 16 == 0) {
-    hellingerImpl<DataT, AccT, OutT, IdxT, 16 / sizeof(DataT), FinalLambda,
-                  isRowMajor>(x, y, m, n, k, lda, ldb, ldd, dOutput, fin_op,
-                              stream);
+    hellingerImpl<DataT, AccT, OutT, IdxT, 16 / sizeof(DataT), FinalLambda, isRowMajor>(
+      x, y, m, n, k, lda, ldb, ldd, dOutput, fin_op, stream);
   } else if (8 % sizeof(DataT) == 0 && bytesA % 8 == 0 && bytesB % 8 == 0) {
-    hellingerImpl<DataT, AccT, OutT, IdxT, 8 / sizeof(DataT), FinalLambda,
-                  isRowMajor>(x, y, m, n, k, lda, ldb, ldd, dOutput, fin_op,
-                              stream);
+    hellingerImpl<DataT, AccT, OutT, IdxT, 8 / sizeof(DataT), FinalLambda, isRowMajor>(
+      x, y, m, n, k, lda, ldb, ldd, dOutput, fin_op, stream);
   } else {
     hellingerImpl<DataT, AccT, OutT, IdxT, 1, FinalLambda, isRowMajor>(
       x, y, m, n, k, lda, ldb, ldd, dOutput, fin_op, stream);
@@ -158,7 +189,7 @@ void hellinger(IdxT m, IdxT n, IdxT k, IdxT lda, IdxT ldb, IdxT ldd,
 
 /**
  * @brief the Hellinger distance matrix calculation
- *  It computes the following equation: 
+ *  It computes the following equation:
     sqrt(1 - sum(sqrt(x_k * y_k))
  * This distance computation modifies A and B by computing a sqrt
  * and then performing a `pow(x, 2)` to convert it back. Because of this,
@@ -180,16 +211,25 @@ void hellinger(IdxT m, IdxT n, IdxT k, IdxT lda, IdxT ldb, IdxT ldd,
  * @param stream cuda stream where to launch work
  * @param isRowMajor whether the input and output matrices are row major
  */
-template <typename InType, typename AccType, typename OutType,
-          typename FinalLambda, typename Index_ = int>
-void hellingerImpl(int m, int n, int k, const InType *pA, const InType *pB,
-                   OutType *pD, FinalLambda fin_op, cudaStream_t stream,
-                   bool isRowMajor) {
+template <typename InType,
+          typename AccType,
+          typename OutType,
+          typename FinalLambda,
+          typename Index_ = int>
+void hellingerImpl(int m,
+                   int n,
+                   int k,
+                   const InType* pA,
+                   const InType* pB,
+                   OutType* pD,
+                   FinalLambda fin_op,
+                   cudaStream_t stream,
+                   bool isRowMajor)
+{
   typedef std::is_same<OutType, bool> is_bool;
-  typedef typename std::conditional<is_bool::value, OutType, AccType>::type
-    hellingerOutType;
+  typedef typename std::conditional<is_bool::value, OutType, AccType>::type hellingerOutType;
   Index_ lda, ldb, ldd;
-  hellingerOutType *pDcast = reinterpret_cast<hellingerOutType *>(pD);
+  hellingerOutType* pDcast = reinterpret_cast<hellingerOutType*>(pD);
   if (isRowMajor) {
     lda = k, ldb = k, ldd = n;
     hellinger<InType, AccType, hellingerOutType, Index_, FinalLambda, true>(

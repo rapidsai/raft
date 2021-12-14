@@ -28,29 +28,32 @@ namespace matrix {
 namespace detail {
 
 template <typename m_t, typename idx_array_t = int, typename idx_t = size_t>
-void copyRows(const m_t *in, idx_t n_rows, idx_t n_cols, m_t *out,
-              const idx_array_t *indices, idx_t n_rows_indices,
-              cudaStream_t stream, bool rowMajor = false) {
+void copyRows(const m_t* in,
+              idx_t n_rows,
+              idx_t n_cols,
+              m_t* out,
+              const idx_array_t* indices,
+              idx_t n_rows_indices,
+              cudaStream_t stream,
+              bool rowMajor = false)
+{
   if (rowMajor) {
     const idx_t TPB = 256;
-    cache::
-      get_vecs<<<raft::ceildiv(n_rows_indices * n_cols, TPB), TPB, 0, stream>>>(
-        in, n_cols, indices, n_rows_indices, out);
-    CUDA_CHECK(cudaPeekAtLastError());
+    cache::get_vecs<<<raft::ceildiv(n_rows_indices * n_cols, TPB), TPB, 0, stream>>>(
+      in, n_cols, indices, n_rows_indices, out);
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
     return;
   }
 
-  idx_t size = n_rows_indices * n_cols;
+  idx_t size    = n_rows_indices * n_cols;
   auto counting = thrust::make_counting_iterator<idx_t>(0);
 
-  thrust::for_each(rmm::exec_policy(stream), counting, counting + size,
-                   [=] __device__(idx_t idx) {
-                     idx_t row = idx % n_rows_indices;
-                     idx_t col = idx / n_rows_indices;
+  thrust::for_each(rmm::exec_policy(stream), counting, counting + size, [=] __device__(idx_t idx) {
+    idx_t row = idx % n_rows_indices;
+    idx_t col = idx / n_rows_indices;
 
-                     out[col * n_rows_indices + row] =
-                       in[col * n_rows + indices[row]];
-                   });
+    out[col * n_rows_indices + row] = in[col * n_rows + indices[row]];
+  });
 }
 
 /**
@@ -65,8 +68,9 @@ void copyRows(const m_t *in, idx_t n_rows, idx_t n_cols, m_t *out,
  * (1-based)
  */
 template <typename m_t, typename idx_t = int>
-__global__ void slice(m_t *src_d, idx_t m, idx_t n, m_t *dst_d, idx_t x1,
-                      idx_t y1, idx_t x2, idx_t y2) {
+__global__ void slice(
+  m_t* src_d, idx_t m, idx_t n, m_t* dst_d, idx_t x1, idx_t y1, idx_t x2, idx_t y2)
+{
   idx_t idx = threadIdx.x + blockDim.x * blockIdx.x;
   idx_t dm = x2 - x1, dn = y2 - y1;
   if (idx < dm * dn) {
@@ -77,8 +81,16 @@ __global__ void slice(m_t *src_d, idx_t m, idx_t n, m_t *dst_d, idx_t x1,
 }
 
 template <typename m_t, typename idx_t = int>
-void sliceMatrix(m_t *in, idx_t n_rows, idx_t n_cols, m_t *out, idx_t x1,
-                 idx_t y1, idx_t x2, idx_t y2, cudaStream_t stream) {
+void sliceMatrix(m_t* in,
+                 idx_t n_rows,
+                 idx_t n_cols,
+                 m_t* out,
+                 idx_t x1,
+                 idx_t y1,
+                 idx_t x2,
+                 idx_t y2,
+                 cudaStream_t stream)
+{
   // Slicing
   dim3 block(64);
   dim3 grid(((x2 - x1) * (y2 - y1) + block.x - 1) / block.x);
@@ -94,21 +106,19 @@ void sliceMatrix(m_t *in, idx_t n_rows, idx_t n_cols, m_t *out, idx_t x1,
  * @param k: min(n_rows, n_cols)
  */
 template <typename m_t, typename idx_t = int>
-__global__ void getUpperTriangular(m_t *src, m_t *dst, idx_t n_rows,
-                                   idx_t n_cols, idx_t k) {
+__global__ void getUpperTriangular(m_t* src, m_t* dst, idx_t n_rows, idx_t n_cols, idx_t k)
+{
   idx_t idx = threadIdx.x + blockDim.x * blockIdx.x;
   idx_t m = n_rows, n = n_cols;
   if (idx < m * n) {
     idx_t i = idx % m, j = idx / m;
-    if (i < k && j < k && j >= i) {
-      dst[i + j * k] = src[idx];
-    }
+    if (i < k && j < k && j >= i) { dst[i + j * k] = src[idx]; }
   }
 }
 
 template <typename m_t, typename idx_t = int>
-void copyUpperTriangular(m_t *src, m_t *dst, idx_t n_rows, idx_t n_cols,
-                         cudaStream_t stream) {
+void copyUpperTriangular(m_t* src, m_t* dst, idx_t n_rows, idx_t n_cols, cudaStream_t stream)
+{
   idx_t m = n_rows, n = n_cols;
   idx_t k = min(m, n);
   dim3 block(64);
@@ -125,23 +135,21 @@ void copyUpperTriangular(m_t *src, m_t *dst, idx_t n_rows, idx_t n_cols,
  * @param k: dimensionality
  */
 template <typename m_t, typename idx_t = int>
-__global__ void copyVectorToMatrixDiagonal(m_t *vec, m_t *matrix, idx_t m,
-                                           idx_t n, idx_t k) {
+__global__ void copyVectorToMatrixDiagonal(m_t* vec, m_t* matrix, idx_t m, idx_t n, idx_t k)
+{
   idx_t idx = threadIdx.x + blockDim.x * blockIdx.x;
 
-  if (idx < k) {
-    matrix[idx + idx * m] = vec[idx];
-  }
+  if (idx < k) { matrix[idx + idx * m] = vec[idx]; }
 }
 
 template <typename m_t, typename idx_t = int>
-void initializeDiagonalMatrix(m_t *vec, m_t *matrix, idx_t n_rows, idx_t n_cols,
-                              cudaStream_t stream) {
+void initializeDiagonalMatrix(
+  m_t* vec, m_t* matrix, idx_t n_rows, idx_t n_cols, cudaStream_t stream)
+{
   idx_t k = min(n_rows, n_cols);
   dim3 block(64);
   dim3 grid((k + block.x - 1) / block.x);
-  copyVectorToMatrixDiagonal<<<grid, block, 0, stream>>>(vec, matrix, n_rows,
-                                                         n_cols, k);
+  copyVectorToMatrixDiagonal<<<grid, block, 0, stream>>>(vec, matrix, n_rows, n_cols, k);
 }
 
 /**
@@ -151,15 +159,15 @@ void initializeDiagonalMatrix(m_t *vec, m_t *matrix, idx_t n_rows, idx_t n_cols,
  * @param len: size of one side of the matrix
  */
 template <typename m_t, typename idx_t = int>
-__global__ void matrixDiagonalInverse(m_t *in, idx_t len) {
+__global__ void matrixDiagonalInverse(m_t* in, idx_t len)
+{
   idx_t idx = threadIdx.x + blockDim.x * blockIdx.x;
-  if (idx < len) {
-    in[idx + idx * len] = 1.0 / in[idx + idx * len];
-  }
+  if (idx < len) { in[idx + idx * len] = 1.0 / in[idx + idx * len]; }
 }
 
 template <typename m_t, typename idx_t = int>
-void getDiagonalInverseMatrix(m_t *in, idx_t len, cudaStream_t stream) {
+void getDiagonalInverseMatrix(m_t* in, idx_t len, cudaStream_t stream)
+{
   dim3 block(64);
   dim3 grid((len + block.x - 1) / block.x);
   matrixDiagonalInverse<m_t><<<grid, block, 0, stream>>>(in, len);

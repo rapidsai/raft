@@ -35,7 +35,10 @@ namespace linalg {
  * @param args additional input arrays
  */
 
-template <typename InType, typename MapOp, int TPB = 256, typename... Args,
+template <typename InType,
+          typename MapOp,
+          int TPB = 256,
+          typename... Args,
           typename OutType = InType>
 void mapThenSumReduce(OutType *out, size_t len, MapOp map, cudaStream_t stream,
                       const InType *in, Args... args) {

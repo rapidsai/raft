@@ -36,14 +36,14 @@ const std::vector<DistanceInputs<float>> inputsf = {
   {0.003f, 1024, 1024, 1024, false, 1234ULL},
 };
 typedef DistanceKLDivergence<float> DistanceKLDivergenceF;
-TEST_P(DistanceKLDivergenceF, Result) {
+TEST_P(DistanceKLDivergenceF, Result)
+{
   int m = params.isRowMajor ? params.m : params.n;
   int n = params.isRowMajor ? params.n : params.m;
-  ASSERT_TRUE(raft::devArrMatch(dist_ref.data(), dist.data(), m, n,
-                                raft::CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(
+    dist_ref.data(), dist.data(), m, n, raft::CompareApprox<float>(params.tolerance), stream));
 }
-INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceKLDivergenceF,
-                        ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceKLDivergenceF, ::testing::ValuesIn(inputsf));
 
 const std::vector<DistanceInputs<double>> inputsd = {
   {0.001, 1024, 1024, 32, true, 1234ULL},
@@ -56,14 +56,14 @@ const std::vector<DistanceInputs<double>> inputsd = {
   {0.003, 1024, 1024, 1024, false, 1234ULL},
 };
 typedef DistanceKLDivergence<double> DistanceKLDivergenceD;
-TEST_P(DistanceKLDivergenceD, Result) {
+TEST_P(DistanceKLDivergenceD, Result)
+{
   int m = params.isRowMajor ? params.m : params.n;
   int n = params.isRowMajor ? params.n : params.m;
-  ASSERT_TRUE(raft::devArrMatch(dist_ref.data(), dist.data(), m, n,
-                                raft::CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(
+    dist_ref.data(), dist.data(), m, n, raft::CompareApprox<double>(params.tolerance), stream));
 }
-INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceKLDivergenceD,
-                        ::testing::ValuesIn(inputsd));
+INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceKLDivergenceD, ::testing::ValuesIn(inputsd));
 
 }  // end namespace distance
 }  // end namespace raft

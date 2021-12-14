@@ -32,15 +32,16 @@ namespace raft {
 
 template <typename T>
 struct Compare {
-  bool operator()(const T &a, const T &b) const { return a == b; }
+  bool operator()(const T& a, const T& b) const { return a == b; }
 };
 
 template <typename T>
 struct CompareApprox {
   CompareApprox(T eps_) : eps(eps_) {}
-  bool operator()(const T &a, const T &b) const {
-    T diff = abs(a - b);
-    T m = std::max(abs(a), abs(b));
+  bool operator()(const T& a, const T& b) const
+  {
+    T diff  = abs(a - b);
+    T m     = std::max(abs(a), abs(b));
     T ratio = diff >= eps ? diff / m : diff;
 
     return (ratio <= eps);
@@ -53,9 +54,10 @@ struct CompareApprox {
 template <typename T>
 struct CompareApproxAbs {
   CompareApproxAbs(T eps_) : eps(eps_) {}
-  bool operator()(const T &a, const T &b) const {
-    T diff = abs(abs(a) - abs(b));
-    T m = std::max(abs(a), abs(b));
+  bool operator()(const T& a, const T& b) const
+  {
+    T diff  = abs(abs(a) - abs(b));
+    T m     = std::max(abs(a), abs(b));
     T ratio = diff >= eps ? diff / m : diff;
     return (ratio <= eps);
   }
@@ -65,47 +67,48 @@ struct CompareApproxAbs {
 };
 
 template <typename T>
-T abs(const T &a) {
+T abs(const T& a)
+{
   return a > T(0) ? a : -a;
 }
 
 /*
-     * @brief Helper function to compare 2 device n-D arrays with custom comparison
-     * @tparam T the data type of the arrays
-     * @tparam L the comparator lambda or object function
-     * @param expected expected value(s)
-     * @param actual actual values
-     * @param eq_compare the comparator
-     * @param stream cuda stream
-     * @return the testing assertion to be later used by ASSERT_TRUE/EXPECT_TRUE
-     * @{
-     */
+ * @brief Helper function to compare 2 device n-D arrays with custom comparison
+ * @tparam T the data type of the arrays
+ * @tparam L the comparator lambda or object function
+ * @param expected expected value(s)
+ * @param actual actual values
+ * @param eq_compare the comparator
+ * @param stream cuda stream
+ * @return the testing assertion to be later used by ASSERT_TRUE/EXPECT_TRUE
+ * @{
+ */
 template <typename T, typename L>
-testing::AssertionResult devArrMatch(const T *expected, const T *actual,
-                                     size_t size, L eq_compare,
-                                     cudaStream_t stream = 0) {
+testing::AssertionResult devArrMatch(
+  const T* expected, const T* actual, size_t size, L eq_compare, cudaStream_t stream = 0)
+{
   std::unique_ptr<T[]> exp_h(new T[size]);
   std::unique_ptr<T[]> act_h(new T[size]);
   raft::update_host<T>(exp_h.get(), expected, size, stream);
   raft::update_host<T>(act_h.get(), actual, size, stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   for (size_t i(0); i < size; ++i) {
     auto exp = exp_h.get()[i];
     auto act = act_h.get()[i];
     if (!eq_compare(exp, act)) {
-      return testing::AssertionFailure()
-             << "actual=" << act << " != expected=" << exp << " @" << i;
+      return testing::AssertionFailure() << "actual=" << act << " != expected=" << exp << " @" << i;
     }
   }
   return testing::AssertionSuccess();
 }
 
 template <typename T, typename L>
-testing::AssertionResult devArrMatch(T expected, const T *actual, size_t size,
-                                     L eq_compare, cudaStream_t stream = 0) {
+testing::AssertionResult devArrMatch(
+  T expected, const T* actual, size_t size, L eq_compare, cudaStream_t stream = 0)
+{
   std::unique_ptr<T[]> act_h(new T[size]);
   raft::update_host<T>(act_h.get(), actual, size, stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   for (size_t i(0); i < size; ++i) {
     auto act = act_h.get()[i];
     if (!eq_compare(expected, act)) {
@@ -117,15 +120,19 @@ testing::AssertionResult devArrMatch(T expected, const T *actual, size_t size,
 }
 
 template <typename T, typename L>
-testing::AssertionResult devArrMatch(const T *expected, const T *actual,
-                                     size_t rows, size_t cols, L eq_compare,
-                                     cudaStream_t stream = 0) {
+testing::AssertionResult devArrMatch(const T* expected,
+                                     const T* actual,
+                                     size_t rows,
+                                     size_t cols,
+                                     L eq_compare,
+                                     cudaStream_t stream = 0)
+{
   size_t size = rows * cols;
   std::unique_ptr<T[]> exp_h(new T[size]);
   std::unique_ptr<T[]> act_h(new T[size]);
   raft::update_host<T>(exp_h.get(), expected, size, stream);
   raft::update_host<T>(act_h.get(), actual, size, stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   for (size_t i(0); i < rows; ++i) {
     for (size_t j(0); j < cols; ++j) {
       auto idx = i * cols + j;  // row major assumption!
@@ -133,8 +140,7 @@ testing::AssertionResult devArrMatch(const T *expected, const T *actual,
       auto act = act_h.get()[idx];
       if (!eq_compare(exp, act)) {
         return testing::AssertionFailure()
-               << "actual=" << act << " != expected=" << exp << " @" << i << ","
-               << j;
+               << "actual=" << act << " != expected=" << exp << " @" << i << "," << j;
       }
     }
   }
@@ -142,21 +148,20 @@ testing::AssertionResult devArrMatch(const T *expected, const T *actual,
 }
 
 template <typename T, typename L>
-testing::AssertionResult devArrMatch(T expected, const T *actual, size_t rows,
-                                     size_t cols, L eq_compare,
-                                     cudaStream_t stream = 0) {
+testing::AssertionResult devArrMatch(
+  T expected, const T* actual, size_t rows, size_t cols, L eq_compare, cudaStream_t stream = 0)
+{
   size_t size = rows * cols;
   std::unique_ptr<T[]> act_h(new T[size]);
   raft::update_host<T>(act_h.get(), actual, size, stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   for (size_t i(0); i < rows; ++i) {
     for (size_t j(0); j < cols; ++j) {
       auto idx = i * cols + j;  // row major assumption!
       auto act = act_h.get()[idx];
       if (!eq_compare(expected, act)) {
         return testing::AssertionFailure()
-               << "actual=" << act << " != expected=" << expected << " @" << i
-               << "," << j;
+               << "actual=" << act << " != expected=" << expected << " @" << i << "," << j;
       }
     }
   }
@@ -164,24 +169,24 @@ testing::AssertionResult devArrMatch(T expected, const T *actual, size_t rows,
 }
 
 /*
-     * @brief Helper function to compare a device n-D arrays with an expected array
-     * on the host, using a custom comparison
-     * @tparam T the data type of the arrays
-     * @tparam L the comparator lambda or object function
-     * @param expected_h host array of expected value(s)
-     * @param actual_d device array actual values
-     * @param eq_compare the comparator
-     * @param stream cuda stream
-     * @return the testing assertion to be later used by ASSERT_TRUE/EXPECT_TRUE
-     */
+ * @brief Helper function to compare a device n-D arrays with an expected array
+ * on the host, using a custom comparison
+ * @tparam T the data type of the arrays
+ * @tparam L the comparator lambda or object function
+ * @param expected_h host array of expected value(s)
+ * @param actual_d device array actual values
+ * @param eq_compare the comparator
+ * @param stream cuda stream
+ * @return the testing assertion to be later used by ASSERT_TRUE/EXPECT_TRUE
+ */
 template <typename T, typename L>
-testing::AssertionResult devArrMatchHost(const T *expected_h, const T *actual_d,
-                                         size_t size, L eq_compare,
-                                         cudaStream_t stream = 0) {
+testing::AssertionResult devArrMatchHost(
+  const T* expected_h, const T* actual_d, size_t size, L eq_compare, cudaStream_t stream = 0)
+{
   std::unique_ptr<T[]> act_h(new T[size]);
   raft::update_host<T>(act_h.get(), actual_d, size, stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-  bool ok = true;
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  bool ok   = true;
   auto fail = testing::AssertionFailure();
   for (size_t i(0); i < size; ++i) {
     auto exp = expected_h[i];
@@ -196,23 +201,23 @@ testing::AssertionResult devArrMatchHost(const T *expected_h, const T *actual_d,
 }
 
 /*
-     * @brief Helper function to compare diagonal values of a 2D matrix
-     * @tparam T the data type of the arrays
-     * @tparam L the comparator lambda or object function
-     * @param expected expected value along diagonal
-     * @param actual actual matrix
-     * @param eq_compare the comparator
-     * @param stream cuda stream
-     * @return the testing assertion to be later used by ASSERT_TRUE/EXPECT_TRUE
-     */
+ * @brief Helper function to compare diagonal values of a 2D matrix
+ * @tparam T the data type of the arrays
+ * @tparam L the comparator lambda or object function
+ * @param expected expected value along diagonal
+ * @param actual actual matrix
+ * @param eq_compare the comparator
+ * @param stream cuda stream
+ * @return the testing assertion to be later used by ASSERT_TRUE/EXPECT_TRUE
+ */
 template <typename T, typename L>
-testing::AssertionResult diagonalMatch(T expected, const T *actual, size_t rows,
-                                       size_t cols, L eq_compare,
-                                       cudaStream_t stream = 0) {
+testing::AssertionResult diagonalMatch(
+  T expected, const T* actual, size_t rows, size_t cols, L eq_compare, cudaStream_t stream = 0)
+{
   size_t size = rows * cols;
   std::unique_ptr<T[]> act_h(new T[size]);
   raft::update_host<T>(act_h.get(), actual, size, stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   for (size_t i(0); i < rows; ++i) {
     for (size_t j(0); j < cols; ++j) {
       if (i != j) continue;
@@ -220,8 +225,7 @@ testing::AssertionResult diagonalMatch(T expected, const T *actual, size_t rows,
       auto act = act_h.get()[idx];
       if (!eq_compare(expected, act)) {
         return testing::AssertionFailure()
-               << "actual=" << act << " != expected=" << expected << " @" << i
-               << "," << j;
+               << "actual=" << act << " != expected=" << expected << " @" << i << "," << j;
       }
     }
   }
@@ -229,10 +233,10 @@ testing::AssertionResult diagonalMatch(T expected, const T *actual, size_t rows,
 }
 
 template <typename T, typename L>
-testing::AssertionResult match(const T expected, T actual, L eq_compare) {
+testing::AssertionResult match(const T expected, T actual, L eq_compare)
+{
   if (!eq_compare(expected, actual)) {
-    return testing::AssertionFailure()
-           << "actual=" << actual << " != expected=" << expected;
+    return testing::AssertionFailure() << "actual=" << actual << " != expected=" << expected;
   }
   return testing::AssertionSuccess();
 }
@@ -240,24 +244,24 @@ testing::AssertionResult match(const T expected, T actual, L eq_compare) {
 /** @} */
 
 /** time the function call 'func' using cuda events */
-#define TIMEIT_LOOP(ms, count, func)                    \
-  do {                                                  \
-    cudaEvent_t start, stop;                            \
-    CUDA_CHECK(cudaEventCreate(&start));                \
-    CUDA_CHECK(cudaEventCreate(&stop));                 \
-    CUDA_CHECK(cudaEventRecord(start));                 \
-    for (int i = 0; i < count; ++i) {                   \
-      func;                                             \
-    }                                                   \
-    CUDA_CHECK(cudaEventRecord(stop));                  \
-    CUDA_CHECK(cudaEventSynchronize(stop));             \
-    ms = 0.f;                                           \
-    CUDA_CHECK(cudaEventElapsedTime(&ms, start, stop)); \
-    ms /= args.runs;                                    \
+#define TIMEIT_LOOP(ms, count, func)                       \
+  do {                                                     \
+    cudaEvent_t start, stop;                               \
+    RAFT_CUDA_TRY(cudaEventCreate(&start));                \
+    RAFT_CUDA_TRY(cudaEventCreate(&stop));                 \
+    RAFT_CUDA_TRY(cudaEventRecord(start));                 \
+    for (int i = 0; i < count; ++i) {                      \
+      func;                                                \
+    }                                                      \
+    RAFT_CUDA_TRY(cudaEventRecord(stop));                  \
+    RAFT_CUDA_TRY(cudaEventSynchronize(stop));             \
+    ms = 0.f;                                              \
+    RAFT_CUDA_TRY(cudaEventElapsedTime(&ms, start, stop)); \
+    ms /= args.runs;                                       \
   } while (0)
 
-inline std::vector<float> read_csv(std::string filename,
-                                   bool skip_first_n_columns = 1) {
+inline std::vector<float> read_csv(std::string filename, bool skip_first_n_columns = 1)
+{
   std::vector<float> result;
   std::ifstream myFile(filename);
   if (!myFile.is_open()) throw std::runtime_error("Could not open file");
@@ -268,8 +272,7 @@ inline std::vector<float> read_csv(std::string filename,
   if (myFile.good()) {
     std::getline(myFile, line);
     std::stringstream ss(line);
-    while (std::getline(ss, colname, ',')) {
-    }
+    while (std::getline(ss, colname, ',')) {}
   }
 
   int n_lines = 0;

@@ -24,7 +24,7 @@ namespace linalg {
 /**
  * @brief CUDA version mean squared error function mean((A-B)**2)
  * @tparam math_t data-type upon which the math operation will be performed
- * @tparam TPB threads-per-block 
+ * @tparam TPB threads-per-block
  * @param out the output mean squared error value (assumed to be a device pointer)
  * @param A input array (assumed to be a device pointer)
  * @param B input array (assumed to be a device pointer)
@@ -33,14 +33,14 @@ namespace linalg {
  * @param stream cuda-stream where to launch this kernel
  */
 template <typename math_t, int TPB = 256>
-void meanSquaredError(math_t* out, const math_t* A, const math_t* B, size_t len,
-                      math_t weight, cudaStream_t stream) {
+void meanSquaredError(
+  math_t* out, const math_t* A, const math_t* B, size_t len, math_t weight, cudaStream_t stream)
+{
   auto sq_diff = [len, weight] __device__(const math_t a, const math_t b) {
     math_t diff = a - b;
     return diff * diff * weight / len;
   };
-  mapThenSumReduce<math_t, decltype(sq_diff), TPB>(out, len, sq_diff, stream, A,
-                                                   B);
+  mapThenSumReduce<math_t, decltype(sq_diff), TPB>(out, len, sq_diff, stream, A, B);
 }
 
 };  // end namespace linalg

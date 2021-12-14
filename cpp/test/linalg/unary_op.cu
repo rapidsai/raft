@@ -28,49 +28,49 @@ namespace linalg {
 // for an extended __device__ lambda cannot have private or protected access
 // within its class
 template <typename InType, typename IdxType = int, typename OutType = InType>
-void unaryOpLaunch(OutType *out, const InType *in, InType scalar, IdxType len,
-                   cudaStream_t stream) {
+void unaryOpLaunch(OutType* out, const InType* in, InType scalar, IdxType len, cudaStream_t stream)
+{
   if (in == nullptr) {
     auto op = [scalar] __device__(OutType * ptr, IdxType idx) {
       *ptr = static_cast<OutType>(scalar * idx);
     };
     writeOnlyUnaryOp<OutType, decltype(op), IdxType>(out, len, op, stream);
   } else {
-    auto op = [scalar] __device__(InType in) {
-      return static_cast<OutType>(in * scalar);
-    };
+    auto op = [scalar] __device__(InType in) { return static_cast<OutType>(in * scalar); };
     unaryOp<InType, decltype(op), IdxType, OutType>(out, in, len, op, stream);
   }
 }
 
 template <typename InType, typename IdxType, typename OutType = InType>
-class UnaryOpTest
-  : public ::testing::TestWithParam<UnaryOpInputs<InType, IdxType, OutType>> {
+class UnaryOpTest : public ::testing::TestWithParam<UnaryOpInputs<InType, IdxType, OutType>> {
  public:
   UnaryOpTest()
-    : params(::testing::TestWithParam<
-             UnaryOpInputs<InType, IdxType, OutType>>::GetParam()),
+    : params(::testing::TestWithParam<UnaryOpInputs<InType, IdxType, OutType>>::GetParam()),
       stream(handle.get_stream()),
       in(params.len, stream),
       out_ref(params.len, stream),
-      out(params.len, stream) {}
+      out(params.len, stream)
+  {
+  }
 
  protected:
-  void SetUp() override {
+  void SetUp() override
+  {
     raft::random::Rng r(params.seed);
     auto len = params.len;
     r.uniform(in.data(), len, InType(-1.0), InType(1.0), stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
-  virtual void DoTest() {
-    auto len = params.len;
+  virtual void DoTest()
+  {
+    auto len    = params.len;
     auto scalar = params.scalar;
     naiveScale(out_ref.data(), in.data(), scalar, len, stream);
     unaryOpLaunch(out.data(), in.data(), scalar, len, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-    ASSERT_TRUE(devArrMatch(out_ref.data(), out.data(), params.len,
-                            CompareApprox<OutType>(params.tolerance)));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    ASSERT_TRUE(devArrMatch(
+      out_ref.data(), out.data(), params.len, CompareApprox<OutType>(params.tolerance)));
   }
 
  protected:
@@ -85,15 +85,15 @@ class UnaryOpTest
 template <typename OutType, typename IdxType>
 class WriteOnlyUnaryOpTest : public UnaryOpTest<OutType, IdxType, OutType> {
  protected:
-  void DoTest() override {
-    auto len = this->params.len;
+  void DoTest() override
+  {
+    auto len    = this->params.len;
     auto scalar = this->params.scalar;
-    naiveScale(this->out_ref.data(), (OutType *)nullptr, scalar, len,
-               this->stream);
-    unaryOpLaunch(this->out.data(), (OutType *)nullptr, scalar, len,
-                  this->stream);
-    CUDA_CHECK(cudaStreamSynchronize(this->stream));
-    ASSERT_TRUE(devArrMatch(this->out_ref.data(), this->out.data(),
+    naiveScale(this->out_ref.data(), (OutType*)nullptr, scalar, len, this->stream);
+    unaryOpLaunch(this->out.data(), (OutType*)nullptr, scalar, len, this->stream);
+    RAFT_CUDA_TRY(cudaStreamSynchronize(this->stream));
+    ASSERT_TRUE(devArrMatch(this->out_ref.data(),
+                            this->out.data(),
                             this->params.len,
                             CompareApprox<OutType>(this->params.tolerance)));
   }
@@ -103,8 +103,7 @@ class WriteOnlyUnaryOpTest : public UnaryOpTest<OutType, IdxType, OutType> {
   TEST_P(Name, Result) { DoTest(); } \
   INSTANTIATE_TEST_SUITE_P(UnaryOpTests, Name, ::testing::ValuesIn(inputs))
 
-const std::vector<UnaryOpInputs<float, int>> inputsf_i32 = {
-  {0.000001f, 1024 * 1024, 2.f, 1234ULL}};
+const std::vector<UnaryOpInputs<float, int>> inputsf_i32 = {{0.000001f, 1024 * 1024, 2.f, 1234ULL}};
 typedef UnaryOpTest<float, int> UnaryOpTestF_i32;
 UNARY_OP_TEST(UnaryOpTestF_i32, inputsf_i32);
 typedef WriteOnlyUnaryOpTest<float, int> WriteOnlyUnaryOpTestF_i32;

@@ -36,17 +36,17 @@ struct KNNInputs {
   std::vector<int> labels;
 };
 
-__global__ void build_actual_output(int *output, int n_rows, int k,
-                                    const int *idx_labels,
-                                    const int64_t *indices) {
+__global__ void build_actual_output(
+  int* output, int n_rows, int k, const int* idx_labels, const int64_t* indices)
+{
   int element = threadIdx.x + blockDim.x * blockIdx.x;
   if (element >= n_rows * k) return;
 
   output[element] = idx_labels[indices[element]];
 }
 
-__global__ void build_expected_output(int *output, int n_rows, int k,
-                                      const int *labels) {
+__global__ void build_expected_output(int* output, int n_rows, int k, const int* labels)
+{
   int row = threadIdx.x + blockDim.x * blockIdx.x;
   if (row >= n_rows) return;
 
@@ -68,23 +68,33 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
       search_data_(0, stream),
       indices_(0, stream),
       distances_(0, stream),
-      search_labels_(0, stream) {}
+      search_labels_(0, stream)
+  {
+  }
 
  protected:
-  void testBruteForce() {
-    raft::print_device_vector("Input array: ", input_.data(), rows_ * cols_,
-                              std::cout);
+  void testBruteForce()
+  {
+    raft::print_device_vector("Input array: ", input_.data(), rows_ * cols_, std::cout);
     std::cout << "K: " << k_ << "\n";
-    raft::print_device_vector("Labels array: ", search_labels_.data(), rows_,
-                              std::cout);
+    raft::print_device_vector("Labels array: ", search_labels_.data(), rows_, std::cout);
 
-    std::vector<float *> input_vec;
+    std::vector<float*> input_vec;
     std::vector<int> sizes_vec;
     input_vec.push_back(input_.data());
     sizes_vec.push_back(rows_);
 
-    brute_force_knn(handle, input_vec, sizes_vec, cols_, search_data_.data(),
-                    rows_, indices_.data(), distances_.data(), k_, true, true);
+    brute_force_knn(handle,
+                    input_vec,
+                    sizes_vec,
+                    cols_,
+                    search_data_.data(),
+                    rows_,
+                    indices_.data(),
+                    distances_.data(),
+                    k_,
+                    true,
+                    true);
 
     build_actual_output<<<raft::ceildiv(rows_ * k_, 32), 32, 0, stream>>>(
       actual_labels_.data(), rows_, k_, search_labels_.data(), indices_.data());
@@ -92,14 +102,15 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
     build_expected_output<<<raft::ceildiv(rows_ * k_, 32), 32, 0, stream>>>(
       expected_labels_.data(), rows_, k_, search_labels_.data());
 
-    ASSERT_TRUE(devArrMatch(expected_labels_.data(), actual_labels_.data(),
-                            rows_ * k_, raft::Compare<int>()));
+    ASSERT_TRUE(devArrMatch(
+      expected_labels_.data(), actual_labels_.data(), rows_ * k_, raft::Compare<int>(), stream));
   }
 
-  void SetUp() override {
+  void SetUp() override
+  {
     rows_ = params_.input.size();
     cols_ = params_.input[0].size();
-    k_ = params_.k;
+    k_    = params_.k;
 
     actual_labels_.resize(rows_ * k_, stream);
     expected_labels_.resize(rows_ * k_, stream);
@@ -109,20 +120,17 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
     distances_.resize(rows_ * k_, stream);
     search_labels_.resize(rows_, stream);
 
-    CUDA_CHECK(cudaMemsetAsync(actual_labels_.data(), 0,
-                               actual_labels_.size() * sizeof(int), stream));
-    CUDA_CHECK(cudaMemsetAsync(expected_labels_.data(), 0,
-                               expected_labels_.size() * sizeof(int), stream));
-    CUDA_CHECK(
-      cudaMemsetAsync(input_.data(), 0, input_.size() * sizeof(float), stream));
-    CUDA_CHECK(cudaMemsetAsync(search_data_.data(), 0,
-                               search_data_.size() * sizeof(float), stream));
-    CUDA_CHECK(cudaMemsetAsync(indices_.data(), 0,
-                               indices_.size() * sizeof(int64_t), stream));
-    CUDA_CHECK(cudaMemsetAsync(distances_.data(), 0,
-                               distances_.size() * sizeof(float), stream));
-    CUDA_CHECK(cudaMemsetAsync(search_labels_.data(), 0,
-                               search_labels_.size() * sizeof(int), stream));
+    RAFT_CUDA_TRY(
+      cudaMemsetAsync(actual_labels_.data(), 0, actual_labels_.size() * sizeof(int), stream));
+    RAFT_CUDA_TRY(
+      cudaMemsetAsync(expected_labels_.data(), 0, expected_labels_.size() * sizeof(int), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(input_.data(), 0, input_.size() * sizeof(float), stream));
+    RAFT_CUDA_TRY(
+      cudaMemsetAsync(search_data_.data(), 0, search_data_.size() * sizeof(float), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(indices_.data(), 0, indices_.size() * sizeof(int64_t), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(distances_.data(), 0, distances_.size() * sizeof(float), stream));
+    RAFT_CUDA_TRY(
+      cudaMemsetAsync(search_labels_.data(), 0, search_labels_.size() * sizeof(int), stream));
 
     std::vector<float> row_major_input;
     for (std::size_t i = 0; i < params_.input.size(); ++i) {
@@ -130,18 +138,18 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
         row_major_input.push_back(params_.input[i][j]);
       }
     }
-    rmm::device_buffer input_d = rmm::device_buffer(
-      row_major_input.data(), row_major_input.size() * sizeof(float), stream);
-    float *input_ptr = static_cast<float *>(input_d.data());
+    rmm::device_buffer input_d =
+      rmm::device_buffer(row_major_input.data(), row_major_input.size() * sizeof(float), stream);
+    float* input_ptr = static_cast<float*>(input_d.data());
 
-    rmm::device_buffer labels_d = rmm::device_buffer(
-      params_.labels.data(), params_.labels.size() * sizeof(int), stream);
-    int *labels_ptr = static_cast<int *>(labels_d.data());
+    rmm::device_buffer labels_d =
+      rmm::device_buffer(params_.labels.data(), params_.labels.size() * sizeof(int), stream);
+    int* labels_ptr = static_cast<int*>(labels_d.data());
 
     raft::copy(input_.data(), input_ptr, rows_ * cols_, stream);
     raft::copy(search_data_.data(), input_ptr, rows_ * cols_, stream);
     raft::copy(search_labels_.data(), labels_ptr, rows_, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
  private:

@@ -40,7 +40,8 @@ struct SWoRInputs {
 };
 
 template <typename T>
-::std::ostream& operator<<(::std::ostream& os, const SWoRInputs<T>& dims) {
+::std::ostream& operator<<(::std::ostream& os, const SWoRInputs<T>& dims)
+{
   return os;
 }
 
@@ -53,23 +54,30 @@ class SWoRTest : public ::testing::TestWithParam<SWoRInputs<T>> {
       in(params.len, stream),
       wts(params.len, stream),
       out(params.sampledLen, stream),
-      outIdx(params.sampledLen, stream) {}
+      outIdx(params.sampledLen, stream)
+  {
+  }
 
  protected:
-  void SetUp() override {
+  void SetUp() override
+  {
     Rng r(params.seed, params.gtype);
     h_outIdx.resize(params.sampledLen);
     r.uniform(in.data(), params.len, T(-1.0), T(1.0), stream);
     r.uniform(wts.data(), params.len, T(1.0), T(2.0), stream);
     if (params.largeWeightIndex >= 0) {
-      update_device(wts.data() + params.largeWeightIndex, &params.largeWeight,
-                    1, stream);
+      update_device(wts.data() + params.largeWeightIndex, &params.largeWeight, 1, stream);
     }
-    r.sampleWithoutReplacement(handle, out.data(), outIdx.data(), in.data(),
-                               wts.data(), params.sampledLen, params.len,
+    r.sampleWithoutReplacement(handle,
+                               out.data(),
+                               outIdx.data(),
+                               in.data(),
+                               wts.data(),
+                               params.sampledLen,
+                               params.len,
                                stream);
     update_host(&(h_outIdx[0]), outIdx.data(), params.sampledLen, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
  protected:
@@ -145,14 +153,14 @@ const std::vector<SWoRInputs<float>> inputsf = {
   {1024, 512, 10, 100000.f, GenKiss99, 1234ULL},
 };
 
-TEST_P(SWoRTestF, Result) {
+TEST_P(SWoRTestF, Result)
+{
   std::set<int> occurence;
   for (int i = 0; i < params.sampledLen; ++i) {
     auto val = h_outIdx[i];
     // indices must be in the given range
     ASSERT_TRUE(0 <= val && val < params.len)
-      << "out-of-range index @i=" << i << " val=" << val
-      << " sampledLen=" << params.sampledLen;
+      << "out-of-range index @i=" << i << " val=" << val << " sampledLen=" << params.sampledLen;
     // indices should not repeat
     ASSERT_TRUE(occurence.find(val) == occurence.end())
       << "repeated index @i=" << i << " idx=" << val;
@@ -160,9 +168,7 @@ TEST_P(SWoRTestF, Result) {
   }
   // if there's a skewed distribution, the top index should correspond to the
   // particular item with a large weight
-  if (params.largeWeightIndex >= 0) {
-    ASSERT_EQ(h_outIdx[0], params.largeWeightIndex);
-  }
+  if (params.largeWeightIndex >= 0) { ASSERT_EQ(h_outIdx[0], params.largeWeightIndex); }
 }
 INSTANTIATE_TEST_SUITE_P(SWoRTests, SWoRTestF, ::testing::ValuesIn(inputsf));
 
@@ -229,14 +235,14 @@ const std::vector<SWoRInputs<double>> inputsd = {
   {1024, 512, 10, 100000.0, GenKiss99, 1234ULL},
 };
 
-TEST_P(SWoRTestD, Result) {
+TEST_P(SWoRTestD, Result)
+{
   std::set<int> occurence;
   for (int i = 0; i < params.sampledLen; ++i) {
     auto val = h_outIdx[i];
     // indices must be in the given range
     ASSERT_TRUE(0 <= val && val < params.len)
-      << "out-of-range index @i=" << i << " val=" << val
-      << " sampledLen=" << params.sampledLen;
+      << "out-of-range index @i=" << i << " val=" << val << " sampledLen=" << params.sampledLen;
     // indices should not repeat
     ASSERT_TRUE(occurence.find(val) == occurence.end())
       << "repeated index @i=" << i << " idx=" << val;
@@ -244,9 +250,7 @@ TEST_P(SWoRTestD, Result) {
   }
   // if there's a skewed distribution, the top index should correspond to the
   // particular item with a large weight
-  if (params.largeWeightIndex >= 0) {
-    ASSERT_EQ(h_outIdx[0], params.largeWeightIndex);
-  }
+  if (params.largeWeightIndex >= 0) { ASSERT_EQ(h_outIdx[0], params.largeWeightIndex); }
 }
 INSTANTIATE_TEST_SUITE_P(SWoRTests, SWoRTestD, ::testing::ValuesIn(inputsd));
 

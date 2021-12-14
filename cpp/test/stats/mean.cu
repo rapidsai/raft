@@ -35,7 +35,8 @@ struct MeanInputs {
 };
 
 template <typename T>
-::std::ostream &operator<<(::std::ostream &os, const MeanInputs<T> &dims) {
+::std::ostream& operator<<(::std::ostream& os, const MeanInputs<T>& dims)
+{
   return os;
 }
 
@@ -48,20 +49,23 @@ class MeanTest : public ::testing::TestWithParam<MeanInputs<T>> {
       rows(params.rows),
       cols(params.cols),
       data(rows * cols, stream),
-      mean_act(rows * cols, stream) {}
+      mean_act(rows * cols, stream)
+  {
+  }
 
  protected:
-  void SetUp() override {
+  void SetUp() override
+  {
     raft::random::Rng r(params.seed);
     int len = rows * cols;
     r.normal(data.data(), len, params.mean, (T)1.0, stream);
     meanSGtest(data.data(), stream);
   }
 
-  void meanSGtest(T *data, cudaStream_t stream) {
+  void meanSGtest(T* data, cudaStream_t stream)
+  {
     int rows = params.rows, cols = params.cols;
-    mean(mean_act.data(), data, cols, rows, params.sample, params.rowMajor,
-         stream);
+    mean(mean_act.data(), data, cols, rows, params.sample, params.rowMajor, stream);
   }
 
  protected:
@@ -76,52 +80,52 @@ class MeanTest : public ::testing::TestWithParam<MeanInputs<T>> {
 // Note: For 1024 samples, 256 experiments, a mean of 1.0 with stddev=1.0, the
 // measured mean (of a normal distribution) will fall outside of an epsilon of
 // 0.15 only 4/10000 times. (epsilon of 0.1 will fail 30/100 times)
-const std::vector<MeanInputs<float>> inputsf = {
-  {0.15f, 1.f, 1024, 32, true, false, 1234ULL},
-  {0.15f, 1.f, 1024, 64, true, false, 1234ULL},
-  {0.15f, 1.f, 1024, 128, true, false, 1234ULL},
-  {0.15f, 1.f, 1024, 256, true, false, 1234ULL},
-  {0.15f, -1.f, 1024, 32, false, false, 1234ULL},
-  {0.15f, -1.f, 1024, 64, false, false, 1234ULL},
-  {0.15f, -1.f, 1024, 128, false, false, 1234ULL},
-  {0.15f, -1.f, 1024, 256, false, false, 1234ULL},
-  {0.15f, 1.f, 1024, 32, true, true, 1234ULL},
-  {0.15f, 1.f, 1024, 64, true, true, 1234ULL},
-  {0.15f, 1.f, 1024, 128, true, true, 1234ULL},
-  {0.15f, 1.f, 1024, 256, true, true, 1234ULL},
-  {0.15f, -1.f, 1024, 32, false, true, 1234ULL},
-  {0.15f, -1.f, 1024, 64, false, true, 1234ULL},
-  {0.15f, -1.f, 1024, 128, false, true, 1234ULL},
-  {0.15f, -1.f, 1024, 256, false, true, 1234ULL}};
+const std::vector<MeanInputs<float>> inputsf = {{0.15f, 1.f, 1024, 32, true, false, 1234ULL},
+                                                {0.15f, 1.f, 1024, 64, true, false, 1234ULL},
+                                                {0.15f, 1.f, 1024, 128, true, false, 1234ULL},
+                                                {0.15f, 1.f, 1024, 256, true, false, 1234ULL},
+                                                {0.15f, -1.f, 1024, 32, false, false, 1234ULL},
+                                                {0.15f, -1.f, 1024, 64, false, false, 1234ULL},
+                                                {0.15f, -1.f, 1024, 128, false, false, 1234ULL},
+                                                {0.15f, -1.f, 1024, 256, false, false, 1234ULL},
+                                                {0.15f, 1.f, 1024, 32, true, true, 1234ULL},
+                                                {0.15f, 1.f, 1024, 64, true, true, 1234ULL},
+                                                {0.15f, 1.f, 1024, 128, true, true, 1234ULL},
+                                                {0.15f, 1.f, 1024, 256, true, true, 1234ULL},
+                                                {0.15f, -1.f, 1024, 32, false, true, 1234ULL},
+                                                {0.15f, -1.f, 1024, 64, false, true, 1234ULL},
+                                                {0.15f, -1.f, 1024, 128, false, true, 1234ULL},
+                                                {0.15f, -1.f, 1024, 256, false, true, 1234ULL}};
 
-const std::vector<MeanInputs<double>> inputsd = {
-  {0.15, 1.0, 1024, 32, true, false, 1234ULL},
-  {0.15, 1.0, 1024, 64, true, false, 1234ULL},
-  {0.15, 1.0, 1024, 128, true, false, 1234ULL},
-  {0.15, 1.0, 1024, 256, true, false, 1234ULL},
-  {0.15, -1.0, 1024, 32, false, false, 1234ULL},
-  {0.15, -1.0, 1024, 64, false, false, 1234ULL},
-  {0.15, -1.0, 1024, 128, false, false, 1234ULL},
-  {0.15, -1.0, 1024, 256, false, false, 1234ULL},
-  {0.15, 1.0, 1024, 32, true, true, 1234ULL},
-  {0.15, 1.0, 1024, 64, true, true, 1234ULL},
-  {0.15, 1.0, 1024, 128, true, true, 1234ULL},
-  {0.15, 1.0, 1024, 256, true, true, 1234ULL},
-  {0.15, -1.0, 1024, 32, false, true, 1234ULL},
-  {0.15, -1.0, 1024, 64, false, true, 1234ULL},
-  {0.15, -1.0, 1024, 128, false, true, 1234ULL},
-  {0.15, -1.0, 1024, 256, false, true, 1234ULL}};
+const std::vector<MeanInputs<double>> inputsd = {{0.15, 1.0, 1024, 32, true, false, 1234ULL},
+                                                 {0.15, 1.0, 1024, 64, true, false, 1234ULL},
+                                                 {0.15, 1.0, 1024, 128, true, false, 1234ULL},
+                                                 {0.15, 1.0, 1024, 256, true, false, 1234ULL},
+                                                 {0.15, -1.0, 1024, 32, false, false, 1234ULL},
+                                                 {0.15, -1.0, 1024, 64, false, false, 1234ULL},
+                                                 {0.15, -1.0, 1024, 128, false, false, 1234ULL},
+                                                 {0.15, -1.0, 1024, 256, false, false, 1234ULL},
+                                                 {0.15, 1.0, 1024, 32, true, true, 1234ULL},
+                                                 {0.15, 1.0, 1024, 64, true, true, 1234ULL},
+                                                 {0.15, 1.0, 1024, 128, true, true, 1234ULL},
+                                                 {0.15, 1.0, 1024, 256, true, true, 1234ULL},
+                                                 {0.15, -1.0, 1024, 32, false, true, 1234ULL},
+                                                 {0.15, -1.0, 1024, 64, false, true, 1234ULL},
+                                                 {0.15, -1.0, 1024, 128, false, true, 1234ULL},
+                                                 {0.15, -1.0, 1024, 256, false, true, 1234ULL}};
 
 typedef MeanTest<float> MeanTestF;
-TEST_P(MeanTestF, Result) {
-  ASSERT_TRUE(devArrMatch(params.mean, mean_act.data(), params.cols,
-                          CompareApprox<float>(params.tolerance)));
+TEST_P(MeanTestF, Result)
+{
+  ASSERT_TRUE(
+    devArrMatch(params.mean, mean_act.data(), params.cols, CompareApprox<float>(params.tolerance)));
 }
 
 typedef MeanTest<double> MeanTestD;
-TEST_P(MeanTestD, Result) {
-  ASSERT_TRUE(devArrMatch(params.mean, mean_act.data(), params.cols,
-                          CompareApprox<double>(params.tolerance)));
+TEST_P(MeanTestD, Result)
+{
+  ASSERT_TRUE(devArrMatch(
+    params.mean, mean_act.data(), params.cols, CompareApprox<double>(params.tolerance)));
 }
 
 INSTANTIATE_TEST_SUITE_P(MeanTests, MeanTestF, ::testing::ValuesIn(inputsf));

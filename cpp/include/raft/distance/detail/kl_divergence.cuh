@@ -23,7 +23,7 @@ namespace detail {
 
 /**
  * @brief the KL Divergence distance matrix:
- *  It computes the following equation: 
+ *  It computes the following equation:
     Cij = 0.5 * sum(x * log (x / y));
  * This distance computation modifies A or B by computing a log(x)
  * and then performing a `pow(e, log(x))` to convert it back. Because of this,
@@ -51,17 +51,29 @@ namespace detail {
  * @param[in]       fin_op the final gemm epilogue lambda
  * @param[in]       stream cuda stream to launch work
  */
-template <typename DataT, typename AccT, typename OutT, typename IdxT,
-          int VecLen, typename FinalLambda, bool isRowMajor>
-static void klDivergenceImpl(const DataT *x, const DataT *y, IdxT m, IdxT n,
-                             IdxT k, IdxT lda, IdxT ldb, IdxT ldd,
-                             OutT *dOutput, FinalLambda fin_op,
-                             cudaStream_t stream) {
+template <typename DataT,
+          typename AccT,
+          typename OutT,
+          typename IdxT,
+          int VecLen,
+          typename FinalLambda,
+          bool isRowMajor>
+static void klDivergenceImpl(const DataT* x,
+                             const DataT* y,
+                             IdxT m,
+                             IdxT n,
+                             IdxT k,
+                             IdxT lda,
+                             IdxT ldb,
+                             IdxT ldd,
+                             OutT* dOutput,
+                             FinalLambda fin_op,
+                             cudaStream_t stream)
+{
   typedef typename raft::linalg::Policy4x4<DataT, VecLen>::Policy RowPolicy;
   typedef typename raft::linalg::Policy4x4<DataT, VecLen>::ColPolicy ColPolicy;
 
-  typedef
-    typename std::conditional<isRowMajor, RowPolicy, ColPolicy>::type KPolicy;
+  typedef typename std::conditional<isRowMajor, RowPolicy, ColPolicy>::type KPolicy;
 
   dim3 blk(KPolicy::Nthreads);
 
@@ -80,13 +92,11 @@ static void klDivergenceImpl(const DataT *x, const DataT *y, IdxT m, IdxT n,
     if (isRowMajor) {
       const bool x_zero = (x == 0);
       const bool y_zero = (y == 0);
-      acc +=
-        x * (raft::myLog(x + x_zero) - (!y_zero) * raft::myLog(y + y_zero));
+      acc += x * (raft::myLog(x + x_zero) - (!y_zero) * raft::myLog(y + y_zero));
     } else {
       const bool y_zero = (y == 0);
       const bool x_zero = (x == 0);
-      acc +=
-        y * (raft::myLog(y + y_zero) - (!x_zero) * raft::myLog(x + x_zero));
+      acc += y * (raft::myLog(y + y_zero) - (!x_zero) * raft::myLog(x + x_zero));
     }
   };
 
@@ -102,10 +112,11 @@ static void klDivergenceImpl(const DataT *x, const DataT *y, IdxT m, IdxT n,
   };
 
   // epilogue operation lambda for final value calculation
-  auto epilog_lambda = [] __device__(
-                         AccT acc[KPolicy::AccRowsPerTh][KPolicy::AccColsPerTh],
-                         DataT * regxn, DataT * regyn, IdxT gridStrideX,
-                         IdxT gridStrideY) {
+  auto epilog_lambda = [] __device__(AccT acc[KPolicy::AccRowsPerTh][KPolicy::AccColsPerTh],
+                                     DataT * regxn,
+                                     DataT * regyn,
+                                     IdxT gridStrideX,
+                                     IdxT gridStrideY) {
 #pragma unroll
     for (int i = 0; i < KPolicy::AccRowsPerTh; ++i) {
 #pragma unroll
@@ -116,79 +127,158 @@ static void klDivergenceImpl(const DataT *x, const DataT *y, IdxT m, IdxT n,
   };
 
   if (isRowMajor) {
-    constexpr auto klDivergenceRowMajor =
-      pairwiseDistanceMatKernel<false, DataT, AccT, OutT, IdxT, KPolicy,
-                                decltype(core_lambda), decltype(epilog_lambda),
-                                FinalLambda, true>;
+    constexpr auto klDivergenceRowMajor = pairwiseDistanceMatKernel<false,
+                                                                    DataT,
+                                                                    AccT,
+                                                                    OutT,
+                                                                    IdxT,
+                                                                    KPolicy,
+                                                                    decltype(core_lambda),
+                                                                    decltype(epilog_lambda),
+                                                                    FinalLambda,
+                                                                    true>;
     constexpr auto klDivergenceRowMajorXequalY =
-      pairwiseDistanceMatKernel<false, DataT, AccT, OutT, IdxT, KPolicy,
+      pairwiseDistanceMatKernel<false,
+                                DataT,
+                                AccT,
+                                OutT,
+                                IdxT,
+                                KPolicy,
                                 decltype(core_lambda_x_equal_y),
-                                decltype(epilog_lambda), FinalLambda, true>;
+                                decltype(epilog_lambda),
+                                FinalLambda,
+                                true>;
     if (x != y) {
       raft::linalg::unaryOp<DataT, decltype(unaryOp_lambda), IdxT>(
-        (DataT *)y, y, n * k, unaryOp_lambda, stream);
-      dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize,
-                                                 klDivergenceRowMajor);
-      klDivergenceRowMajor<<<grid, blk, KPolicy::SmemSize, stream>>>(
-        x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput, core_lambda,
-        epilog_lambda, fin_op);
+        (DataT*)y, y, n * k, unaryOp_lambda, stream);
+      dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize, klDivergenceRowMajor);
+      klDivergenceRowMajor<<<grid, blk, KPolicy::SmemSize, stream>>>(x,
+                                                                     y,
+                                                                     nullptr,
+                                                                     nullptr,
+                                                                     m,
+                                                                     n,
+                                                                     k,
+                                                                     lda,
+                                                                     ldb,
+                                                                     ldd,
+                                                                     dOutput,
+                                                                     core_lambda,
+                                                                     epilog_lambda,
+                                                                     fin_op);
       // Now reverse previous log (x) back to x using (e ^ log(x))
       raft::linalg::unaryOp<DataT, decltype(unaryOp_lambda_reverse), IdxT>(
-        (DataT *)y, y, n * k, unaryOp_lambda_reverse, stream);
+        (DataT*)y, y, n * k, unaryOp_lambda_reverse, stream);
     } else {
-      dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize,
-                                                 klDivergenceRowMajorXequalY);
-      klDivergenceRowMajorXequalY<<<grid, blk, KPolicy::SmemSize, stream>>>(
-        x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput,
-        core_lambda_x_equal_y, epilog_lambda, fin_op);
+      dim3 grid =
+        launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize, klDivergenceRowMajorXequalY);
+      klDivergenceRowMajorXequalY<<<grid, blk, KPolicy::SmemSize, stream>>>(x,
+                                                                            y,
+                                                                            nullptr,
+                                                                            nullptr,
+                                                                            m,
+                                                                            n,
+                                                                            k,
+                                                                            lda,
+                                                                            ldb,
+                                                                            ldd,
+                                                                            dOutput,
+                                                                            core_lambda_x_equal_y,
+                                                                            epilog_lambda,
+                                                                            fin_op);
     }
   } else {
-    constexpr auto klDivergenceColMajor =
-      pairwiseDistanceMatKernel<false, DataT, AccT, OutT, IdxT, KPolicy,
-                                decltype(core_lambda), decltype(epilog_lambda),
-                                FinalLambda, false>;
+    constexpr auto klDivergenceColMajor = pairwiseDistanceMatKernel<false,
+                                                                    DataT,
+                                                                    AccT,
+                                                                    OutT,
+                                                                    IdxT,
+                                                                    KPolicy,
+                                                                    decltype(core_lambda),
+                                                                    decltype(epilog_lambda),
+                                                                    FinalLambda,
+                                                                    false>;
     constexpr auto klDivergenceColMajorXequalY =
-      pairwiseDistanceMatKernel<false, DataT, AccT, OutT, IdxT, KPolicy,
+      pairwiseDistanceMatKernel<false,
+                                DataT,
+                                AccT,
+                                OutT,
+                                IdxT,
+                                KPolicy,
                                 decltype(core_lambda_x_equal_y),
-                                decltype(epilog_lambda), FinalLambda, false>;
+                                decltype(epilog_lambda),
+                                FinalLambda,
+                                false>;
     if (x != y) {
       raft::linalg::unaryOp<DataT, decltype(unaryOp_lambda), IdxT>(
-        (DataT *)x, x, m * k, unaryOp_lambda, stream);
-      dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize,
-                                                 klDivergenceColMajor);
-      klDivergenceColMajor<<<grid, blk, KPolicy::SmemSize, stream>>>(
-        x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput, core_lambda,
-        epilog_lambda, fin_op);
+        (DataT*)x, x, m * k, unaryOp_lambda, stream);
+      dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize, klDivergenceColMajor);
+      klDivergenceColMajor<<<grid, blk, KPolicy::SmemSize, stream>>>(x,
+                                                                     y,
+                                                                     nullptr,
+                                                                     nullptr,
+                                                                     m,
+                                                                     n,
+                                                                     k,
+                                                                     lda,
+                                                                     ldb,
+                                                                     ldd,
+                                                                     dOutput,
+                                                                     core_lambda,
+                                                                     epilog_lambda,
+                                                                     fin_op);
       // Now reverse previous log (x) back to x using (e ^ log(x))
       raft::linalg::unaryOp<DataT, decltype(unaryOp_lambda_reverse), IdxT>(
-        (DataT *)x, x, m * k, unaryOp_lambda_reverse, stream);
+        (DataT*)x, x, m * k, unaryOp_lambda_reverse, stream);
     } else {
-      dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize,
-                                                 klDivergenceColMajorXequalY);
-      klDivergenceColMajorXequalY<<<grid, blk, KPolicy::SmemSize, stream>>>(
-        x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput,
-        core_lambda_x_equal_y, epilog_lambda, fin_op);
+      dim3 grid =
+        launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize, klDivergenceColMajorXequalY);
+      klDivergenceColMajorXequalY<<<grid, blk, KPolicy::SmemSize, stream>>>(x,
+                                                                            y,
+                                                                            nullptr,
+                                                                            nullptr,
+                                                                            m,
+                                                                            n,
+                                                                            k,
+                                                                            lda,
+                                                                            ldb,
+                                                                            ldd,
+                                                                            dOutput,
+                                                                            core_lambda_x_equal_y,
+                                                                            epilog_lambda,
+                                                                            fin_op);
     }
   }
 
-  CUDA_CHECK(cudaGetLastError());
+  RAFT_CUDA_TRY(cudaGetLastError());
 }
 
-template <typename DataT, typename AccT, typename OutT, typename IdxT,
-          typename FinalLambda, bool isRowMajor>
-void klDivergence(IdxT m, IdxT n, IdxT k, IdxT lda, IdxT ldb, IdxT ldd,
-                  const DataT *x, const DataT *y, OutT *dOutput,
-                  FinalLambda fin_op, cudaStream_t stream) {
+template <typename DataT,
+          typename AccT,
+          typename OutT,
+          typename IdxT,
+          typename FinalLambda,
+          bool isRowMajor>
+void klDivergence(IdxT m,
+                  IdxT n,
+                  IdxT k,
+                  IdxT lda,
+                  IdxT ldb,
+                  IdxT ldd,
+                  const DataT* x,
+                  const DataT* y,
+                  OutT* dOutput,
+                  FinalLambda fin_op,
+                  cudaStream_t stream)
+{
   size_t bytesA = sizeof(DataT) * lda;
   size_t bytesB = sizeof(DataT) * ldb;
   if (16 % sizeof(DataT) == 0 && bytesA % 16 == 0 && bytesB % 16 == 0) {
-    klDivergenceImpl<DataT, AccT, OutT, IdxT, 16 / sizeof(DataT), FinalLambda,
-                     isRowMajor>(x, y, m, n, k, lda, ldb, ldd, dOutput, fin_op,
-                                 stream);
+    klDivergenceImpl<DataT, AccT, OutT, IdxT, 16 / sizeof(DataT), FinalLambda, isRowMajor>(
+      x, y, m, n, k, lda, ldb, ldd, dOutput, fin_op, stream);
   } else if (8 % sizeof(DataT) == 0 && bytesA % 8 == 0 && bytesB % 8 == 0) {
-    klDivergenceImpl<DataT, AccT, OutT, IdxT, 8 / sizeof(DataT), FinalLambda,
-                     isRowMajor>(x, y, m, n, k, lda, ldb, ldd, dOutput, fin_op,
-                                 stream);
+    klDivergenceImpl<DataT, AccT, OutT, IdxT, 8 / sizeof(DataT), FinalLambda, isRowMajor>(
+      x, y, m, n, k, lda, ldb, ldd, dOutput, fin_op, stream);
   } else {
     klDivergenceImpl<DataT, AccT, OutT, IdxT, 1, FinalLambda, isRowMajor>(
       x, y, m, n, k, lda, ldb, ldd, dOutput, fin_op, stream);
@@ -197,7 +287,7 @@ void klDivergence(IdxT m, IdxT n, IdxT k, IdxT lda, IdxT ldb, IdxT ldd,
 
 /**
  * @brief the KL Divergence distance matrix calculation
- *  It computes the following equation: 
+ *  It computes the following equation:
       Cij = 0.5 * sum(x * log (x / y));
  * This distance computation modifies A or B by computing a log(x)
  * and then performing a `pow(e, log(x))` to convert it back. Because of this,
@@ -218,25 +308,34 @@ void klDivergence(IdxT m, IdxT n, IdxT k, IdxT lda, IdxT ldb, IdxT ldd,
  * @param stream cuda stream where to launch work
  * @param isRowMajor whether the input and output matrices are row major
  */
-template <typename InType, typename AccType, typename OutType,
-          typename FinalLambda, typename Index_ = int>
-void klDivergenceImpl(int m, int n, int k, const InType *pA, const InType *pB,
-                      OutType *pD, FinalLambda fin_op, cudaStream_t stream,
-                      bool isRowMajor) {
+template <typename InType,
+          typename AccType,
+          typename OutType,
+          typename FinalLambda,
+          typename Index_ = int>
+void klDivergenceImpl(int m,
+                      int n,
+                      int k,
+                      const InType* pA,
+                      const InType* pB,
+                      OutType* pD,
+                      FinalLambda fin_op,
+                      cudaStream_t stream,
+                      bool isRowMajor)
+{
   typedef std::is_same<OutType, bool> is_bool;
-  typedef typename std::conditional<is_bool::value, OutType, AccType>::type
-    klDivergenceOutType;
+  typedef typename std::conditional<is_bool::value, OutType, AccType>::type klDivergenceOutType;
   Index_ lda, ldb, ldd;
-  klDivergenceOutType *pDcast = reinterpret_cast<klDivergenceOutType *>(pD);
+  klDivergenceOutType* pDcast = reinterpret_cast<klDivergenceOutType*>(pD);
   if (isRowMajor) {
     lda = k, ldb = k, ldd = n;
-    klDivergence<InType, AccType, klDivergenceOutType, Index_, FinalLambda,
-                 true>(m, n, k, lda, ldb, ldd, pA, pB, pDcast, fin_op, stream);
+    klDivergence<InType, AccType, klDivergenceOutType, Index_, FinalLambda, true>(
+      m, n, k, lda, ldb, ldd, pA, pB, pDcast, fin_op, stream);
 
   } else {
     lda = n, ldb = m, ldd = m;
-    klDivergence<InType, AccType, klDivergenceOutType, Index_, FinalLambda,
-                 false>(n, m, k, lda, ldb, ldd, pB, pA, pDcast, fin_op, stream);
+    klDivergence<InType, AccType, klDivergenceOutType, Index_, FinalLambda, false>(
+      n, m, k, lda, ldb, ldd, pB, pA, pDcast, fin_op, stream);
   }
 }
 }  // namespace detail

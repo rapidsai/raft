@@ -16,8 +16,8 @@
 
 #include <gtest/gtest.h>
 
-#include <raft/sparse/csr.cuh>
-#include <raft/sparse/op/row_op.cuh>
+#include <raft/sparse/csr.hpp>
+#include <raft/sparse/op/row_op.hpp>
 
 #include <raft/cudart_utils.h>
 #include <raft/random/rng.hpp>
@@ -38,43 +38,48 @@ struct CSRRowOpInputs {
 /** Wrapper to call csr_row_op because the enclosing function of a __device__
  *  lambda cannot have private ot protected access within the class. */
 template <typename Type_f, typename Index_>
-void csr_row_op_wrapper(const Index_ *row_ind, Index_ n_rows, Index_ nnz,
-                        Type_f *result, cudaStream_t stream) {
-  op::csr_row_op<Index_, 32>(
-    row_ind, n_rows, nnz,
+void csr_row_op_wrapper(
+  const Index_* row_ind, Index_ n_rows, Index_ nnz, Type_f* result, cudaStream_t stream)
+{
+  op::csr_row_op<Index_>(
+    row_ind,
+    n_rows,
+    nnz,
     [result] __device__(Index_ row, Index_ start_idx, Index_ stop_idx) {
-      for (Index_ i = start_idx; i < stop_idx; i++) result[i] = row;
+      for (Index_ i = start_idx; i < stop_idx; i++)
+        result[i] = row;
     },
     stream);
 }
 
 template <typename Type_f, typename Index_>
-class CSRRowOpTest
-  : public ::testing::TestWithParam<CSRRowOpInputs<Type_f, Index_>> {
+class CSRRowOpTest : public ::testing::TestWithParam<CSRRowOpInputs<Type_f, Index_>> {
  public:
   CSRRowOpTest()
-    : params(
-        ::testing::TestWithParam<CSRRowOpInputs<Type_f, Index_>>::GetParam()),
+    : params(::testing::TestWithParam<CSRRowOpInputs<Type_f, Index_>>::GetParam()),
       stream(handle.get_stream()),
       verify(params.verify.size(), stream),
       ex_scan(params.ex_scan.size(), stream),
-      result(params.verify.size(), stream) {}
-
- protected:
-  void SetUp() override {
-    n_rows = params.ex_scan.size();
-    nnz = params.verify.size();
+      result(params.verify.size(), stream)
+  {
   }
 
-  void Run() {
+ protected:
+  void SetUp() override
+  {
+    n_rows = params.ex_scan.size();
+    nnz    = params.verify.size();
+  }
+
+  void Run()
+  {
     raft::update_device(ex_scan.data(), params.ex_scan.data(), n_rows, stream);
     raft::update_device(verify.data(), params.verify.data(), nnz, stream);
 
-    csr_row_op_wrapper<Type_f, Index_>(ex_scan.data(), n_rows, nnz,
-                                       result.data(), stream);
+    csr_row_op_wrapper<Type_f, Index_>(ex_scan.data(), n_rows, nnz, result.data(), stream);
 
-    ASSERT_TRUE(raft::devArrMatch<Type_f>(verify.data(), result.data(), nnz,
-                                          raft::Compare<Type_f>()));
+    ASSERT_TRUE(raft::devArrMatch<Type_f>(
+      verify.data(), result.data(), nnz, raft::Compare<Type_f>(), stream));
   }
 
  protected:
@@ -100,10 +105,8 @@ const std::vector<CSRRowOpInputs<double, int>> csrrowop_inputs_d = {
   {{0, 4, 8, 9}, {0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 2.0, 3.0}},
 };
 
-INSTANTIATE_TEST_CASE_P(SparseRowOpTest, CSRRowOpTestF,
-                        ::testing::ValuesIn(csrrowop_inputs_f));
-INSTANTIATE_TEST_CASE_P(SparseRowOpTest, CSRRowOpTestD,
-                        ::testing::ValuesIn(csrrowop_inputs_d));
+INSTANTIATE_TEST_CASE_P(SparseRowOpTest, CSRRowOpTestF, ::testing::ValuesIn(csrrowop_inputs_f));
+INSTANTIATE_TEST_CASE_P(SparseRowOpTest, CSRRowOpTestD, ::testing::ValuesIn(csrrowop_inputs_d));
 
 }  // namespace sparse
 }  // namespace raft

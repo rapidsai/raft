@@ -26,26 +26,88 @@ namespace linalg {
 namespace detail {
 
 template <typename math_t>
-void gemm(const raft::handle_t &handle, const math_t *a, int n_rows_a,
-          int n_cols_a, const math_t *b, math_t *c, int n_rows_c, int n_cols_c,
-          cublasOperation_t trans_a, cublasOperation_t trans_b, math_t alpha,
-          math_t beta, cudaStream_t stream) {
+void gemm(const raft::handle_t& handle,
+          const math_t* a,
+          int n_rows_a,
+          int n_cols_a,
+          const math_t* b,
+          math_t* c,
+          int n_rows_c,
+          int n_cols_c,
+          cublasOperation_t trans_a,
+          cublasOperation_t trans_b,
+          math_t alpha,
+          math_t beta,
+          cudaStream_t stream)
+{
   cublasHandle_t cublas_h = handle.get_cublas_handle();
 
-  int m = n_rows_c;
-  int n = n_cols_c;
-  int k = trans_a == CUBLAS_OP_T ? n_rows_a : n_cols_a;
+  int m   = n_rows_c;
+  int n   = n_cols_c;
+  int k   = trans_a == CUBLAS_OP_T ? n_rows_a : n_cols_a;
   int lda = trans_a == CUBLAS_OP_T ? k : m;
   int ldb = trans_b == CUBLAS_OP_T ? n : k;
   int ldc = m;
-  CUBLAS_CHECK(cublasgemm(cublas_h, trans_a, trans_b, m, n, k, &alpha, a, lda,
-                          b, ldb, &beta, c, ldc, stream));
+  RAFT_CUBLAS_TRY(
+    cublasgemm(cublas_h, trans_a, trans_b, m, n, k, &alpha, a, lda, b, ldb, &beta, c, ldc, stream));
 }
 
+<<<<<<< HEAD:cpp/include/raft/linalg/detail/gemm.hpp
+=======
+template <typename math_t>
+void gemm(const raft::handle_t& handle,
+          const math_t* a,
+          int n_rows_a,
+          int n_cols_a,
+          const math_t* b,
+          math_t* c,
+          int n_rows_c,
+          int n_cols_c,
+          cublasOperation_t trans_a,
+          cublasOperation_t trans_b,
+          cudaStream_t stream)
+{
+  math_t alpha = math_t(1);
+  math_t beta  = math_t(0);
+  gemm(
+    handle, a, n_rows_a, n_cols_a, b, c, n_rows_c, n_cols_c, trans_a, trans_b, alpha, beta, stream);
+}
+
+/**
+ * @brief A wrapper for CUBLS GEMM function designed for handling all possible
+ * combinations of operand layouts.
+ * It computes the following equation: Z = alpha . X * Y + beta . Z
+ * @tparam T Data type of input/output matrices (float/double)
+ * @param handle raft handle
+ * @param z output matrix of size M rows x N columns
+ * @param x input matrix of size M rows x K columns
+ * @param y input matrix of size K rows x N columns
+ * @param _M number of rows of X and Z
+ * @param _N number of rows of Y and columns of Z
+ * @param _K number of columns of X and rows of Y
+ * @param isZColMajor Storage layout of Z. true = col major, false = row major
+ * @param isXColMajor Storage layout of X. true = col major, false = row major
+ * @param isYColMajor Storage layout of Y. true = col major, false = row major
+ * @param stream cuda stream
+ * @param alpha scalar
+ * @param beta scalar
+ */
+>>>>>>> upstream/branch-22.02:cpp/include/raft/linalg/gemm.cuh
 template <typename T>
-void gemm(const raft::handle_t &handle, T *z, T *x, T *y, int _M, int _N,
-          int _K, bool isZColMajor, bool isXColMajor, bool isYColMajor,
-          cudaStream_t stream, T alpha = T(1.0), T beta = T(0.0)) {
+void gemm(const raft::handle_t& handle,
+          T* z,
+          T* x,
+          T* y,
+          int _M,
+          int _N,
+          int _K,
+          bool isZColMajor,
+          bool isXColMajor,
+          bool isYColMajor,
+          cudaStream_t stream,
+          T alpha = T(1.0),
+          T beta  = T(0.0))
+{
   cublasHandle_t cublas_h = handle.get_cublas_handle();
 
   cublasOperation_t trans_a, trans_b;
@@ -72,13 +134,13 @@ void gemm(const raft::handle_t &handle, T *z, T *x, T *y, int _M, int _N,
     // therefore trans_x needs to be CUBLAS_OP_T. If x is in column major
     // layout, trans_b needs to be CUBLAS_OP_N.
     trans_b = isYColMajor == true ? CUBLAS_OP_N : CUBLAS_OP_T;
-    ldb = isYColMajor == true ? _K : _N;
+    ldb     = isYColMajor == true ? _K : _N;
 
-    c = z;
+    c   = z;
     ldc = _M;
-    M = _M;
-    N = _N;
-    K = _K;
+    M   = _M;
+    N   = _N;
+    K   = _K;
   } else {
     // Result c is required in row major layout Thus we pick
     // a = y, b = x and c = a * b = y * x
@@ -107,7 +169,7 @@ void gemm(const raft::handle_t &handle, T *z, T *x, T *y, int _M, int _N,
     // Set leading dimension appropriately
     ldb = isXColMajor == true ? _M : _K;
 
-    c = z;
+    c   = z;
     ldc = _N;
 
     M = _N;
@@ -115,8 +177,8 @@ void gemm(const raft::handle_t &handle, T *z, T *x, T *y, int _M, int _N,
     K = _K;
   }
   // Actual cuBLAS call
-  CUBLAS_CHECK(cublasgemm(cublas_h, trans_a, trans_b, M, N, K, &alpha, a, lda,
-                          b, ldb, &beta, c, ldc, stream));
+  RAFT_CUBLAS_TRY(
+    cublasgemm(cublas_h, trans_a, trans_b, M, N, K, &alpha, a, lda, b, ldb, &beta, c, ldc, stream));
 }
 
 }  // namespace detail

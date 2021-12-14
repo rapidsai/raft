@@ -69,7 +69,7 @@ namespace linalg {
  *   // Calculate a new row/column of matrix A into A_new
  *   // ...
  *   // Copy new row to L[rank-1,:]
- *   CUBLAS_CHECK(cublasCopy(handle.get_cublas_handle(), n - 1, A_new, 1,
+ *   RAFT_CUBLAS_TRY(cublasCopy(handle.get_cublas_handle(), n - 1, A_new, 1,
  *                           L + n - 1, ld_L, stream));
  *   // Update Cholesky factorization
  *   MLCommon::LinAlg::choleskyRank1Update(

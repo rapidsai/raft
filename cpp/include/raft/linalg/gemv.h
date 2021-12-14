@@ -26,14 +26,23 @@ namespace raft {
 namespace linalg {
 
 template <typename math_t>
-void gemv(const raft::handle_t &handle, const math_t *A, const int n_rows,
-          const int n_cols, const math_t *x, const int incx, math_t *y,
-          const int incy, const bool trans_a, const math_t alpha,
-          const math_t beta, cudaStream_t stream) {
+void gemv(const raft::handle_t& handle,
+          const math_t* A,
+          const int n_rows,
+          const int n_cols,
+          const math_t* x,
+          const int incx,
+          math_t* y,
+          const int incy,
+          const bool trans_a,
+          const math_t alpha,
+          const math_t beta,
+          cudaStream_t stream)
+{
   cublasHandle_t cublas_h = handle.get_cublas_handle();
-  cublasOperation_t op_a = trans_a ? CUBLAS_OP_T : CUBLAS_OP_N;
-  CUBLAS_CHECK(cublasgemv(cublas_h, op_a, n_rows, n_cols, &alpha, A, n_rows, x,
-                          incx, &beta, y, incy, stream));
+  cublasOperation_t op_a  = trans_a ? CUBLAS_OP_T : CUBLAS_OP_N;
+  RAFT_CUBLAS_TRY(
+    cublasgemv(cublas_h, op_a, n_rows, n_cols, &alpha, A, n_rows, x, incx, &beta, y, incy, stream));
 }
 
 /**
@@ -53,9 +62,17 @@ void gemv(const raft::handle_t &handle, const math_t *A, const int n_rows,
  * @param y is a vector of size `trans_a ? n_cols_a : n_rows_a`.
  */
 template <typename math_t>
-void gemv(const raft::handle_t &handle, const math_t *A, const int n_rows_a,
-          const int n_cols_a, const math_t *x, math_t *y, const bool trans_a,
-          const math_t alpha, const math_t beta, cudaStream_t stream) {
+void gemv(const raft::handle_t& handle,
+          const math_t* A,
+          const int n_rows_a,
+          const int n_cols_a,
+          const math_t* x,
+          math_t* y,
+          const bool trans_a,
+          const math_t alpha,
+          const math_t beta,
+          cudaStream_t stream)
+{
   gemv(handle, A, n_rows_a, n_cols_a, x, 1, y, 1, trans_a, alpha, beta, stream);
 }
 
@@ -72,11 +89,17 @@ void gemv(const raft::handle_t &handle, const math_t *A, const int n_rows_a,
  * @param y is a vector of size `trans_a ? n_cols_a : n_rows_a`.
  */
 template <typename math_t>
-void gemv(const raft::handle_t &handle, const math_t *A, const int n_rows_a,
-          const int n_cols_a, const math_t *x, math_t *y, const bool trans_a,
-          cudaStream_t stream) {
+void gemv(const raft::handle_t& handle,
+          const math_t* A,
+          const int n_rows_a,
+          const int n_cols_a,
+          const math_t* x,
+          math_t* y,
+          const bool trans_a,
+          cudaStream_t stream)
+{
   math_t alpha = math_t(1);
-  math_t beta = math_t(0);
+  math_t beta  = math_t(0);
 
   gemv(handle, A, n_rows_a, n_cols_a, x, 1, y, 1, trans_a, alpha, beta, stream);
 }
@@ -102,14 +125,22 @@ void gemv(const raft::handle_t &handle, const math_t *A, const int n_rows_a,
  * @param y is a vector of size `trans_a ? n_cols_a : n_rows_a`.
  */
 template <typename math_t>
-void gemv(const raft::handle_t &handle, const math_t *A, const int n_rows_a,
-          const int n_cols_a, const int lda, const math_t *x, math_t *y,
-          const bool trans_a, const math_t alpha, const math_t beta,
-          cudaStream_t stream) {
+void gemv(const raft::handle_t& handle,
+          const math_t* A,
+          const int n_rows_a,
+          const int n_cols_a,
+          const int lda,
+          const math_t* x,
+          math_t* y,
+          const bool trans_a,
+          const math_t alpha,
+          const math_t beta,
+          cudaStream_t stream)
+{
   cublasHandle_t cublas_h = handle.get_cublas_handle();
-  cublasOperation_t op_a = trans_a ? CUBLAS_OP_T : CUBLAS_OP_N;
-  CUBLAS_CHECK(cublasgemv(cublas_h, op_a, n_rows_a, n_cols_a, &alpha, A, lda, x,
-                          1, &beta, y, 1, stream));
+  cublasOperation_t op_a  = trans_a ? CUBLAS_OP_T : CUBLAS_OP_N;
+  RAFT_CUBLAS_TRY(
+    cublasgemv(cublas_h, op_a, n_rows_a, n_cols_a, &alpha, A, lda, x, 1, &beta, y, 1, stream));
 }
 
 /**
@@ -130,11 +161,18 @@ void gemv(const raft::handle_t &handle, const math_t *A, const int n_rows_a,
  *
  */
 template <typename math_t>
-void gemv(const raft::handle_t &handle, const math_t *A, const int n_rows_a,
-          const int n_cols_a, const int lda, const math_t *x, math_t *y,
-          const bool trans_a, cudaStream_t stream) {
+void gemv(const raft::handle_t& handle,
+          const math_t* A,
+          const int n_rows_a,
+          const int n_cols_a,
+          const int lda,
+          const math_t* x,
+          math_t* y,
+          const bool trans_a,
+          cudaStream_t stream)
+{
   math_t alpha = math_t(1);
-  math_t beta = math_t(0);
+  math_t beta  = math_t(0);
   gemv(handle, A, n_rows_a, n_cols_a, lda, x, y, trans_a, alpha, beta, stream);
 }
 

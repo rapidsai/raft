@@ -33,23 +33,27 @@ class AddTest : public ::testing::TestWithParam<AddInputs<InT, OutT>> {
       in1(params.len, stream),
       in2(params.len, stream),
       out_ref(params.len, stream),
-      out(params.len, stream) {}
+      out(params.len, stream)
+  {
+  }
 
  protected:
-  void SetUp() override {
+  void SetUp() override
+  {
     params = ::testing::TestWithParam<AddInputs<InT, OutT>>::GetParam();
     raft::random::Rng r(params.seed);
     int len = params.len;
     r.uniform(in1.data(), len, InT(-1.0), InT(1.0), stream);
     r.uniform(in2.data(), len, InT(-1.0), InT(1.0), stream);
-    naiveAddElem<InT, OutT>(out_ref.data(), in1.data(), in2.data(), len);
+    naiveAddElem<InT, OutT>(out_ref.data(), in1.data(), in2.data(), len, stream);
     add<InT, OutT>(out.data(), in1.data(), in2.data(), len, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
-  void compare() {
-    ASSERT_TRUE(raft::devArrMatch(out_ref.data(), out.data(), params.len,
-                                  raft::CompareApprox<OutT>(params.tolerance)));
+  void compare()
+  {
+    ASSERT_TRUE(raft::devArrMatch(
+      out_ref.data(), out.data(), params.len, raft::CompareApprox<OutT>(params.tolerance), stream));
   }
 
  protected:

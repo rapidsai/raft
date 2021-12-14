@@ -24,7 +24,7 @@ namespace raft {
 // Eigensolver
 // =========================================================
 
-/**  
+/**
  * @brief  Compute smallest eigenvectors of symmetric matrix
  *    Computes eigenvalues and eigenvectors that are least
  *    positive. If matrix is positive definite or positive
@@ -89,7 +89,7 @@ int computeSmallestEigenvectors(
     eigVals_dev, eigVecs_dev, seed);
 }
 
-/**  
+/**
  *  @brief  Compute smallest eigenvectors of symmetric matrix
  *    Computes eigenvalues and eigenvectors that are least
  *    positive. If matrix is positive definite or positive
@@ -142,7 +142,7 @@ int computeSmallestEigenvectors(
 // Eigensolver
 // =========================================================
 
-/**  
+/**
  *  @brief Compute largest eigenvectors of symmetric matrix
  *    Computes eigenvalues and eigenvectors that are least
  *    positive. If matrix is positive definite or positive
@@ -202,7 +202,7 @@ int computeLargestEigenvectors(
     eigVecs_dev, seed);
 }
 
-/**  
+/**
  *  @brief  Compute largest eigenvectors of symmetric matrix
  *    Computes eigenvalues and eigenvectors that are least
  *    positive. If matrix is positive definite or positive

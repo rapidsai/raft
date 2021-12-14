@@ -22,7 +22,7 @@ namespace distance {
 namespace detail {
 
 /**
- * @brief the unexpanded Minkowski distance matrix calculation 
+ * @brief the unexpanded Minkowski distance matrix calculation
  *  It computes the following equation: cij = sum(|x - y|^p)^(1/p)
  * @tparam DataT          input data-type (for A and B matrices)
  * @tparam AccT           accumulation data-type
@@ -45,16 +45,30 @@ namespace detail {
  * @param[in]       stream cuda stream to launch work
  * @param[in]       the value of `p` for Minkowski (l-p) distances.
  */
-template <typename DataT, typename AccT, typename OutT, typename IdxT,
-          int VecLen, typename FinalLambda, bool isRowMajor>
-void minkowskiUnExpImpl(const DataT *x, const DataT *y, IdxT m, IdxT n, IdxT k,
-                        IdxT lda, IdxT ldb, IdxT ldd, OutT *dOutput,
-                        FinalLambda fin_op, cudaStream_t stream, DataT p) {
+template <typename DataT,
+          typename AccT,
+          typename OutT,
+          typename IdxT,
+          int VecLen,
+          typename FinalLambda,
+          bool isRowMajor>
+void minkowskiUnExpImpl(const DataT* x,
+                        const DataT* y,
+                        IdxT m,
+                        IdxT n,
+                        IdxT k,
+                        IdxT lda,
+                        IdxT ldb,
+                        IdxT ldd,
+                        OutT* dOutput,
+                        FinalLambda fin_op,
+                        cudaStream_t stream,
+                        DataT p)
+{
   typedef typename raft::linalg::Policy4x4<DataT, VecLen>::Policy RowPolicy;
   typedef typename raft::linalg::Policy4x4<DataT, VecLen>::ColPolicy ColPolicy;
 
-  typedef
-    typename std::conditional<isRowMajor, RowPolicy, ColPolicy>::type KPolicy;
+  typedef typename std::conditional<isRowMajor, RowPolicy, ColPolicy>::type KPolicy;
 
   dim3 blk(KPolicy::Nthreads);
 
@@ -65,10 +79,11 @@ void minkowskiUnExpImpl(const DataT *x, const DataT *y, IdxT m, IdxT n, IdxT k,
   };
 
   // epilogue operation lambda for final value calculation
-  auto epilog_lambda = [p] __device__(
-                         AccT acc[KPolicy::AccRowsPerTh][KPolicy::AccColsPerTh],
-                         DataT * regxn, DataT * regyn, IdxT gridStrideX,
-                         IdxT gridStrideY) {
+  auto epilog_lambda = [p] __device__(AccT acc[KPolicy::AccRowsPerTh][KPolicy::AccColsPerTh],
+                                      DataT * regxn,
+                                      DataT * regyn,
+                                      IdxT gridStrideX,
+                                      IdxT gridStrideY) {
     const auto one_over_p = 1.0f / p;
 #pragma unroll
     for (int i = 0; i < KPolicy::AccRowsPerTh; ++i) {
@@ -80,48 +95,68 @@ void minkowskiUnExpImpl(const DataT *x, const DataT *y, IdxT m, IdxT n, IdxT k,
   };
 
   if (isRowMajor) {
-    auto minkowskiUnExpRowMajor =
-      pairwiseDistanceMatKernel<false, DataT, AccT, OutT, IdxT, KPolicy,
-                                decltype(core_lambda), decltype(epilog_lambda),
-                                FinalLambda, true>;
-    dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize,
-                                               minkowskiUnExpRowMajor);
+    auto minkowskiUnExpRowMajor = pairwiseDistanceMatKernel<false,
+                                                            DataT,
+                                                            AccT,
+                                                            OutT,
+                                                            IdxT,
+                                                            KPolicy,
+                                                            decltype(core_lambda),
+                                                            decltype(epilog_lambda),
+                                                            FinalLambda,
+                                                            true>;
+    dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize, minkowskiUnExpRowMajor);
 
     minkowskiUnExpRowMajor<<<grid, blk, KPolicy::SmemSize, stream>>>(
-      x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput, core_lambda,
-      epilog_lambda, fin_op);
+      x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput, core_lambda, epilog_lambda, fin_op);
 
   } else {
-    auto minkowskiUnExpColMajor =
-      pairwiseDistanceMatKernel<false, DataT, AccT, OutT, IdxT, KPolicy,
-                                decltype(core_lambda), decltype(epilog_lambda),
-                                FinalLambda, false>;
-    dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize,
-                                               minkowskiUnExpColMajor);
+    auto minkowskiUnExpColMajor = pairwiseDistanceMatKernel<false,
+                                                            DataT,
+                                                            AccT,
+                                                            OutT,
+                                                            IdxT,
+                                                            KPolicy,
+                                                            decltype(core_lambda),
+                                                            decltype(epilog_lambda),
+                                                            FinalLambda,
+                                                            false>;
+    dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize, minkowskiUnExpColMajor);
 
     minkowskiUnExpColMajor<<<grid, blk, KPolicy::SmemSize, stream>>>(
-      x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput, core_lambda,
-      epilog_lambda, fin_op);
+      x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput, core_lambda, epilog_lambda, fin_op);
   }
 
-  CUDA_CHECK(cudaGetLastError());
+  RAFT_CUDA_TRY(cudaGetLastError());
 }
 
-template <typename DataT, typename AccT, typename OutT, typename IdxT,
-          typename FinalLambda, bool isRowMajor>
-void minkowskiUnExp(IdxT m, IdxT n, IdxT k, IdxT lda, IdxT ldb, IdxT ldd,
-                    const DataT *x, const DataT *y, OutT *dOutput,
-                    FinalLambda fin_op, cudaStream_t stream, DataT metric_arg) {
+template <typename DataT,
+          typename AccT,
+          typename OutT,
+          typename IdxT,
+          typename FinalLambda,
+          bool isRowMajor>
+void minkowskiUnExp(IdxT m,
+                    IdxT n,
+                    IdxT k,
+                    IdxT lda,
+                    IdxT ldb,
+                    IdxT ldd,
+                    const DataT* x,
+                    const DataT* y,
+                    OutT* dOutput,
+                    FinalLambda fin_op,
+                    cudaStream_t stream,
+                    DataT metric_arg)
+{
   size_t bytesA = sizeof(DataT) * lda;
   size_t bytesB = sizeof(DataT) * ldb;
   if (16 % sizeof(DataT) == 0 && bytesA % 16 == 0 && bytesB % 16 == 0) {
-    minkowskiUnExpImpl<DataT, AccT, OutT, IdxT, 16 / sizeof(DataT), FinalLambda,
-                       isRowMajor>(x, y, m, n, k, lda, ldb, ldd, dOutput,
-                                   fin_op, stream, metric_arg);
+    minkowskiUnExpImpl<DataT, AccT, OutT, IdxT, 16 / sizeof(DataT), FinalLambda, isRowMajor>(
+      x, y, m, n, k, lda, ldb, ldd, dOutput, fin_op, stream, metric_arg);
   } else if (8 % sizeof(DataT) == 0 && bytesA % 8 == 0 && bytesB % 8 == 0) {
-    minkowskiUnExpImpl<DataT, AccT, OutT, IdxT, 8 / sizeof(DataT), FinalLambda,
-                       isRowMajor>(x, y, m, n, k, lda, ldb, ldd, dOutput,
-                                   fin_op, stream, metric_arg);
+    minkowskiUnExpImpl<DataT, AccT, OutT, IdxT, 8 / sizeof(DataT), FinalLambda, isRowMajor>(
+      x, y, m, n, k, lda, ldb, ldd, dOutput, fin_op, stream, metric_arg);
   } else {
     minkowskiUnExpImpl<DataT, AccT, OutT, IdxT, 1, FinalLambda, isRowMajor>(
       x, y, m, n, k, lda, ldb, ldd, dOutput, fin_op, stream, metric_arg);
@@ -147,15 +182,25 @@ void minkowskiUnExp(IdxT m, IdxT n, IdxT k, IdxT lda, IdxT ldb, IdxT ldd,
  * @param[in] isRowMajor whether the input and output matrices are row major
  * @param[in] metric_arg the value of `p` for Minkowski (l-p) distances.
  */
-template <typename InType, typename AccType, typename OutType,
-          typename FinalLambda, typename Index_ = int>
-void minkowskiImpl(Index_ m, Index_ n, Index_ k, const InType *pA,
-                   const InType *pB, OutType *pD, FinalLambda fin_op,
-                   cudaStream_t stream, bool isRowMajor, InType metric_arg) {
+template <typename InType,
+          typename AccType,
+          typename OutType,
+          typename FinalLambda,
+          typename Index_ = int>
+void minkowskiImpl(Index_ m,
+                   Index_ n,
+                   Index_ k,
+                   const InType* pA,
+                   const InType* pB,
+                   OutType* pD,
+                   FinalLambda fin_op,
+                   cudaStream_t stream,
+                   bool isRowMajor,
+                   InType metric_arg)
+{
   typedef std::is_same<OutType, bool> is_bool;
-  typedef typename std::conditional<is_bool::value, OutType, AccType>::type
-    LpUnexpOutType;
-  LpUnexpOutType *pDcast = reinterpret_cast<LpUnexpOutType *>(pD);
+  typedef typename std::conditional<is_bool::value, OutType, AccType>::type LpUnexpOutType;
+  LpUnexpOutType* pDcast = reinterpret_cast<LpUnexpOutType*>(pD);
   Index_ lda, ldb, ldd;
 
   if (isRowMajor) {

@@ -42,26 +42,32 @@ namespace label {
  * \param [in] stream cuda stream
  */
 template <typename value_t>
-int getUniquelabels(rmm::device_uvector<value_t> &unique, value_t *y, size_t n,
-                    cudaStream_t stream) {
+int getUniquelabels(rmm::device_uvector<value_t>& unique, value_t* y, size_t n, cudaStream_t stream)
+{
   rmm::device_scalar<int> d_num_selected(stream);
   rmm::device_uvector<value_t> workspace(n, stream);
-  size_t bytes = 0;
+  size_t bytes  = 0;
   size_t bytes2 = 0;
 
   // Query how much temporary storage we will need for cub operations
   // and allocate it
-  cub::DeviceRadixSort::SortKeys(NULL, bytes, y, workspace.data(), n);
-  cub::DeviceSelect::Unique(NULL, bytes2, workspace.data(), workspace.data(),
-                            d_num_selected.data(), n);
+  cub::DeviceRadixSort::SortKeys(
+    NULL, bytes, y, workspace.data(), n, 0, sizeof(value_t) * 8, stream);
+  cub::DeviceSelect::Unique(
+    NULL, bytes2, workspace.data(), workspace.data(), d_num_selected.data(), n, stream);
   bytes = max(bytes, bytes2);
   rmm::device_uvector<char> cub_storage(bytes, stream);
 
   // Select Unique classes
-  cub::DeviceRadixSort::SortKeys(cub_storage.data(), bytes, y, workspace.data(),
-                                 n);
-  cub::DeviceSelect::Unique(cub_storage.data(), bytes, workspace.data(),
-                            workspace.data(), d_num_selected.data(), n);
+  cub::DeviceRadixSort::SortKeys(
+    cub_storage.data(), bytes, y, workspace.data(), n, 0, sizeof(value_t) * 8, stream);
+  cub::DeviceSelect::Unique(cub_storage.data(),
+                            bytes,
+                            workspace.data(),
+                            workspace.data(),
+                            d_num_selected.data(),
+                            n,
+                            stream);
 
   int n_unique = d_num_selected.value(stream);
   // Copy unique classes to output
@@ -90,27 +96,33 @@ int getUniquelabels(rmm::device_uvector<value_t> &unique, value_t *y, size_t n,
  * \param [in] stream cuda stream
  */
 template <typename value_t>
-void getOvrlabels(value_t *y, int n, value_t *y_unique, int n_classes,
-                  value_t *y_out, int idx, cudaStream_t stream) {
+void getOvrlabels(
+  value_t* y, int n, value_t* y_unique, int n_classes, value_t* y_out, int idx, cudaStream_t stream)
+{
   ASSERT(idx < n_classes,
          "Parameter idx should not be larger than the number "
          "of classes");
   raft::linalg::unaryOp(
-    y_out, y, n,
-    [idx, y_unique] __device__(value_t y) {
-      return y == y_unique[idx] ? +1 : -1;
-    },
+    y_out,
+    y,
+    n,
+    [idx, y_unique] __device__(value_t y) { return y == y_unique[idx] ? +1 : -1; },
     stream);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 // TODO: add one-versus-one selection: select two classes, relabel them to
 // +/-1, return array with the new class labels and corresponding indices.
 
 template <typename Type, int TPB_X, typename Lambda>
-__global__ void map_label_kernel(Type *map_ids, size_t N_labels, Type *in,
-                                 Type *out, size_t N, Lambda filter_op,
-                                 bool zero_based = false) {
+__global__ void map_label_kernel(Type* map_ids,
+                                 size_t N_labels,
+                                 Type* in,
+                                 Type* out,
+                                 size_t N,
+                                 Lambda filter_op,
+                                 bool zero_based = false)
+{
   int tid = threadIdx.x + blockIdx.x * TPB_X;
   if (tid < N) {
     if (!filter_op(in[tid])) {
@@ -125,27 +137,28 @@ __global__ void map_label_kernel(Type *map_ids, size_t N_labels, Type *in,
 }
 
 /**
-   * Maps an input array containing a series of numbers into a new array
-   * where numbers have been mapped to a monotonically increasing set
-   * of labels. This can be useful in machine learning algorithms, for instance,
-   * where a given set of labels is not taken from a monotonically increasing
-   * set. This can happen if they are filtered or if only a subset of the
-   * total labels are used in a dataset. This is also useful in graph algorithms
-   * where a set of vertices need to be labeled in a monotonically increasing
-   * order.
-   * @tparam Type the numeric type of the input and output arrays
-   * @tparam Lambda the type of an optional filter function, which determines
-   * which items in the array to map.
-   * @param out the output monotonic array
-   * @param in input label array
-   * @param N number of elements in the input array
-   * @param stream cuda stream to use
-   * @param filter_op an optional function for specifying which values
-   * should have monotonically increasing labels applied to them.
-   */
+ * Maps an input array containing a series of numbers into a new array
+ * where numbers have been mapped to a monotonically increasing set
+ * of labels. This can be useful in machine learning algorithms, for instance,
+ * where a given set of labels is not taken from a monotonically increasing
+ * set. This can happen if they are filtered or if only a subset of the
+ * total labels are used in a dataset. This is also useful in graph algorithms
+ * where a set of vertices need to be labeled in a monotonically increasing
+ * order.
+ * @tparam Type the numeric type of the input and output arrays
+ * @tparam Lambda the type of an optional filter function, which determines
+ * which items in the array to map.
+ * @param out the output monotonic array
+ * @param in input label array
+ * @param N number of elements in the input array
+ * @param stream cuda stream to use
+ * @param filter_op an optional function for specifying which values
+ * should have monotonically increasing labels applied to them.
+ */
 template <typename Type, typename Lambda>
-void make_monotonic(Type *out, Type *in, size_t N, cudaStream_t stream,
-                    Lambda filter_op, bool zero_based = false) {
+void make_monotonic(
+  Type* out, Type* in, size_t N, cudaStream_t stream, Lambda filter_op, bool zero_based = false)
+{
   static const size_t TPB_X = 256;
 
   dim3 blocks(raft::ceildiv(N, TPB_X));
@@ -159,25 +172,25 @@ void make_monotonic(Type *out, Type *in, size_t N, cudaStream_t stream,
 }
 
 /**
-   * Maps an input array containing a series of numbers into a new array
-   * where numbers have been mapped to a monotonically increasing set
-   * of labels. This can be useful in machine learning algorithms, for instance,
-   * where a given set of labels is not taken from a monotonically increasing
-   * set. This can happen if they are filtered or if only a subset of the
-   * total labels are used in a dataset. This is also useful in graph algorithms
-   * where a set of vertices need to be labeled in a monotonically increasing
-   * order.
-   * @tparam Type the numeric type of the input and output arrays
-   * @tparam Lambda the type of an optional filter function, which determines
-   * which items in the array to map.
-   * @param out output label array with labels assigned monotonically
-   * @param in input label array
-   * @param N number of elements in the input array
-   * @param stream cuda stream to use
-   */
+ * Maps an input array containing a series of numbers into a new array
+ * where numbers have been mapped to a monotonically increasing set
+ * of labels. This can be useful in machine learning algorithms, for instance,
+ * where a given set of labels is not taken from a monotonically increasing
+ * set. This can happen if they are filtered or if only a subset of the
+ * total labels are used in a dataset. This is also useful in graph algorithms
+ * where a set of vertices need to be labeled in a monotonically increasing
+ * order.
+ * @tparam Type the numeric type of the input and output arrays
+ * @tparam Lambda the type of an optional filter function, which determines
+ * which items in the array to map.
+ * @param out output label array with labels assigned monotonically
+ * @param in input label array
+ * @param N number of elements in the input array
+ * @param stream cuda stream to use
+ */
 template <typename Type>
-void make_monotonic(Type *out, Type *in, size_t N, cudaStream_t stream,
-                    bool zero_based = false) {
+void make_monotonic(Type* out, Type* in, size_t N, cudaStream_t stream, bool zero_based = false)
+{
   make_monotonic<Type>(
     out, in, N, stream, [] __device__(Type val) { return false; }, zero_based);
 }
