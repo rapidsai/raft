@@ -18,6 +18,7 @@
 
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
+#include <rmm/cuda_stream_pool.hpp>
 
 #include <rmm/device_uvector.hpp>
 
@@ -217,6 +218,7 @@ inline void knn_merge_parts(value_t* inK,
  */
 template <typename IntType = int, typename IdxType = std::int64_t>
 void brute_force_knn_impl(
+  const raft::handle_t& handle,
   std::vector<float*>& input,
   std::vector<IntType>& sizes,
   IntType D,
@@ -225,15 +227,14 @@ void brute_force_knn_impl(
   IdxType* res_I,
   float* res_D,
   IntType k,
-  cudaStream_t userStream,
-  cudaStream_t* internalStreams       = nullptr,
-  int n_int_streams                   = 0,
   bool rowMajorIndex                  = true,
   bool rowMajorQuery                  = true,
   std::vector<IdxType>* translations  = nullptr,
   raft::distance::DistanceType metric = raft::distance::DistanceType::L2Expanded,
   float metricArg                     = 0)
 {
+  auto userStream = handle.get_stream();
+
   ASSERT(input.size() == sizes.size(), "input and sizes vectors should be the same size");
 
   std::vector<IdxType>* id_ranges;
@@ -284,73 +285,73 @@ void brute_force_knn_impl(
     out_I = all_I.data();
   }
 
-  // Sync user stream only if using other streams to parallelize query
-  if (n_int_streams > 0) RAFT_CUDA_TRY(cudaStreamSynchronize(userStream));
+  // Make other streams from pool wait on main stream
+  handle.wait_stream_pool_on_stream();
 
   for (size_t i = 0; i < input.size(); i++) {
     float* out_d_ptr   = out_D + (i * k * n);
     IdxType* out_i_ptr = out_I + (i * k * n);
 
-    cudaStream_t stream = raft::select_stream(userStream, internalStreams, n_int_streams, i);
+    auto stream = handle.get_next_usable_stream(i);
 
     //    // TODO: Enable this once we figure out why it's causing pytest failures in cuml.
-    if (k <= 64 && rowMajorQuery == rowMajorIndex && rowMajorQuery == true &&
-        (metric == raft::distance::DistanceType::L2Unexpanded ||
-         metric == raft::distance::DistanceType::L2SqrtUnexpanded ||
-         metric == raft::distance::DistanceType::L2Expanded ||
-         metric == raft::distance::DistanceType::L2SqrtExpanded)) {
-      fusedL2Knn(D,
-                 out_i_ptr,
-                 out_d_ptr,
-                 input[i],
-                 search_items,
-                 sizes[i],
-                 n,
-                 k,
-                 rowMajorIndex,
-                 rowMajorQuery,
-                 stream,
-                 metric);
-    } else {
-      switch (metric) {
-        case raft::distance::DistanceType::Haversine:
+    //    if (k <= 64 && rowMajorQuery == rowMajorIndex && rowMajorQuery == true &&
+    //        (metric == raft::distance::DistanceType::L2Unexpanded ||
+    //         metric == raft::distance::DistanceType::L2SqrtUnexpanded ||
+    //         metric == raft::distance::DistanceType::L2Expanded ||
+    //         metric == raft::distance::DistanceType::L2SqrtExpanded)) {
+    //      fusedL2Knn(D,
+    //                 out_i_ptr,
+    //                 out_d_ptr,
+    //                 input[i],
+    //                 search_items,
+    //                 sizes[i],
+    //                 n,
+    //                 k,
+    //                 rowMajorIndex,
+    //                 rowMajorQuery,
+    //                 stream,
+    //                 metric);
+    //    } else {
+    switch (metric) {
+      case raft::distance::DistanceType::Haversine:
 
-          ASSERT(D == 2,
-                 "Haversine distance requires 2 dimensions "
-                 "(latitude / longitude).");
+        ASSERT(D == 2,
+               "Haversine distance requires 2 dimensions "
+               "(latitude / longitude).");
 
-          haversine_knn(out_i_ptr, out_d_ptr, input[i], search_items, sizes[i], n, k, stream);
-          break;
-        default:
-          faiss::MetricType m = build_faiss_metric(metric);
+        haversine_knn(out_i_ptr, out_d_ptr, input[i], search_items, sizes[i], n, k, stream);
+        break;
+      default:
+        faiss::MetricType m = build_faiss_metric(metric);
 
-          faiss::gpu::StandardGpuResources gpu_res;
+        faiss::gpu::StandardGpuResources gpu_res;
 
-          gpu_res.noTempMemory();
-          gpu_res.setDefaultStream(device, stream);
+        gpu_res.noTempMemory();
+        gpu_res.setDefaultStream(device, stream);
 
-          faiss::gpu::GpuDistanceParams args;
-          args.metric          = m;
-          args.metricArg       = metricArg;
-          args.k               = k;
-          args.dims            = D;
-          args.vectors         = input[i];
-          args.vectorsRowMajor = rowMajorIndex;
-          args.numVectors      = sizes[i];
-          args.queries         = search_items;
-          args.queriesRowMajor = rowMajorQuery;
-          args.numQueries      = n;
-          args.outDistances    = out_d_ptr;
-          args.outIndices      = out_i_ptr;
+        faiss::gpu::GpuDistanceParams args;
+        args.metric          = m;
+        args.metricArg       = metricArg;
+        args.k               = k;
+        args.dims            = D;
+        args.vectors         = input[i];
+        args.vectorsRowMajor = rowMajorIndex;
+        args.numVectors      = sizes[i];
+        args.queries         = search_items;
+        args.queriesRowMajor = rowMajorQuery;
+        args.numQueries      = n;
+        args.outDistances    = out_d_ptr;
+        args.outIndices      = out_i_ptr;
 
-          /**
-           * @todo: Until FAISS supports pluggable allocation strategies,
-           * we will not reap the benefits of the pool allocator for
-           * avoiding device-wide synchronizations from cudaMalloc/cudaFree
-           */
-          bfKnn(&gpu_res, args);
-      }
+        /**
+         * @todo: Until FAISS supports pluggable allocation strategies,
+         * we will not reap the benefits of the pool allocator for
+         * avoiding device-wide synchronizations from cudaMalloc/cudaFree
+         */
+        bfKnn(&gpu_res, args);
     }
+    //    }
 
     RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
@@ -358,9 +359,7 @@ void brute_force_knn_impl(
   // Sync internal streams if used. We don't need to
   // sync the user stream because we'll already have
   // fully serial execution.
-  for (int i = 0; i < n_int_streams; i++) {
-    RAFT_CUDA_TRY(cudaStreamSynchronize(internalStreams[i]));
-  }
+  handle.sync_stream_pool();
 
   if (input.size() > 1 || translations != nullptr) {
     // This is necessary for proper index translations. If there are
@@ -378,11 +377,7 @@ void brute_force_knn_impl(
     float p = 0.5;  // standard l2
     if (metric == raft::distance::DistanceType::LpUnexpanded) p = 1.0 / metricArg;
     raft::linalg::unaryOp<float>(
-      res_D,
-      res_D,
-      n * k,
-      [p] __device__(float input) { return powf(fabsf(input), p); },
-      userStream);
+      res_D, res_D, n * k, [p] __device__(float input) { return powf(input, p); }, userStream);
   }
 
   query_metric_processor->revert(search_items);

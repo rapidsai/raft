@@ -528,10 +528,10 @@ bool test_commsplit(const handle_t& h, int n_colors)
   if (n_colors > size) n_colors = size;
 
   // first we need to assign to a color, then assign the rank within the color
-  int color = rank % n_colors;
-  int key   = rank / n_colors;
-
-  handle_t new_handle(1);
+  int color        = rank % n_colors;
+  int key          = rank / n_colors;
+  auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(1);
+  handle_t new_handle(rmm::cuda_stream_default, stream_pool);
   auto shared_comm = std::make_shared<comms_t>(communicator.comm_split(color, key));
   new_handle.set_comms(shared_comm);
 

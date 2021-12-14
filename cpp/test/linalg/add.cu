@@ -45,7 +45,7 @@ class AddTest : public ::testing::TestWithParam<AddInputs<InT, OutT>> {
     int len = params.len;
     r.uniform(in1.data(), len, InT(-1.0), InT(1.0), stream);
     r.uniform(in2.data(), len, InT(-1.0), InT(1.0), stream);
-    naiveAddElem<InT, OutT>(out_ref.data(), in1.data(), in2.data(), len);
+    naiveAddElem<InT, OutT>(out_ref.data(), in1.data(), in2.data(), len, stream);
     add<InT, OutT>(out.data(), in1.data(), in2.data(), len, stream);
     RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
@@ -53,7 +53,7 @@ class AddTest : public ::testing::TestWithParam<AddInputs<InT, OutT>> {
   void compare()
   {
     ASSERT_TRUE(raft::devArrMatch(
-      out_ref.data(), out.data(), params.len, raft::CompareApprox<OutT>(params.tolerance)));
+      out_ref.data(), out.data(), params.len, raft::CompareApprox<OutT>(params.tolerance), stream));
   }
 
  protected:

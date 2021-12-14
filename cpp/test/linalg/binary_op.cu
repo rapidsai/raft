@@ -76,8 +76,8 @@ const std::vector<BinaryOpInputs<float, int>> inputsf_i32 = {{0.000001f, 1024 * 
 typedef BinaryOpTest<float, int> BinaryOpTestF_i32;
 TEST_P(BinaryOpTestF_i32, Result)
 {
-  ASSERT_TRUE(
-    devArrMatch(out_ref.data(), out.data(), params.len, CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(
+    out_ref.data(), out.data(), params.len, CompareApprox<float>(params.tolerance), stream));
 }
 INSTANTIATE_TEST_SUITE_P(BinaryOpTests, BinaryOpTestF_i32, ::testing::ValuesIn(inputsf_i32));
 
@@ -85,8 +85,8 @@ const std::vector<BinaryOpInputs<float, size_t>> inputsf_i64 = {{0.000001f, 1024
 typedef BinaryOpTest<float, size_t> BinaryOpTestF_i64;
 TEST_P(BinaryOpTestF_i64, Result)
 {
-  ASSERT_TRUE(
-    devArrMatch(out_ref.data(), out.data(), params.len, CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(
+    out_ref.data(), out.data(), params.len, CompareApprox<float>(params.tolerance), stream));
 }
 INSTANTIATE_TEST_SUITE_P(BinaryOpTests, BinaryOpTestF_i64, ::testing::ValuesIn(inputsf_i64));
 
@@ -95,8 +95,8 @@ const std::vector<BinaryOpInputs<float, int, double>> inputsf_i32_d = {
 typedef BinaryOpTest<float, int, double> BinaryOpTestF_i32_D;
 TEST_P(BinaryOpTestF_i32_D, Result)
 {
-  ASSERT_TRUE(
-    devArrMatch(out_ref.data(), out.data(), params.len, CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(
+    out_ref.data(), out.data(), params.len, CompareApprox<double>(params.tolerance), stream));
 }
 INSTANTIATE_TEST_SUITE_P(BinaryOpTests, BinaryOpTestF_i32_D, ::testing::ValuesIn(inputsf_i32_d));
 
@@ -104,8 +104,8 @@ const std::vector<BinaryOpInputs<double, int>> inputsd_i32 = {{0.00000001, 1024 
 typedef BinaryOpTest<double, int> BinaryOpTestD_i32;
 TEST_P(BinaryOpTestD_i32, Result)
 {
-  ASSERT_TRUE(
-    devArrMatch(out_ref.data(), out.data(), params.len, CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(
+    out_ref.data(), out.data(), params.len, CompareApprox<double>(params.tolerance), stream));
 }
 INSTANTIATE_TEST_SUITE_P(BinaryOpTests, BinaryOpTestD_i32, ::testing::ValuesIn(inputsd_i32));
 
@@ -114,24 +114,18 @@ const std::vector<BinaryOpInputs<double, size_t>> inputsd_i64 = {
 typedef BinaryOpTest<double, size_t> BinaryOpTestD_i64;
 TEST_P(BinaryOpTestD_i64, Result)
 {
-  ASSERT_TRUE(
-    devArrMatch(out_ref.data(), out.data(), params.len, CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(
+    out_ref.data(), out.data(), params.len, CompareApprox<double>(params.tolerance), stream));
 }
 INSTANTIATE_TEST_SUITE_P(BinaryOpTests, BinaryOpTestD_i64, ::testing::ValuesIn(inputsd_i64));
 
 template <typename math_t>
 class BinaryOpAlignment : public ::testing::Test {
  protected:
-  BinaryOpAlignment()
-  {
-    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
-    handle.set_stream(stream);
-  }
-  void TearDown() override { RAFT_CUDA_TRY(cudaStreamDestroy(stream)); }
-
  public:
   void Misaligned()
   {
+    auto stream = handle.get_stream();
     // Test to trigger cudaErrorMisalignedAddress if veclen is incorrectly
     // chosen.
     int n = 1024;
@@ -146,11 +140,10 @@ class BinaryOpAlignment : public ::testing::Test {
       y.data() + 19,
       256,
       [] __device__(math_t x, math_t y) { return x + y; },
-      stream);
+      handle.get_stream());
   }
 
   raft::handle_t handle;
-  cudaStream_t stream;
 };
 typedef ::testing::Types<float, double> FloatTypes;
 TYPED_TEST_CASE(BinaryOpAlignment, FloatTypes);

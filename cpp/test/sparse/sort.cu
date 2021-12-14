@@ -78,8 +78,8 @@ TEST_P(COOSort, Result)
   op::coo_sort(
     params.m, params.n, params.nnz, in_rows.data(), in_cols.data(), in_vals.data(), stream);
 
-  ASSERT_TRUE(
-    raft::devArrMatch<int>(verify.data(), in_rows.data(), params.nnz, raft::Compare<int>()));
+  ASSERT_TRUE(raft::devArrMatch<int>(
+    verify.data(), in_rows.data(), params.nnz, raft::Compare<int>(), stream));
 
   delete[] in_rows_h;
   delete[] in_cols_h;
