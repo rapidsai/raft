@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <ctime>
@@ -326,6 +327,16 @@ static __global__ void divideCentroids(index_type_t d,
 // =========================================================
 
 /**
+ * Ceiling division operation
+ * Re-declared here from raft/cuda_utils.cuh since we cannot include CUDA files
+ */
+template <typename IntType>
+constexpr IntType doCeilDiv(IntType a, IntType b)
+{
+  return (a + b - 1) / b;
+}
+
+/**
  *  @brief Randomly choose new centroids.
  *    Centroid is randomly chosen with k-means++ algorithm.
  *  @tparam index_type_t the type of data used for indexing.
@@ -405,8 +416,8 @@ static int chooseNewCentroid(handle_t const& handle,
   //}
 
   RAFT_CHECK_CUDA(stream);
-  obsIndex = max(obsIndex, 0);
-  obsIndex = min(obsIndex, n - 1);
+  obsIndex = std::max(obsIndex, static_cast<index_type_t>(0));
+  obsIndex = std::min(obsIndex, n - 1);
 
   // Record new centroid position
   RAFT_CUDA_TRY(cudaMemcpyAsync(centroid,
@@ -468,7 +479,7 @@ static int initializeCentroids(handle_t const& handle,
   auto stream             = handle.get_stream();
   auto thrust_exec_policy = handle.get_thrust_policy();
 
-  constexpr index_type_t grid_lower_bound{65535};
+  constexpr unsigned grid_lower_bound{65535};
 
   // -------------------------------------------------------
   // Implementation
@@ -478,12 +489,12 @@ static int initializeCentroids(handle_t const& handle,
   dim3 blockDim_warp{WARP_SIZE, 1, BSIZE_DIV_WSIZE};
 
   // CUDA grid dimensions
-  dim3 gridDim_warp{min((d + WARP_SIZE - 1) / WARP_SIZE, grid_lower_bound),
+  dim3 gridDim_warp{std::min(doCeilDiv<unsigned>(d, WARP_SIZE), grid_lower_bound),
                     1,
-                    min((n + BSIZE_DIV_WSIZE - 1) / BSIZE_DIV_WSIZE, grid_lower_bound)};
+                    std::min(doCeilDiv<unsigned>(n, BSIZE_DIV_WSIZE), grid_lower_bound)};
 
   // CUDA grid dimensions
-  dim3 gridDim_block{min((n + BLOCK_SIZE - 1) / BLOCK_SIZE, grid_lower_bound), 1, 1};
+  dim3 gridDim_block{std::min(doCeilDiv<unsigned>(n, BLOCK_SIZE), grid_lower_bound), 1, 1};
 
   // Assign observation vectors to code 0
   RAFT_CUDA_TRY(cudaMemsetAsync(codes, 0, n * sizeof(index_type_t), stream));
@@ -575,10 +586,10 @@ static int assignCentroids(handle_t const& handle,
   dim3 blockDim{WARP_SIZE, 1, BLOCK_SIZE / WARP_SIZE};
 
   dim3 gridDim;
-  constexpr index_type_t grid_lower_bound{65535};
-  gridDim.x = min((d + WARP_SIZE - 1) / WARP_SIZE, grid_lower_bound);
-  gridDim.y = min(k, grid_lower_bound);
-  gridDim.z = min((n + BSIZE_DIV_WSIZE - 1) / BSIZE_DIV_WSIZE, grid_lower_bound);
+  constexpr unsigned grid_lower_bound{65535};
+  gridDim.x = std::min(doCeilDiv<unsigned>(d, WARP_SIZE), grid_lower_bound);
+  gridDim.y = std::min(static_cast<unsigned>(k), grid_lower_bound);
+  gridDim.z = std::min(doCeilDiv<unsigned>(n, BSIZE_DIV_WSIZE), grid_lower_bound);
 
   computeDistances<<<gridDim, blockDim, 0, stream>>>(n, d, k, obs, centroids, dists);
   RAFT_CHECK_CUDA(stream);
@@ -588,7 +599,7 @@ static int assignCentroids(handle_t const& handle,
   blockDim.x = BLOCK_SIZE;
   blockDim.y = 1;
   blockDim.z = 1;
-  gridDim.x  = min((n + BLOCK_SIZE - 1) / BLOCK_SIZE, grid_lower_bound);
+  gridDim.x  = std::min(doCeilDiv<unsigned>(n, BLOCK_SIZE), grid_lower_bound);
   gridDim.y  = 1;
   gridDim.z  = 1;
   minDistances<<<gridDim, blockDim, 0, stream>>>(n, k, dists, codes, clusterSizes);
@@ -645,7 +656,7 @@ static int updateCentroids(handle_t const& handle,
   const value_type_t one  = 1;
   const value_type_t zero = 0;
 
-  constexpr index_type_t grid_lower_bound{65535};
+  constexpr unsigned grid_lower_bound{65535};
 
   auto stream             = handle.get_stream();
   auto cublas_h           = handle.get_cublas_handle();
@@ -717,8 +728,8 @@ static int updateCentroids(handle_t const& handle,
   dim3 blockDim{WARP_SIZE, BLOCK_SIZE / WARP_SIZE, 1};
 
   // CUDA grid dimensions
-  dim3 gridDim{min((d + WARP_SIZE - 1) / WARP_SIZE, grid_lower_bound),
-               min((k + BSIZE_DIV_WSIZE - 1) / BSIZE_DIV_WSIZE, grid_lower_bound),
+  dim3 gridDim{std::min(doCeilDiv<unsigned>(d, WARP_SIZE), grid_lower_bound),
+               std::min(doCeilDiv<unsigned>(k, BSIZE_DIV_WSIZE), grid_lower_bound),
                1};
 
   divideCentroids<<<gridDim, blockDim, 0, stream>>>(d, k, clusterSizes, centroids);
@@ -795,7 +806,7 @@ int kmeans(handle_t const& handle,
   // Current iteration
   index_type_t iter;
 
-  constexpr index_type_t grid_lower_bound{65535};
+  constexpr unsigned grid_lower_bound{65535};
 
   // Residual sum of squares at previous iteration
   value_type_t residualPrev = 0;
@@ -822,10 +833,9 @@ int kmeans(handle_t const& handle,
 
     dim3 blockDim{WARP_SIZE, 1, BLOCK_SIZE / WARP_SIZE};
 
-    dim3 gridDim{
-      min((d + WARP_SIZE - 1) / WARP_SIZE, grid_lower_bound),
-      1,
-      min((n + BLOCK_SIZE / WARP_SIZE - 1) / (BLOCK_SIZE / WARP_SIZE), grid_lower_bound)};
+    dim3 gridDim{std::min(doCeilDiv<unsigned>(d, WARP_SIZE), grid_lower_bound),
+                 1,
+                 std::min(doCeilDiv<unsigned>(n, BLOCK_SIZE / WARP_SIZE), grid_lower_bound)};
 
     CUDA_TRY(cudaMemsetAsync(work, 0, n * k * sizeof(value_type_t), stream));
     computeDistances<<<gridDim, blockDim, 0, stream>>>(n, d, 1, obs, centroids, work);
@@ -962,7 +972,7 @@ int kmeans(handle_t const& handle,
   // Allocate memory
   vector_t<index_type_t> clusterSizes(handle, k);
   vector_t<value_type_t> centroids(handle, d * k);
-  vector_t<value_type_t> work(handle, n * max(k, d));
+  vector_t<value_type_t> work(handle, n * std::max(k, d));
   vector_t<index_type_t> work_int(handle, 2 * d * n);
 
   // Perform k-means

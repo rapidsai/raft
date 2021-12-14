@@ -255,7 +255,7 @@ struct Contractions_NT {
   /** block of Y data loaded from global mem after `ldgXY()` */
   DataT ldgDataY[P::LdgPerThY][P::Veclen];
 
-  static const DataT Zero = (DataT)0;
+  static constexpr DataT Zero = (DataT)0;
 
  public:
   /**

@@ -109,7 +109,7 @@ static const int WarpSize = 32;
 DI int laneId()
 {
   int id;
-  asm("mov.s32 %0, %laneid;" : "=r"(id));
+  asm("mov.s32 %0, %%laneid;" : "=r"(id));
   return id;
 }
 
@@ -228,13 +228,13 @@ DI T myAtomicMax(T* address, T val);
 
 DI float myAtomicMin(float* address, float val)
 {
-  myAtomicReduce(address, val, fminf);
+  myAtomicReduce<float(float, float)>(address, val, fminf);
   return *address;
 }
 
 DI float myAtomicMax(float* address, float val)
 {
-  myAtomicReduce(address, val, fmaxf);
+  myAtomicReduce<float(float, float)>(address, val, fmaxf);
   return *address;
 }
 
