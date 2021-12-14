@@ -40,18 +40,42 @@ namespace linalg {
 // TODO: couldn't template this function due to cusolverDnSgesvd and
 // cusolverSnSgesvd. Check if there is any other way.
 template <typename T>
-void svdQR(const raft::handle_t &handle, T *in, int n_rows, int n_cols,
-           T *sing_vals, T *left_sing_vecs, T *right_sing_vecs,
-           bool trans_right, bool gen_left_vec, bool gen_right_vec,
-           cudaStream_t stream) {
-  detail::svdQR(handle, in, n_rows, n_cols, sing_vals, left_sing_vecs,
-                right_sing_vecs, trans_right, gen_left_vec, gen_right_vec,
+void svdQR(const raft::handle_t& handle,
+           T* in,
+           int n_rows,
+           int n_cols,
+           T* sing_vals,
+           T* left_sing_vecs,
+           T* right_sing_vecs,
+           bool trans_right,
+           bool gen_left_vec,
+           bool gen_right_vec,
+           cudaStream_t stream)
+{
+  detail::svdQR(handle,
+                in,
+                n_rows,
+                n_cols,
+                sing_vals,
+                left_sing_vecs,
+                right_sing_vecs,
+                trans_right,
+                gen_left_vec,
+                gen_right_vec,
                 stream);
 }
 
 template <typename T>
-void svdEig(const raft::handle_t &handle, T *in, int n_rows, int n_cols, T *S,
-            T *U, T *V, bool gen_left_vec, cudaStream_t stream) {
+void svdEig(const raft::handle_t& handle,
+            T* in,
+            int n_rows,
+            int n_cols,
+            T* S,
+            T* U,
+            T* V,
+            bool gen_left_vec,
+            cudaStream_t stream)
+{
   detail::svdEig(handle, in, n_rows, n_cols, S, U, V, gen_left_vec, stream);
 }
 
@@ -73,13 +97,31 @@ void svdEig(const raft::handle_t &handle, T *in, int n_rows, int n_cols, T *S,
  * @param stream cuda stream
  */
 template <typename math_t>
-void svdJacobi(const raft::handle_t &handle, math_t *in, int n_rows, int n_cols,
-               math_t *sing_vals, math_t *left_sing_vecs,
-               math_t *right_sing_vecs, bool gen_left_vec, bool gen_right_vec,
-               math_t tol, int max_sweeps, cudaStream_t stream) {
-  detail::svdJacobi(handle, in, n_rows, n_cols, sing_vals, left_sing_vecs,
-                    right_sing_vecs, gen_left_vec, gen_right_vec, tol,
-                    max_sweeps, stream);
+void svdJacobi(const raft::handle_t& handle,
+               math_t* in,
+               int n_rows,
+               int n_cols,
+               math_t* sing_vals,
+               math_t* left_sing_vecs,
+               math_t* right_sing_vecs,
+               bool gen_left_vec,
+               bool gen_right_vec,
+               math_t tol,
+               int max_sweeps,
+               cudaStream_t stream)
+{
+  detail::svdJacobi(handle,
+                    in,
+                    n_rows,
+                    n_cols,
+                    sing_vals,
+                    left_sing_vecs,
+                    right_sing_vecs,
+                    gen_left_vec,
+                    gen_right_vec,
+                    tol,
+                    max_sweeps,
+                    stream);
 }
 
 /**
@@ -96,16 +138,34 @@ void svdJacobi(const raft::handle_t &handle, math_t *in, int n_rows, int n_cols,
  * @param stream cuda stream
  */
 template <typename math_t>
-void svdReconstruction(const raft::handle_t &handle, math_t *U, math_t *S,
-                       math_t *V, math_t *out, int n_rows, int n_cols, int k,
-                       cudaStream_t stream) {
+void svdReconstruction(const raft::handle_t& handle,
+                       math_t* U,
+                       math_t* S,
+                       math_t* V,
+                       math_t* out,
+                       int n_rows,
+                       int n_cols,
+                       int k,
+                       cudaStream_t stream)
+{
   const math_t alpha = 1.0, beta = 0.0;
   rmm::device_uvector<math_t> SVT(k * n_cols, stream);
 
-  raft::linalg::gemm(handle, S, k, k, V, SVT.data(), k, n_cols, CUBLAS_OP_N,
-                     CUBLAS_OP_T, alpha, beta, stream);
-  raft::linalg::gemm(handle, U, n_rows, k, SVT.data(), out, n_rows, n_cols,
-                     CUBLAS_OP_N, CUBLAS_OP_N, alpha, beta, stream);
+  raft::linalg::gemm(
+    handle, S, k, k, V, SVT.data(), k, n_cols, CUBLAS_OP_N, CUBLAS_OP_T, alpha, beta, stream);
+  raft::linalg::gemm(handle,
+                     U,
+                     n_rows,
+                     k,
+                     SVT.data(),
+                     out,
+                     n_rows,
+                     n_cols,
+                     CUBLAS_OP_N,
+                     CUBLAS_OP_N,
+                     alpha,
+                     beta,
+                     stream);
 }
 
 /**
@@ -123,11 +183,18 @@ void svdReconstruction(const raft::handle_t &handle, math_t *U, math_t *S,
  * @param stream cuda stream
  */
 template <typename math_t>
-bool evaluateSVDByL2Norm(const raft::handle_t &handle, math_t *A_d, math_t *U,
-                         math_t *S_vec, math_t *V, int n_rows, int n_cols,
-                         int k, math_t tol, cudaStream_t stream) {
-  return detail::evaluateSVDByL2Norm(handle, A_d, U, S_vec, V, n_rows, n_cols,
-                                     k, tol, stream);
+bool evaluateSVDByL2Norm(const raft::handle_t& handle,
+                         math_t* A_d,
+                         math_t* U,
+                         math_t* S_vec,
+                         math_t* V,
+                         int n_rows,
+                         int n_cols,
+                         int k,
+                         math_t tol,
+                         cudaStream_t stream)
+{
+  return detail::evaluateSVDByL2Norm(handle, A_d, U, S_vec, V, n_rows, n_cols, k, tol, stream);
 }
 
 };  // end namespace linalg

@@ -247,34 +247,22 @@ void eigSelDC(const raft::handle_t& handle,
 #endif
 
 template <typename math_t>
-<<<<<<< HEAD:cpp/include/raft/linalg/detail/eig.hpp
-void eigJacobi(const raft::handle_t &handle, const math_t *in, int n_rows,
-               int n_cols, math_t *eig_vectors, math_t *eig_vals,
-               cudaStream_t stream, math_t tol = 1.e-7, int sweeps = 15) {
-  cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
-
-  syevjInfo_t syevj_params = nullptr;
-  CUSOLVER_CHECK(cusolverDnCreateSyevjInfo(&syevj_params));
-  CUSOLVER_CHECK(cusolverDnXsyevjSetTolerance(syevj_params, tol));
-  CUSOLVER_CHECK(cusolverDnXsyevjSetMaxSweeps(syevj_params, sweeps));
-=======
 void eigJacobi(const raft::handle_t& handle,
                const math_t* in,
-               std::size_t n_rows,
-               std::size_t n_cols,
+               int n_rows,
+               int n_cols,
                math_t* eig_vectors,
                math_t* eig_vals,
                cudaStream_t stream,
-               math_t tol           = 1.e-7,
-               std::uint32_t sweeps = 15)
+               math_t tol = 1.e-7,
+               int sweeps = 15)
 {
   cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
 
   syevjInfo_t syevj_params = nullptr;
   RAFT_CUSOLVER_TRY(cusolverDnCreateSyevjInfo(&syevj_params));
   RAFT_CUSOLVER_TRY(cusolverDnXsyevjSetTolerance(syevj_params, tol));
-  RAFT_CUSOLVER_TRY(cusolverDnXsyevjSetMaxSweeps(syevj_params, static_cast<int>(sweeps)));
->>>>>>> upstream/branch-22.02:cpp/include/raft/linalg/eig.cuh
+  RAFT_CUSOLVER_TRY(cusolverDnXsyevjSetMaxSweeps(syevj_params, sweeps));
 
   int lwork;
   RAFT_CUSOLVER_TRY(cusolverDnsyevj_bufferSize(cusolverH,

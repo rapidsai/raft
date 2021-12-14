@@ -39,10 +39,14 @@ namespace linalg {
  * @note Lambda must be a functor with the following signature:
  *       `OutType func(const InType& val1, const InType& val2);`
  */
-template <typename InType, typename Lambda, typename OutType = InType,
-          typename IdxType = int, int TPB = 256>
-void binaryOp(OutType *out, const InType *in1, const InType *in2, IdxType len,
-              Lambda op, cudaStream_t stream) {
+template <typename InType,
+          typename Lambda,
+          typename OutType = InType,
+          typename IdxType = int,
+          int TPB          = 256>
+void binaryOp(
+  OutType* out, const InType* in1, const InType* in2, IdxType len, Lambda op, cudaStream_t stream)
+{
   detail::binaryOp(out, in1, in2, len, op, stream);
 }
 

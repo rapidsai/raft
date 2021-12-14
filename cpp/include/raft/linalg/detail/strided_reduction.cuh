@@ -103,42 +103,10 @@ __global__ void stridedReductionKernel(OutType* dots,
     raft::myAtomicReduce(dots + colStart, temp[myidx], reduce_op);
 }
 
-<<<<<<< HEAD:cpp/include/raft/linalg/detail/strided_reduction.cuh
-template <typename InType, typename OutType = InType, typename IdxType = int,
-          typename MainLambda = raft::Nop<InType, IdxType>,
-=======
-/**
- * @brief Compute reduction of the input matrix along the strided dimension
- *
- * @tparam InType the data type of the input
- * @tparam OutType the data type of the output (as well as the data type for
- *  which reduction is performed)
- * @tparam IdxType data type of the indices of the array
- * @tparam MainLambda Unary lambda applied while acculumation (eg: L1 or L2 norm)
- * It must be a 'callable' supporting the following input and output:
- * <pre>OutType (*MainLambda)(InType, IdxType);</pre>
- * @tparam ReduceLambda Binary lambda applied for reduction (eg: addition(+) for L2 norm)
- * It must be a 'callable' supporting the following input and output:
- * <pre>OutType (*ReduceLambda)(OutType);</pre>
- * @tparam FinalLambda the final lambda applied before STG (eg: Sqrt for L2 norm)
- * It must be a 'callable' supporting the following input and output:
- * <pre>OutType (*FinalLambda)(OutType);</pre>
- * @param dots the output reduction vector
- * @param data the input matrix
- * @param D leading dimension of data
- * @param N second dimension data
- * @param init initial value to use for the reduction
- * @param main_op elementwise operation to apply before reduction
- * @param reduce_op binary reduction operation
- * @param final_op elementwise operation to apply before storing results
- * @param inplace reduction result added inplace or overwrites old values?
- * @param stream cuda stream where to launch work
- */
 template <typename InType,
           typename OutType      = InType,
           typename IdxType      = int,
           typename MainLambda   = raft::Nop<InType, IdxType>,
->>>>>>> upstream/branch-22.02:cpp/include/raft/linalg/strided_reduction.cuh
           typename ReduceLambda = raft::Sum<OutType>,
           typename FinalLambda  = raft::Nop<OutType>>
 void stridedReduction(OutType* dots,

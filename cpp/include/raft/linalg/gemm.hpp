@@ -40,27 +40,45 @@ namespace linalg {
  * @param stream cuda stream
  */
 template <typename math_t>
-void gemm(const raft::handle_t &handle, const math_t *a, int n_rows_a,
-          int n_cols_a, const math_t *b, math_t *c, int n_rows_c, int n_cols_c,
-          cublasOperation_t trans_a, cublasOperation_t trans_b, math_t alpha,
-          math_t beta, cudaStream_t stream) {
-  detail::gemm(handle, a, n_rows_a, n_cols_a, b, c, n_rows_c, n_cols_c, trans_a,
-               trans_b, alpha, beta, stream);
+void gemm(const raft::handle_t& handle,
+          const math_t* a,
+          int n_rows_a,
+          int n_cols_a,
+          const math_t* b,
+          math_t* c,
+          int n_rows_c,
+          int n_cols_c,
+          cublasOperation_t trans_a,
+          cublasOperation_t trans_b,
+          math_t alpha,
+          math_t beta,
+          cudaStream_t stream)
+{
+  detail::gemm(
+    handle, a, n_rows_a, n_cols_a, b, c, n_rows_c, n_cols_c, trans_a, trans_b, alpha, beta, stream);
 }
 
 template <typename math_t>
-void gemm(const raft::handle_t &handle, const math_t *a, int n_rows_a,
-          int n_cols_a, const math_t *b, math_t *c, int n_rows_c, int n_cols_c,
-          cublasOperation_t trans_a, cublasOperation_t trans_b,
-          cudaStream_t stream) {
+void gemm(const raft::handle_t& handle,
+          const math_t* a,
+          int n_rows_a,
+          int n_cols_a,
+          const math_t* b,
+          math_t* c,
+          int n_rows_c,
+          int n_cols_c,
+          cublasOperation_t trans_a,
+          cublasOperation_t trans_b,
+          cudaStream_t stream)
+{
   math_t alpha = math_t(1);
-  math_t beta = math_t(0);
-  gemm(handle, a, n_rows_a, n_cols_a, b, c, n_rows_c, n_cols_c, trans_a,
-       trans_b, alpha, beta, stream);
+  math_t beta  = math_t(0);
+  gemm(
+    handle, a, n_rows_a, n_cols_a, b, c, n_rows_c, n_cols_c, trans_a, trans_b, alpha, beta, stream);
 }
 
 /**
- * @brief A wrapper for CUBLS GEMM function designed for handling all possible 
+ * @brief A wrapper for CUBLS GEMM function designed for handling all possible
  * combinations of operand layouts.
  * It computes the following equation: Z = alpha . X * Y + beta . Z
  * @tparam T Data type of input/output matrices (float/double)
@@ -79,11 +97,22 @@ void gemm(const raft::handle_t &handle, const math_t *a, int n_rows_a,
  * @param beta scalar
  */
 template <typename T>
-void gemm(const raft::handle_t &handle, T *z, T *x, T *y, int _M, int _N,
-          int _K, bool isZColMajor, bool isXColMajor, bool isYColMajor,
-          cudaStream_t stream, T alpha = T(1.0), T beta = T(0.0)) {
-  detail::gemm(handle, z, x, y, _M, _N, _K, isZColMajor, isXColMajor,
-               isYColMajor, stream, alpha, beta);
+void gemm(const raft::handle_t& handle,
+          T* z,
+          T* x,
+          T* y,
+          int _M,
+          int _N,
+          int _K,
+          bool isZColMajor,
+          bool isXColMajor,
+          bool isYColMajor,
+          cudaStream_t stream,
+          T alpha = T(1.0),
+          T beta  = T(0.0))
+{
+  detail::gemm(
+    handle, z, x, y, _M, _N, _K, isZColMajor, isXColMajor, isYColMajor, stream, alpha, beta);
 }
 
 }  // end namespace linalg

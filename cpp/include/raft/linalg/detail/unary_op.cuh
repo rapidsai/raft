@@ -51,55 +51,12 @@ void unaryOpImpl(OutType* out, const InType* in, IdxType len, Lambda op, cudaStr
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
-<<<<<<< HEAD:cpp/include/raft/linalg/detail/unary_op.cuh
-template <typename InType, typename Lambda, typename IdxType = int,
-          typename OutType = InType, int TPB = 256>
-void unaryOpCaller(OutType *out, const InType *in, IdxType len, Lambda op,
-                   cudaStream_t stream) {
-  if (len <= 0) return;  //silently skip in case of 0 length input
-  constexpr auto maxSize =
-    sizeof(InType) >= sizeof(OutType) ? sizeof(InType) : sizeof(OutType);
-  size_t bytes = len * maxSize;
-  uint64_t inAddr = uint64_t(in);
-  uint64_t outAddr = uint64_t(out);
-  if (16 / maxSize && bytes % 16 == 0 && inAddr % 16 == 0 &&
-      outAddr % 16 == 0) {
-    unaryOpImpl<InType, 16 / maxSize, Lambda, OutType, IdxType, TPB>(
-      out, in, len, op, stream);
-  } else if (8 / maxSize && bytes % 8 == 0 && inAddr % 8 == 0 &&
-             outAddr % 8 == 0) {
-    unaryOpImpl<InType, 8 / maxSize, Lambda, OutType, IdxType, TPB>(
-      out, in, len, op, stream);
-  } else if (4 / maxSize && bytes % 4 == 0 && inAddr % 4 == 0 &&
-             outAddr % 4 == 0) {
-    unaryOpImpl<InType, 4 / maxSize, Lambda, OutType, IdxType, TPB>(
-      out, in, len, op, stream);
-  } else if (2 / maxSize && bytes % 2 == 0 && inAddr % 2 == 0 &&
-             outAddr % 2 == 0) {
-    unaryOpImpl<InType, 2 / maxSize, Lambda, OutType, IdxType, TPB>(
-      out, in, len, op, stream);
-=======
-/**
- * @brief perform element-wise unary operation in the input array
- * @tparam InType input data-type
- * @tparam Lambda the device-lambda performing the actual operation
- * @tparam OutType output data-type
- * @tparam IdxType Integer type used to for addressing
- * @tparam TPB threads-per-block in the final kernel launched
- * @param out the output array
- * @param in the input array
- * @param len number of elements in the input array
- * @param op the device-lambda
- * @param stream cuda stream where to launch work
- * @note Lambda must be a functor with the following signature:
- *       `OutType func(const InType& val);`
- */
 template <typename InType,
           typename Lambda,
           typename IdxType = int,
           typename OutType = InType,
           int TPB          = 256>
-void unaryOp(OutType* out, const InType* in, IdxType len, Lambda op, cudaStream_t stream)
+void unaryOpCaller(OutType* out, const InType* in, IdxType len, Lambda op, cudaStream_t stream)
 {
   if (len <= 0) return;  // silently skip in case of 0 length input
   constexpr auto maxSize = sizeof(InType) >= sizeof(OutType) ? sizeof(InType) : sizeof(OutType);
@@ -114,7 +71,6 @@ void unaryOp(OutType* out, const InType* in, IdxType len, Lambda op, cudaStream_
     unaryOpImpl<InType, 4 / maxSize, Lambda, OutType, IdxType, TPB>(out, in, len, op, stream);
   } else if (2 / maxSize && bytes % 2 == 0 && inAddr % 2 == 0 && outAddr % 2 == 0) {
     unaryOpImpl<InType, 2 / maxSize, Lambda, OutType, IdxType, TPB>(out, in, len, op, stream);
->>>>>>> upstream/branch-22.02:cpp/include/raft/linalg/unary_op.cuh
   } else if (1 / maxSize) {
     unaryOpImpl<InType, 1 / maxSize, Lambda, OutType, IdxType, TPB>(out, in, len, op, stream);
   } else {
@@ -129,33 +85,9 @@ __global__ void writeOnlyUnaryOpKernel(OutType* out, IdxType len, Lambda op)
   if (idx < len) { op(out + idx, idx); }
 }
 
-<<<<<<< HEAD:cpp/include/raft/linalg/detail/unary_op.cuh
-template <typename OutType, typename Lambda, typename IdxType = int,
-          int TPB = 256>
-void writeOnlyUnaryOpCaller(OutType *out, IdxType len, Lambda op,
-                            cudaStream_t stream) {
-=======
-/**
- * @brief Perform an element-wise unary operation into the output array
- *
- * Compared to `unaryOp()`, this method does not do any reads from any inputs
- *
- * @tparam OutType output data-type
- * @tparam Lambda  the device-lambda performing the actual operation
- * @tparam IdxType Integer type used to for addressing
- * @tparam TPB     threads-per-block in the final kernel launched
- *
- * @param[out] out    the output array [on device] [len = len]
- * @param[in]  len    number of elements in the input array
- * @param[in]  op     the device-lambda which must be of the form:
- *                    `void func(OutType* outLocationOffset, IdxType idx);`
- *                    where outLocationOffset will be out + idx.
- * @param[in]  stream cuda stream where to launch work
- */
 template <typename OutType, typename Lambda, typename IdxType = int, int TPB = 256>
-void writeOnlyUnaryOp(OutType* out, IdxType len, Lambda op, cudaStream_t stream)
+void writeOnlyUnaryOpCaller(OutType* out, IdxType len, Lambda op, cudaStream_t stream)
 {
->>>>>>> upstream/branch-22.02:cpp/include/raft/linalg/unary_op.cuh
   if (len <= 0) return;  // silently skip in case of 0 length input
   auto nblks = raft::ceildiv<IdxType>(len, TPB);
   writeOnlyUnaryOpKernel<OutType, Lambda, IdxType><<<nblks, TPB, 0, stream>>>(out, len, op);

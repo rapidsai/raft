@@ -48,17 +48,24 @@ namespace linalg {
  * @param inplace reduction result added inplace or overwrites old values?
  * @param stream cuda stream where to launch work
  */
-template <typename InType, typename OutType = InType, typename IdxType = int,
-          typename MainLambda = raft::Nop<InType, IdxType>,
+template <typename InType,
+          typename OutType      = InType,
+          typename IdxType      = int,
+          typename MainLambda   = raft::Nop<InType, IdxType>,
           typename ReduceLambda = raft::Sum<OutType>,
-          typename FinalLambda = raft::Nop<OutType>>
-void stridedReduction(OutType *dots, const InType *data, IdxType D, IdxType N,
-                      OutType init, cudaStream_t stream, bool inplace = false,
-                      MainLambda main_op = raft::Nop<InType, IdxType>(),
+          typename FinalLambda  = raft::Nop<OutType>>
+void stridedReduction(OutType* dots,
+                      const InType* data,
+                      IdxType D,
+                      IdxType N,
+                      OutType init,
+                      cudaStream_t stream,
+                      bool inplace           = false,
+                      MainLambda main_op     = raft::Nop<InType, IdxType>(),
                       ReduceLambda reduce_op = raft::Sum<OutType>(),
-                      FinalLambda final_op = raft::Nop<OutType>()) {
-  detail::stridedReduction(dots, data, D, N, init, stream, inplace, main_op,
-                           reduce_op, final_op);
+                      FinalLambda final_op   = raft::Nop<OutType>())
+{
+  detail::stridedReduction(dots, data, D, N, init, stream, inplace, main_op, reduce_op, final_op);
 }
 
 };  // end namespace linalg

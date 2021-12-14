@@ -36,10 +36,13 @@ namespace linalg {
  * @note Lambda must be a functor with the following signature:
  *       `OutType func(const InType& val);`
  */
-template <typename InType, typename Lambda, typename IdxType = int,
-          typename OutType = InType, int TPB = 256>
-void unaryOp(OutType *out, const InType *in, IdxType len, Lambda op,
-             cudaStream_t stream) {
+template <typename InType,
+          typename Lambda,
+          typename IdxType = int,
+          typename OutType = InType,
+          int TPB          = 256>
+void unaryOp(OutType* out, const InType* in, IdxType len, Lambda op, cudaStream_t stream)
+{
   detail::unaryOpCaller(out, in, len, op, stream);
 }
 
@@ -60,10 +63,9 @@ void unaryOp(OutType *out, const InType *in, IdxType len, Lambda op,
  *                    where outLocationOffset will be out + idx.
  * @param[in]  stream cuda stream where to launch work
  */
-template <typename OutType, typename Lambda, typename IdxType = int,
-          int TPB = 256>
-void writeOnlyUnaryOp(OutType *out, IdxType len, Lambda op,
-                      cudaStream_t stream) {
+template <typename OutType, typename Lambda, typename IdxType = int, int TPB = 256>
+void writeOnlyUnaryOp(OutType* out, IdxType len, Lambda op, cudaStream_t stream)
+{
   detail::writeOnlyUnaryOpCaller(out, len, op, stream);
 }
 

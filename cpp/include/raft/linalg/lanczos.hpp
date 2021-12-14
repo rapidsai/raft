@@ -74,19 +74,41 @@ namespace raft {
  *  @return error flag.
  */
 template <typename index_type_t, typename value_type_t>
-int computeSmallestEigenvectors(
-  handle_t const &handle, sparse_matrix_t<index_type_t, value_type_t> const *A,
-  index_type_t nEigVecs, index_type_t maxIter, index_type_t restartIter,
-  value_type_t tol, bool reorthogonalize, index_type_t *effIter,
-  index_type_t *totalIter, value_type_t *shift,
-  value_type_t *__restrict__ alpha_host, value_type_t *__restrict__ beta_host,
-  value_type_t *__restrict__ lanczosVecs_dev,
-  value_type_t *__restrict__ work_dev, value_type_t *__restrict__ eigVals_dev,
-  value_type_t *__restrict__ eigVecs_dev, unsigned long long seed) {
-  return raft::detail::computeSmallestEigenvectors(
-    handle, A, nEigVecs, maxIter, restartIter, tol, reorthogonalize, effIter,
-    totalIter, shift, alpha_host, beta_host, lanczosVecs_dev, work_dev,
-    eigVals_dev, eigVecs_dev, seed);
+int computeSmallestEigenvectors(handle_t const& handle,
+                                sparse_matrix_t<index_type_t, value_type_t> const* A,
+                                index_type_t nEigVecs,
+                                index_type_t maxIter,
+                                index_type_t restartIter,
+                                value_type_t tol,
+                                bool reorthogonalize,
+                                index_type_t* effIter,
+                                index_type_t* totalIter,
+                                value_type_t* shift,
+                                value_type_t* __restrict__ alpha_host,
+                                value_type_t* __restrict__ beta_host,
+                                value_type_t* __restrict__ lanczosVecs_dev,
+                                value_type_t* __restrict__ work_dev,
+                                value_type_t* __restrict__ eigVals_dev,
+                                value_type_t* __restrict__ eigVecs_dev,
+                                unsigned long long seed)
+{
+  return raft::detail::computeSmallestEigenvectors(handle,
+                                                   A,
+                                                   nEigVecs,
+                                                   maxIter,
+                                                   restartIter,
+                                                   tol,
+                                                   reorthogonalize,
+                                                   effIter,
+                                                   totalIter,
+                                                   shift,
+                                                   alpha_host,
+                                                   beta_host,
+                                                   lanczosVecs_dev,
+                                                   work_dev,
+                                                   eigVals_dev,
+                                                   eigVecs_dev,
+                                                   seed);
 }
 
 /**
@@ -127,15 +149,29 @@ int computeSmallestEigenvectors(
  *  @return error flag.
  */
 template <typename index_type_t, typename value_type_t>
-int computeSmallestEigenvectors(
-  handle_t const &handle, sparse_matrix_t<index_type_t, value_type_t> const &A,
-  index_type_t nEigVecs, index_type_t maxIter, index_type_t restartIter,
-  value_type_t tol, bool reorthogonalize, index_type_t &iter,
-  value_type_t *__restrict__ eigVals_dev,
-  value_type_t *__restrict__ eigVecs_dev, unsigned long long seed = 1234567) {
-  return raft::detail::computeSmallestEigenvectors(
-    handle, A, nEigVecs, maxIter, restartIter, tol, reorthogonalize, iter,
-    eigVals_dev, eigVecs_dev, seed);
+int computeSmallestEigenvectors(handle_t const& handle,
+                                sparse_matrix_t<index_type_t, value_type_t> const& A,
+                                index_type_t nEigVecs,
+                                index_type_t maxIter,
+                                index_type_t restartIter,
+                                value_type_t tol,
+                                bool reorthogonalize,
+                                index_type_t& iter,
+                                value_type_t* __restrict__ eigVals_dev,
+                                value_type_t* __restrict__ eigVecs_dev,
+                                unsigned long long seed = 1234567)
+{
+  return raft::detail::computeSmallestEigenvectors(handle,
+                                                   A,
+                                                   nEigVecs,
+                                                   maxIter,
+                                                   restartIter,
+                                                   tol,
+                                                   reorthogonalize,
+                                                   iter,
+                                                   eigVals_dev,
+                                                   eigVecs_dev,
+                                                   seed);
 }
 
 // =========================================================
@@ -187,19 +223,39 @@ int computeSmallestEigenvectors(
  *  @return error flag.
  */
 template <typename index_type_t, typename value_type_t>
-int computeLargestEigenvectors(
-  handle_t const &handle, sparse_matrix_t<index_type_t, value_type_t> const *A,
-  index_type_t nEigVecs, index_type_t maxIter, index_type_t restartIter,
-  value_type_t tol, bool reorthogonalize, index_type_t *effIter,
-  index_type_t *totalIter, value_type_t *__restrict__ alpha_host,
-  value_type_t *__restrict__ beta_host,
-  value_type_t *__restrict__ lanczosVecs_dev,
-  value_type_t *__restrict__ work_dev, value_type_t *__restrict__ eigVals_dev,
-  value_type_t *__restrict__ eigVecs_dev, unsigned long long seed) {
-  return raft::detail::computeLargestEigenvectors(
-    handle, A, nEigVecs, maxIter, restartIter, tol, reorthogonalize, effIter,
-    totalIter, alpha_host, beta_host, lanczosVecs_dev, work_dev, eigVals_dev,
-    eigVecs_dev, seed);
+int computeLargestEigenvectors(handle_t const& handle,
+                               sparse_matrix_t<index_type_t, value_type_t> const* A,
+                               index_type_t nEigVecs,
+                               index_type_t maxIter,
+                               index_type_t restartIter,
+                               value_type_t tol,
+                               bool reorthogonalize,
+                               index_type_t* effIter,
+                               index_type_t* totalIter,
+                               value_type_t* __restrict__ alpha_host,
+                               value_type_t* __restrict__ beta_host,
+                               value_type_t* __restrict__ lanczosVecs_dev,
+                               value_type_t* __restrict__ work_dev,
+                               value_type_t* __restrict__ eigVals_dev,
+                               value_type_t* __restrict__ eigVecs_dev,
+                               unsigned long long seed)
+{
+  return raft::detail::computeLargestEigenvectors(handle,
+                                                  A,
+                                                  nEigVecs,
+                                                  maxIter,
+                                                  restartIter,
+                                                  tol,
+                                                  reorthogonalize,
+                                                  effIter,
+                                                  totalIter,
+                                                  alpha_host,
+                                                  beta_host,
+                                                  lanczosVecs_dev,
+                                                  work_dev,
+                                                  eigVals_dev,
+                                                  eigVecs_dev,
+                                                  seed);
 }
 
 /**
@@ -240,15 +296,29 @@ int computeLargestEigenvectors(
  *  @return error flag.
  */
 template <typename index_type_t, typename value_type_t>
-int computeLargestEigenvectors(
-  handle_t const &handle, sparse_matrix_t<index_type_t, value_type_t> const &A,
-  index_type_t nEigVecs, index_type_t maxIter, index_type_t restartIter,
-  value_type_t tol, bool reorthogonalize, index_type_t &iter,
-  value_type_t *__restrict__ eigVals_dev,
-  value_type_t *__restrict__ eigVecs_dev, unsigned long long seed = 123456) {
-  return raft::detail::computeLargestEigenvectors(
-    handle, A, nEigVecs, maxIter, restartIter, tol, reorthogonalize, iter,
-    eigVals_dev, eigVecs_dev, seed);
+int computeLargestEigenvectors(handle_t const& handle,
+                               sparse_matrix_t<index_type_t, value_type_t> const& A,
+                               index_type_t nEigVecs,
+                               index_type_t maxIter,
+                               index_type_t restartIter,
+                               value_type_t tol,
+                               bool reorthogonalize,
+                               index_type_t& iter,
+                               value_type_t* __restrict__ eigVals_dev,
+                               value_type_t* __restrict__ eigVecs_dev,
+                               unsigned long long seed = 123456)
+{
+  return raft::detail::computeLargestEigenvectors(handle,
+                                                  A,
+                                                  nEigVecs,
+                                                  maxIter,
+                                                  restartIter,
+                                                  tol,
+                                                  reorthogonalize,
+                                                  iter,
+                                                  eigVals_dev,
+                                                  eigVecs_dev,
+                                                  seed);
 }
 
 }  // namespace raft

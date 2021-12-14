@@ -41,10 +41,9 @@ template <typename InType,
           int TPB = 256,
           typename... Args,
           typename OutType = InType>
-void map(OutType *out, size_t len, MapOp map, cudaStream_t stream,
-         const InType *in, Args... args) {
-  detail::mapImpl<InType, OutType, MapOp, TPB, Args...>(out, len, map, stream,
-                                                        in, args...);
+void map(OutType* out, size_t len, MapOp map, cudaStream_t stream, const InType* in, Args... args)
+{
+  detail::mapImpl<InType, OutType, MapOp, TPB, Args...>(out, len, map, stream, in, args...);
 }
 
 }  // namespace linalg

@@ -145,8 +145,7 @@ void svdEig(const raft::handle_t& handle,
                      beta,
                      stream);
 
-  raft::linalg::eigDC(handle, in_cross_mult.data(), n_cols, n_cols, V, S,
-                      stream);
+  raft::linalg::eigDC(handle, in_cross_mult.data(), n_cols, n_cols, V, S, stream);
 
   raft::matrix::colReverse(V, n_cols, n_cols, stream);
   raft::matrix::rowReverse(S, n_cols, 1, stream);
@@ -239,67 +238,6 @@ void svdJacobi(const raft::handle_t& handle,
   RAFT_CUSOLVER_TRY(cusolverDnDestroyGesvdjInfo(gesvdj_params));
 }
 
-<<<<<<< HEAD:cpp/include/raft/linalg/detail/svd.cuh
-=======
-/**
- * @brief reconstruct a matrix use left and right singular vectors and
- * singular values
- * @param handle: raft handle
- * @param U: left singular vectors of size n_rows x k
- * @param S: square matrix with singular values on its diagonal, k x k
- * @param V: right singular vectors of size n_cols x k
- * @param out: reconstructed matrix to be returned
- * @param n_rows: number rows of output matrix
- * @param n_cols: number columns of output matrix
- * @param k: number of singular values
- * @param stream cuda stream
- */
-template <typename math_t>
-void svdReconstruction(const raft::handle_t& handle,
-                       math_t* U,
-                       math_t* S,
-                       math_t* V,
-                       math_t* out,
-                       int n_rows,
-                       int n_cols,
-                       int k,
-                       cudaStream_t stream)
-{
-  const math_t alpha = 1.0, beta = 0.0;
-  rmm::device_uvector<math_t> SVT(k * n_cols, stream);
-
-  raft::linalg::gemm(
-    handle, S, k, k, V, SVT.data(), k, n_cols, CUBLAS_OP_N, CUBLAS_OP_T, alpha, beta, stream);
-  raft::linalg::gemm(handle,
-                     U,
-                     n_rows,
-                     k,
-                     SVT.data(),
-                     out,
-                     n_rows,
-                     n_cols,
-                     CUBLAS_OP_N,
-                     CUBLAS_OP_N,
-                     alpha,
-                     beta,
-                     stream);
-}
-
-/**
- * @brief reconstruct a matrix use left and right singular vectors and
- * singular values
- * @param handle: raft handle
- * @param A_d: input matrix
- * @param U: left singular vectors of size n_rows x k
- * @param S_vec: singular values as a vector
- * @param V: right singular vectors of size n_cols x k
- * @param n_rows: number rows of output matrix
- * @param n_cols: number columns of output matrix
- * @param k: number of singular values to be computed, 1.0 for normal SVD
- * @param tol: tolerance for the evaluation
- * @param stream cuda stream
- */
->>>>>>> upstream/branch-22.02:cpp/include/raft/linalg/svd.cuh
 template <typename math_t>
 bool evaluateSVDByL2Norm(const raft::handle_t& handle,
                          math_t* A_d,

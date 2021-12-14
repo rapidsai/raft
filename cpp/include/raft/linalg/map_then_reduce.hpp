@@ -40,11 +40,11 @@ template <typename InType,
           int TPB = 256,
           typename... Args,
           typename OutType = InType>
-void mapThenSumReduce(OutType *out, size_t len, MapOp map, cudaStream_t stream,
-                      const InType *in, Args... args) {
-  detail::mapThenReduceImpl<InType, OutType, MapOp, detail::sum_tag, TPB,
-                            Args...>(out, len, (OutType)0, map,
-                                     detail::sum_tag(), stream, in, args...);
+void mapThenSumReduce(
+  OutType* out, size_t len, MapOp map, cudaStream_t stream, const InType* in, Args... args)
+{
+  detail::mapThenReduceImpl<InType, OutType, MapOp, detail::sum_tag, TPB, Args...>(
+    out, len, (OutType)0, map, detail::sum_tag(), stream, in, args...);
 }
 
 /**
@@ -65,11 +65,21 @@ void mapThenSumReduce(OutType *out, size_t len, MapOp map, cudaStream_t stream,
  * @param args additional input arrays
  */
 
-template <typename InType, typename MapOp, typename ReduceLambda, int TPB = 256,
-          typename OutType = InType, typename... Args>
-void mapThenReduce(OutType *out, size_t len, OutType neutral, MapOp map,
-                   ReduceLambda op, cudaStream_t stream, const InType *in,
-                   Args... args) {
+template <typename InType,
+          typename MapOp,
+          typename ReduceLambda,
+          int TPB          = 256,
+          typename OutType = InType,
+          typename... Args>
+void mapThenReduce(OutType* out,
+                   size_t len,
+                   OutType neutral,
+                   MapOp map,
+                   ReduceLambda op,
+                   cudaStream_t stream,
+                   const InType* in,
+                   Args... args)
+{
   detail::mapThenReduceImpl<InType, OutType, MapOp, ReduceLambda, TPB, Args...>(
     out, len, neutral, map, op, stream, in, args...);
 }

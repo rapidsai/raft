@@ -60,36 +60,6 @@ inline bool addressAligned(uint64_t addr1, uint64_t addr2, uint64_t addr3, uint6
   return addr1 % N == 0 && addr2 % N == 0 && addr3 % N == 0;
 }
 
-<<<<<<< HEAD:cpp/include/raft/linalg/detail/binary_op.cuh
-template <typename InType, typename Lambda, typename OutType = InType,
-          typename IdxType = int, int TPB = 256>
-void binaryOp(OutType *out, const InType *in1, const InType *in2, IdxType len,
-              Lambda op, cudaStream_t stream) {
-  constexpr auto maxSize =
-    sizeof(InType) > sizeof(OutType) ? sizeof(InType) : sizeof(OutType);
-  size_t bytes = len * maxSize;
-  uint64_t in1Addr = uint64_t(in1);
-  uint64_t in2Addr = uint64_t(in2);
-  uint64_t outAddr = uint64_t(out);
-  if (16 / maxSize && bytes % 16 == 0 &&
-      addressAligned(in1Addr, in2Addr, outAddr, 16)) {
-=======
-/**
- * @brief perform element-wise binary operation on the input arrays
- * @tparam InType input data-type
- * @tparam Lambda the device-lambda performing the actual operation
- * @tparam OutType output data-type
- * @tparam IdxType Integer type used to for addressing
- * @tparam TPB threads-per-block in the final kernel launched
- * @param out the output array
- * @param in1 the first input array
- * @param in2 the second input array
- * @param len number of elements in the input array
- * @param op the device-lambda
- * @param stream cuda stream where to launch work
- * @note Lambda must be a functor with the following signature:
- *       `OutType func(const InType& val1, const InType& val2);`
- */
 template <typename InType,
           typename Lambda,
           typename OutType = InType,
@@ -104,7 +74,6 @@ void binaryOp(
   uint64_t in2Addr       = uint64_t(in2);
   uint64_t outAddr       = uint64_t(out);
   if (16 / maxSize && bytes % 16 == 0 && addressAligned(in1Addr, in2Addr, outAddr, 16)) {
->>>>>>> upstream/branch-22.02:cpp/include/raft/linalg/binary_op.cuh
     binaryOpImpl<InType, 16 / maxSize, Lambda, IdxType, OutType, TPB>(
       out, in1, in2, len, op, stream);
   } else if (8 / maxSize && bytes % 8 == 0 && addressAligned(in1Addr, in2Addr, outAddr, 8)) {

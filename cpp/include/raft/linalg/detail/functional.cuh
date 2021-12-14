@@ -27,9 +27,7 @@ struct divides_scalar {
  public:
   divides_scalar(ArgType scalar) : scalar_(scalar) {}
 
-  __host__ __device__ inline ReturnType operator()(ArgType in) {
-    return in / scalar_;
-  }
+  __host__ __device__ inline ReturnType operator()(ArgType in) { return in / scalar_; }
 
  private:
   ArgType scalar_;
@@ -40,9 +38,7 @@ struct adds_scalar {
  public:
   adds_scalar(ArgType scalar) : scalar_(scalar) {}
 
-  __host__ __device__ inline ReturnType operator()(ArgType in) {
-    return in + scalar_;
-  }
+  __host__ __device__ inline ReturnType operator()(ArgType in) { return in + scalar_; }
 
  private:
   ArgType scalar_;
@@ -53,9 +49,7 @@ struct multiplies_scalar {
  public:
   multiplies_scalar(ArgType scalar) : scalar_(scalar) {}
 
-  __host__ __device__ inline ReturnType operator()(ArgType in) {
-    return in * scalar_;
-  }
+  __host__ __device__ inline ReturnType operator()(ArgType in) { return in * scalar_; }
 
  private:
   ArgType scalar_;
@@ -64,7 +58,8 @@ struct multiplies_scalar {
 template <typename ArgType, typename ReturnType = ArgType>
 struct divides_check_zero {
  public:
-  __host__ __device__ inline ReturnType operator()(ArgType a, ArgType b) {
+  __host__ __device__ inline ReturnType operator()(ArgType a, ArgType b)
+  {
     return (b == static_cast<ArgType>(0)) ? 0.0 : a / b;
   }
 };

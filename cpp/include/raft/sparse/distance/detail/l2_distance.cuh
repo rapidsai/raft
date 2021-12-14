@@ -24,13 +24,8 @@
 #include <raft/sparse/detail/utils.h>
 #include <raft/sparse/distance/common.h>
 #include <raft/cuda_utils.cuh>
-<<<<<<< HEAD
 #include <raft/linalg/unary_op.hpp>
-#include <raft/sparse/csr.cuh>
-=======
-#include <raft/linalg/unary_op.cuh>
 #include <raft/sparse/csr.hpp>
->>>>>>> upstream/branch-22.02
 #include <raft/sparse/distance/detail/ip_distance.cuh>
 #include <rmm/device_uvector.hpp>
 

@@ -52,47 +52,6 @@ void gemm(const raft::handle_t& handle,
     cublasgemm(cublas_h, trans_a, trans_b, m, n, k, &alpha, a, lda, b, ldb, &beta, c, ldc, stream));
 }
 
-<<<<<<< HEAD:cpp/include/raft/linalg/detail/gemm.hpp
-=======
-template <typename math_t>
-void gemm(const raft::handle_t& handle,
-          const math_t* a,
-          int n_rows_a,
-          int n_cols_a,
-          const math_t* b,
-          math_t* c,
-          int n_rows_c,
-          int n_cols_c,
-          cublasOperation_t trans_a,
-          cublasOperation_t trans_b,
-          cudaStream_t stream)
-{
-  math_t alpha = math_t(1);
-  math_t beta  = math_t(0);
-  gemm(
-    handle, a, n_rows_a, n_cols_a, b, c, n_rows_c, n_cols_c, trans_a, trans_b, alpha, beta, stream);
-}
-
-/**
- * @brief A wrapper for CUBLS GEMM function designed for handling all possible
- * combinations of operand layouts.
- * It computes the following equation: Z = alpha . X * Y + beta . Z
- * @tparam T Data type of input/output matrices (float/double)
- * @param handle raft handle
- * @param z output matrix of size M rows x N columns
- * @param x input matrix of size M rows x K columns
- * @param y input matrix of size K rows x N columns
- * @param _M number of rows of X and Z
- * @param _N number of rows of Y and columns of Z
- * @param _K number of columns of X and rows of Y
- * @param isZColMajor Storage layout of Z. true = col major, false = row major
- * @param isXColMajor Storage layout of X. true = col major, false = row major
- * @param isYColMajor Storage layout of Y. true = col major, false = row major
- * @param stream cuda stream
- * @param alpha scalar
- * @param beta scalar
- */
->>>>>>> upstream/branch-22.02:cpp/include/raft/linalg/gemm.cuh
 template <typename T>
 void gemm(const raft::handle_t& handle,
           T* z,

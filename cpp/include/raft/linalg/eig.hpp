@@ -35,9 +35,14 @@ namespace linalg {
  * @{
  */
 template <typename math_t>
-void eigDC(const raft::handle_t &handle, const math_t *in, std::size_t n_rows,
-           std::size_t n_cols, math_t *eig_vectors, math_t *eig_vals,
-           cudaStream_t stream) {
+void eigDC(const raft::handle_t& handle,
+           const math_t* in,
+           std::size_t n_rows,
+           std::size_t n_cols,
+           math_t* eig_vectors,
+           math_t* eig_vals,
+           cudaStream_t stream)
+{
   detail::eigDC(handle, in, n_rows, n_cols, eig_vectors, eig_vals, stream);
 }
 
@@ -62,11 +67,17 @@ using detail::OVERWRITE_INPUT;
  * @{
  */
 template <typename math_t>
-void eigSelDC(const raft::handle_t &handle, math_t *in, int n_rows, int n_cols,
-              int n_eig_vals, math_t *eig_vectors, math_t *eig_vals,
-              EigVecMemUsage memUsage, cudaStream_t stream) {
-  detail::eigSelDC(handle, in, n_rows, n_cols, n_eig_vals, eig_vectors,
-                   eig_vals, memUsage, stream);
+void eigSelDC(const raft::handle_t& handle,
+              math_t* in,
+              int n_rows,
+              int n_cols,
+              int n_eig_vals,
+              math_t* eig_vectors,
+              math_t* eig_vals,
+              EigVecMemUsage memUsage,
+              cudaStream_t stream)
+{
+  detail::eigSelDC(handle, in, n_rows, n_cols, n_eig_vals, eig_vectors, eig_vals, memUsage, stream);
 }
 
 #endif
@@ -86,11 +97,17 @@ void eigSelDC(const raft::handle_t &handle, math_t *in, int n_rows, int n_cols,
  * @{
  */
 template <typename math_t>
-void eigJacobi(const raft::handle_t &handle, const math_t *in, int n_rows,
-               int n_cols, math_t *eig_vectors, math_t *eig_vals,
-               cudaStream_t stream, math_t tol = 1.e-7, int sweeps = 15) {
-  detail::eigJacobi(handle, in, n_rows, n_cols, eig_vectors, eig_vals, stream,
-                    tol, sweeps);
+void eigJacobi(const raft::handle_t& handle,
+               const math_t* in,
+               int n_rows,
+               int n_cols,
+               math_t* eig_vectors,
+               math_t* eig_vals,
+               cudaStream_t stream,
+               math_t tol = 1.e-7,
+               int sweeps = 15)
+{
+  detail::eigJacobi(handle, in, n_rows, n_cols, eig_vectors, eig_vals, stream, tol, sweeps);
 }
 
 };  // end namespace linalg

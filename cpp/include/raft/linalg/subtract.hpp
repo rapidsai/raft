@@ -62,7 +62,8 @@ void subtract(OutT* out, const InT* in1, const InT* in2, IdxType len, cudaStream
   binaryOp<InT, decltype(op), OutT, IdxType>(out, in1, in2, len, op, stream);
 }
 
-/** Substract single value pointed by singleScalarDev parameter in device memory from inDev[i] and write result to outDev[i]
+/** Substract single value pointed by singleScalarDev parameter in device memory from inDev[i] and
+ * write result to outDev[i]
  * @tparam math_t data-type upon which the math operation will be performed
  * @tparam IdxType Integer type used to for addressing
  * @param outDev the output buffer
@@ -73,9 +74,12 @@ void subtract(OutT* out, const InT* in1, const InT* in2, IdxType len, cudaStream
  * @remark block size has not been tuned
  */
 template <typename math_t, typename IdxType = int, int TPB = 256>
-void subtractDevScalar(math_t *outDev, const math_t *inDev,
-                       const math_t *singleScalarDev, IdxType len,
-                       cudaStream_t stream) {
+void subtractDevScalar(math_t* outDev,
+                       const math_t* inDev,
+                       const math_t* singleScalarDev,
+                       IdxType len,
+                       cudaStream_t stream)
+{
   detail::subtractDevScalar(outDev, inDev, singleScalarDev, len, stream);
 }
 

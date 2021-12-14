@@ -36,8 +36,8 @@ using detail::divides_scalar;
  * @{
  */
 template <typename math_t, typename IdxType = int>
-void divideScalar(math_t *out, const math_t *in, math_t scalar, IdxType len,
-                  cudaStream_t stream) {
+void divideScalar(math_t* out, const math_t* in, math_t scalar, IdxType len, cudaStream_t stream)
+{
   unaryOp(out, in, len, divides_scalar<math_t>(scalar), stream);
 }
 /** @} */

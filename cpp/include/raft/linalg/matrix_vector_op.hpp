@@ -45,11 +45,17 @@ namespace linalg {
  * @param stream cuda stream where to launch work
  */
 template <typename Type, typename Lambda, typename IdxType = int, int TPB = 256>
-void matrixVectorOp(Type *out, const Type *matrix, const Type *vec, IdxType D,
-                    IdxType N, bool rowMajor, bool bcastAlongRows, Lambda op,
-                    cudaStream_t stream) {
-  detail::matrixVectorOp(out, matrix, vec, D, N, rowMajor, bcastAlongRows, op,
-                         stream);
+void matrixVectorOp(Type* out,
+                    const Type* matrix,
+                    const Type* vec,
+                    IdxType D,
+                    IdxType N,
+                    bool rowMajor,
+                    bool bcastAlongRows,
+                    Lambda op,
+                    cudaStream_t stream)
+{
+  detail::matrixVectorOp(out, matrix, vec, D, N, rowMajor, bcastAlongRows, op, stream);
 }
 
 /**
@@ -77,11 +83,18 @@ void matrixVectorOp(Type *out, const Type *matrix, const Type *vec, IdxType D,
  * @param stream cuda stream where to launch work
  */
 template <typename Type, typename Lambda, typename IdxType = int, int TPB = 256>
-void matrixVectorOp(Type *out, const Type *matrix, const Type *vec1,
-                    const Type *vec2, IdxType D, IdxType N, bool rowMajor,
-                    bool bcastAlongRows, Lambda op, cudaStream_t stream) {
-  detail::matrixVectorOp(out, matrix, vec1, vec2, D, N, rowMajor,
-                         bcastAlongRows, op, stream);
+void matrixVectorOp(Type* out,
+                    const Type* matrix,
+                    const Type* vec1,
+                    const Type* vec2,
+                    IdxType D,
+                    IdxType N,
+                    bool rowMajor,
+                    bool bcastAlongRows,
+                    Lambda op,
+                    cudaStream_t stream)
+{
+  detail::matrixVectorOp(out, matrix, vec1, vec2, D, N, rowMajor, bcastAlongRows, op, stream);
 }
 
 };  // end namespace linalg
