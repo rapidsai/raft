@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <raft/linalg/cublas_wrappers.h>
 #include <raft/handle.hpp>
+#include <raft/linalg/cublas_wrappers.hpp>
 #include <rmm/exec_policy.hpp>
 
 namespace raft {

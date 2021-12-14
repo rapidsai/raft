@@ -29,11 +29,11 @@
 #include <faiss/gpu/utils/Limits.cuh>
 #include <faiss/gpu/utils/Select.cuh>
 
-#include <raft/linalg/distance_type.h>
 #include <thrust/iterator/transform_iterator.h>
 #include <cstdint>
 #include <iostream>
 #include <raft/handle.hpp>
+#include <raft/linalg/distance_type.hpp>
 #include <set>
 
 #include "fused_l2_knn.cuh"

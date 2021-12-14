@@ -16,11 +16,11 @@
 
 #pragma once
 
-#include <raft/linalg/cublas_wrappers.h>
-#include <raft/linalg/cusolver_wrappers.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
 #include <raft/linalg/binary_op.hpp>
+#include <raft/linalg/cublas_wrappers.hpp>
+#include <raft/linalg/cusolver_wrappers.hpp>
 
 namespace raft {
 namespace linalg {

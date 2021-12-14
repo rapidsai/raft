@@ -17,13 +17,13 @@
 #pragma once
 
 #include <raft/cudart_utils.h>
-#include <raft/linalg/cublas_wrappers.h>
-#include <raft/linalg/cusolver_wrappers.h>
-#include <raft/linalg/transpose.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
+#include <raft/linalg/cublas_wrappers.hpp>
+#include <raft/linalg/cusolver_wrappers.hpp>
 #include <raft/linalg/eig.hpp>
 #include <raft/linalg/gemm.hpp>
+#include <raft/linalg/transpose.hpp>
 #include <raft/matrix/math.hpp>
 #include <raft/matrix/matrix.hpp>
 #include <rmm/device_scalar.hpp>

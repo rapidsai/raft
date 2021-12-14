@@ -23,8 +23,8 @@
 #include <raft/linalg/unary_op.hpp>
 #include <rmm/device_uvector.hpp>
 
-#include <raft/linalg/distance_type.h>
 #include <raft/sparse/hierarchy/common.h>
+#include <raft/linalg/distance_type.hpp>
 #include <raft/mr/device/buffer.hpp>
 #include <raft/sparse/convert/csr.hpp>
 #include <raft/sparse/coo.hpp>

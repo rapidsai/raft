@@ -17,7 +17,6 @@
 #pragma once
 
 #include <cuda_runtime_api.h>
-#include <raft/linalg/distance_type.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/distance/detail/canberra.cuh>
 #include <raft/distance/detail/chebyshev.cuh>
@@ -31,6 +30,7 @@
 #include <raft/distance/detail/l1.cuh>
 #include <raft/distance/detail/minkowski.cuh>
 #include <raft/distance/detail/russell_rao.cuh>
+#include <raft/linalg/distance_type.hpp>
 #include <rmm/device_uvector.hpp>
 
 namespace raft {

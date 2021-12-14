@@ -26,8 +26,8 @@
 #include <faiss/gpu/utils/Limits.cuh>
 #include <faiss/gpu/utils/Select.cuh>
 
-#include <raft/linalg/distance_type.h>
 #include <raft/handle.hpp>
+#include <raft/linalg/distance_type.hpp>
 
 namespace raft {
 namespace spatial {

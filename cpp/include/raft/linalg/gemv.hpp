@@ -17,8 +17,8 @@
 #pragma once
 
 #include <cublas_v2.h>
-#include <raft/linalg/cublas_wrappers.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/linalg/cublas_wrappers.hpp>
 
 #include <raft/handle.hpp>
 

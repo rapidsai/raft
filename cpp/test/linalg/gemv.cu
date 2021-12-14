@@ -15,8 +15,8 @@
  */
 
 #include <gtest/gtest.h>
-#include <raft/linalg/gemv.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/linalg/gemv.hpp>
 #include <raft/random/rng.hpp>
 #include "../test_utils.h"
 

@@ -17,9 +17,9 @@
 #pragma once
 #include <cusolverDn.h>
 
-#include <raft/linalg/cublas_wrappers.h>
-#include <raft/linalg/cusolver_wrappers.h>
 #include <raft/error.hpp>
+#include <raft/linalg/cublas_wrappers.hpp>
+#include <raft/linalg/cusolver_wrappers.hpp>
 
 // for now; TODO: check if/where this `define` should be;
 //

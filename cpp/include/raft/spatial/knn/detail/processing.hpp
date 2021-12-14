@@ -15,7 +15,7 @@
  */
 #pragma once
 
-#include <raft/linalg/distance_type.h>
+#include <raft/linalg/distance_type.hpp>
 #include <raft/linalg/matrix_vector_op.hpp>
 #include <raft/linalg/norm.hpp>
 #include <raft/linalg/unary_op.hpp>
