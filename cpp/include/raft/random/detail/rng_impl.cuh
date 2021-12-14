@@ -22,7 +22,6 @@
 
 namespace raft {
 namespace random {
-namespace detail {
 
 /** all different generator types used */
 enum GeneratorType {
@@ -60,10 +59,11 @@ struct UniformDistParams {
   OutType end;
 };
 
-template <typename OutType>
+template <typename OutType, typename DiffType>
 struct UniformIntDistParams {
   OutType start;
   OutType end;
+  DiffType diff;
 };
 
 template <typename OutType>
@@ -181,9 +181,9 @@ DI void box_muller_transform(Type &val1, Type &val2, Type sigma1, Type mu1) {
   }
 
   template <typename GenType, typename OutType, typename LenType>
-  DI void custom_next(GenType gen, OutType *val, UniformIntDistParams<OutType> params, LenType idx, LenType stride) {
-    OutType x = 0;
-    uint32_t s = params.end - params.start;
+  DI void custom_next(GenType gen, OutType *val, UniformIntDistParams<OutType, uint32_t> params, LenType idx, LenType stride) {
+    uint32_t x = 0;
+    uint32_t s = params.diff;
     gen.next(x);
     uint64_t m = uint64_t(x) * s;
     uint32_t l = uint32_t(m);
@@ -195,9 +195,15 @@ DI void box_muller_transform(Type &val1, Type &val2, Type sigma1, Type mu1) {
         l = uint32_t(m);
       }
     }
-    *val = uint32_t(m >> 32) + params.start;
+    *val = OutType(m >> 32) + params.start;
   }
 
+  template <typename GenType, typename OutType, typename LenType>
+  DI void custom_next(GenType gen, OutType *val, UniformIntDistParams<OutType, uint64_t> params, LenType idx, LenType stride) {
+    uint64_t x = 0;
+    gen.next(x);
+    *val = params.start + OutType(x % (params.diff));
+  }
 
   template <typename GenType, typename OutType, typename LenType>
   DI void custom_next(GenType gen, OutType *val, NormalDistParams<OutType> params, LenType idx, LenType stride) {
@@ -474,7 +480,5 @@ struct PCGenerator {
   uint64_t inc;
 };
 
-
-};  // end namespace detail
 };  // end namespace random
 };  // end namespace raft

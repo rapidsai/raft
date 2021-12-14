@@ -17,6 +17,11 @@
 #pragma once
 
 #include "detail/rng_impl.cuh"
+#include <random>
+#include <raft/handle.hpp>
+#include <raft/common/scatter.cuh>
+#include <raft/common/cub_wrappers.cuh>
+#include <rmm/device_uvector.hpp>
 
 namespace raft {
 namespace random {
@@ -115,11 +120,22 @@ public:
   void uniformInt(OutType *ptr, LenType len, OutType start, OutType end, cudaStream_t stream) {
     static_assert(std::is_integral<OutType>::value,
                   "Type for 'uniformInt' can only be integer!");
-    UniformIntDistParams<OutType> params;
-    params.start = start;
-    params.end = end;
-    kernel_dispatch<OutType, LenType, 1, UniformIntDistParams<OutType>>
-      (ptr, len, stream, params);
+    ASSERT(end > start, "'end' must be greater than 'start'");
+    if (sizeof(OutType) == 4) {
+      UniformIntDistParams<OutType, uint32_t> params;
+      params.start = start;
+      params.end = end;
+      params.diff = uint32_t(params.end - params.start);
+      kernel_dispatch<OutType, LenType, 1, UniformIntDistParams<OutType, uint32_t>>
+        (ptr, len, stream, params);
+    } else {
+      UniformIntDistParams<OutType, uint64_t> params;
+      params.start = start;
+      params.end = end;
+      params.diff = uint64_t(params.end - params.start);
+      kernel_dispatch<OutType, LenType, 1, UniformIntDistParams<OutType, uint64_t>>
+        (ptr, len, stream, params);
+    }
   }
   /** @} */
 
