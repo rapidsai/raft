@@ -412,7 +412,7 @@ class DistanceTest : public ::testing::TestWithParam<DistanceInputs<DataType>> {
   void SetUp() override
   {
     auto testInfo = testing::UnitTest::GetInstance()->current_test_info();
-    RAFT_USING_NVTX_RANGE("test::%s/%s", testInfo->test_suite_name(), testInfo->name());
+    common::nvtx_range fun_scope("test::%s/%s", testInfo->test_suite_name(), testInfo->name());
 
     raft::random::Rng r(params.seed);
     int m               = params.m;

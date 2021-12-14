@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,16 +31,16 @@ class NvtxNextColorTest : public ::testing::Test {
     const std::string temp2 = "bar";
 
     diff_string_diff_color =
-      common::detail::generateNextColor(temp1) != common::detail::generateNextColor(temp2);
+      common::detail::generate_next_color(temp1) != common::detail::generate_next_color(temp2);
     same_string_same_color =
-      common::detail::generateNextColor(temp1) == common::detail::generateNextColor(temp1);
+      common::detail::generate_next_color(temp1) == common::detail::generate_next_color(temp1);
   }
   void TearDown() {}
   bool diff_string_diff_color = false;
   bool same_string_same_color = false;
 };
 
-TEST_F(NvtxNextColorTest, generateNextColor)
+TEST_F(NvtxNextColorTest, generate_next_color)
 {
   EXPECT_TRUE(diff_string_diff_color);
   EXPECT_TRUE(same_string_same_color);

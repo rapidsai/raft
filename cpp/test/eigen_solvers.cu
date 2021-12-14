@@ -28,7 +28,7 @@ namespace raft {
 
 TEST(Raft, EigenSolvers)
 {
-  RAFT_USING_NVTX_RANGE("test::EigenSolvers");
+  common::nvtx_range fun_scope("test::EigenSolvers");
   using namespace matrix;
   using index_type = int;
   using value_type = double;
@@ -69,7 +69,7 @@ TEST(Raft, EigenSolvers)
 
 TEST(Raft, SpectralSolvers)
 {
-  RAFT_USING_NVTX_RANGE("test::SpectralSolvers");
+  common::nvtx_range fun_scope("test::SpectralSolvers");
   using namespace matrix;
   using index_type = int;
   using value_type = double;

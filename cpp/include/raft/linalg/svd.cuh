@@ -64,7 +64,7 @@ void svdQR(const raft::handle_t& handle,
            bool gen_right_vec,
            cudaStream_t stream)
 {
-  RAFT_USING_NVTX_RANGE("raft::linalg::svdQR(%d, %d)", n_rows, n_cols);
+  common::nvtx_range fun_scope("raft::linalg::svdQR(%d, %d)", n_rows, n_cols);
   cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
   cublasHandle_t cublasH       = handle.get_cublas_handle();
 
@@ -142,7 +142,7 @@ void svdEig(const raft::handle_t& handle,
             bool gen_left_vec,
             cudaStream_t stream)
 {
-  RAFT_USING_NVTX_RANGE("raft::linalg::svdEig(%d, %d)", n_rows, n_cols);
+  common::nvtx_range fun_scope("raft::linalg::svdEig(%d, %d)", n_rows, n_cols);
   cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
   cublasHandle_t cublasH       = handle.get_cublas_handle();
 
@@ -221,7 +221,7 @@ void svdJacobi(const raft::handle_t& handle,
                int max_sweeps,
                cudaStream_t stream)
 {
-  RAFT_USING_NVTX_RANGE("raft::linalg::svdJacobi(%d, %d)", n_rows, n_cols);
+  common::nvtx_range fun_scope("raft::linalg::svdJacobi(%d, %d)", n_rows, n_cols);
   cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
 
   gesvdjInfo_t gesvdj_params = NULL;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,15 +18,13 @@
 
 #include <rmm/cuda_stream_view.hpp>
 
-namespace raft {
-namespace common {
-namespace detail {
+namespace raft::common::detail {
 
 #ifdef NVTX_ENABLED
 
 #include <nvToolsExt.h>
-#include <stdint.h>
-#include <stdlib.h>
+#include <cstdint>
+#include <cstdlib>
 #include <mutex>
 #include <string>
 #include <unordered_map>
@@ -35,24 +33,24 @@ namespace detail {
  * @brief An internal struct to store associated state with the color
  * generator
  */
-struct ColorGenState {
+struct color_gen_state {
   /** collection of all tagged colors generated so far */
-  static inline std::unordered_map<std::string, uint32_t> allColors;
+  static inline std::unordered_map<std::string, uint32_t> all_colors_;
   /** mutex for accessing the above map */
-  static inline std::mutex mapMutex;
+  static inline std::mutex map_mutex_;
   /** saturation */
-  static inline constexpr float S = 0.9f;
+  static inline constexpr float kS = 0.9f;
   /** value */
-  static inline constexpr float V = 0.85f;
+  static inline constexpr float kV = 0.85f;
   /** golden ratio */
-  static inline constexpr float Phi = 1.61803f;
+  static inline constexpr float kPhi = 1.61803f;
   /** inverse golden ratio */
-  static inline constexpr float InvPhi = 1.f / Phi;
+  static inline constexpr float kInvPhi = 1.f / kPhi;
 };
 
 // all h, s, v are in range [0, 1]
 // Ref: http://en.wikipedia.org/wiki/HSL_and_HSV#Converting_to_RGB
-inline uint32_t hsv2rgb(float h, float s, float v)
+inline auto hsv2rgb(float h, float s, float v) -> uint32_t
 {
   uint32_t out = 0xff000000u;
   if (s <= 0.0f) { return out; }
@@ -60,7 +58,7 @@ inline uint32_t hsv2rgb(float h, float s, float v)
   float h_deg = h * 360.f;
   if (0.f > h_deg || h_deg >= 360.f) h_deg = 0.f;
   h_deg /= 60.f;
-  int h_range = (int)h_deg;
+  int h_range = static_cast<int>(h_deg);
   float h_mod = h_deg - h_range;
   float x     = v * (1.f - s);
   float y     = v * (1.f - (s * h_mod));
@@ -118,85 +116,83 @@ inline uint32_t hsv2rgb(float h, float s, float v)
  * associate the currently generated color with it
  * @return returns 32b RGB integer with alpha channel set of 0xff
  */
-inline uint32_t generateNextColor(const std::string& tag)
+inline auto generate_next_color(const std::string& tag) -> uint32_t
 {
-  // std::unordered_map<std::string, uint32_t> ColorGenState::allColors;
-  // std::mutex ColorGenState::mapMutex;
+  // std::unordered_map<std::string, uint32_t> color_gen_state::all_colors_;
+  // std::mutex color_gen_state::map_mutex_;
 
-  std::lock_guard<std::mutex> guard(ColorGenState::mapMutex);
+  std::lock_guard<std::mutex> guard(color_gen_state::map_mutex_);
   if (!tag.empty()) {
-    auto itr = ColorGenState::allColors.find(tag);
-    if (itr != ColorGenState::allColors.end()) { return itr->second; }
+    auto itr = color_gen_state::all_colors_.find(tag);
+    if (itr != color_gen_state::all_colors_.end()) { return itr->second; }
   }
-  float h = rand() * 1.f / RAND_MAX;
-  h += ColorGenState::InvPhi;
+  auto h = static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
+  h += color_gen_state::kInvPhi;
   if (h >= 1.f) h -= 1.f;
-  auto rgb = hsv2rgb(h, ColorGenState::S, ColorGenState::V);
-  if (!tag.empty()) { ColorGenState::allColors[tag] = rgb; }
+  auto rgb = hsv2rgb(h, color_gen_state::kS, color_gen_state::kV);
+  if (!tag.empty()) { color_gen_state::all_colors_[tag] = rgb; }
   return rgb;
 }
 
 static inline nvtxDomainHandle_t domain = nvtxDomainCreateA("application");
 
-inline void pushRange_name(const char* name)
+inline void push_range_name(const char* name)
 {
-  nvtxEventAttributes_t eventAttrib = {0};
-  eventAttrib.version               = NVTX_VERSION;
-  eventAttrib.size                  = NVTX_EVENT_ATTRIB_STRUCT_SIZE;
-  eventAttrib.colorType             = NVTX_COLOR_ARGB;
-  eventAttrib.color                 = generateNextColor(name);
-  eventAttrib.messageType           = NVTX_MESSAGE_TYPE_ASCII;
-  eventAttrib.message.ascii         = name;
-  nvtxDomainRangePushEx(domain, &eventAttrib);
+  nvtxEventAttributes_t event_attrib = {0};
+  event_attrib.version               = NVTX_VERSION;
+  event_attrib.size                  = NVTX_EVENT_ATTRIB_STRUCT_SIZE;
+  event_attrib.colorType             = NVTX_COLOR_ARGB;
+  event_attrib.color                 = generate_next_color(name);
+  event_attrib.messageType           = NVTX_MESSAGE_TYPE_ASCII;
+  event_attrib.message.ascii         = name;
+  nvtxDomainRangePushEx(domain, &event_attrib);
 }
 
 template <typename... Args>
-inline void pushRange(const char* format, Args... args)
+inline void push_range(const char* format, Args... args)
 {
   if constexpr (sizeof...(args) > 0) {
     int length = std::snprintf(nullptr, 0, format, args...);
     assert(length >= 0);
-    auto buf = std::make_unique<char[]>(length + 1);
-    std::snprintf(buf.get(), length + 1, format, args...);
-    pushRange_name(buf.get());
+    std::vector<char> buf(length + 1);
+    std::snprintf(buf.data(), length + 1, format, args...);
+    push_range_name(buf.data());
   } else {
-    pushRange_name(format);
+    push_range_name(format);
   }
 }
 
 template <typename... Args>
-inline void pushRange(rmm::cuda_stream_view stream, const char* format, Args... args)
+inline void push_range(rmm::cuda_stream_view stream, const char* format, Args... args)
 {
   stream.synchronize();
-  pushRange(format, args...);
+  push_range(format, args...);
 }
 
-inline void popRange() { nvtxDomainRangePop(domain); }
+inline void pop_range() { nvtxDomainRangePop(domain); }
 
-inline void popRange(rmm::cuda_stream_view stream)
+inline void pop_range(rmm::cuda_stream_view stream)
 {
   stream.synchronize();
-  popRange();
+  pop_range();
 }
 
 #else  // NVTX_ENABLED
 
 template <typename... Args>
-inline void pushRange(const char* format, Args... args)
+inline void push_range(const char* format, Args... args)
 {
 }
 
 template <typename... Args>
-inline void pushRange(rmm::cuda_stream_view stream, const char* format, Args... args)
+inline void push_range(rmm::cuda_stream_view stream, const char* format, Args... args)
 {
 }
 
-inline void popRange() {}
+inline void pop_range() {}
 
-inline void popRange(rmm::cuda_stream_view stream) {}
+inline void pop_range(rmm::cuda_stream_view stream) {}
 
 #endif  // NVTX_ENABLED
 
-}  // namespace detail
-}  // namespace common
-}  // namespace raft
+}  // namespace raft::common::detail
