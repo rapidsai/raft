@@ -509,7 +509,7 @@ def _func_build_handle_p2p(sessionId, streams_per_handle, verbose):
         sessionId=sessionId, state_object=worker
     )
 
-    handle = Handle(streams_per_handle)
+    handle = Handle(n_streams=streams_per_handle)
     nccl_comm = raft_comm_state["nccl"]
     eps = raft_comm_state["ucp_eps"]
     nWorkers = raft_comm_state["nworkers"]
@@ -546,7 +546,7 @@ def _func_build_handle(sessionId, streams_per_handle, verbose):
             topic="info", msg="Finished injecting comms on handle."
         )
 
-    handle = Handle(streams_per_handle)
+    handle = Handle(n_streams=streams_per_handle)
 
     raft_comm_state = get_raft_comm_state(
         sessionId=sessionId, state_object=worker

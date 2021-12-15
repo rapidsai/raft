@@ -38,7 +38,7 @@ typedef labelTest MakeMonotonicTest;
 TEST_F(MakeMonotonicTest, Result)
 {
   cudaStream_t stream;
-  CUDA_CHECK(cudaStreamCreate(&stream));
+  RAFT_CUDA_TRY(cudaStreamCreate(&stream));
 
   int m = 12;
 
@@ -55,7 +55,7 @@ TEST_F(MakeMonotonicTest, Result)
 
   make_monotonic(actual.data(), data.data(), m, stream);
 
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
   ASSERT_TRUE(devArrMatch(actual.data(), expected.data(), m, raft::Compare<bool>(), stream));
 
@@ -66,7 +66,7 @@ TEST_F(MakeMonotonicTest, Result)
 TEST(labelTest, Classlabels)
 {
   cudaStream_t stream;
-  CUDA_CHECK(cudaStreamCreate(&stream));
+  RAFT_CUDA_TRY(cudaStreamCreate(&stream));
 
   int n_rows = 6;
   rmm::device_uvector<float> y_d(n_rows, stream);

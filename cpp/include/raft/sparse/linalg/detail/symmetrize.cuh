@@ -24,10 +24,10 @@
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
 
-#include <raft/sparse/op/sort.h>
 #include <thrust/device_ptr.h>
 #include <thrust/scan.h>
 #include <raft/device_atomics.cuh>
+#include <raft/sparse/op/sort.hpp>
 
 #include <cuda_runtime.h>
 #include <stdio.h>
@@ -35,14 +35,15 @@
 #include <algorithm>
 #include <iostream>
 
-#include <raft/sparse/utils.h>
-#include <raft/sparse/convert/csr.cuh>
-#include <raft/sparse/coo.cuh>
-#include <raft/sparse/op/reduce.cuh>
+#include <raft/sparse/detail/utils.h>
+#include <raft/sparse/convert/csr.hpp>
+#include <raft/sparse/coo.hpp>
+#include <raft/sparse/op/reduce.hpp>
 
 namespace raft {
 namespace sparse {
 namespace linalg {
+namespace detail {
 
 // TODO: value_idx param needs to be used for this once FAISS is updated to use float32
 // for indices so that the index types can be uniform
@@ -157,7 +158,7 @@ void coo_symmetrize(COO<T>* in,
                                                             in->n_rows,
                                                             in->nnz,
                                                             reduction_op);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 /**
@@ -172,12 +173,12 @@ void coo_symmetrize(COO<T>* in,
  * @param row_sizes2: Input empty row sum 2 array(n) for faster reduction
  */
 template <typename value_idx = int64_t, typename value_t = float>
-__global__ static void symmetric_find_size(const value_t* restrict data,
-                                           const value_idx* restrict indices,
+__global__ static void symmetric_find_size(const value_t* __restrict__ data,
+                                           const value_idx* __restrict__ indices,
                                            const value_idx n,
                                            const int k,
-                                           value_idx* restrict row_sizes,
-                                           value_idx* restrict row_sizes2)
+                                           value_idx* __restrict__ row_sizes,
+                                           value_idx* __restrict__ row_sizes2)
 {
   const auto row = blockIdx.x * blockDim.x + threadIdx.x;  // for every row
   const auto j   = blockIdx.y * blockDim.y + threadIdx.y;  // for every item in row
@@ -202,8 +203,8 @@ __global__ static void symmetric_find_size(const value_t* restrict data,
 template <typename value_idx>
 __global__ static void reduce_find_size(const value_idx n,
                                         const int k,
-                                        value_idx* restrict row_sizes,
-                                        const value_idx* restrict row_sizes2)
+                                        value_idx* __restrict__ row_sizes,
+                                        const value_idx* __restrict__ row_sizes2)
 {
   const auto i = (blockIdx.x * blockDim.x) + threadIdx.x;
   if (i >= n) return;
@@ -225,12 +226,12 @@ __global__ static void reduce_find_size(const value_idx n,
  * @param k: Number of n_neighbors
  */
 template <typename value_idx = int64_t, typename value_t = float>
-__global__ static void symmetric_sum(value_idx* restrict edges,
-                                     const value_t* restrict data,
-                                     const value_idx* restrict indices,
-                                     value_t* restrict VAL,
-                                     value_idx* restrict COL,
-                                     value_idx* restrict ROW,
+__global__ static void symmetric_sum(value_idx* __restrict__ edges,
+                                     const value_t* __restrict__ data,
+                                     const value_idx* __restrict__ indices,
+                                     value_t* __restrict__ VAL,
+                                     value_idx* __restrict__ COL,
+                                     value_idx* __restrict__ ROW,
                                      const value_idx n,
                                      const int k)
 {
@@ -269,8 +270,8 @@ __global__ static void symmetric_sum(value_idx* restrict edges,
  * @param stream: Input cuda stream
  */
 template <typename value_idx = int64_t, typename value_t = float, int TPB_X = 32, int TPB_Y = 32>
-void from_knn_symmetrize_matrix(const value_idx* restrict knn_indices,
-                                const value_t* restrict knn_dists,
+void from_knn_symmetrize_matrix(const value_idx* __restrict__ knn_indices,
+                                const value_t* __restrict__ knn_dists,
                                 const value_idx n,
                                 const int k,
                                 COO<value_t, value_idx>* out,
@@ -283,18 +284,18 @@ void from_knn_symmetrize_matrix(const value_idx* restrict knn_indices,
 
   // Notice n+1 since we can reuse these arrays for transpose_edges, original_edges in step (4)
   rmm::device_uvector<value_idx> row_sizes(n, stream);
-  CUDA_CHECK(cudaMemsetAsync(row_sizes.data(), 0, sizeof(value_idx) * n, stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(row_sizes.data(), 0, sizeof(value_idx) * n, stream));
 
   rmm::device_uvector<value_idx> row_sizes2(n, stream);
-  CUDA_CHECK(cudaMemsetAsync(row_sizes2.data(), 0, sizeof(value_idx) * n, stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(row_sizes2.data(), 0, sizeof(value_idx) * n, stream));
 
   symmetric_find_size<<<numBlocks, threadsPerBlock, 0, stream>>>(
     knn_dists, knn_indices, n, k, row_sizes.data(), row_sizes2.data());
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   reduce_find_size<<<raft::ceildiv(n, (value_idx)1024), 1024, 0, stream>>>(
     n, k, row_sizes.data(), row_sizes2.data());
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   // (2) Compute final space needed (n*k + sum(row_sizes)) == 2*n*k
   // Notice we don't do any merging and leave the result as 2*NNZ
@@ -317,7 +318,7 @@ void from_knn_symmetrize_matrix(const value_idx* restrict knn_indices,
   // (5) Perform final data + data.T operation in tandem with memcpying
   symmetric_sum<<<numBlocks, threadsPerBlock, 0, stream>>>(
     edges, knn_dists, knn_indices, out->vals(), out->cols(), out->rows(), n, k);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 /**
@@ -361,6 +362,7 @@ void symmetrize(const raft::handle_t& handle,
     handle, out, symm_rows.data(), symm_cols.data(), symm_vals.data(), nnz * 2, m, n);
 }
 
+};  // end NAMESPACE detail
 };  // end NAMESPACE linalg
 };  // end NAMESPACE sparse
 };  // end NAMESPACE raft

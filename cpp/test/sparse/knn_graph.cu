@@ -21,8 +21,8 @@
 #include <rmm/device_uvector.hpp>
 #include "../test_utils.h"
 
-#include <raft/sparse/coo.cuh>
-#include <raft/sparse/selection/knn_graph.cuh>
+#include <raft/sparse/coo.hpp>
+#include <raft/sparse/selection/knn_graph.hpp>
 
 #include <iostream>
 
@@ -88,7 +88,7 @@ class KNNGraphTest : public ::testing::TestWithParam<KNNGraphInputs<value_idx, v
       out->rows(), out->cols(), out->vals(), out->nnz, sum.data());
 
     sum_h = sum.value(stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
   void TearDown() override { delete out; }

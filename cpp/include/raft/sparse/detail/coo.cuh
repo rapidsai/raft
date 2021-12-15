@@ -15,25 +15,14 @@
  */
 
 #include <raft/cudart_utils.h>
-#include <raft/sparse/cusparse_wrappers.h>
-#include <raft/cuda_utils.cuh>
-#include <rmm/device_uvector.hpp>
-
-#include <cusparse_v2.h>
-
-#include <thrust/device_ptr.h>
-#include <thrust/scan.h>
-
-#include <cuda_runtime.h>
-#include <raft/device_atomics.cuh>
-
 #include <iostream>
-#define restrict __restrict__
+#include <rmm/device_uvector.hpp>
 
 #pragma once
 
 namespace raft {
 namespace sparse {
+namespace detail {
 
 /** @brief A Container object for sparse coordinate. There are two motivations
  * behind using a container for COO arrays.
@@ -115,9 +104,11 @@ class COO {
 
   void init_arrays(cudaStream_t stream)
   {
-    CUDA_CHECK(cudaMemsetAsync(this->rows_arr.data(), 0, this->nnz * sizeof(Index_Type), stream));
-    CUDA_CHECK(cudaMemsetAsync(this->cols_arr.data(), 0, this->nnz * sizeof(Index_Type), stream));
-    CUDA_CHECK(cudaMemsetAsync(this->vals_arr.data(), 0, this->nnz * sizeof(T), stream));
+    RAFT_CUDA_TRY(
+      cudaMemsetAsync(this->rows_arr.data(), 0, this->nnz * sizeof(Index_Type), stream));
+    RAFT_CUDA_TRY(
+      cudaMemsetAsync(this->cols_arr.data(), 0, this->nnz * sizeof(Index_Type), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(this->vals_arr.data(), 0, this->nnz * sizeof(T), stream));
   }
 
   ~COO() {}
@@ -167,7 +158,7 @@ class COO {
   {
     if (c.validate_size() && c.validate_mem()) {
       cudaStream_t stream;
-      CUDA_CHECK(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));
+      RAFT_CUDA_TRY(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));
 
       out << raft::arr2Str(c.rows_arr.data(), c.nnz, "rows", stream) << std::endl;
       out << raft::arr2Str(c.cols_arr.data(), c.nnz, "cols", stream) << std::endl;
@@ -176,7 +167,7 @@ class COO {
       out << "n_rows=" << c.n_rows << std::endl;
       out << "n_cols=" << c.n_cols << std::endl;
 
-      CUDA_CHECK(cudaStreamDestroy(stream));
+      RAFT_CUDA_TRY(cudaStreamDestroy(stream));
     } else {
       out << "Cannot print COO object: Uninitialized or invalid." << std::endl;
     }
@@ -247,5 +238,6 @@ class COO {
   }
 };
 
+};  // namespace detail
 };  // namespace sparse
 };  // namespace raft

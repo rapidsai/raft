@@ -31,11 +31,12 @@
 #include <algorithm>
 #include <iostream>
 
-#include <raft/sparse/utils.h>
+#include <raft/sparse/detail/utils.h>
 
 namespace raft {
 namespace sparse {
 namespace op {
+namespace detail {
 
 template <typename T, int TPB_X = 256, typename Lambda = auto(T, T, T)->void>
 __global__ void csr_row_op_kernel(const T* row_ind, T n_rows, T nnz, Lambda op)
@@ -66,9 +67,10 @@ void csr_row_op(const Index_* row_ind, Index_ n_rows, Index_ nnz, Lambda op, cud
   dim3 blk(TPB_X, 1, 1);
   csr_row_op_kernel<Index_, TPB_X><<<grid, blk, 0, stream>>>(row_ind, n_rows, nnz, op);
 
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
+};  // namespace detail
 };  // namespace op
 };  // end NAMESPACE sparse
 };  // end NAMESPACE raft

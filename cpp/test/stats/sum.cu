@@ -62,7 +62,7 @@ class SumTest : public ::testing::TestWithParam<SumInputs<T>> {
 
     raft::update_device(data.data(), data_h, len, stream);
     sum(sum_act.data(), data.data(), cols, rows, false, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
  protected:

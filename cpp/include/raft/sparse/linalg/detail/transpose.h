@@ -32,11 +32,12 @@
 #include <algorithm>
 #include <iostream>
 
-#include <raft/sparse/utils.h>
+#include <raft/sparse/detail/utils.h>
 
 namespace raft {
 namespace sparse {
 namespace linalg {
+namespace detail {
 
 /**
  * Transpose a set of CSR arrays into a set of CSC arrays.
@@ -69,41 +70,42 @@ void csr_transpose(cusparseHandle_t handle,
 {
   size_t convert_csc_workspace_size = 0;
 
-  CUSPARSE_CHECK(raft::sparse::cusparsecsr2csc_bufferSize(handle,
-                                                          csr_nrows,
-                                                          csr_ncols,
-                                                          nnz,
-                                                          csr_data,
-                                                          csr_indptr,
-                                                          csr_indices,
-                                                          csc_data,
-                                                          csc_indptr,
-                                                          csc_indices,
-                                                          CUSPARSE_ACTION_NUMERIC,
-                                                          CUSPARSE_INDEX_BASE_ZERO,
-                                                          CUSPARSE_CSR2CSC_ALG1,
-                                                          &convert_csc_workspace_size,
-                                                          stream));
+  RAFT_CUSPARSE_TRY(raft::sparse::cusparsecsr2csc_bufferSize(handle,
+                                                             csr_nrows,
+                                                             csr_ncols,
+                                                             nnz,
+                                                             csr_data,
+                                                             csr_indptr,
+                                                             csr_indices,
+                                                             csc_data,
+                                                             csc_indptr,
+                                                             csc_indices,
+                                                             CUSPARSE_ACTION_NUMERIC,
+                                                             CUSPARSE_INDEX_BASE_ZERO,
+                                                             CUSPARSE_CSR2CSC_ALG1,
+                                                             &convert_csc_workspace_size,
+                                                             stream));
 
   rmm::device_uvector<char> convert_csc_workspace(convert_csc_workspace_size, stream);
 
-  CUSPARSE_CHECK(raft::sparse::cusparsecsr2csc(handle,
-                                               csr_nrows,
-                                               csr_ncols,
-                                               nnz,
-                                               csr_data,
-                                               csr_indptr,
-                                               csr_indices,
-                                               csc_data,
-                                               csc_indptr,
-                                               csc_indices,
-                                               CUSPARSE_ACTION_NUMERIC,
-                                               CUSPARSE_INDEX_BASE_ZERO,
-                                               CUSPARSE_CSR2CSC_ALG1,
-                                               convert_csc_workspace.data(),
-                                               stream));
+  RAFT_CUSPARSE_TRY(raft::sparse::cusparsecsr2csc(handle,
+                                                  csr_nrows,
+                                                  csr_ncols,
+                                                  nnz,
+                                                  csr_data,
+                                                  csr_indptr,
+                                                  csr_indices,
+                                                  csc_data,
+                                                  csc_indptr,
+                                                  csc_indices,
+                                                  CUSPARSE_ACTION_NUMERIC,
+                                                  CUSPARSE_INDEX_BASE_ZERO,
+                                                  CUSPARSE_CSR2CSC_ALG1,
+                                                  convert_csc_workspace.data(),
+                                                  stream));
 }
 
+};  // end NAMESPACE detail
 };  // end NAMESPACE linalg
 };  // end NAMESPACE sparse
 };  // end NAMESPACE raft

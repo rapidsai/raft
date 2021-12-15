@@ -24,7 +24,7 @@
 #include <raft/linalg/unary_op.cuh>
 #include <rmm/device_uvector.hpp>
 
-#include <raft/sparse/convert/coo.cuh>
+#include <raft/sparse/convert/coo.hpp>
 #include <raft/sparse/distance/detail/coo_spmv.cuh>
 #include <raft/sparse/distance/detail/operators.cuh>
 
@@ -222,7 +222,7 @@ class SparseDistanceCOOSPMVTest
 
     run_spmv();
 
-    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
   }
 
   void compare()

@@ -33,13 +33,14 @@
 #include <cstdio>
 #include <iostream>
 
-#include <raft/sparse/utils.h>
-#include <raft/sparse/coo.cuh>
-#include <raft/sparse/linalg/degree.cuh>
+#include <raft/sparse/detail/utils.h>
+#include <raft/sparse/coo.hpp>
+#include <raft/sparse/linalg/degree.hpp>
 
 namespace raft {
 namespace sparse {
 namespace op {
+namespace detail {
 
 template <int TPB_X, typename T>
 __global__ void coo_remove_scalar_kernel(const int* rows,
@@ -106,18 +107,18 @@ void coo_remove_scalar(const int* rows,
   rmm::device_uvector<int> ex_scan(n, stream);
   rmm::device_uvector<int> cur_ex_scan(n, stream);
 
-  CUDA_CHECK(cudaMemsetAsync(ex_scan.data(), 0, n * sizeof(int), stream));
-  CUDA_CHECK(cudaMemsetAsync(cur_ex_scan.data(), 0, n * sizeof(int), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(ex_scan.data(), 0, n * sizeof(int), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(cur_ex_scan.data(), 0, n * sizeof(int), stream));
 
   thrust::device_ptr<int> dev_cnnz    = thrust::device_pointer_cast(cnnz);
   thrust::device_ptr<int> dev_ex_scan = thrust::device_pointer_cast(ex_scan.data());
   thrust::exclusive_scan(rmm::exec_policy(stream), dev_cnnz, dev_cnnz + n, dev_ex_scan);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   thrust::device_ptr<int> dev_cur_cnnz    = thrust::device_pointer_cast(cur_cnnz);
   thrust::device_ptr<int> dev_cur_ex_scan = thrust::device_pointer_cast(cur_ex_scan.data());
   thrust::exclusive_scan(rmm::exec_policy(stream), dev_cur_cnnz, dev_cur_cnnz + n, dev_cur_ex_scan);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   dim3 grid(raft::ceildiv(n, TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
@@ -133,7 +134,7 @@ void coo_remove_scalar(const int* rows,
                                                             dev_cur_ex_scan.get(),
                                                             n,
                                                             scalar);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 /**
@@ -150,15 +151,14 @@ void coo_remove_scalar(COO<T>* in, COO<T>* out, T scalar, cudaStream_t stream)
   rmm::device_uvector<int> row_count_nz(in->n_rows, stream);
   rmm::device_uvector<int> row_count(in->n_rows, stream);
 
-  CUDA_CHECK(cudaMemsetAsync(row_count_nz.data(), 0, in->n_rows * sizeof(int), stream));
-  CUDA_CHECK(cudaMemsetAsync(row_count.data(), 0, in->n_rows * sizeof(int), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(row_count_nz.data(), 0, in->n_rows * sizeof(int), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(row_count.data(), 0, in->n_rows * sizeof(int), stream));
 
-  linalg::coo_degree<TPB_X>(in->rows(), in->nnz, row_count.data(), stream);
-  CUDA_CHECK(cudaPeekAtLastError());
+  linalg::coo_degree(in->rows(), in->nnz, row_count.data(), stream);
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 
-  linalg::coo_degree_scalar<TPB_X>(
-    in->rows(), in->vals(), in->nnz, scalar, row_count_nz.data(), stream);
-  CUDA_CHECK(cudaPeekAtLastError());
+  linalg::coo_degree_scalar(in->rows(), in->vals(), in->nnz, scalar, row_count_nz.data(), stream);
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   thrust::device_ptr<int> d_row_count_nz = thrust::device_pointer_cast(row_count_nz.data());
   int out_nnz =
@@ -178,7 +178,7 @@ void coo_remove_scalar(COO<T>* in, COO<T>* out, T scalar, cudaStream_t stream)
                               scalar,
                               in->n_rows,
                               stream);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 /**
@@ -194,6 +194,7 @@ void coo_remove_zeros(COO<T>* in, COO<T>* out, cudaStream_t stream)
   coo_remove_scalar<TPB_X, T>(in, out, T(0.0), stream);
 }
 
+};  // namespace detail
 };  // namespace op
 };  // end NAMESPACE sparse
 };  // end NAMESPACE raft

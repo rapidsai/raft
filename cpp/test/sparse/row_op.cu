@@ -16,8 +16,8 @@
 
 #include <gtest/gtest.h>
 
-#include <raft/sparse/csr.cuh>
-#include <raft/sparse/op/row_op.cuh>
+#include <raft/sparse/csr.hpp>
+#include <raft/sparse/op/row_op.hpp>
 
 #include <raft/cudart_utils.h>
 #include <raft/random/rng.hpp>
@@ -41,7 +41,7 @@ template <typename Type_f, typename Index_>
 void csr_row_op_wrapper(
   const Index_* row_ind, Index_ n_rows, Index_ nnz, Type_f* result, cudaStream_t stream)
 {
-  op::csr_row_op<Index_, 32>(
+  op::csr_row_op<Index_>(
     row_ind,
     n_rows,
     nnz,
@@ -78,8 +78,8 @@ class CSRRowOpTest : public ::testing::TestWithParam<CSRRowOpInputs<Type_f, Inde
 
     csr_row_op_wrapper<Type_f, Index_>(ex_scan.data(), n_rows, nnz, result.data(), stream);
 
-    ASSERT_TRUE(
-      raft::devArrMatch<Type_f>(verify.data(), result.data(), nnz, raft::Compare<Type_f>()));
+    ASSERT_TRUE(raft::devArrMatch<Type_f>(
+      verify.data(), result.data(), nnz, raft::Compare<Type_f>(), stream));
   }
 
  protected:

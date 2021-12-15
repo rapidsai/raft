@@ -36,7 +36,7 @@ void naiveSubtractElem(Type* out, const Type* in1, const Type* in2, int len, cud
   static const int TPB = 64;
   int nblks            = raft::ceildiv(len, TPB);
   naiveSubtractElemKernel<Type><<<nblks, TPB, 0, stream>>>(out, in1, in2, len);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 template <typename Type>
@@ -52,7 +52,7 @@ void naiveSubtractScalar(Type* out, const Type* in1, const Type in2, int len, cu
   static const int TPB = 64;
   int nblks            = raft::ceildiv(len, TPB);
   naiveSubtractScalarKernel<Type><<<nblks, TPB, 0, stream>>>(out, in1, in2, len);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 template <typename T>
@@ -96,7 +96,7 @@ class SubtractTest : public ::testing::TestWithParam<SubtractInputs<T>> {
     subtractScalar(out.data(), out.data(), T(1), len, stream);
     subtract(in1.data(), in1.data(), in2.data(), len, stream);
     subtractScalar(in1.data(), in1.data(), T(1), len, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
  protected:

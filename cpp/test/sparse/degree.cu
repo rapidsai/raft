@@ -19,7 +19,7 @@
 #include <raft/random/rng.hpp>
 #include "../test_utils.h"
 
-#include <raft/sparse/linalg/degree.cuh>
+#include <raft/sparse/linalg/degree.hpp>
 
 #include <iostream>
 
@@ -57,18 +57,18 @@ TEST_P(COODegree, Result)
   rmm::device_uvector<int> in_rows(5, stream);
   rmm::device_uvector<int> verify(5, stream);
   rmm::device_uvector<int> results(5, stream);
-  CUDA_CHECK(cudaMemsetAsync(verify.data(), 0, verify.size() * sizeof(int), stream));
-  CUDA_CHECK(cudaMemsetAsync(results.data(), 0, results.size() * sizeof(int), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(verify.data(), 0, verify.size() * sizeof(int), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(results.data(), 0, results.size() * sizeof(int), stream));
 
   raft::update_device(in_rows.data(), *&in_rows_h, 5, stream);
   raft::update_device(verify.data(), *&verify_h, 5, stream);
 
-  linalg::coo_degree<32>(in_rows.data(), 5, results.data(), stream);
+  linalg::coo_degree(in_rows.data(), 5, results.data(), stream);
   cudaDeviceSynchronize();
 
   ASSERT_TRUE(raft::devArrMatch<int>(verify.data(), results.data(), 5, raft::Compare<int>()));
 
-  CUDA_CHECK(cudaStreamDestroy(stream));
+  RAFT_CUDA_TRY(cudaStreamDestroy(stream));
 }
 
 typedef SparseDegreeTests<float> COODegreeNonzero;
@@ -85,20 +85,20 @@ TEST_P(COODegreeNonzero, Result)
   rmm::device_uvector<int> verify(5, stream);
   rmm::device_uvector<int> results(5, stream);
   rmm::device_uvector<float> in_vals(5, stream);
-  CUDA_CHECK(cudaMemsetAsync(verify.data(), 0, verify.size() * sizeof(int), stream));
-  CUDA_CHECK(cudaMemsetAsync(results.data(), 0, results.size() * sizeof(int), stream));
-  CUDA_CHECK(cudaMemsetAsync(in_vals.data(), 0, in_vals.size() * sizeof(float), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(verify.data(), 0, verify.size() * sizeof(int), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(results.data(), 0, results.size() * sizeof(int), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(in_vals.data(), 0, in_vals.size() * sizeof(float), stream));
 
   raft::update_device(in_rows.data(), *&in_rows_h, 5, stream);
   raft::update_device(verify.data(), *&verify_h, 5, stream);
   raft::update_device(in_vals.data(), *&in_vals_h, 5, stream);
 
-  linalg::coo_degree_nz<32, float>(in_rows.data(), in_vals.data(), 5, results.data(), stream);
+  linalg::coo_degree_nz<float>(in_rows.data(), in_vals.data(), 5, results.data(), stream);
   cudaDeviceSynchronize();
 
   ASSERT_TRUE(raft::devArrMatch<int>(verify.data(), results.data(), 5, raft::Compare<int>()));
 
-  CUDA_CHECK(cudaStreamDestroy(stream));
+  RAFT_CUDA_TRY(cudaStreamDestroy(stream));
 }
 
 INSTANTIATE_TEST_CASE_P(SparseDegreeTests, COODegree, ::testing::ValuesIn(inputsf));

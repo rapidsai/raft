@@ -20,8 +20,8 @@
 #include <iostream>
 #include <limits>
 #include <raft/handle.hpp>
-#include <raft/sparse/coo.cuh>
-#include <raft/sparse/op/reduce.cuh>
+#include <raft/sparse/coo.hpp>
+#include <raft/sparse/op/reduce.hpp>
 #include <rmm/device_uvector.hpp>
 #include "../test_utils.h"
 
@@ -78,7 +78,7 @@ class SparseReduceTest : public ::testing::TestWithParam<SparseReduceInputs<valu
                                      params.in_rows.size(),
                                      params.m,
                                      params.n);
-
+    CUDA_CHECK(cudaStreamSynchronize(stream));
     ASSERT_TRUE(raft::devArrMatch<value_idx>(
       out_rows.data(), out.rows(), out.nnz, raft::Compare<value_idx>()));
     ASSERT_TRUE(raft::devArrMatch<value_idx>(
