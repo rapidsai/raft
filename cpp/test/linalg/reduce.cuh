@@ -17,10 +17,14 @@
 #pragma once
 
 #include <cublas_v2.h>
+
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/unary_op.cuh>
+
 #include <rmm/device_uvector.hpp>
+
+#include <thrust/device_ptr.h>
 
 namespace raft {
 namespace linalg {

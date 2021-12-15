@@ -67,7 +67,7 @@ struct CompareApproxAbs {
 };
 
 template <typename T>
-T abs(const T& a)
+__host__ __device__ T abs(const T& a)
 {
   return a > T(0) ? a : -a;
 }
