@@ -218,7 +218,25 @@ const std::vector<RngInputs<float>> inputsf = {
   {0.0125, 32 * 1024, 1.f, 1.f, RNG_Rayleigh, GenPhilox, 1234ULL},
   {0.025, 8 * 1024, 1.f, 1.f, RNG_Rayleigh, GenPhilox, 1234ULL},
   {0.02, 32 * 1024, 1.f, 1.f, RNG_Laplace, GenPhilox, 1234ULL},
-  {0.04, 8 * 1024, 1.f, 1.f, RNG_Laplace, GenPhilox, 1234ULL}};
+  {0.04, 8 * 1024, 1.f, 1.f, RNG_Laplace, GenPhilox, 1234ULL},
+
+  {0.0055, 32 * 1024, 1.f, 1.f, RNG_Normal, GenPC, 1234ULL},
+  {0.011, 8 * 1024, 1.f, 1.f, RNG_Normal, GenPC, 1234ULL},
+  {0.05, 32 * 1024, 1.f, 1.f, RNG_LogNormal, GenPC, 1234ULL},
+  {0.1, 8 * 1024, 1.f, 1.f, RNG_LogNormal, GenPC, 1234ULL},
+  {0.003, 32 * 1024, -1.f, 1.f, RNG_Uniform, GenPC, 1234ULL},
+  {0.005, 8 * 1024, -1.f, 1.f, RNG_Uniform, GenPC, 1234ULL},
+  {0.005, 32 * 1024, 1.f, 1.f, RNG_Gumbel, GenPC, 1234ULL},
+  {0.01, 8 * 1024, 1.f, 1.f, RNG_Gumbel, GenPC, 1234ULL},
+  {0.005, 32 * 1024, 1.f, 1.f, RNG_Logistic, GenPC, 1234ULL},
+  {0.01, 8 * 1024, 1.f, 1.f, RNG_Logistic, GenPC, 1234ULL},
+  {0.008, 32 * 1024, 1.f, 1.f, RNG_Exp, GenPC, 1234ULL},
+  {0.015, 8 * 1024, 1.f, 1.f, RNG_Exp, GenPC, 1234ULL},
+  {0.0125, 32 * 1024, 1.f, 1.f, RNG_Rayleigh, GenPC, 1234ULL},
+  {0.025, 8 * 1024, 1.f, 1.f, RNG_Rayleigh, GenPC, 1234ULL},
+  {0.02, 32 * 1024, 1.f, 1.f, RNG_Laplace, GenPC, 1234ULL},
+  {0.04, 8 * 1024, 1.f, 1.f, RNG_Laplace, GenPC, 1234ULL}
+};
 
 TEST_P(RngTestF, Result)
 {
@@ -246,7 +264,25 @@ const std::vector<RngInputs<double>> inputsd = {
   {0.0125, 32 * 1024, 1.0, 1.0, RNG_Rayleigh, GenPhilox, 1234ULL},
   {0.025, 8 * 1024, 1.0, 1.0, RNG_Rayleigh, GenPhilox, 1234ULL},
   {0.02, 32 * 1024, 1.0, 1.0, RNG_Laplace, GenPhilox, 1234ULL},
-  {0.04, 8 * 1024, 1.0, 1.0, RNG_Laplace, GenPhilox, 1234ULL}};
+  {0.04, 8 * 1024, 1.0, 1.0, RNG_Laplace, GenPhilox, 1234ULL},
+
+  {0.0055, 32 * 1024, 1.0, 1.0, RNG_Normal, GenPC, 1234ULL},
+  {0.011, 8 * 1024, 1.0, 1.0, RNG_Normal, GenPC, 1234ULL},
+  {0.05, 32 * 1024, 1.0, 1.0, RNG_LogNormal, GenPC, 1234ULL},
+  {0.1, 8 * 1024, 1.0, 1.0, RNG_LogNormal, GenPC, 1234ULL},
+  {0.003, 32 * 1024, -1.0, 1.0, RNG_Uniform, GenPC, 1234ULL},
+  {0.005, 8 * 1024, -1.0, 1.0, RNG_Uniform, GenPC, 1234ULL},
+  {0.005, 32 * 1024, 1.0, 1.0, RNG_Gumbel, GenPC, 1234ULL},
+  {0.01, 8 * 1024, 1.0, 1.0, RNG_Gumbel, GenPC, 1234ULL},
+  {0.005, 32 * 1024, 1.0, 1.0, RNG_Logistic, GenPC, 1234ULL},
+  {0.01, 8 * 1024, 1.0, 1.0, RNG_Logistic, GenPC, 1234ULL},
+  {0.008, 32 * 1024, 1.0, 1.0, RNG_Exp, GenPC, 1234ULL},
+  {0.015, 8 * 1024, 1.0, 1.0, RNG_Exp, GenPC, 1234ULL},
+  {0.0125, 32 * 1024, 1.0, 1.0, RNG_Rayleigh, GenPC, 1234ULL},
+  {0.025, 8 * 1024, 1.0, 1.0, RNG_Rayleigh, GenPC, 1234ULL},
+  {0.02, 32 * 1024, 1.0, 1.0, RNG_Laplace, GenPC, 1234ULL},
+  {0.04, 8 * 1024, 1.0, 1.0, RNG_Laplace, GenPC, 1234ULL}
+};
 
 TEST_P(RngTestD, Result)
 {
@@ -314,7 +350,7 @@ TEST(Rng, MeanError)
   rmm::device_uvector<float> mean_result(num_experiments, stream);
   rmm::device_uvector<float> std_result(num_experiments, stream);
 
-  for (auto rtype : {GenPhilox}) {
+  for (auto rtype : {GenPhilox, GenPC}) {
     Rng r(seed, rtype);
     r.normal(data.data(), len, 3.3f, 0.23f, stream);
     // r.uniform(data, len, -1.0, 2.0);
@@ -492,7 +528,11 @@ class RngNormalTableTest : public ::testing::TestWithParam<RngNormalTableInputs<
 typedef RngNormalTableTest<float> RngNormalTableTestF;
 const std::vector<RngNormalTableInputs<float>> inputsf_t = {
   {0.0055, 32, 1024, 1.f, 1.f, GenPhilox, 1234ULL},
-  {0.011, 8, 1024, 1.f, 1.f, GenPhilox, 1234ULL}};
+  {0.011, 8, 1024, 1.f, 1.f, GenPhilox, 1234ULL},
+
+  {0.0055, 32, 1024, 1.f, 1.f, GenPC, 1234ULL},
+  {0.011, 8, 1024, 1.f, 1.f, GenPC, 1234ULL}
+};
 
 TEST_P(RngNormalTableTestF, Result)
 {
@@ -506,7 +546,11 @@ INSTANTIATE_TEST_SUITE_P(RngNormalTableTests, RngNormalTableTestF, ::testing::Va
 typedef RngNormalTableTest<double> RngNormalTableTestD;
 const std::vector<RngNormalTableInputs<double>> inputsd_t = {
   {0.0055, 32, 1024, 1.0, 1.0, GenPhilox, 1234ULL},
-  {0.011, 8, 1024, 1.0, 1.0, GenPhilox, 1234ULL}};
+  {0.011, 8, 1024, 1.0, 1.0, GenPhilox, 1234ULL},
+
+  {0.0055, 32, 1024, 1.0, 1.0, GenPC, 1234ULL},
+  {0.011, 8, 1024, 1.0, 1.0, GenPC, 1234ULL}
+};
 TEST_P(RngNormalTableTestD, Result)
 {
   double meanvar[2];
