@@ -16,45 +16,50 @@
 
 #pragma once
 
-#include "detail/rng_impl.cuh"
-#include <random>
-#include <raft/handle.hpp>
-#include <raft/common/scatter.cuh>
 #include <raft/common/cub_wrappers.cuh>
+#include <raft/common/scatter.cuh>
+#include <raft/handle.hpp>
+#include <random>
 #include <rmm/device_uvector.hpp>
+#include "detail/rng_impl.cuh"
 
 namespace raft {
 namespace random {
 
-template <typename OutType, typename LenType, typename GenType,
-          int ITEMS_PER_CALL, typename ParamType>
-__global__ void fillKernel(uint64_t seed, uint64_t offset, OutType *ptr, LenType len,
-                           ParamType params) {
+template <typename OutType,
+          typename LenType,
+          typename GenType,
+          int ITEMS_PER_CALL,
+          typename ParamType>
+__global__ void fillKernel(
+  uint64_t seed, uint64_t offset, OutType* ptr, LenType len, ParamType params)
+{
   LenType tid = threadIdx.x + blockIdx.x * blockDim.x;
   GenType gen(seed, (uint64_t)tid, offset);
   const LenType stride = gridDim.x * blockDim.x;
   for (LenType idx = tid; idx < len; idx += stride * ITEMS_PER_CALL) {
     OutType val[ITEMS_PER_CALL];
     custom_next(gen, val, params, idx, stride);
-    #pragma unroll
+#pragma unroll
     for (int i = 0; i < ITEMS_PER_CALL; i++) {
-      if ((idx + i * stride) < len) ptr[idx + i * stride] = val[i]; 
+      if ((idx + i * stride) < len) ptr[idx + i * stride] = val[i];
     }
   }
   return;
 }
 
 class Rng {
-public:
-  Rng(uint64_t _s, GeneratorType _t = GenPhilox) 
+ public:
+  Rng(uint64_t _s, GeneratorType _t = GenPhilox)
     : seed(_s),
       type(_t),
       offset(0),
       // simple heuristic to make sure all SMs will be occupied properly
       // and also not too many initialization calls will be made by each thread
       nBlocks(4 * getMultiProcessorCount()),
-      mt_gen() {
-      set_seed(_s);
+      mt_gen()
+  {
+    set_seed(_s);
   }
 
   /**
@@ -64,9 +69,10 @@ public:
    *       function of timestamp. Another example is to use the c++11's
    *       `std::random_device` for setting seed.
    */
-  void set_seed(uint64_t _s) {
+  void set_seed(uint64_t _s)
+  {
     mt_gen.seed(_s);
-    seed = mt_gen();
+    seed   = mt_gen();
     offset = 0;
   }
 
@@ -81,7 +87,8 @@ public:
    * @param[out] b intercept parameter
    */
   template <typename IdxT>
-  void affine_transform_params(IdxT n, IdxT &a, IdxT &b) {
+  void affine_transform_params(IdxT n, IdxT& a, IdxT& b)
+  {
     // always keep 'a' to be coprime to 'n'
     a = mt_gen() % n;
     while (gcd(a, n) != 1) {
@@ -104,37 +111,35 @@ public:
    * @{
    */
   template <typename OutType, typename LenType = int>
-  void uniform(OutType *ptr, LenType len, OutType start, OutType end,
-                  cudaStream_t stream) {
+  void uniform(OutType* ptr, LenType len, OutType start, OutType end, cudaStream_t stream)
+  {
     static_assert(std::is_floating_point<OutType>::value,
                   "Type for 'uniform' can only be floating point!");
     UniformDistParams<OutType> params;
     params.start = start;
-    params.end = end;
-    kernel_dispatch<OutType, LenType, 1, UniformDistParams<OutType>>(
-      ptr, len, stream, params);
-
+    params.end   = end;
+    kernel_dispatch<OutType, LenType, 1, UniformDistParams<OutType>>(ptr, len, stream, params);
   }
 
   template <typename OutType, typename LenType = int>
-  void uniformInt(OutType *ptr, LenType len, OutType start, OutType end, cudaStream_t stream) {
-    static_assert(std::is_integral<OutType>::value,
-                  "Type for 'uniformInt' can only be integer!");
+  void uniformInt(OutType* ptr, LenType len, OutType start, OutType end, cudaStream_t stream)
+  {
+    static_assert(std::is_integral<OutType>::value, "Type for 'uniformInt' can only be integer!");
     ASSERT(end > start, "'end' must be greater than 'start'");
     if (sizeof(OutType) == 4) {
       UniformIntDistParams<OutType, uint32_t> params;
       params.start = start;
-      params.end = end;
-      params.diff = uint32_t(params.end - params.start);
-      kernel_dispatch<OutType, LenType, 1, UniformIntDistParams<OutType, uint32_t>>
-        (ptr, len, stream, params);
+      params.end   = end;
+      params.diff  = uint32_t(params.end - params.start);
+      kernel_dispatch<OutType, LenType, 1, UniformIntDistParams<OutType, uint32_t>>(
+        ptr, len, stream, params);
     } else {
       UniformIntDistParams<OutType, uint64_t> params;
       params.start = start;
-      params.end = end;
-      params.diff = uint64_t(params.end - params.start);
-      kernel_dispatch<OutType, LenType, 1, UniformIntDistParams<OutType, uint64_t>>
-        (ptr, len, stream, params);
+      params.end   = end;
+      params.diff  = uint64_t(params.end - params.start);
+      kernel_dispatch<OutType, LenType, 1, UniformIntDistParams<OutType, uint64_t>>(
+        ptr, len, stream, params);
     }
   }
   /** @} */
@@ -151,26 +156,24 @@ public:
    * @{
    */
   template <typename OutType, typename LenType = int>
-  void normal(OutType *ptr, LenType len, OutType mu, OutType sigma, cudaStream_t stream) {
+  void normal(OutType* ptr, LenType len, OutType mu, OutType sigma, cudaStream_t stream)
+  {
     static_assert(std::is_floating_point<OutType>::value,
                   "Type for 'normal' can only be floating point!");
     NormalDistParams<OutType> params;
-    params.mu = mu;
+    params.mu    = mu;
     params.sigma = sigma;
-    kernel_dispatch<OutType, LenType, 2, NormalDistParams<OutType>>
-      (ptr, len, stream, params);
+    kernel_dispatch<OutType, LenType, 2, NormalDistParams<OutType>>(ptr, len, stream, params);
   }
 
   template <typename IntType, typename LenType = int>
-  void normalInt(IntType *ptr, LenType len, IntType mu, IntType sigma,
-                 cudaStream_t stream) {
-  static_assert(std::is_integral<IntType>::value,
-                  "Type for 'normalInt' can only be integer!");
+  void normalInt(IntType* ptr, LenType len, IntType mu, IntType sigma, cudaStream_t stream)
+  {
+    static_assert(std::is_integral<IntType>::value, "Type for 'normalInt' can only be integer!");
     NormalIntDistParams<IntType> params;
-    params.mu = mu;
+    params.mu    = mu;
     params.sigma = sigma;
-    kernel_dispatch<IntType, LenType, 2, NormalIntDistParams<IntType>>
-      (ptr, len, stream, params);
+    kernel_dispatch<IntType, LenType, 2, NormalIntDistParams<IntType>>(ptr, len, stream, params);
   }
   /** @} */
 
@@ -195,17 +198,23 @@ public:
    * @param stream stream where to launch the kernel
    */
   template <typename OutType, typename LenType = int>
-  void normalTable(OutType *ptr, LenType n_rows, LenType n_cols, const OutType *mu_vec,
-                   const OutType *sigma_vec, OutType sigma, cudaStream_t stream) {
+  void normalTable(OutType* ptr,
+                   LenType n_rows,
+                   LenType n_cols,
+                   const OutType* mu_vec,
+                   const OutType* sigma_vec,
+                   OutType sigma,
+                   cudaStream_t stream)
+  {
     NormalTableDistParams<OutType, LenType> params;
-    params.n_rows = n_rows;
-    params.n_cols = n_cols;
-    params.mu_vec = mu_vec;
-    params.sigma = sigma;
+    params.n_rows    = n_rows;
+    params.n_cols    = n_cols;
+    params.mu_vec    = mu_vec;
+    params.sigma     = sigma;
     params.sigma_vec = sigma_vec;
-    LenType len = n_rows * n_cols;
-    kernel_dispatch<OutType, LenType, 2, NormalTableDistParams<OutType, LenType>>
-      (ptr, len, stream, params);
+    LenType len      = n_rows * n_cols;
+    kernel_dispatch<OutType, LenType, 2, NormalTableDistParams<OutType, LenType>>(
+      ptr, len, stream, params);
   }
 
   /**
@@ -218,11 +227,11 @@ public:
    * @param stream stream where to launch the kernel
    */
   template <typename OutType, typename LenType = int>
-  void fill(OutType *ptr, LenType len, OutType val, cudaStream_t stream) {
+  void fill(OutType* ptr, LenType len, OutType val, cudaStream_t stream)
+  {
     InvariantDistParams<OutType> params;
     params.const_val = val;
-    kernel_dispatch<OutType, LenType, 1, InvariantDistParams<OutType>>(
-      ptr, len, stream, params);
+    kernel_dispatch<OutType, LenType, 1, InvariantDistParams<OutType>>(ptr, len, stream, params);
   }
 
   /**
@@ -236,13 +245,13 @@ public:
    * @param[in]  len    the number of elements in the output
    * @param[in]  prob   coin-toss probability for heads
    * @param[in]  stream stream where to launch the kernel
-   */  
+   */
   template <typename Type, typename OutType = bool, typename LenType = int>
-  void bernoulli(OutType *ptr, LenType len, Type prob, cudaStream_t stream) {
+  void bernoulli(OutType* ptr, LenType len, Type prob, cudaStream_t stream)
+  {
     BernoulliDistParams<Type> params;
     params.prob = prob;
-    kernel_dispatch<OutType, LenType, 1, BernoulliDistParams<Type>>
-      (ptr, len, stream, params);
+    kernel_dispatch<OutType, LenType, 1, BernoulliDistParams<Type>>(ptr, len, stream, params);
   }
 
   /**
@@ -256,14 +265,15 @@ public:
    * @param stream stream where to launch the kernel
    */
   template <typename OutType, typename LenType = int>
-  void scaled_bernoulli(OutType *ptr, LenType len, OutType prob, OutType scale, cudaStream_t stream) {
+  void scaled_bernoulli(OutType* ptr, LenType len, OutType prob, OutType scale, cudaStream_t stream)
+  {
     static_assert(std::is_floating_point<OutType>::value,
                   "Type for 'scaled_bernoulli' can only be floating point!");
     ScaledBernoulliDistParams<OutType> params;
-    params.prob = prob;
+    params.prob  = prob;
     params.scale = scale;
-    kernel_dispatch<OutType, LenType, 1, ScaledBernoulliDistParams<OutType>>
-      (ptr, len, stream, params);
+    kernel_dispatch<OutType, LenType, 1, ScaledBernoulliDistParams<OutType>>(
+      ptr, len, stream, params);
   }
 
   /**
@@ -278,14 +288,13 @@ public:
    * @note https://en.wikipedia.org/wiki/Gumbel_distribution
    */
   template <typename OutType, typename LenType = int>
-  void gumbel(OutType *ptr, LenType len, OutType mu, OutType beta, cudaStream_t stream) {
+  void gumbel(OutType* ptr, LenType len, OutType mu, OutType beta, cudaStream_t stream)
+  {
     GumbelDistParams<OutType> params;
-    params.mu = mu;
+    params.mu   = mu;
     params.beta = beta;
-    kernel_dispatch<OutType, LenType, 1, GumbelDistParams<OutType>>
-      (ptr, len, stream, params);
+    kernel_dispatch<OutType, LenType, 1, GumbelDistParams<OutType>>(ptr, len, stream, params);
   }
-
 
   /**
    * @brief Generate lognormal distributed numbers
@@ -298,12 +307,12 @@ public:
    * @param stream stream where to launch the kernel
    */
   template <typename OutType, typename LenType = int>
-  void lognormal(OutType *ptr, LenType len, OutType mu, OutType sigma, cudaStream_t stream) {
+  void lognormal(OutType* ptr, LenType len, OutType mu, OutType sigma, cudaStream_t stream)
+  {
     LogNormalDistParams<OutType> params;
-    params.mu = mu;
+    params.mu    = mu;
     params.sigma = sigma;
-    kernel_dispatch<OutType, LenType, 2, LogNormalDistParams<OutType>>
-      (ptr, len, stream, params);
+    kernel_dispatch<OutType, LenType, 2, LogNormalDistParams<OutType>>(ptr, len, stream, params);
   }
 
   /**
@@ -317,12 +326,12 @@ public:
    * @param stream stream where to launch the kernel
    */
   template <typename OutType, typename LenType = int>
-  void logistic(OutType *ptr, LenType len, OutType mu, OutType scale, cudaStream_t stream) {
+  void logistic(OutType* ptr, LenType len, OutType mu, OutType scale, cudaStream_t stream)
+  {
     LogisticDistParams<OutType> params;
-    params.mu = mu;
+    params.mu    = mu;
     params.scale = scale;
-    kernel_dispatch<OutType, LenType, 1, LogisticDistParams<OutType>>
-      (ptr, len, stream, params);
+    kernel_dispatch<OutType, LenType, 1, LogisticDistParams<OutType>>(ptr, len, stream, params);
   }
 
   /**
@@ -335,11 +344,11 @@ public:
    * @param stream stream where to launch the kernel
    */
   template <typename OutType, typename LenType = int>
-  void exponential(OutType *ptr, LenType len, OutType lambda, cudaStream_t stream) {
+  void exponential(OutType* ptr, LenType len, OutType lambda, cudaStream_t stream)
+  {
     ExponentialDistParams<OutType> params;
     params.lambda = lambda;
-    kernel_dispatch<OutType, LenType, 1, ExponentialDistParams<OutType>>
-      (ptr, len, stream, params);
+    kernel_dispatch<OutType, LenType, 1, ExponentialDistParams<OutType>>(ptr, len, stream, params);
   }
 
   /**
@@ -352,11 +361,11 @@ public:
    * @param stream stream where to launch the kernel
    */
   template <typename OutType, typename LenType = int>
-  void rayleigh(OutType *ptr, LenType len, OutType sigma, cudaStream_t stream) {
+  void rayleigh(OutType* ptr, LenType len, OutType sigma, cudaStream_t stream)
+  {
     RayleighDistParams<OutType> params;
     params.sigma = sigma;
-    kernel_dispatch<OutType, LenType, 1, RayleighDistParams<OutType>>
-      (ptr, len, stream, params);
+    kernel_dispatch<OutType, LenType, 1, RayleighDistParams<OutType>>(ptr, len, stream, params);
   }
 
   /**
@@ -370,17 +379,17 @@ public:
    * @param stream stream where to launch the kernel
    */
   template <typename OutType, typename LenType = int>
-  void laplace(OutType *ptr, LenType len, OutType mu, OutType scale, cudaStream_t stream) {
+  void laplace(OutType* ptr, LenType len, OutType mu, OutType scale, cudaStream_t stream)
+  {
     LaplaceDistParams<OutType> params;
-    params.mu = mu;
+    params.mu    = mu;
     params.scale = scale;
-    kernel_dispatch<OutType, LenType, 1, LaplaceDistParams<OutType>>
-      (ptr, len, stream, params);
+    kernel_dispatch<OutType, LenType, 1, LaplaceDistParams<OutType>>(ptr, len, stream, params);
   }
 
   template <typename OutType, typename LenType, int ITEMS_PER_CALL, typename ParamType>
-  void kernel_dispatch(OutType* ptr, LenType len,
-                       cudaStream_t stream, ParamType params) {
+  void kernel_dispatch(OutType* ptr, LenType len, cudaStream_t stream, ParamType params)
+  {
     switch (type) {
       case GenPhilox:
         fillKernel<OutType, LenType, PhiloxGenerator, ITEMS_PER_CALL>
@@ -390,8 +399,7 @@ public:
         fillKernel<OutType, LenType, PCGenerator, ITEMS_PER_CALL>
           <<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr, len, params);
         break;
-      default:
-        break;
+      default: break;
     }
     seed = mt_gen();
     return;
@@ -423,33 +431,36 @@ public:
    * @param stream cuda stream
    */
   template <typename DataT, typename WeightsT, typename IdxT = int>
-  void sampleWithoutReplacement(const raft::handle_t &handle, DataT *out,
-                                IdxT *outIdx, const DataT *in,
-                                const WeightsT *wts, IdxT sampledLen, IdxT len,
-                                cudaStream_t stream) {
-    ASSERT(sampledLen <= len,
-           "sampleWithoutReplacement: 'sampledLen' cant be more than 'len'.");
+  void sampleWithoutReplacement(const raft::handle_t& handle,
+                                DataT* out,
+                                IdxT* outIdx,
+                                const DataT* in,
+                                const WeightsT* wts,
+                                IdxT sampledLen,
+                                IdxT len,
+                                cudaStream_t stream)
+  {
+    ASSERT(sampledLen <= len, "sampleWithoutReplacement: 'sampledLen' cant be more than 'len'.");
 
     rmm::device_uvector<WeightsT> expWts(len, stream);
     rmm::device_uvector<WeightsT> sortedWts(len, stream);
     rmm::device_uvector<IdxT> inIdx(len, stream);
     rmm::device_uvector<IdxT> outIdxBuff(len, stream);
-    auto *inIdxPtr = inIdx.data();
+    auto* inIdxPtr = inIdx.data();
     // generate modified weights
     SamplingParams<WeightsT, IdxT> params;
     params.inIdxPtr = inIdxPtr;
-    params.wts = wts;
-    kernel_dispatch<WeightsT, IdxT, 1, SamplingParams<WeightsT, IdxT>>
-      (expWts.data(), len, stream, params);
+    params.wts      = wts;
+    kernel_dispatch<WeightsT, IdxT, 1, SamplingParams<WeightsT, IdxT>>(
+      expWts.data(), len, stream, params);
     ///@todo: use a more efficient partitioning scheme instead of full sort
     // sort the array and pick the top sampledLen items
-    IdxT *outIdxPtr = outIdxBuff.data();
+    IdxT* outIdxPtr = outIdxBuff.data();
     rmm::device_uvector<char> workspace(0, stream);
-    sortPairs(workspace, expWts.data(), sortedWts.data(), inIdxPtr, outIdxPtr,
-              (int)len, stream);
+    sortPairs(workspace, expWts.data(), sortedWts.data(), inIdxPtr, outIdxPtr, (int)len, stream);
     if (outIdx != nullptr) {
-      CUDA_CHECK(cudaMemcpyAsync(outIdx, outIdxPtr, sizeof(IdxT) * sampledLen,
-                                 cudaMemcpyDeviceToDevice, stream));
+      CUDA_CHECK(cudaMemcpyAsync(
+        outIdx, outIdxPtr, sizeof(IdxT) * sampledLen, cudaMemcpyDeviceToDevice, stream));
     }
     scatter<DataT, IdxT>(out, in, outIdxPtr, sampledLen, stream);
   }

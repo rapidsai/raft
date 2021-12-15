@@ -127,8 +127,7 @@ const std::vector<RngInputs<uint32_t>> inputs_u32 = {
   {0.1f, 8 * 1024, 0, 20, RNG_Uniform, GenPhilox, 1234ULL},
 
   {0.1f, 32 * 1024, 0, 20, RNG_Uniform, GenPC, 1234ULL},
-  {0.1f, 8 * 1024, 0, 20, RNG_Uniform, GenPC, 1234ULL}
-};
+  {0.1f, 8 * 1024, 0, 20, RNG_Uniform, GenPC, 1234ULL}};
 TEST_P(RngTestU32, Result)
 {
   float meanvar[2];
@@ -144,8 +143,7 @@ const std::vector<RngInputs<uint64_t>> inputs_u64 = {
   {0.1f, 8 * 1024, 0, 20, RNG_Uniform, GenPhilox, 1234ULL},
 
   {0.1f, 32 * 1024, 0, 20, RNG_Uniform, GenPC, 1234ULL},
-  {0.1f, 8 * 1024, 0, 20, RNG_Uniform, GenPC, 1234ULL}
-};
+  {0.1f, 8 * 1024, 0, 20, RNG_Uniform, GenPC, 1234ULL}};
 TEST_P(RngTestU64, Result)
 {
   float meanvar[2];
@@ -161,8 +159,7 @@ const std::vector<RngInputs<int32_t>> inputs_s32 = {
   {0.1f, 8 * 1024, 0, 20, RNG_Uniform, GenPhilox, 1234ULL},
 
   {0.1f, 32 * 1024, 0, 20, RNG_Uniform, GenPC, 1234ULL},
-  {0.1f, 8 * 1024, 0, 20, RNG_Uniform, GenPC, 1234ULL}
-};
+  {0.1f, 8 * 1024, 0, 20, RNG_Uniform, GenPC, 1234ULL}};
 TEST_P(RngTestS32, Result)
 {
   float meanvar[2];
@@ -178,8 +175,7 @@ const std::vector<RngInputs<int64_t>> inputs_s64 = {
   {0.1f, 8 * 1024, 0, 20, RNG_Uniform, GenPhilox, 1234ULL},
 
   {0.1f, 32 * 1024, 0, 20, RNG_Uniform, GenPC, 1234ULL},
-  {0.1f, 8 * 1024, 0, 20, RNG_Uniform, GenPC, 1234ULL}
-};
+  {0.1f, 8 * 1024, 0, 20, RNG_Uniform, GenPC, 1234ULL}};
 TEST_P(RngTestS64, Result)
 {
   float meanvar[2];

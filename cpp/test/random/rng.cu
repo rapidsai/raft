@@ -235,8 +235,7 @@ const std::vector<RngInputs<float>> inputsf = {
   {0.0125, 32 * 1024, 1.f, 1.f, RNG_Rayleigh, GenPC, 1234ULL},
   {0.025, 8 * 1024, 1.f, 1.f, RNG_Rayleigh, GenPC, 1234ULL},
   {0.02, 32 * 1024, 1.f, 1.f, RNG_Laplace, GenPC, 1234ULL},
-  {0.04, 8 * 1024, 1.f, 1.f, RNG_Laplace, GenPC, 1234ULL}
-};
+  {0.04, 8 * 1024, 1.f, 1.f, RNG_Laplace, GenPC, 1234ULL}};
 
 TEST_P(RngTestF, Result)
 {
@@ -281,8 +280,7 @@ const std::vector<RngInputs<double>> inputsd = {
   {0.0125, 32 * 1024, 1.0, 1.0, RNG_Rayleigh, GenPC, 1234ULL},
   {0.025, 8 * 1024, 1.0, 1.0, RNG_Rayleigh, GenPC, 1234ULL},
   {0.02, 32 * 1024, 1.0, 1.0, RNG_Laplace, GenPC, 1234ULL},
-  {0.04, 8 * 1024, 1.0, 1.0, RNG_Laplace, GenPC, 1234ULL}
-};
+  {0.04, 8 * 1024, 1.0, 1.0, RNG_Laplace, GenPC, 1234ULL}};
 
 TEST_P(RngTestD, Result)
 {
@@ -531,8 +529,7 @@ const std::vector<RngNormalTableInputs<float>> inputsf_t = {
   {0.011, 8, 1024, 1.f, 1.f, GenPhilox, 1234ULL},
 
   {0.0055, 32, 1024, 1.f, 1.f, GenPC, 1234ULL},
-  {0.011, 8, 1024, 1.f, 1.f, GenPC, 1234ULL}
-};
+  {0.011, 8, 1024, 1.f, 1.f, GenPC, 1234ULL}};
 
 TEST_P(RngNormalTableTestF, Result)
 {
@@ -549,8 +546,7 @@ const std::vector<RngNormalTableInputs<double>> inputsd_t = {
   {0.011, 8, 1024, 1.0, 1.0, GenPhilox, 1234ULL},
 
   {0.0055, 32, 1024, 1.0, 1.0, GenPC, 1234ULL},
-  {0.011, 8, 1024, 1.0, 1.0, GenPC, 1234ULL}
-};
+  {0.011, 8, 1024, 1.0, 1.0, GenPC, 1234ULL}};
 TEST_P(RngNormalTableTestD, Result)
 {
   double meanvar[2];
