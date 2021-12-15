@@ -21,7 +21,7 @@
 #include <raft/handle.hpp>
 #include <random>
 #include <rmm/device_uvector.hpp>
-#include "detail/rng_impl.cuh"
+#include "rng_impl.cuh"
 
 namespace raft {
 namespace random {
