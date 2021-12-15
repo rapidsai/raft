@@ -393,6 +393,7 @@ public:
       default:
         break;
     }
+    seed = mt_gen();
     return;
   }
 
