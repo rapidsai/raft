@@ -118,7 +118,7 @@ std::tuple<vertex_t, weight_t, vertex_t> modularity_maximization(
   // notice that at this point the matrix has already been transposed, so we are scaling
   // columns
   scale_obs(nEigVecs, n, eigVecs);
-  CHECK_CUDA(stream);
+  RAFT_CHECK_CUDA(stream);
 
   // Find partition clustering
   auto pair_cluster = cluster_solver.solve(handle, n, nEigVecs, eigVecs, clusters);
@@ -160,7 +160,7 @@ void analyzeModularity(handle_t const& handle,
   vector_t<weight_t> Bx(handle, n);
 
   // Initialize cuBLAS
-  CUBLAS_CHECK(cublassetpointermode(cublas_h, CUBLAS_POINTER_MODE_HOST, stream));
+  RAFT_CUBLAS_TRY(cublassetpointermode(cublas_h, CUBLAS_POINTER_MODE_HOST, stream));
 
   // Initialize Modularity
   modularity_matrix_t<vertex_t, weight_t> B{handle, csr_m};

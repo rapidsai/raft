@@ -25,7 +25,7 @@ TEST(Raft, Utils)
   ASSERT_NO_THROW(ASSERT(1 == 1, "Should not assert!"));
   ASSERT_THROW(ASSERT(1 != 1, "Should assert!"), exception);
   ASSERT_THROW(THROW("Should throw!"), exception);
-  ASSERT_NO_THROW(CUDA_CHECK(cudaFree(nullptr)));
+  ASSERT_NO_THROW(RAFT_CUDA_TRY(cudaFree(nullptr)));
 }
 
 }  // namespace raft

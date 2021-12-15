@@ -77,7 +77,7 @@ testing::AssertionResult devArrMatchKnnPair(const T* expected_idx,
   raft::update_host<T>(act_idx_h.get(), actual_idx, size, stream);
   raft::update_host<DistT>(exp_dist_h.get(), expected_dist, size, stream);
   raft::update_host<DistT>(act_dist_h.get(), actual_dist, size, stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   for (size_t i(0); i < rows; ++i) {
     for (size_t j(0); j < cols; ++j) {
       auto idx      = i * cols + j;  // row major assumption!
@@ -168,7 +168,7 @@ class FusedL2KNNTest : public ::testing::TestWithParam<FusedL2KNNInputs> {
 
     gpu_res.noTempMemory();
     int device;
-    CUDA_CHECK(cudaGetDevice(&device));
+    RAFT_CUDA_TRY(cudaGetDevice(&device));
     gpu_res.setDefaultStream(device, handle_.get_stream());
 
     faiss::gpu::GpuDistanceParams args;

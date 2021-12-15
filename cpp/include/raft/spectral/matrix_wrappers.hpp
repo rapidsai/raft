@@ -208,24 +208,24 @@ struct sparse_matrix_t {
     // void*; the casts should be harmless)
     //
     cusparseSpMatDescr_t matA;
-    CUSPARSE_CHECK(cusparsecreatecsr(&matA,
-                                     nrows_,
-                                     ncols_,
-                                     nnz_,
-                                     const_cast<index_type*>(row_offsets_),
-                                     const_cast<index_type*>(col_indices_),
-                                     const_cast<value_type*>(values_)));
+    RAFT_CUSPARSE_TRY(cusparsecreatecsr(&matA,
+                                        nrows_,
+                                        ncols_,
+                                        nnz_,
+                                        const_cast<index_type*>(row_offsets_),
+                                        const_cast<index_type*>(col_indices_),
+                                        const_cast<value_type*>(values_)));
 
     cusparseDnVecDescr_t vecX;
-    CUSPARSE_CHECK(cusparsecreatednvec(&vecX, size_x, x));
+    RAFT_CUSPARSE_TRY(cusparsecreatednvec(&vecX, size_x, x));
 
     cusparseDnVecDescr_t vecY;
-    CUSPARSE_CHECK(cusparsecreatednvec(&vecY, size_y, y));
+    RAFT_CUSPARSE_TRY(cusparsecreatednvec(&vecY, size_y, y));
 
     // get (scratch) external device buffer size:
     //
     size_t bufferSize;
-    CUSPARSE_CHECK(cusparsespmv_buffersize(
+    RAFT_CUSPARSE_TRY(cusparsespmv_buffersize(
       cusparse_h, trans, &alpha, matA, vecX, &beta, vecY, spmv_alg, &bufferSize, stream));
 
     // allocate external buffer:
@@ -234,40 +234,40 @@ struct sparse_matrix_t {
 
     // finally perform SpMV:
     //
-    CUSPARSE_CHECK(cusparsespmv(
+    RAFT_CUSPARSE_TRY(cusparsespmv(
       cusparse_h, trans, &alpha, matA, vecX, &beta, vecY, spmv_alg, external_buffer.raw(), stream));
 
     // free descriptors:
     //(TODO: maybe wrap them in a RAII struct?)
     //
-    CUSPARSE_CHECK(cusparseDestroyDnVec(vecY));
-    CUSPARSE_CHECK(cusparseDestroyDnVec(vecX));
-    CUSPARSE_CHECK(cusparseDestroySpMat(matA));
+    RAFT_CUSPARSE_TRY(cusparseDestroyDnVec(vecY));
+    RAFT_CUSPARSE_TRY(cusparseDestroyDnVec(vecX));
+    RAFT_CUSPARSE_TRY(cusparseDestroySpMat(matA));
 #else
-    CUSPARSE_CHECK(cusparsesetpointermode(cusparse_h, CUSPARSE_POINTER_MODE_HOST, stream));
+    RAFT_CUSPARSE_TRY(cusparsesetpointermode(cusparse_h, CUSPARSE_POINTER_MODE_HOST, stream));
     cusparseMatDescr_t descr = 0;
-    CUSPARSE_CHECK(cusparseCreateMatDescr(&descr));
+    RAFT_CUSPARSE_TRY(cusparseCreateMatDescr(&descr));
     if (symmetric) {
-      CUSPARSE_CHECK(cusparseSetMatType(descr, CUSPARSE_MATRIX_TYPE_SYMMETRIC));
+      RAFT_CUSPARSE_TRY(cusparseSetMatType(descr, CUSPARSE_MATRIX_TYPE_SYMMETRIC));
     } else {
-      CUSPARSE_CHECK(cusparseSetMatType(descr, CUSPARSE_MATRIX_TYPE_GENERAL));
+      RAFT_CUSPARSE_TRY(cusparseSetMatType(descr, CUSPARSE_MATRIX_TYPE_GENERAL));
     }
-    CUSPARSE_CHECK(cusparseSetMatIndexBase(descr, CUSPARSE_INDEX_BASE_ZERO));
-    CUSPARSE_CHECK(cusparsecsrmv(cusparse_h,
-                                 trans,
-                                 nrows_,
-                                 ncols_,
-                                 nnz_,
-                                 &alpha,
-                                 descr,
-                                 values_,
-                                 row_offsets_,
-                                 col_indices_,
-                                 x,
-                                 &beta,
-                                 y,
-                                 stream));
-    CUSPARSE_CHECK(cusparseDestroyMatDescr(descr));
+    RAFT_CUSPARSE_TRY(cusparseSetMatIndexBase(descr, CUSPARSE_INDEX_BASE_ZERO));
+    RAFT_CUSPARSE_TRY(cusparsecsrmv(cusparse_h,
+                                    trans,
+                                    nrows_,
+                                    ncols_,
+                                    nnz_,
+                                    &alpha,
+                                    descr,
+                                    values_,
+                                    row_offsets_,
+                                    col_indices_,
+                                    x,
+                                    &beta,
+                                    y,
+                                    stream));
+    RAFT_CUSPARSE_TRY(cusparseDestroyMatDescr(descr));
 #endif
   }
 
@@ -349,7 +349,7 @@ struct laplacian_matrix_t : sparse_matrix_t<index_type, value_type> {
     if (beta == 0) {
       CUDA_TRY(cudaMemsetAsync(y, 0, n * sizeof(value_type), stream));
     } else if (beta != 1) {
-      CUBLAS_CHECK(linalg::cublasscal(cublas_h, n, &beta, y, 1, stream));
+      RAFT_CUBLAS_TRY(linalg::cublasscal(cublas_h, n, &beta, y, 1, stream));
     }
 
     // Apply diagonal matrix
@@ -358,7 +358,7 @@ struct laplacian_matrix_t : sparse_matrix_t<index_type, value_type> {
 
     dim3 blockDim{BLOCK_SIZE, 1, 1};
     diagmv<<<gridDim, blockDim, 0, stream>>>(n, alpha, diagonal_.raw(), x, y);
-    CHECK_CUDA(stream);
+    RAFT_CHECK_CUDA(stream);
 
     // Apply adjacency matrix
     //
@@ -412,26 +412,26 @@ struct modularity_matrix_t : laplacian_matrix_t<index_type, value_type> {
     // gamma = d'*x
     //
     // Cublas::dot(this->n, D.raw(), 1, x, 1, &dot_res);
-    CUBLAS_CHECK(linalg::cublasdot(cublas_h,
-                                   n,
-                                   laplacian_matrix_t<index_type, value_type>::diagonal_.raw(),
-                                   1,
-                                   x,
-                                   1,
-                                   &dot_res,
-                                   stream));
+    RAFT_CUBLAS_TRY(linalg::cublasdot(cublas_h,
+                                      n,
+                                      laplacian_matrix_t<index_type, value_type>::diagonal_.raw(),
+                                      1,
+                                      x,
+                                      1,
+                                      &dot_res,
+                                      stream));
 
     // y = y -(gamma/edge_sum)*d
     //
     value_type gamma_ = -dot_res / edge_sum_;
-    CUBLAS_CHECK(linalg::cublasaxpy(cublas_h,
-                                    n,
-                                    &gamma_,
-                                    laplacian_matrix_t<index_type, value_type>::diagonal_.raw(),
-                                    1,
-                                    y,
-                                    1,
-                                    stream));
+    RAFT_CUBLAS_TRY(linalg::cublasaxpy(cublas_h,
+                                       n,
+                                       &gamma_,
+                                       laplacian_matrix_t<index_type, value_type>::diagonal_.raw(),
+                                       1,
+                                       y,
+                                       1,
+                                       stream));
   }
 
   value_type edge_sum_;

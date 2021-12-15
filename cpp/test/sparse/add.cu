@@ -103,7 +103,7 @@ class CSRAddTest : public ::testing::TestWithParam<CSRAddInputs<Type_f, Index_>>
 
     ASSERT_TRUE(nnz == nnz_result);
     ASSERT_TRUE(raft::devArrMatch<Index_>(
-      ind_verify.data(), ind_result.data(), n_rows, raft::Compare<Index_>()));
+      ind_verify.data(), ind_result.data(), n_rows, raft::Compare<Index_>(), stream));
 
     linalg::csr_add_finalize<Type_f>(ind_a.data(),
                                      ind_ptr_a.data(),
@@ -120,9 +120,9 @@ class CSRAddTest : public ::testing::TestWithParam<CSRAddInputs<Type_f, Index_>>
                                      stream);
 
     ASSERT_TRUE(raft::devArrMatch<Index_>(
-      ind_ptr_verify.data(), ind_ptr_result.data(), nnz, raft::Compare<Index_>()));
+      ind_ptr_verify.data(), ind_ptr_result.data(), nnz, raft::Compare<Index_>(), stream));
     ASSERT_TRUE(raft::devArrMatch<Type_f>(
-      values_verify.data(), values_result.data(), nnz, raft::Compare<Type_f>()));
+      values_verify.data(), values_result.data(), nnz, raft::Compare<Type_f>(), stream));
   }
 
  protected:

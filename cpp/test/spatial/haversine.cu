@@ -94,7 +94,7 @@ class HaversineKNNTest : public ::testing::Test {
                                               k,
                                               stream);
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
   void SetUp() override { basicTest(); }
@@ -121,9 +121,10 @@ typedef HaversineKNNTest<int, float> HaversineKNNTestF;
 
 TEST_F(HaversineKNNTestF, Fit)
 {
+  ASSERT_TRUE(raft::devArrMatch(
+    d_ref_D.data(), d_pred_D.data(), n * n, raft::CompareApprox<float>(1e-3), stream));
   ASSERT_TRUE(
-    raft::devArrMatch(d_ref_D.data(), d_pred_D.data(), n * n, raft::CompareApprox<float>(1e-3)));
-  ASSERT_TRUE(raft::devArrMatch(d_ref_I.data(), d_pred_I.data(), n * n, raft::Compare<int>()));
+    raft::devArrMatch(d_ref_I.data(), d_pred_I.data(), n * n, raft::Compare<int>(), stream));
 }
 
 }  // namespace knn

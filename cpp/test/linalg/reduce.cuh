@@ -44,7 +44,7 @@ void naiveCoalescedReduction(OutType* dots, const InType* data, int D, int N, cu
   static const int TPB = 64;
   int nblks            = raft::ceildiv(N, TPB);
   naiveCoalescedReductionKernel<InType, OutType><<<nblks, TPB, 0, stream>>>(dots, data, D, N);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 template <typename InType, typename OutType>
@@ -60,15 +60,15 @@ void unaryAndGemv(OutType* dots, const InType* data, int D, int N, cudaStream_t 
     [] __device__(InType v) { return static_cast<OutType>(v * v); },
     stream);
   cublasHandle_t handle;
-  CUBLAS_CHECK(cublasCreate(&handle));
+  RAFT_CUBLAS_TRY(cublasCreate(&handle));
   rmm::device_uvector<OutType> ones(N, stream);  // column vector [1...1]
   raft::linalg::unaryOp<OutType>(
     ones.data(), ones.data(), ones.size(), [=] __device__(OutType input) { return 1; }, stream);
   OutType alpha = 1, beta = 0;
-  CUBLAS_CHECK(raft::linalg::cublasgemv(
+  RAFT_CUBLAS_TRY(raft::linalg::cublasgemv(
     handle, CUBLAS_OP_N, D, N, &alpha, sq.data(), D, ones.data(), 1, &beta, dots, 1, stream));
-  CUDA_CHECK(cudaDeviceSynchronize());
-  CUBLAS_CHECK(cublasDestroy(handle));
+  RAFT_CUDA_TRY(cudaDeviceSynchronize());
+  RAFT_CUBLAS_TRY(cublasDestroy(handle));
 }
 
 template <typename InType, typename OutType>
@@ -89,7 +89,7 @@ void naiveReduction(OutType* dots,
   } else {
     naiveCoalescedReduction(dots, data, N, D, stream);
   }
-  CUDA_CHECK(cudaDeviceSynchronize());
+  RAFT_CUDA_TRY(cudaDeviceSynchronize());
 }
 
 }  // end namespace linalg

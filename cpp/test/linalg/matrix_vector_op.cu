@@ -111,7 +111,8 @@ class MatVecOpTest : public ::testing::TestWithParam<MatVecOpInputs<T, IdxType>>
                   N,
                   params.rowMajor,
                   params.bcastAlongRows,
-                  (T)1.0);
+                  (T)1.0,
+                  stream);
     } else {
       naiveMatVec(out_ref.data(),
                   in.data(),
@@ -120,7 +121,8 @@ class MatVecOpTest : public ::testing::TestWithParam<MatVecOpInputs<T, IdxType>>
                   N,
                   params.rowMajor,
                   params.bcastAlongRows,
-                  (T)1.0);
+                  (T)1.0,
+                  stream);
     }
     matrixVectorOpLaunch(out.data(),
                          in.data(),
@@ -132,7 +134,7 @@ class MatVecOpTest : public ::testing::TestWithParam<MatVecOpInputs<T, IdxType>>
                          params.bcastAlongRows,
                          params.useTwoVectors,
                          stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
  protected:

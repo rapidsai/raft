@@ -370,7 +370,7 @@ dim3 launchConfigGenerator(IdxT m, IdxT n, std::size_t sMemSize, T func)
   int numBlocksPerSm = 0;
   dim3 grid;
 
-  CUDA_CHECK(
+  RAFT_CUDA_TRY(
     cudaOccupancyMaxActiveBlocksPerMultiprocessor(&numBlocksPerSm, func, P::Nthreads, sMemSize));
   std::size_t minGridSize = numSMs * numBlocksPerSm;
   std::size_t yChunks     = raft::ceildiv<int>(m, P::Mblk);

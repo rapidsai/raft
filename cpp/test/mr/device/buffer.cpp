@@ -28,7 +28,7 @@ namespace device {
 TEST(Raft, DeviceBufferAlloc)
 {
   cudaStream_t stream;
-  CUDA_CHECK(cudaStreamCreate(&stream));
+  RAFT_CUDA_TRY(cudaStreamCreate(&stream));
   // no allocation at construction
   rmm::device_uvector<char> buff(0, stream);
   ASSERT_EQ(0, buff.size());
@@ -48,8 +48,8 @@ TEST(Raft, DeviceBufferAlloc)
   ASSERT_EQ(10, buff.size());
   buff.release();
   ASSERT_EQ(0, buff.size());
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-  CUDA_CHECK(cudaStreamDestroy(stream));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  RAFT_CUDA_TRY(cudaStreamDestroy(stream));
 }
 
 TEST(Raft, DeviceBufferZeroResize)
@@ -64,7 +64,7 @@ TEST(Raft, DeviceBufferZeroResize)
   rmm::mr::set_current_device_resource(limit_mr.get());
 
   cudaStream_t stream;
-  CUDA_CHECK(cudaStreamCreate(&stream));
+  RAFT_CUDA_TRY(cudaStreamCreate(&stream));
   // no allocation at construction
   rmm::device_uvector<char> buff(10, stream);
   ASSERT_EQ(10, buff.size());
@@ -83,8 +83,8 @@ TEST(Raft, DeviceBufferZeroResize)
 
   rmm::mr::set_current_device_resource(curr_mr);
 
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-  CUDA_CHECK(cudaStreamDestroy(stream));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  RAFT_CUDA_TRY(cudaStreamDestroy(stream));
 }
 
 }  // namespace device

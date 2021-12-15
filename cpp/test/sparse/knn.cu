@@ -101,7 +101,7 @@ class SparseKNNTest : public ::testing::TestWithParam<SparseKNNInputs<value_idx,
                                                                  params.batch_size_query,
                                                                  params.metric);
 
-    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
   }
 
   void compare()

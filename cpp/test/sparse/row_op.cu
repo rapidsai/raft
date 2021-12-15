@@ -78,8 +78,8 @@ class CSRRowOpTest : public ::testing::TestWithParam<CSRRowOpInputs<Type_f, Inde
 
     csr_row_op_wrapper<Type_f, Index_>(ex_scan.data(), n_rows, nnz, result.data(), stream);
 
-    ASSERT_TRUE(
-      raft::devArrMatch<Type_f>(verify.data(), result.data(), nnz, raft::Compare<Type_f>()));
+    ASSERT_TRUE(raft::devArrMatch<Type_f>(
+      verify.data(), result.data(), nnz, raft::Compare<Type_f>(), stream));
   }
 
  protected:

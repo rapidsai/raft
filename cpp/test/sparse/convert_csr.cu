@@ -68,16 +68,16 @@ TEST_P(SortedCOOToCSR, Result)
   rmm::device_uvector<int> in(nnz, stream);
   rmm::device_uvector<int> exp(4, stream);
   rmm::device_uvector<int> out(4, stream);
-  CUDA_CHECK(cudaMemsetAsync(in.data(), 0, in.size() * sizeof(int), stream));
-  CUDA_CHECK(cudaMemsetAsync(exp.data(), 0, exp.size() * sizeof(int), stream));
-  CUDA_CHECK(cudaMemsetAsync(out.data(), 0, out.size() * sizeof(int), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(in.data(), 0, in.size() * sizeof(int), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(exp.data(), 0, exp.size() * sizeof(int), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(out.data(), 0, out.size() * sizeof(int), stream));
 
   raft::update_device(in.data(), in_h, nnz, stream);
   raft::update_device(exp.data(), exp_h, 4, stream);
 
   convert::sorted_coo_to_csr<int>(in.data(), nnz, out.data(), 4, stream);
 
-  ASSERT_TRUE(raft::devArrMatch<int>(out.data(), exp.data(), 4, raft::Compare<int>()));
+  ASSERT_TRUE(raft::devArrMatch<int>(out.data(), exp.data(), 4, raft::Compare<int>(), stream));
 
   cudaStreamDestroy(stream);
 

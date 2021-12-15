@@ -103,7 +103,7 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
       expected_labels_.data(), rows_, k_, search_labels_.data());
 
     ASSERT_TRUE(devArrMatch(
-      expected_labels_.data(), actual_labels_.data(), rows_ * k_, raft::Compare<int>()));
+      expected_labels_.data(), actual_labels_.data(), rows_ * k_, raft::Compare<int>(), stream));
   }
 
   void SetUp() override
@@ -120,16 +120,16 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
     distances_.resize(rows_ * k_, stream);
     search_labels_.resize(rows_, stream);
 
-    CUDA_CHECK(
+    RAFT_CUDA_TRY(
       cudaMemsetAsync(actual_labels_.data(), 0, actual_labels_.size() * sizeof(int), stream));
-    CUDA_CHECK(
+    RAFT_CUDA_TRY(
       cudaMemsetAsync(expected_labels_.data(), 0, expected_labels_.size() * sizeof(int), stream));
-    CUDA_CHECK(cudaMemsetAsync(input_.data(), 0, input_.size() * sizeof(float), stream));
-    CUDA_CHECK(
+    RAFT_CUDA_TRY(cudaMemsetAsync(input_.data(), 0, input_.size() * sizeof(float), stream));
+    RAFT_CUDA_TRY(
       cudaMemsetAsync(search_data_.data(), 0, search_data_.size() * sizeof(float), stream));
-    CUDA_CHECK(cudaMemsetAsync(indices_.data(), 0, indices_.size() * sizeof(int64_t), stream));
-    CUDA_CHECK(cudaMemsetAsync(distances_.data(), 0, distances_.size() * sizeof(float), stream));
-    CUDA_CHECK(
+    RAFT_CUDA_TRY(cudaMemsetAsync(indices_.data(), 0, indices_.size() * sizeof(int64_t), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(distances_.data(), 0, distances_.size() * sizeof(float), stream));
+    RAFT_CUDA_TRY(
       cudaMemsetAsync(search_labels_.data(), 0, search_labels_.size() * sizeof(int), stream));
 
     std::vector<float> row_major_input;
@@ -149,7 +149,7 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
     raft::copy(input_.data(), input_ptr, rows_ * cols_, stream);
     raft::copy(search_data_.data(), input_ptr, rows_ * cols_, stream);
     raft::copy(search_labels_.data(), labels_ptr, rows_, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
  private:
