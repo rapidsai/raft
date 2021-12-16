@@ -33,6 +33,39 @@ struct Linewise {
   typedef raft::Pow2<VecElems> AlignElems;
   typedef raft::Pow2<raft::WarpSize> AlignWarp;
 
+  /**
+   * Compute op(matrix_in, vec_1, vec_2, ...) where vectors are applied across the
+   * matrix rows (one vector element per matrix row).
+   *
+   * It's assumed that `in` and `out` are aligned to the cuda-vector-size,
+   * and their length is multiple of that.
+   *
+   * Block work arrangement: blocked;
+   *     one warp works on a contiguous chunk of a matrix. Since the matrix is represented
+   *     as a flat array, such an arangement minimizes the number of times when a single
+   *     thread needs to reload the vector value at an index corresponding to the current
+   *     matrix row. Ideally, a thread would load a value from a vector only once, but that
+   *     is not possible if the vector size (= number of matrix rows) is too small or not
+   *     aligned with the cuda-vector-size.
+   *
+   * Note about rowDiv/rowMod:
+   *     these two represent the row/column indices in the original input matrices, before
+   *     it was converted to (Vec::io_t*) type (which possibly involves shifting a pointer
+   *     a bit to align to the cuda-vector-size). Thus, they are used to track the index for
+   *     the argument vectors only (the vector pointers are not altered in any way).
+   *
+   *
+   * @tparam Vecs a pack of pointers to vectors (Type*)
+   * @param [out] out (aligned part of) the output matrix
+   * @param [in] in (aligned part of) the input matrix
+   * @param [in] in_end end of the (aligned part of the) input matrix
+   * @param [in] rowLen number of elements in a row (NOT the vector size)
+   * @param [in] rowDiv the index in the vectors (= row num in the original unaligned input matrix)
+   * @param [in] rowMod the index within a row in the original unaligned input matrix.
+   * @param [in] op the function to apply
+   * @param [in] vecs pointers to the argument vectors.
+   *
+   */
   template <typename Lambda, typename... Vecs>
   static __device__ __forceinline__ void vectorCols(typename Vec::io_t* out,
                                                     const typename Vec::io_t* in,
@@ -74,6 +107,25 @@ struct Linewise {
     }
   }
 
+  /**
+   * Compute op(matrix_in, vec_1, vec_2, ...) where vectors are applied along
+   * matrix rows (vector and matrix indices are 1-1).
+   *
+   * It's assumed that `in` and `out` are aligned to the cuda-vector-size,
+   * and their length is multiple of that.
+   *
+   * Block work arrangement: striped;
+   *     the grid size is chosen in such a way, that one thread always processes
+   *     the same vector elements. That's why there is no need to read the
+   *     vector arguments multiple times.
+   *
+   * @tparam Args a pack of raft::TxN_t<Type, VecElems>
+   * @param [out] out (aligned part of) the output matrix
+   * @param [in] in (aligned part of) the input matrix
+   * @param [in] len total length of (the aligned part of) the input/output matrices
+   * @param [in] op the function to apply
+   * @param [in] args the cuda-vector-sized chunks on input vectors (raft::TxN_t<Type, VecElems>)
+   */
   template <typename Lambda, typename... Args>
   static __device__ __forceinline__ void vectorRows(typename Vec::io_t* out,
                                                     const typename Vec::io_t* in,
@@ -92,6 +144,16 @@ struct Linewise {
     }
   }
 
+  /**
+   * The helper for `vectorRows`. Loads the `raft::TxN_t<Type, VecElems>` chunk
+   * of a vector. Most of the time this is not aligned, so we load it thread-striped
+   * within a block and then use the shared memory to get a contiguous chunk.
+   *
+   * @param [in] p pointer to a vector
+   * @param [in] blockOffset the offset of the current block into a vector.
+   * @param [in] rowLen the length of a vector.
+   * @return a contiguous chunk of a vector, suitable for `vectorRows`.
+   */
   static __device__ __forceinline__ Vec loadVec(const Type* p,
                                                 const IdxType blockOffset,
                                                 const IdxType rowLen) noexcept
@@ -113,6 +175,20 @@ struct Linewise {
   }
 };
 
+/**
+ * This kernel prepares the inputs for the `vectorCols` function where the most of the
+ * work happens; see `vectorCols` for details.
+ *
+ * @param [out] out the output matrix
+ * @param [in] in the input matrix
+ * @param [in] arrOffset such an offset into the matrices that makes them aligned to the
+ * cuda-vector-size
+ * @param [in] rowLen number of elements in a row (NOT the vector size)
+ * @param [in] len the total length of the aligned part of the matrices
+ * @param [in] elemsPerThread how many elements are processed by a single thread in total
+ * @param [in] op the function to apply
+ * @param [in] vecs pointers to the argument vectors
+ */
 template <typename Type,
           typename IdxType,
           std::size_t VecBytes,
@@ -145,6 +221,23 @@ __global__ void __launch_bounds__(BlockSize)
                        vecs...);
 }
 
+/**
+ * This kernel is similar to `matrixLinewiseVecColsMainKernel`, but processes only the unaligned
+ * head and tail parts of the matrix.
+ * This kernel is always launched in just two blocks; the first block processes the head of the
+ * matrix, the second block processes the tail. It uses the same `vectorCols` function, but
+ * sets `VecElems = 1`
+ *
+ * @param [out] out the output matrix
+ * @param [in] in the input matrix
+ * @param [in] arrOffset the length of the unaligned head - such an offset into the matrices that
+ * makes them aligned to the `VecBytes`
+ * @param [in] arrTail the offset to the unaligned tail
+ * @param [in] rowLen number of elements in a row (NOT the vector size)
+ * @param [in] len the total length of the matrices (rowLen * nRows)
+ * @param [in] op the function to apply
+ * @param [in] vecs pointers to the argument vectors
+ */
 template <typename Type, typename IdxType, std::size_t MaxOffset, typename Lambda, typename... Vecs>
 __global__ void __launch_bounds__(MaxOffset, 2)
   matrixLinewiseVecColsTailKernel(Type* out,
@@ -156,12 +249,15 @@ __global__ void __launch_bounds__(MaxOffset, 2)
                                   Lambda op,
                                   Vecs... vecs)
 {
+  // Note, L::VecElems == 1
   typedef Linewise<Type, IdxType, sizeof(Type), MaxOffset> L;
   IdxType threadOffset, elemsPerWarp;
   if (blockIdx.x == 0) {
+    // first block: offset = 0, length = arrOffset
     threadOffset = threadIdx.x;
     elemsPerWarp = threadOffset < arrOffset;
   } else {
+    // second block: offset = arrTail, length = len - arrTail
     threadOffset = arrTail + threadIdx.x;
     elemsPerWarp = threadOffset < len;
   }
@@ -178,6 +274,18 @@ __global__ void __launch_bounds__(MaxOffset, 2)
     vecs...);
 }
 
+/**
+ * This kernel prepares the inputs for the `vectorRows` function where the most of the
+ * work happens; see `vectorRows` for details.
+ *
+ * @param [out] out the start of the *aligned* part of the output matrix
+ * @param [in] in the start of the *aligned* part of the input matrix
+ * @param [in] arrOffset such an offset into the matrices that makes them aligned to `VecBytes`
+ * @param [in] rowLen number of elements in a row (= the vector size)
+ * @param [in] len the total length of the aligned part of the matrices
+ * @param [in] op the function to apply
+ * @param [in] vecs pointers to the argument vectors
+ */
 template <typename Type,
           typename IdxType,
           std::size_t VecBytes,
@@ -202,6 +310,23 @@ __global__ void __launch_bounds__(BlockSize)
                        L::loadVec(vecs, blockOffset, rowLen)...);
 }
 
+/**
+ * This kernel is similar to `matrixLinewiseVecRowsMainKernel`, but processes only the unaligned
+ * head and tail parts of the matrix.
+ * This kernel is always launched in just two blocks; the first block processes the head of the
+ * matrix, the second block processes the tail. It uses the same `vectorRows` function, but
+ * sets `VecElems = 1`
+ *
+ * @param [out] out the output matrix
+ * @param [in] in the input matrix
+ * @param [in] arrOffset the length of the unaligned head - such an offset into the matrices that
+ * makes them aligned to the `VecBytes`
+ * @param [in] arrTail the offset to the unaligned tail
+ * @param [in] rowLen number of elements in a row (= the vector size)
+ * @param [in] len the total length of the matrices (rowLen * nRows)
+ * @param [in] op the function to apply
+ * @param [in] vecs pointers to the argument vectors
+ */
 template <typename Type, typename IdxType, std::size_t MaxOffset, typename Lambda, typename... Vecs>
 __global__ void __launch_bounds__(MaxOffset, 2)
   matrixLinewiseVecRowsTailKernel(Type* out,
@@ -213,19 +338,23 @@ __global__ void __launch_bounds__(MaxOffset, 2)
                                   Lambda op,
                                   Vecs... vecs)
 {
+  // Note, L::VecElems == 1
   typedef Linewise<Type, IdxType, sizeof(Type), MaxOffset> L;
-  if (blockIdx.x == 0)
+  if (blockIdx.x == 0) {
+    // first block: offset = 0, length = arrOffset
     L::vectorRows(reinterpret_cast<typename L::Vec::io_t*>(out),
                   reinterpret_cast<const typename L::Vec::io_t*>(in),
                   arrOffset,
                   op,
                   L::loadVec(vecs, 0, rowLen)...);
-  else
+  } else {
+    // second block: offset = arrTail, length = len - arrTail
     L::vectorRows(reinterpret_cast<typename L::Vec::io_t*>(out + arrTail - MaxOffset),
                   reinterpret_cast<const typename L::Vec::io_t*>(in + arrTail - MaxOffset),
                   len - arrTail + MaxOffset,
                   op,
                   L::loadVec(vecs, arrTail % rowLen, rowLen)...);
+  }
 }
 
 template <typename Type,
@@ -256,7 +385,9 @@ void matrixLinewiseVecCols(Type* out,
     // does not make sense to have more blocks than this
     const uint maxBlocks = raft::ceildiv<uint>(uint(alignedLen), bs.x * VecElems);
     const dim3 gs(min(maxBlocks, occupy), 1, 1);
-
+    // The work arrangement is blocked on the block and warp levels;
+    //   see more details at Linewise::vectorCols.
+    // The value below determines how many scalar elements are processed by on thread in total.
     const IdxType elemsPerThread =
       raft::ceildiv<IdxType>(alignedLen, gs.x * VecElems * BlockSize) * VecElems;
     matrixLinewiseVecColsMainKernel<Type, IdxType, VecBytes, BlockSize, Lambda, Vecs...>
@@ -296,16 +427,29 @@ void matrixLinewiseVecRows(Type* out,
   const IdxType alignedLen       = alignedEnd - alignedOff;
   if (alignedLen > 0) {
     constexpr dim3 bs(BlockSize, 1, 1);
-    // if we have `stride` number of blocks, then each block processes always the same
-    // indices along dimension rowLen; this means a block needs to index `vecs` only once!
-    const uint stride = (rowLen / raft::gcd(bs.x * uint(VecElems), uint(rowLen))) * VecElems;
+    // The work arrangement is striped;
+    //   see more details at Linewise::vectorRows.
+    // Below is the work amount performed by one block in one iteration.
+    constexpr uint block_work_size = bs.x * uint(VecElems);
+    /* Here I would define `grid_work_size = lcm(block_work_size, rowLen)` (Least Common Multiple)
+       This way, the grid spans a set of one or more rows each iteration, and, most importantly,
+       on every iteration each row processes the same set of indices within a row (= the same set
+       of vector indices).
+       This means, each block needs to load the values from the vector arguments only once.
+       Sadly, sometimes `grid_work_size > rowLen*nRows`, and sometimes grid_work_size > UINT_MAX.
+       That's why I don't declare it here explicitly.
+       Instead, I straightaway compute the
+         expected_grid_size = lcm(block_work_size, rowLen) / block_work_size
+     */
+    const uint expected_grid_size = rowLen / raft::gcd(block_work_size, uint(rowLen));
     // Minimum size of the grid to make the device well occupied
     const uint occupy = raft::getMultiProcessorCount() * (16384 / BlockSize);
     const dim3 gs(min(
                     // does not make sense to have more blocks than this
-                    raft::ceildiv<uint>(uint(totalLen), bs.x * VecElems),
-                    // increase the stride size if necessary
-                    raft::ceildiv<uint>(occupy, stride) * stride),
+                    raft::ceildiv<uint>(uint(totalLen), block_work_size),
+                    // increase the grid size to be not less than `occupy` while
+                    // still being the multiple of `expected_grid_size`
+                    raft::ceildiv<uint>(occupy, expected_grid_size) * expected_grid_size),
                   1,
                   1);
 

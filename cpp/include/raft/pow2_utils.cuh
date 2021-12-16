@@ -35,7 +35,7 @@ struct Pow2 {
   static_assert(std::is_integral<Type>::value, "Value must be integral.");
   static_assert(Value && !(Value & Mask), "Value must be power of two.");
 
-#define Pow2_CALL                   static constexpr __host__ __device__ __forceinline__
+#define Pow2_FUNC_QUALIFIER         static constexpr __host__ __device__ __forceinline__
 #define Pow2_WHEN_INTEGRAL(I)       std::enable_if_t<Pow2_IS_REPRESENTABLE_AS(I), I>
 #define Pow2_IS_REPRESENTABLE_AS(I) (std::is_integral<I>::value && Type(I(Value)) == Value)
 
@@ -46,7 +46,7 @@ struct Pow2 {
    *  Invariant: `x = Value * quot(x) + rem(x)`
    */
   template <typename I>
-  Pow2_CALL Pow2_WHEN_INTEGRAL(I) quot(I x) noexcept
+  Pow2_FUNC_QUALIFIER Pow2_WHEN_INTEGRAL(I) quot(I x) noexcept
   {
     if constexpr (std::is_signed<I>::value) return (x >> I(Log2)) + (x < 0 && (x & I(Mask)));
     if constexpr (std::is_unsigned<I>::value) return x >> I(Log2);
@@ -59,7 +59,7 @@ struct Pow2 {
    *  Invariant: `x = Value * quot(x) + rem(x)`.
    */
   template <typename I>
-  Pow2_CALL Pow2_WHEN_INTEGRAL(I) rem(I x) noexcept
+  Pow2_FUNC_QUALIFIER Pow2_WHEN_INTEGRAL(I) rem(I x) noexcept
   {
     if constexpr (std::is_signed<I>::value) return x < 0 ? -((-x) & I(Mask)) : (x & I(Mask));
     if constexpr (std::is_unsigned<I>::value) return x & I(Mask);
@@ -76,7 +76,7 @@ struct Pow2 {
    * compared to normal C++ operators `/` and `%`.
    */
   template <typename I>
-  Pow2_CALL Pow2_WHEN_INTEGRAL(I) div(I x) noexcept
+  Pow2_FUNC_QUALIFIER Pow2_WHEN_INTEGRAL(I) div(I x) noexcept
   {
     return x >> I(Log2);
   }
@@ -93,7 +93,7 @@ struct Pow2 {
    * compared to normal C++ operators `/` and `%`.
    */
   template <typename I>
-  Pow2_CALL Pow2_WHEN_INTEGRAL(I) mod(I x) noexcept
+  Pow2_FUNC_QUALIFIER Pow2_WHEN_INTEGRAL(I) mod(I x) noexcept
   {
     return x & I(Mask);
   }
@@ -107,7 +107,7 @@ struct Pow2 {
    * NB: for pointers, the alignment is checked in bytes, not in elements.
    */
   template <typename PtrT>
-  Pow2_CALL bool isAligned(PtrT p) noexcept
+  Pow2_FUNC_QUALIFIER bool isAligned(PtrT p) noexcept
   {
     Pow2_CHECK_TYPE(PtrT);
     if constexpr (Pow2_IS_REPRESENTABLE_AS(PtrT)) return mod(p) == 0;
@@ -116,7 +116,7 @@ struct Pow2 {
 
   /** Tell whether two pointers have the same address modulo Value. */
   template <typename PtrT, typename PtrS>
-  Pow2_CALL bool areSameAlignOffsets(PtrT a, PtrS b) noexcept
+  Pow2_FUNC_QUALIFIER bool areSameAlignOffsets(PtrT a, PtrS b) noexcept
   {
     Pow2_CHECK_TYPE(PtrT);
     Pow2_CHECK_TYPE(PtrS);
@@ -134,7 +134,7 @@ struct Pow2 {
 
   /** Get this or next Value-aligned address (in bytes) or integral. */
   template <typename PtrT>
-  Pow2_CALL PtrT roundUp(PtrT p) noexcept
+  Pow2_FUNC_QUALIFIER PtrT roundUp(PtrT p) noexcept
   {
     Pow2_CHECK_TYPE(PtrT);
     if constexpr (Pow2_IS_REPRESENTABLE_AS(PtrT)) return (p + PtrT(Mask)) & PtrT(~Mask);
@@ -146,7 +146,7 @@ struct Pow2 {
 
   /** Get this or previous Value-aligned address (in bytes) or integral. */
   template <typename PtrT>
-  Pow2_CALL PtrT roundDown(PtrT p) noexcept
+  Pow2_FUNC_QUALIFIER PtrT roundDown(PtrT p) noexcept
   {
     Pow2_CHECK_TYPE(PtrT);
     if constexpr (Pow2_IS_REPRESENTABLE_AS(PtrT)) return p & PtrT(~Mask);
@@ -157,7 +157,7 @@ struct Pow2 {
   }
 #undef Pow2_CHECK_TYPE
 #undef Pow2_IS_REPRESENTABLE_AS
-#undef Pow2_CALL
+#undef Pow2_FUNC_QUALIFIER
 #undef Pow2_WHEN_INTEGRAL
 };
 
