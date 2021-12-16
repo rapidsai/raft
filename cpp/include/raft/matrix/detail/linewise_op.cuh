@@ -179,6 +179,9 @@ struct Linewise {
  * This kernel prepares the inputs for the `vectorCols` function where the most of the
  * work happens; see `vectorCols` for details.
  *
+ * The work arrangement is blocked; a single block works on a contiguous chunk of flattened
+ * matrix data and does not care about the gridDim.
+ *
  * @param [out] out the output matrix
  * @param [in] in the input matrix
  * @param [in] arrOffset such an offset into the matrices that makes them aligned to the
@@ -278,6 +281,10 @@ __global__ void __launch_bounds__(MaxOffset, 2)
  * This kernel prepares the inputs for the `vectorRows` function where the most of the
  * work happens; see `vectorRows` for details.
  *
+ * The work arrangement is striped; the gridDim should be selected in such a way, that
+ * on each iteration a thread processes the same indices along rows:
+ *   `(gridDim.x * BlockSize * VecElems) % rowLen == 0`.
+ *
  * @param [out] out the start of the *aligned* part of the output matrix
  * @param [in] in the start of the *aligned* part of the input matrix
  * @param [in] arrOffset such an offset into the matrices that makes them aligned to `VecBytes`
@@ -349,6 +356,7 @@ __global__ void __launch_bounds__(MaxOffset, 2)
                   L::loadVec(vecs, 0, rowLen)...);
   } else {
     // second block: offset = arrTail, length = len - arrTail
+    // NB: I substract MaxOffset (= blockDim.x) to get the correct indexing for block 1
     L::vectorRows(reinterpret_cast<typename L::Vec::io_t*>(out + arrTail - MaxOffset),
                   reinterpret_cast<const typename L::Vec::io_t*>(in + arrTail - MaxOffset),
                   len - arrTail + MaxOffset,
