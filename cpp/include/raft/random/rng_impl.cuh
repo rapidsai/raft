@@ -31,23 +31,6 @@ enum GeneratorType {
   GenPC
 };
 
-enum DistributionType {
-  Invariant = 0,
-  Uniform,
-  UniformInt,
-  Normal,
-  NormalInt,
-  NormalTable,
-  Bernoulli,
-  ScaledBernoulli,
-  Gumbel,
-  LogNormal,
-  Logistic,
-  Exponential,
-  Rayleigh,
-  Laplace
-};
-
 template <typename OutType>
 struct InvariantDistParams {
   OutType const_val;
@@ -456,6 +439,27 @@ struct PCGenerator {
     next(discard);
     state += seed;
     next(discard);
+    skipahead(offset);
+  }
+
+  // Based on "Random Number Generation with Arbitrary Strides" F. B. Brown
+  // Link https://mcnp.lanl.gov/pdf_files/anl-rn-arb-stride.pdf
+  DI void skipahead(uint64_t offset)
+  {
+    uint64_t G = 1;
+    uint64_t h = 6364136223846793005ULL;
+    uint64_t C = 0;
+    uint64_t f = inc;
+    while (offset) {
+      if (offset & 1) {
+        G = G * h;
+        C = C * h + f;
+      }
+      f = f * (h + 1);
+      h = h * h;
+      offset >>= 1;
+    }
+    state = state * G + C;
   }
 
   /**
@@ -463,7 +467,6 @@ struct PCGenerator {
    * @brief This code is derived from PCG basic code
    * @{
    */
-
   DI uint32_t next_u32()
   {
     uint32_t ret;
