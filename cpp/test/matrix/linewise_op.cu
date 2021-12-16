@@ -18,12 +18,12 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 // #include <raft/common/nvtx.hpp>
+#include "../linalg/matrix_vector_op.cuh"
+#include "../test_utils.h"
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/matrix/matrix.hpp>
 #include <raft/random/rng.hpp>
 #include <rmm/device_uvector.hpp>
-#include "../linalg/matrix_vector_op.cuh"
-#include "../test_utils.h"
 
 namespace raft {
 namespace matrix {
