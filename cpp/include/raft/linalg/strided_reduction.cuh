@@ -16,10 +16,10 @@
 
 #pragma once
 
+#include "unary_op.cuh"
 #include <cub/cub.cuh>
 #include <raft/cuda_utils.cuh>
 #include <type_traits>
-#include "unary_op.cuh"
 
 namespace raft {
 namespace linalg {

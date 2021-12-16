@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
+#include "../test_utils.h"
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/distance/distance.hpp>
 #include <raft/distance/specializations.hpp>
 #include <raft/random/rng.hpp>
-#include "../test_utils.h"
 
 namespace raft {
 namespace distance {
