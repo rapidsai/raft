@@ -47,7 +47,7 @@ TEST(Raft, Handle)
   rmm::cuda_stream_view stream_view(stream);
   handle_t handle(stream_view);
   ASSERT_EQ(stream_view, handle.get_stream());
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  handle.sync_stream(stream);
   RAFT_CUDA_TRY(cudaStreamDestroy(stream));
 }
 

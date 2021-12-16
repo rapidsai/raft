@@ -61,7 +61,7 @@ class stridedReductionTest : public ::testing::TestWithParam<stridedReductionInp
 
     unaryAndGemv(dots_exp.data(), data.data(), cols, rows, stream);
     stridedReductionLaunch(dots_act.data(), data.data(), cols, rows, stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
   }
 
  protected:

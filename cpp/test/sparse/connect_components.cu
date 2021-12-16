@@ -127,7 +127,7 @@ class ConnectComponentsTest
                                                                     false,
                                                                     false);
 
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
 
     // The sum of edges for both MST runs should be n_rows - 1
     final_edges = output_mst.n_edges + mst_coo.n_edges;

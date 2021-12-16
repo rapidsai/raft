@@ -123,7 +123,7 @@ void svdQR(const raft::handle_t& handle,
 
   int dev_info;
   raft::update_host(&dev_info, devInfo.data(), 1, stream);
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  handle.sync_stream(stream);
   ASSERT(dev_info == 0,
          "svd.cuh: svd couldn't converge to a solution. "
          "This usually occurs when some of the features do not vary enough.");

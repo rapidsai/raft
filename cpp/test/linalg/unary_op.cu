@@ -59,7 +59,7 @@ class UnaryOpTest : public ::testing::TestWithParam<UnaryOpInputs<InType, IdxTyp
     raft::random::Rng r(params.seed);
     auto len = params.len;
     r.uniform(in.data(), len, InType(-1.0), InType(1.0), stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
   }
 
   virtual void DoTest()
@@ -68,7 +68,7 @@ class UnaryOpTest : public ::testing::TestWithParam<UnaryOpInputs<InType, IdxTyp
     auto scalar = params.scalar;
     naiveScale(out_ref.data(), in.data(), scalar, len, stream);
     unaryOpLaunch(out.data(), in.data(), scalar, len, stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
     ASSERT_TRUE(devArrMatch(
       out_ref.data(), out.data(), params.len, CompareApprox<OutType>(params.tolerance)));
   }

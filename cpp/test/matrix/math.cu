@@ -177,7 +177,7 @@ class MathTest : public ::testing::TestWithParam<MathInputs<T>> {
     update_device(out_smallzero_ref.data(), in_small_val_zero_ref_h.data(), 4, stream);
     setSmallValuesZero(out_smallzero.data(), in_smallzero.data(), 4, stream);
     setSmallValuesZero(in_smallzero.data(), 4, stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
   }
 
  protected:

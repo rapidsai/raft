@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,6 +35,7 @@
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/cusolver_wrappers.h>
 #include <raft/sparse/cusparse_wrappers.h>
+#include <raft/cancellable.hpp>
 #include <raft/comms/comms.hpp>
 #include <rmm/cuda_stream_pool.hpp>
 #include <rmm/exec_policy.hpp>
@@ -126,9 +127,14 @@ class handle_t {
   rmm::exec_policy& get_thrust_policy() const { return *thrust_policy_; }
 
   /**
+   * @brief synchronize a stream on the handle
+   */
+  void sync_stream(rmm::cuda_stream_view stream) const { cancellable::synchronize(stream); }
+
+  /**
    * @brief synchronize main stream on the handle
    */
-  void sync_stream() const { stream_view_.synchronize(); }
+  void sync_stream() const { sync_stream(stream_view_); }
 
   /**
    * @brief returns main stream on the handle

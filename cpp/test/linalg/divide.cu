@@ -61,7 +61,7 @@ class DivideTest : public ::testing::TestWithParam<raft::linalg::UnaryOpInputs<T
     r.uniform(in.data(), len, T(-1.0), T(1.0), stream);
     naiveDivide(out_ref.data(), in.data(), params.scalar, len, stream);
     divideScalar(out.data(), in.data(), params.scalar, len, stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
   }
 
  protected:

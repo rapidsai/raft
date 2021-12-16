@@ -96,7 +96,7 @@ class ReduceTest : public ::testing::TestWithParam<ReduceInputs<InType, OutType>
       reduceLaunch(
         dots_act.data(), data.data(), cols, rows, params.rowMajor, params.alongRows, true, stream);
     }
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
   }
 
  protected:

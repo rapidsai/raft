@@ -77,7 +77,7 @@ class SWoRTest : public ::testing::TestWithParam<SWoRInputs<T>> {
                                params.len,
                                stream);
     update_host(&(h_outIdx[0]), outIdx.data(), params.sampledLen, stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
   }
 
  protected:
