@@ -153,7 +153,7 @@ set(RAFT_LINK_LIBRARIES
 
 target_link_libraries(raft INTERFACE ${RAFT_LINK_LIBRARIES})
 target_link_libraries(raft_distance PUBLIC ${RAFT_LINK_LIBRARIES})
-target_link_libraries(raft_nn PUBLIC ${RAFT_LINK_LIBRARIES} FAISS::FAISS)
+target_link_libraries(raft_nn PUBLIC ${RAFT_LINK_LIBRARIES} faiss::faiss)
 
 target_compile_options(raft_distance
         PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
