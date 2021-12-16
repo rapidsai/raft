@@ -126,7 +126,8 @@ target_include_directories(test_raft
 target_link_libraries(test_raft
 PRIVATE
   raft # transitively links all CUDA libs, etc
-  FAISS::FAISS
+  raft_distance
+  raft_nn
   GTest::gtest
   GTest::gtest_main
   Threads::Threads
