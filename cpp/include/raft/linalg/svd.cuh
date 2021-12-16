@@ -16,19 +16,19 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
-#include <raft/linalg/cublas_wrappers.h>
-#include <raft/linalg/cusolver_wrappers.h>
+#include "eig.cuh"
+#include "gemm.cuh"
+#include "transpose.h"
 #include <raft/common/nvtx.hpp>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
+#include <raft/linalg/cublas_wrappers.h>
+#include <raft/linalg/cusolver_wrappers.h>
 #include <raft/matrix/math.hpp>
 #include <raft/matrix/matrix.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
-#include "eig.cuh"
-#include "gemm.cuh"
-#include "transpose.h"
 
 namespace raft {
 namespace linalg {

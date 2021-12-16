@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <curand.h>
 #include <chrono>
+#include <curand.h>
 
 #include "mst_kernels.cuh"
 #include "utils.cuh"
@@ -26,13 +26,13 @@
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
+#include <iostream>
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
 #include <thrust/host_vector.h>
 #include <thrust/reduce.h>
 #include <thrust/sort.h>
 #include <thrust/transform.h>
-#include <iostream>
 
 namespace raft {
 namespace mst {

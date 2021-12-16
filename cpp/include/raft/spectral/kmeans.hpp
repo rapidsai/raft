@@ -29,9 +29,9 @@
 #include <thrust/sort.h>
 
 #include <raft/cudart_utils.h>
-#include <raft/linalg/cublas_wrappers.h>
 #include <raft/device_atomics.cuh>
 #include <raft/handle.hpp>
+#include <raft/linalg/cublas_wrappers.h>
 #include <raft/spectral/matrix_wrappers.hpp>
 #include <raft/spectral/warn_dbg.hpp>
 
