@@ -18,15 +18,16 @@
 
 #include <rmm/cuda_stream_view.hpp>
 
-namespace raft::common::detail {
+namespace raft::common::nvtx::detail {
 
 #ifdef NVTX_ENABLED
 
-#include <nvToolsExt.h>
 #include <cstdint>
 #include <cstdlib>
 #include <mutex>
+#include <nvToolsExt.h>
 #include <string>
+#include <type_traits>
 #include <unordered_map>
 
 /**
@@ -134,8 +135,25 @@ inline auto generate_next_color(const std::string& tag) -> uint32_t
   return rgb;
 }
 
-static inline nvtxDomainHandle_t domain = nvtxDomainCreateA("application");
+template <typename Domain, typename = Domain>
+struct domain_store {
+  /* If `Domain::name` does not exist, this default instance is used and throws the error. */
+  static_assert(sizeof(Domain) != sizeof(Domain),
+                "Type used to identify a domain must contain a static member 'char const* name'");
+  static inline nvtxDomainHandle_t const kValue = nullptr;
+};
 
+template <typename Domain>
+struct domain_store<
+  Domain,
+  /* Check if there exists `Domain::name` */
+  std::enable_if_t<
+    std::is_same<char const*, typename std::decay<decltype(Domain::name)>::type>::value,
+    Domain>> {
+  static inline nvtxDomainHandle_t const kValue = nvtxDomainCreateA(Domain::name);
+};
+
+template <typename Domain>
 inline void push_range_name(const char* name)
 {
   nvtxEventAttributes_t event_attrib = {0};
@@ -145,10 +163,10 @@ inline void push_range_name(const char* name)
   event_attrib.color                 = generate_next_color(name);
   event_attrib.messageType           = NVTX_MESSAGE_TYPE_ASCII;
   event_attrib.message.ascii         = name;
-  nvtxDomainRangePushEx(domain, &event_attrib);
+  nvtxDomainRangePushEx(domain_store<Domain>::kValue, &event_attrib);
 }
 
-template <typename... Args>
+template <typename Domain, typename... Args>
 inline void push_range(const char* format, Args... args)
 {
   if constexpr (sizeof...(args) > 0) {
@@ -156,43 +174,30 @@ inline void push_range(const char* format, Args... args)
     assert(length >= 0);
     std::vector<char> buf(length + 1);
     std::snprintf(buf.data(), length + 1, format, args...);
-    push_range_name(buf.data());
+    push_range_name<Domain>(buf.data());
   } else {
-    push_range_name(format);
+    push_range_name<Domain>(format);
   }
 }
 
-template <typename... Args>
-inline void push_range(rmm::cuda_stream_view stream, const char* format, Args... args)
+template <typename Domain>
+inline void pop_range()
 {
-  stream.synchronize();
-  push_range(format, args...);
-}
-
-inline void pop_range() { nvtxDomainRangePop(domain); }
-
-inline void pop_range(rmm::cuda_stream_view stream)
-{
-  stream.synchronize();
-  pop_range();
+  nvtxDomainRangePop(domain_store<Domain>::kValue);
 }
 
 #else  // NVTX_ENABLED
 
-template <typename... Args>
+template <typename Domain, typename... Args>
 inline void push_range(const char* format, Args... args)
 {
 }
 
-template <typename... Args>
-inline void push_range(rmm::cuda_stream_view stream, const char* format, Args... args)
+template <typename Domain>
+inline void pop_range()
 {
 }
 
-inline void pop_range() {}
-
-inline void pop_range(rmm::cuda_stream_view stream) {}
-
 #endif  // NVTX_ENABLED
 
-}  // namespace raft::common::detail
+}  // namespace raft::common::nvtx::detail

@@ -30,10 +30,10 @@ class NvtxNextColorTest : public ::testing::Test {
     const std::string temp1 = "foo";
     const std::string temp2 = "bar";
 
-    diff_string_diff_color =
-      common::detail::generate_next_color(temp1) != common::detail::generate_next_color(temp2);
-    same_string_same_color =
-      common::detail::generate_next_color(temp1) == common::detail::generate_next_color(temp1);
+    diff_string_diff_color = common::nvtx::detail::generate_next_color(temp1) !=
+                             common::nvtx::detail::generate_next_color(temp2);
+    same_string_same_color = common::nvtx::detail::generate_next_color(temp1) ==
+                             common::nvtx::detail::generate_next_color(temp1);
   }
   void TearDown() {}
   bool diff_string_diff_color = false;
