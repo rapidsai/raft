@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
+#include "../test_utils.h"
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <raft/random/rng.hpp>
-#include "../test_utils.h"
 
 #include <raft/sparse/op/sort.hpp>
 
@@ -78,8 +78,8 @@ TEST_P(COOSort, Result)
   op::coo_sort(
     params.m, params.n, params.nnz, in_rows.data(), in_cols.data(), in_vals.data(), stream);
 
-  ASSERT_TRUE(
-    raft::devArrMatch<int>(verify.data(), in_rows.data(), params.nnz, raft::Compare<int>()));
+  ASSERT_TRUE(raft::devArrMatch<int>(
+    verify.data(), in_rows.data(), params.nnz, raft::Compare<int>(), stream));
 
   delete[] in_rows_h;
   delete[] in_cols_h;

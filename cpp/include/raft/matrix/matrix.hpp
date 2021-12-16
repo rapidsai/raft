@@ -19,13 +19,13 @@
 #include "detail/linewise_op.cuh"
 #include "detail/matrix.cuh"
 
+#include <algorithm>
+#include <cstddef>
 #include <cuda_runtime.h>
 #include <cusolverDn.h>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/cublas_wrappers.h>
-#include <algorithm>
-#include <cstddef>
 #include <raft/handle.hpp>
+#include <raft/linalg/cublas_wrappers.h>
 
 namespace raft {
 namespace matrix {

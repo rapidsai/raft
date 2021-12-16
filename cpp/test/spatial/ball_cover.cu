@@ -14,19 +14,20 @@
  * limitations under the License.
  */
 
+#include "../test_utils.h"
+#include "spatial_data.h"
 #include <raft/cudart_utils.h>
 #include <raft/linalg/distance_type.h>
 #include <raft/spatial/knn/ball_cover.hpp>
 #include <raft/spatial/knn/detail/knn_brute_force_faiss.cuh>
+#include <raft/spatial/knn/specializations.hpp>
 #include <rmm/device_uvector.hpp>
-#include "../test_utils.h"
-#include "spatial_data.h"
 
-#include <thrust/transform.h>
 #include <rmm/exec_policy.hpp>
+#include <thrust/transform.h>
 
-#include <gtest/gtest.h>
 #include <cstdint>
+#include <gtest/gtest.h>
 #include <iostream>
 #include <vector>
 
@@ -105,10 +106,10 @@ void compute_bfknn(const raft::handle_t& handle,
   std::vector<value_t*> input_vec = {const_cast<value_t*>(X1)};
   std::vector<uint32_t> sizes_vec = {n};
 
-  cudaStream_t* int_streams          = nullptr;
   std::vector<int64_t>* translations = nullptr;
 
-  raft::spatial::knn::detail::brute_force_knn_impl<uint32_t, int64_t>(input_vec,
+  raft::spatial::knn::detail::brute_force_knn_impl<uint32_t, int64_t>(handle,
+                                                                      input_vec,
                                                                       sizes_vec,
                                                                       d,
                                                                       const_cast<value_t*>(X2),
@@ -116,9 +117,6 @@ void compute_bfknn(const raft::handle_t& handle,
                                                                       inds,
                                                                       dists,
                                                                       k,
-                                                                      handle.get_stream(),
-                                                                      int_streams,
-                                                                      0,
                                                                       true,
                                                                       true,
                                                                       translations,
@@ -251,13 +249,13 @@ class BallCoverAllKNNTest : public ::testing::TestWithParam<BallCoverInputs> {
                         ToRadians());
     }
 
-    cudaStream_t* int_streams          = nullptr;
     std::vector<int64_t>* translations = nullptr;
 
     std::vector<float*> input_vec   = {d_train_inputs.data()};
     std::vector<uint32_t> sizes_vec = {n};
 
-    raft::spatial::knn::detail::brute_force_knn_impl<uint32_t, int64_t>(input_vec,
+    raft::spatial::knn::detail::brute_force_knn_impl<uint32_t, int64_t>(handle,
+                                                                        input_vec,
                                                                         sizes_vec,
                                                                         d,
                                                                         d_train_inputs.data(),
@@ -265,9 +263,6 @@ class BallCoverAllKNNTest : public ::testing::TestWithParam<BallCoverInputs> {
                                                                         d_ref_I.data(),
                                                                         d_ref_D.data(),
                                                                         k,
-                                                                        handle.get_stream(),
-                                                                        int_streams,
-                                                                        0,
                                                                         true,
                                                                         true,
                                                                         translations,

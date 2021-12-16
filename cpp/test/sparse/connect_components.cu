@@ -18,8 +18,8 @@
 
 #include <cub/cub.cuh>
 
-#include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <vector>
 
 #include <raft/sparse/linalg/symmetrize.hpp>

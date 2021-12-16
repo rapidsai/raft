@@ -19,10 +19,10 @@
 #include "coo_spmv_strategies/dense_smem_strategy.cuh"
 #include "coo_spmv_strategies/hash_strategy.cuh"
 
-#include <raft/cudart_utils.h>
-#include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/mr/device/buffer.hpp>
+#include <raft/sparse/cusparse_wrappers.h>
 
 #include "../../csr.hpp"
 #include "../../detail/utils.h"

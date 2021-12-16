@@ -18,8 +18,8 @@
 
 #include <cub/cub.cuh>
 
-#include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/linalg/unary_op.cuh>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
@@ -51,16 +51,23 @@ int getUniquelabels(rmm::device_uvector<value_t>& unique, value_t* y, size_t n, 
 
   // Query how much temporary storage we will need for cub operations
   // and allocate it
-  cub::DeviceRadixSort::SortKeys(NULL, bytes, y, workspace.data(), n);
+  cub::DeviceRadixSort::SortKeys(
+    NULL, bytes, y, workspace.data(), n, 0, sizeof(value_t) * 8, stream);
   cub::DeviceSelect::Unique(
-    NULL, bytes2, workspace.data(), workspace.data(), d_num_selected.data(), n);
+    NULL, bytes2, workspace.data(), workspace.data(), d_num_selected.data(), n, stream);
   bytes = max(bytes, bytes2);
   rmm::device_uvector<char> cub_storage(bytes, stream);
 
   // Select Unique classes
-  cub::DeviceRadixSort::SortKeys(cub_storage.data(), bytes, y, workspace.data(), n);
-  cub::DeviceSelect::Unique(
-    cub_storage.data(), bytes, workspace.data(), workspace.data(), d_num_selected.data(), n);
+  cub::DeviceRadixSort::SortKeys(
+    cub_storage.data(), bytes, y, workspace.data(), n, 0, sizeof(value_t) * 8, stream);
+  cub::DeviceSelect::Unique(cub_storage.data(),
+                            bytes,
+                            workspace.data(),
+                            workspace.data(),
+                            d_num_selected.data(),
+                            n,
+                            stream);
 
   int n_unique = d_num_selected.value(stream);
   // Copy unique classes to output

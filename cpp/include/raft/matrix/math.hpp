@@ -240,17 +240,7 @@ void reciprocal(math_t* in,
     d_dest,
     d_src,
     len,
-    [=] __device__(math_t a) {
-      if (setzero) {
-        if (abs(a) <= thres) {
-          return math_t(0);
-        } else {
-          return scalar / a;
-        }
-      } else {
-        return scalar / a;
-      }
-    },
+    [=] __device__(math_t a) { return setzero && (abs(a) <= thres) ? math_t{0} : scalar / a; },
     stream);
 }
 

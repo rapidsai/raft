@@ -16,9 +16,9 @@
 #pragma once
 
 #include <raft/cudart_utils.h>
+#include <raft/handle.hpp>
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/sparse/cusparse_wrappers.h>
-#include <raft/handle.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include <thrust/fill.h>

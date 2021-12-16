@@ -14,15 +14,16 @@
  * limitations under the License.
  */
 
+#include "../test_utils.h"
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <raft/random/rng.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
-#include "../test_utils.h"
 
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/selection/knn_graph.hpp>
+#include <raft/spatial/knn/specializations.hpp>
 
 #include <iostream>
 

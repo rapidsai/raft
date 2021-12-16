@@ -26,9 +26,9 @@
 #include <mpi.h>
 #include <nccl.h>
 
-#include <raft/cudart_utils.h>
 #include <raft/comms/comms.hpp>
 #include <raft/comms/util.hpp>
+#include <raft/cudart_utils.h>
 #include <raft/error.hpp>
 #include <raft/handle.hpp>
 
