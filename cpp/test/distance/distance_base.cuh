@@ -18,6 +18,7 @@
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/distance/distance.hpp>
+#include <raft/distance/specializations.hpp>
 #include <raft/random/rng.hpp>
 #include "../test_utils.h"
 
@@ -395,12 +396,8 @@ void distanceLauncher(DataType* x,
                       bool isRowMajor,
                       DataType metric_arg = 2.0f)
 {
-  auto fin_op = [dist2, threshold] __device__(DataType d_val, int g_d_idx) {
-    dist2[g_d_idx] = (d_val < threshold) ? 0.f : d_val;
-    return d_val;
-  };
   raft::distance::distance<distanceType, DataType, DataType, DataType>(
-    x, y, dist, m, n, k, workspace, worksize, fin_op, stream, isRowMajor, metric_arg);
+    x, y, dist, m, n, k, workspace, worksize, stream, isRowMajor, metric_arg);
 }
 
 template <raft::distance::DistanceType distanceType, typename DataType>

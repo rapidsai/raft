@@ -470,7 +470,7 @@ void rbc_low_dim_pass_one(const raft::handle_t& handle,
                           value_int k,
                           const value_idx* R_knn_inds,
                           const value_t* R_knn_dists,
-                          dist_func dfunc,
+                          dist_func& dfunc,
                           value_idx* inds,
                           value_t* dists,
                           float weight,
@@ -601,7 +601,7 @@ void rbc_low_dim_pass_two(const raft::handle_t& handle,
                           value_int k,
                           const value_idx* R_knn_inds,
                           const value_t* R_knn_dists,
-                          dist_func dfunc,
+                          dist_func& dfunc,
                           value_idx* inds,
                           value_t* dists,
                           float weight,
@@ -611,7 +611,7 @@ void rbc_low_dim_pass_two(const raft::handle_t& handle,
 
   rmm::device_uvector<std::uint32_t> bitset(bitset_size * index.m, handle.get_stream());
 
-  perform_post_filter_registers<value_idx, value_t, value_int, 128, dist_func>
+  perform_post_filter_registers<value_idx, value_t, value_int, 128>
     <<<n_query_rows, 128, bitset_size * sizeof(std::uint32_t), handle.get_stream()>>>(
       index.get_X(),
       index.n,
