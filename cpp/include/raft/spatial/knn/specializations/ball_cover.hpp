@@ -18,8 +18,8 @@
 
 #include <cstdint>
 
-#include <raft/spatial/knn/ball_cover_common.h>
 #include <raft/spatial/knn/ball_cover.hpp>
+#include <raft/spatial/knn/ball_cover_common.h>
 #include <raft/spatial/knn/specializations/detail/ball_cover_lowdim.hpp>
 
 namespace raft {
