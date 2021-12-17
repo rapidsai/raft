@@ -149,16 +149,17 @@ struct Linewise {
    * of a vector. Most of the time this is not aligned, so we load it thread-striped
    * within a block and then use the shared memory to get a contiguous chunk.
    *
+   * @param [in] shm a shared memory region for rearranging the data among threads
    * @param [in] p pointer to a vector
    * @param [in] blockOffset the offset of the current block into a vector.
    * @param [in] rowLen the length of a vector.
    * @return a contiguous chunk of a vector, suitable for `vectorRows`.
    */
-  static __device__ __forceinline__ Vec loadVec(const Type* p,
+  static __device__ __forceinline__ Vec loadVec(Type* shm,
+                                                const Type* p,
                                                 const IdxType blockOffset,
                                                 const IdxType rowLen) noexcept
   {
-    __shared__ alignas(sizeof(Type) * VecElems) Type shm[VecElems * BlockSize];
     IdxType j = blockOffset + threadIdx.x;
 #pragma unroll VecElems
     for (int k = threadIdx.x; k < VecElems * BlockSize; k += BlockSize, j += BlockSize) {
@@ -309,12 +310,17 @@ __global__ void __launch_bounds__(BlockSize)
                                   Vecs... vecs)
 {
   typedef Linewise<Type, IdxType, VecBytes, BlockSize> L;
+  constexpr uint workSize = L::VecElems * BlockSize;
+  uint workOffset         = workSize;
+  __shared__ alignas(sizeof(Type) * L::VecElems)
+    Type shm[workSize * ((sizeof...(Vecs)) > 1 ? 2 : 1)];
   const IdxType blockOffset = (arrOffset + BlockSize * L::VecElems * blockIdx.x) % rowLen;
-  return L::vectorRows(reinterpret_cast<typename L::Vec::io_t*>(out),
-                       reinterpret_cast<const typename L::Vec::io_t*>(in),
-                       L::AlignElems::div(len),
-                       op,
-                       L::loadVec(vecs, blockOffset, rowLen)...);
+  return L::vectorRows(
+    reinterpret_cast<typename L::Vec::io_t*>(out),
+    reinterpret_cast<const typename L::Vec::io_t*>(in),
+    L::AlignElems::div(len),
+    op,
+    (workOffset ^= workSize, L::loadVec(shm + workOffset, vecs, blockOffset, rowLen))...);
 }
 
 /**
@@ -346,6 +352,9 @@ __global__ void __launch_bounds__(MaxOffset, 2)
                                   Vecs... vecs)
 {
   // Note, L::VecElems == 1
+  constexpr uint workSize = MaxOffset;
+  uint workOffset         = workSize;
+  __shared__ Type shm[workSize * ((sizeof...(Vecs)) > 1 ? 2 : 1)];
   typedef Linewise<Type, IdxType, sizeof(Type), MaxOffset> L;
   if (blockIdx.x == 0) {
     // first block: offset = 0, length = arrOffset
@@ -353,15 +362,16 @@ __global__ void __launch_bounds__(MaxOffset, 2)
                   reinterpret_cast<const typename L::Vec::io_t*>(in),
                   arrOffset,
                   op,
-                  L::loadVec(vecs, 0, rowLen)...);
+                  (workOffset ^= workSize, L::loadVec(shm + workOffset, vecs, 0, rowLen))...);
   } else {
     // second block: offset = arrTail, length = len - arrTail
     // NB: I substract MaxOffset (= blockDim.x) to get the correct indexing for block 1
-    L::vectorRows(reinterpret_cast<typename L::Vec::io_t*>(out + arrTail - MaxOffset),
-                  reinterpret_cast<const typename L::Vec::io_t*>(in + arrTail - MaxOffset),
-                  len - arrTail + MaxOffset,
-                  op,
-                  L::loadVec(vecs, arrTail % rowLen, rowLen)...);
+    L::vectorRows(
+      reinterpret_cast<typename L::Vec::io_t*>(out + arrTail - MaxOffset),
+      reinterpret_cast<const typename L::Vec::io_t*>(in + arrTail - MaxOffset),
+      len - arrTail + MaxOffset,
+      op,
+      (workOffset ^= workSize, L::loadVec(shm + workOffset, vecs, arrTail % rowLen, rowLen))...);
   }
 }
 
