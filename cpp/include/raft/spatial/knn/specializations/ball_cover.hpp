@@ -21,7 +21,11 @@
 #include <raft/spatial/knn/ball_cover.hpp>
 #include <raft/spatial/knn/ball_cover_common.h>
 #include <raft/spatial/knn/specializations/detail/ball_cover_lowdim.hpp>
+#include <raft/spatial/knn/ball_cover.hpp>
+#include <raft/spatial/knn/ball_cover_common.h>
+#include <raft/spatial/knn/specializations/detail/ball_cover_lowdim.hpp>
 
+#include <cstdint>
 namespace raft {
 namespace spatial {
 namespace knn {
