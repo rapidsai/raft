@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-#include <cuda_profiler_api.h>
-#include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
-// #include <raft/common/nvtx.hpp>
 #include "../linalg/matrix_vector_op.cuh"
 #include "../test_utils.h"
+#include <cuda_profiler_api.h>
+#include <gtest/gtest.h>
+#include <raft/common/nvtx.hpp>
+#include <raft/cudart_utils.h>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/matrix/matrix.hpp>
 #include <raft/random/rng.hpp>
@@ -141,14 +141,14 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
     for (auto [n, m] : dims) {
       if (!r) break;
       auto [out, in, vec1, vec2] = assignSafePtrs(blob, n, m);
-      // RAFT_USING_RANGE("Dims-%zu-%zu", std::size_t(n), std::size_t(m));
+      common::nvtx::range dims_scope("Dims-%zu-%zu", std::size_t(n), std::size_t(m));
       for (auto alongRows : ::testing::Bool()) {
-        // RAFT_USING_RANGE(alongRows ? "alongRows" : "acrossRows");
+        common::nvtx::range dir_scope(alongRows ? "alongRows" : "acrossRows");
         auto lineLen = alongRows ? m : n;
         auto nLines  = alongRows ? n : m;
         {
           {
-            // RAFT_USING_RANGE(stream, "one vec");
+            common::nvtx::range vecs_scope("one vec");
             runLinewiseSum(out, in, lineLen, nLines, alongRows, vec1);
           }
           if (params.checkCorrectness) {
@@ -160,7 +160,7 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
             if (!r) break;
           }
           {
-            // RAFT_USING_RANGE(stream, "two vecs");
+            common::nvtx::range vecs_scope("two vecs");
             runLinewiseSum(out, in, lineLen, nLines, alongRows, vec1, vec2);
           }
           if (params.checkCorrectness) {
