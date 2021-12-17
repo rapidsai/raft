@@ -39,7 +39,6 @@ namespace selection {
  * @param[in] n number of observations (columns) in X
  * @param[in] metric distance metric to use when constructing neighborhoods
  * @param[out] out output edge list
- * @param[out] out output edge list
  * @param c
  */
 template <typename value_idx = int, typename value_t = float>

@@ -30,8 +30,9 @@ namespace selection {
  * @param[in] idxIndptr csr indptr of the index matrix (size n_idx_rows + 1)
  * @param[in] idxIndices csr column indices array of the index matrix (size n_idx_nnz)
  * @param[in] idxData csr data array of the index matrix (size idxNNZ)
- * @param[in] idxNNA number of non-zeros for sparse index matrix
+ * @param[in] idxNNZ number of non-zeros for sparse index matrix
  * @param[in] n_idx_rows number of data samples in index matrix
+ * @param[in] n_idx_cols
  * @param[in] queryIndptr csr indptr of the query matrix (size n_query_rows + 1)
  * @param[in] queryIndices csr indices array of the query matrix (size queryNNZ)
  * @param[in] queryData csr data array of the query matrix (size queryNNZ)
@@ -41,7 +42,7 @@ namespace selection {
  * @param[out] output_indices dense matrix for output indices (size n_query_rows * k)
  * @param[out] output_dists dense matrix for output distances (size n_query_rows * k)
  * @param[in] k the number of neighbors to query
- * @param[in] handle.get_stream() CUDA handle.get_stream() to order operations with respect to
+ * @param[in] handle CUDA handle.get_stream() to order operations with respect to
  * @param[in] batch_size_index maximum number of rows to use from index matrix per batch
  * @param[in] batch_size_query maximum number of rows to use from query matrix per batch
  * @param[in] metric distance metric/measure to use
