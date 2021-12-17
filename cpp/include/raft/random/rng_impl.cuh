@@ -154,14 +154,14 @@ DI void box_muller_transform(Type& val1, Type& val2, Type sigma1, Type mu1)
 
 template <typename GenType, typename OutType, typename LenType>
 DI void custom_next(
-  GenType gen, OutType* val, InvariantDistParams<OutType> params, LenType idx, LenType stride)
+  GenType& gen, OutType* val, InvariantDistParams<OutType> params, LenType idx, LenType stride)
 {
   *val = params.const_val;
 }
 
 template <typename GenType, typename OutType, typename LenType>
 DI void custom_next(
-  GenType gen, OutType* val, UniformDistParams<OutType> params, LenType idx, LenType stride)
+  GenType& gen, OutType* val, UniformDistParams<OutType> params, LenType idx, LenType stride)
 {
   OutType res;
   gen.next(res);
@@ -169,7 +169,7 @@ DI void custom_next(
 }
 
 template <typename GenType, typename OutType, typename LenType>
-DI void custom_next(GenType gen,
+DI void custom_next(GenType& gen,
                     OutType* val,
                     UniformIntDistParams<OutType, uint32_t> params,
                     LenType idx,
@@ -192,7 +192,7 @@ DI void custom_next(GenType gen,
 }
 
 template <typename GenType, typename OutType, typename LenType>
-DI void custom_next(GenType gen,
+DI void custom_next(GenType& gen,
                     OutType* val,
                     UniformIntDistParams<OutType, uint64_t> params,
                     LenType idx,
@@ -218,7 +218,7 @@ DI void custom_next(GenType gen,
 
 template <typename GenType, typename OutType, typename LenType>
 DI void custom_next(
-  GenType gen, OutType* val, NormalDistParams<OutType> params, LenType idx, LenType stride)
+  GenType& gen, OutType* val, NormalDistParams<OutType> params, LenType idx, LenType stride)
 {
   OutType res1, res2;
   gen.next(res1);
@@ -230,7 +230,7 @@ DI void custom_next(
 
 template <typename GenType, typename IntType, typename LenType>
 DI void custom_next(
-  GenType gen, IntType* val, NormalIntDistParams<IntType> params, LenType idx, LenType stride)
+  GenType& gen, IntType* val, NormalIntDistParams<IntType> params, LenType idx, LenType stride)
 {
   IntType res1_int, res2_int;
   gen.next(res1_int);
@@ -245,7 +245,7 @@ DI void custom_next(
 }
 
 template <typename GenType, typename OutType, typename LenType>
-DI void custom_next(GenType gen,
+DI void custom_next(GenType& gen,
                     OutType* val,
                     NormalTableDistParams<OutType, LenType> params,
                     LenType idx,
@@ -267,7 +267,7 @@ DI void custom_next(GenType gen,
 
 template <typename GenType, typename OutType, typename Type, typename LenType>
 DI void custom_next(
-  GenType gen, OutType* val, BernoulliDistParams<Type> params, LenType idx, LenType stride)
+  GenType& gen, OutType* val, BernoulliDistParams<Type> params, LenType idx, LenType stride)
 {
   Type res = 0;
   gen.next(res);
@@ -276,7 +276,7 @@ DI void custom_next(
 
 template <typename GenType, typename OutType, typename LenType>
 DI void custom_next(
-  GenType gen, OutType* val, ScaledBernoulliDistParams<OutType> params, LenType idx, LenType stride)
+  GenType& gen, OutType* val, ScaledBernoulliDistParams<OutType> params, LenType idx, LenType stride)
 {
   OutType res = 0;
   gen.next(res);
@@ -285,7 +285,7 @@ DI void custom_next(
 
 template <typename GenType, typename OutType, typename LenType>
 DI void custom_next(
-  GenType gen, OutType* val, GumbelDistParams<OutType> params, LenType idx, LenType stride)
+  GenType& gen, OutType* val, GumbelDistParams<OutType> params, LenType idx, LenType stride)
 {
   OutType res = 0;
   gen.next(res);
@@ -294,7 +294,7 @@ DI void custom_next(
 
 template <typename GenType, typename OutType, typename LenType>
 DI void custom_next(
-  GenType gen, OutType* val, LogNormalDistParams<OutType> params, LenType idx, LenType stride)
+  GenType& gen, OutType* val, LogNormalDistParams<OutType> params, LenType idx, LenType stride)
 {
   OutType res1 = 0, res2 = 0;
   gen.next(res1);
@@ -306,7 +306,7 @@ DI void custom_next(
 
 template <typename GenType, typename OutType, typename LenType>
 DI void custom_next(
-  GenType gen, OutType* val, LogisticDistParams<OutType> params, LenType idx, LenType stride)
+  GenType& gen, OutType* val, LogisticDistParams<OutType> params, LenType idx, LenType stride)
 {
   OutType res;
   gen.next(res);
@@ -316,7 +316,7 @@ DI void custom_next(
 
 template <typename GenType, typename OutType, typename LenType>
 DI void custom_next(
-  GenType gen, OutType* val, ExponentialDistParams<OutType> params, LenType idx, LenType stride)
+  GenType& gen, OutType* val, ExponentialDistParams<OutType> params, LenType idx, LenType stride)
 {
   OutType res;
   gen.next(res);
@@ -326,7 +326,7 @@ DI void custom_next(
 
 template <typename GenType, typename OutType, typename LenType>
 DI void custom_next(
-  GenType gen, OutType* val, RayleighDistParams<OutType> params, LenType idx, LenType stride)
+  GenType& gen, OutType* val, RayleighDistParams<OutType> params, LenType idx, LenType stride)
 {
   OutType res;
   gen.next(res);
@@ -337,7 +337,7 @@ DI void custom_next(
 
 template <typename GenType, typename OutType, typename LenType>
 DI void custom_next(
-  GenType gen, OutType* val, LaplaceDistParams<OutType> params, LenType idx, LenType stride)
+  GenType& gen, OutType* val, LaplaceDistParams<OutType> params, LenType idx, LenType stride)
 {
   OutType res, out;
   gen.next(res);
@@ -354,7 +354,7 @@ DI void custom_next(
 
 template <typename GenType, typename OutType, typename LenType>
 DI void custom_next(
-  GenType gen, OutType* val, SamplingParams<OutType, LenType> params, LenType idx, LenType stride)
+  GenType& gen, OutType* val, SamplingParams<OutType, LenType> params, LenType idx, LenType stride)
 {
   OutType res;
   gen.next(res);
