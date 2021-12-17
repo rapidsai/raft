@@ -16,10 +16,6 @@
 
 #pragma once
 
-#include <cstdint>
-#include <raft/linalg/distance_type.h>
-#include <raft/sparse/coo.hpp>
-#include <raft/sparse/selection/detail/knn_graph.cuh>
 #include <raft/linalg/distance_type.h>
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/selection/detail/knn_graph.cuh>
