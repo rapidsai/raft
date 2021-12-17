@@ -88,7 +88,10 @@ export LD_LIBRARY_PATH_CACHED=$LD_LIBRARY_PATH
 export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
 
 gpuci_logger "Build C++ and Python targets"
-"$WORKSPACE/build.sh" cppraft pyraft cppdocs -v
+"$WORKSPACE/build.sh" cppraft pyraft -v
+
+gpuci_logger "Building doxygen C++ docs"
+"$WORKSPACE/build.sh" cppdocs -v
 
 gpuci_logger "Resetting LD_LIBRARY_PATH"
 
