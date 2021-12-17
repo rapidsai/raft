@@ -19,6 +19,7 @@
 #include "eig.cuh"
 #include "gemm.cuh"
 #include "transpose.h"
+#include <raft/common/nvtx.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
@@ -63,6 +64,8 @@ void svdQR(const raft::handle_t& handle,
            bool gen_right_vec,
            cudaStream_t stream)
 {
+  common::nvtx::range<common::nvtx::domain::raft> fun_scope(
+    "raft::linalg::svdQR(%d, %d)", n_rows, n_cols);
   cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
   cublasHandle_t cublasH       = handle.get_cublas_handle();
 
@@ -140,6 +143,8 @@ void svdEig(const raft::handle_t& handle,
             bool gen_left_vec,
             cudaStream_t stream)
 {
+  common::nvtx::range<common::nvtx::domain::raft> fun_scope(
+    "raft::linalg::svdEig(%d, %d)", n_rows, n_cols);
   cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
   cublasHandle_t cublasH       = handle.get_cublas_handle();
 
@@ -218,6 +223,8 @@ void svdJacobi(const raft::handle_t& handle,
                int max_sweeps,
                cudaStream_t stream)
 {
+  common::nvtx::range<common::nvtx::domain::raft> fun_scope(
+    "raft::linalg::svdJacobi(%d, %d)", n_rows, n_cols);
   cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
 
   gesvdjInfo_t gesvdj_params = NULL;

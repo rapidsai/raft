@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #########################################
 # cuML GPU build and test script for CI #
 #########################################
@@ -89,6 +89,9 @@ export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
 
 gpuci_logger "Build C++ and Python targets"
 "$WORKSPACE/build.sh" cppraft pyraft -v
+
+gpuci_logger "Building doxygen C++ docs"
+"$WORKSPACE/build.sh" cppdocs -v
 
 gpuci_logger "Resetting LD_LIBRARY_PATH"
 

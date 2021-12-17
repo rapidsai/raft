@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -308,6 +308,7 @@ void setValue(math_t* out, const math_t* in, math_t scalar, int len, cudaStream_
  * @brief ratio of every element over sum of input vector is calculated
  * @tparam math_t data-type upon which the math operation will be performed
  * @tparam IdxType Integer type used to for addressing
+ * @param handle
  * @param src: input matrix
  * @param dest: output matrix. The result is stored in the dest matrix
  * @param len: number elements of input matrix
