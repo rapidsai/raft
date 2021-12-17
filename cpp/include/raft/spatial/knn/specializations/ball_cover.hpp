@@ -21,6 +21,7 @@
 #include <raft/spatial/knn/specializations/detail/ball_cover_lowdim.hpp>
 
 #include <cstdint>
+
 namespace raft {
 namespace spatial {
 namespace knn {

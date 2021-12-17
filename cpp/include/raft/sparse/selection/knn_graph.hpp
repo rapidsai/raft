@@ -21,6 +21,7 @@
 #include <raft/sparse/selection/detail/knn_graph.cuh>
 
 #include <cstdint>
+
 namespace raft {
 namespace sparse {
 namespace selection {

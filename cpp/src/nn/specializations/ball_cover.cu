@@ -24,6 +24,7 @@
 #include <raft/spatial/knn/specializations/knn.hpp>
 
 #include <cstdint>
+
 namespace raft {
 namespace spatial {
 namespace knn {
