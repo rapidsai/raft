@@ -38,7 +38,6 @@ namespace op {
  * @param cur_cnnz array of counts per row
  * @param scalar: scalar to remove from arrays
  * @param n: number of rows in dense matrix
- * @param d_alloc device allocator for temporary buffers
  * @param stream: cuda stream to use
  */
 template <typename T>

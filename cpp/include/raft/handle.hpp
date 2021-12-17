@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -58,7 +58,8 @@ class handle_t {
   /**
    * @brief Construct a handle with a stream view and stream pool
    *
-   * @param[in] stream the default stream (which has the default per-thread stream if unspecified)
+   * @param[in] stream_view the default stream (which has the default per-thread stream if
+   * unspecified)
    * @param[in] stream_pool the stream pool used (which has default of nullptr if unspecified)
    */
   handle_t(rmm::cuda_stream_view stream_view                  = rmm::cuda_stream_per_thread,
@@ -184,7 +185,7 @@ class handle_t {
   /**
    * @brief return stream from pool at index if size > 0, else main stream on handle
    *
-   * @param[in] stream_index the required index of the stream in the stream pool if available
+   * @param[in] stream_idx the required index of the stream in the stream pool if available
    */
   rmm::cuda_stream_view get_next_usable_stream(std::size_t stream_idx) const
   {
