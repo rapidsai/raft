@@ -114,31 +114,12 @@ if(BUILD_TESTS)
 endif()
 
 ##############################################################################
-# - install targets-----------------------------------------------------------
-rapids_cmake_install_lib_dir( lib_dir )
-
-include(CPack)
-
-file(GLOB_RECURSE RAFT_DISTANCE_SOURCES "src/distance/specializations/*.cu")
-file(GLOB_RECURSE RAFT_NN_SOURCES "src/nn/specializations/*.cu" )
-
-add_library(raft_distance SHARED ${RAFT_DISTANCE_SOURCES})
-add_library(raft::raft_distance ALIAS raft_distance)
-
-add_library(raft_nn SHARED ${RAFT_NN_SOURCES})
-add_library(raft::raft_nn ALIAS raft_nn)
+# - raft ---------------------------------------------------------------------
 
 add_library(raft INTERFACE)
 add_library(raft::raft ALIAS raft)
 target_include_directories(raft INTERFACE "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/include>"
                                           "$<INSTALL_INTERFACE:include>")
-
-target_include_directories(raft_distance PUBLIC "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/include>"
-        "$<INSTALL_INTERFACE:include>")
-
-target_include_directories(raft_nn PUBLIC "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/include>"
-        "$<INSTALL_INTERFACE:include>")
-
 set(RAFT_LINK_LIBRARIES
         CUDA::cublas
         CUDA::curand
@@ -149,47 +130,67 @@ set(RAFT_LINK_LIBRARIES
         rmm::rmm
         cuco::cuco
         )
-
 target_link_libraries(raft INTERFACE ${RAFT_LINK_LIBRARIES})
-target_link_libraries(raft_distance PUBLIC ${RAFT_LINK_LIBRARIES})
-target_link_libraries(raft_nn PUBLIC ${RAFT_LINK_LIBRARIES} FAISS::FAISS)
 
 set(RAFT_COMPILE_DEFINITIONS
         $<$<BOOL:${NVTX}>:NVTX_ENABLED>
         )
-
 target_compile_definitions(raft INTERFACE ${RAFT_COMPILE_DEFINITIONS})
-target_compile_definitions(raft_distance PRIVATE ${RAFT_COMPILE_DEFINITIONS})
-target_compile_definitions(raft_nn PRIVATE ${RAFT_COMPILE_DEFINITIONS})
-
-target_compile_options(raft_distance
-        PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
-        "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
-        )
-
-
-target_compile_options(raft_nn
-        PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
-        "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
-        )
-
-target_compile_features(raft_distance PUBLIC cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
-target_compile_features(raft_nn PUBLIC cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
 target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
 
-install(TARGETS raft_distance
-        DESTINATION ${lib_dir}
-        EXPORT raft-exports)
+##############################################################################
+# - raft_distance ------------------------------------------------------------
+add_library(raft_distance SHARED
+  src/distance/specializations/detail
+  src/distance/specializations/detail/canberra.cu
+  src/distance/specializations/detail/chebyshev.cu
+  src/distance/specializations/detail/correlation.cu
+  src/distance/specializations/detail/cosine.cu
+  src/distance/specializations/detail/hamming_unexpanded.cu
+  src/distance/specializations/detail/hellinger_expanded.cu
+  src/distance/specializations/detail/jensen_shannon.cu
+  src/distance/specializations/detail/kl_divergence.cu
+  src/distance/specializations/detail/l1.cu
+  src/distance/specializations/detail/l2_expanded.cu
+  src/distance/specializations/detail/l2_sqrt_expanded.cu
+  src/distance/specializations/detail/l2_sqrt_unexpanded.cu
+  src/distance/specializations/detail/l2_unexpanded.cu
+  src/distance/specializations/detail/lp_unexpanded.cu
+)
 
-install(TARGETS raft_nn
-        DESTINATION ${lib_dir}
-        EXPORT raft-exports)
+add_library(raft::raft_distance ALIAS raft_distance)
+target_link_libraries(raft_distance PUBLIC raft::raft)
 
-install(TARGETS raft
-        DESTINATION ${lib_dir}
-        EXPORT raft-exports)
+##############################################################################
+# - raft_nn ------------------------------------------------------------------
 
+if(TARGET FAISS::FAISS)
+  add_library(raft_nn SHARED
+    src/nn/specializations/ball_cover.cu
+    src/nn/specializations/detail/ball_cover_lowdim.cu
+    src/nn/specializations/fused_l2_knn.cu
+    src/nn/specializations/knn.cu
+  )
+  add_library(raft::raft_nn ALIAS raft_nn)
+
+  target_link_libraries(raft_nn PUBLIC raft::raft FAISS::FAISS)
+endif()
+
+##############################################################################
+# - install targets-----------------------------------------------------------
+rapids_cmake_install_lib_dir( lib_dir )
 include(GNUInstallDirs)
+include(CPack)
+
+install(TARGETS raft raft_distance
+        DESTINATION ${lib_dir}
+        EXPORT raft-exports)
+if(TARGET raft_nn)
+  install(TARGETS  raft_nn
+          DESTINATION ${lib_dir}
+          EXPORT raft-exports)
+endif()
+
 install(DIRECTORY include/raft/
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/raft
         )
