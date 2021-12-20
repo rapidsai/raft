@@ -19,7 +19,7 @@ function(find_and_configure_faiss)
     cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
                           "${multiValueArgs}" ${ARGN} )
 
-    rapids_find_generate_module(FAISS
+    rapids_find_generate_module(faiss
         HEADER_NAMES  faiss/IndexFlat.h
         LIBRARY_NAMES faiss
     )
