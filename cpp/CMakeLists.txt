@@ -185,13 +185,12 @@ if(RAFT_BUILD_SHARED_LIBS)
     )
     add_library(raft::raft_nn ALIAS raft_nn)
 
-    target_link_libraries(raft_nn PUBLIC raft::raft FAISS::FAISS)
+    target_link_libraries(raft_nn PUBLIC raft::raft faiss::faiss)
     target_compile_options(raft_nn
             PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
             "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
             )
   endif()
-
 endif()
 
 ##############################################################################

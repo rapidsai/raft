@@ -23,12 +23,12 @@ function(find_and_configure_faiss)
         HEADER_NAMES  faiss/IndexFlat.h
         LIBRARY_NAMES faiss
     )
-
-    rapids_cpm_find(FAISS ${PKG_VERSION}
-        GLOBAL_TARGETS  faiss
+    rapids_cpm_find(faiss ${PKG_VERSION}
+        GLOBAL_TARGETS  faiss::faiss
         CPM_ARGS
           GIT_REPOSITORY  https://github.com/facebookresearch/faiss.git
           GIT_TAG         ${PKG_PINNED_TAG}
+          EXCLUDE_FROM_ALL TRUE
           OPTIONS
             "FAISS_ENABLE_PYTHON OFF"
             "BUILD_SHARED_LIBS OFF"
@@ -38,13 +38,23 @@ function(find_and_configure_faiss)
             "CMAKE_MESSAGE_LOG_LEVEL VERBOSE"
     )
 
-    if(FAISS_ADDED)
-      set(FAISS_GPU_HEADERS ${FAISS_SOURCE_DIR} PARENT_SCOPE)
+    if(TARGET faiss AND NOT TARGET faiss::faiss)
+        add_library(faiss::faiss ALIAS faiss)
     endif()
 
-    if(TARGET faiss AND NOT TARGET FAISS::FAISS)
-        add_library(FAISS::FAISS ALIAS faiss)
+    if(faiss_ADDED)
+      rapids_export(BUILD faiss
+          EXPORT_SET faiss-targets
+          GLOBAL_TARGETS faiss
+          NAMESPACE faiss::)
     endif()
+
+    # We generate the faiss-config files when we built faiss locally, so always do `find_dependency`
+    rapids_export_package(BUILD faiss raft-faiss-exports)
+
+    # Tell cmake where it can find the generated faiss-config.cmake we wrote.
+    include("${rapids-cmake-dir}/export/find_package_root.cmake")
+    rapids_export_find_package_root(BUILD faiss [=[${CMAKE_CURRENT_LIST_DIR}]=] raft-faiss-exports)
 
 endfunction()
 
