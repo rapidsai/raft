@@ -50,7 +50,8 @@ option(DISABLE_OPENMP "Disable OpenMP" OFF)
 option(NVTX "Enable nvtx markers" OFF)
 
 option(RAFT_BUILD_SHARED_LIBS "Enable building raft shared library instantiations" ON)
-option(RAFT_ENABLE_NN_COMPONENT "Enable the raft::nn component" ON)
+include(CMakeDependentOption)
+cmake_dependent_option(RAFT_ENABLE_NN_COMPONENT "Enable the raft::nn component" ON RAFT_BUILD_SHARED_LIBS OFF)
 
 message(VERBOSE "RAFT: Build RAFT unit-tests: ${BUILD_TESTS}")
 message(VERBOSE "RAFT: Enable detection of conda environment for dependencies: ${DETECT_CONDA_ENV}")
