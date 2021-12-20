@@ -48,6 +48,8 @@ option(DETECT_CONDA_ENV "Enable detection of conda environment for dependencies"
 option(DISABLE_DEPRECATION_WARNINGS "Disable depreaction warnings " ON)
 option(DISABLE_OPENMP "Disable OpenMP" OFF)
 option(NVTX "Enable nvtx markers" OFF)
+
+option(RAFT_BUILD_SHARED_LIBS "Enable building raft shared library instantiations" ON)
 option(RAFT_ENABLE_NN_COMPONENT "Enable the raft::nn component" ON)
 
 message(VERBOSE "RAFT: Build RAFT unit-tests: ${BUILD_TESTS}")
@@ -143,42 +145,53 @@ set(RAFT_COMPILE_DEFINITIONS
 target_compile_definitions(raft INTERFACE ${RAFT_COMPILE_DEFINITIONS})
 target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
 
+if(RAFT_BUILD_SHARED_LIBS)
 ##############################################################################
 # - raft_distance ------------------------------------------------------------
-add_library(raft_distance SHARED
-  src/distance/specializations/detail
-  src/distance/specializations/detail/canberra.cu
-  src/distance/specializations/detail/chebyshev.cu
-  src/distance/specializations/detail/correlation.cu
-  src/distance/specializations/detail/cosine.cu
-  src/distance/specializations/detail/hamming_unexpanded.cu
-  src/distance/specializations/detail/hellinger_expanded.cu
-  src/distance/specializations/detail/jensen_shannon.cu
-  src/distance/specializations/detail/kl_divergence.cu
-  src/distance/specializations/detail/l1.cu
-  src/distance/specializations/detail/l2_expanded.cu
-  src/distance/specializations/detail/l2_sqrt_expanded.cu
-  src/distance/specializations/detail/l2_sqrt_unexpanded.cu
-  src/distance/specializations/detail/l2_unexpanded.cu
-  src/distance/specializations/detail/lp_unexpanded.cu
-)
+  add_library(raft_distance SHARED
+    src/distance/specializations/detail
+    src/distance/specializations/detail/canberra.cu
+    src/distance/specializations/detail/chebyshev.cu
+    src/distance/specializations/detail/correlation.cu
+    src/distance/specializations/detail/cosine.cu
+    src/distance/specializations/detail/hamming_unexpanded.cu
+    src/distance/specializations/detail/hellinger_expanded.cu
+    src/distance/specializations/detail/jensen_shannon.cu
+    src/distance/specializations/detail/kl_divergence.cu
+    src/distance/specializations/detail/l1.cu
+    src/distance/specializations/detail/l2_expanded.cu
+    src/distance/specializations/detail/l2_sqrt_expanded.cu
+    src/distance/specializations/detail/l2_sqrt_unexpanded.cu
+    src/distance/specializations/detail/l2_unexpanded.cu
+    src/distance/specializations/detail/lp_unexpanded.cu
+  )
 
-add_library(raft::raft_distance ALIAS raft_distance)
-target_link_libraries(raft_distance PUBLIC raft::raft)
+  add_library(raft::raft_distance ALIAS raft_distance)
+  target_link_libraries(raft_distance PUBLIC raft::raft)
+  target_compile_options(raft_distance
+          PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
+          "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
+          )
 
 ##############################################################################
 # - raft_nn ------------------------------------------------------------------
 
-if(RAFT_ENABLE_NN_COMPONENT)
-  add_library(raft_nn SHARED
-    src/nn/specializations/ball_cover.cu
-    src/nn/specializations/detail/ball_cover_lowdim.cu
-    src/nn/specializations/fused_l2_knn.cu
-    src/nn/specializations/knn.cu
-  )
-  add_library(raft::raft_nn ALIAS raft_nn)
+  if(RAFT_ENABLE_NN_COMPONENT)
+    add_library(raft_nn SHARED
+      src/nn/specializations/ball_cover.cu
+      src/nn/specializations/detail/ball_cover_lowdim.cu
+      src/nn/specializations/fused_l2_knn.cu
+      src/nn/specializations/knn.cu
+    )
+    add_library(raft::raft_nn ALIAS raft_nn)
 
-  target_link_libraries(raft_nn PUBLIC raft::raft FAISS::FAISS)
+    target_link_libraries(raft_nn PUBLIC raft::raft FAISS::FAISS)
+    target_compile_options(raft_nn
+            PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
+            "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
+            )
+  endif()
+
 endif()
 
 ##############################################################################
@@ -187,14 +200,23 @@ rapids_cmake_install_lib_dir( lib_dir )
 include(GNUInstallDirs)
 include(CPack)
 
-install(TARGETS raft raft_distance
+install(TARGETS raft
         DESTINATION ${lib_dir}
         EXPORT raft-exports)
-if(TARGET raft_nn)
-  install(TARGETS  raft_nn
+
+if(RAFT_BUILD_SHARED_LIBS)
+  install(TARGETS raft_distance
           DESTINATION ${lib_dir}
           EXPORT raft-exports)
+
+  if(TARGET raft_nn)
+    install(TARGETS  raft_nn
+            DESTINATION ${lib_dir}
+            EXPORT raft-exports)
+  endif()
 endif()
+
+
 
 install(DIRECTORY include/raft/
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/raft
