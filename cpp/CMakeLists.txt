@@ -49,7 +49,7 @@ option(DISABLE_DEPRECATION_WARNINGS "Disable depreaction warnings " ON)
 option(DISABLE_OPENMP "Disable OpenMP" OFF)
 option(NVTX "Enable nvtx markers" OFF)
 
-option(RAFT_BUILD_SHARED_LIBS "Enable building raft shared library instantiations" ON)
+option(RAFT_COMPILE_LIBRARIES "Enable building raft shared library instantiations" ON)
 option(RAFT_ENABLE_NN_COMPONENT "Enable the raft::nn component" ON)
 
 message(VERBOSE "RAFT: Build RAFT unit-tests: ${BUILD_TESTS}")
@@ -145,7 +145,7 @@ set(RAFT_COMPILE_DEFINITIONS
 target_compile_definitions(raft INTERFACE ${RAFT_COMPILE_DEFINITIONS})
 target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
 
-if(RAFT_BUILD_SHARED_LIBS)
+if(RAFT_COMPILE_LIBRARIES)
 ##############################################################################
 # - raft_distance ------------------------------------------------------------
   add_library(raft_distance SHARED
@@ -204,7 +204,7 @@ install(TARGETS raft
         DESTINATION ${lib_dir}
         EXPORT raft-exports)
 
-if(RAFT_BUILD_SHARED_LIBS)
+if(RAFT_COMPILE_LIBRARIES)
   install(TARGETS raft_distance
           DESTINATION ${lib_dir}
           EXPORT raft-exports)
