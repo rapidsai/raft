@@ -48,6 +48,7 @@ option(DETECT_CONDA_ENV "Enable detection of conda environment for dependencies"
 option(DISABLE_DEPRECATION_WARNINGS "Disable depreaction warnings " ON)
 option(DISABLE_OPENMP "Disable OpenMP" OFF)
 option(NVTX "Enable nvtx markers" OFF)
+option(RAFT_ENABLE_NN_COMPONENT "Enable the raft::nn component" ON)
 
 message(VERBOSE "RAFT: Build RAFT unit-tests: ${BUILD_TESTS}")
 message(VERBOSE "RAFT: Enable detection of conda environment for dependencies: ${DETECT_CONDA_ENV}")
@@ -56,6 +57,7 @@ message(VERBOSE "RAFT: Disable OpenMP: ${DISABLE_OPENMP}")
 message(VERBOSE "RAFT: Enable kernel resource usage info: ${CUDA_ENABLE_KERNELINFO}")
 message(VERBOSE "RAFT: Enable lineinfo in nvcc: ${CUDA_ENABLE_LINEINFO}")
 message(VERBOSE "RAFT: Enable nvtx markers: ${NVTX}")
+message(VERBOSE "RAFT: Enable raft::nn target: ${RAFT_ENABLE_NN_COMPONENT}")
 message(VERBOSE "RAFT: Statically link the CUDA runtime: ${CUDA_STATIC_RUNTIME}")
 
 # Set RMM logging level
@@ -106,8 +108,11 @@ include(cmake/thirdparty/get_rmm.cmake)
 include(cmake/thirdparty/get_libcudacxx.cmake)
 include(cmake/thirdparty/get_cuco.cmake)
 
-if(BUILD_TESTS)
+if(BUILD_TESTS OR RAFT_ENABLE_NN_COMPONENT)
   include(cmake/thirdparty/get_faiss.cmake)
+endif()
+
+if(BUILD_TESTS)
   include(cmake/thirdparty/get_gtest.cmake)
   include(cmake/thirdparty/get_nccl.cmake)
   include(cmake/thirdparty/get_ucx.cmake)
@@ -164,7 +169,7 @@ target_link_libraries(raft_distance PUBLIC raft::raft)
 ##############################################################################
 # - raft_nn ------------------------------------------------------------------
 
-if(TARGET FAISS::FAISS)
+if(RAFT_ENABLE_NN_COMPONENT)
   add_library(raft_nn SHARED
     src/nn/specializations/ball_cover.cu
     src/nn/specializations/detail/ball_cover_lowdim.cu
