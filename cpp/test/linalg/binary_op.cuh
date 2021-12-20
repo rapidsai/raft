@@ -16,9 +16,9 @@
 
 #pragma once
 
+#include "../test_utils.h"
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/binary_op.cuh>
-#include "../test_utils.h"
 
 namespace raft {
 namespace linalg {
@@ -36,7 +36,7 @@ void naiveAdd(OutType* out, const InType* in1, const InType* in2, IdxType len)
   static const IdxType TPB = 64;
   IdxType nblks            = raft::ceildiv(len, TPB);
   naiveAddKernel<InType, OutType, IdxType><<<nblks, TPB>>>(out, in1, in2, len);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 template <typename InType, typename IdxType = int, typename OutType = InType>

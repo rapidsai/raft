@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
+#include "../test_utils.h"
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/map.cuh>
 #include <raft/random/rng.hpp>
-#include "../test_utils.h"
 
 namespace raft {
 namespace linalg {
@@ -64,7 +64,7 @@ void create_ref(OutType* out_ref,
   eltwiseAdd(tmp.data(), in1, in2, len, stream);
   eltwiseAdd(out_ref, tmp.data(), in3, len, stream);
   scalarAdd(out_ref, out_ref, (OutType)scalar, len, stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 }
 
 template <typename InType, typename IdxType, typename OutType = InType>
@@ -93,7 +93,7 @@ class MapTest : public ::testing::TestWithParam<MapInputs<InType, IdxType, OutTy
 
     create_ref(out_ref.data(), in1.data(), in2.data(), in3.data(), params.scalar, len, stream);
     mapLaunch(out.data(), in1.data(), in2.data(), in3.data(), params.scalar, len, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
  protected:

@@ -19,9 +19,9 @@
 #include <limits>
 #include <raft/linalg/norm.cuh>
 // TODO: Need to hide the PairwiseDistance class impl and expose to public API
+#include "processing.hpp"
 #include <raft/distance/detail/distance.cuh>
 #include <raft/distance/detail/pairwise_distance_base.cuh>
-#include "processing.hpp"
 
 namespace raft {
 namespace spatial {
@@ -614,7 +614,7 @@ void fusedL2UnexpKnnImpl(const DataT* x,
         worksize = sizeof(int32_t) * numMutexes;
         return;
       } else {
-        CUDA_CHECK(cudaMemsetAsync(workspace, 0, sizeof(int32_t) * numMutexes, stream));
+        RAFT_CUDA_TRY(cudaMemsetAsync(workspace, 0, sizeof(int32_t) * numMutexes, stream));
       }
     }
 
@@ -638,7 +638,7 @@ void fusedL2UnexpKnnImpl(const DataT* x,
   } else {
   }
 
-  CUDA_CHECK(cudaGetLastError());
+  RAFT_CUDA_TRY(cudaGetLastError());
 }
 
 template <typename DataT,
@@ -810,7 +810,7 @@ void fusedL2ExpKnnImpl(const DataT* x,
         return;
       } else {
         mutexes = (int32_t*)((char*)workspace + normsSize);
-        CUDA_CHECK(cudaMemsetAsync(mutexes, 0, sizeof(int32_t) * numMutexes, stream));
+        RAFT_CUDA_TRY(cudaMemsetAsync(mutexes, 0, sizeof(int32_t) * numMutexes, stream));
       }
     }
 
@@ -846,7 +846,7 @@ void fusedL2ExpKnnImpl(const DataT* x,
   } else {
   }
 
-  CUDA_CHECK(cudaGetLastError());
+  RAFT_CUDA_TRY(cudaGetLastError());
 }
 
 template <typename DataT,

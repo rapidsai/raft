@@ -133,8 +133,13 @@ class build_ext_no_debug(_build_ext):
                     )
                 except Exception:
                     pass
+
         # Full optimization
         self.compiler.compiler_so.append("-O3")
+
+        # Ignore deprecation declaration warnings
+        self.compiler.compiler_so.append("-Wno-deprecated-declarations")
+
         # No debug symbols, full optimization, no '-Wstrict-prototypes' warning
         remove_flags(
             self.compiler, "-g", "-G", "-O1", "-O2", "-Wstrict-prototypes"

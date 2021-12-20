@@ -16,24 +16,25 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
+#include <rmm/cuda_stream_pool.hpp>
 
 #include <rmm/device_uvector.hpp>
 
 #include <faiss/gpu/GpuDistance.h>
 #include <faiss/gpu/GpuResources.h>
 #include <faiss/gpu/StandardGpuResources.h>
-#include <faiss/utils/Heap.h>
 #include <faiss/gpu/utils/Limits.cuh>
 #include <faiss/gpu/utils/Select.cuh>
+#include <faiss/utils/Heap.h>
 
-#include <raft/linalg/distance_type.h>
-#include <thrust/iterator/transform_iterator.h>
 #include <cstdint>
 #include <iostream>
 #include <raft/handle.hpp>
+#include <raft/linalg/distance_type.h>
 #include <set>
+#include <thrust/iterator/transform_iterator.h>
 
 #include "fused_l2_knn.cuh"
 #include "haversine_distance.cuh"
@@ -140,7 +141,7 @@ inline void knn_merge_parts_impl(value_t* inK,
   knn_merge_parts_kernel<value_idx, value_t, warp_q, thread_q, n_threads>
     <<<grid, block, 0, stream>>>(
       inK, inV, outK, outV, n_samples, n_parts, kInit, vInit, k, translations);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 /**
@@ -215,25 +216,25 @@ inline void knn_merge_parts(value_t* inK,
  * @param[in] metric corresponds to the raft::distance::DistanceType enum (default is L2Expanded)
  * @param[in] metricArg metric argument to use. Corresponds to the p arg for lp norm
  */
-template <typename IntType = int, typename IdxType = std::int64_t>
+template <typename IntType = int, typename IdxType = std::int64_t, typename value_t = float>
 void brute_force_knn_impl(
-  std::vector<float*>& input,
+  const raft::handle_t& handle,
+  std::vector<value_t*>& input,
   std::vector<IntType>& sizes,
   IntType D,
-  float* search_items,
+  value_t* search_items,
   IntType n,
   IdxType* res_I,
-  float* res_D,
+  value_t* res_D,
   IntType k,
-  cudaStream_t userStream,
-  cudaStream_t* internalStreams       = nullptr,
-  int n_int_streams                   = 0,
   bool rowMajorIndex                  = true,
   bool rowMajorQuery                  = true,
   std::vector<IdxType>* translations  = nullptr,
   raft::distance::DistanceType metric = raft::distance::DistanceType::L2Expanded,
   float metricArg                     = 0)
 {
+  auto userStream = handle.get_stream();
+
   ASSERT(input.size() == sizes.size(), "input and sizes vectors should be the same size");
 
   std::vector<IdxType>* id_ranges;
@@ -253,27 +254,27 @@ void brute_force_knn_impl(
   }
 
   // perform preprocessing
-  std::unique_ptr<MetricProcessor<float>> query_metric_processor =
-    create_processor<float>(metric, n, D, k, rowMajorQuery, userStream);
+  std::unique_ptr<MetricProcessor<value_t>> query_metric_processor =
+    create_processor<value_t>(metric, n, D, k, rowMajorQuery, userStream);
   query_metric_processor->preprocess(search_items);
 
-  std::vector<std::unique_ptr<MetricProcessor<float>>> metric_processors(input.size());
+  std::vector<std::unique_ptr<MetricProcessor<value_t>>> metric_processors(input.size());
   for (size_t i = 0; i < input.size(); i++) {
     metric_processors[i] =
-      create_processor<float>(metric, sizes[i], D, k, rowMajorQuery, userStream);
+      create_processor<value_t>(metric, sizes[i], D, k, rowMajorQuery, userStream);
     metric_processors[i]->preprocess(input[i]);
   }
 
   int device;
-  CUDA_CHECK(cudaGetDevice(&device));
+  RAFT_CUDA_TRY(cudaGetDevice(&device));
 
   rmm::device_uvector<std::int64_t> trans(id_ranges->size(), userStream);
   raft::update_device(trans.data(), id_ranges->data(), id_ranges->size(), userStream);
 
-  rmm::device_uvector<float> all_D(0, userStream);
+  rmm::device_uvector<value_t> all_D(0, userStream);
   rmm::device_uvector<std::int64_t> all_I(0, userStream);
 
-  float* out_D   = res_D;
+  value_t* out_D = res_D;
   IdxType* out_I = res_I;
 
   if (input.size() > 1) {
@@ -284,16 +285,15 @@ void brute_force_knn_impl(
     out_I = all_I.data();
   }
 
-  // Sync user stream only if using other streams to parallelize query
-  if (n_int_streams > 0) CUDA_CHECK(cudaStreamSynchronize(userStream));
+  // Make other streams from pool wait on main stream
+  handle.wait_stream_pool_on_stream();
 
   for (size_t i = 0; i < input.size(); i++) {
-    float* out_d_ptr   = out_D + (i * k * n);
+    value_t* out_d_ptr = out_D + (i * k * n);
     IdxType* out_i_ptr = out_I + (i * k * n);
 
-    cudaStream_t stream = raft::select_stream(userStream, internalStreams, n_int_streams, i);
+    auto stream = handle.get_next_usable_stream(i);
 
-    //    // TODO: Enable this once we figure out why it's causing pytest failures in cuml.
     if (k <= 64 && rowMajorQuery == rowMajorIndex && rowMajorQuery == true &&
         (metric == raft::distance::DistanceType::L2Unexpanded ||
          metric == raft::distance::DistanceType::L2SqrtUnexpanded ||
@@ -352,15 +352,13 @@ void brute_force_knn_impl(
       }
     }
 
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
 
   // Sync internal streams if used. We don't need to
   // sync the user stream because we'll already have
   // fully serial execution.
-  for (int i = 0; i < n_int_streams; i++) {
-    CUDA_CHECK(cudaStreamSynchronize(internalStreams[i]));
-  }
+  handle.sync_stream_pool();
 
   if (input.size() > 1 || translations != nullptr) {
     // This is necessary for proper index translations. If there are

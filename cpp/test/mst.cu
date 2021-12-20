@@ -16,11 +16,11 @@
 
 #include <bits/stdc++.h>
 
+#include "test_utils.h"
 #include <gtest/gtest.h>
 #include <iostream>
 #include <rmm/device_uvector.hpp>
 #include <vector>
-#include "test_utils.h"
 
 #include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
@@ -137,15 +137,15 @@ class MSTTest : public ::testing::TestWithParam<MSTTestInput<vertex_t, edge_t, w
     rmm::device_uvector<vertex_t> mst_dst(2 * v - 2, handle.get_stream());
     rmm::device_uvector<vertex_t> color(v, handle.get_stream());
 
-    CUDA_CHECK(cudaMemsetAsync(mst_src.data(),
-                               std::numeric_limits<vertex_t>::max(),
-                               mst_src.size() * sizeof(vertex_t),
-                               handle.get_stream()));
-    CUDA_CHECK(cudaMemsetAsync(mst_dst.data(),
-                               std::numeric_limits<vertex_t>::max(),
-                               mst_dst.size() * sizeof(vertex_t),
-                               handle.get_stream()));
-    CUDA_CHECK(
+    RAFT_CUDA_TRY(cudaMemsetAsync(mst_src.data(),
+                                  std::numeric_limits<vertex_t>::max(),
+                                  mst_src.size() * sizeof(vertex_t),
+                                  handle.get_stream()));
+    RAFT_CUDA_TRY(cudaMemsetAsync(mst_dst.data(),
+                                  std::numeric_limits<vertex_t>::max(),
+                                  mst_dst.size() * sizeof(vertex_t),
+                                  handle.get_stream()));
+    RAFT_CUDA_TRY(
       cudaMemsetAsync(color.data(), 0, color.size() * sizeof(vertex_t), handle.get_stream()));
 
     vertex_t* color_ptr = thrust::raw_pointer_cast(color.data());

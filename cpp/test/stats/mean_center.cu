@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
+#include "../linalg/matrix_vector_op.cuh"
+#include "../test_utils.h"
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <raft/random/rng.hpp>
 #include <raft/stats/mean.hpp>
 #include <raft/stats/mean_center.hpp>
-#include "../linalg/matrix_vector_op.cuh"
-#include "../test_utils.h"
 
 namespace raft {
 namespace stats {
@@ -77,8 +77,9 @@ class MeanCenterTest : public ::testing::TestWithParam<MeanCenterInputs<T, IdxTy
                               rows,
                               params.rowMajor,
                               params.bcastAlongRows,
-                              (T)-1.0);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+                              (T)-1.0,
+                              stream);
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
  protected:

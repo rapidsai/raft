@@ -225,7 +225,7 @@ def perform_test_comms_device_multicast_sendrecv(handle, n_trials):
     n_trilas : int
                Number of test trials
     """
-    cdef const handle_t *h = <handle_t*><size_t>handle.getHandle()
+    cdef const handle_t *h = <handle_t *> <size_t> handle.getHandle()
     return test_pointToPoint_device_multicast_sendrecv(deref(h), <int>n_trials)
 
 

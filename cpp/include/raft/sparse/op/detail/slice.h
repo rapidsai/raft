@@ -18,10 +18,10 @@
 
 #include <cusparse_v2.h>
 
-#include <raft/cudart_utils.h>
-#include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/linalg/unary_op.cuh>
+#include <raft/sparse/cusparse_wrappers.h>
 
 #include <thrust/device_ptr.h>
 #include <thrust/scan.h>
@@ -62,7 +62,7 @@ void csr_row_slice_indptr(value_idx start_row,
   raft::update_host(start_offset, indptr + start_row, 1, stream);
   raft::update_host(stop_offset, indptr + stop_row + 1, 1, stream);
 
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
   value_idx s_offset = *start_offset;
 

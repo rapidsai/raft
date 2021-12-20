@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
-#include <raft/cuda_utils.cuh>
-#include <raft/linalg/coalesced_reduction.cuh>
-#include <raft/random/rng.hpp>
 #include "../test_utils.h"
 #include "reduce.cuh"
+#include <gtest/gtest.h>
+#include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
+#include <raft/linalg/coalesced_reduction.cuh>
+#include <raft/random/rng.hpp>
 
 namespace raft {
 namespace linalg {
@@ -75,7 +75,7 @@ class coalescedReductionTest : public ::testing::TestWithParam<coalescedReductio
     // Add to result with inplace = true next
     coalescedReductionLaunch(dots_act.data(), data.data(), cols, rows, stream, true);
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
  protected:
@@ -101,15 +101,21 @@ const std::vector<coalescedReductionInputs<double>> inputsd = {{0.000000001, 102
 typedef coalescedReductionTest<float> coalescedReductionTestF;
 TEST_P(coalescedReductionTestF, Result)
 {
-  ASSERT_TRUE(raft::devArrMatch(
-    dots_exp.data(), dots_act.data(), params.rows, raft::CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(dots_exp.data(),
+                                dots_act.data(),
+                                params.rows,
+                                raft::CompareApprox<float>(params.tolerance),
+                                stream));
 }
 
 typedef coalescedReductionTest<double> coalescedReductionTestD;
 TEST_P(coalescedReductionTestD, Result)
 {
-  ASSERT_TRUE(raft::devArrMatch(
-    dots_exp.data(), dots_act.data(), params.rows, raft::CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(dots_exp.data(),
+                                dots_act.data(),
+                                params.rows,
+                                raft::CompareApprox<double>(params.tolerance),
+                                stream));
 }
 
 INSTANTIATE_TEST_CASE_P(coalescedReductionTests,
