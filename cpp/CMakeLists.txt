@@ -49,9 +49,11 @@ option(DISABLE_DEPRECATION_WARNINGS "Disable depreaction warnings " ON)
 option(DISABLE_OPENMP "Disable OpenMP" OFF)
 option(NVTX "Enable nvtx markers" OFF)
 
-option(RAFT_COMPILE_LIBRARIES "Enable building raft shared library instantiations" ON)
 include(CMakeDependentOption)
-cmake_dependent_option(RAFT_ENABLE_NN_COMPONENT "Enable the raft::nn component" ON RAFT_COMPILE_LIBRARIES OFF)
+
+cmake_dependent_option(RAFT_COMPILE_LIBRARIES "Enable building raft shared library instantiations" ON BUILD_TESTS OFF)
+cmake_dependent_option(RAFT_ENABLE_NN_COMPONENT "Enable the raft::nn component" ON BUILD_TESTS OFF)
+cmake_dependent_option(RAFT_ENABLE_DISTANCE_COMPONENT "Enable the raft::distance component" ON BUILD_TESTS OFF)
 
 message(VERBOSE "RAFT: Build RAFT unit-tests: ${BUILD_TESTS}")
 message(VERBOSE "RAFT: Enable detection of conda environment for dependencies: ${DETECT_CONDA_ENV}")
@@ -126,8 +128,11 @@ endif()
 
 add_library(raft INTERFACE)
 add_library(raft::raft ALIAS raft)
-target_include_directories(raft INTERFACE "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/include>"
-                                          "$<INSTALL_INTERFACE:include>")
+
+target_include_directories(raft INTERFACE
+        "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/include>"
+        "$<INSTALL_INTERFACE:include>")
+
 set(RAFT_LINK_LIBRARIES
         CUDA::cublas
         CUDA::curand
@@ -146,52 +151,71 @@ set(RAFT_COMPILE_DEFINITIONS
 target_compile_definitions(raft INTERFACE ${RAFT_COMPILE_DEFINITIONS})
 target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
 
-if(RAFT_COMPILE_LIBRARIES)
 ##############################################################################
 # - raft_distance ------------------------------------------------------------
-  add_library(raft_distance SHARED
-    src/distance/specializations/detail
-    src/distance/specializations/detail/canberra.cu
-    src/distance/specializations/detail/chebyshev.cu
-    src/distance/specializations/detail/correlation.cu
-    src/distance/specializations/detail/cosine.cu
-    src/distance/specializations/detail/hamming_unexpanded.cu
-    src/distance/specializations/detail/hellinger_expanded.cu
-    src/distance/specializations/detail/jensen_shannon.cu
-    src/distance/specializations/detail/kl_divergence.cu
-    src/distance/specializations/detail/l1.cu
-    src/distance/specializations/detail/l2_expanded.cu
-    src/distance/specializations/detail/l2_sqrt_expanded.cu
-    src/distance/specializations/detail/l2_sqrt_unexpanded.cu
-    src/distance/specializations/detail/l2_unexpanded.cu
-    src/distance/specializations/detail/lp_unexpanded.cu
-  )
+if(RAFT_ENABLE_DISTANCE_COMPONENT)
+
+    if(NOT RAFT_COMPILE_LIBRARIES)
+      add_library(raft_distance INTERFACE)
+
+    else()
+      add_library(raft_distance SHARED
+        src/distance/specializations/detail
+        src/distance/specializations/detail/canberra.cu
+        src/distance/specializations/detail/chebyshev.cu
+        src/distance/specializations/detail/correlation.cu
+        src/distance/specializations/detail/cosine.cu
+        src/distance/specializations/detail/hamming_unexpanded.cu
+        src/distance/specializations/detail/hellinger_expanded.cu
+        src/distance/specializations/detail/jensen_shannon.cu
+        src/distance/specializations/detail/kl_divergence.cu
+        src/distance/specializations/detail/l1.cu
+        src/distance/specializations/detail/l2_expanded.cu
+        src/distance/specializations/detail/l2_sqrt_expanded.cu
+        src/distance/specializations/detail/l2_sqrt_unexpanded.cu
+        src/distance/specializations/detail/l2_unexpanded.cu
+        src/distance/specializations/detail/lp_unexpanded.cu
+      )
+
+      target_link_libraries(raft_distance PUBLIC raft::raft)
+      target_compile_options(raft_distance
+              PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
+              "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
+              )
+  endif()
 
   add_library(raft::raft_distance ALIAS raft_distance)
-  target_link_libraries(raft_distance PUBLIC raft::raft)
-  target_compile_options(raft_distance
-          PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
-          "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
-          )
+endif()
 
 ##############################################################################
 # - raft_nn ------------------------------------------------------------------
 
-  if(RAFT_ENABLE_NN_COMPONENT)
+if(RAFT_ENABLE_NN_COMPONENT)
+
+  set(RAFT_NN_INCLUDE_DIRECTORIES ${FAISS_GPU_INCLUDES})
+
+  if(NOT RAFT_COMPILE_LIBRARIES)
+    add_library(raft_nn INTERFACE)
+    target_include_directories(raft_nn INTERFACE ${RAFT_NN_INCLUDE_DIRECTORIES})
+
+  else()
     add_library(raft_nn SHARED
       src/nn/specializations/ball_cover.cu
       src/nn/specializations/detail/ball_cover_lowdim.cu
       src/nn/specializations/fused_l2_knn.cu
       src/nn/specializations/knn.cu
     )
-    add_library(raft::raft_nn ALIAS raft_nn)
 
     target_link_libraries(raft_nn PUBLIC raft::raft faiss::faiss)
     target_compile_options(raft_nn
             PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
             "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
             )
+    target_include_directories(raft_nn PUBLIC ${RAFT_NN_INCLUDE_DIRECTORIES})
   endif()
+
+  add_library(raft::raft_nn ALIAS raft_nn)
+
 endif()
 
 ##############################################################################
@@ -204,19 +228,17 @@ install(TARGETS raft
         DESTINATION ${lib_dir}
         EXPORT raft-exports)
 
-if(RAFT_COMPILE_LIBRARIES)
+if(TARGET raft_distance)
   install(TARGETS raft_distance
           DESTINATION ${lib_dir}
           EXPORT raft-exports)
-
-  if(TARGET raft_nn)
-    install(TARGETS  raft_nn
-            DESTINATION ${lib_dir}
-            EXPORT raft-exports)
-  endif()
 endif()
 
-
+if(TARGET raft_nn)
+  install(TARGETS  raft_nn
+          DESTINATION ${lib_dir}
+          EXPORT raft-exports)
+endif()
 
 install(DIRECTORY include/raft/
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/raft
@@ -237,7 +259,7 @@ mathematical computational primitives, and utilities that accelerate
 building analytics and data science algorithms in the RAPIDS ecosystem.
 ]=])
 
- rapids_export(INSTALL raft
+rapids_export(INSTALL raft
     EXPORT_SET raft-exports
     GLOBAL_TARGETS raft raft_distance# since we can't hook into EXPORT SETS
     NAMESPACE raft::
