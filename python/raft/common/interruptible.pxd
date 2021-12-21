@@ -30,6 +30,6 @@ cdef extern from "thread" namespace "std::this_thread" nogil:
     cdef cpp_thread_id get_id()
 
 
-cdef extern from "raft/cancellable.hpp" namespace "raft::cancellable" nogil:
+cdef extern from "raft/interruptible.hpp" namespace "raft::interruptible" nogil:
     cdef void synchronize(cuda_stream_view stream) except+
     cdef void cancel(cpp_thread_id tid) except+

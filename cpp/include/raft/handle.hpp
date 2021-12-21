@@ -33,7 +33,7 @@
 //#include <common/cuml_comms_int.hpp>
 
 #include "cudart_utils.h"
-#include <raft/cancellable.hpp>
+#include <raft/interruptible.hpp>
 #include <raft/comms/comms.hpp>
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/cusolver_wrappers.h>
@@ -130,7 +130,7 @@ class handle_t {
   /**
    * @brief synchronize a stream on the handle
    */
-  void sync_stream(rmm::cuda_stream_view stream) const { cancellable::synchronize(stream); }
+  void sync_stream(rmm::cuda_stream_view stream) const { interruptible::synchronize(stream); }
 
   /**
    * @brief synchronize main stream on the handle

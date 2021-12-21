@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
 #include <mutex>
+#include <raft/cudart_utils.h>
 #include <raft/error.hpp>
 #include <rmm/cuda_stream_view.hpp>
 #include <thread>
@@ -26,33 +26,45 @@
 namespace raft {
 
 /**
- * @brief Exception thrown during `cancellable::synchronize` call when it detects a request
+ * @brief Exception thrown during `interruptible::synchronize` call when it detects a request
  * to cancel the work performed in this CPU thread.
  */
-struct cancelled : public raft::exception {
-  explicit cancelled(char const* const message) : raft::exception(message) {}
-  explicit cancelled(std::string const& message) : raft::exception(message) {}
+struct interrupted : public raft::exception {
+  explicit interrupted(char const* const message) : raft::exception(message) {}
+  explicit interrupted(std::string const& message) : raft::exception(message) {}
 };
 
-class cancellable {
+class interruptible {
  public:
   /**
-   * @brief Synchronize the CUDA stream, subject to being cancelled by `cancellable::cancel`
+   * @brief Synchronize the CUDA stream, subject to being interrupted by `interruptible::cancel`
    * called on this CPU thread.
    *
    * @param [in] stream a CUDA stream.
    *
-   * @throw raft::cancelled if cancellable::cancel() was called on the current CPU thread id
+   * @throw raft::interrupted if interruptible::cancel() was called on the current CPU thread id
    * before the currently captured work has been finished.
    * @throw raft::cuda_error if another CUDA error happens.
    */
   static void synchronize(rmm::cuda_stream_view stream) { store_.synchronize(stream); }
 
   /**
-   * @brief Cancel any current or next call to `cancellable::synchronize` performed on the
+   * @brief Check the thread state, whether the thread is interrupted by `interruptible::cancel`.
+   *
+   * This is a cancellation point for an interruptible thread. It's called in the internals of
+   * `interruptible::synchronize` in a loop. If two synchronize calls are far apart, it's
+   * recommended to call `interruptible::yield()` in between to make sure the thread does not become
+   * unresponsive for too long.
+   *
+   * @throw raft::interrupted if interruptible::cancel() was called on the current CPU thread.
+   */
+  static void yield() { store_.yield(); }
+
+  /**
+   * @brief Cancel any current or next call to `interruptible::synchronize` performed on the
    * CPU thread given by the `thread_id`
    *
-   * @param [in] thread_id a CPU thread, in which the work should be cancelled.
+   * @param [in] thread_id a CPU thread, in which the work should be interrupted.
    *
    * @throw raft::cuda_error if a CUDA error happens during recording the interruption event.
    */
@@ -106,6 +118,14 @@ class cancellable {
       cudaEventDestroy(wait_interrupt_);
     }
 
+    void yield()
+    {
+      if (cancelled_) {
+        cancelled_ = false;
+        throw interrupted("The work was in this thread was cancelled.");
+      }
+    }
+
     void synchronize(rmm::cuda_stream_view stream)
     {
       // This function synchronizes the CPU thread on the "interrupt" event instead of
@@ -114,10 +134,7 @@ class cancellable {
       // extra synchronization primitives to protect the state.
       RAFT_CUDA_TRY(cudaEventRecord(wait_interrupt_, stream));
       RAFT_CUDA_TRY(cudaEventSynchronize(wait_interrupt_));
-      if (cancelled_) {
-        cancelled_ = false;
-        throw cancelled("The work was in this stream was cancelled.");
-      }
+      yield();
     }
 
     void cancel()
