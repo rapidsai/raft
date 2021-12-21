@@ -127,6 +127,7 @@ PRIVATE
   raft # transitively links all CUDA libs, etc
   raft_distance
   raft_nn
+  faiss::faiss
   GTest::gtest
   GTest::gtest_main
   Threads::Threads
