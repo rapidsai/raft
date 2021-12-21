@@ -122,7 +122,7 @@ class interruptible {
     {
       if (cancelled_) {
         cancelled_ = false;
-        throw interrupted("The work was in this thread was cancelled.");
+        throw interrupted("The work in this thread was cancelled.");
       }
     }
 
