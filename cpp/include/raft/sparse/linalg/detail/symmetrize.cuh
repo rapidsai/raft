@@ -18,16 +18,16 @@
 
 #include <cusparse_v2.h>
 
+#include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/sparse/cusparse_wrappers.h>
-#include <raft/cuda_utils.cuh>
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
 
-#include <thrust/device_ptr.h>
-#include <thrust/scan.h>
 #include <raft/device_atomics.cuh>
 #include <raft/sparse/op/sort.hpp>
+#include <thrust/device_ptr.h>
+#include <thrust/scan.h>
 
 #include <cuda_runtime.h>
 #include <stdio.h>
@@ -35,9 +35,9 @@
 #include <algorithm>
 #include <iostream>
 
-#include <raft/sparse/detail/utils.h>
 #include <raft/sparse/convert/csr.hpp>
 #include <raft/sparse/coo.hpp>
+#include <raft/sparse/detail/utils.h>
 #include <raft/sparse/op/reduce.hpp>
 
 namespace raft {

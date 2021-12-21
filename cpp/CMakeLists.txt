@@ -145,6 +145,7 @@ set(RAFT_LINK_LIBRARIES
         CUDA::cusolver
         CUDA::cudart
         CUDA::cusparse
+        $<$<BOOL:${NVTX}>:CUDA::nvToolsExt>
         rmm::rmm
         cuco::cuco
         )
@@ -152,6 +153,14 @@ set(RAFT_LINK_LIBRARIES
 target_link_libraries(raft INTERFACE ${RAFT_LINK_LIBRARIES})
 target_link_libraries(raft_distance PUBLIC ${RAFT_LINK_LIBRARIES})
 target_link_libraries(raft_nn PUBLIC ${RAFT_LINK_LIBRARIES} FAISS::FAISS)
+
+set(RAFT_COMPILE_DEFINITIONS
+        $<$<BOOL:${NVTX}>:NVTX_ENABLED>
+        )
+
+target_compile_definitions(raft INTERFACE ${RAFT_COMPILE_DEFINITIONS})
+target_compile_definitions(raft_distance PRIVATE ${RAFT_COMPILE_DEFINITIONS})
+target_compile_definitions(raft_nn PRIVATE ${RAFT_COMPILE_DEFINITIONS})
 
 target_compile_options(raft_distance
         PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"

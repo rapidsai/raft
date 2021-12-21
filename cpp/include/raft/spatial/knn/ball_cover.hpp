@@ -18,11 +18,11 @@
 
 #include <cstdint>
 
-#include <raft/linalg/distance_type.h>
-#include <thrust/transform.h>
 #include "ball_cover_common.h"
 #include "detail/ball_cover.cuh"
 #include "detail/ball_cover/common.cuh"
+#include <raft/linalg/distance_type.h>
+#include <thrust/transform.h>
 
 namespace raft {
 namespace spatial {

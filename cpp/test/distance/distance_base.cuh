@@ -14,13 +14,14 @@
  * limitations under the License.
  */
 
+#include "../test_utils.h"
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
+#include <raft/common/nvtx.hpp>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/distance/distance.hpp>
 #include <raft/distance/specializations.hpp>
 #include <raft/random/rng.hpp>
-#include "../test_utils.h"
 
 namespace raft {
 namespace distance {
@@ -416,6 +417,9 @@ class DistanceTest : public ::testing::TestWithParam<DistanceInputs<DataType>> {
 
   void SetUp() override
   {
+    auto testInfo = testing::UnitTest::GetInstance()->current_test_info();
+    common::nvtx::range fun_scope("test::%s/%s", testInfo->test_suite_name(), testInfo->name());
+
     raft::random::Rng r(params.seed);
     int m               = params.m;
     int n               = params.n;

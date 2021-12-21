@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 
 #include <raft/mr/device/buffer.hpp>
 #include <raft/sparse/mst/mst.cuh>

@@ -32,14 +32,14 @@
 ///@todo: enable once we have migrated cuml-comms layer too
 //#include <common/cuml_comms_int.hpp>
 
+#include "cudart_utils.h"
+#include <raft/cancellable.hpp>
+#include <raft/comms/comms.hpp>
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/cusolver_wrappers.h>
 #include <raft/sparse/cusparse_wrappers.h>
-#include <raft/cancellable.hpp>
-#include <raft/comms/comms.hpp>
 #include <rmm/cuda_stream_pool.hpp>
 #include <rmm/exec_policy.hpp>
-#include "cudart_utils.h"
 
 namespace raft {
 
@@ -59,7 +59,8 @@ class handle_t {
   /**
    * @brief Construct a handle with a stream view and stream pool
    *
-   * @param[in] stream the default stream (which has the default per-thread stream if unspecified)
+   * @param[in] stream_view the default stream (which has the default per-thread stream if
+   * unspecified)
    * @param[in] stream_pool the stream pool used (which has default of nullptr if unspecified)
    */
   handle_t(rmm::cuda_stream_view stream_view                  = rmm::cuda_stream_per_thread,
@@ -190,7 +191,7 @@ class handle_t {
   /**
    * @brief return stream from pool at index if size > 0, else main stream on handle
    *
-   * @param[in] stream_index the required index of the stream in the stream pool if available
+   * @param[in] stream_idx the required index of the stream in the stream pool if available
    */
   rmm::cuda_stream_view get_next_usable_stream(std::size_t stream_idx) const
   {

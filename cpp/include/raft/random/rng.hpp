@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -335,6 +335,7 @@ class Rng : public detail::RngImpl {
    * @tparam DataT data type
    * @tparam WeightsT weights type
    * @tparam IdxT index type
+   * @param handle
    * @param out output sampled array (of length 'sampledLen')
    * @param outIdx indices of the sampled array (of length 'sampledLen'). Pass
    * a nullptr if this is not required.
