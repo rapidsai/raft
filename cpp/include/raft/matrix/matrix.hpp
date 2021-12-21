@@ -23,6 +23,7 @@
 #include <cstddef>
 #include <cuda_runtime.h>
 #include <cusolverDn.h>
+#include <raft/common/nvtx.hpp>
 #include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
 #include <raft/linalg/cublas_wrappers.h>
@@ -325,6 +326,11 @@ void linewiseOp(m_t* out,
                 cudaStream_t stream,
                 Vecs... vecs)
 {
+  common::nvtx::range<common::nvtx::domain::raft> fun_scope("linewiseOp-%c-%zu (%zu, %zu)",
+                                                            alongLines ? 'l' : 'x',
+                                                            sizeof...(Vecs),
+                                                            size_t(lineLen),
+                                                            size_t(nLines));
   detail::MatrixLinewiseOp<16, 256>::run<m_t, idx_t, Lambda, Vecs...>(
     out, in, lineLen, nLines, alongLines, op, stream, vecs...);
 }

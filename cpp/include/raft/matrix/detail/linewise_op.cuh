@@ -375,6 +375,26 @@ __global__ void __launch_bounds__(MaxOffset, 2)
   }
 }
 
+/** Fully occupy GPU this many times for better work balancing. */
+static inline constexpr uint OptimalSmOccupancy = 16;
+
+/**
+ * Calculate the grid size to be `OptimalSmOccupancy * FullyOccupiedGPU`, where `FullyOccupiedGPU`
+ * is the maximum number of blocks fitting in all available SMs.
+ *
+ * @tparam BlockSize blockDim of the kernel.
+ * @return OptimalSmOccupancy * FullyOccupiedGPU
+ */
+template <int BlockSize>
+inline uint getOptimalGridSize()
+{
+  int devId, smCount, maxBlockSize;
+  RAFT_CUDA_TRY(cudaGetDevice(&devId));
+  RAFT_CUDA_TRY(cudaDeviceGetAttribute(&smCount, cudaDevAttrMultiProcessorCount, devId));
+  RAFT_CUDA_TRY(cudaDeviceGetAttribute(&maxBlockSize, cudaDevAttrMaxThreadsPerBlock, devId));
+  return OptimalSmOccupancy * static_cast<uint>(smCount * maxBlockSize / BlockSize);
+}
+
 template <typename Type,
           typename IdxType,
           std::size_t VecBytes,
@@ -399,7 +419,7 @@ void matrixLinewiseVecCols(Type* out,
   if (alignedLen > 0) {
     constexpr dim3 bs(BlockSize, 1, 1);
     // Minimum size of the grid to make the device well occupied
-    const uint occupy = raft::getMultiProcessorCount() * (16384 / BlockSize);
+    const uint occupy = getOptimalGridSize<BlockSize>();
     // does not make sense to have more blocks than this
     const uint maxBlocks = raft::ceildiv<uint>(uint(alignedLen), bs.x * VecElems);
     const dim3 gs(min(maxBlocks, occupy), 1, 1);
@@ -410,15 +430,15 @@ void matrixLinewiseVecCols(Type* out,
       raft::ceildiv<IdxType>(alignedLen, gs.x * VecElems * BlockSize) * VecElems;
     matrixLinewiseVecColsMainKernel<Type, IdxType, VecBytes, BlockSize, Lambda, Vecs...>
       <<<gs, bs, 0, stream>>>(out, in, alignedOff, rowLen, alignedLen, elemsPerThread, op, vecs...);
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
   if (alignedLen < totalLen) {
     // should be not smaller than the warp size for better branching
-    constexpr std::size_t MaxOffset = std::max(std::size_t(32), VecBytes);
+    constexpr std::size_t MaxOffset = std::max(std::size_t(raft::WarpSize), VecBytes);
     matrixLinewiseVecColsTailKernel<Type, IdxType, MaxOffset, Lambda, Vecs...>
       <<<dim3(2, 1, 1), dim3(MaxOffset, 1, 1), 0, stream>>>(
         out, in, alignedOff, alignedEnd, rowLen, totalLen, op, vecs...);
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
 }
 
@@ -461,7 +481,7 @@ void matrixLinewiseVecRows(Type* out,
      */
     const uint expected_grid_size = rowLen / raft::gcd(block_work_size, uint(rowLen));
     // Minimum size of the grid to make the device well occupied
-    const uint occupy = raft::getMultiProcessorCount() * (16384 / BlockSize);
+    const uint occupy = getOptimalGridSize<BlockSize>();
     const dim3 gs(min(
                     // does not make sense to have more blocks than this
                     raft::ceildiv<uint>(uint(totalLen), block_work_size),
@@ -474,15 +494,15 @@ void matrixLinewiseVecRows(Type* out,
     matrixLinewiseVecRowsMainKernel<Type, IdxType, VecBytes, BlockSize, Lambda, Vecs...>
       <<<gs, bs, 0, stream>>>(
         out + alignedOff, alignedStart, alignedOff, rowLen, alignedLen, op, vecs...);
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
   if (alignedLen < totalLen) {
     // should be not smaller than the warp size for better branching
-    constexpr std::size_t MaxOffset = std::max(std::size_t(32), VecBytes);
+    constexpr std::size_t MaxOffset = std::max(std::size_t(raft::WarpSize), VecBytes);
     matrixLinewiseVecRowsTailKernel<Type, IdxType, MaxOffset, Lambda, Vecs...>
       <<<dim3(2, 1, 1), dim3(MaxOffset, 1, 1), 0, stream>>>(
         out, in, alignedOff, alignedEnd, rowLen, totalLen, op, vecs...);
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
 }
 
