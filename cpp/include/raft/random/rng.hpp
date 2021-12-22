@@ -191,7 +191,7 @@ class Rng {
    * @param ptr the output table (dim = n_rows x n_cols)
    * @param n_rows number of rows in the table
    * @param n_cols number of columns in the table
-   * @param mu mean vector (dim = n_cols x 1).
+   * @param mu_vec mean vector (dim = n_cols x 1).
    * @param sigma_vec std-dev vector of each component (dim = n_cols x 1). Pass
    * a nullptr to use the same scalar 'sigma' across all components
    * @param sigma scalar sigma to be used if 'sigma_vec' is nullptr

@@ -122,14 +122,17 @@ struct SamplingParams {
 };
 
 /**
- * @brief Generates the 'a' and 'b' parameters for a modulo affine
- *        transformation equation: `(ax + b) % n`
+ * @brief Helper method to compute Box Muller transform
  *
- * @tparam IdxT integer type
+ * @tparam Type data type
  *
- * @param[in]  n the modulo range
- * @param[out] a slope parameter
- * @param[out] b intercept parameter
+ * @param[inout] val1   first value
+ * @param[inout] val2   second value
+ * @param[in]    sigma1 standard deviation of output gaussian for first value
+ * @param[in]    mu1    mean of output gaussian for first value
+ * @param[in]    sigma2 standard deviation of output gaussian for second value
+ * @param[in]    mu2    mean of output gaussian for second value
+ * @{
  */
 template <typename Type>
 DI void box_muller_transform(Type& val1, Type& val2, Type sigma1, Type mu1, Type sigma2, Type mu2)
