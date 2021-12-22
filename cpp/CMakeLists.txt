@@ -49,15 +49,10 @@ option(DISABLE_DEPRECATION_WARNINGS "Disable depreaction warnings " ON)
 option(DISABLE_OPENMP "Disable OpenMP" OFF)
 option(NVTX "Enable nvtx markers" OFF)
 
-option(RAFT_COMPILE_LIBRARIES "Enable building raft shared library instantiations" OFF)
-option(RAFT_ENABLE_NN_COMPONENT "Enable the raft::nn component" OFF)
-option(RAFT_ENABLE_DISTANCE_COMPONENT "Enable the raft::distance component" OFF)
-
-if(BUILD_TESTS)
-  set(RAFT_COMPILE_LIBRARIES ON)
-  set(RAFT_ENABLE_NN_COMPONENT ON)
-  set(RAFT_ENABLE_DISTANCE_COMPONENT ON)
-endif()
+option(RAFT_COMPILE_LIBRARIES "Enable building raft shared library instantiations" ${BUILD_TESTS})
+include(CMakeDependentOption)
+cmake_dependent_option(RAFT_ENABLE_NN_COMPONENT "Enable the raft::nn component" ON RAFT_COMPILE_LIBRARIES OFF)
+cmake_dependent_option(RAFT_ENABLE_DISTANCE_COMPONENT "Enable the raft::distance component" ON RAFT_COMPILE_LIBRARIES OFF)
 
 message(VERBOSE "RAFT: Build RAFT unit-tests: ${BUILD_TESTS}")
 message(VERBOSE "RAFT: Enable detection of conda environment for dependencies: ${DETECT_CONDA_ENV}")
@@ -67,6 +62,7 @@ message(VERBOSE "RAFT: Enable kernel resource usage info: ${CUDA_ENABLE_KERNELIN
 message(VERBOSE "RAFT: Enable lineinfo in nvcc: ${CUDA_ENABLE_LINEINFO}")
 message(VERBOSE "RAFT: Enable nvtx markers: ${NVTX}")
 message(VERBOSE "RAFT: Enable raft::nn target: ${RAFT_ENABLE_NN_COMPONENT}")
+message(VERBOSE "RAFT: Enable raft::distance target: ${RAFT_ENABLE_DISTANCE_COMPONENT}")
 message(VERBOSE "RAFT: Statically link the CUDA runtime: ${CUDA_STATIC_RUNTIME}")
 
 # Set RMM logging level
@@ -158,73 +154,49 @@ target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>
 ##############################################################################
 # - raft_distance ------------------------------------------------------------
 if(RAFT_ENABLE_DISTANCE_COMPONENT)
-
-    message("RAFT-distance component enabled.")
-
-    if(NOT RAFT_COMPILE_LIBRARIES)
-      add_library(raft_distance INTERFACE)
-
-    else()
-      add_library(raft_distance SHARED
-        src/distance/specializations/detail
-        src/distance/specializations/detail/canberra.cu
-        src/distance/specializations/detail/chebyshev.cu
-        src/distance/specializations/detail/correlation.cu
-        src/distance/specializations/detail/cosine.cu
-        src/distance/specializations/detail/hamming_unexpanded.cu
-        src/distance/specializations/detail/hellinger_expanded.cu
-        src/distance/specializations/detail/jensen_shannon.cu
-        src/distance/specializations/detail/kl_divergence.cu
-        src/distance/specializations/detail/l1.cu
-        src/distance/specializations/detail/l2_expanded.cu
-        src/distance/specializations/detail/l2_sqrt_expanded.cu
-        src/distance/specializations/detail/l2_sqrt_unexpanded.cu
-        src/distance/specializations/detail/l2_unexpanded.cu
-        src/distance/specializations/detail/lp_unexpanded.cu
-      )
-
-      target_link_libraries(raft_distance PUBLIC raft::raft)
-      target_compile_options(raft_distance
-              PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
-              "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
-              )
-  endif()
-
+  add_library(raft_distance SHARED
+    src/distance/specializations/detail
+    src/distance/specializations/detail/canberra.cu
+    src/distance/specializations/detail/chebyshev.cu
+    src/distance/specializations/detail/correlation.cu
+    src/distance/specializations/detail/cosine.cu
+    src/distance/specializations/detail/hamming_unexpanded.cu
+    src/distance/specializations/detail/hellinger_expanded.cu
+    src/distance/specializations/detail/jensen_shannon.cu
+    src/distance/specializations/detail/kl_divergence.cu
+    src/distance/specializations/detail/l1.cu
+    src/distance/specializations/detail/l2_expanded.cu
+    src/distance/specializations/detail/l2_sqrt_expanded.cu
+    src/distance/specializations/detail/l2_sqrt_unexpanded.cu
+    src/distance/specializations/detail/l2_unexpanded.cu
+    src/distance/specializations/detail/lp_unexpanded.cu
+  )
   add_library(raft::raft_distance ALIAS raft_distance)
+
+  target_link_libraries(raft_distance PUBLIC raft::raft)
+  target_compile_options(raft_distance
+          PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
+          "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
+          )
 endif()
 
 ##############################################################################
 # - raft_nn ------------------------------------------------------------------
 
 if(RAFT_ENABLE_NN_COMPONENT)
-
-  message("RAFT-nn component enabled.")
-
-  set(RAFT_NN_INCLUDE_DIRECTORIES ${FAISS_GPU_INCLUDES})
-
-  if(NOT RAFT_COMPILE_LIBRARIES)
-    add_library(raft_nn INTERFACE)
-    target_link_libraries(raft_nn INTERFACE raft::raft)
-    target_include_directories(raft_nn INTERFACE ${RAFT_NN_INCLUDE_DIRECTORIES})
-
-  else()
-    add_library(raft_nn SHARED
-      src/nn/specializations/ball_cover.cu
-      src/nn/specializations/detail/ball_cover_lowdim.cu
-      src/nn/specializations/fused_l2_knn.cu
-      src/nn/specializations/knn.cu
-    )
-
-    target_link_libraries(raft_nn PUBLIC raft::raft)
-    target_compile_options(raft_nn
-            PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
-            "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
-            )
-    target_include_directories(raft_nn PUBLIC ${RAFT_NN_INCLUDE_DIRECTORIES})
-  endif()
-
+  add_library(raft_nn SHARED
+    src/nn/specializations/ball_cover.cu
+    src/nn/specializations/detail/ball_cover_lowdim.cu
+    src/nn/specializations/fused_l2_knn.cu
+    src/nn/specializations/knn.cu
+  )
   add_library(raft::raft_nn ALIAS raft_nn)
 
+  target_link_libraries(raft_nn PUBLIC raft::raft faiss::faiss)
+  target_compile_options(raft_nn
+          PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
+          "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
+          )
 endif()
 
 ##############################################################################
