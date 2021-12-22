@@ -33,8 +33,8 @@
 //#include <common/cuml_comms_int.hpp>
 
 #include "cudart_utils.h"
-#include <raft/interruptible.hpp>
 #include <raft/comms/comms.hpp>
+#include <raft/interruptible.hpp>
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/cusolver_wrappers.h>
 #include <raft/sparse/cusparse_wrappers.h>
