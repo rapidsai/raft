@@ -17,7 +17,6 @@
 #pragma once
 
 #include <curand_kernel.h>
-#include <stdint.h>
 #include <raft/cuda_utils.cuh>
 
 namespace raft {
@@ -206,7 +205,7 @@ DI void custom_next(GenType& gen,
   asm("mul.hi.u64 %0, %1, %2;" : "=l"(m_hi) : "l"(x), "l"(s));
   asm("mul.lo.u64 %0, %1, %2;" : "=l"(m_lo) : "l"(x), "l"(s));
   if (m_lo < s) {
-    uint64_t t = (-s) % s; // (2^64 - s) mod s
+    uint64_t t = (-s) % s;  // (2^64 - s) mod s
     while (m_lo < t) {
       gen.next(x);
       asm("mul.hi.u64 %0, %1, %2;" : "=l"(m_hi) : "l"(x), "l"(s));
@@ -275,8 +274,11 @@ DI void custom_next(
 }
 
 template <typename GenType, typename OutType, typename LenType>
-DI void custom_next(
-  GenType& gen, OutType* val, ScaledBernoulliDistParams<OutType> params, LenType idx, LenType stride)
+DI void custom_next(GenType& gen,
+                    OutType* val,
+                    ScaledBernoulliDistParams<OutType> params,
+                    LenType idx,
+                    LenType stride)
 {
   OutType res = 0;
   gen.next(res);
