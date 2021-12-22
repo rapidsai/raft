@@ -127,7 +127,7 @@ PRIVATE
   raft::raft
   raft::raft_distance
   raft::raft_nn
-  NCCL::NCCL
+  # NCCL::NCCL
   faiss::faiss
   GTest::gtest
   GTest::gtest_main
