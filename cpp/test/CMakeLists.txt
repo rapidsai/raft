@@ -124,9 +124,10 @@ target_include_directories(test_raft
 
 target_link_libraries(test_raft
 PRIVATE
-  raft # transitively links all CUDA libs, etc
-  raft_distance
-  raft_nn
+  raft::raft
+  raft::raft_distance
+  raft::raft_nn
+  NCCL::NCCL
   faiss::faiss
   GTest::gtest
   GTest::gtest_main

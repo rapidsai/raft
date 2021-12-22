@@ -15,7 +15,7 @@
 #=============================================================================
 
 function(find_and_configure_faiss)
-    set(oneValueArgs VERSION PINNED_TAG)
+    set(oneValueArgs VERSION PINNED_TAG BUILD_STATIC_LIBS)
     cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
                           "${multiValueArgs}" ${ARGN} )
 
@@ -23,15 +23,21 @@ function(find_and_configure_faiss)
         HEADER_NAMES  faiss/IndexFlat.h
         LIBRARY_NAMES faiss
     )
+
+    set(BUILD_SHARED_LIBS OFF)
+    if (NOT BUILD_STATIC_LIBS)
+        set(BUILD_SHARED_LIBS ON)
+    endif()
+
     rapids_cpm_find(faiss ${PKG_VERSION}
-        GLOBAL_TARGETS  faiss::faiss
+        GLOBAL_TARGETS     faiss::faiss
+        INSTALL_EXPORT_SET raft-faiss-exports
         CPM_ARGS
-          GIT_REPOSITORY  https://github.com/facebookresearch/faiss.git
-          GIT_TAG         ${PKG_PINNED_TAG}
+          GIT_REPOSITORY   https://github.com/facebookresearch/faiss.git
+          GIT_TAG          ${PKG_PINNED_TAG}
           EXCLUDE_FROM_ALL TRUE
           OPTIONS
             "FAISS_ENABLE_PYTHON OFF"
-            "BUILD_SHARED_LIBS OFF"
             "CUDAToolkit_ROOT ${CUDAToolkit_LIBRARY_DIR}"
             "FAISS_ENABLE_GPU ON"
             "BUILD_TESTING OFF"
@@ -56,9 +62,9 @@ function(find_and_configure_faiss)
     # Tell cmake where it can find the generated faiss-config.cmake we wrote.
     include("${rapids-cmake-dir}/export/find_package_root.cmake")
     rapids_export_find_package_root(BUILD faiss [=[${CMAKE_CURRENT_LIST_DIR}]=] raft-faiss-exports)
-
 endfunction()
 
 find_and_configure_faiss(VERSION    1.7.0
                          PINNED_TAG  bde7c0027191f29c9dadafe4f6e68ca0ee31fb30
+                         BUILD_STATIC_LIBS ${RAFT_USE_FAISS_STATIC}
                         )

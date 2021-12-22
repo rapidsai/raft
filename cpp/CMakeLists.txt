@@ -49,10 +49,12 @@ option(DISABLE_DEPRECATION_WARNINGS "Disable depreaction warnings " ON)
 option(DISABLE_OPENMP "Disable OpenMP" OFF)
 option(NVTX "Enable nvtx markers" OFF)
 
-option(RAFT_COMPILE_LIBRARIES "Enable building raft shared library instantiations" ${BUILD_TESTS})
+option(RAFT_COMPILE_LIBRARIES "Enable building raft shared library instantiations" ON)
 include(CMakeDependentOption)
 cmake_dependent_option(RAFT_ENABLE_NN_COMPONENT "Enable the raft::nn component" ON RAFT_COMPILE_LIBRARIES OFF)
 cmake_dependent_option(RAFT_ENABLE_DISTANCE_COMPONENT "Enable the raft::distance component" ON RAFT_COMPILE_LIBRARIES OFF)
+
+cmake_dependent_option(RAFT_USE_FAISS_STATIC "Build and statically link the FAISS library for nearest neighbors search on GPU" ON RAFT_ENABLE_NN_COMPONENT OFF)
 
 message(VERBOSE "RAFT: Build RAFT unit-tests: ${BUILD_TESTS}")
 message(VERBOSE "RAFT: Enable detection of conda environment for dependencies: ${DETECT_CONDA_ENV}")
@@ -107,18 +109,17 @@ endif()
 # add third party dependencies using CPM
 rapids_cpm_init()
 
-# thrust and libcudacxx need to be before cuco!
-include(cmake/thirdparty/get_thrust.cmake)
 include(cmake/thirdparty/get_rmm.cmake)
 include(cmake/thirdparty/get_libcudacxx.cmake)
 include(cmake/thirdparty/get_cuco.cmake)
+# CPMFindPackage(GTest) so it's available for raft consumers to use
+include(cmake/thirdparty/get_gtest.cmake)
 
 if(BUILD_TESTS OR RAFT_ENABLE_NN_COMPONENT)
   include(cmake/thirdparty/get_faiss.cmake)
 endif()
 
 if(BUILD_TESTS)
-  include(cmake/thirdparty/get_gtest.cmake)
   include(cmake/thirdparty/get_nccl.cmake)
   include(cmake/thirdparty/get_ucx.cmake)
 endif()
@@ -133,22 +134,17 @@ target_include_directories(raft INTERFACE
         "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/include>"
         "$<INSTALL_INTERFACE:include>")
 
-set(RAFT_LINK_LIBRARIES
-        CUDA::cublas
-        CUDA::curand
-        CUDA::cusolver
-        CUDA::cudart
-        CUDA::cusparse
-        $<$<BOOL:${NVTX}>:CUDA::nvToolsExt>
-        rmm::rmm
-        cuco::cuco
-        )
-target_link_libraries(raft INTERFACE ${RAFT_LINK_LIBRARIES})
+target_link_libraries(raft INTERFACE
+  CUDA::cublas
+  CUDA::curand
+  CUDA::cusolver
+  CUDA::cudart
+  CUDA::cusparse
+  $<$<BOOL:${NVTX}>:CUDA::nvToolsExt>
+  rmm::rmm
+  cuco::cuco)
 
-set(RAFT_COMPILE_DEFINITIONS
-        $<$<BOOL:${NVTX}>:NVTX_ENABLED>
-        )
-target_compile_definitions(raft INTERFACE ${RAFT_COMPILE_DEFINITIONS})
+target_compile_definitions(raft INTERFACE $<$<BOOL:${NVTX}>:NVTX_ENABLED>)
 target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
 
 ##############################################################################
@@ -229,6 +225,12 @@ install(DIRECTORY include/raft/
 install(FILES include/raft.hpp
 	DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/raft)
 
+include("${rapids-cmake-dir}/export/write_dependencies.cmake")
+rapids_export_write_dependencies(
+  INSTALL raft-faiss-exports
+  "${PROJECT_BINARY_DIR}/rapids-cmake/raft/export/raft-faiss-dependencies.cmake"
+)
+
 ##############################################################################
 # - install export -----------------------------------------------------------
 set(doc_string
@@ -240,11 +242,31 @@ mathematical computational primitives, and utilities that accelerate
 building analytics and data science algorithms in the RAPIDS ecosystem.
 ]=])
 
+set(code_string
+[=[
+if(faiss IN_LIST raft_FIND_COMPONENTS)
+  enable_language(CUDA)
+  if(EXISTS "${CMAKE_CURRENT_LIST_DIR}/raft-faiss-dependencies.cmake")
+    include("${CMAKE_CURRENT_LIST_DIR}/raft-faiss-dependencies.cmake")
+  endif()
+  if(TARGET faiss AND (NOT TARGET faiss::faiss))
+      add_library(faiss::faiss ALIAS faiss)
+  elseif(TARGET faiss::faiss AND (NOT TARGET faiss))
+      add_library(faiss ALIAS faiss::faiss)
+  endif()
+  if(TARGET raft::raft)
+    target_link_libraries(raft::raft INTERFACE faiss::faiss)
+  endif()
+endif()
+]=]
+)
+
 rapids_export(INSTALL raft
     EXPORT_SET raft-exports
     GLOBAL_TARGETS raft raft_distance# since we can't hook into EXPORT SETS
     NAMESPACE raft::
     DOCUMENTATION doc_string
+    FINAL_CODE_BLOCK code_string
     )
 
 ##############################################################################
@@ -253,10 +275,14 @@ rapids_export(INSTALL raft
 rapids_export(BUILD raft
     EXPORT_SET raft-exports
     GLOBAL_TARGETS raft raft_distance raft_nn# since we can't hook into EXPORT SETS
-    LANGUAGES CUDA
     DOCUMENTATION doc_string
     NAMESPACE raft::
+    FINAL_CODE_BLOCK code_string
     )
+
+rapids_export_write_dependencies(
+  BUILD raft-faiss-exports "${PROJECT_BINARY_DIR}/raft-faiss-dependencies.cmake"
+)
 
 ##############################################################################
 # - build test executable ----------------------------------------------------
