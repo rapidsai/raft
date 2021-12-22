@@ -139,20 +139,6 @@ void eigDC(const raft::handle_t& handle,
 
 enum EigVecMemUsage { OVERWRITE_INPUT, COPY_INPUT };
 
-/**
- * @defgroup eig decomp with divide and conquer method for the column-major
- * symmetric matrices
- * @param handle raft handle
- * @param in the input buffer (symmetric matrix that has real eig values and
- * vectors.
- * @param n_rows: number of rows of the input
- * @param n_cols: number of cols of the input
- * @param n_eig_vals: number of eigenvectors to be generated
- * @param eig_vectors: eigenvectors
- * @param eig_vals: eigen values
- * @param stream cuda stream
- * @{
- */
 template <typename math_t>
 void eigSelDC(const raft::handle_t& handle,
               math_t* in,
