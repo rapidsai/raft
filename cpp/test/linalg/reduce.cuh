@@ -22,6 +22,8 @@
 #include <raft/linalg/unary_op.hpp>
 #include <rmm/device_uvector.hpp>
 
+#include <thrust/device_ptr.h>
+
 namespace raft {
 namespace linalg {
 

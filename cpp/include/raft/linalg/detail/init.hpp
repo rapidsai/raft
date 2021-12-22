@@ -16,10 +16,10 @@
 
 #pragma once
 
+#include <rmm/exec_policy.hpp>
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>
 #include <thrust/iterator/counting_iterator.h>
-#include <rmm/exec_policy.hpp>
 
 namespace raft {
 namespace linalg {

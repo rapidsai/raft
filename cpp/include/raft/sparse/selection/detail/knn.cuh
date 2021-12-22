@@ -18,16 +18,16 @@
 
 #include <rmm/device_uvector.hpp>
 
-#include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/distance/distance_type.hpp>
 #include <raft/linalg/unary_op.hpp>
 #include <raft/matrix/matrix.hpp>
 #include <raft/mr/device/buffer.hpp>
 
-#include <raft/sparse/detail/utils.h>
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/csr.hpp>
+#include <raft/sparse/detail/utils.h>
 #include <raft/sparse/distance/distance.hpp>
 #include <raft/sparse/op/slice.hpp>
 #include <raft/spatial/knn/knn.hpp>

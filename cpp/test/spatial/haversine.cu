@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
+#include "../test_utils.h"
 #include <gtest/gtest.h>
 #include <iostream>
 #include <raft/distance/distance_type.hpp>
 #include <raft/spatial/knn/detail/haversine_distance.cuh>
 #include <rmm/device_uvector.hpp>
 #include <vector>
-#include "../test_utils.h"
 
 namespace raft {
 namespace spatial {

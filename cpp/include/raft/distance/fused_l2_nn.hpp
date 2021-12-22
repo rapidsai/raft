@@ -16,12 +16,12 @@
 
 #pragma once
 
-#include <stdint.h>
 #include <cub/cub.cuh>
 #include <limits>
 #include <raft/cuda_utils.cuh>
 #include <raft/distance/detail/fused_l2_nn.cuh>
 #include <raft/handle.hpp>
+#include <stdint.h>
 
 namespace raft {
 namespace distance {

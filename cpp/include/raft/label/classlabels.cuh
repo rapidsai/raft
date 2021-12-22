@@ -18,8 +18,8 @@
 
 #include <cub/cub.cuh>
 
-#include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/linalg/unary_op.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>

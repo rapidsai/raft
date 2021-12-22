@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "unary_op.cuh"
 #include <cub/cub.cuh>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/unary_op.hpp>

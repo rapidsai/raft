@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <raft/linalg/unary_op.hpp>
 #include "functional.cuh"
+#include <raft/linalg/unary_op.hpp>
 
 namespace raft {
 namespace linalg {

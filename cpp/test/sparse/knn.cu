@@ -17,10 +17,10 @@
 #include <cusparse_v2.h>
 #include <gtest/gtest.h>
 
-#include <raft/sparse/cusparse_wrappers.h>
-#include <raft/distance/distance_type.hpp>
-#include <raft/sparse/selection/knn.hpp>
 #include "../test_utils.h"
+#include <raft/distance/distance_type.hpp>
+#include <raft/sparse/cusparse_wrappers.h>
+#include <raft/sparse/selection/knn.hpp>
 
 #include <raft/cudart_utils.h>
 #include <raft/sparse/cusparse_wrappers.h>

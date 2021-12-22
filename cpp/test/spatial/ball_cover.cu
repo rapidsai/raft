@@ -14,19 +14,20 @@
  * limitations under the License.
  */
 
+#include "../test_utils.h"
+#include "spatial_data.h"
 #include <raft/cudart_utils.h>
 #include <raft/distance/distance_type.hpp>
 #include <raft/spatial/knn/ball_cover.hpp>
 #include <raft/spatial/knn/detail/knn_brute_force_faiss.cuh>
+#include <raft/spatial/knn/specializations.hpp>
 #include <rmm/device_uvector.hpp>
-#include "../test_utils.h"
-#include "spatial_data.h"
 
-#include <thrust/transform.h>
 #include <rmm/exec_policy.hpp>
+#include <thrust/transform.h>
 
-#include <gtest/gtest.h>
 #include <cstdint>
+#include <gtest/gtest.h>
 #include <iostream>
 #include <vector>
 

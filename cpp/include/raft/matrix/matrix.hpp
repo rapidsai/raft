@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,11 +18,11 @@
 
 #include "detail/matrix.cuh"
 
+#include <algorithm>
+#include <cstddef>
 #include <cuda_runtime.h>
 #include <cusolverDn.h>
 #include <raft/cudart_utils.h>
-#include <algorithm>
-#include <cstddef>
 #include <raft/handle.hpp>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 
@@ -169,6 +169,7 @@ void rowReverse(m_t* inout, idx_t n_rows, idx_t n_cols, cudaStream_t stream)
  * @param n_cols: number of columns of input matrix
  * @param h_separator: horizontal separator character
  * @param v_separator: vertical separator character
+ * @param stream: cuda stream
  */
 template <typename m_t, typename idx_t = int>
 void print(const m_t* in,
@@ -275,9 +276,9 @@ void getDiagonalInverseMatrix(m_t* in, idx_t len, cudaStream_t stream)
 
 /**
  * @brief Get the L2/F-norm of a matrix/vector
+ * @param handle
  * @param in: input matrix/vector with totally size elements
  * @param size: size of the matrix/vector
- * @param cublasH cublas handle
  * @param stream: cuda stream
  */
 template <typename m_t, typename idx_t = int>

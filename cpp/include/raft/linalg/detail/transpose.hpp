@@ -16,9 +16,10 @@
 
 #pragma once
 
+#include "cublas_wrappers.hpp"
+
 #include <raft/handle.hpp>
 #include <rmm/exec_policy.hpp>
-#include "cublas_wrappers.hpp"
 
 namespace raft {
 namespace linalg {

@@ -22,9 +22,9 @@
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
+#include "../test_utils.h"
 #include <sstream>
 #include <vector>
-#include "../test_utils.h"
 namespace raft {
 namespace linalg {
 

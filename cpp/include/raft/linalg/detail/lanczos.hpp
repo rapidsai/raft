@@ -25,12 +25,12 @@
 #include <cuda.h>
 #include <curand.h>
 
+#include "cublas_wrappers.hpp"
 #include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
 #include <raft/spectral/lapack.hpp>
 #include <raft/spectral/matrix_wrappers.hpp>
 #include <raft/spectral/warn_dbg.hpp>
-#include "cublas_wrappers.hpp"
 
 namespace raft {
 

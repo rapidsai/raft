@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <rmm/cuda_stream_pool.hpp>
 
 #include <rmm/device_uvector.hpp>
@@ -25,16 +25,16 @@
 #include <faiss/gpu/GpuDistance.h>
 #include <faiss/gpu/GpuResources.h>
 #include <faiss/gpu/StandardGpuResources.h>
-#include <faiss/utils/Heap.h>
 #include <faiss/gpu/utils/Limits.cuh>
 #include <faiss/gpu/utils/Select.cuh>
+#include <faiss/utils/Heap.h>
 
-#include <thrust/iterator/transform_iterator.h>
 #include <cstdint>
 #include <iostream>
 #include <raft/distance/distance_type.hpp>
 #include <raft/handle.hpp>
 #include <set>
+#include <thrust/iterator/transform_iterator.h>
 
 #include "fused_l2_knn.cuh"
 #include "haversine_distance.cuh"
@@ -216,16 +216,16 @@ inline void knn_merge_parts(value_t* inK,
  * @param[in] metric corresponds to the raft::distance::DistanceType enum (default is L2Expanded)
  * @param[in] metricArg metric argument to use. Corresponds to the p arg for lp norm
  */
-template <typename IntType = int, typename IdxType = std::int64_t>
+template <typename IntType = int, typename IdxType = std::int64_t, typename value_t = float>
 void brute_force_knn_impl(
   const raft::handle_t& handle,
-  std::vector<float*>& input,
+  std::vector<value_t*>& input,
   std::vector<IntType>& sizes,
   IntType D,
-  float* search_items,
+  value_t* search_items,
   IntType n,
   IdxType* res_I,
-  float* res_D,
+  value_t* res_D,
   IntType k,
   bool rowMajorIndex                  = true,
   bool rowMajorQuery                  = true,
@@ -254,14 +254,14 @@ void brute_force_knn_impl(
   }
 
   // perform preprocessing
-  std::unique_ptr<MetricProcessor<float>> query_metric_processor =
-    create_processor<float>(metric, n, D, k, rowMajorQuery, userStream);
+  std::unique_ptr<MetricProcessor<value_t>> query_metric_processor =
+    create_processor<value_t>(metric, n, D, k, rowMajorQuery, userStream);
   query_metric_processor->preprocess(search_items);
 
-  std::vector<std::unique_ptr<MetricProcessor<float>>> metric_processors(input.size());
+  std::vector<std::unique_ptr<MetricProcessor<value_t>>> metric_processors(input.size());
   for (size_t i = 0; i < input.size(); i++) {
     metric_processors[i] =
-      create_processor<float>(metric, sizes[i], D, k, rowMajorQuery, userStream);
+      create_processor<value_t>(metric, sizes[i], D, k, rowMajorQuery, userStream);
     metric_processors[i]->preprocess(input[i]);
   }
 
@@ -271,10 +271,10 @@ void brute_force_knn_impl(
   rmm::device_uvector<std::int64_t> trans(id_ranges->size(), userStream);
   raft::update_device(trans.data(), id_ranges->data(), id_ranges->size(), userStream);
 
-  rmm::device_uvector<float> all_D(0, userStream);
+  rmm::device_uvector<value_t> all_D(0, userStream);
   rmm::device_uvector<std::int64_t> all_I(0, userStream);
 
-  float* out_D   = res_D;
+  value_t* out_D = res_D;
   IdxType* out_I = res_I;
 
   if (input.size() > 1) {
@@ -289,69 +289,68 @@ void brute_force_knn_impl(
   handle.wait_stream_pool_on_stream();
 
   for (size_t i = 0; i < input.size(); i++) {
-    float* out_d_ptr   = out_D + (i * k * n);
+    value_t* out_d_ptr = out_D + (i * k * n);
     IdxType* out_i_ptr = out_I + (i * k * n);
 
     auto stream = handle.get_next_usable_stream(i);
 
-    //    // TODO: Enable this once we figure out why it's causing pytest failures in cuml.
-    //    if (k <= 64 && rowMajorQuery == rowMajorIndex && rowMajorQuery == true &&
-    //        (metric == raft::distance::DistanceType::L2Unexpanded ||
-    //         metric == raft::distance::DistanceType::L2SqrtUnexpanded ||
-    //         metric == raft::distance::DistanceType::L2Expanded ||
-    //         metric == raft::distance::DistanceType::L2SqrtExpanded)) {
-    //      fusedL2Knn(D,
-    //                 out_i_ptr,
-    //                 out_d_ptr,
-    //                 input[i],
-    //                 search_items,
-    //                 sizes[i],
-    //                 n,
-    //                 k,
-    //                 rowMajorIndex,
-    //                 rowMajorQuery,
-    //                 stream,
-    //                 metric);
-    //    } else {
-    switch (metric) {
-      case raft::distance::DistanceType::Haversine:
+    if (k <= 64 && rowMajorQuery == rowMajorIndex && rowMajorQuery == true &&
+        (metric == raft::distance::DistanceType::L2Unexpanded ||
+         metric == raft::distance::DistanceType::L2SqrtUnexpanded ||
+         metric == raft::distance::DistanceType::L2Expanded ||
+         metric == raft::distance::DistanceType::L2SqrtExpanded)) {
+      fusedL2Knn(D,
+                 out_i_ptr,
+                 out_d_ptr,
+                 input[i],
+                 search_items,
+                 sizes[i],
+                 n,
+                 k,
+                 rowMajorIndex,
+                 rowMajorQuery,
+                 stream,
+                 metric);
+    } else {
+      switch (metric) {
+        case raft::distance::DistanceType::Haversine:
 
-        ASSERT(D == 2,
-               "Haversine distance requires 2 dimensions "
-               "(latitude / longitude).");
+          ASSERT(D == 2,
+                 "Haversine distance requires 2 dimensions "
+                 "(latitude / longitude).");
 
-        haversine_knn(out_i_ptr, out_d_ptr, input[i], search_items, sizes[i], n, k, stream);
-        break;
-      default:
-        faiss::MetricType m = build_faiss_metric(metric);
+          haversine_knn(out_i_ptr, out_d_ptr, input[i], search_items, sizes[i], n, k, stream);
+          break;
+        default:
+          faiss::MetricType m = build_faiss_metric(metric);
 
-        faiss::gpu::StandardGpuResources gpu_res;
+          faiss::gpu::StandardGpuResources gpu_res;
 
-        gpu_res.noTempMemory();
-        gpu_res.setDefaultStream(device, stream);
+          gpu_res.noTempMemory();
+          gpu_res.setDefaultStream(device, stream);
 
-        faiss::gpu::GpuDistanceParams args;
-        args.metric          = m;
-        args.metricArg       = metricArg;
-        args.k               = k;
-        args.dims            = D;
-        args.vectors         = input[i];
-        args.vectorsRowMajor = rowMajorIndex;
-        args.numVectors      = sizes[i];
-        args.queries         = search_items;
-        args.queriesRowMajor = rowMajorQuery;
-        args.numQueries      = n;
-        args.outDistances    = out_d_ptr;
-        args.outIndices      = out_i_ptr;
+          faiss::gpu::GpuDistanceParams args;
+          args.metric          = m;
+          args.metricArg       = metricArg;
+          args.k               = k;
+          args.dims            = D;
+          args.vectors         = input[i];
+          args.vectorsRowMajor = rowMajorIndex;
+          args.numVectors      = sizes[i];
+          args.queries         = search_items;
+          args.queriesRowMajor = rowMajorQuery;
+          args.numQueries      = n;
+          args.outDistances    = out_d_ptr;
+          args.outIndices      = out_i_ptr;
 
-        /**
-         * @todo: Until FAISS supports pluggable allocation strategies,
-         * we will not reap the benefits of the pool allocator for
-         * avoiding device-wide synchronizations from cudaMalloc/cudaFree
-         */
-        bfKnn(&gpu_res, args);
+          /**
+           * @todo: Until FAISS supports pluggable allocation strategies,
+           * we will not reap the benefits of the pool allocator for
+           * avoiding device-wide synchronizations from cudaMalloc/cudaFree
+           */
+          bfKnn(&gpu_res, args);
+      }
     }
-    //    }
 
     RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
@@ -377,7 +376,11 @@ void brute_force_knn_impl(
     float p = 0.5;  // standard l2
     if (metric == raft::distance::DistanceType::LpUnexpanded) p = 1.0 / metricArg;
     raft::linalg::unaryOp<float>(
-      res_D, res_D, n * k, [p] __device__(float input) { return powf(input, p); }, userStream);
+      res_D,
+      res_D,
+      n * k,
+      [p] __device__(float input) { return powf(fabsf(input), p); },
+      userStream);
   }
 
   query_metric_processor->revert(search_items);

@@ -16,10 +16,10 @@
 
 #pragma once
 
+#include "cublas_wrappers.hpp"
 #include <cublas_v2.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
-#include "cublas_wrappers.hpp"
 
 namespace raft {
 namespace linalg {
