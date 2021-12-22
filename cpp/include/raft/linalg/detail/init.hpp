@@ -16,25 +16,22 @@
 
 #pragma once
 
-#include "detail/init.hpp"
+#include <thrust/copy.h>
+#include <thrust/device_ptr.h>
+#include <thrust/iterator/counting_iterator.h>
+#include <rmm/exec_policy.hpp>
 
 namespace raft {
 namespace linalg {
+namespace detail {
 
-/**
- * @brief Like Python range.
- *
- * Fills the output as out[i] = i.
- *
- * \param [out] out device array, size [end-start]
- * \param [in] start of the range
- * \param [in] end of range (exclusive)
- * \param [in] stream cuda stream
- */
 template <typename T>
 void range(T* out, int start, int end, cudaStream_t stream)
 {
-  detail::range(out, start, end, stream);
+  thrust::counting_iterator<int> first(start);
+  thrust::counting_iterator<int> last = first + (end - start);
+  thrust::device_ptr<T> ptr(out);
+  thrust::copy(rmm::exec_policy(stream), first, last, ptr);
 }
 
 /**
@@ -49,8 +46,9 @@ void range(T* out, int start, int end, cudaStream_t stream)
 template <typename T, int TPB = 256>
 void range(T* out, int n, cudaStream_t stream)
 {
-  detail::range(out, n, stream);
+  range(out, 0, n, stream);
 }
 
+}  // namespace detail
 }  // namespace linalg
 }  // namespace raft

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,10 +17,6 @@
 #pragma once
 
 #include "detail/add.cuh"
-#include "detail/functional.cuh"
-
-#include "binary_op.hpp"
-#include "unary_op.hpp"
 
 namespace raft {
 namespace linalg {
@@ -44,7 +40,7 @@ using detail::adds_scalar;
 template <typename InT, typename OutT = InT, typename IdxType = int>
 void addScalar(OutT* out, const InT* in, InT scalar, IdxType len, cudaStream_t stream)
 {
-  unaryOp(out, in, len, adds_scalar<InT, OutT>(scalar), stream);
+  detail::addScalar(out, in, scalar, len, stream);
 }
 
 /**
@@ -63,7 +59,7 @@ void addScalar(OutT* out, const InT* in, InT scalar, IdxType len, cudaStream_t s
 template <typename InT, typename OutT = InT, typename IdxType = int>
 void add(OutT* out, const InT* in1, const InT* in2, IdxType len, cudaStream_t stream)
 {
-  binaryOp(out, in1, in2, len, thrust::plus<InT>(), stream);
+  detail::add(out, in1, in2, len, stream);
 }
 
 /** Substract single value pointed by singleScalarDev parameter in device memory from inDev[i] and

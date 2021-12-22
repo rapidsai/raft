@@ -31,7 +31,7 @@
 #include <raft/cudart_utils.h>
 #include <raft/device_atomics.cuh>
 #include <raft/handle.hpp>
-#include <raft/linalg/cublas_wrappers.hpp>
+#include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/spectral/matrix_wrappers.hpp>
 #include <raft/spectral/warn_dbg.hpp>
 
@@ -657,20 +657,21 @@ static int updateCentroids(handle_t const& handle,
   thrust::device_ptr<index_type_t> rows(work_int + d * n);
 
   // Take transpose of observation matrix
-  RAFT_CUBLAS_TRY(cublasgeam(cublas_h,
-                             CUBLAS_OP_T,
-                             CUBLAS_OP_N,
-                             n,
-                             d,
-                             &one,
-                             obs,
-                             d,
-                             &zero,
-                             (value_type_t*)NULL,
-                             n,
-                             thrust::raw_pointer_cast(obs_copy),
-                             n,
-                             stream));
+  // #TODO: Call from public API when ready
+  RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgeam(cublas_h,
+                                                   CUBLAS_OP_T,
+                                                   CUBLAS_OP_N,
+                                                   n,
+                                                   d,
+                                                   &one,
+                                                   obs,
+                                                   d,
+                                                   &zero,
+                                                   (value_type_t*)NULL,
+                                                   n,
+                                                   thrust::raw_pointer_cast(obs_copy),
+                                                   n,
+                                                   stream));
 
   // Cluster assigned to each observation matrix entry
   thrust::sequence(thrust_exec_policy, rows, rows + d * n);
@@ -852,7 +853,9 @@ int kmeans(handle_t const& handle,
   }
 
   // Initialize cuBLAS
-  RAFT_CUBLAS_TRY(linalg::cublassetpointermode(cublas_h, CUBLAS_POINTER_MODE_HOST, stream));
+  // #TODO: Call from public API when ready
+  RAFT_CUBLAS_TRY(
+    raft::linalg::detail::cublassetpointermode(cublas_h, CUBLAS_POINTER_MODE_HOST, stream));
 
   // -------------------------------------------------------
   // k-means++ algorithm

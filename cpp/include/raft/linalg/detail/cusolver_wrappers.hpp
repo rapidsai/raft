@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -115,6 +115,7 @@ inline const char* cusolver_error_to_string(cusolverStatus_t err)
 
 namespace raft {
 namespace linalg {
+namespace detail {
 
 /**
  * @defgroup Getrf cusolver getrf operations
@@ -441,7 +442,6 @@ inline cusolverStatus_t cusolverDnsyevd(cusolverDnHandle_t handle,  // NOLINT
 }
 /** @} */
 
-#if CUDART_VERSION >= 10010
 /**
  * @defgroup syevdx cusolver syevdx operations
  * @{
@@ -575,7 +575,6 @@ inline cusolverStatus_t cusolverDnsyevdx(  // NOLINT
     handle, jobz, range, uplo, n, A, lda, vl, vu, il, iu, h_meig, W, work, lwork, devInfo);
 }
 /** @} */
-#endif
 
 /**
  * @defgroup svd cusolver svd operations
@@ -1509,5 +1508,6 @@ inline cusolverStatus_t cusolverDnxsyevd(  // NOLINT
 /** @} */
 #endif
 
+}  // namespace detail
 }  // namespace linalg
 }  // namespace raft

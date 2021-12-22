@@ -24,7 +24,7 @@
 #include <rmm/device_uvector.hpp>
 
 #include <raft/sparse/hierarchy/common.h>
-#include <raft/linalg/distance_type.hpp>
+#include <raft/distance/distance_type.hpp>
 #include <raft/mr/device/buffer.hpp>
 #include <raft/sparse/convert/csr.hpp>
 #include <raft/sparse/coo.hpp>

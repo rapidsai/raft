@@ -34,8 +34,8 @@
 
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/comms/comms.hpp>
-#include <raft/linalg/cublas_wrappers.hpp>
-#include <raft/linalg/cusolver_wrappers.hpp>
+#include <raft/linalg/detail/cublas_wrappers.hpp>
+#include <raft/linalg/detail/cusolver_wrappers.hpp>
 #include <rmm/cuda_stream_pool.hpp>
 #include <rmm/exec_policy.hpp>
 #include "cudart_utils.h"

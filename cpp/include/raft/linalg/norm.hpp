@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,13 +16,15 @@
 
 #pragma once
 
-#include "reduce.hpp"
+#include "detail/norm.hpp"
 
 namespace raft {
 namespace linalg {
 
 /** different types of norms supported on the input buffers */
-enum NormType { L1Norm = 0, L2Norm };
+using detail::L1Norm;
+using detail::L2Norm;
+using detail::NormType;
 
 /**
  * @brief Compute row-wise norm of the input matrix and perform fin_op lambda
@@ -54,37 +56,7 @@ void rowNorm(Type* dots,
              cudaStream_t stream,
              Lambda fin_op = raft::Nop<Type, IdxType>())
 {
-  switch (type) {
-    case L1Norm:
-      reduce(dots,
-             data,
-             D,
-             N,
-             (Type)0,
-             rowMajor,
-             true,
-             stream,
-             false,
-             raft::L1Op<Type, IdxType>(),
-             raft::Sum<Type>(),
-             fin_op);
-      break;
-    case L2Norm:
-      reduce(dots,
-             data,
-             D,
-             N,
-             (Type)0,
-             rowMajor,
-             true,
-             stream,
-             false,
-             raft::L2Op<Type>(),
-             raft::Sum<Type>(),
-             fin_op);
-      break;
-    default: ASSERT(false, "Invalid norm type passed! [%d]", type);
-  };
+  detail::rowNormCaller(dots, data, D, N, type, rowMajor, stream, fin_op);
 }
 
 /**
@@ -111,37 +83,7 @@ void colNorm(Type* dots,
              cudaStream_t stream,
              Lambda fin_op = raft::Nop<Type, IdxType>())
 {
-  switch (type) {
-    case L1Norm:
-      reduce(dots,
-             data,
-             D,
-             N,
-             (Type)0,
-             rowMajor,
-             false,
-             stream,
-             false,
-             raft::L1Op<Type, IdxType>(),
-             raft::Sum<Type>(),
-             fin_op);
-      break;
-    case L2Norm:
-      reduce(dots,
-             data,
-             D,
-             N,
-             (Type)0,
-             rowMajor,
-             false,
-             stream,
-             false,
-             raft::L2Op<Type, IdxType>(),
-             raft::Sum<Type>(),
-             fin_op);
-      break;
-    default: ASSERT(false, "Invalid norm type passed! [%d]", type);
-  };
+  detail::colNormCaller(dots, data, D, N, type, rowMajor, stream, fin_op);
 }
 
 };  // end namespace linalg

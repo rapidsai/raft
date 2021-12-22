@@ -18,7 +18,7 @@
 #include <gtest/gtest.h>
 
 #include <raft/sparse/cusparse_wrappers.h>
-#include <raft/linalg/distance_type.hpp>
+#include <raft/distance/distance_type.hpp>
 #include <raft/sparse/selection/knn.hpp>
 #include "../test_utils.h"
 

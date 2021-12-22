@@ -16,7 +16,7 @@
 
 #include <gtest/gtest.h>
 #include <iostream>
-#include <raft/linalg/distance_type.hpp>
+#include <raft/distance/distance_type.hpp>
 #include <raft/spatial/knn/detail/haversine_distance.cuh>
 #include <rmm/device_uvector.hpp>
 #include <vector>

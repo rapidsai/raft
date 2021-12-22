@@ -19,7 +19,7 @@
 #include <cublas_v2.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
-#include <raft/linalg/cublas_wrappers.hpp>
+#include "cublas_wrappers.hpp"
 
 namespace raft {
 namespace linalg {
@@ -50,6 +50,25 @@ void gemm(const raft::handle_t& handle,
   int ldc = m;
   RAFT_CUBLAS_TRY(
     cublasgemm(cublas_h, trans_a, trans_b, m, n, k, &alpha, a, lda, b, ldb, &beta, c, ldc, stream));
+}
+
+template <typename math_t>
+void gemm(const raft::handle_t& handle,
+          const math_t* a,
+          int n_rows_a,
+          int n_cols_a,
+          const math_t* b,
+          math_t* c,
+          int n_rows_c,
+          int n_cols_c,
+          cublasOperation_t trans_a,
+          cublasOperation_t trans_b,
+          cudaStream_t stream)
+{
+  math_t alpha = math_t(1);
+  math_t beta  = math_t(0);
+  gemm(
+    handle, a, n_rows_a, n_cols_a, b, c, n_rows_c, n_cols_c, trans_a, trans_b, alpha, beta, stream);
 }
 
 template <typename T>

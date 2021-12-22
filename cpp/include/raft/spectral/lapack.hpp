@@ -18,8 +18,8 @@
 #include <cusolverDn.h>
 
 #include <raft/error.hpp>
-#include <raft/linalg/cublas_wrappers.hpp>
-#include <raft/linalg/cusolver_wrappers.hpp>
+#include <raft/linalg/detail/cublas_wrappers.hpp>
+#include <raft/linalg/detail/cusolver_wrappers.hpp>
 
 // for now; TODO: check if/where this `define` should be;
 //

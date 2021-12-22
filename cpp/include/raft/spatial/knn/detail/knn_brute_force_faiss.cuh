@@ -32,8 +32,8 @@
 #include <thrust/iterator/transform_iterator.h>
 #include <cstdint>
 #include <iostream>
+#include <raft/distance/distance_type.hpp>
 #include <raft/handle.hpp>
-#include <raft/linalg/distance_type.hpp>
 #include <set>
 
 #include "fused_l2_knn.cuh"

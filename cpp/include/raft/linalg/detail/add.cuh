@@ -16,11 +16,27 @@
 
 #pragma once
 
+#include "functional.cuh"
+
 #include <raft/cuda_utils.cuh>
+#include <raft/linalg/binary_op.hpp>
+#include <raft/linalg/unary_op.hpp>
 
 namespace raft {
 namespace linalg {
 namespace detail {
+
+template <typename InT, typename OutT = InT, typename IdxType = int>
+void addScalar(OutT* out, const InT* in, InT scalar, IdxType len, cudaStream_t stream)
+{
+  raft::linalg::unaryOp(out, in, len, adds_scalar<InT, OutT>(scalar), stream);
+}
+
+template <typename InT, typename OutT = InT, typename IdxType = int>
+void add(OutT* out, const InT* in1, const InT* in2, IdxType len, cudaStream_t stream)
+{
+  raft::linalg::binaryOp(out, in1, in2, len, thrust::plus<InT>(), stream);
+}
 
 template <class math_t, typename IdxType>
 __global__ void add_dev_scalar_kernel(math_t* outDev,

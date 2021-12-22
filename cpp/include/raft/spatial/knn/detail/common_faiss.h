@@ -20,7 +20,7 @@
 #include <raft/cuda_utils.cuh>
 
 #include <faiss/gpu/GpuDistance.h>
-#include <raft/linalg/distance_type.hpp>
+#include <raft/distance/distance_type.hpp>
 
 namespace raft {
 namespace spatial {

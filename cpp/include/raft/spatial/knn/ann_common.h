@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <raft/linalg/distance_type.hpp>
+#include <raft/distance/distance_type.hpp>
 
 #include <faiss/gpu/GpuIndex.h>
 #include <faiss/gpu/StandardGpuResources.h>

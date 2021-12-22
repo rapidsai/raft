@@ -19,8 +19,8 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
 #include <raft/linalg/binary_op.hpp>
-#include <raft/linalg/cublas_wrappers.hpp>
-#include <raft/linalg/cusolver_wrappers.hpp>
+#include "cublas_wrappers.hpp"
+#include "cusolver_wrappers.hpp"
 
 namespace raft {
 namespace linalg {
@@ -76,35 +76,32 @@ void choleskyRank1Update(const raft::handle_t& handle,
     // contiguous. We copy elements from A_row to a contiguous workspace A_new.
     A_row = L + n - 1;
     A_new = reinterpret_cast<math_t*>(workspace);
-    RAFT_CUBLAS_TRY(
-      raft::linalg::cublasCopy(handle.get_cublas_handle(), n - 1, A_row, ld, A_new, 1, stream));
+    RAFT_CUBLAS_TRY(cublasCopy(handle.get_cublas_handle(), n - 1, A_row, ld, A_new, 1, stream));
   }
   cublasOperation_t op = (uplo == CUBLAS_FILL_MODE_UPPER) ? CUBLAS_OP_T : CUBLAS_OP_N;
   if (n > 1) {
     // Calculate L_12 = x by solving equation L_11 x = A_12
     math_t alpha = 1;
-    RAFT_CUBLAS_TRY(raft::linalg::cublastrsm(handle.get_cublas_handle(),
-                                             CUBLAS_SIDE_LEFT,
-                                             uplo,
-                                             op,
-                                             CUBLAS_DIAG_NON_UNIT,
-                                             n - 1,
-                                             1,
-                                             &alpha,
-                                             L,
-                                             ld,
-                                             A_new,
-                                             n - 1,
-                                             stream));
+    RAFT_CUBLAS_TRY(cublastrsm(handle.get_cublas_handle(),
+                               CUBLAS_SIDE_LEFT,
+                               uplo,
+                               op,
+                               CUBLAS_DIAG_NON_UNIT,
+                               n - 1,
+                               1,
+                               &alpha,
+                               L,
+                               ld,
+                               A_new,
+                               n - 1,
+                               stream));
 
     // A_new now stores L_12, we calculate s = L_12 * L_12
-    RAFT_CUBLAS_TRY(
-      raft::linalg::cublasdot(handle.get_cublas_handle(), n - 1, A_new, 1, A_new, 1, s, stream));
+    RAFT_CUBLAS_TRY(cublasdot(handle.get_cublas_handle(), n - 1, A_new, 1, A_new, 1, s, stream));
 
     if (uplo == CUBLAS_FILL_MODE_LOWER) {
       // Copy back the L_12 elements as the n-th row of L
-      RAFT_CUBLAS_TRY(
-        raft::linalg::cublasCopy(handle.get_cublas_handle(), n - 1, A_new, 1, A_row, ld, stream));
+      RAFT_CUBLAS_TRY(cublasCopy(handle.get_cublas_handle(), n - 1, A_new, 1, A_row, ld, stream));
     }
   } else {  // n == 1 case
     RAFT_CUDA_TRY(cudaMemsetAsync(s, 0, sizeof(math_t), stream));

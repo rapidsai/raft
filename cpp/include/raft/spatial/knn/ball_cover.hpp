@@ -19,7 +19,7 @@
 #include <cstdint>
 
 #include <thrust/transform.h>
-#include <raft/linalg/distance_type.hpp>
+#include <raft/distance/distance_type.hpp>
 #include "ball_cover_common.h"
 #include "detail/ball_cover.cuh"
 #include "detail/ball_cover/common.cuh"

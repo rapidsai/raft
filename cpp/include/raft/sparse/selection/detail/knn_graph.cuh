@@ -24,7 +24,7 @@
 
 #include <raft/spatial/knn/knn.hpp>
 
-#include <raft/linalg/distance_type.hpp>
+#include <raft/distance/distance_type.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include <thrust/device_ptr.h>

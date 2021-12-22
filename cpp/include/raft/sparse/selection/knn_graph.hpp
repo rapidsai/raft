@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <raft/linalg/distance_type.hpp>
+#include <raft/distance/distance_type.hpp>
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/selection/detail/knn_graph.cuh>
 

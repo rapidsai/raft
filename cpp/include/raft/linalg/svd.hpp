@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -148,24 +148,7 @@ void svdReconstruction(const raft::handle_t& handle,
                        int k,
                        cudaStream_t stream)
 {
-  const math_t alpha = 1.0, beta = 0.0;
-  rmm::device_uvector<math_t> SVT(k * n_cols, stream);
-
-  raft::linalg::gemm(
-    handle, S, k, k, V, SVT.data(), k, n_cols, CUBLAS_OP_N, CUBLAS_OP_T, alpha, beta, stream);
-  raft::linalg::gemm(handle,
-                     U,
-                     n_rows,
-                     k,
-                     SVT.data(),
-                     out,
-                     n_rows,
-                     n_cols,
-                     CUBLAS_OP_N,
-                     CUBLAS_OP_N,
-                     alpha,
-                     beta,
-                     stream);
+  detail::svdReconstruction(handle, U, S, V, out, n_rows, n_cols, k, stream);
 }
 
 /**

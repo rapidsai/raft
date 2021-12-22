@@ -20,7 +20,7 @@
 
 #include <raft/cudart_utils.h>
 #include <raft/sparse/cusparse_wrappers.h>
-#include <raft/linalg/distance_type.hpp>
+#include <raft/distance/distance_type.hpp>
 
 #include <raft/sparse/distance/distance.hpp>
 

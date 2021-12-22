@@ -24,6 +24,20 @@ namespace raft {
 namespace linalg {
 namespace detail {
 
+template <typename InT, typename OutT = InT, typename IdxType = int>
+void subtractScalar(OutT* out, const InT* in, InT scalar, IdxType len, cudaStream_t stream)
+{
+  auto op = [scalar] __device__(InT in) { return OutT(in - scalar); };
+  raft::linalg::unaryOp<InT, decltype(op), IdxType, OutT>(out, in, len, op, stream);
+}
+
+template <typename InT, typename OutT = InT, typename IdxType = int>
+void subtract(OutT* out, const InT* in1, const InT* in2, IdxType len, cudaStream_t stream)
+{
+  auto op = [] __device__(InT a, InT b) { return OutT(a - b); };
+  raft::linalg::binaryOp<InT, decltype(op), OutT, IdxType>(out, in1, in2, len, op, stream);
+}
+
 template <class math_t, typename IdxType>
 __global__ void subtract_dev_scalar_kernel(math_t* outDev,
                                            const math_t* inDev,

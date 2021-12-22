@@ -16,11 +16,11 @@
 
 #pragma once
 
-#include <raft/linalg/cublas_wrappers.hpp>
-#include <raft/linalg/cusolver_wrappers.hpp>
 #include <raft/matrix/matrix.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
+#include "cublas_wrappers.hpp"
+#include "cusolver_wrappers.hpp"
 
 namespace raft {
 namespace linalg {
@@ -50,10 +50,7 @@ void qrGetQ(const raft::handle_t& handle,
   rmm::device_uvector<math_t> workspace(Lwork, stream);
   RAFT_CUSOLVER_TRY(cusolverDngeqrf(
     cusolverH, m, n, Q, m, tau.data(), workspace.data(), Lwork, devInfo.data(), stream));
-  /// @note in v9.2, without deviceSynchronize *SquareMatrixNorm* ml-prims unit-tests fail.
-#if defined(CUDART_VERSION) && CUDART_VERSION <= 9020
-  RAFT_CUDA_TRY(cudaDeviceSynchronize());
-#endif
+
   RAFT_CUSOLVER_TRY(cusolverDnorgqr_bufferSize(cusolverH, m, n, k, Q, m, tau.data(), &Lwork));
   workspace.resize(Lwork, stream);
   RAFT_CUSOLVER_TRY(cusolverDnorgqr(
@@ -95,10 +92,6 @@ void qrGetQR(const raft::handle_t& handle,
                                     Lwork,
                                     devInfo.data(),
                                     stream));
-  // @note in v9.2, without deviceSynchronize *SquareMatrixNorm* ml-prims unit-tests fail.
-#if defined(CUDART_VERSION) && CUDART_VERSION <= 9020
-  RAFT_CUDA_TRY(cudaDeviceSynchronize());
-#endif
 
   raft::matrix::copyUpperTriangular(R_full.data(), R, m, n, stream);
 

@@ -20,10 +20,10 @@
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
-#include <raft/linalg/cusolver_wrappers.hpp>
 #include <raft/matrix/matrix.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
+#include "cusolver_wrappers.hpp"
 
 namespace raft {
 namespace linalg {
@@ -137,8 +137,6 @@ void eigDC(const raft::handle_t& handle,
 
 enum EigVecMemUsage { OVERWRITE_INPUT, COPY_INPUT };
 
-#if CUDART_VERSION >= 10010
-
 /**
  * @defgroup eig decomp with divide and conquer method for the column-major
  * symmetric matrices
@@ -243,8 +241,6 @@ void eigSelDC(const raft::handle_t& handle,
       d_eig_vectors.data(), n_rows, eig_vectors, n_rows, n_eig_vals, stream);
   }
 }
-
-#endif
 
 template <typename math_t>
 void eigJacobi(const raft::handle_t& handle,

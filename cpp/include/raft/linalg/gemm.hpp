@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -58,6 +58,22 @@ void gemm(const raft::handle_t& handle,
     handle, a, n_rows_a, n_cols_a, b, c, n_rows_c, n_cols_c, trans_a, trans_b, alpha, beta, stream);
 }
 
+/**
+ * @brief the wrapper of cublas gemm function
+ *  It computes the following equation: D = alpha . opA(A) * opB(B) + beta . C
+ * @tparam math_t the type of input/output matrices
+ * @param handle raft handle
+ * @param a input matrix
+ * @param n_rows_a number of rows of A
+ * @param n_cols_a number of columns of A
+ * @param b input matrix
+ * @param c output matrix
+ * @param n_rows_c number of rows of C
+ * @param n_cols_c number of columns of C
+ * @param trans_a cublas transpose op for A
+ * @param trans_b cublas transpose op for B
+ * @param stream cuda stream
+ */
 template <typename math_t>
 void gemm(const raft::handle_t& handle,
           const math_t* a,
@@ -71,10 +87,7 @@ void gemm(const raft::handle_t& handle,
           cublasOperation_t trans_b,
           cudaStream_t stream)
 {
-  math_t alpha = math_t(1);
-  math_t beta  = math_t(0);
-  gemm(
-    handle, a, n_rows_a, n_cols_a, b, c, n_rows_c, n_cols_c, trans_a, trans_b, alpha, beta, stream);
+  detail::gemm(handle, a, n_rows_a, n_cols_a, b, c, n_rows_c, n_cols_c, trans_a, trans_b, stream);
 }
 
 /**

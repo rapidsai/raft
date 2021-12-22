@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -50,8 +50,6 @@ using detail::COPY_INPUT;
 using detail::EigVecMemUsage;
 using detail::OVERWRITE_INPUT;
 
-#if CUDART_VERSION >= 10010
-
 /**
  * @defgroup eig decomp with divide and conquer method for the column-major
  * symmetric matrices
@@ -79,8 +77,6 @@ void eigSelDC(const raft::handle_t& handle,
 {
   detail::eigSelDC(handle, in, n_rows, n_cols, n_eig_vals, eig_vectors, eig_vals, memUsage, stream);
 }
-
-#endif
 
 /**
  * @defgroup overloaded function for eig decomp with Jacobi method for the

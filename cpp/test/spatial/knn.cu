@@ -16,7 +16,7 @@
 
 #include "../test_utils.h"
 
-#include <raft/linalg/distance_type.hpp>
+#include <raft/distance/distance_type.hpp>
 #include <raft/spatial/knn/knn.hpp>
 
 #include <rmm/device_buffer.hpp>

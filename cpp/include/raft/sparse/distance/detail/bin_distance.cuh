@@ -23,7 +23,7 @@
 #include <raft/sparse/detail/utils.h>
 #include <raft/sparse/distance/common.h>
 #include <raft/cuda_utils.cuh>
-#include <raft/linalg/distance_type.hpp>
+#include <raft/distance/distance_type.hpp>
 #include <raft/sparse/distance/detail/ip_distance.cuh>
 #include <rmm/device_uvector.hpp>
 
