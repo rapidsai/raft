@@ -43,12 +43,17 @@ void gemv(const raft::handle_t& handle,
  *
  * where
  *
+ * @param handle raft handle
  * @param A is a column-major matrix of size n_rows_a * n_cols_a.
  *   op(A) is either the transpose operation (trans_a == true) or identity.
- *
+ * @param n_rows_a number of rows in A
+ * @param n_cols_a number of cols in A
  * @param x is a vector of size `trans_a ? n_rows_a : n_cols_a`.
- *
  * @param y is a vector of size `trans_a ? n_cols_a : n_rows_a`.
+ * @param trans_a whether to take transpose of a
+ * @param alpha is a scalar scale of Ax.
+ * @param beta is a scalar scale of y.
+ * @param stream stream on which this function is run
  */
 template <typename math_t>
 void gemv(const raft::handle_t& handle,
@@ -70,12 +75,15 @@ void gemv(const raft::handle_t& handle,
  *
  * where
  *
+ * @param handle raft handle
  * @param A is a column-major matrix of size n_rows_a * n_cols_a.
  *   op(A) is either the transpose operation (trans_a == true) or identity.
- *
+ * @param n_rows_a number of rows in A
+ * @param n_cols_a number of cols in A
  * @param x is a vector of size `trans_a ? n_rows_a : n_cols_a`.
- *
  * @param y is a vector of size `trans_a ? n_cols_a : n_rows_a`.
+ * @param trans_a whether to take transpose of a
+ * @param stream stream on which this function is run
  */
 template <typename math_t>
 void gemv(const raft::handle_t& handle,
@@ -94,21 +102,20 @@ void gemv(const raft::handle_t& handle,
  * y = alpha * op(A) * x + beta * y
  *
  * where
- *
- * @param alpha is a scalar scale of Ax.
- *
- * @param beta is a scalar scale of y.
- *
+ * @param handle raft handle
  * @param A is a column-major matrix of size n_rows_a * n_cols_a.
  *   op(A) is either the transpose operation (trans_a == true) or identity.
- *
+ * @param n_rows_a number of rows in A
+ * @param n_cols_a number of cols in A
  * @param lda is the leading dimension of A (number of rows); lda must be not smaller than n_rows_a.
  *     set it when you need to use only the first n_rows_a rows of the matrix A, which has
  *     (perhaps, due to padding) lda rows.
- *
  * @param x is a vector of size `trans_a ? n_rows_a : n_cols_a`.
- *
  * @param y is a vector of size `trans_a ? n_cols_a : n_rows_a`.
+ * @param trans_a whether to take transpose of a
+ * @param alpha is a scalar scale of Ax.
+ * @param beta is a scalar scale of y.
+ * @param stream stream on which this function is run
  */
 template <typename math_t>
 void gemv(const raft::handle_t& handle,
@@ -130,17 +137,18 @@ void gemv(const raft::handle_t& handle,
  * y = op(A) * x
  *
  * where
- *
+ * @param handle raft handle
  * @param A is a column-major matrix of size n_rows_a * n_cols_a.
  *   op(A) is either the transpose operation (trans_a == true) or identity.
- *
+ * @param n_rows_a number of rows in A
+ * @param n_cols_a number of cols in A
  * @param lda is the leading dimension of A (number of rows); lda must be not smaller than n_rows_a.
  *     set it when you need to use only the first n_rows_a rows of the matrix A, which has
  *     (perhaps, due to padding) lda rows.
- *
  * @param x is a vector of size `trans_a ? n_rows_a : n_cols_a`.
- *
  * @param y is a vector of size `trans_a ? n_cols_a : n_rows_a`.
+ * @param trans_a whether to take transpose of a
+ * @param stream stream on which this function is run
  *
  */
 template <typename math_t>

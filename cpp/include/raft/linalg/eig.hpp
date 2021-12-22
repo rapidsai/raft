@@ -22,7 +22,12 @@ namespace raft {
 namespace linalg {
 
 /**
- * @defgroup eig decomp with divide and conquer method for the column-major
+ * @defgroup eig Eigen Decomposition Methods
+ * @{
+ */
+
+/**
+ * @brief eig decomp with divide and conquer method for the column-major
  * symmetric matrices
  * @param handle raft handle
  * @param in the input buffer (symmetric matrix that has real eig values and
@@ -32,7 +37,6 @@ namespace linalg {
  * @param eig_vectors: eigenvectors
  * @param eig_vals: eigen values
  * @param stream cuda stream
- * @{
  */
 template <typename math_t>
 void eigDC(const raft::handle_t& handle,
@@ -51,7 +55,7 @@ using detail::EigVecMemUsage;
 using detail::OVERWRITE_INPUT;
 
 /**
- * @defgroup eig decomp with divide and conquer method for the column-major
+ * @brief eig sel decomp with divide and conquer method for the column-major
  * symmetric matrices
  * @param handle raft handle
  * @param in the input buffer (symmetric matrix that has real eig values and
@@ -61,8 +65,8 @@ using detail::OVERWRITE_INPUT;
  * @param n_eig_vals: number of eigenvectors to be generated
  * @param eig_vectors: eigenvectors
  * @param eig_vals: eigen values
+ * @param memUsage: the memory selection for eig vector output
  * @param stream cuda stream
- * @{
  */
 template <typename math_t>
 void eigSelDC(const raft::handle_t& handle,
@@ -79,18 +83,19 @@ void eigSelDC(const raft::handle_t& handle,
 }
 
 /**
- * @defgroup overloaded function for eig decomp with Jacobi method for the
+ * @brief overloaded function for eig decomp with Jacobi method for the
  * column-major symmetric matrices (in parameter)
  * @param handle: raft handle
+ * @param in: input matrix
  * @param n_rows: number of rows of the input
  * @param n_cols: number of cols of the input
  * @param eig_vectors: eigenvectors
  * @param eig_vals: eigen values
+ * @param stream: stream on which this function will be run
  * @param tol: error tolerance for the jacobi method. Algorithm stops when the
  * error is below tol
  * @param sweeps: number of sweeps in the Jacobi algorithm. The more the better
  * accuracy.
- * @{
  */
 template <typename math_t>
 void eigJacobi(const raft::handle_t& handle,
@@ -105,6 +110,7 @@ void eigJacobi(const raft::handle_t& handle,
 {
   detail::eigJacobi(handle, in, n_rows, n_cols, eig_vectors, eig_vals, stream, tol, sweeps);
 }
+/** @} */  // end of eig
 
 };  // end namespace linalg
 };  // end namespace raft
