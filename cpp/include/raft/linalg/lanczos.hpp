@@ -26,8 +26,8 @@
 #include <curand.h>
 
 #include <raft/cudart_utils.h>
-#include <raft/linalg/cublas_wrappers.h>
 #include <raft/handle.hpp>
+#include <raft/linalg/cublas_wrappers.h>
 #include <raft/spectral/lapack.hpp>
 #include <raft/spectral/matrix_wrappers.hpp>
 #include <raft/spectral/warn_dbg.hpp>

@@ -9,10 +9,10 @@
 
 #include <cub/cub.cuh>
 
-#include <faiss/gpu/utils/StaticUtils.h>
 #include <faiss/gpu/utils/DeviceDefs.cuh>
 #include <faiss/gpu/utils/MergeNetworkUtils.cuh>
 #include <faiss/gpu/utils/PtxUtils.cuh>
+#include <faiss/gpu/utils/StaticUtils.h>
 #include <faiss/gpu/utils/WarpShuffles.cuh>
 
 namespace faiss {

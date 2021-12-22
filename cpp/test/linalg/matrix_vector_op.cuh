@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
+#include "../test_utils.h"
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
-#include "../test_utils.h"
 
 namespace raft {
 namespace linalg {

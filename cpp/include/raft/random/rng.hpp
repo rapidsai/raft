@@ -420,6 +420,7 @@ class Rng {
    * @tparam DataT data type
    * @tparam WeightsT weights type
    * @tparam IdxT index type
+   * @param handle
    * @param out output sampled array (of length 'sampledLen')
    * @param outIdx indices of the sampled array (of length 'sampledLen'). Pass
    * a nullptr if this is not required.

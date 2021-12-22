@@ -16,18 +16,18 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 
 #include <faiss/gpu/GpuDistance.h>
 #include <faiss/gpu/GpuResources.h>
 #include <faiss/gpu/StandardGpuResources.h>
-#include <faiss/utils/Heap.h>
 #include <faiss/gpu/utils/Limits.cuh>
 #include <faiss/gpu/utils/Select.cuh>
+#include <faiss/utils/Heap.h>
 
-#include <raft/linalg/distance_type.h>
 #include <raft/handle.hpp>
+#include <raft/linalg/distance_type.h>
 
 namespace raft {
 namespace spatial {

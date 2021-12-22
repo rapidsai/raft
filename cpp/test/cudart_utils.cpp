@@ -15,8 +15,8 @@
  */
 
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
 #include <iostream>
+#include <raft/cudart_utils.h>
 
 namespace raft {
 
