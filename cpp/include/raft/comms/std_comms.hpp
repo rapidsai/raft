@@ -24,14 +24,14 @@
 
 #include <raft/error.hpp>
 
-#include <raft/cudart_utils.h>
 #include <raft/comms/util.hpp>
+#include <raft/cudart_utils.h>
 
 #include <cuda_runtime.h>
 
+#include <raft/comms/ucp_helper.hpp>
 #include <ucp/api/ucp.h>
 #include <ucp/api/ucp_def.h>
-#include <raft/comms/ucp_helper.hpp>
 
 #include <nccl.h>
 
@@ -39,14 +39,14 @@
 #include <unordered_set>
 #include <utility>
 
-#include <stdlib.h>
-#include <time.h>
 #include <algorithm>
 #include <chrono>
 #include <cstdio>
 #include <exception>
 #include <memory>
+#include <stdlib.h>
 #include <thread>
+#include <time.h>
 
 namespace raft {
 namespace comms {

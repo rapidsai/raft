@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
+#include "../test_utils.h"
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <raft/random/rng.hpp>
-#include "../test_utils.h"
 
 #include <raft/sparse/convert/csr.hpp>
 #include <raft/sparse/coo.hpp>
@@ -77,7 +77,7 @@ TEST_P(SortedCOOToCSR, Result)
 
   convert::sorted_coo_to_csr<int>(in.data(), nnz, out.data(), 4, stream);
 
-  ASSERT_TRUE(raft::devArrMatch<int>(out.data(), exp.data(), 4, raft::Compare<int>()));
+  ASSERT_TRUE(raft::devArrMatch<int>(out.data(), exp.data(), 4, raft::Compare<int>(), stream));
 
   cudaStreamDestroy(stream);
 

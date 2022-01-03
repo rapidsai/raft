@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
+#include "../test_utils.h"
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <raft/random/rng.hpp>
-#include "../test_utils.h"
 
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/op/filter.hpp>
@@ -96,6 +96,7 @@ TEST_P(COORemoveZeros, Result)
   raft::update_device(out_ref.vals(), out_vals_ref_h, 2, stream);
 
   op::coo_remove_zeros<float>(&in, &out, stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 
   ASSERT_TRUE(raft::devArrMatch<int>(out_ref.rows(), out.rows(), 2, raft::Compare<int>()));
   ASSERT_TRUE(raft::devArrMatch<int>(out_ref.cols(), out.cols(), 2, raft::Compare<int>()));

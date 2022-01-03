@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
+#include "../test_utils.h"
 #include <gtest/gtest.h>
-#include <raft/linalg/distance_type.h>
 #include <iostream>
+#include <raft/linalg/distance_type.h>
 #include <raft/spatial/knn/detail/haversine_distance.cuh>
 #include <rmm/device_uvector.hpp>
 #include <vector>
-#include "../test_utils.h"
 
 namespace raft {
 namespace spatial {
@@ -121,9 +121,10 @@ typedef HaversineKNNTest<int, float> HaversineKNNTestF;
 
 TEST_F(HaversineKNNTestF, Fit)
 {
+  ASSERT_TRUE(raft::devArrMatch(
+    d_ref_D.data(), d_pred_D.data(), n * n, raft::CompareApprox<float>(1e-3), stream));
   ASSERT_TRUE(
-    raft::devArrMatch(d_ref_D.data(), d_pred_D.data(), n * n, raft::CompareApprox<float>(1e-3)));
-  ASSERT_TRUE(raft::devArrMatch(d_ref_I.data(), d_pred_I.data(), n * n, raft::Compare<int>()));
+    raft::devArrMatch(d_ref_I.data(), d_pred_I.data(), n * n, raft::Compare<int>(), stream));
 }
 
 }  // namespace knn

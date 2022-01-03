@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
+#include "../test_utils.h"
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/random/rng.hpp>
-#include "../test_utils.h"
 
 namespace raft {
 namespace linalg {
@@ -95,15 +95,15 @@ const std::vector<ScalarMultiplyInputs<double>> inputsd1 = {
 typedef ScalarMultiplyTest<float> ScalarMultiplyTestF;
 TEST_P(ScalarMultiplyTestF, Result)
 {
-  ASSERT_TRUE(
-    devArrMatch(out_ref.data(), out.data(), params.len, CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(
+    out_ref.data(), out.data(), params.len, CompareApprox<float>(params.tolerance), stream));
 }
 
 typedef ScalarMultiplyTest<double> ScalarMultiplyTestD;
 TEST_P(ScalarMultiplyTestD, Result)
 {
-  ASSERT_TRUE(
-    devArrMatch(out_ref.data(), out.data(), params.len, CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(
+    out_ref.data(), out.data(), params.len, CompareApprox<double>(params.tolerance), stream));
 }
 
 INSTANTIATE_TEST_SUITE_P(ScalarMultiplyTests, ScalarMultiplyTestF, ::testing::ValuesIn(inputsf1));
@@ -182,15 +182,15 @@ const std::vector<EltwiseAddInputs<double>> inputsd2 = {{0.00000001, 1024 * 1024
 typedef EltwiseAddTest<float> EltwiseAddTestF;
 TEST_P(EltwiseAddTestF, Result)
 {
-  ASSERT_TRUE(
-    devArrMatch(out_ref.data(), out.data(), params.len, CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(
+    out_ref.data(), out.data(), params.len, CompareApprox<float>(params.tolerance), stream));
 }
 
 typedef EltwiseAddTest<double> EltwiseAddTestD;
 TEST_P(EltwiseAddTestD, Result)
 {
-  ASSERT_TRUE(
-    devArrMatch(out_ref.data(), out.data(), params.len, CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(
+    out_ref.data(), out.data(), params.len, CompareApprox<double>(params.tolerance), stream));
 }
 
 INSTANTIATE_TEST_SUITE_P(EltwiseAddTests, EltwiseAddTestF, ::testing::ValuesIn(inputsf2));

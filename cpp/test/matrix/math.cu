@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
+#include "../test_utils.h"
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <raft/matrix/math.hpp>
 #include <raft/random/rng.hpp>
-#include "../test_utils.h"
 
 namespace raft {
 namespace matrix {
@@ -47,11 +47,11 @@ __global__ void nativeSqrtKernel(Type* in, Type* out, int len)
 }
 
 template <typename Type>
-void naiveSqrt(Type* in, Type* out, int len)
+void naiveSqrt(Type* in, Type* out, int len, cudaStream_t stream)
 {
   static const int TPB = 64;
   int nblks            = raft::ceildiv(len, TPB);
-  nativeSqrtKernel<Type><<<nblks, TPB>>>(in, out, len);
+  nativeSqrtKernel<Type><<<nblks, TPB, 0, stream>>>(in, out, len);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
@@ -86,9 +86,9 @@ __global__ void naiveSignFlipKernel(Type* in, Type* out, int rowCount, int colCo
 }
 
 template <typename Type>
-void naiveSignFlip(Type* in, Type* out, int rowCount, int colCount)
+void naiveSignFlip(Type* in, Type* out, int rowCount, int colCount, cudaStream_t stream)
 {
-  naiveSignFlipKernel<Type><<<colCount, 1>>>(in, out, rowCount, colCount);
+  naiveSignFlipKernel<Type><<<colCount, 1, 0, stream>>>(in, out, rowCount, colCount);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
@@ -149,12 +149,13 @@ class MathTest : public ::testing::TestWithParam<MathInputs<T>> {
     naivePower(in_power.data(), out_power_ref.data(), len, stream);
     power(in_power.data(), len, stream);
 
-    naiveSqrt(in_sqrt.data(), out_sqrt_ref.data(), len);
+    naiveSqrt(in_sqrt.data(), out_sqrt_ref.data(), len, stream);
     seqRoot(in_sqrt.data(), len, stream);
 
     ratio(handle, in_ratio.data(), in_ratio.data(), 4, stream);
 
-    naiveSignFlip(in_sign_flip.data(), out_sign_flip_ref.data(), params.n_row, params.n_col);
+    naiveSignFlip(
+      in_sign_flip.data(), out_sign_flip_ref.data(), params.n_row, params.n_col, stream);
     signFlip(in_sign_flip.data(), params.n_row, params.n_col, stream);
 
     // default threshold is 1e-15
@@ -196,43 +197,55 @@ const std::vector<MathInputs<double>> inputsd = {{0.00001, 1024, 1024, 1024 * 10
 typedef MathTest<float> MathPowerTestF;
 TEST_P(MathPowerTestF, Result)
 {
-  ASSERT_TRUE(devArrMatch(
-    in_power.data(), out_power_ref.data(), params.len, CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(in_power.data(),
+                          out_power_ref.data(),
+                          params.len,
+                          CompareApprox<float>(params.tolerance),
+                          stream));
 }
 
 typedef MathTest<double> MathPowerTestD;
 TEST_P(MathPowerTestD, Result)
 {
-  ASSERT_TRUE(devArrMatch(
-    in_power.data(), out_power_ref.data(), params.len, CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(in_power.data(),
+                          out_power_ref.data(),
+                          params.len,
+                          CompareApprox<double>(params.tolerance),
+                          stream));
 }
 
 typedef MathTest<float> MathSqrtTestF;
 TEST_P(MathSqrtTestF, Result)
 {
-  ASSERT_TRUE(devArrMatch(
-    in_sqrt.data(), out_sqrt_ref.data(), params.len, CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(in_sqrt.data(),
+                          out_sqrt_ref.data(),
+                          params.len,
+                          CompareApprox<float>(params.tolerance),
+                          stream));
 }
 
 typedef MathTest<double> MathSqrtTestD;
 TEST_P(MathSqrtTestD, Result)
 {
-  ASSERT_TRUE(devArrMatch(
-    in_sqrt.data(), out_sqrt_ref.data(), params.len, CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(in_sqrt.data(),
+                          out_sqrt_ref.data(),
+                          params.len,
+                          CompareApprox<double>(params.tolerance),
+                          stream));
 }
 
 typedef MathTest<float> MathRatioTestF;
 TEST_P(MathRatioTestF, Result)
 {
-  ASSERT_TRUE(
-    devArrMatch(in_ratio.data(), out_ratio_ref.data(), 4, CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(
+    in_ratio.data(), out_ratio_ref.data(), 4, CompareApprox<float>(params.tolerance), stream));
 }
 
 typedef MathTest<double> MathRatioTestD;
 TEST_P(MathRatioTestD, Result)
 {
-  ASSERT_TRUE(
-    devArrMatch(in_ratio.data(), out_ratio_ref.data(), 4, CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(
+    in_ratio.data(), out_ratio_ref.data(), 4, CompareApprox<double>(params.tolerance), stream));
 }
 
 typedef MathTest<float> MathSignFlipTestF;
@@ -241,7 +254,8 @@ TEST_P(MathSignFlipTestF, Result)
   ASSERT_TRUE(devArrMatch(in_sign_flip.data(),
                           out_sign_flip_ref.data(),
                           params.len,
-                          CompareApprox<float>(params.tolerance)));
+                          CompareApprox<float>(params.tolerance),
+                          stream));
 }
 
 typedef MathTest<double> MathSignFlipTestD;
@@ -250,49 +264,62 @@ TEST_P(MathSignFlipTestD, Result)
   ASSERT_TRUE(devArrMatch(in_sign_flip.data(),
                           out_sign_flip_ref.data(),
                           params.len,
-                          CompareApprox<double>(params.tolerance)));
+                          CompareApprox<double>(params.tolerance),
+                          stream));
 }
 
 typedef MathTest<float> MathReciprocalTestF;
 TEST_P(MathReciprocalTestF, Result)
 {
-  ASSERT_TRUE(
-    devArrMatch(in_recip.data(), in_recip_ref.data(), 4, CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(
+    in_recip.data(), in_recip_ref.data(), 4, CompareApprox<float>(params.tolerance), stream));
 
   // 4-th term tests `setzero=true` functionality, not present in this version of `reciprocal`.
-  ASSERT_TRUE(
-    devArrMatch(out_recip.data(), in_recip_ref.data(), 3, CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(
+    out_recip.data(), in_recip_ref.data(), 3, CompareApprox<float>(params.tolerance), stream));
 }
 
 typedef MathTest<double> MathReciprocalTestD;
 TEST_P(MathReciprocalTestD, Result)
 {
-  ASSERT_TRUE(
-    devArrMatch(in_recip.data(), in_recip_ref.data(), 4, CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(
+    in_recip.data(), in_recip_ref.data(), 4, CompareApprox<double>(params.tolerance), stream));
 
   // 4-th term tests `setzero=true` functionality, not present in this version of `reciprocal`.
-  ASSERT_TRUE(
-    devArrMatch(out_recip.data(), in_recip_ref.data(), 3, CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(
+    out_recip.data(), in_recip_ref.data(), 3, CompareApprox<double>(params.tolerance), stream));
 }
 
 typedef MathTest<float> MathSetSmallZeroTestF;
 TEST_P(MathSetSmallZeroTestF, Result)
 {
-  ASSERT_TRUE(devArrMatch(
-    in_smallzero.data(), out_smallzero_ref.data(), 4, CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(in_smallzero.data(),
+                          out_smallzero_ref.data(),
+                          4,
+                          CompareApprox<float>(params.tolerance),
+                          stream));
 
-  ASSERT_TRUE(devArrMatch(
-    out_smallzero.data(), out_smallzero_ref.data(), 4, CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(out_smallzero.data(),
+                          out_smallzero_ref.data(),
+                          4,
+                          CompareApprox<float>(params.tolerance),
+                          stream));
 }
 
 typedef MathTest<double> MathSetSmallZeroTestD;
 TEST_P(MathSetSmallZeroTestD, Result)
 {
-  ASSERT_TRUE(devArrMatch(
-    in_smallzero.data(), out_smallzero_ref.data(), 4, CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(in_smallzero.data(),
+                          out_smallzero_ref.data(),
+                          4,
+                          CompareApprox<double>(params.tolerance),
+                          stream));
 
-  ASSERT_TRUE(devArrMatch(
-    out_smallzero.data(), out_smallzero_ref.data(), 4, CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(out_smallzero.data(),
+                          out_smallzero_ref.data(),
+                          4,
+                          CompareApprox<double>(params.tolerance),
+                          stream));
 }
 
 INSTANTIATE_TEST_SUITE_P(MathTests, MathPowerTestF, ::testing::ValuesIn(inputsf));

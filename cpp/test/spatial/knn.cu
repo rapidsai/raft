@@ -17,7 +17,9 @@
 #include "../test_utils.h"
 
 #include <raft/linalg/distance_type.h>
+
 #include <raft/spatial/knn/knn.hpp>
+#include <raft/spatial/knn/specializations.hpp>
 
 #include <rmm/device_buffer.hpp>
 
@@ -103,7 +105,7 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
       expected_labels_.data(), rows_, k_, search_labels_.data());
 
     ASSERT_TRUE(devArrMatch(
-      expected_labels_.data(), actual_labels_.data(), rows_ * k_, raft::Compare<int>()));
+      expected_labels_.data(), actual_labels_.data(), rows_ * k_, raft::Compare<int>(), stream));
   }
 
   void SetUp() override
