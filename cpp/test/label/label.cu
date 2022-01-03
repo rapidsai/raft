@@ -18,9 +18,9 @@
 
 #include <raft/label/classlabels.cuh>
 
-#include <raft/cudart_utils.h>
-#include <raft/cuda_utils.cuh>
 #include "../test_utils.h"
+#include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 
 #include <iostream>
 #include <vector>

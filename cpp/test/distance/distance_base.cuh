@@ -14,12 +14,14 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
-#include <raft/cuda_utils.cuh>
-#include <raft/distance/distance.hpp>
-#include <raft/random/rng.hpp>
 #include "../test_utils.h"
+#include <gtest/gtest.h>
+#include <raft/common/nvtx.hpp>
+#include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
+#include <raft/distance/distance.hpp>
+#include <raft/distance/specializations.hpp>
+#include <raft/random/rng.hpp>
 
 namespace raft {
 namespace distance {
@@ -395,12 +397,8 @@ void distanceLauncher(DataType* x,
                       bool isRowMajor,
                       DataType metric_arg = 2.0f)
 {
-  auto fin_op = [dist2, threshold] __device__(DataType d_val, int g_d_idx) {
-    dist2[g_d_idx] = (d_val < threshold) ? 0.f : d_val;
-    return d_val;
-  };
   raft::distance::distance<distanceType, DataType, DataType, DataType>(
-    x, y, dist, m, n, k, workspace, worksize, fin_op, stream, isRowMajor, metric_arg);
+    x, y, dist, m, n, k, workspace, worksize, stream, isRowMajor, metric_arg);
 }
 
 template <raft::distance::DistanceType distanceType, typename DataType>
@@ -419,6 +417,9 @@ class DistanceTest : public ::testing::TestWithParam<DistanceInputs<DataType>> {
 
   void SetUp() override
   {
+    auto testInfo = testing::UnitTest::GetInstance()->current_test_info();
+    common::nvtx::range fun_scope("test::%s/%s", testInfo->test_suite_name(), testInfo->name());
+
     raft::random::Rng r(params.seed);
     int m               = params.m;
     int n               = params.n;

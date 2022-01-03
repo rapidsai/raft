@@ -18,10 +18,10 @@
 
 #include <cusparse_v2.h>
 
-#include <raft/cudart_utils.h>
-#include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
+#include <raft/sparse/cusparse_wrappers.h>
 #include <rmm/device_uvector.hpp>
 
 #include <thrust/device_ptr.h>
@@ -33,8 +33,8 @@
 #include <algorithm>
 #include <iostream>
 
-#include <raft/sparse/detail/utils.h>
 #include <raft/sparse/coo.hpp>
+#include <raft/sparse/detail/utils.h>
 #include <raft/sparse/linalg/degree.hpp>
 #include <raft/sparse/op/row_op.hpp>
 

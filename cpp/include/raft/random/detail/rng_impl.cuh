@@ -16,17 +16,17 @@
 
 #pragma once
 
-#include <curand_kernel.h>
-#include <raft/cudart_utils.h>
-#include <stdint.h>
 #include <cstdio>
 #include <cstdlib>
+#include <curand_kernel.h>
 #include <raft/common/cub_wrappers.cuh>
 #include <raft/common/scatter.cuh>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
 #include <random>
 #include <rmm/device_uvector.hpp>
+#include <stdint.h>
 #include <type_traits>
 
 namespace raft {
