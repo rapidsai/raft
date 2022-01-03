@@ -144,6 +144,8 @@ def get_clang_args(cmd):
             "-ccbin",
             "--diag_suppress",
             "-diag-suppress",
+            "--default-stream",
+            "-default-stream",
         ])
         remove_items(command, [
             "-extended-lambda",
@@ -184,6 +186,8 @@ def get_clang_args(cmd):
                 command.insert(i + 1, '='.join(x[1:]))
         # use extensible whole program, to avoid ptx resolution/linking
         command.extend(["-Xcuda-ptxas", "-ewp"])
+        # for libcudacxx, we need to allow variadic functions
+        command.extend(["-Xclang", "-fcuda-allow-variadic-functions"])
     # somehow this option gets onto the commandline, it is unrecognized by clang
     remove_items(command, [
         "--forward-unknown-to-host-compiler",

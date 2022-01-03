@@ -34,6 +34,8 @@
 
 #include <nvfunctional>
 
+#include <algorithm>
+
 namespace raft {
 namespace sparse {
 namespace distance {
@@ -50,7 +52,7 @@ void unexpanded_lp_distances(value_t* out_dists,
                              accum_f accum_func,
                              write_f write_func)
 {
-  rmm::device_uvector<value_idx> coo_rows(max(config_->b_nnz, config_->a_nnz),
+  rmm::device_uvector<value_idx> coo_rows(std::max(config_->b_nnz, config_->a_nnz),
                                           config_->handle.get_stream());
 
   raft::sparse::convert::csr_to_coo(config_->b_indptr,
@@ -285,7 +287,7 @@ class kl_divergence_unexpanded_distances_t : public distances_t<value_t> {
 
   void compute(value_t* out_dists)
   {
-    rmm::device_uvector<value_idx> coo_rows(max(config_->b_nnz, config_->a_nnz),
+    rmm::device_uvector<value_idx> coo_rows(std::max(config_->b_nnz, config_->a_nnz),
                                             config_->handle.get_stream());
 
     raft::sparse::convert::csr_to_coo(config_->b_indptr,
