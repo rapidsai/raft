@@ -31,7 +31,7 @@ function(find_and_configure_faiss)
 
     rapids_cpm_find(faiss ${PKG_VERSION}
         GLOBAL_TARGETS     faiss::faiss
-        INSTALL_EXPORT_SET raft-faiss-exports
+        INSTALL_EXPORT_SET raft-nn-exports
         CPM_ARGS
           GIT_REPOSITORY   https://github.com/facebookresearch/faiss.git
           GIT_TAG          ${PKG_PINNED_TAG}
@@ -56,12 +56,11 @@ function(find_and_configure_faiss)
     endif()
 
     # We generate the faiss-config files when we built faiss locally, so always do `find_dependency`
-    rapids_export_package(BUILD faiss raft-faiss-exports)
-    rapids_export_package(INSTALL faiss raft-faiss-exports)
+    rapids_export_package(BUILD faiss raft-nn-exports)
 
     # Tell cmake where it can find the generated faiss-config.cmake we wrote.
     include("${rapids-cmake-dir}/export/find_package_root.cmake")
-    rapids_export_find_package_root(BUILD faiss [=[${CMAKE_CURRENT_LIST_DIR}]=] raft-faiss-exports)
+    rapids_export_find_package_root(BUILD faiss [=[${CMAKE_CURRENT_LIST_DIR}]=] raft-nn-exports)
 endfunction()
 
 find_and_configure_faiss(VERSION    1.7.0

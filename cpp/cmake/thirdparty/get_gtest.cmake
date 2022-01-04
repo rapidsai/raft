@@ -18,7 +18,6 @@ function(find_and_configure_gtest )
 
     include(${rapids-cmake-dir}/cpm/gtest.cmake)
     rapids_cpm_gtest(BUILD_EXPORT_SET raft-exports
-                     INSTALL_EXPORT_SET raft-exports
                      EXCLUDE_FROM_ALL TRUE)
 
     if(GTest_ADDED)

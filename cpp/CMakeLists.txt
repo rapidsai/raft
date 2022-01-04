@@ -111,12 +111,11 @@ include(cmake/thirdparty/get_libcudacxx.cmake)
 include(cmake/thirdparty/get_cuco.cmake)
 # CPMFindPackage(faiss) so it's available for raft consumers to use
 include(cmake/thirdparty/get_faiss.cmake)
-# CPMFindPackage(GTest) so it's available for raft consumers to use
-include(cmake/thirdparty/get_gtest.cmake)
 
 if(BUILD_TESTS)
-  # include(cmake/thirdparty/get_nccl.cmake)
-  # include(cmake/thirdparty/get_ucx.cmake)
+  include(cmake/thirdparty/get_gtest.cmake)
+  include(cmake/thirdparty/get_nccl.cmake)
+  include(cmake/thirdparty/get_ucx.cmake)
 endif()
 
 ##############################################################################
@@ -145,7 +144,9 @@ target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>
 ##############################################################################
 # - raft_distance ------------------------------------------------------------
 add_library(raft_distance INTERFACE)
-add_library(raft::raft_distance ALIAS raft_distance)
+add_library(raft::distance ALIAS raft_distance)
+set_target_properties(raft_distance PROPERTIES EXPORT_NAME distance)
+
 target_link_libraries(raft_distance INTERFACE raft::raft $<TARGET_NAME_IF_EXISTS:raft_distance_lib>)
 
 if(RAFT_COMPILE_LIBRARIES)
@@ -178,13 +179,15 @@ if(RAFT_COMPILE_LIBRARIES)
 
   install(TARGETS raft_distance_lib
           DESTINATION ${lib_dir}
-          EXPORT raft-exports)
+          EXPORT raft-distance-exports)
 endif()
 
 ##############################################################################
 # - raft_nn ------------------------------------------------------------------
 add_library(raft_nn INTERFACE)
-add_library(raft::raft_nn ALIAS raft_nn)
+add_library(raft::nn ALIAS raft_nn)
+set_target_properties(raft_nn PROPERTIES EXPORT_NAME nn)
+
 target_link_libraries(raft_nn INTERFACE raft::raft faiss::faiss $<TARGET_NAME_IF_EXISTS:raft_nn_lib>)
 
 if(RAFT_COMPILE_LIBRARIES)
@@ -206,7 +209,7 @@ if(RAFT_COMPILE_LIBRARIES)
 
   install(TARGETS raft_nn_lib
           DESTINATION ${lib_dir}
-          EXPORT raft-exports)
+          EXPORT raft-nn-exports)
 endif()
 
 ##############################################################################
@@ -215,9 +218,16 @@ rapids_cmake_install_lib_dir( lib_dir )
 include(GNUInstallDirs)
 include(CPack)
 
-install(TARGETS raft raft_nn raft_distance
+install(TARGETS raft
         DESTINATION ${lib_dir}
         EXPORT raft-exports)
+install(TARGETS raft_distance
+        DESTINATION ${lib_dir}
+        EXPORT raft-distance-exports)
+install(TARGETS raft_nn
+        DESTINATION ${lib_dir}
+        EXPORT raft-nn-exports)
+
 
 install(DIRECTORY include/raft/
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/raft
@@ -226,12 +236,6 @@ install(DIRECTORY include/raft/
 # Temporary install of raft.hpp while the file is removed
 install(FILES include/raft.hpp
 	DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/raft)
-
-include("${rapids-cmake-dir}/export/write_dependencies.cmake")
-rapids_export_write_dependencies(
-  INSTALL raft-faiss-exports
-  "${PROJECT_BINARY_DIR}/rapids-cmake/raft/export/raft-faiss-dependencies.cmake"
-)
 
 ##############################################################################
 # - install export -----------------------------------------------------------
@@ -242,30 +246,49 @@ Provide targets for the RAFT: RAPIDS Analytics Framework Toolkit.
 RAPIDS Analytics Framework Toolkit contains shared representations,
 mathematical computational primitives, and utilities that accelerate
 building analytics and data science algorithms in the RAPIDS ecosystem.
+
+Optional Components:
+  - nn
+  - distance
+
+Imported Targets:
+  - raft::raft
+  - raft::nn brought in by the `nn` optional component
+  - raft::distance brought in by the `distance` optional component
+
 ]=])
 
 set(code_string
 [=[
-if(faiss IN_LIST raft_FIND_COMPONENTS)
-  enable_language(CUDA)
-  if(EXISTS "${CMAKE_CURRENT_LIST_DIR}/raft-faiss-dependencies.cmake")
-    include("${CMAKE_CURRENT_LIST_DIR}/raft-faiss-dependencies.cmake")
+set(raft_allowed_components distance nn)
+foreach(comp IN LISTS raft_allowed_components)
+  if(${comp} IN_LIST raft_FIND_COMPONENTS)
+    include("${CMAKE_CURRENT_LIST_DIR}/raft-distance-targets.cmake")
+
+    if(EXISTS "${CMAKE_CURRENT_LIST_DIR}/raft-${comp}-dependencies.cmake")
+      include("${CMAKE_CURRENT_LIST_DIR}/raft-${comp}-dependencies.cmake")
+    endif()
   endif()
+
+  enable_language(CUDA)
+
+endforeach()
+
+if(nn IN_LIST raft_FIND_COMPONENTS)
   if(TARGET faiss AND (NOT TARGET faiss::faiss))
       add_library(faiss::faiss ALIAS faiss)
   elseif(TARGET faiss::faiss AND (NOT TARGET faiss))
       add_library(faiss ALIAS faiss::faiss)
   endif()
-  if(TARGET raft::raft)
-    target_link_libraries(raft::raft INTERFACE faiss::faiss)
-  endif()
 endif()
 ]=]
 )
 
+# enable_cuda
+
 rapids_export(INSTALL raft
     EXPORT_SET raft-exports
-    GLOBAL_TARGETS raft raft_distance raft_nn# since we can't hook into EXPORT SETS
+    GLOBAL_TARGETS raft raft_distance raft_nn
     NAMESPACE raft::
     DOCUMENTATION doc_string
     FINAL_CODE_BLOCK code_string
@@ -276,15 +299,38 @@ rapids_export(INSTALL raft
 
 rapids_export(BUILD raft
     EXPORT_SET raft-exports
-    GLOBAL_TARGETS raft raft_distance raft_nn# since we can't hook into EXPORT SETS
+    GLOBAL_TARGETS raft raft_distance raft_nn
     DOCUMENTATION doc_string
     NAMESPACE raft::
     FINAL_CODE_BLOCK code_string
     )
 
-rapids_export_write_dependencies(
-  BUILD raft-faiss-exports "${PROJECT_BINARY_DIR}/raft-faiss-dependencies.cmake"
-)
+##############################################################################
+# - export/install optional components  --------------------------------------
+
+include("${rapids-cmake-dir}/export/write_dependencies.cmake")
+
+set(raft_components distance nn)
+foreach(comp IN LISTS raft_components)
+  install(
+    EXPORT raft-${comp}-exports
+    FILE raft-${comp}-targets.cmake
+    NAMESPACE raft::
+    DESTINATION "${lib_dir}/cmake/raft"
+  )
+  export(
+    EXPORT raft-${comp}-exports
+    FILE ${RAFT_BINARY_DIR}/raft-${comp}-targets.cmake
+    NAMESPACE raft::
+  )
+  rapids_export_write_dependencies(
+    BUILD raft-${comp}-exports "${PROJECT_BINARY_DIR}/raft-${comp}-dependencies.cmake"
+  )
+  rapids_export_write_dependencies(
+    INSTALL raft-${comp}-exports "${PROJECT_BINARY_DIR}/rapids-cmake/raft/export/raft-${comp}-dependencies.cmake"
+  )
+
+endforeach()
 
 ##############################################################################
 # - build test executable ----------------------------------------------------
