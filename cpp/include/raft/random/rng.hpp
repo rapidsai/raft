@@ -57,7 +57,9 @@ class Rng {
       _base_subsequence(0),
       // simple heuristic to make sure all SMs will be occupied properly
       // and also not too many initialization calls will be made by each thread
-      nBlocks(4 * getMultiProcessorCount()) {}
+      nBlocks(4 * getMultiProcessorCount())
+  {
+  }
 
   /**
    * @brief Generates the 'a' and 'b' parameters for a modulo affine
@@ -371,7 +373,8 @@ class Rng {
     kernel_dispatch<OutType, LenType, 1, LaplaceDistParams<OutType>>(ptr, len, stream, params);
   }
 
-  void advance(uint64_t max_streams, uint64_t max_calls_per_subsequence) {
+  void advance(uint64_t max_streams, uint64_t max_calls_per_subsequence)
+  {
     _base_subsequence += max_streams;
   }
 
@@ -390,7 +393,7 @@ class Rng {
       default: break;
     }
     // The max_calls_per_subsequence parameter does not matter for now, using 16 for now
-    advance(uint64_t(nBlocks)*nThreads, 16);
+    advance(uint64_t(nBlocks) * nThreads, 16);
     return;
   }
 
