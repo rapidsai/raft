@@ -32,10 +32,10 @@ template <typename OutType,
           int ITEMS_PER_CALL,
           typename ParamType>
 __global__ void fillKernel(
-  uint64_t seed, uint64_t offset, OutType* ptr, LenType len, ParamType params)
+  uint64_t seed, uint64_t adv_subs, uint64_t offset, OutType* ptr, LenType len, ParamType params)
 {
   LenType tid = threadIdx.x + blockIdx.x * blockDim.x;
-  GenType gen(seed, (uint64_t)tid, offset);
+  GenType gen(seed, adv_subs + (uint64_t)tid, offset);
   const LenType stride = gridDim.x * blockDim.x;
   for (LenType idx = tid; idx < len; idx += stride * ITEMS_PER_CALL) {
     OutType val[ITEMS_PER_CALL];
@@ -54,27 +54,10 @@ class Rng {
     : seed(_s),
       type(_t),
       offset(0),
+      _base_subsequence(0),
       // simple heuristic to make sure all SMs will be occupied properly
       // and also not too many initialization calls will be made by each thread
-      nBlocks(4 * getMultiProcessorCount()),
-      mt_gen()
-  {
-    set_seed(_s);
-  }
-
-  /**
-   * @brief Seed (and thus re-initialize) the underlying RNG engine
-   * @param _s 64b seed used to initialize the RNG
-   * @note If you need non-reproducibility, pass a seed that's, for example, a
-   *       function of timestamp. Another example is to use the c++11's
-   *       `std::random_device` for setting seed.
-   */
-  void set_seed(uint64_t _s)
-  {
-    mt_gen.seed(_s);
-    seed   = mt_gen();
-    offset = 0;
-  }
+      nBlocks(4 * getMultiProcessorCount()) {}
 
   /**
    * @brief Generates the 'a' and 'b' parameters for a modulo affine
@@ -90,13 +73,14 @@ class Rng {
   void affine_transform_params(IdxT n, IdxT& a, IdxT& b)
   {
     // always keep 'a' to be coprime to 'n'
-    a = mt_gen() % n;
+    std::mt19937_64 mt_rng(seed + _base_subsequence);
+    a = mt_rng() % n;
     while (gcd(a, n) != 1) {
       ++a;
       if (a >= n) a = 0;
     }
     // the bias term 'b' can be any number in the range of [0, n)
-    b = mt_gen() % n;
+    b = mt_rng() % n;
   }
 
   /**
@@ -387,21 +371,26 @@ class Rng {
     kernel_dispatch<OutType, LenType, 1, LaplaceDistParams<OutType>>(ptr, len, stream, params);
   }
 
+  void advance(uint64_t max_streams, uint64_t max_calls_per_subsequence) {
+    _base_subsequence += max_streams;
+  }
+
   template <typename OutType, typename LenType, int ITEMS_PER_CALL, typename ParamType>
   void kernel_dispatch(OutType* ptr, LenType len, cudaStream_t stream, ParamType params)
   {
     switch (type) {
       case GenPhilox:
         fillKernel<OutType, LenType, PhiloxGenerator, ITEMS_PER_CALL>
-          <<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr, len, params);
+          <<<nBlocks, nThreads, 0, stream>>>(seed, _base_subsequence, offset, ptr, len, params);
         break;
       case GenPC:
         fillKernel<OutType, LenType, PCGenerator, ITEMS_PER_CALL>
-          <<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr, len, params);
+          <<<nBlocks, nThreads, 0, stream>>>(seed, _base_subsequence, offset, ptr, len, params);
         break;
       default: break;
     }
-    seed = mt_gen();
+    // The max_calls_per_subsequence parameter does not matter for now, using 16 for now
+    advance(uint64_t(nBlocks)*nThreads, 16);
     return;
   }
 
@@ -469,7 +458,7 @@ class Rng {
   GeneratorType type;
   uint64_t offset;
   uint64_t seed;
-  std::mt19937_64 mt_gen;
+  uint64_t _base_subsequence;
   /** number of blocks to launch */
   int nBlocks;
   static const int nThreads = 256;
