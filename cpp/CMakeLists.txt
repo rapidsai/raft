@@ -50,6 +50,7 @@ option(DISABLE_OPENMP "Disable OpenMP" OFF)
 option(NVTX "Enable nvtx markers" OFF)
 
 option(RAFT_COMPILE_LIBRARIES "Enable building raft shared library instantiations" ON)
+option(RAFT_ENABLE_NN_DEPENDENCIES "Search for raft::nn dependencies like faiss" ${RAFT_COMPILE_LIBRARIES})
 include(CMakeDependentOption)
 cmake_dependent_option(RAFT_USE_FAISS_STATIC "Build and statically link the FAISS library for nearest neighbors search on GPU" ON RAFT_COMPILE_LIBRARIES OFF)
 
@@ -60,8 +61,6 @@ message(VERBOSE "RAFT: Disable OpenMP: ${DISABLE_OPENMP}")
 message(VERBOSE "RAFT: Enable kernel resource usage info: ${CUDA_ENABLE_KERNELINFO}")
 message(VERBOSE "RAFT: Enable lineinfo in nvcc: ${CUDA_ENABLE_LINEINFO}")
 message(VERBOSE "RAFT: Enable nvtx markers: ${NVTX}")
-message(VERBOSE "RAFT: Enable raft::nn target: ${RAFT_ENABLE_NN_COMPONENT}")
-message(VERBOSE "RAFT: Enable raft::distance target: ${RAFT_ENABLE_DISTANCE_COMPONENT}")
 message(VERBOSE "RAFT: Statically link the CUDA runtime: ${CUDA_STATIC_RUNTIME}")
 
 # Set RMM logging level
@@ -109,7 +108,6 @@ rapids_cpm_init()
 include(cmake/thirdparty/get_rmm.cmake)
 include(cmake/thirdparty/get_libcudacxx.cmake)
 include(cmake/thirdparty/get_cuco.cmake)
-# CPMFindPackage(faiss) so it's available for raft consumers to use
 include(cmake/thirdparty/get_faiss.cmake)
 
 if(BUILD_TESTS)

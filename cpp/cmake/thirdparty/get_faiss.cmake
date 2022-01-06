@@ -19,44 +19,47 @@ function(find_and_configure_faiss)
     cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
                           "${multiValueArgs}" ${ARGN} )
 
-    rapids_find_generate_module(faiss
-        HEADER_NAMES  faiss/IndexFlat.h
-        LIBRARY_NAMES faiss
-    )
+    if(RAFT_ENABLE_NN_DEPENDENCIES OR RAFT_COMPILE_LIBRARIES)
+      rapids_find_generate_module(faiss
+          HEADER_NAMES  faiss/IndexFlat.h
+          LIBRARY_NAMES faiss
+      )
 
-    set(BUILD_SHARED_LIBS OFF)
-    if (NOT BUILD_STATIC_LIBS)
-        set(BUILD_SHARED_LIBS ON)
-    endif()
+      set(BUILD_SHARED_LIBS OFF)
+      if (NOT BUILD_STATIC_LIBS)
+          set(BUILD_SHARED_LIBS ON)
+      endif()
 
-    rapids_cpm_find(faiss ${PKG_VERSION}
-        GLOBAL_TARGETS     faiss::faiss
-        INSTALL_EXPORT_SET raft-nn-exports
-        CPM_ARGS
-          GIT_REPOSITORY   https://github.com/facebookresearch/faiss.git
-          GIT_TAG          ${PKG_PINNED_TAG}
-          EXCLUDE_FROM_ALL TRUE
-          OPTIONS
-            "FAISS_ENABLE_PYTHON OFF"
-            "CUDAToolkit_ROOT ${CUDAToolkit_LIBRARY_DIR}"
-            "FAISS_ENABLE_GPU ON"
-            "BUILD_TESTING OFF"
-            "CMAKE_MESSAGE_LOG_LEVEL VERBOSE"
-    )
+      rapids_cpm_find(faiss ${PKG_VERSION}
+          GLOBAL_TARGETS     faiss::faiss
+          INSTALL_EXPORT_SET raft-nn-exports
+          CPM_ARGS
+            GIT_REPOSITORY   https://github.com/facebookresearch/faiss.git
+            GIT_TAG          ${PKG_PINNED_TAG}
+            EXCLUDE_FROM_ALL TRUE
+            OPTIONS
+              "FAISS_ENABLE_PYTHON OFF"
+              "CUDAToolkit_ROOT ${CUDAToolkit_LIBRARY_DIR}"
+              "FAISS_ENABLE_GPU ON"
+              "BUILD_TESTING OFF"
+              "CMAKE_MESSAGE_LOG_LEVEL VERBOSE"
+      )
 
-    if(TARGET faiss AND NOT TARGET faiss::faiss)
-        add_library(faiss::faiss ALIAS faiss)
-    endif()
+      if(TARGET faiss AND NOT TARGET faiss::faiss)
+          add_library(faiss::faiss ALIAS faiss)
+      endif()
 
-    if(faiss_ADDED)
-      rapids_export(BUILD faiss
-          EXPORT_SET faiss-targets
-          GLOBAL_TARGETS faiss
-          NAMESPACE faiss::)
+      if(faiss_ADDED)
+        rapids_export(BUILD faiss
+            EXPORT_SET faiss-targets
+            GLOBAL_TARGETS faiss
+            NAMESPACE faiss::)
+      endif()
     endif()
 
     # We generate the faiss-config files when we built faiss locally, so always do `find_dependency`
     rapids_export_package(BUILD faiss raft-nn-exports)
+    rapids_export_package(INSTALL faiss raft-nn-exports)
 
     # Tell cmake where it can find the generated faiss-config.cmake we wrote.
     include("${rapids-cmake-dir}/export/find_package_root.cmake")
