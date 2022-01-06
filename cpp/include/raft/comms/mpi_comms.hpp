@@ -439,7 +439,7 @@ class mpi_comms : public comms_iface {
 inline void initialize_mpi_comms(handle_t* handle, MPI_Comm comm)
 {
   auto communicator =
-    std::make_shared<comms_t>(std::unique_ptr<comms_iface>(new mpi_comms(comm, true)));
+    std::make_shared<comms_t>(std::unique_ptr<comms_iface>(new mpi_comms(comm, false)));
   handle->set_comms(communicator);
 };
 
