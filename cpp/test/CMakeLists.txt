@@ -36,6 +36,7 @@ add_executable(test_raft
     test/eigen_solvers.cu
     test/handle.cpp
     test/integer_utils.cpp
+    test/nvtx.cpp
     test/pow2_utils.cu
     test/label/label.cu
     test/label/merge_labels.cu
@@ -117,14 +118,15 @@ target_compile_options(test_raft
 )
 
 target_include_directories(test_raft
-    PUBLIC  "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/include>"
-            "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/test>"
+    PUBLIC  "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/test>"
 )
 
 
 target_link_libraries(test_raft
 PRIVATE
-  raft::raft
+  raft::raft # transitively links all CUDA libs, etc
+  raft::raft_distance
+  raft::raft_nn
   NCCL::NCCL
   faiss::faiss
   GTest::gtest

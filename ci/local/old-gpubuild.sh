@@ -29,6 +29,9 @@ export MINOR_VERSION=`echo $GIT_DESCRIBE_TAG | grep -o -E '([0-9]+\.[0-9]+)'`
 # Read options for cloning/running downstream repo tests
 source "$WORKSPACE/ci/prtest.config"
 
+# ucx-py version
+export UCX_PY_VERSION='0.24.*'
+
 ################################################################################
 # SETUP - Check environment
 ################################################################################
@@ -56,7 +59,7 @@ gpuci_conda_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvid
       "distributed>=2.12.0" \
       "dask-cudf=${MINOR_VERSION}" \
       "dask-cuda=${MINOR_VERSION}" \
-      "ucx-py=0.23.*"
+      "ucx-py=${UCX_PY_VERSION}"
 
 if [ "$RUN_CUML_LIBCUML_TESTS" = "ON" ] || [ "$RUN_CUML_PRIMS_TESTS" = "ON" ] || [ "$RUN_CUML_PYTHON_TESTS" = "ON" ]; then
   gpuci_conda_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \

@@ -22,9 +22,9 @@
 #include "common_faiss.h"
 #include "processing.hpp"
 
-#include <raft/cudart_utils.h>
-#include <raft/cuda_utils.cuh>
 #include "processing.hpp"
+#include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 
 #include <label/classlabels.cuh>
 #include <raft/distance/distance.hpp>
@@ -36,10 +36,10 @@
 #include <faiss/gpu/GpuIndexIVFScalarQuantizer.h>
 #include <faiss/gpu/GpuResources.h>
 #include <faiss/gpu/StandardGpuResources.h>
-#include <faiss/utils/Heap.h>
 #include <faiss/gpu/utils/Limits.cuh>
 #include <faiss/gpu/utils/Select.cuh>
 #include <faiss/gpu/utils/Tensor.cuh>
+#include <faiss/utils/Heap.h>
 
 #include <thrust/iterator/transform_iterator.h>
 
@@ -124,7 +124,7 @@ void approx_knn_build_index(raft::handle_t& handle,
                             IntType D)
 {
   int device;
-  CUDA_CHECK(cudaGetDevice(&device));
+  RAFT_CUDA_TRY(cudaGetDevice(&device));
 
   faiss::gpu::StandardGpuResources* gpu_res = new faiss::gpu::StandardGpuResources();
   gpu_res->noTempMemory();

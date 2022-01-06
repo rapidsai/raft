@@ -18,13 +18,14 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean cppraft pyraft -v -g --allgpuarch --nvtx --show_depr_warn -h --buildgtest --buildfaiss"
+VALIDARGS="clean cppraft pyraft cppdocs -v -g --allgpuarch --nvtx --show_depr_warn -h --buildgtest --buildfaiss"
 HELP="$0 [<target> ...] [<flag> ...]
  where <target> is:
    clean            - remove all existing build artifacts and configuration (start over)
    cppraft          - build the cuml C++ code only. Also builds the C-wrapper library
                       around the C++ code.
    pyraft             - build the cuml Python package
+   cppdocs            - build the C++ doxygen documentation
  and <flag> is:
    -v               - verbose build mode
    -g               - build for debug
@@ -130,6 +131,11 @@ if (( ${CLEAN} == 1 )); then
     cd ${REPODIR}/python
     python setup.py clean --all
     cd ${REPODIR}
+fi
+
+if hasArg cppdocs; then
+    cd ${CPP_RAFT_BUILD_DIR}
+    cmake --build ${CPP_RAFT_BUILD_DIR} --target docs_raft
 fi
 
 ################################################################################

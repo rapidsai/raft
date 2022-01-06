@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
+#include "../test_utils.h"
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <raft/random/rng.hpp>
-#include "../test_utils.h"
 
-#include <raft/sparse/convert/csr.cuh>
-#include <raft/sparse/coo.cuh>
+#include <raft/sparse/convert/csr.hpp>
+#include <raft/sparse/coo.hpp>
 
 #include <iostream>
 
@@ -68,16 +68,16 @@ TEST_P(SortedCOOToCSR, Result)
   rmm::device_uvector<int> in(nnz, stream);
   rmm::device_uvector<int> exp(4, stream);
   rmm::device_uvector<int> out(4, stream);
-  CUDA_CHECK(cudaMemsetAsync(in.data(), 0, in.size() * sizeof(int), stream));
-  CUDA_CHECK(cudaMemsetAsync(exp.data(), 0, exp.size() * sizeof(int), stream));
-  CUDA_CHECK(cudaMemsetAsync(out.data(), 0, out.size() * sizeof(int), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(in.data(), 0, in.size() * sizeof(int), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(exp.data(), 0, exp.size() * sizeof(int), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(out.data(), 0, out.size() * sizeof(int), stream));
 
   raft::update_device(in.data(), in_h, nnz, stream);
   raft::update_device(exp.data(), exp_h, 4, stream);
 
   convert::sorted_coo_to_csr<int>(in.data(), nnz, out.data(), 4, stream);
 
-  ASSERT_TRUE(raft::devArrMatch<int>(out.data(), exp.data(), 4, raft::Compare<int>()));
+  ASSERT_TRUE(raft::devArrMatch<int>(out.data(), exp.data(), 4, raft::Compare<int>(), stream));
 
   cudaStreamDestroy(stream);
 
@@ -123,7 +123,7 @@ class CSRAdjGraphTest : public ::testing::TestWithParam<CSRAdjGraphInputs<Index_
                         stream);
     raft::update_device(verify.data(), params.verify.data(), nnz, stream);
 
-    convert::csr_adj_graph_batched<Index_, 32>(
+    convert::csr_adj_graph_batched<Index_>(
       row_ind.data(), params.n_cols, nnz, params.n_rows, adj.data(), result.data(), stream);
 
     ASSERT_TRUE(

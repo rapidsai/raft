@@ -17,10 +17,10 @@
 #include <cusparse_v2.h>
 #include <gtest/gtest.h>
 
+#include "../test_utils.h"
 #include <raft/linalg/distance_type.h>
 #include <raft/sparse/cusparse_wrappers.h>
-#include <raft/sparse/selection/knn.cuh>
-#include "../test_utils.h"
+#include <raft/sparse/selection/knn.hpp>
 
 #include <raft/cudart_utils.h>
 #include <raft/sparse/cusparse_wrappers.h>
@@ -101,7 +101,7 @@ class SparseKNNTest : public ::testing::TestWithParam<SparseKNNInputs<value_idx,
                                                                  params.batch_size_query,
                                                                  params.metric);
 
-    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
   }
 
   void compare()

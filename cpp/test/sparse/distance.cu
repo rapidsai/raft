@@ -92,7 +92,7 @@ class SparseDistanceTest
 
     pairwiseDistance(out_dists.data(), dist_config, params.metric, params.metric_arg);
 
-    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
   }
 
   void compare()

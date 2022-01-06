@@ -15,8 +15,8 @@
  */
 
 #include <gtest/gtest.h>
-#include <raft/integer_utils.h>
 #include <iostream>
+#include <raft/integer_utils.h>
 
 namespace raft {
 

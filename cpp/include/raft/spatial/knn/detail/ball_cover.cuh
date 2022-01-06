@@ -26,21 +26,21 @@
 #include "knn_brute_force_faiss.cuh"
 #include "selection_faiss.cuh"
 
-#include <limits.h>
 #include <cstdint>
+#include <limits.h>
 
 #include <raft/cuda_utils.cuh>
 
 #include <raft/matrix/matrix.hpp>
 #include <raft/random/rng.hpp>
-#include <raft/sparse/convert/csr.cuh>
+#include <raft/sparse/convert/csr.hpp>
 
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
 
-#include <faiss/utils/Heap.h>
 #include <faiss/gpu/utils/Limits.cuh>
 #include <faiss/gpu/utils/Select.cuh>
+#include <faiss/utils/Heap.h>
 
 #include <thrust/functional.h>
 #include <thrust/reduce.h>
@@ -164,7 +164,8 @@ void k_closest_landmarks(const raft::handle_t& handle,
   std::vector<value_t*> input      = {index.get_R()};
   std::vector<std::uint32_t> sizes = {index.n_landmarks};
 
-  brute_force_knn_impl<std::uint32_t, std::int64_t>(input,
+  brute_force_knn_impl<std::uint32_t, std::int64_t>(handle,
+                                                    input,
                                                     sizes,
                                                     index.n,
                                                     const_cast<value_t*>(query_pts),
@@ -172,9 +173,6 @@ void k_closest_landmarks(const raft::handle_t& handle,
                                                     R_knn_inds,
                                                     R_knn_dists,
                                                     k,
-                                                    handle.get_stream(),
-                                                    nullptr,
-                                                    0,
                                                     true,
                                                     true,
                                                     nullptr,

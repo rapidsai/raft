@@ -26,8 +26,8 @@
 #include <curand.h>
 
 #include <raft/cudart_utils.h>
-#include <raft/linalg/cublas_wrappers.h>
 #include <raft/handle.hpp>
+#include <raft/linalg/cublas_wrappers.h>
 #include <raft/spectral/lapack.hpp>
 #include <raft/spectral/matrix_wrappers.hpp>
 #include <raft/spectral/warn_dbg.hpp>
@@ -130,20 +130,20 @@ int performLanczosIteration(handle_t const& handle,
     A->mv(1, lanczosVecs_dev, shift, lanczosVecs_dev + n);
 
     // Orthogonalize Lanczos vector
-    CUBLAS_CHECK(cublasdot(
+    RAFT_CUBLAS_TRY(cublasdot(
       cublas_h, n, lanczosVecs_dev, 1, lanczosVecs_dev + IDX(0, 1, n), 1, alpha_host, stream));
 
     alpha = -alpha_host[0];
-    CUBLAS_CHECK(cublasaxpy(
+    RAFT_CUBLAS_TRY(cublasaxpy(
       cublas_h, n, &alpha, lanczosVecs_dev, 1, lanczosVecs_dev + IDX(0, 1, n), 1, stream));
-    CUBLAS_CHECK(cublasnrm2(cublas_h, n, lanczosVecs_dev + IDX(0, 1, n), 1, beta_host, stream));
+    RAFT_CUBLAS_TRY(cublasnrm2(cublas_h, n, lanczosVecs_dev + IDX(0, 1, n), 1, beta_host, stream));
 
     // Check if Lanczos has converged
     if (beta_host[0] <= tol) return 0;
 
     // Normalize Lanczos vector
     alpha = 1 / beta_host[0];
-    CUBLAS_CHECK(cublasscal(cublas_h, n, &alpha, lanczosVecs_dev + IDX(0, 1, n), 1, stream));
+    RAFT_CUBLAS_TRY(cublasscal(cublas_h, n, &alpha, lanczosVecs_dev + IDX(0, 1, n), 1, stream));
   }
 
   // -------------------------------------------------------
@@ -165,33 +165,33 @@ int performLanczosIteration(handle_t const& handle,
     // Full reorthogonalization
     //   "Twice is enough" algorithm per Kahan and Parlett
     if (reorthogonalize) {
-      CUBLAS_CHECK(cublasgemv(cublas_h,
-                              CUBLAS_OP_T,
-                              n,
-                              *iter,
-                              &one,
-                              lanczosVecs_dev,
-                              n,
-                              lanczosVecs_dev + IDX(0, *iter, n),
-                              1,
-                              &zero,
-                              work_dev,
-                              1,
-                              stream));
+      RAFT_CUBLAS_TRY(cublasgemv(cublas_h,
+                                 CUBLAS_OP_T,
+                                 n,
+                                 *iter,
+                                 &one,
+                                 lanczosVecs_dev,
+                                 n,
+                                 lanczosVecs_dev + IDX(0, *iter, n),
+                                 1,
+                                 &zero,
+                                 work_dev,
+                                 1,
+                                 stream));
 
-      CUBLAS_CHECK(cublasgemv(cublas_h,
-                              CUBLAS_OP_N,
-                              n,
-                              *iter,
-                              &negOne,
-                              lanczosVecs_dev,
-                              n,
-                              work_dev,
-                              1,
-                              &one,
-                              lanczosVecs_dev + IDX(0, *iter, n),
-                              1,
-                              stream));
+      RAFT_CUBLAS_TRY(cublasgemv(cublas_h,
+                                 CUBLAS_OP_N,
+                                 n,
+                                 *iter,
+                                 &negOne,
+                                 lanczosVecs_dev,
+                                 n,
+                                 work_dev,
+                                 1,
+                                 &one,
+                                 lanczosVecs_dev + IDX(0, *iter, n),
+                                 1,
+                                 stream));
 
       CUDA_TRY(cudaMemcpyAsync(alpha_host + (*iter - 1),
                                work_dev + (*iter - 1),
@@ -199,69 +199,69 @@ int performLanczosIteration(handle_t const& handle,
                                cudaMemcpyDeviceToHost,
                                stream));
 
-      CUBLAS_CHECK(cublasgemv(cublas_h,
-                              CUBLAS_OP_T,
-                              n,
-                              *iter,
-                              &one,
-                              lanczosVecs_dev,
-                              n,
-                              lanczosVecs_dev + IDX(0, *iter, n),
-                              1,
-                              &zero,
-                              work_dev,
-                              1,
-                              stream));
+      RAFT_CUBLAS_TRY(cublasgemv(cublas_h,
+                                 CUBLAS_OP_T,
+                                 n,
+                                 *iter,
+                                 &one,
+                                 lanczosVecs_dev,
+                                 n,
+                                 lanczosVecs_dev + IDX(0, *iter, n),
+                                 1,
+                                 &zero,
+                                 work_dev,
+                                 1,
+                                 stream));
 
-      CUBLAS_CHECK(cublasgemv(cublas_h,
-                              CUBLAS_OP_N,
-                              n,
-                              *iter,
-                              &negOne,
-                              lanczosVecs_dev,
-                              n,
-                              work_dev,
-                              1,
-                              &one,
-                              lanczosVecs_dev + IDX(0, *iter, n),
-                              1,
-                              stream));
+      RAFT_CUBLAS_TRY(cublasgemv(cublas_h,
+                                 CUBLAS_OP_N,
+                                 n,
+                                 *iter,
+                                 &negOne,
+                                 lanczosVecs_dev,
+                                 n,
+                                 work_dev,
+                                 1,
+                                 &one,
+                                 lanczosVecs_dev + IDX(0, *iter, n),
+                                 1,
+                                 stream));
     }
 
     // Orthogonalization with 3-term recurrence relation
     else {
-      CUBLAS_CHECK(cublasdot(cublas_h,
-                             n,
-                             lanczosVecs_dev + IDX(0, *iter - 1, n),
-                             1,
-                             lanczosVecs_dev + IDX(0, *iter, n),
-                             1,
-                             alpha_host + (*iter - 1),
-                             stream));
+      RAFT_CUBLAS_TRY(cublasdot(cublas_h,
+                                n,
+                                lanczosVecs_dev + IDX(0, *iter - 1, n),
+                                1,
+                                lanczosVecs_dev + IDX(0, *iter, n),
+                                1,
+                                alpha_host + (*iter - 1),
+                                stream));
 
       auto alpha = -alpha_host[*iter - 1];
-      CUBLAS_CHECK(cublasaxpy(cublas_h,
-                              n,
-                              &alpha,
-                              lanczosVecs_dev + IDX(0, *iter - 1, n),
-                              1,
-                              lanczosVecs_dev + IDX(0, *iter, n),
-                              1,
-                              stream));
+      RAFT_CUBLAS_TRY(cublasaxpy(cublas_h,
+                                 n,
+                                 &alpha,
+                                 lanczosVecs_dev + IDX(0, *iter - 1, n),
+                                 1,
+                                 lanczosVecs_dev + IDX(0, *iter, n),
+                                 1,
+                                 stream));
 
       alpha = -beta_host[*iter - 2];
-      CUBLAS_CHECK(cublasaxpy(cublas_h,
-                              n,
-                              &alpha,
-                              lanczosVecs_dev + IDX(0, *iter - 2, n),
-                              1,
-                              lanczosVecs_dev + IDX(0, *iter, n),
-                              1,
-                              stream));
+      RAFT_CUBLAS_TRY(cublasaxpy(cublas_h,
+                                 n,
+                                 &alpha,
+                                 lanczosVecs_dev + IDX(0, *iter - 2, n),
+                                 1,
+                                 lanczosVecs_dev + IDX(0, *iter, n),
+                                 1,
+                                 stream));
     }
 
     // Compute residual
-    CUBLAS_CHECK(cublasnrm2(
+    RAFT_CUBLAS_TRY(cublasnrm2(
       cublas_h, n, lanczosVecs_dev + IDX(0, *iter, n), 1, beta_host + *iter - 1, stream));
 
     // Check if Lanczos has converged
@@ -269,7 +269,7 @@ int performLanczosIteration(handle_t const& handle,
 
     // Normalize Lanczos vector
     alpha = 1 / beta_host[*iter - 1];
-    CUBLAS_CHECK(cublasscal(cublas_h, n, &alpha, lanczosVecs_dev + IDX(0, *iter, n), 1, stream));
+    RAFT_CUBLAS_TRY(cublasscal(cublas_h, n, &alpha, lanczosVecs_dev + IDX(0, *iter, n), 1, stream));
   }
 
   CUDA_TRY(cudaStreamSynchronize(stream));
@@ -641,36 +641,36 @@ static int lanczosRestart(handle_t const& handle,
     V_dev, V_host, iter * iter * sizeof(value_type_t), cudaMemcpyHostToDevice, stream));
 
   beta_host[iter - 1] = beta_host[iter - 1] * V_host[IDX(iter - 1, iter_new - 1, iter)];
-  CUBLAS_CHECK(cublasgemv(cublas_h,
-                          CUBLAS_OP_N,
-                          n,
-                          iter,
-                          beta_host + iter_new - 1,
-                          lanczosVecs_dev,
-                          n,
-                          V_dev + IDX(0, iter_new, iter),
-                          1,
-                          beta_host + iter - 1,
-                          lanczosVecs_dev + IDX(0, iter, n),
-                          1,
-                          stream));
+  RAFT_CUBLAS_TRY(cublasgemv(cublas_h,
+                             CUBLAS_OP_N,
+                             n,
+                             iter,
+                             beta_host + iter_new - 1,
+                             lanczosVecs_dev,
+                             n,
+                             V_dev + IDX(0, iter_new, iter),
+                             1,
+                             beta_host + iter - 1,
+                             lanczosVecs_dev + IDX(0, iter, n),
+                             1,
+                             stream));
 
   // Obtain new Lanczos vectors
-  CUBLAS_CHECK(cublasgemm(cublas_h,
-                          CUBLAS_OP_N,
-                          CUBLAS_OP_N,
-                          n,
-                          iter_new,
-                          iter,
-                          &one,
-                          lanczosVecs_dev,
-                          n,
-                          V_dev,
-                          iter,
-                          &zero,
-                          work_dev,
-                          n,
-                          stream));
+  RAFT_CUBLAS_TRY(cublasgemm(cublas_h,
+                             CUBLAS_OP_N,
+                             CUBLAS_OP_N,
+                             n,
+                             iter_new,
+                             iter,
+                             &one,
+                             lanczosVecs_dev,
+                             n,
+                             V_dev,
+                             iter,
+                             &zero,
+                             work_dev,
+                             n,
+                             stream));
 
   CUDA_TRY(cudaMemcpyAsync(lanczosVecs_dev,
                            work_dev,
@@ -685,11 +685,12 @@ static int lanczosRestart(handle_t const& handle,
                            cudaMemcpyDeviceToDevice,
                            stream));
 
-  CUBLAS_CHECK(cublasnrm2(
+  RAFT_CUBLAS_TRY(cublasnrm2(
     cublas_h, n, lanczosVecs_dev + IDX(0, iter_new, n), 1, beta_host + iter_new - 1, stream));
 
   auto h_beta = 1 / beta_host[iter_new - 1];
-  CUBLAS_CHECK(cublasscal(cublas_h, n, &h_beta, lanczosVecs_dev + IDX(0, iter_new, n), 1, stream));
+  RAFT_CUBLAS_TRY(
+    cublasscal(cublas_h, n, &h_beta, lanczosVecs_dev + IDX(0, iter_new, n), 1, stream));
 
   return 0;
 }
@@ -821,7 +822,7 @@ int computeSmallestEigenvectors(handle_t const& handle,
   work_host = work_host_v.data();
 
   // Initialize cuBLAS
-  CUBLAS_CHECK(cublassetpointermode(cublas_h, CUBLAS_POINTER_MODE_HOST, stream));
+  RAFT_CUBLAS_TRY(cublassetpointermode(cublas_h, CUBLAS_POINTER_MODE_HOST, stream));
 
   // -------------------------------------------------------
   // Compute largest eigenvalue to determine shift
@@ -837,10 +838,10 @@ int computeSmallestEigenvectors(handle_t const& handle,
   // Initialize initial Lanczos vector
   curandGenerateNormalX(randGen, lanczosVecs_dev, n + n % 2, zero, one);
   value_type_t normQ1;
-  CUBLAS_CHECK(cublasnrm2(cublas_h, n, lanczosVecs_dev, 1, &normQ1, stream));
+  RAFT_CUBLAS_TRY(cublasnrm2(cublas_h, n, lanczosVecs_dev, 1, &normQ1, stream));
 
   auto h_val = 1 / normQ1;
-  CUBLAS_CHECK(cublasscal(cublas_h, n, &h_val, lanczosVecs_dev, 1, stream));
+  RAFT_CUBLAS_TRY(cublasscal(cublas_h, n, &h_val, lanczosVecs_dev, 1, stream));
 
   // Obtain tridiagonal matrix with Lanczos
   *effIter = 0;
@@ -970,21 +971,21 @@ int computeSmallestEigenvectors(handle_t const& handle,
   CHECK_CUDA(stream);
 
   // Convert eigenvectors from Lanczos basis to standard basis
-  CUBLAS_CHECK(cublasgemm(cublas_h,
-                          CUBLAS_OP_N,
-                          CUBLAS_OP_N,
-                          n,
-                          nEigVecs,
-                          *effIter,
-                          &one,
-                          lanczosVecs_dev,
-                          n,
-                          work_dev,
-                          *effIter,
-                          &zero,
-                          eigVecs_dev,
-                          n,
-                          stream));
+  RAFT_CUBLAS_TRY(cublasgemm(cublas_h,
+                             CUBLAS_OP_N,
+                             CUBLAS_OP_N,
+                             n,
+                             nEigVecs,
+                             *effIter,
+                             &one,
+                             lanczosVecs_dev,
+                             n,
+                             work_dev,
+                             *effIter,
+                             &zero,
+                             eigVecs_dev,
+                             n,
+                             stream));
 
   // Clean up and exit
   curandDestroyGenerator(randGen);
@@ -1208,7 +1209,7 @@ int computeLargestEigenvectors(handle_t const& handle,
   work_host = work_host_v.data();
 
   // Initialize cuBLAS
-  CUBLAS_CHECK(cublassetpointermode(cublas_h, CUBLAS_POINTER_MODE_HOST, stream));
+  RAFT_CUBLAS_TRY(cublassetpointermode(cublas_h, CUBLAS_POINTER_MODE_HOST, stream));
 
   // -------------------------------------------------------
   // Compute largest eigenvalue
@@ -1222,10 +1223,10 @@ int computeLargestEigenvectors(handle_t const& handle,
   // Initialize initial Lanczos vector
   curandGenerateNormalX(randGen, lanczosVecs_dev, n + n % 2, zero, one);
   value_type_t normQ1;
-  CUBLAS_CHECK(cublasnrm2(cublas_h, n, lanczosVecs_dev, 1, &normQ1, stream));
+  RAFT_CUBLAS_TRY(cublasnrm2(cublas_h, n, lanczosVecs_dev, 1, &normQ1, stream));
 
   auto h_val = 1 / normQ1;
-  CUBLAS_CHECK(cublasscal(cublas_h, n, &h_val, lanczosVecs_dev, 1, stream));
+  RAFT_CUBLAS_TRY(cublasscal(cublas_h, n, &h_val, lanczosVecs_dev, 1, stream));
 
   // Obtain tridiagonal matrix with Lanczos
   *effIter               = 0;
@@ -1360,21 +1361,21 @@ int computeLargestEigenvectors(handle_t const& handle,
   CHECK_CUDA(stream);
 
   // Convert eigenvectors from Lanczos basis to standard basis
-  CUBLAS_CHECK(cublasgemm(cublas_h,
-                          CUBLAS_OP_N,
-                          CUBLAS_OP_N,
-                          n,
-                          nEigVecs,
-                          *effIter,
-                          &one,
-                          lanczosVecs_dev,
-                          n,
-                          work_dev,
-                          *effIter,
-                          &zero,
-                          eigVecs_dev,
-                          n,
-                          stream));
+  RAFT_CUBLAS_TRY(cublasgemm(cublas_h,
+                             CUBLAS_OP_N,
+                             CUBLAS_OP_N,
+                             n,
+                             nEigVecs,
+                             *effIter,
+                             &one,
+                             lanczosVecs_dev,
+                             n,
+                             work_dev,
+                             *effIter,
+                             &zero,
+                             eigVecs_dev,
+                             n,
+                             stream));
 
   // Clean up and exit
   curandDestroyGenerator(randGen);

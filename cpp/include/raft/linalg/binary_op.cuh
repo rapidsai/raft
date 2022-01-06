@@ -49,7 +49,7 @@ void binaryOpImpl(
   const IdxType nblks = raft::ceildiv(VecLen ? len / VecLen : len, (IdxType)TPB);
   binaryOpKernel<InType, VecLen, Lambda, IdxType, OutType>
     <<<nblks, TPB, 0, stream>>>(out, in1, in2, len, op);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 /**

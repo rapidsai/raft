@@ -16,12 +16,12 @@
 
 #include <gtest/gtest.h>
 
-#include <raft/sparse/csr.cuh>
-#include <raft/sparse/linalg/add.cuh>
+#include <raft/sparse/csr.hpp>
+#include <raft/sparse/linalg/add.hpp>
 
+#include "../test_utils.h"
 #include <raft/cudart_utils.h>
 #include <raft/random/rng.hpp>
-#include "../test_utils.h"
 
 #include <iostream>
 #include <limits>
@@ -89,40 +89,40 @@ class CSRAddTest : public ::testing::TestWithParam<CSRAddInputs<Type_f, Index_>>
     raft::update_device(
       values_verify.data(), params.matrix_verify.values.data(), nnz_result, stream);
 
-    Index_ nnz = linalg::csr_add_calc_inds<Type_f, 32>(ind_a.data(),
-                                                       ind_ptr_a.data(),
-                                                       values_a.data(),
-                                                       nnz_a,
-                                                       ind_b.data(),
-                                                       ind_ptr_b.data(),
-                                                       values_b.data(),
-                                                       nnz_b,
-                                                       n_rows,
-                                                       ind_result.data(),
-                                                       stream);
+    Index_ nnz = linalg::csr_add_calc_inds<Type_f>(ind_a.data(),
+                                                   ind_ptr_a.data(),
+                                                   values_a.data(),
+                                                   nnz_a,
+                                                   ind_b.data(),
+                                                   ind_ptr_b.data(),
+                                                   values_b.data(),
+                                                   nnz_b,
+                                                   n_rows,
+                                                   ind_result.data(),
+                                                   stream);
 
     ASSERT_TRUE(nnz == nnz_result);
     ASSERT_TRUE(raft::devArrMatch<Index_>(
-      ind_verify.data(), ind_result.data(), n_rows, raft::Compare<Index_>()));
+      ind_verify.data(), ind_result.data(), n_rows, raft::Compare<Index_>(), stream));
 
-    linalg::csr_add_finalize<Type_f, 32>(ind_a.data(),
-                                         ind_ptr_a.data(),
-                                         values_a.data(),
-                                         nnz_a,
-                                         ind_b.data(),
-                                         ind_ptr_b.data(),
-                                         values_b.data(),
-                                         nnz_b,
-                                         n_rows,
-                                         ind_result.data(),
-                                         ind_ptr_result.data(),
-                                         values_result.data(),
-                                         stream);
+    linalg::csr_add_finalize<Type_f>(ind_a.data(),
+                                     ind_ptr_a.data(),
+                                     values_a.data(),
+                                     nnz_a,
+                                     ind_b.data(),
+                                     ind_ptr_b.data(),
+                                     values_b.data(),
+                                     nnz_b,
+                                     n_rows,
+                                     ind_result.data(),
+                                     ind_ptr_result.data(),
+                                     values_result.data(),
+                                     stream);
 
     ASSERT_TRUE(raft::devArrMatch<Index_>(
-      ind_ptr_verify.data(), ind_ptr_result.data(), nnz, raft::Compare<Index_>()));
+      ind_ptr_verify.data(), ind_ptr_result.data(), nnz, raft::Compare<Index_>(), stream));
     ASSERT_TRUE(raft::devArrMatch<Type_f>(
-      values_verify.data(), values_result.data(), nnz, raft::Compare<Type_f>()));
+      values_verify.data(), values_result.data(), nnz, raft::Compare<Type_f>(), stream));
   }
 
  protected:

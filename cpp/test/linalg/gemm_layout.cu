@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
+#include "../test_utils.h"
 #include <gtest/gtest.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/gemm.cuh>
 #include <raft/random/rng.hpp>
-#include "../test_utils.h"
 
 namespace raft {
 namespace linalg {
@@ -80,10 +80,10 @@ class GemmLayoutTest : public ::testing::TestWithParam<GemmLayoutInputs<T>> {
     size_t yElems = params.K * params.N;
     size_t zElems = params.M * params.N;
 
-    CUDA_CHECK(cudaMalloc(&X, xElems * sizeof(T)));
-    CUDA_CHECK(cudaMalloc(&Y, yElems * sizeof(T)));
-    CUDA_CHECK(cudaMalloc(&refZ, zElems * sizeof(T)));
-    CUDA_CHECK(cudaMalloc(&Z, zElems * sizeof(T)));
+    RAFT_CUDA_TRY(cudaMalloc(&X, xElems * sizeof(T)));
+    RAFT_CUDA_TRY(cudaMalloc(&Y, yElems * sizeof(T)));
+    RAFT_CUDA_TRY(cudaMalloc(&refZ, zElems * sizeof(T)));
+    RAFT_CUDA_TRY(cudaMalloc(&Z, zElems * sizeof(T)));
 
     r.uniform(X, xElems, T(-10.0), T(10.0), stream);
     r.uniform(Y, yElems, T(-10.0), T(10.0), stream);
@@ -105,12 +105,13 @@ class GemmLayoutTest : public ::testing::TestWithParam<GemmLayoutInputs<T>> {
          params.xLayout,
          params.yLayout,
          stream);
+    handle.sync_stream();
   }
 
   void TearDown() override
   {
-    CUDA_CHECK(cudaFree(refZ));
-    CUDA_CHECK(cudaFree(Z));
+    RAFT_CUDA_TRY(cudaFree(refZ));
+    RAFT_CUDA_TRY(cudaFree(Z));
   }
 
  protected:

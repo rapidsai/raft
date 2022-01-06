@@ -17,9 +17,9 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <raft/random/rng.hpp>
-#include <raft/sparse/convert/coo.cuh>
-#include <raft/sparse/coo.cuh>
-#include <raft/sparse/linalg/symmetrize.cuh>
+#include <raft/sparse/convert/coo.hpp>
+#include <raft/sparse/coo.hpp>
+#include <raft/sparse/linalg/symmetrize.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
@@ -111,7 +111,7 @@ class SparseSymmetrizeTest
       out.rows(), out.cols(), out.vals(), out.nnz, sum.data());
 
     sum_h = sum.value(stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
  protected:
@@ -167,13 +167,13 @@ TEST_P(COOSymmetrize, Result)
 
   COO<float> out(stream);
 
-  linalg::coo_symmetrize<32, float>(
+  linalg::coo_symmetrize<float>(
     &in,
     &out,
     [] __device__(int row, int col, float val, float trans) { return val + trans; },
     stream);
 
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   std::cout << out << std::endl;
 
   ASSERT_TRUE(out.nnz == nnz * 2);

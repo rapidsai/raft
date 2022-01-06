@@ -16,11 +16,11 @@
 
 #include <gtest/gtest.h>
 
+#include "../test_utils.h"
 #include <raft/cudart_utils.h>
 #include <raft/random/rng.hpp>
-#include <raft/sparse/csr.cuh>
-#include <raft/sparse/linalg/norm.cuh>
-#include "../test_utils.h"
+#include <raft/sparse/csr.hpp>
+#include <raft/sparse/linalg/norm.hpp>
 
 #include <iostream>
 #include <limits>
@@ -65,14 +65,15 @@ class CSRRowNormalizeTest : public ::testing::TestWithParam<CSRRowNormalizeInput
 
     switch (params.method) {
       case MAX:
-        linalg::csr_row_normalize_max<32, Type_f>(
+        linalg::csr_row_normalize_max<Type_f>(
           ex_scan.data(), in_vals.data(), nnz, n_rows, result.data(), stream);
         break;
       case L1:
-        linalg::csr_row_normalize_l1<32, Type_f>(
+        linalg::csr_row_normalize_l1<Type_f>(
           ex_scan.data(), in_vals.data(), nnz, n_rows, result.data(), stream);
         break;
     }
+    CUDA_CHECK(cudaStreamSynchronize(stream));
 
     ASSERT_TRUE(
       raft::devArrMatch<Type_f>(verify.data(), result.data(), nnz, raft::Compare<Type_f>()));

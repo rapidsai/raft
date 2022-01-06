@@ -19,8 +19,8 @@
 #include <raft/handle.hpp>
 
 #include <gtest/gtest.h>
+#include <raft/sparse/convert/dense.hpp>
 #include <raft/sparse/cusparse_wrappers.h>
-#include <raft/sparse/convert/dense.cuh>
 
 #include <rmm/device_uvector.hpp>
 
@@ -83,12 +83,12 @@ class CSRToDenseTest : public ::testing::TestWithParam<CSRToDenseInputs<value_id
     std::vector<value_t> out_ref_h = params.out_ref_h;
 
     update_device(out_ref.data(), out_ref_h.data(), out_ref_h.size(), stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
   void SetUp() override
   {
-    CUSPARSE_CHECK(cusparseCreate(&handle));
+    RAFT_CUSPARSE_TRY(cusparseCreate(&handle));
 
     make_data();
 
@@ -103,8 +103,8 @@ class CSRToDenseTest : public ::testing::TestWithParam<CSRToDenseInputs<value_id
                           stream,
                           true);
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-    CUSPARSE_CHECK(cusparseDestroy(handle));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    RAFT_CUSPARSE_TRY(cusparseDestroy(handle));
   }
 
   void compare()
