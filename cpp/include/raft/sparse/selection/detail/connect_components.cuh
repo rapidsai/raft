@@ -27,10 +27,10 @@
 
 #include <raft/cudart_utils.h>
 
-#include <thrust/device_ptr.h>
-#include <thrust/sort.h>
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
+#include <thrust/device_ptr.h>
+#include <thrust/sort.h>
 
 #include <cub/cub.cuh>
 
@@ -415,7 +415,7 @@ void connect_components(
   // compute final size
   value_idx size = 0;
   raft::update_host(&size, out_index.data() + (out_index.size() - 1), 1, stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
   size++;
 

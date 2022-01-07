@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
+#include "../test_utils.h"
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/random/rng.hpp>
-#include "../test_utils.h"
 
 namespace raft {
 namespace linalg {
@@ -38,7 +38,7 @@ void naiveScale(Type* out, const Type* in, Type scalar, int len, cudaStream_t st
   static const int TPB = 64;
   int nblks            = raft::ceildiv(len, TPB);
   naiveScaleKernel<Type><<<nblks, TPB, 0, stream>>>(out, in, scalar, len);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 template <typename T>
@@ -76,7 +76,7 @@ class ScalarMultiplyTest : public ::testing::TestWithParam<ScalarMultiplyInputs<
     r.uniform(in, len, T(-1.0), T(1.0), stream);
     naiveScale(out_ref, in, scalar, len, stream);
     scalarMultiply(out, in, scalar, len, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
  protected:
@@ -95,15 +95,15 @@ const std::vector<ScalarMultiplyInputs<double>> inputsd1 = {
 typedef ScalarMultiplyTest<float> ScalarMultiplyTestF;
 TEST_P(ScalarMultiplyTestF, Result)
 {
-  ASSERT_TRUE(
-    devArrMatch(out_ref.data(), out.data(), params.len, CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(
+    out_ref.data(), out.data(), params.len, CompareApprox<float>(params.tolerance), stream));
 }
 
 typedef ScalarMultiplyTest<double> ScalarMultiplyTestD;
 TEST_P(ScalarMultiplyTestD, Result)
 {
-  ASSERT_TRUE(
-    devArrMatch(out_ref.data(), out.data(), params.len, CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(
+    out_ref.data(), out.data(), params.len, CompareApprox<double>(params.tolerance), stream));
 }
 
 INSTANTIATE_TEST_SUITE_P(ScalarMultiplyTests, ScalarMultiplyTestF, ::testing::ValuesIn(inputsf1));
@@ -125,7 +125,7 @@ void naiveAdd(Type* out, const Type* in1, const Type* in2, int len, cudaStream_t
   static const int TPB = 64;
   int nblks            = raft::ceildiv(len, TPB);
   naiveAddKernel<Type><<<nblks, TPB, 0, stream>>>(out, in1, in2, len);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 template <typename T>
@@ -164,7 +164,7 @@ class EltwiseAddTest : public ::testing::TestWithParam<EltwiseAddInputs<T>> {
     r.uniform(in2, len, T(-1.0), T(1.0), stream);
     naiveAdd(out_ref, in1, in2, len, stream);
     eltwiseAdd(out, in1, in2, len, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
  protected:
@@ -182,15 +182,15 @@ const std::vector<EltwiseAddInputs<double>> inputsd2 = {{0.00000001, 1024 * 1024
 typedef EltwiseAddTest<float> EltwiseAddTestF;
 TEST_P(EltwiseAddTestF, Result)
 {
-  ASSERT_TRUE(
-    devArrMatch(out_ref.data(), out.data(), params.len, CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(
+    out_ref.data(), out.data(), params.len, CompareApprox<float>(params.tolerance), stream));
 }
 
 typedef EltwiseAddTest<double> EltwiseAddTestD;
 TEST_P(EltwiseAddTestD, Result)
 {
-  ASSERT_TRUE(
-    devArrMatch(out_ref.data(), out.data(), params.len, CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(
+    out_ref.data(), out.data(), params.len, CompareApprox<double>(params.tolerance), stream));
 }
 
 INSTANTIATE_TEST_SUITE_P(EltwiseAddTests, EltwiseAddTestF, ::testing::ValuesIn(inputsf2));

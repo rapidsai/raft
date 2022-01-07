@@ -118,7 +118,7 @@ double compute_rand_index(T* firstClusterArray,
 
   // allocating and initializing memory for a and b in the GPU
   rmm::device_uvector<uint64_t> arr_buf(2, stream);
-  CUDA_CHECK(cudaMemsetAsync(arr_buf.data(), 0, 2 * sizeof(uint64_t), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(arr_buf.data(), 0, 2 * sizeof(uint64_t), stream));
 
   // kernel configuration
   static const int BLOCK_DIM_Y = 16, BLOCK_DIM_X = 16;
@@ -133,10 +133,10 @@ double compute_rand_index(T* firstClusterArray,
   // synchronizing and updating the calculated values of a and b from device to host
   uint64_t ab_host[2] = {0};
   raft::update_host(ab_host, arr_buf.data(), 2, stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
   // error handling
-  CUDA_CHECK(cudaGetLastError());
+  RAFT_CUDA_TRY(cudaGetLastError());
 
   // denominator
   uint64_t nChooseTwo = size * (size - 1) / 2;
@@ -188,7 +188,7 @@ class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
       params.c,
       params.n_clusters);
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
     score = compute_rand_index(labels.data(), labels_ref.data(), params.n_row, stream);
   }

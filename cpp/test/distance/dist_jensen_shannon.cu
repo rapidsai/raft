@@ -41,7 +41,7 @@ TEST_P(DistanceJensenShannonF, Result)
   int m = params.isRowMajor ? params.m : params.n;
   int n = params.isRowMajor ? params.n : params.m;
   ASSERT_TRUE(raft::devArrMatch(
-    dist_ref.data(), dist.data(), m, n, raft::CompareApprox<float>(params.tolerance)));
+    dist_ref.data(), dist.data(), m, n, raft::CompareApprox<float>(params.tolerance), stream));
 }
 INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceJensenShannonF, ::testing::ValuesIn(inputsf));
 
@@ -61,7 +61,7 @@ TEST_P(DistanceJensenShannonD, Result)
   int m = params.isRowMajor ? params.m : params.n;
   int n = params.isRowMajor ? params.n : params.m;
   ASSERT_TRUE(raft::devArrMatch(
-    dist_ref.data(), dist.data(), m, n, raft::CompareApprox<double>(params.tolerance)));
+    dist_ref.data(), dist.data(), m, n, raft::CompareApprox<double>(params.tolerance), stream));
 }
 INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceJensenShannonD, ::testing::ValuesIn(inputsd));
 

@@ -111,7 +111,7 @@ class SparseSymmetrizeTest
       out.rows(), out.cols(), out.vals(), out.nnz, sum.data());
 
     sum_h = sum.value(stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
  protected:
@@ -173,7 +173,7 @@ TEST_P(COOSymmetrize, Result)
     [] __device__(int row, int col, float val, float trans) { return val + trans; },
     stream);
 
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   std::cout << out << std::endl;
 
   ASSERT_TRUE(out.nnz == nnz * 2);

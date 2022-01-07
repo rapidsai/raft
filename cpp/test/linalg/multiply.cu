@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
+#include "../test_utils.h"
+#include "unary_op.cuh"
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/multiply.cuh>
 #include <raft/random/rng.hpp>
-#include "../test_utils.h"
-#include "unary_op.cuh"
 
 namespace raft {
 namespace linalg {
@@ -45,7 +45,7 @@ class MultiplyTest : public ::testing::TestWithParam<UnaryOpInputs<T>> {
     r.uniform(in.data(), len, T(-1.0), T(1.0), stream);
     naiveScale(out_ref.data(), in.data(), params.scalar, len, stream);
     multiplyScalar(out.data(), in.data(), params.scalar, len, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
  protected:

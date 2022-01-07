@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
-#include <cub/cub.cuh>
-#include <raft/cuda_utils.cuh>
-#include <raft/random/rng.hpp>
 #include "../test_utils.h"
+#include <cub/cub.cuh>
+#include <gtest/gtest.h>
+#include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
+#include <raft/random/rng.hpp>
 
 namespace raft {
 namespace random {
@@ -77,7 +77,7 @@ class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
       stats(2, stream)
   {
     data.resize(params.len, stream);
-    CUDA_CHECK(cudaMemsetAsync(stats.data(), 0, 2 * sizeof(float), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(stats.data(), 0, 2 * sizeof(float), stream));
   }
 
  protected:
@@ -94,10 +94,10 @@ class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
     meanKernel<T, threads><<<raft::ceildiv(params.len, threads), threads, 0, stream>>>(
       stats.data(), data.data(), params.len);
     update_host<float>(h_stats, stats.data(), 2, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
     h_stats[0] /= params.len;
     h_stats[1] = (h_stats[1] / params.len) - (h_stats[0] * h_stats[0]);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
   void getExpectedMeanVar(float meanvar[2])

@@ -64,7 +64,7 @@ class buffer_base {
     if (capacity_ > 0) {
       data_ =
         static_cast<value_type*>(allocator_->allocate(capacity_ * sizeof(value_type), stream_));
-      CUDA_CHECK(cudaStreamSynchronize(stream_));
+      RAFT_CUDA_TRY(cudaStreamSynchronize(stream_));
     }
   }
 
@@ -198,11 +198,11 @@ class buffer_base {
   {
     if (stream_ != stream) {
       cudaEvent_t event;
-      CUDA_CHECK(cudaEventCreateWithFlags(&event, cudaEventDisableTiming));
-      CUDA_CHECK(cudaEventRecord(event, stream_));
-      CUDA_CHECK(cudaStreamWaitEvent(stream, event, 0));
+      RAFT_CUDA_TRY(cudaEventCreateWithFlags(&event, cudaEventDisableTiming));
+      RAFT_CUDA_TRY(cudaEventRecord(event, stream_));
+      RAFT_CUDA_TRY(cudaStreamWaitEvent(stream, event, 0));
       stream_ = stream;
-      CUDA_CHECK(cudaEventDestroy(event));
+      RAFT_CUDA_TRY(cudaEventDestroy(event));
     }
   }
 };  // class buffer_base

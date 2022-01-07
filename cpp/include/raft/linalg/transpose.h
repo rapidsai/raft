@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <raft/linalg/cublas_wrappers.h>
 #include <raft/handle.hpp>
+#include <raft/linalg/cublas_wrappers.h>
 #include <rmm/exec_policy.hpp>
 
 namespace raft {
@@ -47,20 +47,20 @@ void transpose(const raft::handle_t& handle,
 
   const math_t alpha = 1.0;
   const math_t beta  = 0.0;
-  CUBLAS_CHECK(raft::linalg::cublasgeam(cublas_h,
-                                        CUBLAS_OP_T,
-                                        CUBLAS_OP_N,
-                                        out_n_rows,
-                                        out_n_cols,
-                                        &alpha,
-                                        in,
-                                        n_rows,
-                                        &beta,
-                                        out,
-                                        out_n_rows,
-                                        out,
-                                        out_n_rows,
-                                        stream));
+  RAFT_CUBLAS_TRY(raft::linalg::cublasgeam(cublas_h,
+                                           CUBLAS_OP_T,
+                                           CUBLAS_OP_N,
+                                           out_n_rows,
+                                           out_n_cols,
+                                           &alpha,
+                                           in,
+                                           n_rows,
+                                           &beta,
+                                           out,
+                                           out_n_rows,
+                                           out,
+                                           out_n_rows,
+                                           stream));
 }
 
 /**

@@ -17,9 +17,9 @@
 #pragma once
 
 #include <cublas_v2.h>
-#include <raft/linalg/cublas_wrappers.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
+#include <raft/linalg/cublas_wrappers.h>
 
 namespace raft {
 namespace linalg {
@@ -65,7 +65,7 @@ void gemm(const raft::handle_t& handle,
   int lda = trans_a == CUBLAS_OP_T ? k : m;
   int ldb = trans_b == CUBLAS_OP_T ? n : k;
   int ldc = m;
-  CUBLAS_CHECK(
+  RAFT_CUBLAS_TRY(
     cublasgemm(cublas_h, trans_a, trans_b, m, n, k, &alpha, a, lda, b, ldb, &beta, c, ldc, stream));
 }
 
@@ -191,7 +191,7 @@ void gemm(const raft::handle_t& handle,
     K = _K;
   }
   // Actual cuBLAS call
-  CUBLAS_CHECK(
+  RAFT_CUBLAS_TRY(
     cublasgemm(cublas_h, trans_a, trans_b, M, N, K, &alpha, a, lda, b, ldb, &beta, c, ldc, stream));
 }
 

@@ -20,6 +20,8 @@
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/selection/detail/knn_graph.cuh>
 
+#include <cstdint>
+
 namespace raft {
 namespace sparse {
 namespace selection {
@@ -38,14 +40,13 @@ namespace selection {
  * @param[in] n number of observations (columns) in X
  * @param[in] metric distance metric to use when constructing neighborhoods
  * @param[out] out output edge list
- * @param[out] out output edge list
  * @param c
  */
 template <typename value_idx = int, typename value_t = float>
 void knn_graph(const handle_t& handle,
                const value_t* X,
-               size_t m,
-               size_t n,
+               std::size_t m,
+               std::size_t n,
                raft::distance::DistanceType metric,
                raft::sparse::COO<value_t, value_idx>& out,
                int c = 15)

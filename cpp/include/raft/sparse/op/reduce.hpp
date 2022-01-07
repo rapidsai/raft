@@ -57,6 +57,7 @@ void compute_duplicates_mask(
  * the sorting of values.
  * @tparam value_idx
  * @tparam value_t
+ * @param[in] handle
  * @param[out] out output COO, the nnz will be computed allocate() will be called in this function.
  * @param[in] rows COO rows array, size nnz
  * @param[in] cols COO cols array, size nnz
@@ -64,7 +65,6 @@ void compute_duplicates_mask(
  * @param[in] nnz number of nonzeros in COO input arrays
  * @param[in] m number of rows in COO input matrix
  * @param[in] n number of columns in COO input matrix
- * @param[in] stream cuda ops will be ordered wrt this stream
  */
 template <typename value_idx, typename value_t>
 void max_duplicates(const raft::handle_t& handle,

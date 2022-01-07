@@ -20,8 +20,8 @@
 #include <faiss/gpu/StandardGpuResources.h>
 
 #include <raft/linalg/distance_type.h>
-#include <raft/spatial/knn/detail/common_faiss.h>
 #include <raft/random/rng.hpp>
+#include <raft/spatial/knn/detail/common_faiss.h>
 #include <raft/spatial/knn/detail/fused_l2_knn.cuh>
 #include <raft/spatial/knn/knn.hpp>
 
@@ -77,7 +77,7 @@ testing::AssertionResult devArrMatchKnnPair(const T* expected_idx,
   raft::update_host<T>(act_idx_h.get(), actual_idx, size, stream);
   raft::update_host<DistT>(exp_dist_h.get(), expected_dist, size, stream);
   raft::update_host<DistT>(act_dist_h.get(), actual_dist, size, stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   for (size_t i(0); i < rows; ++i) {
     for (size_t j(0); j < cols; ++j) {
       auto idx      = i * cols + j;  // row major assumption!

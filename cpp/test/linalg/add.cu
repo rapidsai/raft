@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
+#include "../test_utils.h"
+#include "add.cuh"
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/add.cuh>
 #include <raft/random/rng.hpp>
-#include "../test_utils.h"
-#include "add.cuh"
 
 namespace raft {
 namespace linalg {
@@ -45,15 +45,15 @@ class AddTest : public ::testing::TestWithParam<AddInputs<InT, OutT>> {
     int len = params.len;
     r.uniform(in1.data(), len, InT(-1.0), InT(1.0), stream);
     r.uniform(in2.data(), len, InT(-1.0), InT(1.0), stream);
-    naiveAddElem<InT, OutT>(out_ref.data(), in1.data(), in2.data(), len);
+    naiveAddElem<InT, OutT>(out_ref.data(), in1.data(), in2.data(), len, stream);
     add<InT, OutT>(out.data(), in1.data(), in2.data(), len, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
   void compare()
   {
     ASSERT_TRUE(raft::devArrMatch(
-      out_ref.data(), out.data(), params.len, raft::CompareApprox<OutT>(params.tolerance)));
+      out_ref.data(), out.data(), params.len, raft::CompareApprox<OutT>(params.tolerance), stream));
   }
 
  protected:
