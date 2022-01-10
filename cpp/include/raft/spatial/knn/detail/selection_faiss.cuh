@@ -22,9 +22,9 @@
 #include <faiss/gpu/GpuDistance.h>
 #include <faiss/gpu/GpuIndexFlat.h>
 #include <faiss/gpu/GpuResources.h>
-#include <faiss/utils/Heap.h>
 #include <faiss/gpu/utils/Limits.cuh>
 #include <faiss/gpu/utils/Select.cuh>
+#include <faiss/utils/Heap.h>
 
 namespace raft {
 namespace spatial {
@@ -110,7 +110,7 @@ inline void select_k_impl(value_t* inK,
     select_k_kernel<value_t, value_idx, true, warp_q, thread_q, n_threads>
       <<<grid, block, 0, stream>>>(inK, inV, n_rows, n_cols, outK, outV, kInit, vInit, k);
   }
-  CUDA_CHECK(cudaGetLastError());
+  RAFT_CUDA_TRY(cudaGetLastError());
 }
 
 /**

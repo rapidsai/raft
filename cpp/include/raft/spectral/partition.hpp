@@ -152,7 +152,7 @@ void analyzePartition(handle_t const& handle,
   vector_t<weight_t> Lx(handle, n);
 
   // Initialize cuBLAS
-  CUBLAS_CHECK(cublassetpointermode(cublas_h, CUBLAS_POINTER_MODE_HOST, stream));
+  RAFT_CUBLAS_TRY(cublassetpointermode(cublas_h, CUBLAS_POINTER_MODE_HOST, stream));
 
   // Initialize Laplacian
   /// sparse_matrix_t<vertex_t, weight_t> A{handle, graph};

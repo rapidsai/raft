@@ -16,12 +16,12 @@
 
 #if CUDART_VERSION >= 10010
 
+#include "../test_utils.h"
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/linalg/eig.cuh>
 #include <raft/random/rng.hpp>
-#include "../test_utils.h"
 
 namespace raft {
 namespace linalg {
@@ -92,7 +92,7 @@ class EigSelTest : public ::testing::TestWithParam<EigSelInputs<T>> {
              eig_vals.data(),
              EigVecMemUsage::OVERWRITE_INPUT,
              stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
  protected:
@@ -117,7 +117,8 @@ TEST_P(EigSelTestValF, Result)
   ASSERT_TRUE(raft::devArrMatch(eig_vals_ref.data(),
                                 eig_vals.data(),
                                 params.n_col,
-                                raft::CompareApproxAbs<float>(params.tolerance)));
+                                raft::CompareApproxAbs<float>(params.tolerance),
+                                stream));
 }
 
 typedef EigSelTest<double> EigSelTestValD;
@@ -126,7 +127,8 @@ TEST_P(EigSelTestValD, Result)
   ASSERT_TRUE(raft::devArrMatch(eig_vals_ref.data(),
                                 eig_vals.data(),
                                 params.n_col,
-                                raft::CompareApproxAbs<double>(params.tolerance)));
+                                raft::CompareApproxAbs<double>(params.tolerance),
+                                stream));
 }
 
 typedef EigSelTest<float> EigSelTestVecF;
@@ -135,7 +137,8 @@ TEST_P(EigSelTestVecF, Result)
   ASSERT_TRUE(raft::devArrMatch(eig_vectors_ref.data(),
                                 eig_vectors.data(),
                                 12,
-                                raft::CompareApproxAbs<float>(params.tolerance)));
+                                raft::CompareApproxAbs<float>(params.tolerance),
+                                stream));
 }
 
 typedef EigSelTest<double> EigSelTestVecD;
@@ -144,7 +147,8 @@ TEST_P(EigSelTestVecD, Result)
   ASSERT_TRUE(raft::devArrMatch(eig_vectors_ref.data(),
                                 eig_vectors.data(),
                                 12,
-                                raft::CompareApproxAbs<double>(params.tolerance)));
+                                raft::CompareApproxAbs<double>(params.tolerance),
+                                stream));
 }
 
 INSTANTIATE_TEST_SUITE_P(EigSelTest, EigSelTestValF, ::testing::ValuesIn(inputsf2));

@@ -20,7 +20,7 @@
 
 #include <gtest/gtest.h>
 #include <raft/sparse/cusparse_wrappers.h>
-#include <raft/sparse/op/slice.h>
+#include <raft/sparse/op/slice.hpp>
 
 #include <rmm/device_uvector.hpp>
 
@@ -98,7 +98,7 @@ class CSRRowSliceTest : public ::testing::TestWithParam<CSRRowSliceInputs<value_
     update_device(
       out_indices_ref.data(), out_indices_ref_h.data(), out_indices_ref_h.size(), stream);
     update_device(out_data_ref.data(), out_data_ref_h.data(), out_data_ref_h.size(), stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
   void SetUp() override
@@ -124,7 +124,7 @@ class CSRRowSliceTest : public ::testing::TestWithParam<CSRRowSliceInputs<value_
                                              out_data.data(),
                                              stream);
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
   void compare()

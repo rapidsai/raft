@@ -26,8 +26,8 @@
 
 #include <rmm/device_uvector.hpp>
 
-#include <omp.h>
 #include <iostream>
+#include <omp.h>
 #include <raft/lap/lap.cuh>
 #include <random>
 

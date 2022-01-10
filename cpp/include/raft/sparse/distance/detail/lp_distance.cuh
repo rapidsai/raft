@@ -18,18 +18,18 @@
 
 #include <limits.h>
 
+#include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/distance_type.h>
 #include <raft/sparse/cusparse_wrappers.h>
-#include <raft/cuda_utils.cuh>
 
 #include <rmm/device_uvector.hpp>
 
-#include <raft/sparse/utils.h>
-#include <raft/sparse/csr.cuh>
+#include <raft/sparse/csr.hpp>
+#include <raft/sparse/detail/utils.h>
 
+#include <raft/sparse/convert/coo.hpp>
 #include <raft/sparse/distance/common.h>
-#include <raft/sparse/convert/coo.cuh>
 #include <raft/sparse/distance/detail/operators.cuh>
 
 #include <nvfunctional>

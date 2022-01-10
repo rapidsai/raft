@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
+#include "../test_utils.h"
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <raft/random/rng.hpp>
-#include "../test_utils.h"
 
-#include <raft/sparse/op/sort.h>
+#include <raft/sparse/op/sort.hpp>
 
 #include <iostream>
 
@@ -51,7 +51,7 @@ TEST_P(COOSort, Result)
   params = ::testing::TestWithParam<SparseSortInput<float>>::GetParam();
   raft::random::Rng r(params.seed);
   cudaStream_t stream;
-  CUDA_CHECK(cudaStreamCreate(&stream));
+  RAFT_CUDA_TRY(cudaStreamCreate(&stream));
 
   rmm::device_uvector<int> in_rows(params.nnz, stream);
   rmm::device_uvector<int> in_cols(params.nnz, stream);
@@ -78,14 +78,14 @@ TEST_P(COOSort, Result)
   op::coo_sort(
     params.m, params.n, params.nnz, in_rows.data(), in_cols.data(), in_vals.data(), stream);
 
-  ASSERT_TRUE(
-    raft::devArrMatch<int>(verify.data(), in_rows.data(), params.nnz, raft::Compare<int>()));
+  ASSERT_TRUE(raft::devArrMatch<int>(
+    verify.data(), in_rows.data(), params.nnz, raft::Compare<int>(), stream));
 
   delete[] in_rows_h;
   delete[] in_cols_h;
   delete[] verify_h;
 
-  CUDA_CHECK(cudaStreamDestroy(stream));
+  RAFT_CUDA_TRY(cudaStreamDestroy(stream));
 }
 
 INSTANTIATE_TEST_CASE_P(SparseSortTest, COOSort, ::testing::ValuesIn(inputsf));

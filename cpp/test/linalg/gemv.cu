@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include <raft/linalg/gemv.h>
-#include <raft/cuda_utils.cuh>
-#include <raft/random/rng.hpp>
 #include "../test_utils.h"
+#include <gtest/gtest.h>
+#include <raft/cuda_utils.cuh>
+#include <raft/linalg/gemv.h>
+#include <raft/random/rng.hpp>
 
 namespace raft {
 namespace linalg {
@@ -106,7 +106,7 @@ class GemvTest : public ::testing::TestWithParam<GemvInputs<T>> {
     dim3 blocks(raft::ceildiv<int>(yElems, 256), 1, 1);
     dim3 threads(256, 1, 1);
 
-    naiveGemv<<<blocks, threads>>>(
+    naiveGemv<<<blocks, threads, 0, stream>>>(
       refy.data(), A.data(), x.data(), params.n_rows, params.n_cols, params.lda, params.trans_a);
 
     gemv(handle,
@@ -118,6 +118,7 @@ class GemvTest : public ::testing::TestWithParam<GemvInputs<T>> {
          y.data(),
          params.trans_a,
          stream);
+    handle.sync_stream();
   }
 
   void TearDown() override {}

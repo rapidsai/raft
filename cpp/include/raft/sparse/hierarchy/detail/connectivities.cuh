@@ -16,19 +16,19 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
 
 #include <raft/linalg/unary_op.cuh>
 #include <rmm/device_uvector.hpp>
 
 #include <raft/linalg/distance_type.h>
-#include <raft/sparse/hierarchy/common.h>
 #include <raft/mr/device/buffer.hpp>
-#include <raft/sparse/convert/csr.cuh>
-#include <raft/sparse/coo.cuh>
-#include <raft/sparse/selection/knn_graph.cuh>
+#include <raft/sparse/convert/csr.hpp>
+#include <raft/sparse/coo.hpp>
+#include <raft/sparse/hierarchy/common.h>
+#include <raft/sparse/selection/knn_graph.hpp>
 
 #include <limits>
 

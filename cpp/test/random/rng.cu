@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
+#include "../test_utils.h"
 #include <cub/cub.cuh>
+#include <gtest/gtest.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/random/rng.hpp>
 #include <raft/stats/mean.hpp>
 #include <raft/stats/stddev.hpp>
-#include "../test_utils.h"
 
 namespace raft {
 namespace random {
@@ -91,7 +91,7 @@ class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
       stats(2, stream)
   {
     data.resize(params.len, stream);
-    CUDA_CHECK(cudaMemsetAsync(stats.data(), 0, 2 * sizeof(T), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(stats.data(), 0, 2 * sizeof(T), stream));
   }
 
  protected:
@@ -119,10 +119,10 @@ class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
     meanKernel<T, threads><<<raft::ceildiv(params.len, threads), threads, 0, stream>>>(
       stats.data(), data.data(), params.len);
     update_host<T>(h_stats, stats.data(), 2, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
     h_stats[0] /= params.len;
     h_stats[1] = (h_stats[1] / params.len) - (h_stats[0] * h_stats[0]);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
   void getExpectedMeanVar(T meanvar[2])
@@ -375,7 +375,7 @@ TEST(Rng, MeanError)
   int len             = num_samples * num_experiments;
 
   cudaStream_t stream;
-  CUDA_CHECK(cudaStreamCreate(&stream));
+  RAFT_CUDA_TRY(cudaStreamCreate(&stream));
 
   rmm::device_uvector<float> data(len, stream);
   rmm::device_uvector<float> mean_result(num_experiments, stream);
@@ -399,7 +399,7 @@ TEST(Rng, MeanError)
     std::vector<float> h_std_result(num_experiments);
     update_host(h_mean_result.data(), mean_result.data(), num_experiments, stream);
     update_host(h_std_result.data(), std_result.data(), num_experiments, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
     auto d_mean = quick_mean(h_mean_result);
 
     // std-dev of mean; also known as mean error
@@ -415,7 +415,7 @@ TEST(Rng, MeanError)
 
     ASSERT_TRUE((diff_expected_vs_measured_mean_error / d_std_of_mean_analytical < 0.5));
   }
-  CUDA_CHECK(cudaStreamDestroy(stream));
+  RAFT_CUDA_TRY(cudaStreamDestroy(stream));
 
   // std::cout << "mean_res:" << h_mean_result << "\n";
 }
@@ -428,7 +428,7 @@ class ScaledBernoulliTest : public ::testing::Test {
  protected:
   void SetUp() override
   {
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
     Rng r(42);
     r.scaled_bernoulli(data.data(), len, T(0.5), T(scale), stream);
   }
@@ -464,7 +464,7 @@ class BernoulliTest : public ::testing::Test {
   {
     Rng r(42);
     r.bernoulli(data.data(), len, T(0.5), stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
   void trueFalseCheck()
@@ -515,7 +515,7 @@ class RngNormalTableTest : public ::testing::TestWithParam<RngNormalTableInputs<
       stats(2, stream),
       mu_vec(params.cols, stream)
   {
-    CUDA_CHECK(cudaMemsetAsync(stats.data(), 0, 2 * sizeof(T), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(stats.data(), 0, 2 * sizeof(T), stream));
   }
 
  protected:
@@ -534,10 +534,10 @@ class RngNormalTableTest : public ::testing::TestWithParam<RngNormalTableInputs<
     meanKernel<T, threads>
       <<<raft::ceildiv(len, threads), threads, 0, stream>>>(stats.data(), data.data(), len);
     update_host<T>(h_stats, stats.data(), 2, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
     h_stats[0] /= len;
     h_stats[1] = (h_stats[1] / len) - (h_stats[0] * h_stats[0]);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
   void getExpectedMeanVar(T meanvar[2])

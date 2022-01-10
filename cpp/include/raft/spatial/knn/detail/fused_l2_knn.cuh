@@ -19,9 +19,9 @@
 #include <limits>
 #include <raft/linalg/norm.cuh>
 // TODO: Need to hide the PairwiseDistance class impl and expose to public API
+#include "processing.hpp"
 #include <raft/distance/detail/distance.cuh>
 #include <raft/distance/detail/pairwise_distance_base.cuh>
-#include "processing.hpp"
 
 namespace raft {
 namespace spatial {
@@ -90,8 +90,8 @@ DI void storeWarpQShmem(myWarpSelect& heapArr,
 
 template <typename Policy, typename Pair, typename myWarpSelect, typename IdxT, typename OutT>
 DI void storeWarpQGmem(myWarpSelect& heapArr,
-                       OutT* out_dists,
-                       IdxT* out_inds,
+                       volatile OutT* out_dists,
+                       volatile IdxT* out_inds,
                        const IdxT m,
                        const unsigned int numOfNN,
                        const IdxT starty)
@@ -115,8 +115,8 @@ DI void storeWarpQGmem(myWarpSelect& heapArr,
 
 template <typename Policy, typename Pair, typename myWarpSelect, typename IdxT, typename OutT>
 DI void loadPrevTopKsGmemWarpQ(myWarpSelect& heapArr,
-                               OutT* out_dists,
-                               IdxT* out_inds,
+                               volatile OutT* out_dists,
+                               volatile IdxT* out_inds,
                                const IdxT m,
                                const unsigned int numOfNN,
                                const IdxT starty)
@@ -207,9 +207,9 @@ __global__ __launch_bounds__(Policy::Nthreads, 2) void fusedL2kNN(const DataT* x
                                                                   FinalLambda fin_op,
                                                                   bool sqrt,
                                                                   unsigned int numOfNN,
-                                                                  int* mutexes,
-                                                                  OutT* out_dists,
-                                                                  IdxT* out_inds)
+                                                                  volatile int* mutexes,
+                                                                  volatile OutT* out_dists,
+                                                                  volatile IdxT* out_inds)
 {
   extern __shared__ char smem[];
 
@@ -225,8 +225,6 @@ __global__ __launch_bounds__(Policy::Nthreads, 2) void fusedL2kNN(const DataT* x
                             IdxT gridStrideY) {
     if (gridDim.x == 1) { return; }
 
-    volatile int* mutex = mutexes;
-
     Pair* shDumpKV = nullptr;
     if (useNorms) {
       shDumpKV = (Pair*)(&smem[Policy::SmemSize + ((Policy::Mblk + Policy::Nblk) * sizeof(DataT))]);
@@ -240,7 +238,7 @@ __global__ __launch_bounds__(Policy::Nthreads, 2) void fusedL2kNN(const DataT* x
     //  0 -> consumer done consuming the buffer.
     // -1 -> consumer started consuming the buffer
     // -2 -> producer done filling the buffer
-    // blockIdx.x -> prod started to fill the buffer
+    //  1 -> prod acquired to fill the buffer
     if (blockIdx.x == 0) {
       auto cta_processed = 0;
       myWarpSelect heapArr1(identity, keyMax, numOfNN);
@@ -252,45 +250,15 @@ __global__ __launch_bounds__(Policy::Nthreads, 2) void fusedL2kNN(const DataT* x
 
       while (cta_processed < gridDim.x - 1) {
         if (threadIdx.x == 0) {
-          int32_t old = -3;
-          while (old != -1) {
-            old = atomicCAS((int*)&mutex[gridStrideY / Policy::Mblk], -2, -1);
-          }
-          __threadfence();
+          while (atomicCAS((int*)&mutexes[gridStrideY / Policy::Mblk], -2, -1) != -2)
+            ;
         }
+        __threadfence();
         __syncthreads();
 
 #pragma unroll
         for (int i = 0; i < Policy::AccRowsPerTh; ++i) {
-          const auto rowId      = starty + i * Policy::AccThRows;
-          const auto shMemRowId = (threadIdx.x / Policy::AccThCols) + i * Policy::AccThRows;
-#pragma unroll
-          for (int j = 0; j < heapArr[i]->kNumWarpQRegisters; ++j) {
-            Pair otherKV;
-            otherKV.value  = identity;
-            otherKV.key    = keyMax;
-            const auto idx = j * warpSize + lid;
-            if (idx < numOfNN && rowId < m) {
-              otherKV.value                        = out_dists[rowId * numOfNN + idx];
-              otherKV.key                          = (uint32_t)out_inds[rowId * numOfNN + idx];
-              shDumpKV[shMemRowId * numOfNN + idx] = otherKV;
-            }
-          }
-        }
-        __threadfence();
-
-        if (threadIdx.x == 0) {
-          mutex[gridStrideY / Policy::Mblk] = 0;
-          __threadfence();
-        }
-
-        // Perform merging of otherKV with topk's across warp.
-        __syncwarp();
-
-#pragma unroll
-        for (int i = 0; i < Policy::AccRowsPerTh; ++i) {
-          const auto rowId      = starty + i * Policy::AccThRows;
-          const auto shMemRowId = (threadIdx.x / Policy::AccThCols) + i * Policy::AccThRows;
+          const auto rowId = starty + i * Policy::AccThRows;
           if (rowId < m) {
 #pragma unroll
             for (int j = 0; j < heapArr[i]->kNumWarpQRegisters; ++j) {
@@ -298,7 +266,36 @@ __global__ __launch_bounds__(Policy::Nthreads, 2) void fusedL2kNN(const DataT* x
               otherKV.value  = identity;
               otherKV.key    = keyMax;
               const auto idx = j * warpSize + lid;
-              if (idx < numOfNN) { otherKV = shDumpKV[shMemRowId * numOfNN + idx]; }
+              if (idx < numOfNN) {
+                otherKV.value         = out_dists[rowId * numOfNN + idx];
+                otherKV.key           = (uint32_t)out_inds[rowId * numOfNN + idx];
+                const auto shMemRowId = (threadIdx.x / Policy::AccThCols) + i * Policy::AccThRows;
+                shDumpKV[shMemRowId * numOfNN + idx] = otherKV;
+              }
+            }
+          }
+        }
+        __threadfence();
+        __syncthreads();
+
+        if (threadIdx.x == 0) { atomicExch((int*)&mutexes[gridStrideY / Policy::Mblk], 0); }
+        __threadfence();
+
+        // Perform merging of otherKV with topk's across warp.
+#pragma unroll
+        for (int i = 0; i < Policy::AccRowsPerTh; ++i) {
+          const auto rowId = starty + i * Policy::AccThRows;
+          if (rowId < m) {
+#pragma unroll
+            for (int j = 0; j < heapArr[i]->kNumWarpQRegisters; ++j) {
+              Pair otherKV;
+              otherKV.value  = identity;
+              otherKV.key    = keyMax;
+              const auto idx = j * warpSize + lid;
+              if (idx < numOfNN) {
+                const auto shMemRowId = (threadIdx.x / Policy::AccThCols) + i * Policy::AccThRows;
+                otherKV               = shDumpKV[shMemRowId * numOfNN + idx];
+              }
               heapArr[i]->add(otherKV.value, otherKV.key);
             }
           }
@@ -317,33 +314,29 @@ __global__ __launch_bounds__(Policy::Nthreads, 2) void fusedL2kNN(const DataT* x
       storeWarpQGmem<Policy, Pair>(heapArr, out_dists, out_inds, m, numOfNN, starty);
     } else {
       if (threadIdx.x == 0) {
-        int32_t old    = -1;
-        int32_t blkIdX = (int32_t)blockIdx.x;
-        while (old != blkIdX) {
-          old = atomicCAS((int*)&mutex[gridStrideY / Policy::Mblk], 0, blkIdX);
-        }
-        __threadfence();
+        while (atomicCAS((int*)&mutexes[gridStrideY / Policy::Mblk], 0, 1) != 0)
+          ;
       }
+      __threadfence();
       __syncthreads();
 
 #pragma unroll
       for (int i = 0; i < Policy::AccRowsPerTh; ++i) {
-        const auto rowId      = starty + i * Policy::AccThRows;
-        const auto shMemRowId = (threadIdx.x / Policy::AccThCols) + i * Policy::AccThRows;
+        const auto rowId = starty + i * Policy::AccThRows;
         if (rowId < m) {
           for (int idx = lid; idx < numOfNN; idx += warpSize) {
-            Pair KVPair                      = shDumpKV[shMemRowId * numOfNN + idx];
+            const auto shMemRowId = (threadIdx.x / Policy::AccThCols) + i * Policy::AccThRows;
+            Pair KVPair           = shDumpKV[shMemRowId * numOfNN + idx];
             out_dists[rowId * numOfNN + idx] = KVPair.value;
             out_inds[rowId * numOfNN + idx]  = (IdxT)KVPair.key;
           }
         }
       }
       __threadfence();
+      __syncthreads();
 
-      if (threadIdx.x == 0) {
-        mutex[gridStrideY / Policy::Mblk] = -2;
-        __threadfence();
-      }
+      if (threadIdx.x == 0) { atomicExch((int*)&mutexes[gridStrideY / Policy::Mblk], -2); }
+      __threadfence();
     }
   };
 
@@ -621,7 +614,7 @@ void fusedL2UnexpKnnImpl(const DataT* x,
         worksize = sizeof(int32_t) * numMutexes;
         return;
       } else {
-        CUDA_CHECK(cudaMemsetAsync(workspace, 0, sizeof(int32_t) * numMutexes, stream));
+        RAFT_CUDA_TRY(cudaMemsetAsync(workspace, 0, sizeof(int32_t) * numMutexes, stream));
       }
     }
 
@@ -645,7 +638,7 @@ void fusedL2UnexpKnnImpl(const DataT* x,
   } else {
   }
 
-  CUDA_CHECK(cudaGetLastError());
+  RAFT_CUDA_TRY(cudaGetLastError());
 }
 
 template <typename DataT,
@@ -817,7 +810,7 @@ void fusedL2ExpKnnImpl(const DataT* x,
         return;
       } else {
         mutexes = (int32_t*)((char*)workspace + normsSize);
-        CUDA_CHECK(cudaMemsetAsync(mutexes, 0, sizeof(int32_t) * numMutexes, stream));
+        RAFT_CUDA_TRY(cudaMemsetAsync(mutexes, 0, sizeof(int32_t) * numMutexes, stream));
       }
     }
 
@@ -853,7 +846,7 @@ void fusedL2ExpKnnImpl(const DataT* x,
   } else {
   }
 
-  CUDA_CHECK(cudaGetLastError());
+  RAFT_CUDA_TRY(cudaGetLastError());
 }
 
 template <typename DataT,

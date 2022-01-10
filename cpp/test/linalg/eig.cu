@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
+#include "../test_utils.h"
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/linalg/eig.cuh>
 #include <raft/random/rng.hpp>
-#include "../test_utils.h"
 
 namespace raft {
 namespace linalg {
@@ -134,7 +134,7 @@ class EigTest : public ::testing::TestWithParam<EigInputs<T>> {
               stream,
               tol,
               sweeps);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
  protected:
@@ -160,7 +160,8 @@ TEST_P(EigTestValF, Result)
   ASSERT_TRUE(raft::devArrMatch(eig_vals_ref.data(),
                                 eig_vals.data(),
                                 params.n_col,
-                                raft::CompareApproxAbs<float>(params.tolerance)));
+                                raft::CompareApproxAbs<float>(params.tolerance),
+                                stream));
 }
 
 typedef EigTest<double> EigTestValD;
@@ -169,7 +170,8 @@ TEST_P(EigTestValD, Result)
   ASSERT_TRUE(raft::devArrMatch(eig_vals_ref.data(),
                                 eig_vals.data(),
                                 params.n_col,
-                                raft::CompareApproxAbs<double>(params.tolerance)));
+                                raft::CompareApproxAbs<double>(params.tolerance),
+                                stream));
 }
 
 typedef EigTest<float> EigTestVecF;
@@ -178,7 +180,8 @@ TEST_P(EigTestVecF, Result)
   ASSERT_TRUE(raft::devArrMatch(eig_vectors_ref.data(),
                                 eig_vectors.data(),
                                 params.len,
-                                raft::CompareApproxAbs<float>(params.tolerance)));
+                                raft::CompareApproxAbs<float>(params.tolerance),
+                                stream));
 }
 
 typedef EigTest<double> EigTestVecD;
@@ -187,7 +190,8 @@ TEST_P(EigTestVecD, Result)
   ASSERT_TRUE(raft::devArrMatch(eig_vectors_ref.data(),
                                 eig_vectors.data(),
                                 params.len,
-                                raft::CompareApproxAbs<double>(params.tolerance)));
+                                raft::CompareApproxAbs<double>(params.tolerance),
+                                stream));
 }
 
 typedef EigTest<float> EigTestValJacobiF;
@@ -196,7 +200,8 @@ TEST_P(EigTestValJacobiF, Result)
   ASSERT_TRUE(raft::devArrMatch(eig_vals_ref.data(),
                                 eig_vals_jacobi.data(),
                                 params.n_col,
-                                raft::CompareApproxAbs<float>(params.tolerance)));
+                                raft::CompareApproxAbs<float>(params.tolerance),
+                                stream));
 }
 
 typedef EigTest<double> EigTestValJacobiD;
@@ -205,7 +210,8 @@ TEST_P(EigTestValJacobiD, Result)
   ASSERT_TRUE(raft::devArrMatch(eig_vals_ref.data(),
                                 eig_vals_jacobi.data(),
                                 params.n_col,
-                                raft::CompareApproxAbs<double>(params.tolerance)));
+                                raft::CompareApproxAbs<double>(params.tolerance),
+                                stream));
 }
 
 typedef EigTest<float> EigTestVecJacobiF;
@@ -214,7 +220,8 @@ TEST_P(EigTestVecJacobiF, Result)
   ASSERT_TRUE(raft::devArrMatch(eig_vectors_ref.data(),
                                 eig_vectors_jacobi.data(),
                                 params.len,
-                                raft::CompareApproxAbs<float>(params.tolerance)));
+                                raft::CompareApproxAbs<float>(params.tolerance),
+                                stream));
 }
 
 typedef EigTest<double> EigTestVecJacobiD;
@@ -223,7 +230,8 @@ TEST_P(EigTestVecJacobiD, Result)
   ASSERT_TRUE(raft::devArrMatch(eig_vectors_ref.data(),
                                 eig_vectors_jacobi.data(),
                                 params.len,
-                                raft::CompareApproxAbs<double>(params.tolerance)));
+                                raft::CompareApproxAbs<double>(params.tolerance),
+                                stream));
 }
 
 typedef EigTest<float> EigTestVecCompareF;
@@ -232,7 +240,8 @@ TEST_P(EigTestVecCompareF, Result)
   ASSERT_TRUE(raft::devArrMatch(eig_vectors_large.data(),
                                 eig_vectors_jacobi_large.data(),
                                 (params.n * params.n),
-                                raft::CompareApproxAbs<float>(params.tolerance)));
+                                raft::CompareApproxAbs<float>(params.tolerance),
+                                stream));
 }
 
 typedef EigTest<double> EigTestVecCompareD;
@@ -241,7 +250,8 @@ TEST_P(EigTestVecCompareD, Result)
   ASSERT_TRUE(raft::devArrMatch(eig_vectors_large.data(),
                                 eig_vectors_jacobi_large.data(),
                                 (params.n * params.n),
-                                raft::CompareApproxAbs<double>(params.tolerance)));
+                                raft::CompareApproxAbs<double>(params.tolerance),
+                                stream));
 }
 
 INSTANTIATE_TEST_SUITE_P(EigTests, EigTestValF, ::testing::ValuesIn(inputsf2));

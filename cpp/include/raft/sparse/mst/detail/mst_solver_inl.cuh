@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <curand.h>
 #include <chrono>
+#include <curand.h>
 
 #include "mst_kernels.cuh"
 #include "utils.cuh"
@@ -26,13 +26,13 @@
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
+#include <iostream>
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
 #include <thrust/host_vector.h>
 #include <thrust/reduce.h>
 #include <thrust/sort.h>
 #include <thrust/transform.h>
-#include <iostream>
 
 namespace raft {
 namespace mst {
@@ -93,7 +93,7 @@ MST_solver<vertex_t, edge_t, weight_t, alteration_t>::MST_solver(const raft::han
 
   mst_edge_count.set_value_to_zero_async(stream);
   prev_mst_edge_count.set_value_to_zero_async(stream);
-  CUDA_CHECK(cudaMemsetAsync(mst_edge.data(), 0, mst_edge.size() * sizeof(bool), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(mst_edge.data(), 0, mst_edge.size() * sizeof(bool), stream));
 
   // Initially, color holds the vertex id as color
   auto policy = handle.get_thrust_policy();
