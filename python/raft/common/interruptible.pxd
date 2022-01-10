@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2021, NVIDIA CORPORATION.
+# Copyright (c) 2021-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,18 +19,16 @@
 # cython: embedsignature = True
 # cython: language_level = 3
 
+from libcpp.memory cimport shared_ptr
 from rmm._lib.cuda_stream_view cimport cuda_stream_view
+from raft.common.cuda cimport _Error
 
-
-cdef extern from "thread":
-    cdef cppclass cpp_thread_id "std::thread::id":
-        pass
-
-cdef extern from "thread" namespace "std::this_thread" nogil:
-    cdef cpp_thread_id get_id()
-
+cdef extern from "raft/interruptible.hpp" namespace "raft" nogil:
+    cdef cppclass interruptible:
+        void cancel() except+
+        _Error cancel_no_throw()
 
 cdef extern from "raft/interruptible.hpp" \
         namespace "raft::interruptible" nogil:
     cdef void synchronize(cuda_stream_view stream) except+
-    cdef void cancel(cpp_thread_id tid) except+
+    cdef shared_ptr[interruptible] get_token() except+

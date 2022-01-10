@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <memory>
 #include <mutex>
 #include <raft/cudart_utils.h>
 #include <raft/error.hpp>
@@ -46,7 +47,10 @@ class interruptible {
    * before the currently captured work has been finished.
    * @throw raft::cuda_error if another CUDA error happens.
    */
-  static void synchronize(rmm::cuda_stream_view stream) { store_.synchronize(stream); }
+  static inline void synchronize(rmm::cuda_stream_view stream)
+  {
+    get_token()->synchronize_impl(stream);
+  }
 
   /**
    * @brief Check the thread state, whether the thread is interrupted by `interruptible::cancel`.
@@ -58,17 +62,96 @@ class interruptible {
    *
    * @throw raft::interrupted if interruptible::cancel() was called on the current CPU thread.
    */
-  static void yield() { store_.yield(); }
+  static inline void yield() { get_token()->yield_impl(); }
+
+  /**
+   * @brief Get a cancellation token for this CPU thread.
+   *
+   * @return an object that can be used to cancel the GPU work waited on this CPU thread.
+   */
+  static auto get_token() -> std::shared_ptr<interruptible>
+  {
+    if (!store_) { store_ = get_token(std::this_thread::get_id()); }
+    return store_;
+  }
+
+  /**
+   * @brief Get a cancellation token for a CPU thread given by its id.
+   *
+   * @return an object that can be used to cancel the GPU work waited on the given CPU thread.
+   */
+  static auto get_token(std::thread::id thread_id) -> std::shared_ptr<interruptible>
+  {
+    std::lock_guard<std::mutex> guard(mutex_);
+    // the following constructs an empty shared_ptr if the key does not exist.
+    auto& thread_store = registry_[thread_id];
+    if (!thread_store) {
+      thread_store.reset(new interruptible(), [thread_id](interruptible* ts) {
+        std::lock_guard<std::mutex> guard(mutex_);
+        registry_.erase(thread_id);
+        delete ts;
+      });
+      // Since we're still guarded by the mutex, use this opportunity to initialize the global
+      // cancellation stream. The cancellation stream is only used by non-static cancel(), so it's
+      // safe to initialize it here before the first valid thread store is returned to the user.
+      if (!cancellation_stream_) {
+        cancellation_stream_ = std::unique_ptr<cudaStream_t, std::function<void(cudaStream_t*)>>{
+          []() {
+            auto* stream = new cudaStream_t;
+            RAFT_CUDA_TRY(cudaStreamCreateWithFlags(stream, cudaStreamNonBlocking));
+            return stream;
+          }(),
+          [](cudaStream_t* stream) {
+            cudaStreamDestroy(*stream);
+            delete stream;
+          }};
+      }
+    }
+    return thread_store;
+  }
 
   /**
    * @brief Cancel any current or next call to `interruptible::synchronize` performed on the
    * CPU thread given by the `thread_id`
    *
+   * Note, this function uses a mutex to safely get a cancellation token that may be shared
+   * among multiple threads. If you plan to use it from a signal handler, consider the non-static
+   * `cancel_no_throw()` instead.
+   *
    * @param [in] thread_id a CPU thread, in which the work should be interrupted.
    *
    * @throw raft::cuda_error if a CUDA error happens during recording the interruption event.
    */
-  static void cancel(std::thread::id thread_id) { store::cancel(thread_id); }
+  static inline void cancel(std::thread::id thread_id) { get_token(thread_id)->cancel(); }
+
+  /**
+   * @brief Cancel any current or next call to `interruptible::synchronize` performed on the
+   * CPU thread given by this `interruptible` token.
+   *
+   * Note, this function does not involve thread synchronization/locks, so it should be safe
+   * to call from a signal handler.
+   *
+   * @throw raft::cuda_error if a CUDA error happens during recording the interruption event.
+   */
+  inline void cancel() { RAFT_CUDA_TRY(cancel_no_throw()); }
+
+  /**
+   * @brief Cancel any current or next call to `interruptible::synchronize` performed on the
+   * CPU thread given by this `interruptible` token.
+   *
+   * Note, this function does not involve thread synchronization/locks and not throw any
+   * exceptions, so it's safe to call from a signal handler.
+   *
+   * @return CUDA error code redirected from `cudaEventRecord`.
+   */
+  auto cancel_no_throw() noexcept -> cudaError_t
+  {
+    // This method is supposed to be called from another thread;
+    // multiple calls to it just override each other, and that is ok - the cancellation request
+    // will be delivered (at least once).
+    cancelled_ = true;
+    return cudaEventRecord(wait_interrupt_, *cancellation_stream_);
+  }
 
  private:
   /*
@@ -79,81 +162,47 @@ class interruptible {
    * is issued to the current CPU thread. For the latter, we keep internally one global stream
    * for recording the "interrupt" events in any CPU thread.
    */
-  static inline thread_local class store {
-   private:
-    /** Global registery of thread-local cancellation stores. */
-    static inline std::unordered_map<std::thread::id, store*> registry_;
-    /** Protect the access to the registry. */
-    static inline std::mutex mutex_;
-    /** The only purpose of this stream is to record the interruption events. */
-    static inline std::unique_ptr<cudaStream_t, std::function<void(cudaStream_t*)>>
-      cancellation_stream_{
-        []() {
-          auto* stream = new cudaStream_t;
-          RAFT_CUDA_TRY(cudaStreamCreateWithFlags(stream, cudaStreamNonBlocking));
-          return stream;
-        }(),
-        [](cudaStream_t* stream) {
-          RAFT_CUDA_TRY(cudaStreamDestroy(*stream));
-          delete stream;
-        }};
+  static inline thread_local std::shared_ptr<interruptible> store_;
+  /** Global registry of thread-local cancellation stores. */
+  static inline std::unordered_map<std::thread::id, std::shared_ptr<interruptible>> registry_;
+  /** Protect the access to the registry. */
+  static inline std::mutex mutex_;
+  /** The only purpose of this stream is to record the interruption events. */
+  static inline std::unique_ptr<cudaStream_t, std::function<void(cudaStream_t*)>>
+    cancellation_stream_;
 
-    /** The state of being in the process of cancelling. */
-    bool cancelled_ = false;
-    /** The main synchronization primitive for the current CPU thread on the CUDA side.  */
-    cudaEvent_t wait_interrupt_ = nullptr;
+  /** The state of being in the process of cancelling. */
+  bool cancelled_ = false;
 
-   public:
-    store()
-    {
-      std::lock_guard<std::mutex> guard(mutex_);
-      registry_[std::this_thread::get_id()] = this;
-      RAFT_CUDA_TRY(
-        cudaEventCreateWithFlags(&wait_interrupt_, cudaEventBlockingSync | cudaEventDisableTiming));
-    }
-    ~store()
-    {
-      std::lock_guard<std::mutex> guard(mutex_);
-      registry_.erase(std::this_thread::get_id());
-      cudaEventDestroy(wait_interrupt_);
-    }
+  /** The main synchronization primitive for the current CPU thread on the CUDA side.  */
+  cudaEvent_t wait_interrupt_ = nullptr;
 
-    void yield()
-    {
-      if (cancelled_) {
-        cancelled_ = false;
-        throw interrupted("The work in this thread was cancelled.");
-      }
-    }
+  interruptible()
+  {
+    RAFT_CUDA_TRY(
+      cudaEventCreateWithFlags(&wait_interrupt_, cudaEventBlockingSync | cudaEventDisableTiming));
+  }
 
-    void synchronize(rmm::cuda_stream_view stream)
-    {
-      // This function synchronizes the CPU thread on the "interrupt" event instead of
-      // the given stream.
-      // Assuming that this method is called only on a thread-local store, there is no need for
-      // extra synchronization primitives to protect the state.
-      RAFT_CUDA_TRY(cudaEventRecord(wait_interrupt_, stream));
-      RAFT_CUDA_TRY(cudaEventSynchronize(wait_interrupt_));
-      yield();
-    }
+  ~interruptible() { cudaEventDestroy(wait_interrupt_); }
 
-    void cancel()
-    {
-      // This method is supposed to be called from another thread;
-      // multiple calls to it just override each other, and that is ok - the cancellation request
-      // will be delivered (at least once).
-      cancelled_ = true;
-      RAFT_CUDA_TRY(cudaEventRecord(wait_interrupt_, *cancellation_stream_));
+  void yield_impl()
+  {
+    if (cancelled_) {
+      cancelled_ = false;
+      throw interrupted("The work in this thread was cancelled.");
     }
+  }
 
-    static void cancel(std::thread::id thread_id)
-    {
-      // The mutex here is neededd to make sure the registry_ is not accessed during
-      // the registration of a new thread (when the registry_ is altered).
-      std::lock_guard<std::mutex> guard(mutex_);
-      registry_[thread_id]->cancel();
-    }
-  } store_;
+  void synchronize_impl(rmm::cuda_stream_view stream)
+  {
+    // This function synchronizes the CPU thread on the "interrupt" event instead of
+    // the given stream.
+    // Assuming that this method is called only on a thread-local store, there is no need for
+    // extra synchronization primitives to protect the state.
+    RAFT_CUDA_TRY(cudaEventRecord(wait_interrupt_, stream));
+    RAFT_CUDA_TRY(cudaEventSynchronize(wait_interrupt_));
+    yield_impl();
+  }
 };
 
 }  // namespace raft

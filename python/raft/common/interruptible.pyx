@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021, NVIDIA CORPORATION.
+# Copyright (c) 2021-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,17 +21,7 @@
 
 import contextlib
 import signal
-
-cdef class CppThreadId:
-    '''Id of a C++ thread.'''
-    cdef cpp_thread_id this_id
-
-    def __cinit__(self):
-        self.this_id = get_id()
-
-    cpdef void cancel(self):
-        '''Cancel waiting the GPU work on this CPU thread.'''
-        cancel(self.this_id)
+from cython.operator cimport dereference as deref
 
 
 @contextlib.contextmanager
@@ -57,10 +47,10 @@ def interruptibleCpp():
                 my_long_running_function(...)
 
     '''
-    token = CppThreadId()
+    cdef shared_ptr[interruptible] token = get_token()
 
     def newhr(*args, **kwargs):
-        token.cancel()
+        deref(token).cancel_no_throw()
 
     oldhr = signal.signal(signal.SIGINT, newhr)
     try:
