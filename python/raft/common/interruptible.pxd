@@ -21,7 +21,7 @@
 
 from libcpp.memory cimport shared_ptr
 from rmm._lib.cuda_stream_view cimport cuda_stream_view
-from raft.common.cuda cimport _Error
+from .cuda cimport _Error
 
 cdef extern from "raft/interruptible.hpp" namespace "raft" nogil:
     cdef cppclass interruptible:
