@@ -69,10 +69,10 @@ class interruptible {
    *
    * @return an object that can be used to cancel the GPU work waited on this CPU thread.
    */
-  static auto get_token() -> std::shared_ptr<interruptible>
+  static inline auto get_token() -> std::shared_ptr<interruptible>
   {
-    if (!store_) { store_ = get_token(std::this_thread::get_id()); }
-    return store_;
+    static thread_local std::shared_ptr<interruptible> s(get_token(std::this_thread::get_id()));
+    return s;
   }
 
   /**
@@ -82,30 +82,21 @@ class interruptible {
    */
   static auto get_token(std::thread::id thread_id) -> std::shared_ptr<interruptible>
   {
-    std::lock_guard<std::mutex> guard(mutex_);
+    std::lock_guard<std::mutex> guard_get(mutex_);
     // the following constructs an empty shared_ptr if the key does not exist.
-    auto& thread_store = registry_[thread_id];
+    auto& weak_store  = registry_[thread_id];
+    auto thread_store = weak_store.lock();
     if (!thread_store) {
-      thread_store.reset(new interruptible(), [thread_id](interruptible* ts) {
-        std::lock_guard<std::mutex> guard(mutex_);
+      thread_store.reset(new interruptible(), [thread_id](auto ts) {
+        std::lock_guard<std::mutex> guard_erase(mutex_);
         registry_.erase(thread_id);
         delete ts;
       });
+      std::weak_ptr<interruptible>(thread_store).swap(weak_store);
       // Since we're still guarded by the mutex, use this opportunity to initialize the global
       // cancellation stream. The cancellation stream is only used by non-static cancel(), so it's
       // safe to initialize it here before the first valid thread store is returned to the user.
-      if (!cancellation_stream_) {
-        cancellation_stream_ = std::unique_ptr<cudaStream_t, std::function<void(cudaStream_t*)>>{
-          []() {
-            auto* stream = new cudaStream_t;
-            RAFT_CUDA_TRY(cudaStreamCreateWithFlags(stream, cudaStreamNonBlocking));
-            return stream;
-          }(),
-          [](cudaStream_t* stream) {
-            cudaStreamDestroy(*stream);
-            delete stream;
-          }};
-      }
+      get_cancellation_stream();
     }
     return thread_store;
   }
@@ -150,10 +141,36 @@ class interruptible {
     // multiple calls to it just override each other, and that is ok - the cancellation request
     // will be delivered (at least once).
     cancelled_ = true;
-    return cudaEventRecord(wait_interrupt_, *cancellation_stream_);
+    return cudaEventRecord(wait_interrupt_, get_cancellation_stream());
   }
 
+  // don't allow the token to leave the shared_ptr
+  interruptible(interruptible const&) = delete;
+  interruptible(interruptible&&)      = delete;
+  auto operator=(interruptible const&) -> interruptible& = delete;
+  auto operator=(interruptible&&) -> interruptible& = delete;
+
  private:
+  /** Global registry of thread-local cancellation stores. */
+  static inline std::unordered_map<std::thread::id, std::weak_ptr<interruptible>> registry_;
+  /** Protect the access to the registry. */
+  static inline std::mutex mutex_;
+  /** The only purpose of this stream is to record the interruption events. */
+  static inline auto get_cancellation_stream() -> cudaStream_t
+  {
+    static std::unique_ptr<cudaStream_t, std::function<void(cudaStream_t*)>> cs{
+      []() {
+        auto* stream = new cudaStream_t;
+        RAFT_CUDA_TRY(cudaStreamCreateWithFlags(stream, cudaStreamNonBlocking));
+        return stream;
+      }(),
+      [](cudaStream_t* stream) {
+        cudaStreamDestroy(*stream);
+        delete stream;
+      }};
+    return *cs;
+  }
+
   /*
    * Implementation-wise, the cancellation feature is bound to the CPU threads.
    * Each thread has an associated thread-local state store comprising a boolean flag
@@ -162,14 +179,6 @@ class interruptible {
    * is issued to the current CPU thread. For the latter, we keep internally one global stream
    * for recording the "interrupt" events in any CPU thread.
    */
-  static inline thread_local std::shared_ptr<interruptible> store_;
-  /** Global registry of thread-local cancellation stores. */
-  static inline std::unordered_map<std::thread::id, std::shared_ptr<interruptible>> registry_;
-  /** Protect the access to the registry. */
-  static inline std::mutex mutex_;
-  /** The only purpose of this stream is to record the interruption events. */
-  static inline std::unique_ptr<cudaStream_t, std::function<void(cudaStream_t*)>>
-    cancellation_stream_;
 
   /** The state of being in the process of cancelling. */
   bool cancelled_ = false;
