@@ -60,10 +60,23 @@ class interruptible {
    * recommended to call `interruptible::yield()` in between to make sure the thread does not become
    * unresponsive for too long.
    *
+   * Both `yield` and `yield_no_throw` reset the state to non-cancelled after execution.
+   *
    * @throw raft::interrupted_exception if interruptible::cancel() was called on the current CPU
    * thread.
    */
   static inline void yield() { get_token()->yield_impl(); }
+
+  /**
+   * @brief Check the thread state, whether the thread is interrupted by `interruptible::cancel`.
+   *
+   * Same as `interruptible::yield`, but does not throw an exception if the thread is cancelled.
+   *
+   * Both `yield` and `yield_no_throw` reset the state to non-cancelled after execution.
+   *
+   * @return whether interruptible::cancel() was called on the current CPU thread.
+   */
+  static inline auto yield_no_throw() -> bool { return get_token()->yield_no_throw_impl(); }
 
   /**
    * @brief Get a cancellation token for this CPU thread.
@@ -197,10 +210,18 @@ class interruptible {
 
   void yield_impl()
   {
-    if (cancelled_) {
-      cancelled_ = false;
+    if (yield_no_throw_impl()) {
       throw interrupted_exception("The work in this thread was cancelled.");
     }
+  }
+
+  auto yield_no_throw_impl() noexcept -> bool
+  {
+    if (cancelled_) {
+      cancelled_ = false;
+      return true;
+    }
+    return false;
   }
 
   void synchronize_impl(rmm::cuda_stream_view stream)

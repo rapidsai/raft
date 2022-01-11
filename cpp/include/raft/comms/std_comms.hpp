@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -459,7 +459,7 @@ class std_comms : public comms_iface {
         return status_t::ERROR;
       }
 
-      if (ncclAsyncErr != ncclSuccess) {
+      if (ncclAsyncErr != ncclSuccess || interruptible::yield_no_throw()) {
         // An asynchronous error happened. Stop the operation and destroy
         // the communicator
         ncclErr = ncclCommAbort(nccl_comm_);
