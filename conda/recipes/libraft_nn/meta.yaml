@@ -36,19 +36,14 @@ requirements:
   build:
     - cmake>=3.20.1
   host:
-    - nccl>=2.9.9
+    - libraft-core {{ version }}
     - cudatoolkit {{ cuda_version }}.*
-    - ucx-py {{ ucx_py_version }}
-    - ucx-proc=*=gpu
     - lapack
     - faiss-proc=*=cuda
     - gtest=1.10.0
     - gmock
     - libfaiss 1.7.0 *_cuda
   run:
-    - nccl>=2.9.9
-    - ucx-py {{ ucx_py_version }}
-    - ucx-proc=*=gpu
     - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
     - faiss-proc=*=cuda
     - libfaiss 1.7.0 *_cuda

@@ -30,7 +30,7 @@ requirements:
     - setuptools
     - cython>=0.29,<0.30
     - cmake>=3.20.1
-    - libraft={{ version }}
+    - libraft-core={{ version }}
     - cudatoolkit {{ cuda_version }}.*
     - ucx-py {{ ucx_py_version }}
     - ucx-proc=*=gpu
