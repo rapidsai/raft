@@ -30,9 +30,9 @@ namespace raft {
  * @brief Exception thrown during `interruptible::synchronize` call when it detects a request
  * to cancel the work performed in this CPU thread.
  */
-struct interrupted : public raft::exception {
-  explicit interrupted(char const* const message) : raft::exception(message) {}
-  explicit interrupted(std::string const& message) : raft::exception(message) {}
+struct interrupted_exception : public raft::exception {
+  explicit interrupted_exception(char const* const message) : raft::exception(message) {}
+  explicit interrupted_exception(std::string const& message) : raft::exception(message) {}
 };
 
 class interruptible {
@@ -43,8 +43,8 @@ class interruptible {
    *
    * @param [in] stream a CUDA stream.
    *
-   * @throw raft::interrupted if interruptible::cancel() was called on the current CPU thread id
-   * before the currently captured work has been finished.
+   * @throw raft::interrupted_exception if interruptible::cancel() was called on the current CPU
+   * thread id before the currently captured work has been finished.
    * @throw raft::cuda_error if another CUDA error happens.
    */
   static inline void synchronize(rmm::cuda_stream_view stream)
@@ -60,7 +60,8 @@ class interruptible {
    * recommended to call `interruptible::yield()` in between to make sure the thread does not become
    * unresponsive for too long.
    *
-   * @throw raft::interrupted if interruptible::cancel() was called on the current CPU thread.
+   * @throw raft::interrupted_exception if interruptible::cancel() was called on the current CPU
+   * thread.
    */
   static inline void yield() { get_token()->yield_impl(); }
 
@@ -198,7 +199,7 @@ class interruptible {
   {
     if (cancelled_) {
       cancelled_ = false;
-      throw interrupted("The work in this thread was cancelled.");
+      throw interrupted_exception("The work in this thread was cancelled.");
     }
   }
 

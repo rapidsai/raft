@@ -25,7 +25,7 @@ from cython.operator cimport dereference as deref
 
 
 @contextlib.contextmanager
-def interruptibleCpp():
+def cuda_interruptible():
     '''
     Temporarily install a keyboard interrupt handler (Ctrl+C)
     that cancels the enclosed interruptible C++ thread.
@@ -34,7 +34,7 @@ def interruptibleCpp():
 
     .. code-block:: python
 
-        with interruptibleCpp():
+        with cuda_interruptible():
             my_long_running_function(...)
 
     It's also recommended to release the GIL during the call, to
@@ -42,7 +42,7 @@ def interruptibleCpp():
 
     .. code-block:: python
 
-        with interruptibleCpp():
+        with cuda_interruptible():
             with nogil:
                 my_long_running_function(...)
 
@@ -50,7 +50,8 @@ def interruptibleCpp():
     cdef shared_ptr[interruptible] token = get_token()
 
     def newhr(*args, **kwargs):
-        deref(token).cancel_no_throw()
+        with nogil:
+            deref(token).cancel_no_throw()
 
     oldhr = signal.signal(signal.SIGINT, newhr)
     try:
