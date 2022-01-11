@@ -396,6 +396,8 @@ void matrixVectorBinaryDiv(Type* data,
  * @param rowMajor whether matrix is row major
  * @param bcastAlongRows whether to broadcast vector along rows of matrix or columns
  * @param stream cuda stream
+ * @param return_zero result is zero if true and vector value is below threshold, original value if
+ * false
  */
 template <typename Type, typename IdxType = int, int TPB = 256>
 void matrixVectorBinaryDivSkipZero(Type* data,
