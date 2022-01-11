@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,10 +16,13 @@
 
 #pragma once
 
-#include "detail/mean_center.cuh"
+#include <raft/cuda_utils.cuh>
+#include <raft/linalg/matrix_vector_op.cuh>
+#include <raft/vectorized.cuh>
 
 namespace raft {
 namespace stats {
+namespace detail {
 
 /**
  * @brief Center the input matrix wrt its mean
@@ -45,7 +48,16 @@ void meanCenter(Type* out,
                 bool bcastAlongRows,
                 cudaStream_t stream)
 {
-  detail::meanCenter<Type, IdxType, TPB>(out, data, mu, D, N, rowMajor, bcastAlongRows, stream);
+  raft::linalg::matrixVectorOp(
+    out,
+    data,
+    mu,
+    D,
+    N,
+    rowMajor,
+    bcastAlongRows,
+    [] __device__(Type a, Type b) { return a - b; },
+    stream);
 }
 
 /**
@@ -72,8 +84,18 @@ void meanAdd(Type* out,
              bool bcastAlongRows,
              cudaStream_t stream)
 {
-  detail::meanAdd<Type, IdxType, TPB>(out, data, mu, D, N, rowMajor, bcastAlongRows, stream);
+  raft::linalg::matrixVectorOp(
+    out,
+    data,
+    mu,
+    D,
+    N,
+    rowMajor,
+    bcastAlongRows,
+    [] __device__(Type a, Type b) { return a + b; },
+    stream);
 }
 
+};  // end namespace detail
 };  // end namespace stats
 };  // end namespace raft
