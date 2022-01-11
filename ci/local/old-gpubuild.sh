@@ -1,7 +1,7 @@
 #!/bin/bash
 # Copyright (c) 2020, NVIDIA CORPORATION.
 #########################################
-# cuML GPU build and test script for CI #
+# RAFT GPU build and test script for CI #
 #########################################
 
 set -e

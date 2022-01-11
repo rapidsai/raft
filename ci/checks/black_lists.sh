@@ -1,7 +1,7 @@
 #!/bin/bash
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 ##########################################
-# cuML black listed function call Tester #
+# RAFT black listed function call Tester #
 ##########################################
 
 # PR_TARGET_BRANCH is set by the CI enviroment

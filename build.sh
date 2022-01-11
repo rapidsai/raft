@@ -18,14 +18,14 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean cppraft pyraft cppdocs -v -g --allgpuarch --nvtx --show_depr_warn -h --buildgtest --buildfaiss"
+VALIDARGS="clean libraft pyraft cppdocs -v -g --allgpuarch --nvtx --show_depr_warn -h --buildgtest --buildfaiss"
 HELP="$0 [<target> ...] [<flag> ...]
  where <target> is:
    clean            - remove all existing build artifacts and configuration (start over)
-   cppraft          - build the cuml C++ code only. Also builds the C-wrapper library
+   libraft          - build the raft C++ code only. Also builds the C-wrapper library
                       around the C++ code.
-   pyraft             - build the cuml Python package
-   cppdocs            - build the C++ doxygen documentation
+   pyraft           - build the raft Python package
+   cppdocs          - build the C++ doxygen documentation
  and <flag> is:
    -v               - verbose build mode
    -g               - build for debug
@@ -35,7 +35,7 @@ HELP="$0 [<target> ...] [<flag> ...]
    --show_depr_warn - show cmake deprecation warnings
    -h               - print this text
 
- default action (no args) is to build both cppraft and pyraft targets
+ default action (no args) is to build both libraft and pyraft targets
 "
 CPP_RAFT_BUILD_DIR=${REPODIR}/cpp/build
 PY_RAFT_BUILD_DIR=${REPODIR}/python/build
@@ -138,7 +138,7 @@ fi
 
 ################################################################################
 # Configure for building all C++ targets
-if (( ${NUMARGS} == 0 )) || hasArg cppraft; then
+if (( ${NUMARGS} == 0 )) || hasArg libraft; then
     if (( ${BUILD_ALL_GPU_ARCH} == 0 )); then
         RAFT_CMAKE_CUDA_ARCHITECTURES="NATIVE"
         echo "Building for the architecture of the GPU in the system..."
@@ -160,14 +160,13 @@ if (( ${NUMARGS} == 0 )) || hasArg cppraft; then
     cmake --build  ${CPP_RAFT_BUILD_DIR} -j${PARALLEL_LEVEL} ${MAKE_TARGETS} ${VERBOSE_FLAG}
 fi
 
-
-# Build and (optionally) install the cuml Python package
+# Build and (optionally) install the raft Python package
 if (( ${NUMARGS} == 0 )) || hasArg pyraft; then
 
     cd ${REPODIR}/python
     if [[ ${INSTALL_TARGET} != "" ]]; then
         python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace ${SINGLEGPU}
     else
-        python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace --library-dir=${LIBCUML_BUILD_DIR} ${SINGLEGPU}
+        python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace --library-dir=${LIBRAFT_BUILD_DIR} ${SINGLEGPU}
     fi
 fi
