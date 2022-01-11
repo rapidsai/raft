@@ -220,7 +220,7 @@ void getDiagonalInverseMatrix(m_t* in, idx_t len, cudaStream_t stream)
 template <typename m_t, typename idx_t = int>
 m_t getL2Norm(const raft::handle_t& handle, m_t* in, idx_t size, cudaStream_t stream)
 {
-  detail::getL2Norm(handle, in, size, stream);
+  return detail::getL2Norm(handle, in, size, stream);
 }
 
 };  // end namespace matrix
