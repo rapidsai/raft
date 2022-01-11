@@ -4,4 +4,4 @@ if [ -n "$MACOSX_DEPLOYMENT_TARGET" ]; then
     export MACOSX_DEPLOYMENT_TARGET=10.11
 fi
 
-./build.sh clean libraft -v --allgpuarch
+./build.sh clean libraft -v --allgpuarch # TODO: Compile only the core instantiations
