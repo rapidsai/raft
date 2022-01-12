@@ -1,0 +1,48 @@
+
+import pytest
+import signal
+import time
+from raft.common.interruptible import cuda_interruptible, cuda_yield
+
+
+def test_should_cancel_via_interruptible():
+    start_time = time.monotonic()
+    with pytest.raises(RuntimeError, match='this thread was cancelled'):
+        with cuda_interruptible():
+            signal.raise_signal(signal.SIGINT)
+            cuda_yield()
+            time.sleep(1.0)
+    end_time = time.monotonic()
+    assert end_time < start_time + 0.5, \
+        "The process seems to have waited, while it shouldn't have."
+
+
+def test_should_cancel_via_python():
+    start_time = time.monotonic()
+    with pytest.raises(KeyboardInterrupt):
+        signal.raise_signal(signal.SIGINT)
+        cuda_yield()
+        time.sleep(1.0)
+    end_time = time.monotonic()
+    assert end_time < start_time + 0.5, \
+        "The process seems to have waited, while it shouldn't have."
+
+
+def test_should_wait_no_interrupt():
+    start_time = time.monotonic()
+    with cuda_interruptible():
+        cuda_yield()
+        time.sleep(1.0)
+    end_time = time.monotonic()
+    assert end_time > start_time + 0.5, \
+        "The process seems to be cancelled, while it shouldn't be."
+
+
+def test_should_wait_no_yield():
+    start_time = time.monotonic()
+    with cuda_interruptible():
+        signal.raise_signal(signal.SIGINT)
+        time.sleep(1.0)
+    end_time = time.monotonic()
+    assert end_time > start_time + 0.5, \
+        "The process seems to be cancelled, while it shouldn't be."

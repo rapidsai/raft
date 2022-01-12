@@ -30,5 +30,7 @@ cdef extern from "raft/interruptible.hpp" namespace "raft" nogil:
 
 cdef extern from "raft/interruptible.hpp" \
         namespace "raft::interruptible" nogil:
-    cdef void synchronize(cuda_stream_view stream) except+
+    cdef void inter_synchronize \
+        "raft::interruptible::synchronize"(cuda_stream_view stream) except+
+    cdef void inter_yield "raft::interruptible::yield"() except+
     cdef shared_ptr[interruptible] get_token() except+

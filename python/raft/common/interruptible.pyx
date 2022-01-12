@@ -23,6 +23,9 @@ import contextlib
 import signal
 from cython.operator cimport dereference as deref
 
+from rmm._lib.cuda_stream_view cimport cuda_stream_view
+from .cuda cimport _Stream
+from .cuda import Stream
 
 @contextlib.contextmanager
 def cuda_interruptible():
@@ -58,3 +61,22 @@ def cuda_interruptible():
         yield
     finally:
         signal.signal(signal.SIGINT, oldhr)
+
+def synchronize(stream: Stream):
+    '''
+    Same as cudaStreamSynchronize, but can be interrupted
+    if called within a `with cuda_interruptible()` block.
+    '''
+    cdef cuda_stream_view c_stream = \
+        cuda_stream_view(<_Stream><size_t>stream.getStream())
+    with nogil:
+        inter_synchronize(c_stream)
+
+def cuda_yield():
+    '''
+    Check for an asynchronously received interrupted_exception.
+    Raises the exception if a user pressed Ctrl+C within a
+    `with cuda_interruptible()` block before.
+    '''
+    with nogil:
+        inter_yield()
