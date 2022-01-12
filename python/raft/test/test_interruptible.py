@@ -1,15 +1,21 @@
 
+import os
 import pytest
 import signal
 import time
 from raft.common.interruptible import cuda_interruptible, cuda_yield
 
 
+def send_ctrl_c():
+    # signal.raise_signal(signal.SIGINT) available only since python 3.8
+    os.kill(os.getpid(), signal.SIGINT)
+
+
 def test_should_cancel_via_interruptible():
     start_time = time.monotonic()
     with pytest.raises(RuntimeError, match='this thread was cancelled'):
         with cuda_interruptible():
-            signal.raise_signal(signal.SIGINT)
+            send_ctrl_c()
             cuda_yield()
             time.sleep(1.0)
     end_time = time.monotonic()
@@ -20,7 +26,7 @@ def test_should_cancel_via_interruptible():
 def test_should_cancel_via_python():
     start_time = time.monotonic()
     with pytest.raises(KeyboardInterrupt):
-        signal.raise_signal(signal.SIGINT)
+        send_ctrl_c()
         cuda_yield()
         time.sleep(1.0)
     end_time = time.monotonic()
@@ -41,7 +47,7 @@ def test_should_wait_no_interrupt():
 def test_should_wait_no_yield():
     start_time = time.monotonic()
     with cuda_interruptible():
-        signal.raise_signal(signal.SIGINT)
+        send_ctrl_c()
         time.sleep(1.0)
     end_time = time.monotonic()
     assert end_time > start_time + 0.5, \
