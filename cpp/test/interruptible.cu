@@ -22,8 +22,8 @@
 #include <raft/common/nvtx.hpp>
 #include <raft/interruptible.hpp>
 #include <rmm/cuda_stream.hpp>
-#include <vector>
 #include <thread>
+#include <vector>
 
 namespace raft {
 
