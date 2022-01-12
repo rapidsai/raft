@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,14 +19,7 @@
 #include "detail/linewise_op.cuh"
 #include "detail/matrix.cuh"
 
-#include <algorithm>
-#include <cstddef>
-#include <cuda_runtime.h>
-#include <cusolverDn.h>
 #include <raft/common/nvtx.hpp>
-#include <raft/cudart_utils.h>
-#include <raft/handle.hpp>
-#include <raft/linalg/cublas_wrappers.h>
 
 namespace raft {
 namespace matrix {
@@ -89,18 +82,7 @@ template <typename m_t, typename idx_t = int>
 void truncZeroOrigin(
   m_t* in, idx_t in_n_rows, m_t* out, idx_t out_n_rows, idx_t out_n_cols, cudaStream_t stream)
 {
-  auto m         = out_n_rows;
-  auto k         = in_n_rows;
-  idx_t size     = out_n_rows * out_n_cols;
-  auto d_q       = in;
-  auto d_q_trunc = out;
-  auto counting  = thrust::make_counting_iterator<idx_t>(0);
-
-  thrust::for_each(rmm::exec_policy(stream), counting, counting + size, [=] __device__(idx_t idx) {
-    idx_t row                = idx % m;
-    idx_t col                = idx / m;
-    d_q_trunc[col * m + row] = d_q[col * k + row];
-  });
+  detail::truncZeroOrigin(in, in_n_rows, out, out_n_rows, out_n_cols, stream);
 }
 
 /**
@@ -114,23 +96,7 @@ void truncZeroOrigin(
 template <typename m_t, typename idx_t = int>
 void colReverse(m_t* inout, idx_t n_rows, idx_t n_cols, cudaStream_t stream)
 {
-  auto n            = n_cols;
-  auto m            = n_rows;
-  idx_t size        = n_rows * n_cols;
-  auto d_q          = inout;
-  auto d_q_reversed = inout;
-  auto counting     = thrust::make_counting_iterator<idx_t>(0);
-
-  thrust::for_each(
-    rmm::exec_policy(stream), counting, counting + (size / 2), [=] __device__(idx_t idx) {
-      idx_t dest_row             = idx % m;
-      idx_t dest_col             = idx / m;
-      idx_t src_row              = dest_row;
-      idx_t src_col              = (n - dest_col) - 1;
-      m_t temp                   = (m_t)d_q_reversed[idx];
-      d_q_reversed[idx]          = d_q[src_col * m + src_row];
-      d_q[src_col * m + src_row] = temp;
-    });
+  detail::colReverse(inout, n_rows, n_cols, stream);
 }
 
 /**
@@ -144,24 +110,7 @@ void colReverse(m_t* inout, idx_t n_rows, idx_t n_cols, cudaStream_t stream)
 template <typename m_t, typename idx_t = int>
 void rowReverse(m_t* inout, idx_t n_rows, idx_t n_cols, cudaStream_t stream)
 {
-  auto m            = n_rows;
-  idx_t size        = n_rows * n_cols;
-  auto d_q          = inout;
-  auto d_q_reversed = inout;
-  auto counting     = thrust::make_counting_iterator<idx_t>(0);
-
-  thrust::for_each(
-    rmm::exec_policy(stream), counting, counting + (size / 2), [=] __device__(idx_t idx) {
-      idx_t dest_row = idx % m;
-      idx_t dest_col = idx / m;
-      idx_t src_row  = (m - dest_row) - 1;
-      ;
-      idx_t src_col = dest_col;
-
-      m_t temp                   = (m_t)d_q_reversed[idx];
-      d_q_reversed[idx]          = d_q[src_col * m + src_row];
-      d_q[src_col * m + src_row] = temp;
-    });
+  detail::rowReverse(inout, n_rows, n_cols, stream);
 }
 
 /**
@@ -181,14 +130,7 @@ void print(const m_t* in,
            char v_separator    = '\n',
            cudaStream_t stream = rmm::cuda_stream_default)
 {
-  std::vector<m_t> h_matrix = std::vector<m_t>(n_cols * n_rows);
-  raft::update_host(h_matrix.data(), in, n_cols * n_rows, stream);
-
-  for (idx_t i = 0; i < n_rows; i++) {
-    for (idx_t j = 0; j < n_cols; j++) {
-      printf("%1.4f%c", h_matrix[j * n_rows + i], j < n_cols - 1 ? h_separator : v_separator);
-    }
-  }
+  detail::print(in, n_rows, n_cols, h_separator, v_separator, stream);
 }
 
 /**
@@ -200,12 +142,7 @@ void print(const m_t* in,
 template <typename m_t, typename idx_t = int>
 void printHost(const m_t* in, idx_t n_rows, idx_t n_cols)
 {
-  for (idx_t i = 0; i < n_rows; i++) {
-    for (idx_t j = 0; j < n_cols; j++) {
-      printf("%1.4f ", in[j * n_rows + i]);
-    }
-    printf("\n");
-  }
+  detail::printHost(in, n_rows, n_cols);
 }
 
 /**
@@ -286,10 +223,7 @@ void getDiagonalInverseMatrix(m_t* in, idx_t len, cudaStream_t stream)
 template <typename m_t, typename idx_t = int>
 m_t getL2Norm(const raft::handle_t& handle, m_t* in, idx_t size, cudaStream_t stream)
 {
-  cublasHandle_t cublasH = handle.get_cublas_handle();
-  m_t normval            = 0;
-  RAFT_CUBLAS_TRY(raft::linalg::cublasnrm2(cublasH, size, in, 1, &normval, stream));
-  return normval;
+  return detail::getL2Norm(handle, in, size, stream);
 }
 
 /**
