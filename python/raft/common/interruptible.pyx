@@ -27,6 +27,7 @@ from rmm._lib.cuda_stream_view cimport cuda_stream_view
 from .cuda cimport _Stream
 from .cuda import Stream
 
+
 @contextlib.contextmanager
 def cuda_interruptible():
     '''
@@ -62,6 +63,7 @@ def cuda_interruptible():
     finally:
         signal.signal(signal.SIGINT, oldhr)
 
+
 def synchronize(stream: Stream):
     '''
     Same as cudaStreamSynchronize, but can be interrupted
@@ -71,6 +73,7 @@ def synchronize(stream: Stream):
         cuda_stream_view(<_Stream><size_t>stream.getStream())
     with nogil:
         inter_synchronize(c_stream)
+
 
 def cuda_yield():
     '''
