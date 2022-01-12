@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2018-2021, NVIDIA CORPORATION.
+# Copyright (c) 2018-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -34,6 +34,10 @@ list(APPEND RAFT_CUDA_FLAGS -Xcompiler=-Wall,-Werror,-Wno-error=deprecated-decla
 # Option to enable line info in CUDA device compilation to allow introspection when profiling / memchecking
 if(CUDA_ENABLE_LINEINFO)
     list(APPEND RAFT_CUDA_FLAGS -lineinfo)
+endif()
+
+if(OpenMP_FOUND)
+    list(APPEND RAFT_CUDA_FLAGS -Xcompiler=${OpenMP_CXX_FLAGS})
 endif()
 
 # Debug options
