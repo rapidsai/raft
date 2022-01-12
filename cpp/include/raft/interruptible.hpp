@@ -202,8 +202,15 @@ class interruptible {
 
   interruptible()
   {
-    RAFT_CUDA_TRY(
-      cudaEventCreateWithFlags(&wait_interrupt_, cudaEventBlockingSync | cudaEventDisableTiming));
+    /*
+    NOTE: it would be nice to have `cudaEventBlockingSync` flag here for better CPU utilization in
+    a multi-threaded setting. However, it may occasionally lead to a significant latency when
+    many streams/threads are operating concurrently.
+
+    The problem can be ovserved in test/interruptible.cu::Raft.InterruptibleOpenMP launched using
+    nsys. Some of the CPU threads may stuck in `sem_wait` for a few hundred milliseconds.
+     */
+    RAFT_CUDA_TRY(cudaEventCreateWithFlags(&wait_interrupt_, cudaEventDisableTiming));
   }
 
   ~interruptible() { cudaEventDestroy(wait_interrupt_); }
