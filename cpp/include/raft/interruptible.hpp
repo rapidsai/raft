@@ -31,8 +31,7 @@ namespace raft {
  * to cancel the work performed in this CPU thread.
  */
 struct interrupted_exception : public raft::exception {
-  explicit interrupted_exception(char const* const message) : raft::exception(message) {}
-  explicit interrupted_exception(std::string const& message) : raft::exception(message) {}
+  using raft::exception::exception;
 };
 
 class interruptible {
