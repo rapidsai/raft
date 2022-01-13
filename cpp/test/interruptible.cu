@@ -49,6 +49,39 @@ TEST(Raft, InterruptibleBasic)
   ASSERT_TRUE(interruptible::yield_no_throw());
 }
 
+TEST(Raft, InterruptibleRepeatedGetToken)
+{
+  auto i     = std::this_thread::get_id();
+  auto a1    = interruptible::get_token();
+  auto count = a1.use_count();
+  auto a2    = interruptible::get_token();
+  ASSERT_LT(count, a1.use_count());
+  count   = a1.use_count();
+  auto b1 = interruptible::get_token(i);
+  ASSERT_LT(count, a1.use_count());
+  count   = a1.use_count();
+  auto b2 = interruptible::get_token(i);
+  ASSERT_LT(count, a1.use_count());
+
+  ASSERT_EQ(a1, a2);
+  ASSERT_EQ(a1, b2);
+  ASSERT_EQ(b1, b2);
+}
+
+TEST(Raft, InterruptibleDelayedInit)
+{
+  std::thread([&]() {
+    auto a = interruptible::get_token(std::this_thread::get_id());
+    ASSERT_EQ(a.use_count(), 1);  // the only pointer here is [a]
+    auto b = interruptible::get_token();
+    ASSERT_EQ(a.use_count(), 3);  // [a, b, thread_local]
+    auto c = interruptible::get_token();
+    ASSERT_EQ(a.use_count(), 4);  // [a, b, c, thread_local]
+    ASSERT_EQ(a.get(), b.get());
+    ASSERT_EQ(a.get(), c.get());
+  }).join();
+}
+
 TEST(Raft, InterruptibleOpenMP)
 {
   // number of threads must be smaller than max number of resident grids for GPU

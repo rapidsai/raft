@@ -18,6 +18,7 @@
 
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <raft/cudart_utils.h>
 #include <raft/error.hpp>
 #include <rmm/cuda_stream_view.hpp>
@@ -84,7 +85,8 @@ class interruptible {
    */
   static inline auto get_token() -> std::shared_ptr<interruptible>
   {
-    static thread_local std::shared_ptr<interruptible> s(get_token(std::this_thread::get_id()));
+    static thread_local std::shared_ptr<interruptible> s(
+      get_token(std::this_thread::get_id(), std::make_optional(thread_seq_id_)));
     return s;
   }
 
@@ -93,21 +95,9 @@ class interruptible {
    *
    * @return an object that can be used to cancel the GPU work waited on the given CPU thread.
    */
-  static auto get_token(std::thread::id thread_id) -> std::shared_ptr<interruptible>
+  static inline auto get_token(std::thread::id thread_id) -> std::shared_ptr<interruptible>
   {
-    std::lock_guard<std::mutex> guard_get(mutex_);
-    // the following constructs an empty shared_ptr if the key does not exist.
-    auto& weak_store  = registry_[thread_id];
-    auto thread_store = weak_store.lock();
-    if (!thread_store) {
-      thread_store.reset(new interruptible(), [thread_id](auto ts) {
-        std::lock_guard<std::mutex> guard_erase(mutex_);
-        registry_.erase(thread_id);
-        delete ts;
-      });
-      std::weak_ptr<interruptible>(thread_store).swap(weak_store);
-    }
-    return thread_store;
+    return get_token(thread_id, std::nullopt);
   }
 
   /**
@@ -142,6 +132,49 @@ class interruptible {
   static inline std::unordered_map<std::thread::id, std::weak_ptr<interruptible>> registry_;
   /** Protect the access to the registry. */
   static inline std::mutex mutex_;
+  /** Global counter of CPU threads. Used to generate unique `thread_seq_id_` (see below). */
+  static inline std::atomic_uint thread_seq_counter_ = 0;
+  /**
+   * Globally unique sequential id of the CPU thread, visible only to the owning thread.
+   *
+   * It serves to ensure that two `interruptible` tokens with the same thread::id do not
+   * compete for the same slot in the `registry_`. Two tokens may have the same thread::id
+   * when a user retains a token beyond the lifetime of the associated thread and its thread::id
+   * gets reused by the system.
+   */
+  static inline thread_local unsigned int thread_seq_id_ =
+    thread_seq_counter_.fetch_add(1, std::memory_order_relaxed);
+
+  static auto get_token(std::thread::id thread_id, std::optional<unsigned int> seq_id)
+    -> std::shared_ptr<interruptible>
+  {
+    std::lock_guard<std::mutex> guard_get(mutex_);
+    // the following constructs an empty shared_ptr if the key does not exist.
+    auto& weak_store  = registry_[thread_id];
+    auto thread_store = weak_store.lock();
+    if (!thread_store || (seq_id.has_value() && thread_store->assigned_seq_id_.has_value() &&
+                          seq_id != thread_store->assigned_seq_id_)) {
+      // Create a new thread store in two cases:
+      //  1. It does not exist in the map yet
+      //  2. The previous store in the map has not yet been deleted
+      thread_store.reset(new interruptible(seq_id), [thread_id](auto ts) {
+        std::lock_guard<std::mutex> guard_erase(mutex_);
+        auto found = registry_.find(thread_id);
+        if (found != registry_.end()) {
+          auto stored = found->second.lock();
+          if (!stored || stored->assigned_seq_id_ == ts->assigned_seq_id_) {
+            registry_.erase(found);
+          }
+        }
+        delete ts;
+      });
+      std::weak_ptr<interruptible>(thread_store).swap(weak_store);
+    } else if (seq_id.has_value() && !thread_store->assigned_seq_id_.has_value()) {
+      // Assign a seq_id to this thread token, because it was created earlier oustide of the thread
+      thread_store->assigned_seq_id_ = seq_id;
+    }
+    return thread_store;
+  }
 
   /**
    * Communicate whether the thread is in a cancelled state or can continue execution.
@@ -150,8 +183,13 @@ class interruptible {
    * These are the only two places where it's used.
    */
   std::atomic_flag continue_;
+  /** A unique sequential id assigned by the associated thread (see thread_seq_id_). */
+  std::optional<unsigned int> assigned_seq_id_;
 
-  interruptible() noexcept { yield_no_throw_impl(); }
+  explicit interruptible(std::optional<unsigned int> seq_id) noexcept : assigned_seq_id_(seq_id)
+  {
+    yield_no_throw_impl();
+  }
 
   void yield_impl()
   {
