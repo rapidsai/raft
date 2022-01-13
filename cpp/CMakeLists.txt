@@ -261,7 +261,7 @@ set(code_string
 set(raft_allowed_components distance nn)
 foreach(comp IN LISTS raft_allowed_components)
   if(${comp} IN_LIST raft_FIND_COMPONENTS)
-    include("${CMAKE_CURRENT_LIST_DIR}/raft-distance-targets.cmake")
+    include("${CMAKE_CURRENT_LIST_DIR}/raft-${comp}-targets.cmake")
 
     if(EXISTS "${CMAKE_CURRENT_LIST_DIR}/raft-${comp}-dependencies.cmake")
       include("${CMAKE_CURRENT_LIST_DIR}/raft-${comp}-dependencies.cmake")
