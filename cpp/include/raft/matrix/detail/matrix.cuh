@@ -23,6 +23,14 @@
 
 #include <thrust/for_each.h>
 
+#include <algorithm>
+#include <cstddef>
+#include <cuda_runtime.h>
+#include <cusolverDn.h>
+#include <raft/cudart_utils.h>
+#include <raft/handle.hpp>
+#include <raft/linalg/cublas_wrappers.h>
+
 namespace raft {
 namespace matrix {
 namespace detail {
@@ -54,6 +62,98 @@ void copyRows(const m_t* in,
 
     out[col * n_rows_indices + row] = in[col * n_rows + indices[row]];
   });
+}
+
+template <typename m_t, typename idx_t = int>
+void truncZeroOrigin(
+  m_t* in, idx_t in_n_rows, m_t* out, idx_t out_n_rows, idx_t out_n_cols, cudaStream_t stream)
+{
+  auto m         = out_n_rows;
+  auto k         = in_n_rows;
+  idx_t size     = out_n_rows * out_n_cols;
+  auto d_q       = in;
+  auto d_q_trunc = out;
+  auto counting  = thrust::make_counting_iterator<idx_t>(0);
+
+  thrust::for_each(rmm::exec_policy(stream), counting, counting + size, [=] __device__(idx_t idx) {
+    idx_t row                = idx % m;
+    idx_t col                = idx / m;
+    d_q_trunc[col * m + row] = d_q[col * k + row];
+  });
+}
+
+template <typename m_t, typename idx_t = int>
+void colReverse(m_t* inout, idx_t n_rows, idx_t n_cols, cudaStream_t stream)
+{
+  auto n            = n_cols;
+  auto m            = n_rows;
+  idx_t size        = n_rows * n_cols;
+  auto d_q          = inout;
+  auto d_q_reversed = inout;
+  auto counting     = thrust::make_counting_iterator<idx_t>(0);
+
+  thrust::for_each(
+    rmm::exec_policy(stream), counting, counting + (size / 2), [=] __device__(idx_t idx) {
+      idx_t dest_row             = idx % m;
+      idx_t dest_col             = idx / m;
+      idx_t src_row              = dest_row;
+      idx_t src_col              = (n - dest_col) - 1;
+      m_t temp                   = (m_t)d_q_reversed[idx];
+      d_q_reversed[idx]          = d_q[src_col * m + src_row];
+      d_q[src_col * m + src_row] = temp;
+    });
+}
+
+template <typename m_t, typename idx_t = int>
+void rowReverse(m_t* inout, idx_t n_rows, idx_t n_cols, cudaStream_t stream)
+{
+  auto m            = n_rows;
+  idx_t size        = n_rows * n_cols;
+  auto d_q          = inout;
+  auto d_q_reversed = inout;
+  auto counting     = thrust::make_counting_iterator<idx_t>(0);
+
+  thrust::for_each(
+    rmm::exec_policy(stream), counting, counting + (size / 2), [=] __device__(idx_t idx) {
+      idx_t dest_row = idx % m;
+      idx_t dest_col = idx / m;
+      idx_t src_row  = (m - dest_row) - 1;
+      ;
+      idx_t src_col = dest_col;
+
+      m_t temp                   = (m_t)d_q_reversed[idx];
+      d_q_reversed[idx]          = d_q[src_col * m + src_row];
+      d_q[src_col * m + src_row] = temp;
+    });
+}
+
+template <typename m_t, typename idx_t = int>
+void print(const m_t* in,
+           idx_t n_rows,
+           idx_t n_cols,
+           char h_separator    = ' ',
+           char v_separator    = '\n',
+           cudaStream_t stream = rmm::cuda_stream_default)
+{
+  std::vector<m_t> h_matrix = std::vector<m_t>(n_cols * n_rows);
+  raft::update_host(h_matrix.data(), in, n_cols * n_rows, stream);
+
+  for (idx_t i = 0; i < n_rows; i++) {
+    for (idx_t j = 0; j < n_cols; j++) {
+      printf("%1.4f%c", h_matrix[j * n_rows + i], j < n_cols - 1 ? h_separator : v_separator);
+    }
+  }
+}
+
+template <typename m_t, typename idx_t = int>
+void printHost(const m_t* in, idx_t n_rows, idx_t n_cols)
+{
+  for (idx_t i = 0; i < n_rows; i++) {
+    for (idx_t j = 0; j < n_cols; j++) {
+      printf("%1.4f ", in[j * n_rows + i]);
+    }
+    printf("\n");
+  }
 }
 
 /**
@@ -171,6 +271,15 @@ void getDiagonalInverseMatrix(m_t* in, idx_t len, cudaStream_t stream)
   dim3 block(64);
   dim3 grid((len + block.x - 1) / block.x);
   matrixDiagonalInverse<m_t><<<grid, block, 0, stream>>>(in, len);
+}
+
+template <typename m_t, typename idx_t = int>
+m_t getL2Norm(const raft::handle_t& handle, m_t* in, idx_t size, cudaStream_t stream)
+{
+  cublasHandle_t cublasH = handle.get_cublas_handle();
+  m_t normval            = 0;
+  RAFT_CUBLAS_TRY(raft::linalg::cublasnrm2(cublasH, size, in, 1, &normval, stream));
+  return normval;
 }
 
 }  // end namespace detail
