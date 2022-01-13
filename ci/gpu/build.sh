@@ -30,7 +30,7 @@ export MINOR_VERSION=`echo $GIT_DESCRIBE_TAG | grep -o -E '([0-9]+\.[0-9]+)'`
 source "$WORKSPACE/ci/prtest.config"
 
 # ucx-py version
-export UCX_PY_VERSION='0.24.*'
+export UCX_PY_VERSION='0.25.*'
 
 ################################################################################
 # SETUP - Check environment
