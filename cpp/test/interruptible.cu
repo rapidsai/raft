@@ -36,17 +36,17 @@ __global__ void gpu_wait(int millis)
 
 TEST(Raft, InterruptibleBasic)
 {
-  ASSERT_FALSE(interruptible::yield_no_throw());
+  ASSERT_TRUE(interruptible::yield_no_throw());
 
   // Cancel using the token
   interruptible::get_token()->cancel();
-  ASSERT_TRUE(interruptible::yield_no_throw());
   ASSERT_FALSE(interruptible::yield_no_throw());
+  ASSERT_TRUE(interruptible::yield_no_throw());
 
   // Cancel by thread id
   interruptible::cancel(std::this_thread::get_id());
-  ASSERT_TRUE(interruptible::yield_no_throw());
   ASSERT_FALSE(interruptible::yield_no_throw());
+  ASSERT_TRUE(interruptible::yield_no_throw());
 }
 
 TEST(Raft, InterruptibleOpenMP)

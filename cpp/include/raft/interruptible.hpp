@@ -73,7 +73,7 @@ class interruptible {
    *
    * Both `yield` and `yield_no_throw` reset the state to non-cancelled after execution.
    *
-   * @return whether interruptible::cancel() was called on the current CPU thread.
+   * @return whether the thread can continue, i.e. `true` means continue, `false` means cancelled.
    */
   static inline auto yield_no_throw() -> bool { return get_token()->yield_no_throw_impl(); }
 
@@ -106,10 +106,6 @@ class interruptible {
         delete ts;
       });
       std::weak_ptr<interruptible>(thread_store).swap(weak_store);
-      // Since we're still guarded by the mutex, use this opportunity to initialize the global
-      // cancellation stream. The cancellation stream is only used by non-static cancel(), so it's
-      // safe to initialize it here before the first valid thread store is returned to the user.
-      get_cancellation_stream();
     }
     return thread_store;
   }
@@ -120,11 +116,9 @@ class interruptible {
    *
    * Note, this function uses a mutex to safely get a cancellation token that may be shared
    * among multiple threads. If you plan to use it from a signal handler, consider the non-static
-   * `cancel_no_throw()` instead.
+   * `cancel()` instead.
    *
    * @param [in] thread_id a CPU thread, in which the work should be interrupted.
-   *
-   * @throw raft::cuda_error if a CUDA error happens during recording the interruption event.
    */
   static inline void cancel(std::thread::id thread_id) { get_token(thread_id)->cancel(); }
 
@@ -132,30 +126,10 @@ class interruptible {
    * @brief Cancel any current or next call to `interruptible::synchronize` performed on the
    * CPU thread given by this `interruptible` token.
    *
-   * Note, this function does not involve thread synchronization/locks, so it should be safe
-   * to call from a signal handler.
-   *
-   * @throw raft::cuda_error if a CUDA error happens during recording the interruption event.
-   */
-  inline void cancel() { RAFT_CUDA_TRY(cancel_no_throw()); }
-
-  /**
-   * @brief Cancel any current or next call to `interruptible::synchronize` performed on the
-   * CPU thread given by this `interruptible` token.
-   *
-   * Note, this function does not involve thread synchronization/locks and not throw any
+   * Note, this function does not involve thread synchronization/locks and does not throw any
    * exceptions, so it's safe to call from a signal handler.
-   *
-   * @return CUDA error code redirected from `cudaEventRecord`.
    */
-  auto cancel_no_throw() noexcept -> cudaError_t
-  {
-    // This method is supposed to be called from another thread;
-    // multiple calls to it just override each other, and that is ok - the cancellation request
-    // will be delivered (at least once).
-    cancelled_ = true;
-    return cudaEventRecord(wait_interrupt_, get_cancellation_stream());
-  }
+  inline void cancel() noexcept { continue_.clear(std::memory_order_relaxed); }
 
   // don't allow the token to leave the shared_ptr
   interruptible(interruptible const&) = delete;
@@ -168,77 +142,39 @@ class interruptible {
   static inline std::unordered_map<std::thread::id, std::weak_ptr<interruptible>> registry_;
   /** Protect the access to the registry. */
   static inline std::mutex mutex_;
-  /** The only purpose of this stream is to record the interruption events. */
-  static inline auto get_cancellation_stream() -> cudaStream_t
-  {
-    static std::unique_ptr<cudaStream_t, std::function<void(cudaStream_t*)>> cs{
-      []() {
-        auto* stream = new cudaStream_t;
-        RAFT_CUDA_TRY(cudaStreamCreateWithFlags(stream, cudaStreamNonBlocking));
-        return stream;
-      }(),
-      [](cudaStream_t* stream) {
-        cudaStreamDestroy(*stream);
-        delete stream;
-      }};
-    return *cs;
-  }
 
-  /*
-   * Implementation-wise, the cancellation feature is bound to the CPU threads.
-   * Each thread has an associated thread-local state store comprising a boolean flag
-   * and a CUDA event. The event plays the role of a condition variable; it can be triggered
-   * either when the work captured in the stream+event is finished or when the cancellation request
-   * is issued to the current CPU thread. For the latter, we keep internally one global stream
-   * for recording the "interrupt" events in any CPU thread.
+  /**
+   * Communicate whether the thread is in a cancelled state or can continue execution.
+   *
+   * `yield` checks this flag and always resets it to the signalled state; `cancel` clears it.
+   * These are the only two places where it's used.
    */
+  std::atomic_flag continue_;
 
-  /** The state of being in the process of cancelling. */
-  bool cancelled_ = false;
-
-  /** The main synchronization primitive for the current CPU thread on the CUDA side.  */
-  cudaEvent_t wait_interrupt_ = nullptr;
-
-  interruptible()
-  {
-    /*
-    NOTE: it would be nice to have `cudaEventBlockingSync` flag here for better CPU utilization in
-    a multi-threaded setting. However, it may occasionally lead to a significant latency when
-    many streams/threads are operating concurrently.
-
-    The problem can be ovserved in test/interruptible.cu::Raft.InterruptibleOpenMP launched using
-    nsys. Some of the CPU threads may stuck in `sem_wait` for a few hundred milliseconds.
-     */
-    RAFT_CUDA_TRY(cudaEventCreateWithFlags(&wait_interrupt_, cudaEventDisableTiming));
-  }
-
-  ~interruptible() { cudaEventDestroy(wait_interrupt_); }
+  interruptible() noexcept { yield_no_throw_impl(); }
 
   void yield_impl()
   {
-    if (yield_no_throw_impl()) {
+    if (!yield_no_throw_impl()) {
       throw interrupted_exception("The work in this thread was cancelled.");
     }
   }
 
   auto yield_no_throw_impl() noexcept -> bool
   {
-    if (cancelled_) {
-      cancelled_ = false;
-      return true;
-    }
-    return false;
+    return continue_.test_and_set(std::memory_order_relaxed);
   }
 
   void synchronize_impl(rmm::cuda_stream_view stream)
   {
-    // This function synchronizes the CPU thread on the "interrupt" event instead of
-    // the given stream.
-    // Assuming that this method is called only on a thread-local store, there is no need for
-    // extra synchronization primitives to protect the state.
-    RAFT_CUDA_TRY(cudaEventRecord(wait_interrupt_, stream));
-    RAFT_CUDA_TRY(cudaEventSynchronize(wait_interrupt_));
-    yield_impl();
+    cudaError_t query_result;
+    while (true) {
+      yield_impl();
+      query_result = cudaStreamQuery(stream);
+      if (query_result != cudaErrorNotReady) { break; }
+      std::this_thread::yield();
+    }
+    RAFT_CUDA_TRY(query_result);
   }
 };
 

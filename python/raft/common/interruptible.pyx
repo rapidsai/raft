@@ -55,7 +55,7 @@ def cuda_interruptible():
 
     def newhr(*args, **kwargs):
         with nogil:
-            deref(token).cancel_no_throw()
+            deref(token).cancel()
 
     oldhr = signal.signal(signal.SIGINT, newhr)
     try:

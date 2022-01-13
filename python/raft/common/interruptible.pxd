@@ -25,8 +25,7 @@ from .cuda cimport _Error
 
 cdef extern from "raft/interruptible.hpp" namespace "raft" nogil:
     cdef cppclass interruptible:
-        void cancel() except+
-        _Error cancel_no_throw()
+        void cancel()
 
 cdef extern from "raft/interruptible.hpp" \
         namespace "raft::interruptible" nogil:
