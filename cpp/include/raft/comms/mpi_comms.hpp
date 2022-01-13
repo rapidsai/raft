@@ -352,7 +352,7 @@ class mpi_comms : public comms_iface {
         return status_t::ERROR;
       }
 
-      if (ncclAsyncErr != ncclSuccess || interruptible::yield_no_throw()) {
+      if (ncclAsyncErr != ncclSuccess || !interruptible::yield_no_throw()) {
         // An asynchronous error happened. Stop the operation and destroy
         // the communicator
         ncclErr = ncclCommAbort(nccl_comm_);
