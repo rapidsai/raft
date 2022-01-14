@@ -18,14 +18,14 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean cppraft pyraft cppdocs -v -g --allgpuarch --nvtx --show_depr_warn -h --buildgtest --buildfaiss"
+VALIDARGS="clean cppraft pyraft docs -v -g --allgpuarch --nvtx --show_depr_warn -h --buildgtest --buildfaiss"
 HELP="$0 [<target> ...] [<flag> ...]
  where <target> is:
    clean            - remove all existing build artifacts and configuration (start over)
    cppraft          - build the cuml C++ code only. Also builds the C-wrapper library
                       around the C++ code.
    pyraft             - build the cuml Python package
-   cppdocs            - build the C++ doxygen documentation
+   docs             - build the documentation
  and <flag> is:
    -v               - verbose build mode
    -g               - build for debug
@@ -38,6 +38,7 @@ HELP="$0 [<target> ...] [<flag> ...]
  default action (no args) is to build both cppraft and pyraft targets
 "
 CPP_RAFT_BUILD_DIR=${REPODIR}/cpp/build
+SPHINX_BUILD_DIR=${REPODIR}/docs
 PY_RAFT_BUILD_DIR=${REPODIR}/python/build
 PYTHON_DEPS_CLONE=${REPODIR}/python/external_repositories
 BUILD_DIRS="${CPP_RAFT_BUILD_DIR} ${PY_RAFT_BUILD_DIR} ${PYTHON_DEPS_CLONE}"
@@ -131,9 +132,26 @@ if (( ${CLEAN} == 1 )); then
     cd ${REPODIR}
 fi
 
-if hasArg cppdocs; then
+if hasArg docs; then
     cd ${CPP_RAFT_BUILD_DIR}
+
+    if (( ${BUILD_ALL_GPU_ARCH} == 0 )); then
+        RAFT_CMAKE_CUDA_ARCHITECTURES="NATIVE"
+    else
+        RAFT_CMAKE_CUDA_ARCHITECTURES="ALL"
+    fi
+
+    cmake -S ${REPODIR}/cpp -B ${CPP_RAFT_BUILD_DIR} \
+          -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} \
+          -DCMAKE_CUDA_ARCHITECTURES=${RAFT_CMAKE_CUDA_ARCHITECTURES} \
+          -DNVTX=${NVTX} \
+          -DDISABLE_DEPRECATION_WARNING=${BUILD_DISABLE_DEPRECATION_WARNING} \
+          -DBUILD_GTEST=${BUILD_GTEST} \
+          -DBUILD_STATIC_FAISS=${BUILD_STATIC_FAISS}
+
     cmake --build ${CPP_RAFT_BUILD_DIR} --target docs_raft
+    cd ${SPHINX_BUILD_DIR}
+    make html
 fi
 
 ################################################################################
