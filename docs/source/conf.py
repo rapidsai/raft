@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 #
-# Copyright (c) 2018-2021, NVIDIA CORPORATION.
+# Copyright (c) 2018-2022, NVIDIA CORPORATION.
 #
 # This file is execfile()d with the current directory set to its
 # containing dir.
@@ -54,7 +54,7 @@ extensions = [
 
 breathe_default_project = "RAFT"
 breathe_projects = {
-    "RAFT":"../../cpp/build/xml/",
+    "RAFT": "../../cpp/build/xml/",
 }
 ipython_mplbackend = "str"
 
