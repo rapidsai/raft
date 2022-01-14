@@ -108,22 +108,7 @@ python setup.py build_ext --inplace
 
 ## CI Process
 
-PRs submitted to RAFT will always run the RAFT tests (once GPUCI is enabled). Additionally, RAFT has convenience functionality to run tests of the following projects that use RAFT: cuML and cuGraph.
-
-To run these other tests, turn `ON` the variables in `ci/prtest.config` in your PR:
-
-```bash
-RUN_CUGRAPH_LIBCUGRAPH_TESTS=OFF
-RUN_CUGRAPH_PYTHON_TESTS=OFF
-
-RUN_CUML_LIBCUML_TESTS=OFF
-RUN_CUML_PRIMS_TESTS=OFF
-RUN_CUML_PYTHON_TESTS=OFF
-```
-
-This will make it so that CI in the PR will clone and build the respective repository, but the repository **will be built using the fork/branch of RAFT in the PR**. This allows to test changes in RAFT without the need of opening PRs in the other repositories.
-
-Before merging the PR, those variables need to be returned to `OFF`.
+PRs submitted to RAFT will always run the RAFT tests (once GPUCI is enabled).
 
 
 ## Developer Guide
