@@ -18,7 +18,6 @@ function(find_and_configure_gtest )
 
     include(${rapids-cmake-dir}/cpm/gtest.cmake)
     rapids_cpm_gtest(BUILD_EXPORT_SET raft-exports
-                     INSTALL_EXPORT_SET raft-exports
                      EXCLUDE_FROM_ALL TRUE)
 
     if(GTest_ADDED)
@@ -28,15 +27,9 @@ function(find_and_configure_gtest )
           GLOBAL_TARGETS gtest gmock gtest_main gmock_main
           NAMESPACE GTest::)
 
-        # We generate the GTest-config files when we built GTest locally, so always do `find_dependency`
-        rapids_export_package(BUILD GTest raft-exports)
-
-        # Tell cmake where it can find the generated GTest-config.cmake we wrote.
         include("${rapids-cmake-dir}/export/find_package_root.cmake")
         rapids_export_find_package_root(BUILD GTest [=[${CMAKE_CURRENT_LIST_DIR}]=] raft-exports)
     endif()
-
-    rapids_export_package(INSTALL GTest raft-exports)
 
 endfunction()
 
