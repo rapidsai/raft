@@ -35,6 +35,13 @@ struct interrupted_exception : public raft::exception {
   using raft::exception::exception;
 };
 
+/**
+ * @brief Cooperative-style interruptible execution.
+ *
+ * This class provides facilities for interrupting execution of a C++ thread at designated points
+ * in code from outside of the thread. In particular, it provides an interruptible version of the
+ * blocking CUDA synchronization function, that allows dropping a long-running GPU work.
+ */
 class interruptible {
  public:
   /**
@@ -53,7 +60,8 @@ class interruptible {
   }
 
   /**
-   * @brief Check the thread state, whether the thread is interrupted by `interruptible::cancel`.
+   * @brief Check the thread state, whether the thread can continue execution or is interrupted by
+   * `interruptible::cancel`.
    *
    * This is a cancellation point for an interruptible thread. It's called in the internals of
    * `interruptible::synchronize` in a loop. If two synchronize calls are far apart, it's
@@ -68,7 +76,8 @@ class interruptible {
   static inline void yield() { get_token()->yield_impl(); }
 
   /**
-   * @brief Check the thread state, whether the thread is interrupted by `interruptible::cancel`.
+   * @brief Check the thread state, whether the thread can continue execution or is interrupted by
+   * `interruptible::cancel`.
    *
    * Same as `interruptible::yield`, but does not throw an exception if the thread is cancelled.
    *
@@ -86,18 +95,22 @@ class interruptible {
   static inline auto get_token() -> std::shared_ptr<interruptible>
   {
     static thread_local std::shared_ptr<interruptible> s(
-      get_token(std::this_thread::get_id(), std::make_optional(thread_seq_id_)));
+      get_token_impl<true>(std::this_thread::get_id()));
     return s;
   }
 
   /**
    * @brief Get a cancellation token for a CPU thread given by its id.
    *
+   * The returned token may live longer than the associated thread. In that case, using its
+   * `cancel` method has no effect.
+   *
+   * @param [in] thread_id an id of a C++ CPU thread.
    * @return an object that can be used to cancel the GPU work waited on the given CPU thread.
    */
   static inline auto get_token(std::thread::id thread_id) -> std::shared_ptr<interruptible>
   {
-    return get_token(thread_id, std::nullopt);
+    return get_token_impl<false>(thread_id);
   }
 
   /**
@@ -132,47 +145,49 @@ class interruptible {
   static inline std::unordered_map<std::thread::id, std::weak_ptr<interruptible>> registry_;
   /** Protect the access to the registry. */
   static inline std::mutex mutex_;
-  /** Global counter of CPU threads. Used to generate unique `thread_seq_id_` (see below). */
-  static inline std::atomic_uint thread_seq_counter_ = 0;
-  /**
-   * Globally unique sequential id of the CPU thread, visible only to the owning thread.
-   *
-   * It serves to ensure that two `interruptible` tokens with the same thread::id do not
-   * compete for the same slot in the `registry_`. Two tokens may have the same thread::id
-   * when a user retains a token beyond the lifetime of the associated thread and its thread::id
-   * gets reused by the system.
-   */
-  static inline thread_local unsigned int thread_seq_id_ =
-    thread_seq_counter_.fetch_add(1, std::memory_order_relaxed);
 
-  static auto get_token(std::thread::id thread_id, std::optional<unsigned int> seq_id)
-    -> std::shared_ptr<interruptible>
+  /**
+   * Create a new interruptible token or get an existing from the global registry_.
+   *
+   * Presumptions:
+   *
+   *   1. get_token_impl<true> must be called at most once per thread.
+   *   2. When `Claim == true`, thread_id must be equal to std::this_thread::get_id().
+   *   3. get_token_impl<false> can be called as many times as needed, producing a valid
+   *      token for any input thread_id, independent of whether a C++ thread with this
+   *      id exists or not.
+   *
+   * @tparam Claim whether to bind the token to the given thread.
+   * @param [in] thread_id the id of the associated C++ thread.
+   * @return new or existing interruptible token.
+   */
+  template <bool Claim>
+  static auto get_token_impl(std::thread::id thread_id) -> std::shared_ptr<interruptible>
   {
     std::lock_guard<std::mutex> guard_get(mutex_);
     // the following constructs an empty shared_ptr if the key does not exist.
     auto& weak_store  = registry_[thread_id];
     auto thread_store = weak_store.lock();
-    if (!thread_store || (seq_id.has_value() && thread_store->assigned_seq_id_.has_value() &&
-                          seq_id != thread_store->assigned_seq_id_)) {
-      // Create a new thread store in two cases:
+    if (!thread_store || (Claim && thread_store->claimed_)) {
+      // Create a new thread_store in two cases:
       //  1. It does not exist in the map yet
       //  2. The previous store in the map has not yet been deleted
-      thread_store.reset(new interruptible(seq_id), [thread_id](auto ts) {
+      thread_store.reset(new interruptible(), [thread_id](auto ts) {
         std::lock_guard<std::mutex> guard_erase(mutex_);
         auto found = registry_.find(thread_id);
         if (found != registry_.end()) {
           auto stored = found->second.lock();
-          if (!stored || stored->assigned_seq_id_ == ts->assigned_seq_id_) {
-            registry_.erase(found);
-          }
+          // thread_store is not moveable, thus retains its original location.
+          // Not equal pointers below imply the new store has been already placed
+          // in the registry_ by the same std::thread::id
+          if (!stored || stored.get() == ts) { registry_.erase(found); }
         }
         delete ts;
       });
       std::weak_ptr<interruptible>(thread_store).swap(weak_store);
-    } else if (seq_id.has_value() && !thread_store->assigned_seq_id_.has_value()) {
-      // Assign a seq_id to this thread token, because it was created earlier oustide of the thread
-      thread_store->assigned_seq_id_ = seq_id;
     }
+    // The thread_store is "claimed" by the thread
+    if constexpr (Claim) { thread_store->claimed_ = true; }
     return thread_store;
   }
 
@@ -183,13 +198,10 @@ class interruptible {
    * These are the only two places where it's used.
    */
   std::atomic_flag continue_;
-  /** A unique sequential id assigned by the associated thread (see thread_seq_id_). */
-  std::optional<unsigned int> assigned_seq_id_;
+  /** This flag is set to true when the created token is placed into a thread-local storage. */
+  bool claimed_ = false;
 
-  explicit interruptible(std::optional<unsigned int> seq_id) noexcept : assigned_seq_id_(seq_id)
-  {
-    yield_no_throw_impl();
-  }
+  interruptible() noexcept { yield_no_throw_impl(); }
 
   void yield_impl()
   {
