@@ -145,8 +145,6 @@ add_library(raft_distance INTERFACE)
 add_library(raft::distance ALIAS raft_distance)
 set_target_properties(raft_distance PROPERTIES EXPORT_NAME distance)
 
-target_link_libraries(raft_distance INTERFACE raft::raft $<TARGET_NAME_IF_EXISTS:raft_distance_lib>)
-
 if(RAFT_COMPILE_LIBRARIES)
   add_library(raft_distance_lib SHARED
     src/distance/specializations/detail
@@ -180,13 +178,13 @@ if(RAFT_COMPILE_LIBRARIES)
           EXPORT raft-distance-exports)
 endif()
 
+target_link_libraries(raft_distance INTERFACE raft::raft $<TARGET_NAME_IF_EXISTS:raft_distance_lib>)
+
 ##############################################################################
 # - raft_nn ------------------------------------------------------------------
 add_library(raft_nn INTERFACE)
 add_library(raft::nn ALIAS raft_nn)
 set_target_properties(raft_nn PROPERTIES EXPORT_NAME nn)
-
-target_link_libraries(raft_nn INTERFACE raft::raft faiss::faiss $<TARGET_NAME_IF_EXISTS:raft_nn_lib>)
 
 if(RAFT_COMPILE_LIBRARIES)
   add_library(raft_nn_lib SHARED
@@ -202,13 +200,15 @@ if(RAFT_COMPILE_LIBRARIES)
           PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
           "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
           )
-  target_compile_definitions(raft_distance_lib
+  target_compile_definitions(raft_nn_lib
           INTERFACE "RAFT_NN_COMPILED")
 
   install(TARGETS raft_nn_lib
           DESTINATION ${lib_dir}
           EXPORT raft-nn-exports)
 endif()
+
+target_link_libraries(raft_nn INTERFACE raft::raft faiss::faiss $<TARGET_NAME_IF_EXISTS:raft_nn_lib>)
 
 ##############################################################################
 # - install targets-----------------------------------------------------------
@@ -286,7 +286,7 @@ endif()
 
 rapids_export(INSTALL raft
     EXPORT_SET raft-exports
-    GLOBAL_TARGETS raft distance nn
+    GLOBAL_TARGETS raft raft_distance raft_nn
     NAMESPACE raft::
     DOCUMENTATION doc_string
     FINAL_CODE_BLOCK code_string
@@ -297,7 +297,7 @@ rapids_export(INSTALL raft
 
 rapids_export(BUILD raft
     EXPORT_SET raft-exports
-    GLOBAL_TARGETS raft distance nn
+    GLOBAL_TARGETS raft raft_distance raft_nn
     DOCUMENTATION doc_string
     NAMESPACE raft::
     FINAL_CODE_BLOCK code_string
