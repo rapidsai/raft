@@ -286,7 +286,7 @@ endif()
 
 rapids_export(INSTALL raft
     EXPORT_SET raft-exports
-    GLOBAL_TARGETS raft raft_distance raft_nn
+    GLOBAL_TARGETS raft distance nn
     NAMESPACE raft::
     DOCUMENTATION doc_string
     FINAL_CODE_BLOCK code_string
@@ -297,7 +297,7 @@ rapids_export(INSTALL raft
 
 rapids_export(BUILD raft
     EXPORT_SET raft-exports
-    GLOBAL_TARGETS raft raft_distance raft_nn
+    GLOBAL_TARGETS raft distance nn
     DOCUMENTATION doc_string
     NAMESPACE raft::
     FINAL_CODE_BLOCK code_string
