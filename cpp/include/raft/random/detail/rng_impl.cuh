@@ -17,9 +17,9 @@
 #pragma once
 
 #include <curand_kernel.h>
-#include <raft/cuda_utils.cuh>
 #include <raft/common/cub_wrappers.cuh>
 #include <raft/common/scatter.cuh>
+#include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
 #include <random>
 #include <rmm/device_uvector.hpp>

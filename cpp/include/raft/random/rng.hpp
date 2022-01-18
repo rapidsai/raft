@@ -22,27 +22,27 @@ namespace raft {
 namespace random {
 
 using detail::GeneratorType;
-using detail::GenPhilox;
 using detail::GenPC;
+using detail::GenPhilox;
 
-using detail::PhiloxGenerator;
 using detail::PCGenerator;
+using detail::PhiloxGenerator;
 
+using detail::BernoulliDistParams;
+using detail::ExponentialDistParams;
+using detail::GumbelDistParams;
 using detail::InvariantDistParams;
-using detail::UniformDistParams;
-using detail::UniformIntDistParams;
+using detail::LaplaceDistParams;
+using detail::LogisticDistParams;
+using detail::LogNormalDistParams;
 using detail::NormalDistParams;
 using detail::NormalIntDistParams;
 using detail::NormalTableDistParams;
-using detail::BernoulliDistParams;
-using detail::ScaledBernoulliDistParams;
-using detail::GumbelDistParams;
-using detail::LogNormalDistParams;
-using detail::LogisticDistParams;
-using detail::ExponentialDistParams;
 using detail::RayleighDistParams;
-using detail::LaplaceDistParams;
 using detail::SamplingParams;
+using detail::ScaledBernoulliDistParams;
+using detail::UniformDistParams;
+using detail::UniformIntDistParams;
 
 // Not strictly needed due to C++ ADL rules
 using detail::custom_next;
@@ -81,10 +81,7 @@ class Rng : public detail::RngImpl {
    * @param _t backend device RNG generator type
    * @note Refer to the `Rng::seed` method for details about seeding the engine
    */
-  Rng(uint64_t _s, GeneratorType _t = GenPhilox)
-    : detail::RngImpl(_s, _t)
-  {
-  }
+  Rng(uint64_t _s, GeneratorType _t = GenPhilox) : detail::RngImpl(_s, _t) {}
 
   /**
    * @brief Generates the 'a' and 'b' parameters for a modulo affine
@@ -367,10 +364,10 @@ class Rng : public detail::RngImpl {
                                 IdxT len,
                                 cudaStream_t stream)
   {
-    detail::RngImpl::sampleWithoutReplacement(handle, out, outIdx, in, wts, sampledLen, len, stream);
+    detail::RngImpl::sampleWithoutReplacement(
+      handle, out, outIdx, in, wts, sampledLen, len, stream);
   }
 };
-
 
 };  // end namespace random
 };  // end namespace raft
