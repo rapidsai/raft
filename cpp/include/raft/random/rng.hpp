@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "rng_impl.cuh"
+#include "detail/rng_impl.cuh"
 
 namespace raft {
 namespace random {
