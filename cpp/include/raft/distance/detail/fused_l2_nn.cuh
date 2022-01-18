@@ -16,12 +16,12 @@
 
 #pragma once
 
-#include <stdint.h>
 #include <cub/cub.cuh>
 #include <limits>
 #include <raft/cuda_utils.cuh>
 #include <raft/distance/detail/pairwise_distance_base.cuh>
 #include <raft/linalg/contractions.cuh>
+#include <stdint.h>
 
 namespace raft {
 namespace distance {
@@ -289,11 +289,11 @@ void fusedL2NNImpl(OutT* min,
   // Accumulation operation lambda
   auto core_lambda = [] __device__(DataT & acc, DataT & x, DataT & y) { acc += x * y; };
 
-  CUDA_CHECK(cudaMemsetAsync(workspace, 0, sizeof(int) * m, stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(workspace, 0, sizeof(int) * m, stream));
   if (initOutBuffer) {
     initKernel<DataT, OutT, IdxT, ReduceOpT>
       <<<nblks, P::Nthreads, 0, stream>>>(min, m, maxVal, redOp);
-    CUDA_CHECK(cudaGetLastError());
+    RAFT_CUDA_TRY(cudaGetLastError());
   }
 
   auto fin_op = [] __device__(DataT d_val, int g_d_idx) { return d_val; };
@@ -328,7 +328,7 @@ void fusedL2NNImpl(OutT* min,
       min, x, y, xn, yn, m, n, k, maxVal, workspace, redOp, pairRedOp, core_lambda, fin_op);
   }
 
-  CUDA_CHECK(cudaGetLastError());
+  RAFT_CUDA_TRY(cudaGetLastError());
 }
 
 }  // namespace detail

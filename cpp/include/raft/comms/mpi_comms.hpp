@@ -18,6 +18,12 @@
 
 #include <raft/comms/comms.hpp>
 #include <raft/comms/detail/mpi_comms.hpp>
+>>>>>>> branch-22.02
+
+// FIXME: Remove after consumer rename
+#ifndef MPI_TRY_NO_THROW
+#define MPI_TRY_NO_THROW(call) RAFT_MPI_TRY_NO_THROW(call)
+#endif
 
 namespace raft {
 namespace comms {
@@ -27,7 +33,7 @@ using mpi_comms = detail::mpi_comms;
 inline void initialize_mpi_comms(handle_t* handle, MPI_Comm comm)
 {
   auto communicator =
-    std::make_shared<comms_t>(std::unique_ptr<comms_iface>(new mpi_comms(comm, true)));
+    std::make_shared<comms_t>(std::unique_ptr<comms_iface>(new mpi_comms(comm, false)));
   handle->set_comms(communicator);
 };
 

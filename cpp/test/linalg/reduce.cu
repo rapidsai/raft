@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
-#include <raft/cuda_utils.cuh>
-#include <raft/linalg/reduce.cuh>
-#include <raft/random/rng.hpp>
 #include "../test_utils.h"
 #include "reduce.cuh"
+#include <gtest/gtest.h>
+#include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
+#include <raft/linalg/reduce.cuh>
+#include <raft/random/rng.hpp>
 
 namespace raft {
 namespace linalg {
@@ -96,7 +96,7 @@ class ReduceTest : public ::testing::TestWithParam<ReduceInputs<InType, OutType>
       reduceLaunch(
         dots_act.data(), data.data(), cols, rows, params.rowMajor, params.alongRows, true, stream);
     }
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
  protected:

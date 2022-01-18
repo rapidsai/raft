@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
+#include "../test_utils.h"
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/random/rng.hpp>
 #include <set>
 #include <vector>
-#include "../test_utils.h"
 
 namespace raft {
 namespace random {
@@ -77,7 +77,7 @@ class SWoRTest : public ::testing::TestWithParam<SWoRInputs<T>> {
                                params.len,
                                stream);
     update_host(&(h_outIdx[0]), outIdx.data(), params.sampledLen, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
  protected:

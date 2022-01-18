@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
+#include "../test_utils.h"
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
 #include <limits>
+#include <raft/cudart_utils.h>
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/random/rng.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
-#include "../test_utils.h"
 
 namespace raft {
 namespace linalg {
@@ -39,7 +39,7 @@ void naiveMapReduce(OutType* out, const InType* in, size_t len, MapOp map, cudaS
   static const int TPB = 64;
   int nblks            = raft::ceildiv(len, (size_t)TPB);
   naiveMapReduceKernel<InType, OutType, MapOp><<<nblks, TPB, 0, stream>>>(out, in, len, map);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 template <typename T>
@@ -87,7 +87,7 @@ class MapReduceTest : public ::testing::TestWithParam<MapReduceInputs<InType>> {
     auto len = params.len;
     r.uniform(in.data(), len, InType(-1.0), InType(1.0), stream);
     mapReduceLaunch(out_ref.data(), out.data(), in.data(), len, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
  protected:
@@ -103,16 +103,16 @@ const std::vector<MapReduceInputs<float>> inputsf = {{0.001f, 1024 * 1024, 1234U
 typedef MapReduceTest<float, float> MapReduceTestFF;
 TEST_P(MapReduceTestFF, Result)
 {
-  ASSERT_TRUE(
-    devArrMatch(out_ref.data(), out.data(), params.len, CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(
+    out_ref.data(), out.data(), params.len, CompareApprox<float>(params.tolerance), stream));
 }
 INSTANTIATE_TEST_SUITE_P(MapReduceTests, MapReduceTestFF, ::testing::ValuesIn(inputsf));
 
 typedef MapReduceTest<float, double> MapReduceTestFD;
 TEST_P(MapReduceTestFD, Result)
 {
-  ASSERT_TRUE(
-    devArrMatch(out_ref.data(), out.data(), params.len, CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(
+    out_ref.data(), out.data(), params.len, CompareApprox<double>(params.tolerance), stream));
 }
 INSTANTIATE_TEST_SUITE_P(MapReduceTests, MapReduceTestFD, ::testing::ValuesIn(inputsf));
 
@@ -120,8 +120,8 @@ const std::vector<MapReduceInputs<double>> inputsd = {{0.000001, 1024 * 1024, 12
 typedef MapReduceTest<double, double> MapReduceTestDD;
 TEST_P(MapReduceTestDD, Result)
 {
-  ASSERT_TRUE(
-    devArrMatch(out_ref.data(), out.data(), params.len, CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(
+    out_ref.data(), out.data(), params.len, CompareApprox<double>(params.tolerance), stream));
 }
 INSTANTIATE_TEST_SUITE_P(MapReduceTests, MapReduceTestDD, ::testing::ValuesIn(inputsd));
 
@@ -133,37 +133,37 @@ class MapGenericReduceTest : public ::testing::Test {
  protected:
   MapGenericReduceTest() : input(n, handle.get_stream()), output(handle.get_stream())
   {
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    handle.set_stream(stream);
-    initInput(input.data(), input.size(), stream);
+    initInput(input.data(), input.size(), handle.get_stream());
   }
-
-  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
 
  public:
   void initInput(InType* input, int n, cudaStream_t stream)
   {
     raft::random::Rng r(137);
-    r.uniform(input, n, InType(2), InType(3), stream);
+    r.uniform(input, n, InType(2), InType(3), handle.get_stream());
     InType val = 1;
-    raft::update_device(input + 42, &val, 1, stream);
+    raft::update_device(input + 42, &val, 1, handle.get_stream());
     val = 5;
-    raft::update_device(input + 337, &val, 1, stream);
+    raft::update_device(input + 337, &val, 1, handle.get_stream());
   }
 
   void testMin()
   {
     auto op               = [] __device__(InType in) { return in; };
     const OutType neutral = std::numeric_limits<InType>::max();
-    mapThenReduce(output.data(), input.size(), neutral, op, cub::Min(), stream, input.data());
-    EXPECT_TRUE(raft::devArrMatch(OutType(1), output.data(), 1, raft::Compare<OutType>()));
+    mapThenReduce(
+      output.data(), input.size(), neutral, op, cub::Min(), handle.get_stream(), input.data());
+    EXPECT_TRUE(raft::devArrMatch(
+      OutType(1), output.data(), 1, raft::Compare<OutType>(), handle.get_stream()));
   }
   void testMax()
   {
     auto op               = [] __device__(InType in) { return in; };
     const OutType neutral = std::numeric_limits<InType>::min();
-    mapThenReduce(output.data(), input.size(), neutral, op, cub::Max(), stream, input.data());
-    EXPECT_TRUE(raft::devArrMatch(OutType(5), output.data(), 1, raft::Compare<OutType>()));
+    mapThenReduce(
+      output.data(), input.size(), neutral, op, cub::Max(), handle.get_stream(), input.data());
+    EXPECT_TRUE(raft::devArrMatch(
+      OutType(5), output.data(), 1, raft::Compare<OutType>(), handle.get_stream()));
   }
 
  protected:

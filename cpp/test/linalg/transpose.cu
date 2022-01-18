@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
+#include "../test_utils.h"
 #include <gtest/gtest.h>
+#include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/transpose.h>
-#include <raft/cuda_utils.cuh>
 #include <raft/random/rng.hpp>
-#include "../test_utils.h"
 
 namespace raft {
 namespace linalg {
@@ -63,7 +63,7 @@ class TransposeTest : public ::testing::TestWithParam<TranposeInputs<T>> {
 
     transpose(handle, data.data(), data_trans.data(), params.n_row, params.n_col, stream);
     transpose(data.data(), params.n_row, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
  protected:

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,14 +17,6 @@
 #pragma once
 
 #include "detail/math.cuh"
-
-#include <raft/handle.hpp>
-#include <raft/linalg/binary_op.cuh>
-#include <raft/linalg/map_then_reduce.cuh>
-#include <raft/linalg/matrix_vector_op.cuh>
-#include <raft/linalg/unary_op.cuh>
-#include <rmm/device_scalar.hpp>
-#include <rmm/device_uvector.hpp>
 
 namespace raft {
 namespace matrix {
@@ -45,16 +37,7 @@ namespace matrix {
 template <typename math_t>
 void power(math_t* in, math_t* out, math_t scalar, int len, cudaStream_t stream)
 {
-  auto d_src  = in;
-  auto d_dest = out;
-
-  raft::linalg::binaryOp(
-    d_dest,
-    d_src,
-    d_src,
-    len,
-    [=] __device__(math_t a, math_t b) { return scalar * a * b; },
-    stream);
+  detail::power(in, out, scalar, len, stream);
 }
 
 /**
@@ -67,7 +50,7 @@ void power(math_t* in, math_t* out, math_t scalar, int len, cudaStream_t stream)
 template <typename math_t>
 void power(math_t* inout, math_t scalar, int len, cudaStream_t stream)
 {
-  power(inout, inout, scalar, len, stream);
+  detail::power(inout, scalar, len, stream);
 }
 
 /**
@@ -79,8 +62,7 @@ void power(math_t* inout, math_t scalar, int len, cudaStream_t stream)
 template <typename math_t>
 void power(math_t* inout, int len, cudaStream_t stream)
 {
-  math_t scalar = 1.0;
-  power(inout, scalar, len, stream);
+  detail::power(inout, len, stream);
 }
 
 /**
@@ -94,8 +76,7 @@ void power(math_t* inout, int len, cudaStream_t stream)
 template <typename math_t>
 void power(math_t* in, math_t* out, int len, cudaStream_t stream)
 {
-  math_t scalar = 1.0;
-  power(in, out, scalar, len, stream);
+  detail::power(in, out, len, stream);
 }
 
 /**
@@ -117,25 +98,7 @@ void seqRoot(math_t* in,
              cudaStream_t stream,
              bool set_neg_zero = false)
 {
-  auto d_src  = in;
-  auto d_dest = out;
-
-  raft::linalg::unaryOp(
-    d_dest,
-    d_src,
-    len,
-    [=] __device__(math_t a) {
-      if (set_neg_zero) {
-        if (a < math_t(0)) {
-          return math_t(0);
-        } else {
-          return sqrt(a * scalar);
-        }
-      } else {
-        return sqrt(a * scalar);
-      }
-    },
-    stream);
+  detail::seqRoot(in, out, scalar, len, stream, set_neg_zero);
 }
 
 /**
@@ -152,7 +115,7 @@ template <typename math_t, typename IdxType = int>
 void seqRoot(
   math_t* inout, math_t scalar, IdxType len, cudaStream_t stream, bool set_neg_zero = false)
 {
-  seqRoot(inout, inout, scalar, len, stream, set_neg_zero);
+  detail::seqRoot(inout, scalar, len, stream, set_neg_zero);
 }
 
 /**
@@ -167,33 +130,38 @@ void seqRoot(
 template <typename math_t, typename IdxType = int>
 void seqRoot(math_t* in, math_t* out, IdxType len, cudaStream_t stream)
 {
-  math_t scalar = 1.0;
-  seqRoot(in, out, scalar, len, stream);
+  detail::seqRoot(in, out, len, stream);
 }
 
+/**
+ * @brief Square root of every element in the input matrix
+ * @tparam math_t data-type upon which the math operation will be performed
+ * @tparam IdxType Integer type used to for addressing
+ * @param inout: input matrix with in-place results
+ * @param len: number elements of input matrix
+ * @param stream cuda stream
+ */
 template <typename math_t, typename IdxType = int>
 void seqRoot(math_t* inout, IdxType len, cudaStream_t stream)
 {
-  math_t scalar = 1.0;
-  seqRoot(inout, inout, scalar, len, stream);
+  detail::seqRoot(inout, len, stream);
 }
 
+/**
+ * @brief sets the small values to zero based on a defined threshold
+ * @tparam math_t data-type upon which the math operation will be performed
+ * @tparam IdxType Integer type used to for addressing
+ * @param out: output matrix. The result is stored in the out matrix
+ * @param in: input matrix
+ * @param len: number elements of input matrix
+ * @param stream cuda stream
+ * @param thres threshold to set values to zero
+ */
 template <typename math_t, typename IdxType = int>
 void setSmallValuesZero(
   math_t* out, const math_t* in, IdxType len, cudaStream_t stream, math_t thres = 1e-15)
 {
-  raft::linalg::unaryOp(
-    out,
-    in,
-    len,
-    [=] __device__(math_t a) {
-      if (a <= thres && -a <= thres) {
-        return math_t(0);
-      } else {
-        return a;
-      }
-    },
-    stream);
+  detail::setSmallValuesZero(out, in, len, stream, thres);
 }
 
 /**
@@ -208,7 +176,7 @@ void setSmallValuesZero(
 template <typename math_t, typename IdxType = int>
 void setSmallValuesZero(math_t* inout, IdxType len, cudaStream_t stream, math_t thres = 1e-15)
 {
-  setSmallValuesZero(inout, inout, len, stream, thres);
+  detail::setSmallValuesZero(inout, len, stream, thres);
 }
 
 /**
@@ -233,37 +201,20 @@ void reciprocal(math_t* in,
                 bool setzero = false,
                 math_t thres = 1e-15)
 {
-  auto d_src  = in;
-  auto d_dest = out;
-
-  raft::linalg::unaryOp(
-    d_dest,
-    d_src,
-    len,
-    [=] __device__(math_t a) {
-      if (setzero) {
-        if (abs(a) <= thres) {
-          return math_t(0);
-        } else {
-          return scalar / a;
-        }
-      } else {
-        return scalar / a;
-      }
-    },
-    stream);
+  detail::reciprocal(in, out, scalar, len, stream, setzero, thres);
 }
 
 /**
  * @brief Reciprocal of every element in the input matrix
  * @tparam math_t data-type upon which the math operation will be performed
  * @tparam IdxType Integer type used to for addressing
- * @param inout: input matrix and also the result is stored
+ * @param inout: input matrix with in-place results
  * @param scalar: every element is multiplied with scalar
  * @param len: number elements of input matrix
  * @param stream cuda stream
- * @param setzero: (default false) when true and |value|<thres, avoid dividing by (almost) zero
- * @param thres: Threshold to avoid dividing by zero (|value| < thres -> result = 0)
+ * @param setzero round down to zero if the input is less the threshold
+ * @param thres the threshold used to forcibly set inputs to zero
+ * @{
  */
 template <typename math_t, typename IdxType = int>
 void reciprocal(math_t* inout,
@@ -273,7 +224,7 @@ void reciprocal(math_t* inout,
                 bool setzero = false,
                 math_t thres = 1e-15)
 {
-  reciprocal(inout, inout, scalar, len, stream, setzero, thres);
+  detail::reciprocal(inout, scalar, len, stream, setzero, thres);
 }
 
 /**
@@ -287,8 +238,7 @@ void reciprocal(math_t* inout,
 template <typename math_t, typename IdxType = int>
 void reciprocal(math_t* inout, IdxType len, cudaStream_t stream)
 {
-  math_t scalar = 1.0;
-  reciprocal(inout, scalar, len, stream);
+  detail::reciprocal(inout, len, stream);
 }
 
 /**
@@ -303,21 +253,29 @@ void reciprocal(math_t* inout, IdxType len, cudaStream_t stream)
 template <typename math_t, typename IdxType = int>
 void reciprocal(math_t* in, math_t* out, IdxType len, cudaStream_t stream)
 {
-  math_t scalar = 1.0;
-  reciprocal(in, out, scalar, len, stream);
+  detail::reciprocal(in, out, len, stream);
 }
 
+/**
+ * @brief set values to scalar in matrix
+ * @tparam math_t data-type upon which the math operation will be performed
+ * @param out output matrix. The result is stored in the out matrix
+ * @param in input matrix
+ * @param scalar svalar value
+ * @param len number elements of input matrix
+ * @param stream cuda stream
+ */
 template <typename math_t>
 void setValue(math_t* out, const math_t* in, math_t scalar, int len, cudaStream_t stream = 0)
 {
-  raft::linalg::unaryOp(
-    out, in, len, [scalar] __device__(math_t in) { return scalar; }, stream);
+  detail::setValue(out, in, scalar, len, stream);
 }
 
 /**
  * @brief ratio of every element over sum of input vector is calculated
  * @tparam math_t data-type upon which the math operation will be performed
  * @tparam IdxType Integer type used to for addressing
+ * @param handle
  * @param src: input matrix
  * @param dest: output matrix. The result is stored in the dest matrix
  * @param len: number elements of input matrix
@@ -327,15 +285,7 @@ template <typename math_t, typename IdxType = int>
 void ratio(
   const raft::handle_t& handle, math_t* src, math_t* dest, IdxType len, cudaStream_t stream)
 {
-  auto d_src  = src;
-  auto d_dest = dest;
-
-  rmm::device_scalar<math_t> d_sum(stream);
-  auto* d_sum_ptr = d_sum.data();
-  auto no_op      = [] __device__(math_t in) { return in; };
-  raft::linalg::mapThenSumReduce(d_sum_ptr, len, no_op, stream, src);
-  raft::linalg::unaryOp(
-    d_dest, d_src, len, [=] __device__(math_t a) { return a / (*d_sum_ptr); }, stream);
+  detail::ratio(handle, src, dest, len, stream);
 }
 
 /** @} */
@@ -368,6 +318,16 @@ void signFlip(math_t* inout, int n_rows, int n_cols, cudaStream_t stream)
   detail::signFlip(inout, n_rows, n_cols, stream);
 }
 
+/**
+ * @brief multiply each row or column of matrix with vector
+ * @param data input matrix, results are in-place
+ * @param vec input vector
+ * @param n_row number of rows of input matrix
+ * @param n_col number of columns of input matrix
+ * @param rowMajor whether matrix is row major
+ * @param bcastAlongRows whether to broadcast vector along rows of matrix or columns
+ * @param stream cuda stream
+ */
 template <typename Type, typename IdxType = int, int TPB = 256>
 void matrixVectorBinaryMult(Type* data,
                             const Type* vec,
@@ -377,18 +337,20 @@ void matrixVectorBinaryMult(Type* data,
                             bool bcastAlongRows,
                             cudaStream_t stream)
 {
-  raft::linalg::matrixVectorOp(
-    data,
-    data,
-    vec,
-    n_col,
-    n_row,
-    rowMajor,
-    bcastAlongRows,
-    [] __device__(Type a, Type b) { return a * b; },
-    stream);
+  detail::matrixVectorBinaryMult<Type, IdxType, TPB>(
+    data, vec, n_row, n_col, rowMajor, bcastAlongRows, stream);
 }
 
+/**
+ * @brief multiply each row or column of matrix with vector, skipping zeros in vector
+ * @param data input matrix, results are in-place
+ * @param vec input vector
+ * @param n_row number of rows of input matrix
+ * @param n_col number of columns of input matrix
+ * @param rowMajor whether matrix is row major
+ * @param bcastAlongRows whether to broadcast vector along rows of matrix or columns
+ * @param stream cuda stream
+ */
 template <typename Type, typename IdxType = int, int TPB = 256>
 void matrixVectorBinaryMultSkipZero(Type* data,
                                     const Type* vec,
@@ -398,23 +360,20 @@ void matrixVectorBinaryMultSkipZero(Type* data,
                                     bool bcastAlongRows,
                                     cudaStream_t stream)
 {
-  raft::linalg::matrixVectorOp(
-    data,
-    data,
-    vec,
-    n_col,
-    n_row,
-    rowMajor,
-    bcastAlongRows,
-    [] __device__(Type a, Type b) {
-      if (b == Type(0))
-        return a;
-      else
-        return a * b;
-    },
-    stream);
+  detail::matrixVectorBinaryMultSkipZero<Type, IdxType, TPB>(
+    data, vec, n_row, n_col, rowMajor, bcastAlongRows, stream);
 }
 
+/**
+ * @brief divide each row or column of matrix with vector
+ * @param data input matrix, results are in-place
+ * @param vec input vector
+ * @param n_row number of rows of input matrix
+ * @param n_col number of columns of input matrix
+ * @param rowMajor whether matrix is row major
+ * @param bcastAlongRows whether to broadcast vector along rows of matrix or columns
+ * @param stream cuda stream
+ */
 template <typename Type, typename IdxType = int, int TPB = 256>
 void matrixVectorBinaryDiv(Type* data,
                            const Type* vec,
@@ -424,18 +383,22 @@ void matrixVectorBinaryDiv(Type* data,
                            bool bcastAlongRows,
                            cudaStream_t stream)
 {
-  raft::linalg::matrixVectorOp(
-    data,
-    data,
-    vec,
-    n_col,
-    n_row,
-    rowMajor,
-    bcastAlongRows,
-    [] __device__(Type a, Type b) { return a / b; },
-    stream);
+  detail::matrixVectorBinaryDiv<Type, IdxType, TPB>(
+    data, vec, n_row, n_col, rowMajor, bcastAlongRows, stream);
 }
 
+/**
+ * @brief divide each row or column of matrix with vector, skipping zeros in vector
+ * @param data input matrix, results are in-place
+ * @param vec input vector
+ * @param n_row number of rows of input matrix
+ * @param n_col number of columns of input matrix
+ * @param rowMajor whether matrix is row major
+ * @param bcastAlongRows whether to broadcast vector along rows of matrix or columns
+ * @param stream cuda stream
+ * @param return_zero result is zero if true and vector value is below threshold, original value if
+ * false
+ */
 template <typename Type, typename IdxType = int, int TPB = 256>
 void matrixVectorBinaryDivSkipZero(Type* data,
                                    const Type* vec,
@@ -446,41 +409,20 @@ void matrixVectorBinaryDivSkipZero(Type* data,
                                    cudaStream_t stream,
                                    bool return_zero = false)
 {
-  if (return_zero) {
-    raft::linalg::matrixVectorOp(
-      data,
-      data,
-      vec,
-      n_col,
-      n_row,
-      rowMajor,
-      bcastAlongRows,
-      [] __device__(Type a, Type b) {
-        if (raft::myAbs(b) < Type(1e-10))
-          return Type(0);
-        else
-          return a / b;
-      },
-      stream);
-  } else {
-    raft::linalg::matrixVectorOp(
-      data,
-      data,
-      vec,
-      n_col,
-      n_row,
-      rowMajor,
-      bcastAlongRows,
-      [] __device__(Type a, Type b) {
-        if (raft::myAbs(b) < Type(1e-10))
-          return a;
-        else
-          return a / b;
-      },
-      stream);
-  }
+  detail::matrixVectorBinaryDivSkipZero<Type, IdxType, TPB>(
+    data, vec, n_row, n_col, rowMajor, bcastAlongRows, stream, return_zero);
 }
 
+/**
+ * @brief add each row or column of matrix with vector
+ * @param data input matrix, results are in-place
+ * @param vec input vector
+ * @param n_row number of rows of input matrix
+ * @param n_col number of columns of input matrix
+ * @param rowMajor whether matrix is row major
+ * @param bcastAlongRows whether to broadcast vector along rows of matrix or columns
+ * @param stream cuda stream
+ */
 template <typename Type, typename IdxType = int, int TPB = 256>
 void matrixVectorBinaryAdd(Type* data,
                            const Type* vec,
@@ -490,18 +432,20 @@ void matrixVectorBinaryAdd(Type* data,
                            bool bcastAlongRows,
                            cudaStream_t stream)
 {
-  raft::linalg::matrixVectorOp(
-    data,
-    data,
-    vec,
-    n_col,
-    n_row,
-    rowMajor,
-    bcastAlongRows,
-    [] __device__(Type a, Type b) { return a + b; },
-    stream);
+  detail::matrixVectorBinaryAdd<Type, IdxType, TPB>(
+    data, vec, n_row, n_col, rowMajor, bcastAlongRows, stream);
 }
 
+/**
+ * @brief subtract each row or column of matrix with vector
+ * @param data input matrix, results are in-place
+ * @param vec input vector
+ * @param n_row number of rows of input matrix
+ * @param n_col number of columns of input matrix
+ * @param rowMajor whether matrix is row major
+ * @param bcastAlongRows whether to broadcast vector along rows of matrix or columns
+ * @param stream cuda stream
+ */
 template <typename Type, typename IdxType = int, int TPB = 256>
 void matrixVectorBinarySub(Type* data,
                            const Type* vec,
@@ -511,16 +455,8 @@ void matrixVectorBinarySub(Type* data,
                            bool bcastAlongRows,
                            cudaStream_t stream)
 {
-  raft::linalg::matrixVectorOp(
-    data,
-    data,
-    vec,
-    n_col,
-    n_row,
-    rowMajor,
-    bcastAlongRows,
-    [] __device__(Type a, Type b) { return a - b; },
-    stream);
+  detail::matrixVectorBinarySub<Type, IdxType, TPB>(
+    data, vec, n_row, n_col, rowMajor, bcastAlongRows, stream);
 }
 
 };  // end namespace matrix

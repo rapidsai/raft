@@ -108,6 +108,8 @@ get_type<double>()
 
 class comms_iface {
  public:
+  virtual ~comms_iface() {}
+
   virtual int get_size() const = 0;
 
   virtual int get_rank() const = 0;

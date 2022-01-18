@@ -18,12 +18,12 @@
 
 #include <limits.h>
 
+#include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/distance_type.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/sparse/detail/utils.h>
 #include <raft/sparse/distance/common.h>
-#include <raft/cuda_utils.cuh>
 #include <raft/sparse/distance/detail/ip_distance.cuh>
 #include <rmm/device_uvector.hpp>
 
@@ -99,8 +99,8 @@ void compute_bin_distance(value_t* out,
 {
   rmm::device_uvector<value_t> Q_norms(m, stream);
   rmm::device_uvector<value_t> R_norms(n, stream);
-  CUDA_CHECK(cudaMemsetAsync(Q_norms.data(), 0, Q_norms.size() * sizeof(value_t)));
-  CUDA_CHECK(cudaMemsetAsync(R_norms.data(), 0, R_norms.size() * sizeof(value_t)));
+  RAFT_CUDA_TRY(cudaMemsetAsync(Q_norms.data(), 0, Q_norms.size() * sizeof(value_t)));
+  RAFT_CUDA_TRY(cudaMemsetAsync(R_norms.data(), 0, R_norms.size() * sizeof(value_t)));
 
   compute_binary_row_norm_kernel<<<raft::ceildiv(Q_nnz, tpb), tpb, 0, stream>>>(
     Q_norms.data(), Q_coo_rows, Q_data, Q_nnz);

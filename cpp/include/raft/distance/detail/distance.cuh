@@ -17,7 +17,6 @@
 #pragma once
 
 #include <cuda_runtime_api.h>
-#include <raft/linalg/distance_type.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/distance/detail/canberra.cuh>
 #include <raft/distance/detail/chebyshev.cuh>
@@ -31,6 +30,7 @@
 #include <raft/distance/detail/l1.cuh>
 #include <raft/distance/detail/minkowski.cuh>
 #include <raft/distance/detail/russell_rao.cuh>
+#include <raft/linalg/distance_type.h>
 #include <rmm/device_uvector.hpp>
 
 namespace raft {
@@ -591,7 +591,7 @@ void distance(const InType* x,
 {
   DistanceImpl<distanceType, InType, AccType, OutType, FinalLambda, Index_> distImpl;
   distImpl.run(x, y, dist, m, n, k, workspace, worksize, fin_op, stream, isRowMajor, metric_arg);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 /**
@@ -635,7 +635,7 @@ void distance(const InType* x,
   auto default_fin_op = [] __device__(AccType d_val, Index_ g_d_idx) { return d_val; };
   distance<distanceType, InType, AccType, OutType, decltype(default_fin_op), Index_>(
     x, y, dist, m, n, k, workspace, worksize, default_fin_op, stream, isRowMajor, metric_arg);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 /**

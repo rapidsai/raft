@@ -17,9 +17,9 @@
 #pragma once
 
 #include <cusparse_v2.h>
+#include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/sparse/cusparse_wrappers.h>
-#include <raft/cuda_utils.cuh>
 
 #include <thrust/device_ptr.h>
 #include <thrust/scan.h>
@@ -29,8 +29,8 @@
 #include <algorithm>
 #include <iostream>
 
-#include <raft/sparse/detail/utils.h>
 #include <raft/sparse/coo.hpp>
+#include <raft/sparse/detail/utils.h>
 
 namespace raft {
 namespace sparse {
@@ -71,7 +71,7 @@ void csr_to_coo(
 
   csr_to_coo_kernel<value_idx, TPB_X><<<grid, blk, 0, stream>>>(row_ind, m, coo_rows, nnz);
 
-  CUDA_CHECK(cudaGetLastError());
+  RAFT_CUDA_TRY(cudaGetLastError());
 }
 
 };  // end NAMESPACE detail

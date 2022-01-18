@@ -47,13 +47,13 @@ bool test_collective_allreduce(const handle_t& handle, int root)
   cudaStream_t stream = handle.get_stream();
 
   rmm::device_scalar<int> temp_d(stream);
-  CUDA_CHECK(cudaMemcpyAsync(temp_d.data(), &send, 1, cudaMemcpyHostToDevice, stream));
+  RAFT_CUDA_TRY(cudaMemcpyAsync(temp_d.data(), &send, 1, cudaMemcpyHostToDevice, stream));
 
   communicator.allreduce(temp_d.data(), temp_d.data(), 1, op_t::SUM, stream);
 
   int temp_h = 0;
-  CUDA_CHECK(cudaMemcpyAsync(&temp_h, temp_d.data(), 1, cudaMemcpyDeviceToHost, stream));
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  RAFT_CUDA_TRY(cudaMemcpyAsync(&temp_h, temp_d.data(), 1, cudaMemcpyDeviceToHost, stream));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   communicator.barrier();
 
   std::cout << "Clique size: " << communicator.get_size() << std::endl;
@@ -80,13 +80,15 @@ bool test_collective_broadcast(const handle_t& handle, int root)
   rmm::device_scalar<int> temp_d(stream);
 
   if (communicator.get_rank() == root)
-    CUDA_CHECK(cudaMemcpyAsync(temp_d.data(), &send, sizeof(int), cudaMemcpyHostToDevice, stream));
+    RAFT_CUDA_TRY(
+      cudaMemcpyAsync(temp_d.data(), &send, sizeof(int), cudaMemcpyHostToDevice, stream));
 
   communicator.bcast(temp_d.data(), 1, root, stream);
   communicator.sync_stream(stream);
   int temp_h = -1;  // Verify more than one byte is being sent
-  CUDA_CHECK(cudaMemcpyAsync(&temp_h, temp_d.data(), sizeof(int), cudaMemcpyDeviceToHost, stream));
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  RAFT_CUDA_TRY(
+    cudaMemcpyAsync(&temp_h, temp_d.data(), sizeof(int), cudaMemcpyDeviceToHost, stream));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   communicator.barrier();
 
   std::cout << "Clique size: " << communicator.get_size() << std::endl;
@@ -112,13 +114,14 @@ bool test_collective_reduce(const handle_t& handle, int root)
 
   rmm::device_scalar<int> temp_d(stream);
 
-  CUDA_CHECK(cudaMemcpyAsync(temp_d.data(), &send, sizeof(int), cudaMemcpyHostToDevice, stream));
+  RAFT_CUDA_TRY(cudaMemcpyAsync(temp_d.data(), &send, sizeof(int), cudaMemcpyHostToDevice, stream));
 
   communicator.reduce(temp_d.data(), temp_d.data(), 1, op_t::SUM, root, stream);
   communicator.sync_stream(stream);
   int temp_h = -1;  // Verify more than one byte is being sent
-  CUDA_CHECK(cudaMemcpyAsync(&temp_h, temp_d.data(), sizeof(int), cudaMemcpyDeviceToHost, stream));
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  RAFT_CUDA_TRY(
+    cudaMemcpyAsync(&temp_h, temp_d.data(), sizeof(int), cudaMemcpyDeviceToHost, stream));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   communicator.barrier();
 
   std::cout << "Clique size: " << communicator.get_size() << std::endl;
@@ -148,14 +151,14 @@ bool test_collective_allgather(const handle_t& handle, int root)
   rmm::device_scalar<int> temp_d(stream);
   rmm::device_uvector<int> recv_d(communicator.get_size(), stream);
 
-  CUDA_CHECK(cudaMemcpyAsync(temp_d.data(), &send, sizeof(int), cudaMemcpyHostToDevice, stream));
+  RAFT_CUDA_TRY(cudaMemcpyAsync(temp_d.data(), &send, sizeof(int), cudaMemcpyHostToDevice, stream));
 
   communicator.allgather(temp_d.data(), recv_d.data(), 1, stream);
   communicator.sync_stream(stream);
   int temp_h[communicator.get_size()];  // Verify more than one byte is being sent
-  CUDA_CHECK(cudaMemcpyAsync(
+  RAFT_CUDA_TRY(cudaMemcpyAsync(
     &temp_h, recv_d.data(), sizeof(int) * communicator.get_size(), cudaMemcpyDeviceToHost, stream));
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   communicator.barrier();
 
   std::cout << "Clique size: " << communicator.get_size() << std::endl;
@@ -186,16 +189,16 @@ bool test_collective_gather(const handle_t& handle, int root)
   rmm::device_uvector<int> recv_d(communicator.get_rank() == root ? communicator.get_size() : 0,
                                   stream);
 
-  CUDA_CHECK(cudaMemcpyAsync(temp_d.data(), &send, sizeof(int), cudaMemcpyHostToDevice, stream));
+  RAFT_CUDA_TRY(cudaMemcpyAsync(temp_d.data(), &send, sizeof(int), cudaMemcpyHostToDevice, stream));
 
   communicator.gather(temp_d.data(), recv_d.data(), 1, root, stream);
   communicator.sync_stream(stream);
 
   if (communicator.get_rank() == root) {
     std::vector<int> temp_h(communicator.get_size(), 0);
-    CUDA_CHECK(cudaMemcpyAsync(
+    RAFT_CUDA_TRY(cudaMemcpyAsync(
       temp_h.data(), recv_d.data(), sizeof(int) * temp_h.size(), cudaMemcpyDeviceToHost, stream));
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
     for (int i = 0; i < communicator.get_size(); i++) {
       if (temp_h[i] != i) return false;
@@ -230,7 +233,7 @@ bool test_collective_gatherv(const handle_t& handle, int root)
   rmm::device_uvector<int> recv_d(communicator.get_rank() == root ? displacements.back() : 0,
                                   stream);
 
-  CUDA_CHECK(cudaMemcpyAsync(
+  RAFT_CUDA_TRY(cudaMemcpyAsync(
     temp_d.data(), sends.data(), sends.size() * sizeof(int), cudaMemcpyHostToDevice, stream));
 
   communicator.gatherv(
@@ -245,12 +248,12 @@ bool test_collective_gatherv(const handle_t& handle, int root)
 
   if (communicator.get_rank() == root) {
     std::vector<int> temp_h(displacements.back(), 0);
-    CUDA_CHECK(cudaMemcpyAsync(temp_h.data(),
-                               recv_d.data(),
-                               sizeof(int) * displacements.back(),
-                               cudaMemcpyDeviceToHost,
-                               stream));
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaMemcpyAsync(temp_h.data(),
+                                  recv_d.data(),
+                                  sizeof(int) * displacements.back(),
+                                  cudaMemcpyDeviceToHost,
+                                  stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
     for (int i = 0; i < communicator.get_size(); i++) {
       if (std::count_if(temp_h.begin() + displacements[i],
@@ -281,14 +284,15 @@ bool test_collective_reducescatter(const handle_t& handle, int root)
   rmm::device_uvector<int> temp_d(sends.size(), stream);
   rmm::device_scalar<int> recv_d(stream);
 
-  CUDA_CHECK(cudaMemcpyAsync(
+  RAFT_CUDA_TRY(cudaMemcpyAsync(
     temp_d.data(), sends.data(), sends.size() * sizeof(int), cudaMemcpyHostToDevice, stream));
 
   communicator.reducescatter(temp_d.data(), recv_d.data(), 1, op_t::SUM, stream);
   communicator.sync_stream(stream);
   int temp_h = -1;  // Verify more than one byte is being sent
-  CUDA_CHECK(cudaMemcpyAsync(&temp_h, recv_d.data(), sizeof(int), cudaMemcpyDeviceToHost, stream));
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  RAFT_CUDA_TRY(
+    cudaMemcpyAsync(&temp_h, recv_d.data(), sizeof(int), cudaMemcpyDeviceToHost, stream));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   communicator.barrier();
 
   std::cout << "Clique size: " << communicator.get_size() << std::endl;
@@ -525,10 +529,10 @@ bool test_commsplit(const handle_t& h, int n_colors)
   if (n_colors > size) n_colors = size;
 
   // first we need to assign to a color, then assign the rank within the color
-  int color = rank % n_colors;
-  int key   = rank / n_colors;
-
-  handle_t new_handle(1);
+  int color        = rank % n_colors;
+  int key          = rank / n_colors;
+  auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(1);
+  handle_t new_handle(rmm::cuda_stream_default, stream_pool);
   auto shared_comm = std::make_shared<comms_t>(communicator.comm_split(color, key));
   new_handle.set_comms(shared_comm);
 

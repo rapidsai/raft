@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
+#include "../test_utils.h"
+#include "matrix_vector_op.cuh"
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <raft/random/rng.hpp>
-#include "../test_utils.h"
-#include "matrix_vector_op.cuh"
 
 namespace raft {
 namespace linalg {
@@ -111,7 +111,8 @@ class MatVecOpTest : public ::testing::TestWithParam<MatVecOpInputs<T, IdxType>>
                   N,
                   params.rowMajor,
                   params.bcastAlongRows,
-                  (T)1.0);
+                  (T)1.0,
+                  stream);
     } else {
       naiveMatVec(out_ref.data(),
                   in.data(),
@@ -120,7 +121,8 @@ class MatVecOpTest : public ::testing::TestWithParam<MatVecOpInputs<T, IdxType>>
                   N,
                   params.rowMajor,
                   params.bcastAlongRows,
-                  (T)1.0);
+                  (T)1.0,
+                  stream);
     }
     matrixVectorOpLaunch(out.data(),
                          in.data(),
@@ -132,7 +134,7 @@ class MatVecOpTest : public ::testing::TestWithParam<MatVecOpInputs<T, IdxType>>
                          params.bcastAlongRows,
                          params.useTwoVectors,
                          stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
  protected:

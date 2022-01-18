@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
+#include "../test_utils.h"
+#include "reduce.cuh"
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/strided_reduction.cuh>
 #include <raft/random/rng.hpp>
-#include "../test_utils.h"
-#include "reduce.cuh"
 
 namespace raft {
 namespace linalg {
@@ -61,7 +61,7 @@ class stridedReductionTest : public ::testing::TestWithParam<stridedReductionInp
 
     unaryAndGemv(dots_exp.data(), data.data(), cols, rows, stream);
     stridedReductionLaunch(dots_act.data(), data.data(), cols, rows, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
  protected:

@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
+#include "../test_utils.h"
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/linalg/svd.cuh>
 #include <raft/matrix/matrix.hpp>
 #include <raft/random/rng.hpp>
-#include "../test_utils.h"
 
 namespace raft {
 namespace linalg {
@@ -91,7 +91,7 @@ class SvdTest : public ::testing::TestWithParam<SvdInputs<T>> {
           true,
           true,
           stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
  protected:

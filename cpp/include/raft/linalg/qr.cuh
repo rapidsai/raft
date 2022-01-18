@@ -52,25 +52,25 @@ void qrGetQ(const raft::handle_t& handle,
 
   int m = n_rows, n = n_cols;
   int k = min(m, n);
-  CUDA_CHECK(cudaMemcpyAsync(Q, M, sizeof(math_t) * m * n, cudaMemcpyDeviceToDevice, stream));
+  RAFT_CUDA_TRY(cudaMemcpyAsync(Q, M, sizeof(math_t) * m * n, cudaMemcpyDeviceToDevice, stream));
 
   rmm::device_uvector<math_t> tau(k, stream);
-  CUDA_CHECK(cudaMemsetAsync(tau.data(), 0, sizeof(math_t) * k, stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(tau.data(), 0, sizeof(math_t) * k, stream));
 
   rmm::device_scalar<int> devInfo(stream);
   int Lwork;
 
-  CUSOLVER_CHECK(cusolverDngeqrf_bufferSize(cusolverH, m, n, Q, m, &Lwork));
+  RAFT_CUSOLVER_TRY(cusolverDngeqrf_bufferSize(cusolverH, m, n, Q, m, &Lwork));
   rmm::device_uvector<math_t> workspace(Lwork, stream);
-  CUSOLVER_CHECK(cusolverDngeqrf(
+  RAFT_CUSOLVER_TRY(cusolverDngeqrf(
     cusolverH, m, n, Q, m, tau.data(), workspace.data(), Lwork, devInfo.data(), stream));
   /// @note in v9.2, without deviceSynchronize *SquareMatrixNorm* ml-prims unit-tests fail.
 #if defined(CUDART_VERSION) && CUDART_VERSION <= 9020
-  CUDA_CHECK(cudaDeviceSynchronize());
+  RAFT_CUDA_TRY(cudaDeviceSynchronize());
 #endif
-  CUSOLVER_CHECK(cusolverDnorgqr_bufferSize(cusolverH, m, n, k, Q, m, tau.data(), &Lwork));
+  RAFT_CUSOLVER_TRY(cusolverDnorgqr_bufferSize(cusolverH, m, n, k, Q, m, tau.data(), &Lwork));
   workspace.resize(Lwork, stream);
-  CUSOLVER_CHECK(cusolverDnorgqr(
+  RAFT_CUSOLVER_TRY(cusolverDnorgqr(
     cusolverH, m, n, k, Q, m, tau.data(), workspace.data(), Lwork, devInfo.data(), stream));
 }
 
@@ -98,52 +98,52 @@ void qrGetQR(const raft::handle_t& handle,
   int m = n_rows, n = n_cols;
   rmm::device_uvector<math_t> R_full(m * n, stream);
   rmm::device_uvector<math_t> tau(min(m, n), stream);
-  CUDA_CHECK(cudaMemsetAsync(tau.data(), 0, sizeof(math_t) * min(m, n), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(tau.data(), 0, sizeof(math_t) * min(m, n), stream));
   int R_full_nrows = m, R_full_ncols = n;
-  CUDA_CHECK(
+  RAFT_CUDA_TRY(
     cudaMemcpyAsync(R_full.data(), M, sizeof(math_t) * m * n, cudaMemcpyDeviceToDevice, stream));
 
   int Lwork;
   rmm::device_scalar<int> devInfo(stream);
 
-  CUSOLVER_CHECK(cusolverDngeqrf_bufferSize(
+  RAFT_CUSOLVER_TRY(cusolverDngeqrf_bufferSize(
     cusolverH, R_full_nrows, R_full_ncols, R_full.data(), R_full_nrows, &Lwork));
   rmm::device_uvector<math_t> workspace(Lwork, stream);
-  CUSOLVER_CHECK(cusolverDngeqrf(cusolverH,
-                                 R_full_nrows,
-                                 R_full_ncols,
-                                 R_full.data(),
-                                 R_full_nrows,
-                                 tau.data(),
-                                 workspace.data(),
-                                 Lwork,
-                                 devInfo.data(),
-                                 stream));
+  RAFT_CUSOLVER_TRY(cusolverDngeqrf(cusolverH,
+                                    R_full_nrows,
+                                    R_full_ncols,
+                                    R_full.data(),
+                                    R_full_nrows,
+                                    tau.data(),
+                                    workspace.data(),
+                                    Lwork,
+                                    devInfo.data(),
+                                    stream));
   // @note in v9.2, without deviceSynchronize *SquareMatrixNorm* ml-prims unit-tests fail.
 #if defined(CUDART_VERSION) && CUDART_VERSION <= 9020
-  CUDA_CHECK(cudaDeviceSynchronize());
+  RAFT_CUDA_TRY(cudaDeviceSynchronize());
 #endif
 
   raft::matrix::copyUpperTriangular(R_full.data(), R, m, n, stream);
 
-  CUDA_CHECK(
+  RAFT_CUDA_TRY(
     cudaMemcpyAsync(Q, R_full.data(), sizeof(math_t) * m * n, cudaMemcpyDeviceToDevice, stream));
   int Q_nrows = m, Q_ncols = n;
 
-  CUSOLVER_CHECK(cusolverDnorgqr_bufferSize(
+  RAFT_CUSOLVER_TRY(cusolverDnorgqr_bufferSize(
     cusolverH, Q_nrows, Q_ncols, min(Q_ncols, Q_nrows), Q, Q_nrows, tau.data(), &Lwork));
   workspace.resize(Lwork, stream);
-  CUSOLVER_CHECK(cusolverDnorgqr(cusolverH,
-                                 Q_nrows,
-                                 Q_ncols,
-                                 min(Q_ncols, Q_nrows),
-                                 Q,
-                                 Q_nrows,
-                                 tau.data(),
-                                 workspace.data(),
-                                 Lwork,
-                                 devInfo.data(),
-                                 stream));
+  RAFT_CUSOLVER_TRY(cusolverDnorgqr(cusolverH,
+                                    Q_nrows,
+                                    Q_ncols,
+                                    min(Q_ncols, Q_nrows),
+                                    Q,
+                                    Q_nrows,
+                                    tau.data(),
+                                    workspace.data(),
+                                    Lwork,
+                                    devInfo.data(),
+                                    stream));
 }
 /** @} */
 
