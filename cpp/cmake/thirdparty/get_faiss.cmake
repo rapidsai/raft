@@ -26,7 +26,7 @@ function(find_and_configure_faiss)
       )
 
       set(BUILD_SHARED_LIBS OFF)
-      if (NOT BUILD_STATIC_LIBS)
+      if (NOT PKG_BUILD_STATIC_LIBS)
           set(BUILD_SHARED_LIBS ON)
       endif()
 
