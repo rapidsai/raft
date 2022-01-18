@@ -142,7 +142,11 @@ target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>
 ##############################################################################
 # - raft_distance ------------------------------------------------------------
 add_library(raft_distance INTERFACE)
-add_library(raft::distance ALIAS raft_distance)
+
+if(TARGET raft_distance AND (NOT TARGET raft::distance))
+  add_library(raft::distance ALIAS raft_distance)
+endif()
+
 set_target_properties(raft_distance PROPERTIES EXPORT_NAME distance)
 
 if(RAFT_COMPILE_LIBRARIES)
@@ -183,7 +187,11 @@ target_link_libraries(raft_distance INTERFACE raft::raft $<TARGET_NAME_IF_EXISTS
 ##############################################################################
 # - raft_nn ------------------------------------------------------------------
 add_library(raft_nn INTERFACE)
-add_library(raft::nn ALIAS raft_nn)
+
+if(TARGET raft_nn AND (NOT TARGET raft::nn))
+  add_library(raft::nn ALIAS raft_nn)
+endif()
+
 set_target_properties(raft_nn PROPERTIES EXPORT_NAME nn)
 
 if(RAFT_COMPILE_LIBRARIES)
