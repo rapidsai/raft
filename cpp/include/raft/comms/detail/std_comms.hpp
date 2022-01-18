@@ -17,8 +17,8 @@
 #pragma once
 
 #include <raft/comms/comms.hpp>
+#include <raft/comms/detail/ucp_helper.hpp>
 
-#include <raft/comms/ucp_helper.hpp>
 #include <raft/handle.hpp>
 #include <rmm/device_uvector.hpp>
 
@@ -29,7 +29,6 @@
 
 #include <cuda_runtime.h>
 
-#include <raft/comms/ucp_helper.hpp>
 #include <ucp/api/ucp.h>
 #include <ucp/api/ucp_def.h>
 
