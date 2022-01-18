@@ -178,7 +178,7 @@ if(RAFT_COMPILE_LIBRARIES)
           EXPORT raft-distance-exports)
 endif()
 
-target_link_libraries(raft_distance INTERFACE raft::raft $<TARGET_NAME_IF_EXISTS:raft_distance_lib>)
+target_link_libraries(raft_distance INTERFACE raft::raft $<TARGET_NAME_IF_EXISTS:raft::raft_distance_lib>)
 
 ##############################################################################
 # - raft_nn ------------------------------------------------------------------
@@ -208,7 +208,7 @@ if(RAFT_COMPILE_LIBRARIES)
           EXPORT raft-nn-exports)
 endif()
 
-target_link_libraries(raft_nn INTERFACE raft::raft faiss::faiss $<TARGET_NAME_IF_EXISTS:raft_nn_lib>)
+target_link_libraries(raft_nn INTERFACE raft::raft faiss::faiss $<TARGET_NAME_IF_EXISTS:raft::raft_nn_lib>)
 
 ##############################################################################
 # - install targets-----------------------------------------------------------
