@@ -18,13 +18,13 @@
 
 #include <raft/comms/comms.hpp>
 #include <raft/comms/detail/ucp_helper.hpp>
+#include <raft/comms/detail/util.hpp>
 
 #include <raft/handle.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include <raft/error.hpp>
 
-#include <raft/comms/util.hpp>
 #include <raft/cudart_utils.h>
 
 #include <cuda_runtime.h>

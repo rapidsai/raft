@@ -27,7 +27,7 @@
 #include <nccl.h>
 
 #include <raft/comms/comms.hpp>
-#include <raft/comms/util.hpp>
+#include <raft/comms/detail/util.hpp>
 #include <raft/cudart_utils.h>
 #include <raft/error.hpp>
 #include <raft/handle.hpp>
