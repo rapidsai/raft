@@ -33,6 +33,7 @@ namespace raft::random {
  * @tparam  DataT  Scalar type
  * @tparam  IdxT   Index type
  *
+ * @param[in]   handle          RAFT handle
  * @param[out]  out             Row-major (samples, features) matrix to store
  *                              the problem data
  * @param[out]  values          Row-major (samples, targets) matrix to store
@@ -41,8 +42,6 @@ namespace raft::random {
  * @param[in]   n_cols          Number of features
  * @param[in]   n_informative   Number of informative features (non-zero
  *                              coefficients)
- * @param[in]   cublas_handle   cuBLAS handle
- * @param[in]   cusolver_handle cuSOLVER handle
  * @param[in]   stream          CUDA stream
  * @param[out]  coef            Row-major (features, targets) matrix to store
  *                              the coefficients used to generate the values
