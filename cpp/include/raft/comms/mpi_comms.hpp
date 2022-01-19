@@ -18,12 +18,6 @@
 
 #include <raft/comms/comms.hpp>
 #include <raft/comms/detail/mpi_comms.hpp>
->>>>>>> branch-22.02
-
-// FIXME: Remove after consumer rename
-#ifndef MPI_TRY_NO_THROW
-#define MPI_TRY_NO_THROW(call) RAFT_MPI_TRY_NO_THROW(call)
-#endif
 
 namespace raft {
 namespace comms {

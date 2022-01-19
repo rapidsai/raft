@@ -64,6 +64,10 @@
     }                                                                       \
   } while (0)
 
+// FIXME: Remove after consumer rename
+#ifndef MPI_TRY_NO_THROW
+#define MPI_TRY_NO_THROW(call) RAFT_MPI_TRY_NO_THROW(call)
+#endif
 namespace raft {
 namespace comms {
 namespace detail {
