@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,8 +24,9 @@ from libcpp.memory cimport shared_ptr
 from rmm._lib.cuda_stream_view cimport cuda_stream_per_thread
 from rmm._lib.cuda_stream_view cimport cuda_stream_view
 
-from .cuda cimport _Stream, _Error, cudaStreamSynchronize
+from .cuda cimport Stream
 from .cuda import CudaRuntimeError
+
 
 cdef class Handle:
     """
@@ -51,7 +52,7 @@ cdef class Handle:
         del handle  # optional!
     """
 
-    def __cinit__(self, stream=None, n_streams=0):
+    def __cinit__(self, stream: Stream=None, n_streams=0):
         self.n_streams = n_streams
         if n_streams > 0:
             self.stream_pool.reset(new cuda_stream_pool(n_streams))
@@ -64,7 +65,7 @@ cdef class Handle:
                                           self.stream_pool))
         else:
             # this constructor constructs a handle on user stream
-            c_stream = cuda_stream_view(<_Stream><size_t> stream.getStream())
+            c_stream = cuda_stream_view(stream.getStream())
             self.c_obj.reset(new handle_t(c_stream,
                                           self.stream_pool))
 

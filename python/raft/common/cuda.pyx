@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2021, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,10 +19,21 @@
 # cython: embedsignature = True
 # cython: language_level = 3
 
+from cuda.ccudart cimport (
+    cudaStream_t,
+    cudaError_t,
+    cudaSuccess,
+    cudaStreamCreate,
+    cudaStreamDestroy,
+    cudaStreamSynchronize,
+    cudaGetLastError,
+    cudaGetErrorString,
+    cudaGetErrorName
+)
 
 class CudaRuntimeError(RuntimeError):
     def __init__(self, extraMsg=None):
-        cdef _Error e = cudaGetLastError()
+        cdef cudaError_t e = cudaGetLastError()
         cdef bytes errMsg = cudaGetErrorString(e)
         cdef bytes errName = cudaGetErrorName(e)
         msg = "Error! %s reason='%s'" % (errName.decode(), errMsg.decode())
@@ -47,26 +58,22 @@ cdef class Stream:
     """
 
     # NOTE:
-    # If we store _Stream directly, this always leads to the following error:
-    #   "Cannot convert Python object to '_Stream'"
+    # If we store cudaStream_t directly, this always leads to the following error:
+    #   "Cannot convert Python object to 'cudaStream_t'"
     # I was unable to find a good solution to this in reasonable time. Also,
     # since cudaStream_t is a pointer anyways, storing it as an integer should
     # be just fine (although, that certainly is ugly and hacky!).
-    cdef size_t s
 
     def __cinit__(self):
-        if self.s != 0:
-            return
-        cdef _Stream stream
-        cdef _Error e = cudaStreamCreate(&stream)
-        if e != 0:
+        cdef cudaStream_t stream
+        cdef cudaError_t e = cudaStreamCreate(&stream)
+        if e != cudaSuccess:
             raise CudaRuntimeError("Stream create")
-        self.s = <size_t>stream
+        self.s = stream
 
     def __dealloc__(self):
         self.sync()
-        cdef _Stream stream = <_Stream>self.s
-        cdef _Error e = cudaStreamDestroy(stream)
+        cdef cudaError_t e = cudaStreamDestroy(self.s)
         if e != 0:
             raise CudaRuntimeError("Stream destroy")
 
@@ -76,10 +83,9 @@ cdef class Stream:
         could raise exception due to issues with previous asynchronous
         launches
         """
-        cdef _Stream stream = <_Stream>self.s
-        cdef _Error e = cudaStreamSynchronize(stream)
+        cdef cudaError_t e = cudaStreamSynchronize(self.s)
         if e != 0:
             raise CudaRuntimeError("Stream sync")
 
-    def getStream(self):
+    cdef cudaStream_t getStream(self):
         return self.s
