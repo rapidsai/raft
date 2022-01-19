@@ -56,14 +56,6 @@ cdef class Stream:
         stream.sync()
         del stream  # optional!
     """
-
-    # NOTE:
-    # If we store cudaStream_t directly, this always leads to the following error:
-    #   "Cannot convert Python object to 'cudaStream_t'"
-    # I was unable to find a good solution to this in reasonable time. Also,
-    # since cudaStream_t is a pointer anyways, storing it as an integer should
-    # be just fine (although, that certainly is ugly and hacky!).
-
     def __cinit__(self):
         cdef cudaStream_t stream
         cdef cudaError_t e = cudaStreamCreate(&stream)
