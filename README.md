@@ -18,12 +18,7 @@ the maintenance burden by maximizing reuse across projects. RAFT relies on the [
 like other projects in the RAPIDS ecosystem, eases the burden of configuring different allocation strategies globally 
 across the libraries that use it. RMM also provides RAII wrappers around device arrays that handle the allocation and cleanup.
 
-## RAFT's primary goals are to be...
-1. Fast- First and foremost, they provide a significant performance boost out of the box
-2. Simple- Easy to use and easy to integrate into downstream projects
-3. Reusable- Standardized core components minimize the need for "reinventing the wheel"
-4. Composable- APIs that work well together and with other APIs
-5. Comprehensive- Enable building a wide spectrum of different analytics
+## RAFT's primary goals are to be fast, simple, reusable, composable, and comprehensive.
 
 ## Getting started
 
