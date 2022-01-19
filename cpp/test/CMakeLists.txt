@@ -63,6 +63,7 @@ add_executable(test_raft
     test/linalg/unary_op.cu
     test/matrix/math.cu
     test/matrix/matrix.cu
+    test/matrix/linewise_op.cu
     test/mr/device/buffer.cpp
     test/mr/host/buffer.cpp
     test/mst.cu
@@ -119,15 +120,16 @@ target_compile_options(test_raft
 
 target_include_directories(test_raft
     PUBLIC  "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/test>"
-            "${FAISS_GPU_HEADERS}"
 )
 
 
 target_link_libraries(test_raft
 PRIVATE
-  raft # transitively links all CUDA libs, etc
-  raft_distance
-  raft_nn
+  raft::raft
+  raft::distance
+  raft::nn
+  NCCL::NCCL
+  faiss::faiss
   GTest::gtest
   GTest::gtest_main
   Threads::Threads
