@@ -52,7 +52,7 @@ cdef class Handle:
         del handle  # optional!
     """
 
-    def __cinit__(self, stream: Stream=None, n_streams=0):
+    def __cinit__(self, stream: Stream = None, n_streams=0):
         self.n_streams = n_streams
         if n_streams > 0:
             self.stream_pool.reset(new cuda_stream_pool(n_streams))

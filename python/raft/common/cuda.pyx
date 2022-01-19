@@ -19,7 +19,7 @@
 # cython: embedsignature = True
 # cython: language_level = 3
 
-from cuda.ccudart cimport (
+from cuda.ccudart cimport(
     cudaStream_t,
     cudaError_t,
     cudaSuccess,
@@ -30,6 +30,7 @@ from cuda.ccudart cimport (
     cudaGetErrorString,
     cudaGetErrorName
 )
+
 
 class CudaRuntimeError(RuntimeError):
     def __init__(self, extraMsg=None):
