@@ -29,6 +29,7 @@ HELP="$0 [<target> ...] [<flag> ...]
  and <flag> is:
    -v               - verbose build mode
    -g               - build for debug
+   --compilelibs    - compile shared libraries
    --allgpuarch     - build for all supported GPU architectures
    --buildfaiss     - build faiss statically into raft
    --nvtx           - Enable nvtx for profiling support
@@ -47,6 +48,7 @@ VERBOSE_FLAG=""
 BUILD_ALL_GPU_ARCH=0
 BUILD_GTEST=OFF
 BUILD_STATIC_FAISS=OFF
+COMPILE_LIBRARIES=OFF
 SINGLEGPU=""
 NVTX=OFF
 CLEAN=0
@@ -88,6 +90,10 @@ if hasArg -v; then
 fi
 if hasArg -g; then
     BUILD_TYPE=Debug
+fi
+
+if hasArg --compilelibs; then
+    COMPILE_LIBRARIES=ON
 fi
 
 if hasArg --allgpuarch; then
@@ -150,6 +156,7 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft; then
     cmake -S ${REPODIR}/cpp -B ${CPP_RAFT_BUILD_DIR} \
           -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} \
           -DCMAKE_CUDA_ARCHITECTURES=${RAFT_CMAKE_CUDA_ARCHITECTURES} \
+          -DRAFT_COMPILE_LIBRARIES=${COMPILE_LIBRARIES} \
           -DNVTX=${NVTX}
 #          -DDISABLE_DEPRECATION_WARNING=${BUILD_DISABLE_DEPRECATION_WARNING} \
 #          -DBUILD_GTEST=${BUILD_GTEST} \
