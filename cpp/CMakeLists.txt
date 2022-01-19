@@ -266,21 +266,13 @@ Imported Targets:
 
 set(code_string
 [=[
-set(raft_allowed_components distance nn)
-foreach(comp IN LISTS raft_allowed_components)
-  if(${comp} IN_LIST raft_FIND_COMPONENTS)
-    include("${CMAKE_CURRENT_LIST_DIR}/raft-${comp}-targets.cmake")
-
-    if(EXISTS "${CMAKE_CURRENT_LIST_DIR}/raft-${comp}-dependencies.cmake")
-      include("${CMAKE_CURRENT_LIST_DIR}/raft-${comp}-dependencies.cmake")
-    endif()
-  endif()
-
+if(distance IN_LIST raft_FIND_COMPONENTS)
   enable_language(CUDA)
-
-endforeach()
+endif()
 
 if(nn IN_LIST raft_FIND_COMPONENTS)
+  enable_language(CUDA)
+
   if(TARGET faiss AND (NOT TARGET faiss::faiss))
       add_library(faiss::faiss ALIAS faiss)
   elseif(TARGET faiss::faiss AND (NOT TARGET faiss))
@@ -290,11 +282,12 @@ endif()
 ]=]
 )
 
-# enable_cuda
-
-rapids_export(INSTALL raft
+# Use `rapids_export` for 22.04 as it will have COMPONENT support
+include(cmake/modules/raft_export.cmake)
+raft_export(INSTALL raft
     EXPORT_SET raft-exports
-    GLOBAL_TARGETS raft raft_distance raft_nn
+    COMPONENTS nn distance
+    GLOBAL_TARGETS raft nn distance
     NAMESPACE raft::
     DOCUMENTATION doc_string
     FINAL_CODE_BLOCK code_string
@@ -303,8 +296,9 @@ rapids_export(INSTALL raft
 ##############################################################################
 # - build export -------------------------------------------------------------
 
-rapids_export(BUILD raft
+raft_export(BUILD raft
     EXPORT_SET raft-exports
+    COMPONENTS nn distance
     GLOBAL_TARGETS raft raft_distance raft_nn
     DOCUMENTATION doc_string
     NAMESPACE raft::
