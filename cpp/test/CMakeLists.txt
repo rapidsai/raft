@@ -130,6 +130,7 @@ PRIVATE
   raft::distance
   raft::nn
   NCCL::NCCL
+  faiss::faiss
   GTest::gtest
   GTest::gtest_main
   Threads::Threads
