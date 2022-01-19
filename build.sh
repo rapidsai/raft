@@ -18,7 +18,7 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libraft pyraft cppdocs -v -g --allgpuarch --nvtx --show_depr_warn -h --buildgtest --buildfaiss"
+VALIDARGS="clean libraft pyraft cppdocs -v -g --compilelibs --allgpuarch --nvtx --show_depr_warn -h --buildgtest --buildfaiss"
 HELP="$0 [<target> ...] [<flag> ...]
  where <target> is:
    clean            - remove all existing build artifacts and configuration (start over)
