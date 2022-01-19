@@ -67,7 +67,7 @@ cdef class Stream:
     def __dealloc__(self):
         self.sync()
         cdef cudaError_t e = cudaStreamDestroy(self.s)
-        if e != 0:
+        if e != cudaSuccess:
             raise CudaRuntimeError("Stream destroy")
 
     def sync(self):
@@ -77,7 +77,7 @@ cdef class Stream:
         launches
         """
         cdef cudaError_t e = cudaStreamSynchronize(self.s)
-        if e != 0:
+        if e != cudaSuccess:
             raise CudaRuntimeError("Stream sync")
 
     cdef cudaStream_t getStream(self):
