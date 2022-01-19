@@ -4,4 +4,6 @@ if [ -n "$MACOSX_DEPLOYMENT_TARGET" ]; then
     export MACOSX_DEPLOYMENT_TARGET=10.11
 fi
 
-./build.sh clean libraft -v --allgpuarch # TODO: Compile only nn package instantiations
+./build.sh clean libraft -v --allgpuarch --compilelibs
+
+# TODO: Somehow extract just the libraft_nn.so artiface
