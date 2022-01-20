@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,42 @@
 
 namespace raft {
 namespace linalg {
+
+template <typename math_t, bool DevicePointerMode = false>
+void gemm(const raft::handle_t& handle,
+          const bool trans_a,
+          const bool trans_b,
+          const int m,
+          const int n,
+          const int k,
+          const math_t* alpha,
+          const math_t* A,
+          const int lda,
+          const math_t* B,
+          const int ldb,
+          const math_t* beta,
+          const math_t* C,
+          const int ldc,
+          cudaStream_t stream)
+{
+  cublasHandle_t cublas_h = handle.get_cublas_handle();
+  cublas_device_pointer_mode<DevicePointerMode> pmode(cublas_h);
+  RAFT_CUBLAS_TRY(cublasgemm(cublas_h,
+                             trans_a ? CUBLAS_OP_T : CUBLAS_OP_N,
+                             trans_b ? CUBLAS_OP_T : CUBLAS_OP_N,
+                             m,
+                             n,
+                             k,
+                             alpha,
+                             A,
+                             lda,
+                             B,
+                             ldb,
+                             beta,
+                             C,
+                             ldc,
+                             stream));
+}
 
 /**
  * @brief the wrapper of cublas gemm function
