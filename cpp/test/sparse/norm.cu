@@ -73,7 +73,7 @@ class CSRRowNormalizeTest : public ::testing::TestWithParam<CSRRowNormalizeInput
           ex_scan.data(), in_vals.data(), nnz, n_rows, result.data(), stream);
         break;
     }
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
     ASSERT_TRUE(
       raft::devArrMatch<Type_f>(verify.data(), result.data(), nnz, raft::Compare<Type_f>()));

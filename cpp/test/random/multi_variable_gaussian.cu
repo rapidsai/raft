@@ -151,38 +151,38 @@ class MVGTest : public ::testing::TestWithParam<MVGInputs<T>> {
 
     // saving the mean of the randoms in Rand_mean
     //@todo can be swapped with a API that calculates mean
-    CUDA_CHECK(cudaMemset(Rand_mean.data(), 0, dim * sizeof(T)));
+    RAFT_CUDA_TRY(cudaMemset(Rand_mean.data(), 0, dim * sizeof(T)));
     dim3 block = (64);
     dim3 grid  = (raft::ceildiv(nPoints * dim, (int)block.x));
     En_KF_accumulate<<<grid, block, 0, stream>>>(nPoints, dim, X_d.data(), Rand_mean.data());
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
     grid = (raft::ceildiv(dim, (int)block.x));
     En_KF_normalize<<<grid, block, 0, stream>>>(nPoints, dim, Rand_mean.data());
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
 
     // storing the error wrt random point mean in X_d
     grid = (raft::ceildiv(dim * nPoints, (int)block.x));
     En_KF_dif<<<grid, block, 0, stream>>>(nPoints, dim, X_d.data(), Rand_mean.data(), X_d.data());
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
 
     // finding the cov matrix, placing in Rand_cov
     T alfa = 1.0 / (nPoints - 1), beta = 0.0;
 
-    CUBLAS_CHECK(raft::linalg::cublasgemm(cublasH,
-                                          CUBLAS_OP_N,
-                                          CUBLAS_OP_T,
-                                          dim,
-                                          dim,
-                                          nPoints,
-                                          &alfa,
-                                          X_d.data(),
-                                          dim,
-                                          X_d.data(),
-                                          dim,
-                                          &beta,
-                                          Rand_cov.data(),
-                                          dim,
-                                          stream));
+    RAFT_CUBLAS_TRY(raft::linalg::cublasgemm(cublasH,
+                                             CUBLAS_OP_N,
+                                             CUBLAS_OP_T,
+                                             dim,
+                                             dim,
+                                             nPoints,
+                                             &alfa,
+                                             X_d.data(),
+                                             dim,
+                                             X_d.data(),
+                                             dim,
+                                             &beta,
+                                             Rand_cov.data(),
+                                             dim,
+                                             stream));
 
     // restoring cov provided into P_d
     raft::update_device(P_d.data(), P.data(), dim * dim, stream);
