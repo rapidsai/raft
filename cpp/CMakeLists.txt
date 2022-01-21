@@ -106,8 +106,8 @@ endif()
 rapids_cpm_init()
 
 # cuco before rmm to properly configure thrust/cub
-include(cmake/thirdparty/get_cuco.cmake)
 include(cmake/thirdparty/get_rmm.cmake)
+include(cmake/thirdparty/get_cuco.cmake)
 include(cmake/thirdparty/get_libcudacxx.cmake)
 include(cmake/thirdparty/get_faiss.cmake)
 
