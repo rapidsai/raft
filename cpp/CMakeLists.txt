@@ -105,9 +105,10 @@ endif()
 # add third party dependencies using CPM
 rapids_cpm_init()
 
-# cuco before rmm to properly configure thrust/cub
-include(cmake/thirdparty/get_cuco.cmake)
+# thrust before rmm/cuco so we get the right version of thrust/cub
+include(cmake/thirdparty/get_thrust.cmake)
 include(cmake/thirdparty/get_rmm.cmake)
+include(cmake/thirdparty/get_cuco.cmake)
 include(cmake/thirdparty/get_libcudacxx.cmake)
 include(cmake/thirdparty/get_faiss.cmake)
 
@@ -128,6 +129,7 @@ target_include_directories(raft INTERFACE
         "$<INSTALL_INTERFACE:include>")
 
 target_link_libraries(raft INTERFACE
+  raft::Thrust
   CUDA::cublas
   CUDA::curand
   CUDA::cusolver
@@ -271,6 +273,8 @@ Imported Targets:
 
 set(code_string
 [=[
+thrust_create_target(raft::Thrust FROM_OPTIONS)
+
 if(distance IN_LIST raft_FIND_COMPONENTS)
   enable_language(CUDA)
 endif()
