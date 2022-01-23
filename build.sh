@@ -44,6 +44,7 @@ PYTHON_DEPS_CLONE=${REPODIR}/python/external_repositories
 BUILD_DIRS="${CPP_RAFT_BUILD_DIR} ${PY_RAFT_BUILD_DIR} ${PYTHON_DEPS_CLONE}"
 
 # Set defaults for vars modified by flags to this script
+CMAKE_LOG_LEVEL=""
 VERBOSE_FLAG=""
 BUILD_ALL_GPU_ARCH=0
 BUILD_GTEST=OFF
@@ -85,6 +86,7 @@ fi
 # Process flags
 if hasArg -v; then
     VERBOSE_FLAG=-v
+    CMAKE_LOG_LEVEL="--log-level=VERBOSE"
     set -x
 fi
 if hasArg -g; then
@@ -144,13 +146,13 @@ if (( ${NUMARGS} == 0 )) || hasArg cppraft || hasArg docs; then
         echo "Building for *ALL* supported GPU architectures..."
     fi
 
-    cmake -S ${REPODIR}/cpp -B ${CPP_RAFT_BUILD_DIR} \
+    cmake -S ${REPODIR}/cpp -B ${CPP_RAFT_BUILD_DIR} ${CMAKE_LOG_LEVEL} \
           -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} \
           -DCMAKE_CUDA_ARCHITECTURES=${RAFT_CMAKE_CUDA_ARCHITECTURES} \
           -DNVTX=${NVTX} \
           -DDISABLE_DEPRECATION_WARNING=${BUILD_DISABLE_DEPRECATION_WARNING} \
           -DBUILD_GTEST=${BUILD_GTEST} \
-          -DBUILD_STATIC_FAISS=${BUILD_STATIC_FAISS}
+          -DRAFT_USE_FAISS_STATIC=${BUILD_STATIC_FAISS}
 
   if hasArg cppraft; then
       # Run all c++ targets at once
