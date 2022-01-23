@@ -105,9 +105,11 @@ endif()
 # add third party dependencies using CPM
 rapids_cpm_init()
 
+# thrust before rmm/cuco so we get the right version of thrust/cub
+include(cmake/thirdparty/get_thrust.cmake)
 include(cmake/thirdparty/get_rmm.cmake)
-include(cmake/thirdparty/get_libcudacxx.cmake)
 include(cmake/thirdparty/get_cuco.cmake)
+include(cmake/thirdparty/get_libcudacxx.cmake)
 include(cmake/thirdparty/get_faiss.cmake)
 
 if(BUILD_TESTS)
@@ -127,6 +129,7 @@ target_include_directories(raft INTERFACE
         "$<INSTALL_INTERFACE:include>")
 
 target_link_libraries(raft INTERFACE
+  raft::Thrust
   CUDA::cublas
   CUDA::curand
   CUDA::cusolver
@@ -182,7 +185,9 @@ if(RAFT_COMPILE_LIBRARIES)
           EXPORT raft-distance-exports)
 endif()
 
-target_link_libraries(raft_distance INTERFACE raft::raft $<TARGET_NAME_IF_EXISTS:raft::raft_distance_lib>)
+target_link_libraries(raft_distance INTERFACE raft::raft
+    $<TARGET_NAME_IF_EXISTS:raft_distance_lib>
+    $<TARGET_NAME_IF_EXISTS:raft::raft_distance_lib>
 
 ##############################################################################
 # - raft_nn ------------------------------------------------------------------
@@ -216,7 +221,9 @@ if(RAFT_COMPILE_LIBRARIES)
           EXPORT raft-nn-exports)
 endif()
 
-target_link_libraries(raft_nn INTERFACE raft::raft faiss::faiss $<TARGET_NAME_IF_EXISTS:raft::raft_nn_lib>)
+target_link_libraries(raft_nn INTERFACE raft::raft faiss::faiss
+    $<TARGET_NAME_IF_EXISTS:raft_nn_lib>
+    $<TARGET_NAME_IF_EXISTS:raft::raft_nn_lib>)
 
 ##############################################################################
 # - install targets-----------------------------------------------------------
@@ -266,6 +273,8 @@ Imported Targets:
 
 set(code_string
 [=[
+thrust_create_target(raft::Thrust FROM_OPTIONS)
+
 if(distance IN_LIST raft_FIND_COMPONENTS)
   enable_language(CUDA)
 endif()
