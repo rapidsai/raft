@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2020-2021, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #########################################
 # cuML GPU build and test script for CI #
 #########################################
@@ -53,6 +53,7 @@ gpuci_mamba_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvid
       "libcusolver>=11.2.1" \
       "cudf=${MINOR_VERSION}" \
       "rmm=${MINOR_VERSION}" \
+      "breathe" \
       "dask-cudf=${MINOR_VERSION}" \
       "dask-cuda=${MINOR_VERSION}" \
       "ucx-py=${UCX_PY_VERSION}" \
@@ -90,8 +91,8 @@ export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
 gpuci_logger "Build C++ and Python targets"
 "$WORKSPACE/build.sh" cppraft pyraft -v
 
-gpuci_logger "Building doxygen C++ docs"
-"$WORKSPACE/build.sh" cppdocs -v
+gpuci_logger "Building docs"
+"$WORKSPACE/build.sh" docs -v
 
 gpuci_logger "Resetting LD_LIBRARY_PATH"
 

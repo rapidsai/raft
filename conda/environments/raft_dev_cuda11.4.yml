@@ -21,6 +21,7 @@ dependencies:
 - pip
 - pip:
     - sphinx_markdown_tables
+    - breathe
     - git+https://github.com/dask/dask.git@main
     - git+https://github.com/dask/distributed.git@main
 
