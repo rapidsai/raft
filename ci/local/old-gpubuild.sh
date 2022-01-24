@@ -84,8 +84,8 @@ fi
 
 # Install the master version of dask, distributed, and dask-ml
 set -x
-pip install "git+https://github.com/dask/distributed.git@main" --upgrade --no-deps
-pip install "git+https://github.com/dask/dask.git@main" --upgrade --no-deps
+pip install "git+https://github.com/dask/distributed.git@2022.01.0" --upgrade --no-deps
+pip install "git+https://github.com/dask/dask.git@2022.01.0" --upgrade --no-deps
 set +x
 
 
