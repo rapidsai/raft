@@ -188,6 +188,7 @@ endif()
 target_link_libraries(raft_distance INTERFACE raft::raft
     $<TARGET_NAME_IF_EXISTS:raft_distance_lib>
     $<TARGET_NAME_IF_EXISTS:raft::raft_distance_lib>
+)
 
 ##############################################################################
 # - raft_nn ------------------------------------------------------------------

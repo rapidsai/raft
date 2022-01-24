@@ -54,9 +54,6 @@ raft::distance::pairwise_distance(handle, input.data(), input.data(),
                                   workspace.data(), metric);
 ```
 
-
-
-
 ## Folder Structure and Contents
 
 The folder structure mirrors other RAPIDS repos (cuDF, cuML, cuGraph...), with the following folders:
