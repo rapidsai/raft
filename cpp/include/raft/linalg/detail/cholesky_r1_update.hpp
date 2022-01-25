@@ -65,8 +65,8 @@ void choleskyRank1Update(const raft::handle_t& handle,
   math_t* s    = reinterpret_cast<math_t*>(((char*)workspace) + offset);
   math_t* L_22 = L + (n - 1) * ld + n - 1;
 
-  math_t* A_new;
-  math_t* A_row;
+  math_t* A_new = nullptr;
+  math_t* A_row = nullptr;
   if (uplo == CUBLAS_FILL_MODE_UPPER) {
     // A_new is stored as the n-1 th column of L
     A_new = L + (n - 1) * ld;

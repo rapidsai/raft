@@ -16,9 +16,7 @@
 
 #pragma once
 
-#include <raft/cuda_utils.cuh>
-#include <raft/linalg/matrix_vector_op.hpp>
-#include <raft/vectorized.cuh>
+#include "detail/mean_center.cuh"
 
 namespace raft {
 namespace stats {
@@ -47,16 +45,7 @@ void meanCenter(Type* out,
                 bool bcastAlongRows,
                 cudaStream_t stream)
 {
-  raft::linalg::matrixVectorOp(
-    out,
-    data,
-    mu,
-    D,
-    N,
-    rowMajor,
-    bcastAlongRows,
-    [] __device__(Type a, Type b) { return a - b; },
-    stream);
+  detail::meanCenter<Type, IdxType, TPB>(out, data, mu, D, N, rowMajor, bcastAlongRows, stream);
 }
 
 /**
@@ -83,16 +72,7 @@ void meanAdd(Type* out,
              bool bcastAlongRows,
              cudaStream_t stream)
 {
-  raft::linalg::matrixVectorOp(
-    out,
-    data,
-    mu,
-    D,
-    N,
-    rowMajor,
-    bcastAlongRows,
-    [] __device__(Type a, Type b) { return a + b; },
-    stream);
+  detail::meanAdd<Type, IdxType, TPB>(out, data, mu, D, N, rowMajor, bcastAlongRows, stream);
 }
 
 };  // end namespace stats

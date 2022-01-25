@@ -20,9 +20,11 @@
 #include <raft/distance/distance_type.hpp>
 #include <raft/spatial/knn/ball_cover.hpp>
 #include <raft/spatial/knn/detail/knn_brute_force_faiss.cuh>
+#if defined RAFT_NN_COMPILED
 #include <raft/spatial/knn/specializations.hpp>
-#include <rmm/device_uvector.hpp>
+#endif
 
+#include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
 #include <thrust/transform.h>
 

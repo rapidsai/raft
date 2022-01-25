@@ -28,6 +28,7 @@
 
 #include <label/classlabels.cuh>
 #include <raft/distance/distance.hpp>
+#include <raft/spatial/knn/faiss_mr.hpp>
 
 #include <faiss/gpu/GpuDistance.h>
 #include <faiss/gpu/GpuIndexFlat.h>
@@ -35,7 +36,6 @@
 #include <faiss/gpu/GpuIndexIVFPQ.h>
 #include <faiss/gpu/GpuIndexIVFScalarQuantizer.h>
 #include <faiss/gpu/GpuResources.h>
-#include <faiss/gpu/StandardGpuResources.h>
 #include <faiss/gpu/utils/Limits.cuh>
 #include <faiss/gpu/utils/Select.cuh>
 #include <faiss/gpu/utils/Tensor.cuh>
@@ -126,7 +126,7 @@ void approx_knn_build_index(raft::handle_t& handle,
   int device;
   RAFT_CUDA_TRY(cudaGetDevice(&device));
 
-  faiss::gpu::StandardGpuResources* gpu_res = new faiss::gpu::StandardGpuResources();
+  raft::spatial::knn::RmmGpuResources* gpu_res = new raft::spatial::knn::RmmGpuResources();
   gpu_res->noTempMemory();
   gpu_res->setDefaultStream(device, handle.get_stream());
   index->gpu_res   = gpu_res;
