@@ -4,6 +4,4 @@ if [ -n "$MACOSX_DEPLOYMENT_TARGET" ]; then
     export MACOSX_DEPLOYMENT_TARGET=10.11
 fi
 
-./build.sh clean libraft -v --allgpuarch --compilelibs
-
-# TODO: Somehow just extract the libraft_distance.so
+./build.sh clean libraft -v --allgpuarch --compile-dist --nogtest

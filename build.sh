@@ -18,7 +18,7 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libraft pyraft docs -v -g --compilelibs --allgpuarch --nvtx --show_depr_warn -h --nogtest --buildfaiss"
+VALIDARGS="clean libraft pyraft docs -v -g --compilelibs --compile-nn --compile-dist --allgpuarch --nvtx --show_depr_warn -h --nogtest --buildfaiss"
 HELP="$0 [<target> ...] [<flag> ...]
  where <target> is:
    clean            - remove all existing build artifacts and configuration (start over)
@@ -30,7 +30,9 @@ HELP="$0 [<target> ...] [<flag> ...]
  and <flag> is:
    -v               - verbose build mode
    -g               - build for debug
-   --compilelibs    - compile shared libraries
+   --compilelibs    - compile shared libraries for all components
+   --compile-nn     - compile shared library for nn component
+   --compile-dist   - compile shared library for distance component
    --allgpuarch     - build for all supported GPU architectures
    --buildfaiss     - build faiss statically into raft
    --nogtest        - do not build google tests for libraft
@@ -107,10 +109,17 @@ if hasArg --nogtest; then
     COMPILE_LIBRARIES=OFF
     ENABLE_NN_DEPENDENCIES=OFF
 fi
-if hasArg --compilelibs; then
-    COMPILE_LIBRARIES=ON
+
+if hasArg --compile-nn || hasArg --compilelibs; then
     ENABLE_NN_DEPENDENCIES=ON
+    COMPILE_LIBRARIES=ON
+    CMAKE_TARGET="raft_nn_lib;${CMAKE_TARGET}"
 fi
+if hasArg --compile-dist || hasArg --compilelibs; then
+    COMPILE_LIBRARIES=ON
+    CMAKE_TARGET="raft_distance_lib;${CMAKE_TARGET}"
+fi
+
 if hasArg --buildfaiss; then
     BUILD_STATIC_FAISS=ON
 fi
@@ -171,8 +180,18 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs; then
 
   if (( ${NUMARGS} == 0 )) || hasArg libraft; then
       # Run all c++ targets at once
-      cmake --build  ${CPP_RAFT_BUILD_DIR} -j${PARALLEL_LEVEL} ${VERBOSE_FLAG} ${CMAKE_TARGET}
+      if hasArg --compile-nn || hasArg --compile-dist || hasArg --compilelibs; then
+        if ! hasArg --nogtest; then
+          CMAKE_TARGET="test_raft;${CMAKE_TARGET}"
+        fi
+
+        echo "-- Compiling targets: ${CMAKE_TARGET}"
+        cmake --build  ${CPP_RAFT_BUILD_DIR} -j${PARALLEL_LEVEL} ${VERBOSE_FLAG} --target ${CMAKE_TARGET}
+      else
+        cmake --build  ${CPP_RAFT_BUILD_DIR} -j${PARALLEL_LEVEL} ${VERBOSE_FLAG}
+      fi
   fi
+
 fi
 
 # Build and (optionally) install the cuml Python package

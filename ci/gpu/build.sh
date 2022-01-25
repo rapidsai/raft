@@ -89,7 +89,11 @@ export LD_LIBRARY_PATH_CACHED=$LD_LIBRARY_PATH
 export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
 
 gpuci_logger "Build C++ and Python targets"
-"$WORKSPACE/build.sh" libraft pyraft -v --compilelibs
+if hasArg --skip-tests; then
+  "$WORKSPACE/build.sh" libraft pyraft libraft -v --compilelibs --nogtest
+else
+  "$WORKSPACE/build.sh" libraft pyraft libraft -v --compilelibs
+fi
 
 gpuci_logger "Building docs"
 "$WORKSPACE/build.sh" docs -v
@@ -98,7 +102,6 @@ gpuci_logger "Resetting LD_LIBRARY_PATH"
 
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH_CACHED
 export LD_LIBRARY_PATH_CACHED=""
-
 
 ################################################################################
 # TEST - Run GoogleTest and py.tests for RAFT
