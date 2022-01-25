@@ -25,9 +25,9 @@
 
 #include <raft/cuda_utils.cuh>
 
-#include <faiss/utils/Heap.h>
 #include <faiss/gpu/utils/Limits.cuh>
 #include <faiss/gpu/utils/Select.cuh>
+#include <faiss/utils/Heap.h>
 
 #include <raft/distance/distance.cuh>
 #include <raft/selection/col_wise_sort.cuh>

@@ -18,7 +18,6 @@
 
 #include <raft/handle.hpp>
 
-#include <raft/spatial/knn/knn.hpp>
 #include "../ball_cover_common.h"
 #include "ball_cover/common.cuh"
 #include "ball_cover/plan.cuh"
@@ -26,6 +25,7 @@
 #include "block_select_faiss.cuh"
 #include "haversine_distance.cuh"
 #include "selection_faiss.cuh"
+#include <raft/spatial/knn/knn.hpp>
 
 #include <cstdint>
 #include <limits.h>

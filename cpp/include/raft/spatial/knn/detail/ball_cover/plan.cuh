@@ -20,17 +20,17 @@
 
 #include <cub/cub.cuh>
 
-#include <raft/spatial/knn/knn.hpp>
 #include "../block_select_faiss.cuh"
 #include "../selection_faiss.cuh"
+#include <raft/spatial/knn/knn.hpp>
 
 #include <limits.h>
 
 #include <raft/cuda_utils.cuh>
 
-#include <faiss/utils/Heap.h>
 #include <faiss/gpu/utils/Limits.cuh>
 #include <faiss/gpu/utils/Select.cuh>
+#include <faiss/utils/Heap.h>
 
 #include <raft/distance/distance.hpp>
 #include <raft/sparse/coo.hpp>
