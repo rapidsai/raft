@@ -18,24 +18,24 @@
 #include <raft/spatial/knn/detail/fused_l2_knn.cuh>
 
 namespace raft {
-    namespace spatial {
-        namespace knn {
-            namespace detail {
+namespace spatial {
+namespace knn {
+namespace detail {
 
-                template void fusedL2Knn<int, float, false>(size_t D,
-                                                            int* out_inds,
-                                                            float* out_dists,
-                                                            const float* index,
-                                                            const float* query,
-                                                            size_t n_index_rows,
-                                                            size_t n_query_rows,
-                                                            int k,
-                                                            bool rowMajorIndex,
-                                                            bool rowMajorQuery,
-                                                            cudaStream_t stream,
-                                                            raft::distance::DistanceType metric);
+template void fusedL2Knn<int, float, false>(size_t D,
+                                            int* out_inds,
+                                            float* out_dists,
+                                            const float* index,
+                                            const float* query,
+                                            size_t n_index_rows,
+                                            size_t n_query_rows,
+                                            int k,
+                                            bool rowMajorIndex,
+                                            bool rowMajorQuery,
+                                            cudaStream_t stream,
+                                            raft::distance::DistanceType metric);
 
-            };  // namespace detail
-        };  // namespace knn
-    };  // namespace spatial
+};  // namespace detail
+};  // namespace knn
+};  // namespace spatial
 };  // namespace raft
