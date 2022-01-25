@@ -18,7 +18,7 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libraft pyraft docs -v -g --compilelibs --allgpuarch --nvtx --show_depr_warn -h --buildgtest --buildfaiss"
+VALIDARGS="clean libraft pyraft docs -v -g --compilelibs --allgpuarch --nvtx --show_depr_warn -h --nogtest --buildfaiss"
 HELP="$0 [<target> ...] [<flag> ...]
  where <target> is:
    clean            - remove all existing build artifacts and configuration (start over)
@@ -33,6 +33,7 @@ HELP="$0 [<target> ...] [<flag> ...]
    --compilelibs    - compile shared libraries
    --allgpuarch     - build for all supported GPU architectures
    --buildfaiss     - build faiss statically into raft
+   --nogtest        - do not build google tests for libraft
    --nvtx           - Enable nvtx for profiling support
    --show_depr_warn - show cmake deprecation warnings
    -h               - print this text
@@ -49,10 +50,10 @@ BUILD_DIRS="${CPP_RAFT_BUILD_DIR} ${PY_RAFT_BUILD_DIR} ${PYTHON_DEPS_CLONE}"
 CMAKE_LOG_LEVEL=""
 VERBOSE_FLAG=""
 BUILD_ALL_GPU_ARCH=0
-BUILD_TESTS=ON
+BUILD_TESTS=YES
 BUILD_STATIC_FAISS=OFF
-COMPILE_LIBRARIES=OFF
-ENABLE_NN_DEPENDENCIES=ON
+COMPILE_LIBRARIES=${BUILD_TESTS}
+ENABLE_NN_DEPENDENCIES=${BUILD_TESTS}
 SINGLEGPU=""
 NVTX=OFF
 CLEAN=0
@@ -97,18 +98,20 @@ if hasArg -g; then
     BUILD_TYPE=Debug
 fi
 
-if hasArg --compilelibs; then
-    COMPILE_LIBRARIES=ON
-fi
-
 if hasArg --allgpuarch; then
     BUILD_ALL_GPU_ARCH=1
 fi
-if hasArg --buildgtest; then
-    BUILD_GTEST=ON
+if hasArg --nogtest; then
+    BUILD_TESTS=OFF
+    COMPILE_LIBRARIES=${BUILD_TESTS}
+    ENABLE_NN_DEPENDENCIES=${BUILD_TESTS}
+fi
+if hasArg --compilelibs; then
+    COMPILE_LIBRARIES=ON
+    ENABLE_NN_DEPENDENCIES=ON
 fi
 if hasArg --buildfaiss; then
-      BUILD_STATIC_FAISS=ON
+    BUILD_STATIC_FAISS=ON
 fi
 if hasArg --singlegpu; then
     SINGLEGPU="--singlegpu"
