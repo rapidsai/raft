@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2020-2021, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 #=============================================================================
 
 cmake_minimum_required(VERSION 3.20.1 FATAL_ERROR)
-file(DOWNLOAD https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-22.02/RAPIDS.cmake
+file(DOWNLOAD https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-22.04/RAPIDS.cmake
     ${CMAKE_BINARY_DIR}/RAPIDS.cmake)
 include(${CMAKE_BINARY_DIR}/RAPIDS.cmake)
 include(rapids-cmake)
@@ -26,7 +26,7 @@ include(rapids-find)
 
 rapids_cuda_init_architectures(RAFT)
 
-project(RAFT VERSION 22.02.00 LANGUAGES CXX CUDA)
+project(RAFT VERSION 22.04.00 LANGUAGES CXX CUDA)
 
 ##############################################################################
 # - build type ---------------------------------------------------------------
@@ -105,9 +105,11 @@ endif()
 # add third party dependencies using CPM
 rapids_cpm_init()
 
+# thrust before rmm/cuco so we get the right version of thrust/cub
+include(cmake/thirdparty/get_thrust.cmake)
 include(cmake/thirdparty/get_rmm.cmake)
-include(cmake/thirdparty/get_libcudacxx.cmake)
 include(cmake/thirdparty/get_cuco.cmake)
+include(cmake/thirdparty/get_libcudacxx.cmake)
 include(cmake/thirdparty/get_faiss.cmake)
 
 if(BUILD_TESTS)
@@ -127,6 +129,7 @@ target_include_directories(raft INTERFACE
         "$<INSTALL_INTERFACE:include>")
 
 target_link_libraries(raft INTERFACE
+  raft::Thrust
   CUDA::cublas
   CUDA::curand
   CUDA::cusolver
@@ -182,7 +185,9 @@ if(RAFT_COMPILE_LIBRARIES)
           EXPORT raft-distance-exports)
 endif()
 
-target_link_libraries(raft_distance INTERFACE raft::raft $<TARGET_NAME_IF_EXISTS:raft::raft_distance_lib>)
+target_link_libraries(raft_distance INTERFACE raft::raft
+    $<TARGET_NAME_IF_EXISTS:raft_distance_lib>
+    $<TARGET_NAME_IF_EXISTS:raft::raft_distance_lib>)
 
 ##############################################################################
 # - raft_nn ------------------------------------------------------------------
@@ -198,7 +203,10 @@ if(RAFT_COMPILE_LIBRARIES)
   add_library(raft_nn_lib SHARED
     src/nn/specializations/ball_cover.cu
     src/nn/specializations/detail/ball_cover_lowdim.cu
-    src/nn/specializations/fused_l2_knn.cu
+    src/nn/specializations/fused_l2_knn_long_float_true.cu
+    src/nn/specializations/fused_l2_knn_long_float_false.cu
+    src/nn/specializations/fused_l2_knn_int_float_true.cu
+    src/nn/specializations/fused_l2_knn_int_float_false.cu
     src/nn/specializations/knn.cu
   )
   set_target_properties(raft_nn_lib PROPERTIES OUTPUT_NAME raft_nn)
@@ -216,7 +224,9 @@ if(RAFT_COMPILE_LIBRARIES)
           EXPORT raft-nn-exports)
 endif()
 
-target_link_libraries(raft_nn INTERFACE raft::raft faiss::faiss $<TARGET_NAME_IF_EXISTS:raft::raft_nn_lib>)
+target_link_libraries(raft_nn INTERFACE raft::raft faiss::faiss
+    $<TARGET_NAME_IF_EXISTS:raft_nn_lib>
+    $<TARGET_NAME_IF_EXISTS:raft::raft_nn_lib>)
 
 ##############################################################################
 # - install targets-----------------------------------------------------------
@@ -266,6 +276,8 @@ Imported Targets:
 
 set(code_string
 [=[
+thrust_create_target(raft::Thrust FROM_OPTIONS)
+
 if(distance IN_LIST raft_FIND_COMPONENTS)
   enable_language(CUDA)
 endif()
@@ -343,6 +355,6 @@ endif()
 # - doxygen targets ----------------------------------------------------------
 
 include(cmake/doxygen.cmake)
-add_doxygen_target(IN_DOXYFILE Doxyfile.in
+add_doxygen_target(IN_DOXYFILE doxygen/Doxyfile.in
   OUT_DOXYFILE ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
   CWD ${CMAKE_CURRENT_BINARY_DIR})

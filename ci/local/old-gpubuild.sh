@@ -30,7 +30,7 @@ export MINOR_VERSION=`echo $GIT_DESCRIBE_TAG | grep -o -E '([0-9]+\.[0-9]+)'`
 source "$WORKSPACE/ci/prtest.config"
 
 # ucx-py version
-export UCX_PY_VERSION='0.24.*'
+export UCX_PY_VERSION='0.25.*'
 
 ################################################################################
 # SETUP - Check environment
@@ -84,8 +84,8 @@ fi
 
 # Install the master version of dask, distributed, and dask-ml
 set -x
-pip install "git+https://github.com/dask/distributed.git@main" --upgrade --no-deps
-pip install "git+https://github.com/dask/dask.git@main" --upgrade --no-deps
+pip install "git+https://github.com/dask/distributed.git@2022.01.0" --upgrade --no-deps
+pip install "git+https://github.com/dask/dask.git@2022.01.0" --upgrade --no-deps
 set +x
 
 

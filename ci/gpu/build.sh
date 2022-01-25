@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2020-2021, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #########################################
 # cuML GPU build and test script for CI #
 #########################################
@@ -30,7 +30,7 @@ export MINOR_VERSION=`echo $GIT_DESCRIBE_TAG | grep -o -E '([0-9]+\.[0-9]+)'`
 source "$WORKSPACE/ci/prtest.config"
 
 # ucx-py version
-export UCX_PY_VERSION='0.24.*'
+export UCX_PY_VERSION='0.25.*'
 
 ################################################################################
 # SETUP - Check environment
@@ -53,6 +53,7 @@ gpuci_mamba_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvid
       "libcusolver>=11.2.1" \
       "cudf=${MINOR_VERSION}" \
       "rmm=${MINOR_VERSION}" \
+      "breathe" \
       "dask-cudf=${MINOR_VERSION}" \
       "dask-cuda=${MINOR_VERSION}" \
       "ucx-py=${UCX_PY_VERSION}" \
@@ -63,8 +64,8 @@ gpuci_mamba_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvid
 # Install the master version of dask, distributed, and dask-ml
 gpuci_logger "Install the master version of dask and distributed"
 set -x
-pip install "git+https://github.com/dask/distributed.git@main" --upgrade --no-deps
-pip install "git+https://github.com/dask/dask.git@main" --upgrade --no-deps
+pip install "git+https://github.com/dask/distributed.git@2022.01.0" --upgrade --no-deps
+pip install "git+https://github.com/dask/dask.git@2022.01.0" --upgrade --no-deps
 set +x
 
 
@@ -88,10 +89,10 @@ export LD_LIBRARY_PATH_CACHED=$LD_LIBRARY_PATH
 export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
 
 gpuci_logger "Build C++ and Python targets"
-"$WORKSPACE/build.sh" cppraft pyraft -v
+"$WORKSPACE/build.sh" libraft pyraft -v
 
-gpuci_logger "Building doxygen C++ docs"
-"$WORKSPACE/build.sh" cppdocs -v
+gpuci_logger "Building docs"
+"$WORKSPACE/build.sh" docs -v
 
 gpuci_logger "Resetting LD_LIBRARY_PATH"
 
