@@ -90,9 +90,9 @@ export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
 
 gpuci_logger "Build C++ and Python targets"
 if hasArg --skip-tests; then
-  "$WORKSPACE/build.sh" libraft pyraft libraft -v --compilelibs --nogtest
+  "$WORKSPACE/build.sh" libraft pyraft libraft -v --compile-libs --nogtest
 else
-  "$WORKSPACE/build.sh" libraft pyraft libraft -v --compilelibs
+  "$WORKSPACE/build.sh" libraft pyraft libraft -v --compile-libs
 fi
 
 gpuci_logger "Building docs"
