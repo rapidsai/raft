@@ -29,7 +29,6 @@ requirements:
     - python x.x
     - setuptools
     - cython>=0.29,<0.30
-    - cmake>=3.20.1
     - libraft-core={{ version }}
     - cudatoolkit {{ cuda_version }}.*
     - ucx-py {{ ucx_py_version }}
@@ -43,7 +42,7 @@ requirements:
     - ucx-py {{ ucx_py_version }}
     - ucx-proc=*=gpu
     - dask>=2021.11.1,<=2021.11.2
-    - distributed>=2021.11.1,<=2021.11.2
+    - distributed>=2021.11.1,<=2022.01.0
     - cuda-python >=11.5,<12.0
     - joblib >=0.11
     - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}

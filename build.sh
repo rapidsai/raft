@@ -18,7 +18,7 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libraft pyraft docs -v -g --compilelibs --compile-nn --compile-dist --allgpuarch --nvtx --show_depr_warn -h --nogtest --buildfaiss"
+VALIDARGS="clean libraft pyraft docs -v -g --compile-libs --compile-nn --compile-dist --allgpuarch --nvtx --show_depr_warn -h --nogtest --buildfaiss"
 HELP="$0 [<target> ...] [<flag> ...]
  where <target> is:
    clean            - remove all existing build artifacts and configuration (start over)
@@ -30,7 +30,7 @@ HELP="$0 [<target> ...] [<flag> ...]
  and <flag> is:
    -v               - verbose build mode
    -g               - build for debug
-   --compilelibs    - compile shared libraries for all components
+   --compile-libs    - compile shared libraries for all components
    --compile-nn     - compile shared library for nn component
    --compile-dist   - compile shared library for distance component
    --allgpuarch     - build for all supported GPU architectures
@@ -50,7 +50,7 @@ BUILD_DIRS="${CPP_RAFT_BUILD_DIR} ${PY_RAFT_BUILD_DIR} ${PYTHON_DEPS_CLONE}"
 
 # Set defaults for vars modified by flags to this script
 CMAKE_LOG_LEVEL=""
-VERBOSE_FLAG="-v"
+VERBOSE_FLAG=""
 BUILD_ALL_GPU_ARCH=0
 BUILD_TESTS=YES
 BUILD_STATIC_FAISS=OFF
@@ -110,12 +110,12 @@ if hasArg --nogtest; then
     ENABLE_NN_DEPENDENCIES=OFF
 fi
 
-if hasArg --compile-nn || hasArg --compilelibs; then
+if hasArg --compile-nn || hasArg --compile-libs; then
     ENABLE_NN_DEPENDENCIES=ON
     COMPILE_LIBRARIES=ON
     CMAKE_TARGET="raft_nn_lib;${CMAKE_TARGET}"
 fi
-if hasArg --compile-dist || hasArg --compilelibs; then
+if hasArg --compile-dist || hasArg --compile-libs; then
     COMPILE_LIBRARIES=ON
     CMAKE_TARGET="raft_distance_lib;${CMAKE_TARGET}"
 fi
@@ -180,7 +180,7 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs; then
 
   if (( ${NUMARGS} == 0 )) || hasArg libraft; then
       # Run all c++ targets at once
-      if hasArg --compile-nn || hasArg --compile-dist || hasArg --compilelibs; then
+      if hasArg --compile-nn || hasArg --compile-dist || hasArg --compile-libs; then
         if ! hasArg --nogtest; then
           CMAKE_TARGET="test_raft;${CMAKE_TARGET}"
         fi

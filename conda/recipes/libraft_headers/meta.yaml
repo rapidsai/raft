@@ -8,7 +8,7 @@
   {% set cuda_major=cuda_version.split('.')[0] %}
   {% set ucx_py_version=environ.get('UCX_PY_VERSION') %}
 package:
-  name: libraft
+  name: libraft-headers
   version: {{ version }}
 
 source:
@@ -40,7 +40,6 @@ requirements:
     - cudatoolkit {{ cuda_version }}.*
     - ucx-py {{ ucx_py_version }}
     - ucx-proc=*=gpu
-    - lapack
     - gtest=1.10.0
     - gmock
   run:
@@ -54,4 +53,4 @@ about:
   home: http://rapids.ai/
   license: Apache-2.0
   # license_file: LICENSE
-  summary: libraft library
+  summary: libraft-headers library
