@@ -201,11 +201,14 @@ set_target_properties(raft_nn PROPERTIES EXPORT_NAME nn)
 
 if(RAFT_COMPILE_LIBRARIES)
   add_library(raft_nn_lib SHARED
-          src/nn/specializations/ball_cover.cu
-          src/nn/specializations/detail/ball_cover_lowdim.cu
-          src/nn/specializations/fused_l2_knn.cu
-          src/nn/specializations/knn.cu
-          )
+    src/nn/specializations/ball_cover.cu
+    src/nn/specializations/detail/ball_cover_lowdim.cu
+    src/nn/specializations/fused_l2_knn_long_float_true.cu
+    src/nn/specializations/fused_l2_knn_long_float_false.cu
+    src/nn/specializations/fused_l2_knn_int_float_true.cu
+    src/nn/specializations/fused_l2_knn_int_float_false.cu
+    src/nn/specializations/knn.cu
+  )
   set_target_properties(raft_nn_lib PROPERTIES OUTPUT_NAME raft_nn)
 
   target_link_libraries(raft_nn_lib PRIVATE raft::raft faiss::faiss)
