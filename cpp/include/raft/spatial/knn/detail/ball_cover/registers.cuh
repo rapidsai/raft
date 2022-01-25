@@ -478,44 +478,116 @@ void rbc_low_dim_pass_one(const raft::handle_t& handle,
 {
   if (k <= 32)
     block_rbc_kernel_registers<value_idx, value_t, 32, 2, 128, 15, value_int>
-      <<<n_query_rows, 128, 0, handle.get_stream()>>>(
-        index.get_X(), query, index.n, R_knn_inds, R_knn_dists, index.m, k,
-        index.get_R_indptr(), index.get_R_1nn_cols(), index.get_R_1nn_dists(),
-        inds, dists, dists_counter, index.get_R_radius(), dfunc, weight);
+      <<<n_query_rows, 128, 0, handle.get_stream()>>>(index.get_X(),
+                                                      query,
+                                                      index.n,
+                                                      R_knn_inds,
+                                                      R_knn_dists,
+                                                      index.m,
+                                                      k,
+                                                      index.get_R_indptr(),
+                                                      index.get_R_1nn_cols(),
+                                                      index.get_R_1nn_dists(),
+                                                      inds,
+                                                      dists,
+                                                      dists_counter,
+                                                      index.get_R_radius(),
+                                                      dfunc,
+                                                      weight);
 
   else if (k <= 64)
     block_rbc_kernel_registers<value_idx, value_t, 64, 3, 128, 15, value_int>
-      <<<n_query_rows, 128, 0, handle.get_stream()>>>(
-        index.get_X(), query, index.n, R_knn_inds, R_knn_dists, index.m, k,
-        index.get_R_indptr(), index.get_R_1nn_cols(), index.get_R_1nn_dists(),
-        inds, dists, dists_counter, index.get_R_radius(), dfunc, weight);
+      <<<n_query_rows, 128, 0, handle.get_stream()>>>(index.get_X(),
+                                                      query,
+                                                      index.n,
+                                                      R_knn_inds,
+                                                      R_knn_dists,
+                                                      index.m,
+                                                      k,
+                                                      index.get_R_indptr(),
+                                                      index.get_R_1nn_cols(),
+                                                      index.get_R_1nn_dists(),
+                                                      inds,
+                                                      dists,
+                                                      dists_counter,
+                                                      index.get_R_radius(),
+                                                      dfunc,
+                                                      weight);
   else if (k <= 128)
     block_rbc_kernel_registers<value_idx, value_t, 128, 3, 128, 15, value_int>
-      <<<n_query_rows, 128, 0, handle.get_stream()>>>(
-        index.get_X(), query, index.n, R_knn_inds, R_knn_dists, index.m, k,
-        index.get_R_indptr(), index.get_R_1nn_cols(), index.get_R_1nn_dists(),
-        inds, dists, dists_counter, index.get_R_radius(), dfunc, weight);
+      <<<n_query_rows, 128, 0, handle.get_stream()>>>(index.get_X(),
+                                                      query,
+                                                      index.n,
+                                                      R_knn_inds,
+                                                      R_knn_dists,
+                                                      index.m,
+                                                      k,
+                                                      index.get_R_indptr(),
+                                                      index.get_R_1nn_cols(),
+                                                      index.get_R_1nn_dists(),
+                                                      inds,
+                                                      dists,
+                                                      dists_counter,
+                                                      index.get_R_radius(),
+                                                      dfunc,
+                                                      weight);
 
   else if (k <= 256)
     block_rbc_kernel_registers<value_idx, value_t, 256, 4, 128, 15, value_int>
-      <<<n_query_rows, 128, 0, handle.get_stream()>>>(
-        index.get_X(), query, index.n, R_knn_inds, R_knn_dists, index.m, k,
-        index.get_R_indptr(), index.get_R_1nn_cols(), index.get_R_1nn_dists(),
-        inds, dists, dists_counter, index.get_R_radius(), dfunc, weight);
+      <<<n_query_rows, 128, 0, handle.get_stream()>>>(index.get_X(),
+                                                      query,
+                                                      index.n,
+                                                      R_knn_inds,
+                                                      R_knn_dists,
+                                                      index.m,
+                                                      k,
+                                                      index.get_R_indptr(),
+                                                      index.get_R_1nn_cols(),
+                                                      index.get_R_1nn_dists(),
+                                                      inds,
+                                                      dists,
+                                                      dists_counter,
+                                                      index.get_R_radius(),
+                                                      dfunc,
+                                                      weight);
 
   else if (k <= 512)
     block_rbc_kernel_registers<value_idx, value_t, 512, 8, 64, 15, value_int>
-      <<<n_query_rows, 64, 0, handle.get_stream()>>>(
-        index.get_X(), query, index.n, R_knn_inds, R_knn_dists, index.m, k,
-        index.get_R_indptr(), index.get_R_1nn_cols(), index.get_R_1nn_dists(),
-        inds, dists, dists_counter, index.get_R_radius(), dfunc, weight);
+      <<<n_query_rows, 64, 0, handle.get_stream()>>>(index.get_X(),
+                                                     query,
+                                                     index.n,
+                                                     R_knn_inds,
+                                                     R_knn_dists,
+                                                     index.m,
+                                                     k,
+                                                     index.get_R_indptr(),
+                                                     index.get_R_1nn_cols(),
+                                                     index.get_R_1nn_dists(),
+                                                     inds,
+                                                     dists,
+                                                     dists_counter,
+                                                     index.get_R_radius(),
+                                                     dfunc,
+                                                     weight);
 
   else if (k <= 1024)
     block_rbc_kernel_registers<value_idx, value_t, 1024, 8, 64, 15, value_int>
-      <<<n_query_rows, 64, 0, handle.get_stream()>>>(
-        index.get_X(), query, index.n, R_knn_inds, R_knn_dists, index.m, k,
-        index.get_R_indptr(), index.get_R_1nn_cols(), index.get_R_1nn_dists(),
-        inds, dists, dists_counter, index.get_R_radius(), dfunc, weight);
+      <<<n_query_rows, 64, 0, handle.get_stream()>>>(index.get_X(),
+                                                     query,
+                                                     index.n,
+                                                     R_knn_inds,
+                                                     R_knn_dists,
+                                                     index.m,
+                                                     k,
+                                                     index.get_R_indptr(),
+                                                     index.get_R_1nn_cols(),
+                                                     index.get_R_1nn_dists(),
+                                                     inds,
+                                                     dists,
+                                                     dists_counter,
+                                                     index.get_R_radius(),
+                                                     dfunc,
+                                                     weight);
 }
 
 template <typename value_idx,
@@ -555,47 +627,155 @@ void rbc_low_dim_pass_two(const raft::handle_t& handle,
       weight);
 
   if (k <= 32)
-    compute_final_dists_registers<value_idx, value_t, value_int, std::uint32_t,
-                                  dist_func, 32, 2, 128, 15>
-      <<<n_query_rows, 128, 0, handle.get_stream()>>>(
-        index.get_X(), query, index.n, bitset.data(), bitset_size, R_knn_dists,
-        index.get_R_indptr(), index.get_R_1nn_cols(), index.get_R_1nn_dists(),
-        inds, dists, index.n_landmarks, k, dfunc, post_dists_counter);
+    compute_final_dists_registers<value_idx,
+                                  value_t,
+                                  value_int,
+                                  std::uint32_t,
+                                  dist_func,
+                                  32,
+                                  2,
+                                  128,
+                                  15>
+      <<<n_query_rows, 128, 0, handle.get_stream()>>>(index.get_X(),
+                                                      query,
+                                                      index.n,
+                                                      bitset.data(),
+                                                      bitset_size,
+                                                      R_knn_dists,
+                                                      index.get_R_indptr(),
+                                                      index.get_R_1nn_cols(),
+                                                      index.get_R_1nn_dists(),
+                                                      inds,
+                                                      dists,
+                                                      index.n_landmarks,
+                                                      k,
+                                                      dfunc,
+                                                      post_dists_counter);
   else if (k <= 64)
-    compute_final_dists_registers<value_idx, value_t, value_int, std::uint32_t,
-                                  dist_func, 64, 3, 128, 15>
-      <<<n_query_rows, 128, 0, handle.get_stream()>>>(
-        index.get_X(), query, index.n, bitset.data(), bitset_size, R_knn_dists,
-        index.get_R_indptr(), index.get_R_1nn_cols(), index.get_R_1nn_dists(),
-        inds, dists, index.n_landmarks, k, dfunc, post_dists_counter);
+    compute_final_dists_registers<value_idx,
+                                  value_t,
+                                  value_int,
+                                  std::uint32_t,
+                                  dist_func,
+                                  64,
+                                  3,
+                                  128,
+                                  15>
+      <<<n_query_rows, 128, 0, handle.get_stream()>>>(index.get_X(),
+                                                      query,
+                                                      index.n,
+                                                      bitset.data(),
+                                                      bitset_size,
+                                                      R_knn_dists,
+                                                      index.get_R_indptr(),
+                                                      index.get_R_1nn_cols(),
+                                                      index.get_R_1nn_dists(),
+                                                      inds,
+                                                      dists,
+                                                      index.n_landmarks,
+                                                      k,
+                                                      dfunc,
+                                                      post_dists_counter);
   else if (k <= 128)
-    compute_final_dists_registers<value_idx, value_t, value_int, std::uint32_t,
-                                  dist_func, 128, 3, 128, 15>
-      <<<n_query_rows, 128, 0, handle.get_stream()>>>(
-        index.get_X(), query, index.n, bitset.data(), bitset_size, R_knn_dists,
-        index.get_R_indptr(), index.get_R_1nn_cols(), index.get_R_1nn_dists(),
-        inds, dists, index.n_landmarks, k, dfunc, post_dists_counter);
+    compute_final_dists_registers<value_idx,
+                                  value_t,
+                                  value_int,
+                                  std::uint32_t,
+                                  dist_func,
+                                  128,
+                                  3,
+                                  128,
+                                  15>
+      <<<n_query_rows, 128, 0, handle.get_stream()>>>(index.get_X(),
+                                                      query,
+                                                      index.n,
+                                                      bitset.data(),
+                                                      bitset_size,
+                                                      R_knn_dists,
+                                                      index.get_R_indptr(),
+                                                      index.get_R_1nn_cols(),
+                                                      index.get_R_1nn_dists(),
+                                                      inds,
+                                                      dists,
+                                                      index.n_landmarks,
+                                                      k,
+                                                      dfunc,
+                                                      post_dists_counter);
   else if (k <= 256)
-    compute_final_dists_registers<value_idx, value_t, value_int, std::uint32_t,
-                                  dist_func, 256, 4, 128, 15>
-      <<<n_query_rows, 128, 0, handle.get_stream()>>>(
-        index.get_X(), query, index.n, bitset.data(), bitset_size, R_knn_dists,
-        index.get_R_indptr(), index.get_R_1nn_cols(), index.get_R_1nn_dists(),
-        inds, dists, index.n_landmarks, k, dfunc, post_dists_counter);
+    compute_final_dists_registers<value_idx,
+                                  value_t,
+                                  value_int,
+                                  std::uint32_t,
+                                  dist_func,
+                                  256,
+                                  4,
+                                  128,
+                                  15>
+      <<<n_query_rows, 128, 0, handle.get_stream()>>>(index.get_X(),
+                                                      query,
+                                                      index.n,
+                                                      bitset.data(),
+                                                      bitset_size,
+                                                      R_knn_dists,
+                                                      index.get_R_indptr(),
+                                                      index.get_R_1nn_cols(),
+                                                      index.get_R_1nn_dists(),
+                                                      inds,
+                                                      dists,
+                                                      index.n_landmarks,
+                                                      k,
+                                                      dfunc,
+                                                      post_dists_counter);
   else if (k <= 512)
-    compute_final_dists_registers<value_idx, value_t, value_int, std::uint32_t,
-                                  dist_func, 512, 8, 64, 15>
-      <<<n_query_rows, 64, 0, handle.get_stream()>>>(
-        index.get_X(), query, index.n, bitset.data(), bitset_size, R_knn_dists,
-        index.get_R_indptr(), index.get_R_1nn_cols(), index.get_R_1nn_dists(),
-        inds, dists, index.n_landmarks, k, dfunc, post_dists_counter);
+    compute_final_dists_registers<value_idx,
+                                  value_t,
+                                  value_int,
+                                  std::uint32_t,
+                                  dist_func,
+                                  512,
+                                  8,
+                                  64,
+                                  15>
+      <<<n_query_rows, 64, 0, handle.get_stream()>>>(index.get_X(),
+                                                     query,
+                                                     index.n,
+                                                     bitset.data(),
+                                                     bitset_size,
+                                                     R_knn_dists,
+                                                     index.get_R_indptr(),
+                                                     index.get_R_1nn_cols(),
+                                                     index.get_R_1nn_dists(),
+                                                     inds,
+                                                     dists,
+                                                     index.n_landmarks,
+                                                     k,
+                                                     dfunc,
+                                                     post_dists_counter);
   else if (k <= 1024)
-    compute_final_dists_registers<value_idx, value_t, value_int, std::uint32_t,
-                                  dist_func, 1024, 8, 64, 15>
-      <<<n_query_rows, 64, 0, handle.get_stream()>>>(
-        index.get_X(), query, index.n, bitset.data(), bitset_size, R_knn_dists,
-        index.get_R_indptr(), index.get_R_1nn_cols(), index.get_R_1nn_dists(),
-        inds, dists, index.n_landmarks, k, dfunc, post_dists_counter);
+    compute_final_dists_registers<value_idx,
+                                  value_t,
+                                  value_int,
+                                  std::uint32_t,
+                                  dist_func,
+                                  1024,
+                                  8,
+                                  64,
+                                  15>
+      <<<n_query_rows, 64, 0, handle.get_stream()>>>(index.get_X(),
+                                                     query,
+                                                     index.n,
+                                                     bitset.data(),
+                                                     bitset_size,
+                                                     R_knn_dists,
+                                                     index.get_R_indptr(),
+                                                     index.get_R_1nn_cols(),
+                                                     index.get_R_1nn_dists(),
+                                                     inds,
+                                                     dists,
+                                                     index.n_landmarks,
+                                                     k,
+                                                     dfunc,
+                                                     post_dists_counter);
 }
 
 };  // namespace detail

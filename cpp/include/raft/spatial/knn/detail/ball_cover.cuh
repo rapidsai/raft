@@ -275,13 +275,15 @@ void perform_rbc_query(const raft::handle_t& handle,
  * query which is useful for algorithms that need to perform
  * A * A.T.
  */
-template <typename value_idx = std::int64_t, typename value_t,
-          typename value_int = std::uint32_t, typename distance_func>
-void rbc_build_index(const raft::handle_t &handle,
-                     BallCoverIndex<value_idx, value_t, value_int> &index,
-                     distance_func dfunc) {
-  ASSERT(index.n < 16,
-         "only < 16d vectors are supported in current implementation");
+template <typename value_idx = std::int64_t,
+          typename value_t,
+          typename value_int = std::uint32_t,
+          typename distance_func>
+void rbc_build_index(const raft::handle_t& handle,
+                     BallCoverIndex<value_idx, value_t, value_int>& index,
+                     distance_func dfunc)
+{
+  ASSERT(index.n < 16, "only < 16d vectors are supported in current implementation");
   ASSERT(!index.is_index_trained(), "index cannot be previously trained");
 
   rmm::device_uvector<value_idx> R_knn_inds(index.m, handle.get_stream());
@@ -328,9 +330,10 @@ void rbc_all_knn_query(const raft::handle_t& handle,
                        value_t* dists,
                        distance_func dfunc,
                        // approximate nn options
-                       bool perform_post_filtering = true, float weight = 1.0) {
-  ASSERT(index.n < 16,
-         "only < 16d vectors are supported in current implementation");
+                       bool perform_post_filtering = true,
+                       float weight                = 1.0)
+{
+  ASSERT(index.n < 16, "only < 16d vectors are supported in current implementation");
   ASSERT(index.n_landmarks >= k, "number of landmark samples must be >= k");
   ASSERT(!index.is_index_trained(), "index cannot be previously trained");
 
@@ -383,9 +386,10 @@ void rbc_knn_query(const raft::handle_t& handle,
                    value_t* dists,
                    distance_func dfunc,
                    // approximate nn options
-                   bool perform_post_filtering = true, float weight = 1.0) {
-  ASSERT(index.n < 16,
-         "only < 16d vectors are supported in current implementation");
+                   bool perform_post_filtering = true,
+                   float weight                = 1.0)
+{
+  ASSERT(index.n < 16, "only < 16d vectors are supported in current implementation");
   ASSERT(index.n_landmarks >= k, "number of landmark samples must be >= k");
   ASSERT(index.is_index_trained(), "index must be previously trained");
 
