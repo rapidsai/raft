@@ -162,11 +162,12 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs; then
           -DNVTX=${NVTX} \
           -DDISABLE_DEPRECATION_WARNING=${BUILD_DISABLE_DEPRECATION_WARNING} \
           -DBUILD_TESTS=${BUILD_TESTS} \
-          -DRAFT_USE_FAISS_STATIC=${BUILD_STATIC_FAISS}
+          -DRAFT_USE_FAISS_STATIC=${BUILD_STATIC_FAISS} \
+          ..
 
   if (( ${NUMARGS} == 0 )) || hasArg libraft; then
       # Run all c++ targets at once
-      cmake --build  ${CPP_RAFT_BUILD_DIR} -j${PARALLEL_LEVEL} ${MAKE_TARGETS} ${VERBOSE_FLAG}
+      cmake --build  ${CPP_RAFT_BUILD_DIR} -j${PARALLEL_LEVEL} ${VERBOSE_FLAG}
   fi
 fi
 
