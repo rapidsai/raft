@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
+#include "../test_utils.h"
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/norm.cuh>
 #include <raft/random/rng.hpp>
-#include "../test_utils.h"
 
 namespace raft {
 namespace linalg {
@@ -67,7 +67,7 @@ void naiveRowNorm(
   static const int TPB = 64;
   int nblks            = raft::ceildiv(N, TPB);
   naiveRowNormKernel<Type><<<nblks, TPB, 0, stream>>>(dots, data, D, N, type, do_sqrt);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 template <typename T>
@@ -95,7 +95,7 @@ class RowNormTest : public ::testing::TestWithParam<NormInputs<T>> {
     } else {
       rowNorm(dots_act.data(), data.data(), cols, rows, params.type, params.rowMajor, stream);
     }
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
  protected:
@@ -130,7 +130,7 @@ void naiveColNorm(
   static const int TPB = 64;
   int nblks            = raft::ceildiv(D, TPB);
   naiveColNormKernel<Type><<<nblks, TPB, 0, stream>>>(dots, data, D, N, type, do_sqrt);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 template <typename T>
@@ -159,7 +159,7 @@ class ColNormTest : public ::testing::TestWithParam<NormInputs<T>> {
     } else {
       colNorm(dots_act.data(), data.data(), cols, rows, params.type, params.rowMajor, stream);
     }
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
  protected:

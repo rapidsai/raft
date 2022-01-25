@@ -16,9 +16,9 @@
 
 #pragma once
 
-#include <raft/linalg/distance_type.h>
 #include <cstdint>
 #include <raft/handle.hpp>
+#include <raft/linalg/distance_type.h>
 #include <rmm/device_uvector.hpp>
 
 namespace raft {

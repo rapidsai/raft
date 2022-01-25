@@ -18,26 +18,26 @@
 
 #include <cusparse_v2.h>
 
-#include <raft/cudart_utils.h>
-#include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/mr/device/buffer.hpp>
+#include <raft/sparse/cusparse_wrappers.h>
 
-#include <thrust/device_ptr.h>
-#include <thrust/scan.h>
 #include <raft/device_atomics.cuh>
 #include <raft/sparse/op/sort.hpp>
+#include <thrust/device_ptr.h>
+#include <thrust/scan.h>
 
 #include <cuda_runtime.h>
-#include <stdio.h>
 #include <rmm/device_uvector.hpp>
+#include <stdio.h>
 
 #include <algorithm>
 #include <iostream>
 
-#include <raft/sparse/detail/utils.h>
 #include <raft/sparse/convert/csr.hpp>
 #include <raft/sparse/coo.hpp>
+#include <raft/sparse/detail/utils.h>
 
 namespace raft {
 namespace sparse {
@@ -102,7 +102,7 @@ template <typename value_idx>
 void compute_duplicates_mask(
   value_idx* mask, const value_idx* rows, const value_idx* cols, size_t nnz, cudaStream_t stream)
 {
-  CUDA_CHECK(cudaMemsetAsync(mask, 0, nnz * sizeof(value_idx), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(mask, 0, nnz * sizeof(value_idx), stream));
 
   compute_duplicates_diffs_kernel<<<raft::ceildiv(nnz, (size_t)256), 256, 0, stream>>>(
     rows, cols, mask, nnz);
@@ -147,7 +147,7 @@ void max_duplicates(const raft::handle_t& handle,
   // compute final size
   value_idx size = 0;
   raft::update_host(&size, diff.data() + (diff.size() - 1), 1, stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   size++;
 
   out.allocate(size, m, n, true, stream);

@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
+#include "../test_utils.h"
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/random/rng.hpp>
 #include <raft/stats/sum.hpp>
-#include "../test_utils.h"
 
 namespace raft {
 namespace stats {
@@ -62,7 +62,7 @@ class SumTest : public ::testing::TestWithParam<SumInputs<T>> {
 
     raft::update_device(data.data(), data_h, len, stream);
     sum(sum_act.data(), data.data(), cols, rows, false, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
  protected:

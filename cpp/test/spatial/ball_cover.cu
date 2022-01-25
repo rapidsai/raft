@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include "../test_utils.h"
+#include "spatial_data.h"
 #include <raft/cudart_utils.h>
 #include <raft/linalg/distance_type.h>
 
@@ -25,14 +27,19 @@
 #include <raft/spatial/knn/detail/haversine_distance.cuh>
 
 #include <raft/spatial/knn/detail/knn_brute_force_faiss.cuh>
+#if defined RAFT_NN_COMPILED
+#include <raft/spatial/knn/specializations.hpp>
+#endif
+
 #include <rmm/device_uvector.hpp>
-#include "../test_utils.h"
-#include "spatial_data.h"
+
+#include <rmm/exec_policy.hpp>
+#include <thrust/transform.h>
 
 #include <cstdint>
-
-#include <thrust/transform.h>
-#include <rmm/exec_policy.hpp>
+#include <gtest/gtest.h>
+#include <iostream>
+#include <vector>
 
 namespace raft {
 namespace spatial {
@@ -109,10 +116,10 @@ void compute_bfknn(const raft::handle_t& handle,
   std::vector<value_t*> input_vec      = {const_cast<value_t*>(X1)};
   std::vector<std::uint32_t> sizes_vec = {n};
 
-  cudaStream_t* int_streams          = nullptr;
   std::vector<int64_t>* translations = nullptr;
 
-  raft::spatial::knn::detail::brute_force_knn_impl<uint32_t, int64_t>(input_vec,
+  raft::spatial::knn::detail::brute_force_knn_impl<uint32_t, int64_t>(handle,
+                                                                      input_vec,
                                                                       sizes_vec,
                                                                       d,
                                                                       const_cast<value_t*>(X2),
@@ -120,9 +127,6 @@ void compute_bfknn(const raft::handle_t& handle,
                                                                       inds,
                                                                       dists,
                                                                       k,
-                                                                      handle.get_stream(),
-                                                                      int_streams,
-                                                                      0,
                                                                       true,
                                                                       true,
                                                                       translations,
@@ -184,7 +188,7 @@ class BallCoverKNNQueryTest : public ::testing::TestWithParam<BallCoverInputs<va
                   d_ref_D.data(),
                   d_ref_I.data());
 
-    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
 
     // Allocate predicted arrays
     rmm::device_uvector<value_idx> d_pred_I(n * k, handle.get_stream());
@@ -196,7 +200,7 @@ class BallCoverKNNQueryTest : public ::testing::TestWithParam<BallCoverInputs<va
     raft::spatial::knn::rbc_knn_query(
       handle, index, k, d_train_inputs.data(), n, d_pred_I.data(), d_pred_D.data(), true, weight);
 
-    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
     // What we really want are for the distances to match exactly. The
     // indices may or may not match exactly, depending upon the ordering which
     // can be nondeterministic.
@@ -263,13 +267,13 @@ class BallCoverAllKNNTest : public ::testing::TestWithParam<BallCoverInputs<valu
                         ToRadians());
     }
 
-    cudaStream_t* int_streams          = nullptr;
     std::vector<int64_t>* translations = nullptr;
 
     std::vector<float*> input_vec        = {d_train_inputs.data()};
     std::vector<std::uint32_t> sizes_vec = {n};
 
-    raft::spatial::knn::detail::brute_force_knn_impl<uint32_t, int64_t>(input_vec,
+    raft::spatial::knn::detail::brute_force_knn_impl<uint32_t, int64_t>(handle,
+                                                                        input_vec,
                                                                         sizes_vec,
                                                                         d,
                                                                         d_train_inputs.data(),
@@ -277,15 +281,12 @@ class BallCoverAllKNNTest : public ::testing::TestWithParam<BallCoverInputs<valu
                                                                         d_ref_I.data(),
                                                                         d_ref_D.data(),
                                                                         k,
-                                                                        handle.get_stream(),
-                                                                        int_streams,
-                                                                        0,
                                                                         true,
                                                                         true,
                                                                         translations,
                                                                         metric);
 
-    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
 
     // Allocate predicted arrays
     rmm::device_uvector<value_idx> d_pred_I(n * k, handle.get_stream());
@@ -296,7 +297,7 @@ class BallCoverAllKNNTest : public ::testing::TestWithParam<BallCoverInputs<valu
     raft::spatial::knn::rbc_all_knn_query(
       handle, index, k, d_pred_I.data(), d_pred_D.data(), true, weight);
 
-    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
     // What we really want are for the distances to match exactly. The
     // indices may or may not match exactly, depending upon the ordering which
     // can be nondeterministic.

@@ -16,9 +16,9 @@
 
 #pragma once
 
-#include <thrust/functional.h>
-#include <cstdint>
 #include "../haversine_distance.cuh"
+#include <cstdint>
+#include <thrust/functional.h>
 
 namespace raft {
 namespace spatial {

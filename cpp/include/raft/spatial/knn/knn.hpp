@@ -136,14 +136,13 @@ void brute_force_knn(raft::handle_t const& handle,
                      bool rowMajorIndex                   = true,
                      bool rowMajorQuery                   = true,
                      std::vector<value_idx>* translations = nullptr,
-                     distance::DistanceType metric        = distance::DistanceType::L2Expanded,
+                     distance::DistanceType metric        = distance::DistanceType::L2Unexpanded,
                      float metric_arg                     = 2.0f)
 {
   ASSERT(input.size() == sizes.size(), "input and sizes vectors must be the same size");
 
-  std::vector<cudaStream_t> int_streams = handle.get_internal_streams();
-
-  detail::brute_force_knn_impl(input,
+  detail::brute_force_knn_impl(handle,
+                               input,
                                sizes,
                                D,
                                search_items,
@@ -151,9 +150,6 @@ void brute_force_knn(raft::handle_t const& handle,
                                res_I,
                                res_D,
                                k,
-                               handle.get_stream(),
-                               int_streams.data(),
-                               handle.get_num_internal_streams(),
                                rowMajorIndex,
                                rowMajorQuery,
                                translations,

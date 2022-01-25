@@ -21,6 +21,8 @@
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/selection/detail/knn_graph.cuh>
 
+#include <cstdint>
+
 namespace raft {
 namespace sparse {
 namespace selection {
@@ -38,7 +40,6 @@ namespace selection {
  * @param[in] m number of data samples (rows) in X
  * @param[in] n number of observations (columns) in X
  * @param[in] metric distance metric to use when constructing neighborhoods
- * @param[out] out output edge list
  * @param[out] out output edge list
  * @param c
  */

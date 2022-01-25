@@ -14,14 +14,16 @@
  * limitations under the License.
  */
 
-#include <raft/spatial/knn/ball_cover_common.h>
-#include <cstdint>
 #include <raft/spatial/knn/ball_cover.hpp>
+#include <raft/spatial/knn/ball_cover_common.h>
 
 // Ignore upstream specializations to avoid unnecessary recompiling
 #include <raft/distance/specializations.hpp>
+#include <raft/spatial/knn/specializations/detail/ball_cover_lowdim.hpp>
 #include <raft/spatial/knn/specializations/fused_l2_knn.hpp>
 #include <raft/spatial/knn/specializations/knn.hpp>
+
+#include <cstdint>
 
 namespace raft {
 namespace spatial {

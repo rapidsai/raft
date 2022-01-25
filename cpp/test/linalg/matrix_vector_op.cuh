@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
+#include "../test_utils.h"
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
-#include "../test_utils.h"
 
 namespace raft {
 namespace linalg {
@@ -54,13 +54,15 @@ void naiveMatVec(Type* out,
                  IdxType N,
                  bool rowMajor,
                  bool bcastAlongRows,
-                 Type scalar)
+                 Type scalar,
+                 cudaStream_t stream)
 {
   static const IdxType TPB = 64;
   IdxType len              = N * D;
   IdxType nblks            = raft::ceildiv(len, TPB);
-  naiveMatVecKernel<Type><<<nblks, TPB>>>(out, mat, vec, D, N, rowMajor, bcastAlongRows, scalar);
-  CUDA_CHECK(cudaPeekAtLastError());
+  naiveMatVecKernel<Type>
+    <<<nblks, TPB, 0, stream>>>(out, mat, vec, D, N, rowMajor, bcastAlongRows, scalar);
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 template <typename Type, typename IdxType = int>
@@ -98,14 +100,15 @@ void naiveMatVec(Type* out,
                  IdxType N,
                  bool rowMajor,
                  bool bcastAlongRows,
-                 Type scalar)
+                 Type scalar,
+                 cudaStream_t stream)
 {
   static const IdxType TPB = 64;
   IdxType len              = N * D;
   IdxType nblks            = raft::ceildiv(len, TPB);
   naiveMatVecKernel<Type>
-    <<<nblks, TPB>>>(out, mat, vec1, vec2, D, N, rowMajor, bcastAlongRows, scalar);
-  CUDA_CHECK(cudaPeekAtLastError());
+    <<<nblks, TPB, 0, stream>>>(out, mat, vec1, vec2, D, N, rowMajor, bcastAlongRows, scalar);
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 }  // end namespace linalg

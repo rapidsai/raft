@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
+#include "../test_utils.h"
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <raft/matrix/math.hpp>
 #include <raft/random/rng.hpp>
 #include <raft/stats/mean.hpp>
 #include <raft/stats/stddev.hpp>
-#include "../test_utils.h"
 
 namespace raft {
 namespace stats {
@@ -66,7 +66,7 @@ class StdDevTest : public ::testing::TestWithParam<StdDevInputs<T>> {
     vars_act.resize(cols, stream);
     r.normal(data.data(), len, params.mean, params.stddev, stream);
     stdVarSGtest(data.data(), stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
   void stdVarSGtest(T* data, cudaStream_t stream)
@@ -133,20 +133,29 @@ typedef StdDevTest<float> StdDevTestF;
 TEST_P(StdDevTestF, Result)
 {
   ASSERT_TRUE(devArrMatch(
-    params.stddev, stddev_act.data(), params.cols, CompareApprox<float>(params.tolerance)));
+    params.stddev, stddev_act.data(), params.cols, CompareApprox<float>(params.tolerance), stream));
 
-  ASSERT_TRUE(devArrMatch(
-    stddev_act.data(), vars_act.data(), params.cols, CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(stddev_act.data(),
+                          vars_act.data(),
+                          params.cols,
+                          CompareApprox<float>(params.tolerance),
+                          stream));
 }
 
 typedef StdDevTest<double> StdDevTestD;
 TEST_P(StdDevTestD, Result)
 {
-  ASSERT_TRUE(devArrMatch(
-    params.stddev, stddev_act.data(), params.cols, CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(params.stddev,
+                          stddev_act.data(),
+                          params.cols,
+                          CompareApprox<double>(params.tolerance),
+                          stream));
 
-  ASSERT_TRUE(devArrMatch(
-    stddev_act.data(), vars_act.data(), params.cols, CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(stddev_act.data(),
+                          vars_act.data(),
+                          params.cols,
+                          CompareApprox<double>(params.tolerance),
+                          stream));
 }
 
 INSTANTIATE_TEST_SUITE_P(StdDevTests, StdDevTestF, ::testing::ValuesIn(inputsf));

@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
 #include <cstddef>
+#include <gtest/gtest.h>
 #include <iostream>
 #include <memory>
 #include <raft/handle.hpp>
@@ -26,7 +26,7 @@ TEST(Raft, HandleDefault)
 {
   handle_t h;
   ASSERT_EQ(0, h.get_device());
-  ASSERT_EQ(nullptr, h.get_stream());
+  ASSERT_EQ(rmm::cuda_stream_per_thread, h.get_stream());
   ASSERT_NE(nullptr, h.get_cublas_handle());
   ASSERT_NE(nullptr, h.get_cusolver_dn_handle());
   ASSERT_NE(nullptr, h.get_cusolver_sp_handle());
@@ -35,44 +35,33 @@ TEST(Raft, HandleDefault)
 
 TEST(Raft, Handle)
 {
-  handle_t h(4);
-  ASSERT_EQ(4, h.get_num_internal_streams());
-  cudaStream_t stream;
-  CUDA_CHECK(cudaStreamCreate(&stream));
-  h.set_stream(stream);
-  ASSERT_EQ(stream, h.get_stream());
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-  CUDA_CHECK(cudaStreamDestroy(stream));
-}
+  // test stream pool creation
+  constexpr std::size_t n_streams = 4;
+  auto stream_pool                = std::make_shared<rmm::cuda_stream_pool>(n_streams);
+  handle_t h(rmm::cuda_stream_default, stream_pool);
+  ASSERT_EQ(n_streams, h.get_stream_pool_size());
 
-TEST(Raft, GetInternalStreams)
-{
-  handle_t h(4);
-  auto streams = h.get_internal_streams();
-  ASSERT_EQ(4U, streams.size());
+  // test non default stream handle
+  cudaStream_t stream;
+  RAFT_CUDA_TRY(cudaStreamCreate(&stream));
+  rmm::cuda_stream_view stream_view(stream);
+  handle_t handle(stream_view);
+  ASSERT_EQ(stream_view, handle.get_stream());
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  RAFT_CUDA_TRY(cudaStreamDestroy(stream));
 }
 
 TEST(Raft, GetHandleFromPool)
 {
-  handle_t parent(4);
+  constexpr std::size_t n_streams = 4;
+  auto stream_pool                = std::make_shared<rmm::cuda_stream_pool>(n_streams);
+  handle_t parent(rmm::cuda_stream_default, stream_pool);
 
-  handle_t child(parent, 2);
-  ASSERT_EQ(parent.get_internal_stream(2), child.get_stream());
-
-  child.set_stream(parent.get_internal_stream(3));
-  ASSERT_EQ(parent.get_internal_stream(3), child.get_stream());
-  ASSERT_NE(parent.get_internal_stream(2), child.get_stream());
-
-  ASSERT_EQ(parent.get_device(), child.get_device());
+  for (std::size_t i = 0; i < n_streams; i++) {
+    auto worker_stream = parent.get_stream_from_stream_pool(i);
+    handle_t child(worker_stream);
+    ASSERT_EQ(parent.get_stream_from_stream_pool(i), child.get_stream());
+  }
 }
 
-TEST(Raft, GetHandleStreamViews)
-{
-  handle_t parent(4);
-
-  handle_t child(parent, 2);
-  ASSERT_EQ(parent.get_internal_stream_view(2), child.get_stream_view());
-  ASSERT_EQ(parent.get_internal_stream_view(2).value(), child.get_stream_view().value());
-  EXPECT_FALSE(child.get_stream_view().is_default());
-}
 }  // namespace raft

@@ -122,7 +122,7 @@ void transform_eigen_matrix(handle_t const& handle, edge_t n, vertex_t nEigVecs,
     mean = thrust::reduce(thrust_exec_policy,
                           thrust::device_pointer_cast(eigVecs + IDX(0, i, n)),
                           thrust::device_pointer_cast(eigVecs + IDX(0, i + 1, n)));
-    CHECK_CUDA(stream);
+    RAFT_CHECK_CUDA(stream);
     mean /= n;
     thrust::transform(thrust_exec_policy,
                       thrust::device_pointer_cast(eigVecs + IDX(0, i, n)),
@@ -130,9 +130,9 @@ void transform_eigen_matrix(handle_t const& handle, edge_t n, vertex_t nEigVecs,
                       thrust::make_constant_iterator(mean),
                       thrust::device_pointer_cast(eigVecs + IDX(0, i, n)),
                       thrust::minus<weight_t>());
-    CHECK_CUDA(stream);
+    RAFT_CHECK_CUDA(stream);
 
-    CUBLAS_CHECK(cublasnrm2(cublas_h, n, eigVecs + IDX(0, i, n), 1, &std, stream));
+    RAFT_CUBLAS_TRY(cublasnrm2(cublas_h, n, eigVecs + IDX(0, i, n), 1, &std, stream));
 
     std /= std::sqrt(static_cast<weight_t>(n));
 
@@ -142,31 +142,31 @@ void transform_eigen_matrix(handle_t const& handle, edge_t n, vertex_t nEigVecs,
                       thrust::make_constant_iterator(std),
                       thrust::device_pointer_cast(eigVecs + IDX(0, i, n)),
                       thrust::divides<weight_t>());
-    CHECK_CUDA(stream);
+    RAFT_CHECK_CUDA(stream);
   }
 
   // Transpose eigenvector matrix
   //   TODO: in-place transpose
   {
     vector_t<weight_t> work(handle, nEigVecs * n);
-    CUBLAS_CHECK(cublassetpointermode(cublas_h, CUBLAS_POINTER_MODE_HOST, stream));
+    RAFT_CUBLAS_TRY(cublassetpointermode(cublas_h, CUBLAS_POINTER_MODE_HOST, stream));
 
-    CUBLAS_CHECK(cublasgeam(cublas_h,
-                            CUBLAS_OP_T,
-                            CUBLAS_OP_N,
-                            nEigVecs,
-                            n,
-                            &one,
-                            eigVecs,
-                            n,
-                            &zero,
-                            (weight_t*)NULL,
-                            nEigVecs,
-                            work.raw(),
-                            nEigVecs,
-                            stream));
+    RAFT_CUBLAS_TRY(cublasgeam(cublas_h,
+                               CUBLAS_OP_T,
+                               CUBLAS_OP_N,
+                               nEigVecs,
+                               n,
+                               &one,
+                               eigVecs,
+                               n,
+                               &zero,
+                               (weight_t*)NULL,
+                               nEigVecs,
+                               work.raw(),
+                               nEigVecs,
+                               stream));
 
-    CUDA_TRY(cudaMemcpyAsync(
+    RAFT_CUDA_TRY(cudaMemcpyAsync(
       eigVecs, work.raw(), nEigVecs * n * sizeof(weight_t), cudaMemcpyDeviceToDevice, stream));
   }
 }
@@ -213,17 +213,17 @@ bool construct_indicator(handle_t const& handle,
     thrust::make_zip_iterator(thrust::make_tuple(thrust::device_pointer_cast(clusters + n),
                                                  thrust::device_pointer_cast(part_i.raw() + n))),
     equal_to_i_op<vertex_t, weight_t>(index));
-  CHECK_CUDA(stream);
+  RAFT_CHECK_CUDA(stream);
 
   // Compute size of ith partition
-  CUBLAS_CHECK(cublasdot(cublas_h, n, part_i.raw(), 1, part_i.raw(), 1, &clustersize, stream));
+  RAFT_CUBLAS_TRY(cublasdot(cublas_h, n, part_i.raw(), 1, part_i.raw(), 1, &clustersize, stream));
 
   clustersize = round(clustersize);
   if (clustersize < 0.5) { return false; }
 
   // Compute part stats
   B.mv(1, part_i.raw(), 0, Bx.raw());
-  CUBLAS_CHECK(cublasdot(cublas_h, n, Bx.raw(), 1, part_i.raw(), 1, &partStats, stream));
+  RAFT_CUBLAS_TRY(cublasdot(cublas_h, n, Bx.raw(), 1, part_i.raw(), 1, &partStats, stream));
 
   return true;
 }
