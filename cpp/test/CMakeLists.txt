@@ -94,6 +94,7 @@ add_executable(test_raft
     test/spatial/fused_l2_knn.cu
     test/spatial/haversine.cu
     test/spatial/ball_cover.cu
+    test/spatial/faiss_mr.cu
     test/spatial/selection.cu
     test/spectral_matrix.cu
     test/stats/mean.cu
@@ -121,15 +122,16 @@ target_compile_options(test_raft
 
 target_include_directories(test_raft
     PUBLIC  "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/test>"
-            "${FAISS_GPU_HEADERS}"
 )
 
 
 target_link_libraries(test_raft
 PRIVATE
-  raft # transitively links all CUDA libs, etc
-  raft_distance
-  raft_nn
+  raft::raft
+  raft::distance
+  raft::nn
+  NCCL::NCCL
+  faiss::faiss
   GTest::gtest
   GTest::gtest_main
   Threads::Threads
