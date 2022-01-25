@@ -29,14 +29,14 @@ requirements:
     - python x.x
     - setuptools
     - cython>=0.29,<0.30
-    - libraft-core={{ version }}
+    - libraft-headers={{ version }}
     - cudatoolkit {{ cuda_version }}.*
     - ucx-py {{ ucx_py_version }}
     - ucx-proc=*=gpu
   run:
     - python x.x
     - dask-cuda {{ minor_version }}
-    - libraft={{ version }}
+    - libraft-headers={{ version }}
     - cupy>=7.8.0,<10.0.0a0
     - nccl>=2.9.9
     - ucx-py {{ ucx_py_version }}
