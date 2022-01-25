@@ -35,7 +35,9 @@ struct Pow2 {
   static_assert(std::is_integral<Type>::value, "Value must be integral.");
   static_assert(Value && !(Value & Mask), "Value must be power of two.");
 
-#define Pow2_IsRepresentableAs(I) (std::is_integral<I>::value && Type(I(Value)) == Value)
+#define Pow2_FUNC_QUALIFIER         static constexpr __host__ __device__ __forceinline__
+#define Pow2_WHEN_INTEGRAL(I)       std::enable_if_t<Pow2_IS_REPRESENTABLE_AS(I), I>
+#define Pow2_IS_REPRESENTABLE_AS(I) (std::is_integral<I>::value && Type(I(Value)) == Value)
 
   /**
    * Integer division by Value truncated toward zero
@@ -44,7 +46,7 @@ struct Pow2 {
    *  Invariant: `x = Value * quot(x) + rem(x)`
    */
   template <typename I>
-  static constexpr HDI std::enable_if_t<Pow2_IsRepresentableAs(I), I> quot(I x) noexcept
+  Pow2_FUNC_QUALIFIER Pow2_WHEN_INTEGRAL(I) quot(I x) noexcept
   {
     if constexpr (std::is_signed<I>::value) return (x >> I(Log2)) + (x < 0 && (x & I(Mask)));
     if constexpr (std::is_unsigned<I>::value) return x >> I(Log2);
@@ -57,7 +59,7 @@ struct Pow2 {
    *  Invariant: `x = Value * quot(x) + rem(x)`.
    */
   template <typename I>
-  static constexpr HDI std::enable_if_t<Pow2_IsRepresentableAs(I), I> rem(I x) noexcept
+  Pow2_FUNC_QUALIFIER Pow2_WHEN_INTEGRAL(I) rem(I x) noexcept
   {
     if constexpr (std::is_signed<I>::value) return x < 0 ? -((-x) & I(Mask)) : (x & I(Mask));
     if constexpr (std::is_unsigned<I>::value) return x & I(Mask);
@@ -74,7 +76,7 @@ struct Pow2 {
    * compared to normal C++ operators `/` and `%`.
    */
   template <typename I>
-  static constexpr HDI std::enable_if_t<Pow2_IsRepresentableAs(I), I> div(I x) noexcept
+  Pow2_FUNC_QUALIFIER Pow2_WHEN_INTEGRAL(I) div(I x) noexcept
   {
     return x >> I(Log2);
   }
@@ -91,7 +93,7 @@ struct Pow2 {
    * compared to normal C++ operators `/` and `%`.
    */
   template <typename I>
-  static constexpr HDI std::enable_if_t<Pow2_IsRepresentableAs(I), I> mod(I x) noexcept
+  Pow2_FUNC_QUALIFIER Pow2_WHEN_INTEGRAL(I) mod(I x) noexcept
   {
     return x & I(Mask);
   }
@@ -105,25 +107,25 @@ struct Pow2 {
    * NB: for pointers, the alignment is checked in bytes, not in elements.
    */
   template <typename PtrT>
-  static constexpr HDI bool isAligned(PtrT p) noexcept
+  Pow2_FUNC_QUALIFIER bool isAligned(PtrT p) noexcept
   {
     Pow2_CHECK_TYPE(PtrT);
-    if constexpr (Pow2_IsRepresentableAs(PtrT)) return mod(p) == 0;
-    if constexpr (!Pow2_IsRepresentableAs(PtrT)) return mod(reinterpret_cast<Type>(p)) == 0;
+    if constexpr (Pow2_IS_REPRESENTABLE_AS(PtrT)) return mod(p) == 0;
+    if constexpr (!Pow2_IS_REPRESENTABLE_AS(PtrT)) return mod(reinterpret_cast<Type>(p)) == 0;
   }
 
   /** Tell whether two pointers have the same address modulo Value. */
   template <typename PtrT, typename PtrS>
-  static constexpr HDI bool areSameAlignOffsets(PtrT a, PtrS b) noexcept
+  Pow2_FUNC_QUALIFIER bool areSameAlignOffsets(PtrT a, PtrS b) noexcept
   {
     Pow2_CHECK_TYPE(PtrT);
     Pow2_CHECK_TYPE(PtrS);
     Type x, y;
-    if constexpr (Pow2_IsRepresentableAs(PtrT))
+    if constexpr (Pow2_IS_REPRESENTABLE_AS(PtrT))
       x = Type(mod(a));
     else
       x = mod(reinterpret_cast<Type>(a));
-    if constexpr (Pow2_IsRepresentableAs(PtrS))
+    if constexpr (Pow2_IS_REPRESENTABLE_AS(PtrS))
       y = Type(mod(b));
     else
       y = mod(reinterpret_cast<Type>(b));
@@ -132,29 +134,31 @@ struct Pow2 {
 
   /** Get this or next Value-aligned address (in bytes) or integral. */
   template <typename PtrT>
-  static constexpr HDI PtrT roundUp(PtrT p) noexcept
+  Pow2_FUNC_QUALIFIER PtrT roundUp(PtrT p) noexcept
   {
     Pow2_CHECK_TYPE(PtrT);
-    if constexpr (Pow2_IsRepresentableAs(PtrT)) return p + PtrT(Mask) - mod(p + PtrT(Mask));
-    if constexpr (!Pow2_IsRepresentableAs(PtrT)) {
+    if constexpr (Pow2_IS_REPRESENTABLE_AS(PtrT)) return (p + PtrT(Mask)) & PtrT(~Mask);
+    if constexpr (!Pow2_IS_REPRESENTABLE_AS(PtrT)) {
       auto x = reinterpret_cast<Type>(p);
-      return reinterpret_cast<PtrT>(x + Mask - mod(x + Mask));
+      return reinterpret_cast<PtrT>((x + Mask) & (~Mask));
     }
   }
 
   /** Get this or previous Value-aligned address (in bytes) or integral. */
   template <typename PtrT>
-  static constexpr HDI PtrT roundDown(PtrT p) noexcept
+  Pow2_FUNC_QUALIFIER PtrT roundDown(PtrT p) noexcept
   {
     Pow2_CHECK_TYPE(PtrT);
-    if constexpr (Pow2_IsRepresentableAs(PtrT)) return p - mod(p);
-    if constexpr (!Pow2_IsRepresentableAs(PtrT)) {
+    if constexpr (Pow2_IS_REPRESENTABLE_AS(PtrT)) return p & PtrT(~Mask);
+    if constexpr (!Pow2_IS_REPRESENTABLE_AS(PtrT)) {
       auto x = reinterpret_cast<Type>(p);
-      return reinterpret_cast<PtrT>(x - mod(x));
+      return reinterpret_cast<PtrT>(x & (~Mask));
     }
   }
 #undef Pow2_CHECK_TYPE
-#undef Pow2_IsRepresentableAs
+#undef Pow2_IS_REPRESENTABLE_AS
+#undef Pow2_FUNC_QUALIFIER
+#undef Pow2_WHEN_INTEGRAL
 };
 
 };  // namespace raft

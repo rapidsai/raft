@@ -18,35 +18,41 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean cppraft pyraft cppdocs -v -g --allgpuarch --nvtx --show_depr_warn -h --buildgtest --buildfaiss"
+VALIDARGS="clean libraft pyraft docs -v -g --compilelibs --allgpuarch --nvtx --show_depr_warn -h --buildgtest --buildfaiss"
 HELP="$0 [<target> ...] [<flag> ...]
  where <target> is:
    clean            - remove all existing build artifacts and configuration (start over)
-   cppraft          - build the cuml C++ code only. Also builds the C-wrapper library
+   libraft          - build the raft C++ code only. Also builds the C-wrapper library
                       around the C++ code.
    pyraft             - build the cuml Python package
-   cppdocs            - build the C++ doxygen documentation
+   docs             - build the documentation
+
  and <flag> is:
    -v               - verbose build mode
    -g               - build for debug
+   --compilelibs    - compile shared libraries
    --allgpuarch     - build for all supported GPU architectures
    --buildfaiss     - build faiss statically into raft
    --nvtx           - Enable nvtx for profiling support
    --show_depr_warn - show cmake deprecation warnings
    -h               - print this text
 
- default action (no args) is to build both cppraft and pyraft targets
+ default action (no args) is to build both libraft and pyraft targets
 "
 CPP_RAFT_BUILD_DIR=${REPODIR}/cpp/build
+SPHINX_BUILD_DIR=${REPODIR}/docs
 PY_RAFT_BUILD_DIR=${REPODIR}/python/build
 PYTHON_DEPS_CLONE=${REPODIR}/python/external_repositories
 BUILD_DIRS="${CPP_RAFT_BUILD_DIR} ${PY_RAFT_BUILD_DIR} ${PYTHON_DEPS_CLONE}"
 
 # Set defaults for vars modified by flags to this script
+CMAKE_LOG_LEVEL=""
 VERBOSE_FLAG=""
 BUILD_ALL_GPU_ARCH=0
-BUILD_GTEST=OFF
+BUILD_TESTS=ON
 BUILD_STATIC_FAISS=OFF
+COMPILE_LIBRARIES=OFF
+ENABLE_NN_DEPENDENCIES=ON
 SINGLEGPU=""
 NVTX=OFF
 CLEAN=0
@@ -84,10 +90,15 @@ fi
 # Process flags
 if hasArg -v; then
     VERBOSE_FLAG=-v
+    CMAKE_LOG_LEVEL="--log-level=VERBOSE"
     set -x
 fi
 if hasArg -g; then
     BUILD_TYPE=Debug
+fi
+
+if hasArg --compilelibs; then
+    COMPILE_LIBRARIES=ON
 fi
 
 if hasArg --allgpuarch; then
@@ -131,14 +142,10 @@ if (( ${CLEAN} == 1 )); then
     cd ${REPODIR}
 fi
 
-if hasArg cppdocs; then
-    cd ${CPP_RAFT_BUILD_DIR}
-    cmake --build ${CPP_RAFT_BUILD_DIR} --target docs_raft
-fi
 
 ################################################################################
 # Configure for building all C++ targets
-if (( ${NUMARGS} == 0 )) || hasArg cppraft; then
+if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs; then
     if (( ${BUILD_ALL_GPU_ARCH} == 0 )); then
         RAFT_CMAKE_CUDA_ARCHITECTURES="NATIVE"
         echo "Building for the architecture of the GPU in the system..."
@@ -147,27 +154,36 @@ if (( ${NUMARGS} == 0 )) || hasArg cppraft; then
         echo "Building for *ALL* supported GPU architectures..."
     fi
 
-    cmake -S ${REPODIR}/cpp -B ${CPP_RAFT_BUILD_DIR} \
+    cmake -S ${REPODIR}/cpp -B ${CPP_RAFT_BUILD_DIR} ${CMAKE_LOG_LEVEL} \
           -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} \
           -DCMAKE_CUDA_ARCHITECTURES=${RAFT_CMAKE_CUDA_ARCHITECTURES} \
+          -DRAFT_COMPILE_LIBRARIES=${COMPILE_LIBRARIES} \
+          -DRAFT_ENABLE_NN_DEPENDENCIES=${ENABLE_NN_DEPENDENCIES} \
           -DNVTX=${NVTX} \
           -DDISABLE_DEPRECATION_WARNING=${BUILD_DISABLE_DEPRECATION_WARNING} \
-          -DBUILD_GTEST=${BUILD_GTEST} \
-          -DBUILD_STATIC_FAISS=${BUILD_STATIC_FAISS}
+          -DBUILD_TESTS=${BUILD_TESTS} \
+          -DRAFT_USE_FAISS_STATIC=${BUILD_STATIC_FAISS} \
+          ..
 
-
-    # Run all c++ targets at once
-    cmake --build  ${CPP_RAFT_BUILD_DIR} -j${PARALLEL_LEVEL} ${MAKE_TARGETS} ${VERBOSE_FLAG}
+  if (( ${NUMARGS} == 0 )) || hasArg libraft; then
+      # Run all c++ targets at once
+      cmake --build  ${CPP_RAFT_BUILD_DIR} -j${PARALLEL_LEVEL} ${VERBOSE_FLAG}
+  fi
 fi
 
-
 # Build and (optionally) install the cuml Python package
-if (( ${NUMARGS} == 0 )) || hasArg pyraft; then
+if (( ${NUMARGS} == 0 )) || hasArg pyraft || hasArg docs; then
 
     cd ${REPODIR}/python
     if [[ ${INSTALL_TARGET} != "" ]]; then
         python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace ${SINGLEGPU}
     else
-        python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace --library-dir=${LIBCUML_BUILD_DIR} ${SINGLEGPU}
+        python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace --library-dir=${LIBRAFT_BUILD_DIR} ${SINGLEGPU}
     fi
+fi
+
+if hasArg docs; then
+    cmake --build ${CPP_RAFT_BUILD_DIR} --target docs_raft
+    cd ${SPHINX_BUILD_DIR}
+    make html
 fi
