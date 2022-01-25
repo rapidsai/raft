@@ -225,4 +225,7 @@ template <typename AccessorPolicy>
 using device_accessor = accessor_mixin<AccessorPolicy, false>;
 
 namespace stdex = std::experimental;
+
+using vector_extent_t = stdex::extents<stdex::dynamic_extent>;
+using matrix_extent_t = stdex::extents<stdex::dynamic_extent, stdex::dynamic_extent>;
 }  // namespace raft::detail

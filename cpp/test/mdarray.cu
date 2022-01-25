@@ -286,4 +286,60 @@ TEST(MDArray, CopyMove)
     ASSERT_EQ(arr.extent(0), non_dft.extent(0));
   }
 }
+
+TEST(MDArray, Factory)
+{
+  size_t n{100};
+  rmm::device_uvector<float> d_vec(n, rmm::cuda_stream_default);
+  {
+    auto d_matrix = make_device_matrix_view(d_vec.data(), d_vec.size() / 2, 2);
+    ASSERT_EQ(d_matrix.extent(0), n / 2);
+    ASSERT_EQ(d_matrix.extent(1), 2);
+    ASSERT_EQ(d_matrix.data(), d_vec.data());
+  }
+  {
+    auto const& vec_ref = d_vec;
+    auto d_matrix       = make_device_matrix_view(vec_ref.data(), d_vec.size() / 2, 2);
+    ASSERT_EQ(d_matrix.extent(0), n / 2);
+    ASSERT_EQ(d_matrix.extent(1), 2);
+    ASSERT_EQ(d_matrix.data(), d_vec.data());
+  }
+
+  std::vector<float> h_vec(n);
+  {
+    auto h_matrix = make_host_matrix_view(h_vec.data(), h_vec.size() / 2, 2);
+    ASSERT_EQ(h_matrix.extent(0), n / 2);
+    ASSERT_EQ(h_matrix.extent(1), 2);
+    ASSERT_EQ(h_matrix.data(), h_vec.data());
+    h_matrix(0, 0) = 13;
+    ASSERT_EQ(h_matrix(0, 0), 13);
+  }
+  {
+    auto const& vec_ref = h_vec;
+    auto h_matrix       = make_host_matrix_view(vec_ref.data(), d_vec.size() / 2, 2);
+    ASSERT_EQ(h_matrix.extent(0), n / 2);
+    ASSERT_EQ(h_matrix.extent(1), 2);
+    ASSERT_EQ(h_matrix.data(), h_vec.data());
+    // const, cannot assign
+    // h_matrix(0, 0) = 13;
+    ASSERT_EQ(h_matrix(0, 0), 13);
+  }
+
+  {
+    // host mdarray
+    auto h_matrix = make_host_matrix<float>(n, n);
+    ASSERT_EQ(h_matrix.extent(0), n);
+    ASSERT_EQ(h_matrix.extent(1), n);
+
+    auto h_vec = make_host_vector<float>(n);
+  }
+  {
+    // device mdarray
+    auto d_matrix = make_device_matrix<float>(n, n, rmm::cuda_stream_default);
+    ASSERT_EQ(d_matrix.extent(0), n);
+    ASSERT_EQ(d_matrix.extent(1), n);
+
+    auto d_vec = make_device_vector<float>(n, rmm::cuda_stream_default);
+  }
+}
 }  // namespace raft
