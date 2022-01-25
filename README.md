@@ -63,6 +63,6 @@ The folder structure mirrors other RAPIDS repos (cuDF, cuML, cuGraph...), with t
 
 - `ci`: Scripts for running CI in PRs
 - `conda`: conda recipes and development conda environments
-- `cpp`: Source code for all C++ code. The code is currently header-only, therefore it is in the `include` folder (with no `src`).
+- `cpp`: Source code for all C++ code. Headers are in the `include` folder and compiled template specializations for the shared libraries are in `src`.
 - `docs`: Source code and scripts for building library documentation
 - `python`: Source code for all Python source code.
