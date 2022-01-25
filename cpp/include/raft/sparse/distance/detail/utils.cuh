@@ -16,9 +16,6 @@
 
 #pragma once
 
-#include <raft/mr/device/allocator.hpp>
-#include <raft/mr/device/buffer.hpp>
-
 #include <cub/cub.cuh>
 
 namespace raft {

@@ -20,12 +20,15 @@
 # cython: language_level = 3
 
 # import raft
-from libcpp.memory cimport shared_ptr
 from rmm._lib.cuda_stream_view cimport cuda_stream_per_thread
 from rmm._lib.cuda_stream_view cimport cuda_stream_view
 
 from .cuda cimport _Stream, _Error, cudaStreamSynchronize
 from .cuda import CudaRuntimeError
+
+cdef extern from * nogil:
+    ctypedef void* cudaStream_t "cudaStream_t"
+
 
 cdef class Handle:
     """
@@ -64,7 +67,7 @@ cdef class Handle:
                                           self.stream_pool))
         else:
             # this constructor constructs a handle on user stream
-            c_stream = cuda_stream_view(<_Stream><size_t> stream.getStream())
+            c_stream = cuda_stream_view(<cudaStream_t><size_t>stream.getStream())
             self.c_obj.reset(new handle_t(c_stream,
                                           self.stream_pool))
 

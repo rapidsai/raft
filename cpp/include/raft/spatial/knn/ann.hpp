@@ -22,8 +22,6 @@
 #include <faiss/gpu/GpuIndex.h>
 #include <faiss/gpu/StandardGpuResources.h>
 
-#include <raft/mr/device/buffer.hpp>
-
 namespace raft {
 namespace spatial {
 namespace knn {

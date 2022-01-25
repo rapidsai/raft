@@ -21,7 +21,6 @@
 
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/mr/device/buffer.hpp>
 #include <raft/sparse/cusparse_wrappers.h>
 
 #include "../../csr.hpp"
