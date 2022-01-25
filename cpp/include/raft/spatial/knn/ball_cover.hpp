@@ -18,11 +18,11 @@
 
 #include <cstdint>
 
-#include <raft/linalg/distance_type.h>
-#include <thrust/transform.h>
 #include "ball_cover_common.h"
 #include "detail/ball_cover.cuh"
 #include "detail/ball_cover/common.cuh"
+#include <raft/linalg/distance_type.h>
+#include <thrust/transform.h>
 
 namespace raft {
 namespace spatial {
@@ -35,10 +35,10 @@ void rbc_build_index(const raft::handle_t &handle,
   ASSERT(index.n < 16,
          "Random ball cover currently only works in dimensions < 16");
   if (index.metric == raft::distance::DistanceType::Haversine) {
-    detail::rbc_build_index(handle, index, detail::HaversineFunc());
+    detail::rbc_build_index(handle, index, detail::HaversineFunc<value_t, value_int>());
   } else if (index.metric == raft::distance::DistanceType::L2SqrtExpanded ||
              index.metric == raft::distance::DistanceType::L2SqrtUnexpanded) {
-    detail::rbc_build_index(handle, index, detail::EuclideanFunc());
+    detail::rbc_build_index(handle, index, detail::EuclideanFunc<value_t, value_int>());
   } else {
     RAFT_FAIL("Metric not support");
   }
@@ -83,12 +83,24 @@ void rbc_all_knn_query(const raft::handle_t &handle,
   ASSERT(index.n < 16,
          "Random ball cover currently only works dimensions < 16");
   if (index.metric == raft::distance::DistanceType::Haversine) {
-    detail::rbc_all_knn_query(
-      handle, index, k, inds, dists, detail::HaversineFunc(), perform_post_filtering, weight);
+    detail::rbc_all_knn_query(handle,
+                              index,
+                              k,
+                              inds,
+                              dists,
+                              detail::HaversineFunc<value_t, value_int>(),
+                              perform_post_filtering,
+                              weight);
   } else if (index.metric == raft::distance::DistanceType::L2SqrtExpanded ||
              index.metric == raft::distance::DistanceType::L2SqrtUnexpanded) {
-    detail::rbc_all_knn_query(
-      handle, index, k, inds, dists, detail::EuclideanFunc(), perform_post_filtering, weight);
+    detail::rbc_all_knn_query(handle,
+                              index,
+                              k,
+                              inds,
+                              dists,
+                              detail::EuclideanFunc<value_t, value_int>(),
+                              perform_post_filtering,
+                              weight);
   } else {
     RAFT_FAIL("Metric not supported");
   }
@@ -142,7 +154,7 @@ void rbc_knn_query(const raft::handle_t &handle,
                           n_query_pts,
                           inds,
                           dists,
-                          detail::HaversineFunc(),
+                          detail::HaversineFunc<value_t, value_int>(),
                           perform_post_filtering,
                           weight);
   } else if (index.metric == raft::distance::DistanceType::L2SqrtExpanded ||
@@ -154,7 +166,7 @@ void rbc_knn_query(const raft::handle_t &handle,
                           n_query_pts,
                           inds,
                           dists,
-                          detail::EuclideanFunc(),
+                          detail::EuclideanFunc<value_t, value_int>(),
                           perform_post_filtering,
                           weight);
   } else {

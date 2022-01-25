@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
+#include "../test_utils.h"
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/distance/distance.hpp>
 #include <raft/random/rng.hpp>
 #include <rmm/device_uvector.hpp>
-#include "../test_utils.h"
 
 namespace raft {
 namespace distance {
@@ -57,12 +57,13 @@ void naiveDistanceAdj(bool* dist,
                       int n,
                       int k,
                       DataType eps,
-                      bool isRowMajor)
+                      bool isRowMajor,
+                      cudaStream_t stream)
 {
   static const dim3 TPB(16, 32, 1);
   dim3 nblks(raft::ceildiv(m, (int)TPB.x), raft::ceildiv(n, (int)TPB.y), 1);
-  naiveDistanceAdjKernel<DataType><<<nblks, TPB>>>(dist, x, y, m, n, k, eps, isRowMajor);
-  CUDA_CHECK(cudaPeekAtLastError());
+  naiveDistanceAdjKernel<DataType><<<nblks, TPB, 0, stream>>>(dist, x, y, m, n, k, eps, isRowMajor);
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 template <typename DataType>
@@ -106,7 +107,7 @@ class DistanceAdjTest : public ::testing::TestWithParam<DistanceAdjInputs<DataTy
 
     DataType threshold = params.eps;
 
-    naiveDistanceAdj(dist_ref.data(), x.data(), y.data(), m, n, k, threshold, isRowMajor);
+    naiveDistanceAdj(dist_ref.data(), x.data(), y.data(), m, n, k, threshold, isRowMajor, stream);
     size_t worksize = raft::distance::
       getWorkspaceSize<raft::distance::DistanceType::L2Expanded, DataType, DataType, bool>(
         x.data(), y.data(), m, n, k);
@@ -127,7 +128,7 @@ class DistanceAdjTest : public ::testing::TestWithParam<DistanceAdjInputs<DataTy
       fin_op,
       stream,
       isRowMajor);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
   void TearDown() override {}
@@ -155,7 +156,7 @@ TEST_P(DistanceAdjTestF, Result)
 {
   int m = params.isRowMajor ? params.m : params.n;
   int n = params.isRowMajor ? params.n : params.m;
-  ASSERT_TRUE(devArrMatch(dist_ref.data(), dist.data(), m, n, raft::Compare<bool>()));
+  ASSERT_TRUE(devArrMatch(dist_ref.data(), dist.data(), m, n, raft::Compare<bool>(), stream));
 }
 INSTANTIATE_TEST_CASE_P(DistanceAdjTests, DistanceAdjTestF, ::testing::ValuesIn(inputsf));
 
@@ -174,7 +175,7 @@ TEST_P(DistanceAdjTestD, Result)
 {
   int m = params.isRowMajor ? params.m : params.n;
   int n = params.isRowMajor ? params.n : params.m;
-  ASSERT_TRUE(devArrMatch(dist_ref.data(), dist.data(), m, n, raft::Compare<bool>()));
+  ASSERT_TRUE(devArrMatch(dist_ref.data(), dist.data(), m, n, raft::Compare<bool>(), stream));
 }
 INSTANTIATE_TEST_CASE_P(DistanceAdjTests, DistanceAdjTestD, ::testing::ValuesIn(inputsd));
 

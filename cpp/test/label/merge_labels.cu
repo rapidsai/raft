@@ -17,12 +17,12 @@
 #include <gtest/gtest.h>
 #include <raft/label/merge_labels.cuh>
 
+#include "../test_utils.h"
 #include <raft/cudart_utils.h>
-#include <thrust/device_ptr.h>
 #include <raft/handle.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
-#include "../test_utils.h"
+#include <thrust/device_ptr.h>
 
 #include <vector>
 
@@ -65,7 +65,7 @@ class MergeLabelsTest : public ::testing::TestWithParam<MergeLabelsInputs<Index_
 
     cudaStreamSynchronize(stream);
     ASSERT_TRUE(raft::devArrMatch<Index_>(
-      expected.data(), labels_a.data(), params.N, raft::Compare<Index_>()));
+      expected.data(), labels_a.data(), params.N, raft::Compare<Index_>(), stream));
   }
 
  protected:

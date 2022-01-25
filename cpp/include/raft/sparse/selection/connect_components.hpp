@@ -54,9 +54,11 @@ value_idx get_n_components(value_idx* colors, size_t n_rows, cudaStream_t stream
  * @param[out] out output edge list containing nearest cross-component
  *             edges.
  * @param[in] X original (row-major) dense matrix for which knn graph should be constructed.
- * @param[in] colors array containing component number for each row of X
+ * @param[in] orig_colors array containing component number for each row of X
  * @param[in] n_rows number of rows in X
  * @param[in] n_cols number of cols in X
+ * @param[in] reduction_op
+ * @param[in] metric
  */
 template <typename value_idx, typename value_t, typename red_op>
 void connect_components(

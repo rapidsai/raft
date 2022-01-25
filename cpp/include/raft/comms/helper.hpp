@@ -20,9 +20,9 @@
 #include <raft/handle.hpp>
 #include <raft/mr/device/buffer.hpp>
 
+#include <iostream>
 #include <nccl.h>
 #include <ucp/api/ucp.h>
-#include <iostream>
 
 namespace raft {
 namespace comms {
