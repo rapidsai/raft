@@ -5,13 +5,15 @@ RAFT is a library containing building-blocks for rapid composition of RAPIDS Ana
 #####
 | Category | Description / Examples |
 | --- | --- |
-| **Data Formats** | tensor representations and conversions for both sparse and dense formats |
+| **Data Formats** | sparse & dense, conversions, and data generations |
 | **Data Generation** | graph, spatial, and machine learning dataset generation |
-| **Dense Operations** | linear algebra, statistics |
-| **Spatial** | pairwise distances, nearest neighbors, neighborhood / proximity graph construction |
-| **Sparse/Graph Operations** | linear algebra, statistics, slicing, msf, spectral embedding/clustering, slhc, vertex degree |
-| **Solvers** | eigenvalue decomposition, least squares, lanczos |
-| **Tools** | multi-node multi-gpu communicator, utilities |
+| **Dense Linear Algebra** | matrix arithmetic, norms, and factorization |
+| **Spatial** | pairwise distances, nearest neighbors, and neighborhood graph construction |
+| **Sparse Operations** | linear algebra, slicing, norms, degree, and spectral embedding |
+| **Basic Clustering** | spectral clustering, single-linkage clustering, and k-means |
+| **Optimizers** | eigenvalue decomposition, least squares, and lanczos |
+| **Statistics** | sampling, kl-divergence, mean, centering, and variance |
+| **Distributed Tools** | multi-node multi-gpu communicator, infrastructure |
 
 By taking a primitives-based approach to algorithm development, RAFT accelerates algorithm construction time and reduces
 the maintenance burden by maximizing reuse across projects. RAFT relies on the [RAPIDS memory manager (RMM)](https://github.com/rapidsai/rmm) which, 
