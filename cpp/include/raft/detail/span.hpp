@@ -57,7 +57,8 @@ struct is_allowed_extent_conversion_t
 
 template <class From, class To>
 struct is_allowed_element_type_conversion_t
-  : public std::integral_constant<bool, std::is_convertible<From (*)[], To (*)[]>::value>{};
+  : public std::integral_constant<bool, std::is_convertible<From (*)[], To (*)[]>::value> {
+};
 
 template <class T>
 struct is_span_oracle_t : std::false_type {
