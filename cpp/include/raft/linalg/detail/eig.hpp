@@ -17,8 +17,6 @@
 #pragma once
 
 #include "cusolver_wrappers.hpp"
-
-#include "cusolver_wrappers.hpp"
 #include <cuda_runtime_api.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
