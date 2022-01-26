@@ -24,6 +24,7 @@ constexpr std::size_t dynamic_extent = std::numeric_limits<std::size_t>::max();
 
 template <class ElementType, bool is_device, std::size_t Extent>
 class span;
+
 namespace detail {
 /*!
  * The extent E of the span returned by subspan is determined as follows:

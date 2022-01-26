@@ -25,14 +25,6 @@
 #include <type_traits>
 
 namespace raft {
-
-template <class ElementType, bool is_device, std::size_t Extent>
-class span;
-
-namespace detail {
-
-}  // namespace detail
-
 /**
  * @brief The span class defined in ISO C++20.  Iterator is defined as plain pointer and
  *        most of the methods have bound check on debug build.
@@ -101,14 +93,11 @@ class span {
   {
   }
 
-  constexpr span(const span& other) noexcept : size_(other.size()), data_(other.data()) {}
+  constexpr span(span const& other) noexcept = default;
+  constexpr span(span&& other) noexcept      = default;
 
-  constexpr auto operator=(const span& other) noexcept -> span&
-  {
-    size_ = other.size();
-    data_ = other.data();
-    return *this;
-  }
+  constexpr auto operator=(span const& other) noexcept -> span& = default;
+  constexpr auto operator=(span&& other) noexcept -> span&      = default;
 
   constexpr auto begin() const noexcept -> iterator { return data(); }
 
