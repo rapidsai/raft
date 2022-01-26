@@ -1,6 +1,6 @@
 # <div align="left"><img src="https://rapids.ai/assets/images/rapids_logo.png" width="90px"/>&nbsp;RAFT: RAPIDS Analytics Framework Toolkit</div>
 
-RAFT is a [Scipy-like](https://scipy.org/) library for scientific computing, containing building-blocks for rapidly composing analytics in the [RAPIDS](https://rapids.ai) ecosystem. These building-blocks include infrastructure as well as mathematical computational primitives, which accelerate the development of algorithms for data science applications. 
+RAFT is a [Scipy-like](https://scipy.org/) library for scientific computing, containing CUDA-accelerated building-blocks for rapidly composing analytics in the [RAPIDS](https://rapids.ai) ecosystem. These building-blocks include infrastructure as well as mathematical computational primitives, which accelerate the development of algorithms for data science applications. 
 
 By taking a primitives-based approach to algorithm development, RAFT
 1. accelerates algorithm construction time
