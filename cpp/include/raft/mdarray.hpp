@@ -276,6 +276,9 @@ class mdarray {
   container_type c_;
 };
 
+/**
+ * @brief mdarray with host container policy
+ */
 template <class ElementType,
           class Extents,
           class LayoutPolicy    = detail::stdex::layout_right,
@@ -283,6 +286,9 @@ template <class ElementType,
 using host_mdarray =
   mdarray<ElementType, Extents, LayoutPolicy, detail::host_accessor<ContainerPolicy>>;
 
+/**
+ * @brief mdarray with device container policy
+ */
 template <class ElementType,
           class Extents,
           class LayoutPolicy    = detail::stdex::layout_right,
@@ -290,39 +296,45 @@ template <class ElementType,
 using device_mdarray =
   mdarray<ElementType, Extents, LayoutPolicy, detail::device_accessor<ContainerPolicy>>;
 
+/**
+ * @brief Shorthand for 1-dim host mdarray.
+ */
 template <typename ElementType>
-using host_vector_t = host_mdarray<ElementType, detail::vector_extent_t>;
+using host_vector = host_mdarray<ElementType, detail::vector_extent>;
 
+/**
+ * @brief Shorthand for 1-dim device mdarray.
+ */
 template <typename ElementType>
-using device_vector_t = device_mdarray<ElementType, detail::vector_extent_t>;
+using device_vector = device_mdarray<ElementType, detail::vector_extent>;
 
 /**
  * @brief Shorthand for c-contiguous host matrix.
  */
 template <typename ElementType>
-using host_matrix_t = host_mdarray<ElementType, detail::matrix_extent_t>;
+using host_matrix = host_mdarray<ElementType, detail::matrix_extent>;
 /**
  * @brief Shorthand for c-contiguous device matrix.
  */
 template <typename ElementType>
-using device_matrix_t = device_mdarray<ElementType, detail::matrix_extent_t>;
+using device_matrix = device_mdarray<ElementType, detail::matrix_extent>;
 
 template <typename ElementType>
-using host_vector_view_t = host_mdspan<ElementType, detail::vector_extent_t>;
+using host_vector_view = host_mdspan<ElementType, detail::vector_extent>;
 
 template <typename ElementType>
-using device_vector_view_t = device_mdspan<ElementType, detail::vector_extent_t>;
+using device_vector_view = device_mdspan<ElementType, detail::vector_extent>;
 
 /**
  * @brief Shorthand for c-contiguous host matrix view.
  */
 template <typename ElementType>
-using host_matrix_view_t = host_mdspan<ElementType, detail::matrix_extent_t>;
+using host_matrix_view = host_mdspan<ElementType, detail::matrix_extent>;
 /**
  * @brief Shorthand for c-contiguous device matrix view.
  */
 template <typename ElementType>
-using device_matrix_view_t = device_mdspan<ElementType, detail::matrix_extent_t>;
+using device_matrix_view = device_mdspan<ElementType, detail::matrix_extent>;
 
 /**
  * @brief Create a 2-dim c-contiguous mdspan instance for host pointer.
@@ -330,8 +342,8 @@ using device_matrix_view_t = device_mdspan<ElementType, detail::matrix_extent_t>
 template <typename ElementType>
 auto make_host_matrix_view(ElementType* ptr, size_t n_rows, size_t n_cols)
 {
-  detail::matrix_extent_t extents{n_rows, n_cols};
-  return host_matrix_view_t<ElementType>{ptr, extents};
+  detail::matrix_extent extents{n_rows, n_cols};
+  return host_matrix_view<ElementType>{ptr, extents};
 }
 /**
  * @brief Create a 2-dim c-contiguous mdspan instance for device pointer.
@@ -339,8 +351,8 @@ auto make_host_matrix_view(ElementType* ptr, size_t n_rows, size_t n_cols)
 template <typename ElementType>
 auto make_device_matrix_view(ElementType* ptr, size_t n_rows, size_t n_cols)
 {
-  detail::matrix_extent_t extents{n_rows, n_cols};
-  return device_matrix_view_t<ElementType>{ptr, extents};
+  detail::matrix_extent extents{n_rows, n_cols};
+  return device_matrix_view<ElementType>{ptr, extents};
 }
 
 /**
@@ -349,8 +361,8 @@ auto make_device_matrix_view(ElementType* ptr, size_t n_rows, size_t n_cols)
 template <typename ElementType>
 auto make_host_vector_view(ElementType* ptr, size_t n)
 {
-  detail::vector_extent_t extents{n};
-  return host_matrix_view_t<ElementType>{ptr, extents};
+  detail::vector_extent extents{n};
+  return host_matrix_view<ElementType>{ptr, extents};
 }
 
 /**
@@ -359,8 +371,8 @@ auto make_host_vector_view(ElementType* ptr, size_t n)
 template <typename ElementType>
 auto make_device_vector_view(ElementType* ptr, size_t n)
 {
-  detail::vector_extent_t extents{n};
-  return device_matrix_view_t<ElementType>{ptr, extents};
+  detail::vector_extent extents{n};
+  return device_matrix_view<ElementType>{ptr, extents};
 }
 
 /**
@@ -369,10 +381,10 @@ auto make_device_vector_view(ElementType* ptr, size_t n)
 template <typename ElementType>
 auto make_host_matrix(size_t n_rows, size_t n_cols)
 {
-  detail::matrix_extent_t extents{n_rows, n_cols};
-  using policy_t = typename host_matrix_t<ElementType>::container_policy_type;
+  detail::matrix_extent extents{n_rows, n_cols};
+  using policy_t = typename host_matrix<ElementType>::container_policy_type;
   policy_t policy;
-  return host_matrix_t<ElementType>{extents, policy};
+  return host_matrix<ElementType>{extents, policy};
 }
 
 /**
@@ -381,10 +393,10 @@ auto make_host_matrix(size_t n_rows, size_t n_cols)
 template <typename ElementType>
 auto make_device_matrix(size_t n_rows, size_t n_cols, rmm::cuda_stream_view stream)
 {
-  detail::matrix_extent_t extents{n_rows, n_cols};
-  using policy_t = typename device_matrix_t<ElementType>::container_policy_type;
+  detail::matrix_extent extents{n_rows, n_cols};
+  using policy_t = typename device_matrix<ElementType>::container_policy_type;
   policy_t policy{stream};
-  return device_matrix_t<ElementType>{extents, policy};
+  return device_matrix<ElementType>{extents, policy};
 }
 
 /**
@@ -393,10 +405,10 @@ auto make_device_matrix(size_t n_rows, size_t n_cols, rmm::cuda_stream_view stre
 template <typename ElementType>
 auto make_host_vector(size_t n)
 {
-  detail::vector_extent_t extents{n};
-  using policy_t = typename host_vector_t<ElementType>::container_policy_type;
+  detail::vector_extent extents{n};
+  using policy_t = typename host_vector<ElementType>::container_policy_type;
   policy_t policy;
-  return host_vector_t<ElementType>{extents, policy};
+  return host_vector<ElementType>{extents, policy};
 }
 
 /**
@@ -405,9 +417,9 @@ auto make_host_vector(size_t n)
 template <typename ElementType>
 auto make_device_vector(size_t n, rmm::cuda_stream_view stream)
 {
-  detail::vector_extent_t extents{n};
-  using policy_t = typename device_vector_t<ElementType>::container_policy_type;
+  detail::vector_extent extents{n};
+  using policy_t = typename device_vector<ElementType>::container_policy_type;
   policy_t policy{stream};
-  return device_vector_t<ElementType>{extents, policy};
+  return device_vector<ElementType>{extents, policy};
 }
 }  // namespace raft
