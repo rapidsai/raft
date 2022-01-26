@@ -330,16 +330,22 @@ TEST(MDArray, Factory)
     auto h_matrix = make_host_matrix<float>(n, n);
     ASSERT_EQ(h_matrix.extent(0), n);
     ASSERT_EQ(h_matrix.extent(1), n);
+    static_assert(h_matrix.rank() == 2);
 
     auto h_vec = make_host_vector<float>(n);
+    static_assert(h_vec.rank() == 1);
+    ASSERT_EQ(h_vec.extent(0), n);
   }
   {
     // device mdarray
     auto d_matrix = make_device_matrix<float>(n, n, rmm::cuda_stream_default);
     ASSERT_EQ(d_matrix.extent(0), n);
     ASSERT_EQ(d_matrix.extent(1), n);
+    static_assert(d_matrix.rank() == 2);
 
     auto d_vec = make_device_vector<float>(n, rmm::cuda_stream_default);
+    static_assert(d_vec.rank() == 1);
+    ASSERT_EQ(d_vec.extent(0), n);
   }
 }
 }  // namespace raft
