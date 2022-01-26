@@ -21,11 +21,11 @@
 
 import contextlib
 import signal
-from cython.operator cimport dereference as deref
+from cython.operator cimport dereference
 
 from rmm._lib.cuda_stream_view cimport cuda_stream_view
-from .cuda cimport _Stream
-from .cuda import Stream
+from cuda.ccudart cimport cudaStream_t
+from .cuda cimport Stream
 
 
 @contextlib.contextmanager
@@ -55,7 +55,7 @@ def cuda_interruptible():
 
     def newhr(*args, **kwargs):
         with nogil:
-            deref(token).cancel()
+            dereference(token).cancel()
 
     oldhr = signal.signal(signal.SIGINT, newhr)
     try:
@@ -69,8 +69,7 @@ def synchronize(stream: Stream):
     Same as cudaStreamSynchronize, but can be interrupted
     if called within a `with cuda_interruptible()` block.
     '''
-    cdef cuda_stream_view c_stream = \
-        cuda_stream_view(<_Stream><size_t>stream.getStream())
+    cdef cuda_stream_view c_stream = cuda_stream_view(stream.getStream())
     with nogil:
         inter_synchronize(c_stream)
 
