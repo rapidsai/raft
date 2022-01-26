@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,13 +16,13 @@
 #include "test_span.hpp"
 #include <gtest/gtest.h>
 #include <numeric>  // iota
-#include <raft/common/span.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
+#include <raft/span.hpp>
 #include <thrust/device_vector.h>
 #include <thrust/host_vector.h>
 
-namespace raft::common {
+namespace raft {
 struct TestStatus {
  private:
   int* status_;
@@ -94,7 +94,6 @@ TEST(GPUSpan, FromOther)
 
 TEST(GPUSpan, Assignment)
 {
-  CUDA_CHECK(cudaSetDevice(0));
   TestStatus status;
   thrust::for_each_n(
     thrust::make_counting_iterator(0ul), 16, test_assignment_t<true>{status.Data()});
@@ -103,7 +102,6 @@ TEST(GPUSpan, Assignment)
 
 TEST(GPUSpan, TestStatus)
 {
-  CUDA_CHECK(cudaSetDevice(0));
   TestStatus status;
   thrust::for_each_n(thrust::make_counting_iterator(0ul), 16, test_test_status_t{status.Data()});
   ASSERT_EQ(status.Get(), -1);
@@ -127,7 +125,6 @@ struct TestEqual {
 
 TEST(GPUSpan, WithTrust)
 {
-  CUDA_CHECK(cudaSetDevice(0));
   // Not adviced to initialize span with host_vector, since h_vec.data() is
   // a host function.
   thrust::host_vector<float> h_vec(16);
@@ -161,7 +158,6 @@ TEST(GPUSpan, WithTrust)
 
 TEST(GPUSpan, BeginEnd)
 {
-  CUDA_CHECK(cudaSetDevice(0));
   TestStatus status;
   thrust::for_each_n(thrust::make_counting_iterator(0ul), 16, test_beginend_t<true>{status.Data()});
   ASSERT_EQ(status.Get(), 1);
@@ -169,7 +165,6 @@ TEST(GPUSpan, BeginEnd)
 
 TEST(GPUSpan, RBeginREnd)
 {
-  CUDA_CHECK(cudaSetDevice(0));
   TestStatus status;
   thrust::for_each_n(
     thrust::make_counting_iterator(0ul), 16, test_rbeginrend_t<true>{status.Data()});
@@ -203,7 +198,6 @@ TEST(GPUSpan, Modify)
 
 TEST(GPUSpan, Observers)
 {
-  CUDA_CHECK(cudaSetDevice(0));
   TestStatus status;
   thrust::for_each_n(
     thrust::make_counting_iterator(0ul), 16, test_observers_t<true>{status.Data()});
@@ -216,4 +210,4 @@ TEST(GPUSpan, Compare)
   thrust::for_each_n(thrust::make_counting_iterator(0), 1, test_compare_t<false>{status.Data()});
   ASSERT_EQ(status.Get(), 1);
 }
-}  // namespace raft::common
+}  // namespace raft

@@ -18,8 +18,6 @@
 add_executable(test_raft
     test/cudart_utils.cpp
     test/cluster_solvers.cu
-    test/common/span.cpp
-    test/common/span.cu
     test/distance/dist_adj.cu
     test/distance/dist_canberra.cu
     test/distance/dist_chebyshev.cu
@@ -71,6 +69,8 @@ add_executable(test_raft
     test/random/rng.cu
     test/random/rng_int.cu
     test/random/sample_without_replacement.cu
+    test/span.cpp
+    test/span.cu
     test/sparse/add.cu
     test/sparse/convert_coo.cu
     test/sparse/convert_csr.cu

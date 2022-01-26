@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@
 #include <thrust/functional.h>
 #include <thrust/iterator/reverse_iterator.h>
 
-namespace raft::common {
+namespace raft {
 
 constexpr std::size_t dynamic_extent = std::numeric_limits<std::size_t>::max();
 
@@ -64,8 +64,7 @@ struct is_allowed_extent_conversion_t
 
 template <class From, class To>
 struct is_allowed_element_type_conversion_t
-  : public std::integral_constant<bool, std::is_convertible<From (*)[], To (*)[]>::value> {
-};
+  : public std::integral_constant<bool, std::is_convertible<From (*)[], To (*)[]>::value>{};
 
 template <class T>
 struct is_span_oracle_t : std::false_type {
@@ -95,8 +94,13 @@ __host__ __device__ constexpr auto lexicographical_compare(InputIt1 first1,
 }  // namespace detail
 
 /**
- * \brief The span class defined in ISO C++20.  Iterator is defined as plain pointer and
+ * @brief The span class defined in ISO C++20.  Iterator is defined as plain pointer and
  *        most of the methods have bound check on debug build.
+ *
+ * @code
+ *   rmm::device_uvector<float> uvec(10, rmm::cuda_stream_default);
+ *   auto view = device_span<float>{uvec.data(), uvec.size()};
+ * @endcode
  */
 template <typename T, bool is_device, std::size_t Extent = dynamic_extent>
 class span {
@@ -115,41 +119,54 @@ class span {
   using reverse_iterator       = thrust::reverse_iterator<iterator>;
   using const_reverse_iterator = thrust::reverse_iterator<const_iterator>;
 
-  // constructors
+  /**
+   * @brief Default constructor that constructs a span with size 0 and nullptr.
+   */
   constexpr span() noexcept = default;
 
-  constexpr span(pointer _ptr, size_type _count) noexcept : size_(_count), data_(_ptr)
+  /**
+   * @brief Constructs a span that is a view over the range [first, first + count);
+   */
+  constexpr span(pointer ptr, size_type count) noexcept : size_(count), data_(ptr)
   {
-    assert(!(Extent != dynamic_extent && _count != Extent));
-    assert(_ptr || _count == 0);
+    assert(!(Extent != dynamic_extent && count != Extent));
+    assert(ptr || count == 0);
   }
-
-  constexpr span(pointer _first, pointer _last) noexcept : size_(_last - _first), data_(_first)
+  /**
+   * @brief Constructs a span that is a view over the range [first, last)
+   */
+  constexpr span(pointer first, pointer last) noexcept : size_(last - first), data_(first)
   {
     assert(data_ || size_ == 0);
   }
-
+  /**
+   * @brief Constructs a span that is a view over the array arr.
+   */
   template <std::size_t N>
   constexpr span(element_type (&arr)[N]) noexcept : size_(N), data_(&arr[0])
   {
   }
 
+  /**
+   * @brief Initialize a span class from another one who's underlying type is convertible
+   *        to element_type.
+   */
   template <class U,
             std::size_t OtherExtent,
             class = typename std::enable_if<
               detail::is_allowed_element_type_conversion_t<U, T>::value &&
               detail::is_allowed_extent_conversion_t<OtherExtent, Extent>::value>>
-  constexpr span(const span<U, is_device, OtherExtent>& _other) noexcept
-    : size_(_other.size()), data_(_other.data())
+  constexpr span(const span<U, is_device, OtherExtent>& other) noexcept
+    : size_(other.size()), data_(other.data())
   {
   }
 
-  constexpr span(const span& _other) noexcept : size_(_other.size()), data_(_other.data()) {}
+  constexpr span(const span& other) noexcept : size_(other.size()), data_(other.data()) {}
 
-  constexpr auto operator=(const span& _other) noexcept -> span&
+  constexpr auto operator=(const span& other) noexcept -> span&
   {
-    size_ = _other.size();
-    data_ = _other.data();
+    size_ = other.size();
+    data_ = other.data();
     return *this;
   }
 
@@ -189,7 +206,7 @@ class span {
   template <typename Index>
   constexpr auto operator[](Index _idx) const -> reference
   {
-    assert(_idx < size());
+    assert(static_cast<size_type>(_idx) < size());
     return data()[_idx];
   }
 
@@ -255,9 +272,15 @@ class span {
   pointer data_{nullptr};
 };
 
+/**
+ * @brief A span class for host pointer.
+ */
 template <typename T, size_t extent = dynamic_extent>
 using host_span = span<T, false, extent>;
 
+/**
+ * @brief A span class for device pointer.
+ */
 template <typename T, size_t extent = dynamic_extent>
 using device_span = span<T, true, extent>;
 
@@ -309,6 +332,9 @@ constexpr auto operator>=(span<T, is_device, X> l, span<U, is_device, Y> r)
   return !(l < r);
 }
 
+/**
+ * @brief Converts a span into a view of its underlying bytes
+ */
 template <class T, bool is_device, std::size_t E>
 auto as_bytes(span<T, is_device, E> s) noexcept
   -> span<const std::byte, is_device, detail::extent_as_bytes_value_t<T, E>::value>
@@ -316,10 +342,13 @@ auto as_bytes(span<T, is_device, E> s) noexcept
   return {reinterpret_cast<const std::byte*>(s.data()), s.size_bytes()};
 }
 
+/**
+ * @brief Converts a span into a mutable view of its underlying bytes
+ */
 template <class T, bool is_device, std::size_t E>
 auto as_writable_bytes(span<T, is_device, E> s) noexcept
   -> span<std::byte, is_device, detail::extent_as_bytes_value_t<T, E>::value>
 {
   return {reinterpret_cast<std::byte*>(s.data()), s.size_bytes()};
 }
-}  // namespace raft::common
+}  // namespace raft

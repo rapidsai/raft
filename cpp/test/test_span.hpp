@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 #pragma once
-#include <raft/common/span.hpp>
+#include <raft/span.hpp>
 
-namespace raft::common {
+namespace raft {
 
 template <typename Iter>
 __host__ __device__ void initialize_range(Iter _begin, Iter _end)
@@ -236,4 +236,4 @@ struct test_as_writable_bytes_t {
     }
   }
 };
-}  // namespace raft::common
+}  // namespace raft
