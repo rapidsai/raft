@@ -16,7 +16,7 @@ RAFT provides a header-only C++ API (with optional shared libraries to accelerat
 | **Data Generation** | sparse, spatial, machine learning datasets |
 | **Dense Linear Algebra** | matrix arithmetic, norms, factorization |
 | **Spatial** | pairwise distances, nearest neighbors, neighborhood graph construction |
-| **Sparse Operations** | linear algebra, slicing, norms, degree, spectral embedding |
+| **Sparse Operations** | linear algebra, slicing, norms, degree, spectral embedding, msf |
 | **Basic Clustering** | spectral clustering, hierarchical clustering, k-means |
 | **Optimizers** | eigenvalue decomposition, least squares, and lanczos |
 | **Statistics** | sampling, moments, metrics |
