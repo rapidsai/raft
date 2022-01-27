@@ -89,7 +89,7 @@ void mapThenReduceImpl(OutType* out,
   const int nblks = raft::ceildiv(len, (size_t)TPB);
   mapThenReduceKernel<InType, OutType, MapOp, ReduceLambda, TPB, Args...>
     <<<nblks, TPB, 0, stream>>>(out, len, neutral, map, op, in, args...);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 };  // end namespace detail

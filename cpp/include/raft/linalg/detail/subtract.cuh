@@ -61,7 +61,7 @@ void subtractDevScalar(math_t* outDev,
   const IdxType nblks = raft::ceildiv(len, (IdxType)TPB);
   subtract_dev_scalar_kernel<math_t>
     <<<nblks, TPB, 0, stream>>>(outDev, inDev, singleScalarDev, len);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 };  // end namespace detail
