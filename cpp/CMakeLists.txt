@@ -180,9 +180,6 @@ if(RAFT_COMPILE_LIBRARIES)
   target_compile_definitions(raft_distance_lib
           INTERFACE "RAFT_DISTANCE_COMPILED")
 
-  install(TARGETS raft_distance_lib
-          DESTINATION ${lib_dir}
-          EXPORT raft-distance-exports)
 endif()
 
 target_link_libraries(raft_distance INTERFACE raft::raft
@@ -220,9 +217,6 @@ if(RAFT_COMPILE_LIBRARIES)
   target_compile_definitions(raft_nn_lib
           INTERFACE "RAFT_NN_COMPILED")
 
-  install(TARGETS raft_nn_lib
-          DESTINATION ${lib_dir}
-          EXPORT raft-nn-exports)
 endif()
 
 target_link_libraries(raft_nn INTERFACE raft::raft faiss::faiss
@@ -244,6 +238,18 @@ install(TARGETS raft_distance
 install(TARGETS raft_nn
         DESTINATION ${lib_dir}
         EXPORT raft-nn-exports)
+
+if(TARGET raft_distance_lib)
+  install(TARGETS raft_distance_lib
+          DESTINATION ${lib_dir}
+          EXPORT raft-distance-exports)
+endif()
+
+if(TARGET raft_nn_lib)
+  install(TARGETS raft_nn_lib
+          DESTINATION ${lib_dir}
+          EXPORT raft-nn-exports)
+endif()
 
 
 install(DIRECTORY include/raft/
