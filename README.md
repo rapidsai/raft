@@ -1,6 +1,6 @@
 # <div align="left"><img src="https://rapids.ai/assets/images/rapids_logo.png" width="90px"/>&nbsp;RAFT: RAPIDS Analytics Framework Toolkit</div>
 
-RAFT contains fundamental widely-used algorithms and primitives for data science and ML. The algorithms are CUDA-accelerated and form building-blocks for rapidly composing analytics in the [RAPIDS](https://rapids.ai) ecosystem. 
+RAFT contains fundamental widely-used algorithms and primitives for data science, graph and ML. The algorithms are CUDA-accelerated and form building-blocks for rapidly composing analytics in the [RAPIDS](https://rapids.ai) ecosystem. 
 
 By taking a primitives-based approach to algorithm development, RAFT
 1. accelerates algorithm construction time
@@ -16,13 +16,12 @@ RAFT provides a header-only C++ API with optional shared libraries that contain 
 | **Data Generation** | sparse, spatial, machine learning datasets |
 | **Dense Linear Algebra** | matrix arithmetic, norms, factorization, least squares & eigenvalue problems |
 | **Spatial** | pairwise distances, nearest neighbors, neighborhood graph construction |
-| **Sparse Operations** | linear algebra, slicing, symmetrization, norms, spectral embedding, msf |
+| **Sparse Operations** | linear algebra, eigenvalue problems, slicing, symmetrization, norms, spectral embedding, msf |
 | **Basic Clustering** | spectral clustering, hierarchical clustering, k-means |
-| **Iterative Solvers** | lanczos algorithm |
-| **Statistics** | sampling, moments, metrics |
+| **Statistics** | sampling, moments and summary statistics, metrics |
 | **Distributed Tools** | multi-node multi-gpu infrastructure |
 
-RAFT also provides a Python API that enables the building of multi-node multi-GPU algorithms in the [Dask](https://dask.org/) ecosystem. We are continuing to improve the coverage of the Python API to expose the building-blocks from the categories above.
+RAFT also provides a Python API that currently includes infrastructure for building multi-node multi-GPU algorithms in the [Dask](https://dask.org/) ecosystem. We are continuing to improve the coverage of the Python API to expose the building-blocks from the categories above.
 
 ## Getting started
 
