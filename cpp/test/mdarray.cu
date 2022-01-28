@@ -348,4 +348,38 @@ TEST(MDArray, Factory)
     ASSERT_EQ(d_vec.extent(0), n);
   }
 }
+
+namespace {
+template <typename T, typename LayoutPolicy>
+void check_matrix_layout(device_matrix_view<T, LayoutPolicy> in)
+{
+  static_assert(in.rank() == 2);
+  static_assert(in.is_contiguous());
+
+  bool constexpr kIsCContiguous = std::is_same_v<LayoutPolicy, stdex::layout_right>;
+  bool constexpr kIsFContiguous = std::is_same_v<LayoutPolicy, stdex::layout_left>;
+  // only 1 of them is true
+  static_assert(kIsCContiguous || kIsFContiguous);
+  static_assert(!(kIsCContiguous && kIsFContiguous));
+}
+}  // anonymous namespace
+
+TEST(MDArray, FuncArg)
+{
+  {
+    auto d_matrix = make_device_matrix<float>(10, 10, rmm::cuda_stream_default);
+    check_matrix_layout(d_matrix.view());
+  }
+  {
+    auto d_matrix = make_device_matrix<float, stdex::layout_left>(10, 10, rmm::cuda_stream_default);
+    check_matrix_layout(d_matrix.view());
+
+    // FIXME(jiamingy): The slice has a default accessor instead of accessor_mixin, due to
+    // the hardcoded policy in submdspan implementation.  We need to have a rewritten
+    // version of submdspan for implementing padding.
+    // auto slice =
+    //   stdex::submdspan(d_matrix.view(), std::make_tuple(2ul, 4ul), std::make_tuple(2ul, 5ul));
+    // check_matrix_layout(slice);
+  }
+}
 }  // namespace raft
