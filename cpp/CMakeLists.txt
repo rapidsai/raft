@@ -15,7 +15,7 @@
 #=============================================================================
 
 cmake_minimum_required(VERSION 3.20.1 FATAL_ERROR)
-file(DOWNLOAD https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-22.02/RAPIDS.cmake
+file(DOWNLOAD https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-22.04/RAPIDS.cmake
     ${CMAKE_BINARY_DIR}/RAPIDS.cmake)
 include(${CMAKE_BINARY_DIR}/RAPIDS.cmake)
 include(rapids-cmake)
@@ -26,7 +26,7 @@ include(rapids-find)
 
 rapids_cuda_init_architectures(RAFT)
 
-project(RAFT VERSION 22.02.00 LANGUAGES CXX CUDA)
+project(RAFT VERSION 22.04.00 LANGUAGES CXX CUDA)
 
 ##############################################################################
 # - build type ---------------------------------------------------------------
@@ -189,7 +189,8 @@ endif()
 
 target_link_libraries(raft_distance INTERFACE raft::raft
     $<TARGET_NAME_IF_EXISTS:raft_distance_lib>
-    $<TARGET_NAME_IF_EXISTS:raft::raft_distance_lib>)
+    $<TARGET_NAME_IF_EXISTS:raft::raft_distance_lib>
+)
 
 ##############################################################################
 # - raft_nn ------------------------------------------------------------------
@@ -205,7 +206,10 @@ if(RAFT_COMPILE_LIBRARIES)
   add_library(raft_nn_lib SHARED
     src/nn/specializations/ball_cover.cu
     src/nn/specializations/detail/ball_cover_lowdim.cu
-    src/nn/specializations/fused_l2_knn.cu
+    src/nn/specializations/fused_l2_knn_long_float_true.cu
+    src/nn/specializations/fused_l2_knn_long_float_false.cu
+    src/nn/specializations/fused_l2_knn_int_float_true.cu
+    src/nn/specializations/fused_l2_knn_int_float_false.cu
     src/nn/specializations/knn.cu
   )
   set_target_properties(raft_nn_lib PROPERTIES OUTPUT_NAME raft_nn)
