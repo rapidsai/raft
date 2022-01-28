@@ -117,9 +117,9 @@ class mdarray {
   constexpr mdarray(mdarray&&) noexcept(std::is_nothrow_move_constructible<container_type>::value) =
     default;
 
-  constexpr auto operator                                               =(mdarray const&) noexcept(
+  constexpr auto operator=(mdarray const&) noexcept(
     std::is_nothrow_copy_assignable<container_type>::value) -> mdarray& = default;
-  constexpr auto operator                                               =(mdarray&&) noexcept(
+  constexpr auto operator=(mdarray&&) noexcept(
     std::is_nothrow_move_assignable<container_type>::value) -> mdarray& = default;
 
   ~mdarray() noexcept(std::is_nothrow_destructible<container_type>::value) = default;
@@ -311,48 +311,55 @@ using device_vector = device_mdarray<ElementType, detail::vector_extent>;
 /**
  * @brief Shorthand for c-contiguous host matrix.
  */
-template <typename ElementType>
-using host_matrix = host_mdarray<ElementType, detail::matrix_extent>;
+template <typename ElementType, class LayoutPolicy = detail::stdex::layout_right>
+using host_matrix = host_mdarray<ElementType, detail::matrix_extent, LayoutPolicy>;
+
 /**
  * @brief Shorthand for c-contiguous device matrix.
  */
-template <typename ElementType>
-using device_matrix = device_mdarray<ElementType, detail::matrix_extent>;
+template <typename ElementType, class LayoutPolicy = detail::stdex::layout_right>
+using device_matrix = device_mdarray<ElementType, detail::matrix_extent, LayoutPolicy>;
 
+/**
+ * @brief Shorthand for 1-dim host mdspan.
+ */
 template <typename ElementType>
 using host_vector_view = host_mdspan<ElementType, detail::vector_extent>;
 
+/**
+ * @brief Shorthand for 1-dim device mdspan.
+ */
 template <typename ElementType>
 using device_vector_view = device_mdspan<ElementType, detail::vector_extent>;
 
 /**
  * @brief Shorthand for c-contiguous host matrix view.
  */
-template <typename ElementType>
-using host_matrix_view = host_mdspan<ElementType, detail::matrix_extent>;
+template <typename ElementType, class LayoutPolicy = detail::stdex::layout_right>
+using host_matrix_view = host_mdspan<ElementType, detail::matrix_extent, LayoutPolicy>;
 /**
  * @brief Shorthand for c-contiguous device matrix view.
  */
-template <typename ElementType>
-using device_matrix_view = device_mdspan<ElementType, detail::matrix_extent>;
+template <typename ElementType, class LayoutPolicy = detail::stdex::layout_right>
+using device_matrix_view = device_mdspan<ElementType, detail::matrix_extent, LayoutPolicy>;
 
 /**
  * @brief Create a 2-dim c-contiguous mdspan instance for host pointer.
  */
-template <typename ElementType>
+template <typename ElementType, class LayoutPolicy = detail::stdex::layout_right>
 auto make_host_matrix_view(ElementType* ptr, size_t n_rows, size_t n_cols)
 {
   detail::matrix_extent extents{n_rows, n_cols};
-  return host_matrix_view<ElementType>{ptr, extents};
+  return host_matrix_view<ElementType, LayoutPolicy>{ptr, extents};
 }
 /**
  * @brief Create a 2-dim c-contiguous mdspan instance for device pointer.
  */
-template <typename ElementType>
+template <typename ElementType, class LayoutPolicy = detail::stdex::layout_right>
 auto make_device_matrix_view(ElementType* ptr, size_t n_rows, size_t n_cols)
 {
   detail::matrix_extent extents{n_rows, n_cols};
-  return device_matrix_view<ElementType>{ptr, extents};
+  return device_matrix_view<ElementType, LayoutPolicy>{ptr, extents};
 }
 
 /**
@@ -378,25 +385,25 @@ auto make_device_vector_view(ElementType* ptr, size_t n)
 /**
  * @brief Create a 2-dim c-contiguous host mdarray.
  */
-template <typename ElementType>
+template <typename ElementType, class LayoutPolicy = detail::stdex::layout_right>
 auto make_host_matrix(size_t n_rows, size_t n_cols)
 {
   detail::matrix_extent extents{n_rows, n_cols};
   using policy_t = typename host_matrix<ElementType>::container_policy_type;
   policy_t policy;
-  return host_matrix<ElementType>{extents, policy};
+  return host_matrix<ElementType, LayoutPolicy>{extents, policy};
 }
 
 /**
  * @brief Create a 2-dim c-contiguous device mdarray.
  */
-template <typename ElementType>
+template <typename ElementType, class LayoutPolicy = detail::stdex::layout_right>
 auto make_device_matrix(size_t n_rows, size_t n_cols, rmm::cuda_stream_view stream)
 {
   detail::matrix_extent extents{n_rows, n_cols};
   using policy_t = typename device_matrix<ElementType>::container_policy_type;
   policy_t policy{stream};
-  return device_matrix<ElementType>{extents, policy};
+  return device_matrix<ElementType, LayoutPolicy>{extents, policy};
 }
 
 /**
