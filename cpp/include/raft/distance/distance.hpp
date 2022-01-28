@@ -149,7 +149,7 @@ template <raft::distance::DistanceType distanceType,
         typename AccType,
         typename OutType,
         typename Index_ = int>
-void distance(const &raft::handle_t &handle
+void distance(const &raft::handle_t &handle,
               const raft::device_matrix<InType> &x,
               const raft::device_matrix<InType> &y,
               raft::device_matrix<OutType> &dist,
