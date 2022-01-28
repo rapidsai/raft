@@ -1,24 +1,24 @@
 # <div align="left"><img src="https://rapids.ai/assets/images/rapids_logo.png" width="90px"/>&nbsp;RAFT: RAPIDS Analytics Framework Toolkit</div>
 
-RAFT is a [Scipy-like](https://scipy.org/) library for scientific computing, containing CUDA-accelerated building-blocks for rapidly composing analytics in the [RAPIDS](https://rapids.ai) ecosystem. These building-blocks include infrastructure as well as mathematical computational primitives, which accelerate the development of algorithms for data science applications. 
+RAFT contains fundamental widely-used algorithms and primitives for data science and ML. The algorithms are CUDA-accelerated and form building-blocks for rapidly composing analytics in the [RAPIDS](https://rapids.ai) ecosystem. 
 
 By taking a primitives-based approach to algorithm development, RAFT
 1. accelerates algorithm construction time
 2. reduces the maintenance burden by maximizing reuse across projects, and
 3. centralizes the core computations, allowing future optimizations to benefit all algorithms that use them.
 
-RAFT provides a header-only C++ API (with optional shared libraries to accelerate build time) that cover the following general categories:
+RAFT provides a header-only C++ API with optional shared libraries that contain algorithms in the following general categories:
 
 #####
 | Category | Description / Examples |
 | --- | --- |
 | **Data Formats** | sparse & dense, conversions, and data generations |
 | **Data Generation** | sparse, spatial, machine learning datasets |
-| **Dense Linear Algebra** | matrix arithmetic, norms, factorization |
+| **Dense Linear Algebra** | matrix arithmetic, norms, factorization, least squares & eigenvalue problems |
 | **Spatial** | pairwise distances, nearest neighbors, neighborhood graph construction |
 | **Sparse Operations** | linear algebra, slicing, symmetrization, norms, spectral embedding, msf |
 | **Basic Clustering** | spectral clustering, hierarchical clustering, k-means |
-| **Optimizers** | eigenvalue decomposition, least squares, and lanczos |
+| **Iterative Solvers** | lanczos algorithm |
 | **Statistics** | sampling, moments, metrics |
 | **Distributed Tools** | multi-node multi-gpu infrastructure |
 
