@@ -21,6 +21,8 @@
 #include <raft/linalg/distance_type.h>
 #include <rmm/device_uvector.hpp>
 
+#include <raft/mdarray.hpp>
+
 namespace raft {
 namespace distance {
 
@@ -142,6 +144,24 @@ size_t getWorkspaceSize(const InType* x, const InType* y, Index_ m, Index_ n, In
   return detail::getWorkspaceSize<distanceType, InType, AccType, OutType, Index_>(x, y, m, n, k);
 }
 
+template <raft::distance::DistanceType distanceType,
+        typename InType,
+        typename AccType,
+        typename OutType,
+        typename Index_ = int>
+void distance(const &raft::handle_t &handle
+              const raft::device_matrix<InType> &x,
+              const raft::device_matrix<InType> &y,
+              raft::device_matrix<OutType> &dist,
+              InType metric_arg = 2.0f) {
+
+    bool is_rowmajor = true;  // TODO: How to get this from the span?
+
+    distance<distanceType, InType, AccType, OutType, Index_>(
+            x.data(), y.data(), dist.data(), x.extent(0), y.extent(0), x.extent(1),
+            handle.get_stream(), is_rowmajor, metric_arg);
+}
+
 /**
  * @brief Evaluate pairwise distances for the simple use case
  * @tparam DistanceType which distance to evaluate
@@ -175,14 +195,53 @@ void distance(const InType* x,
               Index_ k,
               cudaStream_t stream,
               bool isRowMajor   = true,
-              InType metric_arg = 2.0f)
-{
+              InType metric_arg = 2.0f) {
   rmm::device_uvector<char> workspace(0, stream);
   auto worksize = getWorkspaceSize<distanceType, InType, AccType, OutType, Index_>(x, y, m, n, k);
   workspace.resize(worksize, stream);
   detail::distance<distanceType, InType, AccType, OutType, Index_>(
     x, y, dist, m, n, k, workspace.data(), worksize, stream, isRowMajor, metric_arg);
 }
+
+
+/**
+ * @defgroup pairwise_distance pairwise distance prims
+ * @{
+ * @brief Convenience wrapper around 'distance' prim to convert runtime metric
+ * into compile time for the purpose of dispatch
+ * @tparam Type input/accumulation/output data-type
+ * @tparam Index_ indexing type
+ * @param x first matrix of points (size mxk)
+ * @param y second matrix of points (size nxk)
+ * @param dist output distance matrix (size mxn)
+ * @param workspace temporary workspace buffer which can get resized as per the
+ * needed workspace size
+ * @param metric distance metric
+ * @param stream cuda stream
+ * @param isRowMajor whether the matrices are row-major or col-major
+ */
+template <typename Type, typename Index_ = int>
+void pairwise_distance(const raft::handle_t& handle,
+                       const device_matrix<Type> &x,
+                       const device_matrix<Type> &y,
+                       device_matrix<Type> &dist,
+                       raft::distance::DistanceType metric,
+                       Type metric_arg = 2.0f) {
+
+    RAFT_EXPECTS(x.extent(1) == y.extent(1), "Number of columns must be equal.");
+    RAFT_EXPECTS(dist.extent(0) == x.extent(0), "Number of rows in output must be equal to "
+                                                "number of rows in X");
+    RAFT_EXPECTS(dist.extent(1) == y.extent(0), "Number of columns in output must be equal to "
+                                                "number of rows in Y");
+
+    rmm::device_uvector<char> workspace(0, handle.get_stream());
+    // TODO: How do we specify row_major vs col_major?
+    // TODO: How do we specify the indexing type?
+    pairwise_distance(handle, x.data(), y.data(), dist.data(),
+                      x.extent(0), y.extent(0), x.extent(1),
+                      workspace, metric, true, metric_arg);
+}
+
 
 /**
  * @defgroup pairwise_distance pairwise distance prims
