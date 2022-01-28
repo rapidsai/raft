@@ -117,9 +117,9 @@ class mdarray {
   constexpr mdarray(mdarray&&) noexcept(std::is_nothrow_move_constructible<container_type>::value) =
     default;
 
-  constexpr auto operator=(mdarray const&) noexcept(
+  constexpr auto operator                                               =(mdarray const&) noexcept(
     std::is_nothrow_copy_assignable<container_type>::value) -> mdarray& = default;
-  constexpr auto operator=(mdarray&&) noexcept(
+  constexpr auto operator                                               =(mdarray&&) noexcept(
     std::is_nothrow_move_assignable<container_type>::value) -> mdarray& = default;
 
   ~mdarray() noexcept(std::is_nothrow_destructible<container_type>::value) = default;
