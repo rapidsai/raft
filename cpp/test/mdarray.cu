@@ -80,12 +80,12 @@ void test_mdarray_basic()
     /**
      * device policy
      */
-    stdex::layout_right::mapping<matrix_extent> layout{matrix_extent{4, 4}};
-    using mdarray_t = device_mdarray<float, matrix_extent, stdex::layout_right>;
+    layout_c_contiguous::mapping<matrix_extent> layout{matrix_extent{4, 4}};
+    using mdarray_t = device_mdarray<float, matrix_extent, layout_c_contiguous>;
     auto policy     = mdarray_t::container_policy_type{s};
     static_assert(std::is_same_v<typename decltype(policy)::accessor_type,
                                  detail::device_uvector_policy<float>>);
-    device_mdarray<float, matrix_extent, stdex::layout_right> array{layout, policy};
+    device_mdarray<float, matrix_extent, layout_c_contiguous> array{layout, policy};
 
     array(0, 3) = 1;
     ASSERT_EQ(array(0, 3), 1);
@@ -132,12 +132,12 @@ void test_mdarray_basic()
     /**
      * host policy
      */
-    using mdarray_t = host_mdarray<float, matrix_extent, stdex::layout_right>;
+    using mdarray_t = host_mdarray<float, matrix_extent, layout_c_contiguous>;
     mdarray_t::container_policy_type policy;
     static_assert(
       std::is_same_v<typename decltype(policy)::accessor_type, detail::host_vector_policy<float>>);
-    stdex::layout_right::mapping<matrix_extent> layout{matrix_extent{4, 4}};
-    host_mdarray<float, matrix_extent, stdex::layout_right> array{layout, policy};
+    layout_c_contiguous::mapping<matrix_extent> layout{matrix_extent{4, 4}};
+    host_mdarray<float, matrix_extent, layout_c_contiguous> array{layout, policy};
 
     array(0, 3) = 1;
     ASSERT_EQ(array(0, 3), 1);
@@ -156,10 +156,10 @@ void test_mdarray_basic()
      * static extent
      */
     using static_extent = stdex::extents<16, 16>;
-    stdex::layout_right::mapping<static_extent> layout{static_extent{}};
-    using mdarray_t = device_mdarray<float, static_extent, stdex::layout_right>;
+    layout_c_contiguous::mapping<static_extent> layout{static_extent{}};
+    using mdarray_t = device_mdarray<float, static_extent, layout_c_contiguous>;
     mdarray_t::container_policy_type policy{s};
-    device_mdarray<float, static_extent, stdex::layout_right> array{layout, policy};
+    device_mdarray<float, static_extent, layout_c_contiguous> array{layout, policy};
 
     static_assert(array.rank_dynamic() == 0);
     static_assert(array.rank() == 2);
@@ -181,7 +181,7 @@ template <typename BasicMDarray, typename PolicyFn, typename ThrustPolicy>
 void test_mdarray_copy_move(ThrustPolicy exec, PolicyFn make_policy)
 {
   using matrix_extent = stdex::extents<stdex::dynamic_extent, stdex::dynamic_extent>;
-  stdex::layout_right::mapping<matrix_extent> layout{matrix_extent{4, 4}};
+  layout_c_contiguous::mapping<matrix_extent> layout{matrix_extent{4, 4}};
 
   using mdarray_t = BasicMDarray;
   using policy_t  = typename mdarray_t::container_policy_type;
@@ -287,7 +287,8 @@ TEST(MDArray, CopyMove)
   }
 }
 
-TEST(MDArray, Factory)
+namespace {
+void test_factory_methods()
 {
   size_t n{100};
   rmm::device_uvector<float> d_vec(n, rmm::cuda_stream_default);
@@ -347,7 +348,40 @@ TEST(MDArray, Factory)
     static_assert(d_vec.rank() == 1);
     ASSERT_EQ(d_vec.extent(0), n);
   }
+
+  {
+    // device scalar
+    auto d_scalar = make_device_scalar<double>(17.0, rmm::cuda_stream_default);
+    static_assert(d_scalar.rank() == 1);
+    static_assert(d_scalar.rank_dynamic() == 0);
+    ASSERT_EQ(d_scalar(0), 17.0);
+
+    auto view = d_scalar.view();
+    thrust::device_vector<int32_t> status(1, 0);
+    auto p_status = status.data().get();
+    thrust::for_each_n(rmm::exec_policy(rmm::cuda_stream_default),
+                       thrust::make_counting_iterator(0),
+                       1,
+                       [=] __device__(auto i) {
+                         if (view(i) != 17.0) { myAtomicAdd(p_status, 1); }
+                       });
+    check_status(p_status, rmm::cuda_stream_default);
+  }
+  {
+    // host scalar
+    auto h_scalar = make_host_scalar<double>(17.0);
+    static_assert(h_scalar.rank() == 1);
+    static_assert(h_scalar.rank_dynamic() == 0);
+    ASSERT_EQ(h_scalar(0), 17.0);
+    ASSERT_EQ(h_scalar.view()(0), 17.0);
+
+    auto view = make_host_scalar_view(h_scalar.data());
+    ASSERT_EQ(view(0), 17.0);
+  }
 }
+}  // anonymous namespace
+
+TEST(MDArray, Factory) { test_factory_methods(); }
 
 namespace {
 template <typename T, typename LayoutPolicy>
@@ -371,7 +405,8 @@ TEST(MDArray, FuncArg)
     check_matrix_layout(d_matrix.view());
   }
   {
-    auto d_matrix = make_device_matrix<float, stdex::layout_left>(10, 10, rmm::cuda_stream_default);
+    auto d_matrix =
+      make_device_matrix<float, layout_f_contiguous>(10, 10, rmm::cuda_stream_default);
     check_matrix_layout(d_matrix.view());
 
     // FIXME(jiamingy): The slice has a default accessor instead of accessor_mixin, due to

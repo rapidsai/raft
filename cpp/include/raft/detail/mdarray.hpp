@@ -229,4 +229,5 @@ namespace stdex = std::experimental;
 
 using vector_extent = stdex::extents<stdex::dynamic_extent>;
 using matrix_extent = stdex::extents<stdex::dynamic_extent, stdex::dynamic_extent>;
+using scalar_extent = stdex::extents<1>;
 }  // namespace raft::detail
