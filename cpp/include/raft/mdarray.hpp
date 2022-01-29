@@ -20,6 +20,15 @@
 
 namespace raft {
 /**
+ * @\brief C-Contiguous layout for mdarray and mdspan. Implies row-major and contiguous memory.
+ */
+using layout_c_contiguous = detail::stdex::layout_right;
+/**
+ * @\brief F-Contiguous layout for mdarray and mdspan. Implies column-major and contiguous memory.
+ */
+using layout_f_contiguous = detail::stdex::layout_left;
+
+/**
  * @brief stdex::mdspan with device tag to avoid accessing incorrect memory location.
  */
 template <class ElementType,

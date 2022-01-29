@@ -356,8 +356,8 @@ void check_matrix_layout(device_matrix_view<T, LayoutPolicy> in)
   static_assert(in.rank() == 2);
   static_assert(in.is_contiguous());
 
-  bool constexpr kIsCContiguous = std::is_same_v<LayoutPolicy, stdex::layout_right>;
-  bool constexpr kIsFContiguous = std::is_same_v<LayoutPolicy, stdex::layout_left>;
+  bool constexpr kIsCContiguous = std::is_same_v<LayoutPolicy, layout_c_contiguous>;
+  bool constexpr kIsFContiguous = std::is_same_v<LayoutPolicy, layout_f_contiguous>;
   // only 1 of them is true
   static_assert(kIsCContiguous || kIsFContiguous);
   static_assert(!(kIsCContiguous && kIsFContiguous));
