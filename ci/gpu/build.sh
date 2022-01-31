@@ -1,7 +1,7 @@
 #!/bin/bash
-# Copyright (c) 2020-2021, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #########################################
-# cuML GPU build and test script for CI #
+# RAFT GPU build and test script for CI #
 #########################################
 
 set -e
@@ -26,11 +26,8 @@ cd "$WORKSPACE"
 export GIT_DESCRIBE_TAG=`git describe --tags`
 export MINOR_VERSION=`echo $GIT_DESCRIBE_TAG | grep -o -E '([0-9]+\.[0-9]+)'`
 
-# Read options for cloning/running downstream repo tests
-source "$WORKSPACE/ci/prtest.config"
-
 # ucx-py version
-export UCX_PY_VERSION='0.24.*'
+export UCX_PY_VERSION='0.25.*'
 
 ################################################################################
 # SETUP - Check environment
@@ -53,6 +50,7 @@ gpuci_mamba_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvid
       "libcusolver>=11.2.1" \
       "cudf=${MINOR_VERSION}" \
       "rmm=${MINOR_VERSION}" \
+      "breathe" \
       "dask-cudf=${MINOR_VERSION}" \
       "dask-cuda=${MINOR_VERSION}" \
       "ucx-py=${UCX_PY_VERSION}" \
@@ -63,8 +61,8 @@ gpuci_mamba_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvid
 # Install the master version of dask, distributed, and dask-ml
 gpuci_logger "Install the master version of dask and distributed"
 set -x
-pip install "git+https://github.com/dask/distributed.git@2021.11.2" --upgrade --no-deps
-pip install "git+https://github.com/dask/dask.git@2021.11.2" --upgrade --no-deps
+pip install "git+https://github.com/dask/distributed.git@2022.01.0" --upgrade --no-deps
+pip install "git+https://github.com/dask/dask.git@2022.01.0" --upgrade --no-deps
 set +x
 
 
@@ -88,16 +86,19 @@ export LD_LIBRARY_PATH_CACHED=$LD_LIBRARY_PATH
 export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
 
 gpuci_logger "Build C++ and Python targets"
-"$WORKSPACE/build.sh" cppraft pyraft -v
+if hasArg --skip-tests; then
+  "$WORKSPACE/build.sh" libraft pyraft libraft -v --compile-libs --nogtest
+else
+  "$WORKSPACE/build.sh" libraft pyraft libraft -v --compile-libs
+fi
 
-gpuci_logger "Building doxygen C++ docs"
-"$WORKSPACE/build.sh" cppdocs -v
+gpuci_logger "Building docs"
+"$WORKSPACE/build.sh" docs -v
 
 gpuci_logger "Resetting LD_LIBRARY_PATH"
 
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH_CACHED
 export LD_LIBRARY_PATH_CACHED=""
-
 
 ################################################################################
 # TEST - Run GoogleTest and py.tests for RAFT
@@ -115,7 +116,7 @@ gpuci_logger "GoogleTest for raft"
 cd "$WORKSPACE/cpp/build"
 GTEST_OUTPUT="xml:$WORKSPACE/test-results/raft_cpp/" ./test_raft
 
-gpuci_logger "Python pytest for cuml"
+gpuci_logger "Python pytest for raft"
 cd "$WORKSPACE/python"
 
-python -m pytest --cache-clear --junitxml="$WORKSPACE/junit-cuml.xml" -v -s
+python -m pytest --cache-clear --junitxml="$WORKSPACE/junit-raft.xml" -v -s
