@@ -20,195 +20,195 @@
 #include <raft/sparse/detail/cusparse_macros.h>
 
 namespace raft {
-    namespace sparse {
+namespace sparse {
 
 /**
  * @defgroup gthr cusparse gather methods
  * @{
  */
-        template <typename T>
-        cusparseStatus_t cusparsegthr(
-                cusparseHandle_t handle, int nnz, const T* vals, T* vals_sorted, int* d_P, cudaStream_t stream);
-        template <>
-        inline cusparseStatus_t cusparsegthr(cusparseHandle_t handle,
-                                             int nnz,
-                                             const double* vals,
-                                             double* vals_sorted,
-                                             int* d_P,
-                                             cudaStream_t stream)
-        {
-            CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+template <typename T>
+cusparseStatus_t cusparsegthr(
+  cusparseHandle_t handle, int nnz, const T* vals, T* vals_sorted, int* d_P, cudaStream_t stream);
+template <>
+inline cusparseStatus_t cusparsegthr(cusparseHandle_t handle,
+                                     int nnz,
+                                     const double* vals,
+                                     double* vals_sorted,
+                                     int* d_P,
+                                     cudaStream_t stream)
+{
+  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-            return cusparseDgthr(handle, nnz, vals, vals_sorted, d_P, CUSPARSE_INDEX_BASE_ZERO);
+  return cusparseDgthr(handle, nnz, vals, vals_sorted, d_P, CUSPARSE_INDEX_BASE_ZERO);
 #pragma GCC diagnostic pop
-        }
-        template <>
-        inline cusparseStatus_t cusparsegthr(cusparseHandle_t handle,
-                                             int nnz,
-                                             const float* vals,
-                                             float* vals_sorted,
-                                             int* d_P,
-                                             cudaStream_t stream)
-        {
-            CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+}
+template <>
+inline cusparseStatus_t cusparsegthr(cusparseHandle_t handle,
+                                     int nnz,
+                                     const float* vals,
+                                     float* vals_sorted,
+                                     int* d_P,
+                                     cudaStream_t stream)
+{
+  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-            return cusparseSgthr(handle, nnz, vals, vals_sorted, d_P, CUSPARSE_INDEX_BASE_ZERO);
+  return cusparseSgthr(handle, nnz, vals, vals_sorted, d_P, CUSPARSE_INDEX_BASE_ZERO);
 #pragma GCC diagnostic pop
-        }
+}
 /** @} */
 
 /**
  * @defgroup coo2csr cusparse COO to CSR converter methods
  * @{
  */
-        template <typename T>
-        void cusparsecoo2csr(
-                cusparseHandle_t handle, const T* cooRowInd, int nnz, int m, T* csrRowPtr, cudaStream_t stream);
-        template <>
-        inline void cusparsecoo2csr(cusparseHandle_t handle,
-                                    const int* cooRowInd,
-                                    int nnz,
-                                    int m,
-                                    int* csrRowPtr,
-                                    cudaStream_t stream)
-        {
-            CUSPARSE_CHECK(cusparseSetStream(handle, stream));
-            CUSPARSE_CHECK(cusparseXcoo2csr(handle, cooRowInd, nnz, m, csrRowPtr, CUSPARSE_INDEX_BASE_ZERO));
-        }
+template <typename T>
+void cusparsecoo2csr(
+  cusparseHandle_t handle, const T* cooRowInd, int nnz, int m, T* csrRowPtr, cudaStream_t stream);
+template <>
+inline void cusparsecoo2csr(cusparseHandle_t handle,
+                            const int* cooRowInd,
+                            int nnz,
+                            int m,
+                            int* csrRowPtr,
+                            cudaStream_t stream)
+{
+  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+  CUSPARSE_CHECK(cusparseXcoo2csr(handle, cooRowInd, nnz, m, csrRowPtr, CUSPARSE_INDEX_BASE_ZERO));
+}
 /** @} */
 
 /**
  * @defgroup coosort cusparse coo sort methods
  * @{
  */
-        template <typename T>
-        size_t cusparsecoosort_bufferSizeExt(  // NOLINT
-                cusparseHandle_t handle,
-                int m,
-                int n,
-                int nnz,
-                const T* cooRows,
-                const T* cooCols,
-                cudaStream_t stream);
-        template <>
-        inline size_t cusparsecoosort_bufferSizeExt(  // NOLINT
-                cusparseHandle_t handle,
-                int m,
-                int n,
-                int nnz,
-                const int* cooRows,
-                const int* cooCols,
-                cudaStream_t stream)
-        {
-            size_t val;
-            CUSPARSE_CHECK(cusparseSetStream(handle, stream));
-            CUSPARSE_CHECK(cusparseXcoosort_bufferSizeExt(handle, m, n, nnz, cooRows, cooCols, &val));
-            return val;
-        }
+template <typename T>
+size_t cusparsecoosort_bufferSizeExt(  // NOLINT
+  cusparseHandle_t handle,
+  int m,
+  int n,
+  int nnz,
+  const T* cooRows,
+  const T* cooCols,
+  cudaStream_t stream);
+template <>
+inline size_t cusparsecoosort_bufferSizeExt(  // NOLINT
+  cusparseHandle_t handle,
+  int m,
+  int n,
+  int nnz,
+  const int* cooRows,
+  const int* cooCols,
+  cudaStream_t stream)
+{
+  size_t val;
+  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+  CUSPARSE_CHECK(cusparseXcoosort_bufferSizeExt(handle, m, n, nnz, cooRows, cooCols, &val));
+  return val;
+}
 
-        template <typename T>
-        void cusparsecoosortByRow(  // NOLINT
-                cusparseHandle_t handle,
-                int m,
-                int n,
-                int nnz,
-                T* cooRows,
-                T* cooCols,
-                T* P,
-                void* pBuffer,
-                cudaStream_t stream);
-        template <>
-        inline void cusparsecoosortByRow(  // NOLINT
-                cusparseHandle_t handle,
-                int m,
-                int n,
-                int nnz,
-                int* cooRows,
-                int* cooCols,
-                int* P,
-                void* pBuffer,
-                cudaStream_t stream)
-        {
-            CUSPARSE_CHECK(cusparseSetStream(handle, stream));
-            CUSPARSE_CHECK(cusparseXcoosortByRow(handle, m, n, nnz, cooRows, cooCols, P, pBuffer));
-        }
+template <typename T>
+void cusparsecoosortByRow(  // NOLINT
+  cusparseHandle_t handle,
+  int m,
+  int n,
+  int nnz,
+  T* cooRows,
+  T* cooCols,
+  T* P,
+  void* pBuffer,
+  cudaStream_t stream);
+template <>
+inline void cusparsecoosortByRow(  // NOLINT
+  cusparseHandle_t handle,
+  int m,
+  int n,
+  int nnz,
+  int* cooRows,
+  int* cooCols,
+  int* P,
+  void* pBuffer,
+  cudaStream_t stream)
+{
+  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+  CUSPARSE_CHECK(cusparseXcoosortByRow(handle, m, n, nnz, cooRows, cooCols, P, pBuffer));
+}
 /** @} */
 
 /**
  * @defgroup Gemmi cusparse gemmi operations
  * @{
  */
-        template <typename T>
-        cusparseStatus_t cusparsegemmi(  // NOLINT
-                cusparseHandle_t handle,
-                int m,
-                int n,
-                int k,
-                int nnz,
-                const T* alpha,
-                const T* A,
-                int lda,
-                const T* cscValB,
-                const int* cscColPtrB,
-                const int* cscRowIndB,
-                const T* beta,
-                T* C,
-                int ldc,
-                cudaStream_t stream);
-        template <>
-        inline cusparseStatus_t cusparsegemmi(cusparseHandle_t handle,
-                                              int m,
-                                              int n,
-                                              int k,
-                                              int nnz,
-                                              const float* alpha,
-                                              const float* A,
-                                              int lda,
-                                              const float* cscValB,
-                                              const int* cscColPtrB,
-                                              const int* cscRowIndB,
-                                              const float* beta,
-                                              float* C,
-                                              int ldc,
-                                              cudaStream_t stream)
-        {
-            CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+template <typename T>
+cusparseStatus_t cusparsegemmi(  // NOLINT
+  cusparseHandle_t handle,
+  int m,
+  int n,
+  int k,
+  int nnz,
+  const T* alpha,
+  const T* A,
+  int lda,
+  const T* cscValB,
+  const int* cscColPtrB,
+  const int* cscRowIndB,
+  const T* beta,
+  T* C,
+  int ldc,
+  cudaStream_t stream);
+template <>
+inline cusparseStatus_t cusparsegemmi(cusparseHandle_t handle,
+                                      int m,
+                                      int n,
+                                      int k,
+                                      int nnz,
+                                      const float* alpha,
+                                      const float* A,
+                                      int lda,
+                                      const float* cscValB,
+                                      const int* cscColPtrB,
+                                      const int* cscRowIndB,
+                                      const float* beta,
+                                      float* C,
+                                      int ldc,
+                                      cudaStream_t stream)
+{
+  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-            return cusparseSgemmi(
-                    handle, m, n, k, nnz, alpha, A, lda, cscValB, cscColPtrB, cscRowIndB, beta, C, ldc);
+  return cusparseSgemmi(
+    handle, m, n, k, nnz, alpha, A, lda, cscValB, cscColPtrB, cscRowIndB, beta, C, ldc);
 #pragma GCC diagnostic pop
-        }
-        template <>
-        inline cusparseStatus_t cusparsegemmi(cusparseHandle_t handle,
-                                              int m,
-                                              int n,
-                                              int k,
-                                              int nnz,
-                                              const double* alpha,
-                                              const double* A,
-                                              int lda,
-                                              const double* cscValB,
-                                              const int* cscColPtrB,
-                                              const int* cscRowIndB,
-                                              const double* beta,
-                                              double* C,
-                                              int ldc,
-                                              cudaStream_t stream)
-        {
-            CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+}
+template <>
+inline cusparseStatus_t cusparsegemmi(cusparseHandle_t handle,
+                                      int m,
+                                      int n,
+                                      int k,
+                                      int nnz,
+                                      const double* alpha,
+                                      const double* A,
+                                      int lda,
+                                      const double* cscValB,
+                                      const int* cscColPtrB,
+                                      const int* cscRowIndB,
+                                      const double* beta,
+                                      double* C,
+                                      int ldc,
+                                      cudaStream_t stream)
+{
+  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-            return cusparseDgemmi(
-                    handle, m, n, k, nnz, alpha, A, lda, cscValB, cscColPtrB, cscRowIndB, beta, C, ldc);
+  return cusparseDgemmi(
+    handle, m, n, k, nnz, alpha, A, lda, cscValB, cscColPtrB, cscRowIndB, beta, C, ldc);
 #pragma GCC diagnostic pop
-        }
+}
 /** @} */
 
 #if not defined CUDA_ENFORCE_LOWER and CUDA_VER_10_1_UP
-        /**
+/**
  * @defgroup cusparse Create CSR operations
  * @{
  */
@@ -455,67 +455,67 @@ inline cusparseStatus_t cusparsespmv(cusparseHandle_t handle,
  * @defgroup Csrmv cusparse csrmv operations
  * @{
  */
-        template <typename T>
-        cusparseStatus_t cusparsecsrmv(  // NOLINT
-                cusparseHandle_t handle,
-                cusparseOperation_t trans,
-                int m,
-                int n,
-                int nnz,
-                const T* alpha,
-                const cusparseMatDescr_t descr,
-                const T* csrVal,
-                const int* csrRowPtr,
-                const int* csrColInd,
-                const T* x,
-                const T* beta,
-                T* y,
-                cudaStream_t stream);
-        template <>
-        inline cusparseStatus_t cusparsecsrmv(cusparseHandle_t handle,
-                                              cusparseOperation_t trans,
-                                              int m,
-                                              int n,
-                                              int nnz,
-                                              const float* alpha,
-                                              const cusparseMatDescr_t descr,
-                                              const float* csrVal,
-                                              const int* csrRowPtr,
-                                              const int* csrColInd,
-                                              const float* x,
-                                              const float* beta,
-                                              float* y,
-                                              cudaStream_t stream)
-        {
-            CUSPARSE_CHECK(cusparseSetStream(handle, stream));
-            return cusparseScsrmv(
-                    handle, trans, m, n, nnz, alpha, descr, csrVal, csrRowPtr, csrColInd, x, beta, y);
-        }
-        template <>
-        inline cusparseStatus_t cusparsecsrmv(cusparseHandle_t handle,
-                                              cusparseOperation_t trans,
-                                              int m,
-                                              int n,
-                                              int nnz,
-                                              const double* alpha,
-                                              const cusparseMatDescr_t descr,
-                                              const double* csrVal,
-                                              const int* csrRowPtr,
-                                              const int* csrColInd,
-                                              const double* x,
-                                              const double* beta,
-                                              double* y,
-                                              cudaStream_t stream)
-        {
-            CUSPARSE_CHECK(cusparseSetStream(handle, stream));
-            return cusparseDcsrmv(
-                    handle, trans, m, n, nnz, alpha, descr, csrVal, csrRowPtr, csrColInd, x, beta, y);
-        }
+template <typename T>
+cusparseStatus_t cusparsecsrmv(  // NOLINT
+  cusparseHandle_t handle,
+  cusparseOperation_t trans,
+  int m,
+  int n,
+  int nnz,
+  const T* alpha,
+  const cusparseMatDescr_t descr,
+  const T* csrVal,
+  const int* csrRowPtr,
+  const int* csrColInd,
+  const T* x,
+  const T* beta,
+  T* y,
+  cudaStream_t stream);
+template <>
+inline cusparseStatus_t cusparsecsrmv(cusparseHandle_t handle,
+                                      cusparseOperation_t trans,
+                                      int m,
+                                      int n,
+                                      int nnz,
+                                      const float* alpha,
+                                      const cusparseMatDescr_t descr,
+                                      const float* csrVal,
+                                      const int* csrRowPtr,
+                                      const int* csrColInd,
+                                      const float* x,
+                                      const float* beta,
+                                      float* y,
+                                      cudaStream_t stream)
+{
+  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+  return cusparseScsrmv(
+    handle, trans, m, n, nnz, alpha, descr, csrVal, csrRowPtr, csrColInd, x, beta, y);
+}
+template <>
+inline cusparseStatus_t cusparsecsrmv(cusparseHandle_t handle,
+                                      cusparseOperation_t trans,
+                                      int m,
+                                      int n,
+                                      int nnz,
+                                      const double* alpha,
+                                      const cusparseMatDescr_t descr,
+                                      const double* csrVal,
+                                      const int* csrRowPtr,
+                                      const int* csrColInd,
+                                      const double* x,
+                                      const double* beta,
+                                      double* y,
+                                      cudaStream_t stream)
+{
+  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+  return cusparseDcsrmv(
+    handle, trans, m, n, nnz, alpha, descr, csrVal, csrRowPtr, csrColInd, x, beta, y);
+}
 /** @} */
 #endif
 
 #if not defined CUDA_ENFORCE_LOWER and CUDA_VER_10_1_UP
-        /**
+/**
  * @defgroup Csrmm cusparse csrmm operations
  * @{
  */
@@ -617,71 +617,71 @@ inline cusparseStatus_t cusparsespmm(cusparseHandle_t handle,
  * @defgroup Csrmm cusparse csrmm operations
  * @{
  */
-        template <typename T>
-        cusparseStatus_t cusparsecsrmm(  // NOLINT
-                cusparseHandle_t handle,
-                cusparseOperation_t trans,
-                int m,
-                int n,
-                int k,
-                int nnz,
-                const T* alpha,
-                const cusparseMatDescr_t descr,
-                const T* csrVal,
-                const int* csrRowPtr,
-                const int* csrColInd,
-                const T* x,
-                const int ldx,
-                const T* beta,
-                T* y,
-                const int ldy,
-                cudaStream_t stream);
-        template <>
-        inline cusparseStatus_t cusparsecsrmm(cusparseHandle_t handle,
-                                              cusparseOperation_t trans,
-                                              int m,
-                                              int n,
-                                              int k,
-                                              int nnz,
-                                              const float* alpha,
-                                              const cusparseMatDescr_t descr,
-                                              const float* csrVal,
-                                              const int* csrRowPtr,
-                                              const int* csrColInd,
-                                              const float* x,
-                                              const int ldx,
-                                              const float* beta,
-                                              float* y,
-                                              const int ldy,
-                                              cudaStream_t stream)
-        {
-            CUSPARSE_CHECK(cusparseSetStream(handle, stream));
-            return cusparseScsrmm(
-                    handle, trans, m, n, k, nnz, alpha, descr, csrVal, csrRowPtr, csrColInd, x, ldx, beta, y, ldy);
-        }
-        template <>
-        inline cusparseStatus_t cusparsecsrmm(cusparseHandle_t handle,
-                                              cusparseOperation_t trans,
-                                              int m,
-                                              int n,
-                                              int k,
-                                              int nnz,
-                                              const double* alpha,
-                                              const cusparseMatDescr_t descr,
-                                              const double* csrVal,
-                                              const int* csrRowPtr,
-                                              const int* csrColInd,
-                                              const double* x,
-                                              const int ldx,
-                                              const double* beta,
-                                              double* y,
-                                              const int ldy,
-                                              cudaStream_t stream)
-        {
-            CUSPARSE_CHECK(cusparseSetStream(handle, stream));
-            return cusparseDcsrmm(
-                    handle, trans, m, n, k, nnz, alpha, descr, csrVal, csrRowPtr, csrColInd, x, ldx, beta, y, ldy);
-        }
+template <typename T>
+cusparseStatus_t cusparsecsrmm(  // NOLINT
+  cusparseHandle_t handle,
+  cusparseOperation_t trans,
+  int m,
+  int n,
+  int k,
+  int nnz,
+  const T* alpha,
+  const cusparseMatDescr_t descr,
+  const T* csrVal,
+  const int* csrRowPtr,
+  const int* csrColInd,
+  const T* x,
+  const int ldx,
+  const T* beta,
+  T* y,
+  const int ldy,
+  cudaStream_t stream);
+template <>
+inline cusparseStatus_t cusparsecsrmm(cusparseHandle_t handle,
+                                      cusparseOperation_t trans,
+                                      int m,
+                                      int n,
+                                      int k,
+                                      int nnz,
+                                      const float* alpha,
+                                      const cusparseMatDescr_t descr,
+                                      const float* csrVal,
+                                      const int* csrRowPtr,
+                                      const int* csrColInd,
+                                      const float* x,
+                                      const int ldx,
+                                      const float* beta,
+                                      float* y,
+                                      const int ldy,
+                                      cudaStream_t stream)
+{
+  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+  return cusparseScsrmm(
+    handle, trans, m, n, k, nnz, alpha, descr, csrVal, csrRowPtr, csrColInd, x, ldx, beta, y, ldy);
+}
+template <>
+inline cusparseStatus_t cusparsecsrmm(cusparseHandle_t handle,
+                                      cusparseOperation_t trans,
+                                      int m,
+                                      int n,
+                                      int k,
+                                      int nnz,
+                                      const double* alpha,
+                                      const cusparseMatDescr_t descr,
+                                      const double* csrVal,
+                                      const int* csrRowPtr,
+                                      const int* csrColInd,
+                                      const double* x,
+                                      const int ldx,
+                                      const double* beta,
+                                      double* y,
+                                      const int ldy,
+                                      cudaStream_t stream)
+{
+  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+  return cusparseDcsrmm(
+    handle, trans, m, n, k, nnz, alpha, descr, csrVal, csrRowPtr, csrColInd, x, ldx, beta, y, ldy);
+}
 /** @} */
 #endif
 
@@ -689,25 +689,25 @@ inline cusparseStatus_t cusparsespmm(cusparseHandle_t handle,
  * @defgroup csr2coo cusparse CSR to COO converter methods
  * @{
  */
-        template <typename T>
-        void cusparsecsr2coo(  // NOLINT
-                cusparseHandle_t handle,
-                const int n,
-                const int nnz,
-                const T* csrRowPtr,
-                T* cooRowInd,
-                cudaStream_t stream);
-        template <>
-        inline void cusparsecsr2coo(cusparseHandle_t handle,
-                                    const int n,
-                                    const int nnz,
-                                    const int* csrRowPtr,
-                                    int* cooRowInd,
-                                    cudaStream_t stream)
-        {
-            CUSPARSE_CHECK(cusparseSetStream(handle, stream));
-            CUSPARSE_CHECK(cusparseXcsr2coo(handle, csrRowPtr, nnz, n, cooRowInd, CUSPARSE_INDEX_BASE_ZERO));
-        }
+template <typename T>
+void cusparsecsr2coo(  // NOLINT
+  cusparseHandle_t handle,
+  const int n,
+  const int nnz,
+  const T* csrRowPtr,
+  T* cooRowInd,
+  cudaStream_t stream);
+template <>
+inline void cusparsecsr2coo(cusparseHandle_t handle,
+                            const int n,
+                            const int nnz,
+                            const int* csrRowPtr,
+                            int* cooRowInd,
+                            cudaStream_t stream)
+{
+  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+  CUSPARSE_CHECK(cusparseXcsr2coo(handle, csrRowPtr, nnz, n, cooRowInd, CUSPARSE_INDEX_BASE_ZERO));
+}
 /** @} */
 
 /**
@@ -722,214 +722,260 @@ inline cusparseStatus_t cusparsespmm(cusparseHandle_t handle,
 //                                         cudaStream_t stream);
 
 // template<>
-        inline cusparseStatus_t cusparsesetpointermode(cusparseHandle_t handle,
-                                                       cusparsePointerMode_t mode,
-                                                       cudaStream_t stream)
-        {
-            CUSPARSE_CHECK(cusparseSetStream(handle, stream));
-            return cusparseSetPointerMode(handle, mode);
-        }
+inline cusparseStatus_t cusparsesetpointermode(cusparseHandle_t handle,
+                                               cusparsePointerMode_t mode,
+                                               cudaStream_t stream)
+{
+  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+  return cusparseSetPointerMode(handle, mode);
+}
 /** @} */
 
 /**
  * @defgroup CsrmvEx cusparse csrmvex operations
  * @{
  */
-        template <typename T>
-        cusparseStatus_t cusparsecsrmvex_bufferSize(cusparseHandle_t handle,
-                                                    cusparseAlgMode_t alg,
-                                                    cusparseOperation_t transA,
-                                                    int m,
-                                                    int n,
-                                                    int nnz,
-                                                    const T* alpha,
-                                                    const cusparseMatDescr_t descrA,
-                                                    const T* csrValA,
-                                                    const int* csrRowPtrA,
-                                                    const int* csrColIndA,
-                                                    const T* x,
-                                                    const T* beta,
-                                                    T* y,
-                                                    size_t* bufferSizeInBytes,
-                                                    cudaStream_t stream);
-        template <>
-        inline cusparseStatus_t cusparsecsrmvex_bufferSize(cusparseHandle_t handle,
-                                                           cusparseAlgMode_t alg,
-                                                           cusparseOperation_t transA,
-                                                           int m,
-                                                           int n,
-                                                           int nnz,
-                                                           const float* alpha,
-                                                           const cusparseMatDescr_t descrA,
-                                                           const float* csrValA,
-                                                           const int* csrRowPtrA,
-                                                           const int* csrColIndA,
-                                                           const float* x,
-                                                           const float* beta,
-                                                           float* y,
-                                                           size_t* bufferSizeInBytes,
-                                                           cudaStream_t stream)
-        {
-            CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+template <typename T>
+cusparseStatus_t cusparsecsrmvex_bufferSize(cusparseHandle_t handle,
+                                            cusparseAlgMode_t alg,
+                                            cusparseOperation_t transA,
+                                            int m,
+                                            int n,
+                                            int nnz,
+                                            const T* alpha,
+                                            const cusparseMatDescr_t descrA,
+                                            const T* csrValA,
+                                            const int* csrRowPtrA,
+                                            const int* csrColIndA,
+                                            const T* x,
+                                            const T* beta,
+                                            T* y,
+                                            size_t* bufferSizeInBytes,
+                                            cudaStream_t stream);
+template <>
+inline cusparseStatus_t cusparsecsrmvex_bufferSize(cusparseHandle_t handle,
+                                                   cusparseAlgMode_t alg,
+                                                   cusparseOperation_t transA,
+                                                   int m,
+                                                   int n,
+                                                   int nnz,
+                                                   const float* alpha,
+                                                   const cusparseMatDescr_t descrA,
+                                                   const float* csrValA,
+                                                   const int* csrRowPtrA,
+                                                   const int* csrColIndA,
+                                                   const float* x,
+                                                   const float* beta,
+                                                   float* y,
+                                                   size_t* bufferSizeInBytes,
+                                                   cudaStream_t stream)
+{
+  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
 
-            cusparseSpMatDescr_t matA;
-            cusparseCreateCsr(&matA, m, n, nnz, csrRowPtrA, csrColIndA, csrValA,
-                           CUSPARSE_INDEX_32I, CUSPARSE_INDEX_32I, CUSPARSE_INDEX_BASE_ZERO,
-                           CUDA_R_32F);
+  cusparseSpMatDescr_t matA;
+  cusparseCreateCsr(&matA,
+                    m,
+                    n,
+                    nnz,
+                    csrRowPtrA,
+                    csrColIndA,
+                    csrValA,
+                    CUSPARSE_INDEX_32I,
+                    CUSPARSE_INDEX_32I,
+                    CUSPARSE_INDEX_BASE_ZERO,
+                    CUDA_R_32F);
 
-            cusparseDnVecDescr_t vecX;
-            cusparseCreateDnVec(&vecX, n, x, CUDA_R_32F);
+  cusparseDnVecDescr_t vecX;
+  cusparseCreateDnVec(&vecX, n, x, CUDA_R_32F);
 
-            cusparseDnVecDescr_t vecY;
-            cusparseCreateDnVec(&vecY, n, y, CUDA_R_32F);
+  cusparseDnVecDescr_t vecY;
+  cusparseCreateDnVec(&vecY, n, y, CUDA_R_32F);
 
-            cusparseStatus_t result = cusparseSpMV_bufferSize(handle, transA, alpha, matA, vecX, beta, vecY,
-                                           CUDA_R_32F, CUSPARSE_SPMV_ALG_DEFAULT, bufferSizeInBytes);
+  cusparseStatus_t result = cusparseSpMV_bufferSize(handle,
+                                                    transA,
+                                                    alpha,
+                                                    matA,
+                                                    vecX,
+                                                    beta,
+                                                    vecY,
+                                                    CUDA_R_32F,
+                                                    CUSPARSE_SPMV_ALG_DEFAULT,
+                                                    bufferSizeInBytes);
 
-            RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroySpMat(matA));
-            RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroyDnVec(vecX));
-            RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroyDnVec(vecY));
+  RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroySpMat(matA));
+  RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroyDnVec(vecX));
+  RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroyDnVec(vecY));
 
-            return result;
+  return result;
+}
+template <>
+inline cusparseStatus_t cusparsecsrmvex_bufferSize(cusparseHandle_t handle,
+                                                   cusparseAlgMode_t alg,
+                                                   cusparseOperation_t transA,
+                                                   int m,
+                                                   int n,
+                                                   int nnz,
+                                                   const double* alpha,
+                                                   const cusparseMatDescr_t descrA,
+                                                   const double* csrValA,
+                                                   const int* csrRowPtrA,
+                                                   const int* csrColIndA,
+                                                   const double* x,
+                                                   const double* beta,
+                                                   double* y,
+                                                   size_t* bufferSizeInBytes,
+                                                   cudaStream_t stream)
+{
+  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+  cusparseSpMatDescr_t matA;
+  cusparseCreateCsr(&matA,
+                    m,
+                    n,
+                    nnz,
+                    csrRowPtrA,
+                    csrColIndA,
+                    csrValA,
+                    CUSPARSE_INDEX_32I,
+                    CUSPARSE_INDEX_32I,
+                    CUSPARSE_INDEX_BASE_ZERO,
+                    CUDA_R_64F);
 
-        }
-        template <>
-        inline cusparseStatus_t cusparsecsrmvex_bufferSize(cusparseHandle_t handle,
-                                                           cusparseAlgMode_t alg,
-                                                           cusparseOperation_t transA,
-                                                           int m,
-                                                           int n,
-                                                           int nnz,
-                                                           const double* alpha,
-                                                           const cusparseMatDescr_t descrA,
-                                                           const double* csrValA,
-                                                           const int* csrRowPtrA,
-                                                           const int* csrColIndA,
-                                                           const double* x,
-                                                           const double* beta,
-                                                           double* y,
-                                                           size_t* bufferSizeInBytes,
-                                                           cudaStream_t stream)
-        {
-            CUSPARSE_CHECK(cusparseSetStream(handle, stream));
-            cusparseSpMatDescr_t matA;
-            cusparseCreateCsr(&matA, m, n, nnz, csrRowPtrA, csrColIndA, csrValA,
-                              CUSPARSE_INDEX_32I, CUSPARSE_INDEX_32I, CUSPARSE_INDEX_BASE_ZERO,
-                              CUDA_R_64F);
+  cusparseDnVecDescr_t vecX;
+  cusparseCreateDnVec(&vecX, n, x, CUDA_R_64F);
 
-            cusparseDnVecDescr_t vecX;
-            cusparseCreateDnVec(&vecX, n, x, CUDA_R_64F);
+  cusparseDnVecDescr_t vecY;
+  cusparseCreateDnVec(&vecY, n, y, CUDA_R_64F);
 
-            cusparseDnVecDescr_t vecY;
-            cusparseCreateDnVec(&vecY, n, y, CUDA_R_64F);
+  cusparseStatus_t result = cusparseSpMV_bufferSize(handle,
+                                                    transA,
+                                                    alpha,
+                                                    matA,
+                                                    vecX,
+                                                    beta,
+                                                    vecY,
+                                                    CUDA_R_64F,
+                                                    CUSPARSE_SPMV_ALG_DEFAULT,
+                                                    bufferSizeInBytes);
 
-            cusparseStatus_t result = cusparseSpMV_bufferSize(handle, transA, alpha, matA, vecX, beta, vecY,
-                                           CUDA_R_64F, CUSPARSE_SPMV_ALG_DEFAULT, bufferSizeInBytes);
+  RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroySpMat(matA));
+  RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroyDnVec(vecX));
+  RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroyDnVec(vecY));
 
-            RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroySpMat(matA));
-            RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroyDnVec(vecX));
-            RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroyDnVec(vecY));
+  return result;
+}
 
-            return result;
+template <typename T>
+cusparseStatus_t cusparsecsrmvex(cusparseHandle_t handle,
+                                 cusparseAlgMode_t alg,
+                                 cusparseOperation_t transA,
+                                 int m,
+                                 int n,
+                                 int nnz,
+                                 const T* alpha,
+                                 const cusparseMatDescr_t descrA,
+                                 const T* csrValA,
+                                 const int* csrRowPtrA,
+                                 const int* csrColIndA,
+                                 const T* x,
+                                 const T* beta,
+                                 T* y,
+                                 T* buffer,
+                                 cudaStream_t stream);
+template <>
+inline cusparseStatus_t cusparsecsrmvex(cusparseHandle_t handle,
+                                        cusparseAlgMode_t alg,
+                                        cusparseOperation_t transA,
+                                        int m,
+                                        int n,
+                                        int nnz,
+                                        const float* alpha,
+                                        const cusparseMatDescr_t descrA,
+                                        const float* csrValA,
+                                        const int* csrRowPtrA,
+                                        const int* csrColIndA,
+                                        const float* x,
+                                        const float* beta,
+                                        float* y,
+                                        float* buffer,
+                                        cudaStream_t stream)
+{
+  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+  cusparseSpMatDescr_t matA;
+  cusparseCreateCsr(&matA,
+                    m,
+                    n,
+                    nnz,
+                    csrRowPtrA,
+                    csrColIndA,
+                    csrValA,
+                    CUSPARSE_INDEX_32I,
+                    CUSPARSE_INDEX_32I,
+                    CUSPARSE_INDEX_BASE_ZERO,
+                    CUDA_R_32F);
 
-        }
+  cusparseDnVecDescr_t vecX;
+  cusparseCreateDnVec(&vecX, n, x, CUDA_R_32F);
 
-        template <typename T>
-        cusparseStatus_t cusparsecsrmvex(cusparseHandle_t handle,
-                                         cusparseAlgMode_t alg,
-                                         cusparseOperation_t transA,
-                                         int m,
-                                         int n,
-                                         int nnz,
-                                         const T* alpha,
-                                         const cusparseMatDescr_t descrA,
-                                         const T* csrValA,
-                                         const int* csrRowPtrA,
-                                         const int* csrColIndA,
-                                         const T* x,
-                                         const T* beta,
-                                         T* y,
-                                         T* buffer,
-                                         cudaStream_t stream);
-        template <>
-        inline cusparseStatus_t cusparsecsrmvex(cusparseHandle_t handle,
-                                                cusparseAlgMode_t alg,
-                                                cusparseOperation_t transA,
-                                                int m,
-                                                int n,
-                                                int nnz,
-                                                const float* alpha,
-                                                const cusparseMatDescr_t descrA,
-                                                const float* csrValA,
-                                                const int* csrRowPtrA,
-                                                const int* csrColIndA,
-                                                const float* x,
-                                                const float* beta,
-                                                float* y,
-                                                float* buffer,
-                                                cudaStream_t stream)
-        {
-            CUSPARSE_CHECK(cusparseSetStream(handle, stream));
-            cusparseSpMatDescr_t matA;
-            cusparseCreateCsr(&matA, m, n, nnz, csrRowPtrA, csrColIndA, csrValA,
-                              CUSPARSE_INDEX_32I, CUSPARSE_INDEX_32I, CUSPARSE_INDEX_BASE_ZERO,
-                              CUDA_R_32F);
+  cusparseDnVecDescr_t vecY;
+  cusparseCreateDnVec(&vecY, n, y, CUDA_R_32F);
 
-            cusparseDnVecDescr_t vecX;
-            cusparseCreateDnVec(&vecX, n, x, CUDA_R_32F);
+  cusparseStatus_t result = cusparseSpMV(
+    handle, transA, alpha, matA, vecX, beta, vecY, CUDA_R_32F, CUSPARSE_SPMV_ALG_DEFAULT, buffer);
 
-            cusparseDnVecDescr_t vecY;
-            cusparseCreateDnVec(&vecY, n, y, CUDA_R_32F);
+  RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroySpMat(matA));
+  RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroyDnVec(vecX));
+  RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroyDnVec(vecY));
 
-            cusparseStatus_t result = cusparseSpMV(handle, transA, alpha, matA, vecX, beta, vecY,
-                                CUDA_R_32F, CUSPARSE_SPMV_ALG_DEFAULT, buffer);
+  return result;
+}
+template <>
+inline cusparseStatus_t cusparsecsrmvex(cusparseHandle_t handle,
+                                        cusparseAlgMode_t alg,
+                                        cusparseOperation_t transA,
+                                        int m,
+                                        int n,
+                                        int nnz,
+                                        const double* alpha,
+                                        const cusparseMatDescr_t descrA,
+                                        const double* csrValA,
+                                        const int* csrRowPtrA,
+                                        const int* csrColIndA,
+                                        const double* x,
+                                        const double* beta,
+                                        double* y,
+                                        double* buffer,
+                                        cudaStream_t stream)
+{
+  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
 
-            RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroySpMat(matA));
-            RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroyDnVec(vecX));
-            RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroyDnVec(vecY));
+  cusparseSpMatDescr_t matA;
+  cusparseCreateCsr(&matA,
+                    m,
+                    n,
+                    nnz,
+                    csrRowPtrA,
+                    csrColIndA,
+                    csrValA,
+                    CUSPARSE_INDEX_32I,
+                    CUSPARSE_INDEX_32I,
+                    CUSPARSE_INDEX_BASE_ZERO,
+                    CUDA_R_64F);
 
-            return result;
-        }
-        template <>
-        inline cusparseStatus_t cusparsecsrmvex(cusparseHandle_t handle,
-                                                cusparseAlgMode_t alg,
-                                                cusparseOperation_t transA,
-                                                int m,
-                                                int n,
-                                                int nnz,
-                                                const double* alpha,
-                                                const cusparseMatDescr_t descrA,
-                                                const double* csrValA,
-                                                const int* csrRowPtrA,
-                                                const int* csrColIndA,
-                                                const double* x,
-                                                const double* beta,
-                                                double* y,
-                                                double* buffer,
-                                                cudaStream_t stream)
-        {
-            CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+  cusparseDnVecDescr_t vecX;
+  cusparseCreateDnVec(&vecX, n, x, CUDA_R_64F);
 
-            cusparseSpMatDescr_t matA;
-            cusparseCreateCsr(&matA, m, n, nnz, csrRowPtrA, csrColIndA, csrValA,
-                              CUSPARSE_INDEX_32I, CUSPARSE_INDEX_32I, CUSPARSE_INDEX_BASE_ZERO,
-                              CUDA_R_64F);
+  cusparseDnVecDescr_t vecY;
+  cusparseCreateDnVec(&vecY, n, y, CUDA_R_64F);
 
-            cusparseDnVecDescr_t vecX;
-            cusparseCreateDnVec(&vecX, n, x, CUDA_R_64F);
+  cusparseStatus_t result = cusparseSpMV(
+    handle, transA, alpha, matA, vecX, beta, vecY, CUDA_R_64F, CUSPARSE_SPMV_ALG_DEFAULT, buffer);
 
-            cusparseDnVecDescr_t vecY;
-            cusparseCreateDnVec(&vecY, n, y, CUDA_R_64F);
+  RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroySpMat(matA));
+  RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroyDnVec(vecX));
+  RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroyDnVec(vecY));
 
-            cusparseStatus_t result = cusparseSpMV(handle, transA, alpha, matA, vecX, beta, vecY,
-                                           CUDA_R_64F, CUSPARSE_SPMV_ALG_DEFAULT, buffer);
-
-            RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroySpMat(matA));
-            RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroyDnVec(vecX));
-            RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroyDnVec(vecY));
-
-            return result;
-        }
+  return result;
+}
 
 /** @} */
 
@@ -938,182 +984,516 @@ inline cusparseStatus_t cusparsespmm(cusparseHandle_t handle,
  * @{
  */
 
-        template <typename T>
-        cusparseStatus_t cusparsecsr2csc_bufferSize(cusparseHandle_t handle,
-                                                    int m,
-                                                    int n,
-                                                    int nnz,
-                                                    const T* csrVal,
-                                                    const int* csrRowPtr,
-                                                    const int* csrColInd,
-                                                    void* cscVal,
-                                                    int* cscColPtr,
-                                                    int* cscRowInd,
-                                                    cusparseAction_t copyValues,
-                                                    cusparseIndexBase_t idxBase,
-                                                    cusparseCsr2CscAlg_t alg,
-                                                    size_t* bufferSize,
-                                                    cudaStream_t stream);
+template <typename T>
+cusparseStatus_t cusparsecsr2csc_bufferSize(cusparseHandle_t handle,
+                                            int m,
+                                            int n,
+                                            int nnz,
+                                            const T* csrVal,
+                                            const int* csrRowPtr,
+                                            const int* csrColInd,
+                                            void* cscVal,
+                                            int* cscColPtr,
+                                            int* cscRowInd,
+                                            cusparseAction_t copyValues,
+                                            cusparseIndexBase_t idxBase,
+                                            cusparseCsr2CscAlg_t alg,
+                                            size_t* bufferSize,
+                                            cudaStream_t stream);
 
-        template <>
-        inline cusparseStatus_t cusparsecsr2csc_bufferSize(cusparseHandle_t handle,
-                                                           int m,
-                                                           int n,
-                                                           int nnz,
-                                                           const float* csrVal,
-                                                           const int* csrRowPtr,
-                                                           const int* csrColInd,
-                                                           void* cscVal,
-                                                           int* cscColPtr,
-                                                           int* cscRowInd,
-                                                           cusparseAction_t copyValues,
-                                                           cusparseIndexBase_t idxBase,
-                                                           cusparseCsr2CscAlg_t alg,
-                                                           size_t* bufferSize,
-                                                           cudaStream_t stream)
-        {
-            CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+template <>
+inline cusparseStatus_t cusparsecsr2csc_bufferSize(cusparseHandle_t handle,
+                                                   int m,
+                                                   int n,
+                                                   int nnz,
+                                                   const float* csrVal,
+                                                   const int* csrRowPtr,
+                                                   const int* csrColInd,
+                                                   void* cscVal,
+                                                   int* cscColPtr,
+                                                   int* cscRowInd,
+                                                   cusparseAction_t copyValues,
+                                                   cusparseIndexBase_t idxBase,
+                                                   cusparseCsr2CscAlg_t alg,
+                                                   size_t* bufferSize,
+                                                   cudaStream_t stream)
+{
+  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
 
-            return cusparseCsr2cscEx2_bufferSize(handle,
-                                                 m,
-                                                 n,
-                                                 nnz,
-                                                 csrVal,
-                                                 csrRowPtr,
-                                                 csrColInd,
-                                                 cscVal,
-                                                 cscColPtr,
-                                                 cscRowInd,
-                                                 CUDA_R_32F,
-                                                 copyValues,
-                                                 idxBase,
-                                                 alg,
-                                                 bufferSize);
-        }
-        template <>
-        inline cusparseStatus_t cusparsecsr2csc_bufferSize(cusparseHandle_t handle,
-                                                           int m,
-                                                           int n,
-                                                           int nnz,
-                                                           const double* csrVal,
-                                                           const int* csrRowPtr,
-                                                           const int* csrColInd,
-                                                           void* cscVal,
-                                                           int* cscColPtr,
-                                                           int* cscRowInd,
-                                                           cusparseAction_t copyValues,
-                                                           cusparseIndexBase_t idxBase,
-                                                           cusparseCsr2CscAlg_t alg,
-                                                           size_t* bufferSize,
-                                                           cudaStream_t stream)
-        {
-            CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+  return cusparseCsr2cscEx2_bufferSize(handle,
+                                       m,
+                                       n,
+                                       nnz,
+                                       csrVal,
+                                       csrRowPtr,
+                                       csrColInd,
+                                       cscVal,
+                                       cscColPtr,
+                                       cscRowInd,
+                                       CUDA_R_32F,
+                                       copyValues,
+                                       idxBase,
+                                       alg,
+                                       bufferSize);
+}
+template <>
+inline cusparseStatus_t cusparsecsr2csc_bufferSize(cusparseHandle_t handle,
+                                                   int m,
+                                                   int n,
+                                                   int nnz,
+                                                   const double* csrVal,
+                                                   const int* csrRowPtr,
+                                                   const int* csrColInd,
+                                                   void* cscVal,
+                                                   int* cscColPtr,
+                                                   int* cscRowInd,
+                                                   cusparseAction_t copyValues,
+                                                   cusparseIndexBase_t idxBase,
+                                                   cusparseCsr2CscAlg_t alg,
+                                                   size_t* bufferSize,
+                                                   cudaStream_t stream)
+{
+  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
 
-            return cusparseCsr2cscEx2_bufferSize(handle,
-                                                 m,
-                                                 n,
-                                                 nnz,
-                                                 csrVal,
-                                                 csrRowPtr,
-                                                 csrColInd,
-                                                 cscVal,
-                                                 cscColPtr,
-                                                 cscRowInd,
-                                                 CUDA_R_64F,
-                                                 copyValues,
-                                                 idxBase,
-                                                 alg,
-                                                 bufferSize);
-        }
+  return cusparseCsr2cscEx2_bufferSize(handle,
+                                       m,
+                                       n,
+                                       nnz,
+                                       csrVal,
+                                       csrRowPtr,
+                                       csrColInd,
+                                       cscVal,
+                                       cscColPtr,
+                                       cscRowInd,
+                                       CUDA_R_64F,
+                                       copyValues,
+                                       idxBase,
+                                       alg,
+                                       bufferSize);
+}
 
-        template <typename T>
-        cusparseStatus_t cusparsecsr2csc(cusparseHandle_t handle,
+template <typename T>
+cusparseStatus_t cusparsecsr2csc(cusparseHandle_t handle,
+                                 int m,
+                                 int n,
+                                 int nnz,
+                                 const T* csrVal,
+                                 const int* csrRowPtr,
+                                 const int* csrColInd,
+                                 void* cscVal,
+                                 int* cscColPtr,
+                                 int* cscRowInd,
+                                 cusparseAction_t copyValues,
+                                 cusparseIndexBase_t idxBase,
+                                 cusparseCsr2CscAlg_t alg,
+                                 void* buffer,
+                                 cudaStream_t stream);
+
+template <>
+inline cusparseStatus_t cusparsecsr2csc(cusparseHandle_t handle,
+                                        int m,
+                                        int n,
+                                        int nnz,
+                                        const float* csrVal,
+                                        const int* csrRowPtr,
+                                        const int* csrColInd,
+                                        void* cscVal,
+                                        int* cscColPtr,
+                                        int* cscRowInd,
+                                        cusparseAction_t copyValues,
+                                        cusparseIndexBase_t idxBase,
+                                        cusparseCsr2CscAlg_t alg,
+                                        void* buffer,
+                                        cudaStream_t stream)
+{
+  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+
+  return cusparseCsr2cscEx2(handle,
+                            m,
+                            n,
+                            nnz,
+                            csrVal,
+                            csrRowPtr,
+                            csrColInd,
+                            cscVal,
+                            cscColPtr,
+                            cscRowInd,
+                            CUDA_R_32F,
+                            copyValues,
+                            idxBase,
+                            alg,
+                            buffer);
+}
+
+template <>
+inline cusparseStatus_t cusparsecsr2csc(cusparseHandle_t handle,
+                                        int m,
+                                        int n,
+                                        int nnz,
+                                        const double* csrVal,
+                                        const int* csrRowPtr,
+                                        const int* csrColInd,
+                                        void* cscVal,
+                                        int* cscColPtr,
+                                        int* cscRowInd,
+                                        cusparseAction_t copyValues,
+                                        cusparseIndexBase_t idxBase,
+                                        cusparseCsr2CscAlg_t alg,
+                                        void* buffer,
+                                        cudaStream_t stream)
+{
+  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+
+  return cusparseCsr2cscEx2(handle,
+                            m,
+                            n,
+                            nnz,
+                            csrVal,
+                            csrRowPtr,
+                            csrColInd,
+                            cscVal,
+                            cscColPtr,
+                            cscRowInd,
+                            CUDA_R_64F,
+                            copyValues,
+                            idxBase,
+                            alg,
+                            buffer);
+}
+
+/** @} */
+
+/**
+ * @defgroup csrgemm2 cusparse sparse gemm operations
+ * @{
+ */
+
+template <typename T>
+cusparseStatus_t cusparsecsrgemm2_buffersizeext(cusparseHandle_t handle,
+                                                int m,
+                                                int n,
+                                                int k,
+                                                const T* alpha,
+                                                const T* beta,
+                                                const cusparseMatDescr_t matA,
+                                                int nnzA,
+                                                const int* rowindA,
+                                                const int* indicesA,
+                                                const cusparseMatDescr_t matB,
+                                                int nnzB,
+                                                const int* rowindB,
+                                                const int* indicesB,
+                                                const cusparseMatDescr_t matD,
+                                                int nnzD,
+                                                const int* rowindD,
+                                                const int* indicesD,
+                                                csrgemm2Info_t info,
+                                                size_t* pBufferSizeInBytes,
+                                                cudaStream_t stream);
+
+template <>
+inline cusparseStatus_t cusparsecsrgemm2_buffersizeext(cusparseHandle_t handle,
+                                                       int m,
+                                                       int n,
+                                                       int k,
+                                                       const float* alpha,
+                                                       const float* beta,
+                                                       const cusparseMatDescr_t matA,
+                                                       int nnzA,
+                                                       const int* rowindA,
+                                                       const int* indicesA,
+                                                       const cusparseMatDescr_t matB,
+                                                       int nnzB,
+                                                       const int* rowindB,
+                                                       const int* indicesB,
+                                                       const cusparseMatDescr_t matD,
+                                                       int nnzD,
+                                                       const int* rowindD,
+                                                       const int* indicesD,
+                                                       csrgemm2Info_t info,
+                                                       size_t* pBufferSizeInBytes,
+                                                       cudaStream_t stream)
+{
+  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+  return cusparseScsrgemm2_bufferSizeExt(handle,
+                                         m,
+                                         n,
+                                         k,
+                                         alpha,
+                                         matA,
+                                         nnzA,
+                                         rowindA,
+                                         indicesA,
+                                         matB,
+                                         nnzB,
+                                         rowindB,
+                                         indicesB,
+                                         beta,
+                                         matD,
+                                         nnzD,
+                                         rowindD,
+                                         indicesD,
+                                         info,
+                                         pBufferSizeInBytes);
+#pragma GCC diagnostic pop
+}
+
+template <>
+inline cusparseStatus_t cusparsecsrgemm2_buffersizeext(cusparseHandle_t handle,
+                                                       int m,
+                                                       int n,
+                                                       int k,
+                                                       const double* alpha,
+                                                       const double* beta,
+                                                       const cusparseMatDescr_t matA,
+                                                       int nnzA,
+                                                       const int* rowindA,
+                                                       const int* indicesA,
+                                                       const cusparseMatDescr_t matB,
+                                                       int nnzB,
+                                                       const int* rowindB,
+                                                       const int* indicesB,
+                                                       const cusparseMatDescr_t matD,
+                                                       int nnzD,
+                                                       const int* rowindD,
+                                                       const int* indicesD,
+                                                       csrgemm2Info_t info,
+                                                       size_t* pBufferSizeInBytes,
+                                                       cudaStream_t stream)
+{
+  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+  return cusparseDcsrgemm2_bufferSizeExt(handle,
+                                         m,
+                                         n,
+                                         k,
+                                         alpha,
+                                         matA,
+                                         nnzA,
+                                         rowindA,
+                                         indicesA,
+                                         matB,
+                                         nnzB,
+                                         rowindB,
+                                         indicesB,
+                                         beta,
+                                         matD,
+                                         nnzD,
+                                         rowindD,
+                                         indicesD,
+                                         info,
+                                         pBufferSizeInBytes);
+#pragma GCC diagnostic pop
+}
+
+inline cusparseStatus_t cusparsecsrgemm2nnz(cusparseHandle_t handle,
+                                            int m,
+                                            int n,
+                                            int k,
+                                            const cusparseMatDescr_t matA,
+                                            int nnzA,
+                                            const int* rowindA,
+                                            const int* indicesA,
+                                            const cusparseMatDescr_t matB,
+                                            int nnzB,
+                                            const int* rowindB,
+                                            const int* indicesB,
+                                            const cusparseMatDescr_t matD,
+                                            int nnzD,
+                                            const int* rowindD,
+                                            const int* indicesD,
+                                            const cusparseMatDescr_t matC,
+                                            int* rowindC,
+                                            int* nnzC,
+                                            const csrgemm2Info_t info,
+                                            void* pBuffer,
+                                            cudaStream_t stream)
+{
+  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+  return cusparseXcsrgemm2Nnz(handle,
+                              m,
+                              n,
+                              k,
+                              matA,
+                              nnzA,
+                              rowindA,
+                              indicesA,
+                              matB,
+                              nnzB,
+                              rowindB,
+                              indicesB,
+                              matD,
+                              nnzD,
+                              rowindD,
+                              indicesD,
+                              matC,
+                              rowindC,
+                              nnzC,
+                              info,
+                              pBuffer);
+#pragma GCC diagnostic pop
+}
+
+template <typename T>
+cusparseStatus_t cusparsecsrgemm2(cusparseHandle_t handle,
+                                  int m,
+                                  int n,
+                                  int k,
+                                  const T* alpha,
+                                  const cusparseMatDescr_t descrA,
+                                  int nnzA,
+                                  const T* csrValA,
+                                  const int* csrRowPtrA,
+                                  const int* csrColIndA,
+                                  const cusparseMatDescr_t descrB,
+                                  int nnzB,
+                                  const T* csrValB,
+                                  const int* csrRowPtrB,
+                                  const int* csrColIndB,
+                                  const T* beta,
+                                  const cusparseMatDescr_t descrD,
+                                  int nnzD,
+                                  const T* csrValD,
+                                  const int* csrRowPtrD,
+                                  const int* csrColIndD,
+                                  const cusparseMatDescr_t descrC,
+                                  T* csrValC,
+                                  const int* csrRowPtrC,
+                                  int* csrColIndC,
+                                  const csrgemm2Info_t info,
+                                  void* pBuffer,
+                                  cudaStream_t stream);
+
+template <>
+inline cusparseStatus_t cusparsecsrgemm2(cusparseHandle_t handle,
                                          int m,
                                          int n,
-                                         int nnz,
-                                         const T* csrVal,
-                                         const int* csrRowPtr,
-                                         const int* csrColInd,
-                                         void* cscVal,
-                                         int* cscColPtr,
-                                         int* cscRowInd,
-                                         cusparseAction_t copyValues,
-                                         cusparseIndexBase_t idxBase,
-                                         cusparseCsr2CscAlg_t alg,
-                                         void* buffer,
-                                         cudaStream_t stream);
+                                         int k,
+                                         const float* alpha,
+                                         const cusparseMatDescr_t descrA,
+                                         int nnzA,
+                                         const float* csrValA,
+                                         const int* csrRowPtrA,
+                                         const int* csrColIndA,
+                                         const cusparseMatDescr_t descrB,
+                                         int nnzB,
+                                         const float* csrValB,
+                                         const int* csrRowPtrB,
+                                         const int* csrColIndB,
+                                         const float* beta,
+                                         const cusparseMatDescr_t descrD,
+                                         int nnzD,
+                                         const float* csrValD,
+                                         const int* csrRowPtrD,
+                                         const int* csrColIndD,
+                                         const cusparseMatDescr_t descrC,
+                                         float* csrValC,
+                                         const int* csrRowPtrC,
+                                         int* csrColIndC,
+                                         const csrgemm2Info_t info,
+                                         void* pBuffer,
+                                         cudaStream_t stream)
+{
+  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+  return cusparseScsrgemm2(handle,
+                           m,
+                           n,
+                           k,
+                           alpha,
+                           descrA,
+                           nnzA,
+                           csrValA,
+                           csrRowPtrA,
+                           csrColIndA,
+                           descrB,
+                           nnzB,
+                           csrValB,
+                           csrRowPtrB,
+                           csrColIndB,
+                           beta,
+                           descrD,
+                           nnzD,
+                           csrValD,
+                           csrRowPtrD,
+                           csrColIndD,
+                           descrC,
+                           csrValC,
+                           csrRowPtrC,
+                           csrColIndC,
+                           info,
+                           pBuffer);
+#pragma GCC diagnostic pop
+}
 
-        template <>
-        inline cusparseStatus_t cusparsecsr2csc(cusparseHandle_t handle,
-                                                int m,
-                                                int n,
-                                                int nnz,
-                                                const float* csrVal,
-                                                const int* csrRowPtr,
-                                                const int* csrColInd,
-                                                void* cscVal,
-                                                int* cscColPtr,
-                                                int* cscRowInd,
-                                                cusparseAction_t copyValues,
-                                                cusparseIndexBase_t idxBase,
-                                                cusparseCsr2CscAlg_t alg,
-                                                void* buffer,
-                                                cudaStream_t stream)
-        {
-            CUSPARSE_CHECK(cusparseSetStream(handle, stream));
-
-            return cusparseCsr2cscEx2(handle,
-                                      m,
-                                      n,
-                                      nnz,
-                                      csrVal,
-                                      csrRowPtr,
-                                      csrColInd,
-                                      cscVal,
-                                      cscColPtr,
-                                      cscRowInd,
-                                      CUDA_R_32F,
-                                      copyValues,
-                                      idxBase,
-                                      alg,
-                                      buffer);
-        }
-
-        template <>
-        inline cusparseStatus_t cusparsecsr2csc(cusparseHandle_t handle,
-                                                int m,
-                                                int n,
-                                                int nnz,
-                                                const double* csrVal,
-                                                const int* csrRowPtr,
-                                                const int* csrColInd,
-                                                void* cscVal,
-                                                int* cscColPtr,
-                                                int* cscRowInd,
-                                                cusparseAction_t copyValues,
-                                                cusparseIndexBase_t idxBase,
-                                                cusparseCsr2CscAlg_t alg,
-                                                void* buffer,
-                                                cudaStream_t stream)
-        {
-            CUSPARSE_CHECK(cusparseSetStream(handle, stream));
-
-            return cusparseCsr2cscEx2(handle,
-                                      m,
-                                      n,
-                                      nnz,
-                                      csrVal,
-                                      csrRowPtr,
-                                      csrColInd,
-                                      cscVal,
-                                      cscColPtr,
-                                      cscRowInd,
-                                      CUDA_R_64F,
-                                      copyValues,
-                                      idxBase,
-                                      alg,
-                                      buffer);
-        }
+template <>
+inline cusparseStatus_t cusparsecsrgemm2(cusparseHandle_t handle,
+                                         int m,
+                                         int n,
+                                         int k,
+                                         const double* alpha,
+                                         const cusparseMatDescr_t descrA,
+                                         int nnzA,
+                                         const double* csrValA,
+                                         const int* csrRowPtrA,
+                                         const int* csrColIndA,
+                                         const cusparseMatDescr_t descrB,
+                                         int nnzB,
+                                         const double* csrValB,
+                                         const int* csrRowPtrB,
+                                         const int* csrColIndB,
+                                         const double* beta,
+                                         const cusparseMatDescr_t descrD,
+                                         int nnzD,
+                                         const double* csrValD,
+                                         const int* csrRowPtrD,
+                                         const int* csrColIndD,
+                                         const cusparseMatDescr_t descrC,
+                                         double* csrValC,
+                                         const int* csrRowPtrC,
+                                         int* csrColIndC,
+                                         const csrgemm2Info_t info,
+                                         void* pBuffer,
+                                         cudaStream_t stream)
+{
+  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+  return cusparseDcsrgemm2(handle,
+                           m,
+                           n,
+                           k,
+                           alpha,
+                           descrA,
+                           nnzA,
+                           csrValA,
+                           csrRowPtrA,
+                           csrColIndA,
+                           descrB,
+                           nnzB,
+                           csrValB,
+                           csrRowPtrB,
+                           csrColIndB,
+                           beta,
+                           descrD,
+                           nnzD,
+                           csrValD,
+                           csrRowPtrD,
+                           csrColIndD,
+                           descrC,
+                           csrValC,
+                           csrRowPtrC,
+                           csrColIndC,
+                           info,
+                           pBuffer);
+#pragma GCC diagnostic pop
+}
 
 /** @} */
 
@@ -1122,505 +1502,203 @@ inline cusparseStatus_t cusparsespmm(cusparseHandle_t handle,
  * @{
  */
 
-        template <typename T>
-        cusparseStatus_t cusparsecsrgemm2_buffersizeext(cusparseHandle_t handle,
-                                                        int m,
-                                                        int n,
-                                                        int k,
-                                                        const T* alpha,
-                                                        const T* beta,
-                                                        const cusparseMatDescr_t matA,
-                                                        int nnzA,
-                                                        const int* rowindA,
-                                                        const int* indicesA,
-                                                        const cusparseMatDescr_t matB,
-                                                        int nnzB,
-                                                        const int* rowindB,
-                                                        const int* indicesB,
-                                                        const cusparseMatDescr_t matD,
-                                                        int nnzD,
-                                                        const int* rowindD,
-                                                        const int* indicesD,
-                                                        csrgemm2Info_t info,
-                                                        size_t* pBufferSizeInBytes,
-                                                        cudaStream_t stream);
+template <typename T>
+cusparseStatus_t cusparsecsr2dense_buffersize(cusparseHandle_t handle,
+                                              int m,
+                                              int n,
+                                              int nnz,
+                                              const cusparseMatDescr_t descrA,
+                                              const T* csrValA,
+                                              const int* csrRowPtrA,
+                                              const int* csrColIndA,
+                                              T* A,
+                                              int lda,
+                                              size_t* buffer_size,
+                                              bool row_major = false,
+                                              cudaStream_t stream);
 
-        template <>
-        inline cusparseStatus_t cusparsecsrgemm2_buffersizeext(cusparseHandle_t handle,
-                                                               int m,
-                                                               int n,
-                                                               int k,
-                                                               const float* alpha,
-                                                               const float* beta,
-                                                               const cusparseMatDescr_t matA,
-                                                               int nnzA,
-                                                               const int* rowindA,
-                                                               const int* indicesA,
-                                                               const cusparseMatDescr_t matB,
-                                                               int nnzB,
-                                                               const int* rowindB,
-                                                               const int* indicesB,
-                                                               const cusparseMatDescr_t matD,
-                                                               int nnzD,
-                                                               const int* rowindD,
-                                                               const int* indicesD,
-                                                               csrgemm2Info_t info,
-                                                               size_t* pBufferSizeInBytes,
-                                                               cudaStream_t stream)
-        {
-            CUSPARSE_CHECK(cusparseSetStream(handle, stream));
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-            return cusparseScsrgemm2_bufferSizeExt(handle,
-                                                   m,
-                                                   n,
-                                                   k,
-                                                   alpha,
-                                                   matA,
-                                                   nnzA,
-                                                   rowindA,
-                                                   indicesA,
-                                                   matB,
-                                                   nnzB,
-                                                   rowindB,
-                                                   indicesB,
-                                                   beta,
-                                                   matD,
-                                                   nnzD,
-                                                   rowindD,
-                                                   indicesD,
-                                                   info,
-                                                   pBufferSizeInBytes);
-#pragma GCC diagnostic pop
-        }
+template <>
+cusparseStatus_t cusparsecsr2dense_buffersize(cusparseHandle_t handle,
+                                              int m,
+                                              int n,
+                                              int nnz,
+                                              const cusparseMatDescr_t descrA,
+                                              const float* csrValA,
+                                              const int* csrRowPtrA,
+                                              const int* csrColIndA,
+                                              float* A,
+                                              int lda,
+                                              size_t* buffer_size,
+                                              bool row_major = false,
+                                              cudaStream_t stream)
+{
+  cusparseOrder_t order =
+    row_major ? CUSPARSE_ORDER_ROW : CUSPARSE_ORDER_COL cusparseSpMatDescr_t matA;
+  cusparseCreateCsr(&matA,
+                    m,
+                    n,
+                    nnz,
+                    csrRowPtrA,
+                    csrColIndA,
+                    csrValA,
+                    CUSPARSE_INDEX_32I,
+                    CUSPARSE_INDEX_32I,
+                    CUSPARSE_INDEX_BASE_ZERO,
+                    CUDA_R_32F);
 
-        template <>
-        inline cusparseStatus_t cusparsecsrgemm2_buffersizeext(cusparseHandle_t handle,
-                                                               int m,
-                                                               int n,
-                                                               int k,
-                                                               const double* alpha,
-                                                               const double* beta,
-                                                               const cusparseMatDescr_t matA,
-                                                               int nnzA,
-                                                               const int* rowindA,
-                                                               const int* indicesA,
-                                                               const cusparseMatDescr_t matB,
-                                                               int nnzB,
-                                                               const int* rowindB,
-                                                               const int* indicesB,
-                                                               const cusparseMatDescr_t matD,
-                                                               int nnzD,
-                                                               const int* rowindD,
-                                                               const int* indicesD,
-                                                               csrgemm2Info_t info,
-                                                               size_t* pBufferSizeInBytes,
-                                                               cudaStream_t stream)
-        {
-            CUSPARSE_CHECK(cusparseSetStream(handle, stream));
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-            return cusparseDcsrgemm2_bufferSizeExt(handle,
-                                                   m,
-                                                   n,
-                                                   k,
-                                                   alpha,
-                                                   matA,
-                                                   nnzA,
-                                                   rowindA,
-                                                   indicesA,
-                                                   matB,
-                                                   nnzB,
-                                                   rowindB,
-                                                   indicesB,
-                                                   beta,
-                                                   matD,
-                                                   nnzD,
-                                                   rowindD,
-                                                   indicesD,
-                                                   info,
-                                                   pBufferSizeInBytes);
-#pragma GCC diagnostic pop
-        }
+  cusparseDnMatDescr_t matB;
+  cusparseCreateDnMat(handle, m, n, lda, A, CUDA_R_32F, CUSPARSE_ORDER_COL);
 
-        inline cusparseStatus_t cusparsecsrgemm2nnz(cusparseHandle_t handle,
-                                                    int m,
-                                                    int n,
-                                                    int k,
-                                                    const cusparseMatDescr_t matA,
-                                                    int nnzA,
-                                                    const int* rowindA,
-                                                    const int* indicesA,
-                                                    const cusparseMatDescr_t matB,
-                                                    int nnzB,
-                                                    const int* rowindB,
-                                                    const int* indicesB,
-                                                    const cusparseMatDescr_t matD,
-                                                    int nnzD,
-                                                    const int* rowindD,
-                                                    const int* indicesD,
-                                                    const cusparseMatDescr_t matC,
-                                                    int* rowindC,
-                                                    int* nnzC,
-                                                    const csrgemm2Info_t info,
-                                                    void* pBuffer,
-                                                    cudaStream_t stream)
-        {
-            CUSPARSE_CHECK(cusparseSetStream(handle, stream));
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-            return cusparseXcsrgemm2Nnz(handle,
-                                        m,
-                                        n,
-                                        k,
-                                        matA,
-                                        nnzA,
-                                        rowindA,
-                                        indicesA,
-                                        matB,
-                                        nnzB,
-                                        rowindB,
-                                        indicesB,
-                                        matD,
-                                        nnzD,
-                                        rowindD,
-                                        indicesD,
-                                        matC,
-                                        rowindC,
-                                        nnzC,
-                                        info,
-                                        pBuffer);
-#pragma GCC diagnostic pop
-        }
+  cusparseStatus_t result = cusparseSparseToDense_bufferSize(
+    handle, matA, matB, CUSPARSE_SPARSETODENSE_ALG_DEFAULT, buffer_size);
 
-        template <typename T>
-        cusparseStatus_t cusparsecsrgemm2(cusparseHandle_t handle,
+  RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroySpMat(matA));
+  RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroyDnMat(vecB));
+
+  return result;
+}
+
+template <>
+cusparseStatus_t cusparsecsr2dense_buffersize(cusparseHandle_t handle,
+                                              int m,
+                                              int n,
+                                              int nnz,
+                                              const cusparseMatDescr_t descrA,
+                                              const double* csrValA,
+                                              const int* csrRowPtrA,
+                                              const int* csrColIndA,
+                                              double* A,
+                                              int lda,
+                                              size_t* buffer_size,
+                                              bool row_major = false,
+                                              cudaStream_t stream)
+{
+  cusparseOrder_t order =
+    row_major ? CUSPARSE_ORDER_ROW : CUSPARSE_ORDER_COL cusparseSpMatDescr_t matA;
+  cusparseCreateCsr(&matA,
+                    m,
+                    n,
+                    nnz,
+                    csrRowPtrA,
+                    csrColIndA,
+                    csrValA,
+                    CUSPARSE_INDEX_32I,
+                    CUSPARSE_INDEX_32I,
+                    CUSPARSE_INDEX_BASE_ZERO,
+                    CUDA_R_64F);
+
+  cusparseDnMatDescr_t matB;
+  cusparseCreateDnMat(handle, m, n, lda, A, CUDA_R_64F, CUSPARSE_ORDER_COL);
+
+  cusparseStatus_t result = cusparseSparseToDense_bufferSize(
+    handle, matA, matB, CUSPARSE_SPARSETODENSE_ALG_DEFAULT, buffer_size);
+
+  RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroySpMat(matA));
+  RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroyDnMat(vecB));
+
+  return result;
+}
+
+template <typename T>
+cusparseStatus_t cusparsecsr2dense(cusparseHandle_t handle,
+                                   int m,
+                                   int n,
+                                   int nnz,
+                                   const cusparseMatDescr_t descrA,
+                                   const T* csrValA,
+                                   const int* csrRowPtrA,
+                                   const int* csrColIndA,
+                                   T* A,
+                                   int lda,
+                                   void* buffer,
+                                   cudaStream_t stream,
+                                   bool row_major = false);
+
+template <>
+inline cusparseStatus_t cusparsecsr2dense(cusparseHandle_t handle,
                                           int m,
                                           int n,
-                                          int k,
-                                          const T* alpha,
+                                          int nnz,
                                           const cusparseMatDescr_t descrA,
-                                          int nnzA,
-                                          const T* csrValA,
+                                          const float* csrValA,
                                           const int* csrRowPtrA,
                                           const int* csrColIndA,
-                                          const cusparseMatDescr_t descrB,
-                                          int nnzB,
-                                          const T* csrValB,
-                                          const int* csrRowPtrB,
-                                          const int* csrColIndB,
-                                          const T* beta,
-                                          const cusparseMatDescr_t descrD,
-                                          int nnzD,
-                                          const T* csrValD,
-                                          const int* csrRowPtrD,
-                                          const int* csrColIndD,
-                                          const cusparseMatDescr_t descrC,
-                                          T* csrValC,
-                                          const int* csrRowPtrC,
-                                          int* csrColIndC,
-                                          const csrgemm2Info_t info,
-                                          void* pBuffer,
-                                          cudaStream_t stream);
+                                          float* A,
+                                          int lda,
+                                          void* buffer,
+                                          cudaStream_t stream,
+                                          bool row_major = false)
+{
+  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
 
-        template <>
-        inline cusparseStatus_t cusparsecsrgemm2(cusparseHandle_t handle,
-                                                 int m,
-                                                 int n,
-                                                 int k,
-                                                 const float* alpha,
-                                                 const cusparseMatDescr_t descrA,
-                                                 int nnzA,
-                                                 const float* csrValA,
-                                                 const int* csrRowPtrA,
-                                                 const int* csrColIndA,
-                                                 const cusparseMatDescr_t descrB,
-                                                 int nnzB,
-                                                 const float* csrValB,
-                                                 const int* csrRowPtrB,
-                                                 const int* csrColIndB,
-                                                 const float* beta,
-                                                 const cusparseMatDescr_t descrD,
-                                                 int nnzD,
-                                                 const float* csrValD,
-                                                 const int* csrRowPtrD,
-                                                 const int* csrColIndD,
-                                                 const cusparseMatDescr_t descrC,
-                                                 float* csrValC,
-                                                 const int* csrRowPtrC,
-                                                 int* csrColIndC,
-                                                 const csrgemm2Info_t info,
-                                                 void* pBuffer,
-                                                 cudaStream_t stream)
-        {
-            CUSPARSE_CHECK(cusparseSetStream(handle, stream));
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-            return cusparseScsrgemm2(handle,
-                                     m,
-                                     n,
-                                     k,
-                                     alpha,
-                                     descrA,
-                                     nnzA,
-                                     csrValA,
-                                     csrRowPtrA,
-                                     csrColIndA,
-                                     descrB,
-                                     nnzB,
-                                     csrValB,
-                                     csrRowPtrB,
-                                     csrColIndB,
-                                     beta,
-                                     descrD,
-                                     nnzD,
-                                     csrValD,
-                                     csrRowPtrD,
-                                     csrColIndD,
-                                     descrC,
-                                     csrValC,
-                                     csrRowPtrC,
-                                     csrColIndC,
-                                     info,
-                                     pBuffer);
-#pragma GCC diagnostic pop
-        }
+  cusparseOrder_t order =
+    row_major ? CUSPARSE_ORDER_ROW : CUSPARSE_ORDER_COL cusparseSpMatDescr_t matA;
+  cusparseCreateCsr(&matA,
+                    m,
+                    n,
+                    nnz,
+                    csrRowPtrA,
+                    csrColIndA,
+                    csrValA,
+                    CUSPARSE_INDEX_32I,
+                    CUSPARSE_INDEX_32I,
+                    CUSPARSE_INDEX_BASE_ZERO,
+                    CUDA_R_32F);
 
-        template <>
-        inline cusparseStatus_t cusparsecsrgemm2(cusparseHandle_t handle,
-                                                 int m,
-                                                 int n,
-                                                 int k,
-                                                 const double* alpha,
-                                                 const cusparseMatDescr_t descrA,
-                                                 int nnzA,
-                                                 const double* csrValA,
-                                                 const int* csrRowPtrA,
-                                                 const int* csrColIndA,
-                                                 const cusparseMatDescr_t descrB,
-                                                 int nnzB,
-                                                 const double* csrValB,
-                                                 const int* csrRowPtrB,
-                                                 const int* csrColIndB,
-                                                 const double* beta,
-                                                 const cusparseMatDescr_t descrD,
-                                                 int nnzD,
-                                                 const double* csrValD,
-                                                 const int* csrRowPtrD,
-                                                 const int* csrColIndD,
-                                                 const cusparseMatDescr_t descrC,
-                                                 double* csrValC,
-                                                 const int* csrRowPtrC,
-                                                 int* csrColIndC,
-                                                 const csrgemm2Info_t info,
-                                                 void* pBuffer,
-                                                 cudaStream_t stream)
-        {
-            CUSPARSE_CHECK(cusparseSetStream(handle, stream));
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-            return cusparseDcsrgemm2(handle,
-                                     m,
-                                     n,
-                                     k,
-                                     alpha,
-                                     descrA,
-                                     nnzA,
-                                     csrValA,
-                                     csrRowPtrA,
-                                     csrColIndA,
-                                     descrB,
-                                     nnzB,
-                                     csrValB,
-                                     csrRowPtrB,
-                                     csrColIndB,
-                                     beta,
-                                     descrD,
-                                     nnzD,
-                                     csrValD,
-                                     csrRowPtrD,
-                                     csrColIndD,
-                                     descrC,
-                                     csrValC,
-                                     csrRowPtrC,
-                                     csrColIndC,
-                                     info,
-                                     pBuffer);
-#pragma GCC diagnostic pop
-        }
+  cusparseDnMatDescr_t matB;
+  cusparseCreateDnMat(handle, m, n, lda, A, CUDA_R_32F, CUSPARSE_ORDER_COL);
+
+  cusparseStatus_t result =
+    cusparseSparseToDense(handle, matA, matB, CUSPARSE_SPARSETODENSE_ALG_DEFAULT, buffer);
+
+  RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroySpMat(matA));
+  RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroyDnMat(vecB));
+
+  return result;
+}
+template <>
+inline cusparseStatus_t cusparsecsr2dense(cusparseHandle_t handle,
+                                          int m,
+                                          int n,
+                                          int nnz,
+                                          const cusparseMatDescr_t descrA,
+                                          const double* csrValA,
+                                          const int* csrRowPtrA,
+                                          const int* csrColIndA,
+                                          double* A,
+                                          int lda,
+                                          void* buffer,
+                                          cudaStream_t stream,
+                                          bool row_major = false)
+{
+  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+  cusparseOrder_t order =
+    row_major ? CUSPARSE_ORDER_ROW : CUSPARSE_ORDER_COL cusparseSpMatDescr_t matA;
+  cusparseCreateCsr(&matA,
+                    m,
+                    n,
+                    nnz,
+                    csrRowPtrA,
+                    csrColIndA,
+                    csrValA,
+                    CUSPARSE_INDEX_32I,
+                    CUSPARSE_INDEX_32I,
+                    CUSPARSE_INDEX_BASE_ZERO,
+                    CUDA_R_64F);
+
+  cusparseDnMatDescr_t matB;
+  cusparseCreateDnMat(handle, m, n, lda, A, CUDA_R_64F, CUSPARSE_ORDER_COL);
+
+  cusparseStatus_t result =
+    cusparseSparseToDense(handle, matA, matB, CUSPARSE_SPARSETODENSE_ALG_DEFAULT, buffer);
+
+  RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroySpMat(matA));
+  RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroyDnMat(vecB));
+
+  return result;
+}
 
 /** @} */
 
-/**
- * @defgroup csrgemm2 cusparse sparse gemm operations
- * @{
- */
-
-        template <typename T>
-        cusparseStatus_t cusparsecsr2dense_buffersize(cusparseHandle_t handle,
-                                           int m,
-                                           int n,
-                                           int nnz,
-                                           const cusparseMatDescr_t descrA,
-                                           const T* csrValA,
-                                           const int* csrRowPtrA,
-                                           const int* csrColIndA,
-                                           T* A,
-                                           int lda,
-                                           size_t *buffer_size,
-                                           bool row_major = false,
-                                           cudaStream_t stream);
-
-        template <>
-        cusparseStatus_t cusparsecsr2dense_buffersize(cusparseHandle_t handle,
-                                                      int m,
-                                                      int n,
-                                                      int nnz,
-                                                      const cusparseMatDescr_t descrA,
-                                                      const float* csrValA,
-                                                      const int* csrRowPtrA,
-                                                      const int* csrColIndA,
-                                                      float* A,
-                                                      int lda,
-                                                      size_t *buffer_size,
-                                                      bool row_major = false,
-                                                      cudaStream_t stream) {
-            cusparseOrder_t order = row_major ? CUSPARSE_ORDER_ROW : CUSPARSE_ORDER_COL
-            cusparseSpMatDescr_t matA;
-            cusparseCreateCsr(&matA, m, n, nnz, csrRowPtrA, csrColIndA, csrValA,
-                              CUSPARSE_INDEX_32I, CUSPARSE_INDEX_32I, CUSPARSE_INDEX_BASE_ZERO,
-                              CUDA_R_32F);
-
-            cusparseDnMatDescr_t matB;
-            cusparseCreateDnMat(handle, m, n, lda, A, CUDA_R_32F, CUSPARSE_ORDER_COL);
-
-            cusparseStatus_t result = cusparseSparseToDense_bufferSize(handle, matA, matB, CUSPARSE_SPARSETODENSE_ALG_DEFAULT, buffer_size);
-
-
-            RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroySpMat(matA));
-            RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroyDnMat(vecB));
-
-            return result;
-
-        }
-
-        template <>
-        cusparseStatus_t cusparsecsr2dense_buffersize(cusparseHandle_t handle,
-                                                      int m,
-                                                      int n,
-                                                      int nnz,
-                                                      const cusparseMatDescr_t descrA,
-                                                      const double* csrValA,
-                                                      const int* csrRowPtrA,
-                                                      const int* csrColIndA,
-                                                      double* A,
-                                                      int lda,
-                                                      size_t *buffer_size,
-                                                      bool row_major = false,
-                                                      cudaStream_t stream) {
-            cusparseOrder_t order = row_major ? CUSPARSE_ORDER_ROW : CUSPARSE_ORDER_COL
-            cusparseSpMatDescr_t matA;
-            cusparseCreateCsr(&matA, m, n, nnz, csrRowPtrA, csrColIndA, csrValA,
-                              CUSPARSE_INDEX_32I, CUSPARSE_INDEX_32I, CUSPARSE_INDEX_BASE_ZERO,
-                              CUDA_R_64F);
-
-            cusparseDnMatDescr_t matB;
-            cusparseCreateDnMat(handle, m, n, lda, A, CUDA_R_64F, CUSPARSE_ORDER_COL);
-
-            cusparseStatus_t result = cusparseSparseToDense_bufferSize(handle, matA, matB, CUSPARSE_SPARSETODENSE_ALG_DEFAULT, buffer_size);
-
-            RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroySpMat(matA));
-            RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroyDnMat(vecB));
-
-            return result;
-
-        }
-
-
-
-        template <typename T>
-        cusparseStatus_t cusparsecsr2dense(cusparseHandle_t handle,
-                                           int m,
-                                           int n,
-                                           int nnz,
-                                           const cusparseMatDescr_t descrA,
-                                           const T* csrValA,
-                                           const int* csrRowPtrA,
-                                           const int* csrColIndA,
-                                           T* A,
-                                           int lda,
-                                           void *buffer,
-                                           cudaStream_t stream,
-                                           bool row_major = false);
-
-        template <>
-        inline cusparseStatus_t cusparsecsr2dense(cusparseHandle_t handle,
-                                                  int m,
-                                                  int n,
-                                                  int nnz,
-                                                  const cusparseMatDescr_t descrA,
-                                                  const float* csrValA,
-                                                  const int* csrRowPtrA,
-                                                  const int* csrColIndA,
-                                                  float* A,
-                                                  int lda,
-                                                  void *buffer,
-                                                  cudaStream_t stream,
-                                                  bool row_major = false)
-        {
-
-            CUSPARSE_CHECK(cusparseSetStream(handle, stream));
-
-            cusparseOrder_t order = row_major ? CUSPARSE_ORDER_ROW : CUSPARSE_ORDER_COL
-            cusparseSpMatDescr_t matA;
-            cusparseCreateCsr(&matA, m, n, nnz, csrRowPtrA, csrColIndA, csrValA,
-                              CUSPARSE_INDEX_32I, CUSPARSE_INDEX_32I, CUSPARSE_INDEX_BASE_ZERO,
-                              CUDA_R_32F);
-
-            cusparseDnMatDescr_t matB;
-            cusparseCreateDnMat(handle, m, n, lda, A, CUDA_R_32F, CUSPARSE_ORDER_COL);
-
-            cusparseStatus_t result = cusparseSparseToDense(handle, matA, matB, CUSPARSE_SPARSETODENSE_ALG_DEFAULT, buffer);
-
-            RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroySpMat(matA));
-            RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroyDnMat(vecB));
-
-            return result;
-        }
-        template <>
-        inline cusparseStatus_t cusparsecsr2dense(cusparseHandle_t handle,
-                                                  int m,
-                                                  int n,
-                                                  int nnz,
-                                                  const cusparseMatDescr_t descrA,
-                                                  const double* csrValA,
-                                                  const int* csrRowPtrA,
-                                                  const int* csrColIndA,
-                                                  double* A,
-                                                  int lda,
-                                                  void *buffer,
-                                                  cudaStream_t stream,
-                                                  bool row_major = false)
-        {
-            CUSPARSE_CHECK(cusparseSetStream(handle, stream));
-            cusparseOrder_t order = row_major ? CUSPARSE_ORDER_ROW : CUSPARSE_ORDER_COL
-            cusparseSpMatDescr_t matA;
-            cusparseCreateCsr(&matA, m, n, nnz, csrRowPtrA, csrColIndA, csrValA,
-                              CUSPARSE_INDEX_32I, CUSPARSE_INDEX_32I, CUSPARSE_INDEX_BASE_ZERO,
-                              CUDA_R_64F);
-
-            cusparseDnMatDescr_t matB;
-            cusparseCreateDnMat(handle, m, n, lda, A, CUDA_R_64F, CUSPARSE_ORDER_COL);
-
-            cusparseStatus_t result = cusparseSparseToDense(handle, matA, matB, CUSPARSE_SPARSETODENSE_ALG_DEFAULT, buffer);
-
-            RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroySpMat(matA));
-            RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroyDnMat(vecB));
-
-            return result;
-        }
-
-/** @} */
-
-    }  // namespace sparse
+}  // namespace sparse
 }  // namespace raft

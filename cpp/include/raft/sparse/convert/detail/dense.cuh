@@ -98,13 +98,33 @@ void csr_to_dense(cusparseHandle_t handle,
     RAFT_CUSPARSE_TRY(cusparseSetMatType(out_mat, CUSPARSE_MATRIX_TYPE_GENERAL));
 
     size_t buffer_size;
-      RAFT_CUSPARSE_TRY(raft::sparse::cusparsecsr2dense_buffersize(
-              handle, nrows, ncols, nnz, out_mat, csr_data, csr_indptr, csr_indices, out, lda, &buffer_size, stream));
+    RAFT_CUSPARSE_TRY(raft::sparse::cusparsecsr2dense_buffersize(handle,
+                                                                 nrows,
+                                                                 ncols,
+                                                                 nnz,
+                                                                 out_mat,
+                                                                 csr_data,
+                                                                 csr_indptr,
+                                                                 csr_indices,
+                                                                 out,
+                                                                 lda,
+                                                                 &buffer_size,
+                                                                 stream));
 
     rmm::device_uvector<char> buffer(buffer_size, stream);
 
-    RAFT_CUSPARSE_TRY(raft::sparse::cusparsecsr2dense(
-      handle, nrows, ncols, nnz, out_mat, csr_data, csr_indptr, csr_indices, out, lda, buffer.data(), stream));
+    RAFT_CUSPARSE_TRY(raft::sparse::cusparsecsr2dense(handle,
+                                                      nrows,
+                                                      ncols,
+                                                      nnz,
+                                                      out_mat,
+                                                      csr_data,
+                                                      csr_indptr,
+                                                      csr_indices,
+                                                      out,
+                                                      lda,
+                                                      buffer.data(),
+                                                      stream));
 
     RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroyMatDescr(out_mat));
 
