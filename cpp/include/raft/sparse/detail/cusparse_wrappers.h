@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <cusparse_v2.h>
+#include <cusparse.h>
 #include <raft/error.hpp>
 #include <raft/sparse/detail/cusparse_macros.h>
 

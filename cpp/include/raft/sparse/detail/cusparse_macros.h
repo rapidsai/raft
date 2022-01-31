@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <cusparse_v2.h>
+#include <cusparse.h>
 #include <raft/error.hpp>
 ///@todo: enable this once logging is enabled
 //#include <cuml/common/logger.hpp>
