@@ -20,7 +20,9 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/distance/distance.hpp>
+#if defined RAFT_DISTANCE_COMPILED
 #include <raft/distance/specializations.hpp>
+#endif
 #include <raft/random/rng.hpp>
 
 namespace raft {
