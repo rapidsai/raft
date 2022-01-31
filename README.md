@@ -1,13 +1,13 @@
 # <div align="left"><img src="https://rapids.ai/assets/images/rapids_logo.png" width="90px"/>&nbsp;RAFT: RAPIDS Analytics Framework Toolkit</div>
 
-RAFT contains fundamental widely-used algorithms and primitives for data science, graph and ML. The algorithms are CUDA-accelerated and form building-blocks for rapidly composing analytics in the [RAPIDS](https://rapids.ai) ecosystem. 
+RAFT contains fundamental widely-used algorithms and primitives for data science, graph and machine learning. The algorithms are CUDA-accelerated and form building-blocks for rapidly composing analytics in the [RAPIDS](https://rapids.ai) ecosystem. 
 
 By taking a primitives-based approach to algorithm development, RAFT
 1. accelerates algorithm construction time
 2. reduces the maintenance burden by maximizing reuse across projects, and
 3. centralizes the core computations, allowing future optimizations to benefit all algorithms that use them.
 
-RAFT provides a header-only C++ API with optional shared libraries that contain algorithms in the following general categories:
+At its core, RAFT is a header-only C++ library with optional shared libraries that span the following categories:
 
 #####
 | Category | Description / Examples |
@@ -21,7 +21,11 @@ RAFT provides a header-only C++ API with optional shared libraries that contain 
 | **Statistics** | sampling, moments and summary statistics, metrics |
 | **Distributed Tools** | multi-node multi-gpu infrastructure |
 
-RAFT also provides a Python API that currently includes infrastructure for building multi-node multi-GPU algorithms in the [Dask](https://dask.org/) ecosystem. We are continuing to improve the coverage of the Python API to expose the building-blocks from the categories above.
+RAFT also provides a Python library that includes
+1. a python wrapper around the `raft::handle_t` for managing cuda library resources
+2. building multi-node multi-GPU algorithms that leverage [Dask](https://dask.org/)
+
+We are continuing to improve the Python API by exposing the core algorithms and primitives from the categories above.
 
 ## Getting started
 
