@@ -44,6 +44,7 @@ template <typename value_idx, typename value_t>
 void csr_to_dense(cusparseHandle_t handle,
                   value_idx nrows,
                   value_idx ncols,
+                  value_idx nnz,
                   const value_idx* csr_indptr,
                   const value_idx* csr_indices,
                   const value_t* csr_data,
@@ -53,7 +54,7 @@ void csr_to_dense(cusparseHandle_t handle,
                   bool row_major = true)
 {
   detail::csr_to_dense<value_idx, value_t>(
-    handle, nrows, ncols, csr_indptr, csr_indices, csr_data, lda, out, stream, row_major);
+    handle, nrows, ncols, nnz, csr_indptr, csr_indices, csr_data, lda, out, stream, row_major);
 }
 
 };  // end NAMESPACE convert

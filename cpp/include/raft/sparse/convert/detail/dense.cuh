@@ -31,6 +31,7 @@
 #include <iostream>
 
 #include <raft/sparse/detail/utils.h>
+#include <rmm/device_uvector.hpp>
 
 namespace raft {
 namespace sparse {
