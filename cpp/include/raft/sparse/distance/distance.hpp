@@ -22,7 +22,7 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/distance_type.h>
 #include <raft/mr/device/buffer.hpp>
-#include <raft/sparse/cusparse_wrappers.h>
+#include <raft/sparse/detail/cusparse_wrappers.h>
 
 #include <raft/sparse/convert/coo.hpp>
 #include <raft/sparse/convert/csr.hpp>

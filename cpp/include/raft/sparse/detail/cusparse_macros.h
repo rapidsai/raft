@@ -29,7 +29,7 @@
 //(2.) to enforce a lower version,
 //
 //`#define CUDA_ENFORCE_LOWER
-// #include <raft/sparse/cusparse_wrappers.h>`
+// #include <raft/sparse/detail/cusparse_wrappers.h>`
 //
 // (i.e., before including this header)
 //
