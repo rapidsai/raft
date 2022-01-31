@@ -36,7 +36,7 @@
 #include <raft/comms/comms.hpp>
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/cusolver_wrappers.h>
-#include <raft/sparse/cusparse_macros.h>
+#include <raft/sparse/detail/cusparse_macros.h>
 #include <rmm/cuda_stream_pool.hpp>
 #include <rmm/exec_policy.hpp>
 

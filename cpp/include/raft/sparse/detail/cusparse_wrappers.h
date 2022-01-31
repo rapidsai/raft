@@ -773,23 +773,19 @@ inline cusparseStatus_t cusparsecsrmvex_bufferSize(cusparseHandle_t handle,
   CUSPARSE_CHECK(cusparseSetStream(handle, stream));
 
   cusparseSpMatDescr_t matA;
-  cusparseCreateCsr(&matA,
+    cusparsecreatecsr(&matA,
                     m,
                     n,
                     nnz,
                     csrRowPtrA,
                     csrColIndA,
-                    csrValA,
-                    CUSPARSE_INDEX_32I,
-                    CUSPARSE_INDEX_32I,
-                    CUSPARSE_INDEX_BASE_ZERO,
-                    CUDA_R_32F);
+                    csrValA);
 
   cusparseDnVecDescr_t vecX;
-  cusparseCreateDnVec(&vecX, n, x, CUDA_R_32F);
+    cusparsecreatednvec(&vecX, static_cast<int64_t>(n), x);
 
   cusparseDnVecDescr_t vecY;
-  cusparseCreateDnVec(&vecY, n, y, CUDA_R_32F);
+    cusparsecreatednvec(&vecY, static_cast<int64_t>(n), y);
 
   cusparseStatus_t result = cusparseSpMV_bufferSize(handle,
                                                     transA,
@@ -828,23 +824,19 @@ inline cusparseStatus_t cusparsecsrmvex_bufferSize(cusparseHandle_t handle,
 {
   CUSPARSE_CHECK(cusparseSetStream(handle, stream));
   cusparseSpMatDescr_t matA;
-  cusparseCreateCsr(&matA,
+    cusparsecreatecsr(&matA,
                     m,
                     n,
                     nnz,
                     csrRowPtrA,
                     csrColIndA,
-                    csrValA,
-                    CUSPARSE_INDEX_32I,
-                    CUSPARSE_INDEX_32I,
-                    CUSPARSE_INDEX_BASE_ZERO,
-                    CUDA_R_64F);
+                    csrValA);
 
   cusparseDnVecDescr_t vecX;
-  cusparseCreateDnVec(&vecX, n, x, CUDA_R_64F);
+    cusparsecreatednvec(&vecX, static_cast<int64_t>(n), x);
 
   cusparseDnVecDescr_t vecY;
-  cusparseCreateDnVec(&vecY, n, y, CUDA_R_64F);
+    cusparsecreatednvec(&vecY, static_cast<int64_t>(n), y);
 
   cusparseStatus_t result = cusparseSpMV_bufferSize(handle,
                                                     transA,
@@ -901,23 +893,19 @@ inline cusparseStatus_t cusparsecsrmvex(cusparseHandle_t handle,
 {
   CUSPARSE_CHECK(cusparseSetStream(handle, stream));
   cusparseSpMatDescr_t matA;
-  cusparseCreateCsr(&matA,
+    cusparsecreatecsr(&matA,
                     m,
                     n,
                     nnz,
                     csrRowPtrA,
                     csrColIndA,
-                    csrValA,
-                    CUSPARSE_INDEX_32I,
-                    CUSPARSE_INDEX_32I,
-                    CUSPARSE_INDEX_BASE_ZERO,
-                    CUDA_R_32F);
+                    csrValA);
 
   cusparseDnVecDescr_t vecX;
-  cusparseCreateDnVec(&vecX, n, x, CUDA_R_32F);
+    cusparsecreatednvec(&vecX, static_cast<int64_t>(n), x);
 
   cusparseDnVecDescr_t vecY;
-  cusparseCreateDnVec(&vecY, n, y, CUDA_R_32F);
+    cusparsecreatednvec(&vecY, static_cast<int64_t>(n), y);
 
   cusparseStatus_t result = cusparseSpMV(
     handle, transA, alpha, matA, vecX, beta, vecY, CUDA_R_32F, CUSPARSE_SPMV_ALG_DEFAULT, buffer);
@@ -949,23 +937,19 @@ inline cusparseStatus_t cusparsecsrmvex(cusparseHandle_t handle,
   CUSPARSE_CHECK(cusparseSetStream(handle, stream));
 
   cusparseSpMatDescr_t matA;
-  cusparseCreateCsr(&matA,
+    cusparsecreatecsr(&matA,
                     m,
                     n,
                     nnz,
                     csrRowPtrA,
                     csrColIndA,
-                    csrValA,
-                    CUSPARSE_INDEX_32I,
-                    CUSPARSE_INDEX_32I,
-                    CUSPARSE_INDEX_BASE_ZERO,
-                    CUDA_R_64F);
+                    csrValA);
 
   cusparseDnVecDescr_t vecX;
-  cusparseCreateDnVec(&vecX, n, x, CUDA_R_64F);
+    cusparsecreatednvec(&vecX, static_cast<int64_t>(n), x);
 
   cusparseDnVecDescr_t vecY;
-  cusparseCreateDnVec(&vecY, n, y, CUDA_R_64F);
+  cusparsecreatednvec(&vecY, static_cast<int64_t>(n), y);
 
   cusparseStatus_t result = cusparseSpMV(
     handle, transA, alpha, matA, vecX, beta, vecY, CUDA_R_64F, CUSPARSE_SPMV_ALG_DEFAULT, buffer);
@@ -1514,8 +1498,8 @@ cusparseStatus_t cusparsecsr2dense_buffersize(cusparseHandle_t handle,
                                               T* A,
                                               int lda,
                                               size_t* buffer_size,
-                                              bool row_major = false,
-                                              cudaStream_t stream);
+                                              cudaStream_t stream,
+                                              bool row_major = false);
 
 template <>
 cusparseStatus_t cusparsecsr2dense_buffersize(cusparseHandle_t handle,
@@ -1529,31 +1513,29 @@ cusparseStatus_t cusparsecsr2dense_buffersize(cusparseHandle_t handle,
                                               float* A,
                                               int lda,
                                               size_t* buffer_size,
-                                              bool row_major = false,
-                                              cudaStream_t stream)
+                                              cudaStream_t stream,
+                                              bool row_major)
 {
   cusparseOrder_t order =
-    row_major ? CUSPARSE_ORDER_ROW : CUSPARSE_ORDER_COL cusparseSpMatDescr_t matA;
-  cusparseCreateCsr(&matA,
+    row_major ? CUSPARSE_ORDER_ROW : CUSPARSE_ORDER_COL;
+
+  cusparseSpMatDescr_t matA;
+    cusparsecreatecsr(&matA,
                     m,
                     n,
                     nnz,
                     csrRowPtrA,
                     csrColIndA,
-                    csrValA,
-                    CUSPARSE_INDEX_32I,
-                    CUSPARSE_INDEX_32I,
-                    CUSPARSE_INDEX_BASE_ZERO,
-                    CUDA_R_32F);
+                    csrValA);
 
   cusparseDnMatDescr_t matB;
-  cusparseCreateDnMat(handle, m, n, lda, A, CUDA_R_32F, CUSPARSE_ORDER_COL);
+    cusparsecreatednmat(&matB, static_cast<int64_t>(m), static_cast<int64_t>(n), static_cast<int64_t>(lda), A, order);
 
   cusparseStatus_t result = cusparseSparseToDense_bufferSize(
     handle, matA, matB, CUSPARSE_SPARSETODENSE_ALG_DEFAULT, buffer_size);
 
   RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroySpMat(matA));
-  RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroyDnMat(vecB));
+  RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroyDnMat(matB));
 
   return result;
 }
@@ -1570,31 +1552,28 @@ cusparseStatus_t cusparsecsr2dense_buffersize(cusparseHandle_t handle,
                                               double* A,
                                               int lda,
                                               size_t* buffer_size,
-                                              bool row_major = false,
-                                              cudaStream_t stream)
+                                              cudaStream_t stream,
+                                              bool row_major)
 {
   cusparseOrder_t order =
-    row_major ? CUSPARSE_ORDER_ROW : CUSPARSE_ORDER_COL cusparseSpMatDescr_t matA;
-  cusparseCreateCsr(&matA,
+    row_major ? CUSPARSE_ORDER_ROW : CUSPARSE_ORDER_COL;
+  cusparseSpMatDescr_t matA;
+    cusparsecreatecsr(&matA,
                     m,
                     n,
                     nnz,
                     csrRowPtrA,
                     csrColIndA,
-                    csrValA,
-                    CUSPARSE_INDEX_32I,
-                    CUSPARSE_INDEX_32I,
-                    CUSPARSE_INDEX_BASE_ZERO,
-                    CUDA_R_64F);
+                    csrValA);
 
   cusparseDnMatDescr_t matB;
-  cusparseCreateDnMat(handle, m, n, lda, A, CUDA_R_64F, CUSPARSE_ORDER_COL);
+    cusparsecreatednmat(&matB, static_cast<int64_t>(m), static_cast<int64_t>(n), static_cast<int64_t>(lda), A, order);
 
   cusparseStatus_t result = cusparseSparseToDense_bufferSize(
     handle, matA, matB, CUSPARSE_SPARSETODENSE_ALG_DEFAULT, buffer_size);
 
   RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroySpMat(matA));
-  RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroyDnMat(vecB));
+    RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroyDnMat(matB));
 
   return result;
 }
@@ -1627,32 +1606,29 @@ inline cusparseStatus_t cusparsecsr2dense(cusparseHandle_t handle,
                                           int lda,
                                           void* buffer,
                                           cudaStream_t stream,
-                                          bool row_major = false)
+                                          bool row_major)
 {
   CUSPARSE_CHECK(cusparseSetStream(handle, stream));
 
   cusparseOrder_t order =
-    row_major ? CUSPARSE_ORDER_ROW : CUSPARSE_ORDER_COL cusparseSpMatDescr_t matA;
-  cusparseCreateCsr(&matA,
+    row_major ? CUSPARSE_ORDER_ROW : CUSPARSE_ORDER_COL;
+  cusparseSpMatDescr_t matA;
+    cusparsecreatecsr(&matA,
                     m,
                     n,
                     nnz,
                     csrRowPtrA,
                     csrColIndA,
-                    csrValA,
-                    CUSPARSE_INDEX_32I,
-                    CUSPARSE_INDEX_32I,
-                    CUSPARSE_INDEX_BASE_ZERO,
-                    CUDA_R_32F);
+                    csrValA);
 
   cusparseDnMatDescr_t matB;
-  cusparseCreateDnMat(handle, m, n, lda, A, CUDA_R_32F, CUSPARSE_ORDER_COL);
+    cusparsecreatednmat(&matB, static_cast<int64_t>(m), static_cast<int64_t>(n), static_cast<int64_t>(lda), A, order);
 
   cusparseStatus_t result =
     cusparseSparseToDense(handle, matA, matB, CUSPARSE_SPARSETODENSE_ALG_DEFAULT, buffer);
 
   RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroySpMat(matA));
-  RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroyDnMat(vecB));
+    RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroyDnMat(matB));
 
   return result;
 }
@@ -1669,31 +1645,28 @@ inline cusparseStatus_t cusparsecsr2dense(cusparseHandle_t handle,
                                           int lda,
                                           void* buffer,
                                           cudaStream_t stream,
-                                          bool row_major = false)
+                                          bool row_major )
 {
   CUSPARSE_CHECK(cusparseSetStream(handle, stream));
   cusparseOrder_t order =
-    row_major ? CUSPARSE_ORDER_ROW : CUSPARSE_ORDER_COL cusparseSpMatDescr_t matA;
-  cusparseCreateCsr(&matA,
+    row_major ? CUSPARSE_ORDER_ROW : CUSPARSE_ORDER_COL;
+  cusparseSpMatDescr_t matA;
+    cusparsecreatecsr(&matA,
                     m,
                     n,
                     nnz,
                     csrRowPtrA,
                     csrColIndA,
-                    csrValA,
-                    CUSPARSE_INDEX_32I,
-                    CUSPARSE_INDEX_32I,
-                    CUSPARSE_INDEX_BASE_ZERO,
-                    CUDA_R_64F);
+                    csrValA);
 
   cusparseDnMatDescr_t matB;
-  cusparseCreateDnMat(handle, m, n, lda, A, CUDA_R_64F, CUSPARSE_ORDER_COL);
+  cusparsecreatednmat(&matB, static_cast<int64_t>(m), static_cast<int64_t>(n), static_cast<int64_t>(lda), A, order);
 
   cusparseStatus_t result =
     cusparseSparseToDense(handle, matA, matB, CUSPARSE_SPARSETODENSE_ALG_DEFAULT, buffer);
 
   RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroySpMat(matA));
-  RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroyDnMat(vecB));
+    RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroyDnMat(matB));
 
   return result;
 }
