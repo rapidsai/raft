@@ -132,7 +132,7 @@ void transform_eigen_matrix(handle_t const& handle, edge_t n, vertex_t nEigVecs,
                       thrust::minus<weight_t>());
     RAFT_CHECK_CUDA(stream);
 
-    RAFT_CUBLAS_TRY(cublasnrm2(cublas_h, n, eigVecs + IDX(0, i, n), 1, &std, stream));
+    RAFT_CUBLAS_TRY(raft::linalg::cublasnrm2(cublas_h, n, eigVecs + IDX(0, i, n), 1, &std, stream));
 
     std /= std::sqrt(static_cast<weight_t>(n));
 
@@ -149,22 +149,22 @@ void transform_eigen_matrix(handle_t const& handle, edge_t n, vertex_t nEigVecs,
   //   TODO: in-place transpose
   {
     vector_t<weight_t> work(handle, nEigVecs * n);
-    RAFT_CUBLAS_TRY(cublassetpointermode(cublas_h, CUBLAS_POINTER_MODE_HOST, stream));
+    RAFT_CUBLAS_TRY(raft::linalg::cublassetpointermode(cublas_h, CUBLAS_POINTER_MODE_HOST, stream));
 
-    RAFT_CUBLAS_TRY(cublasgeam(cublas_h,
-                               CUBLAS_OP_T,
-                               CUBLAS_OP_N,
-                               nEigVecs,
-                               n,
-                               &one,
-                               eigVecs,
-                               n,
-                               &zero,
-                               (weight_t*)NULL,
-                               nEigVecs,
-                               work.raw(),
-                               nEigVecs,
-                               stream));
+    RAFT_CUBLAS_TRY(raft::linalg::cublasgeam(cublas_h,
+                                             CUBLAS_OP_T,
+                                             CUBLAS_OP_N,
+                                             nEigVecs,
+                                             n,
+                                             &one,
+                                             eigVecs,
+                                             n,
+                                             &zero,
+                                             (weight_t*)NULL,
+                                             nEigVecs,
+                                             work.raw(),
+                                             nEigVecs,
+                                             stream));
 
     RAFT_CUDA_TRY(cudaMemcpyAsync(
       eigVecs, work.raw(), nEigVecs * n * sizeof(weight_t), cudaMemcpyDeviceToDevice, stream));
@@ -216,14 +216,16 @@ bool construct_indicator(handle_t const& handle,
   RAFT_CHECK_CUDA(stream);
 
   // Compute size of ith partition
-  RAFT_CUBLAS_TRY(cublasdot(cublas_h, n, part_i.raw(), 1, part_i.raw(), 1, &clustersize, stream));
+  RAFT_CUBLAS_TRY(
+    raft::linalg::cublasdot(cublas_h, n, part_i.raw(), 1, part_i.raw(), 1, &clustersize, stream));
 
   clustersize = round(clustersize);
   if (clustersize < 0.5) { return false; }
 
   // Compute part stats
   B.mv(1, part_i.raw(), 0, Bx.raw());
-  RAFT_CUBLAS_TRY(cublasdot(cublas_h, n, Bx.raw(), 1, part_i.raw(), 1, &partStats, stream));
+  RAFT_CUBLAS_TRY(
+    raft::linalg::cublasdot(cublas_h, n, Bx.raw(), 1, part_i.raw(), 1, &partStats, stream));
 
   return true;
 }

@@ -19,7 +19,7 @@
 #include <memory>
 #include <raft/handle.hpp>
 
-#include <raft/spectral/detail/matrix_wrappers.hpp>
+#include <raft/spectral/detail/matrix_wrappers.cuh>
 
 namespace raft {
 namespace {

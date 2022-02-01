@@ -15,7 +15,7 @@
  */
 #pragma once
 
-#include <raft/cluster/detail/kmeans.hpp>
+#include <raft/cluster/detail/kmeans.cuh>
 
 namespace raft {
 namespace cluster {

@@ -71,11 +71,12 @@ void fit_embedding(const raft::handle_t& handle,
   value_type tol          = 0.01;
   index_type restart_iter = 15 + neigvs;  // what cugraph is using
 
-  raft::eigen_solver_config_t<index_type, value_type> cfg{neigvs, maxiter, restart_iter, tol};
+  raft::spectral::eigen_solver_config_t<index_type, value_type> cfg{
+    neigvs, maxiter, restart_iter, tol};
 
   cfg.seed = seed;
 
-  raft::lanczos_solver_t<index_type, value_type> eig_solver{cfg};
+  raft::spectral::lanczos_solver_t<index_type, value_type> eig_solver{cfg};
 
   // cluster computation here is irrelevant,
   // hence define a no-op such solver to

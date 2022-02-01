@@ -27,7 +27,7 @@
 #include <tuple>
 
 #include <raft/spectral/cluster_solvers.hpp>
-#include <raft/spectral/detail/spectral_util.hpp>
+#include <raft/spectral/detail/spectral_util.cuh>
 #include <raft/spectral/eigen_solvers.hpp>
 
 #ifdef COLLECT_TIME_STATISTICS

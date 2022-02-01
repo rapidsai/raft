@@ -29,7 +29,7 @@
 #include <raft/handle.hpp>
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/spectral/detail/lapack.hpp>
-#include <raft/spectral/detail/matrix_wrappers.hpp>
+#include <raft/spectral/detail/matrix_wrappers.cuh>
 #include <raft/spectral/detail/warn_dbg.hpp>
 
 namespace raft {
