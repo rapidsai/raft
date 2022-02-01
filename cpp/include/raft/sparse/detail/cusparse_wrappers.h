@@ -22,6 +22,7 @@
 
 namespace raft {
 namespace sparse {
+namespace detail {
 
 /**
  * @defgroup gthr cusparse gather methods
@@ -1812,5 +1813,6 @@ inline cusparseStatus_t cusparsecsr2dense(cusparseHandle_t handle,
 
 /** @} */
 
+}  // namespace detail
 }  // namespace sparse
 }  // namespace raft
