@@ -102,10 +102,10 @@ class std_comms : public comms_iface {
     initialize();
   };
 
-  ~std_comms() {
-
-      requests_in_flight_.clear();
-      free_requests_.clear();
+  ~std_comms()
+  {
+    requests_in_flight_.clear();
+    free_requests_.clear();
   }
 
   void initialize()
