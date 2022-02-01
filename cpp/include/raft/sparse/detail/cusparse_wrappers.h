@@ -1756,11 +1756,10 @@ inline cusparseStatus_t cusparsecsr2dense(cusparseHandle_t handle,
   RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroySpMat(matA));
   RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroyDnMat(matB));
 
+  return result;
 #else
   return cusparseScsr2dense(handle, m, n, descrA, csrValA, csrRowPtrA, csrColIndA, A, lda);
 #endif
-
-  return result;
 }
 template <>
 inline cusparseStatus_t cusparsecsr2dense(cusparseHandle_t handle,
@@ -1803,12 +1802,12 @@ inline cusparseStatus_t cusparsecsr2dense(cusparseHandle_t handle,
 
   RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroySpMat(matA));
   RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroyDnMat(matB));
+
+  return result;
 #else
 
   return cusparseDcsr2dense(handle, m, n, descrA, csrValA, csrRowPtrA, csrColIndA, A, lda);
 #endif
-
-  return result;
 }
 
 /** @} */
