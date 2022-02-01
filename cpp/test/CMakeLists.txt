@@ -97,6 +97,7 @@ add_executable(test_raft
     test/spatial/selection.cu
     test/spectral_matrix.cu
     test/stats/mean.cu
+    test/stats/meanvar.cu
     test/stats/mean_center.cu
     test/stats/stddev.cu
     test/stats/sum.cu
