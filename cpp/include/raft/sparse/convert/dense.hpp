@@ -32,6 +32,7 @@ namespace convert {
  * @param[in] handle : cusparse handle for conversion
  * @param[in] nrows : number of rows in CSR
  * @param[in] ncols : number of columns in CSR
+ * @param[in] nnz : number of nonzeros in CSR 
  * @param[in] csr_indptr : CSR row index pointer array
  * @param[in] csr_indices : CSR column indices array
  * @param[in] csr_data : CSR data array
