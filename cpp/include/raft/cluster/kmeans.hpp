@@ -45,22 +45,21 @@ namespace cluster {
  *  @param seed random seed to be used.
  *  @return error flag
  */
-template<typename index_type_t, typename value_type_t>
-int kmeans(handle_t const &handle,
+template <typename index_type_t, typename value_type_t>
+int kmeans(handle_t const& handle,
            index_type_t n,
            index_type_t d,
            index_type_t k,
            value_type_t tol,
            index_type_t maxiter,
-           const value_type_t *__restrict__ obs,
-           index_type_t *__restrict__ codes,
-           value_type_t &residual,
-           index_type_t &iters,
-           unsigned long long seed = 123456) {
-
-    return detail::kmeans<index_type_t, value_type_t>(handle, n, d, k, tol,
-                                                      maxiter, obs, codes,
-                                                      residual, iters, seed);
+           const value_type_t* __restrict__ obs,
+           index_type_t* __restrict__ codes,
+           value_type_t& residual,
+           index_type_t& iters,
+           unsigned long long seed = 123456)
+{
+  return detail::kmeans<index_type_t, value_type_t>(
+    handle, n, d, k, tol, maxiter, obs, codes, residual, iters, seed);
 }
 }  // namespace cluster
 }  // namespace raft

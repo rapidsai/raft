@@ -55,16 +55,16 @@ struct kmeans_solver_t {
     index_type_t iters{};
 
     raft::cluster::kmeans(handle,
-           n_obs_vecs,
-           dim,
-           config_.n_clusters,
-           config_.tol,
-           config_.maxIter,
-           obs,
-           codes,
-           residual,
-           iters,
-           config_.seed);
+                          n_obs_vecs,
+                          dim,
+                          config_.n_clusters,
+                          config_.tol,
+                          config_.maxIter,
+                          obs,
+                          codes,
+                          residual,
+                          iters,
+                          config_.seed);
     return std::make_pair(residual, iters);
   }
 

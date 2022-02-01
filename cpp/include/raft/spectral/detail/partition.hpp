@@ -26,8 +26,8 @@
 #include <tuple>
 
 #include <raft/spectral/cluster_solvers.hpp>
-#include <raft/spectral/eigen_solvers.hpp>
 #include <raft/spectral/detail/spectral_util.hpp>
+#include <raft/spectral/eigen_solvers.hpp>
 
 namespace raft {
 namespace spectral {
@@ -69,7 +69,8 @@ std::tuple<vertex_t, weight_t, vertex_t> partition(handle_t const& handle,
                                                    ClusterSolver const& cluster_solver,
                                                    vertex_t* __restrict__ clusters,
                                                    weight_t* eigVals,
-                                                   weight_t* eigVecs) {
+                                                   weight_t* eigVecs)
+{
   RAFT_EXPECTS(clusters != nullptr, "Null clusters buffer.");
   RAFT_EXPECTS(eigVals != nullptr, "Null eigVals buffer.");
   RAFT_EXPECTS(eigVecs != nullptr, "Null eigVecs buffer.");
@@ -135,7 +136,8 @@ void analyzePartition(handle_t const& handle,
                       vertex_t nClusters,
                       const vertex_t* __restrict__ clusters,
                       weight_t& edgeCut,
-                      weight_t& cost) {
+                      weight_t& cost)
+{
   RAFT_EXPECTS(clusters != nullptr, "Null clusters buffer.");
 
   vertex_t i;

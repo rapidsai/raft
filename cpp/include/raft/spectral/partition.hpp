@@ -55,10 +55,10 @@ std::tuple<vertex_t, weight_t, vertex_t> partition(handle_t const& handle,
                                                    ClusterSolver const& cluster_solver,
                                                    vertex_t* __restrict__ clusters,
                                                    weight_t* eigVals,
-                                                   weight_t* eigVecs) {
-    return detail::partition<vertex_t, weight_t, EigenSolver, ClusterSolver>(handle, csr_m, eigen_solver,
-                                                                             cluster_solver, clusters,
-                                                                             eigVals, eigVecs);
+                                                   weight_t* eigVecs)
+{
+  return detail::partition<vertex_t, weight_t, EigenSolver, ClusterSolver>(
+    handle, csr_m, eigen_solver, cluster_solver, clusters, eigVals, eigVecs);
 }
 
 // =========================================================
@@ -85,8 +85,9 @@ void analyzePartition(handle_t const& handle,
                       vertex_t nClusters,
                       const vertex_t* __restrict__ clusters,
                       weight_t& edgeCut,
-                      weight_t& cost) {
-    detail::analyzePartition<vertex_t, weight_t>(handle, csr_m, nClusters, clusters, edgeCut, cost);
+                      weight_t& cost)
+{
+  detail::analyzePartition<vertex_t, weight_t>(handle, csr_m, nClusters, clusters, edgeCut, cost);
 }
 
 }  // namespace spectral

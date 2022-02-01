@@ -20,7 +20,6 @@
 
 namespace raft {
 namespace label {
-namespace detail {
 
 /**
  * @brief Merge two labellings in-place, according to a core mask
@@ -51,18 +50,17 @@ namespace detail {
  * @param[in]    N           Number of points in the dataset
  * @param[in]    stream      CUDA stream
  */
-template<typename value_idx = int, int TPB_X = 256>
-void merge_labels(value_idx *labels_a,
-                  const value_idx *labels_b,
-                  const bool *mask,
-                  value_idx *R,
-                  bool *m,
+template <typename value_idx = int, int TPB_X = 256>
+void merge_labels(value_idx* labels_a,
+                  const value_idx* labels_b,
+                  const bool* mask,
+                  value_idx* R,
+                  bool* m,
                   value_idx N,
-                  cudaStream_t stream) {
-
-    detail::merge_labels<value_idx, TPB_X>(labels_a, labels_b, mask, R, m, N, stream);
+                  cudaStream_t stream)
+{
+  detail::merge_labels<value_idx, TPB_X>(labels_a, labels_b, mask, R, m, N, stream);
 }
 
-};  // namespace detail
 };  // namespace label
 };  // namespace raft

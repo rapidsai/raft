@@ -17,6 +17,8 @@
 #include <raft/cudart_utils.h>
 
 #include <raft/cuda_utils.cuh>
+#include <raft/spectral/cluster_solvers.hpp>
+#include <raft/spectral/eigen_solvers.hpp>
 #include <raft/spectral/partition.hpp>
 #include <rmm/device_uvector.hpp>
 

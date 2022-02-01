@@ -27,8 +27,8 @@
 #include <tuple>
 
 #include <raft/spectral/cluster_solvers.hpp>
+#include <raft/spectral/detail/spectral_util.hpp>
 #include <raft/spectral/eigen_solvers.hpp>
-#include <raft/spectral/spectral_util.hpp>
 
 #ifdef COLLECT_TIME_STATISTICS
 #include <cuda_profiler_api.h>

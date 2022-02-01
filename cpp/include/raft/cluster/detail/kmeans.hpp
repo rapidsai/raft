@@ -32,8 +32,8 @@
 #include <raft/device_atomics.cuh>
 #include <raft/handle.hpp>
 #include <raft/linalg/cublas_wrappers.h>
-#include <raft/spectral/matrix_wrappers.hpp>
-#include <raft/spectral/warn_dbg.hpp>
+#include <raft/spectral/detail/matrix_wrappers.hpp>
+#include <raft/spectral/detail/warn_dbg.hpp>
 
 namespace raft {
 namespace cluster {
@@ -42,9 +42,9 @@ namespace detail {
 // Useful grid settings
 // =========================================================
 
-    constexpr unsigned int BLOCK_SIZE      = 1024;
-    constexpr unsigned int WARP_SIZE       = 32;
-    constexpr unsigned int BSIZE_DIV_WSIZE = (BLOCK_SIZE / WARP_SIZE);
+constexpr unsigned int BLOCK_SIZE      = 1024;
+constexpr unsigned int WARP_SIZE       = 32;
+constexpr unsigned int BSIZE_DIV_WSIZE = (BLOCK_SIZE / WARP_SIZE);
 
 // =========================================================
 // CUDA kernels
@@ -73,65 +73,65 @@ namespace detail {
  *    centroid. Matrix dimensions are n x k. Entries must be
  *    initialized to zero.
  */
-    template <typename index_type_t, typename value_type_t>
-    static __global__ void computeDistances(index_type_t n,
-                                            index_type_t d,
-                                            index_type_t k,
-                                            const value_type_t* __restrict__ obs,
-                                            const value_type_t* __restrict__ centroids,
-                                            value_type_t* __restrict__ dists)
-    {
-        // Loop index
-        index_type_t i;
+template <typename index_type_t, typename value_type_t>
+static __global__ void computeDistances(index_type_t n,
+                                        index_type_t d,
+                                        index_type_t k,
+                                        const value_type_t* __restrict__ obs,
+                                        const value_type_t* __restrict__ centroids,
+                                        value_type_t* __restrict__ dists)
+{
+  // Loop index
+  index_type_t i;
 
-        // Block indices
-        index_type_t bidx;
-        // Global indices
-        index_type_t gidx, gidy, gidz;
+  // Block indices
+  index_type_t bidx;
+  // Global indices
+  index_type_t gidx, gidy, gidz;
 
-        // Private memory
-        value_type_t centroid_private, dist_private;
+  // Private memory
+  value_type_t centroid_private, dist_private;
 
-        // Global x-index indicates index of vector entry
-        bidx = blockIdx.x;
-        while (bidx * blockDim.x < d) {
-            gidx = threadIdx.x + bidx * blockDim.x;
+  // Global x-index indicates index of vector entry
+  bidx = blockIdx.x;
+  while (bidx * blockDim.x < d) {
+    gidx = threadIdx.x + bidx * blockDim.x;
 
-            // Global y-index indicates centroid
-            gidy = threadIdx.y + blockIdx.y * blockDim.y;
-            while (gidy < k) {
-                // Load centroid coordinate from global memory
-                centroid_private = (gidx < d) ? centroids[IDX(gidx, gidy, d)] : 0;
+    // Global y-index indicates centroid
+    gidy = threadIdx.y + blockIdx.y * blockDim.y;
+    while (gidy < k) {
+      // Load centroid coordinate from global memory
+      centroid_private = (gidx < d) ? centroids[IDX(gidx, gidy, d)] : 0;
 
-                // Global z-index indicates observation vector
-                gidz = threadIdx.z + blockIdx.z * blockDim.z;
-                while (gidz < n) {
-                    // Load observation vector coordinate from global memory
-                    dist_private = (gidx < d) ? obs[IDX(gidx, gidz, d)] : 0;
+      // Global z-index indicates observation vector
+      gidz = threadIdx.z + blockIdx.z * blockDim.z;
+      while (gidz < n) {
+        // Load observation vector coordinate from global memory
+        dist_private = (gidx < d) ? obs[IDX(gidx, gidz, d)] : 0;
 
-                    // Compute contribution of current entry to distance
-                    dist_private = centroid_private - dist_private;
-                    dist_private = dist_private * dist_private;
+        // Compute contribution of current entry to distance
+        dist_private = centroid_private - dist_private;
+        dist_private = dist_private * dist_private;
 
-                    // Perform reduction on warp
-                    for (i = WARP_SIZE / 2; i > 0; i /= 2)
-                        dist_private += __shfl_down_sync(warp_full_mask(), dist_private, i, 2 * i);
+        // Perform reduction on warp
+        for (i = WARP_SIZE / 2; i > 0; i /= 2)
+          dist_private += __shfl_down_sync(warp_full_mask(), dist_private, i, 2 * i);
 
-                    // Write result to global memory
-                    if (threadIdx.x == 0) atomicAdd(dists + IDX(gidz, gidy, n), dist_private);
+        // Write result to global memory
+        if (threadIdx.x == 0) atomicAdd(dists + IDX(gidz, gidy, n), dist_private);
 
-                    // Move to another observation vector
-                    gidz += blockDim.z * gridDim.z;
-                }
+        // Move to another observation vector
+        gidz += blockDim.z * gridDim.z;
+      }
 
-                // Move to another centroid
-                gidy += blockDim.y * gridDim.y;
-            }
-
-            // Move to another vector entry
-            bidx += gridDim.x;
-        }
+      // Move to another centroid
+      gidy += blockDim.y * gridDim.y;
     }
+
+    // Move to another vector entry
+    bidx += gridDim.x;
+  }
+}
 
 /**
  *  @brief Find closest centroid to observation vectors.
@@ -154,46 +154,46 @@ namespace detail {
  *  @param clusterSizes (Output, k entries) Number of points in each
  *    cluster. Entries must be initialized to zero.
  */
-    template <typename index_type_t, typename value_type_t>
-    static __global__ void minDistances(index_type_t n,
-                                        index_type_t k,
-                                        value_type_t* __restrict__ dists,
-                                        index_type_t* __restrict__ codes,
-                                        index_type_t* __restrict__ clusterSizes)
-    {
-        // Loop index
-        index_type_t i, j;
+template <typename index_type_t, typename value_type_t>
+static __global__ void minDistances(index_type_t n,
+                                    index_type_t k,
+                                    value_type_t* __restrict__ dists,
+                                    index_type_t* __restrict__ codes,
+                                    index_type_t* __restrict__ clusterSizes)
+{
+  // Loop index
+  index_type_t i, j;
 
-        // Current matrix entry
-        value_type_t dist_curr;
+  // Current matrix entry
+  value_type_t dist_curr;
 
-        // Smallest entry in row
-        value_type_t dist_min;
-        index_type_t code_min;
+  // Smallest entry in row
+  value_type_t dist_min;
+  index_type_t code_min;
 
-        // Each row in observation matrix is processed by a thread
-        i = threadIdx.x + blockIdx.x * blockDim.x;
-        while (i < n) {
-            // Find minimum entry in row
-            code_min = 0;
-            dist_min = dists[IDX(i, 0, n)];
-            for (j = 1; j < k; ++j) {
-                dist_curr = dists[IDX(i, j, n)];
-                code_min  = (dist_curr < dist_min) ? j : code_min;
-                dist_min  = (dist_curr < dist_min) ? dist_curr : dist_min;
-            }
-
-            // Transfer result to global memory
-            dists[i] = dist_min;
-            codes[i] = code_min;
-
-            // Increment cluster sizes
-            atomicAdd(clusterSizes + code_min, 1);
-
-            // Move to another row
-            i += blockDim.x * gridDim.x;
-        }
+  // Each row in observation matrix is processed by a thread
+  i = threadIdx.x + blockIdx.x * blockDim.x;
+  while (i < n) {
+    // Find minimum entry in row
+    code_min = 0;
+    dist_min = dists[IDX(i, 0, n)];
+    for (j = 1; j < k; ++j) {
+      dist_curr = dists[IDX(i, j, n)];
+      code_min  = (dist_curr < dist_min) ? j : code_min;
+      dist_min  = (dist_curr < dist_min) ? dist_curr : dist_min;
     }
+
+    // Transfer result to global memory
+    dists[i] = dist_min;
+    codes[i] = code_min;
+
+    // Increment cluster sizes
+    atomicAdd(clusterSizes + code_min, 1);
+
+    // Move to another row
+    i += blockDim.x * gridDim.x;
+  }
+}
 
 /**
  *  @brief Check if newly computed distances are smaller than old distances.
@@ -214,36 +214,36 @@ namespace detail {
  *    centroid.
  *  @param code_new Index associated with new centroid.
  */
-    template <typename index_type_t, typename value_type_t>
-    static __global__ void minDistances2(index_type_t n,
-                                         value_type_t* __restrict__ dists_old,
-                                         const value_type_t* __restrict__ dists_new,
-                                         index_type_t* __restrict__ codes_old,
-                                         index_type_t code_new)
-    {
-        // Loop index
-        index_type_t i = threadIdx.x + blockIdx.x * blockDim.x;
+template <typename index_type_t, typename value_type_t>
+static __global__ void minDistances2(index_type_t n,
+                                     value_type_t* __restrict__ dists_old,
+                                     const value_type_t* __restrict__ dists_new,
+                                     index_type_t* __restrict__ codes_old,
+                                     index_type_t code_new)
+{
+  // Loop index
+  index_type_t i = threadIdx.x + blockIdx.x * blockDim.x;
 
-        // Distances
-        value_type_t dist_old_private;
-        value_type_t dist_new_private;
+  // Distances
+  value_type_t dist_old_private;
+  value_type_t dist_new_private;
 
-        // Each row is processed by a thread
-        while (i < n) {
-            // Get old and new distances
-            dist_old_private = dists_old[i];
-            dist_new_private = dists_new[i];
+  // Each row is processed by a thread
+  while (i < n) {
+    // Get old and new distances
+    dist_old_private = dists_old[i];
+    dist_new_private = dists_new[i];
 
-            // Update if new distance is smaller than old distance
-            if (dist_new_private < dist_old_private) {
-                dists_old[i] = dist_new_private;
-                codes_old[i] = code_new;
-            }
-
-            // Move to another row
-            i += blockDim.x * gridDim.x;
-        }
+    // Update if new distance is smaller than old distance
+    if (dist_new_private < dist_old_private) {
+      dists_old[i] = dist_new_private;
+      codes_old[i] = code_new;
     }
+
+    // Move to another row
+    i += blockDim.x * gridDim.x;
+  }
+}
 
 /**
  *  @brief Compute size of k-means clusters.
@@ -256,17 +256,17 @@ namespace detail {
  *  @param clusterSizes (Output, k entries) Number of points in each
  *    cluster. Entries must be initialized to zero.
  */
-    template <typename index_type_t>
-    static __global__ void computeClusterSizes(index_type_t n,
-                                               const index_type_t* __restrict__ codes,
-                                               index_type_t* __restrict__ clusterSizes)
-    {
-        index_type_t i = threadIdx.x + blockIdx.x * blockDim.x;
-        while (i < n) {
-            atomicAdd(clusterSizes + codes[i], 1);
-            i += blockDim.x * gridDim.x;
-        }
-    }
+template <typename index_type_t>
+static __global__ void computeClusterSizes(index_type_t n,
+                                           const index_type_t* __restrict__ codes,
+                                           index_type_t* __restrict__ clusterSizes)
+{
+  index_type_t i = threadIdx.x + blockIdx.x * blockDim.x;
+  while (i < n) {
+    atomicAdd(clusterSizes + codes[i], 1);
+    i += blockDim.x * gridDim.x;
+  }
+}
 
 /**
  *  @brief Divide rows of centroid matrix by cluster sizes.
@@ -289,36 +289,36 @@ namespace detail {
  *    cluster. On exit, the matrix is the centroid matrix (each
  *    column is the mean position of a cluster).
  */
-    template <typename index_type_t, typename value_type_t>
-    static __global__ void divideCentroids(index_type_t d,
-                                           index_type_t k,
-                                           const index_type_t* __restrict__ clusterSizes,
-                                           value_type_t* __restrict__ centroids)
-    {
-        // Global indices
-        index_type_t gidx, gidy;
+template <typename index_type_t, typename value_type_t>
+static __global__ void divideCentroids(index_type_t d,
+                                       index_type_t k,
+                                       const index_type_t* __restrict__ clusterSizes,
+                                       value_type_t* __restrict__ centroids)
+{
+  // Global indices
+  index_type_t gidx, gidy;
 
-        // Current cluster size
-        index_type_t clusterSize_private;
+  // Current cluster size
+  index_type_t clusterSize_private;
 
-        // Observation vector is determined by global y-index
-        gidy = threadIdx.y + blockIdx.y * blockDim.y;
-        while (gidy < k) {
-            // Get cluster size from global memory
-            clusterSize_private = clusterSizes[gidy];
+  // Observation vector is determined by global y-index
+  gidy = threadIdx.y + blockIdx.y * blockDim.y;
+  while (gidy < k) {
+    // Get cluster size from global memory
+    clusterSize_private = clusterSizes[gidy];
 
-            // Add vector entries to centroid matrix
-            //   vector entris are determined by global x-index
-            gidx = threadIdx.x + blockIdx.x * blockDim.x;
-            while (gidx < d) {
-                centroids[IDX(gidx, gidy, d)] /= clusterSize_private;
-                gidx += blockDim.x * gridDim.x;
-            }
-
-            // Move to another centroid
-            gidy += blockDim.y * gridDim.y;
-        }
+    // Add vector entries to centroid matrix
+    //   vector entris are determined by global x-index
+    gidx = threadIdx.x + blockIdx.x * blockDim.x;
+    while (gidx < d) {
+      centroids[IDX(gidx, gidy, d)] /= clusterSize_private;
+      gidx += blockDim.x * gridDim.x;
     }
+
+    // Move to another centroid
+    gidy += blockDim.y * gridDim.y;
+  }
+}
 
 // =========================================================
 // Helper functions
@@ -344,78 +344,78 @@ namespace detail {
  *    coordinates.
  *  @return Zero if successful. Otherwise non-zero.
  */
-    template <typename index_type_t, typename value_type_t>
-    static int chooseNewCentroid(handle_t const& handle,
-                                 index_type_t n,
-                                 index_type_t d,
-                                 value_type_t rand,
-                                 const value_type_t* __restrict__ obs,
-                                 value_type_t* __restrict__ dists,
-                                 value_type_t* __restrict__ centroid)
-    {
-        // Cumulative sum of distances
-        value_type_t* distsCumSum = dists + n;
-        // Residual sum of squares
-        value_type_t distsSum{0};
-        // Observation vector that is chosen as new centroid
-        index_type_t obsIndex;
+template <typename index_type_t, typename value_type_t>
+static int chooseNewCentroid(handle_t const& handle,
+                             index_type_t n,
+                             index_type_t d,
+                             value_type_t rand,
+                             const value_type_t* __restrict__ obs,
+                             value_type_t* __restrict__ dists,
+                             value_type_t* __restrict__ centroid)
+{
+  // Cumulative sum of distances
+  value_type_t* distsCumSum = dists + n;
+  // Residual sum of squares
+  value_type_t distsSum{0};
+  // Observation vector that is chosen as new centroid
+  index_type_t obsIndex;
 
-        auto stream             = handle.get_stream();
-        auto thrust_exec_policy = handle.get_thrust_policy();
+  auto stream             = handle.get_stream();
+  auto thrust_exec_policy = handle.get_thrust_policy();
 
-        // Compute cumulative sum of distances
-        thrust::inclusive_scan(thrust_exec_policy,
-                               thrust::device_pointer_cast(dists),
-                               thrust::device_pointer_cast(dists + n),
-                               thrust::device_pointer_cast(distsCumSum));
-        CHECK_CUDA(stream);
-        CUDA_TRY(cudaMemcpyAsync(
-                &distsSum, distsCumSum + n - 1, sizeof(value_type_t), cudaMemcpyDeviceToHost, stream));
+  // Compute cumulative sum of distances
+  thrust::inclusive_scan(thrust_exec_policy,
+                         thrust::device_pointer_cast(dists),
+                         thrust::device_pointer_cast(dists + n),
+                         thrust::device_pointer_cast(distsCumSum));
+  CHECK_CUDA(stream);
+  CUDA_TRY(cudaMemcpyAsync(
+    &distsSum, distsCumSum + n - 1, sizeof(value_type_t), cudaMemcpyDeviceToHost, stream));
 
-        // Randomly choose observation vector
-        //   Probabilities are proportional to square of distance to closest
-        //   centroid (see k-means++ algorithm)
-        //
-        // seg-faults due to Thrust bug
-        // on binary-search-like algorithms
-        // when run with stream dependent
-        // execution policies; fixed on Thrust GitHub
-        // hence replace w/ linear interpolation,
-        // until the Thrust issue gets resolved:
-        //
-        // obsIndex = (thrust::lower_bound(
-        //               thrust_exec_policy, thrust::device_pointer_cast(distsCumSum),
-        //               thrust::device_pointer_cast(distsCumSum + n), distsSum * rand) -
-        //             thrust::device_pointer_cast(distsCumSum));
-        //
-        // linear interpolation logic:
-        //{
-        value_type_t minSum{0};
-        RAFT_CUDA_TRY(
-                cudaMemcpyAsync(&minSum, distsCumSum, sizeof(value_type_t), cudaMemcpyDeviceToHost, stream));
-        RAFT_CHECK_CUDA(stream);
+  // Randomly choose observation vector
+  //   Probabilities are proportional to square of distance to closest
+  //   centroid (see k-means++ algorithm)
+  //
+  // seg-faults due to Thrust bug
+  // on binary-search-like algorithms
+  // when run with stream dependent
+  // execution policies; fixed on Thrust GitHub
+  // hence replace w/ linear interpolation,
+  // until the Thrust issue gets resolved:
+  //
+  // obsIndex = (thrust::lower_bound(
+  //               thrust_exec_policy, thrust::device_pointer_cast(distsCumSum),
+  //               thrust::device_pointer_cast(distsCumSum + n), distsSum * rand) -
+  //             thrust::device_pointer_cast(distsCumSum));
+  //
+  // linear interpolation logic:
+  //{
+  value_type_t minSum{0};
+  RAFT_CUDA_TRY(
+    cudaMemcpyAsync(&minSum, distsCumSum, sizeof(value_type_t), cudaMemcpyDeviceToHost, stream));
+  RAFT_CHECK_CUDA(stream);
 
-        if (distsSum > minSum) {
-            value_type_t vIndex = static_cast<value_type_t>(n - 1);
-            obsIndex = static_cast<index_type_t>(vIndex * (distsSum * rand - minSum) / (distsSum - minSum));
-        } else {
-            obsIndex = 0;
-        }
-        //}
+  if (distsSum > minSum) {
+    value_type_t vIndex = static_cast<value_type_t>(n - 1);
+    obsIndex = static_cast<index_type_t>(vIndex * (distsSum * rand - minSum) / (distsSum - minSum));
+  } else {
+    obsIndex = 0;
+  }
+  //}
 
-        RAFT_CHECK_CUDA(stream);
-        obsIndex = max(obsIndex, 0);
-        obsIndex = min(obsIndex, n - 1);
+  RAFT_CHECK_CUDA(stream);
+  obsIndex = max(obsIndex, 0);
+  obsIndex = min(obsIndex, n - 1);
 
-        // Record new centroid position
-        RAFT_CUDA_TRY(cudaMemcpyAsync(centroid,
-                                      obs + IDX(0, obsIndex, d),
-                                      d * sizeof(value_type_t),
-                                      cudaMemcpyDeviceToDevice,
-                                      stream));
+  // Record new centroid position
+  RAFT_CUDA_TRY(cudaMemcpyAsync(centroid,
+                                obs + IDX(0, obsIndex, d),
+                                d * sizeof(value_type_t),
+                                cudaMemcpyDeviceToDevice,
+                                stream));
 
-        return 0;
-    }
+  return 0;
+}
 
 /**
  *  @brief Choose initial cluster centroids for k-means algorithm.
@@ -441,90 +441,90 @@ namespace detail {
  *    distance between observation vectors and the closest centroid.
  *  @return Zero if successful. Otherwise non-zero.
  */
-    template <typename index_type_t, typename value_type_t>
-    static int initializeCentroids(handle_t const& handle,
-                                   index_type_t n,
-                                   index_type_t d,
-                                   index_type_t k,
-                                   const value_type_t* __restrict__ obs,
-                                   value_type_t* __restrict__ centroids,
-                                   index_type_t* __restrict__ codes,
-                                   index_type_t* __restrict__ clusterSizes,
-                                   value_type_t* __restrict__ dists,
-                                   unsigned long long seed)
-    {
-        // -------------------------------------------------------
-        // Variable declarations
-        // -------------------------------------------------------
+template <typename index_type_t, typename value_type_t>
+static int initializeCentroids(handle_t const& handle,
+                               index_type_t n,
+                               index_type_t d,
+                               index_type_t k,
+                               const value_type_t* __restrict__ obs,
+                               value_type_t* __restrict__ centroids,
+                               index_type_t* __restrict__ codes,
+                               index_type_t* __restrict__ clusterSizes,
+                               value_type_t* __restrict__ dists,
+                               unsigned long long seed)
+{
+  // -------------------------------------------------------
+  // Variable declarations
+  // -------------------------------------------------------
 
-        // Loop index
-        index_type_t i;
+  // Loop index
+  index_type_t i;
 
-        // Random number generator
-        thrust::default_random_engine rng(seed);
-        thrust::uniform_real_distribution<value_type_t> uniformDist(0, 1);
+  // Random number generator
+  thrust::default_random_engine rng(seed);
+  thrust::uniform_real_distribution<value_type_t> uniformDist(0, 1);
 
-        auto stream             = handle.get_stream();
-        auto thrust_exec_policy = handle.get_thrust_policy();
+  auto stream             = handle.get_stream();
+  auto thrust_exec_policy = handle.get_thrust_policy();
 
-        constexpr index_type_t grid_lower_bound{65535};
+  constexpr index_type_t grid_lower_bound{65535};
 
-        // -------------------------------------------------------
-        // Implementation
-        // -------------------------------------------------------
+  // -------------------------------------------------------
+  // Implementation
+  // -------------------------------------------------------
 
-        // Initialize grid dimensions
-        dim3 blockDim_warp{WARP_SIZE, 1, BSIZE_DIV_WSIZE};
+  // Initialize grid dimensions
+  dim3 blockDim_warp{WARP_SIZE, 1, BSIZE_DIV_WSIZE};
 
-        // CUDA grid dimensions
-        dim3 gridDim_warp{min((d + WARP_SIZE - 1) / WARP_SIZE, grid_lower_bound),
-                          1,
-                          min((n + BSIZE_DIV_WSIZE - 1) / BSIZE_DIV_WSIZE, grid_lower_bound)};
+  // CUDA grid dimensions
+  dim3 gridDim_warp{min((d + WARP_SIZE - 1) / WARP_SIZE, grid_lower_bound),
+                    1,
+                    min((n + BSIZE_DIV_WSIZE - 1) / BSIZE_DIV_WSIZE, grid_lower_bound)};
 
-        // CUDA grid dimensions
-        dim3 gridDim_block{min((n + BLOCK_SIZE - 1) / BLOCK_SIZE, grid_lower_bound), 1, 1};
+  // CUDA grid dimensions
+  dim3 gridDim_block{min((n + BLOCK_SIZE - 1) / BLOCK_SIZE, grid_lower_bound), 1, 1};
 
-        // Assign observation vectors to code 0
-        RAFT_CUDA_TRY(cudaMemsetAsync(codes, 0, n * sizeof(index_type_t), stream));
+  // Assign observation vectors to code 0
+  RAFT_CUDA_TRY(cudaMemsetAsync(codes, 0, n * sizeof(index_type_t), stream));
 
-        // Choose first centroid
-        thrust::fill(thrust_exec_policy,
-                     thrust::device_pointer_cast(dists),
-                     thrust::device_pointer_cast(dists + n),
-                     1);
-        RAFT_CHECK_CUDA(stream);
-        if (chooseNewCentroid(handle, n, d, uniformDist(rng), obs, dists, centroids))
-            WARNING("error in k-means++ (could not pick centroid)");
+  // Choose first centroid
+  thrust::fill(thrust_exec_policy,
+               thrust::device_pointer_cast(dists),
+               thrust::device_pointer_cast(dists + n),
+               1);
+  RAFT_CHECK_CUDA(stream);
+  if (chooseNewCentroid(handle, n, d, uniformDist(rng), obs, dists, centroids))
+    WARNING("error in k-means++ (could not pick centroid)");
 
-        // Compute distances from first centroid
-        RAFT_CUDA_TRY(cudaMemsetAsync(dists, 0, n * sizeof(value_type_t), stream));
-        computeDistances<<<gridDim_warp, blockDim_warp, 0, stream>>>(n, d, 1, obs, centroids, dists);
-        RAFT_CHECK_CUDA(stream);
+  // Compute distances from first centroid
+  RAFT_CUDA_TRY(cudaMemsetAsync(dists, 0, n * sizeof(value_type_t), stream));
+  computeDistances<<<gridDim_warp, blockDim_warp, 0, stream>>>(n, d, 1, obs, centroids, dists);
+  RAFT_CHECK_CUDA(stream);
 
-        // Choose remaining centroids
-        for (i = 1; i < k; ++i) {
-            // Choose ith centroid
-            if (chooseNewCentroid(handle, n, d, uniformDist(rng), obs, dists, centroids + IDX(0, i, d)))
-                WARNING("error in k-means++ (could not pick centroid)");
+  // Choose remaining centroids
+  for (i = 1; i < k; ++i) {
+    // Choose ith centroid
+    if (chooseNewCentroid(handle, n, d, uniformDist(rng), obs, dists, centroids + IDX(0, i, d)))
+      WARNING("error in k-means++ (could not pick centroid)");
 
-            // Compute distances from ith centroid
-            CUDA_TRY(cudaMemsetAsync(dists + n, 0, n * sizeof(value_type_t), stream));
-            computeDistances<<<gridDim_warp, blockDim_warp, 0, stream>>>(
-                    n, d, 1, obs, centroids + IDX(0, i, d), dists + n);
-            RAFT_CHECK_CUDA(stream);
+    // Compute distances from ith centroid
+    CUDA_TRY(cudaMemsetAsync(dists + n, 0, n * sizeof(value_type_t), stream));
+    computeDistances<<<gridDim_warp, blockDim_warp, 0, stream>>>(
+      n, d, 1, obs, centroids + IDX(0, i, d), dists + n);
+    RAFT_CHECK_CUDA(stream);
 
-            // Recompute minimum distances
-            minDistances2<<<gridDim_block, BLOCK_SIZE, 0, stream>>>(n, dists, dists + n, codes, i);
-            RAFT_CHECK_CUDA(stream);
-        }
+    // Recompute minimum distances
+    minDistances2<<<gridDim_block, BLOCK_SIZE, 0, stream>>>(n, dists, dists + n, codes, i);
+    RAFT_CHECK_CUDA(stream);
+  }
 
-        // Compute cluster sizes
-        CUDA_TRY(cudaMemsetAsync(clusterSizes, 0, k * sizeof(index_type_t), stream));
-        computeClusterSizes<<<gridDim_block, BLOCK_SIZE, 0, stream>>>(n, codes, clusterSizes);
-        RAFT_CHECK_CUDA(stream);
+  // Compute cluster sizes
+  CUDA_TRY(cudaMemsetAsync(clusterSizes, 0, k * sizeof(index_type_t), stream));
+  computeClusterSizes<<<gridDim_block, BLOCK_SIZE, 0, stream>>>(n, codes, clusterSizes);
+  RAFT_CHECK_CUDA(stream);
 
-        return 0;
-    }
+  return 0;
+}
 
 /**
  *  @brief Find cluster centroids closest to observation vectors.
@@ -552,53 +552,53 @@ namespace detail {
  *    of squares of assignment.
  *  @return Zero if successful. Otherwise non-zero.
  */
-    template <typename index_type_t, typename value_type_t>
-    static int assignCentroids(handle_t const& handle,
-                               index_type_t n,
-                               index_type_t d,
-                               index_type_t k,
-                               const value_type_t* __restrict__ obs,
-                               const value_type_t* __restrict__ centroids,
-                               value_type_t* __restrict__ dists,
-                               index_type_t* __restrict__ codes,
-                               index_type_t* __restrict__ clusterSizes,
-                               value_type_t* residual_host)
-    {
-        auto stream             = handle.get_stream();
-        auto thrust_exec_policy = handle.get_thrust_policy();
+template <typename index_type_t, typename value_type_t>
+static int assignCentroids(handle_t const& handle,
+                           index_type_t n,
+                           index_type_t d,
+                           index_type_t k,
+                           const value_type_t* __restrict__ obs,
+                           const value_type_t* __restrict__ centroids,
+                           value_type_t* __restrict__ dists,
+                           index_type_t* __restrict__ codes,
+                           index_type_t* __restrict__ clusterSizes,
+                           value_type_t* residual_host)
+{
+  auto stream             = handle.get_stream();
+  auto thrust_exec_policy = handle.get_thrust_policy();
 
-        // Compute distance between centroids and observation vectors
-        RAFT_CUDA_TRY(cudaMemsetAsync(dists, 0, n * k * sizeof(value_type_t), stream));
+  // Compute distance between centroids and observation vectors
+  RAFT_CUDA_TRY(cudaMemsetAsync(dists, 0, n * k * sizeof(value_type_t), stream));
 
-        // CUDA grid dimensions
-        dim3 blockDim{WARP_SIZE, 1, BLOCK_SIZE / WARP_SIZE};
+  // CUDA grid dimensions
+  dim3 blockDim{WARP_SIZE, 1, BLOCK_SIZE / WARP_SIZE};
 
-        dim3 gridDim;
-        constexpr index_type_t grid_lower_bound{65535};
-        gridDim.x = min((d + WARP_SIZE - 1) / WARP_SIZE, grid_lower_bound);
-        gridDim.y = min(k, grid_lower_bound);
-        gridDim.z = min((n + BSIZE_DIV_WSIZE - 1) / BSIZE_DIV_WSIZE, grid_lower_bound);
+  dim3 gridDim;
+  constexpr index_type_t grid_lower_bound{65535};
+  gridDim.x = min((d + WARP_SIZE - 1) / WARP_SIZE, grid_lower_bound);
+  gridDim.y = min(k, grid_lower_bound);
+  gridDim.z = min((n + BSIZE_DIV_WSIZE - 1) / BSIZE_DIV_WSIZE, grid_lower_bound);
 
-        computeDistances<<<gridDim, blockDim, 0, stream>>>(n, d, k, obs, centroids, dists);
-        RAFT_CHECK_CUDA(stream);
+  computeDistances<<<gridDim, blockDim, 0, stream>>>(n, d, k, obs, centroids, dists);
+  RAFT_CHECK_CUDA(stream);
 
-        // Find centroid closest to each observation vector
-        CUDA_TRY(cudaMemsetAsync(clusterSizes, 0, k * sizeof(index_type_t), stream));
-        blockDim.x = BLOCK_SIZE;
-        blockDim.y = 1;
-        blockDim.z = 1;
-        gridDim.x  = min((n + BLOCK_SIZE - 1) / BLOCK_SIZE, grid_lower_bound);
-        gridDim.y  = 1;
-        gridDim.z  = 1;
-        minDistances<<<gridDim, blockDim, 0, stream>>>(n, k, dists, codes, clusterSizes);
-        CHECK_CUDA(stream);
+  // Find centroid closest to each observation vector
+  CUDA_TRY(cudaMemsetAsync(clusterSizes, 0, k * sizeof(index_type_t), stream));
+  blockDim.x = BLOCK_SIZE;
+  blockDim.y = 1;
+  blockDim.z = 1;
+  gridDim.x  = min((n + BLOCK_SIZE - 1) / BLOCK_SIZE, grid_lower_bound);
+  gridDim.y  = 1;
+  gridDim.z  = 1;
+  minDistances<<<gridDim, blockDim, 0, stream>>>(n, k, dists, codes, clusterSizes);
+  CHECK_CUDA(stream);
 
-        // Compute residual sum of squares
-        *residual_host = thrust::reduce(
-                thrust_exec_policy, thrust::device_pointer_cast(dists), thrust::device_pointer_cast(dists + n));
+  // Compute residual sum of squares
+  *residual_host = thrust::reduce(
+    thrust_exec_policy, thrust::device_pointer_cast(dists), thrust::device_pointer_cast(dists + n));
 
-        return 0;
-    }
+  return 0;
+}
 
 /**
  *  @brief Update cluster centroids for k-means algorithm.
@@ -624,111 +624,107 @@ namespace detail {
  *    Workspace.
  *  @return Zero if successful. Otherwise non-zero.
  */
-    template <typename index_type_t, typename value_type_t>
-    static int updateCentroids(handle_t const& handle,
-                               index_type_t n,
-                               index_type_t d,
-                               index_type_t k,
-                               const value_type_t* __restrict__ obs,
-                               const index_type_t* __restrict__ codes,
-                               const index_type_t* __restrict__ clusterSizes,
-                               value_type_t* __restrict__ centroids,
-                               value_type_t* __restrict__ work,
-                               index_type_t* __restrict__ work_int)
-    {
-        // -------------------------------------------------------
-        // Variable declarations
-        // -------------------------------------------------------
+template <typename index_type_t, typename value_type_t>
+static int updateCentroids(handle_t const& handle,
+                           index_type_t n,
+                           index_type_t d,
+                           index_type_t k,
+                           const value_type_t* __restrict__ obs,
+                           const index_type_t* __restrict__ codes,
+                           const index_type_t* __restrict__ clusterSizes,
+                           value_type_t* __restrict__ centroids,
+                           value_type_t* __restrict__ work,
+                           index_type_t* __restrict__ work_int)
+{
+  // -------------------------------------------------------
+  // Variable declarations
+  // -------------------------------------------------------
 
-        // Useful constants
-        const value_type_t one  = 1;
-        const value_type_t zero = 0;
+  // Useful constants
+  const value_type_t one  = 1;
+  const value_type_t zero = 0;
 
-        constexpr index_type_t grid_lower_bound{65535};
+  constexpr index_type_t grid_lower_bound{65535};
 
-        auto stream             = handle.get_stream();
-        auto cublas_h           = handle.get_cublas_handle();
-        auto thrust_exec_policy = handle.get_thrust_policy();
+  auto stream             = handle.get_stream();
+  auto cublas_h           = handle.get_cublas_handle();
+  auto thrust_exec_policy = handle.get_thrust_policy();
 
-        // Device memory
-        thrust::device_ptr<value_type_t> obs_copy(work);
-        thrust::device_ptr<index_type_t> codes_copy(work_int);
-        thrust::device_ptr<index_type_t> rows(work_int + d * n);
+  // Device memory
+  thrust::device_ptr<value_type_t> obs_copy(work);
+  thrust::device_ptr<index_type_t> codes_copy(work_int);
+  thrust::device_ptr<index_type_t> rows(work_int + d * n);
 
-        // Take transpose of observation matrix
-        RAFT_CUBLAS_TRY(cublasgeam(cublas_h,
-                                   CUBLAS_OP_T,
-                                   CUBLAS_OP_N,
-                                   n,
-                                   d,
-                                   &one,
-                                   obs,
-                                   d,
-                                   &zero,
-                                   (value_type_t*)NULL,
-                                   n,
-                                   thrust::raw_pointer_cast(obs_copy),
-                                   n,
-                                   stream));
+  // Take transpose of observation matrix
+  RAFT_CUBLAS_TRY(linalg::cublasgeam(cublas_h,
+                                     CUBLAS_OP_T,
+                                     CUBLAS_OP_N,
+                                     n,
+                                     d,
+                                     &one,
+                                     obs,
+                                     d,
+                                     &zero,
+                                     (value_type_t*)NULL,
+                                     n,
+                                     thrust::raw_pointer_cast(obs_copy),
+                                     n,
+                                     stream));
 
-        // Cluster assigned to each observation matrix entry
-        thrust::sequence(thrust_exec_policy, rows, rows + d * n);
-        RAFT_CHECK_CUDA(stream);
-        thrust::transform(thrust_exec_policy,
-                          rows,
-                          rows + d * n,
-                          thrust::make_constant_iterator<index_type_t>(n),
-                          rows,
-                          thrust::modulus<index_type_t>());
-        RAFT_CHECK_CUDA(stream);
-        thrust::gather(
-                thrust_exec_policy, rows, rows + d * n, thrust::device_pointer_cast(codes), codes_copy);
-        RAFT_CHECK_CUDA(stream);
+  // Cluster assigned to each observation matrix entry
+  thrust::sequence(thrust_exec_policy, rows, rows + d * n);
+  RAFT_CHECK_CUDA(stream);
+  thrust::transform(thrust_exec_policy,
+                    rows,
+                    rows + d * n,
+                    thrust::make_constant_iterator<index_type_t>(n),
+                    rows,
+                    thrust::modulus<index_type_t>());
+  RAFT_CHECK_CUDA(stream);
+  thrust::gather(
+    thrust_exec_policy, rows, rows + d * n, thrust::device_pointer_cast(codes), codes_copy);
+  RAFT_CHECK_CUDA(stream);
 
-        // Row associated with each observation matrix entry
-        thrust::sequence(thrust_exec_policy, rows, rows + d * n);
-        RAFT_CHECK_CUDA(stream);
-        thrust::transform(thrust_exec_policy,
-                          rows,
-                          rows + d * n,
-                          thrust::make_constant_iterator<index_type_t>(n),
-                          rows,
-                          thrust::divides<index_type_t>());
-        RAFT_CHECK_CUDA(stream);
+  // Row associated with each observation matrix entry
+  thrust::sequence(thrust_exec_policy, rows, rows + d * n);
+  RAFT_CHECK_CUDA(stream);
+  thrust::transform(thrust_exec_policy,
+                    rows,
+                    rows + d * n,
+                    thrust::make_constant_iterator<index_type_t>(n),
+                    rows,
+                    thrust::divides<index_type_t>());
+  RAFT_CHECK_CUDA(stream);
 
-        // Sort and reduce to add observation vectors in same cluster
-        thrust::stable_sort_by_key(thrust_exec_policy,
-                                   codes_copy,
-                                   codes_copy + d * n,
-                                   make_zip_iterator(make_tuple(obs_copy, rows)));
-        RAFT_CHECK_CUDA(stream);
-        thrust::reduce_by_key(thrust_exec_policy,
-                              rows,
-                              rows + d * n,
-                              obs_copy,
-                              codes_copy,  // Output to codes_copy is ignored
-                              thrust::device_pointer_cast(centroids));
-        RAFT_CHECK_CUDA(stream);
+  // Sort and reduce to add observation vectors in same cluster
+  thrust::stable_sort_by_key(thrust_exec_policy,
+                             codes_copy,
+                             codes_copy + d * n,
+                             make_zip_iterator(make_tuple(obs_copy, rows)));
+  RAFT_CHECK_CUDA(stream);
+  thrust::reduce_by_key(thrust_exec_policy,
+                        rows,
+                        rows + d * n,
+                        obs_copy,
+                        codes_copy,  // Output to codes_copy is ignored
+                        thrust::device_pointer_cast(centroids));
+  RAFT_CHECK_CUDA(stream);
 
-        // Divide sums by cluster size to get centroid matrix
-        //
-        // CUDA grid dimensions
-        dim3 blockDim{WARP_SIZE, BLOCK_SIZE / WARP_SIZE, 1};
+  // Divide sums by cluster size to get centroid matrix
+  //
+  // CUDA grid dimensions
+  dim3 blockDim{WARP_SIZE, BLOCK_SIZE / WARP_SIZE, 1};
 
-        // CUDA grid dimensions
-        dim3 gridDim{min((d + WARP_SIZE - 1) / WARP_SIZE, grid_lower_bound),
-                     min((k + BSIZE_DIV_WSIZE - 1) / BSIZE_DIV_WSIZE, grid_lower_bound),
-                     1};
+  // CUDA grid dimensions
+  dim3 gridDim{min((d + WARP_SIZE - 1) / WARP_SIZE, grid_lower_bound),
+               min((k + BSIZE_DIV_WSIZE - 1) / BSIZE_DIV_WSIZE, grid_lower_bound),
+               1};
 
-        divideCentroids<<<gridDim, blockDim, 0, stream>>>(d, k, clusterSizes, centroids);
-        RAFT_CHECK_CUDA(stream);
+  divideCentroids<<<gridDim, blockDim, 0, stream>>>(d, k, clusterSizes, centroids);
+  RAFT_CHECK_CUDA(stream);
 
-        return 0;
-    }
-
-}  // namespace
-
-namespace raft {
+  return 0;
+}
 
 // =========================================================
 // k-means algorithm
@@ -770,146 +766,146 @@ namespace raft {
  *  @param seed random seed to be used.
  *  @return error flag.
  */
-        template<typename index_type_t, typename value_type_t>
-        int kmeans(handle_t const &handle,
-                   index_type_t n,
-                   index_type_t d,
-                   index_type_t k,
-                   value_type_t tol,
-                   index_type_t maxiter,
-                   const value_type_t *__restrict__ obs,
-                   index_type_t *__restrict__ codes,
-                   index_type_t *__restrict__ clusterSizes,
-                   value_type_t *__restrict__ centroids,
-                   value_type_t *__restrict__ work,
-                   index_type_t *__restrict__ work_int,
-                   value_type_t *residual_host,
-                   index_type_t *iters_host,
-                   unsigned long long seed) {
-            // -------------------------------------------------------
-            // Variable declarations
-            // -------------------------------------------------------
+template <typename index_type_t, typename value_type_t>
+int kmeans(handle_t const& handle,
+           index_type_t n,
+           index_type_t d,
+           index_type_t k,
+           value_type_t tol,
+           index_type_t maxiter,
+           const value_type_t* __restrict__ obs,
+           index_type_t* __restrict__ codes,
+           index_type_t* __restrict__ clusterSizes,
+           value_type_t* __restrict__ centroids,
+           value_type_t* __restrict__ work,
+           index_type_t* __restrict__ work_int,
+           value_type_t* residual_host,
+           index_type_t* iters_host,
+           unsigned long long seed)
+{
+  // -------------------------------------------------------
+  // Variable declarations
+  // -------------------------------------------------------
 
-            // Current iteration
-            index_type_t iter;
+  // Current iteration
+  index_type_t iter;
 
-            constexpr
-            index_type_t grid_lower_bound{65535};
+  constexpr index_type_t grid_lower_bound{65535};
 
-            // Residual sum of squares at previous iteration
-            value_type_t residualPrev = 0;
+  // Residual sum of squares at previous iteration
+  value_type_t residualPrev = 0;
 
-            // Random number generator
-            thrust::default_random_engine rng(seed);
-            thrust::uniform_real_distribution <value_type_t> uniformDist(0, 1);
+  // Random number generator
+  thrust::default_random_engine rng(seed);
+  thrust::uniform_real_distribution<value_type_t> uniformDist(0, 1);
 
-            // -------------------------------------------------------
-            // Initialization
-            // -------------------------------------------------------
+  // -------------------------------------------------------
+  // Initialization
+  // -------------------------------------------------------
 
-            auto stream = handle.get_stream();
-            auto cublas_h = handle.get_cublas_handle();
-            auto thrust_exec_policy = handle.get_thrust_policy();
+  auto stream             = handle.get_stream();
+  auto cublas_h           = handle.get_cublas_handle();
+  auto thrust_exec_policy = handle.get_thrust_policy();
 
-            // Trivial cases
-            if (k == 1) {
-                CUDA_TRY(cudaMemsetAsync(codes, 0, n * sizeof(index_type_t), stream));
-                CUDA_TRY(
-                        cudaMemcpyAsync(clusterSizes, &n, sizeof(index_type_t), cudaMemcpyHostToDevice, stream));
-                if (updateCentroids(handle, n, d, k, obs, codes, clusterSizes, centroids, work, work_int))
-                    WARNING("could not compute k-means centroids");
+  // Trivial cases
+  if (k == 1) {
+    CUDA_TRY(cudaMemsetAsync(codes, 0, n * sizeof(index_type_t), stream));
+    CUDA_TRY(
+      cudaMemcpyAsync(clusterSizes, &n, sizeof(index_type_t), cudaMemcpyHostToDevice, stream));
+    if (updateCentroids(handle, n, d, k, obs, codes, clusterSizes, centroids, work, work_int))
+      WARNING("could not compute k-means centroids");
 
-                dim3 blockDim{WARP_SIZE, 1, BLOCK_SIZE / WARP_SIZE};
+    dim3 blockDim{WARP_SIZE, 1, BLOCK_SIZE / WARP_SIZE};
 
-                dim3 gridDim{
-                        min((d + WARP_SIZE - 1) / WARP_SIZE, grid_lower_bound),
-                        1,
-                        min((n + BLOCK_SIZE / WARP_SIZE - 1) / (BLOCK_SIZE / WARP_SIZE), grid_lower_bound)};
+    dim3 gridDim{
+      min((d + WARP_SIZE - 1) / WARP_SIZE, grid_lower_bound),
+      1,
+      min((n + BLOCK_SIZE / WARP_SIZE - 1) / (BLOCK_SIZE / WARP_SIZE), grid_lower_bound)};
 
-                CUDA_TRY(cudaMemsetAsync(work, 0, n * k * sizeof(value_type_t), stream));
-                computeDistances<<<gridDim, blockDim, 0, stream>>>(n, d, 1, obs, centroids, work);
-                RAFT_CHECK_CUDA(stream);
-                *residual_host = thrust::reduce(
-                        thrust_exec_policy, thrust::device_pointer_cast(work), thrust::device_pointer_cast(work + n));
-                RAFT_CHECK_CUDA(stream);
-                return 0;
-            }
-            if (n <= k) {
-                thrust::sequence(thrust_exec_policy,
-                                 thrust::device_pointer_cast(codes),
-                                 thrust::device_pointer_cast(codes + n));
-                RAFT_CHECK_CUDA(stream);
-                thrust::fill_n(thrust_exec_policy, thrust::device_pointer_cast(clusterSizes), n, 1);
-                RAFT_CHECK_CUDA(stream);
+    CUDA_TRY(cudaMemsetAsync(work, 0, n * k * sizeof(value_type_t), stream));
+    computeDistances<<<gridDim, blockDim, 0, stream>>>(n, d, 1, obs, centroids, work);
+    RAFT_CHECK_CUDA(stream);
+    *residual_host = thrust::reduce(
+      thrust_exec_policy, thrust::device_pointer_cast(work), thrust::device_pointer_cast(work + n));
+    RAFT_CHECK_CUDA(stream);
+    return 0;
+  }
+  if (n <= k) {
+    thrust::sequence(thrust_exec_policy,
+                     thrust::device_pointer_cast(codes),
+                     thrust::device_pointer_cast(codes + n));
+    RAFT_CHECK_CUDA(stream);
+    thrust::fill_n(thrust_exec_policy, thrust::device_pointer_cast(clusterSizes), n, 1);
+    RAFT_CHECK_CUDA(stream);
 
-                if (n < k)
-                    RAFT_CUDA_TRY(cudaMemsetAsync(clusterSizes + n, 0, (k - n) * sizeof(index_type_t), stream));
-                RAFT_CUDA_TRY(cudaMemcpyAsync(
-                        centroids, obs, d * n * sizeof(value_type_t), cudaMemcpyDeviceToDevice, stream));
-                *residual_host = 0;
-                return 0;
-            }
+    if (n < k)
+      RAFT_CUDA_TRY(cudaMemsetAsync(clusterSizes + n, 0, (k - n) * sizeof(index_type_t), stream));
+    RAFT_CUDA_TRY(cudaMemcpyAsync(
+      centroids, obs, d * n * sizeof(value_type_t), cudaMemcpyDeviceToDevice, stream));
+    *residual_host = 0;
+    return 0;
+  }
 
-            // Initialize cuBLAS
-            RAFT_CUBLAS_TRY(linalg::cublassetpointermode(cublas_h, CUBLAS_POINTER_MODE_HOST, stream));
+  // Initialize cuBLAS
+  RAFT_CUBLAS_TRY(linalg::cublassetpointermode(cublas_h, CUBLAS_POINTER_MODE_HOST, stream));
 
-            // -------------------------------------------------------
-            // k-means++ algorithm
-            // -------------------------------------------------------
+  // -------------------------------------------------------
+  // k-means++ algorithm
+  // -------------------------------------------------------
 
-            // Choose initial cluster centroids
-            if (initializeCentroids(handle, n, d, k, obs, centroids, codes, clusterSizes, work, seed))
-                WARNING("could not initialize k-means centroids");
+  // Choose initial cluster centroids
+  if (initializeCentroids(handle, n, d, k, obs, centroids, codes, clusterSizes, work, seed))
+    WARNING("could not initialize k-means centroids");
 
-            // Apply k-means iteration until convergence
-            for (iter = 0; iter < maxiter; ++iter) {
-                // Update cluster centroids
-                if (updateCentroids(handle, n, d, k, obs, codes, clusterSizes, centroids, work, work_int))
-                    WARNING("could not update k-means centroids");
+  // Apply k-means iteration until convergence
+  for (iter = 0; iter < maxiter; ++iter) {
+    // Update cluster centroids
+    if (updateCentroids(handle, n, d, k, obs, codes, clusterSizes, centroids, work, work_int))
+      WARNING("could not update k-means centroids");
 
-                // Determine centroid closest to each observation
-                residualPrev = *residual_host;
-                if (assignCentroids(handle, n, d, k, obs, centroids, work, codes, clusterSizes, residual_host))
-                    WARNING("could not assign observation vectors to k-means clusters");
+    // Determine centroid closest to each observation
+    residualPrev = *residual_host;
+    if (assignCentroids(handle, n, d, k, obs, centroids, work, codes, clusterSizes, residual_host))
+      WARNING("could not assign observation vectors to k-means clusters");
 
-                // Reinitialize empty clusters with new centroids
-                index_type_t emptyCentroid = (thrust::find(thrust_exec_policy,
-                                                           thrust::device_pointer_cast(clusterSizes),
-                                                           thrust::device_pointer_cast(clusterSizes + k),
-                                                           0) -
-                                              thrust::device_pointer_cast(clusterSizes));
+    // Reinitialize empty clusters with new centroids
+    index_type_t emptyCentroid = (thrust::find(thrust_exec_policy,
+                                               thrust::device_pointer_cast(clusterSizes),
+                                               thrust::device_pointer_cast(clusterSizes + k),
+                                               0) -
+                                  thrust::device_pointer_cast(clusterSizes));
 
-                // FIXME: emptyCentroid never reaches k (infinite loop) under certain
-                // conditions, such as if obs is corrupt (as seen as a result of a
-                // DataFrame column of NULL edge vals used to create the Graph)
-                while (emptyCentroid < k) {
-                    if (chooseNewCentroid(
-                            handle, n, d, uniformDist(rng), obs, work, centroids + IDX(0, emptyCentroid, d)))
-                        WARNING("could not replace empty centroid");
-                    if (assignCentroids(
-                            handle, n, d, k, obs, centroids, work, codes, clusterSizes, residual_host))
-                        WARNING("could not assign observation vectors to k-means clusters");
-                    emptyCentroid = (thrust::find(thrust_exec_policy,
-                                                  thrust::device_pointer_cast(clusterSizes),
-                                                  thrust::device_pointer_cast(clusterSizes + k),
-                                                  0) -
-                                     thrust::device_pointer_cast(clusterSizes));
-                    RAFT_CHECK_CUDA(stream);
-                }
+    // FIXME: emptyCentroid never reaches k (infinite loop) under certain
+    // conditions, such as if obs is corrupt (as seen as a result of a
+    // DataFrame column of NULL edge vals used to create the Graph)
+    while (emptyCentroid < k) {
+      if (chooseNewCentroid(
+            handle, n, d, uniformDist(rng), obs, work, centroids + IDX(0, emptyCentroid, d)))
+        WARNING("could not replace empty centroid");
+      if (assignCentroids(
+            handle, n, d, k, obs, centroids, work, codes, clusterSizes, residual_host))
+        WARNING("could not assign observation vectors to k-means clusters");
+      emptyCentroid = (thrust::find(thrust_exec_policy,
+                                    thrust::device_pointer_cast(clusterSizes),
+                                    thrust::device_pointer_cast(clusterSizes + k),
+                                    0) -
+                       thrust::device_pointer_cast(clusterSizes));
+      RAFT_CHECK_CUDA(stream);
+    }
 
-                // Check for convergence
-                if (std::fabs(residualPrev - (*residual_host)) / n < tol) {
-                    ++iter;
-                    break;
-                }
-            }
+    // Check for convergence
+    if (std::fabs(residualPrev - (*residual_host)) / n < tol) {
+      ++iter;
+      break;
+    }
+  }
 
-            // Warning if k-means has failed to converge
-            if (std::fabs(residualPrev - (*residual_host)) / n >= tol) WARNING("k-means failed to converge");
+  // Warning if k-means has failed to converge
+  if (std::fabs(residualPrev - (*residual_host)) / n >= tol) WARNING("k-means failed to converge");
 
-            *iters_host = iter;
-            return 0;
-        }
+  *iters_host = iter;
+  return 0;
+}
 
 /**
  *  @brief Find clusters with k-means algorithm.
@@ -936,50 +932,51 @@ namespace raft {
  *  @param seed random seed to be used.
  *  @return error flag
  */
-        template<typename index_type_t, typename value_type_t>
-        int kmeans(handle_t const &handle,
-                   index_type_t n,
-                   index_type_t d,
-                   index_type_t k,
-                   value_type_t tol,
-                   index_type_t maxiter,
-                   const value_type_t *__restrict__ obs,
-                   index_type_t *__restrict__ codes,
-                   value_type_t &residual,
-                   index_type_t &iters,
-                   unsigned long long seed = 123456) {
-            using namespace matrix;
+template <typename index_type_t, typename value_type_t>
+int kmeans(handle_t const& handle,
+           index_type_t n,
+           index_type_t d,
+           index_type_t k,
+           value_type_t tol,
+           index_type_t maxiter,
+           const value_type_t* __restrict__ obs,
+           index_type_t* __restrict__ codes,
+           value_type_t& residual,
+           index_type_t& iters,
+           unsigned long long seed = 123456)
+{
+  using namespace matrix;
 
-            // Check that parameters are valid
-            RAFT_EXPECTS(n > 0, "invalid parameter (n<1)");
-            RAFT_EXPECTS(d > 0, "invalid parameter (d<1)");
-            RAFT_EXPECTS(k > 0, "invalid parameter (k<1)");
-            RAFT_EXPECTS(tol > 0, "invalid parameter (tol<=0)");
-            RAFT_EXPECTS(maxiter >= 0, "invalid parameter (maxiter<0)");
+  // Check that parameters are valid
+  RAFT_EXPECTS(n > 0, "invalid parameter (n<1)");
+  RAFT_EXPECTS(d > 0, "invalid parameter (d<1)");
+  RAFT_EXPECTS(k > 0, "invalid parameter (k<1)");
+  RAFT_EXPECTS(tol > 0, "invalid parameter (tol<=0)");
+  RAFT_EXPECTS(maxiter >= 0, "invalid parameter (maxiter<0)");
 
-            // Allocate memory
-            vector_t <index_type_t> clusterSizes(handle, k);
-            vector_t <value_type_t> centroids(handle, d * k);
-            vector_t <value_type_t> work(handle, n * max(k, d));
-            vector_t <index_type_t> work_int(handle, 2 * d * n);
+  // Allocate memory
+  vector_t<index_type_t> clusterSizes(handle, k);
+  vector_t<value_type_t> centroids(handle, d * k);
+  vector_t<value_type_t> work(handle, n * max(k, d));
+  vector_t<index_type_t> work_int(handle, 2 * d * n);
 
-            // Perform k-means
-            return kmeans<index_type_t, value_type_t>(handle,
-                                                      n,
-                                                      d,
-                                                      k,
-                                                      tol,
-                                                      maxiter,
-                                                      obs,
-                                                      codes,
-                                                      clusterSizes.raw(),
-                                                      centroids.raw(),
-                                                      work.raw(),
-                                                      work_int.raw(),
-                                                      &residual,
-                                                      &iters,
-                                                      seed);
-        }
+  // Perform k-means
+  return kmeans<index_type_t, value_type_t>(handle,
+                                            n,
+                                            d,
+                                            k,
+                                            tol,
+                                            maxiter,
+                                            obs,
+                                            codes,
+                                            clusterSizes.raw(),
+                                            centroids.raw(),
+                                            work.raw(),
+                                            work_int.raw(),
+                                            &residual,
+                                            &iters,
+                                            seed);
+}
 
 }  // namespace detail
 }  // namespace cluster

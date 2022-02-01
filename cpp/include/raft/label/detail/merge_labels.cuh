@@ -25,6 +25,7 @@
 
 namespace raft {
 namespace label {
+namespace detail {
 
 /** Note: this is one possible implementation where we represent the label
  *  equivalence graph implicitly using labels_a, labels_b and mask.
@@ -153,5 +154,6 @@ void merge_labels(value_idx* labels_a,
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
+}  // namespace detail
 };  // namespace label
 };  // namespace raft

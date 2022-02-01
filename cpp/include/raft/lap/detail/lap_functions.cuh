@@ -28,7 +28,7 @@
 
 #include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
-#include <raft/lap/lap_kernels.cuh>
+#include <raft/lap/detail/lap_kernels.cuh>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 

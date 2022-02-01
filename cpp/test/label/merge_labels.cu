@@ -15,7 +15,7 @@
  */
 
 #include <gtest/gtest.h>
-#include <raft/label/merge_labels.cuh>
+#include <raft/label/merge_labels.hpp>
 
 #include "../test_utils.h"
 #include <raft/cudart_utils.h>

@@ -17,9 +17,8 @@
 #include <cub/cub.cuh>
 
 #include <raft/distance/fused_l2_nn.hpp>
-#include <raft/label/classlabels.cuh>
+#include <raft/label/classlabels.hpp>
 #include <raft/linalg/norm.cuh>
-#include <raft/mr/device/buffer.hpp>
 #include <raft/sparse/convert/csr.hpp>
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/linalg/symmetrize.hpp>

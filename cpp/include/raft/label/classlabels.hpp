@@ -19,7 +19,7 @@
 #include <raft/label/detail/classlabels.cuh>
 
 namespace raft {
-    namespace label {
+namespace label {
 
 /**
  * Get unique class labels.
@@ -36,8 +36,9 @@ namespace raft {
  * \param [in] stream cuda stream
  */
 template <typename value_t>
-int getUniquelabels(rmm::device_uvector<value_t>& unique, value_t* y, size_t n, cudaStream_t stream) {
-    detail::getUniqueLabels<value_t>(unique, y, n, stream);
+int getUniquelabels(rmm::device_uvector<value_t>& unique, value_t* y, size_t n, cudaStream_t stream)
+{
+  return detail::getUniquelabels<value_t>(unique, y, n, stream);
 }
 
 /**
@@ -60,8 +61,9 @@ int getUniquelabels(rmm::device_uvector<value_t>& unique, value_t* y, size_t n, 
  */
 template <typename value_t>
 void getOvrlabels(
-        value_t* y, int n, value_t* y_unique, int n_classes, value_t* y_out, int idx, cudaStream_t stream) {
-    detail::getOvrLabels<value_t>(y, n, y_unique, n_classes, y_out, idx, stream);
+  value_t* y, int n, value_t* y_unique, int n_classes, value_t* y_out, int idx, cudaStream_t stream)
+{
+  detail::getOvrlabels<value_t>(y, n, y_unique, n_classes, y_out, idx, stream);
 }
 /**
  * Maps an input array containing a series of numbers into a new array
@@ -84,9 +86,9 @@ void getOvrlabels(
  */
 template <typename Type, typename Lambda>
 void make_monotonic(
-        Type* out, Type* in, size_t N, cudaStream_t stream, Lambda filter_op, bool zero_based = false)
+  Type* out, Type* in, size_t N, cudaStream_t stream, Lambda filter_op, bool zero_based = false)
 {
-    detail::make_monotonic<Type, Lambda>(out, in, N, stream, filter_op, zero_based);
+  detail::make_monotonic<Type, Lambda>(out, in, N, stream, filter_op, zero_based);
 }
 
 /**
@@ -109,7 +111,7 @@ void make_monotonic(
 template <typename Type>
 void make_monotonic(Type* out, Type* in, size_t N, cudaStream_t stream, bool zero_based = false)
 {
-    detail::make_monotonic<Type>(out, in, N, stream, zero_based);
+  detail::make_monotonic<Type>(out, in, N, stream, zero_based);
 }
 };  // namespace label
 };  // end namespace raft

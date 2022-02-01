@@ -64,8 +64,6 @@ add_executable(test_raft
     test/matrix/math.cu
     test/matrix/matrix.cu
     test/matrix/linewise_op.cu
-    test/mr/device/buffer.cpp
-    test/mr/host/buffer.cpp
     test/mst.cu
     test/random/rng.cu
     test/random/rng_int.cu
