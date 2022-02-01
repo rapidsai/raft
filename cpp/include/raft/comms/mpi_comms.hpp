@@ -126,6 +126,8 @@ class mpi_comms : public comms_iface {
     // finalizing NCCL
     RAFT_NCCL_TRY_NO_THROW(ncclCommDestroy(nccl_comm_));
     if (owns_mpi_comm_) { RAFT_MPI_TRY_NO_THROW(MPI_Comm_free(&mpi_comm_)); }
+
+    free_requests_.clear();
   }
 
   int get_size() const { return size_; }
