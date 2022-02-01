@@ -773,6 +773,7 @@ inline cusparseStatus_t cusparsecsrmvex_bufferSize(cusparseHandle_t handle,
 {
   CUSPARSE_CHECK(cusparseSetStream(handle, stream));
 
+#if CUDART_VERSION >= 11020
   cusparseSpMatDescr_t matA;
   cusparsecreatecsr(&matA,
                     m,
@@ -802,8 +803,32 @@ inline cusparseStatus_t cusparsecsrmvex_bufferSize(cusparseHandle_t handle,
   RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroySpMat(matA));
   RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroyDnVec(vecX));
   RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroyDnVec(vecY));
-
   return result;
+
+#else
+
+  return cusparseCsrmvEx_bufferSize(handle,
+                                    alg,
+                                    transA,
+                                    m,
+                                    n,
+                                    nnz,
+                                    alpha,
+                                    CUDA_R_32F,
+                                    descrA,
+                                    csrValA,
+                                    CUDA_R_32F,
+                                    csrRowPtrA,
+                                    csrColIndA,
+                                    x,
+                                    CUDA_R_32F,
+                                    beta,
+                                    CUDA_R_32F,
+                                    y,
+                                    CUDA_R_32F,
+                                    CUDA_R_32F,
+                                    bufferSizeInBytes);
+#endif
 }
 template <>
 inline cusparseStatus_t cusparsecsrmvex_bufferSize(cusparseHandle_t handle,
@@ -824,6 +849,8 @@ inline cusparseStatus_t cusparsecsrmvex_bufferSize(cusparseHandle_t handle,
                                                    cudaStream_t stream)
 {
   CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+
+#if CUDART_VERSION >= 11020
   cusparseSpMatDescr_t matA;
   cusparsecreatecsr(&matA,
                     m,
@@ -853,8 +880,30 @@ inline cusparseStatus_t cusparsecsrmvex_bufferSize(cusparseHandle_t handle,
   RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroySpMat(matA));
   RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroyDnVec(vecX));
   RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroyDnVec(vecY));
-
   return result;
+#else
+  return cusparseCsrmvEx_bufferSize(handle,
+                                    alg,
+                                    transA,
+                                    m,
+                                    n,
+                                    nnz,
+                                    alpha,
+                                    CUDA_R_64F,
+                                    descrA,
+                                    csrValA,
+                                    CUDA_R_64F,
+                                    csrRowPtrA,
+                                    csrColIndA,
+                                    x,
+                                    CUDA_R_64F,
+                                    beta,
+                                    CUDA_R_64F,
+                                    y,
+                                    CUDA_R_64F,
+                                    CUDA_R_64F,
+                                    bufferSizeInBytes);
+#endif
 }
 
 template <typename T>
@@ -893,6 +942,8 @@ inline cusparseStatus_t cusparsecsrmvex(cusparseHandle_t handle,
                                         cudaStream_t stream)
 {
   CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+
+#if CUDART_VERSION >= 11020
   cusparseSpMatDescr_t matA;
   cusparsecreatecsr(&matA,
                     m,
@@ -914,8 +965,30 @@ inline cusparseStatus_t cusparsecsrmvex(cusparseHandle_t handle,
   RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroySpMat(matA));
   RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroyDnVec(vecX));
   RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroyDnVec(vecY));
-
   return result;
+#else
+  return cusparseCsrmvEx(handle,
+                         alg,
+                         transA,
+                         m,
+                         n,
+                         nnz,
+                         alpha,
+                         CUDA_R_32F,
+                         descrA,
+                         csrValA,
+                         CUDA_R_32F,
+                         csrRowPtrA,
+                         csrColIndA,
+                         x,
+                         CUDA_R_32F,
+                         beta,
+                         CUDA_R_32F,
+                         y,
+                         CUDA_R_32F,
+                         CUDA_R_32F,
+                         buffer);
+#endif
 }
 template <>
 inline cusparseStatus_t cusparsecsrmvex(cusparseHandle_t handle,
@@ -937,6 +1010,7 @@ inline cusparseStatus_t cusparsecsrmvex(cusparseHandle_t handle,
 {
   CUSPARSE_CHECK(cusparseSetStream(handle, stream));
 
+#if CUDART_VERSION >= 11020
   cusparseSpMatDescr_t matA;
   cusparsecreatecsr(&matA,
                     m,
@@ -958,8 +1032,32 @@ inline cusparseStatus_t cusparsecsrmvex(cusparseHandle_t handle,
   RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroySpMat(matA));
   RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroyDnVec(vecX));
   RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroyDnVec(vecY));
-
   return result;
+
+#else
+
+  return cusparseCsrmvEx(handle,
+                         alg,
+                         transA,
+                         m,
+                         n,
+                         nnz,
+                         alpha,
+                         CUDA_R_64F,
+                         descrA,
+                         csrValA,
+                         CUDA_R_64F,
+                         csrRowPtrA,
+                         csrColIndA,
+                         x,
+                         CUDA_R_64F,
+                         beta,
+                         CUDA_R_64F,
+                         y,
+                         CUDA_R_64F,
+                         CUDA_R_64F,
+                         buffer);
+#endif
 }
 
 /** @} */
@@ -1517,6 +1615,7 @@ inline cusparseStatus_t cusparsecsr2dense_buffersize(cusparseHandle_t handle,
                                                      cudaStream_t stream,
                                                      bool row_major)
 {
+#if CUDART_VERSION >= 11020
   cusparseOrder_t order = row_major ? CUSPARSE_ORDER_ROW : CUSPARSE_ORDER_COL;
 
   cusparseSpMatDescr_t matA;
@@ -1542,6 +1641,12 @@ inline cusparseStatus_t cusparsecsr2dense_buffersize(cusparseHandle_t handle,
   RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroySpMat(matA));
   RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroyDnMat(matB));
 
+#else
+
+  cusparseStatus_t result = CUSPARSE_STATUS_SUCCESS;
+  buffer_size[0]          = 0;
+
+#endif
   return result;
 }
 
@@ -1560,6 +1665,7 @@ inline cusparseStatus_t cusparsecsr2dense_buffersize(cusparseHandle_t handle,
                                                      cudaStream_t stream,
                                                      bool row_major)
 {
+#if CUDART_VERSION >= 11020
   cusparseOrder_t order = row_major ? CUSPARSE_ORDER_ROW : CUSPARSE_ORDER_COL;
   cusparseSpMatDescr_t matA;
   cusparsecreatecsr(&matA,
@@ -1583,6 +1689,12 @@ inline cusparseStatus_t cusparsecsr2dense_buffersize(cusparseHandle_t handle,
 
   RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroySpMat(matA));
   RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroyDnMat(matB));
+
+#else
+  cusparseStatus_t result = CUSPARSE_STATUS_SUCCESS;
+  buffer_size[0]          = 0;
+
+#endif
 
   return result;
 }
@@ -1619,6 +1731,7 @@ inline cusparseStatus_t cusparsecsr2dense(cusparseHandle_t handle,
 {
   CUSPARSE_CHECK(cusparseSetStream(handle, stream));
 
+#if CUDART_VERSION >= 11020
   cusparseOrder_t order = row_major ? CUSPARSE_ORDER_ROW : CUSPARSE_ORDER_COL;
   cusparseSpMatDescr_t matA;
   cusparsecreatecsr(&matA,
@@ -1643,6 +1756,10 @@ inline cusparseStatus_t cusparsecsr2dense(cusparseHandle_t handle,
   RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroySpMat(matA));
   RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroyDnMat(matB));
 
+#else
+  return cusparseScsr2dense(handle, m, n, descrA, csrValA, csrRowPtrA, csrColIndA, A, lda);
+#endif
+
   return result;
 }
 template <>
@@ -1661,6 +1778,8 @@ inline cusparseStatus_t cusparsecsr2dense(cusparseHandle_t handle,
                                           bool row_major)
 {
   CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+
+#if CUDART_VERSION >= 11020
   cusparseOrder_t order = row_major ? CUSPARSE_ORDER_ROW : CUSPARSE_ORDER_COL;
   cusparseSpMatDescr_t matA;
   cusparsecreatecsr(&matA,
@@ -1684,6 +1803,10 @@ inline cusparseStatus_t cusparsecsr2dense(cusparseHandle_t handle,
 
   RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroySpMat(matA));
   RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroyDnMat(matB));
+#else
+
+  return cusparseDcsr2dense(handle, m, n, descrA, csrValA, csrRowPtrA, csrColIndA, A, lda);
+#endif
 
   return result;
 }
