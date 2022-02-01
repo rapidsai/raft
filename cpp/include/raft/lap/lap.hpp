@@ -27,8 +27,8 @@
 #include <raft/handle.hpp>
 #include <rmm/device_uvector.hpp>
 
-#include "d_structs.h"
-#include "lap_functions.cuh"
+#include "detail/d_structs.h"
+#include "detail/lap_functions.cuh"
 
 namespace raft {
 namespace lap {

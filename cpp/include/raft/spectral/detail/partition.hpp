@@ -15,12 +15,26 @@
  */
 #pragma once
 
+#include <math.h>
+#include <stdio.h>
+
+#include <cuda.h>
+#include <thrust/fill.h>
+#include <thrust/reduce.h>
+#include <thrust/transform.h>
+
 #include <tuple>
 
-#include <raft/spectral/detail/partition.hpp>
+#include <raft/spectral/cluster_solvers.hpp>
+#include <raft/spectral/eigen_solvers.hpp>
+#include <raft/spectral/detail/spectral_util.hpp>
 
 namespace raft {
 namespace spectral {
+namespace detail {
+
+using namespace matrix;
+using namespace linalg;
 
 // =========================================================
 // Spectral partitioner
@@ -56,9 +70,45 @@ std::tuple<vertex_t, weight_t, vertex_t> partition(handle_t const& handle,
                                                    vertex_t* __restrict__ clusters,
                                                    weight_t* eigVals,
                                                    weight_t* eigVecs) {
-    return detail::partition<vertex_t, weight_t, EigenSolver, ClusterSolver>(handle, csr_m, eigen_solver,
-                                                                             cluster_solver, clusters,
-                                                                             eigVals, eigVecs);
+  RAFT_EXPECTS(clusters != nullptr, "Null clusters buffer.");
+  RAFT_EXPECTS(eigVals != nullptr, "Null eigVals buffer.");
+  RAFT_EXPECTS(eigVecs != nullptr, "Null eigVecs buffer.");
+
+  auto stream   = handle.get_stream();
+  auto cublas_h = handle.get_cublas_handle();
+
+  std::tuple<vertex_t, weight_t, vertex_t>
+    stats;  //{iters_eig_solver,residual_cluster,iters_cluster_solver} // # iters eigen solver,
+            // cluster solver residual, # iters cluster solver
+
+  vertex_t n = csr_m.nrows_;
+
+  // -------------------------------------------------------
+  // Spectral partitioner
+  // -------------------------------------------------------
+
+  // Compute eigenvectors of Laplacian
+
+  // Initialize Laplacian
+  /// sparse_matrix_t<vertex_t, weight_t> A{handle, graph};
+  laplacian_matrix_t<vertex_t, weight_t> L{handle, csr_m};
+
+  auto eigen_config = eigen_solver.get_config();
+  auto nEigVecs     = eigen_config.n_eigVecs;
+
+  // Compute smallest eigenvalues and eigenvectors
+  std::get<0>(stats) = eigen_solver.solve_smallest_eigenvectors(handle, L, eigVals, eigVecs);
+
+  // Whiten eigenvector matrix
+  transform_eigen_matrix(handle, n, nEigVecs, eigVecs);
+
+  // Find partition clustering
+  auto pair_cluster = cluster_solver.solve(handle, n, nEigVecs, eigVecs, clusters);
+
+  std::get<1>(stats) = pair_cluster.first;
+  std::get<2>(stats) = pair_cluster.second;
+
+  return stats;
 }
 
 // =========================================================
@@ -86,8 +136,45 @@ void analyzePartition(handle_t const& handle,
                       const vertex_t* __restrict__ clusters,
                       weight_t& edgeCut,
                       weight_t& cost) {
-    detail::analyzePartition<vertex_t, weight_t>(handle, csr_m, nClusters, clusters, edgeCut, cost);
+  RAFT_EXPECTS(clusters != nullptr, "Null clusters buffer.");
+
+  vertex_t i;
+  vertex_t n = csr_m.nrows_;
+
+  auto stream   = handle.get_stream();
+  auto cublas_h = handle.get_cublas_handle();
+
+  weight_t partEdgesCut, clustersize;
+
+  // Device memory
+  vector_t<weight_t> part_i(handle, n);
+  vector_t<weight_t> Lx(handle, n);
+
+  // Initialize cuBLAS
+  RAFT_CUBLAS_TRY(cublassetpointermode(cublas_h, CUBLAS_POINTER_MODE_HOST, stream));
+
+  // Initialize Laplacian
+  /// sparse_matrix_t<vertex_t, weight_t> A{handle, graph};
+  laplacian_matrix_t<vertex_t, weight_t> L{handle, csr_m};
+
+  // Initialize output
+  cost    = 0;
+  edgeCut = 0;
+
+  // Iterate through partitions
+  for (i = 0; i < nClusters; ++i) {
+    // Construct indicator vector for ith partition
+    if (!construct_indicator(handle, i, n, clustersize, partEdgesCut, clusters, part_i, Lx, L)) {
+      WARNING("empty partition");
+      continue;
+    }
+
+    // Record results
+    cost += partEdgesCut / clustersize;
+    edgeCut += partEdgesCut / 2;
+  }
 }
 
+}  // namespace detail
 }  // namespace spectral
 }  // namespace raft

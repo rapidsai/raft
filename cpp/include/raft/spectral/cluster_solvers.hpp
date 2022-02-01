@@ -15,10 +15,11 @@
  */
 #pragma once
 
-#include <raft/spectral/kmeans.hpp>
+#include <raft/cluster/kmeans.hpp>
 #include <utility>  // for std::pair
 
 namespace raft {
+namespace spectral {
 
 using namespace matrix;
 
@@ -52,7 +53,8 @@ struct kmeans_solver_t {
     RAFT_EXPECTS(codes != nullptr, "Null codes buffer.");
     value_type_t residual{};
     index_type_t iters{};
-    kmeans(handle,
+
+    raft::cluster::kmeans(handle,
            n_obs_vecs,
            dim,
            config_.n_clusters,
@@ -71,4 +73,6 @@ struct kmeans_solver_t {
  private:
   cluster_solver_config_t<index_type_t, value_type_t, size_type_t> config_;
 };
+
+}  // namespace spectral
 }  // namespace raft

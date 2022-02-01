@@ -17,7 +17,6 @@
 #include <raft/cudart_utils.h>
 
 #include <raft/cuda_utils.cuh>
-#include <raft/sparse/cusparse_wrappers.h>
 #include <raft/spectral/partition.hpp>
 #include <rmm/device_uvector.hpp>
 
