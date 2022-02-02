@@ -12,12 +12,14 @@ At its core, RAFT is a header-only C++ library with optional shared libraries th
 #####
 | Category | Description / Examples |
 | --- | --- |
-| **Data Formats** | sparse & dense, conversions, and data generations |
+| **Data Formats** | sparse & dense, conversions, data generation |
 | **Data Generation** | sparse, spatial, machine learning datasets |
-| **Dense Linear Algebra** | matrix arithmetic, norms, factorization, least squares & eigenvalue problems |
+| **Dense Linear Algebra** | matrix arithmetic, norms, factorization, least squares, svd & eigenvalue problems |
 | **Spatial** | pairwise distances, nearest neighbors, neighborhood graph construction |
-| **Sparse Operations** | linear algebra, eigenvalue problems, slicing, symmetrization, norms, spectral embedding, msf |
+| **Sparse Operations** | linear algebra, eigenvalue problems, slicing, symmetrization, norms, spectral embedding |
 | **Basic Clustering** | spectral clustering, hierarchical clustering, k-means |
+| **Combinatorial Optimization** | linear assignment problem, minimum spanning forest |
+| **Iterative Solvers** | lanczos |
 | **Statistics** | sampling, moments and summary statistics, metrics |
 | **Distributed Tools** | multi-node multi-gpu infrastructure |
 
