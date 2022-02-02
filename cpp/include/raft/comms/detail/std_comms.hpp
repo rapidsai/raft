@@ -21,6 +21,7 @@
 #include <raft/comms/detail/util.hpp>
 
 #include <raft/handle.hpp>
+#include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include <raft/error.hpp>
@@ -70,11 +71,11 @@ class std_comms : public comms_iface {
             std::shared_ptr<ucp_ep_h*> eps,
             int num_ranks,
             int rank,
-            cudaStream_t stream,
+            rmm::cuda_stream_view stream,
             bool subcomms_ucp = true)
     : nccl_comm_(nccl_comm),
       stream_(stream),
-      status_(2, stream),
+      status_(stream),
       num_ranks_(num_ranks),
       rank_(rank),
       subcomms_ucp_(subcomms_ucp),
@@ -92,10 +93,10 @@ class std_comms : public comms_iface {
    * @param rank rank of the current worker
    * @param stream stream for ordering collective operations
    */
-  std_comms(const ncclComm_t nccl_comm, int num_ranks, int rank, cudaStream_t stream)
+  std_comms(const ncclComm_t nccl_comm, int num_ranks, int rank, rmm::cuda_stream_view stream)
     : nccl_comm_(nccl_comm),
       stream_(stream),
-      status_(2, stream),
+      status_(stream),
       num_ranks_(num_ranks),
       rank_(rank),
       subcomms_ucp_(false)
@@ -108,8 +109,6 @@ class std_comms : public comms_iface {
     requests_in_flight_.clear();
     free_requests_.clear();
   }
-
-  void initialize() { sendbuff_ = status_.data(); }
 
   int get_size() const { return num_ranks_; }
 
@@ -181,9 +180,7 @@ class std_comms : public comms_iface {
 
   void barrier() const
   {
-    RAFT_CUDA_TRY(cudaMemsetAsync(sendbuff_, 1, sizeof(int), stream_));
-
-    allreduce(sendbuff_, sendbuff_, 1, datatype_t::INT32, op_t::SUM, stream_);
+    allreduce(status_.data(), status_.data(), 1, datatype_t::INT32, op_t::SUM, stream_);
 
     ASSERT(sync_stream(stream_) == status_t::SUCCESS,
            "ERROR: syncStream failed. This can be caused by a failed rank_.");
@@ -537,8 +534,7 @@ class std_comms : public comms_iface {
   ncclComm_t nccl_comm_;
   cudaStream_t stream_;
 
-  int* sendbuff_;
-  rmm::device_uvector<int> status_;
+  rmm::device_scalar<int32_t> status_;
 
   int num_ranks_;
   int rank_;
