@@ -82,9 +82,7 @@ class std_comms : public comms_iface {
       ucp_worker_(ucp_worker),
       ucp_eps_(eps),
       next_request_id_(0)
-  {
-    initialize();
-  };
+  {};
 
   /**
    * @brief constructor for collective-only operation
@@ -180,7 +178,8 @@ class std_comms : public comms_iface {
 
   void barrier() const
   {
-    allreduce(status_.data(), status_.data(), 1, datatype_t::INT32, op_t::SUM, stream_);
+    void *s = status_.data();
+    allreduce(status_.data(), s, 1, datatype_t::INT32, op_t::SUM, stream_);
 
     ASSERT(sync_stream(stream_) == status_t::SUCCESS,
            "ERROR: syncStream failed. This can be caused by a failed rank_.");
