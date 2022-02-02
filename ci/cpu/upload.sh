@@ -61,7 +61,7 @@ if [[ "$BUILD_LIBRAFT" == "1" && "$UPLOAD_LIBRAFT" == "1" ]]; then
   gpuci_retry anaconda -t ${MY_UPLOAD_KEY} upload -u ${CONDA_USERNAME:-rapidsai} ${LABEL_OPTION} --skip-existing ${LIBRAFT_HEADERS_FILE} --no-progress
 fi
 
-if [[ "$BUILD_PYRAFT" == "1" ]]; then
+if [[ "$BUILD_RAFT" == "1" ]]; then
   test -e ${PYRAFT_FILE}
   echo "Upload pyraft"
   echo ${PYRAFT_FILE}

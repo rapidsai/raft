@@ -70,7 +70,7 @@ conda config --set ssl_verify False
 # install. This should eliminate a mismatch between different CUDA versions on
 # cpu vs. gpu builds that is problematic with CUDA 11.5 Enhanced Compat.
 if [ "$BUILD_LIBRAFT" == '1' ]; then
-  BUILD_PYRAFT=1
+  BUILD_RAFT=1
   # If we are doing CUDA + Python builds, libraft package is located at ${CONDA_BLD_DIR}
   CONDA_LOCAL_CHANNEL="${CONDA_BLD_DIR}"
 else
@@ -100,7 +100,7 @@ else
   gpuci_logger "SKIPPING build of conda packages for libraft-nn, libraft-distance and libraft-headers"
 fi
 
-if [ "$BUILD_raft" == "1" ]; then
+if [ "$BUILD_RAFT" == "1" ]; then
   gpuci_logger "Building conda packages for pyraft"
   if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
     gpuci_conda_retry build --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/pyraft --python=$PYTHON
