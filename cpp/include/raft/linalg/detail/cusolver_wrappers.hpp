@@ -180,7 +180,6 @@ inline cusolverStatus_t cusolverDngetrf_bufferSize(  // NOLINT
   int lda,
   int* Lwork)
 {
-  RAFT_CUSOLVER_TRY(cusolverDnSetStream(handle, stream));
   return cusolverDnSgetrf_bufferSize(handle, m, n, A, lda, Lwork);
 }
 
@@ -193,7 +192,6 @@ inline cusolverStatus_t cusolverDngetrf_bufferSize(  // NOLINT
   int lda,
   int* Lwork)
 {
-  RAFT_CUSOLVER_TRY(cusolverDnSetStream(handle, stream));
   return cusolverDnDgetrf_bufferSize(handle, m, n, A, lda, Lwork);
 }
 
@@ -275,7 +273,6 @@ inline cusolverStatus_t cusolverDnsyevd_bufferSize(  // NOLINT
   const float* W,
   int* lwork)
 {
-  RAFT_CUSOLVER_TRY(cusolverDnSetStream(handle, stream));
   return cusolverDnSsyevd_bufferSize(handle, jobz, uplo, n, A, lda, W, lwork);
 }
 
@@ -290,7 +287,6 @@ inline cusolverStatus_t cusolverDnsyevd_bufferSize(  // NOLINT
   const double* W,
   int* lwork)
 {
-  RAFT_CUSOLVER_TRY(cusolverDnSetStream(handle, stream));
   return cusolverDnDsyevd_bufferSize(handle, jobz, uplo, n, A, lda, W, lwork);
 }
 /** @} */
@@ -375,7 +371,6 @@ inline cusolverStatus_t cusolverDnsyevj_bufferSize(  // NOLINT
   int* lwork,
   syevjInfo_t params)
 {
-  RAFT_CUSOLVER_TRY(cusolverDnSetStream(handle, stream));
   return cusolverDnSsyevj_bufferSize(handle, jobz, uplo, n, A, lda, W, lwork, params);
 }
 
@@ -391,7 +386,6 @@ inline cusolverStatus_t cusolverDnsyevj_bufferSize(  // NOLINT
   int* lwork,
   syevjInfo_t params)
 {
-  RAFT_CUSOLVER_TRY(cusolverDnSetStream(handle, stream));
   return cusolverDnDsyevj_bufferSize(handle, jobz, uplo, n, A, lda, W, lwork, params);
 }
 /** @} */
@@ -486,7 +480,6 @@ inline cusolverStatus_t cusolverDnsyevdx_bufferSize(  // NOLINT
   const float* W,
   int* lwork)
 {
-  RAFT_CUSOLVER_TRY(cusolverDnSetStream(handle, stream));
   return cusolverDnSsyevdx_bufferSize(
     handle, jobz, range, uplo, n, A, lda, vl, vu, il, iu, h_meig, W, lwork);
 }
@@ -508,7 +501,6 @@ inline cusolverStatus_t cusolverDnsyevdx_bufferSize(  // NOLINT
   const double* W,
   int* lwork)
 {
-  RAFT_CUSOLVER_TRY(cusolverDnSetStream(handle, stream));
   return cusolverDnDsyevdx_bufferSize(
     handle, jobz, range, uplo, n, A, lda, vl, vu, il, iu, h_meig, W, lwork);
 }
@@ -596,10 +588,8 @@ cusolverStatus_t cusolverDngesvd_bufferSize(  // NOLINT
   int* lwork)
 {
   if (std::is_same<std::decay_t<T>, float>::value) {
-    RAFT_CUSOLVER_TRY(cusolverDnSetStream(handle, stream));
     return cusolverDnSgesvd_bufferSize(handle, m, n, lwork);
   } else {
-    RAFT_CUSOLVER_TRY(cusolverDnSetStream(handle, stream));
     return cusolverDnDgesvd_bufferSize(handle, m, n, lwork);
   }
 }
@@ -704,7 +694,6 @@ inline cusolverStatus_t CUSOLVERAPI cusolverDngesvdj_bufferSize(  // NOLINT
   int* lwork,
   gesvdjInfo_t params)
 {
-  RAFT_CUSOLVER_TRY(cusolverDnSetStream(handle, stream));
   return cusolverDnSgesvdj_bufferSize(
     handle, jobz, econ, m, n, A, lda, S, U, ldu, V, ldv, lwork, params);
 }
@@ -725,7 +714,6 @@ inline cusolverStatus_t CUSOLVERAPI cusolverDngesvdj_bufferSize(  // NOLINT
   int* lwork,
   gesvdjInfo_t params)
 {
-  RAFT_CUSOLVER_TRY(cusolverDnSetStream(handle, stream));
   return cusolverDnDgesvdj_bufferSize(
     handle, jobz, econ, m, n, A, lda, S, U, ldu, V, ldv, lwork, params);
 }
@@ -820,7 +808,6 @@ inline cusolverStatus_t cusolverDnpotrf_bufferSize(  // NOLINT
   int lda,
   int* Lwork)
 {
-  RAFT_CUSOLVER_TRY(cusolverDnSetStream(handle, stream));
   return cusolverDnSpotrf_bufferSize(handle, uplo, n, A, lda, Lwork);
 }
 
@@ -833,7 +820,6 @@ inline cusolverStatus_t cusolverDnpotrf_bufferSize(  // NOLINT
   int lda,
   int* Lwork)
 {
-  RAFT_CUSOLVER_TRY(cusolverDnSetStream(handle, stream));
   return cusolverDnDpotrf_bufferSize(handle, uplo, n, A, lda, Lwork);
 }
 
@@ -991,7 +977,6 @@ inline cusolverStatus_t cusolverDngeqrf_bufferSize(  // NOLINT
   int lda,
   int* Lwork)
 {
-  RAFT_CUSOLVER_TRY(cusolverDnSetStream(handle, stream));
   return cusolverDnSgeqrf_bufferSize(handle, m, n, A, lda, Lwork);
 }
 template <>
@@ -1003,7 +988,6 @@ inline cusolverStatus_t cusolverDngeqrf_bufferSize(  // NOLINT
   int lda,
   int* Lwork)
 {
-  RAFT_CUSOLVER_TRY(cusolverDnSetStream(handle, stream));
   return cusolverDnDgeqrf_bufferSize(handle, m, n, A, lda, Lwork);
 }
 /** @} */
@@ -1081,7 +1065,6 @@ inline cusolverStatus_t cusolverDnorgqr_bufferSize(  // NOLINT
   const float* TAU,
   int* lwork)
 {
-  RAFT_CUSOLVER_TRY(cusolverDnSetStream(handle, stream));
   return cusolverDnSorgqr_bufferSize(handle, m, n, k, A, lda, TAU, lwork);
 }
 template <>
@@ -1095,7 +1078,6 @@ inline cusolverStatus_t cusolverDnorgqr_bufferSize(  // NOLINT
   const double* TAU,
   int* lwork)
 {
-  RAFT_CUSOLVER_TRY(cusolverDnSetStream(handle, stream));
   return cusolverDnDorgqr_bufferSize(handle, m, n, k, A, lda, TAU, lwork);
 }
 /** @} */
@@ -1195,7 +1177,6 @@ inline cusolverStatus_t cusolverDnormqr_bufferSize(  // NOLINT
   int ldc,
   int* lwork)
 {
-  RAFT_CUSOLVER_TRY(cusolverDnSetStream(handle, stream));
   return cusolverDnSormqr_bufferSize(handle, side, trans, m, n, k, A, lda, tau, C, ldc, lwork);
 }
 
@@ -1214,7 +1195,6 @@ inline cusolverStatus_t cusolverDnormqr_bufferSize(  // NOLINT
   int ldc,
   int* lwork)
 {
-  RAFT_CUSOLVER_TRY(cusolverDnSetStream(handle, stream));
   return cusolverDnDormqr_bufferSize(handle, side, trans, m, n, k, A, lda, tau, C, ldc, lwork);
 }
 /** @} */
@@ -1253,7 +1233,6 @@ inline cusolverStatus_t cusolverSpcsrqrBufferInfoBatched(  // NOLINT
   size_t* internalDataInBytes,
   size_t* workspaceInBytes)
 {
-  RAFT_CUSOLVER_TRY(cusolverDnSetStream(handle, stream));
   return cusolverSpScsrqrBufferInfoBatched(handle,
                                            m,
                                            n,
@@ -1283,7 +1262,6 @@ inline cusolverStatus_t cusolverSpcsrqrBufferInfoBatched(  // NOLINT
   size_t* internalDataInBytes,
   size_t* workspaceInBytes)
 {
-  RAFT_CUSOLVER_TRY(cusolverDnSetStream(handle, stream));
   return cusolverSpDcsrqrBufferInfoBatched(handle,
                                            m,
                                            n,
@@ -1332,7 +1310,7 @@ inline cusolverStatus_t cusolverSpcsrqrsvBatched(  // NOLINT
   void* pBuffer,
   cudaStream_t stream)
 {
-  RAFT_CUSOLVER_TRY(cusolverDnSetStream(handle, stream));
+  RAFT_CUSOLVER_TRY(cusolverSpSetStream(handle, stream));
   return cusolverSpScsrqrsvBatched(
     handle, m, n, nnzA, descrA, csrValA, csrRowPtrA, csrColIndA, b, x, batchSize, info, pBuffer);
 }
@@ -1354,7 +1332,7 @@ inline cusolverStatus_t cusolverSpcsrqrsvBatched(  // NOLINT
   void* pBuffer,
   cudaStream_t stream)
 {
-  RAFT_CUSOLVER_TRY(cusolverDnSetStream(handle, stream));
+  RAFT_CUSOLVER_TRY(cusolverSpSetStream(handle, stream));
   return cusolverSpDcsrqrsvBatched(
     handle, m, n, nnzA, descrA, csrValA, csrRowPtrA, csrColIndA, b, x, batchSize, info, pBuffer);
 }
