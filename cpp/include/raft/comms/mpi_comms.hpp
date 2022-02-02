@@ -131,7 +131,6 @@ class mpi_comms : public comms_iface {
   void initialize()
   {
     sendbuff_ = status_.data();
-    recvbuff_ = status_.data() + 1;
   }
 
   virtual ~mpi_comms()
@@ -157,9 +156,8 @@ class mpi_comms : public comms_iface {
   void barrier() const
   {
     RAFT_CUDA_TRY(cudaMemsetAsync(sendbuff_, 1, sizeof(int), stream_));
-    RAFT_CUDA_TRY(cudaMemsetAsync(recvbuff_, 1, sizeof(int), stream_));
 
-    allreduce(sendbuff_, recvbuff_, 1, datatype_t::INT32, op_t::SUM, stream_);
+    allreduce(sendbuff_, sendbuff_, 1, datatype_t::INT32, op_t::SUM, stream_);
 
     ASSERT(sync_stream(stream_) == status_t::SUCCESS,
            "ERROR: syncStream failed. This can be caused by a failed rank_.");
@@ -453,7 +451,7 @@ class mpi_comms : public comms_iface {
   MPI_Comm mpi_comm_;
   cudaStream_t stream_;
 
-  int *sendbuff_, *recvbuff_;
+  int *sendbuff_;
   rmm::device_uvector<int> status_;
 
   ncclComm_t nccl_comm_;
