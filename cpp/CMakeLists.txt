@@ -142,6 +142,16 @@ target_link_libraries(raft INTERFACE
 target_compile_definitions(raft INTERFACE $<$<BOOL:${NVTX}>:NVTX_ENABLED>)
 target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
 
+if(RAFT_COMPILE_LIBRARIES)
+  file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld"
+[=[
+SECTIONS
+{
+.nvFatBinSegment : { *(.nvFatBinSegment) }
+.nv_fatbin : { *(.nv_fatbin) }
+}
+]=])
+endif()
 ##############################################################################
 # - raft_distance ------------------------------------------------------------
 add_library(raft_distance INTERFACE)
@@ -180,6 +190,9 @@ if(RAFT_COMPILE_LIBRARIES)
   target_compile_definitions(raft_distance_lib
           INTERFACE "RAFT_DISTANCE_COMPILED")
 
+  # ensure CUDA symbols aren't relocated to the middle of the debug build binaries
+  target_link_options(raft_distance_lib PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld")
+
 endif()
 
 target_link_libraries(raft_distance INTERFACE raft::raft
@@ -214,6 +227,9 @@ if(RAFT_COMPILE_LIBRARIES)
           PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
           "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
           )
+  # ensure CUDA symbols aren't relocated to the middle of the debug build binaries
+  target_link_options(raft_nn_lib PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld")
+
   target_compile_definitions(raft_nn_lib
           INTERFACE "RAFT_NN_COMPILED")
 
