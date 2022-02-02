@@ -32,7 +32,7 @@ gpuci_logger "Get conda file output locations"
 
 export LIBRAFT_NN_FILE=`conda build --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/libraft_nn --output`
 export LIBRAFT_DISTANCE_FILE=`conda build --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/libraft_distance --output`
-export LIBRAFT_HEADERS_FILE=`conda build --croot ${CONDA_BLD_DIR} conda/recipes/libraft_headers --python=$PYTHON --output`
+export LIBRAFT_HEADERS_FILE=`conda build --croot ${CONDA_BLD_DIR} conda/recipes/libraft_headers --output`
 export PYRAFT_FILE=`conda build --croot ${CONDA_BLD_DIR} conda/recipes/pyraft --python=$PYTHON --output`
 
 ################################################################################
