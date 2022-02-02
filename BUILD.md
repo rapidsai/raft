@@ -13,7 +13,7 @@
 - NVIDIA driver 450.80.02+
 - Pascal architecture of better (Compute capability >= 6.0)
 
-C++ RAFT is a header-only library but provides the option of building shared libraries with template instantiations for common types to speed up compile times for larger projects. The recommended way to build and install RAFT is to use the `build.sh` script in the root of the repository. This script can build both the C++ and Python code and provides options for building and installing the shared libraries.
+C++ RAFT is a header-only library but provides the option of building shared libraries with template instantiations for common types to speed up compile times for larger projects. The recommended way to build and install RAFT is to use the `build.sh` script in the root of the repository. This script can build both the C++ and Python code and provides options for building and installing the individual shared libraries.
 
 To run C++ tests:
 
@@ -30,14 +30,14 @@ python -m pytest raft
 
 To build manually, you can also use `CMake` and setup.py directly.
 
-For C++, the `RAFT_COMPILE_LIBRARIES` option can be used to compile the shared libraries. Shared libraries are provided for the `nn` and `distance` packages currently. The `nn` package requires FAISS, which will be built from source if it is not already installed. [FAISS](https://github.com/facebookresearch/faiss) can optionally be statically compiled into the `nn` shared library with the `RAFT_USE_FAISS_STATIC` option.
+For C++, the `RAFT_COMPILE_LIBRARIES` option can be used to compile the shared libraries. Shared libraries are provided for the `libraft-nn` and `libraft-distance` components currently. The `libraft-nn` component depends upon [FAISS](https://github.com/facebookresearch/faiss) and the `RAFT_ENABLE_NN_DEPENDENCIES` option will build it from source if it is not already installed. FAISS can optionally be statically compiled into the `libraft-nn` shared library with the `RAFT_USE_FAISS_STATIC` option.
 
 To install RAFT into a specific location, use `CMAKE_INSTALL_PREFIX`. The snippet below will install it into the current conda environment.
 ```bash
 cd cpp
 mkdir build
 cd build
-cmake -DRAFT_COMPILE_LIBRARIES=ON -DRAFT_USE_FAISS_STATIC=OFF  -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX ../
+cmake -DRAFT_COMPILE_LIBRARIES=ON -DRAFT_USE_FAISS_STATIC=OFF -DRAFT_ENABLE_NN_DEPENDENCIES=ON  -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX ../
 make install
 ```
 
@@ -51,11 +51,15 @@ python setup.py install
 
 ## <a id="use_raft"></a>Using RAFT in downstream projects
 
-### <a id="cxx_integration"></a>C++ Integration
+### <a id="cxx_integration"></a>C++ header-only integration using cmake
 
-Use RAFT in cmake projects with `find_package(raft)` for header-only operation and the `raft::raft` target will be available for configuring linking and `RAFT_INCLUDE_DIR` will be available for includes. Note that if any packages are used which require downstream dependencies, such as the `nn` package requiring FAISS, these dependencies will have be installed and configured in cmake independently.
+Use RAFT in cmake projects with `find_package(raft)` for header-only operation and the `raft::raft` target will be available for configuring linking and `RAFT_INCLUDE_DIR` will be available for includes. Note that if any packages are used which require downstream dependencies, such as the `libraft-nn` package requiring FAISS, these dependencies will have be installed and configured in cmake independently.
+
+### <a id="build_cxx_source"></a>Using pre-compiled shared libraries
 
 Use `find_package(raft COMPONENTS nn, distance)` to enable the shared libraries and pass dependencies through separate targets for each component. In this example, `raft::distance` and `raft::nn` targets will be available for configuring linking paths. These targets will also pass through any transitive dependencies (such as FAISS in the case of the `nn` package).
+
+
 
 ### <a id="build_cxx_source"></a>Building RAFT C++ from source
 
