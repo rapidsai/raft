@@ -27,13 +27,12 @@ namespace label {
  * The y array is assumed to store class labels. The unique values are selected
  * from this array.
  *
- * \tparam value_t numeric type of the arrays with class labels
- * \param [in] y device array of labels, size [n]
- * \param [in] n number of labels
- * \param [out] unique device array of unique labels, unallocated on entry,
- *   on exit it has size [n_unique]
- * \param [out] n_unique number of unique labels
- * \param [in] stream cuda stream
+ * @tparam value_t numeric type of the arrays with class labels
+ * @param [in] y device array of labels, size [n]
+ * @param [in] n number of labels
+ * @param [in] stream cuda stream
+ * @returns unique device array of unique labels, unallocated on entry,
+ *   on exit it has size
  */
 template <typename value_t>
 int getUniquelabels(rmm::device_uvector<value_t>& unique, value_t* y, size_t n, cudaStream_t stream)
@@ -51,13 +50,13 @@ int getUniquelabels(rmm::device_uvector<value_t>& unique, value_t* y, size_t n, 
  * free to choose other type for y_out (it should represent +/-1, and it is used
  * in floating point arithmetics).
  *
- * \param [in] y device array if input labels, size [n]
- * \param [in] n number of labels
- * \param [in] y_unique device array of unique labels, size [n_classes]
- * \param [in] n_classes number of unique labels
- * \param [out] y_out device array of output labels
- * \param [in] idx index of unique label that should be labeled as 1
- * \param [in] stream cuda stream
+ * @param [in] y device array if input labels, size [n]
+ * @param [in] n number of labels
+ * @param [in] y_unique device array of unique labels, size [n_classes]
+ * @param [in] n_classes number of unique labels
+ * @param [out] y_out device array of output labels
+ * @param [in] idx index of unique label that should be labeled as 1
+ * @param [in] stream cuda stream
  */
 template <typename value_t>
 void getOvrlabels(
