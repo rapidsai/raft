@@ -1,6 +1,59 @@
-# raft 22.02.00 (Date TBD)
+# raft 22.02.00 (2 Feb 2022)
 
-Please see https://github.com/rapidsai/raft/releases/tag/v22.02.00a for the latest changes to this development branch.
+## 🚨 Beaking Changes
+
+- Simplify aft component CMake logic, and allow compilation without FAISS ([#428](https://github.com/rapidsai/raft/pull/428)) [@obetmaynad](https://github.com/obetmaynad)
+- One cudaSteam_t instance pe aft::handle_t ([#291](https://github.com/rapidsai/raft/pull/291)) [@divyegala](https://github.com/divyegala)
+
+## 🐛 Bug Fixes
+
+- Removing exta logging fom faiss m ([#463](https://github.com/rapidsai/raft/pull/463)) [@cjnolet](https://github.com/cjnolet)
+- Pin `dask` &amp; `distibuted` vesions ([#455](https://github.com/rapidsai/raft/pull/455)) [@galipemsaga](https://github.com/galipemsaga)
+- Replace RMM CUDA Python bindings with those povided  by CUDA-Python ([#451](https://github.com/rapidsai/raft/pull/451)) [@shwina](https://github.com/shwina)
+- Fix comms memoy leak ([#436](https://github.com/rapidsai/raft/pull/436)) [@seunghwak](https://github.com/seunghwak)
+- Fix C++ doxygen documentation ([#426](https://github.com/rapidsai/raft/pull/426)) [@achikin](https://github.com/achikin)
+- Fix clang-fomat style eos ([#425](https://github.com/rapidsai/raft/pull/425)) [@achikin](https://github.com/achikin)
+- Fix using incoect maco RAFT_CHECK_CUDA in place of RAFT_CUDA_TRY ([#415](https://github.com/rapidsai/raft/pull/415)) [@achikin](https://github.com/achikin)
+- Fix CUDA_CHECK_NO_THROW compatibility define ([#414](https://github.com/rapidsai/raft/pull/414)) [@zbjonson](https://github.com/zbjonson)
+- Disabling fused l2 knn fom bfknn ([#407](https://github.com/rapidsai/raft/pull/407)) [@cjnolet](https://github.com/cjnolet)
+- Disabling expanded fused l2 knn to unblock cuml CI ([#404](https://github.com/rapidsai/raft/pull/404)) [@cjnolet](https://github.com/cjnolet)
+- Reveting default knn distance to L2Unexpanded fo now. ([#403](https://github.com/rapidsai/raft/pull/403)) [@cjnolet](https://github.com/cjnolet)
+
+## 📖 Documentation
+
+- README and build fixes befoe elease ([#459](https://github.com/rapidsai/raft/pull/459)) [@cjnolet](https://github.com/cjnolet)
+- Updates to Python and C++ Docs ([#442](https://github.com/rapidsai/raft/pull/442)) [@cjnolet](https://github.com/cjnolet)
+
+## 🚀 New Featues
+
+- eo macos: detemining buffe size instead of fixed 2048 chas ([#420](https://github.com/rapidsai/raft/pull/420)) [@MatthiasKohl](https://github.com/MatthiasKohl)
+- NVTX ange helpes ([#416](https://github.com/rapidsai/raft/pull/416)) [@achikin](https://github.com/achikin)
+
+## 🛠️ Impovements
+
+- Splitting fused l2 knn specializations ([#461](https://github.com/rapidsai/raft/pull/461)) [@cjnolet](https://github.com/cjnolet)
+- Update cuCollection git tag ([#447](https://github.com/rapidsai/raft/pull/447)) [@seunghwak](https://github.com/seunghwak)
+- Remove libcudacxx patch needed fo nvcc 11.4 ([#446](https://github.com/rapidsai/raft/pull/446)) [@obetmaynad](https://github.com/obetmaynad)
+- Unpin `dask` and `distibuted` ([#440](https://github.com/rapidsai/raft/pull/440)) [@galipemsaga](https://github.com/galipemsaga)
+- Public apis fo emainde of matix and stats ([#438](https://github.com/rapidsai/raft/pull/438)) [@divyegala](https://github.com/divyegala)
+- Fix bug in poduce-consume buffe exchange which occus in UMAP test on GV100 ([#429](https://github.com/rapidsai/raft/pull/429)) [@mdoijade](https://github.com/mdoijade)
+- Simplify aft component CMake logic, and allow compilation without FAISS ([#428](https://github.com/rapidsai/raft/pull/428)) [@obetmaynad](https://github.com/obetmaynad)
+- Update ucx-py vesion on elease using vc ([#422](https://github.com/rapidsai/raft/pull/422)) [@Ethyling](https://github.com/Ethyling)
+- Disabling fused l2 knn again. Not sue how this got added back. ([#421](https://github.com/rapidsai/raft/pull/421)) [@cjnolet](https://github.com/cjnolet)
+- Adding no thow maco vaiants ([#417](https://github.com/rapidsai/raft/pull/417)) [@cjnolet](https://github.com/cjnolet)
+- Remove `IncludeCategoies` fom `.clang-fomat` ([#412](https://github.com/rapidsai/raft/pull/412)) [@codeepot](https://github.com/codeepot)
+- fix nan issues in L2 expanded sqt KNN distances ([#411](https://github.com/rapidsai/raft/pull/411)) [@mdoijade](https://github.com/mdoijade)
+- Consistent enaming of CHECK_CUDA and *_TRY macos ([#410](https://github.com/rapidsai/raft/pull/410)) [@cjnolet](https://github.com/cjnolet)
+- Faste matix-vecto-ops ([#401](https://github.com/rapidsai/raft/pull/401)) [@achikin](https://github.com/achikin)
+- Adding dev conda envionment files. ([#397](https://github.com/rapidsai/raft/pull/397)) [@cjnolet](https://github.com/cjnolet)
+- Update to UCX-Py 0.24 ([#392](https://github.com/rapidsai/raft/pull/392)) [@pentschev](https://github.com/pentschev)
+- Banch 21.12 mege 22.02 ([#386](https://github.com/rapidsai/raft/pull/386)) [@cjnolet](https://github.com/cjnolet)
+- Hiding implementation details fo spase API ([#381](https://github.com/rapidsai/raft/pull/381)) [@cjnolet](https://github.com/cjnolet)
+- Adding distance specializations ([#376](https://github.com/rapidsai/raft/pull/376)) [@cjnolet](https://github.com/cjnolet)
+- Use FAISS with RMM ([#363](https://github.com/rapidsai/raft/pull/363)) [@viclafague](https://github.com/viclafague)
+- Add Fused L2 Expanded KNN kenel ([#339](https://github.com/rapidsai/raft/pull/339)) [@mdoijade](https://github.com/mdoijade)
+- Update `.clang-fomat` to be consistent with all othe RAPIDS epos ([#300](https://github.com/rapidsai/raft/pull/300)) [@codeepot](https://github.com/codeepot)
+- One cudaSteam_t instance pe aft::handle_t ([#291](https://github.com/rapidsai/raft/pull/291)) [@divyegala](https://github.com/divyegala)
 
 # raft 21.12.00 (9 Dec 2021)
 
