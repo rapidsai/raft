@@ -143,6 +143,7 @@ inline cublasStatus_t cublasaxpy(cublasHandle_t handle,
                                  int incy,
                                  cudaStream_t stream)
 {
+  RAFT_CUBLAS_TRY(cublasSetStream(handle, stream));
   return cublasSaxpy(handle, n, alpha, x, incx, y, incy);
 }
 
@@ -156,6 +157,7 @@ inline cublasStatus_t cublasaxpy(cublasHandle_t handle,
                                  int incy,
                                  cudaStream_t stream)
 {
+  RAFT_CUBLAS_TRY(cublasSetStream(handle, stream));
   return cublasDaxpy(handle, n, alpha, x, incx, y, incy);
 }
 /** @} */
@@ -172,6 +174,7 @@ template <>
 inline cublasStatus_t cublasSwap(
   cublasHandle_t handle, int n, float* x, int incx, float* y, int incy, cudaStream_t stream)
 {
+  RAFT_CUBLAS_TRY(cublasSetStream(handle, stream));
   return cublasSswap(handle, n, x, incx, y, incy);
 }
 
@@ -179,6 +182,7 @@ template <>
 inline cublasStatus_t cublasSwap(
   cublasHandle_t handle, int n, double* x, int incx, double* y, int incy, cudaStream_t stream)
 {
+  RAFT_CUBLAS_TRY(cublasSetStream(handle, stream));
   return cublasDswap(handle, n, x, incx, y, incy);
 }
 
@@ -196,12 +200,14 @@ template <>
 inline cublasStatus_t cublasCopy(
   cublasHandle_t handle, int n, const float* x, int incx, float* y, int incy, cudaStream_t stream)
 {
+  RAFT_CUBLAS_TRY(cublasSetStream(handle, stream));
   return cublasScopy(handle, n, x, incx, y, incy);
 }
 template <>
 inline cublasStatus_t cublasCopy(
   cublasHandle_t handle, int n, const double* x, int incx, double* y, int incy, cudaStream_t stream)
 {
+  RAFT_CUBLAS_TRY(cublasSetStream(handle, stream));
   return cublasDcopy(handle, n, x, incx, y, incy);
 }
 /** @} */
@@ -240,6 +246,7 @@ inline cublasStatus_t cublasgemv(cublasHandle_t handle,
                                  int incy,
                                  cudaStream_t stream)
 {
+  RAFT_CUBLAS_TRY(cublasSetStream(handle, stream));
   return cublasSgemv(handle, transA, m, n, alfa, A, lda, x, incx, beta, y, incy);
 }
 
@@ -258,6 +265,7 @@ inline cublasStatus_t cublasgemv(cublasHandle_t handle,
                                  int incy,
                                  cudaStream_t stream)
 {
+  RAFT_CUBLAS_TRY(cublasSetStream(handle, stream));
   return cublasDgemv(handle, transA, m, n, alfa, A, lda, x, incx, beta, y, incy);
 }
 /** @} */
@@ -291,6 +299,7 @@ inline cublasStatus_t cublasger(cublasHandle_t handle,
                                 int lda,
                                 cudaStream_t stream)
 {
+  RAFT_CUBLAS_TRY(cublasSetStream(handle, stream));
   return cublasSger(handle, m, n, alpha, x, incx, y, incy, A, lda);
 }
 
@@ -307,6 +316,7 @@ inline cublasStatus_t cublasger(cublasHandle_t handle,
                                 int lda,
                                 cudaStream_t stream)
 {
+  RAFT_CUBLAS_TRY(cublasSetStream(handle, stream));
   return cublasDger(handle, m, n, alpha, x, incx, y, incy, A, lda);
 }
 /** @} */
@@ -349,6 +359,7 @@ inline cublasStatus_t cublasgemm(cublasHandle_t handle,
                                  int ldc,
                                  cudaStream_t stream)
 {
+  RAFT_CUBLAS_TRY(cublasSetStream(handle, stream));
   return cublasSgemm(handle, transA, transB, m, n, k, alfa, A, lda, B, ldb, beta, C, ldc);
 }
 
@@ -369,6 +380,7 @@ inline cublasStatus_t cublasgemm(cublasHandle_t handle,
                                  int ldc,
                                  cudaStream_t stream)
 {
+  RAFT_CUBLAS_TRY(cublasSetStream(handle, stream));
   return cublasDgemm(handle, transA, transB, m, n, k, alfa, A, lda, B, ldb, beta, C, ldc);
 }
 /** @} */
@@ -414,6 +426,7 @@ inline cublasStatus_t cublasgemmBatched(  // NOLINT
   int batchCount,
   cudaStream_t stream)
 {
+  RAFT_CUBLAS_TRY(cublasSetStream(handle, stream));
   return cublasSgemmBatched(handle,
                             transa,
                             transb,
@@ -450,6 +463,7 @@ inline cublasStatus_t cublasgemmBatched(  // NOLINT
   int batchCount,
   cudaStream_t stream)
 {
+  RAFT_CUBLAS_TRY(cublasSetStream(handle, stream));
   return cublasDgemmBatched(handle,
                             transa,
                             transb,
@@ -516,6 +530,7 @@ inline cublasStatus_t cublasgemmStridedBatched(  // NOLINT
   int batchCount,
   cudaStream_t stream)
 {
+  RAFT_CUBLAS_TRY(cublasSetStream(handle, stream));
   return cublasSgemmStridedBatched(handle,
                                    transa,
                                    transb,
@@ -558,6 +573,7 @@ inline cublasStatus_t cublasgemmStridedBatched(  // NOLINT
   int batchCount,
   cudaStream_t stream)
 {
+  RAFT_CUBLAS_TRY(cublasSetStream(handle, stream));
   return cublasDgemmStridedBatched(handle,
                                    transa,
                                    transb,
@@ -604,6 +620,7 @@ inline cublasStatus_t cublasgetrfBatched(cublasHandle_t handle,  // NOLINT
                                          int batchSize,
                                          cudaStream_t stream)
 {
+  RAFT_CUBLAS_TRY(cublasSetStream(handle, stream));
   return cublasSgetrfBatched(handle, n, A, lda, P, info, batchSize);
 }
 
@@ -617,6 +634,7 @@ inline cublasStatus_t cublasgetrfBatched(cublasHandle_t handle,  // NOLINT
                                          int batchSize,
                                          cudaStream_t stream)
 {
+  RAFT_CUBLAS_TRY(cublasSetStream(handle, stream));
   return cublasDgetrfBatched(handle, n, A, lda, P, info, batchSize);
 }
 
@@ -645,6 +663,7 @@ inline cublasStatus_t cublasgetriBatched(  // NOLINT
   int batchSize,
   cudaStream_t stream)
 {
+  RAFT_CUBLAS_TRY(cublasSetStream(handle, stream));
   return cublasSgetriBatched(handle, n, A, lda, P, C, ldc, info, batchSize);
 }
 
@@ -661,6 +680,7 @@ inline cublasStatus_t cublasgetriBatched(  // NOLINT
   int batchSize,
   cudaStream_t stream)
 {
+  RAFT_CUBLAS_TRY(cublasSetStream(handle, stream));
   return cublasDgetriBatched(handle, n, A, lda, P, C, ldc, info, batchSize);
 }
 
@@ -701,6 +721,7 @@ inline cublasStatus_t cublasgelsBatched(cublasHandle_t handle,  // NOLINT
                                         int batchSize,
                                         cudaStream_t stream)
 {
+  RAFT_CUBLAS_TRY(cublasSetStream(handle, stream));
   return cublasSgelsBatched(
     handle, trans, m, n, nrhs, Aarray, lda, Carray, ldc, info, devInfoArray, batchSize);
 }
@@ -720,6 +741,7 @@ inline cublasStatus_t cublasgelsBatched(cublasHandle_t handle,  // NOLINT
                                         int batchSize,
                                         cudaStream_t stream)
 {
+  RAFT_CUBLAS_TRY(cublasSetStream(handle, stream));
   return cublasDgelsBatched(
     handle, trans, m, n, nrhs, Aarray, lda, Carray, ldc, info, devInfoArray, batchSize);
 }
@@ -762,6 +784,7 @@ inline cublasStatus_t cublasgeam(cublasHandle_t handle,
                                  int ldc,
                                  cudaStream_t stream)
 {
+  RAFT_CUBLAS_TRY(cublasSetStream(handle, stream));
   return cublasSgeam(handle, transA, transB, m, n, alfa, A, lda, beta, B, ldb, C, ldc);
 }
 
@@ -781,6 +804,7 @@ inline cublasStatus_t cublasgeam(cublasHandle_t handle,
                                  int ldc,
                                  cudaStream_t stream)
 {
+  RAFT_CUBLAS_TRY(cublasSetStream(handle, stream));
   return cublasDgeam(handle, transA, transB, m, n, alfa, A, lda, beta, B, ldb, C, ldc);
 }
 /** @} */
@@ -821,6 +845,7 @@ inline cublasStatus_t cublassymm(cublasHandle_t handle,
                                  int ldc,
                                  cudaStream_t stream)
 {
+  RAFT_CUBLAS_TRY(cublasSetStream(handle, stream));
   return cublasSsymm(handle, side, uplo, m, n, alpha, A, lda, B, ldb, beta, C, ldc);
 }
 
@@ -840,6 +865,7 @@ inline cublasStatus_t cublassymm(cublasHandle_t handle,
                                  int ldc,
                                  cudaStream_t stream)
 {
+  RAFT_CUBLAS_TRY(cublasSetStream(handle, stream));
   return cublasDsymm(handle, side, uplo, m, n, alpha, A, lda, B, ldb, beta, C, ldc);
 }
 /** @} */
@@ -876,6 +902,7 @@ inline cublasStatus_t cublassyrk(cublasHandle_t handle,
                                  int ldc,
                                  cudaStream_t stream)
 {
+  RAFT_CUBLAS_TRY(cublasSetStream(handle, stream));
   return cublasSsyrk(handle, uplo, trans, n, k, alpha, A, lda, beta, C, ldc);
 }
 
@@ -893,6 +920,7 @@ inline cublasStatus_t cublassyrk(cublasHandle_t handle,
                                  int ldc,
                                  cudaStream_t stream)
 {
+  RAFT_CUBLAS_TRY(cublasSetStream(handle, stream));
   return cublasDsyrk(handle, uplo, trans, n, k, alpha, A, lda, beta, C, ldc);
 }
 /** @} */
@@ -909,6 +937,7 @@ template <>
 inline cublasStatus_t cublasnrm2(
   cublasHandle_t handle, int n, const float* x, int incx, float* result, cudaStream_t stream)
 {
+  RAFT_CUBLAS_TRY(cublasSetStream(handle, stream));
   return cublasSnrm2(handle, n, x, incx, result);
 }
 
@@ -916,6 +945,7 @@ template <>
 inline cublasStatus_t cublasnrm2(
   cublasHandle_t handle, int n, const double* x, int incx, double* result, cudaStream_t stream)
 {
+  RAFT_CUBLAS_TRY(cublasSetStream(handle, stream));
   return cublasDnrm2(handle, n, x, incx, result);
 }
 /** @} */
@@ -950,6 +980,7 @@ inline cublasStatus_t cublastrsm(cublasHandle_t handle,
                                  int ldb,
                                  cudaStream_t stream)
 {
+  RAFT_CUBLAS_TRY(cublasSetStream(handle, stream));
   return cublasStrsm(handle, side, uplo, trans, diag, m, n, alpha, A, lda, B, ldb);
 }
 
@@ -968,6 +999,7 @@ inline cublasStatus_t cublastrsm(cublasHandle_t handle,
                                  int ldb,
                                  cudaStream_t stream)
 {
+  RAFT_CUBLAS_TRY(cublasSetStream(handle, stream));
   return cublasDtrsm(handle, side, uplo, trans, diag, m, n, alpha, A, lda, B, ldb);
 }
 
@@ -995,6 +1027,7 @@ inline cublasStatus_t cublasdot(cublasHandle_t handle,
                                 float* result,
                                 cudaStream_t stream)
 {
+  RAFT_CUBLAS_TRY(cublasSetStream(handle, stream));
   return cublasSdot(handle, n, x, incx, y, incy, result);
 }
 
@@ -1008,6 +1041,7 @@ inline cublasStatus_t cublasdot(cublasHandle_t handle,
                                 double* result,
                                 cudaStream_t stream)
 {
+  RAFT_CUBLAS_TRY(cublasSetStream(handle, stream));
   return cublasDdot(handle, n, x, incx, y, incy, result);
 }
 /** @} */
@@ -1044,6 +1078,7 @@ template <>
 inline cublasStatus_t cublasscal(
   cublasHandle_t handle, int n, const float* alpha, float* x, int incx, cudaStream_t stream)
 {
+  RAFT_CUBLAS_TRY(cublasSetStream(handle, stream));
   return cublasSscal(handle, n, alpha, x, incx);
 }
 
@@ -1051,6 +1086,7 @@ template <>
 inline cublasStatus_t cublasscal(
   cublasHandle_t handle, int n, const double* alpha, double* x, int incx, cudaStream_t stream)
 {
+  RAFT_CUBLAS_TRY(cublasSetStream(handle, stream));
   return cublasDscal(handle, n, alpha, x, incx);
 }
 
