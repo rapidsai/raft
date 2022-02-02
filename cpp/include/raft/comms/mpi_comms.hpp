@@ -31,6 +31,7 @@
 #include <raft/cudart_utils.h>
 #include <raft/error.hpp>
 #include <raft/handle.hpp>
+#include <rmm/device_uvector.hpp>
 
 #define RAFT_MPI_TRY(call)                                                                    \
   do {                                                                                        \
@@ -104,8 +105,14 @@ constexpr MPI_Op get_mpi_op(const op_t op)
 
 class mpi_comms : public comms_iface {
  public:
-  mpi_comms(MPI_Comm comm, const bool owns_mpi_comm)
-    : owns_mpi_comm_(owns_mpi_comm), mpi_comm_(comm), size_(0), rank_(1), next_request_id_(0)
+  mpi_comms(MPI_Comm comm, const bool owns_mpi_comm, cudaStream_t stream)
+    : owns_mpi_comm_(owns_mpi_comm),
+      mpi_comm_(comm),
+      size_(0),
+      rank_(1),
+      stream_(stream),
+      status(2, stream),
+      next_request_id_(0)
   {
     int mpi_is_initialized = 0;
     RAFT_MPI_TRY(MPI_Initialized(&mpi_is_initialized));
@@ -119,6 +126,12 @@ class mpi_comms : public comms_iface {
 
     // initializing NCCL
     RAFT_NCCL_TRY(ncclCommInitRank(&nccl_comm_, size_, id, rank_));
+  }
+
+  void initialize()
+  {
+    sendbuff_ = status_.data();
+    recvbuff_ = status_.data() + 1;
   }
 
   virtual ~mpi_comms()
@@ -141,7 +154,16 @@ class mpi_comms : public comms_iface {
     return std::unique_ptr<comms_iface>(new mpi_comms(new_comm, true));
   }
 
-  void barrier() const { RAFT_MPI_TRY(MPI_Barrier(mpi_comm_)); }
+  void barrier() const
+  {
+    RAFT_CUDA_TRY(cudaMemsetAsync(sendbuff_, 1, sizeof(int), stream_));
+    RAFT_CUDA_TRY(cudaMemsetAsync(recvbuff_, 1, sizeof(int), stream_));
+
+    allreduce(sendbuff_, recvbuff_, 1, datatype_t::INT32, op_t::SUM, stream_);
+
+    ASSERT(sync_stream(stream_) == status_t::SUCCESS,
+           "ERROR: syncStream failed. This can be caused by a failed rank_.");
+  }
 
   void isend(const void* buf, size_t size, int dest, int tag, request_t* request) const
   {
@@ -429,6 +451,10 @@ class mpi_comms : public comms_iface {
  private:
   bool owns_mpi_comm_;
   MPI_Comm mpi_comm_;
+  cudaStream_t stream_;
+
+  int *sendbuff_, *recvbuff_;
+  rmm::device_uvector<int> status_;
 
   ncclComm_t nccl_comm_;
   int size_;
