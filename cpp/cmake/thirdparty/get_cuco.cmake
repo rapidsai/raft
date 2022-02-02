@@ -30,4 +30,5 @@ function(find_and_configure_cuco VERSION)
 
 endfunction()
 
-find_and_configure_cuco(0.0.1)
+# cuCollections doesn't have a version yet
+find_and_configure_cuco(0.0)
