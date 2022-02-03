@@ -95,7 +95,7 @@ fi
 if hasArg -v; then
     VERBOSE_FLAG=-v
     CMAKE_LOG_LEVEL="--log-level=VERBOSE"
-    set -x
+#    set -x
 fi
 if hasArg -g; then
     BUILD_TYPE=Debug
