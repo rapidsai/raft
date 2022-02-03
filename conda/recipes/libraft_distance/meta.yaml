@@ -36,7 +36,7 @@ requirements:
   build:
     - cmake>=3.20.1
   host:
-    - libraft-headers {{
+    - libraft-headers {{ version }}
     - nccl>=2.9.9
     - cudatoolkit {{ cuda_version }}.*
     - ucx-py {{ ucx_py_version }}
