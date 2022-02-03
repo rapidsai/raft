@@ -175,23 +175,17 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs; then
           -DNVTX=${NVTX} \
           -DDISABLE_DEPRECATION_WARNINGS=${DISABLE_DEPRECATION_WARNINGS} \
           -DBUILD_TESTS=${BUILD_TESTS} \
-          -DRAFT_USE_FAISS_STATIC=${BUILD_STATIC_FAISS} \
-          ..
+          -DRAFT_USE_FAISS_STATIC=${BUILD_STATIC_FAISS}
 
   if (( ${NUMARGS} == 0 )) || hasArg libraft; then
       # Run all c++ targets at once
-#      if hasArg --compile-nn || hasArg --compile-dist || hasArg --compile-libs; then
-        if ! hasArg --nogtest; then
-          CMAKE_TARGET="test_raft;${CMAKE_TARGET}"
-        fi
+      if ! hasArg --nogtest; then
+        CMAKE_TARGET="test_raft;${CMAKE_TARGET}"
+      fi
 
-        echo "-- Compiling targets: ${CMAKE_TARGET}"
-        cmake --build  ${CPP_RAFT_BUILD_DIR} -j${PARALLEL_LEVEL} ${VERBOSE_FLAG} --target ${CMAKE_TARGET}
-#      else
-#        cmake --build  ${CPP_RAFT_BUILD_DIR} -j${PARALLEL_LEVEL} ${VERBOSE_FLAG}
-#      fi
+      echo "-- Compiling targets: ${CMAKE_TARGET}"
+      cmake --build  ${CPP_RAFT_BUILD_DIR} -j${PARALLEL_LEVEL} --target ${CMAKE_TARGET} ${VERBOSE_FLAG}
   fi
-
 fi
 
 # Build and (optionally) install the cuml Python package
