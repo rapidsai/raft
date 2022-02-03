@@ -182,7 +182,7 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs; then
         CMAKE_TARGET="test_raft;${CMAKE_TARGET}"
       fi
 
-      echo "-- Compiling targets: ${CMAKE_TARGET}"
+      echo "-- Compiling targets: ${CMAKE_TARGET}, verbose=${VERBOSE_FLAG}"
       cmake --build  "${CPP_RAFT_BUILD_DIR}" ${VERBOSE_FLAG} -j${PARALLEL_LEVEL} --target ${CMAKE_TARGET}
   fi
 fi
