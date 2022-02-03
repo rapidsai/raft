@@ -171,7 +171,9 @@ if(RAFT_COMPILE_LIBRARIES)
     src/distance/specializations/detail/cosine.cu
     src/distance/specializations/detail/hamming_unexpanded.cu
     src/distance/specializations/detail/hellinger_expanded.cu
-    src/distance/specializations/detail/jensen_shannon.cu
+    src/distance/specializations/detail/jensen_shannon_float_float_float_int.cu
+    src/distance/specializations/detail/jensen_shannon_float_float_float_uint32.cu
+    src/distance/specializations/detail/jensen_shannon_double_double_double_int.cu
     src/distance/specializations/detail/kl_divergence.cu
     src/distance/specializations/detail/l1.cu
     src/distance/specializations/detail/l2_expanded.cu
