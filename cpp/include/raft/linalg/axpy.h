@@ -22,6 +22,21 @@
 
 namespace raft::linalg {
 
+/**
+ * @brief the wrapper of cublas axpy function
+ *  It computes the following equation: y = alpha * x + y
+ *
+ * @tparam T the element type
+ * @tparam DevicePointerMode whether pointers alpha, beta point to device memory
+ * @param [in] handle raft handle
+ * @param [in] n number of elements in x and y
+ * @param [in] alpha host or device scalar
+ * @param [in] x vector of length n
+ * @param [in] incx stride between consecutive elements of x
+ * @param [inout] y vector of length n
+ * @param [in] incy stride between consecutive elements of y
+ * @param [in] stream
+ */
 template <typename T, bool DevicePointerMode = false>
 void axpy(const raft::handle_t& handle,
           const int n,

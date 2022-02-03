@@ -25,6 +25,26 @@
 namespace raft {
 namespace linalg {
 
+/**
+ * @brief the wrapper of cublas gemv function
+ *  It computes the following equation: y = alpha .* op(A) * x + beta .* y
+ *
+ * @tparam math_t the element type
+ * @tparam DevicePointerMode whether pointers alpha, beta point to device memory
+ * @param [in] handle raft handle
+ * @param [in] trans_a cublas transpose op for A
+ * @param [in] m number of rows of A
+ * @param [in] n number of columns of A
+ * @param [in] alpha host or device scalar
+ * @param [in] A column-major matrix of size [m, n]
+ * @param [in] lda leading dimension of A
+ * @param [in] x vector of length n if trans_a else m
+ * @param [in] incx stride between consecutive elements of x
+ * @param [in] beta host or device scalar
+ * @param [inout] y vector of length m if trans_a else n
+ * @param [in] incy stride between consecutive elements of y
+ * @param [in] stream
+ */
 template <typename math_t, bool DevicePointerMode = false>
 void gemv(const raft::handle_t& handle,
           const bool trans_a,
