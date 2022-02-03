@@ -20,19 +20,19 @@ namespace raft {
 namespace distance {
 namespace detail {
 
-    template void
-    distance<raft::distance::DistanceType::JensenShannon, float, float, float, std::uint32_t>(
-            const float* x,
-            const float* y,
-            float* dist,
-            std::uint32_t m,
-            std::uint32_t n,
-            std::uint32_t k,
-            void* workspace,
-            std::size_t worksize,
-            cudaStream_t stream,
-            bool isRowMajor,
-            float metric_arg);
+template void
+distance<raft::distance::DistanceType::JensenShannon, float, float, float, std::uint32_t>(
+  const float* x,
+  const float* y,
+  float* dist,
+  std::uint32_t m,
+  std::uint32_t n,
+  std::uint32_t k,
+  void* workspace,
+  std::size_t worksize,
+  cudaStream_t stream,
+  bool isRowMajor,
+  float metric_arg);
 
 }  // namespace detail
 }  // namespace distance
