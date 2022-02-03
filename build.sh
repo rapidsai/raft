@@ -60,7 +60,7 @@ SINGLEGPU=""
 NVTX=OFF
 CLEAN=0
 DISABLE_DEPRECATION_WARNINGS=ON
-CMAKE_TARGET=""
+CMAKE_TARGET="install;"
 
 # Set defaults for vars that may not have been defined externally
 #  FIXME: if INSTALL_PREFIX is not set, check PREFIX, then check
@@ -180,16 +180,16 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs; then
 
   if (( ${NUMARGS} == 0 )) || hasArg libraft; then
       # Run all c++ targets at once
-      if hasArg --compile-nn || hasArg --compile-dist || hasArg --compile-libs; then
+#      if hasArg --compile-nn || hasArg --compile-dist || hasArg --compile-libs; then
         if ! hasArg --nogtest; then
           CMAKE_TARGET="test_raft;${CMAKE_TARGET}"
         fi
 
         echo "-- Compiling targets: ${CMAKE_TARGET}"
         cmake --build  ${CPP_RAFT_BUILD_DIR} -j${PARALLEL_LEVEL} ${VERBOSE_FLAG} --target ${CMAKE_TARGET}
-      else
-        cmake --build  ${CPP_RAFT_BUILD_DIR} -j${PARALLEL_LEVEL} ${VERBOSE_FLAG}
-      fi
+#      else
+#        cmake --build  ${CPP_RAFT_BUILD_DIR} -j${PARALLEL_LEVEL} ${VERBOSE_FLAG}
+#      fi
   fi
 
 fi
