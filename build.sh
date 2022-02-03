@@ -94,7 +94,7 @@ fi
 # Process flags
 if hasArg -v; then
     VERBOSE_FLAG="-v"
-    CMAKE_LOG_LEVEL="--log-level=VERBOSE"
+    CMAKE_LOG_LEVEL="VERBOSE"
 fi
 if hasArg -g; then
     BUILD_TYPE=Debug
@@ -166,12 +166,13 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs; then
         echo "Building for *ALL* supported GPU architectures..."
     fi
 
-    cmake -S ${REPODIR}/cpp -B ${CPP_RAFT_BUILD_DIR} ${CMAKE_LOG_LEVEL} \
+    cmake -S ${REPODIR}/cpp -B ${CPP_RAFT_BUILD_DIR} \
           -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} \
           -DCMAKE_CUDA_ARCHITECTURES=${RAFT_CMAKE_CUDA_ARCHITECTURES} \
           -DRAFT_COMPILE_LIBRARIES=${COMPILE_LIBRARIES} \
           -DRAFT_ENABLE_NN_DEPENDENCIES=${ENABLE_NN_DEPENDENCIES} \
           -DNVTX=${NVTX} \
+          -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON \
           -DDISABLE_DEPRECATION_WARNINGS=${DISABLE_DEPRECATION_WARNINGS} \
           -DBUILD_TESTS=${BUILD_TESTS} \
           -DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL} \
