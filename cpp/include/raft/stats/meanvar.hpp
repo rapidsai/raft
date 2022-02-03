@@ -23,7 +23,10 @@ namespace raft::stats {
 /**
  * @brief Compute mean and variance for each column of a given matrix.
  *
- * The operation is performed in a single sweep.
+ * The operation is performed in a single sweep. Consider using it when you need to compute
+ * both mean and variance, or when you need to compute variance but don't have the mean.
+ * It's almost twice faster than running `mean` and `vars` sequentially, because all three
+ * kernels are memory-bound.
  *
  * @tparam Type the data type
  * @tparam IdxType Integer type used for addressing
