@@ -78,6 +78,7 @@ else
   CONDA_LOCAL_CHANNEL="ci/artifacts/raft/cpu/.conda-bld/"
 fi
 
+gpuci_mamba_retry install -c conda-forge boa
 
 ###############################################################################
 # BUILD - Conda package builds
