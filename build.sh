@@ -66,7 +66,7 @@ CMAKE_TARGET="install;"
 #  FIXME: if INSTALL_PREFIX is not set, check PREFIX, then check
 #         CONDA_PREFIX, but there is no fallback from there!
 INSTALL_PREFIX=${INSTALL_PREFIX:=${PREFIX:=${CONDA_PREFIX}}}
-PARALLEL_LEVEL=${PARALLEL_LEVEL:=""}
+PARALLEL_LEVEL=${PARALLEL_LEVEL:=`nproc`}
 BUILD_ABI=${BUILD_ABI:=ON}
 
 # Default to Ninja if generator is not specified
