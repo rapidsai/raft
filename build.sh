@@ -60,7 +60,7 @@ SINGLEGPU=""
 NVTX=OFF
 CLEAN=0
 DISABLE_DEPRECATION_WARNINGS=ON
-CMAKE_TARGET="install;"
+CMAKE_TARGET=""
 
 # Set defaults for vars that may not have been defined externally
 #  FIXME: if INSTALL_PREFIX is not set, check PREFIX, then check
@@ -117,6 +117,10 @@ fi
 if hasArg --compile-dist || hasArg --compile-libs; then
     COMPILE_LIBRARIES=ON
     CMAKE_TARGET="raft_distance_lib;${CMAKE_TARGET}"
+fi
+
+if ! hasArg --compile-dist && ! hasArg --compile-nn && ! hasArg --compile-libs; then
+    CMAKE_TARGET="install;"
 fi
 
 if hasArg --buildfaiss; then
