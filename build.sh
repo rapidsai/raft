@@ -174,6 +174,7 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs; then
           -DNVTX=${NVTX} \
           -DDISABLE_DEPRECATION_WARNINGS=${DISABLE_DEPRECATION_WARNINGS} \
           -DBUILD_TESTS=${BUILD_TESTS} \
+          -DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL} \
           -DRAFT_USE_FAISS_STATIC=${BUILD_STATIC_FAISS}
 
   if (( ${NUMARGS} == 0 )) || hasArg libraft; then
