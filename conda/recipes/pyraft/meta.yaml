@@ -31,6 +31,7 @@ requirements:
     - cython>=0.29,<0.30
     - libraft-headers {{ version }}
     - cudatoolkit {{ cuda_version }}.*
+    - cuda-python >=11.5,<12.0
     - ucx-py {{ ucx_py_version }}
     - ucx-proc=*=gpu
   run:
