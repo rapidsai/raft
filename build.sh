@@ -95,7 +95,6 @@ fi
 if hasArg -v; then
     VERBOSE_FLAG="-v"
     CMAKE_LOG_LEVEL="--log-level=VERBOSE"
-#    set -x
 fi
 if hasArg -g; then
     BUILD_TYPE=Debug
@@ -184,7 +183,7 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs; then
       fi
 
       echo "-- Compiling targets: ${CMAKE_TARGET}"
-      cmake --build  "${CPP_RAFT_BUILD_DIR}" -j${PARALLEL_LEVEL} --target ${CMAKE_TARGET} ${VERBOSE_FLAG}
+      cmake --build  "${CPP_RAFT_BUILD_DIR}" ${VERBOSE_FLAG} -j${PARALLEL_LEVEL} --target ${CMAKE_TARGET}
   fi
 fi
 
