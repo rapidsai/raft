@@ -41,6 +41,24 @@ struct interrupted_exception : public raft::exception {
  * This class provides facilities for interrupting execution of a C++ thread at designated points
  * in code from outside of the thread. In particular, it provides an interruptible version of the
  * blocking CUDA synchronization function, that allows dropping a long-running GPU work.
+ *
+ *
+ * **Important:** Although CUDA synchronize calls serve as cancellation points, the interruptible
+ * machinery has nothing to do with CUDA streams or events. In other words, when you call `cancel`,
+ * it’s the CPU waiting function what is interrupted, not the GPU stream work. This means, when the
+ * `interrupted_exception` is raised, any unfinished GPU stream work continues to run. It’s the
+ * responsibility of the developer then to make sure the unfinished stream work does not affect the
+ * program in an undesirable way.
+ *
+ *
+ * What can happen to CUDA stream when the `synchronize` is cancelled? If you catch the
+ * `interrupted_exception` immediately, you can safely wait on the stream again.
+ * Otherwise, some of the allocated resources may be released before the active kernel finishes
+ * using them, which will result in writing into deallocated or reallocated memory and undefined
+ * behavior in general. A dead-locked kernel may never finish (or may crash if you’re lucky). In
+ * practice, the outcome is usually acceptable for the use case of emergency program interruption
+ * (e.g., CTRL+C), but extra effort on the use side is required to allow safe interrupting and
+ * resuming of the GPU stream work.
  */
 class interruptible {
  public:
