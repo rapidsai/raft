@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,64 @@
 
 namespace raft {
 namespace linalg {
+
+/**
+ * @brief the wrapper of cublas gemm function
+ *  It computes the following equation: C = alpha .* opA(A) * opB(B) + beta .* C
+ *
+ * @tparam math_t the element type
+ * @tparam DevicePointerMode whether pointers alpha, beta point to device memory
+ * @param [in] handle raft handle
+ * @param [in] trans_a cublas transpose op for A
+ * @param [in] trans_b cublas transpose op for B
+ * @param [in] m number of rows of C
+ * @param [in] n number of columns of C
+ * @param [in] k number of rows of opB(B) / number of columns of opA(A)
+ * @param [in] alpha host or device scalar
+ * @param [in] A such a matrix that the shape of column-major opA(A) is [m, k]
+ * @param [in] lda leading dimension of A
+ * @param [in] B such a matrix that the shape of column-major opA(B) is [k, n]
+ * @param [in] ldb leading dimension of B
+ * @param [in] beta host or device scalar
+ * @param [inout] C column-major matrix of size [m, n]
+ * @param [in] ldc leading dimension of C
+ * @param [in] stream
+ */
+template <typename math_t, bool DevicePointerMode = false>
+void gemm(const raft::handle_t& handle,
+          const bool trans_a,
+          const bool trans_b,
+          const int m,
+          const int n,
+          const int k,
+          const math_t* alpha,
+          const math_t* A,
+          const int lda,
+          const math_t* B,
+          const int ldb,
+          const math_t* beta,
+          const math_t* C,
+          const int ldc,
+          cudaStream_t stream)
+{
+  cublasHandle_t cublas_h = handle.get_cublas_handle();
+  cublas_device_pointer_mode<DevicePointerMode> pmode(cublas_h);
+  RAFT_CUBLAS_TRY(cublasgemm(cublas_h,
+                             trans_a ? CUBLAS_OP_T : CUBLAS_OP_N,
+                             trans_b ? CUBLAS_OP_T : CUBLAS_OP_N,
+                             m,
+                             n,
+                             k,
+                             alpha,
+                             A,
+                             lda,
+                             B,
+                             ldb,
+                             beta,
+                             C,
+                             ldc,
+                             stream));
+}
 
 /**
  * @brief the wrapper of cublas gemm function
