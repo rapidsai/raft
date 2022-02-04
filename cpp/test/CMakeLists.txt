@@ -112,7 +112,7 @@ PROPERTIES BUILD_RPATH                         "\$ORIGIN"
            CUDA_STANDARD_REQUIRED              ON
            POSITION_INDEPENDENT_CODE           ON
            INTERFACE_POSITION_INDEPENDENT_CODE ON
-           INSTALL_RPATH "\$ORIGIN/../lib"
+           INSTALL_RPATH "\$ORIGIN/../../../lib"
 )
 
 target_compile_options(test_raft
@@ -142,5 +142,6 @@ PRIVATE
 install(
     TARGETS test_raft
     COMPONENT testing
+    DESTINATION bin/libraft/gtests
     EXCLUDE_FROM_ALL
 )
