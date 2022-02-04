@@ -33,7 +33,7 @@ The following example builds and installs raft in header-only mode:
 ./build.sh libraft --nogtest
 ```
 
-###<a id="shared_cpp_libs">C++ Shared Libraries (optional)
+###<a id="shared_cpp_libs"></a>C++ Shared Libraries (optional)
 
 Shared libraries are provided to speed up compile times for larger libraries which may heavily utilize some of the APIs. These shared libraries can also significantly improve re-compile times while developing against the APIs. 
 
@@ -48,7 +48,7 @@ To remain flexible, the individual shared libraries have their own flags and mul
 ./build.sh libraft --compile-nn --compile-dist --nogtest
 ```
 
-###<a id="gtests">Googletests
+###<a id="gtests"></a>Googletests
 
 Compile the Googletests by removing the `--nogtest` flag from `build.sh`:
 ```bash
@@ -61,7 +61,7 @@ To run C++ tests:
 ./test_raft
 ```
 
-### <a id="cpp_using_cmake">C++ Using Cmake
+### <a id="cpp_using_cmake"></a>C++ Using Cmake
 
 To install RAFT into a specific location, use `CMAKE_INSTALL_PREFIX`. The snippet below will install it into the current conda environment.
 ```bash
