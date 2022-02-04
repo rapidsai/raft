@@ -196,7 +196,7 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs; then
   if (( ${NUMARGS} == 0 )) || hasArg libraft; then
       # Run all c++ targets at once
       if ! hasArg --nogtest; then
-        CMAKE_TARGET="test_raft;${CMAKE_TARGET}"
+        CMAKE_TARGET="${CMAKE_TARGET};test_raft;"
       fi
 
       echo "-- Compiling targets: ${CMAKE_TARGET}, verbose=${VERBOSE_FLAG}"

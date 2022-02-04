@@ -191,6 +191,9 @@ if(RAFT_COMPILE_LIBRARIES OR RAFT_COMPILE_DIST_LIBRARY)
     src/distance/specializations/detail/l2_sqrt_unexpanded_float_float_float_int.cu
     src/distance/specializations/detail/l2_sqrt_unexpanded_float_float_float_uint32.cu
     src/distance/specializations/detail/l2_sqrt_unexpanded_double_double_double_int.cu
+    src/distance/specializations/detail/l2_unexpanded_double_double_double_int.cu
+    src/distance/specializations/detail/l2_unexpanded_float_float_float_uint32.cu
+    src/distance/specializations/detail/l2_unexpanded_float_float_float_int.cu
     src/distance/specializations/detail/lp_unexpanded_double_double_double_int.cu
     src/distance/specializations/detail/lp_unexpanded_float_float_float_uint32.cu
     src/distance/specializations/detail/lp_unexpanded_float_float_float_int.cu
