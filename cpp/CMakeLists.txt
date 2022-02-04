@@ -144,7 +144,7 @@ target_link_libraries(raft INTERFACE
 target_compile_definitions(raft INTERFACE $<$<BOOL:${NVTX}>:NVTX_ENABLED>)
 target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
 
-if(RAFT_COMPILE_LIBRARIES)
+if(RAFT_COMPILE_LIBRARIES OR RAFT_COMPILE_DIST_LIBRARY OR RAFT_COMPILE_NN_LIBRARY)
   file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld"
 [=[
 SECTIONS
