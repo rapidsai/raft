@@ -18,7 +18,7 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libraft pyraft docs -v -g --compile-libs --compile-nn --compile-dist --allgpuarch --nvtx --show_depr_warn -h --nogtest --buildfaiss"
+VALIDARGS="clean libraft pyraft docs -v -g --noinstall --compile-libs --compile-nn --compile-dist --allgpuarch --nvtx --show_depr_warn -h --nogtest --buildfaiss"
 HELP="$0 [<target> ...] [<flag> ...]
  where <target> is:
    clean            - remove all existing build artifacts and configuration (start over)
@@ -36,6 +36,7 @@ HELP="$0 [<target> ...] [<flag> ...]
    --allgpuarch     - build for all supported GPU architectures
    --buildfaiss     - build faiss statically into raft
    --nogtest        - do not build google tests for libraft
+   --noinstall     - do not install cmake targets
    --nvtx           - Enable nvtx for profiling support
    --show_depr_warn - show cmake deprecation warnings
    -h               - print this text
@@ -55,12 +56,15 @@ BUILD_ALL_GPU_ARCH=0
 BUILD_TESTS=YES
 BUILD_STATIC_FAISS=OFF
 COMPILE_LIBRARIES=${BUILD_TESTS}
+COMPILE_NN_LIBRARY=OFF
+COMPILE_DIST_LIBRARY=OFF
 ENABLE_NN_DEPENDENCIES=${BUILD_TESTS}
 SINGLEGPU=""
 NVTX=OFF
 CLEAN=0
 DISABLE_DEPRECATION_WARNINGS=ON
 CMAKE_TARGET=""
+INSTALL_TARGET="install"
 
 # Set defaults for vars that may not have been defined externally
 #  FIXME: if INSTALL_PREFIX is not set, check PREFIX, then check
@@ -75,6 +79,10 @@ export CMAKE_GENERATOR="${CMAKE_GENERATOR:=Ninja}"
 function hasArg {
     (( ${NUMARGS} != 0 )) && (echo " ${ARGS} " | grep -q " $1 ")
 }
+
+if hasArg --noinstall; then
+    INSTALL_TARGET=""
+fi
 
 if hasArg -h || hasArg --help; then
     echo "${HELP}"
@@ -109,18 +117,18 @@ if hasArg --nogtest; then
     ENABLE_NN_DEPENDENCIES=OFF
 fi
 
+if hasArg --compile-libs; then
+  COMPILE_LIBRARIES=ON
+fi
+
 if hasArg --compile-nn || hasArg --compile-libs; then
     ENABLE_NN_DEPENDENCIES=ON
-    COMPILE_LIBRARIES=ON
+    COMPILE_NN_LIBRARY=ON
     CMAKE_TARGET="raft_nn_lib;${CMAKE_TARGET}"
 fi
 if hasArg --compile-dist || hasArg --compile-libs; then
-    COMPILE_LIBRARIES=ON
+    COMPILE_DIST_LIBRARY=ON
     CMAKE_TARGET="raft_distance_lib;${CMAKE_TARGET}"
-fi
-
-if ! hasArg --compile-dist && ! hasArg --compile-nn && ! hasArg --compile-libs; then
-    CMAKE_TARGET="install;"
 fi
 
 if hasArg --buildfaiss; then
@@ -181,6 +189,8 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs; then
           -DDISABLE_DEPRECATION_WARNINGS=${DISABLE_DEPRECATION_WARNINGS} \
           -DBUILD_TESTS=${BUILD_TESTS} \
           -DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL} \
+          -DRAFT_COMPILE_NN_LIBRARY=${COMPILE_NN_LIBRARY} \
+          -DRAFT_COMPILE_DIST_LIBRARY=${COMPILE_DIST_LIBRARY} \
           -DRAFT_USE_FAISS_STATIC=${BUILD_STATIC_FAISS}
 
   if (( ${NUMARGS} == 0 )) || hasArg libraft; then
@@ -190,7 +200,7 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs; then
       fi
 
       echo "-- Compiling targets: ${CMAKE_TARGET}, verbose=${VERBOSE_FLAG}"
-      cmake --build  "${CPP_RAFT_BUILD_DIR}" ${VERBOSE_FLAG} -j${PARALLEL_LEVEL} --target ${CMAKE_TARGET}
+      cmake --build  "${CPP_RAFT_BUILD_DIR}" ${VERBOSE_FLAG} -j${PARALLEL_LEVEL} --target ${CMAKE_TARGET} ${INSTALL_TARGET}
   fi
 fi
 

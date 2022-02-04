@@ -50,6 +50,8 @@ option(DISABLE_OPENMP "Disable OpenMP" OFF)
 option(NVTX "Enable nvtx markers" OFF)
 
 option(RAFT_COMPILE_LIBRARIES "Enable building raft shared library instantiations" ON)
+option(RAFT_COMPILE_NN_LIBRARY "Enable building raft nearest neighbors shared library instantiations" OFF)
+option(RAFT_COMPILE_DIST_LIBRARY "Enable building raft distant shared library instantiations" OFF)
 option(RAFT_ENABLE_NN_DEPENDENCIES "Search for raft::nn dependencies like faiss" ${RAFT_COMPILE_LIBRARIES})
 include(CMakeDependentOption)
 cmake_dependent_option(RAFT_USE_FAISS_STATIC "Build and statically link the FAISS library for nearest neighbors search on GPU" ON RAFT_COMPILE_LIBRARIES OFF)
@@ -162,7 +164,7 @@ endif()
 
 set_target_properties(raft_distance PROPERTIES EXPORT_NAME distance)
 
-if(RAFT_COMPILE_LIBRARIES)
+if(RAFT_COMPILE_LIBRARIES OR RAFT_COMPILE_DIST_LIBRARY)
   add_library(raft_distance_lib SHARED
     src/distance/specializations/detail
     src/distance/specializations/detail/canberra.cu
@@ -212,7 +214,7 @@ endif()
 
 set_target_properties(raft_nn PROPERTIES EXPORT_NAME nn)
 
-if(RAFT_COMPILE_LIBRARIES)
+if(RAFT_COMPILE_LIBRARIES OR RAFT_COMPILE_NN_LIBRARY)
   add_library(raft_nn_lib SHARED
     src/nn/specializations/ball_cover.cu
     src/nn/specializations/detail/ball_cover_lowdim.cu
