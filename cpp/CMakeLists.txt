@@ -176,8 +176,12 @@ if(RAFT_COMPILE_LIBRARIES OR RAFT_COMPILE_DIST_LIBRARY)
     src/distance/specializations/detail/jensen_shannon_float_float_float_int.cu
     src/distance/specializations/detail/jensen_shannon_float_float_float_uint32.cu
     src/distance/specializations/detail/jensen_shannon_double_double_double_int.cu
-    src/distance/specializations/detail/kl_divergence.cu
-    src/distance/specializations/detail/l1.cu
+    src/distance/specializations/detail/kl_divergence_float_float_float_int.cu
+    src/distance/specializations/detail/kl_divergence_float_float_float_uint32.cu
+    src/distance/specializations/detail/kl_divergence_double_double_double_int.cu
+    src/distance/specializations/detail/l1_float_float_float_int.cu
+    src/distance/specializations/detail/l1_float_float_float_uint32.cu
+    src/distance/specializations/detail/l1_double_double_double_int.cu
     src/distance/specializations/detail/l2_expanded_float_float_float_int.cu
     src/distance/specializations/detail/l2_expanded_float_float_float_uint32.cu
     src/distance/specializations/detail/l2_expanded_double_double_double_int.cu
