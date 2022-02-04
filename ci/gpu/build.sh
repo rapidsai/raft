@@ -21,13 +21,21 @@ export CUDA_REL=${CUDA_VERSION%.*}
 # Set home to the job's workspace
 export HOME="$WORKSPACE"
 
-# Parse git describei
+# Parse git describe
 cd "$WORKSPACE"
 export GIT_DESCRIBE_TAG=`git describe --tags`
 export MINOR_VERSION=`echo $GIT_DESCRIBE_TAG | grep -o -E '([0-9]+\.[0-9]+)'`
 
 # ucx-py version
 export UCX_PY_VERSION='0.25.*'
+
+export CMAKE_CUDA_COMPILER_LAUNCHER="sccache"
+export CMAKE_CXX_COMPILER_LAUNCHER="sccache"
+export CMAKE_C_COMPILER_LAUNCHER="sccache"
+export SCCACHE_S3_KEY_PREFIX="libraft-$(uname -m)"
+export SCCACHE_BUCKET="rapids-sccache"
+export SCCACHE_REGION="us-west-2"
+export SCCACHE_IDLE_TIMEOUT="32768"
 
 ################################################################################
 # SETUP - Check environment
@@ -45,7 +53,7 @@ gpuci_logger "Activate conda env"
 . /opt/conda/etc/profile.d/conda.sh
 conda activate rapids
 gpuci_logger "Installing packages needed for RAFT"
-gpuci_mamba_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
+gpuci_mamba_retry install -y -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
       "cudatoolkit=${CUDA_REL}" \
       "libcusolver>=11.2.1" \
       "cudf=${MINOR_VERSION}" \
@@ -92,6 +100,9 @@ if hasArg --skip-tests; then
 else
   "$WORKSPACE/build.sh" libraft pyraft libraft -v
 fi
+
+gpuci_logger "sccache stats"
+sccache --show-stats
 
 gpuci_logger "Building docs"
 "$WORKSPACE/build.sh" docs -v
