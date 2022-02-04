@@ -30,6 +30,7 @@ namespace label {
  * @tparam value_t numeric type of the arrays with class labels
  * @param [in] y device array of labels, size [n]
  * @param [in] n number of labels
+ * @param [inout] unique output unique labels
  * @param [in] stream cuda stream
  * @returns unique device array of unique labels, unallocated on entry,
  *   on exit it has size
