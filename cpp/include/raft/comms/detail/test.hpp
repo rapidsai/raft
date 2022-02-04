@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,6 +29,7 @@
 
 namespace raft {
 namespace comms {
+namespace detail {
 
 /**
  * @brief A simple sanity check that NCCL is able to perform a collective operation
@@ -538,5 +539,6 @@ bool test_commsplit(const handle_t& h, int n_colors)
   return test_collective_allreduce(new_handle, 0);
 }
 
+}  // namespace detail
 }  // namespace comms
 };  // namespace raft
