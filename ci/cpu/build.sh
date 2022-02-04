@@ -92,8 +92,12 @@ if [ "$BUILD_LIBRAFT" == '1' ]; then
     gpuci_conda_retry mambabuild --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/libraft_distance
   else
     gpuci_conda_retry mambabuild --no-build-id --croot ${CONDA_BLD_DIR} --dirty --no-remove-work-dir conda/recipes/libraft_headers
+    gpuci_logger "`ls -la ${CONDA_BUILD_DIR/work}`"
     gpuci_conda_retry mambabuild --no-build-id --croot ${CONDA_BLD_DIR} --dirty --no-remove-work-dir conda/recipes/libraft_nn
-    gpuci_conda_retry mambabuild --no-build-id --croot ${CONDA_BLD_DIR} --dirty --no-remove-work-dir conda/recipes/libraft_distance
+    gpuci_logger "`ls -la ${CONDA_BUILD_DIR/work}`"
+    gpuci_conda_retry mambabuild --no-build-id --croot ${CONDA_BLD_DIR} --dirty --no-remove-work-dir conda/recipes/
+    gpuci_logger "`ls -la ${CONDA_BUILD_DIR/work}`"
+
     mkdir -p ${CONDA_BLD_DIR}/libraft
     mv ${CONDA_BLD_DIR}/work ${CONDA_BLD_DIR}/libraft/work
   fi

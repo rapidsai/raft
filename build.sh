@@ -170,6 +170,8 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs; then
         echo "Building for *ALL* supported GPU architectures..."
     fi
 
+    mkdir -p ${CPP_RAFT_BUILD_DIR}
+    cd ${CPP_RAFT_BUILD_DIR}
     cmake -S ${REPODIR}/cpp -B ${CPP_RAFT_BUILD_DIR} \
           -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} \
           -DCMAKE_CUDA_ARCHITECTURES=${RAFT_CMAKE_CUDA_ARCHITECTURES} \
