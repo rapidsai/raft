@@ -14,22 +14,26 @@
  * limitations under the License.
  */
 
-#pragma once
-
-#include <raft/comms/comms.hpp>
-#include <raft/comms/detail/mpi_comms.hpp>
+#include <raft/distance/detail/distance.cuh>
 
 namespace raft {
-namespace comms {
+namespace distance {
+namespace detail {
 
-using mpi_comms = detail::mpi_comms;
+template void
+distance<raft::distance::DistanceType::LpUnexpanded, float, float, float, std::uint32_t>(
+  const float* x,
+  const float* y,
+  float* dist,
+  std::uint32_t m,
+  std::uint32_t n,
+  std::uint32_t k,
+  void* workspace,
+  std::size_t worksize,
+  cudaStream_t stream,
+  bool isRowMajor,
+  float metric_arg);
 
-inline void initialize_mpi_comms(handle_t* handle, MPI_Comm comm)
-{
-  auto communicator =
-    std::make_shared<comms_t>(std::unique_ptr<comms_iface>(new mpi_comms(comm, false)));
-  handle->set_comms(communicator);
-};
-
-};  // namespace comms
-};  // end namespace raft
+}  // namespace detail
+}  // namespace distance
+}  // namespace raft
