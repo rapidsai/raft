@@ -1062,6 +1062,7 @@ inline cublasStatus_t cublassetpointermode(cublasHandle_t handle,
                                            cublasPointerMode_t mode,
                                            cudaStream_t stream)
 {
+  RAFT_CUBLAS_TRY(cublasSetStream(handle, stream));
   return cublasSetPointerMode(handle, mode);
 }
 /** @} */
