@@ -76,9 +76,10 @@ The folder structure mirrors other RAPIDS repos (cuDF, cuML, cuGraph...), with t
 - `ci`: Scripts for running CI in PRs
 - `conda`: Conda recipes and development conda environments
 - `cpp`: Source code for all C++ code. 
+  - `docs`: Doxygen configuration
   - `include`: The C++ API is fully-contained here 
   - `src`: Compiled template specializations for the shared libraries
-- `docs`: Source code and scripts for building library documentation
+- `docs`: Source code and scripts for building library documentation (doxygen + pydocs)
 - `python`: Source code for all Python source code.
 
 ## Contributing

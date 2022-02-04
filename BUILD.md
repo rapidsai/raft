@@ -13,7 +13,40 @@
 - NVIDIA driver 450.80.02+
 - Pascal architecture of better (Compute capability >= 6.0)
 
-C++ RAFT is a header-only library but provides the option of building shared libraries with template instantiations for common types to speed up compile times for larger projects. The recommended way to build and install RAFT is to use the `build.sh` script in the root of the repository. This script can build both the C++ and Python code and provides options for building and installing the individual shared libraries.
+C++ RAFT is a header-only library but provides the option of building shared libraries with template instantiations for common types to speed up compile times for larger projects.
+
+The recommended way to build and install RAFT is to use the `build.sh` script in the root of the repository. This script can build both the C++ and Python code and provides options for building and installing the headers, Googletests, and individual shared libraries.
+
+### Header-only C++
+
+RAFT depends on many different core libraries such as `thrust`, `cub`, `cucollections`, and `rmm`, which will be downloaded automatically by `cmake` even when only installing the headers. It's important to note that while all the headers will be installed and available, some parts of the RAFT API depend on libraries like `FAISS`, which can also be downloaded in the RAFT build but will need to be told to do so. 
+
+The following example builds and installs raft in header-only mode:
+```bash
+./build.sh libraft --nogtest
+```
+
+### Shared C++ Libraries (optional)
+
+Shared libraries are provided to speed up compile times for larger libraries which may heavily utilize some of the APIs. These shared libraries can also significantly improve re-compile times while developing against the APIs. 
+
+Build all the shared libraries by passing `--compile-libs` flag to `build.sh`:
+
+```bash
+./build.sh libraft --compile-libs --nogtest
+```
+ 
+To remain flexible, the individual shared libraries have their own flags and multiple can be used (though currently only the `nn` and `distance` packages contain shared libraries):
+```bash
+./build.sh libraft --compile-nn --compile-dist --nogtest
+```
+
+### Googletests
+
+Compile the Googletests by removing the `--nogtest` flag from `build.sh`:
+```bash
+./build.sh libraft --compile-nn --compile-dist
+```
 
 To run C++ tests:
 
@@ -21,32 +54,65 @@ To run C++ tests:
 ./test_raft
 ```
 
-To run Python tests, if `install` setup.py target is not run:
-
-```bash
-cd python
-python -m pytest raft
-```
-
-To build manually, you can also use `CMake` and setup.py directly.
-
-For C++, the `RAFT_COMPILE_LIBRARIES` option can be used to compile the shared libraries. Shared libraries are provided for the `libraft-nn` and `libraft-distance` components currently. The `libraft-nn` component depends upon [FAISS](https://github.com/facebookresearch/faiss) and the `RAFT_ENABLE_NN_DEPENDENCIES` option will build it from source if it is not already installed. FAISS can optionally be statically compiled into the `libraft-nn` shared library with the `RAFT_USE_FAISS_STATIC` option.
+### Build C++ Using cmake
 
 To install RAFT into a specific location, use `CMAKE_INSTALL_PREFIX`. The snippet below will install it into the current conda environment.
 ```bash
 cd cpp
 mkdir build
 cd build
-cmake -DRAFT_COMPILE_LIBRARIES=ON -DRAFT_USE_FAISS_STATIC=OFF -DRAFT_ENABLE_NN_DEPENDENCIES=ON  -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX ../
+cmake -D BUILD_TESTS=ON -DRAFT_COMPILE_LIBRARIES=ON -DRAFT_ENABLE_NN_DEPENDENCIES=ON  -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX ../
 make install
 ```
 
-For python:
 
+RAFT's cmake has the following configurable flags available:.
+
+| Flag | Possible Values | Default Value | Behavior |
+| --- | --- | --- | --- |
+| BUILD_TESTS | ON, OFF | ON | Compile Googletests |  
+| RAFT_COMPILE_LIBRARIES | ON, OFF | OFF | Compiles all `libraft` shared libraries (these are required for Googletests) |
+| RAFT_COMPILE_NN_LIBRARY | ON, OFF | ON | Compiles the `libraft-nn` shared library |  
+| RAFT_COMPILE_DIST_LIBRARY | ON, OFF | ON | Compiles the `libraft-distance` shared library |  
+| RAFT_ENABLE_NN_DEPENDENCIES | ON, OFF | OFF | Searches for dependencies of nearest neighbors API, such as FAISS, and compiles them if not found. |
+| RAFT_USE_FAISS_STATIC | ON, OFF | OFF | Statically link FAISS into `libraft-nn` | 
+| DETECT_CONDA_ENV | ON, OFF | ON | Enable detection of conda environment for dependencies |
+| NVTX | ON, OFF | OFF | Enable NVTX Markers |
+| CUDA_ENABLE_KERNELINFO | ON, OFF | OFF | Enables `kernelinfo` in nvcc. This is useful for `compute-sanitizer` | 
+| CUDA_ENABLE_LINEINFO  | ON, OFF | OFF | Enable the -lineinfo option for nvcc |
+| CUDA_STATIC_RUNTIME | ON, OFF | OFF | Statically link the CUDA runtime |
+
+Shared libraries are provided for the `libraft-nn` and `libraft-distance` components currently. The `libraft-nn` component depends upon [FAISS](https://github.com/facebookresearch/faiss) and the `RAFT_ENABLE_NN_DEPENDENCIES` option will build it from source if it is not already installed.
+
+
+
+### Python
+
+Conda environment scripts are provided for installing the necessary dependencies for building and using the Python APIs. It is preferred to use `mamba`, as it provides significant speedup over `conda`. The following example will install create and install dependencies for a CUDA 11.5 conda environment:
+
+```bash
+conda env create --name raft_env -f conda/environments/raft_dev_cuda11.5.yml
+```
+
+The Python API can be built using the `build.sh` script:
+
+```bash
+./build.sh pyraft
+```
+
+To run Python tests, if `install` setup.py target is not run:
+
+`setup.py` can also be used to build the Python API manually:
 ```bash
 cd python
 python setup.py build_ext --inplace
 python setup.py install
+```
+
+To run the Python tests:
+```bash 
+cd python 
+python -m pytest raft
 ```
 
 ## <a id="use_raft"></a>Using RAFT in downstream projects
