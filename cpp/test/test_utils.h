@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -61,6 +61,15 @@ struct CompareApproxAbs {
     T ratio = diff >= eps ? diff / m : diff;
     return (ratio <= eps);
   }
+
+ private:
+  T eps;
+};
+
+template <typename T>
+struct CompareApproxNoScaling {
+  CompareApproxNoScaling(T eps_) : eps(eps_) {}
+  bool operator()(const T& a, const T& b) const { return (abs(a - b) <= eps); }
 
  private:
   T eps;
