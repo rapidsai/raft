@@ -1,7 +1,7 @@
 #!/bin/bash
 # Copyright (c) 2020, NVIDIA CORPORATION.
 ########################
-# cuML Version Updater #
+# RAFT Version Updater #
 ########################
 
 ## Usage
