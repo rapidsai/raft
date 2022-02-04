@@ -14,7 +14,7 @@
 
 if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
     #If project flash is not activate, always build both
-    export BUILD_PYRAFT=1
+    export BUILD_RAFT=1
     export BUILD_LIBRAFT=1
 fi
 
