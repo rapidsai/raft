@@ -115,6 +115,7 @@ PROPERTIES BUILD_RPATH                         "\$ORIGIN"
            CUDA_STANDARD_REQUIRED              ON
            POSITION_INDEPENDENT_CODE           ON
            INTERFACE_POSITION_INDEPENDENT_CODE ON
+           INSTALL_RPATH "\$ORIGIN/../../../lib"
 )
 
 target_compile_options(test_raft
@@ -139,4 +140,11 @@ PRIVATE
   Threads::Threads
   $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
   $<TARGET_NAME_IF_EXISTS:conda_env>
+)
+
+install(
+    TARGETS test_raft
+    COMPONENT testing
+    DESTINATION bin/libraft/gtests
+    EXCLUDE_FROM_ALL
 )
