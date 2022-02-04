@@ -92,14 +92,19 @@ if [ "$BUILD_LIBRAFT" == '1' ]; then
     gpuci_conda_retry mambabuild --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/libraft_distance
   else
     gpuci_conda_retry mambabuild --no-build-id --croot ${CONDA_BLD_DIR} --dirty --no-remove-work-dir conda/recipes/libraft_headers
-    gpuci_logger "`ls ${CONDA_BUILD_DIR}/work`"
-    gpuci_conda_retry mambabuild --no-build-id --croot ${CONDA_BLD_DIR} --dirty --no-remove-work-dir conda/recipes/libraft_nn
-    gpuci_logger "`ls ${CONDA_BUILD_DIR}/work`"
-    gpuci_conda_retry mambabuild --no-build-id --croot ${CONDA_BLD_DIR} --dirty --no-remove-work-dir conda/recipes/libraft_distance
-    gpuci_logger "`ls ${CONDA_BUILD_DIR}/work`"
+    gpuci_logger "`ls ${CONDA_BLD_DIR}/work`"
+    mkdir -p ${CONDA_BLD_DIR}/libraft_headers/work
+    mv ${CONDA_BLD_DIR}/work ${CONDA_BLD_DIR}/libraft_headers/work
 
-    mkdir -p ${CONDA_BLD_DIR}/libraft
-    mv ${CONDA_BLD_DIR}/work ${CONDA_BLD_DIR}/libraft/work
+    gpuci_conda_retry mambabuild --no-build-id --croot ${CONDA_BLD_DIR} --dirty --no-remove-work-dir conda/recipes/libraft_nn
+    gpuci_logger "`ls ${CONDA_BLD_DIR}/work`"
+    mkdir -p ${CONDA_BLD_DIR}/libraft_nn/work
+    mv ${CONDA_BLD_DIR}/work ${CONDA_BLD_DIR}/libraft_nn/work
+
+    gpuci_conda_retry mambabuild --no-build-id --croot ${CONDA_BLD_DIR} --dirty --no-remove-work-dir conda/recipes/libraft_distance
+    gpuci_logger "`ls ${CONDA_BLD_DIR}/work`"
+    mkdir -p ${CONDA_BLD_DIR}/libraft_distance/work
+    mv ${CONDA_BLD_DIR}/work ${CONDA_BLD_DIR}/libraft_distance/work
   fi
 else
   gpuci_logger "SKIPPING build of conda packages for libraft-nn, libraft-distance and libraft-headers"
