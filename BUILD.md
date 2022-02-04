@@ -59,7 +59,13 @@ Use RAFT in cmake projects with `find_package(raft)` for header-only operation a
 
 Use `find_package(raft COMPONENTS nn, distance)` to enable the shared libraries and pass dependencies through separate targets for each component. In this example, `raft::distance` and `raft::nn` targets will be available for configuring linking paths. These targets will also pass through any transitive dependencies (such as FAISS in the case of the `nn` package).
 
+The pre-compiled libraries contain template specializations for commonly used types and require the additional include of header files with `extern template` definitions that tell the compiler not to instantiate templates that are already contained in the shared libraries. By convention, these header files are named `spectializations.hpp` and located in the base directory for the packages that contain specializations.
 
+The following example shows how to use the `libraft-distance` API with the pre-compiled specializations:
+```c++
+#include <raft/distance/distance.hpp>
+#include <raft/distance/specializations.hpp>
+```
 
 ### <a id="build_cxx_source"></a>Building RAFT C++ from source
 
