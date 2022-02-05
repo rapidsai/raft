@@ -1,28 +1,33 @@
 # <div align="left"><img src="https://rapids.ai/assets/images/rapids_logo.png" width="90px"/>&nbsp;RAFT: RAPIDS Analytics Framework Toolkit</div>
 
-RAFT is a [Scipy-like](https://scipy.org/) library for scientific computing, containing CUDA-accelerated building-blocks for rapidly composing analytics in the [RAPIDS](https://rapids.ai) ecosystem. These building-blocks include infrastructure as well as mathematical computational primitives, which accelerate the development of algorithms for data science applications. 
+RAFT contains fundamental widely-used algorithms and primitives for data science, graph and machine learning. The algorithms are CUDA-accelerated and form building-blocks for rapidly composing analytics in the [RAPIDS](https://rapids.ai) ecosystem. 
 
 By taking a primitives-based approach to algorithm development, RAFT
 1. accelerates algorithm construction time
 2. reduces the maintenance burden by maximizing reuse across projects, and
 3. centralizes the core computations, allowing future optimizations to benefit all algorithms that use them.
 
-RAFT provides a header-only C++ API (with optional shared libraries to accelerate build time) that cover the following general categories:
+At its core, RAFT is a header-only C++ library with optional shared libraries that span the following categories:
 
 #####
-| Category | Description / Examples |
+| Category | Examples |
 | --- | --- |
-| **Data Formats** | sparse & dense, conversions, and data generations |
+| **Data Formats** | sparse & dense, conversions, data generation |
 | **Data Generation** | sparse, spatial, machine learning datasets |
-| **Dense Linear Algebra** | matrix arithmetic, norms, factorization |
+| **Dense Linear Algebra** | matrix arithmetic, norms, factorization, least squares, svd & eigenvalue problems |
 | **Spatial** | pairwise distances, nearest neighbors, neighborhood graph construction |
-| **Sparse Operations** | linear algebra, slicing, symmetrization, norms, spectral embedding, msf |
+| **Sparse Operations** | linear algebra, eigenvalue problems, slicing, symmetrization, connected component labeling |
 | **Basic Clustering** | spectral clustering, hierarchical clustering, k-means |
-| **Optimizers** | eigenvalue decomposition, least squares, and lanczos |
-| **Statistics** | sampling, moments, metrics |
+| **Combinatorial Optimization** | linear assignment problem, minimum spanning forest |
+| **Iterative Solvers** | lanczos |
+| **Statistics** | sampling, moments and summary statistics, metrics |
 | **Distributed Tools** | multi-node multi-gpu infrastructure |
 
-RAFT also provides a Python API that enables the building of multi-node multi-GPU algorithms in the [Dask](https://dask.org/) ecosystem. We are continuing to improve the coverage of the Python API to expose the building-blocks from the categories above.
+RAFT also provides a Python library that includes
+1. a python wrapper around the `raft::handle_t` for managing cuda library resources
+2. building multi-node multi-GPU algorithms that leverage [Dask](https://dask.org/)
+
+We are continuing to improve the Python API by exposing the core algorithms and primitives from the categories above.
 
 ## Getting started
 
@@ -71,9 +76,10 @@ The folder structure mirrors other RAPIDS repos (cuDF, cuML, cuGraph...), with t
 - `ci`: Scripts for running CI in PRs
 - `conda`: Conda recipes and development conda environments
 - `cpp`: Source code for all C++ code. 
+  - `docs`: Doxygen configuration
   - `include`: The C++ API is fully-contained here 
   - `src`: Compiled template specializations for the shared libraries
-- `docs`: Source code and scripts for building library documentation
+- `docs`: Source code and scripts for building library documentation (doxygen + pydocs)
 - `python`: Source code for all Python source code.
 
 ## Contributing
