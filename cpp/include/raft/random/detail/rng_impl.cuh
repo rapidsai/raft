@@ -365,6 +365,12 @@ DI void custom_next(
   }
 }
 
+struct RngState {
+  uint64_t seed;
+  uint64_t subsequence;
+  uint64_t offset;
+};
+
 /** Philox-based random number generator */
 // Courtesy: Jakub Szuppe
 struct PhiloxGenerator {
@@ -377,6 +383,11 @@ struct PhiloxGenerator {
   DI PhiloxGenerator(uint64_t seed, uint64_t subsequence, uint64_t offset)
   {
     curand_init(seed, subsequence, offset, &state);
+  }
+
+  DI PhiloxGenerator(const RngState& rng_state)
+  {
+    curand_init(rng_state.seed, rng_state.subsequence, rng_state.offset, &state);
   }
 
   /**
@@ -450,6 +461,17 @@ struct PCGenerator {
     state += seed;
     next(discard);
     skipahead(offset);
+  }
+
+  DI PCGenerator(const RngState& rng_state)
+  {
+    state = uint64_t(0);
+    inc   = (rng_state.subsequence << 1u) | 1u;
+    uint32_t discard;
+    next(discard);
+    state += rng_state.seed;
+    next(discard);
+    skipahead(rng_state.offset);
   }
 
   // Based on "Random Number Generation with Arbitrary Strides" F. B. Brown
@@ -570,11 +592,11 @@ __global__ void fillKernel(
 
 class RngImpl {
  public:
-  RngImpl(uint64_t _s, GeneratorType _t = GenPhilox)
-    : seed(_s),
+  RngImpl(uint64_t seed, GeneratorType _t = GenPhilox)
+    : state{seed, 0, 0},
       type(_t),
-      offset(0),
-      _base_subsequence(0),
+      // offset(0),
+      // _base_subsequence(0),
       // simple heuristic to make sure all SMs will be occupied properly
       // and also not too many initialization calls will be made by each thread
       nBlocks(4 * getMultiProcessorCount())
@@ -585,7 +607,7 @@ class RngImpl {
   void affine_transform_params(IdxT n, IdxT& a, IdxT& b)
   {
     // always keep 'a' to be coprime to 'n'
-    std::mt19937_64 mt_rng(seed + _base_subsequence);
+    std::mt19937_64 mt_rng(seed + state.subsequence);
     a = mt_rng() % n;
     while (gcd(a, n) != 1) {
       ++a;
@@ -749,9 +771,9 @@ class RngImpl {
     kernel_dispatch<OutType, LenType, 1, LaplaceDistParams<OutType>>(ptr, len, stream, params);
   }
 
-  void advance(uint64_t max_streams, uint64_t max_calls_per_subsequence)
+  void advance(uint64_t max_uniq_subsequences_used, uint64_t max_numbers_generated_per_subsequence = 0)
   {
-    _base_subsequence += max_streams;
+    state.subsequence += max_uniq_subsequences_used;
   }
 
   template <typename OutType, typename LenType, int ITEMS_PER_CALL, typename ParamType>
@@ -760,11 +782,11 @@ class RngImpl {
     switch (type) {
       case GenPhilox:
         fillKernel<OutType, LenType, PhiloxGenerator, ITEMS_PER_CALL>
-          <<<nBlocks, nThreads, 0, stream>>>(seed, _base_subsequence, offset, ptr, len, params);
+          <<<nBlocks, nThreads, 0, stream>>>(seed, state.subsequence, state.offset, ptr, len, params);
         break;
       case GenPC:
         fillKernel<OutType, LenType, PCGenerator, ITEMS_PER_CALL>
-          <<<nBlocks, nThreads, 0, stream>>>(seed, _base_subsequence, offset, ptr, len, params);
+          <<<nBlocks, nThreads, 0, stream>>>(seed, state.subsequence, state.offset, ptr, len, params);
         break;
       default: break;
     }
@@ -809,9 +831,7 @@ class RngImpl {
   }
 
   GeneratorType type;
-  uint64_t offset;
-  uint64_t seed;
-  uint64_t _base_subsequence;
+  RngState state;
   /** number of blocks to launch */
   int nBlocks;
   static const int nThreads = 256;
