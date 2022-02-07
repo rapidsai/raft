@@ -120,6 +120,35 @@ namespace linalg {
 namespace detail {
 
 /**
+ * Assuming the default CUBLAS_POINTER_MODE_HOST, change it to host or device mode
+ * temporary for the lifetime of this object.
+ */
+template <bool DevicePointerMode = false>
+class cublas_device_pointer_mode {
+ public:
+  explicit cublas_device_pointer_mode(cublasHandle_t handle) : handle_(handle)
+  {
+    if constexpr (DevicePointerMode) {
+      RAFT_CUBLAS_TRY(cublasSetPointerMode(handle_, CUBLAS_POINTER_MODE_DEVICE));
+    }
+  }
+  auto operator=(const cublas_device_pointer_mode&) -> cublas_device_pointer_mode& = delete;
+  auto operator=(cublas_device_pointer_mode&&) -> cublas_device_pointer_mode& = delete;
+  static auto operator new(std::size_t) -> void*                              = delete;
+  static auto operator new[](std::size_t) -> void*                            = delete;
+
+  ~cublas_device_pointer_mode()
+  {
+    if constexpr (DevicePointerMode) {
+      RAFT_CUBLAS_TRY_NO_THROW(cublasSetPointerMode(handle_, CUBLAS_POINTER_MODE_HOST));
+    }
+  }
+
+ private:
+  cublasHandle_t handle_ = nullptr;
+};
+
+/**
  * @defgroup Axpy cublas ax+y operations
  * @{
  */
