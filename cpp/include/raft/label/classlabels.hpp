@@ -77,12 +77,13 @@ void getOvrlabels(
  * @tparam Type the numeric type of the input and output arrays
  * @tparam Lambda the type of an optional filter function, which determines
  * which items in the array to map.
- * @param out the output monotonic array
- * @param in input label array
- * @param N number of elements in the input array
- * @param stream cuda stream to use
- * @param filter_op an optional function for specifying which values
+ * @param[out] out the output monotonic array
+ * @param[in] in input label array
+ * @param[in] N number of elements in the input array
+ * @param[in] stream cuda stream to use
+ * @param[in] filter_op an optional function for specifying which values
  * should have monotonically increasing labels applied to them.
+ * @param[in] zero_based force monotonic set to start at 0?
  */
 template <typename Type, typename Lambda>
 void make_monotonic(
@@ -101,12 +102,11 @@ void make_monotonic(
  * where a set of vertices need to be labeled in a monotonically increasing
  * order.
  * @tparam Type the numeric type of the input and output arrays
- * @tparam Lambda the type of an optional filter function, which determines
- * which items in the array to map.
- * @param out output label array with labels assigned monotonically
- * @param in input label array
- * @param N number of elements in the input array
- * @param stream cuda stream to use
+ * @param[out] out output label array with labels assigned monotonically
+ * @param[in] in input label array
+ * @param[in] N number of elements in the input array
+ * @param[in] stream cuda stream to use
+ * @param[in] zero_based force monotonic label set to start at 0?
  */
 template <typename Type>
 void make_monotonic(Type* out, Type* in, size_t N, cudaStream_t stream, bool zero_based = false)
