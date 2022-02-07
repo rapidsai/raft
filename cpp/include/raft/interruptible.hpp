@@ -127,6 +127,7 @@ class interruptible {
    */
   static inline auto get_token() -> std::shared_ptr<interruptible>
   {
+    // NB: using static thread-local storage to keep the token alive once it is initialized
     static thread_local std::shared_ptr<interruptible> s(
       get_token_impl<true>(std::this_thread::get_id()));
     return s;
