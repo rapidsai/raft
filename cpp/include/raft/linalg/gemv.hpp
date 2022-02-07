@@ -17,6 +17,9 @@
 #pragma once
 
 #include "detail/gemv.hpp"
+#include <raft/linalg/detail/cublas_wrappers.hpp>
+
+#include <raft/handle.hpp>
 
 namespace raft {
 namespace linalg {
@@ -57,20 +60,20 @@ void gemv(const raft::handle_t& handle,
           cudaStream_t stream)
 {
   cublasHandle_t cublas_h = handle.get_cublas_handle();
-  cublas_device_pointer_mode<DevicePointerMode> pmode(cublas_h);
-  RAFT_CUBLAS_TRY(cublasgemv(cublas_h,
-                             trans_a ? CUBLAS_OP_T : CUBLAS_OP_N,
-                             m,
-                             n,
-                             alpha,
-                             A,
-                             lda,
-                             x,
-                             incx,
-                             beta,
-                             y,
-                             incy,
-                             stream));
+  detail::cublas_device_pointer_mode<DevicePointerMode> pmode(cublas_h);
+  RAFT_CUBLAS_TRY(detail::cublasgemv(cublas_h,
+                                     trans_a ? CUBLAS_OP_T : CUBLAS_OP_N,
+                                     m,
+                                     n,
+                                     alpha,
+                                     A,
+                                     lda,
+                                     x,
+                                     incx,
+                                     beta,
+                                     y,
+                                     incy,
+                                     stream));
 }
 
 template <typename math_t>
