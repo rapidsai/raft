@@ -30,7 +30,18 @@ namespace raft {
 __global__ void gpu_wait(int millis)
 {
   for (auto i = millis; i > 0; i--) {
+#if __CUDA_ARCH__ >= 700
     __nanosleep(1000000);
+#else
+    // For older CUDA devices:
+    // just do some random work that takes more or less the same time from run to run.
+    volatile double x = 0;
+    for (int i = 0; i < 10000; i++) {
+      x = x + double(i);
+      x /= 2.0;
+      __syncthreads();
+    }
+#endif
   }
 }
 
