@@ -27,6 +27,38 @@ namespace raft {
 namespace linalg {
 namespace detail {
 
+template <typename math_t, bool DevicePointerMode = false>
+void gemv(const raft::handle_t& handle,
+          const bool trans_a,
+          const int m,
+          const int n,
+          const math_t* alpha,
+          const math_t* A,
+          const int lda,
+          const math_t* x,
+          const int incx,
+          const math_t* beta,
+          math_t* y,
+          const int incy,
+          cudaStream_t stream)
+{
+  cublasHandle_t cublas_h = handle.get_cublas_handle();
+  detail::cublas_device_pointer_mode<DevicePointerMode> pmode(cublas_h);
+  RAFT_CUBLAS_TRY(detail::cublasgemv(cublas_h,
+                                     trans_a ? CUBLAS_OP_T : CUBLAS_OP_N,
+                                     m,
+                                     n,
+                                     alpha,
+                                     A,
+                                     lda,
+                                     x,
+                                     incx,
+                                     beta,
+                                     y,
+                                     incy,
+                                     stream));
+}
+
 template <typename math_t>
 void gemv(const raft::handle_t& handle,
           const math_t* A,
@@ -41,10 +73,7 @@ void gemv(const raft::handle_t& handle,
           const math_t beta,
           cudaStream_t stream)
 {
-  cublasHandle_t cublas_h = handle.get_cublas_handle();
-  cublasOperation_t op_a  = trans_a ? CUBLAS_OP_T : CUBLAS_OP_N;
-  RAFT_CUBLAS_TRY(
-    cublasgemv(cublas_h, op_a, n_rows, n_cols, &alpha, A, n_rows, x, incx, &beta, y, incy, stream));
+  gemv(handle, trans_a, n_rows, n_cols, &alpha, A, n_rows, x, incx, &beta, y, incy, stream);
 }
 
 template <typename math_t>

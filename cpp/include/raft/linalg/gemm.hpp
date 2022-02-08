@@ -23,6 +23,49 @@ namespace linalg {
 
 /**
  * @brief the wrapper of cublas gemm function
+ *  It computes the following equation: C = alpha .* opA(A) * opB(B) + beta .* C
+ *
+ * @tparam math_t the element type
+ * @tparam DevicePointerMode whether pointers alpha, beta point to device memory
+ * @param [in] handle raft handle
+ * @param [in] trans_a cublas transpose op for A
+ * @param [in] trans_b cublas transpose op for B
+ * @param [in] m number of rows of C
+ * @param [in] n number of columns of C
+ * @param [in] k number of rows of opB(B) / number of columns of opA(A)
+ * @param [in] alpha host or device scalar
+ * @param [in] A such a matrix that the shape of column-major opA(A) is [m, k]
+ * @param [in] lda leading dimension of A
+ * @param [in] B such a matrix that the shape of column-major opA(B) is [k, n]
+ * @param [in] ldb leading dimension of B
+ * @param [in] beta host or device scalar
+ * @param [inout] C column-major matrix of size [m, n]
+ * @param [in] ldc leading dimension of C
+ * @param [in] stream
+ */
+template <typename math_t, bool DevicePointerMode = false>
+void gemm(const raft::handle_t& handle,
+          const bool trans_a,
+          const bool trans_b,
+          const int m,
+          const int n,
+          const int k,
+          const math_t* alpha,
+          const math_t* A,
+          const int lda,
+          const math_t* B,
+          const int ldb,
+          const math_t* beta,
+          const math_t* C,
+          const int ldc,
+          cudaStream_t stream)
+{
+  detail::gemm<math_t, DevicePointerMode>(
+    handle, trans_a, trans_b, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc, stream);
+}
+
+/**
+ * @brief the wrapper of cublas gemm function
  *  It computes the following equation: D = alpha . opA(A) * opB(B) + beta . C
  * @tparam math_t the type of input/output matrices
  * @param handle raft handle
