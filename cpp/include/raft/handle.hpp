@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,6 +35,7 @@
 #include "cudart_utils.h"
 
 #include <raft/comms/comms.hpp>
+#include <raft/interruptible.hpp>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/linalg/detail/cusolver_wrappers.hpp>
 #include <raft/sparse/cusparse_wrappers.h>
@@ -128,9 +129,14 @@ class handle_t {
   rmm::exec_policy& get_thrust_policy() const { return *thrust_policy_; }
 
   /**
+   * @brief synchronize a stream on the handle
+   */
+  void sync_stream(rmm::cuda_stream_view stream) const { interruptible::synchronize(stream); }
+
+  /**
    * @brief synchronize main stream on the handle
    */
-  void sync_stream() const { stream_view_.synchronize(); }
+  void sync_stream() const { sync_stream(stream_view_); }
 
   /**
    * @brief returns main stream on the handle
@@ -199,7 +205,7 @@ class handle_t {
   void sync_stream_pool() const
   {
     for (std::size_t i = 0; i < get_stream_pool_size(); i++) {
-      stream_pool_->get_stream(i).synchronize();
+      sync_stream(stream_pool_->get_stream(i));
     }
   }
 
@@ -212,7 +218,7 @@ class handle_t {
   {
     RAFT_EXPECTS(stream_pool_, "ERROR: rmm::cuda_stream_pool was not initialized");
     for (const auto& stream_index : stream_indices) {
-      stream_pool_->get_stream(stream_index).synchronize();
+      sync_stream(stream_pool_->get_stream(stream_index));
     }
   }
 

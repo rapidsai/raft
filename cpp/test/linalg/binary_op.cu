@@ -58,7 +58,7 @@ class BinaryOpTest : public ::testing::TestWithParam<BinaryOpInputs<InType, IdxT
     r.uniform(in2.data(), len, InType(-1.0), InType(1.0), stream);
     naiveAdd(out_ref.data(), in1.data(), in2.data(), len);
     binaryOpLaunch(out.data(), in1.data(), in2.data(), len, stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
   }
 
  protected:

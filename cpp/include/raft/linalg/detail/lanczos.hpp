@@ -273,7 +273,7 @@ int performLanczosIteration(handle_t const& handle,
     RAFT_CUBLAS_TRY(cublasscal(cublas_h, n, &alpha, lanczosVecs_dev + IDX(0, *iter, n), 1, stream));
   }
 
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  handle.sync_stream(stream);
 
   return 0;
 }

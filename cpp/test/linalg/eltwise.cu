@@ -76,7 +76,7 @@ class ScalarMultiplyTest : public ::testing::TestWithParam<ScalarMultiplyInputs<
     r.uniform(in, len, T(-1.0), T(1.0), stream);
     naiveScale(out_ref, in, scalar, len, stream);
     scalarMultiply(out, in, scalar, len, stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
   }
 
  protected:
@@ -164,7 +164,7 @@ class EltwiseAddTest : public ::testing::TestWithParam<EltwiseAddInputs<T>> {
     r.uniform(in2, len, T(-1.0), T(1.0), stream);
     naiveAdd(out_ref, in1, in2, len, stream);
     eltwiseAdd(out, in1, in2, len, stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
   }
 
  protected:

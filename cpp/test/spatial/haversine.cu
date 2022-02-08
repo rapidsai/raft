@@ -94,7 +94,7 @@ class HaversineKNNTest : public ::testing::Test {
                                               k,
                                               stream);
 
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
   }
 
   void SetUp() override { basicTest(); }

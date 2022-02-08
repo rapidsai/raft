@@ -112,7 +112,7 @@ void choleskyRank1Update(const raft::handle_t& handle,
   math_t L_22_host;
   raft::update_host(&s_host, s, 1, stream);
   raft::update_host(&L_22_host, L_22, 1, stream);  // L_22 stores A_22
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  handle.sync_stream(stream);
   L_22_host = std::sqrt(L_22_host - s_host);
 
   // Check for numeric error with sqrt. If the matrix is not positive definit or

@@ -91,7 +91,7 @@ class SvdTest : public ::testing::TestWithParam<SvdInputs<T>> {
           true,
           true,
           stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
   }
 
  protected:

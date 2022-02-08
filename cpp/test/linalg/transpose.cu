@@ -63,7 +63,7 @@ class TransposeTest : public ::testing::TestWithParam<TranposeInputs<T>> {
 
     transpose(handle, data.data(), data_trans.data(), params.n_row, params.n_col, stream);
     transpose(data.data(), params.n_row, stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
   }
 
  protected:
