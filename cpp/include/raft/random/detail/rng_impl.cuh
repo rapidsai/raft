@@ -595,8 +595,6 @@ class RngImpl {
   RngImpl(uint64_t seed, GeneratorType _t = GenPhilox)
     : state{seed, 0, 0},
       type(_t),
-      // offset(0),
-      // _base_subsequence(0),
       // simple heuristic to make sure all SMs will be occupied properly
       // and also not too many initialization calls will be made by each thread
       nBlocks(4 * getMultiProcessorCount())
@@ -607,7 +605,7 @@ class RngImpl {
   void affine_transform_params(IdxT n, IdxT& a, IdxT& b)
   {
     // always keep 'a' to be coprime to 'n'
-    std::mt19937_64 mt_rng(seed + state.subsequence);
+    std::mt19937_64 mt_rng(state.seed + state.subsequence);
     a = mt_rng() % n;
     while (gcd(a, n) != 1) {
       ++a;
@@ -782,11 +780,11 @@ class RngImpl {
     switch (type) {
       case GenPhilox:
         fillKernel<OutType, LenType, PhiloxGenerator, ITEMS_PER_CALL>
-          <<<nBlocks, nThreads, 0, stream>>>(seed, state.subsequence, state.offset, ptr, len, params);
+          <<<nBlocks, nThreads, 0, stream>>>(state.seed, state.subsequence, state.offset, ptr, len, params);
         break;
       case GenPC:
         fillKernel<OutType, LenType, PCGenerator, ITEMS_PER_CALL>
-          <<<nBlocks, nThreads, 0, stream>>>(seed, state.subsequence, state.offset, ptr, len, params);
+          <<<nBlocks, nThreads, 0, stream>>>(state.seed, state.subsequence, state.offset, ptr, len, params);
         break;
       default: break;
     }
