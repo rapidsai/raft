@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,8 +16,8 @@
 #pragma once
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/contractions.cuh>
-#include <raft/linalg/norm.cuh>
+#include <raft/linalg/contractions.hpp>
+#include <raft/linalg/norm.hpp>
 #include <raft/vectorized.cuh>
 
 #include <cstddef>
@@ -276,7 +276,8 @@ struct PairwiseDistances : public BaseClass {
         for (int j = 0; j < P::AccColsPerTh; ++j) {
           auto colId = startx + j * P::AccThCols;
           if (rowId < this->m && colId < this->n) {
-            dOutput[rowId * this->n + colId] = fin_op(acc[i][j], 0);
+            // Promote to 64 bit index for final write, as output array can be > 2^31
+            dOutput[std::size_t(rowId) * this->n + colId] = fin_op(acc[i][j], 0);
           }
         }
       }

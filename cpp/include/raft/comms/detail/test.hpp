@@ -502,7 +502,7 @@ bool test_pointToPoint_device_multicast_sendrecv(const handle_t& h, int numTrial
 
     std::vector<int> h_received_data(communicator.get_size());
     raft::update_host(h_received_data.data(), received_data.data(), received_data.size(), stream);
-    CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
     for (int i = 0; i < communicator.get_size(); ++i) {
       if (h_received_data[i] != i) { ret = false; }
     }

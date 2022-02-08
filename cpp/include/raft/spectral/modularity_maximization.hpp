@@ -160,7 +160,9 @@ void analyzeModularity(handle_t const& handle,
   vector_t<weight_t> Bx(handle, n);
 
   // Initialize cuBLAS
-  RAFT_CUBLAS_TRY(cublassetpointermode(cublas_h, CUBLAS_POINTER_MODE_HOST, stream));
+  // #TODO: Use public API when ready
+  RAFT_CUBLAS_TRY(
+    raft::linalg::detail::cublassetpointermode(cublas_h, CUBLAS_POINTER_MODE_HOST, stream));
 
   // Initialize Modularity
   modularity_matrix_t<vertex_t, weight_t> B{handle, csr_m};

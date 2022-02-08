@@ -20,7 +20,7 @@
 
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/unary_op.cuh>
+#include <raft/linalg/unary_op.hpp>
 #include <raft/sparse/cusparse_wrappers.h>
 
 #include <thrust/device_ptr.h>

@@ -17,7 +17,7 @@
 #include "../test_utils.h"
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/eltwise.cuh>
+#include <raft/linalg/eltwise.hpp>
 #include <raft/random/rng.hpp>
 #include <raft/stats/sum.hpp>
 

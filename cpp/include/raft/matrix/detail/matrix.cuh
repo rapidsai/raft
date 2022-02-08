@@ -29,7 +29,7 @@
 #include <cusolverDn.h>
 #include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
-#include <raft/linalg/cublas_wrappers.h>
+#include <raft/linalg/detail/cublas_wrappers.hpp>
 
 namespace raft {
 namespace matrix {
@@ -278,7 +278,8 @@ m_t getL2Norm(const raft::handle_t& handle, m_t* in, idx_t size, cudaStream_t st
 {
   cublasHandle_t cublasH = handle.get_cublas_handle();
   m_t normval            = 0;
-  RAFT_CUBLAS_TRY(raft::linalg::cublasnrm2(cublasH, size, in, 1, &normval, stream));
+  // #TODO: Call from the public API when ready
+  RAFT_CUBLAS_TRY(raft::linalg::detail::cublasnrm2(cublasH, size, in, 1, &normval, stream));
   return normval;
 }
 
