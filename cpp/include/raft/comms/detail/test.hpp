@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -53,7 +53,7 @@ bool test_collective_allreduce(const handle_t& handle, int root)
 
   int temp_h = 0;
   RAFT_CUDA_TRY(cudaMemcpyAsync(&temp_h, temp_d.data(), 1, cudaMemcpyDeviceToHost, stream));
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  handle.sync_stream(stream);
   communicator.barrier();
 
   std::cout << "Clique size: " << communicator.get_size() << std::endl;
@@ -88,7 +88,7 @@ bool test_collective_broadcast(const handle_t& handle, int root)
   int temp_h = -1;  // Verify more than one byte is being sent
   RAFT_CUDA_TRY(
     cudaMemcpyAsync(&temp_h, temp_d.data(), sizeof(int), cudaMemcpyDeviceToHost, stream));
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  handle.sync_stream(stream);
   communicator.barrier();
 
   std::cout << "Clique size: " << communicator.get_size() << std::endl;
@@ -121,7 +121,7 @@ bool test_collective_reduce(const handle_t& handle, int root)
   int temp_h = -1;  // Verify more than one byte is being sent
   RAFT_CUDA_TRY(
     cudaMemcpyAsync(&temp_h, temp_d.data(), sizeof(int), cudaMemcpyDeviceToHost, stream));
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  handle.sync_stream(stream);
   communicator.barrier();
 
   std::cout << "Clique size: " << communicator.get_size() << std::endl;
@@ -158,7 +158,7 @@ bool test_collective_allgather(const handle_t& handle, int root)
   int temp_h[communicator.get_size()];  // Verify more than one byte is being sent
   RAFT_CUDA_TRY(cudaMemcpyAsync(
     &temp_h, recv_d.data(), sizeof(int) * communicator.get_size(), cudaMemcpyDeviceToHost, stream));
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  handle.sync_stream(stream);
   communicator.barrier();
 
   std::cout << "Clique size: " << communicator.get_size() << std::endl;
@@ -198,7 +198,7 @@ bool test_collective_gather(const handle_t& handle, int root)
     std::vector<int> temp_h(communicator.get_size(), 0);
     RAFT_CUDA_TRY(cudaMemcpyAsync(
       temp_h.data(), recv_d.data(), sizeof(int) * temp_h.size(), cudaMemcpyDeviceToHost, stream));
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
 
     for (int i = 0; i < communicator.get_size(); i++) {
       if (temp_h[i] != i) return false;
@@ -253,7 +253,7 @@ bool test_collective_gatherv(const handle_t& handle, int root)
                                   sizeof(int) * displacements.back(),
                                   cudaMemcpyDeviceToHost,
                                   stream));
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
 
     for (int i = 0; i < communicator.get_size(); i++) {
       if (std::count_if(temp_h.begin() + displacements[i],
@@ -292,7 +292,7 @@ bool test_collective_reducescatter(const handle_t& handle, int root)
   int temp_h = -1;  // Verify more than one byte is being sent
   RAFT_CUDA_TRY(
     cudaMemcpyAsync(&temp_h, recv_d.data(), sizeof(int), cudaMemcpyDeviceToHost, stream));
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  handle.sync_stream(stream);
   communicator.barrier();
 
   std::cout << "Clique size: " << communicator.get_size() << std::endl;
@@ -502,7 +502,7 @@ bool test_pointToPoint_device_multicast_sendrecv(const handle_t& h, int numTrial
 
     std::vector<int> h_received_data(communicator.get_size());
     raft::update_host(h_received_data.data(), received_data.data(), received_data.size(), stream);
-    handle.sync_stream(stream);
+    h.sync_stream(stream);
     for (int i = 0; i < communicator.get_size(); ++i) {
       if (h_received_data[i] != i) { ret = false; }
     }
