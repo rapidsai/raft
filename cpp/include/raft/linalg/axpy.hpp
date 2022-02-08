@@ -16,9 +16,7 @@
 
 #pragma once
 
-#include <raft/cuda_utils.cuh>
-#include <raft/handle.hpp>
-#include <raft/linalg/cublas_wrappers.h>
+#include "detail/axpy.hpp"
 
 namespace raft::linalg {
 
@@ -47,9 +45,7 @@ void axpy(const raft::handle_t& handle,
           const int incy,
           cudaStream_t stream)
 {
-  auto cublas_h = handle.get_cublas_handle();
-  cublas_device_pointer_mode<DevicePointerMode> pmode(cublas_h);
-  RAFT_CUBLAS_TRY(cublasaxpy(cublas_h, n, alpha, x, incx, y, incy, stream));
+  detail::axpy<T, DevicePointerMode>(handle, n, alpha, x, incx, y, incy, stream);
 }
 
 }  // namespace raft::linalg
