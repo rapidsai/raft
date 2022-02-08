@@ -38,7 +38,7 @@
 #include <raft/interruptible.hpp>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/linalg/detail/cusolver_wrappers.hpp>
-#include <raft/sparse/cusparse_wrappers.h>
+#include <raft/sparse/detail/cusparse_macros.h>
 #include <rmm/cuda_stream_pool.hpp>
 #include <rmm/exec_policy.hpp>
 
