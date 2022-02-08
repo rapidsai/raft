@@ -147,15 +147,21 @@ DI void box_muller_transform(Type& val1, Type& val2, Type sigma1, Type mu1)
 }
 
 template <typename GenType, typename OutType, typename LenType>
-DI void custom_next(
-  GenType& gen, OutType* val, InvariantDistParams<OutType> params, LenType idx, LenType stride)
+DI void custom_next(GenType& gen,
+                    OutType* val,
+                    InvariantDistParams<OutType> params,
+                    LenType idx    = 0,
+                    LenType stride = 0)
 {
   *val = params.const_val;
 }
 
 template <typename GenType, typename OutType, typename LenType>
-DI void custom_next(
-  GenType& gen, OutType* val, UniformDistParams<OutType> params, LenType idx, LenType stride)
+DI void custom_next(GenType& gen,
+                    OutType* val,
+                    UniformDistParams<OutType> params,
+                    LenType idx    = 0,
+                    LenType stride = 0)
 {
   OutType res;
   gen.next(res);
@@ -166,8 +172,8 @@ template <typename GenType, typename OutType, typename LenType>
 DI void custom_next(GenType& gen,
                     OutType* val,
                     UniformIntDistParams<OutType, uint32_t> params,
-                    LenType idx,
-                    LenType stride)
+                    LenType idx    = 0,
+                    LenType stride = 0)
 {
   uint32_t x = 0;
   uint32_t s = params.diff;
@@ -189,8 +195,8 @@ template <typename GenType, typename OutType, typename LenType>
 DI void custom_next(GenType& gen,
                     OutType* val,
                     UniformIntDistParams<OutType, uint64_t> params,
-                    LenType idx,
-                    LenType stride)
+                    LenType idx    = 0,
+                    LenType stride = 0)
 {
   uint64_t x = 0;
   gen.next(x);
@@ -212,7 +218,7 @@ DI void custom_next(GenType& gen,
 
 template <typename GenType, typename OutType, typename LenType>
 DI void custom_next(
-  GenType& gen, OutType* val, NormalDistParams<OutType> params, LenType idx, LenType stride)
+  GenType& gen, OutType* val, NormalDistParams<OutType> params, LenType idx = 0, LenType stride = 0)
 {
   OutType res1, res2;
   gen.next(res1);
@@ -223,8 +229,11 @@ DI void custom_next(
 }
 
 template <typename GenType, typename IntType, typename LenType>
-DI void custom_next(
-  GenType& gen, IntType* val, NormalIntDistParams<IntType> params, LenType idx, LenType stride)
+DI void custom_next(GenType& gen,
+                    IntType* val,
+                    NormalIntDistParams<IntType> params,
+                    LenType idx    = 0,
+                    LenType stride = 0)
 {
   IntType res1_int, res2_int;
   gen.next(res1_int);
@@ -261,7 +270,7 @@ DI void custom_next(GenType& gen,
 
 template <typename GenType, typename OutType, typename Type, typename LenType>
 DI void custom_next(
-  GenType& gen, OutType* val, BernoulliDistParams<Type> params, LenType idx, LenType stride)
+  GenType& gen, OutType* val, BernoulliDistParams<Type> params, LenType idx = 0, LenType stride = 0)
 {
   Type res = 0;
   gen.next(res);
@@ -282,7 +291,7 @@ DI void custom_next(GenType& gen,
 
 template <typename GenType, typename OutType, typename LenType>
 DI void custom_next(
-  GenType& gen, OutType* val, GumbelDistParams<OutType> params, LenType idx, LenType stride)
+  GenType& gen, OutType* val, GumbelDistParams<OutType> params, LenType idx = 0, LenType stride = 0)
 {
   OutType res = 0;
   gen.next(res);
@@ -290,8 +299,11 @@ DI void custom_next(
 }
 
 template <typename GenType, typename OutType, typename LenType>
-DI void custom_next(
-  GenType& gen, OutType* val, LogNormalDistParams<OutType> params, LenType idx, LenType stride)
+DI void custom_next(GenType& gen,
+                    OutType* val,
+                    LogNormalDistParams<OutType> params,
+                    LenType idx    = 0,
+                    LenType stride = 0)
 {
   OutType res1 = 0, res2 = 0;
   gen.next(res1);
@@ -302,8 +314,11 @@ DI void custom_next(
 }
 
 template <typename GenType, typename OutType, typename LenType>
-DI void custom_next(
-  GenType& gen, OutType* val, LogisticDistParams<OutType> params, LenType idx, LenType stride)
+DI void custom_next(GenType& gen,
+                    OutType* val,
+                    LogisticDistParams<OutType> params,
+                    LenType idx    = 0,
+                    LenType stride = 0)
 {
   OutType res;
   gen.next(res);
@@ -312,8 +327,11 @@ DI void custom_next(
 }
 
 template <typename GenType, typename OutType, typename LenType>
-DI void custom_next(
-  GenType& gen, OutType* val, ExponentialDistParams<OutType> params, LenType idx, LenType stride)
+DI void custom_next(GenType& gen,
+                    OutType* val,
+                    ExponentialDistParams<OutType> params,
+                    LenType idx    = 0,
+                    LenType stride = 0)
 {
   OutType res;
   gen.next(res);
@@ -322,8 +340,11 @@ DI void custom_next(
 }
 
 template <typename GenType, typename OutType, typename LenType>
-DI void custom_next(
-  GenType& gen, OutType* val, RayleighDistParams<OutType> params, LenType idx, LenType stride)
+DI void custom_next(GenType& gen,
+                    OutType* val,
+                    RayleighDistParams<OutType> params,
+                    LenType idx    = 0,
+                    LenType stride = 0)
 {
   OutType res;
   gen.next(res);
@@ -333,8 +354,11 @@ DI void custom_next(
 }
 
 template <typename GenType, typename OutType, typename LenType>
-DI void custom_next(
-  GenType& gen, OutType* val, LaplaceDistParams<OutType> params, LenType idx, LenType stride)
+DI void custom_next(GenType& gen,
+                    OutType* val,
+                    LaplaceDistParams<OutType> params,
+                    LenType idx    = 0,
+                    LenType stride = 0)
 {
   OutType res, out;
   gen.next(res);
@@ -769,7 +793,8 @@ class RngImpl {
     kernel_dispatch<OutType, LenType, 1, LaplaceDistParams<OutType>>(ptr, len, stream, params);
   }
 
-  void advance(uint64_t max_uniq_subsequences_used, uint64_t max_numbers_generated_per_subsequence = 0)
+  void advance(uint64_t max_uniq_subsequences_used,
+               uint64_t max_numbers_generated_per_subsequence = 0)
   {
     state.subsequence += max_uniq_subsequences_used;
   }
@@ -780,11 +805,12 @@ class RngImpl {
     switch (type) {
       case GenPhilox:
         fillKernel<OutType, LenType, PhiloxGenerator, ITEMS_PER_CALL>
-          <<<nBlocks, nThreads, 0, stream>>>(state.seed, state.subsequence, state.offset, ptr, len, params);
+          <<<nBlocks, nThreads, 0, stream>>>(
+            state.seed, state.subsequence, state.offset, ptr, len, params);
         break;
       case GenPC:
-        fillKernel<OutType, LenType, PCGenerator, ITEMS_PER_CALL>
-          <<<nBlocks, nThreads, 0, stream>>>(state.seed, state.subsequence, state.offset, ptr, len, params);
+        fillKernel<OutType, LenType, PCGenerator, ITEMS_PER_CALL><<<nBlocks, nThreads, 0, stream>>>(
+          state.seed, state.subsequence, state.offset, ptr, len, params);
         break;
       default: break;
     }
