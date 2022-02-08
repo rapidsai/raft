@@ -16,8 +16,8 @@
 #pragma once
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/contractions.cuh>
-#include <raft/linalg/norm.cuh>
+#include <raft/linalg/contractions.hpp>
+#include <raft/linalg/norm.hpp>
 #include <raft/vectorized.cuh>
 
 #include <cstddef>

@@ -19,7 +19,7 @@
 #include <gtest/gtest.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/reduce.cuh>
+#include <raft/linalg/reduce.hpp>
 #include <raft/random/rng.hpp>
 
 namespace raft {

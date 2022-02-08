@@ -20,7 +20,7 @@
 #include <gtest/gtest.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/eig.cuh>
+#include <raft/linalg/eig.hpp>
 #include <raft/random/rng.hpp>
 
 namespace raft {
@@ -83,15 +83,15 @@ class EigSelTest : public ::testing::TestWithParam<EigSelInputs<T>> {
     raft::update_device(eig_vectors_ref.data(), eig_vectors_ref_h, 12, stream);
     raft::update_device(eig_vals_ref.data(), eig_vals_ref_h, 4, stream);
 
-    eigSelDC(handle,
-             cov_matrix.data(),
-             params.n_row,
-             params.n_col,
-             3,
-             eig_vectors.data(),
-             eig_vals.data(),
-             EigVecMemUsage::OVERWRITE_INPUT,
-             stream);
+    raft::linalg::eigSelDC(handle,
+                           cov_matrix.data(),
+                           params.n_row,
+                           params.n_col,
+                           3,
+                           eig_vectors.data(),
+                           eig_vals.data(),
+                           EigVecMemUsage::OVERWRITE_INPUT,
+                           stream);
     RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 

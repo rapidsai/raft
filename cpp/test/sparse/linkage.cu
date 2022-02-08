@@ -17,8 +17,8 @@
 #include "../test_utils.h"
 
 #include <raft/cudart_utils.h>
-#include <raft/linalg/distance_type.h>
-#include <raft/linalg/transpose.h>
+#include <raft/distance/distance_type.hpp>
+#include <raft/linalg/transpose.hpp>
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/hierarchy/single_linkage.hpp>
 

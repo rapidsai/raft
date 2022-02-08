@@ -18,7 +18,7 @@
 #include <gtest/gtest.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/svd.cuh>
+#include <raft/linalg/svd.hpp>
 #include <raft/matrix/matrix.hpp>
 #include <raft/random/rng.hpp>
 

@@ -21,7 +21,7 @@
 #include "ball_cover_common.h"
 #include "detail/ball_cover.cuh"
 #include "detail/ball_cover/common.cuh"
-#include <raft/linalg/distance_type.h>
+#include <raft/distance/distance_type.hpp>
 #include <thrust/transform.h>
 
 namespace raft {

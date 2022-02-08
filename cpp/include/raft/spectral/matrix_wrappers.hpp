@@ -17,7 +17,7 @@
 
 #include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
-#include <raft/linalg/cublas_wrappers.h>
+#include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <rmm/device_uvector.hpp>
 
@@ -349,7 +349,8 @@ struct laplacian_matrix_t : sparse_matrix_t<index_type, value_type> {
     if (beta == 0) {
       CUDA_TRY(cudaMemsetAsync(y, 0, n * sizeof(value_type), stream));
     } else if (beta != 1) {
-      RAFT_CUBLAS_TRY(linalg::cublasscal(cublas_h, n, &beta, y, 1, stream));
+      // TODO: Call from public API when ready
+      RAFT_CUBLAS_TRY(raft::linalg::detail::cublasscal(cublas_h, n, &beta, y, 1, stream));
     }
 
     // Apply diagonal matrix
@@ -412,7 +413,9 @@ struct modularity_matrix_t : laplacian_matrix_t<index_type, value_type> {
     // gamma = d'*x
     //
     // Cublas::dot(this->n, D.raw(), 1, x, 1, &dot_res);
-    RAFT_CUBLAS_TRY(linalg::cublasdot(cublas_h,
+    // TODO: Call from public API when ready
+    RAFT_CUBLAS_TRY(
+      raft::linalg::detail::cublasdot(cublas_h,
                                       n,
                                       laplacian_matrix_t<index_type, value_type>::diagonal_.raw(),
                                       1,
@@ -424,7 +427,9 @@ struct modularity_matrix_t : laplacian_matrix_t<index_type, value_type> {
     // y = y -(gamma/edge_sum)*d
     //
     value_type gamma_ = -dot_res / edge_sum_;
-    RAFT_CUBLAS_TRY(linalg::cublasaxpy(cublas_h,
+    // TODO: Call from public API when ready
+    RAFT_CUBLAS_TRY(
+      raft::linalg::detail::cublasaxpy(cublas_h,
                                        n,
                                        &gamma_,
                                        laplacian_matrix_t<index_type, value_type>::diagonal_.raw(),
