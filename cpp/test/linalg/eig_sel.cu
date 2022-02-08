@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@
 #include <gtest/gtest.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/eig.cuh>
+#include <raft/linalg/eig.hpp>
 
 namespace raft {
 namespace linalg {
@@ -91,7 +91,7 @@ class EigSelTest : public ::testing::TestWithParam<EigSelInputs<T>> {
              eig_vals.data(),
              EigVecMemUsage::OVERWRITE_INPUT,
              stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
   }
 
  protected:

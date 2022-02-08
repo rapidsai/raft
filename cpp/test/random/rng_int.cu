@@ -94,10 +94,10 @@ class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
     meanKernel<T, threads><<<raft::ceildiv(params.len, threads), threads, 0, stream>>>(
       stats.data(), data.data(), params.len);
     update_host<float>(h_stats, stats.data(), 2, stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
     h_stats[0] /= params.len;
     h_stats[1] = (h_stats[1] / params.len) - (h_stats[0] * h_stats[0]);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
   }
 
   void getExpectedMeanVar(float meanvar[2])
