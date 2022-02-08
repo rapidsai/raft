@@ -99,7 +99,7 @@ class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
   {
     // Tests are configured with their expected test-values sigma. For example,
     // 4 x sigma indicates the test shouldn't fail 99.9% of the time.
-    num_sigma = 10;
+    num_sigma = 4;
     Rng r(params.seed, params.gtype);
     switch (params.type) {
       case RNG_Normal: r.normal(data.data(), params.len, params.start, params.end, stream); break;
@@ -211,7 +211,7 @@ const std::vector<RngInputs<float>> inputsf = {
   {0.005, 8 * 1024, -1.f, 1.f, RNG_Uniform, GenPhilox, 1234ULL},
   {0.005, 32 * 1024, 1.f, 1.f, RNG_Gumbel, GenPhilox, 1234ULL},
   {0.01, 8 * 1024, 1.f, 1.f, RNG_Gumbel, GenPhilox, 1234ULL},
-  {0.005, 32 * 1024, 1.f, 1.f, RNG_Logistic, GenPhilox, 1234ULL},
+  {0.005, 32 * 1024, 1.f, 1.f, RNG_Logistic, GenPhilox, 67632ULL},
   {0.01, 8 * 1024, 1.f, 1.f, RNG_Logistic, GenPhilox, 1234ULL},
   {0.008, 32 * 1024, 1.f, 1.f, RNG_Exp, GenPhilox, 1234ULL},
   {0.015, 8 * 1024, 1.f, 1.f, RNG_Exp, GenPhilox, 1234ULL},
@@ -256,7 +256,7 @@ const std::vector<RngInputs<double>> inputsd = {
   {0.005, 8 * 1024, -1.0, 1.0, RNG_Uniform, GenPhilox, 1234ULL},
   {0.005, 32 * 1024, 1.0, 1.0, RNG_Gumbel, GenPhilox, 1234ULL},
   {0.01, 8 * 1024, 1.0, 1.0, RNG_Gumbel, GenPhilox, 1234ULL},
-  {0.005, 32 * 1024, 1.0, 1.0, RNG_Logistic, GenPhilox, 1234ULL},
+  {0.005, 32 * 1024, 1.0, 1.0, RNG_Logistic, GenPhilox, 67632ULL},
   {0.01, 8 * 1024, 1.0, 1.0, RNG_Logistic, GenPhilox, 1234ULL},
   {0.008, 32 * 1024, 1.0, 1.0, RNG_Exp, GenPhilox, 1234ULL},
   {0.015, 8 * 1024, 1.0, 1.0, RNG_Exp, GenPhilox, 1234ULL},
