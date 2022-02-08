@@ -35,16 +35,10 @@
 #include "cudart_utils.h"
 
 #include <raft/comms/comms.hpp>
-<<<<<<< HEAD
-#include <raft/linalg/cublas_wrappers.h>
-#include <raft/linalg/cusolver_wrappers.h>
-#include <raft/sparse/detail/cusparse_macros.h>
-=======
 #include <raft/interruptible.hpp>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/linalg/detail/cusolver_wrappers.hpp>
-#include <raft/sparse/cusparse_wrappers.h>
->>>>>>> rapidsai/branch-22.04
+#include <raft/sparse/detail/cusparse_macros.h>
 #include <rmm/cuda_stream_pool.hpp>
 #include <rmm/exec_policy.hpp>
 
