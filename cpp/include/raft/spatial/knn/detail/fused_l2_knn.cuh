@@ -17,7 +17,7 @@
 #include <cub/cub.cuh>
 #include <faiss/gpu/utils/Select.cuh>
 #include <limits>
-#include <raft/linalg/norm.cuh>
+#include <raft/linalg/norm.hpp>
 // TODO: Need to hide the PairwiseDistance class impl and expose to public API
 #include "processing.hpp"
 #include <raft/distance/detail/distance.cuh>

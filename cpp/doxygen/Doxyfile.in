@@ -815,7 +815,7 @@ RECURSIVE              = YES
 
 EXCLUDE                = @CMAKE_CURRENT_SOURCE_DIR@/include/raft/sparse/linalg/symmetrize.hpp \ # Contains device code
                          @CMAKE_CURRENT_SOURCE_DIR@/include/raft/sparse/csr.hpp \    # Contains device code
-                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/sparse/cusparse_wrappers.h
+                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/sparse/detail/cusparse_wrappers.h
 
 # The EXCLUDE_SYMLINKS tag can be used to select whether or not files or
 # directories that are symbolic links (a Unix file system feature) are excluded

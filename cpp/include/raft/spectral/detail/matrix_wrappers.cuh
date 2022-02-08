@@ -17,8 +17,8 @@
 
 #include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
-#include <raft/linalg/cublas_wrappers.h>
-#include <raft/sparse/cusparse_wrappers.h>
+#include <raft/linalg/detail/cublas_wrappers.hpp>
+#include <raft/sparse/detail/cusparse_wrappers.h>
 #include <rmm/device_uvector.hpp>
 
 #include <thrust/fill.h>
@@ -208,24 +208,24 @@ struct sparse_matrix_t {
     // void*; the casts should be harmless)
     //
     cusparseSpMatDescr_t matA;
-    RAFT_CUSPARSE_TRY(cusparsecreatecsr(&matA,
-                                        nrows_,
-                                        ncols_,
-                                        nnz_,
-                                        const_cast<index_type*>(row_offsets_),
-                                        const_cast<index_type*>(col_indices_),
-                                        const_cast<value_type*>(values_)));
+    RAFT_CUSPARSE_TRY(raft::sparse::detail::cusparsecreatecsr(&matA,
+                                                              nrows_,
+                                                              ncols_,
+                                                              nnz_,
+                                                              const_cast<index_type*>(row_offsets_),
+                                                              const_cast<index_type*>(col_indices_),
+                                                              const_cast<value_type*>(values_)));
 
     cusparseDnVecDescr_t vecX;
-    RAFT_CUSPARSE_TRY(cusparsecreatednvec(&vecX, size_x, x));
+    RAFT_CUSPARSE_TRY(raft::sparse::detail::cusparsecreatednvec(&vecX, size_x, x));
 
     cusparseDnVecDescr_t vecY;
-    RAFT_CUSPARSE_TRY(cusparsecreatednvec(&vecY, size_y, y));
+    RAFT_CUSPARSE_TRY(raft::sparse::detail::cusparsecreatednvec(&vecY, size_y, y));
 
     // get (scratch) external device buffer size:
     //
     size_t bufferSize;
-    RAFT_CUSPARSE_TRY(cusparsespmv_buffersize(
+    RAFT_CUSPARSE_TRY(raft::sparse::detail::cusparsespmv_buffersize(
       cusparse_h, trans, &alpha, matA, vecX, &beta, vecY, spmv_alg, &bufferSize, stream));
 
     // allocate external buffer:
@@ -234,7 +234,7 @@ struct sparse_matrix_t {
 
     // finally perform SpMV:
     //
-    RAFT_CUSPARSE_TRY(cusparsespmv(
+    RAFT_CUSPARSE_TRY(raft::sparse::detail::cusparsespmv(
       cusparse_h, trans, &alpha, matA, vecX, &beta, vecY, spmv_alg, external_buffer.raw(), stream));
 
     // free descriptors:
@@ -244,7 +244,8 @@ struct sparse_matrix_t {
     RAFT_CUSPARSE_TRY(cusparseDestroyDnVec(vecX));
     RAFT_CUSPARSE_TRY(cusparseDestroySpMat(matA));
 #else
-    RAFT_CUSPARSE_TRY(cusparsesetpointermode(cusparse_h, CUSPARSE_POINTER_MODE_HOST, stream));
+    RAFT_CUSPARSE_TRY(
+      raft::sparse::detail::cusparsesetpointermode(cusparse_h, CUSPARSE_POINTER_MODE_HOST, stream));
     cusparseMatDescr_t descr = 0;
     RAFT_CUSPARSE_TRY(cusparseCreateMatDescr(&descr));
     if (symmetric) {
@@ -253,20 +254,20 @@ struct sparse_matrix_t {
       RAFT_CUSPARSE_TRY(cusparseSetMatType(descr, CUSPARSE_MATRIX_TYPE_GENERAL));
     }
     RAFT_CUSPARSE_TRY(cusparseSetMatIndexBase(descr, CUSPARSE_INDEX_BASE_ZERO));
-    RAFT_CUSPARSE_TRY(cusparsecsrmv(cusparse_h,
-                                    trans,
-                                    nrows_,
-                                    ncols_,
-                                    nnz_,
-                                    &alpha,
-                                    descr,
-                                    values_,
-                                    row_offsets_,
-                                    col_indices_,
-                                    x,
-                                    &beta,
-                                    y,
-                                    stream));
+    RAFT_CUSPARSE_TRY(raft::sparse::detail::cusparsecsrmv(cusparse_h,
+                                                          trans,
+                                                          nrows_,
+                                                          ncols_,
+                                                          nnz_,
+                                                          &alpha,
+                                                          descr,
+                                                          values_,
+                                                          row_offsets_,
+                                                          col_indices_,
+                                                          x,
+                                                          &beta,
+                                                          y,
+                                                          stream));
     RAFT_CUSPARSE_TRY(cusparseDestroyMatDescr(descr));
 #endif
   }
@@ -349,7 +350,8 @@ struct laplacian_matrix_t : sparse_matrix_t<index_type, value_type> {
     if (beta == 0) {
       CUDA_TRY(cudaMemsetAsync(y, 0, n * sizeof(value_type), stream));
     } else if (beta != 1) {
-      RAFT_CUBLAS_TRY(linalg::cublasscal(cublas_h, n, &beta, y, 1, stream));
+      // TODO: Call from public API when ready
+      RAFT_CUBLAS_TRY(raft::linalg::detail::cublasscal(cublas_h, n, &beta, y, 1, stream));
     }
 
     // Apply diagonal matrix
@@ -412,7 +414,9 @@ struct modularity_matrix_t : laplacian_matrix_t<index_type, value_type> {
     // gamma = d'*x
     //
     // Cublas::dot(this->n, D.raw(), 1, x, 1, &dot_res);
-    RAFT_CUBLAS_TRY(linalg::cublasdot(cublas_h,
+    // TODO: Call from public API when ready
+    RAFT_CUBLAS_TRY(
+      raft::linalg::detail::cublasdot(cublas_h,
                                       n,
                                       laplacian_matrix_t<index_type, value_type>::diagonal_.raw(),
                                       1,
@@ -424,7 +428,9 @@ struct modularity_matrix_t : laplacian_matrix_t<index_type, value_type> {
     // y = y -(gamma/edge_sum)*d
     //
     value_type gamma_ = -dot_res / edge_sum_;
-    RAFT_CUBLAS_TRY(linalg::cublasaxpy(cublas_h,
+    // TODO: Call from public API when ready
+    RAFT_CUBLAS_TRY(
+      raft::linalg::detail::cublasaxpy(cublas_h,
                                        n,
                                        &gamma_,
                                        laplacian_matrix_t<index_type, value_type>::diagonal_.raw(),

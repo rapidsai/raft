@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -465,7 +465,7 @@ class DistanceTest : public ::testing::TestWithParam<DistanceInputs<DataType>> {
                                              stream,
                                              isRowMajor,
                                              metric_arg);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
   }
 
  protected:
@@ -476,5 +476,40 @@ class DistanceTest : public ::testing::TestWithParam<DistanceInputs<DataType>> {
   rmm::device_uvector<DataType> x, y, dist_ref, dist, dist2;
 };
 
+template <raft::distance::DistanceType distanceType>
+class BigMatrixDistanceTest : public ::testing::Test {
+ public:
+  BigMatrixDistanceTest()
+    : x(m * k, handle.get_stream()), dist(std::size_t(m) * m, handle.get_stream()){};
+  void SetUp() override
+  {
+    auto testInfo = testing::UnitTest::GetInstance()->current_test_info();
+    common::nvtx::range fun_scope("test::%s/%s", testInfo->test_suite_name(), testInfo->name());
+
+    size_t worksize = raft::distance::getWorkspaceSize<distanceType, float, float, float>(
+      x.data(), x.data(), m, n, k);
+    rmm::device_uvector<char> workspace(worksize, handle.get_stream());
+    raft::distance::distance<distanceType, float, float, float>(x.data(),
+                                                                x.data(),
+                                                                dist.data(),
+                                                                m,
+                                                                n,
+                                                                k,
+                                                                workspace.data(),
+                                                                worksize,
+                                                                handle.get_stream(),
+                                                                true,
+                                                                0.0f);
+
+    RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
+  }
+
+ protected:
+  int m = 48000;
+  int n = 48000;
+  int k = 1;
+  raft::handle_t handle;
+  rmm::device_uvector<float> x, dist;
+};
 }  // end namespace distance
 }  // end namespace raft

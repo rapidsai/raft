@@ -21,7 +21,7 @@
 
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/init.h>
+#include <raft/linalg/init.hpp>
 
 namespace raft {
 namespace label {

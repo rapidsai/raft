@@ -52,7 +52,7 @@ void fit_embedding(const raft::handle_t& handle,
   rmm::device_uvector<T> eigVecs(n * (n_components + 1), stream);
   rmm::device_uvector<int> labels(n, stream);
 
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  handle.sync_stream(stream);
 
   /**
    * Raft spectral clustering

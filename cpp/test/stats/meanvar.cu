@@ -81,25 +81,18 @@ class MeanVarTest : public ::testing::TestWithParam<MeanVarInputs<T>> {
   rmm::device_uvector<T> data, mean_act, vars_act;
 };
 
-const std::vector<MeanVarInputs<float>> inputsf = {{1.f, 2.f, 1024, 32, true, false, 1234ULL},
-                                                   {1.f, 2.f, 1024, 64, true, false, 1234ULL},
-                                                   {1.f, 2.f, 1024, 128, true, false, 1234ULL},
-                                                   {1.f, 2.f, 1024, 256, true, false, 1234ULL},
-                                                   {-1.f, 2.f, 1024, 32, false, false, 1234ULL},
-                                                   {-1.f, 2.f, 1024, 64, false, false, 1234ULL},
-                                                   {-1.f, 2.f, 1024, 128, false, false, 1234ULL},
-                                                   {-1.f, 2.f, 1024, 256, false, false, 1234ULL},
-                                                   {-1.f, 2.f, 1024, 256, false, false, 1234ULL},
-                                                   {-1.f, 2.f, 1024, 257, false, false, 1234ULL},
-                                                   {1.f, 2.f, 1024, 32, true, true, 1234ULL},
-                                                   {1.f, 2.f, 1024, 64, true, true, 1234ULL},
-                                                   {1.f, 2.f, 1024, 128, true, true, 1234ULL},
-                                                   {1.f, 2.f, 1024, 256, true, true, 1234ULL},
-                                                   {-1.f, 2.f, 1024, 32, false, true, 1234ULL},
-                                                   {-1.f, 2.f, 1024, 64, false, true, 1234ULL},
-                                                   {-1.f, 2.f, 1024, 128, false, true, 1234ULL},
-                                                   {-1.f, 2.f, 1024, 256, false, true, 1234ULL},
-                                                   {-1.f, 2.f, 1024, 257, false, true, 1234ULL}};
+const std::vector<MeanVarInputs<float>> inputsf = {
+  {1.f, 2.f, 1024, 32, true, false, 1234ULL},    {1.f, 2.f, 1024, 64, true, false, 1234ULL},
+  {1.f, 2.f, 1024, 128, true, false, 1234ULL},   {1.f, 2.f, 1024, 256, true, false, 1234ULL},
+  {-1.f, 2.f, 1024, 32, false, false, 1234ULL},  {-1.f, 2.f, 1024, 64, false, false, 1234ULL},
+  {-1.f, 2.f, 1024, 128, false, false, 1234ULL}, {-1.f, 2.f, 1024, 256, false, false, 1234ULL},
+  {-1.f, 2.f, 1024, 256, false, false, 1234ULL}, {-1.f, 2.f, 1024, 257, false, false, 1234ULL},
+  {1.f, 2.f, 1024, 32, true, true, 1234ULL},     {1.f, 2.f, 1024, 64, true, true, 1234ULL},
+  {1.f, 2.f, 1024, 128, true, true, 1234ULL},    {1.f, 2.f, 1024, 256, true, true, 1234ULL},
+  {-1.f, 2.f, 1024, 32, false, true, 1234ULL},   {-1.f, 2.f, 1024, 64, false, true, 1234ULL},
+  {-1.f, 2.f, 1024, 128, false, true, 1234ULL},  {-1.f, 2.f, 1024, 256, false, true, 1234ULL},
+  {-1.f, 2.f, 1024, 257, false, true, 1234ULL},  {-1.f, 2.f, 700, 13, false, true, 1234ULL},
+  {10.f, 2.f, 500000, 811, false, true, 1234ULL}};
 
 const std::vector<MeanVarInputs<double>> inputsd = {{1.0, 2.0, 1024, 32, true, false, 1234ULL},
                                                     {1.0, 2.0, 1024, 64, true, false, 1234ULL},
