@@ -19,7 +19,7 @@
 #include <limits.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/distance_type.h>
+#include <raft/linalg/distance_type.hpp>
 #include <raft/sparse/detail/cusparse_wrappers.h>
 
 #include <raft/sparse/convert/csr.hpp>

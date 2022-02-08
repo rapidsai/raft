@@ -18,7 +18,7 @@
 #include "unary_op.cuh"
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/multiply.cuh>
+#include <raft/linalg/multiply.hpp>
 #include <raft/random/rng.hpp>
 
 namespace raft {
@@ -45,7 +45,7 @@ class MultiplyTest : public ::testing::TestWithParam<UnaryOpInputs<T>> {
     r.uniform(in.data(), len, T(-1.0), T(1.0), stream);
     naiveScale(out_ref.data(), in.data(), params.scalar, len, stream);
     multiplyScalar(out.data(), in.data(), params.scalar, len, stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
   }
 
  protected:

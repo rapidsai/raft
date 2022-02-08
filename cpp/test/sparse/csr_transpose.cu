@@ -118,7 +118,7 @@ class CSRTransposeTest : public ::testing::TestWithParam<CSRTransposeInputs<valu
                                         params.nnz,
                                         stream);
 
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
   }
 
   void compare()

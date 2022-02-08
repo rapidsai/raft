@@ -19,8 +19,8 @@
 #include <cusparse_v2.h>
 
 #include <raft/cudart_utils.h>
-#include <raft/linalg/distance_type.h>
 #include <raft/sparse/detail/cusparse_wrappers.h>
+#include <raft/distance/distance_type.hpp>
 
 #include <raft/sparse/distance/distance.hpp>
 

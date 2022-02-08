@@ -30,8 +30,8 @@
 
 #include <cstdint>
 #include <iostream>
+#include <raft/distance/distance_type.hpp>
 #include <raft/handle.hpp>
-#include <raft/linalg/distance_type.h>
 #include <raft/spatial/knn/faiss_mr.hpp>
 #include <set>
 #include <thrust/iterator/transform_iterator.h>

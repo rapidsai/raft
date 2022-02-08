@@ -147,7 +147,7 @@ void max_duplicates(const raft::handle_t& handle,
   // compute final size
   value_idx size = 0;
   raft::update_host(&size, diff.data() + (diff.size() - 1), 1, stream);
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  handle.sync_stream(stream);
   size++;
 
   out.allocate(size, m, n, true, stream);

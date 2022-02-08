@@ -17,7 +17,7 @@
 #include "../test_utils.h"
 
 #include <faiss/gpu/GpuResources.h>
-#include <raft/linalg/distance_type.h>
+#include <raft/distance/distance_type.hpp>
 #include <raft/spatial/knn/knn.hpp>
 
 #include <rmm/device_buffer.hpp>

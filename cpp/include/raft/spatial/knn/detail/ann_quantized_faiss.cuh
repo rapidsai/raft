@@ -43,7 +43,7 @@
 
 #include <thrust/iterator/transform_iterator.h>
 
-#include <raft/linalg/distance_type.h>
+#include <raft/distance/distance_type.hpp>
 
 #include <cuml/neighbors/knn.hpp>
 

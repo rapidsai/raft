@@ -20,7 +20,7 @@
 #include <unordered_set>
 
 #include <raft/cuda_utils.cuh>
-#include <raft/linalg/distance_type.h>
+#include <raft/distance/distance_type.hpp>
 #include <raft/mr/device/buffer.hpp>
 #include <raft/sparse/detail/cusparse_wrappers.h>
 
