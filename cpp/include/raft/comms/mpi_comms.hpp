@@ -26,8 +26,8 @@ using mpi_comms = detail::mpi_comms;
 
 inline void initialize_mpi_comms(handle_t* handle, MPI_Comm comm)
 {
-  auto communicator =
-    std::make_shared<comms_t>(std::unique_ptr<comms_iface>(new mpi_comms(comm, false)));
+  auto communicator = std::make_shared<comms_t>(
+    std::unique_ptr<comms_iface>(new mpi_comms(comm, false, handle->get_stream())));
   handle->set_comms(communicator);
 };
 
