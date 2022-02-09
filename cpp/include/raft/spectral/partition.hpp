@@ -58,7 +58,7 @@ std::tuple<vertex_t, weight_t, vertex_t> partition(
   weight_t* eigVals,
   weight_t* eigVecs)
 {
-  return detail::partition<vertex_t, weight_t, EigenSolver, ClusterSolver>(
+  return raft::spectral::detail::partition<vertex_t, weight_t, EigenSolver, ClusterSolver>(
     handle, csr_m, eigen_solver, cluster_solver, clusters, eigVals, eigVecs);
 }
 
@@ -88,7 +88,8 @@ void analyzePartition(handle_t const& handle,
                       weight_t& edgeCut,
                       weight_t& cost)
 {
-  detail::analyzePartition<vertex_t, weight_t>(handle, csr_m, nClusters, clusters, edgeCut, cost);
+  raft::spectral::detail::analyzePartition<vertex_t, weight_t>(
+    handle, csr_m, nClusters, clusters, edgeCut, cost);
 }
 
 }  // namespace spectral

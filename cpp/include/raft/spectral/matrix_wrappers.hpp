@@ -15,16 +15,11 @@
  */
 #pragma once
 
-#include <raft/handle.hpp>
 #include <raft/spectral/detail/matrix_wrappers.cuh>
-#include <rmm/device_uvector.hpp>
 
 // =========================================================
 // Useful macros
 // =========================================================
-
-// Get index of matrix entry
-#define IDX(i, j, lda) ((i) + (j) * (lda))
 
 namespace raft {
 namespace spectral {
@@ -46,11 +41,13 @@ template <typename value_type>
 using vector_t = detail::vector_t<value_type>;
 
 template <typename index_type, typename value_type>
-using sparse_matrix_t = sparse_matrix_t<index_type, value_type>;
+using sparse_matrix_t = detail::sparse_matrix_t<index_type, value_type>;
+
 template <typename index_type, typename value_type>
-using laplacian_matrix_t : detail::laplacian_matrix_t<index_type, value_type>;
+using laplacian_matrix_t = detail::laplacian_matrix_t<index_type, value_type>;
+
 template <typename index_type, typename value_type>
-using modularity_matrix_t = modularity_matrix_t<index_type, value_type>;
+using modularity_matrix_t = detail::modularity_matrix_t<index_type, value_type>;
 
 }  // namespace matrix
 }  // namespace spectral

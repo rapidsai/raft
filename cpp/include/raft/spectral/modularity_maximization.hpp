@@ -58,8 +58,9 @@ std::tuple<vertex_t, weight_t, vertex_t> modularity_maximization(
   weight_t* eigVals,
   weight_t* eigVecs)
 {
-  return detail::modularity_maximization<vertex_t, weight_t, EigenSolver, ClusterSolver>(
-    handle, csr_m, eigen_solver, cluster_solver, clusters, eigVals, eigVecs);
+  return raft::spectral::detail::
+    modularity_maximization<vertex_t, weight_t, EigenSolver, ClusterSolver>(
+      handle, csr_m, eigen_solver, cluster_solver, clusters, eigVals, eigVecs);
 }
 //===================================================
 // Analysis of graph partition
@@ -79,7 +80,8 @@ void analyzeModularity(handle_t const& handle,
                        vertex_t const* __restrict__ clusters,
                        weight_t& modularity)
 {
-  detail::analyzeModularity<vertex_t, weight_t>(handle, csr_m, nClusters, clusters, modularity);
+  raft::spectral::detail::analyzeModularity<vertex_t, weight_t>(
+    handle, csr_m, nClusters, clusters, modularity);
 }
 
 }  // namespace spectral
