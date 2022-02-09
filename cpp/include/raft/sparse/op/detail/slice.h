@@ -21,7 +21,7 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/unary_op.hpp>
-#include <raft/sparse/cusparse_wrappers.h>
+#include <raft/sparse/detail/cusparse_wrappers.h>
 
 #include <thrust/device_ptr.h>
 #include <thrust/scan.h>

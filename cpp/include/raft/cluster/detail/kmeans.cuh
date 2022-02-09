@@ -32,13 +32,12 @@
 #include <raft/device_atomics.cuh>
 #include <raft/handle.hpp>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
-#include <raft/spectral/matrix_wrappers.hpp>
-#include <raft/spectral/warn_dbg.hpp>
+#include <raft/spectral/detail/matrix_wrappers.cuh>
+#include <raft/spectral/detail/warn_dbg.hpp>
 
-namespace {
-
-using namespace raft;
-using namespace raft::linalg;
+namespace raft {
+namespace cluster {
+namespace detail {
 // =========================================================
 // Useful grid settings
 // =========================================================
@@ -728,10 +727,6 @@ static int updateCentroids(handle_t const& handle,
   return 0;
 }
 
-}  // namespace
-
-namespace raft {
-
 // =========================================================
 // k-means algorithm
 // =========================================================
@@ -986,4 +981,6 @@ int kmeans(handle_t const& handle,
                                             seed);
 }
 
+}  // namespace detail
+}  // namespace cluster
 }  // namespace raft

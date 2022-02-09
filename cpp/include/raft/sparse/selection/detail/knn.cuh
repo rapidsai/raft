@@ -23,7 +23,6 @@
 #include <raft/distance/distance_type.hpp>
 #include <raft/linalg/unary_op.hpp>
 #include <raft/matrix/matrix.hpp>
-#include <raft/mr/device/buffer.hpp>
 
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/csr.hpp>
