@@ -49,13 +49,14 @@ namespace spectral {
  *  @return statistics: number of eigensolver iterations, .
  */
 template <typename vertex_t, typename weight_t, typename EigenSolver, typename ClusterSolver>
-std::tuple<vertex_t, weight_t, vertex_t> partition(handle_t const& handle,
-                                                   sparse_matrix_t<vertex_t, weight_t> const& csr_m,
-                                                   EigenSolver const& eigen_solver,
-                                                   ClusterSolver const& cluster_solver,
-                                                   vertex_t* __restrict__ clusters,
-                                                   weight_t* eigVals,
-                                                   weight_t* eigVecs)
+std::tuple<vertex_t, weight_t, vertex_t> partition(
+  handle_t const& handle,
+  matrix::sparse_matrix_t<vertex_t, weight_t> const& csr_m,
+  EigenSolver const& eigen_solver,
+  ClusterSolver const& cluster_solver,
+  vertex_t* __restrict__ clusters,
+  weight_t* eigVals,
+  weight_t* eigVecs)
 {
   return detail::partition<vertex_t, weight_t, EigenSolver, ClusterSolver>(
     handle, csr_m, eigen_solver, cluster_solver, clusters, eigVals, eigVecs);
@@ -81,7 +82,7 @@ std::tuple<vertex_t, weight_t, vertex_t> partition(handle_t const& handle,
  */
 template <typename vertex_t, typename weight_t>
 void analyzePartition(handle_t const& handle,
-                      sparse_matrix_t<vertex_t, weight_t> const& csr_m,
+                      matrix::sparse_matrix_t<vertex_t, weight_t> const& csr_m,
                       vertex_t nClusters,
                       const vertex_t* __restrict__ clusters,
                       weight_t& edgeCut,

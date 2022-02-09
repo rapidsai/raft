@@ -48,7 +48,7 @@ struct lanczos_solver_t {
 
   index_type_t solve_smallest_eigenvectors(
     handle_t const& handle,
-    spectral::matrix::sparse_matrix_t<index_type_t, value_type_t> const& A,
+    matrix::sparse_matrix_t<index_type_t, value_type_t> const& A,
     value_type_t* __restrict__ eigVals,
     value_type_t* __restrict__ eigVecs) const
   {
@@ -71,7 +71,7 @@ struct lanczos_solver_t {
 
   index_type_t solve_largest_eigenvectors(
     handle_t const& handle,
-    spectral::matrix::sparse_matrix_t<index_type_t, value_type_t> const& A,
+    matrix::sparse_matrix_t<index_type_t, value_type_t> const& A,
     value_type_t* __restrict__ eigVals,
     value_type_t* __restrict__ eigVecs) const
   {
