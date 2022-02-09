@@ -48,6 +48,7 @@ option(DETECT_CONDA_ENV "Enable detection of conda environment for dependencies"
 option(DISABLE_DEPRECATION_WARNINGS "Disable depreaction warnings " ON)
 option(DISABLE_OPENMP "Disable OpenMP" OFF)
 option(NVTX "Enable nvtx markers" OFF)
+option(USE_CCACHE "Cache build artifacts with ccache" OFF)
 
 option(RAFT_COMPILE_LIBRARIES "Enable building raft shared library instantiations" ON)
 option(RAFT_COMPILE_NN_LIBRARY "Enable building raft nearest neighbors shared library instantiations" OFF)
@@ -64,6 +65,7 @@ message(VERBOSE "RAFT: Enable kernel resource usage info: ${CUDA_ENABLE_KERNELIN
 message(VERBOSE "RAFT: Enable lineinfo in nvcc: ${CUDA_ENABLE_LINEINFO}")
 message(VERBOSE "RAFT: Enable nvtx markers: ${NVTX}")
 message(VERBOSE "RAFT: Statically link the CUDA runtime: ${CUDA_STATIC_RUNTIME}")
+message(VERBOSE "RAFT: Cache build artifacts with ccache: ${USE_CCACHE}")
 
 # Set RMM logging level
 set(RMM_LOGGING_LEVEL "INFO" CACHE STRING "Choose the logging level.")
@@ -93,6 +95,12 @@ rapids_find_package(CUDAToolkit REQUIRED
     INSTALL_EXPORT_SET raft-exports
     )
 include(cmake/modules/ConfigureCUDA.cmake)
+
+if(USE_CCACHE)
+  set(CMAKE_C_COMPILER_LAUNCHER ccache)
+  set(CMAKE_CXX_COMPILER_LAUNCHER ccache)
+  set(CMAKE_CUDA_COMPILER_LAUNCHER ccache)
+endif()
 
 ##############################################################################
 # - Requirements -------------------------------------------------------------
