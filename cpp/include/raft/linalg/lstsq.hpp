@@ -36,7 +36,7 @@ void lstsqSvdQR(const raft::handle_t& handle,
                 math_t* w,
                 cudaStream_t stream)
 {
-    detail::lstsqSvdQR(handle, A, n_rows, n_cols, b, w, stream);
+  detail::lstsqSvdQR(handle, A, n_rows, n_cols, b, w, stream);
 }
 
 /** Solves the linear ordinary least squares problem `Aw = b`
@@ -54,7 +54,7 @@ void lstsqSvdJacobi(const raft::handle_t& handle,
                     math_t* w,
                     cudaStream_t stream)
 {
-    detail::lstsqSvdJacobi(handle, A, n_rows, n_cols, b, w, stream);
+  detail::lstsqSvdJacobi(handle, A, n_rows, n_cols, b, w, stream);
 }
 
 /** Solves the linear ordinary least squares problem `Aw = b`
@@ -70,7 +70,7 @@ void lstsqEig(const raft::handle_t& handle,
               math_t* w,
               cudaStream_t stream)
 {
-    detail::lstsqEig(handle, A, n_rows, n_cols, b, w, stream);
+  detail::lstsqEig(handle, A, n_rows, n_cols, b, w, stream);
 }
 
 /** Solves the linear ordinary least squares problem `Aw = b`
@@ -91,7 +91,7 @@ void lstsqQR(const raft::handle_t& handle,
              math_t* w,
              cudaStream_t stream)
 {
-    detail::lstsqQR(handle, A, n_rows, n_cols, b, w, stream);
+  detail::lstsqQR(handle, A, n_rows, n_cols, b, w, stream);
 }
 
 };  // namespace linalg

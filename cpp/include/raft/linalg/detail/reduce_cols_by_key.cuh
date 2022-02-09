@@ -22,25 +22,26 @@
 #include <stdlib.h>
 
 namespace raft {
-    namespace linalg {
-        namespace detail {
+namespace linalg {
+namespace detail {
 
 ///@todo: support col-major
 ///@todo: specialize this to support shared-mem based atomics
 
-        template<typename T, typename KeyIteratorT, typename IdxType>
-        __global__ void reduce_cols_by_key_kernel(
-                const T *data, const KeyIteratorT keys, T *out, IdxType nrows, IdxType ncols, IdxType nkeys) {
-            typedef typename std::iterator_traits<KeyIteratorT>::value_type KeyType;
+template <typename T, typename KeyIteratorT, typename IdxType>
+__global__ void reduce_cols_by_key_kernel(
+  const T* data, const KeyIteratorT keys, T* out, IdxType nrows, IdxType ncols, IdxType nkeys)
+{
+  typedef typename std::iterator_traits<KeyIteratorT>::value_type KeyType;
 
-            IdxType idx = blockIdx.x * blockDim.x + threadIdx.x;
-            if (idx >= (nrows * ncols)) return;
-            ///@todo: yikes! use fast-int-div
-            IdxType colId = idx % ncols;
-            IdxType rowId = idx / ncols;
-            KeyType key = keys[colId];
-            raft::myAtomicAdd(out + rowId * nkeys + key, data[idx]);
-        }
+  IdxType idx = blockIdx.x * blockDim.x + threadIdx.x;
+  if (idx >= (nrows * ncols)) return;
+  ///@todo: yikes! use fast-int-div
+  IdxType colId = idx % ncols;
+  IdxType rowId = idx / ncols;
+  KeyType key   = keys[colId];
+  raft::myAtomicAdd(out + rowId * nkeys + key, data[idx]);
+}
 
 /**
  * @brief Computes the sum-reduction of matrix columns for each given key
@@ -60,22 +61,23 @@ namespace raft {
  * @param nkeys number of unique keys in the keys array
  * @param stream cuda stream to launch the kernel onto
  */
-        template<typename T, typename KeyIteratorT, typename IdxType = int>
-        void reduce_cols_by_key(const T *data,
-                                const KeyIteratorT keys,
-                                T *out,
-                                IdxType nrows,
-                                IdxType ncols,
-                                IdxType nkeys,
-                                cudaStream_t stream) {
-            typedef typename std::iterator_traits<KeyIteratorT>::value_type KeyType;
+template <typename T, typename KeyIteratorT, typename IdxType = int>
+void reduce_cols_by_key(const T* data,
+                        const KeyIteratorT keys,
+                        T* out,
+                        IdxType nrows,
+                        IdxType ncols,
+                        IdxType nkeys,
+                        cudaStream_t stream)
+{
+  typedef typename std::iterator_traits<KeyIteratorT>::value_type KeyType;
 
-            RAFT_CUDA_TRY(cudaMemsetAsync(out, 0, sizeof(T) * nrows * nkeys, stream));
-            constexpr int TPB = 256;
-            int nblks = (int) raft::ceildiv<IdxType>(nrows * ncols, TPB);
-            reduce_cols_by_key_kernel<<<nblks, TPB, 0, stream>>>(data, keys, out, nrows, ncols, nkeys);
-            RAFT_CUDA_TRY(cudaPeekAtLastError());
-        }
-    };  // end namespace detail
-    };  // end namespace linalg
+  RAFT_CUDA_TRY(cudaMemsetAsync(out, 0, sizeof(T) * nrows * nkeys, stream));
+  constexpr int TPB = 256;
+  int nblks         = (int)raft::ceildiv<IdxType>(nrows * ncols, TPB);
+  reduce_cols_by_key_kernel<<<nblks, TPB, 0, stream>>>(data, keys, out, nrows, ncols, nkeys);
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
+}
+};  // end namespace detail
+};  // end namespace linalg
 };  // end namespace raft

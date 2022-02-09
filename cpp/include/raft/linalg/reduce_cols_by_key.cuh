@@ -21,7 +21,6 @@
 namespace raft {
 namespace linalg {
 
-
 /**
  * @brief Computes the sum-reduction of matrix columns for each given key
  * @tparam T the input data type (as well as the output reduced matrix)
@@ -40,15 +39,16 @@ namespace linalg {
  * @param nkeys number of unique keys in the keys array
  * @param stream cuda stream to launch the kernel onto
  */
-template<typename T, typename KeyIteratorT, typename IdxType = int>
-void reduce_cols_by_key(const T *data,
+template <typename T, typename KeyIteratorT, typename IdxType = int>
+void reduce_cols_by_key(const T* data,
                         const KeyIteratorT keys,
-                        T *out,
+                        T* out,
                         IdxType nrows,
                         IdxType ncols,
                         IdxType nkeys,
-                        cudaStream_t stream) {
-    detail::reduce_cols_by_key(data, keys, out, nrows, ncols, nkeys, stream);
+                        cudaStream_t stream)
+{
+  detail::reduce_cols_by_key(data, keys, out, nrows, ncols, nkeys, stream);
 }
 };  // end namespace linalg
 };  // end namespace raft

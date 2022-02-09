@@ -42,14 +42,14 @@ namespace linalg {
  * @param max_sweeps: maximum number of sweeps for Jacobi-based solvers
  * @param stream cuda stream
  */
-template<typename math_t>
-void rsvdFixedRank(const raft::handle_t &handle,
-                   math_t *M,
+template <typename math_t>
+void rsvdFixedRank(const raft::handle_t& handle,
+                   math_t* M,
                    int n_rows,
                    int n_cols,
-                   math_t *S_vec,
-                   math_t *U,
-                   math_t *V,
+                   math_t* S_vec,
+                   math_t* U,
+                   math_t* V,
                    int k,
                    int p,
                    bool use_bbt,
@@ -58,11 +58,25 @@ void rsvdFixedRank(const raft::handle_t &handle,
                    bool use_jacobi,
                    math_t tol,
                    int max_sweeps,
-                   cudaStream_t stream) {
-
-    detail::rsvdFixedRank(handle, M, n_rows, n_cols, S_vec, U, V, k, p, use_bbt, gen_left_vec, gen_right_vec, use_jacobi, tol, max_sweeps, stream);
+                   cudaStream_t stream)
+{
+  detail::rsvdFixedRank(handle,
+                        M,
+                        n_rows,
+                        n_cols,
+                        S_vec,
+                        U,
+                        V,
+                        k,
+                        p,
+                        use_bbt,
+                        gen_left_vec,
+                        gen_right_vec,
+                        use_jacobi,
+                        tol,
+                        max_sweeps,
+                        stream);
 }
-
 
 /**
  * @brief randomized singular value decomposition (RSVD) on the column major
@@ -85,14 +99,14 @@ void rsvdFixedRank(const raft::handle_t &handle,
  * @param max_sweeps: maximum number of sweeps for Jacobi-based solvers
  * @param stream cuda stream
  */
-template<typename math_t>
-void rsvdPerc(const raft::handle_t &handle,
-              math_t *M,
+template <typename math_t>
+void rsvdPerc(const raft::handle_t& handle,
+              math_t* M,
               int n_rows,
               int n_cols,
-              math_t *S_vec,
-              math_t *U,
-              math_t *V,
+              math_t* S_vec,
+              math_t* U,
+              math_t* V,
               math_t PC_perc,
               math_t UpS_perc,
               bool use_bbt,
@@ -101,8 +115,24 @@ void rsvdPerc(const raft::handle_t &handle,
               bool use_jacobi,
               math_t tol,
               int max_sweeps,
-              cudaStream_t stream) {
-    detail::rsvdPerc(handle, M, n_rows, n_cols, S_vec, U, V, PC_perc, UpS_perc, use_bbt, gen_left_vec, gen_right_vec, use_jacobi, tol, max_sweeps, stream);
+              cudaStream_t stream)
+{
+  detail::rsvdPerc(handle,
+                   M,
+                   n_rows,
+                   n_cols,
+                   S_vec,
+                   U,
+                   V,
+                   PC_perc,
+                   UpS_perc,
+                   use_bbt,
+                   gen_left_vec,
+                   gen_right_vec,
+                   use_jacobi,
+                   tol,
+                   max_sweeps,
+                   stream);
 }
 
 };  // end namespace linalg

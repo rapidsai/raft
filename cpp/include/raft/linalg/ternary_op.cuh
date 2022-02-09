@@ -34,15 +34,16 @@ namespace linalg {
  * @param op the device-lambda
  * @param stream cuda stream where to launch work
  */
-template<typename math_t, typename Lambda, typename IdxType = int, int TPB = 256>
-void ternaryOp(math_t *out,
-               const math_t *in1,
-               const math_t *in2,
-               const math_t *in3,
+template <typename math_t, typename Lambda, typename IdxType = int, int TPB = 256>
+void ternaryOp(math_t* out,
+               const math_t* in1,
+               const math_t* in2,
+               const math_t* in3,
                IdxType len,
                Lambda op,
-               cudaStream_t stream) {
-    detail::ternaryOp(out, in1, in2, in3, len, op, stream);
+               cudaStream_t stream)
+{
+  detail::ternaryOp(out, in1, in2, in3, len, op, stream);
 }
 
 };  // end namespace linalg

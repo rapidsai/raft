@@ -20,39 +20,41 @@
 #include <raft/vectorized.cuh>
 
 namespace raft {
-    namespace linalg {
+namespace linalg {
 namespace detail {
-    template<typename math_t, int veclen_, typename Lambda, typename IdxType>
-    __global__ void ternaryOpKernel(
-            math_t *out, const math_t *in1, const math_t *in2, const math_t *in3, IdxType len, Lambda op) {
-        typedef raft::TxN_t<math_t, veclen_> VecType;
-        VecType a, b, c;
-        IdxType idx = threadIdx.x + ((IdxType) blockIdx.x * blockDim.x);
-        idx *= VecType::Ratio;
-        if (idx >= len) return;
-        a.load(in1, idx);
-        b.load(in2, idx);
-        c.load(in3, idx);
+template <typename math_t, int veclen_, typename Lambda, typename IdxType>
+__global__ void ternaryOpKernel(
+  math_t* out, const math_t* in1, const math_t* in2, const math_t* in3, IdxType len, Lambda op)
+{
+  typedef raft::TxN_t<math_t, veclen_> VecType;
+  VecType a, b, c;
+  IdxType idx = threadIdx.x + ((IdxType)blockIdx.x * blockDim.x);
+  idx *= VecType::Ratio;
+  if (idx >= len) return;
+  a.load(in1, idx);
+  b.load(in2, idx);
+  c.load(in3, idx);
 #pragma unroll
-        for (int i = 0; i < VecType::Ratio; ++i) {
-            a.val.data[i] = op(a.val.data[i], b.val.data[i], c.val.data[i]);
-        }
-        a.store(out, idx);
-    }
+  for (int i = 0; i < VecType::Ratio; ++i) {
+    a.val.data[i] = op(a.val.data[i], b.val.data[i], c.val.data[i]);
+  }
+  a.store(out, idx);
+}
 
-    template<typename math_t, int veclen_, typename Lambda, typename IdxType, int TPB>
-    void ternaryOpImpl(math_t *out,
-                       const math_t *in1,
-                       const math_t *in2,
-                       const math_t *in3,
-                       IdxType len,
-                       Lambda op,
-                       cudaStream_t stream) {
-        const IdxType nblks = raft::ceildiv(veclen_ ? len / veclen_ : len, (IdxType) TPB);
-        ternaryOpKernel<math_t, veclen_, Lambda, IdxType>
-        <<<nblks, TPB, 0, stream>>>(out, in1, in2, in3, len, op);
-        RAFT_CUDA_TRY(cudaPeekAtLastError());
-    }
+template <typename math_t, int veclen_, typename Lambda, typename IdxType, int TPB>
+void ternaryOpImpl(math_t* out,
+                   const math_t* in1,
+                   const math_t* in2,
+                   const math_t* in3,
+                   IdxType len,
+                   Lambda op,
+                   cudaStream_t stream)
+{
+  const IdxType nblks = raft::ceildiv(veclen_ ? len / veclen_ : len, (IdxType)TPB);
+  ternaryOpKernel<math_t, veclen_, Lambda, IdxType>
+    <<<nblks, TPB, 0, stream>>>(out, in1, in2, in3, len, op);
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
+}
 
 /**
  * @brief perform element-wise ternary operation on the input arrays
@@ -68,35 +70,36 @@ namespace detail {
  * @param op the device-lambda
  * @param stream cuda stream where to launch work
  */
-    template<typename math_t, typename Lambda, typename IdxType = int, int TPB = 256>
-    void ternaryOp(math_t *out,
-                   const math_t *in1,
-                   const math_t *in2,
-                   const math_t *in3,
-                   IdxType len,
-                   Lambda op,
-                   cudaStream_t stream) {
-        size_t bytes = len * sizeof(math_t);
-        if (16 / sizeof(math_t) && bytes % 16 == 0) {
-            ternaryOpImpl<math_t, 16 / sizeof(math_t), Lambda, IdxType, TPB>(
-                    out, in1, in2, in3, len, op, stream);
-        } else if (8 / sizeof(math_t) && bytes % 8 == 0) {
-            ternaryOpImpl<math_t, 8 / sizeof(math_t), Lambda, IdxType, TPB>(
-                    out, in1, in2, in3, len, op, stream);
-        } else if (4 / sizeof(math_t) && bytes % 4 == 0) {
-            ternaryOpImpl<math_t, 4 / sizeof(math_t), Lambda, IdxType, TPB>(
-                    out, in1, in2, in3, len, op, stream);
-        } else if (2 / sizeof(math_t) && bytes % 2 == 0) {
-            ternaryOpImpl<math_t, 2 / sizeof(math_t), Lambda, IdxType, TPB>(
-                    out, in1, in2, in3, len, op, stream);
-        } else if (1 / sizeof(math_t)) {
-            ternaryOpImpl<math_t, 1 / sizeof(math_t), Lambda, IdxType, TPB>(
-                    out, in1, in2, in3, len, op, stream);
-        } else {
-            ternaryOpImpl<math_t, 1, Lambda, IdxType, TPB>(out, in1, in2, in3, len, op, stream);
-        }
-    }
+template <typename math_t, typename Lambda, typename IdxType = int, int TPB = 256>
+void ternaryOp(math_t* out,
+               const math_t* in1,
+               const math_t* in2,
+               const math_t* in3,
+               IdxType len,
+               Lambda op,
+               cudaStream_t stream)
+{
+  size_t bytes = len * sizeof(math_t);
+  if (16 / sizeof(math_t) && bytes % 16 == 0) {
+    ternaryOpImpl<math_t, 16 / sizeof(math_t), Lambda, IdxType, TPB>(
+      out, in1, in2, in3, len, op, stream);
+  } else if (8 / sizeof(math_t) && bytes % 8 == 0) {
+    ternaryOpImpl<math_t, 8 / sizeof(math_t), Lambda, IdxType, TPB>(
+      out, in1, in2, in3, len, op, stream);
+  } else if (4 / sizeof(math_t) && bytes % 4 == 0) {
+    ternaryOpImpl<math_t, 4 / sizeof(math_t), Lambda, IdxType, TPB>(
+      out, in1, in2, in3, len, op, stream);
+  } else if (2 / sizeof(math_t) && bytes % 2 == 0) {
+    ternaryOpImpl<math_t, 2 / sizeof(math_t), Lambda, IdxType, TPB>(
+      out, in1, in2, in3, len, op, stream);
+  } else if (1 / sizeof(math_t)) {
+    ternaryOpImpl<math_t, 1 / sizeof(math_t), Lambda, IdxType, TPB>(
+      out, in1, in2, in3, len, op, stream);
+  } else {
+    ternaryOpImpl<math_t, 1, Lambda, IdxType, TPB>(out, in1, in2, in3, len, op, stream);
+  }
+}
 
 };  // end namespace detail
-    };  // end namespace linalg
+};  // end namespace linalg
 };  // end namespace raft
