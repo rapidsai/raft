@@ -26,9 +26,11 @@
 
 #include <tuple>
 
+#include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/spectral/cluster_solvers.hpp>
 #include <raft/spectral/detail/spectral_util.cuh>
 #include <raft/spectral/eigen_solvers.hpp>
+#include <raft/spectral/matrix_wrappers.hpp>
 
 #ifdef COLLECT_TIME_STATISTICS
 #include <cuda_profiler_api.h>
@@ -51,9 +53,6 @@ static double timer(void)
 namespace raft {
 namespace spectral {
 namespace detail {
-
-using namespace matrix;
-using namespace linalg;
 
 // =========================================================
 // Spectral modularity_maximization
@@ -83,7 +82,7 @@ using namespace linalg;
 template <typename vertex_t, typename weight_t, typename EigenSolver, typename ClusterSolver>
 std::tuple<vertex_t, weight_t, vertex_t> modularity_maximization(
   handle_t const& handle,
-  sparse_matrix_t<vertex_t, weight_t> const& csr_m,
+  raft::spectral::matrix::sparse_matrix_t<vertex_t, weight_t> const& csr_m,
   EigenSolver const& eigen_solver,
   ClusterSolver const& cluster_solver,
   vertex_t* __restrict__ clusters,
@@ -105,7 +104,7 @@ std::tuple<vertex_t, weight_t, vertex_t> modularity_maximization(
   // Compute eigenvectors of Modularity Matrix
 
   // Initialize Modularity Matrix
-  modularity_matrix_t<vertex_t, weight_t> B{handle, csr_m};
+  raft::spectral::matrix::modularity_matrix_t<vertex_t, weight_t> B{handle, csr_m};
 
   auto eigen_config = eigen_solver.get_config();
   auto nEigVecs     = eigen_config.n_eigVecs;
@@ -142,7 +141,7 @@ std::tuple<vertex_t, weight_t, vertex_t> modularity_maximization(
  */
 template <typename vertex_t, typename weight_t>
 void analyzeModularity(handle_t const& handle,
-                       sparse_matrix_t<vertex_t, weight_t> const& csr_m,
+                       raft::spectral::matrix::sparse_matrix_t<vertex_t, weight_t> const& csr_m,
                        vertex_t nClusters,
                        vertex_t const* __restrict__ clusters,
                        weight_t& modularity)
@@ -157,14 +156,14 @@ void analyzeModularity(handle_t const& handle,
   auto stream   = handle.get_stream();
 
   // Device memory
-  vector_t<weight_t> part_i(handle, n);
-  vector_t<weight_t> Bx(handle, n);
+  raft::spectral::matrix::vector_t<weight_t> part_i(handle, n);
+  raft::spectral::matrix::vector_t<weight_t> Bx(handle, n);
 
   // Initialize cuBLAS
-  RAFT_CUBLAS_TRY(cublassetpointermode(cublas_h, CUBLAS_POINTER_MODE_HOST, stream));
+  RAFT_CUBLAS_TRY(linalg::detail::cublassetpointermode(cublas_h, CUBLAS_POINTER_MODE_HOST, stream));
 
   // Initialize Modularity
-  modularity_matrix_t<vertex_t, weight_t> B{handle, csr_m};
+  raft::spectral::matrix::modularity_matrix_t<vertex_t, weight_t> B{handle, csr_m};
 
   // Initialize output
   modularity = 0;

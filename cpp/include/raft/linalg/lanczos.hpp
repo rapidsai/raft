@@ -17,8 +17,10 @@
 #pragma once
 
 #include "detail/lanczos.hpp"
+#include <raft/spectral/matrix_wrappers.hpp>
 
 namespace raft {
+namespace linalg {
 
 // =========================================================
 // Eigensolver
@@ -62,17 +64,18 @@ namespace raft {
  *  @return error flag.
  */
 template <typename index_type_t, typename value_type_t>
-int computeSmallestEigenvectors(handle_t const& handle,
-                                sparse_matrix_t<index_type_t, value_type_t> const& A,
-                                index_type_t nEigVecs,
-                                index_type_t maxIter,
-                                index_type_t restartIter,
-                                value_type_t tol,
-                                bool reorthogonalize,
-                                index_type_t& iter,
-                                value_type_t* __restrict__ eigVals_dev,
-                                value_type_t* __restrict__ eigVecs_dev,
-                                unsigned long long seed = 1234567)
+int computeSmallestEigenvectors(
+  handle_t const& handle,
+  spectral::matrix::sparse_matrix_t<index_type_t, value_type_t> const& A,
+  index_type_t nEigVecs,
+  index_type_t maxIter,
+  index_type_t restartIter,
+  value_type_t tol,
+  bool reorthogonalize,
+  index_type_t& iter,
+  value_type_t* __restrict__ eigVals_dev,
+  value_type_t* __restrict__ eigVecs_dev,
+  unsigned long long seed = 1234567)
 {
   return detail::computeSmallestEigenvectors(handle,
                                              A,
@@ -125,17 +128,18 @@ int computeSmallestEigenvectors(handle_t const& handle,
  *  @return error flag.
  */
 template <typename index_type_t, typename value_type_t>
-int computeLargestEigenvectors(handle_t const& handle,
-                               sparse_matrix_t<index_type_t, value_type_t> const& A,
-                               index_type_t nEigVecs,
-                               index_type_t maxIter,
-                               index_type_t restartIter,
-                               value_type_t tol,
-                               bool reorthogonalize,
-                               index_type_t& iter,
-                               value_type_t* __restrict__ eigVals_dev,
-                               value_type_t* __restrict__ eigVecs_dev,
-                               unsigned long long seed = 123456)
+int computeLargestEigenvectors(
+  handle_t const& handle,
+  spectral::matrix::sparse_matrix_t<index_type_t, value_type_t> const& A,
+  index_type_t nEigVecs,
+  index_type_t maxIter,
+  index_type_t restartIter,
+  value_type_t tol,
+  bool reorthogonalize,
+  index_type_t& iter,
+  value_type_t* __restrict__ eigVals_dev,
+  value_type_t* __restrict__ eigVecs_dev,
+  unsigned long long seed = 123456)
 {
   return detail::computeLargestEigenvectors(handle,
                                             A,
@@ -150,4 +154,5 @@ int computeLargestEigenvectors(handle_t const& handle,
                                             seed);
 }
 
+}  // namespace linalg
 }  // namespace raft
