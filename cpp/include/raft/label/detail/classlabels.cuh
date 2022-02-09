@@ -26,6 +26,7 @@
 
 namespace raft {
 namespace label {
+namespace detail {
 
 /**
  * Get unique class labels.
@@ -194,5 +195,7 @@ void make_monotonic(Type* out, Type* in, size_t N, cudaStream_t stream, bool zer
   make_monotonic<Type>(
     out, in, N, stream, [] __device__(Type val) { return false; }, zero_based);
 }
+
+};  // namespace detail
 };  // namespace label
 };  // end namespace raft

@@ -21,8 +21,6 @@
 #include <raft/comms/comms.hpp>
 #include <raft/comms/detail/std_comms.hpp>
 
-#include <raft/mr/device/buffer.hpp>
-
 #include <iostream>
 #include <nccl.h>
 #include <ucp/api/ucp.h>

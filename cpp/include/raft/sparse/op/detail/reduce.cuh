@@ -20,7 +20,6 @@
 
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/mr/device/buffer.hpp>
 #include <raft/sparse/detail/cusparse_wrappers.h>
 
 #include <raft/device_atomics.cuh>
