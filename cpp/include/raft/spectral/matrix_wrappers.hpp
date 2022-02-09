@@ -30,7 +30,7 @@ using size_type = int;  // for now; TODO: move it in appropriate header
 // specifies type of algorithm used
 // for SpMv:
 //
-using sparse_mv_alt_t = detail::sparse_mv_alg_t;
+using sparse_mv_alg_t = detail::sparse_mv_alg_t;
 
 // Vector "view"-like aggregate for linear algebra purposes
 //
