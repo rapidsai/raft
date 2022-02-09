@@ -50,6 +50,8 @@ option(DISABLE_OPENMP "Disable OpenMP" OFF)
 option(NVTX "Enable nvtx markers" OFF)
 
 option(RAFT_COMPILE_LIBRARIES "Enable building raft shared library instantiations" ON)
+option(RAFT_COMPILE_NN_LIBRARY "Enable building raft nearest neighbors shared library instantiations" OFF)
+option(RAFT_COMPILE_DIST_LIBRARY "Enable building raft distant shared library instantiations" OFF)
 option(RAFT_ENABLE_NN_DEPENDENCIES "Search for raft::nn dependencies like faiss" ${RAFT_COMPILE_LIBRARIES})
 include(CMakeDependentOption)
 cmake_dependent_option(RAFT_USE_FAISS_STATIC "Build and statically link the FAISS library for nearest neighbors search on GPU" ON RAFT_COMPILE_LIBRARIES OFF)
@@ -82,6 +84,13 @@ endif()
 ##############################################################################
 # - compiler options ---------------------------------------------------------
 
+if (NOT DISABLE_OPENMP)
+  find_package(OpenMP)
+  if(OPENMP_FOUND)
+    message(VERBOSE "RAFT: OpenMP found in ${OpenMP_CXX_INCLUDE_DIRS}")
+  endif()
+endif()
+
 # * find CUDAToolkit package
 # * determine GPU architectures
 # * enable the CMake CUDA language
@@ -94,13 +103,6 @@ include(cmake/modules/ConfigureCUDA.cmake)
 
 ##############################################################################
 # - Requirements -------------------------------------------------------------
-
-if (NOT DISABLE_OPENMP)
-  find_package(OpenMP)
-  if(OPENMP_FOUND)
-    message(VERBOSE "RAFT: OpenMP found in ${OpenMP_CXX_INCLUDE_DIRS}")
-  endif()
-endif()
 
 # add third party dependencies using CPM
 rapids_cpm_init()
@@ -142,6 +144,16 @@ target_link_libraries(raft INTERFACE
 target_compile_definitions(raft INTERFACE $<$<BOOL:${NVTX}>:NVTX_ENABLED>)
 target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
 
+if(RAFT_COMPILE_LIBRARIES OR RAFT_COMPILE_DIST_LIBRARY OR RAFT_COMPILE_NN_LIBRARY)
+  file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld"
+[=[
+SECTIONS
+{
+.nvFatBinSegment : { *(.nvFatBinSegment) }
+.nv_fatbin : { *(.nv_fatbin) }
+}
+]=])
+endif()
 ##############################################################################
 # - raft_distance ------------------------------------------------------------
 add_library(raft_distance INTERFACE)
@@ -152,7 +164,7 @@ endif()
 
 set_target_properties(raft_distance PROPERTIES EXPORT_NAME distance)
 
-if(RAFT_COMPILE_LIBRARIES)
+if(RAFT_COMPILE_LIBRARIES OR RAFT_COMPILE_DIST_LIBRARY)
   add_library(raft_distance_lib SHARED
     src/distance/specializations/detail
     src/distance/specializations/detail/canberra.cu
@@ -161,14 +173,30 @@ if(RAFT_COMPILE_LIBRARIES)
     src/distance/specializations/detail/cosine.cu
     src/distance/specializations/detail/hamming_unexpanded.cu
     src/distance/specializations/detail/hellinger_expanded.cu
-    src/distance/specializations/detail/jensen_shannon.cu
-    src/distance/specializations/detail/kl_divergence.cu
-    src/distance/specializations/detail/l1.cu
-    src/distance/specializations/detail/l2_expanded.cu
-    src/distance/specializations/detail/l2_sqrt_expanded.cu
-    src/distance/specializations/detail/l2_sqrt_unexpanded.cu
-    src/distance/specializations/detail/l2_unexpanded.cu
-    src/distance/specializations/detail/lp_unexpanded.cu
+    src/distance/specializations/detail/jensen_shannon_float_float_float_int.cu
+    src/distance/specializations/detail/jensen_shannon_float_float_float_uint32.cu
+    src/distance/specializations/detail/jensen_shannon_double_double_double_int.cu
+    src/distance/specializations/detail/kl_divergence_float_float_float_int.cu
+    src/distance/specializations/detail/kl_divergence_float_float_float_uint32.cu
+    src/distance/specializations/detail/kl_divergence_double_double_double_int.cu
+    src/distance/specializations/detail/l1_float_float_float_int.cu
+    src/distance/specializations/detail/l1_float_float_float_uint32.cu
+    src/distance/specializations/detail/l1_double_double_double_int.cu
+    src/distance/specializations/detail/l2_expanded_float_float_float_int.cu
+    src/distance/specializations/detail/l2_expanded_float_float_float_uint32.cu
+    src/distance/specializations/detail/l2_expanded_double_double_double_int.cu
+    src/distance/specializations/detail/l2_sqrt_expanded_float_float_float_int.cu
+    src/distance/specializations/detail/l2_sqrt_expanded_float_float_float_uint32.cu
+    src/distance/specializations/detail/l2_sqrt_expanded_double_double_double_int.cu
+    src/distance/specializations/detail/l2_sqrt_unexpanded_float_float_float_int.cu
+    src/distance/specializations/detail/l2_sqrt_unexpanded_float_float_float_uint32.cu
+    src/distance/specializations/detail/l2_sqrt_unexpanded_double_double_double_int.cu
+    src/distance/specializations/detail/l2_unexpanded_double_double_double_int.cu
+    src/distance/specializations/detail/l2_unexpanded_float_float_float_uint32.cu
+    src/distance/specializations/detail/l2_unexpanded_float_float_float_int.cu
+    src/distance/specializations/detail/lp_unexpanded_double_double_double_int.cu
+    src/distance/specializations/detail/lp_unexpanded_float_float_float_uint32.cu
+    src/distance/specializations/detail/lp_unexpanded_float_float_float_int.cu
   )
   set_target_properties(raft_distance_lib PROPERTIES OUTPUT_NAME raft_distance)
 
@@ -179,6 +207,9 @@ if(RAFT_COMPILE_LIBRARIES)
           )
   target_compile_definitions(raft_distance_lib
           INTERFACE "RAFT_DISTANCE_COMPILED")
+
+  # ensure CUDA symbols aren't relocated to the middle of the debug build binaries
+  target_link_options(raft_distance_lib PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld")
 
 endif()
 
@@ -197,7 +228,7 @@ endif()
 
 set_target_properties(raft_nn PROPERTIES EXPORT_NAME nn)
 
-if(RAFT_COMPILE_LIBRARIES)
+if(RAFT_COMPILE_LIBRARIES OR RAFT_COMPILE_NN_LIBRARY)
   add_library(raft_nn_lib SHARED
     src/nn/specializations/ball_cover.cu
     src/nn/specializations/detail/ball_cover_lowdim.cu
@@ -214,6 +245,9 @@ if(RAFT_COMPILE_LIBRARIES)
           PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
           "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
           )
+  # ensure CUDA symbols aren't relocated to the middle of the debug build binaries
+  target_link_options(raft_nn_lib PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld")
+
   target_compile_definitions(raft_nn_lib
           INTERFACE "RAFT_NN_COMPILED")
 

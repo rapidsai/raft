@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -347,38 +347,7 @@ class mpi_comms : public comms_iface {
                                     stream));
   }
 
-  status_t sync_stream(cudaStream_t stream) const
-  {
-    cudaError_t cudaErr;
-    ncclResult_t ncclErr, ncclAsyncErr;
-    while (1) {
-      cudaErr = cudaStreamQuery(stream);
-      if (cudaErr == cudaSuccess) return status_t::SUCCESS;
-
-      if (cudaErr != cudaErrorNotReady) {
-        // An error occurred querying the status of the stream
-        return status_t::ERROR;
-      }
-
-      ncclErr = ncclCommGetAsyncError(nccl_comm_, &ncclAsyncErr);
-      if (ncclErr != ncclSuccess) {
-        // An error occurred retrieving the asynchronous error
-        return status_t::ERROR;
-      }
-
-      if (ncclAsyncErr != ncclSuccess) {
-        // An asynchronous error happened. Stop the operation and destroy
-        // the communicator
-        ncclErr = ncclCommAbort(nccl_comm_);
-        if (ncclErr != ncclSuccess)
-          // Caller may abort with an exception or try to re-create a new communicator.
-          return status_t::ABORT;
-      }
-
-      // Let other threads (including NCCL threads) use the CPU.
-      pthread_yield();
-    }
-  };
+  status_t sync_stream(cudaStream_t stream) const { return nccl_sync_stream(nccl_comm_, stream); }
 
   // if a thread is sending & receiving at the same time, use device_sendrecv to avoid deadlock
   void device_send(const void* buf, size_t size, int dest, cudaStream_t stream) const

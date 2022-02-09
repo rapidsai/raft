@@ -30,7 +30,7 @@
 #include <raft/distance/detail/l1.cuh>
 #include <raft/distance/detail/minkowski.cuh>
 #include <raft/distance/detail/russell_rao.cuh>
-#include <raft/linalg/distance_type.h>
+#include <raft/distance/distance_type.hpp>
 #include <rmm/device_uvector.hpp>
 
 namespace raft {

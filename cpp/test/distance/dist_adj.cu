@@ -128,7 +128,7 @@ class DistanceAdjTest : public ::testing::TestWithParam<DistanceAdjInputs<DataTy
       fin_op,
       stream,
       isRowMajor);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
   }
 
   void TearDown() override {}

@@ -17,8 +17,8 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
-#include <raft/linalg/cholesky_r1_update.cuh>
-#include <raft/linalg/cusolver_wrappers.h>
+#include <raft/linalg/cholesky_r1_update.hpp>
+#include <raft/linalg/detail/cusolver_wrappers.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
@@ -42,7 +42,8 @@ class CholeskyR1Test : public ::testing::Test {
 
     // Allocate workspace
     solver_handle = handle.get_cusolver_dn_handle();
-    RAFT_CUSOLVER_TRY(raft::linalg::cusolverDnpotrf_bufferSize(
+    // TODO: Call from public API when ready
+    RAFT_CUSOLVER_TRY(raft::linalg::detail::cusolverDnpotrf_bufferSize(
       solver_handle, CUBLAS_FILL_MODE_LOWER, n_rows, L.data(), n_rows, &Lwork));
     int n_bytes = 0;
     // Initializing in CUBLAS_FILL_MODE_LOWER, because that has larger workspace
@@ -72,15 +73,16 @@ class CholeskyR1Test : public ::testing::Test {
 
         // Expected solution using Cholesky factorization from scratch
         raft::copy(L_exp.data(), G.data(), n, handle.get_stream());
-        RAFT_CUSOLVER_TRY(raft::linalg::cusolverDnpotrf(solver_handle,
-                                                        uplo,
-                                                        rank,
-                                                        L_exp.data(),
-                                                        n_rows,
-                                                        (math_t*)workspace.data(),
-                                                        Lwork,
-                                                        devInfo.data(),
-                                                        handle.get_stream()));
+        // TODO: Call from public API when ready
+        RAFT_CUSOLVER_TRY(raft::linalg::detail::cusolverDnpotrf(solver_handle,
+                                                                uplo,
+                                                                rank,
+                                                                L_exp.data(),
+                                                                n_rows,
+                                                                (math_t*)workspace.data(),
+                                                                Lwork,
+                                                                devInfo.data(),
+                                                                handle.get_stream()));
 
         // Incremental Cholesky factorization using rank one updates.
         raft::linalg::choleskyRank1Update(

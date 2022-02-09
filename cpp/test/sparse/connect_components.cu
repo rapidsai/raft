@@ -26,8 +26,8 @@
 #include <raft/sparse/mst/mst.cuh>
 #include <raft/sparse/selection/knn_graph.hpp>
 
-#include <raft/linalg/distance_type.h>
-#include <raft/linalg/transpose.h>
+#include <raft/distance/distance_type.hpp>
+#include <raft/linalg/transpose.hpp>
 #include <raft/sparse/convert/csr.hpp>
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/hierarchy/single_linkage.hpp>
@@ -127,7 +127,7 @@ class ConnectComponentsTest
                                                                     false,
                                                                     false);
 
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
 
     // The sum of edges for both MST runs should be n_rows - 1
     final_edges = output_mst.n_edges + mst_coo.n_edges;

@@ -16,8 +16,8 @@
 
 #pragma once
 
+#include <raft/distance/distance_type.hpp>
 #include <raft/handle.hpp>
-#include <raft/linalg/distance_type.h>
 #include <raft/sparse/selection/detail/knn.cuh>
 
 namespace raft {

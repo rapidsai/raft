@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -65,5 +65,9 @@ TEST_P(DistanceHammingD, Result)
 }
 INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceHammingD, ::testing::ValuesIn(inputsd));
 
+class BigMatrixHamming
+  : public BigMatrixDistanceTest<raft::distance::DistanceType::HammingUnexpanded> {
+};
+TEST_F(BigMatrixHamming, Result) {}
 }  // end namespace distance
 }  // end namespace raft
