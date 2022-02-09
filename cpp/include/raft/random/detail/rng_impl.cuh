@@ -478,7 +478,7 @@ struct PCGenerator {
   DI PCGenerator(uint64_t seed, uint64_t subsequence, uint64_t offset)
   {
     pcg_state = uint64_t(0);
-    inc   = (subsequence << 1u) | 1u;
+    inc       = (subsequence << 1u) | 1u;
     uint32_t discard;
     next(discard);
     pcg_state += seed;
@@ -489,7 +489,7 @@ struct PCGenerator {
   DI PCGenerator(const RngState& rng_state, const uint64_t subsequence)
   {
     pcg_state = uint64_t(0);
-    inc   = ((rng_state.base_subsequence + subsequence) << 1u) | 1u;
+    inc       = ((rng_state.base_subsequence + subsequence) << 1u) | 1u;
     uint32_t discard;
     next(discard);
     pcg_state += rng_state.seed;
