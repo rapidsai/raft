@@ -82,7 +82,9 @@ class std_comms : public comms_iface {
       ucp_worker_(ucp_worker),
       ucp_eps_(eps),
       next_request_id_(0)
-  {};
+  {
+    initialize();
+  };
 
   /**
    * @brief constructor for collective-only operation
@@ -101,6 +103,12 @@ class std_comms : public comms_iface {
   {
     initialize();
   };
+
+  void initialize()
+  {
+    status_.set_value_to_zero_async(stream_);
+    buf_ = status_.data();
+  }
 
   ~std_comms()
   {
@@ -178,8 +186,7 @@ class std_comms : public comms_iface {
 
   void barrier() const
   {
-    void *s = status_.data();
-    allreduce(status_.data(), s, 1, datatype_t::INT32, op_t::SUM, stream_);
+    allreduce(buf_, buf_, 1, datatype_t::INT32, op_t::SUM, stream_);
 
     ASSERT(sync_stream(stream_) == status_t::SUCCESS,
            "ERROR: syncStream failed. This can be caused by a failed rank_.");
@@ -504,6 +511,7 @@ class std_comms : public comms_iface {
 
   rmm::device_scalar<int32_t> status_;
 
+  int32_t* buf_;
   int num_ranks_;
   int rank_;
 

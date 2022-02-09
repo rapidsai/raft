@@ -129,6 +129,12 @@ class mpi_comms : public comms_iface {
     RAFT_NCCL_TRY(ncclCommInitRank(&nccl_comm_, size_, id, rank_));
   }
 
+  void initialize()
+  {
+    status_.set_value_to_zero_async(stream_);
+    buf_ = status_.data();
+  }
+
   virtual ~mpi_comms()
   {
     // finalizing NCCL
@@ -149,7 +155,7 @@ class mpi_comms : public comms_iface {
 
   void barrier() const
   {
-    allreduce(status_.data(), status_.data(), 1, datatype_t::INT32, op_t::SUM, stream_);
+    allreduce(buf_, buf_, 1, datatype_t::INT32, op_t::SUM, stream_);
 
     ASSERT(sync_stream(stream_) == status_t::SUCCESS,
            "ERROR: syncStream failed. This can be caused by a failed rank_.");
@@ -413,6 +419,7 @@ class mpi_comms : public comms_iface {
 
   cudaStream_t stream_;
   rmm::device_scalar<int32_t> status_;
+  int32_t* buf_;
 
   ncclComm_t nccl_comm_;
   int size_;
