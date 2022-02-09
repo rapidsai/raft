@@ -19,6 +19,7 @@
 #include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
+#include <raft/spectral/matrix_wrappers.hpp>
 
 #include <thrust/fill.h>
 #include <thrust/reduce.h>
@@ -204,9 +205,9 @@ bool construct_indicator(handle_t const& handle,
                          weight_t& clustersize,
                          weight_t& partStats,
                          vertex_t const* __restrict__ clusters,
-                         vector_t<weight_t>& part_i,
-                         vector_t<weight_t>& Bx,
-                         laplacian_matrix_t<vertex_t, weight_t> const& B)
+                         raft::spectral::matrix::vector_t<weight_t>& part_i,
+                         raft::spectral::matrix::vector_t<weight_t>& Bx,
+                         raft::spectral::matrix::laplacian_matrix_t<vertex_t, weight_t> const& B)
 {
   auto stream             = handle.get_stream();
   auto cublas_h           = handle.get_cublas_handle();

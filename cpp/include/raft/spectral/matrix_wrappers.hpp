@@ -34,6 +34,7 @@
 #define IDX(i, j, lda) ((i) + (j) * (lda))
 
 namespace raft {
+namespace spectral {
 namespace matrix {
 
 using size_type = int;  // for now; TODO: move it in appropriate header
@@ -444,4 +445,5 @@ struct modularity_matrix_t : laplacian_matrix_t<index_type, value_type> {
 };
 
 }  // namespace matrix
+}  // namespace spectral
 }  // namespace raft

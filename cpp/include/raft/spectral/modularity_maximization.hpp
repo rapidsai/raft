@@ -51,7 +51,7 @@ namespace spectral {
 template <typename vertex_t, typename weight_t, typename EigenSolver, typename ClusterSolver>
 std::tuple<vertex_t, weight_t, vertex_t> modularity_maximization(
   handle_t const& handle,
-  sparse_matrix_t<vertex_t, weight_t> const& csr_m,
+  matrix::sparse_matrix_t<vertex_t, weight_t> const& csr_m,
   EigenSolver const& eigen_solver,
   ClusterSolver const& cluster_solver,
   vertex_t* __restrict__ clusters,
@@ -74,7 +74,7 @@ std::tuple<vertex_t, weight_t, vertex_t> modularity_maximization(
  */
 template <typename vertex_t, typename weight_t>
 void analyzeModularity(handle_t const& handle,
-                       sparse_matrix_t<vertex_t, weight_t> const& csr_m,
+                       matrix::sparse_matrix_t<vertex_t, weight_t> const& csr_m,
                        vertex_t nClusters,
                        vertex_t const* __restrict__ clusters,
                        weight_t& modularity)
