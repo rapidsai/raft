@@ -391,8 +391,7 @@ DI void custom_next(
 
 struct RngState {
   uint64_t seed;
-  uint64_t subsequence;
-  uint64_t offset;
+  uint64_t base_subsequence;
 };
 
 /** Philox-based random number generator */
@@ -406,12 +405,12 @@ struct PhiloxGenerator {
    */
   DI PhiloxGenerator(uint64_t seed, uint64_t subsequence, uint64_t offset)
   {
-    curand_init(seed, subsequence, offset, &state);
+    curand_init(seed, subsequence, offset, &philox_state);
   }
 
-  DI PhiloxGenerator(const RngState& rng_state)
+  DI PhiloxGenerator(const RngState& rng_state, const uint64_t subsequence)
   {
-    curand_init(rng_state.seed, rng_state.subsequence, rng_state.offset, &state);
+    curand_init(rng_state.seed, rng_state.base_subsequence + subsequence, 0, &philox_state);
   }
 
   /**
@@ -420,7 +419,7 @@ struct PhiloxGenerator {
    */
   DI uint32_t next_u32()
   {
-    uint32_t ret = curand(&(this->state));
+    uint32_t ret = curand(&(this->philox_state));
     return ret;
   }
 
@@ -452,8 +451,8 @@ struct PhiloxGenerator {
     return ret;
   }
 
-  DI void next(float& ret) { ret = curand_uniform(&(this->state)); }
-  DI void next(double& ret) { ret = curand_uniform_double(&(this->state)); }
+  DI void next(float& ret) { ret = curand_uniform(&(this->philox_state)); }
+  DI void next(double& ret) { ret = curand_uniform_double(&(this->philox_state)); }
 
   DI void next(uint32_t& ret) { ret = next_u32(); }
   DI void next(uint64_t& ret) { ret = next_u64(); }
@@ -464,7 +463,7 @@ struct PhiloxGenerator {
 
  private:
   /** the state for RNG */
-  curandStatePhilox4_32_10_t state;
+  curandStatePhilox4_32_10_t philox_state;
 };
 
 /** PCG random number generator */
@@ -478,24 +477,23 @@ struct PCGenerator {
    */
   DI PCGenerator(uint64_t seed, uint64_t subsequence, uint64_t offset)
   {
-    state = uint64_t(0);
+    pcg_state = uint64_t(0);
     inc   = (subsequence << 1u) | 1u;
     uint32_t discard;
     next(discard);
-    state += seed;
+    pcg_state += seed;
     next(discard);
     skipahead(offset);
   }
 
-  DI PCGenerator(const RngState& rng_state)
+  DI PCGenerator(const RngState& rng_state, const uint64_t subsequence)
   {
-    state = uint64_t(0);
-    inc   = (rng_state.subsequence << 1u) | 1u;
+    pcg_state = uint64_t(0);
+    inc   = ((rng_state.base_subsequence + subsequence) << 1u) | 1u;
     uint32_t discard;
     next(discard);
-    state += rng_state.seed;
+    pcg_state += rng_state.seed;
     next(discard);
-    skipahead(rng_state.offset);
   }
 
   // Based on "Random Number Generation with Arbitrary Strides" F. B. Brown
@@ -515,7 +513,7 @@ struct PCGenerator {
       h = h * h;
       offset >>= 1;
     }
-    state = state * G + C;
+    pcg_state = pcg_state * G + C;
   }
 
   /**
@@ -526,8 +524,8 @@ struct PCGenerator {
   DI uint32_t next_u32()
   {
     uint32_t ret;
-    uint64_t oldstate   = state;
-    state               = oldstate * 6364136223846793005ULL + inc;
+    uint64_t oldstate   = pcg_state;
+    pcg_state           = oldstate * 6364136223846793005ULL + inc;
     uint32_t xorshifted = ((oldstate >> 18u) ^ oldstate) >> 27u;
     uint32_t rot        = oldstate >> 59u;
     ret                 = (xorshifted >> rot) | (xorshifted << ((-rot) & 31));
@@ -588,7 +586,7 @@ struct PCGenerator {
   /** @} */
 
  private:
-  uint64_t state;
+  uint64_t pcg_state;
   uint64_t inc;
 };
 
@@ -617,7 +615,7 @@ __global__ void fillKernel(
 class RngImpl {
  public:
   RngImpl(uint64_t seed, GeneratorType _t = GenPhilox)
-    : state{seed, 0, 0},
+    : state{seed, 0},
       type(_t),
       // simple heuristic to make sure all SMs will be occupied properly
       // and also not too many initialization calls will be made by each thread
@@ -629,7 +627,7 @@ class RngImpl {
   void affine_transform_params(IdxT n, IdxT& a, IdxT& b)
   {
     // always keep 'a' to be coprime to 'n'
-    std::mt19937_64 mt_rng(state.seed + state.subsequence);
+    std::mt19937_64 mt_rng(state.seed + state.base_subsequence);
     a = mt_rng() % n;
     while (gcd(a, n) != 1) {
       ++a;
@@ -796,7 +794,7 @@ class RngImpl {
   void advance(uint64_t max_uniq_subsequences_used,
                uint64_t max_numbers_generated_per_subsequence = 0)
   {
-    state.subsequence += max_uniq_subsequences_used;
+    state.base_subsequence += max_uniq_subsequences_used;
   }
 
   template <typename OutType, typename LenType, int ITEMS_PER_CALL, typename ParamType>
@@ -806,15 +804,15 @@ class RngImpl {
       case GenPhilox:
         fillKernel<OutType, LenType, PhiloxGenerator, ITEMS_PER_CALL>
           <<<nBlocks, nThreads, 0, stream>>>(
-            state.seed, state.subsequence, state.offset, ptr, len, params);
+            state.seed, state.base_subsequence, 0, ptr, len, params);
         break;
       case GenPC:
         fillKernel<OutType, LenType, PCGenerator, ITEMS_PER_CALL><<<nBlocks, nThreads, 0, stream>>>(
-          state.seed, state.subsequence, state.offset, ptr, len, params);
+          state.seed, state.base_subsequence, 0, ptr, len, params);
         break;
       default: break;
     }
-    // The max_calls_per_subsequence parameter does not matter for now, using 16 for now
+    // The max_numbers_generated_per_subsequence parameter does not matter for now, using 16 for now
     advance(uint64_t(nBlocks) * nThreads, 16);
     return;
   }

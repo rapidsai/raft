@@ -21,6 +21,8 @@
 namespace raft {
 namespace random {
 
+using detail::RngState;
+
 using detail::GeneratorType;
 using detail::GenPC;
 using detail::GenPhilox;
