@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,8 @@
  */
 
 #pragma once
+
+#include <raft/interruptible.hpp>
 
 #include <nccl.h>
 #include <raft/error.hpp>
@@ -109,6 +111,42 @@ get_nccl_op(const op_t op)
     default: throw "Unsupported datatype";
   }
 }
+
+status_t nccl_sync_stream(ncclComm_t comm, cudaStream_t stream)
+{
+  cudaError_t cudaErr;
+  ncclResult_t ncclErr, ncclAsyncErr;
+  while (1) {
+    cudaErr = cudaStreamQuery(stream);
+    if (cudaErr == cudaSuccess) return status_t::SUCCESS;
+
+    if (cudaErr != cudaErrorNotReady) {
+      // An error occurred querying the status of the stream_
+      return status_t::ERROR;
+    }
+
+    ncclErr = ncclCommGetAsyncError(comm, &ncclAsyncErr);
+    if (ncclErr != ncclSuccess) {
+      // An error occurred retrieving the asynchronous error
+      return status_t::ERROR;
+    }
+
+    if (ncclAsyncErr != ncclSuccess || !interruptible::yield_no_throw()) {
+      // An asynchronous error happened. Stop the operation and destroy
+      // the communicator
+      ncclErr = ncclCommAbort(comm);
+      if (ncclErr != ncclSuccess)
+        // Caller may abort with an exception or try to re-create a new communicator.
+        return status_t::ABORT;
+      // TODO: shouldn't we place status_t::ERROR above under the condition, and
+      //       status_t::ABORT below here (i.e. after successful ncclCommAbort)?
+    }
+
+    // Let other threads (including NCCL threads) use the CPU.
+    std::this_thread::yield();
+  }
+}
+
 };  // namespace detail
 };  // namespace comms
 };  // namespace raft

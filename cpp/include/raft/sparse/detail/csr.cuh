@@ -19,7 +19,7 @@
 #include <cusparse_v2.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/sparse/cusparse_wrappers.h>
+#include <raft/sparse/detail/cusparse_wrappers.h>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 

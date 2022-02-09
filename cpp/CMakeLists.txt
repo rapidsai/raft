@@ -86,6 +86,13 @@ endif()
 ##############################################################################
 # - compiler options ---------------------------------------------------------
 
+if (NOT DISABLE_OPENMP)
+  find_package(OpenMP)
+  if(OPENMP_FOUND)
+    message(VERBOSE "RAFT: OpenMP found in ${OpenMP_CXX_INCLUDE_DIRS}")
+  endif()
+endif()
+
 # * find CUDAToolkit package
 # * determine GPU architectures
 # * enable the CMake CUDA language
@@ -104,13 +111,6 @@ endif()
 
 ##############################################################################
 # - Requirements -------------------------------------------------------------
-
-if (NOT DISABLE_OPENMP)
-  find_package(OpenMP)
-  if(OPENMP_FOUND)
-    message(VERBOSE "RAFT: OpenMP found in ${OpenMP_CXX_INCLUDE_DIRS}")
-  endif()
-endif()
 
 # add third party dependencies using CPM
 rapids_cpm_init()

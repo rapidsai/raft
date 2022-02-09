@@ -18,6 +18,7 @@
 #include <raft/linalg/lanczos.hpp>
 
 namespace raft {
+namespace spectral {
 
 using namespace matrix;
 
@@ -95,4 +96,6 @@ struct lanczos_solver_t {
  private:
   eigen_solver_config_t<index_type_t, value_type_t, size_type_t> config_;
 };
+
+}  // namespace spectral
 }  // namespace raft

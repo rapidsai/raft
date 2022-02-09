@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -65,5 +65,9 @@ TEST_P(DistanceKLDivergenceD, Result)
 }
 INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceKLDivergenceD, ::testing::ValuesIn(inputsd));
 
+class BigMatrixKLDivergence
+  : public BigMatrixDistanceTest<raft::distance::DistanceType::KLDivergence> {
+};
+TEST_F(BigMatrixKLDivergence, Result) {}
 }  // end namespace distance
 }  // end namespace raft

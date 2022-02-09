@@ -17,9 +17,8 @@
 #include <cub/cub.cuh>
 
 #include <raft/distance/fused_l2_nn.hpp>
-#include <raft/label/classlabels.cuh>
-#include <raft/linalg/norm.cuh>
-#include <raft/mr/device/buffer.hpp>
+#include <raft/label/classlabels.hpp>
+#include <raft/linalg/norm.hpp>
 #include <raft/sparse/convert/csr.hpp>
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/linalg/symmetrize.hpp>
@@ -415,7 +414,7 @@ void connect_components(
   // compute final size
   value_idx size = 0;
   raft::update_host(&size, out_index.data() + (out_index.size() - 1), 1, stream);
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  handle.sync_stream(stream);
 
   size++;
 

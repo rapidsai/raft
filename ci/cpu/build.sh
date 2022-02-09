@@ -12,7 +12,7 @@ if [[ -e /etc/os-release ]] && (grep -qi centos /etc/os-release); then
 else
     export PATH=/opt/conda/bin:/usr/local/cuda/bin:$PATH
 fi
-export PARALLEL_LEVEL=${PARALLEL_LEVEL:-4}
+export PARALLEL_LEVEL=${PARALLEL_LEVEL:-8}
 
 # Set home to the job's workspace
 export HOME=$WORKSPACE

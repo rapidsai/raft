@@ -16,6 +16,7 @@
 
 #include <raft/common/nvtx.hpp>
 #include <raft/handle.hpp>
+#include <raft/spectral/eigen_solvers.hpp>
 #include <raft/spectral/partition.hpp>
 
 #include <gtest/gtest.h>
@@ -25,6 +26,7 @@
 #include <memory>
 
 namespace raft {
+namespace spectral {
 
 TEST(Raft, EigenSolvers)
 {
@@ -34,7 +36,12 @@ TEST(Raft, EigenSolvers)
   using value_type = double;
 
   handle_t h;
-  ASSERT_EQ(0, h.get_device());
+  ASSERT_EQ(0,
+            h.
+
+            get_device()
+
+  );
 
   index_type* ro{nullptr};
   index_type* ci{nullptr};
@@ -75,7 +82,12 @@ TEST(Raft, SpectralSolvers)
   using value_type = double;
 
   handle_t h;
-  ASSERT_EQ(0, h.get_device());
+  ASSERT_EQ(0,
+            h.
+
+            get_device()
+
+  );
 
   index_type neigvs{10};
   index_type maxiter{100};
@@ -109,4 +121,5 @@ TEST(Raft, SpectralSolvers)
   EXPECT_ANY_THROW(spectral::analyzePartition(h, sm, k, clusters, edgeCut, cost));
 }
 
+}  // namespace spectral
 }  // namespace raft
