@@ -95,7 +95,5 @@ void reduce_rows_by_key(const DataIteratorT d_A,
                      stream);
 }
 
-};  // end namespace detail
 };  // end namespace linalg
-}
-;  // end namespace raft
+};  // end namespace raft
