@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "test_utils.h"
+#include "../test_utils.h"
 #include <gtest/gtest.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
