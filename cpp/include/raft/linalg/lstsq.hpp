@@ -24,8 +24,15 @@ namespace linalg {
 /** Solves the linear ordinary least squares problem `Aw = b`
  *  Via SVD decomposition of `A = U S Vt` using default cuSOLVER routine.
  *
- *  @param A - input feature matrix; it's marked [in/out] in the used cuSOLVER routines,
- *             so it's not guaranteed to stay unmodified.
+ * @param[in] handle raft handle
+ * @param[inout] A input feature matrix.
+ *            Warning: the content of this matrix is modified by the cuSOLVER routines.
+ * @param[in] n_rows number of rows in A
+ * @param[in] n_cols number of columns in A
+ * @param[inout] b input target vector.
+ *            Warning: the content of this vector is modified by the cuSOLVER routines.
+ * @param[out] w output coefficient vector
+ * @param[in] stream cuda stream for ordering operations
  */
 template <typename math_t>
 void lstsqSvdQR(const raft::handle_t& handle,
@@ -42,8 +49,15 @@ void lstsqSvdQR(const raft::handle_t& handle,
 /** Solves the linear ordinary least squares problem `Aw = b`
  *  Via SVD decomposition of `A = U S V^T` using Jacobi iterations (cuSOLVER).
  *
- *  @param A - input feature matrix; it's marked [in/out] in the used cuSOLVER routines,
- *             so it's not guaranteed to stay unmodified.
+ * @param[in] handle raft handle
+ * @param[inout] A input feature matrix.
+ *            Warning: the content of this matrix is modified by the cuSOLVER routines.
+ * @param[in] n_rows number of rows in A
+ * @param[in] n_cols number of columns in A
+ * @param[inout] b input target vector.
+ *            Warning: the content of this vector is modified by the cuSOLVER routines.
+ * @param[out] w output coefficient vector
+ * @param[in] stream cuda stream for ordering operations
  */
 template <typename math_t>
 void lstsqSvdJacobi(const raft::handle_t& handle,
@@ -77,10 +91,15 @@ void lstsqEig(const raft::handle_t& handle,
  *  via QR decomposition of `A = QR`.
  *  (triangular system of equations `Rw = Q^T b`)
  *
- * @param A[in/out] - input feature matrix.
+ * @param[in] handle raft handle
+ * @param[inout] A input feature matrix.
  *            Warning: the content of this matrix is modified by the cuSOLVER routines.
- * @param b[in/out] - input target vector.
+ * @param[in] n_rows number of rows in A
+ * @param[in] n_cols number of columns in A
+ * @param[inout] b input target vector.
  *            Warning: the content of this vector is modified by the cuSOLVER routines.
+ * @param[out] w output coefficient vector
+ * @param[in] stream cuda stream for ordering operations
  */
 template <typename math_t>
 void lstsqQR(const raft::handle_t& handle,
