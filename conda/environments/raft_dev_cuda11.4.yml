@@ -13,7 +13,7 @@ dependencies:
 - rapids-doc-env=22.02.*
 - rmm=22.02.*
 - dask-cuda=22.02.*
-- ucx-py=0.23
+- ucx-py=0.25.*
 - ucx-proc=*=gpu
 - doxygen>=1.8.20
 - libfaiss>=1.7.0
@@ -21,6 +21,7 @@ dependencies:
 - pip
 - pip:
     - sphinx_markdown_tables
+    - breathe
     - git+https://github.com/dask/dask.git@main
     - git+https://github.com/dask/distributed.git@main
 

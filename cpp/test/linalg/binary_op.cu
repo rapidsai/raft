@@ -18,7 +18,7 @@
 #include "binary_op.cuh"
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/binary_op.cuh>
+#include <raft/linalg/binary_op.hpp>
 #include <raft/random/rng.hpp>
 #include <rmm/device_uvector.hpp>
 
@@ -58,7 +58,7 @@ class BinaryOpTest : public ::testing::TestWithParam<BinaryOpInputs<InType, IdxT
     r.uniform(in2.data(), len, InType(-1.0), InType(1.0), stream);
     naiveAdd(out_ref.data(), in1.data(), in2.data(), len);
     binaryOpLaunch(out.data(), in1.data(), in2.data(), len, stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
   }
 
  protected:

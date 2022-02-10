@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -63,6 +63,10 @@ TEST_P(DistanceLinfD, Result)
     dist_ref.data(), dist.data(), m, n, raft::CompareApprox<double>(params.tolerance), stream));
 }
 INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceLinfD, ::testing::ValuesIn(inputsd));
+
+class BigMatrixLinf : public BigMatrixDistanceTest<raft::distance::DistanceType::Linf> {
+};
+TEST_F(BigMatrixLinf, Result) {}
 
 }  // end namespace distance
 }  // end namespace raft

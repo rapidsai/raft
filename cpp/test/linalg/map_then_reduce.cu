@@ -18,7 +18,7 @@
 #include <gtest/gtest.h>
 #include <limits>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/map_then_reduce.cuh>
+#include <raft/linalg/map_then_reduce.hpp>
 #include <raft/random/rng.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
@@ -87,7 +87,7 @@ class MapReduceTest : public ::testing::TestWithParam<MapReduceInputs<InType>> {
     auto len = params.len;
     r.uniform(in.data(), len, InType(-1.0), InType(1.0), stream);
     mapReduceLaunch(out_ref.data(), out.data(), in.data(), len, stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
   }
 
  protected:

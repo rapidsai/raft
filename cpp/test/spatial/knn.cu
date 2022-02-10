@@ -16,10 +16,12 @@
 
 #include "../test_utils.h"
 
-#include <raft/linalg/distance_type.h>
+#include <raft/distance/distance_type.hpp>
 
 #include <raft/spatial/knn/knn.hpp>
+#if defined RAFT_NN_COMPILED
 #include <raft/spatial/knn/specializations.hpp>
+#endif
 
 #include <rmm/device_buffer.hpp>
 
@@ -151,7 +153,7 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
     raft::copy(input_.data(), input_ptr, rows_ * cols_, stream);
     raft::copy(search_data_.data(), input_ptr, rows_ * cols_, stream);
     raft::copy(search_labels_.data(), labels_ptr, rows_, stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
   }
 
  private:

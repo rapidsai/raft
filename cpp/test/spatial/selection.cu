@@ -21,7 +21,9 @@
 
 #include <raft/sparse/detail/utils.h>
 #include <raft/spatial/knn/knn.hpp>
+#if defined RAFT_NN_COMPILED
 #include <raft/spatial/knn/specializations.hpp>
+#endif
 
 namespace raft {
 namespace spatial {
@@ -109,7 +111,7 @@ class SparseSelectionTest
                                  k,
                                  stream);
 
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
   }
 
   void compare()
