@@ -16,8 +16,8 @@
 
 #include "test_utils.h"
 #include <gtest/gtest.h>
-#include <linalg/sqrt.cuh>
 #include <raft/cudart_utils.h>
+#include <raft/linalg/sqrt.cuh>
 #include <raft/random/rng.hpp>
 
 namespace raft {

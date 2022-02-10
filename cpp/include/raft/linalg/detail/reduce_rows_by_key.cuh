@@ -301,8 +301,9 @@ __global__ void sum_rows_by_key_large_nkeys_kernel_rowmajor(const DataIteratorT 
     // same for the whole block
     sh_key_inx++;
 #else
-    if (d_keys[r] != global_key) continue;  // No divergence since global_key is the
-                                            // same for the whole block
+    if (d_keys[r] != global_key)
+      continue;  // No divergence since global_key is the
+                 // same for the whole block
 #endif
     // if ((end_row-start_row) / (r-start_row) != global_key) continue;
     DataType val = __ldcg(&d_A[r * lda + this_col]);

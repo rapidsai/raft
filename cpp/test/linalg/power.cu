@@ -20,6 +20,7 @@
 #include <raft/linalg/power.cuh>
 #include <raft/random/rng.hpp>
 
+namespace raft {
 namespace linalg {
 
 template <typename Type>
