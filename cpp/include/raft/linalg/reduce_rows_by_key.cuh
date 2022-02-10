@@ -28,7 +28,7 @@ namespace linalg {
 template <typename IteratorT1, typename IteratorT2>
 void convert_array(IteratorT1 dst, IteratorT2 src, int n, cudaStream_t st)
 {
-  detail::convert_array(dst, src, st);
+  detail::convert_array(dst, src, n, st);
 }
 
 /**
