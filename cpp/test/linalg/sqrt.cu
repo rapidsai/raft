@@ -55,13 +55,16 @@ template <typename T>
 template <typename T>
 class SqrtTest : public ::testing::TestWithParam<SqrtInputs<T>> {
  protected:
-  SqrtTest() : in1(0, stream), out_ref(0, stream), out(0, stream) {}
+  SqrtTest()
+    : in1(0, handle.get_stream()), out_ref(0, handle.get_stream()), out(0, handle.get_stream())
+  {
+  }
 
   void SetUp() override
   {
-    params = ::testing::TestWithParam<SqrtInputs<T>>::GetParam();
+    auto stream = handle.get_stream();
+    params      = ::testing::TestWithParam<SqrtInputs<T>>::GetParam();
     raft::random::Rng r(params.seed);
-    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
     int len = params.len;
     in1.resize(len, stream);
     out_ref.resize(len, stream);
@@ -72,11 +75,11 @@ class SqrtTest : public ::testing::TestWithParam<SqrtInputs<T>> {
 
     sqrt(out.data(), in1.data(), len, stream);
     sqrt(in1.data(), in1.data(), len, stream);
-    RAFT_CUDA_TRY(cudaStreamDestroy(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
  protected:
-  cudaStream_t stream = 0;
+  raft::handle_t handle;
   SqrtInputs<T> params;
   rmm::device_uvector<T> in1, out_ref, out;
   int device_count = 0;

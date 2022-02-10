@@ -71,14 +71,21 @@ template <typename T>
 template <typename T>
 class PowerTest : public ::testing::TestWithParam<PowerInputs<T>> {
  protected:
-  PowerTest() : in1(0, stream), in2(0, stream), out_ref(0, stream), out(0, stream) {}
+  PowerTest()
+    : in1(0, handle.get_stream()),
+      in2(0, handle.get_stream()),
+      out_ref(0, handle.get_stream()),
+      out(0, handle.get_stream())
+  {
+  }
 
   void SetUp() override
   {
     params = ::testing::TestWithParam<PowerInputs<T>>::GetParam();
     raft::random::Rng r(params.seed);
     int len = params.len;
-    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
+
+    cudaStream_t stream = handle.get_stream();
 
     in1.resize(len, stream);
     in2.resize(len, stream);
@@ -94,11 +101,12 @@ class PowerTest : public ::testing::TestWithParam<PowerInputs<T>> {
     powerScalar(out.data(), out.data(), T(2), len, stream);
     power(in1.data(), in1.data(), in2.data(), len, stream);
     powerScalar(in1.data(), in1.data(), T(2), len, stream);
-    RAFT_CUDA_TRY(cudaStreamDestroy(stream));
+
+    handle.sync_stream();
   }
 
  protected:
-  cudaStream_t stream = 0;
+  raft::handle_t handle;
   PowerInputs<T> params;
   rmm::device_uvector<T> in1, in2, out_ref, out;
   int device_count = 0;
