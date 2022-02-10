@@ -56,10 +56,16 @@ add_executable(test_raft
     test/linalg/matrix_vector_op.cu
     test/linalg/multiply.cu
     test/linalg/norm.cu
+    test/linalg/power.cu
     test/linalg/reduce.cu
+    test/linalg/reduce_cols_by_key.cu
+    test/linalg/reduce_rows_by_key.cu
+    test/linalg/rsvd.cu
+    test/linalg/sqrt.cu
     test/linalg/strided_reduction.cu
     test/linalg/subtract.cu
     test/linalg/svd.cu
+    test/linalg/ternary_op.cu
     test/linalg/transpose.cu
     test/linalg/unary_op.cu
     test/matrix/math.cu
