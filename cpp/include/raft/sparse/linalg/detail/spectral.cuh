@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -64,7 +64,8 @@ void fit_embedding(const raft::handle_t& handle,
   index_type* ci = dst_cols.data();
   value_type* vs = dst_vals.data();
 
-  raft::matrix::sparse_matrix_t<index_type, value_type> const r_csr_m{handle, ro, ci, vs, n, nnz};
+  raft::spectral::matrix::sparse_matrix_t<index_type, value_type> const r_csr_m{
+    handle, ro, ci, vs, n, nnz};
 
   index_type neigvs       = n_components + 1;
   index_type maxiter      = 4000;  // default reset value (when set to 0);
