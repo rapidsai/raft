@@ -21,6 +21,8 @@
 namespace raft::random {
 namespace detail {
 
+// @todo: We probably want to scrape through and replace any consumers of
+// these wrappers with our RNG
 /** check for curand runtime API errors and assert accordingly */
 #define CURAND_CHECK(call)                                                                         \
   do {                                                                                             \
