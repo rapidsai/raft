@@ -150,7 +150,7 @@ class mpi_comms : public comms_iface {
   {
     MPI_Comm new_comm;
     RAFT_MPI_TRY(MPI_Comm_split(mpi_comm_, color, key, &new_comm));
-    return std::unique_ptr<comms_iface>(new mpi_comms(new_comm, true));
+    return std::unique_ptr<comms_iface>(new mpi_comms(new_comm, true, stream_));
   }
 
   void barrier() const
