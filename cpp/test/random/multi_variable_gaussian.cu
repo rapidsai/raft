@@ -169,20 +169,20 @@ class MVGTest : public ::testing::TestWithParam<MVGInputs<T>> {
     T alfa = 1.0 / (nPoints - 1), beta = 0.0;
 
     RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemm(cublasH,
-                                             CUBLAS_OP_N,
-                                             CUBLAS_OP_T,
-                                             dim,
-                                             dim,
-                                             nPoints,
-                                             &alfa,
-                                             X_d.data(),
-                                             dim,
-                                             X_d.data(),
-                                             dim,
-                                             &beta,
-                                             Rand_cov.data(),
-                                             dim,
-                                             stream));
+                                                     CUBLAS_OP_N,
+                                                     CUBLAS_OP_T,
+                                                     dim,
+                                                     dim,
+                                                     nPoints,
+                                                     &alfa,
+                                                     X_d.data(),
+                                                     dim,
+                                                     X_d.data(),
+                                                     dim,
+                                                     &beta,
+                                                     Rand_cov.data(),
+                                                     dim,
+                                                     stream));
 
     // restoring cov provided into P_d
     raft::update_device(P_d.data(), P.data(), dim * dim, stream);
