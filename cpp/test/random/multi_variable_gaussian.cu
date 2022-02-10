@@ -168,7 +168,7 @@ class MVGTest : public ::testing::TestWithParam<MVGInputs<T>> {
     // finding the cov matrix, placing in Rand_cov
     T alfa = 1.0 / (nPoints - 1), beta = 0.0;
 
-    RAFT_CUBLAS_TRY(raft::linalg::cublasgemm(cublasH,
+    RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemm(cublasH,
                                              CUBLAS_OP_N,
                                              CUBLAS_OP_T,
                                              dim,
