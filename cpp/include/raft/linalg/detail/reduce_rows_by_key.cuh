@@ -40,6 +40,11 @@ void __global__ convert_array_kernel(IteratorT1 dst, IteratorT2 src, int n)
   }
 }
 
+//
+// Small helper function to convert from int->char and char->int
+// Transform ncols*nrows read of int in 2*nrows reads of int + ncols*rows reads of chars
+//
+
 template <typename IteratorT1, typename IteratorT2>
 void convert_array(IteratorT1 dst, IteratorT2 src, int n, cudaStream_t st)
 {

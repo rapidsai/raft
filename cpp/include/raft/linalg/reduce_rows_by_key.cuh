@@ -20,6 +20,17 @@
 
 namespace raft {
 namespace linalg {
+
+/**
+ Small helper function to convert from int->char and char->int
+ Transform ncols*nrows read of int in 2*nrows reads of int + ncols*rows reads of chars
+**/
+template <typename IteratorT1, typename IteratorT2>
+void convert_array(IteratorT1 dst, IteratorT2 src, int n, cudaStream_t st)
+{
+  detail::convert_array(dst, src, st);
+}
+
 /**
  * @brief Computes the weighted reduction of matrix rows for each given key
  *
