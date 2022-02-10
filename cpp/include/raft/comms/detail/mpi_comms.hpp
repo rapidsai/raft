@@ -127,7 +127,7 @@ class mpi_comms : public comms_iface {
 
     // initializing NCCL
     RAFT_NCCL_TRY(ncclCommInitRank(&nccl_comm_, size_, id, rank_));
-  
+
     initialize();
   }
 
