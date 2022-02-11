@@ -74,6 +74,10 @@ add_executable(test_raft
     test/mr/host/buffer.cpp
     test/mr/device/buffer.cpp
     test/mst.cu
+    test/random/make_blobs.cu
+    test/random/make_regression.cu
+    test/random/multi_variable_gaussian.cu
+    test/random/permute.cu
     test/random/rng.cu
     test/random/rng_int.cu
     test/random/sample_without_replacement.cu
