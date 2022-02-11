@@ -51,15 +51,16 @@ namespace spectral {
 template <typename vertex_t, typename weight_t, typename EigenSolver, typename ClusterSolver>
 std::tuple<vertex_t, weight_t, vertex_t> modularity_maximization(
   handle_t const& handle,
-  sparse_matrix_t<vertex_t, weight_t> const& csr_m,
+  matrix::sparse_matrix_t<vertex_t, weight_t> const& csr_m,
   EigenSolver const& eigen_solver,
   ClusterSolver const& cluster_solver,
   vertex_t* __restrict__ clusters,
   weight_t* eigVals,
   weight_t* eigVecs)
 {
-  return detail::modularity_maximization<vertex_t, weight_t, EigenSolver, ClusterSolver>(
-    handle, csr_m, eigen_solver, cluster_solver, clusters, eigVals, eigVecs);
+  return raft::spectral::detail::
+    modularity_maximization<vertex_t, weight_t, EigenSolver, ClusterSolver>(
+      handle, csr_m, eigen_solver, cluster_solver, clusters, eigVals, eigVecs);
 }
 //===================================================
 // Analysis of graph partition
@@ -74,12 +75,13 @@ std::tuple<vertex_t, weight_t, vertex_t> modularity_maximization(
  */
 template <typename vertex_t, typename weight_t>
 void analyzeModularity(handle_t const& handle,
-                       sparse_matrix_t<vertex_t, weight_t> const& csr_m,
+                       matrix::sparse_matrix_t<vertex_t, weight_t> const& csr_m,
                        vertex_t nClusters,
                        vertex_t const* __restrict__ clusters,
                        weight_t& modularity)
 {
-  detail::analyzeModularity<vertex_t, weight_t>(handle, csr_m, nClusters, clusters, modularity);
+  raft::spectral::detail::analyzeModularity<vertex_t, weight_t>(
+    handle, csr_m, nClusters, clusters, modularity);
 }
 
 }  // namespace spectral

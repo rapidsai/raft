@@ -25,6 +25,7 @@
 
 #include <tuple>
 
+#include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/spectral/cluster_solvers.hpp>
 #include <raft/spectral/detail/spectral_util.cuh>
 #include <raft/spectral/eigen_solvers.hpp>
@@ -32,9 +33,6 @@
 namespace raft {
 namespace spectral {
 namespace detail {
-
-using namespace matrix;
-using namespace linalg;
 
 // =========================================================
 // Spectral partitioner
@@ -63,13 +61,14 @@ using namespace linalg;
  *  @return statistics: number of eigensolver iterations, .
  */
 template <typename vertex_t, typename weight_t, typename EigenSolver, typename ClusterSolver>
-std::tuple<vertex_t, weight_t, vertex_t> partition(handle_t const& handle,
-                                                   sparse_matrix_t<vertex_t, weight_t> const& csr_m,
-                                                   EigenSolver const& eigen_solver,
-                                                   ClusterSolver const& cluster_solver,
-                                                   vertex_t* __restrict__ clusters,
-                                                   weight_t* eigVals,
-                                                   weight_t* eigVecs)
+std::tuple<vertex_t, weight_t, vertex_t> partition(
+  handle_t const& handle,
+  spectral::matrix::sparse_matrix_t<vertex_t, weight_t> const& csr_m,
+  EigenSolver const& eigen_solver,
+  ClusterSolver const& cluster_solver,
+  vertex_t* __restrict__ clusters,
+  weight_t* eigVals,
+  weight_t* eigVecs)
 {
   RAFT_EXPECTS(clusters != nullptr, "Null clusters buffer.");
   RAFT_EXPECTS(eigVals != nullptr, "Null eigVals buffer.");
@@ -132,7 +131,7 @@ std::tuple<vertex_t, weight_t, vertex_t> partition(handle_t const& handle,
  */
 template <typename vertex_t, typename weight_t>
 void analyzePartition(handle_t const& handle,
-                      sparse_matrix_t<vertex_t, weight_t> const& csr_m,
+                      spectral::matrix::sparse_matrix_t<vertex_t, weight_t> const& csr_m,
                       vertex_t nClusters,
                       const vertex_t* __restrict__ clusters,
                       weight_t& edgeCut,
@@ -153,7 +152,8 @@ void analyzePartition(handle_t const& handle,
   vector_t<weight_t> Lx(handle, n);
 
   // Initialize cuBLAS
-  RAFT_CUBLAS_TRY(cublassetpointermode(cublas_h, CUBLAS_POINTER_MODE_HOST, stream));
+  RAFT_CUBLAS_TRY(
+    raft::linalg::detail::cublassetpointermode(cublas_h, CUBLAS_POINTER_MODE_HOST, stream));
 
   // Initialize Laplacian
   /// sparse_matrix_t<vertex_t, weight_t> A{handle, graph};

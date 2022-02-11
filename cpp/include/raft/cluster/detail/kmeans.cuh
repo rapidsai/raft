@@ -32,8 +32,8 @@
 #include <raft/device_atomics.cuh>
 #include <raft/handle.hpp>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
-#include <raft/spectral/detail/matrix_wrappers.cuh>
 #include <raft/spectral/detail/warn_dbg.hpp>
+#include <raft/spectral/matrix_wrappers.hpp>
 
 namespace raft {
 namespace cluster {
@@ -948,8 +948,6 @@ int kmeans(handle_t const& handle,
            index_type_t& iters,
            unsigned long long seed = 123456)
 {
-  using namespace matrix;
-
   // Check that parameters are valid
   RAFT_EXPECTS(n > 0, "invalid parameter (n<1)");
   RAFT_EXPECTS(d > 0, "invalid parameter (d<1)");
@@ -958,10 +956,10 @@ int kmeans(handle_t const& handle,
   RAFT_EXPECTS(maxiter >= 0, "invalid parameter (maxiter<0)");
 
   // Allocate memory
-  vector_t<index_type_t> clusterSizes(handle, k);
-  vector_t<value_type_t> centroids(handle, d * k);
-  vector_t<value_type_t> work(handle, n * max(k, d));
-  vector_t<index_type_t> work_int(handle, 2 * d * n);
+  raft::spectral::matrix::vector_t<index_type_t> clusterSizes(handle, k);
+  raft::spectral::matrix::vector_t<value_type_t> centroids(handle, d * k);
+  raft::spectral::matrix::vector_t<value_type_t> work(handle, n * max(k, d));
+  raft::spectral::matrix::vector_t<index_type_t> work_int(handle, 2 * d * n);
 
   // Perform k-means
   return kmeans<index_type_t, value_type_t>(handle,
