@@ -17,7 +17,7 @@
 #pragma once
 #include <raft/cuda_utils.cuh>
 #include <raft/distance/detail/pairwise_distance_base.cuh>
-#include <raft/linalg/reduce.cuh>
+#include <raft/linalg/reduce.hpp>
 
 namespace raft {
 namespace distance {

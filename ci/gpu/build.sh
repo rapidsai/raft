@@ -1,7 +1,7 @@
 #!/bin/bash
-# Copyright (c) 2020-2021, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #########################################
-# cuML GPU build and test script for CI #
+# RAFT GPU build and test script for CI #
 #########################################
 
 set -e
@@ -21,16 +21,21 @@ export CUDA_REL=${CUDA_VERSION%.*}
 # Set home to the job's workspace
 export HOME="$WORKSPACE"
 
-# Parse git describei
+# Parse git describe
 cd "$WORKSPACE"
 export GIT_DESCRIBE_TAG=`git describe --tags`
 export MINOR_VERSION=`echo $GIT_DESCRIBE_TAG | grep -o -E '([0-9]+\.[0-9]+)'`
 
-# Read options for cloning/running downstream repo tests
-source "$WORKSPACE/ci/prtest.config"
-
 # ucx-py version
-export UCX_PY_VERSION='0.24.*'
+export UCX_PY_VERSION='0.25.*'
+
+export CMAKE_CUDA_COMPILER_LAUNCHER="sccache"
+export CMAKE_CXX_COMPILER_LAUNCHER="sccache"
+export CMAKE_C_COMPILER_LAUNCHER="sccache"
+export SCCACHE_S3_KEY_PREFIX="libraft-$(uname -m)"
+export SCCACHE_BUCKET="rapids-sccache"
+export SCCACHE_REGION="us-west-2"
+export SCCACHE_IDLE_TIMEOUT="32768"
 
 ################################################################################
 # SETUP - Check environment
@@ -48,11 +53,12 @@ gpuci_logger "Activate conda env"
 . /opt/conda/etc/profile.d/conda.sh
 conda activate rapids
 gpuci_logger "Installing packages needed for RAFT"
-gpuci_mamba_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
+gpuci_mamba_retry install -y -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
       "cudatoolkit=${CUDA_REL}" \
       "libcusolver>=11.2.1" \
       "cudf=${MINOR_VERSION}" \
       "rmm=${MINOR_VERSION}" \
+      "breathe" \
       "dask-cudf=${MINOR_VERSION}" \
       "dask-cuda=${MINOR_VERSION}" \
       "ucx-py=${UCX_PY_VERSION}" \
@@ -63,8 +69,8 @@ gpuci_mamba_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvid
 # Install the master version of dask, distributed, and dask-ml
 gpuci_logger "Install the master version of dask and distributed"
 set -x
-pip install "git+https://github.com/dask/distributed.git@2021.11.2" --upgrade --no-deps
-pip install "git+https://github.com/dask/dask.git@2021.11.2" --upgrade --no-deps
+pip install "git+https://github.com/dask/distributed.git@main" --upgrade --no-deps
+pip install "git+https://github.com/dask/dask.git@main" --upgrade --no-deps
 set +x
 
 
@@ -88,16 +94,23 @@ export LD_LIBRARY_PATH_CACHED=$LD_LIBRARY_PATH
 export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
 
 gpuci_logger "Build C++ and Python targets"
-"$WORKSPACE/build.sh" cppraft pyraft -v
+# These should link against the existing shared libs
+if hasArg --skip-tests; then
+  "$WORKSPACE/build.sh" pyraft libraft -v --nogtest
+else
+  "$WORKSPACE/build.sh" pyraft libraft -v
+fi
 
-gpuci_logger "Building doxygen C++ docs"
-"$WORKSPACE/build.sh" cppdocs -v
+gpuci_logger "sccache stats"
+sccache --show-stats
+
+gpuci_logger "Building docs"
+"$WORKSPACE/build.sh" docs -v
 
 gpuci_logger "Resetting LD_LIBRARY_PATH"
 
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH_CACHED
 export LD_LIBRARY_PATH_CACHED=""
-
 
 ################################################################################
 # TEST - Run GoogleTest and py.tests for RAFT
@@ -115,7 +128,7 @@ gpuci_logger "GoogleTest for raft"
 cd "$WORKSPACE/cpp/build"
 GTEST_OUTPUT="xml:$WORKSPACE/test-results/raft_cpp/" ./test_raft
 
-gpuci_logger "Python pytest for cuml"
+gpuci_logger "Python pytest for raft"
 cd "$WORKSPACE/python"
 
-python -m pytest --cache-clear --junitxml="$WORKSPACE/junit-cuml.xml" -v -s
+python -m pytest --cache-clear --junitxml="$WORKSPACE/junit-raft.xml" -v -s

@@ -36,6 +36,7 @@ add_executable(test_raft
     test/eigen_solvers.cu
     test/handle.cpp
     test/integer_utils.cpp
+    test/interruptible.cu
     test/nvtx.cpp
     test/pow2_utils.cu
     test/label/label.cu
@@ -55,20 +56,33 @@ add_executable(test_raft
     test/linalg/matrix_vector_op.cu
     test/linalg/multiply.cu
     test/linalg/norm.cu
+    test/linalg/power.cu
     test/linalg/reduce.cu
+    test/linalg/reduce_cols_by_key.cu
+    test/linalg/reduce_rows_by_key.cu
+    test/linalg/rsvd.cu
+    test/linalg/sqrt.cu
     test/linalg/strided_reduction.cu
     test/linalg/subtract.cu
     test/linalg/svd.cu
+    test/linalg/ternary_op.cu
     test/linalg/transpose.cu
     test/linalg/unary_op.cu
     test/matrix/math.cu
     test/matrix/matrix.cu
-    test/mr/device/buffer.cpp
+    test/matrix/linewise_op.cu
     test/mr/host/buffer.cpp
+    test/mr/device/buffer.cpp
     test/mst.cu
+    test/random/make_blobs.cu
+    test/random/make_regression.cu
+    test/random/multi_variable_gaussian.cu
+    test/random/permute.cu
     test/random/rng.cu
     test/random/rng_int.cu
     test/random/sample_without_replacement.cu
+    test/span.cpp
+    test/span.cu
     test/sparse/add.cu
     test/sparse/convert_coo.cu
     test/sparse/convert_csr.cu
@@ -92,9 +106,11 @@ add_executable(test_raft
     test/spatial/fused_l2_knn.cu
     test/spatial/haversine.cu
     test/spatial/ball_cover.cu
+    test/spatial/faiss_mr.cu
     test/spatial/selection.cu
     test/spectral_matrix.cu
     test/stats/mean.cu
+    test/stats/meanvar.cu
     test/stats/mean_center.cu
     test/stats/stddev.cu
     test/stats/sum.cu
@@ -110,6 +126,7 @@ PROPERTIES BUILD_RPATH                         "\$ORIGIN"
            CUDA_STANDARD_REQUIRED              ON
            POSITION_INDEPENDENT_CODE           ON
            INTERFACE_POSITION_INDEPENDENT_CODE ON
+           INSTALL_RPATH "\$ORIGIN/../../../lib"
 )
 
 target_compile_options(test_raft
@@ -119,18 +136,26 @@ target_compile_options(test_raft
 
 target_include_directories(test_raft
     PUBLIC  "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/test>"
-            "${FAISS_GPU_HEADERS}"
 )
 
 
 target_link_libraries(test_raft
 PRIVATE
-  raft # transitively links all CUDA libs, etc
-  raft_distance
-  raft_nn
+  raft::raft
+  raft::distance
+  raft::nn
+  NCCL::NCCL
+  faiss::faiss
   GTest::gtest
   GTest::gtest_main
   Threads::Threads
   $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
   $<TARGET_NAME_IF_EXISTS:conda_env>
+)
+
+install(
+    TARGETS test_raft
+    COMPONENT testing
+    DESTINATION bin/libraft/gtests
+    EXCLUDE_FROM_ALL
 )

@@ -18,7 +18,6 @@
 
 #include <raft/comms/std_comms.hpp>
 #include <raft/handle.hpp>
-#include <raft/mr/device/buffer.hpp>
 
 #include <iostream>
 #include <nccl.h>

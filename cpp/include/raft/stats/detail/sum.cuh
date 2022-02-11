@@ -17,7 +17,7 @@
 #pragma once
 
 #include <raft/cuda_utils.cuh>
-#include <raft/linalg/eltwise.cuh>
+#include <raft/linalg/eltwise.hpp>
 
 #include <cub/cub.cuh>
 

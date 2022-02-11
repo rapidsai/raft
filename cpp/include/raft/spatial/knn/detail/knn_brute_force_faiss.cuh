@@ -24,15 +24,15 @@
 
 #include <faiss/gpu/GpuDistance.h>
 #include <faiss/gpu/GpuResources.h>
-#include <faiss/gpu/StandardGpuResources.h>
 #include <faiss/gpu/utils/Limits.cuh>
 #include <faiss/gpu/utils/Select.cuh>
 #include <faiss/utils/Heap.h>
 
 #include <cstdint>
 #include <iostream>
+#include <raft/distance/distance_type.hpp>
 #include <raft/handle.hpp>
-#include <raft/linalg/distance_type.h>
+#include <raft/spatial/knn/faiss_mr.hpp>
 #include <set>
 #include <thrust/iterator/transform_iterator.h>
 
@@ -324,7 +324,7 @@ void brute_force_knn_impl(
         default:
           faiss::MetricType m = build_faiss_metric(metric);
 
-          faiss::gpu::StandardGpuResources gpu_res;
+          raft::spatial::knn::RmmGpuResources gpu_res;
 
           gpu_res.noTempMemory();
           gpu_res.setDefaultStream(device, stream);

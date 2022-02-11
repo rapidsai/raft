@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,21 +21,33 @@
 namespace raft {
 namespace random {
 
-/** all different generator types used */
-using detail::GeneratorType;
-/** curand-based philox generator */
-using detail::GenPhilox;
-/** GenTaps : LFSR taps generator */
-using detail::GenTaps;
-/** GenKiss99 : kiss99 generator (currently the fastest) */
-using detail::GenKiss99;
+using detail::RngState;
 
-/** Philox-based random number generator */
+using detail::GeneratorType;
+using detail::GenPC;
+using detail::GenPhilox;
+
+using detail::PCGenerator;
 using detail::PhiloxGenerator;
-/** LFSR taps-filter for generating random numbers. */
-using detail::TapsGenerator;
-/** Kiss99-based random number generator */
-using detail::Kiss99Generator;
+
+using detail::BernoulliDistParams;
+using detail::ExponentialDistParams;
+using detail::GumbelDistParams;
+using detail::InvariantDistParams;
+using detail::LaplaceDistParams;
+using detail::LogisticDistParams;
+using detail::LogNormalDistParams;
+using detail::NormalDistParams;
+using detail::NormalIntDistParams;
+using detail::NormalTableDistParams;
+using detail::RayleighDistParams;
+using detail::SamplingParams;
+using detail::ScaledBernoulliDistParams;
+using detail::UniformDistParams;
+using detail::UniformIntDistParams;
+
+// Not strictly needed due to C++ ADL rules
+using detail::custom_next;
 
 /**
  * @brief Helper method to compute Box Muller transform
@@ -53,8 +65,9 @@ using detail::Kiss99Generator;
 template <typename Type>
 DI void box_muller_transform(Type& val1, Type& val2, Type sigma1, Type mu1, Type sigma2, Type mu2)
 {
-  detail::box_muller_transform(val1, val2, sigma1, mu1, sigma1, mu2);
+  detail::box_muller_transform(val1, val2, sigma1, mu1, sigma2, mu2);
 }
+
 template <typename Type>
 DI void box_muller_transform(Type& val1, Type& val2, Type sigma1, Type mu1)
 {
@@ -62,7 +75,6 @@ DI void box_muller_transform(Type& val1, Type& val2, Type sigma1, Type mu1)
 }
 /** @} */
 
-/** The main random number generator class, fully on GPUs */
 class Rng : public detail::RngImpl {
  public:
   /**
@@ -71,16 +83,7 @@ class Rng : public detail::RngImpl {
    * @param _t backend device RNG generator type
    * @note Refer to the `Rng::seed` method for details about seeding the engine
    */
-  Rng(uint64_t _s, GeneratorType _t = GenPhilox) : detail::RngImpl{_s, _t} {}
-
-  /**
-   * @brief Seed (and thus re-initialize) the underlying RNG engine
-   * @param _s 64b seed used to initialize the RNG
-   * @note If you need non-reproducibility, pass a seed that's, for example, a
-   *       function of timestamp. Another example is to use the c++11's
-   *       `std::random_device` for setting seed.
-   */
-  void seed(uint64_t _s) { detail::RngImpl::seed(_s); }
+  Rng(uint64_t _s, GeneratorType _t = GenPhilox) : detail::RngImpl(_s, _t) {}
 
   /**
    * @brief Generates the 'a' and 'b' parameters for a modulo affine
@@ -109,13 +112,14 @@ class Rng : public detail::RngImpl {
    * @param stream stream where to launch the kernel
    * @{
    */
-  template <typename Type, typename LenType = int>
-  void uniform(Type* ptr, LenType len, Type start, Type end, cudaStream_t stream)
+  template <typename OutType, typename LenType = int>
+  void uniform(OutType* ptr, LenType len, OutType start, OutType end, cudaStream_t stream)
   {
     detail::RngImpl::uniform(ptr, len, start, end, stream);
   }
-  template <typename IntType, typename LenType = int>
-  void uniformInt(IntType* ptr, LenType len, IntType start, IntType end, cudaStream_t stream)
+
+  template <typename OutType, typename LenType = int>
+  void uniformInt(OutType* ptr, LenType len, OutType start, OutType end, cudaStream_t stream)
   {
     detail::RngImpl::uniformInt(ptr, len, start, end, stream);
   }
@@ -132,11 +136,12 @@ class Rng : public detail::RngImpl {
    * @param stream stream where to launch the kernel
    * @{
    */
-  template <typename Type, typename LenType = int>
-  void normal(Type* ptr, LenType len, Type mu, Type sigma, cudaStream_t stream)
+  template <typename OutType, typename LenType = int>
+  void normal(OutType* ptr, LenType len, OutType mu, OutType sigma, cudaStream_t stream)
   {
     detail::RngImpl::normal(ptr, len, mu, sigma, stream);
   }
+
   template <typename IntType, typename LenType = int>
   void normalInt(IntType* ptr, LenType len, IntType mu, IntType sigma, cudaStream_t stream)
   {
@@ -158,22 +163,22 @@ class Rng : public detail::RngImpl {
    * @param ptr the output table (dim = n_rows x n_cols)
    * @param n_rows number of rows in the table
    * @param n_cols number of columns in the table
-   * @param mu mean vector (dim = n_cols x 1).
+   * @param mu_vec mean vector (dim = n_cols x 1).
    * @param sigma_vec std-dev vector of each component (dim = n_cols x 1). Pass
    * a nullptr to use the same scalar 'sigma' across all components
    * @param sigma scalar sigma to be used if 'sigma_vec' is nullptr
    * @param stream stream where to launch the kernel
    */
-  template <typename Type, typename LenType = int>
-  void normalTable(Type* ptr,
+  template <typename OutType, typename LenType = int>
+  void normalTable(OutType* ptr,
                    LenType n_rows,
                    LenType n_cols,
-                   const Type* mu,
-                   const Type* sigma_vec,
-                   Type sigma,
+                   const OutType* mu_vec,
+                   const OutType* sigma_vec,
+                   OutType sigma,
                    cudaStream_t stream)
   {
-    detail::RngImpl::normalTable(ptr, n_rows, n_cols, mu, sigma_vec, sigma, stream);
+    detail::RngImpl::normalTable(ptr, n_rows, n_cols, mu_vec, sigma_vec, sigma, stream);
   }
 
   /**
@@ -185,8 +190,8 @@ class Rng : public detail::RngImpl {
    * @param val value to be filled
    * @param stream stream where to launch the kernel
    */
-  template <typename Type, typename LenType = int>
-  void fill(Type* ptr, LenType len, Type val, cudaStream_t stream)
+  template <typename OutType, typename LenType = int>
+  void fill(OutType* ptr, LenType len, OutType val, cudaStream_t stream)
   {
     detail::RngImpl::fill(ptr, len, val, stream);
   }
@@ -219,14 +224,14 @@ class Rng : public detail::RngImpl {
    * @param scale scaling factor
    * @param stream stream where to launch the kernel
    */
-  template <typename Type, typename LenType = int>
-  void scaled_bernoulli(Type* ptr, LenType len, Type prob, Type scale, cudaStream_t stream)
+  template <typename OutType, typename LenType = int>
+  void scaled_bernoulli(OutType* ptr, LenType len, OutType prob, OutType scale, cudaStream_t stream)
   {
     detail::RngImpl::scaled_bernoulli(ptr, len, prob, scale, stream);
   }
 
   /**
-   * @brief Generate gumbel distributed random numbers
+   * @brief Generate Gumbel distributed random numbers
    * @tparam Type data type of output random number
    * @tparam LenType data type used to represent length of the arrays
    * @param ptr output array
@@ -236,8 +241,8 @@ class Rng : public detail::RngImpl {
    * @param stream stream where to launch the kernel
    * @note https://en.wikipedia.org/wiki/Gumbel_distribution
    */
-  template <typename Type, typename LenType = int>
-  void gumbel(Type* ptr, LenType len, Type mu, Type beta, cudaStream_t stream)
+  template <typename OutType, typename LenType = int>
+  void gumbel(OutType* ptr, LenType len, OutType mu, OutType beta, cudaStream_t stream)
   {
     detail::RngImpl::gumbel(ptr, len, mu, beta, stream);
   }
@@ -252,8 +257,8 @@ class Rng : public detail::RngImpl {
    * @param sigma std-dev of the distribution
    * @param stream stream where to launch the kernel
    */
-  template <typename Type, typename LenType = int>
-  void lognormal(Type* ptr, LenType len, Type mu, Type sigma, cudaStream_t stream)
+  template <typename OutType, typename LenType = int>
+  void lognormal(OutType* ptr, LenType len, OutType mu, OutType sigma, cudaStream_t stream)
   {
     detail::RngImpl::lognormal(ptr, len, mu, sigma, stream);
   }
@@ -268,8 +273,8 @@ class Rng : public detail::RngImpl {
    * @param scale scale value
    * @param stream stream where to launch the kernel
    */
-  template <typename Type, typename LenType = int>
-  void logistic(Type* ptr, LenType len, Type mu, Type scale, cudaStream_t stream)
+  template <typename OutType, typename LenType = int>
+  void logistic(OutType* ptr, LenType len, OutType mu, OutType scale, cudaStream_t stream)
   {
     detail::RngImpl::logistic(ptr, len, mu, scale, stream);
   }
@@ -283,8 +288,8 @@ class Rng : public detail::RngImpl {
    * @param lambda the lambda
    * @param stream stream where to launch the kernel
    */
-  template <typename Type, typename LenType = int>
-  void exponential(Type* ptr, LenType len, Type lambda, cudaStream_t stream)
+  template <typename OutType, typename LenType = int>
+  void exponential(OutType* ptr, LenType len, OutType lambda, cudaStream_t stream)
   {
     detail::RngImpl::exponential(ptr, len, lambda, stream);
   }
@@ -298,8 +303,8 @@ class Rng : public detail::RngImpl {
    * @param sigma the sigma
    * @param stream stream where to launch the kernel
    */
-  template <typename Type, typename LenType = int>
-  void rayleigh(Type* ptr, LenType len, Type sigma, cudaStream_t stream)
+  template <typename OutType, typename LenType = int>
+  void rayleigh(OutType* ptr, LenType len, OutType sigma, cudaStream_t stream)
   {
     detail::RngImpl::rayleigh(ptr, len, sigma, stream);
   }
@@ -314,10 +319,15 @@ class Rng : public detail::RngImpl {
    * @param scale the scale
    * @param stream stream where to launch the kernel
    */
-  template <typename Type, typename LenType = int>
-  void laplace(Type* ptr, LenType len, Type mu, Type scale, cudaStream_t stream)
+  template <typename OutType, typename LenType = int>
+  void laplace(OutType* ptr, LenType len, OutType mu, OutType scale, cudaStream_t stream)
   {
     detail::RngImpl::laplace(ptr, len, mu, scale, stream);
+  }
+
+  void advance(uint64_t max_streams, uint64_t max_calls_per_subsequence)
+  {
+    detail::RngImpl::advance(max_streams, max_calls_per_subsequence);
   }
 
   /**
@@ -359,33 +369,6 @@ class Rng : public detail::RngImpl {
     detail::RngImpl::sampleWithoutReplacement(
       handle, out, outIdx, in, wts, sampledLen, len, stream);
   }
-
-  /**
-   * @brief Core method to generate a pdf based on the cdf that is defined in
-   *        the input device lambda
-   *
-   * @tparam OutType  output type
-   * @tparam MathType type on which arithmetic is done
-   * @tparam LenTyp   index type
-   * @tparam Lambda   device lambda (or operator)
-   *
-   * @param[out] ptr    output buffer [on device] [len = len]
-   * @param[in]  len    number of elements to be generated
-   * @param[in]  randOp the device lambda or operator
-   * @param[in]  stream cuda stream
-   * @{
-   */
-  template <typename OutType, typename MathType = OutType, typename LenType = int, typename Lambda>
-  void custom_distribution(OutType* ptr, LenType len, Lambda randOp, cudaStream_t stream)
-  {
-    detail::RngImpl::custom_distribution(ptr, len, randOp, stream);
-  }
-  template <typename OutType, typename MathType = OutType, typename LenType = int, typename Lambda>
-  void custom_distribution2(OutType* ptr, LenType len, Lambda randOp, cudaStream_t stream)
-  {
-    detail::RngImpl::custom_distribution2(ptr, len, randOp, stream);
-  }
-  /** @} */
 };
 
 };  // end namespace random

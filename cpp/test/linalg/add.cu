@@ -18,7 +18,7 @@
 #include "add.cuh"
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/add.cuh>
+#include <raft/linalg/add.hpp>
 #include <raft/random/rng.hpp>
 
 namespace raft {
@@ -47,7 +47,7 @@ class AddTest : public ::testing::TestWithParam<AddInputs<InT, OutT>> {
     r.uniform(in2.data(), len, InT(-1.0), InT(1.0), stream);
     naiveAddElem<InT, OutT>(out_ref.data(), in1.data(), in2.data(), len, stream);
     add<InT, OutT>(out.data(), in1.data(), in2.data(), len, stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
   }
 
   void compare()

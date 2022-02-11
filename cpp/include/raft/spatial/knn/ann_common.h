@@ -16,10 +16,10 @@
 
 #pragma once
 
-#include <raft/linalg/distance_type.h>
+#include <raft/distance/distance_type.hpp>
 
 #include <faiss/gpu/GpuIndex.h>
-#include <faiss/gpu/StandardGpuResources.h>
+#include <raft/spatial/knn/faiss_mr.hpp>
 
 namespace raft {
 namespace spatial {
@@ -30,7 +30,7 @@ struct knnIndex {
   raft::distance::DistanceType metric;
   float metricArg;
 
-  faiss::gpu::StandardGpuResources* gpu_res;
+  raft::spatial::knn::RmmGpuResources* gpu_res;
   int device;
   ~knnIndex()
   {

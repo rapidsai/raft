@@ -20,9 +20,7 @@
 #include "detail/ann_quantized_faiss.cuh"
 
 #include <faiss/gpu/GpuIndex.h>
-#include <faiss/gpu/StandardGpuResources.h>
-
-#include <raft/mr/device/buffer.hpp>
+#include <raft/spatial/knn/faiss_mr.hpp>
 
 namespace raft {
 namespace spatial {
