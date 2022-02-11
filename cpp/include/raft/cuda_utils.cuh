@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -693,6 +693,38 @@ DI T blockReduce(T val, char* smem)
   val = lid < nWarps ? sTemp[lid] : T(0);
   return warpReduce(val);
 }
+
+/**
+ * @defgroup Load/Store Functions with cache control (for clang compilation)
+ * @{
+ */
+template <typename T>
+__device__ __forceinline__ T ldcg(const T* addr) {
+#if defined(__clang__)
+  return *addr;
+#else
+  return __ldcg(addr);
+#endif
+}
+
+template <typename T>
+__device__ __forceinline__ T ldcv(const T* addr) {
+#if defined(__clang__)
+  return *addr;
+#else
+  return __ldcv(addr);
+#endif
+}
+
+template <typename T>
+__device__ __forceinline__ void stwt(T* addr, const T& val) {
+#if defined(__clang__)
+  *addr = val;
+#else
+  __stwt(addr, val);
+#endif
+}
+/** @} */
 
 /**
  * @brief Simple utility function to determine whether user_stream or one of the

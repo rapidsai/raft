@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,8 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/pow2_utils.cuh>
 #include <raft/vectorized.cuh>
+
+#include <algorithm>
 
 namespace raft {
 namespace matrix {
@@ -81,7 +83,7 @@ struct Linewise {
     Vec v, w;
     bool update = true;
     for (; in < in_end; in += AlignWarp::Value, out += AlignWarp::Value, rowMod += warpPad) {
-      v.val.internal = __ldcv(in);
+      v.val.internal = ldcv(in);
       while (rowMod >= rowLen) {
         rowMod -= rowLen;
         rowDiv++;
@@ -136,11 +138,11 @@ struct Linewise {
     Vec v;
     const IdxType d = BlockSize * gridDim.x;
     for (IdxType i = threadIdx.x + blockIdx.x * BlockSize; i < len; i += d) {
-      v.val.internal = __ldcv(in + i);
+      v.val.internal = ldcv(in + i);
 #pragma unroll VecElems
       for (int k = 0; k < VecElems; k++)
         v.val.data[k] = op(v.val.data[k], args.val.data[k]...);
-      __stwt(out + i, v.val.internal);
+      stwt(out + i, v.val.internal);
     }
   }
 
@@ -312,8 +314,12 @@ __global__ void __launch_bounds__(BlockSize)
   typedef Linewise<Type, IdxType, VecBytes, BlockSize> L;
   constexpr uint workSize = L::VecElems * BlockSize;
   uint workOffset         = workSize;
+#if defined(__clang__)
+  __shared__ Type shm[workSize * ((sizeof...(Vecs)) > 1 ? 2 : 1)];
+#else
   __shared__ alignas(sizeof(Type) * L::VecElems)
     Type shm[workSize * ((sizeof...(Vecs)) > 1 ? 2 : 1)];
+#endif
   const IdxType blockOffset = (arrOffset + BlockSize * L::VecElems * blockIdx.x) % rowLen;
   return L::vectorRows(
     reinterpret_cast<typename L::Vec::io_t*>(out),
@@ -422,7 +428,7 @@ void matrixLinewiseVecCols(Type* out,
     const uint occupy = getOptimalGridSize<BlockSize>();
     // does not make sense to have more blocks than this
     const uint maxBlocks = raft::ceildiv<uint>(uint(alignedLen), bs.x * VecElems);
-    const dim3 gs(min(maxBlocks, occupy), 1, 1);
+    const dim3 gs(std::min(maxBlocks, occupy), 1, 1);
     // The work arrangement is blocked on the block and warp levels;
     //   see more details at Linewise::vectorCols.
     // The value below determines how many scalar elements are processed by on thread in total.
@@ -482,7 +488,7 @@ void matrixLinewiseVecRows(Type* out,
     const uint expected_grid_size = rowLen / raft::gcd(block_work_size, uint(rowLen));
     // Minimum size of the grid to make the device well occupied
     const uint occupy = getOptimalGridSize<BlockSize>();
-    const dim3 gs(min(
+    const dim3 gs(std::min(
                     // does not make sense to have more blocks than this
                     raft::ceildiv<uint>(uint(totalLen), block_work_size),
                     // increase the grid size to be not less than `occupy` while

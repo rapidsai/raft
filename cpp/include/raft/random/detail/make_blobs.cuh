@@ -90,45 +90,45 @@ DI void get_mu_sigma(DataT& mu,
 }
 
 template <typename DataT, typename IdxT>
-void generate_data(DataT* out,
-                   const IdxT* labels,
-                   IdxT n_rows,
-                   IdxT n_cols,
-                   IdxT n_clusters,
-                   cudaStream_t stream,
-                   bool row_major,
-                   const DataT* centers,
-                   const DataT* cluster_std,
-                   const DataT cluster_std_scalar,
-                   raft::random::Rng& rng)
+void generate_data(DataT* /*out*/,
+                   const IdxT* /*labels*/,
+                   IdxT /*n_rows*/,
+                   IdxT /*n_cols*/,
+                   IdxT /*n_clusters*/,
+                   cudaStream_t /*stream*/,
+                   bool /*row_major*/,
+                   const DataT* /*centers*/,
+                   const DataT* /*cluster_std*/,
+                   const DataT /*cluster_std_scalar*/,
+                   raft::random::Rng& /*rng*/)
 {
-  auto op = [=] __device__(DataT & val1, DataT & val2, IdxT idx1, IdxT idx2) {
-    DataT mu1, sigma1, mu2, sigma2;
-    get_mu_sigma(mu1,
-                 sigma1,
-                 idx1,
-                 labels,
-                 row_major,
-                 centers,
-                 cluster_std,
-                 cluster_std_scalar,
-                 n_rows,
-                 n_cols,
-                 n_clusters);
-    get_mu_sigma(mu2,
-                 sigma2,
-                 idx2,
-                 labels,
-                 row_major,
-                 centers,
-                 cluster_std,
-                 cluster_std_scalar,
-                 n_rows,
-                 n_cols,
-                 n_clusters);
-    raft::random::box_muller_transform<DataT>(val1, val2, sigma1, mu1, sigma2, mu2);
-  };
-  rng.custom_distribution2<DataT, DataT, IdxT>(out, n_rows * n_cols, op, stream);
+  // auto op = [=] __device__(DataT & val1, DataT & val2, IdxT idx1, IdxT idx2) {
+  //   DataT mu1, sigma1, mu2, sigma2;
+  //   get_mu_sigma(mu1,
+  //                sigma1,
+  //                idx1,
+  //                labels,
+  //                row_major,
+  //                centers,
+  //                cluster_std,
+  //                cluster_std_scalar,
+  //                n_rows,
+  //                n_cols,
+  //                n_clusters);
+  //   get_mu_sigma(mu2,
+  //                sigma2,
+  //                idx2,
+  //                labels,
+  //                row_major,
+  //                centers,
+  //                cluster_std,
+  //                cluster_std_scalar,
+  //                n_rows,
+  //                n_cols,
+  //                n_clusters);
+  //   raft::random::box_muller_transform<DataT>(val1, val2, sigma1, mu1, sigma2, mu2);
+  // };
+  // rng.custom_distribution2<DataT, DataT, IdxT>(out, n_rows * n_cols, op, stream);
 }
 
 }  // namespace

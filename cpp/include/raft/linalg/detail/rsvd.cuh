@@ -26,6 +26,8 @@
 #include <raft/matrix/matrix.hpp>
 #include <raft/random/rng.hpp>
 
+#include <algorithm>
+
 namespace raft {
 namespace linalg {
 namespace detail {
@@ -386,9 +388,9 @@ void rsvdPerc(const raft::handle_t& handle,
               int max_sweeps,
               cudaStream_t stream)
 {
-  int k = max((int)(min(n_rows, n_cols) * PC_perc),
+  int k = std::max((int)(std::min(n_rows, n_cols) * PC_perc),
               1);  // Number of singular values to be computed
-  int p = max((int)(min(n_rows, n_cols) * UpS_perc), 1);  // Upsamples
+  int p = std::max((int)(std::min(n_rows, n_cols) * UpS_perc), 1);  // Upsamples
   rsvdFixedRank(handle,
                 M,
                 n_rows,

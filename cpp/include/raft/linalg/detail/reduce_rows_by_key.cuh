@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -311,7 +311,7 @@ __global__ void sum_rows_by_key_large_nkeys_kernel_rowmajor(const DataIteratorT 
                  // same for the whole block
 #endif
     // if ((end_row-start_row) / (r-start_row) != global_key) continue;
-    DataType val = __ldcg(&d_A[r * lda + this_col]);
+    DataType val = ldcg(&d_A[r * lda + this_col]);
     if (d_weights) { val = val * d_weights[r]; }
     sum += val;
   }
