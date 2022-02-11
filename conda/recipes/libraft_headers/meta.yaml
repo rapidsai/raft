@@ -37,19 +37,19 @@ build:
 requirements:
   build:
     - cmake>=3.20.1
-  host:
     - nccl>=2.9.9
     - cudatoolkit {{ cuda_version }}.*
     - ucx-py {{ ucx_py_version }}
     - ucx-proc=*=gpu
     - gtest=1.10.0
     - gmock
-  run:
-    - nccl>=2.9.9
-    - ucx-py {{ ucx_py_version }}
-    - ucx-proc=*=gpu
-    - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
+    - rmm {{ minor_version}}
     - libcusolver>=11.2.1
+#  run:
+#    - nccl>=2.9.9
+#    - ucx-py {{ ucx_py_version }}
+#    - ucx-proc=*=gpu
+#    - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
 
 about:
   home: http://rapids.ai/
