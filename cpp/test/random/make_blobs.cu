@@ -21,7 +21,8 @@
 #include <raft/cudart_utils.h>
 #include <raft/random/make_blobs.hpp>
 
-namespace raft::random {
+namespace raft {
+namespace random {
 
 template <typename T>
 __global__ void meanKernel(T* out,
@@ -136,8 +137,8 @@ class MakeBlobsTest : public ::testing::TestWithParam<MakeBlobsInputs<T>> {
   {
     int len      = params.n_clusters * params.cols;
     auto compare = raft::CompareApprox<T>(num_sigma * params.tolerance);
-    ASSERT_TRUE(raft::devArrMatch(mu_vec.data(), mean_var.data(), len, compare, stream));
-    ASSERT_TRUE(raft::devArrMatch(params.std, mean_var.data() + len, len, compare, stream));
+    ASSERT_TRUE(raft::devArrMatch(mu_vec.data(), mean_var.data(), len, compare));
+    ASSERT_TRUE(raft::devArrMatch(params.std, mean_var.data() + len, len, compare));
   }
 
  protected:
@@ -153,53 +154,37 @@ typedef MakeBlobsTest<float> MakeBlobsTestF;
 const std::vector<MakeBlobsInputs<float>> inputsf_t = {
   {0.0055, 1024, 32, 3, 1.f, true, false, raft::random::GenPhilox, 1234ULL},
   {0.011, 1024, 8, 3, 1.f, true, false, raft::random::GenPhilox, 1234ULL},
-  {0.0055, 1024, 32, 3, 1.f, true, false, raft::random::GenTaps, 1234ULL},
-  {0.011, 1024, 8, 3, 1.f, true, false, raft::random::GenTaps, 1234ULL},
-  {0.0055, 1024, 32, 3, 1.f, true, false, raft::random::GenKiss99, 1234ULL},
-  {0.011, 1024, 8, 3, 1.f, true, false, raft::random::GenKiss99, 1234ULL},
+  {0.0055, 1024, 32, 3, 1.f, true, false, raft::random::GenPC, 1234ULL},
+  {0.011, 1024, 8, 3, 1.f, true, false, raft::random::GenPC, 1234ULL},
   {0.0055, 1024, 32, 3, 1.f, false, false, raft::random::GenPhilox, 1234ULL},
   {0.011, 1024, 8, 3, 1.f, false, false, raft::random::GenPhilox, 1234ULL},
-  {0.0055, 1024, 32, 3, 1.f, false, false, raft::random::GenTaps, 1234ULL},
-  {0.011, 1024, 8, 3, 1.f, false, false, raft::random::GenTaps, 1234ULL},
-  {0.0055, 1024, 32, 3, 1.f, false, false, raft::random::GenKiss99, 1234ULL},
-  {0.011, 1024, 8, 3, 1.f, false, false, raft::random::GenKiss99, 1234ULL},
+  {0.0055, 1024, 32, 3, 1.f, false, false, raft::random::GenPC, 1234ULL},
+  {0.011, 1024, 8, 3, 1.f, false, false, raft::random::GenPC, 1234ULL},
   {0.0055, 1024, 32, 3, 1.f, true, true, raft::random::GenPhilox, 1234ULL},
   {0.011, 1024, 8, 3, 1.f, true, true, raft::random::GenPhilox, 1234ULL},
-  {0.0055, 1024, 32, 3, 1.f, true, true, raft::random::GenTaps, 1234ULL},
-  {0.011, 1024, 8, 3, 1.f, true, true, raft::random::GenTaps, 1234ULL},
-  {0.0055, 1024, 32, 3, 1.f, true, true, raft::random::GenKiss99, 1234ULL},
-  {0.011, 1024, 8, 3, 1.f, true, true, raft::random::GenKiss99, 1234ULL},
+  {0.0055, 1024, 32, 3, 1.f, true, true, raft::random::GenPC, 1234ULL},
+  {0.011, 1024, 8, 3, 1.f, true, true, raft::random::GenPC, 1234ULL},
   {0.0055, 1024, 32, 3, 1.f, false, true, raft::random::GenPhilox, 1234ULL},
   {0.011, 1024, 8, 3, 1.f, false, true, raft::random::GenPhilox, 1234ULL},
-  {0.0055, 1024, 32, 3, 1.f, false, true, raft::random::GenTaps, 1234ULL},
-  {0.011, 1024, 8, 3, 1.f, false, true, raft::random::GenTaps, 1234ULL},
-  {0.0055, 1024, 32, 3, 1.f, false, true, raft::random::GenKiss99, 1234ULL},
-  {0.011, 1024, 8, 3, 1.f, false, true, raft::random::GenKiss99, 1234ULL},
-
+  {0.0055, 1024, 32, 3, 1.f, false, true, raft::random::GenPC, 1234ULL},
+  {0.011, 1024, 8, 3, 1.f, false, true, raft::random::GenPC, 1234ULL},
   {0.0055, 5003, 32, 5, 1.f, true, false, raft::random::GenPhilox, 1234ULL},
   {0.011, 5003, 8, 5, 1.f, true, false, raft::random::GenPhilox, 1234ULL},
-  {0.0055, 5003, 32, 5, 1.f, true, false, raft::random::GenTaps, 1234ULL},
-  {0.011, 5003, 8, 5, 1.f, true, false, raft::random::GenTaps, 1234ULL},
-  {0.0055, 5003, 32, 5, 1.f, true, false, raft::random::GenKiss99, 1234ULL},
-  {0.011, 5003, 8, 5, 1.f, true, false, raft::random::GenKiss99, 1234ULL},
+
+  {0.0055, 5003, 32, 5, 1.f, true, false, raft::random::GenPC, 1234ULL},
+  {0.011, 5003, 8, 5, 1.f, true, false, raft::random::GenPC, 1234ULL},
   {0.0055, 5003, 32, 5, 1.f, false, false, raft::random::GenPhilox, 1234ULL},
   {0.011, 5003, 8, 5, 1.f, false, false, raft::random::GenPhilox, 1234ULL},
-  {0.0055, 5003, 32, 5, 1.f, false, false, raft::random::GenTaps, 1234ULL},
-  {0.011, 5003, 8, 5, 1.f, false, false, raft::random::GenTaps, 1234ULL},
-  {0.0055, 5003, 32, 5, 1.f, false, false, raft::random::GenKiss99, 1234ULL},
-  {0.011, 5003, 8, 5, 1.f, false, false, raft::random::GenKiss99, 1234ULL},
+  {0.0055, 5003, 32, 5, 1.f, false, false, raft::random::GenPC, 1234ULL},
+  {0.011, 5003, 8, 5, 1.f, false, false, raft::random::GenPC, 1234ULL},
   {0.0055, 5003, 32, 5, 1.f, true, true, raft::random::GenPhilox, 1234ULL},
   {0.011, 5003, 8, 5, 1.f, true, true, raft::random::GenPhilox, 1234ULL},
-  {0.0055, 5003, 32, 5, 1.f, true, true, raft::random::GenTaps, 1234ULL},
-  {0.011, 5003, 8, 5, 1.f, true, true, raft::random::GenTaps, 1234ULL},
-  {0.0055, 5003, 32, 5, 1.f, true, true, raft::random::GenKiss99, 1234ULL},
-  {0.011, 5003, 8, 5, 1.f, true, true, raft::random::GenKiss99, 1234ULL},
+  {0.0055, 5003, 32, 5, 1.f, true, true, raft::random::GenPC, 1234ULL},
+  {0.011, 5003, 8, 5, 1.f, true, true, raft::random::GenPC, 1234ULL},
   {0.0055, 5003, 32, 5, 1.f, false, true, raft::random::GenPhilox, 1234ULL},
   {0.011, 5003, 8, 5, 1.f, false, true, raft::random::GenPhilox, 1234ULL},
-  {0.0055, 5003, 32, 5, 1.f, false, true, raft::random::GenTaps, 1234ULL},
-  {0.011, 5003, 8, 5, 1.f, false, true, raft::random::GenTaps, 1234ULL},
-  {0.0055, 5003, 32, 5, 1.f, false, true, raft::random::GenKiss99, 1234ULL},
-  {0.011, 5003, 8, 5, 1.f, false, true, raft::random::GenKiss99, 1234ULL},
+  {0.0055, 5003, 32, 5, 1.f, false, true, raft::random::GenPC, 1234ULL},
+  {0.011, 5003, 8, 5, 1.f, false, true, raft::random::GenPC, 1234ULL},
 };
 
 TEST_P(MakeBlobsTestF, Result) { check(); }
@@ -209,55 +194,40 @@ typedef MakeBlobsTest<double> MakeBlobsTestD;
 const std::vector<MakeBlobsInputs<double>> inputsd_t = {
   {0.0055, 1024, 32, 3, 1.0, true, false, raft::random::GenPhilox, 1234ULL},
   {0.011, 1024, 8, 3, 1.0, true, false, raft::random::GenPhilox, 1234ULL},
-  {0.0055, 1024, 32, 3, 1.0, true, false, raft::random::GenTaps, 1234ULL},
-  {0.011, 1024, 8, 3, 1.0, true, false, raft::random::GenTaps, 1234ULL},
-  {0.0055, 1024, 32, 3, 1.0, true, false, raft::random::GenKiss99, 1234ULL},
-  {0.011, 1024, 8, 3, 1.0, true, false, raft::random::GenKiss99, 1234ULL},
+  {0.0055, 1024, 32, 3, 1.0, true, false, raft::random::GenPC, 1234ULL},
+  {0.011, 1024, 8, 3, 1.0, true, false, raft::random::GenPC, 1234ULL},
   {0.0055, 1024, 32, 3, 1.0, false, false, raft::random::GenPhilox, 1234ULL},
   {0.011, 1024, 8, 3, 1.0, false, false, raft::random::GenPhilox, 1234ULL},
-  {0.0055, 1024, 32, 3, 1.0, false, false, raft::random::GenTaps, 1234ULL},
-  {0.011, 1024, 8, 3, 1.0, false, false, raft::random::GenTaps, 1234ULL},
-  {0.0055, 1024, 32, 3, 1.0, false, false, raft::random::GenKiss99, 1234ULL},
-  {0.011, 1024, 8, 3, 1.0, false, false, raft::random::GenKiss99, 1234ULL},
+  {0.0055, 1024, 32, 3, 1.0, false, false, raft::random::GenPC, 1234ULL},
+  {0.011, 1024, 8, 3, 1.0, false, false, raft::random::GenPC, 1234ULL},
   {0.0055, 1024, 32, 3, 1.0, true, true, raft::random::GenPhilox, 1234ULL},
   {0.011, 1024, 8, 3, 1.0, true, true, raft::random::GenPhilox, 1234ULL},
-  {0.0055, 1024, 32, 3, 1.0, true, true, raft::random::GenTaps, 1234ULL},
-  {0.011, 1024, 8, 3, 1.0, true, true, raft::random::GenTaps, 1234ULL},
-  {0.0055, 1024, 32, 3, 1.0, true, true, raft::random::GenKiss99, 1234ULL},
-  {0.011, 1024, 8, 3, 1.0, true, true, raft::random::GenKiss99, 1234ULL},
+  {0.0055, 1024, 32, 3, 1.0, true, true, raft::random::GenPC, 1234ULL},
+  {0.011, 1024, 8, 3, 1.0, true, true, raft::random::GenPC, 1234ULL},
   {0.0055, 1024, 32, 3, 1.0, false, true, raft::random::GenPhilox, 1234ULL},
   {0.011, 1024, 8, 3, 1.0, false, true, raft::random::GenPhilox, 1234ULL},
-  {0.0055, 1024, 32, 3, 1.0, false, true, raft::random::GenTaps, 1234ULL},
-  {0.011, 1024, 8, 3, 1.0, false, true, raft::random::GenTaps, 1234ULL},
-  {0.0055, 1024, 32, 3, 1.0, false, true, raft::random::GenKiss99, 1234ULL},
-  {0.011, 1024, 8, 3, 1.0, false, true, raft::random::GenKiss99, 1234ULL},
+  {0.0055, 1024, 32, 3, 1.0, false, true, raft::random::GenPC, 1234ULL},
+  {0.011, 1024, 8, 3, 1.0, false, true, raft::random::GenPC, 1234ULL},
 
   {0.0055, 5003, 32, 5, 1.0, true, false, raft::random::GenPhilox, 1234ULL},
   {0.011, 5003, 8, 5, 1.0, true, false, raft::random::GenPhilox, 1234ULL},
-  {0.0055, 5003, 32, 5, 1.0, true, false, raft::random::GenTaps, 1234ULL},
-  {0.011, 5003, 8, 5, 1.0, true, false, raft::random::GenTaps, 1234ULL},
-  {0.0055, 5003, 32, 5, 1.0, true, false, raft::random::GenKiss99, 1234ULL},
-  {0.011, 5003, 8, 5, 1.0, true, false, raft::random::GenKiss99, 1234ULL},
+  {0.0055, 5003, 32, 5, 1.0, true, false, raft::random::GenPC, 1234ULL},
+  {0.011, 5003, 8, 5, 1.0, true, false, raft::random::GenPC, 1234ULL},
   {0.0055, 5003, 32, 5, 1.0, false, false, raft::random::GenPhilox, 1234ULL},
   {0.011, 5003, 8, 5, 1.0, false, false, raft::random::GenPhilox, 1234ULL},
-  {0.0055, 5003, 32, 5, 1.0, false, false, raft::random::GenTaps, 1234ULL},
-  {0.011, 5003, 8, 5, 1.0, false, false, raft::random::GenTaps, 1234ULL},
-  {0.0055, 5003, 32, 5, 1.0, false, false, raft::random::GenKiss99, 1234ULL},
-  {0.011, 5003, 8, 5, 1.0, false, false, raft::random::GenKiss99, 1234ULL},
+  {0.0055, 5003, 32, 5, 1.0, false, false, raft::random::GenPC, 1234ULL},
+  {0.011, 5003, 8, 5, 1.0, false, false, raft::random::GenPC, 1234ULL},
   {0.0055, 5003, 32, 5, 1.0, true, true, raft::random::GenPhilox, 1234ULL},
   {0.011, 5003, 8, 5, 1.0, true, true, raft::random::GenPhilox, 1234ULL},
-  {0.0055, 5003, 32, 5, 1.0, true, true, raft::random::GenTaps, 1234ULL},
-  {0.011, 5003, 8, 5, 1.0, true, true, raft::random::GenTaps, 1234ULL},
-  {0.0055, 5003, 32, 5, 1.0, true, true, raft::random::GenKiss99, 1234ULL},
-  {0.011, 5003, 8, 5, 1.0, true, true, raft::random::GenKiss99, 1234ULL},
+  {0.0055, 5003, 32, 5, 1.0, true, true, raft::random::GenPC, 1234ULL},
+  {0.011, 5003, 8, 5, 1.0, true, true, raft::random::GenPC, 1234ULL},
   {0.0055, 5003, 32, 5, 1.0, false, true, raft::random::GenPhilox, 1234ULL},
   {0.011, 5003, 8, 5, 1.0, false, true, raft::random::GenPhilox, 1234ULL},
-  {0.0055, 5003, 32, 5, 1.0, false, true, raft::random::GenTaps, 1234ULL},
-  {0.011, 5003, 8, 5, 1.0, false, true, raft::random::GenTaps, 1234ULL},
-  {0.0055, 5003, 32, 5, 1.0, false, true, raft::random::GenKiss99, 1234ULL},
-  {0.011, 5003, 8, 5, 1.0, false, true, raft::random::GenKiss99, 1234ULL},
+  {0.0055, 5003, 32, 5, 1.0, false, true, raft::random::GenPC, 1234ULL},
+  {0.011, 5003, 8, 5, 1.0, false, true, raft::random::GenPC, 1234ULL},
 };
 TEST_P(MakeBlobsTestD, Result) { check(); }
 INSTANTIATE_TEST_CASE_P(MakeBlobsTests, MakeBlobsTestD, ::testing::ValuesIn(inputsd_t));
 
-}  // end namespace raft::random
+}  // end namespace random
+}  // end namespace raft

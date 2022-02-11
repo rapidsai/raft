@@ -16,6 +16,7 @@
 
 # keep the files in alphabetical order!
 add_executable(test_raft
+    test/common/seive.cu
     test/cudart_utils.cpp
     test/cluster_solvers.cu
     test/distance/dist_adj.cu
@@ -106,14 +107,19 @@ add_executable(test_raft
     test/spatial/fused_l2_knn.cu
     test/spatial/haversine.cu
     test/spatial/ball_cover.cu
+    test/spatial/epsilon_neighborhood.cu
     test/spatial/faiss_mr.cu
     test/spatial/selection.cu
     test/spectral_matrix.cu
+    test/stats/cov.cu
+    test/stats/histogram.cu
     test/stats/mean.cu
     test/stats/meanvar.cu
     test/stats/mean_center.cu
+    test/stats/minmax.cu
     test/stats/stddev.cu
     test/stats/sum.cu
+    test/stats/weighted_mean.cu
     test/test.cpp
 )
 
