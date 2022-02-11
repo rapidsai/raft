@@ -18,7 +18,7 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <raft/random/rng.hpp>
-#include <raft/stats/cov.cuh>
+#include <raft/stats/cov.hpp>
 #include <raft/stats/mean.hpp>
 #include <rmm/device_uvector.hpp>
 

@@ -19,7 +19,7 @@
 #include <gtest/gtest.h>
 #include <memory>
 #include <raft/cudart_utils.h>
-#include <random/make_blobs.cuh>
+#include <raft/random/make_blobs.hpp>
 #include <rmm/device_uvector.hpp>
 
 namespace raft {

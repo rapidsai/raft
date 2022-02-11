@@ -39,18 +39,19 @@ namespace knn {
  * @param[in]  fop    device lambda to do any other custom functions
  * @param[in]  stream cuda stream
  */
-template<typename DataT, typename IdxT>
-void epsUnexpL2SqNeighborhood(bool *adj,
-                              IdxT *vd,
-                              const DataT *x,
-                              const DataT *y,
+template <typename DataT, typename IdxT>
+void epsUnexpL2SqNeighborhood(bool* adj,
+                              IdxT* vd,
+                              const DataT* x,
+                              const DataT* y,
                               IdxT m,
                               IdxT n,
                               IdxT k,
                               DataT eps,
-                              cudaStream_t stream) {
-    detail::epsUnexpL2SqNeighborhood<DataT, IdxT>(adj, vd, x, y, m, n, k, eps, stream);
+                              cudaStream_t stream)
+{
+  detail::epsUnexpL2SqNeighborhood<DataT, IdxT>(adj, vd, x, y, m, n, k, eps, stream);
 }
-}   // namespace knn
+}  // namespace knn
 }  // namespace spatial
 }  // namespace raft

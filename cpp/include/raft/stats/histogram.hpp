@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <raft/stats/common.hpp>
 #include <raft/stats/detail/histogram.cuh>
 
 // This file is a shameless amalgamation of independent works done by
@@ -25,6 +26,7 @@
 
 namespace raft {
 namespace stats {
+
 /**
  * @brief Perform histogram on the input data. It chooses the right load size
  * based on the input data vector length. It also supports large-bin cases

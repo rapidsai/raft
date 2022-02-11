@@ -23,24 +23,17 @@
 
 namespace raft {
 namespace stats {
-
 namespace detail {
 
 // TODO: replace with `std::bitcast` once we adopt C++20 or libcu++ adds it
 template <class To, class From>
-constexpr To
-
-bit_cast(const From& from)
-
-  noexcept
+constexpr To bit_cast(const From& from) noexcept
 {
   To to{};
   static_assert(sizeof(To) == sizeof(From));
   memcpy(&to, &from, sizeof(To));
   return to;
 }
-
-}  // namespace detail
 
 template <typename T>
 struct encode_traits {
@@ -243,5 +236,4 @@ void minmax(const T* data,
 
 };  // end namespace detail
 };  // end namespace stats
-}
-;  // end namespace raft
+};  // end namespace raft

@@ -19,6 +19,7 @@
 #include <raft/common/seive.cuh>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
+#include <raft/stats/common.hpp>
 #include <raft/vectorized.cuh>
 #include <stdint.h>
 
@@ -30,44 +31,6 @@
 namespace raft {
 namespace stats {
 namespace detail {
-
-/** Default mapper which just returns the value of the data itself */
-template <typename DataT, typename IdxT>
-struct IdentityBinner {
-  DI int operator()(DataT val, IdxT row, IdxT col) { return int(val); }
-};
-
-/** Types of support histogram implementations */
-enum HistType {
-  /** shared mem atomics but with bins to be 1b int's */
-  HistTypeSmemBits1 = 1,
-  /** shared mem atomics but with bins to be 2b int's */
-  HistTypeSmemBits2 = 2,
-  /** shared mem atomics but with bins to be 4b int's */
-  HistTypeSmemBits4 = 4,
-  /** shared mem atomics but with bins to ba 1B int's */
-  HistTypeSmemBits8 = 8,
-  /** shared mem atomics but with bins to be 2B int's */
-  HistTypeSmemBits16 = 16,
-  /** use only global atomics */
-  HistTypeGmem,
-  /** uses shared mem atomics to reduce global traffic */
-  HistTypeSmem,
-  /**
-   * uses shared mem atomics with match_any intrinsic to further reduce shared
-   * memory traffic. This can only be enabled on Volta and later architectures.
-   * If one tries to enable this for older arch's, it will fall back to
-   * `HistTypeSmem`.
-   * @note This is to be used only when the input dataset leads to a lot of
-   *       repetitions in a given warp, else, this algo can be much slower than
-   *       `HistTypeSmem`!
-   */
-  HistTypeSmemMatchAny,
-  /** builds a hashmap of active bins in shared mem */
-  HistTypeSmemHash,
-  /** decide at runtime the best algo for the given inputs */
-  HistTypeAuto
-};
 
 static const int ThreadsPerBlock = 256;
 

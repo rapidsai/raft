@@ -20,7 +20,7 @@
 #include <raft/cudart_utils.h>
 #include <raft/interruptible.hpp>
 #include <raft/random/rng.hpp>
-#include <raft/stats/histogram.cuh>
+#include <raft/stats/histogram.hpp>
 
 namespace raft {
 namespace stats {
