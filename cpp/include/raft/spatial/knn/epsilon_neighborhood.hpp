@@ -34,9 +34,11 @@ namespace knn {
  *                    matrix. Pass a nullptr if you don't need this info.
  * @param[in]  x      first matrix [row-major] [on device] [dim = m x k]
  * @param[in]  y      second matrix [row-major] [on device] [dim = n x k]
+ * @param[in]  m      number of rows in x
+ * @param[in]  n      number of rows in y
+ * @param[in]  k      number of columns in x and k
  * @param[in]  eps    defines epsilon neighborhood radius (should be passed as
  *                    squared as we compute L2-squared distance in this method)
- * @param[in]  fop    device lambda to do any other custom functions
  * @param[in]  stream cuda stream
  */
 template <typename DataT, typename IdxT>
