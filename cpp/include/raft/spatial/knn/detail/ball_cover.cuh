@@ -76,6 +76,9 @@ void sample_landmarks(const raft::handle_t& handle,
   thrust::fill(
     handle.get_thrust_policy(), R_1nn_ones.data(), R_1nn_ones.data() + R_1nn_ones.size(), 1.0);
 
+  thrust::fill(
+    handle.get_thrust_policy(), R_indices.data(), R_indices.data() + R_indices.size(), 0.0);
+
   /**
    * 1. Randomly sample sqrt(n) points from X
    */
@@ -234,6 +237,16 @@ void perform_rbc_query(const raft::handle_t& handle,
                        float weight                = 1.0,
                        bool perform_post_filtering = true)
 {
+  // initialize output inds and dists
+  thrust::fill(handle.get_thrust_policy(),
+               inds,
+               inds + (k * n_query_pts),
+               std::numeric_limits<value_idx>::max());
+  thrust::fill(handle.get_thrust_policy(),
+               dists,
+               dists + (k * n_query_pts),
+               std::numeric_limits<value_t>::max());
+
   // Compute nearest k for each neighborhood in each closest R
   rbc_low_dim_pass_one(handle,
                        index,

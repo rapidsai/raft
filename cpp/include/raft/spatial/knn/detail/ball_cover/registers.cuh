@@ -610,6 +610,7 @@ void rbc_low_dim_pass_two(const raft::handle_t& handle,
   const value_int bitset_size = ceil(index.n_landmarks / 32.0);
 
   rmm::device_uvector<std::uint32_t> bitset(bitset_size * index.m, handle.get_stream());
+  thrust::fill(handle.get_thrust_policy(), bitset.data(), bitset.data() + bitset.size(), 0);
 
   perform_post_filter_registers<value_idx, value_t, value_int, 128>
     <<<n_query_rows, 128, bitset_size * sizeof(std::uint32_t), handle.get_stream()>>>(
