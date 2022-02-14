@@ -100,11 +100,11 @@ class RsvdTest : public ::testing::TestWithParam<RsvdInputs<T>> {
       int len_redundant = m * n_redundant;
 
       r.normal(A.data(), len_informative, mu, sigma, stream);
-      CUDA_CHECK(cudaMemcpyAsync(A.data() + len_informative,
-                                 A.data(),
-                                 len_redundant * sizeof(T),
-                                 cudaMemcpyDeviceToDevice,
-                                 stream));
+      RAFT_CUDA_TRY(cudaMemcpyAsync(A.data() + len_informative,
+                                    A.data(),
+                                    len_redundant * sizeof(T),
+                                    cudaMemcpyDeviceToDevice,
+                                    stream));
     }
     std::vector<T> A_backup_cpu(m *
                                 n);  // Backup A matrix as svdJacobi will destroy the content of A

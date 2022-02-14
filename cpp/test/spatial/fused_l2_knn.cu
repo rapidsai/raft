@@ -110,15 +110,16 @@ class FusedL2KNNTest : public ::testing::TestWithParam<FusedL2KNNInputs> {
       faiss_indices_(params_.num_queries * params_.k, stream_),
       faiss_distances_(params_.num_queries * params_.k, stream_)
   {
-    CUDA_CHECK(cudaMemsetAsync(database.data(), 0, database.size() * sizeof(T), stream_));
-    CUDA_CHECK(
+    RAFT_CUDA_TRY(cudaMemsetAsync(database.data(), 0, database.size() * sizeof(T), stream_));
+    RAFT_CUDA_TRY(
       cudaMemsetAsync(search_queries.data(), 0, search_queries.size() * sizeof(T), stream_));
-    CUDA_CHECK(cudaMemsetAsync(raft_indices_.data(), 0, raft_indices_.size() * sizeof(T), stream_));
-    CUDA_CHECK(cudaMemsetAsync(
+    RAFT_CUDA_TRY(
+      cudaMemsetAsync(raft_indices_.data(), 0, raft_indices_.size() * sizeof(T), stream_));
+    RAFT_CUDA_TRY(cudaMemsetAsync(
       raft_distances_.data(), 0, raft_distances_.size() * sizeof(int64_t), stream_));
-    CUDA_CHECK(
+    RAFT_CUDA_TRY(
       cudaMemsetAsync(faiss_indices_.data(), 0, faiss_indices_.size() * sizeof(int64_t), stream_));
-    CUDA_CHECK(
+    RAFT_CUDA_TRY(
       cudaMemsetAsync(faiss_distances_.data(), 0, faiss_distances_.size() * sizeof(T), stream_));
   }
 
@@ -172,7 +173,7 @@ class FusedL2KNNTest : public ::testing::TestWithParam<FusedL2KNNInputs> {
 
     gpu_res.noTempMemory();
     int device;
-    CUDA_CHECK(cudaGetDevice(&device));
+    RAFT_CUDA_TRY(cudaGetDevice(&device));
     gpu_res.setDefaultStream(device, stream_);
 
     faiss::gpu::GpuDistanceParams args;
