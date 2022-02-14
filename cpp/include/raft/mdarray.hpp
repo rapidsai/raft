@@ -1,4 +1,11 @@
 /*
+ * Copyright (2019) Sandia Corporation
+ *
+ * The source code is licensed under the 3-clause BSD license found in the LICENSE file
+ * thirdparty/LICENSES/mdarray.license
+ */
+
+/*
  * Copyright (c) 2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
