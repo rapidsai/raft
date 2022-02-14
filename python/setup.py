@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -102,7 +102,7 @@ if clean_artifacts:
 # - Cython extensions build and parameters -----------------------------------
 
 
-libs = ["nccl", "cusolver", "cusparse", "cublas"]
+libs = ['cudart', "nccl", "cusolver", "cusparse", "cublas"]
 
 include_dirs = [cuda_include_dir,
                 numpy.get_include(),

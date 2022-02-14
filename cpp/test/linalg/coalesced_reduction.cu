@@ -19,7 +19,7 @@
 #include <gtest/gtest.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/coalesced_reduction.cuh>
+#include <raft/linalg/coalesced_reduction.hpp>
 #include <raft/random/rng.hpp>
 
 namespace raft {
@@ -75,7 +75,7 @@ class coalescedReductionTest : public ::testing::TestWithParam<coalescedReductio
     // Add to result with inplace = true next
     coalescedReductionLaunch(dots_act.data(), data.data(), cols, rows, stream, true);
 
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
   }
 
  protected:

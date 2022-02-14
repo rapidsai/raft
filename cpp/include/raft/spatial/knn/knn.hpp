@@ -19,13 +19,9 @@
 #include "detail/knn_brute_force_faiss.cuh"
 #include "detail/selection_faiss.cuh"
 
-#include <raft/mr/device/buffer.hpp>
-
 namespace raft {
 namespace spatial {
 namespace knn {
-
-using deviceAllocator = raft::mr::device::allocator;
 
 /**
  * Performs a k-select across row partitioned index/distance

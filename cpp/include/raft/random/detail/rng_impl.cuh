@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,18 +16,13 @@
 
 #pragma once
 
-#include <cstdio>
-#include <cstdlib>
 #include <curand_kernel.h>
 #include <raft/common/cub_wrappers.cuh>
 #include <raft/common/scatter.cuh>
 #include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
 #include <random>
 #include <rmm/device_uvector.hpp>
-#include <stdint.h>
-#include <type_traits>
 
 namespace raft {
 namespace random {
@@ -37,10 +32,99 @@ namespace detail {
 enum GeneratorType {
   /** curand-based philox generator */
   GenPhilox = 0,
-  /** LFSR taps generator */
-  GenTaps,
-  /** kiss99 generator (currently the fastest) */
-  GenKiss99
+  /** Permuted Congruential Generator */
+  GenPC
+};
+
+template <typename OutType>
+struct InvariantDistParams {
+  OutType const_val;
+};
+
+template <typename OutType>
+struct UniformDistParams {
+  OutType start;
+  OutType end;
+};
+
+template <typename OutType, typename DiffType>
+struct UniformIntDistParams {
+  OutType start;
+  OutType end;
+  DiffType diff;
+};
+
+template <typename OutType>
+struct NormalDistParams {
+  OutType mu;
+  OutType sigma;
+};
+
+template <typename IntType>
+struct NormalIntDistParams {
+  IntType mu;
+  IntType sigma;
+};
+
+template <typename OutType, typename LenType>
+struct NormalTableDistParams {
+  LenType n_rows;
+  LenType n_cols;
+  const OutType* mu_vec;
+  OutType sigma;
+  const OutType* sigma_vec;
+};
+
+template <typename OutType>
+struct BernoulliDistParams {
+  OutType prob;
+};
+
+template <typename OutType>
+struct ScaledBernoulliDistParams {
+  OutType prob;
+  OutType scale;
+};
+
+template <typename OutType>
+struct GumbelDistParams {
+  OutType mu;
+  OutType beta;
+};
+
+template <typename OutType>
+struct LogNormalDistParams {
+  OutType mu;
+  OutType sigma;
+};
+
+template <typename OutType>
+struct LogisticDistParams {
+  OutType mu;
+  OutType scale;
+};
+
+template <typename OutType>
+struct ExponentialDistParams {
+  OutType lambda;
+};
+
+template <typename OutType>
+struct RayleighDistParams {
+  OutType sigma;
+};
+
+template <typename OutType>
+struct LaplaceDistParams {
+  OutType mu;
+  OutType scale;
+};
+
+// Not really a distro, useful for sample without replacement function
+template <typename WeightsT, typename IdxT>
+struct SamplingParams {
+  IdxT* inIdxPtr;
+  const WeightsT* wts;
 };
 
 template <typename Type>
@@ -55,75 +139,260 @@ DI void box_muller_transform(Type& val1, Type& val2, Type sigma1, Type mu1, Type
   val1 = R * c * sigma1 + mu1;
   val2 = R * s * sigma2 + mu2;
 }
+
 template <typename Type>
 DI void box_muller_transform(Type& val1, Type& val2, Type sigma1, Type mu1)
 {
   box_muller_transform<Type>(val1, val2, sigma1, mu1, sigma1, mu1);
 }
 
-/**
- * @brief generator-agnostic way of generating random numbers
- * @tparam GenType the generator object that expose 'next' method
- */
-template <typename GenType>
-struct Generator {
-  DI Generator(uint64_t seed, uint64_t subsequence, uint64_t offset)
-    : gen(seed, subsequence, offset)
-  {
-  }
+template <typename GenType, typename OutType, typename LenType>
+DI void custom_next(GenType& gen,
+                    OutType* val,
+                    InvariantDistParams<OutType> params,
+                    LenType idx    = 0,
+                    LenType stride = 0)
+{
+  *val = params.const_val;
+}
 
-  template <typename Type>
-  DI void next(Type& ret)
-  {
-    gen.next(ret);
-  }
+template <typename GenType, typename OutType, typename LenType>
+DI void custom_next(GenType& gen,
+                    OutType* val,
+                    UniformDistParams<OutType> params,
+                    LenType idx    = 0,
+                    LenType stride = 0)
+{
+  OutType res;
+  gen.next(res);
+  *val = (res * (params.end - params.start)) + params.start;
+}
 
- private:
-  /** the actual generator */
-  GenType gen;
+template <typename GenType, typename OutType, typename LenType>
+DI void custom_next(GenType& gen,
+                    OutType* val,
+                    UniformIntDistParams<OutType, uint32_t> params,
+                    LenType idx    = 0,
+                    LenType stride = 0)
+{
+  uint32_t x = 0;
+  uint32_t s = params.diff;
+  gen.next(x);
+  uint64_t m = uint64_t(x) * s;
+  uint32_t l = uint32_t(m);
+  if (l < s) {
+    uint32_t t = (-s) % s;  // (2^32 - s) mod s
+    while (l < t) {
+      gen.next(x);
+      m = uint64_t(x) * s;
+      l = uint32_t(m);
+    }
+  }
+  *val = OutType(m >> 32) + params.start;
+}
+
+template <typename GenType, typename OutType, typename LenType>
+DI void custom_next(GenType& gen,
+                    OutType* val,
+                    UniformIntDistParams<OutType, uint64_t> params,
+                    LenType idx    = 0,
+                    LenType stride = 0)
+{
+  uint64_t x = 0;
+  gen.next(x);
+  uint64_t s = params.diff;
+  uint64_t m_lo, m_hi;
+  // m = x * s;
+  asm("mul.hi.u64 %0, %1, %2;" : "=l"(m_hi) : "l"(x), "l"(s));
+  asm("mul.lo.u64 %0, %1, %2;" : "=l"(m_lo) : "l"(x), "l"(s));
+  if (m_lo < s) {
+    uint64_t t = (-s) % s;  // (2^64 - s) mod s
+    while (m_lo < t) {
+      gen.next(x);
+      asm("mul.hi.u64 %0, %1, %2;" : "=l"(m_hi) : "l"(x), "l"(s));
+      asm("mul.lo.u64 %0, %1, %2;" : "=l"(m_lo) : "l"(x), "l"(s));
+    }
+  }
+  *val = OutType(m_hi) + params.start;
+}
+
+template <typename GenType, typename OutType, typename LenType>
+DI void custom_next(
+  GenType& gen, OutType* val, NormalDistParams<OutType> params, LenType idx = 0, LenType stride = 0)
+{
+  OutType res1, res2;
+  gen.next(res1);
+  gen.next(res2);
+  box_muller_transform<OutType>(res1, res2, params.sigma, params.mu);
+  *val       = res1;
+  *(val + 1) = res2;
+}
+
+template <typename GenType, typename IntType, typename LenType>
+DI void custom_next(GenType& gen,
+                    IntType* val,
+                    NormalIntDistParams<IntType> params,
+                    LenType idx    = 0,
+                    LenType stride = 0)
+{
+  IntType res1_int, res2_int;
+  gen.next(res1_int);
+  gen.next(res2_int);
+  double res1  = static_cast<double>(res1_int);
+  double res2  = static_cast<double>(res2_int);
+  double mu    = static_cast<double>(params.mu);
+  double sigma = static_cast<double>(params.sigma);
+  box_muller_transform<double>(res1, res2, sigma, mu);
+  *val       = static_cast<IntType>(res1);
+  *(val + 1) = static_cast<IntType>(res2);
+}
+
+template <typename GenType, typename OutType, typename LenType>
+DI void custom_next(GenType& gen,
+                    OutType* val,
+                    NormalTableDistParams<OutType, LenType> params,
+                    LenType idx,
+                    LenType stride)
+{
+  OutType res1, res2;
+  gen.next(res1);
+  gen.next(res2);
+  LenType col1  = idx % params.n_cols;
+  LenType col2  = (idx + stride) % params.n_cols;
+  OutType mean1 = params.mu_vec[col1];
+  OutType mean2 = params.mu_vec[col2];
+  OutType sig1  = params.sigma_vec == nullptr ? params.sigma : params.sigma_vec[col1];
+  OutType sig2  = params.sigma_vec == nullptr ? params.sigma : params.sigma_vec[col2];
+  box_muller_transform<OutType>(res1, res2, sig1, mean1, sig2, mean2);
+  *val       = res1;
+  *(val + 1) = res2;
+}
+
+template <typename GenType, typename OutType, typename Type, typename LenType>
+DI void custom_next(
+  GenType& gen, OutType* val, BernoulliDistParams<Type> params, LenType idx = 0, LenType stride = 0)
+{
+  Type res = 0;
+  gen.next(res);
+  *val = res > params.prob;
+}
+
+template <typename GenType, typename OutType, typename LenType>
+DI void custom_next(GenType& gen,
+                    OutType* val,
+                    ScaledBernoulliDistParams<OutType> params,
+                    LenType idx,
+                    LenType stride)
+{
+  OutType res = 0;
+  gen.next(res);
+  *val = res > params.prob ? -params.scale : params.scale;
+}
+
+template <typename GenType, typename OutType, typename LenType>
+DI void custom_next(
+  GenType& gen, OutType* val, GumbelDistParams<OutType> params, LenType idx = 0, LenType stride = 0)
+{
+  OutType res = 0;
+  gen.next(res);
+  *val = params.mu - params.beta * raft::myLog(-raft::myLog(res));
+}
+
+template <typename GenType, typename OutType, typename LenType>
+DI void custom_next(GenType& gen,
+                    OutType* val,
+                    LogNormalDistParams<OutType> params,
+                    LenType idx    = 0,
+                    LenType stride = 0)
+{
+  OutType res1 = 0, res2 = 0;
+  gen.next(res1);
+  gen.next(res2);
+  box_muller_transform<OutType>(res1, res2, params.sigma, params.mu);
+  *val       = raft::myExp(res1);
+  *(val + 1) = raft::myExp(res2);
+}
+
+template <typename GenType, typename OutType, typename LenType>
+DI void custom_next(GenType& gen,
+                    OutType* val,
+                    LogisticDistParams<OutType> params,
+                    LenType idx    = 0,
+                    LenType stride = 0)
+{
+  OutType res;
+  gen.next(res);
+  constexpr OutType one = (OutType)1.0;
+  *val                  = params.mu - params.scale * raft::myLog(one / res - one);
+}
+
+template <typename GenType, typename OutType, typename LenType>
+DI void custom_next(GenType& gen,
+                    OutType* val,
+                    ExponentialDistParams<OutType> params,
+                    LenType idx    = 0,
+                    LenType stride = 0)
+{
+  OutType res;
+  gen.next(res);
+  constexpr OutType one = (OutType)1.0;
+  *val                  = -raft::myLog(one - res) / params.lambda;
+}
+
+template <typename GenType, typename OutType, typename LenType>
+DI void custom_next(GenType& gen,
+                    OutType* val,
+                    RayleighDistParams<OutType> params,
+                    LenType idx    = 0,
+                    LenType stride = 0)
+{
+  OutType res;
+  gen.next(res);
+  constexpr OutType one = (OutType)1.0;
+  constexpr OutType two = (OutType)2.0;
+  *val                  = raft::mySqrt(-two * raft::myLog(one - res)) * params.sigma;
+}
+
+template <typename GenType, typename OutType, typename LenType>
+DI void custom_next(GenType& gen,
+                    OutType* val,
+                    LaplaceDistParams<OutType> params,
+                    LenType idx    = 0,
+                    LenType stride = 0)
+{
+  OutType res, out;
+  gen.next(res);
+  constexpr OutType one     = (OutType)1.0;
+  constexpr OutType two     = (OutType)2.0;
+  constexpr OutType oneHalf = (OutType)0.5;
+  if (res <= oneHalf) {
+    out = params.mu + params.scale * raft::myLog(two * res);
+  } else {
+    out = params.mu - params.scale * raft::myLog(two * (one - res));
+  }
+  *val = out;
+}
+
+template <typename GenType, typename OutType, typename LenType>
+DI void custom_next(
+  GenType& gen, OutType* val, SamplingParams<OutType, LenType> params, LenType idx, LenType stride)
+{
+  OutType res;
+  gen.next(res);
+  params.inIdxPtr[idx]  = idx;
+  constexpr OutType one = (OutType)1.0;
+  auto exp              = -raft::myLog(one - res);
+  if (params.wts != nullptr) {
+    *val = exp / params.wts[idx];
+  } else {
+    *val = exp;
+  }
+}
+
+struct RngState {
+  uint64_t seed;
+  uint64_t base_subsequence;
 };
-
-template <typename OutType, typename MathType, typename GenType, typename LenType, typename Lambda>
-__global__ void randKernel(uint64_t seed, uint64_t offset, OutType* ptr, LenType len, Lambda randOp)
-{
-  LenType tid = (blockIdx.x * blockDim.x) + threadIdx.x;
-  Generator<GenType> gen(seed, (uint64_t)tid, offset);
-  const LenType stride = gridDim.x * blockDim.x;
-  for (LenType idx = tid; idx < len; idx += stride) {
-    MathType val;
-    gen.next(val);
-    ptr[idx] = randOp(val, idx);
-  }
-}
-
-// used for Box-Muller type transformations
-template <typename OutType, typename MathType, typename GenType, typename LenType, typename Lambda2>
-__global__ void rand2Kernel(
-  uint64_t seed, uint64_t offset, OutType* ptr, LenType len, Lambda2 rand2Op)
-{
-  LenType tid = (blockIdx.x * blockDim.x) + threadIdx.x;
-  Generator<GenType> gen(seed, (uint64_t)tid, offset);
-  const LenType stride = gridDim.x * blockDim.x;
-  for (LenType idx = tid; idx < len; idx += stride) {
-    MathType val1, val2;
-    gen.next(val1);
-    gen.next(val2);
-    rand2Op(val1, val2, idx, idx + stride);
-    if (idx < len) ptr[idx] = (OutType)val1;
-    idx += stride;
-    if (idx < len) ptr[idx] = (OutType)val2;
-  }
-}
-
-template <typename Type>
-__global__ void constFillKernel(Type* ptr, int len, Type val)
-{
-  unsigned tid          = (blockIdx.x * blockDim.x) + threadIdx.x;
-  const unsigned stride = gridDim.x * blockDim.x;
-  for (unsigned idx = tid; idx < len; idx += stride) {
-    ptr[idx] = val;
-  }
-}
 
 /** Philox-based random number generator */
 // Courtesy: Jakub Szuppe
@@ -136,484 +405,416 @@ struct PhiloxGenerator {
    */
   DI PhiloxGenerator(uint64_t seed, uint64_t subsequence, uint64_t offset)
   {
-    curand_init(seed, subsequence, offset, &state);
+    curand_init(seed, subsequence, offset, &philox_state);
+  }
+
+  DI PhiloxGenerator(const RngState& rng_state, const uint64_t subsequence)
+  {
+    curand_init(rng_state.seed, rng_state.base_subsequence + subsequence, 0, &philox_state);
   }
 
   /**
    * @defgroup NextRand Generate the next random number
    * @{
    */
-  DI void next(float& ret) { ret = curand_uniform(&(this->state)); }
-  DI void next(double& ret) { ret = curand_uniform_double(&(this->state)); }
-  DI void next(uint32_t& ret) { ret = curand(&(this->state)); }
-  DI void next(uint64_t& ret)
+  DI uint32_t next_u32()
   {
+    uint32_t ret = curand(&(this->philox_state));
+    return ret;
+  }
+
+  DI uint64_t next_u64()
+  {
+    uint64_t ret;
     uint32_t a, b;
-    next(a);
-    next(b);
-    ret = (uint64_t)a | ((uint64_t)b << 32);
+    a   = next_u32();
+    b   = next_u32();
+    ret = uint64_t(a) | (uint64_t(b) << 32);
+    return ret;
   }
-  DI void next(int32_t& ret)
+
+  DI int32_t next_i32()
   {
+    int32_t ret;
     uint32_t val;
-    next(val);
+    val = next_u32();
     ret = int32_t(val & 0x7fffffff);
+    return ret;
   }
-  DI void next(int64_t& ret)
+
+  DI int64_t next_i64()
   {
+    int64_t ret;
     uint64_t val;
-    next(val);
+    val = next_u64();
     ret = int64_t(val & 0x7fffffffffffffff);
+    return ret;
   }
+
+  DI void next(float& ret) { ret = curand_uniform(&(this->philox_state)); }
+  DI void next(double& ret) { ret = curand_uniform_double(&(this->philox_state)); }
+
+  DI void next(uint32_t& ret) { ret = next_u32(); }
+  DI void next(uint64_t& ret) { ret = next_u64(); }
+  DI void next(int32_t& ret) { ret = next_i32(); }
+  DI void next(int64_t& ret) { ret = next_i64(); }
+
   /** @} */
 
  private:
   /** the state for RNG */
-  curandStatePhilox4_32_10_t state;
+  curandStatePhilox4_32_10_t philox_state;
 };
 
-/** LFSR taps-filter for generating random numbers. */
-// Courtesy: Vinay Deshpande
-struct TapsGenerator {
+/** PCG random number generator */
+
+struct PCGenerator {
   /**
-   * @brief ctor. Initializes the state for RNG
-   * @param seed the seed (can be same across all threads)
-   * @param subsequence unused
+   * @brief ctor. Initializes the state for RNG. This code is derived from PCG basic code
+   * @param seed the seed (can be same across all threads). Same as PCG's initstate
+   * @param subsequence is same as PCG's initseq
    * @param offset unused
    */
-  DI TapsGenerator(uint64_t seed, uint64_t subsequence, uint64_t offset)
+  DI PCGenerator(uint64_t seed, uint64_t subsequence, uint64_t offset)
   {
-    uint64_t delta  = (blockIdx.x * blockDim.x) + threadIdx.x;
-    uint64_t stride = blockDim.x * gridDim.x;
-    delta += ((blockIdx.y * blockDim.y) + threadIdx.y) * stride;
-    stride *= blockDim.y * gridDim.y;
-    delta += ((blockIdx.z * blockDim.z) + threadIdx.z) * stride;
-    state = seed + delta + 1;
+    pcg_state = uint64_t(0);
+    inc       = (subsequence << 1u) | 1u;
+    uint32_t discard;
+    next(discard);
+    pcg_state += seed;
+    next(discard);
+    skipahead(offset);
+  }
+
+  DI PCGenerator(const RngState& rng_state, const uint64_t subsequence)
+  {
+    pcg_state = uint64_t(0);
+    inc       = ((rng_state.base_subsequence + subsequence) << 1u) | 1u;
+    uint32_t discard;
+    next(discard);
+    pcg_state += rng_state.seed;
+    next(discard);
+  }
+
+  // Based on "Random Number Generation with Arbitrary Strides" F. B. Brown
+  // Link https://mcnp.lanl.gov/pdf_files/anl-rn-arb-stride.pdf
+  DI void skipahead(uint64_t offset)
+  {
+    uint64_t G = 1;
+    uint64_t h = 6364136223846793005ULL;
+    uint64_t C = 0;
+    uint64_t f = inc;
+    while (offset) {
+      if (offset & 1) {
+        G = G * h;
+        C = C * h + f;
+      }
+      f = f * (h + 1);
+      h = h * h;
+      offset >>= 1;
+    }
+    pcg_state = pcg_state * G + C;
   }
 
   /**
    * @defgroup NextRand Generate the next random number
+   * @brief This code is derived from PCG basic code
    * @{
    */
-  template <typename Type>
-  DI void next(Type& ret)
+  DI uint32_t next_u32()
   {
-    constexpr double ULL_LARGE = 1.8446744073709551614e19;
-    uint64_t val;
-    next(val);
-    ret = static_cast<Type>(val);
-    ret /= static_cast<Type>(ULL_LARGE);
+    uint32_t ret;
+    uint64_t oldstate   = pcg_state;
+    pcg_state           = oldstate * 6364136223846793005ULL + inc;
+    uint32_t xorshifted = ((oldstate >> 18u) ^ oldstate) >> 27u;
+    uint32_t rot        = oldstate >> 59u;
+    ret                 = (xorshifted >> rot) | (xorshifted << ((-rot) & 31));
+    return ret;
   }
-  DI void next(uint64_t& ret)
+  DI uint64_t next_u64()
   {
-    constexpr uint64_t TAPS = 0x8000100040002000ULL;
-    constexpr int ROUNDS    = 128;
-    for (int i = 0; i < ROUNDS; i++)
-      state = (state >> 1) ^ (-(state & 1ULL) & TAPS);
-    ret = state;
-  }
-  DI void next(uint32_t& ret)
-  {
-    uint64_t val;
-    next(val);
-    ret = (uint32_t)val;
-  }
-  DI void next(int32_t& ret)
-  {
-    uint32_t val;
-    next(val);
-    ret = int32_t(val & 0x7fffffff);
-  }
-  DI void next(int64_t& ret)
-  {
-    uint64_t val;
-    next(val);
-    ret = int64_t(val & 0x7fffffffffffffff);
-  }
-  /** @} */
-
- private:
-  /** the state for RNG */
-  uint64_t state;
-};
-
-/** Kiss99-based random number generator */
-
-struct Kiss99Generator {
-  /**
-   * @brief ctor. Initializes the state for RNG
-   * @param seed the seed (can be same across all threads)
-   * @param subsequence unused
-   * @param offset unused
-   */
-  DI Kiss99Generator(uint64_t seed, uint64_t subsequence, uint64_t offset) { initKiss99(seed); }
-
-  /**
-   * @defgroup NextRand Generate the next random number
-   * @{
-   */
-  template <typename Type>
-  DI void next(Type& ret)
-  {
-    constexpr double U_LARGE = 4.294967295e9;
-    uint32_t val;
-    next(val);
-    ret = static_cast<Type>(val);
-    ret /= static_cast<Type>(U_LARGE);
-  }
-  DI void next(uint32_t& ret)
-  {
-    uint32_t MWC;
-    z   = 36969 * (z & 65535) + (z >> 16);
-    w   = 18000 * (w & 65535) + (w >> 16);
-    MWC = ((z << 16) + w);
-    jsr ^= (jsr << 17);
-    jsr ^= (jsr >> 13);
-    jsr ^= (jsr << 5);
-    jcong = 69069 * jcong + 1234567;
-    MWC   = ((MWC ^ jcong) + jsr);
-    ret   = MWC;
-  }
-  DI void next(uint64_t& ret)
-  {
+    uint64_t ret;
     uint32_t a, b;
-    next(a);
-    next(b);
-    ret = (uint64_t)a | ((uint64_t)b << 32);
+    a   = next_u32();
+    b   = next_u32();
+    ret = uint64_t(a) | (uint64_t(b) << 32);
+    return ret;
   }
-  DI void next(int32_t& ret)
+
+  DI int32_t next_i32()
   {
+    int32_t ret;
     uint32_t val;
-    next(val);
+    val = next_u32();
     ret = int32_t(val & 0x7fffffff);
+    return ret;
   }
-  DI void next(int64_t& ret)
+
+  DI int64_t next_i64()
   {
+    int64_t ret;
     uint64_t val;
-    next(val);
+    val = next_u64();
     ret = int64_t(val & 0x7fffffffffffffff);
+    return ret;
   }
+
+  DI float next_float()
+  {
+    float ret;
+    uint32_t val = next_u32() >> 8;
+    ret          = static_cast<float>(val) / (1U << 24);
+    return ret;
+  }
+
+  DI double next_double()
+  {
+    double ret;
+    uint64_t val = next_u64() >> 11;
+    ret          = static_cast<double>(val) / (1LU << 53);
+    return ret;
+  }
+
+  DI void next(uint32_t& ret) { ret = next_u32(); }
+  DI void next(uint64_t& ret) { ret = next_u64(); }
+  DI void next(int32_t& ret) { ret = next_i32(); }
+  DI void next(int64_t& ret) { ret = next_i64(); }
+
+  DI void next(float& ret) { ret = next_float(); }
+  DI void next(double& ret) { ret = next_double(); }
+
   /** @} */
 
  private:
-  /** one of the kiss99 states */
-  uint32_t z;
-  /** one of the kiss99 states */
-  uint32_t w;
-  /** one of the kiss99 states */
-  uint32_t jsr;
-  /** one of the kiss99 states */
-  uint32_t jcong;
-
-  // This function multiplies 128-bit hash by 128-bit FNV prime and returns lower
-  // 128 bits. It uses 32-bit wide multiply only.
-  DI void mulByFnv1a128Prime(uint32_t* h)
-  {
-    typedef union {
-      uint32_t u32[2];
-      uint64_t u64[1];
-    } words64;
-
-    // 128-bit FNV prime = p3 * 2^96 + p2 * 2^64 + p1 * 2^32 + p0
-    // Here p0 = 315, p2 = 16777216, p1 = p3 = 0
-    const uint32_t p0 = uint32_t(315), p2 = uint32_t(16777216);
-    // Partial products
-    words64 h0p0, h1p0, h2p0, h0p2, h3p0, h1p2;
-
-    h0p0.u64[0] = uint64_t(h[0]) * p0;
-    h1p0.u64[0] = uint64_t(h[1]) * p0;
-    h2p0.u64[0] = uint64_t(h[2]) * p0;
-    h0p2.u64[0] = uint64_t(h[0]) * p2;
-    h3p0.u64[0] = uint64_t(h[3]) * p0;
-    h1p2.u64[0] = uint64_t(h[1]) * p2;
-
-    // h_n[0] = LO(h[0]*p[0]);
-    // h_n[1] = HI(h[0]*p[0]) + LO(h[1]*p[0]);
-    // h_n[2] = HI(h[1]*p[0]) + LO(h[2]*p[0]) + LO(h[0]*p[2]);
-    // h_n[3] = HI(h[2]*p[0]) + HI(h[0]*p[2]) + LO(h[3]*p[0]) + LO(h[1]*p[2]);
-    uint32_t carry = 0;
-    h[0]           = h0p0.u32[0];
-
-    h[1]  = h0p0.u32[1] + h1p0.u32[0];
-    carry = h[1] < h0p0.u32[1] ? 1 : 0;
-
-    h[2]  = h1p0.u32[1] + carry;
-    carry = h[2] < h1p0.u32[1] ? 1 : 0;
-    h[2] += h2p0.u32[0];
-    carry = h[2] < h2p0.u32[0] ? carry + 1 : carry;
-    h[2] += h0p2.u32[0];
-    carry = h[2] < h0p2.u32[0] ? carry + 1 : carry;
-
-    h[3] = h2p0.u32[1] + h0p2.u32[1] + h3p0.u32[0] + h1p2.u32[0] + carry;
-    return;
-  }
-
-  DI void fnv1a128(uint32_t* hash, uint32_t txt)
-  {
-    hash[0] ^= (txt >> 0) & 0xFF;
-    mulByFnv1a128Prime(hash);
-    hash[0] ^= (txt >> 8) & 0xFF;
-    mulByFnv1a128Prime(hash);
-    hash[0] ^= (txt >> 16) & 0xFF;
-    mulByFnv1a128Prime(hash);
-    hash[0] ^= (txt >> 24) & 0xFF;
-    mulByFnv1a128Prime(hash);
-  }
-
-  DI void initKiss99(uint64_t seed)
-  {
-    // Initialize hash to 128-bit FNV1a basis
-    uint32_t hash[4] = {1653982605UL, 1656234357UL, 129696066UL, 1818371886UL};
-
-    // Digest threadIdx, blockIdx and seed
-    fnv1a128(hash, threadIdx.x);
-    fnv1a128(hash, threadIdx.y);
-    fnv1a128(hash, threadIdx.z);
-    fnv1a128(hash, blockIdx.x);
-    fnv1a128(hash, blockIdx.y);
-    fnv1a128(hash, blockIdx.z);
-    fnv1a128(hash, uint32_t(seed));
-    fnv1a128(hash, uint32_t(seed >> 32));
-
-    // Initialize KISS99 state with hash
-    z     = hash[0];
-    w     = hash[1];
-    jsr   = hash[2];
-    jcong = hash[3];
-  }
+  uint64_t pcg_state;
+  uint64_t inc;
 };
 
-/** The main random number generator class, fully on GPUs */
+template <typename OutType,
+          typename LenType,
+          typename GenType,
+          int ITEMS_PER_CALL,
+          typename ParamType>
+__global__ void fillKernel(
+  uint64_t seed, uint64_t adv_subs, uint64_t offset, OutType* ptr, LenType len, ParamType params)
+{
+  LenType tid = threadIdx.x + blockIdx.x * blockDim.x;
+  GenType gen(seed, adv_subs + (uint64_t)tid, offset);
+  const LenType stride = gridDim.x * blockDim.x;
+  for (LenType idx = tid; idx < len; idx += stride * ITEMS_PER_CALL) {
+    OutType val[ITEMS_PER_CALL];
+    custom_next(gen, val, params, idx, stride);
+#pragma unroll
+    for (int i = 0; i < ITEMS_PER_CALL; i++) {
+      if ((idx + i * stride) < len) ptr[idx + i * stride] = val[i];
+    }
+  }
+  return;
+}
+
 class RngImpl {
  public:
-  RngImpl(uint64_t _s, GeneratorType _t = GenPhilox)
-    : type(_t),
-      offset(0),
+  RngImpl(uint64_t seed, GeneratorType _t = GenPhilox)
+    : state{seed, 0},
+      type(_t),
       // simple heuristic to make sure all SMs will be occupied properly
       // and also not too many initialization calls will be made by each thread
-      nBlocks(4 * getMultiProcessorCount()),
-      gen()
+      nBlocks(4 * getMultiProcessorCount())
   {
-    seed(_s);
-  }
-
-  void seed(uint64_t _s)
-  {
-    gen.seed(_s);
-    offset = 0;
   }
 
   template <typename IdxT>
   void affine_transform_params(IdxT n, IdxT& a, IdxT& b)
   {
     // always keep 'a' to be coprime to 'n'
-    a = gen() % n;
+    std::mt19937_64 mt_rng(state.seed + state.base_subsequence);
+    a = mt_rng() % n;
     while (gcd(a, n) != 1) {
       ++a;
       if (a >= n) a = 0;
     }
     // the bias term 'b' can be any number in the range of [0, n)
-    b = gen() % n;
+    b = mt_rng() % n;
   }
 
-  template <typename Type, typename LenType = int>
-  void uniform(Type* ptr, LenType len, Type start, Type end, cudaStream_t stream)
+  template <typename OutType, typename LenType = int>
+  void uniform(OutType* ptr, LenType len, OutType start, OutType end, cudaStream_t stream)
   {
-    static_assert(std::is_floating_point<Type>::value,
+    static_assert(std::is_floating_point<OutType>::value,
                   "Type for 'uniform' can only be floating point!");
-    custom_distribution(
-      ptr,
-      len,
-      [=] __device__(Type val, LenType idx) { return (val * (end - start)) + start; },
-      stream);
-  }
-  template <typename IntType, typename LenType = int>
-  void uniformInt(IntType* ptr, LenType len, IntType start, IntType end, cudaStream_t stream)
-  {
-    static_assert(std::is_integral<IntType>::value, "Type for 'uniformInt' can only be integer!");
-    custom_distribution(
-      ptr,
-      len,
-      [=] __device__(IntType val, LenType idx) { return (val % (end - start)) + start; },
-      stream);
+    UniformDistParams<OutType> params;
+    params.start = start;
+    params.end   = end;
+    kernel_dispatch<OutType, LenType, 1, UniformDistParams<OutType>>(ptr, len, stream, params);
   }
 
-  template <typename Type, typename LenType = int>
-  void normal(Type* ptr, LenType len, Type mu, Type sigma, cudaStream_t stream)
+  template <typename OutType, typename LenType = int>
+  void uniformInt(OutType* ptr, LenType len, OutType start, OutType end, cudaStream_t stream)
   {
-    static_assert(std::is_floating_point<Type>::value,
-                  "Type for 'normal' can only be floating point!");
-    rand2Impl(
-      offset,
-      ptr,
-      len,
-      [=] __device__(Type & val1, Type & val2, LenType idx1, LenType idx2) {
-        box_muller_transform<Type>(val1, val2, sigma, mu);
-      },
-      NumThreads,
-      nBlocks,
-      type,
-      stream);
+    static_assert(std::is_integral<OutType>::value, "Type for 'uniformInt' can only be integer!");
+    ASSERT(end > start, "'end' must be greater than 'start'");
+    if (sizeof(OutType) == 4) {
+      UniformIntDistParams<OutType, uint32_t> params;
+      params.start = start;
+      params.end   = end;
+      params.diff  = uint32_t(params.end - params.start);
+      kernel_dispatch<OutType, LenType, 1, UniformIntDistParams<OutType, uint32_t>>(
+        ptr, len, stream, params);
+    } else {
+      UniformIntDistParams<OutType, uint64_t> params;
+      params.start = start;
+      params.end   = end;
+      params.diff  = uint64_t(params.end - params.start);
+      kernel_dispatch<OutType, LenType, 1, UniformIntDistParams<OutType, uint64_t>>(
+        ptr, len, stream, params);
+    }
   }
+
+  template <typename OutType, typename LenType = int>
+  void normal(OutType* ptr, LenType len, OutType mu, OutType sigma, cudaStream_t stream)
+  {
+    static_assert(std::is_floating_point<OutType>::value,
+                  "Type for 'normal' can only be floating point!");
+    NormalDistParams<OutType> params;
+    params.mu    = mu;
+    params.sigma = sigma;
+    kernel_dispatch<OutType, LenType, 2, NormalDistParams<OutType>>(ptr, len, stream, params);
+  }
+
   template <typename IntType, typename LenType = int>
   void normalInt(IntType* ptr, LenType len, IntType mu, IntType sigma, cudaStream_t stream)
   {
     static_assert(std::is_integral<IntType>::value, "Type for 'normalInt' can only be integer!");
-    rand2Impl<IntType, double>(
-      offset,
-      ptr,
-      len,
-      [=] __device__(double& val1, double& val2, LenType idx1, LenType idx2) {
-        box_muller_transform<double>(val1, val2, sigma, mu);
-      },
-      NumThreads,
-      nBlocks,
-      type,
-      stream);
+    NormalIntDistParams<IntType> params;
+    params.mu    = mu;
+    params.sigma = sigma;
+    kernel_dispatch<IntType, LenType, 2, NormalIntDistParams<IntType>>(ptr, len, stream, params);
   }
 
-  template <typename Type, typename LenType = int>
-  void normalTable(Type* ptr,
+  template <typename OutType, typename LenType = int>
+  void normalTable(OutType* ptr,
                    LenType n_rows,
                    LenType n_cols,
-                   const Type* mu,
-                   const Type* sigma_vec,
-                   Type sigma,
+                   const OutType* mu_vec,
+                   const OutType* sigma_vec,
+                   OutType sigma,
                    cudaStream_t stream)
   {
-    rand2Impl(
-      offset,
-      ptr,
-      n_rows * n_cols,
-      [=] __device__(Type & val1, Type & val2, LenType idx1, LenType idx2) {
-        // yikes! use fast-int-div
-        auto col1  = idx1 % n_cols;
-        auto col2  = idx2 % n_cols;
-        auto mean1 = mu[col1];
-        auto mean2 = mu[col2];
-        auto sig1  = sigma_vec == nullptr ? sigma : sigma_vec[col1];
-        auto sig2  = sigma_vec == nullptr ? sigma : sigma_vec[col2];
-        box_muller_transform<Type>(val1, val2, sig1, mean1, sig2, mean2);
-      },
-      NumThreads,
-      nBlocks,
-      type,
-      stream);
+    NormalTableDistParams<OutType, LenType> params;
+    params.n_rows    = n_rows;
+    params.n_cols    = n_cols;
+    params.mu_vec    = mu_vec;
+    params.sigma     = sigma;
+    params.sigma_vec = sigma_vec;
+    LenType len      = n_rows * n_cols;
+    kernel_dispatch<OutType, LenType, 2, NormalTableDistParams<OutType, LenType>>(
+      ptr, len, stream, params);
   }
 
-  template <typename Type, typename LenType = int>
-  void fill(Type* ptr, LenType len, Type val, cudaStream_t stream)
+  template <typename OutType, typename LenType = int>
+  void fill(OutType* ptr, LenType len, OutType val, cudaStream_t stream)
   {
-    detail::constFillKernel<Type><<<nBlocks, NumThreads, 0, stream>>>(ptr, len, val);
-    RAFT_CUDA_TRY(cudaPeekAtLastError());
+    InvariantDistParams<OutType> params;
+    params.const_val = val;
+    kernel_dispatch<OutType, LenType, 1, InvariantDistParams<OutType>>(ptr, len, stream, params);
   }
 
   template <typename Type, typename OutType = bool, typename LenType = int>
   void bernoulli(OutType* ptr, LenType len, Type prob, cudaStream_t stream)
   {
-    custom_distribution<OutType, Type>(
-      ptr, len, [=] __device__(Type val, LenType idx) { return val > prob; }, stream);
+    BernoulliDistParams<Type> params;
+    params.prob = prob;
+    kernel_dispatch<OutType, LenType, 1, BernoulliDistParams<Type>>(ptr, len, stream, params);
   }
 
-  template <typename Type, typename LenType = int>
-  void scaled_bernoulli(Type* ptr, LenType len, Type prob, Type scale, cudaStream_t stream)
+  template <typename OutType, typename LenType = int>
+  void scaled_bernoulli(OutType* ptr, LenType len, OutType prob, OutType scale, cudaStream_t stream)
   {
-    static_assert(std::is_floating_point<Type>::value,
+    static_assert(std::is_floating_point<OutType>::value,
                   "Type for 'scaled_bernoulli' can only be floating point!");
-    custom_distribution(
-      ptr,
-      len,
-      [=] __device__(Type val, LenType idx) { return val > prob ? -scale : scale; },
-      stream);
+    ScaledBernoulliDistParams<OutType> params;
+    params.prob  = prob;
+    params.scale = scale;
+    kernel_dispatch<OutType, LenType, 1, ScaledBernoulliDistParams<OutType>>(
+      ptr, len, stream, params);
   }
 
-  template <typename Type, typename LenType = int>
-  void gumbel(Type* ptr, LenType len, Type mu, Type beta, cudaStream_t stream)
+  template <typename OutType, typename LenType = int>
+  void gumbel(OutType* ptr, LenType len, OutType mu, OutType beta, cudaStream_t stream)
   {
-    custom_distribution(
-      ptr,
-      len,
-      [=] __device__(Type val, LenType idx) { return mu - beta * raft::myLog(-raft::myLog(val)); },
-      stream);
+    GumbelDistParams<OutType> params;
+    params.mu   = mu;
+    params.beta = beta;
+    kernel_dispatch<OutType, LenType, 1, GumbelDistParams<OutType>>(ptr, len, stream, params);
   }
 
-  template <typename Type, typename LenType = int>
-  void lognormal(Type* ptr, LenType len, Type mu, Type sigma, cudaStream_t stream)
+  template <typename OutType, typename LenType = int>
+  void lognormal(OutType* ptr, LenType len, OutType mu, OutType sigma, cudaStream_t stream)
   {
-    rand2Impl(
-      offset,
-      ptr,
-      len,
-      [=] __device__(Type & val1, Type & val2, LenType idx1, LenType idx2) {
-        box_muller_transform<Type>(val1, val2, sigma, mu);
-        val1 = raft::myExp(val1);
-        val2 = raft::myExp(val2);
-      },
-      NumThreads,
-      nBlocks,
-      type,
-      stream);
+    LogNormalDistParams<OutType> params;
+    params.mu    = mu;
+    params.sigma = sigma;
+    kernel_dispatch<OutType, LenType, 2, LogNormalDistParams<OutType>>(ptr, len, stream, params);
   }
 
-  template <typename Type, typename LenType = int>
-  void logistic(Type* ptr, LenType len, Type mu, Type scale, cudaStream_t stream)
+  template <typename OutType, typename LenType = int>
+  void logistic(OutType* ptr, LenType len, OutType mu, OutType scale, cudaStream_t stream)
   {
-    custom_distribution(
-      ptr,
-      len,
-      [=] __device__(Type val, LenType idx) {
-        constexpr Type one = (Type)1.0;
-        return mu - scale * raft::myLog(one / val - one);
-      },
-      stream);
+    LogisticDistParams<OutType> params;
+    params.mu    = mu;
+    params.scale = scale;
+    kernel_dispatch<OutType, LenType, 1, LogisticDistParams<OutType>>(ptr, len, stream, params);
   }
 
-  template <typename Type, typename LenType = int>
-  void exponential(Type* ptr, LenType len, Type lambda, cudaStream_t stream)
+  template <typename OutType, typename LenType = int>
+  void exponential(OutType* ptr, LenType len, OutType lambda, cudaStream_t stream)
   {
-    custom_distribution(
-      ptr,
-      len,
-      [=] __device__(Type val, LenType idx) {
-        constexpr Type one = (Type)1.0;
-        return -raft::myLog(one - val) / lambda;
-      },
-      stream);
+    ExponentialDistParams<OutType> params;
+    params.lambda = lambda;
+    kernel_dispatch<OutType, LenType, 1, ExponentialDistParams<OutType>>(ptr, len, stream, params);
   }
 
-  template <typename Type, typename LenType = int>
-  void rayleigh(Type* ptr, LenType len, Type sigma, cudaStream_t stream)
+  template <typename OutType, typename LenType = int>
+  void rayleigh(OutType* ptr, LenType len, OutType sigma, cudaStream_t stream)
   {
-    custom_distribution(
-      ptr,
-      len,
-      [=] __device__(Type val, LenType idx) {
-        constexpr Type one = (Type)1.0;
-        constexpr Type two = (Type)2.0;
-        return raft::mySqrt(-two * raft::myLog(one - val)) * sigma;
-      },
-      stream);
+    RayleighDistParams<OutType> params;
+    params.sigma = sigma;
+    kernel_dispatch<OutType, LenType, 1, RayleighDistParams<OutType>>(ptr, len, stream, params);
   }
 
-  template <typename Type, typename LenType = int>
-  void laplace(Type* ptr, LenType len, Type mu, Type scale, cudaStream_t stream)
+  template <typename OutType, typename LenType = int>
+  void laplace(OutType* ptr, LenType len, OutType mu, OutType scale, cudaStream_t stream)
   {
-    custom_distribution(
-      ptr,
-      len,
-      [=] __device__(Type val, LenType idx) {
-        constexpr Type one     = (Type)1.0;
-        constexpr Type two     = (Type)2.0;
-        constexpr Type oneHalf = (Type)0.5;
-        Type out;
-        if (val <= oneHalf) {
-          out = mu + scale * raft::myLog(two * val);
-        } else {
-          out = mu - scale * raft::myLog(two * (one - val));
-        }
-        return out;
-      },
-      stream);
+    LaplaceDistParams<OutType> params;
+    params.mu    = mu;
+    params.scale = scale;
+    kernel_dispatch<OutType, LenType, 1, LaplaceDistParams<OutType>>(ptr, len, stream, params);
+  }
+
+  void advance(uint64_t max_uniq_subsequences_used,
+               uint64_t max_numbers_generated_per_subsequence = 0)
+  {
+    state.base_subsequence += max_uniq_subsequences_used;
+  }
+
+  template <typename OutType, typename LenType, int ITEMS_PER_CALL, typename ParamType>
+  void kernel_dispatch(OutType* ptr, LenType len, cudaStream_t stream, ParamType params)
+  {
+    switch (type) {
+      case GenPhilox:
+        fillKernel<OutType, LenType, PhiloxGenerator, ITEMS_PER_CALL>
+          <<<nBlocks, nThreads, 0, stream>>>(
+            state.seed, state.base_subsequence, 0, ptr, len, params);
+        break;
+      case GenPC:
+        fillKernel<OutType, LenType, PCGenerator, ITEMS_PER_CALL><<<nBlocks, nThreads, 0, stream>>>(
+          state.seed, state.base_subsequence, 0, ptr, len, params);
+        break;
+      default: break;
+    }
+    // The max_numbers_generated_per_subsequence parameter does not matter for now, using 16 for now
+    advance(uint64_t(nBlocks) * nThreads, 16);
+    return;
   }
 
   template <typename DataT, typename WeightsT, typename IdxT = int>
@@ -634,141 +835,28 @@ class RngImpl {
     rmm::device_uvector<IdxT> outIdxBuff(len, stream);
     auto* inIdxPtr = inIdx.data();
     // generate modified weights
-    custom_distribution(
-      expWts.data(),
-      len,
-      [wts, inIdxPtr] __device__(WeightsT val, IdxT idx) {
-        inIdxPtr[idx]          = idx;
-        constexpr WeightsT one = (WeightsT)1.0;
-        auto exp               = -raft::myLog(one - val);
-        if (wts != nullptr) { return exp / wts[idx]; }
-        return exp;
-      },
-      stream);
+    SamplingParams<WeightsT, IdxT> params;
+    params.inIdxPtr = inIdxPtr;
+    params.wts      = wts;
+    kernel_dispatch<WeightsT, IdxT, 1, SamplingParams<WeightsT, IdxT>>(
+      expWts.data(), len, stream, params);
     ///@todo: use a more efficient partitioning scheme instead of full sort
     // sort the array and pick the top sampledLen items
     IdxT* outIdxPtr = outIdxBuff.data();
     rmm::device_uvector<char> workspace(0, stream);
     sortPairs(workspace, expWts.data(), sortedWts.data(), inIdxPtr, outIdxPtr, (int)len, stream);
     if (outIdx != nullptr) {
-      RAFT_CUDA_TRY(cudaMemcpyAsync(
+      CUDA_CHECK(cudaMemcpyAsync(
         outIdx, outIdxPtr, sizeof(IdxT) * sampledLen, cudaMemcpyDeviceToDevice, stream));
     }
-    raft::scatter<DataT, IdxT>(out, in, outIdxPtr, sampledLen, stream);
+    scatter<DataT, IdxT>(out, in, outIdxPtr, sampledLen, stream);
   }
 
-  template <typename OutType, typename MathType = OutType, typename LenType = int, typename Lambda>
-  void custom_distribution(OutType* ptr, LenType len, Lambda randOp, cudaStream_t stream)
-  {
-    randImpl<OutType, MathType, LenType, Lambda>(
-      offset, ptr, len, randOp, NumThreads, nBlocks, type, stream);
-  }
-  template <typename OutType, typename MathType = OutType, typename LenType = int, typename Lambda>
-  void custom_distribution2(OutType* ptr, LenType len, Lambda randOp, cudaStream_t stream)
-  {
-    rand2Impl<OutType, MathType, LenType, Lambda>(
-      offset, ptr, len, randOp, NumThreads, nBlocks, type, stream);
-  }
-  /** @} */
-
- private:
-  /** generator type */
   GeneratorType type;
-  /**
-   * offset is also used to initialize curand state.
-   * Limits period of Philox RNG from (4 * 2^128) to (Blocks * Threads * 2^64),
-   * but is still a large period.
-   */
-  uint64_t offset;
+  RngState state;
   /** number of blocks to launch */
   int nBlocks;
-  /** next seed generator for device-side RNG */
-  std::mt19937_64 gen;
-
-  static const int NumThreads = 256;
-
-  template <bool IsNormal, typename Type, typename LenType>
-  uint64_t _setupSeeds(uint64_t& seed, uint64_t& offset, LenType len, int nThreads, int nBlocks)
-  {
-    LenType itemsPerThread = raft::ceildiv(len, LenType(nBlocks * nThreads));
-    if (IsNormal && itemsPerThread % 2 == 1) { ++itemsPerThread; }
-    // curand uses 2 32b uint's to generate one double
-    uint64_t factor = sizeof(Type) / sizeof(float);
-    if (factor == 0) ++factor;
-    // Check if there are enough random numbers left in sequence
-    // If not, then generate new seed and start from zero offset
-    uint64_t newOffset = offset + LenType(itemsPerThread) * factor;
-    if (newOffset < offset) {
-      offset    = 0;
-      seed      = gen();
-      newOffset = itemsPerThread * factor;
-    }
-    return newOffset;
-  }
-
-  template <typename OutType, typename MathType = OutType, typename LenType = int, typename Lambda>
-  void randImpl(uint64_t& offset,
-                OutType* ptr,
-                LenType len,
-                Lambda randOp,
-                int nThreads,
-                int nBlocks,
-                GeneratorType type,
-                cudaStream_t stream)
-  {
-    if (len <= 0) return;
-    uint64_t seed  = gen();
-    auto newOffset = _setupSeeds<false, MathType, LenType>(seed, offset, len, nThreads, nBlocks);
-    switch (type) {
-      case GenPhilox:
-        detail::randKernel<OutType, MathType, detail::PhiloxGenerator, LenType, Lambda>
-          <<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr, len, randOp);
-        break;
-      case GenTaps:
-        detail::randKernel<OutType, MathType, detail::TapsGenerator, LenType, Lambda>
-          <<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr, len, randOp);
-        break;
-      case GenKiss99:
-        detail::randKernel<OutType, MathType, detail::Kiss99Generator, LenType, Lambda>
-          <<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr, len, randOp);
-        break;
-      default: ASSERT(false, "randImpl: Incorrect generator type! %d", type);
-    };
-    RAFT_CUDA_TRY(cudaGetLastError());
-    offset = newOffset;
-  }
-
-  template <typename OutType, typename MathType = OutType, typename LenType = int, typename Lambda2>
-  void rand2Impl(uint64_t& offset,
-                 OutType* ptr,
-                 LenType len,
-                 Lambda2 rand2Op,
-                 int nThreads,
-                 int nBlocks,
-                 GeneratorType type,
-                 cudaStream_t stream)
-  {
-    if (len <= 0) return;
-    auto seed      = gen();
-    auto newOffset = _setupSeeds<true, MathType, LenType>(seed, offset, len, nThreads, nBlocks);
-    switch (type) {
-      case GenPhilox:
-        detail::rand2Kernel<OutType, MathType, detail::PhiloxGenerator, LenType, Lambda2>
-          <<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr, len, rand2Op);
-        break;
-      case GenTaps:
-        detail::rand2Kernel<OutType, MathType, detail::TapsGenerator, LenType, Lambda2>
-          <<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr, len, rand2Op);
-        break;
-      case GenKiss99:
-        detail::rand2Kernel<OutType, MathType, detail::Kiss99Generator, LenType, Lambda2>
-          <<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr, len, rand2Op);
-        break;
-      default: ASSERT(false, "rand2Impl: Incorrect generator type! %d", type);
-    };
-    RAFT_CUDA_TRY(cudaGetLastError());
-    offset = newOffset;
-  }
+  static const int nThreads = 256;
 };
 
 };  // end namespace detail

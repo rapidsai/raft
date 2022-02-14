@@ -17,7 +17,7 @@
 #include "../test_utils.h"
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/subtract.cuh>
+#include <raft/linalg/subtract.hpp>
 #include <raft/random/rng.hpp>
 
 namespace raft {
@@ -96,7 +96,7 @@ class SubtractTest : public ::testing::TestWithParam<SubtractInputs<T>> {
     subtractScalar(out.data(), out.data(), T(1), len, stream);
     subtract(in1.data(), in1.data(), in2.data(), len, stream);
     subtractScalar(in1.data(), in1.data(), T(1), len, stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
   }
 
  protected:
