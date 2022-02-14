@@ -5,8 +5,8 @@ function(find_and_configure_mdspan VERSION)
     BUILD_EXPORT_SET    raft-exports
     INSTALL_EXPORT_SET  raft-exports
     CPM_ARGS
-      GIT_REPOSITORY https://github.com/trivialfis/mdspan
-      GIT_TAG 0193f075e977cc5f3c957425fd899e53d598f524
+      GIT_REPOSITORY https://github.com/rapidsai/mdspan.git
+      GIT_TAG b3042485358d2ee168ae2b486c98c2c61ec5aec1
       OPTIONS "MDSPAN_ENABLE_CUDA ON"
               "MDSPAN_CXX_STANDARD ON"
   )

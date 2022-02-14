@@ -36,7 +36,6 @@ add_executable(test_raft
     test/eigen_solvers.cu
     test/handle.cpp
     test/integer_utils.cpp
-    test/mdarray.cu
     test/nvtx.cpp
     test/pow2_utils.cu
     test/label/label.cu
@@ -65,6 +64,7 @@ add_executable(test_raft
     test/matrix/math.cu
     test/matrix/matrix.cu
     test/matrix/linewise_op.cu
+    test/mdarray.cu
     test/mr/device/buffer.cpp
     test/mr/host/buffer.cpp
     test/mst.cu
