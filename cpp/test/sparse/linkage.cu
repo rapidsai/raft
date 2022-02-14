@@ -17,8 +17,8 @@
 #include "../test_utils.h"
 
 #include <raft/cudart_utils.h>
-#include <raft/linalg/distance_type.h>
-#include <raft/linalg/transpose.h>
+#include <raft/distance/distance_type.hpp>
+#include <raft/linalg/transpose.hpp>
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/hierarchy/single_linkage.hpp>
 
@@ -188,7 +188,7 @@ class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
       params.c,
       params.n_clusters);
 
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
 
     score = compute_rand_index(labels.data(), labels_ref.data(), params.n_row, stream);
   }

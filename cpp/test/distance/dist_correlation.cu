@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -65,5 +65,9 @@ TEST_P(DistanceCorrelationD, Result)
 }
 INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceCorrelationD, ::testing::ValuesIn(inputsd));
 
+class BigMatrixCorrelation
+  : public BigMatrixDistanceTest<raft::distance::DistanceType::CorrelationExpanded> {
+};
+TEST_F(BigMatrixCorrelation, Result) {}
 }  // end namespace distance
 }  // end namespace raft

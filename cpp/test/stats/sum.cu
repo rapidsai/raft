@@ -17,7 +17,7 @@
 #include "../test_utils.h"
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/eltwise.cuh>
+#include <raft/linalg/eltwise.hpp>
 #include <raft/random/rng.hpp>
 #include <raft/stats/sum.hpp>
 
@@ -62,7 +62,7 @@ class SumTest : public ::testing::TestWithParam<SumInputs<T>> {
 
     raft::update_device(data.data(), data_h, len, stream);
     sum(sum_act.data(), data.data(), cols, rows, false, stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
   }
 
  protected:

@@ -63,7 +63,7 @@ class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
 
     rmm::device_uvector<T> outTrunc(6, stream);
     truncZeroOrigin(in1.data(), params.n_row, outTrunc.data(), 3, 2, stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
   }
 
  protected:

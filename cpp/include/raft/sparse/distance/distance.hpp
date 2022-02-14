@@ -16,26 +16,15 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
+#include <raft/sparse/distance/common.h>
 #include <unordered_set>
 
-#include <raft/cuda_utils.cuh>
-#include <raft/linalg/distance_type.h>
-#include <raft/sparse/cusparse_wrappers.h>
-
-#include <raft/sparse/convert/coo.hpp>
-#include <raft/sparse/convert/csr.hpp>
-#include <raft/sparse/convert/dense.hpp>
-#include <raft/sparse/csr.hpp>
-#include <raft/sparse/detail/utils.h>
-#include <raft/sparse/linalg/transpose.hpp>
+#include <raft/distance/distance_type.hpp>
 
 #include <raft/sparse/distance/detail/bin_distance.cuh>
 #include <raft/sparse/distance/detail/ip_distance.cuh>
 #include <raft/sparse/distance/detail/l2_distance.cuh>
 #include <raft/sparse/distance/detail/lp_distance.cuh>
-
-#include <cusparse_v2.h>
 
 namespace raft {
 namespace sparse {

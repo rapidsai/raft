@@ -16,10 +16,10 @@
 #pragma once
 
 #include <raft/linalg/lanczos.hpp>
+#include <raft/spectral/matrix_wrappers.hpp>
 
 namespace raft {
-
-using namespace matrix;
+namespace spectral {
 
 // aggregate of control params for Eigen Solver:
 //
@@ -46,47 +46,49 @@ struct lanczos_solver_t {
   {
   }
 
-  index_type_t solve_smallest_eigenvectors(handle_t const& handle,
-                                           sparse_matrix_t<index_type_t, value_type_t> const& A,
-                                           value_type_t* __restrict__ eigVals,
-                                           value_type_t* __restrict__ eigVecs) const
+  index_type_t solve_smallest_eigenvectors(
+    handle_t const& handle,
+    matrix::sparse_matrix_t<index_type_t, value_type_t> const& A,
+    value_type_t* __restrict__ eigVals,
+    value_type_t* __restrict__ eigVecs) const
   {
     RAFT_EXPECTS(eigVals != nullptr, "Null eigVals buffer.");
     RAFT_EXPECTS(eigVecs != nullptr, "Null eigVecs buffer.");
     index_type_t iters{};
-    computeSmallestEigenvectors(handle,
-                                A,
-                                config_.n_eigVecs,
-                                config_.maxIter,
-                                config_.restartIter,
-                                config_.tol,
-                                config_.reorthogonalize,
-                                iters,
-                                eigVals,
-                                eigVecs,
-                                config_.seed);
+    linalg::computeSmallestEigenvectors(handle,
+                                        A,
+                                        config_.n_eigVecs,
+                                        config_.maxIter,
+                                        config_.restartIter,
+                                        config_.tol,
+                                        config_.reorthogonalize,
+                                        iters,
+                                        eigVals,
+                                        eigVecs,
+                                        config_.seed);
     return iters;
   }
 
-  index_type_t solve_largest_eigenvectors(handle_t const& handle,
-                                          sparse_matrix_t<index_type_t, value_type_t> const& A,
-                                          value_type_t* __restrict__ eigVals,
-                                          value_type_t* __restrict__ eigVecs) const
+  index_type_t solve_largest_eigenvectors(
+    handle_t const& handle,
+    matrix::sparse_matrix_t<index_type_t, value_type_t> const& A,
+    value_type_t* __restrict__ eigVals,
+    value_type_t* __restrict__ eigVecs) const
   {
     RAFT_EXPECTS(eigVals != nullptr, "Null eigVals buffer.");
     RAFT_EXPECTS(eigVecs != nullptr, "Null eigVecs buffer.");
     index_type_t iters{};
-    computeLargestEigenvectors(handle,
-                               A,
-                               config_.n_eigVecs,
-                               config_.maxIter,
-                               config_.restartIter,
-                               config_.tol,
-                               config_.reorthogonalize,
-                               iters,
-                               eigVals,
-                               eigVecs,
-                               config_.seed);
+    linalg::computeLargestEigenvectors(handle,
+                                       A,
+                                       config_.n_eigVecs,
+                                       config_.maxIter,
+                                       config_.restartIter,
+                                       config_.tol,
+                                       config_.reorthogonalize,
+                                       iters,
+                                       eigVals,
+                                       eigVecs,
+                                       config_.seed);
     return iters;
   }
 
@@ -95,4 +97,6 @@ struct lanczos_solver_t {
  private:
   eigen_solver_config_t<index_type_t, value_type_t, size_type_t> config_;
 };
+
+}  // namespace spectral
 }  // namespace raft
