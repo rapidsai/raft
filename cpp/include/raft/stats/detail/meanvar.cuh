@@ -205,7 +205,8 @@ void meanvar(
     int occupancy;
     RAFT_CUDA_TRY(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
       &occupancy, meanvar_kernel_rowmajor<T, I, BlockSize>, BlockSize, 0));
-    gs.y = std::min(gs.y, raft::ceildiv<decltype(gs.y)>(occupancy * getMultiProcessorCount(), gs.x));
+    gs.y =
+      std::min(gs.y, raft::ceildiv<decltype(gs.y)>(occupancy * getMultiProcessorCount(), gs.x));
 
     // Global memory: one mean_var<T> for each column
     //                one lock per all blocks working on the same set of columns

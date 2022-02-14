@@ -389,7 +389,7 @@ void rsvdPerc(const raft::handle_t& handle,
               cudaStream_t stream)
 {
   int k = std::max((int)(std::min(n_rows, n_cols) * PC_perc),
-              1);  // Number of singular values to be computed
+                   1);  // Number of singular values to be computed
   int p = std::max((int)(std::min(n_rows, n_cols) * UpS_perc), 1);  // Upsamples
   rsvdFixedRank(handle,
                 M,

@@ -36,7 +36,10 @@ struct MeanVarInputs {
 
   T mean_tol() const { return T(N_SIGMAS) * stddev / sqrt(T(rows)); }
 
-  T var_tol() const { return T(N_SIGMAS) * stddev * stddev * sqrt(T(2.0) / T(std::max(1, rows - 1))); }
+  T var_tol() const
+  {
+    return T(N_SIGMAS) * stddev * stddev * sqrt(T(2.0) / T(std::max(1, rows - 1)));
+  }
 };
 
 template <typename T>

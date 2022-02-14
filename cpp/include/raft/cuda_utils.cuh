@@ -699,7 +699,8 @@ DI T blockReduce(T val, char* smem)
  * @{
  */
 template <typename T>
-__device__ __forceinline__ T ldcg(const T* addr) {
+__device__ __forceinline__ T ldcg(const T* addr)
+{
 #if defined(__clang__)
   return *addr;
 #else
@@ -708,7 +709,8 @@ __device__ __forceinline__ T ldcg(const T* addr) {
 }
 
 template <typename T>
-__device__ __forceinline__ T ldcv(const T* addr) {
+__device__ __forceinline__ T ldcv(const T* addr)
+{
 #if defined(__clang__)
   return *addr;
 #else
@@ -717,7 +719,8 @@ __device__ __forceinline__ T ldcv(const T* addr) {
 }
 
 template <typename T>
-__device__ __forceinline__ void stwt(T* addr, const T& val) {
+__device__ __forceinline__ void stwt(T* addr, const T& val)
+{
 #if defined(__clang__)
   *addr = val;
 #else
