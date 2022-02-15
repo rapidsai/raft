@@ -466,6 +466,7 @@ __global__ void block_rbc_kernel_registers(const value_t* X_index,
 template <typename value_idx,
           typename value_t,
           typename value_int = std::uint32_t,
+          int dims = 2,
           typename dist_func>
 void rbc_low_dim_pass_one(const raft::handle_t& handle,
                           BallCoverIndex<value_idx, value_t, value_int>& index,
@@ -481,7 +482,7 @@ void rbc_low_dim_pass_one(const raft::handle_t& handle,
                           value_int* dists_counter)
 {
   if (k <= 32)
-    block_rbc_kernel_registers<value_idx, value_t, 32, 2, 128, 2, value_int>
+    block_rbc_kernel_registers<value_idx, value_t, 32, 2, 128, dims, value_int>
       <<<n_query_rows, 128, 0, handle.get_stream()>>>(index.get_X(),
                                                       query,
                                                       index.n,
@@ -518,7 +519,7 @@ void rbc_low_dim_pass_one(const raft::handle_t& handle,
                                                       dfunc,
                                                       weight);
   else if (k <= 128)
-    block_rbc_kernel_registers<value_idx, value_t, 128, 3, 128, 2, value_int>
+    block_rbc_kernel_registers<value_idx, value_t, 128, 3, 128, dims, value_int>
       <<<n_query_rows, 128, 0, handle.get_stream()>>>(index.get_X(),
                                                       query,
                                                       index.n,
@@ -537,7 +538,7 @@ void rbc_low_dim_pass_one(const raft::handle_t& handle,
                                                       weight);
 
   else if (k <= 256)
-    block_rbc_kernel_registers<value_idx, value_t, 256, 4, 128, 2, value_int>
+    block_rbc_kernel_registers<value_idx, value_t, 256, 4, 128, dims, value_int>
       <<<n_query_rows, 128, 0, handle.get_stream()>>>(index.get_X(),
                                                       query,
                                                       index.n,
@@ -556,7 +557,7 @@ void rbc_low_dim_pass_one(const raft::handle_t& handle,
                                                       weight);
 
   else if (k <= 512)
-    block_rbc_kernel_registers<value_idx, value_t, 512, 8, 64, 2, value_int>
+    block_rbc_kernel_registers<value_idx, value_t, 512, 8, 64, dims, value_int>
       <<<n_query_rows, 64, 0, handle.get_stream()>>>(index.get_X(),
                                                      query,
                                                      index.n,
@@ -575,7 +576,7 @@ void rbc_low_dim_pass_one(const raft::handle_t& handle,
                                                      weight);
 
   else if (k <= 1024)
-    block_rbc_kernel_registers<value_idx, value_t, 1024, 8, 64, 2, value_int>
+    block_rbc_kernel_registers<value_idx, value_t, 1024, 8, 64, dims, value_int>
       <<<n_query_rows, 64, 0, handle.get_stream()>>>(index.get_X(),
                                                      query,
                                                      index.n,
@@ -597,6 +598,7 @@ void rbc_low_dim_pass_one(const raft::handle_t& handle,
 template <typename value_idx,
           typename value_t,
           typename value_int = std::uint32_t,
+          int dims = 2,
           typename dist_func>
 void rbc_low_dim_pass_two(const raft::handle_t& handle,
                           BallCoverIndex<value_idx, value_t, value_int>& index,
@@ -640,7 +642,7 @@ void rbc_low_dim_pass_two(const raft::handle_t& handle,
                                   32,
                                   2,
                                   128,
-                                  2>
+                                  dims>
       <<<n_query_rows, 128, 0, handle.get_stream()>>>(index.get_X(),
                                                       query,
                                                       index.n,
@@ -665,7 +667,7 @@ void rbc_low_dim_pass_two(const raft::handle_t& handle,
                                   64,
                                   3,
                                   128,
-                                  2>
+                                  dims>
       <<<n_query_rows, 128, 0, handle.get_stream()>>>(index.get_X(),
                                                       query,
                                                       index.n,
@@ -690,7 +692,7 @@ void rbc_low_dim_pass_two(const raft::handle_t& handle,
                                   128,
                                   3,
                                   128,
-                                  2>
+                                  dims>
       <<<n_query_rows, 128, 0, handle.get_stream()>>>(index.get_X(),
                                                       query,
                                                       index.n,
@@ -715,7 +717,7 @@ void rbc_low_dim_pass_two(const raft::handle_t& handle,
                                   256,
                                   4,
                                   128,
-                                  2>
+                                  dims>
       <<<n_query_rows, 128, 0, handle.get_stream()>>>(index.get_X(),
                                                       query,
                                                       index.n,
@@ -740,7 +742,7 @@ void rbc_low_dim_pass_two(const raft::handle_t& handle,
                                   512,
                                   8,
                                   64,
-                                  2>
+                                  dims>
       <<<n_query_rows, 64, 0, handle.get_stream()>>>(index.get_X(),
                                                      query,
                                                      index.n,
@@ -765,7 +767,7 @@ void rbc_low_dim_pass_two(const raft::handle_t& handle,
                                   1024,
                                   8,
                                   64,
-                                  2>
+                                  dims>
       <<<n_query_rows, 64, 0, handle.get_stream()>>>(index.get_X(),
                                                      query,
                                                      index.n,

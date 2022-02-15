@@ -231,7 +231,10 @@ set_target_properties(raft_nn PROPERTIES EXPORT_NAME nn)
 if(RAFT_COMPILE_LIBRARIES OR RAFT_COMPILE_NN_LIBRARY)
   add_library(raft_nn_lib SHARED
     src/nn/specializations/ball_cover.cu
-    src/nn/specializations/detail/ball_cover_lowdim.cu
+    src/nn/specializations/detail/ball_cover_lowdim_pass_one_2d.cu
+    src/nn/specializations/detail/ball_cover_lowdim_pass_two_2d.cu
+    src/nn/specializations/detail/ball_cover_lowdim_pass_one_3d.cu
+    src/nn/specializations/detail/ball_cover_lowdim_pass_two_3d.cu
     src/nn/specializations/fused_l2_knn_long_float_true.cu
     src/nn/specializations/fused_l2_knn_long_float_false.cu
     src/nn/specializations/fused_l2_knn_int_float_true.cu

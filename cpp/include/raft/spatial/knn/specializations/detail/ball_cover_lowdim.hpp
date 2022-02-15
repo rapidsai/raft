@@ -23,7 +23,7 @@ namespace spatial {
 namespace knn {
 namespace detail {
 
-extern template void rbc_low_dim_pass_one<std::int64_t, float, std::uint32_t>(
+extern template void rbc_low_dim_pass_one<std::int64_t, float, std::uint32_t, 2>(
   const raft::handle_t& handle,
   BallCoverIndex<std::int64_t, float, std::uint32_t>& index,
   const float* query,
@@ -37,7 +37,7 @@ extern template void rbc_low_dim_pass_one<std::int64_t, float, std::uint32_t>(
   float weight,
   std::uint32_t* dists_counter);
 
-extern template void rbc_low_dim_pass_two<std::int64_t, float, std::uint32_t>(
+extern template void rbc_low_dim_pass_two<std::int64_t, float, std::uint32_t, 2>(
   const raft::handle_t& handle,
   BallCoverIndex<std::int64_t, float, std::uint32_t>& index,
   const float* query,
@@ -50,6 +50,35 @@ extern template void rbc_low_dim_pass_two<std::int64_t, float, std::uint32_t>(
   float* dists,
   float weight,
   std::uint32_t* post_dists_counter);
+
+extern template void rbc_low_dim_pass_one<std::int64_t, float, std::uint32_t, 3>(
+        const raft::handle_t& handle,
+        BallCoverIndex<std::int64_t, float, std::uint32_t>& index,
+        const float* query,
+        const std::uint32_t n_query_rows,
+        std::uint32_t k,
+        const std::int64_t* R_knn_inds,
+        const float* R_knn_dists,
+        DistFunc<float, std::uint32_t>& dfunc,
+        std::int64_t* inds,
+        float* dists,
+        float weight,
+        std::uint32_t* dists_counter);
+
+extern template void rbc_low_dim_pass_two<std::int64_t, float, std::uint32_t, 3>(
+        const raft::handle_t& handle,
+        BallCoverIndex<std::int64_t, float, std::uint32_t>& index,
+        const float* query,
+        const std::uint32_t n_query_rows,
+        std::uint32_t k,
+        const std::int64_t* R_knn_inds,
+        const float* R_knn_dists,
+        DistFunc<float, std::uint32_t>& dfunc,
+        std::int64_t* inds,
+        float* dists,
+        float weight,
+        std::uint32_t* post_dists_counter);
+
 };  // namespace detail
 };  // namespace knn
 };  // namespace spatial
