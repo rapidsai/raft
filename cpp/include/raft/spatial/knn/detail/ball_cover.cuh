@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -302,6 +302,16 @@ void rbc_build_index(const raft::handle_t& handle,
   rmm::device_uvector<value_idx> R_knn_inds(index.m, handle.get_stream());
   rmm::device_uvector<value_t> R_knn_dists(index.m, handle.get_stream());
 
+  // Initialize the uvectors
+  thrust::fill(handle.get_thrust_policy(),
+               R_knn_inds.begin(),
+               R_knn_inds.end(),
+               std::numeric_limits<value_idx>::max());
+  thrust::fill(handle.get_thrust_policy(),
+               R_knn_dists.begin(),
+               R_knn_dists.end(),
+               std::numeric_limits<value_t>::max());
+
   /**
    * 1. Randomly sample sqrt(n) points from X
    */
@@ -352,6 +362,16 @@ void rbc_all_knn_query(const raft::handle_t& handle,
 
   rmm::device_uvector<value_idx> R_knn_inds(k * index.m, handle.get_stream());
   rmm::device_uvector<value_t> R_knn_dists(k * index.m, handle.get_stream());
+
+  // Initialize the uvectors
+  thrust::fill(handle.get_thrust_policy(),
+               R_knn_inds.begin(),
+               R_knn_inds.end(),
+               std::numeric_limits<value_idx>::max());
+  thrust::fill(handle.get_thrust_policy(),
+               R_knn_dists.begin(),
+               R_knn_dists.end(),
+               std::numeric_limits<value_t>::max());
 
   // For debugging / verification. Remove before releasing
   rmm::device_uvector<value_int> dists_counter(index.m, handle.get_stream());
