@@ -96,7 +96,6 @@ __global__ void perform_post_filter_registers(const value_t* X,
 
   // zero out bits for closest k landmarks
   for (value_int j = threadIdx.x; j < k; j += tpb) {
-    int la = (int)R_knn_inds[blockIdx.x * k + j];
     _zero_bit(shared_mem, (std::uint32_t)R_knn_inds[blockIdx.x * k + j]);
   }
 
