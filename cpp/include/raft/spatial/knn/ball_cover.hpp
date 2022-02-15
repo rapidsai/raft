@@ -32,7 +32,7 @@ template <typename value_idx = std::int64_t, typename value_t, typename value_in
 void rbc_build_index(const raft::handle_t& handle,
                      BallCoverIndex<value_idx, value_t, value_int>& index)
 {
-    ASSERT(index.n <= 3, "only 2d and 3d vectors are supported in current implementation");
+  ASSERT(index.n <= 3, "only 2d and 3d vectors are supported in current implementation");
   if (index.metric == raft::distance::DistanceType::Haversine) {
     detail::rbc_build_index(handle, index, detail::HaversineFunc<value_t, value_int>());
   } else if (index.metric == raft::distance::DistanceType::L2SqrtExpanded ||
@@ -82,7 +82,7 @@ void rbc_all_knn_query(const raft::handle_t& handle,
                        bool perform_post_filtering = true,
                        float weight                = 1.0)
 {
-    ASSERT(index.n <= 3, "only 2d and 3d vectors are supported in current implementation");
+  ASSERT(index.n <= 3, "only 2d and 3d vectors are supported in current implementation");
   if (index.metric == raft::distance::DistanceType::Haversine) {
     detail::rbc_all_knn_query(handle,
                               index,
@@ -149,7 +149,7 @@ void rbc_knn_query(const raft::handle_t& handle,
                    bool perform_post_filtering = true,
                    float weight                = 1.0)
 {
-    ASSERT(index.n <= 3, "only 2d and 3d vectors are supported in current implementation");
+  ASSERT(index.n <= 3, "only 2d and 3d vectors are supported in current implementation");
   if (index.metric == raft::distance::DistanceType::Haversine) {
     detail::rbc_knn_query(handle,
                           index,
