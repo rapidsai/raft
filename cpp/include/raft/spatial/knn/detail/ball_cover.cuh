@@ -429,6 +429,16 @@ void rbc_knn_query(const raft::handle_t& handle,
   rmm::device_uvector<value_idx> R_knn_inds(k * index.m, handle.get_stream());
   rmm::device_uvector<value_t> R_knn_dists(k * index.m, handle.get_stream());
 
+  // Initialize the uvectors
+  thrust::fill(handle.get_thrust_policy(),
+               R_knn_inds.begin(),
+               R_knn_inds.end(),
+               std::numeric_limits<value_idx>::max());
+  thrust::fill(handle.get_thrust_policy(),
+               R_knn_dists.begin(),
+               R_knn_dists.end(),
+               std::numeric_limits<value_t>::max());
+
   k_closest_landmarks(handle, index, query, n_query_pts, k, R_knn_inds.data(), R_knn_dists.data());
 
   // For debugging / verification. Remove before releasing
