@@ -96,6 +96,7 @@ __global__ void perform_post_filter_registers(const value_t* X,
 
   // zero out bits for closest k landmarks
   for (value_int j = threadIdx.x; j < k; j += tpb) {
+    int la = (int)R_knn_inds[blockIdx.x * k + j];
     _zero_bit(shared_mem, (std::uint32_t)R_knn_inds[blockIdx.x * k + j]);
   }
 
@@ -228,12 +229,14 @@ __global__ void compute_final_dists_registers(const value_t* X_index,
       for (; i < limit; i += tpb) {
         value_idx cur_candidate_ind = R_1nn_inds[R_start_offset + i];
         value_t cur_candidate_dist  = R_1nn_dists[R_start_offset + i];
-        value_t z                   = heap.warpKTopRDist == 0.00 ? 0.0
-                                                                 : (abs(heap.warpKTop - heap.warpKTopRDist) *
+
+        value_t z = heap.warpKTopRDist == 0.00 ? 0.0
+                                               : (abs(heap.warpKTop - heap.warpKTopRDist) *
                                                     abs(heap.warpKTopRDist - cur_candidate_dist) -
                                                   heap.warpKTop * cur_candidate_dist) /
                                                    heap.warpKTopRDist;
-        z                           = isnan(z) ? 0.0 : z;
+        z         = isnan(z) || isinf(z) ? 0.0 : z;
+
         // If lower bound on distance could possibly be in
         // the closest k neighbors, compute it and add to k-select
         value_t dist = std::numeric_limits<value_t>::max();
@@ -261,7 +264,8 @@ __global__ void compute_final_dists_registers(const value_t* X_index,
                                                   heap.warpKTop * cur_candidate_dist) /
                                                    heap.warpKTopRDist;
 
-        z = isnan(z) ? 0.0 : z;
+        z = isnan(z) || isinf(z) ? 0.0 : z;
+
         // If lower bound on distance could possibly be in
         // the closest k neighbors, compute it and add to k-select
         value_t dist = std::numeric_limits<value_t>::max();
@@ -361,8 +365,7 @@ __global__ void block_rbc_kernel_registers(const value_t* X_index,
          shared_memV,
          k);
 
-  value_t min_R_dist = R_knn_dists[blockIdx.x * k + (k - 1)];
-
+  value_t min_R_dist         = R_knn_dists[blockIdx.x * k + (k - 1)];
   value_int n_dists_computed = 0;
 
   /**
@@ -409,9 +412,10 @@ __global__ void block_rbc_kernel_registers(const value_t* X_index,
                                                 heap.warpKTop * cur_candidate_dist) /
                                                  heap.warpKTopRDist;
 
-      z            = isnan(z) ? 0.0 : z;
+      z            = isnan(z) || isinf(z) ? 0.0 : z;
       value_t dist = std::numeric_limits<value_t>::max();
-      if (i < k || z <= heap.warpKTop) {
+
+      if (z <= heap.warpKTop) {
         const value_t* y_ptr = X_index + (n_cols * cur_candidate_ind);
         value_t local_y_ptr[col_q];
         for (value_int j = 0; j < n_cols; ++j) {
@@ -433,9 +437,10 @@ __global__ void block_rbc_kernel_registers(const value_t* X_index,
                                                heap.warpKTop * cur_candidate_dist) /
                                                 heap.warpKTopRDist;
 
-      z            = isnan(z) ? 0.0 : z;
+      z            = isnan(z) || isinf(z) ? 0.0 : z;
       value_t dist = std::numeric_limits<value_t>::max();
-      if (i < k || z <= heap.warpKTop) {
+
+      if (z <= heap.warpKTop) {
         const value_t* y_ptr = X_index + (n_cols * cur_candidate_ind);
         value_t local_y_ptr[col_q];
         for (value_int j = 0; j < n_cols; ++j) {
