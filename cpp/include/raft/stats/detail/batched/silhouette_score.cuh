@@ -17,8 +17,6 @@
 #pragma once
 
 #include "../silhouette_score.cuh"
-#include <cuml/metrics/metrics.hpp>
-
 #include <raft/cuda_utils.cuh>
 #include <raft/device_atomics.cuh>
 #include <rmm/device_uvector.hpp>
