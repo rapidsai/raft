@@ -22,6 +22,8 @@
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
+#include <algorithm>
+
 namespace raft {
 namespace linalg {
 namespace detail {
@@ -37,7 +39,7 @@ void qrGetQ(const raft::handle_t& handle,
   cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
 
   int m = n_rows, n = n_cols;
-  int k = min(m, n);
+  int k = std::min(m, n);
   RAFT_CUDA_TRY(cudaMemcpyAsync(Q, M, sizeof(math_t) * m * n, cudaMemcpyDeviceToDevice, stream));
 
   rmm::device_uvector<math_t> tau(k, stream);
@@ -70,8 +72,8 @@ void qrGetQR(const raft::handle_t& handle,
 
   int m = n_rows, n = n_cols;
   rmm::device_uvector<math_t> R_full(m * n, stream);
-  rmm::device_uvector<math_t> tau(min(m, n), stream);
-  RAFT_CUDA_TRY(cudaMemsetAsync(tau.data(), 0, sizeof(math_t) * min(m, n), stream));
+  rmm::device_uvector<math_t> tau(std::min(m, n), stream);
+  RAFT_CUDA_TRY(cudaMemsetAsync(tau.data(), 0, sizeof(math_t) * std::min(m, n), stream));
   int R_full_nrows = m, R_full_ncols = n;
   RAFT_CUDA_TRY(
     cudaMemcpyAsync(R_full.data(), M, sizeof(math_t) * m * n, cudaMemcpyDeviceToDevice, stream));
@@ -100,12 +102,12 @@ void qrGetQR(const raft::handle_t& handle,
   int Q_nrows = m, Q_ncols = n;
 
   RAFT_CUSOLVER_TRY(cusolverDnorgqr_bufferSize(
-    cusolverH, Q_nrows, Q_ncols, min(Q_ncols, Q_nrows), Q, Q_nrows, tau.data(), &Lwork));
+    cusolverH, Q_nrows, Q_ncols, std::min(Q_ncols, Q_nrows), Q, Q_nrows, tau.data(), &Lwork));
   workspace.resize(Lwork, stream);
   RAFT_CUSOLVER_TRY(cusolverDnorgqr(cusolverH,
                                     Q_nrows,
                                     Q_ncols,
-                                    min(Q_ncols, Q_nrows),
+                                    std::min(Q_ncols, Q_nrows),
                                     Q,
                                     Q_nrows,
                                     tau.data(),

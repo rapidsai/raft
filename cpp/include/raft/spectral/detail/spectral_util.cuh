@@ -25,6 +25,8 @@
 #include <thrust/reduce.h>
 #include <thrust/transform.h>
 
+#include <algorithm>
+
 namespace raft {
 namespace spectral {
 
@@ -96,7 +98,7 @@ cudaError_t scale_obs(index_type_t m, index_type_t n, value_type_t* obs)
   // find next power of 2
   p2m = next_pow2<index_type_t>(m);
   // setup launch configuration
-  unsigned int xsize = max(2, min(p2m, 32));
+  unsigned int xsize = std::max(2, std::min(p2m, 32));
   dim3 nthreads{xsize, 256 / xsize, 1};
 
   dim3 nblocks{1, (n + nthreads.y - 1) / nthreads.y, 1};
