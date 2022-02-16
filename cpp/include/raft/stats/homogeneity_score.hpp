@@ -38,8 +38,10 @@ double homogeneity_score(const T* truthClusterArray,
                          int size,
                          T lowerLabelRange,
                          T upperLabelRange,
-                         cudaStream_t stream) {
-    return detail::homogeneity_score(truthClusterArray, predClusterArray, size, lowerLabelRange, upperLabelRange, stream);
+                         cudaStream_t stream)
+{
+  return detail::homogeneity_score(
+    truthClusterArray, predClusterArray, size, lowerLabelRange, upperLabelRange, stream);
 }
 
 };  // end namespace stats

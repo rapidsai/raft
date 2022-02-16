@@ -34,7 +34,7 @@ namespace stats {
 template <typename DataT>
 DataT kl_divergence(const DataT* modelPDF, const DataT* candidatePDF, int size, cudaStream_t stream)
 {
-    return detail::kl_divergence(modelPDF, candidatePDF, size, stream);
+  return detail::kl_divergence(modelPDF, candidatePDF, size, stream);
 }
 
 };  // end namespace stats

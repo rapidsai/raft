@@ -18,10 +18,10 @@
 #include <algorithm>
 #include <gtest/gtest.h>
 #include <iostream>
-#include <raft/stats/contingency_matrix.hpp>
 #include <raft/cudart_utils.h>
-#include <random>
 #include <raft/interruptible.hpp>
+#include <raft/stats/contingency_matrix.hpp>
+#include <random>
 #include <rmm/device_uvector.hpp>
 
 namespace raft {
@@ -88,8 +88,7 @@ class ContingencyMatrixTest : public ::testing::TestWithParam<ContingencyMatrixP
     raft::update_device(dY.data(), &y[0], numElements, stream);
 
     if (params.calcCardinality) {
-      raft::stats::getInputClassCardinality(
-        dY.data(), numElements, stream, minLabel, maxLabel);
+      raft::stats::getInputClassCardinality(dY.data(), numElements, stream, minLabel, maxLabel);
     } else {
       minLabel = lowerLabelRange;
       maxLabel = upperLabelRange;
@@ -125,14 +124,14 @@ class ContingencyMatrixTest : public ::testing::TestWithParam<ContingencyMatrixP
   {
     int numElements = params.nElements;
     raft::stats::contingencyMatrix(dY.data(),
-                                         dYHat.data(),
-                                         numElements,
-                                         dComputedOutput.data(),
-                                         stream,
-                                         (void*)pWorkspace.data(),
-                                         workspaceSz,
-                                         minLabel,
-                                         maxLabel);
+                                   dYHat.data(),
+                                   numElements,
+                                   dComputedOutput.data(),
+                                   stream,
+                                   (void*)pWorkspace.data(),
+                                   workspaceSz,
+                                   minLabel,
+                                   maxLabel);
     ASSERT_TRUE(raft::devArrMatch(dComputedOutput.data(),
                                   dGoldenOutput.data(),
                                   numUniqueClasses * numUniqueClasses,

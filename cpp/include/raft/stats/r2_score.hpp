@@ -37,8 +37,9 @@ namespace stats {
  * @return: The R-squared value.
  */
 template <typename math_t>
-math_t r2_score(math_t* y, math_t* y_hat, int n, cudaStream_t stream) {
-    return detail::r2_score(y, y_hat, n, stream);
+math_t r2_score(math_t* y, math_t* y_hat, int n, cudaStream_t stream)
+{
+  return detail::r2_score(y, y_hat, n, stream);
 }
 
 }  // namespace stats

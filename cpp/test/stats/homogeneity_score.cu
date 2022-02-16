@@ -17,9 +17,9 @@
 #include <algorithm>
 #include <gtest/gtest.h>
 #include <iostream>
+#include <raft/cudart_utils.h>
 #include <raft/stats/homogeneity_score.hpp>
 #include <raft/stats/mutual_info_score.hpp>
-#include <raft/cudart_utils.h>
 #include <random>
 
 namespace raft {
@@ -75,11 +75,11 @@ class homogeneityTest : public ::testing::TestWithParam<homogeneityParam> {
     double truthMI, truthEntropy;
 
     truthMI      = raft::stats::mutual_info_score(truthClusterArray.data(),
-                                                   predClusterArray.data(),
-                                                   nElements,
-                                                   lowerLabelRange,
-                                                   upperLabelRange,
-                                                   stream);
+                                             predClusterArray.data(),
+                                             nElements,
+                                             lowerLabelRange,
+                                             upperLabelRange,
+                                             stream);
     truthEntropy = raft::stats::entropy(
       truthClusterArray.data(), nElements, lowerLabelRange, upperLabelRange, stream);
 
@@ -92,11 +92,11 @@ class homogeneityTest : public ::testing::TestWithParam<homogeneityParam> {
 
     // calling the homogeneity CUDA implementation
     computedHomogeneity = raft::stats::homogeneity_score(truthClusterArray.data(),
-                                                               predClusterArray.data(),
-                                                               nElements,
-                                                               lowerLabelRange,
-                                                               upperLabelRange,
-                                                               stream);
+                                                         predClusterArray.data(),
+                                                         nElements,
+                                                         lowerLabelRange,
+                                                         upperLabelRange,
+                                                         stream);
     RAFT_CUDA_TRY(cudaStreamDestroy(stream));
   }
 

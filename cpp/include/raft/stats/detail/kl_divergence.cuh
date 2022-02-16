@@ -50,8 +50,6 @@ struct KLDOp {
   }
 };
 
-
-
 /**
  * @brief Function to calculate KL Divergence
  * <a href="https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence">more info on KL

@@ -16,10 +16,10 @@
 
 #include "../test_utils.h"
 #include <gtest/gtest.h>
-#include <raft/stats/dispersion.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/interruptible.hpp>
 #include <raft/random/rng.hpp>
+#include <raft/stats/dispersion.hpp>
 #include <rmm/device_uvector.hpp>
 #include <stdio.h>
 #include <stdlib.h>

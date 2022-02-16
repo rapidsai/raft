@@ -19,7 +19,7 @@
 #include <raft/stats/detail/dispersion.cuh>
 
 namespace raft {
-    namespace stats {
+namespace stats {
 
 /**
  * @brief Compute cluster dispersion metric. This is very useful for
@@ -46,8 +46,10 @@ DataT dispersion(const DataT* centroids,
                  IdxT nClusters,
                  IdxT nPoints,
                  IdxT dim,
-                 cudaStream_t stream) {
-    return detail::dispersion(centroids, clusterSizes, globalCentroid, nClusters, nPoints, dim, stream);
+                 cudaStream_t stream)
+{
+  return detail::dispersion(
+    centroids, clusterSizes, globalCentroid, nClusters, nPoints, dim, stream);
 }
 
 }  // end namespace stats

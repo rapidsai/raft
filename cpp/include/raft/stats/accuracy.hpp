@@ -31,11 +31,9 @@ namespace stats {
  * @return: Accuracy score in [0, 1]; higher is better.
  */
 template <typename math_t>
-float accuracy(const math_t* predictions,
-               const math_t* ref_predictions,
-               int n,
-               cudaStream_t stream) {
-    return detail::accuracy_score(predictions, ref_predictions, n, stream);
+float accuracy(const math_t* predictions, const math_t* ref_predictions, int n, cudaStream_t stream)
+{
+  return detail::accuracy_score(predictions, ref_predictions, n, stream);
 }
 
 }  // namespace stats

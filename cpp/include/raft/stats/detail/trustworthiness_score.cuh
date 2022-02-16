@@ -15,10 +15,10 @@
  */
 
 #include <raft/distance/distance.hpp>
+#include <raft/matrix/col_wise_sort.hpp>
 #include <raft/spatial/knn/knn.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
-#include <raft/matrix/col_wise_sort.hpp>
 
 #define N_THREADS 512
 
@@ -165,25 +165,25 @@ double trustworthiness_score(const raft::handle_t& h,
     bool bAllocWorkspace        = false;
 
     raft::matrix::sort_cols_per_row(X_dist.data(),
-                                           X_ind.data(),
-                                           curBatchSize,
-                                           n,
-                                           bAllocWorkspace,
-                                           nullptr,
-                                           colSortWorkspaceSize,
-                                           stream);
+                                    X_ind.data(),
+                                    curBatchSize,
+                                    n,
+                                    bAllocWorkspace,
+                                    nullptr,
+                                    colSortWorkspaceSize,
+                                    stream);
 
     if (bAllocWorkspace) {
       rmm::device_uvector<char> sortColsWorkspace(colSortWorkspaceSize, stream);
 
       raft::matrix::sort_cols_per_row(X_dist.data(),
-                                             X_ind.data(),
-                                             curBatchSize,
-                                             n,
-                                             bAllocWorkspace,
-                                             sortColsWorkspace.data(),
-                                             colSortWorkspaceSize,
-                                             stream);
+                                      X_ind.data(),
+                                      curBatchSize,
+                                      n,
+                                      bAllocWorkspace,
+                                      sortColsWorkspace.data(),
+                                      colSortWorkspaceSize,
+                                      stream);
     }
 
     int work     = curBatchSize * n;

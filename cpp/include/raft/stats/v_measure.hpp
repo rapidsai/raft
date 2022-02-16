@@ -37,8 +37,10 @@ double v_measure(const T* truthClusterArray,
                  T lowerLabelRange,
                  T upperLabelRange,
                  cudaStream_t stream,
-                 double beta = 1.0) {
-    return detail::v_measure(truthClusterArray, predClusterArray, size, lowerLabelRange, upperLabelRange, stream, beta);
+                 double beta = 1.0)
+{
+  return detail::v_measure(
+    truthClusterArray, predClusterArray, size, lowerLabelRange, upperLabelRange, stream, beta);
 }
 
 };  // end namespace stats

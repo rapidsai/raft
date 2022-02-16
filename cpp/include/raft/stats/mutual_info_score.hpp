@@ -20,7 +20,6 @@
 namespace raft {
 namespace stats {
 
-
 /**
  * @brief Function to calculate the mutual information between two clusters
  * <a href="https://en.wikipedia.org/wiki/Mutual_information">more info on mutual information</a>
@@ -37,9 +36,10 @@ double mutual_info_score(const T* firstClusterArray,
                          int size,
                          T lowerLabelRange,
                          T upperLabelRange,
-                         cudaStream_t stream) {
-    return detail::mutual_info_score(firstClusterArray, secondClusterArray, size,
-                                     lowerLabelRange, upperLabelRange, stream);
+                         cudaStream_t stream)
+{
+  return detail::mutual_info_score(
+    firstClusterArray, secondClusterArray, size, lowerLabelRange, upperLabelRange, stream);
 }
 
 };  // end namespace stats

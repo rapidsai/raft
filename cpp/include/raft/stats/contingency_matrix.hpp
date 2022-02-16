@@ -21,7 +21,6 @@
 namespace raft {
 namespace stats {
 
-
 /**
  * @brief use this to allocate output matrix size
  * size of matrix = (maxLabel - minLabel + 1)^2 * sizeof(int)
@@ -33,9 +32,9 @@ namespace stats {
  */
 template <typename T>
 void getInputClassCardinality(
-        const T* groundTruth, const int nSamples, cudaStream_t stream, T& minLabel, T& maxLabel)
+  const T* groundTruth, const int nSamples, cudaStream_t stream, T& minLabel, T& maxLabel)
 {
-    detail::getInputClassCardinality(groundTruth, nSamples, stream, minLabel, maxLabel);
+  detail::getInputClassCardinality(groundTruth, nSamples, stream, minLabel, maxLabel);
 }
 
 /**
@@ -55,7 +54,8 @@ size_t getContingencyMatrixWorkspaceSize(int nSamples,
                                          T minLabel = std::numeric_limits<T>::max(),
                                          T maxLabel = std::numeric_limits<T>::max())
 {
-    return detail::getContingencyMatrixWorkspaceSize(nSamples, groundTruth, stream, minLabel, maxLabel);
+  return detail::getContingencyMatrixWorkspaceSize(
+    nSamples, groundTruth, stream, minLabel, maxLabel);
 }
 
 /**
@@ -86,7 +86,15 @@ void contingencyMatrix(const T* groundTruth,
                        T minLabel           = std::numeric_limits<T>::max(),
                        T maxLabel           = std::numeric_limits<T>::max())
 {
-    detail::contingencyMatrix(groundTruth, predictedLabel, nSamples, outMat, stream, workspace, workspaceSize, minLabel, maxLabel);
+  detail::contingencyMatrix(groundTruth,
+                            predictedLabel,
+                            nSamples,
+                            outMat,
+                            stream,
+                            workspace,
+                            workspaceSize,
+                            minLabel,
+                            maxLabel);
 }
 
 };  // namespace stats

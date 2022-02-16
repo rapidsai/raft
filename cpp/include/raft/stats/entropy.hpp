@@ -36,8 +36,9 @@ double entropy(const T* clusterArray,
                const int size,
                const T lowerLabelRange,
                const T upperLabelRange,
-               cudaStream_t stream) {
-    return detail::entropy(clusterArray, size, lowerLabelRange, upperLabelRange, stream);
+               cudaStream_t stream)
+{
+  return detail::entropy(clusterArray, size, lowerLabelRange, upperLabelRange, stream);
 }
 
 };  // end namespace stats

@@ -67,6 +67,5 @@ enum HistType {
 /// Supported types of information criteria
 enum IC_Type { AIC, AICc, BIC };
 
-
 };  // end namespace stats
 };  // end namespace raft

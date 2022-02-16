@@ -48,7 +48,8 @@ void meanvar(Type* mean,
              IdxType N,
              bool sample,
              bool rowMajor,
-             cudaStream_t stream) {
+             cudaStream_t stream)
+{
   detail::meanvar(mean, var, data, D, N, sample, rowMajor, stream);
 }
 

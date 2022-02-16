@@ -22,9 +22,9 @@
 
 #pragma once
 
+#include <raft/mr/device/allocator.hpp>
 #include <raft/stats/entropy.hpp>
 #include <raft/stats/mutual_info_score.hpp>
-#include <raft/mr/device/allocator.hpp>
 
 namespace raft {
 namespace stats {

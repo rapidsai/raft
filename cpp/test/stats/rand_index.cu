@@ -90,8 +90,8 @@ class randIndexTest : public ::testing::TestWithParam<randIndexParam> {
     raft::update_device(secondClusterArray.data(), &arr2[0], (int)size, stream);
 
     // calling the rand_index CUDA implementation
-    computedRandIndex = raft::stats::rand_index(
-      firstClusterArray.data(), secondClusterArray.data(), size, stream);
+    computedRandIndex =
+      raft::stats::rand_index(firstClusterArray.data(), secondClusterArray.data(), size, stream);
   }
 
   // the destructor

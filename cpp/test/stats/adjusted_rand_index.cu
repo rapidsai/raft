@@ -18,9 +18,9 @@
 #include <algorithm>
 #include <gtest/gtest.h>
 #include <iostream>
+#include <raft/cudart_utils.h>
 #include <raft/stats/adjusted_rand_index.hpp>
 #include <raft/stats/contingency_matrix.hpp>
-#include <raft/cudart_utils.h>
 #include <random>
 
 namespace raft {

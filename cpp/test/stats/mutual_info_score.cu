@@ -17,9 +17,9 @@
 #include <algorithm>
 #include <gtest/gtest.h>
 #include <iostream>
+#include <raft/cudart_utils.h>
 #include <raft/stats/contingency_matrix.hpp>
 #include <raft/stats/mutual_info_score.hpp>
-#include <raft/cudart_utils.h>
 #include <random>
 
 namespace raft {
@@ -118,11 +118,11 @@ class mutualInfoTest : public ::testing::TestWithParam<mutualInfoParam> {
 
     // calling the mutualInfo CUDA implementation
     computedmutualInfo = raft::stats::mutual_info_score(firstClusterArray.data(),
-                                                              secondClusterArray.data(),
-                                                              nElements,
-                                                              lowerLabelRange,
-                                                              upperLabelRange,
-                                                              stream);
+                                                        secondClusterArray.data(),
+                                                        nElements,
+                                                        lowerLabelRange,
+                                                        upperLabelRange,
+                                                        stream);
   }
 
   // the destructor

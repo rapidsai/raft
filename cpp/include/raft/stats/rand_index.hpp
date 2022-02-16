@@ -21,7 +21,6 @@
 namespace raft {
 namespace stats {
 
-
 /**
  * @brief Function to calculate RandIndex
  * <a href="https://en.wikipedia.org/wiki/Rand_index">more info on rand index</a>
@@ -31,12 +30,9 @@ namespace stats {
  * @param stream: the cudaStream object
  */
 template <typename T>
-double rand_index(T* firstClusterArray,
-                          T* secondClusterArray,
-                          uint64_t size,
-                          cudaStream_t stream)
+double rand_index(T* firstClusterArray, T* secondClusterArray, uint64_t size, cudaStream_t stream)
 {
-    return detail::compute_rand_index(firstClusterArray, secondClusterArray, size, stream);
+  return detail::compute_rand_index(firstClusterArray, secondClusterArray, size, stream);
 }
 
 };  // end namespace stats

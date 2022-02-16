@@ -17,10 +17,10 @@
 #include <algorithm>
 #include <gtest/gtest.h>
 #include <iostream>
-#include <raft/stats/silhouette_score.hpp>
 #include <raft/cudart_utils.h>
 #include <raft/distance/distance_type.hpp>
 #include <raft/distance/specializations.hpp>
+#include <raft/stats/silhouette_score.hpp>
 #include <random>
 #include <rmm/device_uvector.hpp>
 
@@ -83,7 +83,6 @@ class silhouetteScoreTest : public ::testing::TestWithParam<silhouetteScoreParam
     handle.sync_stream(stream);
 
     raft::update_host(h_distanceMatrix, d_distanceMatrix.data(), nRows * nRows, stream);
-
 
     // finding the bincount array
 
@@ -171,24 +170,24 @@ class silhouetteScoreTest : public ::testing::TestWithParam<silhouetteScoreParam
 
     // calling the silhouette_score CUDA implementation
     computedSilhouetteScore = raft::stats::silhouette_score(handle,
-                                                                  d_X.data(),
-                                                                  nRows,
-                                                                  nCols,
-                                                                  d_labels.data(),
-                                                                  nLabels,
-                                                                  sampleSilScore.data(),
-                                                                  handle.get_stream(),
-                                                                  params.metric);
+                                                            d_X.data(),
+                                                            nRows,
+                                                            nCols,
+                                                            d_labels.data(),
+                                                            nLabels,
+                                                            sampleSilScore.data(),
+                                                            handle.get_stream(),
+                                                            params.metric);
 
     batchedSilhouetteScore = raft::stats::silhouette_score_batched(handle,
-                                                       d_X.data(),
-                                                       nRows,
-                                                       nCols,
-                                                       d_labels.data(),
-                                                       nLabels,
-                                                       sampleSilScore.data(),
-                                                       chunk,
-                                                       params.metric);
+                                                                   d_X.data(),
+                                                                   nRows,
+                                                                   nCols,
+                                                                   d_labels.data(),
+                                                                   nLabels,
+                                                                   sampleSilScore.data(),
+                                                                   chunk,
+                                                                   params.metric);
   }
 
   // declaring the data values

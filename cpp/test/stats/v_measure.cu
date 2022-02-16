@@ -17,9 +17,9 @@
 #include <algorithm>
 #include <gtest/gtest.h>
 #include <iostream>
-#include <raft/stats/v_measure.hpp>
-#include <raft/stats/homogeneity_score.hpp>
 #include <raft/cudart_utils.h>
+#include <raft/stats/homogeneity_score.hpp>
+#include <raft/stats/v_measure.hpp>
 #include <random>
 
 namespace raft {
@@ -75,17 +75,17 @@ class vMeasureTest : public ::testing::TestWithParam<vMeasureParam> {
     double truthHomogeity, truthCompleteness;
 
     truthHomogeity    = raft::stats::homogeneity_score(truthClusterArray.data(),
-                                                          predClusterArray.data(),
-                                                          nElements,
-                                                          lowerLabelRange,
-                                                          upperLabelRange,
-                                                          stream);
+                                                    predClusterArray.data(),
+                                                    nElements,
+                                                    lowerLabelRange,
+                                                    upperLabelRange,
+                                                    stream);
     truthCompleteness = raft::stats::homogeneity_score(predClusterArray.data(),
-                                                             truthClusterArray.data(),
-                                                             nElements,
-                                                             lowerLabelRange,
-                                                             upperLabelRange,
-                                                             stream);
+                                                       truthClusterArray.data(),
+                                                       nElements,
+                                                       lowerLabelRange,
+                                                       upperLabelRange,
+                                                       stream);
 
     if (truthCompleteness + truthHomogeity == 0.0)
       truthVMeasure = 0.0;
@@ -94,12 +94,12 @@ class vMeasureTest : public ::testing::TestWithParam<vMeasureParam> {
                        (params.beta * truthHomogeity + truthCompleteness));
     // calling the v_measure CUDA implementation
     computedVMeasure = raft::stats::v_measure(truthClusterArray.data(),
-                                                    predClusterArray.data(),
-                                                    nElements,
-                                                    lowerLabelRange,
-                                                    upperLabelRange,
-                                                    stream,
-                                                    params.beta);
+                                              predClusterArray.data(),
+                                              nElements,
+                                              lowerLabelRange,
+                                              upperLabelRange,
+                                              stream,
+                                              params.beta);
   }
 
   // the destructor

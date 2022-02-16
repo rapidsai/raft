@@ -25,14 +25,14 @@
  */
 #pragma once
 
-#include <raft/stats/contingency_matrix.hpp>
 #include <cub/cub.cuh>
 #include <math.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/reduce.hpp>
-#include <rmm/device_scalar.hpp>
 #include <raft/interruptible.hpp>
+#include <raft/linalg/reduce.hpp>
+#include <raft/stats/contingency_matrix.hpp>
+#include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
 namespace raft {
@@ -119,14 +119,14 @@ double mutual_info_score(const T* firstClusterArray,
 
   // calculating the contingency matrix
   raft::stats::contingencyMatrix(firstClusterArray,
-                                       secondClusterArray,
-                                       (int)size,
-                                       (int*)dContingencyMatrix.data(),
-                                       stream,
-                                       (void*)pWorkspace.data(),
-                                       workspaceSz,
-                                       lowerLabelRange,
-                                       upperLabelRange);
+                                 secondClusterArray,
+                                 (int)size,
+                                 (int*)dContingencyMatrix.data(),
+                                 stream,
+                                 (void*)pWorkspace.data(),
+                                 workspaceSz,
+                                 lowerLabelRange,
+                                 upperLabelRange);
 
   // creating device buffers for all the parameters involved in ARI calculation
   // device variables

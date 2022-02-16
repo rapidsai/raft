@@ -17,10 +17,10 @@
 #include "../test_utils.h"
 #include <gtest/gtest.h>
 #include <iostream>
-#include <raft/stats/trustworthiness_score.hpp>
 #include <raft/cudart_utils.h>
 #include <raft/distance/distance.hpp>
 #include <raft/stats/specializations.hpp>
+#include <raft/stats/trustworthiness_score.hpp>
 #include <vector>
 
 namespace raft {

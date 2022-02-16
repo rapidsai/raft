@@ -37,9 +37,10 @@ double completeness_score(const T* truthClusterArray,
                           int size,
                           T lowerLabelRange,
                           T upperLabelRange,
-                          cudaStream_t stream) {
-    return detail::completeness_score(truthClusterArray, predClusterArray, size,
-                                      lowerLabelRange, upperLabelRange, stream);
+                          cudaStream_t stream)
+{
+  return detail::completeness_score(
+    truthClusterArray, predClusterArray, size, lowerLabelRange, upperLabelRange, stream);
 }
 
 };  // end namespace stats

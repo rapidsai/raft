@@ -40,8 +40,10 @@ double trustworthiness_score(const raft::handle_t& h,
                              int m,
                              int d,
                              int n_neighbors,
-                             int batchSize = 512) {
-    return detail::trustworthiness_score<math_t, distance_type>(h, X, X_embedded, n, m, d, n_neighbors, batchSize);
+                             int batchSize = 512)
+{
+  return detail::trustworthiness_score<math_t, distance_type>(
+    h, X, X_embedded, n, m, d, n_neighbors, batchSize);
 }
 }  // namespace stats
 }  // namespace raft

@@ -33,24 +33,23 @@ namespace raft {
 namespace stats {
 namespace detail {
 
-
 /**
  * @brief Lambda to calculate the entropy of a sample given its probability value
  *
  * @param p: the input to the functional mapping
  * @param q: dummy param
  */
-    struct entropyOp {
-        HDI double operator()(double p, double q)
-        {
-            if (p)
-                return -1 * (p) * (log(p));
-            else
-                return 0.0;
-        }
-    };
+struct entropyOp {
+  HDI double operator()(double p, double q)
+  {
+    if (p)
+      return -1 * (p) * (log(p));
+    else
+      return 0.0;
+  }
+};
 
-    /**
+/**
  * @brief function to calculate the bincounts of number of samples in every label
  *
  * @tparam LabelT: type of the labels

@@ -17,10 +17,10 @@
 #include <algorithm>
 #include <gtest/gtest.h>
 #include <iostream>
-#include <raft/stats/completeness_score.hpp>
-#include <raft/stats/mutual_info_score.hpp>
-#include <raft/stats/entropy.hpp>
 #include <raft/cudart_utils.h>
+#include <raft/stats/completeness_score.hpp>
+#include <raft/stats/entropy.hpp>
+#include <raft/stats/mutual_info_score.hpp>
 #include <random>
 
 namespace raft {
@@ -76,11 +76,11 @@ class completenessTest : public ::testing::TestWithParam<completenessParam> {
     double truthMI, truthEntropy;
 
     truthMI      = raft::stats::mutual_info_score(truthClusterArray.data(),
-                                                   predClusterArray.data(),
-                                                   nElements,
-                                                   lowerLabelRange,
-                                                   upperLabelRange,
-                                                   stream);
+                                             predClusterArray.data(),
+                                             nElements,
+                                             lowerLabelRange,
+                                             upperLabelRange,
+                                             stream);
     truthEntropy = raft::stats::entropy(
       predClusterArray.data(), nElements, lowerLabelRange, upperLabelRange, stream);
 
@@ -93,11 +93,11 @@ class completenessTest : public ::testing::TestWithParam<completenessParam> {
 
     // calling the completeness CUDA implementation
     computedCompleteness = raft::stats::completeness_score(truthClusterArray.data(),
-                                                                 predClusterArray.data(),
-                                                                 nElements,
-                                                                 lowerLabelRange,
-                                                                 upperLabelRange,
-                                                                 stream);
+                                                           predClusterArray.data(),
+                                                           nElements,
+                                                           lowerLabelRange,
+                                                           upperLabelRange,
+                                                           stream);
   }
 
   // the destructor

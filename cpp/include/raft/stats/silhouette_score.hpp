@@ -40,31 +40,34 @@ namespace stats {
  */
 template <typename DataT, typename LabelT>
 DataT silhouette_score(
-        const raft::handle_t& handle,
-        DataT* X_in,
-        int nRows,
-        int nCols,
-        LabelT* labels,
-        int nLabels,
-        DataT* silhouette_scorePerSample,
-        cudaStream_t stream,
-        raft::distance::DistanceType metric = raft::distance::DistanceType::L2Unexpanded) {
-    return detail::silhouette_score(handle, X_in, nRows, nCols, labels, nLabels,
-                                     silhouette_scorePerSample, stream, metric);
+  const raft::handle_t& handle,
+  DataT* X_in,
+  int nRows,
+  int nCols,
+  LabelT* labels,
+  int nLabels,
+  DataT* silhouette_scorePerSample,
+  cudaStream_t stream,
+  raft::distance::DistanceType metric = raft::distance::DistanceType::L2Unexpanded)
+{
+  return detail::silhouette_score(
+    handle, X_in, nRows, nCols, labels, nLabels, silhouette_scorePerSample, stream, metric);
 }
 
 template <typename value_t, typename value_idx, typename label_idx>
 value_t silhouette_score_batched(
-        const raft::handle_t& handle,
-        value_t* X,
-        value_idx n_rows,
-        value_idx n_cols,
-        label_idx* y,
-        label_idx n_labels,
-        value_t* scores,
-        value_idx chunk,
-        raft::distance::DistanceType metric = raft::distance::DistanceType::L2Unexpanded) {
-    return batched::detail::silhouette_score(handle, X, n_rows, n_cols, y, n_labels, scores, chunk, metric);
+  const raft::handle_t& handle,
+  value_t* X,
+  value_idx n_rows,
+  value_idx n_cols,
+  label_idx* y,
+  label_idx n_labels,
+  value_t* scores,
+  value_idx chunk,
+  raft::distance::DistanceType metric = raft::distance::DistanceType::L2Unexpanded)
+{
+  return batched::detail::silhouette_score(
+    handle, X, n_rows, n_cols, y, n_labels, scores, chunk, metric);
 }
 
 };  // namespace stats
