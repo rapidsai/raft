@@ -71,6 +71,7 @@ add_executable(test_raft
     test/linalg/unary_op.cu
     test/matrix/math.cu
     test/matrix/matrix.cu
+    test/matrix/colWiseSort.cu
     test/matrix/linewise_op.cu
     test/mr/host/buffer.cpp
     test/mr/device/buffer.cpp
@@ -119,6 +120,7 @@ add_executable(test_raft
     test/stats/entropy.cu
     test/stats/histogram.cu
     test/stats/homogeneity_score.cu
+    test/stats/information_criterion.cu
     test/stats/kl_divergence.cu
     test/stats/mean.cu
     test/stats/meanvar.cu
