@@ -18,8 +18,8 @@
 #include "spatial_data.h"
 #include <raft/cudart_utils.h>
 #include <raft/distance/distance_type.hpp>
-#include <raft/spatial/knn/ball_cover.hpp>
 #include <raft/random/make_blobs.hpp>
+#include <raft/spatial/knn/ball_cover.hpp>
 #include <raft/spatial/knn/detail/knn_brute_force_faiss.cuh>
 #if defined RAFT_NN_COMPILED
 #include <raft/spatial/knn/specializations.hpp>
@@ -140,25 +140,23 @@ class BallCoverKNNQueryTest : public ::testing::TestWithParam<BallCoverInputs> {
     params = ::testing::TestWithParam<BallCoverInputs>::GetParam();
     raft::handle_t handle;
 
-    uint32_t k   = params.k;
+    uint32_t k         = params.k;
     uint32_t n_centers = 25;
-    float weight = params.weight;
-    auto metric  = params.metric;
+    float weight       = params.weight;
+    auto metric        = params.metric;
 
     rmm::device_uvector<value_t> X(params.n_rows * params.n_cols, handle.get_stream());
     rmm::device_uvector<uint32_t> Y(params.n_rows, handle.get_stream());
 
-    raft::random::make_blobs(X.data(), Y.data(), params.n_rows, params.n_cols, n_centers, handle.get_stream());
+    raft::random::make_blobs(
+      X.data(), Y.data(), params.n_rows, params.n_cols, n_centers, handle.get_stream());
 
     rmm::device_uvector<value_idx> d_ref_I(params.n_query * k, handle.get_stream());
     rmm::device_uvector<value_t> d_ref_D(params.n_query * k, handle.get_stream());
 
     if (metric == raft::distance::DistanceType::Haversine) {
-      thrust::transform(handle.get_thrust_policy(),
-                        X.data(),
-                        X.data() + X.size(),
-                        X.data(),
-                        ToRadians());
+      thrust::transform(
+        handle.get_thrust_policy(), X.data(), X.data() + X.size(), X.data(), ToRadians());
     }
 
     compute_bfknn(handle,
@@ -177,7 +175,8 @@ class BallCoverKNNQueryTest : public ::testing::TestWithParam<BallCoverInputs> {
     rmm::device_uvector<value_idx> d_pred_I(params.n_query * k, handle.get_stream());
     rmm::device_uvector<value_t> d_pred_D(params.n_query * k, handle.get_stream());
 
-    BallCoverIndex<value_idx, value_t> index(handle, X.data(), params.n_rows, params.n_cols, metric);
+    BallCoverIndex<value_idx, value_t> index(
+      handle, X.data(), params.n_rows, params.n_cols, metric);
 
     raft::spatial::knn::rbc_build_index(handle, index);
     raft::spatial::knn::rbc_knn_query(
@@ -223,25 +222,23 @@ class BallCoverAllKNNTest : public ::testing::TestWithParam<BallCoverInputs> {
     params = ::testing::TestWithParam<BallCoverInputs>::GetParam();
     raft::handle_t handle;
 
-    uint32_t k   = params.k;
+    uint32_t k         = params.k;
     uint32_t n_centers = 25;
-    float weight = params.weight;
-    auto metric  = params.metric;
+    float weight       = params.weight;
+    auto metric        = params.metric;
 
     rmm::device_uvector<value_t> X(params.n_rows * params.n_cols, handle.get_stream());
     rmm::device_uvector<uint32_t> Y(params.n_rows, handle.get_stream());
 
-    raft::random::make_blobs(X.data(), Y.data(), params.n_rows, params.n_cols, n_centers, handle.get_stream());
+    raft::random::make_blobs(
+      X.data(), Y.data(), params.n_rows, params.n_cols, n_centers, handle.get_stream());
 
     rmm::device_uvector<value_idx> d_ref_I(params.n_rows * k, handle.get_stream());
     rmm::device_uvector<value_t> d_ref_D(params.n_rows * k, handle.get_stream());
 
     if (metric == raft::distance::DistanceType::Haversine) {
-      thrust::transform(handle.get_thrust_policy(),
-                        X.data(),
-                        X.data() + X.size(),
-                        X.data(),
-                        ToRadians());
+      thrust::transform(
+        handle.get_thrust_policy(), X.data(), X.data() + X.size(), X.data(), ToRadians());
     }
 
     std::vector<int64_t>* translations = nullptr;
@@ -269,7 +266,8 @@ class BallCoverAllKNNTest : public ::testing::TestWithParam<BallCoverInputs> {
     rmm::device_uvector<value_idx> d_pred_I(params.n_rows * k, handle.get_stream());
     rmm::device_uvector<value_t> d_pred_D(params.n_rows * k, handle.get_stream());
 
-    BallCoverIndex<value_idx, value_t> index(handle, X.data(), params.n_rows, params.n_cols, metric);
+    BallCoverIndex<value_idx, value_t> index(
+      handle, X.data(), params.n_rows, params.n_cols, metric);
 
     raft::spatial::knn::rbc_all_knn_query(
       handle, index, k, d_pred_I.data(), d_pred_D.data(), true, weight);
