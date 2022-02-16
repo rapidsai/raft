@@ -22,7 +22,8 @@ namespace raft {
 namespace stats {
 
 /**
- * @brief Compute the row-wise weighted mean of the input matrix
+ * @brief Compute the row-wise weighted mean of the input matrix with a
+ * vector of column weights
  *
  * @tparam Type the data type
  * @param mu the output mean vector
@@ -40,7 +41,35 @@ void rowWeightedMean(
 }
 
 /**
- * @brief Compute the column-wise weighted mean of the input matrix
+ * @brief Compute the row-wise weighted mean of the input matrix with a
+ * vector of sample weights
+ *
+ * @tparam Type the data type
+ * @param mu the output mean vector
+ * @param data the input matrix
+ * @param weights per-sample weight
+ * @param D number of columns of data
+ * @param N number of rows of data
+ * @param row_major input matrix is row-major or not
+ * @param along_rows whether to reduce along rows or columns
+ * @param stream cuda stream to launch work on
+ */
+template <typename Type>
+void rowSampleWeightedMean(Type* mu,
+                           const Type* data,
+                           const Type* weights,
+                           int D,
+                           int N,
+                           bool row_major,
+                           bool along_rows,
+                           cudaStream_t stream)
+{
+  detail::rowSampleWeightedMean(mu, data, weights, D, N, row_major, along_rows, stream);
+}
+
+/**
+ * @brief Compute the column-wise weighted mean of the input matrix with a
+ * vector of column weights
  *
  * @tparam Type the data type
  * @param mu the output mean vector
