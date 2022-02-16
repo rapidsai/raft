@@ -29,6 +29,7 @@
 #include <thrust/sequence.h>
 #include <thrust/sort.h>
 
+#include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/device_atomics.cuh>
 #include <raft/handle.hpp>
