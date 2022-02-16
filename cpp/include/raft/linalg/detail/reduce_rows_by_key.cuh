@@ -311,7 +311,7 @@ __global__ void sum_rows_by_key_large_nkeys_kernel_rowmajor(const DataIteratorT 
                  // same for the whole block
 #endif
     // if ((end_row-start_row) / (r-start_row) != global_key) continue;
-    DataType val = ldcg(&d_A[r * lda + this_col]);
+    DataType val = __ldcg(&d_A[r * lda + this_col]);
     if (d_weights) { val = val * d_weights[r]; }
     sum += val;
   }

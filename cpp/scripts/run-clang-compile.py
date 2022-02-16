@@ -132,19 +132,18 @@ def get_clang_args(cmd):
     # remove compilation and output targets from the original command
     remove_items_plus_one(command, ["--compile", "-c"])
     remove_items_plus_one(command, ["--output-file", "-o"])
-    command.extend(["-stdlib=libstdc++"])
     if is_cuda:
         # replace nvcc's "-gencode ..." with clang's "--cuda-gpu-arch ..."
         archs = get_gpu_archs(command)
         command.extend(archs)
         # provide proper cuda path to clang
         add_cuda_path(command, cc_orig)
-        remove_items_plus_one(command, ["-gencode", "--generate-code"])
-        # "-x cuda" is the right usage in clang
-        remove_items_plus_one(command, ["--x", "-x"])
-        command.extend(["-x", "cuda"])
         # remove all kinds of nvcc flags clang doesn't know about
         remove_items_plus_one(command, [
+            "--generate-code",
+            "-gencode",
+            "--x",
+            "-x",
             "--compiler-bindir",
             "-ccbin",
             "--diag_suppress",
@@ -164,6 +163,8 @@ def get_clang_args(cmd):
             "--generate-line-info",
             "-lineinfo",
         ])
+        # "-x cuda" is the right usage in clang
+        command.extend(["-x", "cuda"])
         # we remove -Xcompiler flags: here we basically have to hope for the
         # best that clang++ will accept any flags which nvcc passed to gcc
         for i, c in reversed(list(enumerate(command))):
@@ -193,6 +194,11 @@ def get_clang_args(cmd):
         command.extend(["-Xcuda-ptxas", "-ewp"])
         # for libcudacxx, we need to allow variadic functions
         command.extend(["-Xclang", "-fcuda-allow-variadic-functions"])
+        # add some additional CUDA intrinsics
+        cuda_intrinsics_file = os.path.join(
+            os.path.dirname(os.path.realpath(__file__)),
+            "__clang_cuda_additional_intrinsics.h")
+        command.extend(["-include", cuda_intrinsics_file])
     # somehow this option gets onto the commandline, it is unrecognized by clang
     remove_items(command, [
         "--forward-unknown-to-host-compiler",

@@ -159,7 +159,7 @@ __global__ void __launch_bounds__(BlockSize)
       __threadfence();
     }
     __syncthreads();
-    if (threadIdx.x == 0 && col < D) { stwt(lock, 0); }
+    if (threadIdx.x == 0 && col < D) { __stwt(lock, 0); }
   }
 }
 

@@ -83,7 +83,7 @@ struct Linewise {
     Vec v, w;
     bool update = true;
     for (; in < in_end; in += AlignWarp::Value, out += AlignWarp::Value, rowMod += warpPad) {
-      v.val.internal = ldcv(in);
+      v.val.internal = __ldcv(in);
       while (rowMod >= rowLen) {
         rowMod -= rowLen;
         rowDiv++;
@@ -138,11 +138,11 @@ struct Linewise {
     Vec v;
     const IdxType d = BlockSize * gridDim.x;
     for (IdxType i = threadIdx.x + blockIdx.x * BlockSize; i < len; i += d) {
-      v.val.internal = ldcv(in + i);
+      v.val.internal = __ldcv(in + i);
 #pragma unroll VecElems
       for (int k = 0; k < VecElems; k++)
         v.val.data[k] = op(v.val.data[k], args.val.data[k]...);
-      stwt(out + i, v.val.internal);
+      __stwt(out + i, v.val.internal);
     }
   }
 
