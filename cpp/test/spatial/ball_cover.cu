@@ -92,7 +92,8 @@ template <typename value_t>
 void compute_bfknn(const raft::handle_t& handle,
                    const value_t* X1,
                    const value_t* X2,
-                   uint32_t n,
+                   uint32_t n_rows,
+                   uint32_t n_query_rows,
                    uint32_t d,
                    uint32_t k,
                    const raft::distance::DistanceType metric,
@@ -100,7 +101,7 @@ void compute_bfknn(const raft::handle_t& handle,
                    int64_t* inds)
 {
   std::vector<value_t*> input_vec = {const_cast<value_t*>(X1)};
-  std::vector<uint32_t> sizes_vec = {n};
+  std::vector<uint32_t> sizes_vec = {n_rows};
 
   std::vector<int64_t>* translations = nullptr;
 
@@ -109,7 +110,7 @@ void compute_bfknn(const raft::handle_t& handle,
                                                                       sizes_vec,
                                                                       d,
                                                                       const_cast<value_t*>(X2),
-                                                                      n,
+                                                                      n_query_rows,
                                                                       inds,
                                                                       dists,
                                                                       k,
@@ -162,6 +163,7 @@ class BallCoverKNNQueryTest : public ::testing::TestWithParam<BallCoverInputs> {
     compute_bfknn(handle,
                   X.data(),
                   X.data(),
+                  params.n_rows,
                   params.n_query,
                   params.n_cols,
                   k,
@@ -241,24 +243,16 @@ class BallCoverAllKNNTest : public ::testing::TestWithParam<BallCoverInputs> {
         handle.get_thrust_policy(), X.data(), X.data() + X.size(), X.data(), ToRadians());
     }
 
-    std::vector<int64_t>* translations = nullptr;
-
-    std::vector<float*> input_vec   = {X.data()};
-    std::vector<uint32_t> sizes_vec = {params.n_rows};
-
-    raft::spatial::knn::detail::brute_force_knn_impl<uint32_t, int64_t>(handle,
-                                                                        input_vec,
-                                                                        sizes_vec,
-                                                                        params.n_cols,
-                                                                        X.data(),
-                                                                        params.n_rows,
-                                                                        d_ref_I.data(),
-                                                                        d_ref_D.data(),
-                                                                        k,
-                                                                        true,
-                                                                        true,
-                                                                        translations,
-                                                                        metric);
+    compute_bfknn(handle,
+                  X.data(),
+                  X.data(),
+                  params.n_rows,
+                  params.n_rows,
+                  params.n_cols,
+                  k,
+                  metric,
+                  d_ref_D.data(),
+                  d_ref_I.data());
 
     RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
 
