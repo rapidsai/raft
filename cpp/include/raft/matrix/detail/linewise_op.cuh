@@ -314,12 +314,8 @@ __global__ void __launch_bounds__(BlockSize)
   typedef Linewise<Type, IdxType, VecBytes, BlockSize> L;
   constexpr uint workSize = L::VecElems * BlockSize;
   uint workOffset         = workSize;
-#if defined(__clang__)
-  __shared__ Type shm[workSize * ((sizeof...(Vecs)) > 1 ? 2 : 1)];
-#else
-  __shared__ alignas(sizeof(Type) * L::VecElems)
+  __shared__ __align__(sizeof(Type) * L::VecElems)
     Type shm[workSize * ((sizeof...(Vecs)) > 1 ? 2 : 1)];
-#endif
   const IdxType blockOffset = (arrOffset + BlockSize * L::VecElems * blockIdx.x) % rowLen;
   return L::vectorRows(
     reinterpret_cast<typename L::Vec::io_t*>(out),
