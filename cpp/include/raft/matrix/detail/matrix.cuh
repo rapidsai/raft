@@ -220,7 +220,7 @@ template <typename m_t, typename idx_t = int>
 void copyUpperTriangular(m_t* src, m_t* dst, idx_t n_rows, idx_t n_cols, cudaStream_t stream)
 {
   idx_t m = n_rows, n = n_cols;
-  idx_t k = min(m, n);
+  idx_t k = std::min(m, n);
   dim3 block(64);
   dim3 grid((m * n + block.x - 1) / block.x);
   getUpperTriangular<<<grid, block, 0, stream>>>(src, dst, m, n, k);
@@ -246,7 +246,7 @@ template <typename m_t, typename idx_t = int>
 void initializeDiagonalMatrix(
   m_t* vec, m_t* matrix, idx_t n_rows, idx_t n_cols, cudaStream_t stream)
 {
-  idx_t k = min(n_rows, n_cols);
+  idx_t k = std::min(n_rows, n_cols);
   dim3 block(64);
   dim3 grid((k + block.x - 1) / block.x);
   copyVectorToMatrixDiagonal<<<grid, block, 0, stream>>>(vec, matrix, n_rows, n_cols, k);

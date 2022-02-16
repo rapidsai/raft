@@ -170,7 +170,6 @@ const std::vector<MakeBlobsInputs<float>> inputsf_t = {
   {0.011, 1024, 8, 3, 1.f, false, true, raft::random::GenPC, 1234ULL},
   {0.0055, 5003, 32, 5, 1.f, true, false, raft::random::GenPhilox, 1234ULL},
   {0.011, 5003, 8, 5, 1.f, true, false, raft::random::GenPhilox, 1234ULL},
-
   {0.0055, 5003, 32, 5, 1.f, true, false, raft::random::GenPC, 1234ULL},
   {0.011, 5003, 8, 5, 1.f, true, false, raft::random::GenPC, 1234ULL},
   {0.0055, 5003, 32, 5, 1.f, false, false, raft::random::GenPhilox, 1234ULL},
