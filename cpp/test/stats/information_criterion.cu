@@ -102,6 +102,8 @@ class BatchedICTest : public ::testing::TestWithParam<BatchedICInputs<T>> {
              params.batch_size,
              params.n_samples);
 
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+
     allocator->deallocate(loglike_d, sizeof(T) * params.batch_size, stream);
   }
 

@@ -57,7 +57,7 @@ void information_criterion_batched(ScalarT* d_ic,
                                    cudaStream_t stream)
 {
   batched::detail::information_criterion(
-    d_ic, d_loglikelihood, ic_type, n_params, batch_size, n_params, stream);
+    d_ic, d_loglikelihood, ic_type, n_params, batch_size, n_samples, stream);
 }
 
 }  // namespace stats

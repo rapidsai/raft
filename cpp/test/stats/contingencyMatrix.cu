@@ -132,6 +132,8 @@ class ContingencyMatrixTest : public ::testing::TestWithParam<ContingencyMatrixP
                                    workspaceSz,
                                    minLabel,
                                    maxLabel);
+
+    raft::interruptible::synchronize(stream);
     ASSERT_TRUE(raft::devArrMatch(dComputedOutput.data(),
                                   dGoldenOutput.data(),
                                   numUniqueClasses * numUniqueClasses,

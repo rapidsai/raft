@@ -45,7 +45,7 @@ void sort_cols_per_row(const InType* in,
                        cudaStream_t stream,
                        InType* sortedKeys = nullptr)
 {
-  detail::sortColumnsPerRow(
+  detail::sortColumnsPerRow<InType, OutType>(
     in, out, n_rows, n_columns, bAllocWorkspace, workspacePtr, workspaceSize, stream, sortedKeys);
 }
 };  // end namespace matrix

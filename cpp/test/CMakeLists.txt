@@ -71,7 +71,7 @@ add_executable(test_raft
     test/linalg/unary_op.cu
     test/matrix/math.cu
     test/matrix/matrix.cu
-    test/matrix/colWiseSort.cu
+    test/matrix/columnSort.cu
     test/matrix/linewise_op.cu
     test/mr/host/buffer.cpp
     test/mr/device/buffer.cpp

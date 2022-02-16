@@ -86,15 +86,15 @@ void contingencyMatrix(const T* groundTruth,
                        T minLabel           = std::numeric_limits<T>::max(),
                        T maxLabel           = std::numeric_limits<T>::max())
 {
-  detail::contingencyMatrix(groundTruth,
-                            predictedLabel,
-                            nSamples,
-                            outMat,
-                            stream,
-                            workspace,
-                            workspaceSize,
-                            minLabel,
-                            maxLabel);
+  detail::contingencyMatrix<T, OutT>(groundTruth,
+                                     predictedLabel,
+                                     nSamples,
+                                     outMat,
+                                     stream,
+                                     workspace,
+                                     workspaceSize,
+                                     minLabel,
+                                     maxLabel);
 }
 
 };  // namespace stats

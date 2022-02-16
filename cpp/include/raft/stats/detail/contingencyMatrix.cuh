@@ -29,6 +29,7 @@
 namespace raft {
 namespace stats {
 namespace detail {
+
 typedef enum {
   IMPL_NONE,
   SMEM_ATOMICS,

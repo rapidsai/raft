@@ -105,7 +105,7 @@ class ColumnSort : public ::testing::TestWithParam<columnSort<T>> {
     bool needWorkspace   = false;
     size_t workspaceSize = 0;
     // Remove this branch once the implementation of descending sort is fixed.
-    sortColumnsPerRow(keyIn.data(),
+    sort_cols_per_row(keyIn.data(),
                       valueOut.data(),
                       params.n_row,
                       params.n_col,
@@ -116,7 +116,7 @@ class ColumnSort : public ::testing::TestWithParam<columnSort<T>> {
                       keySorted.data());
     if (needWorkspace) {
       workspacePtr.resize(workspaceSize, stream);
-      sortColumnsPerRow(keyIn.data(),
+      sort_cols_per_row(keyIn.data(),
                         valueOut.data(),
                         params.n_row,
                         params.n_col,
@@ -126,6 +126,7 @@ class ColumnSort : public ::testing::TestWithParam<columnSort<T>> {
                         stream,
                         keySorted.data());
     }
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
     RAFT_CUDA_TRY(cudaStreamDestroy(stream));
   }
 
