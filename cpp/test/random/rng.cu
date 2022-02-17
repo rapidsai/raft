@@ -237,7 +237,6 @@ const std::vector<RngInputs<double>> inputsd = {
   {1.5e-2f, 1024 * 1024, 1.6f, 0.0f, RNG_Rayleigh, GenPC, 1234ULL},
   {1.5e-2f, 1024 * 1024, 2.6f, 1.3f, RNG_Laplace, GenPC, 1234ULL}};
 
-
 TEST_P(RngTestD, Result)
 {
   double meanvar[2];
