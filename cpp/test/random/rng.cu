@@ -179,27 +179,19 @@ class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
   int num_sigma;
 };
 
-// The measured mean and standard deviation for each tested distribution are,
-// of course, statistical variables. Thus setting an appropriate testing
-// tolerance essentially requires one to set a probability of test failure. We
-// choose to set this at 3-4 x sigma, i.e., a 99.7-99.9% confidence interval so that
-// the test will indeed pass. In quick experiments (using the identical
-// distributions given by NumPy/SciPy), the measured standard deviation is the
-// variable with the greatest variance and so we determined the variance for
-// each distribution and number of samples (32*1024 or 8*1024). Below
-// are listed the standard deviation for these tests.
-
-// Distribution: StdDev 32*1024, StdDev 8*1024
-// Normal: 0.0055, 0.011
-// LogNormal: 0.05, 0.1
-// Uniform: 0.003, 0.005
-// Gumbel: 0.005, 0.01
-// Logistic: 0.005, 0.01
-// Exp: 0.008, 0.015
-// Rayleigh: 0.0125, 0.025
-// Laplace: 0.02, 0.04
-
-// We generally want 4 x sigma >= 99.9% chance of success
+// In this test we generate pseudo-random values that follow various probability distributions such
+// as Normal, Laplace etc. To check the correctness of generated random variates we compute two
+// measures, mean and variance from the generated data. The computed values are matched against
+// their theoretically expected values for the corresponding distribution. The computed mean and
+// variance are statistical variables themselves and follow a Normal distribution. Which means,
+// there is 99+% chance that the computed values fall in the 3-sigma (standard deviation) interval
+// [theoretical_value - 3*sigma, theoretical_value + 3*sigma]. The values are practically
+// guaranteed to fall in the 4-sigma interval. Reference standard deviation of the computed
+// mean/variance distribution is calculated here
+// https://gist.github.com/vinaydes/cee04f50ff7e3365759603d39b7e079b Maximum standard deviation
+// observed here is ~1.5e-2, thus we use this as sigma in our test.
+// N O T E: Before adding any new test case below, make sure to calculate standard deviation for the
+// test parameters using above notebook.
 
 typedef RngTest<float> RngTestF;
 const std::vector<RngInputs<float>> inputsf = {
