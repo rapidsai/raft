@@ -294,7 +294,11 @@ DI void custom_next(
   GenType& gen, OutType* val, GumbelDistParams<OutType> params, LenType idx = 0, LenType stride = 0)
 {
   OutType res = 0;
-  gen.next(res);
+
+  do {
+    gen.next(res);
+  } while (res == OutType(1.0));
+
   *val = params.mu - params.beta * raft::myLog(-raft::myLog(res));
 }
 
@@ -334,7 +338,11 @@ DI void custom_next(GenType& gen,
                     LenType stride = 0)
 {
   OutType res;
-  gen.next(res);
+
+  do {
+    gen.next(res);
+  } while (res == OutType(1.0));
+
   constexpr OutType one = (OutType)1.0;
   *val                  = -raft::myLog(one - res) / params.lambda;
 }
@@ -347,7 +355,11 @@ DI void custom_next(GenType& gen,
                     LenType stride = 0)
 {
   OutType res;
-  gen.next(res);
+
+  do {
+    gen.next(res);
+  } while (res == OutType(1.0));
+
   constexpr OutType one = (OutType)1.0;
   constexpr OutType two = (OutType)2.0;
   *val                  = raft::mySqrt(-two * raft::myLog(one - res)) * params.sigma;
@@ -361,7 +373,11 @@ DI void custom_next(GenType& gen,
                     LenType stride = 0)
 {
   OutType res, out;
-  gen.next(res);
+
+  do {
+    gen.next(res);
+  } while (res == OutType(0.0) || res == OutType(1.0));
+
   constexpr OutType one     = (OutType)1.0;
   constexpr OutType two     = (OutType)2.0;
   constexpr OutType oneHalf = (OutType)0.5;
