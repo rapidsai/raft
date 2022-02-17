@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include <sys/timeb.h>
+
 #include "../test_utils.h"
 #include <cub/cub.cuh>
 #include <gtest/gtest.h>
@@ -69,9 +71,6 @@ struct RngInputs {
   GeneratorType gtype;
   uint64_t seed;
 };
-
-#include <sys/timeb.h>
-#include <time.h>
 
 // In this test we generate pseudo-random values that follow various probability distributions such
 // as Normal, Laplace etc. To check the correctness of generated random variates we compute two
