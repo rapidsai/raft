@@ -60,16 +60,15 @@ template <typename T>
 struct RngInputs {
   T tolerance;
   int len;
-  // start, end: for uniform
-  // mean, sigma: for normal/lognormal
-  // mean, beta: for gumbel
-  // mean, scale: for logistic and laplace
-  // lambda: for exponential
-  // sigma: for rayleigh
+  // Meaning of 'start' and 'end' parameter for various distributions
+  //
+  //         Uniform   Normal/Log-Normal   Gumbel   Logistic   Laplace   Exponential   Rayleigh
+  // start    start          mean           mean     mean       mean       lambda       sigma
+  // end       end           sigma          beta     scale      scale      Unused       Unused
   T start, end;
   RandomType type;
   GeneratorType gtype;
-  unsigned long long int seed;
+  uint64_t seed;
 };
 
 template <typename T>
