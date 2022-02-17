@@ -70,12 +70,6 @@ struct RngInputs {
   uint64_t seed;
 };
 
-template <typename T>
-::std::ostream& operator<<(::std::ostream& os, const RngInputs<T>& dims)
-{
-  return os;
-}
-
 #include <sys/timeb.h>
 #include <time.h>
 
