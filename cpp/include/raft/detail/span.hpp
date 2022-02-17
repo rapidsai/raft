@@ -86,5 +86,30 @@ __host__ __device__ constexpr auto lexicographical_compare(InputIt1 first1,
   }
   return first1 == last1 && first2 != last2;
 }
+
+template <typename T, typename SizeType, size_t Extent>
+struct span_storage {
+ private:
+  T* ptr_{nullptr};
+
+ public:
+  constexpr span_storage() = default;
+  constexpr span_storage(T* ptr, SizeType) : ptr_{ptr} {}
+  [[nodiscard]] constexpr auto size() const -> std::size_t { return Extent; }
+  constexpr auto data() const -> T* { return ptr_; }
+};
+
+template <typename T, typename SizeType>
+struct span_storage<T, SizeType, dynamic_extent> {
+ private:
+  T* ptr_{nullptr};
+  SizeType size_{0};
+
+ public:
+  constexpr span_storage() = default;
+  constexpr span_storage(T* ptr, SizeType size) : ptr_{ptr}, size_{size} {}
+  [[nodiscard]] constexpr auto size() const -> SizeType { return size_; }
+  constexpr auto data() const -> T* { return ptr_; }
+};
 }  // namespace detail
 }  // namespace raft
