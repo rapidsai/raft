@@ -193,16 +193,16 @@ class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
 typedef RngTest<float> RngTestF;
 const std::vector<RngInputs<float>> inputsf = {
   // Test with Philox
-  {1.5e-5f, 1024 * 1024, 3.0f, 1.3f, RNG_Normal, GenPhilox, 1234ULL},
-  {1.5e-5f, 1024 * 1024, 1.2f, 0.1f, RNG_LogNormal, GenPhilox, 1234ULL},
+  {1.5e-2f, 1024 * 1024, 3.0f, 1.3f, RNG_Normal, GenPhilox, 1234ULL},
+  {1.5e-2f, 1024 * 1024, 1.2f, 0.1f, RNG_LogNormal, GenPhilox, 1234ULL},
   {1.5e-2f, 1024 * 1024, 1.2f, 5.5f, RNG_Uniform, GenPhilox, 1234ULL},
   {1.5e-2f, 1024 * 1024, 0.1f, 1.3f, RNG_Gumbel, GenPhilox, 1234ULL},
   {1.5e-2f, 1024 * 1024, 1.6f, 0.0f, RNG_Exp, GenPhilox, 1234ULL},
   {1.5e-2f, 1024 * 1024, 1.6f, 0.0f, RNG_Rayleigh, GenPhilox, 1234ULL},
   {1.5e-2f, 1024 * 1024, 2.6f, 1.3f, RNG_Laplace, GenPhilox, 1234ULL},
   // Test with PCG
-  {1.5e-5f, 1024 * 1024, 3.0f, 1.3f, RNG_Normal, GenPC, 1234ULL},
-  {1.5e-5f, 1024 * 1024, 1.2f, 0.1f, RNG_LogNormal, GenPC, 1234ULL},
+  {1.5e-2f, 1024 * 1024, 3.0f, 1.3f, RNG_Normal, GenPC, 1234ULL},
+  {1.5e-2f, 1024 * 1024, 1.2f, 0.1f, RNG_LogNormal, GenPC, 1234ULL},
   {1.5e-2f, 1024 * 1024, 1.2f, 5.5f, RNG_Uniform, GenPC, 1234ULL},
   {1.5e-2f, 1024 * 1024, 0.1f, 1.3f, RNG_Gumbel, GenPC, 1234ULL},
   {1.5e-2f, 1024 * 1024, 1.6f, 0.0f, RNG_Exp, GenPC, 1234ULL},
@@ -221,16 +221,16 @@ INSTANTIATE_TEST_SUITE_P(RngTests, RngTestF, ::testing::ValuesIn(inputsf));
 typedef RngTest<double> RngTestD;
 const std::vector<RngInputs<double>> inputsd = {
   // Test with Philox
-  {1.5e-5f, 1024 * 1024, 3.0f, 1.3f, RNG_Normal, GenPhilox, 1234ULL},
-  {1.5e-5f, 1024 * 1024, 1.2f, 0.1f, RNG_LogNormal, GenPhilox, 1234ULL},
+  {1.5e-2f, 1024 * 1024, 3.0f, 1.3f, RNG_Normal, GenPhilox, 1234ULL},
+  {1.5e-2f, 1024 * 1024, 1.2f, 0.1f, RNG_LogNormal, GenPhilox, 1234ULL},
   {1.5e-2f, 1024 * 1024, 1.2f, 5.5f, RNG_Uniform, GenPhilox, 1234ULL},
   {1.5e-2f, 1024 * 1024, 0.1f, 1.3f, RNG_Gumbel, GenPhilox, 1234ULL},
   {1.5e-2f, 1024 * 1024, 1.6f, 0.0f, RNG_Exp, GenPhilox, 1234ULL},
   {1.5e-2f, 1024 * 1024, 1.6f, 0.0f, RNG_Rayleigh, GenPhilox, 1234ULL},
   {1.5e-2f, 1024 * 1024, 2.6f, 1.3f, RNG_Laplace, GenPhilox, 1234ULL},
   // Test with PCG
-  {1.5e-5f, 1024 * 1024, 3.0f, 1.3f, RNG_Normal, GenPC, 1234ULL},
-  {1.5e-5f, 1024 * 1024, 1.2f, 0.1f, RNG_LogNormal, GenPC, 1234ULL},
+  {1.5e-2f, 1024 * 1024, 3.0f, 1.3f, RNG_Normal, GenPC, 1234ULL},
+  {1.5e-2f, 1024 * 1024, 1.2f, 0.1f, RNG_LogNormal, GenPC, 1234ULL},
   {1.5e-2f, 1024 * 1024, 1.2f, 5.5f, RNG_Uniform, GenPC, 1234ULL},
   {1.5e-2f, 1024 * 1024, 0.1f, 1.3f, RNG_Gumbel, GenPC, 1234ULL},
   {1.5e-2f, 1024 * 1024, 1.6f, 0.0f, RNG_Exp, GenPC, 1234ULL},
