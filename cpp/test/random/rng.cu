@@ -58,7 +58,6 @@ __global__ void meanKernel(T* out, const T* data, int len)
 
 template <typename T>
 struct RngInputs {
-  T tolerance;
   int len;
   // Meaning of 'start' and 'end' parameter for various distributions
   //
@@ -94,6 +93,9 @@ template <typename T>
 // N O T E: Before adding any new test case below, make sure to calculate standard deviation for the
 // test parameters using above notebook.
 
+constexpr int NUM_SIGMA    = 4;
+constexpr double MAX_SIGMA = 1.5e-2;
+
 template <typename T>
 class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
  public:
@@ -110,7 +112,6 @@ class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
  protected:
   void SetUp() override
   {
-    num_sigma = 4;
     Rng r(params.seed, params.gtype);
     switch (params.type) {
       case RNG_Normal: r.normal(data.data(), params.len, params.start, params.end, stream); break;
@@ -187,62 +188,61 @@ class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
   RngInputs<T> params;
   rmm::device_uvector<T> data, stats;
   T h_stats[2];  // mean, var
-  int num_sigma;
 };
 
 typedef RngTest<float> RngTestF;
 const std::vector<RngInputs<float>> inputsf = {
   // Test with Philox
-  {1.5e-2f, 1024 * 1024, 3.0f, 1.3f, RNG_Normal, GenPhilox, 1234ULL},
-  {1.5e-2f, 1024 * 1024, 1.2f, 0.1f, RNG_LogNormal, GenPhilox, 1234ULL},
-  {1.5e-2f, 1024 * 1024, 1.2f, 5.5f, RNG_Uniform, GenPhilox, 1234ULL},
-  {1.5e-2f, 1024 * 1024, 0.1f, 1.3f, RNG_Gumbel, GenPhilox, 1234ULL},
-  {1.5e-2f, 1024 * 1024, 1.6f, 0.0f, RNG_Exp, GenPhilox, 1234ULL},
-  {1.5e-2f, 1024 * 1024, 1.6f, 0.0f, RNG_Rayleigh, GenPhilox, 1234ULL},
-  {1.5e-2f, 1024 * 1024, 2.6f, 1.3f, RNG_Laplace, GenPhilox, 1234ULL},
+  {1024 * 1024, 3.0f, 1.3f, RNG_Normal, GenPhilox, 1234ULL},
+  {1024 * 1024, 1.2f, 0.1f, RNG_LogNormal, GenPhilox, 1234ULL},
+  {1024 * 1024, 1.2f, 5.5f, RNG_Uniform, GenPhilox, 1234ULL},
+  {1024 * 1024, 0.1f, 1.3f, RNG_Gumbel, GenPhilox, 1234ULL},
+  {1024 * 1024, 1.6f, 0.0f, RNG_Exp, GenPhilox, 1234ULL},
+  {1024 * 1024, 1.6f, 0.0f, RNG_Rayleigh, GenPhilox, 1234ULL},
+  {1024 * 1024, 2.6f, 1.3f, RNG_Laplace, GenPhilox, 1234ULL},
   // Test with PCG
-  {1.5e-2f, 1024 * 1024, 3.0f, 1.3f, RNG_Normal, GenPC, 1234ULL},
-  {1.5e-2f, 1024 * 1024, 1.2f, 0.1f, RNG_LogNormal, GenPC, 1234ULL},
-  {1.5e-2f, 1024 * 1024, 1.2f, 5.5f, RNG_Uniform, GenPC, 1234ULL},
-  {1.5e-2f, 1024 * 1024, 0.1f, 1.3f, RNG_Gumbel, GenPC, 1234ULL},
-  {1.5e-2f, 1024 * 1024, 1.6f, 0.0f, RNG_Exp, GenPC, 1234ULL},
-  {1.5e-2f, 1024 * 1024, 1.6f, 0.0f, RNG_Rayleigh, GenPC, 1234ULL},
-  {1.5e-2f, 1024 * 1024, 2.6f, 1.3f, RNG_Laplace, GenPC, 1234ULL}};
+  {1024 * 1024, 3.0f, 1.3f, RNG_Normal, GenPC, 1234ULL},
+  {1024 * 1024, 1.2f, 0.1f, RNG_LogNormal, GenPC, 1234ULL},
+  {1024 * 1024, 1.2f, 5.5f, RNG_Uniform, GenPC, 1234ULL},
+  {1024 * 1024, 0.1f, 1.3f, RNG_Gumbel, GenPC, 1234ULL},
+  {1024 * 1024, 1.6f, 0.0f, RNG_Exp, GenPC, 1234ULL},
+  {1024 * 1024, 1.6f, 0.0f, RNG_Rayleigh, GenPC, 1234ULL},
+  {1024 * 1024, 2.6f, 1.3f, RNG_Laplace, GenPC, 1234ULL}};
 
 TEST_P(RngTestF, Result)
 {
   float meanvar[2];
   getExpectedMeanVar(meanvar);
-  ASSERT_TRUE(match(meanvar[0], h_stats[0], CompareApprox<float>(num_sigma * params.tolerance)));
-  ASSERT_TRUE(match(meanvar[1], h_stats[1], CompareApprox<float>(num_sigma * params.tolerance)));
+  ASSERT_TRUE(match(meanvar[0], h_stats[0], CompareApprox<float>(NUM_SIGMA * MAX_SIGMA)));
+  ASSERT_TRUE(match(meanvar[1], h_stats[1], CompareApprox<float>(NUM_SIGMA * MAX_SIGMA)));
 }
 INSTANTIATE_TEST_SUITE_P(RngTests, RngTestF, ::testing::ValuesIn(inputsf));
 
 typedef RngTest<double> RngTestD;
 const std::vector<RngInputs<double>> inputsd = {
   // Test with Philox
-  {1.5e-2f, 1024 * 1024, 3.0f, 1.3f, RNG_Normal, GenPhilox, 1234ULL},
-  {1.5e-2f, 1024 * 1024, 1.2f, 0.1f, RNG_LogNormal, GenPhilox, 1234ULL},
-  {1.5e-2f, 1024 * 1024, 1.2f, 5.5f, RNG_Uniform, GenPhilox, 1234ULL},
-  {1.5e-2f, 1024 * 1024, 0.1f, 1.3f, RNG_Gumbel, GenPhilox, 1234ULL},
-  {1.5e-2f, 1024 * 1024, 1.6f, 0.0f, RNG_Exp, GenPhilox, 1234ULL},
-  {1.5e-2f, 1024 * 1024, 1.6f, 0.0f, RNG_Rayleigh, GenPhilox, 1234ULL},
-  {1.5e-2f, 1024 * 1024, 2.6f, 1.3f, RNG_Laplace, GenPhilox, 1234ULL},
+  {1024 * 1024, 3.0f, 1.3f, RNG_Normal, GenPhilox, 1234ULL},
+  {1024 * 1024, 1.2f, 0.1f, RNG_LogNormal, GenPhilox, 1234ULL},
+  {1024 * 1024, 1.2f, 5.5f, RNG_Uniform, GenPhilox, 1234ULL},
+  {1024 * 1024, 0.1f, 1.3f, RNG_Gumbel, GenPhilox, 1234ULL},
+  {1024 * 1024, 1.6f, 0.0f, RNG_Exp, GenPhilox, 1234ULL},
+  {1024 * 1024, 1.6f, 0.0f, RNG_Rayleigh, GenPhilox, 1234ULL},
+  {1024 * 1024, 2.6f, 1.3f, RNG_Laplace, GenPhilox, 1234ULL},
   // Test with PCG
-  {1.5e-2f, 1024 * 1024, 3.0f, 1.3f, RNG_Normal, GenPC, 1234ULL},
-  {1.5e-2f, 1024 * 1024, 1.2f, 0.1f, RNG_LogNormal, GenPC, 1234ULL},
-  {1.5e-2f, 1024 * 1024, 1.2f, 5.5f, RNG_Uniform, GenPC, 1234ULL},
-  {1.5e-2f, 1024 * 1024, 0.1f, 1.3f, RNG_Gumbel, GenPC, 1234ULL},
-  {1.5e-2f, 1024 * 1024, 1.6f, 0.0f, RNG_Exp, GenPC, 1234ULL},
-  {1.5e-2f, 1024 * 1024, 1.6f, 0.0f, RNG_Rayleigh, GenPC, 1234ULL},
-  {1.5e-2f, 1024 * 1024, 2.6f, 1.3f, RNG_Laplace, GenPC, 1234ULL}};
+  {1024 * 1024, 3.0f, 1.3f, RNG_Normal, GenPC, 1234ULL},
+  {1024 * 1024, 1.2f, 0.1f, RNG_LogNormal, GenPC, 1234ULL},
+  {1024 * 1024, 1.2f, 5.5f, RNG_Uniform, GenPC, 1234ULL},
+  {1024 * 1024, 0.1f, 1.3f, RNG_Gumbel, GenPC, 1234ULL},
+  {1024 * 1024, 1.6f, 0.0f, RNG_Exp, GenPC, 1234ULL},
+  {1024 * 1024, 1.6f, 0.0f, RNG_Rayleigh, GenPC, 1234ULL},
+  {1024 * 1024, 2.6f, 1.3f, RNG_Laplace, GenPC, 1234ULL}};
 
 TEST_P(RngTestD, Result)
 {
   double meanvar[2];
   getExpectedMeanVar(meanvar);
-  ASSERT_TRUE(match(meanvar[0], h_stats[0], CompareApprox<double>(num_sigma * params.tolerance)));
-  ASSERT_TRUE(match(meanvar[1], h_stats[1], CompareApprox<double>(num_sigma * params.tolerance)));
+  ASSERT_TRUE(match(meanvar[0], h_stats[0], CompareApprox<double>(NUM_SIGMA * MAX_SIGMA)));
+  ASSERT_TRUE(match(meanvar[1], h_stats[1], CompareApprox<double>(NUM_SIGMA * MAX_SIGMA)));
 }
 INSTANTIATE_TEST_SUITE_P(RngTests, RngTestD, ::testing::ValuesIn(inputsd));
 
