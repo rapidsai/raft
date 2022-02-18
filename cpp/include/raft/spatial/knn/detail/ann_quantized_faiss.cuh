@@ -45,8 +45,6 @@
 
 #include <raft/distance/distance_type.hpp>
 
-#include <cuml/neighbors/knn.hpp>
-
 #include <iostream>
 #include <set>
 
