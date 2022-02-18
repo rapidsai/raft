@@ -95,7 +95,7 @@ struct span_storage {
  public:
   constexpr span_storage() = default;
   constexpr span_storage(T* ptr, SizeType) : ptr_{ptr} {}
-  [[nodiscard]] constexpr auto size() const -> std::size_t { return Extent; }
+  [[nodiscard]] constexpr auto size() const -> SizeType { return Extent; }
   constexpr auto data() const -> T* { return ptr_; }
 };
 
