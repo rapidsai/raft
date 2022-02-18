@@ -19,7 +19,11 @@
 #include <iostream>
 #include <raft/cudart_utils.h>
 #include <raft/distance/distance_type.hpp>
-#include <raft/distance/specializations.hpp>
+
+#if defined RAFT_DISTANCE_COMPILED && defined RAFT_NN_COMPILED
+#include <raft/stats/specializations.hpp>
+#endif
+
 #include <raft/stats/silhouette_score.hpp>
 #include <random>
 #include <rmm/device_uvector.hpp>

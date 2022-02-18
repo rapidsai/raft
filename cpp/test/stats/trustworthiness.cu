@@ -19,7 +19,11 @@
 #include <iostream>
 #include <raft/cudart_utils.h>
 #include <raft/distance/distance.hpp>
+
+#if defined RAFT_DISTANCE_COMPILED && defined RAFT_NN_COMPILED
 #include <raft/stats/specializations.hpp>
+#endif
+
 #include <raft/stats/trustworthiness_score.hpp>
 #include <vector>
 
