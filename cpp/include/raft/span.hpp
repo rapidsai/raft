@@ -68,7 +68,7 @@ class span {
    * @brief Constructs a span that is a view over the range [first, last)
    */
   constexpr span(pointer first, pointer last) noexcept
-    : storage_{first, static_cast<size_type>(thrust::distance(first, last))}
+    : span{first, static_cast<size_type>(thrust::distance(first, last))}
   {
     assert(data_ || size_ == 0);
   }
@@ -76,7 +76,7 @@ class span {
    * @brief Constructs a span that is a view over the array arr.
    */
   template <std::size_t N>
-  constexpr span(element_type (&arr)[N]) noexcept : storage_{&arr[0], N}
+  constexpr span(element_type (&arr)[N]) noexcept : span{&arr[0], N}
   {
   }
 
@@ -90,7 +90,7 @@ class span {
               detail::is_allowed_element_type_conversion_t<U, T>::value &&
               detail::is_allowed_extent_conversion_t<OtherExtent, Extent>::value>>
   constexpr span(const span<U, is_device, OtherExtent>& other) noexcept
-    : storage_{other.data(), other.size()}
+    : span{other.data(), other.size()}
   {
   }
 
@@ -198,7 +198,7 @@ class span {
   }
 
  private:
-  detail::span_storage<T, size_type, Extent> storage_;
+  detail::span_storage<T, Extent> storage_;
 };
 
 /**
