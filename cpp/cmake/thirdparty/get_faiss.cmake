@@ -59,8 +59,8 @@ function(find_and_configure_faiss)
 
     # We generate the faiss-config files when we built faiss locally, so always do `find_dependency`
     rapids_export_package(BUILD OpenMP raft-nn-exports) # faiss uses openMP but doesn't export a need for it
-    rapids_export_package(BUILD faiss raft-nn-exports)
-    rapids_export_package(INSTALL faiss raft-nn-exports)
+    rapids_export_package(BUILD faiss raft-nn-exports GLOBAL_TARGETS faiss::faiss faiss)
+    rapids_export_package(INSTALL faiss raft-nn-exports GLOBAL_TARGETS faiss::faiss faiss)
 
     # Tell cmake where it can find the generated faiss-config.cmake we wrote.
     include("${rapids-cmake-dir}/export/find_package_root.cmake")

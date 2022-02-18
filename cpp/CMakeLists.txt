@@ -267,7 +267,7 @@ install(TARGETS raft
         DESTINATION ${lib_dir}
         EXPORT raft-exports)
 install(TARGETS raft_distance
-        DESTINATION ${lib_dir}
+        DESTINATION $lib_dir}
         EXPORT raft-distance-exports)
 install(TARGETS raft_nn
         DESTINATION ${lib_dir}
@@ -276,13 +276,13 @@ install(TARGETS raft_nn
 if(TARGET raft_distance_lib)
   install(TARGETS raft_distance_lib
           DESTINATION ${lib_dir}
-          EXPORT raft-distance-exports)
+          EXPORT raft-distance-lib-exports)
 endif()
 
 if(TARGET raft_nn_lib)
   install(TARGETS raft_nn_lib
           DESTINATION ${lib_dir}
-          EXPORT raft-nn-exports)
+          EXPORT raft-nn-lib-exports)
 endif()
 
 
@@ -364,6 +364,12 @@ raft_export(BUILD raft
 include("${rapids-cmake-dir}/export/write_dependencies.cmake")
 
 set(raft_components distance nn)
+if(TARGET raft_distance_lib)
+  list(APPEND raft_components distance-lib)
+endif()
+if(TARGET raft_nn_lib)
+  list(APPEND raft_components  nn-lib)
+endif()
 foreach(comp IN LISTS raft_components)
   install(
     EXPORT raft-${comp}-exports
