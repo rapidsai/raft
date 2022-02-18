@@ -267,7 +267,7 @@ install(TARGETS raft
         DESTINATION ${lib_dir}
         EXPORT raft-exports)
 install(TARGETS raft_distance
-        DESTINATION $lib_dir}
+        DESTINATION ${lib_dir}
         EXPORT raft-distance-exports)
 install(TARGETS raft_nn
         DESTINATION ${lib_dir}
