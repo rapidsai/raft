@@ -70,7 +70,6 @@ class span {
   constexpr span(pointer first, pointer last) noexcept
     : span{first, static_cast<size_type>(thrust::distance(first, last))}
   {
-    assert(data_ || size_ == 0);
   }
   /**
    * @brief Constructs a span that is a view over the array arr.
