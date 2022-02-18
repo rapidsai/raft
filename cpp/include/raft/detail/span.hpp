@@ -96,7 +96,7 @@ struct span_storage {
   constexpr span_storage() noexcept = default;
   constexpr span_storage(T* ptr, std::size_t) noexcept : ptr_{ptr} {}
   [[nodiscard]] constexpr auto size() const noexcept -> std::size_t { return Extent; }
-  constexpr auto data() const noexcept -> T* { return ptr_; }
+  [[nodiscard]] constexpr auto data() const noexcept -> T* { return ptr_; }
 };
 
 template <typename T>
@@ -109,7 +109,7 @@ struct span_storage<T, dynamic_extent> {
   constexpr span_storage() noexcept = default;
   constexpr span_storage(T* ptr, std::size_t size) noexcept : ptr_{ptr}, size_{size} {}
   [[nodiscard]] constexpr auto size() const noexcept -> std::size_t { return size_; }
-  constexpr auto data() const noexcept -> T* { return ptr_; }
+  [[nodiscard]] constexpr auto data() const noexcept -> T* { return ptr_; }
 };
 }  // namespace detail
 }  // namespace raft
