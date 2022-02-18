@@ -13,9 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 /**
- * @file information_criterion.cuh
+ * @file information_criterion.hpp
  * @brief These information criteria are used to evaluate the quality of models
  *        by balancing the quality of the fit and the number of parameters.
  *

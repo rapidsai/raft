@@ -13,6 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @file adjusted_rand_index.hpp
+ * @brief The adjusted Rand index is the corrected-for-chance version of the Rand index.
+ * Such a correction for chance establishes a baseline by using the expected similarity
+ * of all pair-wise comparisons between clusterings specified by a random model.
+ */
+
 #pragma once
 
 #include <raft/stats/detail/adjusted_rand_index.cuh>

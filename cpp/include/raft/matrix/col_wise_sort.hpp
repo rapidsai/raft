@@ -27,7 +27,7 @@ namespace matrix {
  * @param in: input matrix
  * @param out: output value(index) matrix
  * @param n_rows: number rows of input matrix
- * @param n_cols: number columns of input matrix
+ * @param n_columns: number columns of input matrix
  * @param bAllocWorkspace: check returned value, if true allocate workspace passed in workspaceSize
  * @param workspacePtr: pointer to workspace memory
  * @param workspaceSize: Size of workspace to be allocated

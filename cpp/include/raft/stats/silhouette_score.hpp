@@ -27,6 +27,7 @@ namespace stats {
  * clusterings
  * @tparam DataT: type of the data samples
  * @tparam LabelT: type of the labels
+ * @param handle: raft handle for managing expensive resources
  * @param X_in: pointer to the input Data samples array (nRows x nCols)
  * @param nRows: number of data samples
  * @param nCols: number of features

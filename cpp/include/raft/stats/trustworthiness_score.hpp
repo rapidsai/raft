@@ -22,15 +22,15 @@ namespace stats {
 
 /**
  * @brief Compute the trustworthiness score
- * @param h Raft handle
- * @param X[in]: Data in original dimension
- * @param X_embedded[in]: Data in target dimension (embedding)
- * @param n: Number of samples
- * @param m: Number of features in high/original dimension
- * @param d: Number of features in low/embedded dimension
- * @param n_neighbors Number of neighbors considered by trustworthiness score
- * @param batchSize Batch size
- * @return Trustworthiness score
+ * @param[in] h: raft handle
+ * @param[in] X: Data in original dimension
+ * @param[in] X_embedded: Data in target dimension (embedding)
+ * @param[in] n: Number of samples
+ * @param[in] m: Number of features in high/original dimension
+ * @param[in] d: Number of features in low/embedded dimension
+ * @param[in] n_neighbors Number of neighbors considered by trustworthiness score
+ * @param[in] batchSize Batch size
+ * @return[out] Trustworthiness score
  */
 template <typename math_t, raft::distance::DistanceType distance_type>
 double trustworthiness_score(const raft::handle_t& h,
