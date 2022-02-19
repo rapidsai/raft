@@ -88,7 +88,7 @@ After installing RAFT, `find_package(raft COMPONENTS nn distance)` can be used i
 
 RAFT uses the [RAPIDS cmake](https://github.com/rapidsai/rapids-cmake) library, which makes it simple to include in downstream cmake projects. RAPIDS cmake provides a convenience layer around the [Cmake Package Manager (CPM)](https://github.com/cpm-cmake/CPM.cmake). 
 
-After [installing](https://github.com/rapidsai/rapids-cmake#installation) in your project, you can begin using RAFT in your project by placing the code snippet below in a file named `get_raft.cmake` and including it in your cmake build with `include(get_raft.cmake)`. This will create the `raft::raft` target for linking.
+After [installing](https://github.com/rapidsai/rapids-cmake#installation) rapids-cmake in your project, you can begin using RAFT in your project by placing the code snippet below in a file named `get_raft.cmake` and including it in your cmake build with `include(get_raft.cmake)`. This will create the `raft::raft` target for linking.
 
 ```cmake
 
