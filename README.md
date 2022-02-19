@@ -129,7 +129,7 @@ find_and_configure_raft(VERSION    ${RAFT_VERSION}.00
         PINNED_TAG       branch-${RAFT_VERSION}
 
         COMPILE_LIBRARIES      NO
-        ENABLE_NN_DEPENDENCIES NO  # This builds FAISS if not installed
+        ENABLE_NN_DEPENDENCIES NO
         USE_FAISS_STATIC       NO
 )
 ```
