@@ -75,9 +75,9 @@ RAFT has several packages that can be installed with conda:
 - `libraft-distance` (optional) contains shared libraries for distance algorithms.
 - `pyraft` (optional) contains the Python library
 
-To install the RAFT nightly build
+To install RAFT with conda (change to `rapidsai-nightly` for more up-to-date but less stable nightly packages)
 ```bash
-conda install -c rapidsai-nightly libraft-headers libraft-nn libraft-distance pyraft
+conda install -c rapidsai libraft-headers libraft-nn libraft-distance pyraft
 ```
 
 After installing raft, you can add `find_package(raft COMPONENTS nn, distance)` to begin using it in your CUDA/C++ build. Note that the `COMPONENTS` are optional and will depend on the packages installed.
