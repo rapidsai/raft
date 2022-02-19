@@ -67,6 +67,8 @@ raft::distance::pairwise_distance(handle, input.data(), input.data(),
 
 ## Build / Install RAFT
 
+RAFT can be installed through conda, cmake-package-manager (cpm), or by building the repository from source. 
+
 ### Conda
 
 RAFT has several packages that can be installed with conda:
@@ -80,15 +82,13 @@ To install RAFT with conda (change to `rapidsai-nightly` for more up-to-date but
 conda install -c rapidsai libraft-headers libraft-nn libraft-distance pyraft
 ```
 
-After installing raft, you can add `find_package(raft COMPONENTS nn distance)` to begin using it in your CUDA/C++ build. Note that the `COMPONENTS` are optional and will depend on the packages installed.
-
+After installing raft, you can use `find_package(raft COMPONENTS nn distance)` to begin using it in your CUDA/C++ build. Note that the `COMPONENTS` are optional and will depend on the packages installed.
 
 ### CPM
 
-RAFT uses the [RAPIDS cmake](https://github.com/rapidsai/rapids-cmake) library, so it can be easily included into downstream projects. RAPIDS cmake provides a convenience layer around the [Cmake Package Manager (CPM)](https://github.com/cpm-cmake/CPM.cmake). The following example is similar to building RAFT itself from source but allows it to be done in cmake, providing the `raft::raft` link target and `RAFT_INCLUDE_DIR` for includes. The `COMPILE_LIBRARIES` option enables the building of the shared libraries. 
+RAFT uses the [RAPIDS cmake](https://github.com/rapidsai/rapids-cmake) library, which makes it simple to include in downstream cmake projects. RAPIDS cmake provides a convenience layer around the [Cmake Package Manager (CPM)](https://github.com/cpm-cmake/CPM.cmake). 
 
-
-For simple header-only operation, place the code snippet below in a file named `get_raft.cmake` and include it in your cmake build with `include(get_raft.cmake)`. 
+After [installing](https://github.com/rapidsai/rapids-cmake#installation) in your project, you can begin using RAFT in your project by placing the code snippet below in a file named `get_raft.cmake` and including it in your cmake build with `include(get_raft.cmake)`. This will create the `raft::raft` target for linking.
 
 ```cmake
 
@@ -134,8 +134,9 @@ find_and_configure_raft(VERSION    ${RAFT_VERSION}.00
 )
 ```
 
+### Source
 
-The [Build](BUILD.md) instructions contain more details on building RAFT from source and including it in downstream projects. You can also find a more comprehensive version of the above code snippet the [Building RAFT C++ from source](BUILD.md#build_cxx_source) guide.
+The [Build](BUILD.md) instructions contain more details on building RAFT from source and including it in downstream projects. You can also find a more comprehensive version of the above CPM code snippet the [Building RAFT C++ from source](BUILD.md#build_cxx_source) guide.
 
 ## Folder Structure and Contents
 
