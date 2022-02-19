@@ -80,7 +80,7 @@ To install RAFT with conda (change to `rapidsai-nightly` for more up-to-date but
 conda install -c rapidsai libraft-headers libraft-nn libraft-distance pyraft
 ```
 
-After installing raft, you can add `find_package(raft COMPONENTS nn, distance)` to begin using it in your CUDA/C++ build. Note that the `COMPONENTS` are optional and will depend on the packages installed.
+After installing raft, you can add `find_package(raft COMPONENTS nn distance)` to begin using it in your CUDA/C++ build. Note that the `COMPONENTS` are optional and will depend on the packages installed.
 
 
 ### CPM
@@ -92,12 +92,15 @@ RAFT uses the [RAPIDS cmake](https://github.com/rapidsai/rapids-cmake) library, 
 set(RAFT_VERSION "22.04")
 
 function(find_and_configure_raft)
-
   set(oneValueArgs VERSION FORK PINNED_TAG USE_FAISS_STATIC 
-          COMPILE_LIBRARIES ENABLE_NN_DEPENDENCIES CLONE_ON_PIN)
+          COMPILE_LIBRARIES ENABLE_NN_DEPENDENCIES CLONE_ON_PIN
+          USE_NN_LIBRARY USE_DISTANCE_LIBRARY)
   cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
                             "${multiValueArgs}" ${ARGN} )
 
+  #-----------------------------------------------------
+  # Clone RAFT locally if PINNED_TAG has been changed
+  #-----------------------------------------------------
   if(PKG_CLONE_ON_PIN AND NOT PKG_PINNED_TAG STREQUAL "branch-${RAFT_VERSION}")
     message("Pinned tag found: ${PKG_PINNED_TAG}. Cloning raft locally.")
     execute_process(
@@ -106,6 +109,22 @@ function(find_and_configure_raft)
     set(CPM_raft_SOURCE ${CMAKE_CURRENT_BINARY_DIR}/_deps/raft-source)
   endif()
 
+  #-----------------------------------------------------
+  # Add components 
+  #-----------------------------------------------------
+
+  string(APPEND RAFT_COMPONENTS "")
+  if(PKG_USE_NN_LIBRARY)
+    string(APPEND RAFT_COMPONENTS " nn")
+  endif()
+  
+  if(PKG_USE_DISTANCE_LIBRARY)
+    string(APPEND RAFT_COMPONENTS " distance")
+  endif()
+
+  #-----------------------------------------------------
+  # Invoke CPM find_package()
+  #-----------------------------------------------------
 
   rapids_cpm_find(raft ${PKG_VERSION}
           GLOBAL_TARGETS      raft::raft
@@ -138,7 +157,9 @@ find_and_configure_raft(VERSION    ${RAFT_VERSION}.00
         CLONE_ON_PIN     ON
 
         COMPILE_LIBRARIES      NO
-        ENABLE_NN_DEPENDENCIES NO
+        USE_NN_LIBRARY         NO
+        USE_DISTANCE_LIBRARY   NO
+        ENABLE_NN_DEPENDENCIES NO  # This builds FAISS if not installed
         USE_FAISS_STATIC       NO
 )
 ```
