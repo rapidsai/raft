@@ -70,7 +70,7 @@ raft::distance::pairwise_distance(handle, input.data(), input.data(),
 ### Conda
 
 RAFT has several packages that can be installed with conda:
-- `libraft-headers` contains all the headers
+- `libraft-headers` contains all the CUDA/C++ headers
 - `libraft-nn` (optional) contains precompiled shared libraries for the nearest neighbors algorithms. If FAISS is not already installed in your environment, this will need to be installed to use the nearest neighbors headers.
 - `libraft-distance` (optional) contains shared libraries for distance algorithms.
 - `pyraft` (optional) contains the Python library
