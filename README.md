@@ -7,8 +7,9 @@ By taking a primitives-based approach to algorithm development, RAFT
 2. reduces the maintenance burden by maximizing reuse across projects, and
 3. centralizes the core computations, allowing future optimizations to benefit all algorithms that use them.
 
-At its core, RAFT is a header-only C++ library with optional shared libraries that span the following categories:
+At its core, RAFT is a header-only C++ library but shared libraries can be used to speed up compile times for common data types.
 
+RAFT's APIs span the following general categories:
 #####
 | Category | Examples |
 | --- | --- |
@@ -23,11 +24,11 @@ At its core, RAFT is a header-only C++ library with optional shared libraries th
 | **Statistics** | sampling, moments and summary statistics, metrics |
 | **Distributed Tools** | multi-node multi-gpu infrastructure |
 
-RAFT also provides a Python library that includes
+RAFT also provides a Python library that currently includes
 1. a python wrapper around the `raft::handle_t` for managing cuda library resources
 2. building multi-node multi-GPU algorithms that leverage [Dask](https://dask.org/)
 
-We are continuing to improve the Python API by exposing the core algorithms and primitives from the categories above.
+We are continuing to improve the Python API by exposing algorithms and primitives from the categories above.
 
 ## Getting started
 
