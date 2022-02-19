@@ -65,9 +65,87 @@ raft::distance::pairwise_distance(handle, input.data(), input.data(),
                                   workspace.data(), metric);
 ```
 
-## Build/Install RAFT
+## Build / Install RAFT
 
-Refer to the [Build](BUILD.md) instructions for details on building and including the RAFT library in downstream projects.
+### Conda
+
+RAFT has several packages that can be installed with conda:
+- `libraft-headers` contains all the headers
+- `libraft-nn` (optional) contains precompiled shared libraries for the nearest neighbors algorithms. If FAISS is not already installed in your environment, this will need to be installed to use the nearest neighbors headers.
+- `libraft-distance` (optional) contains shared libraries for distance algorithms.
+- `pyraft` (optional) contains the Python library
+
+To install the RAFT nightly build
+```bash
+conda install -c rapidsai-nightly libraft-headers libraft-nn libraft-distance pyraft
+```
+
+After installing raft, you can add `find_package(raft COMPONENTS nn, distance)` to begin using it in your CUDA/C++ build. Note that the `COMPONENTS` are optional and will depend on the packages installed.
+
+
+### CPM
+
+RAFT uses the [RAPIDS cmake](https://github.com/rapidsai/rapids-cmake) library, so it can be easily included into downstream projects. RAPIDS cmake provides a convenience layer around the [Cmake Package Manager (CPM)](https://github.com/cpm-cmake/CPM.cmake). The following example is similar to building RAFT itself from source but allows it to be done in cmake, providing the `raft::raft` link target and `RAFT_INCLUDE_DIR` for includes. The `COMPILE_LIBRARIES` option enables the building of the shared libraries
+
+```cmake
+
+set(RAFT_VERSION "22.04")
+
+function(find_and_configure_raft)
+
+  set(oneValueArgs VERSION FORK PINNED_TAG USE_FAISS_STATIC 
+          COMPILE_LIBRARIES ENABLE_NN_DEPENDENCIES CLONE_ON_PIN)
+  cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
+                            "${multiValueArgs}" ${ARGN} )
+
+  if(PKG_CLONE_ON_PIN AND NOT PKG_PINNED_TAG STREQUAL "branch-${RAFT_VERSION}")
+    message("Pinned tag found: ${PKG_PINNED_TAG}. Cloning raft locally.")
+    execute_process(
+            COMMAND git clone "https://github.com/${PKG_FORK}/raft.git" --branch ${PKG_PINNED_TAG} raft-source
+            WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/_deps)
+    set(CPM_raft_SOURCE ${CMAKE_CURRENT_BINARY_DIR}/_deps/raft-source)
+  endif()
+
+
+  rapids_cpm_find(raft ${PKG_VERSION}
+          GLOBAL_TARGETS      raft::raft
+          BUILD_EXPORT_SET    proj-exports
+          INSTALL_EXPORT_SET  proj-exports
+          CPM_ARGS
+          GIT_REPOSITORY https://github.com/${PKG_FORK}/raft.git
+          GIT_TAG        ${PKG_PINNED_TAG}
+          SOURCE_SUBDIR  cpp
+          FIND_PACKAGE_ARGUMENTS "COMPONENTS ${RAFT_COMPONENTS}"
+          OPTIONS
+          "BUILD_TESTS OFF"
+          "RAFT_ENABLE_NN_DEPENDENCIES ${PKG_ENABLE_NN_DEPENDENCIES}"
+          "RAFT_USE_FAISS_STATIC ${PKG_USE_FAISS_STATIC}"
+          "RAFT_COMPILE_LIBRARIES ${PKG_COMPILE_LIBRARIES}"
+  )
+
+endfunction()
+
+# Change pinned tag here to test a commit in CI
+# To use a different RAFT locally, set the CMake variable
+# CPM_raft_SOURCE=/path/to/local/raft
+find_and_configure_raft(VERSION    ${RAFT_VERSION}.00
+        FORK             rapidsai
+        PINNED_TAG       branch-${RAFT_VERSION}
+
+        # When PINNED_TAG above doesn't match cuml,
+        # force local raft clone in build directory
+        # even if it's already installed.
+        CLONE_ON_PIN     ON
+
+        COMPILE_LIBRARIES      NO
+        ENABLE_NN_DEPENDENCIES NO
+        USE_FAISS_STATIC       NO
+)
+```
+
+To use the above cmake code in your build, create a file `get_raft.cmake` in your project and include it in your cmake build with `include(get_raft.cmake)`. 
+
+Refer to the [Build](BUILD.md) instructions for more details on building RAFT from source and including it in downstream projects.
 
 ## Folder Structure and Contents
 
