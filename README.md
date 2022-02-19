@@ -71,7 +71,7 @@ RAFT can be installed through conda, cmake-package-manager (cpm), or by building
 
 ### Conda
 
-RAFT has several packages that can be installed with conda:
+The easiest way to install RAFT is through conda:
 - `libraft-headers` contains all the CUDA/C++ headers
 - `libraft-nn` (optional) contains precompiled shared libraries for the nearest neighbors algorithms. If FAISS is not already installed in your environment, this will need to be installed to use the nearest neighbors headers.
 - `libraft-distance` (optional) contains shared libraries for distance algorithms.
@@ -82,7 +82,7 @@ To install RAFT with conda (change to `rapidsai-nightly` for more up-to-date but
 conda install -c rapidsai libraft-headers libraft-nn libraft-distance pyraft
 ```
 
-After installing raft, you can use `find_package(raft COMPONENTS nn distance)` to begin using it in your CUDA/C++ build. Note that the `COMPONENTS` are optional and will depend on the packages installed.
+After installing RAFT, `find_package(raft COMPONENTS nn distance)` can be used in your CUDA/C++ build. Note that the `COMPONENTS` are optional and will depend on the packages installed.
 
 ### CPM
 
