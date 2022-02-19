@@ -10,6 +10,7 @@
 - [Using RAFT in downstream projects](#use_raft)
     - [Cmake Header-only Integration](#cxx_integration)
     - [Using Shared Libraries in Cmake](#use_shared_libs)
+    - [Building RAFT C++ from source](#build_cxx_source)
     - [Python/Cython Integration](#py_integration)
 
 ## <a id="build_install"></a>Building and installing RAFT
@@ -135,6 +136,89 @@ The following example shows how to use the `libraft-distance` API with the pre-c
 ```c++
 #include <raft/distance/distance.hpp>
 #include <raft/distance/specializations.hpp>
+```
+
+### <a id="build_cxx_source"></a>Building RAFT C++ from source in cmake
+
+RAFT uses the [RAPIDS cmake](https://github.com/rapidsai/rapids-cmake) library, so it can be easily included into downstream projects. RAPIDS cmake provides a convenience layer around the [Cmake Package Manager (CPM)](https://github.com/cpm-cmake/CPM.cmake). The following example is similar to building RAFT itself from source but allows it to be done in cmake, providing the `raft::raft` link target and `RAFT_INCLUDE_DIR` for includes. The `COMPILE_LIBRARIES` option enables the building of the shared libraries.
+
+The following `cmake` snippet enables a flexible configuration of RAFT: 
+
+```cmake
+
+set(RAFT_VERSION "22.04")
+
+function(find_and_configure_raft)
+  set(oneValueArgs VERSION FORK PINNED_TAG USE_FAISS_STATIC 
+          COMPILE_LIBRARIES ENABLE_NN_DEPENDENCIES CLONE_ON_PIN
+          USE_NN_LIBRARY USE_DISTANCE_LIBRARY)
+  cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
+                            "${multiValueArgs}" ${ARGN} )
+
+  #-----------------------------------------------------
+  # Clone RAFT locally if PINNED_TAG has been changed
+  #-----------------------------------------------------
+  if(PKG_CLONE_ON_PIN AND NOT PKG_PINNED_TAG STREQUAL "branch-${RAFT_VERSION}")
+    message("Pinned tag found: ${PKG_PINNED_TAG}. Cloning raft locally.")
+    execute_process(
+            COMMAND git clone "https://github.com/${PKG_FORK}/raft.git" --branch ${PKG_PINNED_TAG} raft-source
+            WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/_deps)
+    set(CPM_raft_SOURCE ${CMAKE_CURRENT_BINARY_DIR}/_deps/raft-source)
+  endif()
+
+  #-----------------------------------------------------
+  # Add components 
+  #-----------------------------------------------------
+
+  string(APPEND RAFT_COMPONENTS "")
+  if(PKG_USE_NN_LIBRARY)
+    string(APPEND RAFT_COMPONENTS " nn")
+  endif()
+  
+  if(PKG_USE_DISTANCE_LIBRARY)
+    string(APPEND RAFT_COMPONENTS " distance")
+  endif()
+
+  #-----------------------------------------------------
+  # Invoke CPM find_package()
+  #-----------------------------------------------------
+
+  rapids_cpm_find(raft ${PKG_VERSION}
+          GLOBAL_TARGETS      raft::raft
+          BUILD_EXPORT_SET    proj-exports
+          INSTALL_EXPORT_SET  proj-exports
+          CPM_ARGS
+          GIT_REPOSITORY https://github.com/${PKG_FORK}/raft.git
+          GIT_TAG        ${PKG_PINNED_TAG}
+          SOURCE_SUBDIR  cpp
+          FIND_PACKAGE_ARGUMENTS "COMPONENTS ${RAFT_COMPONENTS}"
+          OPTIONS
+          "BUILD_TESTS OFF"
+          "RAFT_ENABLE_NN_DEPENDENCIES ${PKG_ENABLE_NN_DEPENDENCIES}"
+          "RAFT_USE_FAISS_STATIC ${PKG_USE_FAISS_STATIC}"
+          "RAFT_COMPILE_LIBRARIES ${PKG_COMPILE_LIBRARIES}"
+  )
+
+endfunction()
+
+# Change pinned tag here to test a commit in CI
+# To use a different RAFT locally, set the CMake variable
+# CPM_raft_SOURCE=/path/to/local/raft
+find_and_configure_raft(VERSION    ${RAFT_VERSION}.00
+        FORK             rapidsai
+        PINNED_TAG       branch-${RAFT_VERSION}
+
+        # When PINNED_TAG above doesn't match cuml,
+        # force local raft clone in build directory
+        # even if it's already installed.
+        CLONE_ON_PIN     ON
+
+        COMPILE_LIBRARIES      NO
+        USE_NN_LIBRARY         NO
+        USE_DISTANCE_LIBRARY   NO
+        ENABLE_NN_DEPENDENCIES NO  # This builds FAISS if not installed
+        USE_FAISS_STATIC       NO
+)
 ```
 
 ### <a id="py_integration"></a>Python/Cython Integration
