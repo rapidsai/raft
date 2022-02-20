@@ -41,8 +41,8 @@ def get_config():
     cfg.VCS = "git"
     cfg.style = "pep440"
     cfg.tag_prefix = "v"
-    cfg.parentdir_prefix = "rmm-"
-    cfg.versionfile_source = "rmm/_version.py"
+    cfg.parentdir_prefix = "raft-"
+    cfg.versionfile_source = "raft/_version.py"
     cfg.verbose = False
     return cfg
 

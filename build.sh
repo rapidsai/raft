@@ -59,7 +59,6 @@ COMPILE_LIBRARIES=OFF
 COMPILE_NN_LIBRARY=OFF
 COMPILE_DIST_LIBRARY=OFF
 ENABLE_NN_DEPENDENCIES=${BUILD_TESTS}
-SINGLEGPU=""
 NVTX=OFF
 CLEAN=0
 DISABLE_DEPRECATION_WARNINGS=ON
@@ -211,7 +210,7 @@ if (( ${NUMARGS} == 0 )) || hasArg pyraft || hasArg docs; then
     if [[ ${INSTALL_TARGET} != "" ]]; then
         python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace --library-dir=${LIBRAFT_BUILD_DIR} install --single-version-externally-managed --record=record.txt
     else
-        python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace --library-dir=${LIBRAFT_BUILD_DIR} ${SINGLEGPU}
+        python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace --library-dir=${LIBRAFT_BUILD_DIR}
     fi
 fi
 
