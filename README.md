@@ -15,7 +15,7 @@ At its core, RAFT is a header-only C++ library but shared libraries can be used 
 | **Data Generation** | sparse, spatial, machine learning datasets |
 | **Dense Linear Algebra** | matrix arithmetic, norms, factorization, least squares, svd & eigenvalue problems |
 | **Spatial** | pairwise distances, nearest neighbors, neighborhood graph construction |
-| **Sparse Operations** | linear algebra, eigenvalue problems, slicing, symmetrization, connected component labeling |
+| **Sparse Operations** | linear algebra, eigenvalue problems, slicing, symmetrization, labeling |
 | **Basic Clustering** | spectral clustering, hierarchical clustering, k-means |
 | **Optimization** | combinatorial optimization, iterative solvers |
 | **Statistics** | sampling, moments and summary statistics, metrics |
@@ -23,7 +23,8 @@ At its core, RAFT is a header-only C++ library but shared libraries can be used 
 
 RAFT also provides a Python library that currently includes
 1. a python wrapper around the `raft::handle_t` for managing cuda library resources
-2. building multi-node multi-GPU algorithms that leverage [Dask](https://dask.org/)
+2. definitions for using `raft::handle_t` directly in cython
+3. tools for building multi-node multi-GPU algorithms that leverage [Dask](https://dask.org/)
 
 We are continuing to improve the Python API by exposing algorithms and primitives from the categories above.
 
@@ -63,7 +64,7 @@ raft::distance::pairwise_distance(handle, input.data(), input.data(),
                                   workspace.data(), metric);
 ```
 
-## Build / Install RAFT
+## Installing
 
 RAFT can be installed through conda, cmake-package-manager (cpm), or by building the repository from source. 
 
@@ -133,6 +134,10 @@ find_and_configure_raft(VERSION    ${RAFT_VERSION}.00
 ```
 
 ### Source
+
+The easiest way to build RAFT from source is to use the `build.sh` script at the root of the repository,
+1. create an environment with the RAFT dependencies: `conda env create --name raft_dev -f conda/environments/raft_dev_cuda11.5.yml`
+2. run the build script from the repository root: `./build.sh pyraft libraft --compile-libs`
 
 The [Build](BUILD.md) instructions contain more details on building RAFT from source and including it in downstream projects. You can also find a more comprehensive version of the above CPM code snippet the [Building RAFT C++ from source](BUILD.md#build_cxx_source) guide.
 
