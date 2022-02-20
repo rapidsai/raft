@@ -116,16 +116,16 @@ if hasArg --nogtest; then
     ENABLE_NN_DEPENDENCIES=OFF
 fi
 
-if hasArg --compile-libs; then
+if hasArg --compile-libs || (( ${NUMARGS} == 0 )); then
   COMPILE_LIBRARIES=ON
 fi
 
-if hasArg --compile-nn || hasArg --compile-libs; then
+if hasArg --compile-nn || hasArg --compile-libs || (( ${NUMARGS} == 0 )); then
     ENABLE_NN_DEPENDENCIES=ON
     COMPILE_NN_LIBRARY=ON
     CMAKE_TARGET="raft_nn_lib;${CMAKE_TARGET}"
 fi
-if hasArg --compile-dist || hasArg --compile-libs; then
+if hasArg --compile-dist || hasArg --compile-libs || (( ${NUMARGS} == 0 )); then
     COMPILE_DIST_LIBRARY=ON
     CMAKE_TARGET="raft_distance_lib;${CMAKE_TARGET}"
 fi
