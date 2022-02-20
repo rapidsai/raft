@@ -209,7 +209,7 @@ if (( ${NUMARGS} == 0 )) || hasArg pyraft || hasArg docs; then
 
     cd ${REPODIR}/python
     if [[ ${INSTALL_TARGET} != "" ]]; then
-        python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace ${SINGLEGPU}
+        python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace --library-dir=${LIBRAFT_BUILD_DIR} install --single-version-externally-managed --record=record.txt
     else
         python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace --library-dir=${LIBRAFT_BUILD_DIR} ${SINGLEGPU}
     fi
