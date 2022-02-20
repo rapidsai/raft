@@ -17,8 +17,7 @@ At its core, RAFT is a header-only C++ library but shared libraries can be used 
 | **Spatial** | pairwise distances, nearest neighbors, neighborhood graph construction |
 | **Sparse Operations** | linear algebra, eigenvalue problems, slicing, symmetrization, connected component labeling |
 | **Basic Clustering** | spectral clustering, hierarchical clustering, k-means |
-| **Combinatorial Optimization** | linear assignment problem, minimum spanning forest |
-| **Iterative Solvers** | lanczos |
+| **Optimization** | combinatorial optimization, iterative solvers |
 | **Statistics** | sampling, moments and summary statistics, metrics |
 | **Distributed Tools** | multi-node multi-gpu infrastructure |
 
