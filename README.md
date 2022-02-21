@@ -3,11 +3,11 @@
 RAFT contains fundamental widely-used algorithms and primitives for data science, graph and machine learning. The algorithms are CUDA-accelerated and form building-blocks for rapidly composing analytics in the [RAPIDS](https://rapids.ai) ecosystem. 
 
 By taking a primitives-based approach to algorithm development, RAFT
-1. accelerates algorithm construction time
-2. reduces the maintenance burden by maximizing reuse across projects, and
-3. centralizes the core computations, allowing future optimizations to benefit all algorithms that use them.
+- accelerates algorithm construction time
+- reduces the maintenance burden by maximizing reuse across projects, and
+- centralizes the core computations, allowing future optimizations to benefit all algorithms that use them.
 
-At its core, RAFT is a header-only C++ library but shared libraries can be used to speed up compile times for common data types. RAFT's APIs span the following general categories:
+The algorithms in RAFT span the following general categories:
 #####
 | Category | Examples |
 | --- | --- |
@@ -21,12 +21,14 @@ At its core, RAFT is a header-only C++ library but shared libraries can be used 
 | **Statistics** | sampling, moments and summary statistics, metrics |
 | **Distributed Tools** | multi-node multi-gpu infrastructure |
 
-RAFT also provides a Python library that currently includes
+RAFT provides a header-only C++ library and pre-compiled shared libraries that can 1) speed up compile times and 2) enable the APIs to be used without CUDA-enabled compilers.
+
+RAFT also provides a Python library that is currently limited to
 1. a python wrapper around the `raft::handle_t` for managing cuda library resources
 2. definitions for using `raft::handle_t` directly in cython
 3. tools for building multi-node multi-GPU algorithms that leverage [Dask](https://dask.org/)
 
-We are continuing to improve the Python API by exposing algorithms and primitives from the categories above.
+We continue to improve the Python API by wrapping the algorithms and primitives from the categories above.
 
 ## Getting started
 
@@ -70,7 +72,7 @@ RAFT can be installed through conda, cmake-package-manager (cpm), or by building
 
 ### Conda
 
-The easiest way to install RAFT is through conda:
+The easiest way to install RAFT is through conda and several packages are provided.
 - `libraft-headers` contains all the CUDA/C++ headers
 - `libraft-nn` (optional) contains precompiled shared libraries for the nearest neighbors algorithms. If FAISS is not already installed in your environment, this will need to be installed to use the nearest neighbors headers.
 - `libraft-distance` (optional) contains shared libraries for distance algorithms.
