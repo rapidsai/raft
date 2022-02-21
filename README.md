@@ -28,7 +28,7 @@ RAFT also provides a Python library that is currently limited to
 2. definitions for using `raft::handle_t` directly in cython
 3. tools for building multi-node multi-GPU algorithms that leverage [Dask](https://dask.org/)
 
-We continue to improve the Python API by wrapping the algorithms and primitives from the categories above.
+The Python API is being improved to wrap the algorithms and primitives from the categories above.
 
 ## Getting started
 
