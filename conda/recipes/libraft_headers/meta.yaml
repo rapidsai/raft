@@ -52,6 +52,7 @@ requirements:
     - ucx-py {{ ucx_py_version }}
     - ucx-proc=*=gpu
     - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
+    - libcusolver>=11.2.1
 
 about:
   home: http://rapids.ai/
