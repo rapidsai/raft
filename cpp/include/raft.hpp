@@ -15,6 +15,7 @@
  */
 
 #include <string>
+#include <algorithm>
 
 namespace raft {
 
