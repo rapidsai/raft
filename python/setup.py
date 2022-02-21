@@ -50,7 +50,7 @@ import versioneer
 # - Dependencies include and lib folder setup --------------------------------
 
 install_requires = [
-    'cython',
+    'cython'
 ]
 
 cuda_home = get_environment_option("CUDA_HOME")
@@ -187,7 +187,14 @@ setup(name='raft',
       author="NVIDIA Corporation",
       setup_requires=['cython'],
       ext_modules=extensions,
-      packages=find_packages(include=['cuml', 'cuml.*']),
+      package_data=dict.fromkeys(
+                         find_packages(include=["raft.dask.common",
+                                                "raft.dask.common.includes",
+                                                "raft.common",
+                                                "raft.common.includes"]),
+                         ["*.hpp", "*.pxd"],
+      ),
+      packages=find_packages(include=['raft', 'raft.*']),
       install_requires=install_requires,
       license="Apache",
       cmdclass=cmdclass,
