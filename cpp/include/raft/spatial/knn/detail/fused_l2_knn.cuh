@@ -29,7 +29,7 @@ namespace knn {
 namespace detail {
 
 template <typename Policy, typename Pair, typename myWarpSelect, typename IdxT>
-DI void loadAllWarpQShmem(myWarpSelect& heapArr,
+DI void loadAllWarpQShmem(myWarpSelect** heapArr,
                           Pair* shDumpKV,
                           const IdxT m,
                           const unsigned int numOfNN)
@@ -40,7 +40,7 @@ DI void loadAllWarpQShmem(myWarpSelect& heapArr,
     const auto rowId = (threadIdx.x / Policy::AccThCols) + i * Policy::AccThRows;
     if (rowId < m) {
 #pragma unroll
-      for (int j = 0; j < heapArr[i]->kNumWarpQRegisters; ++j) {
+      for (int j = 0; j < myWarpSelect::kNumWarpQRegisters; ++j) {
         const int idx = j * warpSize + lid;
         if (idx < numOfNN) {
           Pair KVPair          = shDumpKV[rowId * numOfNN + idx];
@@ -53,14 +53,14 @@ DI void loadAllWarpQShmem(myWarpSelect& heapArr,
 }
 
 template <typename Policy, typename Pair, typename myWarpSelect>
-DI void loadWarpQShmem(myWarpSelect& heapArr,
+DI void loadWarpQShmem(myWarpSelect* heapArr,
                        Pair* shDumpKV,
                        const int rowId,
                        const unsigned int numOfNN)
 {
   const int lid = raft::laneId();
 #pragma unroll
-  for (int j = 0; j < heapArr->kNumWarpQRegisters; ++j) {
+  for (int j = 0; j < myWarpSelect::kNumWarpQRegisters; ++j) {
     const int idx = j * warpSize + lid;
     if (idx < numOfNN) {
       Pair KVPair       = shDumpKV[rowId * numOfNN + idx];
@@ -71,7 +71,7 @@ DI void loadWarpQShmem(myWarpSelect& heapArr,
 }
 
 template <typename Policy, typename Pair, typename myWarpSelect, typename IdxT>
-DI void storeWarpQShmem(myWarpSelect& heapArr,
+DI void storeWarpQShmem(myWarpSelect* heapArr,
                         Pair* shDumpKV,
                         const IdxT rowId,
                         const unsigned int numOfNN)
@@ -79,7 +79,7 @@ DI void storeWarpQShmem(myWarpSelect& heapArr,
   const int lid = raft::laneId();
 
 #pragma unroll
-  for (int j = 0; j < heapArr->kNumWarpQRegisters; ++j) {
+  for (int j = 0; j < myWarpSelect::kNumWarpQRegisters; ++j) {
     const int idx = j * warpSize + lid;
     if (idx < numOfNN) {
       Pair otherKV                    = Pair(heapArr->warpV[j], heapArr->warpK[j]);
@@ -89,7 +89,7 @@ DI void storeWarpQShmem(myWarpSelect& heapArr,
 }
 
 template <typename Policy, typename Pair, typename myWarpSelect, typename IdxT, typename OutT>
-DI void storeWarpQGmem(myWarpSelect& heapArr,
+DI void storeWarpQGmem(myWarpSelect** heapArr,
                        volatile OutT* out_dists,
                        volatile IdxT* out_inds,
                        const IdxT m,
@@ -102,7 +102,7 @@ DI void storeWarpQGmem(myWarpSelect& heapArr,
     const auto gmemRowId = starty + i * Policy::AccThRows;
     if (gmemRowId < m) {
 #pragma unroll
-      for (int j = 0; j < heapArr[i]->kNumWarpQRegisters; ++j) {
+      for (int j = 0; j < myWarpSelect::kNumWarpQRegisters; ++j) {
         const auto idx = j * warpSize + lid;
         if (idx < numOfNN) {
           out_dists[gmemRowId * numOfNN + idx] = heapArr[i]->warpK[j];
@@ -114,7 +114,7 @@ DI void storeWarpQGmem(myWarpSelect& heapArr,
 }
 
 template <typename Policy, typename Pair, typename myWarpSelect, typename IdxT, typename OutT>
-DI void loadPrevTopKsGmemWarpQ(myWarpSelect& heapArr,
+DI void loadPrevTopKsGmemWarpQ(myWarpSelect** heapArr,
                                volatile OutT* out_dists,
                                volatile IdxT* out_inds,
                                const IdxT m,
@@ -127,14 +127,14 @@ DI void loadPrevTopKsGmemWarpQ(myWarpSelect& heapArr,
     const auto gmemRowId = starty + i * Policy::AccThRows;
     if (gmemRowId < m) {
 #pragma unroll
-      for (int j = 0; j < heapArr[i]->kNumWarpQRegisters; ++j) {
+      for (int j = 0; j < myWarpSelect::kNumWarpQRegisters; ++j) {
         const auto idx = j * warpSize + lid;
         if (idx < numOfNN) {
           heapArr[i]->warpK[j] = out_dists[gmemRowId * numOfNN + idx];
           heapArr[i]->warpV[j] = (uint32_t)out_inds[gmemRowId * numOfNN + idx];
         }
       }
-      auto constexpr kLaneWarpKTop = heapArr[i]->kNumWarpQRegisters - 1;
+      static constexpr auto kLaneWarpKTop = myWarpSelect::kNumWarpQRegisters - 1;
       heapArr[i]->warpKTop = raft::shfl(heapArr[i]->warpK[kLaneWarpKTop], heapArr[i]->kLane);
     }
   }
@@ -261,7 +261,7 @@ __global__ __launch_bounds__(Policy::Nthreads, 2) void fusedL2kNN(const DataT* x
           const auto rowId = starty + i * Policy::AccThRows;
           if (rowId < m) {
 #pragma unroll
-            for (int j = 0; j < heapArr[i]->kNumWarpQRegisters; ++j) {
+            for (int j = 0; j < myWarpSelect::kNumWarpQRegisters; ++j) {
               Pair otherKV;
               otherKV.value  = identity;
               otherKV.key    = keyMax;
@@ -287,7 +287,7 @@ __global__ __launch_bounds__(Policy::Nthreads, 2) void fusedL2kNN(const DataT* x
           const auto rowId = starty + i * Policy::AccThRows;
           if (rowId < m) {
 #pragma unroll
-            for (int j = 0; j < heapArr[i]->kNumWarpQRegisters; ++j) {
+            for (int j = 0; j < myWarpSelect::kNumWarpQRegisters; ++j) {
               Pair otherKV;
               otherKV.value  = identity;
               otherKV.key    = keyMax;
@@ -341,7 +341,7 @@ __global__ __launch_bounds__(Policy::Nthreads, 2) void fusedL2kNN(const DataT* x
   };
 
   // epilogue operation lambda for final value calculation
-  auto epilog_lambda = [numOfNN, m, n, ldd, out_dists, out_inds] __device__(
+  auto epilog_lambda = [numOfNN, m, n, ldd, out_dists, out_inds, keyMax, identity] __device__(
                          AccT acc[Policy::AccRowsPerTh][Policy::AccColsPerTh],
                          DataT * regxn,
                          DataT * regyn,
@@ -448,7 +448,7 @@ __global__ __launch_bounds__(Policy::Nthreads, 2) void fusedL2kNN(const DataT* x
               }
               const int finalNumVals = raft::shfl(numValsWarpTopK[i], 31);
               loadWarpQShmem<Policy, Pair>(heapArr[i], &shDumpKV[0], rowId, numOfNN);
-              updateSortedWarpQ<Pair, heapArr[i]->kNumWarpQRegisters>(
+              updateSortedWarpQ<Pair, myWarpSelect::kNumWarpQRegisters>(
                 heapArr[i], &allWarpTopKs[0], rowId, finalNumVals);
             }
           }

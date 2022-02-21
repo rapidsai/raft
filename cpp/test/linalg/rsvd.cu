@@ -23,6 +23,8 @@
 #include <raft/random/rng.hpp>
 #include <rmm/device_uvector.hpp>
 
+#include <algorithm>
+
 namespace raft {
 namespace linalg {
 
@@ -31,6 +33,7 @@ struct RsvdInputs {
   T tolerance;
   int n_row;
   int n_col;
+  float redundancy;
   T PC_perc;
   T UpS_perc;
   int k;
@@ -66,7 +69,7 @@ class RsvdTest : public ::testing::TestWithParam<RsvdInputs<T>> {
 
     params = ::testing::TestWithParam<RsvdInputs<T>>::GetParam();
     // rSVD seems to be very sensitive to the random number sequence as well!
-    raft::random::Rng r(params.seed, raft::random::GenTaps);
+    raft::random::Rng r(params.seed, raft::random::GenPC);
     int m = params.n_row, n = params.n_col;
     T eig_svd_tol  = 1.e-7;
     int max_sweeps = 100;
@@ -91,16 +94,27 @@ class RsvdTest : public ::testing::TestWithParam<RsvdInputs<T>> {
       raft::update_device(right_eig_vectors_ref.data(), right_eig_vectors_ref_h, n * 1, stream);
       raft::update_device(sing_vals_ref.data(), sing_vals_ref_h, 1, stream);
 
-    } else {  // Other normal tests
-      r.normal(A.data(), m * n, mu, sigma, stream);
+    } else {                                 // Other normal tests
+      int n_informative   = int(0.25f * n);  // Informative cols
+      int len_informative = m * n_informative;
+
+      int n_redundant   = n - n_informative;  // Redundant cols
+      int len_redundant = m * n_redundant;
+
+      r.normal(A.data(), len_informative, mu, sigma, stream);
+      CUDA_CHECK(cudaMemcpyAsync(A.data() + len_informative,
+                                 A.data(),
+                                 len_redundant * sizeof(T),
+                                 cudaMemcpyDeviceToDevice,
+                                 stream));
     }
     std::vector<T> A_backup_cpu(m *
                                 n);  // Backup A matrix as svdJacobi will destroy the content of A
     raft::update_host(A_backup_cpu.data(), A.data(), m * n, stream);
 
     if (params.k == 0) {
-      params.k = max((int)(min(m, n) * params.PC_perc), 1);
-      params.p = max((int)(min(m, n) * params.UpS_perc), 1);
+      params.k = std::max((int)(std::min(m, n) * params.PC_perc), 1);
+      params.p = std::max((int)(std::min(m, n) * params.UpS_perc), 1);
     }
 
     U.resize(m * params.k, stream);
@@ -157,59 +171,65 @@ class RsvdTest : public ::testing::TestWithParam<RsvdInputs<T>> {
 
 const std::vector<RsvdInputs<float>> inputs_fx = {
   // Test with ratios
-  {0.20f, 256, 256, 0.2f, 0.05f, 0, 0, true, 4321ULL},     // Square + BBT
-  {0.20f, 2048, 256, 0.2f, 0.05f, 0, 0, true, 4321ULL},    // Tall + BBT
-  {0.20f, 256, 256, 0.2f, 0.05f, 0, 0, false, 4321ULL},    // Square + non-BBT
-  {0.20f, 2048, 256, 0.2f, 0.05f, 0, 0, false, 4321ULL},   // Tall + non-BBT
-  {0.20f, 2048, 2048, 0.2f, 0.05f, 0, 0, true, 4321ULL},   // Square + BBT
-  {0.60f, 16384, 2048, 0.2f, 0.05f, 0, 0, true, 4321ULL},  // Tall + BBT
-  {0.20f, 2048, 2048, 0.2f, 0.05f, 0, 0, false, 4321ULL},  // Square + non-BBT
-  {0.60f, 16384, 2048, 0.2f, 0.05f, 0, 0, false, 4321ULL}  // Tall + non-BBT
+  {0.20f, 256, 256, 0.25f, 0.2f, 0.05f, 0, 0, true, 4321ULL},   // Square + BBT
+  {0.20f, 2048, 256, 0.25f, 0.2f, 0.05f, 0, 0, true, 4321ULL},  // Tall + BBT
 
-  ,                                                         // Test with fixed ranks
-  {0.10f, 256, 256, 0.0f, 0.0f, 100, 5, true, 4321ULL},     // Square + BBT
-  {0.12f, 2048, 256, 0.0f, 0.0f, 100, 5, true, 4321ULL},    // Tall + BBT
-  {0.10f, 256, 256, 0.0f, 0.0f, 100, 5, false, 4321ULL},    // Square + non-BBT
-  {0.12f, 2048, 256, 0.0f, 0.0f, 100, 5, false, 4321ULL},   // Tall + non-BBT
-  {0.60f, 2048, 2048, 0.0f, 0.0f, 100, 5, true, 4321ULL},   // Square + BBT
-  {1.00f, 16384, 2048, 0.0f, 0.0f, 100, 5, true, 4321ULL},  // Tall + BBT
-  {0.60f, 2048, 2048, 0.0f, 0.0f, 100, 5, false, 4321ULL},  // Square + non-BBT
-  {1.00f, 16384, 2048, 0.0f, 0.0f, 100, 5, false, 4321ULL}  // Tall + non-BBT
+  {0.20f, 256, 256, 0.25f, 0.2f, 0.05f, 0, 0, false, 4321ULL},   // Square + non-BBT
+  {0.20f, 2048, 256, 0.25f, 0.2f, 0.05f, 0, 0, false, 4321ULL},  // Tall + non-BBT
+
+  {0.20f, 2048, 2048, 0.25f, 0.2f, 0.05f, 0, 0, true, 4321ULL},   // Square + BBT
+  {0.60f, 16384, 2048, 0.25f, 0.2f, 0.05f, 0, 0, true, 4321ULL},  // Tall + BBT
+
+  {0.20f, 2048, 2048, 0.25f, 0.2f, 0.05f, 0, 0, false, 4321ULL},  // Square + non-BBT
+  {0.60f, 16384, 2048, 0.25f, 0.2f, 0.05f, 0, 0, false, 4321ULL}  // Tall + non-BBT
+
+  ,                                                              // Test with fixed ranks
+  {0.10f, 256, 256, 0.25f, 0.0f, 0.0f, 100, 5, true, 4321ULL},   // Square + BBT
+  {0.12f, 2048, 256, 0.25f, 0.0f, 0.0f, 100, 5, true, 4321ULL},  // Tall + BBT
+
+  {0.10f, 256, 256, 0.25f, 0.0f, 0.0f, 100, 5, false, 4321ULL},   // Square + non-BBT
+  {0.12f, 2048, 256, 0.25f, 0.0f, 0.0f, 100, 5, false, 4321ULL},  // Tall + non-BBT
+
+  {0.60f, 2048, 2048, 0.25f, 0.0f, 0.0f, 100, 5, true, 4321ULL},   // Square + BBT
+  {1.00f, 16384, 2048, 0.25f, 0.0f, 0.0f, 100, 5, true, 4321ULL},  // Tall + BBT
+
+  {0.60f, 2048, 2048, 0.25f, 0.0f, 0.0f, 100, 5, false, 4321ULL},  // Square + non-BBT
+  {1.00f, 16384, 2048, 0.25f, 0.0f, 0.0f, 100, 5, false, 4321ULL}  // Tall + non-BBT
 };
 
 const std::vector<RsvdInputs<double>> inputs_dx = {
   // Test with ratios
-  {0.20, 256, 256, 0.2, 0.05, 0, 0, true, 4321ULL},     // Square + BBT
-  {0.20, 2048, 256, 0.2, 0.05, 0, 0, true, 4321ULL},    // Tall + BBT
-  {0.20, 256, 256, 0.2, 0.05, 0, 0, false, 4321ULL},    // Square + non-BBT
-  {0.20, 2048, 256, 0.2, 0.05, 0, 0, false, 4321ULL},   // Tall + non-BBT
-  {0.20, 2048, 2048, 0.2, 0.05, 0, 0, true, 4321ULL},   // Square + BBT
-  {0.60, 16384, 2048, 0.2, 0.05, 0, 0, true, 4321ULL},  // Tall + BBT
-  {0.20, 2048, 2048, 0.2, 0.05, 0, 0, false, 4321ULL},  // Square + non-BBT
-  {0.60, 16384, 2048, 0.2, 0.05, 0, 0, false, 4321ULL}  // Tall + non-BBT
+  {0.20, 256, 256, 0.25f, 0.2, 0.05, 0, 0, true, 4321ULL},     // Square + BBT
+  {0.20, 2048, 256, 0.25f, 0.2, 0.05, 0, 0, true, 4321ULL},    // Tall + BBT
+  {0.20, 256, 256, 0.25f, 0.2, 0.05, 0, 0, false, 4321ULL},    // Square + non-BBT
+  {0.20, 2048, 256, 0.25f, 0.2, 0.05, 0, 0, false, 4321ULL},   // Tall + non-BBT
+  {0.20, 2048, 2048, 0.25f, 0.2, 0.05, 0, 0, true, 4321ULL},   // Square + BBT
+  {0.60, 16384, 2048, 0.25f, 0.2, 0.05, 0, 0, true, 4321ULL},  // Tall + BBT
+  {0.20, 2048, 2048, 0.25f, 0.2, 0.05, 0, 0, false, 4321ULL},  // Square + non-BBT
+  {0.60, 16384, 2048, 0.25f, 0.2, 0.05, 0, 0, false, 4321ULL}  // Tall + non-BBT
 
-  ,                                                      // Test with fixed ranks
-  {0.10, 256, 256, 0.0, 0.0, 100, 5, true, 4321ULL},     // Square + BBT
-  {0.12, 2048, 256, 0.0, 0.0, 100, 5, true, 4321ULL},    // Tall + BBT
-  {0.10, 256, 256, 0.0, 0.0, 100, 5, false, 4321ULL},    // Square + non-BBT
-  {0.12, 2048, 256, 0.0, 0.0, 100, 5, false, 4321ULL},   // Tall + non-BBT
-  {0.60, 2048, 2048, 0.0, 0.0, 100, 5, true, 4321ULL},   // Square + BBT
-  {1.00, 16384, 2048, 0.0, 0.0, 100, 5, true, 4321ULL},  // Tall + BBT
-  {0.60, 2048, 2048, 0.0, 0.0, 100, 5, false, 4321ULL},  // Square + non-BBT
-  {1.00, 16384, 2048, 0.0, 0.0, 100, 5, false, 4321ULL}  // Tall + non-BBT
+  ,                                                             // Test with fixed ranks
+  {0.10, 256, 256, 0.25f, 0.0, 0.0, 100, 5, true, 4321ULL},     // Square + BBT
+  {0.12, 2048, 256, 0.25f, 0.0, 0.0, 100, 5, true, 4321ULL},    // Tall + BBT
+  {0.10, 256, 256, 0.25f, 0.0, 0.0, 100, 5, false, 4321ULL},    // Square + non-BBT
+  {0.12, 2048, 256, 0.25f, 0.0, 0.0, 100, 5, false, 4321ULL},   // Tall + non-BBT
+  {0.60, 2048, 2048, 0.25f, 0.0, 0.0, 100, 5, true, 4321ULL},   // Square + BBT
+  {1.00, 16384, 2048, 0.25f, 0.0, 0.0, 100, 5, true, 4321ULL},  // Tall + BBT
+  {0.60, 2048, 2048, 0.25f, 0.0, 0.0, 100, 5, false, 4321ULL},  // Square + non-BBT
+  {1.00, 16384, 2048, 0.25f, 0.0, 0.0, 100, 5, false, 4321ULL}  // Tall + non-BBT
 };
 
 const std::vector<RsvdInputs<float>> sanity_inputs_fx = {
-  {100000000000000000.0f, 3, 2, 0.2f, 0.05f, 0, 0, true, 4321ULL},
-  {100000000000000000.0f, 3, 2, 0.0f, 0.0f, 1, 1, true, 4321ULL},
-  {100000000000000000.0f, 3, 2, 0.2f, 0.05f, 0, 0, false, 4321ULL},
-  {100000000000000000.0f, 3, 2, 0.0f, 0.0f, 1, 1, false, 4321ULL}};
+  {100000000000000000.0f, 3, 2, 0.25f, 0.2f, 0.05f, 0, 0, true, 4321ULL},
+  {100000000000000000.0f, 3, 2, 0.25f, 0.0f, 0.0f, 1, 1, true, 4321ULL},
+  {100000000000000000.0f, 3, 2, 0.25f, 0.2f, 0.05f, 0, 0, false, 4321ULL},
+  {100000000000000000.0f, 3, 2, 0.25f, 0.0f, 0.0f, 1, 1, false, 4321ULL}};
 
 const std::vector<RsvdInputs<double>> sanity_inputs_dx = {
-  {100000000000000000.0, 3, 2, 0.2, 0.05, 0, 0, true, 4321ULL},
-  {100000000000000000.0, 3, 2, 0.0, 0.0, 1, 1, true, 4321ULL},
-  {100000000000000000.0, 3, 2, 0.2, 0.05, 0, 0, false, 4321ULL},
-  {100000000000000000.0, 3, 2, 0.0, 0.0, 1, 1, false, 4321ULL}};
+  {100000000000000000.0, 3, 2, 0.25f, 0.2, 0.05, 0, 0, true, 4321ULL},
+  {100000000000000000.0, 3, 2, 0.25f, 0.0, 0.0, 1, 1, true, 4321ULL},
+  {100000000000000000.0, 3, 2, 0.25f, 0.2, 0.05, 0, 0, false, 4321ULL},
+  {100000000000000000.0, 3, 2, 0.25f, 0.0, 0.0, 1, 1, false, 4321ULL}};
 
 typedef RsvdTest<float> RsvdSanityCheckValF;
 TEST_P(RsvdSanityCheckValF, Result)

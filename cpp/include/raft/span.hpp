@@ -59,7 +59,7 @@ class span {
   /**
    * @brief Constructs a span that is a view over the range [first, first + count);
    */
-  constexpr span(pointer ptr, size_type count) noexcept : size_(count), data_(ptr)
+  constexpr span(pointer ptr, size_type count) noexcept : storage_{ptr, count}
   {
     assert(!(Extent != dynamic_extent && count != Extent));
     assert(ptr || count == 0);
@@ -67,15 +67,15 @@ class span {
   /**
    * @brief Constructs a span that is a view over the range [first, last)
    */
-  constexpr span(pointer first, pointer last) noexcept : size_(last - first), data_(first)
+  constexpr span(pointer first, pointer last) noexcept
+    : span{first, static_cast<size_type>(thrust::distance(first, last))}
   {
-    assert(data_ || size_ == 0);
   }
   /**
    * @brief Constructs a span that is a view over the array arr.
    */
   template <std::size_t N>
-  constexpr span(element_type (&arr)[N]) noexcept : size_(N), data_(&arr[0])
+  constexpr span(element_type (&arr)[N]) noexcept : span{&arr[0], N}
   {
   }
 
@@ -89,7 +89,7 @@ class span {
               detail::is_allowed_element_type_conversion_t<U, T>::value &&
               detail::is_allowed_extent_conversion_t<OtherExtent, Extent>::value>>
   constexpr span(const span<U, is_device, OtherExtent>& other) noexcept
-    : size_(other.size()), data_(other.data())
+    : span{other.data(), other.size()}
   {
   }
 
@@ -139,10 +139,10 @@ class span {
     return data()[_idx];
   }
 
-  constexpr auto data() const noexcept -> pointer { return data_; }
+  constexpr auto data() const noexcept -> pointer { return storage_.data(); }
 
   // Observers
-  [[nodiscard]] constexpr auto size() const noexcept -> size_type { return size_; }
+  [[nodiscard]] constexpr auto size() const noexcept -> size_type { return storage_.size(); }
   [[nodiscard]] constexpr auto size_bytes() const noexcept -> size_type
   {
     return size() * sizeof(T);
@@ -197,8 +197,7 @@ class span {
   }
 
  private:
-  size_type size_{0};
-  pointer data_{nullptr};
+  detail::span_storage<T, Extent> storage_;
 };
 
 /**
