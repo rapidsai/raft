@@ -179,8 +179,8 @@ def checkCopyright_main():
                            action="store_true",
                            required=False,
                            help="If set, "
-                                "update the current year if a header is already "
-                                "present and well formatted.")
+                                "update the current year if a header "
+                                "is already present and well formatted.")
     argparser.add_argument("--git-modified-only",
                            dest='git_modified_only',
                            action="store_true",
