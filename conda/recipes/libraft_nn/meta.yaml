@@ -45,14 +45,14 @@ requirements:
     - libfaiss 1.7.0 *_cuda
     - gtest=1.10.0
     - gmock
-    - rmm {{ minor_version }}
+    - librmm {{ minor_version }}
   run:
     - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
     - libraft-headers {{ version }}
     - faiss-proc=*=cuda
     - libfaiss 1.7.0 *_cuda
     - libcusolver>=11.2.1
-    - rmm {{ minor_version }}
+    - librmm {{ minor_version }}
 
 about:
   home: http://rapids.ai/

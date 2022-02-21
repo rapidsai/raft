@@ -45,7 +45,7 @@ requirements:
     - ucx-proc=*=gpu
     - gtest=1.10.0
     - gmock
-    - rmm {{ minor_version }}
+    - librmm {{ minor_version }}
   run:
     - libraft-headers {{ version }}
     - nccl>=2.9.9
@@ -53,7 +53,7 @@ requirements:
     - ucx-proc=*=gpu
     - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
     - libcusolver>=11.2.1
-    - rmm {{ minor_version }}
+    - librmm {{ minor_version }}
 
 about:
   home: http://rapids.ai/
