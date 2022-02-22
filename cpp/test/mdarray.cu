@@ -42,7 +42,7 @@ void test_mdspan()
   auto stream = rmm::cuda_stream_default;
   rmm::device_uvector<float> a{16ul, stream};
   thrust::sequence(rmm::exec_policy(stream), a.begin(), a.end());
-  stdex::mdspan<float, stdex::extents<stdex::dynamic_extent, stdex::dynamic_extent>> span{
+  stdex::mdspan<float, stdex::extents<raft::dynamic_extent, raft::dynamic_extent>> span{
     a.data(), 4, 4};
   thrust::device_vector<int32_t> status(1, 0);
   auto p_status = status.data().get();
@@ -74,7 +74,7 @@ TEST(MDArray, Policy) { test_uvector_policy(); }
 
 void test_mdarray_basic()
 {
-  using matrix_extent = stdex::extents<stdex::dynamic_extent, stdex::dynamic_extent>;
+  using matrix_extent = stdex::extents<dynamic_extent, dynamic_extent>;
   auto s              = rmm::cuda_stream_default;
   {
     /**
@@ -180,7 +180,7 @@ TEST(MDArray, Basic) { test_mdarray_basic(); }
 template <typename BasicMDarray, typename PolicyFn, typename ThrustPolicy>
 void test_mdarray_copy_move(ThrustPolicy exec, PolicyFn make_policy)
 {
-  using matrix_extent = stdex::extents<stdex::dynamic_extent, stdex::dynamic_extent>;
+  using matrix_extent = stdex::extents<dynamic_extent, dynamic_extent>;
   layout_c_contiguous::mapping<matrix_extent> layout{matrix_extent{4, 4}};
 
   using mdarray_t = BasicMDarray;
@@ -251,7 +251,7 @@ void test_mdarray_copy_move(ThrustPolicy exec, PolicyFn make_policy)
 
 TEST(MDArray, CopyMove)
 {
-  using matrix_extent = stdex::extents<stdex::dynamic_extent, stdex::dynamic_extent>;
+  using matrix_extent = stdex::extents<dynamic_extent, dynamic_extent>;
   using d_matrix_t    = device_mdarray<float, matrix_extent>;
   using policy_t      = typename d_matrix_t::container_policy_type;
   auto s              = rmm::cuda_stream_default;
