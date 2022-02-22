@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "detail/mean_squared_error.hpp"
+#include "detail/mean_squared_error.cuh"
 
 namespace raft {
 namespace linalg {

@@ -16,5 +16,5 @@
 
 #pragma once
 
-#include <raft/distance/specializations.hpp>
-#include <raft/spatial/knn/specializations.hpp>
+#include <raft/distance/specializations.cuh>
+#include <raft/spatial/knn/specializations.cuh>

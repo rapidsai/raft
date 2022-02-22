@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "detail/transpose.hpp"
+#include "detail/transpose.cuh"
 
 namespace raft {
 namespace linalg {

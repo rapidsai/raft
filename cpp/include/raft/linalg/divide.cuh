@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "detail/divide.hpp"
+#include "detail/divide.cuh"
 
 namespace raft {
 namespace linalg {

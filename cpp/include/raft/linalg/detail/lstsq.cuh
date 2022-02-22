@@ -18,12 +18,11 @@
 
 #include <common/nvtx.hpp>
 #include <raft/common/nvtx.hpp>
-#include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/linalg/detail/cusolver_wrappers.hpp>
 #include <raft/linalg/eig.hpp>
-#include <raft/linalg/eltwise.hpp>
+#include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/gemm.hpp>
 #include <raft/linalg/gemv.hpp>
 #include <raft/linalg/qr.hpp>

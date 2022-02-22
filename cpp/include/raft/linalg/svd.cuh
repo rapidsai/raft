@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "detail/svd.hpp"
+#include "detail/svd.cuh"
 
 namespace raft {
 namespace linalg {

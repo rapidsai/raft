@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "detail/cholesky_r1_update.hpp"
+#include "detail/cholesky_r1_update.cuh"
 
 namespace raft {
 namespace linalg {

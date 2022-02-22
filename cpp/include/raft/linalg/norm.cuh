@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "detail/norm.hpp"
+#include "detail/norm.cuh"
 
 namespace raft {
 namespace linalg {

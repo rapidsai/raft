@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "detail/eltwise.hpp"
+#include "detail/eltwise.cuh"
 
 namespace raft {
 namespace linalg {

@@ -17,7 +17,7 @@
 #pragma once
 
 #include <raft/handle.hpp>
-#include <raft/sparse/op/detail/slice.h>
+#include <raft/sparse/op/detail/slice.cuh>
 
 namespace raft {
 namespace sparse {

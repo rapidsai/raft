@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "detail/axpy.hpp"
+#include "detail/axpy.cuh"
 
 namespace raft::linalg {
 
