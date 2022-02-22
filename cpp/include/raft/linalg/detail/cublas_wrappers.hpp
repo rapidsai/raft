@@ -16,10 +16,9 @@
 
 #pragma once
 
+#include <cublas_v2.h>
 #include <raft/error.hpp>
 #include <raft/linalg/cublas_macros.h>
-#include <cublas_v2.h>
-
 
 namespace raft {
 namespace linalg {
