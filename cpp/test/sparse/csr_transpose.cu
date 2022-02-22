@@ -21,7 +21,7 @@
 #include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
 #include <raft/sparse/detail/cusparse_wrappers.h>
-#include <raft/sparse/linalg/transpose.hpp>
+#include <raft/sparse/linalg/transpose.cuh>
 
 #include "../test_utils.h"
 

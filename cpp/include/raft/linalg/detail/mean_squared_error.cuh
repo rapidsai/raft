@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <raft/linalg/map_then_reduce.hpp>
+#include <raft/linalg/map_then_reduce.cuh>
 
 namespace raft {
 namespace linalg {

@@ -17,9 +17,9 @@
 #include "../test_utils.h"
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/eltwise.hpp>
-#include <raft/linalg/map.hpp>
-#include <raft/random/rng.hpp>
+#include <raft/linalg/eltwise.cuh>
+#include <raft/linalg/map.cuh>
+#include <raft/random/rng.cuh>
 
 namespace raft {
 namespace linalg {

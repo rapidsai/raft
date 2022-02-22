@@ -18,16 +18,16 @@
 
 #include "cublas_wrappers.hpp"
 #include "cusolver_wrappers.hpp"
-#include <raft/linalg/eig.hpp>
-#include <raft/linalg/gemm.hpp>
-#include <raft/linalg/transpose.hpp>
+#include <raft/linalg/eig.cuh>
+#include <raft/linalg/gemm.cuh>
+#include <raft/linalg/transpose.cuh>
 
 #include <raft/common/nvtx.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
-#include <raft/matrix/math.hpp>
-#include <raft/matrix/matrix.hpp>
+#include <raft/matrix/math.cuh>
+#include <raft/matrix/matrix.cuh>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 

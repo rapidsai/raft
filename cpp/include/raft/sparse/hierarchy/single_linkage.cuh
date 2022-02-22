@@ -17,7 +17,7 @@
 #pragma once
 
 #include <raft/sparse/hierarchy/common.h>
-#include <raft/sparse/hierarchy/detail/single_linkage.hpp>
+#include <raft/sparse/hierarchy/detail/single_linkage.cuh>
 
 namespace raft {
 namespace hierarchy {

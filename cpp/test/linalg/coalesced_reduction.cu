@@ -19,8 +19,8 @@
 #include <gtest/gtest.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/coalesced_reduction.hpp>
-#include <raft/random/rng.hpp>
+#include <raft/linalg/coalesced_reduction.cuh>
+#include <raft/random/rng.cuh>
 
 namespace raft {
 namespace linalg {

@@ -27,7 +27,7 @@
 #include <raft/cudart_utils.h>
 
 #include <label/classlabels.cuh>
-#include <raft/distance/distance.hpp>
+#include <raft/distance/distance.cuh>
 #include <raft/spatial/knn/faiss_mr.hpp>
 
 #include <faiss/gpu/GpuDistance.h>

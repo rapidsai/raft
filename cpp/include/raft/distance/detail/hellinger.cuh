@@ -16,7 +16,7 @@
 
 #pragma once
 #include <raft/distance/detail/pairwise_distance_base.cuh>
-#include <raft/linalg/unary_op.hpp>
+#include <raft/linalg/unary_op.cuh>
 
 namespace raft {
 namespace distance {

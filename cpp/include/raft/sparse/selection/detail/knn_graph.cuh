@@ -20,9 +20,9 @@
 #include <raft/cudart_utils.h>
 
 #include <raft/sparse/coo.hpp>
-#include <raft/sparse/linalg/symmetrize.hpp>
+#include <raft/sparse/linalg/symmetrize.cuh>
 
-#include <raft/spatial/knn/knn.hpp>
+#include <raft/spatial/knn/knn.cuh>
 
 #include <raft/distance/distance_type.hpp>
 #include <rmm/device_uvector.hpp>

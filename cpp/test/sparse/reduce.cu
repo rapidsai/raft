@@ -22,7 +22,7 @@
 #include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
 #include <raft/sparse/coo.hpp>
-#include <raft/sparse/op/reduce.hpp>
+#include <raft/sparse/op/reduce.cuh>
 #include <rmm/device_uvector.hpp>
 
 namespace raft {

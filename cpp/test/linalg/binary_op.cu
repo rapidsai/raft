@@ -18,8 +18,8 @@
 #include "binary_op.cuh"
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/binary_op.hpp>
-#include <raft/random/rng.hpp>
+#include <raft/linalg/binary_op.cuh>
+#include <raft/random/rng.cuh>
 #include <rmm/device_uvector.hpp>
 
 namespace raft {

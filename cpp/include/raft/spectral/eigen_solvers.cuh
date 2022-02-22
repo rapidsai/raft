@@ -15,7 +15,7 @@
  */
 #pragma once
 
-#include <raft/linalg/lanczos.hpp>
+#include <raft/linalg/lanczos.cuh>
 #include <raft/spectral/matrix_wrappers.hpp>
 
 namespace raft {

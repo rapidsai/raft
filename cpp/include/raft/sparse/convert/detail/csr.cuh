@@ -35,8 +35,8 @@
 
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/detail/utils.h>
-#include <raft/sparse/linalg/degree.hpp>
-#include <raft/sparse/op/row_op.hpp>
+#include <raft/sparse/linalg/degree.cuh>
+#include <raft/sparse/op/row_op.cuh>
 
 namespace raft {
 namespace sparse {

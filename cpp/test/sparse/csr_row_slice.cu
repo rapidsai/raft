@@ -20,7 +20,7 @@
 
 #include <gtest/gtest.h>
 #include <raft/sparse/detail/cusparse_wrappers.h>
-#include <raft/sparse/op/slice.hpp>
+#include <raft/sparse/op/slice.cuh>
 
 #include <rmm/device_uvector.hpp>
 

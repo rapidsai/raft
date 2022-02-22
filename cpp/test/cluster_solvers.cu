@@ -19,8 +19,8 @@
 #include <memory>
 #include <raft/handle.hpp>
 
-#include <raft/spectral/cluster_solvers.hpp>
-#include <raft/spectral/modularity_maximization.hpp>
+#include <raft/spectral/cluster_solvers.cuh>
+#include <raft/spectral/modularity_maximization.cuh>
 
 namespace raft {
 namespace spectral {

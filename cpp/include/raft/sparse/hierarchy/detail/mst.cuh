@@ -20,8 +20,8 @@
 #include <raft/cudart_utils.h>
 
 #include <raft/sparse/mst/mst.cuh>
-#include <raft/sparse/op/sort.hpp>
-#include <raft/sparse/selection/connect_components.hpp>
+#include <raft/sparse/op/sort.cuh>
+#include <raft/sparse/selection/connect_components.cuh>
 #include <rmm/device_uvector.hpp>
 
 #include <thrust/device_ptr.h>

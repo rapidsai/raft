@@ -18,8 +18,8 @@
 #include "add.cuh"
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/add.hpp>
-#include <raft/random/rng.hpp>
+#include <raft/linalg/add.cuh>
+#include <raft/random/rng.cuh>
 
 namespace raft {
 namespace linalg {

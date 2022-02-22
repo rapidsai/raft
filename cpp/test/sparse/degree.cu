@@ -17,9 +17,9 @@
 #include "../test_utils.h"
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
-#include <raft/random/rng.hpp>
+#include <raft/random/rng.cuh>
 
-#include <raft/sparse/linalg/degree.hpp>
+#include <raft/sparse/linalg/degree.cuh>
 
 #include <iostream>
 

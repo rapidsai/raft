@@ -15,7 +15,7 @@
  */
 #pragma once
 
-#include <raft/cluster/kmeans.hpp>
+#include <raft/cluster/kmeans.cuh>
 #include <utility>  // for std::pair
 
 namespace raft {

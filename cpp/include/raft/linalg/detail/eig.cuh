@@ -20,7 +20,7 @@
 #include <cuda_runtime_api.h>
 #include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
-#include <raft/matrix/matrix.hpp>
+#include <raft/matrix/matrix.cuh>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 

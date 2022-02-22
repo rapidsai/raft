@@ -17,8 +17,8 @@
 #include "../test_utils.h"
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
-#include <raft/matrix/math.hpp>
-#include <raft/random/rng.hpp>
+#include <raft/matrix/math.cuh>
+#include <raft/random/rng.cuh>
 
 namespace raft {
 namespace matrix {

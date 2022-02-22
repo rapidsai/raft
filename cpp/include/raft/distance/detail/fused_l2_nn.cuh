@@ -20,7 +20,7 @@
 #include <limits>
 #include <raft/cuda_utils.cuh>
 #include <raft/distance/detail/pairwise_distance_base.cuh>
-#include <raft/linalg/contractions.hpp>
+#include <raft/linalg/contractions.cuh>
 #include <stdint.h>
 
 namespace raft {

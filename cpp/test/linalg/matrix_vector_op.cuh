@@ -16,7 +16,7 @@
 
 #include "../test_utils.h"
 #include <raft/cuda_utils.cuh>
-#include <raft/linalg/matrix_vector_op.hpp>
+#include <raft/linalg/matrix_vector_op.cuh>
 
 namespace raft {
 namespace linalg {

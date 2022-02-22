@@ -20,9 +20,9 @@
 #include "../test_utils.h"
 
 #include <raft/sparse/detail/utils.h>
-#include <raft/spatial/knn/knn.hpp>
+#include <raft/spatial/knn/knn.cuh>
 #if defined RAFT_NN_COMPILED
-#include <raft/spatial/knn/specializations.hpp>
+#include <raft/spatial/knn/specializations.cuh>
 #endif
 
 namespace raft {

@@ -26,7 +26,7 @@
 #include <raft/sparse/csr.hpp>
 #include <raft/sparse/detail/utils.h>
 
-#include <raft/sparse/convert/coo.hpp>
+#include <raft/sparse/convert/coo.cuh>
 #include <raft/sparse/distance/common.h>
 #include <raft/sparse/distance/detail/operators.cuh>
 

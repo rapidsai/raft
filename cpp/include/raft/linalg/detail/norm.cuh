@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <raft/linalg/reduce.hpp>
+#include <raft/linalg/reduce.cuh>
 
 namespace raft {
 namespace linalg {

@@ -22,9 +22,9 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
-#include <raft/linalg/subtract.hpp>
-#include <raft/linalg/transpose.hpp>
-#include <raft/random/make_regression.hpp>
+#include <raft/linalg/subtract.cuh>
+#include <raft/linalg/transpose.cuh>
+#include <raft/random/make_regression.cuh>
 
 namespace raft::random {
 

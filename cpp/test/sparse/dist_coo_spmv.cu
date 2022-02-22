@@ -18,11 +18,11 @@
 
 #include <raft/cudart_utils.h>
 #include <raft/distance/distance_type.hpp>
-#include <raft/linalg/unary_op.hpp>
+#include <raft/linalg/unary_op.cuh>
 #include <raft/sparse/detail/cusparse_wrappers.h>
 #include <rmm/device_uvector.hpp>
 
-#include <raft/sparse/convert/coo.hpp>
+#include <raft/sparse/convert/coo.cuh>
 #include <raft/sparse/distance/detail/coo_spmv.cuh>
 #include <raft/sparse/distance/detail/operators.cuh>
 

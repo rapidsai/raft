@@ -18,10 +18,10 @@
 #include "spatial_data.h"
 #include <raft/cudart_utils.h>
 #include <raft/distance/distance_type.hpp>
-#include <raft/spatial/knn/ball_cover.hpp>
+#include <raft/spatial/knn/ball_cover.cuh>
 #include <raft/spatial/knn/detail/knn_brute_force_faiss.cuh>
 #if defined RAFT_NN_COMPILED
-#include <raft/spatial/knn/specializations.hpp>
+#include <raft/spatial/knn/specializations.cuh>
 #endif
 
 #include <rmm/device_uvector.hpp>

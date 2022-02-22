@@ -15,7 +15,7 @@
  */
 
 #pragma once
-#include <raft/linalg/unary_op.hpp>
+#include <raft/linalg/unary_op.cuh>
 #include <raft/stats/common.hpp>
 
 #include <cmath>

@@ -19,9 +19,9 @@
 #include <gtest/gtest.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/random/rng.hpp>
-#include <raft/stats/mean.hpp>
-#include <raft/stats/stddev.hpp>
+#include <raft/random/rng.cuh>
+#include <raft/stats/mean.cuh>
+#include <raft/stats/stddev.cuh>
 
 namespace raft {
 namespace random {

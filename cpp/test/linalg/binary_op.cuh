@@ -18,7 +18,7 @@
 
 #include "../test_utils.h"
 #include <raft/cuda_utils.cuh>
-#include <raft/linalg/binary_op.hpp>
+#include <raft/linalg/binary_op.cuh>
 
 namespace raft {
 namespace linalg {

@@ -22,15 +22,15 @@
 #include <raft/cudart_utils.h>
 #include <vector>
 
-#include <raft/sparse/linalg/symmetrize.hpp>
+#include <raft/sparse/linalg/symmetrize.cuh>
 #include <raft/sparse/mst/mst.cuh>
-#include <raft/sparse/selection/knn_graph.hpp>
+#include <raft/sparse/selection/knn_graph.cuh>
 
 #include <raft/distance/distance_type.hpp>
-#include <raft/linalg/transpose.hpp>
-#include <raft/sparse/convert/csr.hpp>
+#include <raft/linalg/transpose.cuh>
+#include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/coo.hpp>
-#include <raft/sparse/hierarchy/single_linkage.hpp>
+#include <raft/sparse/hierarchy/single_linkage.cuh>
 #include <rmm/device_uvector.hpp>
 
 #include "../test_utils.h"

@@ -28,7 +28,7 @@
 
 #include <iostream>
 #include <omp.h>
-#include <raft/lap/lap.hpp>
+#include <raft/lap/lap.cuh>
 #include <random>
 
 #define PROBLEMSIZE  1000  // Number of rows/columns

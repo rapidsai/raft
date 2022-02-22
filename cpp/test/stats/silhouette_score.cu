@@ -21,10 +21,10 @@
 #include <raft/distance/distance_type.hpp>
 
 #if defined RAFT_DISTANCE_COMPILED && defined RAFT_NN_COMPILED
-#include <raft/stats/specializations.hpp>
+#include <raft/stats/specializations.cuh>
 #endif
 
-#include <raft/stats/silhouette_score.hpp>
+#include <raft/stats/silhouette_score.cuh>
 #include <random>
 #include <rmm/device_uvector.hpp>
 

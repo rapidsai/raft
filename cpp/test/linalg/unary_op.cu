@@ -18,8 +18,8 @@
 #include "unary_op.cuh"
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/unary_op.hpp>
-#include <raft/random/rng.hpp>
+#include <raft/linalg/unary_op.cuh>
+#include <raft/random/rng.cuh>
 
 namespace raft {
 namespace linalg {

@@ -26,9 +26,9 @@
 #include <tuple>
 
 #include <raft/linalg/detail/cublas_wrappers.hpp>
-#include <raft/spectral/cluster_solvers.hpp>
+#include <raft/spectral/cluster_solvers.cuh>
 #include <raft/spectral/detail/spectral_util.cuh>
-#include <raft/spectral/eigen_solvers.hpp>
+#include <raft/spectral/eigen_solvers.cuh>
 
 namespace raft {
 namespace spectral {

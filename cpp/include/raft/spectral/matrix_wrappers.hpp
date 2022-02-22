@@ -15,7 +15,7 @@
  */
 #pragma once
 
-#include <raft/spectral/detail/matrix_wrappers.cuh>
+#include <raft/spectral/detail/matrix_wrappers.hpp>
 
 // =========================================================
 // Useful macros

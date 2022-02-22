@@ -20,7 +20,7 @@
 #include <iostream>
 #include <raft/cudart_utils.h>
 #include <raft/interruptible.hpp>
-#include <raft/stats/contingency_matrix.hpp>
+#include <raft/stats/contingency_matrix.cuh>
 #include <random>
 #include <rmm/device_uvector.hpp>
 

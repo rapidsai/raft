@@ -20,14 +20,14 @@
 #include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
 
-#include <raft/linalg/unary_op.hpp>
+#include <raft/linalg/unary_op.cuh>
 #include <rmm/device_uvector.hpp>
 
 #include <raft/distance/distance_type.hpp>
-#include <raft/sparse/convert/csr.hpp>
+#include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/hierarchy/common.h>
-#include <raft/sparse/selection/knn_graph.hpp>
+#include <raft/sparse/selection/knn_graph.cuh>
 
 #include <limits>
 

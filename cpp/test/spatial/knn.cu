@@ -18,9 +18,9 @@
 
 #include <raft/distance/distance_type.hpp>
 
-#include <raft/spatial/knn/knn.hpp>
+#include <raft/spatial/knn/knn.cuh>
 #if defined RAFT_NN_COMPILED
-#include <raft/spatial/knn/specializations.hpp>
+#include <raft/spatial/knn/specializations.cuh>
 #endif
 
 #include <rmm/device_buffer.hpp>

@@ -17,7 +17,7 @@
  * @file v_measure.cuh
  */
 
-#include <raft/stats/homogeneity_score.hpp>
+#include <raft/stats/homogeneity_score.cuh>
 
 namespace raft {
 namespace stats {

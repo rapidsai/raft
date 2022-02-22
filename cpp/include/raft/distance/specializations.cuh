@@ -16,4 +16,4 @@
 
 #pragma once
 
-#include <raft/distance/specializations/distance.hpp>
+#include <raft/distance/specializations/distance.cuh>

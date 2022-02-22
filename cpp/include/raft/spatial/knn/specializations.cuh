@@ -16,6 +16,6 @@
 
 #pragma once
 
-#include <raft/spatial/knn/specializations/ball_cover.hpp>
-#include <raft/spatial/knn/specializations/fused_l2_knn.hpp>
-#include <raft/spatial/knn/specializations/knn.hpp>
+#include <raft/spatial/knn/specializations/ball_cover.cuh>
+#include <raft/spatial/knn/specializations/fused_l2_knn.cuh>
+#include <raft/spatial/knn/specializations/knn.cuh>

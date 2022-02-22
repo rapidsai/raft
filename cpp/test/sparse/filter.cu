@@ -17,11 +17,11 @@
 #include "../test_utils.h"
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
-#include <raft/random/rng.hpp>
+#include <raft/random/rng.cuh>
 
 #include <raft/sparse/coo.hpp>
-#include <raft/sparse/op/filter.hpp>
-#include <raft/sparse/op/sort.hpp>
+#include <raft/sparse/op/filter.cuh>
+#include <raft/sparse/op/sort.cuh>
 
 #include <iostream>
 

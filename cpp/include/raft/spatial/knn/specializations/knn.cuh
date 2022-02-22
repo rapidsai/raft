@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <raft/spatial/knn/knn.hpp>
+#include <raft/spatial/knn/knn.cuh>
 
 namespace raft {
 namespace spatial {

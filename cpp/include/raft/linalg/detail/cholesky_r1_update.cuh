@@ -19,7 +19,7 @@
 #include "cublas_wrappers.hpp"
 #include "cusolver_wrappers.hpp"
 #include <raft/handle.hpp>
-#include <raft/linalg/binary_op.hpp>
+#include <raft/linalg/binary_op.cuh>
 
 namespace raft {
 namespace linalg {

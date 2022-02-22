@@ -16,17 +16,17 @@
 
 #pragma once
 
-#include <raft/distance/specializations/detail/canberra.hpp>
-#include <raft/distance/specializations/detail/chebyshev.hpp>
-#include <raft/distance/specializations/detail/correlation.hpp>
-#include <raft/distance/specializations/detail/cosine.hpp>
-#include <raft/distance/specializations/detail/hamming_unexpanded.hpp>
-#include <raft/distance/specializations/detail/hellinger_expanded.hpp>
-#include <raft/distance/specializations/detail/jensen_shannon.hpp>
-#include <raft/distance/specializations/detail/kl_divergence.hpp>
-#include <raft/distance/specializations/detail/l1.hpp>
-#include <raft/distance/specializations/detail/l2_expanded.hpp>
-#include <raft/distance/specializations/detail/l2_sqrt_expanded.hpp>
-#include <raft/distance/specializations/detail/l2_sqrt_unexpanded.hpp>
-#include <raft/distance/specializations/detail/l2_unexpanded.hpp>
-#include <raft/distance/specializations/detail/lp_unexpanded.hpp>
+#include <raft/distance/specializations/detail/canberra.cuh>
+#include <raft/distance/specializations/detail/chebyshev.cuh>
+#include <raft/distance/specializations/detail/correlation.cuh>
+#include <raft/distance/specializations/detail/cosine.cuh>
+#include <raft/distance/specializations/detail/hamming_unexpanded.cuh>
+#include <raft/distance/specializations/detail/hellinger_expanded.cuh>
+#include <raft/distance/specializations/detail/jensen_shannon.cuh>
+#include <raft/distance/specializations/detail/kl_divergence.cuh>
+#include <raft/distance/specializations/detail/l1.cuh>
+#include <raft/distance/specializations/detail/l2_expanded.cuh>
+#include <raft/distance/specializations/detail/l2_sqrt_expanded.cuh>
+#include <raft/distance/specializations/detail/l2_sqrt_unexpanded.cuh>
+#include <raft/distance/specializations/detail/l2_unexpanded.cuh>
+#include <raft/distance/specializations/detail/lp_unexpanded.cuh>

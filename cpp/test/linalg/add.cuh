@@ -17,7 +17,7 @@
 #pragma once
 
 #include <raft/cuda_utils.cuh>
-#include <raft/linalg/add.hpp>
+#include <raft/linalg/add.cuh>
 
 namespace raft {
 namespace linalg {
