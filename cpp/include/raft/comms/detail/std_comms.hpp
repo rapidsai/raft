@@ -367,6 +367,7 @@ class std_comms : public comms_iface {
   {
     // From: "An Empirical Evaluation of Allgatherv on Multi-GPU Systems" -
     // https://arxiv.org/pdf/1812.05964.pdf Listing 1 on page 4.
+    RAFT_NCCL_TRY(ncclGroupStart());
     for (int root = 0; root < num_ranks_; ++root) {
       size_t dtype_size = get_datatype_size(datatype);
       RAFT_NCCL_TRY(ncclBroadcast(sendbuf,
@@ -377,6 +378,7 @@ class std_comms : public comms_iface {
                                   nccl_comm_,
                                   stream));
     }
+    RAFT_NCCL_TRY(ncclGroupEnd());
   }
 
   void gather(const void* sendbuff,
