@@ -161,6 +161,7 @@ function(find_and_configure_raft)
   if(PKG_CLONE_ON_PIN AND NOT PKG_PINNED_TAG STREQUAL "branch-${RAFT_VERSION}")
     message("Pinned tag found: ${PKG_PINNED_TAG}. Cloning raft locally.")
     set(CPM_DOWNLOAD_raft ON)
+    set(CMAKE_IGNORE_PATH "${CMAKE_INSTALL_PREFIX}/include/raft;${CMAKE_IGNORE_PATH})
   endif()
 
   #-----------------------------------------------------
