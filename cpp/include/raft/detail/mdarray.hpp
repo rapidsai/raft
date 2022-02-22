@@ -22,6 +22,7 @@
  */
 #pragma once
 #include <experimental/mdspan>
+#include <raft/detail/span.hpp>  // dynamic_extent
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_uvector.hpp>
 #include <thrust/device_ptr.h>
@@ -234,7 +235,7 @@ using device_accessor = accessor_mixin<AccessorPolicy, false>;
 
 namespace stdex = std::experimental;
 
-using vector_extent = stdex::extents<stdex::dynamic_extent>;
-using matrix_extent = stdex::extents<stdex::dynamic_extent, stdex::dynamic_extent>;
+using vector_extent = stdex::extents<dynamic_extent>;
+using matrix_extent = stdex::extents<dynamic_extent, dynamic_extent>;
 using scalar_extent = stdex::extents<1>;
 }  // namespace raft::detail
