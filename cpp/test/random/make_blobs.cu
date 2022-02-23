@@ -16,6 +16,7 @@
 
 #include "../test_utils.h"
 #include <cub/cub.cuh>
+#include <raft/mdarray.hpp>
 #include <gtest/gtest.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
@@ -92,6 +93,8 @@ class MakeBlobsTest : public ::testing::TestWithParam<MakeBlobsInputs<T>> {
     num_sigma = 50;
     auto len  = params.rows * params.cols;
     raft::random::Rng r(params.seed, params.gtype);
+
+    auto data = make_device_matrix<T, layout_c_contiguous(params.rows, params.cols, )
 
     rmm::device_uvector<T> data(len, stream);
     rmm::device_uvector<int> labels(params.rows, stream);
