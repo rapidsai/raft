@@ -18,9 +18,9 @@
 
 #include <raft/cudart_utils.h>
 #include <raft/linalg/coalesced_reduction.hpp>
-#include <raft/linalg/reduce.cuh>
+#include <raft/linalg/reduce.hpp>
 #include <raft/linalg/strided_reduction.hpp>
-#include <raft/stats/sum.cuh>
+#include <raft/stats/sum.hpp>
 
 namespace raft {
 namespace stats {
@@ -28,65 +28,33 @@ namespace detail {
 
 /**
  * @brief Compute the row-wise weighted mean of the input matrix with a
- * vector of column weights
+ * vector of weights
  *
  * @tparam Type the data type
- * @param mu the output mean vector
- * @param data the input matrix (assumed to be row-major)
- * @param weights per-column means
- * @param D number of columns of data
- * @param N number of rows of data
- * @param stream cuda stream to launch work on
- */
-template <typename Type>
-void rowWeightedMean(
-  Type* mu, const Type* data, const Type* weights, int D, int N, cudaStream_t stream)
-{
-  // sum the weights & copy back to CPU
-  Type WS = 0;
-  raft::linalg::coalescedReduction(mu, weights, D, 1, (Type)0, stream, false);
-  raft::update_host(&WS, mu, 1, stream);
-
-  raft::linalg::coalescedReduction(
-    mu,
-    data,
-    D,
-    N,
-    (Type)0,
-    stream,
-    false,
-    [weights] __device__(Type v, int i) { return v * weights[i]; },
-    [] __device__(Type a, Type b) { return a + b; },
-    [WS] __device__(Type v) { return v / WS; });
-}
-
-/**
- * @brief Compute the row-wise weighted mean of the input matrix with a
- * vector of sample weights
- *
- * @tparam Type the data type
+ * @tparam IdxType Integer type used to for addressing
  * @param mu the output mean vector
  * @param data the input matrix
- * @param weights per-sample weight
+ * @param weights weight of size D if along_row is true, else of size N
  * @param D number of columns of data
  * @param N number of rows of data
- * @param row_major input matrix is row-major or not
+ * @param row_major data input matrix is row-major or not
  * @param along_rows whether to reduce along rows or columns
  * @param stream cuda stream to launch work on
  */
-template <typename Type>
-void rowSampleWeightedMean(Type* mu,
-                           const Type* data,
-                           const Type* weights,
-                           int D,
-                           int N,
-                           bool row_major,
-                           bool along_rows,
-                           cudaStream_t stream)
+template <typename Type, typename IdxType = int>
+void weightedMean(Type* mu,
+                  const Type* data,
+                  const Type* weights,
+                  IdxType D,
+                  IdxType N,
+                  bool row_major,
+                  bool along_rows,
+                  cudaStream_t stream)
 {
   // sum the weights & copy back to CPU
+  auto weight_size = along_rows ? D : N;
   Type WS = 0;
-  raft::stats::sum(mu, weights, 1, N, row_major, stream);
+  raft::stats::sum(mu, weights, (IdxType)1, weight_size, false, stream);
   raft::update_host(&WS, mu, 1, stream);
 
   raft::linalg::reduce(
@@ -99,41 +67,7 @@ void rowSampleWeightedMean(Type* mu,
     along_rows,
     stream,
     false,
-    [weights] __device__(Type v, int i) { return v * weights[i]; },
-    [] __device__(Type a, Type b) { return a + b; },
-    [WS] __device__(Type v) { return v / WS; });
-}
-
-/**
- * @brief Compute the column-wise weighted mean of the input matrix with a
- * vector of column weights
- *
- * @tparam Type the data type
- * @param mu the output mean vector
- * @param data the input matrix (assumed to be column-major)
- * @param weights per-column means
- * @param D number of columns of data
- * @param N number of rows of data
- * @param stream cuda stream to launch work on
- */
-template <typename Type>
-void colWeightedMean(
-  Type* mu, const Type* data, const Type* weights, int D, int N, cudaStream_t stream)
-{
-  // sum the weights & copy back to CPU
-  Type WS = 0;
-  raft::linalg::stridedReduction(mu, weights, 1, N, (Type)0, stream, false);
-  raft::update_host(&WS, mu, 1, stream);
-
-  raft::linalg::stridedReduction(
-    mu,
-    data,
-    D,
-    N,
-    (Type)0,
-    stream,
-    false,
-    [weights] __device__(Type v, int i) { return v * weights[i]; },
+    [weights] __device__(Type v, IdxType i) { return v * weights[i]; },
     [] __device__(Type a, Type b) { return a + b; },
     [WS] __device__(Type v) { return v / WS; });
 }
