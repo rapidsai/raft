@@ -275,8 +275,11 @@ class mpi_comms : public comms_iface {
                   datatype_t datatype,
                   cudaStream_t stream) const
   {
+    RAFT_EXPECTS(size_ <= 2048,
+                 "# NCCL operations between ncclGroupStart & ncclGroupEnd shouldn't exceed 2048.");
     // From: "An Empirical Evaluation of Allgatherv on Multi-GPU Systems" -
     // https://arxiv.org/pdf/1812.05964.pdf Listing 1 on page 4.
+    RAFT_NCCL_TRY(ncclGroupStart());
     for (int root = 0; root < size_; ++root) {
       RAFT_NCCL_TRY(
         ncclBroadcast(sendbuf,
@@ -287,6 +290,7 @@ class mpi_comms : public comms_iface {
                       nccl_comm_,
                       stream));
     }
+    RAFT_NCCL_TRY(ncclGroupEnd());
   }
 
   void gather(const void* sendbuff,
