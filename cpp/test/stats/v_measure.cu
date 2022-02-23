@@ -18,8 +18,8 @@
 #include <gtest/gtest.h>
 #include <iostream>
 #include <raft/cudart_utils.h>
-#include <raft/stats/homogeneity_score.hpp>
-#include <raft/stats/v_measure.hpp>
+#include <raft/stats/homogeneity_score.cuh>
+#include <raft/stats/v_measure.cuh>
 #include <random>
 
 namespace raft {

@@ -19,7 +19,7 @@
 #include <gtest/gtest.h>
 #include <numeric>
 #include <raft/cudart_utils.h>
-#include <raft/matrix/col_wise_sort.hpp>
+#include <raft/matrix/col_wise_sort.cuh>
 #include <rmm/device_uvector.hpp>
 
 namespace raft {

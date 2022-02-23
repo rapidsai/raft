@@ -18,13 +18,13 @@
 #include <gtest/gtest.h>
 #include <iostream>
 #include <raft/cudart_utils.h>
-#include <raft/distance/distance.hpp>
+#include <raft/distance/distance.cuh>
 
 #if defined RAFT_DISTANCE_COMPILED && defined RAFT_NN_COMPILED
-#include <raft/stats/specializations.hpp>
+#include <raft/stats/specializations.cuh>
 #endif
 
-#include <raft/stats/trustworthiness_score.hpp>
+#include <raft/stats/trustworthiness_score.cuh>
 #include <vector>
 
 namespace raft {

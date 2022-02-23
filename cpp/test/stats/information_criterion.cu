@@ -16,7 +16,7 @@
 
 #include <test_utils.h>
 
-#include <raft/stats/information_criterion.hpp>
+#include <raft/stats/information_criterion.cuh>
 
 #include <raft/cudart_utils.h>
 #include <raft/mr/device/allocator.hpp>

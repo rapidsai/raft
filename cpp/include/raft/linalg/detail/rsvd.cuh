@@ -17,14 +17,14 @@
 #pragma once
 
 #include <raft/cuda_utils.cuh>
-#include <raft/linalg/eig.hpp>
-#include <raft/linalg/gemm.hpp>
-#include <raft/linalg/qr.hpp>
-#include <raft/linalg/svd.hpp>
-#include <raft/linalg/transpose.hpp>
-#include <raft/matrix/math.hpp>
-#include <raft/matrix/matrix.hpp>
-#include <raft/random/rng.hpp>
+#include <raft/linalg/eig.cuh>
+#include <raft/linalg/gemm.cuh>
+#include <raft/linalg/qr.cuh>
+#include <raft/linalg/svd.cuh>
+#include <raft/linalg/transpose.cuh>
+#include <raft/matrix/math.cuh>
+#include <raft/matrix/matrix.cuh>
+#include <raft/random/rng.cuh>
 
 #include <algorithm>
 

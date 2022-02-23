@@ -17,7 +17,7 @@
 #pragma once
 
 #include <raft/cuda_utils.cuh>
-#include <raft/linalg/matrix_vector_op.hpp>
+#include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/vectorized.cuh>
 
 namespace raft {

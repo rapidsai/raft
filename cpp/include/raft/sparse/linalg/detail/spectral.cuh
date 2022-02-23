@@ -17,12 +17,12 @@
 #include <raft/cudart_utils.h>
 
 #include <raft/cuda_utils.cuh>
-#include <raft/spectral/cluster_solvers.hpp>
-#include <raft/spectral/eigen_solvers.hpp>
-#include <raft/spectral/partition.hpp>
+#include <raft/spectral/cluster_solvers.cuh>
+#include <raft/spectral/eigen_solvers.cuh>
+#include <raft/spectral/partition.cuh>
 #include <rmm/device_uvector.hpp>
 
-#include <raft/sparse/convert/csr.hpp>
+#include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/coo.hpp>
 
 namespace raft {

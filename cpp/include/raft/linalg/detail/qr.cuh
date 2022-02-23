@@ -18,7 +18,7 @@
 
 #include "cublas_wrappers.hpp"
 #include "cusolver_wrappers.hpp"
-#include <raft/matrix/matrix.hpp>
+#include <raft/matrix/matrix.cuh>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 

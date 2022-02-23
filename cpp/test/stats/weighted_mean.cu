@@ -17,8 +17,8 @@
 #include "../test_utils.h"
 #include <gtest/gtest.h>
 #include <raft/cuda_utils.cuh>
-#include <raft/random/rng.hpp>
-#include <raft/stats/weighted_mean.hpp>
+#include <raft/random/rng.cuh>
+#include <raft/stats/weighted_mean.cuh>
 #include <thrust/device_vector.h>
 #include <thrust/host_vector.h>
 

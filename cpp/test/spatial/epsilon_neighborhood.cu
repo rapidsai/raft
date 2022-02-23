@@ -18,8 +18,8 @@
 #include <gtest/gtest.h>
 #include <memory>
 #include <raft/cudart_utils.h>
-#include <raft/random/make_blobs.hpp>
-#include <raft/spatial/knn/epsilon_neighborhood.hpp>
+#include <raft/random/make_blobs.cuh>
+#include <raft/spatial/knn/epsilon_neighborhood.cuh>
 #include <rmm/device_uvector.hpp>
 
 namespace raft {
