@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #####################
 # RAFT Style Tester #
 #####################
@@ -26,7 +26,7 @@ else
 fi
 
 # Check for copyright headers in the files modified currently
-COPYRIGHT=`env PYTHONPATH=cpp/scripts python ci/checks/copyright.py 2>&1`
+COPYRIGHT=`python ci/checks/copyright.py --git-modified-only 2>&1`
 CR_RETVAL=$?
 if [ "$RETVAL" = "0" ]; then
   RETVAL=$CR_RETVAL

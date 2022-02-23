@@ -15,12 +15,13 @@
  */
 #pragma once
 
+#include <experimental/mdspan>
 #include <limits>                // numeric_limits
 #include <thrust/host_vector.h>  // __host__ __device__
 #include <type_traits>
 
 namespace raft {
-constexpr std::size_t dynamic_extent = std::numeric_limits<std::size_t>::max();
+constexpr std::size_t dynamic_extent = std::experimental::dynamic_extent;
 
 template <class ElementType, bool is_device, std::size_t Extent>
 class span;
