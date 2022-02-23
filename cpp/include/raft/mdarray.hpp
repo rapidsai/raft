@@ -21,9 +21,9 @@
  * limitations under the License.
  */
 #pragma once
-#include <raft/handle.hpp>
 #include <experimental/mdspan>
 #include <raft/detail/mdarray.hpp>
+#include <raft/handle.hpp>
 #include <rmm/cuda_stream_view.hpp>
 
 namespace raft {
@@ -544,9 +544,9 @@ auto make_device_matrix(size_t n_rows, size_t n_cols, rmm::cuda_stream_view stre
  * @return raft::device_matrix
  */
 template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
-auto make_device_matrix(raft::handle_t const &handle, size_t n_rows, size_t n_cols)
+auto make_device_matrix(raft::handle_t const& handle, size_t n_rows, size_t n_cols)
 {
-    return make_device_matrix<ElementType, LayoutPolicy>(n_rows, n_cols, handle.get_stream());
+  return make_device_matrix<ElementType, LayoutPolicy>(n_rows, n_cols, handle.get_stream());
 }
 
 /**

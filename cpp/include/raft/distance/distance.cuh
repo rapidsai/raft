@@ -141,7 +141,8 @@ template <raft::distance::DistanceType distanceType,
           typename AccType,
           typename OutType,
           typename Index_ = int>
-size_t getWorkspaceSize(const InType* x, const InType* y, Index_ m, Index_ n, Index_ k) {
+size_t getWorkspaceSize(const InType* x, const InType* y, Index_ m, Index_ n, Index_ k)
+{
   return detail::getWorkspaceSize<distanceType, InType, AccType, OutType, Index_>(x, y, m, n, k);
 }
 
@@ -160,19 +161,18 @@ size_t getWorkspaceSize(const InType* x, const InType* y, Index_ m, Index_ n, In
  * returns 0.
  */
 template <raft::distance::DistanceType distanceType,
-        typename InType,
-        typename AccType,
-        typename OutType,
-        typename Index_ = int>
-size_t getWorkspaceSize(const raft::device_matrix_view<InType> &x,
-                        const raft::device_matrix_view<InType> &y) {
+          typename InType,
+          typename AccType,
+          typename OutType,
+          typename Index_ = int>
+size_t getWorkspaceSize(const raft::device_matrix_view<InType>& x,
+                        const raft::device_matrix_view<InType>& y)
+{
+  RAFT_EXPECTS(x.extent(1) == y.extent(1), "Number of columns must be equal.");
 
-    RAFT_EXPECTS(x.extent(1) == y.extent(1), "Number of columns must be equal.");
-
-    return getWorkspaceSize<distanceType, InType, AccType, OutType, Index_>(
-            x.data(), y.data(), x.extent(0), y.extent(0), x.extent(1));
+  return getWorkspaceSize<distanceType, InType, AccType, OutType, Index_>(
+    x.data(), y.data(), x.extent(0), y.extent(0), x.extent(1));
 }
-
 
 /**
  * @brief Evaluate pairwise distances for the simple use case
@@ -204,14 +204,14 @@ void distance(const InType* x,
               Index_ k,
               cudaStream_t stream,
               bool isRowMajor   = true,
-              InType metric_arg = 2.0f) {
+              InType metric_arg = 2.0f)
+{
   rmm::device_uvector<char> workspace(0, stream);
   auto worksize = getWorkspaceSize<distanceType, InType, AccType, OutType, Index_>(x, y, m, n, k);
   workspace.resize(worksize, stream);
   detail::distance<distanceType, InType, AccType, OutType, Index_>(
     x, y, dist, m, n, k, workspace.data(), worksize, stream, isRowMajor, metric_arg);
 }
-
 
 /**
  * @brief Evaluate pairwise distances for the simple use case.
@@ -230,36 +230,50 @@ void distance(const InType* x,
  * @param metric_arg metric argument (used for Minkowski distance)
  */
 template <raft::distance::DistanceType distanceType,
-        typename InType,
-        typename AccType,
-        typename OutType,
-        typename Index_ = int>
-void distance(raft::handle_t const &handle,
-    raft::device_matrix_view<InType> const &x,
-    raft::device_matrix_view<InType> const &y,
-    raft::device_matrix_view<OutType> &dist,
-    InType metric_arg = 2.0f) {
+          typename InType,
+          typename AccType,
+          typename OutType,
+          typename Index_ = int>
+void distance(raft::handle_t const& handle,
+              raft::device_matrix_view<InType> const& x,
+              raft::device_matrix_view<InType> const& y,
+              raft::device_matrix_view<OutType>& dist,
+              InType metric_arg = 2.0f)
+{
+  RAFT_EXPECTS(x.extent(1) == y.extent(1), "Number of columns must be equal.");
+  RAFT_EXPECTS(dist.extent(0) == x.extent(0),
+               "Number of rows in output must be equal to "
+               "number of rows in X");
+  RAFT_EXPECTS(dist.extent(1) == y.extent(0),
+               "Number of columns in output must be equal to "
+               "number of rows in Y");
 
-    RAFT_EXPECTS(x.extent(1) == y.extent(1), "Number of columns must be equal.");
-    RAFT_EXPECTS(dist.extent(0) == x.extent(0), "Number of rows in output must be equal to "
-    "number of rows in X");
-    RAFT_EXPECTS(dist.extent(1) == y.extent(0), "Number of columns in output must be equal to "
-    "number of rows in Y");
+  RAFT_EXPECTS(x.is_contiguous(), "Input x must be contiguous.");
+  RAFT_EXPECTS(y.is_contiguous(), "Input y must be contiguous.");
 
-    RAFT_EXPECTS(x.is_contiguous(), "Input x must be contiguous.");
-    RAFT_EXPECTS(y.is_contiguous(), "Input y must be contiguous.");
-
-    if(x.stride(0) == 0 && y.stride(0) == 0) {
-        distance<distanceType, InType, AccType, OutType, Index_>(
-                x.data(), y.data(), dist.data(), x.extent(0), y.extent(0), x.extent(1),
-        handle.get_stream(), true, metric_arg);
-    } else if(x.stride(0) > 0 && y.stride(0) > 0) {
-        distance<distanceType, InType, AccType, OutType, Index_>(
-                x.data(), y.data(), dist.data(), x.extent(0), y.extent(0), x.extent(1),
-        handle.get_stream(), false, metric_arg);
-    } else {
-        RAFT_FAIL("x and y must both have the same layout: row-major or column-major.");
-    }
+  if (x.stride(0) == 0 && y.stride(0) == 0) {
+    distance<distanceType, InType, AccType, OutType, Index_>(x.data(),
+                                                             y.data(),
+                                                             dist.data(),
+                                                             x.extent(0),
+                                                             y.extent(0),
+                                                             x.extent(1),
+                                                             handle.get_stream(),
+                                                             true,
+                                                             metric_arg);
+  } else if (x.stride(0) > 0 && y.stride(0) > 0) {
+    distance<distanceType, InType, AccType, OutType, Index_>(x.data(),
+                                                             y.data(),
+                                                             dist.data(),
+                                                             x.extent(0),
+                                                             y.extent(0),
+                                                             x.extent(1),
+                                                             handle.get_stream(),
+                                                             false,
+                                                             metric_arg);
+  } else {
+    RAFT_FAIL("x and y must both have the same layout: row-major or column-major.");
+  }
 }
 
 /**
@@ -388,7 +402,8 @@ void pairwise_distance(const raft::handle_t& handle,
                        Index_ k,
                        raft::distance::DistanceType metric,
                        bool isRowMajor = true,
-                       Type metric_arg = 2.0f) {
+                       Type metric_arg = 2.0f)
+{
   rmm::device_uvector<char> workspace(0, handle.get_stream());
   pairwise_distance<Type, Index_>(
     handle, x, y, dist, m, n, k, workspace, metric, isRowMajor, metric_arg);
@@ -414,27 +429,36 @@ template <typename Type, typename Index_ = int>
 void pairwise_distance(raft::handle_t const& handle,
                        device_matrix_view<Type> const& x,
                        device_matrix_view<Type> const& y,
-                       device_matrix_view<Type> &dist,
+                       device_matrix_view<Type>& dist,
                        raft::distance::DistanceType metric,
-                       Type metric_arg = 2.0f) {
+                       Type metric_arg = 2.0f)
+{
+  RAFT_EXPECTS(x.extent(1) == y.extent(1), "Number of columns must be equal.");
+  RAFT_EXPECTS(dist.extent(0) == x.extent(0),
+               "Number of rows in output must be equal to "
+               "number of rows in X");
+  RAFT_EXPECTS(dist.extent(1) == y.extent(0),
+               "Number of columns in output must be equal to "
+               "number of rows in Y");
 
-    RAFT_EXPECTS(x.extent(1) == y.extent(1), "Number of columns must be equal.");
-    RAFT_EXPECTS(dist.extent(0) == x.extent(0), "Number of rows in output must be equal to "
-                                                "number of rows in X");
-    RAFT_EXPECTS(dist.extent(1) == y.extent(0), "Number of columns in output must be equal to "
-                                                "number of rows in Y");
+  RAFT_EXPECTS(x.is_contiguous(), "Input x must be contiguous.");
+  RAFT_EXPECTS(y.is_contiguous(), "Input y must be contiguous.");
+  RAFT_EXPECTS(dist.is_contiguous(), "Output must be contiguous.");
 
-    RAFT_EXPECTS(x.is_contiguous(), "Input x must be contiguous.");
-    RAFT_EXPECTS(y.is_contiguous(), "Input y must be contiguous.");
-    RAFT_EXPECTS(dist.is_contiguous(), "Output must be contiguous.");
+  bool rowmajor = x.stride(0) == 0;
 
-    bool rowmajor = x.stride(0) == 0;
+  rmm::device_uvector<char> workspace(0, handle.get_stream());
 
-    rmm::device_uvector<char> workspace(0, handle.get_stream());
-
-    pairwise_distance(handle, x.data(), y.data(), dist.data(),
-                      x.extent(0), y.extent(0), x.extent(1),
-                      metric, rowmajor, metric_arg);
+  pairwise_distance(handle,
+                    x.data(),
+                    y.data(),
+                    dist.data(),
+                    x.extent(0),
+                    y.extent(0),
+                    x.extent(1),
+                    metric,
+                    rowmajor,
+                    metric_arg);
 }
 
 };  // namespace distance

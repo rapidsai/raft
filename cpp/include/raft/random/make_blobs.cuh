@@ -16,9 +16,9 @@
 
 #pragma once
 
-#include <raft/mdarray.hpp>
 #include "detail/make_blobs.cuh"
 #include <optional>
+#include <raft/mdarray.hpp>
 
 namespace raft::random {
 
@@ -126,53 +126,50 @@ void make_blobs(DataT* out,
  */
 template <typename DataT, typename IdxT>
 void make_blobs(raft::handle_t const& handle,
-                raft::device_matrix_view<DataT> &out,
-                raft::device_vector_view<IdxT> &labels,
-                IdxT n_clusters = 5,
-                std::optional<raft::device_vector_view<DataT>> &centers = std::nullopt,
-                std::optional<raft::device_vector_view<DataT>> const &cluster_std = std::nullopt,
-                const DataT cluster_std_scalar = (DataT)1.0,
-                bool shuffle                   = true,
-                DataT center_box_min           = (DataT)-10.0,
-                DataT center_box_max           = (DataT)10.0,
-                uint64_t seed                  = 0ULL,
-                GeneratorType type             = GenPhilox)
+                raft::device_matrix_view<DataT>& out,
+                raft::device_vector_view<IdxT>& labels,
+                IdxT n_clusters                                                   = 5,
+                std::optional<raft::device_vector_view<DataT>>& centers           = std::nullopt,
+                std::optional<raft::device_vector_view<DataT>> const& cluster_std = std::nullopt,
+                const DataT cluster_std_scalar                                    = (DataT)1.0,
+                bool shuffle                                                      = true,
+                DataT center_box_min                                              = (DataT)-10.0,
+                DataT center_box_max                                              = (DataT)10.0,
+                uint64_t seed                                                     = 0ULL,
+                GeneratorType type                                                = GenPhilox)
 {
+  if (centers.has_value()) {
+    RAFT_EXPECTS(centers.extent(0) == n_clusters, "n_centers must equal size of centers");
+  }
 
-    if(centers.has_value()) {
-        RAFT_EXPECTS(centers.extent(0) == n_clusters,
-                     "n_centers must equal size of centers");
-    }
+  if (cluster_std.has_value()) {
+    RAFT_EXPECTS(cluster_std.extent(0) == n_clusters, "n_centers must equal size of cluster_std");
+  }
 
-    if(cluster_std.has_value()) {
-        RAFT_EXPECTS(cluster_std.extent(0) == n_clusters,
-                     "n_centers must equal size of cluster_std");
-    }
+  RAFT_EXPECTS(out.extent(1) == labels.extent(0),
+               "Number of labels must equal the number of columns in output matrix");
 
-    RAFT_EXPECTS(out.extent(1) == labels.extent(0),
-                 "Number of labels must equal the number of columns in output matrix");
+  RAFT_EXPECTS(out.is_contiguous(), "Output must be contiguous.");
 
-    RAFT_EXPECTS(out.is_contiguous(), "Output must be contiguous.");
+  bool row_major = out.stride(0) == 0;
 
-    bool row_major = out.stride(0) == 0;
+  auto prm_centers     = centers.has_value() ? centers.value().data() : nullptr;
+  auto prm_cluster_std = cluster_std.has_value() ? cluster_std.value().data() : nullptr;
 
-    auto prm_centers = centers.has_value() ? centers.value().data() : nullptr;
-    auto prm_cluster_std = cluster_std.has_value() ? cluster_std.value().data() : nullptr;
-
-    detail::make_blobs_caller(out.data(),
-                              labels.data(),
-                              out.extent(0),
-                              out.extent(1),
-                              n_clusters,
-                              handle.get_stream(),
-                              row_major,
-                              prm_centers,
-                              prm_cluster_std,
-                              cluster_std_scalar,
-                              shuffle,
-                              center_box_min,
-                              center_box_max,
-                              seed,
-                              type);
+  detail::make_blobs_caller(out.data(),
+                            labels.data(),
+                            out.extent(0),
+                            out.extent(1),
+                            n_clusters,
+                            handle.get_stream(),
+                            row_major,
+                            prm_centers,
+                            prm_cluster_std,
+                            cluster_std_scalar,
+                            shuffle,
+                            center_box_min,
+                            center_box_max,
+                            seed,
+                            type);
 }
 }  // end namespace raft::random
