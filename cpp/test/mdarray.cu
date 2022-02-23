@@ -42,7 +42,11 @@ void test_mdspan()
   auto stream = rmm::cuda_stream_default;
   rmm::device_uvector<float> a{16ul, stream};
   thrust::sequence(rmm::exec_policy(stream), a.begin(), a.end());
+<<<<<<< HEAD
   stdex::mdspan<float, stdex::extents<stdex::dynamic_extent, stdex::dynamic_extent>> span{
+=======
+  stdex::mdspan<float, stdex::extents<raft::dynamic_extent, raft::dynamic_extent>> span{
+>>>>>>> branch-22.04
     a.data(), 4, 4};
   thrust::device_vector<int32_t> status(1, 0);
   auto p_status = status.data().get();
@@ -74,18 +78,31 @@ TEST(MDArray, Policy) { test_uvector_policy(); }
 
 void test_mdarray_basic()
 {
+<<<<<<< HEAD
   using matrix_extent = stdex::extents<stdex::dynamic_extent, stdex::dynamic_extent>;
+=======
+  using matrix_extent = stdex::extents<dynamic_extent, dynamic_extent>;
+>>>>>>> branch-22.04
   auto s              = rmm::cuda_stream_default;
   {
     /**
      * device policy
      */
+<<<<<<< HEAD
     stdex::layout_right::mapping<matrix_extent> layout{matrix_extent{4, 4}};
     using mdarray_t = device_mdarray<float, matrix_extent, stdex::layout_right>;
     auto policy     = mdarray_t::container_policy_type{s};
     static_assert(std::is_same_v<typename decltype(policy)::accessor_type,
                                  detail::device_uvector_policy<float>>);
     device_mdarray<float, matrix_extent, stdex::layout_right> array{layout, policy};
+=======
+    layout_c_contiguous::mapping<matrix_extent> layout{matrix_extent{4, 4}};
+    using mdarray_t = device_mdarray<float, matrix_extent, layout_c_contiguous>;
+    auto policy     = mdarray_t::container_policy_type{s};
+    static_assert(std::is_same_v<typename decltype(policy)::accessor_type,
+                                 detail::device_uvector_policy<float>>);
+    device_mdarray<float, matrix_extent, layout_c_contiguous> array{layout, policy};
+>>>>>>> branch-22.04
 
     array(0, 3) = 1;
     ASSERT_EQ(array(0, 3), 1);
@@ -132,12 +149,21 @@ void test_mdarray_basic()
     /**
      * host policy
      */
+<<<<<<< HEAD
     using mdarray_t = host_mdarray<float, matrix_extent, stdex::layout_right>;
     mdarray_t::container_policy_type policy;
     static_assert(
       std::is_same_v<typename decltype(policy)::accessor_type, detail::host_vector_policy<float>>);
     stdex::layout_right::mapping<matrix_extent> layout{matrix_extent{4, 4}};
     host_mdarray<float, matrix_extent, stdex::layout_right> array{layout, policy};
+=======
+    using mdarray_t = host_mdarray<float, matrix_extent, layout_c_contiguous>;
+    mdarray_t::container_policy_type policy;
+    static_assert(
+      std::is_same_v<typename decltype(policy)::accessor_type, detail::host_vector_policy<float>>);
+    layout_c_contiguous::mapping<matrix_extent> layout{matrix_extent{4, 4}};
+    host_mdarray<float, matrix_extent, layout_c_contiguous> array{layout, policy};
+>>>>>>> branch-22.04
 
     array(0, 3) = 1;
     ASSERT_EQ(array(0, 3), 1);
@@ -156,10 +182,17 @@ void test_mdarray_basic()
      * static extent
      */
     using static_extent = stdex::extents<16, 16>;
+<<<<<<< HEAD
     stdex::layout_right::mapping<static_extent> layout{static_extent{}};
     using mdarray_t = device_mdarray<float, static_extent, stdex::layout_right>;
     mdarray_t::container_policy_type policy{s};
     device_mdarray<float, static_extent, stdex::layout_right> array{layout, policy};
+=======
+    layout_c_contiguous::mapping<static_extent> layout{static_extent{}};
+    using mdarray_t = device_mdarray<float, static_extent, layout_c_contiguous>;
+    mdarray_t::container_policy_type policy{s};
+    device_mdarray<float, static_extent, layout_c_contiguous> array{layout, policy};
+>>>>>>> branch-22.04
 
     static_assert(array.rank_dynamic() == 0);
     static_assert(array.rank() == 2);
@@ -180,8 +213,13 @@ TEST(MDArray, Basic) { test_mdarray_basic(); }
 template <typename BasicMDarray, typename PolicyFn, typename ThrustPolicy>
 void test_mdarray_copy_move(ThrustPolicy exec, PolicyFn make_policy)
 {
+<<<<<<< HEAD
   using matrix_extent = stdex::extents<stdex::dynamic_extent, stdex::dynamic_extent>;
   stdex::layout_right::mapping<matrix_extent> layout{matrix_extent{4, 4}};
+=======
+  using matrix_extent = stdex::extents<dynamic_extent, dynamic_extent>;
+  layout_c_contiguous::mapping<matrix_extent> layout{matrix_extent{4, 4}};
+>>>>>>> branch-22.04
 
   using mdarray_t = BasicMDarray;
   using policy_t  = typename mdarray_t::container_policy_type;
@@ -251,7 +289,11 @@ void test_mdarray_copy_move(ThrustPolicy exec, PolicyFn make_policy)
 
 TEST(MDArray, CopyMove)
 {
+<<<<<<< HEAD
   using matrix_extent = stdex::extents<stdex::dynamic_extent, stdex::dynamic_extent>;
+=======
+  using matrix_extent = stdex::extents<dynamic_extent, dynamic_extent>;
+>>>>>>> branch-22.04
   using d_matrix_t    = device_mdarray<float, matrix_extent>;
   using policy_t      = typename d_matrix_t::container_policy_type;
   auto s              = rmm::cuda_stream_default;
@@ -287,7 +329,12 @@ TEST(MDArray, CopyMove)
   }
 }
 
+<<<<<<< HEAD
 TEST(MDArray, Factory)
+=======
+namespace {
+void test_factory_methods()
+>>>>>>> branch-22.04
 {
   size_t n{100};
   rmm::device_uvector<float> d_vec(n, rmm::cuda_stream_default);
@@ -347,7 +394,44 @@ TEST(MDArray, Factory)
     static_assert(d_vec.rank() == 1);
     ASSERT_EQ(d_vec.extent(0), n);
   }
+<<<<<<< HEAD
 }
+=======
+
+  {
+    // device scalar
+    auto d_scalar = make_device_scalar<double>(17.0, rmm::cuda_stream_default);
+    static_assert(d_scalar.rank() == 1);
+    static_assert(d_scalar.rank_dynamic() == 0);
+    ASSERT_EQ(d_scalar(0), 17.0);
+
+    auto view = d_scalar.view();
+    thrust::device_vector<int32_t> status(1, 0);
+    auto p_status = status.data().get();
+    thrust::for_each_n(rmm::exec_policy(rmm::cuda_stream_default),
+                       thrust::make_counting_iterator(0),
+                       1,
+                       [=] __device__(auto i) {
+                         if (view(i) != 17.0) { myAtomicAdd(p_status, 1); }
+                       });
+    check_status(p_status, rmm::cuda_stream_default);
+  }
+  {
+    // host scalar
+    auto h_scalar = make_host_scalar<double>(17.0);
+    static_assert(h_scalar.rank() == 1);
+    static_assert(h_scalar.rank_dynamic() == 0);
+    ASSERT_EQ(h_scalar(0), 17.0);
+    ASSERT_EQ(h_scalar.view()(0), 17.0);
+
+    auto view = make_host_scalar_view(h_scalar.data());
+    ASSERT_EQ(view(0), 17.0);
+  }
+}
+}  // anonymous namespace
+
+TEST(MDArray, Factory) { test_factory_methods(); }
+>>>>>>> branch-22.04
 
 namespace {
 template <typename T, typename LayoutPolicy>
@@ -356,8 +440,13 @@ void check_matrix_layout(device_matrix_view<T, LayoutPolicy> in)
   static_assert(in.rank() == 2);
   static_assert(in.is_contiguous());
 
+<<<<<<< HEAD
   bool constexpr kIsCContiguous = std::is_same_v<LayoutPolicy, stdex::layout_right>;
   bool constexpr kIsFContiguous = std::is_same_v<LayoutPolicy, stdex::layout_left>;
+=======
+  bool constexpr kIsCContiguous = std::is_same_v<LayoutPolicy, layout_c_contiguous>;
+  bool constexpr kIsFContiguous = std::is_same_v<LayoutPolicy, layout_f_contiguous>;
+>>>>>>> branch-22.04
   // only 1 of them is true
   static_assert(kIsCContiguous || kIsFContiguous);
   static_assert(!(kIsCContiguous && kIsFContiguous));
@@ -371,7 +460,12 @@ TEST(MDArray, FuncArg)
     check_matrix_layout(d_matrix.view());
   }
   {
+<<<<<<< HEAD
     auto d_matrix = make_device_matrix<float, stdex::layout_left>(10, 10, rmm::cuda_stream_default);
+=======
+    auto d_matrix =
+      make_device_matrix<float, layout_f_contiguous>(10, 10, rmm::cuda_stream_default);
+>>>>>>> branch-22.04
     check_matrix_layout(d_matrix.view());
 
     // FIXME(jiamingy): The slice has a default accessor instead of accessor_mixin, due to

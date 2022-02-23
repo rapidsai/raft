@@ -17,7 +17,6 @@
 #include <gtest/gtest.h>
 #include <iostream>
 #include <memory>
-#include <raft/mr/device/buffer.hpp>
 #include <raft/mr/host/buffer.hpp>
 
 namespace raft {

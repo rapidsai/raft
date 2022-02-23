@@ -16,7 +16,7 @@
 
 #include <gtest/gtest.h>
 
-#include <raft/label/classlabels.cuh>
+#include <raft/label/classlabels.hpp>
 
 #include "../test_utils.h"
 #include <raft/cuda_utils.cuh>

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -75,6 +75,9 @@ void sample_landmarks(const raft::handle_t& handle,
 
   thrust::fill(
     handle.get_thrust_policy(), R_1nn_ones.data(), R_1nn_ones.data() + R_1nn_ones.size(), 1.0);
+
+  thrust::fill(
+    handle.get_thrust_policy(), R_indices.data(), R_indices.data() + R_indices.size(), 0.0);
 
   /**
    * 1. Randomly sample sqrt(n) points from X
@@ -234,6 +237,16 @@ void perform_rbc_query(const raft::handle_t& handle,
                        float weight                = 1.0,
                        bool perform_post_filtering = true)
 {
+  // initialize output inds and dists
+  thrust::fill(handle.get_thrust_policy(),
+               inds,
+               inds + (k * n_query_pts),
+               std::numeric_limits<value_idx>::max());
+  thrust::fill(handle.get_thrust_policy(),
+               dists,
+               dists + (k * n_query_pts),
+               std::numeric_limits<value_t>::max());
+
   // Compute nearest k for each neighborhood in each closest R
   rbc_low_dim_pass_one(handle,
                        index,
@@ -289,6 +302,16 @@ void rbc_build_index(const raft::handle_t& handle,
   rmm::device_uvector<value_idx> R_knn_inds(index.m, handle.get_stream());
   rmm::device_uvector<value_t> R_knn_dists(index.m, handle.get_stream());
 
+  // Initialize the uvectors
+  thrust::fill(handle.get_thrust_policy(),
+               R_knn_inds.begin(),
+               R_knn_inds.end(),
+               std::numeric_limits<value_idx>::max());
+  thrust::fill(handle.get_thrust_policy(),
+               R_knn_dists.begin(),
+               R_knn_dists.end(),
+               std::numeric_limits<value_t>::max());
+
   /**
    * 1. Randomly sample sqrt(n) points from X
    */
@@ -339,6 +362,16 @@ void rbc_all_knn_query(const raft::handle_t& handle,
 
   rmm::device_uvector<value_idx> R_knn_inds(k * index.m, handle.get_stream());
   rmm::device_uvector<value_t> R_knn_dists(k * index.m, handle.get_stream());
+
+  // Initialize the uvectors
+  thrust::fill(handle.get_thrust_policy(),
+               R_knn_inds.begin(),
+               R_knn_inds.end(),
+               std::numeric_limits<value_idx>::max());
+  thrust::fill(handle.get_thrust_policy(),
+               R_knn_dists.begin(),
+               R_knn_dists.end(),
+               std::numeric_limits<value_t>::max());
 
   // For debugging / verification. Remove before releasing
   rmm::device_uvector<value_int> dists_counter(index.m, handle.get_stream());
@@ -395,6 +428,16 @@ void rbc_knn_query(const raft::handle_t& handle,
 
   rmm::device_uvector<value_idx> R_knn_inds(k * index.m, handle.get_stream());
   rmm::device_uvector<value_t> R_knn_dists(k * index.m, handle.get_stream());
+
+  // Initialize the uvectors
+  thrust::fill(handle.get_thrust_policy(),
+               R_knn_inds.begin(),
+               R_knn_inds.end(),
+               std::numeric_limits<value_idx>::max());
+  thrust::fill(handle.get_thrust_policy(),
+               R_knn_dists.begin(),
+               R_knn_dists.end(),
+               std::numeric_limits<value_t>::max());
 
   k_closest_landmarks(handle, index, query, n_query_pts, k, R_knn_inds.data(), R_knn_dists.data());
 

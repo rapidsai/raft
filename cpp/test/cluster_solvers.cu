@@ -19,9 +19,11 @@
 #include <memory>
 #include <raft/handle.hpp>
 
+#include <raft/spectral/cluster_solvers.hpp>
 #include <raft/spectral/modularity_maximization.hpp>
 
 namespace raft {
+namespace spectral {
 
 TEST(Raft, ClusterSolvers)
 {
@@ -60,7 +62,12 @@ TEST(Raft, ModularitySolvers)
   using value_type = double;
 
   handle_t h;
-  ASSERT_EQ(0, h.get_device());
+  ASSERT_EQ(0,
+            h.
+
+            get_device()
+
+  );
 
   index_type neigvs{10};
   index_type maxiter{100};
@@ -95,4 +102,5 @@ TEST(Raft, ModularitySolvers)
   EXPECT_ANY_THROW(spectral::analyzeModularity(h, sm, k, clusters, modularity));
 }
 
+}  // namespace spectral
 }  // namespace raft

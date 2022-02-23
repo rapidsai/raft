@@ -24,31 +24,36 @@ build:
     - PARALLEL_LEVEL
     - VERSION_SUFFIX
     - PROJECT_FLASH
-    - CCACHE_DIR
-    - CCACHE_NOHASHDIR
-    - CCACHE_COMPILERCHECK
     - CMAKE_GENERATOR
     - CMAKE_C_COMPILER_LAUNCHER
     - CMAKE_CXX_COMPILER_LAUNCHER
     - CMAKE_CUDA_COMPILER_LAUNCHER
+    - SCCACHE_S3_KEY_PREFIX=libraft-aarch64 # [aarch64]
+    - SCCACHE_S3_KEY_PREFIX=libraft-linux64 # [linux64]
+    - SCCACHE_BUCKET=rapids-sccache
+    - SCCACHE_REGION=us-west-2
+    - SCCACHE_IDLE_TIMEOUT=32768
 
 requirements:
   build:
     - cmake>=3.20.1
   host:
-    - libraft-headers {{
+    - libraft-headers {{ version }}
     - nccl>=2.9.9
     - cudatoolkit {{ cuda_version }}.*
     - ucx-py {{ ucx_py_version }}
     - ucx-proc=*=gpu
     - gtest=1.10.0
     - gmock
+    - librmm {{ minor_version }}
   run:
+    - libraft-headers {{ version }}
     - nccl>=2.9.9
     - ucx-py {{ ucx_py_version }}
     - ucx-proc=*=gpu
     - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
     - libcusolver>=11.2.1
+    - librmm {{ minor_version }}
 
 about:
   home: http://rapids.ai/

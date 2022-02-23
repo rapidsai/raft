@@ -16,12 +16,10 @@
 
 #include <gtest/gtest.h>
 
-#include <cusparse_v2.h>
-
 #include <raft/cudart_utils.h>
-#include <raft/linalg/distance_type.h>
-#include <raft/linalg/unary_op.cuh>
-#include <raft/sparse/cusparse_wrappers.h>
+#include <raft/distance/distance_type.hpp>
+#include <raft/linalg/unary_op.hpp>
+#include <raft/sparse/detail/cusparse_wrappers.h>
 #include <rmm/device_uvector.hpp>
 
 #include <raft/sparse/convert/coo.hpp>

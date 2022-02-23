@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,8 +20,7 @@
 #include <gtest/gtest.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/eig.cuh>
-#include <raft/random/rng.hpp>
+#include <raft/linalg/eig.hpp>
 
 namespace raft {
 namespace linalg {
@@ -30,10 +29,8 @@ template <typename T>
 struct EigSelInputs {
   T tolerance;
   int len;
-  int n_row;
-  int n_col;
-  unsigned long long int seed;
   int n;
+  int n_eigen_vals;
 };
 
 template <typename T>
@@ -49,10 +46,10 @@ class EigSelTest : public ::testing::TestWithParam<EigSelInputs<T>> {
     : params(::testing::TestWithParam<EigSelInputs<T>>::GetParam()),
       stream(handle.get_stream()),
       cov_matrix(params.len, stream),
-      eig_vectors(12, stream),
-      eig_vectors_ref(12, stream),
-      eig_vals(params.n_col, stream),
-      eig_vals_ref(params.n_col, stream)
+      eig_vectors(params.n_eigen_vals * params.n, stream),
+      eig_vectors_ref(params.n_eigen_vals * params.n, stream),
+      eig_vals(params.n, stream),
+      eig_vals_ref(params.n, stream)
   {
   }
 
@@ -61,6 +58,7 @@ class EigSelTest : public ::testing::TestWithParam<EigSelInputs<T>> {
   {
     int len = params.len;
 
+    ///@todo: Generate a random symmetric matrix
     T cov_matrix_h[] = {
       1.0, 0.9, 0.81, 0.729, 0.9, 1.0, 0.9, 0.81, 0.81, 0.9, 1.0, 0.9, 0.729, 0.81, 0.9, 1.0};
     ASSERT(len == 16, "This test only works with 4x4 matrices!");
@@ -78,21 +76,22 @@ class EigSelTest : public ::testing::TestWithParam<EigSelInputs<T>> {
                              0.5123,
                              0.5123,
                              0.4874};
-    T eig_vals_ref_h[]    = {0.1024, 0.3096, 3.5266, 3.5266};
+    T eig_vals_ref_h[]    = {0.1024, 0.3096, 3.5266, 0.0};
 
-    raft::update_device(eig_vectors_ref.data(), eig_vectors_ref_h, 12, stream);
-    raft::update_device(eig_vals_ref.data(), eig_vals_ref_h, 4, stream);
+    raft::update_device(
+      eig_vectors_ref.data(), eig_vectors_ref_h, params.n_eigen_vals * params.n, stream);
+    raft::update_device(eig_vals_ref.data(), eig_vals_ref_h, params.n, stream);
 
-    eigSelDC(handle,
-             cov_matrix.data(),
-             params.n_row,
-             params.n_col,
-             3,
-             eig_vectors.data(),
-             eig_vals.data(),
-             EigVecMemUsage::OVERWRITE_INPUT,
-             stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    raft::linalg::eigSelDC(handle,
+                           cov_matrix.data(),
+                           params.n,
+                           params.n,
+                           params.n_eigen_vals,
+                           eig_vectors.data(),
+                           eig_vals.data(),
+                           EigVecMemUsage::OVERWRITE_INPUT,
+                           stream);
+    handle.sync_stream(stream);
   }
 
  protected:
@@ -107,16 +106,16 @@ class EigSelTest : public ::testing::TestWithParam<EigSelInputs<T>> {
   rmm::device_uvector<T> eig_vals_ref;
 };
 
-const std::vector<EigSelInputs<float>> inputsf2 = {{0.001f, 4 * 4, 4, 4, 1234ULL, 256}};
+const std::vector<EigSelInputs<float>> inputsf2 = {{0.001f, 4 * 4, 4, 3}};
 
-const std::vector<EigSelInputs<double>> inputsd2 = {{0.001, 4 * 4, 4, 4, 1234ULL, 256}};
+const std::vector<EigSelInputs<double>> inputsd2 = {{0.001, 4 * 4, 4, 3}};
 
 typedef EigSelTest<float> EigSelTestValF;
 TEST_P(EigSelTestValF, Result)
 {
   ASSERT_TRUE(raft::devArrMatch(eig_vals_ref.data(),
                                 eig_vals.data(),
-                                params.n_col,
+                                params.n_eigen_vals,
                                 raft::CompareApproxAbs<float>(params.tolerance),
                                 stream));
 }
@@ -126,7 +125,7 @@ TEST_P(EigSelTestValD, Result)
 {
   ASSERT_TRUE(raft::devArrMatch(eig_vals_ref.data(),
                                 eig_vals.data(),
-                                params.n_col,
+                                params.n_eigen_vals,
                                 raft::CompareApproxAbs<double>(params.tolerance),
                                 stream));
 }
@@ -136,7 +135,7 @@ TEST_P(EigSelTestVecF, Result)
 {
   ASSERT_TRUE(raft::devArrMatch(eig_vectors_ref.data(),
                                 eig_vectors.data(),
-                                12,
+                                params.n_eigen_vals * params.n,
                                 raft::CompareApproxAbs<float>(params.tolerance),
                                 stream));
 }
@@ -146,7 +145,7 @@ TEST_P(EigSelTestVecD, Result)
 {
   ASSERT_TRUE(raft::devArrMatch(eig_vectors_ref.data(),
                                 eig_vectors.data(),
-                                12,
+                                params.n_eigen_vals * params.n,
                                 raft::CompareApproxAbs<double>(params.tolerance),
                                 stream));
 }

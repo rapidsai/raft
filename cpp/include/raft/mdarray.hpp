@@ -1,4 +1,14 @@
 /*
+<<<<<<< HEAD
+=======
+ * Copyright (2019) Sandia Corporation
+ *
+ * The source code is licensed under the 3-clause BSD license found in the LICENSE file
+ * thirdparty/LICENSES/mdarray.license
+ */
+
+/*
+>>>>>>> branch-22.04
  * Copyright (c) 2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,22 +30,32 @@
 
 namespace raft {
 /**
+ * @\brief C-Contiguous layout for mdarray and mdspan. Implies row-major and contiguous memory.
+ */
+using layout_c_contiguous = detail::stdex::layout_right;
+
+/**
+ * @\brief F-Contiguous layout for mdarray and mdspan. Implies column-major and contiguous memory.
+ */
+using layout_f_contiguous = detail::stdex::layout_left;
+
+/**
  * @brief stdex::mdspan with device tag to avoid accessing incorrect memory location.
  */
-template <class ElementType,
-          class Extents,
-          class LayoutPolicy   = detail::stdex::layout_right,
-          class AccessorPolicy = detail::stdex::default_accessor<ElementType>>
+template <typename ElementType,
+          typename Extents,
+          typename LayoutPolicy   = layout_c_contiguous,
+          typename AccessorPolicy = detail::stdex::default_accessor<ElementType>>
 using device_mdspan = detail::stdex::
   mdspan<ElementType, Extents, LayoutPolicy, detail::device_accessor<AccessorPolicy>>;
 
 /**
  * @brief stdex::mdspan with host tag to avoid accessing incorrect memory location.
  */
-template <class ElementType,
-          class Extents,
-          class LayoutPolicy   = detail::stdex::layout_right,
-          class AccessorPolicy = detail::stdex::default_accessor<ElementType>>
+template <typename ElementType,
+          typename Extents,
+          typename LayoutPolicy   = layout_c_contiguous,
+          typename AccessorPolicy = detail::stdex::default_accessor<ElementType>>
 using host_mdspan =
   detail::stdex::mdspan<ElementType, Extents, LayoutPolicy, detail::host_accessor<AccessorPolicy>>;
 
@@ -68,7 +88,7 @@ using host_mdspan =
  * - For the above reasons, copying from other mdarray with different policy type is also
  *   removed.
  */
-template <class ElementType, class Extents, class LayoutPolicy, class ContainerPolicy>
+template <typename ElementType, typename Extents, typename LayoutPolicy, typename ContainerPolicy>
 class mdarray {
   static_assert(!std::is_const<ElementType>::value,
                 "Element type for container must not be const.");
@@ -279,22 +299,38 @@ class mdarray {
 /**
  * @brief mdarray with host container policy
  */
-template <class ElementType,
-          class Extents,
-          class LayoutPolicy    = detail::stdex::layout_right,
-          class ContainerPolicy = detail::host_vector_policy<ElementType>>
+template <typename ElementType,
+          typename Extents,
+          typename LayoutPolicy    = layout_c_contiguous,
+          typename ContainerPolicy = detail::host_vector_policy<ElementType>>
 using host_mdarray =
   mdarray<ElementType, Extents, LayoutPolicy, detail::host_accessor<ContainerPolicy>>;
 
 /**
  * @brief mdarray with device container policy
  */
-template <class ElementType,
-          class Extents,
-          class LayoutPolicy    = detail::stdex::layout_right,
-          class ContainerPolicy = detail::device_uvector_policy<ElementType>>
+template <typename ElementType,
+          typename Extents,
+          typename LayoutPolicy    = layout_c_contiguous,
+          typename ContainerPolicy = detail::device_uvector_policy<ElementType>>
 using device_mdarray =
   mdarray<ElementType, Extents, LayoutPolicy, detail::device_accessor<ContainerPolicy>>;
+
+/**
+ * @brief Shorthand for 0-dim host mdarray (scalar).
+ *
+ * Underlying storage is std::vector.
+ */
+template <typename ElementType>
+using host_scalar = host_mdarray<ElementType, detail::scalar_extent>;
+
+/**
+ * @brief Shorthand for 0-dim host mdarray (scalar).
+ *
+ * Similar to rmm::device_scalar, underying storage is rmm::device_uvector.
+ */
+template <typename ElementType>
+using device_scalar = device_mdarray<ElementType, detail::scalar_extent>;
 
 /**
  * @brief Shorthand for 1-dim host mdarray.
@@ -311,14 +347,26 @@ using device_vector = device_mdarray<ElementType, detail::vector_extent>;
 /**
  * @brief Shorthand for c-contiguous host matrix.
  */
-template <typename ElementType, class LayoutPolicy = detail::stdex::layout_right>
+template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
 using host_matrix = host_mdarray<ElementType, detail::matrix_extent, LayoutPolicy>;
 
 /**
  * @brief Shorthand for c-contiguous device matrix.
  */
-template <typename ElementType, class LayoutPolicy = detail::stdex::layout_right>
+template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
 using device_matrix = device_mdarray<ElementType, detail::matrix_extent, LayoutPolicy>;
+
+/**
+ * @brief Shorthand for 0-dim host mdspan (scalar).
+ */
+template <typename ElementType>
+using host_scalar_view = host_mdspan<ElementType, detail::scalar_extent>;
+
+/**
+ * @brief Shorthand for 0-dim host mdspan (scalar).
+ */
+template <typename ElementType>
+using device_scalar_view = device_mdspan<ElementType, detail::scalar_extent>;
 
 /**
  * @brief Shorthand for 1-dim host mdspan.
@@ -335,18 +383,38 @@ using device_vector_view = device_mdspan<ElementType, detail::vector_extent>;
 /**
  * @brief Shorthand for c-contiguous host matrix view.
  */
-template <typename ElementType, class LayoutPolicy = detail::stdex::layout_right>
+template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
 using host_matrix_view = host_mdspan<ElementType, detail::matrix_extent, LayoutPolicy>;
 /**
  * @brief Shorthand for c-contiguous device matrix view.
  */
-template <typename ElementType, class LayoutPolicy = detail::stdex::layout_right>
+template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
 using device_matrix_view = device_mdspan<ElementType, detail::matrix_extent, LayoutPolicy>;
+
+/**
+ * @brief Create a 0-dim (scalar) mdspan instance for host value.
+ */
+template <typename ElementType>
+auto make_host_scalar_view(ElementType* ptr)
+{
+  detail::scalar_extent extents;
+  return host_scalar_view<ElementType>{ptr, extents};
+}
+
+/**
+ * @brief Create a 0-dim (scalar) mdspan instance for device value.
+ */
+template <typename ElementType>
+auto make_device_scalar_view(ElementType* ptr)
+{
+  detail::scalar_extent extents;
+  return device_scalar_view<ElementType>{ptr, extents};
+}
 
 /**
  * @brief Create a 2-dim c-contiguous mdspan instance for host pointer.
  */
-template <typename ElementType, class LayoutPolicy = detail::stdex::layout_right>
+template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
 auto make_host_matrix_view(ElementType* ptr, size_t n_rows, size_t n_cols)
 {
   detail::matrix_extent extents{n_rows, n_cols};
@@ -355,7 +423,7 @@ auto make_host_matrix_view(ElementType* ptr, size_t n_rows, size_t n_cols)
 /**
  * @brief Create a 2-dim c-contiguous mdspan instance for device pointer.
  */
-template <typename ElementType, class LayoutPolicy = detail::stdex::layout_right>
+template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
 auto make_device_matrix_view(ElementType* ptr, size_t n_rows, size_t n_cols)
 {
   detail::matrix_extent extents{n_rows, n_cols};
@@ -385,7 +453,7 @@ auto make_device_vector_view(ElementType* ptr, size_t n)
 /**
  * @brief Create a 2-dim c-contiguous host mdarray.
  */
-template <typename ElementType, class LayoutPolicy = detail::stdex::layout_right>
+template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
 auto make_host_matrix(size_t n_rows, size_t n_cols)
 {
   detail::matrix_extent extents{n_rows, n_cols};
@@ -397,13 +465,48 @@ auto make_host_matrix(size_t n_rows, size_t n_cols)
 /**
  * @brief Create a 2-dim c-contiguous device mdarray.
  */
-template <typename ElementType, class LayoutPolicy = detail::stdex::layout_right>
+template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
 auto make_device_matrix(size_t n_rows, size_t n_cols, rmm::cuda_stream_view stream)
 {
   detail::matrix_extent extents{n_rows, n_cols};
   using policy_t = typename device_matrix<ElementType>::container_policy_type;
   policy_t policy{stream};
   return device_matrix<ElementType, LayoutPolicy>{extents, policy};
+}
+
+/**
+ * @brief Create a host scalar from v.
+ *
+ * Underlying storage is std::vector.
+ */
+template <typename ElementType>
+auto make_host_scalar(ElementType const& v)
+{
+  // FIXME(jiamingy): We can optimize this by using std::array as container policy, which
+  // requires some more compile time dispatching. This is enabled in the ref impl but
+  // hasn't been ported here yet.
+  detail::scalar_extent extents;
+  using policy_t = typename host_scalar<ElementType>::container_policy_type;
+  policy_t policy;
+  auto scalar = host_scalar<ElementType>{extents, policy};
+  scalar(0)   = v;
+  return scalar;
+}
+
+/**
+ * @brief Create a device scalar from v.
+ *
+ * Similar to rmm::device_scalar, underying storage is rmm::device_uvector.
+ */
+template <typename ElementType>
+auto make_device_scalar(ElementType const& v, rmm::cuda_stream_view stream)
+{
+  detail::scalar_extent extents;
+  using policy_t = typename device_scalar<ElementType>::container_policy_type;
+  policy_t policy{stream};
+  auto scalar = device_scalar<ElementType>{extents, policy};
+  scalar(0)   = v;
+  return scalar;
 }
 
 /**

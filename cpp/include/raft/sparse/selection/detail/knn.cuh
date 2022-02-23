@@ -20,10 +20,9 @@
 
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/distance_type.h>
-#include <raft/linalg/unary_op.cuh>
+#include <raft/distance/distance_type.hpp>
+#include <raft/linalg/unary_op.hpp>
 #include <raft/matrix/matrix.hpp>
-#include <raft/mr/device/buffer.hpp>
 
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/csr.hpp>
@@ -31,6 +30,8 @@
 #include <raft/sparse/distance/distance.hpp>
 #include <raft/sparse/op/slice.hpp>
 #include <raft/spatial/knn/knn.hpp>
+
+#include <algorithm>
 
 namespace raft {
 namespace sparse {
@@ -355,7 +356,7 @@ class sparse_knn_t {
 
     // in the case where the number of idx rows in the batch is < k, we
     // want to adjust k.
-    value_idx n_neighbors = min(k, batch_cols);
+    value_idx n_neighbors = std::min(static_cast<value_idx>(k), batch_cols);
 
     bool ascending = true;
     if (metric == raft::distance::DistanceType::InnerProduct) ascending = false;

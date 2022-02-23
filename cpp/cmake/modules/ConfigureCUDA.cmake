@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2018-2021, NVIDIA CORPORATION.
+# Copyright (c) 2018-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,7 +23,9 @@ if(CMAKE_COMPILER_IS_GNUCXX)
     list(APPEND RAFT_CXX_FLAGS -Wall -Werror -Wno-unknown-pragmas -Wno-error=deprecated-declarations)
 endif()
 
-list(APPEND RAFT_CUDA_FLAGS --expt-extended-lambda --expt-relaxed-constexpr --default-stream per-thread)
+list(APPEND RAFT_CUDA_FLAGS --expt-extended-lambda --expt-relaxed-constexpr)
+list(APPEND RAFT_CXX_FLAGS "-DCUDA_API_PER_THREAD_DEFAULT_STREAM")
+list(APPEND RAFT_CUDA_FLAGS "-DCUDA_API_PER_THREAD_DEFAULT_STREAM")
 
 # set warnings as errors
 if(CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL 11.2.0)
@@ -34,6 +36,10 @@ list(APPEND RAFT_CUDA_FLAGS -Xcompiler=-Wall,-Werror,-Wno-error=deprecated-decla
 # Option to enable line info in CUDA device compilation to allow introspection when profiling / memchecking
 if(CUDA_ENABLE_LINEINFO)
     list(APPEND RAFT_CUDA_FLAGS -lineinfo)
+endif()
+
+if(OpenMP_FOUND)
+    list(APPEND RAFT_CUDA_FLAGS -Xcompiler=${OpenMP_CXX_FLAGS})
 endif()
 
 # Debug options

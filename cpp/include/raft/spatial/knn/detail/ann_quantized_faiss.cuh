@@ -43,9 +43,7 @@
 
 #include <thrust/iterator/transform_iterator.h>
 
-#include <raft/linalg/distance_type.h>
-
-#include <cuml/neighbors/knn.hpp>
+#include <raft/distance/distance_type.hpp>
 
 #include <iostream>
 #include <set>

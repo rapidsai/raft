@@ -19,7 +19,7 @@
 #include <gtest/gtest.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/reduce.cuh>
+#include <raft/linalg/reduce.hpp>
 #include <raft/random/rng.hpp>
 
 namespace raft {
@@ -96,7 +96,7 @@ class ReduceTest : public ::testing::TestWithParam<ReduceInputs<InType, OutType>
       reduceLaunch(
         dots_act.data(), data.data(), cols, rows, params.rowMajor, params.alongRows, true, stream);
     }
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
   }
 
  protected:
