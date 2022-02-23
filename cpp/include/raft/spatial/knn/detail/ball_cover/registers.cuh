@@ -61,6 +61,7 @@ namespace detail {
 template <typename value_idx,
           typename value_t,
           typename value_int = std::uint32_t,
+          int col_q          = 2,
           int tpb            = 32,
           typename distance_func>
 __global__ void perform_post_filter_registers(const value_t* X,
@@ -87,7 +88,7 @@ __global__ void perform_post_filter_registers(const value_t* X,
   __syncthreads();
 
   // TODO: Would it be faster to use L1 for this?
-  value_t local_x_ptr[2];
+  value_t local_x_ptr[col_q];
   for (value_int j = 0; j < n_cols; ++j) {
     local_x_ptr[j] = X[n_cols * blockIdx.x + j];
   }
@@ -618,7 +619,7 @@ void rbc_low_dim_pass_two(const raft::handle_t& handle,
   rmm::device_uvector<std::uint32_t> bitset(bitset_size * index.m, handle.get_stream());
   thrust::fill(handle.get_thrust_policy(), bitset.data(), bitset.data() + bitset.size(), 0);
 
-  perform_post_filter_registers<value_idx, value_t, value_int, 128>
+  perform_post_filter_registers<value_idx, value_t, value_int, dims, 128>
     <<<n_query_rows, 128, bitset_size * sizeof(std::uint32_t), handle.get_stream()>>>(
       index.get_X(),
       index.n,
