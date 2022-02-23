@@ -1,6 +1,4 @@
 /*
-<<<<<<< HEAD
-=======
  * Copyright (2019) Sandia Corporation
  *
  * The source code is licensed under the 3-clause BSD license found in the LICENSE file
@@ -8,7 +6,6 @@
  */
 
 /*
->>>>>>> branch-22.04
  * Copyright (c) 2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -25,10 +22,7 @@
  */
 #pragma once
 #include <experimental/mdspan>
-<<<<<<< HEAD
-=======
 #include <raft/detail/span.hpp>  // dynamic_extent
->>>>>>> branch-22.04
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_uvector.hpp>
 #include <thrust/device_ptr.h>
