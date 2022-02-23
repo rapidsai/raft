@@ -45,6 +45,7 @@
 #include <thrust/functional.h>
 #include <thrust/reduce.h>
 #include <thrust/sequence.h>
+#include <thrust/sort.h>
 
 namespace raft {
 namespace spatial {
