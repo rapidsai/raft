@@ -367,7 +367,7 @@ class std_comms : public comms_iface {
   {
     // From: "An Empirical Evaluation of Allgatherv on Multi-GPU Systems" -
     // https://arxiv.org/pdf/1812.05964.pdf Listing 1 on page 4.
-    RAFT_EXPECTS(size_ <= 2048,
+    RAFT_EXPECTS(num_ranks_ <= 2048,
                  "# NCCL operations between ncclGroupStart & ncclGroupEnd shouldn't exceed 2048.");
     RAFT_NCCL_TRY(ncclGroupStart());
     for (int root = 0; root < num_ranks_; ++root) {
