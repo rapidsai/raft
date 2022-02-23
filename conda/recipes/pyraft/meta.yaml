@@ -33,13 +33,13 @@ requirements:
     - libraft-headers {{ version }}
     - cudatoolkit {{ cuda_version }}.*
     - cuda-python >=11.5,<12.0
+    - nccl>=2.9.9
     - ucx-py {{ ucx_py_version }}
     - ucx-proc=*=gpu
   run:
     - python x.x
     - dask-cuda {{ minor_version }}
     - libraft-headers {{ version }}
-    - cupy>=7.8.0,<10.0.0a0
     - nccl>=2.9.9
     - rmm {{ minor_version }}
     - ucx-py {{ ucx_py_version }}

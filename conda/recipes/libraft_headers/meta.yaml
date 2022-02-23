@@ -44,8 +44,11 @@ requirements:
     - ucx-proc=*=gpu
     - gtest=1.10.0
     - gmock
+    - librmm {{ minor_version}}
+    - libcusolver>=11.2.1
   run:
     - nccl>=2.9.9
+    - librmm {{ minor_version}}
     - ucx-py {{ ucx_py_version }}
     - ucx-proc=*=gpu
     - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}

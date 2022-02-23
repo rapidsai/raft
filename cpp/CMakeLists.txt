@@ -113,6 +113,7 @@ include(cmake/thirdparty/get_rmm.cmake)
 include(cmake/thirdparty/get_cuco.cmake)
 include(cmake/thirdparty/get_libcudacxx.cmake)
 include(cmake/thirdparty/get_faiss.cmake)
+include(cmake/thirdparty/get_mdspan.cmake)
 
 if(BUILD_TESTS)
   include(cmake/thirdparty/get_gtest.cmake)
@@ -139,7 +140,8 @@ target_link_libraries(raft INTERFACE
   CUDA::cusparse
   $<$<BOOL:${NVTX}>:CUDA::nvToolsExt>
   rmm::rmm
-  cuco::cuco)
+  cuco::cuco
+  std::mdspan)
 
 target_compile_definitions(raft INTERFACE $<$<BOOL:${NVTX}>:NVTX_ENABLED>)
 target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
@@ -279,13 +281,13 @@ install(TARGETS raft_nn
 if(TARGET raft_distance_lib)
   install(TARGETS raft_distance_lib
           DESTINATION ${lib_dir}
-          EXPORT raft-distance-exports)
+          EXPORT raft-distance-lib-exports)
 endif()
 
 if(TARGET raft_nn_lib)
   install(TARGETS raft_nn_lib
           DESTINATION ${lib_dir}
-          EXPORT raft-nn-exports)
+          EXPORT raft-nn-lib-exports)
 endif()
 
 
@@ -295,7 +297,7 @@ install(DIRECTORY include/raft/
 
 # Temporary install of raft.hpp while the file is removed
 install(FILES include/raft.hpp
-	DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/raft)
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/raft)
 
 ##############################################################################
 # - install export -----------------------------------------------------------
@@ -367,6 +369,12 @@ raft_export(BUILD raft
 include("${rapids-cmake-dir}/export/write_dependencies.cmake")
 
 set(raft_components distance nn)
+if(TARGET raft_distance_lib)
+  list(APPEND raft_components distance-lib)
+endif()
+if(TARGET raft_nn_lib)
+  list(APPEND raft_components  nn-lib)
+endif()
 foreach(comp IN LISTS raft_components)
   install(
     EXPORT raft-${comp}-exports

@@ -652,7 +652,8 @@ DI T shfl_xor(T val, int laneMask, int width = WarpSize, uint32_t mask = 0xfffff
 /**
  * @brief Warp-level sum reduction
  * @param val input value
- * @return only the lane0 will contain valid reduced result
+ * @tparam T Value type to be reduced
+ * @return Reduction result. All lanes will have the valid result.
  * @note Why not cub? Because cub doesn't seem to allow working with arbitrary
  *       number of warps in a block. All threads in the warp must enter this
  *       function together
@@ -663,7 +664,7 @@ DI T warpReduce(T val)
 {
 #pragma unroll
   for (int i = WarpSize / 2; i > 0; i >>= 1) {
-    T tmp = shfl(val, laneId() + i);
+    T tmp = shfl_xor(val, i);
     val += tmp;
   }
   return val;
