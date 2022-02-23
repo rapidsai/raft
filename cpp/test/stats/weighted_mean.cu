@@ -30,14 +30,14 @@ struct WeightedMeanInputs {
   T tolerance;
   int M, N;
   unsigned long long int seed;
-  bool along_rows; // Used only for the weightedMean function
+  bool along_rows;  // Used only for the weightedMean test function
 };
 
 template <typename T>
 ::std::ostream& operator<<(::std::ostream& os, const WeightedMeanInputs<T>& I)
 {
-  return os << "{ " << I.tolerance << ", " << I.M << ", " << I.N << ", " << I.seed
-            << ", " << I.along_rows << "}" << std::endl;
+  return os << "{ " << I.tolerance << ", " << I.M << ", " << I.N << ", " << I.seed << ", "
+            << I.along_rows << "}" << std::endl;
 }
 
 ///// weighted row-wise mean test and support functions
@@ -180,8 +180,8 @@ class WeightedMeanTest : public ::testing::TestWithParam<WeightedMeanInputs<T>> 
     params = ::testing::TestWithParam<WeightedMeanInputs<T>>::GetParam();
     raft::random::Rng r(params.seed);
     int rows = params.M, cols = params.N, len = rows * cols;
-    auto weight_size = params.along_rows ? cols : rows;
-    auto mean_size = params.along_rows ? rows : cols;
+    auto weight_size    = params.along_rows ? cols : rows;
+    auto mean_size      = params.along_rows ? rows : cols;
     cudaStream_t stream = 0;
     RAFT_CUDA_TRY(cudaStreamCreate(&stream));
     // device-side data
@@ -207,8 +207,14 @@ class WeightedMeanTest : public ::testing::TestWithParam<WeightedMeanInputs<T>> 
     dexp = hexp;
 
     // compute ml-prims result
-    weightedMean(dact.data().get(), din.data().get(), dweights.data().get(), cols, rows,
-                 false, params.along_rows, stream);
+    weightedMean(dact.data().get(),
+                 din.data().get(),
+                 dweights.data().get(),
+                 cols,
+                 rows,
+                 false,
+                 params.along_rows,
+                 stream);
 
     // adjust tolerance to account for round-off accumulation
     params.tolerance *= params.N;
@@ -222,7 +228,6 @@ class WeightedMeanTest : public ::testing::TestWithParam<WeightedMeanInputs<T>> 
   thrust::host_vector<T> hin, hweights;
   thrust::device_vector<T> din, dweights, dexp, dact;
 };
-
 
 ////// Parameter sets and test instantiation
 static const float tolF  = 128 * std::numeric_limits<float>::epsilon();

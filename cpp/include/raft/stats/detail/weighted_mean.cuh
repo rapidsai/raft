@@ -53,7 +53,7 @@ void weightedMean(Type* mu,
 {
   // sum the weights & copy back to CPU
   auto weight_size = along_rows ? D : N;
-  Type WS = 0;
+  Type WS          = 0;
   raft::stats::sum(mu, weights, (IdxType)1, weight_size, false, stream);
   raft::update_host(&WS, mu, 1, stream);
 
