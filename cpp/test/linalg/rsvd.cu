@@ -23,6 +23,8 @@
 #include <raft/random/rng.hpp>
 #include <rmm/device_uvector.hpp>
 
+#include <algorithm>
+
 namespace raft {
 namespace linalg {
 
@@ -111,8 +113,8 @@ class RsvdTest : public ::testing::TestWithParam<RsvdInputs<T>> {
     raft::update_host(A_backup_cpu.data(), A.data(), m * n, stream);
 
     if (params.k == 0) {
-      params.k = max((int)(min(m, n) * params.PC_perc), 1);
-      params.p = max((int)(min(m, n) * params.UpS_perc), 1);
+      params.k = std::max((int)(std::min(m, n) * params.PC_perc), 1);
+      params.p = std::max((int)(std::min(m, n) * params.UpS_perc), 1);
     }
 
     U.resize(m * params.k, stream);

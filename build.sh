@@ -43,11 +43,11 @@ HELP="$0 [<target> ...] [<flag> ...]
 
  default action (no args) is to build both libraft and pyraft targets
 "
-CPP_RAFT_BUILD_DIR=${REPODIR}/cpp/build
+LIBRAFT_BUILD_DIR=${LIBRAFT_BUILD_DIR:=${REPODIR}/cpp/build}
 SPHINX_BUILD_DIR=${REPODIR}/docs
 PY_RAFT_BUILD_DIR=${REPODIR}/python/build
 PYTHON_DEPS_CLONE=${REPODIR}/python/external_repositories
-BUILD_DIRS="${CPP_RAFT_BUILD_DIR} ${PY_RAFT_BUILD_DIR} ${PYTHON_DEPS_CLONE}"
+BUILD_DIRS="${LIBRAFT_BUILD_DIR} ${PY_RAFT_BUILD_DIR} ${PYTHON_DEPS_CLONE}"
 
 # Set defaults for vars modified by flags to this script
 CMAKE_LOG_LEVEL=""
@@ -59,7 +59,6 @@ COMPILE_LIBRARIES=OFF
 COMPILE_NN_LIBRARY=OFF
 COMPILE_DIST_LIBRARY=OFF
 ENABLE_NN_DEPENDENCIES=${BUILD_TESTS}
-SINGLEGPU=""
 NVTX=OFF
 CLEAN=0
 DISABLE_DEPRECATION_WARNINGS=ON
@@ -117,25 +116,22 @@ if hasArg --nogtest; then
     ENABLE_NN_DEPENDENCIES=OFF
 fi
 
-if hasArg --compile-libs; then
+if hasArg --compile-libs || (( ${NUMARGS} == 0 )); then
   COMPILE_LIBRARIES=ON
 fi
 
-if hasArg --compile-nn || hasArg --compile-libs; then
+if hasArg --compile-nn || hasArg --compile-libs || (( ${NUMARGS} == 0 )); then
     ENABLE_NN_DEPENDENCIES=ON
     COMPILE_NN_LIBRARY=ON
     CMAKE_TARGET="raft_nn_lib;${CMAKE_TARGET}"
 fi
-if hasArg --compile-dist || hasArg --compile-libs; then
+if hasArg --compile-dist || hasArg --compile-libs || (( ${NUMARGS} == 0 )); then
     COMPILE_DIST_LIBRARY=ON
     CMAKE_TARGET="raft_distance_lib;${CMAKE_TARGET}"
 fi
 
 if hasArg --buildfaiss; then
     BUILD_STATIC_FAISS=ON
-fi
-if hasArg --singlegpu; then
-    SINGLEGPU="--singlegpu"
 fi
 if hasArg --nvtx; then
     NVTX=ON
@@ -178,9 +174,9 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs; then
         echo "Building for *ALL* supported GPU architectures..."
     fi
 
-    mkdir -p ${CPP_RAFT_BUILD_DIR}
-    cd ${CPP_RAFT_BUILD_DIR}
-    cmake -S ${REPODIR}/cpp -B ${CPP_RAFT_BUILD_DIR} \
+    mkdir -p ${LIBRAFT_BUILD_DIR}
+    cd ${LIBRAFT_BUILD_DIR}
+    cmake -S ${REPODIR}/cpp -B ${LIBRAFT_BUILD_DIR} \
           -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} \
           -DCMAKE_CUDA_ARCHITECTURES=${RAFT_CMAKE_CUDA_ARCHITECTURES} \
           -DRAFT_COMPILE_LIBRARIES=${COMPILE_LIBRARIES} \
@@ -200,7 +196,7 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs; then
       fi
 
       echo "-- Compiling targets: ${CMAKE_TARGET}, verbose=${VERBOSE_FLAG}"
-      cmake --build  "${CPP_RAFT_BUILD_DIR}" ${VERBOSE_FLAG} -j${PARALLEL_LEVEL} --target ${CMAKE_TARGET} ${INSTALL_TARGET}
+      cmake --build  "${LIBRAFT_BUILD_DIR}" ${VERBOSE_FLAG} -j${PARALLEL_LEVEL} --target ${CMAKE_TARGET} ${INSTALL_TARGET}
   fi
 fi
 
@@ -209,14 +205,14 @@ if (( ${NUMARGS} == 0 )) || hasArg pyraft || hasArg docs; then
 
     cd ${REPODIR}/python
     if [[ ${INSTALL_TARGET} != "" ]]; then
-        python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace ${SINGLEGPU}
+        python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace --library-dir=${LIBRAFT_BUILD_DIR} install --single-version-externally-managed --record=record.txt
     else
-        python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace --library-dir=${LIBRAFT_BUILD_DIR} ${SINGLEGPU}
+        python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace --library-dir=${LIBRAFT_BUILD_DIR}
     fi
 fi
 
 if hasArg docs; then
-    cmake --build ${CPP_RAFT_BUILD_DIR} --target docs_raft
+    cmake --build ${LIBRAFT_BUILD_DIR} --target docs_raft
     cd ${SPHINX_BUILD_DIR}
     make html
 fi

@@ -140,14 +140,46 @@ The following example shows how to use the `libraft-distance` API with the pre-c
 
 ### <a id="build_cxx_source"></a>Building RAFT C++ from source in cmake
 
-RAFT uses the [RAPIDS cmake](https://github.com/rapidsai/rapids-cmake) library, so it can be easily included into downstream projects. RAPIDS cmake provides a convenience layer around the [Cmake Package Manager (CPM)](https://github.com/cpm-cmake/CPM.cmake). The following example is similar to building RAFT itself from source but allows it to be done in cmake, providing the `raft::raft` link target and `RAFT_INCLUDE_DIR` for includes. The `COMPILE_LIBRARIES` option enables the building of the shared libraries 
+RAFT uses the [RAPIDS cmake](https://github.com/rapidsai/rapids-cmake) library, so it can be easily included into downstream projects. RAPIDS cmake provides a convenience layer around the [Cmake Package Manager (CPM)](https://github.com/cpm-cmake/CPM.cmake). The following example is similar to building RAFT itself from source but allows it to be done in cmake, providing the `raft::raft` link target and `RAFT_INCLUDE_DIR` for includes. The `COMPILE_LIBRARIES` option enables the building of the shared libraries.
+
+The following `cmake` snippet enables a flexible configuration of RAFT: 
 
 ```cmake
-function(find_and_configure_raft)
 
-  set(oneValueArgs VERSION FORK PINNED_TAG USE_FAISS_STATIC COMPILE_LIBRARIES ENABLE_NN_DEPENDENCIES)
+set(RAFT_VERSION "22.04")
+
+function(find_and_configure_raft)
+  set(oneValueArgs VERSION FORK PINNED_TAG USE_FAISS_STATIC 
+          COMPILE_LIBRARIES ENABLE_NN_DEPENDENCIES CLONE_ON_PIN
+          USE_NN_LIBRARY USE_DISTANCE_LIBRARY)
   cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
                             "${multiValueArgs}" ${ARGN} )
+
+  #-----------------------------------------------------
+  # Clone RAFT locally if PINNED_TAG has been changed
+  #-----------------------------------------------------
+  if(PKG_CLONE_ON_PIN AND NOT PKG_PINNED_TAG STREQUAL "branch-${RAFT_VERSION}")
+    message("Pinned tag found: ${PKG_PINNED_TAG}. Cloning raft locally.")
+    set(CPM_DOWNLOAD_raft ON)
+    set(CMAKE_IGNORE_PATH "${CMAKE_INSTALL_PREFIX}/include/raft;${CMAKE_IGNORE_PATH})
+  endif()
+
+  #-----------------------------------------------------
+  # Add components 
+  #-----------------------------------------------------
+
+  string(APPEND RAFT_COMPONENTS "")
+  if(PKG_USE_NN_LIBRARY)
+    string(APPEND RAFT_COMPONENTS " nn")
+  endif()
+  
+  if(PKG_USE_DISTANCE_LIBRARY)
+    string(APPEND RAFT_COMPONENTS " distance")
+  endif()
+
+  #-----------------------------------------------------
+  # Invoke CPM find_package()
+  #-----------------------------------------------------
 
   rapids_cpm_find(raft ${PKG_VERSION}
           GLOBAL_TARGETS      raft::raft
@@ -170,11 +202,19 @@ endfunction()
 # Change pinned tag here to test a commit in CI
 # To use a different RAFT locally, set the CMake variable
 # CPM_raft_SOURCE=/path/to/local/raft
-find_and_configure_raft(VERSION    22.02.00
+find_and_configure_raft(VERSION    ${RAFT_VERSION}.00
         FORK             rapidsai
-        PINNED_TAG       branch-22.02
+        PINNED_TAG       branch-${RAFT_VERSION}
+
+        # When PINNED_TAG above doesn't match cuml,
+        # force local raft clone in build directory
+        # even if it's already installed.
+        CLONE_ON_PIN     ON
+
         COMPILE_LIBRARIES      NO
-        ENABLE_NN_DEPENDENCIES NO
+        USE_NN_LIBRARY         NO
+        USE_DISTANCE_LIBRARY   NO
+        ENABLE_NN_DEPENDENCIES NO  # This builds FAISS if not installed
         USE_FAISS_STATIC       NO
 )
 ```
