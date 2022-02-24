@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
 
 #ifndef __SQRT_H
 #define __SQRT_H
@@ -23,7 +27,7 @@
 #include <raft/linalg/unary_op.cuh>
 
 namespace raft {
-    namespace linalg {
+namespace linalg {
 
 /**
  * @defgroup ScalarOps Scalar operations on the input buffer
@@ -35,15 +39,15 @@ namespace raft {
  * @param stream cuda stream where to launch work
  * @{
  */
-        template <typename math_t, typename IdxType = int>
-        void sqrt(math_t* out, const math_t* in, IdxType len, cudaStream_t stream)
-        {
-            raft::linalg::unaryOp(
-                    out, in, len, [] __device__(math_t in) { return raft::mySqrt(in); }, stream);
-        }
+template <typename math_t, typename IdxType = int>
+void sqrt(math_t* out, const math_t* in, IdxType len, cudaStream_t stream)
+{
+  raft::linalg::unaryOp(
+    out, in, len, [] __device__(math_t in) { return raft::mySqrt(in); }, stream);
+}
 /** @} */
 
-    };  // end namespace linalg
+};  // end namespace linalg
 };  // end namespace raft
 
 #endif

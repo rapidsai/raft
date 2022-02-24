@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
 
 #ifndef __REDUCE_COLS_BY_KEY
 #define __REDUCE_COLS_BY_KEY
@@ -22,7 +26,7 @@
 #include <raft/linalg/detail/reduce_cols_by_key.cuh>
 
 namespace raft {
-    namespace linalg {
+namespace linalg {
 
 /**
  * @brief Computes the sum-reduction of matrix columns for each given key
@@ -42,17 +46,17 @@ namespace raft {
  * @param nkeys number of unique keys in the keys array
  * @param stream cuda stream to launch the kernel onto
  */
-        template <typename T, typename KeyIteratorT, typename IdxType = int>
-        void reduce_cols_by_key(const T* data,
-                                const KeyIteratorT keys,
-                                T* out,
-                                IdxType nrows,
-                                IdxType ncols,
-                                IdxType nkeys,
-                                cudaStream_t stream)
-        {
-            detail::reduce_cols_by_key(data, keys, out, nrows, ncols, nkeys, stream);
-        }
-    };  // end namespace linalg
+template <typename T, typename KeyIteratorT, typename IdxType = int>
+void reduce_cols_by_key(const T* data,
+                        const KeyIteratorT keys,
+                        T* out,
+                        IdxType nrows,
+                        IdxType ncols,
+                        IdxType nkeys,
+                        cudaStream_t stream)
+{
+  detail::reduce_cols_by_key(data, keys, out, nrows, ncols, nkeys, stream);
+}
+};  // end namespace linalg
 };  // end namespace raft
 #endif

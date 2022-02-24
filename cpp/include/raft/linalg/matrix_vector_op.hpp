@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
 
 #ifndef __MATRIX_VECTOR_OP_H
 #define __MATRIX_VECTOR_OP_H
@@ -22,7 +26,7 @@
 #include "detail/matrix_vector_op.cuh"
 
 namespace raft {
-    namespace linalg {
+namespace linalg {
 
 /**
  * @brief Operations for all the columns or rows with a given vector.
@@ -47,19 +51,19 @@ namespace raft {
  * @param op the mathematical operation
  * @param stream cuda stream where to launch work
  */
-        template <typename Type, typename Lambda, typename IdxType = int, int TPB = 256>
-        void matrixVectorOp(Type* out,
-                            const Type* matrix,
-                            const Type* vec,
-                            IdxType D,
-                            IdxType N,
-                            bool rowMajor,
-                            bool bcastAlongRows,
-                            Lambda op,
-                            cudaStream_t stream)
-        {
-            detail::matrixVectorOp(out, matrix, vec, D, N, rowMajor, bcastAlongRows, op, stream);
-        }
+template <typename Type, typename Lambda, typename IdxType = int, int TPB = 256>
+void matrixVectorOp(Type* out,
+                    const Type* matrix,
+                    const Type* vec,
+                    IdxType D,
+                    IdxType N,
+                    bool rowMajor,
+                    bool bcastAlongRows,
+                    Lambda op,
+                    cudaStream_t stream)
+{
+  detail::matrixVectorOp(out, matrix, vec, D, N, rowMajor, bcastAlongRows, op, stream);
+}
 
 /**
  * @brief Operations for all the columns or rows with the given vectors.
@@ -85,22 +89,22 @@ namespace raft {
  * @param op the mathematical operation
  * @param stream cuda stream where to launch work
  */
-        template <typename Type, typename Lambda, typename IdxType = int, int TPB = 256>
-        void matrixVectorOp(Type* out,
-                            const Type* matrix,
-                            const Type* vec1,
-                            const Type* vec2,
-                            IdxType D,
-                            IdxType N,
-                            bool rowMajor,
-                            bool bcastAlongRows,
-                            Lambda op,
-                            cudaStream_t stream)
-        {
-            detail::matrixVectorOp(out, matrix, vec1, vec2, D, N, rowMajor, bcastAlongRows, op, stream);
-        }
+template <typename Type, typename Lambda, typename IdxType = int, int TPB = 256>
+void matrixVectorOp(Type* out,
+                    const Type* matrix,
+                    const Type* vec1,
+                    const Type* vec2,
+                    IdxType D,
+                    IdxType N,
+                    bool rowMajor,
+                    bool bcastAlongRows,
+                    Lambda op,
+                    cudaStream_t stream)
+{
+  detail::matrixVectorOp(out, matrix, vec1, vec2, D, N, rowMajor, bcastAlongRows, op, stream);
+}
 
-    };  // end namespace linalg
+};  // end namespace linalg
 };  // end namespace raft
 
 #endif

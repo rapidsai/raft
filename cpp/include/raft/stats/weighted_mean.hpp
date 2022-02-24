@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
 
 #ifndef __WEIGHTED_MEAN_H
 #define __WEIGHTED_MEAN_H
@@ -22,7 +26,7 @@
 #include <raft/stats/detail/weighted_mean.cuh>
 
 namespace raft {
-    namespace stats {
+namespace stats {
 
 /**
  * @brief Compute the row-wise weighted mean of the input matrix
@@ -35,12 +39,12 @@ namespace raft {
  * @param N number of rows of data
  * @param stream cuda stream to launch work on
  */
-        template <typename Type>
-        void rowWeightedMean(
-                Type* mu, const Type* data, const Type* weights, int D, int N, cudaStream_t stream)
-        {
-            detail::rowWeightedMean(mu, data, weights, D, N, stream);
-        }
+template <typename Type>
+void rowWeightedMean(
+  Type* mu, const Type* data, const Type* weights, int D, int N, cudaStream_t stream)
+{
+  detail::rowWeightedMean(mu, data, weights, D, N, stream);
+}
 
 /**
  * @brief Compute the column-wise weighted mean of the input matrix
@@ -53,13 +57,13 @@ namespace raft {
  * @param N number of rows of data
  * @param stream cuda stream to launch work on
  */
-        template <typename Type>
-        void colWeightedMean(
-                Type* mu, const Type* data, const Type* weights, int D, int N, cudaStream_t stream)
-        {
-            detail::colWeightedMean(mu, data, weights, D, N, stream);
-        }
-    };  // end namespace stats
+template <typename Type>
+void colWeightedMean(
+  Type* mu, const Type* data, const Type* weights, int D, int N, cudaStream_t stream)
+{
+  detail::colWeightedMean(mu, data, weights, D, N, stream);
+}
+};  // end namespace stats
 };  // end namespace raft
 
 #endif

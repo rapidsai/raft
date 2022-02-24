@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
 
 #ifndef __SILHOUETTE_SCORE_H
 #define __SILHOUETTE_SCORE_H
@@ -23,7 +27,7 @@
 #include <raft/stats/detail/silhouette_score.cuh>
 
 namespace raft {
-    namespace stats {
+namespace stats {
 
 /**
  * @brief main function that returns the average silhouette score for a given set of data and its
@@ -42,39 +46,39 @@ namespace raft {
  * @param metric: the numerical value that maps to the type of distance metric to be used in the
  * calculations
  */
-        template <typename DataT, typename LabelT>
-        DataT silhouette_score(
-                const raft::handle_t& handle,
-                DataT* X_in,
-                int nRows,
-                int nCols,
-                LabelT* labels,
-                int nLabels,
-                DataT* silhouette_scorePerSample,
-                cudaStream_t stream,
-                raft::distance::DistanceType metric = raft::distance::DistanceType::L2Unexpanded)
-        {
-            return detail::silhouette_score(
-                    handle, X_in, nRows, nCols, labels, nLabels, silhouette_scorePerSample, stream, metric);
-        }
+template <typename DataT, typename LabelT>
+DataT silhouette_score(
+  const raft::handle_t& handle,
+  DataT* X_in,
+  int nRows,
+  int nCols,
+  LabelT* labels,
+  int nLabels,
+  DataT* silhouette_scorePerSample,
+  cudaStream_t stream,
+  raft::distance::DistanceType metric = raft::distance::DistanceType::L2Unexpanded)
+{
+  return detail::silhouette_score(
+    handle, X_in, nRows, nCols, labels, nLabels, silhouette_scorePerSample, stream, metric);
+}
 
-        template <typename value_t, typename value_idx, typename label_idx>
-        value_t silhouette_score_batched(
-                const raft::handle_t& handle,
-                value_t* X,
-                value_idx n_rows,
-                value_idx n_cols,
-                label_idx* y,
-                label_idx n_labels,
-                value_t* scores,
-                value_idx chunk,
-                raft::distance::DistanceType metric = raft::distance::DistanceType::L2Unexpanded)
-        {
-            return batched::detail::silhouette_score(
-                    handle, X, n_rows, n_cols, y, n_labels, scores, chunk, metric);
-        }
+template <typename value_t, typename value_idx, typename label_idx>
+value_t silhouette_score_batched(
+  const raft::handle_t& handle,
+  value_t* X,
+  value_idx n_rows,
+  value_idx n_cols,
+  label_idx* y,
+  label_idx n_labels,
+  value_t* scores,
+  value_idx chunk,
+  raft::distance::DistanceType metric = raft::distance::DistanceType::L2Unexpanded)
+{
+  return batched::detail::silhouette_score(
+    handle, X, n_rows, n_cols, y, n_labels, scores, chunk, metric);
+}
 
-    };  // namespace stats
+};  // namespace stats
 };  // namespace raft
 
 #endif

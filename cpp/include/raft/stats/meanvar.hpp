@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
 
 #ifndef __MEANVAR_H
 #define __MEANVAR_H
@@ -43,18 +47,18 @@ namespace raft::stats {
  * @param [in] rowMajor whether the input data is row- or col-major, for true or false respectively.
  * @param [in] stream
  */
-    template <typename Type, typename IdxType = int>
-    void meanvar(Type* mean,
-                 Type* var,
-                 const Type* data,
-                 IdxType D,
-                 IdxType N,
-                 bool sample,
-                 bool rowMajor,
-                 cudaStream_t stream)
-    {
-        detail::meanvar(mean, var, data, D, N, sample, rowMajor, stream);
-    }
+template <typename Type, typename IdxType = int>
+void meanvar(Type* mean,
+             Type* var,
+             const Type* data,
+             IdxType D,
+             IdxType N,
+             bool sample,
+             bool rowMajor,
+             cudaStream_t stream)
+{
+  detail::meanvar(mean, var, data, D, N, sample, rowMajor, stream);
+}
 
 };  // namespace raft::stats
 

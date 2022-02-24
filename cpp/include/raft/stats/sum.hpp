@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
 
 #ifndef __SUM_H
 #define __SUM_H
@@ -24,7 +28,7 @@
 #include <raft/cudart_utils.h>
 
 namespace raft {
-    namespace stats {
+namespace stats {
 
 /**
  * @brief Compute sum of the input matrix
@@ -40,13 +44,13 @@ namespace raft {
  * @param rowMajor whether the input data is row or col major
  * @param stream cuda stream where to launch work
  */
-        template <typename Type, typename IdxType = int>
-        void sum(Type* output, const Type* input, IdxType D, IdxType N, bool rowMajor, cudaStream_t stream)
-        {
-            detail::sum(output, input, D, N, rowMajor, stream);
-        }
+template <typename Type, typename IdxType = int>
+void sum(Type* output, const Type* input, IdxType D, IdxType N, bool rowMajor, cudaStream_t stream)
+{
+  detail::sum(output, input, D, N, rowMajor, stream);
+}
 
-    };  // end namespace stats
+};  // end namespace stats
 };  // end namespace raft
 
 #endif

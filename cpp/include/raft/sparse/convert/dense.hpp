@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
 
 #ifndef __DENSE_H
 #define __DENSE_H
@@ -22,8 +26,8 @@
 #include <raft/sparse/convert/detail/dense.cuh>
 
 namespace raft {
-    namespace sparse {
-        namespace convert {
+namespace sparse {
+namespace convert {
 
 /**
  * Convert CSR arrays to a dense matrix in either row-
@@ -44,25 +48,25 @@ namespace raft {
  * @param[in] stream : Cuda stream for ordering events
  * @param[in] row_major : Is row-major output desired?
  */
-            template <typename value_idx, typename value_t>
-            void csr_to_dense(cusparseHandle_t handle,
-                              value_idx nrows,
-                              value_idx ncols,
-                              value_idx nnz,
-                              const value_idx* csr_indptr,
-                              const value_idx* csr_indices,
-                              const value_t* csr_data,
-                              value_idx lda,
-                              value_t* out,
-                              cudaStream_t stream,
-                              bool row_major = true)
-            {
-                detail::csr_to_dense<value_idx, value_t>(
-                        handle, nrows, ncols, nnz, csr_indptr, csr_indices, csr_data, lda, out, stream, row_major);
-            }
+template <typename value_idx, typename value_t>
+void csr_to_dense(cusparseHandle_t handle,
+                  value_idx nrows,
+                  value_idx ncols,
+                  value_idx nnz,
+                  const value_idx* csr_indptr,
+                  const value_idx* csr_indices,
+                  const value_t* csr_data,
+                  value_idx lda,
+                  value_t* out,
+                  cudaStream_t stream,
+                  bool row_major = true)
+{
+  detail::csr_to_dense<value_idx, value_t>(
+    handle, nrows, ncols, nnz, csr_indptr, csr_indices, csr_data, lda, out, stream, row_major);
+}
 
-        };  // end NAMESPACE convert
-    };  // end NAMESPACE sparse
+};  // end NAMESPACE convert
+};  // end NAMESPACE sparse
 };  // end NAMESPACE raft
 
 #endif

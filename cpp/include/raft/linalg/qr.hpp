@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
 
 #ifndef __QR_H
 #define __QR_H
@@ -22,7 +26,7 @@
 #include "detail/qr.cuh"
 
 namespace raft {
-    namespace linalg {
+namespace linalg {
 
 /**
  * @defgroup QRdecomp QR decomposition
@@ -39,16 +43,16 @@ namespace raft {
  * @param stream cuda stream
  * @{
  */
-        template <typename math_t>
-        void qrGetQ(const raft::handle_t& handle,
-                    const math_t* M,
-                    math_t* Q,
-                    int n_rows,
-                    int n_cols,
-                    cudaStream_t stream)
-        {
-            detail::qrGetQ(handle, M, Q, n_rows, n_cols, stream);
-        }
+template <typename math_t>
+void qrGetQ(const raft::handle_t& handle,
+            const math_t* M,
+            math_t* Q,
+            int n_rows,
+            int n_cols,
+            cudaStream_t stream)
+{
+  detail::qrGetQ(handle, M, Q, n_rows, n_cols, stream);
+}
 
 /**
  * @brief compute QR decomp and return both Q and R matrices
@@ -60,20 +64,20 @@ namespace raft {
  * @param n_cols: number columns of input matrix
  * @param stream cuda stream
  */
-        template <typename math_t>
-        void qrGetQR(const raft::handle_t& handle,
-                     math_t* M,
-                     math_t* Q,
-                     math_t* R,
-                     int n_rows,
-                     int n_cols,
-                     cudaStream_t stream)
-        {
-            detail::qrGetQR(handle, M, Q, R, n_rows, n_cols, stream);
-        }
+template <typename math_t>
+void qrGetQR(const raft::handle_t& handle,
+             math_t* M,
+             math_t* Q,
+             math_t* R,
+             int n_rows,
+             int n_cols,
+             cudaStream_t stream)
+{
+  detail::qrGetQR(handle, M, Q, R, n_rows, n_cols, stream);
+}
 /** @} */
 
-    };  // namespace linalg
+};  // namespace linalg
 };  // namespace raft
 
 #endif

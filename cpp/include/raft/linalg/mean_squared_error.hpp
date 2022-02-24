@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
 
 #ifndef __MSE_H
 #define __MSE_H
@@ -22,7 +26,7 @@
 #include "detail/mean_squared_error.cuh"
 
 namespace raft {
-    namespace linalg {
+namespace linalg {
 
 /**
  * @brief CUDA version mean squared error function mean((A-B)**2)
@@ -35,14 +39,14 @@ namespace raft {
  * @param weight weight to apply to every term in the mean squared error calculation
  * @param stream cuda-stream where to launch this kernel
  */
-        template <typename math_t, int TPB = 256>
-        void meanSquaredError(
-                math_t* out, const math_t* A, const math_t* B, size_t len, math_t weight, cudaStream_t stream)
-        {
-            detail::meanSquaredError(out, A, B, len, weight, stream);
-        }
+template <typename math_t, int TPB = 256>
+void meanSquaredError(
+  math_t* out, const math_t* A, const math_t* B, size_t len, math_t weight, cudaStream_t stream)
+{
+  detail::meanSquaredError(out, A, B, len, weight, stream);
+}
 
-    };  // end namespace linalg
+};  // end namespace linalg
 };  // end namespace raft
 
 #endif

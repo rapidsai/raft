@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
 
 #ifndef __HISTOGRAM_H
 #define __HISTOGRAM_H
@@ -28,7 +32,7 @@
 ///@todo: add cub's histogram as another option
 
 namespace raft {
-    namespace stats {
+namespace stats {
 
 /**
  * @brief Perform histogram on the input data. It chooses the right load size
@@ -48,20 +52,20 @@ namespace raft {
  *
  * @note signature of BinnerOp is `int func(DataT, IdxT);`
  */
-        template <typename DataT, typename IdxT = int, typename BinnerOp = IdentityBinner<DataT, IdxT>>
-        void histogram(HistType type,
-                       int* bins,
-                       IdxT nbins,
-                       const DataT* data,
-                       IdxT nrows,
-                       IdxT ncols,
-                       cudaStream_t stream,
-                       BinnerOp binner = IdentityBinner<DataT, IdxT>())
-        {
-            detail::histogram<DataT, IdxT, BinnerOp>(type, bins, nbins, data, nrows, ncols, stream, binner);
-        }
+template <typename DataT, typename IdxT = int, typename BinnerOp = IdentityBinner<DataT, IdxT>>
+void histogram(HistType type,
+               int* bins,
+               IdxT nbins,
+               const DataT* data,
+               IdxT nrows,
+               IdxT ncols,
+               cudaStream_t stream,
+               BinnerOp binner = IdentityBinner<DataT, IdxT>())
+{
+  detail::histogram<DataT, IdxT, BinnerOp>(type, bins, nbins, data, nrows, ncols, stream, binner);
+}
 
-    };  // end namespace stats
+};  // end namespace stats
 };  // end namespace raft
 
 #endif

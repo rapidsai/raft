@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
 
 #ifndef __MATRIX_H
 #define __MATRIX_H
@@ -25,9 +29,9 @@
 #include <raft/common/nvtx.hpp>
 
 namespace raft {
-    namespace matrix {
+namespace matrix {
 
-        using namespace std;
+using namespace std;
 
 /**
  * @brief Copy selected rows of the input matrix into contiguous space.
@@ -44,18 +48,18 @@ namespace raft {
  * @param stream cuda stream
  * @param rowMajor whether the matrix has row major layout
  */
-        template <typename m_t, typename idx_array_t = int, typename idx_t = size_t>
-        void copyRows(const m_t* in,
-                      idx_t n_rows,
-                      idx_t n_cols,
-                      m_t* out,
-                      const idx_array_t* indices,
-                      idx_t n_rows_indices,
-                      cudaStream_t stream,
-                      bool rowMajor = false)
-        {
-            detail::copyRows(in, n_rows, n_cols, out, indices, n_rows_indices, stream, rowMajor);
-        }
+template <typename m_t, typename idx_array_t = int, typename idx_t = size_t>
+void copyRows(const m_t* in,
+              idx_t n_rows,
+              idx_t n_cols,
+              m_t* out,
+              const idx_array_t* indices,
+              idx_t n_rows_indices,
+              cudaStream_t stream,
+              bool rowMajor = false)
+{
+  detail::copyRows(in, n_rows, n_cols, out, indices, n_rows_indices, stream, rowMajor);
+}
 
 /**
  * @brief copy matrix operation for column major matrices.
@@ -65,11 +69,11 @@ namespace raft {
  * @param n_cols: number of columns of output matrix
  * @param stream: cuda stream
  */
-        template <typename m_t, typename idx_t = int>
-        void copy(const m_t* in, m_t* out, idx_t n_rows, idx_t n_cols, cudaStream_t stream)
-        {
-            raft::copy_async(out, in, n_rows * n_cols, stream);
-        }
+template <typename m_t, typename idx_t = int>
+void copy(const m_t* in, m_t* out, idx_t n_rows, idx_t n_cols, cudaStream_t stream)
+{
+  raft::copy_async(out, in, n_rows * n_cols, stream);
+}
 
 /**
  * @brief copy matrix operation for column major matrices. First n_rows and
@@ -81,12 +85,12 @@ namespace raft {
  * @param out_n_cols: number of columns of output matrix
  * @param stream: cuda stream
  */
-        template <typename m_t, typename idx_t = int>
-        void truncZeroOrigin(
-                m_t* in, idx_t in_n_rows, m_t* out, idx_t out_n_rows, idx_t out_n_cols, cudaStream_t stream)
-        {
-            detail::truncZeroOrigin(in, in_n_rows, out, out_n_rows, out_n_cols, stream);
-        }
+template <typename m_t, typename idx_t = int>
+void truncZeroOrigin(
+  m_t* in, idx_t in_n_rows, m_t* out, idx_t out_n_rows, idx_t out_n_cols, cudaStream_t stream)
+{
+  detail::truncZeroOrigin(in, in_n_rows, out, out_n_rows, out_n_cols, stream);
+}
 
 /**
  * @brief Columns of a column major matrix is reversed (i.e. first column and
@@ -96,11 +100,11 @@ namespace raft {
  * @param n_cols: number of columns of input matrix
  * @param stream: cuda stream
  */
-        template <typename m_t, typename idx_t = int>
-        void colReverse(m_t* inout, idx_t n_rows, idx_t n_cols, cudaStream_t stream)
-        {
-            detail::colReverse(inout, n_rows, n_cols, stream);
-        }
+template <typename m_t, typename idx_t = int>
+void colReverse(m_t* inout, idx_t n_rows, idx_t n_cols, cudaStream_t stream)
+{
+  detail::colReverse(inout, n_rows, n_cols, stream);
+}
 
 /**
  * @brief Rows of a column major matrix is reversed (i.e. first row and last
@@ -110,11 +114,11 @@ namespace raft {
  * @param n_cols: number of columns of input matrix
  * @param stream: cuda stream
  */
-        template <typename m_t, typename idx_t = int>
-        void rowReverse(m_t* inout, idx_t n_rows, idx_t n_cols, cudaStream_t stream)
-        {
-            detail::rowReverse(inout, n_rows, n_cols, stream);
-        }
+template <typename m_t, typename idx_t = int>
+void rowReverse(m_t* inout, idx_t n_rows, idx_t n_cols, cudaStream_t stream)
+{
+  detail::rowReverse(inout, n_rows, n_cols, stream);
+}
 
 /**
  * @brief Prints the data stored in GPU memory
@@ -125,16 +129,16 @@ namespace raft {
  * @param v_separator: vertical separator character
  * @param stream: cuda stream
  */
-        template <typename m_t, typename idx_t = int>
-        void print(const m_t* in,
-                   idx_t n_rows,
-                   idx_t n_cols,
-                   char h_separator    = ' ',
-                   char v_separator    = '\n',
-                   cudaStream_t stream = rmm::cuda_stream_default)
-        {
-            detail::print(in, n_rows, n_cols, h_separator, v_separator, stream);
-        }
+template <typename m_t, typename idx_t = int>
+void print(const m_t* in,
+           idx_t n_rows,
+           idx_t n_cols,
+           char h_separator    = ' ',
+           char v_separator    = '\n',
+           cudaStream_t stream = rmm::cuda_stream_default)
+{
+  detail::print(in, n_rows, n_cols, h_separator, v_separator, stream);
+}
 
 /**
  * @brief Prints the data stored in CPU memory
@@ -142,11 +146,11 @@ namespace raft {
  * @param n_rows: number of rows of input matrix
  * @param n_cols: number of columns of input matrix
  */
-        template <typename m_t, typename idx_t = int>
-        void printHost(const m_t* in, idx_t n_rows, idx_t n_cols)
-        {
-            detail::printHost(in, n_rows, n_cols);
-        }
+template <typename m_t, typename idx_t = int>
+void printHost(const m_t* in, idx_t n_rows, idx_t n_cols)
+{
+  detail::printHost(in, n_rows, n_cols);
+}
 
 /**
  * @brief Slice a matrix (in-place)
@@ -161,19 +165,19 @@ namespace raft {
  * 3, 0, 1, 4, 3);
  * @param stream: cuda stream
  */
-        template <typename m_t, typename idx_t = int>
-        void sliceMatrix(m_t* in,
-                         idx_t n_rows,
-                         idx_t n_cols,
-                         m_t* out,
-                         idx_t x1,
-                         idx_t y1,
-                         idx_t x2,
-                         idx_t y2,
-                         cudaStream_t stream)
-        {
-            detail::sliceMatrix(in, n_rows, n_cols, out, x1, y1, x2, y2, stream);
-        }
+template <typename m_t, typename idx_t = int>
+void sliceMatrix(m_t* in,
+                 idx_t n_rows,
+                 idx_t n_cols,
+                 m_t* out,
+                 idx_t x1,
+                 idx_t y1,
+                 idx_t x2,
+                 idx_t y2,
+                 cudaStream_t stream)
+{
+  detail::sliceMatrix(in, n_rows, n_cols, out, x1, y1, x2, y2, stream);
+}
 
 /**
  * @brief Copy the upper triangular part of a matrix to another
@@ -183,11 +187,11 @@ namespace raft {
  * @param n_cols: number of columns of input matrix
  * @param stream: cuda stream
  */
-        template <typename m_t, typename idx_t = int>
-        void copyUpperTriangular(m_t* src, m_t* dst, idx_t n_rows, idx_t n_cols, cudaStream_t stream)
-        {
-            detail::copyUpperTriangular(src, dst, n_rows, n_cols, stream);
-        }
+template <typename m_t, typename idx_t = int>
+void copyUpperTriangular(m_t* src, m_t* dst, idx_t n_rows, idx_t n_cols, cudaStream_t stream)
+{
+  detail::copyUpperTriangular(src, dst, n_rows, n_cols, stream);
+}
 
 /**
  * @brief Initialize a diagonal matrix with a vector
@@ -197,12 +201,12 @@ namespace raft {
  * @param n_cols: number of columns of the matrix
  * @param stream: cuda stream
  */
-        template <typename m_t, typename idx_t = int>
-        void initializeDiagonalMatrix(
-                m_t* vec, m_t* matrix, idx_t n_rows, idx_t n_cols, cudaStream_t stream)
-        {
-            detail::initializeDiagonalMatrix(vec, matrix, n_rows, n_cols, stream);
-        }
+template <typename m_t, typename idx_t = int>
+void initializeDiagonalMatrix(
+  m_t* vec, m_t* matrix, idx_t n_rows, idx_t n_cols, cudaStream_t stream)
+{
+  detail::initializeDiagonalMatrix(vec, matrix, n_rows, n_cols, stream);
+}
 
 /**
  * @brief Get a square matrix with elements on diagonal reversed (in-place)
@@ -210,11 +214,11 @@ namespace raft {
  * @param len: size of one side of the matrix
  * @param stream: cuda stream
  */
-        template <typename m_t, typename idx_t = int>
-        void getDiagonalInverseMatrix(m_t* in, idx_t len, cudaStream_t stream)
-        {
-            detail::getDiagonalInverseMatrix(in, len, stream);
-        }
+template <typename m_t, typename idx_t = int>
+void getDiagonalInverseMatrix(m_t* in, idx_t len, cudaStream_t stream)
+{
+  detail::getDiagonalInverseMatrix(in, len, stream);
+}
 
 /**
  * @brief Get the L2/F-norm of a matrix/vector
@@ -223,11 +227,11 @@ namespace raft {
  * @param size: size of the matrix/vector
  * @param stream: cuda stream
  */
-        template <typename m_t, typename idx_t = int>
-        m_t getL2Norm(const raft::handle_t& handle, m_t* in, idx_t size, cudaStream_t stream)
-        {
-            return detail::getL2Norm(handle, in, size, stream);
-        }
+template <typename m_t, typename idx_t = int>
+m_t getL2Norm(const raft::handle_t& handle, m_t* in, idx_t size, cudaStream_t stream)
+{
+  return detail::getL2Norm(handle, in, size, stream);
+}
 
 /**
  * Run a function over matrix lines (rows or columns) with a variable number
@@ -253,26 +257,26 @@ namespace raft {
  * @param [in] vecs zero or more vectors to be passed as arguments,
  *    size of each vector is `alongLines ? lineLen : nLines`.
  */
-        template <typename m_t, typename idx_t = int, typename Lambda, typename... Vecs>
-        void linewiseOp(m_t* out,
-                        const m_t* in,
-                        const idx_t lineLen,
-                        const idx_t nLines,
-                        const bool alongLines,
-                        Lambda op,
-                        cudaStream_t stream,
-                        Vecs... vecs)
-        {
-            common::nvtx::range<common::nvtx::domain::raft> fun_scope("linewiseOp-%c-%zu (%zu, %zu)",
-                                                                      alongLines ? 'l' : 'x',
-                                                                      sizeof...(Vecs),
-                                                                      size_t(lineLen),
-                                                                      size_t(nLines));
-            detail::MatrixLinewiseOp<16, 256>::run<m_t, idx_t, Lambda, Vecs...>(
-                    out, in, lineLen, nLines, alongLines, op, stream, vecs...);
-        }
+template <typename m_t, typename idx_t = int, typename Lambda, typename... Vecs>
+void linewiseOp(m_t* out,
+                const m_t* in,
+                const idx_t lineLen,
+                const idx_t nLines,
+                const bool alongLines,
+                Lambda op,
+                cudaStream_t stream,
+                Vecs... vecs)
+{
+  common::nvtx::range<common::nvtx::domain::raft> fun_scope("linewiseOp-%c-%zu (%zu, %zu)",
+                                                            alongLines ? 'l' : 'x',
+                                                            sizeof...(Vecs),
+                                                            size_t(lineLen),
+                                                            size_t(nLines));
+  detail::MatrixLinewiseOp<16, 256>::run<m_t, idx_t, Lambda, Vecs...>(
+    out, in, lineLen, nLines, alongLines, op, stream, vecs...);
+}
 
-    };  // end namespace matrix
+};  // end namespace matrix
 };  // end namespace raft
 
 #endif

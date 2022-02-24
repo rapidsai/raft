@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
 
 #ifndef __KNN_H
 #define __KNN_H
@@ -23,8 +27,8 @@
 #include "detail/selection_faiss.cuh"
 
 namespace raft {
-    namespace spatial {
-        namespace knn {
+namespace spatial {
+namespace knn {
 
 /**
  * Performs a k-select across row partitioned index/distance
@@ -50,19 +54,19 @@ namespace raft {
  * @param stream
  * @param translations
  */
-            template <typename value_idx = int64_t, typename value_t = float>
-            inline void knn_merge_parts(value_t* inK,
-                                        value_idx* inV,
-                                        value_t* outK,
-                                        value_idx* outV,
-                                        size_t n_samples,
-                                        int n_parts,
-                                        int k,
-                                        cudaStream_t stream,
-                                        value_idx* translations)
-            {
-                detail::knn_merge_parts(inK, inV, outK, outV, n_samples, n_parts, k, stream, translations);
-            }
+template <typename value_idx = int64_t, typename value_t = float>
+inline void knn_merge_parts(value_t* inK,
+                            value_idx* inV,
+                            value_t* outK,
+                            value_idx* outV,
+                            size_t n_samples,
+                            int n_parts,
+                            int k,
+                            cudaStream_t stream,
+                            value_idx* translations)
+{
+  detail::knn_merge_parts(inK, inV, outK, outV, n_samples, n_parts, k, stream, translations);
+}
 
 /**
  * Performs a k-select across column-partitioned index/distance
@@ -85,19 +89,19 @@ namespace raft {
  * @param k
  * @param stream
  */
-            template <typename value_idx = int, typename value_t = float>
-            inline void select_k(value_t* inK,
-                                 value_idx* inV,
-                                 size_t n_rows,
-                                 size_t n_cols,
-                                 value_t* outK,
-                                 value_idx* outV,
-                                 bool select_min,
-                                 int k,
-                                 cudaStream_t stream)
-            {
-                detail::select_k(inK, inV, n_rows, n_cols, outK, outV, select_min, k, stream);
-            }
+template <typename value_idx = int, typename value_t = float>
+inline void select_k(value_t* inK,
+                     value_idx* inV,
+                     size_t n_rows,
+                     size_t n_cols,
+                     value_t* outK,
+                     value_idx* outV,
+                     bool select_min,
+                     int k,
+                     cudaStream_t stream)
+{
+  detail::select_k(inK, inV, n_rows, n_cols, outK, outV, select_min, k, stream);
+}
 
 /**
  * @brief Flat C++ API function to perform a brute force knn on
@@ -122,41 +126,41 @@ namespace raft {
  * @param[in] translations starting offsets for partitions. should be the same size
  *            as input vector.
  */
-            template <typename value_idx = std::int64_t, typename value_t = float, typename value_int = int>
-            void brute_force_knn(raft::handle_t const& handle,
-                                 std::vector<value_t*>& input,
-                                 std::vector<value_int>& sizes,
-                                 value_int D,
-                                 value_t* search_items,
-                                 value_int n,
-                                 value_idx* res_I,
-                                 value_t* res_D,
-                                 value_int k,
-                                 bool rowMajorIndex                   = true,
-                                 bool rowMajorQuery                   = true,
-                                 std::vector<value_idx>* translations = nullptr,
-                                 distance::DistanceType metric        = distance::DistanceType::L2Unexpanded,
-                                 float metric_arg                     = 2.0f)
-            {
-                ASSERT(input.size() == sizes.size(), "input and sizes vectors must be the same size");
+template <typename value_idx = std::int64_t, typename value_t = float, typename value_int = int>
+void brute_force_knn(raft::handle_t const& handle,
+                     std::vector<value_t*>& input,
+                     std::vector<value_int>& sizes,
+                     value_int D,
+                     value_t* search_items,
+                     value_int n,
+                     value_idx* res_I,
+                     value_t* res_D,
+                     value_int k,
+                     bool rowMajorIndex                   = true,
+                     bool rowMajorQuery                   = true,
+                     std::vector<value_idx>* translations = nullptr,
+                     distance::DistanceType metric        = distance::DistanceType::L2Unexpanded,
+                     float metric_arg                     = 2.0f)
+{
+  ASSERT(input.size() == sizes.size(), "input and sizes vectors must be the same size");
 
-                detail::brute_force_knn_impl(handle,
-                                             input,
-                                             sizes,
-                                             D,
-                                             search_items,
-                                             n,
-                                             res_I,
-                                             res_D,
-                                             k,
-                                             rowMajorIndex,
-                                             rowMajorQuery,
-                                             translations,
-                                             metric,
-                                             metric_arg);
-            }
-        }  // namespace knn
-    }  // namespace spatial
+  detail::brute_force_knn_impl(handle,
+                               input,
+                               sizes,
+                               D,
+                               search_items,
+                               n,
+                               res_I,
+                               res_D,
+                               k,
+                               rowMajorIndex,
+                               rowMajorQuery,
+                               translations,
+                               metric,
+                               metric_arg);
+}
+}  // namespace knn
+}  // namespace spatial
 }  // namespace raft
 
 #endif

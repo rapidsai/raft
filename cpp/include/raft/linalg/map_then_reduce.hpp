@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
 
 #ifndef __MAP_THEN_REDUCE_H
 #define __MAP_THEN_REDUCE_H
@@ -22,7 +26,7 @@
 #include "detail/map_then_reduce.cuh"
 
 namespace raft {
-    namespace linalg {
+namespace linalg {
 
 /**
  * @brief CUDA version of map and then sum reduction operation
@@ -38,17 +42,17 @@ namespace raft {
  * @param args additional input arrays
  */
 
-        template <typename InType,
-                typename MapOp,
-                int TPB = 256,
-                typename... Args,
-                typename OutType = InType>
-        void mapThenSumReduce(
-                OutType* out, size_t len, MapOp map, cudaStream_t stream, const InType* in, Args... args)
-        {
-            detail::mapThenReduceImpl<InType, OutType, MapOp, detail::sum_tag, TPB, Args...>(
-                    out, len, (OutType)0, map, detail::sum_tag(), stream, in, args...);
-        }
+template <typename InType,
+          typename MapOp,
+          int TPB = 256,
+          typename... Args,
+          typename OutType = InType>
+void mapThenSumReduce(
+  OutType* out, size_t len, MapOp map, cudaStream_t stream, const InType* in, Args... args)
+{
+  detail::mapThenReduceImpl<InType, OutType, MapOp, detail::sum_tag, TPB, Args...>(
+    out, len, (OutType)0, map, detail::sum_tag(), stream, in, args...);
+}
 
 /**
  * @brief CUDA version of map and then generic reduction operation
@@ -68,25 +72,25 @@ namespace raft {
  * @param args additional input arrays
  */
 
-        template <typename InType,
-                typename MapOp,
-                typename ReduceLambda,
-                int TPB          = 256,
-                typename OutType = InType,
-                typename... Args>
-        void mapThenReduce(OutType* out,
-                           size_t len,
-                           OutType neutral,
-                           MapOp map,
-                           ReduceLambda op,
-                           cudaStream_t stream,
-                           const InType* in,
-                           Args... args)
-        {
-            detail::mapThenReduceImpl<InType, OutType, MapOp, ReduceLambda, TPB, Args...>(
-                    out, len, neutral, map, op, stream, in, args...);
-        }
-    };  // end namespace linalg
+template <typename InType,
+          typename MapOp,
+          typename ReduceLambda,
+          int TPB          = 256,
+          typename OutType = InType,
+          typename... Args>
+void mapThenReduce(OutType* out,
+                   size_t len,
+                   OutType neutral,
+                   MapOp map,
+                   ReduceLambda op,
+                   cudaStream_t stream,
+                   const InType* in,
+                   Args... args)
+{
+  detail::mapThenReduceImpl<InType, OutType, MapOp, ReduceLambda, TPB, Args...>(
+    out, len, neutral, map, op, stream, in, args...);
+}
+};  // end namespace linalg
 };  // end namespace raft
 
 #endif

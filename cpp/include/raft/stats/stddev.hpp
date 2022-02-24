@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
 
 #ifndef __STDDEV_H
 #define __STDDEV_H
@@ -24,7 +28,7 @@
 #include <raft/handle.hpp>
 
 namespace raft {
-    namespace stats {
+namespace stats {
 
 /**
  * @brief Compute stddev of the input matrix
@@ -44,18 +48,18 @@ namespace raft {
  * @param rowMajor whether the input data is row or col major
  * @param stream cuda stream where to launch work
  */
-        template <typename Type, typename IdxType = int>
-        void stddev(Type* std,
-                    const Type* data,
-                    const Type* mu,
-                    IdxType D,
-                    IdxType N,
-                    bool sample,
-                    bool rowMajor,
-                    cudaStream_t stream)
-        {
-            detail::stddev(std, data, mu, D, N, sample, rowMajor, stream);
-        }
+template <typename Type, typename IdxType = int>
+void stddev(Type* std,
+            const Type* data,
+            const Type* mu,
+            IdxType D,
+            IdxType N,
+            bool sample,
+            bool rowMajor,
+            cudaStream_t stream)
+{
+  detail::stddev(std, data, mu, D, N, sample, rowMajor, stream);
+}
 
 /**
  * @brief Compute variance of the input matrix
@@ -75,20 +79,20 @@ namespace raft {
  * @param rowMajor whether the input data is row or col major
  * @param stream cuda stream where to launch work
  */
-        template <typename Type, typename IdxType = int>
-        void vars(Type* var,
-                  const Type* data,
-                  const Type* mu,
-                  IdxType D,
-                  IdxType N,
-                  bool sample,
-                  bool rowMajor,
-                  cudaStream_t stream)
-        {
-            detail::vars(var, data, mu, D, N, sample, rowMajor, stream);
-        }
+template <typename Type, typename IdxType = int>
+void vars(Type* var,
+          const Type* data,
+          const Type* mu,
+          IdxType D,
+          IdxType N,
+          bool sample,
+          bool rowMajor,
+          cudaStream_t stream)
+{
+  detail::vars(var, data, mu, D, N, sample, rowMajor, stream);
+}
 
-    };  // namespace stats
+};  // namespace stats
 };  // namespace raft
 
 #endif

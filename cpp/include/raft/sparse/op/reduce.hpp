@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
 
 #ifndef __SPARSE_REDUCE_H
 #define __SPARSE_REDUCE_H
@@ -24,8 +28,8 @@
 #include <raft/sparse/op/detail/reduce.cuh>
 
 namespace raft {
-    namespace sparse {
-        namespace op {
+namespace sparse {
+namespace op {
 /**
  * Computes a mask from a sorted COO matrix where 0's denote
  * duplicate values and 1's denote new values. This mask can
@@ -46,12 +50,12 @@ namespace raft {
  * @param[in] nnz number of nonzeros in input arrays
  * @param[in] stream cuda ops will be ordered wrt this stream
  */
-            template <typename value_idx>
-            void compute_duplicates_mask(
-                    value_idx* mask, const value_idx* rows, const value_idx* cols, size_t nnz, cudaStream_t stream)
-            {
-                detail::compute_duplicates_mask(mask, rows, cols, nnz, stream);
-            }
+template <typename value_idx>
+void compute_duplicates_mask(
+  value_idx* mask, const value_idx* rows, const value_idx* cols, size_t nnz, cudaStream_t stream)
+{
+  detail::compute_duplicates_mask(mask, rows, cols, nnz, stream);
+}
 
 /**
  * Performs a COO reduce of duplicate columns per row, taking the max weight
@@ -69,20 +73,20 @@ namespace raft {
  * @param[in] m number of rows in COO input matrix
  * @param[in] n number of columns in COO input matrix
  */
-            template <typename value_idx, typename value_t>
-            void max_duplicates(const raft::handle_t& handle,
-                                raft::sparse::COO<value_t, value_idx>& out,
-                                const value_idx* rows,
-                                const value_idx* cols,
-                                const value_t* vals,
-                                size_t nnz,
-                                size_t m,
-                                size_t n)
-            {
-                detail::max_duplicates(handle, out, rows, cols, vals, nnz, m, n);
-            }
-        };  // END namespace op
-    };  // END namespace sparse
+template <typename value_idx, typename value_t>
+void max_duplicates(const raft::handle_t& handle,
+                    raft::sparse::COO<value_t, value_idx>& out,
+                    const value_idx* rows,
+                    const value_idx* cols,
+                    const value_t* vals,
+                    size_t nnz,
+                    size_t m,
+                    size_t n)
+{
+  detail::max_duplicates(handle, out, rows, cols, vals, nnz, m, n);
+}
+};  // END namespace op
+};  // END namespace sparse
 };  // END namespace raft
 
 #endif

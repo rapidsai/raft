@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
 
 #ifndef __DISPERSION_H
 #define __DISPERSION_H
@@ -22,7 +26,7 @@
 #include <raft/stats/detail/dispersion.cuh>
 
 namespace raft {
-    namespace stats {
+namespace stats {
 
 /**
  * @brief Compute cluster dispersion metric. This is very useful for
@@ -42,20 +46,20 @@ namespace raft {
  * @param stream cuda stream
  * @return the cluster dispersion value
  */
-        template <typename DataT, typename IdxT = int, int TPB = 256>
-        DataT dispersion(const DataT* centroids,
-                         const IdxT* clusterSizes,
-                         DataT* globalCentroid,
-                         IdxT nClusters,
-                         IdxT nPoints,
-                         IdxT dim,
-                         cudaStream_t stream)
-        {
-            return detail::dispersion(
-                    centroids, clusterSizes, globalCentroid, nClusters, nPoints, dim, stream);
-        }
+template <typename DataT, typename IdxT = int, int TPB = 256>
+DataT dispersion(const DataT* centroids,
+                 const IdxT* clusterSizes,
+                 DataT* globalCentroid,
+                 IdxT nClusters,
+                 IdxT nPoints,
+                 IdxT dim,
+                 cudaStream_t stream)
+{
+  return detail::dispersion(
+    centroids, clusterSizes, globalCentroid, nClusters, nPoints, dim, stream);
+}
 
-    }  // end namespace stats
+}  // end namespace stats
 }  // end namespace raft
 
 #endif

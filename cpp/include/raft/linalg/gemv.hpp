@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
 
 #ifndef __GEMV_H
 #define __GEMV_H
@@ -22,7 +26,7 @@
 #include "detail/gemv.hpp"
 
 namespace raft {
-    namespace linalg {
+namespace linalg {
 
 /**
  * @brief the wrapper of cublas gemv function
@@ -44,41 +48,41 @@ namespace raft {
  * @param [in] incy stride between consecutive elements of y
  * @param [in] stream
  */
-        template <typename math_t, bool DevicePointerMode = false>
-        void gemv(const raft::handle_t& handle,
-                  const bool trans_a,
-                  const int m,
-                  const int n,
-                  const math_t* alpha,
-                  const math_t* A,
-                  const int lda,
-                  const math_t* x,
-                  const int incx,
-                  const math_t* beta,
-                  math_t* y,
-                  const int incy,
-                  cudaStream_t stream)
-        {
-            detail::gemv<math_t, DevicePointerMode>(
-                    handle, trans_a, m, n, alpha, A, lda, x, incx, beta, y, incy, stream);
-        }
+template <typename math_t, bool DevicePointerMode = false>
+void gemv(const raft::handle_t& handle,
+          const bool trans_a,
+          const int m,
+          const int n,
+          const math_t* alpha,
+          const math_t* A,
+          const int lda,
+          const math_t* x,
+          const int incx,
+          const math_t* beta,
+          math_t* y,
+          const int incy,
+          cudaStream_t stream)
+{
+  detail::gemv<math_t, DevicePointerMode>(
+    handle, trans_a, m, n, alpha, A, lda, x, incx, beta, y, incy, stream);
+}
 
-        template <typename math_t>
-        void gemv(const raft::handle_t& handle,
-                  const math_t* A,
-                  const int n_rows,
-                  const int n_cols,
-                  const math_t* x,
-                  const int incx,
-                  math_t* y,
-                  const int incy,
-                  const bool trans_a,
-                  const math_t alpha,
-                  const math_t beta,
-                  cudaStream_t stream)
-        {
-            detail::gemv(handle, A, n_rows, n_cols, x, incx, y, incy, trans_a, alpha, beta, stream);
-        }
+template <typename math_t>
+void gemv(const raft::handle_t& handle,
+          const math_t* A,
+          const int n_rows,
+          const int n_cols,
+          const math_t* x,
+          const int incx,
+          math_t* y,
+          const int incy,
+          const bool trans_a,
+          const math_t alpha,
+          const math_t beta,
+          cudaStream_t stream)
+{
+  detail::gemv(handle, A, n_rows, n_cols, x, incx, y, incy, trans_a, alpha, beta, stream);
+}
 
 /**
  * y = alpha * op(A) * x + beta * y
@@ -97,20 +101,20 @@ namespace raft {
  * @param beta is a scalar scale of y.
  * @param stream stream on which this function is run
  */
-        template <typename math_t>
-        void gemv(const raft::handle_t& handle,
-                  const math_t* A,
-                  const int n_rows_a,
-                  const int n_cols_a,
-                  const math_t* x,
-                  math_t* y,
-                  const bool trans_a,
-                  const math_t alpha,
-                  const math_t beta,
-                  cudaStream_t stream)
-        {
-            detail::gemv(handle, A, n_rows_a, n_cols_a, x, y, trans_a, alpha, beta, stream);
-        }
+template <typename math_t>
+void gemv(const raft::handle_t& handle,
+          const math_t* A,
+          const int n_rows_a,
+          const int n_cols_a,
+          const math_t* x,
+          math_t* y,
+          const bool trans_a,
+          const math_t alpha,
+          const math_t beta,
+          cudaStream_t stream)
+{
+  detail::gemv(handle, A, n_rows_a, n_cols_a, x, y, trans_a, alpha, beta, stream);
+}
 
 /**
  * y = op(A) * x
@@ -127,18 +131,18 @@ namespace raft {
  * @param trans_a whether to take transpose of a
  * @param stream stream on which this function is run
  */
-        template <typename math_t>
-        void gemv(const raft::handle_t& handle,
-                  const math_t* A,
-                  const int n_rows_a,
-                  const int n_cols_a,
-                  const math_t* x,
-                  math_t* y,
-                  const bool trans_a,
-                  cudaStream_t stream)
-        {
-            detail::gemv(handle, A, n_rows_a, n_cols_a, x, y, trans_a, stream);
-        }
+template <typename math_t>
+void gemv(const raft::handle_t& handle,
+          const math_t* A,
+          const int n_rows_a,
+          const int n_cols_a,
+          const math_t* x,
+          math_t* y,
+          const bool trans_a,
+          cudaStream_t stream)
+{
+  detail::gemv(handle, A, n_rows_a, n_cols_a, x, y, trans_a, stream);
+}
 
 /**
  * y = alpha * op(A) * x + beta * y
@@ -159,21 +163,21 @@ namespace raft {
  * @param beta is a scalar scale of y.
  * @param stream stream on which this function is run
  */
-        template <typename math_t>
-        void gemv(const raft::handle_t& handle,
-                  const math_t* A,
-                  const int n_rows_a,
-                  const int n_cols_a,
-                  const int lda,
-                  const math_t* x,
-                  math_t* y,
-                  const bool trans_a,
-                  const math_t alpha,
-                  const math_t beta,
-                  cudaStream_t stream)
-        {
-            detail::gemv(handle, A, n_rows_a, n_cols_a, lda, x, y, trans_a, alpha, beta, stream);
-        }
+template <typename math_t>
+void gemv(const raft::handle_t& handle,
+          const math_t* A,
+          const int n_rows_a,
+          const int n_cols_a,
+          const int lda,
+          const math_t* x,
+          math_t* y,
+          const bool trans_a,
+          const math_t alpha,
+          const math_t beta,
+          cudaStream_t stream)
+{
+  detail::gemv(handle, A, n_rows_a, n_cols_a, lda, x, y, trans_a, alpha, beta, stream);
+}
 
 /**
  * y = op(A) * x
@@ -193,21 +197,21 @@ namespace raft {
  * @param stream stream on which this function is run
  *
  */
-        template <typename math_t>
-        void gemv(const raft::handle_t& handle,
-                  const math_t* A,
-                  const int n_rows_a,
-                  const int n_cols_a,
-                  const int lda,
-                  const math_t* x,
-                  math_t* y,
-                  const bool trans_a,
-                  cudaStream_t stream)
-        {
-            detail::gemv(handle, A, n_rows_a, n_cols_a, lda, x, y, trans_a, stream);
-        }
+template <typename math_t>
+void gemv(const raft::handle_t& handle,
+          const math_t* A,
+          const int n_rows_a,
+          const int n_cols_a,
+          const int lda,
+          const math_t* x,
+          math_t* y,
+          const bool trans_a,
+          cudaStream_t stream)
+{
+  detail::gemv(handle, A, n_rows_a, n_cols_a, lda, x, y, trans_a, stream);
+}
 
-    };  // namespace linalg
+};  // namespace linalg
 };  // namespace raft
 
 #endif

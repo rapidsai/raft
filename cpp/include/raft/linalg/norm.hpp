@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
 
 #ifndef __NORM_H
 #define __NORM_H
@@ -22,12 +26,12 @@
 #include "detail/norm.cuh"
 
 namespace raft {
-    namespace linalg {
+namespace linalg {
 
 /** different types of norms supported on the input buffers */
-        using detail::L1Norm;
-        using detail::L2Norm;
-        using detail::NormType;
+using detail::L1Norm;
+using detail::L2Norm;
+using detail::NormType;
 
 /**
  * @brief Compute row-wise norm of the input matrix and perform fin_op lambda
@@ -49,18 +53,18 @@ namespace raft {
  * @param stream cuda stream where to launch work
  * @param fin_op the final lambda op
  */
-        template <typename Type, typename IdxType = int, typename Lambda = raft::Nop<Type, IdxType>>
-        void rowNorm(Type* dots,
-                     const Type* data,
-                     IdxType D,
-                     IdxType N,
-                     NormType type,
-                     bool rowMajor,
-                     cudaStream_t stream,
-                     Lambda fin_op = raft::Nop<Type, IdxType>())
-        {
-            detail::rowNormCaller(dots, data, D, N, type, rowMajor, stream, fin_op);
-        }
+template <typename Type, typename IdxType = int, typename Lambda = raft::Nop<Type, IdxType>>
+void rowNorm(Type* dots,
+             const Type* data,
+             IdxType D,
+             IdxType N,
+             NormType type,
+             bool rowMajor,
+             cudaStream_t stream,
+             Lambda fin_op = raft::Nop<Type, IdxType>())
+{
+  detail::rowNormCaller(dots, data, D, N, type, rowMajor, stream, fin_op);
+}
 
 /**
  * @brief Compute column-wise norm of the input matrix and perform fin_op
@@ -76,20 +80,20 @@ namespace raft {
  * @param stream cuda stream where to launch work
  * @param fin_op the final lambda op
  */
-        template <typename Type, typename IdxType = int, typename Lambda = raft::Nop<Type, IdxType>>
-        void colNorm(Type* dots,
-                     const Type* data,
-                     IdxType D,
-                     IdxType N,
-                     NormType type,
-                     bool rowMajor,
-                     cudaStream_t stream,
-                     Lambda fin_op = raft::Nop<Type, IdxType>())
-        {
-            detail::colNormCaller(dots, data, D, N, type, rowMajor, stream, fin_op);
-        }
+template <typename Type, typename IdxType = int, typename Lambda = raft::Nop<Type, IdxType>>
+void colNorm(Type* dots,
+             const Type* data,
+             IdxType D,
+             IdxType N,
+             NormType type,
+             bool rowMajor,
+             cudaStream_t stream,
+             Lambda fin_op = raft::Nop<Type, IdxType>())
+{
+  detail::colNormCaller(dots, data, D, N, type, rowMajor, stream, fin_op);
+}
 
-    };  // end namespace linalg
+};  // end namespace linalg
 };  // end namespace raft
 
 #endif

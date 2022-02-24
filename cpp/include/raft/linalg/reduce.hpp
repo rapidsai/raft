@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
 
 #ifndef __REDUCE_H
 #define __REDUCE_H
@@ -22,7 +26,7 @@
 #include "detail/reduce.cuh"
 
 namespace raft {
-    namespace linalg {
+namespace linalg {
 
 /**
  * @brief Compute reduction of the input matrix along the requested dimension
@@ -53,30 +57,30 @@ namespace raft {
  * @param reduce_op binary reduction operation
  * @param final_op elementwise operation to apply before storing results
  */
-        template <typename InType,
-                typename OutType      = InType,
-                typename IdxType      = int,
-                typename MainLambda   = raft::Nop<InType, IdxType>,
-                typename ReduceLambda = raft::Sum<OutType>,
-                typename FinalLambda  = raft::Nop<OutType>>
-        void reduce(OutType* dots,
-                    const InType* data,
-                    int D,
-                    int N,
-                    OutType init,
-                    bool rowMajor,
-                    bool alongRows,
-                    cudaStream_t stream,
-                    bool inplace           = false,
-                    MainLambda main_op     = raft::Nop<InType, IdxType>(),
-                    ReduceLambda reduce_op = raft::Sum<OutType>(),
-                    FinalLambda final_op   = raft::Nop<OutType>())
-        {
-            detail::reduce(
-                    dots, data, D, N, init, rowMajor, alongRows, stream, inplace, main_op, reduce_op, final_op);
-        }
+template <typename InType,
+          typename OutType      = InType,
+          typename IdxType      = int,
+          typename MainLambda   = raft::Nop<InType, IdxType>,
+          typename ReduceLambda = raft::Sum<OutType>,
+          typename FinalLambda  = raft::Nop<OutType>>
+void reduce(OutType* dots,
+            const InType* data,
+            int D,
+            int N,
+            OutType init,
+            bool rowMajor,
+            bool alongRows,
+            cudaStream_t stream,
+            bool inplace           = false,
+            MainLambda main_op     = raft::Nop<InType, IdxType>(),
+            ReduceLambda reduce_op = raft::Sum<OutType>(),
+            FinalLambda final_op   = raft::Nop<OutType>())
+{
+  detail::reduce(
+    dots, data, D, N, init, rowMajor, alongRows, stream, inplace, main_op, reduce_op, final_op);
+}
 
-    };  // end namespace linalg
+};  // end namespace linalg
 };  // end namespace raft
 
 #endif

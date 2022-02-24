@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
 
 #ifndef __PERMUTE_H
 #define __PERMUTE_H
@@ -46,17 +50,17 @@ namespace raft::random {
  * high quality permutation generator, it is recommended that you pick
  * Knuth Shuffle.
  */
-    template <typename Type, typename IntType = int, typename IdxType = int, int TPB = 256>
-    void permute(IntType* perms,
-                 Type* out,
-                 const Type* in,
-                 IntType D,
-                 IntType N,
-                 bool rowMajor,
-                 cudaStream_t stream)
-    {
-        detail::permute<Type, IntType, IdxType, TPB>(perms, out, in, D, N, rowMajor, stream);
-    }
+template <typename Type, typename IntType = int, typename IdxType = int, int TPB = 256>
+void permute(IntType* perms,
+             Type* out,
+             const Type* in,
+             IntType D,
+             IntType N,
+             bool rowMajor,
+             cudaStream_t stream)
+{
+  detail::permute<Type, IntType, IdxType, TPB>(perms, out, in, D, N, rowMajor, stream);
+}
 
 };  // end namespace raft::random
 

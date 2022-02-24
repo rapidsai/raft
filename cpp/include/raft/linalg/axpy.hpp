@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
 
 #ifndef __AXPY_H
 #define __AXPY_H
@@ -38,18 +42,18 @@ namespace raft::linalg {
  * @param [in] incy stride between consecutive elements of y
  * @param [in] stream
  */
-    template <typename T, bool DevicePointerMode = false>
-    void axpy(const raft::handle_t& handle,
-              const int n,
-              const T* alpha,
-              const T* x,
-              const int incx,
-              T* y,
-              const int incy,
-              cudaStream_t stream)
-    {
-        detail::axpy<T, DevicePointerMode>(handle, n, alpha, x, incx, y, incy, stream);
-    }
+template <typename T, bool DevicePointerMode = false>
+void axpy(const raft::handle_t& handle,
+          const int n,
+          const T* alpha,
+          const T* x,
+          const int incx,
+          T* y,
+          const int incy,
+          cudaStream_t stream)
+{
+  detail::axpy<T, DevicePointerMode>(handle, n, alpha, x, incx, y, incy, stream);
+}
 
 }  // namespace raft::linalg
 

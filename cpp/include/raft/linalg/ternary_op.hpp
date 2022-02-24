@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
 
 #ifndef __TERNARY_OP_H
 #define __TERNARY_OP_H
@@ -22,7 +26,7 @@
 #include <raft/linalg/detail/ternary_op.cuh>
 
 namespace raft {
-    namespace linalg {
+namespace linalg {
 /**
  * @brief perform element-wise ternary operation on the input arrays
  * @tparam math_t data-type upon which the math operation will be performed
@@ -37,19 +41,19 @@ namespace raft {
  * @param op the device-lambda
  * @param stream cuda stream where to launch work
  */
-        template <typename math_t, typename Lambda, typename IdxType = int, int TPB = 256>
-        void ternaryOp(math_t* out,
-                       const math_t* in1,
-                       const math_t* in2,
-                       const math_t* in3,
-                       IdxType len,
-                       Lambda op,
-                       cudaStream_t stream)
-        {
-            detail::ternaryOp(out, in1, in2, in3, len, op, stream);
-        }
+template <typename math_t, typename Lambda, typename IdxType = int, int TPB = 256>
+void ternaryOp(math_t* out,
+               const math_t* in1,
+               const math_t* in2,
+               const math_t* in3,
+               IdxType len,
+               Lambda op,
+               cudaStream_t stream)
+{
+  detail::ternaryOp(out, in1, in2, in3, len, op, stream);
+}
 
-    };  // end namespace linalg
+};  // end namespace linalg
 };  // end namespace raft
 
 #endif

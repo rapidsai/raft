@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
 
 #ifndef __DIVIDE_H
 #define __DIVIDE_H
@@ -22,9 +26,9 @@
 #include "detail/divide.cuh"
 
 namespace raft {
-    namespace linalg {
+namespace linalg {
 
-        using detail::divides_scalar;
+using detail::divides_scalar;
 
 /**
  * @defgroup ScalarOps Scalar operations on the input buffer
@@ -37,14 +41,14 @@ namespace raft {
  * @param stream cuda stream where to launch work
  * @{
  */
-        template <typename math_t, typename IdxType = int>
-        void divideScalar(math_t* out, const math_t* in, math_t scalar, IdxType len, cudaStream_t stream)
-        {
-            detail::divideScalar(out, in, scalar, len, stream);
-        }
+template <typename math_t, typename IdxType = int>
+void divideScalar(math_t* out, const math_t* in, math_t scalar, IdxType len, cudaStream_t stream)
+{
+  detail::divideScalar(out, in, scalar, len, stream);
+}
 /** @} */
 
-    };  // end namespace linalg
+};  // end namespace linalg
 };  // end namespace raft
 
 #endif

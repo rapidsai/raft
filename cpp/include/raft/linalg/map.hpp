@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
 
 #ifndef __MAP_H
 #define __MAP_H
@@ -22,7 +26,7 @@
 #include "detail/map.cuh"
 
 namespace raft {
-    namespace linalg {
+namespace linalg {
 
 /**
  * @brief CUDA version of map
@@ -39,17 +43,17 @@ namespace raft {
  * @param args additional input arrays
  */
 
-        template <typename InType,
-                typename MapOp,
-                int TPB = 256,
-                typename... Args,
-                typename OutType = InType>
-        void map(OutType* out, size_t len, MapOp map, cudaStream_t stream, const InType* in, Args... args)
-        {
-            detail::mapImpl<InType, OutType, MapOp, TPB, Args...>(out, len, map, stream, in, args...);
-        }
+template <typename InType,
+          typename MapOp,
+          int TPB = 256,
+          typename... Args,
+          typename OutType = InType>
+void map(OutType* out, size_t len, MapOp map, cudaStream_t stream, const InType* in, Args... args)
+{
+  detail::mapImpl<InType, OutType, MapOp, TPB, Args...>(out, len, map, stream, in, args...);
+}
 
-    }  // namespace linalg
+}  // namespace linalg
 };  // namespace raft
 
 #endif

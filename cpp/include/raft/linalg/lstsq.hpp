@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
 
 #ifndef __LSTSQ_H
 #define __LSTSQ_H
@@ -22,7 +26,7 @@
 #include <raft/handle.hpp>
 #include <raft/linalg/detail/lstsq.cuh>
 namespace raft {
-    namespace linalg {
+namespace linalg {
 
 /** Solves the linear ordinary least squares problem `Aw = b`
  *  Via SVD decomposition of `A = U S Vt` using default cuSOLVER routine.
@@ -37,17 +41,17 @@ namespace raft {
  * @param[out] w output coefficient vector
  * @param[in] stream cuda stream for ordering operations
  */
-        template <typename math_t>
-        void lstsqSvdQR(const raft::handle_t& handle,
-                        math_t* A,
-                        const int n_rows,
-                        const int n_cols,
-                        const math_t* b,
-                        math_t* w,
-                        cudaStream_t stream)
-        {
-            detail::lstsqSvdQR(handle, A, n_rows, n_cols, b, w, stream);
-        }
+template <typename math_t>
+void lstsqSvdQR(const raft::handle_t& handle,
+                math_t* A,
+                const int n_rows,
+                const int n_cols,
+                const math_t* b,
+                math_t* w,
+                cudaStream_t stream)
+{
+  detail::lstsqSvdQR(handle, A, n_rows, n_cols, b, w, stream);
+}
 
 /** Solves the linear ordinary least squares problem `Aw = b`
  *  Via SVD decomposition of `A = U S V^T` using Jacobi iterations (cuSOLVER).
@@ -62,33 +66,33 @@ namespace raft {
  * @param[out] w output coefficient vector
  * @param[in] stream cuda stream for ordering operations
  */
-        template <typename math_t>
-        void lstsqSvdJacobi(const raft::handle_t& handle,
-                            math_t* A,
-                            const int n_rows,
-                            const int n_cols,
-                            const math_t* b,
-                            math_t* w,
-                            cudaStream_t stream)
-        {
-            detail::lstsqSvdJacobi(handle, A, n_rows, n_cols, b, w, stream);
-        }
+template <typename math_t>
+void lstsqSvdJacobi(const raft::handle_t& handle,
+                    math_t* A,
+                    const int n_rows,
+                    const int n_cols,
+                    const math_t* b,
+                    math_t* w,
+                    cudaStream_t stream)
+{
+  detail::lstsqSvdJacobi(handle, A, n_rows, n_cols, b, w, stream);
+}
 
 /** Solves the linear ordinary least squares problem `Aw = b`
  *  via eigenvalue decomposition of `A^T * A` (covariance matrix for dataset A).
  *  (`w = (A^T A)^-1  A^T b`)
  */
-        template <typename math_t>
-        void lstsqEig(const raft::handle_t& handle,
-                      const math_t* A,
-                      const int n_rows,
-                      const int n_cols,
-                      const math_t* b,
-                      math_t* w,
-                      cudaStream_t stream)
-        {
-            detail::lstsqEig(handle, A, n_rows, n_cols, b, w, stream);
-        }
+template <typename math_t>
+void lstsqEig(const raft::handle_t& handle,
+              const math_t* A,
+              const int n_rows,
+              const int n_cols,
+              const math_t* b,
+              math_t* w,
+              cudaStream_t stream)
+{
+  detail::lstsqEig(handle, A, n_rows, n_cols, b, w, stream);
+}
 
 /** Solves the linear ordinary least squares problem `Aw = b`
  *  via QR decomposition of `A = QR`.
@@ -104,19 +108,19 @@ namespace raft {
  * @param[out] w output coefficient vector
  * @param[in] stream cuda stream for ordering operations
  */
-        template <typename math_t>
-        void lstsqQR(const raft::handle_t& handle,
-                     math_t* A,
-                     const int n_rows,
-                     const int n_cols,
-                     math_t* b,
-                     math_t* w,
-                     cudaStream_t stream)
-        {
-            detail::lstsqQR(handle, A, n_rows, n_cols, b, w, stream);
-        }
+template <typename math_t>
+void lstsqQR(const raft::handle_t& handle,
+             math_t* A,
+             const int n_rows,
+             const int n_cols,
+             math_t* b,
+             math_t* w,
+             cudaStream_t stream)
+{
+  detail::lstsqQR(handle, A, n_rows, n_cols, b, w, stream);
+}
 
-    };  // namespace linalg
+};  // namespace linalg
 };  // namespace raft
 
 #endif

@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
 
 #ifndef __ADD_H
 #define __ADD_H
@@ -22,9 +26,9 @@
 #include "detail/add.cuh"
 
 namespace raft {
-    namespace linalg {
+namespace linalg {
 
-        using detail::adds_scalar;
+using detail::adds_scalar;
 
 /**
  * @brief Elementwise scalar add operation on the input buffer
@@ -40,11 +44,11 @@ namespace raft {
  * @param len    number of elements in the input buffer
  * @param stream cuda stream where to launch work
  */
-        template <typename InT, typename OutT = InT, typename IdxType = int>
-        void addScalar(OutT* out, const InT* in, InT scalar, IdxType len, cudaStream_t stream)
-        {
-            detail::addScalar(out, in, scalar, len, stream);
-        }
+template <typename InT, typename OutT = InT, typename IdxType = int>
+void addScalar(OutT* out, const InT* in, InT scalar, IdxType len, cudaStream_t stream)
+{
+  detail::addScalar(out, in, scalar, len, stream);
+}
 
 /**
  * @brief Elementwise add operation on the input buffers
@@ -59,11 +63,11 @@ namespace raft {
  * @param len    number of elements in the input buffers
  * @param stream cuda stream where to launch work
  */
-        template <typename InT, typename OutT = InT, typename IdxType = int>
-        void add(OutT* out, const InT* in1, const InT* in2, IdxType len, cudaStream_t stream)
-        {
-            detail::add(out, in1, in2, len, stream);
-        }
+template <typename InT, typename OutT = InT, typename IdxType = int>
+void add(OutT* out, const InT* in1, const InT* in2, IdxType len, cudaStream_t stream)
+{
+  detail::add(out, in1, in2, len, stream);
+}
 
 /** Substract single value pointed by singleScalarDev parameter in device memory from inDev[i] and
  * write result to outDev[i]
@@ -75,17 +79,17 @@ namespace raft {
  * @param len number of elements in the input and output buffer
  * @param stream cuda stream
  */
-        template <typename math_t, typename IdxType = int>
-        void addDevScalar(math_t* outDev,
-                          const math_t* inDev,
-                          const math_t* singleScalarDev,
-                          IdxType len,
-                          cudaStream_t stream)
-        {
-            detail::addDevScalar(outDev, inDev, singleScalarDev, len, stream);
-        }
+template <typename math_t, typename IdxType = int>
+void addDevScalar(math_t* outDev,
+                  const math_t* inDev,
+                  const math_t* singleScalarDev,
+                  IdxType len,
+                  cudaStream_t stream)
+{
+  detail::addDevScalar(outDev, inDev, singleScalarDev, len, stream);
+}
 
-    };  // end namespace linalg
+};  // end namespace linalg
 };  // end namespace raft
 
 #endif

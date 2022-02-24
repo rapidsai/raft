@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
 
 #ifndef __REDUCE_ROWS_BY_KEY
 #define __REDUCE_ROWS_BY_KEY
@@ -22,17 +26,17 @@
 #include <raft/linalg/detail/reduce_rows_by_key.cuh>
 
 namespace raft {
-    namespace linalg {
+namespace linalg {
 
 /**
  Small helper function to convert from int->char and char->int
  Transform ncols*nrows read of int in 2*nrows reads of int + ncols*rows reads of chars
 **/
-        template <typename IteratorT1, typename IteratorT2>
-        void convert_array(IteratorT1 dst, IteratorT2 src, int n, cudaStream_t st)
-        {
-            detail::convert_array(dst, src, n, st);
-        }
+template <typename IteratorT1, typename IteratorT2>
+void convert_array(IteratorT1 dst, IteratorT2 src, int n, cudaStream_t st)
+{
+  detail::convert_array(dst, src, n, st);
+}
 
 /**
  * @brief Computes the weighted reduction of matrix rows for each given key
@@ -53,21 +57,21 @@ namespace raft {
  * @param[out] d_sums      Row sums by key (ncols x d_keys)
  * @param[in]  stream      CUDA stream
  */
-        template <typename DataIteratorT, typename KeysIteratorT, typename WeightT>
-        void reduce_rows_by_key(const DataIteratorT d_A,
-                                int lda,
-                                const KeysIteratorT d_keys,
-                                const WeightT* d_weights,
-                                char* d_keys_char,
-                                int nrows,
-                                int ncols,
-                                int nkeys,
-                                DataIteratorT d_sums,
-                                cudaStream_t stream)
-        {
-            detail::reduce_rows_by_key(
-                    d_A, lda, d_keys, d_weights, d_keys_char, nrows, ncols, nkeys, d_sums, stream);
-        }
+template <typename DataIteratorT, typename KeysIteratorT, typename WeightT>
+void reduce_rows_by_key(const DataIteratorT d_A,
+                        int lda,
+                        const KeysIteratorT d_keys,
+                        const WeightT* d_weights,
+                        char* d_keys_char,
+                        int nrows,
+                        int ncols,
+                        int nkeys,
+                        DataIteratorT d_sums,
+                        cudaStream_t stream)
+{
+  detail::reduce_rows_by_key(
+    d_A, lda, d_keys, d_weights, d_keys_char, nrows, ncols, nkeys, d_sums, stream);
+}
 
 /**
  * @brief Computes the reduction of matrix rows for each given key
@@ -85,31 +89,31 @@ namespace raft {
  * @param[out] d_sums      Row sums by key (ncols x d_keys)
  * @param[in]  stream      CUDA stream
  */
-        template <typename DataIteratorT, typename KeysIteratorT>
-        void reduce_rows_by_key(const DataIteratorT d_A,
-                                int lda,
-                                const KeysIteratorT d_keys,
-                                char* d_keys_char,
-                                int nrows,
-                                int ncols,
-                                int nkeys,
-                                DataIteratorT d_sums,
-                                cudaStream_t stream)
-        {
-            typedef typename std::iterator_traits<DataIteratorT>::value_type DataType;
-            reduce_rows_by_key(d_A,
-                               lda,
-                               d_keys,
-                               static_cast<DataType*>(nullptr),
-                               d_keys_char,
-                               nrows,
-                               ncols,
-                               nkeys,
-                               d_sums,
-                               stream);
-        }
+template <typename DataIteratorT, typename KeysIteratorT>
+void reduce_rows_by_key(const DataIteratorT d_A,
+                        int lda,
+                        const KeysIteratorT d_keys,
+                        char* d_keys_char,
+                        int nrows,
+                        int ncols,
+                        int nkeys,
+                        DataIteratorT d_sums,
+                        cudaStream_t stream)
+{
+  typedef typename std::iterator_traits<DataIteratorT>::value_type DataType;
+  reduce_rows_by_key(d_A,
+                     lda,
+                     d_keys,
+                     static_cast<DataType*>(nullptr),
+                     d_keys_char,
+                     nrows,
+                     ncols,
+                     nkeys,
+                     d_sums,
+                     stream);
+}
 
-    };  // end namespace linalg
+};  // end namespace linalg
 };  // end namespace raft
 
 #endif

@@ -62,39 +62,39 @@ namespace raft::random {
  * @param[in]  seed               seed for the RNG
  * @param[in]  type               RNG type
  */
-    template <typename DataT, typename IdxT>
-    void make_blobs(DataT* out,
-                    IdxT* labels,
-                    IdxT n_rows,
-                    IdxT n_cols,
-                    IdxT n_clusters,
-                    cudaStream_t stream,
-                    bool row_major                 = true,
-                    const DataT* centers           = nullptr,
-                    const DataT* cluster_std       = nullptr,
-                    const DataT cluster_std_scalar = (DataT)1.0,
-                    bool shuffle                   = true,
-                    DataT center_box_min           = (DataT)-10.0,
-                    DataT center_box_max           = (DataT)10.0,
-                    uint64_t seed                  = 0ULL,
-                    GeneratorType type             = GenPhilox)
-    {
-        detail::make_blobs_caller(out,
-                                  labels,
-                                  n_rows,
-                                  n_cols,
-                                  n_clusters,
-                                  stream,
-                                  row_major,
-                                  centers,
-                                  cluster_std,
-                                  cluster_std_scalar,
-                                  shuffle,
-                                  center_box_min,
-                                  center_box_max,
-                                  seed,
-                                  type);
-    }
+template <typename DataT, typename IdxT>
+void make_blobs(DataT* out,
+                IdxT* labels,
+                IdxT n_rows,
+                IdxT n_cols,
+                IdxT n_clusters,
+                cudaStream_t stream,
+                bool row_major                 = true,
+                const DataT* centers           = nullptr,
+                const DataT* cluster_std       = nullptr,
+                const DataT cluster_std_scalar = (DataT)1.0,
+                bool shuffle                   = true,
+                DataT center_box_min           = (DataT)-10.0,
+                DataT center_box_max           = (DataT)10.0,
+                uint64_t seed                  = 0ULL,
+                GeneratorType type             = GenPhilox)
+{
+  detail::make_blobs_caller(out,
+                            labels,
+                            n_rows,
+                            n_cols,
+                            n_clusters,
+                            stream,
+                            row_major,
+                            centers,
+                            cluster_std,
+                            cluster_std_scalar,
+                            shuffle,
+                            center_box_min,
+                            center_box_max,
+                            seed,
+                            type);
+}
 
 }  // end namespace raft::random
 

@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
 
 #ifndef __RAND_INDEX_H
 #define __RAND_INDEX_H
@@ -22,7 +26,7 @@
 #include <raft/stats/detail/rand_index.cuh>
 
 namespace raft {
-    namespace stats {
+namespace stats {
 
 /**
  * @brief Function to calculate RandIndex
@@ -32,13 +36,13 @@ namespace raft {
  * @param size: the size of the data points of type uint64_t
  * @param stream: the cudaStream object
  */
-        template <typename T>
-        double rand_index(T* firstClusterArray, T* secondClusterArray, uint64_t size, cudaStream_t stream)
-        {
-            return detail::compute_rand_index(firstClusterArray, secondClusterArray, size, stream);
-        }
+template <typename T>
+double rand_index(T* firstClusterArray, T* secondClusterArray, uint64_t size, cudaStream_t stream)
+{
+  return detail::compute_rand_index(firstClusterArray, secondClusterArray, size, stream);
+}
 
-    };  // end namespace stats
+};  // end namespace stats
 };  // end namespace raft
 
 #endif

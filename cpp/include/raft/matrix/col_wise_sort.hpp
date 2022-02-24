@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
 
 #ifndef __COL_WISE_SORT_H
 #define __COL_WISE_SORT_H
@@ -22,7 +26,7 @@
 #include <raft/matrix/detail/columnWiseSort.cuh>
 
 namespace raft {
-    namespace matrix {
+namespace matrix {
 
 /**
  * @brief sort columns within each row of row-major input matrix and return sorted indexes
@@ -37,21 +41,21 @@ namespace raft {
  * @param stream: cuda stream to execute prim on
  * @param sortedKeys: Optional, output matrix for sorted keys (input)
  */
-        template <typename InType, typename OutType>
-        void sort_cols_per_row(const InType* in,
-                               OutType* out,
-                               int n_rows,
-                               int n_columns,
-                               bool& bAllocWorkspace,
-                               void* workspacePtr,
-                               size_t& workspaceSize,
-                               cudaStream_t stream,
-                               InType* sortedKeys = nullptr)
-        {
-            detail::sortColumnsPerRow<InType, OutType>(
-                    in, out, n_rows, n_columns, bAllocWorkspace, workspacePtr, workspaceSize, stream, sortedKeys);
-        }
-    };  // end namespace matrix
+template <typename InType, typename OutType>
+void sort_cols_per_row(const InType* in,
+                       OutType* out,
+                       int n_rows,
+                       int n_columns,
+                       bool& bAllocWorkspace,
+                       void* workspacePtr,
+                       size_t& workspaceSize,
+                       cudaStream_t stream,
+                       InType* sortedKeys = nullptr)
+{
+  detail::sortColumnsPerRow<InType, OutType>(
+    in, out, n_rows, n_columns, bAllocWorkspace, workspacePtr, workspaceSize, stream, sortedKeys);
+}
+};  // end namespace matrix
 };  // end namespace raft
 
 #endif

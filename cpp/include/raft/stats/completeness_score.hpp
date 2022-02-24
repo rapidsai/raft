@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
 
 #ifndef __COMPLETENESS_SCORE_H
 #define __COMPLETENESS_SCORE_H
@@ -22,7 +26,7 @@
 #include <raft/stats/detail/completeness_score.cuh>
 
 namespace raft {
-    namespace stats {
+namespace stats {
 
 /**
  * @brief Function to calculate the completeness score between two clusters
@@ -34,19 +38,19 @@ namespace raft {
  * @param upperLabelRange: the upper bound of the range of labels
  * @param stream: the cudaStream object
  */
-        template <typename T>
-        double completeness_score(const T* truthClusterArray,
-                                  const T* predClusterArray,
-                                  int size,
-                                  T lowerLabelRange,
-                                  T upperLabelRange,
-                                  cudaStream_t stream)
-        {
-            return detail::completeness_score(
-                    truthClusterArray, predClusterArray, size, lowerLabelRange, upperLabelRange, stream);
-        }
+template <typename T>
+double completeness_score(const T* truthClusterArray,
+                          const T* predClusterArray,
+                          int size,
+                          T lowerLabelRange,
+                          T upperLabelRange,
+                          cudaStream_t stream)
+{
+  return detail::completeness_score(
+    truthClusterArray, predClusterArray, size, lowerLabelRange, upperLabelRange, stream);
+}
 
-    };  // end namespace stats
+};  // end namespace stats
 };  // end namespace raft
 
 #endif

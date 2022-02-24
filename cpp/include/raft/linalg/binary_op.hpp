@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
 
 #ifndef __BINARY_OP_H
 #define __BINARY_OP_H
@@ -24,7 +28,7 @@
 #include <raft/cuda_utils.cuh>
 
 namespace raft {
-    namespace linalg {
+namespace linalg {
 
 /**
  * @brief perform element-wise binary operation on the input arrays
@@ -42,18 +46,18 @@ namespace raft {
  * @note Lambda must be a functor with the following signature:
  *       `OutType func(const InType& val1, const InType& val2);`
  */
-        template <typename InType,
-                typename Lambda,
-                typename OutType = InType,
-                typename IdxType = int,
-                int TPB          = 256>
-        void binaryOp(
-                OutType* out, const InType* in1, const InType* in2, IdxType len, Lambda op, cudaStream_t stream)
-        {
-            detail::binaryOp(out, in1, in2, len, op, stream);
-        }
+template <typename InType,
+          typename Lambda,
+          typename OutType = InType,
+          typename IdxType = int,
+          int TPB          = 256>
+void binaryOp(
+  OutType* out, const InType* in1, const InType* in2, IdxType len, Lambda op, cudaStream_t stream)
+{
+  detail::binaryOp(out, in1, in2, len, op, stream);
+}
 
-    };  // end namespace linalg
+};  // end namespace linalg
 };  // end namespace raft
 
 #endif

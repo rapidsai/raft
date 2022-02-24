@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
 
 #ifndef __SPARSE_KNN_H
 #define __SPARSE_KNN_H
@@ -24,8 +28,8 @@
 #include <raft/sparse/selection/detail/knn.cuh>
 
 namespace raft {
-    namespace sparse {
-        namespace selection {
+namespace sparse {
+namespace selection {
 
 /**
  * Search the sparse kNN for the k-nearest neighbors of a set of sparse query vectors
@@ -51,53 +55,53 @@ namespace raft {
  * @param[in] metric distance metric/measure to use
  * @param[in] metricArg potential argument for metric (currently unused)
  */
-            template <typename value_idx = int, typename value_t = float, int TPB_X = 32>
-            void brute_force_knn(const value_idx* idxIndptr,
-                                 const value_idx* idxIndices,
-                                 const value_t* idxData,
-                                 size_t idxNNZ,
-                                 int n_idx_rows,
-                                 int n_idx_cols,
-                                 const value_idx* queryIndptr,
-                                 const value_idx* queryIndices,
-                                 const value_t* queryData,
-                                 size_t queryNNZ,
-                                 int n_query_rows,
-                                 int n_query_cols,
-                                 value_idx* output_indices,
-                                 value_t* output_dists,
-                                 int k,
-                                 const raft::handle_t& handle,
-                                 size_t batch_size_index             = 2 << 14,  // approx 1M
-                                 size_t batch_size_query             = 2 << 14,
-                                 raft::distance::DistanceType metric = raft::distance::DistanceType::L2Expanded,
-                                 float metricArg                     = 0)
-            {
-                detail::sparse_knn_t<value_idx, value_t>(idxIndptr,
-                                                         idxIndices,
-                                                         idxData,
-                                                         idxNNZ,
-                                                         n_idx_rows,
-                                                         n_idx_cols,
-                                                         queryIndptr,
-                                                         queryIndices,
-                                                         queryData,
-                                                         queryNNZ,
-                                                         n_query_rows,
-                                                         n_query_cols,
-                                                         output_indices,
-                                                         output_dists,
-                                                         k,
-                                                         handle,
-                                                         batch_size_index,
-                                                         batch_size_query,
-                                                         metric,
-                                                         metricArg)
-                        .run();
-            }
+template <typename value_idx = int, typename value_t = float, int TPB_X = 32>
+void brute_force_knn(const value_idx* idxIndptr,
+                     const value_idx* idxIndices,
+                     const value_t* idxData,
+                     size_t idxNNZ,
+                     int n_idx_rows,
+                     int n_idx_cols,
+                     const value_idx* queryIndptr,
+                     const value_idx* queryIndices,
+                     const value_t* queryData,
+                     size_t queryNNZ,
+                     int n_query_rows,
+                     int n_query_cols,
+                     value_idx* output_indices,
+                     value_t* output_dists,
+                     int k,
+                     const raft::handle_t& handle,
+                     size_t batch_size_index             = 2 << 14,  // approx 1M
+                     size_t batch_size_query             = 2 << 14,
+                     raft::distance::DistanceType metric = raft::distance::DistanceType::L2Expanded,
+                     float metricArg                     = 0)
+{
+  detail::sparse_knn_t<value_idx, value_t>(idxIndptr,
+                                           idxIndices,
+                                           idxData,
+                                           idxNNZ,
+                                           n_idx_rows,
+                                           n_idx_cols,
+                                           queryIndptr,
+                                           queryIndices,
+                                           queryData,
+                                           queryNNZ,
+                                           n_query_rows,
+                                           n_query_cols,
+                                           output_indices,
+                                           output_dists,
+                                           k,
+                                           handle,
+                                           batch_size_index,
+                                           batch_size_query,
+                                           metric,
+                                           metricArg)
+    .run();
+}
 
-        };  // namespace selection
-    };  // namespace sparse
+};  // namespace selection
+};  // namespace sparse
 };  // namespace raft
 
 #endif

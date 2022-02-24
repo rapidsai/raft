@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
 
 #ifndef __COV_H
 #define __COV_H
@@ -21,7 +25,7 @@
 
 #include <raft/stats/detail/cov.cuh>
 namespace raft {
-    namespace stats {
+namespace stats {
 /**
  * @brief Compute covariance of the input matrix
  *
@@ -43,21 +47,21 @@ namespace raft {
  * @note if stable=true, then the input data will be mean centered after this
  * function returns!
  */
-        template <typename Type>
-        void cov(const raft::handle_t& handle,
-                 Type* covar,
-                 Type* data,
-                 const Type* mu,
-                 std::size_t D,
-                 std::size_t N,
-                 bool sample,
-                 bool rowMajor,
-                 bool stable,
-                 cudaStream_t stream)
-        {
-            detail::cov(handle, covar, data, mu, D, N, sample, rowMajor, stable, stream);
-        }
-    };  // end namespace stats
+template <typename Type>
+void cov(const raft::handle_t& handle,
+         Type* covar,
+         Type* data,
+         const Type* mu,
+         std::size_t D,
+         std::size_t N,
+         bool sample,
+         bool rowMajor,
+         bool stable,
+         cudaStream_t stream)
+{
+  detail::cov(handle, covar, data, mu, D, N, sample, rowMajor, stable, stream);
+}
+};  // end namespace stats
 };  // end namespace raft
 
 #endif

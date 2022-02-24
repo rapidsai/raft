@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
 
 #ifndef __R2_SCORE_H
 #define __R2_SCORE_H
@@ -22,7 +26,7 @@
 #include <raft/stats/detail/scores.cuh>
 
 namespace raft {
-    namespace stats {
+namespace stats {
 
 /**
  * Calculates the "Coefficient of Determination" (R-Squared) score
@@ -39,13 +43,13 @@ namespace raft {
  * @param stream: cuda stream
  * @return: The R-squared value.
  */
-        template <typename math_t>
-        math_t r2_score(math_t* y, math_t* y_hat, int n, cudaStream_t stream)
-        {
-            return detail::r2_score(y, y_hat, n, stream);
-        }
+template <typename math_t>
+math_t r2_score(math_t* y, math_t* y_hat, int n, cudaStream_t stream)
+{
+  return detail::r2_score(y, y_hat, n, stream);
+}
 
-    }  // namespace stats
+}  // namespace stats
 }  // namespace raft
 
 #endif

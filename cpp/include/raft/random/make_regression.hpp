@@ -18,6 +18,11 @@
  * https://github.com/scikit-learn/scikit-learn/blob/master/sklearn/datasets/_samples_generator.py
  */
 
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
+
 #ifndef __MAKE_REGRESSION_H
 #define __MAKE_REGRESSION_H
 
@@ -64,41 +69,41 @@ namespace raft::random {
  * @param[in]   seed            Seed for the random number generator
  * @param[in]   type            Random generator type
  */
-    template <typename DataT, typename IdxT>
-    void make_regression(const raft::handle_t& handle,
-                         DataT* out,
-                         DataT* values,
-                         IdxT n_rows,
-                         IdxT n_cols,
-                         IdxT n_informative,
-                         cudaStream_t stream,
-                         DataT* coef         = nullptr,
-                         IdxT n_targets      = (IdxT)1,
-                         DataT bias          = (DataT)0.0,
-                         IdxT effective_rank = (IdxT)-1,
-                         DataT tail_strength = (DataT)0.5,
-                         DataT noise         = (DataT)0.0,
-                         bool shuffle        = true,
-                         uint64_t seed       = 0ULL,
-                         GeneratorType type  = GenPhilox)
-    {
-        detail::make_regression_caller(handle,
-                                       out,
-                                       values,
-                                       n_rows,
-                                       n_cols,
-                                       n_informative,
-                                       stream,
-                                       coef,
-                                       n_targets,
-                                       bias,
-                                       effective_rank,
-                                       tail_strength,
-                                       noise,
-                                       shuffle,
-                                       seed,
-                                       type);
-    }
+template <typename DataT, typename IdxT>
+void make_regression(const raft::handle_t& handle,
+                     DataT* out,
+                     DataT* values,
+                     IdxT n_rows,
+                     IdxT n_cols,
+                     IdxT n_informative,
+                     cudaStream_t stream,
+                     DataT* coef         = nullptr,
+                     IdxT n_targets      = (IdxT)1,
+                     DataT bias          = (DataT)0.0,
+                     IdxT effective_rank = (IdxT)-1,
+                     DataT tail_strength = (DataT)0.5,
+                     DataT noise         = (DataT)0.0,
+                     bool shuffle        = true,
+                     uint64_t seed       = 0ULL,
+                     GeneratorType type  = GenPhilox)
+{
+  detail::make_regression_caller(handle,
+                                 out,
+                                 values,
+                                 n_rows,
+                                 n_cols,
+                                 n_informative,
+                                 stream,
+                                 coef,
+                                 n_targets,
+                                 bias,
+                                 effective_rank,
+                                 tail_strength,
+                                 noise,
+                                 shuffle,
+                                 seed,
+                                 type);
+}
 
 }  // namespace raft::random
 

@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
 
 #ifndef __FILTER_H
 #define __FILTER_H
@@ -24,8 +28,8 @@
 #include <raft/sparse/op/detail/filter.cuh>
 
 namespace raft {
-    namespace sparse {
-        namespace op {
+namespace sparse {
+namespace op {
 
 /**
  * @brief Removes the values matching a particular scalar from a COO formatted sparse matrix.
@@ -43,23 +47,23 @@ namespace raft {
  * @param n: number of rows in dense matrix
  * @param stream: cuda stream to use
  */
-            template <typename T>
-            void coo_remove_scalar(const int* rows,
-                                   const int* cols,
-                                   const T* vals,
-                                   int nnz,
-                                   int* crows,
-                                   int* ccols,
-                                   T* cvals,
-                                   int* cnnz,
-                                   int* cur_cnnz,
-                                   T scalar,
-                                   int n,
-                                   cudaStream_t stream)
-            {
-                detail::coo_remove_scalar<128, T>(
-                        rows, cols, vals, nnz, crows, ccols, cvals, cnnz, cur_cnnz, scalar, n, stream);
-            }
+template <typename T>
+void coo_remove_scalar(const int* rows,
+                       const int* cols,
+                       const T* vals,
+                       int nnz,
+                       int* crows,
+                       int* ccols,
+                       T* cvals,
+                       int* cnnz,
+                       int* cur_cnnz,
+                       T scalar,
+                       int n,
+                       cudaStream_t stream)
+{
+  detail::coo_remove_scalar<128, T>(
+    rows, cols, vals, nnz, crows, ccols, cvals, cnnz, cur_cnnz, scalar, n, stream);
+}
 
 /**
  * @brief Removes the values matching a particular scalar from a COO formatted sparse matrix.
@@ -69,11 +73,11 @@ namespace raft {
  * @param scalar: scalar to remove from arrays
  * @param stream: cuda stream to use
  */
-            template <typename T>
-            void coo_remove_scalar(COO<T>* in, COO<T>* out, T scalar, cudaStream_t stream)
-            {
-                detail::coo_remove_scalar<128, T>(in, out, scalar, stream);
-            }
+template <typename T>
+void coo_remove_scalar(COO<T>* in, COO<T>* out, T scalar, cudaStream_t stream)
+{
+  detail::coo_remove_scalar<128, T>(in, out, scalar, stream);
+}
 
 /**
  * @brief Removes zeros from a COO formatted sparse matrix.
@@ -82,14 +86,14 @@ namespace raft {
  * @param out: output COO matrix
  * @param stream: cuda stream to use
  */
-            template <typename T>
-            void coo_remove_zeros(COO<T>* in, COO<T>* out, cudaStream_t stream)
-            {
-                coo_remove_scalar<T>(in, out, T(0.0), stream);
-            }
+template <typename T>
+void coo_remove_zeros(COO<T>* in, COO<T>* out, cudaStream_t stream)
+{
+  coo_remove_scalar<T>(in, out, T(0.0), stream);
+}
 
-        };  // namespace op
-    };  // end NAMESPACE sparse
+};  // namespace op
+};  // end NAMESPACE sparse
 };  // end NAMESPACE raft
 
 #endif

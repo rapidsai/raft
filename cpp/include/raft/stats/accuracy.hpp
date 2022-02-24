@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
 
 #ifndef __STATS_ACCURACY_H
 #define __STATS_ACCURACY_H
@@ -22,7 +26,7 @@
 #include <raft/stats/detail/scores.cuh>
 
 namespace raft {
-    namespace stats {
+namespace stats {
 
 /**
  * @brief Compute accuracy of predictions. Useful for classification.
@@ -33,13 +37,13 @@ namespace raft {
  * @param[in] stream: cuda stream.
  * @return: Accuracy score in [0, 1]; higher is better.
  */
-        template <typename math_t>
-        float accuracy(const math_t* predictions, const math_t* ref_predictions, int n, cudaStream_t stream)
-        {
-            return detail::accuracy_score(predictions, ref_predictions, n, stream);
-        }
+template <typename math_t>
+float accuracy(const math_t* predictions, const math_t* ref_predictions, int n, cudaStream_t stream)
+{
+  return detail::accuracy_score(predictions, ref_predictions, n, stream);
+}
 
-    }  // namespace stats
+}  // namespace stats
 }  // namespace raft
 
 #endif

@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
 
 #ifndef __CHOLESKY_R1_UPDATE_H
 #define __CHOLESKY_R1_UPDATE_H
@@ -22,7 +26,7 @@
 #include "detail/cholesky_r1_update.cuh"
 
 namespace raft {
-    namespace linalg {
+namespace linalg {
 
 /**
  * @brief Rank 1 update of Cholesky decomposition.
@@ -120,20 +124,20 @@ namespace raft {
  * @param eps numerical parameter that can act as a regularizer for ill
  *    conditioned systems. Negative values mean no regularizaton.
  */
-        template <typename math_t>
-        void choleskyRank1Update(const raft::handle_t& handle,
-                                 math_t* L,
-                                 int n,
-                                 int ld,
-                                 void* workspace,
-                                 int* n_bytes,
-                                 cublasFillMode_t uplo,
-                                 cudaStream_t stream,
-                                 math_t eps = -1)
-        {
-            detail::choleskyRank1Update(handle, L, n, ld, workspace, n_bytes, uplo, stream, eps);
-        }
-    };  // namespace linalg
+template <typename math_t>
+void choleskyRank1Update(const raft::handle_t& handle,
+                         math_t* L,
+                         int n,
+                         int ld,
+                         void* workspace,
+                         int* n_bytes,
+                         cublasFillMode_t uplo,
+                         cudaStream_t stream,
+                         math_t eps = -1)
+{
+  detail::choleskyRank1Update(handle, L, n, ld, workspace, n_bytes, uplo, stream, eps);
+}
+};  // namespace linalg
 };  // namespace raft
 
 #endif

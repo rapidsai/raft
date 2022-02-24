@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
 
 #ifndef __MULTIPLY_H
 #define __MULTIPLY_H
@@ -22,7 +26,7 @@
 #include "detail/multiply.cuh"
 
 namespace raft {
-    namespace linalg {
+namespace linalg {
 
 /**
  * @defgroup ScalarOps Scalar operations on the input buffer
@@ -35,14 +39,14 @@ namespace raft {
  * @param stream cuda stream where to launch work
  * @{
  */
-        template <typename math_t, typename IdxType = int>
-        void multiplyScalar(math_t* out, const math_t* in, math_t scalar, IdxType len, cudaStream_t stream)
-        {
-            detail::multiplyScalar(out, in, scalar, len, stream);
-        }
+template <typename math_t, typename IdxType = int>
+void multiplyScalar(math_t* out, const math_t* in, math_t scalar, IdxType len, cudaStream_t stream)
+{
+  detail::multiplyScalar(out, in, scalar, len, stream);
+}
 /** @} */
 
-    };  // end namespace linalg
+};  // end namespace linalg
 };  // end namespace raft
 
 #endif

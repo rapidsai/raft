@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
 
 #ifndef __SPARSE_SPECTRAL_H
 #define __SPARSE_SPECTRAL_H
@@ -21,24 +25,24 @@
 #include <raft/sparse/linalg/detail/spectral.cuh>
 
 namespace raft {
-    namespace sparse {
-        namespace spectral {
+namespace sparse {
+namespace spectral {
 
-            template <typename T>
-            void fit_embedding(const raft::handle_t& handle,
-                               int* rows,
-                               int* cols,
-                               T* vals,
-                               int nnz,
-                               int n,
-                               int n_components,
-                               T* out,
-                               unsigned long long seed = 1234567)
-            {
-                detail::fit_embedding(handle, rows, cols, vals, nnz, n, n_components, out, seed);
-            }
-        };  // namespace spectral
-    };  // namespace sparse
+template <typename T>
+void fit_embedding(const raft::handle_t& handle,
+                   int* rows,
+                   int* cols,
+                   T* vals,
+                   int nnz,
+                   int n,
+                   int n_components,
+                   T* out,
+                   unsigned long long seed = 1234567)
+{
+  detail::fit_embedding(handle, rows, cols, vals, nnz, n, n_components, out, seed);
+}
+};  // namespace spectral
+};  // namespace sparse
 };  // namespace raft
 
 #endif

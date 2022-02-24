@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
 
 #ifndef __SPARSE_DEGREE_H
 #define __SPARSE_DEGREE_H
@@ -23,8 +27,8 @@
 #include <raft/sparse/linalg/detail/degree.cuh>
 
 namespace raft {
-    namespace sparse {
-        namespace linalg {
+namespace sparse {
+namespace linalg {
 
 /**
  * @brief Count the number of values for each row
@@ -34,11 +38,11 @@ namespace raft {
  * @param results: output result array
  * @param stream: cuda stream to use
  */
-            template <typename T = int>
-            void coo_degree(const T* rows, int nnz, T* results, cudaStream_t stream)
-            {
-                detail::coo_degree<64, T>(rows, nnz, results, stream);
-            }
+template <typename T = int>
+void coo_degree(const T* rows, int nnz, T* results, cudaStream_t stream)
+{
+  detail::coo_degree<64, T>(rows, nnz, results, stream);
+}
 
 /**
  * @brief Count the number of values for each row
@@ -48,11 +52,11 @@ namespace raft {
  * @param results: output array with row counts (size=in->n_rows)
  * @param stream: cuda stream to use
  */
-            template <typename T>
-            void coo_degree(COO<T>* in, int* results, cudaStream_t stream)
-            {
-                coo_degree(in->rows(), in->nnz, results, stream);
-            }
+template <typename T>
+void coo_degree(COO<T>* in, int* results, cudaStream_t stream)
+{
+  coo_degree(in->rows(), in->nnz, results, stream);
+}
 
 /**
  * @brief Count the number of values for each row that doesn't match a particular scalar
@@ -65,12 +69,12 @@ namespace raft {
  * @param results: output row counts
  * @param stream: cuda stream to use
  */
-            template <typename T>
-            void coo_degree_scalar(
-                    const int* rows, const T* vals, int nnz, T scalar, int* results, cudaStream_t stream = 0)
-            {
-                detail::coo_degree_scalar<64>(rows, vals, nnz, scalar, results, stream);
-            }
+template <typename T>
+void coo_degree_scalar(
+  const int* rows, const T* vals, int nnz, T scalar, int* results, cudaStream_t stream = 0)
+{
+  detail::coo_degree_scalar<64>(rows, vals, nnz, scalar, results, stream);
+}
 
 /**
  * @brief Count the number of values for each row that doesn't match a particular scalar
@@ -81,11 +85,11 @@ namespace raft {
  * @param results: output row counts
  * @param stream: cuda stream to use
  */
-            template <typename T>
-            void coo_degree_scalar(COO<T>* in, T scalar, int* results, cudaStream_t stream)
-            {
-                coo_degree_scalar(in->rows(), in->vals(), in->nnz, scalar, results, stream);
-            }
+template <typename T>
+void coo_degree_scalar(COO<T>* in, T scalar, int* results, cudaStream_t stream)
+{
+  coo_degree_scalar(in->rows(), in->vals(), in->nnz, scalar, results, stream);
+}
 
 /**
  * @brief Count the number of nonzeros for each row
@@ -97,11 +101,11 @@ namespace raft {
  * @param results: output row counts
  * @param stream: cuda stream to use
  */
-            template <typename T>
-            void coo_degree_nz(const int* rows, const T* vals, int nnz, int* results, cudaStream_t stream)
-            {
-                detail::coo_degree_nz<64>(rows, vals, nnz, results, stream);
-            }
+template <typename T>
+void coo_degree_nz(const int* rows, const T* vals, int nnz, int* results, cudaStream_t stream)
+{
+  detail::coo_degree_nz<64>(rows, vals, nnz, results, stream);
+}
 
 /**
  * @brief Count the number of nonzero values for each row
@@ -111,14 +115,14 @@ namespace raft {
  * @param results: output row counts
  * @param stream: cuda stream to use
  */
-            template <typename T>
-            void coo_degree_nz(COO<T>* in, int* results, cudaStream_t stream)
-            {
-                coo_degree_nz(in->rows(), in->vals(), in->nnz, results, stream);
-            }
+template <typename T>
+void coo_degree_nz(COO<T>* in, int* results, cudaStream_t stream)
+{
+  coo_degree_nz(in->rows(), in->vals(), in->nnz, results, stream);
+}
 
-        };  // end NAMESPACE linalg
-    };  // end NAMESPACE sparse
+};  // end NAMESPACE linalg
+};  // end NAMESPACE sparse
 };  // end NAMESPACE raft
 
 #endif

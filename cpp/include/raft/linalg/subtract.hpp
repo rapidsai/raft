@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
 
 #ifndef __SUBTRACT_H
 #define __SUBTRACT_H
@@ -22,7 +26,7 @@
 #include "detail/subtract.cuh"
 
 namespace raft {
-    namespace linalg {
+namespace linalg {
 
 /**
  * @brief Elementwise scalar subtraction operation on the input buffer
@@ -38,11 +42,11 @@ namespace raft {
  * @param len    number of elements in the input buffer
  * @param stream cuda stream where to launch work
  */
-        template <typename InT, typename OutT = InT, typename IdxType = int>
-        void subtractScalar(OutT* out, const InT* in, InT scalar, IdxType len, cudaStream_t stream)
-        {
-            detail::subtractScalar(out, in, scalar, len, stream);
-        }
+template <typename InT, typename OutT = InT, typename IdxType = int>
+void subtractScalar(OutT* out, const InT* in, InT scalar, IdxType len, cudaStream_t stream)
+{
+  detail::subtractScalar(out, in, scalar, len, stream);
+}
 
 /**
  * @brief Elementwise subtraction operation on the input buffers
@@ -57,11 +61,11 @@ namespace raft {
  * @param len    number of elements in the input buffers
  * @param stream cuda stream where to launch work
  */
-        template <typename InT, typename OutT = InT, typename IdxType = int>
-        void subtract(OutT* out, const InT* in1, const InT* in2, IdxType len, cudaStream_t stream)
-        {
-            detail::subtract(out, in1, in2, len, stream);
-        }
+template <typename InT, typename OutT = InT, typename IdxType = int>
+void subtract(OutT* out, const InT* in1, const InT* in2, IdxType len, cudaStream_t stream)
+{
+  detail::subtract(out, in1, in2, len, stream);
+}
 
 /** Substract single value pointed by singleScalarDev parameter in device memory from inDev[i] and
  * write result to outDev[i]
@@ -74,17 +78,17 @@ namespace raft {
  * @param stream cuda stream
  * @remark block size has not been tuned
  */
-        template <typename math_t, typename IdxType = int, int TPB = 256>
-        void subtractDevScalar(math_t* outDev,
-                               const math_t* inDev,
-                               const math_t* singleScalarDev,
-                               IdxType len,
-                               cudaStream_t stream)
-        {
-            detail::subtractDevScalar(outDev, inDev, singleScalarDev, len, stream);
-        }
+template <typename math_t, typename IdxType = int, int TPB = 256>
+void subtractDevScalar(math_t* outDev,
+                       const math_t* inDev,
+                       const math_t* singleScalarDev,
+                       IdxType len,
+                       cudaStream_t stream)
+{
+  detail::subtractDevScalar(outDev, inDev, singleScalarDev, len, stream);
+}
 
-    };  // end namespace linalg
+};  // end namespace linalg
 };  // end namespace raft
 
 #endif

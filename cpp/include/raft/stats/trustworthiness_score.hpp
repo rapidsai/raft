@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
 
 #ifndef __TRUSTWORTHINESS_SCORE_H
 #define __TRUSTWORTHINESS_SCORE_H
@@ -21,7 +25,7 @@
 #include <raft/stats/detail/trustworthiness_score.cuh>
 
 namespace raft {
-    namespace stats {
+namespace stats {
 
 /**
  * @brief Compute the trustworthiness score
@@ -35,20 +39,20 @@ namespace raft {
  * @param[in] batchSize Batch size
  * @return[out] Trustworthiness score
  */
-        template <typename math_t, raft::distance::DistanceType distance_type>
-        double trustworthiness_score(const raft::handle_t& h,
-                                     const math_t* X,
-                                     math_t* X_embedded,
-                                     int n,
-                                     int m,
-                                     int d,
-                                     int n_neighbors,
-                                     int batchSize = 512)
-        {
-            return detail::trustworthiness_score<math_t, distance_type>(
-                    h, X, X_embedded, n, m, d, n_neighbors, batchSize);
-        }
-    }  // namespace stats
+template <typename math_t, raft::distance::DistanceType distance_type>
+double trustworthiness_score(const raft::handle_t& h,
+                             const math_t* X,
+                             math_t* X_embedded,
+                             int n,
+                             int m,
+                             int d,
+                             int n_neighbors,
+                             int batchSize = 512)
+{
+  return detail::trustworthiness_score<math_t, distance_type>(
+    h, X, X_embedded, n, m, d, n_neighbors, batchSize);
+}
+}  // namespace stats
 }  // namespace raft
 
 #endif

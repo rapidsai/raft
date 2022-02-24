@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
 
 #ifndef __SPARSE_SORT_H
 #define __SPARSE_SORT_H
@@ -23,8 +27,8 @@
 #include <raft/sparse/op/detail/sort.h>
 
 namespace raft {
-    namespace sparse {
-        namespace op {
+namespace sparse {
+namespace op {
 
 /**
  * @brief Sorts the arrays that comprise the coo matrix
@@ -38,11 +42,11 @@ namespace raft {
  * @param vals vals array from coo matrix
  * @param stream: cuda stream to use
  */
-            template <typename T>
-            void coo_sort(int m, int n, int nnz, int* rows, int* cols, T* vals, cudaStream_t stream)
-            {
-                detail::coo_sort(m, n, nnz, rows, cols, vals, stream);
-            }
+template <typename T>
+void coo_sort(int m, int n, int nnz, int* rows, int* cols, T* vals, cudaStream_t stream)
+{
+  detail::coo_sort(m, n, nnz, rows, cols, vals, stream);
+}
 
 /**
  * @brief Sort the underlying COO arrays by row
@@ -50,11 +54,11 @@ namespace raft {
  * @param in: COO to sort by row
  * @param stream: the cuda stream to use
  */
-            template <typename T>
-            void coo_sort(COO<T>* const in, cudaStream_t stream)
-            {
-                coo_sort<T>(in->n_rows, in->n_cols, in->nnz, in->rows(), in->cols(), in->vals(), stream);
-            }
+template <typename T>
+void coo_sort(COO<T>* const in, cudaStream_t stream)
+{
+  coo_sort<T>(in->n_rows, in->n_cols, in->nnz, in->rows(), in->cols(), in->vals(), stream);
+}
 
 /**
  * Sorts a COO by its weight
@@ -66,14 +70,14 @@ namespace raft {
  * @param[in] nnz number of edges in edge list
  * @param[in] stream cuda stream for which to order cuda operations
  */
-            template <typename value_idx, typename value_t>
-            void coo_sort_by_weight(
-                    value_idx* rows, value_idx* cols, value_t* data, value_idx nnz, cudaStream_t stream)
-            {
-                detail::coo_sort_by_weight(rows, cols, data, nnz, stream);
-            }
-        };  // namespace op
-    };  // end NAMESPACE sparse
+template <typename value_idx, typename value_t>
+void coo_sort_by_weight(
+  value_idx* rows, value_idx* cols, value_t* data, value_idx nnz, cudaStream_t stream)
+{
+  detail::coo_sort_by_weight(rows, cols, data, nnz, stream);
+}
+};  // namespace op
+};  // end NAMESPACE sparse
 };  // end NAMESPACE raft
 
 #endif

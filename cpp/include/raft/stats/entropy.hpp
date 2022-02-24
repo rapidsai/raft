@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
 
 #ifndef __ENTROPY_H
 #define __ENTROPY_H
@@ -21,7 +25,7 @@
 #include <raft/stats/detail/entropy.cuh>
 
 namespace raft {
-    namespace stats {
+namespace stats {
 
 /**
  * @brief Function to calculate entropy
@@ -34,17 +38,17 @@ namespace raft {
  * @param stream: the cudaStream object
  * @return the entropy score
  */
-        template <typename T>
-        double entropy(const T* clusterArray,
-                       const int size,
-                       const T lowerLabelRange,
-                       const T upperLabelRange,
-                       cudaStream_t stream)
-        {
-            return detail::entropy(clusterArray, size, lowerLabelRange, upperLabelRange, stream);
-        }
+template <typename T>
+double entropy(const T* clusterArray,
+               const int size,
+               const T lowerLabelRange,
+               const T upperLabelRange,
+               cudaStream_t stream)
+{
+  return detail::entropy(clusterArray, size, lowerLabelRange, upperLabelRange, stream);
+}
 
-    };  // end namespace stats
+};  // end namespace stats
 };  // end namespace raft
 
 #endif

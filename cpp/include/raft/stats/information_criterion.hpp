@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
 
 #ifndef __INFORMATION_CRIT_H
 #define __INFORMATION_CRIT_H
@@ -33,7 +37,7 @@
 #include <raft/stats/detail/batched/information_criterion.cuh>
 
 namespace raft {
-    namespace stats {
+namespace stats {
 
 /**
  * Compute the given type of information criterion
@@ -50,20 +54,20 @@ namespace raft {
  * @param[in]  n_samples        Number of samples in each series
  * @param[in]  stream           CUDA stream
  */
-        template <typename ScalarT, typename IdxT>
-        void information_criterion_batched(ScalarT* d_ic,
-                                           const ScalarT* d_loglikelihood,
-                                           IC_Type ic_type,
-                                           IdxT n_params,
-                                           IdxT batch_size,
-                                           IdxT n_samples,
-                                           cudaStream_t stream)
-        {
-            batched::detail::information_criterion(
-                    d_ic, d_loglikelihood, ic_type, n_params, batch_size, n_samples, stream);
-        }
+template <typename ScalarT, typename IdxT>
+void information_criterion_batched(ScalarT* d_ic,
+                                   const ScalarT* d_loglikelihood,
+                                   IC_Type ic_type,
+                                   IdxT n_params,
+                                   IdxT batch_size,
+                                   IdxT n_samples,
+                                   cudaStream_t stream)
+{
+  batched::detail::information_criterion(
+    d_ic, d_loglikelihood, ic_type, n_params, batch_size, n_samples, stream);
+}
 
-    }  // namespace stats
+}  // namespace stats
 }  // namespace raft
 
 #endif

@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
 
 #ifndef __PARTITION_H
 #define __PARTITION_H
@@ -24,7 +28,7 @@
 #include <raft/spectral/detail/partition.hpp>
 
 namespace raft {
-    namespace spectral {
+namespace spectral {
 
 // =========================================================
 // Spectral partitioner
@@ -52,19 +56,19 @@ namespace raft {
  *    performed.
  *  @return statistics: number of eigensolver iterations, .
  */
-        template <typename vertex_t, typename weight_t, typename EigenSolver, typename ClusterSolver>
-        std::tuple<vertex_t, weight_t, vertex_t> partition(
-                handle_t const& handle,
-                matrix::sparse_matrix_t<vertex_t, weight_t> const& csr_m,
-                EigenSolver const& eigen_solver,
-                ClusterSolver const& cluster_solver,
-                vertex_t* __restrict__ clusters,
-                weight_t* eigVals,
-                weight_t* eigVecs)
-        {
-            return raft::spectral::detail::partition<vertex_t, weight_t, EigenSolver, ClusterSolver>(
-                    handle, csr_m, eigen_solver, cluster_solver, clusters, eigVals, eigVecs);
-        }
+template <typename vertex_t, typename weight_t, typename EigenSolver, typename ClusterSolver>
+std::tuple<vertex_t, weight_t, vertex_t> partition(
+  handle_t const& handle,
+  matrix::sparse_matrix_t<vertex_t, weight_t> const& csr_m,
+  EigenSolver const& eigen_solver,
+  ClusterSolver const& cluster_solver,
+  vertex_t* __restrict__ clusters,
+  weight_t* eigVals,
+  weight_t* eigVecs)
+{
+  return raft::spectral::detail::partition<vertex_t, weight_t, EigenSolver, ClusterSolver>(
+    handle, csr_m, eigen_solver, cluster_solver, clusters, eigVals, eigVecs);
+}
 
 // =========================================================
 // Analysis of graph partition
@@ -84,19 +88,19 @@ namespace raft {
  *  @param cost On exit, partition cost function.
  *  @return error flag.
  */
-        template <typename vertex_t, typename weight_t>
-        void analyzePartition(handle_t const& handle,
-                              matrix::sparse_matrix_t<vertex_t, weight_t> const& csr_m,
-                              vertex_t nClusters,
-                              const vertex_t* __restrict__ clusters,
-                              weight_t& edgeCut,
-                              weight_t& cost)
-        {
-            raft::spectral::detail::analyzePartition<vertex_t, weight_t>(
-                    handle, csr_m, nClusters, clusters, edgeCut, cost);
-        }
+template <typename vertex_t, typename weight_t>
+void analyzePartition(handle_t const& handle,
+                      matrix::sparse_matrix_t<vertex_t, weight_t> const& csr_m,
+                      vertex_t nClusters,
+                      const vertex_t* __restrict__ clusters,
+                      weight_t& edgeCut,
+                      weight_t& cost)
+{
+  raft::spectral::detail::analyzePartition<vertex_t, weight_t>(
+    handle, csr_m, nClusters, clusters, edgeCut, cost);
+}
 
-    }  // namespace spectral
+}  // namespace spectral
 }  // namespace raft
 
 #endif

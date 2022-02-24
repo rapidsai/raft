@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
 
 #ifndef __MINMAX_H
 #define __MINMAX_H
@@ -26,7 +30,7 @@
 #include <limits>
 
 namespace raft {
-    namespace stats {
+namespace stats {
 
 /**
  * @brief Computes min/max across every column of the input matrix, as well as
@@ -53,23 +57,23 @@ namespace raft {
  * 2. ncols is small enough to fit the whole of min/max values across all cols
  *    in shared memory
  */
-        template <typename T, int TPB = 512>
-        void minmax(const T* data,
-                    const unsigned* rowids,
-                    const unsigned* colids,
-                    int nrows,
-                    int ncols,
-                    int row_stride,
-                    T* globalmin,
-                    T* globalmax,
-                    T* sampledcols,
-                    cudaStream_t stream)
-        {
-            detail::minmax<T, TPB>(
-                    data, rowids, colids, nrows, ncols, row_stride, globalmin, globalmax, sampledcols, stream);
-        }
+template <typename T, int TPB = 512>
+void minmax(const T* data,
+            const unsigned* rowids,
+            const unsigned* colids,
+            int nrows,
+            int ncols,
+            int row_stride,
+            T* globalmin,
+            T* globalmax,
+            T* sampledcols,
+            cudaStream_t stream)
+{
+  detail::minmax<T, TPB>(
+    data, rowids, colids, nrows, ncols, row_stride, globalmin, globalmax, sampledcols, stream);
+}
 
-    };  // namespace stats
+};  // namespace stats
 };  // namespace raft
 
 #endif

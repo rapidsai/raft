@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
 
 #ifndef __POWER_H
 #define __POWER_H
@@ -24,7 +28,7 @@
 #include <raft/linalg/unary_op.cuh>
 
 namespace raft {
-    namespace linalg {
+namespace linalg {
 
 /**
  * @defgroup ScalarOps Scalar operations on the input buffer
@@ -37,12 +41,12 @@ namespace raft {
  * @param stream cuda stream where to launch work
  * @{
  */
-        template <typename math_t, typename IdxType = int>
-        void powerScalar(math_t* out, const math_t* in, math_t scalar, IdxType len, cudaStream_t stream)
-        {
-            raft::linalg::unaryOp(
-                    out, in, len, [scalar] __device__(math_t in) { return raft::myPow(in, scalar); }, stream);
-        }
+template <typename math_t, typename IdxType = int>
+void powerScalar(math_t* out, const math_t* in, math_t scalar, IdxType len, cudaStream_t stream)
+{
+  raft::linalg::unaryOp(
+    out, in, len, [scalar] __device__(math_t in) { return raft::myPow(in, scalar); }, stream);
+}
 /** @} */
 
 /**
@@ -56,15 +60,15 @@ namespace raft {
  * @param stream cuda stream where to launch work
  * @{
  */
-        template <typename math_t, typename IdxType = int>
-        void power(math_t* out, const math_t* in1, const math_t* in2, IdxType len, cudaStream_t stream)
-        {
-            raft::linalg::binaryOp(
-                    out, in1, in2, len, [] __device__(math_t a, math_t b) { return raft::myPow(a, b); }, stream);
-        }
+template <typename math_t, typename IdxType = int>
+void power(math_t* out, const math_t* in1, const math_t* in2, IdxType len, cudaStream_t stream)
+{
+  raft::linalg::binaryOp(
+    out, in1, in2, len, [] __device__(math_t a, math_t b) { return raft::myPow(a, b); }, stream);
+}
 /** @} */
 
-    };  // end namespace linalg
+};  // end namespace linalg
 };  // end namespace raft
 
 #endif

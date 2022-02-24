@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
 
 #ifndef __SINGLE_LINKAGE_H
 #define __SINGLE_LINKAGE_H
@@ -23,7 +27,7 @@
 #include <raft/sparse/hierarchy/detail/single_linkage.cuh>
 
 namespace raft {
-    namespace hierarchy {
+namespace hierarchy {
 
 /**
  * Single-linkage clustering, capable of constructing a KNN graph to
@@ -45,22 +49,22 @@ namespace raft {
  *            of k. The algorithm will set `k = log(n) + c`
  * @param[in] n_clusters number of clusters to assign data samples
  */
-        template <typename value_idx,
-                typename value_t,
-                LinkageDistance dist_type = LinkageDistance::KNN_GRAPH>
-        void single_linkage(const raft::handle_t& handle,
-                            const value_t* X,
-                            size_t m,
-                            size_t n,
-                            raft::distance::DistanceType metric,
-                            linkage_output<value_idx, value_t>* out,
-                            int c,
-                            size_t n_clusters)
-        {
-            detail::single_linkage<value_idx, value_t, dist_type>(
-                    handle, X, m, n, metric, out, c, n_clusters);
-        }
-    };  // namespace hierarchy
+template <typename value_idx,
+          typename value_t,
+          LinkageDistance dist_type = LinkageDistance::KNN_GRAPH>
+void single_linkage(const raft::handle_t& handle,
+                    const value_t* X,
+                    size_t m,
+                    size_t n,
+                    raft::distance::DistanceType metric,
+                    linkage_output<value_idx, value_t>* out,
+                    int c,
+                    size_t n_clusters)
+{
+  detail::single_linkage<value_idx, value_t, dist_type>(
+    handle, X, m, n, metric, out, c, n_clusters);
+}
+};  // namespace hierarchy
 };  // namespace raft
 
 #endif

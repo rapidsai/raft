@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
 
 #ifndef __CONNECT_COMPONENTS_H
 #define __CONNECT_COMPONENTS_H
@@ -22,10 +26,10 @@
 #include <raft/sparse/selection/detail/connect_components.cuh>
 
 namespace raft {
-    namespace linkage {
+namespace linkage {
 
-        template <typename value_idx, typename value_t>
-        using FixConnectivitiesRedOp = detail::FixConnectivitiesRedOp<value_idx, value_t>;
+template <typename value_idx, typename value_t>
+using FixConnectivitiesRedOp = detail::FixConnectivitiesRedOp<value_idx, value_t>;
 
 /**
  * Gets the number of unique components from array of
@@ -37,11 +41,11 @@ namespace raft {
  * @param[in] stream cuda stream for which to order cuda operations
  * @return total number of components
  */
-        template <typename value_idx>
-        value_idx get_n_components(value_idx* colors, size_t n_rows, cudaStream_t stream)
-        {
-            return detail::get_n_components(colors, n_rows, stream);
-        }
+template <typename value_idx>
+value_idx get_n_components(value_idx* colors, size_t n_rows, cudaStream_t stream)
+{
+  return detail::get_n_components(colors, n_rows, stream);
+}
 
 /**
  * Connects the components of an otherwise unconnected knn graph
@@ -63,21 +67,21 @@ namespace raft {
  * @param[in] reduction_op
  * @param[in] metric
  */
-        template <typename value_idx, typename value_t, typename red_op>
-        void connect_components(
-                const raft::handle_t& handle,
-                raft::sparse::COO<value_t, value_idx>& out,
-                const value_t* X,
-                const value_idx* orig_colors,
-                size_t n_rows,
-                size_t n_cols,
-                red_op reduction_op,
-                raft::distance::DistanceType metric = raft::distance::DistanceType::L2SqrtExpanded)
-        {
-            detail::connect_components(handle, out, X, orig_colors, n_rows, n_cols, reduction_op, metric);
-        }
+template <typename value_idx, typename value_t, typename red_op>
+void connect_components(
+  const raft::handle_t& handle,
+  raft::sparse::COO<value_t, value_idx>& out,
+  const value_t* X,
+  const value_idx* orig_colors,
+  size_t n_rows,
+  size_t n_cols,
+  red_op reduction_op,
+  raft::distance::DistanceType metric = raft::distance::DistanceType::L2SqrtExpanded)
+{
+  detail::connect_components(handle, out, X, orig_colors, n_rows, n_cols, reduction_op, metric);
+}
 
-    };  // end namespace linkage
+};  // end namespace linkage
 };  // end namespace raft
 
 #endif

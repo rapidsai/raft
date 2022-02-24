@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
 
 #ifndef __KL_DIVERGENCE_H
 #define __KL_DIVERGENCE_H
@@ -22,7 +26,7 @@
 #include <raft/stats/detail/kl_divergence.cuh>
 
 namespace raft {
-    namespace stats {
+namespace stats {
 
 /**
  * @brief Function to calculate KL Divergence
@@ -35,13 +39,13 @@ namespace raft {
  * @param size: the size of the data points of type int
  * @param stream: the cudaStream object
  */
-        template <typename DataT>
-        DataT kl_divergence(const DataT* modelPDF, const DataT* candidatePDF, int size, cudaStream_t stream)
-        {
-            return detail::kl_divergence(modelPDF, candidatePDF, size, stream);
-        }
+template <typename DataT>
+DataT kl_divergence(const DataT* modelPDF, const DataT* candidatePDF, int size, cudaStream_t stream)
+{
+  return detail::kl_divergence(modelPDF, candidatePDF, size, stream);
+}
 
-    };  // end namespace stats
+};  // end namespace stats
 };  // end namespace raft
 
 #endif

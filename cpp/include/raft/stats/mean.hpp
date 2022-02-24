@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
 
 #ifndef __MEAN_H
 #define __MEAN_H
@@ -24,7 +28,7 @@
 #include <raft/handle.hpp>
 
 namespace raft {
-    namespace stats {
+namespace stats {
 
 /**
  * @brief Compute mean of the input matrix
@@ -43,14 +47,14 @@ namespace raft {
  * @param rowMajor: whether the input data is row or col major
  * @param stream: cuda stream
  */
-        template <typename Type, typename IdxType = int>
-        void mean(
-                Type* mu, const Type* data, IdxType D, IdxType N, bool sample, bool rowMajor, cudaStream_t stream)
-        {
-            detail::mean(mu, data, D, N, sample, rowMajor, stream);
-        }
+template <typename Type, typename IdxType = int>
+void mean(
+  Type* mu, const Type* data, IdxType D, IdxType N, bool sample, bool rowMajor, cudaStream_t stream)
+{
+  detail::mean(mu, data, D, N, sample, rowMajor, stream);
+}
 
-    };  // namespace stats
+};  // namespace stats
 };  // namespace raft
 
 #endif

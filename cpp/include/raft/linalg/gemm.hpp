@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
 
 #ifndef __GEMM_H
 #define __GEMM_H
@@ -22,7 +26,7 @@
 #include "detail/gemm.hpp"
 
 namespace raft {
-    namespace linalg {
+namespace linalg {
 
 /**
  * @brief the wrapper of cublas gemm function
@@ -46,26 +50,26 @@ namespace raft {
  * @param [in] ldc leading dimension of C
  * @param [in] stream
  */
-        template <typename math_t, bool DevicePointerMode = false>
-        void gemm(const raft::handle_t& handle,
-                  const bool trans_a,
-                  const bool trans_b,
-                  const int m,
-                  const int n,
-                  const int k,
-                  const math_t* alpha,
-                  const math_t* A,
-                  const int lda,
-                  const math_t* B,
-                  const int ldb,
-                  const math_t* beta,
-                  const math_t* C,
-                  const int ldc,
-                  cudaStream_t stream)
-        {
-            detail::gemm<math_t, DevicePointerMode>(
-                    handle, trans_a, trans_b, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc, stream);
-        }
+template <typename math_t, bool DevicePointerMode = false>
+void gemm(const raft::handle_t& handle,
+          const bool trans_a,
+          const bool trans_b,
+          const int m,
+          const int n,
+          const int k,
+          const math_t* alpha,
+          const math_t* A,
+          const int lda,
+          const math_t* B,
+          const int ldb,
+          const math_t* beta,
+          const math_t* C,
+          const int ldc,
+          cudaStream_t stream)
+{
+  detail::gemm<math_t, DevicePointerMode>(
+    handle, trans_a, trans_b, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc, stream);
+}
 
 /**
  * @brief the wrapper of cublas gemm function
@@ -85,24 +89,24 @@ namespace raft {
  * @param beta scalar
  * @param stream cuda stream
  */
-        template <typename math_t>
-        void gemm(const raft::handle_t& handle,
-                  const math_t* a,
-                  int n_rows_a,
-                  int n_cols_a,
-                  const math_t* b,
-                  math_t* c,
-                  int n_rows_c,
-                  int n_cols_c,
-                  cublasOperation_t trans_a,
-                  cublasOperation_t trans_b,
-                  math_t alpha,
-                  math_t beta,
-                  cudaStream_t stream)
-        {
-            detail::gemm(
-                    handle, a, n_rows_a, n_cols_a, b, c, n_rows_c, n_cols_c, trans_a, trans_b, alpha, beta, stream);
-        }
+template <typename math_t>
+void gemm(const raft::handle_t& handle,
+          const math_t* a,
+          int n_rows_a,
+          int n_cols_a,
+          const math_t* b,
+          math_t* c,
+          int n_rows_c,
+          int n_cols_c,
+          cublasOperation_t trans_a,
+          cublasOperation_t trans_b,
+          math_t alpha,
+          math_t beta,
+          cudaStream_t stream)
+{
+  detail::gemm(
+    handle, a, n_rows_a, n_cols_a, b, c, n_rows_c, n_cols_c, trans_a, trans_b, alpha, beta, stream);
+}
 
 /**
  * @brief the wrapper of cublas gemm function
@@ -120,21 +124,21 @@ namespace raft {
  * @param trans_b cublas transpose op for B
  * @param stream cuda stream
  */
-        template <typename math_t>
-        void gemm(const raft::handle_t& handle,
-                  const math_t* a,
-                  int n_rows_a,
-                  int n_cols_a,
-                  const math_t* b,
-                  math_t* c,
-                  int n_rows_c,
-                  int n_cols_c,
-                  cublasOperation_t trans_a,
-                  cublasOperation_t trans_b,
-                  cudaStream_t stream)
-        {
-            detail::gemm(handle, a, n_rows_a, n_cols_a, b, c, n_rows_c, n_cols_c, trans_a, trans_b, stream);
-        }
+template <typename math_t>
+void gemm(const raft::handle_t& handle,
+          const math_t* a,
+          int n_rows_a,
+          int n_cols_a,
+          const math_t* b,
+          math_t* c,
+          int n_rows_c,
+          int n_cols_c,
+          cublasOperation_t trans_a,
+          cublasOperation_t trans_b,
+          cudaStream_t stream)
+{
+  detail::gemm(handle, a, n_rows_a, n_cols_a, b, c, n_rows_c, n_cols_c, trans_a, trans_b, stream);
+}
 
 /**
  * @brief A wrapper for CUBLS GEMM function designed for handling all possible
@@ -155,26 +159,26 @@ namespace raft {
  * @param alpha scalar
  * @param beta scalar
  */
-        template <typename T>
-        void gemm(const raft::handle_t& handle,
-                  T* z,
-                  T* x,
-                  T* y,
-                  int _M,
-                  int _N,
-                  int _K,
-                  bool isZColMajor,
-                  bool isXColMajor,
-                  bool isYColMajor,
-                  cudaStream_t stream,
-                  T alpha = T(1.0),
-                  T beta  = T(0.0))
-        {
-            detail::gemm(
-                    handle, z, x, y, _M, _N, _K, isZColMajor, isXColMajor, isYColMajor, stream, alpha, beta);
-        }
+template <typename T>
+void gemm(const raft::handle_t& handle,
+          T* z,
+          T* x,
+          T* y,
+          int _M,
+          int _N,
+          int _K,
+          bool isZColMajor,
+          bool isXColMajor,
+          bool isYColMajor,
+          cudaStream_t stream,
+          T alpha = T(1.0),
+          T beta  = T(0.0))
+{
+  detail::gemm(
+    handle, z, x, y, _M, _N, _K, isZColMajor, isXColMajor, isYColMajor, stream, alpha, beta);
+}
 
-    }  // end namespace linalg
+}  // end namespace linalg
 }  // end namespace raft
 
 #endif

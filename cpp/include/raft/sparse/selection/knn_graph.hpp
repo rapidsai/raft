@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
 
 #ifndef __KNN_GRAPH_H
 #define __KNN_GRAPH_H
@@ -26,8 +30,8 @@
 #include <cstdint>
 
 namespace raft {
-    namespace sparse {
-        namespace selection {
+namespace sparse {
+namespace selection {
 
 /**
  * Constructs a (symmetrized) knn graph edge list from
@@ -45,20 +49,20 @@ namespace raft {
  * @param[out] out output edge list
  * @param c
  */
-            template <typename value_idx = int, typename value_t = float>
-            void knn_graph(const handle_t& handle,
-                           const value_t* X,
-                           std::size_t m,
-                           std::size_t n,
-                           raft::distance::DistanceType metric,
-                           raft::sparse::COO<value_t, value_idx>& out,
-                           int c = 15)
-            {
-                detail::knn_graph(handle, X, m, n, metric, out, c);
-            }
+template <typename value_idx = int, typename value_t = float>
+void knn_graph(const handle_t& handle,
+               const value_t* X,
+               std::size_t m,
+               std::size_t n,
+               raft::distance::DistanceType metric,
+               raft::sparse::COO<value_t, value_idx>& out,
+               int c = 15)
+{
+  detail::knn_graph(handle, X, m, n, metric, out, c);
+}
 
-        };  // namespace selection
-    };  // namespace sparse
+};  // namespace selection
+};  // namespace sparse
 };  // end namespace raft
 
 #endif

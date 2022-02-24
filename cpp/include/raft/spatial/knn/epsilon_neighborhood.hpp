@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
 
 #ifndef __EPSILON_NEIGH_H
 #define __EPSILON_NEIGH_H
@@ -22,8 +26,8 @@
 #include <raft/spatial/knn/detail/epsilon_neighborhood.cuh>
 
 namespace raft {
-    namespace spatial {
-        namespace knn {
+namespace spatial {
+namespace knn {
 
 /**
  * @brief Computes epsilon neighborhood for the L2-Squared distance metric
@@ -44,21 +48,21 @@ namespace raft {
  *                    squared as we compute L2-squared distance in this method)
  * @param[in]  stream cuda stream
  */
-            template <typename DataT, typename IdxT>
-            void epsUnexpL2SqNeighborhood(bool* adj,
-                                          IdxT* vd,
-                                          const DataT* x,
-                                          const DataT* y,
-                                          IdxT m,
-                                          IdxT n,
-                                          IdxT k,
-                                          DataT eps,
-                                          cudaStream_t stream)
-            {
-                detail::epsUnexpL2SqNeighborhood<DataT, IdxT>(adj, vd, x, y, m, n, k, eps, stream);
-            }
-        }  // namespace knn
-    }  // namespace spatial
+template <typename DataT, typename IdxT>
+void epsUnexpL2SqNeighborhood(bool* adj,
+                              IdxT* vd,
+                              const DataT* x,
+                              const DataT* y,
+                              IdxT m,
+                              IdxT n,
+                              IdxT k,
+                              DataT eps,
+                              cudaStream_t stream)
+{
+  detail::epsUnexpL2SqNeighborhood<DataT, IdxT>(adj, vd, x, y, m, n, k, eps, stream);
+}
+}  // namespace knn
+}  // namespace spatial
 }  // namespace raft
 
 #endif

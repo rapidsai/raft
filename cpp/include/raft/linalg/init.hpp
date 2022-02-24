@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
 
 #ifndef __INIT_H
 #define __INIT_H
@@ -22,7 +26,7 @@
 #include "detail/init.hpp"
 
 namespace raft {
-    namespace linalg {
+namespace linalg {
 
 /**
  * @brief Like Python range.
@@ -34,11 +38,11 @@ namespace raft {
  * \param [in] end of range (exclusive)
  * \param [in] stream cuda stream
  */
-        template <typename T>
-        void range(T* out, int start, int end, cudaStream_t stream)
-        {
-            detail::range(out, start, end, stream);
-        }
+template <typename T>
+void range(T* out, int start, int end, cudaStream_t stream)
+{
+  detail::range(out, start, end, stream);
+}
 
 /**
  * @brief Like Python range.
@@ -49,13 +53,13 @@ namespace raft {
  * \param [in] n length of the array
  * \param [in] stream cuda stream
  */
-        template <typename T, int TPB = 256>
-        void range(T* out, int n, cudaStream_t stream)
-        {
-            detail::range(out, n, stream);
-        }
+template <typename T, int TPB = 256>
+void range(T* out, int n, cudaStream_t stream)
+{
+  detail::range(out, n, stream);
+}
 
-    }  // namespace linalg
+}  // namespace linalg
 }  // namespace raft
 
 #endif

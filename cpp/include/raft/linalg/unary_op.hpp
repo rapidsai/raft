@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
 
 #ifndef __UNARY_OP_H
 #define __UNARY_OP_H
@@ -22,7 +26,7 @@
 #include "detail/unary_op.cuh"
 
 namespace raft {
-    namespace linalg {
+namespace linalg {
 
 /**
  * @brief perform element-wise unary operation in the input array
@@ -39,15 +43,15 @@ namespace raft {
  * @note Lambda must be a functor with the following signature:
  *       `OutType func(const InType& val);`
  */
-        template <typename InType,
-                typename Lambda,
-                typename IdxType = int,
-                typename OutType = InType,
-                int TPB          = 256>
-        void unaryOp(OutType* out, const InType* in, IdxType len, Lambda op, cudaStream_t stream)
-        {
-            detail::unaryOpCaller(out, in, len, op, stream);
-        }
+template <typename InType,
+          typename Lambda,
+          typename IdxType = int,
+          typename OutType = InType,
+          int TPB          = 256>
+void unaryOp(OutType* out, const InType* in, IdxType len, Lambda op, cudaStream_t stream)
+{
+  detail::unaryOpCaller(out, in, len, op, stream);
+}
 
 /**
  * @brief Perform an element-wise unary operation into the output array
@@ -66,13 +70,13 @@ namespace raft {
  *                    where outLocationOffset will be out + idx.
  * @param[in]  stream cuda stream where to launch work
  */
-        template <typename OutType, typename Lambda, typename IdxType = int, int TPB = 256>
-        void writeOnlyUnaryOp(OutType* out, IdxType len, Lambda op, cudaStream_t stream)
-        {
-            detail::writeOnlyUnaryOpCaller(out, len, op, stream);
-        }
+template <typename OutType, typename Lambda, typename IdxType = int, int TPB = 256>
+void writeOnlyUnaryOp(OutType* out, IdxType len, Lambda op, cudaStream_t stream)
+{
+  detail::writeOnlyUnaryOpCaller(out, len, op, stream);
+}
 
-    };  // end namespace linalg
+};  // end namespace linalg
 };  // end namespace raft
 
 #endif

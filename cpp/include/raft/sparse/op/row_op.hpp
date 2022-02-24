@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
 
 #ifndef __SPARSE_ROW_OP_H
 #define __SPARSE_ROW_OP_H
@@ -23,8 +27,8 @@
 #include <raft/sparse/op/detail/row_op.cuh>
 
 namespace raft {
-    namespace sparse {
-        namespace op {
+namespace sparse {
+namespace op {
 
 /**
  * @brief Perform a custom row operation on a CSR matrix in batches.
@@ -37,14 +41,14 @@ namespace raft {
  * @param op custom row operation functor accepting the row and beginning index.
  * @param stream cuda stream to use
  */
-            template <typename Index_, typename Lambda = auto(Index_, Index_, Index_)->void>
-            void csr_row_op(const Index_* row_ind, Index_ n_rows, Index_ nnz, Lambda op, cudaStream_t stream)
-            {
-                detail::csr_row_op<Index_, 128, Lambda>(row_ind, n_rows, nnz, op, stream);
-            }
+template <typename Index_, typename Lambda = auto(Index_, Index_, Index_)->void>
+void csr_row_op(const Index_* row_ind, Index_ n_rows, Index_ nnz, Lambda op, cudaStream_t stream)
+{
+  detail::csr_row_op<Index_, 128, Lambda>(row_ind, n_rows, nnz, op, stream);
+}
 
-        };  // namespace op
-    };  // end NAMESPACE sparse
+};  // namespace op
+};  // end NAMESPACE sparse
 };  // end NAMESPACE raft
 
 #endif
