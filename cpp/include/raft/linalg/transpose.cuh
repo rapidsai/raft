@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef __TRANSPOSE_H
+#define __TRANSPOSE_H
 
 #pragma once
 
@@ -55,3 +57,5 @@ void transpose(math_t* inout, int n, cudaStream_t stream)
 
 };  // end namespace linalg
 };  // end namespace raft
+
+#endif

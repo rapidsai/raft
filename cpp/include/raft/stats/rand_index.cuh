@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef __RAND_INDEX_H
+#define __RAND_INDEX_H
 
 #pragma once
 
@@ -37,3 +39,5 @@ double rand_index(T* firstClusterArray, T* secondClusterArray, uint64_t size, cu
 
 };  // end namespace stats
 };  // end namespace raft
+
+#endif

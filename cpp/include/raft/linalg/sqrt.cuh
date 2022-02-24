@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef __SQRT_H
+#define __SQRT_H
 
 #pragma once
 
@@ -42,3 +44,5 @@ void sqrt(math_t* out, const math_t* in, IdxType len, cudaStream_t stream)
 
 };  // end namespace linalg
 };  // end namespace raft
+
+#endif

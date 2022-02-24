@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef __MAP_THEN_REDUCE_H
+#define __MAP_THEN_REDUCE_H
 
 #pragma once
 
@@ -85,3 +87,5 @@ void mapThenReduce(OutType* out,
 }
 };  // end namespace linalg
 };  // end namespace raft
+
+#endif

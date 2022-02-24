@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef __QR_H
+#define __QR_H
 
 #pragma once
 
@@ -72,3 +74,5 @@ void qrGetQR(const raft::handle_t& handle,
 
 };  // namespace linalg
 };  // namespace raft
+
+#endif

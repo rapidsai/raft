@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef __SPARSE_ADD_H
+#define __SPARSE_ADD_H
 
 #pragma once
 
@@ -93,3 +95,5 @@ void csr_add_finalize(const int* a_ind,
 };  // end NAMESPACE linalg
 };  // end NAMESPACE sparse
 };  // end NAMESPACE raft
+
+#endif

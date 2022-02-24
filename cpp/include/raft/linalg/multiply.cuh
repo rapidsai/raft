@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef __MULTIPLY_H
+#define __MULTIPLY_H
 
 #pragma once
 
@@ -41,3 +43,5 @@ void multiplyScalar(math_t* out, const math_t* in, math_t scalar, IdxType len, c
 
 };  // end namespace linalg
 };  // end namespace raft
+
+#endif

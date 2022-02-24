@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef __DIVIDE_H
+#define __DIVIDE_H
 
 #pragma once
 
@@ -43,3 +45,5 @@ void divideScalar(math_t* out, const math_t* in, math_t scalar, IdxType len, cud
 
 };  // end namespace linalg
 };  // end namespace raft
+
+#endif

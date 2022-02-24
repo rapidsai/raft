@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef __SILHOUETTE_SCORE_H
+#define __SILHOUETTE_SCORE_H
 
 #pragma once
 
@@ -73,3 +75,5 @@ value_t silhouette_score_batched(
 
 };  // namespace stats
 };  // namespace raft
+
+#endif

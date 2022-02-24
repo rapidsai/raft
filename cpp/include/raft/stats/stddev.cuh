@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef __STDDEV_H
+#define __STDDEV_H
 
 #pragma once
 
@@ -87,3 +89,5 @@ void vars(Type* var,
 
 };  // namespace stats
 };  // namespace raft
+
+#endif

@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+#ifndef __ANN_H
+#define __ANN_H
+
 #pragma once
 
 #include "ann_common.h"
@@ -80,3 +83,5 @@ inline void approx_knn_search(raft::handle_t& handle,
 }  // namespace knn
 }  // namespace spatial
 }  // namespace raft
+
+#endif

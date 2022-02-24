@@ -14,8 +14,13 @@
  * limitations under the License.
  */
 
+#ifndef __KNN_SPECIALIZATIONS_H
+#define __KNN_SPECIALIZATIONS_H
+
 #pragma once
 
 #include <raft/spatial/knn/specializations/ball_cover.cuh>
 #include <raft/spatial/knn/specializations/fused_l2_knn.cuh>
 #include <raft/spatial/knn/specializations/knn.cuh>
+
+#endif

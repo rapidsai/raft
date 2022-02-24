@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+#ifndef __MUTUAL_INFO_SCORE_H
+#define __MUTUAL_INFO_SCORE_H
+
 #pragma once
 
 #include <raft/stats/detail/mutual_info_score.cuh>
@@ -44,3 +48,5 @@ double mutual_info_score(const T* firstClusterArray,
 
 };  // end namespace stats
 };  // end namespace raft
+
+#endif

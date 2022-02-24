@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef __INIT_H
+#define __INIT_H
 
 #pragma once
 
@@ -54,3 +56,5 @@ void range(T* out, int n, cudaStream_t stream)
 
 }  // namespace linalg
 }  // namespace raft
+
+#endif

@@ -18,6 +18,9 @@
  * https://github.com/scikit-learn/scikit-learn/blob/master/sklearn/datasets/_samples_generator.py
  */
 
+#ifndef __MAKE_REGRESSION_H
+#define __MAKE_REGRESSION_H
+
 #pragma once
 
 #include <algorithm>
@@ -98,3 +101,5 @@ void make_regression(const raft::handle_t& handle,
 }
 
 }  // namespace raft::random
+
+#endif

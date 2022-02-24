@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+#ifndef __ENTROPY_H
+#define __ENTROPY_H
+
 #pragma once
 #include <raft/stats/detail/entropy.cuh>
 
@@ -43,3 +46,5 @@ double entropy(const T* clusterArray,
 
 };  // end namespace stats
 };  // end namespace raft
+
+#endif

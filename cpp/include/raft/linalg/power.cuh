@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef __POWER_H
+#define __POWER_H
 
 #pragma once
 
@@ -63,3 +65,5 @@ void power(math_t* out, const math_t* in1, const math_t* in2, IdxType len, cudaS
 
 };  // end namespace linalg
 };  // end namespace raft
+
+#endif

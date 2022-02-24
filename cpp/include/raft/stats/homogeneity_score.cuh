@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+#ifndef __HOMOGENEITY_SCORE_H
+#define __HOMOGENEITY_SCORE_H
+
 #pragma once
 
 #include <raft/stats/detail/homogeneity_score.cuh>
@@ -46,3 +49,5 @@ double homogeneity_score(const T* truthClusterArray,
 
 };  // end namespace stats
 };  // end namespace raft
+
+#endif

@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+#ifndef __COV_H
+#define __COV_H
+
 #pragma once
 
 #include <raft/stats/detail/cov.cuh>
@@ -56,3 +59,5 @@ void cov(const raft::handle_t& handle,
 }
 };  // end namespace stats
 };  // end namespace raft
+
+#endif

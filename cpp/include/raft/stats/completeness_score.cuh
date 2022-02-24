@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+#ifndef __COMPLETENESS_SCORE_H
+#define __COMPLETENESS_SCORE_H
+
 #pragma once
 
 #include <raft/stats/detail/completeness_score.cuh>
@@ -45,3 +48,5 @@ double completeness_score(const T* truthClusterArray,
 
 };  // end namespace stats
 };  // end namespace raft
+
+#endif

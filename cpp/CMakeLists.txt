@@ -48,6 +48,7 @@ option(DETECT_CONDA_ENV "Enable detection of conda environment for dependencies"
 option(DISABLE_DEPRECATION_WARNINGS "Disable depreaction warnings " ON)
 option(DISABLE_OPENMP "Disable OpenMP" OFF)
 option(NVTX "Enable nvtx markers" OFF)
+option(RAFT_STATIC_LINK_LIBRARIES "Statically link compiled libraft libraries")
 
 option(RAFT_COMPILE_LIBRARIES "Enable building raft shared library instantiations" ON)
 option(RAFT_COMPILE_NN_LIBRARY "Enable building raft nearest neighbors shared library instantiations" OFF)
@@ -156,6 +157,11 @@ SECTIONS
 }
 ]=])
 endif()
+
+set(RAFT_LIB_TYPE SHARED)
+if(${RAFT_STATIC_LINK_LIBRARIES})
+  set(RAFT_LIB_TYPE STATIC)
+endif()
 ##############################################################################
 # - raft_distance ------------------------------------------------------------
 add_library(raft_distance INTERFACE)
@@ -167,7 +173,7 @@ endif()
 set_target_properties(raft_distance PROPERTIES EXPORT_NAME distance)
 
 if(RAFT_COMPILE_LIBRARIES OR RAFT_COMPILE_DIST_LIBRARY)
-  add_library(raft_distance_lib SHARED
+  add_library(raft_distance_lib ${RAFT_LIB_TYPE}
     src/distance/specializations/detail
     src/distance/specializations/detail/canberra.cu
     src/distance/specializations/detail/chebyshev.cu
@@ -231,9 +237,12 @@ endif()
 set_target_properties(raft_nn PROPERTIES EXPORT_NAME nn)
 
 if(RAFT_COMPILE_LIBRARIES OR RAFT_COMPILE_NN_LIBRARY)
-  add_library(raft_nn_lib SHARED
+  add_library(raft_nn_lib ${RAFT_LIB_TYPE}
     src/nn/specializations/ball_cover.cu
-    src/nn/specializations/detail/ball_cover_lowdim.cu
+    src/nn/specializations/detail/ball_cover_lowdim_pass_one_2d.cu
+    src/nn/specializations/detail/ball_cover_lowdim_pass_two_2d.cu
+    src/nn/specializations/detail/ball_cover_lowdim_pass_one_3d.cu
+    src/nn/specializations/detail/ball_cover_lowdim_pass_two_3d.cu
     src/nn/specializations/fused_l2_knn_long_float_true.cu
     src/nn/specializations/fused_l2_knn_long_float_false.cu
     src/nn/specializations/fused_l2_knn_int_float_true.cu

@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef __SPARSE_KNN_H
+#define __SPARSE_KNN_H
 
 #pragma once
 
@@ -96,3 +98,5 @@ void brute_force_knn(const value_idx* idxIndptr,
 };  // namespace selection
 };  // namespace sparse
 };  // namespace raft
+
+#endif

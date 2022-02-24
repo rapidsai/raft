@@ -23,6 +23,10 @@
  *  - AICc: https://en.wikipedia.org/wiki/Akaike_information_criterion#AICc
  *  - BIC: https://en.wikipedia.org/wiki/Bayesian_information_criterion
  */
+
+#ifndef __INFORMATION_CRIT_H
+#define __INFORMATION_CRIT_H
+
 #pragma once
 
 #include <raft/stats/common.hpp>
@@ -61,3 +65,4 @@ void information_criterion_batched(ScalarT* d_ic,
 
 }  // namespace stats
 }  // namespace raft
+#endif

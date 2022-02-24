@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+#ifndef __HISTOGRAM_H
+#define __HISTOGRAM_H
+
 #pragma once
 
 #include <raft/stats/common.hpp>
@@ -60,3 +63,5 @@ void histogram(HistType type,
 
 };  // end namespace stats
 };  // end namespace raft
+
+#endif

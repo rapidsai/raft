@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef __SLICE_H
+#define __SLICE_H
 
 #pragma once
 
@@ -75,3 +77,5 @@ void csr_row_slice_populate(value_idx start_offset,
 };  // namespace op
 };  // end NAMESPACE sparse
 };  // end NAMESPACE raft
+
+#endif

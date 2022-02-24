@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef __DENSE_H
+#define __DENSE_H
 
 #pragma once
 
@@ -61,3 +63,5 @@ void csr_to_dense(cusparseHandle_t handle,
 };  // end NAMESPACE convert
 };  // end NAMESPACE sparse
 };  // end NAMESPACE raft
+
+#endif

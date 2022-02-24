@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef __AXPY_H
+#define __AXPY_H
 
 #pragma once
 
@@ -49,3 +51,5 @@ void axpy(const raft::handle_t& handle,
 }
 
 }  // namespace raft::linalg
+
+#endif

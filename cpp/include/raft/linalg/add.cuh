@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef __ADD_H
+#define __ADD_H
 
 #pragma once
 
@@ -84,3 +86,5 @@ void addDevScalar(math_t* outDev,
 
 };  // end namespace linalg
 };  // end namespace raft
+
+#endif

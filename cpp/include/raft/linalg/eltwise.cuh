@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef __ELTWISE_H
+#define __ELTWISE_H
 
 #pragma once
 
@@ -100,3 +102,5 @@ void eltwiseDivideCheckZero(
 
 };  // end namespace linalg
 };  // end namespace raft
+
+#endif

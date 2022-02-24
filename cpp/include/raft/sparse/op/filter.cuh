@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef __FILTER_H
+#define __FILTER_H
 
 #pragma once
 
@@ -88,3 +90,5 @@ void coo_remove_zeros(COO<T>* in, COO<T>* out, cudaStream_t stream)
 };  // namespace op
 };  // end NAMESPACE sparse
 };  // end NAMESPACE raft
+
+#endif

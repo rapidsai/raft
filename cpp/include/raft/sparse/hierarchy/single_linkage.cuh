@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef __SINGLE_LINKAGE_H
+#define __SINGLE_LINKAGE_H
 
 #pragma once
 
@@ -59,3 +61,5 @@ void single_linkage(const raft::handle_t& handle,
 }
 };  // namespace hierarchy
 };  // namespace raft
+
+#endif

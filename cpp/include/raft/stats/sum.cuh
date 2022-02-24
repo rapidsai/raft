@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+#ifndef __SUM_H
+#define __SUM_H
+
 #pragma once
 
 #include "detail/sum.cuh"
@@ -45,3 +48,5 @@ void sum(Type* output, const Type* input, IdxType D, IdxType N, bool rowMajor, c
 
 };  // end namespace stats
 };  // end namespace raft
+
+#endif

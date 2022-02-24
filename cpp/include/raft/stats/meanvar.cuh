@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef __MEANVAR_H
+#define __MEANVAR_H
 
 #pragma once
 
@@ -54,3 +56,5 @@ void meanvar(Type* mean,
 }
 
 };  // namespace raft::stats
+
+#endif

@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+#ifndef __MEAN_H
+#define __MEAN_H
+
 #pragma once
 
 #include "detail/mean.cuh"
@@ -49,3 +52,5 @@ void mean(
 
 };  // namespace stats
 };  // namespace raft
+
+#endif

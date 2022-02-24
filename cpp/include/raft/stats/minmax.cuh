@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef __MINMAX_H
+#define __MINMAX_H
 
 #pragma once
 
@@ -68,3 +70,4 @@ void minmax(const T* data,
 
 };  // namespace stats
 };  // namespace raft
+#endif

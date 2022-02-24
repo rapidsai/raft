@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+#ifndef __MAKE_BLOBS_H
+#define __MAKE_BLOBS_H
+
 #pragma once
 
 #include "detail/make_blobs.cuh"
@@ -89,3 +92,5 @@ void make_blobs(DataT* out,
 }
 
 }  // end namespace raft::random
+
+#endif

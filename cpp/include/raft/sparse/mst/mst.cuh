@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef __MST_H
+#define __MST_H
 
 #pragma once
 
@@ -51,3 +53,5 @@ raft::Graph_COO<vertex_t, edge_t, weight_t> mst(const raft::handle_t& handle,
 
 }  // namespace mst
 }  // namespace raft
+
+#endif

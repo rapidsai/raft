@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef __RSVD_H
+#define __RSVD_H
 
 #pragma once
 
@@ -137,3 +139,5 @@ void rsvdPerc(const raft::handle_t& handle,
 
 };  // end namespace linalg
 };  // end namespace raft
+
+#endif

@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+#ifndef __MATH_H
+#define __MATH_H
+
 #pragma once
 
 #include "detail/math.cuh"
@@ -461,3 +464,5 @@ void matrixVectorBinarySub(Type* data,
 
 };  // end namespace matrix
 };  // end namespace raft
+
+#endif

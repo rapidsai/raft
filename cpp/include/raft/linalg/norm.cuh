@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef __NORM_H
+#define __NORM_H
 
 #pragma once
 
@@ -88,3 +90,5 @@ void colNorm(Type* dots,
 
 };  // end namespace linalg
 };  // end namespace raft
+
+#endif

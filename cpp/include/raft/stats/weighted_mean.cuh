@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+#ifndef __WEIGHTED_MEAN_H
+#define __WEIGHTED_MEAN_H
+
 #pragma once
 
 #include <raft/stats/detail/weighted_mean.cuh>
@@ -58,3 +61,5 @@ void colWeightedMean(
 }
 };  // end namespace stats
 };  // end namespace raft
+
+#endif

@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef __MAP_H
+#define __MAP_H
 
 #pragma once
 
@@ -48,3 +50,5 @@ void map(OutType* out, size_t len, MapOp map, cudaStream_t stream, const InType*
 
 }  // namespace linalg
 };  // namespace raft
+
+#endif

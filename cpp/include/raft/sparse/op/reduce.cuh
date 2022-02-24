@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef __SPARSE_REDUCE_H
+#define __SPARSE_REDUCE_H
 
 #pragma once
 
@@ -81,3 +83,5 @@ void max_duplicates(const raft::handle_t& handle,
 };  // END namespace op
 };  // END namespace sparse
 };  // END namespace raft
+
+#endif

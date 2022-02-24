@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef __LANCZOS_H
+#define __LANCZOS_H
 
 #pragma once
 
@@ -156,3 +158,5 @@ int computeLargestEigenvectors(
 
 }  // namespace linalg
 }  // namespace raft
+
+#endif

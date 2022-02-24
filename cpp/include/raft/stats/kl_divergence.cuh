@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+#ifndef __KL_DIVERGENCE_H
+#define __KL_DIVERGENCE_H
+
 #pragma once
 
 #include <raft/stats/detail/kl_divergence.cuh>
@@ -39,3 +43,5 @@ DataT kl_divergence(const DataT* modelPDF, const DataT* candidatePDF, int size, 
 
 };  // end namespace stats
 };  // end namespace raft
+
+#endif

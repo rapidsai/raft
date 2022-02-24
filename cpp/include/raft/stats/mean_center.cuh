@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+#ifndef __MEAN_CENTER_H
+#define __MEAN_CENTER_H
+
 #pragma once
 
 #include "detail/mean_center.cuh"
@@ -77,3 +80,5 @@ void meanAdd(Type* out,
 
 };  // end namespace stats
 };  // end namespace raft
+
+#endif

@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef __UNARY_OP_H
+#define __UNARY_OP_H
 
 #pragma once
 
@@ -71,3 +73,5 @@ void writeOnlyUnaryOp(OutType* out, IdxType len, Lambda op, cudaStream_t stream)
 
 };  // end namespace linalg
 };  // end namespace raft
+
+#endif

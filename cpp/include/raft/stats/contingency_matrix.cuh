@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+#ifndef __CONTINGENCY_MATRIX_H
+#define __CONTINGENCY_MATRIX_H
+
 #pragma once
 
 #include <raft/stats/detail/contingencyMatrix.cuh>
@@ -99,3 +102,5 @@ void contingencyMatrix(const T* groundTruth,
 
 };  // namespace stats
 };  // namespace raft
+
+#endif

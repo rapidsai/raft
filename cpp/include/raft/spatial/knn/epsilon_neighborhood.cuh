@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+#ifndef __EPSILON_NEIGH_H
+#define __EPSILON_NEIGH_H
+
 #pragma once
 
 #include <raft/spatial/knn/detail/epsilon_neighborhood.cuh>
@@ -57,3 +60,5 @@ void epsUnexpL2SqNeighborhood(bool* adj,
 }  // namespace knn
 }  // namespace spatial
 }  // namespace raft
+
+#endif

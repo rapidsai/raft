@@ -133,9 +133,6 @@ fi
 if hasArg --buildfaiss; then
     BUILD_STATIC_FAISS=ON
 fi
-if hasArg --singlegpu; then
-    SINGLEGPU="--singlegpu"
-fi
 if hasArg --nvtx; then
     NVTX=ON
 fi

@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef __SYMMETRIZE_H
+#define __SYMMETRIZE_H
 
 #pragma once
 
@@ -162,3 +164,5 @@ void symmetrize(const raft::handle_t& handle,
 };  // end NAMESPACE linalg
 };  // end NAMESPACE sparse
 };  // end NAMESPACE raft
+
+#endif

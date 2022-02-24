@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+#ifndef __SPARSE_DIST_H
+#define __SPARSE_DIST_H
+
 #pragma once
 
 #include <raft/sparse/distance/common.h>
@@ -130,3 +133,5 @@ void pairwiseDistance(value_t* out,
 };  // namespace distance
 };  // namespace sparse
 };  // namespace raft
+
+#endif

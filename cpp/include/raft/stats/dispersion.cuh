@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+#ifndef __DISPERSION_H
+#define __DISPERSION_H
+
 #pragma once
 
 #include <raft/stats/detail/dispersion.cuh>
@@ -54,3 +57,5 @@ DataT dispersion(const DataT* centroids,
 
 }  // end namespace stats
 }  // end namespace raft
+
+#endif

@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+#ifndef __TRUSTWORTHINESS_SCORE_H
+#define __TRUSTWORTHINESS_SCORE_H
+
 #pragma once
 #include <raft/stats/detail/trustworthiness_score.cuh>
 
@@ -47,3 +50,5 @@ double trustworthiness_score(const raft::handle_t& h,
 }
 }  // namespace stats
 }  // namespace raft
+
+#endif

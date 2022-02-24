@@ -19,6 +19,8 @@
  * Such a correction for chance establishes a baseline by using the expected similarity
  * of all pair-wise comparisons between clusterings specified by a random model.
  */
+#ifndef __ADJUSTED_RAND_INDEX_H
+#define __ADJUSTED_RAND_INDEX_H
 
 #pragma once
 
@@ -48,3 +50,5 @@ double adjusted_rand_index(const T* firstClusterArray,
 
 };  // end namespace stats
 };  // end namespace raft
+
+#endif

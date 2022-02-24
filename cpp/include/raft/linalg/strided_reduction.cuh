@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+#ifndef __STRIDED_REDUCTION_H
+#define __STRIDED_REDUCTION_H
+
 #pragma once
 
 #include "detail/strided_reduction.cuh"
@@ -70,3 +73,5 @@ void stridedReduction(OutType* dots,
 
 };  // end namespace linalg
 };  // end namespace raft
+
+#endif

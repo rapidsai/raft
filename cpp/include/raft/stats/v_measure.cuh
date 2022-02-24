@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+#ifndef __V_MEASURE_H
+#define __V_MEASURE_H
+
 #pragma once
 #include <raft/stats/detail/v_measure.cuh>
 
@@ -45,3 +49,5 @@ double v_measure(const T* truthClusterArray,
 
 };  // end namespace stats
 };  // end namespace raft
+
+#endif

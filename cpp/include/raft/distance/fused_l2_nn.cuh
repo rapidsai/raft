@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+#ifndef __FUSED_L2_NN_H
+#define __FUSED_L2_NN_H
+
 #pragma once
 
 #include <cub/cub.cuh>
@@ -111,3 +114,5 @@ void fusedL2NN(OutT* min,
 
 }  // namespace distance
 }  // namespace raft
+
+#endif

@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+#ifndef __MATRIX_H
+#define __MATRIX_H
+
 #pragma once
 
 #include "detail/linewise_op.cuh"
@@ -271,3 +274,5 @@ void linewiseOp(m_t* out,
 
 };  // end namespace matrix
 };  // end namespace raft
+
+#endif

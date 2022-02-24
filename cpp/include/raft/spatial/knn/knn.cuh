@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+#ifndef __KNN_H
+#define __KNN_H
+
 #pragma once
 
 #include "detail/knn_brute_force_faiss.cuh"
@@ -155,3 +158,5 @@ void brute_force_knn(raft::handle_t const& handle,
 }  // namespace knn
 }  // namespace spatial
 }  // namespace raft
+
+#endif

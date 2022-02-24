@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef __CSR_H
+#define __CSR_H
 
 #pragma once
 
@@ -136,3 +138,5 @@ void sorted_coo_to_csr(COO<T>* coo, int* row_ind, cudaStream_t stream)
 };  // end NAMESPACE convert
 };  // end NAMESPACE sparse
 };  // end NAMESPACE raft
+
+#endif

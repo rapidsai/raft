@@ -13,8 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef __STATS_SPECIALIZATIONS_H
+#define __STATS_SPECIALIZATIONS_H
 
 #pragma once
 
 #include <raft/distance/specializations.cuh>
 #include <raft/spatial/knn/specializations.cuh>
+
+#endif

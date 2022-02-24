@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+#ifndef __STATS_ACCURACY_H
+#define __STATS_ACCURACY_H
+
 #pragma once
 
 #include <raft/stats/detail/scores.cuh>
@@ -38,3 +41,5 @@ float accuracy(const math_t* predictions, const math_t* ref_predictions, int n, 
 
 }  // namespace stats
 }  // namespace raft
+
+#endif

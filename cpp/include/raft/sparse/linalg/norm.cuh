@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef __SPARSE_NORM_H
+#define __SPARSE_NORM_H
 
 #pragma once
 
@@ -67,3 +69,5 @@ void csr_row_normalize_max(const int* ia,  // csr row ind array (sorted by row)
 };  // end NAMESPACE linalg
 };  // end NAMESPACE sparse
 };  // end NAMESPACE raft
+
+#endif

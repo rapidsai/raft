@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef __KNN_GRAPH_H
+#define __KNN_GRAPH_H
 
 #pragma once
 
@@ -57,3 +59,5 @@ void knn_graph(const handle_t& handle,
 };  // namespace selection
 };  // namespace sparse
 };  // end namespace raft
+
+#endif

@@ -14,6 +14,11 @@
  * limitations under the License.
  */
 
+#ifndef __DISTANCE_SPECIALIZATIONS_H
+#define __DISTANCE_SPECIALIZATIONS_H
+
 #pragma once
 
 #include <raft/distance/specializations/distance.cuh>
+
+#endif

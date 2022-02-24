@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef __MODULARITY_MAXIMIZATION_H
+#define __MODULARITY_MAXIMIZATION_H
 
 #pragma once
 
@@ -86,3 +88,5 @@ void analyzeModularity(handle_t const& handle,
 
 }  // namespace spectral
 }  // namespace raft
+
+#endif

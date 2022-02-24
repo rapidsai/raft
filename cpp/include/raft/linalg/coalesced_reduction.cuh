@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef __COALESCED_REDUCTION_H
+#define __COALESCED_REDUCTION_H
 
 #pragma once
 
@@ -70,3 +72,5 @@ void coalescedReduction(OutType* dots,
 
 };  // end namespace linalg
 };  // end namespace raft
+
+#endif

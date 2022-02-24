@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef __SPARSE_SPECTRAL_H
+#define __SPARSE_SPECTRAL_H
 
 #include <raft/handle.hpp>
 #include <raft/sparse/linalg/detail/spectral.cuh>
@@ -37,3 +39,5 @@ void fit_embedding(const raft::handle_t& handle,
 };  // namespace spectral
 };  // namespace sparse
 };  // namespace raft
+
+#endif

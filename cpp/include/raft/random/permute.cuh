@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+#ifndef __PERMUTE_H
+#define __PERMUTE_H
+
 #pragma once
 
 #include "detail/permute.cuh"
@@ -56,3 +59,5 @@ void permute(IntType* perms,
 }
 
 };  // end namespace raft::random
+
+#endif

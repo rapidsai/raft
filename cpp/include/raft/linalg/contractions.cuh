@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef __CONTRACTIONS_H
+#define __CONTRACTIONS_H
 
 #pragma once
 
@@ -205,3 +207,5 @@ using detail::Contractions_NT;
 
 }  // namespace linalg
 }  // namespace raft
+
+#endif

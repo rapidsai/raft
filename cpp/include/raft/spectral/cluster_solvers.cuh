@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+#ifndef __CLUSTER_SOLVERS_H
+#define __CLUSTER_SOLVERS_H
+
 #pragma once
 
 #include <raft/cluster/kmeans.cuh>
@@ -76,3 +80,5 @@ struct kmeans_solver_t {
 
 }  // namespace spectral
 }  // namespace raft
+
+#endif

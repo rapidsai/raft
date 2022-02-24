@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef __SPARSE_DEGREE_H
+#define __SPARSE_DEGREE_H
 
 #pragma once
 
@@ -117,3 +119,5 @@ void coo_degree_nz(COO<T>* in, int* results, cudaStream_t stream)
 };  // end NAMESPACE linalg
 };  // end NAMESPACE sparse
 };  // end NAMESPACE raft
+
+#endif

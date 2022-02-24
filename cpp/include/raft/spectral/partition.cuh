@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+#ifndef __PARTITION_H
+#define __PARTITION_H
+
 #pragma once
 
 #include <tuple>
@@ -94,3 +98,5 @@ void analyzePartition(handle_t const& handle,
 
 }  // namespace spectral
 }  // namespace raft
+
+#endif

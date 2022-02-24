@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+#ifndef __BALL_COVER_H
+#define __BALL_COVER_H
+
 #pragma once
 
 #include <cstdint>
@@ -185,3 +188,5 @@ void rbc_knn_query(const raft::handle_t& handle,
 }  // namespace knn
 }  // namespace spatial
 }  // namespace raft
+
+#endif

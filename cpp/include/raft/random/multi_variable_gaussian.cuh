@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+#ifndef __MVG_H
+#define __MVG_H
+
 #pragma once
 
 #include "detail/multi_variable_gaussian.cuh"
@@ -57,3 +60,5 @@ class multi_variable_gaussian : public detail::multi_variable_gaussian_impl<T> {
 };  // end of multi_variable_gaussian
 
 };  // end of namespace raft::random
+
+#endif

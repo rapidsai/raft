@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+#ifndef __RNG_H
+#define __RNG_H
+
 #pragma once
 
 #include "detail/rng_impl.cuh"
@@ -373,3 +376,5 @@ class Rng : public detail::RngImpl {
 
 };  // end namespace random
 };  // end namespace raft
+
+#endif

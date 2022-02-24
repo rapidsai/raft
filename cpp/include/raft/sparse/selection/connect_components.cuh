@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef __CONNECT_COMPONENTS_H
+#define __CONNECT_COMPONENTS_H
 
 #include <raft/handle.hpp>
 #include <raft/sparse/coo.hpp>
@@ -76,3 +78,5 @@ void connect_components(
 
 };  // end namespace linkage
 };  // end namespace raft
+
+#endif

@@ -45,6 +45,7 @@
 #include <thrust/functional.h>
 #include <thrust/reduce.h>
 #include <thrust/sequence.h>
+#include <thrust/sort.h>
 
 namespace raft {
 namespace spatial {
@@ -247,33 +248,65 @@ void perform_rbc_query(const raft::handle_t& handle,
                dists + (k * n_query_pts),
                std::numeric_limits<value_t>::max());
 
-  // Compute nearest k for each neighborhood in each closest R
-  rbc_low_dim_pass_one(handle,
-                       index,
-                       query,
-                       n_query_pts,
-                       k,
-                       R_knn_inds,
-                       R_knn_dists,
-                       dfunc,
-                       inds,
-                       dists,
-                       weight,
-                       dists_counter);
+  if (index.n == 2) {
+    // Compute nearest k for each neighborhood in each closest R
+    rbc_low_dim_pass_one<value_idx, value_t, value_int, 2>(handle,
+                                                           index,
+                                                           query,
+                                                           n_query_pts,
+                                                           k,
+                                                           R_knn_inds,
+                                                           R_knn_dists,
+                                                           dfunc,
+                                                           inds,
+                                                           dists,
+                                                           weight,
+                                                           dists_counter);
 
-  if (perform_post_filtering) {
-    rbc_low_dim_pass_two(handle,
-                         index,
-                         query,
-                         n_query_pts,
-                         k,
-                         R_knn_inds,
-                         R_knn_dists,
-                         dfunc,
-                         inds,
-                         dists,
-                         weight,
-                         post_dists_counter);
+    if (perform_post_filtering) {
+      rbc_low_dim_pass_two<value_idx, value_t, value_int, 2>(handle,
+                                                             index,
+                                                             query,
+                                                             n_query_pts,
+                                                             k,
+                                                             R_knn_inds,
+                                                             R_knn_dists,
+                                                             dfunc,
+                                                             inds,
+                                                             dists,
+                                                             weight,
+                                                             post_dists_counter);
+    }
+
+  } else if (index.n == 3) {
+    // Compute nearest k for each neighborhood in each closest R
+    rbc_low_dim_pass_one<value_idx, value_t, value_int, 3>(handle,
+                                                           index,
+                                                           query,
+                                                           n_query_pts,
+                                                           k,
+                                                           R_knn_inds,
+                                                           R_knn_dists,
+                                                           dfunc,
+                                                           inds,
+                                                           dists,
+                                                           weight,
+                                                           dists_counter);
+
+    if (perform_post_filtering) {
+      rbc_low_dim_pass_two<value_idx, value_t, value_int, 3>(handle,
+                                                             index,
+                                                             query,
+                                                             n_query_pts,
+                                                             k,
+                                                             R_knn_inds,
+                                                             R_knn_dists,
+                                                             dfunc,
+                                                             inds,
+                                                             dists,
+                                                             weight,
+                                                             post_dists_counter);
+    }
   }
 }
 
@@ -296,7 +329,7 @@ void rbc_build_index(const raft::handle_t& handle,
                      BallCoverIndex<value_idx, value_t, value_int>& index,
                      distance_func dfunc)
 {
-  ASSERT(index.n == 2, "only 2d vectors are supported in current implementation");
+  ASSERT(index.n <= 3, "only 2d and 3d vectors are supported in current implementation");
   ASSERT(!index.is_index_trained(), "index cannot be previously trained");
 
   rmm::device_uvector<value_idx> R_knn_inds(index.m, handle.get_stream());
@@ -356,7 +389,7 @@ void rbc_all_knn_query(const raft::handle_t& handle,
                        bool perform_post_filtering = true,
                        float weight                = 1.0)
 {
-  ASSERT(index.n == 2, "only 2d vectors are supported in current implementation");
+  ASSERT(index.n <= 3, "only 2d and 3d vectors are supported in current implementation");
   ASSERT(index.n_landmarks >= k, "number of landmark samples must be >= k");
   ASSERT(!index.is_index_trained(), "index cannot be previously trained");
 
@@ -422,7 +455,7 @@ void rbc_knn_query(const raft::handle_t& handle,
                    bool perform_post_filtering = true,
                    float weight                = 1.0)
 {
-  ASSERT(index.n == 2, "only 2d vectors are supported in current implementation");
+  ASSERT(index.n <= 3, "only 2d and 3d vectors are supported in current implementation");
   ASSERT(index.n_landmarks >= k, "number of landmark samples must be >= k");
   ASSERT(index.is_index_trained(), "index must be previously trained");
 

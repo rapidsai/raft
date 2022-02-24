@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef __COL_WISE_SORT_H
+#define __COL_WISE_SORT_H
 
 #pragma once
 
@@ -50,3 +52,5 @@ void sort_cols_per_row(const InType* in,
 }
 };  // end namespace matrix
 };  // end namespace raft
+
+#endif

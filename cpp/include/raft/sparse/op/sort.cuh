@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef __SPARSE_SORT_H
+#define __SPARSE_SORT_H
 
 #pragma once
 
@@ -72,3 +74,5 @@ void coo_sort_by_weight(
 };  // namespace op
 };  // end NAMESPACE sparse
 };  // end NAMESPACE raft
+
+#endif

@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+#ifndef __R2_SCORE_H
+#define __R2_SCORE_H
+
 #pragma once
 
 #include <raft/stats/detail/scores.cuh>
@@ -44,3 +47,5 @@ math_t r2_score(math_t* y, math_t* y_hat, int n, cudaStream_t stream)
 
 }  // namespace stats
 }  // namespace raft
+
+#endif

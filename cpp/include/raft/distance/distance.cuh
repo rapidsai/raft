@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef __DISTANCE_H
+#define __DISTANCE_H
 
 #pragma once
 
@@ -319,3 +321,5 @@ void pairwise_distance(const raft::handle_t& handle,
 
 };  // namespace distance
 };  // namespace raft
+
+#endif

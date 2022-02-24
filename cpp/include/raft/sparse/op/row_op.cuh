@@ -13,7 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+#ifndef __SPARSE_ROW_OP_H
+#define __SPARSE_ROW_OP_H
 #pragma once
 
 #include <raft/handle.hpp>
@@ -43,3 +44,5 @@ void csr_row_op(const Index_* row_ind, Index_ n_rows, Index_ nnz, Lambda op, cud
 };  // namespace op
 };  // end NAMESPACE sparse
 };  // end NAMESPACE raft
+
+#endif

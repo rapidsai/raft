@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef __REDUCE_H
+#define __REDUCE_H
 
 #pragma once
 
@@ -75,3 +77,5 @@ void reduce(OutType* dots,
 
 };  // end namespace linalg
 };  // end namespace raft
+
+#endif

@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef __GEMV_H
+#define __GEMV_H
 
 #pragma once
 
@@ -206,3 +208,4 @@ void gemv(const raft::handle_t& handle,
 
 };  // namespace linalg
 };  // namespace raft
+#endif

@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+#ifndef __SUBTRACT_H
+#define __SUBTRACT_H
+
 #pragma once
 
 #include "detail/subtract.cuh"
@@ -83,3 +86,5 @@ void subtractDevScalar(math_t* outDev,
 
 };  // end namespace linalg
 };  // end namespace raft
+
+#endif

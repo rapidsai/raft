@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef __CHOLESKY_R1_UPDATE_H
+#define __CHOLESKY_R1_UPDATE_H
 
 #pragma once
 
@@ -132,3 +134,5 @@ void choleskyRank1Update(const raft::handle_t& handle,
 }
 };  // namespace linalg
 };  // namespace raft
+
+#endif
