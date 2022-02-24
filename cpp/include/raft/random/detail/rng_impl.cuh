@@ -221,8 +221,15 @@ DI void custom_next(
   GenType& gen, OutType* val, NormalDistParams<OutType> params, LenType idx = 0, LenType stride = 0)
 {
   OutType res1, res2;
-  gen.next(res1);
-  gen.next(res2);
+
+  do {
+    gen.next(res1);
+  } while (res1 == OutType(0.0));
+
+  do {
+    gen.next(res2);
+  } while (res2 == OutType(0.0));
+
   box_muller_transform<OutType>(res1, res2, params.sigma, params.mu);
   *val       = res1;
   *(val + 1) = res2;
@@ -467,8 +474,31 @@ struct PhiloxGenerator {
     return ret;
   }
 
-  DI void next(float& ret) { ret = curand_uniform(&(this->philox_state)); }
-  DI void next(double& ret) { ret = curand_uniform_double(&(this->philox_state)); }
+  DI float next_float()
+  {
+    float ret;
+    uint32_t val = next_u32() >> 8;
+    ret          = static_cast<float>(val) / (1U << 24);
+    return ret;
+  }
+
+  DI double next_double()
+  {
+    double ret;
+    uint64_t val = next_u64() >> 11;
+    ret          = static_cast<double>(val) / (1LU << 53);
+    return ret;
+  }
+
+  DI void next(float& ret) {
+    //ret = curand_uniform(&(this->philox_state));
+    ret = next_float();
+  }
+
+  DI void next(double& ret) {
+    // ret = curand_uniform_double(&(this->philox_state));
+    ret = next_double();
+  }
 
   DI void next(uint32_t& ret) { ret = next_u32(); }
   DI void next(uint64_t& ret) { ret = next_u64(); }
