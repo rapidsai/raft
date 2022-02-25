@@ -13,6 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
+
+#ifndef __ENTROPY_H
+#define __ENTROPY_H
 
 #pragma once
 #include <raft/stats/detail/entropy.cuh>
@@ -43,3 +50,5 @@ double entropy(const T* clusterArray,
 
 };  // end namespace stats
 };  // end namespace raft
+
+#endif

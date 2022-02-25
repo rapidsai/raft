@@ -13,10 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
+
+#ifndef __NORM_H
+#define __NORM_H
 
 #pragma once
 
-#include "detail/norm.hpp"
+#include "detail/norm.cuh"
 
 namespace raft {
 namespace linalg {
@@ -88,3 +95,5 @@ void colNorm(Type* dots,
 
 };  // end namespace linalg
 };  // end namespace raft
+
+#endif

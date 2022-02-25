@@ -14,6 +14,14 @@
  * limitations under the License.
  */
 
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
+
+#ifndef __MAKE_BLOBS_H
+#define __MAKE_BLOBS_H
+
 #pragma once
 
 #include "detail/make_blobs.cuh"
@@ -89,3 +97,5 @@ void make_blobs(DataT* out,
 }
 
 }  // end namespace raft::random
+
+#endif

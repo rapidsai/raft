@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,12 +22,12 @@
 #include <raft/distance/distance_type.hpp>
 #include <raft/sparse/detail/cusparse_wrappers.h>
 
-#include <raft/sparse/convert/coo.hpp>
+#include <raft/sparse/convert/coo.cuh>
 #include <raft/sparse/detail/utils.h>
 #include <raft/sparse/distance/common.h>
 #include <raft/sparse/distance/detail/coo_spmv.cuh>
 #include <raft/sparse/distance/detail/operators.cuh>
-#include <raft/sparse/linalg/transpose.hpp>
+#include <raft/sparse/linalg/transpose.cuh>
 #include <rmm/device_uvector.hpp>
 
 #include <nvfunctional>

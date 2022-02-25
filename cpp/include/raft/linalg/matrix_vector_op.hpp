@@ -13,6 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
+
+#ifndef __MATRIX_VECTOR_OP_H
+#define __MATRIX_VECTOR_OP_H
 
 #pragma once
 
@@ -99,3 +106,5 @@ void matrixVectorOp(Type* out,
 
 };  // end namespace linalg
 };  // end namespace raft
+
+#endif

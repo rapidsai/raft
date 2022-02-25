@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+#ifndef __TERNARY_OP_H
+#define __TERNARY_OP_H
+
 #pragma once
 
 #include <raft/linalg/detail/ternary_op.cuh>
@@ -48,3 +51,5 @@ void ternaryOp(math_t* out,
 
 };  // end namespace linalg
 };  // end namespace raft
+
+#endif

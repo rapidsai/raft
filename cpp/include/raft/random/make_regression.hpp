@@ -18,6 +18,14 @@
  * https://github.com/scikit-learn/scikit-learn/blob/master/sklearn/datasets/_samples_generator.py
  */
 
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
+
+#ifndef __MAKE_REGRESSION_H
+#define __MAKE_REGRESSION_H
+
 #pragma once
 
 #include <algorithm>
@@ -98,3 +106,5 @@ void make_regression(const raft::handle_t& handle,
 }
 
 }  // namespace raft::random
+
+#endif

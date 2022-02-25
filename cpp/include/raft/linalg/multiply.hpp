@@ -13,10 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
+
+#ifndef __MULTIPLY_H
+#define __MULTIPLY_H
 
 #pragma once
 
-#include "detail/multiply.hpp"
+#include "detail/multiply.cuh"
 
 namespace raft {
 namespace linalg {
@@ -41,3 +48,5 @@ void multiplyScalar(math_t* out, const math_t* in, math_t scalar, IdxType len, c
 
 };  // end namespace linalg
 };  // end namespace raft
+
+#endif

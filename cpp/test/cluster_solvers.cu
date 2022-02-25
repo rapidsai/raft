@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,8 +19,8 @@
 #include <memory>
 #include <raft/handle.hpp>
 
-#include <raft/spectral/cluster_solvers.hpp>
-#include <raft/spectral/modularity_maximization.hpp>
+#include <raft/spectral/cluster_solvers.cuh>
+#include <raft/spectral/modularity_maximization.cuh>
 
 namespace raft {
 namespace spectral {

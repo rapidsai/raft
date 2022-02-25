@@ -13,6 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
+
+#ifndef __QR_H
+#define __QR_H
 
 #pragma once
 
@@ -72,3 +79,5 @@ void qrGetQR(const raft::handle_t& handle,
 
 };  // namespace linalg
 };  // namespace raft
+
+#endif

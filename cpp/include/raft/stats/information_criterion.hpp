@@ -14,6 +14,14 @@
  * limitations under the License.
  */
 /**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
+
+#ifndef __INFORMATION_CRIT_H
+#define __INFORMATION_CRIT_H
+
+/**
  * @file information_criterion.hpp
  * @brief These information criteria are used to evaluate the quality of models
  *        by balancing the quality of the fit and the number of parameters.
@@ -61,3 +69,5 @@ void information_criterion_batched(ScalarT* d_ic,
 
 }  // namespace stats
 }  // namespace raft
+
+#endif

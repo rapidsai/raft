@@ -31,9 +31,9 @@
 
 #include <raft/cuda_utils.cuh>
 
-#include <raft/matrix/matrix.hpp>
-#include <raft/random/rng.hpp>
-#include <raft/sparse/convert/csr.hpp>
+#include <raft/matrix/matrix.cuh>
+#include <raft/random/rng.cuh>
+#include <raft/sparse/convert/csr.cuh>
 
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>

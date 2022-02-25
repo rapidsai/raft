@@ -13,10 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
+
+#ifndef __DIVIDE_H
+#define __DIVIDE_H
 
 #pragma once
 
-#include "detail/divide.hpp"
+#include "detail/divide.cuh"
 
 namespace raft {
 namespace linalg {
@@ -43,3 +50,5 @@ void divideScalar(math_t* out, const math_t* in, math_t scalar, IdxType len, cud
 
 };  // end namespace linalg
 };  // end namespace raft
+
+#endif

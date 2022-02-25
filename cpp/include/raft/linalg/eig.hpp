@@ -13,10 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
+
+#ifndef __EIG_H
+#define __EIG_H
 
 #pragma once
 
-#include "detail/eig.hpp"
+#include "detail/eig.cuh"
 
 namespace raft {
 namespace linalg {
@@ -114,3 +121,5 @@ void eigJacobi(const raft::handle_t& handle,
 
 };  // end namespace linalg
 };  // end namespace raft
+
+#endif

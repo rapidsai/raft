@@ -13,10 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
+
+#ifndef __ELTWISE_H
+#define __ELTWISE_H
 
 #pragma once
 
-#include "detail/eltwise.hpp"
+#include "detail/eltwise.cuh"
 
 namespace raft {
 namespace linalg {
@@ -100,3 +107,5 @@ void eltwiseDivideCheckZero(
 
 };  // end namespace linalg
 };  // end namespace raft
+
+#endif

@@ -20,7 +20,7 @@
 #include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
 #include <raft/linalg/rsvd.cuh>
-#include <raft/random/rng.hpp>
+#include <raft/random/rng.cuh>
 #include <rmm/device_uvector.hpp>
 
 #include <algorithm>
