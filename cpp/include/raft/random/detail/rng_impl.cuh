@@ -226,9 +226,7 @@ DI void custom_next(
     gen.next(res1);
   } while (res1 == OutType(0.0));
 
-  do {
-    gen.next(res2);
-  } while (res2 == OutType(0.0));
+  gen.next(res2);
 
   box_muller_transform<OutType>(res1, res2, params.sigma, params.mu);
   *val       = res1;
