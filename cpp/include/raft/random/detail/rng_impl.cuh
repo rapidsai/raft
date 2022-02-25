@@ -241,7 +241,11 @@ DI void custom_next(GenType& gen,
                     LenType stride = 0)
 {
   IntType res1_int, res2_int;
-  gen.next(res1_int);
+
+  do {
+    gen.next(res1_int);
+  } while (res1_int == 0);
+
   gen.next(res2_int);
   double res1  = static_cast<double>(res1_int);
   double res2  = static_cast<double>(res2_int);
@@ -260,7 +264,11 @@ DI void custom_next(GenType& gen,
                     LenType stride)
 {
   OutType res1, res2;
-  gen.next(res1);
+
+  do {
+    gen.next(res1);
+  } while (res1 == OutType(0.0));
+
   gen.next(res2);
   LenType col1  = idx % params.n_cols;
   LenType col2  = (idx + stride) % params.n_cols;
@@ -315,7 +323,10 @@ DI void custom_next(GenType& gen,
                     LenType stride = 0)
 {
   OutType res1 = 0, res2 = 0;
-  gen.next(res1);
+  do {
+    gen.next(res1);
+  } while (res1 == OutType(0.0));
+
   gen.next(res2);
   box_muller_transform<OutType>(res1, res2, params.sigma, params.mu);
   *val       = raft::myExp(res1);
