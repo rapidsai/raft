@@ -90,7 +90,7 @@ class RowWeightedMeanTest : public ::testing::TestWithParam<WeightedMeanInputs<T
     naiveRowWeightedMean(hexp.data(), hin.data(), hweights.data(), rows, cols, true);
     dexp = hexp;
 
-    // compute ml-prims result
+    // compute result
     rowWeightedMean(dact.data().get(), din.data().get(), dweights.data().get(), cols, rows, stream);
 
     // adjust tolerance to account for round-off accumulation
@@ -156,7 +156,7 @@ class ColWeightedMeanTest : public ::testing::TestWithParam<WeightedMeanInputs<T
     naiveColWeightedMean(hexp.data(), hin.data(), hweights.data(), rows, cols, true);
     dexp = hexp;
 
-    // compute ml-prims result
+    // compute result
     colWeightedMean(dact.data().get(), din.data().get(), dweights.data().get(), cols, rows, stream);
 
     // adjust tolerance to account for round-off accumulation
@@ -206,13 +206,13 @@ class WeightedMeanTest : public ::testing::TestWithParam<WeightedMeanInputs<T>> 
       naiveColWeightedMean(hexp.data(), hin.data(), hweights.data(), rows, cols, false);
     dexp = hexp;
 
-    // compute ml-prims result
+    // compute result
     weightedMean(dact.data().get(),
                  din.data().get(),
                  dweights.data().get(),
                  cols,
                  rows,
-                 false,
+                 false,  // row_major=true is already tested through col and row weighted mean
                  params.along_rows,
                  stream);
 
