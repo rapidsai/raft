@@ -45,6 +45,7 @@
 #include <thrust/functional.h>
 #include <thrust/reduce.h>
 #include <thrust/sequence.h>
+#include <thrust/sort.h>
 
 namespace raft {
 namespace spatial {
@@ -167,19 +168,20 @@ void k_closest_landmarks(const raft::handle_t& handle,
   std::vector<value_t*> input      = {index.get_R()};
   std::vector<std::uint32_t> sizes = {index.n_landmarks};
 
-  brute_force_knn_impl<std::uint32_t, std::int64_t>(handle,
-                                                    input,
-                                                    sizes,
-                                                    index.n,
-                                                    const_cast<value_t*>(query_pts),
-                                                    n_query_pts,
-                                                    R_knn_inds,
-                                                    R_knn_dists,
-                                                    k,
-                                                    true,
-                                                    true,
-                                                    nullptr,
-                                                    index.metric);
+  printf("n_query_pts: %d\n", n_query_pts);
+  brute_force_knn_impl<value_int, value_idx>(handle,
+                                             input,
+                                             sizes,
+                                             index.n,
+                                             const_cast<value_t*>(query_pts),
+                                             n_query_pts,
+                                             R_knn_inds,
+                                             R_knn_dists,
+                                             k,
+                                             true,
+                                             true,
+                                             nullptr,
+                                             index.metric);
 }
 
 /**
@@ -332,7 +334,6 @@ void rbc_build_index(const raft::handle_t& handle,
   ASSERT(!index.is_index_trained(), "index cannot be previously trained");
 
   rmm::device_uvector<value_idx> R_knn_inds(index.m, handle.get_stream());
-  rmm::device_uvector<value_t> R_knn_dists(index.m, handle.get_stream());
 
   // Initialize the uvectors
   thrust::fill(handle.get_thrust_policy(),
@@ -340,8 +341,8 @@ void rbc_build_index(const raft::handle_t& handle,
                R_knn_inds.end(),
                std::numeric_limits<value_idx>::max());
   thrust::fill(handle.get_thrust_policy(),
-               R_knn_dists.begin(),
-               R_knn_dists.end(),
+               index.get_R_closest_landmark_dists(),
+               index.get_R_closest_landmark_dists() + index.m,
                std::numeric_limits<value_t>::max());
 
   /**
@@ -353,8 +354,13 @@ void rbc_build_index(const raft::handle_t& handle,
    * 2. Perform knn = bfknn(X, R, k)
    */
   value_int k = 1;
-  k_closest_landmarks(
-    handle, index, index.get_X(), index.m, k, R_knn_inds.data(), R_knn_dists.data());
+  k_closest_landmarks(handle,
+                      index,
+                      index.get_X(),
+                      index.m,
+                      k,
+                      R_knn_inds.data(),
+                      index.get_R_closest_landmark_dists());
 
   /**
    * 3. Create L_r = knn[:,0].T (CSR)
@@ -362,7 +368,7 @@ void rbc_build_index(const raft::handle_t& handle,
    * Slice closest neighboring R
    * Secondary sort by (R_knn_inds, R_knn_dists)
    */
-  construct_landmark_1nn(handle, R_knn_inds.data(), R_knn_dists.data(), k, index);
+  construct_landmark_1nn(handle, R_knn_inds.data(), index.get_R_closest_landmark_dists(), k, index);
 
   /**
    * Compute radius of each R for filtering: p(q, r) <= p(q, q_r) + radius(r)
@@ -458,8 +464,8 @@ void rbc_knn_query(const raft::handle_t& handle,
   ASSERT(index.n_landmarks >= k, "number of landmark samples must be >= k");
   ASSERT(index.is_index_trained(), "index must be previously trained");
 
-  rmm::device_uvector<value_idx> R_knn_inds(k * index.m, handle.get_stream());
-  rmm::device_uvector<value_t> R_knn_dists(k * index.m, handle.get_stream());
+  rmm::device_uvector<value_idx> R_knn_inds(k * n_query_pts, handle.get_stream());
+  rmm::device_uvector<value_t> R_knn_dists(k * n_query_pts, handle.get_stream());
 
   // Initialize the uvectors
   thrust::fill(handle.get_thrust_policy(),
