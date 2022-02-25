@@ -149,8 +149,15 @@ class BallCoverKNNQueryTest : public ::testing::TestWithParam<BallCoverInputs> {
     rmm::device_uvector<value_t> X(params.n_rows * params.n_cols, handle.get_stream());
     rmm::device_uvector<uint32_t> Y(params.n_rows, handle.get_stream());
 
+    // Make sure the train and query sets are completely disjoint
+    rmm::device_uvector<value_t> X2(params.n_query * params.n_cols, handle.get_stream());
+    rmm::device_uvector<uint32_t> Y2(params.n_query, handle.get_stream());
+
     raft::random::make_blobs(
       X.data(), Y.data(), params.n_rows, params.n_cols, n_centers, handle.get_stream());
+
+    raft::random::make_blobs(
+      X2.data(), Y2.data(), params.n_query, params.n_cols, n_centers, handle.get_stream());
 
     rmm::device_uvector<value_idx> d_ref_I(params.n_query * k, handle.get_stream());
     rmm::device_uvector<value_t> d_ref_D(params.n_query * k, handle.get_stream());
@@ -158,11 +165,13 @@ class BallCoverKNNQueryTest : public ::testing::TestWithParam<BallCoverInputs> {
     if (metric == raft::distance::DistanceType::Haversine) {
       thrust::transform(
         handle.get_thrust_policy(), X.data(), X.data() + X.size(), X.data(), ToRadians());
+      thrust::transform(
+        handle.get_thrust_policy(), X2.data(), X2.data() + X2.size(), X2.data(), ToRadians());
     }
 
     compute_bfknn(handle,
                   X.data(),
-                  X.data(),
+                  X2.data(),
                   params.n_rows,
                   params.n_query,
                   params.n_cols,
@@ -182,7 +191,7 @@ class BallCoverKNNQueryTest : public ::testing::TestWithParam<BallCoverInputs> {
 
     raft::spatial::knn::rbc_build_index(handle, index);
     raft::spatial::knn::rbc_knn_query(
-      handle, index, k, X.data(), params.n_query, d_pred_I.data(), d_pred_D.data(), true, weight);
+      handle, index, k, X2.data(), params.n_query, d_pred_I.data(), d_pred_D.data(), true, weight);
 
     RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
     // What we really want are for the distances to match exactly. The
@@ -300,13 +309,13 @@ typedef BallCoverAllKNNTest<int64_t, float> BallCoverAllKNNTestF;
 typedef BallCoverKNNQueryTest<int64_t, float> BallCoverKNNQueryTestF;
 
 const std::vector<BallCoverInputs> ballcover_inputs = {
-  {2, 10000, 2, 1.0, 5000, raft::distance::DistanceType::Haversine},
-  {11, 10000, 2, 1.0, 5000, raft::distance::DistanceType::Haversine},
+  {2, 5000, 2, 1.0, 10000, raft::distance::DistanceType::Haversine},
+  {11, 5000, 2, 1.0, 10000, raft::distance::DistanceType::Haversine},
   {25, 10000, 2, 1.0, 5000, raft::distance::DistanceType::Haversine},
   {2, 10000, 2, 1.0, 5000, raft::distance::DistanceType::L2SqrtUnexpanded},
   {11, 10000, 2, 1.0, 5000, raft::distance::DistanceType::L2SqrtUnexpanded},
-  {25, 10000, 2, 1.0, 5000, raft::distance::DistanceType::L2SqrtUnexpanded},
-  {2, 10000, 3, 1.0, 5000, raft::distance::DistanceType::L2SqrtUnexpanded},
+  {25, 5000, 2, 1.0, 10000, raft::distance::DistanceType::L2SqrtUnexpanded},
+  {2, 5000, 3, 1.0, 10000, raft::distance::DistanceType::L2SqrtUnexpanded},
   {11, 10000, 3, 1.0, 5000, raft::distance::DistanceType::L2SqrtUnexpanded},
   {25, 10000, 3, 1.0, 5000, raft::distance::DistanceType::L2SqrtUnexpanded},
 };
