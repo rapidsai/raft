@@ -22,6 +22,10 @@
  *          for the Linear Assignment Problem." Parallel Computing 57 (2016): 52-72.
  *
  */
+
+#ifndef __LAP_H
+#define __LAP_H
+
 #pragma once
 
 #include <raft/handle.hpp>
@@ -284,3 +288,5 @@ class LinearAssignmentProblem {
 
 }  // namespace lap
 }  // namespace raft
+
+#endif
