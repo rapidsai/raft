@@ -310,7 +310,7 @@ DI void custom_next(
 
   do {
     gen.next(res);
-  } while (res == OutType(1.0));
+  } while (res == OutType(0.0));
 
   *val = params.mu - params.beta * raft::myLog(-raft::myLog(res));
 }
@@ -341,7 +341,11 @@ DI void custom_next(GenType& gen,
                     LenType stride = 0)
 {
   OutType res;
-  gen.next(res);
+
+  do {
+    gen.next(res);
+  } while (res == OutType(0.0));
+
   constexpr OutType one = (OutType)1.0;
   *val                  = params.mu - params.scale * raft::myLog(one / res - one);
 }
@@ -354,11 +358,7 @@ DI void custom_next(GenType& gen,
                     LenType stride = 0)
 {
   OutType res;
-
-  do {
-    gen.next(res);
-  } while (res == OutType(1.0));
-
+  gen.next(res);
   constexpr OutType one = (OutType)1.0;
   *val                  = -raft::myLog(one - res) / params.lambda;
 }
@@ -371,10 +371,7 @@ DI void custom_next(GenType& gen,
                     LenType stride = 0)
 {
   OutType res;
-
-  do {
-    gen.next(res);
-  } while (res == OutType(1.0));
+  gen.next(res);
 
   constexpr OutType one = (OutType)1.0;
   constexpr OutType two = (OutType)2.0;
@@ -392,7 +389,7 @@ DI void custom_next(GenType& gen,
 
   do {
     gen.next(res);
-  } while (res == OutType(0.0) || res == OutType(1.0));
+  } while (res == OutType(0.0));
 
   constexpr OutType one     = (OutType)1.0;
   constexpr OutType two     = (OutType)2.0;
