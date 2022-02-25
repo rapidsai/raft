@@ -496,12 +496,14 @@ struct PhiloxGenerator {
     return ret;
   }
 
-  DI void next(float& ret) {
-    //ret = curand_uniform(&(this->philox_state));
+  DI void next(float& ret)
+  {
+    // ret = curand_uniform(&(this->philox_state));
     ret = next_float();
   }
 
-  DI void next(double& ret) {
+  DI void next(double& ret)
+  {
     // ret = curand_uniform_double(&(this->philox_state));
     ret = next_double();
   }
