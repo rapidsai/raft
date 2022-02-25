@@ -23,6 +23,11 @@
  *
  */
 
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
+
 #ifndef __LAP_H
 #define __LAP_H
 
