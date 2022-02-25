@@ -274,56 +274,11 @@ std::ostream& operator<<(std::ostream& out, const std::vector<T>& v)
   return out;
 }
 
-template<typename T>
-__global__ void test_kernel(T* g_min, T* g_max) {
-  RngState state;
-  __shared__ T min_val, max_val;
-  T l_min_val = T(0.5), l_max_val = T(0.5);
-  if (threadIdx.x == 0) {
-    min_val = T(0.5);
-    max_val = T(0.5);
-  }
-  __syncthreads();
-  state.seed = 1234ULL;
-  state.base_subsequence = 0;
-  PhiloxGenerator r(state, blockIdx.x * blockDim.x + threadIdx.x);
-  // PCGenerator r(state, blockIdx.x * blockDim.x + threadIdx.x);
-  float res;
-  for (int i = 0; i < 100000; i++) {
-    r.next(res);
-    if (res < l_min_val) l_min_val = res;
-    if (res > l_max_val) l_max_val = res;
-  }
-
-  raft::myAtomicMin(&min_val, l_min_val);
-  raft::myAtomicMax(&max_val, l_max_val);
-  __syncthreads();
-  if (threadIdx.x == 0) {
-    raft::myAtomicMin(g_min, min_val);
-    raft::myAtomicMax(g_max, max_val);
-  }
-}
-
-TEST(Rng, Hello) {
-
-  double g_min, g_max;
-  double *dev_g_min, *dev_g_max;
-  cudaMalloc(&dev_g_min, 8);
-  cudaMalloc(&dev_g_max, 8);
-  test_kernel<double><<<80, 1024>>>(dev_g_min, dev_g_max);
-  cudaMemcpy(&g_min, dev_g_min, 8, cudaMemcpyDeviceToHost);
-  cudaMemcpy(&g_max, dev_g_max, 8, cudaMemcpyDeviceToHost);
-  printf("%.10e %.10e\n", g_min, 1.0 - g_max);
-
-  RAFT_CUDA_TRY(cudaDeviceSynchronize());
-}
-
-// The following tests the 3 random number generators by checking that the
-// measured mean error is close to the well-known analytical result
-// (sigma/sqrt(n_samples)). To compute the mean error, we a number of
-// experiments computing the mean, giving us a distribution of the mean
-// itself. The mean error is simply the standard deviation of this
-// distribution (the standard deviation of the mean).
+// The following tests the two random number generators by checking that the measured mean error is
+// close to the well-known analytical result(sigma/sqrt(n_samples)). To compute the mean error, we
+// a number of experiments computing the mean, giving us a distribution of the mean itself. The
+// mean error is simply the standard deviation of this distribution (the standard deviation of the
+// mean).
 TEST(Rng, MeanError)
 {
   timeb time_struct;
