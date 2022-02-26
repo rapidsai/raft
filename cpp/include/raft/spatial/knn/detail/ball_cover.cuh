@@ -122,6 +122,11 @@ void construct_landmark_1nn(const raft::handle_t& handle,
 {
   rmm::device_uvector<value_idx> R_1nn_inds(index.m, handle.get_stream());
 
+    thrust::fill(handle.get_thrust_policy(),
+                 R_1nn_inds.data(),
+                 R_1nn_inds.data()+index.m,
+                 std::numeric_limits<value_idx>::max());
+
   value_idx* R_1nn_inds_ptr = R_1nn_inds.data();
   value_t* R_1nn_dists_ptr  = index.get_R_1nn_dists();
 
@@ -411,7 +416,17 @@ void rbc_all_knn_query(const raft::handle_t& handle,
                R_knn_dists.end(),
                std::numeric_limits<value_t>::max());
 
-  // For debugging / verification. Remove before releasing
+    thrust::fill(handle.get_thrust_policy(),
+                 inds,
+                 inds + (k * index.m),
+                 std::numeric_limits<value_idx>::max());
+    thrust::fill(handle.get_thrust_policy(),
+                 dists,
+                 dists + (k * index.m),
+                 std::numeric_limits<value_t>::max());
+
+
+    // For debugging / verification. Remove before releasing
   rmm::device_uvector<value_int> dists_counter(index.m, handle.get_stream());
   rmm::device_uvector<value_int> post_dists_counter(index.m, handle.get_stream());
 
@@ -477,13 +492,24 @@ void rbc_knn_query(const raft::handle_t& handle,
                R_knn_dists.end(),
                std::numeric_limits<value_t>::max());
 
-  k_closest_landmarks(handle, index, query, n_query_pts, k, R_knn_inds.data(), R_knn_dists.data());
+    thrust::fill(handle.get_thrust_policy(),
+                 inds,
+                 inds + (k * n_query_pts),
+                 std::numeric_limits<value_idx>::max());
+    thrust::fill(handle.get_thrust_policy(),
+                 dists,
+                 dists + (k * n_query_pts),
+                 std::numeric_limits<value_t>::max());
+
+    k_closest_landmarks(handle, index, query, n_query_pts, k, R_knn_inds.data(), R_knn_dists.data());
 
   // For debugging / verification. Remove before releasing
   rmm::device_uvector<value_int> dists_counter(index.m, handle.get_stream());
   rmm::device_uvector<value_int> post_dists_counter(index.m, handle.get_stream());
   thrust::fill(
-    handle.get_thrust_policy(), post_dists_counter.data(), post_dists_counter.data() + index.m, 0);
+    handle.get_thrust_policy(), post_dists_counter.data(), post_dists_counter.data() + post_dists_counter.size(), 0);
+    thrust::fill(
+            handle.get_thrust_policy(), dists_counter.data(), dists_counter.data() + dists_counter.size(), 0);
 
   perform_rbc_query(handle,
                     index,
