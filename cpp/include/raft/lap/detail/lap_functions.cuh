@@ -466,7 +466,7 @@ inline void dualUpdate(raft::handle_t const& handle,
   dim3 threads_per_block;
   int total_blocks;
 
-  rmm::device_scalar<weight_t> sp_min_v(handle.get_stream());
+  rmm::device_uvector<weight_t> sp_min_v(SP, handle.get_stream());
 
   raft::lap::detail::calculateLinearDims(blocks_per_grid, threads_per_block, total_blocks, SP);
   kernel_dualUpdate_1<<<blocks_per_grid, threads_per_block, 0, handle.get_stream()>>>(
