@@ -37,12 +37,12 @@ add_executable(test_raft
     test/eigen_solvers.cu
     test/handle.cpp
     test/integer_utils.cpp
-#    test/interruptible.cu
+    test/interruptible.cu
     test/nvtx.cpp
     test/pow2_utils.cu
     test/label/label.cu
     test/label/merge_labels.cu
-#    test/lap/lap.cu
+    test/lap/lap.cu
     test/linalg/add.cu
     test/linalg/binary_op.cu
     test/linalg/cholesky_r1.cu

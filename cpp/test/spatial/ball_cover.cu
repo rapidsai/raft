@@ -58,6 +58,10 @@ __global__ void count_discrepancies_kernel(value_idx* actual_idx,
       value_t d    = actual[row * n + i] - expected[row * n + i];
       bool matches = (fabsf(d) <= thres) || (actual_idx[row * n + i] == expected_idx[row * n + i] &&
                                              actual_idx[row * n + i] == row);
+
+      if (!matches) {
+        printf("actual_dist=%f, expected_dist=%f\n", actual[row * n + i], expected[row * n + i]);
+      }
       n_diffs += !matches;
       out[row] = n_diffs;
     }
@@ -294,6 +298,8 @@ class BallCoverAllKNNTest : public ::testing::TestWithParam<BallCoverInputs> {
                                        k,
                                        discrepancies.data(),
                                        handle.get_stream());
+
+    printf("n_diffs=%d\n", res);
     ASSERT_TRUE(res == 0);
   }
 
@@ -315,9 +321,9 @@ const std::vector<BallCoverInputs> ballcover_inputs = {
   {2, 10000, 2, 1.0, 5000, raft::distance::DistanceType::L2SqrtUnexpanded},
   {11, 10000, 2, 1.0, 5000, raft::distance::DistanceType::L2SqrtUnexpanded},
   {25, 5000, 2, 1.0, 10000, raft::distance::DistanceType::L2SqrtUnexpanded},
-  {2, 5000, 3, 1.0, 10000, raft::distance::DistanceType::L2SqrtUnexpanded},
-  {11, 10000, 3, 1.0, 5000, raft::distance::DistanceType::L2SqrtUnexpanded},
+  {11, 6000, 3, 1.0, 10000, raft::distance::DistanceType::L2SqrtUnexpanded},
   {25, 10000, 3, 1.0, 5000, raft::distance::DistanceType::L2SqrtUnexpanded},
+  {5, 5000, 3, 1.0, 10000, raft::distance::DistanceType::L2SqrtUnexpanded},
 };
 
 INSTANTIATE_TEST_CASE_P(BallCoverAllKNNTest,
