@@ -13,6 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
+
+#ifndef __UNARY_OP_H
+#define __UNARY_OP_H
 
 #pragma once
 
@@ -71,3 +78,5 @@ void writeOnlyUnaryOp(OutType* out, IdxType len, Lambda op, cudaStream_t stream)
 
 };  // end namespace linalg
 };  // end namespace raft
+
+#endif

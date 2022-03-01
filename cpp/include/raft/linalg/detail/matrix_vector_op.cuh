@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <raft/matrix/matrix.hpp>
+#include <raft/matrix/matrix.cuh>
 
 namespace raft {
 namespace linalg {

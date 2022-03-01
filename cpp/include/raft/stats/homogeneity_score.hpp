@@ -14,6 +14,14 @@
  * limitations under the License.
  */
 
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
+
+#ifndef __HOMOGENEITY_SCORE_H
+#define __HOMOGENEITY_SCORE_H
+
 #pragma once
 
 #include <raft/stats/detail/homogeneity_score.cuh>
@@ -46,3 +54,5 @@ double homogeneity_score(const T* truthClusterArray,
 
 };  // end namespace stats
 };  // end namespace raft
+
+#endif

@@ -13,10 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
+
+#ifndef __TRANSPOSE_H
+#define __TRANSPOSE_H
 
 #pragma once
 
-#include "detail/transpose.hpp"
+#include "detail/transpose.cuh"
 
 namespace raft {
 namespace linalg {
@@ -55,3 +62,5 @@ void transpose(math_t* inout, int n, cudaStream_t stream)
 
 };  // end namespace linalg
 };  // end namespace raft
+
+#endif

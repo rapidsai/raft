@@ -24,15 +24,15 @@
 
 #include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
-#include <raft/linalg/add.hpp>
+#include <raft/linalg/add.cuh>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
-#include <raft/linalg/init.hpp>
-#include <raft/linalg/qr.hpp>
-#include <raft/linalg/transpose.hpp>
-#include <raft/matrix/matrix.hpp>
+#include <raft/linalg/init.cuh>
+#include <raft/linalg/qr.cuh>
+#include <raft/linalg/transpose.cuh>
+#include <raft/matrix/matrix.cuh>
 #include <raft/mr/device/buffer.hpp>
-#include <raft/random/permute.hpp>
-#include <raft/random/rng.hpp>
+#include <raft/random/permute.cuh>
+#include <raft/random/rng.cuh>
 #include <rmm/device_uvector.hpp>
 
 namespace raft::random {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,15 +21,15 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/distance/distance_type.hpp>
-#include <raft/linalg/unary_op.hpp>
-#include <raft/matrix/matrix.hpp>
+#include <raft/linalg/unary_op.cuh>
+#include <raft/matrix/matrix.cuh>
 
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/csr.hpp>
 #include <raft/sparse/detail/utils.h>
-#include <raft/sparse/distance/distance.hpp>
-#include <raft/sparse/op/slice.hpp>
-#include <raft/spatial/knn/knn.hpp>
+#include <raft/sparse/distance/distance.cuh>
+#include <raft/sparse/op/slice.cuh>
+#include <raft/spatial/knn/knn.cuh>
 
 #include <algorithm>
 

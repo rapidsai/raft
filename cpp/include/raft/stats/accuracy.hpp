@@ -13,6 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
+
+#ifndef __STATS_ACCURACY_H
+#define __STATS_ACCURACY_H
 
 #pragma once
 
@@ -38,3 +45,5 @@ float accuracy(const math_t* predictions, const math_t* ref_predictions, int n, 
 
 }  // namespace stats
 }  // namespace raft
+
+#endif

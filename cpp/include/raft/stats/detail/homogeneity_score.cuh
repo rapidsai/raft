@@ -23,8 +23,8 @@
 #pragma once
 
 #include <raft/mr/device/allocator.hpp>
-#include <raft/stats/entropy.hpp>
-#include <raft/stats/mutual_info_score.hpp>
+#include <raft/stats/entropy.cuh>
+#include <raft/stats/mutual_info_score.cuh>
 
 namespace raft {
 namespace stats {

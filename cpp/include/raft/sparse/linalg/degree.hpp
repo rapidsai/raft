@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,6 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
+
+#ifndef __SPARSE_DEGREE_H
+#define __SPARSE_DEGREE_H
 
 #pragma once
 
@@ -117,3 +124,5 @@ void coo_degree_nz(COO<T>* in, int* results, cudaStream_t stream)
 };  // end NAMESPACE linalg
 };  // end NAMESPACE sparse
 };  // end NAMESPACE raft
+
+#endif

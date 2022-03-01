@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,6 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
+
+#ifndef __SPARSE_SPECTRAL_H
+#define __SPARSE_SPECTRAL_H
 
 #include <raft/handle.hpp>
 #include <raft/sparse/linalg/detail/spectral.cuh>
@@ -37,3 +44,5 @@ void fit_embedding(const raft::handle_t& handle,
 };  // namespace spectral
 };  // namespace sparse
 };  // namespace raft
+
+#endif

@@ -13,6 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
+
+#ifndef __SUBTRACT_H
+#define __SUBTRACT_H
 
 #pragma once
 
@@ -83,3 +90,5 @@ void subtractDevScalar(math_t* outDev,
 
 };  // end namespace linalg
 };  // end namespace raft
+
+#endif

@@ -13,6 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
+
+#ifndef __HISTOGRAM_H
+#define __HISTOGRAM_H
 
 #pragma once
 
@@ -60,3 +67,5 @@ void histogram(HistType type,
 
 };  // end namespace stats
 };  // end namespace raft
+
+#endif

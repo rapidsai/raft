@@ -13,6 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
+
+#ifndef __RNG_H
+#define __RNG_H
 
 #pragma once
 
@@ -373,3 +380,5 @@ class Rng : public detail::RngImpl {
 
 };  // end namespace random
 };  // end namespace raft
+
+#endif

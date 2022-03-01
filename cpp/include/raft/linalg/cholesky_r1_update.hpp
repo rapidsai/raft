@@ -13,10 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
+
+#ifndef __CHOLESKY_R1_UPDATE_H
+#define __CHOLESKY_R1_UPDATE_H
 
 #pragma once
 
-#include "detail/cholesky_r1_update.hpp"
+#include "detail/cholesky_r1_update.cuh"
 
 namespace raft {
 namespace linalg {
@@ -132,3 +139,5 @@ void choleskyRank1Update(const raft::handle_t& handle,
 }
 };  // namespace linalg
 };  // namespace raft
+
+#endif

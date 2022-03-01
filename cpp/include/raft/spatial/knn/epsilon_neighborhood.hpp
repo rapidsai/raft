@@ -13,6 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
+
+#ifndef __EPSILON_NEIGH_H
+#define __EPSILON_NEIGH_H
 
 #pragma once
 
@@ -57,3 +64,5 @@ void epsUnexpL2SqNeighborhood(bool* adj,
 }  // namespace knn
 }  // namespace spatial
 }  // namespace raft
+
+#endif

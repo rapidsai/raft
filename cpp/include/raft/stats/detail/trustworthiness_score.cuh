@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-#include <raft/distance/distance.hpp>
-#include <raft/matrix/col_wise_sort.hpp>
-#include <raft/spatial/knn/knn.hpp>
+#include <raft/distance/distance.cuh>
+#include <raft/matrix/col_wise_sort.cuh>
+#include <raft/spatial/knn/knn.cuh>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 

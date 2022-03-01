@@ -13,6 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
+
+#ifndef __MVG_H
+#define __MVG_H
 
 #pragma once
 
@@ -57,3 +64,5 @@ class multi_variable_gaussian : public detail::multi_variable_gaussian_impl<T> {
 };  // end of multi_variable_gaussian
 
 };  // end of namespace raft::random
+
+#endif

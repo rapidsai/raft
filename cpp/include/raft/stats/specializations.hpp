@@ -13,8 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
+
+#ifndef __STATS_SPECIALIZATIONS_H
+#define __STATS_SPECIALIZATIONS_H
 
 #pragma once
 
-#include <raft/distance/specializations.hpp>
-#include <raft/spatial/knn/specializations.hpp>
+#include <raft/distance/specializations.cuh>
+#include <raft/spatial/knn/specializations.cuh>
+
+#endif

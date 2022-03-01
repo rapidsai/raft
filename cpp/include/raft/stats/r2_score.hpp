@@ -13,6 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
+
+#ifndef __R2_SCORE_H
+#define __R2_SCORE_H
 
 #pragma once
 
@@ -44,3 +51,5 @@ math_t r2_score(math_t* y, math_t* y_hat, int n, cudaStream_t stream)
 
 }  // namespace stats
 }  // namespace raft
+
+#endif

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,9 +27,9 @@
 #include <tuple>
 
 #include <raft/linalg/detail/cublas_wrappers.hpp>
-#include <raft/spectral/cluster_solvers.hpp>
+#include <raft/spectral/cluster_solvers.cuh>
 #include <raft/spectral/detail/spectral_util.cuh>
-#include <raft/spectral/eigen_solvers.hpp>
+#include <raft/spectral/eigen_solvers.cuh>
 #include <raft/spectral/matrix_wrappers.hpp>
 
 #ifdef COLLECT_TIME_STATISTICS

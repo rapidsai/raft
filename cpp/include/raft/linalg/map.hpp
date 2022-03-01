@@ -13,6 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
+
+#ifndef __MAP_H
+#define __MAP_H
 
 #pragma once
 
@@ -48,3 +55,5 @@ void map(OutType* out, size_t len, MapOp map, cudaStream_t stream, const InType*
 
 }  // namespace linalg
 };  // namespace raft
+
+#endif

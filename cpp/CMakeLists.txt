@@ -328,7 +328,9 @@ Imported Targets:
 
 set(code_string
 [=[
-thrust_create_target(raft::Thrust FROM_OPTIONS)
+if(NOT TARGET raft::Thrust)
+  thrust_create_target(raft::Thrust FROM_OPTIONS)
+endif()
 
 if(distance IN_LIST raft_FIND_COMPONENTS)
   enable_language(CUDA)

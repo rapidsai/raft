@@ -13,6 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
+
+#ifndef __DISPERSION_H
+#define __DISPERSION_H
 
 #pragma once
 
@@ -54,3 +61,5 @@ DataT dispersion(const DataT* centroids,
 
 }  // end namespace stats
 }  // end namespace raft
+
+#endif
