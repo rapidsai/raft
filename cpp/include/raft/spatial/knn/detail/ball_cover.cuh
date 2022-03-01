@@ -83,7 +83,7 @@ void sample_landmarks(const raft::handle_t& handle,
   /**
    * 1. Randomly sample sqrt(n) points from X
    */
-  auto rng = raft::random::Rng(12345);
+  auto rng = raft::random::Rng(54321);
   rng.sampleWithoutReplacement(handle,
                                R_indices.data(),
                                R_1nn_cols2.data(),

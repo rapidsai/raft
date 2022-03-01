@@ -60,7 +60,7 @@ __global__ void count_discrepancies_kernel(value_idx* actual_idx,
                                              actual_idx[row * n + i] == row);
 
       if (!matches) {
-        printf("actual_dist=%f, expected_dist=%f\n", actual[row * n + i], expected[row * n + i]);
+        printf("row=%ud, n=%ud, actual_dist=%f, actual_ind=%ld, expected_dist=%f, expected_ind=%ld\n", row,i, actual[row * n + i], actual_idx[row * n + i], expected[row * n + i], expected_idx[row * n + i]);
       }
       n_diffs += !matches;
       out[row] = n_diffs;
@@ -184,7 +184,7 @@ class BallCoverKNNQueryTest : public ::testing::TestWithParam<BallCoverInputs> {
                   d_ref_D.data(),
                   d_ref_I.data());
 
-    RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
+    handle.sync_stream();
 
     // Allocate predicted arrays
     rmm::device_uvector<value_idx> d_pred_I(params.n_query * k, handle.get_stream());
@@ -197,7 +197,7 @@ class BallCoverKNNQueryTest : public ::testing::TestWithParam<BallCoverInputs> {
     raft::spatial::knn::rbc_knn_query(
       handle, index, k, X2.data(), params.n_query, d_pred_I.data(), d_pred_D.data(), true, weight);
 
-    RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
+    handle.sync_stream();
     // What we really want are for the distances to match exactly. The
     // indices may or may not match exactly, depending upon the ordering which
     // can be nondeterministic.
@@ -267,7 +267,7 @@ class BallCoverAllKNNTest : public ::testing::TestWithParam<BallCoverInputs> {
                   d_ref_D.data(),
                   d_ref_I.data());
 
-    RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
+    handle.sync_stream();
 
     // Allocate predicted arrays
     rmm::device_uvector<value_idx> d_pred_I(params.n_rows * k, handle.get_stream());
@@ -279,7 +279,7 @@ class BallCoverAllKNNTest : public ::testing::TestWithParam<BallCoverInputs> {
     raft::spatial::knn::rbc_all_knn_query(
       handle, index, k, d_pred_I.data(), d_pred_D.data(), true, weight);
 
-    RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
+    handle.sync_stream();
     // What we really want are for the distances to match exactly. The
     // indices may or may not match exactly, depending upon the ordering which
     // can be nondeterministic.
@@ -321,9 +321,9 @@ const std::vector<BallCoverInputs> ballcover_inputs = {
   {2, 10000, 2, 1.0, 5000, raft::distance::DistanceType::L2SqrtUnexpanded},
   {11, 10000, 2, 1.0, 5000, raft::distance::DistanceType::L2SqrtUnexpanded},
   {25, 5000, 2, 1.0, 10000, raft::distance::DistanceType::L2SqrtUnexpanded},
+  {2, 5000, 3, 1.0, 10000, raft::distance::DistanceType::L2SqrtUnexpanded},
   {11, 6000, 3, 1.0, 10000, raft::distance::DistanceType::L2SqrtUnexpanded},
-  {25, 10000, 3, 1.0, 5000, raft::distance::DistanceType::L2SqrtUnexpanded},
-  {5, 5000, 3, 1.0, 10000, raft::distance::DistanceType::L2SqrtUnexpanded},
+  {25, 10000, 3, 1.0, 5000, raft::distance::DistanceType::L2SqrtUnexpanded}
 };
 
 INSTANTIATE_TEST_CASE_P(BallCoverAllKNNTest,
