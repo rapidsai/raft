@@ -31,6 +31,7 @@ struct WeightedMeanInputs {
   int M, N;
   unsigned long long int seed;
   bool along_rows;  // Used only for the weightedMean test function
+  bool row_major;
 };
 
 template <typename T>
@@ -201,9 +202,9 @@ class WeightedMeanTest : public ::testing::TestWithParam<WeightedMeanInputs<T>> 
 
     // compute naive result & copy to GPU
     if (params.along_rows)
-      naiveRowWeightedMean(hexp.data(), hin.data(), hweights.data(), rows, cols, false);
+      naiveRowWeightedMean(hexp.data(), hin.data(), hweights.data(), rows, cols, params.row_major);
     else
-      naiveColWeightedMean(hexp.data(), hin.data(), hweights.data(), rows, cols, false);
+      naiveColWeightedMean(hexp.data(), hin.data(), hweights.data(), rows, cols, params.row_major);
     dexp = hexp;
 
     // compute result
@@ -212,7 +213,7 @@ class WeightedMeanTest : public ::testing::TestWithParam<WeightedMeanInputs<T>> 
                  dweights.data().get(),
                  cols,
                  rows,
-                 false,  // row_major=true is already tested through col and row weighted mean
+                 params.row_major,
                  params.along_rows,
                  stream);
 
@@ -233,25 +234,25 @@ class WeightedMeanTest : public ::testing::TestWithParam<WeightedMeanInputs<T>> 
 static const float tolF  = 128 * std::numeric_limits<float>::epsilon();
 static const double tolD = 256 * std::numeric_limits<double>::epsilon();
 
-const std::vector<WeightedMeanInputs<float>> inputsf = {{tolF, 4, 4, 1234, true},
-                                                        {tolF, 1024, 32, 1234, true},
-                                                        {tolF, 1024, 64, 1234, true},
-                                                        {tolF, 1024, 128, 1234, true},
-                                                        {tolF, 1024, 256, 1234, true},
-                                                        {tolF, 1024, 32, 1234, false},
-                                                        {tolF, 1024, 64, 1234, false},
-                                                        {tolF, 1024, 128, 1234, false},
-                                                        {tolF, 1024, 256, 1234, false}};
+const std::vector<WeightedMeanInputs<float>> inputsf = {{tolF, 4, 4, 1234, true, true},
+                                                        {tolF, 1024, 32, 1234, true, false},
+                                                        {tolF, 1024, 64, 1234, true, true},
+                                                        {tolF, 1024, 128, 1234, true, false},
+                                                        {tolF, 1024, 256, 1234, true, true},
+                                                        {tolF, 1024, 32, 1234, false, false},
+                                                        {tolF, 1024, 64, 1234, false, true},
+                                                        {tolF, 1024, 128, 1234, false, false},
+                                                        {tolF, 1024, 256, 1234, false, true}};
 
-const std::vector<WeightedMeanInputs<double>> inputsd = {{tolD, 4, 4, 1234, true},
-                                                         {tolD, 1024, 32, 1234, true},
-                                                         {tolD, 1024, 64, 1234, true},
-                                                         {tolD, 1024, 128, 1234, true},
-                                                         {tolD, 1024, 256, 1234, true},
-                                                         {tolD, 1024, 32, 1234, false},
-                                                         {tolD, 1024, 64, 1234, false},
-                                                         {tolD, 1024, 128, 1234, false},
-                                                         {tolD, 1024, 256, 1234, false}};
+const std::vector<WeightedMeanInputs<double>> inputsd = {{tolD, 4, 4, 1234, true, true},
+                                                         {tolD, 1024, 32, 1234, true, false},
+                                                         {tolD, 1024, 64, 1234, true, true},
+                                                         {tolD, 1024, 128, 1234, true, false},
+                                                         {tolD, 1024, 256, 1234, true, true},
+                                                         {tolD, 1024, 32, 1234, false, false},
+                                                         {tolD, 1024, 64, 1234, false, true},
+                                                         {tolD, 1024, 128, 1234, false, false},
+                                                         {tolD, 1024, 256, 1234, false, true}};
 
 using RowWeightedMeanTestF = RowWeightedMeanTest<float>;
 TEST_P(RowWeightedMeanTestF, Result)
