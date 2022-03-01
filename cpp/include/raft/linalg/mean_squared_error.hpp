@@ -13,10 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
+
+#ifndef __MSE_H
+#define __MSE_H
 
 #pragma once
 
-#include "detail/mean_squared_error.hpp"
+#include "detail/mean_squared_error.cuh"
 
 namespace raft {
 namespace linalg {
@@ -41,3 +48,5 @@ void meanSquaredError(
 
 };  // end namespace linalg
 };  // end namespace raft
+
+#endif

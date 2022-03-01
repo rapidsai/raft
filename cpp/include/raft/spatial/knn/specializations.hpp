@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,9 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
+
+#ifndef __KNN_SPECIALIZATIONS_H
+#define __KNN_SPECIALIZATIONS_H
 
 #pragma once
 
-#include <raft/spatial/knn/specializations/ball_cover.hpp>
-#include <raft/spatial/knn/specializations/fused_l2_knn.hpp>
-#include <raft/spatial/knn/specializations/knn.hpp>
+#include <raft/spatial/knn/specializations/ball_cover.cuh>
+#include <raft/spatial/knn/specializations/fused_l2_knn.cuh>
+#include <raft/spatial/knn/specializations/knn.cuh>
+
+#endif

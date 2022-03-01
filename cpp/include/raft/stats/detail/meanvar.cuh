@@ -17,7 +17,7 @@
 #pragma once
 
 #include <raft/cuda_utils.cuh>
-#include <raft/linalg/reduce.hpp>
+#include <raft/linalg/reduce.cuh>
 
 namespace raft::stats::detail {
 
@@ -199,13 +199,14 @@ void meanvar(
   if (rowMajor) {
     static_assert(BlockSize >= WarpSize, "Block size must be not smaller than the warp size.");
     const dim3 bs(WarpSize, BlockSize / WarpSize, 1);
-    dim3 gs(raft::ceildiv<typeof(bs.x)>(D, bs.x), raft::ceildiv<typeof(bs.y)>(N, bs.y), 1);
+    dim3 gs(raft::ceildiv<decltype(bs.x)>(D, bs.x), raft::ceildiv<decltype(bs.y)>(N, bs.y), 1);
 
     // Don't create more blocks than necessary to occupy the GPU
     int occupancy;
     RAFT_CUDA_TRY(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
       &occupancy, meanvar_kernel_rowmajor<T, I, BlockSize>, BlockSize, 0));
-    gs.y = min(gs.y, raft::ceildiv<typeof(gs.y)>(occupancy * getMultiProcessorCount(), gs.x));
+    gs.y =
+      std::min(gs.y, raft::ceildiv<decltype(gs.y)>(occupancy * getMultiProcessorCount(), gs.x));
 
     // Global memory: one mean_var<T> for each column
     //                one lock per all blocks working on the same set of columns

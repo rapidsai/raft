@@ -17,14 +17,16 @@
 #pragma once
 
 #include <raft/cuda_utils.cuh>
-#include <raft/linalg/eig.hpp>
-#include <raft/linalg/gemm.hpp>
-#include <raft/linalg/qr.hpp>
-#include <raft/linalg/svd.hpp>
-#include <raft/linalg/transpose.hpp>
-#include <raft/matrix/math.hpp>
-#include <raft/matrix/matrix.hpp>
-#include <raft/random/rng.hpp>
+#include <raft/linalg/eig.cuh>
+#include <raft/linalg/gemm.cuh>
+#include <raft/linalg/qr.cuh>
+#include <raft/linalg/svd.cuh>
+#include <raft/linalg/transpose.cuh>
+#include <raft/matrix/math.cuh>
+#include <raft/matrix/matrix.cuh>
+#include <raft/random/rng.cuh>
+
+#include <algorithm>
 
 namespace raft {
 namespace linalg {
@@ -386,9 +388,9 @@ void rsvdPerc(const raft::handle_t& handle,
               int max_sweeps,
               cudaStream_t stream)
 {
-  int k = max((int)(min(n_rows, n_cols) * PC_perc),
-              1);  // Number of singular values to be computed
-  int p = max((int)(min(n_rows, n_cols) * UpS_perc), 1);  // Upsamples
+  int k = std::max((int)(std::min(n_rows, n_cols) * PC_perc),
+                   1);  // Number of singular values to be computed
+  int p = std::max((int)(std::min(n_rows, n_cols) * UpS_perc), 1);  // Upsamples
   rsvdFixedRank(handle,
                 M,
                 n_rows,

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@
 #include <limits>
 #include <raft/cuda_utils.cuh>
 #include <raft/distance/detail/pairwise_distance_base.cuh>
-#include <raft/linalg/contractions.hpp>
+#include <raft/linalg/contractions.cuh>
 #include <stdint.h>
 
 namespace raft {

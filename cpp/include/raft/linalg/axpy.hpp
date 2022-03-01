@@ -13,10 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
+
+#ifndef __AXPY_H
+#define __AXPY_H
 
 #pragma once
 
-#include "detail/axpy.hpp"
+#include "detail/axpy.cuh"
 
 namespace raft::linalg {
 
@@ -49,3 +56,5 @@ void axpy(const raft::handle_t& handle,
 }
 
 }  // namespace raft::linalg
+
+#endif

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -61,6 +61,7 @@ namespace detail {
 template <typename value_idx,
           typename value_t,
           typename value_int = std::uint32_t,
+          int col_q          = 2,
           int tpb            = 32,
           typename distance_func>
 __global__ void perform_post_filter_registers(const value_t* X,
@@ -87,7 +88,7 @@ __global__ void perform_post_filter_registers(const value_t* X,
   __syncthreads();
 
   // TODO: Would it be faster to use L1 for this?
-  value_t local_x_ptr[2];
+  value_t local_x_ptr[col_q];
   for (value_int j = 0; j < n_cols; ++j) {
     local_x_ptr[j] = X[n_cols * blockIdx.x + j];
   }
@@ -466,6 +467,7 @@ __global__ void block_rbc_kernel_registers(const value_t* X_index,
 template <typename value_idx,
           typename value_t,
           typename value_int = std::uint32_t,
+          int dims           = 2,
           typename dist_func>
 void rbc_low_dim_pass_one(const raft::handle_t& handle,
                           BallCoverIndex<value_idx, value_t, value_int>& index,
@@ -481,7 +483,7 @@ void rbc_low_dim_pass_one(const raft::handle_t& handle,
                           value_int* dists_counter)
 {
   if (k <= 32)
-    block_rbc_kernel_registers<value_idx, value_t, 32, 2, 128, 2, value_int>
+    block_rbc_kernel_registers<value_idx, value_t, 32, 2, 128, dims, value_int>
       <<<n_query_rows, 128, 0, handle.get_stream()>>>(index.get_X(),
                                                       query,
                                                       index.n,
@@ -518,7 +520,7 @@ void rbc_low_dim_pass_one(const raft::handle_t& handle,
                                                       dfunc,
                                                       weight);
   else if (k <= 128)
-    block_rbc_kernel_registers<value_idx, value_t, 128, 3, 128, 2, value_int>
+    block_rbc_kernel_registers<value_idx, value_t, 128, 3, 128, dims, value_int>
       <<<n_query_rows, 128, 0, handle.get_stream()>>>(index.get_X(),
                                                       query,
                                                       index.n,
@@ -537,7 +539,7 @@ void rbc_low_dim_pass_one(const raft::handle_t& handle,
                                                       weight);
 
   else if (k <= 256)
-    block_rbc_kernel_registers<value_idx, value_t, 256, 4, 128, 2, value_int>
+    block_rbc_kernel_registers<value_idx, value_t, 256, 4, 128, dims, value_int>
       <<<n_query_rows, 128, 0, handle.get_stream()>>>(index.get_X(),
                                                       query,
                                                       index.n,
@@ -556,7 +558,7 @@ void rbc_low_dim_pass_one(const raft::handle_t& handle,
                                                       weight);
 
   else if (k <= 512)
-    block_rbc_kernel_registers<value_idx, value_t, 512, 8, 64, 2, value_int>
+    block_rbc_kernel_registers<value_idx, value_t, 512, 8, 64, dims, value_int>
       <<<n_query_rows, 64, 0, handle.get_stream()>>>(index.get_X(),
                                                      query,
                                                      index.n,
@@ -575,7 +577,7 @@ void rbc_low_dim_pass_one(const raft::handle_t& handle,
                                                      weight);
 
   else if (k <= 1024)
-    block_rbc_kernel_registers<value_idx, value_t, 1024, 8, 64, 2, value_int>
+    block_rbc_kernel_registers<value_idx, value_t, 1024, 8, 64, dims, value_int>
       <<<n_query_rows, 64, 0, handle.get_stream()>>>(index.get_X(),
                                                      query,
                                                      index.n,
@@ -597,6 +599,7 @@ void rbc_low_dim_pass_one(const raft::handle_t& handle,
 template <typename value_idx,
           typename value_t,
           typename value_int = std::uint32_t,
+          int dims           = 2,
           typename dist_func>
 void rbc_low_dim_pass_two(const raft::handle_t& handle,
                           BallCoverIndex<value_idx, value_t, value_int>& index,
@@ -616,7 +619,7 @@ void rbc_low_dim_pass_two(const raft::handle_t& handle,
   rmm::device_uvector<std::uint32_t> bitset(bitset_size * index.m, handle.get_stream());
   thrust::fill(handle.get_thrust_policy(), bitset.data(), bitset.data() + bitset.size(), 0);
 
-  perform_post_filter_registers<value_idx, value_t, value_int, 128>
+  perform_post_filter_registers<value_idx, value_t, value_int, dims, 128>
     <<<n_query_rows, 128, bitset_size * sizeof(std::uint32_t), handle.get_stream()>>>(
       index.get_X(),
       index.n,
@@ -640,7 +643,7 @@ void rbc_low_dim_pass_two(const raft::handle_t& handle,
                                   32,
                                   2,
                                   128,
-                                  2>
+                                  dims>
       <<<n_query_rows, 128, 0, handle.get_stream()>>>(index.get_X(),
                                                       query,
                                                       index.n,
@@ -665,7 +668,7 @@ void rbc_low_dim_pass_two(const raft::handle_t& handle,
                                   64,
                                   3,
                                   128,
-                                  2>
+                                  dims>
       <<<n_query_rows, 128, 0, handle.get_stream()>>>(index.get_X(),
                                                       query,
                                                       index.n,
@@ -690,7 +693,7 @@ void rbc_low_dim_pass_two(const raft::handle_t& handle,
                                   128,
                                   3,
                                   128,
-                                  2>
+                                  dims>
       <<<n_query_rows, 128, 0, handle.get_stream()>>>(index.get_X(),
                                                       query,
                                                       index.n,
@@ -715,7 +718,7 @@ void rbc_low_dim_pass_two(const raft::handle_t& handle,
                                   256,
                                   4,
                                   128,
-                                  2>
+                                  dims>
       <<<n_query_rows, 128, 0, handle.get_stream()>>>(index.get_X(),
                                                       query,
                                                       index.n,
@@ -740,7 +743,7 @@ void rbc_low_dim_pass_two(const raft::handle_t& handle,
                                   512,
                                   8,
                                   64,
-                                  2>
+                                  dims>
       <<<n_query_rows, 64, 0, handle.get_stream()>>>(index.get_X(),
                                                      query,
                                                      index.n,
@@ -765,7 +768,7 @@ void rbc_low_dim_pass_two(const raft::handle_t& handle,
                                   1024,
                                   8,
                                   64,
-                                  2>
+                                  dims>
       <<<n_query_rows, 64, 0, handle.get_stream()>>>(index.get_X(),
                                                      query,
                                                      index.n,

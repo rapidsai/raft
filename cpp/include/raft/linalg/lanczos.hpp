@@ -13,10 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
+
+#ifndef __LANCZOS_H
+#define __LANCZOS_H
 
 #pragma once
 
-#include "detail/lanczos.hpp"
+#include "detail/lanczos.cuh"
 #include <raft/spectral/matrix_wrappers.hpp>
 
 namespace raft {
@@ -156,3 +163,5 @@ int computeLargestEigenvectors(
 
 }  // namespace linalg
 }  // namespace raft
+
+#endif

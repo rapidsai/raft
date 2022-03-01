@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,9 +20,11 @@
 
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/unary_op.hpp>
+#include <raft/linalg/unary_op.cuh>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
+
+#include <algorithm>
 
 namespace raft {
 namespace label {
@@ -56,7 +58,7 @@ int getUniquelabels(rmm::device_uvector<value_t>& unique, value_t* y, size_t n, 
     NULL, bytes, y, workspace.data(), n, 0, sizeof(value_t) * 8, stream);
   cub::DeviceSelect::Unique(
     NULL, bytes2, workspace.data(), workspace.data(), d_num_selected.data(), n, stream);
-  bytes = max(bytes, bytes2);
+  bytes = std::max(bytes, bytes2);
   rmm::device_uvector<char> cub_storage(bytes, stream);
 
   // Select Unique classes

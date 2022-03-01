@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,6 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
+
+#ifndef __BALL_COVER_H
+#define __BALL_COVER_H
 
 #pragma once
 
@@ -32,7 +39,7 @@ template <typename value_idx = std::int64_t, typename value_t, typename value_in
 void rbc_build_index(const raft::handle_t& handle,
                      BallCoverIndex<value_idx, value_t, value_int>& index)
 {
-  ASSERT(index.n == 2, "Random ball cover currently only works in 2-dimensions");
+  ASSERT(index.n <= 3, "only 2d and 3d vectors are supported in current implementation");
   if (index.metric == raft::distance::DistanceType::Haversine) {
     detail::rbc_build_index(handle, index, detail::HaversineFunc<value_t, value_int>());
   } else if (index.metric == raft::distance::DistanceType::L2SqrtExpanded ||
@@ -82,7 +89,7 @@ void rbc_all_knn_query(const raft::handle_t& handle,
                        bool perform_post_filtering = true,
                        float weight                = 1.0)
 {
-  ASSERT(index.n == 2, "Random ball cover currently only works in 2-dimensions");
+  ASSERT(index.n <= 3, "only 2d and 3d vectors are supported in current implementation");
   if (index.metric == raft::distance::DistanceType::Haversine) {
     detail::rbc_all_knn_query(handle,
                               index,
@@ -149,7 +156,7 @@ void rbc_knn_query(const raft::handle_t& handle,
                    bool perform_post_filtering = true,
                    float weight                = 1.0)
 {
-  ASSERT(index.n == 2, "Random ball cover currently only works in 2-dimensions");
+  ASSERT(index.n <= 3, "only 2d and 3d vectors are supported in current implementation");
   if (index.metric == raft::distance::DistanceType::Haversine) {
     detail::rbc_knn_query(handle,
                           index,
@@ -185,3 +192,5 @@ void rbc_knn_query(const raft::handle_t& handle,
 }  // namespace knn
 }  // namespace spatial
 }  // namespace raft
+
+#endif

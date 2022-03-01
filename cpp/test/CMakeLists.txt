@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2021, NVIDIA CORPORATION.
+# Copyright (c) 2021-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -71,7 +71,9 @@ add_executable(test_raft
     test/linalg/unary_op.cu
     test/matrix/math.cu
     test/matrix/matrix.cu
+    test/matrix/columnSort.cu
     test/matrix/linewise_op.cu
+    test/mdarray.cu
     test/mr/host/buffer.cpp
     test/mr/device/buffer.cpp
     test/mst.cu
@@ -111,15 +113,28 @@ add_executable(test_raft
     test/spatial/faiss_mr.cu
     test/spatial/selection.cu
     test/spectral_matrix.cu
+    test/stats/adjusted_rand_index.cu
+    test/stats/completeness_score.cu
+    test/stats/contingencyMatrix.cu
     test/stats/cov.cu
+    test/stats/dispersion.cu
+    test/stats/entropy.cu
     test/stats/histogram.cu
+    test/stats/homogeneity_score.cu
+    test/stats/information_criterion.cu
+    test/stats/kl_divergence.cu
     test/stats/mean.cu
     test/stats/meanvar.cu
     test/stats/mean_center.cu
     test/stats/minmax.cu
+    test/stats/mutual_info_score.cu
+    test/stats/rand_index.cu
+    test/stats/silhouette_score.cu
     test/stats/stddev.cu
     test/stats/sum.cu
+    test/stats/trustworthiness.cu
     test/stats/weighted_mean.cu
+    test/stats/v_measure.cu
     test/test.cpp
 )
 

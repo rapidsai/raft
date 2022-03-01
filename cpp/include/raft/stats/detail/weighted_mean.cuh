@@ -17,9 +17,7 @@
 #pragma once
 
 #include <raft/cudart_utils.h>
-#include <raft/linalg/coalesced_reduction.hpp>
 #include <raft/linalg/reduce.hpp>
-#include <raft/linalg/strided_reduction.hpp>
 #include <raft/stats/sum.hpp>
 
 namespace raft {

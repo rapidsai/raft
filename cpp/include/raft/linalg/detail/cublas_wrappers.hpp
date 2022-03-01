@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <cublas_v2.h>
 #include <raft/error.hpp>
 
 #include <cublas_v2.h>

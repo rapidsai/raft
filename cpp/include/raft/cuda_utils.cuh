@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -109,7 +109,7 @@ static const int WarpSize = 32;
 DI int laneId()
 {
   int id;
-  asm("mov.s32 %0, %laneid;" : "=r"(id));
+  asm("mov.s32 %0, %%laneid;" : "=r"(id));
   return id;
 }
 
@@ -228,13 +228,13 @@ DI T myAtomicMax(T* address, T val);
 
 DI float myAtomicMin(float* address, float val)
 {
-  myAtomicReduce(address, val, fminf);
+  myAtomicReduce<float(float, float)>(address, val, fminf);
   return *address;
 }
 
 DI float myAtomicMax(float* address, float val)
 {
-  myAtomicReduce(address, val, fmaxf);
+  myAtomicReduce<float(float, float)>(address, val, fmaxf);
   return *address;
 }
 
@@ -652,7 +652,8 @@ DI T shfl_xor(T val, int laneMask, int width = WarpSize, uint32_t mask = 0xfffff
 /**
  * @brief Warp-level sum reduction
  * @param val input value
- * @return only the lane0 will contain valid reduced result
+ * @tparam T Value type to be reduced
+ * @return Reduction result. All lanes will have the valid result.
  * @note Why not cub? Because cub doesn't seem to allow working with arbitrary
  *       number of warps in a block. All threads in the warp must enter this
  *       function together
@@ -663,7 +664,7 @@ DI T warpReduce(T val)
 {
 #pragma unroll
   for (int i = WarpSize / 2; i > 0; i >>= 1) {
-    T tmp = shfl(val, laneId() + i);
+    T tmp = shfl_xor(val, i);
     val += tmp;
   }
   return val;
