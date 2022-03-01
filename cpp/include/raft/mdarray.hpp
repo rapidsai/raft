@@ -23,6 +23,7 @@
 #pragma once
 #include <experimental/mdspan>
 #include <raft/detail/mdarray.hpp>
+#include <raft/handle.hpp>
 #include <rmm/cuda_stream_view.hpp>
 
 namespace raft {
@@ -295,6 +296,10 @@ class mdarray {
 
 /**
  * @brief mdarray with host container policy
+ * @tparam[in] ElementType the data type of the elements
+ * @tparam[in] Extents defines the shape
+ * @tparam[in] LayoutPolicy policy for indexing strides and layout ordering
+ * @tparam[in] ContainerPolicy storage and accessor policy
  */
 template <typename ElementType,
           typename Extents,
@@ -305,6 +310,10 @@ using host_mdarray =
 
 /**
  * @brief mdarray with device container policy
+ * @tparam[in] ElementType the data type of the elements
+ * @tparam[in] Extents defines the shape
+ * @tparam[in] LayoutPolicy policy for indexing strides and layout ordering
+ * @tparam[in] ContainerPolicy storage and accessor policy
  */
 template <typename ElementType,
           typename Extents,
@@ -315,81 +324,98 @@ using device_mdarray =
 
 /**
  * @brief Shorthand for 0-dim host mdarray (scalar).
- *
- * Underlying storage is std::vector.
+ * @tparam[in] ElementType the data type of the scalar element
  */
 template <typename ElementType>
 using host_scalar = host_mdarray<ElementType, detail::scalar_extent>;
 
 /**
  * @brief Shorthand for 0-dim host mdarray (scalar).
- *
- * Similar to rmm::device_scalar, underying storage is rmm::device_uvector.
+ * @tparam[in] ElementType the data type of the scalar element
  */
 template <typename ElementType>
 using device_scalar = device_mdarray<ElementType, detail::scalar_extent>;
 
 /**
  * @brief Shorthand for 1-dim host mdarray.
+ * @tparam[in] ElementType the data type of the vector elements
  */
 template <typename ElementType>
 using host_vector = host_mdarray<ElementType, detail::vector_extent>;
 
 /**
  * @brief Shorthand for 1-dim device mdarray.
+ * @tparam[in] ElementType the data type of the vector elements
  */
 template <typename ElementType>
 using device_vector = device_mdarray<ElementType, detail::vector_extent>;
 
 /**
  * @brief Shorthand for c-contiguous host matrix.
+ * @tparam[in] ElementType the data type of the matrix elements
+ * @tparam[in] LayoutPolicy policy for strides and layout ordering
  */
 template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
 using host_matrix = host_mdarray<ElementType, detail::matrix_extent, LayoutPolicy>;
 
 /**
  * @brief Shorthand for c-contiguous device matrix.
+ * @tparam[in] ElementType the data type of the matrix elements
+ * @tparam[in] LayoutPolicy policy for strides and layout ordering
  */
 template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
 using device_matrix = device_mdarray<ElementType, detail::matrix_extent, LayoutPolicy>;
 
 /**
  * @brief Shorthand for 0-dim host mdspan (scalar).
+ * @tparam[in] ElementType the data type of the scalar element
  */
 template <typename ElementType>
 using host_scalar_view = host_mdspan<ElementType, detail::scalar_extent>;
 
 /**
  * @brief Shorthand for 0-dim host mdspan (scalar).
+ * @tparam[in] ElementType the data type of the scalar element
  */
 template <typename ElementType>
 using device_scalar_view = device_mdspan<ElementType, detail::scalar_extent>;
 
 /**
  * @brief Shorthand for 1-dim host mdspan.
+ * @tparam[in] ElementType the data type of the vector elements
  */
 template <typename ElementType>
 using host_vector_view = host_mdspan<ElementType, detail::vector_extent>;
 
 /**
  * @brief Shorthand for 1-dim device mdspan.
+ * @tparam[in] ElementType the data type of the vector elements
  */
 template <typename ElementType>
 using device_vector_view = device_mdspan<ElementType, detail::vector_extent>;
 
 /**
  * @brief Shorthand for c-contiguous host matrix view.
+ * @tparam[in] ElementType the data type of the matrix elements
+ * @tparam[in] LayoutPolicy policy for strides and layout ordering
+ *
  */
 template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
 using host_matrix_view = host_mdspan<ElementType, detail::matrix_extent, LayoutPolicy>;
 /**
  * @brief Shorthand for c-contiguous device matrix view.
+ * @tparam[in] ElementType the data type of the matrix elements
+ * @tparam[in] LayoutPolicy policy for strides and layout ordering
+ *
  */
 template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
 using device_matrix_view = device_mdspan<ElementType, detail::matrix_extent, LayoutPolicy>;
 
 /**
  * @brief Create a 0-dim (scalar) mdspan instance for host value.
+ *
+ * @tparam[in] ElementType the data type of the matrix elements
+ * @param[in] ptr on device to wrap
  */
 template <typename ElementType>
 auto make_host_scalar_view(ElementType* ptr)
@@ -400,6 +426,9 @@ auto make_host_scalar_view(ElementType* ptr)
 
 /**
  * @brief Create a 0-dim (scalar) mdspan instance for device value.
+ *
+ * @tparam[in] ElementType the data type of the matrix elements
+ * @param[in] ptr on device to wrap
  */
 template <typename ElementType>
 auto make_device_scalar_view(ElementType* ptr)
@@ -409,7 +438,14 @@ auto make_device_scalar_view(ElementType* ptr)
 }
 
 /**
- * @brief Create a 2-dim c-contiguous mdspan instance for host pointer.
+ * @brief Create a 2-dim c-contiguous mdspan instance for host pointer. It's
+ *        expected that the given layout policy match the layout of the underlying
+ *        pointer.
+ * @tparam[in] ElementType the data type of the matrix elements
+ * @tparam[in] LayoutPolicy policy for strides and layout ordering
+ * @param[in] ptr on host to wrap
+ * @param[in] n_rows number of rows in pointer
+ * @param[in] n_cols number of columns in pointer
  */
 template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
 auto make_host_matrix_view(ElementType* ptr, size_t n_rows, size_t n_cols)
@@ -418,7 +454,14 @@ auto make_host_matrix_view(ElementType* ptr, size_t n_rows, size_t n_cols)
   return host_matrix_view<ElementType, LayoutPolicy>{ptr, extents};
 }
 /**
- * @brief Create a 2-dim c-contiguous mdspan instance for device pointer.
+ * @brief Create a 2-dim c-contiguous mdspan instance for device pointer. It's
+ *        expected that the given layout policy match the layout of the underlying
+ *        pointer.
+ * @tparam[in] ElementType the data type of the matrix elements
+ * @tparam[in] LayoutPolicy policy for strides and layout ordering
+ * @param[in] ptr on device to wrap
+ * @param[in] n_rows number of rows in pointer
+ * @param[in] n_cols number of columns in pointer
  */
 template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
 auto make_device_matrix_view(ElementType* ptr, size_t n_rows, size_t n_cols)
@@ -429,6 +472,10 @@ auto make_device_matrix_view(ElementType* ptr, size_t n_rows, size_t n_cols)
 
 /**
  * @brief Create a 1-dim mdspan instance for host pointer.
+ * @tparam[in] ElementType the data type of the vector elements
+ * @param[in] ptr on host to wrap
+ * @param[in] n number of elements in pointer
+ * @return raft::host_vector_view
  */
 template <typename ElementType>
 auto make_host_vector_view(ElementType* ptr, size_t n)
@@ -439,6 +486,10 @@ auto make_host_vector_view(ElementType* ptr, size_t n)
 
 /**
  * @brief Create a 1-dim mdspan instance for device pointer.
+ * @tparam[in] ElementType the data type of the vector elements
+ * @param[in] ptr on device to wrap
+ * @param[in] n number of elements in pointer
+ * @return raft::device_vector_view
  */
 template <typename ElementType>
 auto make_device_vector_view(ElementType* ptr, size_t n)
@@ -449,6 +500,11 @@ auto make_device_vector_view(ElementType* ptr, size_t n)
 
 /**
  * @brief Create a 2-dim c-contiguous host mdarray.
+ * @tparam[in] ElementType the data type of the matrix elements
+ * @tparam[in] LayoutPolicy policy for strides and layout ordering
+ * @param[in] n_rows number or rows in matrix
+ * @param[in] n_cols number of columns in matrix
+ * @return raft::host_matrix
  */
 template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
 auto make_host_matrix(size_t n_rows, size_t n_cols)
@@ -461,6 +517,12 @@ auto make_host_matrix(size_t n_rows, size_t n_cols)
 
 /**
  * @brief Create a 2-dim c-contiguous device mdarray.
+ * @tparam[in] ElementType the data type of the matrix elements
+ * @tparam[in] LayoutPolicy policy for strides and layout ordering
+ * @param[in] n_rows number or rows in matrix
+ * @param[in] n_cols number of columns in matrix
+ * @param[in] stream cuda stream for ordering events
+ * @return raft::device_matrix
  */
 template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
 auto make_device_matrix(size_t n_rows, size_t n_cols, rmm::cuda_stream_view stream)
@@ -472,9 +534,27 @@ auto make_device_matrix(size_t n_rows, size_t n_cols, rmm::cuda_stream_view stre
 }
 
 /**
+ * @brief Create a 2-dim c-contiguous device mdarray.
+ *
+ * @tparam[in] ElementType the data type of the matrix elements
+ * @tparam[in] LayoutPolicy policy for strides and layout ordering
+ * @param[in] handle raft handle for managing expensive resources
+ * @param[in] n_rows number or rows in matrix
+ * @param[in] n_cols number of columns in matrix
+ * @return raft::device_matrix
+ */
+template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
+auto make_device_matrix(raft::handle_t const& handle, size_t n_rows, size_t n_cols)
+{
+  return make_device_matrix<ElementType, LayoutPolicy>(n_rows, n_cols, handle.get_stream());
+}
+
+/**
  * @brief Create a host scalar from v.
  *
- * Underlying storage is std::vector.
+ * @tparam[in] ElementType the data type of the scalar element
+ * @param[in] v scalar type to wrap
+ * @return raft::host_scalar
  */
 template <typename ElementType>
 auto make_host_scalar(ElementType const& v)
@@ -493,7 +573,10 @@ auto make_host_scalar(ElementType const& v)
 /**
  * @brief Create a device scalar from v.
  *
- * Similar to rmm::device_scalar, underying storage is rmm::device_uvector.
+ * @tparam[in] ElementType the data type of the scalar element
+ * @param[in] v scalar type to wrap on device
+ * @param[in] stream the cuda stream for ordering events
+ * @return raft::device_scalar
  */
 template <typename ElementType>
 auto make_device_scalar(ElementType const& v, rmm::cuda_stream_view stream)
@@ -507,7 +590,24 @@ auto make_device_scalar(ElementType const& v, rmm::cuda_stream_view stream)
 }
 
 /**
+ * @brief Create a device scalar from v.
+ *
+ * @tparam[in] ElementType the data type of the scalar element
+ * @param[in] handle raft handle for managing expensive cuda resources
+ * @param[in] v scalar to wrap on device
+ * @return raft::device_scalar
+ */
+template <typename ElementType>
+auto make_device_scalar(raft::handle_t const& handle, ElementType const& v)
+{
+  return make_device_scalar<ElementType>(v, handle.get_stream());
+}
+
+/**
  * @brief Create a 1-dim host mdarray.
+ * @tparam[in] ElementType the data type of the vector elements
+ * @param[in] n number of elements in vector
+ * @return raft::host_vector
  */
 template <typename ElementType>
 auto make_host_vector(size_t n)
@@ -520,6 +620,10 @@ auto make_host_vector(size_t n)
 
 /**
  * @brief Create a 1-dim device mdarray.
+ * @tparam[in] ElementType the data type of the vector elements
+ * @param[in] n number of elements in vector
+ * @param[in] stream the cuda stream for ordering events
+ * @return raft::device_vector
  */
 template <typename ElementType>
 auto make_device_vector(size_t n, rmm::cuda_stream_view stream)
@@ -528,5 +632,18 @@ auto make_device_vector(size_t n, rmm::cuda_stream_view stream)
   using policy_t = typename device_vector<ElementType>::container_policy_type;
   policy_t policy{stream};
   return device_vector<ElementType>{extents, policy};
+}
+
+/**
+ * @brief Create a 1-dim device mdarray.
+ * @tparam[in] ElementType the data type of the vector elements
+ * @param[in] handle raft handle for managing expensive cuda resources
+ * @param[in] n number of elements in vector
+ * @return raft::device_vector
+ */
+template <typename ElementType>
+auto make_device_vector(raft::handle_t const& handle, size_t n)
+{
+  return make_device_vector<ElementType>(n, handle.get_stream());
 }
 }  // namespace raft
