@@ -45,25 +45,23 @@ The example below demonstrates creating a RAFT handle and using it with RMM's `d
 pairwise Euclidean distances:
 ```c++
 #include <raft/handle.hpp>
-#include <raft/distance/distance.hpp>
+#include <raft/mdarray.hpp>
+#include <raft/random/make_blobs.cuh>
+#include <raft/distance/distance.cuh>
 
-#include <rmm/device_uvector.hpp>
 raft::handle_t handle;
 
-int n_samples = ...;
-int n_features = ...;
+int n_samples = 5000;
+int n_features = 50;
 
-rmm::device_uvector<float> input(n_samples * n_features, handle.get_stream());
-rmm::device_uvector<float> output(n_samples * n_samples, handle.get_stream());
+auto input = make_device_matrix<float>(handle, n_samples, n_features);
+auto labels = make_device_vector<int>(handle, n_samples);
+auto output = make_device_matrix<float>(handle, n_samples, n_samples);
 
-// ... Populate feature matrix ...
+raft::random::make_blobs(handle, input, labels);
 
 auto metric = raft::distance::DistanceType::L2SqrtExpanded;
-rmm::device_uvector<char> workspace(0, handle.get_stream());
-raft::distance::pairwise_distance(handle, input.data(), input.data(),
-                                  output.data(),
-                                  n_samples, n_samples, n_features,
-                                  workspace.data(), metric);
+raft::distance::pairwise_distance(handle, input, input, output, metric);
 ```
 
 ## Installing

@@ -25,8 +25,6 @@
 
 #include <raft/mdarray.hpp>
 
-namespace stdex = std::experimental;
-
 namespace raft {
 namespace distance {
 
@@ -166,9 +164,10 @@ template <raft::distance::DistanceType distanceType,
           typename InType,
           typename AccType,
           typename OutType,
-          typename Index_ = int>
-size_t getWorkspaceSize(const raft::device_matrix_view<InType>& x,
-                        const raft::device_matrix_view<InType>& y)
+          typename Index_ = int,
+          typename layout>
+size_t getWorkspaceSize(const raft::device_matrix_view<InType, layout> x,
+                        const raft::device_matrix_view<InType, layout> y)
 {
   RAFT_EXPECTS(x.extent(1) == y.extent(1), "Number of columns must be equal.");
 
@@ -235,11 +234,12 @@ template <raft::distance::DistanceType distanceType,
           typename InType,
           typename AccType,
           typename OutType,
-          typename Index_ = int>
+          typename Index_ = int,
+          typename layout = raft::layout_c_contiguous>
 void distance(raft::handle_t const& handle,
-              raft::device_matrix_view<InType> const& x,
-              raft::device_matrix_view<InType> const& y,
-              raft::device_matrix_view<OutType>& dist,
+              raft::device_matrix_view<InType, layout> const x,
+              raft::device_matrix_view<InType, layout> const y,
+              raft::device_matrix_view<OutType, layout> dist,
               InType metric_arg = 2.0f)
 {
   RAFT_EXPECTS(x.extent(1) == y.extent(1), "Number of columns must be equal.");
@@ -427,11 +427,11 @@ void pairwise_distance(const raft::handle_t& handle,
  * @param stream cuda stream
  * @param isRowMajor whether the matrices are row-major or col-major
  */
-template <typename Type, typename Index_ = int>
+template <typename Type, typename Index_ = int, typename layout = layout_c_contiguous>
 void pairwise_distance(raft::handle_t const& handle,
-                       device_matrix_view<Type> const& x,
-                       device_matrix_view<Type> const& y,
-                       device_matrix_view<Type>& dist,
+                       device_matrix_view<Type, layout> const x,
+                       device_matrix_view<Type, layout> const y,
+                       device_matrix_view<Type, layout> dist,
                        raft::distance::DistanceType metric,
                        Type metric_arg = 2.0f)
 {
