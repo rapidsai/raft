@@ -253,7 +253,8 @@ void distance(raft::handle_t const& handle,
   RAFT_EXPECTS(x.is_contiguous(), "Input x must be contiguous.");
   RAFT_EXPECTS(y.is_contiguous(), "Input y must be contiguous.");
 
-  if (x.stride(0) == 0 && y.stride(0) == 0) {
+  auto is_rowmajor = std::is_same<layout, layout_c_contiguous>::value;
+
     distance<distanceType, InType, AccType, OutType, Index_>(x.data(),
                                                              y.data(),
                                                              dist.data(),
@@ -261,21 +262,8 @@ void distance(raft::handle_t const& handle,
                                                              y.extent(0),
                                                              x.extent(1),
                                                              handle.get_stream(),
-                                                             true,
+                                                             is_rowmajor,
                                                              metric_arg);
-  } else if (x.stride(0) > 0 && y.stride(0) > 0) {
-    distance<distanceType, InType, AccType, OutType, Index_>(x.data(),
-                                                             y.data(),
-                                                             dist.data(),
-                                                             x.extent(0),
-                                                             y.extent(0),
-                                                             x.extent(1),
-                                                             handle.get_stream(),
-                                                             false,
-                                                             metric_arg);
-  } else {
-    RAFT_FAIL("x and y must both have the same layout: row-major or column-major.");
-  }
 }
 
 /**
