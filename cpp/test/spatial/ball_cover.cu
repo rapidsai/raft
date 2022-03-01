@@ -60,7 +60,14 @@ __global__ void count_discrepancies_kernel(value_idx* actual_idx,
                                              actual_idx[row * n + i] == row);
 
       if (!matches) {
-        printf("row=%ud, n=%ud, actual_dist=%f, actual_ind=%ld, expected_dist=%f, expected_ind=%ld\n", row,i, actual[row * n + i], actual_idx[row * n + i], expected[row * n + i], expected_idx[row * n + i]);
+        printf(
+          "row=%ud, n=%ud, actual_dist=%f, actual_ind=%ld, expected_dist=%f, expected_ind=%ld\n",
+          row,
+          i,
+          actual[row * n + i],
+          actual_idx[row * n + i],
+          expected[row * n + i],
+          expected_idx[row * n + i]);
       }
       n_diffs += !matches;
       out[row] = n_diffs;
@@ -326,8 +333,7 @@ const std::vector<BallCoverInputs> ballcover_inputs = {
   {25, 5000, 2, 1.0, 10000, raft::distance::DistanceType::L2SqrtUnexpanded},
   {5, 8000, 3, 1.0, 10000, raft::distance::DistanceType::L2SqrtUnexpanded},
   {11, 6000, 3, 1.0, 10000, raft::distance::DistanceType::L2SqrtUnexpanded},
-  {25, 10000, 3, 1.0, 5000, raft::distance::DistanceType::L2SqrtUnexpanded}
-};
+  {25, 10000, 3, 1.0, 5000, raft::distance::DistanceType::L2SqrtUnexpanded}};
 
 INSTANTIATE_TEST_CASE_P(BallCoverAllKNNTest,
                         BallCoverAllKNNTestF,
