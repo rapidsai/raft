@@ -255,15 +255,15 @@ void distance(raft::handle_t const& handle,
 
   auto is_rowmajor = std::is_same<layout, layout_c_contiguous>::value;
 
-    distance<distanceType, InType, AccType, OutType, Index_>(x.data(),
-                                                             y.data(),
-                                                             dist.data(),
-                                                             x.extent(0),
-                                                             y.extent(0),
-                                                             x.extent(1),
-                                                             handle.get_stream(),
-                                                             is_rowmajor,
-                                                             metric_arg);
+  distance<distanceType, InType, AccType, OutType, Index_>(x.data(),
+                                                           y.data(),
+                                                           dist.data(),
+                                                           x.extent(0),
+                                                           y.extent(0),
+                                                           x.extent(1),
+                                                           handle.get_stream(),
+                                                           is_rowmajor,
+                                                           metric_arg);
 }
 
 /**
