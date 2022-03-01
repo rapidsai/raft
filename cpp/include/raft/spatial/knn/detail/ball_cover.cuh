@@ -173,7 +173,6 @@ void k_closest_landmarks(const raft::handle_t& handle,
   std::vector<value_t*> input      = {index.get_R()};
   std::vector<std::uint32_t> sizes = {index.n_landmarks};
 
-  printf("n_query_pts: %d\n", n_query_pts);
   brute_force_knn_impl<value_int, value_idx>(handle,
                                              input,
                                              sizes,

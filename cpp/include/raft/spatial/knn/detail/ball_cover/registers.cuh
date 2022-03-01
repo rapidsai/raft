@@ -97,7 +97,6 @@ __global__ void perform_post_filter_registers(const value_t* X,
 
   // zero out bits for closest k landmarks
   for (value_int j = threadIdx.x; j < k; j += tpb) {
-    if (blockIdx.x == 999) { printf("Zeroing landmark %u\n", j); }
     _zero_bit(shared_mem, (std::uint32_t)R_knn_inds[blockIdx.x * k + j]);
   }
 
@@ -111,7 +110,6 @@ __global__ void perform_post_filter_registers(const value_t* X,
     // compute p(q, r)
     value_t dist = dfunc(local_x_ptr, landmarks + (n_cols * l), n_cols);
     if (dist > weight * (closest_R_dist + R_radius[l]) || dist > 3 * closest_R_dist) {
-      if (blockIdx.x == 999) { printf("Zeroing landmark %u\n", l); }
       _zero_bit(shared_mem, l);
     }
   }
