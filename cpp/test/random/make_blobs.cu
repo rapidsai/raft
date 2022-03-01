@@ -95,36 +95,15 @@ class MakeBlobsTest : public ::testing::TestWithParam<MakeBlobsInputs<T>> {
     raft::random::Rng r(params.seed, params.gtype);
 
     auto data = make_device_matrix<T, layout>(handle, params.rows, params.cols);
-
-    //    rmm::device_uvector<T> data(len, stream);
     auto labels = make_device_vector<int>(handle, params.rows);
     auto stats  = make_device_vector<T>(handle, 2 * params.n_clusters * params.cols);
     auto lens   = make_device_vector<int>(handle, params.n_clusters);
-
-    //    rmm::device_uvector<int> labels(params.rows, stream);
-    //    rmm::device_uvector<T> stats(2 * params.n_clusters * params.cols, stream);
-    //    rmm::device_uvector<int> lens(params.n_clusters, stream);
 
     RAFT_CUDA_TRY(cudaMemsetAsync(stats.data(), 0, stats.extent(0) * sizeof(T), stream));
     RAFT_CUDA_TRY(cudaMemsetAsync(lens.data(), 0, lens.extent(0) * sizeof(int), stream));
     RAFT_CUDA_TRY(cudaMemsetAsync(mean_var.data(), 0, mean_var.size() * sizeof(T), stream));
 
     r.uniform(mu_vec.data(), params.cols * params.n_clusters, T(-10.0), T(10.0), stream);
-
-    //    T* sigma_vec = nullptr;
-
-    //      template <typename DataT, typename IdxT>
-    //      void make_blobs(raft::handle_t const& handle,
-    //                      raft::device_matrix_view<DataT>& out,
-    //                      raft::device_vector_view<IdxT>& labels,
-    //                      IdxT n_clusters                                                   = 5,
-    //                      std::optional<raft::device_vector_view<DataT>>& centers           =
-    //                      std::nullopt, std::optional<raft::device_vector_view<DataT>> const&
-    //                      cluster_std = std::nullopt, const DataT cluster_std_scalar = (DataT)1.0,
-    //                      bool shuffle                                                      =
-    //                      true, DataT center_box_min = (DataT)-10.0, DataT center_box_max =
-    //                      (DataT)10.0, uint64_t seed = 0ULL, GeneratorType type = GenPhilox)
-    //      {
 
     make_blobs<T, int, layout>(handle,
                                data.view(),
@@ -138,22 +117,6 @@ class MakeBlobsTest : public ::testing::TestWithParam<MakeBlobsInputs<T>> {
                                T(10.0),
                                params.seed,
                                params.gtype);
-
-    //    make_blobs(data.data(),
-    //               labels.data(),
-    //               params.rows,
-    //               params.cols,
-    //               params.n_clusters,
-    //               stream,
-    //               params.row_major,
-    //               mu_vec.data(),
-    //               sigma_vec,
-    //               params.std,
-    //               params.shuffle,
-    //               T(-10.0),
-    //               T(10.0),
-    //               params.seed,
-    //               params.gtype);
 
     bool row_major           = std::is_same<layout, raft::layout_c_contiguous>::value;
     static const int threads = 128;
