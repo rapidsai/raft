@@ -301,7 +301,8 @@ class BallCoverAllKNNTest : public ::testing::TestWithParam<BallCoverInputs> {
 
     // TODO: There seem to be discrepancies here only when
     // the entire test suite is executed.
-    // Ref: https://github.com/rapidsai/raft/issues/533
+    // Ref: https://github.com/rapidsai/raft/issues/
+    // 1-5 mismatches in 8000 samples is 0.0125% - 0.0625%
     ASSERT_TRUE(res <= 5);
   }
 
