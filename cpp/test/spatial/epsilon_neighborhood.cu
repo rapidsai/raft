@@ -93,26 +93,10 @@ TEST_P(EpsNeighTestFI, Result)
   for (int i = 0; i < param.n_batches; ++i) {
     RAFT_CUDA_TRY(cudaMemsetAsync(adj.data(), 0, sizeof(bool) * param.n_row * batchSize, stream));
     RAFT_CUDA_TRY(cudaMemsetAsync(vd.data(), 0, sizeof(int) * (batchSize + 1), stream));
-    epsUnexpL2SqNeighborhood<float, int>(adj.
-
-                                         data(),
-                                         vd
-
-                                           .
-
-                                         data(),
-                                         data
-
-                                           .
-
-                                         data(),
-                                         data
-
-                                             .
-
-                                           data()
-
-                                           + (i * batchSize * param.n_col),
+    epsUnexpL2SqNeighborhood<float, int>(adj.data(),
+                                         vd.data(),
+                                         data.data(),
+                                         data.data() + (i * batchSize * param.n_col),
                                          param.n_row,
                                          batchSize,
                                          param.n_col,
