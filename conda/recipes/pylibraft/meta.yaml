@@ -28,7 +28,7 @@ requirements:
     - python x.x
     - setuptools
     - cython>=0.29,<0.30
-    - librmm {{ minor_version }}
+    - rmm {{ minor_version }}
     - libraft-headers {{ version }}
     - cudatoolkit {{ cuda_version }}.*
     - cuda-python >=11.5,<12.0
