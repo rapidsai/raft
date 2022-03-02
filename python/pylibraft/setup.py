@@ -76,7 +76,8 @@ if clean_artifacts:
     try:
         setup_file_path = str(Path(__file__).parent.absolute())
         shutil.rmtree(setup_file_path + '/.pytest_cache', ignore_errors=True)
-        shutil.rmtree(setup_file_path + '/pylibraft.egg-info', ignore_errors=True)
+        shutil.rmtree(setup_file_path + '/pylibraft.egg-info',
+                      ignore_errors=True)
         shutil.rmtree(setup_file_path + '/__pycache__', ignore_errors=True)
 
         clean_folder(setup_file_path + '/pylibraft')
