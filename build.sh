@@ -2,7 +2,7 @@
 
 # Copyright (c) 2020-2022, NVIDIA CORPORATION.
 
-# cuml build script
+# raft build script
 
 # This script is used to build the component(s) in this repo from
 # source, and can be called with various options to customize the
@@ -18,13 +18,14 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libraft pyraft docs -v -g --noinstall --compile-libs --compile-nn --compile-dist --allgpuarch --nvtx --show_depr_warn -h --nogtest --buildfaiss"
+VALIDARGS="clean libraft pyraft pylibraft docs -v -g --noinstall --compile-libs --compile-nn --compile-dist --allgpuarch --nvtx --show_depr_warn -h --nogtest --buildfaiss"
 HELP="$0 [<target> ...] [<flag> ...]
  where <target> is:
    clean            - remove all existing build artifacts and configuration (start over)
    libraft          - build the raft C++ code only. Also builds the C-wrapper library
                       around the C++ code.
-   pyraft             - build the cuml Python package
+   pyraft           - build the pyraft Python package
+   pylibraft        - build the pylibraft Python package
    docs             - build the documentation
 
  and <flag> is:
@@ -45,9 +46,9 @@ HELP="$0 [<target> ...] [<flag> ...]
 "
 LIBRAFT_BUILD_DIR=${LIBRAFT_BUILD_DIR:=${REPODIR}/cpp/build}
 SPHINX_BUILD_DIR=${REPODIR}/docs
-PY_RAFT_BUILD_DIR=${REPODIR}/python/build
-PYTHON_DEPS_CLONE=${REPODIR}/python/external_repositories
-BUILD_DIRS="${LIBRAFT_BUILD_DIR} ${PY_RAFT_BUILD_DIR} ${PYTHON_DEPS_CLONE}"
+PY_RAFT_BUILD_DIR=${REPODIR}/python/raft/build
+PY_LIBRAFT_BUILD_DIR=${REPODIR}/python/pylibraft/build
+BUILD_DIRS="${LIBRAFT_BUILD_DIR} ${PY_RAFT_BUILD_DIR} ${PY_LIBRAFT_BUILD_DIR}"
 
 # Set defaults for vars modified by flags to this script
 CMAKE_LOG_LEVEL=""
@@ -157,7 +158,11 @@ if (( ${CLEAN} == 1 )); then
 
     done
 
-    cd ${REPODIR}/python
+    cd ${REPODIR}/python/raft
+    python setup.py clean --all
+    cd ${REPODIR}
+
+    cd ${REPODIR}/python/pylibraft
     python setup.py clean --all
     cd ${REPODIR}
 fi
@@ -200,16 +205,28 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs; then
   fi
 fi
 
-# Build and (optionally) install the cuml Python package
+# Build and (optionally) install the pyraft Python package
 if (( ${NUMARGS} == 0 )) || hasArg pyraft || hasArg docs; then
 
-    cd ${REPODIR}/python
+    cd ${REPODIR}/python/raft
     if [[ ${INSTALL_TARGET} != "" ]]; then
         python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace --library-dir=${LIBRAFT_BUILD_DIR} install --single-version-externally-managed --record=record.txt
     else
         python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace --library-dir=${LIBRAFT_BUILD_DIR}
     fi
 fi
+
+# Build and (optionally) install the pylibraft Python package
+if (( ${NUMARGS} == 0 )) || hasArg pylibraft || hasArg docs; then
+
+    cd ${REPODIR}/python/pylibraft
+    if [[ ${INSTALL_TARGET} != "" ]]; then
+        python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace --library-dir=${LIBRAFT_BUILD_DIR} install --single-version-externally-managed --record=record.txt
+    else
+        python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace --library-dir=${LIBRAFT_BUILD_DIR}
+    fi
+fi
+
 
 if hasArg docs; then
     cmake --build ${LIBRAFT_BUILD_DIR} --target docs_raft

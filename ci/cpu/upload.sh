@@ -34,6 +34,7 @@ export LIBRAFT_HEADERS_FILE=`conda build --croot ${CONDA_BLD_DIR} conda/recipes/
 export LIBRAFT_NN_FILE=`conda build --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/libraft_nn --output`
 export LIBRAFT_DISTANCE_FILE=`conda build --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/libraft_distance --output`
 export PYRAFT_FILE=`conda build --croot ${CONDA_BLD_DIR} conda/recipes/pyraft --python=$PYTHON --output`
+export PYLIBRAFT_FILE=`conda build --croot ${CONDA_BLD_DIR} conda/recipes/pylibraft --python=$PYTHON --output`
 
 ################################################################################
 # UPLOAD - Conda packages
@@ -64,4 +65,10 @@ if [[ "$BUILD_RAFT" == "1" ]]; then
   echo "Upload pyraft"
   echo ${PYRAFT_FILE}
   gpuci_retry anaconda -t ${MY_UPLOAD_KEY} upload -u ${CONDA_USERNAME:-rapidsai} ${LABEL_OPTION} --skip-existing ${PYRAFT_FILE} --no-progress
+
+  test -e ${PYLIBRAFT_FILE}
+  echo "Upload pylibraft"
+  echo ${PYLIBRAFT_FILE}
+  gpuci_retry anaconda -t ${MY_UPLOAD_KEY} upload -u ${CONDA_USERNAME:-rapidsai} ${LABEL_OPTION} --skip-existing ${PYLIBRAFT_FILE} --no-progress
+
 fi
