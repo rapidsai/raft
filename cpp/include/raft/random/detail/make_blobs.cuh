@@ -107,7 +107,9 @@ __global__ void generate_data_kernel(DataT* out,
   IdxT len          = n_rows * n_cols;
   for (IdxT idx = tid; idx < len; idx += stride) {
     DataT val1, val2;
-    gen.next(val1);
+    do {
+      gen.next(val1);
+    } while (val1 == DataT(0.0));
     gen.next(val2);
     DataT mu1, sigma1, mu2, sigma2;
     get_mu_sigma(mu1,
