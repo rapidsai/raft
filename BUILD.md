@@ -69,9 +69,8 @@ cd cpp
 mkdir build
 cd build
 cmake -D BUILD_TESTS=ON -DRAFT_COMPILE_LIBRARIES=ON -DRAFT_ENABLE_NN_DEPENDENCIES=ON  -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX ../
-make install
+make -j<parallel_level> install
 ```
-
 
 RAFT's cmake has the following configurable flags available:.
 
@@ -83,6 +82,8 @@ RAFT's cmake has the following configurable flags available:.
 | RAFT_COMPILE_DIST_LIBRARY | ON, OFF | ON | Compiles the `libraft-distance` shared library |  
 | RAFT_ENABLE_NN_DEPENDENCIES | ON, OFF | OFF | Searches for dependencies of nearest neighbors API, such as FAISS, and compiles them if not found. |
 | RAFT_USE_FAISS_STATIC | ON, OFF | OFF | Statically link FAISS into `libraft-nn` | 
+| RAFT_STATIC_LINK_LIBRARIES | ON, OFF | ON | Build static link libraries instead of shared libraries |
+| 
 | DETECT_CONDA_ENV | ON, OFF | ON | Enable detection of conda environment for dependencies |
 | NVTX | ON, OFF | OFF | Enable NVTX Markers |
 | CUDA_ENABLE_KERNELINFO | ON, OFF | OFF | Enables `kernelinfo` in nvcc. This is useful for `compute-sanitizer` | 

@@ -1,3 +1,4 @@
+#
 # Copyright (c) 2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,3 +13,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+
+from .handle cimport handle_t
+from rmm._lib.cuda_stream_view cimport cuda_stream_view
+
+
+cdef extern from "raft/mdarray.hpp" namespace "raft":
+    cdef cppclass device_matrix[T]:
+        pass
+
+    cdef device_matrix[T] make_device_matrix[T](size_t n_rows,
+                            size_t n_cols,
+                            cuda_stream_view stream)

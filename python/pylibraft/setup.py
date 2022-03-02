@@ -100,8 +100,7 @@ if clean_artifacts:
 ##############################################################################
 # - Cython extensions build and parameters -----------------------------------
 
-
-libs = ['cudart', "cusolver", "cusparse", "cublas"]
+libs = ['raft_distance', 'cudart', "cusolver", "cusparse", "cublas"]
 
 include_dirs = [cuda_include_dir,
                 numpy.get_include(),
@@ -187,7 +186,9 @@ setup(name='pylibraft',
       setup_requires=['cython'],
       ext_modules=extensions,
       package_data=dict.fromkeys(
-                         find_packages(include=["pylibraft.common",
+                         find_packages(include=["pylibraft.distance",
+                                                "pylibraft.distance.includes",
+                                                "pylibraft.common",
                                                 "pylibraft.common.includes"]),
                          ["*.hpp", "*.pxd"],
       ),

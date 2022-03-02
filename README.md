@@ -1,6 +1,6 @@
 # <div align="left"><img src="https://rapids.ai/assets/images/rapids_logo.png" width="90px"/>&nbsp;RAFT: RAPIDS Analytics Framework Toolkit</div>
 
-RAFT contains fundamental widely-used algorithms and primitives for data science, graph and machine learning. The algorithms are CUDA-accelerated and form building-blocks for rapidly composing analytics in the [RAPIDS](https://rapids.ai) ecosystem. 
+RAFT (Reusable Algorithms, Functions, and other Tools) contains fundamental widely-used algorithms and primitives for data science, graph and machine learning. The algorithms are CUDA-accelerated and form building-blocks for rapidly composing analytics in the [RAPIDS](https://rapids.ai) ecosystem. 
 
 By taking a primitives-based approach to algorithm development, RAFT
 - accelerates algorithm construction time
@@ -23,12 +23,9 @@ The algorithms in RAFT span the following general categories:
 
 RAFT provides a header-only C++ library and pre-compiled shared libraries that can 1) speed up compile times and 2) enable the APIs to be used without CUDA-enabled compilers.
 
-RAFT also provides a Python library that is currently limited to
-1. a python wrapper around the `raft::handle_t` for managing cuda library resources
-2. definitions for using `raft::handle_t` directly in cython
-3. tools for building multi-node multi-GPU algorithms that leverage [Dask](https://dask.org/)
-
-The Python API is being improved to wrap the algorithms and primitives from the categories above.
+RAFT also provides 2 Python libraries:
+- `pyraft` - reusable infrastructure for building analytics, such as tools for building multi-node multi-GPU algorithms that leverage [Dask](https://dask.org/).
+- `pylibraft` - cython wrappers around RAFT algorithms and primitives.
 
 ## Getting started
 
@@ -68,28 +65,31 @@ raft::distance::pairwise_distance(handle, input.data(), input.data(),
 
 ## Installing
 
-RAFT can be installed through conda, cmake-package-manager (cpm), or by building the repository from source. 
+RAFT can be installed through conda, [Cmake Package Manager (CPM)](https://github.com/cpm-cmake/CPM.cmake), or by building the repository from source.
 
 ### Conda
 
-The easiest way to install RAFT is through conda and several packages are provided.
+The easiest way to install RAFT is through conda
 - `libraft-headers` contains all the CUDA/C++ headers
 - `libraft-nn` (optional) contains precompiled shared libraries for the nearest neighbors algorithms. If FAISS is not already installed in your environment, this will need to be installed to use the nearest neighbors headers.
 - `libraft-distance` (optional) contains shared libraries for distance algorithms.
-- `pyraft` (optional) contains the Python library
+- `pyraft` (optional) Python library with reusable infrastructure and tools
+- `pylibraft` (optional) Cython wrappers around RAFT algorithms and primitives
 
-To install RAFT with conda (change to `rapidsai-nightly` for more up-to-date but less stable nightly packages)
+Use the following command to install RAFT with conda (use `-c rapidsai-nightly` for more up-to-date but less stable nightly packages)
 ```bash
-conda install -c rapidsai libraft-headers libraft-nn libraft-distance pyraft
+conda install -c rapidsai libraft-headers libraft-nn libraft-distance pyraft pylibraft
 ```
 
 After installing RAFT, `find_package(raft COMPONENTS nn distance)` can be used in your CUDA/C++ build. Note that the `COMPONENTS` are optional and will depend on the packages installed.
 
 ### CPM
 
-RAFT uses the [RAPIDS cmake](https://github.com/rapidsai/rapids-cmake) library, which makes it simple to include in downstream cmake projects. RAPIDS cmake provides a convenience layer around the [Cmake Package Manager (CPM)](https://github.com/cpm-cmake/CPM.cmake). 
+RAFT uses the [RAPIDS cmake](https://github.com/rapidsai/rapids-cmake) library, which makes it simple to include in downstream cmake projects. RAPIDS cmake provides a convenience layer around CPM. 
 
-After [installing](https://github.com/rapidsai/rapids-cmake#installation) rapids-cmake in your project, you can begin using RAFT by placing the code snippet below in a file named `get_raft.cmake` and including it in your cmake build with `include(get_raft.cmake)`. This will create the `raft::raft` target to add to configure the link libraries for your artifacts.
+After [installing](https://github.com/rapidsai/rapids-cmake#installation) rapids-cmake in your project, you can begin using RAFT by placing the code snippet below in a file named `get_raft.cmake` and including it in your cmake build with `include(get_raft.cmake)`. 
+
+With the default settings below, the target `raft::raft` will be available for linking. If `RAFT_COMPILE_LIBRARIES` is enabled, the additional targets `raft::nn` and `raft::distance` will also be available.
 
 ```cmake
 
@@ -135,13 +135,23 @@ find_and_configure_raft(VERSION    ${RAFT_VERSION}.00
 )
 ```
 
+You can find a more comprehensive example of the above cmake snippet the [Building RAFT C++ from source](BUILD.md#build_cxx_source) guide. 
+
 ### Source
 
 The easiest way to build RAFT from source is to use the `build.sh` script at the root of the repository,
-1. create an environment with the RAFT dependencies: `conda env create --name raft_dev -f conda/environments/raft_dev_cuda11.5.yml`
-2. run the build script from the repository root: `./build.sh pyraft libraft --compile-libs`
+1. create an environment with the RAFT dependencies:
+```
+conda env create --name raft_dev -f conda/environments/raft_dev_cuda11.5.yml
+conda activate raft_dev
+```
 
-The [Build](BUILD.md) instructions contain more details on building RAFT from source and including it in downstream projects. You can also find a more comprehensive version of the above CPM code snippet the [Building RAFT C++ from source](BUILD.md#build_cxx_source) guide.
+2. run the build script from the repository root:
+```
+./build.sh pyraft pylibraft libraft --compile-libs
+```
+
+The [Build](BUILD.md) instructions contain more details on building RAFT from source and including it in downstream projects. 
 
 ## Folder Structure and Contents
 
@@ -149,12 +159,12 @@ The folder structure mirrors other RAPIDS repos (cuDF, cuML, cuGraph...), with t
 
 - `ci`: Scripts for running CI in PRs
 - `conda`: Conda recipes and development conda environments
-- `cpp`: Source code for all C++ code. 
+- `cpp`: Source code for C++ libraries. 
   - `docs`: Doxygen configuration
-  - `include`: The C++ API is fully-contained here 
+  - `include`: The C++ API is fully-contained here
   - `src`: Compiled template specializations for the shared libraries
 - `docs`: Source code and scripts for building library documentation (doxygen + pydocs)
-- `python`: Source code for all Python source code.
+- `python`: Source code for Python libraries.
 
 ## Contributing
 
