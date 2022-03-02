@@ -30,8 +30,6 @@
 
 #include <raft/mdarray.hpp>
 
-namespace stdex = std::experimental;
-
 namespace raft {
 namespace distance {
 
@@ -284,8 +282,6 @@ void distance(raft::handle_t const& handle,
 }
 
 /**
- * @defgroup pairwise_distance pairwise distance prims
- * @{
  * @brief Convenience wrapper around 'distance' prim to convert runtime metric
  * into compile time for the purpose of dispatch
  * @tparam Type input/accumulation/output data-type
@@ -380,11 +376,8 @@ void pairwise_distance(const raft::handle_t& handle,
     default: THROW("Unknown or unsupported distance metric '%d'!", (int)metric);
   };
 }
-/** @} */
 
 /**
- * @defgroup pairwise_distance pairwise distance prims
- * @{
  * @brief Convenience wrapper around 'distance' prim to convert runtime metric
  * into compile time for the purpose of dispatch
  * @tparam Type input/accumulation/output data-type
@@ -417,8 +410,6 @@ void pairwise_distance(const raft::handle_t& handle,
 }
 
 /**
- * @defgroup pairwise_distance pairwise distance prims
- * @{
  * @brief Convenience wrapper around 'distance' prim to convert runtime metric
  * into compile time for the purpose of dispatch
  * @tparam Type input/accumulation/output data-type
