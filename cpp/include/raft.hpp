@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-#include <raft/mdarray.hpp>
-#include <raft/span.hpp>
-#include <raft/handle.hpp>
+#include "raft/handle.hpp"
+#include "raft/mdarray.hpp"
+#include "raft/span.hpp"
 
 #include <string>
 
