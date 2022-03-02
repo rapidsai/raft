@@ -14,6 +14,10 @@
  * limitations under the License.
  */
 
+#include <raft/mdarray.hpp>
+#include <raft/span.hpp>
+#include <raft/handle.hpp>
+
 #include <string>
 
 namespace raft {

@@ -104,17 +104,12 @@ void make_blobs(DataT* out,
  * @tparam DataT output data type
  * @tparam IdxT  indexing arithmetic type
  *
+ * @param[in]  handle             raft handle for managing expensive resources
  * @param[out] out                generated data [on device]
  *                                [dim = n_rows x n_cols]
  * @param[out] labels             labels for the generated data [on device]
  *                                [len = n_rows]
- * @param[in]  n_rows             number of rows in the generated data
- * @param[in]  n_cols             number of columns in the generated data
  * @param[in]  n_clusters         number of clusters (or classes) to generate
- * @param[in]  stream             cuda stream to schedule the work on
- * @param[in]  row_major          whether input `centers` and output `out`
- *                                buffers are to be stored in row or column
- *                                major layout
  * @param[in]  centers            centers of each of the cluster, pass a nullptr
  *                                if you need this also to be generated randomly
  *                                [on device] [dim = n_clusters x n_cols]

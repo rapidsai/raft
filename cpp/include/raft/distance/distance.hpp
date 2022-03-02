@@ -286,6 +286,7 @@ void distance(raft::handle_t const& handle,
  * into compile time for the purpose of dispatch
  * @tparam Type input/accumulation/output data-type
  * @tparam Index_ indexing type
+ * @param handle raft handle for managing expensive resources
  * @param x first set of points
  * @param y second set of points
  * @param dist output distance matrix
@@ -295,8 +296,8 @@ void distance(raft::handle_t const& handle,
  * @param workspace temporary workspace buffer which can get resized as per the
  * needed workspace size
  * @param metric distance metric
- * @param stream cuda stream
  * @param isRowMajor whether the matrices are row-major or col-major
+ * @param metric_arg metric argument
  */
 template <typename Type, typename Index_ = int>
 void pairwise_distance(const raft::handle_t& handle,
@@ -382,6 +383,7 @@ void pairwise_distance(const raft::handle_t& handle,
  * into compile time for the purpose of dispatch
  * @tparam Type input/accumulation/output data-type
  * @tparam Index_ indexing type
+ * @param handle raft handle for managing expensive resources
  * @param x first set of points
  * @param y second set of points
  * @param dist output distance matrix
@@ -389,8 +391,8 @@ void pairwise_distance(const raft::handle_t& handle,
  * @param n number of points in y
  * @param k dimensionality
  * @param metric distance metric
- * @param stream cuda stream
  * @param isRowMajor whether the matrices are row-major or col-major
+ * @param metric_arg metric argument
  */
 template <typename Type, typename Index_ = int>
 void pairwise_distance(const raft::handle_t& handle,
@@ -414,14 +416,12 @@ void pairwise_distance(const raft::handle_t& handle,
  * into compile time for the purpose of dispatch
  * @tparam Type input/accumulation/output data-type
  * @tparam Index_ indexing type
+ * @param handle raft handle for managing expensive resources
  * @param x first matrix of points (size mxk)
  * @param y second matrix of points (size nxk)
  * @param dist output distance matrix (size mxn)
- * @param workspace temporary workspace buffer which can get resized as per the
- * needed workspace size
  * @param metric distance metric
- * @param stream cuda stream
- * @param isRowMajor whether the matrices are row-major or col-major
+ * @param metric_arg metric argument
  */
 template <typename Type, typename Index_ = int>
 void pairwise_distance(raft::handle_t const& handle,
