@@ -49,9 +49,9 @@ raft::handle_t handle;
 int n_samples = 5000;
 int n_features = 50;
 
-auto input = make_device_matrix<float>(handle, n_samples, n_features);
-auto labels = make_device_vector<int>(handle, n_samples);
-auto output = make_device_matrix<float>(handle, n_samples, n_samples);
+auto input = raft::make_device_matrix<float>(handle, n_samples, n_features);
+auto labels = raft::make_device_vector<int>(handle, n_samples);
+auto output = raft::make_device_matrix<float>(handle, n_samples, n_samples);
 
 raft::random::make_blobs(handle, input, labels);
 
