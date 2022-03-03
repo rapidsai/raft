@@ -18,6 +18,7 @@ function(find_and_configure_rmm)
 
     include(${rapids-cmake-dir}/cpm/rmm.cmake)
     rapids_cpm_rmm(
+        EXCLUDE_FROM_ALL    TRUE
         GLOBAL_TARGETS      rmm::rmm
         BUILD_EXPORT_SET    raft-exports
         INSTALL_EXPORT_SET  raft-exports
