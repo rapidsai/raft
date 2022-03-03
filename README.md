@@ -36,7 +36,7 @@ The Python API is being improved to wrap the algorithms and primitives from the 
 
 Most of the primitives in RAFT accept a `raft::handle_t` object for the management of resources which are expensive to create, such CUDA streams, stream pools, and handles to other CUDA libraries like `cublas` and `cusolver`.
 
-The example below demonstrates creating a RAFT handle and using it with `device_matrix` and `device_vector` to allocate memory, generate random clusters, and compute
+The example below demonstrates creating a RAFT handle and using it with `device_matrix` and `device_vector` to allocate memory, generating random clusters, and computing
 pairwise Euclidean distances:
 ```c++
 #include <raft/handle.hpp>
