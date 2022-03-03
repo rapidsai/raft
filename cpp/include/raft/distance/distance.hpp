@@ -234,15 +234,17 @@ void distance(const InType* x,
  * @param dist output distance matrix (size n*m)
  * @param metric_arg metric argument (used for Minkowski distance)
  */
+
 template <raft::distance::DistanceType distanceType,
           typename InType,
           typename AccType,
           typename OutType,
-          typename Index_ = int>
-void distance(raft::handle_t const& handle,
-              raft::device_matrix_view<InType> const& x,
-              raft::device_matrix_view<InType> const& y,
-              raft::device_matrix_view<OutType>& dist,
+          typename Index_ = int,
+          typename layout = raft::layout_c_contiguous>
+void distance(raft::handle_t const handle,
+              raft::device_matrix_view<InType, layout> const x,
+              raft::device_matrix_view<InType, layout> const y,
+              raft::device_matrix_view<OutType> dist,
               InType metric_arg = 2.0f)
 {
   RAFT_EXPECTS(x.extent(1) == y.extent(1), "Number of columns must be equal.");
