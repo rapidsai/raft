@@ -32,16 +32,11 @@ The Python API is being improved to wrap the algorithms and primitives from the 
 
 ## Getting started
 
-### Rapids Memory Manager (RMM)
-RAFT relies heavily on [RMM](https://github.com/rapidsai/rmm) which, 
-like other projects in the RAPIDS ecosystem, eases the burden of configuring different allocation strategies globally 
-across the libraries that use it. RMM also provides [RAII](https://en.wikipedia.org/wiki/Resource_acquisition_is_initialization)) wrappers around device arrays that handle the allocation and cleanup.
-
 ### C++ Example
 
 Most of the primitives in RAFT accept a `raft::handle_t` object for the management of resources which are expensive to create, such CUDA streams, stream pools, and handles to other CUDA libraries like `cublas` and `cusolver`.
 
-The example below demonstrates creating a RAFT handle and using it with RMM's `device_uvector` to allocate memory on device and compute
+The example below demonstrates creating a RAFT handle and using it with `device_matrix` and `device_vector` to allocate memory, generate random clusters, and compute
 pairwise Euclidean distances:
 ```c++
 #include <raft/handle.hpp>
