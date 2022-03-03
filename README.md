@@ -56,7 +56,7 @@ auto output = make_device_matrix<float>(handle, n_samples, n_samples);
 raft::random::make_blobs(handle, input, labels);
 
 auto metric = raft::distance::DistanceType::L2SqrtExpanded;
-raft::distance::pairwise_distance(handle, input, input, output, metric);
+raft::distance::pairwise_distance(handle, input.view(), input.view(), output.view(), metric);
 ```
 
 ## Installing
