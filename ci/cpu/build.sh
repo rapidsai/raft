@@ -95,10 +95,16 @@ if [ "$BUILD_LIBRAFT" == '1' ]; then
     mkdir -p ${CONDA_BLD_DIR}/libraft_nn/work
     mv ${CONDA_BLD_DIR}/work ${CONDA_BLD_DIR}/libraft_nn/work
 
+    # Remove the raft header-only lib from the conda package for now
+    rm -rf ${CONDA_BLD_DIR}/libraft_nn/work/include/raft
+
     gpuci_conda_retry mambabuild --no-build-id --croot ${CONDA_BLD_DIR} --dirty --no-remove-work-dir conda/recipes/libraft_distance
     gpuci_logger "`ls ${CONDA_BLD_DIR}/work`"
     mkdir -p ${CONDA_BLD_DIR}/libraft_distance/work
     mv ${CONDA_BLD_DIR}/work ${CONDA_BLD_DIR}/libraft_distance/work
+
+    # Remove the raft header-only lib from the conda package for now
+    rm -rf ${CONDA_BLD_DIR}/libraft_distance/work/include/raft
   fi
 else
   gpuci_logger "SKIPPING build of conda packages for libraft-nn, libraft-distance and libraft-headers"
