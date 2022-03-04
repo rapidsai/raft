@@ -68,26 +68,7 @@ raft::distance::pairwise_distance(handle, input.data(), input.data(),
 
 ## Installing
 
-RAFT can be installed through conda, cmake-package-manager (cpm), or by building the repository from source. 
-
-### Conda
-
-The easiest way to install RAFT is through conda and several packages are provided.
-- `libraft-headers` contains all the CUDA/C++ headers
-- `libraft-nn` (optional) contains precompiled shared libraries for the nearest neighbors algorithms. If FAISS is not already installed in your environment, this will need to be installed to use the nearest neighbors headers.
-- `libraft-distance` (optional) contains shared libraries for distance algorithms.
-- `pyraft` (optional) contains the Python library
-
-To install RAFT with conda (change to `rapidsai-nightly` for more up-to-date but less stable nightly packages)
-```bash
-conda install -c rapidsai libraft-headers libraft-nn libraft-distance pyraft
-```
-
-After installing RAFT, `find_package(raft COMPONENTS nn distance)` can be used in your CUDA/C++ build. Note that the `COMPONENTS` are optional and will depend on the packages installed.
-
-### CPM
-
-RAFT uses the [RAPIDS cmake](https://github.com/rapidsai/rapids-cmake) library, which makes it simple to include in downstream cmake projects. RAPIDS cmake provides a convenience layer around the [Cmake Package Manager (CPM)](https://github.com/cpm-cmake/CPM.cmake). 
+It's recommended to install RAFT using [RAPIDS cmake](https://github.com/rapidsai/rapids-cmake) library, which makes it simple to include in downstream cmake projects. RAPIDS cmake provides a convenience layer around the [Cmake Package Manager (CPM)](https://github.com/cpm-cmake/CPM.cmake). 
 
 After [installing](https://github.com/rapidsai/rapids-cmake#installation) rapids-cmake in your project, you can begin using RAFT by placing the code snippet below in a file named `get_raft.cmake` and including it in your cmake build with `include(get_raft.cmake)`. This will create the `raft::raft` target to add to configure the link libraries for your artifacts.
 
@@ -110,6 +91,7 @@ function(find_and_configure_raft)
           BUILD_EXPORT_SET    proj-exports
           INSTALL_EXPORT_SET  proj-exports
           CPM_ARGS
+          EXCLUDE_FROM_ALL TRUE
           GIT_REPOSITORY https://github.com/${PKG_FORK}/raft.git
           GIT_TAG        ${PKG_PINNED_TAG}
           SOURCE_SUBDIR  cpp

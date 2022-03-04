@@ -33,7 +33,7 @@ The following example builds and installs raft in header-only mode:
 ./build.sh libraft --nogtest
 ```
 
-###<a id="shared_cpp_libs"></a>C++ Shared Libraries (optional)
+### <a id="shared_cpp_libs"></a>C++ Shared Libraries (optional)
 
 Shared libraries are provided to speed up compile times for larger libraries which may heavily utilize some of the APIs. These shared libraries can also significantly improve re-compile times while developing against the APIs. 
 
@@ -48,7 +48,7 @@ To remain flexible, the individual shared libraries have their own flags and mul
 ./build.sh libraft --compile-nn --compile-dist --nogtest
 ```
 
-###<a id="gtests"></a>Googletests
+### <a id="gtests"></a>Googletests
 
 Compile the Googletests by removing the `--nogtest` flag from `build.sh`:
 ```bash
@@ -63,13 +63,13 @@ To run C++ tests:
 
 ### <a id="cpp_using_cmake"></a>C++ Using Cmake
 
-To install RAFT into a specific location, use `CMAKE_INSTALL_PREFIX`. The snippet below will install it into the current conda environment.
+To build the tests and shared libraries:
 ```bash
 cd cpp
 mkdir build
 cd build
-cmake -D BUILD_TESTS=ON -DRAFT_COMPILE_LIBRARIES=ON -DRAFT_ENABLE_NN_DEPENDENCIES=ON  -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX ../
-make install
+cmake -D BUILD_TESTS=ON -DRAFT_COMPILE_LIBRARIES=ON -DRAFT_ENABLE_NN_DEPENDENCIES=ON  ../
+make
 ```
 
 
@@ -111,6 +111,10 @@ The Python API can be built using the `build.sh` script:
 ```bash
 cd python
 python setup.py build_ext --inplace
+```
+
+To install the Python library:
+```
 python setup.py install
 ```
 
@@ -133,6 +137,7 @@ Use `find_package(raft COMPONENTS nn, distance)` to enable the shared libraries 
 The pre-compiled libraries contain template specializations for commonly used types and require the additional include of header files with `extern template` definitions that tell the compiler not to instantiate templates that are already contained in the shared libraries. By convention, these header files are named `spectializations.hpp` and located in the base directory for the packages that contain specializations.
 
 The following example shows how to use the `libraft-distance` API with the pre-compiled specializations:
+
 ```c++
 #include <raft/distance/distance.hpp>
 #include <raft/distance/specializations.hpp>
@@ -148,6 +153,9 @@ The following `cmake` snippet enables a flexible configuration of RAFT:
 
 set(RAFT_VERSION "22.04")
 
+set(RAFT_FORK "${RAFT_FORK}")
+set(RAFT_PINNED_TAG "${RAFT_PINNED_TAG}")
+
 function(find_and_configure_raft)
   set(oneValueArgs VERSION FORK PINNED_TAG USE_FAISS_STATIC 
           COMPILE_LIBRARIES ENABLE_NN_DEPENDENCIES CLONE_ON_PIN
@@ -161,7 +169,6 @@ function(find_and_configure_raft)
   if(PKG_CLONE_ON_PIN AND NOT PKG_PINNED_TAG STREQUAL "branch-${RAFT_VERSION}")
     message("Pinned tag found: ${PKG_PINNED_TAG}. Cloning raft locally.")
     set(CPM_DOWNLOAD_raft ON)
-    set(CMAKE_IGNORE_PATH "${CMAKE_INSTALL_PREFIX}/include/raft;${CMAKE_IGNORE_PATH})
   endif()
 
   #-----------------------------------------------------
@@ -186,6 +193,7 @@ function(find_and_configure_raft)
           BUILD_EXPORT_SET    proj-exports
           INSTALL_EXPORT_SET  proj-exports
           CPM_ARGS
+          EXCLUDE_FROM_ALL TRUE
           GIT_REPOSITORY https://github.com/${PKG_FORK}/raft.git
           GIT_TAG        ${PKG_PINNED_TAG}
           SOURCE_SUBDIR  cpp
@@ -203,8 +211,8 @@ endfunction()
 # To use a different RAFT locally, set the CMake variable
 # CPM_raft_SOURCE=/path/to/local/raft
 find_and_configure_raft(VERSION    ${RAFT_VERSION}.00
-        FORK             rapidsai
-        PINNED_TAG       branch-${RAFT_VERSION}
+        FORK             ${RAFT_FORK}
+        PINNED_TAG       ${RAFT_PINNED_TAG}
 
         # When PINNED_TAG above doesn't match cuml,
         # force local raft clone in build directory
@@ -214,7 +222,7 @@ find_and_configure_raft(VERSION    ${RAFT_VERSION}.00
         COMPILE_LIBRARIES      NO
         USE_NN_LIBRARY         NO
         USE_DISTANCE_LIBRARY   NO
-        ENABLE_NN_DEPENDENCIES NO  # This builds FAISS if not installed
+        ENABLE_NN_DEPENDENCIES NO
         USE_FAISS_STATIC       NO
 )
 ```

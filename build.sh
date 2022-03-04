@@ -18,7 +18,7 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libraft pyraft docs -v -g --noinstall --compile-libs --compile-nn --compile-dist --allgpuarch --nvtx --show_depr_warn -h --nogtest --buildfaiss"
+VALIDARGS="clean libraft pyraft docs -v -g --install --compile-libs --compile-nn --compile-dist --allgpuarch --nvtx --show_depr_warn -h --nogtest --buildfaiss"
 HELP="$0 [<target> ...] [<flag> ...]
  where <target> is:
    clean            - remove all existing build artifacts and configuration (start over)
@@ -36,7 +36,7 @@ HELP="$0 [<target> ...] [<flag> ...]
    --allgpuarch     - build for all supported GPU architectures
    --buildfaiss     - build faiss statically into raft
    --nogtest        - do not build google tests for libraft
-   --noinstall     - do not install cmake targets
+   --install        - install cmake targets (not recommended)
    --nvtx           - Enable nvtx for profiling support
    --show_depr_warn - show cmake deprecation warnings
    -h               - print this text
@@ -63,7 +63,7 @@ NVTX=OFF
 CLEAN=0
 DISABLE_DEPRECATION_WARNINGS=ON
 CMAKE_TARGET=""
-INSTALL_TARGET="install"
+INSTALL_TARGET=""
 
 # Set defaults for vars that may not have been defined externally
 #  FIXME: if INSTALL_PREFIX is not set, check PREFIX, then check
@@ -79,8 +79,8 @@ function hasArg {
     (( ${NUMARGS} != 0 )) && (echo " ${ARGS} " | grep -q " $1 ")
 }
 
-if hasArg --noinstall; then
-    INSTALL_TARGET=""
+if hasArg --install; then
+    INSTALL_TARGET="install"
 fi
 
 if hasArg -h || hasArg --help; then
