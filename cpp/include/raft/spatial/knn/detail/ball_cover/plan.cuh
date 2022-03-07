@@ -459,7 +459,7 @@ __global__ void compute_dists(const value_t* X,
   //    typedef cub::BlockRadixSort<value_t, tpb, 1, int> BlockRadixSort;
   //    __shared__ typename BlockRadixSort::TempStorage temp_storage;
 
-//  auto lane_id = threadIdx.x & (32 - 1);
+  //  auto lane_id = threadIdx.x & (32 - 1);
   //  auto warp_id = threadIdx.x / 32;
 
   // Break distances up across threads
@@ -520,24 +520,25 @@ __global__ void compute_dists(const value_t* X,
   // d >= block_size, use block
 
   int query_idx = query_id * n_cols;
-//    printf("block=%d, thread=%d, landmark=%ld, query=%ld, offset_start=%ld, batch_size=%d, query_idx=%d\n",
-//           blockIdx.x, threadIdx.x, landmark_id, query_id, offset_start, working_batch_size, query_idx);
-
+  //    printf("block=%d, thread=%d, landmark=%ld, query=%ld, offset_start=%ld, batch_size=%d,
+  //    query_idx=%d\n",
+  //           blockIdx.x, threadIdx.x, landmark_id, query_id, offset_start, working_batch_size,
+  //           query_idx);
 
   for (int i = 0; i < working_batch_size; ++i) {
     value_idx point_index;
-//    if (lane_id == 0) {
-        point_index = R_1nn_cols[offset_start + i];
-//    }
-//
-//    point_index = __shfl_sync(0xffffff, point_index, 0);
+    //    if (lane_id == 0) {
+    point_index = R_1nn_cols[offset_start + i];
+    //    }
+    //
+    //    point_index = __shfl_sync(0xffffff, point_index, 0);
 
     value_t dist = 0.0;
     //            #pragma unroll
-//    int point_idx = point_index * n_cols;
+    //    int point_idx = point_index * n_cols;
     for (int j = threadIdx.x; j < n_cols; j += blockDim.x) {
-        value_t d = query[query_idx+j];
-//      value_t d = query[query_idx + j] - X[point_idx + j];
+      value_t d = query[query_idx + j];
+      //      value_t d = query[query_idx + j] - X[point_idx + j];
       dist += d * d;
     }
     //
@@ -553,10 +554,10 @@ __global__ void compute_dists(const value_t* X,
     //                t_dist[idx] = sqrt(di);
     //            }
 
-//    if(lane_id == 0) {
-//        batch_dists[i] = dist;
-//    }
-//    dist = BlockReduce(temp_storage).Sum(dist);
+    //    if(lane_id == 0) {
+    //        batch_dists[i] = dist;
+    //    }
+    //    dist = BlockReduce(temp_storage).Sum(dist);
     if (threadIdx.x == 0) {
       batch_dists[i] = dist;
       batch_inds[i]  = point_index;
