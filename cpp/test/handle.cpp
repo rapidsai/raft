@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -47,7 +47,7 @@ TEST(Raft, Handle)
   rmm::cuda_stream_view stream_view(stream);
   handle_t handle(stream_view);
   ASSERT_EQ(stream_view, handle.get_stream());
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  handle.sync_stream(stream);
   RAFT_CUDA_TRY(cudaStreamDestroy(stream));
 }
 

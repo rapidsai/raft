@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,11 +19,11 @@
 #include <faiss/gpu/GpuDistance.h>
 #include <faiss/gpu/StandardGpuResources.h>
 
-#include <raft/linalg/distance_type.h>
-#include <raft/random/rng.hpp>
+#include <raft/distance/distance_type.hpp>
+#include <raft/random/rng.cuh>
 #include <raft/spatial/knn/detail/common_faiss.h>
 #include <raft/spatial/knn/detail/fused_l2_knn.cuh>
-#include <raft/spatial/knn/knn.hpp>
+#include <raft/spatial/knn/knn.cuh>
 
 #include <rmm/device_buffer.hpp>
 

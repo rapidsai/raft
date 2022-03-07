@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,11 +17,9 @@
 #pragma once
 
 #include <cublas_v2.h>
-
 #include <raft/cuda_utils.cuh>
-#include <raft/linalg/cublas_wrappers.h>
+#include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/linalg/unary_op.cuh>
-
 #include <rmm/device_uvector.hpp>
 
 #include <thrust/device_ptr.h>
@@ -69,7 +67,8 @@ void unaryAndGemv(OutType* dots, const InType* data, int D, int N, cudaStream_t 
   raft::linalg::unaryOp<OutType>(
     ones.data(), ones.data(), ones.size(), [=] __device__(OutType input) { return 1; }, stream);
   OutType alpha = 1, beta = 0;
-  RAFT_CUBLAS_TRY(raft::linalg::cublasgemv(
+  // #TODO: Call from public API when ready
+  RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemv(
     handle, CUBLAS_OP_N, D, N, &alpha, sq.data(), D, ones.data(), 1, &beta, dots, 1, stream));
   RAFT_CUDA_TRY(cudaDeviceSynchronize());
   RAFT_CUBLAS_TRY(cublasDestroy(handle));

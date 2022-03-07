@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,12 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef __REDUCE_H
+#define __REDUCE_H
 
 #pragma once
 
-#include "coalesced_reduction.cuh"
-#include "strided_reduction.cuh"
-#include <raft/cuda_utils.cuh>
+#include "detail/reduce.cuh"
 
 namespace raft {
 namespace linalg {
@@ -71,16 +71,11 @@ void reduce(OutType* dots,
             ReduceLambda reduce_op = raft::Sum<OutType>(),
             FinalLambda final_op   = raft::Nop<OutType>())
 {
-  if (rowMajor && alongRows) {
-    coalescedReduction(dots, data, D, N, init, stream, inplace, main_op, reduce_op, final_op);
-  } else if (rowMajor && !alongRows) {
-    stridedReduction(dots, data, D, N, init, stream, inplace, main_op, reduce_op, final_op);
-  } else if (!rowMajor && alongRows) {
-    stridedReduction(dots, data, N, D, init, stream, inplace, main_op, reduce_op, final_op);
-  } else {
-    coalescedReduction(dots, data, N, D, init, stream, inplace, main_op, reduce_op, final_op);
-  }
+  detail::reduce(
+    dots, data, D, N, init, rowMajor, alongRows, stream, inplace, main_op, reduce_op, final_op);
 }
 
 };  // end namespace linalg
 };  // end namespace raft
+
+#endif

@@ -48,8 +48,11 @@ option(DETECT_CONDA_ENV "Enable detection of conda environment for dependencies"
 option(DISABLE_DEPRECATION_WARNINGS "Disable depreaction warnings " ON)
 option(DISABLE_OPENMP "Disable OpenMP" OFF)
 option(NVTX "Enable nvtx markers" OFF)
+option(RAFT_STATIC_LINK_LIBRARIES "Statically link compiled libraft libraries")
 
 option(RAFT_COMPILE_LIBRARIES "Enable building raft shared library instantiations" ON)
+option(RAFT_COMPILE_NN_LIBRARY "Enable building raft nearest neighbors shared library instantiations" OFF)
+option(RAFT_COMPILE_DIST_LIBRARY "Enable building raft distant shared library instantiations" OFF)
 option(RAFT_ENABLE_NN_DEPENDENCIES "Search for raft::nn dependencies like faiss" ${RAFT_COMPILE_LIBRARIES})
 include(CMakeDependentOption)
 cmake_dependent_option(RAFT_USE_FAISS_STATIC "Build and statically link the FAISS library for nearest neighbors search on GPU" ON RAFT_COMPILE_LIBRARIES OFF)
@@ -82,6 +85,13 @@ endif()
 ##############################################################################
 # - compiler options ---------------------------------------------------------
 
+if (NOT DISABLE_OPENMP)
+  find_package(OpenMP)
+  if(OPENMP_FOUND)
+    message(VERBOSE "RAFT: OpenMP found in ${OpenMP_CXX_INCLUDE_DIRS}")
+  endif()
+endif()
+
 # * find CUDAToolkit package
 # * determine GPU architectures
 # * enable the CMake CUDA language
@@ -95,13 +105,6 @@ include(cmake/modules/ConfigureCUDA.cmake)
 ##############################################################################
 # - Requirements -------------------------------------------------------------
 
-if (NOT DISABLE_OPENMP)
-  find_package(OpenMP)
-  if(OPENMP_FOUND)
-    message(VERBOSE "RAFT: OpenMP found in ${OpenMP_CXX_INCLUDE_DIRS}")
-  endif()
-endif()
-
 # add third party dependencies using CPM
 rapids_cpm_init()
 
@@ -111,6 +114,7 @@ include(cmake/thirdparty/get_rmm.cmake)
 include(cmake/thirdparty/get_cuco.cmake)
 include(cmake/thirdparty/get_libcudacxx.cmake)
 include(cmake/thirdparty/get_faiss.cmake)
+include(cmake/thirdparty/get_mdspan.cmake)
 
 if(BUILD_TESTS)
   include(cmake/thirdparty/get_gtest.cmake)
@@ -129,19 +133,35 @@ target_include_directories(raft INTERFACE
         "$<INSTALL_INTERFACE:include>")
 
 target_link_libraries(raft INTERFACE
-        raft::Thrust
-        CUDA::cublas
-        CUDA::curand
-        CUDA::cusolver
-        CUDA::cudart
-        CUDA::cusparse
-        $<$<BOOL:${NVTX}>:CUDA::nvToolsExt>
-        rmm::rmm
-        cuco::cuco)
+  raft::Thrust
+  CUDA::cublas
+  CUDA::curand
+  CUDA::cusolver
+  CUDA::cudart
+  CUDA::cusparse
+  $<$<BOOL:${NVTX}>:CUDA::nvToolsExt>
+  rmm::rmm
+  cuco::cuco
+  std::mdspan)
 
 target_compile_definitions(raft INTERFACE $<$<BOOL:${NVTX}>:NVTX_ENABLED>)
 target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
 
+if(RAFT_COMPILE_LIBRARIES OR RAFT_COMPILE_DIST_LIBRARY OR RAFT_COMPILE_NN_LIBRARY)
+  file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld"
+[=[
+SECTIONS
+{
+.nvFatBinSegment : { *(.nvFatBinSegment) }
+.nv_fatbin : { *(.nv_fatbin) }
+}
+]=])
+endif()
+
+set(RAFT_LIB_TYPE SHARED)
+if(${RAFT_STATIC_LINK_LIBRARIES})
+  set(RAFT_LIB_TYPE STATIC)
+endif()
 ##############################################################################
 # - raft_distance ------------------------------------------------------------
 add_library(raft_distance INTERFACE)
@@ -152,24 +172,40 @@ endif()
 
 set_target_properties(raft_distance PROPERTIES EXPORT_NAME distance)
 
-if(RAFT_COMPILE_LIBRARIES)
-  add_library(raft_distance_lib SHARED
-          src/distance/specializations/detail
-          src/distance/specializations/detail/canberra.cu
-          src/distance/specializations/detail/chebyshev.cu
-          src/distance/specializations/detail/correlation.cu
-          src/distance/specializations/detail/cosine.cu
-          src/distance/specializations/detail/hamming_unexpanded.cu
-          src/distance/specializations/detail/hellinger_expanded.cu
-          src/distance/specializations/detail/jensen_shannon.cu
-          src/distance/specializations/detail/kl_divergence.cu
-          src/distance/specializations/detail/l1.cu
-          src/distance/specializations/detail/l2_expanded.cu
-          src/distance/specializations/detail/l2_sqrt_expanded.cu
-          src/distance/specializations/detail/l2_sqrt_unexpanded.cu
-          src/distance/specializations/detail/l2_unexpanded.cu
-          src/distance/specializations/detail/lp_unexpanded.cu
-          )
+if(RAFT_COMPILE_LIBRARIES OR RAFT_COMPILE_DIST_LIBRARY)
+  add_library(raft_distance_lib ${RAFT_LIB_TYPE}
+    src/distance/specializations/detail
+    src/distance/specializations/detail/canberra.cu
+    src/distance/specializations/detail/chebyshev.cu
+    src/distance/specializations/detail/correlation.cu
+    src/distance/specializations/detail/cosine.cu
+    src/distance/specializations/detail/hamming_unexpanded.cu
+    src/distance/specializations/detail/hellinger_expanded.cu
+    src/distance/specializations/detail/jensen_shannon_float_float_float_int.cu
+    src/distance/specializations/detail/jensen_shannon_float_float_float_uint32.cu
+    src/distance/specializations/detail/jensen_shannon_double_double_double_int.cu
+    src/distance/specializations/detail/kl_divergence_float_float_float_int.cu
+    src/distance/specializations/detail/kl_divergence_float_float_float_uint32.cu
+    src/distance/specializations/detail/kl_divergence_double_double_double_int.cu
+    src/distance/specializations/detail/l1_float_float_float_int.cu
+    src/distance/specializations/detail/l1_float_float_float_uint32.cu
+    src/distance/specializations/detail/l1_double_double_double_int.cu
+    src/distance/specializations/detail/l2_expanded_float_float_float_int.cu
+    src/distance/specializations/detail/l2_expanded_float_float_float_uint32.cu
+    src/distance/specializations/detail/l2_expanded_double_double_double_int.cu
+    src/distance/specializations/detail/l2_sqrt_expanded_float_float_float_int.cu
+    src/distance/specializations/detail/l2_sqrt_expanded_float_float_float_uint32.cu
+    src/distance/specializations/detail/l2_sqrt_expanded_double_double_double_int.cu
+    src/distance/specializations/detail/l2_sqrt_unexpanded_float_float_float_int.cu
+    src/distance/specializations/detail/l2_sqrt_unexpanded_float_float_float_uint32.cu
+    src/distance/specializations/detail/l2_sqrt_unexpanded_double_double_double_int.cu
+    src/distance/specializations/detail/l2_unexpanded_double_double_double_int.cu
+    src/distance/specializations/detail/l2_unexpanded_float_float_float_uint32.cu
+    src/distance/specializations/detail/l2_unexpanded_float_float_float_int.cu
+    src/distance/specializations/detail/lp_unexpanded_double_double_double_int.cu
+    src/distance/specializations/detail/lp_unexpanded_float_float_float_uint32.cu
+    src/distance/specializations/detail/lp_unexpanded_float_float_float_int.cu
+  )
   set_target_properties(raft_distance_lib PROPERTIES OUTPUT_NAME raft_distance)
 
   target_link_libraries(raft_distance_lib PRIVATE raft::raft)
@@ -180,14 +216,15 @@ if(RAFT_COMPILE_LIBRARIES)
   target_compile_definitions(raft_distance_lib
           INTERFACE "RAFT_DISTANCE_COMPILED")
 
-  install(TARGETS raft_distance_lib
-          DESTINATION ${lib_dir}
-          EXPORT raft-distance-exports)
+  # ensure CUDA symbols aren't relocated to the middle of the debug build binaries
+  target_link_options(raft_distance_lib PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld")
+
 endif()
 
 target_link_libraries(raft_distance INTERFACE raft::raft
-        $<TARGET_NAME_IF_EXISTS:raft_distance_lib>
-        $<TARGET_NAME_IF_EXISTS:raft::raft_distance_lib>)
+    $<TARGET_NAME_IF_EXISTS:raft_distance_lib>
+    $<TARGET_NAME_IF_EXISTS:raft::raft_distance_lib>
+)
 
 ##############################################################################
 # - raft_nn ------------------------------------------------------------------
@@ -199,10 +236,13 @@ endif()
 
 set_target_properties(raft_nn PROPERTIES EXPORT_NAME nn)
 
-if(RAFT_COMPILE_LIBRARIES)
-  add_library(raft_nn_lib SHARED
+if(RAFT_COMPILE_LIBRARIES OR RAFT_COMPILE_NN_LIBRARY)
+  add_library(raft_nn_lib ${RAFT_LIB_TYPE}
     src/nn/specializations/ball_cover.cu
-    src/nn/specializations/detail/ball_cover_lowdim.cu
+    src/nn/specializations/detail/ball_cover_lowdim_pass_one_2d.cu
+    src/nn/specializations/detail/ball_cover_lowdim_pass_two_2d.cu
+    src/nn/specializations/detail/ball_cover_lowdim_pass_one_3d.cu
+    src/nn/specializations/detail/ball_cover_lowdim_pass_two_3d.cu
     src/nn/specializations/fused_l2_knn_long_float_true.cu
     src/nn/specializations/fused_l2_knn_long_float_false.cu
     src/nn/specializations/fused_l2_knn_int_float_true.cu
@@ -216,12 +256,12 @@ if(RAFT_COMPILE_LIBRARIES)
           PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
           "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
           )
+  # ensure CUDA symbols aren't relocated to the middle of the debug build binaries
+  target_link_options(raft_nn_lib PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld")
+
   target_compile_definitions(raft_nn_lib
           INTERFACE "RAFT_NN_COMPILED")
 
-  install(TARGETS raft_nn_lib
-          DESTINATION ${lib_dir}
-          EXPORT raft-nn-exports)
 endif()
 
 target_link_libraries(raft_nn INTERFACE raft::raft faiss::faiss
@@ -243,6 +283,18 @@ install(TARGETS raft_distance
 install(TARGETS raft_nn
         DESTINATION ${lib_dir}
         EXPORT raft-nn-exports)
+
+if(TARGET raft_distance_lib)
+  install(TARGETS raft_distance_lib
+          DESTINATION ${lib_dir}
+          EXPORT raft-distance-lib-exports)
+endif()
+
+if(TARGET raft_nn_lib)
+  install(TARGETS raft_nn_lib
+          DESTINATION ${lib_dir}
+          EXPORT raft-nn-lib-exports)
+endif()
 
 
 install(DIRECTORY include/raft/
@@ -275,8 +327,10 @@ Imported Targets:
 ]=])
 
 set(code_string
-        [=[
-thrust_create_target(raft::Thrust FROM_OPTIONS)
+[=[
+if(NOT TARGET raft::Thrust)
+  thrust_create_target(raft::Thrust FROM_OPTIONS)
+endif()
 
 if(distance IN_LIST raft_FIND_COMPONENTS)
   enable_language(CUDA)
@@ -323,6 +377,12 @@ raft_export(BUILD raft
 include("${rapids-cmake-dir}/export/write_dependencies.cmake")
 
 set(raft_components distance nn)
+if(TARGET raft_distance_lib)
+  list(APPEND raft_components distance-lib)
+endif()
+if(TARGET raft_nn_lib)
+  list(APPEND raft_components  nn-lib)
+endif()
 foreach(comp IN LISTS raft_components)
   install(
           EXPORT raft-${comp}-exports

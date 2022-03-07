@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 #include <cusparse_v2.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/sparse/cusparse_wrappers.h>
+#include <raft/sparse/detail/cusparse_wrappers.h>
 
 #include <thrust/device_ptr.h>
 #include <thrust/scan.h>
@@ -31,6 +31,7 @@
 #include <iostream>
 
 #include <raft/sparse/detail/utils.h>
+#include <rmm/device_uvector.hpp>
 
 namespace raft {
 namespace sparse {
@@ -67,6 +68,7 @@ __global__ void csr_to_dense_warp_per_row_kernel(
  * @param[in] handle : cusparse handle for conversion
  * @param[in] nrows : number of rows in CSR
  * @param[in] ncols : number of columns in CSR
+ * @param[in] nnz : the number of nonzeros in CSR
  * @param[in] csr_indptr : CSR row index pointer array
  * @param[in] csr_indices : CSR column indices array
  * @param[in] csr_data : CSR data array
@@ -79,6 +81,7 @@ template <typename value_idx, typename value_t>
 void csr_to_dense(cusparseHandle_t handle,
                   value_idx nrows,
                   value_idx ncols,
+                  value_idx nnz,
                   const value_idx* csr_indptr,
                   const value_idx* csr_indices,
                   const value_t* csr_data,
@@ -96,8 +99,34 @@ void csr_to_dense(cusparseHandle_t handle,
     RAFT_CUSPARSE_TRY(cusparseSetMatIndexBase(out_mat, CUSPARSE_INDEX_BASE_ZERO));
     RAFT_CUSPARSE_TRY(cusparseSetMatType(out_mat, CUSPARSE_MATRIX_TYPE_GENERAL));
 
-    RAFT_CUSPARSE_TRY(raft::sparse::cusparsecsr2dense(
-      handle, nrows, ncols, out_mat, csr_data, csr_indptr, csr_indices, out, lda, stream));
+    size_t buffer_size;
+    RAFT_CUSPARSE_TRY(raft::sparse::detail::cusparsecsr2dense_buffersize(handle,
+                                                                         nrows,
+                                                                         ncols,
+                                                                         nnz,
+                                                                         out_mat,
+                                                                         csr_data,
+                                                                         csr_indptr,
+                                                                         csr_indices,
+                                                                         out,
+                                                                         lda,
+                                                                         &buffer_size,
+                                                                         stream));
+
+    rmm::device_uvector<char> buffer(buffer_size, stream);
+
+    RAFT_CUSPARSE_TRY(raft::sparse::detail::cusparsecsr2dense(handle,
+                                                              nrows,
+                                                              ncols,
+                                                              nnz,
+                                                              out_mat,
+                                                              csr_data,
+                                                              csr_indptr,
+                                                              csr_indices,
+                                                              out,
+                                                              lda,
+                                                              buffer.data(),
+                                                              stream));
 
     RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroyMatDescr(out_mat));
 

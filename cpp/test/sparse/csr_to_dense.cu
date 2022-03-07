@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,8 +19,8 @@
 #include <raft/handle.hpp>
 
 #include <gtest/gtest.h>
-#include <raft/sparse/convert/dense.hpp>
-#include <raft/sparse/cusparse_wrappers.h>
+#include <raft/sparse/convert/dense.cuh>
+#include <raft/sparse/detail/cusparse_wrappers.h>
 
 #include <rmm/device_uvector.hpp>
 
@@ -36,6 +36,7 @@ template <typename value_idx, typename value_t>
 struct CSRToDenseInputs {
   value_idx nrows;
   value_idx ncols;
+  value_idx nnz;
 
   std::vector<value_idx> indptr_h;
   std::vector<value_idx> indices_h;
@@ -95,6 +96,7 @@ class CSRToDenseTest : public ::testing::TestWithParam<CSRToDenseInputs<value_id
     convert::csr_to_dense(handle,
                           params.nrows,
                           params.ncols,
+                          params.nnz,
                           indptr.data(),
                           indices.data(),
                           data.data(),
@@ -135,6 +137,7 @@ class CSRToDenseTest : public ::testing::TestWithParam<CSRToDenseInputs<value_id
 const std::vector<CSRToDenseInputs<int, float>> inputs_i32_f = {
   {4,
    4,
+   8,
    {0, 2, 4, 6, 8},
    {0, 1, 2, 3, 0, 1, 2, 3},  // indices
    {1.0f, 3.0f, 1.0f, 5.0f, 50.0f, 28.0f, 16.0f, 2.0f},

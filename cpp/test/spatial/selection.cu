@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,9 +20,9 @@
 #include "../test_utils.h"
 
 #include <raft/sparse/detail/utils.h>
-#include <raft/spatial/knn/knn.hpp>
+#include <raft/spatial/knn/knn.cuh>
 #if defined RAFT_NN_COMPILED
-#include <raft/spatial/knn/specializations.hpp>
+#include <raft/spatial/knn/specializations.cuh>
 #endif
 
 namespace raft {
@@ -111,7 +111,7 @@ class SparseSelectionTest
                                  k,
                                  stream);
 
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
   }
 
   void compare()

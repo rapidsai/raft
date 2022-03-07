@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,8 +21,8 @@
 #include <raft/common/nvtx.hpp>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/matrix_vector_op.cuh>
-#include <raft/matrix/matrix.hpp>
-#include <raft/random/rng.hpp>
+#include <raft/matrix/matrix.cuh>
+#include <raft/random/rng.cuh>
 #include <rmm/device_uvector.hpp>
 
 namespace raft {

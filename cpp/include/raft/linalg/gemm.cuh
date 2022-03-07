@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,16 +13,58 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef __GEMM_H
+#define __GEMM_H
 
 #pragma once
 
-#include <cublas_v2.h>
-#include <raft/cuda_utils.cuh>
-#include <raft/handle.hpp>
-#include <raft/linalg/cublas_wrappers.h>
+#include "detail/gemm.hpp"
 
 namespace raft {
 namespace linalg {
+
+/**
+ * @brief the wrapper of cublas gemm function
+ *  It computes the following equation: C = alpha .* opA(A) * opB(B) + beta .* C
+ *
+ * @tparam math_t the element type
+ * @tparam DevicePointerMode whether pointers alpha, beta point to device memory
+ * @param [in] handle raft handle
+ * @param [in] trans_a cublas transpose op for A
+ * @param [in] trans_b cublas transpose op for B
+ * @param [in] m number of rows of C
+ * @param [in] n number of columns of C
+ * @param [in] k number of rows of opB(B) / number of columns of opA(A)
+ * @param [in] alpha host or device scalar
+ * @param [in] A such a matrix that the shape of column-major opA(A) is [m, k]
+ * @param [in] lda leading dimension of A
+ * @param [in] B such a matrix that the shape of column-major opA(B) is [k, n]
+ * @param [in] ldb leading dimension of B
+ * @param [in] beta host or device scalar
+ * @param [inout] C column-major matrix of size [m, n]
+ * @param [in] ldc leading dimension of C
+ * @param [in] stream
+ */
+template <typename math_t, bool DevicePointerMode = false>
+void gemm(const raft::handle_t& handle,
+          const bool trans_a,
+          const bool trans_b,
+          const int m,
+          const int n,
+          const int k,
+          const math_t* alpha,
+          const math_t* A,
+          const int lda,
+          const math_t* B,
+          const int ldb,
+          const math_t* beta,
+          const math_t* C,
+          const int ldc,
+          cudaStream_t stream)
+{
+  detail::gemm<math_t, DevicePointerMode>(
+    handle, trans_a, trans_b, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc, stream);
+}
 
 /**
  * @brief the wrapper of cublas gemm function
@@ -57,18 +99,26 @@ void gemm(const raft::handle_t& handle,
           math_t beta,
           cudaStream_t stream)
 {
-  cublasHandle_t cublas_h = handle.get_cublas_handle();
-
-  int m   = n_rows_c;
-  int n   = n_cols_c;
-  int k   = trans_a == CUBLAS_OP_T ? n_rows_a : n_cols_a;
-  int lda = trans_a == CUBLAS_OP_T ? k : m;
-  int ldb = trans_b == CUBLAS_OP_T ? n : k;
-  int ldc = m;
-  RAFT_CUBLAS_TRY(
-    cublasgemm(cublas_h, trans_a, trans_b, m, n, k, &alpha, a, lda, b, ldb, &beta, c, ldc, stream));
+  detail::gemm(
+    handle, a, n_rows_a, n_cols_a, b, c, n_rows_c, n_cols_c, trans_a, trans_b, alpha, beta, stream);
 }
 
+/**
+ * @brief the wrapper of cublas gemm function
+ *  It computes the following equation: D = alpha . opA(A) * opB(B) + beta . C
+ * @tparam math_t the type of input/output matrices
+ * @param handle raft handle
+ * @param a input matrix
+ * @param n_rows_a number of rows of A
+ * @param n_cols_a number of columns of A
+ * @param b input matrix
+ * @param c output matrix
+ * @param n_rows_c number of rows of C
+ * @param n_cols_c number of columns of C
+ * @param trans_a cublas transpose op for A
+ * @param trans_b cublas transpose op for B
+ * @param stream cuda stream
+ */
 template <typename math_t>
 void gemm(const raft::handle_t& handle,
           const math_t* a,
@@ -82,10 +132,7 @@ void gemm(const raft::handle_t& handle,
           cublasOperation_t trans_b,
           cudaStream_t stream)
 {
-  math_t alpha = math_t(1);
-  math_t beta  = math_t(0);
-  gemm(
-    handle, a, n_rows_a, n_cols_a, b, c, n_rows_c, n_cols_c, trans_a, trans_b, alpha, beta, stream);
+  detail::gemm(handle, a, n_rows_a, n_cols_a, b, c, n_rows_c, n_cols_c, trans_a, trans_b, stream);
 }
 
 /**
@@ -122,78 +169,11 @@ void gemm(const raft::handle_t& handle,
           T alpha = T(1.0),
           T beta  = T(0.0))
 {
-  cublasHandle_t cublas_h = handle.get_cublas_handle();
-
-  cublasOperation_t trans_a, trans_b;
-  T *a, *b, *c;
-  int lda, ldb, ldc;
-  int M, N, K;
-  // This function performs c = a * b. Based on the required output layout,
-  // either a = x,  b = y or a = y, b = x. In either case c = z.
-  if (isZColMajor == true) {
-    // Result c is required in column major layout. Thus we perform,
-    // z = x * y
-    // Using BLAS call c = a * b. Therefore a = x, b = y and c = z
-
-    a = x;
-    // If x is in row major layout, cublas needs to transpose x first,
-    // therefore trans_x needs to be CUBLAS_OP_T. If x is in column major
-    // layout, trans_b needs to be CUBLAS_OP_N.
-    trans_a = isXColMajor == true ? CUBLAS_OP_N : CUBLAS_OP_T;
-    // Set leading dimension appropriately
-    lda = isXColMajor == true ? _M : _K;
-
-    b = y;
-    // If y is in row major layout, cublas needs to transpose y first,
-    // therefore trans_x needs to be CUBLAS_OP_T. If x is in column major
-    // layout, trans_b needs to be CUBLAS_OP_N.
-    trans_b = isYColMajor == true ? CUBLAS_OP_N : CUBLAS_OP_T;
-    ldb     = isYColMajor == true ? _K : _N;
-
-    c   = z;
-    ldc = _M;
-    M   = _M;
-    N   = _N;
-    K   = _K;
-  } else {
-    // Result c is required in row major layout Thus we pick
-    // a = y, b = x and c = a * b = y * x
-    // cublas produces output matrix only in column major layout. To get output
-    // matrix on row major layout, we need to produce transpose of output
-    // in column major layout. Therefore we perform,
-    // tr(z) = tr(y) * tr(x)
-    // we model this using cublas call for c = a * b
-    // therefore a = tr(y), b = tr(x) and c = tr(z)
-
-    a = y;
-    // If y is in row major layout, it can be/ interpreted as tr(y) on column
-    // major layout. Therefore we can pass trans_a as CUBLAS_OP_N. If y is in
-    // column major layout, cublas needs to transpose y first, therefore
-    // trans_a needs to be CUBLAS_OP_T
-    trans_a = isYColMajor == true ? CUBLAS_OP_T : CUBLAS_OP_N;
-    // Set leading dimension appropriately
-    lda = isYColMajor == true ? _K : _N;
-
-    b = x;
-    // If x is in row major layout, it can be interpreted as tr(x) on column
-    // major layout. Therefore we can pass trans_b as CUBLAS_OP_N. If x is in
-    // column major layout, cublas needs to trasponse x first, therefore
-    // trans_b needs to be CUBLAS_OP_T
-    trans_b = isXColMajor == true ? CUBLAS_OP_T : CUBLAS_OP_N;
-    // Set leading dimension appropriately
-    ldb = isXColMajor == true ? _M : _K;
-
-    c   = z;
-    ldc = _N;
-
-    M = _N;
-    N = _M;
-    K = _K;
-  }
-  // Actual cuBLAS call
-  RAFT_CUBLAS_TRY(
-    cublasgemm(cublas_h, trans_a, trans_b, M, N, K, &alpha, a, lda, b, ldb, &beta, c, ldc, stream));
+  detail::gemm(
+    handle, z, x, y, _M, _N, _K, isZColMajor, isXColMajor, isYColMajor, stream, alpha, beta);
 }
 
 }  // end namespace linalg
 }  // end namespace raft
+
+#endif

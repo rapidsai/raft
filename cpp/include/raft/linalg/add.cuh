@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,14 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef __ADD_H
+#define __ADD_H
 
 #pragma once
 
-#include "binary_op.cuh"
-#include "unary_op.cuh"
+#include "detail/add.cuh"
 
 namespace raft {
 namespace linalg {
+
+using detail::adds_scalar;
 
 /**
  * @brief Elementwise scalar add operation on the input buffer
@@ -39,8 +42,7 @@ namespace linalg {
 template <typename InT, typename OutT = InT, typename IdxType = int>
 void addScalar(OutT* out, const InT* in, InT scalar, IdxType len, cudaStream_t stream)
 {
-  auto op = [scalar] __device__(InT in) { return OutT(in + scalar); };
-  unaryOp<InT, decltype(op), IdxType, OutT>(out, in, len, op, stream);
+  detail::addScalar(out, in, scalar, len, stream);
 }
 
 /**
@@ -59,18 +61,7 @@ void addScalar(OutT* out, const InT* in, InT scalar, IdxType len, cudaStream_t s
 template <typename InT, typename OutT = InT, typename IdxType = int>
 void add(OutT* out, const InT* in1, const InT* in2, IdxType len, cudaStream_t stream)
 {
-  auto op = [] __device__(InT a, InT b) { return OutT(a + b); };
-  binaryOp<InT, decltype(op), OutT, IdxType>(out, in1, in2, len, op, stream);
-}
-
-template <class math_t, typename IdxType>
-__global__ void add_dev_scalar_kernel(math_t* outDev,
-                                      const math_t* inDev,
-                                      const math_t* singleScalarDev,
-                                      IdxType len)
-{
-  IdxType i = ((IdxType)blockIdx.x * (IdxType)blockDim.x) + threadIdx.x;
-  if (i < len) { outDev[i] = inDev[i] + *singleScalarDev; }
+  detail::add(out, in1, in2, len, stream);
 }
 
 /** Substract single value pointed by singleScalarDev parameter in device memory from inDev[i] and
@@ -90,12 +81,10 @@ void addDevScalar(math_t* outDev,
                   IdxType len,
                   cudaStream_t stream)
 {
-  // TODO: block dimension has not been tuned
-  dim3 block(256);
-  dim3 grid(raft::ceildiv(len, (IdxType)block.x));
-  add_dev_scalar_kernel<math_t><<<grid, block, 0, stream>>>(outDev, inDev, singleScalarDev, len);
-  RAFT_CUDA_TRY(cudaPeekAtLastError());
+  detail::addDevScalar(outDev, inDev, singleScalarDev, len, stream);
 }
 
 };  // end namespace linalg
 };  // end namespace raft
+
+#endif

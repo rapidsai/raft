@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,6 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
+
+#ifndef __DENSE_H
+#define __DENSE_H
 
 #pragma once
 
@@ -32,6 +39,7 @@ namespace convert {
  * @param[in] handle : cusparse handle for conversion
  * @param[in] nrows : number of rows in CSR
  * @param[in] ncols : number of columns in CSR
+ * @param[in] nnz : number of nonzeros in CSR
  * @param[in] csr_indptr : CSR row index pointer array
  * @param[in] csr_indices : CSR column indices array
  * @param[in] csr_data : CSR data array
@@ -44,6 +52,7 @@ template <typename value_idx, typename value_t>
 void csr_to_dense(cusparseHandle_t handle,
                   value_idx nrows,
                   value_idx ncols,
+                  value_idx nnz,
                   const value_idx* csr_indptr,
                   const value_idx* csr_indices,
                   const value_t* csr_data,
@@ -53,9 +62,11 @@ void csr_to_dense(cusparseHandle_t handle,
                   bool row_major = true)
 {
   detail::csr_to_dense<value_idx, value_t>(
-    handle, nrows, ncols, csr_indptr, csr_indices, csr_data, lda, out, stream, row_major);
+    handle, nrows, ncols, nnz, csr_indptr, csr_indices, csr_data, lda, out, stream, row_major);
 }
 
 };  // end NAMESPACE convert
 };  // end NAMESPACE sparse
 };  // end NAMESPACE raft
+
+#endif

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,10 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef __MATRIX_VECTOR_OP_H
+#define __MATRIX_VECTOR_OP_H
 
 #pragma once
 
-#include <raft/matrix/matrix.hpp>
+#include "detail/matrix_vector_op.cuh"
 
 namespace raft {
 namespace linalg {
@@ -55,10 +57,7 @@ void matrixVectorOp(Type* out,
                     Lambda op,
                     cudaStream_t stream)
 {
-  IdxType stride = rowMajor ? D : N;
-  IdxType nLines = rowMajor ? N : D;
-  return matrix::linewiseOp(
-    out, matrix, stride, nLines, rowMajor == bcastAlongRows, op, stream, vec);
+  detail::matrixVectorOp(out, matrix, vec, D, N, rowMajor, bcastAlongRows, op, stream);
 }
 
 /**
@@ -97,11 +96,10 @@ void matrixVectorOp(Type* out,
                     Lambda op,
                     cudaStream_t stream)
 {
-  IdxType stride = rowMajor ? D : N;
-  IdxType nLines = rowMajor ? N : D;
-  return matrix::linewiseOp(
-    out, matrix, stride, nLines, rowMajor == bcastAlongRows, op, stream, vec1, vec2);
+  detail::matrixVectorOp(out, matrix, vec1, vec2, D, N, rowMajor, bcastAlongRows, op, stream);
 }
 
 };  // end namespace linalg
 };  // end namespace raft
+
+#endif

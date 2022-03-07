@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@
 #include <cusolverDn.h>
 #include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
-#include <raft/linalg/cublas_wrappers.h>
+#include <raft/linalg/detail/cublas_wrappers.hpp>
 
 namespace raft {
 namespace matrix {
@@ -220,7 +220,7 @@ template <typename m_t, typename idx_t = int>
 void copyUpperTriangular(m_t* src, m_t* dst, idx_t n_rows, idx_t n_cols, cudaStream_t stream)
 {
   idx_t m = n_rows, n = n_cols;
-  idx_t k = min(m, n);
+  idx_t k = std::min(m, n);
   dim3 block(64);
   dim3 grid((m * n + block.x - 1) / block.x);
   getUpperTriangular<<<grid, block, 0, stream>>>(src, dst, m, n, k);
@@ -246,7 +246,7 @@ template <typename m_t, typename idx_t = int>
 void initializeDiagonalMatrix(
   m_t* vec, m_t* matrix, idx_t n_rows, idx_t n_cols, cudaStream_t stream)
 {
-  idx_t k = min(n_rows, n_cols);
+  idx_t k = std::min(n_rows, n_cols);
   dim3 block(64);
   dim3 grid((k + block.x - 1) / block.x);
   copyVectorToMatrixDiagonal<<<grid, block, 0, stream>>>(vec, matrix, n_rows, n_cols, k);
@@ -278,7 +278,8 @@ m_t getL2Norm(const raft::handle_t& handle, m_t* in, idx_t size, cudaStream_t st
 {
   cublasHandle_t cublasH = handle.get_cublas_handle();
   m_t normval            = 0;
-  RAFT_CUBLAS_TRY(raft::linalg::cublasnrm2(cublasH, size, in, 1, &normval, stream));
+  // #TODO: Call from the public API when ready
+  RAFT_CUBLAS_TRY(raft::linalg::detail::cublasnrm2(cublasH, size, in, 1, &normval, stream));
   return normval;
 }
 

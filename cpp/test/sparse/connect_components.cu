@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,15 +22,15 @@
 #include <raft/cudart_utils.h>
 #include <vector>
 
-#include <raft/sparse/linalg/symmetrize.hpp>
+#include <raft/sparse/linalg/symmetrize.cuh>
 #include <raft/sparse/mst/mst.cuh>
-#include <raft/sparse/selection/knn_graph.hpp>
+#include <raft/sparse/selection/knn_graph.cuh>
 
-#include <raft/linalg/distance_type.h>
-#include <raft/linalg/transpose.h>
-#include <raft/sparse/convert/csr.hpp>
+#include <raft/distance/distance_type.hpp>
+#include <raft/linalg/transpose.cuh>
+#include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/coo.hpp>
-#include <raft/sparse/hierarchy/single_linkage.hpp>
+#include <raft/sparse/hierarchy/single_linkage.cuh>
 #include <rmm/device_uvector.hpp>
 
 #include "../test_utils.h"
@@ -127,7 +127,7 @@ class ConnectComponentsTest
                                                                     false,
                                                                     false);
 
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
 
     // The sum of edges for both MST runs should be n_rows - 1
     final_edges = output_mst.n_edges + mst_coo.n_edges;

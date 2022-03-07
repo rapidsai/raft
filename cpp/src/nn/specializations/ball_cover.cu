@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-#include <raft/spatial/knn/ball_cover.hpp>
+#include <raft/spatial/knn/ball_cover.cuh>
 #include <raft/spatial/knn/ball_cover_common.h>
 
 // Ignore upstream specializations to avoid unnecessary recompiling
-#include <raft/distance/specializations.hpp>
+#include <raft/distance/specializations.cuh>
 #include <raft/spatial/knn/specializations/detail/ball_cover_lowdim.hpp>
-#include <raft/spatial/knn/specializations/fused_l2_knn.hpp>
-#include <raft/spatial/knn/specializations/knn.hpp>
+#include <raft/spatial/knn/specializations/fused_l2_knn.cuh>
+#include <raft/spatial/knn/specializations/knn.cuh>
 
 #include <cstdint>
 

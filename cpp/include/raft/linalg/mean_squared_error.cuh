@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,10 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef __MSE_H
+#define __MSE_H
 
 #pragma once
 
-#include "map_then_reduce.cuh"
+#include "detail/mean_squared_error.cuh"
 
 namespace raft {
 namespace linalg {
@@ -36,12 +38,10 @@ template <typename math_t, int TPB = 256>
 void meanSquaredError(
   math_t* out, const math_t* A, const math_t* B, size_t len, math_t weight, cudaStream_t stream)
 {
-  auto sq_diff = [len, weight] __device__(const math_t a, const math_t b) {
-    math_t diff = a - b;
-    return diff * diff * weight / len;
-  };
-  mapThenSumReduce<math_t, decltype(sq_diff), TPB>(out, len, sq_diff, stream, A, B);
+  detail::meanSquaredError(out, A, B, len, weight, stream);
 }
 
 };  // end namespace linalg
 };  // end namespace raft
+
+#endif

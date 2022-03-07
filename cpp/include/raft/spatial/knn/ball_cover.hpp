@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,6 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
+
+#ifndef __BALL_COVER_H
+#define __BALL_COVER_H
 
 #pragma once
 
@@ -21,7 +28,7 @@
 #include "ball_cover_common.h"
 #include "detail/ball_cover.cuh"
 #include "detail/ball_cover/common.cuh"
-#include <raft/linalg/distance_type.h>
+#include <raft/distance/distance_type.hpp>
 #include <thrust/transform.h>
 
 namespace raft {
@@ -183,3 +190,5 @@ void rbc_knn_query(const raft::handle_t& handle,
 }  // namespace knn
 }  // namespace spatial
 }  // namespace raft
+
+#endif

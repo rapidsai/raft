@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/binary_op.cuh>
-#include <raft/random/rng.hpp>
+#include <raft/random/rng.cuh>
 #include <rmm/device_uvector.hpp>
 
 namespace raft {
@@ -58,7 +58,7 @@ class BinaryOpTest : public ::testing::TestWithParam<BinaryOpInputs<InType, IdxT
     r.uniform(in2.data(), len, InType(-1.0), InType(1.0), stream);
     naiveAdd(out_ref.data(), in1.data(), in2.data(), len);
     binaryOpLaunch(out.data(), in1.data(), in2.data(), len, stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
   }
 
  protected:

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/eltwise.cuh>
-#include <raft/random/rng.hpp>
+#include <raft/random/rng.cuh>
 
 namespace raft {
 namespace linalg {
@@ -76,7 +76,7 @@ class ScalarMultiplyTest : public ::testing::TestWithParam<ScalarMultiplyInputs<
     r.uniform(in, len, T(-1.0), T(1.0), stream);
     naiveScale(out_ref, in, scalar, len, stream);
     scalarMultiply(out, in, scalar, len, stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
   }
 
  protected:
@@ -164,7 +164,7 @@ class EltwiseAddTest : public ::testing::TestWithParam<EltwiseAddInputs<T>> {
     r.uniform(in2, len, T(-1.0), T(1.0), stream);
     naiveAdd(out_ref, in1, in2, len, stream);
     eltwiseAdd(out, in1, in2, len, stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
   }
 
  protected:

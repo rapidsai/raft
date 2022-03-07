@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,20 +16,22 @@
 
 #pragma once
 
-#include <raft/spatial/knn/knn.hpp>
+#include <raft/spatial/knn/knn.cuh>
 
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/distance_type.h>
+#include <raft/distance/distance_type.hpp>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/sparse/csr.hpp>
-#include <raft/sparse/cusparse_wrappers.h>
+#include <raft/sparse/detail/cusparse_wrappers.h>
 #include <raft/sparse/detail/utils.h>
 #include <raft/sparse/distance/common.h>
 #include <raft/sparse/distance/detail/ip_distance.cuh>
 #include <rmm/device_uvector.hpp>
 
 #include <nvfunctional>
+
+#include <algorithm>
 
 namespace raft {
 namespace sparse {
@@ -411,7 +413,7 @@ class hellinger_expanded_distances_t : public distances_t<value_t> {
 
   void compute(value_t* out_dists)
   {
-    rmm::device_uvector<value_idx> coo_rows(max(config_->b_nnz, config_->a_nnz),
+    rmm::device_uvector<value_idx> coo_rows(std::max(config_->b_nnz, config_->a_nnz),
                                             config_->handle.get_stream());
 
     raft::sparse::convert::csr_to_coo(config_->b_indptr,

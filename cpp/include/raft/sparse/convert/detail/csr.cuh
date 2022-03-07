@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
-#include <raft/sparse/cusparse_wrappers.h>
+#include <raft/sparse/detail/cusparse_wrappers.h>
 #include <rmm/device_uvector.hpp>
 
 #include <thrust/device_ptr.h>
@@ -35,8 +35,8 @@
 
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/detail/utils.h>
-#include <raft/sparse/linalg/degree.hpp>
-#include <raft/sparse/op/row_op.hpp>
+#include <raft/sparse/linalg/degree.cuh>
+#include <raft/sparse/op/row_op.cuh>
 
 namespace raft {
 namespace sparse {
@@ -61,15 +61,16 @@ void coo_to_csr(const raft::handle_t& handle,
     cudaMemcpyAsync(dstRows.data(), srcRows, sizeof(int) * nnz, cudaMemcpyDeviceToDevice, stream));
   RAFT_CUDA_TRY(
     cudaMemcpyAsync(dstCols, srcCols, sizeof(int) * nnz, cudaMemcpyDeviceToDevice, stream));
-  auto buffSize = raft::sparse::cusparsecoosort_bufferSizeExt(
+  auto buffSize = raft::sparse::detail::cusparsecoosort_bufferSizeExt(
     cusparseHandle, m, m, nnz, srcRows, srcCols, stream);
   rmm::device_uvector<char> pBuffer(buffSize, stream);
   rmm::device_uvector<int> P(nnz, stream);
   RAFT_CUSPARSE_TRY(cusparseCreateIdentityPermutation(cusparseHandle, nnz, P.data()));
-  raft::sparse::cusparsecoosortByRow(
+  raft::sparse::detail::cusparsecoosortByRow(
     cusparseHandle, m, m, nnz, dstRows.data(), dstCols, P.data(), pBuffer.data(), stream);
-  raft::sparse::cusparsegthr(cusparseHandle, nnz, srcVals, dstVals, P.data(), stream);
-  raft::sparse::cusparsecoo2csr(cusparseHandle, dstRows.data(), nnz, m, dst_offsets, stream);
+  raft::sparse::detail::cusparsegthr(cusparseHandle, nnz, srcVals, dstVals, P.data(), stream);
+  raft::sparse::detail::cusparsecoo2csr(
+    cusparseHandle, dstRows.data(), nnz, m, dst_offsets, stream);
   RAFT_CUDA_TRY(cudaDeviceSynchronize());
 }
 

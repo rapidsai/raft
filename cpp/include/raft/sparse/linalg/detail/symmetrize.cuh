@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,12 +20,12 @@
 
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/sparse/cusparse_wrappers.h>
+#include <raft/sparse/detail/cusparse_wrappers.h>
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
 
 #include <raft/device_atomics.cuh>
-#include <raft/sparse/op/sort.hpp>
+#include <raft/sparse/op/sort.cuh>
 #include <thrust/device_ptr.h>
 #include <thrust/scan.h>
 
@@ -35,10 +35,10 @@
 #include <algorithm>
 #include <iostream>
 
-#include <raft/sparse/convert/csr.hpp>
+#include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/detail/utils.h>
-#include <raft/sparse/op/reduce.hpp>
+#include <raft/sparse/op/reduce.cuh>
 
 namespace raft {
 namespace sparse {

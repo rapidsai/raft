@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/add.cuh>
-#include <raft/random/rng.hpp>
+#include <raft/random/rng.cuh>
 
 namespace raft {
 namespace linalg {
@@ -47,7 +47,7 @@ class AddTest : public ::testing::TestWithParam<AddInputs<InT, OutT>> {
     r.uniform(in2.data(), len, InT(-1.0), InT(1.0), stream);
     naiveAddElem<InT, OutT>(out_ref.data(), in1.data(), in2.data(), len, stream);
     add<InT, OutT>(out.data(), in1.data(), in2.data(), len, stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
   }
 
   void compare()

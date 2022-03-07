@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,30 +13,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
+
+#ifndef __SPARSE_DIST_H
+#define __SPARSE_DIST_H
 
 #pragma once
 
-#include <raft/cudart_utils.h>
+#include <raft/sparse/distance/common.h>
 #include <unordered_set>
 
-#include <raft/cuda_utils.cuh>
-#include <raft/linalg/distance_type.h>
-#include <raft/mr/device/buffer.hpp>
-#include <raft/sparse/cusparse_wrappers.h>
-
-#include <raft/sparse/convert/coo.hpp>
-#include <raft/sparse/convert/csr.hpp>
-#include <raft/sparse/convert/dense.hpp>
-#include <raft/sparse/csr.hpp>
-#include <raft/sparse/detail/utils.h>
-#include <raft/sparse/linalg/transpose.hpp>
+#include <raft/distance/distance_type.hpp>
 
 #include <raft/sparse/distance/detail/bin_distance.cuh>
 #include <raft/sparse/distance/detail/ip_distance.cuh>
 #include <raft/sparse/distance/detail/l2_distance.cuh>
 #include <raft/sparse/distance/detail/lp_distance.cuh>
-
-#include <cusparse_v2.h>
 
 namespace raft {
 namespace sparse {
@@ -142,3 +137,5 @@ void pairwiseDistance(value_t* out,
 };  // namespace distance
 };  // namespace sparse
 };  // namespace raft
+
+#endif

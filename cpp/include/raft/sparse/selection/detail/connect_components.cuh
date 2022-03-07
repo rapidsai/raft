@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,14 +16,13 @@
 
 #include <cub/cub.cuh>
 
-#include <raft/distance/fused_l2_nn.hpp>
+#include <raft/distance/fused_l2_nn.cuh>
 #include <raft/label/classlabels.cuh>
 #include <raft/linalg/norm.cuh>
-#include <raft/mr/device/buffer.hpp>
-#include <raft/sparse/convert/csr.hpp>
+#include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/coo.hpp>
-#include <raft/sparse/linalg/symmetrize.hpp>
-#include <raft/sparse/op/reduce.hpp>
+#include <raft/sparse/linalg/symmetrize.cuh>
+#include <raft/sparse/op/reduce.cuh>
 
 #include <raft/cudart_utils.h>
 
@@ -415,7 +414,7 @@ void connect_components(
   // compute final size
   value_idx size = 0;
   raft::update_host(&size, out_index.data() + (out_index.size() - 1), 1, stream);
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  handle.sync_stream(stream);
 
   size++;
 

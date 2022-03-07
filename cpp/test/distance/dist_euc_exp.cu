@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -64,5 +64,8 @@ TEST_P(DistanceEucExpTestD, Result)
 }
 INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceEucExpTestD, ::testing::ValuesIn(inputsd));
 
+class BigMatrixEucExp : public BigMatrixDistanceTest<raft::distance::DistanceType::L2Expanded> {
+};
+TEST_F(BigMatrixEucExp, Result) {}
 }  // end namespace distance
 }  // end namespace raft

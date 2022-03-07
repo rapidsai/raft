@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,9 +18,9 @@
 
 #include "../test_utils.h"
 #include <raft/cudart_utils.h>
-#include <raft/random/rng.hpp>
+#include <raft/random/rng.cuh>
 #include <raft/sparse/csr.hpp>
-#include <raft/sparse/linalg/norm.hpp>
+#include <raft/sparse/linalg/norm.cuh>
 
 #include <iostream>
 #include <limits>
@@ -73,7 +73,7 @@ class CSRRowNormalizeTest : public ::testing::TestWithParam<CSRRowNormalizeInput
           ex_scan.data(), in_vals.data(), nnz, n_rows, result.data(), stream);
         break;
     }
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
     ASSERT_TRUE(
       raft::devArrMatch<Type_f>(verify.data(), result.data(), nnz, raft::Compare<Type_f>()));

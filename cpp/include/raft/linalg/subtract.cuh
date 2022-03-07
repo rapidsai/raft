@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,11 +14,12 @@
  * limitations under the License.
  */
 
+#ifndef __SUBTRACT_H
+#define __SUBTRACT_H
+
 #pragma once
 
-#include "binary_op.cuh"
-#include "unary_op.cuh"
-#include <raft/cuda_utils.cuh>
+#include "detail/subtract.cuh"
 
 namespace raft {
 namespace linalg {
@@ -40,8 +41,7 @@ namespace linalg {
 template <typename InT, typename OutT = InT, typename IdxType = int>
 void subtractScalar(OutT* out, const InT* in, InT scalar, IdxType len, cudaStream_t stream)
 {
-  auto op = [scalar] __device__(InT in) { return OutT(in - scalar); };
-  unaryOp<InT, decltype(op), IdxType, OutT>(out, in, len, op, stream);
+  detail::subtractScalar(out, in, scalar, len, stream);
 }
 
 /**
@@ -60,19 +60,7 @@ void subtractScalar(OutT* out, const InT* in, InT scalar, IdxType len, cudaStrea
 template <typename InT, typename OutT = InT, typename IdxType = int>
 void subtract(OutT* out, const InT* in1, const InT* in2, IdxType len, cudaStream_t stream)
 {
-  auto op = [] __device__(InT a, InT b) { return OutT(a - b); };
-  binaryOp<InT, decltype(op), OutT, IdxType>(out, in1, in2, len, op, stream);
-}
-
-template <class math_t, typename IdxType>
-__global__ void subtract_dev_scalar_kernel(math_t* outDev,
-                                           const math_t* inDev,
-                                           const math_t* singleScalarDev,
-                                           IdxType len)
-{
-  // TODO: kernel do not use shared memory in current implementation
-  int i = ((IdxType)blockIdx.x * (IdxType)blockDim.x) + threadIdx.x;
-  if (i < len) { outDev[i] = inDev[i] - *singleScalarDev; }
+  detail::subtract(out, in1, in2, len, stream);
 }
 
 /** Substract single value pointed by singleScalarDev parameter in device memory from inDev[i] and
@@ -93,13 +81,10 @@ void subtractDevScalar(math_t* outDev,
                        IdxType len,
                        cudaStream_t stream)
 {
-  // Just for the note - there is no way to express such operation with cuBLAS in effective way
-  // https://stackoverflow.com/questions/14051064/add-scalar-to-vector-in-blas-cublas-cuda
-  const IdxType nblks = raft::ceildiv(len, (IdxType)TPB);
-  subtract_dev_scalar_kernel<math_t>
-    <<<nblks, TPB, 0, stream>>>(outDev, inDev, singleScalarDev, len);
-  RAFT_CUDA_TRY(cudaPeekAtLastError());
+  detail::subtractDevScalar(outDev, inDev, singleScalarDev, len, stream);
 }
 
 };  // end namespace linalg
 };  // end namespace raft
+
+#endif

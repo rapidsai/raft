@@ -2,13 +2,93 @@
 
 Please see https://github.com/rapidsai/raft/releases/tag/v22.04.00a for the latest changes to this development branch.
 
-# raft 22.02.00 (Date TBD)
+# raft 22.02.00 (2 Feb 2022)
 
-Please see https://github.com/rapidsai/raft/releases/tag/v22.02.00a for the latest changes to this development branch.
+## 🚨 Breaking Changes
 
-# raft 21.12.00 (Date TBD)
+- Simplify raft component CMake logic, and allow compilation without FAISS ([#428](https://github.com/rapidsai/raft/pull/428)) [@robertmaynard](https://github.com/robertmaynard)
+- One cudaStream_t instance per raft::handle_t ([#291](https://github.com/rapidsai/raft/pull/291)) [@divyegala](https://github.com/divyegala)
 
-Please see https://github.com/rapidsai/raft/releases/tag/v21.12.00a for the latest changes to this development branch.
+## 🐛 Bug Fixes
+
+- Removing extra logging from faiss mr ([#463](https://github.com/rapidsai/raft/pull/463)) [@cjnolet](https://github.com/cjnolet)
+- Pin `dask` &amp; `distributed` versions ([#455](https://github.com/rapidsai/raft/pull/455)) [@galipremsagar](https://github.com/galipremsagar)
+- Replace RMM CUDA Python bindings with those provided  by CUDA-Python ([#451](https://github.com/rapidsai/raft/pull/451)) [@shwina](https://github.com/shwina)
+- Fix comms memory leak ([#436](https://github.com/rapidsai/raft/pull/436)) [@seunghwak](https://github.com/seunghwak)
+- Fix C++ doxygen documentation ([#426](https://github.com/rapidsai/raft/pull/426)) [@achirkin](https://github.com/achirkin)
+- Fix clang-format style errors ([#425](https://github.com/rapidsai/raft/pull/425)) [@achirkin](https://github.com/achirkin)
+- Fix using incorrect macro RAFT_CHECK_CUDA in place of RAFT_CUDA_TRY ([#415](https://github.com/rapidsai/raft/pull/415)) [@achirkin](https://github.com/achirkin)
+- Fix CUDA_CHECK_NO_THROW compatibility define ([#414](https://github.com/rapidsai/raft/pull/414)) [@zbjornson](https://github.com/zbjornson)
+- Disabling fused l2 knn from bfknn ([#407](https://github.com/rapidsai/raft/pull/407)) [@cjnolet](https://github.com/cjnolet)
+- Disabling expanded fused l2 knn to unblock cuml CI ([#404](https://github.com/rapidsai/raft/pull/404)) [@cjnolet](https://github.com/cjnolet)
+- Reverting default knn distance to L2Unexpanded for now. ([#403](https://github.com/rapidsai/raft/pull/403)) [@cjnolet](https://github.com/cjnolet)
+
+## 📖 Documentation
+
+- README and build fixes before release ([#459](https://github.com/rapidsai/raft/pull/459)) [@cjnolet](https://github.com/cjnolet)
+- Updates to Python and C++ Docs ([#442](https://github.com/rapidsai/raft/pull/442)) [@cjnolet](https://github.com/cjnolet)
+
+## 🚀 New Features
+
+- error macros: determining buffer size instead of fixed 2048 chars ([#420](https://github.com/rapidsai/raft/pull/420)) [@MatthiasKohl](https://github.com/MatthiasKohl)
+- NVTX range helpers ([#416](https://github.com/rapidsai/raft/pull/416)) [@achirkin](https://github.com/achirkin)
+
+## 🛠️ Improvements
+
+- Splitting fused l2 knn specializations ([#461](https://github.com/rapidsai/raft/pull/461)) [@cjnolet](https://github.com/cjnolet)
+- Update cuCollection git tag ([#447](https://github.com/rapidsai/raft/pull/447)) [@seunghwak](https://github.com/seunghwak)
+- Remove libcudacxx patch needed for nvcc 11.4 ([#446](https://github.com/rapidsai/raft/pull/446)) [@robertmaynard](https://github.com/robertmaynard)
+- Unpin `dask` and `distributed` ([#440](https://github.com/rapidsai/raft/pull/440)) [@galipremsagar](https://github.com/galipremsagar)
+- Public apis for remainder of matrix and stats ([#438](https://github.com/rapidsai/raft/pull/438)) [@divyegala](https://github.com/divyegala)
+- Fix bug in producer-consumer buffer exchange which occurs in UMAP test on GV100 ([#429](https://github.com/rapidsai/raft/pull/429)) [@mdoijade](https://github.com/mdoijade)
+- Simplify raft component CMake logic, and allow compilation without FAISS ([#428](https://github.com/rapidsai/raft/pull/428)) [@robertmaynard](https://github.com/robertmaynard)
+- Update ucx-py version on release using rvc ([#422](https://github.com/rapidsai/raft/pull/422)) [@Ethyling](https://github.com/Ethyling)
+- Disabling fused l2 knn again. Not sure how this got added back. ([#421](https://github.com/rapidsai/raft/pull/421)) [@cjnolet](https://github.com/cjnolet)
+- Adding no throw macro variants ([#417](https://github.com/rapidsai/raft/pull/417)) [@cjnolet](https://github.com/cjnolet)
+- Remove `IncludeCategories` from `.clang-format` ([#412](https://github.com/rapidsai/raft/pull/412)) [@codereport](https://github.com/codereport)
+- fix nan issues in L2 expanded sqrt KNN distances ([#411](https://github.com/rapidsai/raft/pull/411)) [@mdoijade](https://github.com/mdoijade)
+- Consistent renaming of CHECK_CUDA and *_TRY macros ([#410](https://github.com/rapidsai/raft/pull/410)) [@cjnolet](https://github.com/cjnolet)
+- Faster matrix-vector-ops ([#401](https://github.com/rapidsai/raft/pull/401)) [@achirkin](https://github.com/achirkin)
+- Adding dev conda environment files. ([#397](https://github.com/rapidsai/raft/pull/397)) [@cjnolet](https://github.com/cjnolet)
+- Update to UCX-Py 0.24 ([#392](https://github.com/rapidsai/raft/pull/392)) [@pentschev](https://github.com/pentschev)
+- Branch 21.12 merge 22.02 ([#386](https://github.com/rapidsai/raft/pull/386)) [@cjnolet](https://github.com/cjnolet)
+- Hiding implementation details for sparse API ([#381](https://github.com/rapidsai/raft/pull/381)) [@cjnolet](https://github.com/cjnolet)
+- Adding distance specializations ([#376](https://github.com/rapidsai/raft/pull/376)) [@cjnolet](https://github.com/cjnolet)
+- Use FAISS with RMM ([#363](https://github.com/rapidsai/raft/pull/363)) [@viclafargue](https://github.com/viclafargue)
+- Add Fused L2 Expanded KNN kernel ([#339](https://github.com/rapidsai/raft/pull/339)) [@mdoijade](https://github.com/mdoijade)
+- Update `.clang-format` to be consistent with all other RAPIDS repos ([#300](https://github.com/rapidsai/raft/pull/300)) [@codereport](https://github.com/codereport)
+- One cudaStream_t instance per raft::handle_t ([#291](https://github.com/rapidsai/raft/pull/291)) [@divyegala](https://github.com/divyegala)
+
+# raft 21.12.00 (9 Dec 2021)
+
+## 🚨 Breaking Changes
+
+- Use 64 bit CuSolver API for Eigen decomposition ([#349](https://github.com/rapidsai/raft/pull/349)) [@lowener](https://github.com/lowener)
+
+## 🐛 Bug Fixes
+
+- Fixing bad host-&gt;device copy ([#375](https://github.com/rapidsai/raft/pull/375)) [@cjnolet](https://github.com/cjnolet)
+- Fix coalesced access checks in matrix_vector_op ([#372](https://github.com/rapidsai/raft/pull/372)) [@achirkin](https://github.com/achirkin)
+- Port libcudacxx patch from cudf ([#370](https://github.com/rapidsai/raft/pull/370)) [@dantegd](https://github.com/dantegd)
+- Fixing overflow in expanded distances ([#365](https://github.com/rapidsai/raft/pull/365)) [@cjnolet](https://github.com/cjnolet)
+
+## 📖 Documentation
+
+- Getting doxygen to run ([#371](https://github.com/rapidsai/raft/pull/371)) [@cjnolet](https://github.com/cjnolet)
+
+## 🛠️ Improvements
+
+- Upgrade `clang` to `11.1.0` ([#394](https://github.com/rapidsai/raft/pull/394)) [@galipremsagar](https://github.com/galipremsagar)
+- Fix Changelog Merge Conflicts for `branch-21.12` ([#390](https://github.com/rapidsai/raft/pull/390)) [@ajschmidt8](https://github.com/ajschmidt8)
+- Pin max `dask` &amp; `distributed` ([#388](https://github.com/rapidsai/raft/pull/388)) [@galipremsagar](https://github.com/galipremsagar)
+- Removing conflict w/ CUDA_CHECK ([#378](https://github.com/rapidsai/raft/pull/378)) [@cjnolet](https://github.com/cjnolet)
+- Update RAFT test directory ([#359](https://github.com/rapidsai/raft/pull/359)) [@viclafargue](https://github.com/viclafargue)
+- Update to UCX-Py 0.23 ([#358](https://github.com/rapidsai/raft/pull/358)) [@pentschev](https://github.com/pentschev)
+- Hiding implementation details for random, stats, and matrix ([#356](https://github.com/rapidsai/raft/pull/356)) [@divyegala](https://github.com/divyegala)
+- README updates ([#351](https://github.com/rapidsai/raft/pull/351)) [@cjnolet](https://github.com/cjnolet)
+- Use 64 bit CuSolver API for Eigen decomposition ([#349](https://github.com/rapidsai/raft/pull/349)) [@lowener](https://github.com/lowener)
+- Hiding implementation details for distance primitives (dense + sparse) ([#344](https://github.com/rapidsai/raft/pull/344)) [@cjnolet](https://github.com/cjnolet)
+- Unpin `dask` &amp; `distributed` in CI ([#338](https://github.com/rapidsai/raft/pull/338)) [@galipremsagar](https://github.com/galipremsagar)
 
 # raft 21.10.00 (7 Oct 2021)
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,19 +20,19 @@
 
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/distance_type.h>
-#include <raft/sparse/cusparse_wrappers.h>
-
+#include <raft/distance/distance_type.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include <raft/sparse/csr.hpp>
 #include <raft/sparse/detail/utils.h>
 
-#include <raft/sparse/convert/coo.hpp>
+#include <raft/sparse/convert/coo.cuh>
 #include <raft/sparse/distance/common.h>
 #include <raft/sparse/distance/detail/operators.cuh>
 
 #include <nvfunctional>
+
+#include <algorithm>
 
 namespace raft {
 namespace sparse {
@@ -50,7 +50,7 @@ void unexpanded_lp_distances(value_t* out_dists,
                              accum_f accum_func,
                              write_f write_func)
 {
-  rmm::device_uvector<value_idx> coo_rows(max(config_->b_nnz, config_->a_nnz),
+  rmm::device_uvector<value_idx> coo_rows(std::max(config_->b_nnz, config_->a_nnz),
                                           config_->handle.get_stream());
 
   raft::sparse::convert::csr_to_coo(config_->b_indptr,
@@ -285,7 +285,7 @@ class kl_divergence_unexpanded_distances_t : public distances_t<value_t> {
 
   void compute(value_t* out_dists)
   {
-    rmm::device_uvector<value_idx> coo_rows(max(config_->b_nnz, config_->a_nnz),
+    rmm::device_uvector<value_idx> coo_rows(std::max(config_->b_nnz, config_->a_nnz),
                                             config_->handle.get_stream());
 
     raft::sparse::convert::csr_to_coo(config_->b_indptr,

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,8 +20,7 @@
 
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/distance_type.h>
-#include <raft/sparse/cusparse_wrappers.h>
+#include <raft/distance/distance_type.hpp>
 #include <raft/sparse/detail/utils.h>
 #include <raft/sparse/distance/common.h>
 #include <raft/sparse/distance/detail/ip_distance.cuh>

@@ -11,3 +11,11 @@ handle_t
 .. doxygenclass:: raft::handle_t
     :project: RAFT
     :members:
+
+
+interruptible
+########
+
+.. doxygenclass:: raft::interruptible
+    :project: RAFT
+    :members:

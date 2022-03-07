@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,12 +18,10 @@
 #include <gtest/gtest.h>
 
 #include "../test_utils.h"
-#include <raft/linalg/distance_type.h>
-#include <raft/sparse/cusparse_wrappers.h>
-#include <raft/sparse/selection/knn.hpp>
+#include <raft/distance/distance_type.hpp>
+#include <raft/sparse/selection/knn.cuh>
 
 #include <raft/cudart_utils.h>
-#include <raft/sparse/cusparse_wrappers.h>
 
 namespace raft {
 namespace sparse {

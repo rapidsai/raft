@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  * Copyright 2020 KETAN DATE & RAKESH NAGI
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,13 +22,17 @@
  *          for the Linear Assignment Problem." Parallel Computing 57 (2016): 52-72.
  *
  */
+
+#ifndef __LAP_H
+#define __LAP_H
+
 #pragma once
 
 #include <raft/handle.hpp>
 #include <rmm/device_uvector.hpp>
 
-#include "d_structs.h"
-#include "lap_functions.cuh"
+#include "detail/d_structs.h"
+#include "detail/lap_functions.cuh"
 
 namespace raft {
 namespace lap {
@@ -284,3 +288,5 @@ class LinearAssignmentProblem {
 
 }  // namespace lap
 }  // namespace raft
+
+#endif

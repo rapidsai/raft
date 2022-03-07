@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,11 +20,11 @@
 #include <raft/cudart_utils.h>
 
 #include <raft/sparse/coo.hpp>
-#include <raft/sparse/linalg/symmetrize.hpp>
+#include <raft/sparse/linalg/symmetrize.cuh>
 
-#include <raft/spatial/knn/knn.hpp>
+#include <raft/spatial/knn/knn.cuh>
 
-#include <raft/linalg/distance_type.h>
+#include <raft/distance/distance_type.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include <thrust/device_ptr.h>
@@ -32,6 +32,7 @@
 #include <thrust/scan.h>
 #include <thrust/sort.h>
 
+#include <algorithm>
 #include <limits>
 
 namespace raft {
@@ -59,7 +60,7 @@ value_idx build_k(value_idx n_samples, int c)
 {
   // from "kNN-MST-Agglomerative: A fast & scalable graph-based data clustering
   // approach on GPU"
-  return min(n_samples, max((value_idx)2, (value_idx)floor(log2(n_samples)) + c));
+  return std::min(n_samples, std::max((value_idx)2, (value_idx)floor(log2(n_samples)) + c));
 }
 
 template <typename in_t, typename out_t>

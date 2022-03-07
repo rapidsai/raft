@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,20 +15,16 @@
  */
 
 #include "../test_utils.h"
-#include "spatial_data.h"
 #include <raft/cudart_utils.h>
-#include <raft/linalg/distance_type.h>
-
-#include <raft/spatial/knn/knn.hpp>
-#include <raft/spatial/knn/specializations.hpp>
-
-#include <raft/spatial/knn/ball_cover.hpp>
+#include <raft/distance/distance_type.hpp>
+#include <raft/random/make_blobs.cuh>
+#include <raft/spatial/knn/ball_cover.cuh>
 #include <raft/spatial/knn/detail/fused_l2_knn.cuh>
 #include <raft/spatial/knn/detail/haversine_distance.cuh>
 
 #include <raft/spatial/knn/detail/knn_brute_force_faiss.cuh>
 #if defined RAFT_NN_COMPILED
-#include <raft/spatial/knn/specializations.hpp>
+#include <raft/spatial/knn/specializations.cuh>
 #endif
 
 #include <rmm/device_uvector.hpp>
@@ -65,13 +61,6 @@ __global__ void count_discrepancies_kernel(value_idx* actual_idx,
       value_t d    = actual[row * n + i] - expected[row * n + i];
       bool matches = (fabsf(d) <= thres) || (actual_idx[row * n + i] == expected_idx[row * n + i] &&
                                              actual_idx[row * n + i] == row);
-      //      if (!matches) {
-      //                  printf("row=%d, actual_idx=%ld, actual=%f, expected_id=%ld,
-      //                  expected=%f\n",
-      //                         row, actual_idx[row*n+i], actual[row*n+i], expected_idx[row*n+i],
-      //                         expected[row*n+i]);
-      //      }
-
       n_diffs += !matches;
       out[row] = n_diffs;
     }
@@ -106,15 +95,16 @@ template <typename value_t>
 void compute_bfknn(const raft::handle_t& handle,
                    const value_t* X1,
                    const value_t* X2,
-                   std::uint32_t n,
-                   std::uint32_t d,
-                   std::uint32_t k,
+                   uint32_t n_rows,
+                   uint32_t n_query_rows,
+                   uint32_t d,
+                   uint32_t k,
                    const raft::distance::DistanceType metric,
                    value_t* dists,
                    std::int64_t* inds)
 {
-  std::vector<value_t*> input_vec      = {const_cast<value_t*>(X1)};
-  std::vector<std::uint32_t> sizes_vec = {n};
+  std::vector<value_t*> input_vec = {const_cast<value_t*>(X1)};
+  std::vector<uint32_t> sizes_vec = {n_rows};
 
   std::vector<int64_t>* translations = nullptr;
 
@@ -123,7 +113,7 @@ void compute_bfknn(const raft::handle_t& handle,
                                                                       sizes_vec,
                                                                       d,
                                                                       const_cast<value_t*>(X2),
-                                                                      n,
+                                                                      n_query_rows,
                                                                       inds,
                                                                       dists,
                                                                       k,
@@ -137,52 +127,50 @@ struct ToRadians {
   __device__ __host__ float operator()(float a) { return a * (CUDART_PI_F / 180.0); }
 };
 
-template <typename value_t>
 struct BallCoverInputs {
-  std::vector<value_t> data;
-  std::uint32_t d;
-  std::uint32_t k;
+  uint32_t k;
+  uint32_t n_rows;
+  uint32_t n_cols;
   float weight;
+  uint32_t n_query;
   raft::distance::DistanceType metric;
 };
 
 template <typename value_idx, typename value_t>
-class BallCoverKNNQueryTest : public ::testing::TestWithParam<BallCoverInputs<value_t>> {
+class BallCoverKNNQueryTest : public ::testing::TestWithParam<BallCoverInputs> {
  protected:
   void basicTest()
   {
-    params = ::testing::TestWithParam<BallCoverInputs<value_t>>::GetParam();
+    params = ::testing::TestWithParam<BallCoverInputs>::GetParam();
     raft::handle_t handle;
 
-    std::uint32_t d = params.d;
-    std::uint32_t k = params.k;
-    float weight    = params.weight;
-    auto metric     = params.metric;
+    uint32_t k         = params.k;
+    uint32_t n_centers = 25;
+    float weight       = params.weight;
+    auto metric        = params.metric;
 
-    std::vector<value_t> h_train_inputs = params.data;
+    rmm::device_uvector<value_t> X(params.n_rows * params.n_cols, handle.get_stream());
+    rmm::device_uvector<uint32_t> Y(params.n_rows, handle.get_stream());
 
-    std::uint32_t n = h_train_inputs.size() / d;
+    raft::random::make_blobs(
+      X.data(), Y.data(), params.n_rows, params.n_cols, n_centers, handle.get_stream());
+        //true, nullptr, nullptr, 1.0, false);
 
-    rmm::device_uvector<value_idx> d_ref_I(n * k, handle.get_stream());
-    rmm::device_uvector<value_t> d_ref_D(n * k, handle.get_stream());
-
-    // Allocate input
-    rmm::device_uvector<value_t> d_train_inputs(n * d, handle.get_stream());
-    raft::update_device(d_train_inputs.data(), h_train_inputs.data(), n * d, handle.get_stream());
+    rmm::device_uvector<value_idx> d_ref_I(params.n_query * k, handle.get_stream());
+    rmm::device_uvector<value_t> d_ref_D(params.n_query * k, handle.get_stream());
 
     if (metric == raft::distance::DistanceType::Haversine) {
-      thrust::transform(handle.get_thrust_policy(),
-                        d_train_inputs.data(),
-                        d_train_inputs.data() + d_train_inputs.size(),
-                        d_train_inputs.data(),
-                        ToRadians());
+      thrust::transform(
+        handle.get_thrust_policy(), X.data(), X.data() + X.size(), X.data(), ToRadians());
     }
 
+      auto bfknn_time = curTimeMillis();
     compute_bfknn(handle,
-                  d_train_inputs.data(),
-                  d_train_inputs.data(),
-                  n,
-                  d,
+                  X.data(),
+                  X.data(),
+                  params.n_rows,
+                  params.n_query,
+                  params.n_cols,
                   k,
                   metric,
                   d_ref_D.data(),
@@ -190,25 +178,26 @@ class BallCoverKNNQueryTest : public ::testing::TestWithParam<BallCoverInputs<va
 
     RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
 
+      std::cout << "bfknn_time: " << (curTimeMillis() - bfknn_time) << std::endl;
     // Allocate predicted arrays
-    rmm::device_uvector<value_idx> d_pred_I(n * k, handle.get_stream());
-    rmm::device_uvector<value_t> d_pred_D(n * k, handle.get_stream());
+    rmm::device_uvector<value_idx> d_pred_I(params.n_query * k, handle.get_stream());
+    rmm::device_uvector<value_t> d_pred_D(params.n_query * k, handle.get_stream());
+      auto rbc_time = curTimeMillis();
 
-    BallCoverIndex<value_idx, value_t> index(handle, d_train_inputs.data(), n, d, metric);
+    BallCoverIndex<value_idx, value_t> index(
+      handle, X.data(), params.n_rows, params.n_cols, metric);
 
     raft::spatial::knn::rbc_build_index(handle, index);
     raft::spatial::knn::rbc_knn_query(
-      handle, index, k, d_train_inputs.data(), n, d_pred_I.data(), d_pred_D.data(), true, weight);
+      handle, index, k, X.data(), params.n_query, d_pred_I.data(), d_pred_D.data(), true, weight);
 
     RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
     // What we really want are for the distances to match exactly. The
     // indices may or may not match exactly, depending upon the ordering which
     // can be nondeterministic.
+      std::cout << "ball cover time: " << (curTimeMillis() - rbc_time) << std::endl;
 
-    raft::print_device_vector("pred_d", d_pred_D.data(), 100, std::cout);
-    raft::print_device_vector("ref_d", d_ref_D.data(), 100, std::cout);
-
-    rmm::device_uvector<std::uint32_t> discrepancies(n, handle.get_stream());
+    rmm::device_uvector<uint32_t> discrepancies(params.n_query, handle.get_stream());
     thrust::fill(handle.get_thrust_policy(),
                  discrepancies.data(),
                  discrepancies.data() + discrepancies.size(),
@@ -218,7 +207,7 @@ class BallCoverKNNQueryTest : public ::testing::TestWithParam<BallCoverInputs<va
                                   d_pred_I.data(),
                                   d_ref_D.data(),
                                   d_pred_D.data(),
-                                  n,
+                                  params.n_query,
                                   k,
                                   discrepancies.data(),
                                   handle.get_stream());
@@ -232,67 +221,62 @@ class BallCoverKNNQueryTest : public ::testing::TestWithParam<BallCoverInputs<va
   void TearDown() override {}
 
  protected:
-  BallCoverInputs<value_t> params;
+  BallCoverInputs params;
 };
 
 template <typename value_idx, typename value_t>
-class BallCoverAllKNNTest : public ::testing::TestWithParam<BallCoverInputs<value_t>> {
+class BallCoverAllKNNTest : public ::testing::TestWithParam<BallCoverInputs> {
  protected:
   void basicTest()
   {
-    params = ::testing::TestWithParam<BallCoverInputs<value_t>>::GetParam();
+    params = ::testing::TestWithParam<BallCoverInputs>::GetParam();
     raft::handle_t handle;
 
-    std::uint32_t d = params.d;
-    std::uint32_t k = params.k;
-    float weight    = params.weight;
-    auto metric     = params.metric;
+    uint32_t k         = params.k;
+    uint32_t n_centers = 25;
+    float weight       = params.weight;
+    auto metric        = params.metric;
 
-    std::vector<value_t> h_train_inputs = params.data;
+    rmm::device_uvector<value_t> X(params.n_rows * params.n_cols, handle.get_stream());
+    rmm::device_uvector<uint32_t> Y(params.n_rows, handle.get_stream());
 
-    std::uint32_t n = h_train_inputs.size() / d;
+    raft::random::make_blobs(
+      X.data(), Y.data(), params.n_rows, params.n_cols, n_centers, handle.get_stream());
+      //true, nullptr, nullptr, 1.0, false);
 
-    rmm::device_uvector<value_idx> d_ref_I(n * k, handle.get_stream());
-    rmm::device_uvector<value_t> d_ref_D(n * k, handle.get_stream());
-
-    // Allocate input
-    rmm::device_uvector<value_t> d_train_inputs(n * d, handle.get_stream());
-    raft::update_device(d_train_inputs.data(), h_train_inputs.data(), n * d, handle.get_stream());
+    rmm::device_uvector<value_idx> d_ref_I(params.n_rows * k, handle.get_stream());
+    rmm::device_uvector<value_t> d_ref_D(params.n_rows * k, handle.get_stream());
 
     if (metric == raft::distance::DistanceType::Haversine) {
-      thrust::transform(handle.get_thrust_policy(),
-                        d_train_inputs.data(),
-                        d_train_inputs.data() + d_train_inputs.size(),
-                        d_train_inputs.data(),
-                        ToRadians());
+      thrust::transform(
+        handle.get_thrust_policy(), X.data(), X.data() + X.size(), X.data(), ToRadians());
     }
 
-    std::vector<int64_t>* translations = nullptr;
+      auto bfknn_time = curTimeMillis();
 
-    std::vector<float*> input_vec        = {d_train_inputs.data()};
-    std::vector<std::uint32_t> sizes_vec = {n};
+      compute_bfknn(handle,
+                  X.data(),
+                  X.data(),
+                  params.n_rows,
+                  params.n_rows,
+                  params.n_cols,
+                  k,
+                  metric,
+                  d_ref_D.data(),
+                  d_ref_I.data());
 
-    raft::spatial::knn::detail::brute_force_knn_impl<uint32_t, int64_t>(handle,
-                                                                        input_vec,
-                                                                        sizes_vec,
-                                                                        d,
-                                                                        d_train_inputs.data(),
-                                                                        n,
-                                                                        d_ref_I.data(),
-                                                                        d_ref_D.data(),
-                                                                        k,
-                                                                        true,
-                                                                        true,
-                                                                        translations,
-                                                                        metric);
+      RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
+    std::cout << "bfknn_time: " << (curTimeMillis() - bfknn_time) << std::endl;
 
-    RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
 
     // Allocate predicted arrays
-    rmm::device_uvector<value_idx> d_pred_I(n * k, handle.get_stream());
-    rmm::device_uvector<value_t> d_pred_D(n * k, handle.get_stream());
+    rmm::device_uvector<value_idx> d_pred_I(params.n_rows * k, handle.get_stream());
+    rmm::device_uvector<value_t> d_pred_D(params.n_rows * k, handle.get_stream());
 
-    BallCoverIndex<value_idx, value_t> index(handle, d_train_inputs.data(), n, d, metric);
+      auto rbc_time = curTimeMillis();
+
+      BallCoverIndex<value_idx, value_t> index(
+      handle, X.data(), params.n_rows, params.n_cols, metric);
 
     raft::spatial::knn::rbc_all_knn_query(
       handle, index, k, d_pred_I.data(), d_pred_D.data(), true, weight);
@@ -302,25 +286,21 @@ class BallCoverAllKNNTest : public ::testing::TestWithParam<BallCoverInputs<valu
     // indices may or may not match exactly, depending upon the ordering which
     // can be nondeterministic.
 
-    raft::print_device_vector("pred_d", d_pred_D.data(), 100, std::cout);
-    raft::print_device_vector("ref_d", d_ref_D.data(), 100, std::cout);
-
-    rmm::device_uvector<std::uint32_t> discrepancies(n, handle.get_stream());
+      std::cout << "ball cover time: " << (curTimeMillis() - rbc_time) << std::endl;
+    rmm::device_uvector<uint32_t> discrepancies(params.n_rows, handle.get_stream());
     thrust::fill(handle.get_thrust_policy(),
                  discrepancies.data(),
                  discrepancies.data() + discrepancies.size(),
                  0);
     //
-    std::uint32_t res = count_discrepancies(d_pred_I.data(),
-                                            d_ref_I.data(),
-                                            d_pred_D.data(),
-                                            d_ref_D.data(),
-                                            n,
-                                            k,
-                                            discrepancies.data(),
-                                            handle.get_stream());
-
-    printf("ref=%d\n", res);
+    uint32_t res = count_discrepancies(d_ref_I.data(),
+                                       d_pred_I.data(),
+                                       d_ref_D.data(),
+                                       d_pred_D.data(),
+                                       params.n_rows,
+                                       k,
+                                       discrepancies.data(),
+                                       handle.get_stream());
     ASSERT_TRUE(res == 0);
   }
 
@@ -329,37 +309,31 @@ class BallCoverAllKNNTest : public ::testing::TestWithParam<BallCoverInputs<valu
   void TearDown() override {}
 
  protected:
-  BallCoverInputs<value_t> params;
+  BallCoverInputs params;
 };
 
 typedef BallCoverAllKNNTest<std::int64_t, float> BallCoverAllKNNTestF;
 typedef BallCoverKNNQueryTest<std::int64_t, float> BallCoverKNNQueryTestF;
 
-const std::vector<BallCoverInputs<float>> ballcover_inputs = {
+const std::vector<BallCoverInputs> ballcover_inputs = {
 
-  /**
-   * 2-dimension tests
-   */
-  {us_states, 2, 2, 1.0, raft::distance::DistanceType::Haversine},
-  {us_states, 2, 4, 1.0, raft::distance::DistanceType::Haversine},
-  {us_states, 2, 7, 1.0, raft::distance::DistanceType::Haversine},
-  {us_states, 2, 2, 1.0, raft::distance::DistanceType::L2SqrtUnexpanded},
-  {us_states, 2, 4, 1.0, raft::distance::DistanceType::L2SqrtUnexpanded},
-  {us_states, 2, 7, 1.0, raft::distance::DistanceType::L2SqrtUnexpanded},
 
-  /**
-   * 10-dimension tests
-   */
-  {spatial_data_dims_10, 10, 2, 1.0, raft::distance::DistanceType::L2SqrtUnexpanded},
-  {spatial_data_dims_10, 10, 4, 1.0, raft::distance::DistanceType::L2SqrtUnexpanded},
-  {spatial_data_dims_10, 10, 7, 1.0, raft::distance::DistanceType::L2SqrtUnexpanded},
+  // Low dim params
+//  {2, 50000, 2, 1.0, 25000, raft::distance::DistanceType::Haversine},
+//  {11, 50000, 2, 1.0, 25000, raft::distance::DistanceType::Haversine},
+//  {25, 50000, 2, 1.0, 25000, raft::distance::DistanceType::Haversine},
+//  {2, 50000, 2, 1.0, 25000, raft::distance::DistanceType::L2SqrtUnexpanded},
+//  {11, 50000, 2, 1.0, 25000, raft::distance::DistanceType::L2SqrtUnexpanded},
+//  {25, 25000, 2, 1.0, 25000, raft::distance::DistanceType::L2SqrtUnexpanded},
+//  {2, 25000, 3, 1.0, 25000, raft::distance::DistanceType::L2SqrtUnexpanded},
+//  {11, 25000, 3, 1.0, 25000, raft::distance::DistanceType::L2SqrtUnexpanded},
+  {32, 25000, 3, 1.0, 25000, raft::distance::DistanceType::L2SqrtUnexpanded},
 
-  /**
-   * 100-dimension tests
-   */
-  {spatial_data_dims_100, 100, 2, 1.0, raft::distance::DistanceType::L2SqrtUnexpanded},
-  {spatial_data_dims_100, 100, 4, 1.0, raft::distance::DistanceType::L2SqrtUnexpanded},
-  {spatial_data_dims_100, 100, 7, 1.0, raft::distance::DistanceType::L2SqrtUnexpanded}};
+  // High dim params
+//  {2, 500, 16, 1.0, 100, raft::distance::DistanceType::L2SqrtUnexpanded},
+//  {11, 50000, 16, 1.0, 50000, raft::distance::DistanceType::L2SqrtUnexpanded},
+//  {25, 50000, 16, 1.0, 50000, raft::distance::DistanceType::L2SqrtUnexpanded},
+};
 
 INSTANTIATE_TEST_CASE_P(BallCoverAllKNNTest,
                         BallCoverAllKNNTestF,

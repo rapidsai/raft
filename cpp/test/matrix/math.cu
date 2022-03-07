@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@
 #include "../test_utils.h"
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
-#include <raft/matrix/math.hpp>
-#include <raft/random/rng.hpp>
+#include <raft/matrix/math.cuh>
+#include <raft/random/rng.cuh>
 
 namespace raft {
 namespace matrix {
@@ -177,7 +177,7 @@ class MathTest : public ::testing::TestWithParam<MathInputs<T>> {
     update_device(out_smallzero_ref.data(), in_small_val_zero_ref_h.data(), 4, stream);
     setSmallValuesZero(out_smallzero.data(), in_smallzero.data(), 4, stream);
     setSmallValuesZero(in_smallzero.data(), 4, stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
   }
 
  protected:

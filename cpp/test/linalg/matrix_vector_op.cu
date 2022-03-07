@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 #include "matrix_vector_op.cuh"
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
-#include <raft/random/rng.hpp>
+#include <raft/random/rng.cuh>
 
 namespace raft {
 namespace linalg {
@@ -134,7 +134,7 @@ class MatVecOpTest : public ::testing::TestWithParam<MatVecOpInputs<T, IdxType>>
                          params.bcastAlongRows,
                          params.useTwoVectors,
                          stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
   }
 
  protected:

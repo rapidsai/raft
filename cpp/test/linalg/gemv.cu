@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@
 #include "../test_utils.h"
 #include <gtest/gtest.h>
 #include <raft/cuda_utils.cuh>
-#include <raft/linalg/gemv.h>
-#include <raft/random/rng.hpp>
+#include <raft/linalg/gemv.cuh>
+#include <raft/random/rng.cuh>
 
 namespace raft {
 namespace linalg {

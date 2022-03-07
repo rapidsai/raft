@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2021, NVIDIA CORPORATION.
+# Copyright (c) 2021-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 # keep the files in alphabetical order!
 add_executable(test_raft
+    test/common/seive.cu
     test/cudart_utils.cpp
     test/cluster_solvers.cu
     test/distance/dist_adj.cu
@@ -36,6 +37,7 @@ add_executable(test_raft
     test/eigen_solvers.cu
     test/handle.cpp
     test/integer_utils.cpp
+    test/interruptible.cu
     test/nvtx.cpp
     test/pow2_utils.cu
     test/label/label.cu
@@ -55,21 +57,35 @@ add_executable(test_raft
     test/linalg/matrix_vector_op.cu
     test/linalg/multiply.cu
     test/linalg/norm.cu
+    test/linalg/power.cu
     test/linalg/reduce.cu
+    test/linalg/reduce_cols_by_key.cu
+    test/linalg/reduce_rows_by_key.cu
+    test/linalg/rsvd.cu
+    test/linalg/sqrt.cu
     test/linalg/strided_reduction.cu
     test/linalg/subtract.cu
     test/linalg/svd.cu
+    test/linalg/ternary_op.cu
     test/linalg/transpose.cu
     test/linalg/unary_op.cu
     test/matrix/math.cu
     test/matrix/matrix.cu
+    test/matrix/columnSort.cu
     test/matrix/linewise_op.cu
-    test/mr/device/buffer.cpp
+    test/mdarray.cu
     test/mr/host/buffer.cpp
+    test/mr/device/buffer.cpp
     test/mst.cu
+    test/random/make_blobs.cu
+    test/random/make_regression.cu
+    test/random/multi_variable_gaussian.cu
+    test/random/permute.cu
     test/random/rng.cu
     test/random/rng_int.cu
     test/random/sample_without_replacement.cu
+    test/span.cpp
+    test/span.cu
     test/sparse/add.cu
     test/sparse/convert_coo.cu
     test/sparse/convert_csr.cu
@@ -93,13 +109,32 @@ add_executable(test_raft
     test/spatial/fused_l2_knn.cu
     test/spatial/haversine.cu
     test/spatial/ball_cover.cu
+    test/spatial/epsilon_neighborhood.cu
     test/spatial/faiss_mr.cu
     test/spatial/selection.cu
     test/spectral_matrix.cu
+    test/stats/adjusted_rand_index.cu
+    test/stats/completeness_score.cu
+    test/stats/contingencyMatrix.cu
+    test/stats/cov.cu
+    test/stats/dispersion.cu
+    test/stats/entropy.cu
+    test/stats/histogram.cu
+    test/stats/homogeneity_score.cu
+    test/stats/information_criterion.cu
+    test/stats/kl_divergence.cu
     test/stats/mean.cu
+    test/stats/meanvar.cu
     test/stats/mean_center.cu
+    test/stats/minmax.cu
+    test/stats/mutual_info_score.cu
+    test/stats/rand_index.cu
+    test/stats/silhouette_score.cu
     test/stats/stddev.cu
     test/stats/sum.cu
+    test/stats/trustworthiness.cu
+    test/stats/weighted_mean.cu
+    test/stats/v_measure.cu
     test/test.cpp
 )
 
@@ -112,6 +147,7 @@ PROPERTIES BUILD_RPATH                         "\$ORIGIN"
            CUDA_STANDARD_REQUIRED              ON
            POSITION_INDEPENDENT_CODE           ON
            INTERFACE_POSITION_INDEPENDENT_CODE ON
+           INSTALL_RPATH "\$ORIGIN/../../../lib"
 )
 
 target_compile_options(test_raft
@@ -136,4 +172,11 @@ PRIVATE
   Threads::Threads
   $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
   $<TARGET_NAME_IF_EXISTS:conda_env>
+)
+
+install(
+    TARGETS test_raft
+    COMPONENT testing
+    DESTINATION bin/libraft/gtests
+    EXCLUDE_FROM_ALL
 )

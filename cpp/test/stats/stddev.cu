@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,10 +17,10 @@
 #include "../test_utils.h"
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
-#include <raft/matrix/math.hpp>
-#include <raft/random/rng.hpp>
-#include <raft/stats/mean.hpp>
-#include <raft/stats/stddev.hpp>
+#include <raft/matrix/math.cuh>
+#include <raft/random/rng.cuh>
+#include <raft/stats/mean.cuh>
+#include <raft/stats/stddev.cuh>
 
 namespace raft {
 namespace stats {
@@ -66,7 +66,7 @@ class StdDevTest : public ::testing::TestWithParam<StdDevInputs<T>> {
     vars_act.resize(cols, stream);
     r.normal(data.data(), len, params.mean, params.stddev, stream);
     stdVarSGtest(data.data(), stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
   }
 
   void stdVarSGtest(T* data, cudaStream_t stream)

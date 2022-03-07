@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/coalesced_reduction.cuh>
-#include <raft/random/rng.hpp>
+#include <raft/random/rng.cuh>
 
 namespace raft {
 namespace linalg {
@@ -75,7 +75,7 @@ class coalescedReductionTest : public ::testing::TestWithParam<coalescedReductio
     // Add to result with inplace = true next
     coalescedReductionLaunch(dots_act.data(), data.data(), cols, rows, stream, true);
 
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
   }
 
  protected:

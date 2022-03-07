@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,11 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
+
+#ifndef __KNN_GRAPH_H
+#define __KNN_GRAPH_H
 
 #pragma once
 
-#include <cstdint>
-#include <raft/linalg/distance_type.h>
+#include <raft/distance/distance_type.hpp>
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/selection/detail/knn_graph.cuh>
 
@@ -58,3 +64,5 @@ void knn_graph(const handle_t& handle,
 };  // namespace selection
 };  // namespace sparse
 };  // end namespace raft
+
+#endif

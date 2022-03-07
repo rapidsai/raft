@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 #include <limits>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/map_then_reduce.cuh>
-#include <raft/random/rng.hpp>
+#include <raft/random/rng.cuh>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
@@ -87,7 +87,7 @@ class MapReduceTest : public ::testing::TestWithParam<MapReduceInputs<InType>> {
     auto len = params.len;
     r.uniform(in.data(), len, InType(-1.0), InType(1.0), stream);
     mapReduceLaunch(out_ref.data(), out.data(), in.data(), len, stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
   }
 
  protected:

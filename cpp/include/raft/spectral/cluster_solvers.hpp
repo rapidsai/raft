@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,12 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
+
+#ifndef __CLUSTER_SOLVERS_H
+#define __CLUSTER_SOLVERS_H
+
 #pragma once
 
-#include <raft/spectral/kmeans.hpp>
+#include <raft/cluster/kmeans.cuh>
 #include <utility>  // for std::pair
 
 namespace raft {
+namespace spectral {
 
 using namespace matrix;
 
@@ -52,17 +62,18 @@ struct kmeans_solver_t {
     RAFT_EXPECTS(codes != nullptr, "Null codes buffer.");
     value_type_t residual{};
     index_type_t iters{};
-    kmeans(handle,
-           n_obs_vecs,
-           dim,
-           config_.n_clusters,
-           config_.tol,
-           config_.maxIter,
-           obs,
-           codes,
-           residual,
-           iters,
-           config_.seed);
+
+    raft::cluster::kmeans(handle,
+                          n_obs_vecs,
+                          dim,
+                          config_.n_clusters,
+                          config_.tol,
+                          config_.maxIter,
+                          obs,
+                          codes,
+                          residual,
+                          iters,
+                          config_.seed);
     return std::make_pair(residual, iters);
   }
 
@@ -71,4 +82,8 @@ struct kmeans_solver_t {
  private:
   cluster_solver_config_t<index_type_t, value_type_t, size_type_t> config_;
 };
+
+}  // namespace spectral
 }  // namespace raft
+
+#endif

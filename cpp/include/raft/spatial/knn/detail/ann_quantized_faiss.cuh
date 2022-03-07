@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@
 #include <raft/cudart_utils.h>
 
 #include <label/classlabels.cuh>
-#include <raft/distance/distance.hpp>
+#include <raft/distance/distance.cuh>
 #include <raft/spatial/knn/faiss_mr.hpp>
 
 #include <faiss/gpu/GpuDistance.h>
@@ -43,9 +43,7 @@
 
 #include <thrust/iterator/transform_iterator.h>
 
-#include <raft/linalg/distance_type.h>
-
-#include <cuml/neighbors/knn.hpp>
+#include <raft/distance/distance_type.hpp>
 
 #include <iostream>
 #include <set>

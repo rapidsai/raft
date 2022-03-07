@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,11 +17,12 @@
 #include <raft/cudart_utils.h>
 
 #include <raft/cuda_utils.cuh>
-#include <raft/sparse/cusparse_wrappers.h>
-#include <raft/spectral/partition.hpp>
+#include <raft/spectral/cluster_solvers.cuh>
+#include <raft/spectral/eigen_solvers.cuh>
+#include <raft/spectral/partition.cuh>
 #include <rmm/device_uvector.hpp>
 
-#include <raft/sparse/convert/csr.hpp>
+#include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/coo.hpp>
 
 namespace raft {
@@ -51,7 +52,7 @@ void fit_embedding(const raft::handle_t& handle,
   rmm::device_uvector<T> eigVecs(n * (n_components + 1), stream);
   rmm::device_uvector<int> labels(n, stream);
 
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  handle.sync_stream(stream);
 
   /**
    * Raft spectral clustering
@@ -63,18 +64,20 @@ void fit_embedding(const raft::handle_t& handle,
   index_type* ci = dst_cols.data();
   value_type* vs = dst_vals.data();
 
-  raft::matrix::sparse_matrix_t<index_type, value_type> const r_csr_m{handle, ro, ci, vs, n, nnz};
+  raft::spectral::matrix::sparse_matrix_t<index_type, value_type> const r_csr_m{
+    handle, ro, ci, vs, n, nnz};
 
   index_type neigvs       = n_components + 1;
   index_type maxiter      = 4000;  // default reset value (when set to 0);
   value_type tol          = 0.01;
   index_type restart_iter = 15 + neigvs;  // what cugraph is using
 
-  raft::eigen_solver_config_t<index_type, value_type> cfg{neigvs, maxiter, restart_iter, tol};
+  raft::spectral::eigen_solver_config_t<index_type, value_type> cfg{
+    neigvs, maxiter, restart_iter, tol};
 
   cfg.seed = seed;
 
-  raft::lanczos_solver_t<index_type, value_type> eig_solver{cfg};
+  raft::spectral::lanczos_solver_t<index_type, value_type> eig_solver{cfg};
 
   // cluster computation here is irrelevant,
   // hence define a no-op such solver to

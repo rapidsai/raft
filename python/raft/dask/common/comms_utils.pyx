@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -37,11 +37,6 @@ cdef extern from "raft/handle.hpp" namespace "raft":
 
 cdef extern from "raft/comms/std_comms.hpp" namespace "raft::comms":
 
-    cdef cppclass std_comms:
-        pass
-
-cdef extern from "raft/comms/helper.hpp" namespace "raft::comms":
-
     void build_comms_nccl_ucx(handle_t *handle,
                               ncclComm_t comm,
                               void *ucp_worker,
@@ -54,7 +49,7 @@ cdef extern from "raft/comms/helper.hpp" namespace "raft::comms":
                                int size,
                                int rank) except +
 
-cdef extern from "raft/comms/test.hpp" namespace "raft::comms":
+cdef extern from "raft/comms/comms_test.hpp" namespace "raft::comms":
 
     bool test_collective_allreduce(const handle_t &h, int root) except +
     bool test_collective_broadcast(const handle_t &h, int root) except +

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,12 +23,11 @@
 #include <raft/linalg/unary_op.cuh>
 #include <rmm/device_uvector.hpp>
 
-#include <raft/linalg/distance_type.h>
-#include <raft/mr/device/buffer.hpp>
-#include <raft/sparse/convert/csr.hpp>
+#include <raft/distance/distance_type.hpp>
+#include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/hierarchy/common.h>
-#include <raft/sparse/selection/knn_graph.hpp>
+#include <raft/sparse/selection/knn_graph.cuh>
 
 #include <limits>
 

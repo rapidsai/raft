@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ from cython.operator cimport dereference as deref
 from libcpp cimport bool
 from libc.stdlib cimport malloc, free
 
-cdef extern from "raft/comms/helper.hpp" namespace "raft::comms":
+cdef extern from "raft/comms/std_comms.hpp" namespace "raft::comms":
     void get_unique_id(char *uid, int size) except +
     void nccl_unique_id_from_char(ncclUniqueId *id,
                                   char *uniqueId,

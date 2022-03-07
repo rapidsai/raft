@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/unary_op.cuh>
-#include <raft/random/rng.hpp>
+#include <raft/random/rng.cuh>
 
 namespace raft {
 namespace linalg {
@@ -59,7 +59,7 @@ class UnaryOpTest : public ::testing::TestWithParam<UnaryOpInputs<InType, IdxTyp
     raft::random::Rng r(params.seed);
     auto len = params.len;
     r.uniform(in.data(), len, InType(-1.0), InType(1.0), stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
   }
 
   virtual void DoTest()
@@ -68,7 +68,7 @@ class UnaryOpTest : public ::testing::TestWithParam<UnaryOpInputs<InType, IdxTyp
     auto scalar = params.scalar;
     naiveScale(out_ref.data(), in.data(), scalar, len, stream);
     unaryOpLaunch(out.data(), in.data(), scalar, len, stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
     ASSERT_TRUE(devArrMatch(
       out_ref.data(), out.data(), params.len, CompareApprox<OutType>(params.tolerance)));
   }

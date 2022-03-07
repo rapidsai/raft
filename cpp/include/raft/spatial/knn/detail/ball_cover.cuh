@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,9 +32,9 @@
 
 #include <raft/cuda_utils.cuh>
 
-#include <raft/matrix/matrix.hpp>
-#include <raft/random/rng.hpp>
-#include <raft/sparse/convert/csr.hpp>
+#include <raft/matrix/matrix.cuh>
+#include <raft/random/rng.cuh>
+#include <raft/sparse/convert/csr.cuh>
 
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
@@ -46,6 +46,7 @@
 #include <thrust/functional.h>
 #include <thrust/reduce.h>
 #include <thrust/sequence.h>
+#include <thrust/sort.h>
 
 namespace raft {
 namespace spatial {
@@ -76,6 +77,9 @@ void sample_landmarks(const raft::handle_t& handle,
 
   thrust::fill(
     handle.get_thrust_policy(), R_1nn_ones.data(), R_1nn_ones.data() + R_1nn_ones.size(), 1.0);
+
+  thrust::fill(
+    handle.get_thrust_policy(), R_indices.data(), R_indices.data() + R_indices.size(), 0.0);
 
   /**
    * 1. Randomly sample sqrt(n) points from X
@@ -235,33 +239,75 @@ void perform_rbc_query(const raft::handle_t& handle,
                        float weight                = 1.0,
                        bool perform_post_filtering = true)
 {
-  // Compute nearest k for each neighborhood in each closest R
-  rbc_low_dim_pass_one(handle,
-                       index,
-                       query,
-                       n_query_pts,
-                       k,
-                       R_knn_inds,
-                       R_knn_dists,
-                       dfunc,
-                       inds,
-                       dists,
-                       weight,
-                       dists_counter);
+  // initialize output inds and dists
+  thrust::fill(handle.get_thrust_policy(),
+               inds,
+               inds + (k * n_query_pts),
+               std::numeric_limits<value_idx>::max());
+  thrust::fill(handle.get_thrust_policy(),
+               dists,
+               dists + (k * n_query_pts),
+               std::numeric_limits<value_t>::max());
 
-  if (perform_post_filtering) {
-    rbc_low_dim_pass_two(handle,
-                         index,
-                         query,
-                         n_query_pts,
-                         k,
-                         R_knn_inds,
-                         R_knn_dists,
-                         dfunc,
-                         inds,
-                         dists,
-                         weight,
-                         post_dists_counter);
+  if (index.n == 2) {
+    // Compute nearest k for each neighborhood in each closest R
+    rbc_low_dim_pass_one<value_idx, value_t, value_int, 2>(handle,
+                                                           index,
+                                                           query,
+                                                           n_query_pts,
+                                                           k,
+                                                           R_knn_inds,
+                                                           R_knn_dists,
+                                                           dfunc,
+                                                           inds,
+                                                           dists,
+                                                           weight,
+                                                           dists_counter);
+
+    if (perform_post_filtering) {
+      rbc_low_dim_pass_two<value_idx, value_t, value_int, 2>(handle,
+                                                             index,
+                                                             query,
+                                                             n_query_pts,
+                                                             k,
+                                                             R_knn_inds,
+                                                             R_knn_dists,
+                                                             dfunc,
+                                                             inds,
+                                                             dists,
+                                                             weight,
+                                                             post_dists_counter);
+    }
+
+  } else if (index.n == 3) {
+    // Compute nearest k for each neighborhood in each closest R
+    rbc_low_dim_pass_one<value_idx, value_t, value_int, 3>(handle,
+                                                           index,
+                                                           query,
+                                                           n_query_pts,
+                                                           k,
+                                                           R_knn_inds,
+                                                           R_knn_dists,
+                                                           dfunc,
+                                                           inds,
+                                                           dists,
+                                                           weight,
+                                                           dists_counter);
+
+    if (perform_post_filtering) {
+      rbc_low_dim_pass_two<value_idx, value_t, value_int, 3>(handle,
+                                                             index,
+                                                             query,
+                                                             n_query_pts,
+                                                             k,
+                                                             R_knn_inds,
+                                                             R_knn_dists,
+                                                             dfunc,
+                                                             inds,
+                                                             dists,
+                                                             weight,
+                                                             post_dists_counter);
+    }
   }
 }
 
@@ -288,6 +334,16 @@ void rbc_build_index(const raft::handle_t& handle,
 
   rmm::device_uvector<value_idx> R_knn_inds(index.m, handle.get_stream());
   rmm::device_uvector<value_t> R_knn_dists(index.m, handle.get_stream());
+
+  // Initialize the uvectors
+  thrust::fill(handle.get_thrust_policy(),
+               R_knn_inds.begin(),
+               R_knn_inds.end(),
+               std::numeric_limits<value_idx>::max());
+  thrust::fill(handle.get_thrust_policy(),
+               R_knn_dists.begin(),
+               R_knn_dists.end(),
+               std::numeric_limits<value_t>::max());
 
   /**
    * 1. Randomly sample sqrt(n) points from X
@@ -336,13 +392,23 @@ void rbc_all_knn_query(const raft::handle_t& handle,
   ASSERT(index.n_landmarks >= k, "number of landmark samples must be >= k");
   ASSERT(!index.is_index_trained(), "index cannot be previously trained");
 
-  if (index.n == 2) {
+  if (index.n <= 3) {
     rmm::device_uvector<value_idx> R_knn_inds(k * index.m, handle.get_stream());
     rmm::device_uvector<value_t> R_knn_dists(k * index.m, handle.get_stream());
 
-    // For debugging / verification. Remove before releasing
-    rmm::device_uvector<value_int> dists_counter(index.m, handle.get_stream());
-    rmm::device_uvector<value_int> post_dists_counter(index.m, handle.get_stream());
+  // Initialize the uvectors
+  thrust::fill(handle.get_thrust_policy(),
+               R_knn_inds.begin(),
+               R_knn_inds.end(),
+               std::numeric_limits<value_idx>::max());
+  thrust::fill(handle.get_thrust_policy(),
+               R_knn_dists.begin(),
+               R_knn_dists.end(),
+               std::numeric_limits<value_t>::max());
+
+  // For debugging / verification. Remove before releasing
+  rmm::device_uvector<value_int> dists_counter(index.m, handle.get_stream());
+  rmm::device_uvector<value_int> post_dists_counter(index.m, handle.get_stream());
 
     sample_landmarks<value_idx, value_t>(handle, index);
 
@@ -406,6 +472,16 @@ void rbc_knn_query(const raft::handle_t& handle,
   rmm::device_uvector<value_idx> R_knn_inds(k * index.m, handle.get_stream());
   rmm::device_uvector<value_t> R_knn_dists(k * index.m, handle.get_stream());
 
+  // Initialize the uvectors
+  thrust::fill(handle.get_thrust_policy(),
+               R_knn_inds.begin(),
+               R_knn_inds.end(),
+               std::numeric_limits<value_idx>::max());
+  thrust::fill(handle.get_thrust_policy(),
+               R_knn_dists.begin(),
+               R_knn_dists.end(),
+               std::numeric_limits<value_t>::max());
+
   k_closest_landmarks(handle, index, query, n_query_pts, k, R_knn_inds.data(), R_knn_dists.data());
 
   // For debugging / verification. Remove before releasing
@@ -414,7 +490,7 @@ void rbc_knn_query(const raft::handle_t& handle,
   thrust::fill(
     handle.get_thrust_policy(), post_dists_counter.data(), post_dists_counter.data() + index.m, 0);
 
-  if (index.n == 2) {
+  if (index.n <= 3) {
     perform_rbc_query(handle,
                       index,
                       query,

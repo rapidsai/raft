@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,8 +30,8 @@
 
 #include <cstdint>
 #include <iostream>
+#include <raft/distance/distance_type.hpp>
 #include <raft/handle.hpp>
-#include <raft/linalg/distance_type.h>
 #include <raft/spatial/knn/faiss_mr.hpp>
 #include <set>
 #include <thrust/iterator/transform_iterator.h>

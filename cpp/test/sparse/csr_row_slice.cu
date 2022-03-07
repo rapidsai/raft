@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,8 +19,8 @@
 #include <raft/handle.hpp>
 
 #include <gtest/gtest.h>
-#include <raft/sparse/cusparse_wrappers.h>
-#include <raft/sparse/op/slice.hpp>
+#include <raft/sparse/detail/cusparse_wrappers.h>
+#include <raft/sparse/op/slice.cuh>
 
 #include <rmm/device_uvector.hpp>
 
@@ -98,7 +98,7 @@ class CSRRowSliceTest : public ::testing::TestWithParam<CSRRowSliceInputs<value_
     update_device(
       out_indices_ref.data(), out_indices_ref_h.data(), out_indices_ref_h.size(), stream);
     update_device(out_data_ref.data(), out_data_ref_h.data(), out_data_ref_h.size(), stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
   }
 
   void SetUp() override
@@ -124,7 +124,7 @@ class CSRRowSliceTest : public ::testing::TestWithParam<CSRRowSliceInputs<value_
                                              out_data.data(),
                                              stream);
 
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
   }
 
   void compare()

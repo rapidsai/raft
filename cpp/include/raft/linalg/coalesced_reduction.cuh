@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,53 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef __COALESCED_REDUCTION_H
+#define __COALESCED_REDUCTION_H
 
 #pragma once
 
-#include <cub/cub.cuh>
-#include <raft/cuda_utils.cuh>
+#include "detail/coalesced_reduction.cuh"
 
 namespace raft {
 namespace linalg {
-
-// Kernel (based on norm.cuh) to perform reductions along the coalesced dimension
-// of the matrix, i.e. reduce along rows for row major or reduce along columns
-// for column major layout. Kernel does an inplace reduction adding to original
-// values of dots.
-template <typename InType,
-          typename OutType,
-          typename IdxType,
-          int TPB,
-          typename MainLambda,
-          typename ReduceLambda,
-          typename FinalLambda>
-__global__ void coalescedReductionKernel(OutType* dots,
-                                         const InType* data,
-                                         int D,
-                                         int N,
-                                         OutType init,
-                                         MainLambda main_op,
-                                         ReduceLambda reduce_op,
-                                         FinalLambda final_op,
-                                         bool inplace = false)
-{
-  typedef cub::BlockReduce<OutType, TPB> BlockReduce;
-  __shared__ typename BlockReduce::TempStorage temp_storage;
-  OutType thread_data = init;
-  IdxType rowStart    = blockIdx.x * D;
-  for (IdxType i = threadIdx.x; i < D; i += TPB) {
-    IdxType idx = rowStart + i;
-    thread_data = reduce_op(thread_data, main_op(data[idx], i));
-  }
-  OutType acc = BlockReduce(temp_storage).Reduce(thread_data, reduce_op);
-  if (threadIdx.x == 0) {
-    if (inplace) {
-      dots[blockIdx.x] = final_op(reduce_op(dots[blockIdx.x], acc));
-    } else {
-      dots[blockIdx.x] = final_op(acc);
-    }
-  }
-}
 
 /**
  * @brief Compute reduction of the input matrix along the leading dimension
@@ -105,23 +67,10 @@ void coalescedReduction(OutType* dots,
                         ReduceLambda reduce_op = raft::Sum<OutType>(),
                         FinalLambda final_op   = raft::Nop<OutType>())
 {
-  // One block per reduction
-  // Efficient only for large leading dimensions
-  if (D <= 32) {
-    coalescedReductionKernel<InType, OutType, IdxType, 32>
-      <<<N, 32, 0, stream>>>(dots, data, D, N, init, main_op, reduce_op, final_op, inplace);
-  } else if (D <= 64) {
-    coalescedReductionKernel<InType, OutType, IdxType, 64>
-      <<<N, 64, 0, stream>>>(dots, data, D, N, init, main_op, reduce_op, final_op, inplace);
-  } else if (D <= 128) {
-    coalescedReductionKernel<InType, OutType, IdxType, 128>
-      <<<N, 128, 0, stream>>>(dots, data, D, N, init, main_op, reduce_op, final_op, inplace);
-  } else {
-    coalescedReductionKernel<InType, OutType, IdxType, 256>
-      <<<N, 256, 0, stream>>>(dots, data, D, N, init, main_op, reduce_op, final_op, inplace);
-  }
-  RAFT_CUDA_TRY(cudaPeekAtLastError());
+  detail::coalescedReduction(dots, data, D, N, init, stream, inplace, main_op, reduce_op, final_op);
 }
 
 };  // end namespace linalg
 };  // end namespace raft
+
+#endif
