@@ -23,7 +23,7 @@
 #include <cusolverSp.h>
 ///@todo: enable this once logging is enabled
 //#include <cuml/common/logger.hpp>
-#include <raft/cudart_utils.h>
+#include <raft_runtime/cudart_utils.hpp>
 #include <type_traits>
 
 #define _CUSOLVER_ERR_TO_STR(err) \

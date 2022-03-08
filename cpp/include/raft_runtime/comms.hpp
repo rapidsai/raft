@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include <raft_runtime/error.hpp>
 #include <memory>
 #include <vector>
 

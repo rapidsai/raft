@@ -35,13 +35,13 @@
 ///@todo: enable once we have migrated cuml-comms layer too
 //#include <common/cuml_comms_int.hpp>
 
-#include "cudart_utils.h"
+#include <raft_runtime/cudart_utils.hpp>
 
-#include <raft/comms/comms.hpp>
-#include <raft/interruptible.hpp>
-#include <raft/linalg/detail/cublas_wrappers.hpp>
-#include <raft/linalg/detail/cusolver_wrappers.hpp>
-#include <raft/sparse/detail/cusparse_macros.h>
+#include <raft_runtime/comms.hpp>
+#include <raft_runtime/interruptible.hpp>
+#include <raft_runtime/cublas_macros.hpp>
+#include <raft_runtime/cusolver_macros.hpp>
+#include <raft_runtime/cusparse_macros.hpp>
 #include <rmm/cuda_stream_pool.hpp>
 #include <rmm/exec_policy.hpp>
 
