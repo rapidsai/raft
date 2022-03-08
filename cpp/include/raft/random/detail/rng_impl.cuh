@@ -487,7 +487,7 @@ struct PhiloxGenerator {
   {
     float ret;
     uint32_t val = next_u32() >> 8;
-    ret          = static_cast<float>(val) / (1U << 24);
+    ret          = static_cast<float>(val) / float(uint32_t(1) << 24);
     return ret;
   }
 
@@ -495,7 +495,7 @@ struct PhiloxGenerator {
   {
     double ret;
     uint64_t val = next_u64() >> 11;
-    ret          = static_cast<double>(val) / (1LU << 53);
+    ret          = static_cast<double>(val) / double(uint64_t(1) << 53);
     return ret;
   }
 
