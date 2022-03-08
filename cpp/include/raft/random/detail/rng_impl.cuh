@@ -287,7 +287,7 @@ DI void custom_next(
 {
   Type res = 0;
   gen.next(res);
-  *val = res > params.prob;
+  *val = res < params.prob;
 }
 
 template <typename GenType, typename OutType, typename LenType>
@@ -299,7 +299,7 @@ DI void custom_next(GenType& gen,
 {
   OutType res = 0;
   gen.next(res);
-  *val = res > params.prob ? -params.scale : params.scale;
+  *val = res < params.prob ? -params.scale : params.scale;
 }
 
 template <typename GenType, typename OutType, typename LenType>
