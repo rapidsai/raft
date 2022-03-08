@@ -143,7 +143,7 @@ target_compile_features(raft_runtime INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda
 ##############################################################################
 # - raft ---------------------------------------------------------------------
 
-add_library(raft INTERFACE EXCLUDE_FROM_ALL)
+add_library(raft INTERFACE)
 add_library(raft::raft ALIAS raft)
 
 target_include_directories(raft INTERFACE
@@ -292,9 +292,9 @@ include(CPack)
 install(TARGETS raft_runtime
         DESTINATION ${lib_dir}
         EXPORT raft-runtime-exports)
-#install(TARGETS raft
-#        DESTINATION ${lib_dir}
-#        EXPORT raft-exports)
+install(TARGETS raft
+        DESTINATION ${PROJECT_BINARY_DIR}
+        EXPORT raft-exports)
 install(TARGETS raft_distance
         DESTINATION ${lib_dir}
         EXPORT raft-distance-exports)
@@ -369,39 +369,41 @@ include(cmake/modules/raft_export.cmake)
 raft_export(INSTALL runtime
         COMPONENTS nn distance
         EXPORT_SET raft-runtime-exports
-        GLOBAL_TARGETS runtime raft nn distance
+        GLOBAL_TARGETS runtime nn distance
         NAMESPACE raft::
         DOCUMENTATION doc_string
         FINAL_CODE_BLOCK code_string
+        INSTALL_FILES ON
         )
 
-#raft_export(INSTALL raft
-#    EXPORT_SET raft-exports
-#    GLOBAL_TARGETS raft
-#    NAMESPACE raft::
-#    DOCUMENTATION doc_string
-#    FINAL_CODE_BLOCK code_string
-#    )
+raft_export(INSTALL raft
+    EXPORT_SET raft-exports
+    GLOBAL_TARGETS raft runtime raft_distance raft_nn
+    COMPONENTS nn distance
+    NAMESPACE raft::
+    DOCUMENTATION doc_string
+    FINAL_CODE_BLOCK code_string
+        )
 
 ##############################################################################
 # - build export -------------------------------------------------------------
 raft_export(BUILD runtime
         EXPORT_SET raft-runtime-exports
         COMPONENTS nn distance
-        GLOBAL_TARGETS runtime raft raft_distance raft_nn
+        GLOBAL_TARGETS runtime raft_distance raft_nn
         DOCUMENTATION doc_string
         NAMESPACE raft::
         FINAL_CODE_BLOCK code_string
         )
 
-#raft_export(BUILD raft
-#    EXPORT_SET raft-exports
-##    COMPONENTS nn distance
-#    GLOBAL_TARGETS raft
-#    DOCUMENTATION doc_string
-#    NAMESPACE raft::
-#    FINAL_CODE_BLOCK code_string
-#    )
+raft_export(BUILD raft
+    EXPORT_SET raft-exports
+    GLOBAL_TARGETS raft runtime raft_distance raft_nn
+    COMPONENTS nn distance
+    DOCUMENTATION doc_string
+    NAMESPACE raft::
+    FINAL_CODE_BLOCK code_string
+    )
 
 ##############################################################################
 # - export/install optional components  --------------------------------------

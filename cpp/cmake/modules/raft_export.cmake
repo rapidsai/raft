@@ -32,6 +32,7 @@ Generate a projects -Config.cmake module and all related information
       [ DOCUMENTATION <doc_variable> ]
       [ FINAL_CODE_BLOCK <code_block_variable> ]
       [ LANGUAGES <langs...> ]
+      [ INSTALL_FILES ON|OFF ]
       )
 
 The :cmake:command:`raft_export` function allow projects to easily generate a fully
@@ -122,7 +123,7 @@ function(raft_export type project_name)
   string(TOLOWER ${type} type)
 
   set(options "")
-  set(one_value EXPORT_SET VERSION NAMESPACE DOCUMENTATION FINAL_CODE_BLOCK)
+  set(one_value EXPORT_SET VERSION NAMESPACE DOCUMENTATION FINAL_CODE_BLOCK INSTALL_FILES)
   set(multi_value COMPONENTS GLOBAL_TARGETS LANGUAGES)
   cmake_parse_arguments(RAPIDS "${options}" "${one_value}" "${multi_value}" ${ARGN})
 
@@ -174,7 +175,11 @@ function(raft_export type project_name)
 
     set(scratch_dir "${PROJECT_BINARY_DIR}/rapids-cmake/${project_name}/export")
 
-    configure_package_config_file("${CMAKE_CURRENT_FUNCTION_LIST_DIR}/config.cmake.in"
+    if(NOT DEFINED RAPIDS_INSTALL_FILES)
+      set(install_location "${scratch_dir}")
+    endif()
+
+      configure_package_config_file("${CMAKE_CURRENT_FUNCTION_LIST_DIR}/config.cmake.in"
                                   "${scratch_dir}/${project_name}-config.cmake"
                                   INSTALL_DESTINATION "${install_location}")
 
@@ -184,8 +189,8 @@ function(raft_export type project_name)
         COMPATIBILITY ${rapids_project_version_compat})
     endif()
 
-    install(EXPORT ${RAPIDS_EXPORT_SET} FILE ${project_name}-targets.cmake
-            NAMESPACE ${RAPIDS_PROJECT_VERSION} DESTINATION "${install_location}")
+      install(EXPORT ${RAPIDS_EXPORT_SET} FILE ${project_name}-targets.cmake
+              NAMESPACE ${RAPIDS_PROJECT_VERSION} DESTINATION "${install_location}")
 
     if(TARGET rapids_export_install_${RAPIDS_EXPORT_SET})
       include("${rapids-cmake-dir}/export/write_dependencies.cmake")
