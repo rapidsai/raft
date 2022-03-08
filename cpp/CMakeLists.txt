@@ -49,7 +49,6 @@ option(DISABLE_DEPRECATION_WARNINGS "Disable depreaction warnings " ON)
 option(DISABLE_OPENMP "Disable OpenMP" OFF)
 option(NVTX "Enable nvtx markers" OFF)
 option(RAFT_STATIC_LINK_LIBRARIES "Statically link compiled libraft libraries")
-option(RAFT_RUNTIME_ONLY "Install only RAFT runtime" OFF)
 
 option(RAFT_COMPILE_LIBRARIES "Enable building raft shared library instantiations" ON)
 option(RAFT_COMPILE_NN_LIBRARY "Enable building raft nearest neighbors shared library instantiations" OFF)
@@ -127,11 +126,7 @@ endif()
 # - raft_runtime -------------------------------------------------------------
 
 add_library(raft_runtime INTERFACE)
-
-if(TARGET raft_runtime AND (NOT TARGET raft::runtime))
-  add_library(raft::runtime ALIAS raft_runtime)
-endif()
-
+add_library(raft::runtime ALIAS raft_runtime)
 set_target_properties(raft_runtime PROPERTIES EXPORT_NAME runtime)
 
 target_link_libraries(raft_runtime INTERFACE
@@ -231,7 +226,8 @@ if(RAFT_COMPILE_LIBRARIES OR RAFT_COMPILE_DIST_LIBRARY)
           PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
           "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
           )
-  target_compile_definitions(raft_distance_lib INTERFACE "RAFT_DISTANCE_COMPILED")
+  target_compile_definitions(raft_distance_lib
+          INTERFACE "RAFT_DISTANCE_COMPILED")
 
   # ensure CUDA symbols aren't relocated to the middle of the debug build binaries
   target_link_options(raft_distance_lib PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld")
@@ -239,7 +235,7 @@ if(RAFT_COMPILE_LIBRARIES OR RAFT_COMPILE_DIST_LIBRARY)
 endif()
 
 # TODO: Create public header(s) for exposed distance functions
-target_link_libraries(raft_distance INTERFACE
+target_link_libraries(raft_distance INTERFACE raft::runtime
     $<TARGET_NAME_IF_EXISTS:raft_distance_lib>
     $<TARGET_NAME_IF_EXISTS:raft::raft_distance_lib>
 )
@@ -277,12 +273,13 @@ if(RAFT_COMPILE_LIBRARIES OR RAFT_COMPILE_NN_LIBRARY)
   # ensure CUDA symbols aren't relocated to the middle of the debug build binaries
   target_link_options(raft_nn_lib PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld")
 
-  target_compile_definitions(raft_nn_lib INTERFACE "RAFT_NN_COMPILED")
+  target_compile_definitions(raft_nn_lib
+          INTERFACE "RAFT_NN_COMPILED")
 
 endif()
 
 # TODO: Create public header(s) for exposed nn functions
-target_link_libraries(raft_nn INTERFACE faiss::faiss
+target_link_libraries(raft_nn INTERFACE raft::runtime faiss::faiss
     $<TARGET_NAME_IF_EXISTS:raft_nn_lib>
     $<TARGET_NAME_IF_EXISTS:raft::raft_nn_lib>)
 
@@ -295,9 +292,9 @@ include(CPack)
 install(TARGETS raft_runtime
         DESTINATION ${lib_dir}
         EXPORT raft-runtime-exports)
-install(TARGETS raft
-        DESTINATION ${lib_dir}
-        EXPORT raft-exports)
+#install(TARGETS raft
+#        DESTINATION ${lib_dir}
+#        EXPORT raft-exports)
 install(TARGETS raft_distance
         DESTINATION ${lib_dir}
         EXPORT raft-distance-exports)
@@ -370,40 +367,41 @@ endif()
 # Use `rapids_export` for 22.04 as it will have COMPONENT support
 include(cmake/modules/raft_export.cmake)
 raft_export(INSTALL runtime
+        COMPONENTS nn distance
         EXPORT_SET raft-runtime-exports
-        GLOBAL_TARGETS runtime raft
+        GLOBAL_TARGETS runtime raft nn distance
         NAMESPACE raft::
         DOCUMENTATION doc_string
         FINAL_CODE_BLOCK code_string
         )
 
-raft_export(INSTALL raft
-    EXPORT_SET raft-exports
-    COMPONENTS nn distance
-    GLOBAL_TARGETS runtime raft nn distance
-    NAMESPACE raft::
-    DOCUMENTATION doc_string
-    FINAL_CODE_BLOCK code_string
-    )
+#raft_export(INSTALL raft
+#    EXPORT_SET raft-exports
+#    GLOBAL_TARGETS raft
+#    NAMESPACE raft::
+#    DOCUMENTATION doc_string
+#    FINAL_CODE_BLOCK code_string
+#    )
 
 ##############################################################################
 # - build export -------------------------------------------------------------
 raft_export(BUILD runtime
         EXPORT_SET raft-runtime-exports
-        GLOBAL_TARGETS runtime raft
+        COMPONENTS nn distance
+        GLOBAL_TARGETS runtime raft raft_distance raft_nn
         DOCUMENTATION doc_string
         NAMESPACE raft::
         FINAL_CODE_BLOCK code_string
         )
 
-raft_export(BUILD raft
-    EXPORT_SET raft-exports
-    COMPONENTS nn distance
-    GLOBAL_TARGETS runtime raft raft_distance raft_nn
-    DOCUMENTATION doc_string
-    NAMESPACE raft::
-    FINAL_CODE_BLOCK code_string
-    )
+#raft_export(BUILD raft
+#    EXPORT_SET raft-exports
+##    COMPONENTS nn distance
+#    GLOBAL_TARGETS raft
+#    DOCUMENTATION doc_string
+#    NAMESPACE raft::
+#    FINAL_CODE_BLOCK code_string
+#    )
 
 ##############################################################################
 # - export/install optional components  --------------------------------------
