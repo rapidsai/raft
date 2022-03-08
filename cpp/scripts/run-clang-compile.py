@@ -20,7 +20,6 @@
 
 from __future__ import print_function
 import argparse
-import glob
 import json
 import multiprocessing as mp
 import os
@@ -29,6 +28,8 @@ import shutil
 import subprocess
 
 
+CMAKE_COMPILER_REGEX = re.compile(
+    r"^\s*CMAKE_CXX_COMPILER:FILEPATH=(.+)\s*$", re.MULTILINE)
 CLANG_COMPILER = "clang++"
 GPU_ARCH_REGEX = re.compile(r"sm_(\d+)")
 SPACES = re.compile(r"\s+")
@@ -54,6 +55,10 @@ def parse_args():
         help="Regex used to select files for checking")
     argparser.add_argument(
         "-j", type=int, default=-1, help="Number of parallel jobs to launch.")
+    argparser.add_argument(
+        "-build_dir", type=str, default=None,
+        help="Directory from which compile commands should be called. "
+        "By default, directory of compile_commands.json file.")
     args = argparser.parse_args()
     if args.j <= 0:
         args.j = mp.cpu_count()
@@ -63,7 +68,30 @@ def parse_args():
     # recent enough to handle CUDA >= 11
     if not os.path.exists(args.cdb):
         raise Exception("Compilation database '%s' missing" % args.cdb)
+    if args.build_dir is None:
+        args.build_dir = os.path.dirname(args.cdb)
     return args
+
+
+def get_gcc_root(build_dir):
+    # first try to determine GCC based on CMakeCache
+    cmake_cache = os.path.join(build_dir, "CMakeCache.txt")
+    if os.path.isfile(cmake_cache):
+        with open(cmake_cache) as f:
+            content = f.read()
+        match = CMAKE_COMPILER_REGEX.search(content)
+        if match:
+            return os.path.dirname(os.path.dirname(match.group(1)))
+    # first fall-back to CONDA prefix if we have a build sysroot there
+    conda_prefix = os.environ.get("CONDA_PREFIX", "")
+    conda_sysroot = os.environ.get("CONDA_BUILD_SYSROOT", "")
+    if conda_prefix and conda_sysroot:
+        return conda_prefix
+    # second fall-back to default g++ install
+    default_gxx = shutil.which("g++")
+    if default_gxx:
+        return os.path.dirname(os.path.dirname(default_gxx))
+    raise Exception("Cannot find any g++ install on the system.")
 
 
 def list_all_cmds(cdb):
@@ -72,6 +100,7 @@ def list_all_cmds(cdb):
 
 
 def get_gpu_archs(command):
+    # clang only accepts a single architecture, so first determine the lowest
     archs = []
     for loc in range(len(command)):
         if (command[loc] != "-gencode" and command[loc] != "--generate-code"
@@ -83,8 +112,8 @@ def get_gpu_archs(command):
             arch_flag = command[loc + 1]
         match = GPU_ARCH_REGEX.search(arch_flag)
         if match is not None:
-            archs.append("--cuda-gpu-arch=sm_%s" % match.group(1))
-    return archs
+            archs.append(int(match.group(1)))
+    return ["--cuda-gpu-arch=sm_%d" % min(archs)]
 
 
 def get_index(arr, item_options):
@@ -113,15 +142,10 @@ def add_cuda_path(command, nvcc):
     if not nvcc_path:
         raise Exception("Command %s has invalid compiler %s" % (command, nvcc))
     cuda_root = os.path.dirname(os.path.dirname(nvcc_path))
-    # make sure that cuda root has version.txt
-    if not os.path.isfile(os.path.join(cuda_root, "version.txt")):
-        raise Exception(
-            "clang++ expects a `version.txt` file in your CUDA root path with "
-            "content `CUDA Version <major>.<minor>.<build>`")
     command.append('--cuda-path=%s' % cuda_root)
 
 
-def get_clang_args(cmd):
+def get_clang_args(cmd, build_dir):
     command, file = cmd["command"], cmd["file"]
     is_cuda = file.endswith(".cu")
     command = re.split(SPACES, command)
@@ -208,15 +232,8 @@ def get_clang_args(cmd):
     for i, x in reversed(list(enumerate(command))):
         if x.startswith("-Werror"):
             del command[i]
-    # add GCC headers if we can find GCC
-    gcc_path = shutil.which("gcc")
-    if gcc_path:
-        gcc_base = os.path.dirname(os.path.dirname(gcc_path))
-        gcc_glob1 = os.path.join(gcc_base, "lib", "gcc", "*", "*", "include")
-        gcc_glob2 = os.path.join(gcc_base, "lib64", "gcc", "*", "*", "include")
-        inc_dirs = glob.glob(gcc_glob1) + glob.glob(gcc_glob2)
-        for d in inc_dirs:
-            command.extend(["-isystem", d])
+    # try to figure out which GCC CMAKE used, and tell clang all about it
+    command.append("--gcc-toolchain=%s" % get_gcc_root(build_dir))
     return command
 
 
@@ -257,11 +274,10 @@ def print_result(passed, stdout, file):
 
 
 def run_clang(cmd, args):
-    command = get_clang_args(cmd)
-    cwd = os.path.dirname(args.cdb)
+    command = get_clang_args(cmd, args.build_dir)
     # compile only and dump output to /dev/null
     command.extend(["-c", cmd["file"], "-o", os.devnull])
-    status, out = run_clang_command(command, cwd)
+    status, out = run_clang_command(command, args.build_dir)
     # we immediately print the result since this is more interactive for user
     with lock:
         print_result(status, out, cmd["file"])
