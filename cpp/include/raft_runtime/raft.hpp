@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,21 +14,7 @@
  * limitations under the License.
  */
 
-/**
- * @warning This file is deprecated and will be removed in release 22.06.
- */
-
-#include <string>
-
-namespace raft {
-
-/* Function for testing RAFT include
- *
- * @return message indicating RAFT has been included succesfully*/
-inline std::string test_raft()
-{
-  std::string status = "RAFT Setup succesfully";
-  return status;
-}
-
-}  // namespace raft
+#include "comms.hpp"
+#include "error.hpp"
+#include "handle.hpp"
+#include "interruptible.hpp"

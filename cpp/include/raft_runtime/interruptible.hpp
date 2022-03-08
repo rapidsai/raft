@@ -14,12 +14,6 @@
  * limitations under the License.
  */
 
-/**
- * @warning This file is deprecated and will be removed in release 22.06.
- * Please use the include/raft_runtime/interruptible.hpp instead.
- */
-
-
 #ifndef __RAFT_RT_INTERRUPTIBLE_H
 #define __RAFT_RT_INTERRUPTIBLE_H
 
