@@ -394,6 +394,9 @@ DI void custom_next(GenType& gen,
   constexpr OutType one     = (OutType)1.0;
   constexpr OutType two     = (OutType)2.0;
   constexpr OutType oneHalf = (OutType)0.5;
+
+  // The <= comparison here means, number of samples going in `if` branch are more by 1 than `else`
+  // branch. However it does not matter as for 0.5 both branches evaluate to same result.
   if (res <= oneHalf) {
     out = params.mu + params.scale * raft::myLog(two * res);
   } else {
