@@ -41,7 +41,6 @@ struct cublas_error : public raft::exception {
 };
 
 namespace linalg {
-namespace detail {
 
 inline const char* cublas_error_to_string(cublasStatus_t err)
 {
@@ -60,7 +59,6 @@ inline const char* cublas_error_to_string(cublasStatus_t err)
   };
 }
 
-}  // namespace detail
 }  // namespace linalg
 }  // namespace raft
 
@@ -82,7 +80,7 @@ inline const char* cublas_error_to_string(cublasStatus_t err)
                     "call='%s', Reason=%d:%s",                             \
                     #call,                                                 \
                     status,                                                \
-                    raft::linalg::detail::cublas_error_to_string(status)); \
+                    raft::linalg::cublas_error_to_string(status)); \
       throw raft::cublas_error(msg);                                       \
     }                                                                      \
   } while (0)
@@ -104,7 +102,7 @@ inline const char* cublas_error_to_string(cublasStatus_t err)
              #call,                                                  \
              __FILE__,                                               \
              __LINE__,                                               \
-             raft::linalg::detail::cublas_error_to_string(status));  \
+             raft::linalg::cublas_error_to_string(status));  \
     }                                                                \
   } while (0)
 

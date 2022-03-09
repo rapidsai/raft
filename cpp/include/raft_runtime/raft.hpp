@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "comms.hpp"
+#include "comms/comms.hpp"
 #include "error.hpp"
 #include "handle.hpp"
 #include "interruptible.hpp"

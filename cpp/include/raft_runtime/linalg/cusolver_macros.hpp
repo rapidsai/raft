@@ -79,7 +79,7 @@ inline const char* cusolver_error_to_string(cusolverStatus_t err)
                     "call='%s', Reason=%d:%s",                               \
                     #call,                                                   \
                     status,                                                  \
-                    raft::linalg::detail::cusolver_error_to_string(status)); \
+                    raft::linalg::cusolver_error_to_string(status)); \
       throw raft::cusolver_error(msg);                                       \
     }                                                                        \
   } while (0)
@@ -101,7 +101,7 @@ inline const char* cusolver_error_to_string(cusolverStatus_t err)
              #call,                                                    \
              __FILE__,                                                 \
              __LINE__,                                                 \
-             raft::linalg::detail::cusolver_error_to_string(status));  \
+             raft::linalg::cusolver_error_to_string(status));  \
     }                                                                  \
   } while (0)
 
