@@ -210,6 +210,32 @@ testing::AssertionResult devArrMatchHost(
 }
 
 /*
+ * @brief Helper function to compare host n-D arrays using a custom comparison
+ * @tparam T the data type of the arrays
+ * @tparam L the comparator lambda or object function
+ * @param expected_h host array of expected value(s)
+ * @param actual_h host array actual values
+ * @param eq_compare the comparator
+ * @return the testing assertion to be later used by ASSERT_TRUE/EXPECT_TRUE
+ */
+template <typename T, typename L>
+testing::AssertionResult hostArrMatch(const T* expected_h,
+                                      const T* actual_h,
+                                      size_t size,
+                                      L eq_compare)
+{
+  for (size_t i(0); i < size; ++i) {
+    auto exp = expected_h[i];
+    auto act = actual_h[i];
+    if (!eq_compare(exp, act)) {
+      return testing::AssertionFailure()
+             << "actual=" << act << " != expected=" << exp << " @" << i << "; ";
+    }
+  }
+  return testing::AssertionSuccess();
+}
+
+/*
  * @brief Helper function to compare diagonal values of a 2D matrix
  * @tparam T the data type of the arrays
  * @tparam L the comparator lambda or object function
