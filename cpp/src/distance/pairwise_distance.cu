@@ -14,43 +14,40 @@
  * limitations under the License.
  */
 
-#include <raft/handle.hpp>
 #include <raft/distance/distance.cuh>
-#include <raft/distance/specializations.cuh>
 #include <raft/distance/distance_type.hpp>
+#include <raft/distance/specializations.cuh>
+#include <raft/handle.hpp>
 
 namespace raft::distance::runtime {
 
-    void pairwise_distance(raft::handle_t const &handle,
-                           float *x,
-                           float *y,
-                           float *dists,
-                           int m,
-                           int n,
-                           int k,
-                           raft::distance::DistanceType metric,
-                           bool isRowMajor,
-                           float metric_arg) {
-
-         raft::distance::pairwise_distance<float, int>(handle,
-                               x, y, dists, m, n, k, metric,
-                               isRowMajor,
-                               metric_arg);
-    }
-
-    void pairwise_distance(raft::handle_t const &handle,
-                           double *x,
-                           double *y,
-                           double *dists,
-                           int m,
-                           int n,
-                           int k,
-                           raft::distance::DistanceType metric,
-                           bool isRowMajor,
-                           float metric_arg) {
-        raft::distance::pairwise_distance<double, int>(handle,
-                                                      x, y, dists, m, n, k, metric,
-                                                      isRowMajor,
-                                                      metric_arg);
-    }
+void pairwise_distance(raft::handle_t const& handle,
+                       float* x,
+                       float* y,
+                       float* dists,
+                       int m,
+                       int n,
+                       int k,
+                       raft::distance::DistanceType metric,
+                       bool isRowMajor,
+                       float metric_arg)
+{
+  raft::distance::pairwise_distance<float, int>(
+    handle, x, y, dists, m, n, k, metric, isRowMajor, metric_arg);
 }
+
+void pairwise_distance(raft::handle_t const& handle,
+                       double* x,
+                       double* y,
+                       double* dists,
+                       int m,
+                       int n,
+                       int k,
+                       raft::distance::DistanceType metric,
+                       bool isRowMajor,
+                       float metric_arg)
+{
+  raft::distance::pairwise_distance<double, int>(
+    handle, x, y, dists, m, n, k, metric, isRowMajor, metric_arg);
+}
+}  // namespace raft::distance::runtime
