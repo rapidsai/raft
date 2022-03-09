@@ -38,7 +38,7 @@ requirements:
   build:
     - cmake>=3.20.1
   host:
-    - libraft-headers {{ version }}
+    - libraft-runtime {{ version }}
     - cudatoolkit {{ cuda_version }}.*
     - lapack
     - faiss-proc=*=cuda
@@ -48,7 +48,7 @@ requirements:
     - librmm {{ minor_version }}
   run:
     - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
-    - libraft-headers {{ version }}
+    - libraft-runtime {{ version }}
     - faiss-proc=*=cuda
     - libfaiss 1.7.0 *_cuda
     - libcusolver>=11.2.1

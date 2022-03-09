@@ -8,7 +8,7 @@
 {% set cuda_major=cuda_version.split('.')[0] %}
 {% set ucx_py_version=environ.get('UCX_PY_VERSION') %}
 package:
-  name: libraft-headers
+  name: libraft-runtime
   version: {{ version }}
 
 source:
@@ -58,4 +58,4 @@ about:
   home: http://rapids.ai/
   license: Apache-2.0
   # license_file: LICENSE
-  summary: libraft-headers library
+  summary: libraft-runtime library
