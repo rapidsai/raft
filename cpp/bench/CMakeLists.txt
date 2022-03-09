@@ -22,23 +22,6 @@ add_executable(${RAFT_CPP_BENCH_TARGET}
   bench/main.cpp
 )
 
-target_compile_options(${RAFT_CPP_BENCH_TARGET}
-      PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
-              "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
-)
-
-target_link_libraries(${RAFT_CPP_BENCH_TARGET}
-  PUBLIC
-    raft::raft
-    benchmark::benchmark
-    faiss::faiss
-)
-
-target_include_directories(${RAFT_CPP_BENCH_TARGET}
-  PUBLIC  "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/bench>"
-)
-
-
 set_target_properties(${RAFT_CPP_BENCH_TARGET}
   PROPERTIES BUILD_RPATH "\$ORIGIN"
           # set target compile options
@@ -49,6 +32,27 @@ set_target_properties(${RAFT_CPP_BENCH_TARGET}
           POSITION_INDEPENDENT_CODE           ON
           INTERFACE_POSITION_INDEPENDENT_CODE ON
           INSTALL_RPATH "\$ORIGIN/../../../lib"
+)
+
+target_compile_options(${RAFT_CPP_BENCH_TARGET}
+  PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
+          "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
+)
+
+target_include_directories(${RAFT_CPP_BENCH_TARGET}
+  PUBLIC  "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/bench>"
+)
+
+target_link_libraries(${RAFT_CPP_BENCH_TARGET}
+  PRIVATE
+    raft::raft
+    raft::distance
+    raft::nn
+    NCCL::NCCL
+    faiss::faiss
+    benchmark::benchmark
+    $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
+    $<TARGET_NAME_IF_EXISTS:conda_env>
 )
 
 install(
