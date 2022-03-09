@@ -20,6 +20,7 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/distance/distance.cuh>
+#include <raft/mdarray.hpp>
 #if defined RAFT_DISTANCE_COMPILED
 #include <raft/distance/specializations.cuh>
 #endif
@@ -383,7 +384,7 @@ template <typename DataType>
   return os;
 }
 
-template <raft::distance::DistanceType distanceType, typename DataType>
+template <raft::distance::DistanceType distanceType, typename DataType, typename layout>
 void distanceLauncher(DataType* x,
                       DataType* y,
                       DataType* dist,
@@ -393,14 +394,17 @@ void distanceLauncher(DataType* x,
                       int k,
                       DistanceInputs<DataType>& params,
                       DataType threshold,
-                      char* workspace,
-                      size_t worksize,
                       cudaStream_t stream,
-                      bool isRowMajor,
                       DataType metric_arg = 2.0f)
 {
-  raft::distance::distance<distanceType, DataType, DataType, DataType>(
-    x, y, dist, m, n, k, workspace, worksize, stream, isRowMajor, metric_arg);
+  raft::handle_t handle(stream);
+
+  auto x_v    = make_device_matrix_view<DataType, layout>(x, m, k);
+  auto y_v    = make_device_matrix_view<DataType, layout>(y, n, k);
+  auto dist_v = make_device_matrix_view<DataType, layout>(dist, m, n);
+
+  raft::distance::distance<distanceType, DataType, DataType, DataType, int, layout>(
+    handle, x_v, y_v, dist_v, metric_arg);
 }
 
 template <raft::distance::DistanceType distanceType, typename DataType>
@@ -446,25 +450,39 @@ class DistanceTest : public ::testing::TestWithParam<DistanceInputs<DataType>> {
     }
     naiveDistance(
       dist_ref.data(), x.data(), y.data(), m, n, k, distanceType, isRowMajor, metric_arg, stream);
-    size_t worksize = raft::distance::getWorkspaceSize<distanceType, DataType, DataType, DataType>(
-      x.data(), y.data(), m, n, k);
-    rmm::device_uvector<char> workspace(worksize, stream);
+    //    size_t worksize = raft::distance::getWorkspaceSize<distanceType, DataType, DataType,
+    //    DataType>(
+    //      x.data(), y.data(), m, n, k);
+    //    rmm::device_uvector<char> workspace(worksize, stream);
 
     DataType threshold = -10000.f;
-    distanceLauncher<distanceType, DataType>(x.data(),
-                                             y.data(),
-                                             dist.data(),
-                                             dist2.data(),
-                                             m,
-                                             n,
-                                             k,
-                                             params,
-                                             threshold,
-                                             workspace.data(),
-                                             workspace.size(),
-                                             stream,
-                                             isRowMajor,
-                                             metric_arg);
+
+    if (isRowMajor) {
+      distanceLauncher<distanceType, DataType, layout_c_contiguous>(x.data(),
+                                                                    y.data(),
+                                                                    dist.data(),
+                                                                    dist2.data(),
+                                                                    m,
+                                                                    n,
+                                                                    k,
+                                                                    params,
+                                                                    threshold,
+                                                                    stream,
+                                                                    metric_arg);
+
+    } else {
+      distanceLauncher<distanceType, DataType, layout_f_contiguous>(x.data(),
+                                                                    y.data(),
+                                                                    dist.data(),
+                                                                    dist2.data(),
+                                                                    m,
+                                                                    n,
+                                                                    k,
+                                                                    params,
+                                                                    threshold,
+                                                                    stream,
+                                                                    metric_arg);
+    }
     handle.sync_stream(stream);
   }
 
