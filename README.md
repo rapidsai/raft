@@ -30,37 +30,51 @@ RAFT also provides 2 Python libraries:
 ## Getting started
 
 ### Rapids Memory Manager (RMM)
-RAFT relies heavily on [RMM](https://github.com/rapidsai/rmm) which, 
-like other projects in the RAPIDS ecosystem, eases the burden of configuring different allocation strategies globally 
-across the libraries that use it. RMM also provides [RAII](https://en.wikipedia.org/wiki/Resource_acquisition_is_initialization)) wrappers around device arrays that handle the allocation and cleanup.
+
+RAFT relies heavily on RMM which, like other projects in the RAPIDS ecosystem, eases the burden of configuring different allocation strategies globally across the libraries that use it.
+
+### Multi-dimensional Arrays
+
+The APIs in RAFT currently accept raw pointers to device memory and we are in the process of simplifying the APIs with the [mdspan](https://arxiv.org/abs/2010.06474) multi-dimensional array view for representing data in higher dimensions similar to the `ndarray` in the Numpy Python library. RAFT also contains the corresponding owning `mdarray` structure, which simplifies the allocation and management of multi-dimensional data in both host and device (GPU) memory. 
+
+The `mdarray` forms a convenience layer over RMM and can be constructed in RAFT using a number of different helper functions:
+
+```c++
+#include <raft/mdarray.hpp>
+
+int n_rows = 10;
+int n_cols = 10;
+
+auto scalar = raft::make_device_scalar(handle, 1.0);
+auto vector = raft::make_device_vector(handle, n_cols);
+auto matrix = raft::make_device_matrix(handle, n_rows, n_cols);
+```
 
 ### C++ Example
 
 Most of the primitives in RAFT accept a `raft::handle_t` object for the management of resources which are expensive to create, such CUDA streams, stream pools, and handles to other CUDA libraries like `cublas` and `cusolver`.
 
-The example below demonstrates creating a RAFT handle and using it with RMM's `device_uvector` to allocate memory on device and compute
+The example below demonstrates creating a RAFT handle and using it with `device_matrix` and `device_vector` to allocate memory, generating random clusters, and computing
 pairwise Euclidean distances:
 ```c++
 #include <raft/handle.hpp>
-#include <raft/distance/distance.hpp>
+#include <raft/mdarray.hpp>
+#include <raft/random/make_blobs.cuh>
+#include <raft/distance/distance.cuh>
 
-#include <rmm/device_uvector.hpp>
 raft::handle_t handle;
 
-int n_samples = ...;
-int n_features = ...;
+int n_samples = 5000;
+int n_features = 50;
 
-rmm::device_uvector<float> input(n_samples * n_features, handle.get_stream());
-rmm::device_uvector<float> output(n_samples * n_samples, handle.get_stream());
+auto input = raft::make_device_matrix<float>(handle, n_samples, n_features);
+auto labels = raft::make_device_vector<int>(handle, n_samples);
+auto output = raft::make_device_matrix<float>(handle, n_samples, n_samples);
 
-// ... Populate feature matrix ...
+raft::random::make_blobs(handle, input, labels);
 
 auto metric = raft::distance::DistanceType::L2SqrtExpanded;
-rmm::device_uvector<char> workspace(0, handle.get_stream());
-raft::distance::pairwise_distance(handle, input.data(), input.data(),
-                                  output.data(),
-                                  n_samples, n_samples, n_features,
-                                  workspace.data(), metric);
+raft::distance::pairwise_distance(handle, input.view(), input.view(), output.view(), metric);
 ```
 
 ## Installing
@@ -168,3 +182,26 @@ The folder structure mirrors other RAPIDS repos (cuDF, cuML, cuGraph...), with t
 ## Contributing
 
 If you are interested in contributing to the RAFT project, please read our [Contributing guidelines](CONTRIBUTING.md). Refer to the [Developer Guide](DEVELOPER_GUIDE.md) for details on the developer guidelines, workflows, and principals. 
+
+## References
+
+When citing RAFT generally, please consider referencing this Github project.
+```bibtex
+@misc{rapidsai, 
+  title={Rapidsai/raft: RAFT contains fundamental widely-used algorithms and primitives for data science, Graph and machine learning.},
+  url={https://github.com/rapidsai/raft}, 
+  journal={GitHub}, 
+  publisher={Nvidia RAPIDS}, 
+  author={Rapidsai},
+  year={2022}
+}
+```
+If citing the sparse pairwise distances API, please consider using the following bibtex:
+```bibtex
+@article{nolet2021semiring,
+  title={Semiring primitives for sparse neighborhood methods on the gpu},
+  author={Nolet, Corey J and Gala, Divye and Raff, Edward and Eaton, Joe and Rees, Brad and Zedlewski, John and Oates, Tim},
+  journal={arXiv preprint arXiv:2104.06357},
+  year={2021}
+}
+```

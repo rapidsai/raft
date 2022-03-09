@@ -19,6 +19,7 @@
 #include <gtest/gtest.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
+#include <raft/mdarray.hpp>
 #include <raft/random/make_blobs.cuh>
 
 namespace raft {
@@ -68,19 +69,19 @@ struct MakeBlobsInputs {
   T tolerance;
   int rows, cols, n_clusters;
   T std;
-  bool row_major, shuffle;
+  bool shuffle;
   raft::random::GeneratorType gtype;
   uint64_t seed;
 };
 
-template <typename T>
+template <typename T, typename layout>
 class MakeBlobsTest : public ::testing::TestWithParam<MakeBlobsInputs<T>> {
  public:
   MakeBlobsTest()
     : params(::testing::TestWithParam<MakeBlobsInputs<T>>::GetParam()),
       stream(handle.get_stream()),
-      mu_vec(params.cols * params.n_clusters, stream),
-      mean_var(2 * params.n_clusters * params.cols, stream)
+      mu_vec(make_device_matrix<T, layout>(handle, params.n_clusters, params.cols)),
+      mean_var(make_device_vector<T>(handle, 2 * params.n_clusters * params.cols))
   {
   }
 
@@ -93,32 +94,31 @@ class MakeBlobsTest : public ::testing::TestWithParam<MakeBlobsInputs<T>> {
     auto len  = params.rows * params.cols;
     raft::random::Rng r(params.seed, params.gtype);
 
-    rmm::device_uvector<T> data(len, stream);
-    rmm::device_uvector<int> labels(params.rows, stream);
-    rmm::device_uvector<T> stats(2 * params.n_clusters * params.cols, stream);
-    rmm::device_uvector<int> lens(params.n_clusters, stream);
+    auto data   = make_device_matrix<T, layout>(handle, params.rows, params.cols);
+    auto labels = make_device_vector<int>(handle, params.rows);
+    auto stats  = make_device_vector<T>(handle, 2 * params.n_clusters * params.cols);
+    auto lens   = make_device_vector<int>(handle, params.n_clusters);
 
-    RAFT_CUDA_TRY(cudaMemsetAsync(stats.data(), 0, stats.size() * sizeof(T), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(stats.data(), 0, stats.extent(0) * sizeof(T), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(lens.data(), 0, lens.extent(0) * sizeof(int), stream));
     RAFT_CUDA_TRY(cudaMemsetAsync(mean_var.data(), 0, mean_var.size() * sizeof(T), stream));
-    RAFT_CUDA_TRY(cudaMemsetAsync(lens.data(), 0, lens.size() * sizeof(int), stream));
 
     r.uniform(mu_vec.data(), params.cols * params.n_clusters, T(-10.0), T(10.0), stream);
-    T* sigma_vec = nullptr;
-    make_blobs(data.data(),
-               labels.data(),
-               params.rows,
-               params.cols,
-               params.n_clusters,
-               stream,
-               params.row_major,
-               mu_vec.data(),
-               sigma_vec,
-               params.std,
-               params.shuffle,
-               T(-10.0),
-               T(10.0),
-               params.seed,
-               params.gtype);
+
+    make_blobs<T, int, layout>(handle,
+                               data.view(),
+                               labels.view(),
+                               params.n_clusters,
+                               std::make_optional(mu_vec.view()),
+                               std::nullopt,
+                               params.std,
+                               params.shuffle,
+                               T(-10.0),
+                               T(10.0),
+                               params.seed,
+                               params.gtype);
+
+    bool row_major           = std::is_same<layout, raft::layout_c_contiguous>::value;
     static const int threads = 128;
     meanKernel<T><<<raft::ceildiv(len, threads), threads, 0, stream>>>(stats.data(),
                                                                        lens.data(),
@@ -127,10 +127,10 @@ class MakeBlobsTest : public ::testing::TestWithParam<MakeBlobsInputs<T>> {
                                                                        params.rows,
                                                                        params.cols,
                                                                        params.n_clusters,
-                                                                       params.row_major);
+                                                                       row_major);
     int len1 = params.n_clusters * params.cols;
     compute_mean_var<T><<<raft::ceildiv(len1, threads), threads, 0, stream>>>(
-      mean_var.data(), stats.data(), lens.data(), params.n_clusters, params.cols, params.row_major);
+      mean_var.data(), stats.data(), lens.data(), params.n_clusters, params.cols, row_major);
   }
 
   void check()
@@ -146,87 +146,66 @@ class MakeBlobsTest : public ::testing::TestWithParam<MakeBlobsInputs<T>> {
   raft::handle_t handle;
   cudaStream_t stream = 0;
 
-  rmm::device_uvector<T> mu_vec, mean_var;
+  device_vector<T> mean_var;
+  device_matrix<T, layout> mu_vec;
   int num_sigma;
 };
 
-typedef MakeBlobsTest<float> MakeBlobsTestF;
+typedef MakeBlobsTest<float, raft::layout_c_contiguous> MakeBlobsTestF_RowMajor;
+typedef MakeBlobsTest<float, raft::layout_f_contiguous> MakeBlobsTestF_ColMajor;
+
 const std::vector<MakeBlobsInputs<float>> inputsf_t = {
-  {0.0055, 1024, 32, 3, 1.f, true, false, raft::random::GenPhilox, 1234ULL},
-  {0.011, 1024, 8, 3, 1.f, true, false, raft::random::GenPhilox, 1234ULL},
-  {0.0055, 1024, 32, 3, 1.f, true, false, raft::random::GenPC, 1234ULL},
-  {0.011, 1024, 8, 3, 1.f, true, false, raft::random::GenPC, 1234ULL},
-  {0.0055, 1024, 32, 3, 1.f, false, false, raft::random::GenPhilox, 1234ULL},
-  {0.011, 1024, 8, 3, 1.f, false, false, raft::random::GenPhilox, 1234ULL},
-  {0.0055, 1024, 32, 3, 1.f, false, false, raft::random::GenPC, 1234ULL},
-  {0.011, 1024, 8, 3, 1.f, false, false, raft::random::GenPC, 1234ULL},
-  {0.0055, 1024, 32, 3, 1.f, true, true, raft::random::GenPhilox, 1234ULL},
-  {0.011, 1024, 8, 3, 1.f, true, true, raft::random::GenPhilox, 1234ULL},
-  {0.0055, 1024, 32, 3, 1.f, true, true, raft::random::GenPC, 1234ULL},
-  {0.011, 1024, 8, 3, 1.f, true, true, raft::random::GenPC, 1234ULL},
-  {0.0055, 1024, 32, 3, 1.f, false, true, raft::random::GenPhilox, 1234ULL},
-  {0.011, 1024, 8, 3, 1.f, false, true, raft::random::GenPhilox, 1234ULL},
-  {0.0055, 1024, 32, 3, 1.f, false, true, raft::random::GenPC, 1234ULL},
-  {0.011, 1024, 8, 3, 1.f, false, true, raft::random::GenPC, 1234ULL},
-  {0.0055, 5003, 32, 5, 1.f, true, false, raft::random::GenPhilox, 1234ULL},
-  {0.011, 5003, 8, 5, 1.f, true, false, raft::random::GenPhilox, 1234ULL},
-  {0.0055, 5003, 32, 5, 1.f, true, false, raft::random::GenPC, 1234ULL},
-  {0.011, 5003, 8, 5, 1.f, true, false, raft::random::GenPC, 1234ULL},
-  {0.0055, 5003, 32, 5, 1.f, false, false, raft::random::GenPhilox, 1234ULL},
-  {0.011, 5003, 8, 5, 1.f, false, false, raft::random::GenPhilox, 1234ULL},
-  {0.0055, 5003, 32, 5, 1.f, false, false, raft::random::GenPC, 1234ULL},
-  {0.011, 5003, 8, 5, 1.f, false, false, raft::random::GenPC, 1234ULL},
-  {0.0055, 5003, 32, 5, 1.f, true, true, raft::random::GenPhilox, 1234ULL},
-  {0.011, 5003, 8, 5, 1.f, true, true, raft::random::GenPhilox, 1234ULL},
-  {0.0055, 5003, 32, 5, 1.f, true, true, raft::random::GenPC, 1234ULL},
-  {0.011, 5003, 8, 5, 1.f, true, true, raft::random::GenPC, 1234ULL},
-  {0.0055, 5003, 32, 5, 1.f, false, true, raft::random::GenPhilox, 1234ULL},
-  {0.011, 5003, 8, 5, 1.f, false, true, raft::random::GenPhilox, 1234ULL},
-  {0.0055, 5003, 32, 5, 1.f, false, true, raft::random::GenPC, 1234ULL},
-  {0.011, 5003, 8, 5, 1.f, false, true, raft::random::GenPC, 1234ULL},
+  {0.0055, 1024, 32, 3, 1.f, false, raft::random::GenPhilox, 1234ULL},
+  {0.011, 1024, 8, 3, 1.f, false, raft::random::GenPhilox, 1234ULL},
+  {0.0055, 1024, 32, 3, 1.f, false, raft::random::GenPC, 1234ULL},
+  {0.011, 1024, 8, 3, 1.f, false, raft::random::GenPC, 1234ULL},
+  {0.0055, 1024, 32, 3, 1.f, true, raft::random::GenPhilox, 1234ULL},
+  {0.011, 1024, 8, 3, 1.f, true, raft::random::GenPhilox, 1234ULL},
+  {0.0055, 1024, 32, 3, 1.f, true, raft::random::GenPC, 1234ULL},
+  {0.011, 1024, 8, 3, 1.f, true, raft::random::GenPC, 1234ULL},
+  {0.0055, 5003, 32, 5, 1.f, false, raft::random::GenPhilox, 1234ULL},
+  {0.011, 5003, 8, 5, 1.f, false, raft::random::GenPhilox, 1234ULL},
+  {0.0055, 5003, 32, 5, 1.f, false, raft::random::GenPC, 1234ULL},
+  {0.011, 5003, 8, 5, 1.f, false, raft::random::GenPC, 1234ULL},
+  {0.0055, 5003, 32, 5, 1.f, true, raft::random::GenPhilox, 1234ULL},
+  {0.011, 5003, 8, 5, 1.f, true, raft::random::GenPhilox, 1234ULL},
+  {0.0055, 5003, 32, 5, 1.f, true, raft::random::GenPC, 1234ULL},
+  {0.011, 5003, 8, 5, 1.f, true, raft::random::GenPC, 1234ULL},
 };
 
-TEST_P(MakeBlobsTestF, Result) { check(); }
-INSTANTIATE_TEST_CASE_P(MakeBlobsTests, MakeBlobsTestF, ::testing::ValuesIn(inputsf_t));
+TEST_P(MakeBlobsTestF_RowMajor, Result) { check(); }
+INSTANTIATE_TEST_CASE_P(MakeBlobsTests, MakeBlobsTestF_RowMajor, ::testing::ValuesIn(inputsf_t));
 
-typedef MakeBlobsTest<double> MakeBlobsTestD;
+TEST_P(MakeBlobsTestF_ColMajor, Result) { check(); }
+INSTANTIATE_TEST_CASE_P(MakeBlobsTests, MakeBlobsTestF_ColMajor, ::testing::ValuesIn(inputsf_t));
+
+typedef MakeBlobsTest<double, raft::layout_c_contiguous> MakeBlobsTestD_RowMajor;
+typedef MakeBlobsTest<double, raft::layout_f_contiguous> MakeBlobsTestD_ColMajor;
+
 const std::vector<MakeBlobsInputs<double>> inputsd_t = {
-  {0.0055, 1024, 32, 3, 1.0, true, false, raft::random::GenPhilox, 1234ULL},
-  {0.011, 1024, 8, 3, 1.0, true, false, raft::random::GenPhilox, 1234ULL},
-  {0.0055, 1024, 32, 3, 1.0, true, false, raft::random::GenPC, 1234ULL},
-  {0.011, 1024, 8, 3, 1.0, true, false, raft::random::GenPC, 1234ULL},
-  {0.0055, 1024, 32, 3, 1.0, false, false, raft::random::GenPhilox, 1234ULL},
-  {0.011, 1024, 8, 3, 1.0, false, false, raft::random::GenPhilox, 1234ULL},
-  {0.0055, 1024, 32, 3, 1.0, false, false, raft::random::GenPC, 1234ULL},
-  {0.011, 1024, 8, 3, 1.0, false, false, raft::random::GenPC, 1234ULL},
-  {0.0055, 1024, 32, 3, 1.0, true, true, raft::random::GenPhilox, 1234ULL},
-  {0.011, 1024, 8, 3, 1.0, true, true, raft::random::GenPhilox, 1234ULL},
-  {0.0055, 1024, 32, 3, 1.0, true, true, raft::random::GenPC, 1234ULL},
-  {0.011, 1024, 8, 3, 1.0, true, true, raft::random::GenPC, 1234ULL},
-  {0.0055, 1024, 32, 3, 1.0, false, true, raft::random::GenPhilox, 1234ULL},
-  {0.011, 1024, 8, 3, 1.0, false, true, raft::random::GenPhilox, 1234ULL},
-  {0.0055, 1024, 32, 3, 1.0, false, true, raft::random::GenPC, 1234ULL},
-  {0.011, 1024, 8, 3, 1.0, false, true, raft::random::GenPC, 1234ULL},
+  {0.0055, 1024, 32, 3, 1.0, false, raft::random::GenPhilox, 1234ULL},
+  {0.011, 1024, 8, 3, 1.0, false, raft::random::GenPhilox, 1234ULL},
+  {0.0055, 1024, 32, 3, 1.0, false, raft::random::GenPC, 1234ULL},
+  {0.011, 1024, 8, 3, 1.0, false, raft::random::GenPC, 1234ULL},
+  {0.0055, 1024, 32, 3, 1.0, true, raft::random::GenPhilox, 1234ULL},
+  {0.011, 1024, 8, 3, 1.0, true, raft::random::GenPhilox, 1234ULL},
+  {0.0055, 1024, 32, 3, 1.0, true, raft::random::GenPC, 1234ULL},
+  {0.011, 1024, 8, 3, 1.0, true, raft::random::GenPC, 1234ULL},
 
-  {0.0055, 5003, 32, 5, 1.0, true, false, raft::random::GenPhilox, 1234ULL},
-  {0.011, 5003, 8, 5, 1.0, true, false, raft::random::GenPhilox, 1234ULL},
-  {0.0055, 5003, 32, 5, 1.0, true, false, raft::random::GenPC, 1234ULL},
-  {0.011, 5003, 8, 5, 1.0, true, false, raft::random::GenPC, 1234ULL},
-  {0.0055, 5003, 32, 5, 1.0, false, false, raft::random::GenPhilox, 1234ULL},
-  {0.011, 5003, 8, 5, 1.0, false, false, raft::random::GenPhilox, 1234ULL},
-  {0.0055, 5003, 32, 5, 1.0, false, false, raft::random::GenPC, 1234ULL},
-  {0.011, 5003, 8, 5, 1.0, false, false, raft::random::GenPC, 1234ULL},
-  {0.0055, 5003, 32, 5, 1.0, true, true, raft::random::GenPhilox, 1234ULL},
-  {0.011, 5003, 8, 5, 1.0, true, true, raft::random::GenPhilox, 1234ULL},
-  {0.0055, 5003, 32, 5, 1.0, true, true, raft::random::GenPC, 1234ULL},
-  {0.011, 5003, 8, 5, 1.0, true, true, raft::random::GenPC, 1234ULL},
-  {0.0055, 5003, 32, 5, 1.0, false, true, raft::random::GenPhilox, 1234ULL},
-  {0.011, 5003, 8, 5, 1.0, false, true, raft::random::GenPhilox, 1234ULL},
-  {0.0055, 5003, 32, 5, 1.0, false, true, raft::random::GenPC, 1234ULL},
-  {0.011, 5003, 8, 5, 1.0, false, true, raft::random::GenPC, 1234ULL},
+  {0.0055, 5003, 32, 5, 1.0, false, raft::random::GenPhilox, 1234ULL},
+  {0.011, 5003, 8, 5, 1.0, false, raft::random::GenPhilox, 1234ULL},
+  {0.0055, 5003, 32, 5, 1.0, false, raft::random::GenPC, 1234ULL},
+  {0.011, 5003, 8, 5, 1.0, false, raft::random::GenPC, 1234ULL},
+  {0.0055, 5003, 32, 5, 1.0, true, raft::random::GenPhilox, 1234ULL},
+  {0.011, 5003, 8, 5, 1.0, true, raft::random::GenPhilox, 1234ULL},
+  {0.0055, 5003, 32, 5, 1.0, true, raft::random::GenPC, 1234ULL},
+  {0.011, 5003, 8, 5, 1.0, true, raft::random::GenPC, 1234ULL},
 };
-TEST_P(MakeBlobsTestD, Result) { check(); }
-INSTANTIATE_TEST_CASE_P(MakeBlobsTests, MakeBlobsTestD, ::testing::ValuesIn(inputsd_t));
+TEST_P(MakeBlobsTestD_RowMajor, Result) { check(); }
+INSTANTIATE_TEST_CASE_P(MakeBlobsTests, MakeBlobsTestD_RowMajor, ::testing::ValuesIn(inputsd_t));
+
+TEST_P(MakeBlobsTestD_ColMajor, Result) { check(); }
+INSTANTIATE_TEST_CASE_P(MakeBlobsTests, MakeBlobsTestD_ColMajor, ::testing::ValuesIn(inputsd_t));
 
 }  // end namespace random
 }  // end namespace raft
