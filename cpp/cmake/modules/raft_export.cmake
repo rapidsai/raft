@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2021, NVIDIA CORPORATION.
+# Copyright (c) 2021-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -32,6 +32,7 @@ Generate a projects -Config.cmake module and all related information
       [ DOCUMENTATION <doc_variable> ]
       [ FINAL_CODE_BLOCK <code_block_variable> ]
       [ LANGUAGES <langs...> ]
+      [ INSTALL_FILES ON|OFF ]
       )
 
 The :cmake:command:`raft_export` function allow projects to easily generate a fully
@@ -106,6 +107,12 @@ calls to :cmake:command:`find_dependency`, or :cmake:command:`CPMFindPackage`.
   of your package. This makes sure all consumers properly setup these
   languages correctly.
 
+``INSTALL_FILES``
+  Optional boolean value denoting whether exported files should be installed
+  to the RAPIDS lib directory during the install stage. This is OFF by
+  default so the export files will only be installed into the project's build
+  directory.
+
   This is required as CMake's :cmake:command:`enable_language` only supports
   enabling languages for the current directory scope, and doesn't support
   being called from within functions. Marking languages here overcomes
@@ -122,7 +129,7 @@ function(raft_export type project_name)
   string(TOLOWER ${type} type)
 
   set(options "")
-  set(one_value EXPORT_SET VERSION NAMESPACE DOCUMENTATION FINAL_CODE_BLOCK)
+  set(one_value EXPORT_SET VERSION NAMESPACE DOCUMENTATION FINAL_CODE_BLOCK INSTALL_FILES)
   set(multi_value COMPONENTS GLOBAL_TARGETS LANGUAGES)
   cmake_parse_arguments(RAPIDS "${options}" "${one_value}" "${multi_value}" ${ARGN})
 
@@ -138,7 +145,6 @@ function(raft_export type project_name)
     # Choose the project version when an explicit version isn't provided
     set(RAPIDS_VERSION "${PROJECT_VERSION}")
   endif()
-
   if(rapids_version_set)
     include("${rapids-cmake-dir}/export/detail/parse_version.cmake")
     rapids_export_parse_version(${RAPIDS_VERSION} rapids_orig rapids_project_version)
@@ -164,6 +170,10 @@ function(raft_export type project_name)
     set(RAPIDS_PROJECT_FINAL_CODE_BLOCK "${${RAPIDS_FINAL_CODE_BLOCK}}")
   endif()
 
+  if(DEFINED RAPIDS_INSTALL_FILES AND NOT RAPIDS_INSTALL_FILES)
+    unset(RAPIDS_INSTALL_FILES)
+  endif()
+
   # Write configuration and version files
   string(TOLOWER ${project_name} project_name)
   string(TOUPPER ${project_name} project_name_uppercase)
@@ -174,7 +184,11 @@ function(raft_export type project_name)
 
     set(scratch_dir "${PROJECT_BINARY_DIR}/rapids-cmake/${project_name}/export")
 
-    configure_package_config_file("${CMAKE_CURRENT_FUNCTION_LIST_DIR}/config.cmake.in"
+    if(NOT DEFINED RAPIDS_INSTALL_FILES)
+      set(install_location "${scratch_dir}")
+    endif()
+
+      configure_package_config_file("${CMAKE_CURRENT_FUNCTION_LIST_DIR}/config.cmake.in"
                                   "${scratch_dir}/${project_name}-config.cmake"
                                   INSTALL_DESTINATION "${install_location}")
 
@@ -184,8 +198,8 @@ function(raft_export type project_name)
         COMPATIBILITY ${rapids_project_version_compat})
     endif()
 
-    install(EXPORT ${RAPIDS_EXPORT_SET} FILE ${project_name}-targets.cmake
-            NAMESPACE ${RAPIDS_PROJECT_VERSION} DESTINATION "${install_location}")
+      install(EXPORT ${RAPIDS_EXPORT_SET} FILE ${project_name}-targets.cmake
+              NAMESPACE ${RAPIDS_PROJECT_VERSION} DESTINATION "${install_location}")
 
     if(TARGET rapids_export_install_${RAPIDS_EXPORT_SET})
       include("${rapids-cmake-dir}/export/write_dependencies.cmake")

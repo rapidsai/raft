@@ -69,16 +69,16 @@ RAFT can be installed through conda, [Cmake Package Manager (CPM)](https://githu
 
 ### Conda
 
-The easiest way to install RAFT is through conda
-- `libraft-headers` contains all the CUDA/C++ headers
-- `libraft-nn` (optional) contains precompiled shared libraries for the nearest neighbors algorithms. If FAISS is not already installed in your environment, this will need to be installed to use the nearest neighbors headers.
-- `libraft-distance` (optional) contains shared libraries for distance algorithms.
-- `pyraft` (optional) Python library with reusable infrastructure and tools
-- `pylibraft` (optional) Cython wrappers around RAFT algorithms and primitives
+The easiest way to install RAFT is through conda and several packages are provided.
+- `libraft-runtime` contains a subset of CUDA/C++ headers that can be safely included in public APIs because they depend only upon the cudatoolkit libraries and can be safely compiled without `nvcc`
+- `libraft-nn` (optional) contains shared libraries for the nearest neighbors primitives.
+- `libraft-distance` (optional) contains shared libraries for distance primitives.
+- `pyraft` (optional) contains reusable Python tools to accelerate Python algorithm development
+- `pylibraft` (optional) Python wrappers around RAFT algorithms and primitives
 
 Use the following command to install RAFT with conda (use `-c rapidsai-nightly` for more up-to-date but less stable nightly packages)
 ```bash
-conda install -c rapidsai libraft-headers libraft-nn libraft-distance pyraft pylibraft
+conda install -c rapidsai libraft-runtime libraft-nn libraft-distance pyraft pylibraft
 ```
 
 After installing RAFT, `find_package(raft COMPONENTS nn distance)` can be used in your CUDA/C++ build. Note that the `COMPONENTS` are optional and will depend on the packages installed.
@@ -139,19 +139,18 @@ You can find a more comprehensive example of the above cmake snippet the [Buildi
 
 ### Source
 
-The easiest way to build RAFT from source is to use the `build.sh` script at the root of the repository,
-1. create an environment with the RAFT dependencies:
+The easiest way to build RAFT from source is to use the `build.sh` script at the root of the repository:
+1. Create an environment with the needed dependencies: 
 ```
 conda env create --name raft_dev -f conda/environments/raft_dev_cuda11.5.yml
 conda activate raft_dev
 ```
-
-2. run the build script from the repository root:
+2. Run the build script from the repository root: 
 ```
 ./build.sh pyraft pylibraft libraft --compile-libs
 ```
 
-The [Build](BUILD.md) instructions contain more details on building RAFT from source and including it in downstream projects. 
+The [Build](BUILD.md) instructions contain more details on building RAFT from source and including it in downstream projects. You can find a more comprehensive version of the above CPM code snippet the [Building RAFT C++ from source](BUILD.md#build_cxx_source) guide.
 
 ## Folder Structure and Contents
 

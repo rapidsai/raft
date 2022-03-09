@@ -19,7 +19,6 @@
  * Please use raft_runtime/cusolver_macros.hpp instead.
  */
 
-
 #ifndef __RAFT_RT_CUSOLVER_MACROS_H
 #define __RAFT_RT_CUSOLVER_MACROS_H
 
@@ -40,31 +39,31 @@ namespace raft {
 /**
  * @brief Exception thrown when a cuSOLVER error is encountered.
  */
-    struct cusolver_error : public raft::exception {
-        explicit cusolver_error(char const* const message) : raft::exception(message) {}
-        explicit cusolver_error(std::string const& message) : raft::exception(message) {}
-    };
+struct cusolver_error : public raft::exception {
+  explicit cusolver_error(char const* const message) : raft::exception(message) {}
+  explicit cusolver_error(std::string const& message) : raft::exception(message) {}
+};
 
-    namespace linalg {
+namespace linalg {
 
-        inline const char* cusolver_error_to_string(cusolverStatus_t err)
-        {
-            switch (err) {
-                _CUSOLVER_ERR_TO_STR(CUSOLVER_STATUS_SUCCESS);
-                _CUSOLVER_ERR_TO_STR(CUSOLVER_STATUS_NOT_INITIALIZED);
-                _CUSOLVER_ERR_TO_STR(CUSOLVER_STATUS_ALLOC_FAILED);
-                _CUSOLVER_ERR_TO_STR(CUSOLVER_STATUS_INVALID_VALUE);
-                _CUSOLVER_ERR_TO_STR(CUSOLVER_STATUS_ARCH_MISMATCH);
-                _CUSOLVER_ERR_TO_STR(CUSOLVER_STATUS_EXECUTION_FAILED);
-                _CUSOLVER_ERR_TO_STR(CUSOLVER_STATUS_INTERNAL_ERROR);
-                _CUSOLVER_ERR_TO_STR(CUSOLVER_STATUS_MATRIX_TYPE_NOT_SUPPORTED);
-                _CUSOLVER_ERR_TO_STR(CUSOLVER_STATUS_ZERO_PIVOT);
-                _CUSOLVER_ERR_TO_STR(CUSOLVER_STATUS_NOT_SUPPORTED);
-                default: return "CUSOLVER_STATUS_UNKNOWN";
-            };
-        }
+inline const char* cusolver_error_to_string(cusolverStatus_t err)
+{
+  switch (err) {
+    _CUSOLVER_ERR_TO_STR(CUSOLVER_STATUS_SUCCESS);
+    _CUSOLVER_ERR_TO_STR(CUSOLVER_STATUS_NOT_INITIALIZED);
+    _CUSOLVER_ERR_TO_STR(CUSOLVER_STATUS_ALLOC_FAILED);
+    _CUSOLVER_ERR_TO_STR(CUSOLVER_STATUS_INVALID_VALUE);
+    _CUSOLVER_ERR_TO_STR(CUSOLVER_STATUS_ARCH_MISMATCH);
+    _CUSOLVER_ERR_TO_STR(CUSOLVER_STATUS_EXECUTION_FAILED);
+    _CUSOLVER_ERR_TO_STR(CUSOLVER_STATUS_INTERNAL_ERROR);
+    _CUSOLVER_ERR_TO_STR(CUSOLVER_STATUS_MATRIX_TYPE_NOT_SUPPORTED);
+    _CUSOLVER_ERR_TO_STR(CUSOLVER_STATUS_ZERO_PIVOT);
+    _CUSOLVER_ERR_TO_STR(CUSOLVER_STATUS_NOT_SUPPORTED);
+    default: return "CUSOLVER_STATUS_UNKNOWN";
+  };
+}
 
-    }  // namespace linalg
+}  // namespace linalg
 }  // namespace raft
 
 #undef _CUSOLVER_ERR_TO_STR

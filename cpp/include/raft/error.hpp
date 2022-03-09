@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@
  * Please use the include/raft_runtime/error.hpp instead.
  */
 
-
 #ifndef __RAFT_RT_ERROR
 #define __RAFT_RT_ERROR
 
@@ -36,36 +35,36 @@
 namespace raft {
 
 /** base exception class for the whole of raft */
-    class exception : public std::exception {
-    public:
-        /** default ctor */
-        explicit exception() noexcept : std::exception(), msg_() {}
+class exception : public std::exception {
+ public:
+  /** default ctor */
+  explicit exception() noexcept : std::exception(), msg_() {}
 
-        /** copy ctor */
-        exception(exception const& src) noexcept : std::exception(), msg_(src.what())
-        {
-            collect_call_stack();
-        }
+  /** copy ctor */
+  exception(exception const& src) noexcept : std::exception(), msg_(src.what())
+  {
+    collect_call_stack();
+  }
 
-        /** ctor from an input message */
-        explicit exception(std::string const msg) noexcept : std::exception(), msg_(std::move(msg))
-        {
-            collect_call_stack();
-        }
+  /** ctor from an input message */
+  explicit exception(std::string const msg) noexcept : std::exception(), msg_(std::move(msg))
+  {
+    collect_call_stack();
+  }
 
-        /** get the message associated with this exception */
-        char const* what() const noexcept override { return msg_.c_str(); }
+  /** get the message associated with this exception */
+  char const* what() const noexcept override { return msg_.c_str(); }
 
-    private:
-        /** message associated with this exception */
-        std::string msg_;
+ private:
+  /** message associated with this exception */
+  std::string msg_;
 
-        /** append call stack info to this exception's message for ease of debug */
-        // Courtesy: https://www.gnu.org/software/libc/manual/html_node/Backtraces.html
-        void collect_call_stack() noexcept
-        {
+  /** append call stack info to this exception's message for ease of debug */
+  // Courtesy: https://www.gnu.org/software/libc/manual/html_node/Backtraces.html
+  void collect_call_stack() noexcept
+  {
 #ifdef __GNUC__
-            constexpr int kMaxStackDepth = 64;
+    constexpr int kMaxStackDepth = 64;
     void* stack[kMaxStackDepth];  // NOLINT
     auto depth = backtrace(stack, kMaxStackDepth);
     std::ostringstream oss;
@@ -83,8 +82,8 @@ namespace raft {
     free(strings);
     msg_ += oss.str();
 #endif  // __GNUC__
-        }
-    };
+  }
+};
 
 /**
  * @brief Exception thrown when logical precondition is violated.
@@ -93,10 +92,10 @@ namespace raft {
  * RAFT_EXPECTS and  RAFT_FAIL macros.
  *
  */
-    struct logic_error : public raft::exception {
-        explicit logic_error(char const* const message) : raft::exception(message) {}
-        explicit logic_error(std::string const& message) : raft::exception(message) {}
-    };
+struct logic_error : public raft::exception {
+  explicit logic_error(char const* const message) : raft::exception(message) {}
+  explicit logic_error(std::string const& message) : raft::exception(message) {}
+};
 
 }  // namespace raft
 
