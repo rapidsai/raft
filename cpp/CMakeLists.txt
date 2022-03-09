@@ -234,7 +234,6 @@ if(RAFT_COMPILE_LIBRARIES OR RAFT_COMPILE_DIST_LIBRARY)
 
 endif()
 
-# TODO: Create public header(s) for exposed distance functions
 target_link_libraries(raft_distance INTERFACE raft::runtime
     $<TARGET_NAME_IF_EXISTS:raft_distance_lib>
     $<TARGET_NAME_IF_EXISTS:raft::raft_distance_lib>
@@ -278,7 +277,6 @@ if(RAFT_COMPILE_LIBRARIES OR RAFT_COMPILE_NN_LIBRARY)
 
 endif()
 
-# TODO: Create public header(s) for exposed nn functions
 target_link_libraries(raft_nn INTERFACE raft::runtime faiss::faiss
     $<TARGET_NAME_IF_EXISTS:raft_nn_lib>
     $<TARGET_NAME_IF_EXISTS:raft::raft_nn_lib>)
@@ -367,14 +365,13 @@ endif()
 # Use `rapids_export` for 22.04 as it will have COMPONENT support
 include(cmake/modules/raft_export.cmake)
 raft_export(INSTALL runtime
-        COMPONENTS nn distance
-        EXPORT_SET raft-runtime-exports
-        GLOBAL_TARGETS runtime nn distance
-        NAMESPACE raft::
-        DOCUMENTATION doc_string
-        FINAL_CODE_BLOCK code_string
-        INSTALL_FILES ON
-        )
+    COMPONENTS nn distance
+    EXPORT_SET raft-runtime-exports
+    GLOBAL_TARGETS runtime nn distance
+    NAMESPACE raft::
+    DOCUMENTATION doc_string
+    FINAL_CODE_BLOCK code_string
+    INSTALL_FILES ON)
 
 raft_export(INSTALL raft
     EXPORT_SET raft-exports
@@ -382,19 +379,17 @@ raft_export(INSTALL raft
     COMPONENTS nn distance
     NAMESPACE raft::
     DOCUMENTATION doc_string
-    FINAL_CODE_BLOCK code_string
-        )
+    FINAL_CODE_BLOCK code_string)
 
 ##############################################################################
 # - build export -------------------------------------------------------------
 raft_export(BUILD runtime
-        EXPORT_SET raft-runtime-exports
-        COMPONENTS nn distance
-        GLOBAL_TARGETS runtime raft_distance raft_nn
-        DOCUMENTATION doc_string
-        NAMESPACE raft::
-        FINAL_CODE_BLOCK code_string
-        )
+    EXPORT_SET raft-runtime-exports
+    COMPONENTS nn distance
+    GLOBAL_TARGETS runtime raft_distance raft_nn
+    DOCUMENTATION doc_string
+    NAMESPACE raft::
+    FINAL_CODE_BLOCK code_string)
 
 raft_export(BUILD raft
     EXPORT_SET raft-exports
@@ -402,8 +397,7 @@ raft_export(BUILD raft
     COMPONENTS nn distance
     DOCUMENTATION doc_string
     NAMESPACE raft::
-    FINAL_CODE_BLOCK code_string
-    )
+    FINAL_CODE_BLOCK code_string)
 
 ##############################################################################
 # - export/install optional components  --------------------------------------
