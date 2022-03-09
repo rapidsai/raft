@@ -48,7 +48,6 @@ target_link_libraries(${RAFT_CPP_BENCH_TARGET}
     raft::raft
     raft::distance
     raft::nn
-    NCCL::NCCL
     faiss::faiss
     benchmark::benchmark
     $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
