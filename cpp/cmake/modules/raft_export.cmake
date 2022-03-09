@@ -107,6 +107,12 @@ calls to :cmake:command:`find_dependency`, or :cmake:command:`CPMFindPackage`.
   of your package. This makes sure all consumers properly setup these
   languages correctly.
 
+``INSTALL_FILES``
+  Optional boolean value denoting whether exported files should be installed
+  to the RAPIDS lib directory during the install stage. This is OFF by
+  default so the export files will only be installed into the project's build
+  directory.
+
   This is required as CMake's :cmake:command:`enable_language` only supports
   enabling languages for the current directory scope, and doesn't support
   being called from within functions. Marking languages here overcomes
@@ -139,7 +145,6 @@ function(raft_export type project_name)
     # Choose the project version when an explicit version isn't provided
     set(RAPIDS_VERSION "${PROJECT_VERSION}")
   endif()
-
   if(rapids_version_set)
     include("${rapids-cmake-dir}/export/detail/parse_version.cmake")
     rapids_export_parse_version(${RAPIDS_VERSION} rapids_orig rapids_project_version)
@@ -163,6 +168,10 @@ function(raft_export type project_name)
       message(FATAL_ERROR "FINAL_CODE_BLOCK variable `${RAPIDS_FINAL_CODE_BLOCK}` doesn't exist")
     endif()
     set(RAPIDS_PROJECT_FINAL_CODE_BLOCK "${${RAPIDS_FINAL_CODE_BLOCK}}")
+  endif()
+
+  if(DEFINED RAPIDS_INSTALL_FILES AND NOT RAPIDS_INSTALL_FILES)
+    unset(RAPIDS_INSTALL_FILES)
   endif()
 
   # Write configuration and version files
