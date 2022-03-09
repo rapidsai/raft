@@ -106,7 +106,7 @@ libs = ['cudart', "nccl", "cusolver", "cusparse", "cublas"]
 
 include_dirs = [cuda_include_dir,
                 numpy.get_include(),
-                "../cpp/include/",
+                "../../cpp/include/",
                 os.path.dirname(sysconfig.get_path("include"))]
 
 extensions = [
