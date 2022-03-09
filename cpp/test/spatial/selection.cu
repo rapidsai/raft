@@ -325,7 +325,19 @@ struct with_ref {
   };
 };
 
-auto inputs_random_f = testing::Values(SelectTestSpec{20, 700, 8, true},
+auto inputs_random_f = testing::Values(SelectTestSpec{20, 700, 1, true},
+                                       SelectTestSpec{20, 700, 2, true},
+                                       SelectTestSpec{20, 700, 3, true},
+                                       SelectTestSpec{20, 700, 4, true},
+                                       SelectTestSpec{20, 700, 5, true},
+                                       SelectTestSpec{20, 700, 6, true},
+                                       SelectTestSpec{20, 700, 7, true},
+                                       SelectTestSpec{20, 700, 8, true},
+                                       SelectTestSpec{20, 700, 9, true},
+                                       SelectTestSpec{20, 700, 10, true},
+                                       SelectTestSpec{20, 700, 11, true},
+                                       SelectTestSpec{20, 700, 12, true},
+                                       SelectTestSpec{20, 700, 16, true},
                                        SelectTestSpec{100, 1700, 17, true},
                                        SelectTestSpec{100, 1700, 31, true},
                                        SelectTestSpec{100, 1700, 32, false},

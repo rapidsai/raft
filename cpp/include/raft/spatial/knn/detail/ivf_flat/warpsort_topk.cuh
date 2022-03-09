@@ -117,6 +117,8 @@
 
 namespace raft::spatial::knn::detail::ivf_flat {
 
+static constexpr int kMaxCapacity = 1024;
+
 namespace {
 
 template <typename T>
@@ -152,23 +154,25 @@ __device__ inline bool is_greater_than(T val, T baseline)
   if constexpr (!greater) { return val < baseline; }
 }
 
-template <typename T>
-constexpr HDI T nextHighestPowerOf2(T v)
-{
-  /**
-   * TODO: Not entirely sure if this is what we need in the code of this file.
-   *       It returns `r`, such that r > v, r <= v*2, and r is power of two.
-   */
-  return isPo2(v) ? (v << (T)1) : ((T)1 << (log2(v) + 1));
-}
+// template <typename T>
+// constexpr HDI T nextHighestPowerOf2(T v)
+// {
+//   /**
+//    * TODO: Not entirely sure if this is what we need in the code of this file.
+//    *       It returns `r`, such that r > v, r <= v*2, and r is power of two.
+//    */
+//   return isPo2(v) ? (v << (T)1) : ((T)1 << (log2(v) + 1));
+// }
 
 int calc_capacity(int k)
 {
-  int capacity = nextHighestPowerOf2(k);
+  int capacity = isPo2(k) ? k : (1 << (log2(k) + 1));
   if (capacity < WarpSize) { capacity = WarpSize; }
   return capacity;
 }
+
 }  // namespace
+
 template <int capacity, bool greater, typename T, typename idxT>
 class WarpSort {
  public:
@@ -597,30 +601,83 @@ __global__ void block_kernel(const T* in,
   queue.dump(out + blockIdx.x * k, out_idx + blockIdx.x * k);
 }
 
-template <template <int, bool, typename, typename> class WarpSortClass, typename T, typename idxT>
-void calc_launch_parameter_by_occupancy(idxT k, int* block_size, int* min_grid_size)
-{
-  const int capacity                                             = calc_capacity(k);
-  decltype(&block_kernel<WarpSortClass, 32, true, T, idxT>) func = nullptr;
-  if (capacity == 32) {
-    func = block_kernel<WarpSortClass, 32, true, T, idxT>;
-  } else if (capacity == 64) {
-    func = block_kernel<WarpSortClass, 64, true, T, idxT>;
-  } else if (capacity == 128) {
-    func = block_kernel<WarpSortClass, 128, true, T, idxT>;
-  } else if (capacity == 256) {
-    func = block_kernel<WarpSortClass, 256, true, T, idxT>;
-  } else {
-    ASSERT(false, "Requested capacity is too big (%d)", capacity);
+template <template <int, bool, typename, typename> class WarpSortClass,
+          typename T,
+          typename idxT,
+          int Capacity = kMaxCapacity>
+struct launch_setup {
+  /**
+   * @brief Calculate the best block size and minimum grid size for the given `k`.
+   *
+   * @param[in] k
+   *   The select-top-k parameter
+   * @param[out] block_size
+   *   Returned block size
+   * @param[out] min_grid_size
+   *   Returned minimum grid size needed to achieve the best potential occupancy
+   */
+  static void calc_optimal_params(int k, int* block_size, int* min_grid_size)
+  {
+    const int capacity = calc_capacity(k);
+    if constexpr (Capacity > WarpSize) {  // TODO: replace with `Capacity > 1` to allow small sizes.
+      if (capacity < Capacity) {
+        return launch_setup<WarpSortClass, T, idxT, Capacity / 2>::calc_optimal_params(
+          capacity, block_size, min_grid_size);
+      }
+    }
+    ASSERT(capacity <= Capacity, "Requested k is too big (%d)", k);
+    auto calc_smem = [k](int block_size) {
+      int num_of_warp = block_size / WarpSize;
+      return calc_smem_size_for_block_wide<T>(num_of_warp, k);
+    };
+    RAFT_CUDA_TRY(cudaOccupancyMaxPotentialBlockSizeVariableSMem(
+      min_grid_size, block_size, block_kernel<WarpSortClass, Capacity, true, T, idxT>, calc_smem));
   }
 
-  auto calc_smem = [k](int block_size) {
-    int num_of_warp = block_size / WarpSize;
-    return calc_smem_size_for_block_wide<T>(num_of_warp, k);
-  };
-
-  cudaOccupancyMaxPotentialBlockSizeVariableSMem(min_grid_size, block_size, func, calc_smem);
-}
+  static void kernel(int k,
+                     bool greater,
+                     idxT batch_size,
+                     idxT len,
+                     int num_blocks,
+                     int block_dim,
+                     int smem_size,
+                     const T* in_key,
+                     const idxT* in_idx,
+                     T* out_key,
+                     idxT* out_idx,
+                     cudaStream_t stream)
+  {
+    const int capacity = calc_capacity(k);
+    if constexpr (Capacity > WarpSize) {  // TODO: replace with `Capacity > 1` to allow small sizes.
+      if (capacity < Capacity) {
+        return launch_setup<WarpSortClass, T, idxT, Capacity / 2>::kernel(k,
+                                                                          greater,
+                                                                          batch_size,
+                                                                          len,
+                                                                          num_blocks,
+                                                                          block_dim,
+                                                                          smem_size,
+                                                                          in_key,
+                                                                          in_idx,
+                                                                          out_key,
+                                                                          out_idx,
+                                                                          stream);
+      }
+    }
+    ASSERT(capacity <= Capacity, "Requested k is too big (%d)", k);
+    T dummy = get_dummy<T>(greater);
+    if (greater) {
+      block_kernel<WarpSortClass, Capacity, true>
+        <<<batch_size * num_blocks, block_dim, smem_size, stream>>>(
+          in_key, in_idx, batch_size, len, k, out_key, out_idx, dummy);
+    } else {
+      block_kernel<WarpSortClass, Capacity, false>
+        <<<batch_size * num_blocks, block_dim, smem_size, stream>>>(
+          in_key, in_idx, batch_size, len, k, out_key, out_idx, dummy);
+    }
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
+  }
+};
 
 template <template <int, bool, typename, typename> class WarpSortClass>
 struct LaunchThreshold {
@@ -646,7 +703,7 @@ void calc_launch_parameter(
   const int capacity = calc_capacity(k);
   int block_size     = 0;
   int min_grid_size  = 0;
-  calc_launch_parameter_by_occupancy<WarpSortClass, T, idxT>(k, &block_size, &min_grid_size);
+  launch_setup<WarpSortClass, T, idxT>::calc_optimal_params(k, &block_size, &min_grid_size);
 
   int num_of_warp;
   int num_of_block;
@@ -704,26 +761,13 @@ void calc_launch_parameter_for_merge(idxT len, idxT k, int* num_of_block, int* n
 
   int block_size    = 0;
   int min_grid_size = 0;
-  calc_launch_parameter_by_occupancy<WarpMerge, T, idxT>(k, &block_size, &min_grid_size);
+  launch_setup<WarpMerge, T, idxT>::calc_optimal_params(k, &block_size, &min_grid_size);
 
   *num_of_warp      = block_size / WarpSize;
   idxT len_per_warp = (len - 1) / (*num_of_warp) + 1;
   len_per_warp      = ((len_per_warp - 1) / k + 1) * k;
   *num_of_warp      = (len - 1) / len_per_warp + 1;
 }
-
-#define BLOCK_CASE(WarpSortClass, capacity, in_val, in_idx, out_val, out_idx) \
-  case capacity:                                                              \
-    if (greater) {                                                            \
-      block_kernel<WarpSortClass, capacity, true>                             \
-        <<<batch_size * num_of_block, block_dim, smem_size, stream>>>(        \
-          in_val, in_idx, batch_size, len, k, out_val, out_idx, dummy);       \
-    } else {                                                                  \
-      block_kernel<WarpSortClass, capacity, false>                            \
-        <<<batch_size * num_of_block, block_dim, smem_size, stream>>>(        \
-          in_val, in_idx, batch_size, len, k, out_val, out_idx, dummy);       \
-    }                                                                         \
-    break
 
 template <template <int, bool, typename, typename> class WarpSortClass, typename T, typename idxT>
 void warp_sort_topk_(int num_of_block,
@@ -763,21 +807,25 @@ void warp_sort_topk_(int num_of_block,
   }
 
   // printf("#block=%d, #warp=%d\n", num_of_block, num_of_warp);
-  T dummy      = get_dummy<T>(greater);
+  // T dummy      = get_dummy<T>(greater);
   int capacity = calc_capacity(k);
 
   T* result_val    = (num_of_block == 1) ? out : tmp_val;
   idxT* result_idx = (num_of_block == 1) ? out_idx : tmp_idx;
   int block_dim    = num_of_warp * WarpSize;
   int smem_size    = calc_smem_size_for_block_wide<T>(num_of_warp, k);
-  switch (capacity) {
-    BLOCK_CASE(WarpSortClass, 32, in, static_cast<idxT*>(nullptr), result_val, result_idx);
-    BLOCK_CASE(WarpSortClass, 64, in, static_cast<idxT*>(nullptr), result_val, result_idx);
-    BLOCK_CASE(WarpSortClass, 128, in, static_cast<idxT*>(nullptr), result_val, result_idx);
-    BLOCK_CASE(WarpSortClass, 256, in, static_cast<idxT*>(nullptr), result_val, result_idx);
-    default: ASSERT(false, "Requested capacity is too big (%d)", capacity);
-  }
-  // CUDA_CHECK_LAST_ERROR();
+  launch_setup<WarpSortClass, T, idxT>::kernel(k,
+                                               greater,
+                                               batch_size,
+                                               len,
+                                               num_of_block,
+                                               block_dim,
+                                               smem_size,
+                                               in,
+                                               static_cast<idxT*>(nullptr),
+                                               result_val,
+                                               result_idx,
+                                               stream);
 
   if (num_of_block > 1) {
     len = k * num_of_block;
@@ -785,14 +833,18 @@ void warp_sort_topk_(int num_of_block,
     // printf("#block=%d, #warp=%d\n", num_of_block, num_of_warp);
     block_dim = num_of_warp * WarpSize;
     smem_size = calc_smem_size_for_block_wide<T>(num_of_warp, k);
-    switch (capacity) {
-      BLOCK_CASE(WarpMerge, 32, tmp_val, tmp_idx, out, out_idx);
-      BLOCK_CASE(WarpMerge, 64, tmp_val, tmp_idx, out, out_idx);
-      BLOCK_CASE(WarpMerge, 128, tmp_val, tmp_idx, out, out_idx);
-      BLOCK_CASE(WarpMerge, 256, tmp_val, tmp_idx, out, out_idx);
-      default: ASSERT(false, "Requested capacity is too big (%d)", capacity);
-    }
-    // CUDA_CHECK_LAST_ERROR();
+    launch_setup<WarpSortClass, T, idxT>::kernel(k,
+                                                 greater,
+                                                 batch_size,
+                                                 len,
+                                                 num_of_block,
+                                                 block_dim,
+                                                 smem_size,
+                                                 tmp_val,
+                                                 tmp_idx,
+                                                 out,
+                                                 out_idx,
+                                                 stream);
   }
 }
 
@@ -809,7 +861,7 @@ void warp_sort_topk(void* buf,
                     bool greater        = true,
                     cudaStream_t stream = 0)
 {
-  ASSERT(k <= 256, "Current max k is 256 (requested %d)", k);
+  ASSERT(k <= kMaxCapacity, "Current max k is %d (requested %d)", kMaxCapacity, k);
 
   int capacity     = calc_capacity(k);
   int num_of_block = 0;
