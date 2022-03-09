@@ -18,7 +18,8 @@ from libcpp cimport bool
 from pylibraft.distance.distance_type cimport DistanceType
 from pylibraft.common.handle cimport handle_t
 
-cdef extern from "raft_distance/pairwise_distance.hpp" namespace "raft::distance::runtime":
+cdef extern from "raft_distance/pairwise_distance.hpp" \
+    namespace "raft::distance::runtime":
 
     cdef void pairwise_distance(const handle_t &handle,
                                 float *x,

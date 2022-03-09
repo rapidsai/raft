@@ -21,6 +21,7 @@ from pylibraft.distance.distance_type cimport DistanceType
 from pylibraft.common.handle cimport handle_t
 from pylibraft.distance.pairwise_distance import *
 
+
 def distance(X, Y, dists, metric="euclidean"):
     """
     Compute pairwise distances between X and Y
@@ -50,11 +51,12 @@ def distance(X, Y, dists, metric="euclidean"):
     cdef handle_t *h = new handle_t()
 
     # TODO: Support single and double precision
-    pairwise_distance(deref(h),<float*> x_ptr,
-              <float*> y_ptr,
-              <float*> d_ptr,
-              <int>m,
-              <int>n,
-              <int>k,
-              <DistanceType>DistanceType2.L2Expanded,
-              <bool>true, <float>0.0)
+    pairwise_distance(deref(h),
+                      <float*> x_ptr,
+                      <float*> y_ptr,
+                      <float*> d_ptr,
+                      <int>m,
+                      <int>n,
+                      <int>k,
+                      <DistanceType>DistanceType2.L2Expanded,
+                      <bool>true, <float>0.0)
