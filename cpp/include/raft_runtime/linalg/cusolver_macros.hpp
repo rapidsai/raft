@@ -69,19 +69,19 @@ inline const char* cusolver_error_to_string(cusolverStatus_t err)
  * Invokes a cuSOLVER runtime API function call, if the call does not return
  * CUSolver_STATUS_SUCCESS, throws an exception detailing the cuSOLVER error that occurred
  */
-#define RAFT_CUSOLVER_TRY(call)                                              \
-  do {                                                                       \
-    cusolverStatus_t const status = (call);                                  \
-    if (CUSOLVER_STATUS_SUCCESS != status) {                                 \
-      std::string msg{};                                                     \
-      SET_ERROR_MSG(msg,                                                     \
-                    "cuSOLVER error encountered at: ",                       \
-                    "call='%s', Reason=%d:%s",                               \
-                    #call,                                                   \
-                    status,                                                  \
+#define RAFT_CUSOLVER_TRY(call)                                      \
+  do {                                                               \
+    cusolverStatus_t const status = (call);                          \
+    if (CUSOLVER_STATUS_SUCCESS != status) {                         \
+      std::string msg{};                                             \
+      SET_ERROR_MSG(msg,                                             \
+                    "cuSOLVER error encountered at: ",               \
+                    "call='%s', Reason=%d:%s",                       \
+                    #call,                                           \
+                    status,                                          \
                     raft::linalg::cusolver_error_to_string(status)); \
-      throw raft::cusolver_error(msg);                                       \
-    }                                                                        \
+      throw raft::cusolver_error(msg);                               \
+    }                                                                \
   } while (0)
 
 // FIXME: remove after consumer rename
@@ -101,7 +101,7 @@ inline const char* cusolver_error_to_string(cusolverStatus_t err)
              #call,                                                    \
              __FILE__,                                                 \
              __LINE__,                                                 \
-             raft::linalg::cusolver_error_to_string(status));  \
+             raft::linalg::cusolver_error_to_string(status));          \
     }                                                                  \
   } while (0)
 
