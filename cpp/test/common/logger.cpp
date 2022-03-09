@@ -27,15 +27,15 @@ TEST(logger, Test)
   RAFT_LOG_WARN("This is a warning message");
   RAFT_LOG_INFO("This is an info message");
 
-  logger::get().set_level(RAFT_LEVEL_WARN);
-  ASSERT_EQ(RAFT_LEVEL_WARN, logger::get().get_level());
-  logger::get().set_level(RAFT_LEVEL_INFO);
-  ASSERT_EQ(RAFT_LEVEL_INFO, logger::get().get_level());
+  logger::get(RAFT_NAME).set_level(RAFT_LEVEL_WARN);
+  ASSERT_EQ(RAFT_LEVEL_WARN, logger::get(RAFT_NAME).get_level());
+  logger::get(RAFT_NAME).set_level(RAFT_LEVEL_INFO);
+  ASSERT_EQ(RAFT_LEVEL_INFO, logger::get(RAFT_NAME).get_level());
 
-  ASSERT_FALSE(logger::get().should_log_for(RAFT_LEVEL_TRACE));
-  ASSERT_FALSE(logger::get().should_log_for(RAFT_LEVEL_DEBUG));
-  ASSERT_TRUE(logger::get().should_log_for(RAFT_LEVEL_INFO));
-  ASSERT_TRUE(logger::get().should_log_for(RAFT_LEVEL_WARN));
+  ASSERT_FALSE(logger::get(RAFT_NAME).should_log_for(RAFT_LEVEL_TRACE));
+  ASSERT_FALSE(logger::get(RAFT_NAME).should_log_for(RAFT_LEVEL_DEBUG));
+  ASSERT_TRUE(logger::get(RAFT_NAME).should_log_for(RAFT_LEVEL_INFO));
+  ASSERT_TRUE(logger::get(RAFT_NAME).should_log_for(RAFT_LEVEL_WARN));
 }
 
 std::string logged = "";
@@ -50,21 +50,21 @@ class loggerTest : public ::testing::Test {
   {
     flushCount = 0;
     logged     = "";
-    logger::get().set_level(RAFT_LEVEL_TRACE);
+    logger::get(RAFT_NAME).set_level(RAFT_LEVEL_TRACE);
   }
 
   void TearDown() override
   {
-    logger::get().set_callback(nullptr);
-    logger::get().set_flush(nullptr);
-    logger::get().set_level(RAFT_LEVEL_INFO);
+    logger::get(RAFT_NAME).set_callback(nullptr);
+    logger::get(RAFT_NAME).set_flush(nullptr);
+    logger::get(RAFT_NAME).set_level(RAFT_LEVEL_INFO);
   }
 };
 
 TEST_F(loggerTest, callback)
 {
   std::string testMsg;
-  logger::get().set_callback(exampleCallback);
+  logger::get(RAFT_NAME).set_callback(exampleCallback);
 
   testMsg = "This is a critical message";
   RAFT_LOG_CRITICAL(testMsg.c_str());
@@ -89,8 +89,8 @@ TEST_F(loggerTest, callback)
 
 TEST_F(loggerTest, flush)
 {
-  logger::get().set_flush(exampleFlush);
-  logger::get().flush();
+  logger::get(RAFT_NAME).set_flush(exampleFlush);
+  logger::get(RAFT_NAME).flush();
   ASSERT_EQ(1, flushCount);
 }
 

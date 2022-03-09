@@ -25,11 +25,73 @@
 #include <string>
 #include <unordered_map>
 
-#include <raft/common/detail/logger.hpp>
+#include <stdarg.h>
+
+#define SPDLOG_HEADER_ONLY
+#include <raft/common/detail/callback_sink.hpp>
+#include <spdlog/sinks/stdout_color_sinks.h>  // NOLINT
+#include <spdlog/spdlog.h>                    // NOLINT
+
+/**
+ * @defgroup logging levels used in raft
+ *
+ * @note exactly match the corresponding ones (but reverse in terms of value)
+ *       in spdlog for wrapping purposes
+ *
+ * @{
+ */
+#define RAFT_LEVEL_TRACE    6
+#define RAFT_LEVEL_DEBUG    5
+#define RAFT_LEVEL_INFO     4
+#define RAFT_LEVEL_WARN     3
+#define RAFT_LEVEL_ERROR    2
+#define RAFT_LEVEL_CRITICAL 1
+#define RAFT_LEVEL_OFF      0
+/** @} */
+
+#if !defined(RAFT_ACTIVE_LEVEL)
+#define RAFT_ACTIVE_LEVEL RAFT_LEVEL_DEBUG
+#endif
 
 namespace raft {
 
+static const std::string RAFT_NAME = "raft";
 static const std::string default_log_pattern("[%L] [%H:%M:%S.%f] %v");
+
+/**
+ * @defgroup CStringFormat Expand a C-style format string
+ *
+ * @brief Expands C-style formatted string into std::string
+ *
+ * @param[in] fmt format string
+ * @param[in] vl  respective values for each of format modifiers in the string
+ *
+ * @return the expanded `std::string`
+ *
+ * @{
+ */
+std::string format(const char* fmt, va_list& vl)
+{
+  char buf[4096];
+  vsnprintf(buf, sizeof(buf), fmt, vl);
+  return std::string(buf);
+}
+
+std::string format(const char* fmt, ...)
+{
+  va_list vl;
+  va_start(vl, fmt);
+  std::string str = format(fmt, vl);
+  va_end(vl);
+  return str;
+}
+/** @} */
+
+int convert_level_to_spdlog(int level)
+{
+  level = std::max(RAFT_LEVEL_OFF, std::min(RAFT_LEVEL_TRACE, level));
+  return RAFT_LEVEL_TRACE - level;
+}
 
 /**
  * @brief The main Logging class for raft library.
@@ -78,7 +140,7 @@ class logger {
    */
   void set_level(int level)
   {
-    level = detail::convert_level_to_spdlog(level);
+    level = convert_level_to_spdlog(level);
     spdlogger->set_level(static_cast<spdlog::level::level_enum>(level));
   }
 
@@ -117,7 +179,7 @@ class logger {
    */
   bool should_log_for(int level) const
   {
-    level        = detail::convert_level_to_spdlog(level);
+    level        = convert_level_to_spdlog(level);
     auto level_e = static_cast<spdlog::level::level_enum>(level);
     return spdlogger->should_log(level_e);
   }
@@ -147,13 +209,13 @@ class logger {
    */
   void log(int level, const char* fmt, ...)
   {
-    level        = detail::convert_level_to_spdlog(level);
+    level        = convert_level_to_spdlog(level);
     auto level_e = static_cast<spdlog::level::level_enum>(level);
     // explicit check to make sure that we only expand messages when required
     if (spdlogger->should_log(level_e)) {
       va_list vl;
       va_start(vl, fmt);
-      auto msg = detail::format(fmt, vl);
+      auto msg = format(fmt, vl);
       va_end(vl);
       spdlogger->log(level_e, msg);
     }
@@ -176,36 +238,61 @@ class logger {
   int cur_level;
 };  // class logger
 
-/**
- * @brief RAII based pattern setter for logger class
- *
- * @code{.cpp}
- * {
- *   PatternSetter _("%l -- %v");
- *   RAFT_LOG_INFO("Test message\n");
- * }
- * @endcode
- */
-class PatternSetter {
- public:
-  /**
-   * @brief Set the pattern for the rest of the log messages
-   * @param[in] pattern pattern to be set
-   */
-  PatternSetter(const std::string& pattern = "%v") : prev_pattern()
-  {
-    prev_pattern = logger::get().get_pattern();
-    logger::get().set_pattern(pattern);
-  }
-
-  /**
-   * @brief This will restore the previous pattern that was active during the
-   *        moment this object was created
-   */
-  ~PatternSetter() { logger::get().set_pattern(prev_pattern); }
-
- private:
-  std::string prev_pattern;
-};  // class PatternSetter
-
 };  // namespace raft
+
+/**
+ * @defgroup loggerMacros Helper macros for dealing with logging
+ * @{
+ */
+#if (RAFT_ACTIVE_LEVEL >= RAFT_LEVEL_TRACE)
+#define RAFT_LOG_TRACE(fmt, ...)                                          \
+  do {                                                                    \
+    std::stringstream ss;                                                 \
+    ss << raft::detail::format("%s:%d ", __FILE__, __LINE__);             \
+    ss << raft::detail::format(fmt, ##__VA_ARGS__);                       \
+    raft::logger::get(RAFT_NAME).log(RAFT_LEVEL_TRACE, ss.str().c_str()); \
+  } while (0)
+#else
+#define RAFT_LOG_TRACE(fmt, ...) void(0)
+#endif
+
+#if (RAFT_ACTIVE_LEVEL >= RAFT_LEVEL_DEBUG)
+#define RAFT_LOG_DEBUG(fmt, ...)                                          \
+  do {                                                                    \
+    std::stringstream ss;                                                 \
+    ss << raft::format("%s:%d ", __FILE__, __LINE__);                     \
+    ss << raft::format(fmt, ##__VA_ARGS__);                               \
+    raft::logger::get(RAFT_NAME).log(RAFT_LEVEL_DEBUG, ss.str().c_str()); \
+  } while (0)
+#else
+#define RAFT_LOG_DEBUG(fmt, ...) void(0)
+#endif
+
+#if (RAFT_ACTIVE_LEVEL >= RAFT_LEVEL_INFO)
+#define RAFT_LOG_INFO(fmt, ...) \
+  raft::logger::get(RAFT_NAME).log(RAFT_LEVEL_INFO, fmt, ##__VA_ARGS__)
+#else
+#define RAFT_LOG_INFO(fmt, ...) void(0)
+#endif
+
+#if (RAFT_ACTIVE_LEVEL >= RAFT_LEVEL_WARN)
+#define RAFT_LOG_WARN(fmt, ...) \
+  raft::logger::get(RAFT_NAME).log(RAFT_LEVEL_WARN, fmt, ##__VA_ARGS__)
+#else
+#define RAFT_LOG_WARN(fmt, ...) void(0)
+#endif
+
+#if (RAFT_ACTIVE_LEVEL >= RAFT_LEVEL_ERROR)
+#define RAFT_LOG_ERROR(fmt, ...) \
+  raft::logger::get(RAFT_NAME).log(RAFT_LEVEL_ERROR, fmt, ##__VA_ARGS__)
+#else
+#define RAFT_LOG_ERROR(fmt, ...) void(0)
+#endif
+
+#if (RAFT_ACTIVE_LEVEL >= RAFT_LEVEL_CRITICAL)
+#define RAFT_LOG_CRITICAL(fmt, ...) \
+  raft::logger::get(RAFT_NAME).log(RAFT_LEVEL_CRITICAL, fmt, ##__VA_ARGS__)
+#else
+#define RAFT_LOG_CRITICAL(fmt, ...) void(0)
+#endif
+/** @} */
