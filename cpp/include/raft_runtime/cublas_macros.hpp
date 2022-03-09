@@ -14,11 +14,6 @@
  * limitations under the License.
  */
 
-/**
- * @warning This file is deprecated and will be removed in release 22.06.
- * Please use raft_runtime/cublas_macros.hpp instead.
- */
-
 #ifndef __RAFT_RT_CUBLAS_MACROS_H
 #define __RAFT_RT_CUBLAS_MACROS_H
 
