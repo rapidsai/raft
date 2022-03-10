@@ -93,20 +93,12 @@ gpuci_logger "Adding ${CONDA_PREFIX}/lib to LD_LIBRARY_PATH"
 export LD_LIBRARY_PATH_CACHED=$LD_LIBRARY_PATH
 export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
 
-gpuci_logger "Build C++ and pyraft targets"
+gpuci_logger "Build C++ and Python targets"
 # These should link against the existing shared libs
 if hasArg --skip-tests; then
-  "$WORKSPACE/build.sh" pyraft libraft -v --nogtest
+  "$WORKSPACE/build.sh" pyraft pylibraft libraft -v --nogtest
 else
   "$WORKSPACE/build.sh" pyraft libraft -v
-fi
-
-gpuci_logger "Build C++ and pylibraft targets"
-# These should link against the existing shared libs
-if hasArg --skip-tests; then
-  "$WORKSPACE/build.sh" pylibraft libraft -v --nogtest
-else
-  "$WORKSPACE/build.sh" pylibraft libraft -v
 fi
 
 gpuci_logger "sccache stats"
@@ -140,5 +132,6 @@ gpuci_logger "Python pytest for pyraft"
 cd "$WORKSPACE/python/raft"
 python -m pytest --cache-clear --junitxml="$WORKSPACE/junit-raft.xml" -v -s
 
+gpuci_logger "Python pytest for pylibraft"
 cd "$WORKSPACE/python/pylibraft"
 python -m pytest --cache-clear --junitxml="$WORKSPACE/junit-raft.xml" -v -s
