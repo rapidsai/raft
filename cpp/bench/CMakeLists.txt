@@ -46,8 +46,6 @@ target_include_directories(${RAFT_CPP_BENCH_TARGET}
 target_link_libraries(${RAFT_CPP_BENCH_TARGET}
   PRIVATE
     raft::raft
-    raft::distance
-    raft::nn
     faiss::faiss
     benchmark::benchmark
     $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
