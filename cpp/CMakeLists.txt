@@ -66,6 +66,8 @@ message(VERBOSE "RAFT: Enable lineinfo in nvcc: ${CUDA_ENABLE_LINEINFO}")
 message(VERBOSE "RAFT: Enable nvtx markers: ${NVTX}")
 message(VERBOSE "RAFT: Statically link the CUDA runtime: ${CUDA_STATIC_RUNTIME}")
 
+list(APPEND raft_FIND_COMPONENTS "headers")
+
 # Set RMM logging level
 set(RMM_LOGGING_LEVEL "INFO" CACHE STRING "Choose the logging level.")
 set_property(CACHE RMM_LOGGING_LEVEL PROPERTY STRINGS "TRACE" "DEBUG" "INFO" "WARN" "ERROR" "CRITICAL" "OFF")
@@ -98,8 +100,7 @@ endif()
 # * set other CUDA compilation flags
 rapids_find_package(CUDAToolkit REQUIRED
     BUILD_EXPORT_SET raft-exports
-    INSTALL_EXPORT_SET raft-exports
-    )
+    INSTALL_EXPORT_SET raft-exports)
 include(cmake/modules/ConfigureCUDA.cmake)
 
 ##############################################################################
