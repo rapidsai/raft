@@ -124,6 +124,13 @@ endif()
 
 ##############################################################################
 # - raft ---------------------------------------------------------------------
+set(RAFT_LINK_LIBS
+        CUDA::cublas
+        CUDA::curand
+        CUDA::cusolver
+        CUDA::cudart
+        CUDA::cusparse
+        rmm::rmm)
 
 add_library(raft_headers INTERFACE)
 add_library(raft::headers ALIAS raft_headers)
@@ -161,14 +168,6 @@ endif()
 
 ##############################################################################
 # - raft_runtime -------------------------------------------------------------
-
-set(RAFT_LINK_LIBS
-        CUDA::cublas
-        CUDA::curand
-        CUDA::cusolver
-        CUDA::cudart
-        CUDA::cusparse
-        rmm::rmm)
 
 add_library(raft INTERFACE)
 add_library(raft::raft ALIAS raft)
