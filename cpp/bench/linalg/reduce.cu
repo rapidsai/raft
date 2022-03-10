@@ -21,15 +21,15 @@
 
 namespace raft::bench::linalg {
 
-struct params {
+struct input_size {
   int rows, cols;
-  bool alongRows;
+  bool along_rows;
 };
 
 template <typename T>
 struct reduce : public fixture {
-  reduce(const params& p)
-    : params(p), in(params.rows * params.cols, stream), out(params.rows, stream)
+  reduce(bool along_rows, const input_size& p)
+    : input_size(p), along_rows(along_rows), in(p.rows * p.cols, stream), out(p.rows, stream)
   {
   }
 
@@ -37,32 +37,26 @@ struct reduce : public fixture {
   {
     loop_on_state(state, [this]() {
       raft::linalg::reduce(
-        out.data(), in.data(), params.cols, params.rows, T(0.f), true, params.alongRows, stream);
+        out.data(), in.data(), input_size.cols, input_size.rows, T(0.f), true, along_rows, stream);
     });
   }
 
  private:
-  params params;
+  bool along_rows;
+  input_size input_size;
   rmm::device_uvector<T> in, out;
 };  // struct reduce
 
-const std::vector<params> inputs{
-  {8 * 1024, 1024, false},
-  {1024, 8 * 1024, false},
-  {8 * 1024, 8 * 1024, false},
-  {32 * 1024, 1024, false},
-  {1024, 32 * 1024, false},
-  {32 * 1024, 32 * 1024, false},
+const std::vector<input_size> kInputSizes{{8 * 1024, 1024},
+                                          {1024, 8 * 1024},
+                                          {8 * 1024, 8 * 1024},
+                                          {32 * 1024, 1024},
+                                          {1024, 32 * 1024},
+                                          {32 * 1024, 32 * 1024}};
 
-  {8 * 1024, 1024, true},
-  {1024, 8 * 1024, true},
-  {8 * 1024, 8 * 1024, true},
-  {32 * 1024, 1024, true},
-  {1024, 32 * 1024, true},
-  {32 * 1024, 32 * 1024, true},
-};
+const std::vector<bool> kAlongRows{false, true};
 
-RAFT_BENCH_REGISTER(reduce<float>, "", inputs);
-RAFT_BENCH_REGISTER(reduce<double>, "", inputs);
+RAFT_BENCH_REGISTER(reduce<float>, "", kAlongRows, kInputSizes);
+RAFT_BENCH_REGISTER(reduce<double>, "", kAlongRows, kInputSizes);
 
 }  // namespace raft::bench::linalg
