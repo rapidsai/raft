@@ -48,10 +48,7 @@ struct selection : public fixture {
 
   void run_benchmark(::benchmark::State& state) override
   {
-    rmm::mr::cuda_memory_resource cuda_mr;
-    rmm::mr::pool_memory_resource<rmm::mr::cuda_memory_resource> pool_mr{
-      &cuda_mr, size_t(1) << size_t(30), size_t(16) << size_t(30)};
-    rmm::mr::set_current_device_resource(&pool_mr);
+    using_pool_memory_res res;
     try {
       std::ostringstream label_stream;
       label_stream << params_.n_inputs << "#" << params_.input_len << "#" << params_.k;
@@ -71,7 +68,6 @@ struct selection : public fixture {
     } catch (raft::exception& e) {
       state.SkipWithError(e.what());
     }
-    rmm::mr::set_current_device_resource(nullptr);
   }
 
  private:
