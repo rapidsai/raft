@@ -61,6 +61,7 @@ gpuci_mamba_retry install -y -c conda-forge -c rapidsai -c rapidsai-nightly -c n
       "breathe" \
       "dask-cudf=${MINOR_VERSION}" \
       "dask-cuda=${MINOR_VERSION}" \
+      "libraft-distance=${MINOR_VERSION}" \
       "ucx-py=${UCX_PY_VERSION}" \
       "rapids-build-env=${MINOR_VERSION}.*" \
       "rapids-notebook-env=${MINOR_VERSION}.*" \
