@@ -242,7 +242,7 @@ if(RAFT_COMPILE_LIBRARIES OR RAFT_COMPILE_DIST_LIBRARY)
 endif()
 
 target_link_libraries(raft_distance INTERFACE
-    raft::raft_runtime
+    raft::runtime
     $<TARGET_NAME_IF_EXISTS:raft_distance_lib>
     $<TARGET_NAME_IF_EXISTS:raft::raft_distance_lib>
 )
@@ -285,7 +285,7 @@ if(RAFT_COMPILE_LIBRARIES OR RAFT_COMPILE_NN_LIBRARY)
 
 endif()
 
-target_link_libraries(raft_nn INTERFACE raft::raft_runtime faiss::faiss
+target_link_libraries(raft_nn INTERFACE raft::runtime faiss::faiss
     $<TARGET_NAME_IF_EXISTS:raft_nn_lib>
     $<TARGET_NAME_IF_EXISTS:raft::raft_nn_lib>)
 
@@ -375,7 +375,7 @@ endif()
 
 # Use `rapids_export` for 22.04 as it will have COMPONENT support
 include(cmake/modules/raft_export.cmake)
-raft_export(INSTALL raft_runtime
+raft_export(INSTALL raft
     COMPONENTS nn distance
     EXPORT_SET raft-runtime-exports
     GLOBAL_TARGETS raft nn distance
@@ -385,7 +385,7 @@ raft_export(INSTALL raft_runtime
 
 ##############################################################################
 # - build export -------------------------------------------------------------
-raft_export(BUILD raft_runtime
+raft_export(BUILD raft
     EXPORT_SET raft-runtime-exports
     COMPONENTS nn distance
     GLOBAL_TARGETS raft raft_distance raft_nn
