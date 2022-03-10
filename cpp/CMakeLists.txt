@@ -301,7 +301,7 @@ install(TARGETS raft_runtime
 
 install(TARGETS raft
         DESTINATION ${lib_dir}
-        EXPORT raft-runtime-exports)
+        EXPORT raft-exports)
 
 install(TARGETS raft_distance
         DESTINATION ${lib_dir}
