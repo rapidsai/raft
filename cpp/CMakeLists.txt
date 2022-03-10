@@ -375,7 +375,7 @@ endif()
 # Use `rapids_export` for 22.04 as it will have COMPONENT support
 include(cmake/modules/raft_export.cmake)
 raft_export(INSTALL raft
-    COMPONENTS nn distance
+    COMPONENTS headers nn distance
     EXPORT_SET raft-exports
     GLOBAL_TARGETS headers nn distance
     NAMESPACE raft::
@@ -386,7 +386,7 @@ raft_export(INSTALL raft
 # - build export -------------------------------------------------------------
 raft_export(BUILD raft
     EXPORT_SET raft-exports
-    COMPONENTS nn distance
+    COMPONENTS headers nn distance
     GLOBAL_TARGETS raft_headers raft_distance raft_nn
     DOCUMENTATION doc_string
     NAMESPACE raft::
@@ -405,7 +405,6 @@ if(TARGET raft_nn_lib)
   list(APPEND raft_components  nn-lib)
 endif()
 
-list(APPEND raft_components headers)
 foreach(comp IN LISTS raft_components)
   install(
     EXPORT raft-${comp}-exports
