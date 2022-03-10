@@ -61,7 +61,6 @@ gpuci_mamba_retry install -y -c conda-forge -c rapidsai -c rapidsai-nightly -c n
       "breathe" \
       "dask-cudf=${MINOR_VERSION}" \
       "dask-cuda=${MINOR_VERSION}" \
-      "libraft-distance=${MINOR_VERSION}" \
       "ucx-py=${UCX_PY_VERSION}" \
       "rapids-build-env=${MINOR_VERSION}.*" \
       "rapids-notebook-env=${MINOR_VERSION}.*" \
@@ -94,12 +93,20 @@ gpuci_logger "Adding ${CONDA_PREFIX}/lib to LD_LIBRARY_PATH"
 export LD_LIBRARY_PATH_CACHED=$LD_LIBRARY_PATH
 export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
 
-gpuci_logger "Build C++ and Python targets"
+gpuci_logger "Build C++ and pyraft targets"
 # These should link against the existing shared libs
 if hasArg --skip-tests; then
   "$WORKSPACE/build.sh" pyraft libraft -v --nogtest
 else
   "$WORKSPACE/build.sh" pyraft libraft -v
+fi
+
+gpuci_logger "Build C++ and pylibraft targets"
+# These should link against the existing shared libs
+if hasArg --skip-tests; then
+  "$WORKSPACE/build.sh" pylibraft libraft -v --nogtest
+else
+  "$WORKSPACE/build.sh" pylibraft libraft -v
 fi
 
 gpuci_logger "sccache stats"
@@ -129,7 +136,9 @@ gpuci_logger "GoogleTest for raft"
 cd "$WORKSPACE/cpp/build"
 GTEST_OUTPUT="xml:$WORKSPACE/test-results/raft_cpp/" ./test_raft
 
-gpuci_logger "Python pytest for raft"
-cd "$WORKSPACE/python"
+gpuci_logger "Python pytest for pyraft"
+cd "$WORKSPACE/python/raft"
+python -m pytest --cache-clear --junitxml="$WORKSPACE/junit-raft.xml" -v -s
 
+cd "$WORKSPACE/python/pylibraft"
 python -m pytest --cache-clear --junitxml="$WORKSPACE/junit-raft.xml" -v -s
