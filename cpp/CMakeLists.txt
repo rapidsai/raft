@@ -242,7 +242,7 @@ if(RAFT_COMPILE_LIBRARIES OR RAFT_COMPILE_DIST_LIBRARY)
 endif()
 
 target_link_libraries(raft_distance INTERFACE
-    raft::runtime
+    raft::raft_runtime
     $<TARGET_NAME_IF_EXISTS:raft_distance_lib>
     $<TARGET_NAME_IF_EXISTS:raft::raft_distance_lib>
 )
@@ -285,7 +285,7 @@ if(RAFT_COMPILE_LIBRARIES OR RAFT_COMPILE_NN_LIBRARY)
 
 endif()
 
-target_link_libraries(raft_nn INTERFACE raft::runtime faiss::faiss
+target_link_libraries(raft_nn INTERFACE raft::raft_runtime faiss::faiss
     $<TARGET_NAME_IF_EXISTS:raft_nn_lib>
     $<TARGET_NAME_IF_EXISTS:raft::raft_nn_lib>)
 
