@@ -113,6 +113,7 @@ extensions = [
               include_dirs=include_dirs,
               library_dirs=[get_python_lib()],
               runtime_library_dirs=[cuda_lib_dir,
+                                    get_python_lib(),
                                     os.path.join(os.sys.prefix, "lib")],
               libraries=libs,
               language='c++',

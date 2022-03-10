@@ -97,8 +97,8 @@ endif()
 # * enable the CMake CUDA language
 # * set other CUDA compilation flags
 rapids_find_package(CUDAToolkit REQUIRED
-    BUILD_EXPORT_SET raft-runtime-exports
-    INSTALL_EXPORT_SET raft-runtime-exports
+    BUILD_EXPORT_SET raft-exports
+    INSTALL_EXPORT_SET raft-exports
     )
 include(cmake/modules/ConfigureCUDA.cmake)
 
@@ -404,6 +404,8 @@ endif()
 if(TARGET raft_nn_lib)
   list(APPEND raft_components  nn-lib)
 endif()
+
+list(APPEND raft_components headers)
 foreach(comp IN LISTS raft_components)
   install(
     EXPORT raft-${comp}-exports
