@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,9 +16,16 @@
 
 #pragma once
 
+#include <memory>
+
 #include <raft/cudart_utils.h>
+#include <raft/interruptible.hpp>
 
 #include <benchmark/benchmark.h>
+
+#include <rmm/cuda_stream.hpp>
+#include <rmm/cuda_stream_view.hpp>
+#include <rmm/device_buffer.hpp>
 
 namespace raft::bench {
 
@@ -26,194 +33,160 @@ namespace raft::bench {
  * RAII way of timing cuda calls. This has been shamelessly copied from the
  * cudf codebase via cuml codebase. So, credits for this class goes to cudf developers.
  */
-struct CudaEventTimer {
+struct cuda_event_timer {
+ private:
+  ::benchmark::State* state_;
+  rmm::cuda_stream_view stream_;
+  cudaEvent_t start_;
+  cudaEvent_t stop_;
+
  public:
   /**
-   * @brief This ctor clears the L2 cache by cudaMemset'ing a buffer of the size
-   *        of L2 and then starts the timer.
-   * @param st the benchmark::State whose timer we are going to update.
-   * @param ptr         flush the L2 cache by writing to this buffer before
-   *                    every iteration. It is the responsibility of the caller
-   *                    to manage this buffer. Pass a `nullptr` if L2 flush is
-   *                    not needed.
-   * @param l2CacheSize L2 Cache size (in B). Passing this as 0 also disables
-   *                    the L2 cache flush.
-   * @param s           CUDA stream we are measuring time on.
+   * @param state  the benchmark::State whose timer we are going to update.
+   * @param stream CUDA stream we are measuring time on.
    */
-  CudaEventTimer(::benchmark::State& st, char* ptr, int l2CacheSize, cudaStream_t s)
-    : state(&st), stream(s)
+  cuda_event_timer(::benchmark::State& state, rmm::cuda_stream_view stream)
+    : state_(&state), stream_(stream)
   {
-    RAFT_CUDA_TRY(cudaEventCreate(&start));
-    RAFT_CUDA_TRY(cudaEventCreate(&stop));
-    // flush L2?
-    if (ptr != nullptr && l2CacheSize > 0) {
-      RAFT_CUDA_TRY(cudaMemsetAsync(ptr, 0, sizeof(char) * l2CacheSize, s));
-      RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
-    }
-    RAFT_CUDA_TRY(cudaEventRecord(start, stream));
+    RAFT_CUDA_TRY(cudaEventCreate(&start_));
+    RAFT_CUDA_TRY(cudaEventCreate(&stop_));
+    raft::interruptible::synchronize(stream_);
+    RAFT_CUDA_TRY(cudaEventRecord(start_, stream_));
   }
-  CudaEventTimer() = delete;
+  cuda_event_timer() = delete;
 
   /**
    * @brief The dtor stops the timer and performs a synchroniazation. Time of
    *       the benchmark::State object provided to the ctor will be set to the
    *       value given by `cudaEventElapsedTime()`.
    */
-  ~CudaEventTimer()
+  ~cuda_event_timer()
   {
-    RAFT_CUDA_TRY_NO_THROW(cudaEventRecord(stop, stream));
-    RAFT_CUDA_TRY_NO_THROW(cudaEventSynchronize(stop));
+    RAFT_CUDA_TRY_NO_THROW(cudaEventRecord(stop_, stream_));
+    raft::interruptible::synchronize(stop_);
     float milliseconds = 0.0f;
-    RAFT_CUDA_TRY_NO_THROW(cudaEventElapsedTime(&milliseconds, start, stop));
-    state->SetIterationTime(milliseconds / 1000.f);
-    RAFT_CUDA_TRY_NO_THROW(cudaEventDestroy(start));
-    RAFT_CUDA_TRY_NO_THROW(cudaEventDestroy(stop));
+    RAFT_CUDA_TRY_NO_THROW(cudaEventElapsedTime(&milliseconds, start_, stop_));
+    state_->SetIterationTime(milliseconds / 1000.f);
+    RAFT_CUDA_TRY_NO_THROW(cudaEventDestroy(start_));
+    RAFT_CUDA_TRY_NO_THROW(cudaEventDestroy(stop_));
   }
+};
 
+/** Main fixture to be inherited and used by all other c++ benchmarks */
+class fixture {
  private:
-  ::benchmark::State* state;
-  cudaStream_t stream = 0;
-  cudaEvent_t start;
-  cudaEvent_t stop;
-};  // end struct CudaEventTimer
+  rmm::cuda_stream stream_owner_{};
+  rmm::device_buffer scratch_buf_;
 
-/** Main fixture to be inherited and used by all other c++ benchmarks in cuml */
-class Fixture : public ::benchmark::Fixture {
  public:
-  Fixture(const std::string& name) : ::benchmark::Fixture() { SetName(name.c_str()); }
-  Fixture() = delete;
+  rmm::cuda_stream_view stream;
 
-  void SetUp(const ::benchmark::State& state) override
+  fixture() : stream{stream_owner_.view()}
   {
-    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
-    allocateBuffers(state);
-    int devId = 0;
-    RAFT_CUDA_TRY(cudaGetDevice(&devId));
-    l2CacheSize = 0;
-    RAFT_CUDA_TRY(cudaDeviceGetAttribute(&l2CacheSize, cudaDevAttrL2CacheSize, devId));
-    if (l2CacheSize > 0) {
-      alloc(scratchBuffer, l2CacheSize, false);
-    } else {
-      scratchBuffer = nullptr;
-    }
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    int l2_cache_size = 0;
+    int device_id     = 0;
+    RAFT_CUDA_TRY(cudaGetDevice(&device_id));
+    RAFT_CUDA_TRY(cudaDeviceGetAttribute(&l2_cache_size, cudaDevAttrL2CacheSize, device_id));
+    scratch_buf_ = rmm::device_buffer(l2_cache_size, stream);
   }
 
-  void TearDown(const ::benchmark::State& state) override
-  {
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
-    if (l2CacheSize > 0) { dealloc(scratchBuffer, l2CacheSize); }
-    deallocateBuffers(state);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
-    RAFT_CUDA_TRY(cudaStreamDestroy(stream));
-  }
-
-  // to keep compiler happy
-  void SetUp(::benchmark::State& st) override { SetUp(const_cast<const ::benchmark::State&>(st)); }
-
-  // to keep compiler happy
-  void TearDown(::benchmark::State& st) override
-  {
-    TearDown(const_cast<const ::benchmark::State&>(st));
-  }
-
- protected:
   // every benchmark should be overriding this
-  virtual void runBenchmark(::benchmark::State& state) = 0;
-  virtual void generateMetrics(::benchmark::State& state) {}
-  virtual void allocateBuffers(const ::benchmark::State& state) {}
-  virtual void deallocateBuffers(const ::benchmark::State& state) {}
+  virtual void run_benchmark(::benchmark::State& state) = 0;
+  virtual void generate_metrics(::benchmark::State& state) {}
 
-  void BenchmarkCase(::benchmark::State& state)
-  {
-    runBenchmark(state);
-    generateMetrics(state);
-  }
-
+  /**
+   * The helper to be used inside `run_benchmark`, to loop over the state and record time using the
+   * cuda_event_timer.
+   */
   template <typename Lambda>
-  void loopOnState(::benchmark::State& state, Lambda benchmarkFunc, bool flushL2 = true)
+  void loop_on_state(::benchmark::State& state, Lambda benchmark_func, bool flush_L2 = true)
   {
-    char* buff;
-    int size;
-    if (flushL2) {
-      buff = scratchBuffer;
-      size = l2CacheSize;
-    } else {
-      buff = nullptr;
-      size = 0;
-    }
     for (auto _ : state) {
-      CudaEventTimer timer(state, buff, size, stream);
-      benchmarkFunc();
+      if (flush_L2) {
+        RAFT_CUDA_TRY(cudaMemsetAsync(scratch_buf_.data(), 0, scratch_buf_.size(), stream));
+      }
+      cuda_event_timer timer(state, stream);
+      benchmark_func();
     }
   }
-
-  template <typename T>
-  void alloc(T*& ptr, size_t len, bool init = false)
-  {
-    auto nBytes  = len * sizeof(T);
-    auto d_alloc = rmm::mr::get_current_device_resource();
-    ptr          = (T*)d_alloc->allocate(nBytes, stream);
-    if (init) { RAFT_CUDA_TRY(cudaMemsetAsync(ptr, 0, nBytes, stream)); }
-  }
-
-  template <typename T>
-  void dealloc(T* ptr, size_t len)
-  {
-    auto d_alloc = rmm::mr::get_current_device_resource();
-    d_alloc->deallocate(ptr, len * sizeof(T), stream);
-  }
-
-  cudaStream_t stream = 0;
-  int l2CacheSize;
-  char* scratchBuffer;
-};  // class Fixture
+};
 
 namespace internal {
-template <typename Params, typename Class>
-struct Registrar {
-  Registrar(const std::vector<Params>& paramsList,
-            const std::string& testClass,
-            const std::string& testName)
+
+template <typename Class, typename... Params>
+class Fixture : public ::benchmark::Fixture {
+  using State = ::benchmark::State;
+
+ public:
+  Fixture(const std::string& name, const Params&... params)
+    : ::benchmark::Fixture(), params_(params...)
   {
-    int counter = 0;
-    for (const auto& param : paramsList) {
+    SetName(name.c_str());
+  }
+  Fixture() = delete;
+
+  void SetUp(const State& state) override
+  {
+    fixture_ =
+      std::apply([](const Params&... ps) { return std::make_unique<Class>(ps...); }, params_);
+  }
+  void TearDown(const State& state) override { fixture_.reset(); }
+  void SetUp(State& st) override { SetUp(const_cast<const State&>(st)); }
+  void TearDown(State& st) override { TearDown(const_cast<const State&>(st)); }
+
+ private:
+  std::unique_ptr<Class> fixture_;
+  std::tuple<Params...> params_;
+
+ protected:
+  void BenchmarkCase(State& state) override
+  {
+    fixture_->run_benchmark(state);
+    fixture_->generate_metrics(state);
+  }
+};  // class Fixture
+
+template <typename Class>
+struct Registrar {
+  template <typename... Params>
+  Registrar(const std::string& testClass,
+            const std::string& testName,
+            const std::vector<Params>&... params)
+  {
+    int params_len = 1;
+    (params_len = std::max<int>(params_len, params.size()), ...);
+    (params_len = std::min<int>(params_len, params.size()), ...);
+    for (int i = 0; i < params_len; i++) {
       std::stringstream oss;
       oss << testClass;
-      if (!testName.empty()) oss << "/" << testName;
-      oss << "/" << counter;
-      auto testFullName = oss.str();
-      auto* b = ::benchmark::internal::RegisterBenchmarkInternal(new Class(testFullName, param));
-      ///@todo: expose a currying-like interface to the final macro
+      if (!testName.empty()) { oss << "/" << testName; }
+      if (params_len > 1) { oss << "/" << i; }
+      auto full_name = oss.str();
+      auto* b        = ::benchmark::internal::RegisterBenchmarkInternal(
+        new Fixture<Class, Params...>(full_name, params[i]...));
       b->UseManualTime();
       b->Unit(benchmark::kMillisecond);
-      ++counter;
     }
   }
 };  // end struct Registrar
 };  // end namespace internal
 
 /**
- * This is the entry point macro for all ml benchmarks. This needs to be called
+ * This is the entry point macro for all benchmarks. This needs to be called
  * for the set of benchmarks to be registered so that the main harness inside
  * google bench can find these benchmarks and run them.
  *
- * @param ParamsClass a struct which contains all the parameters needed to
- *                    generate inputs and run the underlying prim on it.
- *                    Ideally, one such struct is needed for every ml-prim.
- * @param TestClass   child class of `MLCommon::Bench::Fixture` which contains
+ * @param TestClass   child class of `raft::bench::Fixture` which contains
  *                    the logic to generate the dataset and run training on it
  *                    for a given algo. Ideally, once such struct is needed for
  *                    every algo to be benchmarked
  * @param TestName    a unique string to identify these tests at the end of run
  *                    This is optional and if choose not to use this, pass an
  *                    empty string
- * @param params      list of params upon which to benchmark the prim. It can be
- *                    a statically populated vector or from the result of
- *                    calling a function
+ * @param params...   zero or more lists of params upon which to benchmark.
  */
-#define RAFT_BENCH_REGISTER(ParamsClass, TestClass, TestName, params)                     \
-  static raft::bench::internal::Registrar<ParamsClass, TestClass> BENCHMARK_PRIVATE_NAME( \
-    registrar)(params, #TestClass, TestName)
+#define RAFT_BENCH_REGISTER(TestClass, ...)                                             \
+  static raft::bench::internal::Registrar<TestClass> BENCHMARK_PRIVATE_NAME(registrar)( \
+    #TestClass, __VA_ARGS__)
 
 }  // namespace raft::bench

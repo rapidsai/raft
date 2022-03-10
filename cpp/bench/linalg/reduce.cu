@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,44 +17,36 @@
 #include <common/benchmark.hpp>
 #include <raft/linalg/reduce.hpp>
 
+#include <rmm/device_uvector.hpp>
+
 namespace raft::bench::linalg {
 
-struct Params {
+struct params {
   int rows, cols;
   bool alongRows;
 };
 
 template <typename T>
-struct Reduce : public Fixture {
-  Reduce(const std::string& name, const Params& p) : Fixture(name), params(p) {}
-
- protected:
-  void allocateBuffers(const ::benchmark::State& state) override
+struct reduce : public fixture {
+  reduce(const params& p)
+    : params(p), in(params.rows * params.cols, stream), out(params.rows, stream)
   {
-    alloc(data, params.rows * params.cols, true);
-    alloc(dots, params.rows, true);
   }
 
-  void deallocateBuffers(const ::benchmark::State& state) override
+  void run_benchmark(::benchmark::State& state) override
   {
-    dealloc(data, params.rows * params.cols);
-    dealloc(dots, params.rows);
-  }
-
-  void runBenchmark(::benchmark::State& state) override
-  {
-    loopOnState(state, [this]() {
+    loop_on_state(state, [this]() {
       raft::linalg::reduce(
-        dots, data, params.cols, params.rows, T(0.f), true, params.alongRows, stream);
+        out.data(), in.data(), params.cols, params.rows, T(0.f), true, params.alongRows, stream);
     });
   }
 
  private:
-  Params params;
-  T *data, *dots;
-};  // struct Reduce
+  params params;
+  rmm::device_uvector<T> in, out;
+};  // struct reduce
 
-const std::vector<Params> inputs{
+const std::vector<params> inputs{
   {8 * 1024, 1024, false},
   {1024, 8 * 1024, false},
   {8 * 1024, 8 * 1024, false},
@@ -70,7 +62,7 @@ const std::vector<Params> inputs{
   {32 * 1024, 32 * 1024, true},
 };
 
-RAFT_BENCH_REGISTER(Params, Reduce<float>, "", inputs);
-RAFT_BENCH_REGISTER(Params, Reduce<double>, "", inputs);
+RAFT_BENCH_REGISTER(reduce<float>, "", inputs);
+RAFT_BENCH_REGISTER(reduce<double>, "", inputs);
 
 }  // namespace raft::bench::linalg
