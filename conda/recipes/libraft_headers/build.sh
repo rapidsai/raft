@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
 
-./build.sh libraft -v --allgpuarch --nogtest
+./build.sh libraft -v --allgpuarch

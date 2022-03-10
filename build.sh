@@ -18,25 +18,26 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libraft pyraft docs -v -g --noinstall --compile-libs --compile-nn --compile-dist --allgpuarch --nvtx --show_depr_warn -h --nogtest --buildfaiss"
+VALIDARGS="clean libraft pyraft docs tests bench -v -g --noinstall --compile-libs --compile-nn --compile-dist --allgpuarch --nvtx --show_depr_warn -h --buildfaiss"
 HELP="$0 [<target> ...] [<flag> ...]
  where <target> is:
    clean            - remove all existing build artifacts and configuration (start over)
    libraft          - build the raft C++ code only. Also builds the C-wrapper library
                       around the C++ code.
-   pyraft             - build the cuml Python package
+   pyraft           - build the cuml Python package
    docs             - build the documentation
+   tests            - build the tests
+   bench            - build the benchmarks
 
  and <flag> is:
    -v               - verbose build mode
    -g               - build for debug
-   --compile-libs    - compile shared libraries for all components
+   --compile-libs   - compile shared libraries for all components
    --compile-nn     - compile shared library for nn component
    --compile-dist   - compile shared library for distance component
    --allgpuarch     - build for all supported GPU architectures
    --buildfaiss     - build faiss statically into raft
-   --nogtest        - do not build google tests for libraft
-   --noinstall     - do not install cmake targets
+   --noinstall      - do not install cmake targets
    --nvtx           - Enable nvtx for profiling support
    --show_depr_warn - show cmake deprecation warnings
    -h               - print this text
@@ -53,12 +54,13 @@ BUILD_DIRS="${LIBRAFT_BUILD_DIR} ${PY_RAFT_BUILD_DIR} ${PYTHON_DEPS_CLONE}"
 CMAKE_LOG_LEVEL=""
 VERBOSE_FLAG=""
 BUILD_ALL_GPU_ARCH=0
-BUILD_TESTS=YES
+BUILD_TESTS=OFF
+BUILD_BENCH=OFF
 BUILD_STATIC_FAISS=OFF
 COMPILE_LIBRARIES=OFF
 COMPILE_NN_LIBRARY=OFF
 COMPILE_DIST_LIBRARY=OFF
-ENABLE_NN_DEPENDENCIES=${BUILD_TESTS}
+ENABLE_NN_DEPENDENCIES=OFF
 NVTX=OFF
 CLEAN=0
 DISABLE_DEPRECATION_WARNINGS=ON
@@ -110,11 +112,6 @@ fi
 if hasArg --allgpuarch; then
     BUILD_ALL_GPU_ARCH=1
 fi
-if hasArg --nogtest; then
-    BUILD_TESTS=OFF
-    COMPILE_LIBRARIES=OFF
-    ENABLE_NN_DEPENDENCIES=OFF
-fi
 
 if hasArg --compile-libs || (( ${NUMARGS} == 0 )); then
   COMPILE_LIBRARIES=ON
@@ -123,11 +120,24 @@ fi
 if hasArg --compile-nn || hasArg --compile-libs || (( ${NUMARGS} == 0 )); then
     ENABLE_NN_DEPENDENCIES=ON
     COMPILE_NN_LIBRARY=ON
-    CMAKE_TARGET="raft_nn_lib;${CMAKE_TARGET}"
+    CMAKE_TARGET="${CMAKE_TARGET};raft_nn_lib"
 fi
+
 if hasArg --compile-dist || hasArg --compile-libs || (( ${NUMARGS} == 0 )); then
     COMPILE_DIST_LIBRARY=ON
-    CMAKE_TARGET="raft_distance_lib;${CMAKE_TARGET}"
+    CMAKE_TARGET="${CMAKE_TARGET};raft_distance_lib"
+fi
+
+if hasArg tests || (( ${NUMARGS} == 0 )); then
+    BUILD_TESTS=ON
+    ENABLE_NN_DEPENDENCIES=ON
+    CMAKE_TARGET="${CMAKE_TARGET};test_raft"
+fi
+
+if hasArg bench || (( ${NUMARGS} == 0 )); then
+    BUILD_BENCH=ON
+    ENABLE_NN_DEPENDENCIES=ON
+    CMAKE_TARGET="${CMAKE_TARGET};bench_raft"
 fi
 
 if hasArg --buildfaiss; then
@@ -165,7 +175,7 @@ fi
 
 ################################################################################
 # Configure for building all C++ targets
-if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs; then
+if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || hasArg bench; then
     if (( ${BUILD_ALL_GPU_ARCH} == 0 )); then
         RAFT_CMAKE_CUDA_ARCHITECTURES="NATIVE"
         echo "Building for the architecture of the GPU in the system..."
@@ -184,17 +194,13 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs; then
           -DNVTX=${NVTX} \
           -DDISABLE_DEPRECATION_WARNINGS=${DISABLE_DEPRECATION_WARNINGS} \
           -DBUILD_TESTS=${BUILD_TESTS} \
+          -DBUILD_BENCH=${BUILD_BENCH} \
           -DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL} \
           -DRAFT_COMPILE_NN_LIBRARY=${COMPILE_NN_LIBRARY} \
           -DRAFT_COMPILE_DIST_LIBRARY=${COMPILE_DIST_LIBRARY} \
           -DRAFT_USE_FAISS_STATIC=${BUILD_STATIC_FAISS}
 
-  if (( ${NUMARGS} == 0 )) || hasArg libraft; then
-      # Run all c++ targets at once
-      if ! hasArg --nogtest; then
-        CMAKE_TARGET="${CMAKE_TARGET};test_raft;"
-      fi
-
+  if [[ ${CMAKE_TARGET} != "" ]] || [[ ${INSTALL_TARGET} != "" ]]; then
       echo "-- Compiling targets: ${CMAKE_TARGET}, verbose=${VERBOSE_FLAG}"
       cmake --build  "${LIBRAFT_BUILD_DIR}" ${VERBOSE_FLAG} -j${PARALLEL_LEVEL} --target ${CMAKE_TARGET} ${INSTALL_TARGET}
   fi

@@ -30,7 +30,7 @@ RAFT depends on many different core libraries such as `thrust`, `cub`, `cucollec
 
 The following example builds and installs raft in header-only mode:
 ```bash
-./build.sh libraft --nogtest
+./build.sh libraft
 ```
 
 ###<a id="shared_cpp_libs"></a>C++ Shared Libraries (optional)
@@ -40,19 +40,19 @@ Shared libraries are provided to speed up compile times for larger libraries whi
 Build all the shared libraries by passing `--compile-libs` flag to `build.sh`:
 
 ```bash
-./build.sh libraft --compile-libs --nogtest
+./build.sh libraft --compile-libs
 ```
 
 To remain flexible, the individual shared libraries have their own flags and multiple can be used (though currently only the `nn` and `distance` packages contain shared libraries):
 ```bash
-./build.sh libraft --compile-nn --compile-dist --nogtest
+./build.sh libraft --compile-nn --compile-dist
 ```
 
 ###<a id="gtests"></a>Googletests
 
-Compile the Googletests by removing the `--nogtest` flag from `build.sh`:
+Compile the Googletests using the `tests` target in `build.sh`:
 ```bash
-./build.sh libraft --compile-nn --compile-dist
+./build.sh libraft tests --compile-nn --compile-dist
 ```
 
 To run C++ tests:
@@ -63,9 +63,9 @@ To run C++ tests:
 
 ###<a id="benchmarks"></a>Benchmarks
 
-Compile the benchmarks by removing the `--nogtest` flag from `build.sh`:
+Compile the benchmarks using the `bench` target in `build.sh`:
 ```bash
-./build.sh libraft --compile-nn --compile-dist
+./build.sh libraft bench --compile-nn --compile-dist
 ```
 
 To run C++ tests:
@@ -91,7 +91,7 @@ RAFT's cmake has the following configurable flags available:.
 | Flag | Possible Values | Default Value | Behavior |
 | --- | --- | --- | --- |
 | BUILD_TESTS | ON, OFF | ON | Compile Googletests |
-| BUILD_BENCH | ON, OFF | BUILD_TESTS | Compile benchmarks |
+| BUILD_BENCH | ON, OFF | ON | Compile benchmarks |
 | RAFT_COMPILE_LIBRARIES | ON, OFF | OFF | Compiles all `libraft` shared libraries (these are required for Googletests) |
 | RAFT_COMPILE_NN_LIBRARY | ON, OFF | ON | Compiles the `libraft-nn` shared library |
 | RAFT_COMPILE_DIST_LIBRARY | ON, OFF | ON | Compiles the `libraft-distance` shared library |
