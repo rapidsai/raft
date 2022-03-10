@@ -18,8 +18,8 @@ function(find_and_configure_thrust)
 
     rapids_cpm_thrust(
             NAMESPACE raft
-            BUILD_EXPORT_SET raft-exports
-            INSTALL_EXPORT_SET raft-exports
+            BUILD_EXPORT_SET raft-headers-exports
+            INSTALL_EXPORT_SET raft-headers-exports
     )
 
 endfunction()

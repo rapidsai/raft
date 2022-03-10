@@ -16,8 +16,8 @@ function(find_and_configure_mdspan VERSION)
   rapids_cpm_find(
     mdspan ${VERSION}
     GLOBAL_TARGETS std::mdspan
-    BUILD_EXPORT_SET    raft-exports
-    INSTALL_EXPORT_SET  raft-exports
+    BUILD_EXPORT_SET    raft-headers-exports
+    INSTALL_EXPORT_SET  raft-headers-exports
     CPM_ARGS
       EXCLUDE_FROM_ALL TRUE
       GIT_REPOSITORY https://github.com/rapidsai/mdspan.git
