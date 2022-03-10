@@ -123,28 +123,11 @@ if(BUILD_TESTS)
 endif()
 
 ##############################################################################
-# - raft_runtime -------------------------------------------------------------
-
-add_library(raft_runtime INTERFACE)
-add_library(raft::runtime ALIAS raft_runtime)
-set_target_properties(raft_runtime PROPERTIES EXPORT_NAME runtime)
-
-target_link_libraries(raft_runtime INTERFACE
-                      CUDA::cublas
-                      CUDA::curand
-                      CUDA::cusolver
-                      CUDA::cudart
-                      CUDA::cusparse
-                      rmm::rmm)
-
-target_compile_definitions(raft_runtime INTERFACE $<$<BOOL:${NVTX}>:NVTX_ENABLED>)
-target_compile_features(raft_runtime INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
-
-##############################################################################
 # - raft ---------------------------------------------------------------------
 
 add_library(raft INTERFACE)
 add_library(raft::raft ALIAS raft)
+#set_target_properties(raft PROPERTIES EXPORT_NAME raft)
 
 target_include_directories(raft INTERFACE
         "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/include>"
@@ -152,8 +135,8 @@ target_include_directories(raft INTERFACE
 
 target_link_libraries(raft INTERFACE
   raft::Thrust
-  raft::runtime
   $<$<BOOL:${NVTX}>:CUDA::nvToolsExt>
+  ${RAFT_LINK_LIBS}
   cuco::cuco
   std::mdspan)
 
@@ -175,6 +158,30 @@ set(RAFT_LIB_TYPE SHARED)
 if(${RAFT_STATIC_LINK_LIBRARIES})
   set(RAFT_LIB_TYPE STATIC)
 endif()
+
+##############################################################################
+# - raft_runtime -------------------------------------------------------------
+
+set(RAFT_LINK_LIBS
+        CUDA::cublas
+        CUDA::curand
+        CUDA::cusolver
+        CUDA::cudart
+        CUDA::cusparse
+        rmm::rmm)
+
+add_library(raft_runtime INTERFACE)
+add_library(raft::runtime ALIAS raft_runtime)
+
+target_include_directories(raft_runtime INTERFACE
+        "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/include>"
+        "$<INSTALL_INTERFACE:include>"
+        )
+target_link_libraries(raft_runtime INTERFACE ${RAFT_LINK_LIBS})
+
+target_compile_definitions(raft_runtime INTERFACE $<$<BOOL:${NVTX}>:NVTX_ENABLED>)
+target_compile_features(raft_runtime INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
+
 ##############################################################################
 # - raft_distance ------------------------------------------------------------
 add_library(raft_distance INTERFACE)
@@ -234,7 +241,8 @@ if(RAFT_COMPILE_LIBRARIES OR RAFT_COMPILE_DIST_LIBRARY)
 
 endif()
 
-target_link_libraries(raft_distance INTERFACE raft::runtime
+target_link_libraries(raft_distance INTERFACE
+    raft::runtime
     $<TARGET_NAME_IF_EXISTS:raft_distance_lib>
     $<TARGET_NAME_IF_EXISTS:raft::raft_distance_lib>
 )
@@ -290,9 +298,11 @@ include(CPack)
 install(TARGETS raft_runtime
         DESTINATION ${lib_dir}
         EXPORT raft-runtime-exports)
+
 install(TARGETS raft
-        DESTINATION ${PROJECT_BINARY_DIR}
-        EXPORT raft-exports)
+        DESTINATION ${lib_dir}
+        EXPORT raft-runtime-exports)
+
 install(TARGETS raft_distance
         DESTINATION ${lib_dir}
         EXPORT raft-distance-exports)
@@ -311,6 +321,7 @@ if(TARGET raft_nn_lib)
           DESTINATION ${lib_dir}
           EXPORT raft-nn-lib-exports)
 endif()
+
 
 install(DIRECTORY include/raft_runtime
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/raft_runtime)
@@ -343,7 +354,7 @@ Imported Targets:
 set(code_string
 [=[
 if(NOT TARGET raft::Thrust)
-  thrust_create_target(raft::Thrust FROM_OPTIONS EXCLUDE_FROM_ALL TRUE)
+  thrust_create_target(raft::Thrust FROM_OPTIONS)
 endif()
 
 if(distance IN_LIST raft_FIND_COMPONENTS)
@@ -364,37 +375,20 @@ endif()
 
 # Use `rapids_export` for 22.04 as it will have COMPONENT support
 include(cmake/modules/raft_export.cmake)
-raft_export(INSTALL runtime
+raft_export(INSTALL raft_runtime
     COMPONENTS nn distance
     EXPORT_SET raft-runtime-exports
-    GLOBAL_TARGETS runtime nn distance
-    NAMESPACE raft::
-    DOCUMENTATION doc_string
-    FINAL_CODE_BLOCK code_string
-    INSTALL_FILES ON)
-
-raft_export(INSTALL raft
-    EXPORT_SET raft-exports
-    GLOBAL_TARGETS raft runtime raft_distance raft_nn
-    COMPONENTS nn distance
+    GLOBAL_TARGETS raft nn distance
     NAMESPACE raft::
     DOCUMENTATION doc_string
     FINAL_CODE_BLOCK code_string)
 
 ##############################################################################
 # - build export -------------------------------------------------------------
-raft_export(BUILD runtime
+raft_export(BUILD raft_runtime
     EXPORT_SET raft-runtime-exports
     COMPONENTS nn distance
-    GLOBAL_TARGETS runtime raft_distance raft_nn
-    DOCUMENTATION doc_string
-    NAMESPACE raft::
-    FINAL_CODE_BLOCK code_string)
-
-raft_export(BUILD raft
-    EXPORT_SET raft-exports
-    GLOBAL_TARGETS raft runtime raft_distance raft_nn
-    COMPONENTS nn distance
+    GLOBAL_TARGETS raft raft_distance raft_nn
     DOCUMENTATION doc_string
     NAMESPACE raft::
     FINAL_CODE_BLOCK code_string)
