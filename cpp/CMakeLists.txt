@@ -138,7 +138,7 @@ if(TARGET raft_headers AND (NOT TARGET raft::headers))
   add_library(raft::headers ALIAS raft_headers)
 endif()
 
-#set_target_properties(raft PROPERTIES EXPORT_NAME raft)
+set_target_properties(raft_headers PROPERTIES EXPORT_NAME headers)
 
 target_include_directories(raft_headers INTERFACE
         "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/include>"
