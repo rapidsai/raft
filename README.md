@@ -103,11 +103,14 @@ After installing RAFT, `find_package(raft COMPONENTS nn distance)` can be used i
 
 RAFT uses the [RAPIDS cmake](https://github.com/rapidsai/rapids-cmake) library, which makes it simple to include in downstream cmake projects. RAPIDS cmake provides a convenience layer around the [Cmake Package Manager (CPM)](https://github.com/cpm-cmake/CPM.cmake). 
 
-After [installing](https://github.com/rapidsai/rapids-cmake#installation) rapids-cmake in your project, you can begin using RAFT by placing the code snippet below in a file named `get_raft.cmake` and including it in your cmake build with `include(get_raft.cmake)`. This will create the `raft::raft` target to add to configure the link libraries for your artifacts.
+After [installing](https://github.com/rapidsai/rapids-cmake#installation) rapids-cmake in your project, you can begin using RAFT by placing the code snippet below in a file named `get_raft.cmake` and including it in your cmake build with `include(get_raft.cmake)`. This will make available several targets to add to configure the link libraries for your artifacts.
 
 ```cmake
 
 set(RAFT_VERSION "22.04")
+set(RAFT_FORK "rapidsai")
+set(RAFT_PINNED_TAG "branch-${RAFT_VERSION}")
+set(RAFT_COMPONENTS "headers")
 
 function(find_and_configure_raft)
   set(oneValueArgs VERSION FORK PINNED_TAG USE_FAISS_STATIC 
@@ -121,12 +124,13 @@ function(find_and_configure_raft)
 
   rapids_cpm_find(raft ${PKG_VERSION}
           GLOBAL_TARGETS      raft::raft
-          BUILD_EXPORT_SET    proj-exports
-          INSTALL_EXPORT_SET  proj-exports
+          BUILD_EXPORT_SET    projname-exports
+          INSTALL_EXPORT_SET  projname-exports
           CPM_ARGS
           GIT_REPOSITORY https://github.com/${PKG_FORK}/raft.git
           GIT_TAG        ${PKG_PINNED_TAG}
           SOURCE_SUBDIR  cpp
+          FIND_PACKAGE_ARGUMENTS "COMPONENTS ${RAFT_COMPONENTS}"
           OPTIONS
           "BUILD_TESTS OFF"
           "RAFT_ENABLE_NN_DEPENDENCIES ${PKG_ENABLE_NN_DEPENDENCIES}"
@@ -140,26 +144,41 @@ endfunction()
 # To use a different RAFT locally, set the CMake variable
 # CPM_raft_SOURCE=/path/to/local/raft
 find_and_configure_raft(VERSION    ${RAFT_VERSION}.00
-        FORK             rapidsai
-        PINNED_TAG       branch-${RAFT_VERSION}
-
+        FORK             ${RAFT_FORK}
+        PINNED_TAG       ${RAFT_PINNED_TAG}
         COMPILE_LIBRARIES      NO
         ENABLE_NN_DEPENDENCIES NO
         USE_FAISS_STATIC       NO
 )
 ```
 
+Several cmake targets can be made available by adding components in the table below to the `RAFT_COMPONENTS` list above, separated by spaces. The `raft::raft` target will always be available.
+
+| Component | Target | Description | Dependencies |
+| --- | --- | --- | --- |
+| n/a | `raft::raft` | Only RAFT runtime headers | Cudatoolkit libraries, RMM |
+| headers | `raft::headers` | ALL RAFT headers | std::mdspan, cuCollections, Thrust, NVTools |
+| distance | `raft::distance` | Pre-compiled template specializations for raft::distance | raft::headers |
+| nn | `raft::nn` | Pre-compiled template specializations for raft::spatial::knn | raft::headers, FAISS |
+
 ### Source
 
 The easiest way to build RAFT from source is to use the `build.sh` script at the root of the repository:
-1. Create an environment with the needed dependencies: `conda env create --name raft_dev -f conda/environments/raft_dev_cuda11.5.yml`
-2. Run the build script from the repository root: `./build.sh pyraft libraft --compile-libs`
+1. Create an environment with the needed dependencies: 
+ ```
+ conda env create --name raft_dev -f conda/environments/raft_dev_cuda11.5.yml
+ conda activate raft_dev
+ ```
+2. Run the build script from the repository root: 
+ ```
+ ./build.sh pyraft libraft tests bench --compile-libs
+ ```
 
 The [Build](BUILD.md) instructions contain more details on building RAFT from source and including it in downstream projects. You can find a more comprehensive version of the above CPM code snippet the [Building RAFT C++ from source](BUILD.md#build_cxx_source) guide.
 
 ## Folder Structure and Contents
 
-The folder structure mirrors other RAPIDS repos (cuDF, cuML, cuGraph...), with the following folders:
+The folder structure mirrors other RAPIDS repos, with the following folders:
 
 - `ci`: Scripts for running CI in PRs
 - `conda`: Conda recipes and development conda environments
