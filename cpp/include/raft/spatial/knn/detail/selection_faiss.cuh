@@ -31,6 +31,12 @@ namespace spatial {
 namespace knn {
 namespace detail {
 
+template <typename key_t, typename payload_t>
+constexpr int kFaissMaxK()
+{
+  return (sizeof(key_t) + sizeof(payload_t) > 8) ? 512 : 1024;
+}
+
 template <typename key_t, typename payload_t, bool select_min, int warp_q, int thread_q, int tpb>
 __global__ void select_k_kernel(key_t* inK,
                                 payload_t* inV,
@@ -100,8 +106,7 @@ inline void select_k_impl(key_t* inK,
   constexpr int n_threads = (warp_q <= 1024) ? 128 : 64;
   auto block              = dim3(n_threads);
 
-  auto kInit =
-    select_min ? faiss::gpu::Limits<key_t>::getMax() : faiss::gpu::Limits<key_t>::getMin();
+  auto kInit = select_min ? upper_bound<key_t>() : lower_bound<key_t>();
   auto vInit = -1;
   if (select_min) {
     select_k_kernel<key_t, payload_t, false, warp_q, thread_q, n_threads>
@@ -138,6 +143,7 @@ inline void select_k(key_t* inK,
                      int k,
                      cudaStream_t stream)
 {
+  constexpr int max_k = kFaissMaxK<payload_t, key_t>();
   if (k == 1)
     select_k_impl<payload_t, key_t, 1, 1>(
       inK, inV, n_rows, n_cols, outK, outV, select_min, k, stream);
@@ -156,11 +162,11 @@ inline void select_k(key_t* inK,
   else if (k <= 512)
     select_k_impl<payload_t, key_t, 512, 8>(
       inK, inV, n_rows, n_cols, outK, outV, select_min, k, stream);
-  else if (k <= 1024)
-    select_k_impl<payload_t, key_t, 1024, 8>(
+  else if (k <= 1024 && k <= max_k)
+    select_k_impl<payload_t, key_t, max_k, 8>(
       inK, inV, n_rows, n_cols, outK, outV, select_min, k, stream);
   else
-    ASSERT(k <= 1024, "Current max k is 1024 (requested %d)", k);
+    ASSERT(k <= max_k, "Current max k is %d (requested %d)", max_k, k);
 }
 
 };  // namespace detail

@@ -22,6 +22,7 @@
 #include <cub/block/radix_rank_sort_operations.cuh>
 
 #include <raft/cudart_utils.h>
+#include <raft/device_atomics.cuh>
 
 /*
   Two implementations:
@@ -176,7 +177,7 @@ __device__ void filter_and_histogram(const T* in_buf,
   if (pass == 0) {
     auto f = [greater, start_bit, mask](T value, IdxT) {
       int bucket = calc_bucket<T, BITS_PER_PASS>(value, start_bit, mask, greater);
-      atomicAdd(histogram_smem + bucket, 1);
+      atomicAdd(histogram_smem + bucket, IdxT(1));
     };
     vectorized_process(in_buf, len, f);
   } else {
@@ -208,11 +209,11 @@ __device__ void filter_and_histogram(const T* in_buf,
       int prev_bucket =
         calc_bucket<T, BITS_PER_PASS>(value, previous_start_bit, previous_mask, greater);
       if (prev_bucket == want_bucket) {
-        IdxT pos     = atomicAdd(&filter_cnt, 1);
+        IdxT pos     = atomicAdd(&filter_cnt, IdxT(1));
         out_buf[pos] = value;
         if (out_idx_buf) { out_idx_buf[pos] = in_idx_buf ? in_idx_buf[i] : i; }
         int bucket = calc_bucket<T, BITS_PER_PASS>(value, start_bit, mask, greater);
-        atomicAdd(histogram_smem + bucket, 1);
+        atomicAdd(histogram_smem + bucket, IdxT(1));
 
         if (counter_len == 1) {
           if (out) {
@@ -223,7 +224,7 @@ __device__ void filter_and_histogram(const T* in_buf,
           }
         }
       } else if (out && prev_bucket < want_bucket) {
-        IdxT pos     = atomicAdd(&out_cnt, 1);
+        IdxT pos     = atomicAdd(&out_cnt, IdxT(1));
         out[pos]     = value;
         out_idx[pos] = in_idx_buf ? in_idx_buf[i] : i;
       }
@@ -385,12 +386,12 @@ __global__ void radix_kernel(const T* in_buf,
           const T value = out_buf[i];
           int bucket    = calc_bucket<T, BITS_PER_PASS>(value, start_bit, mask, greater);
           if (bucket < want_bucket) {
-            IdxT pos     = atomicAdd(&out_cnt, 1);
+            IdxT pos     = atomicAdd(&out_cnt, IdxT(1));
             out[pos]     = value;
             out_idx[pos] = out_idx_buf[i];
           } else if (bucket == want_bucket) {
             IdxT needed_num_of_kth = counter->k;
-            IdxT back_pos          = atomicAdd(&(counter->out_back_cnt), 1);
+            IdxT back_pos          = atomicAdd(&(counter->out_back_cnt), IdxT(1));
             if (back_pos < needed_num_of_kth) {
               IdxT pos     = k - 1 - back_pos;
               out[pos]     = value;

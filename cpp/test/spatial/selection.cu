@@ -95,6 +95,8 @@ struct SelectInOutSimple {
 template <typename KeyT, typename IdxT>
 struct SelectInOutComputed {
  public:
+  bool not_supported = false;
+
   SelectInOutComputed(const SelectTestSpec& spec,
                       knn::SelectKAlgo algo,
                       const std::vector<KeyT>& in_dists,
@@ -104,6 +106,23 @@ struct SelectInOutComputed {
       out_dists_(spec.n_inputs * spec.k),
       out_ids_(spec.n_inputs * spec.k)
   {
+    // check if the size is supported by the algorithm
+    switch (algo) {
+      case knn::SelectKAlgo::WARP_SORT:
+        if (spec.k > raft::spatial::knn::detail::ivf_flat::kMaxCapacity) {
+          not_supported = true;
+          return;
+        }
+        break;
+      case knn::SelectKAlgo::FAISS:
+        if (spec.k > raft::spatial::knn::detail::kFaissMaxK<IdxT, KeyT>()) {
+          not_supported = true;
+          return;
+        }
+        break;
+      default: break;
+    }
+
     auto stream = rmm::cuda_stream_default;
 
     rmm::device_uvector<KeyT> in_dists_d(in_dists_.size(), stream);
@@ -234,6 +253,7 @@ class SelectionTest : public testing::TestWithParam<typename ParamsReader<KeyT, 
 
   void run()
   {
+    if (res.not_supported) { GTEST_SKIP(); }
     ASSERT_TRUE(hostArrMatch(ref.get_out_dists().data(),
                              res.get_out_dists().data(),
                              spec.n_inputs * spec.k,
@@ -325,39 +345,46 @@ struct with_ref {
   };
 };
 
-auto inputs_random_f = testing::Values(SelectTestSpec{20, 700, 1, true},
-                                       SelectTestSpec{20, 700, 2, true},
-                                       SelectTestSpec{20, 700, 3, true},
-                                       SelectTestSpec{20, 700, 4, true},
-                                       SelectTestSpec{20, 700, 5, true},
-                                       SelectTestSpec{20, 700, 6, true},
-                                       SelectTestSpec{20, 700, 7, true},
-                                       SelectTestSpec{20, 700, 8, true},
-                                       SelectTestSpec{20, 700, 9, true},
-                                       SelectTestSpec{20, 700, 10, true},
-                                       SelectTestSpec{20, 700, 11, true},
-                                       SelectTestSpec{20, 700, 12, true},
-                                       SelectTestSpec{20, 700, 16, true},
-                                       SelectTestSpec{100, 1700, 17, true},
-                                       SelectTestSpec{100, 1700, 31, true},
-                                       SelectTestSpec{100, 1700, 32, false},
-                                       SelectTestSpec{100, 1700, 33, false},
-                                       SelectTestSpec{100, 1700, 63, false},
-                                       SelectTestSpec{100, 1700, 64, false},
-                                       SelectTestSpec{100, 1700, 65, false},
-                                       SelectTestSpec{100, 1700, 255, true},
-                                       SelectTestSpec{100, 1700, 256, true},
-                                       SelectTestSpec{100, 1700, 511, false},
-                                       SelectTestSpec{100, 1700, 512, true},
-                                       SelectTestSpec{100, 1700, 1023, false},
-                                       SelectTestSpec{100, 1700, 1024, true},
-                                       SelectTestSpec{100, 1700, 1700, true});
+auto inputs_random = testing::Values(SelectTestSpec{20, 700, 1, true},
+                                     SelectTestSpec{20, 700, 2, true},
+                                     SelectTestSpec{20, 700, 3, true},
+                                     SelectTestSpec{20, 700, 4, true},
+                                     SelectTestSpec{20, 700, 5, true},
+                                     SelectTestSpec{20, 700, 6, true},
+                                     SelectTestSpec{20, 700, 7, true},
+                                     SelectTestSpec{20, 700, 8, true},
+                                     SelectTestSpec{20, 700, 9, true},
+                                     SelectTestSpec{20, 700, 10, true},
+                                     SelectTestSpec{20, 700, 11, true},
+                                     SelectTestSpec{20, 700, 12, true},
+                                     SelectTestSpec{20, 700, 16, true},
+                                     SelectTestSpec{100, 1700, 17, true},
+                                     SelectTestSpec{100, 1700, 31, true},
+                                     SelectTestSpec{100, 1700, 32, false},
+                                     SelectTestSpec{100, 1700, 33, false},
+                                     SelectTestSpec{100, 1700, 63, false},
+                                     SelectTestSpec{100, 1700, 64, false},
+                                     SelectTestSpec{100, 1700, 65, false},
+                                     SelectTestSpec{100, 1700, 255, true},
+                                     SelectTestSpec{100, 1700, 256, true},
+                                     SelectTestSpec{100, 1700, 511, false},
+                                     SelectTestSpec{100, 1700, 512, true},
+                                     SelectTestSpec{100, 1700, 1023, false},
+                                     SelectTestSpec{100, 1700, 1024, true},
+                                     SelectTestSpec{100, 1700, 1700, true});
 
 typedef SelectionTest<float, int, with_ref<knn::SelectKAlgo::FAISS>::params_random>
   ReferencedRandomFloatInt;
 TEST_P(ReferencedRandomFloatInt, Run) { run(); }
 INSTANTIATE_TEST_CASE_P(SelectionTest,
                         ReferencedRandomFloatInt,
-                        testing::Combine(inputs_random_f, selection_algos));
+                        testing::Combine(inputs_random, selection_algos));
+
+typedef SelectionTest<double, int, with_ref<knn::SelectKAlgo::FAISS>::params_random>
+  ReferencedRandomDoubleInt;
+TEST_P(ReferencedRandomDoubleInt, Run) { run(); }
+INSTANTIATE_TEST_CASE_P(SelectionTest,
+                        ReferencedRandomDoubleInt,
+                        testing::Combine(inputs_random, selection_algos));
 
 }  // namespace raft::spatial::selection

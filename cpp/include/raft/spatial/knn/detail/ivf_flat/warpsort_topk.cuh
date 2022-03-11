@@ -121,32 +121,6 @@ static constexpr int kMaxCapacity = 512;
 
 namespace {
 
-template <typename T>
-constexpr T get_lower_bound()
-{
-  if (std::numeric_limits<T>::has_infinity && std::numeric_limits<T>::is_signed) {
-    return -std::numeric_limits<T>::infinity();
-  } else {
-    return std::numeric_limits<T>::lowest();
-  }
-}
-
-template <typename T>
-constexpr T get_upper_bound()
-{
-  if (std::numeric_limits<T>::has_infinity) {
-    return std::numeric_limits<T>::infinity();
-  } else {
-    return std::numeric_limits<T>::max();
-  }
-}
-
-template <typename T>
-constexpr T get_dummy(bool greater)
-{
-  return greater ? get_lower_bound<T>() : get_upper_bound<T>();
-}
-
 template <bool greater, typename T>
 __device__ inline bool is_greater_than(T val, T baseline)
 {
@@ -217,7 +191,7 @@ class WarpSort {
 template <int capacity, bool greater, typename T, typename IdxT>
 class WarpSelect : public WarpSort<capacity, greater, T, IdxT> {
  public:
-  __device__ WarpSelect(IdxT k, T dummy)
+  __device__ WarpSelect(int k, T dummy)
     : WarpSort<capacity, greater, T, IdxT>(k, dummy),
       buf_len_(0),
       k_th_(dummy),
@@ -335,7 +309,7 @@ class WarpSelect : public WarpSort<capacity, greater, T, IdxT> {
 template <int capacity, bool greater, typename T, typename IdxT>
 class WarpBitonic : public WarpSort<capacity, greater, T, IdxT> {
  public:
-  __device__ WarpBitonic(IdxT k, T dummy)
+  __device__ WarpBitonic(int k, T dummy)
     : WarpSort<capacity, greater, T, IdxT>(k, dummy), buf_len_(0)
   {
     for (int i = 0; i < max_arr_len_; ++i) {
@@ -465,7 +439,7 @@ class WarpBitonic : public WarpSort<capacity, greater, T, IdxT> {
 template <int capacity, bool greater, typename T, typename IdxT>
 class WarpMerge : public WarpSort<capacity, greater, T, IdxT> {
  public:
-  __device__ WarpMerge(IdxT k, T dummy) : WarpSort<capacity, greater, T, IdxT>(k, dummy) {}
+  __device__ WarpMerge(int k, T dummy) : WarpSort<capacity, greater, T, IdxT>(k, dummy) {}
 
   __device__ void add(const T* in, const IdxT* in_idx, IdxT start, IdxT end)
   {
@@ -507,7 +481,7 @@ template <template <int, bool, typename, typename> class WarpSortWarpWide,
           typename IdxT>
 class WarpSortBlockWide {
  public:
-  __device__ WarpSortBlockWide(IdxT k, T dummy, void* smem_buf)
+  __device__ WarpSortBlockWide(int k, T dummy, void* smem_buf)
     : queue_(k, dummy), k_(k), dummy_(dummy)
   {
     val_smem_             = static_cast<T*>(smem_buf);
@@ -601,14 +575,8 @@ template <template <int, bool, typename, typename> class WarpSortClass,
           bool greater,
           typename T,
           typename IdxT>
-__global__ void block_kernel(const T* in,
-                             const IdxT* in_idx,
-                             IdxT batch_size,
-                             IdxT len,
-                             IdxT k,
-                             T* out,
-                             IdxT* out_idx,
-                             T dummy)
+__global__ void block_kernel(
+  const T* in, const IdxT* in_idx, IdxT batch_size, IdxT len, int k, T* out, IdxT* out_idx, T dummy)
 {
   extern __shared__ __align__(sizeof(T) * 256) uint8_t smem_buf_bytes[];
   T* smem_buf = (T*)smem_buf_bytes;
@@ -702,7 +670,7 @@ struct launch_setup {
       }
     }
     ASSERT(capacity <= Capacity, "Requested k is too big (%d)", k);
-    T dummy = get_dummy<T>(greater);
+    T dummy = greater ? lower_bound<T>() : upper_bound<T>();
     if (greater) {
       block_kernel<WarpSortClass, Capacity, true>
         <<<batch_size * num_blocks, block_dim, smem_size, stream>>>(
@@ -822,7 +790,6 @@ void warp_sort_topk_(int num_of_block,
   rmm::device_uvector<IdxT> tmp_idx(num_of_block * k * batch_size, stream);
 
   // printf("#block=%d, #warp=%d\n", num_of_block, num_of_warp);
-  // T dummy      = get_dummy<T>(greater);
   int capacity = calc_capacity(k);
 
   T* result_val    = (num_of_block == 1) ? out : tmp_val.data();

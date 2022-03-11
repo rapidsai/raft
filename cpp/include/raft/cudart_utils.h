@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -428,6 +428,22 @@ IntType gcd(IntType a, IntType b)
     a           = tmp;
   }
   return a;
+}
+
+template <typename T>
+constexpr T lower_bound()
+{
+  if constexpr (std::numeric_limits<T>::has_infinity && std::numeric_limits<T>::is_signed) {
+    return -std::numeric_limits<T>::infinity();
+  }
+  return std::numeric_limits<T>::lowest();
+}
+
+template <typename T>
+constexpr T upper_bound()
+{
+  if constexpr (std::numeric_limits<T>::has_infinity) { return std::numeric_limits<T>::infinity(); }
+  return std::numeric_limits<T>::max();
 }
 
 }  // namespace raft
