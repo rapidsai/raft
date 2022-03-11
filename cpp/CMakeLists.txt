@@ -41,6 +41,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # - User Options  ------------------------------------------------------------
 
 option(BUILD_TESTS "Build raft unit-tests" ON)
+option(BUILD_BENCH "Build raft C++ benchmark tests" ON)
 option(CUDA_ENABLE_KERNELINFO "Enable kernel resource usage info" OFF)
 option(CUDA_ENABLE_LINEINFO "Enable the -lineinfo option for nvcc (useful for cuda-memcheck / profiler)" OFF)
 option(CUDA_STATIC_RUNTIME "Statically link the CUDA runtime" OFF)
@@ -58,6 +59,7 @@ include(CMakeDependentOption)
 cmake_dependent_option(RAFT_USE_FAISS_STATIC "Build and statically link the FAISS library for nearest neighbors search on GPU" ON RAFT_COMPILE_LIBRARIES OFF)
 
 message(VERBOSE "RAFT: Build RAFT unit-tests: ${BUILD_TESTS}")
+message(VERBOSE "RAFT: Building raft C++ benchmarks: ${BUILD_BENCH}")
 message(VERBOSE "RAFT: Enable detection of conda environment for dependencies: ${DETECT_CONDA_ENV}")
 message(VERBOSE "RAFT: Disable depreaction warnings " ${DISABLE_DEPRECATION_WARNINGS})
 message(VERBOSE "RAFT: Disable OpenMP: ${DISABLE_OPENMP}")
@@ -121,6 +123,10 @@ if(BUILD_TESTS)
   include(cmake/thirdparty/get_gtest.cmake)
   include(cmake/thirdparty/get_nccl.cmake)
   include(cmake/thirdparty/get_ucx.cmake)
+endif()
+
+if(BUILD_BENCH)
+  include(cmake/thirdparty/get_gbench.cmake)
 endif()
 
 ##############################################################################
@@ -444,6 +450,13 @@ endforeach()
 
 if(BUILD_TESTS)
   include(test/CMakeLists.txt)
+endif()
+
+##############################################################################
+# - build benchmark executable -----------------------------------------------
+
+if(BUILD_BENCH)
+  include(bench/CMakeLists.txt)
 endif()
 
 ##############################################################################

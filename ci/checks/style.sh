@@ -43,6 +43,7 @@ fi
 
 # Check for a consistent #include syntax
 HASH_INCLUDE=`python cpp/scripts/include_checker.py \
+                     cpp/bench \
                      cpp/include \
                      cpp/test \
                      2>&1`
