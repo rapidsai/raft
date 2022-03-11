@@ -16,6 +16,7 @@
 
 # keep the files in alphabetical order!
 add_executable(test_raft
+    test/common/logger.cpp
     test/common/seive.cu
     test/cudart_utils.cpp
     test/cluster_solvers.cu
@@ -139,25 +140,25 @@ add_executable(test_raft
 )
 
 set_target_properties(test_raft
-PROPERTIES BUILD_RPATH                         "\$ORIGIN"
-           # set target compile options
-           CXX_STANDARD                        17
-           CXX_STANDARD_REQUIRED               ON
-           CUDA_STANDARD                       17
-           CUDA_STANDARD_REQUIRED              ON
-           POSITION_INDEPENDENT_CODE           ON
-           INTERFACE_POSITION_INDEPENDENT_CODE ON
-           INSTALL_RPATH "\$ORIGIN/../../../lib"
-)
+        PROPERTIES BUILD_RPATH                         "\$ORIGIN"
+        # set target compile options
+        CXX_STANDARD                        17
+        CXX_STANDARD_REQUIRED               ON
+        CUDA_STANDARD                       17
+        CUDA_STANDARD_REQUIRED              ON
+        POSITION_INDEPENDENT_CODE           ON
+        INTERFACE_POSITION_INDEPENDENT_CODE ON
+        INSTALL_RPATH "\$ORIGIN/../../../lib"
+        )
 
 target_compile_options(test_raft
         PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
-                "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
-)
+        "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
+        )
 
 target_include_directories(test_raft
-    PUBLIC  "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/test>"
-)
+        PUBLIC  "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/test>"
+        )
 
 
 target_link_libraries(test_raft
@@ -176,8 +177,8 @@ PRIVATE
 )
 
 install(
-    TARGETS test_raft
-    COMPONENT testing
-    DESTINATION bin/libraft/gtests
-    EXCLUDE_FROM_ALL
+        TARGETS test_raft
+        COMPONENT testing
+        DESTINATION bin/libraft/gtests
+        EXCLUDE_FROM_ALL
 )

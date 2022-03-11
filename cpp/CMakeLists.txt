@@ -16,7 +16,7 @@
 
 cmake_minimum_required(VERSION 3.20.1 FATAL_ERROR)
 file(DOWNLOAD https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-22.04/RAPIDS.cmake
-    ${CMAKE_BINARY_DIR}/RAPIDS.cmake)
+        ${CMAKE_BINARY_DIR}/RAPIDS.cmake)
 include(${CMAKE_BINARY_DIR}/RAPIDS.cmake)
 include(rapids-cmake)
 include(rapids-cpm)
@@ -41,6 +41,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # - User Options  ------------------------------------------------------------
 
 option(BUILD_TESTS "Build raft unit-tests" ON)
+option(BUILD_BENCH "Build raft C++ benchmark tests" ON)
 option(CUDA_ENABLE_KERNELINFO "Enable kernel resource usage info" OFF)
 option(CUDA_ENABLE_LINEINFO "Enable the -lineinfo option for nvcc (useful for cuda-memcheck / profiler)" OFF)
 option(CUDA_STATIC_RUNTIME "Statically link the CUDA runtime" OFF)
@@ -58,6 +59,7 @@ include(CMakeDependentOption)
 cmake_dependent_option(RAFT_USE_FAISS_STATIC "Build and statically link the FAISS library for nearest neighbors search on GPU" ON RAFT_COMPILE_LIBRARIES OFF)
 
 message(VERBOSE "RAFT: Build RAFT unit-tests: ${BUILD_TESTS}")
+message(VERBOSE "RAFT: Building raft C++ benchmarks: ${BUILD_BENCH}")
 message(VERBOSE "RAFT: Enable detection of conda environment for dependencies: ${DETECT_CONDA_ENV}")
 message(VERBOSE "RAFT: Disable depreaction warnings " ${DISABLE_DEPRECATION_WARNINGS})
 message(VERBOSE "RAFT: Disable OpenMP: ${DISABLE_OPENMP}")
@@ -79,8 +81,8 @@ message(VERBOSE "RAFT: RMM_LOGGING_LEVEL = '${RMM_LOGGING_LEVEL}'.")
 if(DETECT_CONDA_ENV)
   rapids_cmake_support_conda_env( conda_env MODIFY_PREFIX_PATH )
   if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT AND DEFINED ENV{CONDA_PREFIX})
-      message(STATUS "RAFT: No CMAKE_INSTALL_PREFIX argument detected, setting to: $ENV{CONDA_PREFIX}")
-      set(CMAKE_INSTALL_PREFIX "$ENV{CONDA_PREFIX}")
+    message(STATUS "RAFT: No CMAKE_INSTALL_PREFIX argument detected, setting to: $ENV{CONDA_PREFIX}")
+    set(CMAKE_INSTALL_PREFIX "$ENV{CONDA_PREFIX}")
   endif()
 endif()
 
@@ -123,6 +125,10 @@ if(BUILD_TESTS)
   include(cmake/thirdparty/get_ucx.cmake)
 endif()
 
+if(BUILD_BENCH)
+  include(cmake/thirdparty/get_gbench.cmake)
+endif()
+
 ##############################################################################
 # - raft ---------------------------------------------------------------------
 set(RAFT_LINK_LIBS
@@ -156,7 +162,7 @@ target_compile_features(raft_headers INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda
 
 if(RAFT_COMPILE_LIBRARIES OR RAFT_COMPILE_DIST_LIBRARY OR RAFT_COMPILE_NN_LIBRARY)
   file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld"
-[=[
+          [=[
 SECTIONS
 {
 .nvFatBinSegment : { *(.nvFatBinSegment) }
@@ -262,17 +268,17 @@ set_target_properties(raft_nn PROPERTIES EXPORT_NAME nn)
 
 if(RAFT_COMPILE_LIBRARIES OR RAFT_COMPILE_NN_LIBRARY)
   add_library(raft_nn_lib ${RAFT_LIB_TYPE}
-    src/nn/specializations/ball_cover.cu
-    src/nn/specializations/detail/ball_cover_lowdim_pass_one_2d.cu
-    src/nn/specializations/detail/ball_cover_lowdim_pass_two_2d.cu
-    src/nn/specializations/detail/ball_cover_lowdim_pass_one_3d.cu
-    src/nn/specializations/detail/ball_cover_lowdim_pass_two_3d.cu
-    src/nn/specializations/fused_l2_knn_long_float_true.cu
-    src/nn/specializations/fused_l2_knn_long_float_false.cu
-    src/nn/specializations/fused_l2_knn_int_float_true.cu
-    src/nn/specializations/fused_l2_knn_int_float_false.cu
-    src/nn/specializations/knn.cu
-  )
+          src/nn/specializations/ball_cover.cu
+          src/nn/specializations/detail/ball_cover_lowdim_pass_one_2d.cu
+          src/nn/specializations/detail/ball_cover_lowdim_pass_two_2d.cu
+          src/nn/specializations/detail/ball_cover_lowdim_pass_one_3d.cu
+          src/nn/specializations/detail/ball_cover_lowdim_pass_two_3d.cu
+          src/nn/specializations/fused_l2_knn_long_float_true.cu
+          src/nn/specializations/fused_l2_knn_long_float_false.cu
+          src/nn/specializations/fused_l2_knn_int_float_true.cu
+          src/nn/specializations/fused_l2_knn_int_float_false.cu
+          src/nn/specializations/knn.cu
+          )
   set_target_properties(raft_nn_lib PROPERTIES OUTPUT_NAME raft_nn)
 
   target_link_libraries(raft_nn_lib PRIVATE raft::headers faiss::faiss)
@@ -336,7 +342,7 @@ install(FILES include/raft_runtime/raft.hpp
 ##############################################################################
 # - install export -----------------------------------------------------------
 set(doc_string
-[=[
+        [=[
 Provide targets for the RAFT: RAPIDS Analytics Framework Toolkit.
 
 RAFT (Reusable Analytics Functions and other Tools) contains fundamental
@@ -384,7 +390,7 @@ if(nn IN_LIST raft_FIND_COMPONENTS)
   endif()
 endif()
 ]=]
-)
+        )
 
 # Use `rapids_export` for 22.04 as it will have COMPONENT support
 include(cmake/modules/raft_export.cmake)
@@ -421,21 +427,21 @@ endif()
 
 foreach(comp IN LISTS raft_components)
   install(
-    EXPORT raft-${comp}-exports
-    FILE raft-${comp}-targets.cmake
-    NAMESPACE raft::
-    DESTINATION "${lib_dir}/cmake/raft"
+          EXPORT raft-${comp}-exports
+          FILE raft-${comp}-targets.cmake
+          NAMESPACE raft::
+          DESTINATION "${lib_dir}/cmake/raft"
   )
   export(
-    EXPORT raft-${comp}-exports
-    FILE ${RAFT_BINARY_DIR}/raft-${comp}-targets.cmake
-    NAMESPACE raft::
+          EXPORT raft-${comp}-exports
+          FILE ${RAFT_BINARY_DIR}/raft-${comp}-targets.cmake
+          NAMESPACE raft::
   )
   rapids_export_write_dependencies(
-    BUILD raft-${comp}-exports "${PROJECT_BINARY_DIR}/raft-${comp}-dependencies.cmake"
+          BUILD raft-${comp}-exports "${PROJECT_BINARY_DIR}/raft-${comp}-dependencies.cmake"
   )
   rapids_export_write_dependencies(
-    INSTALL raft-${comp}-exports "${PROJECT_BINARY_DIR}/rapids-cmake/raft/export/raft-${comp}-dependencies.cmake"
+          INSTALL raft-${comp}-exports "${PROJECT_BINARY_DIR}/rapids-cmake/raft/export/raft-${comp}-dependencies.cmake"
   )
 
 endforeach()
@@ -448,9 +454,16 @@ if(BUILD_TESTS)
 endif()
 
 ##############################################################################
+# - build benchmark executable -----------------------------------------------
+
+if(BUILD_BENCH)
+  include(bench/CMakeLists.txt)
+endif()
+
+##############################################################################
 # - doxygen targets ----------------------------------------------------------
 
 include(cmake/doxygen.cmake)
 add_doxygen_target(IN_DOXYFILE doxygen/Doxyfile.in
-  OUT_DOXYFILE ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
-  CWD ${CMAKE_CURRENT_BINARY_DIR})
+        OUT_DOXYFILE ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
+        CWD ${CMAKE_CURRENT_BINARY_DIR})

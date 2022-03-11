@@ -96,9 +96,14 @@ export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
 gpuci_logger "Build C++ and Python targets"
 # These should link against the existing shared libs
 if hasArg --skip-tests; then
+<<<<<<< HEAD
   "$WORKSPACE/build.sh" pyraft pylibraft libraft -v --nogtest
 else
+=======
+>>>>>>> fea-2204-raft_runtime
   "$WORKSPACE/build.sh" pyraft libraft -v
+else
+  "$WORKSPACE/build.sh" pyraft libraft tests bench -v
 fi
 
 gpuci_logger "sccache stats"
