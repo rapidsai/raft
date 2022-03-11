@@ -134,7 +134,10 @@ set(RAFT_LINK_LIBS
         rmm::rmm)
 
 add_library(raft_headers INTERFACE)
-add_library(raft::headers ALIAS raft_headers)
+if(TARGET raft_distance AND (NOT TARGET raft::distance))
+  add_library(raft::headers ALIAS raft_headers)
+endif()
+
 #set_target_properties(raft PROPERTIES EXPORT_NAME raft)
 
 target_include_directories(raft_headers INTERFACE
@@ -353,8 +356,10 @@ Imported Targets:
 
 set(code_string
 [=[
-if(NOT TARGET raft::Thrust)
-  thrust_create_target(raft::Thrust FROM_OPTIONS)
+if(headers IN_LIST raft_FIND_COMPONENTS)
+  if(NOT TARGET raft::Thrust)
+    thrust_create_target(raft::Thrust FROM_OPTIONS)
+  endif()
 endif()
 
 if(distance IN_LIST raft_FIND_COMPONENTS)
