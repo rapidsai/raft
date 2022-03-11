@@ -22,7 +22,7 @@
 
 C++ RAFT is a header-only library but provides the option of building shared libraries with template instantiations for common types to speed up compile times for larger projects.
 
-The recommended way to build and install RAFT is to use the `build.sh` script in the root of the repository. This script can build both the C++ and Python code and provides options for building and installing the headers, Googletests, and individual shared libraries.
+The recommended way to build and install RAFT is to use the `build.sh` script in the root of the repository. This script can build both the C++ and Python code and provides options for building and installing the headers, Googletests, benchmarks, and individual shared libraries.
 
 ### <a id="install_header_only_cpp"></a>Header-only C++
 
@@ -43,7 +43,7 @@ Build all the shared libraries by passing `--compile-libs` flag to `build.sh`:
 ./build.sh libraft --compile-libs
 ```
 
-To remain flexible, the individual shared libraries have their own flags and multiple can be used (though currently only the `nn` and `distance` packages contain shared libraries):
+Individual shared libraries have their own flags and multiple can be used (though currently only the `nn` and `distance` packages contain shared libraries):
 ```bash
 ./build.sh libraft --compile-nn --compile-dist
 ```
@@ -52,7 +52,7 @@ To remain flexible, the individual shared libraries have their own flags and mul
 
 Compile the Googletests using the `tests` target in `build.sh`:
 ```bash
-./build.sh libraft tests --compile-nn --compile-dist
+./build.sh libraft tests --compile-libs
 ```
 
 To run C++ tests:
@@ -65,10 +65,10 @@ To run C++ tests:
 
 Compile the benchmarks using the `bench` target in `build.sh`:
 ```bash
-./build.sh libraft bench --compile-nn --compile-dist
+./build.sh libraft bench
 ```
 
-To run C++ tests:
+To run the benchmarks:
 
 ```bash
 ./cpp/build/bench_raft
@@ -76,7 +76,7 @@ To run C++ tests:
 
 ### <a id="cpp_using_cmake"></a>C++ Using Cmake
 
-To install RAFT into a specific location, use `CMAKE_INSTALL_PREFIX`. The snippet below will install it into the current conda environment.
+To install RAFT into a specific location, use `CMAKE_INSTALL_PREFIX`. The snippet below will install it into the current conda environment:
 ```bash
 cd cpp
 mkdir build
@@ -84,8 +84,6 @@ cd build
 cmake -D BUILD_TESTS=ON -DRAFT_COMPILE_LIBRARIES=ON -DRAFT_ENABLE_NN_DEPENDENCIES=ON  -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX ../
 make install
 ```
-
-
 RAFT's cmake has the following configurable flags available:.
 
 | Flag | Possible Values | Default Value | Behavior |
@@ -112,6 +110,7 @@ Conda environment scripts are provided for installing the necessary dependencies
 
 ```bash
 conda env create --name raft_env -f conda/environments/raft_dev_cuda11.5.yml
+conda activate raft_env
 ```
 
 The Python API can be built using the `build.sh` script:
@@ -130,22 +129,28 @@ python setup.py install
 To run the Python tests:
 ```bash
 cd python
-python -m pytest raft
+py.test -s -v raft
 ```
 
 ## <a id="use_raft"></a>Using RAFT in downstream projects
 
 ### <a id="cxx_integration"></a>C++ header-only integration using cmake
 
-Use RAFT in cmake projects with `find_package(raft)` for header-only operation and the `raft::raft` target will be available for configuring linking and `RAFT_INCLUDE_DIR` will be available for includes. Note that if any packages are used which require downstream dependencies, such as the `libraft-nn` package requiring FAISS, these dependencies will have be installed and configured in cmake independently.
+The RAFT headers are broken down into two different include paths so that build-time headers can be isolated between projects while runtime headers can be installed globally, exposed to users, and shared across projects.
+- `cpp/include/raft_runtime` contains runtime headers that require only rmm and the cudatoolkit libraries. These are safe to expose on public APIs and don't require `nvcc` to compile. 
+- `cpp/include/raft` contains build-time headers that are the core of the RAFT library, containing primitives, algorithms, and other tools.
+
+Use `find_package(raft)` and the `raft::raft` if using RAFT to interact only with the public APIs of consuming projects.
+
+Use `find_package(raft COMPONENTS headers` and both the `raft::raft` and `raft::headers` targets when building a library that uses headers in `include/raft`.
 
 ### <a id="use_shared_libs"></a>Using pre-compiled shared libraries
 
-Use `find_package(raft COMPONENTS nn, distance)` to enable the shared libraries and pass dependencies through separate targets for each component. In this example, `raft::distance` and `raft::nn` targets will be available for configuring linking paths. These targets will also pass through any transitive dependencies (such as FAISS in the case of the `nn` package).
+Use `find_package(raft COMPONENTS headers nn distance)` to enable the shared libraries and pass dependencies through separate targets for each component. In this example, the `raft::distance` and `raft::nn` targets will be available in addition to `raft::raft` and `raft::headers` for configuring linking paths. These targets will also pass through any transitive dependencies (such as FAISS for the `nn` package).
 
-The pre-compiled libraries contain template specializations for commonly used types and require the additional include of header files with `extern template` definitions that tell the compiler not to instantiate templates that are already contained in the shared libraries. By convention, these header files are named `spectializations.hpp` and located in the base directory for the packages that contain specializations.
+The pre-compiled libraries contain template specializations for commonly used types. In order to use the symbols in the pre-compiled libraries, the compiler needs to be told not to instantiate templates that are already contained in the shared libraries. By convention, these header files are named `spectializations.hpp` and located in the base directory for the packages that contain specializations.
 
-The following example shows how to use the `libraft-distance` API with the pre-compiled specializations:
+The following example ignores the pre-compiled templates for the `libraft-distance` API so the symbols from pre-compiled shared library will be used:
 ```c++
 #include <raft/distance/distance.hpp>
 #include <raft/distance/specializations.hpp>
@@ -153,13 +158,15 @@ The following example shows how to use the `libraft-distance` API with the pre-c
 
 ### <a id="build_cxx_source"></a>Building RAFT C++ from source in cmake
 
-RAFT uses the [RAPIDS cmake](https://github.com/rapidsai/rapids-cmake) library, so it can be easily included into downstream projects. RAPIDS cmake provides a convenience layer around the [Cmake Package Manager (CPM)](https://github.com/cpm-cmake/CPM.cmake). The following example is similar to building RAFT itself from source but allows it to be done in cmake, providing the `raft::raft` link target and `RAFT_INCLUDE_DIR` for includes. The `COMPILE_LIBRARIES` option enables the building of the shared libraries.
+RAFT uses the [RAPIDS cmake](https://github.com/rapidsai/rapids-cmake) library so it can be easily included into downstream projects. RAPIDS cmake provides a convenience layer around the [Cmake Package Manager (CPM)](https://github.com/cpm-cmake/CPM.cmake). The following example is similar to building RAFT itself from source but allows it to be done in cmake, providing the `raft::raft` link target for `include/raft_runtime` headers and `raft::headers` for the `include/raft` headers. The `COMPILE_LIBRARIES` option enables the building of the shared libraries.
 
 The following `cmake` snippet enables a flexible configuration of RAFT:
 
 ```cmake
 
 set(RAFT_VERSION "22.04")
+set(RAFT_FORK "rapidsai")
+set(RAFT_PINNED_TAG "branch-${RAFT_VERSION}")
 
 function(find_and_configure_raft)
   set(oneValueArgs VERSION FORK PINNED_TAG USE_FAISS_STATIC
@@ -181,7 +188,7 @@ function(find_and_configure_raft)
   # Add components
   #-----------------------------------------------------
 
-  string(APPEND RAFT_COMPONENTS "")
+  string(APPEND RAFT_COMPONENTS "headers")
   if(PKG_USE_NN_LIBRARY)
     string(APPEND RAFT_COMPONENTS " nn")
   endif()
@@ -196,8 +203,8 @@ function(find_and_configure_raft)
 
   rapids_cpm_find(raft ${PKG_VERSION}
           GLOBAL_TARGETS      raft::raft
-          BUILD_EXPORT_SET    proj-exports
-          INSTALL_EXPORT_SET  proj-exports
+          BUILD_EXPORT_SET    projname-exports
+          INSTALL_EXPORT_SET  projname-exports
           CPM_ARGS
           GIT_REPOSITORY https://github.com/${PKG_FORK}/raft.git
           GIT_TAG        ${PKG_PINNED_TAG}
@@ -216,8 +223,8 @@ endfunction()
 # To use a different RAFT locally, set the CMake variable
 # CPM_raft_SOURCE=/path/to/local/raft
 find_and_configure_raft(VERSION    ${RAFT_VERSION}.00
-        FORK             rapidsai
-        PINNED_TAG       branch-${RAFT_VERSION}
+        FORK             ${RAFT_FORK}
+        PINNED_TAG       ${RAFT_PINNED_TAG}
 
         # When PINNED_TAG above doesn't match cuml,
         # force local raft clone in build directory
