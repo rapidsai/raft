@@ -37,7 +37,9 @@ HELP="$0 [<target> ...] [<flag> ...]
    --allgpuarch     - build for all supported GPU architectures
    --buildfaiss     - build faiss statically into raft
    --nogtest        - do not build google tests for libraft
-   --noinstall     - do not install cmake targets
+   --noinstall      - do not install cmake targets
+   --uninstall-cmake-deps  - uninstall any cmake dependencies
+   --clean
    --nvtx           - Enable nvtx for profiling support
    --show_depr_warn - show cmake deprecation warnings
    -h               - print this text
@@ -216,7 +218,7 @@ if (( ${NUMARGS} == 0 )) || hasArg pyraft || hasArg docs; then
 fi
 
 # Build and (optionally) install the pylibraft Python package
-if (( ${NUMARGS} == 0 )) || hasArg pylibraft || hasArg docs; then
+if (( ${NUMARGS} == 0 )) || hasArg pylibraft; then
 
     cd ${REPODIR}/python/pylibraft
     if [[ ${INSTALL_TARGET} != "" ]]; then
