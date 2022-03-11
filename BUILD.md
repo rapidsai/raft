@@ -26,39 +26,52 @@ The recommended way to build and install RAFT is to use the `build.sh` script in
 
 ### <a id="install_header_only_cpp"></a>Header-only C++
 
-RAFT depends on many different core libraries such as `thrust`, `cub`, `cucollections`, and `rmm`, which will be downloaded automatically by `cmake` even when only installing the headers. It's important to note that while all the headers will be installed and available, some parts of the RAFT API depend on libraries like `FAISS`, which can also be downloaded in the RAFT build but will need to be told to do so. 
+RAFT depends on many different core libraries such as `thrust`, `cub`, `cucollections`, and `rmm`, which will be downloaded automatically by `cmake` even when only installing the headers. It's important to note that while all the headers will be installed and available, some parts of the RAFT API depend on libraries like `FAISS`, which can also be downloaded in the RAFT build but will need to be told to do so.
 
 The following example builds and installs raft in header-only mode:
 ```bash
-./build.sh libraft --nogtest
+./build.sh libraft
 ```
 
 ###<a id="shared_cpp_libs"></a>C++ Shared Libraries (optional)
 
-Shared libraries are provided to speed up compile times for larger libraries which may heavily utilize some of the APIs. These shared libraries can also significantly improve re-compile times while developing against the APIs. 
+Shared libraries are provided to speed up compile times for larger libraries which may heavily utilize some of the APIs. These shared libraries can also significantly improve re-compile times while developing against the APIs.
 
 Build all the shared libraries by passing `--compile-libs` flag to `build.sh`:
 
 ```bash
-./build.sh libraft --compile-libs --nogtest
+./build.sh libraft --compile-libs
 ```
- 
+
 To remain flexible, the individual shared libraries have their own flags and multiple can be used (though currently only the `nn` and `distance` packages contain shared libraries):
 ```bash
-./build.sh libraft --compile-nn --compile-dist --nogtest
+./build.sh libraft --compile-nn --compile-dist
 ```
 
 ###<a id="gtests"></a>Googletests
 
-Compile the Googletests by removing the `--nogtest` flag from `build.sh`:
+Compile the Googletests using the `tests` target in `build.sh`:
 ```bash
-./build.sh libraft --compile-nn --compile-dist
+./build.sh libraft tests --compile-nn --compile-dist
 ```
 
 To run C++ tests:
 
 ```bash
-./test_raft
+./cpp/build/test_raft
+```
+
+###<a id="benchmarks"></a>Benchmarks
+
+Compile the benchmarks using the `bench` target in `build.sh`:
+```bash
+./build.sh libraft bench --compile-nn --compile-dist
+```
+
+To run C++ tests:
+
+```bash
+./cpp/build/bench_raft
 ```
 
 ### <a id="cpp_using_cmake"></a>C++ Using Cmake
@@ -77,15 +90,16 @@ RAFT's cmake has the following configurable flags available:.
 
 | Flag | Possible Values | Default Value | Behavior |
 | --- | --- | --- | --- |
-| BUILD_TESTS | ON, OFF | ON | Compile Googletests |  
+| BUILD_TESTS | ON, OFF | ON | Compile Googletests |
+| BUILD_BENCH | ON, OFF | ON | Compile benchmarks |
 | RAFT_COMPILE_LIBRARIES | ON, OFF | OFF | Compiles all `libraft` shared libraries (these are required for Googletests) |
-| RAFT_COMPILE_NN_LIBRARY | ON, OFF | ON | Compiles the `libraft-nn` shared library |  
-| RAFT_COMPILE_DIST_LIBRARY | ON, OFF | ON | Compiles the `libraft-distance` shared library |  
+| RAFT_COMPILE_NN_LIBRARY | ON, OFF | ON | Compiles the `libraft-nn` shared library |
+| RAFT_COMPILE_DIST_LIBRARY | ON, OFF | ON | Compiles the `libraft-distance` shared library |
 | RAFT_ENABLE_NN_DEPENDENCIES | ON, OFF | OFF | Searches for dependencies of nearest neighbors API, such as FAISS, and compiles them if not found. |
-| RAFT_USE_FAISS_STATIC | ON, OFF | OFF | Statically link FAISS into `libraft-nn` | 
+| RAFT_USE_FAISS_STATIC | ON, OFF | OFF | Statically link FAISS into `libraft-nn` |
 | DETECT_CONDA_ENV | ON, OFF | ON | Enable detection of conda environment for dependencies |
 | NVTX | ON, OFF | OFF | Enable NVTX Markers |
-| CUDA_ENABLE_KERNELINFO | ON, OFF | OFF | Enables `kernelinfo` in nvcc. This is useful for `compute-sanitizer` | 
+| CUDA_ENABLE_KERNELINFO | ON, OFF | OFF | Enables `kernelinfo` in nvcc. This is useful for `compute-sanitizer` |
 | CUDA_ENABLE_LINEINFO  | ON, OFF | OFF | Enable the -lineinfo option for nvcc |
 | CUDA_STATIC_RUNTIME | ON, OFF | OFF | Statically link the CUDA runtime |
 
@@ -115,8 +129,8 @@ python setup.py install
 ```
 
 To run the Python tests:
-```bash 
-cd python 
+```bash
+cd python
 python -m pytest raft
 ```
 
@@ -142,14 +156,14 @@ The following example shows how to use the `libraft-distance` API with the pre-c
 
 RAFT uses the [RAPIDS cmake](https://github.com/rapidsai/rapids-cmake) library, so it can be easily included into downstream projects. RAPIDS cmake provides a convenience layer around the [Cmake Package Manager (CPM)](https://github.com/cpm-cmake/CPM.cmake). The following example is similar to building RAFT itself from source but allows it to be done in cmake, providing the `raft::raft` link target and `RAFT_INCLUDE_DIR` for includes. The `COMPILE_LIBRARIES` option enables the building of the shared libraries.
 
-The following `cmake` snippet enables a flexible configuration of RAFT: 
+The following `cmake` snippet enables a flexible configuration of RAFT:
 
 ```cmake
 
 set(RAFT_VERSION "22.04")
 
 function(find_and_configure_raft)
-  set(oneValueArgs VERSION FORK PINNED_TAG USE_FAISS_STATIC 
+  set(oneValueArgs VERSION FORK PINNED_TAG USE_FAISS_STATIC
           COMPILE_LIBRARIES ENABLE_NN_DEPENDENCIES CLONE_ON_PIN
           USE_NN_LIBRARY USE_DISTANCE_LIBRARY)
   cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
@@ -165,14 +179,14 @@ function(find_and_configure_raft)
   endif()
 
   #-----------------------------------------------------
-  # Add components 
+  # Add components
   #-----------------------------------------------------
 
   string(APPEND RAFT_COMPONENTS "")
   if(PKG_USE_NN_LIBRARY)
     string(APPEND RAFT_COMPONENTS " nn")
   endif()
-  
+
   if(PKG_USE_DISTANCE_LIBRARY)
     string(APPEND RAFT_COMPONENTS " distance")
   endif()
