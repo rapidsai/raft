@@ -104,9 +104,6 @@ fi
 gpuci_logger "sccache stats"
 sccache --show-stats
 
-gpuci_logger "Building docs"
-"$WORKSPACE/build.sh" docs -v
-
 gpuci_logger "Resetting LD_LIBRARY_PATH"
 
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH_CACHED
@@ -135,3 +132,6 @@ python -m pytest --cache-clear --junitxml="$WORKSPACE/junit-raft.xml" -v -s
 gpuci_logger "Python pytest for pylibraft"
 cd "$WORKSPACE/python/pylibraft"
 python -m pytest --cache-clear --junitxml="$WORKSPACE/junit-raft.xml" -v -s
+
+gpuci_logger "Building docs"
+"$WORKSPACE/build.sh" docs -v
