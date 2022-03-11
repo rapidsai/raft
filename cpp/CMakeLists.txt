@@ -356,13 +356,21 @@ Imported Targets:
 
 set(code_string
 [=[
+
+if((distance IN_LIST raft_FIND_COMPONENTS OR
+    nn IN_LIST raft_FIND_COMPONENTS) AND NOT
+    headers IN_LIST raft_FIND_COMPONENTS))
+    FATAL_ERROR("headers must be included to use components ${raft_FIND_COMPONENTS}")
+endif()
+
 if(headers IN_LIST raft_FIND_COMPONENTS)
   if(NOT TARGET raft::Thrust)
     thrust_create_target(raft::Thrust FROM_OPTIONS)
   endif()
 endif()
 
-if(distance IN_LIST raft_FIND_COMPONENTS)
+if(distance IN_LIST raft_FIND_COMPONENTS OR
+   headers IN_LIST raft_FIND_COMPONENTS)
   enable_language(CUDA)
 endif()
 
