@@ -127,11 +127,11 @@ GTEST_OUTPUT="xml:$WORKSPACE/test-results/raft_cpp/" ./test_raft
 
 gpuci_logger "Python pytest for pyraft"
 cd "$WORKSPACE/python/raft"
-python -m pytest --cache-clear --junitxml="$WORKSPACE/junit-raft.xml" -v -s
+python -m pytest --cache-clear --junitxml="$WORKSPACE/junit-pyraft.xml" -v -s
 
 gpuci_logger "Python pytest for pylibraft"
 cd "$WORKSPACE/python/pylibraft"
-python -m pytest --cache-clear --junitxml="$WORKSPACE/junit-raft.xml" -v -s
+python -m pytest --cache-clear --junitxml="$WORKSPACE/junit-pylibraft.xml" -v -s
 
 gpuci_logger "Building docs"
 "$WORKSPACE/build.sh" docs -v
