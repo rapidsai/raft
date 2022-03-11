@@ -156,7 +156,7 @@ Several cmake targets can be made available by adding components in the table be
 
 | Component | Target | Description | Dependencies |
 | --- | --- | --- | --- |
-| n/a | `raft::raft` | Only RAFT runtime headers | Cudatoolkit libraries, RMM |
+| n/a | `raft::raft` | Only RAFT runtime headers. Safe to expose in public APIs | Cudatoolkit libraries, RMM |
 | headers | `raft::headers` | ALL RAFT headers | std::mdspan, cuCollections, Thrust, NVTools |
 | distance | `raft::distance` | Pre-compiled template specializations for raft::distance | raft::headers |
 | nn | `raft::nn` | Pre-compiled template specializations for raft::spatial::knn | raft::headers, FAISS |
