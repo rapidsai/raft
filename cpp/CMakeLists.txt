@@ -134,7 +134,7 @@ set(RAFT_LINK_LIBS
         rmm::rmm)
 
 add_library(raft_headers INTERFACE)
-if(TARGET raft_distance AND (NOT TARGET raft::distance))
+if(TARGET raft_headers AND (NOT TARGET raft::headers))
   add_library(raft::headers ALIAS raft_headers)
 endif()
 
