@@ -163,6 +163,7 @@ target_include_directories(test_raft
 target_link_libraries(test_raft
 PRIVATE
   raft::raft
+  raft::headers
   raft::distance
   raft::nn
   NCCL::NCCL
