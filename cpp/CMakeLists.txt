@@ -197,7 +197,6 @@ set_target_properties(raft_distance PROPERTIES EXPORT_NAME distance)
 
 if(RAFT_COMPILE_LIBRARIES OR RAFT_COMPILE_DIST_LIBRARY)
   add_library(raft_distance_lib ${RAFT_LIB_TYPE}
-          src/distance/pairwise_distance.cu
           src/distance/specializations/detail/canberra.cu
           src/distance/specializations/detail/chebyshev.cu
           src/distance/specializations/detail/correlation.cu
