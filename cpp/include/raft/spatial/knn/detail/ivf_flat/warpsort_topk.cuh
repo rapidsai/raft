@@ -117,7 +117,7 @@
 
 namespace raft::spatial::knn::detail::ivf_flat {
 
-static constexpr int kMaxCapacity = 1024;
+static constexpr int kMaxCapacity = 512;
 
 namespace {
 
@@ -734,8 +734,7 @@ struct LaunchThreshold<WarpBitonic> {
 };
 
 template <template <int, bool, typename, typename> class WarpSortClass, typename T, typename IdxT>
-void calc_launch_parameter(
-  int batch_size, IdxT len, IdxT k, int* p_num_of_block, int* p_num_of_warp)
+void calc_launch_parameter(int batch_size, IdxT len, int k, int* p_num_of_block, int* p_num_of_warp)
 {
   const int capacity = calc_capacity(k);
   int block_size     = 0;
@@ -745,10 +744,10 @@ void calc_launch_parameter(
   int num_of_warp;
   int num_of_block;
   if (batch_size < min_grid_size) {  // may use multiple blocks
-    num_of_warp        = block_size / WarpSize;
-    num_of_block       = min_grid_size / batch_size;
-    IdxT len_per_block = (len - 1) / num_of_block + 1;
-    IdxT len_per_warp  = (len_per_block - 1) / num_of_warp + 1;
+    num_of_warp       = block_size / WarpSize;
+    num_of_block      = min_grid_size / batch_size;
+    int len_per_block = (len - 1) / num_of_block + 1;
+    int len_per_warp  = (len_per_block - 1) / num_of_warp + 1;
 
     len_per_warp  = Pow2<WarpSize>::roundUp(len_per_warp);
     len_per_block = len_per_warp * num_of_warp;
@@ -758,7 +757,7 @@ void calc_launch_parameter(
     if (len_per_warp < capacity * len_factor) {
       len_per_warp  = capacity * len_factor;
       len_per_block = num_of_warp * len_per_warp;
-      if (len_per_block > len) { len_per_block = len; }
+      if ((IdxT)len_per_block > len) { len_per_block = len; }
       num_of_block = (len - 1) / len_per_block + 1;
       num_of_warp  = (len_per_block - 1) / len_per_warp + 1;
     }
@@ -775,10 +774,10 @@ void calc_launch_parameter(
       block_size = Pow2<WarpSize>::roundUp(block_size);
     }
 
-    num_of_warp       = block_size / WarpSize;
-    IdxT len_per_warp = (len - 1) / num_of_warp + 1;
-    len_per_warp      = Pow2<WarpSize>::roundUp(len_per_warp);
-    num_of_warp       = (len - 1) / len_per_warp + 1;
+    num_of_warp      = block_size / WarpSize;
+    int len_per_warp = (len - 1) / num_of_warp + 1;
+    len_per_warp     = Pow2<WarpSize>::roundUp(len_per_warp);
+    num_of_warp      = (len - 1) / len_per_warp + 1;
 
     constexpr int len_factor = LaunchThreshold<WarpSortClass>::len_factor_for_single_block;
     if (len_per_warp < capacity * len_factor) {
@@ -792,7 +791,7 @@ void calc_launch_parameter(
 }
 
 template <typename T, typename IdxT>
-void calc_launch_parameter_for_merge(IdxT len, IdxT k, int* num_of_block, int* num_of_warp)
+void calc_launch_parameter_for_merge(IdxT len, int k, int* num_of_block, int* num_of_warp)
 {
   *num_of_block = 1;
 
@@ -809,53 +808,31 @@ void calc_launch_parameter_for_merge(IdxT len, IdxT k, int* num_of_block, int* n
 template <template <int, bool, typename, typename> class WarpSortClass, typename T, typename IdxT>
 void warp_sort_topk_(int num_of_block,
                      int num_of_warp,
-                     void* buf,
-                     size_t& buf_size,
                      const T* in,
                      const IdxT* in_idx,
-                     IdxT batch_size,
-                     IdxT len,
-                     IdxT k,
+                     size_t batch_size,
+                     size_t len,
+                     int k,
                      T* out,
                      IdxT* out_idx       = nullptr,
                      bool greater        = true,
                      cudaStream_t stream = 0)
 {
-  T* tmp_val    = nullptr;
-  IdxT* tmp_idx = nullptr;
-
-  if (num_of_block > 1) {
-    std::vector<size_t> sizes = {sizeof(T) * num_of_block * k * batch_size,
-                                 sizeof(IdxT) * num_of_block * k * batch_size};
-    size_t total_size         = calc_aligned_size(sizes);
-    if (!buf) {
-      buf_size = total_size;
-      return;
-    }
-    std::vector<void*> aligned_pointers = calc_aligned_pointers(buf, sizes);
-    tmp_val                             = static_cast<T*>(aligned_pointers[0]);
-    tmp_idx                             = static_cast<IdxT*>(aligned_pointers[1]);
-  } else if (!buf) {
-    // although don't need buf when num_of_block==1, but can't set buf_size=0
-    // otherwise, cudaMalloc(&buf, 0) can result in buf==nullptr
-    // then the next call of topk() won't do anything but set buf_size again
-    // so set buf_size to 1 here to avoid such case
-    buf_size = 1;
-    return;
-  }
+  rmm::device_uvector<T> tmp_val(num_of_block * k * batch_size, stream);
+  rmm::device_uvector<IdxT> tmp_idx(num_of_block * k * batch_size, stream);
 
   // printf("#block=%d, #warp=%d\n", num_of_block, num_of_warp);
   // T dummy      = get_dummy<T>(greater);
   int capacity = calc_capacity(k);
 
-  T* result_val    = (num_of_block == 1) ? out : tmp_val;
-  IdxT* result_idx = (num_of_block == 1) ? out_idx : tmp_idx;
+  T* result_val    = (num_of_block == 1) ? out : tmp_val.data();
+  IdxT* result_idx = (num_of_block == 1) ? out_idx : tmp_idx.data();
   int block_dim    = num_of_warp * WarpSize;
-  int smem_size    = calc_smem_size_for_block_wide<T>(num_of_warp, k);
-  launch_setup<WarpSortClass, T, IdxT>::kernel(k,
+  int smem_size    = calc_smem_size_for_block_wide<T>(num_of_warp, (IdxT)k);
+  launch_setup<WarpSortClass, T, IdxT>::kernel((IdxT)k,
                                                greater,
-                                               batch_size,
-                                               len,
+                                               (IdxT)batch_size,
+                                               (IdxT)len,
                                                num_of_block,
                                                block_dim,
                                                smem_size,
@@ -870,16 +847,16 @@ void warp_sort_topk_(int num_of_block,
     calc_launch_parameter_for_merge<T>(len, k, &num_of_block, &num_of_warp);
     // printf("#block=%d, #warp=%d\n", num_of_block, num_of_warp);
     block_dim = num_of_warp * WarpSize;
-    smem_size = calc_smem_size_for_block_wide<T>(num_of_warp, k);
-    launch_setup<WarpSortClass, T, IdxT>::kernel(k,
+    smem_size = calc_smem_size_for_block_wide<T>(num_of_warp, (IdxT)k);
+    launch_setup<WarpSortClass, T, IdxT>::kernel((IdxT)k,
                                                  greater,
-                                                 batch_size,
-                                                 len,
+                                                 (IdxT)batch_size,
+                                                 (IdxT)len,
                                                  num_of_block,
                                                  block_dim,
                                                  smem_size,
-                                                 tmp_val,
-                                                 tmp_idx,
+                                                 tmp_val.data(),
+                                                 tmp_idx.data(),
                                                  out,
                                                  out_idx,
                                                  stream);
@@ -887,55 +864,31 @@ void warp_sort_topk_(int num_of_block,
 }
 
 template <typename T, typename IdxT>
-void warp_sort_topk(void* buf,
-                    size_t& buf_size,
-                    const T* in,
+void warp_sort_topk(const T* in,
                     const IdxT* in_idx,
-                    IdxT batch_size,
-                    IdxT len,
-                    IdxT k,
+                    size_t batch_size,
+                    size_t len,
+                    int k,
                     T* out,
-                    IdxT* out_idx       = nullptr,
-                    bool greater        = true,
-                    cudaStream_t stream = 0)
+                    IdxT* out_idx                = nullptr,
+                    bool greater                 = true,
+                    rmm::cuda_stream_view stream = 0)
 {
   ASSERT(k <= kMaxCapacity, "Current max k is %d (requested %d)", kMaxCapacity, k);
 
   int capacity     = calc_capacity(k);
   int num_of_block = 0;
   int num_of_warp  = 0;
-  calc_launch_parameter<WarpBitonic, T>(batch_size, len, k, &num_of_block, &num_of_warp);
+  calc_launch_parameter<WarpBitonic, T>(batch_size, len, (IdxT)k, &num_of_block, &num_of_warp);
   int len_per_warp = len / (num_of_block * num_of_warp);
 
   if (len_per_warp <= capacity * LaunchThreshold<WarpBitonic>::len_factor_for_choosing) {
-    warp_sort_topk_<WarpBitonic, T, IdxT>(num_of_block,
-                                          num_of_warp,
-                                          buf,
-                                          buf_size,
-                                          in,
-                                          in_idx,
-                                          batch_size,
-                                          len,
-                                          k,
-                                          out,
-                                          out_idx,
-                                          greater,
-                                          stream);
+    warp_sort_topk_<WarpBitonic, T, IdxT>(
+      num_of_block, num_of_warp, in, in_idx, batch_size, len, k, out, out_idx, greater, stream);
   } else {
     calc_launch_parameter<WarpSelect, T>(batch_size, len, k, &num_of_block, &num_of_warp);
-    warp_sort_topk_<WarpSelect, T, IdxT>(num_of_block,
-                                         num_of_warp,
-                                         buf,
-                                         buf_size,
-                                         in,
-                                         in_idx,
-                                         batch_size,
-                                         len,
-                                         k,
-                                         out,
-                                         out_idx,
-                                         greater,
-                                         stream);
+    warp_sort_topk_<WarpSelect, T, IdxT>(
+      num_of_block, num_of_warp, in, in_idx, batch_size, len, k, out, out_idx, greater, stream);
   }
 }
 

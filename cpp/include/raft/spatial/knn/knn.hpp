@@ -134,7 +134,7 @@ inline void select_k(value_t* in_keys,
          "Size of the input (input_len = %zu) must be not smaller than the selection (k = %zu).",
          size_t(input_len),
          size_t(k));
-  size_t buf_size;
+
   switch (algo) {
     case SelectKAlgo::FAISS:
       detail::select_k(
@@ -142,88 +142,21 @@ inline void select_k(value_t* in_keys,
       break;
 
     case SelectKAlgo::RADIX_8_BITS:
-      detail::ivf_flat::radix_topk<value_t, idx_t, 8, 512>(nullptr,
-                                                           buf_size,
-                                                           in_keys,
-                                                           in_values,
-                                                           (idx_t)n_inputs,
-                                                           (idx_t)input_len,
-                                                           (idx_t)k,
-                                                           out_keys,
-                                                           out_values,
-                                                           !select_min,
-                                                           stream);
-      {
-        rmm::device_uvector<uint8_t> workspace(buf_size, stream);
-        detail::ivf_flat::radix_topk<value_t, idx_t, 8, 512>(static_cast<void*>(workspace.data()),
-                                                             buf_size,
-                                                             in_keys,
-                                                             in_values,
-                                                             (idx_t)n_inputs,
-                                                             (idx_t)input_len,
-                                                             (idx_t)k,
-                                                             out_keys,
-                                                             out_values,
-                                                             !select_min,
-                                                             stream);
-      }
+      detail::ivf_flat::radix_topk<value_t, idx_t, 8, 512>(
+        in_keys, in_values, n_inputs, input_len, k, out_keys, out_values, !select_min, stream);
       break;
 
     case SelectKAlgo::RADIX_11_BITS:
-      detail::ivf_flat::radix_topk<value_t, idx_t, 11, 512>(nullptr,
-                                                            buf_size,
-                                                            in_keys,
-                                                            in_values,
-                                                            (idx_t)n_inputs,
-                                                            (idx_t)input_len,
-                                                            (idx_t)k,
-                                                            out_keys,
-                                                            out_values,
-                                                            !select_min,
-                                                            stream);
-      {
-        rmm::device_uvector<uint8_t> workspace(buf_size, stream);
-        detail::ivf_flat::radix_topk<value_t, idx_t, 11, 512>(static_cast<void*>(workspace.data()),
-                                                              buf_size,
-                                                              in_keys,
-                                                              in_values,
-                                                              (idx_t)n_inputs,
-                                                              (idx_t)input_len,
-                                                              (idx_t)k,
-                                                              out_keys,
-                                                              out_values,
-                                                              !select_min,
-                                                              stream);
-      }
+      detail::ivf_flat::radix_topk<value_t, idx_t, 11, 512>(
+        in_keys, in_values, n_inputs, input_len, k, out_keys, out_values, !select_min, stream);
       break;
 
-    case SelectKAlgo::WARP_SORT: {
-      detail::ivf_flat::warp_sort_topk<value_t, idx_t>(nullptr,
-                                                       buf_size,
-                                                       in_keys,
-                                                       in_values,
-                                                       (idx_t)n_inputs,
-                                                       (idx_t)input_len,
-                                                       (idx_t)k,
-                                                       out_keys,
-                                                       out_values,
-                                                       !select_min,
-                                                       stream);
-      rmm::device_uvector<uint8_t> workspace(buf_size, stream);
-      detail::ivf_flat::warp_sort_topk<value_t, idx_t>(static_cast<void*>(workspace.data()),
-                                                       buf_size,
-                                                       in_keys,
-                                                       in_values,
-                                                       (idx_t)n_inputs,
-                                                       (idx_t)input_len,
-                                                       (idx_t)k,
-                                                       out_keys,
-                                                       out_values,
-                                                       !select_min,
-                                                       stream);
-    }
+    case SelectKAlgo::WARP_SORT:
+      detail::ivf_flat::warp_sort_topk<value_t, idx_t>(
+        in_keys, in_values, n_inputs, input_len, k, out_keys, out_values, !select_min, stream);
+      break;
 
-    default: break;
+    default: ASSERT(false, "Unknown algorithm (id = %d)", int(algo));
   }
 }
 
