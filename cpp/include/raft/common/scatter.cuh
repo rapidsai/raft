@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,38 +16,10 @@
 
 #pragma once
 
+#include <raft/common/detail/scatter.cuh>
 #include <raft/cuda_utils.cuh>
-#include <raft/vectorized.cuh>
 
 namespace raft {
-
-template <typename DataT, int VecLen, typename Lambda, typename IdxT>
-__global__ void scatterKernel(DataT* out, const DataT* in, const IdxT* idx, IdxT len, Lambda op)
-{
-  typedef TxN_t<DataT, VecLen> DataVec;
-  typedef TxN_t<IdxT, VecLen> IdxVec;
-  IdxT tid = threadIdx.x + ((IdxT)blockIdx.x * blockDim.x);
-  tid *= VecLen;
-  if (tid >= len) return;
-  IdxVec idxIn;
-  idxIn.load(idx, tid);
-  DataVec dataIn;
-#pragma unroll
-  for (int i = 0; i < VecLen; ++i) {
-    auto inPos         = idxIn.val.data[i];
-    dataIn.val.data[i] = op(in[inPos], tid + i);
-  }
-  dataIn.store(out, tid);
-}
-
-template <typename DataT, int VecLen, typename Lambda, typename IdxT, int TPB>
-void scatterImpl(
-  DataT* out, const DataT* in, const IdxT* idx, IdxT len, Lambda op, cudaStream_t stream)
-{
-  const IdxT nblks = raft::ceildiv(VecLen ? len / VecLen : len, (IdxT)TPB);
-  scatterKernel<DataT, VecLen, Lambda, IdxT><<<nblks, TPB, 0, stream>>>(out, in, idx, len, op);
-  RAFT_CUDA_TRY(cudaGetLastError());
-}
 
 /**
  * @brief Performs scatter operation based on the input indexing array
@@ -79,17 +51,17 @@ void scatter(DataT* out,
   constexpr size_t MaxPerElem = DataSize > IdxSize ? DataSize : IdxSize;
   size_t bytes                = len * MaxPerElem;
   if (16 / MaxPerElem && bytes % 16 == 0) {
-    scatterImpl<DataT, 16 / MaxPerElem, Lambda, IdxT, TPB>(out, in, idx, len, op, stream);
+    detail::scatterImpl<DataT, 16 / MaxPerElem, Lambda, IdxT, TPB>(out, in, idx, len, op, stream);
   } else if (8 / MaxPerElem && bytes % 8 == 0) {
-    scatterImpl<DataT, 8 / MaxPerElem, Lambda, IdxT, TPB>(out, in, idx, len, op, stream);
+    detail::scatterImpl<DataT, 8 / MaxPerElem, Lambda, IdxT, TPB>(out, in, idx, len, op, stream);
   } else if (4 / MaxPerElem && bytes % 4 == 0) {
-    scatterImpl<DataT, 4 / MaxPerElem, Lambda, IdxT, TPB>(out, in, idx, len, op, stream);
+    detail::scatterImpl<DataT, 4 / MaxPerElem, Lambda, IdxT, TPB>(out, in, idx, len, op, stream);
   } else if (2 / MaxPerElem && bytes % 2 == 0) {
-    scatterImpl<DataT, 2 / MaxPerElem, Lambda, IdxT, TPB>(out, in, idx, len, op, stream);
+    detail::scatterImpl<DataT, 2 / MaxPerElem, Lambda, IdxT, TPB>(out, in, idx, len, op, stream);
   } else if (1 / MaxPerElem) {
-    scatterImpl<DataT, 1 / MaxPerElem, Lambda, IdxT, TPB>(out, in, idx, len, op, stream);
+    detail::scatterImpl<DataT, 1 / MaxPerElem, Lambda, IdxT, TPB>(out, in, idx, len, op, stream);
   } else {
-    scatterImpl<DataT, 1, Lambda, IdxT, TPB>(out, in, idx, len, op, stream);
+    detail::scatterImpl<DataT, 1, Lambda, IdxT, TPB>(out, in, idx, len, op, stream);
   }
 }
 
