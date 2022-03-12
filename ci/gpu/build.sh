@@ -90,6 +90,8 @@ conda list --show-channel-urls
 
 gpuci_logger "Adding ${CONDA_PREFIX}/lib to LD_LIBRARY_PATH"
 
+gpuci_logger `ls ${CONDA_PREFIX}/lib`
+
 export LD_LIBRARY_PATH_CACHED=$LD_LIBRARY_PATH
 export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
 
