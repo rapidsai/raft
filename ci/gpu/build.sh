@@ -95,6 +95,9 @@ gpuci_logger `ls ${CONDA_PREFIX}/lib`
 export LD_LIBRARY_PATH_CACHED=$LD_LIBRARY_PATH
 export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
 
+export RAFT_BUILD_DIR="$WORKSPACE/ci/artifacts/raft/cpu/conda_work/cpp/build"
+export LD_LIBRARY_PATH="$RAFT_BUILD_DIR:$LD_LIBRARY_PATH"
+
 gpuci_logger "Build C++ and Python targets"
 # These should link against the existing shared libs
 if hasArg --skip-tests; then
