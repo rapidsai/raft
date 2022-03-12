@@ -90,13 +90,14 @@ conda list --show-channel-urls
 
 gpuci_logger "Adding ${CONDA_PREFIX}/lib to LD_LIBRARY_PATH"
 
-gpuci_logger `ls ${CONDA_PREFIX}/lib`
 
 export LD_LIBRARY_PATH_CACHED=$LD_LIBRARY_PATH
 export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
 
 export RAFT_BUILD_DIR="$WORKSPACE/ci/artifacts/raft/cpu/conda_work/cpp/build"
 export LD_LIBRARY_PATH="$RAFT_BUILD_DIR:$LD_LIBRARY_PATH"
+
+gpuci_logger `ls ${RAFT_BUILD_DIR}`
 
 gpuci_logger "Build C++ and Python targets"
 # These should link against the existing shared libs
@@ -111,8 +112,8 @@ sccache --show-stats
 
 gpuci_logger "Resetting LD_LIBRARY_PATH"
 
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH_CACHED
-export LD_LIBRARY_PATH_CACHED=""
+#export LD_LIBRARY_PATH=$LD_LIBRARY_PATH_CACHED
+#export LD_LIBRARY_PATH_CACHED=""
 
 ################################################################################
 # TEST - Run GoogleTest and py.tests for RAFT
