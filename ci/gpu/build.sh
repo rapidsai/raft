@@ -98,7 +98,7 @@ gpuci_logger "Build C++ and Python targets"
 if hasArg --skip-tests; then
   "$WORKSPACE/build.sh" pyraft pylibraft libraft -v
 else
-  "$WORKSPACE/build.sh" pyraft pylibraft libraft tests bench -v
+  "$WORKSPACE/build.sh" pyraft pylibraft libraft tests bench  -v
 fi
 
 gpuci_logger "sccache stats"
