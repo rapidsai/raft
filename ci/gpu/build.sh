@@ -37,6 +37,8 @@ export SCCACHE_BUCKET="rapids-sccache"
 export SCCACHE_REGION="us-west-2"
 export SCCACHE_IDLE_TIMEOUT="32768"
 
+export LIBRAFT_CONDA_PACKAGES="$WORKSPACE/ci/artifacts/raft/cpu/.conda-bld/linux-64"
+
 ################################################################################
 # SETUP - Check environment
 ################################################################################
@@ -73,6 +75,9 @@ pip install "git+https://github.com/dask/distributed.git@main" --upgrade --no-de
 pip install "git+https://github.com/dask/dask.git@main" --upgrade --no-deps
 set +x
 
+# Install pre-built conda packages from previous CI step
+gpuci_logger "Install libraft conda packages from CPU job"
+gpuci_mamba_retry install --use-local "${LIBRAFT_CONDA_PACKAGES}/libraft*.bz2"
 
 gpuci_logger "Check compiler versions"
 python --version
@@ -90,14 +95,8 @@ conda list --show-channel-urls
 
 gpuci_logger "Adding ${CONDA_PREFIX}/lib to LD_LIBRARY_PATH"
 
-
 export LD_LIBRARY_PATH_CACHED=$LD_LIBRARY_PATH
 export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
-
-export RAFT_BUILD_DIR="$WORKSPACE/ci/artifacts/raft"
-export LD_LIBRARY_PATH="$RAFT_BUILD_DIR:$LD_LIBRARY_PATH"
-
-gpuci_logger `find ${RAFT_BUILD_DIR}`
 
 gpuci_logger "Build C++ and Python targets"
 # These should link against the existing shared libs
