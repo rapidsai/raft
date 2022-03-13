@@ -94,7 +94,7 @@ gpuci_logger "Adding ${CONDA_PREFIX}/lib to LD_LIBRARY_PATH"
 export LD_LIBRARY_PATH_CACHED=$LD_LIBRARY_PATH
 export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
 
-export RAFT_BUILD_DIR="$WORKSPACE/ci/artifacts/raft/cpu/"
+export RAFT_BUILD_DIR="$WORKSPACE/ci/artifacts/raft"
 export LD_LIBRARY_PATH="$RAFT_BUILD_DIR:$LD_LIBRARY_PATH"
 
 gpuci_logger `ls ${RAFT_BUILD_DIR}`
