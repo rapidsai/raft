@@ -97,7 +97,7 @@ export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
 export RAFT_BUILD_DIR="$WORKSPACE/ci/artifacts/raft"
 export LD_LIBRARY_PATH="$RAFT_BUILD_DIR:$LD_LIBRARY_PATH"
 
-gpuci_logger `ls ${RAFT_BUILD_DIR}`
+gpuci_logger `find ${RAFT_BUILD_DIR}`
 
 gpuci_logger "Build C++ and Python targets"
 # These should link against the existing shared libs
