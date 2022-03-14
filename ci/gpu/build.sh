@@ -95,7 +95,6 @@ conda list --show-channel-urls
 
 gpuci_logger "Adding ${CONDA_PREFIX}/lib to LD_LIBRARY_PATH"
 
-export LD_LIBRARY_PATH_CACHED=$LD_LIBRARY_PATH
 export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
 
 gpuci_logger "Build C++ and Python targets"
@@ -109,10 +108,8 @@ fi
 gpuci_logger "sccache stats"
 sccache --show-stats
 
-gpuci_logger "Resetting LD_LIBRARY_PATH"
-
-#export LD_LIBRARY_PATH=$LD_LIBRARY_PATH_CACHED
-#export LD_LIBRARY_PATH_CACHED=""
+gpuci_logger "Building docs"
+"$WORKSPACE/build.sh" docs -v
 
 ################################################################################
 # TEST - Run GoogleTest and py.tests for RAFT

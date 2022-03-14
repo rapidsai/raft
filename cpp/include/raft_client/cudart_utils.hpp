@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include <raft_runtime/error.hpp>
+#include <raft_client/error.hpp>
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
 

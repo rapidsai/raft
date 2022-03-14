@@ -84,15 +84,15 @@ RAFT can be installed through conda, [Cmake Package Manager (CPM)](https://githu
 ### Conda
 
 The easiest way to install RAFT is through conda and several packages are provided.
-- `libraft-runtime` contains a subset of CUDA/C++ headers that can be safely included in public APIs because they depend only upon the cudatoolkit libraries and can be safely compiled without `nvcc`
+- `libraft-client-api` contains a subset of CUDA/C++ headers that can be safely included in public APIs because they depend only upon the cudatoolkit libraries and can be safely compiled without `nvcc`. The client APIs are also more stable across versions so they can be safely installed globally in an environment with projects which might have been built with different versions of RAFT.
 - `libraft-nn` (optional) contains shared libraries for the nearest neighbors primitives.
 - `libraft-distance` (optional) contains shared libraries for distance primitives.
-- `pyraft` (optional) contains reusable Python tools to accelerate Python algorithm development
+- `pyraft` (optional) contains reusable Python tools to accelerate Python algorithm development.
 - `pylibraft` (optional) Python wrappers around RAFT algorithms and primitives
 
 Use the following command to install RAFT with conda (use `-c rapidsai-nightly` for more up-to-date but less stable nightly packages)
 ```bash
-conda install -c rapidsai libraft-runtime libraft-nn libraft-distance pyraft pylibraft
+conda install -c rapidsai libraft-client-api libraft-nn libraft-distance pyraft pylibraft
 ```
 
 After installing RAFT, `find_package(raft COMPONENTS nn distance)` can be used in your CUDA/C++ build. Note that the `COMPONENTS` are optional and will depend on the packages installed.
@@ -154,7 +154,7 @@ Several cmake targets can be made available by adding components in the table be
 
 | Component | Target | Description | Dependencies |
 | --- | --- | --- | --- |
-| n/a | `raft::raft` | Only RAFT runtime headers. Safe to expose in public APIs | Cudatoolkit libraries, RMM |
+| n/a | `raft::raft` | Only RAFT client API headers. Safe to expose in public APIs. | Cudatoolkit libraries, RMM |
 | headers | `raft::headers` | ALL RAFT headers | std::mdspan, cuCollections, Thrust, NVTools |
 | distance | `raft::distance` | Pre-compiled template specializations for raft::distance | raft::headers |
 | nn | `raft::nn` | Pre-compiled template specializations for raft::spatial::knn | raft::headers, FAISS |
