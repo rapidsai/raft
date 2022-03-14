@@ -30,7 +30,7 @@ fi
 
 gpuci_logger "Get conda file output locations"
 
-export LIBRAFT_HEADERS_FILE=`conda build --croot ${CONDA_BLD_DIR} conda/recipes/libraft_headers --output`
+export LIBRAFT_CLIENT_API_FILE=`conda build --croot ${CONDA_BLD_DIR} conda/recipes/libraft_client_api --output`
 export LIBRAFT_NN_FILE=`conda build --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/libraft_nn --output`
 export LIBRAFT_DISTANCE_FILE=`conda build --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/libraft_distance --output`
 export PYRAFT_FILE=`conda build --croot ${CONDA_BLD_DIR} conda/recipes/pyraft --python=$PYTHON --output`
@@ -43,10 +43,10 @@ gpuci_logger "Starting conda uploads"
 
 if [[ "$BUILD_LIBRAFT" == "1" && "$UPLOAD_LIBRAFT" == "1" ]]; then
 
-  test -e ${LIBRAFT_HEADERS_FILE}
-  echo "Upload libraft-nn"
-  echo ${LIBRAFT_HEADERS_FILE}
-  gpuci_retry anaconda -t ${MY_UPLOAD_KEY} upload -u ${CONDA_USERNAME:-rapidsai} ${LABEL_OPTION} --skip-existing ${LIBRAFT_HEADERS_FILE} --no-progress
+  test -e ${LIBRAFT_CLIENT_API_FILE}
+  echo "Upload libraft-client-api"
+  echo ${LIBRAFT_CLIENT_API_FILE}
+  gpuci_retry anaconda -t ${MY_UPLOAD_KEY} upload -u ${CONDA_USERNAME:-rapidsai} ${LABEL_OPTION} --skip-existing ${LIBRAFT_CLIENT_API_FILE} --no-progress
 
   test -e ${LIBRAFT_NN_FILE}
   echo "Upload libraft-nn"

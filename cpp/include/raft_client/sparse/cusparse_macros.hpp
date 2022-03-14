@@ -20,7 +20,7 @@
 #pragma once
 
 #include <cusparse.h>
-#include <raft_runtime/error.hpp>
+#include <raft_client/error.hpp>
 ///@todo: enable this once logging is enabled
 //#include <cuml/common/logger.hpp>
 

@@ -85,16 +85,16 @@ gpuci_mamba_retry install -c conda-forge boa
 ###############################################################################
 
 if [ "$BUILD_LIBRAFT" == '1' ]; then
-  gpuci_logger "Building conda packages for libraft-nn, libraft-distance, and libraft-runtime"
+  gpuci_logger "Building conda packages for libraft-nn, libraft-distance, and libraft-client-api"
   if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
-    gpuci_conda_retry mambabuild --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/libraft_runtime
+    gpuci_conda_retry mambabuild --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/libraft_client_api
     gpuci_conda_retry mambabuild --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/libraft_nn
     gpuci_conda_retry mambabuild --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/libraft_distance
   else
-    gpuci_conda_retry mambabuild --no-build-id --croot ${CONDA_BLD_DIR} --dirty --no-remove-work-dir conda/recipes/libraft_runtime
+    gpuci_conda_retry mambabuild --no-build-id --croot ${CONDA_BLD_DIR} --dirty --no-remove-work-dir conda/recipes/libraft_client_api
     gpuci_logger "`ls ${CONDA_BLD_DIR}/work`"
-    mkdir -p ${CONDA_BLD_DIR}/libraft_runtime/work
-    mv ${CONDA_BLD_DIR}/work ${CONDA_BLD_DIR}/libraft_runtime/work
+    mkdir -p ${CONDA_BLD_DIR}/libraft_client_api/work
+    mv ${CONDA_BLD_DIR}/work ${CONDA_BLD_DIR}/libraft_client_api/work
 
     gpuci_conda_retry mambabuild --no-build-id --croot ${CONDA_BLD_DIR} --dirty --no-remove-work-dir conda/recipes/libraft_nn
     gpuci_logger "`ls ${CONDA_BLD_DIR}/work`"
@@ -107,7 +107,7 @@ if [ "$BUILD_LIBRAFT" == '1' ]; then
     mv ${CONDA_BLD_DIR}/work ${CONDA_BLD_DIR}/libraft_distance/work
   fi
 else
-  gpuci_logger "SKIPPING build of conda packages for libraft-nn, libraft-distance and libraft-runtime"
+  gpuci_logger "SKIPPING build of conda packages for libraft-nn, libraft-distance and libraft-client-api"
 fi
 
 if [ "$BUILD_RAFT" == "1" ]; then
@@ -116,7 +116,7 @@ if [ "$BUILD_RAFT" == "1" ]; then
     gpuci_conda_retry mambabuild --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/pyraft --python=$PYTHON
   else
     gpuci_conda_retry mambabuild --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/pyraft -c ${CONDA_LOCAL_CHANNEL} --dirty --no-remove-work-dir --python=$PYTHON
-    mkdir -p ${CONDA_BLD_DIR}/pyraft
+    mkdir -p ${CONDA_BLD_DIR}/pyraft/work
     mv ${CONDA_BLD_DIR}/work ${CONDA_BLD_DIR}/pyraft/work
   fi
 else

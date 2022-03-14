@@ -136,9 +136,9 @@ py.test -s -v raft
 
 ### <a id="cxx_integration"></a>C++ header-only integration using cmake
 
-The RAFT headers are broken down into two different include paths so that build-time headers can be isolated between projects while runtime headers can be installed globally, exposed to users, and shared across projects.
-- `cpp/include/raft_runtime` contains runtime headers that require only rmm and the cudatoolkit libraries. These are safe to expose on public APIs and don't require `nvcc` to compile. 
-- `cpp/include/raft` contains build-time headers that are the core of the RAFT library, containing primitives, algorithms, and other tools.
+The RAFT headers are broken down into two different include paths so that build-time headers can be isolated between projects while client API headers can be installed globally, exposed to users, and shared across projects.
+- `cpp/include/raft_client` contains client API headers that require only rmm and the cudatoolkit libraries. These are safe to expose on public APIs and don't require `nvcc` to compile. 
+- `cpp/include/raft` contains the core of the RAFT header-only library, containing primitives, algorithms, and other tools.
 
 Use `find_package(raft)` and the `raft::raft` if using RAFT to interact only with the public APIs of consuming projects.
 
@@ -158,7 +158,7 @@ The following example ignores the pre-compiled templates for the `libraft-distan
 
 ### <a id="build_cxx_source"></a>Building RAFT C++ from source in cmake
 
-RAFT uses the [RAPIDS cmake](https://github.com/rapidsai/rapids-cmake) library so it can be easily included into downstream projects. RAPIDS cmake provides a convenience layer around the [Cmake Package Manager (CPM)](https://github.com/cpm-cmake/CPM.cmake). The following example is similar to building RAFT itself from source but allows it to be done in cmake, providing the `raft::raft` link target for `include/raft_runtime` headers and `raft::headers` for the `include/raft` headers. The `COMPILE_LIBRARIES` option enables the building of the shared libraries.
+RAFT uses the [RAPIDS cmake](https://github.com/rapidsai/rapids-cmake) library so it can be easily included into downstream projects. RAPIDS cmake provides a convenience layer around the [Cmake Package Manager (CPM)](https://github.com/cpm-cmake/CPM.cmake). The following example is similar to building RAFT itself from source but allows it to be done in cmake, providing the `raft::raft` link target for `include/raft_client` headers and `raft::headers` for the `include/raft` headers. The `COMPILE_LIBRARIES` option enables the building of the shared libraries.
 
 The following `cmake` snippet enables a flexible configuration of RAFT:
 
