@@ -59,7 +59,6 @@ def distance(X, Y, dists, metric="euclidean"):
     if x_dt != y_dt or x_dt != d_dt:
         raise ValueError("Inputs must have the same dtypes")
 
-
     if x_dt == np.float32:
         pairwise_distance(deref(h),
                           <float*> x_ptr,
