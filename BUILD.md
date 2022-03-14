@@ -136,17 +136,17 @@ py.test -s -v raft
 
 ### <a id="cxx_integration"></a>C++ header-only integration using cmake
 
-The RAFT headers are broken down into two different include paths so that build-time headers can be isolated between projects while client API headers can be installed globally, exposed to users, and shared across projects.
-- `cpp/include/raft_client` contains client API headers that require only rmm and the cudatoolkit libraries. These are safe to expose on public APIs and don't require `nvcc` to compile. 
-- `cpp/include/raft` contains the core of the RAFT header-only library, containing primitives, algorithms, and other tools.
+The RAFT headers are broken down into two different include paths so that backend headers can be isolated between projects while frontend API headers can be installed globally, exposed to users through public APIs, and shared across projects.
+- `cpp/include/raft_frontend` contains frontend API headers that require only rmm and the cudatoolkit libraries. These are safe to expose on public APIs and don't require `nvcc` to compile. 
+- `cpp/include/raft` contains the backend of the RAFT header-only library, containing primitives, algorithms, and other tools.
 
 Use `find_package(raft)` and the `raft::raft` if using RAFT to interact only with the public APIs of consuming projects.
 
-Use `find_package(raft COMPONENTS headers` and both the `raft::raft` and `raft::headers` targets when building a library that uses headers in `include/raft`.
+Use `find_package(raft COMPONENTS backend` and both the `raft::raft` and `raft::backend` targets when building a library that uses headers in `include/raft`.
 
 ### <a id="use_shared_libs"></a>Using pre-compiled shared libraries
 
-Use `find_package(raft COMPONENTS headers nn distance)` to enable the shared libraries and pass dependencies through separate targets for each component. In this example, the `raft::distance` and `raft::nn` targets will be available in addition to `raft::raft` and `raft::headers` for configuring linking paths. These targets will also pass through any transitive dependencies (such as FAISS for the `nn` package).
+Use `find_package(raft COMPONENTS backend nn distance)` to enable the shared libraries and pass dependencies through separate targets for each component. In this example, the `raft::distance` and `raft::nn` targets will be available in addition to `raft::raft` and `raft::headers` for configuring linking paths. These targets will also pass through any transitive dependencies (such as FAISS for the `nn` package).
 
 The pre-compiled libraries contain template specializations for commonly used types. In order to use the symbols in the pre-compiled libraries, the compiler needs to be told not to instantiate templates that are already contained in the shared libraries. By convention, these header files are named `spectializations.hpp` and located in the base directory for the packages that contain specializations.
 
@@ -188,7 +188,7 @@ function(find_and_configure_raft)
   # Add components
   #-----------------------------------------------------
 
-  string(APPEND RAFT_COMPONENTS "headers")
+  string(APPEND RAFT_COMPONENTS "backend")
   if(PKG_USE_NN_LIBRARY)
     string(APPEND RAFT_COMPONENTS " nn")
   endif()
@@ -212,6 +212,7 @@ function(find_and_configure_raft)
           FIND_PACKAGE_ARGUMENTS "COMPONENTS ${RAFT_COMPONENTS}"
           OPTIONS
           "BUILD_TESTS OFF"
+          "BUILD_BENCH OFF"
           "RAFT_ENABLE_NN_DEPENDENCIES ${PKG_ENABLE_NN_DEPENDENCIES}"
           "RAFT_USE_FAISS_STATIC ${PKG_USE_FAISS_STATIC}"
           "RAFT_COMPILE_LIBRARIES ${PKG_COMPILE_LIBRARIES}"
