@@ -146,7 +146,7 @@ Use `find_package(raft COMPONENTS backend` and both the `raft::raft` and `raft::
 
 ### <a id="use_shared_libs"></a>Using pre-compiled shared libraries
 
-Use `find_package(raft COMPONENTS backend nn distance)` to enable the shared libraries and pass dependencies through separate targets for each component. In this example, the `raft::distance` and `raft::nn` targets will be available in addition to `raft::raft` and `raft::headers` for configuring linking paths. These targets will also pass through any transitive dependencies (such as FAISS for the `nn` package).
+Use `find_package(raft COMPONENTS backend nn distance)` to enable the shared libraries and pass dependencies through separate targets for each component. In this example, the `raft::distance` and `raft::nn` targets will be available in addition to `raft::raft` and `raft::backend` for configuring linking paths. These targets will also pass through any transitive dependencies (such as FAISS for the `nn` package).
 
 The pre-compiled libraries contain template specializations for commonly used types. In order to use the symbols in the pre-compiled libraries, the compiler needs to be told not to instantiate templates that are already contained in the shared libraries. By convention, these header files are named `spectializations.hpp` and located in the base directory for the packages that contain specializations.
 
@@ -158,7 +158,7 @@ The following example ignores the pre-compiled templates for the `libraft-distan
 
 ### <a id="build_cxx_source"></a>Building RAFT C++ from source in cmake
 
-RAFT uses the [RAPIDS cmake](https://github.com/rapidsai/rapids-cmake) library so it can be easily included into downstream projects. RAPIDS cmake provides a convenience layer around the [Cmake Package Manager (CPM)](https://github.com/cpm-cmake/CPM.cmake). The following example is similar to building RAFT itself from source but allows it to be done in cmake, providing the `raft::raft` link target for `include/raft_client` headers and `raft::headers` for the `include/raft` headers. The `COMPILE_LIBRARIES` option enables the building of the shared libraries.
+RAFT uses the [RAPIDS cmake](https://github.com/rapidsai/rapids-cmake) library so it can be easily included into downstream projects. RAPIDS cmake provides a convenience layer around the [Cmake Package Manager (CPM)](https://github.com/cpm-cmake/CPM.cmake). The following example is similar to building RAFT itself from source but allows it to be done in cmake, providing the `raft::raft` link target for `include/raft_frontend` headers and `raft::headers` for the `include/raft` headers. The `COMPILE_LIBRARIES` option enables the building of the shared libraries.
 
 The following `cmake` snippet enables a flexible configuration of RAFT:
 
