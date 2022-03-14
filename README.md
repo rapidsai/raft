@@ -45,9 +45,9 @@ The `mdarray` forms a convenience layer over RMM and can be constructed in RAFT 
 int n_rows = 10;
 int n_cols = 10;
 
-auto scalar = raft::make_device_scalar(handle, 1.0);
-auto vector = raft::make_device_vector(handle, n_cols);
-auto matrix = raft::make_device_matrix(handle, n_rows, n_cols);
+auto scalar = raft::make_device_scalar<float>(handle, 1.0);
+auto vector = raft::make_device_vector<float>(handle, n_cols);
+auto matrix = raft::make_device_matrix<float>(handle, n_rows, n_cols);
 ```
 
 ### C++ Example
@@ -57,7 +57,7 @@ Most of the primitives in RAFT accept a `raft::handle_t` object for the manageme
 The example below demonstrates creating a RAFT handle and using it with `device_matrix` and `device_vector` to allocate memory, generating random clusters, and computing
 pairwise Euclidean distances:
 ```c++
-#include <raft/handle.hpp>
+#include <raft_frontend/handle.hpp>
 #include <raft/mdarray.hpp>
 #include <raft/random/make_blobs.cuh>
 #include <raft/distance/distance.cuh>
@@ -84,7 +84,7 @@ RAFT can be installed through conda, [Cmake Package Manager (CPM)](https://githu
 ### Conda
 
 The easiest way to install RAFT is through conda and several packages are provided.
-- `libraft-client-api` contains a subset of CUDA/C++ headers that can be safely included in public APIs because they depend only upon the cudatoolkit libraries and can be safely compiled without `nvcc`. The client APIs are also more stable across versions so they can be safely installed globally in an environment with projects which might have been built with different versions of RAFT.
+- `libraft-frontend` contains a subset of CUDA/C++ headers that can be safely included in public APIs because they depend only upon the cudatoolkit libraries and can be safely compiled without `nvcc`. The client APIs are also more stable across versions so they can be safely installed globally in an environment with projects which might have been built with different versions of RAFT.
 - `libraft-nn` (optional) contains shared libraries for the nearest neighbors primitives.
 - `libraft-distance` (optional) contains shared libraries for distance primitives.
 - `pyraft` (optional) contains reusable Python tools to accelerate Python algorithm development.
@@ -108,7 +108,7 @@ After [installing](https://github.com/rapidsai/rapids-cmake#installation) rapids
 set(RAFT_VERSION "22.04")
 set(RAFT_FORK "rapidsai")
 set(RAFT_PINNED_TAG "branch-${RAFT_VERSION}")
-set(RAFT_COMPONENTS "headers")
+set(RAFT_COMPONENTS "backend")
 
 function(find_and_configure_raft)
   set(oneValueArgs VERSION FORK PINNED_TAG USE_FAISS_STATIC 
@@ -131,6 +131,7 @@ function(find_and_configure_raft)
           FIND_PACKAGE_ARGUMENTS "COMPONENTS ${RAFT_COMPONENTS}"
           OPTIONS
           "BUILD_TESTS OFF"
+          "BUILD_BENCH OFF"
           "RAFT_ENABLE_NN_DEPENDENCIES ${PKG_ENABLE_NN_DEPENDENCIES}"
           "RAFT_USE_FAISS_STATIC ${PKG_USE_FAISS_STATIC}"
           "RAFT_COMPILE_LIBRARIES ${PKG_COMPILE_LIBRARIES}"
@@ -154,8 +155,8 @@ Several cmake targets can be made available by adding components in the table be
 
 | Component | Target | Description | Dependencies |
 | --- | --- | --- | --- |
-| n/a | `raft::raft` | Only RAFT client API headers. Safe to expose in public APIs. | Cudatoolkit libraries, RMM |
-| headers | `raft::headers` | ALL RAFT headers | std::mdspan, cuCollections, Thrust, NVTools |
+| n/a | `raft::raft` | Only RAFT frontend API headers. Safe to expose in public APIs. | Cudatoolkit libraries, RMM |
+| headers | `raft::backend` | RAFT backend headers | std::mdspan, cuCollections, Thrust, NVTools |
 | distance | `raft::distance` | Pre-compiled template specializations for raft::distance | raft::headers |
 | nn | `raft::nn` | Pre-compiled template specializations for raft::spatial::knn | raft::headers, FAISS |
 

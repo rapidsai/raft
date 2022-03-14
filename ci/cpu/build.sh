@@ -87,14 +87,14 @@ gpuci_mamba_retry install -c conda-forge boa
 if [ "$BUILD_LIBRAFT" == '1' ]; then
   gpuci_logger "Building conda packages for libraft-nn, libraft-distance, and libraft-client-api"
   if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
-    gpuci_conda_retry mambabuild --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/libraft_client_api
+    gpuci_conda_retry mambabuild --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/libraft_frontend
     gpuci_conda_retry mambabuild --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/libraft_nn
     gpuci_conda_retry mambabuild --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/libraft_distance
   else
-    gpuci_conda_retry mambabuild --no-build-id --croot ${CONDA_BLD_DIR} --dirty --no-remove-work-dir conda/recipes/libraft_client_api
+    gpuci_conda_retry mambabuild --no-build-id --croot ${CONDA_BLD_DIR} --dirty --no-remove-work-dir conda/recipes/libraft_frontend
     gpuci_logger "`ls ${CONDA_BLD_DIR}/work`"
-    mkdir -p ${CONDA_BLD_DIR}/libraft_client_api/work
-    mv ${CONDA_BLD_DIR}/work ${CONDA_BLD_DIR}/libraft_client_api/work
+    mkdir -p ${CONDA_BLD_DIR}/libraft_frontend/work
+    mv ${CONDA_BLD_DIR}/work ${CONDA_BLD_DIR}/libraft_frontend/work
 
     gpuci_conda_retry mambabuild --no-build-id --croot ${CONDA_BLD_DIR} --dirty --no-remove-work-dir conda/recipes/libraft_nn
     gpuci_logger "`ls ${CONDA_BLD_DIR}/work`"

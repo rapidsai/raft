@@ -162,19 +162,18 @@ target_include_directories(test_raft
 
 
 target_link_libraries(test_raft
-PRIVATE
-  raft::raft
-  raft::headers
-  raft::distance
-  raft::nn
-  NCCL::NCCL
-  faiss::faiss
-  GTest::gtest
-  GTest::gtest_main
-  Threads::Threads
-  $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
-  $<TARGET_NAME_IF_EXISTS:conda_env>
-)
+        PRIVATE
+        raft::raft
+        raft::backend
+        raft::distance
+        raft::nn
+        NCCL::NCCL
+        faiss::faiss
+        GTest::gtest
+        GTest::gtest_main
+        Threads::Threads
+        $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
+        $<TARGET_NAME_IF_EXISTS:conda_env>)
 
 install(
         TARGETS test_raft

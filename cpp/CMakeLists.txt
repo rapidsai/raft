@@ -68,7 +68,7 @@ message(VERBOSE "RAFT: Enable lineinfo in nvcc: ${CUDA_ENABLE_LINEINFO}")
 message(VERBOSE "RAFT: Enable nvtx markers: ${NVTX}")
 message(VERBOSE "RAFT: Statically link the CUDA runtime: ${CUDA_STATIC_RUNTIME}")
 
-list(APPEND raft_FIND_COMPONENTS "headers")
+list(APPEND raft_FIND_COMPONENTS "backend")
 
 # Set RMM logging level
 set(RMM_LOGGING_LEVEL "INFO" CACHE STRING "Choose the logging level.")
@@ -139,26 +139,26 @@ set(RAFT_LINK_LIBS
         CUDA::cusparse
         rmm::rmm)
 
-add_library(raft_headers INTERFACE)
-if(TARGET raft_headers AND (NOT TARGET raft::headers))
-  add_library(raft::headers ALIAS raft_headers)
+add_library(raft_backend INTERFACE)
+if(TARGET raft_backend AND (NOT TARGET raft::backend))
+  add_library(raft::backend ALIAS raft_backend)
 endif()
 
-set_target_properties(raft_headers PROPERTIES EXPORT_NAME headers)
+set_target_properties(raft_backend PROPERTIES EXPORT_NAME backend)
 
-target_include_directories(raft_headers INTERFACE
+target_include_directories(raft_backend INTERFACE
         "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/include>"
         "$<INSTALL_INTERFACE:include>")
 
-target_link_libraries(raft_headers INTERFACE
-  raft::Thrust
-  $<$<BOOL:${NVTX}>:CUDA::nvToolsExt>
-  ${RAFT_LINK_LIBS}
-  cuco::cuco
-  std::mdspan)
+target_link_libraries(raft_backend INTERFACE
+        raft::Thrust
+        $<$<BOOL:${NVTX}>:CUDA::nvToolsExt>
+        ${RAFT_LINK_LIBS}
+        cuco::cuco
+        std::mdspan)
 
-target_compile_definitions(raft_headers INTERFACE $<$<BOOL:${NVTX}>:NVTX_ENABLED>)
-target_compile_features(raft_headers INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
+target_compile_definitions(raft_backend INTERFACE $<$<BOOL:${NVTX}>:NVTX_ENABLED>)
+target_compile_features(raft_backend INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
 
 if(RAFT_COMPILE_LIBRARIES OR RAFT_COMPILE_DIST_LIBRARY OR RAFT_COMPILE_NN_LIBRARY)
   file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld"
@@ -237,7 +237,7 @@ if(RAFT_COMPILE_LIBRARIES OR RAFT_COMPILE_DIST_LIBRARY)
   )
   set_target_properties(raft_distance_lib PROPERTIES OUTPUT_NAME raft_distance)
 
-  target_link_libraries(raft_distance_lib PRIVATE raft::headers)
+  target_link_libraries(raft_distance_lib PRIVATE raft::backend)
   target_compile_options(raft_distance_lib
           PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
           "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
@@ -281,7 +281,7 @@ if(RAFT_COMPILE_LIBRARIES OR RAFT_COMPILE_NN_LIBRARY)
           )
   set_target_properties(raft_nn_lib PROPERTIES OUTPUT_NAME raft_nn)
 
-  target_link_libraries(raft_nn_lib PRIVATE raft::headers faiss::faiss)
+  target_link_libraries(raft_nn_lib PRIVATE raft::backend faiss::faiss)
   target_compile_options(raft_nn_lib
           PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
           "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
@@ -308,9 +308,9 @@ install(TARGETS raft
         DESTINATION ${lib_dir}
         EXPORT raft-exports)
 
-install(TARGETS raft_headers
+install(TARGETS raft_backend
         DESTINATION ${lib_dir}
-        EXPORT raft-headers-exports)
+        EXPORT raft-backend-exports)
 
 install(TARGETS raft_distance
         DESTINATION ${lib_dir}
@@ -332,11 +332,11 @@ if(TARGET raft_nn_lib)
 endif()
 
 
-install(DIRECTORY include/raft_client
+install(DIRECTORY include/raft_frontend
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/raft_runtime)
 
 # Temporary install of raft.hpp while the file is removed
-install(FILES include/raft_client/raft.hpp
+install(FILES include/raft_frontend/raft.hpp
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/raft_runtime)
 
 ##############################################################################
@@ -353,7 +353,7 @@ Optional Components:
   - distance
 
 Imported Targets:
-  - raft::headers
+  - raft::backend
   - raft::raft
   - raft::nn brought in by the `nn` optional component
   - raft::distance brought in by the `distance` optional component
@@ -365,18 +365,18 @@ set(code_string
 
 if((distance IN_LIST raft_FIND_COMPONENTS OR
     nn IN_LIST raft_FIND_COMPONENTS) AND NOT
-    headers IN_LIST raft_FIND_COMPONENTS))
-    FATAL_ERROR("headers must be included to use components ${raft_FIND_COMPONENTS}")
+    backend IN_LIST raft_FIND_COMPONENTS))
+    FATAL_ERROR("backend must be included to use components ${raft_FIND_COMPONENTS}")
 endif()
 
-if(headers IN_LIST raft_FIND_COMPONENTS)
+if(backend IN_LIST raft_FIND_COMPONENTS)
   if(NOT TARGET raft::Thrust)
     thrust_create_target(raft::Thrust FROM_OPTIONS)
   endif()
 endif()
 
 if(distance IN_LIST raft_FIND_COMPONENTS OR
-   headers IN_LIST raft_FIND_COMPONENTS)
+   backend IN_LIST raft_FIND_COMPONENTS)
   enable_language(CUDA)
 endif()
 
@@ -395,22 +395,22 @@ endif()
 # Use `rapids_export` for 22.04 as it will have COMPONENT support
 include(cmake/modules/raft_export.cmake)
 raft_export(INSTALL raft
-    COMPONENTS headers nn distance
-    EXPORT_SET raft-exports
-    GLOBAL_TARGETS headers nn distance
-    NAMESPACE raft::
-    DOCUMENTATION doc_string
-    FINAL_CODE_BLOCK code_string)
+        COMPONENTS backend nn distance
+        EXPORT_SET raft-exports
+        GLOBAL_TARGETS backend nn distance
+        NAMESPACE raft::
+        DOCUMENTATION doc_string
+        FINAL_CODE_BLOCK code_string)
 
 ##############################################################################
 # - build export -------------------------------------------------------------
 raft_export(BUILD raft
-    EXPORT_SET raft-exports
-    COMPONENTS headers nn distance
-    GLOBAL_TARGETS raft_headers raft_distance raft_nn
-    DOCUMENTATION doc_string
-    NAMESPACE raft::
-    FINAL_CODE_BLOCK code_string)
+        EXPORT_SET raft-exports
+        COMPONENTS backend nn distance
+        GLOBAL_TARGETS raft_backend raft_distance raft_nn
+        DOCUMENTATION doc_string
+        NAMESPACE raft::
+        FINAL_CODE_BLOCK code_string)
 
 ##############################################################################
 # - export/install optional components  --------------------------------------
