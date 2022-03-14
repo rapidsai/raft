@@ -58,11 +58,7 @@ def test_distance(n_rows, n_cols, dtype):
     output_device = TestDeviceBuffer(output)
 
     pairwise_distance(input1_device, input1_device, output_device)
-
     actual = output_device.copy_to_host()
-
-    print(str(expected))
-    print(str(actual))
 
     assert np.allclose(expected, actual)
     # result = np.frombuffer(output_device.copy_to_host().tobytes(), dtype)
