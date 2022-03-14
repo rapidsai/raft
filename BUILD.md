@@ -159,7 +159,7 @@ The following example ignores the pre-compiled templates for the `libraft-distan
 
 ### <a id="build_cxx_source"></a>Building RAFT C++ from source in cmake
 
-RAFT uses the [RAPIDS cmake](https://github.com/rapidsai/rapids-cmake) library so it can be easily included into downstream projects. RAPIDS cmake provides a convenience layer around the [Cmake Package Manager (CPM)](https://github.com/cpm-cmake/CPM.cmake). The following example is similar to building RAFT itself from source but allows it to be done in cmake, providing the `raft::raft` link target for `include/raft_frontend` headers and `raft::headers` for the `include/raft` headers. The `COMPILE_LIBRARIES` option enables the building of the shared libraries.
+RAFT uses the [RAPIDS cmake](https://github.com/rapidsai/rapids-cmake) library so it can be easily included into downstream projects. RAPIDS cmake provides a convenience layer around the [Cmake Package Manager (CPM)](https://github.com/cpm-cmake/CPM.cmake). The following example is similar to building RAFT itself from source but allows it to be done in cmake, providing the `raft::raft` link target for `include/raft_frontend` headers and `raft::backend` for the `include/raft` headers. The `COMPILE_LIBRARIES` option enables the building of the shared libraries.
 
 The following `cmake` snippet enables a flexible configuration of RAFT:
 
