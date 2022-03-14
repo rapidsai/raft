@@ -26,7 +26,7 @@ cdef extern from "raft_frontend/interruptible.hpp" namespace "raft" nogil:
     cdef cppclass interruptible:
         void cancel()
 
-cdef extern from "raft_runtime/interruptible.hpp" \
+cdef extern from "raft_frontend/interruptible.hpp" \
         namespace "raft::interruptible" nogil:
     cdef void inter_synchronize \
         "raft::interruptible::synchronize"(cuda_stream_view stream) except+
