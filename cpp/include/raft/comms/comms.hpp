@@ -25,7 +25,7 @@
 #pragma once
 
 #include <memory>
-#include <raft_runtime/error.hpp>
+#include <raft_frontend/error.hpp>
 #include <vector>
 
 namespace raft {

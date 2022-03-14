@@ -331,11 +331,11 @@ if(TARGET raft_nn_lib)
 endif()
 
 
-install(DIRECTORY include/raft_client
+install(DIRECTORY include/raft_frontend
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/raft_runtime)
 
 # Temporary install of raft.hpp while the file is removed
-install(FILES include/raft_client/raft.hpp
+install(FILES include/raft_frontend/raft.hpp
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/raft_runtime)
 
 ##############################################################################

@@ -22,7 +22,7 @@
 from libcpp.memory cimport shared_ptr
 from rmm._lib.cuda_stream_view cimport cuda_stream_view
 
-cdef extern from "raft_runtime/interruptible.hpp" namespace "raft" nogil:
+cdef extern from "raft_frontend/interruptible.hpp" namespace "raft" nogil:
     cdef cppclass interruptible:
         void cancel()
 
