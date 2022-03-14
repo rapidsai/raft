@@ -94,7 +94,7 @@ The easiest way to install RAFT is through conda and several packages are provid
 
 To install RAFT with conda (change to `rapidsai-nightly` for more up-to-date but less stable nightly packages)
 ```bash
-conda install -c rapidsai libraft-client-api libraft-nn libraft-distance pyraft
+conda install -c rapidsai libraft-frontend libraft-nn libraft-distance pyraft
 ```
 
 After installing RAFT, `find_package(raft COMPONENTS nn distance)` can be used in your CUDA/C++ build. Note that the `COMPONENTS` are optional and will depend on the packages installed.
@@ -159,8 +159,8 @@ Several cmake targets can be made available by adding components in the table be
 | --- | --- | --- | --- |
 | n/a | `raft::raft` | Only RAFT frontend API headers. Safe to expose in public APIs. | Cudatoolkit libraries, RMM |
 | headers | `raft::backend` | RAFT backend headers | std::mdspan, cuCollections, Thrust, NVTools |
-| distance | `raft::distance` | Pre-compiled template specializations for raft::distance | raft::headers |
-| nn | `raft::nn` | Pre-compiled template specializations for raft::spatial::knn | raft::headers, FAISS |
+| distance | `raft::distance` | Pre-compiled template specializations for raft::distance | raft::backend |
+| nn | `raft::nn` | Pre-compiled template specializations for raft::spatial::knn | raft::backend, FAISS |
 
 ### Source
 
