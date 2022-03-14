@@ -47,7 +47,7 @@ class TestDeviceBuffer:
 
 @pytest.mark.parametrize("n_rows", [10, 100, 1000])
 @pytest.mark.parametrize("n_cols", [10, 100, 1000])
-@pytest.mark.parametrize("dtype", [np.float32])
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
 def test_distance(n_rows, n_cols, dtype):
     input1 = np.random.random_sample((n_rows, n_cols)).astype(dtype)
     output = np.zeros((n_rows, n_rows), dtype=dtype)
@@ -61,8 +61,3 @@ def test_distance(n_rows, n_cols, dtype):
     actual = output_device.copy_to_host()
 
     assert np.allclose(expected, actual)
-    # result = np.frombuffer(output_device.copy_to_host().tobytes(), dtype)
-
-    # print(str(result.__array_interface__))
-    #
-    # print(str(result.dtype))

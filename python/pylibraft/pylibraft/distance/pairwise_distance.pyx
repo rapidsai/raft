@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import numpy as np
 
 from libc.stdint cimport uintptr_t
 from cython.operator cimport dereference as deref
@@ -51,12 +52,33 @@ def distance(X, Y, dists, metric="euclidean"):
     cdef handle_t *h = new handle_t()
 
     # TODO: Support single and double precision
-    pairwise_distance(deref(h),
-                      <float*> x_ptr,
-                      <float*> y_ptr,
-                      <float*> d_ptr,
-                      <int>m,
-                      <int>n,
-                      <int>k,
-                      <DistanceType>DistanceType.L2SqrtUnexpanded,
-                      <bool>True, <float>0.0)
+    x_dt = np.dtype(x_cai["typestr"])
+    y_dt = np.dtype(y_cai["typestr"])
+    d_dt = np.dtype(dists_cai["typestr"])
+
+    if x_dt != y_dt or x_dt != d_dt:
+        raise ValueError("Inputs must have the same dtypes")
+
+
+    if x_dt == np.float32:
+        pairwise_distance(deref(h),
+                          <float*> x_ptr,
+                          <float*> y_ptr,
+                          <float*> d_ptr,
+                          <int>m,
+                          <int>n,
+                          <int>k,
+                          <DistanceType>DistanceType.L2SqrtUnexpanded,
+                          <bool>True, <float>0.0)
+    elif x_dt == np.float64:
+        pairwise_distance(deref(h),
+                          <double*> x_ptr,
+                          <double*> y_ptr,
+                          <double*> d_ptr,
+                          <int>m,
+                          <int>n,
+                          <int>k,
+                          <DistanceType>DistanceType.L2SqrtUnexpanded,
+                          <bool>True, <float>0.0)
+    else:
+        raise ValueError("dtype %s not supported" % x_dt)
