@@ -30,7 +30,7 @@ cdef extern from "raft/mr/device/allocator.hpp" \
     cdef cppclass allocator:
         pass
 
-cdef extern from "raft/handle.hpp" namespace "raft" nogil:
+cdef extern from "raft_client/handle.hpp" namespace "raft" nogil:
     cdef cppclass handle_t:
         handle_t() except +
         handle_t(cuda_stream_view stream_view) except +

@@ -58,5 +58,5 @@ def distance(X, Y, dists, metric="euclidean"):
                       <int>m,
                       <int>n,
                       <int>k,
-                      <DistanceType>DistanceType2.L2Expanded,
-                      <bool>true, <float>0.0)
+                      <DistanceType>DistanceType.L2SqrtUnexpanded,
+                      <bool>True, <float>0.0)

@@ -13,4 +13,4 @@
 # limitations under the License.
 #
 
-from pairwise_distance import distance as pairwise_distance
+from .pairwise_distance import distance as pairwise_distance
