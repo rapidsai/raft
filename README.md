@@ -77,6 +77,25 @@ auto metric = raft::distance::DistanceType::L2SqrtExpanded;
 raft::distance::pairwise_distance(handle, input.view(), input.view(), output.view(), metric);
 ```
 
+### Python Example
+
+The `pylibraft` package contains a Python API for RAFT algorithms and primitives. The package is currently limited to pairwise distances, and we will continue adding more.
+
+The example below demonstrates computing the pairwise Euclidean distances between cupy arrays.
+```python
+import cupy as cp
+
+from pylibraft.distance import pairwise_distance
+
+n_samples = 5000
+n_features = 50
+
+input = cp.random.random_sample((n_samples, n_features), dtype=cp.float32)
+output = cp.empty((n_samples, n_samples), dtype=cp.float32)
+
+pairwise_distance(input, input, output, "euclidean")
+```
+
 ## Installing
 
 RAFT can be installed through conda, [Cmake Package Manager (CPM)](https://github.com/cpm-cmake/CPM.cmake), or by building the repository from source.
@@ -87,15 +106,15 @@ The easiest way to install RAFT is through conda and several packages are provid
 - `libraft-frontend` contains a subset of CUDA/C++ headers that can be safely included in public APIs because they depend only upon the cudatoolkit libraries and can be safely compiled without `nvcc`. The client APIs are also more stable across versions so they can be safely installed globally in an environment with projects which might have been built with different versions of RAFT.
 - `libraft-nn` (optional) contains shared libraries for the nearest neighbors primitives.
 - `libraft-distance` (optional) contains shared libraries for distance primitives.
-- `pyraft` (optional) contains reusable Python tools to accelerate Python algorithm development.
 - `pylibraft` (optional) Python wrappers around RAFT algorithms and primitives
+- `pyraft` (optional) contains reusable Python infrastructure and tools to accelerate Python algorithm development.
 
 Use the following command to install RAFT with conda (use `-c rapidsai-nightly` for more up-to-date but less stable nightly packages)
 ```bash
 conda install -c rapidsai libraft-frontend libraft-nn libraft-distance pyraft pylibraft
 ```
 
-After installing RAFT, `find_package(raft COMPONENTS nn distance)` can be used in your CUDA/C++ build. Note that the `COMPONENTS` are optional and will depend on the packages installed.
+After installing RAFT, `find_package(raft COMPONENTS backend nn distance)` can be used in your CUDA/C++ build. Note that the `COMPONENTS` are optional and will depend on the packages installed.
 
 ### CPM
 
@@ -156,7 +175,7 @@ Several cmake targets can be made available by adding components in the table be
 | Component | Target | Description | Dependencies |
 | --- | --- | --- | --- |
 | n/a | `raft::raft` | Only RAFT frontend API headers. Safe to expose in public APIs. | Cudatoolkit libraries, RMM |
-| headers | `raft::backend` | RAFT backend headers | std::mdspan, cuCollections, Thrust, NVTools |
+| backend | `raft::backend` | RAFT backend headers | std::mdspan, cuCollections, Thrust, NVTools |
 | distance | `raft::distance` | Pre-compiled template specializations for raft::distance | raft::backend |
 | nn | `raft::nn` | Pre-compiled template specializations for raft::spatial::knn | raft::backend, FAISS |
 
