@@ -177,7 +177,7 @@ if(${RAFT_STATIC_LINK_LIBRARIES})
 endif()
 
 ##############################################################################
-# - raft_runtime -------------------------------------------------------------
+# - raft_frontend -------------------------------------------------------------
 
 add_library(raft INTERFACE)
 add_library(raft::raft ALIAS raft)
@@ -332,11 +332,11 @@ endif()
 
 
 install(DIRECTORY include/raft_frontend
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/raft_runtime)
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/raft_frontend)
 
 # Temporary install of raft.hpp while the file is removed
 install(FILES include/raft_frontend/raft.hpp
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/raft_runtime)
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/raft_frontend)
 
 ##############################################################################
 # - install export -----------------------------------------------------------
