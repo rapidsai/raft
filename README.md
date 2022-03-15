@@ -57,7 +57,7 @@ Most of the primitives in RAFT accept a `raft::handle_t` object for the manageme
 The example below demonstrates creating a RAFT handle and using it with `device_matrix` and `device_vector` to allocate memory, generating random clusters, and computing
 pairwise Euclidean distances:
 ```c++
-#include <raft_frontend/handle.hpp>
+#include <raft_public/handle.hpp>
 #include <raft/mdarray.hpp>
 #include <raft/random/make_blobs.cuh>
 #include <raft/distance/distance.cuh>
@@ -103,7 +103,7 @@ RAFT can be installed through conda, [Cmake Package Manager (CPM)](https://githu
 ### Conda
 
 The easiest way to install RAFT is through conda and several packages are provided.
-- `libraft-frontend` contains a subset of CUDA/C++ headers that can be safely included in public APIs because they depend only upon the cudatoolkit libraries and can be safely compiled without `nvcc`. The client APIs are also more stable across versions so they can be safely installed globally in an environment with projects which might have been built with different versions of RAFT.
+- `libraft-public-headers` contains a subset of CUDA/C++ headers that can be safely included in public APIs because they depend only upon the cudatoolkit libraries and can be safely compiled without `nvcc`. The client APIs are also more stable across versions so they can be safely installed globally in an environment with projects which might have been built with different versions of RAFT.
 - `libraft-nn` (optional) contains shared libraries for the nearest neighbors primitives.
 - `libraft-distance` (optional) contains shared libraries for distance primitives.
 - `pylibraft` (optional) Python wrappers around RAFT algorithms and primitives
@@ -111,7 +111,7 @@ The easiest way to install RAFT is through conda and several packages are provid
 
 Use the following command to install RAFT with conda (use `-c rapidsai-nightly` for more up-to-date but less stable nightly packages)
 ```bash
-conda install -c rapidsai libraft-frontend libraft-nn libraft-distance pyraft pylibraft
+conda install -c rapidsai libraft-public-headers libraft-nn libraft-distance pyraft pylibraft
 ```
 
 After installing RAFT, `find_package(raft COMPONENTS backend nn distance)` can be used in your CUDA/C++ build. Note that the `COMPONENTS` are optional and will depend on the packages installed.
@@ -127,7 +127,7 @@ After [installing](https://github.com/rapidsai/rapids-cmake#installation) rapids
 set(RAFT_VERSION "22.04")
 set(RAFT_FORK "rapidsai")
 set(RAFT_PINNED_TAG "branch-${RAFT_VERSION}")
-set(RAFT_COMPONENTS "backend")
+set(RAFT_COMPONENTS "core")
 
 function(find_and_configure_raft)
   set(oneValueArgs VERSION FORK PINNED_TAG USE_FAISS_STATIC 
@@ -174,10 +174,10 @@ Several cmake targets can be made available by adding components in the table be
 
 | Component | Target | Description | Dependencies |
 | --- | --- | --- | --- |
-| n/a | `raft::raft` | Only RAFT frontend API headers. Safe to expose in public APIs. | Cudatoolkit libraries, RMM |
-| backend | `raft::backend` | RAFT backend headers | std::mdspan, cuCollections, Thrust, NVTools |
-| distance | `raft::distance` | Pre-compiled template specializations for raft::distance | raft::backend |
-| nn | `raft::nn` | Pre-compiled template specializations for raft::spatial::knn | raft::backend, FAISS |
+| n/a | `raft::raft` | Only RAFT public API headers. These are very lightweight and safe to expose in public APIs. | Cudatoolkit libraries, RMM |
+| core | `raft::core` | RAFT core headers | std::mdspan, cuCollections, Thrust, NVTools |
+| distance | `raft::distance` | Pre-compiled template specializations for raft::distance | raft::core |
+| nn | `raft::nn` | Pre-compiled template specializations for raft::spatial::knn | raft::core, FAISS |
 
 ### Source
 
@@ -187,7 +187,6 @@ The easiest way to build RAFT from source is to use the `build.sh` script at the
 conda env create --name raft_dev -f conda/environments/raft_dev_cuda11.5.yml
 conda activate raft_dev
 ```
-2. Run the build script from the repository root: 
 ```
 ./build.sh pyraft pylibraft libraft tests bench --compile-libs
 ```
