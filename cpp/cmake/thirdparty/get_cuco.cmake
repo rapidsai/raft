@@ -27,8 +27,6 @@ function(find_and_configure_cuco VERSION)
                        "BUILD_EXAMPLES OFF"
     )
 
-    rapids_export_package(INSTALL cuco raft-exports)
-
 endfunction()
 
 # cuCollections doesn't have a version yet

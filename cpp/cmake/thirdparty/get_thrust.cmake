@@ -18,8 +18,6 @@ function(find_and_configure_thrust)
 
     rapids_cpm_thrust( NAMESPACE raft )
     rapids_export_package(BUILD thrust raft-exports)
-    rapids_export_package(INSTALL thrust raft-exports)
-
 endfunction()
 
 find_and_configure_thrust()

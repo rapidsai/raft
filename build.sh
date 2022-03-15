@@ -84,10 +84,6 @@ function hasArg {
     (( ${NUMARGS} != 0 )) && (echo " ${ARGS} " | grep -q " $1 ")
 }
 
-if hasArg --noinstall; then
-    INSTALL_TARGET=""
-fi
-
 if hasArg -h || hasArg --help; then
     echo "${HELP}"
     exit 0
@@ -104,6 +100,9 @@ if (( ${NUMARGS} != 0 )); then
 fi
 
 # Process flags
+if hasArg --install; then
+  INSTALL_TARGET="install"
+fi
 if hasArg -v; then
     VERBOSE_FLAG="-v"
     CMAKE_LOG_LEVEL="VERBOSE"
@@ -222,7 +221,11 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || has
 
   if [[ ${CMAKE_TARGET} != "" ]]; then
       echo "-- Compiling targets: ${CMAKE_TARGET}, verbose=${VERBOSE_FLAG}"
-      cmake --build  "${LIBRAFT_BUILD_DIR}" ${VERBOSE_FLAG} -j${PARALLEL_LEVEL} --target ${CMAKE_TARGET} ${INSTALL_TARGET}
+      if [[ ${INSTALL_TARGET} != "" ]]; then
+        cmake --build  "${LIBRAFT_BUILD_DIR}" ${VERBOSE_FLAG} -j${PARALLEL_LEVEL} --target ${CMAKE_TARGET} ${INSTALL_TARGET}
+      else
+        cmake --build  "${LIBRAFT_BUILD_DIR}" ${VERBOSE_FLAG} -j${PARALLEL_LEVEL} --target ${CMAKE_TARGET}
+      fi
   fi
 fi
 

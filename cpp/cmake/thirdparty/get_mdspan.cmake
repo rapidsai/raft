@@ -23,8 +23,6 @@ function(find_and_configure_mdspan VERSION)
       OPTIONS "MDSPAN_ENABLE_CUDA ON"
               "MDSPAN_CXX_STANDARD ON"
   )
-
-  rapids_export_package(INSTALL mdspan raft-exports)
 endfunction()
 
 find_and_configure_mdspan(0.2.0)
