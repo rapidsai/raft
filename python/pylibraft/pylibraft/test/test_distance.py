@@ -45,19 +45,37 @@ class TestDeviceBuffer:
             .reshape(self.ndarray_.shape)
 
 
-@pytest.mark.parametrize("n_rows", [10, 100, 1000])
-@pytest.mark.parametrize("n_cols", [10, 100, 1000])
+@pytest.mark.parametrize("n_rows", [10, 100])
+@pytest.mark.parametrize("n_cols", [10, 100])
+@pytest.mark.parametrize("metric", ["euclidean", "cityblock", "chebyshev",
+                                    "canberra", "correlation", "hamming",
+                                    "jensenshannon", "russellrao"])
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
-def test_distance(n_rows, n_cols, dtype):
+def test_distance(n_rows, n_cols, metric, dtype):
     input1 = np.random.random_sample((n_rows, n_cols)).astype(dtype)
+
+    # RussellRao expects boolean arrays
+    if metric == "russellrao":
+        input1[input1 < 0.5] = 0
+        input1[input1 >= 0.5] = 1
+
+    # JensenShannon expects probability arrays
+    elif metric == "jensenshannon":
+        norm = np.sum(input1, axis=1)
+        input1 = (input1.T / norm).T
+
     output = np.zeros((n_rows, n_rows), dtype=dtype)
 
-    expected = cdist(input1, input1, "euclidean")
+    expected = cdist(input1, input1, metric)
+
+    expected[expected <= 1e-5] = 0.0
 
     input1_device = TestDeviceBuffer(input1)
     output_device = TestDeviceBuffer(output)
 
-    pairwise_distance(input1_device, input1_device, output_device)
+    pairwise_distance(input1_device, input1_device, output_device, metric)
     actual = output_device.copy_to_host()
 
-    assert np.allclose(expected, actual)
+    actual[actual <= 1e-5] = 0.0
+
+    assert np.allclose(expected, actual, rtol=1e-4)

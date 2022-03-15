@@ -38,3 +38,25 @@ cdef extern from "raft/distance/distance_type.hpp" namespace "raft::distance":
         RusselRaoExpanded "raft::distance::DistanceType::RusselRaoExpanded"
         DiceExpanded "raft::distance::DistanceType::DiceExpanded"
         Precomputed "raft::distance::DistanceType::Precomputed"
+
+DISTANCE_TYPES = {
+    "l2": DistanceType.L2SqrtUnexpanded,
+    "euclidean": DistanceType.L2SqrtUnexpanded,
+    "l1": DistanceType.L1,
+    "cityblock": DistanceType.L1,
+    "inner_product": DistanceType.InnerProduct,
+    "chebyshev": DistanceType.Linf,
+    "canberra": DistanceType.Canberra,
+    "lp": DistanceType.LpUnexpanded,
+    "correlation": DistanceType.CorrelationExpanded,
+    "jaccard": DistanceType.JaccardExpanded,
+    "hellinger": DistanceType.HellingerExpanded,
+    "braycurtis": DistanceType.BrayCurtis,
+    "jensenshannon": DistanceType.JensenShannon,
+    "hamming": DistanceType.HammingUnexpanded,
+    "kl_divergence": DistanceType.KLDivergence,
+    "russellrao": DistanceType.RusselRaoExpanded,
+    "dice": DistanceType.DiceExpanded
+}
+
+SUPPORTED_DISTANCES = list(DISTANCE_TYPES.keys())

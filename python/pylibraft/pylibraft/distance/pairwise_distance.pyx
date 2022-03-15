@@ -19,8 +19,39 @@ from libc.stdint cimport uintptr_t
 from cython.operator cimport dereference as deref
 
 from pylibraft.distance.distance_type cimport DistanceType
+from pylibraft.distance.distance_type import DISTANCE_TYPES
+from pylibraft.distance.distance_type import SUPPORTED_DISTANCES
+
 from pylibraft.common.handle cimport handle_t
-from pylibraft.distance.pairwise_distance import *
+
+from libcpp cimport bool
+from pylibraft.distance.distance_type cimport DistanceType
+from pylibraft.common.handle cimport handle_t
+
+cdef extern from "raft_distance/pairwise_distance.hpp" \
+        namespace "raft::distance::runtime":
+
+    cdef void pairwise_distance(const handle_t &handle,
+                                float *x,
+                                float *y,
+                                float *dists,
+                                int m,
+                                int n,
+                                int k,
+                                DistanceType metric,
+                                bool isRowMajor,
+                                float metric_arg)
+
+    cdef void pairwise_distance(const handle_t &handle,
+                                double *x,
+                                double *y,
+                                double *dists,
+                                int m,
+                                int n,
+                                int k,
+                                DistanceType metric,
+                                bool isRowMajor,
+                                float metric_arg)
 
 
 def distance(X, Y, dists, metric="euclidean"):
@@ -56,6 +87,11 @@ def distance(X, Y, dists, metric="euclidean"):
     y_dt = np.dtype(y_cai["typestr"])
     d_dt = np.dtype(dists_cai["typestr"])
 
+    if metric not in SUPPORTED_DISTANCES:
+        raise ValueError("metric %s is not supported" % metric)
+
+    cdef DistanceType distance_type = DISTANCE_TYPES[metric]
+
     if x_dt != y_dt or x_dt != d_dt:
         raise ValueError("Inputs must have the same dtypes")
 
@@ -67,7 +103,7 @@ def distance(X, Y, dists, metric="euclidean"):
                           <int>m,
                           <int>n,
                           <int>k,
-                          <DistanceType>DistanceType.L2SqrtUnexpanded,
+                          <DistanceType>distance_type,
                           <bool>True, <float>0.0)
     elif x_dt == np.float64:
         pairwise_distance(deref(h),
@@ -77,7 +113,7 @@ def distance(X, Y, dists, metric="euclidean"):
                           <int>m,
                           <int>n,
                           <int>k,
-                          <DistanceType>DistanceType.L2SqrtUnexpanded,
+                          <DistanceType>distance_type,
                           <bool>True, <float>0.0)
     else:
         raise ValueError("dtype %s not supported" % x_dt)
