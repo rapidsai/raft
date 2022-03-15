@@ -9,8 +9,11 @@ set -e
 export GPUCI_RETRY_MAX=3
 export GPUCI_RETRY_SLEEP=30
 
-# Set default label options if they are not defined elsewhere
-export LABEL_OPTION=${LABEL_OPTION:-"--label main"}
+# Set label to testing by default. Use main label for main branch
+LABEL_OPTION="--label testing"
+if [[ "${SOURCE_BRANCH}" == "main" ]]; then
+  LABEL_OPTION="--label main"
+fi
 
 # Skip uploads unless BUILD_MODE == "branch"
 if [ ${BUILD_MODE} != "branch" ]; then
