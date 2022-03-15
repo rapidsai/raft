@@ -20,7 +20,7 @@
 #pragma once
 
 #include <memory>
-#include <raft_frontend/error.hpp>
+#include <raft_public/error.hpp>
 #include <vector>
 
 namespace raft {

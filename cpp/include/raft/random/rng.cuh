@@ -83,7 +83,7 @@ class Rng : public detail::RngImpl {
   /**
    * @brief ctor
    * @param _s 64b seed used to initialize the RNG
-   * @param _t backend device RNG generator type
+   * @param _t core device RNG generator type
    * @note Refer to the `Rng::seed` method for details about seeding the engine
    */
   Rng(uint64_t _s, GeneratorType _t = GenPhilox) : detail::RngImpl(_s, _t) {}
