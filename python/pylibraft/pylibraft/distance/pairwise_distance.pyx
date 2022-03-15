@@ -69,6 +69,7 @@ DISTANCE_TYPES = {
 
 SUPPORTED_DISTANCES = list(DISTANCE_TYPES.keys())
 
+
 def distance(X, Y, dists, metric="euclidean"):
     """
     Compute pairwise distances between X and Y
