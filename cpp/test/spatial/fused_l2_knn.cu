@@ -114,9 +114,9 @@ class FusedL2KNNTest : public ::testing::TestWithParam<FusedL2KNNInputs> {
     RAFT_CUDA_TRY(
       cudaMemsetAsync(search_queries.data(), 0, search_queries.size() * sizeof(T), stream_));
     RAFT_CUDA_TRY(
-      cudaMemsetAsync(raft_indices_.data(), 0, raft_indices_.size() * sizeof(T), stream_));
-    RAFT_CUDA_TRY(cudaMemsetAsync(
-      raft_distances_.data(), 0, raft_distances_.size() * sizeof(int64_t), stream_));
+      cudaMemsetAsync(raft_indices_.data(), 0, raft_indices_.size() * sizeof(int64_t), stream_));
+    RAFT_CUDA_TRY(
+      cudaMemsetAsync(raft_distances_.data(), 0, raft_distances_.size() * sizeof(T), stream_));
     RAFT_CUDA_TRY(
       cudaMemsetAsync(faiss_indices_.data(), 0, faiss_indices_.size() * sizeof(int64_t), stream_));
     RAFT_CUDA_TRY(
