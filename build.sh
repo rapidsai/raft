@@ -18,7 +18,7 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libraft pyraft pylibraft docs tests bench -v -g --noinstall --compile-libs --compile-nn --compile-dist --allgpuarch --nvtx --show_depr_warn -h --buildfaiss"
+VALIDARGS="clean libraft pyraft pylibraft docs tests bench uninstall -v -g --install --remove-cmake-deps --compile-libs --compile-nn --compile-dist --allgpuarch --nvtx --show_depr_warn -h --buildfaiss"
 HELP="$0 [<target> ...] [<flag> ...]
  where <target> is:
    clean            - remove all existing build artifacts and configuration (start over)
@@ -38,11 +38,11 @@ HELP="$0 [<target> ...] [<flag> ...]
    --compile-dist   - compile shared library for distance component
    --allgpuarch     - build for all supported GPU architectures
    --buildfaiss     - build faiss statically into raft
-   --noinstall      - do not install cmake targets
+   --install        - install cmake targets
    --clean
-   --nvtx           - Enable nvtx for profiling support
-   --show_depr_warn - show cmake deprecation warnings
-   -h               - print this text
+   --nvtx              - Enable nvtx for profiling support
+   --show_depr_warn    - show cmake deprecation warnings
+   -h                  - print this text
 
  default action (no args) is to build both libraft and pyraft targets
 "
@@ -65,9 +65,10 @@ COMPILE_DIST_LIBRARY=OFF
 ENABLE_NN_DEPENDENCIES=OFF
 NVTX=OFF
 CLEAN=0
+UNINSTALL=0
 DISABLE_DEPRECATION_WARNINGS=ON
 CMAKE_TARGET=""
-INSTALL_TARGET="install"
+INSTALL_TARGET=""
 
 # Set defaults for vars that may not have been defined externally
 #  FIXME: if INSTALL_PREFIX is not set, check PREFIX, then check
@@ -154,6 +155,9 @@ fi
 if hasArg clean; then
     CLEAN=1
 fi
+if hasArg uninstall; then
+  UNINSTALL=1
+fi
 
 # If clean given, run it prior to any other steps
 if (( ${CLEAN} == 1 )); then
@@ -175,6 +179,17 @@ if (( ${CLEAN} == 1 )); then
     cd ${REPODIR}/python/pylibraft
     python setup.py clean --all
     cd ${REPODIR}
+fi
+
+if (( ${UNINSTALL} == 1 )); then
+    rm -rf ${INSTALL_PREFIX}/include/raft*
+    rm -rf ${INSTALL_PREFIX}/lib/cmake/raft*
+    rm -rf ${INSTALL_PREFIX}/include/cub
+    rm -rf ${INSTALL_PREFIX}/include/lib/cmake/cub
+    rm -rf ${INSTALL_PREFIX}/include/include/cuco
+    rm -rf ${INSTALL_PREFIX}/include/lib/cmake/cuco
+    rm -rf ${INSTALL_PREFIX}/include/include/rmm
+    rm -rf ${INSTALL_PREFIX}/include/cmake/rmm
 fi
 
 
@@ -205,7 +220,7 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || has
           -DRAFT_COMPILE_DIST_LIBRARY=${COMPILE_DIST_LIBRARY} \
           -DRAFT_USE_FAISS_STATIC=${BUILD_STATIC_FAISS}
 
-  if [[ ${CMAKE_TARGET} != "" ]] || [[ ${INSTALL_TARGET} != "" ]]; then
+  if [[ ${CMAKE_TARGET} != "" ]]; then
       echo "-- Compiling targets: ${CMAKE_TARGET}, verbose=${VERBOSE_FLAG}"
       cmake --build  "${LIBRAFT_BUILD_DIR}" ${VERBOSE_FLAG} -j${PARALLEL_LEVEL} --target ${CMAKE_TARGET} ${INSTALL_TARGET}
   fi

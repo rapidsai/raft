@@ -15,15 +15,9 @@
 #=============================================================================
 
 function(find_and_configure_rmm)
-
     include(${rapids-cmake-dir}/cpm/rmm.cmake)
-    rapids_cpm_rmm(
-        GLOBAL_TARGETS      rmm::rmm
-        BUILD_EXPORT_SET    raft-exports
-        INSTALL_EXPORT_SET  raft-exports
-        EXCLUDE_FROM_ALL TRUE
-    )
-
+    rapids_cpm_rmm(BUILD_EXPORT_SET raft-exports)
+    rapids_export_package(INSTALL rmm raft-exports)
 endfunction()
 
 find_and_configure_rmm()
