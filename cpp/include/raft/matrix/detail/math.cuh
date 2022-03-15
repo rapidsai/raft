@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,10 +20,10 @@
 
 #include <cub/cub.cuh>
 #include <raft/cuda_utils.cuh>
-#include <raft/linalg/binary_op.hpp>
-#include <raft/linalg/map_then_reduce.hpp>
-#include <raft/linalg/matrix_vector_op.hpp>
-#include <raft/linalg/unary_op.hpp>
+#include <raft/linalg/binary_op.cuh>
+#include <raft/linalg/map_then_reduce.cuh>
+#include <raft/linalg/matrix_vector_op.cuh>
+#include <raft/linalg/unary_op.cuh>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 

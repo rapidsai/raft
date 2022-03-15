@@ -13,6 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
+
+#ifndef __MAP_THEN_REDUCE_H
+#define __MAP_THEN_REDUCE_H
 
 #pragma once
 
@@ -85,3 +92,5 @@ void mapThenReduce(OutType* out,
 }
 };  // end namespace linalg
 };  // end namespace raft
+
+#endif

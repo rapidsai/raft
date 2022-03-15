@@ -13,6 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
+
+#ifndef __CONTRACTIONS_H
+#define __CONTRACTIONS_H
 
 #pragma once
 
@@ -205,3 +212,5 @@ using detail::Contractions_NT;
 
 }  // namespace linalg
 }  // namespace raft
+
+#endif

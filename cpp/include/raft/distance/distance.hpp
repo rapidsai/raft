@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,6 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
+
+#ifndef __DISTANCE_H
+#define __DISTANCE_H
 
 #pragma once
 
@@ -20,6 +27,8 @@
 #include <raft/distance/distance_type.hpp>
 #include <raft/handle.hpp>
 #include <rmm/device_uvector.hpp>
+
+#include <raft/mdarray.hpp>
 
 namespace raft {
 namespace distance {
@@ -143,6 +152,34 @@ size_t getWorkspaceSize(const InType* x, const InType* y, Index_ m, Index_ n, In
 }
 
 /**
+ * @brief Return the exact workspace size to compute the distance
+ * @tparam DistanceType which distance to evaluate
+ * @tparam InType input argument type
+ * @tparam AccType accumulation type
+ * @tparam OutType output type
+ * @tparam Index_ Index type
+ * @param x first set of points (size m*k)
+ * @param y second set of points (size n*k)
+ * @return number of bytes needed in workspace
+ *
+ * @note If the specified distanceType doesn't need the workspace at all, it
+ * returns 0.
+ */
+template <raft::distance::DistanceType distanceType,
+          typename InType,
+          typename AccType,
+          typename OutType,
+          typename Index_ = int>
+size_t getWorkspaceSize(const raft::device_matrix_view<InType>& x,
+                        const raft::device_matrix_view<InType>& y)
+{
+  RAFT_EXPECTS(x.extent(1) == y.extent(1), "Number of columns must be equal.");
+
+  return getWorkspaceSize<distanceType, InType, AccType, OutType, Index_>(
+    x.data(), y.data(), x.extent(0), y.extent(0), x.extent(1));
+}
+
+/**
  * @brief Evaluate pairwise distances for the simple use case
  * @tparam DistanceType which distance to evaluate
  * @tparam InType input argument type
@@ -158,9 +195,6 @@ size_t getWorkspaceSize(const InType* x, const InType* y, Index_ m, Index_ n, In
  * @param stream cuda stream
  * @param isRowMajor whether the matrices are row-major or col-major
  * @param metric_arg metric argument (used for Minkowski distance)
- *
- * @note if workspace is passed as nullptr, this will return in
- *  worksize, the number of bytes of workspace required
  */
 template <raft::distance::DistanceType distanceType,
           typename InType,
@@ -185,12 +219,76 @@ void distance(const InType* x,
 }
 
 /**
- * @defgroup pairwise_distance pairwise distance prims
- * @{
+ * @brief Evaluate pairwise distances for the simple use case.
+ *
+ * Note: Only contiguous row- or column-major layouts supported currently.
+ *
+ * @tparam DistanceType which distance to evaluate
+ * @tparam InType input argument type
+ * @tparam AccType accumulation type
+ * @tparam OutType output type
+ * @tparam Index_ Index type
+ * @param handle raft handle for managing expensive resources
+ * @param x first set of points (size n*k)
+ * @param y second set of points (size m*k)
+ * @param dist output distance matrix (size n*m)
+ * @param metric_arg metric argument (used for Minkowski distance)
+ */
+
+template <raft::distance::DistanceType distanceType,
+          typename InType,
+          typename AccType,
+          typename OutType,
+          typename Index_ = int,
+          typename layout = raft::layout_c_contiguous>
+void distance(raft::handle_t const handle,
+              raft::device_matrix_view<InType, layout> const x,
+              raft::device_matrix_view<InType, layout> const y,
+              raft::device_matrix_view<OutType> dist,
+              InType metric_arg = 2.0f)
+{
+  RAFT_EXPECTS(x.extent(1) == y.extent(1), "Number of columns must be equal.");
+  RAFT_EXPECTS(dist.extent(0) == x.extent(0),
+               "Number of rows in output must be equal to "
+               "number of rows in X");
+  RAFT_EXPECTS(dist.extent(1) == y.extent(0),
+               "Number of columns in output must be equal to "
+               "number of rows in Y");
+
+  RAFT_EXPECTS(x.is_contiguous(), "Input x must be contiguous.");
+  RAFT_EXPECTS(y.is_contiguous(), "Input y must be contiguous.");
+
+  if (x.stride(0) == 0 && y.stride(0) == 0) {
+    distance<distanceType, InType, AccType, OutType, Index_>(x.data(),
+                                                             y.data(),
+                                                             dist.data(),
+                                                             x.extent(0),
+                                                             y.extent(0),
+                                                             x.extent(1),
+                                                             handle.get_stream(),
+                                                             true,
+                                                             metric_arg);
+  } else if (x.stride(0) > 0 && y.stride(0) > 0) {
+    distance<distanceType, InType, AccType, OutType, Index_>(x.data(),
+                                                             y.data(),
+                                                             dist.data(),
+                                                             x.extent(0),
+                                                             y.extent(0),
+                                                             x.extent(1),
+                                                             handle.get_stream(),
+                                                             false,
+                                                             metric_arg);
+  } else {
+    RAFT_FAIL("x and y must both have the same layout: row-major or column-major.");
+  }
+}
+
+/**
  * @brief Convenience wrapper around 'distance' prim to convert runtime metric
  * into compile time for the purpose of dispatch
  * @tparam Type input/accumulation/output data-type
  * @tparam Index_ indexing type
+ * @param handle raft handle for managing expensive resources
  * @param x first set of points
  * @param y second set of points
  * @param dist output distance matrix
@@ -200,8 +298,8 @@ void distance(const InType* x,
  * @param workspace temporary workspace buffer which can get resized as per the
  * needed workspace size
  * @param metric distance metric
- * @param stream cuda stream
  * @param isRowMajor whether the matrices are row-major or col-major
+ * @param metric_arg metric argument
  */
 template <typename Type, typename Index_ = int>
 void pairwise_distance(const raft::handle_t& handle,
@@ -281,15 +379,13 @@ void pairwise_distance(const raft::handle_t& handle,
     default: THROW("Unknown or unsupported distance metric '%d'!", (int)metric);
   };
 }
-/** @} */
 
 /**
- * @defgroup pairwise_distance pairwise distance prims
- * @{
  * @brief Convenience wrapper around 'distance' prim to convert runtime metric
  * into compile time for the purpose of dispatch
  * @tparam Type input/accumulation/output data-type
  * @tparam Index_ indexing type
+ * @param handle raft handle for managing expensive resources
  * @param x first set of points
  * @param y second set of points
  * @param dist output distance matrix
@@ -297,8 +393,8 @@ void pairwise_distance(const raft::handle_t& handle,
  * @param n number of points in y
  * @param k dimensionality
  * @param metric distance metric
- * @param stream cuda stream
  * @param isRowMajor whether the matrices are row-major or col-major
+ * @param metric_arg metric argument
  */
 template <typename Type, typename Index_ = int>
 void pairwise_distance(const raft::handle_t& handle,
@@ -317,5 +413,55 @@ void pairwise_distance(const raft::handle_t& handle,
     handle, x, y, dist, m, n, k, workspace, metric, isRowMajor, metric_arg);
 }
 
+/**
+ * @brief Convenience wrapper around 'distance' prim to convert runtime metric
+ * into compile time for the purpose of dispatch
+ * @tparam Type input/accumulation/output data-type
+ * @tparam Index_ indexing type
+ * @param handle raft handle for managing expensive resources
+ * @param x first matrix of points (size mxk)
+ * @param y second matrix of points (size nxk)
+ * @param dist output distance matrix (size mxn)
+ * @param metric distance metric
+ * @param metric_arg metric argument
+ */
+template <typename Type, typename Index_ = int>
+void pairwise_distance(raft::handle_t const& handle,
+                       device_matrix_view<Type> const& x,
+                       device_matrix_view<Type> const& y,
+                       device_matrix_view<Type>& dist,
+                       raft::distance::DistanceType metric,
+                       Type metric_arg = 2.0f)
+{
+  RAFT_EXPECTS(x.extent(1) == y.extent(1), "Number of columns must be equal.");
+  RAFT_EXPECTS(dist.extent(0) == x.extent(0),
+               "Number of rows in output must be equal to "
+               "number of rows in X");
+  RAFT_EXPECTS(dist.extent(1) == y.extent(0),
+               "Number of columns in output must be equal to "
+               "number of rows in Y");
+
+  RAFT_EXPECTS(x.is_contiguous(), "Input x must be contiguous.");
+  RAFT_EXPECTS(y.is_contiguous(), "Input y must be contiguous.");
+  RAFT_EXPECTS(dist.is_contiguous(), "Output must be contiguous.");
+
+  bool rowmajor = x.stride(0) == 0;
+
+  rmm::device_uvector<char> workspace(0, handle.get_stream());
+
+  pairwise_distance(handle,
+                    x.data(),
+                    y.data(),
+                    dist.data(),
+                    x.extent(0),
+                    y.extent(0),
+                    x.extent(1),
+                    metric,
+                    rowmajor,
+                    metric_arg);
+}
+
 };  // namespace distance
 };  // namespace raft
+
+#endif

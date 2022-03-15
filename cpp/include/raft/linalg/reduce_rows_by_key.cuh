@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef __REDUCE_ROWS_BY_KEY
+#define __REDUCE_ROWS_BY_KEY
 
 #pragma once
 
@@ -108,3 +110,5 @@ void reduce_rows_by_key(const DataIteratorT d_A,
 
 };  // end namespace linalg
 };  // end namespace raft
+
+#endif

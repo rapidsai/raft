@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@
 #include "../test_utils.h"
 #include <gtest/gtest.h>
 #include <raft/cuda_utils.cuh>
-#include <raft/linalg/gemm.hpp>
-#include <raft/random/rng.hpp>
+#include <raft/linalg/gemm.cuh>
+#include <raft/random/rng.cuh>
 
 namespace raft {
 namespace linalg {
@@ -128,7 +128,7 @@ const std::vector<GemmLayoutInputs<float>> inputsf = {
   {50, 10, 60, false, true, true, 73012ULL},
   {90, 90, 30, false, true, false, 538147ULL},
   {30, 100, 10, false, false, true, 412352ULL},
-  {40, 80, 100, false, false, false, 297941ULL}};
+  {40, 80, 100, false, false, false, 2979410ULL}};
 
 const std::vector<GemmLayoutInputs<double>> inputsd = {
   {10, 70, 40, true, true, true, 535648ULL},

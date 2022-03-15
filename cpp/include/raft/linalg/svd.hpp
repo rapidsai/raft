@@ -13,10 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
+
+#ifndef __SVD_H
+#define __SVD_H
 
 #pragma once
 
-#include "detail/svd.hpp"
+#include "detail/svd.cuh"
 
 namespace raft {
 namespace linalg {
@@ -182,3 +189,5 @@ bool evaluateSVDByL2Norm(const raft::handle_t& handle,
 
 };  // end namespace linalg
 };  // end namespace raft
+
+#endif

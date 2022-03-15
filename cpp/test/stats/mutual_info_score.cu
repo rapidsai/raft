@@ -18,8 +18,8 @@
 #include <gtest/gtest.h>
 #include <iostream>
 #include <raft/cudart_utils.h>
-#include <raft/stats/contingency_matrix.hpp>
-#include <raft/stats/mutual_info_score.hpp>
+#include <raft/stats/contingency_matrix.cuh>
+#include <raft/stats/mutual_info_score.cuh>
 #include <random>
 
 namespace raft {

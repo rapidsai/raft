@@ -13,6 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
+
+#ifndef __TRUSTWORTHINESS_SCORE_H
+#define __TRUSTWORTHINESS_SCORE_H
 
 #pragma once
 #include <raft/stats/detail/trustworthiness_score.cuh>
@@ -47,3 +54,5 @@ double trustworthiness_score(const raft::handle_t& h,
 }
 }  // namespace stats
 }  // namespace raft
+
+#endif

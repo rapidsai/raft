@@ -22,8 +22,8 @@
 #include <raft/handle.hpp>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/linalg/detail/cusolver_wrappers.hpp>
-#include <raft/linalg/matrix_vector_op.hpp>
-#include <raft/linalg/unary_op.hpp>
+#include <raft/linalg/matrix_vector_op.cuh>
+#include <raft/linalg/unary_op.cuh>
 #include <stdio.h>
 
 // mvg.cuh takes in matrices that are colomn major (as in fortan)

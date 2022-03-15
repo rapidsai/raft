@@ -13,10 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
+
+#ifndef __REDUCE_H
+#define __REDUCE_H
 
 #pragma once
 
-#include "detail/reduce.hpp"
+#include "detail/reduce.cuh"
 
 namespace raft {
 namespace linalg {
@@ -75,3 +82,5 @@ void reduce(OutType* dots,
 
 };  // end namespace linalg
 };  // end namespace raft
+
+#endif

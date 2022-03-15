@@ -14,6 +14,14 @@
  * limitations under the License.
  */
 /**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
+
+#ifndef __ADJUSTED_RAND_INDEX_H
+#define __ADJUSTED_RAND_INDEX_H
+
+/**
  * @file adjusted_rand_index.hpp
  * @brief The adjusted Rand index is the corrected-for-chance version of the Rand index.
  * Such a correction for chance establishes a baseline by using the expected similarity
@@ -48,3 +56,5 @@ double adjusted_rand_index(const T* firstClusterArray,
 
 };  // end namespace stats
 };  // end namespace raft
+
+#endif

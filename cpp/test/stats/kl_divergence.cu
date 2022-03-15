@@ -18,7 +18,7 @@
 #include <gtest/gtest.h>
 #include <iostream>
 #include <raft/cudart_utils.h>
-#include <raft/stats/kl_divergence.hpp>
+#include <raft/stats/kl_divergence.cuh>
 #include <random>
 
 namespace raft {

@@ -17,7 +17,7 @@
 #pragma once
 
 #include <raft/cuda_utils.cuh>
-#include <raft/linalg/reduce.hpp>
+#include <raft/linalg/reduce.cuh>
 
 namespace raft::stats::detail {
 

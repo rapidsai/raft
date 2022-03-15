@@ -22,7 +22,7 @@
 
 #include <algorithm>
 #include <iostream>
-#include <raft/stats/rand_index.hpp>
+#include <raft/stats/rand_index.cuh>
 #include <random>
 
 namespace raft {

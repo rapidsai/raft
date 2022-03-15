@@ -221,8 +221,13 @@ DI void custom_next(
   GenType& gen, OutType* val, NormalDistParams<OutType> params, LenType idx = 0, LenType stride = 0)
 {
   OutType res1, res2;
-  gen.next(res1);
+
+  do {
+    gen.next(res1);
+  } while (res1 == OutType(0.0));
+
   gen.next(res2);
+
   box_muller_transform<OutType>(res1, res2, params.sigma, params.mu);
   *val       = res1;
   *(val + 1) = res2;
@@ -236,7 +241,11 @@ DI void custom_next(GenType& gen,
                     LenType stride = 0)
 {
   IntType res1_int, res2_int;
-  gen.next(res1_int);
+
+  do {
+    gen.next(res1_int);
+  } while (res1_int == 0);
+
   gen.next(res2_int);
   double res1  = static_cast<double>(res1_int);
   double res2  = static_cast<double>(res2_int);
@@ -255,7 +264,11 @@ DI void custom_next(GenType& gen,
                     LenType stride)
 {
   OutType res1, res2;
-  gen.next(res1);
+
+  do {
+    gen.next(res1);
+  } while (res1 == OutType(0.0));
+
   gen.next(res2);
   LenType col1  = idx % params.n_cols;
   LenType col2  = (idx + stride) % params.n_cols;
@@ -274,7 +287,7 @@ DI void custom_next(
 {
   Type res = 0;
   gen.next(res);
-  *val = res > params.prob;
+  *val = res < params.prob;
 }
 
 template <typename GenType, typename OutType, typename LenType>
@@ -286,7 +299,7 @@ DI void custom_next(GenType& gen,
 {
   OutType res = 0;
   gen.next(res);
-  *val = res > params.prob ? -params.scale : params.scale;
+  *val = res < params.prob ? -params.scale : params.scale;
 }
 
 template <typename GenType, typename OutType, typename LenType>
@@ -294,7 +307,11 @@ DI void custom_next(
   GenType& gen, OutType* val, GumbelDistParams<OutType> params, LenType idx = 0, LenType stride = 0)
 {
   OutType res = 0;
-  gen.next(res);
+
+  do {
+    gen.next(res);
+  } while (res == OutType(0.0));
+
   *val = params.mu - params.beta * raft::myLog(-raft::myLog(res));
 }
 
@@ -306,7 +323,10 @@ DI void custom_next(GenType& gen,
                     LenType stride = 0)
 {
   OutType res1 = 0, res2 = 0;
-  gen.next(res1);
+  do {
+    gen.next(res1);
+  } while (res1 == OutType(0.0));
+
   gen.next(res2);
   box_muller_transform<OutType>(res1, res2, params.sigma, params.mu);
   *val       = raft::myExp(res1);
@@ -321,7 +341,11 @@ DI void custom_next(GenType& gen,
                     LenType stride = 0)
 {
   OutType res;
-  gen.next(res);
+
+  do {
+    gen.next(res);
+  } while (res == OutType(0.0));
+
   constexpr OutType one = (OutType)1.0;
   *val                  = params.mu - params.scale * raft::myLog(one / res - one);
 }
@@ -348,6 +372,7 @@ DI void custom_next(GenType& gen,
 {
   OutType res;
   gen.next(res);
+
   constexpr OutType one = (OutType)1.0;
   constexpr OutType two = (OutType)2.0;
   *val                  = raft::mySqrt(-two * raft::myLog(one - res)) * params.sigma;
@@ -361,10 +386,17 @@ DI void custom_next(GenType& gen,
                     LenType stride = 0)
 {
   OutType res, out;
-  gen.next(res);
+
+  do {
+    gen.next(res);
+  } while (res == OutType(0.0));
+
   constexpr OutType one     = (OutType)1.0;
   constexpr OutType two     = (OutType)2.0;
   constexpr OutType oneHalf = (OutType)0.5;
+
+  // The <= comparison here means, number of samples going in `if` branch are more by 1 than `else`
+  // branch. However it does not matter as for 0.5 both branches evaluate to same result.
   if (res <= oneHalf) {
     out = params.mu + params.scale * raft::myLog(two * res);
   } else {
@@ -451,8 +483,33 @@ struct PhiloxGenerator {
     return ret;
   }
 
-  DI void next(float& ret) { ret = curand_uniform(&(this->philox_state)); }
-  DI void next(double& ret) { ret = curand_uniform_double(&(this->philox_state)); }
+  DI float next_float()
+  {
+    float ret;
+    uint32_t val = next_u32() >> 8;
+    ret          = static_cast<float>(val) / float(uint32_t(1) << 24);
+    return ret;
+  }
+
+  DI double next_double()
+  {
+    double ret;
+    uint64_t val = next_u64() >> 11;
+    ret          = static_cast<double>(val) / double(uint64_t(1) << 53);
+    return ret;
+  }
+
+  DI void next(float& ret)
+  {
+    // ret = curand_uniform(&(this->philox_state));
+    ret = next_float();
+  }
+
+  DI void next(double& ret)
+  {
+    // ret = curand_uniform_double(&(this->philox_state));
+    ret = next_double();
+  }
 
   DI void next(uint32_t& ret) { ret = next_u32(); }
   DI void next(uint64_t& ret) { ret = next_u64(); }

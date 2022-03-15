@@ -13,6 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
+
+#ifndef __INIT_H
+#define __INIT_H
 
 #pragma once
 
@@ -54,3 +61,5 @@ void range(T* out, int n, cudaStream_t stream)
 
 }  // namespace linalg
 }  // namespace raft
+
+#endif

@@ -13,11 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
+
+#ifndef __LSTSQ_H
+#define __LSTSQ_H
 
 #pragma once
 
 #include <raft/handle.hpp>
-#include <raft/linalg/detail/lstsq.hpp>
+#include <raft/linalg/detail/lstsq.cuh>
 namespace raft {
 namespace linalg {
 
@@ -115,3 +122,5 @@ void lstsqQR(const raft::handle_t& handle,
 
 };  // namespace linalg
 };  // namespace raft
+
+#endif

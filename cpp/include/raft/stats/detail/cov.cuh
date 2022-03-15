@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <raft/linalg/gemm.hpp>
-#include <raft/stats/mean_center.hpp>
+#include <raft/linalg/gemm.cuh>
+#include <raft/stats/mean_center.cuh>
 
 namespace raft {
 namespace stats {
