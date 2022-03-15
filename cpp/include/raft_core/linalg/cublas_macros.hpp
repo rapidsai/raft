@@ -20,7 +20,7 @@
 #pragma once
 
 #include <cublas_v2.h>
-#include <raft_public/error.hpp>
+#include <raft_core/error.hpp>
 
 ///@todo: enable this once we have logger enabled
 //#include <cuml/common/logger.hpp>

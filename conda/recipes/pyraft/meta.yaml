@@ -30,7 +30,7 @@ requirements:
     - setuptools
     - cython>=0.29,<0.30
     - rmm {{ minor_version }}
-    - libraft-public-headers {{ version }}
+    - libraft-core {{ version }}
     - cudatoolkit {{ cuda_version }}.*
     - cuda-python >=11.5,<12.0
     - nccl>=2.9.9
@@ -39,7 +39,7 @@ requirements:
   run:
     - python x.x
     - dask-cuda {{ minor_version }}
-    - libraft-public-headers {{ version }}
+    - libraft-core {{ version }}
     - nccl>=2.9.9
     - rmm {{ minor_version }}
     - ucx-py {{ ucx_py_version }}

@@ -101,8 +101,8 @@ endif()
 # * enable the CMake CUDA language
 # * set other CUDA compilation flags
 rapids_find_package(CUDAToolkit REQUIRED
-    BUILD_EXPORT_SET raft-exports
-    INSTALL_EXPORT_SET raft-exports)
+    BUILD_EXPORT_SET raft-core-exports
+    INSTALL_EXPORT_SET raft-core-exports)
 include(cmake/modules/ConfigureCUDA.cmake)
 
 ##############################################################################
@@ -139,26 +139,22 @@ set(RAFT_LINK_LIBS
         CUDA::cusparse
         rmm::rmm)
 
-add_library(raft_core INTERFACE)
-if(TARGET raft_core AND (NOT TARGET raft::core))
-  add_library(raft::core ALIAS raft_core)
-endif()
+add_library(raft INTERFACE)
+add_library(raft::raft ALIAS raft)
 
-set_target_properties(raft_core PROPERTIES EXPORT_NAME core)
-
-target_include_directories(raft_core INTERFACE
+target_include_directories(raft INTERFACE
         "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/include>"
         "$<INSTALL_INTERFACE:include>")
 
-target_link_libraries(raft_core INTERFACE
+target_link_libraries(raft INTERFACE
         raft::Thrust
         $<$<BOOL:${NVTX}>:CUDA::nvToolsExt>
         ${RAFT_LINK_LIBS}
         cuco::cuco
         std::mdspan)
 
-target_compile_definitions(raft_core INTERFACE $<$<BOOL:${NVTX}>:NVTX_ENABLED>)
-target_compile_features(raft_core INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
+target_compile_definitions(raft INTERFACE $<$<BOOL:${NVTX}>:NVTX_ENABLED>)
+target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
 
 if(RAFT_COMPILE_LIBRARIES OR RAFT_COMPILE_DIST_LIBRARY OR RAFT_COMPILE_NN_LIBRARY)
   file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld"
@@ -177,16 +173,20 @@ if(${RAFT_STATIC_LINK_LIBRARIES})
 endif()
 
 ##############################################################################
-# - raft_public -------------------------------------------------------------
+# - raft_core -------------------------------------------------------------
 
-add_library(raft INTERFACE)
-add_library(raft::raft ALIAS raft)
+add_library(raft_core INTERFACE)
+if(TARGET raft_core AND (NOT TARGET raft::core))
+  add_library(raft::core ALIAS raft)
+endif()
 
-target_include_directories(raft INTERFACE
+target_include_directories(raft_core INTERFACE
         "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/include>"
         "$<INSTALL_INTERFACE:include>"
         )
-target_link_libraries(raft INTERFACE ${RAFT_LINK_LIBS})
+target_link_libraries(raft_core INTERFACE ${RAFT_LINK_LIBS})
+
+set_target_properties(raft_core PROPERTIES EXPORT_NAME core)
 
 target_compile_definitions(raft INTERFACE $<$<BOOL:${NVTX}>:NVTX_ENABLED>)
 target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
@@ -237,7 +237,7 @@ if(RAFT_COMPILE_LIBRARIES OR RAFT_COMPILE_DIST_LIBRARY)
   )
   set_target_properties(raft_distance_lib PROPERTIES OUTPUT_NAME raft_distance)
 
-  target_link_libraries(raft_distance_lib PRIVATE raft::core)
+  target_link_libraries(raft_distance_lib PRIVATE raft::raft)
   target_compile_options(raft_distance_lib
           PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
           "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
@@ -251,7 +251,7 @@ if(RAFT_COMPILE_LIBRARIES OR RAFT_COMPILE_DIST_LIBRARY)
 endif()
 
 target_link_libraries(raft_distance INTERFACE
-    raft::raft
+    raft::core
     $<TARGET_NAME_IF_EXISTS:raft_distance_lib>
     $<TARGET_NAME_IF_EXISTS:raft::raft_distance_lib>
 )
@@ -281,7 +281,7 @@ if(RAFT_COMPILE_LIBRARIES OR RAFT_COMPILE_NN_LIBRARY)
           )
   set_target_properties(raft_nn_lib PROPERTIES OUTPUT_NAME raft_nn)
 
-  target_link_libraries(raft_nn_lib PRIVATE raft::core faiss::faiss)
+  target_link_libraries(raft_nn_lib PRIVATE raft::raft faiss::faiss)
   target_compile_options(raft_nn_lib
           PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
           "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
@@ -294,7 +294,7 @@ if(RAFT_COMPILE_LIBRARIES OR RAFT_COMPILE_NN_LIBRARY)
 
 endif()
 
-target_link_libraries(raft_nn INTERFACE raft::raft faiss::faiss
+target_link_libraries(raft_nn INTERFACE raft::core faiss::faiss
     $<TARGET_NAME_IF_EXISTS:raft_nn_lib>
     $<TARGET_NAME_IF_EXISTS:raft::raft_nn_lib>)
 
@@ -304,13 +304,13 @@ rapids_cmake_install_lib_dir( lib_dir )
 include(GNUInstallDirs)
 include(CPack)
 
-install(TARGETS raft
-        DESTINATION ${lib_dir}
-        EXPORT raft-exports)
-
 install(TARGETS raft_core
         DESTINATION ${lib_dir}
         EXPORT raft-core-exports)
+
+install(TARGETS raft
+        DESTINATION ${lib_dir}
+        EXPORT raft-exports)
 
 install(TARGETS raft_distance
         DESTINATION ${lib_dir}
@@ -332,12 +332,12 @@ if(TARGET raft_nn_lib)
 endif()
 
 
-install(DIRECTORY include/raft_public
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/raft_public)
+install(DIRECTORY include/raft_core
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/raft_core)
 
 # Temporary install of raft.hpp while the file is removed
-install(FILES include/raft_public/raft.hpp
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/raft_public)
+install(FILES include/raft_core/raft.hpp
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/raft_core)
 
 ##############################################################################
 # - install export -----------------------------------------------------------
@@ -349,12 +349,13 @@ RAFT (Reusable Analytics Functions and other Tools) contains fundamental
 widely-used algorithms and primitives for data science, graph, and ml.
 
 Optional Components:
+  - core
   - nn
   - distance
 
 Imported Targets:
-  - raft::core
   - raft::raft
+  - raft::core brought in by the `core` optional component
   - raft::nn brought in by the `nn` optional component
   - raft::distance brought in by the `distance` optional component
 

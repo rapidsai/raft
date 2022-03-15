@@ -22,11 +22,11 @@
 from libcpp.memory cimport shared_ptr
 from rmm._lib.cuda_stream_view cimport cuda_stream_view
 
-cdef extern from "raft_public/interruptible.hpp" namespace "raft" nogil:
+cdef extern from "raft_core/interruptible.hpp" namespace "raft" nogil:
     cdef cppclass interruptible:
         void cancel()
 
-cdef extern from "raft_public/interruptible.hpp" \
+cdef extern from "raft_core/interruptible.hpp" \
         namespace "raft::interruptible" nogil:
     cdef void inter_synchronize \
         "raft::interruptible::synchronize"(cuda_stream_view stream) except+

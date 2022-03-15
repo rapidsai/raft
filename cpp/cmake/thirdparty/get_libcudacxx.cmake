@@ -16,8 +16,8 @@
 function(find_and_configure_libcudacxx)
   include(${rapids-cmake-dir}/cpm/libcudacxx.cmake)
 
-  rapids_cpm_libcudacxx(BUILD_EXPORT_SET raft-core-exports
-                        INSTALL_EXPORT_SET raft-core-exports
+  rapids_cpm_libcudacxx(BUILD_EXPORT_SET raft-exports
+                        INSTALL_EXPORT_SET raft-exports
                         EXCLUDE_FROM_ALL TRUE)
 
 endfunction()
