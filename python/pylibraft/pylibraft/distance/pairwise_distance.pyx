@@ -18,35 +18,9 @@ import numpy as np
 from libc.stdint cimport uintptr_t
 from cython.operator cimport dereference as deref
 
-from pylibraft.distance.distance_type cimport DistanceType
-
-from pylibraft.common.handle cimport handle_t
-
 from libcpp cimport bool
-from pylibraft.distance.distance_type cimport DistanceType
+from .distance_type cimport DistanceType
 from pylibraft.common.handle cimport handle_t
-
-DISTANCE_TYPES = {
-    "l2": DistanceType.L2SqrtUnexpanded,
-    "euclidean": DistanceType.L2SqrtUnexpanded,
-    "l1": DistanceType.L1,
-    "cityblock": DistanceType.L1,
-    "inner_product": DistanceType.InnerProduct,
-    "chebyshev": DistanceType.Linf,
-    "canberra": DistanceType.Canberra,
-    "lp": DistanceType.LpUnexpanded,
-    "correlation": DistanceType.CorrelationExpanded,
-    "jaccard": DistanceType.JaccardExpanded,
-    "hellinger": DistanceType.HellingerExpanded,
-    "braycurtis": DistanceType.BrayCurtis,
-    "jensenshannon": DistanceType.JensenShannon,
-    "hamming": DistanceType.HammingUnexpanded,
-    "kl_divergence": DistanceType.KLDivergence,
-    "russellrao": DistanceType.RusselRaoExpanded,
-    "dice": DistanceType.DiceExpanded
-}
-
-SUPPORTED_DISTANCES = list(DISTANCE_TYPES.keys())
 
 cdef extern from "raft_distance/pairwise_distance.hpp" \
         namespace "raft::distance::runtime":
@@ -73,6 +47,27 @@ cdef extern from "raft_distance/pairwise_distance.hpp" \
                                 bool isRowMajor,
                                 float metric_arg)
 
+DISTANCE_TYPES = {
+    "l2": DistanceType.L2SqrtUnexpanded,
+    "euclidean": DistanceType.L2SqrtUnexpanded,
+    "l1": DistanceType.L1,
+    "cityblock": DistanceType.L1,
+    "inner_product": DistanceType.InnerProduct,
+    "chebyshev": DistanceType.Linf,
+    "canberra": DistanceType.Canberra,
+    "lp": DistanceType.LpUnexpanded,
+    "correlation": DistanceType.CorrelationExpanded,
+    "jaccard": DistanceType.JaccardExpanded,
+    "hellinger": DistanceType.HellingerExpanded,
+    "braycurtis": DistanceType.BrayCurtis,
+    "jensenshannon": DistanceType.JensenShannon,
+    "hamming": DistanceType.HammingUnexpanded,
+    "kl_divergence": DistanceType.KLDivergence,
+    "russellrao": DistanceType.RusselRaoExpanded,
+    "dice": DistanceType.DiceExpanded
+}
+
+SUPPORTED_DISTANCES = list(DISTANCE_TYPES.keys())
 
 def distance(X, Y, dists, metric="euclidean"):
     """
