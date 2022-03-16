@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2021-2022, NVIDIA CORPORATION.
+# Copyright (c) 2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -138,6 +138,7 @@ function(raft_export type project_name)
     # Choose the project version when an explicit version isn't provided
     set(RAPIDS_VERSION "${PROJECT_VERSION}")
   endif()
+
   if(rapids_version_set)
     include("${rapids-cmake-dir}/export/detail/parse_version.cmake")
     rapids_export_parse_version(${RAPIDS_VERSION} rapids_orig rapids_project_version)
@@ -173,18 +174,18 @@ function(raft_export type project_name)
 
     set(scratch_dir "${PROJECT_BINARY_DIR}/rapids-cmake/${project_name}/export")
 
-      configure_package_config_file("${CMAKE_CURRENT_FUNCTION_LIST_DIR}/config.cmake.in"
-                                  "${scratch_dir}/${project_name}-config.cmake"
-                                  INSTALL_DESTINATION "${install_location}")
+    configure_package_config_file("${CMAKE_CURRENT_FUNCTION_LIST_DIR}/config.cmake.in"
+            "${scratch_dir}/${project_name}-config.cmake"
+            INSTALL_DESTINATION "${install_location}")
 
     if(rapids_version_set)
       write_basic_package_version_file(
-        "${scratch_dir}/${project_name}-config-version.cmake" VERSION ${rapids_project_version}
-        COMPATIBILITY ${rapids_project_version_compat})
+              "${scratch_dir}/${project_name}-config-version.cmake" VERSION ${rapids_project_version}
+              COMPATIBILITY ${rapids_project_version_compat})
     endif()
 
-      install(EXPORT ${RAPIDS_EXPORT_SET} FILE ${project_name}-targets.cmake
-              NAMESPACE ${RAPIDS_PROJECT_VERSION} DESTINATION "${install_location}")
+    install(EXPORT ${RAPIDS_EXPORT_SET} FILE ${project_name}-targets.cmake
+            NAMESPACE ${RAPIDS_PROJECT_VERSION} DESTINATION "${install_location}")
 
     if(TARGET rapids_export_install_${RAPIDS_EXPORT_SET})
       include("${rapids-cmake-dir}/export/write_dependencies.cmake")
@@ -206,29 +207,29 @@ function(raft_export type project_name)
   else()
     set(install_location "${PROJECT_BINARY_DIR}")
     configure_package_config_file("${CMAKE_CURRENT_FUNCTION_LIST_DIR}/config.cmake.in"
-                                  "${install_location}/${project_name}-config.cmake"
-                                  INSTALL_DESTINATION "${install_location}")
+            "${install_location}/${project_name}-config.cmake"
+            INSTALL_DESTINATION "${install_location}")
 
     if(rapids_version_set)
       write_basic_package_version_file(
-        "${install_location}/${project_name}-config-version.cmake" VERSION ${rapids_project_version}
-        COMPATIBILITY ${rapids_project_version_compat})
+              "${install_location}/${project_name}-config-version.cmake" VERSION ${rapids_project_version}
+              COMPATIBILITY ${rapids_project_version_compat})
     endif()
 
     export(EXPORT ${RAPIDS_EXPORT_SET} NAMESPACE ${RAPIDS_PROJECT_VERSION}
-           FILE "${install_location}/${project_name}-targets.cmake")
+            FILE "${install_location}/${project_name}-targets.cmake")
 
     if(TARGET rapids_export_build_${RAPIDS_EXPORT_SET})
       include("${rapids-cmake-dir}/export/write_dependencies.cmake")
       rapids_export_write_dependencies(BUILD ${RAPIDS_EXPORT_SET}
-                                       "${install_location}/${project_name}-dependencies.cmake")
+              "${install_location}/${project_name}-dependencies.cmake")
     endif()
 
     if(DEFINED RAPIDS_LANGUAGES)
       include("${rapids-cmake-dir}/export/write_language.cmake")
       foreach(lang IN LISTS RAPIDS_LANGUAGES)
         rapids_export_write_language(BUILD ${lang}
-                                     "${install_location}/${project_name}-${lang}-language.cmake")
+                "${install_location}/${project_name}-${lang}-language.cmake")
       endforeach()
     endif()
 

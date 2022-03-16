@@ -134,14 +134,6 @@ endif()
 
 ##############################################################################
 # - raft ---------------------------------------------------------------------
-set(RAFT_LINK_LIBS
-        CUDA::cublas
-        CUDA::curand
-        CUDA::cusolver
-        CUDA::cudart
-        CUDA::cusparse
-        rmm::rmm)
-
 add_library(raft INTERFACE)
 add_library(raft::raft ALIAS raft)
 
@@ -152,7 +144,12 @@ target_include_directories(raft INTERFACE
 target_link_libraries(raft INTERFACE
         raft::Thrust
         $<$<BOOL:${NVTX}>:CUDA::nvToolsExt>
-        ${RAFT_LINK_LIBS}
+        CUDA::cublas
+        CUDA::curand
+        CUDA::cusolver
+        CUDA::cudart
+        CUDA::cusparse
+        rmm::rmm
         $<$<BOOL:${cuco_ADDED}>:cuco::cuco>
         std::mdspan)
 
@@ -363,7 +360,7 @@ include(cmake/modules/raft_export.cmake)
 raft_export(INSTALL raft
         COMPONENTS nn distance
         EXPORT_SET raft-exports
-        GLOBAL_TARGETS nn distance
+        GLOBAL_TARGETS raft nn distance
         NAMESPACE raft::
         DOCUMENTATION doc_string
         FINAL_CODE_BLOCK code_string)
@@ -373,7 +370,7 @@ raft_export(INSTALL raft
 raft_export(BUILD raft
         EXPORT_SET raft-exports
         COMPONENTS nn distance
-        GLOBAL_TARGETS raft_distance raft_nn
+        GLOBAL_TARGETS raft raft_distance raft_nn
         DOCUMENTATION doc_string
         NAMESPACE raft::
         FINAL_CODE_BLOCK code_string)
