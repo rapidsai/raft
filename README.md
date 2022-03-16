@@ -57,7 +57,7 @@ Most of the primitives in RAFT accept a `raft::handle_t` object for the manageme
 The example below demonstrates creating a RAFT handle and using it with `device_matrix` and `device_vector` to allocate memory, generating random clusters, and computing
 pairwise Euclidean distances:
 ```c++
-#include <raft_core/handle.hpp>
+#include <raft/handle.hpp>
 #include <raft/mdarray.hpp>
 #include <raft/random/make_blobs.cuh>
 #include <raft/distance/distance.cuh>

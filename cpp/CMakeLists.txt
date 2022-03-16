@@ -55,6 +55,13 @@ option(RAFT_COMPILE_LIBRARIES "Enable building raft shared library instantiation
 option(RAFT_COMPILE_NN_LIBRARY "Enable building raft nearest neighbors shared library instantiations" OFF)
 option(RAFT_COMPILE_DIST_LIBRARY "Enable building raft distant shared library instantiations" OFF)
 option(RAFT_ENABLE_NN_DEPENDENCIES "Search for raft::nn dependencies like faiss" ${RAFT_COMPILE_LIBRARIES})
+
+option(RAFT_ENABLE_cuco_DEPENDENCY "Enable cuCollections dependency" ON)
+
+# Currently, UCX and NCCL are only needed to build Pyraft and so a simple find_package() is sufficient
+option(RAFT_ENABLE_nccl_DEPENDENCY "Enable NCCL dependency" OFF)
+option(RAFT_ENABLE_ucx_DEPENDENCY "Enable ucx dependency" OFF)
+
 include(CMakeDependentOption)
 cmake_dependent_option(RAFT_USE_FAISS_STATIC "Build and statically link the FAISS library for nearest neighbors search on GPU" ON RAFT_COMPILE_LIBRARIES OFF)
 
@@ -67,8 +74,6 @@ message(VERBOSE "RAFT: Enable kernel resource usage info: ${CUDA_ENABLE_KERNELIN
 message(VERBOSE "RAFT: Enable lineinfo in nvcc: ${CUDA_ENABLE_LINEINFO}")
 message(VERBOSE "RAFT: Enable nvtx markers: ${NVTX}")
 message(VERBOSE "RAFT: Statically link the CUDA runtime: ${CUDA_STATIC_RUNTIME}")
-
-list(APPEND raft_FIND_COMPONENTS "core")
 
 # Set RMM logging level
 set(RMM_LOGGING_LEVEL "INFO" CACHE STRING "Choose the logging level.")
@@ -101,8 +106,8 @@ endif()
 # * enable the CMake CUDA language
 # * set other CUDA compilation flags
 rapids_find_package(CUDAToolkit REQUIRED
-    BUILD_EXPORT_SET raft-core-exports
-    INSTALL_EXPORT_SET raft-core-exports)
+    BUILD_EXPORT_SET raft-exports
+    INSTALL_EXPORT_SET raft-exports)
 include(cmake/modules/ConfigureCUDA.cmake)
 
 ##############################################################################
@@ -121,8 +126,6 @@ include(cmake/thirdparty/get_mdspan.cmake)
 
 if(BUILD_TESTS)
   include(cmake/thirdparty/get_gtest.cmake)
-  include(cmake/thirdparty/get_nccl.cmake)
-  include(cmake/thirdparty/get_ucx.cmake)
 endif()
 
 if(BUILD_BENCH)
@@ -150,7 +153,7 @@ target_link_libraries(raft INTERFACE
         raft::Thrust
         $<$<BOOL:${NVTX}>:CUDA::nvToolsExt>
         ${RAFT_LINK_LIBS}
-        cuco::cuco
+        $<$<BOOL:${cuco_ADDED}>:cuco::cuco>
         std::mdspan)
 
 target_compile_definitions(raft INTERFACE $<$<BOOL:${NVTX}>:NVTX_ENABLED>)
@@ -171,25 +174,6 @@ set(RAFT_LIB_TYPE SHARED)
 if(${RAFT_STATIC_LINK_LIBRARIES})
   set(RAFT_LIB_TYPE STATIC)
 endif()
-
-##############################################################################
-# - raft_core -------------------------------------------------------------
-
-add_library(raft_core INTERFACE)
-if(TARGET raft_core AND (NOT TARGET raft::core))
-  add_library(raft::core ALIAS raft)
-endif()
-
-target_include_directories(raft_core INTERFACE
-        "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/include>"
-        "$<INSTALL_INTERFACE:include>"
-        )
-target_link_libraries(raft_core INTERFACE ${RAFT_LINK_LIBS})
-
-set_target_properties(raft_core PROPERTIES EXPORT_NAME core)
-
-target_compile_definitions(raft INTERFACE $<$<BOOL:${NVTX}>:NVTX_ENABLED>)
-target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
 
 ##############################################################################
 # - raft_distance ------------------------------------------------------------
@@ -251,7 +235,7 @@ if(RAFT_COMPILE_LIBRARIES OR RAFT_COMPILE_DIST_LIBRARY)
 endif()
 
 target_link_libraries(raft_distance INTERFACE
-    raft::core
+    raft::raft
     $<TARGET_NAME_IF_EXISTS:raft_distance_lib>
     $<TARGET_NAME_IF_EXISTS:raft::raft_distance_lib>
 )
@@ -291,10 +275,10 @@ if(RAFT_COMPILE_LIBRARIES OR RAFT_COMPILE_NN_LIBRARY)
 
   target_compile_definitions(raft_nn_lib
           INTERFACE "RAFT_NN_COMPILED")
-
 endif()
 
-target_link_libraries(raft_nn INTERFACE raft::core faiss::faiss
+target_link_libraries(raft_nn INTERFACE
+    raft::raft
     $<TARGET_NAME_IF_EXISTS:raft_nn_lib>
     $<TARGET_NAME_IF_EXISTS:raft::raft_nn_lib>)
 
@@ -303,10 +287,6 @@ target_link_libraries(raft_nn INTERFACE raft::core faiss::faiss
 rapids_cmake_install_lib_dir( lib_dir )
 include(GNUInstallDirs)
 include(CPack)
-
-install(TARGETS raft_core
-        DESTINATION ${lib_dir}
-        EXPORT raft-core-exports)
 
 install(TARGETS raft
         DESTINATION ${lib_dir}
@@ -332,12 +312,12 @@ if(TARGET raft_nn_lib)
 endif()
 
 
-install(DIRECTORY include/raft_core
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/raft_core)
+install(DIRECTORY include/raft
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/raft)
 
 # Temporary install of raft.hpp while the file is removed
-install(FILES include/raft_core/raft.hpp
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/raft_core)
+install(FILES include/raft.hpp
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/raft)
 
 ##############################################################################
 # - install export -----------------------------------------------------------
@@ -349,13 +329,11 @@ RAFT (Reusable Analytics Functions and other Tools) contains fundamental
 widely-used algorithms and primitives for data science, graph, and ml.
 
 Optional Components:
-  - core
   - nn
   - distance
 
 Imported Targets:
   - raft::raft
-  - raft::core brought in by the `core` optional component
   - raft::nn brought in by the `nn` optional component
   - raft::distance brought in by the `distance` optional component
 
@@ -364,20 +342,7 @@ Imported Targets:
 set(code_string
 [=[
 
-if((distance IN_LIST raft_FIND_COMPONENTS OR
-    nn IN_LIST raft_FIND_COMPONENTS) AND NOT
-    core IN_LIST raft_FIND_COMPONENTS))
-    FATAL_ERROR("core must be included to use components ${raft_FIND_COMPONENTS}")
-endif()
-
-if(core IN_LIST raft_FIND_COMPONENTS)
-  if(NOT TARGET raft::Thrust)
-    thrust_create_target(raft::Thrust FROM_OPTIONS)
-  endif()
-endif()
-
-if(distance IN_LIST raft_FIND_COMPONENTS OR
-   core IN_LIST raft_FIND_COMPONENTS)
+if(distance IN_LIST raft_FIND_COMPONENTS)
   enable_language(CUDA)
 endif()
 
@@ -396,9 +361,9 @@ endif()
 # Use `rapids_export` for 22.04 as it will have COMPONENT support
 include(cmake/modules/raft_export.cmake)
 raft_export(INSTALL raft
-        COMPONENTS core nn distance
+        COMPONENTS nn distance
         EXPORT_SET raft-exports
-        GLOBAL_TARGETS core nn distance
+        GLOBAL_TARGETS nn distance
         NAMESPACE raft::
         DOCUMENTATION doc_string
         FINAL_CODE_BLOCK code_string)
@@ -407,8 +372,8 @@ raft_export(INSTALL raft
 # - build export -------------------------------------------------------------
 raft_export(BUILD raft
         EXPORT_SET raft-exports
-        COMPONENTS core nn distance
-        GLOBAL_TARGETS raft_core raft_distance raft_nn
+        COMPONENTS nn distance
+        GLOBAL_TARGETS raft_distance raft_nn
         DOCUMENTATION doc_string
         NAMESPACE raft::
         FINAL_CODE_BLOCK code_string)

@@ -18,7 +18,7 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libraft pyraft pylibraft docs tests bench uninstall -v -g --install --remove-cmake-deps --compile-libs --compile-nn --compile-dist --allgpuarch --nvtx --show_depr_warn -h --buildfaiss"
+VALIDARGS="clean libraft pyraft pylibraft docs tests bench -v -g --install --remove-cmake-deps --compile-libs --compile-nn --compile-dist --allgpuarch --nvtx --show_depr_warn -h --buildfaiss"
 HELP="$0 [<target> ...] [<flag> ...]
  where <target> is:
    clean            - remove all existing build artifacts and configuration (start over)
@@ -39,10 +39,10 @@ HELP="$0 [<target> ...] [<flag> ...]
    --allgpuarch     - build for all supported GPU architectures
    --buildfaiss     - build faiss statically into raft
    --install        - install cmake targets
-   --clean
-   --nvtx              - Enable nvtx for profiling support
-   --show_depr_warn    - show cmake deprecation warnings
-   -h                  - print this text
+   --clean          - perform clean of all build directories
+   --nvtx           - enable nvtx for profiling support
+   --show_depr_warn - show cmake deprecation warnings
+   -h               - print this text
 
  default action (no args) is to build both libraft and pyraft targets
 "
@@ -63,11 +63,14 @@ COMPILE_LIBRARIES=OFF
 COMPILE_NN_LIBRARY=OFF
 COMPILE_DIST_LIBRARY=OFF
 ENABLE_NN_DEPENDENCIES=OFF
+ENABLE_ucx_DEPENDENCY=OFF
+ENABLE_nccl_DEPENDENCY=OFF
+
 NVTX=OFF
 CLEAN=0
 UNINSTALL=0
 DISABLE_DEPRECATION_WARNINGS=ON
-CMAKE_TARGET=""
+CMAKE_TARGET=";"
 INSTALL_TARGET=""
 
 # Set defaults for vars that may not have been defined externally
@@ -180,18 +183,11 @@ if (( ${CLEAN} == 1 )); then
     cd ${REPODIR}
 fi
 
-if (( ${UNINSTALL} == 1 )); then
-    rm -rf ${INSTALL_PREFIX}/include/raft*
-    rm -rf ${INSTALL_PREFIX}/lib/cmake/raft*
-    rm -rf ${INSTALL_PREFIX}/include/cub
-    rm -rf ${INSTALL_PREFIX}/include/lib/cmake/cub
-    rm -rf ${INSTALL_PREFIX}/include/include/cuco
-    rm -rf ${INSTALL_PREFIX}/include/lib/cmake/cuco
-    rm -rf ${INSTALL_PREFIX}/include/include/rmm
-    rm -rf ${INSTALL_PREFIX}/include/cmake/rmm
+# Pyraft requires ucx + nccl
+if (( ${NUMARGS} == 0 )) || hasArg pyraft || hasArg docs; then
+  ENABLE_nccl_DEPENDENCY=ON
+  ENABLE_ucx_DEPENDENCY=ON
 fi
-
-
 ################################################################################
 # Configure for building all C++ targets
 if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || hasArg bench; then
@@ -217,7 +213,9 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || has
           -DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL} \
           -DRAFT_COMPILE_NN_LIBRARY=${COMPILE_NN_LIBRARY} \
           -DRAFT_COMPILE_DIST_LIBRARY=${COMPILE_DIST_LIBRARY} \
-          -DRAFT_USE_FAISS_STATIC=${BUILD_STATIC_FAISS}
+          -DRAFT_USE_FAISS_STATIC=${BUILD_STATIC_FAISS} \
+          -DRAFT_ENABLE_nccl_DEPENDENCY=${ENABLE_nccl_DEPENDENCY} \
+          -DRAFT_ENABLE_ucx_DEPENDENCY=${ENABLE_ucx_DEPENDENCY}
 
   if [[ ${CMAKE_TARGET} != "" ]]; then
       echo "-- Compiling targets: ${CMAKE_TARGET}, verbose=${VERBOSE_FLAG}"
@@ -250,7 +248,6 @@ if (( ${NUMARGS} == 0 )) || hasArg pylibraft; then
         python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace --library-dir=${LIBRAFT_BUILD_DIR}
     fi
 fi
-
 
 if hasArg docs; then
     cmake --build ${LIBRAFT_BUILD_DIR} --target docs_raft

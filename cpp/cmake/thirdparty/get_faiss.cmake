@@ -69,5 +69,4 @@ endfunction()
 
 find_and_configure_faiss(VERSION    1.7.0
                          PINNED_TAG  bde7c0027191f29c9dadafe4f6e68ca0ee31fb30
-                         BUILD_STATIC_LIBS ${RAFT_USE_FAISS_STATIC}
-                        )
+                         BUILD_STATIC_LIBS ${RAFT_USE_FAISS_STATIC})

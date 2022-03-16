@@ -166,7 +166,6 @@ target_link_libraries(test_raft
         raft::raft
         raft::distance
         raft::nn
-        NCCL::NCCL
         faiss::faiss
         GTest::gtest
         GTest::gtest_main
