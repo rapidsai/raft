@@ -114,7 +114,7 @@ Use the following command to install RAFT with conda (use `-c rapidsai-nightly` 
 conda install -c rapidsai libraft-headers libraft-nn libraft-distance pyraft pylibraft
 ```
 
-After installing RAFT, `find_package(raft COMPONENTS backend nn distance)` can be used in your CUDA/C++ build. `COMPONENTS` are optional and will depend on the packages installed.
+After installing RAFT, `find_package(raft COMPONENTS nn distance)` can be used in your CUDA/C++ build. `COMPONENTS` are optional and will depend on the packages installed.
 
 ### CPM
 
