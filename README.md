@@ -24,8 +24,8 @@ The algorithms in RAFT span the following general categories:
 RAFT provides a header-only C++ library and pre-compiled shared libraries that can 1) speed up compile times and 2) enable the APIs to be used without CUDA-enabled compilers.
 
 RAFT also provides 2 Python libraries:
-- `pyraft` - reusable infrastructure for building analytics, such as tools for building multi-node multi-GPU algorithms that leverage [Dask](https://dask.org/).
 - `pylibraft` - cython wrappers around RAFT algorithms and primitives.
+- `pyraft` - reusable infrastructure for building analytics, such as tools for building multi-node multi-GPU algorithms that leverage [Dask](https://dask.org/).
 
 ## Getting started
 
@@ -98,7 +98,7 @@ pairwise_distance(input, input, output, "euclidean")
 
 ## Installing
 
-RAFT can be installed through conda, [Cmake Package Manager (CPM)](https://github.com/cpm-cmake/CPM.cmake), or by building the repository from source.
+RAFT itself can be installed through conda, [Cmake Package Manager (CPM)](https://github.com/cpm-cmake/CPM.cmake), or by building the repository from source. Please refer to the [build instructions](BUILD.md) for more a comprehensive guide on building RAFT and using it in downstream projects.
 
 ### Conda
 
@@ -114,7 +114,7 @@ Use the following command to install RAFT with conda (use `-c rapidsai-nightly` 
 conda install -c rapidsai libraft-headers libraft-nn libraft-distance pyraft pylibraft
 ```
 
-After installing RAFT, `find_package(raft COMPONENTS backend nn distance)` can be used in your CUDA/C++ build. Note that the `COMPONENTS` are optional and will depend on the packages installed.
+After installing RAFT, `find_package(raft COMPONENTS backend nn distance)` can be used in your CUDA/C++ build. `COMPONENTS` are optional and will depend on the packages installed.
 
 ### CPM
 
@@ -127,7 +127,6 @@ After [installing](https://github.com/rapidsai/rapids-cmake#installation) rapids
 set(RAFT_VERSION "22.04")
 set(RAFT_FORK "rapidsai")
 set(RAFT_PINNED_TAG "branch-${RAFT_VERSION}")
-set(RAFT_COMPONENTS "core")
 
 function(find_and_configure_raft)
   set(oneValueArgs VERSION FORK PINNED_TAG USE_FAISS_STATIC 
@@ -147,7 +146,6 @@ function(find_and_configure_raft)
           GIT_REPOSITORY https://github.com/${PKG_FORK}/raft.git
           GIT_TAG        ${PKG_PINNED_TAG}
           SOURCE_SUBDIR  cpp
-          FIND_PACKAGE_ARGUMENTS "COMPONENTS ${RAFT_COMPONENTS}"
           OPTIONS
           "BUILD_TESTS OFF"
           "BUILD_BENCH OFF"
@@ -172,10 +170,9 @@ find_and_configure_raft(VERSION    ${RAFT_VERSION}.00
 
 Several cmake targets can be made available by adding components in the table below to the `RAFT_COMPONENTS` list above, separated by spaces. The `raft::raft` target will always be available.
 
-| Component | Target | Description | Dependencies |
+| Component | Target | Description | Base Dependencies |
 | --- | --- | --- | --- |
-| n/a | `raft::core` | Only RAFT core headers. These are very lightweight and safe to expose in public APIs. | Cudatoolkit libraries, RMM |
-| core | `raft::raft` | Full RAFT header library | std::mdspan, cuCollections, Thrust, NVTools |
+| n/a | `raft::raft` | Full RAFT header library | CUDA toolkit library, RMM, std::mdspan, cuCollections, Thrust, NVTools |
 | distance | `raft::distance` | Pre-compiled template specializations for raft::distance | raft::raft |
 | nn | `raft::nn` | Pre-compiled template specializations for raft::spatial::knn | raft::raft, FAISS |
 
@@ -184,14 +181,14 @@ Several cmake targets can be made available by adding components in the table be
 The easiest way to build RAFT from source is to use the `build.sh` script at the root of the repository:
 1. Create an environment with the needed dependencies: 
 ```
-conda env create --name raft_dev -f conda/environments/raft_dev_cuda11.5.yml
-conda activate raft_dev
+mamba env create --name raft_dev -f conda/environments/raft_dev_cuda11.5.yml
+mamba activate raft_dev
 ```
 ```
 ./build.sh pyraft pylibraft libraft tests bench --compile-libs
 ```
 
-The [Build](BUILD.md) instructions contain more details on building RAFT from source and including it in downstream projects. You can find a more comprehensive version of the above CPM code snippet the [Building RAFT C++ from source](BUILD.md#build_cxx_source) guide.
+The [build](BUILD.md) instructions contain more details on building RAFT from source and including it in downstream projects. You can also find a more comprehensive version of the above CPM code snippet the [Building RAFT C++ from source](BUILD.md#build_cxx_source) section of the build instructions.
 
 ## Folder Structure and Contents
 
