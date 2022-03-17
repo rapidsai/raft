@@ -14,9 +14,6 @@
  * limitations under the License.
  */
 
-#ifndef __KNN_H
-#define __KNN_H
-
 #pragma once
 
 #include "detail/knn_brute_force_faiss.cuh"
@@ -27,9 +24,7 @@
 
 #include <raft/common/nvtx.hpp>
 
-namespace raft {
-namespace spatial {
-namespace knn {
+namespace raft::spatial::knn {
 
 /**
  * Performs a k-select across row partitioned index/distance
@@ -216,8 +211,4 @@ void brute_force_knn(raft::handle_t const& handle,
                                metric,
                                metric_arg);
 }
-}  // namespace knn
-}  // namespace spatial
-}  // namespace raft
-
-#endif
+}  // namespace raft::spatial::knn

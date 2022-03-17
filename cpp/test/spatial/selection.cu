@@ -18,6 +18,7 @@
 #include <gtest/gtest.h>
 #include <numeric>
 #include <raft/cudart_utils.h>
+#include <raft/random/rng.hpp>
 
 #include "../test_utils.h"
 
@@ -31,14 +32,6 @@ namespace raft::spatial::selection {
 
 using namespace raft;
 using namespace raft::sparse;
-
-template <typename T>
-std::ostream& operator<<(std::ostream& os, const std::vector<T>& vec)
-{
-  for (auto e : vec)
-    os << " " << e;
-  return os;
-}
 
 struct SelectTestSpec {
   int n_inputs;
@@ -69,6 +62,8 @@ auto gen_simple_ids(int n_inputs, int input_len) -> std::vector<IdxT>
 template <typename KeyT, typename IdxT>
 struct SelectInOutSimple {
  public:
+  bool not_supported = false;
+
   SelectInOutSimple(const SelectTestSpec& spec,
                     const std::vector<KeyT>& in_dists,
                     const std::vector<KeyT>& out_dists,
@@ -149,12 +144,9 @@ struct SelectInOutComputed {
 
     interruptible::synchronize(stream);
 
-    if (algo != knn::SelectKAlgo::WARP_SORT) {
-      // knn::SelectKAlgo::WARP_SORT is stable!
-      auto p = topk_sort_permutation(out_dists_, out_ids_, spec.k, spec.select_min);
-      apply_permutation(out_dists_, p);
-      apply_permutation(out_ids_, p);
-    }
+    auto p = topk_sort_permutation(out_dists_, out_ids_, spec.k, spec.select_min);
+    apply_permutation(out_dists_, p);
+    apply_permutation(out_ids_, p);
   }
 
   auto get_in_dists() -> std::vector<KeyT>& { return in_dists_; }
@@ -230,15 +222,6 @@ class SelectionTest : public testing::TestWithParam<typename ParamsReader<KeyT, 
       ref(std::get<2>(ps)),
       res(spec, algo, ref.get_in_dists(), ref.get_in_ids())
   {
-    // std::cout << "dists in: " << ref.get_in_dists() << std::endl;
-    // std::cout << "dists ref:" << ref.get_out_dists() << std::endl;
-    // std::cout << "dists out:" << res.get_out_dists() << std::endl;
-
-    // std::cout << std::endl;
-
-    // std::cout << "indices in :" << ref.get_in_ids() << std::endl;
-    // std::cout << "indices ref:" << ref.get_out_ids() << std::endl;
-    // std::cout << "indices out:" << res.get_out_ids() << std::endl;
   }
 
   explicit SelectionTest(typename ParamsReader<KeyT, IdxT>::ParamsIn ps)
@@ -253,7 +236,7 @@ class SelectionTest : public testing::TestWithParam<typename ParamsReader<KeyT, 
 
   void run()
   {
-    if (res.not_supported) { GTEST_SKIP(); }
+    if (ref.not_supported || res.not_supported) { GTEST_SKIP(); }
     ASSERT_TRUE(hostArrMatch(ref.get_out_dists().data(),
                              res.get_out_dists().data(),
                              spec.n_inputs * spec.k,
@@ -312,7 +295,16 @@ auto inputs_simple_f = testing::Values(
   params_simple<float, int>::Inputs(
     {1, 7, 3, false}, {2.0, 3.0, 5.0, 1.0, 4.0, 1.0, 1.0}, {5.0, 4.0, 3.0}, {2, 4, 1}),
   params_simple<float, int>::Inputs(
-    {1, 7, 3, false}, {2.0, 3.0, 5.0, 9.0, 4.0, 9.0, 9.0}, {9.0, 9.0, 9.0}, {3, 5, 6}));
+    {1, 7, 3, false}, {2.0, 3.0, 5.0, 9.0, 4.0, 9.0, 9.0}, {9.0, 9.0, 9.0}, {3, 5, 6}),
+  params_simple<float, int>::Inputs(
+    {1, 130, 15, false},
+    {19, 1, 0, 1, 0, 1,  0,  1,  0,  1,  0,  1,  0,  1,  0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1,
+     0,  1, 0, 1, 0, 1,  0,  1,  0,  1,  0,  1,  0,  1,  0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1,
+     0,  1, 0, 1, 0, 1,  0,  1,  1,  2,  1,  2,  1,  2,  1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2,
+     1,  2, 1, 2, 1, 2,  1,  2,  1,  2,  1,  2,  1,  2,  1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 3, 4,
+     5,  6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 4, 4, 2, 3, 2, 3, 2, 3, 2, 3, 2, 20},
+    {20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6},
+    {129, 0, 117, 116, 115, 114, 113, 112, 111, 110, 109, 108, 107, 106, 105}));
 
 typedef SelectionTest<float, int, params_simple> SimpleFloatInt;
 TEST_P(SimpleFloatInt, Run) { run(); }
@@ -335,17 +327,18 @@ struct with_ref {
 
       auto s = rmm::cuda_stream_default;
       rmm::device_uvector<KeyT> dists_d(spec.input_len * spec.n_inputs, s);
-      raft::random::Rng r(42);
-      r.uniform(dists_d.data(), dists_d.size(), KeyT(-1.0), KeyT(1.0), s);
+      raft::random::Rng(42).uniform(dists_d.data(), dists_d.size(), KeyT(-1.0), KeyT(1.0), s);
       update_host(dists.data(), dists_d.data(), dists_d.size(), s);
       s.synchronize();
 
-      return std::make_tuple(spec, algo, SelectInOutComputed<KeyT, IdxT>(spec, algo, dists));
+      return std::make_tuple(spec, algo, SelectInOutComputed<KeyT, IdxT>(spec, RefAlgo, dists));
     }
   };
 };
 
-auto inputs_random = testing::Values(SelectTestSpec{20, 700, 1, true},
+auto inputs_random = testing::Values(SelectTestSpec{1, 130, 15, false},
+                                     SelectTestSpec{1, 128, 15, false},
+                                     SelectTestSpec{20, 700, 1, true},
                                      SelectTestSpec{20, 700, 2, true},
                                      SelectTestSpec{20, 700, 3, true},
                                      SelectTestSpec{20, 700, 4, true},
@@ -371,7 +364,17 @@ auto inputs_random = testing::Values(SelectTestSpec{20, 700, 1, true},
                                      SelectTestSpec{100, 1700, 512, true},
                                      SelectTestSpec{100, 1700, 1023, false},
                                      SelectTestSpec{100, 1700, 1024, true},
-                                     SelectTestSpec{100, 1700, 1700, true});
+                                     SelectTestSpec{100, 1700, 1700, true},
+                                     SelectTestSpec{100, 100000, 1, false},
+                                     SelectTestSpec{100, 100000, 2, false},
+                                     SelectTestSpec{100, 100000, 3, false},
+                                     SelectTestSpec{100, 100000, 7, false},
+                                     SelectTestSpec{100, 100000, 16, false},
+                                     SelectTestSpec{100, 100000, 31, false},
+                                     SelectTestSpec{100, 100000, 32, false},
+                                     SelectTestSpec{100, 100000, 64, false},
+                                     SelectTestSpec{100, 100000, 100, false},
+                                     SelectTestSpec{100, 100000, 200, false});
 
 typedef SelectionTest<float, int, with_ref<knn::SelectKAlgo::FAISS>::params_random>
   ReferencedRandomFloatInt;

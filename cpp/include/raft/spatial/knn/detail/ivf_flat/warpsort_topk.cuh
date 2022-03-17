@@ -117,7 +117,7 @@
 
 namespace raft::spatial::knn::detail::ivf_flat {
 
-static constexpr int kMaxCapacity = 512;
+static constexpr int kMaxCapacity = 256;
 
 namespace {
 
@@ -131,7 +131,7 @@ __device__ inline bool is_greater_than(T val, T baseline)
 int calc_capacity(int k)
 {
   int capacity = isPo2(k) ? k : (1 << (log2(k) + 1));
-  if (capacity < WarpSize) { capacity = WarpSize; }
+  if (capacity < WarpSize) { capacity = WarpSize; }  // TODO: remove this to allow small sizes.
   return capacity;
 }
 
@@ -139,21 +139,25 @@ int calc_capacity(int k)
 
 template <int capacity, bool greater, typename T, typename IdxT>
 class WarpSort {
- public:
-  __device__ WarpSort(IdxT k, T dummy) : lane_(threadIdx.x % WarpSize), k_(k), dummy_(dummy)
-  {
-    static_assert(capacity >= WarpSize && isPo2(capacity));
+  static_assert(isPo2(capacity));
 
-    for (int i = 0; i < max_arr_len_; ++i) {
+ public:
+  __device__ WarpSort(IdxT k, T dummy) : k_(k), dummy_(dummy)
+  {
+#pragma unroll
+    for (int i = 0; i < kMaxArrLen; i++) {
       val_arr_[i] = dummy_;
     }
   }
 
-  // load and merge k sorted values
+  /**
+   * Load k values from the pointers at the given position, and merge them in the storage.
+   */
   __device__ void load_sorted(const T* in, const IdxT* in_idx, IdxT start)
   {
-    IdxT idx = start + WarpSize - 1 - lane_;
-    for (int i = max_arr_len_ - 1; i >= 0; --i, idx += WarpSize) {
+    IdxT idx = start + kWarpWidth - 1 - Pow2<kWarpWidth>::mod(laneId());
+#pragma unroll
+    for (int i = kMaxArrLen - 1; i >= 0; --i, idx += kWarpWidth) {
       if (idx < start + k_) {
         T t = in[idx];
         if (is_greater_than<greater>(t, val_arr_[i])) {
@@ -162,42 +166,54 @@ class WarpSort {
         }
       }
     }
-
-    bitonic_merge<capacity, !greater>::run(val_arr_, idx_arr_);
+    ivf_flat::bitonic_merge<capacity, !greater>::run(val_arr_, idx_arr_);
   }
 
   __device__ void dump(T* out, IdxT* out_idx) const
   {
-    for (int i = 0; i < max_arr_len_; ++i) {
-      IdxT out_i = i * WarpSize + lane_;
-      if (out_i < k_) {
-        out[out_i]     = val_arr_[i];
-        out_idx[out_i] = idx_arr_[i];
-      }
+    IdxT idx = Pow2<kWarpWidth>::mod(laneId());
+#pragma unroll kMaxArrLen
+    for (int i = 0; i < kMaxArrLen && idx < k_; i++, idx += kWarpWidth) {
+      out[idx]     = val_arr_[i];
+      out_idx[idx] = idx_arr_[i];
     }
   }
 
+  // TODO: do all merging in the bitonic_sort.cuh
+  // /**
+  //  * When capacity < WarpSize, merges sorted queues within the warp.
+  //  * As a result, the top k selected values are placed in the first queue in the group
+  //  * (i.e. within the first kWarpWidth values, since k <= capacity == kWarpWidth).
+  //  *
+  //  * It does nothing when capacity >= WarpSize
+  //  */
+  // __device__ __forceinline__ void merge_within_warp()
+  // {
+  //   if constexpr (kWarpWidth < WarpSize) {
+  //     ivf_flat::bitonic_sort<WarpSize, !greater, kWarpWidth>::run(val_arr_, idx_arr_);
+  //   }
+  // }
+
  protected:
-  static constexpr int max_arr_len_ = capacity / WarpSize;
+  static constexpr int kWarpWidth = std::min<int>(capacity, WarpSize);
+  static constexpr int kMaxArrLen = capacity / kWarpWidth;
 
-  T val_arr_[max_arr_len_];
-  IdxT idx_arr_[max_arr_len_];
-
-  const int lane_;
   const IdxT k_;
   const T dummy_;
+  T val_arr_[kMaxArrLen];
+  IdxT idx_arr_[kMaxArrLen];
 };
 
 template <int capacity, bool greater, typename T, typename IdxT>
 class WarpSelect : public WarpSort<capacity, greater, T, IdxT> {
+  static_assert(capacity >= WarpSize);
+
  public:
   __device__ WarpSelect(int k, T dummy)
-    : WarpSort<capacity, greater, T, IdxT>(k, dummy),
-      buf_len_(0),
-      k_th_(dummy),
-      k_th_lane_((k - 1) % WarpSize)
+    : WarpSort<capacity, greater, T, IdxT>(k, dummy), buf_len_(0), k_th_(dummy)
   {
-    for (int i = 0; i < max_buf_len_; ++i) {
+#pragma unroll
+    for (int i = 0; i < kMaxBufLen; i++) {
       val_buf_[i] = dummy_;
     }
   }
@@ -205,7 +221,7 @@ class WarpSelect : public WarpSort<capacity, greater, T, IdxT> {
   __device__ void add(const T* in, IdxT start, IdxT end)
   {
     const IdxT end_for_fullwarp = Pow2<WarpSize>::roundUp(end - start) + start;
-    for (IdxT i = start + lane_; i < end_for_fullwarp; i += WarpSize) {
+    for (IdxT i = start + laneId(); i < end_for_fullwarp; i += WarpSize) {
       T val = (i < end) ? in[i] : dummy_;
       add(val, i);
     }
@@ -214,7 +230,7 @@ class WarpSelect : public WarpSort<capacity, greater, T, IdxT> {
   __device__ void add(const T* in, const IdxT* in_idx, IdxT start, IdxT end)
   {
     const IdxT end_for_fullwarp = Pow2<WarpSize>::roundUp(end - start) + start;
-    for (IdxT i = start + lane_; i < end_for_fullwarp; i += WarpSize) {
+    for (IdxT i = start + laneId(); i < end_for_fullwarp; i += WarpSize) {
       T val    = (i < end) ? in[i] : dummy_;
       IdxT idx = (i < end) ? in_idx[i] : std::numeric_limits<IdxT>::max();
       add(val, idx);
@@ -223,18 +239,21 @@ class WarpSelect : public WarpSort<capacity, greater, T, IdxT> {
 
   __device__ void add(T val, IdxT idx)
   {
+    // comparing for k_th should reduce the total amount of updates:
+    // `false` means the input value is surely not in the top-k values.
     if (is_greater_than<greater>(val, k_th_)) {
-      for (int i = 0; i < max_buf_len_ - 1; ++i) {
-        val_buf_[i] = val_buf_[i + 1];
-        idx_buf_[i] = idx_buf_[i + 1];
+      // NB: the loop is used here to ensure the constant indexing,
+      //     to not force the buffers spill into the local memory.
+#pragma unroll
+      for (int i = 0; i < kMaxBufLen; i++) {
+        if (i == buf_len_) {
+          val_buf_[i] = val;
+          idx_buf_[i] = idx;
+        }
       }
-      val_buf_[max_buf_len_ - 1] = val;
-      idx_buf_[max_buf_len_ - 1] = idx;
-
       ++buf_len_;
     }
-
-    if (any(buf_len_ == max_buf_len_)) { merge_buf_(); }
+    if (any(buf_len_ == kMaxBufLen)) { merge_buf_(); }
   }
 
   __device__ void done()
@@ -246,33 +265,48 @@ class WarpSelect : public WarpSort<capacity, greater, T, IdxT> {
   __device__ void set_k_th_()
   {
     // it's the best we can do, should use "val_arr_[k_th_row_]"
-    k_th_ = shfl(val_arr_[max_arr_len_ - 1], k_th_lane_);
+    // NB on using srcLane: it's ok if it is outside the warp size / width;
+    //                      the modulo op will be done inside the __shfl_sync.
+    k_th_ = shfl(val_arr_[kMaxArrLen - 1], Pow2<WarpSize>::mod(k_ - 1));
   }
 
   __device__ void merge_buf_()
   {
-    bitonic_sort<max_buf_len_ * WarpSize, greater>::run(val_buf_, idx_buf_);
+    ivf_flat::bitonic_sort<kMaxBufLen * WarpSize, greater>::run(val_buf_, idx_buf_);
+    //         // merge the tails of both value arrays, which means possibly updating
+    //     // smallest of the val_arr_ with the largest of the val_buf_, because
+    //     // they are sorted in the opposite directions.
+    //     // Essentially, this is the first step of bitonic_merge<capacity * 2, !greater>
+    // #pragma unroll
+    //     for (int i = std::min(kMaxArrLen, kMaxBufLen); i > 0; i--) {
+    //       T& val = val_arr_[kMaxArrLen - i];
+    //       T buf  = val_buf_[kMaxBufLen - i];
+    //       if (is_greater_than<greater>(buf, val)) {
+    //         val                      = buf;
+    //         idx_arr_[kMaxArrLen - i] = idx_buf_[kMaxBufLen - i];
+    //       }
+    //     }
 
-    if (max_arr_len_ > max_buf_len_) {
-      for (int i = 0; i < max_buf_len_; ++i) {
-        T& val = val_arr_[max_arr_len_ - max_buf_len_ + i];
+    if (kMaxArrLen > kMaxBufLen) {
+      for (int i = 0; i < kMaxBufLen; ++i) {
+        T& val = val_arr_[kMaxArrLen - kMaxBufLen + i];
         T& buf = val_buf_[i];
         if (is_greater_than<greater>(buf, val)) {
-          val                                       = buf;
-          idx_arr_[max_arr_len_ - max_buf_len_ + i] = idx_buf_[i];
+          val                                   = buf;
+          idx_arr_[kMaxArrLen - kMaxBufLen + i] = idx_buf_[i];
         }
       }
-    } else if (max_arr_len_ < max_buf_len_) {
-      for (int i = 0; i < max_arr_len_; ++i) {
+    } else if (kMaxArrLen < kMaxBufLen) {
+      for (int i = 0; i < kMaxArrLen; ++i) {
         T& val = val_arr_[i];
-        T& buf = val_buf_[max_buf_len_ - max_arr_len_ + i];
+        T& buf = val_buf_[kMaxBufLen - kMaxArrLen + i];
         if (is_greater_than<greater>(buf, val)) {
           val         = buf;
-          idx_arr_[i] = idx_buf_[max_buf_len_ - max_arr_len_ + i];
+          idx_arr_[i] = idx_buf_[kMaxBufLen - kMaxArrLen + i];
         }
       }
     } else {
-      for (int i = 0; i < max_arr_len_; ++i) {
+      for (int i = 0; i < kMaxArrLen; ++i) {
         if (is_greater_than<greater>(val_buf_[i], val_arr_[i])) {
           val_arr_[i] = val_buf_[i];
           idx_arr_[i] = idx_buf_[i];
@@ -280,39 +314,41 @@ class WarpSelect : public WarpSort<capacity, greater, T, IdxT> {
       }
     }
 
-    bitonic_merge<capacity, !greater>::run(val_arr_, idx_arr_);
+    ivf_flat::bitonic_merge<capacity, !greater>::run(val_arr_, idx_arr_);
 
     buf_len_ = 0;
-    set_k_th_();  // contains sync
-    for (int i = 0; i < max_buf_len_; ++i) {
+    set_k_th_();  // contains warp sync
+#pragma unroll
+    for (int i = 0; i < kMaxBufLen; i++) {
       val_buf_[i] = dummy_;
     }
   }
 
-  using WarpSort<capacity, greater, T, IdxT>::max_arr_len_;
+  using WarpSort<capacity, greater, T, IdxT>::kMaxArrLen;
   using WarpSort<capacity, greater, T, IdxT>::val_arr_;
   using WarpSort<capacity, greater, T, IdxT>::idx_arr_;
-  using WarpSort<capacity, greater, T, IdxT>::lane_;
   using WarpSort<capacity, greater, T, IdxT>::k_;
   using WarpSort<capacity, greater, T, IdxT>::dummy_;
 
-  static constexpr int max_buf_len_ = (capacity <= 64) ? 2 : 4;
+  static constexpr int kMaxBufLen = (capacity <= 64) ? 2 : 4;
 
-  T val_buf_[max_buf_len_];
-  IdxT idx_buf_[max_buf_len_];
+  T val_buf_[kMaxBufLen];
+  IdxT idx_buf_[kMaxBufLen];
   int buf_len_;
 
   T k_th_;
-  const int k_th_lane_;
 };
 
 template <int capacity, bool greater, typename T, typename IdxT>
 class WarpBitonic : public WarpSort<capacity, greater, T, IdxT> {
+  static_assert(capacity >= WarpSize);
+
  public:
   __device__ WarpBitonic(int k, T dummy)
     : WarpSort<capacity, greater, T, IdxT>(k, dummy), buf_len_(0)
   {
-    for (int i = 0; i < max_arr_len_; ++i) {
+#pragma unroll
+    for (int i = 0; i < kMaxArrLen; i++) {
       val_buf_[i] = dummy_;
     }
   }
@@ -341,7 +377,10 @@ class WarpBitonic : public WarpSort<capacity, greater, T, IdxT> {
 
   __device__ void add(T val, IdxT idx)
   {
-    for (int i = 0; i < max_arr_len_; ++i) {
+    // NB: the loop is used here to ensure the constant indexing,
+    //     to not force the buffers spill into the local memory.
+#pragma unroll
+    for (int i = 0; i < kMaxArrLen; ++i) {
       if (i == buf_len_) {
         val_buf_[i] = val;
         idx_buf_[i] = idx;
@@ -349,11 +388,11 @@ class WarpBitonic : public WarpSort<capacity, greater, T, IdxT> {
     }
 
     ++buf_len_;
-    if (buf_len_ == max_arr_len_) {
-      bitonic_sort<capacity, greater>::run(val_buf_, idx_buf_);
+    if (buf_len_ == kMaxArrLen) {
+      ivf_flat::bitonic_sort<capacity, greater>::run(val_buf_, idx_buf_);
       merge_();
-
-      for (int i = 0; i < max_arr_len_; ++i) {
+#pragma unroll
+      for (int i = 0; i < kMaxArrLen; i++) {
         val_buf_[i] = dummy_;
       }
       buf_len_ = 0;
@@ -363,7 +402,7 @@ class WarpBitonic : public WarpSort<capacity, greater, T, IdxT> {
   __device__ void done()
   {
     if (buf_len_ != 0) {
-      bitonic_sort<capacity, greater>::run(val_buf_, idx_buf_);
+      ivf_flat::bitonic_sort<capacity, greater>::run(val_buf_, idx_buf_);
       merge_();
     }
   }
@@ -371,71 +410,77 @@ class WarpBitonic : public WarpSort<capacity, greater, T, IdxT> {
  private:
   __device__ void add_first_(const T* in, IdxT start, IdxT end)
   {
-    IdxT idx = start + lane_;
-    for (int i = 0; i < max_arr_len_; ++i, idx += WarpSize) {
+    IdxT idx = start + laneId();
+    for (int i = 0; i < kMaxArrLen; ++i, idx += WarpSize) {
       if (idx < end) {
         val_arr_[i] = in[idx];
         idx_arr_[i] = idx;
       }
     }
-    bitonic_sort<capacity, !greater>::run(val_arr_, idx_arr_);
+    ivf_flat::bitonic_sort<capacity, !greater>::run(val_arr_, idx_arr_);
   }
 
   __device__ void add_first_(const T* in, const IdxT* in_idx, IdxT start, IdxT end)
   {
-    IdxT idx = start + lane_;
-    for (int i = 0; i < max_arr_len_; ++i, idx += WarpSize) {
+    IdxT idx = start + laneId();
+    for (int i = 0; i < kMaxArrLen; ++i, idx += WarpSize) {
       if (idx < end) {
         val_arr_[i] = in[idx];
         idx_arr_[i] = in_idx[idx];
       }
     }
-    bitonic_sort<capacity, !greater>::run(val_arr_, idx_arr_);
+    ivf_flat::bitonic_sort<capacity, !greater>::run(val_arr_, idx_arr_);
   }
 
   __device__ void add_extra_(const T* in, IdxT start, IdxT end)
   {
-    IdxT idx = start + lane_;
-    for (int i = 0; i < max_arr_len_; ++i, idx += WarpSize) {
+    IdxT idx = start + laneId();
+    for (int i = 0; i < kMaxArrLen; ++i, idx += WarpSize) {
       val_buf_[i] = (idx < end) ? in[idx] : dummy_;
       idx_buf_[i] = idx;
     }
-    bitonic_sort<capacity, greater>::run(val_buf_, idx_buf_);
+    ivf_flat::bitonic_sort<capacity, greater>::run(val_buf_, idx_buf_);
   }
 
   __device__ void add_extra_(const T* in, const IdxT* in_idx, IdxT start, IdxT end)
   {
-    IdxT idx = start + lane_;
-    for (int i = 0; i < max_arr_len_; ++i, idx += WarpSize) {
+    IdxT idx = start + laneId();
+    for (int i = 0; i < kMaxArrLen; ++i, idx += WarpSize) {
       val_buf_[i] = (idx < end) ? in[idx] : dummy_;
       idx_buf_[i] = (idx < end) ? in_idx[idx] : std::numeric_limits<IdxT>::max();
     }
-    bitonic_sort<capacity, greater>::run(val_buf_, idx_buf_);
+    ivf_flat::bitonic_sort<capacity, greater>::run(val_buf_, idx_buf_);
   }
 
   __device__ void merge_()
   {
-    for (int i = 0; i < max_arr_len_; ++i) {
+    for (int i = 0; i < kMaxArrLen; ++i) {
       if (is_greater_than<greater>(val_buf_[i], val_arr_[i])) {
         val_arr_[i] = val_buf_[i];
         idx_arr_[i] = idx_buf_[i];
       }
     }
-    bitonic_merge<capacity, !greater>::run(val_arr_, idx_arr_);
+    ivf_flat::bitonic_merge<capacity, !greater>::run(val_arr_, idx_arr_);
   }
 
-  using WarpSort<capacity, greater, T, IdxT>::max_arr_len_;
+  using WarpSort<capacity, greater, T, IdxT>::kMaxArrLen;
   using WarpSort<capacity, greater, T, IdxT>::val_arr_;
   using WarpSort<capacity, greater, T, IdxT>::idx_arr_;
-  using WarpSort<capacity, greater, T, IdxT>::lane_;
   using WarpSort<capacity, greater, T, IdxT>::k_;
   using WarpSort<capacity, greater, T, IdxT>::dummy_;
 
-  T val_buf_[max_arr_len_];
-  IdxT idx_buf_[max_arr_len_];
+  T val_buf_[kMaxArrLen];
+  IdxT idx_buf_[kMaxArrLen];
   int buf_len_;
 };
 
+/**
+ * This one is used for the second pass only:
+ *   if the first pass happens in multiple blocks, the output consists of a series
+ *   of sorted arrays, length `k` each.
+ *   Under this assumption, we can use load_sorted to just do the merging, rather than
+ *   the full sort.
+ */
 template <int capacity, bool greater, typename T, typename IdxT>
 class WarpMerge : public WarpSort<capacity, greater, T, IdxT> {
  public:
@@ -443,9 +488,9 @@ class WarpMerge : public WarpSort<capacity, greater, T, IdxT> {
 
   __device__ void add(const T* in, const IdxT* in_idx, IdxT start, IdxT end)
   {
-    IdxT idx       = start + lane_;
+    IdxT idx       = start + Pow2<kWarpWidth>::mod(laneId());
     IdxT first_end = (start + k_ < end) ? (start + k_) : end;
-    for (int i = 0; i < max_arr_len_; ++i, idx += WarpSize) {
+    for (int i = 0; i < kMaxArrLen; ++i, idx += kWarpWidth) {
       if (idx < first_end) {
         val_arr_[i] = in[idx];
         idx_arr_[i] = in_idx[idx];
@@ -460,10 +505,10 @@ class WarpMerge : public WarpSort<capacity, greater, T, IdxT> {
   __device__ void done() {}
 
  private:
-  using WarpSort<capacity, greater, T, IdxT>::max_arr_len_;
+  using WarpSort<capacity, greater, T, IdxT>::kWarpWidth;
+  using WarpSort<capacity, greater, T, IdxT>::kMaxArrLen;
   using WarpSort<capacity, greater, T, IdxT>::val_arr_;
   using WarpSort<capacity, greater, T, IdxT>::idx_arr_;
-  using WarpSort<capacity, greater, T, IdxT>::lane_;
   using WarpSort<capacity, greater, T, IdxT>::k_;
   using WarpSort<capacity, greater, T, IdxT>::dummy_;
 };
@@ -535,6 +580,12 @@ class WarpSortBlockWide {
 
   __device__ void add(T val, IdxT idx) { queue_.add(val, idx); }
 
+  /**
+   * At the point of calling this function, the warp-level queues consumed all input independently.
+   * The remaining work to be done is to merge them together.
+   *
+   * Here we tree-merge the results using the shared memory and block sync.
+   */
   __device__ void done()
   {
     queue_.done();
@@ -559,10 +610,12 @@ class WarpSortBlockWide {
 
   __device__ void dump(T* out, IdxT* out_idx) const
   {
-    if (threadIdx.x < WarpSize) { queue_.dump(out, out_idx); }
+    if (threadIdx.x < kWarpWidth) { queue_.dump(out, out_idx); }
   }
 
  private:
+  static constexpr int kWarpWidth = std::min<int>(capacity, WarpSize);
+
   WarpSortWarpWide<capacity, greater, T, IdxT> queue_;
   int k_;
   T dummy_;
@@ -570,6 +623,12 @@ class WarpSortBlockWide {
   IdxT* idx_smem_;
 };
 
+/**
+ * Uses the `WarpSortClass` to sort chunks of data within one block with no interblock
+ * communication. It can be arranged so, that multiple blocks process one line of input; in this
+ * case, they output multiple results of length k each. Then, a second pass is needed to merge those
+ * into one final output.
+ */
 template <template <int, bool, typename, typename> class WarpSortClass,
           int capacity,
           bool greater,
@@ -815,18 +874,18 @@ void warp_sort_topk_(int num_of_block,
     // printf("#block=%d, #warp=%d\n", num_of_block, num_of_warp);
     block_dim = num_of_warp * WarpSize;
     smem_size = calc_smem_size_for_block_wide<T>(num_of_warp, (IdxT)k);
-    launch_setup<WarpSortClass, T, IdxT>::kernel((IdxT)k,
-                                                 greater,
-                                                 (IdxT)batch_size,
-                                                 (IdxT)len,
-                                                 num_of_block,
-                                                 block_dim,
-                                                 smem_size,
-                                                 tmp_val.data(),
-                                                 tmp_idx.data(),
-                                                 out,
-                                                 out_idx,
-                                                 stream);
+    launch_setup<WarpMerge, T, IdxT>::kernel((IdxT)k,
+                                             greater,
+                                             (IdxT)batch_size,
+                                             (IdxT)len,
+                                             num_of_block,
+                                             block_dim,
+                                             smem_size,
+                                             tmp_val.data(),
+                                             tmp_idx.data(),
+                                             out,
+                                             out_idx,
+                                             stream);
   }
 }
 
