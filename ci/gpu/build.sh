@@ -37,8 +37,6 @@ export SCCACHE_BUCKET="rapids-sccache"
 export SCCACHE_REGION="us-west-2"
 export SCCACHE_IDLE_TIMEOUT="32768"
 
-export LIBRAFT_CONDA_PACKAGES="$WORKSPACE/ci/artifacts/raft/cpu/.conda-bld/linux-64"
-
 ################################################################################
 # SETUP - Check environment
 ################################################################################
@@ -77,7 +75,8 @@ set +x
 
 # Install pre-built conda packages from previous CI step
 gpuci_logger "Install libraft conda packages from CPU job"
-gpuci_mamba_retry install --use-local "${LIBRAFT_CONDA_PACKAGES}/libraft*.bz2"
+export LIBRAFT_CONDA_PACKAGES="$WORKSPACE/ci/artifacts/raft/cpu/.conda-bld/" # notice there is no `linux-64` here
+gpuci_mamba_retry install -c "${LIBRAFT_CONDA_PACKAGES}" libraft-headers libraft-distance libraft-nn
 
 gpuci_logger "Check compiler versions"
 python --version

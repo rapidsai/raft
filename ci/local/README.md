@@ -23,7 +23,7 @@ where:
 ```
 
 Example Usage:
-`bash build.sh -r ~/rapids/raft -i gpuci/rapidsai-base:cuda11.5-ubuntu21.04-py3.8`
+`bash build.sh -r ~/rapids/raft -i gpuci/rapidsai-base:cuda11.5-ubuntu20.04-py3.8`
 
 For a full list of available gpuCI docker images, visit our [DockerHub](https://hub.docker.com/r/gpuci/rapidsai-base/tags) page.
 
