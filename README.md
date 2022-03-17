@@ -103,13 +103,13 @@ RAFT itself can be installed through conda, [Cmake Package Manager (CPM)](https:
 ### Conda
 
 The easiest way to install RAFT is through conda and several packages are provided.
-- `libraft-headers` contains a subset of CUDA/C++ headers that can be safely included in public APIs because they depend only upon the cudatoolkit libraries and can be safely compiled without `nvcc`. The client APIs are also more stable across versions so they can be safely installed globally in an environment with projects which might have been built with different versions of RAFT.
+- `libraft-headers` RAFT headers
 - `libraft-nn` (optional) contains shared libraries for the nearest neighbors primitives.
 - `libraft-distance` (optional) contains shared libraries for distance primitives.
 - `pylibraft` (optional) Python wrappers around RAFT algorithms and primitives
 - `pyraft` (optional) contains reusable Python infrastructure and tools to accelerate Python algorithm development.
 
-Use the following command to install RAFT with conda (use `-c rapidsai-nightly` for more up-to-date but less stable nightly packages)
+Use the following command to install RAFT with conda (replace `rapidsai` with `rapidsai-nightly` to install more up-to-date but less stable nightly packages)
 ```bash
 conda install -c rapidsai libraft-headers libraft-nn libraft-distance pyraft pylibraft
 ```
