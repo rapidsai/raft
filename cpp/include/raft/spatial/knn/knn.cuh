@@ -80,7 +80,7 @@ enum class SelectKAlgo { FAISS, RADIX_8_BITS, RADIX_11_BITS, WARP_SORT };
  * @tparam idx_t
  *   the payload type (what is being selected together with the keys).
  * @tparam value_t
- *   what is being compared.
+ *   the type of the keys (what is being compared).
  *
  * @param[in] in_keys
  *   contiguous array of inputs of size (input_len * n_inputs);
