@@ -903,7 +903,7 @@ class RngImpl {
     rmm::device_uvector<char> workspace(0, stream);
     sortPairs(workspace, expWts.data(), sortedWts.data(), inIdxPtr, outIdxPtr, (int)len, stream);
     if (outIdx != nullptr) {
-      CUDA_CHECK(cudaMemcpyAsync(
+      RAFT_CUDA_TRY(cudaMemcpyAsync(
         outIdx, outIdxPtr, sizeof(IdxT) * sampledLen, cudaMemcpyDeviceToDevice, stream));
     }
     scatter<DataT, IdxT>(out, in, outIdxPtr, sampledLen, stream);
