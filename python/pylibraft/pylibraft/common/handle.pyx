@@ -18,7 +18,7 @@
 # distutils: language = c++
 # cython: embedsignature = True
 # cython: language_level = 3
-I'
+
 # import raft
 from libcpp.memory cimport shared_ptr
 from rmm._lib.cuda_stream_view cimport cuda_stream_per_thread
@@ -74,7 +74,6 @@ cdef class Handle:
         Issues a sync on the stream set for this handle.
         """
         self.c_obj.get()[0].sync_stream()
-
 
     def getHandle(self):
         return <size_t> self.c_obj.get()
