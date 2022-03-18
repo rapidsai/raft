@@ -23,22 +23,13 @@
 
 #include <raft/cudart_utils.h>
 #include <raft/device_atomics.cuh>
-
-/*
-  Two implementations:
-
-  (1) radix select (select + filter):
-      first select the k-th value by going through radix passes,
-      then filter out all wanted data from original data
-
-  (2) radix topk:
-      filter out wanted data directly while going through radix passes
-*/
+#include <raft/vectorized.cuh>
 
 namespace raft::spatial::knn::detail::ivf_flat {
 
-constexpr int BLOCK_DIM       = 512;
-constexpr int ITEM_PER_THREAD = 32;
+constexpr int BLOCK_DIM            = 512;
+constexpr int ITEM_PER_THREAD      = 32;
+constexpr int VECTORIZED_READ_SIZE = 16;
 
 template <int BITS_PER_PASS>
 __host__ __device__ constexpr int calc_num_buckets()
@@ -49,7 +40,7 @@ __host__ __device__ constexpr int calc_num_buckets()
 template <typename T, int BITS_PER_PASS>
 __host__ __device__ constexpr int calc_num_passes()
 {
-  return (sizeof(T) * 8 - 1) / BITS_PER_PASS + 1;
+  return ceildiv<int>(sizeof(T) * 8, BITS_PER_PASS);
 }
 
 // bit 0 is the least significant (rightmost) bit
@@ -71,6 +62,7 @@ __device__ constexpr unsigned calc_mask(int pass)
   return (1 << num_bits) - 1;
 }
 
+/** Use cub to twiddle bits - so that we can correctly compare bits of floating-point values. */
 template <typename T>
 __device__ typename cub::Traits<T>::UnsignedBits twiddle_in(T key, bool greater)
 {
@@ -87,51 +79,54 @@ __device__ int calc_bucket(T x, int start_bit, unsigned mask, bool greater)
   return (twiddle_in(x, greater) >> start_bit) & mask;
 }
 
+/**
+ * Map a Func over the input data, using vectorized load instructions if possible.
+ *
+ * NB: in future, we should move this to cpp/include/raft/linalg/detail/unary_op.cuh, which
+ *     currently does not support the second lambda argument (index of an element)
+ *
+ * @tparam T element type
+ * @tparam IdxT indexing type
+ * @tparam Func void (T x, IdxT idx)
+ *
+ * @param in the input data
+ * @param len the number of elements to read
+ * @param f the lambda taking two arguments (T x, IdxT idx)
+ */
 template <typename T, typename IdxT, typename Func>
 __device__ void vectorized_process(const T* in, IdxT len, Func f)
 {
-  using WideT = float4;
-
   const IdxT stride = blockDim.x * gridDim.x;
   const int tid     = blockIdx.x * blockDim.x + threadIdx.x;
-  if constexpr (sizeof(T) >= sizeof(WideT)) {
+  if constexpr (sizeof(T) >= VECTORIZED_READ_SIZE || VECTORIZED_READ_SIZE % sizeof(T) != 0) {
     for (IdxT i = tid; i < len; i += stride) {
       f(in[i], i);
     }
   } else {
-    static_assert(sizeof(WideT) % sizeof(T) == 0);
-    constexpr int items_per_scalar = sizeof(WideT) / sizeof(T);
-    // TODO: it's UB
-    union {
-      WideT scalar;
-      T array[items_per_scalar];
-    } wide;
+    using wide_t      = TxN_t<T, VECTORIZED_READ_SIZE / sizeof(T)>;
+    using align_bytes = Pow2<(size_t)VECTORIZED_READ_SIZE>;
+    using align_elems = Pow2<wide_t::Ratio>;
+    wide_t wide;
 
-    int skip_cnt = (reinterpret_cast<size_t>(in) % sizeof(WideT))
-                     ? ((sizeof(WideT) - reinterpret_cast<size_t>(in) % sizeof(WideT)) / sizeof(T))
-                     : 0;
-    if (skip_cnt > len) { skip_cnt = len; }
-    const WideT* in_cast = reinterpret_cast<decltype(in_cast)>(in + skip_cnt);
-    const IdxT len_cast  = (len - skip_cnt) / items_per_scalar;
-    for (IdxT i = tid; i < len_cast; i += stride) {
-      wide.scalar       = in_cast[i];
-      const IdxT real_i = skip_cnt + i * items_per_scalar;
+    // how many elements to skip in order to do aligned vectorized load
+    const IdxT skip_cnt_left = std::min<IdxT>((IdxT)(align_bytes::roundUp(in) - in), len);
+
+    // The main loop: process all aligned data
+    for (IdxT i = tid * wide_t::Ratio + skip_cnt_left; i + wide_t::Ratio <= len;
+         i += stride * wide_t::Ratio) {
+      wide.load(in, i);
 #pragma unroll
-      for (int j = 0; j < items_per_scalar; ++j) {
-        f(wide.array[j], real_i + j);
+      for (int j = 0; j < wide_t::Ratio; ++j) {
+        f(wide.val.data[j], i + j);
       }
     }
 
-    static_assert(WarpSize >= items_per_scalar);
-    // and because items_per_scalar > skip_cnt, WarpSize > skip_cnt
-    // no need to use loop
-    if (tid < skip_cnt) { f(in[tid], tid); }
-    // because len_cast = (len - skip_cnt) / items_per_scalar,
-    // len_cast * items_per_scalar + items_per_scalar > len - skip_cnt;
-    // and so
-    // len - (skip_cnt + len_cast * items_per_scalar) < items_per_scalar <=
-    // WarpSize no need to use loop
-    const IdxT remain_i = skip_cnt + len_cast * items_per_scalar + tid;
+    static_assert(WarpSize >= wide_t::Ratio);
+    // Processes the skipped elements on the left
+    if (tid < skip_cnt_left) { f(in[tid], tid); }
+    // Processes the skipped elements on the right
+    const IdxT skip_cnt_right = align_elems::mod(len - skip_cnt_left);
+    const IdxT remain_i       = len - skip_cnt_right + tid;
     if (remain_i < len) { f(in[remain_i], remain_i); }
   }
 }
@@ -442,7 +437,7 @@ void radix_topk(const T* in,
   T* out_buf             = nullptr;
   IdxT* out_idx_buf      = nullptr;
 
-  dim3 blocks((len - 1) / (NUM_THREAD * ITEM_PER_THREAD) + 1, batch_size);
+  dim3 blocks(ceildiv<size_t>(len, NUM_THREAD * ITEM_PER_THREAD), batch_size);
 
   constexpr int num_passes = calc_num_passes<T, BITS_PER_PASS>();
 
