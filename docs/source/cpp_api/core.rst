@@ -43,3 +43,12 @@ logger
 .. doxygenclass:: raft::logger
     :project: RAFT
     :members:
+
+
+Multi-node Multi-GPU
+####################
+
+.. doxygennamespace:: raft::comms
+    :project: RAFT
+    :members:
+

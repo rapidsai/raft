@@ -10,7 +10,6 @@ RAFT C++ API Reference
 
    cpp_api/core.rst
    cpp_api/clustering.rst
-   cpp_api/distributed.rst
    cpp_api/linalg.rst
    cpp_api/matrix.rst
    cpp_api/optimization.rst

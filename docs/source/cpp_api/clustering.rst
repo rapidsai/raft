@@ -20,6 +20,6 @@ Spectral
 Hierarchical
 ############
 
-.. doxygennamespace:: raft::hierarchical
+.. doxygennamespace:: raft::hierarchy
     :project: RAFT
     :members:
