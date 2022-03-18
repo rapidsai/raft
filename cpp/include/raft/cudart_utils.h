@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -298,40 +298,6 @@ void print_device_vector(const char* variable_name,
   delete[] host_mem;
 }
 /** @} */
-
-static std::mutex mutex_;
-static std::unordered_map<void*, size_t> allocations;
-
-template <typename Type>
-void allocate(Type*& ptr, size_t len, rmm::cuda_stream_view stream, bool setZero = false)
-{
-  size_t size = len * sizeof(Type);
-  ptr         = (Type*)rmm::mr::get_current_device_resource()->allocate(size, stream);
-  if (setZero) CUDA_CHECK(cudaMemsetAsync((void*)ptr, 0, size, stream));
-
-  std::lock_guard<std::mutex> _(mutex_);
-  allocations[ptr] = size;
-}
-
-template <typename Type>
-void deallocate(Type*& ptr, rmm::cuda_stream_view stream)
-{
-  std::lock_guard<std::mutex> _(mutex_);
-  size_t size = allocations[ptr];
-  allocations.erase(ptr);
-  rmm::mr::get_current_device_resource()->deallocate((void*)ptr, size, stream);
-}
-
-inline void deallocate_all(rmm::cuda_stream_view stream)
-{
-  std::lock_guard<std::mutex> _(mutex_);
-  for (auto& alloc : allocations) {
-    void* ptr   = alloc.first;
-    size_t size = alloc.second;
-    rmm::mr::get_current_device_resource()->deallocate(ptr, size, stream);
-  }
-  allocations.clear();
-}
 
 /** helper method to get max usable shared mem per block parameter */
 inline int getSharedMemPerBlock()
