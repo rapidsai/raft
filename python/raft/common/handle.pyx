@@ -20,7 +20,6 @@
 # cython: language_level = 3
 
 # import raft
-from libcpp.memory cimport shared_ptr
 from rmm._lib.cuda_stream_view cimport cuda_stream_per_thread
 from rmm._lib.cuda_stream_view cimport cuda_stream_view
 
