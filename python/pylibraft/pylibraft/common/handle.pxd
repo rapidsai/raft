@@ -31,8 +31,6 @@ cdef extern from "raft/handle.hpp" namespace "raft" nogil:
         handle_t(cuda_stream_view stream_view) except +
         handle_t(cuda_stream_view stream_view,
                  shared_ptr[cuda_stream_pool] stream_pool) except +
-        void set_device_allocator(shared_ptr[allocator] a) except +
-        shared_ptr[allocator] get_device_allocator() except +
         cuda_stream_view get_stream() except +
         void sync_stream() except +
 
