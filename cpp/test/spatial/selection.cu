@@ -376,14 +376,14 @@ auto inputs_random = testing::Values(SelectTestSpec{1, 130, 15, false},
                                      SelectTestSpec{100, 100000, 100, false},
                                      SelectTestSpec{100, 100000, 200, false});
 
-typedef SelectionTest<float, int, with_ref<knn::SelectKAlgo::FAISS>::params_random>
+typedef SelectionTest<float, int, with_ref<knn::SelectKAlgo::RADIX_11_BITS>::params_random>
   ReferencedRandomFloatInt;
 TEST_P(ReferencedRandomFloatInt, Run) { run(); }
 INSTANTIATE_TEST_CASE_P(SelectionTest,
                         ReferencedRandomFloatInt,
                         testing::Combine(inputs_random, selection_algos));
 
-typedef SelectionTest<double, int, with_ref<knn::SelectKAlgo::FAISS>::params_random>
+typedef SelectionTest<double, int, with_ref<knn::SelectKAlgo::RADIX_11_BITS>::params_random>
   ReferencedRandomDoubleInt;
 TEST_P(ReferencedRandomDoubleInt, Run) { run(); }
 INSTANTIATE_TEST_CASE_P(SelectionTest,
