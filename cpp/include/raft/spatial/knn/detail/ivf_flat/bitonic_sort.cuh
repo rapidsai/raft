@@ -31,13 +31,13 @@ __device__ __forceinline__ void swap(T& x, T& y)
 }
 
 template <typename T>
-__device__ __forceinline__ void assign(bool cond, T* ptr, T x)
+__device__ __forceinline__ void conditional_assign(bool cond, T* ptr, T x)
 {
   if (cond) { *ptr = x; }
 }
 
 template <typename T>
-__device__ __forceinline__ void assign(bool cond, T& ptr, T x)
+__device__ __forceinline__ void conditional_assign(bool cond, T& ptr, T x)
 {
   if (cond) { ptr = x; }
 }
@@ -65,6 +65,8 @@ struct bitonic_merge {
   static constexpr int kArrLen = Size / WarpSize;
   static constexpr int kStride = kArrLen / 2;
 
+  // NB: the Dummy parameter is needed to postpone the evaluation of the template,
+  //     to use SFINAE, to choose between the two versions of `run` below.
   template <bool Fits, typename Dummy>
   using when_fits_in_warp =
     std::enable_if_t<(Fits == (Size <= WarpSize)) && std::is_same_v<Dummy, Dummy>, void>;
@@ -119,9 +121,9 @@ struct bitonic_merge {
         if (key == other) { do_assign = reverse != ((payload_this > payload_that) != is_second); }
       }
 
-      helpers::assign(do_assign, key, other);
+      helpers::conditional_assign(do_assign, key, other);
       // NB: don't put shfl_xor in a conditional; it must be called by all threads in a warp.
-      (helpers::assign(do_assign, payload, shfl(payload, Size - lane - 1, Size)), ...);
+      (helpers::conditional_assign(do_assign, payload, shfl(payload, Size - lane - 1, Size)), ...);
 
       stride /= 2;
     }
@@ -139,9 +141,9 @@ struct bitonic_merge {
         if (key == other) { do_assign = reverse != ((payload_this > payload_that) != is_second); }
       }
 
-      helpers::assign(do_assign, key, other);
+      helpers::conditional_assign(do_assign, key, other);
       // NB: don't put shfl_xor in a conditional; it must be called by all threads in a warp.
-      (helpers::assign(do_assign, payload, shfl_xor(payload, stride, Size)), ...);
+      (helpers::conditional_assign(do_assign, payload, shfl_xor(payload, stride, Size)), ...);
     }
   }
 
@@ -169,9 +171,19 @@ struct bitonic_merge {
 
 /**
  * Bitonic sort at the warp level.
+ * The data is strided among min(Size, WarpSize) threads,
+ * e.g. calling `bitonic_sort<128, true>::run(arr)` takes a unique 4-element array
+ * as input of each thread in a warp and sorts them, such that for a fixed i,
+ * arr[i] are sorted within the threads in a warp, and for any i < j, arr[j] in any thread is not
+ * smaller than arr[i] in any other thread.
  *
- * @tparam Size is the number of elements (must be power of two).
- * @tparam Ascending is the resulting order (true: ascending, false: descending).
+ * @tparam Size
+ *   the number of elements (must be power of two).
+ * @tparam Ascending
+ *   the resulting order (true: ascending, false: descending).
+ * @tparam AlreadySortedSize
+ *   the input consist of (Size/AlreadySortedSize) already sorted chunks, each chunk
+ *   consists of `AlreadySortedSize` elements.
  */
 template <int Size, bool Ascending, int AlreadySortedSize = 1>
 struct bitonic_sort {
@@ -200,6 +212,7 @@ struct bitonic_sort {
 
   /**
    * Execute the sort.
+   * The input pointers are unique per-thread.
    *
    * @param keys
    *   is a device pointer to a contiguous array of keys, unique per thread;

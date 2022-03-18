@@ -96,6 +96,10 @@
     for a whole warp, while val/idx is for a thread.
     No shared memory is needed.
 
+    The host function uses a heuristic to choose between these two classes for sorting,
+    WarpBitonic being chosen when the number of inputs per warp is somewhat small
+    (see the usage of LaunchThreshold<WarpBitonic>::len_factor_for_choosing).
+
     Example:
       __global__ void kernel() {
         WarpBitonic<...> queue(...);
@@ -137,6 +141,21 @@ int calc_capacity(int k)
 
 }  // namespace
 
+/**
+ * A fixed-size warp-level priority queue.
+ * By feeding the data through this queue, you get the `k <= capacity`
+ * smallest/greatest values in the data.
+ *
+ * @tparam capacity
+ *   maximum number of elements in the queue.
+ * @tparam greater
+ *   which comparison to use: `true` means `>`, `false` means `<`.
+ * @tparam T
+ *   the type of keys (what is being compared)
+ * @tparam IdxT
+ *   the type of payload (normally, indices of elements), i.e.
+ *   the content sorted alongside the keys.
+ */
 template <int capacity, bool greater, typename T, typename IdxT>
 class WarpSort {
   static_assert(isPo2(capacity));
@@ -408,6 +427,7 @@ class WarpBitonic : public WarpSort<capacity, greater, T, IdxT> {
   }
 
  private:
+  // Fill in the primary val_arr_/idx_arr_
   __device__ void add_first_(const T* in, IdxT start, IdxT end)
   {
     IdxT idx = start + laneId();
@@ -420,6 +440,7 @@ class WarpBitonic : public WarpSort<capacity, greater, T, IdxT> {
     ivf_flat::bitonic_sort<capacity, !greater>::run(val_arr_, idx_arr_);
   }
 
+  // Fill in the primary val_arr_/idx_arr_
   __device__ void add_first_(const T* in, const IdxT* in_idx, IdxT start, IdxT end)
   {
     IdxT idx = start + laneId();
@@ -432,6 +453,7 @@ class WarpBitonic : public WarpSort<capacity, greater, T, IdxT> {
     ivf_flat::bitonic_sort<capacity, !greater>::run(val_arr_, idx_arr_);
   }
 
+  // Fill in the secondary val_buf_/idx_buf_
   __device__ void add_extra_(const T* in, IdxT start, IdxT end)
   {
     IdxT idx = start + laneId();
@@ -442,6 +464,7 @@ class WarpBitonic : public WarpSort<capacity, greater, T, IdxT> {
     ivf_flat::bitonic_sort<capacity, greater>::run(val_buf_, idx_buf_);
   }
 
+  // Fill in the secondary val_buf_/idx_buf_
   __device__ void add_extra_(const T* in, const IdxT* in_idx, IdxT start, IdxT end)
   {
     IdxT idx = start + laneId();
@@ -486,6 +509,7 @@ class WarpMerge : public WarpSort<capacity, greater, T, IdxT> {
  public:
   __device__ WarpMerge(int k, T dummy) : WarpSort<capacity, greater, T, IdxT>(k, dummy) {}
 
+  // NB: the input is already sorted, because it's the second pass.
   __device__ void add(const T* in, const IdxT* in_idx, IdxT start, IdxT end)
   {
     IdxT idx       = start + Pow2<kWarpWidth>::mod(laneId());
