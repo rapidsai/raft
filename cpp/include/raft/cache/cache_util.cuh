@@ -111,7 +111,7 @@ __global__ void store_vecs(const math_t* tile,
  * @brief Map a key to a cache set.
  *
  * @param key key to be hashed
- * @param n_cache_set number of cache sets
+ * @param n_cache_sets number of cache sets
  * @return index of the cache set [0..n_cache_set)
  */
 int DI hash(int key, int n_cache_sets) { return key % n_cache_sets; }

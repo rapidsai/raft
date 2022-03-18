@@ -1,6 +1,6 @@
-~~~~~~~~~~~~~~~~~~~
-RAFT API Reference
-~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~
+PyRAFT API Reference
+~~~~~~~~~~~~~~~~~~~~
 
 .. role:: py(code)
    :language: python

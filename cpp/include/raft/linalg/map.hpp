@@ -18,42 +18,6 @@
  * Please use the cuh version instead.
  */
 
-#ifndef __MAP_H
-#define __MAP_H
-
 #pragma once
 
-#include "detail/map.cuh"
-
-namespace raft {
-namespace linalg {
-
-/**
- * @brief CUDA version of map
- * @tparam InType data-type upon which the math operation will be performed
- * @tparam MapOp the device-lambda performing the actual operation
- * @tparam TPB threads-per-block in the final kernel launched
- * @tparam Args additional parameters
- * @tparam OutType data-type in which the result will be stored
- * @param out the output of the map operation (assumed to be a device pointer)
- * @param len number of elements in the input array
- * @param map the device-lambda
- * @param stream cuda-stream where to launch this kernel
- * @param in the input array
- * @param args additional input arrays
- */
-
-template <typename InType,
-          typename MapOp,
-          int TPB = 256,
-          typename... Args,
-          typename OutType = InType>
-void map(OutType* out, size_t len, MapOp map, cudaStream_t stream, const InType* in, Args... args)
-{
-  detail::mapImpl<InType, OutType, MapOp, TPB, Args...>(out, len, map, stream, in, args...);
-}
-
-}  // namespace linalg
-};  // namespace raft
-
-#endif
+#include "map.cuh"
