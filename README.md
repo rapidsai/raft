@@ -7,12 +7,11 @@ By taking a primitives-based approach to algorithm development, RAFT
 - reduces the maintenance burden by maximizing reuse across projects, and
 - centralizes core reusable computations, allowing future optimizations to benefit all algorithms that use them.
 
-The accelerated functions in RAFT span the following general categories:
+While not exhaustive, the following general categories help summarize the accelerated functions in RAFT:
 #####
 | Category | Examples |
 | --- | --- |
 | **Data Formats** | sparse & dense, conversions, data generation |
-| **Data Generation** | sparse, spatial, machine learning datasets |
 | **Dense Linear Algebra** | matrix arithmetic, norms, factorization, least squares, svd & eigenvalue problems |
 | **Spatial** | pairwise distances, nearest neighbors, neighborhood graph construction |
 | **Sparse Operations** | linear algebra, eigenvalue problems, slicing, symmetrization, labeling |
