@@ -84,7 +84,7 @@ gpuci_mamba_retry install -c conda-forge boa
 # BUILD - Conda package builds
 ###############################################################################
 
-if [ "$BUILD_LIBRAFT" == '1' ]; then
+if [ "$BUILD_LIBRAFT" == "1" ]; then
   gpuci_logger "Building conda packages for libraft-nn, libraft-distance, and libraft-headers"
   if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
     gpuci_conda_retry mambabuild --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/libraft_headers
