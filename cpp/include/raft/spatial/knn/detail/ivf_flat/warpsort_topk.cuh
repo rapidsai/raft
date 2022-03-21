@@ -161,6 +161,16 @@ class WarpSort {
   static_assert(isPo2(capacity));
 
  public:
+  /**
+   * Construct the WarpSort empty queue.
+   *
+   * @param k
+   *   number of elements to select.
+   * @param dummy
+   *   the `empty` value for the choosen binary operation,
+   *   i.e. `greater ? lower_bound<T>() : upper_bound<T>()`.
+   *
+   */
   __device__ WarpSort(IdxT k, T dummy) : k_(k), dummy_(dummy)
   {
 #pragma unroll
@@ -185,7 +195,7 @@ class WarpSort {
         }
       }
     }
-    ivf_flat::bitonic_merge<capacity, !greater>::run(val_arr_, idx_arr_);
+    ivf_flat::bitonic<kMaxArrLen>(!greater, kWarpWidth).merge(val_arr_, idx_arr_);
   }
 
   __device__ void dump(T* out, IdxT* out_idx) const
@@ -197,21 +207,6 @@ class WarpSort {
       out_idx[idx] = idx_arr_[i];
     }
   }
-
-  // TODO: do all merging in the bitonic_sort.cuh
-  // /**
-  //  * When capacity < WarpSize, merges sorted queues within the warp.
-  //  * As a result, the top k selected values are placed in the first queue in the group
-  //  * (i.e. within the first kWarpWidth values, since k <= capacity == kWarpWidth).
-  //  *
-  //  * It does nothing when capacity >= WarpSize
-  //  */
-  // __device__ __forceinline__ void merge_within_warp()
-  // {
-  //   if constexpr (kWarpWidth < WarpSize) {
-  //     ivf_flat::bitonic_sort<WarpSize, !greater, kWarpWidth>::run(val_arr_, idx_arr_);
-  //   }
-  // }
 
  protected:
   static constexpr int kWarpWidth = std::min<int>(capacity, WarpSize);
@@ -286,54 +281,25 @@ class WarpSelect : public WarpSort<capacity, greater, T, IdxT> {
     // it's the best we can do, should use "val_arr_[k_th_row_]"
     // NB on using srcLane: it's ok if it is outside the warp size / width;
     //                      the modulo op will be done inside the __shfl_sync.
-    k_th_ = shfl(val_arr_[kMaxArrLen - 1], Pow2<WarpSize>::mod(k_ - 1));
+    k_th_ = shfl(val_arr_[kMaxArrLen - 1], k_ - 1);
   }
 
   __device__ void merge_buf_()
   {
-    ivf_flat::bitonic_sort<kMaxBufLen * WarpSize, greater>::run(val_buf_, idx_buf_);
-    //         // merge the tails of both value arrays, which means possibly updating
-    //     // smallest of the val_arr_ with the largest of the val_buf_, because
-    //     // they are sorted in the opposite directions.
-    //     // Essentially, this is the first step of bitonic_merge<capacity * 2, !greater>
-    // #pragma unroll
-    //     for (int i = std::min(kMaxArrLen, kMaxBufLen); i > 0; i--) {
-    //       T& val = val_arr_[kMaxArrLen - i];
-    //       T buf  = val_buf_[kMaxBufLen - i];
-    //       if (is_greater_than<greater>(buf, val)) {
-    //         val                      = buf;
-    //         idx_arr_[kMaxArrLen - i] = idx_buf_[kMaxBufLen - i];
-    //       }
-    //     }
-
-    if (kMaxArrLen > kMaxBufLen) {
-      for (int i = 0; i < kMaxBufLen; ++i) {
-        T& val = val_arr_[kMaxArrLen - kMaxBufLen + i];
-        T& buf = val_buf_[i];
-        if (is_greater_than<greater>(buf, val)) {
-          val                                   = buf;
-          idx_arr_[kMaxArrLen - kMaxBufLen + i] = idx_buf_[i];
-        }
-      }
-    } else if (kMaxArrLen < kMaxBufLen) {
-      for (int i = 0; i < kMaxArrLen; ++i) {
-        T& val = val_arr_[i];
-        T& buf = val_buf_[kMaxBufLen - kMaxArrLen + i];
-        if (is_greater_than<greater>(buf, val)) {
-          val         = buf;
-          idx_arr_[i] = idx_buf_[kMaxBufLen - kMaxArrLen + i];
-        }
-      }
-    } else {
-      for (int i = 0; i < kMaxArrLen; ++i) {
-        if (is_greater_than<greater>(val_buf_[i], val_arr_[i])) {
-          val_arr_[i] = val_buf_[i];
-          idx_arr_[i] = idx_buf_[i];
-        }
+    ivf_flat::bitonic<kMaxBufLen>(greater).sort(val_buf_, idx_buf_);
+    // merge the tails of both value arrays, which means possibly updating
+    // smallest of the val_arr_ with the largest of the val_buf_, because
+    // they are sorted in the opposite directions.
+#pragma unroll
+    for (int i = std::min(kMaxArrLen, kMaxBufLen); i > 0; i--) {
+      T& val = val_arr_[kMaxArrLen - i];
+      T buf  = val_buf_[kMaxBufLen - i];
+      if (is_greater_than<greater>(buf, val)) {
+        val                      = buf;
+        idx_arr_[kMaxArrLen - i] = idx_buf_[kMaxBufLen - i];
       }
     }
-
-    ivf_flat::bitonic_merge<capacity, !greater>::run(val_arr_, idx_arr_);
+    ivf_flat::bitonic<kMaxArrLen>(!greater).merge(val_arr_, idx_arr_);
 
     buf_len_ = 0;
     set_k_th_();  // contains warp sync
@@ -408,7 +374,7 @@ class WarpBitonic : public WarpSort<capacity, greater, T, IdxT> {
 
     ++buf_len_;
     if (buf_len_ == kMaxArrLen) {
-      ivf_flat::bitonic_sort<capacity, greater>::run(val_buf_, idx_buf_);
+      ivf_flat::bitonic<kMaxArrLen>(greater).sort(val_buf_, idx_buf_);
       merge_();
 #pragma unroll
       for (int i = 0; i < kMaxArrLen; i++) {
@@ -421,7 +387,7 @@ class WarpBitonic : public WarpSort<capacity, greater, T, IdxT> {
   __device__ void done()
   {
     if (buf_len_ != 0) {
-      ivf_flat::bitonic_sort<capacity, greater>::run(val_buf_, idx_buf_);
+      ivf_flat::bitonic<kMaxArrLen>(greater).sort(val_buf_, idx_buf_);
       merge_();
     }
   }
@@ -437,7 +403,7 @@ class WarpBitonic : public WarpSort<capacity, greater, T, IdxT> {
         idx_arr_[i] = idx;
       }
     }
-    ivf_flat::bitonic_sort<capacity, !greater>::run(val_arr_, idx_arr_);
+    ivf_flat::bitonic<kMaxArrLen>(!greater).sort(val_arr_, idx_arr_);
   }
 
   // Fill in the primary val_arr_/idx_arr_
@@ -450,7 +416,7 @@ class WarpBitonic : public WarpSort<capacity, greater, T, IdxT> {
         idx_arr_[i] = in_idx[idx];
       }
     }
-    ivf_flat::bitonic_sort<capacity, !greater>::run(val_arr_, idx_arr_);
+    ivf_flat::bitonic<kMaxArrLen>(!greater).sort(val_arr_, idx_arr_);
   }
 
   // Fill in the secondary val_buf_/idx_buf_
@@ -461,7 +427,7 @@ class WarpBitonic : public WarpSort<capacity, greater, T, IdxT> {
       val_buf_[i] = (idx < end) ? in[idx] : dummy_;
       idx_buf_[i] = idx;
     }
-    ivf_flat::bitonic_sort<capacity, greater>::run(val_buf_, idx_buf_);
+    ivf_flat::bitonic<kMaxArrLen>(greater).sort(val_buf_, idx_buf_);
   }
 
   // Fill in the secondary val_buf_/idx_buf_
@@ -472,7 +438,7 @@ class WarpBitonic : public WarpSort<capacity, greater, T, IdxT> {
       val_buf_[i] = (idx < end) ? in[idx] : dummy_;
       idx_buf_[i] = (idx < end) ? in_idx[idx] : std::numeric_limits<IdxT>::max();
     }
-    ivf_flat::bitonic_sort<capacity, greater>::run(val_buf_, idx_buf_);
+    ivf_flat::bitonic<kMaxArrLen>(greater).sort(val_buf_, idx_buf_);
   }
 
   __device__ void merge_()
@@ -483,7 +449,7 @@ class WarpBitonic : public WarpSort<capacity, greater, T, IdxT> {
         idx_arr_[i] = idx_buf_[i];
       }
     }
-    ivf_flat::bitonic_merge<capacity, !greater>::run(val_arr_, idx_arr_);
+    ivf_flat::bitonic<kMaxArrLen>(!greater).merge(val_arr_, idx_arr_);
   }
 
   using WarpSort<capacity, greater, T, IdxT>::kMaxArrLen;

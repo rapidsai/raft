@@ -31,243 +31,200 @@ __device__ __forceinline__ void swap(T& x, T& y)
 }
 
 template <typename T>
-__device__ __forceinline__ void conditional_assign(bool cond, T* ptr, T x)
-{
-  if (cond) { *ptr = x; }
-}
-
-template <typename T>
 __device__ __forceinline__ void conditional_assign(bool cond, T& ptr, T x)
 {
   if (cond) { ptr = x; }
 }
 
-template <typename T, typename... Ts>
-__device__ __forceinline__ auto first(T x, Ts... xs) -> T
-{
-  return x;
-}
-
 }  // namespace helpers
 
 /**
- * Bitonic merge at the warp level.
+ * Warp-wide bitonic merge and sort.
+ * The data is strided among `warp_width` threads,
+ * e.g. calling `bitonic<4>::sort(arr)` takes a unique 4-element array as input of each thread in a
+ * warp and sorts them, such that for a fixed i, arr[i] are sorted within the threads in a warp, and
+ * for any i < j, arr[j] in any thread is not smaller than arr[i] in any other thread.
  *
- * @tparam Size is the number of elements (must be power of two).
- * @tparam Ascending is the resulting order (true: ascending, false: descending).
- * @tparam Cross whether the right half of the input is sorted in the opposite direction.
- */
-template <int Size, bool Ascending, bool Cross = true>
-struct bitonic_merge {
-  static_assert(isPo2(Size));
-
-  /** How many contiguous elements are processed by one thread. */
-  static constexpr int kArrLen = Size / WarpSize;
-  static constexpr int kStride = kArrLen / 2;
-
-  // NB: the Dummy parameter is needed to postpone the evaluation of the template,
-  //     to use SFINAE, to choose between the two versions of `run` below.
-  template <bool Fits, typename Dummy>
-  using when_fits_in_warp =
-    std::enable_if_t<(Fits == (Size <= WarpSize)) && std::is_same_v<Dummy, Dummy>, void>;
-
-  template <typename KeyT, typename... PayloadTs>
-  static __device__ auto run(bool reverse,
-                             KeyT* __restrict__ keys,
-                             PayloadTs* __restrict__... payloads) -> when_fits_in_warp<false, KeyT>
-  {
-    static_assert(Cross, "Straight merging is not implemented for Size > WarpSize.");
-    for (int i = 0; i < kStride; i++) {
-      const int other_i = i + kStride;
-      KeyT& key         = keys[i];
-      KeyT& other       = keys[other_i];
-      bool do_swap      = Ascending != reverse ? key > other : key < other;
-      // Normally, we expect `payloads` to be the array of indices from 0 to len;
-      // in that case, the construct below makes the sorting stable.
-      if constexpr (sizeof...(payloads) > 0) {
-        if (key == other) {
-          do_swap =
-            reverse != (helpers::first(payloads...)[i] > helpers::first(payloads...)[other_i]);
-        }
-      }
-      if (do_swap) {
-        helpers::swap(key, other);
-        (helpers::swap(payloads[i], payloads[other_i]), ...);
-      }
-    }
-
-    bitonic_merge<Size / 2, Ascending, true>::run(reverse, keys, payloads...);
-    bitonic_merge<Size / 2, Ascending, true>::run(reverse, keys + kStride, (payloads + kStride)...);
-  }
-
-  template <typename KeyT, typename... PayloadTs>
-  static __device__ auto run(bool reverse,
-                             KeyT& __restrict__ key,
-                             PayloadTs& __restrict__... payload) -> when_fits_in_warp<true, KeyT>
-  {
-    const int lane = threadIdx.x % Size;
-    int stride     = Size / 2;
-    if constexpr (!Cross) {
-      bool is_second = lane & stride;
-      KeyT other     = shfl(key, Size - lane - 1, Size);
-
-      bool asc       = Ascending != reverse;
-      bool do_assign = key != other && ((key > other) == (asc != is_second));
-      // Normally, we expect `payloads` to be the array of indices from 0 to len;
-      // in that case, the construct below makes the sorting stable.
-      if constexpr (sizeof...(payload) > 0) {
-        auto payload_this = helpers::first(payload...);
-        auto payload_that = shfl(payload_this, Size - lane - 1, Size);
-        if (key == other) { do_assign = reverse != ((payload_this > payload_that) != is_second); }
-      }
-
-      helpers::conditional_assign(do_assign, key, other);
-      // NB: don't put shfl_xor in a conditional; it must be called by all threads in a warp.
-      (helpers::conditional_assign(do_assign, payload, shfl(payload, Size - lane - 1, Size)), ...);
-
-      stride /= 2;
-    }
-    for (; stride > 0; stride /= 2) {
-      bool is_second = lane & stride;
-      KeyT other     = shfl_xor(key, stride, Size);
-
-      bool asc       = Ascending != reverse;
-      bool do_assign = key != other && ((key > other) == (asc != is_second));
-      // Normally, we expect `payloads` to be the array of indices from 0 to len;
-      // in that case, the construct below makes the sorting stable.
-      if constexpr (sizeof...(payload) > 0) {
-        auto payload_this = helpers::first(payload...);
-        auto payload_that = shfl_xor(payload_this, stride, Size);
-        if (key == other) { do_assign = reverse != ((payload_this > payload_that) != is_second); }
-      }
-
-      helpers::conditional_assign(do_assign, key, other);
-      // NB: don't put shfl_xor in a conditional; it must be called by all threads in a warp.
-      (helpers::conditional_assign(do_assign, payload, shfl_xor(payload, stride, Size)), ...);
-    }
-  }
-
-  template <typename KeyT, typename... PayloadTs>
-  static __device__ auto run(bool reverse,
-                             KeyT* __restrict__ keys,
-                             PayloadTs* __restrict__... payloads) -> when_fits_in_warp<true, KeyT>
-  {
-    return run(reverse, *keys, *payloads...);
-  }
-
-  template <typename KeyT, typename... PayloadTs>
-  static __device__ void run(KeyT* __restrict__ keys, PayloadTs* __restrict__... payloads)
-  {
-    return run(false, keys, payloads...);
-  }
-
-  template <typename KeyT, typename... PayloadTs>
-  static __device__ auto run(KeyT& __restrict__ key, PayloadTs& __restrict__... payload)
-    -> when_fits_in_warp<true, KeyT>
-  {
-    return run(false, key, payload...);
-  }
-};
-
-/**
- * Bitonic sort at the warp level.
- * The data is strided among min(Size, WarpSize) threads,
- * e.g. calling `bitonic_sort<128, true>::run(arr)` takes a unique 4-element array
- * as input of each thread in a warp and sorts them, such that for a fixed i,
- * arr[i] are sorted within the threads in a warp, and for any i < j, arr[j] in any thread is not
- * smaller than arr[i] in any other thread.
+ * As an example, assuming `Size = 4`, `warp_width = 16`, and `WarpSize = 32`, the layout is:
+ * `
+ *  arr_i \ laneId()
+ *       0   1   2   3   4   5   6   7   8   9  10  11  12  13  14  15    16  17  18 ...
+ *      subwarp_1                                                         subwarp_2
+ *   0   0   1   2   3   4   5   6   7   8   9  10  11  12  13  14  15     0   1   2  ...
+ *   1  16  17  18  19  20  21  22  23  24  25  26  27  28  29  30  31    16  17  18 ...
+ *   2  32  33  34  35  36  37  38  39  40  41  42  43  44  45  46  47    32  33  34 ...
+ *   3  48  49  50  51  52  53  54  55  56  57  58  59  60  61  62  63    48  49  50 ...
+ * `
  *
  * @tparam Size
- *   the number of elements (must be power of two).
- * @tparam Ascending
- *   the resulting order (true: ascending, false: descending).
- * @tparam AlreadySortedSize
- *   the input consist of (Size/AlreadySortedSize) already sorted chunks, each chunk
- *   consists of `AlreadySortedSize` elements.
+ *   number of elements processed in each thread;
+ *   i.e. the total data size is `Size * warp_width`.
+ *   Must be power-of-two.
+ *
  */
-template <int Size, bool Ascending, int AlreadySortedSize = 1>
-struct bitonic_sort {
+template <int Size = 1>
+class bitonic {
   static_assert(isPo2(Size));
-  static_assert(isPo2(AlreadySortedSize));
-  static_assert(isPo2(Size >= AlreadySortedSize));
 
-  template <typename KeyT, typename... PayloadTs>
-  static __device__ void run(bool reverse,
-                             KeyT* __restrict__ keys,
-                             PayloadTs* __restrict__... payloads)
+ public:
+  /**
+   * Initialize bitonic sort config.
+   *
+   * @param ascending
+   *   the resulting order (true: ascending, false: descending).
+   * @param warp_width
+   *   the number of threads participating in the warp-level primitives;
+   *   the total size of the sorted data is `Size * warp_width`.
+   *   Must be power-of-two, not larger than the WarpSize.
+   */
+  __device__ __forceinline__ explicit bitonic(bool ascending, int warp_width = WarpSize)
+    : ascending_(ascending), warp_width_(warp_width)
   {
-    constexpr int kSize2 = Size / 2;
-    if constexpr (kSize2 > AlreadySortedSize) {
-      // NB: the `reverse` expression here is always `0` (false) when `Size > WarpSize`
-      bitonic_sort<kSize2, Ascending, AlreadySortedSize>::run(laneId() & kSize2, keys, payloads...);
-      if constexpr (Size > WarpSize) {
-        // NB: this part is executed only if the size of the input arrays is larger than the warp.
-        constexpr int kShift = kSize2 / WarpSize;
-        bitonic_sort<kSize2, Ascending, AlreadySortedSize>::run(
-          true, keys + kShift, (payloads + kShift)...);
-      }
-    }
-    bitonic_merge<Size, Ascending, (kSize2 > AlreadySortedSize)>::run(reverse, keys, payloads...);
+  }
+
+  bitonic(bitonic const&) = delete;
+  bitonic(bitonic&&)      = delete;
+  auto operator=(bitonic const&) -> bitonic& = delete;
+  auto operator=(bitonic&&) -> bitonic& = delete;
+
+  /**
+   * You can think of this function in two ways:
+   *
+   *   1) Sort any bitonic sequence.
+   *   2) Merge two halfs of the input data assuming they're already sorted, and their order is
+   *      opposite (i.e. either ascending, descending or vice-versa).
+   *
+   * The input pointers are unique per-thread.
+   * See the class description for the description of the data layout.
+   *
+   * @param keys
+   *   is a device pointer to a contiguous array of keys, unique per thread; must be at least `Size`
+   *   elements long.
+   * @param payloads
+   *   are zero or more associated arrays of the same size as keys, which are sorted together with
+   *   the keys; must be at least `Size` elements long.
+   */
+  template <typename KeyT, typename... PayloadTs>
+  __device__ __forceinline__ void merge(KeyT* __restrict__ keys,
+                                        PayloadTs* __restrict__... payloads) const
+  {
+    return bitonic<Size>::merge_(ascending_, warp_width_, keys, payloads...);
   }
 
   /**
-   * Execute the sort.
+   * Sort the data.
    * The input pointers are unique per-thread.
+   * See the class description for the description of the data layout.
    *
    * @param keys
-   *   is a device pointer to a contiguous array of keys, unique per thread;
+   *   is a device pointer to a contiguous array of keys, unique per thread; must be at least `Size`
+   *   elements long.
    * @param payloads
    *   are zero or more associated arrays of the same size as keys, which are sorted together with
-   *   the keys.
+   *   the keys; must be at least `Size` elements long.
    */
   template <typename KeyT, typename... PayloadTs>
-  static __device__ void run(KeyT* __restrict__ keys, PayloadTs* __restrict__... payloads)
+  __device__ __forceinline__ void sort(KeyT* __restrict__ keys,
+                                       PayloadTs* __restrict__... payloads) const
   {
-    return run(false, keys, payloads...);
-  }
-};
-
-template <bool Ascending, bool Cross>
-struct bitonic_merge<1, Ascending, Cross> {
-  template <typename KeyT, typename... PayloadTs>
-  static __device__ __forceinline__ void run(bool reverse,
-                                             KeyT* __restrict__ keys,
-                                             PayloadTs* __restrict__... payloads)
-  {
-  }
-  template <typename KeyT, typename... PayloadTs>
-  static __device__ __forceinline__ void run(bool reverse,
-                                             KeyT& __restrict__ keys,
-                                             PayloadTs& __restrict__... payloads)
-  {
+    return bitonic<Size>::sort_(ascending_, warp_width_, keys, payloads...);
   }
 
-  template <typename KeyT, typename... PayloadTs>
-  static __device__ __forceinline__ void run(KeyT* __restrict__ keys,
-                                             PayloadTs* __restrict__... payloads)
+  /**
+   * @brief `merge` variant for the case of one element per thread.
+   *
+   * @param key
+   * @param payload
+   */
+  template <typename KeyT, typename... PayloadTs, int S = Size>
+  __device__ __forceinline__ auto merge(KeyT& __restrict__ key,
+                                        PayloadTs& __restrict__... payload) const
+    -> std::enable_if_t<S == 1, void>  // SFINAE to enable this for Size == 1 only
   {
+    static_assert(S == Size);
+    return merge(*key, *payload...);
+  }
+
+  /**
+   * @brief `sort` variant for the case of one element per thread.
+   *
+   * @param key
+   * @param payload
+   */
+  template <typename KeyT, typename... PayloadTs, int S = Size>
+  __device__ __forceinline__ auto sort(KeyT& __restrict__ key,
+                                       PayloadTs& __restrict__... payload) const
+    -> std::enable_if_t<S == 1, void>  // SFINAE to enable this for Size == 1 only
+  {
+    static_assert(S == Size);
+    return sort(*key, *payload...);
+  }
+
+ private:
+  const int warp_width_;
+  const bool ascending_;
+
+  template <int AnotherSize>
+  friend class bitonic;
+
+  template <typename KeyT, typename... PayloadTs>
+  static __device__ __forceinline__ void merge_(bool ascending,
+                                                int warp_width,
+                                                KeyT* __restrict__ keys,
+                                                PayloadTs* __restrict__... payloads)
+  {
+#pragma unroll
+    for (int size = Size; size > 1; size >>= 1) {
+      const int stride = size >> 1;
+#pragma unroll
+      for (int offset = 0; offset < Size; offset += size) {
+#pragma unroll
+        for (int i = offset + stride - 1; i >= offset; i--) {
+          const int other_i = i + stride;
+          KeyT& key         = keys[i];
+          KeyT& other       = keys[other_i];
+          if (ascending ? key > other : key < other) {
+            helpers::swap(key, other);
+            (helpers::swap(payloads[i], payloads[other_i]), ...);
+          }
+        }
+      }
+    }
+    const int lane = laneId();
+#pragma unroll
+    for (int i = 0; i < Size; i++) {
+      KeyT& key = keys[i];
+      for (int stride = (warp_width >> 1); stride > 0; stride >>= 1) {
+        const bool is_second = lane & stride;
+        const KeyT other     = shfl_xor(key, stride, warp_width);
+        const bool do_assign = (ascending != is_second) ? key > other : key < other;
+
+        helpers::conditional_assign(do_assign, key, other);
+        // NB: don't put shfl_xor in a conditional; it must be called by all threads in a warp.
+        (helpers::conditional_assign(
+           do_assign, payloads[i], shfl_xor(payloads[i], stride, warp_width)),
+         ...);
+      }
+    }
   }
 
   template <typename KeyT, typename... PayloadTs>
-  static __device__ __forceinline__ void run(KeyT& __restrict__ keys,
-                                             PayloadTs& __restrict__... payloads)
+  static __device__ __forceinline__ void sort_(bool ascending,
+                                               int warp_width,
+                                               KeyT* __restrict__ keys,
+                                               PayloadTs* __restrict__... payloads)
   {
-  }
-};
-
-template <int Size, bool Ascending>
-struct bitonic_sort<Size, Ascending, Size> {
-  template <typename KeyT, typename... PayloadTs>
-  static __device__ __forceinline__ void run(bool reverse,
-                                             KeyT* __restrict__ keys,
-                                             PayloadTs* __restrict__... payloads)
-  {
-  }
-
-  template <typename KeyT, typename... PayloadTs>
-  static __device__ __forceinline__ void run(KeyT* __restrict__ keys,
-                                             PayloadTs* __restrict__... payloads)
-  {
+    if constexpr (Size == 1) {
+      const int lane = laneId();
+      for (int width = 2; width < warp_width; width <<= 1) {
+        bitonic<1>::merge_(lane & width, width, keys, payloads...);
+      }
+    } else {
+      constexpr int kSize2 = Size / 2;
+      bitonic<kSize2>::sort_(false, warp_width, keys, payloads...);
+      bitonic<kSize2>::sort_(true, warp_width, keys + kSize2, (payloads + kSize2)...);
+    }
+    bitonic<Size>::merge_(ascending, warp_width, keys, payloads...);
   }
 };
 
