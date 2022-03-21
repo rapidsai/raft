@@ -45,8 +45,8 @@ class TestDeviceBuffer:
             .reshape(self.ndarray_.shape)
 
 
-@pytest.mark.parametrize("n_rows", [10, 100])
-@pytest.mark.parametrize("n_cols", [10, 100])
+@pytest.mark.parametrize("n_rows", [100])
+@pytest.mark.parametrize("n_cols", [100])
 @pytest.mark.parametrize("metric", ["euclidean", "cityblock", "chebyshev",
                                     "canberra", "correlation", "hamming",
                                     "jensenshannon", "russellrao"])

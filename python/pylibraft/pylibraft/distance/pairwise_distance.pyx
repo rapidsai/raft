@@ -77,8 +77,8 @@ def distance(X, Y, dists, metric="euclidean"):
     Parameters
     ----------
 
-    X : CUDA array interface matrix shape (m, k)
-    Y : CUDA array interface matrix shape (n, k)
+    X : CUDA array interface compliant matrix shape (m, k)
+    Y : CUDA array interface compliant matrix shape (n, k)
     dists : Writable CUDA array interface matrix shape (m, n)
     metric : string denoting the metric type
     """
@@ -98,7 +98,6 @@ def distance(X, Y, dists, metric="euclidean"):
 
     cdef handle_t *h = new handle_t()
 
-    # TODO: Support single and double precision
     x_dt = np.dtype(x_cai["typestr"])
     y_dt = np.dtype(y_cai["typestr"])
     d_dt = np.dtype(dists_cai["typestr"])
@@ -120,7 +119,8 @@ def distance(X, Y, dists, metric="euclidean"):
                           <int>n,
                           <int>k,
                           <DistanceType>distance_type,
-                          <bool>True, <float>0.0)
+                          <bool>True,
+                          <float>0.0)
     elif x_dt == np.float64:
         pairwise_distance(deref(h),
                           <double*> x_ptr,
@@ -130,6 +130,7 @@ def distance(X, Y, dists, metric="euclidean"):
                           <int>n,
                           <int>k,
                           <DistanceType>distance_type,
-                          <bool>True, <float>0.0)
+                          <bool>True,
+                          <float>0.0)
     else:
         raise ValueError("dtype %s not supported" % x_dt)

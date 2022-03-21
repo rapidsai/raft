@@ -1,18 +1,17 @@
-# <div align="left"><img src="https://rapids.ai/assets/images/rapids_logo.png" width="90px"/>&nbsp;RAFT: RAPIDS Analytics Framework Toolkit</div>
+# <div align="left"><img src="https://rapids.ai/assets/images/rapids_logo.png" width="90px"/>&nbsp;RAFT: Reusable Accelerated Functions and Tools</div>
 
-RAFT (Reusable Algorithms, Functions, and other Tools) contains fundamental widely-used algorithms and primitives for data science, graph and machine learning. The algorithms are CUDA-accelerated and form building-blocks for rapidly composing analytics in the [RAPIDS](https://rapids.ai) ecosystem. 
+RAFT contains fundamental widely-used algorithms and primitives for data science, graph and machine learning. The algorithms are CUDA-accelerated and form building-blocks for rapidly composing analytics.
 
-By taking a primitives-based approach to algorithm development, RAFT
+By taking a primitives-based approach to algorithm development, RAFT 
 - accelerates algorithm construction time
 - reduces the maintenance burden by maximizing reuse across projects, and
-- centralizes the core computations, allowing future optimizations to benefit all algorithms that use them.
+- centralizes core reusable computations, allowing future optimizations to benefit all algorithms that use them.
 
-The algorithms in RAFT span the following general categories:
+While not exhaustive, the following general categories help summarize the accelerated functions in RAFT:
 #####
 | Category | Examples |
 | --- | --- |
 | **Data Formats** | sparse & dense, conversions, data generation |
-| **Data Generation** | sparse, spatial, machine learning datasets |
 | **Dense Linear Algebra** | matrix arithmetic, norms, factorization, least squares, svd & eigenvalue problems |
 | **Spatial** | pairwise distances, nearest neighbors, neighborhood graph construction |
 | **Sparse Operations** | linear algebra, eigenvalue problems, slicing, symmetrization, labeling |
@@ -24,14 +23,14 @@ The algorithms in RAFT span the following general categories:
 RAFT provides a header-only C++ library and pre-compiled shared libraries that can 1) speed up compile times and 2) enable the APIs to be used without CUDA-enabled compilers.
 
 RAFT also provides 2 Python libraries:
-- `pylibraft` - cython wrappers around RAFT algorithms and primitives.
-- `pyraft` - reusable infrastructure for building analytics, such as tools for building multi-node multi-GPU algorithms that leverage [Dask](https://dask.org/).
+- `pylibraft` - low-level Python wrappers around RAFT algorithms and primitives.
+- `pyraft` - reusable infrastructure for building analytics, including tools for building both single-GPU and multi-node multi-GPU algorithms.
 
 ## Getting started
 
-### Rapids Memory Manager (RMM)
+### RAPIDS Memory Manager (RMM)
 
-RAFT relies heavily on RMM which, like other projects in the RAPIDS ecosystem, eases the burden of configuring different allocation strategies globally across the libraries that use it.
+RAFT relies heavily on RMM which eases the burden of configuring different allocation strategies globally across the libraries that use it.
 
 ### Multi-dimensional Arrays
 
@@ -81,7 +80,8 @@ raft::distance::pairwise_distance(handle, input.view(), input.view(), output.vie
 
 The `pylibraft` package contains a Python API for RAFT algorithms and primitives. The package is currently limited to pairwise distances, and we will continue adding more.
 
-The example below demonstrates computing the pairwise Euclidean distances between cupy arrays.
+The example below demonstrates computing the pairwise Euclidean distances between cupy arrays. `pylibraft` is a low-level API that prioritizes efficiency and simplicity over being pythonic, which is shown here by pre-allocating the output memory before invoking the `pairwise_distance` function.
+
 ```python
 import cupy as cp
 
@@ -90,10 +90,11 @@ from pylibraft.distance import pairwise_distance
 n_samples = 5000
 n_features = 50
 
-input = cp.random.random_sample((n_samples, n_features), dtype=cp.float32)
+in1 = cp.random.random_sample((n_samples, n_features), dtype=cp.float32)
+in2 = cp.random.random_sample((n_samples, n_features), dtype=cp.float32)
 output = cp.empty((n_samples, n_samples), dtype=cp.float32)
 
-pairwise_distance(input, input, output, "euclidean")
+pairwise_distance(in1, in2, output, metric="euclidean")
 ```
 
 ## Installing
@@ -109,16 +110,16 @@ The easiest way to install RAFT is through conda and several packages are provid
 - `pylibraft` (optional) Python wrappers around RAFT algorithms and primitives
 - `pyraft` (optional) contains reusable Python infrastructure and tools to accelerate Python algorithm development.
 
-Use the following command to install RAFT with conda (replace `rapidsai` with `rapidsai-nightly` to install more up-to-date but less stable nightly packages)
+Use the following command to install RAFT with conda (replace `rapidsai` with `rapidsai-nightly` to install more up-to-date but less stable nightly packages). `mamba` is preferred over the `conda` command.
 ```bash
-conda install -c rapidsai libraft-headers libraft-nn libraft-distance pyraft pylibraft
+mamba install -c rapidsai libraft-headers libraft-nn libraft-distance pyraft pylibraft
 ```
 
 After installing RAFT, `find_package(raft COMPONENTS nn distance)` can be used in your CUDA/C++ build. `COMPONENTS` are optional and will depend on the packages installed.
 
 ### CPM
 
-RAFT uses the [RAPIDS cmake](https://github.com/rapidsai/rapids-cmake) library, which makes it simple to include in downstream cmake projects. RAPIDS cmake provides a convenience layer around CPM. 
+RAFT uses the [RAPIDS-CMake](https://github.com/rapidsai/rapids-cmake) library, which makes it simple to include in downstream cmake projects. RAPIDS CMake provides a convenience layer around CPM. 
 
 After [installing](https://github.com/rapidsai/rapids-cmake#installation) rapids-cmake in your project, you can begin using RAFT by placing the code snippet below in a file named `get_raft.cmake` and including it in your cmake build with `include(get_raft.cmake)`. This will make available several targets to add to configure the link libraries for your artifacts.
 
@@ -129,8 +130,7 @@ set(RAFT_FORK "rapidsai")
 set(RAFT_PINNED_TAG "branch-${RAFT_VERSION}")
 
 function(find_and_configure_raft)
-  set(oneValueArgs VERSION FORK PINNED_TAG USE_FAISS_STATIC 
-          COMPILE_LIBRARIES ENABLE_NN_DEPENDENCIES)
+  set(oneValueArgs VERSION FORK PINNED_TAG COMPILE_LIBRARIES)
   cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
                             "${multiValueArgs}" ${ARGN} )
 
@@ -149,8 +149,6 @@ function(find_and_configure_raft)
           OPTIONS
           "BUILD_TESTS OFF"
           "BUILD_BENCH OFF"
-          "RAFT_ENABLE_NN_DEPENDENCIES ${PKG_ENABLE_NN_DEPENDENCIES}"
-          "RAFT_USE_FAISS_STATIC ${PKG_USE_FAISS_STATIC}"
           "RAFT_COMPILE_LIBRARIES ${PKG_COMPILE_LIBRARIES}"
   )
 
@@ -163,12 +161,10 @@ find_and_configure_raft(VERSION    ${RAFT_VERSION}.00
         FORK             ${RAFT_FORK}
         PINNED_TAG       ${RAFT_PINNED_TAG}
         COMPILE_LIBRARIES      NO
-        ENABLE_NN_DEPENDENCIES NO
-        USE_FAISS_STATIC       NO
 )
 ```
 
-Several cmake targets can be made available by adding components in the table below to the `RAFT_COMPONENTS` list above, separated by spaces. The `raft::raft` target will always be available.
+Several CMake targets can be made available by adding components in the table below to the `RAFT_COMPONENTS` list above, separated by spaces. The `raft::raft` target will always be available.
 
 | Component | Target | Description | Base Dependencies |
 | --- | --- | --- | --- |
@@ -181,8 +177,8 @@ Several cmake targets can be made available by adding components in the table be
 The easiest way to build RAFT from source is to use the `build.sh` script at the root of the repository:
 1. Create an environment with the needed dependencies: 
 ```
-mamba env create --name raft_dev -f conda/environments/raft_dev_cuda11.5.yml
-mamba activate raft_dev
+mamba env create --name raft_dev_env -f conda/environments/raft_dev_cuda11.5.yml
+mamba activate raft_dev_env
 ```
 ```
 ./build.sh pyraft pylibraft libraft tests bench --compile-libs
