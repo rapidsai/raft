@@ -9,8 +9,9 @@ set -e
 export GPUCI_RETRY_MAX=3
 export GPUCI_RETRY_SLEEP=30
 
-# Set default label options if they are not defined elsewhere
-export LABEL_OPTION=${LABEL_OPTION:-"--label main"}
+# Set label option.
+# LABEL_OPTION="--label testing"
+LABEL_OPTION="--label main"
 
 # Skip uploads unless BUILD_MODE == "branch"
 if [ ${BUILD_MODE} != "branch" ]; then
@@ -30,10 +31,10 @@ fi
 
 gpuci_logger "Get conda file output locations"
 
-export LIBRAFT_HEADERS_FILE=`conda build --croot ${CONDA_BLD_DIR} conda/recipes/libraft_headers --output`
-export LIBRAFT_NN_FILE=`conda build --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/libraft_nn --output`
-export LIBRAFT_DISTANCE_FILE=`conda build --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/libraft_distance --output`
-export PYRAFT_FILE=`conda build --croot ${CONDA_BLD_DIR} conda/recipes/pyraft --python=$PYTHON --output`
+export LIBRAFT_HEADERS_FILE=`conda build --croot ${CONDA_BLD_DIR} -c ${CONDA_LOCAL_CHANNEL} conda/recipes/libraft_headers --output`
+export LIBRAFT_NN_FILE=`conda build --no-build-id --croot ${CONDA_BLD_DIR} -c ${CONDA_LOCAL_CHANNEL} conda/recipes/libraft_nn --output`
+export LIBRAFT_DISTANCE_FILE=`conda build --no-build-id --croot ${CONDA_BLD_DIR} -c ${CONDA_LOCAL_CHANNEL} conda/recipes/libraft_distance --output`
+export PYRAFT_FILE=`conda build --croot ${CONDA_BLD_DIR} conda/recipes/pyraft --python=$PYTHON -c ${CONDA_LOCAL_CHANNEL} --output`
 
 ################################################################################
 # UPLOAD - Conda packages
