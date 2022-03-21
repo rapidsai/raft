@@ -2,7 +2,7 @@
 
 # Copyright (c) 2020-2022, NVIDIA CORPORATION.
 
-# cuml build script
+# raft build script
 
 # This script is used to build the component(s) in this repo from
 # source, and can be called with various options to customize the
@@ -18,13 +18,14 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libraft pyraft docs tests bench -v -g --noinstall --compile-libs --compile-nn --compile-dist --allgpuarch --nvtx --show_depr_warn -h --buildfaiss"
+VALIDARGS="clean libraft pyraft pylibraft docs tests bench clean -v -g --install --compile-libs --compile-nn --compile-dist --allgpuarch --nvtx --show_depr_warn -h --buildfaiss"
 HELP="$0 [<target> ...] [<flag> ...]
  where <target> is:
    clean            - remove all existing build artifacts and configuration (start over)
    libraft          - build the raft C++ code only. Also builds the C-wrapper library
                       around the C++ code.
-   pyraft           - build the cuml Python package
+   pyraft           - build the pyraft Python package
+   pylibraft        - build the pylibraft Python package
    docs             - build the documentation
    tests            - build the tests
    bench            - build the benchmarks
@@ -37,8 +38,8 @@ HELP="$0 [<target> ...] [<flag> ...]
    --compile-dist   - compile shared library for distance component
    --allgpuarch     - build for all supported GPU architectures
    --buildfaiss     - build faiss statically into raft
-   --noinstall      - do not install cmake targets
-   --nvtx           - Enable nvtx for profiling support
+   --install        - install cmake targets
+   --nvtx           - enable nvtx for profiling support
    --show_depr_warn - show cmake deprecation warnings
    -h               - print this text
 
@@ -46,9 +47,9 @@ HELP="$0 [<target> ...] [<flag> ...]
 "
 LIBRAFT_BUILD_DIR=${LIBRAFT_BUILD_DIR:=${REPODIR}/cpp/build}
 SPHINX_BUILD_DIR=${REPODIR}/docs
-PY_RAFT_BUILD_DIR=${REPODIR}/python/build
-PYTHON_DEPS_CLONE=${REPODIR}/python/external_repositories
-BUILD_DIRS="${LIBRAFT_BUILD_DIR} ${PY_RAFT_BUILD_DIR} ${PYTHON_DEPS_CLONE}"
+PY_RAFT_BUILD_DIR=${REPODIR}/python/raft/build
+PY_LIBRAFT_BUILD_DIR=${REPODIR}/python/pylibraft/build
+BUILD_DIRS="${LIBRAFT_BUILD_DIR} ${PY_RAFT_BUILD_DIR} ${PY_LIBRAFT_BUILD_DIR}"
 
 # Set defaults for vars modified by flags to this script
 CMAKE_LOG_LEVEL=""
@@ -61,11 +62,15 @@ COMPILE_LIBRARIES=OFF
 COMPILE_NN_LIBRARY=OFF
 COMPILE_DIST_LIBRARY=OFF
 ENABLE_NN_DEPENDENCIES=OFF
+ENABLE_ucx_DEPENDENCY=OFF
+ENABLE_nccl_DEPENDENCY=OFF
+
 NVTX=OFF
 CLEAN=0
+UNINSTALL=0
 DISABLE_DEPRECATION_WARNINGS=ON
 CMAKE_TARGET=""
-INSTALL_TARGET="install"
+INSTALL_TARGET=""
 
 # Set defaults for vars that may not have been defined externally
 #  FIXME: if INSTALL_PREFIX is not set, check PREFIX, then check
@@ -80,10 +85,6 @@ export CMAKE_GENERATOR="${CMAKE_GENERATOR:=Ninja}"
 function hasArg {
     (( ${NUMARGS} != 0 )) && (echo " ${ARGS} " | grep -q " $1 ")
 }
-
-if hasArg --noinstall; then
-    INSTALL_TARGET=""
-fi
 
 if hasArg -h || hasArg --help; then
     echo "${HELP}"
@@ -101,6 +102,9 @@ if (( ${NUMARGS} != 0 )); then
 fi
 
 # Process flags
+if hasArg --install; then
+  INSTALL_TARGET="install"
+fi
 if hasArg -v; then
     VERBOSE_FLAG="-v"
     CMAKE_LOG_LEVEL="VERBOSE"
@@ -152,6 +156,13 @@ fi
 if hasArg clean; then
     CLEAN=1
 fi
+if hasArg uninstall; then
+  UNINSTALL=1
+fi
+
+if [[ ${CMAKE_TARGET} == "" ]]; then
+  CMAKE_TARGET="all"
+fi
 
 # If clean given, run it prior to any other steps
 if (( ${CLEAN} == 1 )); then
@@ -164,15 +175,22 @@ if (( ${CLEAN} == 1 )); then
           find ${bd} -mindepth 1 -delete
           rmdir ${bd} || true
       fi
-
     done
 
-    cd ${REPODIR}/python
+    cd ${REPODIR}/python/raft
+    python setup.py clean --all
+    cd ${REPODIR}
+
+    cd ${REPODIR}/python/pylibraft
     python setup.py clean --all
     cd ${REPODIR}
 fi
 
-
+# Pyraft requires ucx + nccl
+if (( ${NUMARGS} == 0 )) || hasArg pyraft || hasArg docs; then
+  ENABLE_nccl_DEPENDENCY=ON
+  ENABLE_ucx_DEPENDENCY=ON
+fi
 ################################################################################
 # Configure for building all C++ targets
 if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || hasArg bench; then
@@ -198,18 +216,35 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || has
           -DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL} \
           -DRAFT_COMPILE_NN_LIBRARY=${COMPILE_NN_LIBRARY} \
           -DRAFT_COMPILE_DIST_LIBRARY=${COMPILE_DIST_LIBRARY} \
-          -DRAFT_USE_FAISS_STATIC=${BUILD_STATIC_FAISS}
+          -DRAFT_USE_FAISS_STATIC=${BUILD_STATIC_FAISS} \
+          -DRAFT_ENABLE_nccl_DEPENDENCY=${ENABLE_nccl_DEPENDENCY} \
+          -DRAFT_ENABLE_ucx_DEPENDENCY=${ENABLE_ucx_DEPENDENCY}
 
-  if [[ ${CMAKE_TARGET} != "" ]] || [[ ${INSTALL_TARGET} != "" ]]; then
+  if [[ ${CMAKE_TARGET} != "" ]]; then
       echo "-- Compiling targets: ${CMAKE_TARGET}, verbose=${VERBOSE_FLAG}"
-      cmake --build  "${LIBRAFT_BUILD_DIR}" ${VERBOSE_FLAG} -j${PARALLEL_LEVEL} --target ${CMAKE_TARGET} ${INSTALL_TARGET}
+      if [[ ${INSTALL_TARGET} != "" ]]; then
+        cmake --build  "${LIBRAFT_BUILD_DIR}" ${VERBOSE_FLAG} -j${PARALLEL_LEVEL} --target ${CMAKE_TARGET} ${INSTALL_TARGET}
+      else
+        cmake --build  "${LIBRAFT_BUILD_DIR}" ${VERBOSE_FLAG} -j${PARALLEL_LEVEL} --target ${CMAKE_TARGET}
+      fi
   fi
 fi
 
-# Build and (optionally) install the cuml Python package
+# Build and (optionally) install the pyraft Python package
 if (( ${NUMARGS} == 0 )) || hasArg pyraft || hasArg docs; then
 
-    cd ${REPODIR}/python
+    cd ${REPODIR}/python/raft
+    if [[ ${INSTALL_TARGET} != "" ]]; then
+        python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace --library-dir=${LIBRAFT_BUILD_DIR} install --single-version-externally-managed --record=record.txt
+    else
+        python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace --library-dir=${LIBRAFT_BUILD_DIR}
+    fi
+fi
+
+# Build and (optionally) install the pylibraft Python package
+if (( ${NUMARGS} == 0 )) || hasArg pylibraft; then
+
+    cd ${REPODIR}/python/pylibraft
     if [[ ${INSTALL_TARGET} != "" ]]; then
         python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace --library-dir=${LIBRAFT_BUILD_DIR} install --single-version-externally-managed --record=record.txt
     else

@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ */
 #include "raft/handle.hpp"
 #include "raft/mdarray.hpp"
 #include "raft/span.hpp"

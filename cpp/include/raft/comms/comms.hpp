@@ -14,11 +14,18 @@
  * limitations under the License.
  */
 
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use raft_runtime/comms.hpp instead.
+ */
+
+#ifndef __RAFT_RT_COMMS_H
+#define __RAFT_RT_COMMS_H
+
 #pragma once
 
-#include <raft/cudart_utils.h>
-
 #include <memory>
+#include <raft/error.hpp>
 #include <vector>
 
 namespace raft {
@@ -632,3 +639,5 @@ class comms_t {
 
 }  // namespace comms
 }  // namespace raft
+
+#endif
