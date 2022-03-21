@@ -1,13 +1,13 @@
-# <div align="left"><img src="https://rapids.ai/assets/images/rapids_logo.png" width="90px"/>&nbsp;RAFT: RAPIDS Analytics Framework Toolkit</div>
+# <div align="left"><img src="https://rapids.ai/assets/images/rapids_logo.png" width="90px"/>&nbsp;RAFT: Reusable Accelerated Functions and Tools</div>
 
-RAFT (Reusable Algorithms, Functions, and other Tools) contains fundamental widely-used algorithms and primitives for data science, graph and machine learning. The algorithms are CUDA-accelerated and form building-blocks for rapidly composing analytics in the [RAPIDS](https://rapids.ai) ecosystem. 
+RAFT contains fundamental widely-used algorithms and primitives for data science, graph and machine learning. The algorithms are CUDA-accelerated and form building-blocks for rapidly composing analytics.
 
-By taking a primitives-based approach to algorithm development, RAFT
+By taking a primitives-based approach to algorithm development, RAFT 
 - accelerates algorithm construction time
 - reduces the maintenance burden by maximizing reuse across projects, and
 - centralizes the core computations, allowing future optimizations to benefit all algorithms that use them.
 
-The algorithms in RAFT span the following general categories:
+The accelerated functions in RAFT span the following general categories:
 #####
 | Category | Examples |
 | --- | --- |
@@ -24,8 +24,8 @@ The algorithms in RAFT span the following general categories:
 RAFT provides a header-only C++ library and pre-compiled shared libraries that can 1) speed up compile times and 2) enable the APIs to be used without CUDA-enabled compilers.
 
 RAFT also provides 2 Python libraries:
-- `pylibraft` - cython wrappers around RAFT algorithms and primitives.
-- `pyraft` - reusable infrastructure for building analytics, such as tools for building multi-node multi-GPU algorithms that leverage [Dask](https://dask.org/).
+- `pylibraft` - low-level Python wrappers around RAFT algorithms and primitives.
+- `pyraft` - reusable infrastructure for building analytics, including tools for building both single-GPU and multi-node multi-GPU algorithms.
 
 ## Getting started
 
