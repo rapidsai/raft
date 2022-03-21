@@ -625,34 +625,30 @@ template <template <int, bool, typename, typename> class WarpSortClass,
           typename T,
           typename IdxT>
 __global__ void block_kernel(
-  const T* in, const IdxT* in_idx, IdxT batch_size, IdxT len, int k, T* out, IdxT* out_idx, T dummy)
+  const T* in, const IdxT* in_idx, IdxT len, int k, T* out, IdxT* out_idx, T dummy)
 {
   extern __shared__ __align__(sizeof(T) * 256) uint8_t smem_buf_bytes[];
-  T* smem_buf = (T*)smem_buf_bytes;
+  T* smem_buf = reinterpret_cast<T*>(smem_buf_bytes);
 
-  const int num_of_block        = gridDim.x / batch_size;
-  const IdxT len_per_block      = (len - 1) / num_of_block + 1;
-  const int batch_id            = blockIdx.x / num_of_block;
-  const int block_id_in_a_batch = blockIdx.x % num_of_block;
-
-  IdxT start = block_id_in_a_batch * len_per_block;
-  IdxT end   = start + len_per_block;
-  if (end >= len) { end = len; }
+  const IdxT len_per_block = ceildiv<IdxT>(len, gridDim.x);
+  const IdxT start         = blockIdx.x * len_per_block;
+  const IdxT end           = std::min(len, start + len_per_block);
 
   WarpSortBlockWide<WarpSortClass, capacity, greater, T, IdxT> queue(k, dummy, smem_buf);
   if constexpr (std::is_same_v<WarpSortClass<capacity, greater, T, IdxT>,
                                WarpMerge<capacity, greater, T, IdxT>>) {
-    queue.add(in + batch_id * len, in_idx + batch_id * len, start, end);
+    queue.add(in + blockIdx.y * len, in_idx + blockIdx.y * len, start, end);
   } else {
     if (in_idx == nullptr) {
-      queue.add(in + batch_id * len, start, end);
+      queue.add(in + blockIdx.y * len, start, end);
     } else {
-      queue.add(in + batch_id * len, in_idx + batch_id * len, start, end);
+      queue.add(in + blockIdx.y * len, in_idx + blockIdx.y * len, start, end);
     }
   }
 
   queue.done();
-  queue.dump(out + blockIdx.x * k, out_idx + blockIdx.x * k);
+  const int block_id = blockIdx.x + gridDim.x * blockIdx.y;
+  queue.dump(out + block_id * k, out_idx + block_id * k);
 }
 
 template <template <int, bool, typename, typename> class WarpSortClass,
@@ -720,16 +716,33 @@ struct launch_setup {
     }
     ASSERT(capacity <= Capacity, "Requested k is too big (%d)", k);
     T dummy = greater ? lower_bound<T>() : upper_bound<T>();
-    if (greater) {
-      block_kernel<WarpSortClass, Capacity, true>
-        <<<batch_size * num_blocks, block_dim, smem_size, stream>>>(
-          in_key, in_idx, batch_size, len, k, out_key, out_idx, dummy);
-    } else {
-      block_kernel<WarpSortClass, Capacity, false>
-        <<<batch_size * num_blocks, block_dim, smem_size, stream>>>(
-          in_key, in_idx, batch_size, len, k, out_key, out_idx, dummy);
+    // This is less than cuda's max block dim along Y axis (65535), but it's a
+    // power-of-two, which ensures the alignment of batches in memory.
+    constexpr IdxT kMaxGridDimY = 32768;
+    for (IdxT offset = 0; offset < batch_size; offset += kMaxGridDimY) {
+      IdxT batch_chunk = std::min<IdxT>(kMaxGridDimY, batch_size - offset);
+      dim3 gs(num_blocks, batch_chunk, 1);
+      if (greater) {
+        block_kernel<WarpSortClass, Capacity, true>
+          <<<gs, block_dim, smem_size, stream>>>(in_key + offset * len,
+                                                 in_idx + offset * len,
+                                                 len,
+                                                 k,
+                                                 out_key + offset * num_blocks * k,
+                                                 out_idx + offset * num_blocks * k,
+                                                 dummy);
+      } else {
+        block_kernel<WarpSortClass, Capacity, false>
+          <<<gs, block_dim, smem_size, stream>>>(in_key + offset * len,
+                                                 in_idx + offset * len,
+                                                 len,
+                                                 k,
+                                                 out_key + offset * num_blocks * k,
+                                                 out_idx + offset * num_blocks * k,
+                                                 dummy);
+      }
+      RAFT_CUDA_TRY(cudaPeekAtLastError());
     }
-    RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
 };
 
