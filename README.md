@@ -111,9 +111,9 @@ The easiest way to install RAFT is through conda and several packages are provid
 - `pylibraft` (optional) Python wrappers around RAFT algorithms and primitives
 - `pyraft` (optional) contains reusable Python infrastructure and tools to accelerate Python algorithm development.
 
-Use the following command to install RAFT with conda (replace `rapidsai` with `rapidsai-nightly` to install more up-to-date but less stable nightly packages)
+Use the following command to install RAFT with conda (replace `rapidsai` with `rapidsai-nightly` to install more up-to-date but less stable nightly packages). `mamba` is preferred over the `conda` command.
 ```bash
-conda install -c rapidsai libraft-headers libraft-nn libraft-distance pyraft pylibraft
+mamba install -c rapidsai libraft-headers libraft-nn libraft-distance pyraft pylibraft
 ```
 
 After installing RAFT, `find_package(raft COMPONENTS nn distance)` can be used in your CUDA/C++ build. `COMPONENTS` are optional and will depend on the packages installed.
@@ -131,8 +131,7 @@ set(RAFT_FORK "rapidsai")
 set(RAFT_PINNED_TAG "branch-${RAFT_VERSION}")
 
 function(find_and_configure_raft)
-  set(oneValueArgs VERSION FORK PINNED_TAG USE_FAISS_STATIC 
-          COMPILE_LIBRARIES ENABLE_NN_DEPENDENCIES)
+  set(oneValueArgs VERSION FORK PINNED_TAG COMPILE_LIBRARIES)
   cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
                             "${multiValueArgs}" ${ARGN} )
 
@@ -151,8 +150,6 @@ function(find_and_configure_raft)
           OPTIONS
           "BUILD_TESTS OFF"
           "BUILD_BENCH OFF"
-          "RAFT_ENABLE_NN_DEPENDENCIES ${PKG_ENABLE_NN_DEPENDENCIES}"
-          "RAFT_USE_FAISS_STATIC ${PKG_USE_FAISS_STATIC}"
           "RAFT_COMPILE_LIBRARIES ${PKG_COMPILE_LIBRARIES}"
   )
 
@@ -165,8 +162,6 @@ find_and_configure_raft(VERSION    ${RAFT_VERSION}.00
         FORK             ${RAFT_FORK}
         PINNED_TAG       ${RAFT_PINNED_TAG}
         COMPILE_LIBRARIES      NO
-        ENABLE_NN_DEPENDENCIES NO
-        USE_FAISS_STATIC       NO
 )
 ```
 
@@ -183,8 +178,8 @@ Several CMake targets can be made available by adding components in the table be
 The easiest way to build RAFT from source is to use the `build.sh` script at the root of the repository:
 1. Create an environment with the needed dependencies: 
 ```
-mamba env create --name raft_dev -f conda/environments/raft_dev_cuda11.5.yml
-mamba activate raft_dev
+mamba env create --name raft_dev_env -f conda/environments/raft_dev_cuda11.5.yml
+mamba activate raft_dev_env
 ```
 ```
 ./build.sh pyraft pylibraft libraft tests bench --compile-libs
