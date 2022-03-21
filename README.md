@@ -5,7 +5,7 @@ RAFT contains fundamental widely-used algorithms and primitives for data science
 By taking a primitives-based approach to algorithm development, RAFT 
 - accelerates algorithm construction time
 - reduces the maintenance burden by maximizing reuse across projects, and
-- centralizes the core computations, allowing future optimizations to benefit all algorithms that use them.
+- centralizes core reusable computations, allowing future optimizations to benefit all algorithms that use them.
 
 The accelerated functions in RAFT span the following general categories:
 #####
@@ -29,9 +29,9 @@ RAFT also provides 2 Python libraries:
 
 ## Getting started
 
-### Rapids Memory Manager (RMM)
+### RAPIDS Memory Manager (RMM)
 
-RAFT relies heavily on RMM which, like other projects in the RAPIDS ecosystem, eases the burden of configuring different allocation strategies globally across the libraries that use it.
+RAFT relies heavily on RMM which eases the burden of configuring different allocation strategies globally across the libraries that use it.
 
 ### Multi-dimensional Arrays
 
