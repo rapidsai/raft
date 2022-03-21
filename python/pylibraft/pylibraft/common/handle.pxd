@@ -33,8 +33,3 @@ cdef extern from "raft/handle.hpp" namespace "raft" nogil:
                  shared_ptr[cuda_stream_pool] stream_pool) except +
         cuda_stream_view get_stream() except +
         void sync_stream() except +
-
-cdef class Handle:
-    cdef unique_ptr[handle_t] c_obj
-    cdef shared_ptr[cuda_stream_pool] stream_pool
-    cdef int n_streams
