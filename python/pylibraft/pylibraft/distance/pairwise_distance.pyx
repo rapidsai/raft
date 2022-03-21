@@ -92,7 +92,7 @@ def distance(X, Y, dists, metric="euclidean"):
     n = y_cai["shape"][0]
     k = x_cai["shape"][1]
 
-    x_ptr = <uintptr_t>x_cai["data"][0]1
+    x_ptr = <uintptr_t>x_cai["data"][0]
     y_ptr = <uintptr_t>y_cai["data"][0]
     d_ptr = <uintptr_t>dists_cai["data"][0]
 
