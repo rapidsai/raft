@@ -209,22 +209,26 @@ testing::AssertionResult devArrMatchHost(
   return testing::AssertionSuccess();
 }
 
-/*
- * @brief Helper function to compare host n-D arrays using a custom comparison
- * @tparam T the data type of the arrays
+/**
+ * @brief Helper function to compare host vectors using a custom comparison
+ * @tparam T the element type
  * @tparam L the comparator lambda or object function
- * @param expected_h host array of expected value(s)
- * @param actual_h host array actual values
+ * @param expected_h host vector of expected value(s)
+ * @param actual_h host vector actual values
  * @param eq_compare the comparator
  * @return the testing assertion to be later used by ASSERT_TRUE/EXPECT_TRUE
  */
 template <typename T, typename L>
-testing::AssertionResult hostArrMatch(const T* expected_h,
-                                      const T* actual_h,
-                                      size_t size,
+testing::AssertionResult hostVecMatch(const std::vector<T>& expected_h,
+                                      const std::vector<T>& actual_h,
                                       L eq_compare)
 {
-  for (size_t i(0); i < size; ++i) {
+  auto n = actual_h.size();
+  if (n != expected_h.size())
+    return testing::AssertionFailure()
+           << "vector sizez mismatch: "
+           << "actual=" << n << " != expected=" << expected_h.size() << "; ";
+  for (size_t i = 0; i < n; ++i) {
     auto exp = expected_h[i];
     auto act = actual_h[i];
     if (!eq_compare(exp, act)) {

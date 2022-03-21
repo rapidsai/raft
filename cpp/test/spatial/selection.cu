@@ -237,12 +237,8 @@ class SelectionTest : public testing::TestWithParam<typename ParamsReader<KeyT, 
   void run()
   {
     if (ref.not_supported || res.not_supported) { GTEST_SKIP(); }
-    ASSERT_TRUE(hostArrMatch(ref.get_out_dists().data(),
-                             res.get_out_dists().data(),
-                             spec.n_inputs * spec.k,
-                             Compare<KeyT>()));
-    ASSERT_TRUE(hostArrMatch(
-      ref.get_out_ids().data(), res.get_out_ids().data(), spec.n_inputs * spec.k, Compare<IdxT>()));
+    ASSERT_TRUE(hostVecMatch(ref.get_out_dists(), res.get_out_dists(), Compare<KeyT>()));
+    ASSERT_TRUE(hostVecMatch(ref.get_out_ids(), res.get_out_ids(), Compare<IdxT>()));
   }
 };
 
@@ -327,7 +323,7 @@ struct with_ref {
 
       auto s = rmm::cuda_stream_default;
       rmm::device_uvector<KeyT> dists_d(spec.input_len * spec.n_inputs, s);
-      raft::random::Rng(42).uniform(dists_d.data(), dists_d.size(), KeyT(-1.0), KeyT(1.0), s);
+      raft::random::Rng(42).normal(dists_d.data(), dists_d.size(), KeyT(10.0), KeyT(100.0), s);
       update_host(dists.data(), dists_d.data(), dists_d.size(), s);
       s.synchronize();
 
@@ -365,25 +361,28 @@ auto inputs_random = testing::Values(SelectTestSpec{1, 130, 15, false},
                                      SelectTestSpec{100, 1700, 1023, false},
                                      SelectTestSpec{100, 1700, 1024, true},
                                      SelectTestSpec{100, 1700, 1700, true},
-                                     SelectTestSpec{100, 100000, 1, false},
-                                     SelectTestSpec{100, 100000, 2, false},
-                                     SelectTestSpec{100, 100000, 3, false},
-                                     SelectTestSpec{100, 100000, 7, false},
-                                     SelectTestSpec{100, 100000, 16, false},
-                                     SelectTestSpec{100, 100000, 31, false},
-                                     SelectTestSpec{100, 100000, 32, false},
-                                     SelectTestSpec{100, 100000, 64, false},
-                                     SelectTestSpec{100, 100000, 100, false},
-                                     SelectTestSpec{100, 100000, 200, false});
+                                     SelectTestSpec{100, 100000, 1, true},
+                                     SelectTestSpec{100, 100000, 2, true},
+                                     SelectTestSpec{100, 100000, 3, true},
+                                     SelectTestSpec{100, 100000, 7, true},
+                                     SelectTestSpec{100, 100000, 16, true},
+                                     SelectTestSpec{100, 100000, 31, true},
+                                     SelectTestSpec{100, 100000, 32, true},
+                                     SelectTestSpec{100, 100000, 64, true},
+                                     SelectTestSpec{100, 100000, 60, true},
+                                     SelectTestSpec{100, 100000, 100, true},
+                                     SelectTestSpec{100, 100000, 200, true},
+                                     SelectTestSpec{100000, 100, 100, false},
+                                     SelectTestSpec{100000, 200, 100, false});
 
-typedef SelectionTest<float, int, with_ref<knn::SelectKAlgo::RADIX_11_BITS>::params_random>
+typedef SelectionTest<float, int, with_ref<knn::SelectKAlgo::RADIX_8_BITS>::params_random>
   ReferencedRandomFloatInt;
 TEST_P(ReferencedRandomFloatInt, Run) { run(); }
 INSTANTIATE_TEST_CASE_P(SelectionTest,
                         ReferencedRandomFloatInt,
                         testing::Combine(inputs_random, selection_algos));
 
-typedef SelectionTest<double, int, with_ref<knn::SelectKAlgo::RADIX_11_BITS>::params_random>
+typedef SelectionTest<double, int, with_ref<knn::SelectKAlgo::RADIX_8_BITS>::params_random>
   ReferencedRandomDoubleInt;
 TEST_P(ReferencedRandomDoubleInt, Run) { run(); }
 INSTANTIATE_TEST_CASE_P(SelectionTest,
