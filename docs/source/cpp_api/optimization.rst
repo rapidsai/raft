@@ -7,7 +7,7 @@ This page provides C++ class references for the publicly-exposed elements of the
 Linear Assignment Problem
 #########################
 
-.. doxygennamespace:: raft::lap
+.. doxygenclass:: raft::lap::LinearAssignmentProblem
     :project: RAFT
     :members:
 

@@ -40,6 +40,6 @@ Selection
     :project: RAFT
     :members:
 
-.. doxygennamespace:: raft::sparse::linkage
+.. doxygennamespace:: raft::linkage
     :project: RAFT
     :members:
