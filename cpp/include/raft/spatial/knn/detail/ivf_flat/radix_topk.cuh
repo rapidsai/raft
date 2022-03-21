@@ -27,6 +27,7 @@
 
 namespace raft::spatial::knn::detail::ivf_flat {
 
+constexpr uint16_t MAX_BATCH_SIZE  = 1024;
 constexpr int BLOCK_DIM            = 512;
 constexpr int ITEM_PER_THREAD      = 32;
 constexpr int VECTORIZED_READ_SIZE = 16;
@@ -407,15 +408,15 @@ __global__ void radix_kernel(const T* in_buf,
 }
 
 template <typename T, typename IdxT, int BITS_PER_PASS, int NUM_THREAD>
-void radix_topk(const T* in,
-                const IdxT* in_idx,
-                size_t batch_size,
-                size_t len,
-                int k,
-                T* out,
-                IdxT* out_idx,
-                bool greater,
-                rmm::cuda_stream_view stream)
+void radix_topk_(const T* in,
+                 const IdxT* in_idx,
+                 uint16_t batch_size,
+                 size_t len,
+                 int k,
+                 T* out,
+                 IdxT* out_idx,
+                 bool greater,
+                 rmm::cuda_stream_view stream)
 {
   // TODO: is it possible to relax this restriction?
   static_assert(calc_num_passes<T, BITS_PER_PASS>() > 1);
@@ -477,6 +478,32 @@ void radix_topk(const T* in,
                                           k,
                                           greater,
                                           pass);
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
+  }
+}
+
+template <typename T, typename IdxT, int BITS_PER_PASS, int NUM_THREAD>
+void radix_topk(const T* in,
+                const IdxT* in_idx,
+                size_t batch_size,
+                size_t len,
+                int k,
+                T* out,
+                IdxT* out_idx,
+                bool greater,
+                rmm::cuda_stream_view stream)
+{
+  for (size_t offset = 0; offset < batch_size; offset += MAX_BATCH_SIZE) {
+    auto batch_chunk = uint16_t(std::min<size_t>(MAX_BATCH_SIZE, batch_size - offset));
+    radix_topk_<T, IdxT, BITS_PER_PASS, NUM_THREAD>(in + offset * len,
+                                                    in_idx + offset * len,
+                                                    batch_chunk,
+                                                    len,
+                                                    k,
+                                                    out + offset * k,
+                                                    out_idx + offset * k,
+                                                    greater,
+                                                    stream);
   }
 }
 
