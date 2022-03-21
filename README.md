@@ -81,7 +81,8 @@ raft::distance::pairwise_distance(handle, input.view(), input.view(), output.vie
 
 The `pylibraft` package contains a Python API for RAFT algorithms and primitives. The package is currently limited to pairwise distances, and we will continue adding more.
 
-The example below demonstrates computing the pairwise Euclidean distances between cupy arrays.
+The example below demonstrates computing the pairwise Euclidean distances between cupy arrays. `pylibraft` is a low-level API that prioritizes efficiency and simplicity over being pythonic, which is shown here by pre-allocating the output memory before invoking the `pairwise_distance` function.
+
 ```python
 import cupy as cp
 
@@ -90,10 +91,11 @@ from pylibraft.distance import pairwise_distance
 n_samples = 5000
 n_features = 50
 
-input = cp.random.random_sample((n_samples, n_features), dtype=cp.float32)
+in1 = cp.random.random_sample((n_samples, n_features), dtype=cp.float32)
+in2 = cp.random.random_sample((n_samples, n_features), dtype=cp.float32)
 output = cp.empty((n_samples, n_samples), dtype=cp.float32)
 
-pairwise_distance(input, input, output, "euclidean")
+pairwise_distance(in1, in2, output, metric="euclidean")
 ```
 
 ## Installing
@@ -118,7 +120,7 @@ After installing RAFT, `find_package(raft COMPONENTS nn distance)` can be used i
 
 ### CPM
 
-RAFT uses the [RAPIDS cmake](https://github.com/rapidsai/rapids-cmake) library, which makes it simple to include in downstream cmake projects. RAPIDS cmake provides a convenience layer around CPM. 
+RAFT uses the [RAPIDS-CMake](https://github.com/rapidsai/rapids-cmake) library, which makes it simple to include in downstream cmake projects. RAPIDS CMake provides a convenience layer around CPM. 
 
 After [installing](https://github.com/rapidsai/rapids-cmake#installation) rapids-cmake in your project, you can begin using RAFT by placing the code snippet below in a file named `get_raft.cmake` and including it in your cmake build with `include(get_raft.cmake)`. This will make available several targets to add to configure the link libraries for your artifacts.
 
@@ -168,7 +170,7 @@ find_and_configure_raft(VERSION    ${RAFT_VERSION}.00
 )
 ```
 
-Several cmake targets can be made available by adding components in the table below to the `RAFT_COMPONENTS` list above, separated by spaces. The `raft::raft` target will always be available.
+Several CMake targets can be made available by adding components in the table below to the `RAFT_COMPONENTS` list above, separated by spaces. The `raft::raft` target will always be available.
 
 | Component | Target | Description | Base Dependencies |
 | --- | --- | --- | --- |

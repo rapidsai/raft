@@ -27,13 +27,13 @@ In addition to the libraries included with cudatoolkit 11.0+, there are some oth
 
 #### Required
 - [Thrust](https://github.com/NVIDIA/thrust) v1.15 / [CUB](https://github.com/NVIDIA/cub)
-- [RMM](https://github.com/rapidsai/rmm)
+- [RMM](https://github.com/rapidsai/rmm) corresponding to RAFT version.
 - [mdspan](https://github.com/rapidsai/mdspan)
   
 #### Optional
 - [cuCollections](https://github.com/NVIDIA/cuCollections) - Used in `raft::sparse::distance` API
 - [Libcu++](https://github.com/NVIDIA/libcudacxx) v1.7.0
-- [FAISS](https://github.com/facebookresearch/faiss) v1.7.0 - Used in `raft::spatial::knn` API
+- [FAISS](https://github.com/facebookresearch/faiss) v1.7.0 - Used in `raft::spatial::knn` API and needed to build tests.
 - [NCCL](https://github.com/NVIDIA/nccl) - Used in `raft::comms` API and needed to build `Pyraft`
 - [UCX](https://github.com/openucx/ucx) - Used in `raft::comms` API and needed to build `Pyraft`
 - [Googletest](https://github.com/google/googletest) - Needed to build tests
@@ -53,7 +53,7 @@ The following example will download the needed dependencies and install the RAFT
 ./build.sh libraft --install
 ```
 
-###<a id="shared_cpp_libs"></a>C++ Shared Libraries (optional)
+### <a id="shared_cpp_libs"></a>C++ Shared Libraries (optional)
 
 For larger projects which make heavy use of the pairwise distances or nearest neighbors APIs, shared libraries can be built to speed up compile times. These shared libraries can also significantly improve re-compile times both while developing RAFT and developing against the APIs. Build all of the available shared libraries by passing `--compile-libs` flag to `build.sh`:
 ```bash
@@ -67,7 +67,7 @@ Individual shared libraries have their own flags and multiple can be used (thoug
 
 Add the `--install` flag to the above example to also install the shared libraries into `$INSTALL_PREFIX/lib`.
 
-###<a id="gtests"></a>Tests
+### <a id="gtests"></a>Tests
 
 Compile the tests using the `tests` target in `build.sh`. By default, the shared libraries are assumed to be already built and on the library path. Add `--compile-libs` to also compile them.
 ```bash
@@ -80,7 +80,7 @@ To run C++ tests:
 ./cpp/build/test_raft
 ```
 
-###<a id="benchmarks"></a>Benchmarks
+### <a id="benchmarks"></a>Benchmarks
 
 Compile the benchmarks using the `bench` target in `build.sh`:
 ```bash
@@ -132,8 +132,8 @@ Currently, shared libraries are provided for the `libraft-nn` and `libraft-dista
 Conda environment scripts are provided for installing the necessary dependencies for building and using the Python APIs. It is preferred to use `mamba`, as it provides significant speedup over `conda`. The following example will install create and install dependencies for a CUDA 11.5 conda environment:
 
 ```bash
-mamba env create --name raft_env -f conda/environments/raft_dev_cuda11.5.yml
-mamba activate raft_env
+mamba env create --name raft_env_name -f conda/environments/raft_dev_cuda11.5.yml
+mamba activate raft_env_name
 ```
 
 The Python APIs can be built using the `build.sh` script:
@@ -187,7 +187,7 @@ If RAFT has already been installed, such as by using the `build.sh` script, use 
 
 Use `find_package(raft COMPONENTS nn distance)` to enable the shared libraries and transitively pass dependencies through separate targets for each component. In this example, the `raft::distance` and `raft::nn` targets will be available for configuring linking paths in addition to `raft::raft`. These targets will also pass through any transitive dependencies (such as FAISS for the `nn` package).
 
-The pre-compiled libraries contain template specializations for commonly used types, such as single- and double-precision floating-point. In order to use the symbols in the pre-compiled libraries, the compiler needs to be told not to instantiate templates that are already contained in the shared libraries. By convention, these header files are named `spectializations.hpp` and located in the base directory for the packages that contain specializations.
+The pre-compiled libraries contain template specializations for commonly used types, such as single- and double-precision floating-point. In order to use the symbols in the pre-compiled libraries, the compiler needs to be told not to instantiate templates that are already contained in the shared libraries. By convention, these header files are named `specializations.hpp` and located in the base directory for the packages that contain specializations.
 
 The following example tells the compiler to ignore the pre-compiled templates for the `libraft-distance` API so any symbols already compiled into pre-compiled shared library will be used instead:
 ```c++
@@ -197,7 +197,7 @@ The following example tells the compiler to ignore the pre-compiled templates fo
 
 ### <a id="build_cxx_source"></a>Building RAFT C++ from source in cmake
 
-RAFT uses the [RAPIDS cmake](https://github.com/rapidsai/rapids-cmake) library so it can be more easily included into downstream projects. RAPIDS cmake provides a convenience layer around the [Cmake Package Manager (CPM)](https://github.com/cpm-cmake/CPM.cmake). 
+RAFT uses the [RAPIDS-CMake](https://github.com/rapidsai/rapids-cmake) library so it can be more easily included into downstream projects. RAPIDS cmake provides a convenience layer around the [CMake Package Manager (CPM)](https://github.com/cpm-cmake/CPM.cmake). 
 
 The following example is similar to invoking `find_package(raft)` but uses `rapids_cpm_find`, which provides a richer and more flexible configuration landscape by using CPM to fetch any dependencies not already available to the build. The `raft::raft` link target will be made available and it's recommended that it be used as a `PRIVATE` link dependency in downstream projects. The `COMPILE_LIBRARIES` option enables the building the shared libraries.
 

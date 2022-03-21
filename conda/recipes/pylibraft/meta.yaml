@@ -38,7 +38,6 @@ requirements:
     - libraft-headers {{ version }}
     - libraft-distance {{ version }}
     - cuda-python >=11.5,<12.0
-    - joblib >=0.11
     - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
 
 tests:                                 # [linux64]
