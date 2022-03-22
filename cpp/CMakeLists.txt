@@ -33,6 +33,9 @@ project(RAFT VERSION 22.04.00 LANGUAGES CXX CUDA)
 # `Threads::Threads` is the same value in first run and subsequent runs.
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 
+# Write the version header
+rapids_cmake_write_version_file(include/raft/version_config.hpp)
+
 ##############################################################################
 # - build type ---------------------------------------------------------------
 
