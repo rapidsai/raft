@@ -33,7 +33,6 @@
 namespace raft {
 namespace distance {
 
-
 /**
  * @brief Evaluate pairwise distances with the user epilogue lamba allowed
  * @tparam DistanceType which distance to evaluate
