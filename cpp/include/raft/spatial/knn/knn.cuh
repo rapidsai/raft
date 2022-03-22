@@ -65,7 +65,17 @@ inline void knn_merge_parts(value_t* in_keys,
     in_keys, in_values, out_keys, out_values, n_samples, n_parts, k, stream, translations);
 }
 
-enum class SelectKAlgo { FAISS, RADIX_8_BITS, RADIX_11_BITS, WARP_SORT };
+/** Choose an implementation for the select-top-k, */
+enum class SelectKAlgo {
+  /** Adapted from the faiss project. Result: sorted (not stable). */
+  FAISS,
+  /** Incomplete series of radix sort passes, comparing 8 bits per pass. Result: unsorted. */
+  RADIX_8_BITS,
+  /** Incomplete series of radix sort passes, comparing 11 bits per pass. Result: unsorted. */
+  RADIX_11_BITS,
+  /** Filtering with a bitonic-sort-based priority queue. Result: sorted (not stable). */
+  WARP_SORT
+};
 
 /**
  * Select k smallest or largest key/values from each row in the input data.
@@ -75,7 +85,7 @@ enum class SelectKAlgo { FAISS, RADIX_8_BITS, RADIX_11_BITS, WARP_SORT };
  * in the row-major matrix `out_keys` of size (n_inputs, k).
  *
  * Note, depending on the selected algorithm, the values within rows of `out_keys` are not
- * necessarily sorted.
+ * necessarily sorted. See the `SelectKAlgo` enumeration for more details.
  *
  * @tparam idx_t
  *   the payload type (what is being selected together with the keys).
@@ -83,10 +93,10 @@ enum class SelectKAlgo { FAISS, RADIX_8_BITS, RADIX_11_BITS, WARP_SORT };
  *   the type of the keys (what is being compared).
  *
  * @param[in] in_keys
- *   contiguous array of inputs of size (input_len * n_inputs);
+ *   contiguous device array of inputs of size (input_len * n_inputs);
  *   these are compared and selected.
  * @param[in] in_values
- *   contiguous array of inputs of size (input_len * n_inputs);
+ *   contiguous device array of inputs of size (input_len * n_inputs);
  *   typically, these are indices of the corresponding in_keys.
  * @param[in] n_inputs
  *   number of input rows, i.e. the batch size.
@@ -94,10 +104,10 @@ enum class SelectKAlgo { FAISS, RADIX_8_BITS, RADIX_11_BITS, WARP_SORT };
  *   length of a single input array (row); also sometimes referred as n_cols.
  *   Invariant: input_len >= k.
  * @param[out] out_keys
- *   contiguous array of outputs of size (k * n_inputs);
+ *   contiguous device array of outputs of size (k * n_inputs);
  *   the k smallest/largest values from each row of the `in_keys`.
  * @param[out] out_values
- *   contiguous array of outputs of size (k * n_inputs);
+ *   contiguous device array of outputs of size (k * n_inputs);
  *   the payload selected together with `out_keys`.
  * @param[in] select_min
  *   whether to select k smallest (true) or largest (false) keys.
