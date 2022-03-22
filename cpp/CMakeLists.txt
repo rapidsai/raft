@@ -262,7 +262,7 @@ if(RAFT_COMPILE_LIBRARIES OR RAFT_COMPILE_NN_LIBRARY)
           )
   set_target_properties(raft_nn_lib PROPERTIES OUTPUT_NAME raft_nn)
 
-  target_link_libraries(raft_nn_lib PRIVATE raft::raft faiss::faiss)
+  target_link_libraries(raft_nn_lib PUBLIC faiss::faiss PRIVATE raft::raft)
   target_compile_options(raft_nn_lib
           PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
           "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
@@ -320,10 +320,10 @@ install(FILES include/raft.hpp
 # - install export -----------------------------------------------------------
 set(doc_string
         [=[
-Provide targets for the RAFT: RAPIDS Analytics Framework Toolkit.
+Provide targets for the RAFT: Reusable Accelerated Functions and Tools
 
-RAFT (Reusable Analytics Functions and other Tools) contains fundamental
-widely-used algorithms and primitives for data science, graph, and ml.
+RAFT contains fundamental widely-used algorithms and primitives
+for data science, graph, and ml.
 
 Optional Components:
   - nn
