@@ -294,7 +294,8 @@ void brute_force_knn_impl(
 
     auto stream = handle.get_next_usable_stream(i);
 
-    if (k <= 64 && rowMajorQuery == rowMajorIndex && rowMajorQuery == true &&
+    // Disable fused L2 kNN, https://github.com/rapidsai/raft/issues/568
+    if (false && k <= 64 && rowMajorQuery == rowMajorIndex && rowMajorQuery == true &&
         (metric == raft::distance::DistanceType::L2Unexpanded ||
          metric == raft::distance::DistanceType::L2SqrtUnexpanded ||
          metric == raft::distance::DistanceType::L2Expanded ||
