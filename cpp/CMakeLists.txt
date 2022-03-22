@@ -320,10 +320,10 @@ install(FILES include/raft.hpp
 # - install export -----------------------------------------------------------
 set(doc_string
         [=[
-Provide targets for the RAFT: RAPIDS Analytics Framework Toolkit.
+Provide targets for the RAFT: Reusable Accelerated Functions and Tools
 
-RAFT (Reusable Analytics Functions and other Tools) contains fundamental
-widely-used algorithms and primitives for data science, graph, and ml.
+RAFT contains fundamental widely-used algorithms and primitives
+for data science, graph, and ml.
 
 Optional Components:
   - nn
