@@ -310,7 +310,7 @@ endif()
 
 
 install(DIRECTORY include/raft
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/raft)
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 # Temporary install of raft.hpp while the file is removed
 install(FILES include/raft.hpp
