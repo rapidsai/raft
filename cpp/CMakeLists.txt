@@ -158,7 +158,7 @@ target_link_libraries(raft INTERFACE
         CUDA::cudart
         CUDA::cusparse
         rmm::rmm
-        $<$<BOOL:${cuco_ADDED}>:cuco::cuco>
+        $<$<BOOL:${RAFT_ENABLE_cuco_DEPENDENCY}>:cuco::cuco>
         std::mdspan)
 
 target_compile_definitions(raft INTERFACE $<$<BOOL:${NVTX}>:NVTX_ENABLED>)
