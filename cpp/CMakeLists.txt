@@ -70,6 +70,8 @@ option(RAFT_ENABLE_cuco_DEPENDENCY "Enable cuCollections dependency" ON)
 option(RAFT_ENABLE_nccl_DEPENDENCY "Enable NCCL dependency" OFF)
 option(RAFT_ENABLE_ucx_DEPENDENCY "Enable ucx dependency" OFF)
 
+option(RAFT_EXCLUDE_FAISS_FROM_ALL "Exclude FAISS targets from RAFT's 'all' target" ON)
+
 include(CMakeDependentOption)
 cmake_dependent_option(RAFT_USE_FAISS_STATIC "Build and statically link the FAISS library for nearest neighbors search on GPU" ON RAFT_COMPILE_LIBRARIES OFF)
 
