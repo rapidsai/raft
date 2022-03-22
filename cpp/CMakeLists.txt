@@ -310,7 +310,7 @@ endif()
 
 
 install(DIRECTORY include/raft
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/raft)
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 # Temporary install of raft.hpp while the file is removed
 install(FILES include/raft.hpp
@@ -338,6 +338,10 @@ Imported Targets:
 
 set(code_string
 [=[
+
+if(NOT TARGET raft::Thrust)
+  thrust_create_target(raft::Thrust FROM_OPTIONS)
+endif()
 
 if(distance IN_LIST raft_FIND_COMPONENTS)
   enable_language(CUDA)
