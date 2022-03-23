@@ -423,7 +423,7 @@ void radix_topk_(const T* in,
                  int k,
                  T* out,
                  IdxT* out_idx,
-                 bool greater,
+                 bool select_min,
                  rmm::cuda_stream_view stream)
 {
   // TODO: is it possible to relax this restriction?
@@ -484,7 +484,7 @@ void radix_topk_(const T* in,
                                           histograms.data(),
                                           len,
                                           k,
-                                          greater,
+                                          !select_min,
                                           pass);
     RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
@@ -498,7 +498,7 @@ void radix_topk(const T* in,
                 int k,
                 T* out,
                 IdxT* out_idx,
-                bool greater,
+                bool select_min,
                 rmm::cuda_stream_view stream)
 {
   for (size_t offset = 0; offset < batch_size; offset += MAX_BATCH_SIZE) {
@@ -510,7 +510,7 @@ void radix_topk(const T* in,
                                                     k,
                                                     out + offset * k,
                                                     out_idx + offset * k,
-                                                    greater,
+                                                    select_min,
                                                     stream);
   }
 }

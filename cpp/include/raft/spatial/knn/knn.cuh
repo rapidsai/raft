@@ -148,12 +148,12 @@ inline void select_k(value_t* in_keys,
 
     case SelectKAlgo::RADIX_8_BITS:
       detail::ivf_flat::radix_topk<value_t, idx_t, 8, 512>(
-        in_keys, in_values, n_inputs, input_len, k, out_keys, out_values, !select_min, stream);
+        in_keys, in_values, n_inputs, input_len, k, out_keys, out_values, select_min, stream);
       break;
 
     case SelectKAlgo::RADIX_11_BITS:
       detail::ivf_flat::radix_topk<value_t, idx_t, 11, 512>(
-        in_keys, in_values, n_inputs, input_len, k, out_keys, out_values, !select_min, stream);
+        in_keys, in_values, n_inputs, input_len, k, out_keys, out_values, select_min, stream);
       break;
 
     case SelectKAlgo::WARP_SORT:
