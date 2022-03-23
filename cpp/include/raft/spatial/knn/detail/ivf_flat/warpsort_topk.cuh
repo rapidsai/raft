@@ -787,6 +787,7 @@ void warp_sort_topk_(int num_of_block,
                                                stream);
 
   if (num_of_block > 1) {
+    // Merge the results across blocks using WarpMerge
     len = k * num_of_block;
     calc_launch_parameter_for_merge<T>(len, k, &num_of_block, &num_of_warp);
     block_dim = num_of_warp * WarpSize;
