@@ -14,6 +14,14 @@
  * limitations under the License.
  */
 
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use raft_runtime/cudart_utils.hpp instead.
+ */
+
+#ifndef __RAFT_RT_CUDART_UTILS_H
+#define __RAFT_RT_CUDART_UTILS_H
+
 #pragma once
 
 #include <raft/error.hpp>
@@ -397,3 +405,5 @@ IntType gcd(IntType a, IntType b)
 }
 
 }  // namespace raft
+
+#endif

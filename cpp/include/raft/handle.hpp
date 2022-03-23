@@ -14,6 +14,14 @@
  * limitations under the License.
  */
 
+/**
+ * @warning This file is deprecated and will be removed in release 22.06.
+ * Please use the include/raft_runtime/handle.hpp instead.
+ */
+
+#ifndef __RAFT_RT_HANDLE
+#define __RAFT_RT_HANDLE
+
 #pragma once
 
 #include <memory>
@@ -332,3 +340,5 @@ class stream_syncer {
 };  // class stream_syncer
 
 }  // namespace raft
+
+#endif

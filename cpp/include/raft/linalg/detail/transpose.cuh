@@ -20,6 +20,8 @@
 
 #include <raft/handle.hpp>
 #include <rmm/exec_policy.hpp>
+#include <thrust/for_each.h>
+#include <thrust/iterator/counting_iterator.h>
 
 namespace raft {
 namespace linalg {
