@@ -158,7 +158,7 @@ inline void select_k(value_t* in_keys,
 
     case SelectKAlgo::WARP_SORT:
       detail::ivf_flat::warp_sort_topk<value_t, idx_t>(
-        in_keys, in_values, n_inputs, input_len, k, out_keys, out_values, !select_min, stream);
+        in_keys, in_values, n_inputs, input_len, k, out_keys, out_values, select_min, stream);
       break;
 
     default: ASSERT(false, "Unknown algorithm (id = %d)", int(algo));
