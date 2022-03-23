@@ -44,8 +44,13 @@ __host__ __device__ constexpr int calc_num_passes()
   return ceildiv<int>(sizeof(T) * 8, BITS_PER_PASS);
 }
 
-// bit 0 is the least significant (rightmost) bit
-// this function works even when pass=-1, which is used in calc_mask()
+/**
+ * Bit 0 is the least significant (rightmost);
+ * this implementation processes input from the most to the least significant bit.
+ * This way, we can skip some passes in the end at the cost of having an unsorted output.
+ *
+ * NB: Use pass=-1 for calc_mask().
+ */
 template <typename T, int BITS_PER_PASS>
 __device__ constexpr int calc_start_bit(int pass)
 {
@@ -63,7 +68,10 @@ __device__ constexpr unsigned calc_mask(int pass)
   return (1 << num_bits) - 1;
 }
 
-/** Use cub to twiddle bits - so that we can correctly compare bits of floating-point values. */
+/**
+ * Use cub to twiddle bits - so that we can correctly compare bits of floating-point values as well
+ * as of integers.
+ */
 template <typename T>
 __device__ typename cub::Traits<T>::UnsignedBits twiddle_in(T key, bool greater)
 {

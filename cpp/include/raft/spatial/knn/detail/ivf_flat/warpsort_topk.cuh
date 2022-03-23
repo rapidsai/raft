@@ -26,26 +26,13 @@
 #include <type_traits>
 
 /*
-  Three APIs of different scope are provided:
+  Three APIs of different scopes are provided:
     1. host function: warp_sort_topk()
     2. block-wide API: class WarpSortBlockWide
     3. warp-wide API: class WarpSelect and class WarpBitonic
 
 
-  1. warp_sort_topk()
-    Like CUB functions, it should be called twice.
-    First for getting required buffer size, and a second for the real top-k computation.
-    For the first call, buf==nullptr should be passed, and required buffer
-    size is returned as parameter buf_size.
-    For the second call, pass allocated buffer of required size.
-
-    Example:
-      void* buf = nullptr;
-      size_t buf_size;
-      warp_sort_topk(nullptr, buf_size, ...);  // will set buf_size
-      cudaMalloc(&buf, buf_size);
-      warp_sort_topk(buf, buf_size, ...);
-
+  1. warp_sort_topk() // the description for it is no longer true, should be deleted
 
   2. class WarpSortBlockWide
     It can be regarded as a fixed size priority queue for a thread block,
@@ -86,11 +73,11 @@
      }
 
      int smem_size = calc_smem_size_for_block_wide<T>(...);
-     kernel<<grid_dim, block_dim, smem_size>>>();
+     kernel<<<grid_dim, block_dim, smem_size>>>();
 
 
   3. class WarpSelect and class WarpBitonic
-    These two classes can be regarded as fixed sized priority queue for a warp.
+    These two classes can be regarded as fixed size priority queue for a warp.
     Usage is similar to class WarpSortBlockWide.
     Two types of add() functions are provided, and also note that [start, end) is
     for a whole warp, while val/idx is for a thread.
@@ -115,7 +102,7 @@
 
         queue.done();
         // each warp outputs to a different offset
-        queue.store(out+ warp_id * k * sizeof(T), out_idx+ warp_id * k * sizeof(IdxT));
+        queue.store(out+ warp_id * k, out_idx+ warp_id * k);
       }
  */
 
@@ -303,7 +290,6 @@ class WarpSelect : public WarpSort<Capacity, Ascending, T, IdxT> {
  private:
   __device__ void set_k_th_()
   {
-    // it's the best we can do, should use "val_arr_[k_th_row_]"
     // NB on using srcLane: it's ok if it is outside the warp size / width;
     //                      the modulo op will be done inside the __shfl_sync.
     k_th_ = shfl(val_arr_[kMaxArrLen - 1], k_ - 1);
@@ -554,7 +540,7 @@ class WarpSortBlockWide {
 
 /**
  * Uses the `WarpSortClass` to sort chunks of data within one block with no interblock
- * communication. It can be arranged so, that multiple blocks process one line of input; in this
+ * communication. It can be arranged so, that multiple blocks process one row of input; in this
  * case, they output multiple results of length k each. Then, a second pass is needed to merge those
  * into one final output.
  */

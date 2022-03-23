@@ -41,16 +41,17 @@ __device__ __forceinline__ void conditional_assign(bool cond, T& ptr, T x)
 /**
  * Warp-wide bitonic merge and sort.
  * The data is strided among `warp_width` threads,
- * e.g. calling `bitonic<4>::sort(arr)` takes a unique 4-element array as input of each thread in a
- * warp and sorts them, such that for a fixed i, arr[i] are sorted within the threads in a warp, and
- * for any i < j, arr[j] in any thread is not smaller than arr[i] in any other thread.
+ * e.g. calling `bitonic<4>(ascending=true).sort(arr)` takes a unique 4-element array as input of
+ * each thread in a warp and sorts them, such that for a fixed i, arr[i] are sorted within the
+ * threads in a warp, and for any i < j, arr[j] in any thread is not smaller than arr[i] in any
+ * other thread.
  *
  * As an example, assuming `Size = 4`, `warp_width = 16`, and `WarpSize = 32`, the layout is:
  * `
  *  arr_i \ laneId()
  *       0   1   2   3   4   5   6   7   8   9  10  11  12  13  14  15    16  17  18 ...
  *      subwarp_1                                                         subwarp_2
- *   0   0   1   2   3   4   5   6   7   8   9  10  11  12  13  14  15     0   1   2  ...
+ *   0   0   1   2   3   4   5   6   7   8   9  10  11  12  13  14  15     0   1   2 ...
  *   1  16  17  18  19  20  21  22  23  24  25  26  27  28  29  30  31    16  17  18 ...
  *   2  32  33  34  35  36  37  38  39  40  41  42  43  44  45  46  47    32  33  34 ...
  *   3  48  49  50  51  52  53  54  55  56  57  58  59  60  61  62  63    48  49  50 ...
