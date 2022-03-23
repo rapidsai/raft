@@ -143,7 +143,7 @@ class bitonic {
     -> std::enable_if_t<S == 1, void>  // SFINAE to enable this for Size == 1 only
   {
     static_assert(S == Size);
-    return merge(*key, *payload...);
+    return merge(&key, &payload...);
   }
 
   /**
@@ -158,7 +158,7 @@ class bitonic {
     -> std::enable_if_t<S == 1, void>  // SFINAE to enable this for Size == 1 only
   {
     static_assert(S == Size);
-    return sort(*key, *payload...);
+    return sort(&key, &payload...);
   }
 
  private:
