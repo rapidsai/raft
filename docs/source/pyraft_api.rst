@@ -7,11 +7,14 @@ PyRAFT API Reference
    :class: highlight
 
 
-Multi-Node Multi-GPU Infrastructure
-===================================
+RAFT Handle
+-----------
 
-Dask-based Communicator
------------------------
+.. autoclass:: raft.common.handle.Handle
+    :members:
+
+Dask-based Multi-Node Multi-GPU Communicator
+--------------------------------------------
 
 .. autoclass:: raft.dask.common.Comms
     :members:
