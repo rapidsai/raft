@@ -43,11 +43,11 @@
     So the required shared memory size should be calculated using
     calc_smem_size_for_block_wide() and passed as the 3rd kernel launch parameter.
 
-    Two overloaded add() functions can be used to add items to the queue.
-    One is add(const T* in, IdxT start, IdxT end) and it adds a range of items,
+    Two overloade functions can be used to add items to the queue.
+    One is load(const T* in, IdxT start, IdxT end) and it adds a range of items,
     namely [start, end) of in. The idx is inferred from start.
     This function should be called only once to add all items, and should not be
-    used together with the second form of add().
+    used together with the add().
     The second one is add(T val, IdxT idx), and it adds only one item pair.
     Note that the range [start, end) is for the whole block of threads, that is,
     each thread in the same block should get the same start/end.
@@ -253,7 +253,7 @@ class WarpSelect : public WarpSort<Capacity, Ascending, T, IdxT> {
     }
   }
 
-  __device__ void add(const T* in, const IdxT* in_idx, IdxT start, IdxT end)
+  __device__ void load(const T* in, const IdxT* in_idx, IdxT start, IdxT end)
   {
     const IdxT end_for_fullwarp = Pow2<WarpSize>::roundUp(end - start) + start;
     for (IdxT i = start + laneId(); i < end_for_fullwarp; i += WarpSize) {
@@ -336,7 +336,7 @@ class WarpBitonic : public WarpSort<Capacity, Ascending, T, IdxT> {
     }
   }
 
-  __device__ void add(const T* in, const IdxT* in_idx, IdxT start, IdxT end)
+  __device__ void load(const T* in, const IdxT* in_idx, IdxT start, IdxT end)
   {
     add_first_(in, in_idx, start, end);
     start += Capacity;
@@ -428,18 +428,9 @@ class WarpMerge : public WarpSort<Capacity, Ascending, T, IdxT> {
   __device__ WarpMerge(int k, T dummy) : WarpSort<Capacity, Ascending, T, IdxT>(k, dummy) {}
 
   // NB: the input is already sorted, because it's the second pass.
-  __device__ void add(const T* in, const IdxT* in_idx, IdxT start, IdxT end)
+  __device__ void load(const T* in, const IdxT* in_idx, IdxT start, IdxT end)
   {
-    IdxT idx       = start + Pow2<kWarpWidth>::mod(laneId());
-    IdxT first_end = (start + k_ < end) ? (start + k_) : end;
-    for (int i = 0; i < kMaxArrLen; ++i, idx += kWarpWidth) {
-      if (idx < first_end) {
-        val_arr_[i] = in[idx];
-        idx_arr_[i] = in_idx[idx];
-      }
-    }
-
-    for (start += k_; start < end; start += k_) {
+    for (; start < end; start += k_) {
       load_sorted(in + start, in_idx + start);
     }
   }
@@ -477,24 +468,24 @@ class WarpSortBlockWide {
                                         Pow2<256>::roundUp(num_of_warp / 2 * sizeof(T) * k_));
   }
 
-  __device__ void add(const T* in, const IdxT* in_idx, IdxT start, IdxT end)
+  __device__ void load(const T* in, const IdxT* in_idx, IdxT start, IdxT end)
   {
     int num_of_warp   = blockDim.x / WarpSize;
     const int warp_id = threadIdx.x / WarpSize;
-    IdxT len_per_warp = (end - start - 1) / num_of_warp + 1;
-    len_per_warp      = ((len_per_warp - 1) / k_ + 1) * k_;
+    IdxT len_per_warp = ceildiv<IdxT>(end - start, num_of_warp);
+    len_per_warp      = alignTo<IdxT>(len_per_warp, k_);
 
     IdxT warp_start = start + warp_id * len_per_warp;
     IdxT warp_end   = warp_start + len_per_warp;
     if (warp_end > end) { warp_end = end; }
-    queue_.add(in, in_idx, warp_start, warp_end);
+    queue_.load(in, in_idx, warp_start, warp_end);
   }
 
   __device__ void add(T val, IdxT idx) { queue_.add(val, idx); }
 
   /**
-   * At the point of calling this function, the warp-level queues consumed all input independently.
-   * The remaining work to be done is to merge them together.
+   * At the point of calling this function, the warp-level queues consumed all input
+   * independently. The remaining work to be done is to merge them together.
    *
    * Here we tree-merge the results using the shared memory and block sync.
    */
@@ -541,8 +532,8 @@ class WarpSortBlockWide {
 /**
  * Uses the `WarpSortClass` to sort chunks of data within one block with no interblock
  * communication. It can be arranged so, that multiple blocks process one row of input; in this
- * case, they output multiple results of length k each. Then, a second pass is needed to merge those
- * into one final output.
+ * case, they output multiple results of length k each. Then, a second pass is needed to merge
+ * those into one final output.
  */
 template <template <int, bool, typename, typename> class WarpSortClass,
           int Capacity,
@@ -560,7 +551,7 @@ __global__ void block_kernel(
   const IdxT end           = std::min(len, start + len_per_block);
 
   WarpSortBlockWide<WarpSortClass, Capacity, Ascending, T, IdxT> queue(k, dummy, smem_buf);
-  queue.add(in + blockIdx.y * len, in_idx + blockIdx.y * len, start, end);
+  queue.load(in + blockIdx.y * len, in_idx + blockIdx.y * len, start, end);
 
   queue.done();
   const int block_id = blockIdx.x + gridDim.x * blockIdx.y;
