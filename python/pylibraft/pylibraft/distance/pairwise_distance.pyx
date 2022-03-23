@@ -104,8 +104,10 @@ def distance(X, Y, dists, metric="euclidean"):
         n_samples = 5000
         n_features = 50
 
-        in1 = cp.random.random_sample((n_samples, n_features), dtype=cp.float32)
-        in2 = cp.random.random_sample((n_samples, n_features), dtype=cp.float32)
+        in1 = cp.random.random_sample((n_samples, n_features),
+                                      dtype=cp.float32)
+        in2 = cp.random.random_sample((n_samples, n_features),
+                                      dtype=cp.float32)
         output = cp.empty((n_samples, n_samples), dtype=cp.float32)
 
         pairwise_distance(in1, in2, output, metric="euclidean")
