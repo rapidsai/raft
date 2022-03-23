@@ -44,8 +44,8 @@ requirements:
     - rmm {{ minor_version }}
     - ucx-py {{ ucx_py_version }}
     - ucx-proc=*=gpu
-    - dask>=2022.02.1
-    - distributed>=2022.02.1
+    - dask==2022.03.0
+    - distributed==2022.03.0
     - cuda-python >=11.5,<12.0
     - joblib >=0.11
     - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
