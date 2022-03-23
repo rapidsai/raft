@@ -16,7 +16,8 @@
 
 function(find_and_configure_cuco VERSION)
 
-    if(RAFT_ENABLE_cuco_DEPENDENCY)
+    if(RAFT_ENABLE_cuco_DEPENDENCY OR RAFT_COMPILE_LIBRARIES OR
+            RAFT_COMPILE_DIST_LIBRARY)
         rapids_cpm_find(cuco ${VERSION}
           GLOBAL_TARGETS      cuco::cuco
           BUILD_EXPORT_SET    raft-distance-exports
