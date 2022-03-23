@@ -160,7 +160,10 @@ target_link_libraries(raft INTERFACE
         CUDA::cudart
         CUDA::cusparse
         rmm::rmm
+<<<<<<< Updated upstream
         $<$<BOOL:${RAFT_ENABLE_cuco_DEPENDENCY}>:cuco::cuco>
+=======
+>>>>>>> Stashed changes
         std::mdspan)
 
 target_compile_definitions(raft INTERFACE $<$<BOOL:${NVTX}>:NVTX_ENABLED>)
@@ -243,6 +246,7 @@ endif()
 
 target_link_libraries(raft_distance INTERFACE
     raft::raft
+    $<$<BOOL:${cuco_ADDED}>:cuco::cuco>
     $<TARGET_NAME_IF_EXISTS:raft_distance_lib>
     $<TARGET_NAME_IF_EXISTS:raft::raft_distance_lib>
 )
