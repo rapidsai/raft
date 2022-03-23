@@ -293,6 +293,7 @@ endif()
 
 target_link_libraries(raft_nn INTERFACE
     raft::raft
+    $<$<BOOL:${RAFT_ENABLE_NN_DEPENDENCIES}>:faiss::faiss>
     $<TARGET_NAME_IF_EXISTS:raft_nn_lib>
     $<TARGET_NAME_IF_EXISTS:raft::raft_nn_lib>)
 
