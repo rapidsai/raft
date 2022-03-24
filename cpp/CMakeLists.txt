@@ -154,7 +154,6 @@ target_include_directories(raft INTERFACE
         "$<INSTALL_INTERFACE:include>")
 
 target_link_libraries(raft INTERFACE
-        $<$<BOOL:${RAFT_ENABLE_cuco_DEPENDENCY}>:raft::Thrust>
         $<$<BOOL:${NVTX}>:CUDA::nvToolsExt>
         CUDA::cublas
         CUDA::curand
@@ -162,6 +161,7 @@ target_link_libraries(raft INTERFACE
         CUDA::cudart
         CUDA::cusparse
         rmm::rmm
+        $<$<BOOL:${RAFT_ENABLE_thrust_DEPENDENCY}>:raft::Thrust>
         $<$<BOOL:${RAFT_ENABLE_cuco_DEPENDENCY}>:cuco::cuco>
         $<$<BOOL:${RAFT_ENABLE_mdspan_DEPENDENCY}>:std::mdspan>
 )
