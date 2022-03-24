@@ -53,6 +53,11 @@ The following example will download the needed dependencies and install the RAFT
 ./build.sh libraft --install
 ```
 
+The `--no-thrust` flag can be used to install the headers with minimal dependencies:
+```bash
+./build.sh libraft --install --no-thrust
+```
+
 ### <a id="shared_cpp_libs"></a>C++ Shared Libraries (optional)
 
 For larger projects which make heavy use of the pairwise distances or nearest neighbors APIs, shared libraries can be built to speed up compile times. These shared libraries can also significantly improve re-compile times both while developing RAFT and developing against the APIs. Build all of the available shared libraries by passing `--compile-libs` flag to `build.sh`:
