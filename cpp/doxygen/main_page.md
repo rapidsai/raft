@@ -3,7 +3,7 @@
 RAFT contains fundamental widely-used algorithms and primitives for data science, graph and machine learning. The algorithms are CUDA-accelerated and form building-blocks for rapidly composing analytics.
 
 By taking a primitives-based approach to algorithm development, RAFT
-- accelerates algorithm construction time
+- accelerates algorithm construction time,
 - reduces the maintenance burden by maximizing reuse across projects, and
 - centralizes core reusable computations, allowing future optimizations to benefit all algorithms that use them.
 
