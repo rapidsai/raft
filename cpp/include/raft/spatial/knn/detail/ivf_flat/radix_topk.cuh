@@ -27,7 +27,6 @@
 
 namespace raft::spatial::knn::detail::ivf_flat {
 
-constexpr uint16_t MAX_BATCH_SIZE  = 1024;
 constexpr int ITEM_PER_THREAD      = 32;
 constexpr int VECTORIZED_READ_SIZE = 16;
 
@@ -403,79 +402,41 @@ __global__ void __launch_bounds__(BlockSize) radix_kernel(const T* in_buf,
   }
 }
 
+/**
+ * Calculate the minimal batch size, such that GPU is still fully occupied.
+ */
 template <typename T, typename IdxT, int BitsPerPass, int BlockSize>
-void radix_topk_(const T* in,
-                 const IdxT* in_idx,
-                 uint16_t batch_size,
-                 size_t len,
-                 int k,
-                 T* out,
-                 IdxT* out_idx,
-                 bool select_min,
-                 rmm::cuda_stream_view stream)
+inline uint16_t get_optimal_batch_size(size_t req_batch_size, size_t blocks_per_row)
 {
-  // TODO: is it possible to relax this restriction?
-  static_assert(calc_num_passes<T, BitsPerPass>() > 1);
-  constexpr int num_buckets = calc_num_buckets<BitsPerPass>();
+  int dev_id, sm_count, occupancy, max_grid_dim_y;
+  RAFT_CUDA_TRY(cudaGetDevice(&dev_id));
+  RAFT_CUDA_TRY(cudaDeviceGetAttribute(&sm_count, cudaDevAttrMultiProcessorCount, dev_id));
+  RAFT_CUDA_TRY(cudaDeviceGetAttribute(&max_grid_dim_y, cudaDevAttrMaxGridDimY, dev_id));
+  RAFT_CUDA_TRY(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+    &occupancy, radix_kernel<T, IdxT, BitsPerPass, BlockSize>, BlockSize, 0));
 
-  rmm::device_uvector<Counter<T, IdxT>> counters(batch_size, stream);
-  rmm::device_uvector<IdxT> histograms(num_buckets * batch_size, stream);
-  rmm::device_uvector<T> buf1(len * batch_size, stream);
-  rmm::device_uvector<IdxT> idx_buf1(len * batch_size, stream);
-  rmm::device_uvector<T> buf2(len * batch_size, stream);
-  rmm::device_uvector<IdxT> idx_buf2(len * batch_size, stream);
-
-  RAFT_CUDA_TRY(
-    cudaMemsetAsync(counters.data(), 0, counters.size() * sizeof(Counter<T, IdxT>), stream));
-  RAFT_CUDA_TRY(cudaMemsetAsync(histograms.data(), 0, histograms.size() * sizeof(IdxT), stream));
-
-  const T* in_buf        = nullptr;
-  const IdxT* in_idx_buf = nullptr;
-  T* out_buf             = nullptr;
-  IdxT* out_idx_buf      = nullptr;
-
-  dim3 blocks(ceildiv<size_t>(len, BlockSize * ITEM_PER_THREAD), batch_size);
-
-  constexpr int num_passes = calc_num_passes<T, BitsPerPass>();
-
-  for (int pass = 0; pass < num_passes; ++pass) {
-    if (pass == 0) {
-      in_buf      = in;
-      in_idx_buf  = nullptr;
-      out_buf     = nullptr;
-      out_idx_buf = nullptr;
-    } else if (pass == 1) {
-      in_buf      = in;
-      in_idx_buf  = in_idx ? in_idx : nullptr;
-      out_buf     = buf1.data();
-      out_idx_buf = idx_buf1.data();
-    } else if (pass % 2 == 0) {
-      in_buf      = buf1.data();
-      in_idx_buf  = idx_buf1.data();
-      out_buf     = buf2.data();
-      out_idx_buf = idx_buf2.data();
-    } else {
-      in_buf      = buf2.data();
-      in_idx_buf  = idx_buf2.data();
-      out_buf     = buf1.data();
-      out_idx_buf = idx_buf1.data();
-    }
-
-    radix_kernel<T, IdxT, BitsPerPass, BlockSize>
-      <<<blocks, BlockSize, 0, stream>>>(in_buf,
-                                         in_idx_buf,
-                                         out_buf,
-                                         out_idx_buf,
-                                         out,
-                                         out_idx,
-                                         counters.data(),
-                                         histograms.data(),
-                                         len,
-                                         k,
-                                         !select_min,
-                                         pass);
-    RAFT_CUDA_TRY(cudaPeekAtLastError());
+  // fully occupy GPU
+  size_t opt_batch_size = ceildiv<size_t>(sm_count * occupancy, blocks_per_row);
+  // round it up to the closest pow-of-two for better data alignment
+  opt_batch_size = isPo2(opt_batch_size) ? opt_batch_size : (1 << (log2(opt_batch_size) + 1));
+  // Take a max possible pow-of-two grid_dim_y
+  max_grid_dim_y = isPo2(max_grid_dim_y) ? max_grid_dim_y : (1 << log2(max_grid_dim_y));
+  // If the optimal batch size is very small compared to the requested batch size, we know
+  // the extra required memory is not significant and we can increase the batch size for
+  // better occupancy when the grid size is not multiple of the SM count.
+  // Also don't split the batch size when there is not much work overall.
+  const size_t safe_enlarge_factor = 9;
+  const size_t min_grid_size       = 1024;
+  while ((opt_batch_size << safe_enlarge_factor) < req_batch_size ||
+         blocks_per_row * opt_batch_size < min_grid_size) {
+    opt_batch_size <<= 1;
   }
+
+  // Do not exceed the max grid size.
+  opt_batch_size = std::min<size_t>(opt_batch_size, size_t(max_grid_dim_y));
+
+  // Don't do more work than needed
+  return uint16_t(std::min<size_t>(opt_batch_size, req_batch_size));
 }
 
 template <typename T, typename IdxT, int BitsPerPass, int BlockSize>
@@ -489,17 +450,75 @@ void radix_topk(const T* in,
                 bool select_min,
                 rmm::cuda_stream_view stream)
 {
-  for (size_t offset = 0; offset < batch_size; offset += MAX_BATCH_SIZE) {
-    auto batch_chunk = uint16_t(std::min<size_t>(MAX_BATCH_SIZE, batch_size - offset));
-    radix_topk_<T, IdxT, BitsPerPass, BlockSize>(in + offset * len,
-                                                 in_idx + offset * len,
-                                                 batch_chunk,
-                                                 len,
-                                                 k,
-                                                 out + offset * k,
-                                                 out_idx + offset * k,
-                                                 select_min,
-                                                 stream);
+  // TODO: is it possible to relax this restriction?
+  static_assert(calc_num_passes<T, BitsPerPass>() > 1);
+  constexpr int num_buckets = calc_num_buckets<BitsPerPass>();
+
+  size_t blocks_per_row = ceildiv<size_t>(len, BlockSize * ITEM_PER_THREAD);
+  uint16_t max_batch_size =
+    get_optimal_batch_size<T, IdxT, BitsPerPass, BlockSize>(batch_size, blocks_per_row);
+
+  rmm::device_uvector<Counter<T, IdxT>> counters(max_batch_size, stream);
+  rmm::device_uvector<IdxT> histograms(num_buckets * max_batch_size, stream);
+  rmm::device_uvector<T> buf1(len * max_batch_size, stream);
+  rmm::device_uvector<IdxT> idx_buf1(len * max_batch_size, stream);
+  rmm::device_uvector<T> buf2(len * max_batch_size, stream);
+  rmm::device_uvector<IdxT> idx_buf2(len * max_batch_size, stream);
+
+  for (size_t offset = 0; offset < batch_size; offset += max_batch_size) {
+    auto batch_chunk = uint16_t(std::min<size_t>(max_batch_size, batch_size - offset));
+
+    RAFT_CUDA_TRY(
+      cudaMemsetAsync(counters.data(), 0, counters.size() * sizeof(Counter<T, IdxT>), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(histograms.data(), 0, histograms.size() * sizeof(IdxT), stream));
+
+    const T* in_buf        = nullptr;
+    const IdxT* in_idx_buf = nullptr;
+    T* out_buf             = nullptr;
+    IdxT* out_idx_buf      = nullptr;
+
+    dim3 blocks(blocks_per_row, batch_chunk);
+
+    constexpr int num_passes = calc_num_passes<T, BitsPerPass>();
+
+    for (int pass = 0; pass < num_passes; ++pass) {
+      if (pass == 0) {
+        in_buf      = in + offset * len;
+        in_idx_buf  = nullptr;
+        out_buf     = nullptr;
+        out_idx_buf = nullptr;
+      } else if (pass == 1) {
+        in_buf      = in + offset * len;
+        in_idx_buf  = in_idx ? in_idx + offset * len : nullptr;
+        out_buf     = buf1.data();
+        out_idx_buf = idx_buf1.data();
+      } else if (pass % 2 == 0) {
+        in_buf      = buf1.data();
+        in_idx_buf  = idx_buf1.data();
+        out_buf     = buf2.data();
+        out_idx_buf = idx_buf2.data();
+      } else {
+        in_buf      = buf2.data();
+        in_idx_buf  = idx_buf2.data();
+        out_buf     = buf1.data();
+        out_idx_buf = idx_buf1.data();
+      }
+
+      radix_kernel<T, IdxT, BitsPerPass, BlockSize>
+        <<<blocks, BlockSize, 0, stream>>>(in_buf,
+                                           in_idx_buf,
+                                           out_buf,
+                                           out_idx_buf,
+                                           out + offset * k,
+                                           out_idx + offset * k,
+                                           counters.data(),
+                                           histograms.data(),
+                                           len,
+                                           k,
+                                           !select_min,
+                                           pass);
+      RAFT_CUDA_TRY(cudaPeekAtLastError());
+    }
   }
 }
 
