@@ -48,7 +48,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 ##############################################################################
 # - User Options  ------------------------------------------------------------
 
-option(BUILD_TESTS "Build raft unit-tests" ON)
+option(BUILD_TESTS "Build raft unit-tests" OFF)
 option(BUILD_BENCH "Build raft C++ benchmark tests" OFF)
 option(CUDA_ENABLE_KERNELINFO "Enable kernel resource usage info" OFF)
 option(CUDA_ENABLE_LINEINFO "Enable the -lineinfo option for nvcc (useful for cuda-memcheck / profiler)" OFF)
@@ -59,12 +59,14 @@ option(DISABLE_OPENMP "Disable OpenMP" OFF)
 option(NVTX "Enable nvtx markers" OFF)
 option(RAFT_STATIC_LINK_LIBRARIES "Statically link compiled libraft libraries")
 
-option(RAFT_COMPILE_LIBRARIES "Enable building raft shared library instantiations" ON)
+option(RAFT_COMPILE_LIBRARIES "Enable building raft shared library instantiations" OFF)
 option(RAFT_COMPILE_NN_LIBRARY "Enable building raft nearest neighbors shared library instantiations" OFF)
 option(RAFT_COMPILE_DIST_LIBRARY "Enable building raft distant shared library instantiations" OFF)
 option(RAFT_ENABLE_NN_DEPENDENCIES "Search for raft::nn dependencies like faiss" ${RAFT_COMPILE_LIBRARIES})
 
 option(RAFT_ENABLE_cuco_DEPENDENCY "Enable cuCollections dependency" ON)
+option(RAFT_ENABLE_mdspan_DEPENDENCY "Enable mdspan dependency" ON)
+option(RAFT_ENABLE_thrust_DEPENDENCY "Enable Thrust dependency" ON)
 
 # Currently, UCX and NCCL are only needed to build Pyraft and so a simple find_package() is sufficient
 option(RAFT_ENABLE_nccl_DEPENDENCY "Enable NCCL dependency" OFF)
@@ -152,7 +154,7 @@ target_include_directories(raft INTERFACE
         "$<INSTALL_INTERFACE:include>")
 
 target_link_libraries(raft INTERFACE
-        raft::Thrust
+        $<$<BOOL:${RAFT_ENABLE_cuco_DEPENDENCY}>:raft::Thrust>
         $<$<BOOL:${NVTX}>:CUDA::nvToolsExt>
         CUDA::cublas
         CUDA::curand
@@ -161,7 +163,8 @@ target_link_libraries(raft INTERFACE
         CUDA::cusparse
         rmm::rmm
         $<$<BOOL:${RAFT_ENABLE_cuco_DEPENDENCY}>:cuco::cuco>
-        std::mdspan)
+        $<$<BOOL:${RAFT_ENABLE_mdspan_DEPENDENCY}>:std::mdspan>
+)
 
 target_compile_definitions(raft INTERFACE $<$<BOOL:${NVTX}>:NVTX_ENABLED>)
 target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
@@ -349,7 +352,7 @@ Imported Targets:
 set(code_string
 [=[
 
-if(NOT TARGET raft::Thrust)
+if(RAFT_ENABLE_thrust_DEPENDENCY AND NOT TARGET raft::Thrust)
   thrust_create_target(raft::Thrust FROM_OPTIONS)
 endif()
 
