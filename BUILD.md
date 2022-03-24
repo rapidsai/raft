@@ -74,7 +74,14 @@ Add the `--install` flag to the above example to also install the shared librari
 
 ### <a id="gtests"></a>Tests
 
-Compile the tests using the `tests` target in `build.sh`. By default, the shared libraries are assumed to be already built and on the library path. Add `--compile-libs` to also compile them.
+Compile the tests using the `tests` target in `build.sh`.
+
+```bash
+./build.sh libraft tests
+```
+
+Test compile times can be improved significantly by using the optional shared libraries. If installed, they will be used automatically when building the tests but `--compile-libs` can be used to add additional compilation units and compile them with the tests.
+
 ```bash
 ./build.sh libraft tests --compile-libs
 ```
