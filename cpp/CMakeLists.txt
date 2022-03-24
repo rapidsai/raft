@@ -176,7 +176,6 @@ target_link_libraries(raft INTERFACE
         CUDA::cusparse
         rmm::rmm
         $<$<BOOL:${RAFT_ENABLE_thrust_DEPENDENCY}>:raft::Thrust>
-        $<$<BOOL:${RAFT_ENABLE_cuco_DEPENDENCY}>:cuco::cuco>
         $<$<BOOL:${RAFT_ENABLE_mdspan_DEPENDENCY}>:std::mdspan>
 )
 
