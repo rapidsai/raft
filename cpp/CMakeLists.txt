@@ -64,9 +64,12 @@ option(RAFT_COMPILE_NN_LIBRARY "Enable building raft nearest neighbors shared li
 option(RAFT_COMPILE_DIST_LIBRARY "Enable building raft distant shared library instantiations" OFF)
 option(RAFT_ENABLE_NN_DEPENDENCIES "Search for raft::nn dependencies like faiss" ${RAFT_COMPILE_LIBRARIES})
 
-option(RAFT_ENABLE_cuco_DEPENDENCY "Enable cuCollections dependency" ON)
+option(RAFT_ENABLE_cuco_DEPENDENCY "Enable cuCollections dependency" OFF)
 option(RAFT_ENABLE_mdspan_DEPENDENCY "Enable mdspan dependency" ON)
 option(RAFT_ENABLE_thrust_DEPENDENCY "Enable Thrust dependency" ON)
+if(raft IN_LIST raft_FIND_COMPONENTS)
+  set(RAFT_ENABLE_cuco_DEPENDENCY ON)
+endif()
 
 # Currently, UCX and NCCL are only needed to build Pyraft and so a simple find_package() is sufficient
 option(RAFT_ENABLE_nccl_DEPENDENCY "Enable NCCL dependency" OFF)
@@ -77,6 +80,7 @@ option(RAFT_EXCLUDE_FAISS_FROM_ALL "Exclude FAISS targets from RAFT's 'all' targ
 include(CMakeDependentOption)
 cmake_dependent_option(RAFT_USE_FAISS_STATIC "Build and statically link the FAISS library for nearest neighbors search on GPU" ON RAFT_COMPILE_LIBRARIES OFF)
 
+message(VERBOSE "RAFT: Building optional components: ${raft_FIND_COMPONENTS}")
 message(VERBOSE "RAFT: Build RAFT unit-tests: ${BUILD_TESTS}")
 message(VERBOSE "RAFT: Building raft C++ benchmarks: ${BUILD_BENCH}")
 message(VERBOSE "RAFT: Enable detection of conda environment for dependencies: ${DETECT_CONDA_ENV}")
@@ -153,6 +157,9 @@ target_include_directories(raft INTERFACE
         "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/include>"
         "$<INSTALL_INTERFACE:include>")
 
+# Keep RAFT as lightweight as possible.
+# Only CUDA libs, rmm, and mdspan should
+# be used in global target.
 target_link_libraries(raft INTERFACE
         $<$<BOOL:${NVTX}>:CUDA::nvToolsExt>
         CUDA::cublas
@@ -246,6 +253,7 @@ endif()
 
 target_link_libraries(raft_distance INTERFACE
     raft::raft
+    $<$<BOOL:${RAFT_ENABLE_cuco_DEPENDENCY}>:cuco::cuco>
     $<TARGET_NAME_IF_EXISTS:raft_distance_lib>
     $<TARGET_NAME_IF_EXISTS:raft::raft_distance_lib>
 )
@@ -289,6 +297,7 @@ endif()
 
 target_link_libraries(raft_nn INTERFACE
     raft::raft
+    $<$<BOOL:${RAFT_ENABLE_NN_DEPENDENCIES}>:faiss::faiss>
     $<TARGET_NAME_IF_EXISTS:raft_nn_lib>
     $<TARGET_NAME_IF_EXISTS:raft::raft_nn_lib>)
 
