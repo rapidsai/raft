@@ -153,7 +153,7 @@ endif()
 set_target_properties(raft_distance PROPERTIES EXPORT_NAME distance)
 
 if(RAFT_COMPILE_LIBRARIES)
-  add_library(raft_distance_lib SHARED
+  add_library(raft_distance_lib
     src/distance/specializations/detail
     src/distance/specializations/detail/canberra.cu
     src/distance/specializations/detail/chebyshev.cu
@@ -197,7 +197,7 @@ endif()
 set_target_properties(raft_nn PROPERTIES EXPORT_NAME nn)
 
 if(RAFT_COMPILE_LIBRARIES)
-  add_library(raft_nn_lib SHARED
+  add_library(raft_nn_lib
     src/nn/specializations/ball_cover.cu
     src/nn/specializations/detail/ball_cover_lowdim.cu
     src/nn/specializations/fused_l2_knn_long_float_true.cu
