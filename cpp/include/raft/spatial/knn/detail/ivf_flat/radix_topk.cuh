@@ -28,20 +28,19 @@
 namespace raft::spatial::knn::detail::ivf_flat {
 
 constexpr uint16_t MAX_BATCH_SIZE  = 1024;
-constexpr int BLOCK_DIM            = 512;
 constexpr int ITEM_PER_THREAD      = 32;
 constexpr int VECTORIZED_READ_SIZE = 16;
 
-template <int BITS_PER_PASS>
+template <int BitsPerPass>
 __host__ __device__ constexpr int calc_num_buckets()
 {
-  return 1 << BITS_PER_PASS;
+  return 1 << BitsPerPass;
 }
 
-template <typename T, int BITS_PER_PASS>
+template <typename T, int BitsPerPass>
 __host__ __device__ constexpr int calc_num_passes()
 {
-  return ceildiv<int>(sizeof(T) * 8, BITS_PER_PASS);
+  return ceildiv<int>(sizeof(T) * 8, BitsPerPass);
 }
 
 /**
@@ -51,20 +50,19 @@ __host__ __device__ constexpr int calc_num_passes()
  *
  * NB: Use pass=-1 for calc_mask().
  */
-template <typename T, int BITS_PER_PASS>
+template <typename T, int BitsPerPass>
 __device__ constexpr int calc_start_bit(int pass)
 {
-  int start_bit = static_cast<int>(sizeof(T) * 8) - (pass + 1) * BITS_PER_PASS;
+  int start_bit = static_cast<int>(sizeof(T) * 8) - (pass + 1) * BitsPerPass;
   if (start_bit < 0) { start_bit = 0; }
   return start_bit;
 }
 
-template <typename T, int BITS_PER_PASS>
+template <typename T, int BitsPerPass>
 __device__ constexpr unsigned calc_mask(int pass)
 {
-  static_assert(BITS_PER_PASS <= 31);
-  int num_bits =
-    calc_start_bit<T, BITS_PER_PASS>(pass - 1) - calc_start_bit<T, BITS_PER_PASS>(pass);
+  static_assert(BitsPerPass <= 31);
+  int num_bits = calc_start_bit<T, BitsPerPass>(pass - 1) - calc_start_bit<T, BitsPerPass>(pass);
   return (1 << num_bits) - 1;
 }
 
@@ -81,10 +79,10 @@ __device__ typename cub::Traits<T>::UnsignedBits twiddle_in(T key, bool greater)
   return bits;
 }
 
-template <typename T, int BITS_PER_PASS>
+template <typename T, int BitsPerPass>
 __device__ int calc_bucket(T x, int start_bit, unsigned mask, bool greater)
 {
-  static_assert(BITS_PER_PASS <= sizeof(int) * 8 - 1);  // so return type can be int
+  static_assert(BitsPerPass <= sizeof(int) * 8 - 1);  // so return type can be int
   return (twiddle_in(x, greater) >> start_bit) & mask;
 }
 
@@ -151,10 +149,9 @@ struct Counter {
   unsigned int finished_block_cnt;
   IdxT out_cnt;
   IdxT out_back_cnt;
-  T kth_value;
 };
 
-template <typename T, typename IdxT, int BITS_PER_PASS>
+template <typename T, typename IdxT, int BitsPerPass>
 __device__ void filter_and_histogram(const T* in_buf,
                                      const IdxT* in_idx_buf,
                                      T* out_buf,
@@ -168,19 +165,19 @@ __device__ void filter_and_histogram(const T* in_buf,
                                      int pass,
                                      int k)
 {
-  constexpr int num_buckets = calc_num_buckets<BITS_PER_PASS>();
+  constexpr int num_buckets = calc_num_buckets<BitsPerPass>();
   __shared__ IdxT histogram_smem[num_buckets];
   for (IdxT i = threadIdx.x; i < num_buckets; i += blockDim.x) {
     histogram_smem[i] = 0;
   }
   __syncthreads();
 
-  const int start_bit = calc_start_bit<T, BITS_PER_PASS>(pass);
-  const unsigned mask = calc_mask<T, BITS_PER_PASS>(pass);
+  const int start_bit = calc_start_bit<T, BitsPerPass>(pass);
+  const unsigned mask = calc_mask<T, BitsPerPass>(pass);
 
   if (pass == 0) {
     auto f = [greater, start_bit, mask](T value, IdxT) {
-      int bucket = calc_bucket<T, BITS_PER_PASS>(value, start_bit, mask, greater);
+      int bucket = calc_bucket<T, BitsPerPass>(value, start_bit, mask, greater);
       atomicAdd(histogram_smem + bucket, IdxT(1));
     };
     vectorized_process(in_buf, len, f);
@@ -189,10 +186,9 @@ __device__ void filter_and_histogram(const T* in_buf,
     const int want_bucket        = counter->bucket;
     IdxT& filter_cnt             = counter->filter_cnt;
     IdxT& out_cnt                = counter->out_cnt;
-    T& kth_value                 = counter->kth_value;
     const IdxT counter_len       = counter->len;
-    const int previous_start_bit = calc_start_bit<T, BITS_PER_PASS>(pass - 1);
-    const unsigned previous_mask = calc_mask<T, BITS_PER_PASS>(pass - 1);
+    const int previous_start_bit = calc_start_bit<T, BitsPerPass>(pass - 1);
+    const unsigned previous_mask = calc_mask<T, BitsPerPass>(pass - 1);
 
     auto f = [in_idx_buf,
               out_buf,
@@ -208,24 +204,19 @@ __device__ void filter_and_histogram(const T* in_buf,
               want_bucket,
               &filter_cnt,
               &out_cnt,
-              &kth_value,
               counter_len](T value, IdxT i) {
       int prev_bucket =
-        calc_bucket<T, BITS_PER_PASS>(value, previous_start_bit, previous_mask, greater);
+        calc_bucket<T, BitsPerPass>(value, previous_start_bit, previous_mask, greater);
       if (prev_bucket == want_bucket) {
         IdxT pos     = atomicAdd(&filter_cnt, IdxT(1));
         out_buf[pos] = value;
         if (out_idx_buf) { out_idx_buf[pos] = in_idx_buf ? in_idx_buf[i] : i; }
-        int bucket = calc_bucket<T, BITS_PER_PASS>(value, start_bit, mask, greater);
+        int bucket = calc_bucket<T, BitsPerPass>(value, start_bit, mask, greater);
         atomicAdd(histogram_smem + bucket, IdxT(1));
 
         if (counter_len == 1) {
-          if (out) {
-            out[k - 1]     = value;
-            out_idx[k - 1] = in_idx_buf ? in_idx_buf[i] : i;
-          } else {
-            kth_value = value;
-          }
+          out[k - 1]     = value;
+          out_idx[k - 1] = in_idx_buf ? in_idx_buf[i] : i;
         }
       } else if (out && prev_bucket < want_bucket) {
         IdxT pos     = atomicAdd(&out_cnt, IdxT(1));
@@ -243,13 +234,17 @@ __device__ void filter_and_histogram(const T* in_buf,
   }
 }
 
-template <typename IdxT, int BITS_PER_PASS, int NUM_THREAD>
+/**
+ * Replace a part of the histogram with its own prefix sum, starting from the `start` and adding
+ * `current` to each entry of the result.
+ */
+template <typename IdxT, int BitsPerPass, int BlockSize>
 __device__ void scan(volatile IdxT* histogram,
                      const int start,
                      const int num_buckets,
                      const IdxT current)
 {
-  typedef cub::BlockScan<IdxT, NUM_THREAD> BlockScan;
+  typedef cub::BlockScan<IdxT, BlockSize> BlockScan;
   __shared__ typename BlockScan::TempStorage temp_storage;
 
   IdxT thread_data = 0;
@@ -263,55 +258,60 @@ __device__ void scan(volatile IdxT* histogram,
                     // to be read after
 }
 
-template <typename T, typename IdxT, int BITS_PER_PASS, int NUM_THREAD>
+/** Calculate in which bucket the k-th value will fall */
+template <typename T, typename IdxT, int BitsPerPass, int BlockSize>
 __device__ void choose_bucket(Counter<T, IdxT>* counter, IdxT* histogram, const IdxT k)
 {
-  constexpr int num_buckets = calc_num_buckets<BITS_PER_PASS>();
+  constexpr int num_buckets = calc_num_buckets<BitsPerPass>();
   int index                 = threadIdx.x;
-  IdxT current_value        = 0;
+  IdxT last_prefix_sum      = 0;
   int num_pass              = 1;
-  if constexpr (num_buckets >= NUM_THREAD) {
-    static_assert(num_buckets % NUM_THREAD == 0);
-    num_pass = num_buckets / NUM_THREAD;
+  if constexpr (num_buckets >= BlockSize) {
+    static_assert(num_buckets % BlockSize == 0);
+    num_pass = num_buckets / BlockSize;
   }
 
-  for (int i = 0; i < num_pass && (current_value < k); i++) {
-    scan<IdxT, BITS_PER_PASS, NUM_THREAD>(histogram, i * NUM_THREAD, num_buckets, current_value);
+  for (int i = 0; i < num_pass && (last_prefix_sum < k); i++) {
+    // Turn the i-th chunk of the histogram into its prefix sum.
+    scan<IdxT, BitsPerPass, BlockSize>(histogram, i * BlockSize, num_buckets, last_prefix_sum);
     if (index < num_buckets) {
+      // Number of values in the previous `index-1` buckets (see the `scan` op above)
       IdxT prev = (index == 0) ? 0 : histogram[index - 1];
-      IdxT cur  = histogram[index];
+      // Number of values in `index` buckets
+      IdxT cur = histogram[index];
 
       // one and only one thread will satisfy this condition, so only write once
       if (prev < k && cur >= k) {
-        counter->k            = k - prev;
+        counter->k            = k - prev;  // how many values still are there to find
         counter->previous_len = counter->len;
-        counter->len          = cur - prev;
+        counter->len          = cur - prev;  // number of values in `index` bucket
         counter->bucket       = index;
       }
     }
-    index += NUM_THREAD;
-    current_value = histogram[(i + 1) * NUM_THREAD - 1];
+    index += BlockSize;
+    // this will break the loop when the counter is set (cur >= k), because last_prefix_sum >= cur
+    last_prefix_sum = histogram[(i + 1) * BlockSize - 1];
   }
 }
 
-template <typename T, typename IdxT, int BITS_PER_PASS, int NUM_THREAD>
-__global__ void radix_kernel(const T* in_buf,
-                             const IdxT* in_idx_buf,
-                             T* out_buf,
-                             IdxT* out_idx_buf,
-                             T* out,
-                             IdxT* out_idx,
-                             Counter<T, IdxT>* counters,
-                             IdxT* histograms,
-                             const IdxT len,
-                             const int k,
-                             const bool greater,
-                             const int pass)
+template <typename T, typename IdxT, int BitsPerPass, int BlockSize>
+__global__ void __launch_bounds__(BlockSize) radix_kernel(const T* in_buf,
+                                                          const IdxT* in_idx_buf,
+                                                          T* out_buf,
+                                                          IdxT* out_idx_buf,
+                                                          T* out,
+                                                          IdxT* out_idx,
+                                                          Counter<T, IdxT>* counters,
+                                                          IdxT* histograms,
+                                                          const IdxT len,
+                                                          const int k,
+                                                          const bool greater,
+                                                          const int pass)
 {
   __shared__ bool isLastBlockDone;
 
-  constexpr int num_buckets = calc_num_buckets<BITS_PER_PASS>();
-  constexpr int num_passes  = calc_num_passes<T, BITS_PER_PASS>();
+  constexpr int num_buckets = calc_num_buckets<BitsPerPass>();
+  constexpr int num_passes  = calc_num_passes<T, BitsPerPass>();
   const int batch_id        = blockIdx.y;
   in_buf += batch_id * len;
   out_buf += batch_id * len;
@@ -324,18 +324,18 @@ __global__ void radix_kernel(const T* in_buf,
   auto counter   = counters + batch_id;
   auto histogram = histograms + batch_id * num_buckets;
 
-  filter_and_histogram<T, IdxT, BITS_PER_PASS>(in_buf,
-                                               in_idx_buf,
-                                               out_buf,
-                                               out_idx_buf,
-                                               out,
-                                               out_idx,
-                                               len,
-                                               counter,
-                                               histogram,
-                                               greater,
-                                               pass,
-                                               k);
+  filter_and_histogram<T, IdxT, BitsPerPass>(in_buf,
+                                             in_idx_buf,
+                                             out_buf,
+                                             out_idx_buf,
+                                             out,
+                                             out_idx,
+                                             len,
+                                             counter,
+                                             histogram,
+                                             greater,
+                                             pass,
+                                             k);
   __threadfence();
 
   if (threadIdx.x == 0) {
@@ -363,48 +363,36 @@ __global__ void radix_kernel(const T* in_buf,
     IdxT ori_k = counter->k;
 
     if (counter->len > 0) {
-      choose_bucket<T, IdxT, BITS_PER_PASS, NUM_THREAD>(counter, histogram, ori_k);
+      choose_bucket<T, IdxT, BitsPerPass, BlockSize>(counter, histogram, ori_k);
     }
 
     __syncthreads();
     if (pass == num_passes - 1) {
       const IdxT previous_len = counter->previous_len;
       const int want_bucket   = counter->bucket;
-      int start_bit           = calc_start_bit<T, BITS_PER_PASS>(pass);
-      unsigned mask           = calc_mask<T, BITS_PER_PASS>(pass);
+      int start_bit           = calc_start_bit<T, BitsPerPass>(pass);
+      unsigned mask           = calc_mask<T, BitsPerPass>(pass);
 
-      if (!out) {  // radix select
-        for (IdxT i = threadIdx.x; i < previous_len; i += blockDim.x) {
-          const T value = out_buf[i];
-          int bucket    = calc_bucket<T, BITS_PER_PASS>(value, start_bit, mask, greater);
-          if (bucket == want_bucket) {
-            // TODO: UB
-            // could use atomicExch, but it's not defined for T=half
-            counter->kth_value = value;
-            break;
-          }
-        }
-      } else {  // radix topk
-        IdxT& out_cnt = counter->out_cnt;
-        for (IdxT i = threadIdx.x; i < previous_len; i += blockDim.x) {
-          const T value = out_buf[i];
-          int bucket    = calc_bucket<T, BITS_PER_PASS>(value, start_bit, mask, greater);
-          if (bucket < want_bucket) {
-            IdxT pos     = atomicAdd(&out_cnt, IdxT(1));
+      // radix topk
+      IdxT& out_cnt = counter->out_cnt;
+      for (IdxT i = threadIdx.x; i < previous_len; i += blockDim.x) {
+        const T value = out_buf[i];
+        int bucket    = calc_bucket<T, BitsPerPass>(value, start_bit, mask, greater);
+        if (bucket < want_bucket) {
+          IdxT pos     = atomicAdd(&out_cnt, IdxT(1));
+          out[pos]     = value;
+          out_idx[pos] = out_idx_buf[i];
+        } else if (bucket == want_bucket) {
+          IdxT needed_num_of_kth = counter->k;
+          IdxT back_pos          = atomicAdd(&(counter->out_back_cnt), IdxT(1));
+          if (back_pos < needed_num_of_kth) {
+            IdxT pos     = k - 1 - back_pos;
             out[pos]     = value;
             out_idx[pos] = out_idx_buf[i];
-          } else if (bucket == want_bucket) {
-            IdxT needed_num_of_kth = counter->k;
-            IdxT back_pos          = atomicAdd(&(counter->out_back_cnt), IdxT(1));
-            if (back_pos < needed_num_of_kth) {
-              IdxT pos     = k - 1 - back_pos;
-              out[pos]     = value;
-              out_idx[pos] = out_idx_buf[i];
-            }
           }
         }
-        __syncthreads();
       }
+      __syncthreads();
     } else {
       // reset for next pass
       for (int i = threadIdx.x; i < num_buckets; i += blockDim.x) {
@@ -415,7 +403,7 @@ __global__ void radix_kernel(const T* in_buf,
   }
 }
 
-template <typename T, typename IdxT, int BITS_PER_PASS, int NUM_THREAD>
+template <typename T, typename IdxT, int BitsPerPass, int BlockSize>
 void radix_topk_(const T* in,
                  const IdxT* in_idx,
                  uint16_t batch_size,
@@ -427,8 +415,8 @@ void radix_topk_(const T* in,
                  rmm::cuda_stream_view stream)
 {
   // TODO: is it possible to relax this restriction?
-  static_assert(calc_num_passes<T, BITS_PER_PASS>() > 1);
-  constexpr int num_buckets = calc_num_buckets<BITS_PER_PASS>();
+  static_assert(calc_num_passes<T, BitsPerPass>() > 1);
+  constexpr int num_buckets = calc_num_buckets<BitsPerPass>();
 
   rmm::device_uvector<Counter<T, IdxT>> counters(batch_size, stream);
   rmm::device_uvector<IdxT> histograms(num_buckets * batch_size, stream);
@@ -446,9 +434,9 @@ void radix_topk_(const T* in,
   T* out_buf             = nullptr;
   IdxT* out_idx_buf      = nullptr;
 
-  dim3 blocks(ceildiv<size_t>(len, NUM_THREAD * ITEM_PER_THREAD), batch_size);
+  dim3 blocks(ceildiv<size_t>(len, BlockSize * ITEM_PER_THREAD), batch_size);
 
-  constexpr int num_passes = calc_num_passes<T, BITS_PER_PASS>();
+  constexpr int num_passes = calc_num_passes<T, BitsPerPass>();
 
   for (int pass = 0; pass < num_passes; ++pass) {
     if (pass == 0) {
@@ -473,24 +461,24 @@ void radix_topk_(const T* in,
       out_idx_buf = idx_buf1.data();
     }
 
-    radix_kernel<T, IdxT, BITS_PER_PASS, NUM_THREAD>
-      <<<blocks, NUM_THREAD, 0, stream>>>(in_buf,
-                                          in_idx_buf,
-                                          out_buf,
-                                          out_idx_buf,
-                                          out,
-                                          out_idx,
-                                          counters.data(),
-                                          histograms.data(),
-                                          len,
-                                          k,
-                                          !select_min,
-                                          pass);
+    radix_kernel<T, IdxT, BitsPerPass, BlockSize>
+      <<<blocks, BlockSize, 0, stream>>>(in_buf,
+                                         in_idx_buf,
+                                         out_buf,
+                                         out_idx_buf,
+                                         out,
+                                         out_idx,
+                                         counters.data(),
+                                         histograms.data(),
+                                         len,
+                                         k,
+                                         !select_min,
+                                         pass);
     RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
 }
 
-template <typename T, typename IdxT, int BITS_PER_PASS, int NUM_THREAD>
+template <typename T, typename IdxT, int BitsPerPass, int BlockSize>
 void radix_topk(const T* in,
                 const IdxT* in_idx,
                 size_t batch_size,
@@ -503,15 +491,15 @@ void radix_topk(const T* in,
 {
   for (size_t offset = 0; offset < batch_size; offset += MAX_BATCH_SIZE) {
     auto batch_chunk = uint16_t(std::min<size_t>(MAX_BATCH_SIZE, batch_size - offset));
-    radix_topk_<T, IdxT, BITS_PER_PASS, NUM_THREAD>(in + offset * len,
-                                                    in_idx + offset * len,
-                                                    batch_chunk,
-                                                    len,
-                                                    k,
-                                                    out + offset * k,
-                                                    out_idx + offset * k,
-                                                    select_min,
-                                                    stream);
+    radix_topk_<T, IdxT, BitsPerPass, BlockSize>(in + offset * len,
+                                                 in_idx + offset * len,
+                                                 batch_chunk,
+                                                 len,
+                                                 k,
+                                                 out + offset * k,
+                                                 out_idx + offset * k,
+                                                 select_min,
+                                                 stream);
   }
 }
 
