@@ -14,11 +14,6 @@
  * limitations under the License.
  */
 
-/**
- * @warning This file is deprecated and will be removed in release 22.06.
- * Please use the include/raft_runtime/handle.hpp instead.
- */
-
 #ifndef __RAFT_RT_HANDLE
 #define __RAFT_RT_HANDLE
 
