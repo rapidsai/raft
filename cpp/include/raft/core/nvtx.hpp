@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -66,19 +66,19 @@
  */
 namespace raft::common::nvtx {
 
-    namespace domain {
+namespace domain {
 
 /** @brief The default NVTX domain. */
-        struct app {
-            static constexpr char const* name{"application"};
-        };
+struct app {
+  static constexpr char const* name{"application"};
+};
 
 /** @brief This NVTX domain is supposed to be used within raft.  */
-        struct raft {
-            static constexpr char const* name{"raft"};
-        };
+struct raft {
+  static constexpr char const* name{"raft"};
+};
 
-    }  // namespace domain
+}  // namespace domain
 
 /**
  * @brief Push a named NVTX range.
@@ -92,11 +92,11 @@ namespace raft::common::nvtx {
  * @param format range name format (accepts printf-style arguments)
  * @param args the arguments for the printf-style formatting
  */
-    template <typename Domain = domain::app, typename... Args>
-    inline void push_range(const char* format, Args... args)
-    {
-        detail::push_range<Domain, Args...>(format, args...);
-    }
+template <typename Domain = domain::app, typename... Args>
+inline void push_range(const char* format, Args... args)
+{
+  detail::push_range<Domain, Args...>(format, args...);
+}
 
 /**
  * @brief Pop the latest range.
@@ -108,11 +108,11 @@ namespace raft::common::nvtx {
  *   \endcode
  *   NB: make sure to use the same domain for `push_range` and `pop_range`.
  */
-    template <typename Domain = domain::app>
-    inline void pop_range()
-    {
-        detail::pop_range<Domain>();
-    }
+template <typename Domain = domain::app>
+inline void pop_range()
+{
+  detail::pop_range<Domain>();
+}
 
 /**
  * @brief Push a named NVTX range that would be popped at the end of the object lifetime.
@@ -125,31 +125,31 @@ namespace raft::common::nvtx {
  *      struct custom_domain { static constexpr char const* name{"custom message"}; }
  *   \endcode
  */
-    template <typename Domain = domain::app>
-    class range {
-    public:
-        /**
-         * Push a named NVTX range.
-         * At the end of the object lifetime, pop the range back.
-         *
-         * @param format range name format (accepts printf-style arguments)
-         * @param args the arguments for the printf-style formatting
-         */
-        template <typename... Args>
-        explicit range(const char* format, Args... args)
-        {
-            push_range<Domain, Args...>(format, args...);
-        }
+template <typename Domain = domain::app>
+class range {
+ public:
+  /**
+   * Push a named NVTX range.
+   * At the end of the object lifetime, pop the range back.
+   *
+   * @param format range name format (accepts printf-style arguments)
+   * @param args the arguments for the printf-style formatting
+   */
+  template <typename... Args>
+  explicit range(const char* format, Args... args)
+  {
+    push_range<Domain, Args...>(format, args...);
+  }
 
-        ~range() { pop_range<Domain>(); }
+  ~range() { pop_range<Domain>(); }
 
-        /* This object is not meant to be touched. */
-        range(const range&) = delete;
-        range(range&&)      = delete;
-        auto operator=(const range&) -> range& = delete;
-        auto operator=(range&&) -> range&                = delete;
-        static auto operator new(std::size_t) -> void*   = delete;
-        static auto operator new[](std::size_t) -> void* = delete;
-    };
+  /* This object is not meant to be touched. */
+  range(const range&) = delete;
+  range(range&&)      = delete;
+  auto operator=(const range&) -> range& = delete;
+  auto operator=(range&&) -> range&                = delete;
+  static auto operator new(std::size_t) -> void*   = delete;
+  static auto operator new[](std::size_t) -> void* = delete;
+};
 
 }  // namespace raft::common::nvtx

@@ -18,7 +18,6 @@
  * Please use the cuh version instead.
  */
 
-
 #pragma once
 
 #include <raft/core/cublas_macros.hpp>

@@ -40,35 +40,35 @@ namespace raft {
 /**
  * @brief Exception thrown when a cuSparse error is encountered.
  */
-    struct cusparse_error : public raft::exception {
-        explicit cusparse_error(char const* const message) : raft::exception(message) {}
-        explicit cusparse_error(std::string const& message) : raft::exception(message) {}
-    };
+struct cusparse_error : public raft::exception {
+  explicit cusparse_error(char const* const message) : raft::exception(message) {}
+  explicit cusparse_error(std::string const& message) : raft::exception(message) {}
+};
 
-    namespace sparse {
-        namespace detail {
+namespace sparse {
+namespace detail {
 
-            inline const char* cusparse_error_to_string(cusparseStatus_t err)
-            {
+inline const char* cusparse_error_to_string(cusparseStatus_t err)
+{
 #if defined(CUDART_VERSION) && CUDART_VERSION >= 10100
-                return cusparseGetErrorString(err);
+  return cusparseGetErrorString(err);
 #else   // CUDART_VERSION
-                switch (err) {
-                    _CUSPARSE_ERR_TO_STR(CUSPARSE_STATUS_SUCCESS);
-                    _CUSPARSE_ERR_TO_STR(CUSPARSE_STATUS_NOT_INITIALIZED);
-                    _CUSPARSE_ERR_TO_STR(CUSPARSE_STATUS_ALLOC_FAILED);
-                    _CUSPARSE_ERR_TO_STR(CUSPARSE_STATUS_INVALID_VALUE);
-                    _CUSPARSE_ERR_TO_STR(CUSPARSE_STATUS_ARCH_MISMATCH);
-                    _CUSPARSE_ERR_TO_STR(CUSPARSE_STATUS_EXECUTION_FAILED);
-                    _CUSPARSE_ERR_TO_STR(CUSPARSE_STATUS_INTERNAL_ERROR);
-                    _CUSPARSE_ERR_TO_STR(CUSPARSE_STATUS_MATRIX_TYPE_NOT_SUPPORTED);
-                    default: return "CUSPARSE_STATUS_UNKNOWN";
-                };
+  switch (err) {
+    _CUSPARSE_ERR_TO_STR(CUSPARSE_STATUS_SUCCESS);
+    _CUSPARSE_ERR_TO_STR(CUSPARSE_STATUS_NOT_INITIALIZED);
+    _CUSPARSE_ERR_TO_STR(CUSPARSE_STATUS_ALLOC_FAILED);
+    _CUSPARSE_ERR_TO_STR(CUSPARSE_STATUS_INVALID_VALUE);
+    _CUSPARSE_ERR_TO_STR(CUSPARSE_STATUS_ARCH_MISMATCH);
+    _CUSPARSE_ERR_TO_STR(CUSPARSE_STATUS_EXECUTION_FAILED);
+    _CUSPARSE_ERR_TO_STR(CUSPARSE_STATUS_INTERNAL_ERROR);
+    _CUSPARSE_ERR_TO_STR(CUSPARSE_STATUS_MATRIX_TYPE_NOT_SUPPORTED);
+    default: return "CUSPARSE_STATUS_UNKNOWN";
+  };
 #endif  // CUDART_VERSION
-            }
+}
 
-        }  // namespace detail
-    }  // namespace sparse
+}  // namespace detail
+}  // namespace sparse
 }  // namespace raft
 
 #undef _CUSPARSE_ERR_TO_STR
