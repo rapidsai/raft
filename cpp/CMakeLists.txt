@@ -69,8 +69,12 @@ option(RAFT_ENABLE_NN_DEPENDENCIES "Search for raft::nn dependencies like faiss"
 option(RAFT_ENABLE_cuco_DEPENDENCY "Enable cuCollections dependency" OFF)
 option(RAFT_ENABLE_mdspan_DEPENDENCY "Enable mdspan dependency" ON)
 option(RAFT_ENABLE_thrust_DEPENDENCY "Enable Thrust dependency" ON)
-if(raft IN_LIST raft_FIND_COMPONENTS)
+if(distance IN_LIST raft_FIND_COMPONENTS OR RAFT_COMPILE_LIBRARIES OR RAFT_COMPILE_DIST_LIBRARY)
   set(RAFT_ENABLE_cuco_DEPENDENCY ON)
+endif()
+
+if(BUILD_TESTS)
+  set(RAFT_ENABLE_thrust_DEPENDENCY ON)
 endif()
 
 # Currently, UCX and NCCL are only needed to build Pyraft and so a simple find_package() is sufficient
