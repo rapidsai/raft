@@ -28,16 +28,16 @@
 /*
   Three APIs of different scopes are provided:
     1. host function: warp_sort_topk()
-    2. block-wide API: class WarpSortBlockWide
-    3. warp-wide API: class WarpSelect and class WarpBitonic
+    2. block-wide API: class block_sort
+    3. warp-wide API: class warp_sort_filtered and class warp_sort_immediate
 
 
   1. warp_sort_topk() // the description for it is no longer true, should be deleted
 
-  2. class WarpSortBlockWide
+  2. class block_sort
     It can be regarded as a fixed size priority queue for a thread block,
     although the API is not typical.
-    class WarpSelect and WarpBitonic can be used to instantiate WarpSortBlockWide.
+    class warp_sort_filtered and warp_sort_immediate can be used to instantiate block_sort.
 
     It uses dynamic shared memory as intermediate buffer.
     So the required shared memory size should be calculated using
@@ -59,7 +59,7 @@
 
     Example:
       __global__ void kernel() {
-        WarpSortBlockWide<WarpBitonic, ...> queue(...);
+        block_sort<warp_sort_immediate, ...> queue(...);
 
         // way 1, [0, len) is same for the whole block
         queue.add(in, 0, len);
@@ -76,20 +76,20 @@
      kernel<<<grid_dim, block_dim, smem_size>>>();
 
 
-  3. class WarpSelect and class WarpBitonic
+  3. class warp_sort_filtered and class warp_sort_immediate
     These two classes can be regarded as fixed size priority queue for a warp.
-    Usage is similar to class WarpSortBlockWide.
+    Usage is similar to class block_sort.
     Two types of add() functions are provided, and also note that [start, end) is
     for a whole warp, while val/idx is for a thread.
     No shared memory is needed.
 
     The host function uses a heuristic to choose between these two classes for sorting,
-    WarpBitonic being chosen when the number of inputs per warp is somewhat small
-    (see the usage of LaunchThreshold<WarpBitonic>::len_factor_for_choosing).
+    warp_sort_immediate being chosen when the number of inputs per warp is somewhat small
+    (see the usage of LaunchThreshold<warp_sort_immediate>::len_factor_for_choosing).
 
     Example:
       __global__ void kernel() {
-        WarpBitonic<...> queue(...);
+        warp_sort_immediate<...> queue(...);
         int warp_id = threadIdx.x / WarpSize;
         int lane_id = threadIdx.x % WarpSize;
 
@@ -145,12 +145,12 @@ constexpr auto calc_capacity(int k) -> int
  *   the content sorted alongside the keys.
  */
 template <int Capacity, bool Ascending, typename T, typename IdxT>
-class WarpSort {
+class warp_sort {
   static_assert(isPo2(Capacity));
 
  public:
   /**
-   * Construct the WarpSort empty queue.
+   * Construct the warp_sort empty queue.
    *
    * @param k
    *   number of elements to select.
@@ -159,7 +159,7 @@ class WarpSort {
    *   i.e. `Ascending ? upper_bound<T>() : lower_bound<T>()`.
    *
    */
-  __device__ WarpSort(IdxT k, T dummy) : k_(k), dummy_(dummy)
+  __device__ warp_sort(IdxT k, T dummy) : k_(k), dummy_(dummy)
   {
 #pragma unroll
     for (int i = 0; i < kMaxArrLen; i++) {
@@ -239,13 +239,21 @@ class WarpSort {
   }
 };
 
+/**
+ * This version of warp_sort compares each input element against the current
+ * estimate of k-th value before adding it to the intermediate sorting buffer.
+ * This makes the algorithm do less sorting steps for long input sequences
+ * at the cost of extra checks on each step.
+ *
+ * This implementation is preferred for large input_len values.
+ */
 template <int Capacity, bool Ascending, typename T, typename IdxT>
-class WarpSelect : public WarpSort<Capacity, Ascending, T, IdxT> {
+class warp_sort_filtered : public warp_sort<Capacity, Ascending, T, IdxT> {
   static_assert(Capacity >= WarpSize);
 
  public:
-  __device__ WarpSelect(int k, T dummy)
-    : WarpSort<Capacity, Ascending, T, IdxT>(k, dummy), buf_len_(0), k_th_(dummy)
+  __device__ warp_sort_filtered(int k, T dummy)
+    : warp_sort<Capacity, Ascending, T, IdxT>(k, dummy), buf_len_(0), k_th_(dummy)
   {
 #pragma unroll
     for (int i = 0; i < kMaxBufLen; i++) {
@@ -307,11 +315,11 @@ class WarpSelect : public WarpSort<Capacity, Ascending, T, IdxT> {
     }
   }
 
-  using WarpSort<Capacity, Ascending, T, IdxT>::kMaxArrLen;
-  using WarpSort<Capacity, Ascending, T, IdxT>::val_arr_;
-  using WarpSort<Capacity, Ascending, T, IdxT>::idx_arr_;
-  using WarpSort<Capacity, Ascending, T, IdxT>::k_;
-  using WarpSort<Capacity, Ascending, T, IdxT>::dummy_;
+  using warp_sort<Capacity, Ascending, T, IdxT>::kMaxArrLen;
+  using warp_sort<Capacity, Ascending, T, IdxT>::val_arr_;
+  using warp_sort<Capacity, Ascending, T, IdxT>::idx_arr_;
+  using warp_sort<Capacity, Ascending, T, IdxT>::k_;
+  using warp_sort<Capacity, Ascending, T, IdxT>::dummy_;
 
   static constexpr int kMaxBufLen = (Capacity <= 64) ? 2 : 4;
 
@@ -322,13 +330,19 @@ class WarpSelect : public WarpSort<Capacity, Ascending, T, IdxT> {
   T k_th_;
 };
 
+/**
+ * This version of warp_sort adds every input element into the intermediate sorting
+ * buffer, and thus does the sorting step every `Capacity` input elements.
+ *
+ * This implementation is preferred for very small input_len values.
+ */
 template <int Capacity, bool Ascending, typename T, typename IdxT>
-class WarpBitonic : public WarpSort<Capacity, Ascending, T, IdxT> {
+class warp_sort_immediate : public warp_sort<Capacity, Ascending, T, IdxT> {
   static_assert(Capacity >= WarpSize);
 
  public:
-  __device__ WarpBitonic(int k, T dummy)
-    : WarpSort<Capacity, Ascending, T, IdxT>(k, dummy), buf_len_(0)
+  __device__ warp_sort_immediate(int k, T dummy)
+    : warp_sort<Capacity, Ascending, T, IdxT>(k, dummy), buf_len_(0)
   {
 #pragma unroll
     for (int i = 0; i < kMaxArrLen; i++) {
@@ -404,11 +418,11 @@ class WarpBitonic : public WarpSort<Capacity, Ascending, T, IdxT> {
     topk::bitonic<kMaxArrLen>(!Ascending).sort(val_buf_, idx_buf_);
   }
 
-  using WarpSort<Capacity, Ascending, T, IdxT>::kMaxArrLen;
-  using WarpSort<Capacity, Ascending, T, IdxT>::val_arr_;
-  using WarpSort<Capacity, Ascending, T, IdxT>::idx_arr_;
-  using WarpSort<Capacity, Ascending, T, IdxT>::k_;
-  using WarpSort<Capacity, Ascending, T, IdxT>::dummy_;
+  using warp_sort<Capacity, Ascending, T, IdxT>::kMaxArrLen;
+  using warp_sort<Capacity, Ascending, T, IdxT>::val_arr_;
+  using warp_sort<Capacity, Ascending, T, IdxT>::idx_arr_;
+  using warp_sort<Capacity, Ascending, T, IdxT>::k_;
+  using warp_sort<Capacity, Ascending, T, IdxT>::dummy_;
 
   T val_buf_[kMaxArrLen];
   IdxT idx_buf_[kMaxArrLen];
@@ -423,9 +437,9 @@ class WarpBitonic : public WarpSort<Capacity, Ascending, T, IdxT> {
  *   the full sort.
  */
 template <int Capacity, bool Ascending, typename T, typename IdxT>
-class WarpMerge : public WarpSort<Capacity, Ascending, T, IdxT> {
+class warp_merge : public warp_sort<Capacity, Ascending, T, IdxT> {
  public:
-  __device__ WarpMerge(int k, T dummy) : WarpSort<Capacity, Ascending, T, IdxT>(k, dummy) {}
+  __device__ warp_merge(int k, T dummy) : warp_sort<Capacity, Ascending, T, IdxT>(k, dummy) {}
 
   // NB: the input is already sorted, because it's the second pass.
   __device__ void load(const T* in, const IdxT* in_idx, IdxT start, IdxT end)
@@ -438,12 +452,12 @@ class WarpMerge : public WarpSort<Capacity, Ascending, T, IdxT> {
   __device__ void done() {}
 
  private:
-  using WarpSort<Capacity, Ascending, T, IdxT>::kWarpWidth;
-  using WarpSort<Capacity, Ascending, T, IdxT>::kMaxArrLen;
-  using WarpSort<Capacity, Ascending, T, IdxT>::val_arr_;
-  using WarpSort<Capacity, Ascending, T, IdxT>::idx_arr_;
-  using WarpSort<Capacity, Ascending, T, IdxT>::k_;
-  using WarpSort<Capacity, Ascending, T, IdxT>::dummy_;
+  using warp_sort<Capacity, Ascending, T, IdxT>::kWarpWidth;
+  using warp_sort<Capacity, Ascending, T, IdxT>::kMaxArrLen;
+  using warp_sort<Capacity, Ascending, T, IdxT>::val_arr_;
+  using warp_sort<Capacity, Ascending, T, IdxT>::idx_arr_;
+  using warp_sort<Capacity, Ascending, T, IdxT>::k_;
+  using warp_sort<Capacity, Ascending, T, IdxT>::dummy_;
 };
 
 template <typename T, typename IdxT>
@@ -457,10 +471,9 @@ template <template <int, bool, typename, typename> class WarpSortWarpWide,
           bool Ascending,
           typename T,
           typename IdxT>
-class WarpSortBlockWide {
+class block_sort {
  public:
-  __device__ WarpSortBlockWide(int k, T dummy, void* smem_buf)
-    : queue_(k, dummy), k_(k), dummy_(dummy)
+  __device__ block_sort(int k, T dummy, void* smem_buf) : queue_(k, dummy), k_(k), dummy_(dummy)
   {
     val_smem_             = static_cast<T*>(smem_buf);
     const int num_of_warp = blockDim.x / WarpSize;
@@ -544,14 +557,14 @@ __global__ void block_kernel(
   const T* in, const IdxT* in_idx, IdxT len, int k, T* out, IdxT* out_idx, T dummy)
 {
   extern __shared__ __align__(sizeof(T) * 256) uint8_t smem_buf_bytes[];
-  T* smem_buf = reinterpret_cast<T*>(smem_buf_bytes);
+  block_sort<WarpSortClass, Capacity, Ascending, T, IdxT> queue(
+    k, dummy, reinterpret_cast<T*>(smem_buf_bytes));
+  in += blockIdx.y * len;
+  in_idx += blockIdx.y * len;
 
   const IdxT len_per_block = ceildiv<IdxT>(len, gridDim.x);
-  const IdxT start         = blockIdx.x * len_per_block;
-  const IdxT end           = std::min(len, start + len_per_block);
-
-  WarpSortBlockWide<WarpSortClass, Capacity, Ascending, T, IdxT> queue(k, dummy, smem_buf);
-  queue.load(in + blockIdx.y * len, in_idx + blockIdx.y * len, start, end);
+  queue.load(
+    in, in_idx, blockIdx.x * len_per_block, std::min<IdxT>(len, (blockIdx.x + 1) * len_per_block));
 
   queue.done();
   const int block_id = blockIdx.x + gridDim.x * blockIdx.y;
@@ -658,13 +671,13 @@ struct LaunchThreshold {
 };
 
 template <>
-struct LaunchThreshold<WarpSelect> {
+struct LaunchThreshold<warp_sort_filtered> {
   static constexpr int len_factor_for_multi_block  = 2;
   static constexpr int len_factor_for_single_block = 32;
 };
 
 template <>
-struct LaunchThreshold<WarpBitonic> {
+struct LaunchThreshold<warp_sort_immediate> {
   static constexpr int len_factor_for_choosing     = 4;
   static constexpr int len_factor_for_multi_block  = 2;
   static constexpr int len_factor_for_single_block = 4;
@@ -734,7 +747,7 @@ void calc_launch_parameter_for_merge(IdxT len, int k, int* num_of_block, int* nu
 
   int block_size    = 0;
   int min_grid_size = 0;
-  launch_setup<WarpMerge, T, IdxT>::calc_optimal_params(k, &block_size, &min_grid_size);
+  launch_setup<warp_merge, T, IdxT>::calc_optimal_params(k, &block_size, &min_grid_size);
 
   *num_of_warp      = block_size / WarpSize;
   IdxT len_per_warp = (len - 1) / (*num_of_warp) + 1;
@@ -778,23 +791,23 @@ void warp_sort_topk_(int num_of_block,
                                                stream);
 
   if (num_of_block > 1) {
-    // Merge the results across blocks using WarpMerge
+    // Merge the results across blocks using warp_merge
     len = k * num_of_block;
     calc_launch_parameter_for_merge<T>(len, k, &num_of_block, &num_of_warp);
     block_dim = num_of_warp * WarpSize;
     smem_size = calc_smem_size_for_block_wide<T>(num_of_warp, (IdxT)k);
-    launch_setup<WarpMerge, T, IdxT>::kernel((IdxT)k,
-                                             select_min,
-                                             (IdxT)batch_size,
-                                             (IdxT)len,
-                                             num_of_block,
-                                             block_dim,
-                                             smem_size,
-                                             tmp_val.data(),
-                                             tmp_idx.data(),
-                                             out,
-                                             out_idx,
-                                             stream);
+    launch_setup<warp_merge, T, IdxT>::kernel((IdxT)k,
+                                              select_min,
+                                              (IdxT)batch_size,
+                                              (IdxT)len,
+                                              num_of_block,
+                                              block_dim,
+                                              smem_size,
+                                              tmp_val.data(),
+                                              tmp_idx.data(),
+                                              out,
+                                              out_idx,
+                                              stream);
   }
 }
 
@@ -814,15 +827,27 @@ void warp_sort_topk(const T* in,
   int capacity     = calc_capacity(k);
   int num_of_block = 0;
   int num_of_warp  = 0;
-  calc_launch_parameter<WarpBitonic, T>(batch_size, len, (IdxT)k, &num_of_block, &num_of_warp);
+  calc_launch_parameter<warp_sort_immediate, T>(
+    batch_size, len, (IdxT)k, &num_of_block, &num_of_warp);
   int len_per_warp = len / (num_of_block * num_of_warp);
 
-  if (len_per_warp <= capacity * LaunchThreshold<WarpBitonic>::len_factor_for_choosing) {
-    warp_sort_topk_<WarpBitonic, T, IdxT>(
-      num_of_block, num_of_warp, in, in_idx, batch_size, len, k, out, out_idx, select_min, stream);
-  } else {
-    calc_launch_parameter<WarpSelect, T>(batch_size, len, k, &num_of_block, &num_of_warp);
-    warp_sort_topk_<WarpSelect, T, IdxT>(
+  if (len_per_warp <= capacity * LaunchThreshold<warp_sort_immediate>::len_factor_for_choosing))
+    {
+      warp_sort_topk_<warp_sort_immediate, T, IdxT>(num_of_block,
+                                                    num_of_warp,
+                                                    in,
+                                                    in_idx,
+                                                    batch_size,
+                                                    len,
+                                                    k,
+                                                    out,
+                                                    out_idx,
+                                                    select_min,
+                                                    stream);
+    }
+  else {
+    calc_launch_parameter<warp_sort_filtered, T>(batch_size, len, k, &num_of_block, &num_of_warp);
+    warp_sort_topk_<warp_sort_filtered, T, IdxT>(
       num_of_block, num_of_warp, in, in_idx, batch_size, len, k, out, out_idx, select_min, stream);
   }
 }
