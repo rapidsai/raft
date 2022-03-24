@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "detail/nvtx.hpp"
+#include <raft/common/detail/nvtx.hpp>
 #include <optional>
 
 /**

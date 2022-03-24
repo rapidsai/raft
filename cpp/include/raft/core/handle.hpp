@@ -40,7 +40,7 @@
 ///@todo: enable once we have migrated cuml-comms layer too
 //#include <common/cuml_comms_int.hpp>
 
-#include "cudart_utils.h"
+#include <raft/core/cudart_utils.hpp>
 
 #include <raft/comms/comms.hpp>
 #include <raft/interruptible.hpp>
