@@ -831,21 +831,10 @@ void warp_sort_topk(const T* in,
     batch_size, len, (IdxT)k, &num_of_block, &num_of_warp);
   int len_per_warp = len / (num_of_block * num_of_warp);
 
-  if (len_per_warp <= capacity * LaunchThreshold<warp_sort_immediate>::len_factor_for_choosing))
-    {
-      warp_sort_topk_<warp_sort_immediate, T, IdxT>(num_of_block,
-                                                    num_of_warp,
-                                                    in,
-                                                    in_idx,
-                                                    batch_size,
-                                                    len,
-                                                    k,
-                                                    out,
-                                                    out_idx,
-                                                    select_min,
-                                                    stream);
-    }
-  else {
+  if (len_per_warp <= capacity * LaunchThreshold<warp_sort_immediate>::len_factor_for_choosing) {
+    warp_sort_topk_<warp_sort_immediate, T, IdxT>(
+      num_of_block, num_of_warp, in, in_idx, batch_size, len, k, out, out_idx, select_min, stream);
+  } else {
     calc_launch_parameter<warp_sort_filtered, T>(batch_size, len, k, &num_of_block, &num_of_warp);
     warp_sort_topk_<warp_sort_filtered, T, IdxT>(
       num_of_block, num_of_warp, in, in_idx, batch_size, len, k, out, out_idx, select_min, stream);
