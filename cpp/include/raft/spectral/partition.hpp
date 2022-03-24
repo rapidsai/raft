@@ -14,93 +14,10 @@
  * limitations under the License.
  */
 /**
- * @warning This file is deprecated and will be removed in release 22.06.
+ * This file is deprecated and will be removed in release 22.06.
  * Please use the cuh version instead.
  */
 
-#ifndef __PARTITION_H
-#define __PARTITION_H
-
 #pragma once
 
-#include <tuple>
-
-#include <raft/spectral/detail/partition.hpp>
-
-namespace raft {
-namespace spectral {
-
-// =========================================================
-// Spectral partitioner
-// =========================================================
-
-/// Compute spectral graph partition
-/** Compute partition for a weighted undirected graph. This
- *  partition attempts to minimize the cost function:
- *    Cost = \sum_i (Edges cut by ith partition)/(Vertices in ith partition)
- *
- *  @param G Weighted graph in CSR format
- *  @param nClusters Number of partitions.
- *  @param nEigVecs Number of eigenvectors to compute.
- *  @param maxIter_lanczos Maximum number of Lanczos iterations.
- *  @param restartIter_lanczos Maximum size of Lanczos system before
- *    implicit restart.
- *  @param tol_lanczos Convergence tolerance for Lanczos method.
- *  @param maxIter_kmeans Maximum number of k-means iterations.
- *  @param tol_kmeans Convergence tolerance for k-means algorithm.
- *  @param clusters (Output, device memory, n entries) Partition
- *    assignments.
- *  @param iters_lanczos On exit, number of Lanczos iterations
- *    performed.
- *  @param iters_kmeans On exit, number of k-means iterations
- *    performed.
- *  @return statistics: number of eigensolver iterations, .
- */
-template <typename vertex_t, typename weight_t, typename EigenSolver, typename ClusterSolver>
-std::tuple<vertex_t, weight_t, vertex_t> partition(
-  handle_t const& handle,
-  matrix::sparse_matrix_t<vertex_t, weight_t> const& csr_m,
-  EigenSolver const& eigen_solver,
-  ClusterSolver const& cluster_solver,
-  vertex_t* __restrict__ clusters,
-  weight_t* eigVals,
-  weight_t* eigVecs)
-{
-  return raft::spectral::detail::partition<vertex_t, weight_t, EigenSolver, ClusterSolver>(
-    handle, csr_m, eigen_solver, cluster_solver, clusters, eigVals, eigVecs);
-}
-
-// =========================================================
-// Analysis of graph partition
-// =========================================================
-
-/// Compute cost function for partition
-/** This function determines the edges cut by a partition and a cost
- *  function:
- *    Cost = \sum_i (Edges cut by ith partition)/(Vertices in ith partition)
- *  Graph is assumed to be weighted and undirected.
- *
- *  @param G Weighted graph in CSR format
- *  @param nClusters Number of partitions.
- *  @param clusters (Input, device memory, n entries) Partition
- *    assignments.
- *  @param edgeCut On exit, weight of edges cut by partition.
- *  @param cost On exit, partition cost function.
- *  @return error flag.
- */
-template <typename vertex_t, typename weight_t>
-void analyzePartition(handle_t const& handle,
-                      matrix::sparse_matrix_t<vertex_t, weight_t> const& csr_m,
-                      vertex_t nClusters,
-                      const vertex_t* __restrict__ clusters,
-                      weight_t& edgeCut,
-                      weight_t& cost)
-{
-  raft::spectral::detail::analyzePartition<vertex_t, weight_t>(
-    handle, csr_m, nClusters, clusters, edgeCut, cost);
-}
-
-}  // namespace spectral
-}  // namespace raft
-
-#endif
+#include <raft/spectral/partition.cuh>

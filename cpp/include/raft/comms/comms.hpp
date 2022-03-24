@@ -15,7 +15,7 @@
  */
 /**
  * This file is deprecated and will be removed in release 22.06.
- * Please use the cuh version instead.
+ * Please use core/comms.hpp instead.
  */
 
 #pragma once
