@@ -36,6 +36,7 @@ HELP="$0 [<target> ...] [<flag> ...]
    --compile-libs   - compile shared libraries for all components
    --compile-nn     - compile shared library for nn component
    --compile-dist   - compile shared library for distance component
+   --no-thrust      - disable thrust dependency. can be useful for header-only install
    --allgpuarch     - build for all supported GPU architectures
    --buildfaiss     - build faiss statically into raft
    --install        - install cmake targets
