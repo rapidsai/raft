@@ -18,7 +18,7 @@
 
 #include <raft/cuda_utils.cuh>
 
-namespace raft::spatial::knn::detail::ivf_flat {
+namespace raft::spatial::knn::detail::topk {
 
 namespace helpers {
 
@@ -229,4 +229,4 @@ class bitonic {
   }
 };
 
-}  // namespace raft::spatial::knn::detail::ivf_flat
+}  // namespace raft::spatial::knn::detail::topk

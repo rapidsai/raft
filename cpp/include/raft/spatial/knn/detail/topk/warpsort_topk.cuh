@@ -106,7 +106,7 @@
       }
  */
 
-namespace raft::spatial::knn::detail::ivf_flat {
+namespace raft::spatial::knn::detail::topk {
 
 static constexpr int kMaxCapacity = 256;
 
@@ -183,7 +183,7 @@ class WarpSort {
         }
       }
     }
-    ivf_flat::bitonic<kMaxArrLen>(Ascending, kWarpWidth).merge(val_arr_, idx_arr_);
+    topk::bitonic<kMaxArrLen>(Ascending, kWarpWidth).merge(val_arr_, idx_arr_);
   }
 
   /** Save the content by the pointer location. */
@@ -235,7 +235,7 @@ class WarpSort {
         idx_arr_[kMaxArrLen - i] = ids_in[PerThreadSizeIn - i];
       }
     }
-    ivf_flat::bitonic<kMaxArrLen>(Ascending).merge(val_arr_, idx_arr_);
+    topk::bitonic<kMaxArrLen>(Ascending).merge(val_arr_, idx_arr_);
   }
 };
 
@@ -297,7 +297,7 @@ class WarpSelect : public WarpSort<Capacity, Ascending, T, IdxT> {
 
   __device__ void merge_buf_()
   {
-    ivf_flat::bitonic<kMaxBufLen>(!Ascending).sort(val_buf_, idx_buf_);
+    topk::bitonic<kMaxBufLen>(!Ascending).sort(val_buf_, idx_buf_);
     this->merge_in<kMaxBufLen>(val_buf_, idx_buf_);
     buf_len_ = 0;
     set_k_th_();  // contains warp sync
@@ -361,7 +361,7 @@ class WarpBitonic : public WarpSort<Capacity, Ascending, T, IdxT> {
 
     ++buf_len_;
     if (buf_len_ == kMaxArrLen) {
-      ivf_flat::bitonic<kMaxArrLen>(!Ascending).sort(val_buf_, idx_buf_);
+      topk::bitonic<kMaxArrLen>(!Ascending).sort(val_buf_, idx_buf_);
       this->merge_in<kMaxArrLen>(val_buf_, idx_buf_);
 #pragma unroll
       for (int i = 0; i < kMaxArrLen; i++) {
@@ -374,7 +374,7 @@ class WarpBitonic : public WarpSort<Capacity, Ascending, T, IdxT> {
   __device__ void done()
   {
     if (buf_len_ != 0) {
-      ivf_flat::bitonic<kMaxArrLen>(!Ascending).sort(val_buf_, idx_buf_);
+      topk::bitonic<kMaxArrLen>(!Ascending).sort(val_buf_, idx_buf_);
       this->merge_in<kMaxArrLen>(val_buf_, idx_buf_);
     }
   }
@@ -390,7 +390,7 @@ class WarpBitonic : public WarpSort<Capacity, Ascending, T, IdxT> {
         idx_arr_[i] = in_idx[idx];
       }
     }
-    ivf_flat::bitonic<kMaxArrLen>(Ascending).sort(val_arr_, idx_arr_);
+    topk::bitonic<kMaxArrLen>(Ascending).sort(val_arr_, idx_arr_);
   }
 
   /** Fill in the secondary val_buf_/idx_buf_ */
@@ -401,7 +401,7 @@ class WarpBitonic : public WarpSort<Capacity, Ascending, T, IdxT> {
       val_buf_[i] = (idx < end) ? in[idx] : dummy_;
       idx_buf_[i] = (idx < end) ? in_idx[idx] : std::numeric_limits<IdxT>::max();
     }
-    ivf_flat::bitonic<kMaxArrLen>(!Ascending).sort(val_buf_, idx_buf_);
+    topk::bitonic<kMaxArrLen>(!Ascending).sort(val_buf_, idx_buf_);
   }
 
   using WarpSort<Capacity, Ascending, T, IdxT>::kMaxArrLen;
@@ -827,4 +827,4 @@ void warp_sort_topk(const T* in,
   }
 }
 
-}  // namespace raft::spatial::knn::detail::ivf_flat
+}  // namespace raft::spatial::knn::detail::topk

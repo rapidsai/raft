@@ -19,8 +19,8 @@
 #include "detail/knn_brute_force_faiss.cuh"
 #include "detail/selection_faiss.cuh"
 
-#include "detail/ivf_flat/radix_topk.cuh"
-#include "detail/ivf_flat/warpsort_topk.cuh"
+#include "detail/topk/radix_topk.cuh"
+#include "detail/topk/warpsort_topk.cuh"
 
 #include <raft/common/nvtx.hpp>
 
@@ -147,17 +147,17 @@ inline void select_k(value_t* in_keys,
       break;
 
     case SelectKAlgo::RADIX_8_BITS:
-      detail::ivf_flat::radix_topk<value_t, idx_t, 8, 512>(
+      detail::topk::radix_topk<value_t, idx_t, 8, 512>(
         in_keys, in_values, n_inputs, input_len, k, out_keys, out_values, select_min, stream);
       break;
 
     case SelectKAlgo::RADIX_11_BITS:
-      detail::ivf_flat::radix_topk<value_t, idx_t, 11, 512>(
+      detail::topk::radix_topk<value_t, idx_t, 11, 512>(
         in_keys, in_values, n_inputs, input_len, k, out_keys, out_values, select_min, stream);
       break;
 
     case SelectKAlgo::WARP_SORT:
-      detail::ivf_flat::warp_sort_topk<value_t, idx_t>(
+      detail::topk::warp_sort_topk<value_t, idx_t>(
         in_keys, in_values, n_inputs, input_len, k, out_keys, out_values, select_min, stream);
       break;
 

@@ -104,7 +104,7 @@ struct SelectInOutComputed {
     // check if the size is supported by the algorithm
     switch (algo) {
       case knn::SelectKAlgo::WARP_SORT:
-        if (spec.k > raft::spatial::knn::detail::ivf_flat::kMaxCapacity) {
+        if (spec.k > raft::spatial::knn::detail::topk::kMaxCapacity) {
           not_supported = true;
           return;
         }

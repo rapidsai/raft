@@ -25,7 +25,7 @@
 #include <raft/device_atomics.cuh>
 #include <raft/vectorized.cuh>
 
-namespace raft::spatial::knn::detail::ivf_flat {
+namespace raft::spatial::knn::detail::topk {
 
 constexpr int ITEM_PER_THREAD      = 32;
 constexpr int VECTORIZED_READ_SIZE = 16;
@@ -522,4 +522,4 @@ void radix_topk(const T* in,
   }
 }
 
-}  // namespace raft::spatial::knn::detail::ivf_flat
+}  // namespace raft::spatial::knn::detail::topk
