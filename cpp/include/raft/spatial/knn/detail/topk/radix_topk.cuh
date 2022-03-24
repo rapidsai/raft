@@ -150,6 +150,10 @@ struct Counter {
   IdxT out_back_cnt;
 };
 
+/**
+ * Fused filtering of the current phase and building histogram for the next phase
+ * (see steps 4-1 in `radix_kernel` description).
+ */
 template <typename T, typename IdxT, int BitsPerPass>
 __device__ void filter_and_histogram(const T* in_buf,
                                      const IdxT* in_idx_buf,
@@ -236,6 +240,7 @@ __device__ void filter_and_histogram(const T* in_buf,
 /**
  * Replace a part of the histogram with its own prefix sum, starting from the `start` and adding
  * `current` to each entry of the result.
+ * (step 2 in `radix_kernel` description)
  */
 template <typename IdxT, int BitsPerPass, int BlockSize>
 __device__ void scan(volatile IdxT* histogram,
@@ -257,7 +262,10 @@ __device__ void scan(volatile IdxT* histogram,
                     // to be read after
 }
 
-/** Calculate in which bucket the k-th value will fall */
+/**
+ * Calculate in which bucket the k-th value will fall
+ *  (steps 2-3 in `radix_kernel` description)
+ */
 template <typename T, typename IdxT, int BitsPerPass, int BlockSize>
 __device__ void choose_bucket(Counter<T, IdxT>* counter, IdxT* histogram, const IdxT k)
 {
@@ -293,6 +301,35 @@ __device__ void choose_bucket(Counter<T, IdxT>* counter, IdxT* histogram, const 
   }
 }
 
+/**
+ *
+ * It is expected to call this kernel multiple times (passes), in each pass we process a radix,
+ * going from the most significant towards the least significant bits (MSD).
+ *
+ * Conceptually, each pass consists of 4 steps:
+ *
+ * 1. Calculate histogram
+ *      First, transform bits into a digit, the value of which is in the range
+ *      [0, 2^{BITS_PER_PASS}-1]. Then count the frequency of each digit value and the result is a
+ *      histogram. That is, histogram[i] contains the count of inputs having value i.
+ *
+ * 2. Scan the histogram
+ *      Inclusive prefix sum is computed for the histogram. After this step, histogram[i] contains
+ *      the count of inputs having value <= i.
+ *
+ * 3. Find the bucket j of the histogram that the k-th value falls into
+ *
+ * 4. Filtering
+ *      Input elements whose digit value <j are the top-k elements. We put them into the result
+ *      array out. The number of such elements is histogram[j-1]. Since the k-th value must be in
+ *      the bucket j, we write all elements in bucket j into a intermediate buffer out_buf. For the
+ *      next pass, these elements are used as input, and we would like to find the
+ *      (k - histogram[j-1])-th value among them. That is, the k in the next pass is set to
+ *      (k - histogram[j-1]).
+ *
+ * In the implementation, the filtering step is delayed to the next pass so the filtering and
+ * histogram computation are fused. In this way, inputs are read once rather than twice.
+ */
 template <typename T, typename IdxT, int BitsPerPass, int BlockSize>
 __global__ void __launch_bounds__(BlockSize) radix_kernel(const T* in_buf,
                                                           const IdxT* in_idx_buf,
