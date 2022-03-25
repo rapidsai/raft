@@ -14,6 +14,14 @@
  * limitations under the License.
  */
 
+/**
+ * This file is deprecated and will be removed in release 22.06.
+ * Please use raft_runtime/cusolver_macros.hpp instead.
+ */
+
+#ifndef __RAFT_RT_CUSOLVER_MACROS_H
+#define __RAFT_RT_CUSOLVER_MACROS_H
+
 #pragma once
 
 #include <cusolverDn.h>
@@ -109,4 +117,6 @@ inline const char* cusolver_error_to_string(cusolverStatus_t err)
 
 #ifndef CUSOLVER_CHECK_NO_THROW
 #define CUSOLVER_CHECK_NO_THROW(call) CUSOLVER_TRY_NO_THROW(call)
+#endif
+
 #endif

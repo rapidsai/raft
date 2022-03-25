@@ -16,4 +16,8 @@
 
 #pragma once
 
+#pragma message(__FILE__                                               \
+                " is deprecated and will be removed in release 22.06." \
+                " Please use the cuh version instead.")
+
 #include "knn.cuh"

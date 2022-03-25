@@ -14,6 +14,14 @@
  * limitations under the License.
  */
 
+/**
+ * This file is deprecated and will be removed in release 22.06.
+ * Please use raft_runtime/cublas_macros.hpp instead.
+ */
+
+#ifndef __RAFT_RT_CUBLAS_MACROS_H
+#define __RAFT_RT_CUBLAS_MACROS_H
+
 #pragma once
 
 #include <cublas_v2.h>
@@ -113,4 +121,6 @@ inline const char* cublas_error_to_string(cublasStatus_t err)
 /** FIXME: remove after cuml rename */
 #ifndef CUBLAS_CHECK_NO_THROW
 #define CUBLAS_CHECK_NO_THROW(call) RAFT_CUBLAS_TRY_NO_THROW(call)
+#endif
+
 #endif
