@@ -45,8 +45,10 @@ __device__ __forceinline__ void conditional_assign(bool cond, T& ptr, T x)
  * each thread in a warp and sorts them, such that for a fixed i, arr[i] are sorted within the
  * threads in a warp, and for any i < j, arr[j] in any thread is not smaller than arr[i] in any
  * other thread.
+ * When `warp_width < WarpSize`, the data is sorted within all subwarps of the warp independently.
  *
- * As an example, assuming `Size = 4`, `warp_width = 16`, and `WarpSize = 32`, the layout is:
+ * As an example, assuming `Size = 4`, `warp_width = 16`, and `WarpSize = 32`, sorting a permutation
+ * of numbers 0-63 in each subwarp yield the following result:
  * `
  *  arr_i \ laneId()
  *       0   1   2   3   4   5   6   7   8   9  10  11  12  13  14  15    16  17  18 ...
@@ -132,7 +134,8 @@ class bitonic {
   }
 
   /**
-   * @brief `merge` variant for the case of one element per thread.
+   * @brief `merge` variant for the case of one element per thread
+   *        (pass input by a reference instead of a pointer).
    *
    * @param key
    * @param payload
@@ -147,7 +150,8 @@ class bitonic {
   }
 
   /**
-   * @brief `sort` variant for the case of one element per thread.
+   * @brief `sort` variant for the case of one element per thread
+   *        (pass input by a reference instead of a pointer).
    *
    * @param key
    * @param payload
