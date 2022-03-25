@@ -16,7 +16,7 @@ While not exhaustive, the following general categories help summarize the accele
 | **Spatial** | pairwise distances, nearest neighbors, neighborhood graph construction |
 | **Sparse Operations** | linear algebra, eigenvalue problems, slicing, symmetrization, labeling |
 | **Basic Clustering** | spectral clustering, hierarchical clustering, k-means |
-| **Optimization** | combinatorial optimization, iterative solvers |
+| **Solvers** | combinatorial optimization, iterative solvers |
 | **Statistics** | sampling, moments and summary statistics, metrics |
 | **Distributed Tools** | multi-node multi-gpu infrastructure |
 

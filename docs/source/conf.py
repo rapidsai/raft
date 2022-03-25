@@ -25,6 +25,7 @@ import sys
 # absolute, like shown here.
 sys.path.insert(0, os.path.abspath('sphinxext'))
 sys.path.insert(0, os.path.abspath('../../python/raft'))
+sys.path.insert(0, os.path.abspath('../../python/pylibraft'))
 
 from github_link import make_linkcode_resolve # noqa
 

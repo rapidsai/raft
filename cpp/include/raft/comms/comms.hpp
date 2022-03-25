@@ -15,7 +15,7 @@
  */
 
 /**
- * @warning This file is deprecated and will be removed in release 22.06.
+ * This file is deprecated and will be removed in release 22.06.
  * Please use raft_runtime/comms.hpp instead.
  */
 
