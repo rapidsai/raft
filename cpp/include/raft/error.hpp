@@ -36,70 +36,70 @@
 #include <stdexcept>
 #include <string>
 
-namespace raft {
+namespace raft
+{
+  /** base exception class for the whole of raft */
+  class exception : public std::exception {
+   public:
+    /** default ctor */
+    explicit exception() noexcept : std::exception(), msg_() {}
 
-/** base exception class for the whole of raft */
-class exception : public std::exception {
- public:
-  /** default ctor */
-  explicit exception() noexcept : std::exception(), msg_() {}
+    /** copy ctor */
+    exception(exception const& src) noexcept : std::exception(), msg_(src.what())
+    {
+      collect_call_stack();
+    }
 
-  /** copy ctor */
-  exception(exception const& src) noexcept : std::exception(), msg_(src.what())
-  {
-    collect_call_stack();
-  }
+    /** ctor from an input message */
+    explicit exception(std::string const msg) noexcept : std::exception(), msg_(std::move(msg))
+    {
+      collect_call_stack();
+    }
 
-  /** ctor from an input message */
-  explicit exception(std::string const msg) noexcept : std::exception(), msg_(std::move(msg))
-  {
-    collect_call_stack();
-  }
+    /** get the message associated with this exception */
+    char const* what() const noexcept override { return msg_.c_str(); }
 
-  /** get the message associated with this exception */
-  char const* what() const noexcept override { return msg_.c_str(); }
+   private:
+    /** message associated with this exception */
+    std::string msg_;
 
- private:
-  /** message associated with this exception */
-  std::string msg_;
-
-  /** append call stack info to this exception's message for ease of debug */
-  // Courtesy: https://www.gnu.org/software/libc/manual/html_node/Backtraces.html
-  void collect_call_stack() noexcept
-  {
+    /** append call stack info to this exception's message for ease of debug */
+    // Courtesy: https://www.gnu.org/software/libc/manual/html_node/Backtraces.html
+    void collect_call_stack() noexcept
+    {
 #ifdef __GNUC__
-    constexpr int kMaxStackDepth = 64;
-    void* stack[kMaxStackDepth];  // NOLINT
-    auto depth = backtrace(stack, kMaxStackDepth);
-    std::ostringstream oss;
-    oss << std::endl << "Obtained " << depth << " stack frames" << std::endl;
-    char** strings = backtrace_symbols(stack, depth);
-    if (strings == nullptr) {
-      oss << "But no stack trace could be found!" << std::endl;
+      constexpr int kMaxStackDepth = 64;
+      void* stack[kMaxStackDepth];  // NOLINT
+      auto depth = backtrace(stack, kMaxStackDepth);
+      std::ostringstream oss;
+      oss << std::endl << "Obtained " << depth << " stack frames" << std::endl;
+      char** strings = backtrace_symbols(stack, depth);
+      if (strings == nullptr) {
+        oss << "But no stack trace could be found!" << std::endl;
+        msg_ += oss.str();
+        return;
+      }
+      ///@todo: support for demangling of C++ symbol names
+      for (int i = 0; i < depth; ++i) {
+        oss << "#" << i << " in " << strings[i] << std::endl;
+      }
+      free(strings);
       msg_ += oss.str();
-      return;
-    }
-    ///@todo: support for demangling of C++ symbol names
-    for (int i = 0; i < depth; ++i) {
-      oss << "#" << i << " in " << strings[i] << std::endl;
-    }
-    free(strings);
-    msg_ += oss.str();
 #endif  // __GNUC__
-  }
-};
+    }
+  };
 
-/**
- * @brief Exception thrown when logical precondition is violated.
- *
- * This exception should not be thrown directly and is instead thrown by the
- * RAFT_EXPECTS and  RAFT_FAIL macros.
- *
- */
-struct logic_error : public raft::exception {
-  explicit logic_error(char const* const message) : raft::exception(message) {}
-  explicit logic_error(std::string const& message) : raft::exception(message) {}
-};
+  /**
+   * @brief Exception thrown when logical precondition is violated.
+   *
+   * This exception should not be thrown directly and is instead thrown by the
+   * RAFT_EXPECTS and  RAFT_FAIL macros.
+   *
+   */
+  struct logic_error : public raft::exception {
+    explicit logic_error(char const* const message) : raft::exception(message) {}
+    explicit logic_error(std::string const& message) : raft::exception(message) {}
+  };
 
 }  // namespace raft
 
