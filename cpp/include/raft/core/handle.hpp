@@ -37,11 +37,11 @@
 
 #include <raft/core/cudart_utils.hpp>
 
-#include <raft/comms/comms.hpp>
-#include <raft/interruptible.hpp>
-#include <raft/linalg/detail/cublas_wrappers.hpp>
-#include <raft/linalg/detail/cusolver_wrappers.hpp>
-#include <raft/sparse/detail/cusparse_macros.h>
+#include <raft/core/comms.hpp>
+#include <raft/core/cublas_macros.hpp>
+#include <raft/core/cusolver_macros.hpp>
+#include <raft/core/cusparse_macros.hpp>
+#include <raft/core/interruptible.hpp>
 #include <rmm/cuda_stream_pool.hpp>
 #include <rmm/exec_policy.hpp>
 
