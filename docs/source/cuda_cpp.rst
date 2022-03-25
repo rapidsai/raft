@@ -8,4 +8,4 @@ RAFT is header-only but provides optional shared libraries to speed up compile t
 .. toctree::
    :maxdepth: 4
 
-    cpp_api.rst
+   cpp_api.rst

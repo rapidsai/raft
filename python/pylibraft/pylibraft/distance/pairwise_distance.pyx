@@ -13,6 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+# cython: profile=False
+# distutils: language = c++
+# cython: embedsignature = True
+# cython: language_level = 3
+
 import numpy as np
 
 from libc.stdint cimport uintptr_t
@@ -74,14 +79,39 @@ def distance(X, Y, dists, metric="euclidean"):
     """
     Compute pairwise distances between X and Y
 
+    Valid values for metric:
+        ["euclidean", "l2", "l1", "cityblock", "inner_product",
+         "chebyshev", "canberra", "lp", "hellinger", "jensenshannon",
+         "kl_divergence", "russellrao"]
+
     Parameters
     ----------
 
     X : CUDA array interface compliant matrix shape (m, k)
     Y : CUDA array interface compliant matrix shape (n, k)
     dists : Writable CUDA array interface matrix shape (m, n)
-    metric : string denoting the metric type
-    """
+    metric : string denoting the metric type (default="euclidean")
+
+    Examples
+    --------
+
+    .. code-block:: python
+
+        import cupy as cp
+
+        from pylibraft.distance import pairwise_distance
+
+        n_samples = 5000
+        n_features = 50
+
+        in1 = cp.random.random_sample((n_samples, n_features),
+                                      dtype=cp.float32)
+        in2 = cp.random.random_sample((n_samples, n_features),
+                                      dtype=cp.float32)
+        output = cp.empty((n_samples, n_samples), dtype=cp.float32)
+
+        pairwise_distance(in1, in2, output, metric="euclidean")
+   """
 
     # TODO: Validate inputs, shapes, etc...
     x_cai = X.__cuda_array_interface__
