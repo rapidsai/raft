@@ -40,6 +40,7 @@ struct cusolver_error : public raft::exception {
 };
 
 namespace linalg {
+namespace detail {
 
 inline const char* cusolver_error_to_string(cusolverStatus_t err)
 {
@@ -58,6 +59,7 @@ inline const char* cusolver_error_to_string(cusolverStatus_t err)
   };
 }
 
+}  // namespace detail
 }  // namespace linalg
 }  // namespace raft
 
