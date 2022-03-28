@@ -15,51 +15,80 @@
  */
 #pragma once
 
+#include <raft/cluster/kmeans_params.hpp>
 #include <raft/cluster/detail/kmeans.cuh>
+#include <optional>
+#include <raft/mdarray.hpp>
 
 namespace raft {
 namespace cluster {
 
 /**
- *  @brief Find clusters with k-means algorithm.
- *    Initial centroids are chosen with k-means++ algorithm. Empty
- *    clusters are reinitialized by choosing new centroids with
- *    k-means++ algorithm.
- *  @tparam index_type_t the type of data used for indexing.
- *  @tparam value_type_t the type of data used for weights, distances.
- *  @param handle the raft handle.
- *  @param n Number of observation vectors.
- *  @param d Dimension of observation vectors.
- *  @param k Number of clusters.
- *  @param tol Tolerance for convergence. k-means stops when the
- *    change in residual divided by n is less than tol.
- *  @param maxiter Maximum number of k-means iterations.
- *  @param obs (Input, device memory, d*n entries) Observation
- *    matrix. Matrix is stored column-major and each column is an
- *    observation vector. Matrix dimensions are d x n.
- *  @param codes (Output, device memory, n entries) Cluster
- *    assignments.
- *  @param residual On exit, residual sum of squares (sum of squares
- *    of distances between observation vectors and centroids).
- *  @param iters on exit, number of k-means iterations.
- *  @param seed random seed to be used.
- *  @return error flag
+ * @brief Find clusters with k-means algorithm.
+ *   Initial centroids are chosen with k-means++ algorithm. Empty
+ *   clusters are reinitialized by choosing new centroids with
+ *   k-means++ algorithm.
+ * @tparam DataT the type of data used for weights, distances.
+ * @tparam IdxT the type of data used for indexing.
+ * @tparam layout the layout of the data (row or column).
+ * @param[in]     handle        The raft handle.
+ * @param[in]     params        Parameters for KMeans model.
+ * @param[in]     X             Training instances to cluster. It must be noted
+ * that the data must be in row-major format and stored in device accessible
+ * location.
+ * @param[in]     n_samples     Number of samples in the input X.
+ * @param[in]     n_features    Number of features or the dimensions of each
+ * sample.
+ * @param[in]     sample_weight Optional weights for each observation in X.
+ * @param[inout]  centroids     [in] When init is InitMethod::Array, use
+ * centroids as the initial cluster centers
+ *                              [out] Otherwise, generated centroids from the
+ * kmeans algorithm is stored at the address pointed by 'centroids'.
+ * @param[out]    inertia       Sum of squared distances of samples to their
+ * closest cluster center.
+ * @param[out]    n_iter        Number of iterations run.
  */
-template <typename index_type_t, typename value_type_t>
-int kmeans(handle_t const& handle,
-           index_type_t n,
-           index_type_t d,
-           index_type_t k,
-           value_type_t tol,
-           index_type_t maxiter,
-           const value_type_t* __restrict__ obs,
-           index_type_t* __restrict__ codes,
-           value_type_t& residual,
-           index_type_t& iters,
-           unsigned long long seed = 123456)
+template <typename DataT, typename IndexT, typename layout>
+void kmeans_fit(handle_t const& handle,
+                const KMeansParams& params,
+                const raft::device_matrix_view<DataT, layout> X,
+                const std::optional<raft::device_vector_view<DataT>>& sample_weight,
+                std::optional<raft::device_matrix_view<DataT, layout>>& centroids,
+                DataT& inertia,
+                IndexT& n_iter)
 {
-  return detail::kmeans<index_type_t, value_type_t>(
-    handle, n, d, k, tol, maxiter, obs, codes, residual, iters, seed);
+  detail::kmeans_fit<DataT, IndexT, layout>(
+    handle, params, X, sample_weight, centroids, inertia, n_iter);
+}
+
+template <typename DataT, typename IndexT, typename layout>
+void kmeans_predict(handle_t const& handle,
+                const KMeansParams& params,
+                const raft::device_matrix_view<DataT, layout> X,
+                const std::optional<raft::device_vector_view<DataT>>& sample_weight,
+                raft::device_matrix_view<DataT, layout> centroids,
+                raft::device_vector_view<IndexT> labels,
+                bool normalize_weight,
+                DataT& inertia)
+{
+  detail::kmeans_predict<DataT, IndexT, layout>(
+    handle, params, X, sample_weight, centroids, labels, normalize_weight, inertia);
+}
+
+template <typename DataT, typename IndexT, typename layout>
+void kmeans_fit_predict(handle_t const& handle,
+                const KMeansParams& params,
+                const raft::device_matrix_view<DataT, layout> X,
+                const std::optional<raft::device_vector_view<DataT>>& sample_weight,
+                std::optional<raft::device_matrix_view<DataT, layout>>& centroids,
+                raft::device_vector_view<IndexT> labels,
+                DataT& inertia,
+                IndexT& n_iter)
+{
+  kmeans_fit<DataT, IndexT, layout>(
+    handle, params, X, sample_weight, centroids, inertia, n_iter);
+  kmeans_predict<DataT, IndexT, layout>(
+    handle, params, X, sample_weight, centroids.value(), labels, true, inertia);
 }
 }  // namespace cluster
 }  // namespace raft
