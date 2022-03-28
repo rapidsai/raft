@@ -63,7 +63,7 @@
         block_sort<warp_sort_immediate, ...> queue(...);
 
         // way 1, [0, len) is same for the whole block
-        queue.add(in, 0, len);
+        queue.load(in, 0, len);
         // way 2, each thread gets its own val/idx pair
         for (IdxT i = threadIdx.x; i < len, i += blockDim.x) {
           queue.add(in[i], idx[i]);
@@ -139,7 +139,7 @@ constexpr auto calc_capacity(int k) -> int
  *   maximum number of elements in the queue.
  * @tparam Ascending
  *   which comparison to use: `true` means `<`, collect the smallest elements,
- *                                             `false` means `>`, collect the greatest elements.
+ *   `false` means `>`, collect the greatest elements.
  * @tparam T
  *   the type of keys (what is being compared)
  * @tparam IdxT
