@@ -94,7 +94,7 @@
         int lane_id = threadIdx.x % WarpSize;
 
         // way 1, [0, len) is same for the whole warp
-        queue.add(in, 0, len);
+        queue.load(in, 0, len);
         // way 2, each thread gets its own val/idx pair
         for (IdxT i = lane_id; i < len, i += WarpSize) {
           queue.add(in[i], idx[i]);
