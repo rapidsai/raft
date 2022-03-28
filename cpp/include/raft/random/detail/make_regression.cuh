@@ -30,7 +30,6 @@
 #include <raft/linalg/qr.cuh>
 #include <raft/linalg/transpose.cuh>
 #include <raft/matrix/matrix.cuh>
-#include <raft/mr/device/buffer.hpp>
 #include <raft/random/permute.cuh>
 #include <raft/random/rng.cuh>
 #include <rmm/device_uvector.hpp>

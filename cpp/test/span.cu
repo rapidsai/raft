@@ -30,16 +30,16 @@ struct TestStatus {
  public:
   TestStatus()
   {
-    CUDA_CHECK(cudaMalloc(&status_, sizeof(int)));
+    RAFT_CUDA_TRY(cudaMalloc(&status_, sizeof(int)));
     int h_status = 1;
-    CUDA_CHECK(cudaMemcpy(status_, &h_status, sizeof(int), cudaMemcpyHostToDevice));
+    RAFT_CUDA_TRY(cudaMemcpy(status_, &h_status, sizeof(int), cudaMemcpyHostToDevice));
   }
-  ~TestStatus() noexcept(false) { CUDA_CHECK(cudaFree(status_)); }
+  ~TestStatus() noexcept(false) { RAFT_CUDA_TRY(cudaFree(status_)); }
 
   int Get()
   {
     int h_status;
-    CUDA_CHECK(cudaMemcpy(&h_status, status_, sizeof(int), cudaMemcpyDeviceToHost));
+    RAFT_CUDA_TRY(cudaMemcpy(&h_status, status_, sizeof(int), cudaMemcpyDeviceToHost));
     return h_status;
   }
 

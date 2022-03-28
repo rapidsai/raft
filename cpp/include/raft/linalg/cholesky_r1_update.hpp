@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 /**
- * @warning This file is deprecated and will be removed in release 22.06.
+ * This file is deprecated and will be removed in release 22.06.
  * Please use the cuh version instead.
  */
 
@@ -67,7 +67,7 @@ namespace linalg {
  * // Initialize arrays
  * int ld_L = n_rows;
  * rmm::device_uvector<math_t> L(ld_L * n_rows, stream);
- * MLCommon::LinAlg::choleskyRank1Update(handle, L, n_rows, ld_L, nullptr,
+ * raft::linalg::choleskyRank1Update(handle, L, n_rows, ld_L, nullptr,
  *                                       &n_bytes, CUBLAS_FILL_MODE_LOWER,
  *                                       stream);
  * rmm::device_uvector<char> workspace(n_bytes, stream);
@@ -79,7 +79,7 @@ namespace linalg {
  *   RAFT_CUBLAS_TRY(cublasCopy(handle.get_cublas_handle(), n - 1, A_new, 1,
  *                           L + n - 1, ld_L, stream));
  *   // Update Cholesky factorization
- *   MLCommon::LinAlg::choleskyRank1Update(
+ *   raft::linalg::choleskyRank1Update(
  *       handle, L, rank, ld_L, workspace, &n_bytes, CUBLAS_FILL_MODE_LOWER,
  *       stream);
  * }
@@ -91,7 +91,7 @@ namespace linalg {
  * // Initialize arrays
  * int ld_U = n_rows;
  * rmm::device_uvector<math_t> U(ld_U * n_rows, stream);
- * MLCommon::LinAlg::choleskyRank1Update(handle, L, n_rows, ld_U, nullptr,
+ * raft::linalg::choleskyRank1Update(handle, L, n_rows, ld_U, nullptr,
  *                                       &n_bytes, CUBLAS_FILL_MODE_UPPER,
  *                                       stream);
  * rmm::device_uvector<char> workspace(stream, n_bytes, stream);
@@ -103,7 +103,7 @@ namespace linalg {
  *   raft::copy(U + ld_U * (n-1), A_new, n-1, stream);
  *   //
  *   // Update Cholesky factorization
- *   MLCommon::LinAlg::choleskyRank1Update(
+ *   raft::linalg::choleskyRank1Update(
  *       handle, U, n, ld_U, workspace, &n_bytes, CUBLAS_FILL_MODE_UPPER,
  *       stream);
  * }

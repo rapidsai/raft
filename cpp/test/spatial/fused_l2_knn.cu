@@ -99,65 +99,70 @@ testing::AssertionResult devArrMatchKnnPair(const T* expected_idx,
 
 template <typename T>
 class FusedL2KNNTest : public ::testing::TestWithParam<FusedL2KNNInputs> {
+ public:
+  FusedL2KNNTest()
+    : stream_(handle_.get_stream()),
+      params_(::testing::TestWithParam<FusedL2KNNInputs>::GetParam()),
+      database(params_.num_db_vecs * params_.dim, stream_),
+      search_queries(params_.num_queries * params_.dim, stream_),
+      raft_indices_(params_.num_queries * params_.k, stream_),
+      raft_distances_(params_.num_queries * params_.k, stream_),
+      faiss_indices_(params_.num_queries * params_.k, stream_),
+      faiss_distances_(params_.num_queries * params_.k, stream_)
+  {
+    RAFT_CUDA_TRY(cudaMemsetAsync(database.data(), 0, database.size() * sizeof(T), stream_));
+    RAFT_CUDA_TRY(
+      cudaMemsetAsync(search_queries.data(), 0, search_queries.size() * sizeof(T), stream_));
+    RAFT_CUDA_TRY(
+      cudaMemsetAsync(raft_indices_.data(), 0, raft_indices_.size() * sizeof(int64_t), stream_));
+    RAFT_CUDA_TRY(
+      cudaMemsetAsync(raft_distances_.data(), 0, raft_distances_.size() * sizeof(T), stream_));
+    RAFT_CUDA_TRY(
+      cudaMemsetAsync(faiss_indices_.data(), 0, faiss_indices_.size() * sizeof(int64_t), stream_));
+    RAFT_CUDA_TRY(
+      cudaMemsetAsync(faiss_distances_.data(), 0, faiss_distances_.size() * sizeof(T), stream_));
+  }
+
  protected:
   void testBruteForce()
   {
-    cudaStream_t stream = handle_.get_stream();
-
     launchFaissBfknn();
     detail::fusedL2Knn(dim,
-                       raft_indices_,
-                       raft_distances_,
-                       database,
-                       search_queries,
+                       raft_indices_.data(),
+                       raft_distances_.data(),
+                       database.data(),
+                       search_queries.data(),
                        num_db_vecs,
                        num_queries,
                        k_,
                        true,
                        true,
-                       stream,
+                       stream_,
                        metric);
 
     // verify.
-    devArrMatchKnnPair(faiss_indices_,
-                       raft_indices_,
-                       faiss_distances_,
-                       raft_distances_,
+    devArrMatchKnnPair(faiss_indices_.data(),
+                       raft_indices_.data(),
+                       faiss_distances_.data(),
+                       raft_distances_.data(),
                        num_queries,
                        k_,
                        float(0.001),
-                       stream);
+                       stream_);
   }
 
   void SetUp() override
   {
-    params_     = ::testing::TestWithParam<FusedL2KNNInputs>::GetParam();
     num_queries = params_.num_queries;
     num_db_vecs = params_.num_db_vecs;
     dim         = params_.dim;
     k_          = params_.k;
     metric      = params_.metric_;
 
-    cudaStream_t stream = handle_.get_stream();
-
-    raft::allocate(database, num_db_vecs * dim, stream, true);
-    raft::allocate(search_queries, num_queries * dim, stream, true);
-
     unsigned long long int seed = 1234ULL;
     raft::random::Rng r(seed);
-    r.uniform(database, num_db_vecs * dim, T(-1.0), T(1.0), stream);
-    r.uniform(search_queries, num_queries * dim, T(-1.0), T(1.0), stream);
-
-    raft::allocate(raft_indices_, num_queries * k_, stream, true);
-    raft::allocate(raft_distances_, num_queries * k_, stream, true);
-    raft::allocate(faiss_indices_, num_queries * k_, stream, true);
-    raft::allocate(faiss_distances_, num_queries * k_, stream, true);
-  }
-
-  void TearDown() override
-  {
-    cudaStream_t stream = handle_.get_stream();
-    raft::deallocate_all(stream);
+    r.uniform(database.data(), num_db_vecs * dim, T(-1.0), T(1.0), stream_);
+    r.uniform(search_queries.data(), num_queries * dim, T(-1.0), T(1.0), stream_);
   }
 
   void launchFaissBfknn()
@@ -169,37 +174,38 @@ class FusedL2KNNTest : public ::testing::TestWithParam<FusedL2KNNInputs> {
     gpu_res.noTempMemory();
     int device;
     RAFT_CUDA_TRY(cudaGetDevice(&device));
-    gpu_res.setDefaultStream(device, handle_.get_stream());
+    gpu_res.setDefaultStream(device, stream_);
 
     faiss::gpu::GpuDistanceParams args;
     args.metric          = m;
     args.metricArg       = 0;
     args.k               = k_;
     args.dims            = dim;
-    args.vectors         = database;
+    args.vectors         = database.data();
     args.vectorsRowMajor = true;
     args.numVectors      = num_db_vecs;
-    args.queries         = search_queries;
+    args.queries         = search_queries.data();
     args.queriesRowMajor = true;
     args.numQueries      = num_queries;
-    args.outDistances    = faiss_distances_;
-    args.outIndices      = faiss_indices_;
+    args.outDistances    = faiss_distances_.data();
+    args.outIndices      = faiss_indices_.data();
 
     bfKnn(&gpu_res, args);
   }
 
  private:
   raft::handle_t handle_;
+  cudaStream_t stream_ = 0;
   FusedL2KNNInputs params_;
   int num_queries;
   int num_db_vecs;
   int dim;
-  T* database;
-  T* search_queries;
-  int64_t* raft_indices_;
-  T* raft_distances_;
-  int64_t* faiss_indices_;
-  T* faiss_distances_;
+  rmm::device_uvector<T> database;
+  rmm::device_uvector<T> search_queries;
+  rmm::device_uvector<int64_t> raft_indices_;
+  rmm::device_uvector<T> raft_distances_;
+  rmm::device_uvector<int64_t> faiss_indices_;
+  rmm::device_uvector<T> faiss_distances_;
   int k_;
   raft::distance::DistanceType metric;
 };
