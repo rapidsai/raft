@@ -13,11 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #=============================================================================
-set(RAPIDS_VERSION "22.04")
+set(RAPIDS_VERSION "22.06")
 set(RAFT_VERSION "${RAPIDS_VERSION}.00")
 
 cmake_minimum_required(VERSION 3.20.1 FATAL_ERROR)
-file(DOWNLOAD https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-22.04/RAPIDS.cmake
+file(DOWNLOAD https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-22.06/RAPIDS.cmake
         ${CMAKE_BINARY_DIR}/RAPIDS.cmake)
 include(${CMAKE_BINARY_DIR}/RAPIDS.cmake)
 include(rapids-cmake)
