@@ -32,7 +32,8 @@
     3. warp-wide API: class warp_sort_filtered and class warp_sort_immediate
 
 
-  1. warp_sort_topk() // the description for it is no longer true, should be deleted
+  1. warp_sort_topk()
+    (see the docstring)
 
   2. class block_sort
     It can be regarded as a fixed size priority queue for a thread block,
@@ -83,8 +84,8 @@
     for a whole warp, while val/idx is for a thread.
     No shared memory is needed.
 
-    The host function (warp_sort_topk) uses a heuristic to choose between these two classes for sorting,
-    warp_sort_immediate being chosen when the number of inputs per warp is somewhat small
+    The host function (warp_sort_topk) uses a heuristic to choose between these two classes for
+    sorting, warp_sort_immediate being chosen when the number of inputs per warp is somewhat small
     (see the usage of LaunchThreshold<warp_sort_immediate>::len_factor_for_choosing).
 
     Example:
@@ -246,7 +247,7 @@ class warp_sort {
  * This makes the algorithm do less sorting steps for long input sequences
  * at the cost of extra checks on each step.
  *
- * This implementation is preferred for large input_len values.
+ * This implementation is preferred for large len values.
  */
 template <int Capacity, bool Ascending, typename T, typename IdxT>
 class warp_sort_filtered : public warp_sort<Capacity, Ascending, T, IdxT> {
@@ -335,7 +336,7 @@ class warp_sort_filtered : public warp_sort<Capacity, Ascending, T, IdxT> {
  * This version of warp_sort adds every input element into the intermediate sorting
  * buffer, and thus does the sorting step every `Capacity` input elements.
  *
- * This implementation is preferred for very small input_len values.
+ * This implementation is preferred for very small len values.
  */
 template <int Capacity, bool Ascending, typename T, typename IdxT>
 class warp_sort_immediate : public warp_sort<Capacity, Ascending, T, IdxT> {
@@ -812,6 +813,41 @@ void warp_sort_topk_(int num_of_block,
   }
 }
 
+/**
+ * Select k smallest or largest key/values from each row in the input data.
+ *
+ * If you think of the input data `in_keys` as a row-major matrix with len columns and
+ * batch_size rows, then this function selects k smallest/largest values in each row and fills
+ * in the row-major matrix `out` of size (batch_size, k).
+ *
+ * @tparam T
+ *   the type of the keys (what is being compared).
+ * @tparam IdxT
+ *   the index type (what is being selected together with the keys).
+ *
+ * @param[in] in
+ *   contiguous device array of inputs of size (len * batch_size);
+ *   these are compared and selected.
+ * @param[in] in_idx
+ *   contiguous device array of inputs of size (len * batch_size);
+ *   typically, these are indices of the corresponding in_keys.
+ * @param[in] batch_size
+ *   number of input rows, i.e. the batch size.
+ * @param[in] len
+ *   length of a single input array (row); also sometimes referred as n_cols.
+ *   Invariant: len >= k.
+ * @param[in] k
+ *   the number of outputs to select in each input row.
+ * @param[out] out
+ *   contiguous device array of outputs of size (k * batch_size);
+ *   the k smallest/largest values from each row of the `in_keys`.
+ * @param[out] out_idx
+ *   contiguous device array of outputs of size (k * batch_size);
+ *   the payload selected together with `out`.
+ * @param[in] select_min
+ *   whether to select k smallest (true) or largest (false) keys.
+ * @param[in] stream
+ */
 template <typename T, typename IdxT>
 void warp_sort_topk(const T* in,
                     const IdxT* in_idx,

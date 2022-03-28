@@ -221,7 +221,7 @@ __device__ void filter_and_histogram(const T* in_buf,
           out[k - 1]     = value;
           out_idx[k - 1] = in_idx_buf ? in_idx_buf[i] : i;
         }
-      } else if (out && prev_bucket < want_bucket) {
+      } else if (prev_bucket < want_bucket) {
         IdxT pos     = atomicAdd(&out_cnt, IdxT(1));
         out[pos]     = value;
         out_idx[pos] = in_idx_buf ? in_idx_buf[i] : i;
@@ -351,12 +351,11 @@ __global__ void __launch_bounds__(BlockSize) radix_kernel(const T* in_buf,
   const int batch_id        = blockIdx.y;
   in_buf += batch_id * len;
   out_buf += batch_id * len;
+  out += batch_id * k;
+  out_idx += batch_id * k;
   if (in_idx_buf) { in_idx_buf += batch_id * len; }
   if (out_idx_buf) { out_idx_buf += batch_id * len; }
-  if (out) {
-    out += batch_id * k;
-    out_idx += batch_id * k;
-  }
+
   auto counter   = counters + batch_id;
   auto histogram = histograms + batch_id * num_buckets;
 
@@ -390,9 +389,9 @@ __global__ void __launch_bounds__(BlockSize) radix_kernel(const T* in_buf,
     // init counter, other members of counter is initialized with 0 by
     // cudaMemset()
     if (pass == 0 && threadIdx.x == 0) {
-      counter->k   = k;
-      counter->len = len;
-      if (out) { counter->out_back_cnt = 0; }
+      counter->k            = k;
+      counter->len          = len;
+      counter->out_back_cnt = 0;
     }
     __syncthreads();
 
@@ -476,6 +475,48 @@ inline uint16_t get_optimal_batch_size(size_t req_batch_size, size_t blocks_per_
   return uint16_t(std::min<size_t>(opt_batch_size, req_batch_size));
 }
 
+/**
+ * Select k smallest or largest key/values from each row in the input data.
+ *
+ * If you think of the input data `in_keys` as a row-major matrix with len columns and
+ * batch_size rows, then this function selects k smallest/largest values in each row and fills
+ * in the row-major matrix `out` of size (batch_size, k).
+ *
+ * Note, the output is NOT sorted within the groups of `k` selected elements.
+ *
+ * @tparam T
+ *   the type of the keys (what is being compared).
+ * @tparam IdxT
+ *   the index type (what is being selected together with the keys).
+ * @tparam BitsPerPass
+ *   The size of the radix;
+ *   it affects the number of passes and number of buckets.
+ * @tparam BlockSize
+ *   Number of threads in a kernel thread block.
+ *
+ * @param[in] in
+ *   contiguous device array of inputs of size (len * batch_size);
+ *   these are compared and selected.
+ * @param[in] in_idx
+ *   contiguous device array of inputs of size (len * batch_size);
+ *   typically, these are indices of the corresponding in_keys.
+ * @param[in] batch_size
+ *   number of input rows, i.e. the batch size.
+ * @param[in] len
+ *   length of a single input array (row); also sometimes referred as n_cols.
+ *   Invariant: len >= k.
+ * @param[in] k
+ *   the number of outputs to select in each input row.
+ * @param[out] out
+ *   contiguous device array of outputs of size (k * batch_size);
+ *   the k smallest/largest values from each row of the `in_keys`.
+ * @param[out] out_idx
+ *   contiguous device array of outputs of size (k * batch_size);
+ *   the payload selected together with `out`.
+ * @param[in] select_min
+ *   whether to select k smallest (true) or largest (false) keys.
+ * @param[in] stream
+ */
 template <typename T, typename IdxT, int BitsPerPass, int BlockSize>
 void radix_topk(const T* in,
                 const IdxT* in_idx,
@@ -492,18 +533,18 @@ void radix_topk(const T* in,
   constexpr int num_buckets = calc_num_buckets<BitsPerPass>();
 
   size_t blocks_per_row = ceildiv<size_t>(len, BlockSize * ITEM_PER_THREAD);
-  uint16_t max_batch_size =
+  uint16_t max_chunk_size =
     get_optimal_batch_size<T, IdxT, BitsPerPass, BlockSize>(batch_size, blocks_per_row);
 
-  rmm::device_uvector<Counter<T, IdxT>> counters(max_batch_size, stream);
-  rmm::device_uvector<IdxT> histograms(num_buckets * max_batch_size, stream);
-  rmm::device_uvector<T> buf1(len * max_batch_size, stream);
-  rmm::device_uvector<IdxT> idx_buf1(len * max_batch_size, stream);
-  rmm::device_uvector<T> buf2(len * max_batch_size, stream);
-  rmm::device_uvector<IdxT> idx_buf2(len * max_batch_size, stream);
+  rmm::device_uvector<Counter<T, IdxT>> counters(max_chunk_size, stream);
+  rmm::device_uvector<IdxT> histograms(num_buckets * max_chunk_size, stream);
+  rmm::device_uvector<T> buf1(len * max_chunk_size, stream);
+  rmm::device_uvector<IdxT> idx_buf1(len * max_chunk_size, stream);
+  rmm::device_uvector<T> buf2(len * max_chunk_size, stream);
+  rmm::device_uvector<IdxT> idx_buf2(len * max_chunk_size, stream);
 
-  for (size_t offset = 0; offset < batch_size; offset += max_batch_size) {
-    auto batch_chunk = uint16_t(std::min<size_t>(max_batch_size, batch_size - offset));
+  for (size_t offset = 0; offset < batch_size; offset += max_chunk_size) {
+    auto chunk_size = uint16_t(std::min<size_t>(max_chunk_size, batch_size - offset));
 
     RAFT_CUDA_TRY(
       cudaMemsetAsync(counters.data(), 0, counters.size() * sizeof(Counter<T, IdxT>), stream));
@@ -514,7 +555,7 @@ void radix_topk(const T* in,
     T* out_buf             = nullptr;
     IdxT* out_idx_buf      = nullptr;
 
-    dim3 blocks(blocks_per_row, batch_chunk);
+    dim3 blocks(blocks_per_row, chunk_size);
 
     constexpr int num_passes = calc_num_passes<T, BitsPerPass>();
 
