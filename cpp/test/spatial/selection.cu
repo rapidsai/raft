@@ -361,19 +361,8 @@ auto inputs_random = testing::Values(SelectTestSpec{1, 130, 15, false},
                                      SelectTestSpec{100, 1700, 1023, false},
                                      SelectTestSpec{100, 1700, 1024, true},
                                      SelectTestSpec{100, 1700, 1700, true},
-                                     SelectTestSpec{100, 100000, 1, true},
-                                     SelectTestSpec{100, 100000, 2, true},
-                                     SelectTestSpec{100, 100000, 3, true},
-                                     SelectTestSpec{100, 100000, 7, true},
-                                     SelectTestSpec{100, 100000, 16, true},
-                                     SelectTestSpec{100, 100000, 31, true},
-                                     SelectTestSpec{100, 100000, 32, true},
-                                     SelectTestSpec{100, 100000, 64, true},
-                                     SelectTestSpec{100, 100000, 60, true},
-                                     SelectTestSpec{100, 100000, 100, true},
-                                     SelectTestSpec{100, 100000, 200, true},
-                                     SelectTestSpec{100000, 100, 100, false},
-                                     SelectTestSpec{100000, 200, 100, false});
+                                     SelectTestSpec{10000, 100, 100, false},
+                                     SelectTestSpec{10000, 200, 100, false});
 
 typedef SelectionTest<float, int, with_ref<knn::SelectKAlgo::RADIX_8_BITS>::params_random>
   ReferencedRandomFloatInt;
