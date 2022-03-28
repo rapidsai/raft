@@ -137,7 +137,8 @@ constexpr auto calc_capacity(int k) -> int
  * @tparam Capacity
  *   maximum number of elements in the queue.
  * @tparam Ascending
- *   which comparison to use: `true` means `<`, `false` means `>`.
+ *   which comparison to use: `true` means `<`, collect the smallest elements,
+ *                                             `false` means `>`, collect the greatest elements.
  * @tparam T
  *   the type of keys (what is being compared)
  * @tparam IdxT
