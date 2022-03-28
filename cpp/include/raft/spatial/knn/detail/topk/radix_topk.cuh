@@ -179,6 +179,9 @@ __device__ void filter_and_histogram(const T* in_buf,
   const unsigned mask = calc_mask<T, BitsPerPass>(pass);
 
   if (pass == 0) {
+    // Passed to vectorized_process, this function executes in all blocks in parallel,
+    // i.e. the work is split along the input (both, in batches and chunks of a single row).
+    // Later, the histograms are merged using atomicAdd.
     auto f = [greater, start_bit, mask](T value, IdxT) {
       int bucket = calc_bucket<T, BitsPerPass>(value, start_bit, mask, greater);
       atomicAdd(histogram_smem + bucket, IdxT(1));
@@ -193,6 +196,7 @@ __device__ void filter_and_histogram(const T* in_buf,
     const int previous_start_bit = calc_start_bit<T, BitsPerPass>(pass - 1);
     const unsigned previous_mask = calc_mask<T, BitsPerPass>(pass - 1);
 
+    // See the remark above on the distributed execution of `f` using vectorized_process.
     auto f = [in_idx_buf,
               out_buf,
               out_idx_buf,
@@ -232,6 +236,7 @@ __device__ void filter_and_histogram(const T* in_buf,
   }
   __syncthreads();
 
+  // merge histograms produced by individual blocks
   for (int i = threadIdx.x; i < num_buckets; i += blockDim.x) {
     if (histogram_smem[i] != 0) { atomicAdd(histogram + i, histogram_smem[i]); }
   }
