@@ -43,7 +43,7 @@
     So the required shared memory size should be calculated using
     calc_smem_size_for_block_wide() and passed as the 3rd kernel launch parameter.
 
-    Two overloade functions can be used to add items to the queue.
+    Two overload functions can be used to add items to the queue.
     One is load(const T* in, IdxT start, IdxT end) and it adds a range of items,
     namely [start, end) of in. The idx is inferred from start.
     This function should be called only once to add all items, and should not be
