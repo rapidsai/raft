@@ -83,7 +83,7 @@
     for a whole warp, while val/idx is for a thread.
     No shared memory is needed.
 
-    The host function uses a heuristic to choose between these two classes for sorting,
+    The host function (warp_sort_topk) uses a heuristic to choose between these two classes for sorting,
     warp_sort_immediate being chosen when the number of inputs per warp is somewhat small
     (see the usage of LaunchThreshold<warp_sort_immediate>::len_factor_for_choosing).
 
