@@ -24,7 +24,7 @@ struct KMeansParams {
 
   // The number of clusters to form as well as the number of centroids to
   // generate (default:8).
-  uint32_t n_clusters = 8;
+  int n_clusters = 8;
 
   /*
    * Method for initialization, defaults to k-means++:
@@ -37,7 +37,7 @@ struct KMeansParams {
   InitMethod init = KMeansPlusPlus;
 
   // Maximum number of iterations of the k-means algorithm for a single run.
-  uint32_t max_iter = 300;
+  int max_iter = 300;
 
   // Relative tolerance with regards to inertia to declare convergence.
   double tol = 1e-4;
@@ -53,7 +53,7 @@ struct KMeansParams {
   int metric = 0;
 
   // Number of instance k-means algorithm will be run with different seeds.
-  uint32_t n_init = 1;
+  int n_init = 1;
 
   // Oversampling factor for use in the k-means|| algorithm.
   double oversampling_factor = 2.0;
@@ -62,8 +62,8 @@ struct KMeansParams {
   // useful to optimize/control the memory footprint
   // Default tile is [batch_samples x n_clusters] i.e. when batch_centroids is 0
   // then don't tile the centroids
-  uint32_t batch_samples   = 1 << 15;
-  uint32_t batch_centroids = 0;  // if 0 then batch_centroids = n_clusters
+  int batch_samples   = 1 << 15;
+  int batch_centroids = 0;  // if 0 then batch_centroids = n_clusters
 
   bool inertia_check = false;
 };

@@ -695,7 +695,7 @@ void initScalableKMeansPlusPlus(const raft::handle_t& handle,
 
   RAFT_LOG_INFO("KMeans||: total # potential centroids sampled - %d", potentialCentroids.extent(0));
 
-  if (potentialCentroids.extent(0) > n_clusters) {
+  if ((int)potentialCentroids.extent(0) > n_clusters) {
     // <<< Step-7 >>>: For x in C, set w_x to be the number of pts closest to X
     // temporary buffer to store the sample count per cluster, destructor
     // releases the resource
@@ -725,7 +725,7 @@ void initScalableKMeansPlusPlus(const raft::handle_t& handle,
                 n_iter,
                 workspace);
 
-  } else if (potentialCentroids.extent(0) < n_clusters) {
+  } else if ((int)potentialCentroids.extent(0) < n_clusters) {
     // supplement with random
     auto n_random_clusters = n_clusters - potentialCentroids.extent(0);
 

@@ -417,7 +417,7 @@ void minClusterAndDistanceCompute(
                initial_value);
 
   // tile over the input dataset
-  for (auto dIdx = 0; dIdx < n_samples; dIdx += dataBatchSize) {
+  for (std::size_t dIdx = 0; dIdx < n_samples; dIdx += dataBatchSize) {
     // # of samples for the current batch
     auto ns = std::min(dataBatchSize, n_samples - dIdx);
 
@@ -433,7 +433,7 @@ void minClusterAndDistanceCompute(
     auto L2NormXView = raft::make_device_vector_view(L2NormX.data() + dIdx, ns);
 
     // tile over the centroids
-    for (auto cIdx = 0; cIdx < n_clusters; cIdx += centroidsBatchSize) {
+    for (std::size_t cIdx = 0; cIdx < n_clusters; cIdx += centroidsBatchSize) {
       // # of centroids for the current batch
       auto nc = std::min(centroidsBatchSize, n_clusters - cIdx);
 
@@ -550,7 +550,7 @@ void minClusterDistanceCompute(const raft::handle_t& handle,
 
   // tile over the input data and calculate distance matrix [n_rows x
   // n_clusters]
-  for (IndexT dIdx = 0; dIdx < n_rows; dIdx += dataBatchSize) {
+  for (std::size_t dIdx = 0; dIdx < n_rows; dIdx += dataBatchSize) {
     // # of samples for the current batch
     auto nr = std::min(dataBatchSize, n_rows - dIdx);
 
@@ -567,7 +567,7 @@ void minClusterDistanceCompute(const raft::handle_t& handle,
       L2NormX.data() + dIdx, nr);
 
     // tile over the centroids
-    for (auto cIdx = 0; cIdx < n_clusters; cIdx += centroidsBatchSize) {
+    for (std::size_t cIdx = 0; cIdx < n_clusters; cIdx += centroidsBatchSize) {
       // # of centroids for the current batch
       auto nc = std::min(centroidsBatchSize, n_clusters - cIdx);
 
@@ -679,7 +679,7 @@ void countSamplesInCluster(const raft::handle_t& handle,
 
   // count # of samples in each cluster
   countLabels(
-    handle, itr, sampleCountInCluster.data(), n_samples, n_clusters, workspace, stream);
+    handle, itr, sampleCountInCluster.data(), (int)n_samples, (int)n_clusters, workspace, stream);
 }
 }  // namespace detail
 }  // namespace cluster
