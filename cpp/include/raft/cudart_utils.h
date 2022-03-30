@@ -404,6 +404,22 @@ IntType gcd(IntType a, IntType b)
   return a;
 }
 
+template <typename T>
+constexpr T lower_bound()
+{
+  if constexpr (std::numeric_limits<T>::has_infinity && std::numeric_limits<T>::is_signed) {
+    return -std::numeric_limits<T>::infinity();
+  }
+  return std::numeric_limits<T>::lowest();
+}
+
+template <typename T>
+constexpr T upper_bound()
+{
+  if constexpr (std::numeric_limits<T>::has_infinity) { return std::numeric_limits<T>::infinity(); }
+  return std::numeric_limits<T>::max();
+}
+
 }  // namespace raft
 
 #endif
