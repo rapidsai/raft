@@ -47,6 +47,17 @@ template <typename ElementType,
 using device_mdspan = detail::stdex::
   mdspan<ElementType, Extents, LayoutPolicy, detail::device_accessor<AccessorPolicy>>;
 
+template <typename device_mdspan_type>
+struct is_device_mdspan
+  : std::conditional_t<std::is_same_v<device_mdspan_type,
+                                      device_mdspan<typename device_mdspan_type::element_type,
+                                                    typename device_mdspan_type::extents_type,
+                                                    typename device_mdspan_type::layout_type,
+                                                    typename device_mdspan_type::accessor_type>>,
+                       std::true_type,
+                       std::false_type> {
+};
+
 /**
  * @brief stdex::mdspan with host tag to avoid accessing incorrect memory location.
  */
@@ -181,6 +192,18 @@ class mdarray {
    * @brief Get a mdspan that can be passed down to CUDA kernels.
    */
   auto view() const noexcept
+  {
+    return const_view_type(c_.data(), map_, cp_.make_accessor_policy());
+  }
+
+  /**
+   * @brief Get an implicitly constructed mdspan that can be passed down to CUDA kernels.
+   */
+  operator view_type() noexcept { return view_type(c_.data(), map_, cp_.make_accessor_policy()); }
+  /**
+   * @brief Get an implicitly constructed mdspan that can be passed down to CUDA kernels.
+   */
+  operator const_view_type() const noexcept
   {
     return const_view_type(c_.data(), map_, cp_.make_accessor_policy());
   }

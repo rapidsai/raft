@@ -75,6 +75,7 @@ add_executable(test_raft
     test/matrix/columnSort.cu
     test/matrix/linewise_op.cu
     test/mdarray.cu
+    test/mdspan_utils.cu
     test/mst.cu
     test/random/make_blobs.cu
     test/random/make_regression.cu
