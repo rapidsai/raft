@@ -37,6 +37,18 @@ using layout_c_contiguous = detail::stdex::layout_right;
  */
 using layout_f_contiguous = detail::stdex::layout_left;
 
+template <typename T>
+struct __is_mdspan : std::false_type {};
+
+template <typename... Args>
+struct __is_mdspan<detail::stdex::mdspan<Args...>> : std::true_type {};
+
+template <typename T>
+inline constexpr bool is_mdspan_v = __is_mdspan<std::remove_const_t<T>>::value;
+
+template <typename T, typename U = void>
+using is_mdspan_t = std::enable_if_t<is_mdspan_v<T>, U>;
+
 /**
  * @brief stdex::mdspan with device tag to avoid accessing incorrect memory location.
  */
@@ -47,16 +59,17 @@ template <typename ElementType,
 using device_mdspan = detail::stdex::
   mdspan<ElementType, Extents, LayoutPolicy, detail::device_accessor<AccessorPolicy>>;
 
-template <typename device_mdspan_type>
-struct is_device_mdspan
-  : std::conditional_t<std::is_same_v<device_mdspan_type,
-                                      device_mdspan<typename device_mdspan_type::element_type,
-                                                    typename device_mdspan_type::extents_type,
-                                                    typename device_mdspan_type::layout_type,
-                                                    typename device_mdspan_type::accessor_type>>,
-                       std::true_type,
-                       std::false_type> {
-};
+// template <typename mdspan_type>
+// struct is_mdspan
+//   : std::conditional_t<std::is_same_v<mdspan_type,
+//                                       detail::stdex::mdspan<typename mdspan_type::element_type,
+//                                                     typename mdspan_type::extents_type,
+//                                                     typename mdspan_type::layout_type,
+//                                                     typename mdspan_type::accessor_type>>,
+//                        std::true_type,
+//                        std::false_type> {
+// };
+
 
 /**
  * @brief stdex::mdspan with host tag to avoid accessing incorrect memory location.
