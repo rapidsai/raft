@@ -31,24 +31,17 @@ namespace spectral {
 
 /** Compute partition for a weighted undirected graph. This
  *  partition attempts to minimize the cost function:
- *    Cost = \sum_i (Edges cut by ith partition)/(Vertices in ith partition)
+ *    Cost = \f$sum_i\f$ (Edges cut by ith partition)/(Vertices in ith partition)
  *
- *  @param G Weighted graph in CSR format
- *  @param nClusters Number of partitions.
- *  @param nEigVecs Number of eigenvectors to compute.
- *  @param maxIter_lanczos Maximum number of Lanczos iterations.
- *  @param restartIter_lanczos Maximum size of Lanczos system before
- *    implicit restart.
- *  @param tol_lanczos Convergence tolerance for Lanczos method.
- *  @param maxIter_kmeans Maximum number of k-means iterations.
- *  @param tol_kmeans Convergence tolerance for k-means algorithm.
- *  @param clusters (Output, device memory, n entries) Cluster
+ *  @param handle raft handle for managing expensive resources
+ *  @param csr_m Weighted graph in CSR format
+ *  @param eigen_solver Eigensolver implementation
+ *  @param cluster_solver Cluster solver implementation
+ *  @param clusters (Output, device memory, n entries) Partition
  *    assignments.
- *  @param iters_lanczos On exit, number of Lanczos iterations
- *    performed.
- *  @param iters_kmeans On exit, number of k-means iterations
- *    performed.
- *  @return error flag.
+ *  @param eigVals Output eigenvalue array pointer on device
+ *  @param eigVecs Output eigenvector array pointer on device
+ *  @return statistics: number of eigensolver iterations, .
  */
 template <typename vertex_t, typename weight_t, typename EigenSolver, typename ClusterSolver>
 std::tuple<vertex_t, weight_t, vertex_t> modularity_maximization(
@@ -70,7 +63,8 @@ std::tuple<vertex_t, weight_t, vertex_t> modularity_maximization(
 
 /// Compute modularity
 /** This function determines the modularity based on a graph and cluster assignments
- *  @param G Weighted graph in CSR format
+ *  @param handle raft handle for managing expensive resources
+ *  @param csr_m Weighted graph in CSR format
  *  @param nClusters Number of clusters.
  *  @param clusters (Input, device memory, n entries) Cluster assignments.
  *  @param modularity On exit, modularity

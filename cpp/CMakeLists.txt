@@ -15,7 +15,7 @@
 #=============================================================================
 
 cmake_minimum_required(VERSION 3.20.1 FATAL_ERROR)
-file(DOWNLOAD https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-22.04/RAPIDS.cmake
+file(DOWNLOAD https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-22.06/RAPIDS.cmake
         ${CMAKE_BINARY_DIR}/RAPIDS.cmake)
 include(${CMAKE_BINARY_DIR}/RAPIDS.cmake)
 include(rapids-cmake)
@@ -26,7 +26,15 @@ include(rapids-find)
 
 rapids_cuda_init_architectures(RAFT)
 
-project(RAFT VERSION 22.04.00 LANGUAGES CXX CUDA)
+project(RAFT VERSION 22.06.00 LANGUAGES CXX CUDA)
+
+# Needed because GoogleBenchmark changes the state of FindThreads.cmake, causing subsequent runs to
+# have different values for the `Threads::Threads` target. Setting this flag ensures
+# `Threads::Threads` is the same value in first run and subsequent runs.
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+
+# Write the version header
+rapids_cmake_write_version_file(include/raft/version_config.hpp)
 
 ##############################################################################
 # - build type ---------------------------------------------------------------
@@ -61,6 +69,8 @@ option(RAFT_ENABLE_cuco_DEPENDENCY "Enable cuCollections dependency" ON)
 # Currently, UCX and NCCL are only needed to build Pyraft and so a simple find_package() is sufficient
 option(RAFT_ENABLE_nccl_DEPENDENCY "Enable NCCL dependency" OFF)
 option(RAFT_ENABLE_ucx_DEPENDENCY "Enable ucx dependency" OFF)
+
+option(RAFT_EXCLUDE_FAISS_FROM_ALL "Exclude FAISS targets from RAFT's 'all' target" ON)
 
 include(CMakeDependentOption)
 cmake_dependent_option(RAFT_USE_FAISS_STATIC "Build and statically link the FAISS library for nearest neighbors search on GPU" ON RAFT_COMPILE_LIBRARIES OFF)
@@ -150,7 +160,7 @@ target_link_libraries(raft INTERFACE
         CUDA::cudart
         CUDA::cusparse
         rmm::rmm
-        $<$<BOOL:${cuco_ADDED}>:cuco::cuco>
+        $<$<BOOL:${RAFT_ENABLE_cuco_DEPENDENCY}>:cuco::cuco>
         std::mdspan)
 
 target_compile_definitions(raft INTERFACE $<$<BOOL:${NVTX}>:NVTX_ENABLED>)
@@ -262,7 +272,7 @@ if(RAFT_COMPILE_LIBRARIES OR RAFT_COMPILE_NN_LIBRARY)
           )
   set_target_properties(raft_nn_lib PROPERTIES OUTPUT_NAME raft_nn)
 
-  target_link_libraries(raft_nn_lib PRIVATE raft::raft faiss::faiss)
+  target_link_libraries(raft_nn_lib PUBLIC faiss::faiss PRIVATE raft::raft)
   target_compile_options(raft_nn_lib
           PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
           "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
@@ -320,10 +330,10 @@ install(FILES include/raft.hpp
 # - install export -----------------------------------------------------------
 set(doc_string
         [=[
-Provide targets for the RAFT: RAPIDS Analytics Framework Toolkit.
+Provide targets for the RAFT: Reusable Accelerated Functions and Tools
 
-RAFT (Reusable Analytics Functions and other Tools) contains fundamental
-widely-used algorithms and primitives for data science, graph, and ml.
+RAFT contains fundamental widely-used algorithms and primitives
+for data science, graph, and ml.
 
 Optional Components:
   - nn

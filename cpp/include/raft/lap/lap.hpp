@@ -12,7 +12,7 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
- * limitations under the License.
+ * limitations under the License.+
  *
  *      CUDA Implementation of O(n^3) alternating tree Hungarian Algorithm
  *      Authors: Ketan Date and Rakesh Nagi
@@ -24,7 +24,7 @@
  */
 
 /**
- * @warning This file is deprecated and will be removed in release 22.06.
+ * This file is deprecated and will be removed in release 22.06.
  * Please use the cuh version instead.
  */
 

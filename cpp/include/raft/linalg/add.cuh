@@ -16,6 +16,11 @@
 #ifndef __ADD_H
 #define __ADD_H
 
+/**
+ * @defgroup arithmetic Dense matrix arithmetic
+ * @{
+ */
+
 #pragma once
 
 #include "detail/add.cuh"
@@ -26,6 +31,7 @@ namespace linalg {
 using detail::adds_scalar;
 
 /**
+ * @ingroup arithmetic
  * @brief Elementwise scalar add operation on the input buffer
  *
  * @tparam InT     input data-type. Also the data-type upon which the math ops
@@ -86,5 +92,7 @@ void addDevScalar(math_t* outDev,
 
 };  // end namespace linalg
 };  // end namespace raft
+
+/** @} */
 
 #endif
