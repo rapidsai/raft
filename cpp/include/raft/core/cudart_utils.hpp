@@ -14,6 +14,11 @@
  * limitations under the License.
  */
 
+/**
+ * This file is deprecated and will be removed in release 22.06.
+ * Please use raft_runtime/cudart_utils.hpp instead.
+ */
+
 #ifndef __RAFT_RT_CUDART_UTILS_H
 #define __RAFT_RT_CUDART_UTILS_H
 
@@ -154,7 +159,6 @@ class grid_1d_thread_t {
    * @param num_threads_per_block The grid block size, determined according to the kernel's
    * specific features (amount of shared memory necessary, SM functional units use pattern etc.);
    * this can't be determined generically/automatically (as opposed to the number of blocks)
-   * @param max_num_blocks_1d maximum number of 1d blocks
    * @param elements_per_thread Typically, a single kernel thread processes more than a single
    * element; this affects the number of threads the grid must contain
    */
@@ -187,7 +191,6 @@ class grid_1d_warp_t {
   /**
    * @param overall_num_elements The number of elements the kernel needs to handle/process
    * @param num_threads_per_block The grid block size, determined according to the kernel's
-   * @param max_num_blocks_1d maximum number of 1d blocks
    * specific features (amount of shared memory necessary, SM functional units use pattern etc.);
    * this can't be determined generically/automatically (as opposed to the number of blocks)
    */
@@ -217,7 +220,6 @@ class grid_1d_block_t {
   /**
    * @param overall_num_elements The number of elements the kernel needs to handle/process
    * @param num_threads_per_block The grid block size, determined according to the kernel's
-   * @param max_num_blocks_1d maximum number of 1d blocks
    * specific features (amount of shared memory necessary, SM functional units use pattern etc.);
    * this can't be determined generically/automatically (as opposed to the number of blocks)
    */
@@ -400,6 +402,22 @@ IntType gcd(IntType a, IntType b)
     a           = tmp;
   }
   return a;
+}
+
+template <typename T>
+constexpr T lower_bound()
+{
+  if constexpr (std::numeric_limits<T>::has_infinity && std::numeric_limits<T>::is_signed) {
+    return -std::numeric_limits<T>::infinity();
+  }
+  return std::numeric_limits<T>::lowest();
+}
+
+template <typename T>
+constexpr T upper_bound()
+{
+  if constexpr (std::numeric_limits<T>::has_infinity) { return std::numeric_limits<T>::infinity(); }
+  return std::numeric_limits<T>::max();
 }
 
 }  // namespace raft

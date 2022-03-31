@@ -369,7 +369,7 @@ set(doc_string
 Provide targets for the RAFT: Reusable Accelerated Functions and Tools
 
 RAFT contains fundamental widely-used algorithms and primitives
-for data science, graph, and ml.
+for data science and machine learning.
 
 Optional Components:
   - nn
