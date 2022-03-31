@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 #pragma once
-#include <raft/common/logger.hpp>
+//#include <raft/common/logger.hpp>
 
 namespace raft {
 namespace cluster {
@@ -43,7 +43,7 @@ struct KMeansParams {
   double tol = 1e-4;
 
   // verbosity level.
-  int verbosity = RAFT_LEVEL_INFO;
+  int verbosity = 4;//RAFT_LEVEL_INFO;
 
   // Seed to the random number generator.
   uint64_t seed = 0;

@@ -30,7 +30,7 @@
 #include <thrust/scan.h>
 
 #include <raft/cluster/kmeans_params.hpp>
-#include <raft/common/logger.hpp>
+//#include <raft/common/logger.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/distance/distance_type.hpp>

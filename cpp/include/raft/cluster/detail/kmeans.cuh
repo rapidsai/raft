@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 #pragma once
+// TODO : Remove this / Replace with logger
+#define RAFT_LOG_INFO(fmt, ...) \
+  std::cout << fmt << '\n';
 
 #include <algorithm>
 #include <cmath>
@@ -31,7 +34,6 @@
 
 #include <raft/cluster/detail/kmeans_helper.cuh>
 #include <raft/cluster/kmeans_params.hpp>
-#include <raft/common/logger.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/distance/distance_type.hpp>
@@ -285,7 +287,7 @@ void kmeans_fit_main(const raft::handle_t& handle,
                  IndexT& n_iter,
                  rmm::device_uvector<char>& workspace)
 {
-  logger::get(RAFT_NAME).set_level(params.verbosity);
+  //logger::get(RAFT_NAME).set_level(params.verbosity);
   cudaStream_t stream = handle.get_stream();
   auto n_samples      = X.extent(0);
   auto n_features     = X.extent(1);
@@ -809,7 +811,7 @@ void kmeans_fit(handle_t const& handle,
   RAFT_EXPECTS(params.tol > 0, "invalid parameter (tol<=0)");
   RAFT_EXPECTS(params.oversampling_factor > 0, "invalid parameter (oversampling_factor<=0)");
 
-  logger::get(RAFT_NAME).set_level(params.verbosity);
+  //logger::get(RAFT_NAME).set_level(params.verbosity);
 
   // Allocate memory
   rmm::device_uvector<char> workspace(0, stream);
@@ -921,7 +923,7 @@ void kmeans_predict(handle_t const& handle,
   RAFT_EXPECTS(params.tol > 0, "invalid parameter (tol<=0)");
   RAFT_EXPECTS(params.oversampling_factor > 0, "invalid parameter (oversampling_factor<=0)");
 
-  logger::get(RAFT_NAME).set_level(params.verbosity);
+  //logger::get(RAFT_NAME).set_level(params.verbosity);
   auto metric = static_cast<raft::distance::DistanceType>(params.metric);
 
   // Allocate memory
