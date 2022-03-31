@@ -53,9 +53,9 @@ The following example will download the needed dependencies and install the RAFT
 ./build.sh libraft --install
 ```
 
-The `--no-thrust` flag can be used to install the headers with minimal dependencies:
+The `--minimal-deps` flag can be used to install the headers with minimal dependencies:
 ```bash
-./build.sh libraft --install --no-thrust
+./build.sh libraft --install --minimal-deps
 ```
 
 ### <a id="shared_cpp_libs"></a>C++ Shared Libraries (optional)
