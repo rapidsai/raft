@@ -18,7 +18,7 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libraft pyraft pylibraft docs tests bench clean -v -g --install --compile-libs --compile-nn --compile-dist --allgpuarch --nvtx --show_depr_warn -h --buildfaiss --no-thrust"
+VALIDARGS="clean libraft pyraft pylibraft docs tests bench clean -v -g --install --compile-libs --compile-nn --compile-dist --allgpuarch --nvtx --show_depr_warn -h --buildfaiss --minimal-deps"
 HELP="$0 [<target> ...] [<flag> ...]
  where <target> is:
    clean            - remove all existing build artifacts and configuration (start over)
@@ -36,7 +36,8 @@ HELP="$0 [<target> ...] [<flag> ...]
    --compile-libs   - compile shared libraries for all components
    --compile-nn     - compile shared library for nn component
    --compile-dist   - compile shared library for distance component
-   --no-thrust      - disable thrust dependency. can be useful for header-only install
+   --minimal-deps   - disables dependencies like thrust so they can be overridden.
+                      can be useful for a pure header-only install
    --allgpuarch     - build for all supported GPU architectures
    --buildfaiss     - build faiss statically into raft
    --install        - install cmake targets

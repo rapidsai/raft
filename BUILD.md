@@ -127,7 +127,6 @@ RAFT's cmake has the following configurable flags available:.
 | RAFT_COMPILE_NN_LIBRARY | ON, OFF | OFF | Compiles the `libraft-nn` shared library |
 | RAFT_COMPILE_DIST_LIBRARY | ON, OFF | OFF | Compiles the `libraft-distance` shared library |
 | RAFT_ENABLE_NN_DEPENDENCIES | ON, OFF | OFF | Searches for dependencies of nearest neighbors API, such as FAISS, and compiles them if not found. Needed for `raft::spatial::knn` |
-| RAFT_ENABLE_cuco_DEPENDENCY | ON, OFF | OFF | Enables the cuCollections dependency used by `raft::sparse::distance`. This is turned on automatically when enabling the distance component |
 | RAFT_ENABLE_thrust_DEPENDENCY | ON, OFF | ON | Enables the Thrust dependency. This can be disabled when using many simple utilities or to override with a different Thrust version. |
 | RAFT_ENABLE_mdspan_DEPENDENCY | ON, OFF | ON | Enables the std::mdspan dependency. This can be disabled when using many simple utilities. |
 | RAFT_ENABLE_nccl_DEPENDENCY | ON, OFF | OFF | Enables NCCL dependency used by `raft::comms` and needed to build `pyraft` |

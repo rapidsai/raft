@@ -15,13 +15,12 @@
 # This function finds libcudacxx and sets any additional necessary environment variables.
 function(find_and_configure_libcudacxx)
 
-  if(RAFT_ENABLE_cuco_DEPENDENCY)
-    include(${rapids-cmake-dir}/cpm/libcudacxx.cmake)
+  include(${rapids-cmake-dir}/cpm/libcudacxx.cmake)
 
-    rapids_cpm_libcudacxx(BUILD_EXPORT_SET raft-exports
-                          INSTALL_EXPORT_SET raft-exports)
-  endif()
-
+  rapids_cpm_libcudacxx(BUILD_EXPORT_SET raft-exports
+                        INSTALL_EXPORT_SET raft-exports)
 endfunction()
 
-find_and_configure_libcudacxx()
+if(RAFT_ENABLE_cuco_DEPENDENCY)
+  find_and_configure_libcudacxx()
+endif()

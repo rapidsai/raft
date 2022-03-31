@@ -66,12 +66,8 @@ option(RAFT_COMPILE_NN_LIBRARY "Enable building raft nearest neighbors shared li
 option(RAFT_COMPILE_DIST_LIBRARY "Enable building raft distant shared library instantiations" OFF)
 option(RAFT_ENABLE_NN_DEPENDENCIES "Search for raft::nn dependencies like faiss" ${RAFT_COMPILE_LIBRARIES})
 
-option(RAFT_ENABLE_cuco_DEPENDENCY "Enable cuCollections dependency" OFF)
 option(RAFT_ENABLE_mdspan_DEPENDENCY "Enable mdspan dependency" ON)
 option(RAFT_ENABLE_thrust_DEPENDENCY "Enable Thrust dependency" ON)
-if(distance IN_LIST raft_FIND_COMPONENTS OR RAFT_COMPILE_LIBRARIES OR RAFT_COMPILE_DIST_LIBRARY)
-  set(RAFT_ENABLE_cuco_DEPENDENCY ON)
-endif()
 
 if(BUILD_TESTS AND NOT RAFT_ENABLE_thrust_DEPENDENCY)
   message(VERBOSE "RAFT: BUILD_TESTS is enabled, overriding RAFT_ENABLE_thrust_DEPENDENCY")
@@ -135,6 +131,10 @@ include(cmake/modules/ConfigureCUDA.cmake)
 
 ##############################################################################
 # - Requirements -------------------------------------------------------------
+
+if(distance IN_LIST raft_FIND_COMPONENTS OR RAFT_COMPILE_LIBRARIES OR RAFT_COMPILE_DIST_LIBRARY)
+  set(RAFT_ENABLE_cuco_DEPENDENCY ON)
+endif()
 
 # add third party dependencies using CPM
 rapids_cpm_init()
