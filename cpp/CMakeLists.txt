@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #=============================================================================
-set(RAPIDS_VERSION "22.04")
+set(RAPIDS_VERSION "22.06")
 set(RAFT_VERSION "${RAPIDS_VERSION}.00")
 
 cmake_minimum_required(VERSION 3.20.1 FATAL_ERROR)

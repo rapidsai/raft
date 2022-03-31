@@ -16,6 +16,7 @@
 
 function(find_and_configure_cuco VERSION)
 
+<<<<<<< HEAD
     rapids_cpm_find(cuco ${VERSION}
       GLOBAL_TARGETS      cuco::cuco
       BUILD_EXPORT_SET    raft-distance-exports
@@ -27,6 +28,21 @@ function(find_and_configure_cuco VERSION)
                        "BUILD_BENCHMARKS OFF"
                        "BUILD_EXAMPLES OFF"
     )
+=======
+    if(RAFT_ENABLE_cuco_DEPENDENCY)
+        rapids_cpm_find(cuco ${VERSION}
+          GLOBAL_TARGETS      cuco::cuco
+          BUILD_EXPORT_SET    raft-distance-exports
+          INSTALL_EXPORT_SET  raft-distance-exports
+          CPM_ARGS
+            GIT_REPOSITORY https://github.com/NVIDIA/cuCollections.git
+            GIT_TAG        6ec8b6dcdeceea07ab4456d32461a05c18864411
+            OPTIONS        "BUILD_TESTS OFF"
+                           "BUILD_BENCHMARKS OFF"
+                           "BUILD_EXAMPLES OFF"
+        )
+    endif()
+>>>>>>> f13aceb1ef5779863f6607d73eed58a5fb6a07ec
 
 endfunction()
 
