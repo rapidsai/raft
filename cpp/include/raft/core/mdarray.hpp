@@ -22,8 +22,8 @@
  */
 #pragma once
 #include <experimental/mdspan>
+#include <raft/core/handle.hpp>
 #include <raft/detail/mdarray.hpp>
-#include <raft/handle.hpp>
 #include <rmm/cuda_stream_view.hpp>
 
 namespace raft {
@@ -482,7 +482,7 @@ template <typename ElementType>
 auto make_host_vector_view(ElementType* ptr, size_t n)
 {
   detail::vector_extent extents{n};
-  return host_matrix_view<ElementType>{ptr, extents};
+  return host_vector_view<ElementType>{ptr, extents};
 }
 
 /**
@@ -496,7 +496,7 @@ template <typename ElementType>
 auto make_device_vector_view(ElementType* ptr, size_t n)
 {
   detail::vector_extent extents{n};
-  return device_matrix_view<ElementType>{ptr, extents};
+  return device_vector_view<ElementType>{ptr, extents};
 }
 
 /**

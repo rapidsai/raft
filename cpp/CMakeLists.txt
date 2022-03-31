@@ -50,6 +50,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 ##############################################################################
 # - User Options  ------------------------------------------------------------
 
+option(BUILD_SHARED_LIBS "Build raft shared libraries" ON)
 option(BUILD_TESTS "Build raft unit-tests" ON)
 option(BUILD_BENCH "Build raft C++ benchmark tests" OFF)
 option(CUDA_ENABLE_KERNELINFO "Enable kernel resource usage info" OFF)
@@ -59,7 +60,6 @@ option(DETECT_CONDA_ENV "Enable detection of conda environment for dependencies"
 option(DISABLE_DEPRECATION_WARNINGS "Disable depreaction warnings " ON)
 option(DISABLE_OPENMP "Disable OpenMP" OFF)
 option(NVTX "Enable nvtx markers" OFF)
-option(RAFT_STATIC_LINK_LIBRARIES "Statically link compiled libraft libraries")
 
 option(RAFT_COMPILE_LIBRARIES "Enable building raft shared library instantiations" OFF)
 option(RAFT_COMPILE_NN_LIBRARY "Enable building raft nearest neighbors shared library instantiations" OFF)
@@ -193,11 +193,6 @@ SECTIONS
 ]=])
 endif()
 
-set(RAFT_LIB_TYPE SHARED)
-if(${RAFT_STATIC_LINK_LIBRARIES})
-  set(RAFT_LIB_TYPE STATIC)
-endif()
-
 ##############################################################################
 # - raft_distance ------------------------------------------------------------
 add_library(raft_distance INTERFACE)
@@ -209,7 +204,7 @@ endif()
 set_target_properties(raft_distance PROPERTIES EXPORT_NAME distance)
 
 if(RAFT_COMPILE_LIBRARIES OR RAFT_COMPILE_DIST_LIBRARY)
-  add_library(raft_distance_lib ${RAFT_LIB_TYPE}
+  add_library(raft_distance_lib
     src/distance/pairwise_distance.cu
     src/distance/specializations/detail/canberra.cu
     src/distance/specializations/detail/chebyshev.cu
@@ -242,7 +237,17 @@ if(RAFT_COMPILE_LIBRARIES OR RAFT_COMPILE_DIST_LIBRARY)
     src/distance/specializations/detail/lp_unexpanded_float_float_float_uint32.cu
     src/distance/specializations/detail/lp_unexpanded_float_float_float_int.cu
   )
-  set_target_properties(raft_distance_lib PROPERTIES OUTPUT_NAME raft_distance)
+  set_target_properties(
+    raft_distance_lib
+    PROPERTIES OUTPUT_NAME                         raft_distance
+               BUILD_RPATH                         "\$ORIGIN"
+               INSTALL_RPATH                       "\$ORIGIN"
+               CXX_STANDARD                        17
+               CXX_STANDARD_REQUIRED               ON
+               CUDA_STANDARD                       17
+               CUDA_STANDARD_REQUIRED              ON
+               POSITION_INDEPENDENT_CODE           ON
+               INTERFACE_POSITION_INDEPENDENT_CODE ON)
 
   target_link_libraries(raft_distance_lib PRIVATE raft::raft)
   target_compile_options(raft_distance_lib
@@ -275,7 +280,7 @@ endif()
 set_target_properties(raft_nn PROPERTIES EXPORT_NAME nn)
 
 if(RAFT_COMPILE_LIBRARIES OR RAFT_COMPILE_NN_LIBRARY)
-  add_library(raft_nn_lib ${RAFT_LIB_TYPE}
+  add_library(raft_nn_lib
           src/nn/specializations/ball_cover.cu
           src/nn/specializations/detail/ball_cover_lowdim_pass_one_2d.cu
           src/nn/specializations/detail/ball_cover_lowdim_pass_two_2d.cu
@@ -287,7 +292,17 @@ if(RAFT_COMPILE_LIBRARIES OR RAFT_COMPILE_NN_LIBRARY)
           src/nn/specializations/fused_l2_knn_int_float_false.cu
           src/nn/specializations/knn.cu
           )
-  set_target_properties(raft_nn_lib PROPERTIES OUTPUT_NAME raft_nn)
+  set_target_properties(
+    raft_nn_lib
+    PROPERTIES OUTPUT_NAME                         raft_nn
+               BUILD_RPATH                         "\$ORIGIN"
+               INSTALL_RPATH                       "\$ORIGIN"
+               CXX_STANDARD                        17
+               CXX_STANDARD_REQUIRED               ON
+               CUDA_STANDARD                       17
+               CUDA_STANDARD_REQUIRED              ON
+               POSITION_INDEPENDENT_CODE           ON
+               INTERFACE_POSITION_INDEPENDENT_CODE ON)
 
   target_link_libraries(raft_nn_lib PUBLIC faiss::faiss PRIVATE raft::raft)
   target_compile_options(raft_nn_lib

@@ -19,6 +19,7 @@ set(RAFT_CPP_BENCH_TARGET "bench_raft")
 # (please keep the filenames in alphabetical order)
 add_executable(${RAFT_CPP_BENCH_TARGET}
   bench/linalg/reduce.cu
+  bench/spatial/selection.cu
   bench/main.cpp
 )
 
