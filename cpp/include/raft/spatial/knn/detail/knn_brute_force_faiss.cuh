@@ -351,6 +351,7 @@ void brute_force_knn_impl(
           bfKnn(&gpu_res, args);
       }
     }
+
     RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
 
