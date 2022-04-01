@@ -382,13 +382,18 @@ Imported Targets:
 
 ]=])
 
-set(code_string
-[=[
-
-if(RAFT_ENABLE_thrust_DEPENDENCY AND NOT TARGET raft::Thrust)
-  thrust_create_target(raft::Thrust FROM_OPTIONS)
+set(code_string )
+if(RAFT_ENABLE_thrust_DEPENDENCY)
+  string(APPEND code_string
+  [=[
+  if(NOT TARGET raft::Thrust)
+    thrust_create_target(raft::Thrust FROM_OPTIONS)
+  endif()
+  ]=])
 endif()
 
+string(APPEND code_string
+[=[
 if(distance IN_LIST raft_FIND_COMPONENTS)
   enable_language(CUDA)
 endif()
@@ -402,8 +407,7 @@ if(nn IN_LIST raft_FIND_COMPONENTS)
       add_library(faiss ALIAS faiss::faiss)
   endif()
 endif()
-]=]
-        )
+]=])
 
 # Use `rapids_export` for 22.04 as it will have COMPONENT support
 include(cmake/modules/raft_export.cmake)
