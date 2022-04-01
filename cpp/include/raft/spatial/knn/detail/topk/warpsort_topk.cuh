@@ -121,36 +121,6 @@ __device__ __forceinline__ auto is_ordered(T left, T right) -> bool
   if constexpr (!Ascending) { return left > right; }
 }
 
-template <bool Ascending, typename T>
-__device__ __forceinline__ auto select_first(T left, T right) -> bool
-{
-  return is_ordered<Ascending, T>(left, right) ? left : right;
-}
-
-template <>
-__device__ __forceinline__ auto select_first<true, float>(float left, float right) -> bool
-{
-  return fminf(left, right);
-}
-
-template <>
-__device__ __forceinline__ auto select_first<true, double>(double left, double right) -> bool
-{
-  return fmin(left, right);
-}
-
-template <>
-__device__ __forceinline__ auto select_first<false, float>(float left, float right) -> bool
-{
-  return fmaxf(left, right);
-}
-
-template <>
-__device__ __forceinline__ auto select_first<false, double>(double left, double right) -> bool
-{
-  return fmax(left, right);
-}
-
 constexpr auto calc_capacity(int k) -> int
 {
   int capacity = isPo2(k) ? k : (1 << (log2(k) + 1));
