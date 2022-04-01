@@ -45,8 +45,22 @@ template <typename... Args>
 struct __is_mdspan<detail::stdex::mdspan<Args...>> : std::true_type {
 };
 
+template <typename ElementType, typename Extents, typename LayoutPolicy, typename AccessorPolicy>
+void __takes_an_mdspan_ptr(
+  detail::stdex::mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>*);
+
+template <typename T, typename = void>
+struct __is_derived_mdspan : std::false_type {
+};
+
 template <typename T>
-inline constexpr bool is_mdspan_v = __is_mdspan<std::remove_const_t<T>>::value;
+struct __is_derived_mdspan<T, std::void_t<decltype(__takes_an_mdspan_ptr(std::declval<T*>()))>>
+  : std::true_type {
+};
+
+template <typename T>
+inline constexpr bool is_mdspan_v =
+  __is_mdspan<std::remove_const_t<T>>::value || __is_derived_mdspan<std::remove_const_t<T>>::value;
 
 template <typename T, typename U = void>
 using is_mdspan_t = std::enable_if_t<is_mdspan_v<T>, U>;

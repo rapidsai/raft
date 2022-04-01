@@ -5,11 +5,20 @@ namespace raft {
 
 namespace stdex = std::experimental;
 
+template <typename ElementType,
+          typename Extents,
+          typename LayoutPolicy   = layout_c_contiguous,
+          typename AccessorPolicy = detail::stdex::default_accessor<ElementType>>
+struct derived_mdspan
+  : public detail::stdex::mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy> {
+};
+
 void test_template_asserts()
 {
   // Testing 3d device mdspan to be an mdspan
   using three_d_extents = stdex::extents<dynamic_extent, dynamic_extent, dynamic_extent>;
   using three_d_mdspan  = device_mdspan<int, three_d_extents>;
+  using d_mdspan        = derived_mdspan<int, three_d_extents>;
 
   // Checking if types are mdspan, supposed to fail for std::vector
   static_assert(is_mdspan_v<three_d_mdspan>, "3d mdspan type not an mdspan");
@@ -19,6 +28,7 @@ void test_template_asserts()
   static_assert(is_mdspan_v<const host_scalar_view<double>>,
                 "const host_scalar_view type not an mdspan");
   static_assert(!is_mdspan_v<std::vector<int>>, "std::vector is an mdspan");
+  static_assert(is_mdspan_v<d_mdspan>, "Derived mdspan type is not mdspan");
 
   // Checking if types are device_mdspan
   static_assert(is_device_mdspan_v<device_matrix_view<float>>,
