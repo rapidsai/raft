@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include "rng_state.hpp"
+
 #include <curand_kernel.h>
 #include <raft/common/cub_wrappers.cuh>
 #include <raft/common/scatter.cuh>
@@ -27,14 +29,6 @@
 namespace raft {
 namespace random {
 namespace detail {
-
-/** all different generator types used */
-enum GeneratorType {
-  /** curand-based philox generator */
-  GenPhilox = 0,
-  /** Permuted Congruential Generator */
-  GenPC
-};
 
 template <typename OutType>
 struct InvariantDistParams {
@@ -421,11 +415,6 @@ DI void custom_next(
   }
 }
 
-struct RngState {
-  uint64_t seed;
-  uint64_t base_subsequence;
-};
-
 /** Philox-based random number generator */
 // Courtesy: Jakub Szuppe
 struct PhiloxGenerator {
@@ -672,8 +661,7 @@ __global__ void fillKernel(
 class RngImpl {
  public:
   RngImpl(uint64_t seed, GeneratorType _t = GenPhilox)
-    : state{seed, 0},
-      type(_t),
+    : state{seed, 0, _t},
       // simple heuristic to make sure all SMs will be occupied properly
       // and also not too many initialization calls will be made by each thread
       nBlocks(4 * getMultiProcessorCount())
@@ -851,13 +839,13 @@ class RngImpl {
   void advance(uint64_t max_uniq_subsequences_used,
                uint64_t max_numbers_generated_per_subsequence = 0)
   {
-    state.base_subsequence += max_uniq_subsequences_used;
+    state.advance(max_uniq_subsequences_used, max_numbers_generated_per_subsequence);
   }
 
   template <typename OutType, typename LenType, int ITEMS_PER_CALL, typename ParamType>
   void kernel_dispatch(OutType* ptr, LenType len, cudaStream_t stream, ParamType params)
   {
-    switch (type) {
+    switch (state.type) {
       case GenPhilox:
         fillKernel<OutType, LenType, PhiloxGenerator, ITEMS_PER_CALL>
           <<<nBlocks, nThreads, 0, stream>>>(
@@ -909,7 +897,6 @@ class RngImpl {
     scatter<DataT, IdxT>(out, in, outIdxPtr, sampledLen, stream);
   }
 
-  GeneratorType type;
   RngState state;
   /** number of blocks to launch */
   int nBlocks;

@@ -18,6 +18,20 @@
  * Please use the cuh version instead.
  */
 
+#ifndef __RNG_STATE_H
+#define __RNG_STATE_H
+
 #pragma once
 
-#include "rng.cuh"
+#include "detail/rng_state.hpp"
+
+namespace raft {
+namespace random {
+
+using detail::GeneratorType;
+using detail::RngState;
+
+};  // end namespace random
+};  // end namespace raft
+
+#endif
