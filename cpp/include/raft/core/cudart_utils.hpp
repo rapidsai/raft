@@ -159,6 +159,7 @@ class grid_1d_thread_t {
    * @param num_threads_per_block The grid block size, determined according to the kernel's
    * specific features (amount of shared memory necessary, SM functional units use pattern etc.);
    * this can't be determined generically/automatically (as opposed to the number of blocks)
+   * @param max_num_blocks_1d maximum number of blocks in 1d grid
    * @param elements_per_thread Typically, a single kernel thread processes more than a single
    * element; this affects the number of threads the grid must contain
    */
@@ -193,6 +194,7 @@ class grid_1d_warp_t {
    * @param num_threads_per_block The grid block size, determined according to the kernel's
    * specific features (amount of shared memory necessary, SM functional units use pattern etc.);
    * this can't be determined generically/automatically (as opposed to the number of blocks)
+   * @param max_num_blocks_1d maximum number of blocks in 1d grid
    */
   grid_1d_warp_t(size_t overall_num_elements,
                  size_t num_threads_per_block,
@@ -222,6 +224,7 @@ class grid_1d_block_t {
    * @param num_threads_per_block The grid block size, determined according to the kernel's
    * specific features (amount of shared memory necessary, SM functional units use pattern etc.);
    * this can't be determined generically/automatically (as opposed to the number of blocks)
+   * @param max_num_blocks_1d maximum number of blocks in 1d grid
    */
   grid_1d_block_t(size_t overall_num_elements,
                   size_t num_threads_per_block,
