@@ -16,6 +16,7 @@
 
 # keep the files in alphabetical order!
 add_executable(test_raft
+    test/cluster/kmeans.cu
     test/common/logger.cpp
     test/common/seive.cu
     test/cudart_utils.cpp
