@@ -44,21 +44,29 @@ struct rng_inputs {
 
 template <typename T>
 struct rng : public fixture {
-    rng(const rng_inputs<T>& p) : params(p), ptr(p.len, stream) {}
+  rng(const rng_inputs<T>& p) : params(p), ptr(p.len, stream) {}
 
   void run_benchmark(::benchmark::State& state) override
   {
     raft::random::Rng r(123456ULL, params.gtype);
-      loop_on_state(state, [this, &r]() {
+    loop_on_state(state, [this, &r]() {
       switch (params.type) {
         case RNG_Normal: r.normal(ptr.data(), params.len, params.start, params.end, stream); break;
-        case RNG_LogNormal: r.lognormal(ptr.data(), params.len, params.start, params.end, stream); break;
-        case RNG_Uniform: r.uniform(ptr.data(), params.len, params.start, params.end, stream); break;
+        case RNG_LogNormal:
+          r.lognormal(ptr.data(), params.len, params.start, params.end, stream);
+          break;
+        case RNG_Uniform:
+          r.uniform(ptr.data(), params.len, params.start, params.end, stream);
+          break;
         case RNG_Gumbel: r.gumbel(ptr.data(), params.len, params.start, params.end, stream); break;
-        case RNG_Logistic: r.logistic(ptr.data(), params.len, params.start, params.end, stream); break;
+        case RNG_Logistic:
+          r.logistic(ptr.data(), params.len, params.start, params.end, stream);
+          break;
         case RNG_Exp: r.exponential(ptr.data(), params.len, params.start, stream); break;
         case RNG_Rayleigh: r.rayleigh(ptr.data(), params.len, params.start, stream); break;
-        case RNG_Laplace: r.laplace(ptr.data(), params.len, params.start, params.end, stream); break;
+        case RNG_Laplace:
+          r.laplace(ptr.data(), params.len, params.start, params.end, stream);
+          break;
         case RNG_Fill: r.fill(ptr.data(), params.len, params.start, stream); break;
       };
     });

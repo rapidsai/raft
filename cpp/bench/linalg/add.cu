@@ -30,19 +30,18 @@ struct add : public fixture {
 
   void run_benchmark(::benchmark::State& state) override
   {
-      loop_on_state(state, [this]() { raft::linalg::add(ptr0.data(), ptr0.data(), ptr1.data(), params.len, stream); });
+    loop_on_state(state, [this]() {
+      raft::linalg::add(ptr0.data(), ptr0.data(), ptr1.data(), params.len, stream);
+    });
   }
 
  private:
   add_inputs params;
-    rmm::device_uvector<T> ptr0, ptr1;
+  rmm::device_uvector<T> ptr0, ptr1;
 };  // struct add
 
-const std::vector<add_inputs> add_input_vecs
-{
-    {256 * 1024 * 1024},
-    {256 * 1024 * 1024 + 2},
-    {256 * 1024 * 1024 + 1}
+const std::vector<add_inputs> add_input_vecs{
+  {256 * 1024 * 1024}, {256 * 1024 * 1024 + 2}, {256 * 1024 * 1024 + 1}
 
 };
 

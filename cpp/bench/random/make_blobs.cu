@@ -27,14 +27,14 @@ struct make_blobs_inputs {
 
 template <typename T>
 struct make_blobs : public fixture {
-    make_blobs(const make_blobs_inputs& p)
+  make_blobs(const make_blobs_inputs& p)
     : params(p), data(p.rows * p.cols, stream), labels(p.rows, stream)
   {
   }
 
   void run_benchmark(::benchmark::State& state) override
   {
-      loop_on_state(state, [this]() {
+    loop_on_state(state, [this]() {
       raft::random::make_blobs(data.data(),
                                labels.data(),
                                params.rows,

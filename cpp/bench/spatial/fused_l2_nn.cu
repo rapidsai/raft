@@ -31,22 +31,29 @@ struct fused_l2_nn_inputs {
 
 template <typename T>
 struct fused_l2_nn : public fixture {
-    fused_l2_nn(const fused_l2_nn_inputs& p) : params(p), out(p.m, stream), x(p.m*p.k, stream), y(p.n*p.k, stream), xn(p.m, stream), yn(p.n, stream), workspace(p.m, stream) {
-        raft::handle_t handle{stream};
-        raft::random::Rng r(123456ULL);
+  fused_l2_nn(const fused_l2_nn_inputs& p)
+    : params(p),
+      out(p.m, stream),
+      x(p.m * p.k, stream),
+      y(p.n * p.k, stream),
+      xn(p.m, stream),
+      yn(p.n, stream),
+      workspace(p.m, stream)
+  {
+    raft::handle_t handle{stream};
+    raft::random::Rng r(123456ULL);
 
-        r.uniform(x.data(), p.m * p.k, T(-1.0), T(1.0), stream);
-        r.uniform(y.data(), p.n * p.k, T(-1.0), T(1.0), stream);
-        raft::linalg::rowNorm(xn.data(), x.data(), p.k, p.m, raft::linalg::L2Norm, true, stream);
-        raft::linalg::rowNorm(yn.data(), y.data(), p.k, p.n, raft::linalg::L2Norm, true, stream);
-        raft::distance::initialize<T, cub::KeyValuePair<int, T>, int>(
-                handle, out.data(), p.m, std::numeric_limits<T>::max(), op);
-
-    }
+    r.uniform(x.data(), p.m * p.k, T(-1.0), T(1.0), stream);
+    r.uniform(y.data(), p.n * p.k, T(-1.0), T(1.0), stream);
+    raft::linalg::rowNorm(xn.data(), x.data(), p.k, p.m, raft::linalg::L2Norm, true, stream);
+    raft::linalg::rowNorm(yn.data(), y.data(), p.k, p.n, raft::linalg::L2Norm, true, stream);
+    raft::distance::initialize<T, cub::KeyValuePair<int, T>, int>(
+      handle, out.data(), p.m, std::numeric_limits<T>::max(), op);
+  }
 
   void run_benchmark(::benchmark::State& state) override
   {
-      loop_on_state(state, [this]() {
+    loop_on_state(state, [this]() {
       // it is enough to only benchmark the L2-squared metric
       raft::distance::fusedL2NN<T, cub::KeyValuePair<int, T>, int>(out.data(),
                                                                    x.data(),
@@ -66,7 +73,7 @@ struct fused_l2_nn : public fixture {
   }
 
  private:
-    fused_l2_nn_inputs params;
+  fused_l2_nn_inputs params;
   rmm::device_uvector<T> x, y, xn, yn;
   rmm::device_uvector<cub::KeyValuePair<int, T>> out;
   rmm::device_uvector<int> workspace;
@@ -75,11 +82,11 @@ struct fused_l2_nn : public fixture {
 };  // struct FusedL2NN
 
 const std::vector<fused_l2_nn_inputs> fused_l2_nn_input_vecs = {
-    {32, 16384, 16384},  {64, 16384, 16384},   {128, 16384, 16384},   {256, 16384, 16384},
-    {512, 16384, 16384}, {1024, 16384, 16384}, {16384, 32, 16384},    {16384, 64, 16384},
-    {16384, 128, 16384}, {16384, 256, 16384},  {16384, 512, 16384},   {16384, 1024, 16384},
-    {16384, 16384, 32},  {16384, 16384, 64},   {16384, 16384, 128},   {16384, 16384, 256},
-    {16384, 16384, 512}, {16384, 16384, 1024}, {16384, 16384, 16384},
+  {32, 16384, 16384},  {64, 16384, 16384},   {128, 16384, 16384},   {256, 16384, 16384},
+  {512, 16384, 16384}, {1024, 16384, 16384}, {16384, 32, 16384},    {16384, 64, 16384},
+  {16384, 128, 16384}, {16384, 256, 16384},  {16384, 512, 16384},   {16384, 1024, 16384},
+  {16384, 16384, 32},  {16384, 16384, 64},   {16384, 16384, 128},   {16384, 16384, 256},
+  {16384, 16384, 512}, {16384, 16384, 1024}, {16384, 16384, 16384},
 
 };
 

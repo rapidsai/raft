@@ -30,16 +30,22 @@ struct permute_inputs {
 
 template <typename T>
 struct permute : public fixture {
-  permute(const permute_inputs& p) : params(p), perms(p.needPerms ? p.rows : 0, stream), out(p.rows * p.cols, stream), in(p.rows*p.cols, stream) {
-      raft::random::Rng r(123456ULL);
-      r.uniform(in.data(), p.rows, T(-1.0), T(1.0), stream);
+  permute(const permute_inputs& p)
+    : params(p),
+      perms(p.needPerms ? p.rows : 0, stream),
+      out(p.rows * p.cols, stream),
+      in(p.rows * p.cols, stream)
+  {
+    raft::random::Rng r(123456ULL);
+    r.uniform(in.data(), p.rows, T(-1.0), T(1.0), stream);
   }
 
   void run_benchmark(::benchmark::State& state) override
   {
     raft::random::Rng r(123456ULL);
-      loop_on_state(state, [this, &r]() {
-      raft::random::permute(perms.data(), out.data(), in.data(), params.cols, params.rows, params.rowMajor, stream);
+    loop_on_state(state, [this, &r]() {
+      raft::random::permute(
+        perms.data(), out.data(), in.data(), params.cols, params.rows, params.rowMajor, stream);
     });
   }
 
@@ -49,21 +55,20 @@ struct permute : public fixture {
   rmm::device_uvector<int> perms;
 };  // struct permute
 
-const std::vector<permute_inputs> permute_input_vecs =
-{
-    {32 * 1024, 128, true, true, true},
-    {1024 * 1024, 128, true, true, true},
-    {32 * 1024, 128 + 2, true, true, true},
-    {1024 * 1024, 128 + 2, true, true, true},
-    {32 * 1024, 128 + 1, true, true, true},
-    {1024 * 1024, 128 + 1, true, true, true},
+const std::vector<permute_inputs> permute_input_vecs = {
+  {32 * 1024, 128, true, true, true},
+  {1024 * 1024, 128, true, true, true},
+  {32 * 1024, 128 + 2, true, true, true},
+  {1024 * 1024, 128 + 2, true, true, true},
+  {32 * 1024, 128 + 1, true, true, true},
+  {1024 * 1024, 128 + 1, true, true, true},
 
-    {32 * 1024, 128, true, true, false},
-    {1024 * 1024, 128, true, true, false},
-    {32 * 1024, 128 + 2, true, true, false},
-    {1024 * 1024, 128 + 2, true, true, false},
-    {32 * 1024, 128 + 1, true, true, false},
-    {1024 * 1024, 128 + 1, true, true, false},
+  {32 * 1024, 128, true, true, false},
+  {1024 * 1024, 128, true, true, false},
+  {32 * 1024, 128 + 2, true, true, false},
+  {1024 * 1024, 128 + 2, true, true, false},
+  {32 * 1024, 128 + 1, true, true, false},
+  {1024 * 1024, 128 + 1, true, true, false},
 
 };
 

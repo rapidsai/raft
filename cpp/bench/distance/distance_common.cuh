@@ -31,20 +31,23 @@ struct distance_inputs {
 template <typename T, raft::distance::DistanceType DType>
 struct distance : public fixture {
   distance(const distance_inputs& p)
-    : params(p), x(p.m * p.k, stream), y(p.n * p.k, stream), out(p.m * p.n, stream), workspace(0, stream)
+    : params(p),
+      x(p.m * p.k, stream),
+      y(p.n * p.k, stream),
+      out(p.m * p.n, stream),
+      workspace(0, stream)
   {
-      RAFT_CUDA_TRY(cudaMemsetAsync(x.data(), 0, x.size() * sizeof(T), stream));
-      RAFT_CUDA_TRY(cudaMemsetAsync(y.data(), 0, y.size() * sizeof(T), stream));
-      RAFT_CUDA_TRY(cudaMemsetAsync(out.data(), 0, out.size() * sizeof(T), stream));
-      worksize = raft::distance::getWorkspaceSize<DType, T, T, T>(
-              x.data(), y.data(), params.m, params.n, params.k);
-      workspace.resize(worksize, stream);
-
+    RAFT_CUDA_TRY(cudaMemsetAsync(x.data(), 0, x.size() * sizeof(T), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(y.data(), 0, y.size() * sizeof(T), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(out.data(), 0, out.size() * sizeof(T), stream));
+    worksize = raft::distance::getWorkspaceSize<DType, T, T, T>(
+      x.data(), y.data(), params.m, params.n, params.k);
+    workspace.resize(worksize, stream);
   }
 
   void run_benchmark(::benchmark::State& state) override
   {
-      loop_on_state(state, [this]() {
+    loop_on_state(state, [this]() {
       raft::distance::distance<DType, T, T, T>(x.data(),
                                                y.data(),
                                                out.data(),
@@ -65,28 +68,27 @@ struct distance : public fixture {
   size_t worksize;
 };  // struct Distance
 
-const std::vector<distance_inputs> dist_input_vecs
-{
-    {32, 16384, 16384, true},    {64, 16384, 16384, true},     {128, 16384, 16384, true},
-    {256, 16384, 16384, true},   {512, 16384, 16384, true},    {1024, 16384, 16384, true},
-    {16384, 32, 16384, true},    {16384, 64, 16384, true},     {16384, 128, 16384, true},
-    {16384, 256, 16384, true},   {16384, 512, 16384, true},    {16384, 1024, 16384, true},
-    {16384, 16384, 32, true},    {16384, 16384, 64, true},     {16384, 16384, 128, true},
-    {16384, 16384, 256, true},   {16384, 16384, 512, true},    {16384, 16384, 1024, true},
-    {16384, 16384, 16384, true}, {32, 16384, 16384, false},    {64, 16384, 16384, false},
-    {128, 16384, 16384, false},  {256, 16384, 16384, false},   {512, 16384, 16384, false},
-    {1024, 16384, 16384, false}, {16384, 32, 16384, false},    {16384, 64, 16384, false},
-    {16384, 128, 16384, false},  {16384, 256, 16384, false},   {16384, 512, 16384, false},
-    {16384, 1024, 16384, false}, {16384, 16384, 32, false},    {16384, 16384, 64, false},
-    {16384, 16384, 128, false},  {16384, 16384, 256, false},   {16384, 16384, 512, false},
-    {16384, 16384, 1024, false}, {16384, 16384, 16384, false}
+const std::vector<distance_inputs> dist_input_vecs{
+  {32, 16384, 16384, true},    {64, 16384, 16384, true},    {128, 16384, 16384, true},
+  {256, 16384, 16384, true},   {512, 16384, 16384, true},   {1024, 16384, 16384, true},
+  {16384, 32, 16384, true},    {16384, 64, 16384, true},    {16384, 128, 16384, true},
+  {16384, 256, 16384, true},   {16384, 512, 16384, true},   {16384, 1024, 16384, true},
+  {16384, 16384, 32, true},    {16384, 16384, 64, true},    {16384, 16384, 128, true},
+  {16384, 16384, 256, true},   {16384, 16384, 512, true},   {16384, 16384, 1024, true},
+  {16384, 16384, 16384, true}, {32, 16384, 16384, false},   {64, 16384, 16384, false},
+  {128, 16384, 16384, false},  {256, 16384, 16384, false},  {512, 16384, 16384, false},
+  {1024, 16384, 16384, false}, {16384, 32, 16384, false},   {16384, 64, 16384, false},
+  {16384, 128, 16384, false},  {16384, 256, 16384, false},  {16384, 512, 16384, false},
+  {16384, 1024, 16384, false}, {16384, 16384, 32, false},   {16384, 16384, 64, false},
+  {16384, 16384, 128, false},  {16384, 16384, 256, false},  {16384, 16384, 512, false},
+  {16384, 16384, 1024, false}, {16384, 16384, 16384, false}
 
 };
 
-#define DIST_BENCH_REGISTER(Name, Metric)              \
-  using Name##F = distance<float, Metric>;             \
+#define DIST_BENCH_REGISTER(Name, Metric)            \
+  using Name##F = distance<float, Metric>;           \
   RAFT_BENCH_REGISTER(Name##F, "", dist_input_vecs); \
-  using Name##D = distance<double, Metric>;            \
+  using Name##D = distance<double, Metric>;          \
   RAFT_BENCH_REGISTER(Name##D, "", dist_input_vecs);
 
 }  // namespace raft::bench::distance
