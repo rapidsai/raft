@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,30 +16,27 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 
-#include <raft/sparse/op/sort.h>
-#include <raft/mr/device/buffer.hpp>
 #include <raft/sparse/mst/mst.cuh>
+#include <raft/sparse/op/sort.cuh>
 #include <raft/sparse/selection/connect_components.cuh>
 #include <rmm/device_uvector.hpp>
-
-#include <rmm/exec_policy.hpp>
 
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
 #include <thrust/sort.h>
-#include <rmm/exec_policy.hpp>
 
 namespace raft {
 namespace hierarchy {
 namespace detail {
 
 template <typename value_idx, typename value_t>
-void merge_msts(raft::Graph_COO<value_idx, value_idx, value_t> &coo1,
-                raft::Graph_COO<value_idx, value_idx, value_t> &coo2,
-                cudaStream_t stream) {
+void merge_msts(raft::Graph_COO<value_idx, value_idx, value_t>& coo1,
+                raft::Graph_COO<value_idx, value_idx, value_t>& coo2,
+                cudaStream_t stream)
+{
   /** Add edges to existing mst **/
   int final_nnz = coo2.n_edges + coo1.n_edges;
 
@@ -50,12 +47,9 @@ void merge_msts(raft::Graph_COO<value_idx, value_idx, value_t> &coo1,
   /**
    * Construct final edge list
    */
-  raft::copy_async(coo1.src.data() + coo1.n_edges, coo2.src.data(),
-                   coo2.n_edges, stream);
-  raft::copy_async(coo1.dst.data() + coo1.n_edges, coo2.dst.data(),
-                   coo2.n_edges, stream);
-  raft::copy_async(coo1.weights.data() + coo1.n_edges, coo2.weights.data(),
-                   coo2.n_edges, stream);
+  raft::copy_async(coo1.src.data() + coo1.n_edges, coo2.src.data(), coo2.n_edges, stream);
+  raft::copy_async(coo1.dst.data() + coo1.n_edges, coo2.dst.data(), coo2.n_edges, stream);
+  raft::copy_async(coo1.weights.data() + coo1.n_edges, coo2.weights.data(), coo2.n_edges, stream);
 
   coo1.n_edges = final_nnz;
 }
@@ -74,30 +68,39 @@ void merge_msts(raft::Graph_COO<value_idx, value_idx, value_t> &coo1,
  * @return updated MST edge list
  */
 template <typename value_idx, typename value_t, typename red_op>
-void connect_knn_graph(const raft::handle_t &handle, const value_t *X,
-                       raft::Graph_COO<value_idx, value_idx, value_t> &msf,
-                       size_t m, size_t n, value_idx *color,
-                       red_op reduction_op,
-                       raft::distance::DistanceType metric =
-                         raft::distance::DistanceType::L2SqrtExpanded) {
-  auto d_alloc = handle.get_device_allocator();
+void connect_knn_graph(
+  const raft::handle_t& handle,
+  const value_t* X,
+  raft::Graph_COO<value_idx, value_idx, value_t>& msf,
+  size_t m,
+  size_t n,
+  value_idx* color,
+  red_op reduction_op,
+  raft::distance::DistanceType metric = raft::distance::DistanceType::L2SqrtExpanded)
+{
   auto stream = handle.get_stream();
 
-  raft::sparse::COO<value_t, value_idx> connected_edges(d_alloc, stream);
+  raft::sparse::COO<value_t, value_idx> connected_edges(stream);
 
   raft::linkage::connect_components<value_idx, value_t>(
     handle, connected_edges, X, color, m, n, reduction_op);
 
   rmm::device_uvector<value_idx> indptr2(m + 1, stream);
-  raft::sparse::convert::sorted_coo_to_csr(connected_edges.rows(),
-                                           connected_edges.nnz, indptr2.data(),
-                                           m + 1, d_alloc, stream);
+  raft::sparse::convert::sorted_coo_to_csr(
+    connected_edges.rows(), connected_edges.nnz, indptr2.data(), m + 1, stream);
 
   // On the second call, we hand the MST the original colors
   // and the new set of edges and let it restart the optimization process
-  auto new_mst = raft::mst::mst<value_idx, value_idx, value_t, double>(
-    handle, indptr2.data(), connected_edges.cols(), connected_edges.vals(), m,
-    connected_edges.nnz, color, stream, false, false);
+  auto new_mst = raft::mst::mst<value_idx, value_idx, value_t, double>(handle,
+                                                                       indptr2.data(),
+                                                                       connected_edges.cols(),
+                                                                       connected_edges.vals(),
+                                                                       m,
+                                                                       connected_edges.nnz,
+                                                                       color,
+                                                                       stream,
+                                                                       false,
+                                                                       false);
 
   merge_msts<value_idx, value_t>(msf, new_mst, stream);
 }
@@ -127,33 +130,38 @@ void connect_knn_graph(const raft::handle_t &handle, const value_t *X,
  *  argument is really just a safeguard against the potential for infinite loops.
  */
 template <typename value_idx, typename value_t, typename red_op>
-void build_sorted_mst(const raft::handle_t &handle, const value_t *X,
-                      const value_idx *indptr, const value_idx *indices,
-                      const value_t *pw_dists, size_t m, size_t n,
-                      value_idx *mst_src, value_idx *mst_dst,
-                      value_t *mst_weight, value_idx *color, size_t nnz,
-                      red_op reduction_op,
-                      raft::distance::DistanceType metric =
-                        raft::distance::DistanceType::L2SqrtExpanded,
-                      int max_iter = 10) {
-  auto d_alloc = handle.get_device_allocator();
+void build_sorted_mst(
+  const raft::handle_t& handle,
+  const value_t* X,
+  const value_idx* indptr,
+  const value_idx* indices,
+  const value_t* pw_dists,
+  size_t m,
+  size_t n,
+  value_idx* mst_src,
+  value_idx* mst_dst,
+  value_t* mst_weight,
+  value_idx* color,
+  size_t nnz,
+  red_op reduction_op,
+  raft::distance::DistanceType metric = raft::distance::DistanceType::L2SqrtExpanded,
+  int max_iter                        = 10)
+{
   auto stream = handle.get_stream();
 
   // We want to have MST initialize colors on first call.
   auto mst_coo = raft::mst::mst<value_idx, value_idx, value_t, double>(
-    handle, indptr, indices, pw_dists, (value_idx)m, nnz, color, stream, false,
-    true);
+    handle, indptr, indices, pw_dists, (value_idx)m, nnz, color, stream, false, true);
 
-  int iters = 1;
-  int n_components = linkage::get_n_components(color, m, d_alloc, stream);
+  int iters        = 1;
+  int n_components = linkage::get_n_components(color, m, stream);
 
   while (n_components > 1 && iters < max_iter) {
-    connect_knn_graph<value_idx, value_t>(handle, X, mst_coo, m, n, color,
-                                          reduction_op);
+    connect_knn_graph<value_idx, value_t>(handle, X, mst_coo, m, n, color, reduction_op);
 
     iters++;
 
-    n_components = linkage::get_n_components(color, m, d_alloc, stream);
+    n_components = linkage::get_n_components(color, m, stream);
   }
 
   /**
@@ -176,9 +184,8 @@ void build_sorted_mst(const raft::handle_t &handle, const value_t *X,
                " or increase 'max_iter'",
                max_iter);
 
-  raft::sparse::op::coo_sort_by_weight(mst_coo.src.data(), mst_coo.dst.data(),
-                                       mst_coo.weights.data(), mst_coo.n_edges,
-                                       stream);
+  raft::sparse::op::coo_sort_by_weight(
+    mst_coo.src.data(), mst_coo.dst.data(), mst_coo.weights.data(), mst_coo.n_edges, stream);
 
   raft::copy_async(mst_src, mst_coo.src.data(), mst_coo.n_edges, stream);
   raft::copy_async(mst_dst, mst_coo.dst.data(), mst_coo.n_edges, stream);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,17 +14,29 @@
  * limitations under the License.
  */
 
+/**
+ * This file is deprecated and will be removed in release 22.06.
+ * Please use raft_runtime/cudart_utils.hpp instead.
+ */
+
+#ifndef __RAFT_RT_CUDART_UTILS_H
+#define __RAFT_RT_CUDART_UTILS_H
+
 #pragma once
 
 #include <raft/error.hpp>
+#include <rmm/cuda_stream_view.hpp>
+#include <rmm/mr/device/per_device_resource.hpp>
 
 #include <cuda_runtime.h>
 
-#include <execinfo.h>
 #include <chrono>
 #include <cstdio>
+#include <execinfo.h>
 #include <iomanip>
 #include <iostream>
+#include <mutex>
+#include <unordered_map>
 
 ///@todo: enable once logging has been enabled in raft
 //#include "logger.hpp"
@@ -49,18 +61,26 @@ struct cuda_error : public raft::exception {
  * exception detailing the CUDA error that occurred
  *
  */
-#define CUDA_TRY(call)                                                        \
-  do {                                                                        \
-    cudaError_t const status = call;                                          \
-    if (status != cudaSuccess) {                                              \
-      cudaGetLastError();                                                     \
-      std::string msg{};                                                      \
-      SET_ERROR_MSG(                                                          \
-        msg, "CUDA error encountered at: ", "call='%s', Reason=%s:%s", #call, \
-        cudaGetErrorName(status), cudaGetErrorString(status));                \
-      throw raft::cuda_error(msg);                                            \
-    }                                                                         \
+#define RAFT_CUDA_TRY(call)                        \
+  do {                                             \
+    cudaError_t const status = call;               \
+    if (status != cudaSuccess) {                   \
+      cudaGetLastError();                          \
+      std::string msg{};                           \
+      SET_ERROR_MSG(msg,                           \
+                    "CUDA error encountered at: ", \
+                    "call='%s', Reason=%s:%s",     \
+                    #call,                         \
+                    cudaGetErrorName(status),      \
+                    cudaGetErrorString(status));   \
+      throw raft::cuda_error(msg);                 \
+    }                                              \
   } while (0)
+
+// FIXME: Remove after consumers rename
+#ifndef CUDA_TRY
+#define CUDA_TRY(call) RAFT_CUDA_TRY(call)
+#endif
 
 /**
  * @brief Debug macro to check for CUDA errors
@@ -76,36 +96,54 @@ struct cuda_error : public raft::exception {
  * asynchronous kernel launch.
  */
 #ifndef NDEBUG
-#define CHECK_CUDA(stream) CUDA_TRY(cudaStreamSynchronize(stream));
+#define RAFT_CHECK_CUDA(stream) RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 #else
-#define CHECK_CUDA(stream) CUDA_TRY(cudaPeekAtLastError());
+#define RAFT_CHECK_CUDA(stream) RAFT_CUDA_TRY(cudaPeekAtLastError());
 #endif
 
-/** FIXME: temporary alias for cuML compatibility */
-#define CUDA_CHECK(call) CUDA_TRY(call)
+// FIXME: Remove after consumers rename
+#ifndef CHECK_CUDA
+#define CHECK_CUDA(call) RAFT_CHECK_CUDA(call)
+#endif
 
-///@todo: enable this only after we have added logging support in raft
+/** FIXME: remove after cuml rename */
+#ifndef CUDA_CHECK
+#define CUDA_CHECK(call) RAFT_CUDA_TRY(call)
+#endif
+
 // /**
 //  * @brief check for cuda runtime API errors but log error instead of raising
 //  *        exception.
 //  */
-#define CUDA_CHECK_NO_THROW(call)                                         \
-  do {                                                                    \
-    cudaError_t const status = call;                                      \
-    if (cudaSuccess != status) {                                          \
-      printf("CUDA call='%s' at file=%s line=%d failed with %s\n", #call, \
-             __FILE__, __LINE__, cudaGetErrorString(status));             \
-    }                                                                     \
+#define RAFT_CUDA_TRY_NO_THROW(call)                               \
+  do {                                                             \
+    cudaError_t const status = call;                               \
+    if (cudaSuccess != status) {                                   \
+      printf("CUDA call='%s' at file=%s line=%d failed with %s\n", \
+             #call,                                                \
+             __FILE__,                                             \
+             __LINE__,                                             \
+             cudaGetErrorString(status));                          \
+    }                                                              \
   } while (0)
+
+// FIXME: Remove after cuml rename
+#ifndef CUDA_CHECK_NO_THROW
+#define CUDA_CHECK_NO_THROW(call) RAFT_CUDA_TRY_NO_THROW(call)
+#endif
+
+/**
+ * Alias to raft scope for now.
+ * TODO: Rename original implementations in 22.04 to fix
+ * https://github.com/rapidsai/raft/issues/128
+ */
 
 namespace raft {
 
 /** Helper method to get to know warp size in device code */
 __host__ __device__ constexpr inline int warp_size() { return 32; }
 
-__host__ __device__ constexpr inline unsigned int warp_full_mask() {
-  return 0xffffffff;
-}
+__host__ __device__ constexpr inline unsigned int warp_full_mask() { return 0xffffffff; }
 
 /**
  * @brief A kernel grid configuration construction gadget for simple one-dimensional mapping
@@ -124,13 +162,16 @@ class grid_1d_thread_t {
    * @param elements_per_thread Typically, a single kernel thread processes more than a single
    * element; this affects the number of threads the grid must contain
    */
-  grid_1d_thread_t(size_t overall_num_elements, size_t num_threads_per_block,
-                   size_t max_num_blocks_1d, size_t elements_per_thread = 1)
+  grid_1d_thread_t(size_t overall_num_elements,
+                   size_t num_threads_per_block,
+                   size_t max_num_blocks_1d,
+                   size_t elements_per_thread = 1)
     : block_size(num_threads_per_block),
-      num_blocks(std::min((overall_num_elements +
-                           (elements_per_thread * num_threads_per_block) - 1) /
-                            (elements_per_thread * num_threads_per_block),
-                          max_num_blocks_1d)) {
+      num_blocks(
+        std::min((overall_num_elements + (elements_per_thread * num_threads_per_block) - 1) /
+                   (elements_per_thread * num_threads_per_block),
+                 max_num_blocks_1d))
+  {
     RAFT_EXPECTS(overall_num_elements > 0, "overall_num_elements must be > 0");
     RAFT_EXPECTS(num_threads_per_block / warp_size() > 0,
                  "num_threads_per_block / warp_size() must be > 0");
@@ -153,13 +194,14 @@ class grid_1d_warp_t {
    * specific features (amount of shared memory necessary, SM functional units use pattern etc.);
    * this can't be determined generically/automatically (as opposed to the number of blocks)
    */
-  grid_1d_warp_t(size_t overall_num_elements, size_t num_threads_per_block,
+  grid_1d_warp_t(size_t overall_num_elements,
+                 size_t num_threads_per_block,
                  size_t max_num_blocks_1d)
     : block_size(num_threads_per_block),
-      num_blocks(std::min(
-        (overall_num_elements + (num_threads_per_block / warp_size()) - 1) /
-          (num_threads_per_block / warp_size()),
-        max_num_blocks_1d)) {
+      num_blocks(std::min((overall_num_elements + (num_threads_per_block / warp_size()) - 1) /
+                            (num_threads_per_block / warp_size()),
+                          max_num_blocks_1d))
+  {
     RAFT_EXPECTS(overall_num_elements > 0, "overall_num_elements must be > 0");
     RAFT_EXPECTS(num_threads_per_block / warp_size() > 0,
                  "num_threads_per_block / warp_size() must be > 0");
@@ -181,10 +223,12 @@ class grid_1d_block_t {
    * specific features (amount of shared memory necessary, SM functional units use pattern etc.);
    * this can't be determined generically/automatically (as opposed to the number of blocks)
    */
-  grid_1d_block_t(size_t overall_num_elements, size_t num_threads_per_block,
+  grid_1d_block_t(size_t overall_num_elements,
+                  size_t num_threads_per_block,
                   size_t max_num_blocks_1d)
     : block_size(num_threads_per_block),
-      num_blocks(std::min(overall_num_elements, max_num_blocks_1d)) {
+      num_blocks(std::min(overall_num_elements, max_num_blocks_1d))
+  {
     RAFT_EXPECTS(overall_num_elements > 0, "overall_num_elements must be > 0");
     RAFT_EXPECTS(num_threads_per_block / warp_size() > 0,
                  "num_threads_per_block / warp_size() must be > 0");
@@ -200,9 +244,9 @@ class grid_1d_block_t {
  * @param stream cuda stream
  */
 template <typename Type>
-void copy(Type* dst, const Type* src, size_t len, cudaStream_t stream) {
-  CUDA_CHECK(
-    cudaMemcpyAsync(dst, src, len * sizeof(Type), cudaMemcpyDefault, stream));
+void copy(Type* dst, const Type* src, size_t len, rmm::cuda_stream_view stream)
+{
+  CUDA_CHECK(cudaMemcpyAsync(dst, src, len * sizeof(Type), cudaMemcpyDefault, stream));
 }
 
 /**
@@ -213,23 +257,22 @@ void copy(Type* dst, const Type* src, size_t len, cudaStream_t stream) {
  */
 /** performs a host to device copy */
 template <typename Type>
-void update_device(Type* d_ptr, const Type* h_ptr, size_t len,
-                   cudaStream_t stream) {
+void update_device(Type* d_ptr, const Type* h_ptr, size_t len, rmm::cuda_stream_view stream)
+{
   copy(d_ptr, h_ptr, len, stream);
 }
 
 /** performs a device to host copy */
 template <typename Type>
-void update_host(Type* h_ptr, const Type* d_ptr, size_t len,
-                 cudaStream_t stream) {
+void update_host(Type* h_ptr, const Type* d_ptr, size_t len, rmm::cuda_stream_view stream)
+{
   copy(h_ptr, d_ptr, len, stream);
 }
 
 template <typename Type>
-void copy_async(Type* d_ptr1, const Type* d_ptr2, size_t len,
-                cudaStream_t stream) {
-  CUDA_CHECK(cudaMemcpyAsync(d_ptr1, d_ptr2, len * sizeof(Type),
-                             cudaMemcpyDeviceToDevice, stream));
+void copy_async(Type* d_ptr1, const Type* d_ptr2, size_t len, rmm::cuda_stream_view stream)
+{
+  CUDA_CHECK(cudaMemcpyAsync(d_ptr1, d_ptr2, len * sizeof(Type), cudaMemcpyDeviceToDevice, stream));
 }
 /** @} */
 
@@ -238,8 +281,11 @@ void copy_async(Type* d_ptr1, const Type* d_ptr2, size_t len,
  * @{
  */
 template <class T, class OutStream>
-void print_host_vector(const char* variable_name, const T* host_mem,
-                       size_t componentsCount, OutStream& out) {
+void print_host_vector(const char* variable_name,
+                       const T* host_mem,
+                       size_t componentsCount,
+                       OutStream& out)
+{
   out << variable_name << "=[";
   for (size_t i = 0; i < componentsCount; ++i) {
     if (i != 0) out << ",";
@@ -249,52 +295,47 @@ void print_host_vector(const char* variable_name, const T* host_mem,
 }
 
 template <class T, class OutStream>
-void print_device_vector(const char* variable_name, const T* devMem,
-                         size_t componentsCount, OutStream& out) {
+void print_device_vector(const char* variable_name,
+                         const T* devMem,
+                         size_t componentsCount,
+                         OutStream& out)
+{
   T* host_mem = new T[componentsCount];
-  CUDA_CHECK(cudaMemcpy(host_mem, devMem, componentsCount * sizeof(T),
-                        cudaMemcpyDeviceToHost));
+  CUDA_CHECK(cudaMemcpy(host_mem, devMem, componentsCount * sizeof(T), cudaMemcpyDeviceToHost));
   print_host_vector(variable_name, host_mem, componentsCount, out);
   delete[] host_mem;
 }
 /** @} */
 
-/** cuda malloc */
-template <typename Type>
-void allocate(Type*& ptr, size_t len, bool setZero = false) {
-  CUDA_CHECK(cudaMalloc((void**)&ptr, sizeof(Type) * len));
-  if (setZero) CUDA_CHECK(cudaMemset(ptr, 0, sizeof(Type) * len));
-}
-
 /** helper method to get max usable shared mem per block parameter */
-inline int getSharedMemPerBlock() {
+inline int getSharedMemPerBlock()
+{
   int devId;
-  CUDA_CHECK(cudaGetDevice(&devId));
+  RAFT_CUDA_TRY(cudaGetDevice(&devId));
   int smemPerBlk;
-  CUDA_CHECK(cudaDeviceGetAttribute(&smemPerBlk,
-                                    cudaDevAttrMaxSharedMemoryPerBlock, devId));
+  RAFT_CUDA_TRY(cudaDeviceGetAttribute(&smemPerBlk, cudaDevAttrMaxSharedMemoryPerBlock, devId));
   return smemPerBlk;
 }
 
 /** helper method to get multi-processor count parameter */
-inline int getMultiProcessorCount() {
+inline int getMultiProcessorCount()
+{
   int devId;
-  CUDA_CHECK(cudaGetDevice(&devId));
+  RAFT_CUDA_TRY(cudaGetDevice(&devId));
   int mpCount;
-  CUDA_CHECK(
-    cudaDeviceGetAttribute(&mpCount, cudaDevAttrMultiProcessorCount, devId));
+  RAFT_CUDA_TRY(cudaDeviceGetAttribute(&mpCount, cudaDevAttrMultiProcessorCount, devId));
   return mpCount;
 }
 
 /** helper method to convert an array on device to a string on host */
 template <typename T>
-std::string arr2Str(const T* arr, int size, std::string name,
-                    cudaStream_t stream, int width = 4) {
+std::string arr2Str(const T* arr, int size, std::string name, cudaStream_t stream, int width = 4)
+{
   std::stringstream ss;
 
   T* arr_h = (T*)malloc(size * sizeof(T));
   update_host(arr_h, arr, size, stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
   ss << name << " = [ ";
   for (int i = 0; i < size; i++) {
@@ -311,55 +352,74 @@ std::string arr2Str(const T* arr, int size, std::string name,
 
 /** this seems to be unused, but may be useful in the future */
 template <typename T>
-void ASSERT_DEVICE_MEM(T* ptr, std::string name) {
+void ASSERT_DEVICE_MEM(T* ptr, std::string name)
+{
   cudaPointerAttributes s_att;
   cudaError_t s_err = cudaPointerGetAttributes(&s_att, ptr);
 
   if (s_err != 0 || s_att.device == -1)
-    std::cout << "Invalid device pointer encountered in " << name
-              << ". device=" << s_att.device << ", err=" << s_err << std::endl;
+    std::cout << "Invalid device pointer encountered in " << name << ". device=" << s_att.device
+              << ", err=" << s_err << std::endl;
 }
 
-inline uint32_t curTimeMillis() {
-  auto now = std::chrono::high_resolution_clock::now();
+inline uint32_t curTimeMillis()
+{
+  auto now      = std::chrono::high_resolution_clock::now();
   auto duration = now.time_since_epoch();
-  return std::chrono::duration_cast<std::chrono::milliseconds>(duration)
-    .count();
+  return std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
 }
 
 /** Helper function to calculate need memory for allocate to store dense matrix.
-    * @param rows number of rows in matrix
-    * @param columns number of columns in matrix
-    * @return need number of items to allocate via allocate()
-    * @sa allocate()
-    */
-inline size_t allocLengthForMatrix(size_t rows, size_t columns) {
-  return rows * columns;
-}
+ * @param rows number of rows in matrix
+ * @param columns number of columns in matrix
+ * @return need number of items to allocate via allocate()
+ * @sa allocate()
+ */
+inline size_t allocLengthForMatrix(size_t rows, size_t columns) { return rows * columns; }
 
 /** Helper function to check alignment of pointer.
-    * @param ptr the pointer to check
-    * @param alignment to be checked for
-    * @return true if address in bytes is a multiple of alignment
-    */
+ * @param ptr the pointer to check
+ * @param alignment to be checked for
+ * @return true if address in bytes is a multiple of alignment
+ */
 template <typename Type>
-bool is_aligned(Type* ptr, size_t alignment) {
+bool is_aligned(Type* ptr, size_t alignment)
+{
   return reinterpret_cast<uintptr_t>(ptr) % alignment == 0;
 }
 
 /** calculate greatest common divisor of two numbers
-* @a integer
-* @b integer
-* @ return gcd of a and b
-*/
+ * @a integer
+ * @b integer
+ * @ return gcd of a and b
+ */
 template <typename IntType>
-IntType gcd(IntType a, IntType b) {
+IntType gcd(IntType a, IntType b)
+{
   while (b != 0) {
     IntType tmp = b;
-    b = a % b;
-    a = tmp;
+    b           = a % b;
+    a           = tmp;
   }
   return a;
 }
 
+template <typename T>
+constexpr T lower_bound()
+{
+  if constexpr (std::numeric_limits<T>::has_infinity && std::numeric_limits<T>::is_signed) {
+    return -std::numeric_limits<T>::infinity();
+  }
+  return std::numeric_limits<T>::lowest();
+}
+
+template <typename T>
+constexpr T upper_bound()
+{
+  if constexpr (std::numeric_limits<T>::has_infinity) { return std::numeric_limits<T>::infinity(); }
+  return std::numeric_limits<T>::max();
+}
+
 }  // namespace raft
+
+#endif

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,12 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef __REDUCE_H
+#define __REDUCE_H
 
 #pragma once
 
-#include <raft/cuda_utils.cuh>
-#include "coalesced_reduction.cuh"
-#include "strided_reduction.cuh"
+#include "detail/reduce.cuh"
 
 namespace raft {
 namespace linalg {
@@ -52,30 +52,30 @@ namespace linalg {
  * @param reduce_op binary reduction operation
  * @param final_op elementwise operation to apply before storing results
  */
-template <typename InType, typename OutType = InType, typename IdxType = int,
-          typename MainLambda = raft::Nop<InType, IdxType>,
+template <typename InType,
+          typename OutType      = InType,
+          typename IdxType      = int,
+          typename MainLambda   = raft::Nop<InType, IdxType>,
           typename ReduceLambda = raft::Sum<OutType>,
-          typename FinalLambda = raft::Nop<OutType>>
-void reduce(OutType *dots, const InType *data, int D, int N, OutType init,
-            bool rowMajor, bool alongRows, cudaStream_t stream,
-            bool inplace = false,
-            MainLambda main_op = raft::Nop<InType, IdxType>(),
+          typename FinalLambda  = raft::Nop<OutType>>
+void reduce(OutType* dots,
+            const InType* data,
+            int D,
+            int N,
+            OutType init,
+            bool rowMajor,
+            bool alongRows,
+            cudaStream_t stream,
+            bool inplace           = false,
+            MainLambda main_op     = raft::Nop<InType, IdxType>(),
             ReduceLambda reduce_op = raft::Sum<OutType>(),
-            FinalLambda final_op = raft::Nop<OutType>()) {
-  if (rowMajor && alongRows) {
-    coalescedReduction(dots, data, D, N, init, stream, inplace, main_op,
-                       reduce_op, final_op);
-  } else if (rowMajor && !alongRows) {
-    stridedReduction(dots, data, D, N, init, stream, inplace, main_op,
-                     reduce_op, final_op);
-  } else if (!rowMajor && alongRows) {
-    stridedReduction(dots, data, N, D, init, stream, inplace, main_op,
-                     reduce_op, final_op);
-  } else {
-    coalescedReduction(dots, data, N, D, init, stream, inplace, main_op,
-                       reduce_op, final_op);
-  }
+            FinalLambda final_op   = raft::Nop<OutType>())
+{
+  detail::reduce(
+    dots, data, D, N, init, rowMajor, alongRows, stream, inplace, main_op, reduce_op, final_op);
 }
 
 };  // end namespace linalg
 };  // end namespace raft
+
+#endif

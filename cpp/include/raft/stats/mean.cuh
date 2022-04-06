@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,53 +14,17 @@
  * limitations under the License.
  */
 
+#ifndef __MEAN_H
+#define __MEAN_H
+
 #pragma once
 
-#include <cub/cub.cuh>
-#include <raft/cuda_utils.cuh>
+#include "detail/mean.cuh"
+
 #include <raft/handle.hpp>
-#include <raft/linalg/eltwise.cuh>
 
 namespace raft {
 namespace stats {
-
-///@todo: ColsPerBlk has been tested only for 32!
-template <typename Type, typename IdxType, int TPB, int ColsPerBlk = 32>
-__global__ void meanKernelRowMajor(Type *mu, const Type *data, IdxType D,
-                                   IdxType N) {
-  const int RowsPerBlkPerIter = TPB / ColsPerBlk;
-  IdxType thisColId = threadIdx.x % ColsPerBlk;
-  IdxType thisRowId = threadIdx.x / ColsPerBlk;
-  IdxType colId = thisColId + ((IdxType)blockIdx.y * ColsPerBlk);
-  IdxType rowId = thisRowId + ((IdxType)blockIdx.x * RowsPerBlkPerIter);
-  Type thread_data = Type(0);
-  const IdxType stride = RowsPerBlkPerIter * gridDim.x;
-  for (IdxType i = rowId; i < N; i += stride)
-    thread_data += (colId < D) ? data[i * D + colId] : Type(0);
-  __shared__ Type smu[ColsPerBlk];
-  if (threadIdx.x < ColsPerBlk) smu[threadIdx.x] = Type(0);
-  __syncthreads();
-  raft::myAtomicAdd(smu + thisColId, thread_data);
-  __syncthreads();
-  if (threadIdx.x < ColsPerBlk) raft::myAtomicAdd(mu + colId, smu[thisColId]);
-}
-
-template <typename Type, typename IdxType, int TPB>
-__global__ void meanKernelColMajor(Type *mu, const Type *data, IdxType D,
-                                   IdxType N) {
-  typedef cub::BlockReduce<Type, TPB> BlockReduce;
-  __shared__ typename BlockReduce::TempStorage temp_storage;
-  Type thread_data = Type(0);
-  IdxType colStart = N * blockIdx.x;
-  for (IdxType i = threadIdx.x; i < N; i += TPB) {
-    IdxType idx = colStart + i;
-    thread_data += data[idx];
-  }
-  Type acc = BlockReduce(temp_storage).Sum(thread_data);
-  if (threadIdx.x == 0) {
-    mu[blockIdx.x] = acc / N;
-  }
-}
 
 /**
  * @brief Compute mean of the input matrix
@@ -80,27 +44,13 @@ __global__ void meanKernelColMajor(Type *mu, const Type *data, IdxType D,
  * @param stream: cuda stream
  */
 template <typename Type, typename IdxType = int>
-void mean(Type *mu, const Type *data, IdxType D, IdxType N, bool sample,
-          bool rowMajor, cudaStream_t stream) {
-  static const int TPB = 256;
-  if (rowMajor) {
-    static const int RowsPerThread = 4;
-    static const int ColsPerBlk = 32;
-    static const int RowsPerBlk = (TPB / ColsPerBlk) * RowsPerThread;
-    dim3 grid(raft::ceildiv(N, (IdxType)RowsPerBlk),
-              raft::ceildiv(D, (IdxType)ColsPerBlk));
-    CUDA_CHECK(cudaMemsetAsync(mu, 0, sizeof(Type) * D, stream));
-    meanKernelRowMajor<Type, IdxType, TPB, ColsPerBlk>
-      <<<grid, TPB, 0, stream>>>(mu, data, D, N);
-    CUDA_CHECK(cudaPeekAtLastError());
-    Type ratio = Type(1) / (sample ? Type(N - 1) : Type(N));
-    raft::linalg::scalarMultiply(mu, mu, ratio, D, stream);
-  } else {
-    meanKernelColMajor<Type, IdxType, TPB>
-      <<<D, TPB, 0, stream>>>(mu, data, D, N);
-  }
-  CUDA_CHECK(cudaPeekAtLastError());
+void mean(
+  Type* mu, const Type* data, IdxType D, IdxType N, bool sample, bool rowMajor, cudaStream_t stream)
+{
+  detail::mean(mu, data, D, N, sample, rowMajor, stream);
 }
 
 };  // namespace stats
 };  // namespace raft
+
+#endif

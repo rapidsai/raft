@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,11 +19,14 @@
 #include <memory>
 #include <raft/handle.hpp>
 
-#include <raft/spectral/modularity_maximization.hpp>
+#include <raft/spectral/cluster_solvers.cuh>
+#include <raft/spectral/modularity_maximization.cuh>
 
 namespace raft {
+namespace spectral {
 
-TEST(Raft, ClusterSolvers) {
+TEST(Raft, ClusterSolvers)
+{
   using namespace matrix;
   using index_type = int;
   using value_type = double;
@@ -40,7 +43,7 @@ TEST(Raft, ClusterSolvers) {
   index_type d{10};
   index_type k{5};
 
-  //nullptr expected to trigger exceptions:
+  // nullptr expected to trigger exceptions:
   //
   value_type* eigvecs{nullptr};
   index_type* codes{nullptr};
@@ -49,18 +52,22 @@ TEST(Raft, ClusterSolvers) {
 
   kmeans_solver_t<index_type, value_type> cluster_solver{cfg};
 
-  EXPECT_ANY_THROW(cluster_solver.solve(h, thrust::cuda::par.on(stream), n, d,
-                                        eigvecs, codes));
+  EXPECT_ANY_THROW(cluster_solver.solve(h, n, d, eigvecs, codes));
 }
 
-TEST(Raft, ModularitySolvers) {
+TEST(Raft, ModularitySolvers)
+{
   using namespace matrix;
   using index_type = int;
   using value_type = double;
 
   handle_t h;
-  ASSERT_EQ(0, h.get_num_internal_streams());
-  ASSERT_EQ(0, h.get_device());
+  ASSERT_EQ(0,
+            h.
+
+            get_device()
+
+  );
 
   index_type neigvs{10};
   index_type maxiter{100};
@@ -68,7 +75,7 @@ TEST(Raft, ModularitySolvers) {
   value_type tol{1.0e-10};
   bool reorthog{true};
 
-  //nullptr expected to trigger exceptions:
+  // nullptr expected to trigger exceptions:
   //
   index_type* clusters{nullptr};
   value_type* eigvals{nullptr};
@@ -82,21 +89,18 @@ TEST(Raft, ModularitySolvers) {
 
   index_type k{5};
 
-  cluster_solver_config_t<index_type, value_type> clust_cfg{k, maxiter, tol,
-                                                            seed};
+  cluster_solver_config_t<index_type, value_type> clust_cfg{k, maxiter, tol, seed};
   kmeans_solver_t<index_type, value_type> cluster_solver{clust_cfg};
 
   auto stream = h.get_stream();
-  sparse_matrix_t<index_type, value_type> sm{h,       nullptr, nullptr,
-                                             nullptr, 0,       0};
-  auto t_exe_p = thrust::cuda::par.on(stream);
+  sparse_matrix_t<index_type, value_type> sm{h, nullptr, nullptr, nullptr, 0, 0};
 
   EXPECT_ANY_THROW(spectral::modularity_maximization(
-    h, t_exe_p, sm, eig_solver, cluster_solver, clusters, eigvals, eigvecs));
+    h, sm, eig_solver, cluster_solver, clusters, eigvals, eigvecs));
 
   value_type modularity{0};
-  EXPECT_ANY_THROW(
-    spectral::analyzeModularity(h, t_exe_p, sm, k, clusters, modularity));
+  EXPECT_ANY_THROW(spectral::analyzeModularity(h, sm, k, clusters, modularity));
 }
 
+}  // namespace spectral
 }  // namespace raft

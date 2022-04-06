@@ -1,4 +1,4 @@
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ import argparse
 import tempfile
 
 
-EXPECTED_VERSION = "11.0.0"
+EXPECTED_VERSION = "11.1.0"
 VERSION_REGEX = re.compile(r"clang-format version ([0-9.]+)")
 # NOTE: populate this list with more top-level dirs as we add more of them to
 #       to the cuml repo
@@ -64,7 +64,7 @@ def parse_args():
         args.dstdir = tempfile.mkdtemp()
     ret = subprocess.check_output("%s --version" % args.exe, shell=True)
     ret = ret.decode("utf-8")
-    version = VERSION_REGEX.match(ret)
+    version = VERSION_REGEX.search(ret)
     if version is None:
         raise Exception("Failed to figure out clang-format version!")
     version = version.group(1)

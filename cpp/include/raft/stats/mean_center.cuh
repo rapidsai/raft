@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,11 +14,12 @@
  * limitations under the License.
  */
 
+#ifndef __MEAN_CENTER_H
+#define __MEAN_CENTER_H
+
 #pragma once
 
-#include <raft/cuda_utils.cuh>
-#include <raft/linalg/matrix_vector_op.cuh>
-#include <raft/vectorized.cuh>
+#include "detail/mean_center.cuh"
 
 namespace raft {
 namespace stats {
@@ -38,12 +39,16 @@ namespace stats {
  * @param stream cuda stream where to launch work
  */
 template <typename Type, typename IdxType = int, int TPB = 256>
-void meanCenter(Type *out, const Type *data, const Type *mu, IdxType D,
-                IdxType N, bool rowMajor, bool bcastAlongRows,
-                cudaStream_t stream) {
-  raft::linalg::matrixVectorOp(
-    out, data, mu, D, N, rowMajor, bcastAlongRows,
-    [] __device__(Type a, Type b) { return a - b; }, stream);
+void meanCenter(Type* out,
+                const Type* data,
+                const Type* mu,
+                IdxType D,
+                IdxType N,
+                bool rowMajor,
+                bool bcastAlongRows,
+                cudaStream_t stream)
+{
+  detail::meanCenter<Type, IdxType, TPB>(out, data, mu, D, N, rowMajor, bcastAlongRows, stream);
 }
 
 /**
@@ -61,12 +66,19 @@ void meanCenter(Type *out, const Type *data, const Type *mu, IdxType D,
  * @param stream cuda stream where to launch work
  */
 template <typename Type, typename IdxType = int, int TPB = 256>
-void meanAdd(Type *out, const Type *data, const Type *mu, IdxType D, IdxType N,
-             bool rowMajor, bool bcastAlongRows, cudaStream_t stream) {
-  raft::linalg::matrixVectorOp(
-    out, data, mu, D, N, rowMajor, bcastAlongRows,
-    [] __device__(Type a, Type b) { return a + b; }, stream);
+void meanAdd(Type* out,
+             const Type* data,
+             const Type* mu,
+             IdxType D,
+             IdxType N,
+             bool rowMajor,
+             bool bcastAlongRows,
+             cudaStream_t stream)
+{
+  detail::meanAdd<Type, IdxType, TPB>(out, data, mu, D, N, rowMajor, bcastAlongRows, stream);
 }
 
 };  // end namespace stats
 };  // end namespace raft
+
+#endif

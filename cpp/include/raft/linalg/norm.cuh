@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,16 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef __NORM_H
+#define __NORM_H
 
 #pragma once
 
-#include "reduce.cuh"
+#include "detail/norm.cuh"
 
 namespace raft {
 namespace linalg {
 
 /** different types of norms supported on the input buffers */
-enum NormType { L1Norm = 0, L2Norm };
+using detail::L1Norm;
+using detail::L2Norm;
+using detail::NormType;
 
 /**
  * @brief Compute row-wise norm of the input matrix and perform fin_op lambda
@@ -44,23 +48,17 @@ enum NormType { L1Norm = 0, L2Norm };
  * @param stream cuda stream where to launch work
  * @param fin_op the final lambda op
  */
-template <typename Type, typename IdxType = int,
-          typename Lambda = raft::Nop<Type, IdxType>>
-void rowNorm(Type *dots, const Type *data, IdxType D, IdxType N, NormType type,
-             bool rowMajor, cudaStream_t stream,
-             Lambda fin_op = raft::Nop<Type, IdxType>()) {
-  switch (type) {
-    case L1Norm:
-      reduce(dots, data, D, N, (Type)0, rowMajor, true, stream, false,
-             raft::L1Op<Type, IdxType>(), raft::Sum<Type>(), fin_op);
-      break;
-    case L2Norm:
-      reduce(dots, data, D, N, (Type)0, rowMajor, true, stream, false,
-             raft::L2Op<Type>(), raft::Sum<Type>(), fin_op);
-      break;
-    default:
-      ASSERT(false, "Invalid norm type passed! [%d]", type);
-  };
+template <typename Type, typename IdxType = int, typename Lambda = raft::Nop<Type, IdxType>>
+void rowNorm(Type* dots,
+             const Type* data,
+             IdxType D,
+             IdxType N,
+             NormType type,
+             bool rowMajor,
+             cudaStream_t stream,
+             Lambda fin_op = raft::Nop<Type, IdxType>())
+{
+  detail::rowNormCaller(dots, data, D, N, type, rowMajor, stream, fin_op);
 }
 
 /**
@@ -77,24 +75,20 @@ void rowNorm(Type *dots, const Type *data, IdxType D, IdxType N, NormType type,
  * @param stream cuda stream where to launch work
  * @param fin_op the final lambda op
  */
-template <typename Type, typename IdxType = int,
-          typename Lambda = raft::Nop<Type, IdxType>>
-void colNorm(Type *dots, const Type *data, IdxType D, IdxType N, NormType type,
-             bool rowMajor, cudaStream_t stream,
-             Lambda fin_op = raft::Nop<Type, IdxType>()) {
-  switch (type) {
-    case L1Norm:
-      reduce(dots, data, D, N, (Type)0, rowMajor, false, stream, false,
-             raft::L1Op<Type, IdxType>(), raft::Sum<Type>(), fin_op);
-      break;
-    case L2Norm:
-      reduce(dots, data, D, N, (Type)0, rowMajor, false, stream, false,
-             raft::L2Op<Type, IdxType>(), raft::Sum<Type>(), fin_op);
-      break;
-    default:
-      ASSERT(false, "Invalid norm type passed! [%d]", type);
-  };
+template <typename Type, typename IdxType = int, typename Lambda = raft::Nop<Type, IdxType>>
+void colNorm(Type* dots,
+             const Type* data,
+             IdxType D,
+             IdxType N,
+             NormType type,
+             bool rowMajor,
+             cudaStream_t stream,
+             Lambda fin_op = raft::Nop<Type, IdxType>())
+{
+  detail::colNormCaller(dots, data, D, N, type, rowMajor, stream, fin_op);
 }
 
 };  // end namespace linalg
 };  // end namespace raft
+
+#endif

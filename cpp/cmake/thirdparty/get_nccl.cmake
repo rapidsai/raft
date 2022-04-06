@@ -16,7 +16,7 @@
 
 function(find_and_configure_nccl)
 
-    if(TARGET nccl::nccl)
+    if(TARGET NCCL::NCCL)
         return()
     endif()
 

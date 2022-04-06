@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,17 +17,17 @@
 #include <gtest/gtest.h>
 #include <iostream>
 #include <memory>
-#include <raft/mr/device/buffer.hpp>
 #include <raft/mr/host/buffer.hpp>
 
 namespace raft {
 namespace mr {
 namespace host {
 
-TEST(Raft, HostBuffer) {
+TEST(Raft, HostBuffer)
+{
   auto alloc = std::make_shared<default_allocator>();
   cudaStream_t stream;
-  CUDA_CHECK(cudaStreamCreate(&stream));
+  RAFT_CUDA_TRY(cudaStreamCreate(&stream));
   // no allocation at construction
   buffer<char> buff(alloc, stream);
   ASSERT_EQ(0, buff.size());
@@ -47,22 +47,22 @@ TEST(Raft, HostBuffer) {
   ASSERT_EQ(10, buff.size());
   buff.release();
   ASSERT_EQ(0, buff.size());
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-  CUDA_CHECK(cudaStreamDestroy(stream));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  RAFT_CUDA_TRY(cudaStreamDestroy(stream));
 }
 
-TEST(Raft, DeviceToHostBuffer) {
+TEST(Raft, DeviceToHostBuffer)
+{
   auto d_alloc = std::make_shared<device::default_allocator>();
   auto h_alloc = std::make_shared<default_allocator>();
   cudaStream_t stream;
-  CUDA_CHECK(cudaStreamCreate(&stream));
+  RAFT_CUDA_TRY(cudaStreamCreate(&stream));
   device::buffer<char> d_buff(d_alloc, stream, 32);
-  CUDA_CHECK(
-    cudaMemsetAsync(d_buff.data(), 0, sizeof(char) * d_buff.size(), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(d_buff.data(), 0, sizeof(char) * d_buff.size(), stream));
   buffer<char> h_buff(h_alloc, d_buff);
   ASSERT_EQ(d_buff.size(), h_buff.size());
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-  CUDA_CHECK(cudaStreamDestroy(stream));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  RAFT_CUDA_TRY(cudaStreamDestroy(stream));
 }
 
 }  // namespace host

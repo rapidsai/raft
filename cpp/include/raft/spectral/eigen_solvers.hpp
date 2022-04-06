@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,18 +13,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
+
+#ifndef __EIGEN_SOLVERS_H
+#define __EIGEN_SOLVERS_H
+
 #pragma once
 
-#include <raft/linalg/lanczos.hpp>
+#include <raft/linalg/lanczos.cuh>
+#include <raft/spectral/matrix_wrappers.hpp>
 
 namespace raft {
-
-using namespace matrix;
+namespace spectral {
 
 // aggregate of control params for Eigen Solver:
 //
-template <typename index_type_t, typename value_type_t,
-          typename size_type_t = index_type_t>
+template <typename index_type_t, typename value_type_t, typename size_type_t = index_type_t>
 struct eigen_solver_config_t {
   size_type_t n_eigVecs;
   size_type_t maxIter;
@@ -34,43 +41,62 @@ struct eigen_solver_config_t {
 
   bool reorthogonalize{false};
   unsigned long long seed{
-    1234567};  // CAVEAT: this default value is now common to all instances of using seed in Lanczos; was not the case before: there were places where a default seed = 123456 was used; this may trigger slightly different # solver iterations
+    1234567};  // CAVEAT: this default value is now common to all instances of using seed in
+               // Lanczos; was not the case before: there were places where a default seed = 123456
+               // was used; this may trigger slightly different # solver iterations
 };
 
-template <typename index_type_t, typename value_type_t,
-          typename size_type_t = index_type_t>
+template <typename index_type_t, typename value_type_t, typename size_type_t = index_type_t>
 struct lanczos_solver_t {
-  explicit lanczos_solver_t(eigen_solver_config_t<index_type_t, value_type_t,
-                                                  size_type_t> const& config)
-    : config_(config) {}
+  explicit lanczos_solver_t(
+    eigen_solver_config_t<index_type_t, value_type_t, size_type_t> const& config)
+    : config_(config)
+  {
+  }
 
   index_type_t solve_smallest_eigenvectors(
     handle_t const& handle,
-    sparse_matrix_t<index_type_t, value_type_t> const& A,
+    matrix::sparse_matrix_t<index_type_t, value_type_t> const& A,
     value_type_t* __restrict__ eigVals,
-    value_type_t* __restrict__ eigVecs) const {
+    value_type_t* __restrict__ eigVecs) const
+  {
     RAFT_EXPECTS(eigVals != nullptr, "Null eigVals buffer.");
     RAFT_EXPECTS(eigVecs != nullptr, "Null eigVecs buffer.");
     index_type_t iters{};
-    computeSmallestEigenvectors(handle, A, config_.n_eigVecs, config_.maxIter,
-                                config_.restartIter, config_.tol,
-                                config_.reorthogonalize, iters, eigVals,
-                                eigVecs, config_.seed);
+    linalg::computeSmallestEigenvectors(handle,
+                                        A,
+                                        config_.n_eigVecs,
+                                        config_.maxIter,
+                                        config_.restartIter,
+                                        config_.tol,
+                                        config_.reorthogonalize,
+                                        iters,
+                                        eigVals,
+                                        eigVecs,
+                                        config_.seed);
     return iters;
   }
 
   index_type_t solve_largest_eigenvectors(
     handle_t const& handle,
-    sparse_matrix_t<index_type_t, value_type_t> const& A,
+    matrix::sparse_matrix_t<index_type_t, value_type_t> const& A,
     value_type_t* __restrict__ eigVals,
-    value_type_t* __restrict__ eigVecs) const {
+    value_type_t* __restrict__ eigVecs) const
+  {
     RAFT_EXPECTS(eigVals != nullptr, "Null eigVals buffer.");
     RAFT_EXPECTS(eigVecs != nullptr, "Null eigVecs buffer.");
     index_type_t iters{};
-    computeLargestEigenvectors(handle, A, config_.n_eigVecs, config_.maxIter,
-                               config_.restartIter, config_.tol,
-                               config_.reorthogonalize, iters, eigVals, eigVecs,
-                               config_.seed);
+    linalg::computeLargestEigenvectors(handle,
+                                       A,
+                                       config_.n_eigVecs,
+                                       config_.maxIter,
+                                       config_.restartIter,
+                                       config_.tol,
+                                       config_.reorthogonalize,
+                                       iters,
+                                       eigVals,
+                                       eigVecs,
+                                       config_.seed);
     return iters;
   }
 
@@ -79,4 +105,8 @@ struct lanczos_solver_t {
  private:
   eigen_solver_config_t<index_type_t, value_type_t, size_type_t> config_;
 };
+
+}  // namespace spectral
 }  // namespace raft
+
+#endif

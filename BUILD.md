@@ -1,150 +1,287 @@
 # RAFT Build and Development Guide
 
-- [Usage of RAFT by downstream projects](#usage-of-raft-by-downstream-projects)
-    - [C++ Integration](#c-integration)
-    - [Python/Cython Integration](#pythoncython-integration)
-- [Building and running tests](#building-and-running-tests)
-- [CI Process](#ci-process)
-- [Developer Guide](#developer-guide)
-    - [Local Development](#local-development)
-    - [Submitting PRs](#submitting-prs)
+- [Building and installing RAFT](#build_install)
+    - [CUDA/GPU Requirements](#cuda_gpu_req)
+    - [Build Dependencies](#required_depenencies)
+    - [Header-only C++](#install_header_only_cpp)
+    - [C++ Shared Libraries](#shared_cpp_libs)
+    - [Googletests](#gtests)
+    - [C++ Using Cmake](#cpp_using_cmake)
+    - [Python](#python)
+- [Using RAFT in downstream projects](#use_raft)
+    - [Cmake Header-only Integration](#cxx_integration)
+    - [Using Shared Libraries in Cmake](#use_shared_libs)
+    - [Building RAFT C++ from source](#build_cxx_source)
+    - [Python/Cython Integration](#py_integration)
 
+## <a id="build_install"></a>Building and installing RAFT
 
+### <a id="cuda_gpu_req"></a>CUDA/GPU Requirements
+- CUDA Toolkit 11.0+
+- NVIDIA driver 450.80.02+
+- Pascal architecture of better (compute capability >= 6.0)
 
-## Usage of RAFT by downstream projects
+### <a id="required_dependencies"></a>Build Dependencies
 
-### C++ Integration
+In addition to the libraries included with cudatoolkit 11.0+, there are some other dependencies below for building RAFT from source. Many of the dependencies are optional and depend only on the primitives being used. All of these can be installed with cmake or [rapids-cpm](https://github.com/rapidsai/rapids-cmake#cpm) and many of them can be installed with [conda](https://anaconda.org).
 
-C++ RAFT is a header only library, so it can be easily configured using CMake by consuming libraries. Since this repo is intended to be included by downstream repos, the recommended way of accomplishing that is using CMake's git cloning functionality:
+#### Required
+- [Thrust](https://github.com/NVIDIA/thrust) v1.15 / [CUB](https://github.com/NVIDIA/cub)
+- [RMM](https://github.com/rapidsai/rmm) corresponding to RAFT version.
+- [mdspan](https://github.com/rapidsai/mdspan)
+  
+#### Optional
+- [cuCollections](https://github.com/NVIDIA/cuCollections) - Used in `raft::sparse::distance` API
+- [Libcu++](https://github.com/NVIDIA/libcudacxx) v1.7.0
+- [FAISS](https://github.com/facebookresearch/faiss) v1.7.0 - Used in `raft::spatial::knn` API and needed to build tests.
+- [NCCL](https://github.com/NVIDIA/nccl) - Used in `raft::comms` API and needed to build `Pyraft`
+- [UCX](https://github.com/openucx/ucx) - Used in `raft::comms` API and needed to build `Pyraft`
+- [Googletest](https://github.com/google/googletest) - Needed to build tests
+- [Googlebench](https://github.com/google/benchmark) - Needed to build benchmarks
+- [Doxygen](https://github.com/doxygen/doxygen) - Needed to build docs
 
+C++ RAFT is a header-only library but provides the option of building shared libraries with template instantiations for common types to speed up compile times for larger projects.
 
-```cmake
-if(DEFINED ENV{RAFT_PATH})
-  message(STATUS "RAFT_PATH environment variable detected.")
-  message(STATUS "RAFT_DIR set to $ENV{RAFT_PATH}")
-  set(RAFT_DIR ENV{RAFT_PATH})
+The recommended way to build and install RAFT is to use the `build.sh` script in the root of the repository. This script can build both the C++ and Python artifacts and provides options for building and installing the headers, tests, benchmarks, and individual shared libraries.
 
-else(DEFINED ENV{RAFT_PATH})
-  message(STATUS "RAFT_PATH environment variable NOT detected, cloning RAFT")
-  set(RAFT_GIT_DIR ${CMAKE_CURRENT_BINARY_DIR}/raft CACHE STRING "Path to RAFT repo")
+### <a id="install_header_only_cpp"></a>Header-only C++
 
-  ExternalProject_Add(raft
-    GIT_REPOSITORY    git@github.com:dantegd/barge.git
-    GIT_TAG           pinned_commit/git_tag/branch
-    PREFIX            ${RAFT_GIT_DIR}
-    CONFIGURE_COMMAND ""
-    BUILD_COMMAND     ""
-    INSTALL_COMMAND   "")
+`build.sh` uses [rapids-cmake](https://github.com/rapidsai/rapids-cmake), which will automatically download any dependencies which are not already installed. It's important to note that while all the headers will be installed and available, some parts of the RAFT API depend on libraries like `FAISS`, which will need to be explicitly enabled in `build.sh`.
 
-  set(RAFT_INCLUDE_DIR ${RAFT_DIR}/src/raft/cpp/include CACHE STRING "RAFT include variable")
-endif(DEFINED ENV{RAFT_PATH})
-
+The following example will download the needed dependencies and install the RAFT headers into `$INSTALL_PREFIX/include/raft`. The `--install` flag can be omitted to just have the build download the needed dependencies. Since RAFT is primarily used at build-time, the dependencies will never be installed by the RAFT build, with the exception of building FAISS statically into the shared libraries.
+```bash
+./build.sh libraft --install
 ```
 
-This create the variable `$RAFT_INCLUDE_DIR` variable that can be used in `include_directories`, and then the related header files can be included when needed.
+### <a id="shared_cpp_libs"></a>C++ Shared Libraries (optional)
 
-### Python/Cython Integration
-
-RAFT's Python and Cython code have been designed to be included in projects that use RAFT, as opposed to be distributed by itself as a Python package. To use:
-
-- The file `setuputils.py` is included in RAFT's `python` folder. Copy the file to your repo, in a location where it can be imported by `setup.py`
-- In your setup.py, use the function `use_raft_package`, for example for cuML:
-
-
-```python
-# Optional location of C++ build folder that can be configured by the user
-libcuml_path = get_environment_option('CUML_BUILD_PATH')
-# Optional location of RAFT that can be confugred by the user
-raft_path = get_environment_option('RAFT_PATH')
-
-use_raft_package(raft_path, libcuml_path)
+For larger projects which make heavy use of the pairwise distances or nearest neighbors APIs, shared libraries can be built to speed up compile times. These shared libraries can also significantly improve re-compile times both while developing RAFT and developing against the APIs. Build all of the available shared libraries by passing `--compile-libs` flag to `build.sh`:
+```bash
+./build.sh libraft --compile-libs
 ```
 
-The usage of RAFT by the consuming repo's python code follows the rules:
-1. If the environment variable `RAFT_PATH` points to the RAFT repo, then that will be used.
-2. If there is a C++ build folder that has cloned RAFT already, setup.py will use that RAFT.
-3. If none of the above happened, then setup.py will clone RAFT and use it directly.
+Individual shared libraries have their own flags and multiple can be used (though currently only the `nn` and `distance` packages contain shared libraries):
+```bash
+./build.sh libraft --compile-nn --compile-dist
+```
 
-- After `setup.py` calls the `use_raft_package` function, the RAFT python code will be included (via a symlink) in the consuming repo package, under a raft subfolder. So for example, `cuml` python package includes RAFT in `cuml.raft`.
+Add the `--install` flag to the above example to also install the shared libraries into `$INSTALL_PREFIX/lib`.
 
+### <a id="gtests"></a>Tests
 
-## Building and running tests
-
-Since RAFT is not meant to create any artifact on itself, but be included in other projects, the build infrastructure is focused only on testing.
-
-The base folder in the repository contains a `build.sh` script that builds both the C++ and Python code, which is the recommended way of building the tests.
+Compile the tests using the `tests` target in `build.sh`. By default, the shared libraries are assumed to be already built and on the library path. Add `--compile-libs` to also compile them.
+```bash
+./build.sh libraft tests --compile-libs
+```
 
 To run C++ tests:
 
 ```bash
-./test_raft
+./cpp/build/test_raft
 ```
 
-To run Python tests, if `install` setup.py target is not run:
+### <a id="benchmarks"></a>Benchmarks
+
+Compile the benchmarks using the `bench` target in `build.sh`:
+```bash
+./build.sh libraft bench
+```
+
+To run the benchmarks:
 
 ```bash
-cd python
-python -m pytest raft
+./cpp/build/bench_raft
 ```
 
-To build manually, you can also use `CMake` and setup.py directly. For C++:
+### <a id="cpp_using_cmake"></a>C++ Using Cmake
 
+Use `CMAKE_INSTALL_PREFIX` to install RAFT into a specific location. The snippet below will install it into the current conda environment:
 ```bash
 cd cpp
 mkdir build
 cd build
-cmake ..
+cmake -D BUILD_TESTS=ON -DRAFT_COMPILE_LIBRARIES=ON -DRAFT_ENABLE_NN_DEPENDENCIES=ON  -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX ../
+make -j<parallel_level> install
 ```
 
-There is no `install` target currently.
+RAFT's cmake has the following configurable flags available:.
 
-For python:
+| Flag | Possible Values | Default Value | Behavior |
+| --- | --- | --- | --- |
+| BUILD_TESTS | ON, OFF | ON | Compile Googletests |
+| BUILD_BENCH | ON, OFF | ON | Compile benchmarks |
+| RAFT_COMPILE_LIBRARIES | ON, OFF | OFF | Compiles all `libraft` shared libraries (these are required for Googletests) |
+| RAFT_COMPILE_NN_LIBRARY | ON, OFF | ON | Compiles the `libraft-nn` shared library |
+| RAFT_COMPILE_DIST_LIBRARY | ON, OFF | ON | Compiles the `libraft-distance` shared library |
+| RAFT_ENABLE_NN_DEPENDENCIES | ON, OFF | OFF | Searches for dependencies of nearest neighbors API, such as FAISS, and compiles them if not found. Needed for `raft::spatial::knn` |
+| RAFT_ENABLE_cuco_DEPENDENCY | ON, OFF | ON | Enables the cuCollections dependency used by `raft::sparse::distance` |
+| RAFT_ENABLE_nccl_DEPENDENCY | ON, OFF | OFF | Enables NCCL dependency used by `raft::comms` and needed to build `pyraft` |
+| RAFT_ENABLE_ucx_DEPENDENCY | ON, OFF | OFF | Enables UCX dependency used by `raft::comms` and needed to build `pyraft` |
+| RAFT_USE_FAISS_STATIC | ON, OFF | OFF | Statically link FAISS into `libraft-nn` | 
+| RAFT_STATIC_LINK_LIBRARIES | ON, OFF | ON | Build static link libraries instead of shared libraries |
+| DETECT_CONDA_ENV | ON, OFF | ON | Enable detection of conda environment for dependencies |
+| NVTX | ON, OFF | OFF | Enable NVTX Markers |
+| CUDA_ENABLE_KERNELINFO | ON, OFF | OFF | Enables `kernelinfo` in nvcc. This is useful for `compute-sanitizer` |
+| CUDA_ENABLE_LINEINFO  | ON, OFF | OFF | Enable the -lineinfo option for nvcc |
+| CUDA_STATIC_RUNTIME | ON, OFF | OFF | Statically link the CUDA runtime |
+
+Currently, shared libraries are provided for the `libraft-nn` and `libraft-distance` components. The `libraft-nn` component depends upon [FAISS](https://github.com/facebookresearch/faiss) and the `RAFT_ENABLE_NN_DEPENDENCIES` option will build it from source if it is not already installed.
+
+### <a id="python"></a>Python
+
+Conda environment scripts are provided for installing the necessary dependencies for building and using the Python APIs. It is preferred to use `mamba`, as it provides significant speedup over `conda`. The following example will install create and install dependencies for a CUDA 11.5 conda environment:
 
 ```bash
-cd python
+mamba env create --name raft_env_name -f conda/environments/raft_dev_cuda11.5.yml
+mamba activate raft_env_name
+```
+
+The Python APIs can be built using the `build.sh` script:
+
+```bash
+./build.sh pyraft pylibraft
+```
+
+`setup.py` can also be used to build the Python APIs manually:
+```bash
+cd python/raft
 python setup.py build_ext --inplace
+python setup.py install
+
+cd python/pylibraft
+python setup.py build_ext --inplace
+python setup.py install
 ```
 
-
-## CI Process
-
-PRs submitted to RAFT will always run the RAFT tests (once GPUCI is enabled). Additionally, RAFT has convenience functionality to run tests of the following projects that use RAFT: cuML and cuGraph.
-
-To run these other tests, turn `ON` the variables in `ci/prtest.config` in your PR:
-
+To run the Python tests:
 ```bash
-RUN_CUGRAPH_LIBCUGRAPH_TESTS=OFF
-RUN_CUGRAPH_PYTHON_TESTS=OFF
+cd python/raft
+py.test -s -v raft
 
-RUN_CUML_LIBCUML_TESTS=OFF
-RUN_CUML_PRIMS_TESTS=OFF
-RUN_CUML_PYTHON_TESTS=OFF
+cd python pylibraft
+py.test -s -v pylibraft
 ```
 
-This will make it so that CI in the PR will clone and build the respective repository, but the repository **will be built using the fork/branch of RAFT in the PR**. This allows to test changes in RAFT without the need of opening PRs in the other repositories.
+## <a id="use_raft"></a>Using RAFT in downstream projects
 
-Before merging the PR, those variables need to be returned to `OFF`.
+There are two different strategies for including RAFT in downstream projects, depending on whether or not the required dependencies are already installed and available on the `lib` and `include` paths. 
 
+### <a id="cxx_integration"></a>C++ header-only integration using cmake
 
-## Developer Guide
+When the needed [build dependencies](#required_depenencies) are already satisfied, RAFT can be trivially integrated into downstream projects by cloning the repository and adding `cpp/include` from RAFT to the include path:
+```cmake
+set(RAFT_GIT_DIR ${CMAKE_CURRENT_BINARY_DIR}/raft CACHE STRING "Path to RAFT repo")
+ExternalProject_Add(raft
+  GIT_REPOSITORY    git@github.com:rapidsai/raft.git
+  GIT_TAG           branch-22.04
+  PREFIX            ${RAFT_GIT_DIR}
+  CONFIGURE_COMMAND ""
+  BUILD_COMMAND     ""
+  INSTALL_COMMAND   "")
+set(RAFT_INCLUDE_DIR ${RAFT_GIT_DIR}/raft/cpp/include CACHE STRING "RAFT include variable")
+```
 
-### Local Development
+If RAFT has already been installed, such as by using the `build.sh` script, use `find_package(raft)` and the `raft::raft` target if using RAFT to interact only with the public APIs of consuming projects.
 
-To help working with RAFT and consuming projects as seamless as possible, this section describes how a typical workflow looks like and gives some guidelines for developers working in projects that affect code in both RAFT and at least one downstream repository.
+### <a id="use_shared_libs"></a>Using pre-compiled shared libraries
 
-Using as an example developer working on cuML and RAFT, we recommend the following:
+Use `find_package(raft COMPONENTS nn distance)` to enable the shared libraries and transitively pass dependencies through separate targets for each component. In this example, the `raft::distance` and `raft::nn` targets will be available for configuring linking paths in addition to `raft::raft`. These targets will also pass through any transitive dependencies (such as FAISS for the `nn` package).
 
-- Create two working folders: one containing the cloned cuML repository and the other the cloned RAFT one.
-- Create environment variable `RAFT_PATH` pointing to the location of the RAFT path.
-- Work on same named branches in both repos/folders.
+The pre-compiled libraries contain template specializations for commonly used types, such as single- and double-precision floating-point. In order to use the symbols in the pre-compiled libraries, the compiler needs to be told not to instantiate templates that are already contained in the shared libraries. By convention, these header files are named `specializations.hpp` and located in the base directory for the packages that contain specializations.
 
-This will facilitate development, and the `RAFT_PATH` variable will make it so that the downstream repository, in this case cuML, builds using the locally cloned RAFT (as descrbed in the first step).
+The following example tells the compiler to ignore the pre-compiled templates for the `libraft-distance` API so any symbols already compiled into pre-compiled shared library will be used instead:
+```c++
+#include <raft/distance/distance.hpp>
+#include <raft/distance/specializations.hpp>
+```
 
-### Submitting PRs Guidelines
+### <a id="build_cxx_source"></a>Building RAFT C++ from source in cmake
 
-If you have changes to both RAFT and at least one downstream repo, then:
+RAFT uses the [RAPIDS-CMake](https://github.com/rapidsai/rapids-cmake) library so it can be more easily included into downstream projects. RAPIDS cmake provides a convenience layer around the [CMake Package Manager (CPM)](https://github.com/cpm-cmake/CPM.cmake). 
 
-- It is recommended to open a PR to both repositories (for visibility and CI tests).
-- Change the pinned branch/commit in the downstream repo PR to point to the fork and branch used for the RAFT PR to make CI run tests
-- If your changes might affect usage of RAFT by other downnstream repos, alert reviewers and open a github issue or PR in that downstream repo as approproate.
-- The PR to RAFT will be merged first, so that the downstream repo PR pinned branch/commit can be returned to the main RAFT branch and run CI with it.
+The following example is similar to invoking `find_package(raft)` but uses `rapids_cpm_find`, which provides a richer and more flexible configuration landscape by using CPM to fetch any dependencies not already available to the build. The `raft::raft` link target will be made available and it's recommended that it be used as a `PRIVATE` link dependency in downstream projects. The `COMPILE_LIBRARIES` option enables the building the shared libraries.
+
+The following `cmake` snippet enables a flexible configuration of RAFT:
+
+```cmake
+
+set(RAFT_VERSION "22.04")
+set(RAFT_FORK "rapidsai")
+set(RAFT_PINNED_TAG "branch-${RAFT_VERSION}")
+
+function(find_and_configure_raft)
+  set(oneValueArgs VERSION FORK PINNED_TAG USE_FAISS_STATIC
+          COMPILE_LIBRARIES ENABLE_NN_DEPENDENCIES CLONE_ON_PIN
+          USE_NN_LIBRARY USE_DISTANCE_LIBRARY)
+  cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
+                            "${multiValueArgs}" ${ARGN} )
+
+  #-----------------------------------------------------
+  # Clone RAFT locally if PINNED_TAG has been changed
+  #-----------------------------------------------------
+  if(PKG_CLONE_ON_PIN AND NOT PKG_PINNED_TAG STREQUAL "branch-${RAFT_VERSION}")
+    message("Pinned tag found: ${PKG_PINNED_TAG}. Cloning raft locally.")
+    set(CPM_DOWNLOAD_raft ON)
+    set(CMAKE_IGNORE_PATH "${CMAKE_INSTALL_PREFIX}/include/raft;${CMAKE_IGNORE_PATH})
+  endif()
+
+  #-----------------------------------------------------
+  # Add components
+  #-----------------------------------------------------
+
+  if(PKG_USE_NN_LIBRARY)
+    string(APPEND RAFT_COMPONENTS " nn")
+  endif()
+
+  if(PKG_USE_DISTANCE_LIBRARY)
+    string(APPEND RAFT_COMPONENTS " distance")
+  endif()
+
+  #-----------------------------------------------------
+  # Invoke CPM find_package()
+  #-----------------------------------------------------
+
+  rapids_cpm_find(raft ${PKG_VERSION}
+          GLOBAL_TARGETS      raft::raft
+          BUILD_EXPORT_SET    projname-exports
+          INSTALL_EXPORT_SET  projname-exports
+          CPM_ARGS
+          GIT_REPOSITORY https://github.com/${PKG_FORK}/raft.git
+          GIT_TAG        ${PKG_PINNED_TAG}
+          SOURCE_SUBDIR  cpp
+          FIND_PACKAGE_ARGUMENTS "COMPONENTS ${RAFT_COMPONENTS}"
+          OPTIONS
+          "BUILD_TESTS OFF"
+          "BUILD_BENCH OFF"
+          "RAFT_ENABLE_NN_DEPENDENCIES ${PKG_ENABLE_NN_DEPENDENCIES}"
+          "RAFT_USE_FAISS_STATIC ${PKG_USE_FAISS_STATIC}"
+          "RAFT_COMPILE_LIBRARIES ${PKG_COMPILE_LIBRARIES}"
+  )
+
+endfunction()
+
+# Change pinned tag here to test a commit in CI
+# To use a different RAFT locally, set the CMake variable
+# CPM_raft_SOURCE=/path/to/local/raft
+find_and_configure_raft(VERSION    ${RAFT_VERSION}.00
+        FORK             ${RAFT_FORK}
+        PINNED_TAG       ${RAFT_PINNED_TAG}
+
+        # When PINNED_TAG above doesn't match cuml,
+        # force local raft clone in build directory
+        # even if it's already installed.
+        CLONE_ON_PIN     ON
+
+        COMPILE_LIBRARIES      NO
+        USE_NN_LIBRARY         NO
+        USE_DISTANCE_LIBRARY   NO
+        ENABLE_NN_DEPENDENCIES NO  # This builds FAISS if not installed
+        USE_FAISS_STATIC       NO
+)
+```
+
+If using the nearest neighbors APIs without the shared libraries, set `ENABLE_NN_DEPENDENCIES=ON` and keep `USE_NN_LIBRARY=OFF`
+
+### <a id="py_integration"></a>Python/Cython Integration
+
+Once installed, RAFT's Python library can be added to downstream conda recipes, imported and used directly.

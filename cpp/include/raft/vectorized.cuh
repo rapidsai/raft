@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,17 +16,17 @@
 
 #pragma once
 
-#include <cuda_fp16.h>
 #include "cuda_utils.cuh"
+#include <cuda_fp16.h>
 
 namespace raft {
 
 template <typename math_, int VecLen>
-struct IOType {};
+struct IOType {
+};
 template <>
 struct IOType<bool, 1> {
-  static_assert(sizeof(bool) == sizeof(int8_t),
-                "IOType bool size assumption failed");
+  static_assert(sizeof(bool) == sizeof(int8_t), "IOType bool size assumption failed");
   typedef int8_t Type;
 };
 template <>
@@ -215,42 +215,50 @@ struct IOType<double, 2> {
 };
 
 /**
-     * @struct TxN_t
-     *
-     * @brief Internal data structure that is used to define a facade for vectorized
-     * loads/stores across the most common POD types. The goal of his file is to
-     * provide with CUDA programmers, an easy way to have compiler issue vectorized
-     * load or store instructions to memory (either global or shared). Vectorized
-     * accesses to memory are important as they'll utilize its resources
-     * efficiently,
-     * when compared to their non-vectorized counterparts. Obviously, for whatever
-     * reasons if one is unable to issue such vectorized operations, one can always
-     * fallback to using POD types.
-     *
-     * Example demonstrating the use of load operations, performing math on such
-     * loaded data and finally storing it back.
-     * @code{.cu}
-     * TxN_t<uint8_t,8> mydata1, mydata2;
-     * int idx = (threadIdx.x + (blockIdx.x * blockDim.x)) * mydata1.Ratio;
-     * mydata1.load(ptr1, idx);
-     * mydata2.load(ptr2, idx);
-     * #pragma unroll
-     * for(int i=0;i<mydata1.Ratio;++i) {
-     *     mydata1.val.data[i] += mydata2.val.data[i];
-     * }
-     * mydata1.store(ptr1, idx);
-     * @endcode
-     *
-     * By doing as above, the interesting thing is that the code effectively remains
-     * almost the same, in case one wants to upgrade to TxN_t<uint16_t,16> type.
-     * Only change required is to replace variable declaration appropriately.
-     *
-     * Obviously, it's caller's responsibility to take care of pointer alignment!
-     *
-     * @tparam math_ the data-type in which the compute/math needs to happen
-     * @tparam veclen_ the number of 'math_' types to be loaded/stored per
-     * instruction
-     */
+ * @struct TxN_t
+ *
+ * @brief Internal data structure that is used to define a facade for vectorized
+ * loads/stores across the most common POD types. The goal of his file is to
+ * provide with CUDA programmers, an easy way to have compiler issue vectorized
+ * load or store instructions to memory (either global or shared). Vectorized
+ * accesses to memory are important as they'll utilize its resources
+ * efficiently,
+ * when compared to their non-vectorized counterparts. Obviously, for whatever
+ * reasons if one is unable to issue such vectorized operations, one can always
+ * fallback to using POD types.
+ *
+ * Concept of vectorized accesses : Threads process multiple elements
+ * to speed up processing. These are loaded in a single read thanks
+ * to type promotion. It is then reinterpreted as a vector elements
+ * to perform the kernel's work.
+ *
+ * Caution : vectorized accesses requires input adresses to be memory aligned
+ * according not to the input type but to the promoted type used for reading.
+ *
+ * Example demonstrating the use of load operations, performing math on such
+ * loaded data and finally storing it back.
+ * @code{.cu}
+ * TxN_t<uint8_t,8> mydata1, mydata2;
+ * int idx = (threadIdx.x + (blockIdx.x * blockDim.x)) * mydata1.Ratio;
+ * mydata1.load(ptr1, idx);
+ * mydata2.load(ptr2, idx);
+ * #pragma unroll
+ * for(int i=0;i<mydata1.Ratio;++i) {
+ *     mydata1.val.data[i] += mydata2.val.data[i];
+ * }
+ * mydata1.store(ptr1, idx);
+ * @endcode
+ *
+ * By doing as above, the interesting thing is that the code effectively remains
+ * almost the same, in case one wants to upgrade to TxN_t<uint16_t,16> type.
+ * Only change required is to replace variable declaration appropriately.
+ *
+ * Obviously, it's caller's responsibility to take care of pointer alignment!
+ *
+ * @tparam math_ the data-type in which the compute/math needs to happen
+ * @tparam veclen_ the number of 'math_' types to be loaded/stored per
+ * instruction
+ */
 template <typename math_, int veclen_>
 struct TxN_t {
   /** underlying math data type */
@@ -274,7 +282,8 @@ struct TxN_t {
    * @brief Fill the contents of this structure with a constant value
    * @param _val the constant to be filled
    */
-  DI void fill(math_t _val) {
+  DI void fill(math_t _val)
+  {
 #pragma unroll
     for (int i = 0; i < Ratio; ++i) {
       val.data[i] = _val;
@@ -299,21 +308,24 @@ struct TxN_t {
    * @{
    */
   template <typename idx_t = int>
-  DI void load(const math_t *ptr, idx_t idx) {
-    const io_t *bptr = reinterpret_cast<const io_t *>(&ptr[idx]);
-    val.internal = __ldg(bptr);
+  DI void load(const math_t* ptr, idx_t idx)
+  {
+    const io_t* bptr = reinterpret_cast<const io_t*>(&ptr[idx]);
+    val.internal     = __ldg(bptr);
   }
 
   template <typename idx_t = int>
-  DI void load(math_t *ptr, idx_t idx) {
-    io_t *bptr = reinterpret_cast<io_t *>(&ptr[idx]);
+  DI void load(math_t* ptr, idx_t idx)
+  {
+    io_t* bptr   = reinterpret_cast<io_t*>(&ptr[idx]);
     val.internal = *bptr;
   }
 
   template <typename idx_t = int>
-  DI void store(math_t *ptr, idx_t idx) {
-    io_t *bptr = reinterpret_cast<io_t *>(&ptr[idx]);
-    *bptr = val.internal;
+  DI void store(math_t* ptr, idx_t idx)
+  {
+    io_t* bptr = reinterpret_cast<io_t*>(&ptr[idx]);
+    *bptr      = val.internal;
   }
   /** @} */
 };
@@ -330,11 +342,17 @@ struct TxN_t<math_, 0> {
 
   DI void fill(math_t _val) {}
   template <typename idx_t = int>
-  DI void load(const math_t *ptr, idx_t idx) {}
+  DI void load(const math_t* ptr, idx_t idx)
+  {
+  }
   template <typename idx_t = int>
-  DI void load(math_t *ptr, idx_t idx) {}
+  DI void load(math_t* ptr, idx_t idx)
+  {
+  }
   template <typename idx_t = int>
-  DI void store(math_t *ptr, idx_t idx) {}
+  DI void store(math_t* ptr, idx_t idx)
+  {
+  }
 };
 
 }  // namespace raft

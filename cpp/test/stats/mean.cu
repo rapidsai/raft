@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
+#include "../test_utils.h"
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/random/rng.cuh>
 #include <raft/stats/mean.cuh>
-#include "../test_utils.h"
+#include <stdio.h>
+#include <stdlib.h>
 
 namespace raft {
 namespace stats {
@@ -35,95 +35,97 @@ struct MeanInputs {
 };
 
 template <typename T>
-::std::ostream &operator<<(::std::ostream &os, const MeanInputs<T> &dims) {
+::std::ostream& operator<<(::std::ostream& os, const MeanInputs<T>& dims)
+{
   return os;
 }
 
 template <typename T>
 class MeanTest : public ::testing::TestWithParam<MeanInputs<T>> {
+ public:
+  MeanTest()
+    : params(::testing::TestWithParam<MeanInputs<T>>::GetParam()),
+      stream(handle.get_stream()),
+      rows(params.rows),
+      cols(params.cols),
+      data(rows * cols, stream),
+      mean_act(rows * cols, stream)
+  {
+  }
+
  protected:
-  void SetUp() override {
-    params = ::testing::TestWithParam<MeanInputs<T>>::GetParam();
+  void SetUp() override
+  {
     raft::random::Rng r(params.seed);
-
-    int rows = params.rows, cols = params.cols;
     int len = rows * cols;
-
-    cudaStream_t stream;
-    CUDA_CHECK(cudaStreamCreate(&stream));
-
-    allocate(data, len);
-    allocate(mean_act, cols);
-    r.normal(data, len, params.mean, (T)1.0, stream);
-
-    meanSGtest(data, stream);
+    r.normal(data.data(), len, params.mean, (T)1.0, stream);
+    meanSGtest(data.data(), stream);
   }
 
-  void meanSGtest(T *data, cudaStream_t stream) {
+  void meanSGtest(T* data, cudaStream_t stream)
+  {
     int rows = params.rows, cols = params.cols;
-
-    mean(mean_act, data, cols, rows, params.sample, params.rowMajor, stream);
-  }
-
-  void TearDown() override {
-    CUDA_CHECK(cudaFree(data));
-    CUDA_CHECK(cudaFree(mean_act));
+    mean(mean_act.data(), data, cols, rows, params.sample, params.rowMajor, stream);
   }
 
  protected:
+  raft::handle_t handle;
+  cudaStream_t stream;
+
   MeanInputs<T> params;
-  T *data, *mean_act;
+  int rows, cols;
+  rmm::device_uvector<T> data, mean_act;
 };
 
 // Note: For 1024 samples, 256 experiments, a mean of 1.0 with stddev=1.0, the
 // measured mean (of a normal distribution) will fall outside of an epsilon of
 // 0.15 only 4/10000 times. (epsilon of 0.1 will fail 30/100 times)
-const std::vector<MeanInputs<float>> inputsf = {
-  {0.15f, 1.f, 1024, 32, true, false, 1234ULL},
-  {0.15f, 1.f, 1024, 64, true, false, 1234ULL},
-  {0.15f, 1.f, 1024, 128, true, false, 1234ULL},
-  {0.15f, 1.f, 1024, 256, true, false, 1234ULL},
-  {0.15f, -1.f, 1024, 32, false, false, 1234ULL},
-  {0.15f, -1.f, 1024, 64, false, false, 1234ULL},
-  {0.15f, -1.f, 1024, 128, false, false, 1234ULL},
-  {0.15f, -1.f, 1024, 256, false, false, 1234ULL},
-  {0.15f, 1.f, 1024, 32, true, true, 1234ULL},
-  {0.15f, 1.f, 1024, 64, true, true, 1234ULL},
-  {0.15f, 1.f, 1024, 128, true, true, 1234ULL},
-  {0.15f, 1.f, 1024, 256, true, true, 1234ULL},
-  {0.15f, -1.f, 1024, 32, false, true, 1234ULL},
-  {0.15f, -1.f, 1024, 64, false, true, 1234ULL},
-  {0.15f, -1.f, 1024, 128, false, true, 1234ULL},
-  {0.15f, -1.f, 1024, 256, false, true, 1234ULL}};
+const std::vector<MeanInputs<float>> inputsf = {{0.15f, 1.f, 1024, 32, true, false, 1234ULL},
+                                                {0.15f, 1.f, 1024, 64, true, false, 1234ULL},
+                                                {0.15f, 1.f, 1024, 128, true, false, 1234ULL},
+                                                {0.15f, 1.f, 1024, 256, true, false, 1234ULL},
+                                                {0.15f, -1.f, 1024, 32, false, false, 1234ULL},
+                                                {0.15f, -1.f, 1024, 64, false, false, 1234ULL},
+                                                {0.15f, -1.f, 1024, 128, false, false, 1234ULL},
+                                                {0.15f, -1.f, 1024, 256, false, false, 1234ULL},
+                                                {0.15f, 1.f, 1024, 32, true, true, 1234ULL},
+                                                {0.15f, 1.f, 1024, 64, true, true, 1234ULL},
+                                                {0.15f, 1.f, 1024, 128, true, true, 1234ULL},
+                                                {0.15f, 1.f, 1024, 256, true, true, 1234ULL},
+                                                {0.15f, -1.f, 1024, 32, false, true, 1234ULL},
+                                                {0.15f, -1.f, 1024, 64, false, true, 1234ULL},
+                                                {0.15f, -1.f, 1024, 128, false, true, 1234ULL},
+                                                {0.15f, -1.f, 1024, 256, false, true, 1234ULL}};
 
-const std::vector<MeanInputs<double>> inputsd = {
-  {0.15, 1.0, 1024, 32, true, false, 1234ULL},
-  {0.15, 1.0, 1024, 64, true, false, 1234ULL},
-  {0.15, 1.0, 1024, 128, true, false, 1234ULL},
-  {0.15, 1.0, 1024, 256, true, false, 1234ULL},
-  {0.15, -1.0, 1024, 32, false, false, 1234ULL},
-  {0.15, -1.0, 1024, 64, false, false, 1234ULL},
-  {0.15, -1.0, 1024, 128, false, false, 1234ULL},
-  {0.15, -1.0, 1024, 256, false, false, 1234ULL},
-  {0.15, 1.0, 1024, 32, true, true, 1234ULL},
-  {0.15, 1.0, 1024, 64, true, true, 1234ULL},
-  {0.15, 1.0, 1024, 128, true, true, 1234ULL},
-  {0.15, 1.0, 1024, 256, true, true, 1234ULL},
-  {0.15, -1.0, 1024, 32, false, true, 1234ULL},
-  {0.15, -1.0, 1024, 64, false, true, 1234ULL},
-  {0.15, -1.0, 1024, 128, false, true, 1234ULL},
-  {0.15, -1.0, 1024, 256, false, true, 1234ULL}};
+const std::vector<MeanInputs<double>> inputsd = {{0.15, 1.0, 1024, 32, true, false, 1234ULL},
+                                                 {0.15, 1.0, 1024, 64, true, false, 1234ULL},
+                                                 {0.15, 1.0, 1024, 128, true, false, 1234ULL},
+                                                 {0.15, 1.0, 1024, 256, true, false, 1234ULL},
+                                                 {0.15, -1.0, 1024, 32, false, false, 1234ULL},
+                                                 {0.15, -1.0, 1024, 64, false, false, 1234ULL},
+                                                 {0.15, -1.0, 1024, 128, false, false, 1234ULL},
+                                                 {0.15, -1.0, 1024, 256, false, false, 1234ULL},
+                                                 {0.15, 1.0, 1024, 32, true, true, 1234ULL},
+                                                 {0.15, 1.0, 1024, 64, true, true, 1234ULL},
+                                                 {0.15, 1.0, 1024, 128, true, true, 1234ULL},
+                                                 {0.15, 1.0, 1024, 256, true, true, 1234ULL},
+                                                 {0.15, -1.0, 1024, 32, false, true, 1234ULL},
+                                                 {0.15, -1.0, 1024, 64, false, true, 1234ULL},
+                                                 {0.15, -1.0, 1024, 128, false, true, 1234ULL},
+                                                 {0.15, -1.0, 1024, 256, false, true, 1234ULL}};
 
 typedef MeanTest<float> MeanTestF;
-TEST_P(MeanTestF, Result) {
-  ASSERT_TRUE(devArrMatch(params.mean, mean_act, params.cols,
-                          CompareApprox<float>(params.tolerance)));
+TEST_P(MeanTestF, Result)
+{
+  ASSERT_TRUE(
+    devArrMatch(params.mean, mean_act.data(), params.cols, CompareApprox<float>(params.tolerance)));
 }
 
 typedef MeanTest<double> MeanTestD;
-TEST_P(MeanTestD, Result) {
-  ASSERT_TRUE(devArrMatch(params.mean, mean_act, params.cols,
-                          CompareApprox<double>(params.tolerance)));
+TEST_P(MeanTestD, Result)
+{
+  ASSERT_TRUE(devArrMatch(
+    params.mean, mean_act.data(), params.cols, CompareApprox<double>(params.tolerance)));
 }
 
 INSTANTIATE_TEST_SUITE_P(MeanTests, MeanTestF, ::testing::ValuesIn(inputsf));

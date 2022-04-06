@@ -1,15 +1,15 @@
 #cpp code owners
-cpp/               @rapidsai/cuml-cpp-codeowners @rapidsai/cugraph-cpp-codeowners
+cpp/               @rapidsai/raft-cpp-codeowners
 
 #python code owners
-python/            @rapidsai/cuml-python-codeowners @rapidsai/cugraph-python-codeowners
+python/            @rapidsai/raft-python-codeowners
 
 #cmake code owners
-**/CMakeLists.txt  @rapidsai/cuml-cmake-codeowners @rapidsai/cugraph-cmake-codeowners
-**/cmake/          @rapidsai/cuml-cmake-codeowners @rapidsai/cugraph-cmake-codeowners
-python/setup.py    @rapidsai/cuml-cmake-codeowners @rapidsai/cugraph-cmake-codeowners
-build.sh           @rapidsai/cuml-cmake-codeowners @rapidsai/cugraph-cmake-codeowners
-**/build.sh        @rapidsai/cuml-cmake-codeowners @rapidsai/cugraph-cmake-codeowners
+**/CMakeLists.txt  @rapidsai/raft-cmake-codeowners
+**/cmake/          @rapidsai/raft-cmake-codeowners
+python/setup.py    @rapidsai/raft-cmake-codeowners
+build.sh           @rapidsai/raft-cmake-codeowners
+**/build.sh        @rapidsai/raft-cmake-codeowners
 
 #build/ops code owners
 .github/           @rapidsai/ops-codeowners

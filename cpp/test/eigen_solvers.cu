@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,31 +14,40 @@
  * limitations under the License.
  */
 
+#include <raft/common/nvtx.hpp>
+#include <raft/handle.hpp>
+#include <raft/spectral/eigen_solvers.cuh>
+#include <raft/spectral/partition.cuh>
+
 #include <gtest/gtest.h>
+
+#include <cstddef>
 #include <iostream>
 #include <memory>
-#include <raft/handle.hpp>
-
-#include <raft/spectral/partition.hpp>
 
 namespace raft {
+namespace spectral {
 
-TEST(Raft, EigenSolvers) {
+TEST(Raft, EigenSolvers)
+{
+  common::nvtx::range fun_scope("test::EigenSolvers");
   using namespace matrix;
   using index_type = int;
   using value_type = double;
 
   handle_t h;
-  ASSERT_EQ(0, h.get_num_internal_streams());
-  ASSERT_EQ(0, h.get_device());
+  ASSERT_EQ(0,
+            h.
+
+            get_device()
+
+  );
 
   index_type* ro{nullptr};
   index_type* ci{nullptr};
   value_type* vs{nullptr};
-  index_type nnz = 0;
+  index_type nnz   = 0;
   index_type nrows = 0;
-  auto stream = h.get_stream();
-  auto t_exe_pol = thrust::cuda::par.on(stream);
 
   sparse_matrix_t<index_type, value_type> sm1{h, ro, ci, vs, nrows, nnz};
   ASSERT_EQ(nullptr, sm1.row_offsets_);
@@ -49,32 +58,36 @@ TEST(Raft, EigenSolvers) {
   value_type tol{1.0e-10};
   bool reorthog{true};
 
-  //nullptr expected to trigger exceptions:
+  // nullptr expected to trigger exceptions:
   //
   value_type* eigvals{nullptr};
   value_type* eigvecs{nullptr};
-  unsigned long long seed{100110021003};
+  std::uint64_t seed{100110021003};
 
   eigen_solver_config_t<index_type, value_type> cfg{
     neigvs, maxiter, restart_iter, tol, reorthog, seed};
 
   lanczos_solver_t<index_type, value_type> eig_solver{cfg};
 
-  EXPECT_ANY_THROW(
-    eig_solver.solve_smallest_eigenvectors(h, sm1, eigvals, eigvecs));
+  EXPECT_ANY_THROW(eig_solver.solve_smallest_eigenvectors(h, sm1, eigvals, eigvecs));
 
-  EXPECT_ANY_THROW(
-    eig_solver.solve_largest_eigenvectors(h, sm1, eigvals, eigvecs));
+  EXPECT_ANY_THROW(eig_solver.solve_largest_eigenvectors(h, sm1, eigvals, eigvecs));
 }
 
-TEST(Raft, SpectralSolvers) {
+TEST(Raft, SpectralSolvers)
+{
+  common::nvtx::range fun_scope("test::SpectralSolvers");
   using namespace matrix;
   using index_type = int;
   using value_type = double;
 
   handle_t h;
-  ASSERT_EQ(0, h.get_num_internal_streams());
-  ASSERT_EQ(0, h.get_device());
+  ASSERT_EQ(0,
+            h.
+
+            get_device()
+
+  );
 
   index_type neigvs{10};
   index_type maxiter{100};
@@ -82,7 +95,7 @@ TEST(Raft, SpectralSolvers) {
   value_type tol{1.0e-10};
   bool reorthog{true};
 
-  //nullptr expected to trigger exceptions:
+  // nullptr expected to trigger exceptions:
   //
   index_type* clusters{nullptr};
   value_type* eigvals{nullptr};
@@ -96,22 +109,17 @@ TEST(Raft, SpectralSolvers) {
 
   index_type k{5};
 
-  cluster_solver_config_t<index_type, value_type> clust_cfg{k, maxiter, tol,
-                                                            seed};
+  cluster_solver_config_t<index_type, value_type> clust_cfg{k, maxiter, tol, seed};
   kmeans_solver_t<index_type, value_type> cluster_solver{clust_cfg};
 
-  auto stream = h.get_stream();
-
-  auto t_exe_p = thrust::cuda::par.on(stream);
-  sparse_matrix_t<index_type, value_type> sm{h,       nullptr, nullptr,
-                                             nullptr, 0,       0};
-  EXPECT_ANY_THROW(spectral::partition(
-    h, t_exe_p, sm, eig_solver, cluster_solver, clusters, eigvals, eigvecs));
+  sparse_matrix_t<index_type, value_type> sm{h, nullptr, nullptr, nullptr, 0, 0};
+  EXPECT_ANY_THROW(
+    spectral::partition(h, sm, eig_solver, cluster_solver, clusters, eigvals, eigvecs));
 
   value_type edgeCut{0};
   value_type cost{0};
-  EXPECT_ANY_THROW(
-    spectral::analyzePartition(h, t_exe_p, sm, k, clusters, edgeCut, cost));
+  EXPECT_ANY_THROW(spectral::analyzePartition(h, sm, k, clusters, edgeCut, cost));
 }
 
+}  // namespace spectral
 }  // namespace raft

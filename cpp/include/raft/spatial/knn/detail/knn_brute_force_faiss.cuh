@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,23 +16,27 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
+#include <rmm/cuda_stream_pool.hpp>
+
+#include <rmm/device_uvector.hpp>
 
 #include <faiss/gpu/GpuDistance.h>
 #include <faiss/gpu/GpuResources.h>
-#include <faiss/gpu/StandardGpuResources.h>
-#include <faiss/utils/Heap.h>
 #include <faiss/gpu/utils/Limits.cuh>
 #include <faiss/gpu/utils/Select.cuh>
+#include <faiss/utils/Heap.h>
 
-#include <raft/linalg/distance_type.h>
-#include <thrust/device_vector.h>
-#include <thrust/iterator/transform_iterator.h>
+#include <cstdint>
 #include <iostream>
+#include <raft/distance/distance_type.hpp>
 #include <raft/handle.hpp>
+#include <raft/spatial/knn/faiss_mr.hpp>
 #include <set>
+#include <thrust/iterator/transform_iterator.h>
 
+#include "fused_l2_knn.cuh"
 #include "haversine_distance.cuh"
 #include "processing.hpp"
 
@@ -43,13 +47,22 @@ namespace spatial {
 namespace knn {
 namespace detail {
 
-template <typename value_idx = int64_t, typename value_t = float, int warp_q,
-          int thread_q, int tpb>
-__global__ void knn_merge_parts_kernel(value_t *inK, value_idx *inV,
-                                       value_t *outK, value_idx *outV,
-                                       size_t n_samples, int n_parts,
-                                       value_t initK, value_idx initV, int k,
-                                       value_idx *translations) {
+template <typename value_idx = std::int64_t,
+          typename value_t   = float,
+          int warp_q,
+          int thread_q,
+          int tpb>
+__global__ void knn_merge_parts_kernel(value_t* inK,
+                                       value_idx* inV,
+                                       value_t* outK,
+                                       value_idx* outV,
+                                       size_t n_samples,
+                                       int n_parts,
+                                       value_t initK,
+                                       value_idx initV,
+                                       int k,
+                                       value_idx* translations)
+{
   constexpr int kNumWarps = tpb / faiss::gpu::kWarpSize;
 
   __shared__ value_t smemK[kNumWarps * warp_q];
@@ -58,34 +71,33 @@ __global__ void knn_merge_parts_kernel(value_t *inK, value_idx *inV,
   /**
    * Uses shared memory
    */
-  faiss::gpu::BlockSelect<value_t, value_idx, false,
-                          faiss::gpu::Comparator<value_t>, warp_q, thread_q,
-                          tpb>
-    heap(initK, initV, smemK, smemV, k);
+  faiss::gpu::
+    BlockSelect<value_t, value_idx, false, faiss::gpu::Comparator<value_t>, warp_q, thread_q, tpb>
+      heap(initK, initV, smemK, smemV, k);
 
   // Grid is exactly sized to rows available
-  int row = blockIdx.x;
+  int row     = blockIdx.x;
   int total_k = k * n_parts;
 
   int i = threadIdx.x;
 
   // Get starting pointers for cols in current thread
-  int part = i / k;
+  int part       = i / k;
   size_t row_idx = (row * k) + (part * n_samples * k);
 
   int col = i % k;
 
-  value_t *inKStart = inK + (row_idx + col);
-  value_idx *inVStart = inV + (row_idx + col);
+  value_t* inKStart   = inK + (row_idx + col);
+  value_idx* inVStart = inV + (row_idx + col);
 
-  int limit = faiss::gpu::utils::roundDown(total_k, faiss::gpu::kWarpSize);
+  int limit             = faiss::gpu::utils::roundDown(total_k, faiss::gpu::kWarpSize);
   value_idx translation = 0;
 
   for (; i < limit; i += tpb) {
     translation = translations[part];
     heap.add(*inKStart, (*inVStart) + translation);
 
-    part = (i + tpb) / k;
+    part    = (i + tpb) / k;
     row_idx = (row * k) + (part * n_samples * k);
 
     col = (i + tpb) % k;
@@ -108,23 +120,28 @@ __global__ void knn_merge_parts_kernel(value_t *inK, value_idx *inV,
   }
 }
 
-template <typename value_idx = int64_t, typename value_t = float, int warp_q,
-          int thread_q>
-inline void knn_merge_parts_impl(value_t *inK, value_idx *inV, value_t *outK,
-                                 value_idx *outV, size_t n_samples, int n_parts,
-                                 int k, cudaStream_t stream,
-                                 value_idx *translations) {
+template <typename value_idx = std::int64_t, typename value_t = float, int warp_q, int thread_q>
+inline void knn_merge_parts_impl(value_t* inK,
+                                 value_idx* inV,
+                                 value_t* outK,
+                                 value_idx* outV,
+                                 size_t n_samples,
+                                 int n_parts,
+                                 int k,
+                                 cudaStream_t stream,
+                                 value_idx* translations)
+{
   auto grid = dim3(n_samples);
 
   constexpr int n_threads = (warp_q <= 1024) ? 128 : 64;
-  auto block = dim3(n_threads);
+  auto block              = dim3(n_threads);
 
   auto kInit = faiss::gpu::Limits<value_t>::getMax();
   auto vInit = -1;
   knn_merge_parts_kernel<value_idx, value_t, warp_q, thread_q, n_threads>
-    <<<grid, block, 0, stream>>>(inK, inV, outK, outV, n_samples, n_parts,
-                                 kInit, vInit, k, translations);
-  CUDA_CHECK(cudaPeekAtLastError());
+    <<<grid, block, 0, stream>>>(
+      inK, inV, outK, outV, n_samples, n_parts, kInit, vInit, k, translations);
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 /**
@@ -141,11 +158,17 @@ inline void knn_merge_parts_impl(value_t *inK, value_idx *inV, value_t *outK,
  * @param stream CUDA stream to use
  * @param translations mapping of index offsets for each partition
  */
-template <typename value_idx = int64_t, typename value_t = float>
-inline void knn_merge_parts(value_t *inK, value_idx *inV, value_t *outK,
-                            value_idx *outV, size_t n_samples, int n_parts,
-                            int k, cudaStream_t stream,
-                            value_idx *translations) {
+template <typename value_idx = std::int64_t, typename value_t = float>
+inline void knn_merge_parts(value_t* inK,
+                            value_idx* inV,
+                            value_t* outK,
+                            value_idx* outV,
+                            size_t n_samples,
+                            int n_parts,
+                            int k,
+                            cudaStream_t stream,
+                            value_idx* translations)
+{
   if (k == 1)
     knn_merge_parts_impl<value_idx, value_t, 1, 1>(
       inK, inV, outK, outV, n_samples, n_parts, k, stream, translations);
@@ -179,7 +202,6 @@ inline void knn_merge_parts(value_t *inK, value_idx *inV, value_t *outK,
  * @param[out] res_I    pointer to device memory for returning k nearest indices
  * @param[out] res_D    pointer to device memory for returning k nearest distances
  * @param[in] k        number of neighbors to query
- * @param[in] allocator the device memory allocator to use for temporary scratch memory
  * @param[in] userStream the main cuda stream to use
  * @param[in] internalStreams optional when n_params > 0, the index partitions can be
  *        queried in parallel using these streams. Note that n_int_streams also
@@ -194,29 +216,34 @@ inline void knn_merge_parts(value_t *inK, value_idx *inV, value_t *outK,
  * @param[in] metric corresponds to the raft::distance::DistanceType enum (default is L2Expanded)
  * @param[in] metricArg metric argument to use. Corresponds to the p arg for lp norm
  */
-template <typename IntType = int>
-void brute_force_knn_impl(std::vector<float *> &input, std::vector<int> &sizes,
-                          IntType D, float *search_items, IntType n,
-                          int64_t *res_I, float *res_D, IntType k,
-                          std::shared_ptr<deviceAllocator> allocator,
-                          cudaStream_t userStream,
-                          cudaStream_t *internalStreams = nullptr,
-                          int n_int_streams = 0, bool rowMajorIndex = true,
-                          bool rowMajorQuery = true,
-                          std::vector<int64_t> *translations = nullptr,
-                          raft::distance::DistanceType metric =
-                            raft::distance::DistanceType::L2Expanded,
-                          float metricArg = 0) {
-  ASSERT(input.size() == sizes.size(),
-         "input and sizes vectors should be the same size");
+template <typename IntType = int, typename IdxType = std::int64_t, typename value_t = float>
+void brute_force_knn_impl(
+  const raft::handle_t& handle,
+  std::vector<value_t*>& input,
+  std::vector<IntType>& sizes,
+  IntType D,
+  value_t* search_items,
+  IntType n,
+  IdxType* res_I,
+  value_t* res_D,
+  IntType k,
+  bool rowMajorIndex                  = true,
+  bool rowMajorQuery                  = true,
+  std::vector<IdxType>* translations  = nullptr,
+  raft::distance::DistanceType metric = raft::distance::DistanceType::L2Expanded,
+  float metricArg                     = 0)
+{
+  auto userStream = handle.get_stream();
 
-  std::vector<int64_t> *id_ranges;
+  ASSERT(input.size() == sizes.size(), "input and sizes vectors should be the same size");
+
+  std::vector<IdxType>* id_ranges;
   if (translations == nullptr) {
     // If we don't have explicit translations
     // for offsets of the indices, build them
     // from the local partitions
-    id_ranges = new std::vector<int64_t>();
-    int64_t total_n = 0;
+    id_ranges       = new std::vector<IdxType>();
+    IdxType total_n = 0;
     for (size_t i = 0; i < input.size(); i++) {
       id_ranges->push_back(total_n);
       total_n += sizes[i];
@@ -227,32 +254,28 @@ void brute_force_knn_impl(std::vector<float *> &input, std::vector<int> &sizes,
   }
 
   // perform preprocessing
-  std::unique_ptr<MetricProcessor<float>> query_metric_processor =
-    create_processor<float>(metric, n, D, k, rowMajorQuery, userStream,
-                            allocator);
+  std::unique_ptr<MetricProcessor<value_t>> query_metric_processor =
+    create_processor<value_t>(metric, n, D, k, rowMajorQuery, userStream);
   query_metric_processor->preprocess(search_items);
 
-  std::vector<std::unique_ptr<MetricProcessor<float>>> metric_processors(
-    input.size());
+  std::vector<std::unique_ptr<MetricProcessor<value_t>>> metric_processors(input.size());
   for (size_t i = 0; i < input.size(); i++) {
-    metric_processors[i] = create_processor<float>(
-      metric, sizes[i], D, k, rowMajorQuery, userStream, allocator);
+    metric_processors[i] =
+      create_processor<value_t>(metric, sizes[i], D, k, rowMajorQuery, userStream);
     metric_processors[i]->preprocess(input[i]);
   }
 
   int device;
-  CUDA_CHECK(cudaGetDevice(&device));
+  RAFT_CUDA_TRY(cudaGetDevice(&device));
 
-  raft::mr::device::buffer<int64_t> trans(allocator, userStream,
-                                          id_ranges->size());
-  raft::update_device(trans.data(), id_ranges->data(), id_ranges->size(),
-                      userStream);
+  rmm::device_uvector<std::int64_t> trans(id_ranges->size(), userStream);
+  raft::update_device(trans.data(), id_ranges->data(), id_ranges->size(), userStream);
 
-  raft::mr::device::buffer<float> all_D(allocator, userStream, 0);
-  raft::mr::device::buffer<int64_t> all_I(allocator, userStream, 0);
+  rmm::device_uvector<value_t> all_D(0, userStream);
+  rmm::device_uvector<std::int64_t> all_I(0, userStream);
 
-  float *out_D = res_D;
-  int64_t *out_I = res_I;
+  value_t* out_D = res_D;
+  IdxType* out_I = res_I;
 
   if (input.size() > 1) {
     all_D.resize(input.size() * k * n, userStream);
@@ -262,71 +285,85 @@ void brute_force_knn_impl(std::vector<float *> &input, std::vector<int> &sizes,
     out_I = all_I.data();
   }
 
-  // Sync user stream only if using other streams to parallelize query
-  if (n_int_streams > 0) CUDA_CHECK(cudaStreamSynchronize(userStream));
+  // Make other streams from pool wait on main stream
+  handle.wait_stream_pool_on_stream();
 
   for (size_t i = 0; i < input.size(); i++) {
-    float *out_d_ptr = out_D + (i * k * n);
-    int64_t *out_i_ptr = out_I + (i * k * n);
+    value_t* out_d_ptr = out_D + (i * k * n);
+    IdxType* out_i_ptr = out_I + (i * k * n);
 
-    cudaStream_t stream =
-      raft::select_stream(userStream, internalStreams, n_int_streams, i);
+    auto stream = handle.get_next_usable_stream(i);
 
-    switch (metric) {
-      case raft::distance::DistanceType::Haversine:
+    if (k <= 64 && rowMajorQuery == rowMajorIndex && rowMajorQuery == true &&
+        (metric == raft::distance::DistanceType::L2Unexpanded ||
+         metric == raft::distance::DistanceType::L2SqrtUnexpanded ||
+         metric == raft::distance::DistanceType::L2Expanded ||
+         metric == raft::distance::DistanceType::L2SqrtExpanded)) {
+      fusedL2Knn(D,
+                 out_i_ptr,
+                 out_d_ptr,
+                 input[i],
+                 search_items,
+                 sizes[i],
+                 n,
+                 k,
+                 rowMajorIndex,
+                 rowMajorQuery,
+                 stream,
+                 metric);
+    } else {
+      switch (metric) {
+        case raft::distance::DistanceType::Haversine:
 
-        ASSERT(D == 2,
-               "Haversine distance requires 2 dimensions "
-               "(latitude / longitude).");
+          ASSERT(D == 2,
+                 "Haversine distance requires 2 dimensions "
+                 "(latitude / longitude).");
 
-        haversine_knn(out_i_ptr, out_d_ptr, input[i], search_items, sizes[i], n,
-                      k, stream);
-        break;
-      default:
-        faiss::MetricType m = build_faiss_metric(metric);
+          haversine_knn(out_i_ptr, out_d_ptr, input[i], search_items, sizes[i], n, k, stream);
+          break;
+        default:
+          faiss::MetricType m = build_faiss_metric(metric);
 
-        faiss::gpu::StandardGpuResources gpu_res;
+          raft::spatial::knn::RmmGpuResources gpu_res;
 
-        gpu_res.noTempMemory();
-        gpu_res.setDefaultStream(device, stream);
+          gpu_res.noTempMemory();
+          gpu_res.setDefaultStream(device, stream);
 
-        faiss::gpu::GpuDistanceParams args;
-        args.metric = m;
-        args.metricArg = metricArg;
-        args.k = k;
-        args.dims = D;
-        args.vectors = input[i];
-        args.vectorsRowMajor = rowMajorIndex;
-        args.numVectors = sizes[i];
-        args.queries = search_items;
-        args.queriesRowMajor = rowMajorQuery;
-        args.numQueries = n;
-        args.outDistances = out_d_ptr;
-        args.outIndices = out_i_ptr;
+          faiss::gpu::GpuDistanceParams args;
+          args.metric          = m;
+          args.metricArg       = metricArg;
+          args.k               = k;
+          args.dims            = D;
+          args.vectors         = input[i];
+          args.vectorsRowMajor = rowMajorIndex;
+          args.numVectors      = sizes[i];
+          args.queries         = search_items;
+          args.queriesRowMajor = rowMajorQuery;
+          args.numQueries      = n;
+          args.outDistances    = out_d_ptr;
+          args.outIndices      = out_i_ptr;
 
-        /**
-         * @todo: Until FAISS supports pluggable allocation strategies,
-         * we will not reap the benefits of the pool allocator for
-         * avoiding device-wide synchronizations from cudaMalloc/cudaFree
-         */
-        bfKnn(&gpu_res, args);
+          /**
+           * @todo: Until FAISS supports pluggable allocation strategies,
+           * we will not reap the benefits of the pool allocator for
+           * avoiding device-wide synchronizations from cudaMalloc/cudaFree
+           */
+          bfKnn(&gpu_res, args);
+      }
     }
 
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
 
   // Sync internal streams if used. We don't need to
   // sync the user stream because we'll already have
   // fully serial execution.
-  for (int i = 0; i < n_int_streams; i++) {
-    CUDA_CHECK(cudaStreamSynchronize(internalStreams[i]));
-  }
+  handle.sync_stream_pool();
 
   if (input.size() > 1 || translations != nullptr) {
     // This is necessary for proper index translations. If there are
     // no translations or partitions to combine, it can be skipped.
-    knn_merge_parts(out_D, out_I, res_D, res_I, n, input.size(), k, userStream,
-                    trans.data());
+    knn_merge_parts(out_D, out_I, res_D, res_I, n, input.size(), k, userStream, trans.data());
   }
 
   // Perform necessary post-processing
@@ -334,14 +371,16 @@ void brute_force_knn_impl(std::vector<float *> &input, std::vector<int> &sizes,
       metric == raft::distance::DistanceType::L2SqrtUnexpanded ||
       metric == raft::distance::DistanceType::LpUnexpanded) {
     /**
-	* post-processing
-	*/
+     * post-processing
+     */
     float p = 0.5;  // standard l2
-    if (metric == raft::distance::DistanceType::LpUnexpanded)
-      p = 1.0 / metricArg;
+    if (metric == raft::distance::DistanceType::LpUnexpanded) p = 1.0 / metricArg;
     raft::linalg::unaryOp<float>(
-      res_D, res_D, n * k,
-      [p] __device__(float input) { return powf(input, p); }, userStream);
+      res_D,
+      res_D,
+      n * k,
+      [p] __device__(float input) { return powf(fabsf(input), p); },
+      userStream);
   }
 
   query_metric_processor->revert(search_items);

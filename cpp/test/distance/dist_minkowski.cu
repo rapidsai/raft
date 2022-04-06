@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,8 +21,7 @@ namespace raft {
 namespace distance {
 
 template <typename DataType>
-class DistanceLpUnexp
-  : public DistanceTest<raft::distance::DistanceType::LpUnexpanded, DataType> {
+class DistanceLpUnexp : public DistanceTest<raft::distance::DistanceType::LpUnexpanded, DataType> {
 };
 
 const std::vector<DistanceInputs<float>> inputsf = {
@@ -36,14 +35,14 @@ const std::vector<DistanceInputs<float>> inputsf = {
   {0.003f, 1024, 1024, 1024, false, 1234ULL, 3.0f},
 };
 typedef DistanceLpUnexp<float> DistanceLpUnexpF;
-TEST_P(DistanceLpUnexpF, Result) {
+TEST_P(DistanceLpUnexpF, Result)
+{
   int m = params.isRowMajor ? params.m : params.n;
   int n = params.isRowMajor ? params.n : params.m;
-  ASSERT_TRUE(raft::devArrMatch(dist_ref, dist, m, n,
-                                raft::CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(
+    dist_ref.data(), dist.data(), m, n, raft::CompareApprox<float>(params.tolerance), stream));
 }
-INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceLpUnexpF,
-                        ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceLpUnexpF, ::testing::ValuesIn(inputsf));
 
 const std::vector<DistanceInputs<double>> inputsd = {
   {0.001, 1024, 1024, 32, true, 1234ULL, 4.0},
@@ -56,14 +55,17 @@ const std::vector<DistanceInputs<double>> inputsd = {
   {0.003, 1024, 1024, 1024, false, 1234ULL, 3.0},
 };
 typedef DistanceLpUnexp<double> DistanceLpUnexpD;
-TEST_P(DistanceLpUnexpD, Result) {
+TEST_P(DistanceLpUnexpD, Result)
+{
   int m = params.isRowMajor ? params.m : params.n;
   int n = params.isRowMajor ? params.n : params.m;
-  ASSERT_TRUE(raft::devArrMatch(dist_ref, dist, m, n,
-                                raft::CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(
+    dist_ref.data(), dist.data(), m, n, raft::CompareApprox<double>(params.tolerance), stream));
 }
-INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceLpUnexpD,
-                        ::testing::ValuesIn(inputsd));
+INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceLpUnexpD, ::testing::ValuesIn(inputsd));
 
+class BigMatrixLpUnexp : public BigMatrixDistanceTest<raft::distance::DistanceType::LpUnexpanded> {
+};
+TEST_F(BigMatrixLpUnexp, Result) {}
 }  // end namespace distance
 }  // end namespace raft

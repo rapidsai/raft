@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,11 +16,11 @@
 
 #include <gtest/gtest.h>
 
+#include "../test_utils.h"
 #include <raft/cudart_utils.h>
 #include <raft/random/rng.cuh>
-#include <raft/sparse/csr.cuh>
+#include <raft/sparse/csr.hpp>
 #include <raft/sparse/linalg/norm.cuh>
-#include "../test_utils.h"
 
 #include <iostream>
 #include <limits>
@@ -39,56 +39,53 @@ struct CSRRowNormalizeInputs {
 };
 
 template <typename Type_f, typename Index_>
-class CSRRowNormalizeTest
-  : public ::testing::TestWithParam<CSRRowNormalizeInputs<Type_f, Index_>> {
- protected:
-  void SetUp() override {
-    params = ::testing::TestWithParam<
-      CSRRowNormalizeInputs<Type_f, Index_>>::GetParam();
-    cudaStreamCreate(&stream);
-
-    raft::allocate(in_vals, params.in_vals.size());
-    raft::allocate(verify, params.verify.size());
-    raft::allocate(ex_scan, params.ex_scan.size());
-    raft::allocate(result, params.verify.size(), true);
+class CSRRowNormalizeTest : public ::testing::TestWithParam<CSRRowNormalizeInputs<Type_f, Index_>> {
+ public:
+  CSRRowNormalizeTest()
+    : params(::testing::TestWithParam<CSRRowNormalizeInputs<Type_f, Index_>>::GetParam()),
+      stream(handle.get_stream()),
+      in_vals(params.in_vals.size(), stream),
+      verify(params.verify.size(), stream),
+      ex_scan(params.ex_scan.size(), stream),
+      result(params.verify.size(), stream)
+  {
   }
 
-  void Run() {
-    Index_ n_rows = params.ex_scan.size();
-    Index_ nnz = params.in_vals.size();
+ protected:
+  void SetUp() override {}
 
-    raft::update_device(ex_scan, params.ex_scan.data(), n_rows, stream);
-    raft::update_device(in_vals, params.in_vals.data(), nnz, stream);
-    raft::update_device(verify, params.verify.data(), nnz, stream);
+  void Run()
+  {
+    Index_ n_rows = params.ex_scan.size();
+    Index_ nnz    = params.in_vals.size();
+
+    raft::update_device(ex_scan.data(), params.ex_scan.data(), n_rows, stream);
+    raft::update_device(in_vals.data(), params.in_vals.data(), nnz, stream);
+    raft::update_device(verify.data(), params.verify.data(), nnz, stream);
 
     switch (params.method) {
       case MAX:
-        linalg::csr_row_normalize_max<32, Type_f>(ex_scan, in_vals, nnz, n_rows,
-                                                  result, stream);
+        linalg::csr_row_normalize_max<Type_f>(
+          ex_scan.data(), in_vals.data(), nnz, n_rows, result.data(), stream);
         break;
       case L1:
-        linalg::csr_row_normalize_l1<32, Type_f>(ex_scan, in_vals, nnz, n_rows,
-                                                 result, stream);
+        linalg::csr_row_normalize_l1<Type_f>(
+          ex_scan.data(), in_vals.data(), nnz, n_rows, result.data(), stream);
         break;
     }
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
     ASSERT_TRUE(
-      raft::devArrMatch<Type_f>(verify, result, nnz, raft::Compare<Type_f>()));
-  }
-
-  void TearDown() override {
-    CUDA_CHECK(cudaFree(ex_scan));
-    CUDA_CHECK(cudaFree(in_vals));
-    CUDA_CHECK(cudaFree(verify));
-    CUDA_CHECK(cudaFree(result));
-    cudaStreamDestroy(stream);
+      raft::devArrMatch<Type_f>(verify.data(), result.data(), nnz, raft::Compare<Type_f>()));
   }
 
  protected:
-  CSRRowNormalizeInputs<Type_f, Index_> params;
+  raft::handle_t handle;
   cudaStream_t stream;
-  Index_ *ex_scan;
-  Type_f *in_vals, *result, *verify;
+
+  CSRRowNormalizeInputs<Type_f, Index_> params;
+  rmm::device_uvector<Index_> ex_scan;
+  rmm::device_uvector<Type_f> in_vals, result, verify;
 };
 
 using CSRRowNormalizeTestF = CSRRowNormalizeTest<float, int>;
@@ -118,9 +115,11 @@ const std::vector<CSRRowNormalizeInputs<double, int>> csrnormalize_inputs_d = {
    {0.5, 0.5, 0.0, 0.0, 0.5, 0.5, 0.0, 0.0, 1, 0.0}},
 };
 
-INSTANTIATE_TEST_CASE_P(SparseNormTest, CSRRowNormalizeTestF,
+INSTANTIATE_TEST_CASE_P(SparseNormTest,
+                        CSRRowNormalizeTestF,
                         ::testing::ValuesIn(csrnormalize_inputs_f));
-INSTANTIATE_TEST_CASE_P(SparseNormTest, CSRRowNormalizeTestD,
+INSTANTIATE_TEST_CASE_P(SparseNormTest,
+                        CSRRowNormalizeTestD,
                         ::testing::ValuesIn(csrnormalize_inputs_d));
 
 }  // namespace sparse

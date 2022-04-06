@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,16 +16,16 @@
 
 #pragma once
 
+#include "../test_utils.h"
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/unary_op.cuh>
-#include "../test_utils.h"
 
 namespace raft {
 namespace linalg {
 
 template <typename InType, typename OutType, typename IdxType>
-__global__ void naiveScaleKernel(OutType *out, const InType *in, InType scalar,
-                                 IdxType len) {
+__global__ void naiveScaleKernel(OutType* out, const InType* in, InType scalar, IdxType len)
+{
   IdxType idx = threadIdx.x + ((IdxType)blockIdx.x * (IdxType)blockDim.x);
   if (idx < len) {
     if (in == nullptr) {
@@ -38,13 +38,12 @@ __global__ void naiveScaleKernel(OutType *out, const InType *in, InType scalar,
 }
 
 template <typename InType, typename IdxType = int, typename OutType = InType>
-void naiveScale(OutType *out, const InType *in, InType scalar, int len,
-                cudaStream_t stream) {
+void naiveScale(OutType* out, const InType* in, InType scalar, int len, cudaStream_t stream)
+{
   static const int TPB = 64;
-  int nblks = raft::ceildiv(len, TPB);
-  naiveScaleKernel<InType, OutType, IdxType>
-    <<<nblks, TPB, 0, stream>>>(out, in, scalar, len);
-  CUDA_CHECK(cudaPeekAtLastError());
+  int nblks            = raft::ceildiv(len, TPB);
+  naiveScaleKernel<InType, OutType, IdxType><<<nblks, TPB, 0, stream>>>(out, in, scalar, len);
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 template <typename InType, typename IdxType = int, typename OutType = InType>
@@ -56,8 +55,8 @@ struct UnaryOpInputs {
 };
 
 template <typename InType, typename IdxType = int, typename OutType = InType>
-::std::ostream &operator<<(::std::ostream &os,
-                           const UnaryOpInputs<InType, IdxType, OutType> &d) {
+::std::ostream& operator<<(::std::ostream& os, const UnaryOpInputs<InType, IdxType, OutType>& d)
+{
   return os;
 }
 

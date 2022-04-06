@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2021, NVIDIA CORPORATION.
+# Copyright (c) 2021-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,30 +14,9 @@
 # limitations under the License.
 #=============================================================================
 
-function(find_and_configure_gtest VERSION)
-
-    if(TARGET GTest::gtest)
-        return()
-    endif()
-
-    rapids_cpm_find(GTest ${VERSION}
-        GLOBAL_TARGETS  gest gtest_main GTest::gtest GTest::gtest_main
-        CPM_ARGS
-            GIT_REPOSITORY  https://github.com/google/googletest.git
-            GIT_TAG         release-${VERSION}
-            GIT_SHALLOW     TRUE
-            OPTIONS         "INSTALL_GTEST OFF"
-            # googletest >= 1.10.0 provides a cmake config file -- use it if it exists
-            FIND_PACKAGE_ARGUMENTS "CONFIG"
-    )
-
-    if(NOT TARGET GTest::gtest)
-        add_library(GTest::gtest ALIAS gtest)
-        add_library(GTest::gtest_main ALIAS gtest_main)
-    endif()
-
+function(find_and_configure_gtest )
+    include(${rapids-cmake-dir}/cpm/gtest.cmake)
+    rapids_cpm_gtest()
 endfunction()
 
-set(RAFT_MIN_VERSION_gtest 1.10.0)
-
-find_and_configure_gtest(${RAFT_MIN_VERSION_gtest})
+find_and_configure_gtest()

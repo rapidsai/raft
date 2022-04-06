@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2021, NVIDIA CORPORATION.
+# Copyright (c) 2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -13,18 +13,12 @@
 # =============================================================================
 
 # Use CPM to find or clone thrust
-function(find_and_configure_thrust VERSION)
+function(find_and_configure_thrust)
+    include(${rapids-cmake-dir}/cpm/thrust.cmake)
 
-  rapids_cpm_find(
-    Thrust ${VERSION}
-    BUILD_EXPORT_SET raft-exports
-    INSTALL_EXPORT_SET raft-exports
-    CPM_ARGS
-    GIT_REPOSITORY https://github.com/NVIDIA/thrust.git
-    GIT_TAG ${VERSION}
-    GIT_SHALLOW TRUE
-    OPTIONS "THRUST_INSTALL OFF")
-
+    rapids_cpm_thrust( NAMESPACE raft
+                       BUILD_EXPORT_SET raft-exports
+                       INSTALL_EXPORT_SET raft-exports)
 endfunction()
 
-find_and_configure_thrust(1.12.0)
+find_and_configure_thrust()

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,10 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef __MULTIPLY_H
+#define __MULTIPLY_H
 
 #pragma once
 
-#include "unary_op.cuh"
+#include "detail/multiply.cuh"
 
 namespace raft {
 namespace linalg {
@@ -33,13 +35,13 @@ namespace linalg {
  * @{
  */
 template <typename math_t, typename IdxType = int>
-void multiplyScalar(math_t *out, const math_t *in, math_t scalar, IdxType len,
-                    cudaStream_t stream) {
-  unaryOp(
-    out, in, len, [scalar] __device__(math_t in) { return in * scalar; },
-    stream);
+void multiplyScalar(math_t* out, const math_t* in, math_t scalar, IdxType len, cudaStream_t stream)
+{
+  detail::multiplyScalar(out, in, scalar, len, stream);
 }
 /** @} */
 
 };  // end namespace linalg
 };  // end namespace raft
+
+#endif

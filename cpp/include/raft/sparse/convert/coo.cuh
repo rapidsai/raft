@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,40 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef __COO_H
+#define __COO_H
 
 #pragma once
 
-#include <cusparse_v2.h>
-#include <raft/cudart_utils.h>
-#include <raft/sparse/cusparse_wrappers.h>
-#include <raft/cuda_utils.cuh>
-
-#include <thrust/device_ptr.h>
-#include <thrust/scan.h>
-
-#include <cuda_runtime.h>
-
-#include <algorithm>
-#include <iostream>
-
-#include <raft/sparse/utils.h>
-#include <raft/sparse/coo.cuh>
+#include <raft/sparse/convert/detail/coo.cuh>
 
 namespace raft {
 namespace sparse {
 namespace convert {
-
-template <typename value_idx = int, int TPB_X = 32>
-__global__ void csr_to_coo_kernel(const value_idx *row_ind, value_idx m,
-                                  value_idx *coo_rows, value_idx nnz) {
-  // row-based matrix 1 thread per row
-  value_idx row = (blockIdx.x * TPB_X) + threadIdx.x;
-  if (row < m) {
-    value_idx start_idx = row_ind[row];
-    value_idx stop_idx = get_stop_idx(row, m, nnz, row_ind);
-    for (value_idx i = start_idx; i < stop_idx; i++) coo_rows[i] = row;
-  }
-}
 
 /**
  * @brief Convert a CSR row_ind array to a COO rows array
@@ -56,19 +32,15 @@ __global__ void csr_to_coo_kernel(const value_idx *row_ind, value_idx m,
  * @param nnz: size of output COO row array
  * @param stream: cuda stream to use
  */
-template <typename value_idx = int, int TPB_X = 32>
-void csr_to_coo(const value_idx *row_ind, value_idx m, value_idx *coo_rows,
-                value_idx nnz, cudaStream_t stream) {
-  // @TODO: Use cusparse for this.
-  dim3 grid(raft::ceildiv(m, (value_idx)TPB_X), 1, 1);
-  dim3 blk(TPB_X, 1, 1);
-
-  csr_to_coo_kernel<value_idx, TPB_X>
-    <<<grid, blk, 0, stream>>>(row_ind, m, coo_rows, nnz);
-
-  CUDA_CHECK(cudaGetLastError());
+template <typename value_idx = int>
+void csr_to_coo(
+  const value_idx* row_ind, value_idx m, value_idx* coo_rows, value_idx nnz, cudaStream_t stream)
+{
+  detail::csr_to_coo<value_idx, 32>(row_ind, m, coo_rows, nnz, stream);
 }
 
 };  // end NAMESPACE convert
 };  // end NAMESPACE sparse
 };  // end NAMESPACE raft
+
+#endif

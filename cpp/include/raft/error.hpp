@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,10 +14,20 @@
  * limitations under the License.
  */
 
+/**
+ * This file is deprecated and will be removed in release 22.06.
+ * Please use the include/raft_runtime/error.hpp instead.
+ */
+
+#ifndef __RAFT_RT_ERROR
+#define __RAFT_RT_ERROR
+
 #pragma once
 
+#include <cstdio>
 #include <execinfo.h>
 #include <iostream>
+#include <memory>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -31,14 +41,14 @@ class exception : public std::exception {
   explicit exception() noexcept : std::exception(), msg_() {}
 
   /** copy ctor */
-  exception(exception const& src) noexcept
-    : std::exception(), msg_(src.what()) {
+  exception(exception const& src) noexcept : std::exception(), msg_(src.what())
+  {
     collect_call_stack();
   }
 
   /** ctor from an input message */
-  explicit exception(std::string const msg) noexcept
-    : std::exception(), msg_(std::move(msg)) {
+  explicit exception(std::string const msg) noexcept : std::exception(), msg_(std::move(msg))
+  {
     collect_call_stack();
   }
 
@@ -51,7 +61,8 @@ class exception : public std::exception {
 
   /** append call stack info to this exception's message for ease of debug */
   // Courtesy: https://www.gnu.org/software/libc/manual/html_node/Backtraces.html
-  void collect_call_stack() noexcept {
+  void collect_call_stack() noexcept
+  {
 #ifdef __GNUC__
     constexpr int kMaxStackDepth = 64;
     void* stack[kMaxStackDepth];  // NOLINT
@@ -90,16 +101,23 @@ struct logic_error : public raft::exception {
 
 // FIXME: Need to be replaced with RAFT_FAIL
 /** macro to throw a runtime error */
-#define THROW(fmt, ...)                                                        \
-  do {                                                                         \
-    std::string msg;                                                           \
-    char errMsg[2048]; /* NOLINT */                                            \
-    std::snprintf(errMsg, sizeof(errMsg),                                      \
-                  "exception occured! file=%s line=%d: ", __FILE__, __LINE__); \
-    msg += errMsg;                                                             \
-    std::snprintf(errMsg, sizeof(errMsg), fmt, ##__VA_ARGS__);                 \
-    msg += errMsg;                                                             \
-    throw raft::exception(msg);                                                \
+#define THROW(fmt, ...)                                                                      \
+  do {                                                                                       \
+    int size1 =                                                                              \
+      std::snprintf(nullptr, 0, "exception occured! file=%s line=%d: ", __FILE__, __LINE__); \
+    int size2 = std::snprintf(nullptr, 0, fmt, ##__VA_ARGS__);                               \
+    if (size1 < 0 || size2 < 0)                                                              \
+      throw raft::exception("Error in snprintf, cannot handle raft exception.");             \
+    auto size = size1 + size2 + 1; /* +1 for final '\0' */                                   \
+    auto buf  = std::make_unique<char[]>(size_t(size));                                      \
+    std::snprintf(buf.get(),                                                                 \
+                  size1 + 1 /* +1 for '\0' */,                                               \
+                  "exception occured! file=%s line=%d: ",                                    \
+                  __FILE__,                                                                  \
+                  __LINE__);                                                                 \
+    std::snprintf(buf.get() + size1, size2 + 1 /* +1 for '\0' */, fmt, ##__VA_ARGS__);       \
+    std::string msg(buf.get(), buf.get() + size - 1); /* -1 to remove final '\0' */          \
+    throw raft::exception(msg);                                                              \
   } while (0)
 
 // FIXME: Need to be replaced with RAFT_EXPECTS
@@ -109,16 +127,24 @@ struct logic_error : public raft::exception {
     if (!(check)) THROW(fmt, ##__VA_ARGS__); \
   } while (0)
 
-#define SET_ERROR_MSG(msg, location_prefix, fmt, ...)                      \
-  do {                                                                     \
-    char err_msg[2048]; /* NOLINT */                                       \
-    std::snprintf(err_msg, sizeof(err_msg), location_prefix);              \
-    msg += err_msg;                                                        \
-    std::snprintf(err_msg, sizeof(err_msg), "file=%s line=%d: ", __FILE__, \
-                  __LINE__);                                               \
-    msg += err_msg;                                                        \
-    std::snprintf(err_msg, sizeof(err_msg), fmt, ##__VA_ARGS__);           \
-    msg += err_msg;                                                        \
+/**
+ * Macro to append error message to first argument.
+ * This should only be called in contexts where it is OK to throw exceptions!
+ */
+#define SET_ERROR_MSG(msg, location_prefix, fmt, ...)                                           \
+  do {                                                                                          \
+    int size1 = std::snprintf(nullptr, 0, "%s", location_prefix);                               \
+    int size2 = std::snprintf(nullptr, 0, "file=%s line=%d: ", __FILE__, __LINE__);             \
+    int size3 = std::snprintf(nullptr, 0, fmt, ##__VA_ARGS__);                                  \
+    if (size1 < 0 || size2 < 0 || size3 < 0)                                                    \
+      throw raft::exception("Error in snprintf, cannot handle raft exception.");                \
+    auto size = size1 + size2 + size3 + 1; /* +1 for final '\0' */                              \
+    auto buf  = std::make_unique<char[]>(size_t(size));                                         \
+    std::snprintf(buf.get(), size1 + 1 /* +1 for '\0' */, "%s", location_prefix);               \
+    std::snprintf(                                                                              \
+      buf.get() + size1, size2 + 1 /* +1 for '\0' */, "file=%s line=%d: ", __FILE__, __LINE__); \
+    std::snprintf(buf.get() + size1 + size2, size3 + 1 /* +1 for '\0' */, fmt, ##__VA_ARGS__);  \
+    msg += std::string(buf.get(), buf.get() + size - 1); /* -1 to remove final '\0' */          \
   } while (0)
 
 /**
@@ -151,3 +177,5 @@ struct logic_error : public raft::exception {
     SET_ERROR_MSG(msg, "RAFT failure at ", fmt, ##__VA_ARGS__); \
     throw raft::logic_error(msg);                               \
   } while (0)
+
+#endif

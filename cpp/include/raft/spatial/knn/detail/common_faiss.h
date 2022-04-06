@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,48 +16,37 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 
 #include <faiss/gpu/GpuDistance.h>
-#include <raft/linalg/distance_type.h>
+#include <raft/distance/distance_type.hpp>
 
 namespace raft {
 namespace spatial {
 namespace knn {
 namespace detail {
 
-inline faiss::MetricType build_faiss_metric(
-  raft::distance::DistanceType metric) {
+inline faiss::MetricType build_faiss_metric(raft::distance::DistanceType metric)
+{
   switch (metric) {
     case raft::distance::DistanceType::CosineExpanded:
       return faiss::MetricType::METRIC_INNER_PRODUCT;
     case raft::distance::DistanceType::CorrelationExpanded:
       return faiss::MetricType::METRIC_INNER_PRODUCT;
-    case raft::distance::DistanceType::L2Expanded:
-      return faiss::MetricType::METRIC_L2;
-    case raft::distance::DistanceType::L2Unexpanded:
-      return faiss::MetricType::METRIC_L2;
-    case raft::distance::DistanceType::L2SqrtExpanded:
-      return faiss::MetricType::METRIC_L2;
-    case raft::distance::DistanceType::L2SqrtUnexpanded:
-      return faiss::MetricType::METRIC_L2;
-    case raft::distance::DistanceType::L1:
-      return faiss::MetricType::METRIC_L1;
-    case raft::distance::DistanceType::InnerProduct:
-      return faiss::MetricType::METRIC_INNER_PRODUCT;
-    case raft::distance::DistanceType::LpUnexpanded:
-      return faiss::MetricType::METRIC_Lp;
-    case raft::distance::DistanceType::Linf:
-      return faiss::MetricType::METRIC_Linf;
-    case raft::distance::DistanceType::Canberra:
-      return faiss::MetricType::METRIC_Canberra;
-    case raft::distance::DistanceType::BrayCurtis:
-      return faiss::MetricType::METRIC_BrayCurtis;
+    case raft::distance::DistanceType::L2Expanded: return faiss::MetricType::METRIC_L2;
+    case raft::distance::DistanceType::L2Unexpanded: return faiss::MetricType::METRIC_L2;
+    case raft::distance::DistanceType::L2SqrtExpanded: return faiss::MetricType::METRIC_L2;
+    case raft::distance::DistanceType::L2SqrtUnexpanded: return faiss::MetricType::METRIC_L2;
+    case raft::distance::DistanceType::L1: return faiss::MetricType::METRIC_L1;
+    case raft::distance::DistanceType::InnerProduct: return faiss::MetricType::METRIC_INNER_PRODUCT;
+    case raft::distance::DistanceType::LpUnexpanded: return faiss::MetricType::METRIC_Lp;
+    case raft::distance::DistanceType::Linf: return faiss::MetricType::METRIC_Linf;
+    case raft::distance::DistanceType::Canberra: return faiss::MetricType::METRIC_Canberra;
+    case raft::distance::DistanceType::BrayCurtis: return faiss::MetricType::METRIC_BrayCurtis;
     case raft::distance::DistanceType::JensenShannon:
       return faiss::MetricType::METRIC_JensenShannon;
-    default:
-      THROW("MetricType not supported: %d", metric);
+    default: THROW("MetricType not supported: %d", metric);
   }
 }
 

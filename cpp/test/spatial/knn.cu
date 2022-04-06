@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,13 +14,22 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include <raft/linalg/distance_type.h>
-#include <iostream>
-#include <raft/spatial/knn/knn.hpp>
-#include <rmm/device_buffer.hpp>
-#include <vector>
 #include "../test_utils.h"
+
+#include <raft/distance/distance_type.hpp>
+
+#include <raft/spatial/knn/knn.cuh>
+#if defined RAFT_NN_COMPILED
+#include <raft/spatial/knn/specializations.cuh>
+#endif
+
+#include <rmm/device_buffer.hpp>
+
+#include <gtest/gtest.h>
+
+#include <cstddef>
+#include <iostream>
+#include <vector>
 
 namespace raft {
 namespace spatial {
@@ -31,18 +40,17 @@ struct KNNInputs {
   std::vector<int> labels;
 };
 
-__global__ void build_actual_output(int *output, int n_rows, int k,
-                                    const int *idx_labels,
-                                    const int64_t *indices) {
+__global__ void build_actual_output(
+  int* output, int n_rows, int k, const int* idx_labels, const int64_t* indices)
+{
   int element = threadIdx.x + blockDim.x * blockIdx.x;
   if (element >= n_rows * k) return;
 
-  int ind = (int)indices[element];
-  output[element] = idx_labels[ind];
+  output[element] = idx_labels[indices[element]];
 }
 
-__global__ void build_expected_output(int *output, int n_rows, int k,
-                                      const int *labels) {
+__global__ void build_expected_output(int* output, int n_rows, int k, const int* labels)
+{
   int row = threadIdx.x + blockDim.x * blockIdx.x;
   if (row >= n_rows) return;
 
@@ -54,100 +62,116 @@ __global__ void build_expected_output(int *output, int n_rows, int k,
 
 template <typename T>
 class KNNTest : public ::testing::TestWithParam<KNNInputs> {
- protected:
-  void testBruteForce() {
-    raft::print_device_vector("Input array: ", input_, rows_ * cols_,
-                              std::cout);
-    std::cout << "K: " << k_ << "\n";
-    raft::print_device_vector("Labels array: ", search_labels_, rows_,
-                              std::cout);
-
-    auto stream = handle_.get_stream();
-
-    raft::allocate(actual_labels_, rows_ * k_, true);
-    raft::allocate(expected_labels_, rows_ * k_, true);
-
-    std::vector<float *> input_vec;
-    std::vector<int> sizes_vec;
-    input_vec.push_back(input_);
-    sizes_vec.push_back(rows_);
-
-    brute_force_knn(handle_, input_vec, sizes_vec, cols_, search_data_, rows_,
-                    indices_, distances_, k_, true, true);
-
-    build_actual_output<<<raft::ceildiv(rows_ * k_, 32), 32, 0, stream>>>(
-      actual_labels_, rows_, k_, search_labels_, indices_);
-
-    build_expected_output<<<raft::ceildiv(rows_ * k_, 32), 32, 0, stream>>>(
-      expected_labels_, rows_, k_, search_labels_);
-
-    raft::print_device_vector("Output indices: ", indices_, rows_ * k_,
-                              std::cout);
-    raft::print_device_vector("Output distances: ", distances_, rows_ * k_,
-                              std::cout);
-    raft::print_device_vector("Output labels: ", actual_labels_, rows_ * k_,
-                              std::cout);
-    raft::print_device_vector("Expected labels: ", expected_labels_, rows_ * k_,
-                              std::cout);
-
-    ASSERT_TRUE(devArrMatch(expected_labels_, actual_labels_, rows_ * k_,
-                            raft::Compare<int>()));
+ public:
+  KNNTest()
+    : params_(::testing::TestWithParam<KNNInputs>::GetParam()),
+      stream(handle.get_stream()),
+      actual_labels_(0, stream),
+      expected_labels_(0, stream),
+      input_(0, stream),
+      search_data_(0, stream),
+      indices_(0, stream),
+      distances_(0, stream),
+      search_labels_(0, stream)
+  {
   }
 
-  void SetUp() override {
-    params_ = ::testing::TestWithParam<KNNInputs>::GetParam();
+ protected:
+  void testBruteForce()
+  {
+    raft::print_device_vector("Input array: ", input_.data(), rows_ * cols_, std::cout);
+    std::cout << "K: " << k_ << "\n";
+    raft::print_device_vector("Labels array: ", search_labels_.data(), rows_, std::cout);
+
+    std::vector<float*> input_vec;
+    std::vector<int> sizes_vec;
+    input_vec.push_back(input_.data());
+    sizes_vec.push_back(rows_);
+
+    brute_force_knn(handle,
+                    input_vec,
+                    sizes_vec,
+                    cols_,
+                    search_data_.data(),
+                    rows_,
+                    indices_.data(),
+                    distances_.data(),
+                    k_,
+                    true,
+                    true);
+
+    build_actual_output<<<raft::ceildiv(rows_ * k_, 32), 32, 0, stream>>>(
+      actual_labels_.data(), rows_, k_, search_labels_.data(), indices_.data());
+
+    build_expected_output<<<raft::ceildiv(rows_ * k_, 32), 32, 0, stream>>>(
+      expected_labels_.data(), rows_, k_, search_labels_.data());
+
+    ASSERT_TRUE(devArrMatch(
+      expected_labels_.data(), actual_labels_.data(), rows_ * k_, raft::Compare<int>(), stream));
+  }
+
+  void SetUp() override
+  {
     rows_ = params_.input.size();
     cols_ = params_.input[0].size();
-    k_ = params_.k;
+    k_    = params_.k;
+
+    actual_labels_.resize(rows_ * k_, stream);
+    expected_labels_.resize(rows_ * k_, stream);
+    input_.resize(rows_ * cols_, stream);
+    search_data_.resize(rows_ * cols_, stream);
+    indices_.resize(rows_ * k_, stream);
+    distances_.resize(rows_ * k_, stream);
+    search_labels_.resize(rows_, stream);
+
+    RAFT_CUDA_TRY(
+      cudaMemsetAsync(actual_labels_.data(), 0, actual_labels_.size() * sizeof(int), stream));
+    RAFT_CUDA_TRY(
+      cudaMemsetAsync(expected_labels_.data(), 0, expected_labels_.size() * sizeof(int), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(input_.data(), 0, input_.size() * sizeof(float), stream));
+    RAFT_CUDA_TRY(
+      cudaMemsetAsync(search_data_.data(), 0, search_data_.size() * sizeof(float), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(indices_.data(), 0, indices_.size() * sizeof(int64_t), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(distances_.data(), 0, distances_.size() * sizeof(float), stream));
+    RAFT_CUDA_TRY(
+      cudaMemsetAsync(search_labels_.data(), 0, search_labels_.size() * sizeof(int), stream));
 
     std::vector<float> row_major_input;
-    for (int i = 0; i < params_.input.size(); ++i) {
-      for (int j = 0; j < params_.input[i].size(); ++j) {
+    for (std::size_t i = 0; i < params_.input.size(); ++i) {
+      for (std::size_t j = 0; j < params_.input[i].size(); ++j) {
         row_major_input.push_back(params_.input[i][j]);
       }
     }
-    rmm::device_buffer input_d = rmm::device_buffer(
-      row_major_input.data(), row_major_input.size() * sizeof(float),
-      handle_.get_stream());
-    float *input_ptr = static_cast<float *>(input_d.data());
+    rmm::device_buffer input_d =
+      rmm::device_buffer(row_major_input.data(), row_major_input.size() * sizeof(float), stream);
+    float* input_ptr = static_cast<float*>(input_d.data());
 
-    rmm::device_buffer labels_d = rmm::device_buffer(
-      params_.labels.data(), params_.labels.size() * sizeof(int),
-      handle_.get_stream());
-    int *labels_ptr = static_cast<int *>(labels_d.data());
+    rmm::device_buffer labels_d =
+      rmm::device_buffer(params_.labels.data(), params_.labels.size() * sizeof(int), stream);
+    int* labels_ptr = static_cast<int*>(labels_d.data());
 
-    raft::allocate(input_, rows_ * cols_, true);
-    raft::allocate(search_data_, rows_ * cols_, true);
-    raft::allocate(indices_, rows_ * k_, true);
-    raft::allocate(distances_, rows_ * k_, true);
-    raft::allocate(search_labels_, rows_, true);
-
-    raft::copy(input_, input_ptr, rows_ * cols_, handle_.get_stream());
-    raft::copy(search_data_, input_ptr, rows_ * cols_, handle_.get_stream());
-    raft::copy(search_labels_, labels_ptr, rows_, handle_.get_stream());
-  }
-
-  void TearDown() override {
-    CUDA_CHECK(cudaFree(search_data_));
-    CUDA_CHECK(cudaFree(indices_));
-    CUDA_CHECK(cudaFree(distances_));
-    CUDA_CHECK(cudaFree(actual_labels_));
+    raft::copy(input_.data(), input_ptr, rows_ * cols_, stream);
+    raft::copy(search_data_.data(), input_ptr, rows_ * cols_, stream);
+    raft::copy(search_labels_.data(), labels_ptr, rows_, stream);
+    handle.sync_stream(stream);
   }
 
  private:
-  raft::handle_t handle_;
+  raft::handle_t handle;
+  cudaStream_t stream;
+
   KNNInputs params_;
   int rows_;
   int cols_;
-  float *input_;
-  float *search_data_;
-  int64_t *indices_;
-  float *distances_;
+  rmm::device_uvector<float> input_;
+  rmm::device_uvector<float> search_data_;
+  rmm::device_uvector<int64_t> indices_;
+  rmm::device_uvector<float> distances_;
   int k_;
 
-  int *search_labels_;
-  int *actual_labels_;
-  int *expected_labels_;
+  rmm::device_uvector<int> search_labels_;
+  rmm::device_uvector<int> actual_labels_;
+  rmm::device_uvector<int> expected_labels_;
 };
 
 const std::vector<KNNInputs> inputs = {

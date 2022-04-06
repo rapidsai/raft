@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,14 +14,18 @@
  * limitations under the License.
  */
 
+#include "../test_utils.h"
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <raft/random/rng.cuh>
+#include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
-#include "../test_utils.h"
 
-#include <raft/sparse/coo.cuh>
+#include <raft/sparse/coo.hpp>
 #include <raft/sparse/selection/knn_graph.cuh>
+#if defined RAFT_NN_COMPILED
+#include <raft/spatial/knn/specializations.cuh>
+#endif
 
 #include <iostream>
 
@@ -29,8 +33,9 @@ namespace raft {
 namespace sparse {
 
 template <typename value_idx, typename value_t>
-__global__ void assert_symmetry(value_idx *rows, value_idx *cols, value_t *vals,
-                                value_idx nnz, value_idx *sum) {
+__global__ void assert_symmetry(
+  value_idx* rows, value_idx* cols, value_t* vals, value_idx nnz, value_idx* sum)
+{
   int tid = blockDim.x * blockIdx.x + threadIdx.x;
 
   if (tid >= nnz) return;
@@ -50,36 +55,34 @@ struct KNNGraphInputs {
 };
 
 template <typename value_idx, typename value_t>
-::std::ostream &operator<<(::std::ostream &os,
-                           const KNNGraphInputs<value_idx, value_t> &dims) {
+::std::ostream& operator<<(::std::ostream& os, const KNNGraphInputs<value_idx, value_t>& dims)
+{
   return os;
 }
 
 template <typename value_idx, typename value_t>
-class KNNGraphTest
-  : public ::testing::TestWithParam<KNNGraphInputs<value_idx, value_t>> {
-  void SetUp() override {
-    params =
-      ::testing::TestWithParam<KNNGraphInputs<value_idx, value_t>>::GetParam();
+class KNNGraphTest : public ::testing::TestWithParam<KNNGraphInputs<value_idx, value_t>> {
+ public:
+  KNNGraphTest()
+    : params(::testing::TestWithParam<KNNGraphInputs<value_idx, value_t>>::GetParam()),
+      stream(handle.get_stream()),
+      X(0, stream)
+  {
+    X.resize(params.X.size(), stream);
+  }
 
-    raft::handle_t handle;
+ protected:
+  void SetUp() override
+  {
+    out = new raft::sparse::COO<value_t, value_idx>(stream);
 
-    auto alloc = handle.get_device_allocator();
-    stream = handle.get_stream();
-
-    out = new raft::sparse::COO<value_t, value_idx>(alloc, stream);
-
-    allocate(X, params.X.size());
-
-    update_device(X, params.X.data(), params.X.size(), stream);
+    update_device(X.data(), params.X.data(), params.X.size(), stream);
 
     raft::sparse::selection::knn_graph(
-      handle, X, params.m, params.n, raft::distance::DistanceType::L2Unexpanded,
-      *out);
+      handle, X.data(), params.m, params.n, raft::distance::DistanceType::L2Unexpanded, *out);
 
-    rmm::device_uvector<value_idx> sum(1, stream);
-
-    CUDA_CHECK(cudaMemsetAsync(sum.data(), 0, 1 * sizeof(value_idx), stream));
+    rmm::device_scalar<value_idx> sum(stream);
+    sum.set_value_to_zero_async(stream);
 
     /**
      * Assert the knn graph is symmetric
@@ -87,23 +90,20 @@ class KNNGraphTest
     assert_symmetry<<<raft::ceildiv(out->nnz, 256), 256, 0, stream>>>(
       out->rows(), out->cols(), out->vals(), out->nnz, sum.data());
 
-    raft::update_host(&sum_h, sum.data(), 1, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    sum_h = sum.value(stream);
+    handle.sync_stream(stream);
   }
 
-  void TearDown() override {
-    CUDA_CHECK(cudaFree(X));
-
-    delete out;
-  }
+  void TearDown() override { delete out; }
 
  protected:
+  raft::handle_t handle;
   cudaStream_t stream;
 
   // input data
-  raft::sparse::COO<value_t, value_idx> *out;
+  raft::sparse::COO<value_t, value_idx>* out;
 
-  value_t *X;
+  rmm::device_uvector<value_t> X;
 
   value_idx sum_h;
 
@@ -115,13 +115,15 @@ const std::vector<KNNGraphInputs<int, float>> knn_graph_inputs_fint = {
   {4, 2, {0, 100, 0.01, 0.02, 5000, 10000, -5, -2}, 2}};
 
 typedef KNNGraphTest<int, float> KNNGraphTestF_int;
-TEST_P(KNNGraphTestF_int, Result) {
+TEST_P(KNNGraphTestF_int, Result)
+{
   // nnz should not be larger than twice m * k
   ASSERT_TRUE(out->nnz <= (params.m * params.k * 2));
   ASSERT_TRUE(sum_h == 0);
 }
 
-INSTANTIATE_TEST_CASE_P(KNNGraphTest, KNNGraphTestF_int,
+INSTANTIATE_TEST_CASE_P(KNNGraphTest,
+                        KNNGraphTestF_int,
                         ::testing::ValuesIn(knn_graph_inputs_fint));
 
 }  // namespace sparse

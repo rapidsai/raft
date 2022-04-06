@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,23 +16,24 @@
 
 #pragma once
 
-#include <raft/linalg/distance_type.h>
+#include <raft/distance/distance_type.hpp>
 
 #include <faiss/gpu/GpuIndex.h>
-#include <faiss/gpu/StandardGpuResources.h>
+#include <raft/spatial/knn/faiss_mr.hpp>
 
 namespace raft {
 namespace spatial {
 namespace knn {
 
 struct knnIndex {
-  faiss::gpu::GpuIndex *index;
+  faiss::gpu::GpuIndex* index;
   raft::distance::DistanceType metric;
   float metricArg;
 
-  faiss::gpu::StandardGpuResources *gpu_res;
+  raft::spatial::knn::RmmGpuResources* gpu_res;
   int device;
-  ~knnIndex() {
+  ~knnIndex()
+  {
     delete index;
     delete gpu_res;
   }
@@ -57,7 +58,8 @@ struct IVFParam : knnIndexParam {
   int nprobe;
 };
 
-struct IVFFlatParam : IVFParam {};
+struct IVFFlatParam : IVFParam {
+};
 
 struct IVFPQParam : IVFParam {
   int M;

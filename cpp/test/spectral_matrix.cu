@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,8 @@
 #include <raft/spectral/matrix_wrappers.hpp>
 
 namespace raft {
+namespace spectral {
+namespace matrix {
 namespace {
 template <typename index_type, typename value_type>
 struct csr_view_t {
@@ -32,13 +34,12 @@ struct csr_view_t {
   index_type number_of_edges;
 };
 }  // namespace
-TEST(Raft, SpectralMatrices) {
-  using namespace matrix;
+TEST(Raft, SpectralMatrices)
+{
   using index_type = int;
   using value_type = double;
 
   handle_t h;
-  ASSERT_EQ(0, h.get_num_internal_streams());
   ASSERT_EQ(0, h.get_device());
 
   csr_view_t<index_type, value_type> csr_v{nullptr, nullptr, nullptr, 0, 0};
@@ -49,7 +50,7 @@ TEST(Raft, SpectralMatrices) {
   index_type* ro{nullptr};
   index_type* ci{nullptr};
   value_type* vs{nullptr};
-  index_type nnz = 0;
+  index_type nnz   = 0;
   index_type nrows = 0;
   sparse_matrix_t<index_type, value_type> sm1{h, ro, ci, vs, nrows, nnz};
   sparse_matrix_t<index_type, value_type> sm2{h, csr_v};
@@ -57,29 +58,24 @@ TEST(Raft, SpectralMatrices) {
   ASSERT_EQ(nullptr, sm2.row_offsets_);
 
   auto stream = h.get_stream();
-  auto t_exe_pol = thrust::cuda::par.on(stream);
 
-  auto cnstr_lm1 = [&h, t_exe_pol, ro, ci, vs, nrows, nnz](void) {
-    laplacian_matrix_t<index_type, value_type> lm1{h,  t_exe_pol, ro, ci,
-                                                   vs, nrows,     nnz};
+  auto cnstr_lm1 = [&h, ro, ci, vs, nrows, nnz](void) {
+    laplacian_matrix_t<index_type, value_type> lm1{h, ro, ci, vs, nrows, nnz};
   };
   EXPECT_ANY_THROW(cnstr_lm1());  // because of nullptr ptr args
 
-  auto cnstr_lm2 = [&h, t_exe_pol, &sm2](void) {
-    laplacian_matrix_t<index_type, value_type> lm2{h, t_exe_pol, sm2};
-  };
+  auto cnstr_lm2 = [&h, &sm2](void) { laplacian_matrix_t<index_type, value_type> lm2{h, sm2}; };
   EXPECT_ANY_THROW(cnstr_lm2());  // because of nullptr ptr args
 
-  auto cnstr_mm1 = [&h, t_exe_pol, ro, ci, vs, nrows, nnz](void) {
-    modularity_matrix_t<index_type, value_type> mm1{h,  t_exe_pol, ro, ci,
-                                                    vs, nrows,     nnz};
+  auto cnstr_mm1 = [&h, ro, ci, vs, nrows, nnz](void) {
+    modularity_matrix_t<index_type, value_type> mm1{h, ro, ci, vs, nrows, nnz};
   };
   EXPECT_ANY_THROW(cnstr_mm1());  // because of nullptr ptr args
 
-  auto cnstr_mm2 = [&h, t_exe_pol, &sm2](void) {
-    modularity_matrix_t<index_type, value_type> mm2{h, t_exe_pol, sm2};
-  };
+  auto cnstr_mm2 = [&h, &sm2](void) { modularity_matrix_t<index_type, value_type> mm2{h, sm2}; };
   EXPECT_ANY_THROW(cnstr_mm2());  // because of nullptr ptr args
 }
 
+}  // namespace matrix
+}  // namespace spectral
 }  // namespace raft

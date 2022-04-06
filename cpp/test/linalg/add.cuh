@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,20 +23,19 @@ namespace raft {
 namespace linalg {
 
 template <typename InT, typename OutT = InT>
-__global__ void naiveAddElemKernel(OutT *out, const InT *in1, const InT *in2,
-                                   int len) {
+__global__ void naiveAddElemKernel(OutT* out, const InT* in1, const InT* in2, int len)
+{
   int idx = threadIdx.x + blockIdx.x * blockDim.x;
-  if (idx < len) {
-    out[idx] = OutT(in1[idx] + in2[idx]);
-  }
+  if (idx < len) { out[idx] = OutT(in1[idx] + in2[idx]); }
 }
 
 template <typename InT, typename OutT = InT>
-void naiveAddElem(OutT *out, const InT *in1, const InT *in2, int len) {
+void naiveAddElem(OutT* out, const InT* in1, const InT* in2, int len, cudaStream_t stream)
+{
   static const int TPB = 64;
-  int nblks = raft::ceildiv(len, TPB);
-  naiveAddElemKernel<InT, OutT><<<nblks, TPB>>>(out, in1, in2, len);
-  CUDA_CHECK(cudaPeekAtLastError());
+  int nblks            = raft::ceildiv(len, TPB);
+  naiveAddElemKernel<InT, OutT><<<nblks, TPB, 0, stream>>>(out, in1, in2, len);
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 template <typename InT, typename OutT = InT>
@@ -47,8 +46,8 @@ struct AddInputs {
 };
 
 template <typename InT, typename OutT = InT>
-::std::ostream &operator<<(::std::ostream &os,
-                           const AddInputs<InT, OutT> &dims) {
+::std::ostream& operator<<(::std::ostream& os, const AddInputs<InT, OutT>& dims)
+{
   return os;
 }
 

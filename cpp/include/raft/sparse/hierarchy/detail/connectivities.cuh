@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,19 +16,17 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
 
 #include <raft/linalg/unary_op.cuh>
 #include <rmm/device_uvector.hpp>
-#include <rmm/exec_policy.hpp>
 
-#include <raft/linalg/distance_type.h>
-#include <raft/sparse/hierarchy/common.h>
-#include <raft/mr/device/buffer.hpp>
+#include <raft/distance/distance_type.hpp>
 #include <raft/sparse/convert/csr.cuh>
-#include <raft/sparse/coo.cuh>
+#include <raft/sparse/coo.hpp>
+#include <raft/sparse/hierarchy/common.h>
 #include <raft/sparse/selection/knn_graph.cuh>
 
 #include <limits>
@@ -37,14 +35,17 @@ namespace raft {
 namespace hierarchy {
 namespace detail {
 
-template <raft::hierarchy::LinkageDistance dist_type, typename value_idx,
-          typename value_t>
+template <raft::hierarchy::LinkageDistance dist_type, typename value_idx, typename value_t>
 struct distance_graph_impl {
-  void run(const raft::handle_t &handle, const value_t *X, size_t m, size_t n,
+  void run(const raft::handle_t& handle,
+           const value_t* X,
+           size_t m,
+           size_t n,
            raft::distance::DistanceType metric,
-           rmm::device_uvector<value_idx> &indptr,
-           rmm::device_uvector<value_idx> &indices,
-           rmm::device_uvector<value_t> &data, int c);
+           rmm::device_uvector<value_idx>& indptr,
+           rmm::device_uvector<value_idx>& indices,
+           rmm::device_uvector<value_t>& data,
+           int c);
 };
 
 /**
@@ -53,50 +54,50 @@ struct distance_graph_impl {
  * @tparam value_t
  */
 template <typename value_idx, typename value_t>
-struct distance_graph_impl<raft::hierarchy::LinkageDistance::KNN_GRAPH,
-                           value_idx, value_t> {
-  void run(const raft::handle_t &handle, const value_t *X, size_t m, size_t n,
+struct distance_graph_impl<raft::hierarchy::LinkageDistance::KNN_GRAPH, value_idx, value_t> {
+  void run(const raft::handle_t& handle,
+           const value_t* X,
+           size_t m,
+           size_t n,
            raft::distance::DistanceType metric,
-           rmm::device_uvector<value_idx> &indptr,
-           rmm::device_uvector<value_idx> &indices,
-           rmm::device_uvector<value_t> &data, int c) {
-    auto d_alloc = handle.get_device_allocator();
-    auto stream = handle.get_stream();
-    auto exec_policy = rmm::exec_policy(rmm::cuda_stream_view{stream});
+           rmm::device_uvector<value_idx>& indptr,
+           rmm::device_uvector<value_idx>& indices,
+           rmm::device_uvector<value_t>& data,
+           int c)
+  {
+    auto stream        = handle.get_stream();
+    auto thrust_policy = handle.get_thrust_policy();
 
     // Need to symmetrize knn into undirected graph
-    raft::sparse::COO<value_t, value_idx> knn_graph_coo(d_alloc, stream);
+    raft::sparse::COO<value_t, value_idx> knn_graph_coo(stream);
 
-    raft::sparse::selection::knn_graph(handle, X, m, n, metric, knn_graph_coo,
-                                       c);
+    raft::sparse::selection::knn_graph(handle, X, m, n, metric, knn_graph_coo, c);
 
     indices.resize(knn_graph_coo.nnz, stream);
     data.resize(knn_graph_coo.nnz, stream);
 
     // self-loops get max distance
-    auto transform_in = thrust::make_zip_iterator(thrust::make_tuple(
-      knn_graph_coo.rows(), knn_graph_coo.cols(), knn_graph_coo.vals()));
+    auto transform_in = thrust::make_zip_iterator(
+      thrust::make_tuple(knn_graph_coo.rows(), knn_graph_coo.cols(), knn_graph_coo.vals()));
 
-    thrust::transform(
-      exec_policy, transform_in, transform_in + knn_graph_coo.nnz,
-      knn_graph_coo.vals(),
-      [=] __device__(const thrust::tuple<value_idx, value_idx, value_t> &tup) {
-        bool self_loop = thrust::get<0>(tup) == thrust::get<1>(tup);
-        return (self_loop * std::numeric_limits<value_t>::max()) +
-               (!self_loop * thrust::get<2>(tup));
-      });
+    thrust::transform(thrust_policy,
+                      transform_in,
+                      transform_in + knn_graph_coo.nnz,
+                      knn_graph_coo.vals(),
+                      [=] __device__(const thrust::tuple<value_idx, value_idx, value_t>& tup) {
+                        bool self_loop = thrust::get<0>(tup) == thrust::get<1>(tup);
+                        return (self_loop * std::numeric_limits<value_t>::max()) +
+                               (!self_loop * thrust::get<2>(tup));
+                      });
 
-    raft::sparse::convert::sorted_coo_to_csr(knn_graph_coo.rows(),
-                                             knn_graph_coo.nnz, indptr.data(),
-                                             m + 1, d_alloc, stream);
+    raft::sparse::convert::sorted_coo_to_csr(
+      knn_graph_coo.rows(), knn_graph_coo.nnz, indptr.data(), m + 1, stream);
 
     // TODO: Wouldn't need to copy here if we could compute knn
     // graph directly on the device uvectors
     // ref: https://github.com/rapidsai/raft/issues/227
-    raft::copy_async(indices.data(), knn_graph_coo.cols(), knn_graph_coo.nnz,
-                     stream);
-    raft::copy_async(data.data(), knn_graph_coo.vals(), knn_graph_coo.nnz,
-                     stream);
+    raft::copy_async(indices.data(), knn_graph_coo.cols(), knn_graph_coo.nnz, stream);
+    raft::copy_async(data.data(), knn_graph_coo.vals(), knn_graph_coo.nnz, stream);
   }
 };
 
@@ -116,13 +117,17 @@ struct distance_graph_impl<raft::hierarchy::LinkageDistance::KNN_GRAPH,
  * @param[out] c constant 'c' used for nearest neighbors-based distances
  *             which will guarantee k <= log(n) + c
  */
-template <typename value_idx, typename value_t,
-          raft::hierarchy::LinkageDistance dist_type>
-void get_distance_graph(const raft::handle_t &handle, const value_t *X,
-                        size_t m, size_t n, raft::distance::DistanceType metric,
-                        rmm::device_uvector<value_idx> &indptr,
-                        rmm::device_uvector<value_idx> &indices,
-                        rmm::device_uvector<value_t> &data, int c) {
+template <typename value_idx, typename value_t, raft::hierarchy::LinkageDistance dist_type>
+void get_distance_graph(const raft::handle_t& handle,
+                        const value_t* X,
+                        size_t m,
+                        size_t n,
+                        raft::distance::DistanceType metric,
+                        rmm::device_uvector<value_idx>& indptr,
+                        rmm::device_uvector<value_idx>& indices,
+                        rmm::device_uvector<value_t>& data,
+                        int c)
+{
   auto stream = handle.get_stream();
 
   indptr.resize(m + 1, stream);

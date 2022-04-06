@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,53 +14,57 @@
  * limitations under the License.
  */
 
+#include "../test_utils.h"
+#include "add.cuh"
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/add.cuh>
 #include <raft/random/rng.cuh>
-#include "../test_utils.h"
-#include "add.cuh"
 
 namespace raft {
 namespace linalg {
 
 template <typename InT, typename OutT = InT>
 class AddTest : public ::testing::TestWithParam<AddInputs<InT, OutT>> {
+ public:
+  AddTest()
+    : params(::testing::TestWithParam<AddInputs<InT, OutT>>::GetParam()),
+      stream(handle.get_stream()),
+      in1(params.len, stream),
+      in2(params.len, stream),
+      out_ref(params.len, stream),
+      out(params.len, stream)
+  {
+  }
+
  protected:
-  void SetUp() override {
+  void SetUp() override
+  {
     params = ::testing::TestWithParam<AddInputs<InT, OutT>>::GetParam();
     raft::random::Rng r(params.seed);
     int len = params.len;
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    raft::allocate(in1, len);
-    raft::allocate(in2, len);
-    raft::allocate(out_ref, len);
-    raft::allocate(out, len);
-    r.uniform(in1, len, InT(-1.0), InT(1.0), stream);
-    r.uniform(in2, len, InT(-1.0), InT(1.0), stream);
-    naiveAddElem<InT, OutT>(out_ref, in1, in2, len);
-    add<InT, OutT>(out, in1, in2, len, stream);
+    r.uniform(in1.data(), len, InT(-1.0), InT(1.0), stream);
+    r.uniform(in2.data(), len, InT(-1.0), InT(1.0), stream);
+    naiveAddElem<InT, OutT>(out_ref.data(), in1.data(), in2.data(), len, stream);
+    add<InT, OutT>(out.data(), in1.data(), in2.data(), len, stream);
+    handle.sync_stream(stream);
   }
 
-  void TearDown() override {
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-    CUDA_CHECK(cudaFree(in1));
-    CUDA_CHECK(cudaFree(in2));
-    CUDA_CHECK(cudaFree(out_ref));
-    CUDA_CHECK(cudaFree(out));
-    CUDA_CHECK(cudaStreamDestroy(stream));
-  }
-
-  void compare() {
-    ASSERT_TRUE(raft::devArrMatch(out_ref, out, params.len,
-                                  raft::CompareApprox<OutT>(params.tolerance)));
+  void compare()
+  {
+    ASSERT_TRUE(raft::devArrMatch(
+      out_ref.data(), out.data(), params.len, raft::CompareApprox<OutT>(params.tolerance), stream));
   }
 
  protected:
-  AddInputs<InT, OutT> params;
-  InT *in1, *in2;
-  OutT *out_ref, *out;
+  raft::handle_t handle;
   cudaStream_t stream;
+
+  AddInputs<InT, OutT> params;
+  rmm::device_uvector<InT> in1;
+  rmm::device_uvector<InT> in2;
+  rmm::device_uvector<OutT> out_ref;
+  rmm::device_uvector<OutT> out;
 };
 
 const std::vector<AddInputs<float>> inputsf = {
