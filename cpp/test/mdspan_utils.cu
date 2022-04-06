@@ -56,7 +56,7 @@ void test_host_flatten()
     three_d_mdarray::container_policy_type policy;
     three_d_mdarray mda{extents, policy};
 
-    auto flat_view = flatten(mda.view());
+    auto flat_view = flatten(mda);
 
     static_assert(std::is_same_v<typename three_d_mdarray::layout_type,
                                  typename decltype(flat_view)::layout_type>,

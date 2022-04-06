@@ -59,8 +59,8 @@ struct __is_derived_mdspan<T, std::void_t<decltype(__takes_an_mdspan_ptr(std::de
 };
 
 template <typename T>
-inline constexpr bool is_mdspan_v =
-  __is_mdspan<std::remove_const_t<T>>::value || __is_derived_mdspan<std::remove_const_t<T>>::value;
+inline constexpr bool is_mdspan_v = std::disjunction_v<__is_mdspan<std::remove_const_t<T>>,
+                                                       __is_derived_mdspan<std::remove_const_t<T>>>;
 
 template <typename T, typename U = void>
 using is_mdspan_t = std::enable_if_t<is_mdspan_v<T>, U>;
@@ -75,9 +75,17 @@ template <typename ElementType,
 using device_mdspan = detail::stdex::
   mdspan<ElementType, Extents, LayoutPolicy, detail::device_accessor<AccessorPolicy>>;
 
+template <typename T, bool B>
+struct __is_device_mdspan : std::false_type {
+};
+
 template <typename T>
-inline constexpr bool is_device_mdspan_v =
-  is_mdspan_v<T>&& detail::__is_device_accessor<typename T::accessor_type>::value;
+struct __is_device_mdspan<T, true>
+  : std::bool_constant<detail::is_device_accessor_v<typename T::accessor_type>> {
+};
+
+template <typename T>
+inline constexpr bool is_device_mdspan_v = __is_device_mdspan<T, is_mdspan_v<T>>::value;
 
 template <typename T, typename U = void>
 using is_device_mdspan_t = std::enable_if_t<is_device_mdspan_v<T>, U>;
@@ -92,9 +100,17 @@ template <typename ElementType,
 using host_mdspan =
   detail::stdex::mdspan<ElementType, Extents, LayoutPolicy, detail::host_accessor<AccessorPolicy>>;
 
+template <typename T, bool B>
+struct __is_host_mdspan : std::false_type {
+};
+
 template <typename T>
-inline constexpr bool is_host_mdspan_v =
-  is_mdspan_v<T>&& detail::__is_host_accessor<typename T::accessor_type>::value;
+struct __is_host_mdspan<T, true>
+  : std::bool_constant<detail::is_host_accessor_v<typename T::accessor_type>> {
+};
+
+template <typename T>
+inline constexpr bool is_host_mdspan_v = __is_host_mdspan<T, is_mdspan_v<T>>::value;
 
 template <typename T, typename U = void>
 using is_host_mdspan_t = std::enable_if_t<is_host_mdspan_v<T>, U>;
@@ -130,9 +146,6 @@ using is_host_mdspan_t = std::enable_if_t<is_host_mdspan_v<T>, U>;
  */
 template <typename ElementType, typename Extents, typename LayoutPolicy, typename ContainerPolicy>
 class mdarray {
-  static_assert(!std::is_const<ElementType>::value,
-                "Element type for container must not be const.");
-
  public:
   using extents_type = Extents;
   using layout_type  = LayoutPolicy;
@@ -169,7 +182,6 @@ class mdarray {
   using view_type       = view_type_impl<element_type>;
   using const_view_type = view_type_impl<element_type const>;
 
- public:
   constexpr mdarray() noexcept(std::is_nothrow_default_constructible_v<container_type>)
     : cp_{rmm::cuda_stream_default}, c_{cp_.create(0)} {};
   constexpr mdarray(mdarray const&) noexcept(std::is_nothrow_copy_constructible_v<container_type>) =
@@ -218,11 +230,11 @@ class mdarray {
   /**
    * @brief Get a mdspan that can be passed down to CUDA kernels.
    */
-  auto view() noexcept { return view_type(c_.data(), map_, cp_.make_accessor_policy()); }
+  view_type view() noexcept { return view_type(c_.data(), map_, cp_.make_accessor_policy()); }
   /**
    * @brief Get a mdspan that can be passed down to CUDA kernels.
    */
-  auto view() const noexcept
+  const_view_type view() const noexcept
   {
     return const_view_type(c_.data(), map_, cp_.make_accessor_policy());
   }
@@ -347,6 +359,20 @@ class mdarray {
   mapping_type map_;
   container_type c_;
 };
+
+template <typename T>
+struct __is_mdarray : std::false_type {
+};
+
+template <typename... Args>
+struct __is_mdarray<mdarray<Args...>> : std::true_type {
+};
+
+template <typename T>
+inline constexpr bool is_mdarray_v = __is_mdarray<std::remove_const_t<T>>::value;
+
+template <typename T, typename U = void>
+using is_mdarray_t = std::enable_if_t<is_mdspan_v<T>, U>;
 
 /**
  * @brief mdarray with host container policy
@@ -702,7 +728,8 @@ auto make_device_vector(raft::handle_t const& handle, size_t n)
   return make_device_vector<ElementType>(n, handle.get_stream());
 }
 
-template <typename host_mdspan_type, typename = is_host_mdspan_t<host_mdspan_type>>
+template <typename host_mdspan_type,
+          std::enable_if_t<is_host_mdspan_v<host_mdspan_type>>* = nullptr>
 auto flatten(host_mdspan_type h_mds)
 {
   size_t flat_dimension = 1;
@@ -715,16 +742,48 @@ auto flatten(host_mdspan_type h_mds)
                                                                        flat_dimension);
 }
 
-template <typename ElementType>
-constexpr auto flatten(host_vector_view<ElementType> h_vv)
+template <typename device_mdspan_type,
+          std::enable_if_t<is_device_mdspan_v<device_mdspan_type>>* = nullptr>
+auto flatten(device_mdspan_type d_mds)
+{
+  size_t flat_dimension = 1;
+  for (size_t i = 0; i < d_mds.extents().rank(); ++i) {
+    flat_dimension *= d_mds.extent(i);
+  }
+
+  return make_device_vector_view<typename device_mdspan_type::element_type,
+                                 typename device_mdspan_type::layout_type>(d_mds.data(),
+                                                                           flat_dimension);
+}
+
+template <typename mdarray_type, std::enable_if_t<is_mdarray_v<mdarray_type>>* = nullptr>
+auto flatten(const mdarray_type& mda)
+{
+  return flatten(mda.view());
+}
+
+template <typename ElementType, typename LayoutType>
+constexpr auto flatten(host_vector_view<ElementType, LayoutType> h_vv)
 {
   return h_vv;
+}
+
+template <typename ElementType, typename LayoutType>
+auto flatten(const host_vector<ElementType, LayoutType>& h_v)
+{
+  return flatten(h_v.view());
 }
 
 template <typename ElementType>
 constexpr auto flatten(host_scalar_view<ElementType> h_sv)
 {
   return h_sv;
+}
+
+template <typename ElementType>
+auto flatten(const host_scalar<ElementType>& h_s)
+{
+  return flatten(h_s.view());
 }
 
 }  // namespace raft
