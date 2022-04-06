@@ -52,9 +52,9 @@ double completeness_score(const T* truthClusterArray,
   double computedMI, computedEntropy;
 
   computedMI = raft::stats::mutual_info_score(
-    truthClusterArray, predClusterArray, size, lowerLabelRange, upperLabelRange, stream);
+    predClusterArray, truthClusterArray, size, lowerLabelRange, upperLabelRange, stream);
   computedEntropy =
-    raft::stats::entropy(predClusterArray, size, lowerLabelRange, upperLabelRange, stream);
+    raft::stats::entropy(truthClusterArray, size, lowerLabelRange, upperLabelRange, stream);
 
   double completeness;
 
