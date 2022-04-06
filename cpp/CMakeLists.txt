@@ -153,7 +153,6 @@ target_include_directories(raft INTERFACE
 
 target_link_libraries(raft INTERFACE
         raft::Thrust
-        $<$<BOOL:${NVTX}>:CUDA::nvToolsExt>
         CUDA::cublas
         CUDA::curand
         CUDA::cusolver
@@ -163,7 +162,6 @@ target_link_libraries(raft INTERFACE
         $<$<BOOL:${RAFT_ENABLE_cuco_DEPENDENCY}>:cuco::cuco>
         std::mdspan)
 
-target_compile_definitions(raft INTERFACE $<$<BOOL:${NVTX}>:NVTX_ENABLED>)
 target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
 
 if(RAFT_COMPILE_LIBRARIES OR RAFT_COMPILE_DIST_LIBRARY OR RAFT_COMPILE_NN_LIBRARY)
@@ -175,6 +173,29 @@ SECTIONS
 .nv_fatbin : { *(.nv_fatbin) }
 }
 ]=])
+endif()
+
+##############################################################################
+# - NVTX support in raft -----------------------------------------------------
+
+if (NVTX)
+  # This enables NVTX within the project with no option to disable it downstream.
+  target_link_libraries(raft INTERFACE CUDA::nvToolsExt)
+  target_compile_definitions(raft INTERFACE NVTX_ENABLED)
+  set(nvtx_export_string "")
+else()
+  # Allow enable NVTX downstream if not set here.
+  # This creates a new option at build/install time, which is set by default to OFF,
+  # but can be enabled in the dependent project.
+  get_property(nvtx_option_help_string CACHE NVTX PROPERTY HELPSTRING)
+  string(CONCAT nvtx_export_string
+  "option(NVTX \"" ${nvtx_option_help_string} "\" OFF)"
+  [=[
+
+target_link_libraries(raft::raft INTERFACE $<$<BOOL:${NVTX}>:CUDA::nvToolsExt>)
+target_compile_definitions(raft::raft INTERFACE $<$<BOOL:${NVTX}>:NVTX_ENABLED>)
+
+  ]=])
 endif()
 
 ##############################################################################
@@ -361,7 +382,8 @@ Imported Targets:
 
 ]=])
 
-set(code_string
+string(CONCAT code_string
+${nvtx_export_string}
 [=[
 
 if(NOT TARGET raft::Thrust)
@@ -381,8 +403,7 @@ if(nn IN_LIST raft_FIND_COMPONENTS)
       add_library(faiss ALIAS faiss::faiss)
   endif()
 endif()
-]=]
-        )
+]=])
 
 # Use `rapids_export` for 22.04 as it will have COMPONENT support
 include(cmake/modules/raft_export.cmake)
