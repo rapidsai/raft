@@ -40,33 +40,22 @@
     although the API is not typical.
     class warp_sort_filtered and warp_sort_immediate can be used to instantiate block_sort.
 
-    It uses dynamic shared memory as intermediate buffer.
+    It uses dynamic shared memory as an intermediate buffer.
     So the required shared memory size should be calculated using
     calc_smem_size_for_block_wide() and passed as the 3rd kernel launch parameter.
 
-    Two overload functions can be used to add items to the queue.
-    One is load(const T* in, IdxT start, IdxT end) and it adds a range of items,
-    namely [start, end) of in. The idx is inferred from start.
-    This function should be called only once to add all items, and should not be
-    used together with the add().
-    The second one is add(T val, IdxT idx), and it adds only one item pair.
-    Note that the range [start, end) is for the whole block of threads, that is,
-    each thread in the same block should get the same start/end.
-    In contrast, the parameters of the second form are for only one thread,
-    so each thread must get different val/idx.
+    To add elements to the queue, use add(T val, IdxT idx) with unique values per-thread.
+    Use WarpSortClass<...>::kDummy constant for the threads outside of input bounds.
 
-    After adding is finished, function done() should be called. And finally,
-    store() is used to get the top-k result.
+    After adding is finished, function done() should be called. And finally, store() is used to get
+    the top-k result.
 
     Example:
       __global__ void kernel() {
         block_sort<warp_sort_immediate, ...> queue(...);
 
-        // way 1, [0, len) is same for the whole block
-        queue.load(in, 0, len);
-        // way 2, each thread gets its own val/idx pair
         for (IdxT i = threadIdx.x; i < len, i += blockDim.x) {
-          queue.add(in[i], idx[i]);
+          queue.add(in[i], in_idx[i]);
         }
 
         queue.done();
@@ -79,10 +68,7 @@
 
   3. class warp_sort_filtered and class warp_sort_immediate
     These two classes can be regarded as fixed size priority queue for a warp.
-    Usage is similar to class block_sort.
-    Two types of add() functions are provided, and also note that [start, end) is
-    for a whole warp, while val/idx is for a thread.
-    No shared memory is needed.
+    Usage is similar to class block_sort. No shared memory is needed.
 
     The host function (warp_sort_topk) uses a heuristic to choose between these two classes for
     sorting, warp_sort_immediate being chosen when the number of inputs per warp is somewhat small
@@ -94,16 +80,13 @@
         int warp_id = threadIdx.x / WarpSize;
         int lane_id = threadIdx.x % WarpSize;
 
-        // way 1, [0, len) is same for the whole warp
-        queue.load(in, 0, len);
-        // way 2, each thread gets its own val/idx pair
         for (IdxT i = lane_id; i < len, i += WarpSize) {
           queue.add(in[i], idx[i]);
         }
 
         queue.done();
         // each warp outputs to a different offset
-        queue.store(out+ warp_id * k, out_idx+ warp_id * k);
+        queue.store(out + warp_id * k, out_idx + warp_id * k);
       }
  */
 
