@@ -21,7 +21,10 @@
 #include <raft/handle.hpp>
 #include <raft/linalg/norm.hpp>
 #include <raft/random/rng.hpp>
+
+#if defined RAFT_NN_COMPILED
 #include <raft/spatial/knn/specializations.hpp>
+#endif
 
 namespace raft::bench::spatial {
 

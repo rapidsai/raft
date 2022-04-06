@@ -17,8 +17,9 @@
 #include <common/benchmark.hpp>
 #include <raft/cudart_utils.h>
 #include <raft/distance/distance.hpp>
+#if defined RAFT_DISTANCE_COMPILED
 #include <raft/distance/specializations.hpp>
-
+#endif
 #include <rmm/device_uvector.hpp>
 
 namespace raft::bench::distance {
