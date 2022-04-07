@@ -15,9 +15,9 @@
  */
 #pragma once
 
-#include <raft/cluster/kmeans_params.hpp>
-#include <raft/cluster/detail/kmeans.cuh>
 #include <optional>
+#include <raft/cluster/detail/kmeans.cuh>
+#include <raft/cluster/kmeans_params.hpp>
 #include <raft/mdarray.hpp>
 
 namespace raft {
@@ -63,13 +63,13 @@ void kmeans_fit(handle_t const& handle,
 
 template <typename DataT, typename IndexT, typename layout>
 void kmeans_predict(handle_t const& handle,
-                const KMeansParams& params,
-                const raft::device_matrix_view<DataT, layout> X,
-                const std::optional<raft::device_vector_view<DataT>>& sample_weight,
-                raft::device_matrix_view<DataT, layout> centroids,
-                raft::device_vector_view<IndexT> labels,
-                bool normalize_weight,
-                DataT& inertia)
+                    const KMeansParams& params,
+                    const raft::device_matrix_view<DataT, layout> X,
+                    const std::optional<raft::device_vector_view<DataT>>& sample_weight,
+                    raft::device_matrix_view<DataT, layout> centroids,
+                    raft::device_vector_view<IndexT> labels,
+                    bool normalize_weight,
+                    DataT& inertia)
 {
   detail::kmeans_predict<DataT, IndexT, layout>(
     handle, params, X, sample_weight, centroids, labels, normalize_weight, inertia);
@@ -77,16 +77,15 @@ void kmeans_predict(handle_t const& handle,
 
 template <typename DataT, typename IndexT, typename layout>
 void kmeans_fit_predict(handle_t const& handle,
-                const KMeansParams& params,
-                const raft::device_matrix_view<DataT, layout> X,
-                const std::optional<raft::device_vector_view<DataT>>& sample_weight,
-                std::optional<raft::device_matrix_view<DataT, layout>>& centroids,
-                raft::device_vector_view<IndexT> labels,
-                DataT& inertia,
-                IndexT& n_iter)
+                        const KMeansParams& params,
+                        const raft::device_matrix_view<DataT, layout> X,
+                        const std::optional<raft::device_vector_view<DataT>>& sample_weight,
+                        std::optional<raft::device_matrix_view<DataT, layout>>& centroids,
+                        raft::device_vector_view<IndexT> labels,
+                        DataT& inertia,
+                        IndexT& n_iter)
 {
-  kmeans_fit<DataT, IndexT, layout>(
-    handle, params, X, sample_weight, centroids, inertia, n_iter);
+  kmeans_fit<DataT, IndexT, layout>(handle, params, X, sample_weight, centroids, inertia, n_iter);
   kmeans_predict<DataT, IndexT, layout>(
     handle, params, X, sample_weight, centroids.value(), labels, true, inertia);
 }

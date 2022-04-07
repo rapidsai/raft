@@ -48,7 +48,7 @@ void gather(MatrixIteratorT in,
 {
   detail::gather(in, D, N, map, map_length, out, stream);
 }
- 
+
 /**
  * @brief  gather copies rows from a source matrix into a destination matrix according to a
  * transformed map.
@@ -82,7 +82,7 @@ void gather(MatrixIteratorT in,
 {
   detail::gather(in, D, N, map, map_length, out, transform_op, stream);
 }
- 
+
 /**
  * @brief  gather_if conditionally copies rows from a source matrix into a destination matrix
  * according to a map.
@@ -167,8 +167,7 @@ void gather_if(MatrixIteratorT in,
                MapTransformOp transform_op,
                cudaStream_t stream)
 {
-  
-    detail::gather_if(in, D, N, map, stencil, map_length, out, pred_op, transform_op, stream);
+  detail::gather_if(in, D, N, map, stencil, map_length, out, pred_op, transform_op, stream);
 }
 }  // namespace matrix
 }  // namespace raft

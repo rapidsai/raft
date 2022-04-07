@@ -59,23 +59,22 @@ struct kmeans_solver_t {
     index_type_t iters{};
     raft::cluster::KMeansParams km_params;
     km_params.n_clusters = config_.n_clusters;
-    km_params.tol = config_.tol;
-    km_params.max_iter = config_.maxIter;
-    km_params.seed = config_.seed;
+    km_params.tol        = config_.tol;
+    km_params.max_iter   = config_.maxIter;
+    km_params.seed       = config_.seed;
 
-
-    auto observations = raft::make_device_matrix<value_type_t>(
-      n_obs_vecs, dim, handle.get_stream());
+    auto observations =
+      raft::make_device_matrix<value_type_t>(n_obs_vecs, dim, handle.get_stream());
     auto labels = raft::make_device_vector<index_type_t>(n_obs_vecs, handle.get_stream());
-    auto centroids = raft::make_device_matrix<value_type_t>(n_obs_vecs, config_.n_clusters, handle.get_stream());
+    auto centroids =
+      raft::make_device_matrix<value_type_t>(n_obs_vecs, config_.n_clusters, handle.get_stream());
     auto centroidsView = std::make_optional(centroids.view());
-    auto weight = raft::make_device_vector<value_type_t>(n_obs_vecs, handle.get_stream());
-    auto sw = std::make_optional(weight.view());
+    auto weight        = raft::make_device_vector<value_type_t>(n_obs_vecs, handle.get_stream());
+    auto sw            = std::make_optional(weight.view());
     thrust::fill(handle.get_thrust_policy(), sw.value().data(), sw.value().data() + n_obs_vecs, 1);
     raft::copy(observations.data(), obs, n_obs_vecs * dim, handle.get_stream());
     raft::cluster::kmeans_fit_predict<value_type_t, index_type_t, raft::layout_c_contiguous>(
-      handle, km_params, observations.view(), sw, centroidsView, labels.view(),
-      residual, iters);
+      handle, km_params, observations.view(), sw, centroidsView, labels.view(), residual, iters);
     raft::copy(codes, labels.data(), n_obs_vecs, handle.get_stream());
     return std::make_pair(residual, iters);
   }
