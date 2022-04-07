@@ -22,7 +22,9 @@ cd $WORKSPACE
 
 # If nightly build, append current YYMMDD to version
 if [[ "$BUILD_MODE" = "branch" && "$SOURCE_BRANCH" = branch-* ]] ; then
-  export VERSION_SUFFIX=`date +%y%m%d`
+  export VERSION_SUFFIX="$(date +%y%m%d)"
+else
+  export VERSION_SUFFIX=""
 fi
 
 # Setup 'gpuci_conda_retry' for build retries (results in 2 total attempts)
@@ -114,16 +116,10 @@ if [ "$BUILD_RAFT" == '1' ]; then
   gpuci_logger "Building Python conda packages for raft"
   if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
     gpuci_conda_retry mambabuild --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/pyraft --python=$PYTHON
-    gpuci_conda_retry mambabuild --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/pylibraft --python=$PYTHON
   else
     gpuci_conda_retry mambabuild --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/pyraft -c ${CONDA_LOCAL_CHANNEL} --dirty --no-remove-work-dir --python=$PYTHON
     mkdir -p ${CONDA_BLD_DIR}/pyraft/work
     mv ${CONDA_BLD_DIR}/work ${CONDA_BLD_DIR}/pyraft/work
-
-    gpuci_conda_retry mambabuild --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/pylibraft -c ${CONDA_LOCAL_CHANNEL} --dirty --no-remove-work-dir --python=$PYTHON
-    mkdir -p ${CONDA_BLD_DIR}/pylibraft/work
-    mv ${CONDA_BLD_DIR}/work ${CONDA_BLD_DIR}/pylibraft/work
-
   fi
 else
   gpuci_logger "SKIPPING build of Python conda packages for raft"
