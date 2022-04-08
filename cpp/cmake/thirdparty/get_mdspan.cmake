@@ -13,7 +13,6 @@
 # =============================================================================
 
 function(find_and_configure_mdspan VERSION)
-  if(RAFT_ENABLE_mdspan_DEPENDENCY)
     rapids_cpm_find(
       mdspan ${VERSION}
       GLOBAL_TARGETS std::mdspan
@@ -25,7 +24,8 @@ function(find_and_configure_mdspan VERSION)
         OPTIONS "MDSPAN_ENABLE_CUDA ON"
                 "MDSPAN_CXX_STANDARD ON"
     )
-  endif()
 endfunction()
 
-find_and_configure_mdspan(0.2.0)
+if(RAFT_ENABLE_mdspan_DEPENDENCY)
+  find_and_configure_mdspan(0.2.0)
+endif()

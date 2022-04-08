@@ -111,7 +111,7 @@ if hasArg --install; then
   INSTALL_TARGET="install"
 fi
 
-if hasArg --no-thrust; then
+if hasArg --minimal-deps; then
   ENABLE_thrust_DEPENDENCY=OFF
 fi
 
