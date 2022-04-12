@@ -56,7 +56,7 @@ namespace detail {
 template <typename DataT, typename IndexT>
 void initRandom(const raft::handle_t& handle,
                 const KMeansParams& params,
-                const raft::device_matrix_view<DataT> X,
+                raft::device_matrix_view<DataT> X,
                 rmm::device_uvector<DataT>& centroidsRawData)
 {
   cudaStream_t stream = handle.get_stream();
@@ -87,7 +87,7 @@ void initRandom(const raft::handle_t& handle,
 template <typename DataT, typename IndexT>
 void kmeansPlusPlus(const raft::handle_t& handle,
                     const KMeansParams& params,
-                    const raft::device_matrix_view<DataT> X,
+                    raft::device_matrix_view<DataT> X,
                     raft::distance::DistanceType metric,
                     rmm::device_uvector<char>& workspace,
                     rmm::device_uvector<DataT>& centroidsRawData,
@@ -261,7 +261,7 @@ void kmeansPlusPlus(const raft::handle_t& handle,
 template <typename DataT, typename IndexT>
 void initKMeansPlusPlus(const raft::handle_t& handle,
                         const KMeansParams& params,
-                        const raft::device_matrix_view<DataT> X,
+                        raft::device_matrix_view<DataT> X,
                         rmm::device_uvector<DataT>& centroidsRawData,
                         rmm::device_uvector<char>& workspace)
 {
@@ -277,7 +277,7 @@ void initKMeansPlusPlus(const raft::handle_t& handle,
 template <typename DataT, typename IndexT>
 void kmeans_fit_main(const raft::handle_t& handle,
                      const KMeansParams& params,
-                     const raft::device_matrix_view<DataT> X,
+                     raft::device_matrix_view<DataT> X,
                      raft::device_vector_view<DataT> weight,
                      rmm::device_uvector<DataT>& centroidsRawData,
                      DataT& inertia,
@@ -557,7 +557,7 @@ void kmeans_fit_main(const raft::handle_t& handle,
 template <typename DataT, typename IndexT>
 void initScalableKMeansPlusPlus(const raft::handle_t& handle,
                                 const KMeansParams& params,
-                                const raft::device_matrix_view<DataT> X,
+                                raft::device_matrix_view<DataT> X,
                                 rmm::device_uvector<DataT>& centroidsRawData,
                                 rmm::device_uvector<char>& workspace)
 {
@@ -785,7 +785,6 @@ void initScalableKMeansPlusPlus(const raft::handle_t& handle,
  *   k-means++ algorithm.
  * @tparam DataT the type of data used for weights, distances.
  * @tparam IndexT the type of data used for indexing.
- * @tparam layout the layout of the data (row or column).
  * @param[in]     handle        The raft handle.
  * @param[in]     params        Parameters for KMeans model.
  * @param[in]     X             Training instances to cluster. It must be noted
@@ -803,12 +802,12 @@ void initScalableKMeansPlusPlus(const raft::handle_t& handle,
  * closest cluster center.
  * @param[out]    n_iter        Number of iterations run.
  */
-template <typename DataT, typename IndexT, typename layout>
+template <typename DataT, typename IndexT>
 void kmeans_fit(handle_t const& handle,
                 const KMeansParams& params,
-                const raft::device_matrix_view<DataT, layout> X,
-                const std::optional<raft::device_vector_view<DataT>>& sample_weight,
-                std::optional<raft::device_matrix_view<DataT, layout>>& centroids,
+                raft::device_matrix_view<DataT> X,
+                std::optional<raft::device_vector_view<DataT>>& sample_weight,
+                std::optional<raft::device_matrix_view<DataT>>& centroids,
                 DataT& inertia,
                 IndexT& n_iter)
 {
@@ -925,12 +924,12 @@ void kmeans_fit(handle_t const& handle,
   // RAFT_LOG_INFO("KMeans.fit: async call returned (fit could still be running on the device)");
 }
 
-template <typename DataT, typename IndexT, typename layout>
+template <typename DataT, typename IndexT>
 void kmeans_predict(handle_t const& handle,
                     const KMeansParams& params,
-                    const raft::device_matrix_view<DataT, layout> X,
-                    const std::optional<raft::device_vector_view<DataT>>& sample_weight,
-                    raft::device_matrix_view<DataT, layout> centroids,
+                    raft::device_matrix_view<DataT> X,
+                    std::optional<raft::device_vector_view<DataT>>& sample_weight,
+                    raft::device_matrix_view<DataT> centroids,
                     raft::device_vector_view<IndexT> labels,
                     bool normalize_weight,
                     DataT& inertia)

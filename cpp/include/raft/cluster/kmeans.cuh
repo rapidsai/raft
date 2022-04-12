@@ -30,7 +30,6 @@ namespace cluster {
  *   k-means++ algorithm.
  * @tparam DataT the type of data used for weights, distances.
  * @tparam IdxT the type of data used for indexing.
- * @tparam layout the layout of the data (row or column).
  * @param[in]     handle        The raft handle.
  * @param[in]     params        Parameters for KMeans model.
  * @param[in]     X             Training instances to cluster. It must be noted
@@ -48,45 +47,45 @@ namespace cluster {
  * closest cluster center.
  * @param[out]    n_iter        Number of iterations run.
  */
-template <typename DataT, typename IndexT, typename layout>
+template <typename DataT, typename IndexT>
 void kmeans_fit(handle_t const& handle,
                 const KMeansParams& params,
-                const raft::device_matrix_view<DataT, layout> X,
-                const std::optional<raft::device_vector_view<DataT>>& sample_weight,
-                std::optional<raft::device_matrix_view<DataT, layout>>& centroids,
+                raft::device_matrix_view<DataT> X,
+                std::optional<raft::device_vector_view<DataT>>& sample_weight,
+                std::optional<raft::device_matrix_view<DataT>>& centroids,
                 DataT& inertia,
                 IndexT& n_iter)
 {
-  detail::kmeans_fit<DataT, IndexT, layout>(
+  detail::kmeans_fit<DataT, IndexT>(
     handle, params, X, sample_weight, centroids, inertia, n_iter);
 }
 
-template <typename DataT, typename IndexT, typename layout>
+template <typename DataT, typename IndexT>
 void kmeans_predict(handle_t const& handle,
                     const KMeansParams& params,
-                    const raft::device_matrix_view<DataT, layout> X,
-                    const std::optional<raft::device_vector_view<DataT>>& sample_weight,
-                    raft::device_matrix_view<DataT, layout> centroids,
+                    raft::device_matrix_view<DataT> X,
+                    std::optional<raft::device_vector_view<DataT>>& sample_weight,
+                    raft::device_matrix_view<DataT> centroids,
                     raft::device_vector_view<IndexT> labels,
                     bool normalize_weight,
                     DataT& inertia)
 {
-  detail::kmeans_predict<DataT, IndexT, layout>(
+  detail::kmeans_predict<DataT, IndexT>(
     handle, params, X, sample_weight, centroids, labels, normalize_weight, inertia);
 }
 
-template <typename DataT, typename IndexT, typename layout>
+template <typename DataT, typename IndexT>
 void kmeans_fit_predict(handle_t const& handle,
                         const KMeansParams& params,
-                        const raft::device_matrix_view<DataT, layout> X,
-                        const std::optional<raft::device_vector_view<DataT>>& sample_weight,
-                        std::optional<raft::device_matrix_view<DataT, layout>>& centroids,
+                        raft::device_matrix_view<DataT> X,
+                        std::optional<raft::device_vector_view<DataT>>& sample_weight,
+                        std::optional<raft::device_matrix_view<DataT>>& centroids,
                         raft::device_vector_view<IndexT> labels,
                         DataT& inertia,
                         IndexT& n_iter)
 {
-  kmeans_fit<DataT, IndexT, layout>(handle, params, X, sample_weight, centroids, inertia, n_iter);
-  kmeans_predict<DataT, IndexT, layout>(
+  kmeans_fit<DataT, IndexT>(handle, params, X, sample_weight, centroids, inertia, n_iter);
+  kmeans_predict<DataT, IndexT>(
     handle, params, X, sample_weight, centroids.value(), labels, true, inertia);
 }
 }  // namespace cluster

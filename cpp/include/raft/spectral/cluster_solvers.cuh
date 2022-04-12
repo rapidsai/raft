@@ -57,7 +57,7 @@ struct kmeans_solver_t {
     RAFT_EXPECTS(codes != nullptr, "Null codes buffer.");
     value_type_t residual{};
     index_type_t iters{};
-    raft::cluster::KMeansParams km_params;
+    /*raft::cluster::KMeansParams km_params;
     km_params.n_clusters = config_.n_clusters;
     km_params.tol        = config_.tol;
     km_params.max_iter   = config_.maxIter;
@@ -73,9 +73,9 @@ struct kmeans_solver_t {
     auto sw            = std::make_optional(weight.view());
     thrust::fill(handle.get_thrust_policy(), sw.value().data(), sw.value().data() + n_obs_vecs, 1);
     raft::copy(observations.data(), obs, n_obs_vecs * dim, handle.get_stream());
-    raft::cluster::kmeans_fit_predict<value_type_t, index_type_t, raft::layout_c_contiguous>(
+    raft::cluster::kmeans_fit_predict<value_type_t, index_type_t>(
       handle, km_params, observations.view(), sw, centroidsView, labels.view(), residual, iters);
-    raft::copy(codes, labels.data(), n_obs_vecs, handle.get_stream());
+    raft::copy(codes, labels.data(), n_obs_vecs, handle.get_stream());*/
     return std::make_pair(residual, iters);
   }
 
