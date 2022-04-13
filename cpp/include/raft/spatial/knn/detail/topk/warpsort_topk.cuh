@@ -505,10 +505,10 @@ __global__ void block_kernel(
   in_idx += blockIdx.y * len;
 
   const IdxT stride         = gridDim.x * blockDim.x;
-  const IdxT per_thread_lim = len + threadIdx.x;
-  for (IdxT i = threadIdx.x + blockIdx.x * gridDim.x; i < per_thread_lim; i += stride) {
-    queue.add(i < len ? in[i] : WarpSortClass<Capacity, Ascending, T, IdxT>::kDummy,
-              i < len ? in_idx[i] : std::numeric_limits<IdxT>::max());
+  const IdxT per_thread_lim = len + laneId();
+  for (IdxT i = threadIdx.x + blockIdx.x * blockDim.x; i < per_thread_lim; i += stride) {
+    queue.add(i < len ? __ldcs(in + i) : WarpSortClass<Capacity, Ascending, T, IdxT>::kDummy,
+              i < len ? __ldcs(in_idx + i) : std::numeric_limits<IdxT>::max());
   }
 
   queue.done();
@@ -811,6 +811,9 @@ void warp_sort_topk(const T* in,
                     rmm::cuda_stream_view stream = 0)
 {
   ASSERT(k <= kMaxCapacity, "Current max k is %d (requested %d)", kMaxCapacity, k);
+  ASSERT(len <= size_t(std::numeric_limits<IdxT>::max()),
+         "The `len` (%zu) does not fit the indexing type",
+         len);
 
   int capacity     = calc_capacity(k);
   int num_of_block = 0;
