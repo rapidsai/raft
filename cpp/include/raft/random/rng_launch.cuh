@@ -13,26 +13,36 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-/**
- * This file is deprecated and will be removed in release 22.06.
- * Please use the cuh version instead.
- */
 
-#ifndef __RNG_STATE_H
-#define __RNG_STATE_H
+#ifndef __RNG_LAUNCH_H
+#define __RNG_LAUNCH_H
 
 #pragma once
 
-#include "detail/rng_state.hpp"
+#include "detail/rng_launch.cuh"
+#include "rng_state.hpp"
 
 namespace raft {
 namespace random {
 
-using detail::GeneratorType;
-using detail::GenPhilox;
-using detail::GenPC;
+using detail::call_rng_func;
 
-using detail::RngState;
+using detail::uniform;
+using detail::uniformInt;
+using detail::normal;
+using detail::normalInt;
+using detail::normalTable;
+using detail::fill;
+using detail::bernoulli;
+using detail::scaled_bernoulli;
+using detail::gumbel;
+using detail::lognormal;
+using detail::logistic;
+using detail::exponential;
+using detail::rayleigh;
+using detail::laplace;
+
+using detail::sampleWithoutReplacement;
 
 };  // end namespace random
 };  // end namespace raft
