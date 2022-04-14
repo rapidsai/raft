@@ -18,6 +18,7 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 
+#include <raft/random/rng_launch.cuh>
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/op/filter.cuh>
 #include <raft/sparse/op/sort.cuh>

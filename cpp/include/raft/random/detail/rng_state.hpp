@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include <random>
+
 namespace raft {
 namespace random {
 namespace detail {
@@ -28,33 +30,29 @@ enum GeneratorType {
   GenPC
 };
 
+/**
+ * The RNG state used to keep RNG state around on the host.
+ */
 struct RngState {
   explicit RngState(uint64_t _seed) : seed(_seed) {}
   RngState(uint64_t _seed, GeneratorType _type) : seed(_seed), type(_type) {}
-  RngState(uint64_t _seed, uint64_t _base_subsequence, GeneratorType _type) : seed(_seed), base_subsequence(_base_subsequence), type(_type) {}
+  RngState(uint64_t _seed, uint64_t _base_subsequence, GeneratorType _type)
+    : seed(_seed), base_subsequence(_base_subsequence), type(_type)
+  {
+  }
 
   uint64_t seed{0};
   uint64_t base_subsequence{0};
+  /**
+   * The generator type. PCGenerator has been extensively tested and is faster
+   * than Philox, thus we use it as the default.
+   */
   GeneratorType type{GeneratorType::GenPC};
 
   void advance(uint64_t max_uniq_subsequences_used,
                uint64_t max_numbers_generated_per_subsequence = 0)
   {
     base_subsequence += max_uniq_subsequences_used;
-  }
-
-  template <typename IdxT>
-  void affine_transform_params(IdxT n, IdxT& a, IdxT& b)
-  {
-    // always keep 'a' to be coprime to 'n'
-    std::mt19937_64 mt_rng(seed + base_subsequence);
-    a = mt_rng() % n;
-    while (gcd(a, n) != 1) {
-      ++a;
-      if (a >= n) a = 0;
-    }
-    // the bias term 'b' can be any number in the range of [0, n)
-    b = mt_rng() % n;
   }
 };
 

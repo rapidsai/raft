@@ -111,14 +111,18 @@ class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
       case RNG_LogNormal:
         lognormal(r, data.data(), params.len, params.start, params.end, stream);
         break;
-      case RNG_Uniform: uniform(r, data.data(), params.len, params.start, params.end, stream); break;
+      case RNG_Uniform:
+        uniform(r, data.data(), params.len, params.start, params.end, stream);
+        break;
       case RNG_Gumbel: gumbel(r, data.data(), params.len, params.start, params.end, stream); break;
       case RNG_Logistic:
         logistic(r, data.data(), params.len, params.start, params.end, stream);
         break;
       case RNG_Exp: exponential(r, data.data(), params.len, params.start, stream); break;
       case RNG_Rayleigh: rayleigh(r, data.data(), params.len, params.start, stream); break;
-      case RNG_Laplace: laplace(r, data.data(), params.len, params.start, params.end, stream); break;
+      case RNG_Laplace:
+        laplace(r, data.data(), params.len, params.start, params.end, stream);
+        break;
     };
     static const int threads = 128;
     meanKernel<T, threads><<<raft::ceildiv(params.len, threads), threads, 0, stream>>>(
@@ -443,7 +447,8 @@ class RngNormalTableTest : public ::testing::TestWithParam<RngNormalTableInputs<
     RngState r(params.seed, params.gtype);
     fill(r, mu_vec.data(), params.cols, params.mu, stream);
     T* sigma_vec = nullptr;
-    normalTable(r, data.data(), params.rows, params.cols, mu_vec.data(), sigma_vec, params.sigma, stream);
+    normalTable(
+      r, data.data(), params.rows, params.cols, mu_vec.data(), sigma_vec, params.sigma, stream);
     static const int threads = 128;
     meanKernel<T, threads>
       <<<raft::ceildiv(len, threads), threads, 0, stream>>>(stats.data(), data.data(), len);
@@ -514,7 +519,7 @@ class RngAffineTest : public ::testing::TestWithParam<RngAffineInputs> {
   {
     params = ::testing::TestWithParam<RngAffineInputs>::GetParam();
     RngState r(params.seed);
-    r.affine_transform_params(params.n, a, b);
+    affine_transform_params(r, params.n, a, b);
   }
 
   void check()

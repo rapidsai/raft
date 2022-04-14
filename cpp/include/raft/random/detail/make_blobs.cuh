@@ -40,7 +40,7 @@ void generate_labels(IdxT* labels,
                      cudaStream_t stream)
 {
   IdxT a, b;
-  r.affine_transform_params(n_clusters, a, b);
+  affine_transform_params(r, n_clusters, a, b);
   auto op = [=] __device__(IdxT * ptr, IdxT idx) {
     if (shuffle) { idx = IdxT((a * int64_t(idx)) + b); }
     idx %= n_clusters;
@@ -158,7 +158,19 @@ void generate_data(DataT* out,
 {
   IdxT items   = n_rows * n_cols;
   IdxT nBlocks = (items + 127) / 128;
-  RAFT_CALL_RNG_FUNC(rng_state, generate_data_kernel<<<nBlocks, 128, 0, stream>>>, out, labels, n_rows, n_cols, n_clusters, row_major, centers, cluster_std, cluster_std_scalar);
+  // parentheses needed here for kernel, otherwise macro interprets the arguments
+  // of triple chevron notation as macro arguments
+  RAFT_CALL_RNG_FUNC(rng_state,
+                     (generate_data_kernel<<<nBlocks, 128, 0, stream>>>),
+                     out,
+                     labels,
+                     n_rows,
+                     n_cols,
+                     n_clusters,
+                     row_major,
+                     centers,
+                     cluster_std,
+                     cluster_std_scalar);
 }
 
 /**
@@ -218,13 +230,24 @@ void make_blobs_caller(DataT* out,
   const DataT* _centers;
   if (centers == nullptr) {
     rand_centers.resize(n_clusters * n_cols, stream);
-    raft::random::uniform(r, rand_centers.data(), n_clusters * n_cols, center_box_min, center_box_max, stream);
+    raft::random::uniform(
+      r, rand_centers.data(), n_clusters * n_cols, center_box_min, center_box_max, stream);
     _centers = rand_centers.data();
   } else {
     _centers = centers;
   }
   generate_labels(labels, n_rows, n_clusters, shuffle, r, stream);
-  generate_data(out, labels, n_rows, n_cols, n_clusters, stream, row_major, _centers, cluster_std, cluster_std_scalar, r);
+  generate_data(out,
+                labels,
+                n_rows,
+                n_cols,
+                n_clusters,
+                stream,
+                row_major,
+                _centers,
+                cluster_std,
+                cluster_std_scalar,
+                r);
 }
 
 }  // end namespace detail

@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include "rng_state.hpp"
 #include "rng_device.cuh"
+#include "rng_state.hpp"
 
 #include <raft/cudart_utils.h>
 
@@ -25,61 +25,100 @@ namespace raft {
 namespace random {
 namespace detail {
 
-#define RAFT_CALL_RNG_FUNC(rng_state, func, ...) \
-  switch ((rng_state).type) { \
-    case GeneratorType::Philox: \
-      DeviceState<PhiloxGenerator> device_state{(rng_state)}; \
-      func(device_state, __VA_ARGS__);  \
-      break; \
-    case GeneratorType::PCG: \
-      DeviceState<PCGenerator> device_state{(rng_state)}; \
-      func(device_state, __VA_ARGS__); \
-      break; \
-    default: \
-      RAFT_FAIL("Unepxected generator type '%d'", int((rng_state).type)); \
+/**
+ * Some macro magic to remove optional parentheses of a macro argument.
+ * See https://stackoverflow.com/a/62984543
+ */
+#define RAFT_DEPAREN(X)      RAFT_DEPAREN_H2(RAFT_DEPAREN_H1 X)
+#define RAFT_DEPAREN_H1(...) RAFT_DEPAREN_H1 __VA_ARGS__
+#define RAFT_DEPAREN_H2(...) RAFT_DEPAREN_H3(__VA_ARGS__)
+#define RAFT_DEPAREN_H3(...) RAFT_DEPAREN_MAGIC##__VA_ARGS__
+#define RAFT_DEPAREN_MAGICRAFT_DEPAREN_H1
+
+/**
+ * This macro will invoke function `func` with the correct instantiation of
+ * device state as the first parameter, and passes all subsequent macro
+ * arguments through to the function.
+ * Note that you can call this macro with incomplete template specializations
+ * as well as triple chevron kernel calls, see the following code example
+ * @code
+ * template <int C1, int C2, typename GenType>
+ * __global__ void my_kernel(DeviceState<GenType> state, int arg1) { ... }
+ *
+ * template <int C1, typename GenType, int C2 = 2>
+ * void foo(DeviceState<GenType> state, int arg1) {
+ *   my_kernel<C1, C2><<<1, 1>>>(state, arg1);
+ * }
+ *
+ * RAFT_CALL_RNG_FUNC(rng_state, foo<1>, 5);
+ * RAFT_CALL_RNG_FUNC(rng_state, (my_kernel<1, 2><<<1, 1>>>), 5);
+ * @endcode
+ */
+#define RAFT_CALL_RNG_FUNC(rng_state, func, ...)                                 \
+  switch ((rng_state).type) {                                                    \
+    case GeneratorType::GenPhilox: {                                             \
+      DeviceState<PhiloxGenerator> dev_state_philox{(rng_state)};                \
+      RAFT_DEPAREN(func)(dev_state_philox, ##__VA_ARGS__);                       \
+      break;                                                                     \
+    }                                                                            \
+    case GeneratorType::GenPC: {                                                 \
+      DeviceState<PCGenerator> dev_state_pc{(rng_state)};                        \
+      RAFT_DEPAREN(func)(dev_state_pc, ##__VA_ARGS__);                           \
+      break;                                                                     \
+    }                                                                            \
+    default: RAFT_FAIL("Unepxected generator type '%d'", int((rng_state).type)); \
   }
 
 /**
  * This function is useful if all template arguments to `func` can be inferred
- * by the compiler, otherwise use the MACRO `RAFT_CALL_RNG_FUNC` which
- * can accept incomplete template specializations for the function
+ * by the compiler. Otherwise use the MACRO `RAFT_CALL_RNG_FUNC` which
+ * can accept incomplete template specializations (or kernel calls) as the function
  */
 template <typename FuncT, typename... ArgsT>
-void call_rng_func(RngState const &rng_state, FuncT func, ArgsT... args) {
+void call_rng_func(RngState const& rng_state, FuncT func, ArgsT... args)
+{
   switch (rng_state.type) {
-    case GeneratorType::Philox:
-      DeviceState<PhiloxGenerator> device_state{rng_state};
-      func(device_state, args...);
+    case GeneratorType::GenPhilox: {
+      DeviceState<PhiloxGenerator> dev_state_philox{rng_state};
+      func(dev_state_philox, args...);
       break;
-    case GeneratorType::PCG:
-      DeviceState<PCGenerator> device_state{rng_state};
-      func(device_state, args...);
+    }
+    case GeneratorType::GenPC: {
+      DeviceState<PCGenerator> dev_state_pc{rng_state};
+      func(dev_state_pc, args...);
       break;
-    default:
-      RAFT_FAIL("Unepxected generator type '%d'", int(rng_state.type));
+    }
+    default: RAFT_FAIL("Unepxected generator type '%d'", int(rng_state.type));
   }
 }
 
-template <int ITEMS_PER_CALL, typename... ArgsT>
-void call_rng_kernel(DeviceState const &state, cudaStream_t stream, ArgsT... args) {
+template <int ITEMS_PER_CALL, typename GenType, typename... ArgsT>
+void call_rng_kernel(DeviceState<GenType> const& dev_state,
+                     RngState& rng_state,
+                     cudaStream_t stream,
+                     ArgsT... args)
+{
   static constexpr auto N_THREADS = 256;
-  auto n_blocks = 4 * getMultiProcessorCount();
-  rngKernel<ITEMS_PER_CALL><<<n_blocks, N_THREADS, 0, stream>>>(state, args...);
+  auto n_blocks                   = 4 * getMultiProcessorCount();
+  rngKernel<ITEMS_PER_CALL><<<n_blocks, N_THREADS, 0, stream>>>(dev_state, args...);
+  rng_state.advance(uint64_t(n_blocks) * N_THREADS, 16);
 }
 
 template <typename OutType, typename LenType = int>
-void uniform(RngState& rng_state, OutType* ptr, LenType len, OutType start, OutType end, cudaStream_t stream)
+void uniform(
+  RngState& rng_state, OutType* ptr, LenType len, OutType start, OutType end, cudaStream_t stream)
 {
   static_assert(std::is_floating_point<OutType>::value,
                 "Type for 'uniform' can only be floating point!");
   UniformDistParams<OutType> params;
   params.start = start;
   params.end   = end;
-  RAFT_CALL_RNG_FUNC(rng_state, call_rng_kernel<1>, stream, ptr, len, params);
+  RAFT_CALL_RNG_FUNC(rng_state, call_rng_kernel<1>, rng_state, stream, ptr, len, params);
 }
 
 template <typename OutType, typename LenType = int>
-void uniformInt(RngState& rng_state, OutType* ptr, LenType len, OutType start, OutType end, cudaStream_t stream)
+void uniformInt(
+  RngState& rng_state, OutType* ptr, LenType len, OutType start, OutType end, cudaStream_t stream)
 {
   static_assert(std::is_integral<OutType>::value, "Type for 'uniformInt' can only be integer!");
   ASSERT(end > start, "'end' must be greater than 'start'");
@@ -88,45 +127,48 @@ void uniformInt(RngState& rng_state, OutType* ptr, LenType len, OutType start, O
     params.start = start;
     params.end   = end;
     params.diff  = uint32_t(params.end - params.start);
-    RAFT_CALL_RNG_FUNC(rng_state, call_rng_kernel<1>, stream, ptr, len, params);
+    RAFT_CALL_RNG_FUNC(rng_state, call_rng_kernel<1>, rng_state, stream, ptr, len, params);
   } else {
     UniformIntDistParams<OutType, uint64_t> params;
     params.start = start;
     params.end   = end;
     params.diff  = uint64_t(params.end - params.start);
-    RAFT_CALL_RNG_FUNC(rng_state, call_rng_kernel<1>, stream, ptr, len, params);
+    RAFT_CALL_RNG_FUNC(rng_state, call_rng_kernel<1>, rng_state, stream, ptr, len, params);
   }
 }
 
 template <typename OutType, typename LenType = int>
-void normal(OutType* ptr, LenType len, OutType mu, OutType sigma, cudaStream_t stream)
+void normal(
+  RngState& rng_state, OutType* ptr, LenType len, OutType mu, OutType sigma, cudaStream_t stream)
 {
   static_assert(std::is_floating_point<OutType>::value,
                 "Type for 'normal' can only be floating point!");
   NormalDistParams<OutType> params;
   params.mu    = mu;
   params.sigma = sigma;
-  RAFT_CALL_RNG_FUNC(rng_state, call_rng_kernel<2>, stream, ptr, len, params);
+  RAFT_CALL_RNG_FUNC(rng_state, call_rng_kernel<2>, rng_state, stream, ptr, len, params);
 }
 
 template <typename IntType, typename LenType = int>
-void normalInt(IntType* ptr, LenType len, IntType mu, IntType sigma, cudaStream_t stream)
+void normalInt(
+  RngState& rng_state, IntType* ptr, LenType len, IntType mu, IntType sigma, cudaStream_t stream)
 {
   static_assert(std::is_integral<IntType>::value, "Type for 'normalInt' can only be integer!");
   NormalIntDistParams<IntType> params;
   params.mu    = mu;
   params.sigma = sigma;
-  RAFT_CALL_RNG_FUNC(rng_state, call_rng_kernel<2>, stream, ptr, len, params);
+  RAFT_CALL_RNG_FUNC(rng_state, call_rng_kernel<2>, rng_state, stream, ptr, len, params);
 }
 
 template <typename OutType, typename LenType = int>
-void normalTable(OutType* ptr,
-                  LenType n_rows,
-                  LenType n_cols,
-                  const OutType* mu_vec,
-                  const OutType* sigma_vec,
-                  OutType sigma,
-                  cudaStream_t stream)
+void normalTable(RngState& rng_state,
+                 OutType* ptr,
+                 LenType n_rows,
+                 LenType n_cols,
+                 const OutType* mu_vec,
+                 const OutType* sigma_vec,
+                 OutType sigma,
+                 cudaStream_t stream)
 {
   NormalTableDistParams<OutType, LenType> params;
   params.n_rows    = n_rows;
@@ -135,90 +177,97 @@ void normalTable(OutType* ptr,
   params.sigma     = sigma;
   params.sigma_vec = sigma_vec;
   LenType len      = n_rows * n_cols;
-  RAFT_CALL_RNG_FUNC(rng_state, call_rng_kernel<2>, stream, ptr, len, params);
+  RAFT_CALL_RNG_FUNC(rng_state, call_rng_kernel<2>, rng_state, stream, ptr, len, params);
 }
 
 template <typename OutType, typename LenType = int>
-void fill(OutType* ptr, LenType len, OutType val, cudaStream_t stream)
+void fill(RngState& rng_state, OutType* ptr, LenType len, OutType val, cudaStream_t stream)
 {
   InvariantDistParams<OutType> params;
   params.const_val = val;
-  RAFT_CALL_RNG_FUNC(rng_state, call_rng_kernel<1>, stream, ptr, len, params);
+  RAFT_CALL_RNG_FUNC(rng_state, call_rng_kernel<1>, rng_state, stream, ptr, len, params);
 }
 
 template <typename Type, typename OutType = bool, typename LenType = int>
-void bernoulli(OutType* ptr, LenType len, Type prob, cudaStream_t stream)
+void bernoulli(RngState& rng_state, OutType* ptr, LenType len, Type prob, cudaStream_t stream)
 {
   BernoulliDistParams<Type> params;
   params.prob = prob;
-  RAFT_CALL_RNG_FUNC(rng_state, call_rng_kernel<1>, stream, ptr, len, params);
+  RAFT_CALL_RNG_FUNC(rng_state, call_rng_kernel<1>, rng_state, stream, ptr, len, params);
 }
 
 template <typename OutType, typename LenType = int>
-void scaled_bernoulli(OutType* ptr, LenType len, OutType prob, OutType scale, cudaStream_t stream)
+void scaled_bernoulli(
+  RngState& rng_state, OutType* ptr, LenType len, OutType prob, OutType scale, cudaStream_t stream)
 {
   static_assert(std::is_floating_point<OutType>::value,
                 "Type for 'scaled_bernoulli' can only be floating point!");
   ScaledBernoulliDistParams<OutType> params;
   params.prob  = prob;
   params.scale = scale;
-  RAFT_CALL_RNG_FUNC(rng_state, call_rng_kernel<1>, stream, ptr, len, params);
+  RAFT_CALL_RNG_FUNC(rng_state, call_rng_kernel<1>, rng_state, stream, ptr, len, params);
 }
 
 template <typename OutType, typename LenType = int>
-void gumbel(OutType* ptr, LenType len, OutType mu, OutType beta, cudaStream_t stream)
+void gumbel(
+  RngState& rng_state, OutType* ptr, LenType len, OutType mu, OutType beta, cudaStream_t stream)
 {
   GumbelDistParams<OutType> params;
   params.mu   = mu;
   params.beta = beta;
-  RAFT_CALL_RNG_FUNC(rng_state, call_rng_kernel<1>, stream, ptr, len, params);
+  RAFT_CALL_RNG_FUNC(rng_state, call_rng_kernel<1>, rng_state, stream, ptr, len, params);
 }
 
 template <typename OutType, typename LenType = int>
-void lognormal(OutType* ptr, LenType len, OutType mu, OutType sigma, cudaStream_t stream)
+void lognormal(
+  RngState& rng_state, OutType* ptr, LenType len, OutType mu, OutType sigma, cudaStream_t stream)
 {
   LogNormalDistParams<OutType> params;
   params.mu    = mu;
   params.sigma = sigma;
-  RAFT_CALL_RNG_FUNC(rng_state, call_rng_kernel<2>, stream, ptr, len, params);
+  RAFT_CALL_RNG_FUNC(rng_state, call_rng_kernel<2>, rng_state, stream, ptr, len, params);
 }
 
 template <typename OutType, typename LenType = int>
-void logistic(OutType* ptr, LenType len, OutType mu, OutType scale, cudaStream_t stream)
+void logistic(
+  RngState& rng_state, OutType* ptr, LenType len, OutType mu, OutType scale, cudaStream_t stream)
 {
   LogisticDistParams<OutType> params;
   params.mu    = mu;
   params.scale = scale;
-  RAFT_CALL_RNG_FUNC(rng_state, call_rng_kernel<1>, stream, ptr, len, params);
+  RAFT_CALL_RNG_FUNC(rng_state, call_rng_kernel<1>, rng_state, stream, ptr, len, params);
 }
 
 template <typename OutType, typename LenType = int>
-void exponential(OutType* ptr, LenType len, OutType lambda, cudaStream_t stream)
+void exponential(
+  RngState& rng_state, OutType* ptr, LenType len, OutType lambda, cudaStream_t stream)
 {
   ExponentialDistParams<OutType> params;
   params.lambda = lambda;
-  RAFT_CALL_RNG_FUNC(rng_state, call_rng_kernel<1>, stream, ptr, len, params);
+  RAFT_CALL_RNG_FUNC(rng_state, call_rng_kernel<1>, rng_state, stream, ptr, len, params);
 }
 
 template <typename OutType, typename LenType = int>
-void rayleigh(OutType* ptr, LenType len, OutType sigma, cudaStream_t stream)
+void rayleigh(RngState& rng_state, OutType* ptr, LenType len, OutType sigma, cudaStream_t stream)
 {
   RayleighDistParams<OutType> params;
   params.sigma = sigma;
-  RAFT_CALL_RNG_FUNC(rng_state, call_rng_kernel<1>, stream, ptr, len, params);
+  RAFT_CALL_RNG_FUNC(rng_state, call_rng_kernel<1>, rng_state, stream, ptr, len, params);
 }
 
 template <typename OutType, typename LenType = int>
-void laplace(OutType* ptr, LenType len, OutType mu, OutType scale, cudaStream_t stream)
+void laplace(
+  RngState& rng_state, OutType* ptr, LenType len, OutType mu, OutType scale, cudaStream_t stream)
 {
   LaplaceDistParams<OutType> params;
   params.mu    = mu;
   params.scale = scale;
-  RAFT_CALL_RNG_FUNC(rng_state, call_rng_kernel<1>, stream, ptr, len, params);
+  RAFT_CALL_RNG_FUNC(rng_state, call_rng_kernel<1>, rng_state, stream, ptr, len, params);
 }
 
 template <typename DataT, typename WeightsT, typename IdxT = int>
-void sampleWithoutReplacement(const raft::handle_t& handle,
+void sampleWithoutReplacement(RngState& rng_state,
+                              const raft::handle_t& handle,
                               DataT* out,
                               IdxT* outIdx,
                               const DataT* in,
@@ -239,7 +288,7 @@ void sampleWithoutReplacement(const raft::handle_t& handle,
   params.inIdxPtr = inIdxPtr;
   params.wts      = wts;
 
-  RAFT_CALL_RNG_FUNC(rng_state, call_rng_kernel<1>, stream, ptr, len, params);
+  RAFT_CALL_RNG_FUNC(rng_state, call_rng_kernel<1>, rng_state, stream, expWts.data(), len, params);
 
   ///@todo: use a more efficient partitioning scheme instead of full sort
   // sort the array and pick the top sampledLen items
@@ -251,6 +300,20 @@ void sampleWithoutReplacement(const raft::handle_t& handle,
       outIdx, outIdxPtr, sizeof(IdxT) * sampledLen, cudaMemcpyDeviceToDevice, stream));
   }
   scatter<DataT, IdxT>(out, in, outIdxPtr, sampledLen, stream);
+}
+
+template <typename IdxT>
+void affine_transform_params(RngState const& rng_state, IdxT n, IdxT& a, IdxT& b)
+{
+  // always keep 'a' to be coprime to 'n'
+  std::mt19937_64 mt_rng(rng_state.seed + rng_state.base_subsequence);
+  a = mt_rng() % n;
+  while (gcd(a, n) != 1) {
+    ++a;
+    if (a >= n) a = 0;
+  }
+  // the bias term 'b' can be any number in the range of [0, n)
+  b = mt_rng() % n;
 }
 
 };  // end namespace detail

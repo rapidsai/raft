@@ -25,11 +25,13 @@
 #pragma once
 
 #if defined(_MSC_VER)
-#pragma message("raft/random/rng.cuh is deprecated and will be removed in a future relase. "
-                "Please use raft/random/rng_state.hpp or raft/random/rng_launch.cuh instead")
+#pragma message(                                                               \
+  "raft/random/rng.cuh is deprecated and will be removed in a future relase. " \
+  "Please use raft/random/rng_state.hpp or raft/random/rng_launch.cuh instead")
 #else
-#warning "raft/random/rng.hpp is deprecated and will be removed in a future relase. "
-         "Please use raft/random/rng_state.hpp or raft/random/rng_launch.cuh instead"
+#warning \
+  "raft/random/rng.hpp is deprecated and will be removed in a future relase. " \
+  "Please use raft/random/rng_state.hpp or raft/random/rng_launch.cuh instead"
 #endif
 
 #include "detail/rng_impl.cuh"

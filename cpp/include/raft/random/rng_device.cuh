@@ -48,6 +48,8 @@ using detail::UniformIntDistParams;
 
 // Not strictly needed due to C++ ADL rules
 using detail::custom_next;
+// this is necessary again since all arguments are primitive types
+using detail::box_muller_transform;
 
 };  // end namespace random
 };  // end namespace raft

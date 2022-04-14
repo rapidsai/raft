@@ -20,8 +20,8 @@
 
 #pragma once
 
-#include "rng_state.hpp"
 #include "rng_device.cuh"
+#include "rng_state.hpp"
 
 #include <curand_kernel.h>
 #include <raft/common/cub_wrappers.cuh>

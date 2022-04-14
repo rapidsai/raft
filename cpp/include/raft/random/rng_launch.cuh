@@ -27,20 +27,20 @@ namespace random {
 
 using detail::call_rng_func;
 
-using detail::uniform;
-using detail::uniformInt;
+using detail::bernoulli;
+using detail::exponential;
+using detail::fill;
+using detail::gumbel;
+using detail::laplace;
+using detail::logistic;
+using detail::lognormal;
 using detail::normal;
 using detail::normalInt;
 using detail::normalTable;
-using detail::fill;
-using detail::bernoulli;
-using detail::scaled_bernoulli;
-using detail::gumbel;
-using detail::lognormal;
-using detail::logistic;
-using detail::exponential;
 using detail::rayleigh;
-using detail::laplace;
+using detail::scaled_bernoulli;
+using detail::uniform;
+using detail::uniformInt;
 
 using detail::sampleWithoutReplacement;
 

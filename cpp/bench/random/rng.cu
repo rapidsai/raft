@@ -48,8 +48,7 @@ struct rng : public fixture {
 
   void run_benchmark(::benchmark::State& state) override
   {
-    using namespace raft::random;
-    RngState r(123456ULL, params.gtype);
+    raft::random::RngState r(123456ULL, params.gtype);
     loop_on_state(state, [this, &r]() {
       switch (params.type) {
         case RNG_Normal: normal(r, ptr.data(), params.len, params.start, params.end, stream); break;
@@ -81,6 +80,7 @@ struct rng : public fixture {
 template <typename T>
 static std::vector<rng_inputs<T>> get_rng_input_vecs()
 {
+  using namespace raft::random;
   return {
     {1024 * 1024, RNG_Uniform, GenPhilox, T(-1.0), T(1.0)},
     {32 * 1024 * 1024, RNG_Uniform, GenPhilox, T(-1.0), T(1.0)},

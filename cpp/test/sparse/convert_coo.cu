@@ -16,6 +16,7 @@
 
 #include <gtest/gtest.h>
 
+#include <raft/handle.hpp>
 #include <raft/sparse/convert/coo.cuh>
 #include <raft/sparse/csr.hpp>
 

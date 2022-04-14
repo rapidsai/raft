@@ -30,6 +30,24 @@ namespace raft {
 namespace random {
 namespace detail {
 
+/**
+ * The device state used to communicate RNG state from host to device.
+ * As of now, it is just a templated version of `RngState`.
+ */
+template <typename GenType>
+struct DeviceState {
+  using gen_t                    = GenType;
+  static constexpr auto GEN_TYPE = gen_t::GEN_TYPE;
+
+  explicit DeviceState(const RngState& rng_state)
+    : seed(rng_state.seed), base_subsequence(rng_state.base_subsequence)
+  {
+  }
+
+  uint64_t seed;
+  uint64_t base_subsequence;
+};
+
 template <typename OutType>
 struct InvariantDistParams {
   OutType const_val;
@@ -418,7 +436,7 @@ DI void custom_next(
 /** Philox-based random number generator */
 // Courtesy: Jakub Szuppe
 struct PhiloxGenerator {
-  static constexpr auto GEN_TYPE = GeneratorType::Philox;
+  static constexpr auto GEN_TYPE = GeneratorType::GenPhilox;
 
   /**
    * @brief ctor. Initializes the state for RNG
@@ -517,7 +535,7 @@ struct PhiloxGenerator {
 /** PCG random number generator */
 
 struct PCGenerator {
-  static constexpr auto GEN_TYPE = GeneratorType::PCG;
+  static constexpr auto GEN_TYPE = GeneratorType::GenPC;
 
   /**
    * @brief ctor. Initializes the state for RNG. This code is derived from PCG basic code
@@ -640,23 +658,15 @@ struct PCGenerator {
   uint64_t inc;
 };
 
-template <typename GenType>
-struct DeviceState {
-  using gen_t = GenType;
-  static constexpr auto GEN_TYPE = gen_t::GEN_TYPE;
-
-  explicit DeviceState(const RngState& rng_state) : seed(rng_state.seed), base_subsequence(rng_state.base_subsequence) {}
-
-  uint64_t seed;
-  uint64_t base_subsequence;
-};
-
 template <int ITEMS_PER_CALL,
           typename OutType,
           typename LenType,
           typename GenType,
           typename ParamType>
-__global__ void rngKernel(DeviceState<GenType> rng_state, OutType* ptr, LenType len, ParamType params)
+__global__ void rngKernel(DeviceState<GenType> rng_state,
+                          OutType* ptr,
+                          LenType len,
+                          ParamType params)
 {
   LenType tid = threadIdx.x + blockIdx.x * blockDim.x;
   GenType gen(rng_state, (uint64_t)tid);
@@ -673,7 +683,7 @@ __global__ void rngKernel(DeviceState<GenType> rng_state, OutType* ptr, LenType 
 }
 
 /**
- * This kernel is deprecated and will be removed in a future release
+ * This kernel is deprecated and should be removed in a future release
  */
 template <typename OutType,
           typename LenType,

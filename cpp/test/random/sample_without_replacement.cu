@@ -68,14 +68,15 @@ class SWoRTest : public ::testing::TestWithParam<SWoRInputs<T>> {
     if (params.largeWeightIndex >= 0) {
       update_device(wts.data() + params.largeWeightIndex, &params.largeWeight, 1, stream);
     }
-    sampleWithoutReplacement(r, handle,
-                               out.data(),
-                               outIdx.data(),
-                               in.data(),
-                               wts.data(),
-                               params.sampledLen,
-                               params.len,
-                               stream);
+    sampleWithoutReplacement(r,
+                             handle,
+                             out.data(),
+                             outIdx.data(),
+                             in.data(),
+                             wts.data(),
+                             params.sampledLen,
+                             params.len,
+                             stream);
     update_host(&(h_outIdx[0]), outIdx.data(), params.sampledLen, stream);
     handle.sync_stream(stream);
   }
