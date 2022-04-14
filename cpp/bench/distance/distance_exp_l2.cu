@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,11 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-/**
- * This file is deprecated and will be removed in release 22.06.
- * Please use the cuh version instead.
- */
 
-#pragma once
+#include "distance_common.cuh"
 
-#include <raft/stats/completeness_score.cuh>
+namespace raft::bench::distance {
+
+DIST_BENCH_REGISTER(DistanceL2Sq, raft::distance::DistanceType::L2Expanded);
+DIST_BENCH_REGISTER(DistanceL2Sqrt, raft::distance::DistanceType::L2SqrtExpanded);
+
+}  // namespace raft::bench::distance

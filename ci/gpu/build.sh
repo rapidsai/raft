@@ -63,14 +63,18 @@ gpuci_mamba_retry install -y -c conda-forge -c rapidsai -c rapidsai-nightly -c n
       "dask-cuda=${MINOR_VERSION}" \
       "ucx-py=${UCX_PY_VERSION}" \
       "rapids-build-env=${MINOR_VERSION}.*" \
-      "rapids-notebook-env=${MINOR_VERSION}.*" \
-      "rapids-doc-env=${MINOR_VERSION}.*"
+      "rapids-notebook-env=${MINOR_VERSION}.*"
+
+if [ "$(arch)" = "x86_64" ]; then
+    gpuci_mamba_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
+        "rapids-doc-env=${MINOR_VERSION}.*"
+fi
 
 # Install the master version of dask, distributed, and dask-ml
 gpuci_logger "Install the master version of dask and distributed"
 set -x
-pip install "git+https://github.com/dask/distributed.git@2022.03.0" --upgrade --no-deps
-pip install "git+https://github.com/dask/dask.git@2022.03.0" --upgrade --no-deps
+pip install "git+https://github.com/dask/distributed.git@main" --upgrade --no-deps
+pip install "git+https://github.com/dask/dask.git@main" --upgrade --no-deps
 set +x
 
 # Install pre-built conda packages from previous CI step
@@ -134,5 +138,7 @@ gpuci_logger "Python pytest for pylibraft"
 cd "$WORKSPACE/python/pylibraft"
 python -m pytest --cache-clear --junitxml="$WORKSPACE/junit-pylibraft.xml" -v -s
 
-gpuci_logger "Building docs"
-"$WORKSPACE/build.sh" docs -v
+if [ "$(arch)" = "x86_64" ]; then
+  gpuci_logger "Building docs"
+  "$WORKSPACE/build.sh" docs -v
+fi
