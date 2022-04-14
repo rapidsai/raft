@@ -502,13 +502,13 @@ __global__ void block_kernel(
   extern __shared__ __align__(256) uint8_t smem_buf_bytes[];
   block_sort<WarpSortClass, Capacity, Ascending, T, IdxT> queue(k, smem_buf_bytes);
   in += blockIdx.y * len;
-  in_idx += blockIdx.y * len;
+  if (in_idx != nullptr) { in_idx += blockIdx.y * len; }
 
   const IdxT stride         = gridDim.x * blockDim.x;
   const IdxT per_thread_lim = len + laneId();
   for (IdxT i = threadIdx.x + blockIdx.x * blockDim.x; i < per_thread_lim; i += stride) {
     queue.add(i < len ? __ldcs(in + i) : WarpSortClass<Capacity, Ascending, T, IdxT>::kDummy,
-              i < len ? __ldcs(in_idx + i) : std::numeric_limits<IdxT>::max());
+              (i < len && in_idx != nullptr) ? __ldcs(in_idx + i) : i);
   }
 
   queue.done();
@@ -598,22 +598,16 @@ struct launch_setup {
       dim3 gs(num_blocks, batch_chunk, 1);
       if (select_min) {
         block_kernel<WarpSortClass, Capacity, true, T, IdxT>
-          <<<gs, block_dim, smem_size, stream>>>(in_key + offset * len,
-                                                 in_idx + offset * len,
-                                                 IdxT(len),
-                                                 k,
-                                                 out_key + offset * num_blocks * k,
-                                                 out_idx + offset * num_blocks * k);
+          <<<gs, block_dim, smem_size, stream>>>(in_key, in_idx, IdxT(len), k, out_key, out_idx);
       } else {
         block_kernel<WarpSortClass, Capacity, false, T, IdxT>
-          <<<gs, block_dim, smem_size, stream>>>(in_key + offset * len,
-                                                 in_idx + offset * len,
-                                                 IdxT(len),
-                                                 k,
-                                                 out_key + offset * num_blocks * k,
-                                                 out_idx + offset * num_blocks * k);
+          <<<gs, block_dim, smem_size, stream>>>(in_key, in_idx, IdxT(len), k, out_key, out_idx);
       }
       RAFT_CUDA_TRY(cudaPeekAtLastError());
+      out_key += batch_chunk * num_blocks * k;
+      out_idx += batch_chunk * num_blocks * k;
+      in_key += batch_chunk * len;
+      if (in_idx != nullptr) { in_idx += batch_chunk * len; }
     }
   }
 };
