@@ -20,7 +20,7 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/reduce.cuh>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng_launch.cuh>
 
 namespace raft {
 namespace linalg {
@@ -79,11 +79,11 @@ class ReduceTest : public ::testing::TestWithParam<ReduceInputs<InType, OutType>
  protected:
   void SetUp() override
   {
-    raft::random::Rng r(params.seed);
+    raft::random::RngState r(params.seed);
     int rows = params.rows, cols = params.cols;
     int len = rows * cols;
     outlen  = params.alongRows ? rows : cols;
-    r.uniform(data.data(), len, InType(-1.0), InType(1.0), stream);
+    uniform(r, data.data(), len, InType(-1.0), InType(1.0), stream);
     naiveReduction(
       dots_exp.data(), data.data(), cols, rows, params.rowMajor, params.alongRows, stream);
 

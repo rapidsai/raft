@@ -21,7 +21,7 @@
 #include <raft/distance/detail/fused_l2_nn.cuh>
 #include <raft/distance/fused_l2_nn.cuh>
 #include <raft/linalg/norm.cuh>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng_launch.cuh>
 
 namespace raft {
 namespace distance {
@@ -123,12 +123,12 @@ class FusedL2NNTest : public ::testing::TestWithParam<Inputs<DataT>> {
  protected:
   void SetUp() override
   {
-    raft::random::Rng r(params.seed);
+    raft::random::RngState r(params.seed);
     int m = params.m;
     int n = params.n;
     int k = params.k;
-    r.uniform(x.data(), m * k, DataT(-1.0), DataT(1.0), stream);
-    r.uniform(y.data(), n * k, DataT(-1.0), DataT(1.0), stream);
+    uniform(r, x.data(), m * k, DataT(-1.0), DataT(1.0), stream);
+    uniform(r, y.data(), n * k, DataT(-1.0), DataT(1.0), stream);
     generateGoldenResult();
     raft::linalg::rowNorm(xn.data(), x.data(), k, m, raft::linalg::L2Norm, true, stream);
     raft::linalg::rowNorm(yn.data(), y.data(), k, n, raft::linalg::L2Norm, true, stream);

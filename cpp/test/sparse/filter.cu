@@ -17,7 +17,6 @@
 #include "../test_utils.h"
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
-#include <raft/random/rng.cuh>
 
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/op/filter.cuh>
@@ -58,8 +57,8 @@ TEST_P(COORemoveZeros, Result)
 
   COO<float> in(stream, params.nnz, 5, 5);
 
-  raft::random::Rng r(params.seed);
-  r.uniform(in.vals(), params.nnz, float(-1.0), float(1.0), stream);
+  raft::random::RngState r(params.seed);
+  uniform(r, in.vals(), params.nnz, float(-1.0), float(1.0), stream);
 
   raft::update_host(in_h_vals, in.vals(), params.nnz, stream);
 

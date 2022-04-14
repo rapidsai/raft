@@ -18,7 +18,7 @@
 #include <gtest/gtest.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/interruptible.hpp>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng_launch.cuh>
 #include <raft/stats/dispersion.cuh>
 #include <rmm/device_uvector.hpp>
 #include <stdio.h>
@@ -49,15 +49,15 @@ class DispersionTest : public ::testing::TestWithParam<DispersionInputs<T>> {
   void SetUp() override
   {
     params = ::testing::TestWithParam<DispersionInputs<T>>::GetParam();
-    raft::random::Rng r(params.seed);
+    raft::random::RngState r(params.seed);
     int len = params.clusters * params.dim;
     RAFT_CUDA_TRY(cudaStreamCreate(&stream));
     rmm::device_uvector<T> data(len, stream);
     rmm::device_uvector<int> counts(params.clusters, stream);
     exp_mean.resize(params.dim, stream);
     act_mean.resize(params.dim, stream);
-    r.uniform(data.data(), len, (T)-1.0, (T)1.0, stream);
-    r.uniformInt(counts.data(), params.clusters, 1, 100, stream);
+    uniform(r, data.data(), len, (T)-1.0, (T)1.0, stream);
+    uniformInt(r, counts.data(), params.clusters, 1, 100, stream);
     std::vector<int> h_counts(params.clusters, 0);
     raft::update_host(&(h_counts[0]), counts.data(), params.clusters, stream);
     npoints = 0;

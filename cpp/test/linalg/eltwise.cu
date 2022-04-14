@@ -18,7 +18,7 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/eltwise.cuh>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng_launch.cuh>
 
 namespace raft {
 namespace linalg {
@@ -70,10 +70,10 @@ class ScalarMultiplyTest : public ::testing::TestWithParam<ScalarMultiplyInputs<
  protected:
   void SetUp() override
   {
-    raft::random::Rng r(params.seed);
+    raft::random::RngState r(params.seed);
     int len  = params.len;
     T scalar = params.scalar;
-    r.uniform(in, len, T(-1.0), T(1.0), stream);
+    uniform(r, in, len, T(-1.0), T(1.0), stream);
     naiveScale(out_ref, in, scalar, len, stream);
     scalarMultiply(out, in, scalar, len, stream);
     handle.sync_stream(stream);
@@ -158,10 +158,10 @@ class EltwiseAddTest : public ::testing::TestWithParam<EltwiseAddInputs<T>> {
   void SetUp() override
   {
     params = ::testing::TestWithParam<EltwiseAddInputs<T>>::GetParam();
-    raft::random::Rng r(params.seed);
+    raft::random::RngState r(params.seed);
     int len = params.len;
-    r.uniform(in1, len, T(-1.0), T(1.0), stream);
-    r.uniform(in2, len, T(-1.0), T(1.0), stream);
+    uniform(r, in1, len, T(-1.0), T(1.0), stream);
+    uniform(r, in2, len, T(-1.0), T(1.0), stream);
     naiveAdd(out_ref, in1, in2, len, stream);
     eltwiseAdd(out, in1, in2, len, stream);
     handle.sync_stream(stream);

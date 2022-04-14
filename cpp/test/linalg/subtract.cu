@@ -18,7 +18,7 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/subtract.cuh>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng_launch.cuh>
 
 namespace raft {
 namespace linalg {
@@ -84,10 +84,10 @@ class SubtractTest : public ::testing::TestWithParam<SubtractInputs<T>> {
  protected:
   void SetUp() override
   {
-    raft::random::Rng r(params.seed);
+    raft::random::RngState r(params.seed);
     int len = params.len;
-    r.uniform(in1.data(), len, T(-1.0), T(1.0), stream);
-    r.uniform(in2.data(), len, T(-1.0), T(1.0), stream);
+    uniform(r, in1.data(), len, T(-1.0), T(1.0), stream);
+    uniform(r, in2.data(), len, T(-1.0), T(1.0), stream);
 
     naiveSubtractElem(out_ref.data(), in1.data(), in2.data(), len, stream);
     naiveSubtractScalar(out_ref.data(), out_ref.data(), T(1), len, stream);

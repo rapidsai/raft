@@ -20,7 +20,7 @@
 #include <faiss/gpu/StandardGpuResources.h>
 
 #include <raft/distance/distance_type.hpp>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng_launch.cuh>
 #include <raft/spatial/knn/detail/common_faiss.h>
 #include <raft/spatial/knn/detail/fused_l2_knn.cuh>
 #include <raft/spatial/knn/knn.cuh>
@@ -160,9 +160,9 @@ class FusedL2KNNTest : public ::testing::TestWithParam<FusedL2KNNInputs> {
     metric      = params_.metric_;
 
     unsigned long long int seed = 1234ULL;
-    raft::random::Rng r(seed);
-    r.uniform(database.data(), num_db_vecs * dim, T(-1.0), T(1.0), stream_);
-    r.uniform(search_queries.data(), num_queries * dim, T(-1.0), T(1.0), stream_);
+    raft::random::RngState r(seed);
+    uniform(r, database.data(), num_db_vecs * dim, T(-1.0), T(1.0), stream_);
+    uniform(r, search_queries.data(), num_queries * dim, T(-1.0), T(1.0), stream_);
   }
 
   void launchFaissBfknn()

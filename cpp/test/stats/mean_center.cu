@@ -18,7 +18,7 @@
 #include "../test_utils.h"
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng_launch.cuh>
 #include <raft/stats/mean.cuh>
 #include <raft/stats/mean_center.cuh>
 
@@ -57,9 +57,9 @@ class MeanCenterTest : public ::testing::TestWithParam<MeanCenterInputs<T, IdxTy
  protected:
   void SetUp() override
   {
-    raft::random::Rng r(params.seed);
+    raft::random::RngState r(params.seed);
     auto len = rows * cols;
-    r.normal(data.data(), len, params.mean, (T)1.0, stream);
+    normal(r, data.data(), len, params.mean, (T)1.0, stream);
     raft::stats::mean(
       meanVec.data(), data.data(), cols, rows, params.sample, params.rowMajor, stream);
     meanCenter(out.data(),

@@ -19,7 +19,7 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/distance/distance.cuh>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng_launch.cuh>
 #include <rmm/device_uvector.hpp>
 
 namespace raft {
@@ -93,7 +93,7 @@ class DistanceAdjTest : public ::testing::TestWithParam<DistanceAdjInputs<DataTy
 
   void SetUp() override
   {
-    raft::random::Rng r(params.seed);
+    raft::random::RngState r(params.seed);
     int m           = params.m;
     int n           = params.n;
     int k           = params.k;
@@ -102,8 +102,8 @@ class DistanceAdjTest : public ::testing::TestWithParam<DistanceAdjInputs<DataTy
     rmm::device_uvector<DataType> x(m * k, stream);
     rmm::device_uvector<DataType> y(n * k, stream);
 
-    r.uniform(x.data(), m * k, DataType(-1.0), DataType(1.0), stream);
-    r.uniform(y.data(), n * k, DataType(-1.0), DataType(1.0), stream);
+    uniform(r, x.data(), m * k, DataType(-1.0), DataType(1.0), stream);
+    uniform(r, y.data(), n * k, DataType(-1.0), DataType(1.0), stream);
 
     DataType threshold = params.eps;
 

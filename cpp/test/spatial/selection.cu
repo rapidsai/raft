@@ -18,7 +18,7 @@
 #include <gtest/gtest.h>
 #include <numeric>
 #include <raft/cudart_utils.h>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng_launch.cuh>
 
 #include "../test_utils.h"
 
@@ -323,7 +323,8 @@ struct with_ref {
 
       auto s = rmm::cuda_stream_default;
       rmm::device_uvector<KeyT> dists_d(spec.input_len * spec.n_inputs, s);
-      raft::random::Rng(42).normal(dists_d.data(), dists_d.size(), KeyT(10.0), KeyT(100.0), s);
+      raft::random::RngState r(42);
+      normal(r, dists_d.data(), dists_d.size(), KeyT(10.0), KeyT(100.0), s);
       update_host(dists.data(), dists_d.data(), dists_d.size(), s);
       s.synchronize();
 

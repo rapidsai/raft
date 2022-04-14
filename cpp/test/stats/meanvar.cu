@@ -18,7 +18,7 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <raft/matrix/math.cuh>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng_launch.cuh>
 #include <raft/stats/meanvar.cuh>
 
 #include <algorithm>
@@ -65,8 +65,8 @@ class MeanVarTest : public ::testing::TestWithParam<MeanVarInputs<T>> {
  protected:
   void SetUp() override
   {
-    random::Rng(params.seed)
-      .normal(data.data(), params.cols * params.rows, params.mean, params.stddev, stream);
+    random::RngState r(params.seed);
+    normal(r, data.data(), params.cols * params.rows, params.mean, params.stddev, stream);
     meanvar(mean_act.data(),
             vars_act.data(),
             data.data(),

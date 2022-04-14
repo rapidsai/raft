@@ -19,7 +19,7 @@
 #include <raft/cudart_utils.h>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/map.cuh>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng_launch.cuh>
 
 namespace raft {
 namespace linalg {
@@ -84,12 +84,12 @@ class MapTest : public ::testing::TestWithParam<MapInputs<InType, IdxType, OutTy
  protected:
   void SetUp() override
   {
-    raft::random::Rng r(params.seed);
+    raft::random::RngState r(params.seed);
 
     IdxType len = params.len;
-    r.uniform(in1.data(), len, InType(-1.0), InType(1.0), stream);
-    r.uniform(in2.data(), len, InType(-1.0), InType(1.0), stream);
-    r.uniform(in3.data(), len, InType(-1.0), InType(1.0), stream);
+    uniform(r, in1.data(), len, InType(-1.0), InType(1.0), stream);
+    uniform(r, in2.data(), len, InType(-1.0), InType(1.0), stream);
+    uniform(r, in3.data(), len, InType(-1.0), InType(1.0), stream);
 
     create_ref(out_ref.data(), in1.data(), in2.data(), in3.data(), params.scalar, len, stream);
     mapLaunch(out.data(), in1.data(), in2.data(), in3.data(), params.scalar, len, stream);

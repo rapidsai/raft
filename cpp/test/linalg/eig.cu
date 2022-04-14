@@ -19,7 +19,7 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/eig.cuh>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng_launch.cuh>
 
 namespace raft {
 namespace linalg {
@@ -64,7 +64,7 @@ class EigTest : public ::testing::TestWithParam<EigInputs<T>> {
  protected:
   void SetUp() override
   {
-    raft::random::Rng r(params.seed);
+    raft::random::RngState r(params.seed);
     int len = params.len;
 
     T cov_matrix_h[] = {
@@ -116,7 +116,7 @@ class EigTest : public ::testing::TestWithParam<EigInputs<T>> {
     // test code for comparing two methods
     len = params.n * params.n;
 
-    r.uniform(cov_matrix_large.data(), len, T(-1.0), T(1.0), stream);
+    uniform(r, cov_matrix_large.data(), len, T(-1.0), T(1.0), stream);
 
     eigDC(handle,
           cov_matrix_large.data(),

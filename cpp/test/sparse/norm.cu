@@ -18,7 +18,6 @@
 
 #include "../test_utils.h"
 #include <raft/cudart_utils.h>
-#include <raft/random/rng.cuh>
 #include <raft/sparse/csr.hpp>
 #include <raft/sparse/linalg/norm.cuh>
 

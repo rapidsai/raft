@@ -17,7 +17,7 @@
 #include "../test_utils.h"
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng_launch.cuh>
 
 #include <raft/sparse/op/sort.cuh>
 
@@ -49,7 +49,7 @@ typedef SparseSortTest<float> COOSort;
 TEST_P(COOSort, Result)
 {
   params = ::testing::TestWithParam<SparseSortInput<float>>::GetParam();
-  raft::random::Rng r(params.seed);
+  raft::random::RngState r(params.seed);
   cudaStream_t stream;
   RAFT_CUDA_TRY(cudaStreamCreate(&stream));
 
@@ -58,7 +58,7 @@ TEST_P(COOSort, Result)
   rmm::device_uvector<int> verify(params.nnz, stream);
   rmm::device_uvector<float> in_vals(params.nnz, stream);
 
-  r.uniform(in_vals.data(), params.nnz, float(-1.0), float(1.0), stream);
+  uniform(r, in_vals.data(), params.nnz, float(-1.0), float(1.0), stream);
 
   int* in_rows_h = (int*)malloc(params.nnz * sizeof(int));
   int* in_cols_h = (int*)malloc(params.nnz * sizeof(int));

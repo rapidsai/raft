@@ -18,7 +18,7 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <raft/matrix/math.cuh>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng_launch.cuh>
 #include <raft/stats/mean.cuh>
 #include <raft/stats/stddev.cuh>
 
@@ -57,14 +57,14 @@ class StdDevTest : public ::testing::TestWithParam<StdDevInputs<T>> {
  protected:
   void SetUp() override
   {
-    random::Rng r(params.seed);
+    random::RngState r(params.seed);
     int len = rows * cols;
 
     data.resize(len, stream);
     mean_act.resize(cols, stream);
     stddev_act.resize(cols, stream);
     vars_act.resize(cols, stream);
-    r.normal(data.data(), len, params.mean, params.stddev, stream);
+    normal(r, data.data(), len, params.mean, params.stddev, stream);
     stdVarSGtest(data.data(), stream);
     handle.sync_stream(stream);
   }

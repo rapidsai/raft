@@ -18,7 +18,6 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/eltwise.cuh>
-#include <raft/random/rng.cuh>
 #include <raft/stats/sum.cuh>
 
 namespace raft {

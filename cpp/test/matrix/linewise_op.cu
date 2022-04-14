@@ -22,7 +22,7 @@
 #include <raft/cudart_utils.h>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/matrix/matrix.cuh>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng_launch.cuh>
 #include <rmm/device_uvector.hpp>
 
 namespace raft {
@@ -75,10 +75,10 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
 
   rmm::device_uvector<T> genData(size_t workSizeBytes)
   {
-    raft::random::Rng r(params.seed);
+    raft::random::RngState r(params.seed);
     const std::size_t workSizeElems = workSizeBytes / sizeof(T);
     rmm::device_uvector<T> blob(workSizeElems, stream);
-    r.uniform(blob.data(), workSizeElems, T(-1.0), T(1.0), stream);
+    uniform(r, blob.data(), workSizeElems, T(-1.0), T(1.0), stream);
     return blob;
   }
 

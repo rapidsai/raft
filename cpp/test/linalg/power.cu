@@ -18,7 +18,7 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/power.cuh>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng_launch.cuh>
 
 namespace raft {
 namespace linalg {
@@ -82,7 +82,7 @@ class PowerTest : public ::testing::TestWithParam<PowerInputs<T>> {
   void SetUp() override
   {
     params = ::testing::TestWithParam<PowerInputs<T>>::GetParam();
-    raft::random::Rng r(params.seed);
+    raft::random::RngState r(params.seed);
     int len = params.len;
 
     cudaStream_t stream = handle.get_stream();
@@ -91,8 +91,8 @@ class PowerTest : public ::testing::TestWithParam<PowerInputs<T>> {
     in2.resize(len, stream);
     out_ref.resize(len, stream);
     out.resize(len, stream);
-    r.uniform(in1.data(), len, T(1.0), T(2.0), stream);
-    r.uniform(in2.data(), len, T(1.0), T(2.0), stream);
+    uniform(r, in1.data(), len, T(1.0), T(2.0), stream);
+    uniform(r, in2.data(), len, T(1.0), T(2.0), stream);
 
     naivePowerElem(out_ref.data(), in1.data(), in2.data(), len, stream);
     naivePowerScalar(out_ref.data(), out_ref.data(), T(2), len, stream);

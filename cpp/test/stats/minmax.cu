@@ -19,7 +19,7 @@
 #include <limits>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng_launch.cuh>
 #include <raft/stats/minmax.cuh>
 #include <stdio.h>
 #include <stdlib.h>
@@ -95,7 +95,7 @@ class MinMaxTest : public ::testing::TestWithParam<MinMaxInputs<T>> {
   void SetUp() override
   {
     params = ::testing::TestWithParam<MinMaxInputs<T>>::GetParam();
-    raft::random::Rng r(params.seed);
+    raft::random::RngState r(params.seed);
     int len = params.rows * params.cols;
     RAFT_CUDA_TRY(cudaStreamCreate(&stream));
 
@@ -104,9 +104,9 @@ class MinMaxTest : public ::testing::TestWithParam<MinMaxInputs<T>> {
     minmax_act.resize(2 * params.cols, stream);
     minmax_ref.resize(2 * params.cols, stream);
 
-    r.normal(data.data(), len, (T)0.0, (T)1.0, stream);
+    normal(r, data.data(), len, (T)0.0, (T)1.0, stream);
     T nan_prob = 0.01;
-    r.bernoulli(mask.data(), len, nan_prob, stream);
+    bernoulli(r, mask.data(), len, nan_prob, stream);
     const int TPB = 256;
     nanKernel<<<raft::ceildiv(len, TPB), TPB, 0, stream>>>(
       data.data(), mask.data(), len, std::numeric_limits<T>::quiet_NaN());

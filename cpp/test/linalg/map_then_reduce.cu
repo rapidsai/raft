@@ -19,7 +19,7 @@
 #include <limits>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/map_then_reduce.cuh>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng_launch.cuh>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
@@ -83,9 +83,9 @@ class MapReduceTest : public ::testing::TestWithParam<MapReduceInputs<InType>> {
  protected:
   void SetUp() override
   {
-    raft::random::Rng r(params.seed);
+    raft::random::RngState r(params.seed);
     auto len = params.len;
-    r.uniform(in.data(), len, InType(-1.0), InType(1.0), stream);
+    uniform(r, in.data(), len, InType(-1.0), InType(1.0), stream);
     mapReduceLaunch(out_ref.data(), out.data(), in.data(), len, stream);
     handle.sync_stream(stream);
   }
@@ -139,8 +139,8 @@ class MapGenericReduceTest : public ::testing::Test {
  public:
   void initInput(InType* input, int n, cudaStream_t stream)
   {
-    raft::random::Rng r(137);
-    r.uniform(input, n, InType(2), InType(3), handle.get_stream());
+    raft::random::RngState r(137);
+    uniform(r, input, n, InType(2), InType(3), handle.get_stream());
     InType val = 1;
     raft::update_device(input + 42, &val, 1, handle.get_stream());
     val = 5;

@@ -20,7 +20,8 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/unary_op.cuh>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng_device.cuh>
+#include <raft/random/rng_launch.cuh>
 #include <rmm/device_uvector.hpp>
 #include <vector>
 
@@ -35,7 +36,7 @@ void generate_labels(IdxT* labels,
                      IdxT n_rows,
                      IdxT n_clusters,
                      bool shuffle,
-                     raft::random::Rng& r,
+                     raft::random::RngState& r,
                      cudaStream_t stream)
 {
   IdxT a, b;
@@ -89,8 +90,9 @@ DI void get_mu_sigma(DataT& mu,
   mu    = centers[center_id];
 }
 
-template <typename DataT, typename IdxT>
-__global__ void generate_data_kernel(DataT* out,
+template <typename DataT, typename IdxT, typename GenType>
+__global__ void generate_data_kernel(raft::random::DeviceState<GenType> rng_state,
+                                     DataT* out,
                                      const IdxT* labels,
                                      IdxT n_rows,
                                      IdxT n_cols,
@@ -98,11 +100,10 @@ __global__ void generate_data_kernel(DataT* out,
                                      bool row_major,
                                      const DataT* centers,
                                      const DataT* cluster_std,
-                                     const DataT cluster_std_scalar,
-                                     raft::random::RngState rng_state)
+                                     const DataT cluster_std_scalar)
 {
   uint64_t tid = (blockIdx.x * blockDim.x) + threadIdx.x;
-  raft::random::PhiloxGenerator gen(rng_state, tid);
+  GenType gen(rng_state, tid);
   const IdxT stride = gridDim.x * blockDim.x;
   IdxT len          = n_rows * n_cols;
   for (IdxT idx = tid; idx < len; idx += stride) {
@@ -157,16 +158,7 @@ void generate_data(DataT* out,
 {
   IdxT items   = n_rows * n_cols;
   IdxT nBlocks = (items + 127) / 128;
-  generate_data_kernel<<<nBlocks, 128, 0, stream>>>(out,
-                                                    labels,
-                                                    n_rows,
-                                                    n_cols,
-                                                    n_clusters,
-                                                    row_major,
-                                                    centers,
-                                                    cluster_std,
-                                                    cluster_std_scalar,
-                                                    rng_state);
+  RAFT_CALL_RNG_FUNC(rng_state, generate_data_kernel<<<nBlocks, 128, 0, stream>>>, out, labels, n_rows, n_cols, n_clusters, row_major, centers, cluster_std, cluster_std_scalar);
 }
 
 /**
@@ -220,29 +212,19 @@ void make_blobs_caller(DataT* out,
                        uint64_t seed,
                        raft::random::GeneratorType type)
 {
-  raft::random::Rng r(seed, type);
+  raft::random::RngState r(seed, type);
   // use the right centers buffer for data generation
   rmm::device_uvector<DataT> rand_centers(0, stream);
   const DataT* _centers;
   if (centers == nullptr) {
     rand_centers.resize(n_clusters * n_cols, stream);
-    r.uniform(rand_centers.data(), n_clusters * n_cols, center_box_min, center_box_max, stream);
+    raft::random::uniform(r, rand_centers.data(), n_clusters * n_cols, center_box_min, center_box_max, stream);
     _centers = rand_centers.data();
   } else {
     _centers = centers;
   }
   generate_labels(labels, n_rows, n_clusters, shuffle, r, stream);
-  generate_data(out,
-                labels,
-                n_rows,
-                n_cols,
-                n_clusters,
-                stream,
-                row_major,
-                _centers,
-                cluster_std,
-                cluster_std_scalar,
-                r.state);
+  generate_data(out, labels, n_rows, n_cols, n_clusters, stream, row_major, _centers, cluster_std, cluster_std_scalar, r);
 }
 
 }  // end namespace detail

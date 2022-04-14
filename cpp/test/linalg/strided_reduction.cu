@@ -19,7 +19,7 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/strided_reduction.cuh>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng_launch.cuh>
 
 namespace raft {
 namespace linalg {
@@ -53,10 +53,10 @@ class stridedReductionTest : public ::testing::TestWithParam<stridedReductionInp
  protected:
   void SetUp() override
   {
-    raft::random::Rng r(params.seed);
+    raft::random::RngState r(params.seed);
     int rows = params.rows, cols = params.cols;
     int len = rows * cols;
-    r.uniform(data.data(), len, T(-1.0), T(1.0),
+    uniform(r, data.data(), len, T(-1.0), T(1.0),
               stream);  // initialize matrix to random
 
     unaryAndGemv(dots_exp.data(), data.data(), cols, rows, stream);

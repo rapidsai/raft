@@ -18,7 +18,7 @@
 #include <gtest/gtest.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/gemv.cuh>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng_launch.cuh>
 
 namespace raft {
 namespace linalg {
@@ -88,7 +88,7 @@ class GemvTest : public ::testing::TestWithParam<GemvInputs<T>> {
     raft::handle_t handle;
     cudaStream_t stream = handle.get_stream();
 
-    raft::random::Rng r(params.seed);
+    raft::random::RngState r(params.seed);
 
     // We compute y = op(A) * x and compare against reference result
     size_t aElems = params.lda * params.n_cols;
@@ -100,8 +100,8 @@ class GemvTest : public ::testing::TestWithParam<GemvInputs<T>> {
     refy.resize(yElems, stream);
     y.resize(yElems, stream);
 
-    r.uniform(x.data(), xElems, T(-10.0), T(10.0), stream);
-    r.uniform(A.data(), aElems, T(-10.0), T(10.0), stream);
+    uniform(r, x.data(), xElems, T(-10.0), T(10.0), stream);
+    uniform(r, A.data(), aElems, T(-10.0), T(10.0), stream);
 
     dim3 blocks(raft::ceildiv<int>(yElems, 256), 1, 1);
     dim3 threads(256, 1, 1);

@@ -19,7 +19,6 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/transpose.cuh>
-#include <raft/random/rng.cuh>
 
 namespace raft {
 namespace linalg {

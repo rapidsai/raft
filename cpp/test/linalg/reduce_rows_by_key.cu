@@ -19,7 +19,7 @@
 #include <iostream>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/reduce_rows_by_key.cuh>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng_launch.cuh>
 
 namespace raft {
 namespace linalg {
@@ -100,20 +100,20 @@ class ReduceRowTest : public ::testing::TestWithParam<ReduceRowsInputs<T>> {
  protected:
   void SetUp() override
   {
-    raft::random::Rng r(params.seed);
-    raft::random::Rng r_int(params.seed);
+    raft::random::RngState r(params.seed);
+    raft::random::RngState r_int(params.seed);
 
     int nobs       = params.nobs;
     uint32_t cols  = params.cols;
     uint32_t nkeys = params.nkeys;
-    r.uniform(in.data(), nobs * cols, T(0.0), T(2.0 / nobs), stream);
-    r_int.uniformInt(keys.data(), nobs, (uint32_t)0, nkeys, stream);
+    uniform(r, in.data(), nobs * cols, T(0.0), T(2.0 / nobs), stream);
+    uniformInt(r_int, keys.data(), nobs, (uint32_t)0, nkeys, stream);
 
     rmm::device_uvector<T> weight(0, stream);
     if (params.weighted) {
       weight.resize(nobs, stream);
-      raft::random::Rng r(params.seed, raft::random::GeneratorType::GenPhilox);
-      r.uniform(weight.data(), nobs, T(1), params.max_weight, stream);
+      raft::random::RngState r(params.seed, raft::random::GeneratorType::GenPhilox);
+      uniform(r, weight.data(), nobs, T(1), params.max_weight, stream);
     }
 
     naiveReduceRowsByKey(in.data(),

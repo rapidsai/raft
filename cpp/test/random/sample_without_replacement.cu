@@ -18,7 +18,7 @@
 #include <gtest/gtest.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng_launch.cuh>
 #include <set>
 #include <vector>
 
@@ -61,14 +61,14 @@ class SWoRTest : public ::testing::TestWithParam<SWoRInputs<T>> {
  protected:
   void SetUp() override
   {
-    Rng r(params.seed, params.gtype);
+    RngState r(params.seed, params.gtype);
     h_outIdx.resize(params.sampledLen);
-    r.uniform(in.data(), params.len, T(-1.0), T(1.0), stream);
-    r.uniform(wts.data(), params.len, T(1.0), T(2.0), stream);
+    uniform(r, in.data(), params.len, T(-1.0), T(1.0), stream);
+    uniform(r, wts.data(), params.len, T(1.0), T(2.0), stream);
     if (params.largeWeightIndex >= 0) {
       update_device(wts.data() + params.largeWeightIndex, &params.largeWeight, 1, stream);
     }
-    r.sampleWithoutReplacement(handle,
+    sampleWithoutReplacement(r, handle,
                                out.data(),
                                outIdx.data(),
                                in.data(),

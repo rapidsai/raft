@@ -18,7 +18,7 @@
 #include <gtest/gtest.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng_launch.cuh>
 #include <raft/stats/mean.cuh>
 #include <stdio.h>
 #include <stdlib.h>
@@ -56,9 +56,9 @@ class MeanTest : public ::testing::TestWithParam<MeanInputs<T>> {
  protected:
   void SetUp() override
   {
-    raft::random::Rng r(params.seed);
+    raft::random::RngState r(params.seed);
     int len = rows * cols;
-    r.normal(data.data(), len, params.mean, (T)1.0, stream);
+    normal(r, data.data(), len, params.mean, (T)1.0, stream);
     meanSGtest(data.data(), stream);
   }
 

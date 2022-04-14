@@ -18,7 +18,7 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <raft/matrix/math.cuh>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng_launch.cuh>
 
 namespace raft {
 namespace matrix {
@@ -133,7 +133,7 @@ class MathTest : public ::testing::TestWithParam<MathInputs<T>> {
  protected:
   void SetUp() override
   {
-    random::Rng r(params.seed);
+    random::RngState r(params.seed);
     int len         = params.len;
     T in_ratio_h[4] = {1.0, 2.0, 2.0, 3.0};
     update_device(in_ratio.data(), in_ratio_h, 4, stream);
@@ -141,10 +141,10 @@ class MathTest : public ::testing::TestWithParam<MathInputs<T>> {
     T out_ratio_ref_h[4] = {0.125, 0.25, 0.25, 0.375};
     update_device(out_ratio_ref.data(), out_ratio_ref_h, 4, stream);
 
-    r.uniform(in_power.data(), len, T(-1.0), T(1.0), stream);
-    r.uniform(in_sqrt.data(), len, T(0.0), T(1.0), stream);
-    // r.uniform(in_ratio, len, T(0.0), T(1.0));
-    r.uniform(in_sign_flip.data(), len, T(-100.0), T(100.0), stream);
+    uniform(r, in_power.data(), len, T(-1.0), T(1.0), stream);
+    uniform(r, in_sqrt.data(), len, T(0.0), T(1.0), stream);
+    // uniform(r, in_ratio, len, T(0.0), T(1.0));
+    uniform(r, in_sign_flip.data(), len, T(-100.0), T(100.0), stream);
 
     naivePower(in_power.data(), out_power_ref.data(), len, stream);
     power(in_power.data(), len, stream);

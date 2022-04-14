@@ -32,7 +32,7 @@
 #include <raft/cuda_utils.cuh>
 
 #include <raft/matrix/matrix.cuh>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng_launch.cuh>
 #include <raft/sparse/convert/csr.cuh>
 
 #include <rmm/device_uvector.hpp>
@@ -83,9 +83,8 @@ void sample_landmarks(const raft::handle_t& handle,
   /**
    * 1. Randomly sample sqrt(n) points from X
    */
-  auto rng = raft::random::Rng(12345);
-  rng.sampleWithoutReplacement(handle,
-                               R_indices.data(),
+  raft::random::RngState rng_state(12345);
+  raft::random::sampleWithoutReplacement(rng_state, handle, R_indices.data(),
                                R_1nn_cols2.data(),
                                index.get_R_1nn_cols(),
                                R_1nn_ones.data(),

@@ -19,7 +19,7 @@
 #include <gtest/gtest.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng_launch.cuh>
 
 namespace raft {
 namespace random {
@@ -83,11 +83,11 @@ class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
  protected:
   void SetUp() override
   {
-    Rng r(params.seed, params.gtype);
+    RngState r(params.seed, params.gtype);
 
     switch (params.type) {
       case RNG_Uniform:
-        r.uniformInt(data.data(), params.len, params.start, params.end, stream);
+        uniformInt(r, data.data(), params.len, params.start, params.end, stream);
         break;
     };
     static const int threads = 128;

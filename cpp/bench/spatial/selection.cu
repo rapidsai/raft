@@ -21,7 +21,7 @@
 #include <raft/spatial/knn/specializations.hpp>
 #endif
 
-#include <raft/random/rng.cuh>
+#include <raft/random/rng_launch.cuh>
 #include <raft/sparse/detail/utils.h>
 
 #include <rmm/mr/device/per_device_resource.hpp>
@@ -46,8 +46,8 @@ struct selection : public fixture {
       out_ids_(p.n_inputs * p.k, stream)
   {
     raft::sparse::iota_fill(in_ids_.data(), IdxT(p.n_inputs), IdxT(p.input_len), stream);
-    raft::random::Rng(42).uniform(
-      in_dists_.data(), in_dists_.size(), KeyT(-1.0), KeyT(1.0), stream);
+    raft::random::RngState state{42};
+    raft::random::uniform(state, in_dists_.data(), in_dists_.size(), KeyT(-1.0), KeyT(1.0), stream);
   }
 
   void run_benchmark(::benchmark::State& state) override

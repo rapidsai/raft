@@ -18,7 +18,7 @@
 #include <gtest/gtest.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/gemm.cuh>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng_launch.cuh>
 
 namespace raft {
 namespace linalg {
@@ -66,7 +66,7 @@ class GemmLayoutTest : public ::testing::TestWithParam<GemmLayoutInputs<T>> {
     raft::handle_t handle;
     cudaStream_t stream = handle.get_stream();
 
-    raft::random::Rng r(params.seed);
+    raft::random::RngState r(params.seed);
 
     // We compute Z = X * Y and compare against reference result
     // Dimensions of X : M x K
@@ -85,8 +85,8 @@ class GemmLayoutTest : public ::testing::TestWithParam<GemmLayoutInputs<T>> {
     RAFT_CUDA_TRY(cudaMalloc(&refZ, zElems * sizeof(T)));
     RAFT_CUDA_TRY(cudaMalloc(&Z, zElems * sizeof(T)));
 
-    r.uniform(X, xElems, T(-10.0), T(10.0), stream);
-    r.uniform(Y, yElems, T(-10.0), T(10.0), stream);
+    uniform(r, X, xElems, T(-10.0), T(10.0), stream);
+    uniform(r, Y, yElems, T(-10.0), T(10.0), stream);
 
     dim3 blocks(raft::ceildiv<int>(params.M, 128), raft::ceildiv<int>(params.N, 4), 1);
     dim3 threads(128, 4, 1);
