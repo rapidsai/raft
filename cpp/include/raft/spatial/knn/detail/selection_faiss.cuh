@@ -38,8 +38,8 @@ constexpr int kFaissMaxK()
 }
 
 template <typename key_t, typename payload_t, bool select_min, int warp_q, int thread_q, int tpb>
-__global__ void select_k_kernel(key_t* inK,
-                                payload_t* inV,
+__global__ void select_k_kernel(const key_t* inK,
+                                const payload_t* inV,
                                 size_t n_rows,
                                 size_t n_cols,
                                 key_t* outK,
@@ -48,7 +48,8 @@ __global__ void select_k_kernel(key_t* inK,
                                 payload_t initV,
                                 int k)
 {
-  constexpr int kNumWarps = tpb / faiss::gpu::kWarpSize;
+  using align_warp        = Pow2<WarpSize>;
+  constexpr int kNumWarps = align_warp::div(tpb);
 
   __shared__ key_t smemK[kNumWarps * warp_q];
   __shared__ payload_t smemV[kNumWarps * warp_q];
@@ -59,27 +60,21 @@ __global__ void select_k_kernel(key_t* inK,
 
   // Grid is exactly sized to rows available
   int row = blockIdx.x;
-  int i   = threadIdx.x;
+  {
+    size_t i = size_t(threadIdx.x);
 
-  int idx             = row * n_cols;
-  key_t* inKStart     = inK + idx + i;
-  payload_t* inVStart = inV + idx + i;
+    inK += row * n_cols;
+    if (inV != nullptr) { inV += row * n_cols; }
 
-  // Whole warps must participate in the selection
-  int limit = faiss::gpu::utils::roundDown(n_cols, faiss::gpu::kWarpSize);
+    // Whole warps must participate in the selection
+    size_t limit = align_warp::roundDown(n_cols);
 
-  for (; i < limit; i += tpb) {
-    inKStart = inK + idx + i;
-    inVStart = inV + idx + i;
+    for (; i < limit; i += tpb) {
+      heap.add(inK[i], (inV != nullptr) ? inV[i] : payload_t(i));
+    }
 
-    heap.add(*inKStart, *inVStart);
-  }
-
-  // Handle last remainder fraction of a warp of elements
-  if (i < n_cols) {
-    inKStart = inK + idx + i;
-    inVStart = inV + idx + i;
-    heap.addThreadQ(*inKStart, *inVStart);
+    // Handle last remainder fraction of a warp of elements
+    if (i < n_cols) { heap.addThreadQ(inK[i], (inV != nullptr) ? inV[i] : payload_t(i)); }
   }
 
   heap.reduce();
@@ -91,8 +86,8 @@ __global__ void select_k_kernel(key_t* inK,
 }
 
 template <typename payload_t = int, typename key_t = float, int warp_q, int thread_q>
-inline void select_k_impl(key_t* inK,
-                          payload_t* inV,
+inline void select_k_impl(const key_t* inK,
+                          const payload_t* inV,
                           size_t n_rows,
                           size_t n_cols,
                           key_t* outK,
@@ -133,8 +128,8 @@ inline void select_k_impl(key_t* inK,
  * @param[in] stream CUDA stream to use
  */
 template <typename payload_t = int, typename key_t = float>
-inline void select_k(key_t* inK,
-                     payload_t* inV,
+inline void select_k(const key_t* inK,
+                     const payload_t* inV,
                      size_t n_rows,
                      size_t n_cols,
                      key_t* outK,
