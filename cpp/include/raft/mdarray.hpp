@@ -80,8 +80,7 @@ struct __is_device_mdspan : std::false_type {
 };
 
 template <typename T>
-struct __is_device_mdspan<T, true>
-  : std::bool_constant<detail::is_device_accessor_v<typename T::accessor_type>> {
+struct __is_device_mdspan<T, true> : std::bool_constant<not T::accessor_type::is_host_type::value> {
 };
 
 template <typename T>
@@ -105,8 +104,7 @@ struct __is_host_mdspan : std::false_type {
 };
 
 template <typename T>
-struct __is_host_mdspan<T, true>
-  : std::bool_constant<detail::is_host_accessor_v<typename T::accessor_type>> {
+struct __is_host_mdspan<T, true> : T::accessor_type::is_host_type {
 };
 
 template <typename T>
@@ -114,6 +112,10 @@ inline constexpr bool is_host_mdspan_v = __is_host_mdspan<T, is_mdspan_v<T>>::va
 
 template <typename T, typename U = void>
 using is_host_mdspan_t = std::enable_if_t<is_host_mdspan_v<T>, U>;
+
+// template <typename T>
+// inline constexpr bool is_host_or_device_mdspan_v = std::conjunction_v<__is_device_mdspan<T>,
+// __is_host_mdspan<T>>;
 
 /**
  * @brief Modified from the c++ mdarray proposal
@@ -146,6 +148,9 @@ using is_host_mdspan_t = std::enable_if_t<is_host_mdspan_v<T>, U>;
  */
 template <typename ElementType, typename Extents, typename LayoutPolicy, typename ContainerPolicy>
 class mdarray {
+  static_assert(!std::is_const<ElementType>::value,
+                "Element type for container must not be const.");
+
  public:
   using extents_type = Extents;
   using layout_type  = LayoutPolicy;
@@ -230,11 +235,11 @@ class mdarray {
   /**
    * @brief Get a mdspan that can be passed down to CUDA kernels.
    */
-  view_type view() noexcept { return view_type(c_.data(), map_, cp_.make_accessor_policy()); }
+  auto view() noexcept { return view_type(c_.data(), map_, cp_.make_accessor_policy()); }
   /**
    * @brief Get a mdspan that can be passed down to CUDA kernels.
    */
-  const_view_type view() const noexcept
+  auto view() const noexcept
   {
     return const_view_type(c_.data(), map_, cp_.make_accessor_policy());
   }
@@ -722,38 +727,30 @@ auto make_device_vector(size_t n, rmm::cuda_stream_view stream)
  * @param[in] n number of elements in vector
  * @return raft::device_vector
  */
-template <typename ElementType>
+template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
 auto make_device_vector(raft::handle_t const& handle, size_t n)
 {
-  return make_device_vector<ElementType>(n, handle.get_stream());
+  return make_device_vector<ElementType, LayoutPolicy>(n, handle.get_stream());
 }
 
 template <typename host_mdspan_type,
           std::enable_if_t<is_host_mdspan_v<host_mdspan_type>>* = nullptr>
 auto flatten(host_mdspan_type h_mds)
 {
-  size_t flat_dimension = 1;
-  for (size_t i = 0; i < h_mds.extents().rank(); ++i) {
-    flat_dimension *= h_mds.extent(i);
-  }
+  RAFT_EXPECTS(h_mds.is_contiguous(), "Input must be contiguous.");
 
   return make_host_vector_view<typename host_mdspan_type::element_type,
-                               typename host_mdspan_type::layout_type>(h_mds.data(),
-                                                                       flat_dimension);
+                               typename host_mdspan_type::layout_type>(h_mds.data(), h_mds.size());
 }
 
 template <typename device_mdspan_type,
           std::enable_if_t<is_device_mdspan_v<device_mdspan_type>>* = nullptr>
 auto flatten(device_mdspan_type d_mds)
 {
-  size_t flat_dimension = 1;
-  for (size_t i = 0; i < d_mds.extents().rank(); ++i) {
-    flat_dimension *= d_mds.extent(i);
-  }
-
+  RAFT_EXPECTS(d_mds.is_contiguous(), "Input must be contiguous.");
   return make_device_vector_view<typename device_mdspan_type::element_type,
                                  typename device_mdspan_type::layout_type>(d_mds.data(),
-                                                                           flat_dimension);
+                                                                           d_mds.size());
 }
 
 template <typename mdarray_type, std::enable_if_t<is_mdarray_v<mdarray_type>>* = nullptr>
@@ -785,5 +782,63 @@ auto flatten(const host_scalar<ElementType>& h_s)
 {
   return flatten(h_s.view());
 }
+
+template <typename host_mdspan_type,
+          size_t... Extents,
+          std::enable_if_t<is_host_mdspan_v<host_mdspan_type>>* = nullptr>
+auto reshape(host_mdspan_type h_mds, std::experimental::extents<Extents...> new_shape)
+{
+  RAFT_EXPECTS(h_mds.is_contiguous(), "Input must be contiguous.");
+
+  if (new_shape == h_mds.extents()) {
+    return h_mds;
+  } else if (new_shape.rank(1)) {
+    auto new_size = new_shape.extent(0);
+    RAFT_EXPECTS(new_size <= h_mds.size(),
+                 "Cannot reshape array of size %ul into %ul",
+                 h_mds.size(),
+                 new_size());
+
+    if (new_size == 1) {
+      return make_host_scalar_view<typename host_mdspan_type::element_type>(h_mds.data());
+    } else {
+      return make_host_vector_view<typename host_mdspan_type::element_type,
+                                   typename host_mdspan_type::layout_type>(h_mds.data(), new_size);
+    }
+  } else if (new_shape.rank(2)) {
+    auto new_size = new_shape.extent(0) * new_shape.extent(1);
+    RAFT_EXPECTS(new_size == h_mds.size(), "Cannot reshape array with size mismatch");
+
+    return make_host_matrix_view<typename host_mdspan_type::element_type,
+                                 typename host_mdspan_type::layout_type>(
+      h_mds.data(), new_shape.extent(0), new_shape.extent(1));
+  } else {
+    size_t new_size = 1;
+    for (size_t i = 0; i < new_shape.rank(); ++i) {
+      new_size *= new_shape.extent(i);
+    }
+    RAFT_EXPECTS(new_size == h_mds.size(), "Cannot reshape array with size mismatch");
+
+    return detail::stdex::mdspan<typename host_mdspan_type::element_type,
+                                 decltype(new_shape),
+                                 typename host_mdspan_type::layout_type>(h_mds.data(), new_shape);
+  }
+}
+
+// template <typename device_mdspan_type,
+//           std::enable_if_t<is_device_mdspan_v<device_mdspan_type>>* = nullptr>
+// auto reshape(device_mdspan_type d_mds)
+// {
+//   RAFT_EXPECTS(d_mds.is_contiguous(), "Input must be contiguous.");
+//   return make_device_vector_view<typename device_mdspan_type::element_type,
+//                                  typename device_mdspan_type::layout_type>(d_mds.data(),
+//                                                                            d_mds.size());
+// }
+
+// template <typename mdarray_type, std::enable_if_t<is_mdarray_v<mdarray_type>>* = nullptr>
+// auto reshape(const mdarray_type& mda)
+// {
+//   return reshape(mda.view());
+// }
 
 }  // namespace raft
