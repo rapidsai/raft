@@ -25,6 +25,10 @@
 #include <raft/spatial/knn/detail/fused_l2_knn.cuh>
 #include <raft/spatial/knn/knn.cuh>
 
+#if defined RAFT_NN_COMPILED
+#include <raft/spatial/knn/specializations.cuh>
+#endif
+
 #include <rmm/device_buffer.hpp>
 
 #include <gtest/gtest.h>
