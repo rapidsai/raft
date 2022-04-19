@@ -783,6 +783,30 @@ auto flatten(const host_scalar<ElementType>& h_s)
   return flatten(h_s.view());
 }
 
+template <typename ElementType, typename LayoutType>
+constexpr auto flatten(device_vector_view<ElementType, LayoutType> d_vv)
+{
+  return d_vv;
+}
+
+template <typename ElementType, typename LayoutType>
+auto flatten(const device_vector<ElementType, LayoutType>& d_v)
+{
+  return flatten(d_v.view());
+}
+
+template <typename ElementType>
+constexpr auto flatten(device_scalar_view<ElementType> d_sv)
+{
+  return d_sv;
+}
+
+template <typename ElementType>
+auto flatten(const device_scalar<ElementType>& d_s)
+{
+  return flatten(d_s.view());
+}
+
 template <typename host_mdspan_type,
           size_t... Extents,
           std::enable_if_t<is_host_mdspan_v<host_mdspan_type>>* = nullptr>

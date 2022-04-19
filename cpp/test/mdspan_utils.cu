@@ -113,4 +113,50 @@ void test_host_flatten()
 
 TEST(MDArray, HostFlatten) { test_host_flatten(); }
 
+void test_device_flatten()
+{
+  raft::handle_t handle{};
+  // flatten 3d host matrix
+  {
+    using three_d_extents = stdex::extents<dynamic_extent, dynamic_extent, dynamic_extent>;
+    using three_d_mdarray = device_mdarray<int, three_d_extents>;
+
+    three_d_extents extents{3, 3, 3};
+    three_d_mdarray::container_policy_type policy{handle.get_stream()};
+    three_d_mdarray mda{extents, policy};
+
+    auto flat_view = flatten(mda);
+
+    static_assert(std::is_same_v<typename three_d_mdarray::layout_type,
+                                 typename decltype(flat_view)::layout_type>,
+                  "layouts not the same");
+
+    ASSERT_EQ(flat_view.extents().rank(), 1);
+    ASSERT_EQ(flat_view.extent(0), 27);
+  }
+
+  // flatten host vector
+  {
+    auto dv        = make_device_vector<int>(27, handle.get_stream());
+    auto flat_view = flatten(dv.view());
+
+    static_assert(std::is_same_v<decltype(dv.view()), decltype(flat_view)>, "types not the same");
+
+    ASSERT_EQ(dv.extents().rank(), flat_view.extents().rank());
+    ASSERT_EQ(dv.extent(0), flat_view.extent(0));
+  }
+
+  // flatten host scalar
+  {
+    auto ds        = make_device_scalar<int>(27, handle.get_stream());
+    auto flat_view = flatten(ds.view());
+
+    static_assert(std::is_same_v<decltype(ds.view()), decltype(flat_view)>, "types not the same");
+
+    ASSERT_EQ(flat_view.extent(0), 1);
+  }
+}
+
+TEST(MDArray, DeviceFlatten) { test_device_flatten(); }
+
 }  // namespace raft
