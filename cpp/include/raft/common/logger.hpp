@@ -13,6 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+/**
+ * This file is deprecated and will be removed in release 22.08.
+ * Please use the include/core/logger.hpp instead.
+ */
+
 #pragma once
 
 #include <raft/core/logger.hpp>

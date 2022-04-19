@@ -1,7 +1,7 @@
 CUDA/C++ API
 ============
 
-RAFT is a header-only C++ with optional shared libraries that can speed up compile times for larger projects.
+RAFT is a header-only C++ library with optional pre-compiled shared libraries that can speed up compile times for larger projects.
 
 .. _api:
 

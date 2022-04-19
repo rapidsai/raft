@@ -14,6 +14,11 @@
  * limitations under the License.
  */
 
+/**
+ * This file is deprecated and will be removed in release 22.08.
+ * Please use the include/core/nvtx.hpp instead.
+ */
+
 #pragma once
 
 #include <raft/core/nvtx.hpp>
