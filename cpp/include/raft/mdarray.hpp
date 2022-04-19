@@ -28,6 +28,9 @@
 
 namespace raft {
 
+/**
+ * @\brief Dimensions extents for raft::host_mdspan or raft::device_mdspan
+ */
 template <size_t... ExtentsPack>
 using extents = std::experimental::extents<ExtentsPack...>;
 
@@ -62,6 +65,9 @@ struct __is_derived_mdspan<T, std::void_t<decltype(__takes_an_mdspan_ptr(std::de
   : std::true_type {
 };
 
+/**
+ * @\brief Boolean to determine if template type T is either std::mdspan or a derived type
+ */
 template <typename T>
 inline constexpr bool is_mdspan_v = std::disjunction_v<__is_mdspan<std::remove_const_t<T>>,
                                                        __is_derived_mdspan<std::remove_const_t<T>>>;
@@ -84,6 +90,9 @@ template <typename T>
 struct __is_device_mdspan<T, true> : std::bool_constant<not T::accessor_type::is_host_type::value> {
 };
 
+/**
+ * @\brief Boolean to determine if template type T is either raft::device_mdspan or a derived type
+ */
 template <typename T>
 inline constexpr bool is_device_mdspan_v = __is_device_mdspan<T, is_mdspan_v<T>>::value;
 
@@ -105,9 +114,16 @@ template <typename T>
 struct __is_host_mdspan<T, true> : T::accessor_type::is_host_type {
 };
 
+/**
+ * @\brief Boolean to determine if template type T is either raft::host_mdspan or a derived type
+ */
 template <typename T>
 inline constexpr bool is_host_mdspan_v = __is_host_mdspan<T, is_mdspan_v<T>>::value;
 
+/**
+ * @\brief Boolean to determine if template type T is either raft::host_mdspan/raft::device_mdspan
+ *         or their derived types
+ */
 template <typename T>
 inline constexpr bool is_host_or_device_mdspan_v = is_device_mdspan_v<T> or is_host_mdspan_v<T>;
 
@@ -367,11 +383,11 @@ template <typename... Args>
 struct __is_mdarray<mdarray<Args...>> : std::true_type {
 };
 
+/**
+ * @\brief Boolean to determine if template type T is raft::mdarray
+ */
 template <typename T>
 inline constexpr bool is_mdarray_v = __is_mdarray<std::remove_const_t<T>>::value;
-
-template <typename T, typename U = void>
-using is_mdarray_t = std::enable_if_t<is_mdspan_v<T>, U>;
 
 /**
  * @brief mdarray with host container policy
@@ -727,6 +743,13 @@ auto make_device_vector(raft::handle_t const& handle, size_t n)
   return make_device_vector<ElementType, LayoutPolicy>(n, handle.get_stream());
 }
 
+/**
+ * @brief 
+ * 
+ * @tparam host_mdspan_type Expected type raft::host_mdspan
+ * @param h_mds raft::host_mdspan object
+ * @return raft::host_mdspan 
+ */
 template <typename host_mdspan_type,
           std::enable_if_t<is_host_mdspan_v<host_mdspan_type>>* = nullptr>
 auto flatten(host_mdspan_type h_mds)
@@ -747,6 +770,14 @@ auto flatten(device_mdspan_type d_mds)
                                                                            d_mds.size());
 }
 
+/**
+ * @brief 
+ * 
+ * @tparam mdarray_type Expected type raft::mdarray
+ * @param mda raft::mdarray object
+ * @return Either raft::host_mdspan or raft::device_mdspan depending on the underlying
+ *         ContainerType 
+ */
 template <typename mdarray_type, std::enable_if_t<is_mdarray_v<mdarray_type>>* = nullptr>
 auto flatten(const mdarray_type& mda)
 {
@@ -801,6 +832,15 @@ auto flatten(const device_scalar<ElementType>& d_s)
   return flatten(d_s.view());
 }
 
+/**
+ * @brief 
+ * 
+ * @tparam mdspan_type Expected type raft::host_mdspan or raft::device_mdspan
+ * @tparam Extents raft::extents for dimensions
+ * @param mds raft::host_mdspan or raft::device_mdspan object
+ * @param new_shape Desired new shape of the input
+ * @return raft::host_mdspan or raft::device_mdspan, depending on AccessorPolicy
+ */
 template <typename mdspan_type,
           size_t... Extents,
           std::enable_if_t<is_host_or_device_mdspan_v<mdspan_type>>* = nullptr>
@@ -820,6 +860,15 @@ auto reshape(mdspan_type mds, extents<Extents...> new_shape)
                                typename mdspan_type::accessor_type>(mds.data(), new_shape);
 }
 
+/**
+ * @brief 
+ * 
+ * @tparam mdarray_type Expected type raft::mdarray
+ * @tparam Extents raft::extents for dimensions
+ * @param mda raft::mdarray object
+ * @param new_shape Desired new shape of the input
+ * @return raft::host_mdspan or raft::device_mdspan, depending on ContainerPolicy 
+ */
 template <typename mdarray_type,
           size_t... Extents,
           std::enable_if_t<is_mdarray_v<mdarray_type>>* = nullptr>

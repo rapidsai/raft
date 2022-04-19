@@ -231,30 +231,8 @@ struct accessor_mixin : public AccessorPolicy {
 template <typename AccessorPolicy>
 using host_accessor = accessor_mixin<AccessorPolicy, true>;
 
-// template <typename T>
-// struct __is_host_accessor : std::false_type {
-// };
-
-// template <typename AccessorPolicy>
-// struct __is_host_accessor<host_accessor<AccessorPolicy>> : std::true_type {
-// };
-
-// template <typename T>
-// inline constexpr bool is_host_accessor_v = __is_host_accessor<T>::value;
-
 template <typename AccessorPolicy>
 using device_accessor = accessor_mixin<AccessorPolicy, false>;
-
-// template <typename T>
-// struct __is_device_accessor : std::false_type {
-// };
-
-// template <typename AccessorPolicy>
-// struct __is_device_accessor<device_accessor<AccessorPolicy>> : std::true_type {
-// };
-
-// template <typename T>
-// inline constexpr bool is_device_accessor_v = __is_device_accessor<T>::value;
 
 namespace stdex = std::experimental;
 
