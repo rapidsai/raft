@@ -159,9 +159,9 @@ void test_device_flatten()
 
 TEST(MDArray, DeviceFlatten) { test_device_flatten(); }
 
-void test_host_reshape()
+void test_reshape()
 {
-  // reshape 3d host matrix to vector
+  // reshape 3d host array to vector
   {
     using three_d_extents = stdex::extents<dynamic_extent, dynamic_extent, dynamic_extent>;
     using three_d_mdarray = host_mdarray<int, three_d_extents>;
@@ -181,41 +181,30 @@ void test_host_reshape()
     ASSERT_EQ(flat_view.extent(0), 27);
   }
 
-  // reshape 4d host matrix to 2d
+  // reshape 4d device array to 2d
   {
+    raft::handle_t handle{};
     using four_d_extents =
       stdex::extents<dynamic_extent, dynamic_extent, dynamic_extent, dynamic_extent>;
-    using four_d_mdarray = host_mdarray<int, four_d_extents>;
+    using four_d_mdarray = device_mdarray<int, four_d_extents>;
 
     four_d_extents extents{2, 2, 2, 2};
-    four_d_mdarray::container_policy_type policy;
+    four_d_mdarray::container_policy_type policy{handle.get_stream()};
     four_d_mdarray mda{extents, policy};
 
     auto matrix = reshape(mda, raft::extents<dynamic_extent, dynamic_extent>{4, 4});
     // this confirms aliasing works as intended
     static_assert(std::is_same_v<decltype(matrix),
-                                 host_matrix_view<typename decltype(matrix)::element_type,
-                                                  typename decltype(matrix)::layout_type>>,
+                                 device_matrix_view<typename decltype(matrix)::element_type,
+                                                    typename decltype(matrix)::layout_type>>,
                   "types not the same");
 
     ASSERT_EQ(matrix.extents().rank(), 2);
     ASSERT_EQ(matrix.extent(0), 4);
     ASSERT_EQ(matrix.extent(1), 4);
   }
-
-  // shrink host vector
-  {
-    auto hv            = make_host_vector<int>(27);
-    auto shrunk_vector = reshape(hv.view(), raft::extents<dynamic_extent>(20));
-
-    static_assert(std::is_same_v<decltype(hv.view()), decltype(shrunk_vector)>,
-                  "types not the same");
-
-    ASSERT_EQ(hv.extents().rank(), shrunk_vector.extents().rank());
-    ASSERT_EQ(shrunk_vector.extent(0), 20);
-  }
 }
 
-TEST(MDArray, HostReshape) { test_host_reshape(); }
+TEST(MDArray, Reshape) { test_reshape(); }
 
 }  // namespace raft

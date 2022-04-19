@@ -66,9 +66,6 @@ template <typename T>
 inline constexpr bool is_mdspan_v = std::disjunction_v<__is_mdspan<std::remove_const_t<T>>,
                                                        __is_derived_mdspan<std::remove_const_t<T>>>;
 
-template <typename T, typename U = void>
-using is_mdspan_t = std::enable_if_t<is_mdspan_v<T>, U>;
-
 /**
  * @brief stdex::mdspan with device tag to avoid accessing incorrect memory location.
  */
@@ -89,9 +86,6 @@ struct __is_device_mdspan<T, true> : std::bool_constant<not T::accessor_type::is
 
 template <typename T>
 inline constexpr bool is_device_mdspan_v = __is_device_mdspan<T, is_mdspan_v<T>>::value;
-
-template <typename T, typename U = void>
-using is_device_mdspan_t = std::enable_if_t<is_device_mdspan_v<T>, U>;
 
 /**
  * @brief stdex::mdspan with host tag to avoid accessing incorrect memory location.
@@ -114,12 +108,8 @@ struct __is_host_mdspan<T, true> : T::accessor_type::is_host_type {
 template <typename T>
 inline constexpr bool is_host_mdspan_v = __is_host_mdspan<T, is_mdspan_v<T>>::value;
 
-template <typename T, typename U = void>
-using is_host_mdspan_t = std::enable_if_t<is_host_mdspan_v<T>, U>;
-
-// template <typename T>
-// inline constexpr bool is_host_or_device_mdspan_v = std::conjunction_v<__is_device_mdspan<T>,
-// __is_host_mdspan<T>>;
+template <typename T>
+inline constexpr bool is_host_or_device_mdspan_v = is_device_mdspan_v<T> or is_host_mdspan_v<T>;
 
 /**
  * @brief Modified from the c++ mdarray proposal
@@ -811,59 +801,24 @@ auto flatten(const device_scalar<ElementType>& d_s)
   return flatten(d_s.view());
 }
 
-template <typename host_mdspan_type,
+template <typename mdspan_type,
           size_t... Extents,
-          std::enable_if_t<is_host_mdspan_v<host_mdspan_type>>* = nullptr>
-auto reshape(host_mdspan_type h_mds, std::experimental::extents<Extents...> new_shape)
+          std::enable_if_t<is_host_or_device_mdspan_v<mdspan_type>>* = nullptr>
+auto reshape(mdspan_type mds, extents<Extents...> new_shape)
 {
-  RAFT_EXPECTS(h_mds.is_contiguous(), "Input must be contiguous.");
+  RAFT_EXPECTS(mds.is_contiguous(), "Input must be contiguous.");
 
-  // if (new_shape == h_mds.extents()) {
-  //   return h_mds;
-  // } else if (new_shape.rank() == 1) {
-  //   auto new_size = new_shape.extent(0);
-  //   RAFT_EXPECTS(new_size <= h_mds.size(),
-  //                "Cannot reshape array of size %ul into %ul",
-  //                h_mds.size(),
-  //                new_size());
-
-  //   if (new_size == 1) {
-  //     return make_host_scalar_view<typename host_mdspan_type::element_type>(h_mds.data());
-  //   } else {
-  //     return make_host_vector_view<typename host_mdspan_type::element_type,
-  //                                  typename host_mdspan_type::layout_type>(h_mds.data(),
-  //                                  new_size);
-  //   }
-  // } else if (new_shape.rank() == 2) {
-  //   auto new_size = new_shape.extent(0) * new_shape.extent(1);
-  //   RAFT_EXPECTS(new_size == h_mds.size(), "Cannot reshape array with size mismatch");
-
-  //   return make_host_matrix_view<typename host_mdspan_type::element_type,
-  //                                typename host_mdspan_type::layout_type>(
-  //     h_mds.data(), new_shape.extent(0), new_shape.extent(1));
-  // } else {
   size_t new_size = 1;
   for (size_t i = 0; i < new_shape.rank(); ++i) {
     new_size *= new_shape.extent(i);
   }
-  RAFT_EXPECTS(new_size <= h_mds.size(), "Cannot reshape array with size mismatch");
+  RAFT_EXPECTS(new_size == mds.size(), "Cannot reshape array with size mismatch");
 
-  return detail::stdex::mdspan<typename host_mdspan_type::element_type,
+  return detail::stdex::mdspan<typename mdspan_type::element_type,
                                decltype(new_shape),
-                               typename host_mdspan_type::layout_type,
-                               typename host_mdspan_type::accessor_type>(h_mds.data(), new_shape);
-  // }
+                               typename mdspan_type::layout_type,
+                               typename mdspan_type::accessor_type>(mds.data(), new_shape);
 }
-
-// template <typename device_mdspan_type,
-//           std::enable_if_t<is_device_mdspan_v<device_mdspan_type>>* = nullptr>
-// auto reshape(device_mdspan_type d_mds)
-// {
-//   RAFT_EXPECTS(d_mds.is_contiguous(), "Input must be contiguous.");
-//   return make_device_vector_view<typename device_mdspan_type::element_type,
-//                                  typename device_mdspan_type::layout_type>(d_mds.data(),
-//                                                                            d_mds.size());
-// }
 
 template <typename mdarray_type,
           size_t... Extents,
