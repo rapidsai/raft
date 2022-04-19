@@ -70,7 +70,7 @@ TEST(MDSpan, TemplateAsserts) { test_template_asserts(); }
 
 void test_host_flatten()
 {
-  // flatten 3d host matrix
+  // flatten 3d host mdspan
   {
     using three_d_extents = stdex::extents<dynamic_extent, dynamic_extent, dynamic_extent>;
     using three_d_mdarray = host_mdarray<int, three_d_extents>;
@@ -116,7 +116,7 @@ TEST(MDArray, HostFlatten) { test_host_flatten(); }
 void test_device_flatten()
 {
   raft::handle_t handle{};
-  // flatten 3d host matrix
+  // flatten 3d device mdspan
   {
     using three_d_extents = stdex::extents<dynamic_extent, dynamic_extent, dynamic_extent>;
     using three_d_mdarray = device_mdarray<int, three_d_extents>;
@@ -135,7 +135,7 @@ void test_device_flatten()
     ASSERT_EQ(flat_view.extent(0), 27);
   }
 
-  // flatten host vector
+  // flatten device vector
   {
     auto dv        = make_device_vector<int>(27, handle.get_stream());
     auto flat_view = flatten(dv.view());
@@ -146,7 +146,7 @@ void test_device_flatten()
     ASSERT_EQ(dv.extent(0), flat_view.extent(0));
   }
 
-  // flatten host scalar
+  // flatten device scalar
   {
     auto ds        = make_device_scalar<int>(27, handle.get_stream());
     auto flat_view = flatten(ds.view());
@@ -158,5 +158,64 @@ void test_device_flatten()
 }
 
 TEST(MDArray, DeviceFlatten) { test_device_flatten(); }
+
+void test_host_reshape()
+{
+  // reshape 3d host matrix to vector
+  {
+    using three_d_extents = stdex::extents<dynamic_extent, dynamic_extent, dynamic_extent>;
+    using three_d_mdarray = host_mdarray<int, three_d_extents>;
+
+    three_d_extents extents{3, 3, 3};
+    three_d_mdarray::container_policy_type policy;
+    three_d_mdarray mda{extents, policy};
+
+    auto flat_view = reshape(mda, raft::extents<dynamic_extent>{27});
+    // this confirms aliasing works as intended
+    static_assert(std::is_same_v<decltype(flat_view),
+                                 host_vector_view<typename decltype(flat_view)::element_type,
+                                                  typename decltype(flat_view)::layout_type>>,
+                  "types not the same");
+
+    ASSERT_EQ(flat_view.extents().rank(), 1);
+    ASSERT_EQ(flat_view.extent(0), 27);
+  }
+
+  // reshape 4d host matrix to 2d
+  {
+    using four_d_extents =
+      stdex::extents<dynamic_extent, dynamic_extent, dynamic_extent, dynamic_extent>;
+    using four_d_mdarray = host_mdarray<int, four_d_extents>;
+
+    four_d_extents extents{2, 2, 2, 2};
+    four_d_mdarray::container_policy_type policy;
+    four_d_mdarray mda{extents, policy};
+
+    auto matrix = reshape(mda, raft::extents<dynamic_extent, dynamic_extent>{4, 4});
+    // this confirms aliasing works as intended
+    static_assert(std::is_same_v<decltype(matrix),
+                                 host_matrix_view<typename decltype(matrix)::element_type,
+                                                  typename decltype(matrix)::layout_type>>,
+                  "types not the same");
+
+    ASSERT_EQ(matrix.extents().rank(), 2);
+    ASSERT_EQ(matrix.extent(0), 4);
+    ASSERT_EQ(matrix.extent(1), 4);
+  }
+
+  // shrink host vector
+  {
+    auto hv            = make_host_vector<int>(27);
+    auto shrunk_vector = reshape(hv.view(), raft::extents<dynamic_extent>(20));
+
+    static_assert(std::is_same_v<decltype(hv.view()), decltype(shrunk_vector)>,
+                  "types not the same");
+
+    ASSERT_EQ(hv.extents().rank(), shrunk_vector.extents().rank());
+    ASSERT_EQ(shrunk_vector.extent(0), 20);
+  }
+}
+
+TEST(MDArray, HostReshape) { test_host_reshape(); }
 
 }  // namespace raft

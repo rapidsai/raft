@@ -27,6 +27,10 @@
 #include <rmm/cuda_stream_view.hpp>
 
 namespace raft {
+
+template <size_t... ExtentsPack>
+using extents = std::experimental::extents<ExtentsPack...>;
+
 /**
  * @\brief C-Contiguous layout for mdarray and mdspan. Implies row-major and contiguous memory.
  */
@@ -814,39 +818,41 @@ auto reshape(host_mdspan_type h_mds, std::experimental::extents<Extents...> new_
 {
   RAFT_EXPECTS(h_mds.is_contiguous(), "Input must be contiguous.");
 
-  if (new_shape == h_mds.extents()) {
-    return h_mds;
-  } else if (new_shape.rank(1)) {
-    auto new_size = new_shape.extent(0);
-    RAFT_EXPECTS(new_size <= h_mds.size(),
-                 "Cannot reshape array of size %ul into %ul",
-                 h_mds.size(),
-                 new_size());
+  // if (new_shape == h_mds.extents()) {
+  //   return h_mds;
+  // } else if (new_shape.rank() == 1) {
+  //   auto new_size = new_shape.extent(0);
+  //   RAFT_EXPECTS(new_size <= h_mds.size(),
+  //                "Cannot reshape array of size %ul into %ul",
+  //                h_mds.size(),
+  //                new_size());
 
-    if (new_size == 1) {
-      return make_host_scalar_view<typename host_mdspan_type::element_type>(h_mds.data());
-    } else {
-      return make_host_vector_view<typename host_mdspan_type::element_type,
-                                   typename host_mdspan_type::layout_type>(h_mds.data(), new_size);
-    }
-  } else if (new_shape.rank(2)) {
-    auto new_size = new_shape.extent(0) * new_shape.extent(1);
-    RAFT_EXPECTS(new_size == h_mds.size(), "Cannot reshape array with size mismatch");
+  //   if (new_size == 1) {
+  //     return make_host_scalar_view<typename host_mdspan_type::element_type>(h_mds.data());
+  //   } else {
+  //     return make_host_vector_view<typename host_mdspan_type::element_type,
+  //                                  typename host_mdspan_type::layout_type>(h_mds.data(),
+  //                                  new_size);
+  //   }
+  // } else if (new_shape.rank() == 2) {
+  //   auto new_size = new_shape.extent(0) * new_shape.extent(1);
+  //   RAFT_EXPECTS(new_size == h_mds.size(), "Cannot reshape array with size mismatch");
 
-    return make_host_matrix_view<typename host_mdspan_type::element_type,
-                                 typename host_mdspan_type::layout_type>(
-      h_mds.data(), new_shape.extent(0), new_shape.extent(1));
-  } else {
-    size_t new_size = 1;
-    for (size_t i = 0; i < new_shape.rank(); ++i) {
-      new_size *= new_shape.extent(i);
-    }
-    RAFT_EXPECTS(new_size == h_mds.size(), "Cannot reshape array with size mismatch");
-
-    return detail::stdex::mdspan<typename host_mdspan_type::element_type,
-                                 decltype(new_shape),
-                                 typename host_mdspan_type::layout_type>(h_mds.data(), new_shape);
+  //   return make_host_matrix_view<typename host_mdspan_type::element_type,
+  //                                typename host_mdspan_type::layout_type>(
+  //     h_mds.data(), new_shape.extent(0), new_shape.extent(1));
+  // } else {
+  size_t new_size = 1;
+  for (size_t i = 0; i < new_shape.rank(); ++i) {
+    new_size *= new_shape.extent(i);
   }
+  RAFT_EXPECTS(new_size <= h_mds.size(), "Cannot reshape array with size mismatch");
+
+  return detail::stdex::mdspan<typename host_mdspan_type::element_type,
+                               decltype(new_shape),
+                               typename host_mdspan_type::layout_type,
+                               typename host_mdspan_type::accessor_type>(h_mds.data(), new_shape);
+  // }
 }
 
 // template <typename device_mdspan_type,
@@ -859,10 +865,12 @@ auto reshape(host_mdspan_type h_mds, std::experimental::extents<Extents...> new_
 //                                                                            d_mds.size());
 // }
 
-// template <typename mdarray_type, std::enable_if_t<is_mdarray_v<mdarray_type>>* = nullptr>
-// auto reshape(const mdarray_type& mda)
-// {
-//   return reshape(mda.view());
-// }
+template <typename mdarray_type,
+          size_t... Extents,
+          std::enable_if_t<is_mdarray_v<mdarray_type>>* = nullptr>
+auto reshape(const mdarray_type& mda, extents<Extents...> new_shape)
+{
+  return reshape(mda.view(), new_shape);
+}
 
 }  // namespace raft
