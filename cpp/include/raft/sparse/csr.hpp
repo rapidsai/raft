@@ -178,5 +178,141 @@ void weak_cc(Index_* labels,
     labels, row_ind, row_ind_ptr, nnz, N, 0, N, stream, [](Index_) { return true; });
 }
 
+/**
+ * @brief CSR representation of a MFG.
+ *
+ * @tparam IdxT node index type
+ *
+ * Same as `mfg_ellpack` except the neighbors are in CSR format.
+ *
+ * @note Valid IDs: [0, 2^(sizeof(IdxT) * 8 - 1) - 2] (see `INVALID_ID`)
+ * @note This object does NOT own any of the underlying pointers and thus is
+ *       left to the calling code for their lifetime management.
+ * @note This is always an in-graph (`offsets` over the destination nodes).
+ *       See `fg_csr` for further explanation on this.
+ */
+template <typename IdxT>
+struct mfg_csr {
+  // handle sub-classes correctly
+  mfg_csr()          = default;
+  virtual ~mfg_csr() = default;
+
+  /**
+   * number of output nodes of this MFG. See `mfg_ellpack`.
+   * Note that input/output nodes are defined as in the regular MFG
+   */
+  IdxT n_out_nodes{0};
+  /** sample size: See `mfg_ellpack` */
+  IdxT sample_size{0};
+  /**
+   * number of input nodes of this MFG. See `mfg_ellpack`
+   * Note that input/output nodes are defined as in the regular MFG
+   */
+  IdxT* n_in_nodes{nullptr};
+  /**
+   * total number of edges in this graph (length of `indices` array)
+   * [single element, pinned memory]
+   */
+  IdxT* n_indices{nullptr};
+  /**
+   * Output nodes of this MFG. [len = `n_out_nodes`]
+   * For each output node, contains the index w.r.t. input nodes/features.
+   */
+  IdxT* out_nodes{nullptr};
+  /**
+   * Input nodes of this MFG. [len = `*n_in_nodes`]
+   * For each input node, contains the index w.r.t. input nodes/features of
+   * the previous layer or the global graph if no previous layer exists.
+   */
+  IdxT* in_nodes{nullptr};
+  /**
+   * monotonically increasing array with each location pointing to the start
+   * offset of the neighborhood of that node in the `indices` array. It is of
+   * length `n_out_nodes + 1`.
+   */
+  IdxT* offsets{nullptr};
+  /**
+   * contains neighbor indices of every node belonging to this object. It is of
+   * length `n_indices`. For each node, the number of neighbors is
+   * `<= sample_size`
+   */
+  IdxT* indices{nullptr};
+  /**
+   * As in `mfg_ellpack`: Whether the arrays in the struct have been filled.
+   * If this is false, `n_out_nodes` and `sample_size` may be upper bounds
+   * for the actual values.
+   */
+  bool is_set{false};
+};
+
+/**
+ * @brief CSR representation of a reversed/transposed MFG.
+ *
+ * @tparam IdxT node index type
+ *
+ * The reason why it is useful to distinguish this representation from
+ * the full-graph csr is because an MFG is a bipartite graph, and we refer
+ * to input/output nodes as in a normal MFG.
+ * This means that what we call input nodes here are the nodes with ingoing
+ * edges, and the output nodes have outgoing edges, since the graph is reversed.
+ *
+ * @note Because some of the input nodes of an MFG only appear due to keeping
+ *       a reference to the output nodes, some of the nodes in this format
+ *       may not have any neighbors!
+ * @note Valid IDs: [0, 2^(sizeof(IdxT) * 8 - 1) - 2] (see `INVALID_ID`)
+ * @note This object does NOT own any of the underlying pointers and thus is
+ *       left to the calling code for their lifetime management.
+ * @note This is always an out-graph (`offsets` over the source nodes).
+ *       See `fg_csr` for further explanation on this.
+ */
+template <typename IdxT>
+struct mfg_csr_rev {
+  // handle sub-classes correctly
+  mfg_csr_rev()          = default;
+  virtual ~mfg_csr_rev() = default;
+
+  /**
+   * number of output nodes of this MFG. See `mfg_ellpack`.
+   * Note that input/output nodes are defined as in the regular MFG
+   */
+  IdxT n_out_nodes{0};
+  /** sample size: See `mfg_ellpack` */
+  IdxT sample_size{0};
+  /**
+   * number of input nodes of this MFG. See `mfg_ellpack`
+   * Note that input/output nodes are defined as in the regular MFG
+   */
+  IdxT* n_in_nodes{nullptr};
+  /**
+   * total number of edges in this graph (length of `indices` array)
+   * [single element, pinned memory]
+   */
+  IdxT* n_indices{nullptr};
+  /**
+   * For each input node, the ID w.r.t. output nodes of the MFG.
+   * This may be invalid if the input node does not appear as an output node.
+   * It is of length `*n_in_nodes`.
+   */
+  IdxT* in_node_ids{nullptr};
+  /**
+   * monotonically increasing array with each location pointing to the start
+   * offset of the neighborhood of that node in the `indices` array. It is of
+   * length `*n_in_nodes + 1`.
+   */
+  IdxT* offsets{nullptr};
+  /**
+   * contains neighbor indices of every node belonging to this object. It is of
+   * length `n_indices`.
+   */
+  IdxT* indices{nullptr};
+  /**
+   * As in `mfg_ellpack`: Whether the arrays in the struct have been filled.
+   * If this is false, `n_out_nodes` and `sample_size` may be upper bounds
+   * for the actual values.
+   */
+  bool is_set{false};
+};
+
+
 };  // namespace sparse
 };  // namespace raft
