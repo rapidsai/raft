@@ -16,6 +16,9 @@
 
 #pragma once
 
+#include <thrust/optional.h>
+#include <thrust/tuple.h>
+
 #include <raft/sparse/detail/csr.cuh>
 
 namespace raft {
@@ -177,6 +180,80 @@ void weak_cc(Index_* labels,
   weak_cc_batched<Index_, TPB_X>(
     labels, row_ind, row_ind_ptr, nnz, N, 0, N, stream, [](Index_) { return true; });
 }
+
+template <typename vertex_t, typename edge_t, typename weight_t>
+class csr_view_t {
+public:
+    csr_host_view_t(edge_t const* offsets,
+                               vertex_t const* indices,
+                               std::optional<weight_t const*> weights,
+                               edge_t nnz)
+            : offsets_(offsets), indices_(indices), weights_(weights), nnz_(nnz)
+    {
+    }
+
+    edge_t nnz() const { return number_of_edges_; }
+
+    edge_t const* offsets() const { return offsets_; }
+    vertex_t const* indices() const { return indices_; }
+    std::optional<weight_t const*> weights() const { return weights_; }
+
+private:
+    edge_t const* offsets_{nullptr};
+    vertex_t const* indices_{nullptr};
+    std::optional<weight_t const*> weights_{std::nullopt};
+    edge_t nnz_{0};
+};
+
+
+template <typename vertex_t, typename edge_t, typename weight_t>
+class csr_device_view_t {
+public:
+    csr_device_view_t(edge_t const* offsets,
+               vertex_t const* indices,
+               std::optional<weight_t const*> weights,
+               edge_t nnz)
+            : offsets_(offsets),
+              indices_(indices),
+              weights_(weights ? thrust::optional<weight_t const*>(*weights) : thrust::nullopt), nnz_(nnz) {}
+
+    __host__ __device__ edge_t nnz() const { return nnz_; }
+    __host__ __device__ edge_t const* offsets() const { return offsets_; }
+    __host__ __device__ vertex_t const* indices() const { return indices_; }
+    __host__ __device__ thrust::optional<weight_t const*> weights() const { return weights_; }
+
+    // major_idx == major offset if CSR/CSC, major_offset != major_idx if DCSR/DCSC
+    __device__ thrust::tuple<vertex_t const*, thrust::optional<weight_t const*>, edge_t> local_edges(
+            vertex_t major_idx) const noexcept
+    {
+        auto edge_offset  = *(offsets_ + major_idx);
+        auto local_degree = *(offsets_ + (major_idx + 1)) - edge_offset;
+        auto indices      = indices_ + edge_offset;
+        auto weights =
+        weights_ ? thrust::optional<weight_t const*>{*weights_ + edge_offset} : thrust::nullopt;
+        return thrust::make_tuple(indices, weights, local_degree);
+    }
+
+    // major_idx == major offset if CSR/CSC, major_offset != major_idx if DCSR/DCSC
+    __device__ edge_t local_degree(vertex_t major_idx) const noexcept
+    {
+        return *(offsets_ + (major_idx + 1)) - *(offsets_ + major_idx);
+    }
+
+    // major_idx == major offset if CSR/CSC, major_offset != major_idx if DCSR/DCSC
+    __device__ edge_t local_offset(vertex_t major_idx) const noexcept
+    {
+        return *(offsets_ + major_idx);
+    }
+
+private:
+    // should be trivially copyable to device
+    edge_t const* offsets_{nullptr};
+    vertex_t const* indices_{nullptr};
+    thrust::optional<weight_t const*> weights_{thrust::nullopt};
+    edge_t nnz_{0};
+};
+
 
 };  // namespace sparse
 };  // namespace raft
