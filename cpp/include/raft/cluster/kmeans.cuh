@@ -50,21 +50,20 @@ namespace cluster {
 template <typename DataT, typename IndexT>
 void kmeans_fit(handle_t const& handle,
                 const KMeansParams& params,
-                raft::device_matrix_view<DataT> X,
-                std::optional<raft::device_vector_view<DataT>>& sample_weight,
+                raft::device_matrix_view<const DataT> X,
+                std::optional<raft::device_vector_view<const DataT>> sample_weight,
                 std::optional<raft::device_matrix_view<DataT>>& centroids,
                 DataT& inertia,
                 IndexT& n_iter)
 {
-  detail::kmeans_fit<DataT, IndexT>(
-    handle, params, X, sample_weight, centroids, inertia, n_iter);
+  detail::kmeans_fit<DataT, IndexT>(handle, params, X, sample_weight, centroids, inertia, n_iter);
 }
 
 template <typename DataT, typename IndexT>
 void kmeans_predict(handle_t const& handle,
                     const KMeansParams& params,
-                    raft::device_matrix_view<DataT> X,
-                    std::optional<raft::device_vector_view<DataT>>& sample_weight,
+                    raft::device_matrix_view<const DataT> X,
+                    std::optional<raft::device_vector_view<const DataT>> sample_weight,
                     raft::device_matrix_view<DataT> centroids,
                     raft::device_vector_view<IndexT> labels,
                     bool normalize_weight,
@@ -77,8 +76,8 @@ void kmeans_predict(handle_t const& handle,
 template <typename DataT, typename IndexT>
 void kmeans_fit_predict(handle_t const& handle,
                         const KMeansParams& params,
-                        raft::device_matrix_view<DataT> X,
-                        std::optional<raft::device_vector_view<DataT>>& sample_weight,
+                        raft::device_matrix_view<const DataT> X,
+                        std::optional<raft::device_vector_view<const DataT>> sample_weight,
                         std::optional<raft::device_matrix_view<DataT>>& centroids,
                         raft::device_vector_view<IndexT> labels,
                         DataT& inertia,

@@ -87,13 +87,13 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
     d_labels_ref.resize(n_samples, stream);
     d_centroids.resize(params.n_clusters * n_features, stream);
 
-    std::optional<raft::device_vector_view<T>> d_sw = std::nullopt;
-    auto d_centroids_opt                            = std::make_optional(
+    std::optional<raft::device_vector_view<const T>> d_sw = std::nullopt;
+    auto d_centroids_opt                                  = std::make_optional(
       raft::make_device_matrix_view<T>(d_centroids.data(), params.n_clusters, n_features));
     if (testparams.weighted) {
       d_sample_weight.resize(n_samples, stream);
-      d_sw =
-        std::make_optional(raft::make_device_vector_view<T>(d_sample_weight.data(), n_samples));
+      d_sw = std::make_optional(
+        raft::make_device_vector_view<const T>(d_sample_weight.data(), n_samples));
       thrust::fill(thrust::cuda::par.on(stream),
                    d_sample_weight.data(),
                    d_sample_weight.data() + n_samples,
@@ -103,13 +103,14 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
     raft::copy(d_labels_ref.data(), labels.data(), n_samples, stream);
     handle.sync_stream(stream);
 
-    T inertia  = 0;
-    int n_iter = 0;
+    T inertia   = 0;
+    int n_iter  = 0;
+    auto X_view = (raft::device_matrix_view<const T>)X.view();
 
     raft::cluster::kmeans_fit_predict<T, int>(
       handle,
       params,
-      X.view(),
+      X_view,
       d_sw,
       d_centroids_opt,
       raft::make_device_vector_view<int>(d_labels.data(), n_samples),

@@ -38,7 +38,7 @@ namespace matrix {
  * @param  stream       CUDA stream to launch kernels within
  */
 template <typename MatrixIteratorT, typename MapIteratorT>
-void gather(MatrixIteratorT in,
+void gather(const MatrixIteratorT in,
             int D,
             int N,
             MapIteratorT map,
@@ -71,7 +71,7 @@ void gather(MatrixIteratorT in,
  * @param  stream       CUDA stream to launch kernels within
  */
 template <typename MatrixIteratorT, typename MapIteratorT, typename MapTransformOp>
-void gather(MatrixIteratorT in,
+void gather(const MatrixIteratorT in,
             int D,
             int N,
             MapIteratorT map,
@@ -111,7 +111,7 @@ template <typename MatrixIteratorT,
           typename MapIteratorT,
           typename StencilIteratorT,
           typename UnaryPredicateOp>
-void gather_if(MatrixIteratorT in,
+void gather_if(const MatrixIteratorT in,
                int D,
                int N,
                MapIteratorT map,
@@ -156,7 +156,7 @@ template <typename MatrixIteratorT,
           typename StencilIteratorT,
           typename UnaryPredicateOp,
           typename MapTransformOp>
-void gather_if(MatrixIteratorT in,
+void gather_if(const MatrixIteratorT in,
                int D,
                int N,
                MapIteratorT map,

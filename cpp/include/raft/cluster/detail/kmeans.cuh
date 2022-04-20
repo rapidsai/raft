@@ -56,7 +56,7 @@ namespace detail {
 template <typename DataT, typename IndexT>
 void initRandom(const raft::handle_t& handle,
                 const KMeansParams& params,
-                raft::device_matrix_view<DataT> X,
+                raft::device_matrix_view<const DataT> X,
                 rmm::device_uvector<DataT>& centroidsRawData)
 {
   cudaStream_t stream = handle.get_stream();
@@ -87,7 +87,7 @@ void initRandom(const raft::handle_t& handle,
 template <typename DataT, typename IndexT>
 void kmeansPlusPlus(const raft::handle_t& handle,
                     const KMeansParams& params,
-                    raft::device_matrix_view<DataT> X,
+                    raft::device_matrix_view<const DataT> X,
                     raft::distance::DistanceType metric,
                     rmm::device_uvector<char>& workspace,
                     rmm::device_uvector<DataT>& centroidsRawData,
@@ -134,7 +134,7 @@ void kmeansPlusPlus(const raft::handle_t& handle,
 
   // <<< Step-1 >>>: C <-- sample a point uniformly at random from X
   auto initialCentroid =
-    raft::make_device_matrix_view<DataT>(X.data() + dis(gen) * n_features, 1, n_features);
+    raft::make_device_matrix_view<const DataT>(X.data() + dis(gen) * n_features, 1, n_features);
   int n_clusters_picked = 1;
 
   // reset buffer to store the chosen centroid
@@ -173,7 +173,7 @@ void kmeansPlusPlus(const raft::handle_t& handle,
     for (int cIdx = 0; cIdx < n_trials; ++cIdx) {
       auto rand_idx = d(gen);
       auto randCentroid =
-        raft::make_device_matrix_view<DataT>(X.data() + n_features * rand_idx, 1, n_features);
+        raft::make_device_matrix_view<const DataT>(X.data() + n_features * rand_idx, 1, n_features);
       raft::copy(centroidCandidates.data() + cIdx * n_features,
                  randCentroid.data(),
                  randCentroid.size(),
@@ -261,7 +261,7 @@ void kmeansPlusPlus(const raft::handle_t& handle,
 template <typename DataT, typename IndexT>
 void initKMeansPlusPlus(const raft::handle_t& handle,
                         const KMeansParams& params,
-                        raft::device_matrix_view<DataT> X,
+                        raft::device_matrix_view<const DataT> X,
                         rmm::device_uvector<DataT>& centroidsRawData,
                         rmm::device_uvector<char>& workspace)
 {
@@ -277,8 +277,8 @@ void initKMeansPlusPlus(const raft::handle_t& handle,
 template <typename DataT, typename IndexT>
 void kmeans_fit_main(const raft::handle_t& handle,
                      const KMeansParams& params,
-                     raft::device_matrix_view<DataT> X,
-                     raft::device_vector_view<DataT> weight,
+                     raft::device_matrix_view<const DataT> X,
+                     raft::device_vector_view<const DataT> weight,
                      rmm::device_uvector<DataT>& centroidsRawData,
                      DataT& inertia,
                      IndexT& n_iter,
@@ -363,7 +363,7 @@ void kmeans_fit_main(const raft::handle_t& handle,
 
     // Calculates weighted sum of all the samples assigned to cluster-i and store the
     // result in newCentroids[i]
-    raft::linalg::reduce_rows_by_key(X.data(),
+    raft::linalg::reduce_rows_by_key((DataT*)X.data(),  // TODO remove cast
                                      X.extent(1),
                                      itr,
                                      weight.data(),
@@ -557,7 +557,7 @@ void kmeans_fit_main(const raft::handle_t& handle,
 template <typename DataT, typename IndexT>
 void initScalableKMeansPlusPlus(const raft::handle_t& handle,
                                 const KMeansParams& params,
-                                raft::device_matrix_view<DataT> X,
+                                raft::device_matrix_view<const DataT> X,
                                 rmm::device_uvector<DataT>& centroidsRawData,
                                 rmm::device_uvector<char>& workspace)
 {
@@ -573,8 +573,9 @@ void initScalableKMeansPlusPlus(const raft::handle_t& handle,
   std::mt19937 gen(params.seed);
   std::uniform_int_distribution<> dis(0, n_rows - 1);
 
-  auto cIdx            = dis(gen);
-  auto initialCentroid = raft::make_device_matrix_view<DataT>(X.data() + cIdx * n_cols, 1, n_cols);
+  auto cIdx = dis(gen);
+  auto initialCentroid =
+    raft::make_device_matrix_view<const DataT>(X.data() + cIdx * n_cols, 1, n_cols);
   /* Also X.subspan(
     {cIdx, 0}, // Offset
     {1, n_cols}); // Size */
@@ -805,8 +806,8 @@ void initScalableKMeansPlusPlus(const raft::handle_t& handle,
 template <typename DataT, typename IndexT>
 void kmeans_fit(handle_t const& handle,
                 const KMeansParams& params,
-                raft::device_matrix_view<DataT> X,
-                std::optional<raft::device_vector_view<DataT>>& sample_weight,
+                raft::device_matrix_view<const DataT> X,
+                std::optional<raft::device_vector_view<const DataT>> sample_weight,
                 std::optional<raft::device_matrix_view<DataT>>& centroids,
                 DataT& inertia,
                 IndexT& n_iter)
@@ -927,9 +928,9 @@ void kmeans_fit(handle_t const& handle,
 template <typename DataT, typename IndexT>
 void kmeans_predict(handle_t const& handle,
                     const KMeansParams& params,
-                    raft::device_matrix_view<DataT> X,
-                    std::optional<raft::device_vector_view<DataT>>& sample_weight,
-                    raft::device_matrix_view<DataT> centroids,
+                    raft::device_matrix_view<const DataT> X,
+                    std::optional<raft::device_vector_view<const DataT>> sample_weight,
+                    raft::device_matrix_view<const DataT> centroids,
                     raft::device_vector_view<IndexT> labels,
                     bool normalize_weight,
                     DataT& inertia)

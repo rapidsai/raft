@@ -57,25 +57,21 @@ struct kmeans_solver_t {
     RAFT_EXPECTS(codes != nullptr, "Null codes buffer.");
     value_type_t residual{};
     index_type_t iters{};
-    /*raft::cluster::KMeansParams km_params;
+    raft::cluster::KMeansParams km_params;
     km_params.n_clusters = config_.n_clusters;
     km_params.tol        = config_.tol;
     km_params.max_iter   = config_.maxIter;
     km_params.seed       = config_.seed;
 
-    auto observations =
-      raft::make_device_matrix<value_type_t>(n_obs_vecs, dim, handle.get_stream());
-    auto labels = raft::make_device_vector<index_type_t>(n_obs_vecs, handle.get_stream());
-    auto centroids =
-      raft::make_device_matrix<value_type_t>(n_obs_vecs, config_.n_clusters, handle.get_stream());
-    auto centroidsView = std::make_optional(centroids.view());
-    auto weight        = raft::make_device_vector<value_type_t>(n_obs_vecs, handle.get_stream());
-    auto sw            = std::make_optional(weight.view());
-    thrust::fill(handle.get_thrust_policy(), sw.value().data(), sw.value().data() + n_obs_vecs, 1);
-    raft::copy(observations.data(), obs, n_obs_vecs * dim, handle.get_stream());
+    auto X      = raft::make_device_matrix_view<const value_type_t>(obs, n_obs_vecs, dim);
+    auto labels = raft::make_device_vector_view<index_type_t>(codes, n_obs_vecs);
+    std::optional<raft::device_matrix_view<value_type_t>> centroids = std::nullopt;
+    auto weight = raft::make_device_vector<value_type_t>(n_obs_vecs, handle.get_stream());
+    thrust::fill(handle.get_thrust_policy(), weight.data(), weight.data() + n_obs_vecs, 1);
+
+    auto sw = std::make_optional((raft::device_vector_view<const value_type_t>)weight.view());
     raft::cluster::kmeans_fit_predict<value_type_t, index_type_t>(
-      handle, km_params, observations.view(), sw, centroidsView, labels.view(), residual, iters);
-    raft::copy(codes, labels.data(), n_obs_vecs, handle.get_stream());*/
+      handle, km_params, X, sw, centroids, labels, residual, iters);
     return std::make_pair(residual, iters);
   }
 
