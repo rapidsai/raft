@@ -55,10 +55,6 @@ install_requires = [
 
 cuda_home = get_environment_option("CUDA_HOME")
 
-clean_artifacts = get_cli_option('clean')
-single_gpu_build = get_cli_option('--singlegpu')
-
-
 if not cuda_home:
     cuda_home = (
         os.popen('echo "$(dirname $(dirname $(which nvcc)))"').read().strip()
@@ -66,6 +62,17 @@ if not cuda_home:
     print("-- Using nvcc to detect CUDA, found at " + str(cuda_home))
 cuda_include_dir = os.path.join(cuda_home, "include")
 cuda_lib_dir = os.path.join(cuda_home, "lib64")
+
+clean_artifacts = get_cli_option('clean')
+single_gpu_build = get_cli_option('--singlegpu')
+
+ucx_home = get_environment_option("UCX_HOME") or os.sys.prefix
+ucx_lib_dir = os.path.join(ucx_home, "lib")
+ucx_include_dir = os.path.join(ucx_home, "include")
+
+rmm_include_dir = get_environment_option("RMM_INCLUDE_DIR") or os.path.join(os.sys.prefix, "include")
+thrust_include_dir = get_environment_option("THRUST_INCLUDE_DIR") or os.path.join(os.sys.prefix, "include")
+spdlog_include_dir = get_environment_option("SPDLOG_INCLUDE_DIR") or os.path.join(os.sys.prefix, "include")
 
 ##############################################################################
 # - Clean target -------------------------------------------------------------
@@ -104,18 +111,23 @@ if clean_artifacts:
 
 libs = ['cudart', "nccl", "cusolver", "cusparse", "cublas"]
 
-include_dirs = [cuda_include_dir,
+include_dirs = [ucx_include_dir,
+                rmm_include_dir,
+                thrust_include_dir,
+                spdlog_include_dir,
+                cuda_include_dir,
                 numpy.get_include(),
                 "../../cpp/include/",
                 os.path.dirname(sysconfig.get_path("include"))]
+
+library_dirs = [ucx_lib_dir, cuda_lib_dir]
 
 extensions = [
     Extension("*",
               sources=["raft/**/*.pyx"],
               include_dirs=include_dirs,
-              library_dirs=[get_python_lib()],
-              runtime_library_dirs=[cuda_lib_dir,
-                                    os.path.join(os.sys.prefix, "lib")],
+              library_dirs=library_dirs + [get_python_lib()],
+              runtime_library_dirs=library_dirs + [os.path.join(os.sys.prefix, "lib")],
               libraries=libs,
               language='c++',
               extra_compile_args=['-std=c++17'])
