@@ -44,6 +44,10 @@ using layout_c_contiguous = detail::stdex::layout_right;
  */
 using layout_f_contiguous = detail::stdex::layout_left;
 
+/**
+ * @\brief Template checks and helpers to determine if type T is an std::mdspan
+ *         or a derived type
+ */
 template <typename T>
 struct __is_mdspan : std::false_type {
 };
@@ -65,12 +69,12 @@ struct __is_derived_mdspan<T, std::void_t<decltype(__takes_an_mdspan_ptr(std::de
   : std::true_type {
 };
 
-/**
- * @\brief Boolean to determine if template type T is either std::mdspan or a derived type
- */
 template <typename T>
-inline constexpr bool is_mdspan_v = std::disjunction_v<__is_mdspan<std::remove_const_t<T>>,
-                                                       __is_derived_mdspan<std::remove_const_t<T>>>;
+using __is_mdspan_t = std::disjunction<__is_mdspan<std::remove_const_t<T>>,
+                                       __is_derived_mdspan<std::remove_const_t<T>>>;
+
+template <typename T>
+inline constexpr bool __is_mdspan_v = __is_mdspan_t<T>::value;
 
 /**
  * @brief stdex::mdspan with device tag to avoid accessing incorrect memory location.
@@ -94,7 +98,7 @@ struct __is_device_mdspan<T, true> : std::bool_constant<not T::accessor_type::is
  * @\brief Boolean to determine if template type T is either raft::device_mdspan or a derived type
  */
 template <typename T>
-inline constexpr bool is_device_mdspan_v = __is_device_mdspan<T, is_mdspan_v<T>>::value;
+inline constexpr bool is_device_mdspan_v = __is_device_mdspan<T, __is_mdspan_v<T>>::value;
 
 /**
  * @brief stdex::mdspan with host tag to avoid accessing incorrect memory location.
@@ -118,14 +122,19 @@ struct __is_host_mdspan<T, true> : T::accessor_type::is_host_type {
  * @\brief Boolean to determine if template type T is either raft::host_mdspan or a derived type
  */
 template <typename T>
-inline constexpr bool is_host_mdspan_v = __is_host_mdspan<T, is_mdspan_v<T>>::value;
+inline constexpr bool is_host_mdspan_v = __is_host_mdspan<T, __is_mdspan_v<T>>::value;
 
 /**
  * @\brief Boolean to determine if template type T is either raft::host_mdspan/raft::device_mdspan
  *         or their derived types
+ *         This is structured such that it will short-circuit if the type is not std::mdspan
+ *         or a derived type, and otherwise it will check whether it is a raft::device_mdspan
+ *         or raft::host_mdspan assuming the type was found to be std::mdspan or a derived type
  */
 template <typename T>
-inline constexpr bool is_host_or_device_mdspan_v = is_device_mdspan_v<T> or is_host_mdspan_v<T>;
+inline constexpr bool is_mdspan_v =
+  std::conjunction_v<__is_mdspan_t<T>,
+                     std::disjunction<__is_device_mdspan<T, true>, __is_host_mdspan<T, true>>>;
 
 /**
  * @brief Modified from the c++ mdarray proposal
@@ -744,11 +753,11 @@ auto make_device_vector(raft::handle_t const& handle, size_t n)
 }
 
 /**
- * @brief 
- * 
+ * @brief Flatten raft::host_mdspan into a 1-dim array view
+ *
  * @tparam host_mdspan_type Expected type raft::host_mdspan
  * @param h_mds raft::host_mdspan object
- * @return raft::host_mdspan 
+ * @return raft::host_mdspan
  */
 template <typename host_mdspan_type,
           std::enable_if_t<is_host_mdspan_v<host_mdspan_type>>* = nullptr>
@@ -771,12 +780,12 @@ auto flatten(device_mdspan_type d_mds)
 }
 
 /**
- * @brief 
- * 
+ * @brief Flatten raft::mdarray into a 1-dim array view
+ *
  * @tparam mdarray_type Expected type raft::mdarray
  * @param mda raft::mdarray object
  * @return Either raft::host_mdspan or raft::device_mdspan depending on the underlying
- *         ContainerType 
+ *         ContainerPolicy
  */
 template <typename mdarray_type, std::enable_if_t<is_mdarray_v<mdarray_type>>* = nullptr>
 auto flatten(const mdarray_type& mda)
@@ -833,8 +842,8 @@ auto flatten(const device_scalar<ElementType>& d_s)
 }
 
 /**
- * @brief 
- * 
+ * @brief Reshape raft::host_mdspan or raft::device_mdspan
+ *
  * @tparam mdspan_type Expected type raft::host_mdspan or raft::device_mdspan
  * @tparam Extents raft::extents for dimensions
  * @param mds raft::host_mdspan or raft::device_mdspan object
@@ -843,7 +852,7 @@ auto flatten(const device_scalar<ElementType>& d_s)
  */
 template <typename mdspan_type,
           size_t... Extents,
-          std::enable_if_t<is_host_or_device_mdspan_v<mdspan_type>>* = nullptr>
+          std::enable_if_t<is_mdspan_v<mdspan_type>>* = nullptr>
 auto reshape(mdspan_type mds, extents<Extents...> new_shape)
 {
   RAFT_EXPECTS(mds.is_contiguous(), "Input must be contiguous.");
@@ -861,13 +870,14 @@ auto reshape(mdspan_type mds, extents<Extents...> new_shape)
 }
 
 /**
- * @brief 
- * 
+ * @brief Reshape raft::mdarray
+ *
  * @tparam mdarray_type Expected type raft::mdarray
  * @tparam Extents raft::extents for dimensions
  * @param mda raft::mdarray object
  * @param new_shape Desired new shape of the input
- * @return raft::host_mdspan or raft::device_mdspan, depending on ContainerPolicy 
+ * @return raft::host_mdspan or raft::device_mdspan, depending on the underlying
+ *         ContainerPolicy
  */
 template <typename mdarray_type,
           size_t... Extents,
