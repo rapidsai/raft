@@ -144,20 +144,11 @@ class array_interface {
  public:
   using extents_type = Extents;
   using layout_type  = LayoutPolicy;
-  using mapping_type = typename layout_type::template mapping<extents_type>;
   using element_type = ElementType;
 
-  using value_type      = std::remove_cv_t<element_type>;
-  using index_type      = std::size_t;
-  using difference_type = std::ptrdiff_t;
   // Naming: ref impl: container_policy_type, proposal: container_policy
   using container_policy_type = ContainerPolicy;
   using container_type        = typename container_policy_type::container_type;
-
-  using pointer         = typename container_policy_type::pointer;
-  using const_pointer   = typename container_policy_type::const_pointer;
-  using reference       = typename container_policy_type::reference;
-  using const_reference = typename container_policy_type::const_reference;
 
  private:
   template <typename E,
