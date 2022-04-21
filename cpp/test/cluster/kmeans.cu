@@ -88,8 +88,8 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
     d_centroids.resize(params.n_clusters * n_features, stream);
 
     std::optional<raft::device_vector_view<const T>> d_sw = std::nullopt;
-    auto d_centroids_opt                                  = std::make_optional(
-      raft::make_device_matrix_view<T>(d_centroids.data(), params.n_clusters, n_features));
+    auto d_centroids_view =
+      raft::make_device_matrix_view<T>(d_centroids.data(), params.n_clusters, n_features);
     if (testparams.weighted) {
       d_sample_weight.resize(n_samples, stream);
       d_sw = std::make_optional(
@@ -112,7 +112,7 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
       params,
       X_view,
       d_sw,
-      d_centroids_opt,
+      d_centroids_view,
       raft::make_device_vector_view<int>(d_labels.data(), n_samples),
       inertia,
       n_iter);

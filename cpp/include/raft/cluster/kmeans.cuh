@@ -18,7 +18,7 @@
 #include <optional>
 #include <raft/cluster/detail/kmeans.cuh>
 #include <raft/cluster/kmeans_params.hpp>
-#include <raft/mdarray.hpp>
+#include <raft/core/mdarray.hpp>
 
 namespace raft {
 namespace cluster {
@@ -32,12 +32,8 @@ namespace cluster {
  * @tparam IdxT the type of data used for indexing.
  * @param[in]     handle        The raft handle.
  * @param[in]     params        Parameters for KMeans model.
- * @param[in]     X             Training instances to cluster. It must be noted
- * that the data must be in row-major format and stored in device accessible
- * location.
- * @param[in]     n_samples     Number of samples in the input X.
- * @param[in]     n_features    Number of features or the dimensions of each
- * sample.
+ * @param[in]     X             Training instances to cluster. The data must
+ * be in row-major format
  * @param[in]     sample_weight Optional weights for each observation in X.
  * @param[inout]  centroids     [in] When init is InitMethod::Array, use
  * centroids as the initial cluster centers
@@ -47,24 +43,40 @@ namespace cluster {
  * closest cluster center.
  * @param[out]    n_iter        Number of iterations run.
  */
-template <typename DataT, typename IndexT>
+template <typename DataT, typename IndexT = int>
 void kmeans_fit(handle_t const& handle,
                 const KMeansParams& params,
                 raft::device_matrix_view<const DataT> X,
                 std::optional<raft::device_vector_view<const DataT>> sample_weight,
-                std::optional<raft::device_matrix_view<DataT>>& centroids,
+                raft::device_matrix_view<DataT> centroids,
                 DataT& inertia,
                 IndexT& n_iter)
 {
   detail::kmeans_fit<DataT, IndexT>(handle, params, X, sample_weight, centroids, inertia, n_iter);
 }
 
-template <typename DataT, typename IndexT>
+/**
+ * @brief Predict the closest cluster each sample in X belongs to.
+ *
+ * @param[in]     handle            The handle to the cuML library context
+ * that manages the CUDA resources.
+ * @param[in]     params            Parameters for KMeans model.
+ * @param[in]     centroids         Cluster centroids. The data must be in
+ * row-major format.
+ * @param[in]     X                 New data to predict.
+ * @param[in]     sample_weight     The weights for each observation in X.
+ * @param[in]     normalize_weights True if the weights should be normalized
+ * @param[out]    labels            Index of the cluster each sample in X
+ * belongs to.
+ * @param[out]    inertia           Sum of squared distances of samples to
+ * their closest cluster center.
+ */
+template <typename DataT, typename IndexT = int>
 void kmeans_predict(handle_t const& handle,
                     const KMeansParams& params,
                     raft::device_matrix_view<const DataT> X,
                     std::optional<raft::device_vector_view<const DataT>> sample_weight,
-                    raft::device_matrix_view<DataT> centroids,
+                    raft::device_matrix_view<const DataT> centroids,
                     raft::device_vector_view<IndexT> labels,
                     bool normalize_weight,
                     DataT& inertia)
@@ -73,19 +85,59 @@ void kmeans_predict(handle_t const& handle,
     handle, params, X, sample_weight, centroids, labels, normalize_weight, inertia);
 }
 
-template <typename DataT, typename IndexT>
+/**
+ * @brief Compute k-means clustering and predicts cluster index for each sample
+ * in the input.
+ *
+ * @param[in]     handle        The handle to the cuML library context that
+ * manages the CUDA resources.
+ * @param[in]     params        Parameters for KMeans model.
+ * @param[in]     X             Training instances to cluster. The data must be
+ * in row-major format
+ * @param[in]     sample_weight The weights for each observation in X.
+ * @param[inout]  centroids     [in] When init is InitMethod::Array, use
+ * centroids  as the initial cluster centers
+ *                              [out] Otherwise, generated centroids from the
+ * kmeans algorithm is stored at the address pointed by 'centroids'.
+ * @param[out]    labels        Index of the cluster each sample in X belongs
+ * to.
+ * @param[out]    inertia       Sum of squared distances of samples to their
+ * closest cluster center.
+ * @param[out]    n_iter        Number of iterations run.
+ */
+template <typename DataT, typename IndexT = int>
 void kmeans_fit_predict(handle_t const& handle,
                         const KMeansParams& params,
                         raft::device_matrix_view<const DataT> X,
                         std::optional<raft::device_vector_view<const DataT>> sample_weight,
-                        std::optional<raft::device_matrix_view<DataT>>& centroids,
+                        raft::device_matrix_view<DataT> centroids,
                         raft::device_vector_view<IndexT> labels,
                         DataT& inertia,
                         IndexT& n_iter)
 {
   kmeans_fit<DataT, IndexT>(handle, params, X, sample_weight, centroids, inertia, n_iter);
-  kmeans_predict<DataT, IndexT>(
-    handle, params, X, sample_weight, centroids.value(), labels, true, inertia);
+  kmeans_predict<DataT, IndexT>(handle, params, X, sample_weight, centroids, labels, true, inertia);
+}
+
+/**
+ * @brief Transform X to a cluster-distance space.
+ *
+ * @param[in]     handle        The handle to the cuML library context that
+ * manages the CUDA resources.
+ * @param[in]     params        Parameters for KMeans model.
+ * @param[in]     X             Training instances to cluster. The data must
+ * be in row-major format
+ * @param[in]     centroids     Cluster centroids. The data must be in row-major format.
+ * @param[out]    X_new         X transformed in the new space..
+ */
+template <typename DataT, typename IndexT = int>
+void kmeans_transform(const raft::handle_t& handle,
+                      const KMeansParams& params,
+                      raft::device_matrix_view<const DataT> X,
+                      raft::device_matrix_view<const DataT> centroids,
+                      raft::device_matrix_view<DataT> X_new)
+{
+  detail::kmeans_transform<DataT, IndexT>(handle, params, X, centroids, X_new);
 }
 }  // namespace cluster
 }  // namespace raft
