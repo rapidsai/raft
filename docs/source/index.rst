@@ -1,7 +1,7 @@
 Welcome to RAFT's documentation!
 =================================
 
-RAFT contains fundamental widely-used algorithms and primitives for data science, graph and machine learning.
+RAFT contains fundamental widely-used algorithms and primitives for data science and machine learning.
 
 .. toctree::
    :maxdepth: 2

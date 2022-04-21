@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,24 +31,30 @@ namespace spatial {
 namespace knn {
 namespace detail {
 
-template <typename K, typename IndexType, bool select_min, int warp_q, int thread_q, int tpb>
-__global__ void select_k_kernel(K* inK,
-                                IndexType* inV,
+template <typename key_t, typename payload_t>
+constexpr int kFaissMaxK()
+{
+  return (sizeof(key_t) + sizeof(payload_t) > 8) ? 512 : 1024;
+}
+
+template <typename key_t, typename payload_t, bool select_min, int warp_q, int thread_q, int tpb>
+__global__ void select_k_kernel(key_t* inK,
+                                payload_t* inV,
                                 size_t n_rows,
                                 size_t n_cols,
-                                K* outK,
-                                IndexType* outV,
-                                K initK,
-                                IndexType initV,
+                                key_t* outK,
+                                payload_t* outV,
+                                key_t initK,
+                                payload_t initV,
                                 int k)
 {
   constexpr int kNumWarps = tpb / faiss::gpu::kWarpSize;
 
-  __shared__ K smemK[kNumWarps * warp_q];
-  __shared__ IndexType smemV[kNumWarps * warp_q];
+  __shared__ key_t smemK[kNumWarps * warp_q];
+  __shared__ payload_t smemV[kNumWarps * warp_q];
 
   faiss::gpu::
-    BlockSelect<K, IndexType, select_min, faiss::gpu::Comparator<K>, warp_q, thread_q, tpb>
+    BlockSelect<key_t, payload_t, select_min, faiss::gpu::Comparator<key_t>, warp_q, thread_q, tpb>
       heap(initK, initV, smemK, smemV, k);
 
   // Grid is exactly sized to rows available
@@ -56,8 +62,8 @@ __global__ void select_k_kernel(K* inK,
   int i   = threadIdx.x;
 
   int idx             = row * n_cols;
-  K* inKStart         = inK + idx + i;
-  IndexType* inVStart = inV + idx + i;
+  key_t* inKStart     = inK + idx + i;
+  payload_t* inVStart = inV + idx + i;
 
   // Whole warps must participate in the selection
   int limit = faiss::gpu::utils::roundDown(n_cols, faiss::gpu::kWarpSize);
@@ -84,13 +90,13 @@ __global__ void select_k_kernel(K* inK,
   }
 }
 
-template <typename value_idx = int, typename value_t = float, int warp_q, int thread_q>
-inline void select_k_impl(value_t* inK,
-                          value_idx* inV,
+template <typename payload_t = int, typename key_t = float, int warp_q, int thread_q>
+inline void select_k_impl(key_t* inK,
+                          payload_t* inV,
                           size_t n_rows,
                           size_t n_cols,
-                          value_t* outK,
-                          value_idx* outV,
+                          key_t* outK,
+                          payload_t* outV,
                           bool select_min,
                           int k,
                           cudaStream_t stream)
@@ -100,14 +106,13 @@ inline void select_k_impl(value_t* inK,
   constexpr int n_threads = (warp_q <= 1024) ? 128 : 64;
   auto block              = dim3(n_threads);
 
-  auto kInit =
-    select_min ? faiss::gpu::Limits<value_t>::getMax() : faiss::gpu::Limits<value_t>::getMin();
+  auto kInit = select_min ? upper_bound<key_t>() : lower_bound<key_t>();
   auto vInit = -1;
   if (select_min) {
-    select_k_kernel<value_t, value_idx, false, warp_q, thread_q, n_threads>
+    select_k_kernel<key_t, payload_t, false, warp_q, thread_q, n_threads>
       <<<grid, block, 0, stream>>>(inK, inV, n_rows, n_cols, outK, outV, kInit, vInit, k);
   } else {
-    select_k_kernel<value_t, value_idx, true, warp_q, thread_q, n_threads>
+    select_k_kernel<key_t, payload_t, true, warp_q, thread_q, n_threads>
       <<<grid, block, 0, stream>>>(inK, inV, n_rows, n_cols, outK, outV, kInit, vInit, k);
   }
   RAFT_CUDA_TRY(cudaGetLastError());
@@ -127,38 +132,41 @@ inline void select_k_impl(value_t* inK,
  * @param[in] k number of neighbors per partition (also number of merged neighbors)
  * @param[in] stream CUDA stream to use
  */
-template <typename value_idx = int, typename value_t = float>
-inline void select_k(value_t* inK,
-                     value_idx* inV,
+template <typename payload_t = int, typename key_t = float>
+inline void select_k(key_t* inK,
+                     payload_t* inV,
                      size_t n_rows,
                      size_t n_cols,
-                     value_t* outK,
-                     value_idx* outV,
+                     key_t* outK,
+                     payload_t* outV,
                      bool select_min,
                      int k,
                      cudaStream_t stream)
 {
+  constexpr int max_k = kFaissMaxK<payload_t, key_t>();
   if (k == 1)
-    select_k_impl<value_idx, value_t, 1, 1>(
+    select_k_impl<payload_t, key_t, 1, 1>(
       inK, inV, n_rows, n_cols, outK, outV, select_min, k, stream);
   else if (k <= 32)
-    select_k_impl<value_idx, value_t, 32, 2>(
+    select_k_impl<payload_t, key_t, 32, 2>(
       inK, inV, n_rows, n_cols, outK, outV, select_min, k, stream);
   else if (k <= 64)
-    select_k_impl<value_idx, value_t, 64, 3>(
+    select_k_impl<payload_t, key_t, 64, 3>(
       inK, inV, n_rows, n_cols, outK, outV, select_min, k, stream);
   else if (k <= 128)
-    select_k_impl<value_idx, value_t, 128, 3>(
+    select_k_impl<payload_t, key_t, 128, 3>(
       inK, inV, n_rows, n_cols, outK, outV, select_min, k, stream);
   else if (k <= 256)
-    select_k_impl<value_idx, value_t, 256, 4>(
+    select_k_impl<payload_t, key_t, 256, 4>(
       inK, inV, n_rows, n_cols, outK, outV, select_min, k, stream);
   else if (k <= 512)
-    select_k_impl<value_idx, value_t, 512, 8>(
+    select_k_impl<payload_t, key_t, 512, 8>(
       inK, inV, n_rows, n_cols, outK, outV, select_min, k, stream);
-  else if (k <= 1024)
-    select_k_impl<value_idx, value_t, 1024, 8>(
+  else if (k <= 1024 && k <= max_k)
+    select_k_impl<payload_t, key_t, max_k, 8>(
       inK, inV, n_rows, n_cols, outK, outV, select_min, k, stream);
+  else
+    ASSERT(k <= max_k, "Current max k is %d (requested %d)", max_k, k);
 }
 
 };  // namespace detail

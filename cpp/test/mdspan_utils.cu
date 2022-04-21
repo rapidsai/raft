@@ -15,7 +15,7 @@
  */
 
 #include <gtest/gtest.h>
-#include <raft/mdarray.hpp>
+#include <raft/core/mdarray.hpp>
 
 namespace raft {
 
