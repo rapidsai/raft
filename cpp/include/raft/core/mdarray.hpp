@@ -837,7 +837,7 @@ auto flatten(device_mdspan_type d_mds)
 /**
  * @brief Flatten object implementing raft::array_interface into a 1-dim array view
  *
- * @tparam mdarray_type Expected type implementing raft::array_interface
+ * @tparam array_interface_type Expected type implementing raft::array_interface
  * @param mda raft::array_interace implementing object
  * @return Either raft::host_mdspan or raft::device_mdspan depending on the underlying
  *         ContainerPolicy
@@ -928,7 +928,7 @@ auto reshape(mdspan_type mds, extents<Extents...> new_shape)
 /**
  * @brief Reshape object implementing raft::array_interface
  *
- * @tparam mdarray_type Expected type implementing raft::array_interface
+ * @tparam array_interface_type Expected type implementing raft::array_interface
  * @tparam Extents raft::extents for dimensions
  * @param mda raft::array_interace implementing object
  * @param new_shape Desired new shape of the input
