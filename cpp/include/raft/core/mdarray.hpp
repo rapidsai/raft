@@ -47,30 +47,22 @@ using layout_f_contiguous = detail::stdex::layout_left;
  * @\brief Template checks and helpers to determine if type T is an std::mdspan
  *         or a derived type
  */
-template <typename T>
-struct __is_mdspan : std::false_type {
-};
-
-template <typename... Args>
-struct __is_mdspan<detail::stdex::mdspan<Args...>> : std::true_type {
-};
 
 template <typename ElementType, typename Extents, typename LayoutPolicy, typename AccessorPolicy>
 void __takes_an_mdspan_ptr(
   detail::stdex::mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>*);
 
 template <typename T, typename = void>
-struct __is_derived_mdspan : std::false_type {
+struct __is_mdspan : std::false_type {
 };
 
 template <typename T>
-struct __is_derived_mdspan<T, std::void_t<decltype(__takes_an_mdspan_ptr(std::declval<T*>()))>>
+struct __is_mdspan<T, std::void_t<decltype(__takes_an_mdspan_ptr(std::declval<T*>()))>>
   : std::true_type {
 };
 
 template <typename T>
-using __is_mdspan_t = std::disjunction<__is_mdspan<std::remove_const_t<T>>,
-                                       __is_derived_mdspan<std::remove_const_t<T>>>;
+using __is_mdspan_t = __is_mdspan<std::remove_const_t<T>>;
 
 template <typename T>
 inline constexpr bool __is_mdspan_v = __is_mdspan_t<T>::value;
@@ -136,6 +128,86 @@ inline constexpr bool is_mdspan_v =
                      std::disjunction<__is_device_mdspan<T, true>, __is_host_mdspan<T, true>>>;
 
 /**
+ * @brief Interface to implement an owning multi-dimensional array
+ *
+ * raft::array_interace is an interface to owning container types for mdspan.
+ * Check implementation of raft::mdarray which implements raft::array_interface.
+ * This interface provides virtual method `view()` which is to be overridden by
+ * the implementing class. `view()` must return an object of type raft::host_mdspan
+ * or raft::device_mdspan or any types derived from the them.
+ */
+template <typename ElementType, typename Extents, typename LayoutPolicy, typename ContainerPolicy>
+class array_interface {
+  static_assert(!std::is_const<ElementType>::value,
+                "Element type for container must not be const.");
+
+ public:
+  using extents_type = Extents;
+  using layout_type  = LayoutPolicy;
+  using mapping_type = typename layout_type::template mapping<extents_type>;
+  using element_type = ElementType;
+
+  using value_type      = std::remove_cv_t<element_type>;
+  using index_type      = std::size_t;
+  using difference_type = std::ptrdiff_t;
+  // Naming: ref impl: container_policy_type, proposal: container_policy
+  using container_policy_type = ContainerPolicy;
+  using container_type        = typename container_policy_type::container_type;
+
+  using pointer         = typename container_policy_type::pointer;
+  using const_pointer   = typename container_policy_type::const_pointer;
+  using reference       = typename container_policy_type::reference;
+  using const_reference = typename container_policy_type::const_reference;
+
+ private:
+  template <typename E,
+            typename ViewAccessorPolicy =
+              std::conditional_t<std::is_const_v<E>,
+                                 typename container_policy_type::const_accessor_policy,
+                                 typename container_policy_type::accessor_policy>>
+  using view_type_impl =
+    std::conditional_t<container_policy_type::is_host_type::value,
+                       host_mdspan<E, extents_type, layout_type, ViewAccessorPolicy>,
+                       device_mdspan<E, extents_type, layout_type, ViewAccessorPolicy>>;
+
+ public:
+  /**
+   * \brief the mdspan type returned by view method.
+   */
+  using view_type       = view_type_impl<element_type>;
+  using const_view_type = view_type_impl<element_type const>;
+
+  /**
+   * @brief Get a mdspan that can be passed down to CUDA kernels.
+   */
+  virtual view_type view() noexcept = 0;
+  /**
+   * @brief Get a mdspan that can be passed down to CUDA kernels.
+   */
+  virtual const_view_type view() const noexcept = 0;
+};
+
+template <typename ElementType, typename Extents, typename LayoutPolicy, typename ContainerPolicy>
+void __takes_an_array_interface_ptr(
+  array_interface<ElementType, Extents, LayoutPolicy, ContainerPolicy>*);
+
+template <typename T, typename = void>
+struct __is_array_interface : std::false_type {
+};
+
+template <typename T>
+struct __is_array_interface<
+  T,
+  std::void_t<decltype(__takes_an_array_interface_ptr(std::declval<T*>()))>> : std::true_type {
+};
+
+/**
+ * @\brief Boolean to determine if template type T is raft::array_interface or derived type
+ */
+template <typename T>
+inline constexpr bool is_array_interface_v = __is_array_interface<std::remove_const_t<T>>::value;
+
+/**
  * @brief Modified from the c++ mdarray proposal
  *
  *   https://isocpp.org/files/papers/D1684R0.html
@@ -165,7 +237,7 @@ inline constexpr bool is_mdspan_v =
  *   removed.
  */
 template <typename ElementType, typename Extents, typename LayoutPolicy, typename ContainerPolicy>
-class mdarray {
+class mdarray : public array_interface<ElementType, Extents, LayoutPolicy, ContainerPolicy> {
   static_assert(!std::is_const<ElementType>::value,
                 "Element type for container must not be const.");
 
@@ -254,11 +326,11 @@ class mdarray {
   /**
    * @brief Get a mdspan that can be passed down to CUDA kernels.
    */
-  auto view() noexcept { return view_type(c_.data(), map_, cp_.make_accessor_policy()); }
+  view_type view() noexcept { return view_type(c_.data(), map_, cp_.make_accessor_policy()); }
   /**
    * @brief Get a mdspan that can be passed down to CUDA kernels.
    */
-  auto view() const noexcept
+  const_view_type view() const noexcept
   {
     return const_view_type(c_.data(), map_, cp_.make_accessor_policy());
   }
@@ -380,20 +452,6 @@ class mdarray {
   mapping_type map_;
   container_type c_;
 };
-
-template <typename T>
-struct __is_mdarray : std::false_type {
-};
-
-template <typename... Args>
-struct __is_mdarray<mdarray<Args...>> : std::true_type {
-};
-
-/**
- * @\brief Boolean to determine if template type T is raft::mdarray
- */
-template <typename T>
-inline constexpr bool is_mdarray_v = __is_mdarray<std::remove_const_t<T>>::value;
 
 /**
  * @brief mdarray with host container policy
@@ -777,15 +835,16 @@ auto flatten(device_mdspan_type d_mds)
 }
 
 /**
- * @brief Flatten raft::mdarray into a 1-dim array view
+ * @brief Flatten object implementing raft::array_interface into a 1-dim array view
  *
- * @tparam mdarray_type Expected type raft::mdarray
- * @param mda raft::mdarray object
+ * @tparam mdarray_type Expected type implementing raft::array_interface
+ * @param mda raft::array_interace implementing object
  * @return Either raft::host_mdspan or raft::device_mdspan depending on the underlying
  *         ContainerPolicy
  */
-template <typename mdarray_type, std::enable_if_t<is_mdarray_v<mdarray_type>>* = nullptr>
-auto flatten(const mdarray_type& mda)
+template <typename array_interface_type,
+          std::enable_if_t<is_array_interface_v<array_interface_type>>* = nullptr>
+auto flatten(const array_interface_type& mda)
 {
   return flatten(mda.view());
 }
@@ -867,19 +926,19 @@ auto reshape(mdspan_type mds, extents<Extents...> new_shape)
 }
 
 /**
- * @brief Reshape raft::mdarray
+ * @brief Reshape object implementing raft::array_interface
  *
- * @tparam mdarray_type Expected type raft::mdarray
+ * @tparam mdarray_type Expected type implementing raft::array_interface
  * @tparam Extents raft::extents for dimensions
- * @param mda raft::mdarray object
+ * @param mda raft::array_interace implementing object
  * @param new_shape Desired new shape of the input
  * @return raft::host_mdspan or raft::device_mdspan, depending on the underlying
  *         ContainerPolicy
  */
-template <typename mdarray_type,
+template <typename array_interface_type,
           size_t... Extents,
-          std::enable_if_t<is_mdarray_v<mdarray_type>>* = nullptr>
-auto reshape(const mdarray_type& mda, extents<Extents...> new_shape)
+          std::enable_if_t<is_array_interface_v<array_interface_type>>* = nullptr>
+auto reshape(const array_interface_type& mda, extents<Extents...> new_shape)
 {
   return reshape(mda.view(), new_shape);
 }
