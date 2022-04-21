@@ -1,0 +1,144 @@
+# Copyright (c) 2022, NVIDIA CORPORATION.
+
+# Usage:
+#   conda build . -c conda-forge -c nvidia -c rapidsai
+{% set version = environ.get('GIT_DESCRIBE_TAG', '0.0.0.dev').lstrip('v') + environ.get('VERSION_SUFFIX', '') %}
+{% set minor_version = version.split('.')[0] + '.' + version.split('.')[1] %}
+{% set cuda_version = '.'.join(environ.get('CUDA', '9.2').split('.')[:2]) %}
+{% set cuda_major = cuda_version.split('.')[0] %}
+{% set ucx_py_version = environ.get('UCX_PY_VERSION') %}
+{% set cuda_spec = ">=" + cuda_major ~ ",<" + (cuda_major | int + 1) ~ ".0a0" %} # i.e. >=11,<12.0a0
+
+package:
+  name: libraft-split
+
+source:
+  git_url: ../../..
+
+outputs:
+  - name: libraft-headers
+    version: {{ version }}
+    script: build_libraft_headers.sh
+    build:
+      script_env: &script_env
+        - CC
+        - CXX
+        - CUDAHOSTCXX
+        - PARALLEL_LEVEL
+        - VERSION_SUFFIX
+        - PROJECT_FLASH
+        - CMAKE_GENERATOR
+        - CMAKE_C_COMPILER_LAUNCHER
+        - CMAKE_CXX_COMPILER_LAUNCHER
+        - CMAKE_CUDA_COMPILER_LAUNCHER
+        - SCCACHE_S3_KEY_PREFIX=libraft-aarch64 # [aarch64]
+        - SCCACHE_S3_KEY_PREFIX=libraft-linux64 # [linux64]
+        - SCCACHE_BUCKET=rapids-sccache
+        - SCCACHE_REGION=us-west-2
+        - SCCACHE_IDLE_TIMEOUT=32768
+      number: {{ GIT_DESCRIBE_NUMBER }}
+      string: cuda{{ cuda_major }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
+    requirements:
+      build:
+        - cmake {{ cmake_version }}
+      host:
+        - cudatoolkit {{ cuda_version }}.*
+        - libcusolver {{ libcusolver_version }}
+        - librmm {{ minor_version }}
+        - nccl {{ nccl_version }}
+        - ucx-proc=*=gpu
+        - ucx-py {{ ucx_py_version }}
+      run:
+        - cudatoolkit {{ cuda_spec }}
+        - libcusolver {{ libcusolver_version }}
+        - librmm {{ minor_version }}
+        - nccl {{ nccl_version }}
+        - ucx-proc=*=gpu
+        - ucx-py {{ ucx_py_version }}
+    about:
+      home: http://rapids.ai/
+      license: Apache-2.0
+      summary: libraft-headers library
+  - name: libraft-distance
+    version: {{ version }}
+    script: build_libraft_distance.sh
+    build:
+      number: {{ GIT_DESCRIBE_NUMBER }}
+      string: cuda{{ cuda_major }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
+      script_env: *script_env
+    requirements:
+      build:
+        - cmake {{ cmake_version }}
+      host:
+        - cudatoolkit {{ cuda_version }}.*
+        - librmm {{ minor_version }}
+        - nccl {{ nccl_version }}
+        - ucx-proc=*=gpu
+        - ucx-py {{ ucx_py_version }}
+        - {{ pin_subpackage('libraft-headers', exact=True) }}
+      run:
+        - cudatoolkit {{ cuda_spec }}
+        - libcusolver {{ libcusolver_version }}
+        - librmm {{ minor_version }}
+        - nccl {{ nccl_version }}
+        - ucx-proc=*=gpu
+        - ucx-py {{ ucx_py_version }}
+        - {{ pin_subpackage('libraft-headers', exact=True) }}
+    about:
+      home: http://rapids.ai/
+      license: Apache-2.0
+      summary: libraft-distance library
+  - name: libraft-nn
+    version: {{ version }}
+    script: build_libraft_nn.sh
+    build:
+      number: {{ GIT_DESCRIBE_NUMBER }}
+      string: cuda{{ cuda_major }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
+      script_env: *script_env
+    requirements:
+      build:
+        - cmake {{ cmake_version }}
+      host:
+        - cudatoolkit {{ cuda_version }}.*
+        - faiss-proc=*=cuda
+        - lapack
+        - libfaiss {{ libfaiss_version }}
+        - librmm {{ minor_version }}
+        - {{ pin_subpackage('libraft-headers', exact=True) }}
+      run:
+        - cudatoolkit {{ cuda_spec }}
+        - faiss-proc=*=cuda
+        - libcusolver {{ libcusolver_version }}
+        - libfaiss {{ libfaiss_version }}
+        - librmm {{ minor_version }}
+        - {{ pin_subpackage('libraft-headers', exact=True) }}
+    about:
+      home: http://rapids.ai/
+      license: Apache-2.0
+      summary: libraft-nn library
+  - name: libraft-tests
+    version: {{ version }}
+    script: build_libraft_tests.sh
+    build:
+      number: {{ GIT_DESCRIBE_NUMBER }}
+      string: cuda{{ cuda_major }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
+      script_env: *script_env
+    requirements:
+      build:
+        - cmake {{ cmake_version }}
+      host:
+        - gmock {{ gtest_version }}
+        - gtest {{ gtest_version }}
+        - {{ pin_subpackage('libraft-distance', exact=True) }}
+        - {{ pin_subpackage('libraft-headers', exact=True) }}
+        - {{ pin_subpackage('libraft-nn', exact=True) }}
+      run:
+        - gmock {{ gtest_version }}
+        - gtest {{ gtest_version }}
+        - {{ pin_subpackage('libraft-distance', exact=True) }}
+        - {{ pin_subpackage('libraft-headers', exact=True) }}
+        - {{ pin_subpackage('libraft-nn', exact=True) }}
+    about:
+      home: http://rapids.ai/
+      license: Apache-2.0
+      summary: libraft tests
