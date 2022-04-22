@@ -20,7 +20,7 @@
 #include <faiss/gpu/StandardGpuResources.h>
 
 #include <raft/distance/distance_type.hpp>
-#include <raft/random/rng_launch.cuh>
+#include <raft/random/rng.cuh>
 #include <raft/spatial/knn/detail/common_faiss.h>
 #include <raft/spatial/knn/detail/fused_l2_knn.cuh>
 #include <raft/spatial/knn/knn.cuh>

@@ -21,7 +21,7 @@
 #include <raft/spatial/knn/specializations.hpp>
 #endif
 
-#include <raft/random/rng_launch.cuh>
+#include <raft/random/rng.cuh>
 #include <raft/sparse/detail/utils.h>
 
 #include <rmm/mr/device/per_device_resource.hpp>

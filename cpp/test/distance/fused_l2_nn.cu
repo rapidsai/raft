@@ -21,7 +21,7 @@
 #include <raft/distance/detail/fused_l2_nn.cuh>
 #include <raft/distance/fused_l2_nn.cuh>
 #include <raft/linalg/norm.cuh>
-#include <raft/random/rng_launch.cuh>
+#include <raft/random/rng.cuh>
 
 namespace raft {
 namespace distance {

@@ -22,7 +22,7 @@
 #include <raft/cudart_utils.h>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/matrix/matrix.cuh>
-#include <raft/random/rng_launch.cuh>
+#include <raft/random/rng.cuh>
 #include <rmm/device_uvector.hpp>
 
 namespace raft {

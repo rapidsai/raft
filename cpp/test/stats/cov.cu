@@ -17,7 +17,7 @@
 #include "../test_utils.h"
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
-#include <raft/random/rng_launch.cuh>
+#include <raft/random/rng.cuh>
 #include <raft/stats/cov.cuh>
 #include <raft/stats/mean.cuh>
 #include <rmm/device_uvector.hpp>

@@ -31,7 +31,7 @@
 #include <raft/linalg/transpose.cuh>
 #include <raft/matrix/matrix.cuh>
 #include <raft/random/permute.cuh>
-#include <raft/random/rng_launch.cuh>
+#include <raft/random/rng.cuh>
 #include <rmm/device_uvector.hpp>
 
 namespace raft::random {

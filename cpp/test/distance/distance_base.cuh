@@ -24,7 +24,7 @@
 #if defined RAFT_DISTANCE_COMPILED
 #include <raft/distance/specializations.cuh>
 #endif
-#include <raft/random/rng_launch.cuh>
+#include <raft/random/rng.cuh>
 
 namespace raft {
 namespace distance {

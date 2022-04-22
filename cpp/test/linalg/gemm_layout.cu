@@ -18,7 +18,7 @@
 #include <gtest/gtest.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/gemm.cuh>
-#include <raft/random/rng_launch.cuh>
+#include <raft/random/rng.cuh>
 
 namespace raft {
 namespace linalg {

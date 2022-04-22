@@ -50,11 +50,13 @@ using detail::uniformInt;
 
 using detail::sampleWithoutReplacement;
 
+using detail::affine_transform_params;
+
 /**************************************************************************
  * Everything below this point is deprecated and will be removed          *
  **************************************************************************/
 
-__attribute__((deprecated("Use 'RngState' with the new flat functions instead"))) class Rng
+class __attribute__((deprecated("Use 'RngState' with the new flat functions instead"))) Rng
   : public detail::RngImpl {
  public:
   /**

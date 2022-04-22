@@ -21,7 +21,7 @@
 #include <raft/cudart_utils.h>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/random/rng_device.cuh>
-#include <raft/random/rng_launch.cuh>
+#include <raft/random/rng.cuh>
 #include <rmm/device_uvector.hpp>
 #include <vector>
 

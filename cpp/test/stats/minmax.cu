@@ -19,7 +19,7 @@
 #include <limits>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/random/rng_launch.cuh>
+#include <raft/random/rng.cuh>
 #include <raft/stats/minmax.cuh>
 #include <stdio.h>
 #include <stdlib.h>

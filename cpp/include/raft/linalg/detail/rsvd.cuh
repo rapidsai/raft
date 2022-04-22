@@ -24,7 +24,7 @@
 #include <raft/linalg/transpose.cuh>
 #include <raft/matrix/math.cuh>
 #include <raft/matrix/matrix.cuh>
-#include <raft/random/rng_launch.cuh>
+#include <raft/random/rng.cuh>
 
 #include <algorithm>
 

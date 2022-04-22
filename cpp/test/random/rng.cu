@@ -21,7 +21,7 @@
 #include <gtest/gtest.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/random/rng_launch.cuh>
+#include <raft/random/rng.cuh>
 #include <raft/stats/mean.cuh>
 #include <raft/stats/stddev.cuh>
 

@@ -32,7 +32,7 @@
 #include <raft/cuda_utils.cuh>
 
 #include <raft/matrix/matrix.cuh>
-#include <raft/random/rng_launch.cuh>
+#include <raft/random/rng.cuh>
 #include <raft/sparse/convert/csr.cuh>
 
 #include <rmm/device_uvector.hpp>

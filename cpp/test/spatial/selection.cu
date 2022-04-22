@@ -18,7 +18,7 @@
 #include <gtest/gtest.h>
 #include <numeric>
 #include <raft/cudart_utils.h>
-#include <raft/random/rng_launch.cuh>
+#include <raft/random/rng.cuh>
 
 #include "../test_utils.h"
 

@@ -19,7 +19,7 @@
 #include <iostream>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/reduce_rows_by_key.cuh>
-#include <raft/random/rng_launch.cuh>
+#include <raft/random/rng.cuh>
 
 namespace raft {
 namespace linalg {

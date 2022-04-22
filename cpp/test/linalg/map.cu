@@ -19,7 +19,7 @@
 #include <raft/cudart_utils.h>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/map.cuh>
-#include <raft/random/rng_launch.cuh>
+#include <raft/random/rng.cuh>
 
 namespace raft {
 namespace linalg {

@@ -20,7 +20,7 @@
 #include <raft/distance/fused_l2_nn.hpp>
 #include <raft/handle.hpp>
 #include <raft/linalg/norm.hpp>
-#include <raft/random/rng_launch.cuh>
+#include <raft/random/rng.cuh>
 
 #if defined RAFT_NN_COMPILED
 #include <raft/spatial/knn/specializations.hpp>
