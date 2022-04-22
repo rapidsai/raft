@@ -677,8 +677,13 @@ void countSamplesInCluster(const raft::handle_t& handle,
     itr(minClusterAndDistance.data(), conversion_op);
 
   // count # of samples in each cluster
-  countLabels(
-    handle, itr, sampleCountInCluster.data(), (IndexT)n_samples, (IndexT)n_clusters, workspace, stream);
+  countLabels(handle,
+              itr,
+              sampleCountInCluster.data(),
+              (IndexT)n_samples,
+              (IndexT)n_clusters,
+              workspace,
+              stream);
 }
 }  // namespace detail
 }  // namespace cluster
