@@ -26,12 +26,12 @@
 In addition to the libraries included with cudatoolkit 11.0+, there are some other dependencies below for building RAFT from source. Many of the dependencies are optional and depend only on the primitives being used. All of these can be installed with cmake or [rapids-cpm](https://github.com/rapidsai/rapids-cmake#cpm) and many of them can be installed with [conda](https://anaconda.org).
 
 #### Required
-- [Thrust](https://github.com/NVIDIA/thrust) v1.15 / [CUB](https://github.com/NVIDIA/cub)
 - [RMM](https://github.com/rapidsai/rmm) corresponding to RAFT version.
-- [mdspan](https://github.com/rapidsai/mdspan)
   
 #### Optional
-- [cuCollections](https://github.com/NVIDIA/cuCollections) - Used in `raft::sparse::distance` API
+- [mdspan](https://github.com/rapidsai/mdspan) - On by default but can be disabled. 
+- [Thrust](https://github.com/NVIDIA/thrust) v1.15 / [CUB](https://github.com/NVIDIA/cub) - On by default but can be disabled.
+- [cuCollections](https://github.com/NVIDIA/cuCollections) - Used in `raft::sparse::distance` API.
 - [Libcu++](https://github.com/NVIDIA/libcudacxx) v1.7.0
 - [FAISS](https://github.com/facebookresearch/faiss) v1.7.0 - Used in `raft::spatial::knn` API and needed to build tests.
 - [NCCL](https://github.com/NVIDIA/nccl) - Used in `raft::comms` API and needed to build `Pyraft`
@@ -53,6 +53,11 @@ The following example will download the needed dependencies and install the RAFT
 ./build.sh libraft --install
 ```
 
+The `--minimal-deps` flag can be used to install the headers with minimal dependencies:
+```bash
+./build.sh libraft --install --minimal-deps
+```
+
 ### <a id="shared_cpp_libs"></a>C++ Shared Libraries (optional)
 
 For larger projects which make heavy use of the pairwise distances or nearest neighbors APIs, shared libraries can be built to speed up compile times. These shared libraries can also significantly improve re-compile times both while developing RAFT and developing against the APIs. Build all of the available shared libraries by passing `--compile-libs` flag to `build.sh`:
@@ -69,7 +74,14 @@ Add the `--install` flag to the above example to also install the shared librari
 
 ### <a id="gtests"></a>Tests
 
-Compile the tests using the `tests` target in `build.sh`. By default, the shared libraries are assumed to be already built and on the library path. Add `--compile-libs` to also compile them.
+Compile the tests using the `tests` target in `build.sh`.
+
+```bash
+./build.sh libraft tests
+```
+
+Test compile times can be improved significantly by using the optional shared libraries. If installed, they will be used automatically when building the tests but `--compile-libs` can be used to add additional compilation units and compile them with the tests.
+
 ```bash
 ./build.sh libraft tests --compile-libs
 ```
@@ -110,11 +122,13 @@ RAFT's cmake has the following configurable flags available:.
 | --- | --- | --- | --- |
 | BUILD_TESTS | ON, OFF | ON | Compile Googletests |
 | BUILD_BENCH | ON, OFF | ON | Compile benchmarks |
+| raft_FIND_COMPONENTS | nn distance | | Configures the optional components as a space-separated list |
 | RAFT_COMPILE_LIBRARIES | ON, OFF | OFF | Compiles all `libraft` shared libraries (these are required for Googletests) |
-| RAFT_COMPILE_NN_LIBRARY | ON, OFF | ON | Compiles the `libraft-nn` shared library |
-| RAFT_COMPILE_DIST_LIBRARY | ON, OFF | ON | Compiles the `libraft-distance` shared library |
+| RAFT_COMPILE_NN_LIBRARY | ON, OFF | OFF | Compiles the `libraft-nn` shared library |
+| RAFT_COMPILE_DIST_LIBRARY | ON, OFF | OFF | Compiles the `libraft-distance` shared library |
 | RAFT_ENABLE_NN_DEPENDENCIES | ON, OFF | OFF | Searches for dependencies of nearest neighbors API, such as FAISS, and compiles them if not found. Needed for `raft::spatial::knn` |
-| RAFT_ENABLE_cuco_DEPENDENCY | ON, OFF | ON | Enables the cuCollections dependency used by `raft::sparse::distance` |
+| RAFT_ENABLE_thrust_DEPENDENCY | ON, OFF | ON | Enables the Thrust dependency. This can be disabled when using many simple utilities or to override with a different Thrust version. |
+| RAFT_ENABLE_mdspan_DEPENDENCY | ON, OFF | ON | Enables the std::mdspan dependency. This can be disabled when using many simple utilities. |
 | RAFT_ENABLE_nccl_DEPENDENCY | ON, OFF | OFF | Enables NCCL dependency used by `raft::comms` and needed to build `pyraft` |
 | RAFT_ENABLE_ucx_DEPENDENCY | ON, OFF | OFF | Enables UCX dependency used by `raft::comms` and needed to build `pyraft` |
 | RAFT_USE_FAISS_STATIC | ON, OFF | OFF | Statically link FAISS into `libraft-nn` | 
@@ -212,7 +226,8 @@ set(RAFT_PINNED_TAG "branch-${RAFT_VERSION}")
 function(find_and_configure_raft)
   set(oneValueArgs VERSION FORK PINNED_TAG USE_FAISS_STATIC
           COMPILE_LIBRARIES ENABLE_NN_DEPENDENCIES CLONE_ON_PIN
-          USE_NN_LIBRARY USE_DISTANCE_LIBRARY)
+          USE_NN_LIBRARY USE_DISTANCE_LIBRARY 
+          ENABLE_thrust_DEPENDENCY ENABLE_mdspan_DEPENDENCY)
   cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
                             "${multiValueArgs}" ${ARGN} )
 
@@ -256,6 +271,8 @@ function(find_and_configure_raft)
           "RAFT_ENABLE_NN_DEPENDENCIES ${PKG_ENABLE_NN_DEPENDENCIES}"
           "RAFT_USE_FAISS_STATIC ${PKG_USE_FAISS_STATIC}"
           "RAFT_COMPILE_LIBRARIES ${PKG_COMPILE_LIBRARIES}"
+          "RAFT_ENABLE_thrust_DEPENDENCY ${PKG_ENABLE_thrust_DEPENDENCY}"
+          "RAFT_ENABLE_mdspan_DEPENDENCY ${PKG_ENABLE_mdspan_DEPENDENCY}"
   )
 
 endfunction()
@@ -272,11 +289,13 @@ find_and_configure_raft(VERSION    ${RAFT_VERSION}.00
         # even if it's already installed.
         CLONE_ON_PIN     ON
 
-        COMPILE_LIBRARIES      NO
-        USE_NN_LIBRARY         NO
-        USE_DISTANCE_LIBRARY   NO
-        ENABLE_NN_DEPENDENCIES NO  # This builds FAISS if not installed
-        USE_FAISS_STATIC       NO
+        COMPILE_LIBRARIES        NO
+        USE_NN_LIBRARY           NO
+        USE_DISTANCE_LIBRARY     NO
+        ENABLE_NN_DEPENDENCIES   NO  # This builds FAISS if not installed
+        USE_FAISS_STATIC         NO
+        ENABLE_thrust_DEPENDENCY YES
+        ENABLE_mdspan_DEPENDENCY YES
 )
 ```
 

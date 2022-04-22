@@ -44,7 +44,6 @@ requirements:
     - ucx-py {{ ucx_py_version }}
     - ucx-proc=*=gpu
     - gtest=1.10.0
-    - gmock
     - librmm {{ minor_version }}
   run:
     - libraft-headers {{ version }}

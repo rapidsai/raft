@@ -18,7 +18,7 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libraft pyraft pylibraft docs tests bench clean -v -g --install --compile-libs --compile-nn --compile-dist --allgpuarch --nvtx --show_depr_warn -h --buildfaiss"
+VALIDARGS="clean libraft pyraft pylibraft docs tests bench clean -v -g --install --compile-libs --compile-nn --compile-dist --allgpuarch --nvtx --show_depr_warn -h --buildfaiss --minimal-deps"
 HELP="$0 [<target> ...] [<flag> ...]
  where <target> is:
    clean            - remove all existing build artifacts and configuration (start over)
@@ -36,6 +36,8 @@ HELP="$0 [<target> ...] [<flag> ...]
    --compile-libs   - compile shared libraries for all components
    --compile-nn     - compile shared library for nn component
    --compile-dist   - compile shared library for distance component
+   --minimal-deps   - disables dependencies like thrust so they can be overridden.
+                      can be useful for a pure header-only install
    --allgpuarch     - build for all supported GPU architectures
    --buildfaiss     - build faiss statically into raft
    --install        - install cmake targets
@@ -62,6 +64,9 @@ COMPILE_LIBRARIES=OFF
 COMPILE_NN_LIBRARY=OFF
 COMPILE_DIST_LIBRARY=OFF
 ENABLE_NN_DEPENDENCIES=OFF
+
+ENABLE_thrust_DEPENDENCY=ON
+
 ENABLE_ucx_DEPENDENCY=OFF
 ENABLE_nccl_DEPENDENCY=OFF
 
@@ -105,6 +110,11 @@ fi
 if hasArg --install; then
   INSTALL_TARGET="install"
 fi
+
+if hasArg --minimal-deps; then
+  ENABLE_thrust_DEPENDENCY=OFF
+fi
+
 if hasArg -v; then
     VERBOSE_FLAG="-v"
     CMAKE_LOG_LEVEL="VERBOSE"
@@ -218,7 +228,8 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || has
           -DRAFT_COMPILE_DIST_LIBRARY=${COMPILE_DIST_LIBRARY} \
           -DRAFT_USE_FAISS_STATIC=${BUILD_STATIC_FAISS} \
           -DRAFT_ENABLE_nccl_DEPENDENCY=${ENABLE_nccl_DEPENDENCY} \
-          -DRAFT_ENABLE_ucx_DEPENDENCY=${ENABLE_ucx_DEPENDENCY}
+          -DRAFT_ENABLE_ucx_DEPENDENCY=${ENABLE_ucx_DEPENDENCY} \
+          -DRAFT_ENABLE_thrust_DEPENDENCY=${ENABLE_thrust_DEPENDENCY}
 
   if [[ ${CMAKE_TARGET} != "" ]]; then
       echo "-- Compiling targets: ${CMAKE_TARGET}, verbose=${VERBOSE_FLAG}"
