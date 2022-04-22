@@ -31,7 +31,7 @@ namespace detail {
 
 #if defined(__RNG_H_INCLUSION_DEPRECATED)
 #define POTENTIAL_DEPR \
-  __attribute__((deprecated("Include raft/random/rng_device.cuh to use the device-only API")))
+  [[deprecated("Include raft/random/rng_device.cuh to use the device-only API")]]
 #else
 #define POTENTIAL_DEPR
 #endif

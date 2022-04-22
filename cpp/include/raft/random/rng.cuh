@@ -52,12 +52,14 @@ using detail::sampleWithoutReplacement;
 
 using detail::affine_transform_params;
 
-/**************************************************************************
- * Everything below this point is deprecated and will be removed          *
- **************************************************************************/
+///////////////////////////////////////////////////////////////////////////
+// Everything below this point is deprecated and will be removed         //
+///////////////////////////////////////////////////////////////////////////
 
-class __attribute__((deprecated("Use 'RngState' with the new flat functions instead"))) Rng
-  : public detail::RngImpl {
+// without the macro, clang-format seems to go insane
+#define DEPR [[deprecated("Use 'RngState' with the new flat functions instead")]]
+
+class DEPR Rng : public detail::RngImpl {
  public:
   /**
    * @brief ctor
@@ -352,6 +354,8 @@ class __attribute__((deprecated("Use 'RngState' with the new flat functions inst
       handle, out, outIdx, in, wts, sampledLen, len, stream);
   }
 };
+
+#undef DEPR
 
 };  // end namespace random
 };  // end namespace raft

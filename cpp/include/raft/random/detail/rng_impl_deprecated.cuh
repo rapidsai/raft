@@ -15,7 +15,7 @@
  */
 
 /**
- * DISCLAIMER: this file is deprecated (just like rng.cuh)
+ * DISCLAIMER: this file is deprecated and will be removed in a future release
  */
 
 #pragma once
@@ -35,8 +35,7 @@ namespace raft {
 namespace random {
 namespace detail {
 
-#define METHOD_DEPR(new_name) \
-  __attribute__((deprecated("Use the flat '" #new_name "' function instead")))
+#define METHOD_DEPR(new_name) [[deprecated("Use the flat '" #new_name "' function instead")]]
 
 class RngImpl {
  public:
