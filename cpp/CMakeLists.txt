@@ -330,36 +330,45 @@ include(CPack)
 
 install(TARGETS raft
         DESTINATION ${lib_dir}
+        COMPONENT raft
         EXPORT raft-exports)
 
 install(TARGETS raft_distance
         DESTINATION ${lib_dir}
+        COMPONENT raft_distance
         EXPORT raft-distance-exports)
+
 install(TARGETS raft_nn
         DESTINATION ${lib_dir}
+        COMPONENT raft_nn
         EXPORT raft-nn-exports)
 
 if(TARGET raft_distance_lib)
   install(TARGETS raft_distance_lib
           DESTINATION ${lib_dir}
+          COMPONENT raft_distance
           EXPORT raft-distance-lib-exports)
 endif()
 
 if(TARGET raft_nn_lib)
   install(TARGETS raft_nn_lib
           DESTINATION ${lib_dir}
+          COMPONENT raft_nn
           EXPORT raft-nn-lib-exports)
 endif()
 
 
 install(DIRECTORY include/raft
+        COMPONENT raft
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 # Temporary install of raft.hpp while the file is removed
 install(FILES include/raft.hpp
+        COMPONENT raft
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/raft)
 
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/include/raft/version_config.hpp
+        COMPONENT raft
         DESTINATION include/raft)
 
 ##############################################################################
@@ -435,19 +444,23 @@ raft_export(BUILD raft
 include("${rapids-cmake-dir}/export/write_dependencies.cmake")
 
 set(raft_components distance nn)
+set(raft_install_comp distance nn)
 if(TARGET raft_distance_lib)
   list(APPEND raft_components distance-lib)
+  list(APPEND raft_install_comp distance)
 endif()
 if(TARGET raft_nn_lib)
   list(APPEND raft_components  nn-lib)
+  list(APPEND raft_install_comp nn)
 endif()
 
-foreach(comp IN LISTS raft_components)
+foreach(comp install_comp IN ZIP_LISTS raft_components raft_install_comp)
   install(
           EXPORT raft-${comp}-exports
           FILE raft-${comp}-targets.cmake
           NAMESPACE raft::
           DESTINATION "${lib_dir}/cmake/raft"
+          COMPONENT raft_${install_comp}
   )
   export(
           EXPORT raft-${comp}-exports
@@ -458,7 +471,7 @@ foreach(comp IN LISTS raft_components)
           BUILD raft-${comp}-exports "${PROJECT_BINARY_DIR}/raft-${comp}-dependencies.cmake"
   )
   rapids_export_write_dependencies(
-          INSTALL raft-${comp}-exports "${PROJECT_BINARY_DIR}/rapids-cmake/raft/export/raft-${comp}-dependencies.cmake"
+          INSTALL raft-${comp}-exports "${PROJECT_BINARY_DIR}/rapids-cmake/raft/export/${install_comp}/raft-${comp}-dependencies.cmake"
   )
 
 endforeach()
