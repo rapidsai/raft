@@ -65,7 +65,7 @@ void kmeans_fit(handle_t const& handle,
  * row-major format.
  * @param[in]     X                 New data to predict.
  * @param[in]     sample_weight     The weights for each observation in X.
- * @param[in]     normalize_weights True if the weights should be normalized
+ * @param[in]     normalize_weight  True if the weights should be normalized
  * @param[out]    labels            Index of the cluster each sample in X
  * belongs to.
  * @param[out]    inertia           Sum of squared distances of samples to
