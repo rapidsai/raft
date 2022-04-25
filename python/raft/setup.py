@@ -70,9 +70,18 @@ ucx_home = get_environment_option("UCX_HOME") or os.sys.prefix
 ucx_lib_dir = os.path.join(ucx_home, "lib")
 ucx_include_dir = os.path.join(ucx_home, "include")
 
-rmm_include_dir = get_environment_option("RMM_INCLUDE_DIR") or os.path.join(os.sys.prefix, "include")
-thrust_include_dir = get_environment_option("THRUST_INCLUDE_DIR") or os.path.join(os.sys.prefix, "include")
-spdlog_include_dir = get_environment_option("SPDLOG_INCLUDE_DIR") or os.path.join(os.sys.prefix, "include")
+rmm_include_dir = (
+    get_environment_option("RMM_INCLUDE_DIR")
+    or os.path.join(os.sys.prefix, "include")
+)
+thrust_include_dir = (
+    get_environment_option("THRUST_INCLUDE_DIR")
+    or os.path.join(os.sys.prefix, "include")
+)
+spdlog_include_dir = (
+    get_environment_option("SPDLOG_INCLUDE_DIR")
+    or os.path.join(os.sys.prefix, "include")
+)
 
 ##############################################################################
 # - Clean target -------------------------------------------------------------
@@ -126,8 +135,12 @@ extensions = [
     Extension("*",
               sources=["raft/**/*.pyx"],
               include_dirs=include_dirs,
-              library_dirs=library_dirs + [get_python_lib()],
-              runtime_library_dirs=library_dirs + [os.path.join(os.sys.prefix, "lib")],
+              library_dirs=(
+                  library_dirs + [get_python_lib()]
+              ),
+              runtime_library_dirs=(
+                  library_dirs + [os.path.join(os.sys.prefix, "lib")]
+              ),
               libraries=libs,
               language='c++',
               extra_compile_args=['-std=c++17'])
