@@ -85,7 +85,6 @@ void sample_landmarks(const raft::handle_t& handle,
    */
   raft::random::RngState rng_state(12345);
   raft::random::sampleWithoutReplacement(rng_state,
-                                         handle,
                                          R_indices.data(),
                                          R_1nn_cols2.data(),
                                          index.get_R_1nn_cols(),

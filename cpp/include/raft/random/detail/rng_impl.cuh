@@ -269,7 +269,6 @@ void laplace(
 
 template <typename DataT, typename WeightsT, typename IdxT = int>
 void sampleWithoutReplacement(RngState& rng_state,
-                              const raft::handle_t& handle,
                               DataT* out,
                               IdxT* outIdx,
                               const DataT* in,
