@@ -24,14 +24,4 @@
 
 #pragma once
 
-#if defined(_MSC_VER)
-#pragma message(                                                               \
-  "raft/random/rng.hpp is deprecated and will be removed in a future relase. " \
-  "Please use raft/random/rng_state.hpp or raft/random/rng.cuh instead")
-#else
-#warning \
-  "raft/random/rng.hpp is deprecated and will be removed in a future relase. " \
-  "Please use raft/random/rng_state.hpp or raft/random/rng.cuh instead"
-#endif
-
 #include "rng.cuh"
