@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@
 
 #pragma once
 
-#include <chrono>
 #include <curand.h>
 
 #include "mst_kernels.cuh"
@@ -36,7 +35,6 @@
 
 namespace raft {
 namespace mst {
-typedef std::chrono::high_resolution_clock Clock;
 
 // curand generator uniform
 inline curandStatus_t curand_generate_uniformX(curandGenerator_t generator,
