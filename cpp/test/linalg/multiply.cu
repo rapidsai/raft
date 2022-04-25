@@ -40,9 +40,9 @@ class MultiplyTest : public ::testing::TestWithParam<UnaryOpInputs<T>> {
   void SetUp() override
   {
     params = ::testing::TestWithParam<UnaryOpInputs<T>>::GetParam();
-    raft::random::Rng r(params.seed);
+    raft::random::RngState r(params.seed);
     int len = params.len;
-    r.uniform(in.data(), len, T(-1.0), T(1.0), stream);
+    uniform(r, in.data(), len, T(-1.0), T(1.0), stream);
     naiveScale(out_ref.data(), in.data(), params.scalar, len, stream);
     multiplyScalar(out.data(), in.data(), params.scalar, len, stream);
     handle.sync_stream(stream);

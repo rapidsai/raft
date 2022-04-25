@@ -71,7 +71,7 @@ class ReduceColsTest : public ::testing::TestWithParam<ReduceColsInputs<T>> {
   void SetUp() override
   {
     params = ::testing::TestWithParam<ReduceColsInputs<T>>::GetParam();
-    raft::random::Rng r(params.seed);
+    raft::random::RngState r(params.seed);
     RAFT_CUDA_TRY(cudaStreamCreate(&stream));
     auto nrows = params.rows;
     auto ncols = params.cols;
@@ -80,8 +80,8 @@ class ReduceColsTest : public ::testing::TestWithParam<ReduceColsInputs<T>> {
     keys.resize(ncols, stream);
     out_ref.resize(nrows * nkeys, stream);
     out.resize(nrows * nkeys, stream);
-    r.uniform(in.data(), nrows * ncols, T(-1.0), T(1.0), stream);
-    r.uniformInt(keys.data(), ncols, 0u, params.nkeys, stream);
+    uniform(r, in.data(), nrows * ncols, T(-1.0), T(1.0), stream);
+    uniformInt(r, keys.data(), ncols, 0u, params.nkeys, stream);
     naiveReduceColsByKey(in.data(), keys.data(), out_ref.data(), nrows, ncols, nkeys, stream);
     reduce_cols_by_key(in.data(), keys.data(), out.data(), nrows, ncols, nkeys, stream);
     raft::interruptible::synchronize(stream);

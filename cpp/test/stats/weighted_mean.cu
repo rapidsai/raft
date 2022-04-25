@@ -68,7 +68,7 @@ class RowWeightedMeanTest : public ::testing::TestWithParam<WeightedMeanInputs<T
   void SetUp() override
   {
     params = ::testing::TestWithParam<WeightedMeanInputs<T>>::GetParam();
-    raft::random::Rng r(params.seed);
+    raft::random::RngState r(params.seed);
     int rows = params.M, cols = params.N, len = rows * cols;
     cudaStream_t stream = 0;
     RAFT_CUDA_TRY(cudaStreamCreate(&stream));
@@ -79,8 +79,8 @@ class RowWeightedMeanTest : public ::testing::TestWithParam<WeightedMeanInputs<T
     dact.resize(rows);
 
     // create random matrix and weights
-    r.uniform(din.data().get(), len, T(-1.0), T(1.0), stream);
-    r.uniform(dweights.data().get(), cols, T(-1.0), T(1.0), stream);
+    uniform(r, din.data().get(), len, T(-1.0), T(1.0), stream);
+    uniform(r, dweights.data().get(), cols, T(-1.0), T(1.0), stream);
 
     // host-side data
     thrust::host_vector<T> hin      = din;
@@ -133,7 +133,7 @@ class ColWeightedMeanTest : public ::testing::TestWithParam<WeightedMeanInputs<T
   void SetUp() override
   {
     params = ::testing::TestWithParam<WeightedMeanInputs<T>>::GetParam();
-    raft::random::Rng r(params.seed);
+    raft::random::RngState r(params.seed);
     int rows = params.M, cols = params.N, len = rows * cols;
 
     cudaStream_t stream = 0;
@@ -145,8 +145,8 @@ class ColWeightedMeanTest : public ::testing::TestWithParam<WeightedMeanInputs<T
     dact.resize(cols);
 
     // create random matrix and weights
-    r.uniform(din.data().get(), len, T(-1.0), T(1.0), stream);
-    r.uniform(dweights.data().get(), rows, T(-1.0), T(1.0), stream);
+    uniform(r, din.data().get(), len, T(-1.0), T(1.0), stream);
+    uniform(r, dweights.data().get(), rows, T(-1.0), T(1.0), stream);
 
     // host-side data
     thrust::host_vector<T> hin      = din;
@@ -179,7 +179,7 @@ class WeightedMeanTest : public ::testing::TestWithParam<WeightedMeanInputs<T>> 
   void SetUp() override
   {
     params = ::testing::TestWithParam<WeightedMeanInputs<T>>::GetParam();
-    raft::random::Rng r(params.seed);
+    raft::random::RngState r(params.seed);
     int rows = params.M, cols = params.N, len = rows * cols;
     auto weight_size    = params.along_rows ? cols : rows;
     auto mean_size      = params.along_rows ? rows : cols;
@@ -192,8 +192,8 @@ class WeightedMeanTest : public ::testing::TestWithParam<WeightedMeanInputs<T>> 
     dact.resize(mean_size);
 
     // create random matrix and weights
-    r.uniform(din.data().get(), len, T(-1.0), T(1.0), stream);
-    r.uniform(dweights.data().get(), weight_size, T(-1.0), T(1.0), stream);
+    uniform(r, din.data().get(), len, T(-1.0), T(1.0), stream);
+    uniform(r, dweights.data().get(), weight_size, T(-1.0), T(1.0), stream);
 
     // host-side data
     thrust::host_vector<T> hin      = din;
