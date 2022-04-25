@@ -129,7 +129,6 @@ MST_solver<vertex_t, edge_t, weight_t, alteration_t>::solve()
   // track completion with mst_edge_found status and v as upper bound
   auto mst_iterations = iterations > 0 ? iterations : v;
   for (auto i = 0; i < mst_iterations; i++) {
-
     // Finds the minimum edge from each vertex to the lowest color
     // by working at each vertex of the supervertex
     min_edge_per_vertex();
