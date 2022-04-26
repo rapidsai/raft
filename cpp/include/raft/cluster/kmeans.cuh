@@ -120,8 +120,7 @@ void kmeans_fit_predict(handle_t const& handle,
 }
 
 /**
- * @brief Transform X to a cluster-distance space. Only L2SqrtExpanded metric
- * is supported.
+ * @brief Transform X to a cluster-distance space.
  *
  * @param[in]     handle        The handle to the cuML library context that
  * manages the CUDA resources.
