@@ -64,10 +64,10 @@ class coalescedReductionTest : public ::testing::TestWithParam<coalescedReductio
  protected:
   void SetUp() override
   {
-    raft::random::Rng r(params.seed);
+    raft::random::RngState r(params.seed);
     int rows = params.rows, cols = params.cols;
     int len = rows * cols;
-    r.uniform(data.data(), len, T(-1.0), T(1.0), stream);
+    uniform(r, data.data(), len, T(-1.0), T(1.0), stream);
     naiveCoalescedReduction(dots_exp.data(), data.data(), cols, rows, stream);
 
     // Perform reduction with default inplace = false first

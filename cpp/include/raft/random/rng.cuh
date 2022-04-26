@@ -20,65 +20,46 @@
 #pragma once
 
 #include "detail/rng_impl.cuh"
+#include "detail/rng_impl_deprecated.cuh"  // necessary for now (to be removed)
+#include "rng_state.hpp"
+
+#define __RNG_H_INCLUSION_DEPRECATED
+// we include this for now, but only for backward compatibility
+#include "rng_device.cuh"
+#undef __RNG_H_INCLUSION_DEPRECATED
 
 namespace raft {
 namespace random {
 
-using detail::RngState;
+using detail::call_rng_func;
 
-using detail::GeneratorType;
-using detail::GenPC;
-using detail::GenPhilox;
+using detail::bernoulli;
+using detail::exponential;
+using detail::fill;
+using detail::gumbel;
+using detail::laplace;
+using detail::logistic;
+using detail::lognormal;
+using detail::normal;
+using detail::normalInt;
+using detail::normalTable;
+using detail::rayleigh;
+using detail::scaled_bernoulli;
+using detail::uniform;
+using detail::uniformInt;
 
-using detail::PCGenerator;
-using detail::PhiloxGenerator;
+using detail::sampleWithoutReplacement;
 
-using detail::BernoulliDistParams;
-using detail::ExponentialDistParams;
-using detail::GumbelDistParams;
-using detail::InvariantDistParams;
-using detail::LaplaceDistParams;
-using detail::LogisticDistParams;
-using detail::LogNormalDistParams;
-using detail::NormalDistParams;
-using detail::NormalIntDistParams;
-using detail::NormalTableDistParams;
-using detail::RayleighDistParams;
-using detail::SamplingParams;
-using detail::ScaledBernoulliDistParams;
-using detail::UniformDistParams;
-using detail::UniformIntDistParams;
+using detail::affine_transform_params;
 
-// Not strictly needed due to C++ ADL rules
-using detail::custom_next;
+///////////////////////////////////////////////////////////////////////////
+// Everything below this point is deprecated and will be removed         //
+///////////////////////////////////////////////////////////////////////////
 
-/**
- * @brief Helper method to compute Box Muller transform
- *
- * @tparam Type data type
- *
- * @param[inout] val1   first value
- * @param[inout] val2   second value
- * @param[in]    sigma1 standard deviation of output gaussian for first value
- * @param[in]    mu1    mean of output gaussian for first value
- * @param[in]    sigma2 standard deviation of output gaussian for second value
- * @param[in]    mu2    mean of output gaussian for second value
- * @{
- */
-template <typename Type>
-DI void box_muller_transform(Type& val1, Type& val2, Type sigma1, Type mu1, Type sigma2, Type mu2)
-{
-  detail::box_muller_transform(val1, val2, sigma1, mu1, sigma2, mu2);
-}
+// without the macro, clang-format seems to go insane
+#define DEPR [[deprecated("Use 'RngState' with the new flat functions instead")]]
 
-template <typename Type>
-DI void box_muller_transform(Type& val1, Type& val2, Type sigma1, Type mu1)
-{
-  detail::box_muller_transform(val1, val2, sigma1, mu1);
-}
-/** @} */
-
-class Rng : public detail::RngImpl {
+class DEPR Rng : public detail::RngImpl {
  public:
   /**
    * @brief ctor
@@ -373,6 +354,8 @@ class Rng : public detail::RngImpl {
       handle, out, outIdx, in, wts, sampledLen, len, stream);
   }
 };
+
+#undef DEPR
 
 };  // end namespace random
 };  // end namespace raft

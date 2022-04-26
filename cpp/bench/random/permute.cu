@@ -17,7 +17,7 @@
 #include <common/benchmark.hpp>
 #include <raft/cudart_utils.h>
 #include <raft/random/permute.hpp>
-#include <raft/random/rng.hpp>
+#include <raft/random/rng.cuh>
 
 #include <rmm/device_uvector.hpp>
 
@@ -36,13 +36,13 @@ struct permute : public fixture {
       out(p.rows * p.cols, stream),
       in(p.rows * p.cols, stream)
   {
-    raft::random::Rng r(123456ULL);
-    r.uniform(in.data(), p.rows, T(-1.0), T(1.0), stream);
+    raft::random::RngState r(123456ULL);
+    uniform(r, in.data(), p.rows, T(-1.0), T(1.0), stream);
   }
 
   void run_benchmark(::benchmark::State& state) override
   {
-    raft::random::Rng r(123456ULL);
+    raft::random::RngState r(123456ULL);
     loop_on_state(state, [this, &r]() {
       raft::random::permute(
         perms.data(), out.data(), in.data(), params.cols, params.rows, params.rowMajor, stream);
