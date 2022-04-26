@@ -29,6 +29,7 @@
 #include <raft/spectral/cluster_solvers.cuh>
 #include <raft/spectral/detail/spectral_util.cuh>
 #include <raft/spectral/eigen_solvers.cuh>
+#include <raft/spectral/matrix_wrappers.hpp>
 
 namespace raft {
 namespace spectral {
@@ -91,7 +92,7 @@ std::tuple<vertex_t, weight_t, vertex_t> partition(
 
   // Initialize Laplacian
   /// sparse_matrix_t<vertex_t, weight_t> A{handle, graph};
-  laplacian_matrix_t<vertex_t, weight_t> L{handle, csr_m};
+  spectral::matrix::laplacian_matrix_t<vertex_t, weight_t> L{handle, csr_m};
 
   auto eigen_config = eigen_solver.get_config();
   auto nEigVecs     = eigen_config.n_eigVecs;
@@ -148,8 +149,8 @@ void analyzePartition(handle_t const& handle,
   weight_t partEdgesCut, clustersize;
 
   // Device memory
-  vector_t<weight_t> part_i(handle, n);
-  vector_t<weight_t> Lx(handle, n);
+  spectral::matrix::vector_t<weight_t> part_i(handle, n);
+  spectral::matrix::vector_t<weight_t> Lx(handle, n);
 
   // Initialize cuBLAS
   RAFT_CUBLAS_TRY(
@@ -157,7 +158,7 @@ void analyzePartition(handle_t const& handle,
 
   // Initialize Laplacian
   /// sparse_matrix_t<vertex_t, weight_t> A{handle, graph};
-  laplacian_matrix_t<vertex_t, weight_t> L{handle, csr_m};
+  spectral::matrix::laplacian_matrix_t<vertex_t, weight_t> L{handle, csr_m};
 
   // Initialize output
   cost    = 0;
