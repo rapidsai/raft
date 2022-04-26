@@ -1021,7 +1021,8 @@ void kmeans_predict(handle_t const& handle,
 }
 
 /**
- * @brief Transform X to a cluster-distance space.
+ * @brief Transform X to a cluster-distance space. Only L2SqrtExpanded metric
+ * is supported.
  *
  * @param[in]     handle        The handle to the cuML library context that
  * manages the CUDA resources.
@@ -1045,6 +1046,9 @@ void kmeans_transform(const raft::handle_t& handle,
   auto n_clusters     = params.n_clusters;
   auto metric         = static_cast<raft::distance::DistanceType>(params.metric);
 
+  RAFT_EXPECTS(metric == raft::distance::DistanceType::L2SqrtExpanded,
+               "KMeans transform only supports metric L2SqrtExpanded.");
+
   // Device-accessible allocation of expandable storage used as temorary buffers
   rmm::device_uvector<char> workspace(0, stream);
   auto dataBatchSize = getDataBatchSize(params, n_samples);
@@ -1065,7 +1069,7 @@ void kmeans_transform(const raft::handle_t& handle,
 
     // calculate pairwise distance between cluster centroids and current batch
     // of input dataset
-    pairwise_distance(
+    pairwise_distance_kmeans<DataT, IndexT>(
       handle, datasetView, centroids, pairwiseDistanceView, workspace, metric, stream);
   }
 }
