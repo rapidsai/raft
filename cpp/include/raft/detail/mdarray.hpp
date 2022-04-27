@@ -21,6 +21,7 @@
  * limitations under the License.
  */
 #pragma once
+#include <cuda/std/tuple>
 #include <experimental/mdspan>
 #include <raft/detail/span.hpp>  // dynamic_extent
 #include <rmm/cuda_stream_view.hpp>
@@ -238,4 +239,105 @@ namespace stdex = std::experimental;
 using vector_extent = stdex::extents<dynamic_extent>;
 using matrix_extent = stdex::extents<dynamic_extent, dynamic_extent>;
 using scalar_extent = stdex::extents<1>;
+
+template <typename T>
+auto native_popc(T v) -> int32_t
+{
+  int c = 0;
+  for (; v != 0; v &= v - 1)
+    c++;
+  return c;
+}
+
+inline __host__ __device__ auto popc(uint32_t v) -> int32_t
+{
+#if defined(__CUDA_ARCH__)
+  return __popc(v);
+#elif defined(__GNUC__) || defined(__clang__)
+  return __builtin_popcount(v);
+#else
+  return native_popc(v);
+#endif  // compiler
+}
+
+inline __host__ __device__ auto popc(uint64_t v) -> int32_t
+{
+#if defined(__CUDA_ARCH__)
+  return __popcll(v);
+#elif defined(__GNUC__) || defined(__clang__)
+  return __builtin_popcountll(v);
+#else
+  return native_popc(v);
+#endif  // compiler
+}
+
+template <class T, std::size_t N, std::size_t... Idx>
+MDSPAN_INLINE_FUNCTION constexpr auto arr_to_tup(T (&arr)[N], std::index_sequence<Idx...>)
+{
+  return cuda::std::make_tuple(arr[Idx]...);
+}
+
+template <class T, std::size_t N>
+MDSPAN_INLINE_FUNCTION constexpr auto arr_to_tup(T (&arr)[N])
+{
+  return arr_to_tup(arr, std::make_index_sequence<N>{});
+}
+
+// uint division optimization inspired by the CIndexer in cupy.  Division operation is
+// slow on both CPU and GPU, especially 64 bit integer.  So here we first try to avoid 64
+// bit when the index is smaller, then try to avoid division when it's exp of 2.
+template <typename I, size_t... Extents>
+MDSPAN_INLINE_FUNCTION auto unravel_index_impl(I idx, stdex::extents<Extents...> shape)
+{
+  constexpr auto kRank = static_cast<int32_t>(shape.rank());
+  size_t index[shape.rank()]{0};  // NOLINT
+  static_assert(std::is_signed<decltype(kRank)>::value,
+                "Don't change the type without changing the for loop.");
+  for (int32_t dim = kRank; --dim > 0;) {
+    auto s = static_cast<std::remove_const_t<std::remove_reference_t<I>>>(shape.extent(dim));
+    if (s & (s - 1)) {
+      auto t     = idx / s;
+      index[dim] = idx - t * s;
+      idx        = t;
+    } else {  // exp of 2
+      index[dim] = idx & (s - 1);
+      idx >>= popc(s - 1);
+    }
+  }
+  index[0] = idx;
+  return arr_to_tup(index);
+}
+
+/**
+ * \brief Turns linear index into coordinate.  Similar to numpy unravel_index. This is not
+ *        exposed to public as it's not part of the mdspan proposal, the returned tuple
+ *        can not be directly used for indexing into mdspan and we might change the return
+ *        type in the future.
+ *
+ * \code
+ *   auto m = make_host_matrix<float>(7, 6);
+ *   auto m_v = m.view();
+ *   auto coord = detail::unravel_index(2, m.extents(), typename decltype(m)::layout_type{});
+ *   cuda::std::apply(m_v, coord) = 2;
+ * \endcode
+ *
+ * \param idx    The linear index.
+ * \param shape  The shape of the array to use.
+ * \param layout Must be `layout_right` (row-major) in current version.
+ *
+ * \return A cuda::std::tuple that represents the coordinate.
+ */
+template <typename LayoutPolicy, std::size_t... Exts>
+MDSPAN_INLINE_FUNCTION auto unravel_index(size_t idx,
+                                          detail::stdex::extents<Exts...> shape,
+                                          LayoutPolicy const&)
+{
+  static_assert(std::is_same<LayoutPolicy, stdex::layout_right>::value,
+                "Only C layout is supported.");
+  if (idx > std::numeric_limits<uint32_t>::max()) {
+    return unravel_index_impl<uint64_t, Exts...>(static_cast<uint64_t>(idx), shape);
+  } else {
+    return unravel_index_impl<uint32_t, Exts...>(static_cast<uint32_t>(idx), shape);
+  }
+}
 }  // namespace raft::detail

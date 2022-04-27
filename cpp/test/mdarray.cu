@@ -15,9 +15,9 @@
  */
 #include <experimental/mdspan>
 #include <gtest/gtest.h>
+#include <raft/core/mdarray.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/mdarray.hpp>
 #include <rmm/cuda_stream.hpp>
 #include <rmm/device_uvector.hpp>
 #include <rmm/device_vector.hpp>
@@ -415,6 +415,66 @@ TEST(MDArray, FuncArg)
     // auto slice =
     //   stdex::submdspan(d_matrix.view(), std::make_tuple(2ul, 4ul), std::make_tuple(2ul, 5ul));
     // check_matrix_layout(slice);
+  }
+}
+
+TEST(MDArray, Unravel)
+{
+  {
+    uint32_t v{0};
+    ASSERT_EQ(detail::native_popc(v), 0);
+    ASSERT_EQ(detail::popc(v), 0);
+    v = 1;
+    ASSERT_EQ(detail::native_popc(v), 1);
+    ASSERT_EQ(detail::popc(v), 1);
+    v = 0xffffffff;
+    ASSERT_EQ(detail::native_popc(v), 32);
+    ASSERT_EQ(detail::popc(v), 32);
+  }
+  {
+    uint64_t v{0};
+    ASSERT_EQ(detail::native_popc(v), 0);
+    ASSERT_EQ(detail::popc(v), 0);
+    v = 1;
+    ASSERT_EQ(detail::native_popc(v), 1);
+    ASSERT_EQ(detail::popc(v), 1);
+    v = 0xffffffff;
+    ASSERT_EQ(detail::native_popc(v), 32);
+    ASSERT_EQ(detail::popc(v), 32);
+    v = 0xffffffffffffffff;
+    ASSERT_EQ(detail::native_popc(v), 64);
+    ASSERT_EQ(detail::popc(v), 64);
+  }
+
+  // examples in numpy unravel_index
+  {
+    auto coord = detail::unravel_index(22, detail::matrix_extent{7, 6}, stdex::layout_right{});
+    static_assert(cuda::std::tuple_size<decltype(coord)>::value == 2);
+    ASSERT_EQ(cuda::std::get<0>(coord), 3);
+    ASSERT_EQ(cuda::std::get<1>(coord), 4);
+  }
+  {
+    auto coord = detail::unravel_index(41, detail::matrix_extent{7, 6}, stdex::layout_right{});
+    static_assert(cuda::std::tuple_size<decltype(coord)>::value == 2);
+    ASSERT_EQ(cuda::std::get<0>(coord), 6);
+    ASSERT_EQ(cuda::std::get<1>(coord), 5);
+  }
+  {
+    auto coord = detail::unravel_index(37, detail::matrix_extent{7, 6}, stdex::layout_right{});
+    static_assert(cuda::std::tuple_size<decltype(coord)>::value == 2);
+    ASSERT_EQ(cuda::std::get<0>(coord), 6);
+    ASSERT_EQ(cuda::std::get<1>(coord), 1);
+
+    auto m = make_host_matrix<float>(7, 6);
+    auto m_v = m.view();
+    for (size_t i = 0; i < m.size(); ++i) {
+      auto coord = detail::unravel_index(i, m.extents(), typename decltype(m)::layout_type{});
+      cuda::std::apply(m_v, coord) = i;
+    }
+    for (size_t i = 0; i < m.size(); ++i) {
+      auto coord = detail::unravel_index(i, m.extents(), typename decltype(m)::layout_type{});
+      ASSERT_EQ(cuda::std::apply(m_v, coord), i);
+    }
   }
 }
 }  // namespace raft
