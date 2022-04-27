@@ -32,8 +32,13 @@ extension module.
   The list of libraries that need to be linked into all modules. In RAPIDS,
   this list usually contains (at minimum) the corresponding C++ libraries.
 
+``install_base_directory``
+  The source directory of the project. This directory is used to compute the
+  relative install path, which is necessary to propertly support differently
+  configured installations such as installing in place vs. out of place.
+
 #]=======================================================================]
-function(add_cython_modules cython_modules linked_libraries)
+function(add_cython_modules cython_modules linked_libraries install_base_directory)
   foreach(cython_module ${cython_modules})
     add_cython_target(${cython_module} CXX PY3)
     add_library(${cython_module} MODULE ${cython_module})
@@ -47,7 +52,7 @@ function(add_cython_modules cython_modules linked_libraries)
 
     # Compute the install directory relative to the source and rely on installs being relative to
     # the CMAKE_PREFIX_PATH for e.g. editable installs.
-    cmake_path(RELATIVE_PATH CMAKE_CURRENT_SOURCE_DIR BASE_DIRECTORY ${raft-python_SOURCE_DIR}
+    cmake_path(RELATIVE_PATH CMAKE_CURRENT_SOURCE_DIR BASE_DIRECTORY ${install_base_directory}
                OUTPUT_VARIABLE install_dst)
     install(TARGETS ${cython_module} DESTINATION ${install_dst})
   endforeach(cython_module ${cython_sources})
