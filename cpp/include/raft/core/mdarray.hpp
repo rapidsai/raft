@@ -131,69 +131,37 @@ inline constexpr bool is_mdspan_v =
  * @brief Interface to implement an owning multi-dimensional array
  *
  * raft::array_interace is an interface to owning container types for mdspan.
- * Check implementation of raft::mdarray which implements raft::array_interface.
- * This interface provides virtual method `view()` which is to be overridden by
+ * Check implementation of raft::mdarray which implements raft::array_interface
+ * using Curiously Recurring Template Pattern.
+ * This interface calls into method `view()` whose implementation is provided by
  * the implementing class. `view()` must return an object of type raft::host_mdspan
  * or raft::device_mdspan or any types derived from the them.
  */
-template <typename ElementType, typename Extents, typename LayoutPolicy, typename ContainerPolicy>
+template <typename Base>
 class array_interface {
-  static_assert(!std::is_const<ElementType>::value,
-                "Element type for container must not be const.");
-
- public:
-  using extents_type = Extents;
-  using layout_type  = LayoutPolicy;
-  using element_type = ElementType;
-
-  // Naming: ref impl: container_policy_type, proposal: container_policy
-  using container_policy_type = ContainerPolicy;
-  using container_type        = typename container_policy_type::container_type;
-
- private:
-  template <typename E,
-            typename ViewAccessorPolicy =
-              std::conditional_t<std::is_const_v<E>,
-                                 typename container_policy_type::const_accessor_policy,
-                                 typename container_policy_type::accessor_policy>>
-  using view_type_impl =
-    std::conditional_t<container_policy_type::is_host_type::value,
-                       host_mdspan<E, extents_type, layout_type, ViewAccessorPolicy>,
-                       device_mdspan<E, extents_type, layout_type, ViewAccessorPolicy>>;
-
- public:
-  /**
-   * \brief the mdspan type returned by view method.
-   */
-  using view_type       = view_type_impl<element_type>;
-  using const_view_type = view_type_impl<element_type const>;
-
   /**
    * @brief Get a mdspan that can be passed down to CUDA kernels.
    */
-  virtual view_type view() noexcept = 0;
+  auto view() noexcept { return static_cast<Base*>(this)->view(); }
   /**
    * @brief Get a mdspan that can be passed down to CUDA kernels.
    */
-  virtual const_view_type view() const noexcept = 0;
+  auto view() const noexcept { return static_cast<Base*>(this)->view(); }
 };
-
-template <typename ElementType, typename Extents, typename LayoutPolicy, typename ContainerPolicy>
-void __takes_an_array_interface_ptr(
-  array_interface<ElementType, Extents, LayoutPolicy, ContainerPolicy>*);
 
 template <typename T, typename = void>
 struct __is_array_interface : std::false_type {
 };
 
 template <typename T>
-struct __is_array_interface<
-  T,
-  std::void_t<decltype(__takes_an_array_interface_ptr(std::declval<T*>()))>> : std::true_type {
+struct __is_array_interface<T, std::void_t<decltype(std::declval<T>().view())>>
+  : std::bool_constant<is_mdspan_v<decltype(std::declval<T>().view())>> {
 };
 
 /**
  * @\brief Boolean to determine if template type T is raft::array_interface or derived type
+ *         or any type that has a member function `view()` that returns either
+ *         raft::host_mdspan or raft::device_mdspan
  */
 template <typename T>
 inline constexpr bool is_array_interface_v = __is_array_interface<std::remove_const_t<T>>::value;
@@ -228,7 +196,8 @@ inline constexpr bool is_array_interface_v = __is_array_interface<std::remove_co
  *   removed.
  */
 template <typename ElementType, typename Extents, typename LayoutPolicy, typename ContainerPolicy>
-class mdarray : public array_interface<ElementType, Extents, LayoutPolicy, ContainerPolicy> {
+class mdarray
+  : public array_interface<mdarray<ElementType, Extents, LayoutPolicy, ContainerPolicy>> {
   static_assert(!std::is_const<ElementType>::value,
                 "Element type for container must not be const.");
 
@@ -317,11 +286,11 @@ class mdarray : public array_interface<ElementType, Extents, LayoutPolicy, Conta
   /**
    * @brief Get a mdspan that can be passed down to CUDA kernels.
    */
-  view_type view() noexcept { return view_type(c_.data(), map_, cp_.make_accessor_policy()); }
+  auto view() noexcept { return view_type(c_.data(), map_, cp_.make_accessor_policy()); }
   /**
    * @brief Get a mdspan that can be passed down to CUDA kernels.
    */
-  const_view_type view() const noexcept
+  auto view() const noexcept
   {
     return const_view_type(c_.data(), map_, cp_.make_accessor_policy());
   }
