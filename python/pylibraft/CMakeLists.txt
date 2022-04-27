@@ -16,14 +16,11 @@ cmake_minimum_required(VERSION 3.20.1 FATAL_ERROR)
 
 set(raft_version 22.06.00)
 
+# TODO: This link needs to be changed back to the mainline branch of rapids-cmake before the PR is merged.
 file(DOWNLOAD https://raw.githubusercontent.com/vyasr/rapids-cmake/rapids-cython/RAPIDS.cmake
         ${CMAKE_BINARY_DIR}/RAPIDS.cmake)
 include(${CMAKE_BINARY_DIR}/RAPIDS.cmake)
 include(rapids-cython)
-
-set(CYTHON_FLAGS
-    "--directive binding=True,embedsignature=True,always_allow_keywords=True"
-    CACHE STRING "The directives for Cython compilation.")
 
 project(
   raft-python
@@ -42,12 +39,6 @@ project(
 
 option(FIND_RAFT_CPP "Search for existing RAFT C++ installations before defaulting to local files"
        OFF)
-
-find_package(PythonExtensions REQUIRED)
-find_package(Cython REQUIRED)
-
-# Ignore unused variable warning.
-set(ignored_variable "${SKBUILD}")
 
 # If the user requested it we attempt to find RAFT.
 if(FIND_RAFT_CPP)
