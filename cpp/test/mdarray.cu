@@ -421,4 +421,96 @@ TEST(MDArray, FuncArg)
       std::is_same_v<decltype(slice)::accessor_type, device_matrix_view<float>::accessor_type>);
   }
 }
+
+namespace {
+void test_mdarray_unravel()
+{
+  {
+    uint32_t v{0};
+    ASSERT_EQ(detail::native_popc(v), 0);
+    ASSERT_EQ(detail::popc(v), 0);
+    v = 1;
+    ASSERT_EQ(detail::native_popc(v), 1);
+    ASSERT_EQ(detail::popc(v), 1);
+    v = 0xffffffff;
+    ASSERT_EQ(detail::native_popc(v), 32);
+    ASSERT_EQ(detail::popc(v), 32);
+  }
+  {
+    uint64_t v{0};
+    ASSERT_EQ(detail::native_popc(v), 0);
+    ASSERT_EQ(detail::popc(v), 0);
+    v = 1;
+    ASSERT_EQ(detail::native_popc(v), 1);
+    ASSERT_EQ(detail::popc(v), 1);
+    v = 0xffffffff;
+    ASSERT_EQ(detail::native_popc(v), 32);
+    ASSERT_EQ(detail::popc(v), 32);
+    v = 0xffffffffffffffff;
+    ASSERT_EQ(detail::native_popc(v), 64);
+    ASSERT_EQ(detail::popc(v), 64);
+  }
+
+  // examples in numpy unravel_index
+  {
+    auto coord = detail::unravel_index(22, detail::matrix_extent{7, 6}, stdex::layout_right{});
+    static_assert(thrust::tuple_size<decltype(coord)>::value == 2);
+    ASSERT_EQ(thrust::get<0>(coord), 3);
+    ASSERT_EQ(thrust::get<1>(coord), 4);
+  }
+  {
+    auto coord = detail::unravel_index(41, detail::matrix_extent{7, 6}, stdex::layout_right{});
+    static_assert(thrust::tuple_size<decltype(coord)>::value == 2);
+    ASSERT_EQ(thrust::get<0>(coord), 6);
+    ASSERT_EQ(thrust::get<1>(coord), 5);
+  }
+  {
+    auto coord = detail::unravel_index(37, detail::matrix_extent{7, 6}, stdex::layout_right{});
+    static_assert(thrust::tuple_size<decltype(coord)>::value == 2);
+    ASSERT_EQ(thrust::get<0>(coord), 6);
+    ASSERT_EQ(thrust::get<1>(coord), 1);
+  }
+  // assignment
+  {
+    auto m   = make_host_matrix<float>(7, 6);
+    auto m_v = m.view();
+    for (size_t i = 0; i < m.size(); ++i) {
+      auto coord = detail::unravel_index(i, m.extents(), typename decltype(m)::layout_type{});
+      detail::apply(m_v, coord) = i;
+    }
+    for (size_t i = 0; i < m.size(); ++i) {
+      auto coord = detail::unravel_index(i, m.extents(), typename decltype(m)::layout_type{});
+      ASSERT_EQ(detail::apply(m_v, coord), i);
+    }
+  }
+
+  {
+    handle_t handle;
+    auto m   = make_device_matrix<float>(handle, 7, 6);
+    auto m_v = m.view();
+    thrust::for_each_n(handle.get_thrust_policy(),
+                       thrust::make_counting_iterator(0ul),
+                       m_v.size(),
+                       [=] __device__(size_t i) {
+                         auto coord = detail::unravel_index(
+                           i, m_v.extents(), typename decltype(m_v)::layout_type{});
+                         detail::apply(m_v, coord) = static_cast<float>(i);
+                       });
+    thrust::device_vector<int32_t> status(1, 0);
+    auto p_status = status.data().get();
+    thrust::for_each_n(handle.get_thrust_policy(),
+                       thrust::make_counting_iterator(0ul),
+                       m_v.size(),
+                       [=] __device__(size_t i) {
+                         auto coord = detail::unravel_index(
+                           i, m_v.extents(), typename decltype(m_v)::layout_type{});
+                         auto v = detail::apply(m_v, coord);
+                         if (v != static_cast<float>(i)) { raft::myAtomicAdd(p_status, 1); }
+                       });
+    check_status(p_status, handle.get_stream());
+  }
+}
+}  // anonymous namespace
+
+TEST(MDArray, Unravel) { test_mdarray_unravel(); }
 }  // namespace raft
