@@ -295,15 +295,6 @@ class mdarray
     return const_view_type(c_.data(), map_, cp_.make_accessor_policy());
   }
 
-  /**
-   * @brief Get an implicitly constructed mdspan that can be passed down to CUDA kernels.
-   */
-  operator view_type() noexcept { return view(); }
-  /**
-   * @brief Get an implicitly constructed mdspan that can be passed down to CUDA kernels.
-   */
-  operator const_view_type() const noexcept { return view(); }
-
   [[nodiscard]] constexpr auto size() const noexcept -> index_type { return this->view().size(); }
 
   [[nodiscard]] auto data() noexcept -> pointer { return c_.data(); }
