@@ -241,15 +241,16 @@ using matrix_extent = stdex::extents<dynamic_extent, dynamic_extent>;
 using scalar_extent = stdex::extents<1>;
 
 template <typename T>
-auto native_popc(T v) -> int32_t
+MDSPAN_INLINE_FUNCTION auto native_popc(T v) -> int32_t
 {
   int c = 0;
-  for (; v != 0; v &= v - 1)
+  for (; v != 0; v &= v - 1) {
     c++;
+  }
   return c;
 }
 
-inline __host__ __device__ auto popc(uint32_t v) -> int32_t
+MDSPAN_INLINE_FUNCTION auto popc(uint32_t v) -> int32_t
 {
 #if defined(__CUDA_ARCH__)
   return __popc(v);
@@ -260,7 +261,7 @@ inline __host__ __device__ auto popc(uint32_t v) -> int32_t
 #endif  // compiler
 }
 
-inline __host__ __device__ auto popc(uint64_t v) -> int32_t
+MDSPAN_INLINE_FUNCTION auto popc(uint64_t v) -> int32_t
 {
 #if defined(__CUDA_ARCH__)
   return __popcll(v);
