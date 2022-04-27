@@ -18,6 +18,14 @@
  * Please use the cuh version instead.
  */
 
+/**
+ * DISCLAIMER: this file is deprecated: use rng.cuh instead
+ */
+
 #pragma once
+
+#pragma message(__FILE__                                                  \
+                " is deprecated and will be removed in a future release." \
+                " Please use the cuh version instead.")
 
 #include "rng.cuh"

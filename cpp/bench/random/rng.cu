@@ -16,7 +16,7 @@
 
 #include <common/benchmark.hpp>
 #include <raft/cudart_utils.h>
-#include <raft/random/rng.hpp>
+#include <raft/random/rng.cuh>
 
 #include <rmm/device_uvector.hpp>
 
@@ -48,26 +48,26 @@ struct rng : public fixture {
 
   void run_benchmark(::benchmark::State& state) override
   {
-    raft::random::Rng r(123456ULL, params.gtype);
+    raft::random::RngState r(123456ULL, params.gtype);
     loop_on_state(state, [this, &r]() {
       switch (params.type) {
-        case RNG_Normal: r.normal(ptr.data(), params.len, params.start, params.end, stream); break;
+        case RNG_Normal: normal(r, ptr.data(), params.len, params.start, params.end, stream); break;
         case RNG_LogNormal:
-          r.lognormal(ptr.data(), params.len, params.start, params.end, stream);
+          lognormal(r, ptr.data(), params.len, params.start, params.end, stream);
           break;
         case RNG_Uniform:
-          r.uniform(ptr.data(), params.len, params.start, params.end, stream);
+          uniform(r, ptr.data(), params.len, params.start, params.end, stream);
           break;
-        case RNG_Gumbel: r.gumbel(ptr.data(), params.len, params.start, params.end, stream); break;
+        case RNG_Gumbel: gumbel(r, ptr.data(), params.len, params.start, params.end, stream); break;
         case RNG_Logistic:
-          r.logistic(ptr.data(), params.len, params.start, params.end, stream);
+          logistic(r, ptr.data(), params.len, params.start, params.end, stream);
           break;
-        case RNG_Exp: r.exponential(ptr.data(), params.len, params.start, stream); break;
-        case RNG_Rayleigh: r.rayleigh(ptr.data(), params.len, params.start, stream); break;
+        case RNG_Exp: exponential(r, ptr.data(), params.len, params.start, stream); break;
+        case RNG_Rayleigh: rayleigh(r, ptr.data(), params.len, params.start, stream); break;
         case RNG_Laplace:
-          r.laplace(ptr.data(), params.len, params.start, params.end, stream);
+          laplace(r, ptr.data(), params.len, params.start, params.end, stream);
           break;
-        case RNG_Fill: r.fill(ptr.data(), params.len, params.start, stream); break;
+        case RNG_Fill: fill(r, ptr.data(), params.len, params.start, stream); break;
       };
     });
   }
