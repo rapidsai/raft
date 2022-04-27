@@ -18,4 +18,4 @@ set(linked_libraries raft::raft raft::distance)
 
 # Build all of the Cython targets
 # TODO: Depending on how project calls interact we can't rely on variables like CMAKE_PROJECT_NAME, otherwise we could use that to get the <PROJECT-NAME>_SOURCE_DIR and it wouldn't have to be a parameter. Can we find an alternate approach here?
-add_cython_modules("${cython_modules}" "${linked_libraries}" ${raft-python_SOURCE_DIR})
+create_cython_modules("${cython_modules}" "${linked_libraries}" ${raft-python_SOURCE_DIR})

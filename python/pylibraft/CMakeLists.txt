@@ -16,6 +16,11 @@ cmake_minimum_required(VERSION 3.20.1 FATAL_ERROR)
 
 set(raft_version 22.06.00)
 
+file(DOWNLOAD https://raw.githubusercontent.com/vyasr/rapids-cmake/rapids-cython/RAPIDS.cmake
+        ${CMAKE_BINARY_DIR}/RAPIDS.cmake)
+include(${CMAKE_BINARY_DIR}/RAPIDS.cmake)
+include(rapids-cython)
+
 set(CYTHON_FLAGS
     "--directive binding=True,embedsignature=True,always_allow_keywords=True"
     CACHE STRING "The directives for Cython compilation.")
