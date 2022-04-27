@@ -465,7 +465,7 @@ TEST(MDArray, Unravel)
     ASSERT_EQ(cuda::std::get<0>(coord), 6);
     ASSERT_EQ(cuda::std::get<1>(coord), 1);
 
-    auto m = make_host_matrix<float>(7, 6);
+    auto m   = make_host_matrix<float>(7, 6);
     auto m_v = m.view();
     for (size_t i = 0; i < m.size(); ++i) {
       auto coord = detail::unravel_index(i, m.extents(), typename decltype(m)::layout_type{});
