@@ -14,8 +14,7 @@
 
 # Set the list of Cython files to build
 set(cython_modules pairwise_distance)
+set(linked_libraries raft::raft raft::distance)
 
 # Build all of the Cython targets
-add_cython_modules("${cython_modules}")
-
-target_link_libraries(pairwise_distance raft::distance)
+add_cython_modules("${cython_modules}" "${linked_libraries}")

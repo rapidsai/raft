@@ -25,11 +25,15 @@ Generate C(++) from Cython and create Python modules.
 Creates a Cython target for a module, then adds a corresponding Python
 extension module.
 
-``ModuleName``
+``cython_modules``
   The list of modules to build.
 
+``linked_libraries``
+  The list of libraries that need to be linked into all modules. In RAPIDS,
+  this list usually contains (at minimum) the corresponding C++ libraries.
+
 #]=======================================================================]
-function(add_cython_modules cython_modules)
+function(add_cython_modules cython_modules linked_libraries)
   foreach(cython_module ${cython_modules})
     add_cython_target(${cython_module} CXX PY3)
     add_library(${cython_module} MODULE ${cython_module})
@@ -37,7 +41,9 @@ function(add_cython_modules cython_modules)
 
     # To avoid libraries being prefixed with "lib".
     set_target_properties(${cython_module} PROPERTIES PREFIX "")
-    target_link_libraries(${cython_module} raft::raft)
+    foreach(lib ${linked_libraries})
+      target_link_libraries(${cython_module} ${lib})
+    endforeach()
 
     # Compute the install directory relative to the source and rely on installs being relative to
     # the CMAKE_PREFIX_PATH for e.g. editable installs.
