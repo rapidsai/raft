@@ -105,8 +105,6 @@ void test_host_flatten()
     auto hs        = make_host_scalar<int>(27);
     auto flat_view = flatten(hs.view());
 
-    static_assert(std::is_same_v<decltype(hs.view()), decltype(flat_view)>, "types not the same");
-
     ASSERT_EQ(flat_view.extent(0), 1);
   }
 }
@@ -150,8 +148,6 @@ void test_device_flatten()
   {
     auto ds        = make_device_scalar<int>(27, handle.get_stream());
     auto flat_view = flatten(ds.view());
-
-    static_assert(std::is_same_v<decltype(ds.view()), decltype(flat_view)>, "types not the same");
 
     ASSERT_EQ(flat_view.extent(0), 1);
   }

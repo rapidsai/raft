@@ -759,30 +759,24 @@ auto make_device_vector(raft::handle_t const& handle, size_t n)
 }
 
 /**
- * @brief Flatten raft::host_mdspan into a 1-dim array view
+ * @brief Flatten raft::host_mdspan or raft::device_mdspan into a 1-dim array view
  *
- * @tparam host_mdspan_type Expected type raft::host_mdspan
- * @param h_mds raft::host_mdspan object
- * @return raft::host_mdspan
+ * @tparam mdspan_type Expected type raft::host_mdspan or raft::device_mdspan
+ * @param mds raft::host_mdspan or raft::device_mdspan object
+ * @return raft::host_mdspan or raft::device_mdspan with vector_extent
+ *         depending on AccessoryPolicy
  */
-template <typename host_mdspan_type,
-          std::enable_if_t<is_host_mdspan_v<host_mdspan_type>>* = nullptr>
-auto flatten(host_mdspan_type h_mds)
+template <typename mdspan_type, std::enable_if_t<is_mdspan_v<mdspan_type>>* = nullptr>
+auto flatten(mdspan_type mds)
 {
-  RAFT_EXPECTS(h_mds.is_contiguous(), "Input must be contiguous.");
+  RAFT_EXPECTS(mds.is_contiguous(), "Input must be contiguous.");
 
-  return make_host_vector_view<typename host_mdspan_type::element_type,
-                               typename host_mdspan_type::layout_type>(h_mds.data(), h_mds.size());
-}
+  detail::vector_extent ext{mds.size()};
 
-template <typename device_mdspan_type,
-          std::enable_if_t<is_device_mdspan_v<device_mdspan_type>>* = nullptr>
-auto flatten(device_mdspan_type d_mds)
-{
-  RAFT_EXPECTS(d_mds.is_contiguous(), "Input must be contiguous.");
-  return make_device_vector_view<typename device_mdspan_type::element_type,
-                                 typename device_mdspan_type::layout_type>(d_mds.data(),
-                                                                           d_mds.size());
+  return detail::stdex::mdspan<typename mdspan_type::element_type,
+                               detail::vector_extent,
+                               typename mdspan_type::layout_type,
+                               typename mdspan_type::accessor_type>(mds.data(), ext);
 }
 
 /**
@@ -790,62 +784,14 @@ auto flatten(device_mdspan_type d_mds)
  *
  * @tparam array_interface_type Expected type implementing raft::array_interface
  * @param mda raft::array_interace implementing object
- * @return Either raft::host_mdspan or raft::device_mdspan depending on the underlying
- *         ContainerPolicy
+ * @return Either raft::host_mdspan or raft::device_mdspan with vector_extent
+ *         depending on the underlying ContainerPolicy
  */
 template <typename array_interface_type,
           std::enable_if_t<is_array_interface_v<array_interface_type>>* = nullptr>
 auto flatten(const array_interface_type& mda)
 {
   return flatten(mda.view());
-}
-
-template <typename ElementType, typename LayoutType>
-constexpr auto flatten(host_vector_view<ElementType, LayoutType> h_vv)
-{
-  return h_vv;
-}
-
-template <typename ElementType, typename LayoutType>
-auto flatten(const host_vector<ElementType, LayoutType>& h_v)
-{
-  return flatten(h_v.view());
-}
-
-template <typename ElementType>
-constexpr auto flatten(host_scalar_view<ElementType> h_sv)
-{
-  return h_sv;
-}
-
-template <typename ElementType>
-auto flatten(const host_scalar<ElementType>& h_s)
-{
-  return flatten(h_s.view());
-}
-
-template <typename ElementType, typename LayoutType>
-constexpr auto flatten(device_vector_view<ElementType, LayoutType> d_vv)
-{
-  return d_vv;
-}
-
-template <typename ElementType, typename LayoutType>
-auto flatten(const device_vector<ElementType, LayoutType>& d_v)
-{
-  return flatten(d_v.view());
-}
-
-template <typename ElementType>
-constexpr auto flatten(device_scalar_view<ElementType> d_sv)
-{
-  return d_sv;
-}
-
-template <typename ElementType>
-auto flatten(const device_scalar<ElementType>& d_s)
-{
-  return flatten(d_s.view());
 }
 
 /**
