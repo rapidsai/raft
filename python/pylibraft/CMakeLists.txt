@@ -67,5 +67,4 @@ if(NOT RAFT_FOUND)
   add_subdirectory(../../cpp raft-cpp)
 endif()
 
-add_subdirectory(cmake)
 add_subdirectory(pylibraft/distance)
