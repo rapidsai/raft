@@ -22,7 +22,7 @@
  */
 #pragma once
 
-#include <cstddef>
+#include <stddef.h>
 
 #include <experimental/mdspan>
 #include <raft/core/handle.hpp>
