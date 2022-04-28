@@ -258,7 +258,7 @@ void distance(raft::handle_t const& handle,
   RAFT_EXPECTS(x.is_contiguous(), "Input x must be contiguous.");
   RAFT_EXPECTS(y.is_contiguous(), "Input y must be contiguous.");
 
-  auto is_rowmajor = std::is_same<layout, layout_c_contiguous>::value;
+  constexpr auto is_rowmajor = std::is_same_v<layout, layout_c_contiguous>;
 
   distance<distanceType, InType, AccType, OutType, Index_>(x.data(),
                                                            y.data(),
@@ -433,7 +433,7 @@ void pairwise_distance(raft::handle_t const& handle,
   RAFT_EXPECTS(y.is_contiguous(), "Input y must be contiguous.");
   RAFT_EXPECTS(dist.is_contiguous(), "Output must be contiguous.");
 
-  bool rowmajor = x.stride(0) == 0;
+  constexpr auto rowmajor = std::is_same_v<layout, layout_c_contiguous>;
 
   rmm::device_uvector<char> workspace(0, handle.get_stream());
 
