@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #ifndef __BALL_COVER_H
 #define __BALL_COVER_H
 

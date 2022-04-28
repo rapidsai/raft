@@ -64,12 +64,12 @@ class SqrtTest : public ::testing::TestWithParam<SqrtInputs<T>> {
   {
     auto stream = handle.get_stream();
     params      = ::testing::TestWithParam<SqrtInputs<T>>::GetParam();
-    raft::random::Rng r(params.seed);
+    raft::random::RngState r(params.seed);
     int len = params.len;
     in1.resize(len, stream);
     out_ref.resize(len, stream);
     out.resize(len, stream);
-    r.uniform(in1.data(), len, T(1.0), T(2.0), stream);
+    uniform(r, in1.data(), len, T(1.0), T(2.0), stream);
 
     naiveSqrtElem(out_ref.data(), in1.data(), len);
 

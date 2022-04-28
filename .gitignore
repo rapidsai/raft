@@ -17,8 +17,8 @@ build/
 build_prims/
 dist/
 python/**/**/*.cpp
-python/external_repositories
-python/record.txt
+python/raft/record.txt
+python/pylibraft/record.txt
 log
 .ipynb_checkpoints
 .DS_Store

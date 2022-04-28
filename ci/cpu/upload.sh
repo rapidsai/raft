@@ -9,8 +9,9 @@ set -e
 export GPUCI_RETRY_MAX=3
 export GPUCI_RETRY_SLEEP=30
 
-# Set default label options if they are not defined elsewhere
-export LABEL_OPTION=${LABEL_OPTION:-"--label main"}
+# Set label option.
+# LABEL_OPTION="--label testing"
+LABEL_OPTION="--label main"
 
 # Skip uploads unless BUILD_MODE == "branch"
 if [ ${BUILD_MODE} != "branch" ]; then
@@ -30,10 +31,11 @@ fi
 
 gpuci_logger "Get conda file output locations"
 
-export LIBRAFT_HEADERS_FILE=`conda build --croot ${CONDA_BLD_DIR} conda/recipes/libraft_headers --output`
-export LIBRAFT_NN_FILE=`conda build --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/libraft_nn --output`
-export LIBRAFT_DISTANCE_FILE=`conda build --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/libraft_distance --output`
-export PYRAFT_FILE=`conda build --croot ${CONDA_BLD_DIR} conda/recipes/pyraft --python=$PYTHON --output`
+export LIBRAFT_HEADERS_FILE=`conda build --no-build-id --croot ${CONDA_BLD_DIR} -c ${CONDA_LOCAL_CHANNEL} conda/recipes/libraft_headers --output`
+export LIBRAFT_NN_FILE=`conda build --no-build-id --croot ${CONDA_BLD_DIR} -c ${CONDA_LOCAL_CHANNEL} conda/recipes/libraft_nn --output`
+export LIBRAFT_DISTANCE_FILE=`conda build --no-build-id --croot ${CONDA_BLD_DIR} -c ${CONDA_LOCAL_CHANNEL} conda/recipes/libraft_distance --output`
+export PYRAFT_FILE=`conda build --no-build-id --croot ${CONDA_BLD_DIR} -c ${CONDA_LOCAL_CHANNEL} conda/recipes/pyraft --python=$PYTHON --output`
+export PYLIBRAFT_FILE=`conda build --no-build-id --croot ${CONDA_BLD_DIR} -c ${CONDA_LOCAL_CHANNEL} conda/recipes/pylibraft --python=$PYTHON --output`
 
 ################################################################################
 # UPLOAD - Conda packages
@@ -44,7 +46,7 @@ gpuci_logger "Starting conda uploads"
 if [[ "$BUILD_LIBRAFT" == "1" && "$UPLOAD_LIBRAFT" == "1" ]]; then
 
   test -e ${LIBRAFT_HEADERS_FILE}
-  echo "Upload libraft-nn"
+  echo "Upload libraft-headers"
   echo ${LIBRAFT_HEADERS_FILE}
   gpuci_retry anaconda -t ${MY_UPLOAD_KEY} upload -u ${CONDA_USERNAME:-rapidsai} ${LABEL_OPTION} --skip-existing ${LIBRAFT_HEADERS_FILE} --no-progress
 
@@ -64,4 +66,9 @@ if [[ "$BUILD_RAFT" == "1" ]]; then
   echo "Upload pyraft"
   echo ${PYRAFT_FILE}
   gpuci_retry anaconda -t ${MY_UPLOAD_KEY} upload -u ${CONDA_USERNAME:-rapidsai} ${LABEL_OPTION} --skip-existing ${PYRAFT_FILE} --no-progress
+
+  test -e ${PYLIBRAFT_FILE}
+  echo "Upload pylibraft"
+  echo ${PYLIBRAFT_FILE}
+  gpuci_retry anaconda -t ${MY_UPLOAD_KEY} upload -u ${CONDA_USERNAME:-rapidsai} ${LABEL_OPTION} --skip-existing ${PYLIBRAFT_FILE} --no-progress
 fi

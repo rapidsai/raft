@@ -27,7 +27,7 @@ export GIT_DESCRIBE_TAG=`git describe --tags`
 export MINOR_VERSION=`echo $GIT_DESCRIBE_TAG | grep -o -E '([0-9]+\.[0-9]+)'`
 
 # ucx-py version
-export UCX_PY_VERSION='0.25.*'
+export UCX_PY_VERSION='0.26.*'
 
 export CMAKE_CUDA_COMPILER_LAUNCHER="sccache"
 export CMAKE_CXX_COMPILER_LAUNCHER="sccache"
@@ -63,8 +63,12 @@ gpuci_mamba_retry install -y -c conda-forge -c rapidsai -c rapidsai-nightly -c n
       "dask-cuda=${MINOR_VERSION}" \
       "ucx-py=${UCX_PY_VERSION}" \
       "rapids-build-env=${MINOR_VERSION}.*" \
-      "rapids-notebook-env=${MINOR_VERSION}.*" \
-      "rapids-doc-env=${MINOR_VERSION}.*"
+      "rapids-notebook-env=${MINOR_VERSION}.*"
+
+if [ "$(arch)" = "x86_64" ]; then
+    gpuci_mamba_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
+        "rapids-doc-env=${MINOR_VERSION}.*"
+fi
 
 # Install the master version of dask, distributed, and dask-ml
 gpuci_logger "Install the master version of dask and distributed"
@@ -73,6 +77,10 @@ pip install "git+https://github.com/dask/distributed.git@main" --upgrade --no-de
 pip install "git+https://github.com/dask/dask.git@main" --upgrade --no-deps
 set +x
 
+# Install pre-built conda packages from previous CI step
+gpuci_logger "Install libraft conda packages from CPU job"
+export LIBRAFT_CONDA_PACKAGES="$WORKSPACE/ci/artifacts/raft/cpu/.conda-bld/" # notice there is no `linux-64` here
+gpuci_mamba_retry install -c "${LIBRAFT_CONDA_PACKAGES}" libraft-headers libraft-distance libraft-nn
 
 gpuci_logger "Check compiler versions"
 python --version
@@ -90,15 +98,14 @@ conda list --show-channel-urls
 
 gpuci_logger "Adding ${CONDA_PREFIX}/lib to LD_LIBRARY_PATH"
 
-export LD_LIBRARY_PATH_CACHED=$LD_LIBRARY_PATH
 export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
 
 gpuci_logger "Build C++ and Python targets"
 # These should link against the existing shared libs
 if hasArg --skip-tests; then
-  "$WORKSPACE/build.sh" pyraft libraft -v --nogtest
+  "$WORKSPACE/build.sh" pyraft pylibraft libraft -v
 else
-  "$WORKSPACE/build.sh" pyraft libraft -v
+  "$WORKSPACE/build.sh" pyraft pylibraft libraft tests bench  -v
 fi
 
 gpuci_logger "sccache stats"
@@ -106,11 +113,6 @@ sccache --show-stats
 
 gpuci_logger "Building docs"
 "$WORKSPACE/build.sh" docs -v
-
-gpuci_logger "Resetting LD_LIBRARY_PATH"
-
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH_CACHED
-export LD_LIBRARY_PATH_CACHED=""
 
 ################################################################################
 # TEST - Run GoogleTest and py.tests for RAFT
@@ -128,7 +130,15 @@ gpuci_logger "GoogleTest for raft"
 cd "$WORKSPACE/cpp/build"
 GTEST_OUTPUT="xml:$WORKSPACE/test-results/raft_cpp/" ./test_raft
 
-gpuci_logger "Python pytest for raft"
-cd "$WORKSPACE/python"
+gpuci_logger "Python pytest for pyraft"
+cd "$WORKSPACE/python/raft"
+python -m pytest --cache-clear --junitxml="$WORKSPACE/junit-pyraft.xml" -v -s
 
-python -m pytest --cache-clear --junitxml="$WORKSPACE/junit-raft.xml" -v -s
+gpuci_logger "Python pytest for pylibraft"
+cd "$WORKSPACE/python/pylibraft"
+python -m pytest --cache-clear --junitxml="$WORKSPACE/junit-pylibraft.xml" -v -s
+
+if [ "$(arch)" = "x86_64" ]; then
+  gpuci_logger "Building docs"
+  "$WORKSPACE/build.sh" docs -v
+fi

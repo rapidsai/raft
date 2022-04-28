@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -47,7 +47,7 @@ using WeakCCState = detail::WeakCCState;
  * @param filter_op an optional filtering function to determine which points
  * should get considered for labeling. It gets global indexes (not batch-wide!)
  */
-template <typename Index_, typename Lambda = auto(Index_)->bool>
+template <typename Index_, typename Lambda>
 void weak_cc_batched(Index_* labels,
                      const Index_* row_ind,
                      const Index_* row_ind_ptr,
@@ -129,7 +129,7 @@ void weak_cc_batched(Index_* labels,
  * @param filter_op an optional filtering function to determine which points
  * should get considered for labeling. It gets global indexes (not batch-wide!)
  */
-template <typename Index_ = int, typename Lambda = auto(Index_)->bool>
+template <typename Index_ = int, typename Lambda>
 void weak_cc(Index_* labels,
              const Index_* row_ind,
              const Index_* row_ind_ptr,

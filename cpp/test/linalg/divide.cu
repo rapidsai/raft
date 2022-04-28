@@ -55,10 +55,10 @@ class DivideTest : public ::testing::TestWithParam<raft::linalg::UnaryOpInputs<T
  protected:
   void SetUp() override
   {
-    raft::random::Rng r(params.seed);
+    raft::random::RngState r(params.seed);
     int len = params.len;
     RAFT_CUDA_TRY(cudaStreamCreate(&stream));
-    r.uniform(in.data(), len, T(-1.0), T(1.0), stream);
+    uniform(r, in.data(), len, T(-1.0), T(1.0), stream);
     naiveDivide(out_ref.data(), in.data(), params.scalar, len, stream);
     divideScalar(out.data(), in.data(), params.scalar, len, stream);
     handle.sync_stream(stream);

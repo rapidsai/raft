@@ -36,14 +36,13 @@ build:
 
 requirements:
   build:
-    - cmake>=3.20.1
+    - cmake>=3.20.1,!=3.23.0
   host:
     - nccl>=2.9.9
     - cudatoolkit {{ cuda_version }}.*
     - ucx-py {{ ucx_py_version }}
     - ucx-proc=*=gpu
     - gtest=1.10.0
-    - gmock
     - librmm {{ minor_version}}
     - libcusolver>=11.2.1
   run:

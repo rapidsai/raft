@@ -15,7 +15,7 @@
 #=============================================================================
 
 function(find_and_configure_faiss)
-    set(oneValueArgs VERSION PINNED_TAG BUILD_STATIC_LIBS)
+    set(oneValueArgs VERSION PINNED_TAG BUILD_STATIC_LIBS EXCLUDE_FROM_ALL)
     cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
                           "${multiValueArgs}" ${ARGN} )
 
@@ -36,7 +36,7 @@ function(find_and_configure_faiss)
           CPM_ARGS
             GIT_REPOSITORY   https://github.com/facebookresearch/faiss.git
             GIT_TAG          ${PKG_PINNED_TAG}
-            EXCLUDE_FROM_ALL TRUE
+            EXCLUDE_FROM_ALL ${PKG_EXCLUDE_FROM_ALL}
             OPTIONS
               "FAISS_ENABLE_PYTHON OFF"
               "CUDAToolkit_ROOT ${CUDAToolkit_LIBRARY_DIR}"
@@ -70,4 +70,4 @@ endfunction()
 find_and_configure_faiss(VERSION    1.7.0
                          PINNED_TAG  bde7c0027191f29c9dadafe4f6e68ca0ee31fb30
                          BUILD_STATIC_LIBS ${RAFT_USE_FAISS_STATIC}
-                        )
+                         EXCLUDE_FROM_ALL ${RAFT_EXCLUDE_FAISS_FROM_ALL})

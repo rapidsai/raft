@@ -30,13 +30,15 @@ struct WeightedMeanInputs {
   T tolerance;
   int M, N;
   unsigned long long int seed;
+  bool along_rows;  // Used only for the weightedMean test function
+  bool row_major;
 };
 
 template <typename T>
 ::std::ostream& operator<<(::std::ostream& os, const WeightedMeanInputs<T>& I)
 {
-  return os << "{ " << I.tolerance << ", " << I.M << ", " << I.N << ", " << I.seed << "}"
-            << std::endl;
+  return os << "{ " << I.tolerance << ", " << I.M << ", " << I.N << ", " << I.seed << ", "
+            << I.along_rows << "}" << std::endl;
 }
 
 ///// weighted row-wise mean test and support functions
@@ -66,7 +68,7 @@ class RowWeightedMeanTest : public ::testing::TestWithParam<WeightedMeanInputs<T
   void SetUp() override
   {
     params = ::testing::TestWithParam<WeightedMeanInputs<T>>::GetParam();
-    raft::random::Rng r(params.seed);
+    raft::random::RngState r(params.seed);
     int rows = params.M, cols = params.N, len = rows * cols;
     cudaStream_t stream = 0;
     RAFT_CUDA_TRY(cudaStreamCreate(&stream));
@@ -77,8 +79,8 @@ class RowWeightedMeanTest : public ::testing::TestWithParam<WeightedMeanInputs<T
     dact.resize(rows);
 
     // create random matrix and weights
-    r.uniform(din.data().get(), len, T(-1.0), T(1.0), stream);
-    r.uniform(dweights.data().get(), cols, T(-1.0), T(1.0), stream);
+    uniform(r, din.data().get(), len, T(-1.0), T(1.0), stream);
+    uniform(r, dweights.data().get(), cols, T(-1.0), T(1.0), stream);
 
     // host-side data
     thrust::host_vector<T> hin      = din;
@@ -89,7 +91,7 @@ class RowWeightedMeanTest : public ::testing::TestWithParam<WeightedMeanInputs<T
     naiveRowWeightedMean(hexp.data(), hin.data(), hweights.data(), rows, cols, true);
     dexp = hexp;
 
-    // compute ml-prims result
+    // compute result
     rowWeightedMean(dact.data().get(), din.data().get(), dweights.data().get(), cols, rows, stream);
 
     // adjust tolerance to account for round-off accumulation
@@ -131,7 +133,7 @@ class ColWeightedMeanTest : public ::testing::TestWithParam<WeightedMeanInputs<T
   void SetUp() override
   {
     params = ::testing::TestWithParam<WeightedMeanInputs<T>>::GetParam();
-    raft::random::Rng r(params.seed);
+    raft::random::RngState r(params.seed);
     int rows = params.M, cols = params.N, len = rows * cols;
 
     cudaStream_t stream = 0;
@@ -143,8 +145,8 @@ class ColWeightedMeanTest : public ::testing::TestWithParam<WeightedMeanInputs<T
     dact.resize(cols);
 
     // create random matrix and weights
-    r.uniform(din.data().get(), len, T(-1.0), T(1.0), stream);
-    r.uniform(dweights.data().get(), rows, T(-1.0), T(1.0), stream);
+    uniform(r, din.data().get(), len, T(-1.0), T(1.0), stream);
+    uniform(r, dweights.data().get(), rows, T(-1.0), T(1.0), stream);
 
     // host-side data
     thrust::host_vector<T> hin      = din;
@@ -155,7 +157,7 @@ class ColWeightedMeanTest : public ::testing::TestWithParam<WeightedMeanInputs<T
     naiveColWeightedMean(hexp.data(), hin.data(), hweights.data(), rows, cols, true);
     dexp = hexp;
 
-    // compute ml-prims result
+    // compute result
     colWeightedMean(dact.data().get(), din.data().get(), dweights.data().get(), cols, rows, stream);
 
     // adjust tolerance to account for round-off accumulation
@@ -171,29 +173,86 @@ class ColWeightedMeanTest : public ::testing::TestWithParam<WeightedMeanInputs<T
   thrust::device_vector<T> din, dweights, dexp, dact;
 };
 
+template <typename T>
+class WeightedMeanTest : public ::testing::TestWithParam<WeightedMeanInputs<T>> {
+ protected:
+  void SetUp() override
+  {
+    params = ::testing::TestWithParam<WeightedMeanInputs<T>>::GetParam();
+    raft::random::RngState r(params.seed);
+    int rows = params.M, cols = params.N, len = rows * cols;
+    auto weight_size    = params.along_rows ? cols : rows;
+    auto mean_size      = params.along_rows ? rows : cols;
+    cudaStream_t stream = 0;
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
+    // device-side data
+    din.resize(len);
+    dweights.resize(weight_size);
+    dexp.resize(mean_size);
+    dact.resize(mean_size);
+
+    // create random matrix and weights
+    uniform(r, din.data().get(), len, T(-1.0), T(1.0), stream);
+    uniform(r, dweights.data().get(), weight_size, T(-1.0), T(1.0), stream);
+
+    // host-side data
+    thrust::host_vector<T> hin      = din;
+    thrust::host_vector<T> hweights = dweights;
+    thrust::host_vector<T> hexp(mean_size);
+
+    // compute naive result & copy to GPU
+    if (params.along_rows)
+      naiveRowWeightedMean(hexp.data(), hin.data(), hweights.data(), rows, cols, params.row_major);
+    else
+      naiveColWeightedMean(hexp.data(), hin.data(), hweights.data(), rows, cols, params.row_major);
+    dexp = hexp;
+
+    // compute result
+    weightedMean(dact.data().get(),
+                 din.data().get(),
+                 dweights.data().get(),
+                 cols,
+                 rows,
+                 params.row_major,
+                 params.along_rows,
+                 stream);
+
+    // adjust tolerance to account for round-off accumulation
+    params.tolerance *= params.N;
+    RAFT_CUDA_TRY(cudaStreamDestroy(stream));
+  }
+
+  void TearDown() override {}
+
+ protected:
+  WeightedMeanInputs<T> params;
+  thrust::host_vector<T> hin, hweights;
+  thrust::device_vector<T> din, dweights, dexp, dact;
+};
+
 ////// Parameter sets and test instantiation
 static const float tolF  = 128 * std::numeric_limits<float>::epsilon();
 static const double tolD = 256 * std::numeric_limits<double>::epsilon();
 
-const std::vector<WeightedMeanInputs<float>> inputsf = {{tolF, 4, 4, 1234},
-                                                        {tolF, 1024, 32, 1234},
-                                                        {tolF, 1024, 64, 1234},
-                                                        {tolF, 1024, 128, 1234},
-                                                        {tolF, 1024, 256, 1234},
-                                                        {tolF, 1024, 32, 1234},
-                                                        {tolF, 1024, 64, 1234},
-                                                        {tolF, 1024, 128, 1234},
-                                                        {tolF, 1024, 256, 1234}};
+const std::vector<WeightedMeanInputs<float>> inputsf = {{tolF, 4, 4, 1234, true, true},
+                                                        {tolF, 1024, 32, 1234, true, false},
+                                                        {tolF, 1024, 64, 1234, true, true},
+                                                        {tolF, 1024, 128, 1234, true, false},
+                                                        {tolF, 1024, 256, 1234, true, true},
+                                                        {tolF, 1024, 32, 1234, false, false},
+                                                        {tolF, 1024, 64, 1234, false, true},
+                                                        {tolF, 1024, 128, 1234, false, false},
+                                                        {tolF, 1024, 256, 1234, false, true}};
 
-const std::vector<WeightedMeanInputs<double>> inputsd = {{tolD, 4, 4, 1234},
-                                                         {tolD, 1024, 32, 1234},
-                                                         {tolD, 1024, 64, 1234},
-                                                         {tolD, 1024, 128, 1234},
-                                                         {tolD, 1024, 256, 1234},
-                                                         {tolD, 1024, 32, 1234},
-                                                         {tolD, 1024, 64, 1234},
-                                                         {tolD, 1024, 128, 1234},
-                                                         {tolD, 1024, 256, 1234}};
+const std::vector<WeightedMeanInputs<double>> inputsd = {{tolD, 4, 4, 1234, true, true},
+                                                         {tolD, 1024, 32, 1234, true, false},
+                                                         {tolD, 1024, 64, 1234, true, true},
+                                                         {tolD, 1024, 128, 1234, true, false},
+                                                         {tolD, 1024, 256, 1234, true, true},
+                                                         {tolD, 1024, 32, 1234, false, false},
+                                                         {tolD, 1024, 64, 1234, false, true},
+                                                         {tolD, 1024, 128, 1234, false, false},
+                                                         {tolD, 1024, 256, 1234, false, true}};
 
 using RowWeightedMeanTestF = RowWeightedMeanTest<float>;
 TEST_P(RowWeightedMeanTestF, Result)
@@ -226,6 +285,22 @@ TEST_P(ColWeightedMeanTestD, Result)
     dexp.data().get(), dact.data().get(), params.N, raft::CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(ColWeightedMeanTest, ColWeightedMeanTestD, ::testing::ValuesIn(inputsd));
+
+using WeightedMeanTestF = WeightedMeanTest<float>;
+TEST_P(WeightedMeanTestF, Result)
+{
+  ASSERT_TRUE(devArrMatch(
+    dexp.data().get(), dact.data().get(), params.N, raft::CompareApprox<float>(params.tolerance)));
+}
+INSTANTIATE_TEST_CASE_P(WeightedMeanTest, WeightedMeanTestF, ::testing::ValuesIn(inputsf));
+
+using WeightedMeanTestD = WeightedMeanTest<double>;
+TEST_P(WeightedMeanTestD, Result)
+{
+  ASSERT_TRUE(devArrMatch(
+    dexp.data().get(), dact.data().get(), params.N, raft::CompareApprox<double>(params.tolerance)));
+}
+INSTANTIATE_TEST_CASE_P(WeightedMeanTest, WeightedMeanTestD, ::testing::ValuesIn(inputsd));
 
 };  // end namespace stats
 };  // end namespace raft

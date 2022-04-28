@@ -20,7 +20,6 @@
 #include <raft/cudart_utils.h>
 #include <raft/linalg/svd.cuh>
 #include <raft/matrix/matrix.cuh>
-#include <raft/random/rng.cuh>
 
 namespace raft {
 namespace linalg {
@@ -59,7 +58,6 @@ class SvdTest : public ::testing::TestWithParam<SvdInputs<T>> {
  protected:
   void SetUp() override
   {
-    raft::random::Rng r(params.seed);
     int len = params.len;
 
     ASSERT(params.n_row == 3, "This test only supports nrows=3!");

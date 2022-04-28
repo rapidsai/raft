@@ -224,6 +224,7 @@ struct accessor_mixin : public AccessorPolicy {
   using is_host_type  = std::conditional_t<is_host, std::true_type, std::false_type>;
   // make sure the explicit ctor can fall through
   using AccessorPolicy::AccessorPolicy;
+  using offset_policy = accessor_mixin;
   accessor_mixin(AccessorPolicy const& that) : AccessorPolicy{that} {}  // NOLINT
 };
 

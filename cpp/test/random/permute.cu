@@ -49,7 +49,7 @@ class PermTest : public ::testing::TestWithParam<PermInputs<T>> {
     params = ::testing::TestWithParam<PermInputs<T>>::GetParam();
     // forcefully set needPerms, since we need it for unit-testing!
     if (params.needShuffle) { params.needPerms = true; }
-    raft::random::Rng r(params.seed);
+    raft::random::RngState r(params.seed);
     int N               = params.N;
     int D               = params.D;
     int len             = N * D;
@@ -64,7 +64,7 @@ class PermTest : public ::testing::TestWithParam<PermInputs<T>> {
       out.resize(len, stream);
       in_ptr  = in.data();
       out_ptr = out.data();
-      r.uniform(in_ptr, len, T(-1.0), T(1.0), stream);
+      uniform(r, in_ptr, len, T(-1.0), T(1.0), stream);
     }
     permute(outPerms_ptr, out_ptr, in_ptr, D, N, params.rowMajor, stream);
     RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
