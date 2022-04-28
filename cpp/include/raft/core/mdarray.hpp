@@ -21,6 +21,9 @@
  * limitations under the License.
  */
 #pragma once
+
+#include <cstddef>
+
 #include <experimental/mdspan>
 #include <raft/core/handle.hpp>
 #include <raft/detail/mdarray.hpp>
