@@ -76,10 +76,10 @@ void call_rng_kernel(DeviceState<GenType> const& dev_state,
                      cudaStream_t stream,
                      ArgsT... args)
 {
-  static constexpr auto N_THREADS = 256;
-  auto n_blocks                   = 4 * getMultiProcessorCount();
-  rngKernel<ITEMS_PER_CALL><<<n_blocks, N_THREADS, 0, stream>>>(dev_state, args...);
-  rng_state.advance(uint64_t(n_blocks) * N_THREADS, 16);
+  auto n_threads = 256;
+  auto n_blocks  = 4 * getMultiProcessorCount();
+  rngKernel<ITEMS_PER_CALL><<<n_blocks, n_threads, 0, stream>>>(dev_state, args...);
+  rng_state.advance(uint64_t(n_blocks) * n_threads, 16);
 }
 
 template <typename OutType, typename LenType = int>
