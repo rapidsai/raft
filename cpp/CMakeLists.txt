@@ -59,7 +59,7 @@ option(CUDA_STATIC_RUNTIME "Statically link the CUDA runtime" OFF)
 option(DETECT_CONDA_ENV "Enable detection of conda environment for dependencies" ON)
 option(DISABLE_DEPRECATION_WARNINGS "Disable deprecaction warnings " ON)
 option(DISABLE_OPENMP "Disable OpenMP" OFF)
-option(NVTX "Enable nvtx markers" OFF)
+option(RAFT_NVTX "Enable nvtx markers" OFF)
 
 option(RAFT_COMPILE_LIBRARIES "Enable building raft shared library instantiations" ${BUILD_TESTS})
 option(RAFT_COMPILE_NN_LIBRARY "Enable building raft nearest neighbors shared library instantiations" OFF)
@@ -91,7 +91,7 @@ message(VERBOSE "RAFT: Disable depreaction warnings " ${DISABLE_DEPRECATION_WARN
 message(VERBOSE "RAFT: Disable OpenMP: ${DISABLE_OPENMP}")
 message(VERBOSE "RAFT: Enable kernel resource usage info: ${CUDA_ENABLE_KERNELINFO}")
 message(VERBOSE "RAFT: Enable lineinfo in nvcc: ${CUDA_ENABLE_LINEINFO}")
-message(VERBOSE "RAFT: Enable nvtx markers: ${NVTX}")
+message(VERBOSE "RAFT: Enable nvtx markers: ${RAFT_NVTX}")
 message(VERBOSE "RAFT: Statically link the CUDA runtime: ${CUDA_STATIC_RUNTIME}")
 
 # Set RMM logging level
@@ -193,22 +193,21 @@ endif()
 ##############################################################################
 # - NVTX support in raft -----------------------------------------------------
 
-if (NVTX)
+if (RAFT_NVTX)
   # This enables NVTX within the project with no option to disable it downstream.
   target_link_libraries(raft INTERFACE CUDA::nvToolsExt)
   target_compile_definitions(raft INTERFACE NVTX_ENABLED)
-  set(nvtx_export_string "")
 else()
   # Allow enable NVTX downstream if not set here.
   # This creates a new option at build/install time, which is set by default to OFF,
   # but can be enabled in the dependent project.
-  get_property(nvtx_option_help_string CACHE NVTX PROPERTY HELPSTRING)
+  get_property(nvtx_option_help_string CACHE RAFT_NVTX PROPERTY HELPSTRING)
   string(CONCAT nvtx_export_string
-  "option(NVTX \"" ${nvtx_option_help_string} "\" OFF)"
+  "option(RAFT_NVTX \"" ${nvtx_option_help_string} "\" OFF)"
   [=[
 
-target_link_libraries(raft::raft INTERFACE $<$<BOOL:${NVTX}>:CUDA::nvToolsExt>)
-target_compile_definitions(raft::raft INTERFACE $<$<BOOL:${NVTX}>:NVTX_ENABLED>)
+target_link_libraries(raft::raft INTERFACE $<$<BOOL:${RAFT_NVTX}>:CUDA::nvToolsExt>)
+target_compile_definitions(raft::raft INTERFACE $<$<BOOL:${RAFT_NVTX}>:NVTX_ENABLED>)
 
   ]=])
 endif()
