@@ -58,7 +58,7 @@ class CovTest : public ::testing::TestWithParam<CovInputs<T>> {
 
     params = ::testing::TestWithParam<CovInputs<T>>::GetParam();
     params.tolerance *= 2;
-    raft::random::Rng r(params.seed);
+    raft::random::RngState r(params.seed);
     int rows = params.rows, cols = params.cols;
     auto len = rows * cols;
     T var    = params.var;
@@ -66,7 +66,7 @@ class CovTest : public ::testing::TestWithParam<CovInputs<T>> {
     mean_act.resize(cols, stream);
     cov_act.resize(cols * cols, stream);
 
-    r.normal(data.data(), len, params.mean, var, stream);
+    normal(r, data.data(), len, params.mean, var, stream);
     raft::stats::mean(
       mean_act.data(), data.data(), cols, rows, params.sample, params.rowMajor, stream);
     cov(handle,

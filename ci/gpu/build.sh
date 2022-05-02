@@ -73,8 +73,8 @@ fi
 # Install the master version of dask, distributed, and dask-ml
 gpuci_logger "Install the master version of dask and distributed"
 set -x
-pip install "git+https://github.com/dask/distributed.git@2022.03.0" --upgrade --no-deps
-pip install "git+https://github.com/dask/dask.git@2022.03.0" --upgrade --no-deps
+pip install "git+https://github.com/dask/distributed.git@main" --upgrade --no-deps
+pip install "git+https://github.com/dask/dask.git@main" --upgrade --no-deps
 set +x
 
 # Install pre-built conda packages from previous CI step

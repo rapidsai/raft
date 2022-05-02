@@ -69,7 +69,7 @@ class RsvdTest : public ::testing::TestWithParam<RsvdInputs<T>> {
 
     params = ::testing::TestWithParam<RsvdInputs<T>>::GetParam();
     // rSVD seems to be very sensitive to the random number sequence as well!
-    raft::random::Rng r(params.seed, raft::random::GenPC);
+    raft::random::RngState r(params.seed, raft::random::GenPC);
     int m = params.n_row, n = params.n_col;
     T eig_svd_tol  = 1.e-7;
     int max_sweeps = 100;
@@ -101,7 +101,7 @@ class RsvdTest : public ::testing::TestWithParam<RsvdInputs<T>> {
       int n_redundant   = n - n_informative;  // Redundant cols
       int len_redundant = m * n_redundant;
 
-      r.normal(A.data(), len_informative, mu, sigma, stream);
+      normal(r, A.data(), len_informative, mu, sigma, stream);
       RAFT_CUDA_TRY(cudaMemcpyAsync(A.data() + len_informative,
                                     A.data(),
                                     len_redundant * sizeof(T),

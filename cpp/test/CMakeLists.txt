@@ -75,6 +75,7 @@ add_executable(test_raft
     test/matrix/columnSort.cu
     test/matrix/linewise_op.cu
     test/mdarray.cu
+    test/mdspan_utils.cu
     test/mst.cu
     test/random/make_blobs.cu
     test/random/make_regression.cu
@@ -164,7 +165,6 @@ target_link_libraries(test_raft
         raft::raft
         raft::distance
         raft::nn
-        faiss::faiss
         GTest::gtest
         GTest::gtest_main
         Threads::Threads

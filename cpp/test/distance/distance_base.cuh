@@ -426,7 +426,7 @@ class DistanceTest : public ::testing::TestWithParam<DistanceInputs<DataType>> {
     auto testInfo = testing::UnitTest::GetInstance()->current_test_info();
     common::nvtx::range fun_scope("test::%s/%s", testInfo->test_suite_name(), testInfo->name());
 
-    raft::random::Rng r(params.seed);
+    raft::random::RngState r(params.seed);
     int m               = params.m;
     int n               = params.n;
     int k               = params.k;
@@ -436,17 +436,17 @@ class DistanceTest : public ::testing::TestWithParam<DistanceInputs<DataType>> {
         distanceType == raft::distance::DistanceType::JensenShannon ||
         distanceType == raft::distance::DistanceType::KLDivergence) {
       // Hellinger works only on positive numbers
-      r.uniform(x.data(), m * k, DataType(0.0), DataType(1.0), stream);
-      r.uniform(y.data(), n * k, DataType(0.0), DataType(1.0), stream);
+      uniform(r, x.data(), m * k, DataType(0.0), DataType(1.0), stream);
+      uniform(r, y.data(), n * k, DataType(0.0), DataType(1.0), stream);
     } else if (distanceType == raft::distance::DistanceType::RusselRaoExpanded) {
-      r.uniform(x.data(), m * k, DataType(0.0), DataType(1.0), stream);
-      r.uniform(y.data(), n * k, DataType(0.0), DataType(1.0), stream);
+      uniform(r, x.data(), m * k, DataType(0.0), DataType(1.0), stream);
+      uniform(r, y.data(), n * k, DataType(0.0), DataType(1.0), stream);
       // Russel rao works on boolean values.
-      r.bernoulli(x.data(), m * k, 0.5f, stream);
-      r.bernoulli(y.data(), n * k, 0.5f, stream);
+      bernoulli(r, x.data(), m * k, 0.5f, stream);
+      bernoulli(r, y.data(), n * k, 0.5f, stream);
     } else {
-      r.uniform(x.data(), m * k, DataType(-1.0), DataType(1.0), stream);
-      r.uniform(y.data(), n * k, DataType(-1.0), DataType(1.0), stream);
+      uniform(r, x.data(), m * k, DataType(-1.0), DataType(1.0), stream);
+      uniform(r, y.data(), n * k, DataType(-1.0), DataType(1.0), stream);
     }
     naiveDistance(
       dist_ref.data(), x.data(), y.data(), m, n, k, distanceType, isRowMajor, metric_arg, stream);
