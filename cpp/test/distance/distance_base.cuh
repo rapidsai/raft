@@ -436,17 +436,17 @@ class DistanceTest : public ::testing::TestWithParam<DistanceInputs<DataType>> {
         distanceType == raft::distance::DistanceType::JensenShannon ||
         distanceType == raft::distance::DistanceType::KLDivergence) {
       // Hellinger works only on positive numbers
-      uniform(r, x.data(), m * k, DataType(0.0), DataType(1.0), stream);
-      uniform(r, y.data(), n * k, DataType(0.0), DataType(1.0), stream);
+      uniform(handle, r, x.data(), m * k, DataType(0.0), DataType(1.0));
+      uniform(handle, r, y.data(), n * k, DataType(0.0), DataType(1.0));
     } else if (distanceType == raft::distance::DistanceType::RusselRaoExpanded) {
-      uniform(r, x.data(), m * k, DataType(0.0), DataType(1.0), stream);
-      uniform(r, y.data(), n * k, DataType(0.0), DataType(1.0), stream);
+      uniform(handle, r, x.data(), m * k, DataType(0.0), DataType(1.0));
+      uniform(handle, r, y.data(), n * k, DataType(0.0), DataType(1.0));
       // Russel rao works on boolean values.
-      bernoulli(r, x.data(), m * k, 0.5f, stream);
-      bernoulli(r, y.data(), n * k, 0.5f, stream);
+      bernoulli(handle, r, x.data(), m * k, 0.5f);
+      bernoulli(handle, r, y.data(), n * k, 0.5f);
     } else {
-      uniform(r, x.data(), m * k, DataType(-1.0), DataType(1.0), stream);
-      uniform(r, y.data(), n * k, DataType(-1.0), DataType(1.0), stream);
+      uniform(handle, r, x.data(), m * k, DataType(-1.0), DataType(1.0));
+      uniform(handle, r, y.data(), n * k, DataType(-1.0), DataType(1.0));
     }
     naiveDistance(
       dist_ref.data(), x.data(), y.data(), m, n, k, distanceType, isRowMajor, metric_arg, stream);

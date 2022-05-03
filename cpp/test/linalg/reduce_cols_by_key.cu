@@ -72,22 +72,23 @@ class ReduceColsTest : public ::testing::TestWithParam<ReduceColsInputs<T>> {
   {
     params = ::testing::TestWithParam<ReduceColsInputs<T>>::GetParam();
     raft::random::RngState r(params.seed);
-    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
-    auto nrows = params.rows;
-    auto ncols = params.cols;
-    auto nkeys = params.nkeys;
+    raft::handle_t handle;
+    auto stream = handle.get_stream();
+    auto nrows  = params.rows;
+    auto ncols  = params.cols;
+    auto nkeys  = params.nkeys;
     in.resize(nrows * ncols, stream);
     keys.resize(ncols, stream);
     out_ref.resize(nrows * nkeys, stream);
     out.resize(nrows * nkeys, stream);
-    uniform(r, in.data(), nrows * ncols, T(-1.0), T(1.0), stream);
-    uniformInt(r, keys.data(), ncols, 0u, params.nkeys, stream);
+    uniform(handle, r, in.data(), nrows * ncols, T(-1.0), T(1.0));
+    uniformInt(handle, r, keys.data(), ncols, 0u, params.nkeys);
     naiveReduceColsByKey(in.data(), keys.data(), out_ref.data(), nrows, ncols, nkeys, stream);
     reduce_cols_by_key(in.data(), keys.data(), out.data(), nrows, ncols, nkeys, stream);
     raft::interruptible::synchronize(stream);
   }
 
-  void TearDown() override { RAFT_CUDA_TRY(cudaStreamDestroy(stream)); }
+  void TearDown() override {}
 
  protected:
   cudaStream_t stream = 0;

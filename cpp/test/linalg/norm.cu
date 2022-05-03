@@ -86,7 +86,7 @@ class RowNormTest : public ::testing::TestWithParam<NormInputs<T>> {
   {
     raft::random::RngState r(params.seed);
     int rows = params.rows, cols = params.cols, len = rows * cols;
-    uniform(r, data.data(), len, T(-1.0), T(1.0), stream);
+    uniform(handle, r, data.data(), len, T(-1.0), T(1.0));
     naiveRowNorm(dots_exp.data(), data.data(), cols, rows, params.type, params.do_sqrt, stream);
     if (params.do_sqrt) {
       auto fin_op = [] __device__(T in) { return raft::mySqrt(in); };
@@ -149,7 +149,7 @@ class ColNormTest : public ::testing::TestWithParam<NormInputs<T>> {
   {
     raft::random::RngState r(params.seed);
     int rows = params.rows, cols = params.cols, len = rows * cols;
-    uniform(r, data.data(), len, T(-1.0), T(1.0), stream);
+    uniform(handle, r, data.data(), len, T(-1.0), T(1.0));
 
     naiveColNorm(dots_exp.data(), data.data(), cols, rows, params.type, params.do_sqrt, stream);
     if (params.do_sqrt) {

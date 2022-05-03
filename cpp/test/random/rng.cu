@@ -294,7 +294,6 @@ TEST(Rng, MeanError)
 
   raft::handle_t handle;
   auto stream = handle.get_stream();
-  RAFT_CUDA_TRY(cudaStreamCreate(&stream));
 
   rmm::device_uvector<float> data(len, stream);
   rmm::device_uvector<float> mean_result(num_experiments, stream);
@@ -335,7 +334,6 @@ TEST(Rng, MeanError)
     ASSERT_TRUE((diff_expected_vs_measured_mean_error / d_std_of_mean_analytical < 0.5))
       << "Failed with seed: " << seed << "\nrtype: " << rtype;
   }
-  RAFT_CUDA_TRY(cudaStreamDestroy(stream));
 
   // std::cout << "mean_res:" << h_mean_result << "\n";
 }
@@ -446,7 +444,7 @@ class RngNormalTableTest : public ::testing::TestWithParam<RngNormalTableInputs<
     num_sigma = 10;
     int len   = params.rows * params.cols;
     RngState r(params.seed, params.gtype);
-    fill(r, mu_vec.data(), params.cols, params.mu, stream);
+    fill(handle, r, mu_vec.data(), params.cols, params.mu);
     T* sigma_vec = nullptr;
     normalTable(
       handle, r, data.data(), params.rows, params.cols, mu_vec.data(), sigma_vec, params.sigma);

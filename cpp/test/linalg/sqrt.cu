@@ -69,7 +69,7 @@ class SqrtTest : public ::testing::TestWithParam<SqrtInputs<T>> {
     in1.resize(len, stream);
     out_ref.resize(len, stream);
     out.resize(len, stream);
-    uniform(r, in1.data(), len, T(1.0), T(2.0), stream);
+    uniform(handle, r, in1.data(), len, T(1.0), T(2.0));
 
     naiveSqrtElem(out_ref.data(), in1.data(), len);
 

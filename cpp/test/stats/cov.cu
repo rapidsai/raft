@@ -66,7 +66,7 @@ class CovTest : public ::testing::TestWithParam<CovInputs<T>> {
     mean_act.resize(cols, stream);
     cov_act.resize(cols * cols, stream);
 
-    normal(r, data.data(), len, params.mean, var, stream);
+    normal(handle, r, data.data(), len, params.mean, var);
     raft::stats::mean(
       mean_act.data(), data.data(), cols, rows, params.sample, params.rowMajor, stream);
     cov(handle,

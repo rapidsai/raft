@@ -68,13 +68,14 @@ class HistTest : public ::testing::TestWithParam<HistInputs> {
   {
     params = ::testing::TestWithParam<HistInputs>::GetParam();
     raft::random::RngState r(params.seed);
-    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
+    raft::handle_t h;
+    stream  = h.get_stream();
     int len = params.nrows * params.ncols;
     in.resize(len, stream);
     if (params.isNormal) {
-      normalInt(r, in.data(), len, params.start, params.end, stream);
+      normalInt(h, r, in.data(), len, params.start, params.end);
     } else {
-      uniformInt(r, in.data(), len, params.start, params.end, stream);
+      uniformInt(h, r, in.data(), len, params.start, params.end);
     }
     bins.resize(params.nbins * params.ncols, stream);
     ref_bins.resize(params.nbins * params.ncols, stream);

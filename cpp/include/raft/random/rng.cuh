@@ -144,8 +144,7 @@ void normalTable(const raft::handle_t& handle,
                  LenType n_cols,
                  const OutType* mu_vec,
                  const OutType* sigma_vec,
-                 OutType sigma,
-                 cudaStream_t stream)
+                 OutType sigma)
 {
   detail::normalTable(
     rng_state, ptr, n_rows, n_cols, mu_vec, sigma_vec, sigma, handle.get_stream());

@@ -45,7 +45,8 @@ class PermTest : public ::testing::TestWithParam<PermInputs<T>> {
 
   void SetUp() override
   {
-    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
+    raft::handle_t h;
+    stream = h.get_stream();
     params = ::testing::TestWithParam<PermInputs<T>>::GetParam();
     // forcefully set needPerms, since we need it for unit-testing!
     if (params.needShuffle) { params.needPerms = true; }
@@ -64,10 +65,10 @@ class PermTest : public ::testing::TestWithParam<PermInputs<T>> {
       out.resize(len, stream);
       in_ptr  = in.data();
       out_ptr = out.data();
-      uniform(r, in_ptr, len, T(-1.0), T(1.0), stream);
+      uniform(h, r, in_ptr, len, T(-1.0), T(1.0));
     }
     permute(outPerms_ptr, out_ptr, in_ptr, D, N, params.rowMajor, stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    h.sync_stream();
   }
 
   void TearDown() override { RAFT_CUDA_TRY(cudaStreamDestroy(stream)); }

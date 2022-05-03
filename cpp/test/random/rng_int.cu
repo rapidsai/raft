@@ -87,7 +87,7 @@ class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
 
     switch (params.type) {
       case RNG_Uniform:
-        uniformInt(r, data.data(), params.len, params.start, params.end, stream);
+        uniformInt(handle, r, data.data(), params.len, params.start, params.end);
         break;
     };
     static const int threads = 128;
