@@ -1051,7 +1051,7 @@ void kmeans_transform(const raft::handle_t& handle,
 
   // tile over the input data and calculate distance matrix [n_samples x
   // n_clusters]
-  for (IndexT dIdx = 0; dIdx < n_samples; dIdx += dataBatchSize) {
+  for (IndexT dIdx = 0; dIdx < (IndexT)n_samples; dIdx += dataBatchSize) {
     // # of samples for the current batch
     auto ns = std::min(dataBatchSize, n_samples - dIdx);
 
