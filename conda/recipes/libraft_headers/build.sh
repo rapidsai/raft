@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 # Copyright (c) 2022, NVIDIA CORPORATION.
 
-./build.sh libraft --install -v --allgpuarch --no-force-nvtx
+./build.sh libraft --install -v --allgpuarch --no-nvtx

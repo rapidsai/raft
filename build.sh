@@ -18,7 +18,7 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libraft pyraft pylibraft docs tests bench clean -v -g --install --compile-libs --compile-nn --compile-dist --allgpuarch --no-force-nvtx --show_depr_warn -h --buildfaiss --minimal-deps"
+VALIDARGS="clean libraft pyraft pylibraft docs tests bench clean -v -g --install --compile-libs --compile-nn --compile-dist --allgpuarch --no-nvtx --show_depr_warn -h --buildfaiss --minimal-deps"
 HELP="$0 [<target> ...] [<flag> ...]
  where <target> is:
    clean            - remove all existing build artifacts and configuration (start over)
@@ -41,7 +41,7 @@ HELP="$0 [<target> ...] [<flag> ...]
    --allgpuarch     - build for all supported GPU architectures
    --buildfaiss     - build faiss statically into raft
    --install        - install cmake targets
-   --no-force-nvtx  - disable nvtx (profiling markers), but allow enabling it in downstream projects
+   --no-nvtx        - disable nvtx (profiling markers), but allow enabling it in downstream projects
    --show_depr_warn - show cmake deprecation warnings
    -h               - print this text
 
@@ -157,7 +157,7 @@ fi
 if hasArg --buildfaiss; then
     BUILD_STATIC_FAISS=ON
 fi
-if hasArg --no-force-nvtx; then
+if hasArg --no-nvtx; then
     NVTX=OFF
 fi
 if hasArg --show_depr_warn; then
