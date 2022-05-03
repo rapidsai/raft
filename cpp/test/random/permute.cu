@@ -41,21 +41,21 @@ template <typename T>
 template <typename T>
 class PermTest : public ::testing::TestWithParam<PermInputs<T>> {
  protected:
-  PermTest() : in(0, stream), out(0, stream), outPerms(0, stream) {}
+  PermTest()
+    : in(0, handle.get_stream()), out(0, handle.get_stream()), outPerms(0, handle.get_stream())
+  {
+  }
 
   void SetUp() override
   {
-    raft::handle_t h;
-    stream = h.get_stream();
-    params = ::testing::TestWithParam<PermInputs<T>>::GetParam();
+    auto stream = handle.get_stream();
+    params      = ::testing::TestWithParam<PermInputs<T>>::GetParam();
     // forcefully set needPerms, since we need it for unit-testing!
     if (params.needShuffle) { params.needPerms = true; }
     raft::random::RngState r(params.seed);
-    int N               = params.N;
-    int D               = params.D;
-    int len             = N * D;
-    cudaStream_t stream = 0;
-    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
+    int N   = params.N;
+    int D   = params.D;
+    int len = N * D;
     if (params.needPerms) {
       outPerms.resize(N, stream);
       outPerms_ptr = outPerms.data();
@@ -65,22 +65,20 @@ class PermTest : public ::testing::TestWithParam<PermInputs<T>> {
       out.resize(len, stream);
       in_ptr  = in.data();
       out_ptr = out.data();
-      uniform(h, r, in_ptr, len, T(-1.0), T(1.0));
+      uniform(handle, r, in_ptr, len, T(-1.0), T(1.0));
     }
     permute(outPerms_ptr, out_ptr, in_ptr, D, N, params.rowMajor, stream);
-    h.sync_stream();
+    handle.sync_stream();
   }
 
-  void TearDown() override { RAFT_CUDA_TRY(cudaStreamDestroy(stream)); }
-
  protected:
+  raft::handle_t handle;
   PermInputs<T> params;
   rmm::device_uvector<T> in, out;
   T* in_ptr  = nullptr;
   T* out_ptr = nullptr;
   rmm::device_uvector<int> outPerms;
-  int* outPerms_ptr   = nullptr;
-  cudaStream_t stream = 0;
+  int* outPerms_ptr = nullptr;
 };
 
 template <typename T, typename L>
