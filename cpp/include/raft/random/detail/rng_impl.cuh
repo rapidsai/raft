@@ -16,11 +16,10 @@
 
 #pragma once
 
-#include "rng_device.cuh"
-
 #include <raft/common/cub_wrappers.cuh>
 #include <raft/common/scatter.cuh>
 #include <raft/cudart_utils.h>
+#include <raft/random/rng_device.cuh>
 #include <raft/random/rng_state.hpp>
 
 namespace raft {
@@ -56,43 +55,20 @@ namespace detail {
  * RAFT_CALL_RNG_FUNC(rng_state, (my_kernel<1, 2><<<1, 1>>>), 5);
  * @endcode
  */
-#define RAFT_CALL_RNG_FUNC(rng_state, func, ...)                                 \
-  switch ((rng_state).type) {                                                    \
-    case GeneratorType::GenPhilox: {                                             \
-      DeviceState<PhiloxGenerator> dev_state_philox{(rng_state)};                \
-      RAFT_DEPAREN(func)(dev_state_philox, ##__VA_ARGS__);                       \
-      break;                                                                     \
-    }                                                                            \
-    case GeneratorType::GenPC: {                                                 \
-      DeviceState<PCGenerator> dev_state_pc{(rng_state)};                        \
-      RAFT_DEPAREN(func)(dev_state_pc, ##__VA_ARGS__);                           \
-      break;                                                                     \
-    }                                                                            \
-    default: RAFT_FAIL("Unepxected generator type '%d'", int((rng_state).type)); \
+#define RAFT_CALL_RNG_FUNC(rng_state, func, ...)                                    \
+  switch ((rng_state).type) {                                                       \
+    case raft::random::GeneratorType::GenPhilox: {                                  \
+      raft::random::DeviceState<raft::random::PhiloxGenerator> r_phil{(rng_state)}; \
+      RAFT_DEPAREN(func)(r_phil, ##__VA_ARGS__);                                    \
+      break;                                                                        \
+    }                                                                               \
+    case raft::random::GeneratorType::GenPC: {                                      \
+      raft::random::DeviceState<raft::random::PCGenerator> r_pc{(rng_state)};       \
+      RAFT_DEPAREN(func)(r_pc, ##__VA_ARGS__);                                      \
+      break;                                                                        \
+    }                                                                               \
+    default: RAFT_FAIL("Unepxected generator type '%d'", int((rng_state).type));    \
   }
-
-/**
- * This function is useful if all template arguments to `func` can be inferred
- * by the compiler. Otherwise use the MACRO `RAFT_CALL_RNG_FUNC` which
- * can accept incomplete template specializations (or kernel calls) as the function
- */
-template <typename FuncT, typename... ArgsT>
-void call_rng_func(RngState const& rng_state, FuncT func, ArgsT... args)
-{
-  switch (rng_state.type) {
-    case GeneratorType::GenPhilox: {
-      DeviceState<PhiloxGenerator> dev_state_philox{rng_state};
-      func(dev_state_philox, args...);
-      break;
-    }
-    case GeneratorType::GenPC: {
-      DeviceState<PCGenerator> dev_state_pc{rng_state};
-      func(dev_state_pc, args...);
-      break;
-    }
-    default: RAFT_FAIL("Unepxected generator type '%d'", int(rng_state.type));
-  }
-}
 
 template <int ITEMS_PER_CALL, typename GenType, typename... ArgsT>
 void call_rng_kernel(DeviceState<GenType> const& dev_state,
@@ -100,10 +76,10 @@ void call_rng_kernel(DeviceState<GenType> const& dev_state,
                      cudaStream_t stream,
                      ArgsT... args)
 {
-  static constexpr auto N_THREADS = 256;
-  auto n_blocks                   = 4 * getMultiProcessorCount();
-  rngKernel<ITEMS_PER_CALL><<<n_blocks, N_THREADS, 0, stream>>>(dev_state, args...);
-  rng_state.advance(uint64_t(n_blocks) * N_THREADS, 16);
+  auto n_threads = 256;
+  auto n_blocks  = 4 * getMultiProcessorCount();
+  rngKernel<ITEMS_PER_CALL><<<n_blocks, n_threads, 0, stream>>>(dev_state, args...);
+  rng_state.advance(uint64_t(n_blocks) * n_threads, 16);
 }
 
 template <typename OutType, typename LenType = int>

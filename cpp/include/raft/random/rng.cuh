@@ -23,15 +23,8 @@
 #include "detail/rng_impl_deprecated.cuh"  // necessary for now (to be removed)
 #include "rng_state.hpp"
 
-#define __RNG_H_INCLUSION_DEPRECATED
-// we include this for now, but only for backward compatibility
-#include "rng_device.cuh"
-#undef __RNG_H_INCLUSION_DEPRECATED
-
 namespace raft {
 namespace random {
-
-using detail::call_rng_func;
 
 using detail::bernoulli;
 using detail::exponential;

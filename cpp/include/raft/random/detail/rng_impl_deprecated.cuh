@@ -41,6 +41,7 @@ class RngImpl {
  public:
   RngImpl(uint64_t seed, GeneratorType _t = GenPhilox)
     : state{seed, 0, _t},
+      type(_t),
       // simple heuristic to make sure all SMs will be occupied properly
       // and also not too many initialization calls will be made by each thread
       nBlocks(4 * getMultiProcessorCount())
@@ -293,6 +294,7 @@ class RngImpl {
   }
 
   RngState state;
+  GeneratorType type;
   /** number of blocks to launch */
   int nBlocks;
   static const int nThreads = 256;

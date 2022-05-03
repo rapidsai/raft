@@ -29,19 +29,12 @@ namespace raft {
 namespace random {
 namespace detail {
 
-#if defined(__RNG_H_INCLUSION_DEPRECATED)
-#define POTENTIAL_DEPR \
-  [[deprecated("Include raft/random/rng_device.cuh to use the device-only API")]]
-#else
-#define POTENTIAL_DEPR
-#endif
-
 /**
  * The device state used to communicate RNG state from host to device.
  * As of now, it is just a templated version of `RngState`.
  */
 template <typename GenType>
-struct POTENTIAL_DEPR DeviceState {
+struct DeviceState {
   using gen_t                    = GenType;
   static constexpr auto GEN_TYPE = gen_t::GEN_TYPE;
 
@@ -55,37 +48,37 @@ struct POTENTIAL_DEPR DeviceState {
 };
 
 template <typename OutType>
-struct POTENTIAL_DEPR InvariantDistParams {
+struct InvariantDistParams {
   OutType const_val;
 };
 
 template <typename OutType>
-struct POTENTIAL_DEPR UniformDistParams {
+struct UniformDistParams {
   OutType start;
   OutType end;
 };
 
 template <typename OutType, typename DiffType>
-struct POTENTIAL_DEPR UniformIntDistParams {
+struct UniformIntDistParams {
   OutType start;
   OutType end;
   DiffType diff;
 };
 
 template <typename OutType>
-struct POTENTIAL_DEPR NormalDistParams {
+struct NormalDistParams {
   OutType mu;
   OutType sigma;
 };
 
 template <typename IntType>
-struct POTENTIAL_DEPR NormalIntDistParams {
+struct NormalIntDistParams {
   IntType mu;
   IntType sigma;
 };
 
 template <typename OutType, typename LenType>
-struct POTENTIAL_DEPR NormalTableDistParams {
+struct NormalTableDistParams {
   LenType n_rows;
   LenType n_cols;
   const OutType* mu_vec;
@@ -94,60 +87,59 @@ struct POTENTIAL_DEPR NormalTableDistParams {
 };
 
 template <typename OutType>
-struct POTENTIAL_DEPR BernoulliDistParams {
+struct BernoulliDistParams {
   OutType prob;
 };
 
 template <typename OutType>
-struct POTENTIAL_DEPR ScaledBernoulliDistParams {
+struct ScaledBernoulliDistParams {
   OutType prob;
   OutType scale;
 };
 
 template <typename OutType>
-struct POTENTIAL_DEPR GumbelDistParams {
+struct GumbelDistParams {
   OutType mu;
   OutType beta;
 };
 
 template <typename OutType>
-struct POTENTIAL_DEPR LogNormalDistParams {
+struct LogNormalDistParams {
   OutType mu;
   OutType sigma;
 };
 
 template <typename OutType>
-struct POTENTIAL_DEPR LogisticDistParams {
+struct LogisticDistParams {
   OutType mu;
   OutType scale;
 };
 
 template <typename OutType>
-struct POTENTIAL_DEPR ExponentialDistParams {
+struct ExponentialDistParams {
   OutType lambda;
 };
 
 template <typename OutType>
-struct POTENTIAL_DEPR RayleighDistParams {
+struct RayleighDistParams {
   OutType sigma;
 };
 
 template <typename OutType>
-struct POTENTIAL_DEPR LaplaceDistParams {
+struct LaplaceDistParams {
   OutType mu;
   OutType scale;
 };
 
 // Not really a distro, useful for sample without replacement function
 template <typename WeightsT, typename IdxT>
-struct POTENTIAL_DEPR SamplingParams {
+struct SamplingParams {
   IdxT* inIdxPtr;
   const WeightsT* wts;
 };
 
 template <typename Type>
-POTENTIAL_DEPR DI void box_muller_transform(
-  Type& val1, Type& val2, Type sigma1, Type mu1, Type sigma2, Type mu2)
+DI void box_muller_transform(Type& val1, Type& val2, Type sigma1, Type mu1, Type sigma2, Type mu2)
 {
   constexpr Type twoPi  = Type(2.0) * Type(3.141592654);
   constexpr Type minus2 = -Type(2.0);
@@ -160,27 +152,27 @@ POTENTIAL_DEPR DI void box_muller_transform(
 }
 
 template <typename Type>
-POTENTIAL_DEPR DI void box_muller_transform(Type& val1, Type& val2, Type sigma1, Type mu1)
+DI void box_muller_transform(Type& val1, Type& val2, Type sigma1, Type mu1)
 {
   box_muller_transform<Type>(val1, val2, sigma1, mu1, sigma1, mu1);
 }
 
 template <typename GenType, typename OutType, typename LenType>
-POTENTIAL_DEPR DI void custom_next(GenType& gen,
-                                   OutType* val,
-                                   InvariantDistParams<OutType> params,
-                                   LenType idx    = 0,
-                                   LenType stride = 0)
+DI void custom_next(GenType& gen,
+                    OutType* val,
+                    InvariantDistParams<OutType> params,
+                    LenType idx    = 0,
+                    LenType stride = 0)
 {
   *val = params.const_val;
 }
 
 template <typename GenType, typename OutType, typename LenType>
-POTENTIAL_DEPR DI void custom_next(GenType& gen,
-                                   OutType* val,
-                                   UniformDistParams<OutType> params,
-                                   LenType idx    = 0,
-                                   LenType stride = 0)
+DI void custom_next(GenType& gen,
+                    OutType* val,
+                    UniformDistParams<OutType> params,
+                    LenType idx    = 0,
+                    LenType stride = 0)
 {
   OutType res;
   gen.next(res);
@@ -188,11 +180,11 @@ POTENTIAL_DEPR DI void custom_next(GenType& gen,
 }
 
 template <typename GenType, typename OutType, typename LenType>
-POTENTIAL_DEPR DI void custom_next(GenType& gen,
-                                   OutType* val,
-                                   UniformIntDistParams<OutType, uint32_t> params,
-                                   LenType idx    = 0,
-                                   LenType stride = 0)
+DI void custom_next(GenType& gen,
+                    OutType* val,
+                    UniformIntDistParams<OutType, uint32_t> params,
+                    LenType idx    = 0,
+                    LenType stride = 0)
 {
   uint32_t x = 0;
   uint32_t s = params.diff;
@@ -211,11 +203,11 @@ POTENTIAL_DEPR DI void custom_next(GenType& gen,
 }
 
 template <typename GenType, typename OutType, typename LenType>
-POTENTIAL_DEPR DI void custom_next(GenType& gen,
-                                   OutType* val,
-                                   UniformIntDistParams<OutType, uint64_t> params,
-                                   LenType idx    = 0,
-                                   LenType stride = 0)
+DI void custom_next(GenType& gen,
+                    OutType* val,
+                    UniformIntDistParams<OutType, uint64_t> params,
+                    LenType idx    = 0,
+                    LenType stride = 0)
 {
   uint64_t x = 0;
   gen.next(x);
@@ -236,7 +228,7 @@ POTENTIAL_DEPR DI void custom_next(GenType& gen,
 }
 
 template <typename GenType, typename OutType, typename LenType>
-POTENTIAL_DEPR DI void custom_next(
+DI void custom_next(
   GenType& gen, OutType* val, NormalDistParams<OutType> params, LenType idx = 0, LenType stride = 0)
 {
   OutType res1, res2;
@@ -253,11 +245,11 @@ POTENTIAL_DEPR DI void custom_next(
 }
 
 template <typename GenType, typename IntType, typename LenType>
-POTENTIAL_DEPR DI void custom_next(GenType& gen,
-                                   IntType* val,
-                                   NormalIntDistParams<IntType> params,
-                                   LenType idx    = 0,
-                                   LenType stride = 0)
+DI void custom_next(GenType& gen,
+                    IntType* val,
+                    NormalIntDistParams<IntType> params,
+                    LenType idx    = 0,
+                    LenType stride = 0)
 {
   IntType res1_int, res2_int;
 
@@ -276,11 +268,11 @@ POTENTIAL_DEPR DI void custom_next(GenType& gen,
 }
 
 template <typename GenType, typename OutType, typename LenType>
-POTENTIAL_DEPR DI void custom_next(GenType& gen,
-                                   OutType* val,
-                                   NormalTableDistParams<OutType, LenType> params,
-                                   LenType idx,
-                                   LenType stride)
+DI void custom_next(GenType& gen,
+                    OutType* val,
+                    NormalTableDistParams<OutType, LenType> params,
+                    LenType idx,
+                    LenType stride)
 {
   OutType res1, res2;
 
@@ -301,7 +293,7 @@ POTENTIAL_DEPR DI void custom_next(GenType& gen,
 }
 
 template <typename GenType, typename OutType, typename Type, typename LenType>
-POTENTIAL_DEPR DI void custom_next(
+DI void custom_next(
   GenType& gen, OutType* val, BernoulliDistParams<Type> params, LenType idx = 0, LenType stride = 0)
 {
   Type res = 0;
@@ -310,11 +302,11 @@ POTENTIAL_DEPR DI void custom_next(
 }
 
 template <typename GenType, typename OutType, typename LenType>
-POTENTIAL_DEPR DI void custom_next(GenType& gen,
-                                   OutType* val,
-                                   ScaledBernoulliDistParams<OutType> params,
-                                   LenType idx,
-                                   LenType stride)
+DI void custom_next(GenType& gen,
+                    OutType* val,
+                    ScaledBernoulliDistParams<OutType> params,
+                    LenType idx,
+                    LenType stride)
 {
   OutType res = 0;
   gen.next(res);
@@ -322,7 +314,7 @@ POTENTIAL_DEPR DI void custom_next(GenType& gen,
 }
 
 template <typename GenType, typename OutType, typename LenType>
-POTENTIAL_DEPR DI void custom_next(
+DI void custom_next(
   GenType& gen, OutType* val, GumbelDistParams<OutType> params, LenType idx = 0, LenType stride = 0)
 {
   OutType res = 0;
@@ -335,11 +327,11 @@ POTENTIAL_DEPR DI void custom_next(
 }
 
 template <typename GenType, typename OutType, typename LenType>
-POTENTIAL_DEPR DI void custom_next(GenType& gen,
-                                   OutType* val,
-                                   LogNormalDistParams<OutType> params,
-                                   LenType idx    = 0,
-                                   LenType stride = 0)
+DI void custom_next(GenType& gen,
+                    OutType* val,
+                    LogNormalDistParams<OutType> params,
+                    LenType idx    = 0,
+                    LenType stride = 0)
 {
   OutType res1 = 0, res2 = 0;
   do {
@@ -353,11 +345,11 @@ POTENTIAL_DEPR DI void custom_next(GenType& gen,
 }
 
 template <typename GenType, typename OutType, typename LenType>
-POTENTIAL_DEPR DI void custom_next(GenType& gen,
-                                   OutType* val,
-                                   LogisticDistParams<OutType> params,
-                                   LenType idx    = 0,
-                                   LenType stride = 0)
+DI void custom_next(GenType& gen,
+                    OutType* val,
+                    LogisticDistParams<OutType> params,
+                    LenType idx    = 0,
+                    LenType stride = 0)
 {
   OutType res;
 
@@ -370,11 +362,11 @@ POTENTIAL_DEPR DI void custom_next(GenType& gen,
 }
 
 template <typename GenType, typename OutType, typename LenType>
-POTENTIAL_DEPR DI void custom_next(GenType& gen,
-                                   OutType* val,
-                                   ExponentialDistParams<OutType> params,
-                                   LenType idx    = 0,
-                                   LenType stride = 0)
+DI void custom_next(GenType& gen,
+                    OutType* val,
+                    ExponentialDistParams<OutType> params,
+                    LenType idx    = 0,
+                    LenType stride = 0)
 {
   OutType res;
   gen.next(res);
@@ -383,11 +375,11 @@ POTENTIAL_DEPR DI void custom_next(GenType& gen,
 }
 
 template <typename GenType, typename OutType, typename LenType>
-POTENTIAL_DEPR DI void custom_next(GenType& gen,
-                                   OutType* val,
-                                   RayleighDistParams<OutType> params,
-                                   LenType idx    = 0,
-                                   LenType stride = 0)
+DI void custom_next(GenType& gen,
+                    OutType* val,
+                    RayleighDistParams<OutType> params,
+                    LenType idx    = 0,
+                    LenType stride = 0)
 {
   OutType res;
   gen.next(res);
@@ -398,11 +390,11 @@ POTENTIAL_DEPR DI void custom_next(GenType& gen,
 }
 
 template <typename GenType, typename OutType, typename LenType>
-POTENTIAL_DEPR DI void custom_next(GenType& gen,
-                                   OutType* val,
-                                   LaplaceDistParams<OutType> params,
-                                   LenType idx    = 0,
-                                   LenType stride = 0)
+DI void custom_next(GenType& gen,
+                    OutType* val,
+                    LaplaceDistParams<OutType> params,
+                    LenType idx    = 0,
+                    LenType stride = 0)
 {
   OutType res, out;
 
@@ -425,7 +417,7 @@ POTENTIAL_DEPR DI void custom_next(GenType& gen,
 }
 
 template <typename GenType, typename OutType, typename LenType>
-POTENTIAL_DEPR DI void custom_next(
+DI void custom_next(
   GenType& gen, OutType* val, SamplingParams<OutType, LenType> params, LenType idx, LenType stride)
 {
   OutType res;
@@ -442,7 +434,7 @@ POTENTIAL_DEPR DI void custom_next(
 
 /** Philox-based random number generator */
 // Courtesy: Jakub Szuppe
-struct POTENTIAL_DEPR PhiloxGenerator {
+struct PhiloxGenerator {
   static constexpr auto GEN_TYPE = GeneratorType::GenPhilox;
 
   /**
@@ -540,7 +532,7 @@ struct POTENTIAL_DEPR PhiloxGenerator {
 };
 
 /** PCG random number generator */
-struct POTENTIAL_DEPR PCGenerator {
+struct PCGenerator {
   static constexpr auto GEN_TYPE = GeneratorType::GenPC;
 
   /**
