@@ -14,9 +14,6 @@
  * limitations under the License.
  */
 
-#ifndef __RNG_H
-#define __RNG_H
-
 #pragma once
 
 #include "detail/rng_impl.cuh"
@@ -24,11 +21,11 @@
 #include "rng_state.hpp"
 #include <raft/core/handle.hpp>
 
-namespace raft {
-namespace random {
+namespace raft::random {
 
 /**
  * @brief Generate uniformly distributed numbers in the given range
+ *
  * @tparam OutType data type of output random number
  * @tparam LenType data type used to represent length of the arrays
  * @param[in] handle raft handle for resource management
@@ -39,7 +36,7 @@ namespace random {
  * @param[in] end end of the range
  */
 template <typename OutType, typename LenType = int>
-void uniform(raft::handle_t& const handle,
+void uniform(const raft::handle_t& handle,
              RngState& rng_state,
              OutType* ptr,
              LenType len,
@@ -51,6 +48,7 @@ void uniform(raft::handle_t& const handle,
 
 /**
  * @brief Generate uniformly distributed integers in the given range
+ *
  * @tparam OutType data type of output random number
  * @tparam LenType data type used to represent length of the arrays
  * @param[in] handle raft handle for resource management
@@ -61,7 +59,7 @@ void uniform(raft::handle_t& const handle,
  * @param[in] end end of the range
  */
 template <typename OutType, typename LenType = int>
-void uniformInt(raft::handle_t& const handle,
+void uniformInt(const raft::handle_t& handle,
                 RngState& rng_state,
                 OutType* ptr,
                 LenType len,
@@ -73,6 +71,7 @@ void uniformInt(raft::handle_t& const handle,
 
 /**
  * @brief Generate normal distributed numbers
+ *
  * @tparam OutType data type of output random number
  * @tparam LenType data type used to represent length of the arrays
  * @param[in] handle raft handle for resource management
@@ -83,7 +82,7 @@ void uniformInt(raft::handle_t& const handle,
  * @param[in] sigma std-dev of the distribution
  */
 template <typename OutType, typename LenType = int>
-void normal(raft::handle_t& const handle,
+void normal(const raft::handle_t& handle,
             RngState& rng_state,
             OutType* ptr,
             LenType len,
@@ -95,6 +94,7 @@ void normal(raft::handle_t& const handle,
 
 /**
  * @brief Generate normal distributed integers
+ *
  * @tparam OutType data type of output random number
  * @tparam LenType data type used to represent length of the arrays
  * @param[in] handle raft handle for resource management
@@ -105,7 +105,7 @@ void normal(raft::handle_t& const handle,
  * @param[in] sigma std-dev of the distribution
  */
 template <typename IntType, typename LenType = int>
-void normalInt(raft::handle_t& const handle,
+void normalInt(const raft::handle_t& handle,
                RngState& rng_state,
                IntType* ptr,
                LenType len,
@@ -137,7 +137,7 @@ void normalInt(raft::handle_t& const handle,
  * @param[in] sigma scalar sigma to be used if 'sigma_vec' is nullptr
  */
 template <typename OutType, typename LenType = int>
-void normalTable(raft::handle_t& const handle,
+void normalTable(const raft::handle_t& handle,
                  RngState& rng_state,
                  OutType* ptr,
                  LenType n_rows,
@@ -163,7 +163,7 @@ void normalTable(raft::handle_t& const handle,
  * @param[in] val value to be filled
  */
 template <typename OutType, typename LenType = int>
-void fill(raft::handle_t& const handle, RngState& rng_state, OutType* ptr, LenType len, OutType val)
+void fill(const raft::handle_t& handle, RngState& rng_state, OutType* ptr, LenType len, OutType val)
 {
   detail::fill(rng_state, ptr, len, val, handle.get_stream());
 }
@@ -183,7 +183,7 @@ void fill(raft::handle_t& const handle, RngState& rng_state, OutType* ptr, LenTy
  */
 template <typename Type, typename OutType = bool, typename LenType = int>
 void bernoulli(
-  raft::handle_t& const handle, RngState& rng_state, OutType* ptr, LenType len, Type prob)
+  const raft::handle_t& handle, RngState& rng_state, OutType* ptr, LenType len, Type prob)
 {
   detail::bernoulli(rng_state, ptr, len, prob, handle.get_stream());
 }
@@ -201,7 +201,7 @@ void bernoulli(
  * @param[in] scale scaling factor
  */
 template <typename OutType, typename LenType = int>
-void scaled_bernoulli(raft::handle_t& const handle,
+void scaled_bernoulli(const raft::handle_t& handle,
                       RngState& rng_state,
                       OutType* ptr,
                       LenType len,
@@ -225,7 +225,7 @@ void scaled_bernoulli(raft::handle_t& const handle,
  * @note https://en.wikipedia.org/wiki/Gumbel_distribution
  */
 template <typename OutType, typename LenType = int>
-void gumbel(raft::handle_t& const handle,
+void gumbel(const raft::handle_t& handle,
             RngState& rng_state,
             OutType* ptr,
             LenType len,
@@ -248,7 +248,7 @@ void gumbel(raft::handle_t& const handle,
  * @param[in] sigma std-dev of the distribution
  */
 template <typename OutType, typename LenType = int>
-void lognormal(raft::handle_t& const handle,
+void lognormal(const raft::handle_t& handle,
                RngState& rng_state,
                OutType* ptr,
                LenType len,
@@ -271,7 +271,7 @@ void lognormal(raft::handle_t& const handle,
  * @param[in] scale scale value
  */
 template <typename OutType, typename LenType = int>
-void logistic(raft::handle_t& const handle,
+void logistic(const raft::handle_t& handle,
               RngState& rng_state,
               OutType* ptr,
               LenType len,
@@ -294,7 +294,7 @@ void logistic(raft::handle_t& const handle,
  */
 template <typename OutType, typename LenType = int>
 void exponential(
-  raft::handle_t& const handle, RngState& rng_state, OutType* ptr, LenType len, OutType lambda)
+  const raft::handle_t& handle, RngState& rng_state, OutType* ptr, LenType len, OutType lambda)
 {
   detail::exponential(rng_state, ptr, len, lambda, handle.get_stream());
 }
@@ -312,7 +312,7 @@ void exponential(
  */
 template <typename OutType, typename LenType = int>
 void rayleigh(
-  raft::handle_t& const handle, RngState& rng_state, OutType* ptr, LenType len, OutType sigma)
+  const raft::handle_t& handle, RngState& rng_state, OutType* ptr, LenType len, OutType sigma)
 {
   detail::rayleigh(rng_state, ptr, len, sigma, handle.get_stream());
 }
@@ -330,7 +330,7 @@ void rayleigh(
  * @param[in] scale the scale
  */
 template <typename OutType, typename LenType = int>
-void laplace(raft::handle_t& const handle,
+void laplace(const raft::handle_t& handle,
              RngState& rng_state,
              OutType* ptr,
              LenType len,
@@ -367,7 +367,7 @@ void laplace(raft::handle_t& const handle,
  * @param[in] len input array length
  */
 template <typename DataT, typename WeightsT, typename IdxT = int>
-void sampleWithoutReplacement(raft::handle_t& const handle,
+void sampleWithoutReplacement(const raft::handle_t& handle,
                               RngState& rng_state,
                               DataT* out,
                               IdxT* outIdx,
@@ -702,7 +702,4 @@ class DEPR Rng : public detail::RngImpl {
 
 #undef DEPR
 
-};  // end namespace random
-};  // end namespace raft
-
-#endif
+};  // end namespace raft::random
