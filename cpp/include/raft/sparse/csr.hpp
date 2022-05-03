@@ -181,77 +181,87 @@ void weak_cc(Index_* labels,
     labels, row_ind, row_ind_ptr, nnz, N, 0, N, stream, [](Index_) { return true; });
 }
 
-template <typename vertex_t, typename edge_t, typename weight_t>
-class csr_view_t {
+template <typename idx_t, typename offset_t, typename value_t>
+class sparse_host_view_t {
 public:
-    csr_host_view_t(edge_t const* offsets,
-                               vertex_t const* indices,
-                               std::optional<weight_t const*> weights,
-                               edge_t nnz)
+    sparse_host_view_t(offset_t const* offsets,
+                               idx_t const* indices,
+                               std::optional<value_t const*> weights,
+                               offset_t nnz)
             : offsets_(offsets), indices_(indices), weights_(weights), nnz_(nnz)
     {
     }
 
-    edge_t nnz() const { return number_of_edges_; }
+    offset_t nnz() const { return number_of_edges_; }
 
-    edge_t const* offsets() const { return offsets_; }
-    vertex_t const* indices() const { return indices_; }
-    std::optional<weight_t const*> weights() const { return weights_; }
+    offset_t const* offsets() const { return offsets_; }
+    idx_t const* indices() const { return indices_; }
+    std::optional<value_t const*> weights() const { return weights_; }
 
 private:
-    edge_t const* offsets_{nullptr};
-    vertex_t const* indices_{nullptr};
-    std::optional<weight_t const*> weights_{std::nullopt};
-    edge_t nnz_{0};
+    offset_t const* offsets_{nullptr};
+    idx_t const* indices_{nullptr};
+    std::optional<value_t const*> weights_{std::nullopt};
+    offset_t nnz_{0};
 };
 
 
-template <typename vertex_t, typename edge_t, typename weight_t>
-class csr_device_view_t {
+template <typename idx_t, typename offset_t, typename value_t>
+class sparse_device_view_t {
 public:
-    csr_device_view_t(edge_t const* offsets,
-               vertex_t const* indices,
-               std::optional<weight_t const*> weights,
-               edge_t nnz)
+    sparse_device_view_t(
+               idx_t nvec,   // total number of row vectors for csr or col vectors for csc
+               idx_t vdim,   // total number of col vectors for csr or row vectors for csc
+               offset_t const* offsets,
+               idx_t const* indices,
+               std::optional<value_t const*> values,
+               offset_t nnz)
             : offsets_(offsets),
               indices_(indices),
-              weights_(weights ? thrust::optional<weight_t const*>(*weights) : thrust::nullopt), nnz_(nnz) {}
+              values_(values_ ? thrust::optional<value_t const*>(*values) : thrust::nullopt),
+              nvec_(nvec),
+              vdim_(vdim),
+              nnz_(nnz) {}
 
-    __host__ __device__ edge_t nnz() const { return nnz_; }
-    __host__ __device__ edge_t const* offsets() const { return offsets_; }
-    __host__ __device__ vertex_t const* indices() const { return indices_; }
-    __host__ __device__ thrust::optional<weight_t const*> weights() const { return weights_; }
+    __host__ __device__ offset_t nnz() const { return nnz_; }
+    __host__ __device__ offset_t const* offsets() const { return offsets_; }
+    __host__ __device__ idx_t const* indices() const { return indices_; }
+    __host__ __device__ thrust::optional<value_t const*> values() const { return values_; }
 
     // major_idx == major offset if CSR/CSC, major_offset != major_idx if DCSR/DCSC
-    __device__ thrust::tuple<vertex_t const*, thrust::optional<weight_t const*>, edge_t> local_edges(
-            vertex_t major_idx) const noexcept
+    __device__ thrust::tuple<idx_t const*, thrust::optional<value_t const*>, offset_t> local_vecs(
+            idx_t major_idx) const noexcept
     {
-        auto edge_offset  = *(offsets_ + major_idx);
-        auto local_degree = *(offsets_ + (major_idx + 1)) - edge_offset;
-        auto indices      = indices_ + edge_offset;
-        auto weights =
-        weights_ ? thrust::optional<weight_t const*>{*weights_ + edge_offset} : thrust::nullopt;
-        return thrust::make_tuple(indices, weights, local_degree);
+        auto offset = local_offset(major_idx);
+        auto degree = local_offset(major_idx+1) - offset;
+        auto indices      = indices_ + offset;
+        auto values =
+        values_ ? thrust::optional<value_t const*>{*values_ + offset} : thrust::nullopt;
+        return thrust::make_tuple(indices, values, degree);
     }
 
     // major_idx == major offset if CSR/CSC, major_offset != major_idx if DCSR/DCSC
-    __device__ edge_t local_degree(vertex_t major_idx) const noexcept
+    __device__ offset_t local_degree(idx_t major_idx) const noexcept
     {
         return *(offsets_ + (major_idx + 1)) - *(offsets_ + major_idx);
     }
 
     // major_idx == major offset if CSR/CSC, major_offset != major_idx if DCSR/DCSC
-    __device__ edge_t local_offset(vertex_t major_idx) const noexcept
+    __device__ offset_t local_offset(idx_t major_idx) const noexcept
     {
         return *(offsets_ + major_idx);
     }
 
 private:
+
+    // TODO: Use span/mdspan here
     // should be trivially copyable to device
-    edge_t const* offsets_{nullptr};
-    vertex_t const* indices_{nullptr};
-    thrust::optional<weight_t const*> weights_{thrust::nullopt};
-    edge_t nnz_{0};
+    idx_t nvec_{0};
+    idx_t vdim_{0};
+    offset_t const* offsets_{nullptr};
+    idx_t const* indices_{nullptr};
+    thrust::optional<value_t const*> values_{thrust::nullopt};
+    offset_t nnz_{0};
 };
 
 
