@@ -20,7 +20,6 @@ set(raft_version 22.06.00)
 file(DOWNLOAD https://raw.githubusercontent.com/vyasr/rapids-cmake/rapids-cython/RAPIDS.cmake
         ${CMAKE_BINARY_DIR}/RAPIDS.cmake)
 include(${CMAKE_BINARY_DIR}/RAPIDS.cmake)
-include(rapids-cython)
 
 project(
   raft-python
@@ -58,4 +57,6 @@ if(NOT RAFT_FOUND)
   add_subdirectory(../../cpp raft-cpp)
 endif()
 
+include(rapids-cython)
+rapids_cython_init()
 add_subdirectory(pylibraft/distance)
