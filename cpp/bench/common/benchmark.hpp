@@ -18,6 +18,7 @@
 
 #include <memory>
 
+#include <raft/core/handle.hpp>
 #include <raft/cudart_utils.h>
 #include <raft/interruptible.hpp>
 
