@@ -46,8 +46,8 @@ struct fused_l2_nn : public fixture {
     raft::handle_t handle{stream};
     raft::random::RngState r(123456ULL);
 
-    uniform(r, x.data(), p.m * p.k, T(-1.0), T(1.0), stream);
-    uniform(r, y.data(), p.n * p.k, T(-1.0), T(1.0), stream);
+    uniform(handle, r, x.data(), p.m * p.k, T(-1.0), T(1.0));
+    uniform(handle, r, y.data(), p.n * p.k, T(-1.0), T(1.0));
     raft::linalg::rowNorm(xn.data(), x.data(), p.k, p.m, raft::linalg::L2Norm, true, stream);
     raft::linalg::rowNorm(yn.data(), y.data(), p.k, p.n, raft::linalg::L2Norm, true, stream);
     raft::distance::initialize<T, cub::KeyValuePair<int, T>, int>(
