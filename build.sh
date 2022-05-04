@@ -99,20 +99,20 @@ fi
 # Check for valid usage
 if (( ${NUMARGS} != 0 )); then
     for a in ${ARGS}; do
-  if ! (echo " ${VALIDARGS} " | grep -q " ${a} "); then
-      echo "Invalid option: ${a}"
-      exit 1
-  fi
+        if ! (echo " ${VALIDARGS} " | grep -q " ${a} "); then
+            echo "Invalid option: ${a}"
+            exit 1
+        fi
     done
 fi
 
 # Process flags
 if hasArg --install; then
-  INSTALL_TARGET="install"
+    INSTALL_TARGET="install"
 fi
 
 if hasArg --minimal-deps; then
-  ENABLE_thrust_DEPENDENCY=OFF
+    ENABLE_thrust_DEPENDENCY=OFF
 fi
 
 if hasArg -v; then
@@ -128,7 +128,7 @@ if hasArg --allgpuarch; then
 fi
 
 if hasArg --compile-libs || (( ${NUMARGS} == 0 )); then
-  COMPILE_LIBRARIES=ON
+    COMPILE_LIBRARIES=ON
 fi
 
 if hasArg --compile-nn || hasArg --compile-libs || (( ${NUMARGS} == 0 )); then
@@ -167,11 +167,11 @@ if hasArg clean; then
     CLEAN=1
 fi
 if hasArg uninstall; then
-  UNINSTALL=1
+    UNINSTALL=1
 fi
 
 if [[ ${CMAKE_TARGET} == "" ]]; then
-  CMAKE_TARGET="all"
+    CMAKE_TARGET="all"
 fi
 
 # If clean given, run it prior to any other steps
@@ -198,8 +198,8 @@ fi
 
 # Pyraft requires ucx + nccl
 if (( ${NUMARGS} == 0 )) || hasArg pyraft || hasArg docs; then
-  ENABLE_nccl_DEPENDENCY=ON
-  ENABLE_ucx_DEPENDENCY=ON
+    ENABLE_nccl_DEPENDENCY=ON
+    ENABLE_ucx_DEPENDENCY=ON
 fi
 ################################################################################
 # Configure for building all C++ targets
