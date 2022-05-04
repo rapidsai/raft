@@ -14,7 +14,7 @@
 
 cmake_minimum_required(VERSION 3.20.1 FATAL_ERROR)
 
-set(raft_version 22.06.00)
+set(pylibraft_version 22.06.00)
 
 # TODO: This link needs to be changed back to the mainline branch of rapids-cmake before the PR is merged.
 file(DOWNLOAD https://raw.githubusercontent.com/vyasr/rapids-cmake/cf54c7d6e215c1188e1b9eb660565bdf42b83b64/RAPIDS.cmake
@@ -23,7 +23,7 @@ include(${CMAKE_BINARY_DIR}/RAPIDS.cmake)
 
 project(
   pylibraft
-  VERSION ${raft_version}
+  VERSION ${pylibraft_version}
   LANGUAGES # TODO: Building Python extension modules via the python_extension_module requires the C
             # language to be enabled here. The test project that is built in scikit-build to verify
             # various linking options for the python library is hardcoded to build with C, so until
@@ -41,7 +41,7 @@ option(FIND_RAFT_CPP "Search for existing RAFT C++ installations before defaulti
 
 # If the user requested it we attempt to find RAFT.
 if(FIND_RAFT_CPP)
-  find_package(RAFT ${raft_version})
+  find_package(RAFT ${pylibraft_version})
 else()
   set(RAFT_FOUND OFF)
 endif()

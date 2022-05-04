@@ -32,6 +32,7 @@ function sed_runner() {
 }
 
 sed_runner 's/'"RAFT VERSION .* LANGUAGES"'/'"RAFT VERSION ${NEXT_FULL_TAG} LANGUAGES"'/g' cpp/CMakeLists.txt
+sed_runner 's/'"pylibraft_version .*)"'/'"pylibraft_version ${NEXT_FULL_TAG})"'/g' python/pylibraft/CMakeLists.txt
 sed_runner 's/'"branch-.*\/RAPIDS.cmake"'/'"branch-${NEXT_SHORT_TAG}\/RAPIDS.cmake"'/g' cpp/CMakeLists.txt
 
 for FILE in conda/environments/*.yml; do
