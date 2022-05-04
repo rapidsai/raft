@@ -29,8 +29,6 @@ setup(name='pylibraft',
         "Programming Language :: Python :: 3.7"
       ],
       author="NVIDIA Corporation",
-      # TODO: Replace with pyproject.toml.
-      setup_requires=['cython'],
       package_data={
           # Note: A dict comprehension with an explicit copy is necessary
           # (rather than something simpler like a dict.fromkeys) because
@@ -47,7 +45,6 @@ setup(name='pylibraft',
           )
       },
       packages=find_packages(include=['pylibraft', 'pylibraft.*']),
-      install_requires=["cython"],
       license="Apache",
       cmdclass=versioneer.get_cmdclass(),
       zip_safe=False
