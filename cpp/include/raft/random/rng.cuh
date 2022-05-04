@@ -76,7 +76,7 @@ void uniformInt(const raft::handle_t& handle,
  * @tparam LenType data type used to represent length of the arrays
  * @param[in] handle raft handle for resource management
  * @param[in] rng_state random number generator state
- * @param[out[ ptr the output array
+ * @param[out] ptr the output array
  * @param[in] len the number of elements in the output
  * @param[in] mu mean of the distribution
  * @param[in] sigma std-dev of the distribution
@@ -99,7 +99,7 @@ void normal(const raft::handle_t& handle,
  * @tparam LenType data type used to represent length of the arrays
  * @param[in] handle raft handle for resource management
  * @param[in] rng_state random number generator state
- * @param[out[ ptr the output array
+ * @param[out] ptr the output array
  * @param[in] len the number of elements in the output
  * @param[in] mu mean of the distribution
  * @param[in] sigma std-dev of the distribution
