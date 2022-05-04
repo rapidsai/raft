@@ -37,7 +37,7 @@ struct permute : public fixture {
       in(p.rows * p.cols, stream)
   {
     raft::random::RngState r(123456ULL);
-    uniform(r, in.data(), p.rows, T(-1.0), T(1.0), stream);
+    uniform(handle, r, in.data(), p.rows, T(-1.0), T(1.0));
   }
 
   void run_benchmark(::benchmark::State& state) override
@@ -50,6 +50,7 @@ struct permute : public fixture {
   }
 
  private:
+  raft::handle_t handle;
   permute_inputs params;
   rmm::device_uvector<T> out, in;
   rmm::device_uvector<int> perms;

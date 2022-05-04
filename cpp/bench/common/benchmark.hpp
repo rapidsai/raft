@@ -102,13 +102,13 @@ struct cuda_event_timer {
 /** Main fixture to be inherited and used by all other c++ benchmarks */
 class fixture {
  private:
-  rmm::cuda_stream stream_owner_{};
   rmm::device_buffer scratch_buf_;
 
  public:
+  raft::handle_t handle;
   rmm::cuda_stream_view stream;
 
-  fixture() : stream{stream_owner_.view()}
+  fixture() : stream{handle.get_stream()}
   {
     int l2_cache_size = 0;
     int device_id     = 0;
