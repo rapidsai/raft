@@ -88,8 +88,6 @@ class ReduceColsTest : public ::testing::TestWithParam<ReduceColsInputs<T>> {
     raft::interruptible::synchronize(stream);
   }
 
-  void TearDown() override {}
-
  protected:
   cudaStream_t stream = 0;
   ReduceColsInputs<T> params;

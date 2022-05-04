@@ -97,8 +97,6 @@ class RowWeightedMeanTest : public ::testing::TestWithParam<WeightedMeanInputs<T
     params.tolerance *= params.N;
   }
 
-  void TearDown() override {}
-
  protected:
   raft::handle_t handle;
   WeightedMeanInputs<T> params;
@@ -162,8 +160,6 @@ class ColWeightedMeanTest : public ::testing::TestWithParam<WeightedMeanInputs<T
     params.tolerance *= params.M;
   }
 
-  void TearDown() override {}
-
  protected:
   raft::handle_t handle;
   WeightedMeanInputs<T> params;
@@ -217,8 +213,6 @@ class WeightedMeanTest : public ::testing::TestWithParam<WeightedMeanInputs<T>> 
     // adjust tolerance to account for round-off accumulation
     params.tolerance *= params.N;
   }
-
-  void TearDown() override {}
 
  protected:
   raft::handle_t handle;
