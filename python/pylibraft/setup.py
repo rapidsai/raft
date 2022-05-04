@@ -14,16 +14,11 @@
 # limitations under the License.
 #
 
-
 from setuptools import find_packages
 from skbuild import setup
 
 import versioneer
 
-
-# TODO: We were previously forcing pylibraft to build with max optimization
-# (-O3) instead of the usual -O2. Should we stick with that? If so, we'll need
-# to bump that down into the new CMake files.
 setup(name='pylibraft',
       description="RAFT: Reusable Algorithms Functions and other Tools",
       version=versioneer.get_version(),
