@@ -101,7 +101,7 @@ class RsvdTest : public ::testing::TestWithParam<RsvdInputs<T>> {
       int n_redundant   = n - n_informative;  // Redundant cols
       int len_redundant = m * n_redundant;
 
-      normal(r, A.data(), len_informative, mu, sigma, stream);
+      normal(handle, r, A.data(), len_informative, mu, sigma);
       RAFT_CUDA_TRY(cudaMemcpyAsync(A.data() + len_informative,
                                     A.data(),
                                     len_redundant * sizeof(T),

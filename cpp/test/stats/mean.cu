@@ -58,7 +58,7 @@ class MeanTest : public ::testing::TestWithParam<MeanInputs<T>> {
   {
     raft::random::RngState r(params.seed);
     int len = rows * cols;
-    normal(r, data.data(), len, params.mean, (T)1.0, stream);
+    normal(handle, r, data.data(), len, params.mean, (T)1.0);
     meanSGtest(data.data(), stream);
   }
 

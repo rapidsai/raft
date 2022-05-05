@@ -107,21 +107,21 @@ class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
   {
     RngState r(params.seed, params.gtype);
     switch (params.type) {
-      case RNG_Normal: normal(r, data.data(), params.len, params.start, params.end, stream); break;
+      case RNG_Normal: normal(handle, r, data.data(), params.len, params.start, params.end); break;
       case RNG_LogNormal:
-        lognormal(r, data.data(), params.len, params.start, params.end, stream);
+        lognormal(handle, r, data.data(), params.len, params.start, params.end);
         break;
       case RNG_Uniform:
-        uniform(r, data.data(), params.len, params.start, params.end, stream);
+        uniform(handle, r, data.data(), params.len, params.start, params.end);
         break;
-      case RNG_Gumbel: gumbel(r, data.data(), params.len, params.start, params.end, stream); break;
+      case RNG_Gumbel: gumbel(handle, r, data.data(), params.len, params.start, params.end); break;
       case RNG_Logistic:
-        logistic(r, data.data(), params.len, params.start, params.end, stream);
+        logistic(handle, r, data.data(), params.len, params.start, params.end);
         break;
-      case RNG_Exp: exponential(r, data.data(), params.len, params.start, stream); break;
-      case RNG_Rayleigh: rayleigh(r, data.data(), params.len, params.start, stream); break;
+      case RNG_Exp: exponential(handle, r, data.data(), params.len, params.start); break;
+      case RNG_Rayleigh: rayleigh(handle, r, data.data(), params.len, params.start); break;
       case RNG_Laplace:
-        laplace(r, data.data(), params.len, params.start, params.end, stream);
+        laplace(handle, r, data.data(), params.len, params.start, params.end);
         break;
     };
     static const int threads = 128;
@@ -292,8 +292,8 @@ TEST(Rng, MeanError)
   int num_experiments = 1024;
   int len             = num_samples * num_experiments;
 
-  cudaStream_t stream;
-  RAFT_CUDA_TRY(cudaStreamCreate(&stream));
+  raft::handle_t handle;
+  auto stream = handle.get_stream();
 
   rmm::device_uvector<float> data(len, stream);
   rmm::device_uvector<float> mean_result(num_experiments, stream);
@@ -301,7 +301,7 @@ TEST(Rng, MeanError)
 
   for (auto rtype : {GenPhilox, GenPC}) {
     RngState r(seed, rtype);
-    normal(r, data.data(), len, 3.3f, 0.23f, stream);
+    normal(handle, r, data.data(), len, 3.3f, 0.23f);
     // uniform(r, data, len, -1.0, 2.0);
     raft::stats::mean(
       mean_result.data(), data.data(), num_samples, num_experiments, false, false, stream);
@@ -334,7 +334,6 @@ TEST(Rng, MeanError)
     ASSERT_TRUE((diff_expected_vs_measured_mean_error / d_std_of_mean_analytical < 0.5))
       << "Failed with seed: " << seed << "\nrtype: " << rtype;
   }
-  RAFT_CUDA_TRY(cudaStreamDestroy(stream));
 
   // std::cout << "mean_res:" << h_mean_result << "\n";
 }
@@ -349,7 +348,7 @@ class ScaledBernoulliTest : public ::testing::Test {
   {
     RAFT_CUDA_TRY(cudaStreamCreate(&stream));
     RngState r(42);
-    scaled_bernoulli(r, data.data(), len, T(0.5), T(scale), stream);
+    scaled_bernoulli(handle, r, data.data(), len, T(0.5), T(scale));
   }
 
   void rangeCheck()
@@ -382,7 +381,7 @@ class BernoulliTest : public ::testing::Test {
   void SetUp() override
   {
     RngState r(42);
-    bernoulli(r, data.data(), len, T(0.5), stream);
+    bernoulli(handle, r, data.data(), len, T(0.5));
     RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
@@ -445,10 +444,10 @@ class RngNormalTableTest : public ::testing::TestWithParam<RngNormalTableInputs<
     num_sigma = 10;
     int len   = params.rows * params.cols;
     RngState r(params.seed, params.gtype);
-    fill(r, mu_vec.data(), params.cols, params.mu, stream);
+    fill(handle, r, mu_vec.data(), params.cols, params.mu);
     T* sigma_vec = nullptr;
     normalTable(
-      r, data.data(), params.rows, params.cols, mu_vec.data(), sigma_vec, params.sigma, stream);
+      handle, r, data.data(), params.rows, params.cols, mu_vec.data(), sigma_vec, params.sigma);
     static const int threads = 128;
     meanKernel<T, threads>
       <<<raft::ceildiv(len, threads), threads, 0, stream>>>(stats.data(), data.data(), len);

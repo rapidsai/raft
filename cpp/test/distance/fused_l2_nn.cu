@@ -127,8 +127,8 @@ class FusedL2NNTest : public ::testing::TestWithParam<Inputs<DataT>> {
     int m = params.m;
     int n = params.n;
     int k = params.k;
-    uniform(r, x.data(), m * k, DataT(-1.0), DataT(1.0), stream);
-    uniform(r, y.data(), n * k, DataT(-1.0), DataT(1.0), stream);
+    uniform(handle, r, x.data(), m * k, DataT(-1.0), DataT(1.0));
+    uniform(handle, r, y.data(), n * k, DataT(-1.0), DataT(1.0));
     generateGoldenResult();
     raft::linalg::rowNorm(xn.data(), x.data(), k, m, raft::linalg::L2Norm, true, stream);
     raft::linalg::rowNorm(yn.data(), y.data(), k, n, raft::linalg::L2Norm, true, stream);

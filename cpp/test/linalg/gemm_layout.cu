@@ -85,8 +85,8 @@ class GemmLayoutTest : public ::testing::TestWithParam<GemmLayoutInputs<T>> {
     RAFT_CUDA_TRY(cudaMalloc(&refZ, zElems * sizeof(T)));
     RAFT_CUDA_TRY(cudaMalloc(&Z, zElems * sizeof(T)));
 
-    uniform(r, X, xElems, T(-10.0), T(10.0), stream);
-    uniform(r, Y, yElems, T(-10.0), T(10.0), stream);
+    uniform(handle, r, X, xElems, T(-10.0), T(10.0));
+    uniform(handle, r, Y, yElems, T(-10.0), T(10.0));
 
     dim3 blocks(raft::ceildiv<int>(params.M, 128), raft::ceildiv<int>(params.N, 4), 1);
     dim3 threads(128, 4, 1);

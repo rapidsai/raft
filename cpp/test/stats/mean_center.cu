@@ -59,7 +59,7 @@ class MeanCenterTest : public ::testing::TestWithParam<MeanCenterInputs<T, IdxTy
   {
     raft::random::RngState r(params.seed);
     auto len = rows * cols;
-    normal(r, data.data(), len, params.mean, (T)1.0, stream);
+    normal(handle, r, data.data(), len, params.mean, (T)1.0);
     raft::stats::mean(
       meanVec.data(), data.data(), cols, rows, params.sample, params.rowMajor, stream);
     meanCenter(out.data(),

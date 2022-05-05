@@ -100,8 +100,8 @@ class GemvTest : public ::testing::TestWithParam<GemvInputs<T>> {
     refy.resize(yElems, stream);
     y.resize(yElems, stream);
 
-    uniform(r, x.data(), xElems, T(-10.0), T(10.0), stream);
-    uniform(r, A.data(), aElems, T(-10.0), T(10.0), stream);
+    uniform(handle, r, x.data(), xElems, T(-10.0), T(10.0));
+    uniform(handle, r, A.data(), aElems, T(-10.0), T(10.0));
 
     dim3 blocks(raft::ceildiv<int>(yElems, 256), 1, 1);
     dim3 threads(256, 1, 1);

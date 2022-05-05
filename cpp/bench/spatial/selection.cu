@@ -47,7 +47,7 @@ struct selection : public fixture {
   {
     raft::sparse::iota_fill(in_ids_.data(), IdxT(p.n_inputs), IdxT(p.input_len), stream);
     raft::random::RngState state{42};
-    raft::random::uniform(state, in_dists_.data(), in_dists_.size(), KeyT(-1.0), KeyT(1.0), stream);
+    raft::random::uniform(handle, state, in_dists_.data(), in_dists_.size(), KeyT(-1.0), KeyT(1.0));
   }
 
   void run_benchmark(::benchmark::State& state) override

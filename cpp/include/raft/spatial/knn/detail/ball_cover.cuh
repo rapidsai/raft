@@ -84,14 +84,14 @@ void sample_landmarks(const raft::handle_t& handle,
    * 1. Randomly sample sqrt(n) points from X
    */
   raft::random::RngState rng_state(12345);
-  raft::random::sampleWithoutReplacement(rng_state,
+  raft::random::sampleWithoutReplacement(handle,
+                                         rng_state,
                                          R_indices.data(),
                                          R_1nn_cols2.data(),
                                          index.get_R_1nn_cols(),
                                          R_1nn_ones.data(),
                                          (value_idx)index.n_landmarks,
-                                         (value_idx)index.m,
-                                         handle.get_stream());
+                                         (value_idx)index.m);
 
   raft::matrix::copyRows<value_t, value_idx, size_t>(index.get_X(),
                                                      index.m,

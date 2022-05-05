@@ -56,8 +56,7 @@ class stridedReductionTest : public ::testing::TestWithParam<stridedReductionInp
     raft::random::RngState r(params.seed);
     int rows = params.rows, cols = params.cols;
     int len = rows * cols;
-    uniform(r, data.data(), len, T(-1.0), T(1.0),
-            stream);  // initialize matrix to random
+    uniform(handle, r, data.data(), len, T(-1.0), T(1.0));  // initialize matrix to random
 
     unaryAndGemv(dots_exp.data(), data.data(), cols, rows, stream);
     stridedReductionLaunch(dots_act.data(), data.data(), cols, rows, stream);
