@@ -403,6 +403,23 @@ void affine_transform_params(RngState const& rng_state, IdxT n, IdxT& a, IdxT& b
 // without the macro, clang-format seems to go insane
 #define DEPR [[deprecated("Use 'RngState' with the new flat functions instead")]]
 
+using detail::bernoulli;
+using detail::exponential;
+using detail::fill;
+using detail::gumbel;
+using detail::laplace;
+using detail::logistic;
+using detail::lognormal;
+using detail::normal;
+using detail::normalInt;
+using detail::normalTable;
+using detail::rayleigh;
+using detail::scaled_bernoulli;
+using detail::uniform;
+using detail::uniformInt;
+
+using detail::sampleWithoutReplacement;
+
 class DEPR Rng : public detail::RngImpl {
  public:
   /**
