@@ -17,6 +17,7 @@
 #pragma once
 
 #include <raft/cudart_utils.h>
+#include <raft/pow2_utils.cuh>
 #include <raft/spatial/knn/faiss_mr.hpp>
 
 #include <faiss/gpu/GpuDistance.h>
