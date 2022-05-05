@@ -43,7 +43,6 @@ requirements:
     - ucx-py {{ ucx_py_version }}
     - ucx-proc=*=gpu
     - gtest=1.10.0
-    - gmock
     - librmm {{ minor_version}}
     - libcusolver>=11.2.1
   run:

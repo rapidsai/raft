@@ -51,17 +51,17 @@ class ternaryOpTest : public ::testing::TestWithParam<BinaryOpInputs<T>> {
 
   void SetUp() override
   {
-    raft::random::Rng rng(params.seed);
+    raft::random::RngState rng(params.seed);
     int len = params.len;
     rmm::device_uvector<T> in1(len, stream);
     rmm::device_uvector<T> in2(len, stream);
     rmm::device_uvector<T> in3(len, stream);
 
-    rng.fill(out_add_ref.data(), len, T(6.0), stream);
-    rng.fill(out_mul_ref.data(), len, T(6.0), stream);
-    rng.fill(in1.data(), len, T(1.0), stream);
-    rng.fill(in2.data(), len, T(2.0), stream);
-    rng.fill(in3.data(), len, T(3.0), stream);
+    fill(rng, out_add_ref.data(), len, T(6.0), stream);
+    fill(rng, out_mul_ref.data(), len, T(6.0), stream);
+    fill(rng, in1.data(), len, T(1.0), stream);
+    fill(rng, in2.data(), len, T(2.0), stream);
+    fill(rng, in3.data(), len, T(3.0), stream);
 
     auto add = [] __device__(T a, T b, T c) { return a + b + c; };
     auto mul = [] __device__(T a, T b, T c) { return a * b * c; };

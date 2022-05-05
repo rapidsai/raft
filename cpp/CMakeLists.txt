@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #=============================================================================
+set(RAPIDS_VERSION "22.06")
+set(RAFT_VERSION "${RAPIDS_VERSION}.00")
 
 cmake_minimum_required(VERSION 3.20.1 FATAL_ERROR)
 file(DOWNLOAD https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-22.06/RAPIDS.cmake
@@ -26,7 +28,7 @@ include(rapids-find)
 
 rapids_cuda_init_architectures(RAFT)
 
-project(RAFT VERSION 22.06.00 LANGUAGES CXX CUDA)
+project(RAFT VERSION ${RAFT_VERSION} LANGUAGES CXX CUDA)
 
 # Needed because GoogleBenchmark changes the state of FindThreads.cmake, causing subsequent runs to
 # have different values for the `Threads::Threads` target. Setting this flag ensures
@@ -55,16 +57,22 @@ option(CUDA_ENABLE_KERNELINFO "Enable kernel resource usage info" OFF)
 option(CUDA_ENABLE_LINEINFO "Enable the -lineinfo option for nvcc (useful for cuda-memcheck / profiler)" OFF)
 option(CUDA_STATIC_RUNTIME "Statically link the CUDA runtime" OFF)
 option(DETECT_CONDA_ENV "Enable detection of conda environment for dependencies" ON)
-option(DISABLE_DEPRECATION_WARNINGS "Disable depreaction warnings " ON)
+option(DISABLE_DEPRECATION_WARNINGS "Disable deprecaction warnings " ON)
 option(DISABLE_OPENMP "Disable OpenMP" OFF)
 option(NVTX "Enable nvtx markers" OFF)
 
-option(RAFT_COMPILE_LIBRARIES "Enable building raft shared library instantiations" ON)
+option(RAFT_COMPILE_LIBRARIES "Enable building raft shared library instantiations" ${BUILD_TESTS})
 option(RAFT_COMPILE_NN_LIBRARY "Enable building raft nearest neighbors shared library instantiations" OFF)
 option(RAFT_COMPILE_DIST_LIBRARY "Enable building raft distant shared library instantiations" OFF)
 option(RAFT_ENABLE_NN_DEPENDENCIES "Search for raft::nn dependencies like faiss" ${RAFT_COMPILE_LIBRARIES})
 
-option(RAFT_ENABLE_cuco_DEPENDENCY "Enable cuCollections dependency" ON)
+option(RAFT_ENABLE_mdspan_DEPENDENCY "Enable mdspan dependency" ON)
+option(RAFT_ENABLE_thrust_DEPENDENCY "Enable Thrust dependency" ON)
+
+if(BUILD_TESTS AND NOT RAFT_ENABLE_thrust_DEPENDENCY)
+  message(VERBOSE "RAFT: BUILD_TESTS is enabled, overriding RAFT_ENABLE_thrust_DEPENDENCY")
+  set(RAFT_ENABLE_thrust_DEPENDENCY ON)
+endif()
 
 # Currently, UCX and NCCL are only needed to build Pyraft and so a simple find_package() is sufficient
 option(RAFT_ENABLE_nccl_DEPENDENCY "Enable NCCL dependency" OFF)
@@ -75,6 +83,7 @@ option(RAFT_EXCLUDE_FAISS_FROM_ALL "Exclude FAISS targets from RAFT's 'all' targ
 include(CMakeDependentOption)
 cmake_dependent_option(RAFT_USE_FAISS_STATIC "Build and statically link the FAISS library for nearest neighbors search on GPU" ON RAFT_COMPILE_LIBRARIES OFF)
 
+message(VERBOSE "RAFT: Building optional components: ${raft_FIND_COMPONENTS}")
 message(VERBOSE "RAFT: Build RAFT unit-tests: ${BUILD_TESTS}")
 message(VERBOSE "RAFT: Building raft C++ benchmarks: ${BUILD_BENCH}")
 message(VERBOSE "RAFT: Enable detection of conda environment for dependencies: ${DETECT_CONDA_ENV}")
@@ -123,6 +132,10 @@ include(cmake/modules/ConfigureCUDA.cmake)
 ##############################################################################
 # - Requirements -------------------------------------------------------------
 
+if(distance IN_LIST raft_FIND_COMPONENTS OR RAFT_COMPILE_LIBRARIES OR RAFT_COMPILE_DIST_LIBRARY)
+  set(RAFT_ENABLE_cuco_DEPENDENCY ON)
+endif()
+
 # add third party dependencies using CPM
 rapids_cpm_init()
 
@@ -130,7 +143,6 @@ rapids_cpm_init()
 include(cmake/thirdparty/get_thrust.cmake)
 include(cmake/thirdparty/get_rmm.cmake)
 include(cmake/thirdparty/get_cuco.cmake)
-include(cmake/thirdparty/get_libcudacxx.cmake)
 include(cmake/thirdparty/get_faiss.cmake)
 include(cmake/thirdparty/get_mdspan.cmake)
 
@@ -151,8 +163,10 @@ target_include_directories(raft INTERFACE
         "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/include>"
         "$<INSTALL_INTERFACE:include>")
 
+# Keep RAFT as lightweight as possible.
+# Only CUDA libs, rmm, and mdspan should
+# be used in global target.
 target_link_libraries(raft INTERFACE
-        raft::Thrust
         $<$<BOOL:${NVTX}>:CUDA::nvToolsExt>
         CUDA::cublas
         CUDA::curand
@@ -160,8 +174,9 @@ target_link_libraries(raft INTERFACE
         CUDA::cudart
         CUDA::cusparse
         rmm::rmm
-        $<$<BOOL:${RAFT_ENABLE_cuco_DEPENDENCY}>:cuco::cuco>
-        std::mdspan)
+        $<$<BOOL:${RAFT_ENABLE_thrust_DEPENDENCY}>:raft::Thrust>
+        $<$<BOOL:${RAFT_ENABLE_mdspan_DEPENDENCY}>:std::mdspan>
+)
 
 target_compile_definitions(raft INTERFACE $<$<BOOL:${NVTX}>:NVTX_ENABLED>)
 target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
@@ -248,6 +263,7 @@ endif()
 
 target_link_libraries(raft_distance INTERFACE
     raft::raft
+    $<$<BOOL:${RAFT_ENABLE_cuco_DEPENDENCY}>:cuco::cuco>
     $<TARGET_NAME_IF_EXISTS:raft_distance_lib>
     $<TARGET_NAME_IF_EXISTS:raft::raft_distance_lib>
 )
@@ -301,6 +317,7 @@ endif()
 
 target_link_libraries(raft_nn INTERFACE
     raft::raft
+    $<$<BOOL:${RAFT_ENABLE_NN_DEPENDENCIES}>:faiss::faiss>
     $<TARGET_NAME_IF_EXISTS:raft_nn_lib>
     $<TARGET_NAME_IF_EXISTS:raft::raft_nn_lib>)
 
@@ -341,6 +358,9 @@ install(DIRECTORY include/raft
 install(FILES include/raft.hpp
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/raft)
 
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/include/raft/version_config.hpp
+        DESTINATION include/raft)
+
 ##############################################################################
 # - install export -----------------------------------------------------------
 set(doc_string
@@ -348,7 +368,7 @@ set(doc_string
 Provide targets for the RAFT: Reusable Accelerated Functions and Tools
 
 RAFT contains fundamental widely-used algorithms and primitives
-for data science, graph, and ml.
+for data science and machine learning.
 
 Optional Components:
   - nn
@@ -361,13 +381,18 @@ Imported Targets:
 
 ]=])
 
-set(code_string
-[=[
-
-if(NOT TARGET raft::Thrust)
-  thrust_create_target(raft::Thrust FROM_OPTIONS)
+set(code_string )
+if(RAFT_ENABLE_thrust_DEPENDENCY)
+  string(APPEND code_string
+  [=[
+  if(NOT TARGET raft::Thrust)
+    thrust_create_target(raft::Thrust FROM_OPTIONS)
+  endif()
+  ]=])
 endif()
 
+string(APPEND code_string
+[=[
 if(distance IN_LIST raft_FIND_COMPONENTS)
   enable_language(CUDA)
 endif()
@@ -381,8 +406,7 @@ if(nn IN_LIST raft_FIND_COMPONENTS)
       add_library(faiss ALIAS faiss::faiss)
   endif()
 endif()
-]=]
-        )
+]=])
 
 # Use `rapids_export` for 22.04 as it will have COMPONENT support
 include(cmake/modules/raft_export.cmake)

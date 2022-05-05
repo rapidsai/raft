@@ -22,6 +22,7 @@
  */
 #pragma once
 #include <experimental/mdspan>
+#include <raft/cudart_utils.h>
 #include <raft/detail/span.hpp>  // dynamic_extent
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_uvector.hpp>
@@ -58,7 +59,7 @@ class device_reference {
   auto operator=(T const& other) -> device_reference&
   {
     auto* raw = ptr_.get();
-    update_device(raw, &other, 1, stream_);
+    raft::update_device(raw, &other, 1, stream_);
     return *this;
   }
 };
@@ -224,6 +225,7 @@ struct accessor_mixin : public AccessorPolicy {
   using is_host_type  = std::conditional_t<is_host, std::true_type, std::false_type>;
   // make sure the explicit ctor can fall through
   using AccessorPolicy::AccessorPolicy;
+  using offset_policy = accessor_mixin;
   accessor_mixin(AccessorPolicy const& that) : AccessorPolicy{that} {}  // NOLINT
 };
 

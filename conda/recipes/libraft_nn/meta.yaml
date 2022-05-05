@@ -44,7 +44,6 @@ requirements:
     - faiss-proc=*=cuda
     - libfaiss 1.7.0 *_cuda
     - gtest=1.10.0
-    - gmock
     - librmm {{ minor_version }}
   run:
     - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}

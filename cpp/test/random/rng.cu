@@ -105,20 +105,24 @@ class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
  protected:
   void SetUp() override
   {
-    Rng r(params.seed, params.gtype);
+    RngState r(params.seed, params.gtype);
     switch (params.type) {
-      case RNG_Normal: r.normal(data.data(), params.len, params.start, params.end, stream); break;
+      case RNG_Normal: normal(r, data.data(), params.len, params.start, params.end, stream); break;
       case RNG_LogNormal:
-        r.lognormal(data.data(), params.len, params.start, params.end, stream);
+        lognormal(r, data.data(), params.len, params.start, params.end, stream);
         break;
-      case RNG_Uniform: r.uniform(data.data(), params.len, params.start, params.end, stream); break;
-      case RNG_Gumbel: r.gumbel(data.data(), params.len, params.start, params.end, stream); break;
+      case RNG_Uniform:
+        uniform(r, data.data(), params.len, params.start, params.end, stream);
+        break;
+      case RNG_Gumbel: gumbel(r, data.data(), params.len, params.start, params.end, stream); break;
       case RNG_Logistic:
-        r.logistic(data.data(), params.len, params.start, params.end, stream);
+        logistic(r, data.data(), params.len, params.start, params.end, stream);
         break;
-      case RNG_Exp: r.exponential(data.data(), params.len, params.start, stream); break;
-      case RNG_Rayleigh: r.rayleigh(data.data(), params.len, params.start, stream); break;
-      case RNG_Laplace: r.laplace(data.data(), params.len, params.start, params.end, stream); break;
+      case RNG_Exp: exponential(r, data.data(), params.len, params.start, stream); break;
+      case RNG_Rayleigh: rayleigh(r, data.data(), params.len, params.start, stream); break;
+      case RNG_Laplace:
+        laplace(r, data.data(), params.len, params.start, params.end, stream);
+        break;
     };
     static const int threads = 128;
     meanKernel<T, threads><<<raft::ceildiv(params.len, threads), threads, 0, stream>>>(
@@ -296,9 +300,9 @@ TEST(Rng, MeanError)
   rmm::device_uvector<float> std_result(num_experiments, stream);
 
   for (auto rtype : {GenPhilox, GenPC}) {
-    Rng r(seed, rtype);
-    r.normal(data.data(), len, 3.3f, 0.23f, stream);
-    // r.uniform(data, len, -1.0, 2.0);
+    RngState r(seed, rtype);
+    normal(r, data.data(), len, 3.3f, 0.23f, stream);
+    // uniform(r, data, len, -1.0, 2.0);
     raft::stats::mean(
       mean_result.data(), data.data(), num_samples, num_experiments, false, false, stream);
     raft::stats::stddev(std_result.data(),
@@ -344,8 +348,8 @@ class ScaledBernoulliTest : public ::testing::Test {
   void SetUp() override
   {
     RAFT_CUDA_TRY(cudaStreamCreate(&stream));
-    Rng r(42);
-    r.scaled_bernoulli(data.data(), len, T(0.5), T(scale), stream);
+    RngState r(42);
+    scaled_bernoulli(r, data.data(), len, T(0.5), T(scale), stream);
   }
 
   void rangeCheck()
@@ -377,8 +381,8 @@ class BernoulliTest : public ::testing::Test {
  protected:
   void SetUp() override
   {
-    Rng r(42);
-    r.bernoulli(data.data(), len, T(0.5), stream);
+    RngState r(42);
+    bernoulli(r, data.data(), len, T(0.5), stream);
     RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
@@ -440,11 +444,11 @@ class RngNormalTableTest : public ::testing::TestWithParam<RngNormalTableInputs<
     // 4 x sigma indicates the test shouldn't fail 99.9% of the time.
     num_sigma = 10;
     int len   = params.rows * params.cols;
-    Rng r(params.seed, params.gtype);
-    r.fill(mu_vec.data(), params.cols, params.mu, stream);
+    RngState r(params.seed, params.gtype);
+    fill(r, mu_vec.data(), params.cols, params.mu, stream);
     T* sigma_vec = nullptr;
-    r.normalTable(
-      data.data(), params.rows, params.cols, mu_vec.data(), sigma_vec, params.sigma, stream);
+    normalTable(
+      r, data.data(), params.rows, params.cols, mu_vec.data(), sigma_vec, params.sigma, stream);
     static const int threads = 128;
     meanKernel<T, threads>
       <<<raft::ceildiv(len, threads), threads, 0, stream>>>(stats.data(), data.data(), len);
@@ -514,8 +518,8 @@ class RngAffineTest : public ::testing::TestWithParam<RngAffineInputs> {
   void SetUp() override
   {
     params = ::testing::TestWithParam<RngAffineInputs>::GetParam();
-    Rng r(params.seed);
-    r.affine_transform_params(params.n, a, b);
+    RngState r(params.seed);
+    affine_transform_params(r, params.n, a, b);
   }
 
   void check()
