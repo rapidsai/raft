@@ -31,19 +31,20 @@ HELP="$0 [<target> ...] [<flag> ...]
    bench            - build the benchmarks
 
  and <flag> is:
-   -v               - verbose build mode
-   -g               - build for debug
-   --compile-libs   - compile shared libraries for all components
-   --compile-nn     - compile shared library for nn component
-   --compile-dist   - compile shared library for distance component
-   --minimal-deps   - disables dependencies like thrust so they can be overridden.
-                      can be useful for a pure header-only install
-   --allgpuarch     - build for all supported GPU architectures
-   --buildfaiss     - build faiss statically into raft
-   --install        - install cmake targets
-   --nvtx           - enable nvtx for profiling support
-   --show_depr_warn - show cmake deprecation warnings
-   -h               - print this text
+   -v                          - verbose build mode
+   -g                          - build for debug
+   --compile-libs              - compile shared libraries for all components
+   --compile-nn                - compile shared library for nn component
+   --compile-dist              - compile shared library for distance component
+   --minimal-deps              - disables dependencies like thrust so they can be overridden.
+                                 can be useful for a pure header-only install
+   --allgpuarch                - build for all supported GPU architectures
+   --buildfaiss                - build faiss statically into raft
+   --install                   - install cmake targets
+   --nvtx                      - enable nvtx for profiling support
+   --show_depr_warn            - show cmake deprecation warnings
+   --cmake-args=\\\"<args>\\\" - pass arbitrary list of CMake configuration options (escape all quotes in argument)
+   -h                          - print this text
 
  default action (no args) is to build both libraft and pyraft targets
 "
@@ -91,6 +92,28 @@ function hasArg {
     (( ${NUMARGS} != 0 )) && (echo " ${ARGS} " | grep -q " $1 ")
 }
 
+function cmakeArgs {
+    # Check for multiple cmake args options
+    if [[ $(echo $ARGS | { grep -Eo "\-\-cmake\-args" || true; } | wc -l ) -gt 1 ]]; then
+        echo "Multiple --cmake-args options were provided, please provide only one: ${ARGS}"
+        exit 1
+    fi
+
+    # Check for cmake args option
+    if [[ -n $(echo $ARGS | { grep -E "\-\-cmake\-args" || true; } ) ]]; then
+        # There are possible weird edge cases that may cause this regex filter to output nothing and fail silently
+        # the true pipe will catch any weird edge cases that may happen and will cause the program to fall back
+        # on the invalid option error
+        CMAKE_ARGS=$(echo $ARGS | { grep -Eo "\-\-cmake\-args=\".+\"" || true; })
+        if [[ -n ${CMAKE_ARGS} ]]; then
+            # Remove the full  CMAKE_ARGS argument from list of args so that it passes validArgs function
+            ARGS=${ARGS//$CMAKE_ARGS/}
+            # Filter the full argument down to just the extra string that will be added to cmake call
+            CMAKE_ARGS=$(echo $CMAKE_ARGS | grep -Eo "\".+\"" | sed -e 's/^"//' -e 's/"$//')
+        fi
+    fi
+}
+
 if hasArg -h || hasArg --help; then
     echo "${HELP}"
     exit 0
@@ -98,6 +121,7 @@ fi
 
 # Check for valid usage
 if (( ${NUMARGS} != 0 )); then
+    cmakeArgs
     for a in ${ARGS}; do
         if ! (echo " ${VALIDARGS} " | grep -q " ${a} "); then
             echo "Invalid option: ${a}"
@@ -229,7 +253,8 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || has
           -DRAFT_USE_FAISS_STATIC=${BUILD_STATIC_FAISS} \
           -DRAFT_ENABLE_nccl_DEPENDENCY=${ENABLE_nccl_DEPENDENCY} \
           -DRAFT_ENABLE_ucx_DEPENDENCY=${ENABLE_ucx_DEPENDENCY} \
-          -DRAFT_ENABLE_thrust_DEPENDENCY=${ENABLE_thrust_DEPENDENCY}
+          -DRAFT_ENABLE_thrust_DEPENDENCY=${ENABLE_thrust_DEPENDENCY} \
+          ${CMAKE_ARGS}
 
   if [[ ${CMAKE_TARGET} != "" ]]; then
       echo "-- Compiling targets: ${CMAKE_TARGET}, verbose=${VERBOSE_FLAG}"
@@ -256,9 +281,9 @@ fi
 if (( ${NUMARGS} == 0 )) || hasArg pylibraft; then
 
     cd ${REPODIR}/python/pylibraft
-    python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace -- -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} -DCMAKE_LIBRARY_PATH=${LIBRAFT_BUILD_DIR} 
+    python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace -- -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} -DCMAKE_LIBRARY_PATH=${LIBRAFT_BUILD_DIR} ${CMAKE_ARGS}
     if [[ ${INSTALL_TARGET} != "" ]]; then
-        python setup.py install --single-version-externally-managed --record=record.txt -- -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX}
+        python setup.py install --single-version-externally-managed --record=record.txt -- -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} ${CMAKE_ARGS}
     fi
 fi
 

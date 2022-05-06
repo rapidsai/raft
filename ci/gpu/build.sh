@@ -103,9 +103,9 @@ export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
 gpuci_logger "Build C++ and Python targets"
 # These should link against the existing shared libs
 if hasArg --skip-tests; then
-  "$WORKSPACE/build.sh" pyraft pylibraft libraft -v
+  "$WORKSPACE/build.sh" pyraft pylibraft libraft -v --cmake-args="-DFIND_RAFT_CPP=ON"
 else
-  "$WORKSPACE/build.sh" pyraft pylibraft libraft tests bench  -v
+  "$WORKSPACE/build.sh" pyraft pylibraft libraft tests bench -v --cmake-args="-DFIND_RAFT_CPP=ON"
 fi
 
 gpuci_logger "sccache stats"
