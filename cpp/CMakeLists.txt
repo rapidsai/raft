@@ -355,6 +355,8 @@ if(TARGET raft_distance_lib)
   install(TARGETS raft_distance_lib
           DESTINATION ${lib_dir}
           EXPORT raft-distance-lib-exports)
+  install(DIRECTORY include/raft_distance
+          DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 endif()
 
 if(TARGET raft_nn_lib)
