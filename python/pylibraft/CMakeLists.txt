@@ -35,9 +35,6 @@ project(
             # We can remove CUDA once we upgrade the minimum required CMake version to 3.22.
             CUDA)
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
 option(FIND_RAFT_CPP "Search for existing RAFT C++ installations before defaulting to local files"
        OFF)
 
