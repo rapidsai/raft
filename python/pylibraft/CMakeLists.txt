@@ -40,19 +40,18 @@ option(FIND_RAFT_CPP "Search for existing RAFT C++ installations before defaulti
 
 # If the user requested it we attempt to find RAFT.
 if(FIND_RAFT_CPP)
-  find_package(RAFT ${pylibraft_version})
+    find_package(raft ${pylibraft_version} REQUIRED COMPONENTS distance)
 else()
-  set(RAFT_FOUND OFF)
+  set(raft_FOUND OFF)
+  set(raft_FIND_COMPONENTS distance)
 endif()
 
-if(NOT RAFT_FOUND)
+if(NOT raft_FOUND)
   set(BUILD_TESTS OFF)
   set(BUILD_BENCHMARKS OFF)
   set(BUILD_TESTS OFF)
   set(RAFT_COMPILE_LIBRARIES ON)
   set(RAFT_COMPILE_DIST_LIBRARY ON)
-  #RAFT_COMPILE_NN_LIBRARY  OFF
-  #RAFT_ENABLE_NN_DEPENDENCIES  ON
   add_subdirectory(../../cpp raft-cpp)
 endif()
 
