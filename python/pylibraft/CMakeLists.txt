@@ -16,8 +16,7 @@ cmake_minimum_required(VERSION 3.20.1 FATAL_ERROR)
 
 set(pylibraft_version 22.06.00)
 
-# TODO: This link needs to be changed back to the mainline branch of rapids-cmake before the PR is merged.
-file(DOWNLOAD https://raw.githubusercontent.com/vyasr/rapids-cmake/cf54c7d6e215c1188e1b9eb660565bdf42b83b64/RAPIDS.cmake
+file(DOWNLOAD https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-22.06/RAPIDS.cmake
         ${CMAKE_BINARY_DIR}/RAPIDS.cmake)
 include(${CMAKE_BINARY_DIR}/RAPIDS.cmake)
 
