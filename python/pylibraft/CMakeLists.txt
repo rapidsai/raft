@@ -41,6 +41,9 @@ else()
 endif()
 
 if(NOT raft_FOUND)
+  # TODO: This will not be necessary once we upgrade to CMake 3.22, which will
+  # pull in the required languages for the C++ project even if this project
+  # does not require those languges.
   enable_language(CUDA)
   set(BUILD_TESTS OFF)
   set(BUILD_BENCHMARKS OFF)
