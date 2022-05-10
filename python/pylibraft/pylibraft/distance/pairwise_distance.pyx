@@ -117,13 +117,16 @@ def distance(X, Y, dists, metric="euclidean", p=2.0):
         pairwise_distance(in1, in2, output, metric="euclidean")
    """
 
-    # TODO: Validate inputs, shapes, etc...
     x_cai = X.__cuda_array_interface__
     y_cai = Y.__cuda_array_interface__
     dists_cai = dists.__cuda_array_interface__
 
     m = x_cai["shape"][0]
     n = y_cai["shape"][0]
+
+    if x_cai["shape"][1] != y_cai["shape"][1]:
+        raise ValueError("Inputs must have same number of columns.")
+
     k = x_cai["shape"][1]
 
     x_ptr = <uintptr_t>x_cai["data"][0]
@@ -138,8 +141,6 @@ def distance(X, Y, dists, metric="euclidean", p=2.0):
 
     x_c_contiguous = "strides" not in x_cai or x_cai["strides"] is None
     y_c_contiguous = "strides" not in y_cai or y_cai["strides"] is None
-
-    print(str(x_c_contiguous))
 
     if x_c_contiguous != y_c_contiguous:
         raise ValueError("Inputs must have matching strides")
