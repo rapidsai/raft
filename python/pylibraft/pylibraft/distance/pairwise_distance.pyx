@@ -79,7 +79,7 @@ SUPPORTED_DISTANCES = ["euclidean", "l1", "cityblock", "l2", "inner_product",
                        "hamming", "jensenshannon"]
 
 
-def distance(X, Y, dists, metric="euclidean", p=0.0):
+def distance(X, Y, dists, metric="euclidean", p=2.0):
     """
     Compute pairwise distances between X and Y
 
@@ -138,6 +138,8 @@ def distance(X, Y, dists, metric="euclidean", p=0.0):
 
     x_c_contiguous = "strides" not in x_cai or x_cai["strides"] is None
     y_c_contiguous = "strides" not in y_cai or y_cai["strides"] is None
+
+    print(str(x_c_contiguous))
 
     if x_c_contiguous != y_c_contiguous:
         raise ValueError("Inputs must have matching strides")
