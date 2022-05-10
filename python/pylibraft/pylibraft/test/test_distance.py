@@ -49,7 +49,8 @@ class TestDeviceBuffer:
 @pytest.mark.parametrize("n_cols", [100])
 @pytest.mark.parametrize("metric", ["euclidean", "cityblock", "chebyshev",
                                     "canberra", "correlation", "hamming",
-                                    "jensenshannon", "russellrao", "cosine"])
+                                    "jensenshannon", "russellrao", "cosine",
+                                    "sqeuclidean"])
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
 def test_distance(n_rows, n_cols, metric, dtype):
     input1 = np.random.random_sample((n_rows, n_cols)).astype(dtype)
