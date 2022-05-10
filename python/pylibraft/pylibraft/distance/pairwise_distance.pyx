@@ -54,12 +54,14 @@ cdef extern from "raft_distance/pairwise_distance.hpp" \
 
 DISTANCE_TYPES = {
     "l2": DistanceType.L2SqrtUnexpanded,
+    "sqeuclidean": DistanceType.L2Unexpanded,
     "euclidean": DistanceType.L2SqrtUnexpanded,
     "l1": DistanceType.L1,
     "cityblock": DistanceType.L1,
     "inner_product": DistanceType.InnerProduct,
     "chebyshev": DistanceType.Linf,
     "canberra": DistanceType.Canberra,
+    "cosine": DistanceType.CosineExpanded,
     "lp": DistanceType.LpUnexpanded,
     "correlation": DistanceType.CorrelationExpanded,
     "jaccard": DistanceType.JaccardExpanded,
@@ -76,7 +78,7 @@ DISTANCE_TYPES = {
 SUPPORTED_DISTANCES = ["euclidean", "l1", "cityblock", "l2", "inner_product",
                        "chebyshev", "minkowski", "canberra", "kl_divergence",
                        "correlation", "russellrao", "hellinger", "lp",
-                       "hamming", "jensenshannon"]
+                       "hamming", "jensenshannon", "cosine", "sqeuclidean"]
 
 
 def distance(X, Y, dists, metric="euclidean", p=2.0):
@@ -86,7 +88,8 @@ def distance(X, Y, dists, metric="euclidean", p=2.0):
     Valid values for metric:
         ["euclidean", "l2", "l1", "cityblock", "inner_product",
          "chebyshev", "canberra", "lp", "hellinger", "jensenshannon",
-         "kl_divergence", "russellrao", "minkowski", "correlation"]
+         "kl_divergence", "russellrao", "minkowski", "correlation",
+         "cosine"]
 
     Parameters
     ----------
