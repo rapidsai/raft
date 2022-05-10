@@ -18,7 +18,7 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libraft pyraft pylibraft docs tests bench clean -v -g --install --compile-libs --compile-nn --compile-dist --allgpuarch --nvtx --show_depr_warn -h --buildfaiss --minimal-deps"
+VALIDARGS="clean libraft pyraft pylibraft docs tests bench clean -v -g --install --compile-libs --compile-nn --compile-dist --allgpuarch --no-nvtx --show_depr_warn -h --buildfaiss --minimal-deps"
 HELP="$0 [<target> ...] [<flag> ...]
  where <target> is:
    clean            - remove all existing build artifacts and configuration (start over)
@@ -41,7 +41,7 @@ HELP="$0 [<target> ...] [<flag> ...]
    --allgpuarch     - build for all supported GPU architectures
    --buildfaiss     - build faiss statically into raft
    --install        - install cmake targets
-   --nvtx           - enable nvtx for profiling support
+   --no-nvtx        - disable nvtx (profiling markers), but allow enabling it in downstream projects
    --show_depr_warn - show cmake deprecation warnings
    -h               - print this text
 
@@ -70,7 +70,7 @@ ENABLE_thrust_DEPENDENCY=ON
 ENABLE_ucx_DEPENDENCY=OFF
 ENABLE_nccl_DEPENDENCY=OFF
 
-NVTX=OFF
+NVTX=ON
 CLEAN=0
 UNINSTALL=0
 DISABLE_DEPRECATION_WARNINGS=ON
@@ -157,8 +157,8 @@ fi
 if hasArg --buildfaiss; then
     BUILD_STATIC_FAISS=ON
 fi
-if hasArg --nvtx; then
-    NVTX=ON
+if hasArg --no-nvtx; then
+    NVTX=OFF
 fi
 if hasArg --show_depr_warn; then
     DISABLE_DEPRECATION_WARNINGS=OFF
@@ -219,7 +219,7 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || has
           -DCMAKE_CUDA_ARCHITECTURES=${RAFT_CMAKE_CUDA_ARCHITECTURES} \
           -DRAFT_COMPILE_LIBRARIES=${COMPILE_LIBRARIES} \
           -DRAFT_ENABLE_NN_DEPENDENCIES=${ENABLE_NN_DEPENDENCIES} \
-          -DNVTX=${NVTX} \
+          -DRAFT_NVTX=${NVTX} \
           -DDISABLE_DEPRECATION_WARNINGS=${DISABLE_DEPRECATION_WARNINGS} \
           -DBUILD_TESTS=${BUILD_TESTS} \
           -DBUILD_BENCH=${BUILD_BENCH} \
