@@ -68,21 +68,25 @@ DISTANCE_TYPES = {
     "jensenshannon": DistanceType.JensenShannon,
     "hamming": DistanceType.HammingUnexpanded,
     "kl_divergence": DistanceType.KLDivergence,
+    "minkowski": DistanceType.LpUnexpanded,
     "russellrao": DistanceType.RusselRaoExpanded,
     "dice": DistanceType.DiceExpanded
 }
 
-SUPPORTED_DISTANCES = list(DISTANCE_TYPES.keys())
+SUPPORTED_DISTANCES = ["euclidean", "l1", "cityblock", "l2", "inner_product",
+                       "chebyshev", "minkowski", "canberra", "kl_divergence",
+                       "correlation", "russellrao", "hellinger", "lp",
+                       "hamming", "jensenshannon"]
 
 
-def distance(X, Y, dists, metric="euclidean"):
+def distance(X, Y, dists, metric="euclidean", p=0.0):
     """
     Compute pairwise distances between X and Y
 
     Valid values for metric:
         ["euclidean", "l2", "l1", "cityblock", "inner_product",
          "chebyshev", "canberra", "lp", "hellinger", "jensenshannon",
-         "kl_divergence", "russellrao"]
+         "kl_divergence", "russellrao", "minkowski", "correlation"]
 
     Parameters
     ----------
@@ -132,6 +136,12 @@ def distance(X, Y, dists, metric="euclidean"):
     y_dt = np.dtype(y_cai["typestr"])
     d_dt = np.dtype(dists_cai["typestr"])
 
+    x_c_contiguous = "strides" not in x_cai or x_cai["strides"] is None
+    y_c_contiguous = "strides" not in y_cai or y_cai["strides"] is None
+
+    if x_c_contiguous != y_c_contiguous:
+        raise ValueError("Inputs must have matching strides")
+
     if metric not in SUPPORTED_DISTANCES:
         raise ValueError("metric %s is not supported" % metric)
 
@@ -149,8 +159,8 @@ def distance(X, Y, dists, metric="euclidean"):
                           <int>n,
                           <int>k,
                           <DistanceType>distance_type,
-                          <bool>True,
-                          <float>0.0)
+                          <bool>x_c_contiguous,
+                          <float>p)
     elif x_dt == np.float64:
         pairwise_distance(deref(h),
                           <double*> x_ptr,
@@ -160,7 +170,7 @@ def distance(X, Y, dists, metric="euclidean"):
                           <int>n,
                           <int>k,
                           <DistanceType>distance_type,
-                          <bool>True,
-                          <float>0.0)
+                          <bool>x_c_contiguous,
+                          <float>p)
     else:
         raise ValueError("dtype %s not supported" % x_dt)
