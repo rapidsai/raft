@@ -27,10 +27,11 @@ from libcpp cimport bool
 from .distance_type cimport DistanceType
 from pylibraft.common.handle cimport handle_t
 
+
 def is_c_cont(cai, dt):
-  return "strides" not in cai or \
-    cai["strides"] is None or \
-    cai["strides"][1] == dt.itemsize
+    return "strides" not in cai or \
+        cai["strides"] is None or \
+        cai["strides"][1] == dt.itemsize
 
 
 cdef extern from "raft_distance/pairwise_distance.hpp" \
@@ -104,6 +105,7 @@ def distance(X, Y, dists, metric="euclidean", p=2.0):
     Y : CUDA array interface compliant matrix shape (n, k)
     dists : Writable CUDA array interface matrix shape (m, n)
     metric : string denoting the metric type (default="euclidean")
+    p : metric parameter (currently used only for "minkowski")
 
     Examples
     --------
@@ -133,10 +135,12 @@ def distance(X, Y, dists, metric="euclidean", p=2.0):
     m = x_cai["shape"][0]
     n = y_cai["shape"][0]
 
-    if x_cai["shape"][1] != y_cai["shape"][1]:
-        raise ValueError("Inputs must have same number of columns.")
+    x_k = x_cai["shape"][1]
+    y_k = y_cai["shape"][1]
 
-    k = x_cai["shape"][1]
+    if x_k != y_k:
+        raise ValueError("Inputs must have same number of columns. "
+                         "a=%s, b=%s" % (x_k, y_k))
 
     x_ptr = <uintptr_t>x_cai["data"][0]
     y_ptr = <uintptr_t>y_cai["data"][0]
@@ -169,7 +173,7 @@ def distance(X, Y, dists, metric="euclidean", p=2.0):
                           <float*> d_ptr,
                           <int>m,
                           <int>n,
-                          <int>k,
+                          <int>x_k,
                           <DistanceType>distance_type,
                           <bool>x_c_contiguous,
                           <float>p)
@@ -180,7 +184,7 @@ def distance(X, Y, dists, metric="euclidean", p=2.0):
                           <double*> d_ptr,
                           <int>m,
                           <int>n,
-                          <int>k,
+                          <int>x_k,
                           <DistanceType>distance_type,
                           <bool>x_c_contiguous,
                           <float>p)
