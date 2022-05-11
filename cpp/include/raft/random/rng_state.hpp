@@ -48,9 +48,12 @@ struct RngState {
   uint64_t seed{0};
   uint64_t base_subsequence{0};
   /**
-   * The generator type. For now, use Philox as default since PCGenerator
-   * caused issues in RAFT DivideTests and cugraph RMAT tests.
-   * This should be changed to GenPC as soon as all dependent tests are passing.
+   * The generator type, either GenPC or GenPhilox (the default).
+   * GenPC should be preferred for performance.
+   *
+   * FIXME(mjoux): For now, we use Philox as default since PC generator
+   *               caused issues in RAFT DivideTests and cugraph RMAT tests.
+   *               Should be changed to GenPC when all tests are passing.
    */
   GeneratorType type{GeneratorType::GenPhilox};
 
