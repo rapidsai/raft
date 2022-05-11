@@ -27,6 +27,12 @@ from libcpp cimport bool
 from .distance_type cimport DistanceType
 from pylibraft.common.handle cimport handle_t
 
+def is_c_cont(cai, dt):
+  return "strides" not in cai or \
+    cai["strides"] is None or \
+    cai["strides"][1] == dt.itemsize
+
+
 cdef extern from "raft_distance/pairwise_distance.hpp" \
         namespace "raft::distance::runtime":
 
@@ -142,8 +148,8 @@ def distance(X, Y, dists, metric="euclidean", p=2.0):
     y_dt = np.dtype(y_cai["typestr"])
     d_dt = np.dtype(dists_cai["typestr"])
 
-    x_c_contiguous = "strides" not in x_cai or x_cai["strides"] is None
-    y_c_contiguous = "strides" not in y_cai or y_cai["strides"] is None
+    x_c_contiguous = is_c_cont(x_cai, x_dt)
+    y_c_contiguous = is_c_cont(y_cai, y_dt)
 
     if x_c_contiguous != y_c_contiguous:
         raise ValueError("Inputs must have matching strides")
