@@ -57,9 +57,7 @@ class DivideTest : public ::testing::TestWithParam<raft::linalg::UnaryOpInputs<T
   {
     raft::random::RngState r(params.seed);
     int len = params.len;
-    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
     uniform(handle, r, in.data(), len, T(-1.0), T(1.0));
-    RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
     naiveDivide(out_ref.data(), in.data(), params.scalar, len, stream);
     divideScalar(out.data(), in.data(), params.scalar, len, stream);
     handle.sync_stream(stream);
