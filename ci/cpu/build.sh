@@ -3,7 +3,7 @@
 #########################################
 #  RAFT CPU conda build script for CI   #
 #########################################
-set -e
+set -ex
 
 # Set path and build parallel level
 # openmpi dir is required on CentOS for finding MPI libs from cmake
