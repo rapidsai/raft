@@ -32,6 +32,10 @@ enum GeneratorType {
 
 /**
  * The RNG state used to keep RNG state around on the host.
+ *
+ * @note: The default generator type is GenPhilox for backward compatibility.
+ *        For best performance, you should always try to use GenPC first,
+ *        since the PC generator is up to 2x faster in many use cases.
  */
 struct RngState {
   explicit RngState(uint64_t _seed) : seed(_seed) {}
