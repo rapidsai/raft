@@ -44,10 +44,11 @@ struct RngState {
   uint64_t seed{0};
   uint64_t base_subsequence{0};
   /**
-   * The generator type. PCGenerator has been extensively tested and is faster
-   * than Philox, thus we use it as the default.
+   * The generator type. For now, use Philox as default since PCGenerator
+   * caused issues in RAFT DivideTests and cugraph RMAT tests.
+   * This should be changed to GenPC as soon as all dependent tests are passing.
    */
-  GeneratorType type{GeneratorType::GenPC};
+  GeneratorType type{GeneratorType::GenPhilox};
 
   void advance(uint64_t max_uniq_subsequences_used,
                uint64_t max_numbers_generated_per_subsequence = 0)
