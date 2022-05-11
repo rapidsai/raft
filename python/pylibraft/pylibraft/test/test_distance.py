@@ -24,10 +24,10 @@ from pylibraft.distance import pairwise_distance
 
 class TestDeviceBuffer:
 
-    def __init__(self, ndarray):
+    def __init__(self, ndarray, order):
         self.ndarray_ = ndarray
         self.device_buffer_ = \
-            rmm.DeviceBuffer.to_device(ndarray.ravel(order="C").tobytes())
+            rmm.DeviceBuffer.to_device(ndarray.ravel(order=order).tobytes())
 
     @property
     def __cuda_array_interface__(self):
@@ -49,10 +49,13 @@ class TestDeviceBuffer:
 @pytest.mark.parametrize("n_cols", [100])
 @pytest.mark.parametrize("metric", ["euclidean", "cityblock", "chebyshev",
                                     "canberra", "correlation", "hamming",
-                                    "jensenshannon", "russellrao"])
+                                    "jensenshannon", "russellrao", "cosine",
+                                    "sqeuclidean"])
+@pytest.mark.parametrize("order", ["F", "C"])
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
-def test_distance(n_rows, n_cols, metric, dtype):
-    input1 = np.random.random_sample((n_rows, n_cols)).astype(dtype)
+def test_distance(n_rows, n_cols, metric, order, dtype):
+    input1 = np.random.random_sample((n_rows, n_cols))
+    input1 = np.asarray(input1, order=order).astype(dtype)
 
     # RussellRao expects boolean arrays
     if metric == "russellrao":
@@ -70,8 +73,8 @@ def test_distance(n_rows, n_cols, metric, dtype):
 
     expected[expected <= 1e-5] = 0.0
 
-    input1_device = TestDeviceBuffer(input1)
-    output_device = TestDeviceBuffer(output)
+    input1_device = TestDeviceBuffer(input1, order)
+    output_device = TestDeviceBuffer(output, order)
 
     pairwise_distance(input1_device, input1_device, output_device, metric)
     actual = output_device.copy_to_host()
