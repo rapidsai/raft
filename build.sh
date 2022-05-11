@@ -270,10 +270,9 @@ fi
 if (( ${NUMARGS} == 0 )) || hasArg pyraft || hasArg docs; then
 
     cd ${REPODIR}/python/raft
+    python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace -- -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} -DCMAKE_LIBRARY_PATH=${LIBRAFT_BUILD_DIR} ${CMAKE_ARGS}
     if [[ ${INSTALL_TARGET} != "" ]]; then
-        python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace --library-dir=${LIBRAFT_BUILD_DIR} install --single-version-externally-managed --record=record.txt
-    else
-        python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace --library-dir=${LIBRAFT_BUILD_DIR}
+        python setup.py install --single-version-externally-managed --record=record.txt -- -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} ${CMAKE_ARGS}
     fi
 fi
 
