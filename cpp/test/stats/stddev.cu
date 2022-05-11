@@ -64,7 +64,7 @@ class StdDevTest : public ::testing::TestWithParam<StdDevInputs<T>> {
     mean_act.resize(cols, stream);
     stddev_act.resize(cols, stream);
     vars_act.resize(cols, stream);
-    normal(r, data.data(), len, params.mean, params.stddev, stream);
+    normal(handle, r, data.data(), len, params.mean, params.stddev);
     stdVarSGtest(data.data(), stream);
     handle.sync_stream(stream);
   }

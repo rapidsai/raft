@@ -73,7 +73,7 @@ class ScalarMultiplyTest : public ::testing::TestWithParam<ScalarMultiplyInputs<
     raft::random::RngState r(params.seed);
     int len  = params.len;
     T scalar = params.scalar;
-    uniform(r, in, len, T(-1.0), T(1.0), stream);
+    uniform(handle, r, in, len, T(-1.0), T(1.0));
     naiveScale(out_ref, in, scalar, len, stream);
     scalarMultiply(out, in, scalar, len, stream);
     handle.sync_stream(stream);
@@ -160,8 +160,8 @@ class EltwiseAddTest : public ::testing::TestWithParam<EltwiseAddInputs<T>> {
     params = ::testing::TestWithParam<EltwiseAddInputs<T>>::GetParam();
     raft::random::RngState r(params.seed);
     int len = params.len;
-    uniform(r, in1, len, T(-1.0), T(1.0), stream);
-    uniform(r, in2, len, T(-1.0), T(1.0), stream);
+    uniform(handle, r, in1, len, T(-1.0), T(1.0));
+    uniform(handle, r, in2, len, T(-1.0), T(1.0));
     naiveAdd(out_ref, in1, in2, len, stream);
     eltwiseAdd(out, in1, in2, len, stream);
     handle.sync_stream(stream);

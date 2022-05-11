@@ -70,8 +70,7 @@ class RowWeightedMeanTest : public ::testing::TestWithParam<WeightedMeanInputs<T
     params = ::testing::TestWithParam<WeightedMeanInputs<T>>::GetParam();
     raft::random::RngState r(params.seed);
     int rows = params.M, cols = params.N, len = rows * cols;
-    cudaStream_t stream = 0;
-    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
+    auto stream = handle.get_stream();
     // device-side data
     din.resize(len);
     dweights.resize(cols);
@@ -79,8 +78,8 @@ class RowWeightedMeanTest : public ::testing::TestWithParam<WeightedMeanInputs<T
     dact.resize(rows);
 
     // create random matrix and weights
-    uniform(r, din.data().get(), len, T(-1.0), T(1.0), stream);
-    uniform(r, dweights.data().get(), cols, T(-1.0), T(1.0), stream);
+    uniform(handle, r, din.data().get(), len, T(-1.0), T(1.0));
+    uniform(handle, r, dweights.data().get(), cols, T(-1.0), T(1.0));
 
     // host-side data
     thrust::host_vector<T> hin      = din;
@@ -96,12 +95,10 @@ class RowWeightedMeanTest : public ::testing::TestWithParam<WeightedMeanInputs<T
 
     // adjust tolerance to account for round-off accumulation
     params.tolerance *= params.N;
-    RAFT_CUDA_TRY(cudaStreamDestroy(stream));
   }
 
-  void TearDown() override {}
-
  protected:
+  raft::handle_t handle;
   WeightedMeanInputs<T> params;
   thrust::host_vector<T> hin, hweights;
   thrust::device_vector<T> din, dweights, dexp, dact;
@@ -136,8 +133,7 @@ class ColWeightedMeanTest : public ::testing::TestWithParam<WeightedMeanInputs<T
     raft::random::RngState r(params.seed);
     int rows = params.M, cols = params.N, len = rows * cols;
 
-    cudaStream_t stream = 0;
-    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
+    auto stream = handle.get_stream();
     // device-side data
     din.resize(len);
     dweights.resize(rows);
@@ -145,8 +141,8 @@ class ColWeightedMeanTest : public ::testing::TestWithParam<WeightedMeanInputs<T
     dact.resize(cols);
 
     // create random matrix and weights
-    uniform(r, din.data().get(), len, T(-1.0), T(1.0), stream);
-    uniform(r, dweights.data().get(), rows, T(-1.0), T(1.0), stream);
+    uniform(handle, r, din.data().get(), len, T(-1.0), T(1.0));
+    uniform(handle, r, dweights.data().get(), rows, T(-1.0), T(1.0));
 
     // host-side data
     thrust::host_vector<T> hin      = din;
@@ -162,12 +158,10 @@ class ColWeightedMeanTest : public ::testing::TestWithParam<WeightedMeanInputs<T
 
     // adjust tolerance to account for round-off accumulation
     params.tolerance *= params.M;
-    RAFT_CUDA_TRY(cudaStreamDestroy(stream));
   }
 
-  void TearDown() override {}
-
  protected:
+  raft::handle_t handle;
   WeightedMeanInputs<T> params;
   thrust::host_vector<T> hin, hweights;
   thrust::device_vector<T> din, dweights, dexp, dact;
@@ -180,11 +174,10 @@ class WeightedMeanTest : public ::testing::TestWithParam<WeightedMeanInputs<T>> 
   {
     params = ::testing::TestWithParam<WeightedMeanInputs<T>>::GetParam();
     raft::random::RngState r(params.seed);
+    auto stream = handle.get_stream();
     int rows = params.M, cols = params.N, len = rows * cols;
-    auto weight_size    = params.along_rows ? cols : rows;
-    auto mean_size      = params.along_rows ? rows : cols;
-    cudaStream_t stream = 0;
-    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
+    auto weight_size = params.along_rows ? cols : rows;
+    auto mean_size   = params.along_rows ? rows : cols;
     // device-side data
     din.resize(len);
     dweights.resize(weight_size);
@@ -192,8 +185,8 @@ class WeightedMeanTest : public ::testing::TestWithParam<WeightedMeanInputs<T>> 
     dact.resize(mean_size);
 
     // create random matrix and weights
-    uniform(r, din.data().get(), len, T(-1.0), T(1.0), stream);
-    uniform(r, dweights.data().get(), weight_size, T(-1.0), T(1.0), stream);
+    uniform(handle, r, din.data().get(), len, T(-1.0), T(1.0));
+    uniform(handle, r, dweights.data().get(), weight_size, T(-1.0), T(1.0));
 
     // host-side data
     thrust::host_vector<T> hin      = din;
@@ -219,12 +212,10 @@ class WeightedMeanTest : public ::testing::TestWithParam<WeightedMeanInputs<T>> 
 
     // adjust tolerance to account for round-off accumulation
     params.tolerance *= params.N;
-    RAFT_CUDA_TRY(cudaStreamDestroy(stream));
   }
 
-  void TearDown() override {}
-
  protected:
+  raft::handle_t handle;
   WeightedMeanInputs<T> params;
   thrust::host_vector<T> hin, hweights;
   thrust::device_vector<T> din, dweights, dexp, dact;

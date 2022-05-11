@@ -42,7 +42,7 @@ class MultiplyTest : public ::testing::TestWithParam<UnaryOpInputs<T>> {
     params = ::testing::TestWithParam<UnaryOpInputs<T>>::GetParam();
     raft::random::RngState r(params.seed);
     int len = params.len;
-    uniform(r, in.data(), len, T(-1.0), T(1.0), stream);
+    uniform(handle, r, in.data(), len, T(-1.0), T(1.0));
     naiveScale(out_ref.data(), in.data(), params.scalar, len, stream);
     multiplyScalar(out.data(), in.data(), params.scalar, len, stream);
     handle.sync_stream(stream);

@@ -34,6 +34,7 @@ requirements:
     - cudatoolkit {{ cuda_version }}.*
     - cuda-python >=11.5,<12.0
     - nccl>=2.9.9
+    - ucx {{ ucx_version }}
     - ucx-py {{ ucx_py_version }}
     - ucx-proc=*=gpu
   run:
@@ -42,6 +43,7 @@ requirements:
     - libraft-headers {{ version }}
     - nccl>=2.9.9
     - rmm {{ minor_version }}
+    - ucx >={{ ucx_version }}
     - ucx-py {{ ucx_py_version }}
     - ucx-proc=*=gpu
     - dask>=2022.03.0

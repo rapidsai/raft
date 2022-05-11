@@ -16,6 +16,7 @@ dependencies:
 - rapids-doc-env=22.02.*
 - rmm=22.02.*
 - dask-cuda=22.02.*
+- ucx>=1.12.1
 - ucx-py=0.26.*
 - ucx-proc=*=gpu
 - doxygen>=1.8.20

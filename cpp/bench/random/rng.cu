@@ -51,23 +51,23 @@ struct rng : public fixture {
     raft::random::RngState r(123456ULL, params.gtype);
     loop_on_state(state, [this, &r]() {
       switch (params.type) {
-        case RNG_Normal: normal(r, ptr.data(), params.len, params.start, params.end, stream); break;
+        case RNG_Normal: normal(handle, r, ptr.data(), params.len, params.start, params.end); break;
         case RNG_LogNormal:
-          lognormal(r, ptr.data(), params.len, params.start, params.end, stream);
+          lognormal(handle, r, ptr.data(), params.len, params.start, params.end);
           break;
         case RNG_Uniform:
-          uniform(r, ptr.data(), params.len, params.start, params.end, stream);
+          uniform(handle, r, ptr.data(), params.len, params.start, params.end);
           break;
-        case RNG_Gumbel: gumbel(r, ptr.data(), params.len, params.start, params.end, stream); break;
+        case RNG_Gumbel: gumbel(handle, r, ptr.data(), params.len, params.start, params.end); break;
         case RNG_Logistic:
-          logistic(r, ptr.data(), params.len, params.start, params.end, stream);
+          logistic(handle, r, ptr.data(), params.len, params.start, params.end);
           break;
-        case RNG_Exp: exponential(r, ptr.data(), params.len, params.start, stream); break;
-        case RNG_Rayleigh: rayleigh(r, ptr.data(), params.len, params.start, stream); break;
+        case RNG_Exp: exponential(handle, r, ptr.data(), params.len, params.start); break;
+        case RNG_Rayleigh: rayleigh(handle, r, ptr.data(), params.len, params.start); break;
         case RNG_Laplace:
-          laplace(r, ptr.data(), params.len, params.start, params.end, stream);
+          laplace(handle, r, ptr.data(), params.len, params.start, params.end);
           break;
-        case RNG_Fill: fill(r, ptr.data(), params.len, params.start, stream); break;
+        case RNG_Fill: fill(handle, r, ptr.data(), params.len, params.start); break;
       };
     });
   }

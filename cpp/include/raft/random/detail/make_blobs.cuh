@@ -40,7 +40,7 @@ void generate_labels(IdxT* labels,
                      cudaStream_t stream)
 {
   IdxT a, b;
-  affine_transform_params(r, n_clusters, a, b);
+  raft::random::affine_transform_params(r, n_clusters, a, b);
   auto op = [=] __device__(IdxT * ptr, IdxT idx) {
     if (shuffle) { idx = IdxT((a * int64_t(idx)) + b); }
     idx %= n_clusters;
@@ -230,7 +230,7 @@ void make_blobs_caller(DataT* out,
   const DataT* _centers;
   if (centers == nullptr) {
     rand_centers.resize(n_clusters * n_cols, stream);
-    raft::random::uniform(
+    detail::uniform(
       r, rand_centers.data(), n_clusters * n_cols, center_box_min, center_box_max, stream);
     _centers = rand_centers.data();
   } else {

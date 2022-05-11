@@ -51,13 +51,13 @@ class DispersionTest : public ::testing::TestWithParam<DispersionInputs<T>> {
     params = ::testing::TestWithParam<DispersionInputs<T>>::GetParam();
     raft::random::RngState r(params.seed);
     int len = params.clusters * params.dim;
-    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
+    stream  = handle.get_stream();
     rmm::device_uvector<T> data(len, stream);
     rmm::device_uvector<int> counts(params.clusters, stream);
     exp_mean.resize(params.dim, stream);
     act_mean.resize(params.dim, stream);
-    uniform(r, data.data(), len, (T)-1.0, (T)1.0, stream);
-    uniformInt(r, counts.data(), params.clusters, 1, 100, stream);
+    uniform(handle, r, data.data(), len, (T)-1.0, (T)1.0);
+    uniformInt(handle, r, counts.data(), params.clusters, 1, 100);
     std::vector<int> h_counts(params.clusters, 0);
     raft::update_host(&(h_counts[0]), counts.data(), params.clusters, stream);
     npoints = 0;
@@ -89,10 +89,9 @@ class DispersionTest : public ::testing::TestWithParam<DispersionInputs<T>> {
     raft::interruptible::synchronize(stream);
   }
 
-  void TearDown() override { RAFT_CUDA_TRY(cudaStreamDestroy(stream)); }
-
  protected:
   DispersionInputs<T> params;
+  raft::handle_t handle;
   rmm::device_uvector<T> exp_mean, act_mean;
   cudaStream_t stream = 0;
   int npoints;

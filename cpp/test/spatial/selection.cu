@@ -321,10 +321,11 @@ struct with_ref {
       auto algo = std::get<1>(ps);
       std::vector<KeyT> dists(spec.input_len * spec.n_inputs);
 
-      auto s = rmm::cuda_stream_default;
+      raft::handle_t handle;
+      auto s = handle.get_stream();
       rmm::device_uvector<KeyT> dists_d(spec.input_len * spec.n_inputs, s);
       raft::random::RngState r(42);
-      normal(r, dists_d.data(), dists_d.size(), KeyT(10.0), KeyT(100.0), s);
+      normal(handle, r, dists_d.data(), dists_d.size(), KeyT(10.0), KeyT(100.0));
       update_host(dists.data(), dists_d.data(), dists_d.size(), s);
       s.synchronize();
 

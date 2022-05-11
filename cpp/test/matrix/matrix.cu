@@ -55,7 +55,7 @@ class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
   {
     raft::random::RngState r(params.seed);
     int len = params.n_row * params.n_col;
-    uniform(r, in1.data(), len, T(-1.0), T(1.0), stream);
+    uniform(handle, r, in1.data(), len, T(-1.0), T(1.0));
 
     copy(in1.data(), in2.data(), params.n_row, params.n_col, stream);
     // copy(in1, in1_revr, params.n_row, params.n_col);

@@ -50,15 +50,15 @@ TEST_P(COOSort, Result)
 {
   params = ::testing::TestWithParam<SparseSortInput<float>>::GetParam();
   raft::random::RngState r(params.seed);
-  cudaStream_t stream;
-  RAFT_CUDA_TRY(cudaStreamCreate(&stream));
+  raft::handle_t h;
+  auto stream = h.get_stream();
 
   rmm::device_uvector<int> in_rows(params.nnz, stream);
   rmm::device_uvector<int> in_cols(params.nnz, stream);
   rmm::device_uvector<int> verify(params.nnz, stream);
   rmm::device_uvector<float> in_vals(params.nnz, stream);
 
-  uniform(r, in_vals.data(), params.nnz, float(-1.0), float(1.0), stream);
+  uniform(h, r, in_vals.data(), params.nnz, float(-1.0), float(1.0));
 
   int* in_rows_h = (int*)malloc(params.nnz * sizeof(int));
   int* in_cols_h = (int*)malloc(params.nnz * sizeof(int));
@@ -84,8 +84,6 @@ TEST_P(COOSort, Result)
   delete[] in_rows_h;
   delete[] in_cols_h;
   delete[] verify_h;
-
-  RAFT_CUDA_TRY(cudaStreamDestroy(stream));
 }
 
 INSTANTIATE_TEST_CASE_P(SparseSortTest, COOSort, ::testing::ValuesIn(inputsf));

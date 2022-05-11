@@ -165,8 +165,8 @@ class FusedL2KNNTest : public ::testing::TestWithParam<FusedL2KNNInputs> {
 
     unsigned long long int seed = 1234ULL;
     raft::random::RngState r(seed);
-    uniform(r, database.data(), num_db_vecs * dim, T(-1.0), T(1.0), stream_);
-    uniform(r, search_queries.data(), num_queries * dim, T(-1.0), T(1.0), stream_);
+    uniform(handle_, r, database.data(), num_db_vecs * dim, T(-1.0), T(1.0));
+    uniform(handle_, r, search_queries.data(), num_queries * dim, T(-1.0), T(1.0));
   }
 
   void launchFaissBfknn()

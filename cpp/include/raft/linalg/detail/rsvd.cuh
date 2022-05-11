@@ -93,7 +93,7 @@ void rsvdFixedRank(const raft::handle_t& handle,
   // build random matrix
   rmm::device_uvector<math_t> RN(n * l, stream);
   raft::random::RngState state{484};
-  raft::random::normal(state, RN.data(), n * l, math_t(0.0), alpha, stream);
+  raft::random::normal(handle, state, RN.data(), n * l, math_t(0.0), alpha);
 
   // multiply to get matrix of random samples Y
   rmm::device_uvector<math_t> Y(m * l, stream);

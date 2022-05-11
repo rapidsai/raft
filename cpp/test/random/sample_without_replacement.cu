@@ -63,13 +63,13 @@ class SWoRTest : public ::testing::TestWithParam<SWoRInputs<T>> {
   {
     RngState r(params.seed, params.gtype);
     h_outIdx.resize(params.sampledLen);
-    uniform(r, in.data(), params.len, T(-1.0), T(1.0), stream);
-    uniform(r, wts.data(), params.len, T(1.0), T(2.0), stream);
+    uniform(handle, r, in.data(), params.len, T(-1.0), T(1.0));
+    uniform(handle, r, wts.data(), params.len, T(1.0), T(2.0));
     if (params.largeWeightIndex >= 0) {
       update_device(wts.data() + params.largeWeightIndex, &params.largeWeight, 1, stream);
     }
     sampleWithoutReplacement(
-      r, out.data(), outIdx.data(), in.data(), wts.data(), params.sampledLen, params.len, stream);
+      handle, r, out.data(), outIdx.data(), in.data(), wts.data(), params.sampledLen, params.len);
     update_host(&(h_outIdx[0]), outIdx.data(), params.sampledLen, stream);
     handle.sync_stream(stream);
   }
