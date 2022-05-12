@@ -45,7 +45,7 @@ def parse_args():
     argparser.add_argument("-regex", type=str,
                            default=r"[.](cu|cuh|h|hpp|cpp)$",
                            help="Regex string to filter in sources")
-    argparser.add_argument("-ignore", type=str, default=r"*thirdparty*$",
+    argparser.add_argument("-ignore", type=str, default=r".*thirdparty.*$",
                            help="Regex used to ignore files from matched list")
     argparser.add_argument("-v", dest="verbose", action="store_true",
                            help="Print verbose messages")
