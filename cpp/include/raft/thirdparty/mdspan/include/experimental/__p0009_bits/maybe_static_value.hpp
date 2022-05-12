@@ -46,7 +46,7 @@
 #include "dynamic_extent.hpp"
 
 #if !defined(_MDSPAN_USE_ATTRIBUTE_NO_UNIQUE_ADDRESS)
-#include "no_unique_address.hpp"
+#  include "no_unique_address.hpp"
 #endif
 
 // This is only needed for the non-standard-layout version of partially
@@ -61,17 +61,18 @@ namespace experimental {
 namespace detail {
 
 // static case
-template <class _T,
-          _T __v,
-          _T __is_dynamic_sentinal   = dynamic_extent,
+template <class _T, _T __v,
+          _T __is_dynamic_sentinal = dynamic_extent,
           size_t __array_entry_index = 0>
 struct __maybe_static_value {
   static constexpr _T __static_value = __v;
-  MDSPAN_FORCE_INLINE_FUNCTION constexpr _T __value() const noexcept { return __v; }
+  MDSPAN_FORCE_INLINE_FUNCTION constexpr _T __value() const noexcept {
+    return __v;
+  }
   template <class _U>
-  MDSPAN_FORCE_INLINE_FUNCTION _MDSPAN_CONSTEXPR_14 __mdspan_enable_fold_comma
-  __set_value(_U&& __rhs) noexcept
-  {
+  MDSPAN_FORCE_INLINE_FUNCTION _MDSPAN_CONSTEXPR_14
+  __mdspan_enable_fold_comma
+  __set_value(_U&& __rhs) noexcept {
     // Should we assert that the value matches the static value here?
     return {};
   }
@@ -85,66 +86,67 @@ struct __maybe_static_value {
   MDSPAN_INLINE_FUNCTION_DEFAULTED
   constexpr __maybe_static_value(__maybe_static_value&&) noexcept = default;
   MDSPAN_INLINE_FUNCTION_DEFAULTED
-  _MDSPAN_CONSTEXPR_14_DEFAULTED __maybe_static_value& operator=(
-    __maybe_static_value const&) noexcept = default;
+  _MDSPAN_CONSTEXPR_14_DEFAULTED __maybe_static_value& operator=(__maybe_static_value const&) noexcept = default;
   MDSPAN_INLINE_FUNCTION_DEFAULTED
-  _MDSPAN_CONSTEXPR_14_DEFAULTED __maybe_static_value& operator=(__maybe_static_value&&) noexcept =
-    default;
+  _MDSPAN_CONSTEXPR_14_DEFAULTED __maybe_static_value& operator=(__maybe_static_value&&) noexcept = default;
   MDSPAN_INLINE_FUNCTION_DEFAULTED
   ~__maybe_static_value() noexcept = default;
 
   MDSPAN_INLINE_FUNCTION
-  constexpr explicit __maybe_static_value(_T const&) noexcept
-  {
+  constexpr explicit __maybe_static_value(_T const&) noexcept {
     // Should we assert that the value matches the static value here?
   }
 
   //--------------------------------------------------------------------------
+
 };
 
 // dynamic case
 template <class _T, _T __is_dynamic_sentinal, size_t __array_entry_index>
-struct __maybe_static_value<_T, __is_dynamic_sentinal, __is_dynamic_sentinal, __array_entry_index>
+struct __maybe_static_value<_T, __is_dynamic_sentinal, __is_dynamic_sentinal,
+                            __array_entry_index>
 #if !defined(_MDSPAN_USE_ATTRIBUTE_NO_UNIQUE_ADDRESS)
-  : __no_unique_address_emulation<_T>
+    : __no_unique_address_emulation<_T>
 #endif
 {
   static constexpr _T __static_value = __is_dynamic_sentinal;
 #if defined(_MDSPAN_USE_ATTRIBUTE_NO_UNIQUE_ADDRESS)
   _MDSPAN_NO_UNIQUE_ADDRESS _T __v = {};
-  MDSPAN_FORCE_INLINE_FUNCTION constexpr _T __value() const noexcept { return __v; }
-  MDSPAN_FORCE_INLINE_FUNCTION _MDSPAN_CONSTEXPR_14 _T& __ref() noexcept { return __v; }
+  MDSPAN_FORCE_INLINE_FUNCTION constexpr _T __value() const noexcept {
+    return __v;
+  }
+  MDSPAN_FORCE_INLINE_FUNCTION _MDSPAN_CONSTEXPR_14 _T &__ref() noexcept {
+    return __v;
+  }
   template <class _U>
-  MDSPAN_FORCE_INLINE_FUNCTION _MDSPAN_CONSTEXPR_14 __mdspan_enable_fold_comma
-  __set_value(_U&& __rhs) noexcept
-  {
-    __v = (_U &&) rhs;
+  MDSPAN_FORCE_INLINE_FUNCTION _MDSPAN_CONSTEXPR_14
+  __mdspan_enable_fold_comma
+  __set_value(_U&& __rhs) noexcept {
+    __v = (_U &&)rhs;
     return {};
   }
 #else
-  MDSPAN_FORCE_INLINE_FUNCTION constexpr _T __value() const noexcept
-  {
+  MDSPAN_FORCE_INLINE_FUNCTION constexpr _T __value() const noexcept {
     return this->__no_unique_address_emulation<_T>::__ref();
   }
-  MDSPAN_FORCE_INLINE_FUNCTION _MDSPAN_CONSTEXPR_14 _T& __ref() noexcept
-  {
+  MDSPAN_FORCE_INLINE_FUNCTION _MDSPAN_CONSTEXPR_14 _T &__ref() noexcept {
     return this->__no_unique_address_emulation<_T>::__ref();
   }
   template <class _U>
-  MDSPAN_FORCE_INLINE_FUNCTION _MDSPAN_CONSTEXPR_14 __mdspan_enable_fold_comma
-  __set_value(_U&& __rhs) noexcept
-  {
-    this->__no_unique_address_emulation<_T>::__ref() = (_U &&) __rhs;
+  MDSPAN_FORCE_INLINE_FUNCTION _MDSPAN_CONSTEXPR_14
+  __mdspan_enable_fold_comma
+  __set_value(_U&& __rhs) noexcept {
+    this->__no_unique_address_emulation<_T>::__ref() = (_U &&)__rhs;
     return {};
   }
 #endif
 };
 
-}  // namespace detail
+} // namespace detail
 
 //==============================================================================
 
-}  // end namespace experimental
-}  // end namespace std
+} // end namespace experimental
+} // end namespace std
 
-#endif  // !_MDSPAN_PRESERVE_STANDARD_LAYOUT
+#endif // !_MDSPAN_PRESERVE_STANDARD_LAYOUT

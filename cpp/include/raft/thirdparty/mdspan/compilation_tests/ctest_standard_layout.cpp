@@ -52,14 +52,19 @@ namespace stdex = std::experimental;
 //==============================================================================
 // <editor-fold desc="helper utilities"> {{{1
 
-MDSPAN_STATIC_TEST(!std::is_base_of<stdex::extents<1, 2, 3>,
-                                    stdex::detail::__partially_static_sizes<1, 2, 3>>::value);
-
-MDSPAN_STATIC_TEST(!std::is_base_of<stdex::detail::__partially_static_sizes<1, 2, 3>,
-                                    stdex::extents<1, 2, 3>>::value);
+MDSPAN_STATIC_TEST(
+  !std::is_base_of<stdex::extents<1, 2, 3>, stdex::detail::__partially_static_sizes<1, 2, 3>>::value
+);
 
 MDSPAN_STATIC_TEST(
-  std::is_standard_layout<stdex::detail::__partially_static_sizes<1, 2, 3>>::value);
+  !std::is_base_of<stdex::detail::__partially_static_sizes<1, 2, 3>, stdex::extents<1, 2, 3>>::value
+);
+
+MDSPAN_STATIC_TEST(
+  std::is_standard_layout<
+    stdex::detail::__partially_static_sizes<1, 2, 3>
+  >::value
+);
 
 // </editor-fold> end helper utilities }}}1
 //==============================================================================
@@ -67,20 +72,47 @@ MDSPAN_STATIC_TEST(
 //==============================================================================
 // <editor-fold desc="extents"> {{{1
 
-MDSPAN_STATIC_TEST(std::is_standard_layout<stdex::extents<1, 2, stdex::dynamic_extent>>::value);
-
-MDSPAN_STATIC_TEST(std::is_standard_layout<stdex::extents<stdex::dynamic_extent>>::value);
+MDSPAN_STATIC_TEST(
+  std::is_standard_layout<
+    stdex::extents<1, 2, stdex::dynamic_extent>
+  >::value
+);
 
 MDSPAN_STATIC_TEST(
-  std::is_standard_layout<stdex::extents<stdex::dynamic_extent, stdex::dynamic_extent>>::value);
+  std::is_standard_layout<
+    stdex::extents<stdex::dynamic_extent>
+  >::value
+);
 
-MDSPAN_STATIC_TEST(std::is_standard_layout<stdex::extents<stdex::dynamic_extent, 1, 2, 45>>::value);
+MDSPAN_STATIC_TEST(
+  std::is_standard_layout<
+    stdex::extents<stdex::dynamic_extent, stdex::dynamic_extent>
+  >::value
+);
 
-MDSPAN_STATIC_TEST(std::is_standard_layout<stdex::extents<45, stdex::dynamic_extent, 1>>::value);
+MDSPAN_STATIC_TEST(
+  std::is_standard_layout<
+    stdex::extents<stdex::dynamic_extent, 1, 2, 45>
+  >::value
+);
 
-MDSPAN_STATIC_TEST(std::is_standard_layout<stdex::extents<1, 2, 3>>::value);
+MDSPAN_STATIC_TEST(
+  std::is_standard_layout<
+    stdex::extents<45, stdex::dynamic_extent, 1>
+  >::value
+);
 
-MDSPAN_STATIC_TEST(std::is_standard_layout<stdex::extents<42>>::value);
+MDSPAN_STATIC_TEST(
+  std::is_standard_layout<
+    stdex::extents<1, 2, 3>
+  >::value
+);
+
+MDSPAN_STATIC_TEST(
+  std::is_standard_layout<
+    stdex::extents<42>
+  >::value
+);
 
 // </editor-fold> end extents }}}1
 //==============================================================================
@@ -90,24 +122,51 @@ MDSPAN_STATIC_TEST(std::is_standard_layout<stdex::extents<42>>::value);
 
 MDSPAN_STATIC_TEST(
   std::is_standard_layout<
-    stdex::layout_left::template mapping<stdex::extents<42, stdex::dynamic_extent, 73>>>::value);
+    stdex::layout_left::template mapping<
+      stdex::extents<42, stdex::dynamic_extent, 73>
+    >
+  >::value
+);
 
 MDSPAN_STATIC_TEST(
   std::is_standard_layout<
-    stdex::layout_right::template mapping<stdex::extents<42, stdex::dynamic_extent, 73>>>::value);
-
-MDSPAN_STATIC_TEST(std::is_standard_layout<stdex::layout_right::template mapping<
-                     stdex::extents<stdex::dynamic_extent, stdex::dynamic_extent>>>::value);
+    stdex::layout_right::template mapping<
+      stdex::extents<42, stdex::dynamic_extent, 73>
+    >
+  >::value
+);
 
 MDSPAN_STATIC_TEST(
   std::is_standard_layout<
-    stdex::layout_stride::template mapping<stdex::extents<42, stdex::dynamic_extent, 73>>>::value);
+    stdex::layout_right::template mapping<
+      stdex::extents<stdex::dynamic_extent, stdex::dynamic_extent>
+    >
+  >::value
+);
 
-MDSPAN_STATIC_TEST(std::is_standard_layout<
-                   stdex::layout_stride::template mapping<stdex::extents<42, 27, 73>>>::value);
+MDSPAN_STATIC_TEST(
+  std::is_standard_layout<
+    stdex::layout_stride::template mapping<
+      stdex::extents<42, stdex::dynamic_extent, 73>
+    >
+  >::value
+);
 
-MDSPAN_STATIC_TEST(std::is_standard_layout<stdex::layout_stride::template mapping<
-                     stdex::extents<stdex::dynamic_extent, stdex::dynamic_extent>>>::value);
+MDSPAN_STATIC_TEST(
+  std::is_standard_layout<
+    stdex::layout_stride::template mapping<
+      stdex::extents<42, 27, 73>
+    >
+  >::value
+);
+
+MDSPAN_STATIC_TEST(
+  std::is_standard_layout<
+    stdex::layout_stride::template mapping<
+      stdex::extents<stdex::dynamic_extent, stdex::dynamic_extent>
+    >
+  >::value
+);
 
 // TODO: Remove this test alltogether?
 // CT: Fails with GCC too after I removed the template parameter
@@ -134,14 +193,29 @@ MDSPAN_STATIC_TEST(
 //==============================================================================
 // <editor-fold desc="mdspan"> {{{1
 
-MDSPAN_STATIC_TEST(std::is_standard_layout<stdex::mdspan<double, stdex::extents<1, 2, 3>>>::value);
+MDSPAN_STATIC_TEST(
+  std::is_standard_layout<
+    stdex::mdspan<double, stdex::extents<1, 2, 3>>
+  >::value
+);
 
-MDSPAN_STATIC_TEST(std::is_standard_layout<stdex::mdspan<int, stdex::dextents<2>>>::value);
+MDSPAN_STATIC_TEST(
+  std::is_standard_layout<
+    stdex::mdspan<int, stdex::dextents<2>>
+  >::value
+);
 
-MDSPAN_STATIC_TEST(std::is_standard_layout<stdex::mdspan<double,
-                                                         stdex::dextents<2>,
-                                                         stdex::layout_left,
-                                                         stdex::default_accessor<double>>>::value);
+MDSPAN_STATIC_TEST(
+  std::is_standard_layout<
+    stdex::mdspan<
+      double, stdex::dextents<2>,
+      stdex::layout_left, stdex::default_accessor<double>
+    >
+  >::value
+);
 
 // </editor-fold> end mdspan }}}1
 //==============================================================================
+
+
+

@@ -52,20 +52,33 @@ namespace stdex = std::experimental;
 //==============================================================================
 // <editor-fold desc="extents"> {{{1
 
-MDSPAN_STATIC_TEST(sizeof(stdex::extents<1, 2, stdex::dynamic_extent>) == sizeof(ptrdiff_t));
+MDSPAN_STATIC_TEST(
+  sizeof(stdex::extents<1, 2, stdex::dynamic_extent>) == sizeof(ptrdiff_t)
+);
 
-MDSPAN_STATIC_TEST(sizeof(stdex::extents<stdex::dynamic_extent>) == sizeof(ptrdiff_t));
+MDSPAN_STATIC_TEST(
+  sizeof(stdex::extents<stdex::dynamic_extent>) == sizeof(ptrdiff_t)
+);
 
-MDSPAN_STATIC_TEST(sizeof(stdex::extents<stdex::dynamic_extent, stdex::dynamic_extent>) ==
-                   2 * sizeof(ptrdiff_t));
+MDSPAN_STATIC_TEST(
+  sizeof(stdex::extents<stdex::dynamic_extent, stdex::dynamic_extent>) == 2 * sizeof(ptrdiff_t)
+);
 
-MDSPAN_STATIC_TEST(sizeof(stdex::extents<stdex::dynamic_extent, 1, 2, 45>) == sizeof(ptrdiff_t));
+MDSPAN_STATIC_TEST(
+  sizeof(stdex::extents<stdex::dynamic_extent, 1, 2, 45>) == sizeof(ptrdiff_t)
+);
 
-MDSPAN_STATIC_TEST(sizeof(stdex::extents<45, stdex::dynamic_extent, 1>) == sizeof(ptrdiff_t));
+MDSPAN_STATIC_TEST(
+  sizeof(stdex::extents<45, stdex::dynamic_extent, 1>) == sizeof(ptrdiff_t)
+);
 
-MDSPAN_STATIC_TEST(std::is_empty<stdex::extents<1, 2, 3>>::value);
+MDSPAN_STATIC_TEST(
+  std::is_empty<stdex::extents<1, 2, 3>>::value
+);
 
-MDSPAN_STATIC_TEST(std::is_empty<stdex::extents<42>>::value);
+MDSPAN_STATIC_TEST(
+  std::is_empty<stdex::extents<42>>::value
+);
 
 // </editor-fold> end extents }}}1
 //==============================================================================
@@ -74,17 +87,27 @@ MDSPAN_STATIC_TEST(std::is_empty<stdex::extents<42>>::value);
 // <editor-fold desc="layouts"> {{{1
 
 MDSPAN_STATIC_TEST(
-  sizeof(stdex::layout_left::template mapping<stdex::extents<42, stdex::dynamic_extent, 73>>) ==
-  sizeof(size_t));
+  sizeof(stdex::layout_left::template mapping<
+    stdex::extents<42, stdex::dynamic_extent, 73>
+  >) == sizeof(size_t)
+);
 
-#if defined(__GNUC__) && (__GNUC__ > 8)
+#if defined(__GNUC__) && (__GNUC__>8)
 MDSPAN_STATIC_TEST(
-  std::is_empty<stdex::layout_right::template mapping<stdex::extents<42, 123, 73>>>::value);
+  std::is_empty<stdex::layout_right::template mapping<
+    stdex::extents<42, 123, 73>
+  >>::value
+);
 #endif
 
 MDSPAN_STATIC_TEST(
-  sizeof(stdex::layout_stride::template mapping<stdex::extents<42, stdex::dynamic_extent, 73>>) ==
-  4 * sizeof(size_t));
+  sizeof(stdex::layout_stride::template mapping<
+    stdex::extents<42, stdex::dynamic_extent, 73>
+  >) == 4 * sizeof(size_t)
+);
+
 
 // </editor-fold> end layouts }}}1
 //==============================================================================
+
+

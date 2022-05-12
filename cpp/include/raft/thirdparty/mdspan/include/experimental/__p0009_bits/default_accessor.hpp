@@ -45,34 +45,42 @@
 
 #include "macros.hpp"
 
-#include <cstddef>  // size_t
+#include <cstddef> // size_t
 
 namespace std {
 namespace experimental {
 
 template <class ElementType>
 struct default_accessor {
+
   using offset_policy = default_accessor;
-  using element_type  = ElementType;
-  using reference     = ElementType&;
-  using pointer       = ElementType*;
+  using element_type = ElementType;
+  using reference = ElementType&;
+  using pointer = ElementType*;
 
   constexpr default_accessor() noexcept = default;
 
   MDSPAN_TEMPLATE_REQUIRES(
     class OtherElementType,
-    /* requires */ (_MDSPAN_TRAIT(is_convertible,
-                                  typename default_accessor<OtherElementType>::element_type (*)[],
-                                  element_type (*)[])))
+    /* requires */ (
+      _MDSPAN_TRAIT(is_convertible, typename default_accessor<OtherElementType>::element_type(*)[], element_type(*)[])
+    )
+  )
   MDSPAN_INLINE_FUNCTION
   constexpr default_accessor(default_accessor<OtherElementType>) noexcept {}
 
   MDSPAN_INLINE_FUNCTION
-  constexpr pointer offset(pointer p, size_t i) const noexcept { return p + i; }
+  constexpr pointer
+  offset(pointer p, size_t i) const noexcept {
+    return p + i;
+  }
 
   MDSPAN_FORCE_INLINE_FUNCTION
-  constexpr reference access(pointer p, size_t i) const noexcept { return p[i]; }
+  constexpr reference access(pointer p, size_t i) const noexcept {
+    return p[i];
+  }
+
 };
 
-}  // end namespace experimental
-}  // end namespace std
+} // end namespace experimental
+} // end namespace std

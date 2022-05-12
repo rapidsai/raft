@@ -48,8 +48,8 @@
 #include <sstream>
 #include <stdexcept>
 
-#include "fill.hpp"
 #include "sum_3d_common.hpp"
+#include "fill.hpp"
 
 //================================================================================
 
@@ -65,80 +65,79 @@ using rmdspan = stdex::mdspan<T, stdex::extents<Es...>, stdex::layout_right>;
 //================================================================================
 
 template <class Tp>
-MDSPAN_FORCE_INLINE_FUNCTION inline void DoNotOptimize(Tp const& value)
-{
+MDSPAN_FORCE_INLINE_FUNCTION inline
+void DoNotOptimize(Tp const& value) {
   // Can't have m constraints on device
   asm volatile("" : : "r"(value) : "memory");
 }
 
 template <class Tp>
-MDSPAN_FORCE_INLINE_FUNCTION inline void DoNotOptimize(Tp& value)
-{
+MDSPAN_FORCE_INLINE_FUNCTION inline
+void DoNotOptimize(Tp& value) {
   // Can't have m constraints on device
   asm volatile("" : "+r"(value) : : "memory");
 }
 
 //================================================================================
 
-void throw_runtime_exception(const std::string& msg)
-{
+void throw_runtime_exception(const std::string &msg) {
   std::ostringstream o;
   o << msg;
   throw std::runtime_error(o.str());
 }
 
-void cuda_internal_error_throw(cudaError e,
-                               const char* name,
-                               const char* file = NULL,
-                               const int line   = 0)
-{
+void cuda_internal_error_throw(cudaError e, const char* name,
+  const char* file = NULL, const int line = 0) {
   std::ostringstream out;
-  out << name << " error( " << cudaGetErrorName(e) << "): " << cudaGetErrorString(e);
-  if (file) { out << " " << file << ":" << line; }
+  out << name << " error( " << cudaGetErrorName(e)
+      << "): " << cudaGetErrorString(e);
+  if (file) {
+    out << " " << file << ":" << line;
+  }
   throw_runtime_exception(out.str());
 }
 
-inline void cuda_internal_safe_call(cudaError e,
-                                    const char* name,
-                                    const char* file = NULL,
-                                    const int line   = 0)
-{
-  if (cudaSuccess != e) { cuda_internal_error_throw(e, name, file, line); }
+inline void cuda_internal_safe_call(cudaError e, const char* name,
+       const char* file = NULL,
+       const int line   = 0) {
+  if (cudaSuccess != e) {
+    cuda_internal_error_throw(e, name, file, line);
+  }
 }
 
-#define CUDA_SAFE_CALL(call) cuda_internal_safe_call(call, #call, __FILE__, __LINE__)
+#define CUDA_SAFE_CALL(call) \
+  cuda_internal_safe_call(call, #call, __FILE__, __LINE__)
 
 //================================================================================
 
-dim3 get_bench_grid()
-{
+dim3 get_bench_grid() {
   cudaDeviceProp cudaProp;
   CUDA_SAFE_CALL(cudaGetDeviceProperties(&cudaProp, 0));
   return dim3(cudaProp.multiProcessorCount, 1, 1);
 }
 
-dim3 get_bench_thread_block()
-{
+dim3 get_bench_thread_block() {
   cudaDeviceProp cudaProp;
   CUDA_SAFE_CALL(cudaGetDeviceProperties(&cudaProp, 1));
   return dim3(1, cudaProp.warpSize, warpsPerBlock);
 }
 
 template <class F, class... Args>
-__global__ void do_run_kernel(F f, Args... args)
-{
+__global__
+void do_run_kernel(F f, Args... args) {
   f(args...);
 }
 
 template <class F, class... Args>
-float run_kernel_timed(F&& f, Args&&... args)
-{
+float run_kernel_timed(F&& f, Args&&... args) {
   cudaEvent_t start, stop;
   CUDA_SAFE_CALL(cudaEventCreate(&start));
   CUDA_SAFE_CALL(cudaEventCreate(&stop));
 
   CUDA_SAFE_CALL(cudaEventRecord(start));
-  do_run_kernel<<<get_bench_grid(), get_bench_thread_block()>>>((F &&) f, ((Args &&) args)...);
+  do_run_kernel<<<get_bench_grid(), get_bench_thread_block()>>>(
+    (F&&)f, ((Args&&) args)...
+  );
   CUDA_SAFE_CALL(cudaEventRecord(stop));
   CUDA_SAFE_CALL(cudaEventSynchronize(stop));
   float milliseconds = 0;
@@ -147,47 +146,51 @@ float run_kernel_timed(F&& f, Args&&... args)
 }
 
 template <class MDSpan, class... DynSizes>
-MDSpan fill_device_mdspan(MDSpan, DynSizes... dyn)
-{
+MDSpan fill_device_mdspan(MDSpan, DynSizes... dyn) {
+
   using value_type = typename MDSpan::value_type;
   auto buffer_size = MDSpan{nullptr, dyn...}.mapping().required_span_size();
-  auto host_buffer =
-    std::make_unique<value_type[]>(MDSpan{nullptr, dyn...}.mapping().required_span_size());
+  auto host_buffer = std::make_unique<value_type[]>(
+    MDSpan{nullptr, dyn...}.mapping().required_span_size()
+  );
   auto host_mdspan = MDSpan{host_buffer.get(), dyn...};
   mdspan_benchmark::fill_random(host_mdspan);
 
   value_type* device_buffer = nullptr;
   CUDA_SAFE_CALL(cudaMalloc(&device_buffer, buffer_size * sizeof(value_type)));
   CUDA_SAFE_CALL(cudaMemcpy(
-    device_buffer, host_buffer.get(), buffer_size * sizeof(value_type), cudaMemcpyHostToDevice));
+    device_buffer, host_buffer.get(), buffer_size * sizeof(value_type), cudaMemcpyHostToDevice
+  ));
   return MDSpan{device_buffer, dyn...};
 }
 
 //================================================================================
 
 template <class MDSpan, class... DynSizes>
-void BM_MDSpan_Cuda_Sum_3D(benchmark::State& state, MDSpan, DynSizes... dyn)
-{
-  using value_type = typename MDSpan::value_type;
-  auto s           = fill_device_mdspan(MDSpan{}, dyn...);
+void BM_MDSpan_Cuda_Sum_3D(benchmark::State& state, MDSpan, DynSizes... dyn) {
 
-  int repeats = s.size() > (100 * 100 * 100) ? 50 : 1000;
+  using value_type = typename MDSpan::value_type;
+  auto s = fill_device_mdspan(MDSpan{}, dyn...);
+
+  int repeats = s.size() > (100*100*100) ? 50 : 1000;
 
   for (auto _ : state) {
-    auto timed = run_kernel_timed([=] __device__ {
-      for (int r = 0; r < repeats; ++r) {
-        value_type sum_local = 0;
-        for (size_t i = blockIdx.x; i < s.extent(0); i += gridDim.x) {
-          for (size_t j = threadIdx.z; j < s.extent(1); j += blockDim.z) {
-            for (size_t k = threadIdx.y; k < s.extent(2); k += blockDim.y) {
-              sum_local += s(i, j, k);
+    auto timed = run_kernel_timed(
+      [=] __device__ {
+        for(int r = 0; r < repeats; ++r) {
+          value_type sum_local = 0;
+          for(size_t i = blockIdx.x; i < s.extent(0); i += gridDim.x) {
+            for(size_t j = threadIdx.z; j < s.extent(1); j += blockDim.z) {
+              for(size_t k = threadIdx.y; k < s.extent(2); k += blockDim.y) {
+                sum_local += s(i, j, k);
+              }
             }
           }
+          DoNotOptimize(*(volatile value_type*)(&s(0,0,0)) = sum_local);
+          asm volatile ("": : :"memory");
         }
-        DoNotOptimize(*(volatile value_type*)(&s(0, 0, 0)) = sum_local);
-        asm volatile("" : : : "memory");
       }
-    });
+    );
     // units of cuda timer is milliseconds, units of iteration timer is seconds
     state.SetIterationTime(timed * 1e-3);
   }
@@ -205,34 +208,36 @@ MDSPAN_BENCHMARK_ALL_3D_MANUAL(BM_MDSpan_Cuda_Sum_3D, left_, lmdspan, 400, 400, 
 //================================================================================
 
 template <class T, class SizeX, class SizeY, class SizeZ>
-void BM_Raw_Cuda_Sum_3D_right(benchmark::State& state, T, SizeX x, SizeY y, SizeZ z)
-{
+void BM_Raw_Cuda_Sum_3D_right(benchmark::State& state, T, SizeX x, SizeY y, SizeZ z) {
+
   using value_type = T;
   value_type* data = nullptr;
   {
     // just for setup...
     auto wrapped = stdex::mdspan<T, stdex::dextents<1>>{};
-    auto s       = fill_device_mdspan(wrapped, x * y * z);
-    data         = s.data();
+    auto s = fill_device_mdspan(wrapped, x*y*z);
+    data = s.data();
   }
 
-  int repeats = x * y * z > (100 * 100 * 100) ? 50 : 1000;
+  int repeats = x*y*z > (100*100*100) ? 50 : 1000;
 
   for (auto _ : state) {
-    auto timed = run_kernel_timed([=] __device__ {
-      for (int r = 0; r < repeats; ++r) {
-        value_type sum_local = 0;
-        for (size_t i = blockIdx.x; i < x; i += gridDim.x) {
-          for (size_t j = threadIdx.z; j < y; j += blockDim.z) {
-            for (size_t k = threadIdx.y; k < z; k += blockDim.y) {
-              sum_local += data[k + j * z + i * z * y];
+    auto timed = run_kernel_timed(
+      [=] __device__ {
+        for(int r = 0; r < repeats; ++r) {
+          value_type sum_local = 0;
+          for(size_t i = blockIdx.x; i < x; i += gridDim.x) {
+            for(size_t j = threadIdx.z; j < y; j += blockDim.z) {
+              for(size_t k = threadIdx.y; k < z; k += blockDim.y) {
+                sum_local += data[k + j*z + i*z*y];
+              }
             }
           }
+          DoNotOptimize(*(volatile value_type*)(&data[0]) = sum_local);
+          asm volatile ("": : :"memory");
         }
-        DoNotOptimize(*(volatile value_type*)(&data[0]) = sum_local);
-        asm volatile("" : : : "memory");
       }
-    });
+    );
     // units of cuda timer is milliseconds, units of iteration timer is seconds
     state.SetIterationTime(timed * 1e-3);
   }
@@ -248,34 +253,36 @@ BENCHMARK_CAPTURE(BM_Raw_Cuda_Sum_3D_right, size_400_400_400, int(), 400, 400, 4
 //================================================================================
 
 template <class T, class SizeX, class SizeY, class SizeZ>
-void BM_Raw_Cuda_Sum_3D_left(benchmark::State& state, T, SizeX x, SizeY y, SizeZ z)
-{
+void BM_Raw_Cuda_Sum_3D_left(benchmark::State& state, T, SizeX x, SizeY y, SizeZ z) {
+
   using value_type = T;
   value_type* data = nullptr;
   {
     // just for setup...
     auto wrapped = stdex::mdspan<T, stdex::dextents<1>>{};
-    auto s       = fill_device_mdspan(wrapped, x * y * z);
-    data         = s.data();
+    auto s = fill_device_mdspan(wrapped, x*y*z);
+    data = s.data();
   }
 
-  int repeats = x * y * z > (100 * 100 * 100) ? 50 : 1000;
+  int repeats = x*y*z > (100*100*100) ? 50 : 1000;
 
   for (auto _ : state) {
-    auto timed = run_kernel_timed([=] __device__ {
-      for (int r = 0; r < repeats; ++r) {
+    auto timed = run_kernel_timed(
+    [=] __device__ {
+      for(int r = 0; r < repeats; ++r) {
         value_type sum_local = 0;
-        for (size_t i = blockIdx.x; i < x; i += gridDim.x) {
-          for (size_t j = threadIdx.z; j < y; j += blockDim.z) {
-            for (size_t k = threadIdx.y; k < z; k += blockDim.y) {
-              sum_local += data[k * x * y + j * x + i];
+        for(size_t i = blockIdx.x; i < x; i += gridDim.x) {
+          for(size_t j = threadIdx.z; j < y; j += blockDim.z) {
+            for(size_t k = threadIdx.y; k < z; k += blockDim.y) {
+              sum_local += data[k*x*y + j*x + i];
             }
           }
         }
         DoNotOptimize(*(volatile value_type*)(&data[0]) = sum_local);
-        asm volatile("" : : : "memory");
+        asm volatile ("": : :"memory");
       }
-    });
+    }
+    );
     // units of cuda timer is milliseconds, units of iteration timer is seconds
     state.SetIterationTime(timed * 1e-3);
   }
