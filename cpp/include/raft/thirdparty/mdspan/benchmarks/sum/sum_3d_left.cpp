@@ -46,8 +46,8 @@
 #include <memory>
 #include <random>
 
-#include "sum_3d_common.hpp"
 #include "../fill.hpp"
+#include "sum_3d_common.hpp"
 
 //================================================================================
 
@@ -59,18 +59,18 @@ using rmdspan = stdex::mdspan<T, stdex::extents<Es...>, stdex::layout_right>;
 //================================================================================
 
 template <class MDSpan, class... DynSizes>
-void BM_MDSpan_Sum_3D_left(benchmark::State& state, MDSpan, DynSizes... dyn) {
+void BM_MDSpan_Sum_3D_left(benchmark::State& state, MDSpan, DynSizes... dyn)
+{
   using value_type = typename MDSpan::value_type;
-  auto buffer = std::make_unique<value_type[]>(
-    MDSpan{nullptr, dyn...}.mapping().required_span_size()
-  );
+  auto buffer =
+    std::make_unique<value_type[]>(MDSpan{nullptr, dyn...}.mapping().required_span_size());
   auto s = MDSpan{buffer.get(), dyn...};
   mdspan_benchmark::fill_random(s);
   for (auto _ : state) {
     value_type sum = 0;
     for (size_t k = 0; k < s.extent(2); ++k) {
       for (size_t j = 0; j < s.extent(1); ++j) {
-        for(size_t i = 0; i < s.extent(0); ++i) {
+        for (size_t i = 0; i < s.extent(0); ++i) {
           sum += s(i, j, k);
         }
       }
@@ -87,35 +87,26 @@ MDSPAN_BENCHMARK_ALL_3D(BM_MDSpan_Sum_3D_left, right_, rmdspan, 200, 200, 200);
 
 //================================================================================
 
-BENCHMARK_CAPTURE(
-  BM_Raw_Sum_1D, size_8000, int(), 8000
-);
-BENCHMARK_CAPTURE(
-  BM_Raw_Sum_1D, size_8000000, int(), 8000000
-);
+BENCHMARK_CAPTURE(BM_Raw_Sum_1D, size_8000, int(), 8000);
+BENCHMARK_CAPTURE(BM_Raw_Sum_1D, size_8000000, int(), 8000000);
 
-BENCHMARK_CAPTURE(
-  BM_Raw_Sum_3D_left, size_20_20_20, int(), 20, 20, 20
-);
-BENCHMARK_CAPTURE(
-  BM_Raw_Sum_3D_left, size_200_200_200, int(), 200, 200, 200
-);
+BENCHMARK_CAPTURE(BM_Raw_Sum_3D_left, size_20_20_20, int(), 20, 20, 20);
+BENCHMARK_CAPTURE(BM_Raw_Sum_3D_left, size_200_200_200, int(), 200, 200, 200);
 
 //================================================================================
 
-BENCHMARK_CAPTURE(
-  BM_Raw_Static_Sum_3D_left, size_20_20_20, int(),
-  std::integral_constant<size_t, 20>{},
-  std::integral_constant<size_t, 20>{},
-  std::integral_constant<size_t, 20>{}
-);
-BENCHMARK_CAPTURE(
-  BM_Raw_Static_Sum_3D_left, size_200_200_200, int(),
-  std::integral_constant<size_t, 200>{},
-  std::integral_constant<size_t, 200>{},
-  std::integral_constant<size_t, 200>{}
-);
-
+BENCHMARK_CAPTURE(BM_Raw_Static_Sum_3D_left,
+                  size_20_20_20,
+                  int(),
+                  std::integral_constant<size_t, 20>{},
+                  std::integral_constant<size_t, 20>{},
+                  std::integral_constant<size_t, 20>{});
+BENCHMARK_CAPTURE(BM_Raw_Static_Sum_3D_left,
+                  size_200_200_200,
+                  int(),
+                  std::integral_constant<size_t, 200>{},
+                  std::integral_constant<size_t, 200>{},
+                  std::integral_constant<size_t, 200>{});
 
 //================================================================================
 

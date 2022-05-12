@@ -5,11 +5,18 @@
 
 namespace stdex = std::experimental;
 
-int main() {
+int main()
+{
   std::array d{
-    0, 5, 1,
-    3, 8, 4,
-    2, 7, 6,
+    0,
+    5,
+    1,
+    3,
+    8,
+    4,
+    2,
+    7,
+    6,
   };
 
   stdex::mdspan m{d.data(), stdex::extents{3, 3}};

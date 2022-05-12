@@ -24,8 +24,8 @@
 
 #include <stddef.h>
 
-#include <raft/core/mdspan.hpp>
 #include <raft/core/handle.hpp>
+#include <raft/core/mdspan.hpp>
 #include <raft/detail/mdarray.hpp>
 #include <rmm/cuda_stream_view.hpp>
 

@@ -42,14 +42,14 @@
 //@HEADER
 */
 
-
 #include <experimental/mdspan>
 
 #include <gtest/gtest.h>
 
 namespace stdex = std::experimental;
 
-TEST(TestMdspanConversionConst, test_mdspan_conversion_const) {
+TEST(TestMdspanConversionConst, test_mdspan_conversion_const)
+{
   std::array<double, 6> a{};
   stdex::mdspan<double, stdex::extents<2, 3>> s(a.data());
   ASSERT_EQ(s.data(), a.data());

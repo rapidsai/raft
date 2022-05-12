@@ -43,12 +43,12 @@
 
 #include <experimental/mdspan>
 
-#include "sum_3d_common.hpp"
 #include "fill.hpp"
+#include "sum_3d_common.hpp"
 
 #include <memory>
-#include <random>
 #include <omp.h>
+#include <random>
 
 //================================================================================
 
@@ -60,18 +60,18 @@ using rmdspan = stdex::mdspan<T, stdex::extents<Es...>, stdex::layout_right>;
 //================================================================================
 
 template <class MDSpan, class... DynSizes>
-void BM_MDSpan_Sum_3D_OpenMP(benchmark::State& state, MDSpan, DynSizes... dyn) {
+void BM_MDSpan_Sum_3D_OpenMP(benchmark::State& state, MDSpan, DynSizes... dyn)
+{
   using value_type = typename MDSpan::value_type;
-  auto buffer = std::make_unique<value_type[]>(
-    MDSpan{nullptr, dyn...}.mapping().required_span_size()
-  );
+  auto buffer =
+    std::make_unique<value_type[]>(MDSpan{nullptr, dyn...}.mapping().required_span_size());
   auto s = MDSpan{buffer.get(), dyn...};
 
-  int repeats = s.size() > (100*100*100) ? 50 : 1000;
+  int repeats = s.size() > (100 * 100 * 100) ? 50 : 1000;
 
   mdspan_benchmark::fill_random(s);
   for (auto _ : state) {
-    #pragma omp parallel default(none) shared(repeats, s)
+#pragma omp parallel default(none) shared(repeats, s)
     {
       for (int r = 0; r < repeats; ++r) {
         value_type sum = 0;
@@ -98,20 +98,20 @@ MDSPAN_BENCHMARK_ALL_3D(BM_MDSpan_Sum_3D_OpenMP, right_, rmdspan, 200, 200, 200)
 //================================================================================
 
 template <class MDSpan, class... DynSizes>
-void BM_MDSpan_Sum_3D_loop_OpenMP(benchmark::State& state, MDSpan, DynSizes... dyn) {
+void BM_MDSpan_Sum_3D_loop_OpenMP(benchmark::State& state, MDSpan, DynSizes... dyn)
+{
   using value_type = typename MDSpan::value_type;
-  auto buffer = std::make_unique<value_type[]>(
-    MDSpan{nullptr, dyn...}.mapping().required_span_size()
-  );
+  auto buffer =
+    std::make_unique<value_type[]>(MDSpan{nullptr, dyn...}.mapping().required_span_size());
   auto s = MDSpan{buffer.get(), dyn...};
 
   mdspan_benchmark::fill_random(s);
   auto sums_buffer = std::make_unique<value_type[]>(omp_get_max_threads());
-  auto* sum = sums_buffer.get();
+  auto* sum        = sums_buffer.get();
   for (auto _ : state) {
     benchmark::DoNotOptimize(sums_buffer.get());
     benchmark::DoNotOptimize(s.data());
-    #pragma omp parallel for default(none) shared(s, sum)
+#pragma omp parallel for default(none) shared(s, sum)
     for (size_t i = 0; i < s.extent(0); ++i) {
       for (size_t j = 0; j < s.extent(1); ++j) {
         for (size_t k = 0; k < s.extent(2); ++k) {
@@ -129,19 +129,20 @@ MDSPAN_BENCHMARK_ALL_3D(BM_MDSpan_Sum_3D_loop_OpenMP, left_, lmdspan, 200, 200, 
 //================================================================================
 
 template <class T, class SizeX, class SizeY, class SizeZ>
-void BM_Raw_Sum_3D_OpenMP(benchmark::State& state, T, SizeX x, SizeY y, SizeZ z) {
+void BM_Raw_Sum_3D_OpenMP(benchmark::State& state, T, SizeX x, SizeY y, SizeZ z)
+{
   auto buffer = std::make_unique<T[]>(x * y * z);
   {
     // just for setup...
-    auto wrapped = stdex::mdspan<T, stdex::dextents<1>>{buffer.get(), x*y*z};
+    auto wrapped = stdex::mdspan<T, stdex::dextents<1>>{buffer.get(), x * y * z};
     mdspan_benchmark::fill_random(wrapped);
   }
 
-  int repeats = x*y*z > (100*100*100) ? 50 : 1000;
+  int repeats = x * y * z > (100 * 100 * 100) ? 50 : 1000;
 
   T* data = buffer.get();
   for (auto _ : state) {
-    #pragma omp parallel default(none) shared(data,x,y,z,repeats)
+#pragma omp parallel default(none) shared(data, x, y, z, repeats)
     {
       for (int r = 0; r < repeats; ++r) {
         T sum = 0;
@@ -150,7 +151,7 @@ void BM_Raw_Sum_3D_OpenMP(benchmark::State& state, T, SizeX x, SizeY y, SizeZ z)
         for (size_t i = omp_get_thread_num(); i < x; i += omp_get_num_threads()) {
           for (size_t j = 0; j < y; ++j) {
             for (size_t k = 0; k < z; ++k) {
-              sum += data[k + j*z + i*z*y];
+              sum += data[k + j * z + i * z * y];
             }
           }
         }
@@ -161,15 +162,9 @@ void BM_Raw_Sum_3D_OpenMP(benchmark::State& state, T, SizeX x, SizeY y, SizeZ z)
   state.SetBytesProcessed(x * y * z * sizeof(T) * state.iterations() * repeats);
   state.counters["repeats"] = repeats;
 }
-BENCHMARK_CAPTURE(
-  BM_Raw_Sum_3D_OpenMP, size_20_20_20, int(), 20, 20, 20
-);
-BENCHMARK_CAPTURE(
-  BM_Raw_Sum_3D_OpenMP, size_200_200_200, int(), 200, 200, 200
-);
-
+BENCHMARK_CAPTURE(BM_Raw_Sum_3D_OpenMP, size_20_20_20, int(), 20, 20, 20);
+BENCHMARK_CAPTURE(BM_Raw_Sum_3D_OpenMP, size_200_200_200, int(), 200, 200, 200);
 
 //================================================================================
 
 BENCHMARK_MAIN();
-
