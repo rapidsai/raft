@@ -16,7 +16,7 @@ cmake_minimum_required(VERSION 3.20.1 FATAL_ERROR)
 
 set(pylibraft_version 22.06.00)
 
-file(DOWNLOAD https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-22.06/RAPIDS.cmake
+file(DOWNLOAD https://raw.githubusercontent.com/vyasr/rapids-cmake/fix/cython_rpath_origin/RAPIDS.cmake
         ${CMAKE_BINARY_DIR}/RAPIDS.cmake)
 include(${CMAKE_BINARY_DIR}/RAPIDS.cmake)
 
@@ -36,11 +36,6 @@ option(FIND_RAFT_CPP "Search for existing RAFT C++ installations before defaulti
 # If the user requested it we attempt to find RAFT.
 if(FIND_RAFT_CPP)
     find_package(raft ${pylibraft_version} REQUIRED COMPONENTS distance)
-    # TODO: I find it odd that the raft-config.cmake includes the corresponding
-    # component lib-target/dependency as OPTIONAL. This leads to the variables
-    # raft_distance_FOUND and raft_nn_FOUND to always be set to true, and it
-    # means that the find_package call won't fail if a user requests a
-    # component that hasn't been installed. Is that an error?
     if(NOT TARGET raft::raft_distance_lib)
         message(FATAL_ERROR "Building against a preexisting libraft library requires the distance component of that library to have been built!")
     endif()
@@ -57,6 +52,10 @@ if(NOT raft_FOUND)
   set(BUILD_BENCHMARKS OFF)
   set(RAFT_COMPILE_DIST_LIBRARY ON)
   add_subdirectory(../../cpp raft-cpp)
+
+  # When building the C++ libraries from source we must copy
+  # libraft_distance.so alongside the pairwise_distance Cython library.
+  install(TARGETS raft_distance_lib DESTINATION pylibraft/distance)
 endif()
 
 include(rapids-cython)
