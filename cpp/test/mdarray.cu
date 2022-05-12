@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 #include <gtest/gtest.h>
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
 #include <raft/core/mdarray.hpp>
 #include <raft/core/mdspan.hpp>
+#include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <rmm/cuda_stream.hpp>
 #include <rmm/device_uvector.hpp>
 #include <rmm/device_vector.hpp>
