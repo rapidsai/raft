@@ -66,7 +66,6 @@ option(RAFT_COMPILE_NN_LIBRARY "Enable building raft nearest neighbors shared li
 option(RAFT_COMPILE_DIST_LIBRARY "Enable building raft distant shared library instantiations" OFF)
 option(RAFT_ENABLE_NN_DEPENDENCIES "Search for raft::nn dependencies like faiss" ${RAFT_COMPILE_LIBRARIES})
 
-option(RAFT_ENABLE_mdspan_DEPENDENCY "Enable mdspan dependency" ON)
 option(RAFT_ENABLE_thrust_DEPENDENCY "Enable Thrust dependency" ON)
 
 if(BUILD_TESTS AND NOT RAFT_ENABLE_thrust_DEPENDENCY)
@@ -144,7 +143,6 @@ include(cmake/thirdparty/get_thrust.cmake)
 include(cmake/thirdparty/get_rmm.cmake)
 include(cmake/thirdparty/get_cuco.cmake)
 include(cmake/thirdparty/get_faiss.cmake)
-include(cmake/thirdparty/get_mdspan.cmake)
 
 if(BUILD_TESTS)
   include(cmake/thirdparty/get_gtest.cmake)
@@ -164,7 +162,7 @@ target_include_directories(raft INTERFACE
         "$<INSTALL_INTERFACE:include>")
 
 # Keep RAFT as lightweight as possible.
-# Only CUDA libs, rmm, and mdspan should
+# Only CUDA libs and rmm should
 # be used in global target.
 target_link_libraries(raft INTERFACE
         CUDA::cublas
@@ -174,7 +172,6 @@ target_link_libraries(raft INTERFACE
         CUDA::cusparse
         rmm::rmm
         $<$<BOOL:${RAFT_ENABLE_thrust_DEPENDENCY}>:raft::Thrust>
-        $<$<BOOL:${RAFT_ENABLE_mdspan_DEPENDENCY}>:std::mdspan>
 )
 
 target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
