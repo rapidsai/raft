@@ -36,6 +36,14 @@ option(FIND_RAFT_CPP "Search for existing RAFT C++ installations before defaulti
 # If the user requested it we attempt to find RAFT.
 if(FIND_RAFT_CPP)
     find_package(raft ${pylibraft_version} REQUIRED COMPONENTS distance)
+    # TODO: I find it odd that the raft-config.cmake includes the corresponding
+    # component lib-target/dependency as OPTIONAL. This leads to the variables
+    # raft_distance_FOUND and raft_nn_FOUND to always be set to true, and it
+    # means that the find_package call won't fail if a user requests a
+    # component that hasn't been installed. Is that an error?
+    if(NOT TARGET raft::raft_distance_lib)
+        message(FATAL_ERROR "Building against a preexisting libraft library requires the distance component of that library to have been built!")
+    endif()
 else()
   set(raft_FOUND OFF)
 endif()
