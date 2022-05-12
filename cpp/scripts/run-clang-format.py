@@ -25,16 +25,10 @@ import tempfile
 EXPECTED_VERSION = "11.1.0"
 VERSION_REGEX = re.compile(r"clang-format version ([0-9.]+)")
 # NOTE: populate this list with more top-level dirs as we add more of them to
-#       to the cuml repo
+#       to the raft repo
 DEFAULT_DIRS = ["cpp/bench",
-                "cpp/comms/mpi/include",
-                "cpp/comms/mpi/src",
-                "cpp/comms/std/include",
-                "cpp/comms/std/src",
                 "cpp/include",
-                "cpp/examples",
                 "cpp/src",
-                "cpp/src_prims",
                 "cpp/test"]
 
 
@@ -51,7 +45,7 @@ def parse_args():
     argparser.add_argument("-regex", type=str,
                            default=r"[.](cu|cuh|h|hpp|cpp)$",
                            help="Regex string to filter in sources")
-    argparser.add_argument("-ignore", type=str, default=r"cannylab/bh[.]cu$",
+    argparser.add_argument("-ignore", type=str, default=r"*thirdparty*$",
                            help="Regex used to ignore files from matched list")
     argparser.add_argument("-v", dest="verbose", action="store_true",
                            help="Print verbose messages")

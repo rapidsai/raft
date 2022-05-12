@@ -323,13 +323,12 @@ struct __assign_op_slice_handler<_PreserveLayoutAnalysis,
 
       template <class OldLayoutMapping>  // mostly for deferred instantiation, but maybe we'll use
                                          // this in the future
-                                         MDSPAN_INLINE_FUNCTION
-    _MDSPAN_DEDUCE_RETURN_TYPE_SINGLE_LINE(
-      (_MDSPAN_CONSTEXPR_14 /* auto */
-         make_layout_mapping(OldLayoutMapping const&) noexcept),
-      (
-        /* return */ this->_make_layout_mapping_impl(layout_type{}) /* ; */
-        ))
+      MDSPAN_INLINE_FUNCTION _MDSPAN_DEDUCE_RETURN_TYPE_SINGLE_LINE(
+        (_MDSPAN_CONSTEXPR_14 /* auto */
+           make_layout_mapping(OldLayoutMapping const&) noexcept),
+        (
+          /* return */ this->_make_layout_mapping_impl(layout_type{}) /* ; */
+          ))
 };
 
 //==============================================================================
