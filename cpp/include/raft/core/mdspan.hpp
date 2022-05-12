@@ -22,4 +22,4 @@
  */
 #pragma once
 
-#include <thirdparty/mdspan/include/experimental/mdspan>
+#include <raft/thirdparty/mdspan/include/experimental/mdspan>
