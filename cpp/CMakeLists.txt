@@ -62,8 +62,8 @@ option(DISABLE_OPENMP "Disable OpenMP" OFF)
 option(RAFT_NVTX "Enable nvtx markers" OFF)
 
 option(RAFT_COMPILE_LIBRARIES "Enable building raft shared library instantiations" ${BUILD_TESTS})
-option(RAFT_COMPILE_NN_LIBRARY "Enable building raft nearest neighbors shared library instantiations" OFF)
-option(RAFT_COMPILE_DIST_LIBRARY "Enable building raft distant shared library instantiations" OFF)
+option(RAFT_COMPILE_NN_LIBRARY "Enable building raft nearest neighbors shared library instantiations" ${RAFT_COMPILE_LIBRARIES})
+option(RAFT_COMPILE_DIST_LIBRARY "Enable building raft distant shared library instantiations" ${RAFT_COMPILE_LIBRARIES})
 option(RAFT_ENABLE_NN_DEPENDENCIES "Search for raft::nn dependencies like faiss" ${RAFT_COMPILE_LIBRARIES})
 
 option(RAFT_ENABLE_thrust_DEPENDENCY "Enable Thrust dependency" ON)
@@ -131,7 +131,12 @@ include(cmake/modules/ConfigureCUDA.cmake)
 ##############################################################################
 # - Requirements -------------------------------------------------------------
 
-if(distance IN_LIST raft_FIND_COMPONENTS OR RAFT_COMPILE_LIBRARIES OR RAFT_COMPILE_DIST_LIBRARY)
+if(RAFT_COMPILE_LIBRARIES)
+  set(RAFT_COMPILE_DIST_LIBRARY ON)
+  set(RAFT_COMPILE_NN_LIBRARY ON)
+endif()
+
+if(RAFT_COMPILE_DIST_LIBRARY OR distance IN_LIST raft_FIND_COMPONENTS)
   set(RAFT_ENABLE_cuco_DEPENDENCY ON)
 endif()
 
@@ -176,7 +181,7 @@ target_link_libraries(raft INTERFACE
 
 target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
 
-if(RAFT_COMPILE_LIBRARIES OR RAFT_COMPILE_DIST_LIBRARY OR RAFT_COMPILE_NN_LIBRARY)
+if(RAFT_COMPILE_DIST_LIBRARY OR RAFT_COMPILE_NN_LIBRARY)
   file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld"
           [=[
 SECTIONS
@@ -219,7 +224,7 @@ endif()
 
 set_target_properties(raft_distance PROPERTIES EXPORT_NAME distance)
 
-if(RAFT_COMPILE_LIBRARIES OR RAFT_COMPILE_DIST_LIBRARY)
+if(RAFT_COMPILE_DIST_LIBRARY)
   add_library(raft_distance_lib
     src/distance/pairwise_distance.cu
     src/distance/specializations/detail/canberra.cu
@@ -295,7 +300,7 @@ endif()
 
 set_target_properties(raft_nn PROPERTIES EXPORT_NAME nn)
 
-if(RAFT_COMPILE_LIBRARIES OR RAFT_COMPILE_NN_LIBRARY)
+if(RAFT_COMPILE_NN_LIBRARY)
   add_library(raft_nn_lib
           src/nn/specializations/ball_cover.cu
           src/nn/specializations/detail/ball_cover_lowdim_pass_one_2d.cu
@@ -364,6 +369,8 @@ if(TARGET raft_distance_lib)
           DESTINATION ${lib_dir}
           COMPONENT raft_distance
           EXPORT raft-distance-lib-exports)
+  install(DIRECTORY include/raft_distance
+          DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 endif()
 
 if(TARGET raft_nn_lib)
