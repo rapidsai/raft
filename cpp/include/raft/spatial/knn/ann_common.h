@@ -18,6 +18,7 @@
 
 #include <raft/distance/distance_type.hpp>
 
+#include "detail/ann_ivf_flat.cuh"
 #include <faiss/gpu/GpuIndex.h>
 #include <raft/spatial/knn/faiss_mr.hpp>
 
@@ -29,6 +30,7 @@ struct knnIndex {
   faiss::gpu::GpuIndex* index;
   raft::distance::DistanceType metric;
   float metricArg;
+  std::unique_ptr<detail::cuivflHandle> handle_;
 
   raft::spatial::knn::RmmGpuResources* gpu_res;
   int device;

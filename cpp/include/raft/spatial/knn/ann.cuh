@@ -14,9 +14,6 @@
  * limitations under the License.
  */
 
-#ifndef __ANN_H
-#define __ANN_H
-
 #pragma once
 
 #include "ann_common.h"
@@ -25,9 +22,7 @@
 #include <faiss/gpu/GpuIndex.h>
 #include <raft/spatial/knn/faiss_mr.hpp>
 
-namespace raft {
-namespace spatial {
-namespace knn {
+namespace raft::spatial::knn {
 
 /**
  * @brief Flat C++ API function to build an approximate nearest neighbors index
@@ -42,13 +37,13 @@ namespace knn {
  * @param[in] n number of rows in the index array
  * @param[in] D the dimensionality of the index array
  */
-template <typename value_idx = int>
+template <typename T = float, typename value_idx = int>
 inline void approx_knn_build_index(raft::handle_t& handle,
                                    raft::spatial::knn::knnIndex* index,
                                    knnIndexParam* params,
                                    raft::distance::DistanceType metric,
                                    float metricArg,
-                                   float* index_array,
+                                   T* index_array,
                                    value_idx n,
                                    value_idx D)
 {
@@ -68,20 +63,17 @@ inline void approx_knn_build_index(raft::handle_t& handle,
  * @param[in] query_array the query to perform a search with
  * @param[in] n number of rows in the query array
  */
-template <typename value_idx = int>
+template <typename T = float, typename value_idx = int>
 inline void approx_knn_search(raft::handle_t& handle,
                               float* distances,
                               int64_t* indices,
                               raft::spatial::knn::knnIndex* index,
+                              knnIndexParam* params,
                               value_idx k,
-                              float* query_array,
+                              T* query_array,
                               value_idx n)
 {
-  detail::approx_knn_search(handle, distances, indices, index, k, query_array, n);
+  detail::approx_knn_search(handle, distances, indices, index, params, k, query_array, n);
 }
 
-}  // namespace knn
-}  // namespace spatial
-}  // namespace raft
-
-#endif
+}  // namespace raft::spatial::knn

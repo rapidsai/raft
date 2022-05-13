@@ -26,8 +26,8 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 
-#include <label/classlabels.cuh>
 #include <raft/distance/distance.cuh>
+#include <raft/label/classlabels.cuh>
 #include <raft/spatial/knn/faiss_mr.hpp>
 
 #include <faiss/gpu/GpuDistance.h>
@@ -45,8 +45,12 @@
 
 #include <raft/distance/distance_type.hpp>
 
+#include "ann_ivf_flat.cuh"
+
 #include <iostream>
 #include <set>
+
+#define IVF_FAISS 0
 
 namespace raft {
 namespace spatial {
@@ -82,6 +86,62 @@ void approx_knn_ivfflat_build_index(
   index->index = faiss_index;
 }
 
+template <typename T = float, typename IntType = int>
+void approx_knn_cuivfl_ivfflat_build_index(knnIndex* index,
+                                           IVFParam* params,
+                                           raft::distance::DistanceType metric,
+                                           T* dataset,
+                                           IntType n,
+                                           IntType D,
+                                           cudaStream_t stream)
+{
+  int ratio = 2;  // TODO: take these parameters from API
+  int niter = 20;
+
+  index->handle_ = std::make_unique<cuivflHandle>(metric, D, params->nlist, niter, index->device);
+
+  const int dim       = D;
+  const size_t ntrain = n / ratio;
+  assert(ntrain > 0);
+
+  // T* trainset = (T*)rmm(ntrain * dim * sizeof(T));
+  // cudaMemcpyKind kind;
+  // cudaPointerAttributes attr;
+  // cudaPointerGetAttributes(&attr, dataset);
+  // if (attr.type == cudaMemoryTypeDevice || attr.type == cudaMemoryTypeManaged) {
+  //     kind = cudaMemcpyDeviceToDevice;
+  // } else {
+  //     kind = cudaMemcpyHostToDevice;
+  // }
+
+  // rmm::device_uvector<T> trainset(ntrain * dim, stream);
+  T* trainset = nullptr;
+  RAFT_CUDA_TRY(cudaMallocManaged(&trainset, ntrain * dim * sizeof(T)));
+  printf("  ntrain = %d and n = %d dim = %d nlist = %d nprobe = %d\n",
+         (int)ntrain,
+         (int)n,
+         (int)dim,
+         (int)params->nlist,
+         (int)params->nprobe);
+  fflush(0);
+
+  for (size_t i = 0; i < ntrain; ++i) {
+    RAFT_CUDA_TRY(cudaMemcpyAsync(
+      trainset + i * dim, dataset + ratio * i * dim, dim * sizeof(T), cudaMemcpyDefault, stream));
+  }
+
+  cudaDataType_t dtype;
+  if (typeid(T) == typeid(float)) {
+    dtype = CUDA_R_32F;
+  } else if (typeid(T) == typeid(uint8_t)) {
+    dtype = CUDA_R_8U;
+  } else if (typeid(T) == typeid(int8_t)) {
+    dtype = CUDA_R_8I;
+  }
+  index->handle_->cuivflBuildIndex(dataset, trainset, dtype, n, ntrain, stream);
+  RAFT_CUDA_TRY(cudaFree(trainset));
+}
+
 template <typename IntType = int>
 void approx_knn_ivfpq_build_index(
   knnIndex* index, IVFPQParam* params, raft::distance::DistanceType metric, IntType n, IntType D)
@@ -111,94 +171,180 @@ void approx_knn_ivfsq_build_index(
   index->index = faiss_index;
 }
 
-template <typename IntType = int>
+template <typename T = float, typename IntType = int>
 void approx_knn_build_index(raft::handle_t& handle,
                             raft::spatial::knn::knnIndex* index,
                             raft::spatial::knn::knnIndexParam* params,
                             raft::distance::DistanceType metric,
                             float metricArg,
-                            float* index_array,
+                            T* index_array,
                             IntType n,
                             IntType D)
 {
-  int device;
-  RAFT_CUDA_TRY(cudaGetDevice(&device));
-
-  raft::spatial::knn::RmmGpuResources* gpu_res = new raft::spatial::knn::RmmGpuResources();
-  gpu_res->noTempMemory();
-  gpu_res->setDefaultStream(device, handle.get_stream());
-  index->gpu_res   = gpu_res;
-  index->device    = device;
   index->index     = nullptr;
   index->metric    = metric;
   index->metricArg = metricArg;
 
   // perform preprocessing
   // k set to 0 (unused during preprocessing / revertion)
-  std::unique_ptr<MetricProcessor<float>> query_metric_processor =
-    create_processor<float>(metric, n, D, 0, false, handle.get_stream());
+  if constexpr (std::is_same<T, uint8_t>{} || std::is_same<T, int8_t>{}) {
+    if (dynamic_cast<IVFFlatParam*>(params)) {
+      IVFFlatParam* IVFFlat_param = dynamic_cast<IVFFlatParam*>(params);
+      T* h_index_array;
+      RAFT_CUDA_TRY(cudaMallocManaged(&h_index_array, n * D * sizeof(T)));
+      RAFT_CUDA_TRY(cudaMemcpyAsync(
+        h_index_array, index_array, n * D * sizeof(T), cudaMemcpyDefault, handle.get_stream()));
 
-  query_metric_processor->preprocess(index_array);
-
-  if (dynamic_cast<IVFFlatParam*>(params)) {
-    IVFFlatParam* IVFFlat_param = dynamic_cast<IVFFlatParam*>(params);
-    approx_knn_ivfflat_build_index(index, IVFFlat_param, metric, n, D);
-    std::vector<float> h_index_array(n * D);
-    raft::update_host(h_index_array.data(), index_array, h_index_array.size(), handle.get_stream());
-    query_metric_processor->revert(index_array);
-    index->index->train(n, h_index_array.data());
-    index->index->add(n, h_index_array.data());
-  } else {
-    if (dynamic_cast<IVFPQParam*>(params)) {
-      IVFPQParam* IVFPQ_param = dynamic_cast<IVFPQParam*>(params);
-      approx_knn_ivfpq_build_index(index, IVFPQ_param, metric, n, D);
-    } else if (dynamic_cast<IVFSQParam*>(params)) {
-      IVFSQParam* IVFSQ_param = dynamic_cast<IVFSQParam*>(params);
-      approx_knn_ivfsq_build_index(index, IVFSQ_param, metric, n, D);
-    } else {
-      ASSERT(index->index, "KNN index could not be initialized");
+      approx_knn_cuivfl_ivfflat_build_index(
+        index, IVFFlat_param, metric, h_index_array, n, D, handle.get_stream());
     }
+  } else if constexpr (std::is_same<T, float>{}) {
+    std::unique_ptr<MetricProcessor<float>> query_metric_processor =
+      create_processor<float>(metric, n, D, 0, false, handle.get_stream());
 
-    index->index->train(n, index_array);
-    index->index->add(n, index_array);
-    query_metric_processor->revert(index_array);
+    if (dynamic_cast<IVFFlatParam*>(params)) {
+      IVFFlatParam* IVFFlat_param = dynamic_cast<IVFFlatParam*>(params);
+      // cuivfl only supports L2/Inner product for now.
+      if (metric == raft::distance::DistanceType::L2SqrtExpanded ||
+          metric == raft::distance::DistanceType::L2SqrtUnexpanded ||
+          metric == raft::distance::DistanceType::L2Unexpanded ||
+          metric == raft::distance::DistanceType::L2Expanded ||
+          metric == raft::distance::DistanceType::InnerProduct) {
+        T* h_index_array;
+        cudaMallocManaged(&h_index_array, n * D * sizeof(T));
+        // raft::update_host(h_index_array.data(), index_array, h_index_array.size(),
+        // handle.get_stream());
+        cudaMemcpy(h_index_array, index_array, n * D * sizeof(T), cudaMemcpyDefault);
+
+        approx_knn_cuivfl_ivfflat_build_index(
+          index, IVFFlat_param, metric, h_index_array, n, D, handle.get_stream());
+      } else {
+        int device;
+        RAFT_CUDA_TRY(cudaGetDevice(&device));
+        raft::spatial::knn::RmmGpuResources* gpu_res = new raft::spatial::knn::RmmGpuResources();
+        gpu_res->noTempMemory();
+        gpu_res->setDefaultStream(device, handle.get_stream());
+        index->gpu_res = gpu_res;
+        index->device  = device;
+        approx_knn_ivfflat_build_index(index, IVFFlat_param, metric, n, D);
+        std::vector<float> h_index_array(n * D);
+        raft::update_host(
+          h_index_array.data(), index_array, h_index_array.size(), handle.get_stream());
+        query_metric_processor->revert(index_array);
+        index->index->train(n, h_index_array.data());
+        index->index->add(n, h_index_array.data());
+      }
+    } else {
+      int device;
+      RAFT_CUDA_TRY(cudaGetDevice(&device));
+      raft::spatial::knn::RmmGpuResources* gpu_res = new raft::spatial::knn::RmmGpuResources();
+      gpu_res->noTempMemory();
+      gpu_res->setDefaultStream(device, handle.get_stream());
+      index->gpu_res = gpu_res;
+      index->device  = device;
+      query_metric_processor->preprocess(index_array);
+      if (dynamic_cast<IVFPQParam*>(params)) {
+        IVFPQParam* IVFPQ_param = dynamic_cast<IVFPQParam*>(params);
+        approx_knn_ivfpq_build_index(index, IVFPQ_param, metric, n, D);
+      } else if (dynamic_cast<IVFSQParam*>(params)) {
+        IVFSQParam* IVFSQ_param = dynamic_cast<IVFSQParam*>(params);
+        approx_knn_ivfsq_build_index(index, IVFSQ_param, metric, n, D);
+      } else {
+        ASSERT(index->index, "KNN index could not be initialized");
+      }
+
+      index->index->train(n, index_array);
+      index->index->add(n, index_array);
+      query_metric_processor->revert(index_array);
+    }
   }
 }
 
-template <typename IntType = int>
+template <typename T = float, typename IntType = int>
 void approx_knn_search(raft::handle_t& handle,
                        float* distances,
                        int64_t* indices,
                        raft::spatial::knn::knnIndex* index,
+                       raft::spatial::knn::knnIndexParam* params,
                        IntType k,
-                       float* query_array,
+                       T* query_array,
                        IntType n)
 {
   // perform preprocessing
+#if 0
   std::unique_ptr<MetricProcessor<float>> query_metric_processor =
-    create_processor<float>(index->metric, n, index->index->d, k, false, handle.get_stream());
-
+  create_processor<float>(index->metric, n, index->index->d, k, false, handle.get_stream());
   query_metric_processor->preprocess(query_array);
-  index->index->search(n, query_array, k, distances, indices);
-  query_metric_processor->revert(query_array);
+    index->index->search(n, query_array, k, distances, indices);
+#else
+  if constexpr (std::is_same<T, uint8_t>{} || std::is_same<T, int8_t>{}) {
+    if (dynamic_cast<IVFFlatParam*>(params)) {
+      IVFFlatParam* IVFFlat_param = dynamic_cast<IVFFlatParam*>(params);
+      int nprobe                  = IVFFlat_param->nprobe;
+      int max_batch               = n;
+      int max_k                   = k;
+      // assert(nprobe <= nlist_); ?? is it supposed to compare agains the private member of
+      // cuivflHandle?
 
-  // Perform necessary post-processing
-  if (index->metric == raft::distance::DistanceType::L2SqrtExpanded ||
-      index->metric == raft::distance::DistanceType::L2SqrtUnexpanded ||
-      index->metric == raft::distance::DistanceType::LpUnexpanded) {
-    /**
-     * post-processing
-     */
-    float p = 0.5;  // standard l2
-    if (index->metric == raft::distance::DistanceType::LpUnexpanded) p = 1.0 / index->metricArg;
-    raft::linalg::unaryOp<float>(
-      distances,
-      distances,
-      n * k,
-      [p] __device__(float input) { return powf(input, p); },
-      handle.get_stream());
+      index->handle_->cuivflSetSearchParameters(nprobe, max_batch, max_k);
+
+      cudaDataType_t dtype;
+      if (typeid(T) == typeid(float)) {
+        dtype = CUDA_R_32F;
+      } else if (typeid(T) == typeid(uint8_t)) {
+        dtype = CUDA_R_8U;
+      } else if (typeid(T) == typeid(int8_t)) {
+        dtype = CUDA_R_8I;
+      }
+      index->handle_->cuivflSearch(
+        query_array, max_batch, max_k, (size_t*)indices, distances, handle.get_stream(), dtype);
+    }
+  } else if constexpr (std::is_same<T, float>{}) {
+    std::unique_ptr<MetricProcessor<float>> query_metric_processor = create_processor<float>(
+      index->metric, n, index->handle_->getDim(), k, false, handle.get_stream());
+    query_metric_processor->preprocess(query_array);
+    if (dynamic_cast<IVFFlatParam*>(params)) {
+      IVFFlatParam* IVFFlat_param = dynamic_cast<IVFFlatParam*>(params);
+      int nprobe                  = IVFFlat_param->nprobe;
+      int max_batch               = n;
+      int max_k                   = k;
+      // assert(nprobe <= nlist_); ?? is it supposed to compare agains the private member of
+      // cuivflHandle?
+
+      index->handle_->cuivflSetSearchParameters(nprobe, max_batch, max_k);
+
+      cudaDataType_t dtype;
+      if (typeid(T) == typeid(float)) {
+        dtype = CUDA_R_32F;
+      } else if (typeid(T) == typeid(uint8_t)) {
+        dtype = CUDA_R_8U;
+      } else if (typeid(T) == typeid(int8_t)) {
+        dtype = CUDA_R_8I;
+      }
+      index->handle_->cuivflSearch(
+        query_array, max_batch, max_k, (size_t*)indices, distances, handle.get_stream(), dtype);
+    }
+    query_metric_processor->revert(query_array);
+
+    // Perform necessary post-processing
+    if (index->metric == raft::distance::DistanceType::L2SqrtExpanded ||
+        index->metric == raft::distance::DistanceType::L2SqrtUnexpanded ||
+        index->metric == raft::distance::DistanceType::LpUnexpanded) {
+      /**
+       * post-processing
+       */
+      float p = 0.5;  // standard l2
+      if (index->metric == raft::distance::DistanceType::LpUnexpanded) p = 1.0 / index->metricArg;
+      raft::linalg::unaryOp<float>(
+        distances,
+        distances,
+        n * k,
+        [p] __device__(float input) { return powf(input, p); },
+        handle.get_stream());
+    }
+    query_metric_processor->postprocess(distances);
   }
-  query_metric_processor->postprocess(distances);
+#endif
 }
 
 }  // namespace detail

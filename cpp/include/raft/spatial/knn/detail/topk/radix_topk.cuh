@@ -16,14 +16,20 @@
 
 #pragma once
 
+#include <raft/cudart_utils.h>
+#include <raft/device_atomics.cuh>
+#include <raft/vectorized.cuh>
+
 #include <cub/block/block_load.cuh>
 #include <cub/block/block_scan.cuh>
 #include <cub/block/block_store.cuh>
 #include <cub/block/radix_rank_sort_operations.cuh>
 
-#include <raft/cudart_utils.h>
-#include <raft/device_atomics.cuh>
-#include <raft/vectorized.cuh>
+#include <rmm/device_vector.hpp>
+#include <rmm/mr/device/per_device_resource.hpp>
+#include <rmm/mr/device/pool_memory_resource.hpp>
+
+#include <optional>
 
 namespace raft::spatial::knn::detail::topk {
 
@@ -531,7 +537,8 @@ void radix_topk(const T* in,
                 T* out,
                 IdxT* out_idx,
                 bool select_min,
-                rmm::cuda_stream_view stream)
+                rmm::cuda_stream_view stream,
+                rmm::mr::device_memory_resource* mr = nullptr)
 {
   // TODO: is it possible to relax this restriction?
   static_assert(calc_num_passes<T, BitsPerPass>() > 1);
@@ -541,12 +548,22 @@ void radix_topk(const T* in,
   uint16_t max_chunk_size =
     get_optimal_batch_size<T, IdxT, BitsPerPass, BlockSize>(batch_size, blocks_per_row);
 
-  rmm::device_uvector<Counter<T, IdxT>> counters(max_chunk_size, stream);
-  rmm::device_uvector<IdxT> histograms(num_buckets * max_chunk_size, stream);
-  rmm::device_uvector<T> buf1(len * max_chunk_size, stream);
-  rmm::device_uvector<IdxT> idx_buf1(len * max_chunk_size, stream);
-  rmm::device_uvector<T> buf2(len * max_chunk_size, stream);
-  rmm::device_uvector<IdxT> idx_buf2(len * max_chunk_size, stream);
+  std::optional<rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource>> pool_res;
+  if (mr == nullptr) {
+    pool_res.emplace(
+      rmm::mr::get_current_device_resource(),
+      max_chunk_size * (sizeof(Counter<T, IdxT>)            // counters
+                        + sizeof(IdxT) * (num_buckets + 2)  // histograms and IdxT bufs
+                        + sizeof(T) * 2                     // T bufs
+                        ));
+    mr = &(pool_res.value());
+  }
+  rmm::device_uvector<Counter<T, IdxT>> counters(max_chunk_size, stream, mr);
+  rmm::device_uvector<IdxT> histograms(num_buckets * max_chunk_size, stream, mr);
+  rmm::device_uvector<T> buf1(len * max_chunk_size, stream, mr);
+  rmm::device_uvector<IdxT> idx_buf1(len * max_chunk_size, stream, mr);
+  rmm::device_uvector<T> buf2(len * max_chunk_size, stream, mr);
+  rmm::device_uvector<IdxT> idx_buf2(len * max_chunk_size, stream, mr);
 
   for (size_t offset = 0; offset < batch_size; offset += max_chunk_size) {
     auto chunk_size = uint16_t(std::min<size_t>(max_chunk_size, batch_size - offset));
@@ -603,6 +620,173 @@ void radix_topk(const T* in,
       RAFT_CUDA_TRY(cudaPeekAtLastError());
     }
   }
+}
+
+inline size_t calc_aligned_size(const std::vector<size_t>& sizes)
+{
+  const size_t ALIGN_BYTES = 256;
+  const size_t ALIGN_MASK  = ~(ALIGN_BYTES - 1);
+  size_t total             = 0;
+  for (auto sz : sizes) {
+    total += (sz + ALIGN_BYTES - 1) & ALIGN_MASK;
+  }
+  return total + ALIGN_BYTES - 1;
+}
+
+inline std::vector<void*> calc_aligned_pointers(const void* p, const std::vector<size_t>& sizes)
+{
+  const size_t ALIGN_BYTES = 256;
+  const size_t ALIGN_MASK  = ~(ALIGN_BYTES - 1);
+
+  char* ptr = reinterpret_cast<char*>((reinterpret_cast<size_t>(p) + ALIGN_BYTES - 1) & ALIGN_MASK);
+
+  std::vector<void*> aligned_pointers;
+  aligned_pointers.reserve(sizes.size());
+  for (auto sz : sizes) {
+    aligned_pointers.push_back(ptr);
+    ptr += (sz + ALIGN_BYTES - 1) & ALIGN_MASK;
+  }
+
+  return aligned_pointers;
+}
+
+template <typename T, typename idxT, int BITS_PER_PASS, int NUM_THREAD>
+void radix_topk(void* buf,
+                size_t& buf_size,
+                const T* in,
+                const idxT* in_idx,
+                idxT batch_size,
+                idxT len,
+                idxT k,
+                T* out,
+                idxT* out_idx,
+                bool greater,
+                cudaStream_t stream)
+{
+  // TODO: is it possible to relax this condition?
+  static_assert(calc_num_passes<T, BITS_PER_PASS>() > 1);
+  constexpr int num_buckets = calc_num_buckets<BITS_PER_PASS>();
+
+  Counter<T, idxT>* counters = nullptr;
+  idxT* histograms           = nullptr;
+  T* buf1                    = nullptr;
+  idxT* idx_buf1             = nullptr;
+  T* buf2                    = nullptr;
+  idxT* idx_buf2             = nullptr;
+  {
+    std::vector<size_t> sizes = {sizeof(*counters) * batch_size,
+                                 sizeof(*histograms) * num_buckets * batch_size,
+                                 sizeof(*buf1) * len * batch_size,
+                                 sizeof(*idx_buf1) * len * batch_size,
+                                 sizeof(*buf2) * len * batch_size,
+                                 sizeof(*idx_buf2) * len * batch_size};
+    size_t total_size         = calc_aligned_size(sizes);
+    if (!buf) {
+      buf_size = total_size;
+      return;
+    }
+
+    std::vector<void*> aligned_pointers = calc_aligned_pointers(buf, sizes);
+    counters                            = static_cast<decltype(counters)>(aligned_pointers[0]);
+    histograms                          = static_cast<decltype(histograms)>(aligned_pointers[1]);
+    buf1                                = static_cast<decltype(buf1)>(aligned_pointers[2]);
+    idx_buf1                            = static_cast<decltype(idx_buf1)>(aligned_pointers[3]);
+    buf2                                = static_cast<decltype(buf2)>(aligned_pointers[4]);
+    idx_buf2                            = static_cast<decltype(idx_buf2)>(aligned_pointers[5]);
+
+    RAFT_CUDA_TRY(cudaMemsetAsync(
+      buf,
+      0,
+      static_cast<char*>(aligned_pointers[2]) - static_cast<char*>(aligned_pointers[0]),
+      stream));
+  }
+
+  const T* in_buf        = nullptr;
+  const idxT* in_idx_buf = nullptr;
+  T* out_buf             = nullptr;
+  idxT* out_idx_buf      = nullptr;
+
+  dim3 blocks((len - 1) / (NUM_THREAD * ITEM_PER_THREAD) + 1, batch_size);
+
+  constexpr int num_passes = calc_num_passes<T, BITS_PER_PASS>();
+  for (int pass = 0; pass < num_passes; pass++) {
+    if (pass == 0) {
+      in_buf      = in;
+      in_idx_buf  = nullptr;
+      out_buf     = nullptr;
+      out_idx_buf = nullptr;
+    } else if (pass == 1) {
+      in_buf      = in;
+      in_idx_buf  = in_idx ? in_idx : nullptr;
+      out_buf     = buf1;
+      out_idx_buf = idx_buf1;
+    } else if (pass % 2 == 0) {
+      in_buf      = buf1;
+      in_idx_buf  = idx_buf1;
+      out_buf     = buf2;
+      out_idx_buf = idx_buf2;
+    } else {
+      in_buf      = buf2;
+      in_idx_buf  = idx_buf2;
+      out_buf     = buf1;
+      out_idx_buf = idx_buf1;
+    }
+
+    radix_kernel<T, idxT, BITS_PER_PASS, NUM_THREAD><<<blocks, NUM_THREAD, 0, stream>>>(in_buf,
+                                                                                        in_idx_buf,
+                                                                                        out_buf,
+                                                                                        out_idx_buf,
+                                                                                        out,
+                                                                                        out_idx,
+                                                                                        counters,
+                                                                                        histograms,
+                                                                                        len,
+                                                                                        k,
+                                                                                        greater,
+                                                                                        pass);
+  }
+}
+
+template <typename T, typename idxT>
+void radix_topk_11bits(void* buf,
+                       size_t& buf_size,
+                       const T* in,
+                       idxT batch_size,
+                       idxT len,
+                       idxT k,
+                       T* out,
+                       idxT* out_idx       = nullptr,
+                       bool greater        = true,
+                       cudaStream_t stream = 0)
+{
+  radix_topk<T, idxT, 11, 512>(buf,
+                               buf_size,
+                               in,
+                               static_cast<idxT*>(nullptr),
+                               batch_size,
+                               len,
+                               k,
+                               out,
+                               out_idx,
+                               greater,
+                               stream);
+}
+
+template <typename T, typename idxT>
+void radix_topk_11bits(void* buf,
+                       size_t& buf_size,
+                       const T* in,
+                       const idxT* in_idx,
+                       idxT batch_size,
+                       idxT len,
+                       idxT k,
+                       T* out,
+                       idxT* out_idx       = nullptr,
+                       bool greater        = true,
+                       cudaStream_t stream = 0)
+{
+  radix_topk<T, idxT, 11, 512>(
+    buf, buf_size, in, in_idx, batch_size, len, k, out, out_idx, greater, stream);
 }
 
 }  // namespace raft::spatial::knn::detail::topk
