@@ -35,7 +35,7 @@ option(FIND_RAFT_CPP "Search for existing RAFT C++ installations before defaulti
 
 # If the user requested it we attempt to find RAFT.
 if(FIND_RAFT_CPP)
-    find_package(raft ${pyraft_version} REQUIRED COMPONENTS distance)
+    find_package(raft ${pyraft_version} REQUIRED)
 else()
   set(raft_FOUND OFF)
 endif()
@@ -44,7 +44,13 @@ if(NOT raft_FOUND)
   # TODO: This will not be necessary once we upgrade to CMake 3.22, which will
   # pull in the required languages for the C++ project even if this project
   # does not require those languges.
+  include(rapids-cuda)
+  rapids_cuda_init_architectures(pylibraft)
   enable_language(CUDA)
+  # Since pylibraft only enables CUDA optionally we need to manually include the file that
+  # rapids_cuda_init_architectures relies on `project` including.
+  include("${CMAKE_PROJECT_pylibraft_INCLUDE}")
+
   set(BUILD_TESTS OFF)
   set(BUILD_BENCHMARKS OFF)
   add_subdirectory(../../cpp raft-cpp)
