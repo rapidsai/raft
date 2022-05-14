@@ -18,3 +18,13 @@ rapids_cython_create_modules(
     SOURCE_FILES "${cython_sources}"
     LINKED_LIBRARIES "${linked_libraries}"
     CXX)
+
+find_library(NCCL_PATH nccl REQUIRED)
+foreach(cython_module IN LISTS RAPIDS_CYTHON_CREATED_TARGETS)
+  set(is_nccl "")
+  string(FIND "${cython_module}" nccl is_nccl)
+
+  if(NOT is_nccl EQUAL -1)
+    target_link_libraries("${cython_module}" "${NCCL_PATH}")
+  endif()
+endforeach()
