@@ -40,33 +40,22 @@
     although the API is not typical.
     class warp_sort_filtered and warp_sort_immediate can be used to instantiate block_sort.
 
-    It uses dynamic shared memory as intermediate buffer.
+    It uses dynamic shared memory as an intermediate buffer.
     So the required shared memory size should be calculated using
     calc_smem_size_for_block_wide() and passed as the 3rd kernel launch parameter.
 
-    Two overload functions can be used to add items to the queue.
-    One is load(const T* in, IdxT start, IdxT end) and it adds a range of items,
-    namely [start, end) of in. The idx is inferred from start.
-    This function should be called only once to add all items, and should not be
-    used together with the add().
-    The second one is add(T val, IdxT idx), and it adds only one item pair.
-    Note that the range [start, end) is for the whole block of threads, that is,
-    each thread in the same block should get the same start/end.
-    In contrast, the parameters of the second form are for only one thread,
-    so each thread must get different val/idx.
+    To add elements to the queue, use add(T val, IdxT idx) with unique values per-thread.
+    Use WarpSortClass<...>::kDummy constant for the threads outside of input bounds.
 
-    After adding is finished, function done() should be called. And finally,
-    store() is used to get the top-k result.
+    After adding is finished, function done() should be called. And finally, store() is used to get
+    the top-k result.
 
     Example:
       __global__ void kernel() {
         block_sort<warp_sort_immediate, ...> queue(...);
 
-        // way 1, [0, len) is same for the whole block
-        queue.load(in, 0, len);
-        // way 2, each thread gets its own val/idx pair
         for (IdxT i = threadIdx.x; i < len, i += blockDim.x) {
-          queue.add(in[i], idx[i]);
+          queue.add(in[i], in_idx[i]);
         }
 
         queue.done();
@@ -79,10 +68,7 @@
 
   3. class warp_sort_filtered and class warp_sort_immediate
     These two classes can be regarded as fixed size priority queue for a warp.
-    Usage is similar to class block_sort.
-    Two types of add() functions are provided, and also note that [start, end) is
-    for a whole warp, while val/idx is for a thread.
-    No shared memory is needed.
+    Usage is similar to class block_sort. No shared memory is needed.
 
     The host function (warp_sort_topk) uses a heuristic to choose between these two classes for
     sorting, warp_sort_immediate being chosen when the number of inputs per warp is somewhat small
@@ -94,16 +80,13 @@
         int warp_id = threadIdx.x / WarpSize;
         int lane_id = threadIdx.x % WarpSize;
 
-        // way 1, [0, len) is same for the whole warp
-        queue.load(in, 0, len);
-        // way 2, each thread gets its own val/idx pair
         for (IdxT i = lane_id; i < len, i += WarpSize) {
           queue.add(in[i], idx[i]);
         }
 
         queue.done();
         // each warp outputs to a different offset
-        queue.store(out+ warp_id * k, out_idx+ warp_id * k);
+        queue.store(out + warp_id * k, out_idx + warp_id * k);
       }
  */
 
@@ -124,7 +107,6 @@ __device__ __forceinline__ auto is_ordered(T left, T right) -> bool
 constexpr auto calc_capacity(int k) -> int
 {
   int capacity = isPo2(k) ? k : (1 << (log2(k) + 1));
-  if (capacity < WarpSize) { capacity = WarpSize; }  // TODO: remove this to allow small sizes.
   return capacity;
 }
 
@@ -152,59 +134,91 @@ class warp_sort {
 
  public:
   /**
+   *  The `empty` value for the choosen binary operation,
+   *  i.e. `Ascending ? upper_bound<T>() : lower_bound<T>()`.
+   */
+  static constexpr T kDummy = Ascending ? upper_bound<T>() : lower_bound<T>();
+  /** Width of the subwarp. */
+  static constexpr int kWarpWidth = std::min<int>(Capacity, WarpSize);
+  /** The number of elements to select. */
+  const int k;
+
+  /**
    * Construct the warp_sort empty queue.
    *
    * @param k
    *   number of elements to select.
-   * @param dummy
-   *   the `empty` value for the choosen binary operation,
-   *   i.e. `Ascending ? upper_bound<T>() : lower_bound<T>()`.
-   *
    */
-  __device__ warp_sort(IdxT k, T dummy) : k_(k), dummy_(dummy)
+  __device__ warp_sort(int k) : k(k)
   {
 #pragma unroll
     for (int i = 0; i < kMaxArrLen; i++) {
-      val_arr_[i] = dummy_;
+      val_arr_[i] = kDummy;
     }
   }
 
   /**
    * Load k values from the pointers at the given position, and merge them in the storage.
+   *
+   * When it actually loads the values, it always performs some collective warp operations in the
+   * end, thus enforcing warp sync. This means, it's safe to call `store` with the same arguments
+   * after `load_sorted` without extra sync. Note, however, that this is not neccesarily true for
+   * the reverse order, because the access patterns of `store` and `load_sorted` are different.
+   *
+   * @param[in] in
+   *    a device pointer to a contiguous array, unique per-subwarp
+   *    (length: k <= kWarpWidth * kMaxArrLen).
+   * @param[in] in_idx
+   *    a device pointer to a contiguous array, unique per-subwarp
+   *    (length: k <= kWarpWidth * kMaxArrLen).
+   * @param[in] do_merge
+   *    must be the same for all threads within a subwarp of size `kWarpWidth`.
+   *    It serves as a conditional; when `false` the function does nothing.
+   *    We need it to ensure threads within a full warp don't diverge calling `bitonic::merge()`.
    */
-  __device__ void load_sorted(const T* in, const IdxT* in_idx)
+  __device__ void load_sorted(const T* in, const IdxT* in_idx, bool do_merge = true)
   {
-    IdxT idx = kWarpWidth - 1 - Pow2<kWarpWidth>::mod(laneId());
+    if (do_merge) {
+      int idx = Pow2<kWarpWidth>::mod(laneId()) ^ Pow2<kWarpWidth>::Mask;
 #pragma unroll
-    for (int i = kMaxArrLen - 1; i >= 0; --i, idx += kWarpWidth) {
-      if (idx < k_) {
-        T t = in[idx];
-        if (is_ordered<Ascending>(t, val_arr_[i])) {
-          val_arr_[i] = t;
-          idx_arr_[i] = in_idx[idx];
+      for (int i = kMaxArrLen - 1; i >= 0; --i, idx += kWarpWidth) {
+        if (idx < k) {
+          T t = in[idx];
+          if (is_ordered<Ascending>(t, val_arr_[i])) {
+            val_arr_[i] = t;
+            idx_arr_[i] = in_idx[idx];
+          }
         }
       }
     }
-    topk::bitonic<kMaxArrLen>(Ascending, kWarpWidth).merge(val_arr_, idx_arr_);
+    if (kWarpWidth < WarpSize || do_merge) {
+      topk::bitonic<kMaxArrLen>(Ascending, kWarpWidth).merge(val_arr_, idx_arr_);
+    }
   }
 
-  /** Save the content by the pointer location. */
+  /**
+   *  Save the content by the pointer location.
+   *
+   * @param[out] out
+   *   device pointer to a contiguous array, unique per-subwarp of size `kWarpWidth`
+   *    (length: k <= kWarpWidth * kMaxArrLen).
+   * @param[out] out_idx
+   *   device pointer to a contiguous array, unique per-subwarp of size `kWarpWidth`
+   *    (length: k <= kWarpWidth * kMaxArrLen).
+   */
   __device__ void store(T* out, IdxT* out_idx) const
   {
-    IdxT idx = Pow2<kWarpWidth>::mod(laneId());
+    int idx = Pow2<kWarpWidth>::mod(laneId());
 #pragma unroll kMaxArrLen
-    for (int i = 0; i < kMaxArrLen && idx < k_; i++, idx += kWarpWidth) {
+    for (int i = 0; i < kMaxArrLen && idx < k; i++, idx += kWarpWidth) {
       out[idx]     = val_arr_[i];
       out_idx[idx] = idx_arr_[i];
     }
   }
 
  protected:
-  static constexpr int kWarpWidth = std::min<int>(Capacity, WarpSize);
   static constexpr int kMaxArrLen = Capacity / kWarpWidth;
 
-  const IdxT k_;
-  const T dummy_;
   T val_arr_[kMaxArrLen];
   IdxT idx_arr_[kMaxArrLen];
 
@@ -237,7 +251,7 @@ class warp_sort {
         idx_arr_[kMaxArrLen - i] = ids_in[PerThreadSizeIn - i];
       }
     }
-    topk::bitonic<kMaxArrLen>(Ascending).merge(val_arr_, idx_arr_);
+    topk::bitonic<kMaxArrLen>(Ascending, kWarpWidth).merge(val_arr_, idx_arr_);
   }
 };
 
@@ -251,25 +265,17 @@ class warp_sort {
  */
 template <int Capacity, bool Ascending, typename T, typename IdxT>
 class warp_sort_filtered : public warp_sort<Capacity, Ascending, T, IdxT> {
-  static_assert(Capacity >= WarpSize);
-
  public:
-  __device__ warp_sort_filtered(int k, T dummy)
-    : warp_sort<Capacity, Ascending, T, IdxT>(k, dummy), buf_len_(0), k_th_(dummy)
+  using warp_sort<Capacity, Ascending, T, IdxT>::kDummy;
+  using warp_sort<Capacity, Ascending, T, IdxT>::kWarpWidth;
+  using warp_sort<Capacity, Ascending, T, IdxT>::k;
+
+  __device__ warp_sort_filtered(int k)
+    : warp_sort<Capacity, Ascending, T, IdxT>(k), buf_len_(0), k_th_(kDummy)
   {
 #pragma unroll
     for (int i = 0; i < kMaxBufLen; i++) {
-      val_buf_[i] = dummy_;
-    }
-  }
-
-  __device__ void load(const T* in, const IdxT* in_idx, IdxT start, IdxT end)
-  {
-    const IdxT end_for_fullwarp = Pow2<WarpSize>::roundUp(end - start) + start;
-    for (IdxT i = start + laneId(); i < end_for_fullwarp; i += WarpSize) {
-      T val    = (i < end) ? in[i] : dummy_;
-      IdxT idx = (i < end) ? in_idx[i] : std::numeric_limits<IdxT>::max();
-      add(val, idx);
+      val_buf_[i] = kDummy;
     }
   }
 
@@ -277,19 +283,18 @@ class warp_sort_filtered : public warp_sort<Capacity, Ascending, T, IdxT> {
   {
     // comparing for k_th should reduce the total amount of updates:
     // `false` means the input value is surely not in the top-k values.
-    if (is_ordered<Ascending>(val, k_th_)) {
-      // NB: the loop is used here to ensure the constant indexing,
-      //     to not force the buffers spill into the local memory.
-#pragma unroll
-      for (int i = 0; i < kMaxBufLen; i++) {
-        if (i == buf_len_) {
-          val_buf_[i] = val;
-          idx_buf_[i] = idx;
-        }
+    bool do_add = is_ordered<Ascending>(val, k_th_);
+    // merge the buf if it's full and we cannot add an element anymore.
+    if (any(buf_len_ + do_add > kMaxBufLen)) {
+      // still, add an element before merging if possible for this thread
+      if (do_add && buf_len_ < kMaxBufLen) {
+        add_to_buf_(val, idx);
+        do_add = false;
       }
-      ++buf_len_;
+      merge_buf_();
     }
-    if (any(buf_len_ == kMaxBufLen)) { merge_buf_(); }
+    // add an element if necessary and haven't already.
+    if (do_add) { add_to_buf_(val, idx); }
   }
 
   __device__ void done()
@@ -298,30 +303,42 @@ class warp_sort_filtered : public warp_sort<Capacity, Ascending, T, IdxT> {
   }
 
  private:
-  __device__ void set_k_th_()
+  __device__ __forceinline__ void set_k_th_()
   {
     // NB on using srcLane: it's ok if it is outside the warp size / width;
     //                      the modulo op will be done inside the __shfl_sync.
-    k_th_ = shfl(val_arr_[kMaxArrLen - 1], k_ - 1);
+    k_th_ = shfl(val_arr_[kMaxArrLen - 1], k - 1, kWarpWidth);
   }
 
-  __device__ void merge_buf_()
+  __device__ __forceinline__ void merge_buf_()
   {
-    topk::bitonic<kMaxBufLen>(!Ascending).sort(val_buf_, idx_buf_);
+    topk::bitonic<kMaxBufLen>(!Ascending, kWarpWidth).sort(val_buf_, idx_buf_);
     this->merge_in<kMaxBufLen>(val_buf_, idx_buf_);
     buf_len_ = 0;
     set_k_th_();  // contains warp sync
 #pragma unroll
     for (int i = 0; i < kMaxBufLen; i++) {
-      val_buf_[i] = dummy_;
+      val_buf_[i] = kDummy;
     }
+  }
+
+  __device__ __forceinline__ void add_to_buf_(T val, IdxT idx)
+  {
+    // NB: the loop is used here to ensure the constant indexing,
+    //     to not force the buffers spill into the local memory.
+#pragma unroll
+    for (int i = 0; i < kMaxBufLen; i++) {
+      if (i == buf_len_) {
+        val_buf_[i] = val;
+        idx_buf_[i] = idx;
+      }
+    }
+    buf_len_++;
   }
 
   using warp_sort<Capacity, Ascending, T, IdxT>::kMaxArrLen;
   using warp_sort<Capacity, Ascending, T, IdxT>::val_arr_;
   using warp_sort<Capacity, Ascending, T, IdxT>::idx_arr_;
-  using warp_sort<Capacity, Ascending, T, IdxT>::k_;
-  using warp_sort<Capacity, Ascending, T, IdxT>::dummy_;
 
   static constexpr int kMaxBufLen = (Capacity <= 64) ? 2 : 4;
 
@@ -340,26 +357,16 @@ class warp_sort_filtered : public warp_sort<Capacity, Ascending, T, IdxT> {
  */
 template <int Capacity, bool Ascending, typename T, typename IdxT>
 class warp_sort_immediate : public warp_sort<Capacity, Ascending, T, IdxT> {
-  static_assert(Capacity >= WarpSize);
-
  public:
-  __device__ warp_sort_immediate(int k, T dummy)
-    : warp_sort<Capacity, Ascending, T, IdxT>(k, dummy), buf_len_(0)
+  using warp_sort<Capacity, Ascending, T, IdxT>::kDummy;
+  using warp_sort<Capacity, Ascending, T, IdxT>::kWarpWidth;
+  using warp_sort<Capacity, Ascending, T, IdxT>::k;
+
+  __device__ warp_sort_immediate(int k) : warp_sort<Capacity, Ascending, T, IdxT>(k), buf_len_(0)
   {
 #pragma unroll
     for (int i = 0; i < kMaxArrLen; i++) {
-      val_buf_[i] = dummy_;
-    }
-  }
-
-  __device__ void load(const T* in, const IdxT* in_idx, IdxT start, IdxT end)
-  {
-    add_first_(in, in_idx, start, end);
-    start += Capacity;
-    while (start < end) {
-      add_extra_(in, in_idx, start, end);
-      this->merge_in<kMaxArrLen>(val_buf_, idx_buf_);
-      start += Capacity;
+      val_buf_[i] = kDummy;
     }
   }
 
@@ -377,11 +384,11 @@ class warp_sort_immediate : public warp_sort<Capacity, Ascending, T, IdxT> {
 
     ++buf_len_;
     if (buf_len_ == kMaxArrLen) {
-      topk::bitonic<kMaxArrLen>(!Ascending).sort(val_buf_, idx_buf_);
+      topk::bitonic<kMaxArrLen>(!Ascending, kWarpWidth).sort(val_buf_, idx_buf_);
       this->merge_in<kMaxArrLen>(val_buf_, idx_buf_);
 #pragma unroll
       for (int i = 0; i < kMaxArrLen; i++) {
-        val_buf_[i] = dummy_;
+        val_buf_[i] = kDummy;
       }
       buf_len_ = 0;
     }
@@ -390,82 +397,26 @@ class warp_sort_immediate : public warp_sort<Capacity, Ascending, T, IdxT> {
   __device__ void done()
   {
     if (buf_len_ != 0) {
-      topk::bitonic<kMaxArrLen>(!Ascending).sort(val_buf_, idx_buf_);
+      topk::bitonic<kMaxArrLen>(!Ascending, kWarpWidth).sort(val_buf_, idx_buf_);
       this->merge_in<kMaxArrLen>(val_buf_, idx_buf_);
     }
   }
 
  private:
-  /** Fill in the primary val_arr_/idx_arr_ */
-  __device__ void add_first_(const T* in, const IdxT* in_idx, IdxT start, IdxT end)
-  {
-    IdxT idx = start + laneId();
-    for (int i = 0; i < kMaxArrLen; ++i, idx += WarpSize) {
-      if (idx < end) {
-        val_arr_[i] = in[idx];
-        idx_arr_[i] = in_idx[idx];
-      }
-    }
-    topk::bitonic<kMaxArrLen>(Ascending).sort(val_arr_, idx_arr_);
-  }
-
-  /** Fill in the secondary val_buf_/idx_buf_ */
-  __device__ void add_extra_(const T* in, const IdxT* in_idx, IdxT start, IdxT end)
-  {
-    IdxT idx = start + laneId();
-    for (int i = 0; i < kMaxArrLen; ++i, idx += WarpSize) {
-      val_buf_[i] = (idx < end) ? in[idx] : dummy_;
-      idx_buf_[i] = (idx < end) ? in_idx[idx] : std::numeric_limits<IdxT>::max();
-    }
-    topk::bitonic<kMaxArrLen>(!Ascending).sort(val_buf_, idx_buf_);
-  }
-
   using warp_sort<Capacity, Ascending, T, IdxT>::kMaxArrLen;
   using warp_sort<Capacity, Ascending, T, IdxT>::val_arr_;
   using warp_sort<Capacity, Ascending, T, IdxT>::idx_arr_;
-  using warp_sort<Capacity, Ascending, T, IdxT>::k_;
-  using warp_sort<Capacity, Ascending, T, IdxT>::dummy_;
 
   T val_buf_[kMaxArrLen];
   IdxT idx_buf_[kMaxArrLen];
   int buf_len_;
 };
 
-/**
- * This one is used for the second pass only:
- *   if the first pass happens in multiple blocks, the output consists of a series
- *   of sorted arrays, length `k` each.
- *   Under this assumption, we can use load_sorted to just do the merging, rather than
- *   the full sort.
- */
-template <int Capacity, bool Ascending, typename T, typename IdxT>
-class warp_merge : public warp_sort<Capacity, Ascending, T, IdxT> {
- public:
-  __device__ warp_merge(int k, T dummy) : warp_sort<Capacity, Ascending, T, IdxT>(k, dummy) {}
-
-  // NB: the input is already sorted, because it's the second pass.
-  __device__ void load(const T* in, const IdxT* in_idx, IdxT start, IdxT end)
-  {
-    for (; start < end; start += k_) {
-      load_sorted(in + start, in_idx + start);
-    }
-  }
-
-  __device__ void done() {}
-
- private:
-  using warp_sort<Capacity, Ascending, T, IdxT>::kWarpWidth;
-  using warp_sort<Capacity, Ascending, T, IdxT>::kMaxArrLen;
-  using warp_sort<Capacity, Ascending, T, IdxT>::val_arr_;
-  using warp_sort<Capacity, Ascending, T, IdxT>::idx_arr_;
-  using warp_sort<Capacity, Ascending, T, IdxT>::k_;
-  using warp_sort<Capacity, Ascending, T, IdxT>::dummy_;
-};
-
 template <typename T, typename IdxT>
-int calc_smem_size_for_block_wide(int num_of_warp, IdxT k)
+auto calc_smem_size_for_block_wide(int num_of_warp, int k) -> int
 {
-  return Pow2<256>::roundUp(num_of_warp / 2 * sizeof(T) * k) + num_of_warp / 2 * sizeof(IdxT) * k;
+  return Pow2<256>::roundUp(ceildiv(num_of_warp, 2) * sizeof(T) * k) +
+         ceildiv(num_of_warp, 2) * sizeof(IdxT) * k;
 }
 
 template <template <int, bool, typename, typename> class WarpSortWarpWide,
@@ -474,26 +425,15 @@ template <template <int, bool, typename, typename> class WarpSortWarpWide,
           typename T,
           typename IdxT>
 class block_sort {
+  using queue_t = WarpSortWarpWide<Capacity, Ascending, T, IdxT>;
+
  public:
-  __device__ block_sort(int k, T dummy, void* smem_buf) : queue_(k, dummy), k_(k), dummy_(dummy)
+  __device__ block_sort(int k, uint8_t* smem_buf) : queue_(k)
   {
-    val_smem_             = static_cast<T*>(smem_buf);
-    const int num_of_warp = blockDim.x / WarpSize;
-    idx_smem_             = reinterpret_cast<IdxT*>(reinterpret_cast<char*>(smem_buf) +
-                                        Pow2<256>::roundUp(num_of_warp / 2 * sizeof(T) * k_));
-  }
-
-  __device__ void load(const T* in, const IdxT* in_idx, IdxT start, IdxT end)
-  {
-    int num_of_warp   = blockDim.x / WarpSize;
-    const int warp_id = threadIdx.x / WarpSize;
-    IdxT len_per_warp = ceildiv<IdxT>(end - start, num_of_warp);
-    len_per_warp      = alignTo<IdxT>(len_per_warp, k_);
-
-    IdxT warp_start = start + warp_id * len_per_warp;
-    IdxT warp_end   = warp_start + len_per_warp;
-    if (warp_end > end) { warp_end = end; }
-    queue_.load(in, in_idx, warp_start, warp_end);
+    val_smem_             = reinterpret_cast<T*>(smem_buf);
+    const int num_of_warp = subwarp_align::div(blockDim.x);
+    idx_smem_             = reinterpret_cast<IdxT*>(
+      smem_buf + Pow2<256>::roundUp(ceildiv(num_of_warp, 2) * sizeof(T) * k));
   }
 
   __device__ void add(T val, IdxT idx) { queue_.add(val, idx); }
@@ -508,38 +448,41 @@ class block_sort {
   {
     queue_.done();
 
-    int num_of_warp   = blockDim.x / WarpSize;
-    const int warp_id = threadIdx.x / WarpSize;
-
-    while (num_of_warp > 1) {
-      int half_num_of_warp = (num_of_warp + 1) / 2;
-      if (warp_id < num_of_warp && warp_id >= half_num_of_warp) {
-        int dst_warp_id = warp_id - half_num_of_warp;
-        queue_.store(val_smem_ + dst_warp_id * k_, idx_smem_ + dst_warp_id * k_);
+    const int warp_id = subwarp_align::div(threadIdx.x);
+    // NB: there is no need for the second __synchthreads between .load_sorted and .store:
+    //     we shift the pointers every iteration, such that individual warps either access the same
+    //     locations or do not overlap with any of the other warps. The access patterns within warps
+    //     are different for the two functions, but .load_sorted implies warp sync at the end, so
+    //     there is no need for __syncwarp either.
+    for (int shift_mask = ~0, nwarps = subwarp_align::div(blockDim.x), split = (nwarps + 1) >> 1;
+         nwarps > 1;
+         nwarps = split, split = (nwarps + 1) >> 1) {
+      if (warp_id < nwarps && warp_id >= split) {
+        int dst_warp_shift = (warp_id - (split & shift_mask)) * queue_.k;
+        queue_.store(val_smem_ + dst_warp_shift, idx_smem_ + dst_warp_shift);
       }
       __syncthreads();
 
-      if (warp_id < num_of_warp / 2) {
-        queue_.load_sorted(val_smem_ + warp_id * k_, idx_smem_ + warp_id * k_);
+      shift_mask = ~shift_mask;  // invert the mask
+      {
+        int src_warp_shift = (warp_id + (split & shift_mask)) * queue_.k;
+        // The last argument serves as a condition for loading
+        //  -- to make sure threads within a full warp do not diverge on `bitonic::merge()`
+        queue_.load_sorted(
+          val_smem_ + src_warp_shift, idx_smem_ + src_warp_shift, warp_id < nwarps - split);
       }
-      __syncthreads();
-
-      num_of_warp = half_num_of_warp;
     }
   }
 
   /** Save the content by the pointer location. */
   __device__ void store(T* out, IdxT* out_idx) const
   {
-    if (threadIdx.x < kWarpWidth) { queue_.store(out, out_idx); }
+    if (threadIdx.x < subwarp_align::Value) { queue_.store(out, out_idx); }
   }
 
  private:
-  static constexpr int kWarpWidth = std::min<int>(Capacity, WarpSize);
-
-  WarpSortWarpWide<Capacity, Ascending, T, IdxT> queue_;
-  int k_;
-  T dummy_;
+  using subwarp_align = Pow2<queue_t::kWarpWidth>;
+  queue_t queue_;
   T* val_smem_;
   IdxT* idx_smem_;
 };
@@ -556,17 +499,19 @@ template <template <int, bool, typename, typename> class WarpSortClass,
           typename T,
           typename IdxT>
 __global__ void block_kernel(
-  const T* in, const IdxT* in_idx, IdxT len, int k, T* out, IdxT* out_idx, T dummy)
+  const T* in, const IdxT* in_idx, IdxT len, int k, T* out, IdxT* out_idx)
 {
-  extern __shared__ __align__(sizeof(T) * 256) uint8_t smem_buf_bytes[];
-  block_sort<WarpSortClass, Capacity, Ascending, T, IdxT> queue(
-    k, dummy, reinterpret_cast<T*>(smem_buf_bytes));
+  extern __shared__ __align__(256) uint8_t smem_buf_bytes[];
+  block_sort<WarpSortClass, Capacity, Ascending, T, IdxT> queue(k, smem_buf_bytes);
   in += blockIdx.y * len;
-  in_idx += blockIdx.y * len;
+  if (in_idx != nullptr) { in_idx += blockIdx.y * len; }
 
-  const IdxT len_per_block = ceildiv<IdxT>(len, gridDim.x);
-  queue.load(
-    in, in_idx, blockIdx.x * len_per_block, std::min<IdxT>(len, (blockIdx.x + 1) * len_per_block));
+  const IdxT stride         = gridDim.x * blockDim.x;
+  const IdxT per_thread_lim = len + laneId();
+  for (IdxT i = threadIdx.x + blockIdx.x * blockDim.x; i < per_thread_lim; i += stride) {
+    queue.add(i < len ? __ldcs(in + i) : WarpSortClass<Capacity, Ascending, T, IdxT>::kDummy,
+              (i < len && in_idx != nullptr) ? __ldcs(in_idx + i) : i);
+  }
 
   queue.done();
   const int block_id = blockIdx.x + gridDim.x * blockIdx.y;
@@ -587,29 +532,38 @@ struct launch_setup {
    *   Returned block size
    * @param[out] min_grid_size
    *   Returned minimum grid size needed to achieve the best potential occupancy
+   * @param[in] block_size_limit
+   *   Forcefully limit the block size (optional)
    */
-  static void calc_optimal_params(int k, int* block_size, int* min_grid_size)
+  static void calc_optimal_params(int k,
+                                  int* block_size,
+                                  int* min_grid_size,
+                                  int block_size_limit = 0)
   {
     const int capacity = calc_capacity(k);
-    if constexpr (Capacity > WarpSize) {  // TODO: replace with `Capacity > 1` to allow small sizes.
+    if constexpr (Capacity > 1) {
       if (capacity < Capacity) {
         return launch_setup<WarpSortClass, T, IdxT, Capacity / 2>::calc_optimal_params(
-          capacity, block_size, min_grid_size);
+          capacity, block_size, min_grid_size, block_size_limit);
       }
     }
     ASSERT(capacity <= Capacity, "Requested k is too big (%d)", k);
     auto calc_smem = [k](int block_size) {
-      int num_of_warp = block_size / WarpSize;
-      return calc_smem_size_for_block_wide<T>(num_of_warp, k);
+      int num_of_warp = block_size / std::min<int>(WarpSize, Capacity);
+      return calc_smem_size_for_block_wide<T, IdxT>(num_of_warp, k);
     };
     RAFT_CUDA_TRY(cudaOccupancyMaxPotentialBlockSizeVariableSMem(
-      min_grid_size, block_size, block_kernel<WarpSortClass, Capacity, true, T, IdxT>, calc_smem));
+      min_grid_size,
+      block_size,
+      block_kernel<WarpSortClass, Capacity, true, T, IdxT>,
+      calc_smem,
+      block_size_limit));
   }
 
   static void kernel(int k,
                      bool select_min,
-                     IdxT batch_size,
-                     IdxT len,
+                     size_t batch_size,
+                     size_t len,
                      int num_blocks,
                      int block_dim,
                      int smem_size,
@@ -620,7 +574,7 @@ struct launch_setup {
                      cudaStream_t stream)
   {
     const int capacity = calc_capacity(k);
-    if constexpr (Capacity > WarpSize) {  // TODO: replace with `Capacity > 1` to allow small sizes.
+    if constexpr (Capacity > 1) {
       if (capacity < Capacity) {
         return launch_setup<WarpSortClass, T, IdxT, Capacity / 2>::kernel(k,
                                                                           select_min,
@@ -637,33 +591,25 @@ struct launch_setup {
       }
     }
     ASSERT(capacity <= Capacity, "Requested k is too big (%d)", k);
-    T dummy = select_min ? upper_bound<T>() : lower_bound<T>();
+
     // This is less than cuda's max block dim along Y axis (65535), but it's a
     // power-of-two, which ensures the alignment of batches in memory.
-    constexpr IdxT kMaxGridDimY = 32768;
-    for (IdxT offset = 0; offset < batch_size; offset += kMaxGridDimY) {
-      IdxT batch_chunk = std::min<IdxT>(kMaxGridDimY, batch_size - offset);
+    constexpr size_t kMaxGridDimY = 32768;
+    for (size_t offset = 0; offset < batch_size; offset += kMaxGridDimY) {
+      size_t batch_chunk = std::min<size_t>(kMaxGridDimY, batch_size - offset);
       dim3 gs(num_blocks, batch_chunk, 1);
       if (select_min) {
-        block_kernel<WarpSortClass, Capacity, true>
-          <<<gs, block_dim, smem_size, stream>>>(in_key + offset * len,
-                                                 in_idx + offset * len,
-                                                 len,
-                                                 k,
-                                                 out_key + offset * num_blocks * k,
-                                                 out_idx + offset * num_blocks * k,
-                                                 dummy);
+        block_kernel<WarpSortClass, Capacity, true, T, IdxT>
+          <<<gs, block_dim, smem_size, stream>>>(in_key, in_idx, IdxT(len), k, out_key, out_idx);
       } else {
-        block_kernel<WarpSortClass, Capacity, false>
-          <<<gs, block_dim, smem_size, stream>>>(in_key + offset * len,
-                                                 in_idx + offset * len,
-                                                 len,
-                                                 k,
-                                                 out_key + offset * num_blocks * k,
-                                                 out_idx + offset * num_blocks * k,
-                                                 dummy);
+        block_kernel<WarpSortClass, Capacity, false, T, IdxT>
+          <<<gs, block_dim, smem_size, stream>>>(in_key, in_idx, IdxT(len), k, out_key, out_idx);
       }
       RAFT_CUDA_TRY(cudaPeekAtLastError());
+      out_key += batch_chunk * num_blocks * k;
+      out_idx += batch_chunk * num_blocks * k;
+      in_key += batch_chunk * len;
+      if (in_idx != nullptr) { in_idx += batch_chunk * len; }
     }
   }
 };
@@ -686,75 +632,80 @@ struct LaunchThreshold<warp_sort_immediate> {
 };
 
 template <template <int, bool, typename, typename> class WarpSortClass, typename T, typename IdxT>
-void calc_launch_parameter(int batch_size, IdxT len, int k, int* p_num_of_block, int* p_num_of_warp)
+void calc_launch_parameter(
+  size_t batch_size, size_t len, int k, int* p_num_of_block, int* p_num_of_warp)
 {
-  const int capacity = calc_capacity(k);
-  int block_size     = 0;
-  int min_grid_size  = 0;
+  const int capacity               = calc_capacity(k);
+  const int capacity_per_full_warp = std::max(capacity, WarpSize);
+  int block_size                   = 0;
+  int min_grid_size                = 0;
   launch_setup<WarpSortClass, T, IdxT>::calc_optimal_params(k, &block_size, &min_grid_size);
+  block_size = Pow2<WarpSize>::roundDown(block_size);
 
   int num_of_warp;
   int num_of_block;
-  if (batch_size < min_grid_size) {  // may use multiple blocks
+  if (batch_size < size_t(min_grid_size)) {  // may use multiple blocks
     num_of_warp       = block_size / WarpSize;
-    num_of_block      = min_grid_size / batch_size;
-    int len_per_block = (len - 1) / num_of_block + 1;
-    int len_per_warp  = (len_per_block - 1) / num_of_warp + 1;
+    num_of_block      = min_grid_size / int(batch_size);
+    int len_per_block = int(ceildiv<size_t>(len, num_of_block));
+    int len_per_warp  = ceildiv(len_per_block, num_of_warp);
 
     len_per_warp  = Pow2<WarpSize>::roundUp(len_per_warp);
     len_per_block = len_per_warp * num_of_warp;
-    num_of_block  = (len - 1) / len_per_block + 1;
+    num_of_block  = int(ceildiv<size_t>(len, len_per_block));
 
-    constexpr int len_factor = LaunchThreshold<WarpSortClass>::len_factor_for_multi_block;
-    if (len_per_warp < capacity * len_factor) {
-      len_per_warp  = capacity * len_factor;
+    constexpr int kLenFactor = LaunchThreshold<WarpSortClass>::len_factor_for_multi_block;
+    if (len_per_warp < capacity_per_full_warp * kLenFactor) {
+      len_per_warp  = capacity_per_full_warp * kLenFactor;
       len_per_block = num_of_warp * len_per_warp;
-      if ((IdxT)len_per_block > len) { len_per_block = len; }
-      num_of_block = (len - 1) / len_per_block + 1;
-      num_of_warp  = (len_per_block - 1) / len_per_warp + 1;
+      if (size_t(len_per_block) > len) { len_per_block = len; }
+      num_of_block = int(ceildiv<size_t>(len, len_per_block));
+      num_of_warp  = ceildiv(len_per_block, len_per_warp);
     }
   } else {  // use only single block
     num_of_block = 1;
 
-    // block size could be decreased if batch size is large
-    float scale = batch_size / min_grid_size;
-    if (scale > 1) {
-      // make sure scale > 1 so block_size only decreases not increases
-      if (0.8 * scale > 1) { scale = 0.8 * scale; }
-      block_size /= scale;
-      if (block_size < 1) { block_size = 1; }
-      block_size = Pow2<WarpSize>::roundUp(block_size);
-    }
+    auto adjust_block_size = [len, capacity_per_full_warp](int bs) {
+      int warps_per_block = bs / WarpSize;
+      int len_per_warp    = int(ceildiv<size_t>(len, warps_per_block));
+      len_per_warp        = Pow2<WarpSize>::roundUp(len_per_warp);
+      warps_per_block     = int(ceildiv<size_t>(len, len_per_warp));
 
-    num_of_warp      = block_size / WarpSize;
-    int len_per_warp = (len - 1) / num_of_warp + 1;
-    len_per_warp     = Pow2<WarpSize>::roundUp(len_per_warp);
-    num_of_warp      = (len - 1) / len_per_warp + 1;
+      constexpr int kLenFactor = LaunchThreshold<WarpSortClass>::len_factor_for_single_block;
+      if (len_per_warp < capacity_per_full_warp * kLenFactor) {
+        len_per_warp    = capacity_per_full_warp * kLenFactor;
+        warps_per_block = int(ceildiv<size_t>(len, len_per_warp));
+      }
 
-    constexpr int len_factor = LaunchThreshold<WarpSortClass>::len_factor_for_single_block;
-    if (len_per_warp < capacity * len_factor) {
-      len_per_warp = capacity * len_factor;
-      num_of_warp  = (len - 1) / len_per_warp + 1;
-    }
+      return warps_per_block * WarpSize;
+    };
+
+    // gradually reduce the block size while the batch size allows and the len is not big enough
+    // to occupy a single block well.
+    block_size = adjust_block_size(block_size);
+    do {
+      num_of_warp               = block_size / WarpSize;
+      int another_block_size    = 0;
+      int another_min_grid_size = 0;
+      launch_setup<WarpSortClass, T, IdxT>::calc_optimal_params(
+        k, &another_block_size, &another_min_grid_size, block_size);
+      another_block_size = adjust_block_size(another_block_size);
+      if (batch_size >= size_t(another_min_grid_size)  // still have enough work
+          && another_block_size < block_size           // protect against an infinite loop
+          && another_min_grid_size * another_block_size >
+               min_grid_size * block_size  // improve occupancy
+      ) {
+        block_size    = another_block_size;
+        min_grid_size = another_min_grid_size;
+      } else {
+        break;
+      }
+    } while (block_size > WarpSize);
+    num_of_warp = std::max(1, num_of_warp);
   }
 
   *p_num_of_block = num_of_block;
-  *p_num_of_warp  = num_of_warp;
-}
-
-template <typename T, typename IdxT>
-void calc_launch_parameter_for_merge(IdxT len, int k, int* num_of_block, int* num_of_warp)
-{
-  *num_of_block = 1;
-
-  int block_size    = 0;
-  int min_grid_size = 0;
-  launch_setup<warp_merge, T, IdxT>::calc_optimal_params(k, &block_size, &min_grid_size);
-
-  *num_of_warp      = block_size / WarpSize;
-  IdxT len_per_warp = (len - 1) / (*num_of_warp) + 1;
-  len_per_warp      = ((len_per_warp - 1) / k + 1) * k;
-  *num_of_warp      = (len - 1) / len_per_warp + 1;
+  *p_num_of_warp  = num_of_warp * capacity_per_full_warp / capacity;
 }
 
 template <template <int, bool, typename, typename> class WarpSortClass, typename T, typename IdxT>
@@ -773,16 +724,18 @@ void warp_sort_topk_(int num_of_block,
   rmm::device_uvector<T> tmp_val(num_of_block * k * batch_size, stream);
   rmm::device_uvector<IdxT> tmp_idx(num_of_block * k * batch_size, stream);
 
-  int capacity = calc_capacity(k);
+  int capacity   = calc_capacity(k);
+  int warp_width = std::min(capacity, WarpSize);
 
   T* result_val    = (num_of_block == 1) ? out : tmp_val.data();
   IdxT* result_idx = (num_of_block == 1) ? out_idx : tmp_idx.data();
-  int block_dim    = num_of_warp * WarpSize;
-  int smem_size    = calc_smem_size_for_block_wide<T>(num_of_warp, (IdxT)k);
-  launch_setup<WarpSortClass, T, IdxT>::kernel((IdxT)k,
+  int block_dim    = num_of_warp * warp_width;
+  int smem_size    = calc_smem_size_for_block_wide<T, IdxT>(num_of_warp, k);
+
+  launch_setup<WarpSortClass, T, IdxT>::kernel(k,
                                                select_min,
-                                               (IdxT)batch_size,
-                                               (IdxT)len,
+                                               batch_size,
+                                               len,
                                                num_of_block,
                                                block_dim,
                                                smem_size,
@@ -793,23 +746,19 @@ void warp_sort_topk_(int num_of_block,
                                                stream);
 
   if (num_of_block > 1) {
-    // Merge the results across blocks using warp_merge
-    len = k * num_of_block;
-    calc_launch_parameter_for_merge<T>(len, k, &num_of_block, &num_of_warp);
-    block_dim = num_of_warp * WarpSize;
-    smem_size = calc_smem_size_for_block_wide<T>(num_of_warp, (IdxT)k);
-    launch_setup<warp_merge, T, IdxT>::kernel((IdxT)k,
-                                              select_min,
-                                              (IdxT)batch_size,
-                                              (IdxT)len,
-                                              num_of_block,
-                                              block_dim,
-                                              smem_size,
-                                              tmp_val.data(),
-                                              tmp_idx.data(),
-                                              out,
-                                              out_idx,
-                                              stream);
+    // a second pass to merge the results if necessary
+    launch_setup<WarpSortClass, T, IdxT>::kernel(k,
+                                                 select_min,
+                                                 batch_size,
+                                                 k * num_of_block,
+                                                 1,
+                                                 block_dim,
+                                                 smem_size,
+                                                 tmp_val.data(),
+                                                 tmp_idx.data(),
+                                                 out,
+                                                 out_idx,
+                                                 stream);
   }
 }
 
@@ -860,19 +809,23 @@ void warp_sort_topk(const T* in,
                     rmm::cuda_stream_view stream = 0)
 {
   ASSERT(k <= kMaxCapacity, "Current max k is %d (requested %d)", kMaxCapacity, k);
+  ASSERT(len <= size_t(std::numeric_limits<IdxT>::max()),
+         "The `len` (%zu) does not fit the indexing type",
+         len);
 
   int capacity     = calc_capacity(k);
   int num_of_block = 0;
   int num_of_warp  = 0;
-  calc_launch_parameter<warp_sort_immediate, T>(
-    batch_size, len, (IdxT)k, &num_of_block, &num_of_warp);
-  int len_per_warp = len / (num_of_block * num_of_warp);
+  calc_launch_parameter<warp_sort_immediate, T, IdxT>(
+    batch_size, len, k, &num_of_block, &num_of_warp);
+  int len_per_thread = len / (num_of_block * num_of_warp * std::min(capacity, WarpSize));
 
-  if (len_per_warp <= capacity * LaunchThreshold<warp_sort_immediate>::len_factor_for_choosing) {
+  if (len_per_thread <= LaunchThreshold<warp_sort_immediate>::len_factor_for_choosing) {
     warp_sort_topk_<warp_sort_immediate, T, IdxT>(
       num_of_block, num_of_warp, in, in_idx, batch_size, len, k, out, out_idx, select_min, stream);
   } else {
-    calc_launch_parameter<warp_sort_filtered, T>(batch_size, len, k, &num_of_block, &num_of_warp);
+    calc_launch_parameter<warp_sort_filtered, T, IdxT>(
+      batch_size, len, k, &num_of_block, &num_of_warp);
     warp_sort_topk_<warp_sort_filtered, T, IdxT>(
       num_of_block, num_of_warp, in, in_idx, batch_size, len, k, out, out_idx, select_min, stream);
   }
