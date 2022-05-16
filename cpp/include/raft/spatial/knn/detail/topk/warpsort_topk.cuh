@@ -683,7 +683,8 @@ void calc_launch_parameter(
     block_size = adjust_block_size(block_size);
     do {
       num_of_warp            = block_size / WarpSize;
-      int another_block_size = 0, another_min_grid_size = 0;
+      int another_block_size = 0;
+      int another_min_grid_size = 0;
       launch_setup<WarpSortClass, T, IdxT>::calc_optimal_params(
         k, &another_block_size, &another_min_grid_size, block_size);
       another_block_size = adjust_block_size(another_block_size);
