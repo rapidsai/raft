@@ -129,6 +129,17 @@ rapids_find_package(CUDAToolkit REQUIRED
 include(cmake/modules/ConfigureCUDA.cmake)
 
 ##############################################################################
+# - Setup cache --------------------------------------------------------------
+
+find_program(CCACHE sccache NAMES sccache ccache)
+if (CCACHE)
+  message(VERBOSE "Using ${CCACHE} for caching.")
+  set(CMAKE_C_COMPILER_LAUNCHER ${CCACHE})
+  set(CMAKE_CXX_COMPILER_LAUNCHER ${CCACHE})
+  set(CMAKE_CUDA_COMPILER_LAUNCHER ${CCACHE})
+endif()
+
+##############################################################################
 # - Requirements -------------------------------------------------------------
 
 if(distance IN_LIST raft_FIND_COMPONENTS OR RAFT_COMPILE_LIBRARIES OR RAFT_COMPILE_DIST_LIBRARY)
