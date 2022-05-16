@@ -172,8 +172,9 @@ class warp_sort {
    *    a device pointer to a contiguous array, unique per-subwarp
    *    (length: k <= kWarpWidth * kMaxArrLen).
    * @param[in] do_merge
-   *    servers as a conditional; when `false` the function does nothing;
-   *    it's needed to make sure threads within warp don't diverge when kWarpWidth < WarpSize.
+   *    must be the same for all threads within a subwarp of size `kWarpWidth`.
+   *    It serves as a conditional; when `false` the function does nothing.
+   *    We need it to ensure threads within a full warp don't diverge calling `bitonic::merge()`.
    */
   __device__ void load_sorted(const T* in, const IdxT* in_idx, bool do_merge = true)
   {
@@ -465,7 +466,8 @@ class block_sort {
       shift_mask = ~shift_mask;  // invert the mask
       {
         int src_warp_shift = (warp_id + (split & shift_mask)) * queue_.k;
-        // The last argument serves as a condition for loading - to make sure warps don't diverge
+        // The last argument serves as a condition for loading
+        //  -- to make sure threads within a full warp do not diverge on `bitonic::merge()`
         queue_.load_sorted(
           val_smem_ + src_warp_shift, idx_smem_ + src_warp_shift, warp_id < nwarps - split);
       }
@@ -682,8 +684,8 @@ void calc_launch_parameter(
     // to occupy a single block well.
     block_size = adjust_block_size(block_size);
     do {
-      num_of_warp            = block_size / WarpSize;
-      int another_block_size = 0;
+      num_of_warp               = block_size / WarpSize;
+      int another_block_size    = 0;
       int another_min_grid_size = 0;
       launch_setup<WarpSortClass, T, IdxT>::calc_optimal_params(
         k, &another_block_size, &another_min_grid_size, block_size);
@@ -744,6 +746,7 @@ void warp_sort_topk_(int num_of_block,
                                                stream);
 
   if (num_of_block > 1) {
+    // a second pass to merge the results if necessary
     launch_setup<WarpSortClass, T, IdxT>::kernel(k,
                                                  select_min,
                                                  batch_size,
