@@ -95,11 +95,8 @@ void approx_knn_cuivfl_ivfflat_build_index(knnIndex* index,
                                            IntType D,
                                            cudaStream_t stream)
 {
-  int ratio = 2;  // TODO: take these parameters from API
-  int niter = 20;
-
-  index->handle_ = std::make_unique<cuivflHandle>(metric, D, params->nlist, niter, index->device);
-
+  int ratio           = 2;  // TODO: take these parameters from API
+  int niter           = 20;
   const int dim       = D;
   const size_t ntrain = n / ratio;
   assert(ntrain > 0);
@@ -113,17 +110,9 @@ void approx_knn_cuivfl_ivfflat_build_index(knnIndex* index,
   // } else {
   //     kind = cudaMemcpyHostToDevice;
   // }
-
   // rmm::device_uvector<T> trainset(ntrain * dim, stream);
   T* trainset = nullptr;
   RAFT_CUDA_TRY(cudaMallocManaged(&trainset, ntrain * dim * sizeof(T)));
-  printf("  ntrain = %d and n = %d dim = %d nlist = %d nprobe = %d\n",
-         (int)ntrain,
-         (int)n,
-         (int)dim,
-         (int)params->nlist,
-         (int)params->nprobe);
-  fflush(0);
 
   for (size_t i = 0; i < ntrain; ++i) {
     RAFT_CUDA_TRY(cudaMemcpyAsync(
@@ -138,6 +127,9 @@ void approx_knn_cuivfl_ivfflat_build_index(knnIndex* index,
   } else if (typeid(T) == typeid(int8_t)) {
     dtype = CUDA_R_8I;
   }
+
+  cuivflInit(index->handle_, metric, D, params->nlist, niter, index->device);
+
   index->handle_->cuivflBuildIndex(dataset, trainset, dtype, n, ntrain, stream);
   RAFT_CUDA_TRY(cudaFree(trainset));
 }
@@ -184,6 +176,9 @@ void approx_knn_build_index(raft::handle_t& handle,
   index->index     = nullptr;
   index->metric    = metric;
   index->metricArg = metricArg;
+  int device;
+  RAFT_CUDA_TRY(cudaGetDevice(&device));
+  index->device = device;
 
   // perform preprocessing
   // k set to 0 (unused during preprocessing / revertion)
@@ -210,22 +205,22 @@ void approx_knn_build_index(raft::handle_t& handle,
           metric == raft::distance::DistanceType::L2Unexpanded ||
           metric == raft::distance::DistanceType::L2Expanded ||
           metric == raft::distance::DistanceType::InnerProduct) {
-        T* h_index_array;
+        float* h_index_array;
         cudaMallocManaged(&h_index_array, n * D * sizeof(T));
         // raft::update_host(h_index_array.data(), index_array, h_index_array.size(),
         // handle.get_stream());
-        cudaMemcpy(h_index_array, index_array, n * D * sizeof(T), cudaMemcpyDefault);
-
+        cudaMemcpyAsync((void*)h_index_array,
+                        (void*)index_array,
+                        n * D * sizeof(T),
+                        cudaMemcpyDefault,
+                        handle.get_stream());
         approx_knn_cuivfl_ivfflat_build_index(
           index, IVFFlat_param, metric, h_index_array, n, D, handle.get_stream());
       } else {
-        int device;
-        RAFT_CUDA_TRY(cudaGetDevice(&device));
         raft::spatial::knn::RmmGpuResources* gpu_res = new raft::spatial::knn::RmmGpuResources();
         gpu_res->noTempMemory();
         gpu_res->setDefaultStream(device, handle.get_stream());
         index->gpu_res = gpu_res;
-        index->device  = device;
         approx_knn_ivfflat_build_index(index, IVFFlat_param, metric, n, D);
         std::vector<float> h_index_array(n * D);
         raft::update_host(
@@ -241,7 +236,6 @@ void approx_knn_build_index(raft::handle_t& handle,
       gpu_res->noTempMemory();
       gpu_res->setDefaultStream(device, handle.get_stream());
       index->gpu_res = gpu_res;
-      index->device  = device;
       query_metric_processor->preprocess(index_array);
       if (dynamic_cast<IVFPQParam*>(params)) {
         IVFPQParam* IVFPQ_param = dynamic_cast<IVFPQParam*>(params);
@@ -283,8 +277,6 @@ void approx_knn_search(raft::handle_t& handle,
       int nprobe                  = IVFFlat_param->nprobe;
       int max_batch               = n;
       int max_k                   = k;
-      // assert(nprobe <= nlist_); ?? is it supposed to compare agains the private member of
-      // cuivflHandle?
 
       index->handle_->cuivflSetSearchParameters(nprobe, max_batch, max_k);
 
@@ -303,13 +295,12 @@ void approx_knn_search(raft::handle_t& handle,
     std::unique_ptr<MetricProcessor<float>> query_metric_processor = create_processor<float>(
       index->metric, n, index->handle_->getDim(), k, false, handle.get_stream());
     query_metric_processor->preprocess(query_array);
+
     if (dynamic_cast<IVFFlatParam*>(params)) {
       IVFFlatParam* IVFFlat_param = dynamic_cast<IVFFlatParam*>(params);
       int nprobe                  = IVFFlat_param->nprobe;
       int max_batch               = n;
       int max_k                   = k;
-      // assert(nprobe <= nlist_); ?? is it supposed to compare agains the private member of
-      // cuivflHandle?
 
       index->handle_->cuivflSetSearchParameters(nprobe, max_batch, max_k);
 

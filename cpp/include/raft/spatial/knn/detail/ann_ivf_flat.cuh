@@ -238,7 +238,7 @@ cuivflHandle::cuivflHandle(raft::distance::DistanceType metric_type,
 
   // cuBLAS
   cublasStatus_t cublasError;
-  cublasError = cublasCreate(&(cublas_handle_));
+  cublasError = cublasCreate(&cublas_handle_);
 
   if (cublasError != CUBLAS_STATUS_SUCCESS) {
     fprintf(stderr, "(%s) cublasCreate() failed\n", __func__);
@@ -413,7 +413,7 @@ cuivflStatus_t cuivflHandle::cuivflLoadIndex(const char* fileName)
                            cudaMemcpyHostToDevice));
 
 #ifdef DEBUG_L2
-  printDevPtr(centriod_norm_dev_ptr_, 20, "centriod_norm_dev_ptr_");
+  utils::printDevPtr(centriod_norm_dev_ptr_, 20, "centriod_norm_dev_ptr_");
 #endif
   if (read_counts != total_counts) {
     fprintf(stderr, "(%s) failed to load index to file (%s)\n", __func__, fileName);
@@ -438,10 +438,15 @@ cuivflStatus_t cuivflHandle::cuivflSaveIndex(const char* fileName)
     3 + 2 * nlist_ + nlist_ * dim_ + ninterleave_ + ninterleave_ * dim_ + nlist_;
 
   written_counts += fwrite(&nrow_, sizeof(uint32_t), 1, fp);
+
   written_counts += fwrite(&dtype_, sizeof(dtype_), 1, fp);
   written_counts += fwrite(&ninterleave_, sizeof(ninterleave_), 1, fp);
   // Step 3: Write the list
-
+  list_prefix_interleaved_host_ptr_ = (uint32_t*)malloc(sizeof(uint32_t) * nlist_);
+  cudaMemcpy(list_prefix_interleaved_host_ptr_,
+             list_prefix_interleaved_dev_ptr_,
+             sizeof(uint32_t) * nlist_,
+             cudaMemcpyDefault);
   written_counts += fwrite(list_prefix_interleaved_host_ptr_, sizeof(uint32_t), nlist_, fp);
   written_counts += fwrite(list_lengths_host_ptr_, sizeof(uint32_t), nlist_, fp);
 
@@ -455,7 +460,14 @@ cuivflStatus_t cuivflHandle::cuivflSaveIndex(const char* fileName)
 
   written_counts += fwrite(list_index_host_ptr_, sizeof(uint32_t), ninterleave_, fp);
 
+  centriod_host_ptr_ = (float*)malloc(sizeof(float) * nlist_ * dim_);
+  RAFT_CUDA_TRY(cudaMemcpy(
+    centriod_host_ptr_, centriod_dev_ptr_, sizeof(float) * nlist_ * dim_, cudaMemcpyDefault));
+
   written_counts += fwrite(centriod_host_ptr_, sizeof(float), nlist_ * dim_, fp);
+
+  RAFT_CUDA_TRY(cudaMemcpy(
+    centriod_norm_host_ptr_, centriod_norm_dev_ptr_, nlist_ * sizeof(float), cudaMemcpyDefault));
   written_counts += fwrite(centriod_norm_host_ptr_, sizeof(float), nlist_, fp);
 
   if (written_counts != total_counts) {
@@ -463,6 +475,8 @@ cuivflStatus_t cuivflHandle::cuivflSaveIndex(const char* fileName)
     return cuivflStatus_t::CUIVFL_STATUS_FILEIO_ERROR;
   }
   fclose(fp);
+  // free(list_prefix_interleaved_host_ptr_);
+  // free(centriod_host_ptr_);
 
   return cuivflStatus_t::CUIVFL_STATUS_SUCCESS;
 }  // end func cuivflHandle::cuivflSaveIndex
@@ -1040,8 +1054,8 @@ cuivflStatus_t cuivflHandle::cuivflSetSearchParameters(const uint32_t nprobe,
       metric_type_ == raft::distance::DistanceType::L2Unexpanded) {
     greater_ = false;
   } else {
-    greater_ = false;  // Need to set this to true for inner product if need FAISS like behavior for
-                       // inner product
+    // Need to set this to true for inner product if need FAISS like behavior for inner product
+    greater_ = false;
   }
 
   // Set buffer
@@ -1357,6 +1371,17 @@ cuivflStatus_t cuivflHandle::cuivflSearchImpl(const T* queries,  // [numQueries,
 
   return cuivflStatus_t::CUIVFL_STATUS_SUCCESS;
 }  // end func cuivflHandle::cuivflSearchImpl
+
+void cuivflInit(std::unique_ptr<detail::cuivflHandle>& handle,
+                raft::distance::DistanceType metric,
+                int D,
+                int nlist,
+                int niter,
+                int deviceId)
+{
+  handle = std::make_unique<cuivflHandle>(metric, D, nlist, niter, deviceId);
+  return;
+}
 
 }  // namespace detail
 }  // namespace knn
