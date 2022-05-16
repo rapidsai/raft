@@ -356,12 +356,12 @@ install(TARGETS raft
 
 install(TARGETS raft_distance
         DESTINATION ${lib_dir}
-        COMPONENT raft_distance
+        COMPONENT raft
         EXPORT raft-distance-exports)
 
 install(TARGETS raft_nn
         DESTINATION ${lib_dir}
-        COMPONENT raft_nn
+        COMPONENT raft
         EXPORT raft-nn-exports)
 
 if(TARGET raft_distance_lib)
@@ -393,6 +393,44 @@ install(FILES include/raft.hpp
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/include/raft/version_config.hpp
         COMPONENT raft
         DESTINATION include/raft)
+
+##############################################################################
+# - export/install optional components  --------------------------------------
+
+include("${rapids-cmake-dir}/export/write_dependencies.cmake")
+
+set(raft_components distance nn)
+set(raft_install_comp "" "")
+if(TARGET raft_distance_lib)
+  list(APPEND raft_components distance-lib)
+  list(APPEND raft_install_comp _distance)
+endif()
+if(TARGET raft_nn_lib)
+  list(APPEND raft_components  nn-lib)
+  list(APPEND raft_install_comp _nn)
+endif()
+
+foreach(comp install_comp IN ZIP_LISTS raft_components raft_install_comp)
+  install(
+          EXPORT raft-${comp}-exports
+          FILE raft-${comp}-targets.cmake
+          NAMESPACE raft::
+          DESTINATION "${lib_dir}/cmake/raft"
+          COMPONENT raft${install_comp}
+  )
+  export(
+          EXPORT raft-${comp}-exports
+          FILE ${RAFT_BINARY_DIR}/raft-${comp}-targets.cmake
+          NAMESPACE raft::
+  )
+  rapids_export_write_dependencies(
+          BUILD raft-${comp}-exports "${PROJECT_BINARY_DIR}/raft-${comp}-dependencies.cmake"
+  )
+  rapids_export_write_dependencies(
+          INSTALL raft-${comp}-exports "${PROJECT_BINARY_DIR}/rapids-cmake/raft/export/${install_comp}/raft-${comp}-dependencies.cmake"
+  )
+
+endforeach()
 
 ##############################################################################
 # - install export -----------------------------------------------------------
@@ -461,44 +499,6 @@ raft_export(BUILD raft
         DOCUMENTATION doc_string
         NAMESPACE raft::
         FINAL_CODE_BLOCK code_string)
-
-##############################################################################
-# - export/install optional components  --------------------------------------
-
-include("${rapids-cmake-dir}/export/write_dependencies.cmake")
-
-set(raft_components distance nn)
-set(raft_install_comp distance nn)
-if(TARGET raft_distance_lib)
-  list(APPEND raft_components distance-lib)
-  list(APPEND raft_install_comp distance)
-endif()
-if(TARGET raft_nn_lib)
-  list(APPEND raft_components  nn-lib)
-  list(APPEND raft_install_comp nn)
-endif()
-
-foreach(comp install_comp IN ZIP_LISTS raft_components raft_install_comp)
-  install(
-          EXPORT raft-${comp}-exports
-          FILE raft-${comp}-targets.cmake
-          NAMESPACE raft::
-          DESTINATION "${lib_dir}/cmake/raft"
-          COMPONENT raft_${install_comp}
-  )
-  export(
-          EXPORT raft-${comp}-exports
-          FILE ${RAFT_BINARY_DIR}/raft-${comp}-targets.cmake
-          NAMESPACE raft::
-  )
-  rapids_export_write_dependencies(
-          BUILD raft-${comp}-exports "${PROJECT_BINARY_DIR}/raft-${comp}-dependencies.cmake"
-  )
-  rapids_export_write_dependencies(
-          INSTALL raft-${comp}-exports "${PROJECT_BINARY_DIR}/rapids-cmake/raft/export/${install_comp}/raft-${comp}-dependencies.cmake"
-  )
-
-endforeach()
 
 ##############################################################################
 # - build test executable ----------------------------------------------------
