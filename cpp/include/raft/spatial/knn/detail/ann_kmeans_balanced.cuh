@@ -31,6 +31,9 @@
 #include <raft/distance/distance.hpp>
 #include <raft/spatial/knn/faiss_mr.hpp>
 
+#include <rmm/cuda_stream_view.hpp>
+#include <rmm/device_buffer.hpp>
+
 #include <faiss/gpu/GpuDistance.h>
 #include <faiss/gpu/GpuIndexFlat.h>
 #include <faiss/gpu/GpuIndexIVFFlat.h>
@@ -208,11 +211,14 @@ void _cuann_kmeans_predict(cublasHandle_t cublasHandle,
                            uint32_t* clusterSize = NULL,  // [numCenters,]
                            bool updateCenter     = true)
 {
+  rmm::cuda_stream_view stream = rmm::cuda_stream_default;
   if (!isCenterSet) {
     // If centers are not set, the labels will be determined randomly.
-    for (uint32_t i = 0; i < numDataset; i++) {
-      labels[i] = i % numCenters;
-    }
+    linalg::writeOnlyUnaryOp(
+      labels,
+      numDataset,
+      [numCenters] __device__(uint32_t * out, uint32_t i) { *out = i % numCenters; },
+      stream);
     if (tempCenters != NULL && clusterSize != NULL) {
       // update centers
       _cuann_kmeans_update_centers(
@@ -223,9 +229,12 @@ void _cuann_kmeans_predict(cublasHandle_t cublasHandle,
 
   uint32_t chunk  = _cuann_kmeans_predict_chunkSize(numCenters, numDataset);
   void* workspace = _workspace;
+  rmm::device_buffer sub_workspace(0, stream);
+
   if (_workspace == NULL) {
-    size_t sizeWorkspace = _cuann_kmeans_predict_bufferSize(numCenters, dimCenters, numDataset);
-    RAFT_CUDA_TRY(cudaMallocManaged(&workspace, sizeWorkspace));
+    sub_workspace.resize(_cuann_kmeans_predict_bufferSize(numCenters, dimCenters, numDataset),
+                         stream);
+    workspace = sub_workspace.data();
   }
   float* curDataset;  // [chunk, dimCenters]
   void* bufDataset;   // [chunk, dimCenters]
@@ -326,8 +335,6 @@ void _cuann_kmeans_predict(cublasHandle_t cublasHandle,
                                  clusterSize,
                                  tempCenters);
   }
-
-  if (_workspace == NULL) { cudaFree(workspace); }
 }
 
 // adjust centers which have small number of entries
