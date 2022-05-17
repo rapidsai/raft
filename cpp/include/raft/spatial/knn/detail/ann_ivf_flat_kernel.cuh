@@ -803,7 +803,7 @@ __global__ void interleaved_scan(
 
 #else
   extern __shared__ __align__(256) uint8_t smem_ext[];
-  topk::block_sort<topk::warp_sort_immediate, CAPACITY, !GREATER, float, size_t> queue(k, smem_ext);
+  topk::block_sort<topk::warp_sort_filtered, CAPACITY, !GREATER, float, size_t> queue(k, smem_ext);
 #endif
 
   const int laneId = threadIdx.x % WarpSize;
@@ -907,7 +907,7 @@ __global__ void interleaved_scan(
         }
       }
 
-      /// Inqueue warp_wise
+      // Enqueue one element per thread
       constexpr float kDummy = GREATER ? lower_bound<float>() : upper_bound<float>();
       float val              = (valid) ? (float)dist : kDummy;
       queue.add(val, idx);
