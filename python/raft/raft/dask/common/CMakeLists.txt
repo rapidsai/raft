@@ -12,14 +12,11 @@
 # the License.
 # =============================================================================
 
-# TODO: This is a pretty hacky way to handle the NCCL dependency. There are a
-# couple of reasons I'm doing it this way right now:
-# 1. The nccl target name ends up making it impossible to specify that as a target library.
-# 2. nccl doesn't ship with a config file or FindNCCL.cmake file.
-find_library(NCCL_PATH nccl REQUIRED)
+include(${raft-python_SOURCE_DIR}/cmake/thirdparty/get_nccl.cmake)
+include(${raft-python_SOURCE_DIR}/cmake/thirdparty/get_ucx.cmake)
 
 set(cython_sources comms_utils.pyx nccl.pyx)
-set(linked_libraries raft::raft "${NCCL_PATH}")
+set(linked_libraries raft::raft NCCL::NCCL ucx::ucp)
 rapids_cython_create_modules(
     SOURCE_FILES "${cython_sources}"
     LINKED_LIBRARIES "${linked_libraries}"

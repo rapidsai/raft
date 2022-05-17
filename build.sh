@@ -68,9 +68,6 @@ ENABLE_NN_DEPENDENCIES=OFF
 
 ENABLE_thrust_DEPENDENCY=ON
 
-ENABLE_ucx_DEPENDENCY=OFF
-ENABLE_nccl_DEPENDENCY=OFF
-
 NVTX=ON
 CLEAN=0
 UNINSTALL=0
@@ -220,11 +217,6 @@ if (( ${CLEAN} == 1 )); then
     cd ${REPODIR}
 fi
 
-# Pyraft requires ucx + nccl
-if (( ${NUMARGS} == 0 )) || hasArg pyraft || hasArg docs; then
-    ENABLE_nccl_DEPENDENCY=ON
-    ENABLE_ucx_DEPENDENCY=ON
-fi
 ################################################################################
 # Configure for building all C++ targets
 if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || hasArg bench; then
@@ -252,8 +244,6 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || has
           -DRAFT_COMPILE_DIST_LIBRARY=${COMPILE_DIST_LIBRARY} \
           -DRAFT_USE_FAISS_STATIC=${BUILD_STATIC_FAISS} \
           -DRAFT_ENABLE_nccl_DEPENDENCY=${ENABLE_nccl_DEPENDENCY} \
-          -DRAFT_ENABLE_ucx_DEPENDENCY=${ENABLE_ucx_DEPENDENCY} \
-          -DRAFT_ENABLE_thrust_DEPENDENCY=${ENABLE_thrust_DEPENDENCY} \
           ${CMAKE_ARGS}
 
   if [[ ${CMAKE_TARGET} != "" ]]; then

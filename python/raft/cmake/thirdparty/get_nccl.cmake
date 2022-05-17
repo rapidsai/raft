@@ -14,6 +14,7 @@
 # limitations under the License.
 #=============================================================================
 
+include(rapids-find)
 function(find_and_configure_nccl)
 
     if(TARGET NCCL::NCCL)

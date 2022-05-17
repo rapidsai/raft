@@ -73,10 +73,6 @@ if(BUILD_TESTS AND NOT RAFT_ENABLE_thrust_DEPENDENCY)
   set(RAFT_ENABLE_thrust_DEPENDENCY ON)
 endif()
 
-# Currently, UCX and NCCL are only needed to build Pyraft and so a simple find_package() is sufficient
-option(RAFT_ENABLE_nccl_DEPENDENCY "Enable NCCL dependency" OFF)
-option(RAFT_ENABLE_ucx_DEPENDENCY "Enable ucx dependency" OFF)
-
 option(RAFT_EXCLUDE_FAISS_FROM_ALL "Exclude FAISS targets from RAFT's 'all' target" ON)
 
 include(CMakeDependentOption)

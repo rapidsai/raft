@@ -21,7 +21,7 @@ file(DOWNLOAD https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-22.
 include(${CMAKE_BINARY_DIR}/RAPIDS.cmake)
 
 project(
-  raft
+  raft-python
   VERSION ${pyraft_version}
   LANGUAGES # TODO: Building Python extension modules via the python_extension_module requires the C
             # language to be enabled here. The test project that is built in scikit-build to verify
