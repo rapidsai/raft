@@ -28,6 +28,8 @@ requirements:
     - python x.x
     - setuptools
     - cython>=0.29,<0.30
+    - cmake>=3.20.1,!=3.23.0
+    - scikit-build>=0.13.1
     - rmm {{ minor_version }}
     - libraft-headers {{ version }}
     - libraft-distance {{ version }}
