@@ -63,7 +63,7 @@ __global__ void knn_merge_parts_kernel(value_t* inK,
                                        int k,
                                        value_idx* translations)
 {
-  constexpr int kNumWarps = tpb / faiss::gpu::kWarpSize;
+  constexpr int kNumWarps = tpb / WarpSize;
 
   __shared__ value_t smemK[kNumWarps * warp_q];
   __shared__ value_idx smemV[kNumWarps * warp_q];
@@ -90,7 +90,7 @@ __global__ void knn_merge_parts_kernel(value_t* inK,
   value_t* inKStart   = inK + (row_idx + col);
   value_idx* inVStart = inV + (row_idx + col);
 
-  int limit             = faiss::gpu::utils::roundDown(total_k, faiss::gpu::kWarpSize);
+  int limit             = faiss::gpu::utils::roundDown(total_k, WarpSize);
   value_idx translation = 0;
 
   for (; i < limit; i += tpb) {

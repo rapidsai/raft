@@ -65,7 +65,7 @@ __global__ void haversine_knn_kernel(value_idx* out_inds,
                                      size_t n_index_rows,
                                      int k)
 {
-  constexpr int kNumWarps = tpb / faiss::gpu::kWarpSize;
+  constexpr int kNumWarps = tpb / WarpSize;
 
   __shared__ value_t smemK[kNumWarps * warp_q];
   __shared__ value_idx smemV[kNumWarps * warp_q];
@@ -75,7 +75,7 @@ __global__ void haversine_knn_kernel(value_idx* out_inds,
       heap(faiss::gpu::Limits<value_t>::getMax(), -1, smemK, smemV, k);
 
   // Grid is exactly sized to rows available
-  int limit = faiss::gpu::utils::roundDown(n_index_rows, faiss::gpu::kWarpSize);
+  int limit = faiss::gpu::utils::roundDown(n_index_rows, WarpSize);
 
   const value_t* query_ptr = query + (blockIdx.x * 2);
   value_t x1               = query_ptr[0];

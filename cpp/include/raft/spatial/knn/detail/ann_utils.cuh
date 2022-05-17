@@ -94,9 +94,8 @@ namespace utils {
 //     }
 //     return true;
 // }
-constexpr int kWarpSize       = 32;
 constexpr int kThreadPerBlock = 128;
-constexpr int kNumWarps       = kThreadPerBlock / kWarpSize;
+constexpr int kNumWarps       = kThreadPerBlock / WarpSize;
 
 namespace numeric {
 

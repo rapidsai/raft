@@ -64,13 +64,13 @@ template <typename T>
 void _ivfflat_interleaved(
   T* list_data, T* dataset, uint32_t dim, size_t index, size_t prefix, uint32_t veclen)
 {
-  size_t group_id = index / kWarpSize;
-  size_t in_id    = (index % kWarpSize) * veclen;
-  list_data += (prefix + group_id * kWarpSize) * dim + in_id;
+  size_t group_id = index / WarpSize;
+  size_t in_id    = (index % WarpSize) * veclen;
+  list_data += (prefix + group_id * WarpSize) * dim + in_id;
 
   for (size_t i = 0; i < dim; i += veclen) {
     for (size_t j = 0; j < veclen; j++) {
-      list_data[i * kWarpSize + j] = dataset[i + j];
+      list_data[i * WarpSize + j] = dataset[i + j];
     }
   }
 }
@@ -81,13 +81,13 @@ template <typename T>
 __global__ void write_ivf_flat_interleaved_index(
   T* list_data, T* dataset, uint32_t dim, size_t index, size_t prefix, uint32_t veclen)
 {
-  size_t group_id = index / kWarpSize;
-  size_t in_id    = (index % kWarpSize) * veclen;
-  list_data += (prefix + group_id * kWarpSize) * dim + in_id;
+  size_t group_id = index / WarpSize;
+  size_t in_id    = (index % WarpSize) * veclen;
+  list_data += (prefix + group_id * WarpSize) * dim + in_id;
 
   for (size_t i = 0; i < dim; i += veclen) {
     for (size_t j = 0; j < veclen; j++) {
-      list_data[i * kWarpSize + j] = dataset[i + j];
+      list_data[i * WarpSize + j] = dataset[i + j];
     }
   }
 }
@@ -860,7 +860,7 @@ cuivflStatus_t cuivflHandle::cuivflBuildIndex(const void* dataset,
   ninterleave_ = 0;
   for (uint32_t i = 0; i < nlist_; i++) {
     list_prefix_interleaved_host_ptr_[i] = ninterleave_;
-    ninterleave_ += ((list_lengths_host_ptr_[i] - 1) / kWarpSize + 1) * kWarpSize;
+    ninterleave_ += ((list_lengths_host_ptr_[i] - 1) / WarpSize + 1) * WarpSize;
   }
 
   if (dtype == CUDA_R_32F) {
