@@ -782,8 +782,8 @@ __global__ void interleaved_scan(
   const uint32_t k,
   const uint32_t dim,
   size_t* neighbors,  // [batch_size, nprobe]
-  float* distances,   // [batch_size, nprobe]
-  const float dummy)
+  float* distances    // [batch_size, nprobe]
+)
 {
 #ifdef USE_FAISS
   // temporary use of FAISS blockSelect for development purpose of k <= 32
@@ -908,7 +908,8 @@ __global__ void interleaved_scan(
       }
 
       /// Inqueue warp_wise
-      float val = (valid) ? (float)dist : dummy;
+      constexpr float kDummy = GREATER ? lower_bound<float>() : upper_bound<float>();
+      float val              = (valid) ? (float)dist : kDummy;
       queue.add(val, idx);
     }  // end for block < numBlocks
   }
@@ -978,8 +979,6 @@ void launch_interleaved_scan_kernel(
   cudaStream_t stream,
   uint32_t& gridDimX)
 {
-  const float dummy = utils::numeric::get_dummy<float>(greater);  // should be value_t?
-
   // Accumulation inner product lambda
   auto inner_prod_lambda = [] __device__(acc_type & acc, acc_type & x, acc_type & y) {
     if constexpr ((std::is_same<T, int8_t>{}) || (std::is_same<T, uint8_t>{})) {
@@ -1046,8 +1045,7 @@ void launch_interleaved_scan_kernel(
         k,
         dim,
         neighbors,
-        distances,
-        dummy);
+        distances);
     } else {
       constexpr auto interleaved_scan_inner_prod_greater =
         interleaved_scan<capacity, veclen, T, acc_type, decltype(inner_prod_lambda), true>;
@@ -1072,8 +1070,7 @@ void launch_interleaved_scan_kernel(
         k,
         dim,
         neighbors,
-        distances,
-        dummy);
+        distances);
     }
   } else {
     if (metric == raft::distance::DistanceType::L2Expanded ||
@@ -1101,8 +1098,7 @@ void launch_interleaved_scan_kernel(
         k,
         dim,
         neighbors,
-        distances,
-        dummy);
+        distances);
     } else {
       constexpr auto interleaved_scan_inner_prod_ngreater =
         interleaved_scan<capacity, veclen, T, acc_type, decltype(inner_prod_lambda), false>;
@@ -1127,8 +1123,7 @@ void launch_interleaved_scan_kernel(
         k,
         dim,
         neighbors,
-        distances,
-        dummy);
+        distances);
     }
   }
 }
