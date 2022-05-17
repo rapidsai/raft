@@ -98,6 +98,9 @@ enum class SelectKAlgo {
  * @param[in] in_values
  *   contiguous device array of inputs of size (input_len * n_inputs);
  *   typically, these are indices of the corresponding in_keys.
+ *   You can pass `NULL` as an argument here; this would imply `in_values` is a homogeneous array
+ *   of indices from `0` to `input_len - 1` for every input and reduce the usage of memory
+ *   bandwidth.
  * @param[in] n_inputs
  *   number of input rows, i.e. the batch size.
  * @param[in] input_len
@@ -118,8 +121,8 @@ enum class SelectKAlgo {
  *   the implementation of the algorithm
  */
 template <typename idx_t = int, typename value_t = float>
-inline void select_k(value_t* in_keys,
-                     idx_t* in_values,
+inline void select_k(const value_t* in_keys,
+                     const idx_t* in_values,
                      size_t n_inputs,
                      size_t input_len,
                      value_t* out_keys,
