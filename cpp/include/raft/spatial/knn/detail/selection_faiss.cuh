@@ -48,7 +48,7 @@ __global__ void select_k_kernel(key_t* inK,
                                 payload_t initV,
                                 int k)
 {
-  constexpr int kNumWarps = tpb / WarpSize;
+  constexpr int kNumWarps = tpb / faiss::gpu::kWarpSize;
 
   __shared__ key_t smemK[kNumWarps * warp_q];
   __shared__ payload_t smemV[kNumWarps * warp_q];
@@ -66,7 +66,7 @@ __global__ void select_k_kernel(key_t* inK,
   payload_t* inVStart = inV + idx + i;
 
   // Whole warps must participate in the selection
-  int limit = faiss::gpu::utils::roundDown(n_cols, WarpSize);
+  int limit = faiss::gpu::utils::roundDown(n_cols, faiss::gpu::kWarpSize);
 
   for (; i < limit; i += tpb) {
     inKStart = inK + idx + i;
