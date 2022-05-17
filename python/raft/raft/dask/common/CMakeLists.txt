@@ -13,10 +13,9 @@
 # =============================================================================
 
 include(${raft-python_SOURCE_DIR}/cmake/thirdparty/get_nccl.cmake)
-include(${raft-python_SOURCE_DIR}/cmake/thirdparty/get_ucx.cmake)
 
 set(cython_sources comms_utils.pyx nccl.pyx)
-set(linked_libraries raft::raft NCCL::NCCL ucx::ucp)
+set(linked_libraries raft::raft NCCL::NCCL)
 rapids_cython_create_modules(
     SOURCE_FILES "${cython_sources}"
     LINKED_LIBRARIES "${linked_libraries}"
