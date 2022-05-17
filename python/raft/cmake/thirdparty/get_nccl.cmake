@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2021, NVIDIA CORPORATION.
+# Copyright (c) 2021-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,20 +14,26 @@
 # limitations under the License.
 #=============================================================================
 
-function(find_and_configure_ucx)
-    set(oneValueArgs VERSION PINNED_TAG)
-    cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
-                          "${multiValueArgs}" ${ARGN} )
+include(rapids-find)
+function(find_and_configure_nccl)
 
-    rapids_find_generate_module(ucx
-        HEADER_NAMES  ucp/api/ucp.h
-        LIBRARY_NAMES ucp
+    if(TARGET NCCL::NCCL)
+        return()
+    endif()
+
+    rapids_find_generate_module(NCCL
+        HEADER_NAMES  nccl.h
+        LIBRARY_NAMES nccl
     )
 
-    # Currently UCX has no CMake build-system so we require
+    # Currently NCCL has no CMake build-system so we require
     # it built and installed on the machine already
-    rapids_find_package(ucx REQUIRED)
+    rapids_find_package(NCCL REQUIRED)
 
 endfunction()
 
-find_and_configure_ucx()
+find_and_configure_nccl()
+
+
+
+
