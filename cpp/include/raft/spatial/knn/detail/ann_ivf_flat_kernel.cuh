@@ -802,11 +802,8 @@ __global__ void interleaved_scan(
       queue(identity, keyMax, smemK, smemV, k);
 
 #else
-  extern __shared__ char smem_ext[];
-  constexpr auto Dir =
-    GREATER ? false : true;  // topk::block_sort uses ascending hence switch is needed.
-  topk::block_sort<topk::warp_sort_immediate, CAPACITY, Dir, float, size_t> queue(
-    k, dummy, smem_ext);
+  extern __shared__ __align__(256) uint8_t smem_ext[];
+  topk::block_sort<topk::warp_sort_immediate, CAPACITY, !GREATER, float, size_t> queue(k, smem_ext);
 #endif
 
   const int laneId = threadIdx.x % kWarpSize;
