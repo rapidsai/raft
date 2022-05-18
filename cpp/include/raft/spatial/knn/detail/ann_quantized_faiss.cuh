@@ -115,8 +115,7 @@ void approx_knn_cuivfl_ivfflat_build_index(knnIndex* index,
   RAFT_CUDA_TRY(cudaMallocManaged(&trainset, ntrain * dim * sizeof(T)));
 
   for (size_t i = 0; i < ntrain; ++i) {
-    RAFT_CUDA_TRY(cudaMemcpyAsync(
-      trainset + i * dim, dataset + ratio * i * dim, dim * sizeof(T), cudaMemcpyDefault, stream));
+    copy(trainset + i * dim, dataset + ratio * i * dim, dim, stream);
   }
 
   cudaDataType_t dtype;
