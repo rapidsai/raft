@@ -245,12 +245,17 @@ class SelectionTest : public testing::TestWithParam<typename ParamsReader<KeyT, 
     auto& in_ids   = ref.get_in_ids();
     auto& in_dists = ref.get_in_dists();
     ASSERT_TRUE(hostVecMatch(
-      ref.get_out_ids(), res.get_out_ids(), [&in_ids, &in_dists](const KeyT& i, const KeyT& j) {
+      ref.get_out_ids(), res.get_out_ids(), [&in_ids, &in_dists](const IdxT& i, const IdxT& j) {
         if (i == j) return true;
-        auto it_i = std::find(in_ids.begin(), in_ids.end(), i);
-        auto it_j = std::find(in_ids.begin(), in_ids.end(), j);
-        if (it_i == in_ids.end() || it_j == in_ids.end()) return false;
-        return in_dists[it_i - in_ids.begin()] == in_dists[it_j - in_ids.begin()];
+        auto ix_i = size_t(std::find(in_ids.begin(), in_ids.end(), i) - in_ids.begin());
+        auto ix_j = size_t(std::find(in_ids.begin(), in_ids.end(), j) - in_ids.begin());
+        if (ix_i >= in_ids.size() || ix_j >= in_ids.size()) return false;
+        auto dist_i = in_dists[ix_i];
+        auto dist_j = in_dists[ix_j];
+        if (dist_i == dist_j) return true;
+        std::cout << "ref[" << ix_i << "] = " << dist_i << " != "
+                  << "res[" << ix_j << "] = " << dist_j << ";";
+        return false;
       }));
   }
 };
