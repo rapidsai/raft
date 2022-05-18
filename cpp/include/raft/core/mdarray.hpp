@@ -70,6 +70,12 @@ using __is_mdspan_t = __is_mdspan<std::remove_const_t<T>>;
 template <typename T>
 inline constexpr bool __is_mdspan_v = __is_mdspan_t<T>::value;
 
+template <typename ElementType,
+        typename Extents,
+        typename LayoutPolicy   = layout_c_contiguous,
+        typename AccessorPolicy = detail::stdex::default_accessor<ElementType>>
+using mdspan = detail::stdex::mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>
+
 /**
  * @brief stdex::mdspan with device tag to avoid accessing incorrect memory location.
  */
