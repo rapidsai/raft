@@ -186,9 +186,7 @@ void approx_knn_build_index(raft::handle_t& handle,
       IVFFlatParam* IVFFlat_param = dynamic_cast<IVFFlatParam*>(params);
       T* h_index_array;
       RAFT_CUDA_TRY(cudaMallocManaged(&h_index_array, n * D * sizeof(T)));
-      RAFT_CUDA_TRY(cudaMemcpyAsync(
-        h_index_array, index_array, n * D * sizeof(T), cudaMemcpyDefault, handle.get_stream()));
-
+      copy(h_index_array, index_array, n * D, handle.get_stream());
       approx_knn_cuivfl_ivfflat_build_index(
         index, IVFFlat_param, metric, h_index_array, n, D, handle.get_stream());
     } else {
@@ -210,11 +208,7 @@ void approx_knn_build_index(raft::handle_t& handle,
         cudaMallocManaged(&h_index_array, n * D * sizeof(T));
         // raft::update_host(h_index_array.data(), index_array, h_index_array.size(),
         // handle.get_stream());
-        cudaMemcpyAsync((void*)h_index_array,
-                        (void*)index_array,
-                        n * D * sizeof(T),
-                        cudaMemcpyDefault,
-                        handle.get_stream());
+        copy(h_index_array, index_array, n * D, handle.get_stream());
         approx_knn_cuivfl_ivfflat_build_index(
           index, IVFFlat_param, metric, h_index_array, n, D, handle.get_stream());
       } else {
