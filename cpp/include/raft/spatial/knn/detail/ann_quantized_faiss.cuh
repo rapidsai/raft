@@ -192,6 +192,8 @@ void approx_knn_build_index(raft::handle_t& handle,
 
       approx_knn_cuivfl_ivfflat_build_index(
         index, IVFFlat_param, metric, h_index_array, n, D, handle.get_stream());
+    } else {
+      RAFT_FAIL("IVF Flat algorithm required to fit int8 data");
     }
   } else if constexpr (std::is_same<T, float>{}) {
     std::unique_ptr<MetricProcessor<float>> query_metric_processor =
