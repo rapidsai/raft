@@ -74,6 +74,41 @@ void printDevPtr(const T* d_cache, int len, const char* name)
   free(res);
 }
 
+inline auto cuda_datatype_size(cudaDataType_t t) -> size_t
+{
+  switch (t) {
+    case CUDA_R_8I:
+    case CUDA_C_8I:
+    case CUDA_R_8U:
+    case CUDA_C_8U: return 1;
+
+    case CUDA_R_16F:
+    case CUDA_C_16F:
+    case CUDA_R_16BF:
+    case CUDA_C_16BF:
+    case CUDA_R_16I:
+    case CUDA_C_16I:
+    case CUDA_R_16U:
+    case CUDA_C_16U: return 2;
+
+    case CUDA_R_32F:
+    case CUDA_C_32F:
+    case CUDA_R_32I:
+    case CUDA_C_32I:
+    case CUDA_R_32U:
+    case CUDA_C_32U: return 4;
+
+    case CUDA_R_64F:
+    case CUDA_C_64F:
+    case CUDA_R_64I:
+    case CUDA_C_64I:
+    case CUDA_R_64U:
+    case CUDA_C_64U: return 8;
+
+    default: RAFT_FAIL("cuda_datatype_size: unsupported dtype (%d)", t);
+  }
+}
+
 inline size_t calc_aligned_size(const std::vector<size_t>& sizes)
 {
   const size_t ALIGN_BYTES = 256;
@@ -296,7 +331,20 @@ __global__ void kern_accumulate_with_label(uint32_t nRowsOutput,
   atomicAdd(&(output[iCol + (nCols * iRowOutput)]), input[gid] / divisor);
 }
 
-// accumulate
+/**
+ * @brief Accumulate
+ *
+ * @tparam T
+ *
+ * @param nRowsOutput
+ * @param nCols
+ * @param output device/host pointer
+ * @param count device/host pointer
+ * @param nRowsInput
+ * @param input device/host pointer
+ * @param label device/host pointer
+ * @param divisor
+ */
 template <typename T>
 void _cuann_accumulate_with_label(uint32_t nRowsOutput,
                                   uint32_t nCols,
@@ -314,6 +362,8 @@ void _cuann_accumulate_with_label(uint32_t nRowsOutput,
   cudaPointerGetAttributes(&attr, count);
   if (attr.type == cudaMemoryTypeUnregistered || attr.type == cudaMemoryTypeHost) { useGPU = 0; }
   cudaPointerGetAttributes(&attr, input);
+  if (attr.type == cudaMemoryTypeUnregistered || attr.type == cudaMemoryTypeHost) { useGPU = 0; }
+  cudaPointerGetAttributes(&attr, label);
   if (attr.type == cudaMemoryTypeUnregistered || attr.type == cudaMemoryTypeHost) { useGPU = 0; }
   // _cuann_memset(output, 0, sizeof(float) * nRowsOutput * nCols);
   // _cuann_memset(count, 0, sizeof(uint32_t) * nRowsOutput);
@@ -364,7 +414,14 @@ __global__ void kern_normalize(uint32_t nRows,
   }
 }
 
-// normalize
+/**
+ * @brief Normalize
+ *
+ * @param nRows
+ * @param nCols
+ * @param a device pointer
+ * @param numSamples device pointer
+ */
 void _cuann_normalize(uint32_t nRows,
                       uint32_t nCols,
                       float* a,                   // [nRows, nCols]
@@ -390,7 +447,14 @@ __global__ void kern_divide(uint32_t nRows,
   a[gid] /= numSamples[iRow];
 }
 
-// divide
+/**
+ * @brief Divide
+ *
+ * @param nRows
+ * @param nCols
+ * @param a device pointer
+ * @param numSamples device pointer
+ */
 void _cuann_divide(uint32_t nRows,
                    uint32_t nCols,
                    float* a,                   // [nRows, nCols]

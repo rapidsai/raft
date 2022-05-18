@@ -172,7 +172,7 @@ class cuivflHandle {
   // device pointer
   //  The device memory pointer; inverted list for data; size [ninterleave_, dim_]
   void* list_data_dev_ptr_;
-  
+
   // The device memory pointer; inverted list for index; size [ninterleave_]
   uint32_t* list_index_dev_ptr_;
   // The device memory pointer; Used for list_data_manage_ptr_; size [nlist_]
@@ -883,11 +883,7 @@ cuivflStatus_t cuivflHandle::cuivflBuildIndex(const void* dataset,
   }
 
   RAFT_CUDA_TRY(cudaMalloc(&centriod_dev_ptr_, sizeof(float) * nlist_ * dim_));
-  RAFT_CUDA_TRY(cudaMemcpyAsync(centriod_dev_ptr_,
-                                centriod_manage_ptr,
-                                sizeof(float) * nlist_ * dim_,
-                                cudaMemcpyDefault,
-                                stream));
+  copy(centriod_dev_ptr_, centriod_manage_ptr, nlist_ * dim_, stream);
 
   // Store index on GPU memory: temp WAR until we've entire index building buffers on device
   RAFT_CUDA_TRY(cudaMalloc(&list_prefix_interleaved_dev_ptr_, sizeof(uint32_t) * nlist_));
@@ -903,41 +899,15 @@ cuivflStatus_t cuivflHandle::cuivflBuildIndex(const void* dataset,
   }
 
   // Step 3: Read the list
-  RAFT_CUDA_TRY(cudaMemcpyAsync(list_prefix_interleaved_dev_ptr_,
-                                list_prefix_interleaved_host_ptr_,
-                                sizeof(uint32_t) * nlist_,
-                                cudaMemcpyHostToDevice,
-                                stream));
-  RAFT_CUDA_TRY(cudaMemcpyAsync(list_lengths_dev_ptr_,
-                                list_lengths_host_ptr_,
-                                sizeof(uint32_t) * nlist_,
-                                cudaMemcpyHostToDevice,
-                                stream));
+  copy(list_prefix_interleaved_dev_ptr_, list_prefix_interleaved_host_ptr_, nlist_, stream);
+  copy(list_lengths_dev_ptr_, list_lengths_host_ptr_, nlist_, stream);
 
-  if (dtype_ == CUDA_R_32F) {
-    RAFT_CUDA_TRY(cudaMemcpyAsync(list_data_dev_ptr_,
-                                  list_data_host_ptr_,
-                                  sizeof(float) * ninterleave_ * dim_,
-                                  cudaMemcpyHostToDevice,
-                                  stream));
-  } else if (dtype_ == CUDA_R_8U) {
-    RAFT_CUDA_TRY(cudaMemcpyAsync(list_data_dev_ptr_,
-                                  list_data_host_ptr_,
-                                  sizeof(uint8_t) * ninterleave_ * dim_,
-                                  cudaMemcpyHostToDevice,
-                                  stream));
-  } else if (dtype_ == CUDA_R_8I) {
-    RAFT_CUDA_TRY(cudaMemcpyAsync(list_data_dev_ptr_,
-                                  list_data_host_ptr_,
-                                  sizeof(int8_t) * ninterleave_ * dim_,
-                                  cudaMemcpyHostToDevice,
-                                  stream));
-  }
-  RAFT_CUDA_TRY(cudaMemcpyAsync(list_index_dev_ptr_,
-                                list_index_host_ptr_,
-                                sizeof(uint32_t) * ninterleave_,
+  RAFT_CUDA_TRY(cudaMemcpyAsync(list_data_dev_ptr_,
+                                list_data_host_ptr_,
+                                utils::cuda_datatype_size(dtype_) * ninterleave_ * dim_,
                                 cudaMemcpyHostToDevice,
                                 stream));
+  copy(list_index_dev_ptr_, list_index_host_ptr_, ninterleave_, stream);
 
   return cuivflStatus_t::CUIVFL_STATUS_SUCCESS;
 }  // end func cuivflBuildIndex

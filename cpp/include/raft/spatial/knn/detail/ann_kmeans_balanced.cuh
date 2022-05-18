@@ -250,37 +250,16 @@ void _cuann_kmeans_predict(cublasHandle_t cublasHandle,
     utils::_cuann_memset(clusterSize, 0, sizeof(uint32_t) * numCenters);
   }
 
-  cudaMemcpyKind kind;
-  cudaPointerAttributes attr;
-  cudaPointerGetAttributes(&attr, dataset);
-  if (attr.type == cudaMemoryTypeDevice || attr.type == cudaMemoryTypeManaged) {
-    kind = cudaMemcpyDeviceToDevice;
-  } else {
-    kind = cudaMemcpyHostToDevice;
-  }
-
+  auto elem_size = utils::cuda_datatype_size(dtype);
   for (uint64_t is = 0; is < numDataset; is += chunk) {
     uint64_t ie       = min(is + chunk, (uint64_t)numDataset);
     uint32_t nDataset = ie - is;
 
-    if (dtype == CUDA_R_32F) {
-      RAFT_CUDA_TRY(cudaMemcpy(bufDataset,
-                               (float*)dataset + (is * dimCenters),
-                               sizeof(float) * nDataset * dimCenters,
-                               cudaMemcpyDefault));
-    } else if (dtype == CUDA_R_8U) {
-      RAFT_CUDA_TRY(cudaMemcpyAsync(bufDataset,
-                                    (uint8_t*)dataset + (is * dimCenters),
-                                    sizeof(uint8_t) * nDataset * dimCenters,
-                                    kind,
-                                    NULL));
-    } else if (dtype == CUDA_R_8I) {
-      RAFT_CUDA_TRY(cudaMemcpyAsync(bufDataset,
-                                    (int8_t*)dataset + (is * dimCenters),
-                                    sizeof(int8_t) * nDataset * dimCenters,
-                                    kind,
-                                    NULL));
-    }
+    RAFT_CUDA_TRY(
+      cudaMemcpy(bufDataset,
+                 reinterpret_cast<const uint8_t*>(dataset) + is * dimCenters * elem_size,
+                 elem_size * nDataset * dimCenters,
+                 cudaMemcpyDefault));
 
     if (dtype == CUDA_R_32F) {
       // No need to copy when dtype is CUDA_R_32F
