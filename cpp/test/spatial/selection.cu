@@ -238,15 +238,19 @@ class SelectionTest : public testing::TestWithParam<typename ParamsReader<KeyT, 
   void run()
   {
     if (ref.not_supported || res.not_supported) { GTEST_SKIP(); }
-    auto& ref_dists = ref.get_out_dists();
-    auto& res_dists = res.get_out_dists();
-    ASSERT_TRUE(hostVecMatch(ref_dists, res_dists, Compare<KeyT>()));
+    ASSERT_TRUE(hostVecMatch(ref.get_out_dists(), res.get_out_dists(), Compare<KeyT>()));
 
     // If the dists (keys) are the same, different corresponding ids may end up in the selection due
     // to non-deterministic nature of some implementations.
+    auto& in_ids   = ref.get_in_ids();
+    auto& in_dists = ref.get_in_dists();
     ASSERT_TRUE(hostVecMatch(
-      ref.get_out_ids(), res.get_out_ids(), [&ref_dists, &res_dists](const KeyT& i, const KeyT& j) {
-        return (i == j) || (ref_dists[i] == res_dists[j]);
+      ref.get_out_ids(), res.get_out_ids(), [&in_ids, &in_dists](const KeyT& i, const KeyT& j) {
+        if (i == j) return true;
+        auto it_i = std::find(in_ids.begin(), in_ids.end(), i);
+        auto it_j = std::find(in_ids.begin(), in_ids.end(), j);
+        if (it_i == in_ids.end() || it_j == in_ids.end()) return false;
+        return in_dists[it_i - in_ids.begin()] == in_dists[it_j - in_ids.begin()];
       }));
   }
 };
