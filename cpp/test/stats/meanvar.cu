@@ -65,8 +65,8 @@ class MeanVarTest : public ::testing::TestWithParam<MeanVarInputs<T>> {
  protected:
   void SetUp() override
   {
-    random::Rng(params.seed)
-      .normal(data.data(), params.cols * params.rows, params.mean, params.stddev, stream);
+    random::RngState r(params.seed);
+    normal(handle, r, data.data(), params.cols * params.rows, params.mean, params.stddev);
     meanvar(mean_act.data(),
             vars_act.data(),
             data.data(),

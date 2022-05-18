@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -140,7 +140,7 @@ struct domain_store {
   /* If `Domain::name` does not exist, this default instance is used and throws the error. */
   static_assert(sizeof(Domain) != sizeof(Domain),
                 "Type used to identify a domain must contain a static member 'char const* name'");
-  static inline nvtxDomainHandle_t const kValue = nullptr;
+  static inline auto value() -> const nvtxDomainHandle_t { return nullptr; }
 };
 
 template <typename Domain>
@@ -150,7 +150,12 @@ struct domain_store<
   std::enable_if_t<
     std::is_same<char const*, typename std::decay<decltype(Domain::name)>::type>::value,
     Domain>> {
-  static inline nvtxDomainHandle_t const kValue = nvtxDomainCreateA(Domain::name);
+  static inline auto value() -> const nvtxDomainHandle_t
+  {
+    // NB: static modifier ensures the domain is created only once
+    static const nvtxDomainHandle_t kValue = nvtxDomainCreateA(Domain::name);
+    return kValue;
+  }
 };
 
 template <typename Domain>
@@ -163,7 +168,7 @@ inline void push_range_name(const char* name)
   event_attrib.color                 = generate_next_color(name);
   event_attrib.messageType           = NVTX_MESSAGE_TYPE_ASCII;
   event_attrib.message.ascii         = name;
-  nvtxDomainRangePushEx(domain_store<Domain>::kValue, &event_attrib);
+  nvtxDomainRangePushEx(domain_store<Domain>::value(), &event_attrib);
 }
 
 template <typename Domain, typename... Args>
@@ -183,7 +188,7 @@ inline void push_range(const char* format, Args... args)
 template <typename Domain>
 inline void pop_range()
 {
-  nvtxDomainRangePop(domain_store<Domain>::kValue);
+  nvtxDomainRangePop(domain_store<Domain>::value());
 }
 
 #else  // NVTX_ENABLED

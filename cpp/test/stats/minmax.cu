@@ -90,23 +90,23 @@ __global__ void nanKernel(T* data, const bool* mask, int len, T nan)
 template <typename T>
 class MinMaxTest : public ::testing::TestWithParam<MinMaxInputs<T>> {
  protected:
-  MinMaxTest() : minmax_act(0, stream), minmax_ref(0, stream) {}
+  MinMaxTest() : minmax_act(0, handle.get_stream()), minmax_ref(0, handle.get_stream()) {}
 
   void SetUp() override
   {
-    params = ::testing::TestWithParam<MinMaxInputs<T>>::GetParam();
-    raft::random::Rng r(params.seed);
+    auto stream = handle.get_stream();
+    params      = ::testing::TestWithParam<MinMaxInputs<T>>::GetParam();
+    raft::random::RngState r(params.seed);
     int len = params.rows * params.cols;
-    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
 
     rmm::device_uvector<T> data(len, stream);
     rmm::device_uvector<bool> mask(len, stream);
     minmax_act.resize(2 * params.cols, stream);
     minmax_ref.resize(2 * params.cols, stream);
 
-    r.normal(data.data(), len, (T)0.0, (T)1.0, stream);
+    normal(handle, r, data.data(), len, (T)0.0, (T)1.0);
     T nan_prob = 0.01;
-    r.bernoulli(mask.data(), len, nan_prob, stream);
+    bernoulli(handle, r, mask.data(), len, nan_prob);
     const int TPB = 256;
     nanKernel<<<raft::ceildiv(len, TPB), TPB, 0, stream>>>(
       data.data(), mask.data(), len, std::numeric_limits<T>::quiet_NaN());
@@ -130,10 +130,10 @@ class MinMaxTest : public ::testing::TestWithParam<MinMaxInputs<T>> {
   }
 
  protected:
+  raft::handle_t handle;
   MinMaxInputs<T> params;
   rmm::device_uvector<T> minmax_act;
   rmm::device_uvector<T> minmax_ref;
-  cudaStream_t stream = 0;
 };
 
 const std::vector<MinMaxInputs<float>> inputsf = {{0.00001f, 1024, 32, 1234ULL},

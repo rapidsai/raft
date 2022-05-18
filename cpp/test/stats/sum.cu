@@ -15,11 +15,15 @@
  */
 
 #include "../test_utils.h"
-#include <gtest/gtest.h>
+
 #include <raft/cudart_utils.h>
+#include <raft/handle.hpp>
 #include <raft/linalg/eltwise.cuh>
-#include <raft/random/rng.cuh>
 #include <raft/stats/sum.cuh>
+
+#include <rmm/device_uvector.hpp>
+
+#include <gtest/gtest.h>
 
 namespace raft {
 namespace stats {

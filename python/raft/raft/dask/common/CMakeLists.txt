@@ -12,20 +12,12 @@
 # the License.
 # =============================================================================
 
-function(find_and_configure_mdspan VERSION)
-    rapids_cpm_find(
-      mdspan ${VERSION}
-      GLOBAL_TARGETS std::mdspan
-      BUILD_EXPORT_SET    raft-exports
-      INSTALL_EXPORT_SET  raft-exports
-      CPM_ARGS
-        GIT_REPOSITORY https://github.com/rapidsai/mdspan.git
-        GIT_TAG b3042485358d2ee168ae2b486c98c2c61ec5aec1
-        OPTIONS "MDSPAN_ENABLE_CUDA ON"
-                "MDSPAN_CXX_STANDARD ON"
-    )
-endfunction()
+include(${raft-python_SOURCE_DIR}/cmake/thirdparty/get_nccl.cmake)
+find_package(ucx REQUIRED)
 
-if(RAFT_ENABLE_mdspan_DEPENDENCY)
-  find_and_configure_mdspan(0.2.0)
-endif()
+set(cython_sources comms_utils.pyx nccl.pyx)
+set(linked_libraries raft::raft NCCL::NCCL ucx::ucp)
+rapids_cython_create_modules(
+    SOURCE_FILES "${cython_sources}"
+    LINKED_LIBRARIES "${linked_libraries}"
+    CXX)

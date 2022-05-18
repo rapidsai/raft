@@ -56,9 +56,9 @@ class UnaryOpTest : public ::testing::TestWithParam<UnaryOpInputs<InType, IdxTyp
  protected:
   void SetUp() override
   {
-    raft::random::Rng r(params.seed);
+    raft::random::RngState r(params.seed);
     auto len = params.len;
-    r.uniform(in.data(), len, InType(-1.0), InType(1.0), stream);
+    uniform(handle, r, in.data(), len, InType(-1.0), InType(1.0));
     handle.sync_stream(stream);
   }
 

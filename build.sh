@@ -18,8 +18,8 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libraft pyraft pylibraft docs tests bench clean -v -g --install --compile-libs --compile-nn --compile-dist --allgpuarch --nvtx --show_depr_warn -h --buildfaiss --minimal-deps"
-HELP="$0 [<target> ...] [<flag> ...]
+VALIDARGS="clean libraft pyraft pylibraft docs tests bench clean -v -g --install --compile-libs --compile-nn --compile-dist --allgpuarch --no-nvtx --show_depr_warn -h --buildfaiss --minimal-deps"
+HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"]
  where <target> is:
    clean            - remove all existing build artifacts and configuration (start over)
    libraft          - build the raft C++ code only. Also builds the C-wrapper library
@@ -31,26 +31,27 @@ HELP="$0 [<target> ...] [<flag> ...]
    bench            - build the benchmarks
 
  and <flag> is:
-   -v               - verbose build mode
-   -g               - build for debug
-   --compile-libs   - compile shared libraries for all components
-   --compile-nn     - compile shared library for nn component
-   --compile-dist   - compile shared library for distance component
-   --minimal-deps   - disables dependencies like thrust so they can be overridden.
-                      can be useful for a pure header-only install
-   --allgpuarch     - build for all supported GPU architectures
-   --buildfaiss     - build faiss statically into raft
-   --install        - install cmake targets
-   --nvtx           - enable nvtx for profiling support
-   --show_depr_warn - show cmake deprecation warnings
-   -h               - print this text
+   -v                          - verbose build mode
+   -g                          - build for debug
+   --compile-libs              - compile shared libraries for all components
+   --compile-nn                - compile shared library for nn component
+   --compile-dist              - compile shared library for distance component
+   --minimal-deps              - disables dependencies like thrust so they can be overridden.
+                                 can be useful for a pure header-only install
+   --allgpuarch                - build for all supported GPU architectures
+   --buildfaiss                - build faiss statically into raft
+   --install                   - install cmake targets
+   --no-nvtx                   - disable nvtx (profiling markers), but allow enabling it in downstream projects
+   --show_depr_warn            - show cmake deprecation warnings
+   --cmake-args=\\\"<args>\\\" - pass arbitrary list of CMake configuration options (escape all quotes in argument)
+   -h                          - print this text
 
  default action (no args) is to build both libraft and pyraft targets
 "
 LIBRAFT_BUILD_DIR=${LIBRAFT_BUILD_DIR:=${REPODIR}/cpp/build}
 SPHINX_BUILD_DIR=${REPODIR}/docs
 PY_RAFT_BUILD_DIR=${REPODIR}/python/raft/build
-PY_LIBRAFT_BUILD_DIR=${REPODIR}/python/pylibraft/build
+PY_LIBRAFT_BUILD_DIR=${REPODIR}/python/pylibraft/_skbuild
 BUILD_DIRS="${LIBRAFT_BUILD_DIR} ${PY_RAFT_BUILD_DIR} ${PY_LIBRAFT_BUILD_DIR}"
 
 # Set defaults for vars modified by flags to this script
@@ -67,10 +68,7 @@ ENABLE_NN_DEPENDENCIES=OFF
 
 ENABLE_thrust_DEPENDENCY=ON
 
-ENABLE_ucx_DEPENDENCY=OFF
-ENABLE_nccl_DEPENDENCY=OFF
-
-NVTX=OFF
+NVTX=ON
 CLEAN=0
 UNINSTALL=0
 DISABLE_DEPRECATION_WARNINGS=ON
@@ -91,6 +89,28 @@ function hasArg {
     (( ${NUMARGS} != 0 )) && (echo " ${ARGS} " | grep -q " $1 ")
 }
 
+function cmakeArgs {
+    # Check for multiple cmake args options
+    if [[ $(echo $ARGS | { grep -Eo "\-\-cmake\-args" || true; } | wc -l ) -gt 1 ]]; then
+        echo "Multiple --cmake-args options were provided, please provide only one: ${ARGS}"
+        exit 1
+    fi
+
+    # Check for cmake args option
+    if [[ -n $(echo $ARGS | { grep -E "\-\-cmake\-args" || true; } ) ]]; then
+        # There are possible weird edge cases that may cause this regex filter to output nothing and fail silently
+        # the true pipe will catch any weird edge cases that may happen and will cause the program to fall back
+        # on the invalid option error
+        CMAKE_ARGS=$(echo $ARGS | { grep -Eo "\-\-cmake\-args=\".+\"" || true; })
+        if [[ -n ${CMAKE_ARGS} ]]; then
+            # Remove the full  CMAKE_ARGS argument from list of args so that it passes validArgs function
+            ARGS=${ARGS//$CMAKE_ARGS/}
+            # Filter the full argument down to just the extra string that will be added to cmake call
+            CMAKE_ARGS=$(echo $CMAKE_ARGS | grep -Eo "\".+\"" | sed -e 's/^"//' -e 's/"$//')
+        fi
+    fi
+}
+
 if hasArg -h || hasArg --help; then
     echo "${HELP}"
     exit 0
@@ -98,21 +118,22 @@ fi
 
 # Check for valid usage
 if (( ${NUMARGS} != 0 )); then
+    cmakeArgs
     for a in ${ARGS}; do
-  if ! (echo " ${VALIDARGS} " | grep -q " ${a} "); then
-      echo "Invalid option: ${a}"
-      exit 1
-  fi
+        if ! (echo " ${VALIDARGS} " | grep -q " ${a} "); then
+            echo "Invalid option: ${a}"
+            exit 1
+        fi
     done
 fi
 
 # Process flags
 if hasArg --install; then
-  INSTALL_TARGET="install"
+    INSTALL_TARGET="install"
 fi
 
 if hasArg --minimal-deps; then
-  ENABLE_thrust_DEPENDENCY=OFF
+    ENABLE_thrust_DEPENDENCY=OFF
 fi
 
 if hasArg -v; then
@@ -128,7 +149,7 @@ if hasArg --allgpuarch; then
 fi
 
 if hasArg --compile-libs || (( ${NUMARGS} == 0 )); then
-  COMPILE_LIBRARIES=ON
+    COMPILE_LIBRARIES=ON
 fi
 
 if hasArg --compile-nn || hasArg --compile-libs || (( ${NUMARGS} == 0 )); then
@@ -157,8 +178,8 @@ fi
 if hasArg --buildfaiss; then
     BUILD_STATIC_FAISS=ON
 fi
-if hasArg --nvtx; then
-    NVTX=ON
+if hasArg --no-nvtx; then
+    NVTX=OFF
 fi
 if hasArg --show_depr_warn; then
     DISABLE_DEPRECATION_WARNINGS=OFF
@@ -167,11 +188,11 @@ if hasArg clean; then
     CLEAN=1
 fi
 if hasArg uninstall; then
-  UNINSTALL=1
+    UNINSTALL=1
 fi
 
 if [[ ${CMAKE_TARGET} == "" ]]; then
-  CMAKE_TARGET="all"
+    CMAKE_TARGET="all"
 fi
 
 # If clean given, run it prior to any other steps
@@ -196,11 +217,6 @@ if (( ${CLEAN} == 1 )); then
     cd ${REPODIR}
 fi
 
-# Pyraft requires ucx + nccl
-if (( ${NUMARGS} == 0 )) || hasArg pyraft || hasArg docs; then
-  ENABLE_nccl_DEPENDENCY=ON
-  ENABLE_ucx_DEPENDENCY=ON
-fi
 ################################################################################
 # Configure for building all C++ targets
 if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || hasArg bench; then
@@ -219,7 +235,7 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || has
           -DCMAKE_CUDA_ARCHITECTURES=${RAFT_CMAKE_CUDA_ARCHITECTURES} \
           -DRAFT_COMPILE_LIBRARIES=${COMPILE_LIBRARIES} \
           -DRAFT_ENABLE_NN_DEPENDENCIES=${ENABLE_NN_DEPENDENCIES} \
-          -DNVTX=${NVTX} \
+          -DRAFT_NVTX=${NVTX} \
           -DDISABLE_DEPRECATION_WARNINGS=${DISABLE_DEPRECATION_WARNINGS} \
           -DBUILD_TESTS=${BUILD_TESTS} \
           -DBUILD_BENCH=${BUILD_BENCH} \
@@ -227,9 +243,8 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || has
           -DRAFT_COMPILE_NN_LIBRARY=${COMPILE_NN_LIBRARY} \
           -DRAFT_COMPILE_DIST_LIBRARY=${COMPILE_DIST_LIBRARY} \
           -DRAFT_USE_FAISS_STATIC=${BUILD_STATIC_FAISS} \
-          -DRAFT_ENABLE_nccl_DEPENDENCY=${ENABLE_nccl_DEPENDENCY} \
-          -DRAFT_ENABLE_ucx_DEPENDENCY=${ENABLE_ucx_DEPENDENCY} \
-          -DRAFT_ENABLE_thrust_DEPENDENCY=${ENABLE_thrust_DEPENDENCY}
+          -DRAFT_ENABLE_thrust_DEPENDENCY=${ENABLE_thrust_DEPENDENCY} \
+          ${CMAKE_ARGS}
 
   if [[ ${CMAKE_TARGET} != "" ]]; then
       echo "-- Compiling targets: ${CMAKE_TARGET}, verbose=${VERBOSE_FLAG}"
@@ -245,10 +260,9 @@ fi
 if (( ${NUMARGS} == 0 )) || hasArg pyraft || hasArg docs; then
 
     cd ${REPODIR}/python/raft
+    python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace -- -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} -DCMAKE_LIBRARY_PATH=${LIBRAFT_BUILD_DIR} ${CMAKE_ARGS}
     if [[ ${INSTALL_TARGET} != "" ]]; then
-        python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace --library-dir=${LIBRAFT_BUILD_DIR} install --single-version-externally-managed --record=record.txt
-    else
-        python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace --library-dir=${LIBRAFT_BUILD_DIR}
+        python setup.py install --single-version-externally-managed --record=record.txt -- -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} ${CMAKE_ARGS}
     fi
 fi
 
@@ -256,10 +270,9 @@ fi
 if (( ${NUMARGS} == 0 )) || hasArg pylibraft; then
 
     cd ${REPODIR}/python/pylibraft
+    python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace -- -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} -DCMAKE_LIBRARY_PATH=${LIBRAFT_BUILD_DIR} ${CMAKE_ARGS}
     if [[ ${INSTALL_TARGET} != "" ]]; then
-        python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace --library-dir=${LIBRAFT_BUILD_DIR} install --single-version-externally-managed --record=record.txt
-    else
-        python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace --library-dir=${LIBRAFT_BUILD_DIR}
+        python setup.py install --single-version-externally-managed --record=record.txt -- -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} ${CMAKE_ARGS}
     fi
 fi
 
