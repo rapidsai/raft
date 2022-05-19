@@ -985,7 +985,7 @@ void launch_interleaved_scan_kernel(
       if constexpr (veclen == 1) {
         acc += x * y;
       } else {
-        acc = __dp4a(x, y, acc);
+        acc = dp4a(x, y, acc);
       }
     } else if constexpr (std::is_same<T, float>{}) {
       acc += x * y;
@@ -1001,7 +1001,7 @@ void launch_interleaved_scan_kernel(
       } else {
         const acc_type diff = __vabsdiffu4(x, y);
         // TODO: add CUDA_ARCH based guard as IDP is only available from SM 6.1 onwards
-        acc = __dp4a(diff, diff, acc);
+        acc = dp4a(diff, diff, acc);
       }
     } else if constexpr (std::is_same<T, int8_t>{}) {
       if constexpr (veclen == 1) {
@@ -1009,7 +1009,7 @@ void launch_interleaved_scan_kernel(
         acc += diff * diff;
       } else {
         asm("vabsdiff4.u32.s32.s32 %0,%1,%2,%3;" : "=r"(x) : "r"(x), "r"(y), "r"(0));
-        acc = __dp4a(x, x, acc);
+        acc = dp4a(x, x, acc);
       }
     } else if constexpr ((std::is_same<T, float>{})) {
       const acc_type diff = x - y;

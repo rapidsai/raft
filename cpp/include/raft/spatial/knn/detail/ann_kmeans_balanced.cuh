@@ -182,8 +182,7 @@ void _cuann_kmeans_update_centers(float* centers,  // [numCenters, dimCenters]
                                                   divisor);
     }
   } else {
-    cudaMemcpy(
-      centers, accumulatedCenters, sizeof(float) * numCenters * dimCenters, cudaMemcpyDefault);
+    copy(centers, accumulatedCenters, numCenters * dimCenters, rmm::cuda_stream_default);
   }
 
   if (metric == raft::distance::DistanceType::InnerProduct) {

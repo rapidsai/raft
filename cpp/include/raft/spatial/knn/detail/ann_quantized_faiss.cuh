@@ -101,15 +101,6 @@ void approx_knn_cuivfl_ivfflat_build_index(knnIndex* index,
   const size_t ntrain = n / ratio;
   assert(ntrain > 0);
 
-  // T* trainset = (T*)rmm(ntrain * dim * sizeof(T));
-  // cudaMemcpyKind kind;
-  // cudaPointerAttributes attr;
-  // cudaPointerGetAttributes(&attr, dataset);
-  // if (attr.type == cudaMemoryTypeDevice || attr.type == cudaMemoryTypeManaged) {
-  //     kind = cudaMemcpyDeviceToDevice;
-  // } else {
-  //     kind = cudaMemcpyHostToDevice;
-  // }
   // rmm::device_uvector<T> trainset(ntrain * dim, stream);
   T* trainset = nullptr;
   RAFT_CUDA_TRY(cudaMallocManaged(&trainset, ntrain * dim * sizeof(T)));
@@ -118,14 +109,7 @@ void approx_knn_cuivfl_ivfflat_build_index(knnIndex* index,
     copy(trainset + i * dim, dataset + ratio * i * dim, dim, stream);
   }
 
-  cudaDataType_t dtype;
-  if (typeid(T) == typeid(float)) {
-    dtype = CUDA_R_32F;
-  } else if (typeid(T) == typeid(uint8_t)) {
-    dtype = CUDA_R_8U;
-  } else if (typeid(T) == typeid(int8_t)) {
-    dtype = CUDA_R_8I;
-  }
+  cudaDataType_t dtype = utils::cuda_datatype<T>();
 
   cuivflInit(index->handle_, metric, D, params->nlist, niter, index->device);
 

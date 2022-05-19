@@ -109,6 +109,27 @@ inline auto cuda_datatype_size(cudaDataType_t t) -> size_t
   }
 }
 
+template <typename T>
+inline constexpr auto cuda_datatype() -> cudaDataType_t;
+
+template <>
+inline constexpr auto cuda_datatype<float>() -> cudaDataType_t
+{
+  return CUDA_R_32F;
+}
+
+template <>
+inline constexpr auto cuda_datatype<uint8_t>() -> cudaDataType_t
+{
+  return CUDA_R_8U;
+}
+
+template <>
+inline constexpr auto cuda_datatype<int8_t>() -> cudaDataType_t
+{
+  return CUDA_R_8I;
+}
+
 inline size_t calc_aligned_size(const std::vector<size_t>& sizes)
 {
   const size_t ALIGN_BYTES = 256;
