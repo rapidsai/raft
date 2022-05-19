@@ -52,10 +52,10 @@ class BinaryOpTest : public ::testing::TestWithParam<BinaryOpInputs<InType, IdxT
  protected:
   void SetUp() override
   {
-    raft::random::Rng r(params.seed);
+    raft::random::RngState r(params.seed);
     IdxType len = params.len;
-    r.uniform(in1.data(), len, InType(-1.0), InType(1.0), stream);
-    r.uniform(in2.data(), len, InType(-1.0), InType(1.0), stream);
+    uniform(handle, r, in1.data(), len, InType(-1.0), InType(1.0));
+    uniform(handle, r, in2.data(), len, InType(-1.0), InType(1.0));
     naiveAdd(out_ref.data(), in1.data(), in2.data(), len);
     binaryOpLaunch(out.data(), in1.data(), in2.data(), len, stream);
     handle.sync_stream(stream);

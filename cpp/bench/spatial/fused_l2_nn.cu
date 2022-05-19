@@ -20,7 +20,7 @@
 #include <raft/distance/fused_l2_nn.hpp>
 #include <raft/handle.hpp>
 #include <raft/linalg/norm.hpp>
-#include <raft/random/rng.hpp>
+#include <raft/random/rng.cuh>
 
 #if defined RAFT_NN_COMPILED
 #include <raft/spatial/knn/specializations.hpp>
@@ -44,10 +44,10 @@ struct fused_l2_nn : public fixture {
       workspace(p.m, stream)
   {
     raft::handle_t handle{stream};
-    raft::random::Rng r(123456ULL);
+    raft::random::RngState r(123456ULL);
 
-    r.uniform(x.data(), p.m * p.k, T(-1.0), T(1.0), stream);
-    r.uniform(y.data(), p.n * p.k, T(-1.0), T(1.0), stream);
+    uniform(handle, r, x.data(), p.m * p.k, T(-1.0), T(1.0));
+    uniform(handle, r, y.data(), p.n * p.k, T(-1.0), T(1.0));
     raft::linalg::rowNorm(xn.data(), x.data(), p.k, p.m, raft::linalg::L2Norm, true, stream);
     raft::linalg::rowNorm(yn.data(), y.data(), p.k, p.n, raft::linalg::L2Norm, true, stream);
     raft::distance::initialize<T, cub::KeyValuePair<int, T>, int>(

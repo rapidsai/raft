@@ -17,8 +17,8 @@
 #include "../test_utils.h"
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
-#include <raft/random/rng.cuh>
 
+#include <raft/random/rng.cuh>
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/op/filter.cuh>
 #include <raft/sparse/op/sort.cuh>
@@ -50,16 +50,16 @@ const std::vector<SparseFilterInputs<float>> inputsf = {{5, 10, 5, 1234ULL}};
 typedef SparseFilterTests<float> COORemoveZeros;
 TEST_P(COORemoveZeros, Result)
 {
-  cudaStream_t stream;
-  cudaStreamCreate(&stream);
-  params = ::testing::TestWithParam<SparseFilterInputs<float>>::GetParam();
+  raft::handle_t h;
+  auto stream = h.get_stream();
+  params      = ::testing::TestWithParam<SparseFilterInputs<float>>::GetParam();
 
   float* in_h_vals = new float[params.nnz];
 
   COO<float> in(stream, params.nnz, 5, 5);
 
-  raft::random::Rng r(params.seed);
-  r.uniform(in.vals(), params.nnz, float(-1.0), float(1.0), stream);
+  raft::random::RngState r(params.seed);
+  uniform(h, r, in.vals(), params.nnz, float(-1.0), float(1.0));
 
   raft::update_host(in_h_vals, in.vals(), params.nnz, stream);
 
@@ -102,7 +102,6 @@ TEST_P(COORemoveZeros, Result)
   ASSERT_TRUE(raft::devArrMatch<int>(out_ref.cols(), out.cols(), 2, raft::Compare<int>()));
   ASSERT_TRUE(raft::devArrMatch<float>(out_ref.vals(), out.vals(), 2, raft::Compare<float>()));
 
-  RAFT_CUDA_TRY(cudaStreamDestroy(stream));
   free(out_vals_ref_h);
 
   delete[] in_h_rows;

@@ -95,13 +95,13 @@ class MatVecOpTest : public ::testing::TestWithParam<MatVecOpInputs<T, IdxType>>
  protected:
   void SetUp() override
   {
-    raft::random::Rng r(params.seed);
+    raft::random::RngState r(params.seed);
     IdxType N = params.rows, D = params.cols;
     IdxType len    = N * D;
     IdxType vecLen = params.bcastAlongRows ? D : N;
-    r.uniform(in.data(), len, (T)-1.0, (T)1.0, stream);
-    r.uniform(vec1.data(), vecLen, (T)-1.0, (T)1.0, stream);
-    r.uniform(vec2.data(), vecLen, (T)-1.0, (T)1.0, stream);
+    uniform(handle, r, in.data(), len, (T)-1.0, (T)1.0);
+    uniform(handle, r, vec1.data(), vecLen, (T)-1.0, (T)1.0);
+    uniform(handle, r, vec2.data(), vecLen, (T)-1.0, (T)1.0);
     if (params.useTwoVectors) {
       naiveMatVec(out_ref.data(),
                   in.data(),
