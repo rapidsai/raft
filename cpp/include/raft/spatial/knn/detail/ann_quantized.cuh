@@ -30,6 +30,10 @@
 #include <raft/label/classlabels.cuh>
 #include <raft/spatial/knn/faiss_mr.hpp>
 
+#include <rmm/cuda_stream_view.hpp>
+#include <rmm/device_uvector.hpp>
+#include <rmm/mr/device/managed_memory_resource.hpp>
+
 #include <faiss/gpu/GpuDistance.h>
 #include <faiss/gpu/GpuIndexFlat.h>
 #include <faiss/gpu/GpuIndexIVFFlat.h>
@@ -93,7 +97,7 @@ void approx_knn_cuivfl_ivfflat_build_index(knnIndex* index,
                                            T* dataset,
                                            IntType n,
                                            IntType D,
-                                           cudaStream_t stream)
+                                           rmm::cuda_stream_view stream)
 {
   int ratio           = 2;  // TODO: take these parameters from API
   int niter           = 20;
@@ -101,20 +105,24 @@ void approx_knn_cuivfl_ivfflat_build_index(knnIndex* index,
   const size_t ntrain = n / ratio;
   assert(ntrain > 0);
 
-  // rmm::device_uvector<T> trainset(ntrain * dim, stream);
-  T* trainset = nullptr;
-  RAFT_CUDA_TRY(cudaMallocManaged(&trainset, ntrain * dim * sizeof(T)));
+  rmm::mr::managed_memory_resource managed_memory;
+  rmm::device_uvector<T> trainset(ntrain * dim, stream, &managed_memory);
 
-  for (size_t i = 0; i < ntrain; ++i) {
-    copy(trainset + i * dim, dataset + ratio * i * dim, dim, stream);
-  }
+  RAFT_CUDA_TRY(cudaMemcpy2DAsync(trainset.data(),
+                                  sizeof(T) * dim,
+                                  dataset,
+                                  sizeof(T) * dim * ratio,
+                                  sizeof(T) * dim,
+                                  ntrain,
+                                  cudaMemcpyDefault,
+                                  stream));
 
   cudaDataType_t dtype = utils::cuda_datatype<T>();
 
   cuivflInit(index->handle_, metric, D, params->nlist, niter, index->device);
 
-  index->handle_->cuivflBuildIndex(dataset, trainset, dtype, n, ntrain, stream);
-  RAFT_CUDA_TRY(cudaFree(trainset));
+  // NB: `trainset` is accessed by both CPU and GPU code here.
+  index->handle_->cuivflBuildIndex(dataset, trainset.data(), dtype, n, ntrain, stream);
 }
 
 template <typename IntType = int>

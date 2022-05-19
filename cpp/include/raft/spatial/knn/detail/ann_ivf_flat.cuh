@@ -39,7 +39,6 @@
 
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_uvector.hpp>
-#include <rmm/mr/device/device_memory_resource.hpp>
 #include <rmm/mr/device/managed_memory_resource.hpp>
 
 #include <faiss/gpu/GpuDistance.h>
@@ -325,6 +324,10 @@ cuivflHandle::~cuivflHandle()
 
 // cuivflBuildIndex
 
+/**
+ * NB: `dataset` is accessed only by GPU code, `trainset` accessed by CPU and GPU.
+ *
+ */
 cuivflStatus_t cuivflHandle::cuivflBuildOptimizedKmeans(float* centriod_manage_ptr,
                                                         const void* dataset,
                                                         void* trainset,

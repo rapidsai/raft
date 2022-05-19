@@ -165,17 +165,19 @@ size_t _cuann_aligned(size_t size, size_t unit = 128)
   return size;
 }
 
-// memset
+/**
+ * @brief Sets the first num bytes of the block of memory pointed by ptr to the specified value.
+ *
+ * @param[out] ptr host or device pointer
+ * @param[in] value
+ * @param[in] count
+ */
 void _cuann_memset(void* ptr, int value, size_t count)
 {
   cudaPointerAttributes attr;
   cudaPointerGetAttributes(&attr, ptr);
   if (attr.type == cudaMemoryTypeDevice || attr.type == cudaMemoryTypeManaged) {
     RAFT_CUDA_TRY(cudaMemset(ptr, value, count));
-    // if (ret != cudaSuccess) {
-    //     fprintf(stderr, "(%s) cudaMemset() failed\n", __func__);
-    //     exit(-1);
-    // }
   } else {
     memset(ptr, value, count);
   }
@@ -355,6 +357,8 @@ __global__ void kern_accumulate_with_label(uint32_t nRowsOutput,
 /**
  * @brief Accumulate
  *
+ * Pointer residency: altogether available either on GPU or on CPU
+ *
  * @tparam T
  *
  * @param nRowsOutput
@@ -438,10 +442,10 @@ __global__ void kern_normalize(uint32_t nRows,
 /**
  * @brief Normalize
  *
- * @param nRows
- * @param nCols
- * @param a device pointer
- * @param numSamples device pointer
+ * @param[in] nRows
+ * @param[in] nCols
+ * @param[inout] a device pointer
+ * @param[in] numSamples device pointer
  */
 void _cuann_normalize(uint32_t nRows,
                       uint32_t nCols,
@@ -471,10 +475,10 @@ __global__ void kern_divide(uint32_t nRows,
 /**
  * @brief Divide
  *
- * @param nRows
- * @param nCols
- * @param a device pointer
- * @param numSamples device pointer
+ * @param[in] nRows
+ * @param[in] nCols
+ * @param[inout] a device pointer
+ * @param[in] numSamples device pointer
  */
 void _cuann_divide(uint32_t nRows,
                    uint32_t nCols,

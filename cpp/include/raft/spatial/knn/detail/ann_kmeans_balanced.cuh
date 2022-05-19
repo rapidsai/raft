@@ -142,7 +142,18 @@ size_t _cuann_kmeans_predict_bufferSize(uint32_t numCenters,
   return size;
 }
 
-// update kmeans centers
+/**
+ * @brief update kmeans centers
+ *
+ * NB: `centers` and `clusterSize` must be accessible on GPU due to _cuann_divide/_cuann_normalize.
+ *      The rest can be both, under assumption that all pointer are accessible from the same place.
+ *
+ * i.e. two variants are possible:
+ *
+ *   1. All pointers are on the device.
+ *   2. All pointers are on the host, but `centers` and `clusterSize` are accessible from GPU.
+ *
+ */
 void _cuann_kmeans_update_centers(float* centers,  // [numCenters, dimCenters]
                                   uint32_t numCenters,
                                   uint32_t dimCenters,
@@ -196,7 +207,13 @@ void _cuann_kmeans_update_centers(float* centers,  // [numCenters, dimCenters]
   }
 }
 
-// predict label of dataset
+
+/**
+ * @brief predict label of dataset
+ *
+ * NB: seems that all pointers here are accessed by devicie code only
+ *
+ */
 void _cuann_kmeans_predict(cublasHandle_t cublasHandle,
                            float* centers,  // [numCenters, dimCenters]
                            uint32_t numCenters,
@@ -317,7 +334,11 @@ void _cuann_kmeans_predict(cublasHandle_t cublasHandle,
   }
 }
 
-// adjust centers which have small number of entries
+/**
+ * @brief adjust centers which have small number of entries
+ *
+ * NB: all pointers are used on the CPU side.
+ */
 bool _cuann_kmeans_adjust_centers(float* centers,  // [numCenters, dimCenters]
                                   uint32_t numCenters,
                                   uint32_t dimCenters,
