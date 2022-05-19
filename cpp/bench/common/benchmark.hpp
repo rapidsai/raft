@@ -115,7 +115,7 @@ class fixture {
     int device_id     = 0;
     RAFT_CUDA_TRY(cudaGetDevice(&device_id));
     RAFT_CUDA_TRY(cudaDeviceGetAttribute(&l2_cache_size, cudaDevAttrL2CacheSize, device_id));
-    scratch_buf_ = rmm::device_buffer(l2_cache_size, stream);
+    scratch_buf_ = rmm::device_buffer(l2_cache_size * 3, stream);
   }
 
   // every benchmark should be overriding this
