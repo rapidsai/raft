@@ -37,6 +37,96 @@ using layout_c_contiguous = detail::stdex::layout_right;
  */
 using layout_f_contiguous = detail::stdex::layout_left;
 
+using layout_stride = detail::stdex::layout_stride;
+
+/**
+ * @brief row major padded layout mapping for mdarray and mdspan.
+ */
+template <class Extents, size_t ElementAlignment>
+class layout_padded_right : public layout_stride::mapping<Extents> {
+ private:
+  using stride_storage_type = std::array<size_t, Extents::rank()>;
+
+  stride_storage_type generate_row_major_strides_with_padding(Extents const& __exts)
+  {
+    auto alignment              = std::max<size_t>(ElementAlignment, 1);
+    stride_storage_type strides = std::array<size_t, Extents::rank()>{};
+    size_t stride               = 1;
+    for (size_t r = __exts.rank() - 1; r > 0; r--) {
+      strides[r] = stride;
+      if (stride == 1) {
+        stride *=
+          std::max<size_t>(alignment, (__exts.extent(r) + alignment - 1) / alignment * alignment);
+      } else {
+        stride *= __exts.extent(r);
+      }
+    }
+    strides[0] = stride;
+    return strides;
+  }
+
+ public:
+  constexpr layout_padded_right(Extents const& __exts) noexcept
+    : layout_stride::mapping<Extents>(__exts, generate_row_major_strides_with_padding(__exts))
+  {
+  }
+};
+
+/**
+ * @brief column major padded layout mapping for mdarray and mdspan.
+ */
+template <class Extents, size_t ElementAlignment>
+class layout_padded_left : public layout_stride::mapping<Extents> {
+ private:
+  using stride_storage_type = std::array<size_t, Extents::rank()>;
+
+  stride_storage_type generate_row_major_strides_with_padding(Extents const& __exts)
+  {
+    auto alignment              = std::max<size_t>(ElementAlignment, 1);
+    stride_storage_type strides = std::array<size_t, Extents::rank()>{};
+    size_t stride               = 1;
+    for (size_t r = 0; r < __exts.rank() - 1; r++) {
+      strides[r] = stride;
+      if (stride == 1) {
+        stride *=
+          std::max<size_t>(alignment, (__exts.extent(r) + alignment - 1) / alignment * alignment);
+      } else {
+        stride *= __exts.extent(r);
+      }
+    }
+    strides[__exts.rank() - 1] = stride;
+    return strides;
+  }
+
+ public:
+  constexpr layout_padded_left(Extents const& __exts) noexcept
+    : layout_stride::mapping<Extents>(__exts, generate_row_major_strides_with_padding(__exts))
+  {
+  }
+};
+
+/**
+ * @brief wrapper for padded layout that transforms ByteAlignment to ElementAlignment
+ */
+template <typename ElementType,
+          class Extents,
+          size_t ByteAlignment                 = 16,
+          typename ::std::enable_if<(ByteAlignment % sizeof(ElementType) == 0 ||
+                                     sizeof(ElementType) % ByteAlignment == 0),
+                                    int>::type = 0>
+using layout_padded_row_major = layout_padded_right<Extents, ByteAlignment / sizeof(ElementType)>;
+
+/**
+ * @brief wrapper for padded layout that transforms ByteAlignment to ElementAlignment
+ */
+template <typename ElementType,
+          class Extents,
+          size_t ByteAlignment                 = 16,
+          typename ::std::enable_if<(ByteAlignment % sizeof(ElementType) == 0 ||
+                                     sizeof(ElementType) % ByteAlignment == 0),
+                                    int>::type = 0>
+using layout_padded_col_major = layout_padded_left<Extents, ByteAlignment / sizeof(ElementType)>;
+
 /**
  * @brief stdex::mdspan with device tag to avoid accessing incorrect memory location.
  */
@@ -197,8 +287,9 @@ class mdarray {
   auto operator()(IndexType&&... indices)
     -> std::enable_if_t<sizeof...(IndexType) == extents_type::rank() &&
                           (std::is_convertible_v<IndexType, index_type> && ...) &&
-                          std::is_constructible_v<extents_type, IndexType...> &&
-                          std::is_constructible_v<mapping_type, extents_type>,
+                          std::is_constructible_v<extents_type, IndexType...>,
+                        /* this is not true for layout_stride */
+                        /* std::is_constructible_v<mapping_type, extents_type> */
                         /* device policy is not default constructible due to requirement for CUDA
                            stream. */
                         /* std::is_default_constructible_v<container_policy_type> */
@@ -214,8 +305,9 @@ class mdarray {
   auto operator()(IndexType&&... indices) const
     -> std::enable_if_t<sizeof...(IndexType) == extents_type::rank() &&
                           (std::is_convertible_v<IndexType, index_type> && ...) &&
-                          std::is_constructible_v<extents_type, IndexType...> &&
-                          std::is_constructible<mapping_type, extents_type>::value,
+                          std::is_constructible_v<extents_type, IndexType...>,
+                        /* this is not true for layout_stride */
+                        /* std::is_constructible_v<mapping_type, extents_type> */
                         /* device policy is not default constructible due to requirement for CUDA
                            stream. */
                         /* std::is_default_constructible_v<container_policy_type> */
@@ -647,4 +739,5 @@ auto make_device_vector(raft::handle_t const& handle, size_t n)
 {
   return make_device_vector<ElementType>(n, handle.get_stream());
 }
+
 }  // namespace raft

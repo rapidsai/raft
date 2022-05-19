@@ -417,4 +417,424 @@ TEST(MDArray, FuncArg)
     // check_matrix_layout(slice);
   }
 }
+
+// just for testing
+struct SimplePaddedLayout2D {
+  template <class Extents>
+  struct mapping {
+    using size_type = typename Extents::size_type;
+
+    // constructor
+    mapping(Extents const& exts, size_type alignment) noexcept
+      : extents_(exts), alignment_(alignment)
+    {
+      // For simplicity, don't worry about negatives/zeros/etc.
+      assert(alignment > 0);
+      assert(exts.extent(0) > 0);
+      assert(exts.extent(1) > 0);
+    }
+
+    mapping() noexcept               = default;
+    mapping(mapping const&) noexcept = default;
+    mapping(mapping&&) noexcept      = default;
+    mapping& operator=(mapping const&) noexcept = default;
+    mapping& operator=(mapping&&) noexcept = default;
+    ~mapping() noexcept                    = default;
+
+    //------------------------------------------------------------
+    // Helper members (not part of the layout concept)
+
+    constexpr size_type aligned_dimension() const noexcept
+    {
+      return std::max<size_type>(alignment_,
+                                 (extents_.extent(1) + alignment_ - 1) / alignment_ * alignment_);
+    }
+
+    //------------------------------------------------------------
+    // Required members
+
+    constexpr size_type operator()(size_type row, size_type col) const noexcept
+    {
+      return aligned_dimension() * row + col;
+    }
+
+    constexpr size_type required_span_size() const noexcept
+    {
+      return extents_.extent(0) * aligned_dimension();
+    }
+
+    static constexpr bool is_always_unique() noexcept { return true; }
+    static constexpr bool is_always_strided() noexcept { return true; }
+
+    static constexpr bool is_always_contiguous() noexcept { return false; }
+
+    static constexpr bool is_unique() noexcept { return true; }
+    constexpr bool is_contiguous() const noexcept
+    {
+      // Only contiguous if innermost extent fits exactly into alignment
+      return extents_.extent(1) % alignment_ == 0;
+    }
+    constexpr bool is_strided() const noexcept { return true; }
+
+   private:
+    Extents extents_;
+    size_type alignment_;
+  };
+};
+
+void test_mdspan_padding_custom_layout()
+{
+  {
+    // 5x2 example,
+    constexpr int n_rows = 2;
+    constexpr int n_cols = 5;
+    int data_row_major[] = {
+      1,
+      2,
+      3,
+      4,
+      5, /* X  X  X */
+      6,
+      7,
+      8,
+      9,
+      10 /* X  X  X */
+    };
+    // manually aligning the above, using -1 as filler
+    static constexpr int X = -1;
+    int data_padded[]      = {1, 2, 3, 4, 5, X, X, X, 6, 7, 8, 9, 10, X, X, X};
+
+    using extents_type       = stdex::extents<stdex::dynamic_extent, stdex::dynamic_extent>;
+    using padded_mdspan      = stdex::mdspan<int, extents_type, SimplePaddedLayout2D>;
+    using padded_layout_type = typename SimplePaddedLayout2D::template mapping<extents_type>;
+    using row_major_mdspan   = stdex::mdspan<int, extents_type, stdex::layout_right>;
+
+    auto padded = padded_mdspan(data_padded, padded_layout_type(extents_type(n_rows, n_cols), 8));
+    auto row_major = row_major_mdspan(data_row_major, n_rows, n_cols);
+
+    int failures = 0;
+    for (int irow = 0; irow < n_rows; ++irow) {
+      for (int icol = 0; icol < n_cols; ++icol) {
+        if (padded(irow, icol) != row_major(irow, icol)) { ++failures; }
+      }
+    }
+    ASSERT_EQ(failures, 0);
+  }
+}
+
+TEST(MDSpan, PaddingCustomLayout) { test_mdspan_padding_custom_layout(); }
+
+void test_mdspan_padding_layout_stride()
+{
+  {
+    // 5x2 example,
+    constexpr int n_rows    = 2;
+    constexpr int n_cols    = 5;
+    constexpr int alignment = 8;
+
+    int data_row_major[] = {
+      1,
+      2,
+      3,
+      4,
+      5, /* X  X  X */
+      6,
+      7,
+      8,
+      9,
+      10 /* X  X  X */
+    };
+    // manually aligning the above, using -1 as filler
+    static constexpr int X = -1;
+    int data_padded[]      = {1, 2, 3, 4, 5, X, X, X, 6, 7, 8, 9, 10, X, X, X};
+
+    using extents_type     = stdex::extents<stdex::dynamic_extent, stdex::dynamic_extent>;
+    using padded_mdspan    = stdex::mdspan<int, extents_type, stdex::layout_stride>;
+    using row_major_mdspan = stdex::mdspan<int, extents_type, stdex::layout_right>;
+    layout_padded_right<extents_type, alignment> layout{extents_type{n_rows, n_cols}};
+
+    auto padded    = padded_mdspan(data_padded, layout);
+    auto row_major = row_major_mdspan(data_row_major, n_rows, n_cols);
+
+    int failures = 0;
+    for (int irow = 0; irow < n_rows; ++irow) {
+      for (int icol = 0; icol < n_cols; ++icol) {
+        if (padded(irow, icol) != row_major(irow, icol)) { ++failures; }
+      }
+    }
+    ASSERT_EQ(failures, 0);
+  }
+}
+
+TEST(MDSpan, PaddingLayoutStride) { test_mdspan_padding_layout_stride(); }
+
+void test_mdarray_padding()
+{
+  using extents_type = stdex::extents<dynamic_extent, dynamic_extent>;
+  auto s             = rmm::cuda_stream_default;
+
+  {
+    constexpr int rows      = 6;
+    constexpr int cols      = 7;
+    constexpr int alignment = 5;
+
+    /**
+     * padded device array
+     */
+    using padded_mdarray_type = device_mdarray<float, extents_type, stdex::layout_stride>;
+    layout_padded_right<extents_type, alignment> layout(extents_type(rows, cols));
+
+    auto device_policy = padded_mdarray_type::container_policy_type{s};
+    static_assert(std::is_same_v<typename decltype(device_policy)::accessor_type,
+                                 detail::device_uvector_policy<float>>);
+    padded_mdarray_type padded_device_array{layout, device_policy};
+
+    // direct access mdarray
+    padded_device_array(0, 3) = 1;
+    ASSERT_EQ(padded_device_array(0, 3), 1);
+
+    // non-const access via mdspan
+    auto d_view = padded_device_array.view();
+    static_assert(!decltype(d_view)::accessor_type::is_host_type::value);
+
+    thrust::device_vector<int32_t> status(1, 0);
+    auto p_status = status.data().get();
+    thrust::for_each_n(rmm::exec_policy(s),
+                       thrust::make_counting_iterator(0ul),
+                       1,
+                       [d_view, p_status] __device__(size_t i) {
+                         if (d_view(0, 3) != 1) { myAtomicAdd(p_status, 1); }
+                         d_view(0, 2) = 3;
+                         if (d_view(0, 2) != 3) { myAtomicAdd(p_status, 1); }
+                       });
+    check_status(p_status, s);
+
+    // const ref access via mdspan
+    auto const& arr = padded_device_array;
+    ASSERT_EQ(arr(0, 3), 1);
+    auto const_d_view = arr.view();
+    thrust::for_each_n(rmm::exec_policy(s),
+                       thrust::make_counting_iterator(0ul),
+                       1,
+                       [const_d_view, p_status] __device__(size_t i) {
+                         if (const_d_view(0, 3) != 1) { myAtomicAdd(p_status, 1); }
+                       });
+    check_status(p_status, s);
+
+    // initialize with sequence
+    thrust::for_each_n(
+      rmm::exec_policy(s),
+      thrust::make_counting_iterator(0ul),
+      rows * cols,
+      [d_view, rows, cols] __device__(size_t i) { d_view(i / cols, i % cols) = i; });
+
+    // manually create span with layout
+    {
+      auto data_padded         = padded_device_array.data();
+      using padded_mdspan_type = device_mdspan<float, extents_type, stdex::layout_stride>;
+      auto padded_span         = padded_mdspan_type(data_padded, layout);
+      thrust::for_each_n(rmm::exec_policy(s),
+                         thrust::make_counting_iterator(0ul),
+                         rows * cols,
+                         [padded_span, rows, cols, p_status] __device__(size_t i) {
+                           if (padded_span(i / cols, i % cols) != i) myAtomicAdd(p_status, 1);
+                         });
+      check_status(p_status, s);
+    }
+
+    // utilities
+    static_assert(padded_device_array.rank_dynamic() == 2);
+    static_assert(padded_device_array.rank() == 2);
+    static_assert(padded_device_array.is_unique());
+    static_assert(padded_device_array.is_strided());
+
+    static_assert(
+      !std::is_nothrow_default_constructible<padded_mdarray_type>::value);  // cuda stream
+    static_assert(std::is_nothrow_move_constructible<padded_mdarray_type>::value);
+    static_assert(std::is_nothrow_move_assignable<padded_mdarray_type>::value);
+  }
+}
+
+TEST(MDArray, Padding) { test_mdarray_padding(); }
+
+void test_submdspan_padding()
+{
+  using extents_type = stdex::extents<dynamic_extent, dynamic_extent>;
+  auto s             = rmm::cuda_stream_default;
+
+  {
+    constexpr int rows      = 6;
+    constexpr int cols      = 7;
+    constexpr int alignment = 5;
+
+    // submdspan only works for internal layouts
+    // in order to prevent changes to the submdspan class we can just provide a template class
+    // for the mapping that lies on top of the general layout_stride
+    layout_padded_right<extents_type, alignment> layout{extents_type{rows, cols}};
+    using padded_mdarray_type = device_mdarray<float, extents_type, stdex::layout_stride>;
+    using padded_mdspan_type  = device_mdspan<float, extents_type, stdex::layout_stride>;
+
+    auto device_policy = padded_mdarray_type::container_policy_type{s};
+    static_assert(std::is_same_v<typename decltype(device_policy)::accessor_type,
+                                 detail::device_uvector_policy<float>>);
+    padded_mdarray_type padded_device_array{layout, device_policy};
+
+    // test status
+    thrust::device_vector<int32_t> status(1, 0);
+    auto p_status = status.data().get();
+
+    // initialize with sequence
+    {
+      auto d_view = padded_device_array.view();
+      thrust::for_each_n(
+        rmm::exec_policy(s),
+        thrust::make_counting_iterator(0ul),
+        rows * cols,
+        [d_view, rows, cols] __device__(size_t i) { d_view(i / cols, i % cols) = i; });
+    }
+
+    // get mdspan manually from raw data
+    {
+      auto data_padded = padded_device_array.data();
+      auto padded_span = padded_mdspan_type(data_padded, layout);
+      thrust::for_each_n(rmm::exec_policy(s),
+                         thrust::make_counting_iterator(0ul),
+                         rows * cols,
+                         [padded_span, rows, cols, p_status] __device__(size_t i) {
+                           if (padded_span(i / cols, i % cols) != i) myAtomicAdd(p_status, 1);
+                         });
+      check_status(p_status, s);
+    }
+
+    // full subspan
+    {
+      auto padded_span  = padded_device_array.view();
+      auto subspan_full = stdex::submdspan(padded_span, stdex::full_extent, stdex::full_extent);
+      thrust::for_each_n(rmm::exec_policy(s),
+                         thrust::make_counting_iterator(0ul),
+                         cols * rows,
+                         [subspan_full, padded_span, rows, cols, p_status] __device__(size_t i) {
+                           if (subspan_full(i / cols, i % cols) != padded_span(i / cols, i % cols))
+                             myAtomicAdd(p_status, 1);
+                         });
+      check_status(p_status, s);
+    }
+
+    // slicing a row
+    {
+      auto padded_span = padded_device_array.view();
+      auto row0        = stdex::submdspan(padded_span, 0, stdex::full_extent);
+      thrust::for_each_n(rmm::exec_policy(s),
+                         thrust::make_counting_iterator(0ul),
+                         cols,
+                         [row0, padded_span, p_status] __device__(size_t i) {
+                           if (row0(i) != padded_span(0, i)) myAtomicAdd(p_status, 1);
+                         });
+      check_status(p_status, s);
+    }
+
+    // slicing a column
+    {
+      auto padded_span = padded_device_array.view();
+      auto col1        = stdex::submdspan(padded_span, stdex::full_extent, 1);
+      thrust::for_each_n(rmm::exec_policy(s),
+                         thrust::make_counting_iterator(0ul),
+                         rows,
+                         [col1, padded_span, p_status] __device__(size_t i) {
+                           if (col1(i) != padded_span(i, 1)) myAtomicAdd(p_status, 1);
+                         });
+      check_status(p_status, s);
+    }
+
+    // sub-rectangle of 6x7
+    {
+      auto padded_span = padded_device_array.view();
+      auto subspan =
+        stdex::submdspan(padded_span, std::make_tuple(1ul, 4ul), std::make_tuple(2ul, 5ul));
+      thrust::for_each_n(rmm::exec_policy(s),
+                         thrust::make_counting_iterator(0ul),
+                         (rows - 1) * (cols - 2),
+                         [subspan, rows, cols, padded_span, p_status] __device__(size_t i) {
+                           size_t idx = i / (cols - 2);
+                           size_t idy = i % (cols - 2);
+                           // elements > subspan range can be accessed as well
+                           if (subspan(idx, idy) != padded_span(idx + 1, idy + 2))
+                             myAtomicAdd(p_status, 1);
+                         });
+      check_status(p_status, s);
+    }
+  }
+}
+
+TEST(MDSpan, SubmdspanPadding) { test_submdspan_padding(); }
+
+struct TestElement1 {
+  int a, b;
+};
+
+void test_mdspan_padding_by_type()
+{
+  using extents_type = stdex::extents<dynamic_extent, dynamic_extent>;
+  auto s             = rmm::cuda_stream_default;
+
+  {
+    constexpr int rows            = 6;
+    constexpr int cols            = 7;
+    constexpr int alignment_bytes = 16;
+
+    /**
+     * padded device array for custom type
+     */
+    using padded_mdarray_type = device_mdarray<TestElement1, extents_type, stdex::layout_stride>;
+    auto device_policy        = padded_mdarray_type::container_policy_type{s};
+
+    thrust::device_vector<int32_t> status(1, 0);
+    auto p_status = status.data().get();
+
+    // manually check strides for row major (c style) padding
+    {
+      layout_padded_row_major<TestElement1, extents_type, alignment_bytes> layout{
+        extents_type{rows, cols}};
+      padded_mdarray_type padded_device_array{layout, device_policy};
+      int alignment_elements = alignment_bytes / sizeof(TestElement1);
+      auto padded_span       = padded_device_array.view();
+      thrust::for_each_n(
+        rmm::exec_policy(s),
+        thrust::make_counting_iterator(0ul),
+        rows * cols,
+        [rows, cols, padded_span, alignment_elements, p_status] __device__(size_t i) {
+          size_t idx = i / cols;
+          size_t idy = i % cols;
+          if ((&(padded_span(idx, idy)) - &(padded_span(0, idy))) % alignment_elements != 0)
+            myAtomicAdd(p_status, 1);
+          if ((&(padded_span(idx, idy)) - &(padded_span(idx, 0))) != idy) myAtomicAdd(p_status, 1);
+        });
+      check_status(p_status, s);
+    }
+
+    // manually check strides for col major (f style) padding
+    {
+      layout_padded_col_major<TestElement1, extents_type, alignment_bytes> layout{
+        extents_type{rows, cols}};
+      padded_mdarray_type padded_device_array{layout, device_policy};
+      int alignment_elements = alignment_bytes / sizeof(TestElement1);
+      auto padded_span       = padded_device_array.view();
+      thrust::for_each_n(
+        rmm::exec_policy(s),
+        thrust::make_counting_iterator(0ul),
+        rows * cols,
+        [rows, cols, padded_span, alignment_elements, p_status] __device__(size_t i) {
+          size_t idx = i / cols;
+          size_t idy = i % cols;
+          if ((&(padded_span(idx, idy)) - &(padded_span(idx, 0))) % alignment_elements != 0)
+            myAtomicAdd(p_status, 1);
+          if ((&(padded_span(idx, idy)) - &(padded_span(0, idy))) != idx) myAtomicAdd(p_status, 1);
+        });
+      check_status(p_status, s);
+    }
+  }
+}
+
+TEST(MDSpan, MDSpanPaddingType) { test_mdspan_padding_by_type(); }
+
 }  // namespace raft
