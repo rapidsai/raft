@@ -45,11 +45,11 @@ if(NOT raft_FOUND)
   # pull in the required languages for the C++ project even if this project
   # does not require those languges.
   include(rapids-cuda)
-  rapids_cuda_init_architectures(pylibraft)
+  rapids_cuda_init_architectures(pyraft)
   enable_language(CUDA)
-  # Since pylibraft only enables CUDA optionally we need to manually include the file that
+  # Since pyraft only enables CUDA optionally we need to manually include the file that
   # rapids_cuda_init_architectures relies on `project` including.
-  include("${CMAKE_PROJECT_pylibraft_INCLUDE}")
+  include("${CMAKE_PROJECT_pyraft_INCLUDE}")
 
   set(BUILD_TESTS OFF)
   set(BUILD_BENCHMARKS OFF)
