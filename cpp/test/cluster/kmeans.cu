@@ -114,8 +114,8 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
       d_sw,
       d_centroids_view,
       raft::make_device_vector_view<int>(d_labels.data(), n_samples),
-      inertia,
-      n_iter);
+      raft::make_host_scalar_view(&inertia),
+      raft::make_host_scalar_view(&n_iter));
 
     handle.sync_stream(stream);
 
