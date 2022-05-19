@@ -26,6 +26,7 @@
 #include "processing.hpp"
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
+#include <raft/interruptible.hpp>
 
 //#include <label/classlabels.cuh>
 #include <raft/distance/distance.hpp>
@@ -183,6 +184,7 @@ void _cuann_kmeans_update_centers(float* centers,  // [numCenters, dimCenters]
     }
   } else {
     copy(centers, accumulatedCenters, numCenters * dimCenters, rmm::cuda_stream_default);
+    interruptible::synchronize(rmm::cuda_stream_default);
   }
 
   if (metric == raft::distance::DistanceType::InnerProduct) {
