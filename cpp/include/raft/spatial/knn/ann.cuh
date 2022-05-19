@@ -17,9 +17,8 @@
 #pragma once
 
 #include "ann_common.h"
-#include "detail/ann_quantized_faiss.cuh"
+#include "detail/ann_quantized.cuh"
 
-#include <faiss/gpu/GpuIndex.h>
 #include <raft/spatial/knn/faiss_mr.hpp>
 
 namespace raft::spatial::knn {
