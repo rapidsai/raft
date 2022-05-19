@@ -62,7 +62,6 @@ endif()
 include(rapids-cython)
 rapids_cython_init()
 
-# TODO: Figure out which of ucx, nccl, cusolver, cusparse, and cublas I need to add as include directories or linked libraries for which components
 add_subdirectory(raft/common)
 add_subdirectory(raft/dask/common)
 add_subdirectory(raft/include_test)
