@@ -164,6 +164,7 @@ void approx_knn_build_index(raft::handle_t& handle,
                             IntType n,
                             IntType D)
 {
+  auto stream      = handle.get_stream();
   index->index     = nullptr;
   index->metric    = metric;
   index->metricArg = metricArg;
@@ -176,17 +177,18 @@ void approx_knn_build_index(raft::handle_t& handle,
   if constexpr (std::is_same<T, uint8_t>{} || std::is_same<T, int8_t>{}) {
     if (dynamic_cast<IVFFlatParam*>(params)) {
       IVFFlatParam* IVFFlat_param = dynamic_cast<IVFFlatParam*>(params);
-      T* h_index_array;
-      RAFT_CUDA_TRY(cudaMallocManaged(&h_index_array, n * D * sizeof(T)));
-      copy(h_index_array, index_array, n * D, handle.get_stream());
+
+      rmm::mr::managed_memory_resource managed_memory;
+      rmm::device_uvector<T> managed_index_array(n * D, stream, &managed_memory);
+      copy(managed_index_array.data(), index_array, n * D, stream);
       approx_knn_cuivfl_ivfflat_build_index(
-        index, IVFFlat_param, metric, h_index_array, n, D, handle.get_stream());
+        index, IVFFlat_param, metric, managed_index_array.data(), n, D, stream);
     } else {
       RAFT_FAIL("IVF Flat algorithm required to fit int8 data");
     }
   } else if constexpr (std::is_same<T, float>{}) {
     std::unique_ptr<MetricProcessor<float>> query_metric_processor =
-      create_processor<float>(metric, n, D, 0, false, handle.get_stream());
+      create_processor<float>(metric, n, D, 0, false, stream);
 
     if (dynamic_cast<IVFFlatParam*>(params)) {
       IVFFlatParam* IVFFlat_param = dynamic_cast<IVFFlatParam*>(params);
@@ -196,22 +198,19 @@ void approx_knn_build_index(raft::handle_t& handle,
           metric == raft::distance::DistanceType::L2Unexpanded ||
           metric == raft::distance::DistanceType::L2Expanded ||
           metric == raft::distance::DistanceType::InnerProduct) {
-        float* h_index_array;
-        cudaMallocManaged(&h_index_array, n * D * sizeof(T));
-        // raft::update_host(h_index_array.data(), index_array, h_index_array.size(),
-        // handle.get_stream());
-        copy(h_index_array, index_array, n * D, handle.get_stream());
+        rmm::mr::managed_memory_resource managed_memory;
+        rmm::device_uvector<T> managed_index_array(n * D, stream, &managed_memory);
+        copy(managed_index_array.data(), index_array, n * D, stream);
         approx_knn_cuivfl_ivfflat_build_index(
-          index, IVFFlat_param, metric, h_index_array, n, D, handle.get_stream());
+          index, IVFFlat_param, metric, managed_index_array.data(), n, D, stream);
       } else {
         raft::spatial::knn::RmmGpuResources* gpu_res = new raft::spatial::knn::RmmGpuResources();
         gpu_res->noTempMemory();
-        gpu_res->setDefaultStream(device, handle.get_stream());
+        gpu_res->setDefaultStream(device, stream);
         index->gpu_res = gpu_res;
         approx_knn_ivfflat_build_index(index, IVFFlat_param, metric, n, D);
         std::vector<float> h_index_array(n * D);
-        raft::update_host(
-          h_index_array.data(), index_array, h_index_array.size(), handle.get_stream());
+        raft::update_host(h_index_array.data(), index_array, h_index_array.size(), stream);
         query_metric_processor->revert(index_array);
         index->index->train(n, h_index_array.data());
         index->index->add(n, h_index_array.data());
@@ -221,7 +220,7 @@ void approx_knn_build_index(raft::handle_t& handle,
       RAFT_CUDA_TRY(cudaGetDevice(&device));
       raft::spatial::knn::RmmGpuResources* gpu_res = new raft::spatial::knn::RmmGpuResources();
       gpu_res->noTempMemory();
-      gpu_res->setDefaultStream(device, handle.get_stream());
+      gpu_res->setDefaultStream(device, stream);
       index->gpu_res = gpu_res;
       query_metric_processor->preprocess(index_array);
       if (dynamic_cast<IVFPQParam*>(params)) {
