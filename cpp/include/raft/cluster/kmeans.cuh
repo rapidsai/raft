@@ -66,7 +66,8 @@ void kmeans_fit(handle_t const& handle,
                 DataT& inertia,
                 IndexT& n_iter)
 {
-  detail::kmeans_fit<DataT, IndexT>(handle, params, X, sample_weight, centroids, n_samples, n_features, inertia, n_iter);
+  detail::kmeans_fit<DataT, IndexT>(
+    handle, params, X, sample_weight, centroids, n_samples, n_features, inertia, n_iter);
 }
 
 /**
@@ -111,8 +112,16 @@ void kmeans_predict(handle_t const& handle,
                     bool normalize_weight,
                     DataT& inertia)
 {
-  detail::kmeans_predict<DataT, IndexT>(
-    handle, params, X, sample_weight, centroids, n_samples, n_features, labels, normalize_weight, inertia);
+  detail::kmeans_predict<DataT, IndexT>(handle,
+                                        params,
+                                        X,
+                                        sample_weight,
+                                        centroids,
+                                        n_samples,
+                                        n_features,
+                                        labels,
+                                        normalize_weight,
+                                        inertia);
 }
 
 /**
@@ -161,8 +170,10 @@ void kmeans_fit_predict(handle_t const& handle,
                         DataT& inertia,
                         IndexT& n_iter)
 {
-  kmeans_fit<DataT, IndexT>(handle, params, X, sample_weight, centroids, n_samples, n_features, inertia, n_iter);
-  kmeans_predict<DataT, IndexT>(handle, params, X, sample_weight, centroids, n_samples, n_features, labels, true, inertia);
+  kmeans_fit<DataT, IndexT>(
+    handle, params, X, sample_weight, centroids, n_samples, n_features, inertia, n_iter);
+  kmeans_predict<DataT, IndexT>(
+    handle, params, X, sample_weight, centroids, n_samples, n_features, labels, true, inertia);
 }
 
 /**
@@ -195,7 +206,8 @@ void kmeans_transform(const raft::handle_t& handle,
                       IndexT n_features,
                       DataT* X_new)
 {
-  detail::kmeans_transform<DataT, IndexT>(handle, params, X, centroids, n_samples, n_features, X_new);
+  detail::kmeans_transform<DataT, IndexT>(
+    handle, params, X, centroids, n_samples, n_features, X_new);
 }
 }  // namespace cluster
 }  // namespace raft

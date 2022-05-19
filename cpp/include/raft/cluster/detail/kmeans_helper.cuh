@@ -22,8 +22,8 @@
 #include <optional>
 #include <random>
 
-#include <cuda.h>
 #include <cub/cub.cuh>
+#include <cuda.h>
 #include <thrust/equal.h>
 #include <thrust/execution_policy.h>
 #include <thrust/fill.h>
@@ -125,9 +125,9 @@ void countLabels(const raft::handle_t& handle,
                  rmm::device_uvector<char>& workspace)
 {
   cudaStream_t stream = handle.get_stream();
-  IndexT num_levels  = n_clusters + 1;
-  IndexT lower_level = 0;
-  IndexT upper_level = n_clusters;
+  IndexT num_levels   = n_clusters + 1;
+  IndexT lower_level  = 0;
+  IndexT upper_level  = n_clusters;
 
   size_t temp_storage_bytes = 0;
   RAFT_CUDA_TRY(cub::DeviceHistogram::HistogramEven(nullptr,
@@ -159,8 +159,8 @@ void checkWeight(const raft::handle_t& handle,
                  rmm::device_uvector<char>& workspace)
 {
   cudaStream_t stream = handle.get_stream();
-  auto wt_aggr   = raft::make_device_scalar<DataT>(0, handle.get_stream());
-  auto n_samples = weight.extent(0);
+  auto wt_aggr        = raft::make_device_scalar<DataT>(0, stream);
+  auto n_samples      = weight.extent(0);
 
   size_t temp_storage_bytes = 0;
   RAFT_CUDA_TRY(cub::DeviceReduce::Sum(
@@ -211,7 +211,7 @@ void computeClusterCost(const raft::handle_t& handle,
                         raft::device_scalar_view<DataT> clusterCost,
                         ReductionOpT reduction_op)
 {
-  cudaStream_t stream = handle.get_stream();
+  cudaStream_t stream       = handle.get_stream();
   size_t temp_storage_bytes = 0;
   RAFT_CUDA_TRY(cub::DeviceReduce::Reduce(nullptr,
                                           temp_storage_bytes,
@@ -236,14 +236,14 @@ void computeClusterCost(const raft::handle_t& handle,
 
 template <typename DataT, typename IndexT>
 void sampleCentroids(const raft::handle_t& handle,
-                    raft::device_matrix_view<const DataT> X,
-                    raft::device_vector_view<DataT> minClusterDistance,
-                    raft::device_vector_view<IndexT> isSampleCentroid,
-                    SamplingOp<DataT, IndexT>& select_op,
-                    rmm::device_uvector<DataT>& inRankCp,
-                    rmm::device_uvector<char>& workspace)
+                     raft::device_matrix_view<const DataT> X,
+                     raft::device_vector_view<DataT> minClusterDistance,
+                     raft::device_vector_view<IndexT> isSampleCentroid,
+                     SamplingOp<DataT, IndexT>& select_op,
+                     rmm::device_uvector<DataT>& inRankCp,
+                     rmm::device_uvector<char>& workspace)
 {
-  cudaStream_t stream = handle.get_stream();
+  cudaStream_t stream  = handle.get_stream();
   auto n_local_samples = X.extent(0);
   auto n_features      = X.extent(1);
 
@@ -337,8 +337,8 @@ void shuffleAndGather(const raft::handle_t& handle,
                       rmm::device_uvector<char>* workspace = nullptr)
 {
   cudaStream_t stream = handle.get_stream();
-  auto n_samples  = in.extent(0);
-  auto n_features = in.extent(1);
+  auto n_samples      = in.extent(0);
+  auto n_features     = in.extent(1);
 
   auto indices = raft::make_device_vector<IndexT>(n_samples, stream);
 
@@ -382,7 +382,7 @@ void minClusterAndDistanceCompute(
   rmm::device_uvector<char>& workspace,
   raft::distance::DistanceType metric)
 {
-  cudaStream_t stream = handle.get_stream();
+  cudaStream_t stream     = handle.get_stream();
   auto n_samples          = X.extent(0);
   auto n_features         = X.extent(1);
   auto n_clusters         = centroids.extent(0);
@@ -515,9 +515,9 @@ void minClusterDistanceCompute(const raft::handle_t& handle,
                                raft::distance::DistanceType metric)
 {
   cudaStream_t stream = handle.get_stream();
-  auto n_samples  = X.extent(0);
-  auto n_features = X.extent(1);
-  auto n_clusters = centroids.extent(0);
+  auto n_samples      = X.extent(0);
+  auto n_features     = X.extent(1);
+  auto n_clusters     = centroids.extent(0);
 
   auto dataBatchSize      = getDataBatchSize(params, n_samples);
   auto centroidsBatchSize = getCentroidsBatchSize(params, n_clusters);
@@ -643,9 +643,9 @@ void countSamplesInCluster(const raft::handle_t& handle,
                            raft::device_vector_view<DataT> sampleCountInCluster)
 {
   cudaStream_t stream = handle.get_stream();
-  auto n_samples  = X.extent(0);
-  auto n_features = X.extent(1);
-  auto n_clusters = centroids.extent(0);
+  auto n_samples      = X.extent(0);
+  auto n_features     = X.extent(1);
+  auto n_clusters     = centroids.extent(0);
 
   // stores (key, value) pair corresponding to each sample where
   //   - key is the index of nearest cluster
@@ -681,12 +681,8 @@ void countSamplesInCluster(const raft::handle_t& handle,
     itr(minClusterAndDistance.data(), conversion_op);
 
   // count # of samples in each cluster
-  countLabels(handle,
-              itr,
-              sampleCountInCluster.data(),
-              (IndexT)n_samples,
-              (IndexT)n_clusters,
-              workspace);
+  countLabels(
+    handle, itr, sampleCountInCluster.data(), (IndexT)n_samples, (IndexT)n_clusters, workspace);
 }
 }  // namespace detail
 }  // namespace cluster

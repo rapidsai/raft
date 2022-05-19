@@ -15,6 +15,7 @@
  */
 #pragma once
 //#include <raft/common/logger.hpp>
+#include <raft/distance/distance_type.hpp>
 
 namespace raft {
 namespace cluster {
@@ -48,9 +49,8 @@ struct KMeansParams {
   // Seed to the random number generator.
   uint64_t seed = 0;
 
-  // Metric to use for distance computation. Any metric from
-  // raft::distance::DistanceType can be used
-  int metric = 0;
+  // Metric to use for distance computation.
+  raft::distance::DistanceType metric = raft::distance::DistanceType::L2Expanded;
 
   // Number of instance k-means algorithm will be run with different seeds.
   int n_init = 1;
