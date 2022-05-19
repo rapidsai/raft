@@ -207,7 +207,6 @@ void _cuann_kmeans_update_centers(float* centers,  // [numCenters, dimCenters]
   }
 }
 
-
 /**
  * @brief predict label of dataset
  *
