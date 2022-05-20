@@ -146,6 +146,8 @@ class cuivflHandle {
   uint32_t getDim();
 
  private:
+  rmm::cuda_stream_view stream_;  // The stream for build and search
+
   uint32_t device_;
   cublasHandle_t cublas_handle_;
   cudaDataType_t dtype_;
@@ -160,9 +162,8 @@ class cuivflHandle {
   size_t ninterleave_;    // The number of elements in 32 interleaved group for input dataset
   size_t buf_topk_size_;  // The size of buffer used for topk select.
   size_t floatQuerySize;  // The size of float converted queries from int8_t/uint8_t
-  rmm::cuda_stream_view stream_;  // The stream for build and search
-  uint32_t veclen;                // The vectorization length of dataset in index.
-  uint32_t gridDimX_;             // The number of blocks launched across nprobe.
+  uint32_t veclen;        // The vectorization length of dataset in index.
+  uint32_t gridDimX_;     // The number of blocks launched across nprobe.
 
  private:
   // device pointer
@@ -170,29 +171,26 @@ class cuivflHandle {
   void* list_data_dev_ptr_;
 
   // The device memory pointer; inverted list for index; size [ninterleave_]
-  uint32_t* list_index_dev_ptr_;
+  rmm::device_uvector<uint32_t> list_index_dev_;
   // The device memory pointer; Used for list_data_manage_ptr_; size [nlist_]
-  uint32_t* list_prefix_interleaved_dev_ptr_;
+  rmm::device_uvector<uint32_t> list_prefix_interleaved_dev_;
   // The device memory pointer; the number of each cluster(list); size [nlist_]
-  uint32_t* list_lengths_dev_ptr_;
+  rmm::device_uvector<uint32_t> list_lengths_dev_;
   // The device memory pointer; centriod; size [nlist_, dim_]
-  float* centriod_dev_ptr_;
+  rmm::device_uvector<float> centriod_dev_;
   // The device memory pointer; centriod norm ; size [nlist_, dim_]
-  float* centriod_norm_dev_ptr_;
+  rmm::device_uvector<float> centriod_norm_dev_;
 
   // host pointer
   //  The host memory pointer; inverted list for data; size [ninterleave_, dim_]
   void* list_data_host_ptr_;
   // The host memory pointer; inverted list for index; size [ninterleave_]
-  uint32_t* list_index_host_ptr_;
+  std::vector<uint32_t> list_index_host_;
   // The host memory pointer; Used for list_data_manage_ptr_; size [nlist_]
-  uint32_t* list_prefix_interleaved_host_ptr_;
+  std::vector<uint32_t> list_prefix_interleaved_host_;
   // The host memory pointer; the number of each cluster(list); size [nlist_]
-  uint32_t* list_lengths_host_ptr_;
-  // The host memory pointer; centriod; size [nlist_, dim_]
-  float* centriod_host_ptr_;
-  // The host memory pointer; centriod norm ; size [nlist_, dim_]
-  float* centriod_norm_host_ptr_;
+  std::vector<uint32_t> list_lengths_host_;
+
   // The device memory; used for topk select.
   void* buf_dev_ptr_;
 
@@ -220,17 +218,24 @@ cuivflHandle::cuivflHandle(raft::distance::DistanceType metric_type,
                            uint32_t nlist,
                            uint32_t niter,
                            uint32_t device)
+  : stream_(rmm::cuda_stream_default),
+    device_(device),
+    dim_(dim),
+    nlist_(nlist),
+    niter_(niter),
+    metric_type_(metric_type),
+    list_index_dev_(0, stream_),
+    list_prefix_interleaved_dev_(0, stream_),
+    list_lengths_dev_(0, stream_),
+    centriod_dev_(0, stream_),
+    centriod_norm_dev_(0, stream_),
+    list_index_host_(0),
+    list_prefix_interleaved_host_(0),
+    list_lengths_host_(0)
 {
-  // Device
-  device_        = device;
-  dim_           = dim;
-  nlist_         = nlist;
-  niter_         = niter;
-  metric_type_   = metric_type;
   floatQuerySize = 0;
   veclen         = 1;
   gridDimX_      = 0;
-  stream_        = rmm::cuda_stream_default;
 
   if ((dim % 4) == 0) {
     veclen = 4;
@@ -247,19 +252,8 @@ cuivflHandle::cuivflHandle(raft::distance::DistanceType metric_type,
     throw cuivflStatus_t::CUIVFL_STATUS_CUBLAS_ERROR;
   }
 
-  list_data_dev_ptr_               = nullptr;
-  list_index_dev_ptr_              = nullptr;
-  list_prefix_interleaved_dev_ptr_ = nullptr;
-  list_lengths_dev_ptr_            = nullptr;
-  centriod_dev_ptr_                = nullptr;
-  centriod_norm_dev_ptr_           = nullptr;
-
-  list_data_host_ptr_               = nullptr;
-  list_index_host_ptr_              = nullptr;
-  list_prefix_interleaved_host_ptr_ = nullptr;
-  list_lengths_host_ptr_            = nullptr;
-  centriod_host_ptr_                = nullptr;
-  centriod_norm_host_ptr_           = nullptr;
+  list_data_dev_ptr_  = nullptr;
+  list_data_host_ptr_ = nullptr;
 
   buf_dev_ptr_           = nullptr;
   hierarchialClustering_ = true;
@@ -274,50 +268,9 @@ cuivflHandle::~cuivflHandle()
     cudaFree(list_data_dev_ptr_);
     list_data_dev_ptr_ = nullptr;
   }
-  if (list_index_dev_ptr_ != nullptr) {
-    cudaFree(list_index_dev_ptr_);
-    list_index_dev_ptr_ = nullptr;
-  }
-  if (list_prefix_interleaved_dev_ptr_ != nullptr) {
-    cudaFree(list_prefix_interleaved_dev_ptr_);
-    list_prefix_interleaved_dev_ptr_ = nullptr;
-  }
-  if (list_lengths_dev_ptr_ != nullptr) {
-    cudaFree(list_lengths_dev_ptr_);
-    list_lengths_dev_ptr_ = nullptr;
-  }
-  if (centriod_dev_ptr_ != nullptr) {
-    cudaFree(centriod_dev_ptr_);
-    centriod_dev_ptr_ = nullptr;
-  }
-  if (centriod_norm_dev_ptr_ != nullptr) {
-    cudaFree(centriod_norm_dev_ptr_);
-    centriod_norm_dev_ptr_ = nullptr;
-  }
-
   if (list_data_host_ptr_ != nullptr) {
     free(list_data_host_ptr_);
     list_data_host_ptr_ = nullptr;
-  }
-  if (list_index_host_ptr_ != nullptr) {
-    free(list_index_host_ptr_);
-    list_index_host_ptr_ = nullptr;
-  }
-  if (list_prefix_interleaved_host_ptr_ != nullptr) {
-    free(list_prefix_interleaved_host_ptr_);
-    list_prefix_interleaved_host_ptr_ = nullptr;
-  }
-  if (list_lengths_host_ptr_ != nullptr) {
-    free(list_lengths_host_ptr_);
-    list_lengths_host_ptr_ = nullptr;
-  }
-  if (centriod_host_ptr_ != nullptr) {
-    free(centriod_host_ptr_);
-    centriod_host_ptr_ = nullptr;
-  }
-  if (centriod_norm_host_ptr_ != nullptr) {
-    free(centriod_norm_host_ptr_);
-    centriod_norm_host_ptr_ = nullptr;
   }
   cublasDestroy(cublas_handle_);
 }  // end func cuivflHandle::cuivflHand
@@ -630,7 +583,7 @@ cuivflStatus_t cuivflHandle::cuivflBuildIndex(const void* dataset,
   stream_ = stream;
 
   rmm::mr::managed_memory_resource managed_memory;
-  rmm::device_uvector<float> centriod_manage_buf(nlist_ * dim_, stream, &managed_memory);
+  rmm::device_uvector<float> centriod_manage_buf(nlist_ * dim_, stream_, &managed_memory);
   auto centriod_manage_ptr = centriod_manage_buf.data();
 
   if (this == NULL || nrow_ == 0) { return CUIVFL_STATUS_NOT_INITIALIZED; }
@@ -639,39 +592,37 @@ cuivflStatus_t cuivflHandle::cuivflBuildIndex(const void* dataset,
   }
 
   // Alloc manage memory for centriods, trainset and workspace
-  rmm::device_uvector<uint32_t> datasetLabels_buf(nrow_, stream, &managed_memory);  // [numDataset]
+  rmm::device_uvector<uint32_t> datasetLabels_buf(nrow_, stream_, &managed_memory);  // [numDataset]
   auto datasetLabels = datasetLabels_buf.data();
 
   // Step 3: Predict labels of the whole dataset
   cuivflBuildOptimizedKmeans(
-    centriod_manage_ptr, dataset, trainset, datasetLabels, dtype, nrow, ntrain, stream);
+    centriod_manage_ptr, dataset, trainset, datasetLabels, dtype, nrow, ntrain, stream_);
 
   // Step 3.2: Calculate the L2 related result
-  centriod_norm_host_ptr_ = (float*)malloc(sizeof(float) * nlist_);
-  RAFT_CUDA_TRY(cudaMalloc(&centriod_norm_dev_ptr_, sizeof(float) * nlist_));
+  centriod_norm_dev_.resize(nlist_, stream_);
 
   if (metric_type_ == raft::distance::DistanceType::L2Expanded) {
-    utils::_cuann_sqsum(nlist_, dim_, centriod_manage_ptr, centriod_norm_dev_ptr_);
+    utils::_cuann_sqsum(nlist_, dim_, centriod_manage_ptr, centriod_norm_dev_.data());
 #ifdef DEBUG_L2
-    printDevPtr(centriod_norm_dev_ptr_, 20, "centriod_norm_dev_ptr_");
+    printDevPtr(centriod_norm_dev_.data(), 20, "centriod_norm_dev_");
 #endif
   }
 
   // Step 4: Record the number of elements in each clusters
   RAFT_CUDA_TRY(cudaDeviceSynchronize());
-  list_lengths_host_ptr_            = (uint32_t*)malloc(sizeof(uint32_t) * nlist_);
-  list_prefix_interleaved_host_ptr_ = (uint32_t*)malloc(sizeof(uint32_t) * nlist_);
-  memset(list_lengths_host_ptr_, 0, sizeof(uint32_t) * nlist_);
 
+  list_prefix_interleaved_host_.resize(nlist_);
+  list_lengths_host_.assign(nlist_, 0);
   for (uint32_t i = 0; i < nrow_; i++) {
     uint32_t id_cluster = datasetLabels[i];
-    list_lengths_host_ptr_[id_cluster] += 1;
+    list_lengths_host_[id_cluster] += 1;
   }
 
   ninterleave_ = 0;
   for (uint32_t i = 0; i < nlist_; i++) {
-    list_prefix_interleaved_host_ptr_[i] = ninterleave_;
-    ninterleave_ += ((list_lengths_host_ptr_[i] - 1) / WarpSize + 1) * WarpSize;
+    list_prefix_interleaved_host_[i] = ninterleave_;
+    ninterleave_ += ((list_lengths_host_[i] - 1) / WarpSize + 1) * WarpSize;
   }
 
   if (dtype == CUDA_R_32F) {
@@ -684,9 +635,8 @@ cuivflStatus_t cuivflHandle::cuivflBuildIndex(const void* dataset,
     list_data_host_ptr_ = malloc(sizeof(int8_t) * ninterleave_ * dim_);
     memset(list_data_host_ptr_, 0, sizeof(int8_t) * ninterleave_ * dim_);
   }
-  list_index_host_ptr_ = (uint32_t*)malloc(sizeof(uint32_t) * ninterleave_);
-  memset(list_index_host_ptr_, 0, sizeof(uint32_t) * ninterleave_);
-  memset(list_lengths_host_ptr_, 0, sizeof(uint32_t) * nlist_);
+  list_index_host_.assign(ninterleave_, 0);
+  list_lengths_host_.assign(nlist_, 0);
 
   if ((dtype == CUDA_R_8I) || (dtype == CUDA_R_8U)) {
     if ((dim_ % 16) == 0) {
@@ -698,8 +648,8 @@ cuivflStatus_t cuivflHandle::cuivflBuildIndex(const void* dataset,
 
   for (size_t i = 0; i < nrow_; i++) {
     uint32_t id_cluster     = datasetLabels[i];
-    uint32_t current_add    = list_lengths_host_ptr_[id_cluster];
-    uint32_t interleave_add = list_prefix_interleaved_host_ptr_[id_cluster];
+    uint32_t current_add    = list_lengths_host_[id_cluster];
+    uint32_t interleave_add = list_prefix_interleaved_host_[id_cluster];
 
     if (dtype == CUDA_R_32F) {
       float* list_data = (float*)list_data_host_ptr_;
@@ -717,17 +667,15 @@ cuivflStatus_t cuivflHandle::cuivflBuildIndex(const void* dataset,
       _ivfflat_interleaved(
         list_data, ori_data + i * dim_, dim_, current_add, interleave_add, veclen);
     }
-    list_index_host_ptr_[interleave_add + current_add] = i;
-    list_lengths_host_ptr_[id_cluster] += 1;
+    list_index_host_[interleave_add + current_add] = i;
+    list_lengths_host_[id_cluster] += 1;
   }
 
-  RAFT_CUDA_TRY(cudaMalloc(&centriod_dev_ptr_, sizeof(float) * nlist_ * dim_));
-  copy(centriod_dev_ptr_, centriod_manage_ptr, nlist_ * dim_, stream);
-
   // Store index on GPU memory: temp WAR until we've entire index building buffers on device
-  RAFT_CUDA_TRY(cudaMalloc(&list_prefix_interleaved_dev_ptr_, sizeof(uint32_t) * nlist_));
-  RAFT_CUDA_TRY(cudaMalloc(&list_lengths_dev_ptr_, sizeof(uint32_t) * nlist_));
-  RAFT_CUDA_TRY(cudaMalloc(&list_index_dev_ptr_, sizeof(uint32_t) * ninterleave_));
+  list_index_dev_.resize(ninterleave_, stream_);
+  list_prefix_interleaved_dev_.resize(nlist_, stream_);
+  list_lengths_dev_.resize(nlist_, stream_);
+  centriod_dev_.resize(nlist_ * dim_, stream_);
 
   if (dtype_ == CUDA_R_32F) {
     RAFT_CUDA_TRY(cudaMalloc(&list_data_dev_ptr_, sizeof(float) * ninterleave_ * dim_));
@@ -738,15 +686,16 @@ cuivflStatus_t cuivflHandle::cuivflBuildIndex(const void* dataset,
   }
 
   // Step 3: Read the list
-  copy(list_prefix_interleaved_dev_ptr_, list_prefix_interleaved_host_ptr_, nlist_, stream);
-  copy(list_lengths_dev_ptr_, list_lengths_host_ptr_, nlist_, stream);
+  copy(list_prefix_interleaved_dev_.data(), list_prefix_interleaved_host_.data(), nlist_, stream_);
+  copy(list_lengths_dev_.data(), list_lengths_host_.data(), nlist_, stream_);
+  copy(centriod_dev_.data(), centriod_manage_ptr, nlist_ * dim_, stream_);
 
   RAFT_CUDA_TRY(cudaMemcpyAsync(list_data_dev_ptr_,
                                 list_data_host_ptr_,
                                 utils::cuda_datatype_size(dtype_) * ninterleave_ * dim_,
                                 cudaMemcpyHostToDevice,
-                                stream));
-  copy(list_index_dev_ptr_, list_index_host_ptr_, ninterleave_, stream);
+                                stream_));
+  copy(list_index_dev_.data(), list_index_host_.data(), ninterleave_, stream_);
 
   return cuivflStatus_t::CUIVFL_STATUS_SUCCESS;
 }  // end func cuivflBuildIndex
@@ -1001,9 +950,9 @@ cuivflStatus_t cuivflHandle::cuivflSearchImpl(const T* queries,  // [numQueries,
     beta  = 1.0f;
     utils::_cuann_sqsum(batch_size, dim_, convertedQueries, query_norm_dev_ptr);
     utils::_cuann_outer_add(
-      query_norm_dev_ptr, batch_size, centriod_norm_dev_ptr_, nlist_, distance_buffer_dev_ptr);
+      query_norm_dev_ptr, batch_size, centriod_norm_dev_.data(), nlist_, distance_buffer_dev_ptr);
 #ifdef DEBUG_L2
-    utils::printDevPtr(centriod_norm_dev_ptr_, 20, "centriod_norm_dev_ptr_");
+    utils::printDevPtr(centriod_norm_dev_.data(), 20, "centriod_norm_dev_");
     utils::printDevPtr(distance_buffer_dev_ptr, 20, "distance_buffer_dev_ptr");
 #endif
   } else {
@@ -1018,7 +967,7 @@ cuivflStatus_t cuivflHandle::cuivflSearchImpl(const T* queries,  // [numQueries,
                batch_size,
                dim_,
                &alpha,
-               centriod_dev_ptr_,
+               centriod_dev_.data(),
                CUDA_R_32F,
                dim_,
                convertedQueries,
@@ -1059,10 +1008,10 @@ cuivflStatus_t cuivflHandle::cuivflSearchImpl(const T* queries,  // [numQueries,
   if constexpr (std::is_same<T, float>{}) {
     ivfflat_interleaved_scan<float, float>(queries,
                                            coarse_indices_dev_ptr,
-                                           list_index_dev_ptr_,
+                                           list_index_dev_.data(),
                                            list_data_dev_ptr_,
-                                           list_lengths_dev_ptr_,
-                                           list_prefix_interleaved_dev_ptr_,
+                                           list_lengths_dev_.data(),
+                                           list_prefix_interleaved_dev_.data(),
                                            metric_type_,
                                            nprobe,
                                            k,
@@ -1078,10 +1027,10 @@ cuivflStatus_t cuivflHandle::cuivflSearchImpl(const T* queries,  // [numQueries,
     // we use int32_t for accumulation, and final store in fp32
     ivfflat_interleaved_scan<uint8_t, uint32_t>(queries,
                                                 coarse_indices_dev_ptr,
-                                                list_index_dev_ptr_,
+                                                list_index_dev_.data(),
                                                 list_data_dev_ptr_,
-                                                list_lengths_dev_ptr_,
-                                                list_prefix_interleaved_dev_ptr_,
+                                                list_lengths_dev_.data(),
+                                                list_prefix_interleaved_dev_.data(),
                                                 metric_type_,
                                                 nprobe,
                                                 k,
@@ -1096,10 +1045,10 @@ cuivflStatus_t cuivflHandle::cuivflSearchImpl(const T* queries,  // [numQueries,
   } else if constexpr (std::is_same<T, int8_t>{}) {
     ivfflat_interleaved_scan<int8_t, int32_t>(queries,
                                               coarse_indices_dev_ptr,
-                                              list_index_dev_ptr_,
+                                              list_index_dev_.data(),
                                               list_data_dev_ptr_,
-                                              list_lengths_dev_ptr_,
-                                              list_prefix_interleaved_dev_ptr_,
+                                              list_lengths_dev_.data(),
+                                              list_prefix_interleaved_dev_.data(),
                                               metric_type_,
                                               nprobe,
                                               k,
