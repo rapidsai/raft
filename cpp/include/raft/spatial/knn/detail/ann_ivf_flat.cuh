@@ -31,6 +31,8 @@
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_uvector.hpp>
 #include <rmm/mr/device/managed_memory_resource.hpp>
+#include <rmm/mr/device/per_device_resource.hpp>
+#include <rmm/mr/device/pool_memory_resource.hpp>
 
 namespace raft::spatial::knn::detail {
 
@@ -133,16 +135,14 @@ class cuivflHandle {
 
   raft::distance::DistanceType metric_type_;
   bool greater_;
-  uint32_t nlist_;           // The number of inverted lists= the number of centriods
-  uint32_t niter_;           // The number of uint32_terations for kmeans to build the indexs
-  uint32_t dim_;             // The dimension of vectors for input dataset
-  uint32_t nprobe_;          // The number of clusters for searching
-  uint32_t nrow_;            // The number of elements for input dataset
-  size_t ninterleave_;       // The number of elements in 32 interleaved group for input dataset
-  size_t buf_topk_size_;     // The size of buffer used for topk select.
-  size_t float_query_size_;  // The size of float converted queries from int8_t/uint8_t
-  uint32_t veclen_;          // The vectorization length of dataset in index.
-  uint32_t grid_dim_x_;      // The number of blocks launched across nprobe.
+  uint32_t nlist_;       // The number of inverted lists= the number of centriods
+  uint32_t niter_;       // The number of uint32_terations for kmeans to build the indexs
+  uint32_t dim_;         // The dimension of vectors for input dataset
+  uint32_t nprobe_;      // The number of clusters for searching
+  uint32_t nrow_;        // The number of elements for input dataset
+  size_t ninterleave_;   // The number of elements in 32 interleaved group for input dataset
+  uint32_t veclen_;      // The vectorization length of dataset in index.
+  uint32_t grid_dim_x_;  // The number of blocks launched across nprobe.
 
   // device pointer
   //  The device memory pointer; inverted list for data; size [ninterleave_, dim_]
@@ -157,8 +157,9 @@ class cuivflHandle {
   rmm::device_uvector<float> centriod_dev_;
   // The device memory pointer; centriod norm ; size [nlist_, dim_]
   rmm::device_uvector<float> centriod_norm_dev_;
-  // The device memory; used for topk select.
-  rmm::device_buffer select_workspace_dev_;
+  // Memory pool for use during search; after the first search is done the pool is not likely to
+  // resize, saving the costs of allocations.
+  std::optional<rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource>> search_mem_res;
 
   // host pointer
   //  The host memory pointer; inverted list for data; size [ninterleave_, dim_]
@@ -195,7 +196,6 @@ cuivflHandle<T>::cuivflHandle(const handle_t& handle,
     nlist_(nlist),
     niter_(niter),
     metric_type_(metric_type),
-    float_query_size_(0),
     grid_dim_x_(0),
     list_data_dev_(0, stream_),
     list_index_dev_(0, stream_),
@@ -508,7 +508,7 @@ cuivflStatus_t cuivflHandle<T>::cuivflBuildIndex(const T* dataset,
   if (metric_type_ == raft::distance::DistanceType::L2Expanded) {
     utils::_cuann_sqsum(nlist_, dim_, centriod_managed_ptr, centriod_norm_dev_.data());
 #ifdef DEBUG_L2
-    printDevPtr(centriod_norm_dev_.data(), 20, "centriod_norm_dev_");
+    utils::printDevPtr(centriod_norm_dev_.data(), 20, "centriod_norm_dev_");
 #endif
   }
 
@@ -602,65 +602,12 @@ cuivflStatus_t cuivflHandle<T>::cuivflSetSearchParameters(const uint32_t nprobe,
     greater_ = false;
   }
 
-  // Set buffer
-  if constexpr (std::is_integral_v<T>) {
-    float_query_size_ = sizeof(float) * max_batch * dim_;
-  } else {
-    float_query_size_ = 0;
+  // Set memory buffer to be reused across searches
+  auto cur_memory_resource = rmm::mr::get_current_device_resource();
+  if (!search_mem_res.has_value() || search_mem_res->get_upstream() != cur_memory_resource) {
+    search_mem_res.emplace(cur_memory_resource,
+                           Pow2<256>::roundUp(max_batch * nprobe * max_k * 16));
   }
-
-  size_t buf_coarse_size = 0;
-  topk::radix_topk_11bits<float, uint32_t>(nullptr,
-                                           buf_coarse_size,
-                                           nullptr,
-                                           (uint32_t)max_batch,
-                                           (uint32_t)nlist_,
-                                           (uint32_t)nprobe,
-                                           nullptr,
-                                           nullptr,
-                                           greater_,
-                                           0);
-
-  size_t buf_refine_size = 0;
-//#ifdef RADIX
-#if 1
-  topk::radix_topk_11bits<float, size_t>(nullptr,
-                                         buf_refine_size,
-                                         nullptr,
-                                         nullptr,
-                                         (size_t)max_batch,
-                                         (size_t)max_k * nprobe,
-                                         (size_t)max_k,
-                                         nullptr,
-                                         nullptr,
-                                         greater_,
-                                         0);
-#else
-  nv::warp_sort_topk<float, size_t>(nullptr,
-                                    buf_refine_size,
-                                    nullptr,
-                                    nullptr,
-                                    (size_t)max_batch,
-                                    (size_t)(max_k * nprobe),
-                                    (size_t)max_k,
-                                    nullptr,
-                                    nullptr,
-                                    greater_,
-                                    0);
-#endif
-
-  buf_topk_size_            = buf_coarse_size > buf_refine_size ? buf_coarse_size : buf_refine_size;
-  uint32_t query_norm_size  = max_batch * sizeof(float);
-  std::vector<size_t> sizes = {query_norm_size,
-                               max_batch * nlist_ * sizeof(float),
-                               max_batch * nprobe * sizeof(float),
-                               max_batch * nprobe * sizeof(uint32_t),
-                               max_batch * nprobe * max_k * sizeof(float),
-                               max_batch * nprobe * max_k * sizeof(size_t),
-                               buf_topk_size_,
-                               float_query_size_};
-
-  select_workspace_dev_.resize(utils::calc_aligned_size(sizes), stream_);
   return cuivflStatus_t::CUIVFL_STATUS_SUCCESS;
 }
 
@@ -683,47 +630,40 @@ cuivflStatus_t cuivflHandle<T>::cuivflSearchImpl(const T* queries,  // [numQueri
                                                  size_t* neighbors,  // [numQueries, topK]
                                                  value_t* distances)
 {
-  uint32_t nprobe = std::min(nprobe_, (uint32_t)nlist_);
-
-  grid_dim_x_ = 0;
+  uint32_t nprobe = std::min(nprobe_, nlist_);
+  grid_dim_x_     = 0;
   queryIVFFlatGridSize(nprobe, batch_size, k);
-  // Prepare the buffer for topk calculation
-  uint32_t query_norm_size  = batch_size * sizeof(float);
-  std::vector<size_t> sizes = {query_norm_size,
-                               batch_size * nlist_ * sizeof(float),
-                               batch_size * nprobe * sizeof(float),
-                               batch_size * nprobe * sizeof(uint32_t),
-                               batch_size * nprobe * k * sizeof(float),
-                               batch_size * nprobe * k * sizeof(size_t),
-                               buf_topk_size_,
-                               float_query_size_};
-  std::vector<void*> aligned_pointers =
-    utils::calc_aligned_pointers(select_workspace_dev_.data(), sizes);
+  auto search_mr = &(search_mem_res.value());
+  // The norm of query
+  rmm::device_uvector<float> query_norm_dev(batch_size, stream_, search_mr);
+  // The distance value of cluster(list) and queries
+  rmm::device_uvector<float> distance_buffer_dev(batch_size * nlist_, stream_, search_mr);
+  // The topk distance value of cluster(list) and queries
+  rmm::device_uvector<float> coarse_distances_dev(batch_size * nprobe, stream_, search_mr);
+  // The topk  index of cluster(list) and queries
+  rmm::device_uvector<uint32_t> coarse_indices_dev(batch_size * nprobe, stream_, search_mr);
+  // The topk distance value of candicate vectors from each cluster(list)
+  rmm::device_uvector<value_t> refined_distances_dev(batch_size * nprobe * k, stream_, search_mr);
+  // The topk index of candicate vectors from each cluster(list)
+  rmm::device_uvector<size_t> refined_indices_dev(batch_size * nprobe * k, stream_, search_mr);
 
-  // The norm of query [batch_size];
-  float* query_norm_dev_ptr = static_cast<float*>(aligned_pointers[0]);
-  // The distance value of cluster(list) and queries;[batch, nlist_]
-  float* distance_buffer_dev_ptr = static_cast<float*>(aligned_pointers[1]);
-  // The topk distance value of cluster(list) and queries;[batch, nprobe]
-  float* coarse_distances_dev_ptr = static_cast<float*>(aligned_pointers[2]);
-  // TODO:use float datatype here for now.
-  // The topk  index of cluster(list) and queries;[batch, nprobe]
-  uint32_t* coarse_indices_dev_ptr = static_cast<uint32_t*>(aligned_pointers[3]);
-  // The topk distance value of candicate vectors from each cluster(list);[batch,k]
-  value_t* refined_distances_dev_ptr = static_cast<value_t*>(aligned_pointers[4]);
-  // The topk index of candicate vectors from each cluster(list);[batch, k]
-  size_t* refined_indices_dev_ptr = static_cast<size_t*>(aligned_pointers[5]);
-  void* buf_topk_dev_ptr          = static_cast<void*>(aligned_pointers[6]);
-  float* convertedQueries         = static_cast<float*>(aligned_pointers[7]);
+  size_t float_query_size;
+  if constexpr (std::is_integral_v<T>) {
+    float_query_size = batch_size * dim_;
+  } else {
+    float_query_size = 0;
+  }
+  rmm::device_uvector<float> converted_queries_dev(float_query_size, stream_, search_mr);
+  float* converted_queries_ptr = converted_queries_dev.data();
 
   if constexpr (std::is_same_v<T, float>) {
-    convertedQueries = const_cast<float*>(queries);
+    converted_queries_ptr = const_cast<float*>(queries);
   } else {
     utils::_cuann_copy<T, float>(batch_size,
                                  dim_,
                                  queries,
                                  dim_,
-                                 convertedQueries,
+                                 converted_queries_ptr,
                                  dim_,
                                  stream_,
                                  ivfflat_config<T>::kDivisor);
@@ -735,12 +675,15 @@ cuivflStatus_t cuivflHandle<T>::cuivflSearchImpl(const T* queries,  // [numQueri
   if (metric_type_ == raft::distance::DistanceType::L2Expanded) {
     alpha = -2.0f;
     beta  = 1.0f;
-    utils::_cuann_sqsum(batch_size, dim_, convertedQueries, query_norm_dev_ptr);
-    utils::_cuann_outer_add(
-      query_norm_dev_ptr, batch_size, centriod_norm_dev_.data(), nlist_, distance_buffer_dev_ptr);
+    utils::_cuann_sqsum(batch_size, dim_, converted_queries_ptr, query_norm_dev.data());
+    utils::_cuann_outer_add(query_norm_dev.data(),
+                            batch_size,
+                            centriod_norm_dev_.data(),
+                            nlist_,
+                            distance_buffer_dev.data());
 #ifdef DEBUG_L2
     utils::printDevPtr(centriod_norm_dev_.data(), 20, "centriod_norm_dev_");
-    utils::printDevPtr(distance_buffer_dev_ptr, 20, "distance_buffer_dev_ptr");
+    utils::printDevPtr(distance_buffer_dev.data(), 20, "distance_buffer_dev_ptr");
 #endif
   } else {
     alpha = 1.0f;
@@ -756,33 +699,33 @@ cuivflStatus_t cuivflHandle<T>::cuivflSearchImpl(const T* queries,  // [numQueri
                &alpha,
                centriod_dev_.data(),
                dim_,
-               convertedQueries,
+               converted_queries_ptr,
                dim_,
                &beta,
-               distance_buffer_dev_ptr,
+               distance_buffer_dev.data(),
                nlist_,
                stream_);
 
 #ifdef DEBUG_L2
-  utils::printDevPtr(distance_buffer_dev_ptr, 20, "distance_buffer_dev_ptr");
+  utils::printDevPtr(distance_buffer_dev.data(), 20, "distance_buffer_dev_ptr");
 #endif
-  topk::radix_topk_11bits<value_t, uint32_t>(buf_topk_dev_ptr,
-                                             buf_topk_size_,
-                                             distance_buffer_dev_ptr,
-                                             (uint32_t)batch_size,
-                                             (uint32_t)nlist_,
-                                             (uint32_t)nprobe,
-                                             coarse_distances_dev_ptr,
-                                             coarse_indices_dev_ptr,
-                                             greater_,
-                                             stream_);
+  topk::radix_topk<value_t, uint32_t, 11, 512>(distance_buffer_dev.data(),
+                                               nullptr,
+                                               batch_size,
+                                               nlist_,
+                                               nprobe,
+                                               coarse_distances_dev.data(),
+                                               coarse_indices_dev.data(),
+                                               !greater_,
+                                               stream_,
+                                               &(search_mem_res.value()));
 #ifdef DEBUG_L2
-  utils::printDevPtr(coarse_indices_dev_ptr, 1 * nprobe, "coarse_indices_dev_ptr");
-  utils::printDevPtr(coarse_distances_dev_ptr, 1 * nprobe, "coarse_distances_dev_ptr");
+  utils::printDevPtr(coarse_indices_dev.data(), 1 * nprobe, "coarse_indices_dev_ptr");
+  utils::printDevPtr(coarse_distances_dev.data(), 1 * nprobe, "coarse_distances_dev_ptr");
 #endif
 
-  value_t* distances_dev_ptr = refined_distances_dev_ptr;
-  size_t* indices_dev_ptr    = refined_indices_dev_ptr;
+  value_t* distances_dev_ptr = refined_distances_dev.data();
+  size_t* indices_dev_ptr    = refined_indices_dev.data();
   if (nprobe == 1 || grid_dim_x_ == 1) {
     distances_dev_ptr = distances;
     indices_dev_ptr   = neighbors;
@@ -790,7 +733,7 @@ cuivflStatus_t cuivflHandle<T>::cuivflSearchImpl(const T* queries,  // [numQueri
 
   ivfflat_interleaved_scan<T, typename ivfflat_config<T>::value_t>(
     queries,
-    coarse_indices_dev_ptr,
+    coarse_indices_dev.data(),
     list_index_dev_.data(),
     list_data_dev_.data(),
     list_lengths_dev_.data(),
@@ -815,22 +758,21 @@ cuivflStatus_t cuivflHandle<T>::cuivflSearchImpl(const T* queries,  // [numQueri
   if (grid_dim_x_ > 1) {
 //#ifdef RADIX
 #if 1
-    topk::radix_topk_11bits<value_t, size_t>(buf_topk_dev_ptr,
-                                             buf_topk_size_,
-                                             refined_distances_dev_ptr,
-                                             refined_indices_dev_ptr,
-                                             (size_t)batch_size,
-                                             (size_t)k * grid_dim_x_,
-                                             (size_t)k,
-                                             distances,
-                                             neighbors,
-                                             greater_,
-                                             stream_);
+    topk::radix_topk<value_t, size_t, 11, 512>(refined_distances_dev.data(),
+                                               refined_indices_dev.data(),
+                                               batch_size,
+                                               k * grid_dim_x_,
+                                               k,
+                                               distances,
+                                               neighbors,
+                                               !greater_,
+                                               stream_,
+                                               &(search_mem_res.value()));
 #else
     topk::warp_sort_topk<value_t, size_t>(buf_topk_dev_ptr,
                                           buf_topk_size_,
-                                          refined_distances_dev_ptr,
-                                          refined_indices_dev_ptr,
+                                          refined_distances_dev.data(),
+                                          refined_indices_dev.data(),
                                           (size_t)batch_size,
                                           (size_t)(k * grid_dim_x_),
                                           (size_t)k,

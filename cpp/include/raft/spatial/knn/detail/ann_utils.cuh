@@ -50,34 +50,6 @@ void printDevPtr(const T* d_cache, int len, const char* name)
   free(res);
 }
 
-inline size_t calc_aligned_size(const std::vector<size_t>& sizes)
-{
-  const size_t ALIGN_BYTES = 256;
-  const size_t ALIGN_MASK  = ~(ALIGN_BYTES - 1);
-  size_t total             = 0;
-  for (auto sz : sizes) {
-    total += (sz + ALIGN_BYTES - 1) & ALIGN_MASK;
-  }
-  return total + ALIGN_BYTES - 1;
-}
-
-inline std::vector<void*> calc_aligned_pointers(const void* p, const std::vector<size_t>& sizes)
-{
-  const size_t ALIGN_BYTES = 256;
-  const size_t ALIGN_MASK  = ~(ALIGN_BYTES - 1);
-
-  char* ptr = reinterpret_cast<char*>((reinterpret_cast<size_t>(p) + ALIGN_BYTES - 1) & ALIGN_MASK);
-
-  std::vector<void*> aligned_pointers;
-  aligned_pointers.reserve(sizes.size());
-  for (auto sz : sizes) {
-    aligned_pointers.push_back(ptr);
-    ptr += (sz + ALIGN_BYTES - 1) & ALIGN_MASK;
-  }
-
-  return aligned_pointers;
-}
-
 //
 size_t _cuann_aligned(size_t size, size_t unit = 128)
 {
