@@ -119,7 +119,7 @@ void approx_knn_cuivfl_ivfflat_build_index(knnIndex* index,
 
   cudaDataType_t dtype = utils::cuda_datatype<T>();
 
-  cuivflInit(index->handle_, metric, D, params->nlist, niter, index->device);
+  index->handle_ = std::make_unique<cuivflHandle>(metric, D, params->nlist, niter, index->device);
 
   // NB: `trainset` is accessed by both CPU and GPU code here.
   index->handle_->cuivflBuildIndex(dataset, trainset.data(), dtype, n, ntrain, stream);

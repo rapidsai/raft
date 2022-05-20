@@ -16,53 +16,24 @@
 
 #pragma once
 
+#include "ann_ivf_flat_kernel.cuh"
 #include "ann_kmeans_balanced.cuh"
 #include "ann_utils.cuh"
 #include "knn_brute_force_faiss.cuh"
-#include <cublas_v2.h>
-#include <library_types.h>
-#include <raft/spatial/knn/ann_common.h>
-//#include "ann_ivf_flat.cuh"
-#include "ann_ivf_flat_kernel.cuh"
+#include "processing.hpp"
 #include "topk/radix_topk.cuh"
 
-#include "common_faiss.h"
-#include "processing.hpp"
-
-#include "processing.hpp"
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-
-//#include <label/classlabels.cuh>
 #include <raft/distance/distance.hpp>
-#include <raft/spatial/knn/faiss_mr.hpp>
+#include <raft/distance/distance_type.hpp>
+#include <raft/spatial/knn/ann_common.h>
 
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_uvector.hpp>
 #include <rmm/mr/device/managed_memory_resource.hpp>
 
-#include <faiss/gpu/GpuDistance.h>
-#include <faiss/gpu/GpuIndexFlat.h>
-#include <faiss/gpu/GpuIndexIVFFlat.h>
-#include <faiss/gpu/GpuIndexIVFPQ.h>
-#include <faiss/gpu/GpuIndexIVFScalarQuantizer.h>
-#include <faiss/gpu/GpuResources.h>
-#include <faiss/gpu/utils/Limits.cuh>
-#include <faiss/gpu/utils/Select.cuh>
-#include <faiss/gpu/utils/Tensor.cuh>
-#include <faiss/utils/Heap.h>
-
-#include <thrust/iterator/transform_iterator.h>
-
-#include <raft/distance/distance_type.hpp>
-
-#include <iostream>
-#include <set>
-
-namespace raft {
-namespace spatial {
-namespace knn {
-namespace detail {
+namespace raft::spatial::knn::detail {
 
 template <typename T>
 void _ivfflat_interleaved(
@@ -195,7 +166,7 @@ class cuivflHandle {
   void* buf_dev_ptr_;
 
  private:
-  cuivflStatus_t cuivflBuildOptimizedKmeans(float* centriod_manage_ptr,
+  cuivflStatus_t cuivflBuildOptimizedKmeans(float* centriod_managed_ptr,
                                             const void* dataset,
                                             void* trainset,
                                             uint32_t* clusterSize,
@@ -281,7 +252,7 @@ cuivflHandle::~cuivflHandle()
  * NB: `dataset` is accessed only by GPU code, `trainset` accessed by CPU and GPU.
  *
  */
-cuivflStatus_t cuivflHandle::cuivflBuildOptimizedKmeans(float* centriod_manage_ptr,
+cuivflStatus_t cuivflHandle::cuivflBuildOptimizedKmeans(float* centriod_managed_ptr,
                                                         const void* dataset,
                                                         void* trainset,
                                                         uint32_t* datasetLabels,
@@ -297,7 +268,7 @@ cuivflStatus_t cuivflHandle::cuivflBuildOptimizedKmeans(float* centriod_manage_p
 
   rmm::device_uvector<uint32_t> trainsetLabels(numTrainset, stream);
 
-  float* clusterCenters = centriod_manage_ptr;
+  float* clusterCenters = centriod_managed_ptr;
 
   uint32_t numMesoClusters = pow((double)(numClusters), (double)1.0 / 2.0) + 0.5;
   fprintf(stderr, "# numMesoClusters: %u\n", numMesoClusters);
@@ -583,8 +554,8 @@ cuivflStatus_t cuivflHandle::cuivflBuildIndex(const void* dataset,
   stream_ = stream;
 
   rmm::mr::managed_memory_resource managed_memory;
-  rmm::device_uvector<float> centriod_manage_buf(nlist_ * dim_, stream_, &managed_memory);
-  auto centriod_manage_ptr = centriod_manage_buf.data();
+  rmm::device_uvector<float> centriod_managed_buf(nlist_ * dim_, stream_, &managed_memory);
+  auto centriod_managed_ptr = centriod_managed_buf.data();
 
   if (this == NULL || nrow_ == 0) { return CUIVFL_STATUS_NOT_INITIALIZED; }
   if (dtype != CUDA_R_32F && dtype != CUDA_R_8U && dtype != CUDA_R_8I) {
@@ -597,13 +568,13 @@ cuivflStatus_t cuivflHandle::cuivflBuildIndex(const void* dataset,
 
   // Step 3: Predict labels of the whole dataset
   cuivflBuildOptimizedKmeans(
-    centriod_manage_ptr, dataset, trainset, datasetLabels, dtype, nrow, ntrain, stream_);
+    centriod_managed_ptr, dataset, trainset, datasetLabels, dtype, nrow, ntrain, stream_);
 
   // Step 3.2: Calculate the L2 related result
   centriod_norm_dev_.resize(nlist_, stream_);
 
   if (metric_type_ == raft::distance::DistanceType::L2Expanded) {
-    utils::_cuann_sqsum(nlist_, dim_, centriod_manage_ptr, centriod_norm_dev_.data());
+    utils::_cuann_sqsum(nlist_, dim_, centriod_managed_ptr, centriod_norm_dev_.data());
 #ifdef DEBUG_L2
     printDevPtr(centriod_norm_dev_.data(), 20, "centriod_norm_dev_");
 #endif
@@ -688,7 +659,7 @@ cuivflStatus_t cuivflHandle::cuivflBuildIndex(const void* dataset,
   // Step 3: Read the list
   copy(list_prefix_interleaved_dev_.data(), list_prefix_interleaved_host_.data(), nlist_, stream_);
   copy(list_lengths_dev_.data(), list_lengths_host_.data(), nlist_, stream_);
-  copy(centriod_dev_.data(), centriod_manage_ptr, nlist_ * dim_, stream_);
+  copy(centriod_dev_.data(), centriod_managed_ptr, nlist_ * dim_, stream_);
 
   RAFT_CUDA_TRY(cudaMemcpyAsync(list_data_dev_ptr_,
                                 list_data_host_ptr_,
@@ -1099,18 +1070,4 @@ cuivflStatus_t cuivflHandle::cuivflSearchImpl(const T* queries,  // [numQueries,
   return cuivflStatus_t::CUIVFL_STATUS_SUCCESS;
 }  // end func cuivflHandle::cuivflSearchImpl
 
-void cuivflInit(std::unique_ptr<detail::cuivflHandle>& handle,
-                raft::distance::DistanceType metric,
-                int D,
-                int nlist,
-                int niter,
-                int deviceId)
-{
-  handle = std::make_unique<cuivflHandle>(metric, D, nlist, niter, deviceId);
-  return;
-}
-
-}  // namespace detail
-}  // namespace knn
-}  // namespace spatial
-}  // namespace raft
+}  // namespace raft::spatial::knn::detail
