@@ -45,14 +45,17 @@ if(NOT raft_FOUND)
   # pull in the required languages for the C++ project even if this project
   # does not require those languges.
   include(rapids-cuda)
-  rapids_cuda_init_architectures(pylibraft)
+  rapids_cuda_init_architectures(pyraft)
   enable_language(CUDA)
-  # Since pylibraft only enables CUDA optionally we need to manually include the file that
+  # Since pyraft only enables CUDA optionally we need to manually include the file that
   # rapids_cuda_init_architectures relies on `project` including.
-  include("${CMAKE_PROJECT_pylibraft_INCLUDE}")
+  include("${CMAKE_PROJECT_pyraft_INCLUDE}")
 
+  # pyraft doesn't actually use raft libraries, it just needs the headers, so
+  # we can turn off all library compilation and we don't need to install
+  # anything here.
   set(BUILD_TESTS OFF)
-  set(BUILD_BENCHMARKS OFF)
+  set(BUILD_BENCH OFF)
   set(RAFT_COMPILE_LIBRARIES OFF)
   set(RAFT_COMPILE_DIST_LIBRARY OFF)
   set(RAFT_COMPILE_NN_LIBRARY OFF)
@@ -62,7 +65,6 @@ endif()
 include(rapids-cython)
 rapids_cython_init()
 
-# TODO: Figure out which of ucx, nccl, cusolver, cusparse, and cublas I need to add as include directories or linked libraries for which components
 add_subdirectory(raft/common)
 add_subdirectory(raft/dask/common)
 add_subdirectory(raft/include_test)
