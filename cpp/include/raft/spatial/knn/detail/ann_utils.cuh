@@ -187,7 +187,7 @@ void _cuann_sqsum(uint32_t nRows,
 )
 {
   dim3 threads(32, 4, 1);  // DO NOT CHANGE
-  dim3 blocks((nRows + threads.y - 1) / threads.y, 1, 1);
+  dim3 blocks(ceildiv(nRows, threads.y), 1, 1);
   kern_sqsum<<<blocks, threads>>>(nRows, nCols, a, out);
 }
 
@@ -235,7 +235,7 @@ void _cuann_copy(uint32_t nRows,
                  D divisor)
 {
   uint32_t nThreads = 128;
-  uint32_t nBlocks  = ((nRows * nCols) + nThreads - 1) / nThreads;
+  uint32_t nBlocks  = ceildiv(nRows * nCols, nThreads);
   kern_copy<S, D><<<nBlocks, nThreads>>>(nRows, nCols, src, ldSrc, dst, ldDst, divisor);
 }
 
@@ -250,7 +250,7 @@ void _cuann_copy(uint32_t nRows,
                  D divisor)
 {
   uint32_t nThreads = 128;
-  uint32_t nBlocks  = ((nRows * nCols) + nThreads - 1) / nThreads;
+  uint32_t nBlocks  = ceildiv(nRows * nCols, nThreads);
   kern_copy<S, D><<<nBlocks, nThreads, 0, stream>>>(nRows, nCols, src, ldSrc, dst, ldDst, divisor);
 }
 
@@ -316,7 +316,7 @@ void _cuann_accumulate_with_label(uint32_t nRowsOutput,
   if (useGPU) {
     // GPU
     uint32_t nThreads = 128;
-    uint64_t nBlocks  = (((uint64_t)nRowsInput * nCols) + nThreads - 1) / nThreads;
+    uint64_t nBlocks  = ceildiv((uint64_t)nRowsInput * nCols, (uint64_t)nThreads);
     kern_accumulate_with_label<T>
       <<<nBlocks, nThreads>>>(nRowsOutput, nCols, output, count, nRowsInput, input, label, divisor);
   } else {
@@ -374,7 +374,7 @@ void _cuann_normalize(uint32_t nRows,
 )
 {
   dim3 threads(32, 4, 1);  // DO NOT CHANGE
-  dim3 blocks((nRows + threads.y - 1) / threads.y, 1, 1);
+  dim3 blocks(ceildiv(nRows, threads.y), 1, 1);
   kern_normalize<<<blocks, threads>>>(nRows, nCols, a, numSamples);
 }
 
@@ -407,7 +407,7 @@ void _cuann_divide(uint32_t nRows,
 )
 {
   dim3 threads(128, 1, 1);
-  dim3 blocks(((uint64_t)nRows * nCols + threads.x - 1) / threads.x, 1, 1);
+  dim3 blocks(ceildiv<uint64_t>((uint64_t)nRows * (uint64_t)nCols, threads.x), 1, 1);
   kern_divide<<<blocks, threads>>>(nRows, nCols, a, numSamples);
 }
 
@@ -437,7 +437,7 @@ void _cuann_outer_add(const float* a,
 )
 {
   dim3 threads(128, 1, 1);
-  dim3 blocks(((uint64_t)numA * numB + threads.x - 1) / threads.x, 1, 1);
+  dim3 blocks(ceildiv<uint64_t>((uint64_t)numA * (uint64_t)numB, threads.x), 1, 1);
   kern_outer_add<<<blocks, threads>>>(a, numA, b, numB, c);
 }
 
@@ -500,7 +500,7 @@ void _cuann_copy_with_list(uint32_t nRows,
     }
   } else {
     uint32_t nThreads = 128;
-    uint32_t nBlocks  = ((nRows * nCols) + nThreads - 1) / nThreads;
+    uint32_t nBlocks  = ceildiv(nRows * nCols, nThreads);
     kern_copy_with_list<T>
       <<<nBlocks, nThreads>>>(nRows, nCols, src, rowList, ldSrc, dst, ldDst, divisor);
   }
