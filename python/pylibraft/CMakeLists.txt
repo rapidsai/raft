@@ -56,6 +56,7 @@ if(NOT raft_FOUND)
 
   set(BUILD_TESTS OFF)
   set(BUILD_BENCH OFF)
+  set(RAFT_COMPILE_LIBRARIES OFF)
   set(RAFT_COMPILE_DIST_LIBRARY ON)
   add_subdirectory(../../cpp raft-cpp)
 
