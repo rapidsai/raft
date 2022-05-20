@@ -118,13 +118,11 @@ void approx_knn_cuivfl_ivfflat_build_index(const raft::handle_t& handle,
                                   cudaMemcpyDefault,
                                   stream));
 
-  cudaDataType_t dtype = utils::cuda_datatype<T>();
-
-  index->handle_ =
-    std::make_unique<cuivflHandle>(handle, metric, D, params->nlist, niter, index->device);
+  index->handle_.get<T>() = std::make_unique<detail::cuivflHandle<T>>(
+    handle, metric, D, params->nlist, niter, index->device);
 
   // NB: `trainset` is accessed by both CPU and GPU code here.
-  index->handle_->cuivflBuildIndex(dataset, trainset.data(), dtype, n, ntrain);
+  index->handle_.get<T>()->cuivflBuildIndex(dataset, trainset.data(), n, ntrain);
 }
 
 template <typename IntType = int>
@@ -266,22 +264,13 @@ void approx_knn_search(const handle_t& handle,
       int max_batch               = n;
       int max_k                   = k;
 
-      index->handle_->cuivflSetSearchParameters(nprobe, max_batch, max_k);
-
-      cudaDataType_t dtype;
-      if (typeid(T) == typeid(float)) {
-        dtype = CUDA_R_32F;
-      } else if (typeid(T) == typeid(uint8_t)) {
-        dtype = CUDA_R_8U;
-      } else if (typeid(T) == typeid(int8_t)) {
-        dtype = CUDA_R_8I;
-      }
-      index->handle_->cuivflSearch(
-        query_array, max_batch, max_k, (size_t*)indices, distances, dtype);
+      index->handle_.get<T>()->cuivflSetSearchParameters(nprobe, max_batch, max_k);
+      index->handle_.get<T>()->cuivflSearch(
+        query_array, max_batch, max_k, (size_t*)indices, distances);
     }
   } else if constexpr (std::is_same<T, float>{}) {
     std::unique_ptr<MetricProcessor<float>> query_metric_processor = create_processor<float>(
-      index->metric, n, index->handle_->getDim(), k, false, handle.get_stream());
+      index->metric, n, index->handle_.get<T>()->getDim(), k, false, handle.get_stream());
     query_metric_processor->preprocess(query_array);
 
     if (dynamic_cast<IVFFlatParam*>(params)) {
@@ -290,18 +279,9 @@ void approx_knn_search(const handle_t& handle,
       int max_batch               = n;
       int max_k                   = k;
 
-      index->handle_->cuivflSetSearchParameters(nprobe, max_batch, max_k);
-
-      cudaDataType_t dtype;
-      if (typeid(T) == typeid(float)) {
-        dtype = CUDA_R_32F;
-      } else if (typeid(T) == typeid(uint8_t)) {
-        dtype = CUDA_R_8U;
-      } else if (typeid(T) == typeid(int8_t)) {
-        dtype = CUDA_R_8I;
-      }
-      index->handle_->cuivflSearch(
-        query_array, max_batch, max_k, (size_t*)indices, distances, dtype);
+      index->handle_.get<T>()->cuivflSetSearchParameters(nprobe, max_batch, max_k);
+      index->handle_.get<T>()->cuivflSearch(
+        query_array, max_batch, max_k, (size_t*)indices, distances);
     }
     query_metric_processor->revert(query_array);
 

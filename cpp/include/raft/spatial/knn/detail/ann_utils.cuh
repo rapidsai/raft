@@ -50,62 +50,6 @@ void printDevPtr(const T* d_cache, int len, const char* name)
   free(res);
 }
 
-inline auto cuda_datatype_size(cudaDataType_t t) -> size_t
-{
-  switch (t) {
-    case CUDA_R_8I:
-    case CUDA_C_8I:
-    case CUDA_R_8U:
-    case CUDA_C_8U: return 1;
-
-    case CUDA_R_16F:
-    case CUDA_C_16F:
-    case CUDA_R_16BF:
-    case CUDA_C_16BF:
-    case CUDA_R_16I:
-    case CUDA_C_16I:
-    case CUDA_R_16U:
-    case CUDA_C_16U: return 2;
-
-    case CUDA_R_32F:
-    case CUDA_C_32F:
-    case CUDA_R_32I:
-    case CUDA_C_32I:
-    case CUDA_R_32U:
-    case CUDA_C_32U: return 4;
-
-    case CUDA_R_64F:
-    case CUDA_C_64F:
-    case CUDA_R_64I:
-    case CUDA_C_64I:
-    case CUDA_R_64U:
-    case CUDA_C_64U: return 8;
-
-    default: RAFT_FAIL("cuda_datatype_size: unsupported dtype (%d)", t);
-  }
-}
-
-template <typename T>
-inline constexpr auto cuda_datatype() -> cudaDataType_t;
-
-template <>
-inline constexpr auto cuda_datatype<float>() -> cudaDataType_t
-{
-  return CUDA_R_32F;
-}
-
-template <>
-inline constexpr auto cuda_datatype<uint8_t>() -> cudaDataType_t
-{
-  return CUDA_R_8U;
-}
-
-template <>
-inline constexpr auto cuda_datatype<int8_t>() -> cudaDataType_t
-{
-  return CUDA_R_8I;
-}
-
 inline size_t calc_aligned_size(const std::vector<size_t>& sizes)
 {
   const size_t ALIGN_BYTES = 256;
