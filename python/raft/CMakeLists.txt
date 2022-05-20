@@ -51,6 +51,9 @@ if(NOT raft_FOUND)
   # rapids_cuda_init_architectures relies on `project` including.
   include("${CMAKE_PROJECT_pyraft_INCLUDE}")
 
+  # pyraft doesn't actually use raft libraries, it just needs the headers, so
+  # we can turn off all library compilation and we don't need to install
+  # anything here.
   set(BUILD_TESTS OFF)
   set(BUILD_BENCH OFF)
   set(RAFT_COMPILE_LIBRARIES OFF)
