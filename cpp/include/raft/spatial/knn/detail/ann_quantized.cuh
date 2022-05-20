@@ -91,14 +91,15 @@ void approx_knn_ivfflat_build_index(
 }
 
 template <typename T = float, typename IntType = int>
-void approx_knn_cuivfl_ivfflat_build_index(knnIndex* index,
+void approx_knn_cuivfl_ivfflat_build_index(const raft::handle_t& handle,
+                                           knnIndex* index,
                                            IVFParam* params,
                                            raft::distance::DistanceType metric,
                                            T* dataset,
                                            IntType n,
-                                           IntType D,
-                                           rmm::cuda_stream_view stream)
+                                           IntType D)
 {
+  auto stream         = handle.get_stream();
   int ratio           = 2;  // TODO: take these parameters from API
   int niter           = 20;
   const int dim       = D;
@@ -119,10 +120,11 @@ void approx_knn_cuivfl_ivfflat_build_index(knnIndex* index,
 
   cudaDataType_t dtype = utils::cuda_datatype<T>();
 
-  index->handle_ = std::make_unique<cuivflHandle>(metric, D, params->nlist, niter, index->device);
+  index->handle_ =
+    std::make_unique<cuivflHandle>(handle, metric, D, params->nlist, niter, index->device);
 
   // NB: `trainset` is accessed by both CPU and GPU code here.
-  index->handle_->cuivflBuildIndex(dataset, trainset.data(), dtype, n, ntrain, stream);
+  index->handle_->cuivflBuildIndex(dataset, trainset.data(), dtype, n, ntrain);
 }
 
 template <typename IntType = int>
@@ -155,7 +157,7 @@ void approx_knn_ivfsq_build_index(
 }
 
 template <typename T = float, typename IntType = int>
-void approx_knn_build_index(raft::handle_t& handle,
+void approx_knn_build_index(const handle_t& handle,
                             raft::spatial::knn::knnIndex* index,
                             raft::spatial::knn::knnIndexParam* params,
                             raft::distance::DistanceType metric,
@@ -182,7 +184,7 @@ void approx_knn_build_index(raft::handle_t& handle,
       rmm::device_uvector<T> managed_index_array(n * D, stream, &managed_memory);
       copy(managed_index_array.data(), index_array, n * D, stream);
       approx_knn_cuivfl_ivfflat_build_index(
-        index, IVFFlat_param, metric, managed_index_array.data(), n, D, stream);
+        handle, index, IVFFlat_param, metric, managed_index_array.data(), n, D);
     } else {
       RAFT_FAIL("IVF Flat algorithm required to fit int8 data");
     }
@@ -202,7 +204,7 @@ void approx_knn_build_index(raft::handle_t& handle,
         rmm::device_uvector<T> managed_index_array(n * D, stream, &managed_memory);
         copy(managed_index_array.data(), index_array, n * D, stream);
         approx_knn_cuivfl_ivfflat_build_index(
-          index, IVFFlat_param, metric, managed_index_array.data(), n, D, stream);
+          handle, index, IVFFlat_param, metric, managed_index_array.data(), n, D);
       } else {
         raft::spatial::knn::RmmGpuResources* gpu_res = new raft::spatial::knn::RmmGpuResources();
         gpu_res->noTempMemory();
@@ -241,7 +243,7 @@ void approx_knn_build_index(raft::handle_t& handle,
 }
 
 template <typename T = float, typename IntType = int>
-void approx_knn_search(raft::handle_t& handle,
+void approx_knn_search(const handle_t& handle,
                        float* distances,
                        int64_t* indices,
                        raft::spatial::knn::knnIndex* index,
@@ -275,7 +277,7 @@ void approx_knn_search(raft::handle_t& handle,
         dtype = CUDA_R_8I;
       }
       index->handle_->cuivflSearch(
-        query_array, max_batch, max_k, (size_t*)indices, distances, handle.get_stream(), dtype);
+        query_array, max_batch, max_k, (size_t*)indices, distances, dtype);
     }
   } else if constexpr (std::is_same<T, float>{}) {
     std::unique_ptr<MetricProcessor<float>> query_metric_processor = create_processor<float>(
@@ -299,7 +301,7 @@ void approx_knn_search(raft::handle_t& handle,
         dtype = CUDA_R_8I;
       }
       index->handle_->cuivflSearch(
-        query_array, max_batch, max_k, (size_t*)indices, distances, handle.get_stream(), dtype);
+        query_array, max_batch, max_k, (size_t*)indices, distances, dtype);
     }
     query_metric_processor->revert(query_array);
 

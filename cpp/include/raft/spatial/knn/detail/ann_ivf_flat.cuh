@@ -19,14 +19,13 @@
 #include "ann_ivf_flat_kernel.cuh"
 #include "ann_kmeans_balanced.cuh"
 #include "ann_utils.cuh"
-#include "knn_brute_force_faiss.cuh"
-#include "processing.hpp"
 #include "topk/radix_topk.cuh"
 
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/distance/distance.hpp>
 #include <raft/distance/distance_type.hpp>
+#include <raft/linalg/gemm.cuh>
 #include <raft/spatial/knn/ann_common.h>
 
 #include <rmm/cuda_stream_view.hpp>
@@ -86,18 +85,15 @@ enum cuivflStatus_t : unsigned int {
 
 class cuivflHandle {
  public:
-  cuivflHandle(raft::distance::DistanceType metric_type,
+  cuivflHandle(const handle_t& handle,
+               raft::distance::DistanceType metric_type,
                uint32_t dim,
                uint32_t nlist,
                uint32_t niter,
                uint32_t device);
   ~cuivflHandle();
-  cuivflStatus_t cuivflBuildIndex(const void* dataset,
-                                  void* trainset,
-                                  cudaDataType_t dtype,
-                                  uint32_t nrow,
-                                  uint32_t nTrainset,
-                                  rmm::cuda_stream_view stream);
+  cuivflStatus_t cuivflBuildIndex(
+    const void* dataset, void* trainset, cudaDataType_t dtype, uint32_t nrow, uint32_t nTrainset);
 
   cuivflStatus_t cuivflSetSearchParameters(const uint32_t nprobe,
                                            const uint32_t max_batch,
@@ -108,7 +104,6 @@ class cuivflHandle {
                               uint32_t k,
                               size_t* neighbors,
                               float* distances,
-                              rmm::cuda_stream_view stream,
                               cudaDataType_t dtype);
 
   cuivflStatus_t queryIVFFlatGridSize(const uint32_t nprobe,
@@ -117,10 +112,10 @@ class cuivflHandle {
   uint32_t getDim();
 
  private:
-  rmm::cuda_stream_view stream_;  // The stream for build and search
+  const handle_t& handle_;
+  const rmm::cuda_stream_view stream_;
 
   uint32_t device_;
-  cublasHandle_t cublas_handle_;
   cudaDataType_t dtype_;
   raft::distance::DistanceType metric_type_;
   bool greater_;
@@ -136,7 +131,6 @@ class cuivflHandle {
   uint32_t veclen;        // The vectorization length of dataset in index.
   uint32_t gridDimX_;     // The number of blocks launched across nprobe.
 
- private:
   // device pointer
   //  The device memory pointer; inverted list for data; size [ninterleave_, dim_]
   void* list_data_dev_ptr_;
@@ -165,31 +159,28 @@ class cuivflHandle {
   // The device memory; used for topk select.
   void* buf_dev_ptr_;
 
- private:
   cuivflStatus_t cuivflBuildOptimizedKmeans(float* centriod_managed_ptr,
                                             const void* dataset,
                                             void* trainset,
                                             uint32_t* clusterSize,
                                             cudaDataType_t dtype,
                                             uint32_t nrow,
-                                            uint32_t ntrain,
-                                            rmm::cuda_stream_view stream);
+                                            uint32_t ntrain);
+
   template <typename T, typename value_t>
-  cuivflStatus_t cuivflSearchImpl(const T* queries,
-                                  uint32_t batch_size,
-                                  uint32_t k,
-                                  size_t* neighbors,
-                                  value_t* distances,
-                                  rmm::cuda_stream_view stream);
+  cuivflStatus_t cuivflSearchImpl(
+    const T* queries, uint32_t batch_size, uint32_t k, size_t* neighbors, value_t* distances);
 };
 
 // cuivflCreate
-cuivflHandle::cuivflHandle(raft::distance::DistanceType metric_type,
+cuivflHandle::cuivflHandle(const handle_t& handle,
+                           raft::distance::DistanceType metric_type,
                            uint32_t dim,
                            uint32_t nlist,
                            uint32_t niter,
                            uint32_t device)
-  : stream_(rmm::cuda_stream_default),
+  : handle_(handle),
+    stream_(handle_.get_stream()),
     device_(device),
     dim_(dim),
     nlist_(nlist),
@@ -214,15 +205,6 @@ cuivflHandle::cuivflHandle(raft::distance::DistanceType metric_type,
     veclen = 2;
   }
 
-  // cuBLAS
-  cublasStatus_t cublasError;
-  cublasError = cublasCreate(&cublas_handle_);
-
-  if (cublasError != CUBLAS_STATUS_SUCCESS) {
-    fprintf(stderr, "(%s) cublasCreate() failed\n", __func__);
-    throw cuivflStatus_t::CUIVFL_STATUS_CUBLAS_ERROR;
-  }
-
   list_data_dev_ptr_  = nullptr;
   list_data_host_ptr_ = nullptr;
 
@@ -243,7 +225,6 @@ cuivflHandle::~cuivflHandle()
     free(list_data_host_ptr_);
     list_data_host_ptr_ = nullptr;
   }
-  cublasDestroy(cublas_handle_);
 }  // end func cuivflHandle::cuivflHand
 
 // cuivflBuildIndex
@@ -258,15 +239,14 @@ cuivflStatus_t cuivflHandle::cuivflBuildOptimizedKmeans(float* centriod_managed_
                                                         uint32_t* datasetLabels,
                                                         cudaDataType_t dtype,
                                                         uint32_t nrow,
-                                                        uint32_t ntrain,
-                                                        rmm::cuda_stream_view stream)
+                                                        uint32_t ntrain)
 {
   uint32_t numTrainset   = ntrain;
   uint32_t numClusters   = nlist_;
   uint32_t dimDataset    = dim_;
   uint32_t numIterations = niter_;
 
-  rmm::device_uvector<uint32_t> trainsetLabels(numTrainset, stream);
+  rmm::device_uvector<uint32_t> trainsetLabels(numTrainset, stream_);
 
   float* clusterCenters = centriod_managed_ptr;
 
@@ -275,11 +255,11 @@ cuivflStatus_t cuivflHandle::cuivflBuildOptimizedKmeans(float* centriod_managed_
 
   rmm::mr::managed_memory_resource managed_memory;
   rmm::device_uvector<float> mesoClusterCenters(
-    numMesoClusters * dimDataset, stream, &managed_memory);
-  rmm::device_uvector<uint32_t> mesoClusterLabels(numTrainset, stream, &managed_memory);
-  rmm::device_uvector<uint32_t> mesoClusterSize_buf(numMesoClusters, stream, &managed_memory);
+    numMesoClusters * dimDataset, stream_, &managed_memory);
+  rmm::device_uvector<uint32_t> mesoClusterLabels(numTrainset, stream_, &managed_memory);
+  rmm::device_uvector<uint32_t> mesoClusterSize_buf(numMesoClusters, stream_, &managed_memory);
   rmm::device_uvector<float> mesoClusterCentersTemp(
-    numMesoClusters * dimDataset, stream, &managed_memory);
+    numMesoClusters * dimDataset, stream_, &managed_memory);
 
   auto mesoClusterSize = mesoClusterSize_buf.data();
 
@@ -288,7 +268,7 @@ cuivflStatus_t cuivflHandle::cuivflBuildOptimizedKmeans(float* centriod_managed_
                                      dimDataset,
                                      numTrainset  // number of vectors
     );
-  rmm::device_buffer predictWorkspace(sizePredictWorkspace, stream);
+  rmm::device_buffer predictWorkspace(sizePredictWorkspace, stream_);
   // Training meso-clusters
   for (uint32_t iter = 0; iter < 2 * numIterations; iter += 2) {
     fprintf(stderr,
@@ -296,7 +276,7 @@ cuivflStatus_t cuivflHandle::cuivflBuildOptimizedKmeans(float* centriod_managed_
             __func__,
             (float)iter / 2,
             numIterations);
-    _cuann_kmeans_predict(cublas_handle_,
+    _cuann_kmeans_predict(handle_,
                           mesoClusterCenters.data(),
                           numMesoClusters,
                           dimDataset,
@@ -360,9 +340,9 @@ cuivflStatus_t cuivflHandle::cuivflBuildOptimizedKmeans(float* centriod_managed_
   assert(csumFineClusters[numMesoClusters] == numClusters);
 
   // uint32_t *idsTrainset = (uint32_t *)malloc(sizeof(uint32_t) * mesoClusterSizeMax);
-  rmm::device_uvector<uint32_t> idsTrainset_buf(mesoClusterSizeMax, stream, &managed_memory);
+  rmm::device_uvector<uint32_t> idsTrainset_buf(mesoClusterSizeMax, stream_, &managed_memory);
   rmm::device_uvector<float> subTrainset_buf(
-    mesoClusterSizeMax * dimDataset, stream, &managed_memory);
+    mesoClusterSizeMax * dimDataset, stream_, &managed_memory);
   auto idsTrainset = idsTrainset_buf.data();
   auto subTrainset = subTrainset_buf.data();
 
@@ -377,16 +357,16 @@ cuivflStatus_t cuivflHandle::cuivflBuildOptimizedKmeans(float* centriod_managed_
   }
 
   // label (cluster ID) of each vector
-  rmm::device_uvector<uint32_t> labelsMP(mesoClusterSizeMax, stream, &managed_memory);
+  rmm::device_uvector<uint32_t> labelsMP(mesoClusterSizeMax, stream_, &managed_memory);
 
-  predictWorkspace.resize(sizePredictWorkspace, stream);
+  predictWorkspace.resize(sizePredictWorkspace, stream_);
 
   rmm::device_uvector<float> clusterCentersEach(
-    numFineClustersMax * dimDataset, stream, &managed_memory);
+    numFineClustersMax * dimDataset, stream_, &managed_memory);
   rmm::device_uvector<float> clusterCentersMP(
-    numFineClustersMax * dimDataset, stream, &managed_memory);
+    numFineClustersMax * dimDataset, stream_, &managed_memory);
   // number of vectors in each cluster
-  rmm::device_uvector<uint32_t> clusterSizeMP(numFineClustersMax, stream, &managed_memory);
+  rmm::device_uvector<uint32_t> clusterSizeMP(numFineClustersMax, stream_, &managed_memory);
 
   // Training clusters in each meso-clusters
   uint32_t numClustersDone = 0;
@@ -440,7 +420,7 @@ cuivflStatus_t cuivflHandle::cuivflBuildOptimizedKmeans(float* centriod_managed_
               (float)iter / 2,
               numIterations);
 
-      _cuann_kmeans_predict(cublas_handle_,
+      _cuann_kmeans_predict(handle_,
                             clusterCentersEach.data(),
                             numFineClusters[i],
                             dimDataset,
@@ -479,16 +459,16 @@ cuivflStatus_t cuivflHandle::cuivflBuildOptimizedKmeans(float* centriod_managed_
   fprintf(stderr, "\n");
   assert(numClustersDone == numClusters);
 
-  clusterCentersMP.resize(numClusters * dimDataset, stream);
-  clusterSizeMP.resize(numClusters, stream);
+  clusterCentersMP.resize(numClusters * dimDataset, stream_);
+  clusterSizeMP.resize(numClusters, stream_);
 
   // [...]
   sizePredictWorkspace = _cuann_kmeans_predict_bufferSize(numClusters, dimDataset, numTrainset);
-  predictWorkspace.resize(sizePredictWorkspace, stream);
+  predictWorkspace.resize(sizePredictWorkspace, stream_);
 
   // Fitting whole clusters using whole trainset.
   for (int iter = 0; iter < 2; iter++) {
-    _cuann_kmeans_predict(cublas_handle_,
+    _cuann_kmeans_predict(handle_,
                           clusterCenters,
                           numClusters,
                           dimDataset,
@@ -507,9 +487,9 @@ cuivflStatus_t cuivflHandle::cuivflBuildOptimizedKmeans(float* centriod_managed_
   fprintf(stderr, "(%s) Final fitting\n", __func__);
 
   sizePredictWorkspace = _cuann_kmeans_predict_bufferSize(numClusters, dimDataset, nrow_);
-  predictWorkspace.resize(sizePredictWorkspace, stream);
+  predictWorkspace.resize(sizePredictWorkspace, stream_);
 
-  _cuann_kmeans_predict(cublas_handle_,
+  _cuann_kmeans_predict(handle_,
                         (float*)clusterCenters,
                         nlist_,
                         dim_,
@@ -524,7 +504,7 @@ cuivflStatus_t cuivflHandle::cuivflBuildOptimizedKmeans(float* centriod_managed_
                         clusterSizeMP.data(),
                         true);
 
-  _cuann_kmeans_predict(cublas_handle_,
+  _cuann_kmeans_predict(handle_,
                         (float*)clusterCenters,
                         nlist_,
                         dim_,
@@ -542,16 +522,11 @@ cuivflStatus_t cuivflHandle::cuivflBuildOptimizedKmeans(float* centriod_managed_
   return cuivflStatus_t::CUIVFL_STATUS_SUCCESS;
 }  // end func cuivflBuildOptimizedKmeans
 
-cuivflStatus_t cuivflHandle::cuivflBuildIndex(const void* dataset,
-                                              void* trainset,
-                                              cudaDataType_t dtype,
-                                              uint32_t nrow,
-                                              uint32_t ntrain,
-                                              rmm::cuda_stream_view stream)
+cuivflStatus_t cuivflHandle::cuivflBuildIndex(
+  const void* dataset, void* trainset, cudaDataType_t dtype, uint32_t nrow, uint32_t ntrain)
 {
-  nrow_   = nrow;
-  dtype_  = dtype;
-  stream_ = stream;
+  nrow_  = nrow;
+  dtype_ = dtype;
 
   rmm::mr::managed_memory_resource managed_memory;
   rmm::device_uvector<float> centriod_managed_buf(nlist_ * dim_, stream_, &managed_memory);
@@ -568,7 +543,7 @@ cuivflStatus_t cuivflHandle::cuivflBuildIndex(const void* dataset,
 
   // Step 3: Predict labels of the whole dataset
   cuivflBuildOptimizedKmeans(
-    centriod_managed_ptr, dataset, trainset, datasetLabels, dtype, nrow, ntrain, stream_);
+    centriod_managed_ptr, dataset, trainset, datasetLabels, dtype, nrow, ntrain);
 
   // Step 3.2: Calculate the L2 related result
   centriod_norm_dev_.resize(nlist_, stream_);
@@ -832,7 +807,6 @@ cuivflStatus_t cuivflHandle::cuivflSearch(const void* queries,  // [numQueries, 
                                           uint32_t k,
                                           size_t* neighbors,  // [numQueries, topK]
                                           float* distances,
-                                          rmm::cuda_stream_view stream,
                                           cudaDataType_t dtype)
 {
   switch (dtype) {
@@ -841,16 +815,15 @@ cuivflStatus_t cuivflHandle::cuivflSearch(const void* queries,  // [numQueries, 
                                      batch_size,
                                      k,
                                      neighbors,
-                                     reinterpret_cast<float*>(distances),
-                                     stream);
+                                     reinterpret_cast<float*>(distances));
       break;
     case CUDA_R_8U:
       cuivflSearchImpl<uint8_t, float>(
-        reinterpret_cast<const uint8_t*>(queries), batch_size, k, neighbors, distances, stream);
+        reinterpret_cast<const uint8_t*>(queries), batch_size, k, neighbors, distances);
       break;
     case CUDA_R_8I:
       cuivflSearchImpl<int8_t, float>(
-        reinterpret_cast<const int8_t*>(queries), batch_size, k, neighbors, distances, stream);
+        reinterpret_cast<const int8_t*>(queries), batch_size, k, neighbors, distances);
       break;
     default: printf("unsupported data type\n"); break;
   }
@@ -863,13 +836,10 @@ cuivflStatus_t cuivflHandle::cuivflSearchImpl(const T* queries,  // [numQueries,
                                               uint32_t batch_size,
                                               uint32_t k,
                                               size_t* neighbors,  // [numQueries, topK]
-                                              value_t* distances,
-                                              rmm::cuda_stream_view stream)
+                                              value_t* distances)
 {
   uint32_t nprobe = std::min(nprobe_, (uint32_t)nlist_);
-  stream_         = stream;
 
-  cublasSetStream(cublas_handle_, stream_);
   gridDimX_ = 0;
   queryIVFFlatGridSize(nprobe, batch_size, k);
   // Prepare the buffer for topk calculation
@@ -904,11 +874,11 @@ cuivflStatus_t cuivflHandle::cuivflSearchImpl(const T* queries,  // [numQueries,
   if constexpr (std::is_same<T, uint8_t>{}) {
     constexpr float divisor = 256.0;
     utils::_cuann_copy<uint8_t, float>(
-      batch_size, dim_, (uint8_t*)queries, dim_, convertedQueries, dim_, stream, divisor);
+      batch_size, dim_, (uint8_t*)queries, dim_, convertedQueries, dim_, stream_, divisor);
   } else if constexpr (std::is_same<T, int8_t>{}) {
     constexpr float divisor = 128.0;
     utils::_cuann_copy<int8_t, float>(
-      batch_size, dim_, (int8_t*)queries, dim_, convertedQueries, dim_, stream, divisor);
+      batch_size, dim_, (int8_t*)queries, dim_, convertedQueries, dim_, stream_, divisor);
   } else {
     convertedQueries = (float*)(queries);
   }
@@ -931,25 +901,21 @@ cuivflStatus_t cuivflHandle::cuivflSearchImpl(const T* queries,  // [numQueries,
     beta  = 0.0f;
   }
 
-  cublasGemmEx(cublas_handle_,
-               CUBLAS_OP_T,
-               CUBLAS_OP_N,
+  linalg::gemm(handle_,
+               true,
+               false,
                nlist_,
                batch_size,
                dim_,
                &alpha,
                centriod_dev_.data(),
-               CUDA_R_32F,
                dim_,
                convertedQueries,
-               CUDA_R_32F,
                dim_,
                &beta,
                distance_buffer_dev_ptr,
-               CUDA_R_32F,
                nlist_,
-               CUDA_R_32F,
-               CUBLAS_GEMM_DEFAULT);
+               stream_);
 
 #ifdef DEBUG_L2
   utils::printDevPtr(distance_buffer_dev_ptr, 20, "distance_buffer_dev_ptr");
@@ -963,7 +929,7 @@ cuivflStatus_t cuivflHandle::cuivflSearchImpl(const T* queries,  // [numQueries,
                                              coarse_distances_dev_ptr,
                                              coarse_indices_dev_ptr,
                                              greater_,
-                                             stream);
+                                             stream_);
 #ifdef DEBUG_L2
   utils::printDevPtr(coarse_indices_dev_ptr, 1 * nprobe, "coarse_indices_dev_ptr");
   utils::printDevPtr(coarse_distances_dev_ptr, 1 * nprobe, "coarse_distances_dev_ptr");
@@ -990,7 +956,7 @@ cuivflStatus_t cuivflHandle::cuivflSearchImpl(const T* queries,  // [numQueries,
                                            dim_,
                                            indices_dev_ptr,
                                            distances_dev_ptr,
-                                           stream,
+                                           stream_,
                                            greater_,
                                            veclen,
                                            gridDimX_);
@@ -1009,7 +975,7 @@ cuivflStatus_t cuivflHandle::cuivflSearchImpl(const T* queries,  // [numQueries,
                                                 dim_,
                                                 indices_dev_ptr,
                                                 distances_dev_ptr,
-                                                stream,
+                                                stream_,
                                                 greater_,
                                                 veclen,
                                                 gridDimX_);
@@ -1027,7 +993,7 @@ cuivflStatus_t cuivflHandle::cuivflSearchImpl(const T* queries,  // [numQueries,
                                               dim_,
                                               indices_dev_ptr,
                                               distances_dev_ptr,
-                                              stream,
+                                              stream_,
                                               greater_,
                                               veclen,
                                               gridDimX_);
@@ -1051,7 +1017,7 @@ cuivflStatus_t cuivflHandle::cuivflSearchImpl(const T* queries,  // [numQueries,
                                              distances,
                                              neighbors,
                                              greater_,
-                                             stream);
+                                             stream_);
 #else
     topk::warp_sort_topk<value_t, size_t>(buf_topk_dev_ptr,
                                           buf_topk_size_,
@@ -1063,7 +1029,7 @@ cuivflStatus_t cuivflHandle::cuivflSearchImpl(const T* queries,  // [numQueries,
                                           distances,
                                           neighbors,
                                           greater_,
-                                          stream);
+                                          stream_);
 #endif
   }  // end if nprobe=1
 

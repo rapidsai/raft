@@ -37,7 +37,7 @@ namespace raft::spatial::knn {
  * @param[in] D the dimensionality of the index array
  */
 template <typename T = float, typename value_idx = int>
-inline void approx_knn_build_index(raft::handle_t& handle,
+inline void approx_knn_build_index(const raft::handle_t& handle,
                                    raft::spatial::knn::knnIndex* index,
                                    knnIndexParam* params,
                                    raft::distance::DistanceType metric,
@@ -64,7 +64,7 @@ inline void approx_knn_build_index(raft::handle_t& handle,
  * @param[in] n number of rows in the query array
  */
 template <typename T = float, typename value_idx = int>
-inline void approx_knn_search(raft::handle_t& handle,
+inline void approx_knn_search(const raft::handle_t& handle,
                               float* distances,
                               int64_t* indices,
                               raft::spatial::knn::knnIndex* index,

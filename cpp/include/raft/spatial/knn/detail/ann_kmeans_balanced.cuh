@@ -18,49 +18,21 @@
 
 #include "../ann_common.h"
 #include "ann_utils.cuh"
-#include "knn_brute_force_faiss.cuh"
 
-#include "common_faiss.h"
-#include "processing.hpp"
-
-#include "processing.hpp"
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/interruptible.hpp>
-
-//#include <label/classlabels.cuh>
 #include <raft/distance/distance.hpp>
-#include <raft/spatial/knn/faiss_mr.hpp>
+#include <raft/distance/distance_type.hpp>
+#include <raft/interruptible.hpp>
+#include <raft/linalg/gemm.cuh>
 
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_buffer.hpp>
 
-#include <faiss/gpu/GpuDistance.h>
-#include <faiss/gpu/GpuIndexFlat.h>
-#include <faiss/gpu/GpuIndexIVFFlat.h>
-#include <faiss/gpu/GpuIndexIVFPQ.h>
-#include <faiss/gpu/GpuIndexIVFScalarQuantizer.h>
-#include <faiss/gpu/GpuResources.h>
-#include <faiss/gpu/utils/Limits.cuh>
-#include <faiss/gpu/utils/Select.cuh>
-#include <faiss/gpu/utils/Tensor.cuh>
-#include <faiss/utils/Heap.h>
-
-#include <thrust/iterator/transform_iterator.h>
-
-#include <raft/distance/distance_type.hpp>
-
-#include <iostream>
-#include <set>
-
-namespace raft {
-namespace spatial {
-namespace knn {
-namespace detail {
-// namespace kmeans {
+namespace raft::spatial::knn::detail {
 
 // predict label of dataset
-void _cuann_kmeans_predict_core(cublasHandle_t cublasHandle,
+void _cuann_kmeans_predict_core(const handle_t& handle,
                                 const float* centers,  // [numCenters, dimCenters]
                                 uint32_t numCenters,
                                 uint32_t dimCenters,
@@ -91,25 +63,21 @@ void _cuann_kmeans_predict_core(cublasHandle_t cublasHandle,
     alpha = -2.0;
     beta  = 1.0;
   }
-  cublasGemmEx(cublasHandle,
-               CUBLAS_OP_T,
-               CUBLAS_OP_N,
+  linalg::gemm(handle,
+               true,
+               false,
                numCenters,
                numDataset,
                dimCenters,
                &alpha,
                centers,
-               CUDA_R_32F,
                dimCenters,
                dataset,
-               CUDA_R_32F,
                dimDataset,
                &beta,
                distances,
-               CUDA_R_32F,
                numCenters,
-               CUBLAS_COMPUTE_32F,
-               CUBLAS_GEMM_DEFAULT_TENSOR_OP);
+               handle.get_stream());
   utils::_cuann_argmin(numDataset, numCenters, distances, labels);
 }
 
@@ -213,7 +181,7 @@ void _cuann_kmeans_update_centers(float* centers,  // [numCenters, dimCenters]
  * NB: seems that all pointers here are accessed by devicie code only
  *
  */
-void _cuann_kmeans_predict(cublasHandle_t cublasHandle,
+void _cuann_kmeans_predict(const handle_t& handle,
                            float* centers,  // [numCenters, dimCenters]
                            uint32_t numCenters,
                            uint32_t dimCenters,
@@ -228,7 +196,7 @@ void _cuann_kmeans_predict(cublasHandle_t cublasHandle,
                            uint32_t* clusterSize = NULL,  // [numCenters,]
                            bool updateCenter     = true)
 {
-  rmm::cuda_stream_view stream = rmm::cuda_stream_default;
+  rmm::cuda_stream_view stream = handle.get_stream();
   if (!isCenterSet) {
     // If centers are not set, the labels will be determined randomly.
     linalg::writeOnlyUnaryOp(
@@ -302,7 +270,7 @@ void _cuann_kmeans_predict(cublasHandle_t cublasHandle,
     }
 
     // predict
-    _cuann_kmeans_predict_core(cublasHandle,
+    _cuann_kmeans_predict_core(handle,
                                centers,
                                numCenters,
                                dimCenters,
@@ -414,8 +382,4 @@ bool _cuann_kmeans_adjust_centers(float* centers,  // [numCenters, dimCenters]
   return adjusted;
 }
 
-//}  // namespace kmeans
-}  // namespace detail
-}  // namespace knn
-}  // namespace spatial
-}  // namespace raft
+}  // namespace raft::spatial::knn::detail

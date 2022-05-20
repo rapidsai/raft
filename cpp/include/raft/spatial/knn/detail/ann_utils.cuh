@@ -17,35 +17,11 @@
 #pragma once
 
 #include "../ann_common.h"
-#include "knn_brute_force_faiss.cuh"
 
-#include "common_faiss.h"
-#include "processing.hpp"
-
-#include "processing.hpp"
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-
 #include <raft/distance/distance.hpp>
-#include <raft/spatial/knn/faiss_mr.hpp>
-
-#include <faiss/gpu/GpuDistance.h>
-#include <faiss/gpu/GpuIndexFlat.h>
-#include <faiss/gpu/GpuIndexIVFFlat.h>
-#include <faiss/gpu/GpuIndexIVFPQ.h>
-#include <faiss/gpu/GpuIndexIVFScalarQuantizer.h>
-#include <faiss/gpu/GpuResources.h>
-#include <faiss/gpu/utils/Limits.cuh>
-#include <faiss/gpu/utils/Select.cuh>
-#include <faiss/gpu/utils/Tensor.cuh>
-#include <faiss/utils/Heap.h>
-
-#include <thrust/iterator/transform_iterator.h>
-
 #include <raft/distance/distance_type.hpp>
-
-#include <iostream>
-#include <set>
 
 namespace raft {
 namespace spatial {
