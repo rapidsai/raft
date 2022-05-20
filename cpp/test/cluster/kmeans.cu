@@ -61,7 +61,7 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
     params.n_clusters          = testparams.n_clusters;
     params.tol                 = testparams.tol;
     params.n_init              = 5;
-    params.seed                = 1;
+    params.rng_state.seed      = 1;
     params.oversampling_factor = 0;
 
     auto stream = handle.get_stream();

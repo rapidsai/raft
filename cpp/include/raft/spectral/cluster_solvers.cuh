@@ -58,10 +58,10 @@ struct kmeans_solver_t {
     value_type_t residual{};
     index_type_t iters{};
     raft::cluster::KMeansParams km_params;
-    km_params.n_clusters = config_.n_clusters;
-    km_params.tol        = config_.tol;
-    km_params.max_iter   = config_.maxIter;
-    km_params.seed       = config_.seed;
+    km_params.n_clusters     = config_.n_clusters;
+    km_params.tol            = config_.tol;
+    km_params.max_iter       = config_.maxIter;
+    km_params.rng_state.seed = config_.seed;
 
     auto X      = raft::make_device_matrix_view<const value_type_t>(obs, n_obs_vecs, dim);
     auto labels = raft::make_device_vector_view<index_type_t>(codes, n_obs_vecs);

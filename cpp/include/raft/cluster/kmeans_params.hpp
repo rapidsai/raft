@@ -16,6 +16,7 @@
 #pragma once
 //#include <raft/common/logger.hpp>
 #include <raft/distance/distance_type.hpp>
+#include <raft/random/rng_state.hpp>
 
 namespace raft {
 namespace cluster {
@@ -47,7 +48,8 @@ struct KMeansParams {
   int verbosity = 4;  // RAFT_LEVEL_INFO;
 
   // Seed to the random number generator.
-  uint64_t seed = 0;
+  raft::random::RngState rng_state =
+    raft::random::RngState(0, raft::random::GeneratorType::GenPhilox);
 
   // Metric to use for distance computation.
   raft::distance::DistanceType metric = raft::distance::DistanceType::L2Expanded;

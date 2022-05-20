@@ -175,7 +175,7 @@ void checkWeight(const raft::handle_t& handle,
   handle.sync_stream(stream);
 
   if (wt_sum != n_samples) {
-    /*RAFT_LOG_INFO(
+    /*RAFT_LOG_DEBUG(
       "[Warning!] KMeans: normalizing the user provided sample weight to "
       "sum up to %d samples",
       n_samples);*/
