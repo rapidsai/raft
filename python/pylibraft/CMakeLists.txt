@@ -55,7 +55,7 @@ if(NOT raft_FOUND)
   include("${CMAKE_PROJECT_pylibraft_INCLUDE}")
 
   set(BUILD_TESTS OFF)
-  set(BUILD_BENCHMARKS OFF)
+  set(BUILD_BENCH OFF)
   set(RAFT_COMPILE_DIST_LIBRARY ON)
   add_subdirectory(../../cpp raft-cpp)
 
