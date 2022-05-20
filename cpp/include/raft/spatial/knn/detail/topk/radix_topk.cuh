@@ -576,10 +576,11 @@ void radix_topk(const T* in,
   if (mr == nullptr) {
     pool_res.emplace(
       rmm::mr::get_current_device_resource(),
-      max_chunk_size * (sizeof(Counter<T, IdxT>)            // counters
-                        + sizeof(IdxT) * (num_buckets + 2)  // histograms and IdxT bufs
-                        + sizeof(T) * 2                     // T bufs
-                        ));
+      Pow2<256>::roundUp(max_chunk_size *
+                         (sizeof(Counter<T, IdxT>)            // counters
+                          + sizeof(IdxT) * (num_buckets + 2)  // histograms and IdxT bufs
+                          + sizeof(T) * 2                     // T bufs
+                          )));
     mr = &(pool_res.value());
   }
   rmm::device_uvector<Counter<T, IdxT>> counters(max_chunk_size, stream, mr);
