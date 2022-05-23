@@ -57,8 +57,8 @@ namespace detail {
 template <typename DataT, typename IndexT>
 void initRandom(const raft::handle_t& handle,
                 const KMeansParams& params,
-                raft::device_matrix_view<const DataT> X,
-                raft::device_matrix_view<DataT> centroids)
+                const raft::device_matrix_view<const DataT>& X,
+                const raft::device_matrix_view<DataT>& centroids)
 {
   cudaStream_t stream = handle.get_stream();
   auto n_clusters     = params.n_clusters;
@@ -82,8 +82,8 @@ void initRandom(const raft::handle_t& handle,
 template <typename DataT, typename IndexT>
 void kmeansPlusPlus(const raft::handle_t& handle,
                     const KMeansParams& params,
-                    raft::device_matrix_view<const DataT> X,
-                    raft::device_matrix_view<DataT> centroidsRawData,
+                    const raft::device_matrix_view<const DataT>& X,
+                    const raft::device_matrix_view<DataT>& centroidsRawData,
                     raft::distance::DistanceType metric,
                     rmm::device_uvector<char>& workspace)
 {
@@ -254,11 +254,11 @@ void kmeansPlusPlus(const raft::handle_t& handle,
 template <typename DataT, typename IndexT>
 void kmeans_fit_main(const raft::handle_t& handle,
                      const KMeansParams& params,
-                     raft::device_matrix_view<const DataT> X,
-                     raft::device_vector_view<const DataT> weight,
-                     raft::device_matrix_view<DataT> centroidsRawData,
-                     raft::host_scalar_view<DataT> inertia,
-                     raft::host_scalar_view<IndexT> n_iter,
+                     const raft::device_matrix_view<const DataT>& X,
+                     const raft::device_vector_view<const DataT>& weight,
+                     const raft::device_matrix_view<DataT>& centroidsRawData,
+                     const raft::host_scalar_view<DataT>& inertia,
+                     const raft::host_scalar_view<IndexT>& n_iter,
                      rmm::device_uvector<char>& workspace)
 {
   // logger::get(RAFT_NAME).set_level(params.verbosity);
@@ -312,7 +312,7 @@ void kmeans_fit_main(const raft::handle_t& handle,
 
     // computes minClusterAndDistance[0:n_samples) where
     // minClusterAndDistance[i] is a <key, value> pair where
-    //   'key' is index to an sample in 'centroids' (index of the nearest
+    //   'key' is index to a sample in 'centroids' (index of the nearest
     //   centroid) and 'value' is the distance between the sample 'X[i]' and the
     //   'centroid[key]'
     minClusterAndDistanceCompute<DataT, IndexT>(handle,
@@ -527,8 +527,8 @@ void kmeans_fit_main(const raft::handle_t& handle,
 template <typename DataT, typename IndexT>
 void initScalableKMeansPlusPlus(const raft::handle_t& handle,
                                 const KMeansParams& params,
-                                raft::device_matrix_view<const DataT> X,
-                                raft::device_matrix_view<DataT> centroidsRawData,
+                                const raft::device_matrix_view<const DataT>& X,
+                                const raft::device_matrix_view<DataT>& centroidsRawData,
                                 rmm::device_uvector<char>& workspace)
 {
   cudaStream_t stream = handle.get_stream();

@@ -155,7 +155,7 @@ void countLabels(const raft::handle_t& handle,
 
 template <typename DataT>
 void checkWeight(const raft::handle_t& handle,
-                 raft::device_vector_view<DataT> weight,
+                 const raft::device_vector_view<DataT>& weight,
                  rmm::device_uvector<char>& workspace)
 {
   cudaStream_t stream = handle.get_stream();
@@ -206,9 +206,9 @@ IndexT getCentroidsBatchSize(const KMeansParams& params, IndexT n_local_clusters
 
 template <typename DataT, typename ReductionOpT>
 void computeClusterCost(const raft::handle_t& handle,
-                        raft::device_vector_view<DataT> minClusterDistance,
+                        const raft::device_vector_view<DataT>& minClusterDistance,
                         rmm::device_uvector<char>& workspace,
-                        raft::device_scalar_view<DataT> clusterCost,
+                        const raft::device_scalar_view<DataT>& clusterCost,
                         ReductionOpT reduction_op)
 {
   cudaStream_t stream       = handle.get_stream();
@@ -236,9 +236,9 @@ void computeClusterCost(const raft::handle_t& handle,
 
 template <typename DataT, typename IndexT>
 void sampleCentroids(const raft::handle_t& handle,
-                     raft::device_matrix_view<const DataT> X,
-                     raft::device_vector_view<DataT> minClusterDistance,
-                     raft::device_vector_view<IndexT> isSampleCentroid,
+                     const raft::device_matrix_view<const DataT>& X,
+                     const raft::device_vector_view<DataT>& minClusterDistance,
+                     const raft::device_vector_view<IndexT>& isSampleCentroid,
                      SamplingOp<DataT, IndexT>& select_op,
                      rmm::device_uvector<DataT>& inRankCp,
                      rmm::device_uvector<char>& workspace)
@@ -302,9 +302,9 @@ void sampleCentroids(const raft::handle_t& handle,
 // result will be stored in 'pairwiseDistance[n x k]'
 template <typename DataT, typename IndexT>
 void pairwise_distance_kmeans(const raft::handle_t& handle,
-                              raft::device_matrix_view<const DataT> X,
-                              raft::device_matrix_view<const DataT> centroids,
-                              raft::device_matrix_view<DataT> pairwiseDistance,
+                              const raft::device_matrix_view<const DataT>& X,
+                              const raft::device_matrix_view<const DataT>& centroids,
+                              const raft::device_matrix_view<DataT>& pairwiseDistance,
                               rmm::device_uvector<char>& workspace,
                               raft::distance::DistanceType metric)
 {
@@ -330,8 +330,8 @@ void pairwise_distance_kmeans(const raft::handle_t& handle,
 // in 'out' does not modify the input
 template <typename DataT, typename IndexT>
 void shuffleAndGather(const raft::handle_t& handle,
-                      raft::device_matrix_view<const DataT> in,
-                      raft::device_matrix_view<DataT> out,
+                      const raft::device_matrix_view<const DataT>& in,
+                      const raft::device_matrix_view<DataT>& out,
                       uint32_t n_samples_to_gather,
                       uint64_t seed,
                       rmm::device_uvector<char>* workspace = nullptr)
@@ -374,10 +374,10 @@ template <typename DataT, typename IndexT>
 void minClusterAndDistanceCompute(
   const raft::handle_t& handle,
   const KMeansParams& params,
-  raft::device_matrix_view<const DataT> X,
-  raft::device_matrix_view<const DataT> centroids,
-  raft::device_vector_view<cub::KeyValuePair<IndexT, DataT>> minClusterAndDistance,
-  raft::device_vector_view<DataT> L2NormX,
+  const raft::device_matrix_view<const DataT> X,
+  const raft::device_matrix_view<const DataT> centroids,
+  const raft::device_vector_view<cub::KeyValuePair<IndexT, DataT>>& minClusterAndDistance,
+  const raft::device_vector_view<DataT>& L2NormX,
   rmm::device_uvector<DataT>& L2NormBuf_OR_DistBuf,
   rmm::device_uvector<char>& workspace,
   raft::distance::DistanceType metric)
@@ -424,9 +424,8 @@ void minClusterAndDistanceCompute(
 
     // datasetView [ns x n_features] - view representing the current batch of
     // input dataset
-    auto datasetView =
+    auto datasetView = 
       raft::make_device_matrix_view(X.data() + (dIdx * n_features), ns, n_features);
-    // auto datasetView = X.template view<2>({ns, n_features}, {dIdx, 0});
 
     // minClusterAndDistanceView [ns x n_clusters]
     auto minClusterAndDistanceView =
@@ -506,10 +505,10 @@ void minClusterAndDistanceCompute(
 template <typename DataT, typename IndexT>
 void minClusterDistanceCompute(const raft::handle_t& handle,
                                const KMeansParams& params,
-                               raft::device_matrix_view<const DataT> X,
-                               raft::device_matrix_view<DataT> centroids,
-                               raft::device_vector_view<DataT> minClusterDistance,
-                               raft::device_vector_view<DataT> L2NormX,
+                               const raft::device_matrix_view<const DataT>& X,
+                               const raft::device_matrix_view<DataT>& centroids,
+                               const raft::device_vector_view<DataT>& minClusterDistance,
+                               const raft::device_vector_view<DataT>& L2NormX,
                                rmm::device_uvector<DataT>& L2NormBuf_OR_DistBuf,
                                rmm::device_uvector<char>& workspace,
                                raft::distance::DistanceType metric)
@@ -635,12 +634,12 @@ void minClusterDistanceCompute(const raft::handle_t& handle,
 template <typename DataT, typename IndexT>
 void countSamplesInCluster(const raft::handle_t& handle,
                            const KMeansParams& params,
-                           raft::device_matrix_view<const DataT> X,
-                           raft::device_vector_view<DataT> L2NormX,
-                           raft::device_matrix_view<DataT> centroids,
+                           const raft::device_matrix_view<const DataT>& X,
+                           const raft::device_vector_view<DataT>& L2NormX,
+                           const raft::device_matrix_view<DataT>& centroids,
                            rmm::device_uvector<char>& workspace,
                            raft::distance::DistanceType metric,
-                           raft::device_vector_view<DataT> sampleCountInCluster)
+                           const raft::device_vector_view<DataT>& sampleCountInCluster)
 {
   cudaStream_t stream = handle.get_stream();
   auto n_samples      = X.extent(0);
