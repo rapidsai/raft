@@ -31,6 +31,7 @@
 
 #include <raft/cluster/detail/kmeans_helper.cuh>
 #include <raft/cluster/kmeans_params.hpp>
+#include <raft/core/logger.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/distance/distance_type.hpp>
@@ -95,12 +96,12 @@ void kmeansPlusPlus(const raft::handle_t& handle,
   // number of seeding trials for each center (except the first)
   auto n_trials = 2 + static_cast<int>(std::ceil(log(n_clusters)));
 
-  /*RAFT_LOG_DEBUG(
+  RAFT_LOG_DEBUG(
     "Run sequential k-means++ to select %d centroids from %d input samples "
     "(%d seeding trials per iterations)",
     n_clusters,
     n_samples,
-    n_trials);*/
+    n_trials);
 
   auto dataBatchSize = getDataBatchSize(params, n_samples);
 
@@ -151,7 +152,7 @@ void kmeansPlusPlus(const raft::handle_t& handle,
                                            workspace,
                                            metric);
 
-  // RAFT_LOG_DEBUG(" k-means++ - Sampled %d/%d centroids", n_clusters_picked, n_clusters);
+  RAFT_LOG_DEBUG(" k-means++ - Sampled %d/%d centroids", n_clusters_picked, n_clusters);
 
   // <<<< Step-2 >>> : while |C| < k
   while (n_clusters_picked < n_clusters) {
@@ -247,7 +248,7 @@ void kmeansPlusPlus(const raft::handle_t& handle,
       /// <<< End of Step-4 >>>
     }
 
-    // RAFT_LOG_DEBUG(" k-means++ - Sampled %d/%d centroids", n_clusters_picked, n_clusters);
+    RAFT_LOG_DEBUG(" k-means++ - Sampled %d/%d centroids", n_clusters_picked, n_clusters);
   }  /// <<<< Step-5 >>>
 }
 
@@ -261,7 +262,7 @@ void kmeans_fit_main(const raft::handle_t& handle,
                      const raft::host_scalar_view<IndexT>& n_iter,
                      rmm::device_uvector<char>& workspace)
 {
-  // logger::get(RAFT_NAME).set_level(params.verbosity);
+  logger::get(RAFT_NAME).set_level(params.verbosity);
   cudaStream_t stream = handle.get_stream();
   auto n_samples      = X.extent(0);
   auto n_features     = X.extent(1);
@@ -296,17 +297,17 @@ void kmeans_fit_main(const raft::handle_t& handle,
       L2NormX.data(), X.data(), X.extent(1), X.extent(0), raft::linalg::L2Norm, true, stream);
   }
 
-  /*RAFT_LOG_DEBUG(
+  RAFT_LOG_DEBUG(
     "Calling KMeans.fit with %d samples of input data and the initialized "
     "cluster centers",
-    n_samples);*/
+    n_samples);
 
   DataT priorClusteringCost = 0;
   for (n_iter[0] = 1; n_iter[0] <= params.max_iter; ++n_iter[0]) {
-    /*RAFT_LOG_DEBUG(
+    RAFT_LOG_DEBUG(
       "KMeans.fit: Iteration-%d: fitting the model using the initialized "
       "cluster centers",
-      n_iter[0]);*/
+      n_iter[0]);
 
     auto centroids = raft::make_device_matrix_view(centroidsRawData.data(), n_clusters, n_features);
 
@@ -454,7 +455,7 @@ void kmeans_fit_main(const raft::handle_t& handle,
     if (sqrdNormError < params.tol) done = true;
 
     if (done) {
-      // RAFT_LOG_DEBUG("Threshold triggered after %d iterations. Terminating early.", n_iter[0]);
+      RAFT_LOG_DEBUG("Threshold triggered after %d iterations. Terminating early.", n_iter[0]);
       break;
     }
   }
@@ -498,9 +499,9 @@ void kmeans_fit_main(const raft::handle_t& handle,
 
   raft::copy(inertia.data(), &(clusterCostD.data()->value), 1, stream);
 
-  /*RAFT_LOG_DEBUG("KMeans.fit: completed after %d iterations with %f inertia[0] ",
-                n_iter[0] > params.max_iter ? n_iter[0] - 1 : n_iter[0],
-                inertia[0]);*/
+  RAFT_LOG_DEBUG("KMeans.fit: completed after %d iterations with %f inertia[0] ",
+                 n_iter[0] > params.max_iter ? n_iter[0] - 1 : n_iter[0],
+                 inertia[0]);
 }
 
 /*
@@ -606,14 +607,13 @@ void initScalableKMeansPlusPlus(const raft::handle_t& handle,
   // Scalable kmeans++ paper claims 8 rounds is sufficient
   handle.sync_stream(stream);
   int niter = std::min(8, (int)ceil(log(psi)));
-  // RAFT_LOG_DEBUG("KMeans||: psi = %g, log(psi) = %g, niter = %d ", psi, log(psi), niter);
+  RAFT_LOG_DEBUG("KMeans||: psi = %g, log(psi) = %g, niter = %d ", psi, log(psi), niter);
 
   // <<<< Step-3 >>> : for O( log(psi) ) times do
   for (int iter = 0; iter < niter; ++iter) {
-    /*RAFT_LOG_DEBUG(
-        "KMeans|| - Iteration %d: # potential centroids sampled - %d",
-        iter,
-        potentialCentroids.extent(0));*/
+    RAFT_LOG_DEBUG("KMeans|| - Iteration %d: # potential centroids sampled - %d",
+                   iter,
+                   potentialCentroids.extent(0));
 
     minClusterDistanceCompute<DataT, IndexT>(handle,
                                              params,
@@ -663,8 +663,8 @@ void initScalableKMeansPlusPlus(const raft::handle_t& handle,
     /// <<<< End of Step-5 >>>
   }  /// <<<< Step-6 >>>
 
-  // RAFT_LOG_DEBUG("KMeans||: total # potential centroids sampled - %d",
-  // potentialCentroids.extent(0));
+  RAFT_LOG_DEBUG("KMeans||: total # potential centroids sampled - %d",
+                 potentialCentroids.extent(0));
 
   if ((int)potentialCentroids.extent(0) > n_clusters) {
     // <<< Step-7 >>>: For x in C, set w_x to be the number of pts closest to X
@@ -699,13 +699,13 @@ void initScalableKMeansPlusPlus(const raft::handle_t& handle,
     // supplement with random
     auto n_random_clusters = n_clusters - potentialCentroids.extent(0);
 
-    /*RAFT_LOG_DEBUG(
+    RAFT_LOG_DEBUG(
       "[Warning!] KMeans||: found fewer than %d centroids during "
       "initialization (found %d centroids, remaining %d centroids will be "
       "chosen randomly from input samples)",
       n_clusters,
       potentialCentroids.extent(0),
-      n_random_clusters);*/
+      n_random_clusters);
 
     // generate `n_random_clusters` centroids
     KMeansParams rand_params;
@@ -775,7 +775,7 @@ void kmeans_fit(handle_t const& handle,
   RAFT_EXPECTS(centroids.extent(1) == n_features,
                "invalid parameter (centroids.extent(1) != n_features)");
 
-  // logger::get(RAFT_NAME).set_level(params.verbosity);
+  logger::get(RAFT_NAME).set_level(params.verbosity);
 
   // Allocate memory
   rmm::device_uvector<char> workspace(0, stream);
@@ -792,10 +792,10 @@ void kmeans_fit(handle_t const& handle,
 
   auto n_init = params.n_init;
   if (params.init == KMeansParams::InitMethod::Array && n_init != 1) {
-    /*RAFT_LOG_DEBUG(
+    RAFT_LOG_DEBUG(
       "Explicit initial center position passed: performing only one init in "
       "k-means instead of n_init=%d",
-      n_init);*/
+      n_init);
     n_init = 1;
   }
 
@@ -810,20 +810,20 @@ void kmeans_fit(handle_t const& handle,
     IndexT n_current_iter = 0;
     if (iter_params.init == KMeansParams::InitMethod::Random) {
       // initializing with random samples from input dataset
-      /*RAFT_LOG_DEBUG(
+      RAFT_LOG_DEBUG(
         "KMeans.fit (Iteration-%d/%d): initialize cluster centers by "
         "randomly choosing from the "
         "input data.",
         seed_iter + 1,
-        n_init);*/
+        n_init);
       initRandom<DataT, IndexT>(handle, iter_params, X, centroidsRawData.view());
     } else if (iter_params.init == KMeansParams::InitMethod::KMeansPlusPlus) {
       // default method to initialize is kmeans++
-      /*RAFT_LOG_DEBUG(
+      RAFT_LOG_DEBUG(
         "KMeans.fit (Iteration-%d/%d): initialize cluster centers using "
         "k-means++ algorithm.",
         seed_iter + 1,
-        n_init);*/
+        n_init);
       if (iter_params.oversampling_factor == 0)
         kmeansPlusPlus<DataT, IndexT>(
           handle, iter_params, X, centroidsRawData.view(), metric, workspace);
@@ -831,12 +831,12 @@ void kmeans_fit(handle_t const& handle,
         initScalableKMeansPlusPlus<DataT, IndexT>(
           handle, iter_params, X, centroidsRawData.view(), workspace);
     } else if (iter_params.init == KMeansParams::InitMethod::Array) {
-      /*RAFT_LOG_DEBUG(
+      RAFT_LOG_DEBUG(
         "KMeans.fit (Iteration-%d/%d): initialize cluster centers from "
         "the ndarray array input "
         "passed to init arguement.",
         seed_iter + 1,
-        n_init);*/
+        n_init);
       raft::copy(centroidsRawData.data(), centroids.data(), n_clusters * n_features, stream);
     } else {
       THROW("unknown initialization method to select initial centers");
@@ -855,13 +855,13 @@ void kmeans_fit(handle_t const& handle,
       n_iter[0]  = n_current_iter;
       raft::copy(centroids.data(), centroidsRawData.data(), n_clusters * n_features, stream);
     }
-    /*RAFT_LOG_DEBUG("KMeans.fit after iteration-%d/%d: inertia - %f, n_iter[0] - %d",
-                  seed_iter + 1,
-                  n_init,
-                  inertia[0],
-                  n_iter[0]);*/
+    RAFT_LOG_DEBUG("KMeans.fit after iteration-%d/%d: inertia - %f, n_iter[0] - %d",
+                   seed_iter + 1,
+                   n_init,
+                   inertia[0],
+                   n_iter[0]);
   }
-  // RAFT_LOG_DEBUG("KMeans.fit: async call returned (fit could still be running on the device)");
+  RAFT_LOG_DEBUG("KMeans.fit: async call returned (fit could still be running on the device)");
 }
 
 template <typename DataT, typename IndexT = int>
@@ -911,7 +911,7 @@ void kmeans_predict(handle_t const& handle,
   RAFT_EXPECTS(centroids.extent(1) == n_features,
                "invalid parameter (centroids.extent(1) != n_features)");
 
-  // logger::get(RAFT_NAME).set_level(params.verbosity);
+  logger::get(RAFT_NAME).set_level(params.verbosity);
   auto metric = params.metric;
 
   // Allocate memory
@@ -1035,7 +1035,7 @@ void kmeans_transform(const raft::handle_t& handle,
                       raft::device_matrix_view<const DataT> centroids,
                       raft::device_matrix_view<DataT> X_new)
 {
-  // logger::get(RAFT_NAME).set_level(params.verbosity);
+  logger::get(RAFT_NAME).set_level(params.verbosity);
   cudaStream_t stream = handle.get_stream();
   auto n_samples      = X.extent(0);
   auto n_features     = X.extent(1);

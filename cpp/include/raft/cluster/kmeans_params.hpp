@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 #pragma once
-//#include <raft/common/logger.hpp>
+#include <raft/core/logger.hpp>
 #include <raft/distance/distance_type.hpp>
 #include <raft/random/rng_state.hpp>
 
@@ -45,7 +45,7 @@ struct KMeansParams {
   double tol = 1e-4;
 
   // verbosity level.
-  int verbosity = 4;  // RAFT_LEVEL_INFO;
+  int verbosity = RAFT_LEVEL_INFO;
 
   // Seed to the random number generator.
   raft::random::RngState rng_state =

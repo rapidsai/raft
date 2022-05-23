@@ -15,6 +15,9 @@
  */
 #pragma once
 
+#ifndef __RAFT_RT_LOGGER
+#define __RAFT_RT_LOGGER
+
 #include <stdarg.h>
 
 #include <algorithm>
@@ -70,14 +73,14 @@ static const std::string default_log_pattern("[%L] [%H:%M:%S.%f] %v");
  *
  * @{
  */
-std::string format(const char* fmt, va_list& vl)
+inline std::string format(const char* fmt, va_list& vl)
 {
   char buf[4096];
   vsnprintf(buf, sizeof(buf), fmt, vl);
   return std::string(buf);
 }
 
-std::string format(const char* fmt, ...)
+inline std::string format(const char* fmt, ...)
 {
   va_list vl;
   va_start(vl, fmt);
@@ -87,7 +90,7 @@ std::string format(const char* fmt, ...)
 }
 /** @} */
 
-int convert_level_to_spdlog(int level)
+inline int convert_level_to_spdlog(int level)
 {
   level = std::max(RAFT_LEVEL_OFF, std::min(RAFT_LEVEL_TRACE, level));
   return RAFT_LEVEL_TRACE - level;
@@ -296,3 +299,5 @@ class logger {
 #define RAFT_LOG_CRITICAL(fmt, ...) void(0)
 #endif
 /** @} */
+
+#endif

@@ -31,7 +31,7 @@
 #include <thrust/scan.h>
 
 #include <raft/cluster/kmeans_params.hpp>
-//#include <raft/common/logger.hpp>
+#include <raft/core/logger.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/distance/distance.cuh>
@@ -175,10 +175,10 @@ void checkWeight(const raft::handle_t& handle,
   handle.sync_stream(stream);
 
   if (wt_sum != n_samples) {
-    /*RAFT_LOG_DEBUG(
+    RAFT_LOG_DEBUG(
       "[Warning!] KMeans: normalizing the user provided sample weight to "
       "sum up to %d samples",
-      n_samples);*/
+      n_samples);
 
     auto scale = static_cast<DataT>(n_samples) / wt_sum;
     raft::linalg::unaryOp(
@@ -424,7 +424,7 @@ void minClusterAndDistanceCompute(
 
     // datasetView [ns x n_features] - view representing the current batch of
     // input dataset
-    auto datasetView = 
+    auto datasetView =
       raft::make_device_matrix_view(X.data() + (dIdx * n_features), ns, n_features);
 
     // minClusterAndDistanceView [ns x n_clusters]
