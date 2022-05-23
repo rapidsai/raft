@@ -252,6 +252,7 @@ void kmeansPlusPlus(const raft::handle_t& handle,
   }  /// <<<< Step-5 >>>
 }
 
+// TODO: Resizing is needed to use mdarray instead of rmm::device_uvector
 template <typename DataT, typename IndexT>
 void kmeans_fit_main(const raft::handle_t& handle,
                      const KMeansParams& params,
@@ -523,6 +524,8 @@ void kmeans_fit_main(const raft::handle_t& handle,
  * 7: For x in C, set w_x to be the number of points in X closer to x than any
  * other point in C
  * 8: Recluster the weighted points in C into k clusters
+
+ * TODO: Resizing is needed to use mdarray instead of rmm::device_uvector
 
  */
 template <typename DataT, typename IndexT>
