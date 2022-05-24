@@ -26,6 +26,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 namespace raft {
 
@@ -126,20 +127,20 @@ struct logic_error : public raft::exception {
  * Macro to append error message to first argument.
  * This should only be called in contexts where it is OK to throw exceptions!
  */
-#define SET_ERROR_MSG(msg, location_prefix, fmt, ...)                                           \
-  do {                                                                                          \
-    int size1 = std::snprintf(nullptr, 0, "%s", location_prefix);                               \
-    int size2 = std::snprintf(nullptr, 0, "file=%s line=%d: ", __FILE__, __LINE__);             \
-    int size3 = std::snprintf(nullptr, 0, fmt, ##__VA_ARGS__);                                  \
-    if (size1 < 0 || size2 < 0 || size3 < 0)                                                    \
-      throw raft::exception("Error in snprintf, cannot handle raft exception.");                \
-    auto size = size1 + size2 + size3 + 1; /* +1 for final '\0' */                              \
-    auto buf  = std::make_unique<char[]>(size_t(size));                                         \
-    std::snprintf(buf.get(), size1 + 1 /* +1 for '\0' */, "%s", location_prefix);               \
-    std::snprintf(                                                                              \
-      buf.get() + size1, size2 + 1 /* +1 for '\0' */, "file=%s line=%d: ", __FILE__, __LINE__); \
-    std::snprintf(buf.get() + size1 + size2, size3 + 1 /* +1 for '\0' */, fmt, ##__VA_ARGS__);  \
-    msg += std::string(buf.get(), buf.get() + size - 1); /* -1 to remove final '\0' */          \
+#define SET_ERROR_MSG(msg, location_prefix, fmt, ...)                                            \
+  do {                                                                                           \
+    int size1 = std::snprintf(nullptr, 0, "%s", location_prefix);                                \
+    int size2 = std::snprintf(nullptr, 0, "file=%s line=%d: ", __FILE__, __LINE__);              \
+    int size3 = std::snprintf(nullptr, 0, fmt, ##__VA_ARGS__);                                   \
+    if (size1 < 0 || size2 < 0 || size3 < 0)                                                     \
+      throw raft::exception("Error in snprintf, cannot handle raft exception.");                 \
+    auto size = size1 + size2 + size3 + 1; /* +1 for final '\0' */                               \
+    std::vector<char> buf(size);                                                                 \
+    std::snprintf(buf.data(), size1 + 1 /* +1 for '\0' */, "%s", location_prefix);               \
+    std::snprintf(                                                                               \
+      buf.data() + size1, size2 + 1 /* +1 for '\0' */, "file=%s line=%d: ", __FILE__, __LINE__); \
+    std::snprintf(buf.data() + size1 + size2, size3 + 1 /* +1 for '\0' */, fmt, ##__VA_ARGS__);  \
+    msg += std::string(buf.data(), buf.data() + size - 1); /* -1 to remove final '\0' */         \
   } while (0)
 
 /**
