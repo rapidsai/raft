@@ -21,6 +21,7 @@
 #include "ann_utils.cuh"
 #include "topk/radix_topk.cuh"
 
+#include <raft/common/logger.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/distance/distance.hpp>
@@ -507,9 +508,7 @@ cuivflStatus_t cuivflHandle<T>::cuivflBuildIndex(const T* dataset,
 
   if (metric_type_ == raft::distance::DistanceType::L2Expanded) {
     utils::_cuann_sqsum(nlist_, dim_, centriod_managed_ptr, centriod_norm_dev_.data());
-#ifdef DEBUG_L2
-    utils::printDevPtr(centriod_norm_dev_.data(), 20, "centriod_norm_dev_");
-#endif
+    RAFT_LOG_TRACE_VEC(centriod_norm_dev_.data(), 20);
   }
 
   // Step 4: Record the number of elements in each clusters
@@ -681,10 +680,8 @@ cuivflStatus_t cuivflHandle<T>::cuivflSearchImpl(const T* queries,  // [numQueri
                             centriod_norm_dev_.data(),
                             nlist_,
                             distance_buffer_dev.data());
-#ifdef DEBUG_L2
-    utils::printDevPtr(centriod_norm_dev_.data(), 20, "centriod_norm_dev_");
-    utils::printDevPtr(distance_buffer_dev.data(), 20, "distance_buffer_dev_ptr");
-#endif
+    RAFT_LOG_TRACE_VEC(centriod_norm_dev_.data(), 20);
+    RAFT_LOG_TRACE_VEC(distance_buffer_dev.data(), 20);
   } else {
     alpha = 1.0f;
     beta  = 0.0f;
@@ -706,9 +703,7 @@ cuivflStatus_t cuivflHandle<T>::cuivflSearchImpl(const T* queries,  // [numQueri
                nlist_,
                stream_);
 
-#ifdef DEBUG_L2
-  utils::printDevPtr(distance_buffer_dev.data(), 20, "distance_buffer_dev_ptr");
-#endif
+  RAFT_LOG_TRACE_VEC(distance_buffer_dev.data(), 20);
   topk::radix_topk<value_t, uint32_t, 11, 512>(distance_buffer_dev.data(),
                                                nullptr,
                                                batch_size,
@@ -719,10 +714,8 @@ cuivflStatus_t cuivflHandle<T>::cuivflSearchImpl(const T* queries,  // [numQueri
                                                !greater_,
                                                stream_,
                                                &(search_mem_res.value()));
-#ifdef DEBUG_L2
-  utils::printDevPtr(coarse_indices_dev.data(), 1 * nprobe, "coarse_indices_dev_ptr");
-  utils::printDevPtr(coarse_distances_dev.data(), 1 * nprobe, "coarse_distances_dev_ptr");
-#endif
+  RAFT_LOG_TRACE_VEC(coarse_indices_dev.data(), 1 * nprobe);
+  RAFT_LOG_TRACE_VEC(coarse_distances_dev.data(), 1 * nprobe);
 
   value_t* distances_dev_ptr = refined_distances_dev.data();
   size_t* indices_dev_ptr    = refined_indices_dev.data();
@@ -750,10 +743,8 @@ cuivflStatus_t cuivflHandle<T>::cuivflSearchImpl(const T* queries,  // [numQueri
     veclen_,
     grid_dim_x_);
 
-#ifdef DEBUG_L2
-  utils::printDevPtr(distances_dev_ptr, 2 * k, "distances_dev_ptr");
-  utils::printDevPtr(indices_dev_ptr, 2 * k, "indices_dev_ptr");
-#endif
+  RAFT_LOG_TRACE_VEC(distances_dev_ptr, 2 * k);
+  RAFT_LOG_TRACE_VEC(indices_dev_ptr, 2 * k);
 
   if (grid_dim_x_ > 1) {
 //#ifdef RADIX
