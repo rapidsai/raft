@@ -330,17 +330,6 @@ bool _cuann_kmeans_adjust_centers(float* centers,  // [numCenters, dimCenters]
     adjusted = true;
     count += 1;
   }
-
-#ifdef CUANN_DEBUG
-  if (count > 0) {
-    fprintf(stderr,
-            "(%s) num adjusted: %u / %u, threshold: %d\n",
-            __func__,
-            count,
-            numCenters,
-            (int)(average * threshold));
-  }
-#endif
   return adjusted;
 }
 

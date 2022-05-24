@@ -22,6 +22,7 @@
 #include "topk/radix_topk.cuh"
 
 #include <raft/common/logger.hpp>
+#include <raft/common/nvtx.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/distance/distance.hpp>
@@ -34,6 +35,13 @@
 #include <rmm/mr/device/managed_memory_resource.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
 #include <rmm/mr/device/pool_memory_resource.hpp>
+
+// TODO: remove this when #673 is merged
+#ifdef RAFT_LOG_TRACE_VEC
+#pragma message("PR #673 seems to be merged, please remove this CPP block.")
+#else
+#define RAFT_LOG_TRACE_VEC(ptr, len) void(0)
+#endif
 
 namespace raft::spatial::knn::detail {
 
@@ -227,6 +235,8 @@ cuivflStatus_t cuivflHandle<T>::cuivflBuildOptimizedKmeans(float* centriod_manag
                                                            uint32_t nrow,
                                                            uint32_t ntrain)
 {
+  common::nvtx::range<common::nvtx::domain::raft> fun_scope(
+    "cuivflBuildOptimizedKmeans(%u, %u)", nrow, ntrain);
   uint32_t numTrainset   = ntrain;
   uint32_t numClusters   = nlist_;
   uint32_t dimDataset    = dim_;
@@ -237,7 +247,7 @@ cuivflStatus_t cuivflHandle<T>::cuivflBuildOptimizedKmeans(float* centriod_manag
   float* clusterCenters = centriod_managed_ptr;
 
   uint32_t numMesoClusters = pow((double)(numClusters), (double)1.0 / 2.0) + 0.5;
-  fprintf(stderr, "# numMesoClusters: %u\n", numMesoClusters);
+  RAFT_LOG_DEBUG("(%s) # numMesoClusters: %u", __func__, numMesoClusters);
 
   rmm::mr::managed_memory_resource managed_memory;
   rmm::device_uvector<float> mesoClusterCenters(
@@ -257,11 +267,7 @@ cuivflStatus_t cuivflHandle<T>::cuivflBuildOptimizedKmeans(float* centriod_manag
   rmm::device_buffer predictWorkspace(sizePredictWorkspace, stream_);
   // Training meso-clusters
   for (uint32_t iter = 0; iter < 2 * numIterations; iter += 2) {
-    fprintf(stderr,
-            "(%s) Training kmeans of meso-clusters: %.1f / %u    \r",
-            __func__,
-            (float)iter / 2,
-            numIterations);
+    RAFT_LOG_TRACE("Training kmeans of meso-clusters: %.1f / %u", (float)iter / 2, numIterations);
     _cuann_kmeans_predict(handle_,
                           mesoClusterCenters.data(),
                           numMesoClusters,
@@ -290,7 +296,6 @@ cuivflStatus_t cuivflHandle<T>::cuivflBuildOptimizedKmeans(float* centriod_manag
     }    // end if iter < 2 * (numIterations - 2)
   }      // end for (int iter = 0; iter < 2 * numIterations; iter += 2)
 
-  fprintf(stderr, "\n");
   RAFT_CUDA_TRY(cudaDeviceSynchronize());
 
   std::vector<uint32_t> numFineClusters(numMesoClusters);
@@ -317,8 +322,9 @@ cuivflStatus_t cuivflHandle<T>::cuivflBuildOptimizedKmeans(float* centriod_manag
     numFineClustersMax      = max(numFineClustersMax, numFineClusters[i]);
     csumFineClusters[i + 1] = csumFineClusters[i] + numFineClusters[i];
   }  // end for (uint32_t i = 0; i < numMesoClusters; i++)
-  // fprintf(stderr, "# mesoClusterSizeSum: %u\n", mesoClusterSizeSum);
-  // fprintf(stderr, "# numFineClustersSum: %u\n", numFineClustersSum);
+
+  RAFT_LOG_DEBUG("(%s) # mesoClusterSizeSum: %u", __func__, mesoClusterSizeSum);
+  RAFT_LOG_DEBUG("(%s) # numFineClustersSum: %u", __func__, numFineClustersSum);
   assert(mesoClusterSizeSum == numTrainset);
   assert(numFineClustersSum == numClusters);
   assert(csumFineClusters[numMesoClusters] == numClusters);
@@ -372,14 +378,11 @@ cuivflStatus_t cuivflHandle<T>::cuivflBuildOptimizedKmeans(float* centriod_manag
     RAFT_CUDA_TRY(cudaDeviceSynchronize());
 
     for (uint32_t iter = 0; iter < 2 * numIterations; iter += 2) {
-      fprintf(stderr,
-              "(%s) Training kmeans of clusters in meso-cluster %u (numClusters: %u): "
-              "%.1f / %u    \r",
-              __func__,
-              i,
-              numFineClusters[i],
-              (float)iter / 2,
-              numIterations);
+      RAFT_LOG_TRACE("Training kmeans of clusters in meso-cluster %u (numClusters: %u): %.1f / %u",
+                     i,
+                     numFineClusters[i],
+                     (float)iter / 2,
+                     numIterations);
 
       _cuann_kmeans_predict(handle_,
                             clusterCentersEach.data(),
@@ -415,7 +418,6 @@ cuivflStatus_t cuivflHandle<T>::cuivflBuildOptimizedKmeans(float* centriod_manag
                              cudaMemcpyDefault));
     numClustersDone += numFineClusters[i];
   }  // end for (uint32_t i = 0; i < numMesoClusters; i++)
-  fprintf(stderr, "\n");
   assert(numClustersDone == numClusters);
 
   clusterCentersMP.resize(numClusters * dimDataset, stream_);
@@ -442,7 +444,7 @@ cuivflStatus_t cuivflHandle<T>::cuivflBuildOptimizedKmeans(float* centriod_manag
                           true);
   }  // end for (int iter = 0; iter < 2; iter++)
 
-  fprintf(stderr, "(%s) Final fitting\n", __func__);
+  RAFT_LOG_DEBUG("(%s) Final fitting.", __func__);
 
   sizePredictWorkspace = _cuann_kmeans_predict_bufferSize(numClusters, dimDataset, nrow_);
   predictWorkspace.resize(sizePredictWorkspace, stream_);
@@ -617,6 +619,8 @@ cuivflStatus_t cuivflHandle<T>::cuivflSearch(const T* queries,  // [numQueries, 
                                              size_t* neighbors,  // [numQueries, topK]
                                              float* distances)
 {
+  common::nvtx::range<common::nvtx::domain::raft> fun_scope(
+    "cuivflSearch(%u, %u, %zu)", batch_size, k, neighbors);
   cuivflSearchImpl<float>(queries, batch_size, k, neighbors, distances);
   return cuivflStatus_t::CUIVFL_STATUS_SUCCESS;
 }  // end func cuivflSearch

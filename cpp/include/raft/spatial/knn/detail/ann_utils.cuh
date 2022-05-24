@@ -32,25 +32,7 @@ namespace utils {
 constexpr int kThreadPerBlock = 128;
 constexpr int kNumWarps       = kThreadPerBlock / WarpSize;
 
-/*******************************************************/
-/*                   Debug Function                    */
-/*******************************************************/
 
-template <typename T>
-void printDevPtr(const T* d_cache, int len, const char* name)
-{
-  T* res = (T*)malloc(sizeof(T) * len);
-  RAFT_CUDA_TRY(cudaMemcpy(res, d_cache, sizeof(T) * len, cudaMemcpyDeviceToHost));
-  printf("%s ", name);
-  for (int i = 0; i < len; i++) {
-    printf("%d(%f) ", i, (float)res[i]);
-    if (i % 10 == 9) { printf("\n"); }
-  }
-  printf("\n");
-  free(res);
-}
-
-//
 size_t _cuann_aligned(size_t size, size_t unit = 128)
 {
   if (size % unit) { size += unit - (size % unit); }
