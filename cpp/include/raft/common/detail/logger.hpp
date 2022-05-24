@@ -17,6 +17,6 @@
 
 #pragma message(__FILE__                                                 \
                 " is deprecated and will be removed in future releases." \
-                " Please use the <raft/common/logger.hpp> version instead.")
+                " Please use the <raft/core/logger.hpp> version instead.")
 
-#include <raft/common/logger.hpp>
+#include <raft/core/logger.hpp>

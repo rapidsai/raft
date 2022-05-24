@@ -15,7 +15,7 @@
  */
 
 #include <gtest/gtest.h>
-#include <raft/common/logger.hpp>
+#include <raft/core/logger.hpp>
 #include <string>
 
 namespace raft {
