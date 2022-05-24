@@ -21,8 +21,8 @@
 #include "ann_utils.cuh"
 #include "topk/radix_topk.cuh"
 
-#include <raft/common/logger.hpp>
 #include <raft/common/nvtx.hpp>
+#include <raft/core/logger.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/distance/distance.hpp>
