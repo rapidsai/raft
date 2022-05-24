@@ -61,6 +61,15 @@ class loggerTest : public ::testing::Test {
   }
 };
 
+// The logging macros depend on `RAFT_ACTIVE_LEVEL` as well as the logger verbosity;
+// The verbosity is set to `RAFT_LEVEL_TRACE`, but `RAFT_ACTIVE_LEVEL` is set outside of here.
+auto check_if_logged(const std::string& msg, int log_level_def) -> bool
+{
+  bool actually_logged  = logged.find(msg) != std::string::npos;
+  bool should_be_logged = RAFT_ACTIVE_LEVEL >= log_level_def;
+  return actually_logged == should_be_logged;
+}
+
 TEST_F(loggerTest, callback)
 {
   std::string testMsg;
@@ -68,23 +77,27 @@ TEST_F(loggerTest, callback)
 
   testMsg = "This is a critical message";
   RAFT_LOG_CRITICAL(testMsg.c_str());
-  ASSERT_TRUE(logged.find(testMsg) != std::string::npos);
+  ASSERT_TRUE(check_if_logged(testMsg, RAFT_LEVEL_CRITICAL));
 
   testMsg = "This is an error message";
   RAFT_LOG_ERROR(testMsg.c_str());
-  ASSERT_TRUE(logged.find(testMsg) != std::string::npos);
+  ASSERT_TRUE(check_if_logged(testMsg, RAFT_LEVEL_ERROR));
 
   testMsg = "This is a warning message";
   RAFT_LOG_WARN(testMsg.c_str());
-  ASSERT_TRUE(logged.find(testMsg) != std::string::npos);
+  ASSERT_TRUE(check_if_logged(testMsg, RAFT_LEVEL_WARN));
 
   testMsg = "This is an info message";
   RAFT_LOG_INFO(testMsg.c_str());
-  ASSERT_TRUE(logged.find(testMsg) != std::string::npos);
+  ASSERT_TRUE(check_if_logged(testMsg, RAFT_LEVEL_INFO));
 
   testMsg = "This is a debug message";
   RAFT_LOG_DEBUG(testMsg.c_str());
-  ASSERT_TRUE(logged.find(testMsg) != std::string::npos);
+  ASSERT_TRUE(check_if_logged(testMsg, RAFT_LEVEL_DEBUG));
+
+  testMsg = "This is a trace message";
+  RAFT_LOG_TRACE(testMsg.c_str());
+  ASSERT_TRUE(check_if_logged(testMsg, RAFT_LEVEL_TRACE));
 }
 
 TEST_F(loggerTest, flush)
