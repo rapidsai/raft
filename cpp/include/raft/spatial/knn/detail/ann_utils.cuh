@@ -32,7 +32,6 @@ namespace utils {
 constexpr int kThreadPerBlock = 128;
 constexpr int kNumWarps       = kThreadPerBlock / WarpSize;
 
-
 size_t _cuann_aligned(size_t size, size_t unit = 128)
 {
   if (size % unit) { size += unit - (size % unit); }
