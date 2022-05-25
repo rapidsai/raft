@@ -32,6 +32,10 @@
 
 #include <bits/stdc++.h>
 
+#include <thrust/execution_policy.h>
+#include <thrust/memory.h>
+#include <thrust/reduce.h>
+
 #include <cstddef>
 #include <vector>
 

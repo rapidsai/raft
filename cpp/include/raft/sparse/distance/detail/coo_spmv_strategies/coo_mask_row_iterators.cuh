@@ -21,6 +21,9 @@
 
 #include <rmm/device_uvector.hpp>
 
+#include <thrust/scan.h>
+#include <thrust/transform.h>
+
 namespace raft {
 namespace sparse {
 namespace distance {

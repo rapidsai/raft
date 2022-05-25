@@ -19,8 +19,13 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/span.hpp>
+#include <thrust/copy.h>
 #include <thrust/device_vector.h>
+#include <thrust/execution_policy.h>
+#include <thrust/for_each.h>
 #include <thrust/host_vector.h>
+#include <thrust/iterator/counting_iterator.h>
+#include <thrust/memory.h>
 
 namespace raft {
 struct TestStatus {

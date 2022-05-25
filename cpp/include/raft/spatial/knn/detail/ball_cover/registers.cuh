@@ -32,6 +32,8 @@
 #include <faiss/gpu/utils/Select.cuh>
 #include <faiss/utils/Heap.h>
 
+#include <thrust/fill.h>
+
 namespace raft {
 namespace spatial {
 namespace knn {

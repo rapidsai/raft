@@ -20,6 +20,9 @@
 
 #include <cuco/static_map.cuh>
 
+#include <thrust/copy.h>
+#include <thrust/iterator/counting_iterator.h>
+
 // this is needed by cuco as key, value must be bitwise comparable.
 // compilers don't declare float/double as bitwise comparable
 // but that is too strict

@@ -19,6 +19,7 @@
 #include "../haversine_distance.cuh"
 #include <cstdint>
 #include <thrust/functional.h>
+#include <thrust/tuple.h>
 
 namespace raft {
 namespace spatial {
