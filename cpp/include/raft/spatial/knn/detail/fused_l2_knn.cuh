@@ -446,6 +446,7 @@ __global__ __launch_bounds__(Policy::Nthreads, 2) void fusedL2kNN(const DataT* x
                   }
                 }
               }
+              __syncwarp();
               const int finalNumVals = raft::shfl(numValsWarpTopK[i], 31);
               loadWarpQShmem<Policy, Pair>(heapArr[i], &shDumpKV[0], rowId, numOfNN);
               updateSortedWarpQ<Pair, myWarpSelect::kNumWarpQRegisters>(
