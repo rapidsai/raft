@@ -28,6 +28,7 @@
 #include "processing.hpp"
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
+#include <raft/pow2_utils.cuh>
 
 //#include <label/classlabels.cuh>
 #include <raft/distance/distance.hpp>
@@ -56,9 +57,6 @@ namespace spatial {
 namespace knn {
 namespace detail {
 
-#define SHFL_SYNC(VAL, SRC_LANE, WIDTH) __shfl_sync(0xffffffff, VAL, SRC_LANE, WIDTH)
-// build
-
 // #define DEBUG
 /// Init centriods
 template <typename T>
@@ -73,23 +71,6 @@ void ivfflat_centriod_init(T* dataset, T* centriod, int nlist, int dim, int n)
 }  // end func ivfflat_centriod_init
 
 // search
-template <typename U, typename V>
-constexpr __host__ __device__ auto divUp(U a, V b)
-{
-  return (a + b - 1) / b;
-}
-
-template <typename U, typename V>
-constexpr __host__ __device__ auto divDown(U a, V b)
-{
-  return (a / b);
-}
-
-template <typename U, typename V>
-constexpr __host__ __device__ auto roundDown(U a, V b)
-{
-  return divDown(a, b) * b;
-}
 
 template <typename T, int veclen>
 __device__ __forceinline__ void queryLoadToShmem(const T* const& query,
@@ -208,7 +189,7 @@ struct loadAndComputeDist {
         const int d = (i * kUnroll + j) * veclen;
 #pragma unroll
         for (int k = 0; k < veclen; ++k) {
-          q[k] = SHFL_SYNC(queryReg, d + k, WarpSize);
+          q[k] = shfl(queryReg, d + k, WarpSize);
           computeDist(dist, q[k], encV[j][k]);  //@TODO add other metrics
         }
       }
@@ -227,7 +208,7 @@ struct loadAndComputeDist {
       ldg(enc, data + loadDataIdx);
 #pragma unroll
       for (int k = 0; k < veclen; k++) {
-        q[k] = SHFL_SYNC(queryReg, d + k, WarpSize);
+        q[k] = shfl(queryReg, d + k, WarpSize);
         computeDist(dist, q[k], enc[k]);
       }
     }  // end for d < dim - dimBlocks
@@ -296,7 +277,7 @@ struct loadAndComputeDist<kUnroll,
         const int d = (i * kUnroll + j) * veclen_int;
 #pragma unroll
         for (int k = 0; k < veclen_int; ++k) {
-          q[j][k] = SHFL_SYNC(queryReg, d + k, WarpSize);
+          q[j][k] = shfl(queryReg, d + k, WarpSize);
           computeDist(dist, q[j][k], encV[j][k]);
         }
       }
@@ -319,7 +300,7 @@ struct loadAndComputeDist<kUnroll,
       ldg(enc, reinterpret_cast<uint32_t const*>(data) + laneId * veclen_int);
 #pragma unroll
       for (int k = 0; k < veclen_int; k++) {
-        q[k] = SHFL_SYNC(queryReg, (d / 4) + k, WarpSize);
+        q[k] = shfl(queryReg, (d / 4) + k, WarpSize);
         computeDist(dist, q[k], enc[k]);
       }
     }  // end for d < dim - dimBlocks
@@ -373,7 +354,7 @@ struct loadAndComputeDist<kUnroll, wordsPerVectorBlockDim, computeLambda, 4, uin
       for (int j = 0; j < kUnroll; ++j) {
         encV[j]     = reinterpret_cast<unsigned const*>(data)[laneId + j * wordsPerVectorBlockDim];
         const int d = (i * kUnroll + j);
-        q[j]        = SHFL_SYNC(queryReg, d, WarpSize);
+        q[j]        = shfl(queryReg, d, WarpSize);
         computeDist(dist, q[j], encV[j]);
       }
     }
@@ -390,7 +371,7 @@ struct loadAndComputeDist<kUnroll, wordsPerVectorBlockDim, computeLambda, 4, uin
     uint32_t queryReg    = loadDim < dim ? reinterpret_cast<unsigned const*>(query)[loadDim] : 0;
     for (int d = 0; d < dim - dimBlocks; d += veclen, data += wordsPerVectorBlockDim * veclen) {
       uint32_t enc = reinterpret_cast<unsigned const*>(data)[laneId];
-      uint32_t q   = SHFL_SYNC(queryReg, d / veclen, WarpSize);
+      uint32_t q   = shfl(queryReg, d / veclen, WarpSize);
       computeDist(dist, q, enc);
     }  // end for d < dim - dimBlocks
   }
@@ -444,7 +425,7 @@ struct loadAndComputeDist<kUnroll, wordsPerVectorBlockDim, computeLambda, 2, uin
         encV[j]     = 0;
         encV[j]     = reinterpret_cast<uint16_t const*>(data)[laneId + j * wordsPerVectorBlockDim];
         const int d = (i * kUnroll + j);
-        q[j]        = SHFL_SYNC(queryReg, d, WarpSize);
+        q[j]        = shfl(queryReg, d, WarpSize);
         computeDist(dist, q[j], encV[j]);
       }
     }
@@ -462,7 +443,7 @@ struct loadAndComputeDist<kUnroll, wordsPerVectorBlockDim, computeLambda, 2, uin
     queryReg = loadDim < dim ? reinterpret_cast<uint16_t const*>(query + loadDim)[0] : 0;
     for (int d = 0; d < dim - dimBlocks; d += veclen, data += wordsPerVectorBlockDim * veclen) {
       uint32_t enc = reinterpret_cast<uint16_t const*>(data)[laneId];
-      uint32_t q   = SHFL_SYNC(queryReg, d / veclen, WarpSize);
+      uint32_t q   = shfl(queryReg, d / veclen, WarpSize);
       computeDist(dist, q, enc);
     }  // end for d < dim - dimBlocks
   }
@@ -514,7 +495,7 @@ struct loadAndComputeDist<kUnroll, wordsPerVectorBlockDim, computeLambda, 1, uin
         encV[j]     = 0;
         encV[j]     = data[laneId + j * wordsPerVectorBlockDim];
         const int d = (i * kUnroll + j);
-        q[j]        = SHFL_SYNC(queryReg, d, WarpSize);
+        q[j]        = shfl(queryReg, d, WarpSize);
         computeDist(dist, q[j], encV[j]);
       }
     }
@@ -533,7 +514,7 @@ struct loadAndComputeDist<kUnroll, wordsPerVectorBlockDim, computeLambda, 1, uin
     for (int d = 0; d < dim - dimBlocks; d += veclen, data += wordsPerVectorBlockDim * veclen) {
       uint32_t enc = 0;
       enc          = data[laneId];
-      uint32_t q   = SHFL_SYNC(queryReg, d, WarpSize);
+      uint32_t q   = shfl(queryReg, d, WarpSize);
       computeDist(dist, q, enc);
     }  // end for d < dim - dimBlocks
   }
@@ -601,7 +582,7 @@ struct loadAndComputeDist<kUnroll,
         const int d = (i * kUnroll + j) * veclen_int;
 #pragma unroll
         for (int k = 0; k < veclen_int; ++k) {
-          q[j][k] = SHFL_SYNC(queryReg, d + k, WarpSize);
+          q[j][k] = shfl(queryReg, d + k, WarpSize);
           computeDist(dist, q[j][k], encV[j][k]);
         }
       }
@@ -621,7 +602,7 @@ struct loadAndComputeDist<kUnroll,
       ldg(enc, reinterpret_cast<int32_t const*>(data) + laneId * veclen_int);
 #pragma unroll
       for (int k = 0; k < veclen_int; k++) {
-        q[k] = SHFL_SYNC(queryReg, (d / 4) + k, WarpSize);  // Here 4 is for 1 - int;
+        q[k] = shfl(queryReg, (d / 4) + k, WarpSize);  // Here 4 is for 1 - int;
         computeDist(dist, q[k], enc[k]);
       }
     }  // end for d < dim - dimBlocks
@@ -674,7 +655,7 @@ struct loadAndComputeDist<kUnroll, wordsPerVectorBlockDim, computeLambda, 2, int
         encV[j]     = 0;
         encV[j]     = reinterpret_cast<uint16_t const*>(data)[laneId + j * wordsPerVectorBlockDim];
         const int d = (i * kUnroll + j);
-        q[j]        = SHFL_SYNC(queryReg, d, WarpSize);
+        q[j]        = shfl(queryReg, d, WarpSize);
         computeDist(dist, q[j], encV[j]);
       }
     }
@@ -689,7 +670,7 @@ struct loadAndComputeDist<kUnroll, wordsPerVectorBlockDim, computeLambda, 2, int
     queryReg = loadDim < dim ? reinterpret_cast<uint16_t const*>(query + loadDim)[0] : 0;
     for (int d = 0; d < dim - dimBlocks; d += veclen, data += wordsPerVectorBlockDim * veclen) {
       int32_t enc = reinterpret_cast<uint16_t const*>(data + laneId * veclen)[0];
-      int32_t q   = SHFL_SYNC(queryReg, d / veclen, WarpSize);
+      int32_t q   = shfl(queryReg, d / veclen, WarpSize);
       computeDist(dist, q, enc);
     }  // end for d < dim - dimBlocks
   }
@@ -743,7 +724,7 @@ struct loadAndComputeDist<kUnroll, wordsPerVectorBlockDim, computeLambda, 1, int
         encV[j]     = 0;
         encV[j]     = data[laneId + j * wordsPerVectorBlockDim];
         const int d = (i * kUnroll + j);
-        q[j]        = SHFL_SYNC(queryReg, d, WarpSize);
+        q[j]        = shfl(queryReg, d, WarpSize);
         computeDist(dist, q[j], encV[j]);
       }
     }
@@ -758,7 +739,7 @@ struct loadAndComputeDist<kUnroll, wordsPerVectorBlockDim, computeLambda, 1, int
     for (int d = 0; d < dim - dimBlocks; d += veclen, data += wordsPerVectorBlockDim * veclen) {
       int32_t enc = 0;
       enc         = data[laneId];
-      int32_t q   = SHFL_SYNC(queryReg, d, WarpSize);
+      int32_t q   = shfl(queryReg, d, WarpSize);
       computeDist(dist, q, enc);
     }  // end for d < dim - dimBlocks
   }
@@ -806,8 +787,9 @@ __global__ void interleaved_scan(
   topk::block_sort<topk::warp_sort_filtered, CAPACITY, !GREATER, float, size_t> queue(k, smem_ext);
 #endif
 
-  const int laneId = threadIdx.x % WarpSize;
-  const int warpId = threadIdx.x / WarpSize;
+  using align_warp = Pow2<WarpSize>;
+  const int laneId = align_warp::mod(threadIdx.x);
+  const int warpId = align_warp::div(threadIdx.x);
   int queryId      = blockIdx.y;
 
   /// Set the address
@@ -816,7 +798,7 @@ __global__ void interleaved_scan(
   constexpr int wordsPerVectorBlockDim = bytesPerVectorBlockDim / sizeof(T);
 
   // int wordsPerVectorBlock = wordsPerVectorBlockDim * dim;
-  const int dimBlocks = roundDown(dim, WarpSize);
+  const int dimBlocks = align_warp::roundDown(dim);
 
   // This should be multiple of warpSize = 32
   constexpr uint32_t queryShmemSize = 2048;
@@ -846,7 +828,7 @@ __global__ void interleaved_scan(
     const uint32_t numVecs = list_lengths[listId];
 
     // The number of interleaved group to be processed
-    const uint32_t numBlocks = divUp(numVecs, WarpSize);
+    const uint32_t numBlocks = ceildiv<uint32_t>(numVecs, WarpSize);
 
     for (uint32_t block = warpId; block < numBlocks; block += utils::kNumWarps) {
       value_t dist = 0;
