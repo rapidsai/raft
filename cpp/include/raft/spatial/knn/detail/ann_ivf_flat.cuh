@@ -20,6 +20,7 @@
 #include "ann_kmeans_balanced.cuh"
 #include "ann_utils.cuh"
 #include "topk/radix_topk.cuh"
+#include "topk/warpsort_topk.cuh"
 
 #include <raft/common/nvtx.hpp>
 #include <raft/core/logger.hpp>
@@ -35,13 +36,6 @@
 #include <rmm/mr/device/managed_memory_resource.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
 #include <rmm/mr/device/pool_memory_resource.hpp>
-
-// TODO: remove this when #673 is merged
-#ifdef RAFT_LOG_TRACE_VEC
-#pragma message("PR #673 seems to be merged, please remove this CPP block.")
-#else
-#define RAFT_LOG_TRACE_VEC(ptr, len) void(0)
-#endif
 
 namespace raft::spatial::knn::detail {
 
@@ -708,16 +702,28 @@ cuivflStatus_t cuivflHandle<T>::cuivflSearchImpl(const T* queries,  // [numQueri
                stream_);
 
   RAFT_LOG_TRACE_VEC(distance_buffer_dev.data(), 20);
-  topk::radix_topk<value_t, uint32_t, 11, 512>(distance_buffer_dev.data(),
-                                               nullptr,
-                                               batch_size,
-                                               nlist_,
-                                               nprobe,
-                                               coarse_distances_dev.data(),
-                                               coarse_indices_dev.data(),
-                                               !greater_,
-                                               stream_,
-                                               &(search_mem_res.value()));
+  if (nprobe <= raft::spatial::knn::detail::topk::kMaxCapacity) {
+    topk::warp_sort_topk<value_t, uint32_t>(distance_buffer_dev.data(),
+                                            nullptr,
+                                            batch_size,
+                                            nlist_,
+                                            nprobe,
+                                            coarse_distances_dev.data(),
+                                            coarse_indices_dev.data(),
+                                            !greater_,
+                                            stream_);
+  } else {
+    topk::radix_topk<value_t, uint32_t, 11, 512>(distance_buffer_dev.data(),
+                                                 nullptr,
+                                                 batch_size,
+                                                 nlist_,
+                                                 nprobe,
+                                                 coarse_distances_dev.data(),
+                                                 coarse_indices_dev.data(),
+                                                 !greater_,
+                                                 stream_,
+                                                 &(search_mem_res.value()));
+  }
   RAFT_LOG_TRACE_VEC(coarse_indices_dev.data(), 1 * nprobe);
   RAFT_LOG_TRACE_VEC(coarse_distances_dev.data(), 1 * nprobe);
 
@@ -751,31 +757,28 @@ cuivflStatus_t cuivflHandle<T>::cuivflSearchImpl(const T* queries,  // [numQueri
   RAFT_LOG_TRACE_VEC(indices_dev_ptr, 2 * k);
 
   if (grid_dim_x_ > 1) {
-//#ifdef RADIX
-#if 1
-    topk::radix_topk<value_t, size_t, 11, 512>(refined_distances_dev.data(),
-                                               refined_indices_dev.data(),
-                                               batch_size,
-                                               k * grid_dim_x_,
-                                               k,
-                                               distances,
-                                               neighbors,
-                                               !greater_,
-                                               stream_,
-                                               &(search_mem_res.value()));
-#else
-    topk::warp_sort_topk<value_t, size_t>(buf_topk_dev_ptr,
-                                          buf_topk_size_,
-                                          refined_distances_dev.data(),
-                                          refined_indices_dev.data(),
-                                          (size_t)batch_size,
-                                          (size_t)(k * grid_dim_x_),
-                                          (size_t)k,
-                                          distances,
-                                          neighbors,
-                                          greater_,
-                                          stream_);
-#endif
+    if (k <= raft::spatial::knn::detail::topk::kMaxCapacity) {
+      topk::warp_sort_topk<value_t, size_t>(refined_distances_dev.data(),
+                                            refined_indices_dev.data(),
+                                            batch_size,
+                                            k * grid_dim_x_,
+                                            k,
+                                            distances,
+                                            neighbors,
+                                            !greater_,
+                                            stream_);
+    } else {
+      topk::radix_topk<value_t, size_t, 11, 512>(refined_distances_dev.data(),
+                                                 refined_indices_dev.data(),
+                                                 batch_size,
+                                                 k * grid_dim_x_,
+                                                 k,
+                                                 distances,
+                                                 neighbors,
+                                                 !greater_,
+                                                 stream_,
+                                                 &(search_mem_res.value()));
+    }
   }  // end if nprobe=1
 
   return cuivflStatus_t::CUIVFL_STATUS_SUCCESS;
