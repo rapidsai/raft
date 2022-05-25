@@ -956,11 +956,17 @@ void launch_interleaved_scan_kernel(
   size_t* neighbors,  // [batch_size, nprobe]
   float* distances,   // [batch_size, nprobe]
   const bool greater,
-  const int smem_size,
   const uint32_t batch_size,
   cudaStream_t stream,
   uint32_t& gridDimX)
 {
+#ifdef USE_FAISS
+  int smem_size = 0;
+#else
+  int smem_size = raft::spatial::knn::detail::topk::calc_smem_size_for_block_wide<acc_type, size_t>(
+    utils::kNumWarps, k);
+#endif
+
   // Accumulation inner product lambda
   auto inner_prod_lambda = [] __device__(acc_type & acc, acc_type & x, acc_type & y) {
     if constexpr ((std::is_same<T, int8_t>{}) || (std::is_same<T, uint8_t>{})) {
@@ -1109,193 +1115,46 @@ void launch_interleaved_scan_kernel(
   }
 }
 
-template <int capacity, typename T, typename acc_type>
-void select_interleaved_scan_kernel(
-  const T* queries,        // Input: Query Vector; [batch_size, dim]
-  uint32_t* coarse_index,  // Record the cluster(list) id; [batch_size,nprobe]
-  uint32_t* list_index,    // Record the id of vector for each cluster(list); [nrow]
-  void* list_data,         // Record the full value of vector for each cluster(list) interleaved;
-                           // [nrow, dim]
-  uint32_t* list_lengths,  // The number of vectors in each cluster(list); [nlist]
-  uint32_t* list_prefix_interleave,           // The start offset of each cluster(list) for
-                                              // list_index; [nlist]
-  const raft::distance::DistanceType metric,  // Function to process the different metric
-  const uint32_t nprobe,
-  const uint32_t k,
-  const uint32_t dim,
-  size_t* neighbors,  // [batch_size, nprobe]
-  float* distances,   // [batch_size, nprobe]
-  const bool greater,
-  const int smem_size,
-  const uint32_t batch_size,
-  cudaStream_t stream,
-  const int veclen,
-  uint32_t& gridDimX)
-{
-  if constexpr ((std::is_same<T, uint8_t>{}) || (std::is_same<T, int8_t>{})) {
-    switch (veclen) {
-      case 1:
-        launch_interleaved_scan_kernel<capacity, 1, T, acc_type>(queries,
-                                                                 coarse_index,
-                                                                 list_index,
-                                                                 list_data,
-                                                                 list_lengths,
-                                                                 list_prefix_interleave,
-                                                                 metric,
-                                                                 nprobe,
-                                                                 k,
-                                                                 dim,
-                                                                 neighbors,
-                                                                 distances,
-                                                                 greater,
-                                                                 smem_size,
-                                                                 batch_size,
-                                                                 stream,
-                                                                 gridDimX);
-        break;
-      case 2:
-        launch_interleaved_scan_kernel<capacity, 2, T, acc_type>(queries,
-                                                                 coarse_index,
-                                                                 list_index,
-                                                                 list_data,
-                                                                 list_lengths,
-                                                                 list_prefix_interleave,
-                                                                 metric,
-                                                                 nprobe,
-                                                                 k,
-                                                                 dim,
-                                                                 neighbors,
-                                                                 distances,
-                                                                 greater,
-                                                                 smem_size,
-                                                                 batch_size,
-                                                                 stream,
-                                                                 gridDimX);
-        break;
-      case 4:
-        launch_interleaved_scan_kernel<capacity, 4, T, acc_type>(queries,
-                                                                 coarse_index,
-                                                                 list_index,
-                                                                 list_data,
-                                                                 list_lengths,
-                                                                 list_prefix_interleave,
-                                                                 metric,
-                                                                 nprobe,
-                                                                 k,
-                                                                 dim,
-                                                                 neighbors,
-                                                                 distances,
-                                                                 greater,
-                                                                 smem_size,
-                                                                 batch_size,
-                                                                 stream,
-                                                                 gridDimX);
-        break;
-      case 8:
-        launch_interleaved_scan_kernel<capacity, 8, T, acc_type>(queries,
-                                                                 coarse_index,
-                                                                 list_index,
-                                                                 list_data,
-                                                                 list_lengths,
-                                                                 list_prefix_interleave,
-                                                                 metric,
-                                                                 nprobe,
-                                                                 k,
-                                                                 dim,
-                                                                 neighbors,
-                                                                 distances,
-                                                                 greater,
-                                                                 smem_size,
-                                                                 batch_size,
-                                                                 stream,
-                                                                 gridDimX);
-        break;
-      case 16:
-        launch_interleaved_scan_kernel<capacity, 16, T, acc_type>(queries,
-                                                                  coarse_index,
-                                                                  list_index,
-                                                                  list_data,
-                                                                  list_lengths,
-                                                                  list_prefix_interleave,
-                                                                  metric,
-                                                                  nprobe,
-                                                                  k,
-                                                                  dim,
-                                                                  neighbors,
-                                                                  distances,
-                                                                  greater,
-                                                                  smem_size,
-                                                                  batch_size,
-                                                                  stream,
-                                                                  gridDimX);
-        break;
-      default: assert("veclen should be 1, 2, 4, 8 or 16\n"); break;
+/**
+ * Lift the `capacity` and `veclen` parameters to the template level,
+ * forward the rest of the arguments unmodified to `launch_interleaved_scan_kernel`.
+ */
+template <typename T,
+          typename AccT,
+          int Capacity = topk::kMaxCapacity,
+          int Veclen   = std::max<int>(1, 16 / sizeof(T))>
+struct select_interleaved_scan_kernel {
+  /**
+   * Recursively reduce the `Capacity` and `Veclen` parameters until they match the
+   * corresponding runtime arguments.
+   * By default, this recursive process starts with maximum possible values of the
+   * two parameters and ends with both values equal to 1.
+   */
+  template <typename... Args>
+  static inline void run(int capacity, int veclen, Args&&... args)
+  {
+    if constexpr (Capacity > 1) {
+      if (capacity * 2 <= Capacity) {
+        return select_interleaved_scan_kernel<T, AccT, Capacity / 2, Veclen>::run(
+          capacity, veclen, args...);
+      }
     }
-  } else if constexpr (std::is_same<T, float>{}) {
-    switch (veclen) {
-      case 1:
-        launch_interleaved_scan_kernel<capacity, 1, T, acc_type>(queries,
-                                                                 coarse_index,
-                                                                 list_index,
-                                                                 list_data,
-                                                                 list_lengths,
-                                                                 list_prefix_interleave,
-                                                                 metric,
-                                                                 nprobe,
-                                                                 k,
-                                                                 dim,
-                                                                 neighbors,
-                                                                 distances,
-                                                                 greater,
-                                                                 smem_size,
-                                                                 batch_size,
-                                                                 stream,
-                                                                 gridDimX);
-        break;
-      case 2:
-        launch_interleaved_scan_kernel<capacity, 2, T, acc_type>(queries,
-                                                                 coarse_index,
-                                                                 list_index,
-                                                                 list_data,
-                                                                 list_lengths,
-                                                                 list_prefix_interleave,
-                                                                 metric,
-                                                                 nprobe,
-                                                                 k,
-                                                                 dim,
-                                                                 neighbors,
-                                                                 distances,
-                                                                 greater,
-                                                                 smem_size,
-                                                                 batch_size,
-                                                                 stream,
-                                                                 gridDimX);
-        break;
-      case 4:
-        launch_interleaved_scan_kernel<capacity, 4, T, acc_type>(queries,
-                                                                 coarse_index,
-                                                                 list_index,
-                                                                 list_data,
-                                                                 list_lengths,
-                                                                 list_prefix_interleave,
-                                                                 metric,
-                                                                 nprobe,
-                                                                 k,
-                                                                 dim,
-                                                                 neighbors,
-                                                                 distances,
-                                                                 greater,
-                                                                 smem_size,
-                                                                 batch_size,
-                                                                 stream,
-                                                                 gridDimX);
-        break;
-      default: assert("veclen should be 1, 2 or 4\n"); break;
+    if constexpr (Veclen > 1) {
+      if (veclen * 2 <= Veclen) {
+        return select_interleaved_scan_kernel<T, AccT, Capacity, Veclen / 2>::run(
+          capacity, veclen, args...);
+      }
     }
+    RAFT_EXPECTS(capacity == Capacity,
+                 "Capacity must be power-of-two not bigger than the maximum allowed size.");
+    RAFT_EXPECTS(
+      veclen == Veclen,
+      "Veclen must be power-of-two not bigger than the maximum allowed size for this data type.");
+    return launch_interleaved_scan_kernel<Capacity, Veclen, T, AccT>(args...);
   }
-}
+};
 
-template <typename T, typename value_t>
+template <typename T, typename AccT>
 void ivfflat_interleaved_scan(const T* queries,                  //[batch_size, dim]
                               uint32_t* coarse_index,            //[batch_size,nprobe]
                               uint32_t* list_index,              // [nrow]
@@ -1315,67 +1174,24 @@ void ivfflat_interleaved_scan(const T* queries,                  //[batch_size, 
                               uint32_t& gridDimX)
 {
   const int capacity = raft::spatial::knn::detail::topk::calc_capacity(k);
-
-#ifdef USE_FAISS
-  int smem_size = 0;
-#else
-  int smem_size = raft::spatial::knn::detail::topk::calc_smem_size_for_block_wide<value_t, size_t>(
-    utils::kNumWarps, k);
-#endif
-
-  switch (capacity) {
-    case 32:
-      select_interleaved_scan_kernel<32, T, value_t>(queries,
-                                                     coarse_index,
-                                                     list_index,
-                                                     list_data,
-                                                     list_lengths,
-                                                     list_prefix_interleave,
-                                                     metric,
-                                                     nprobe,
-                                                     k,
-                                                     dim,
-                                                     neighbors,
-                                                     distances,
-                                                     greater,
-                                                     smem_size,
-                                                     batch_size,
-                                                     stream,
-                                                     veclen,
-                                                     gridDimX);
-      break;
-    // case 64:
-    //   select_interleaved_scan_kernel<64, T, value_t>(queries, coarse_index,
-    //   list_index, list_data, list_lengths, list_prefix_interleave, metric,
-    //   nprobe, k, dim, neighbors, distances, greater, smem_size, batch_size,
-    //   stream, veclen, gridDimX);
-    //   break;
-    // case 128:
-    //   select_interleaved_scan_kernel<128, T, value_t>(queries, coarse_index,
-    //   list_index, list_data, list_lengths, list_prefix_interleave, metric,
-    //   nprobe, k, dim, neighbors, distances, greater, smem_size, batch_size,
-    //   stream, veclen, gridDimX);
-    //   break;
-    // case 256:
-    //   select_interleaved_scan_kernel<256, T, value_t>(queries, coarse_index,
-    //   list_index, list_data, list_lengths, list_prefix_interleave, metric,
-    //   nprobe, k, dim, neighbors, distances, greater, smem_size, batch_size,
-    //   stream, veclen, gridDimX);
-    //   break;
-    // case 512:
-    //   select_interleaved_scan_kernel<512, T, value_t>(queries, coarse_index,
-    //   list_index, list_data, list_lengths, list_prefix_interleave, metric,
-    //   nprobe, k, dim, neighbors, distances, greater, smem_size, batch_size,
-    //   stream, veclen, gridDimX);
-    //   break;
-    // case 1024:
-    //   select_interleaved_scan_kernel<1024, T, value_t>(queries, coarse_index,
-    //   list_index, list_data, list_lengths, list_prefix_interleave, metric,
-    //   nprobe, k, dim, neighbors, distances, greater, smem_size, batch_size,
-    //   stream, veclen, gridDimX);
-    //   break;
-    default: break;
-  }  // end switch
+  select_interleaved_scan_kernel<T, AccT>::run(capacity,
+                                               veclen,
+                                               queries,
+                                               coarse_index,
+                                               list_index,
+                                               list_data,
+                                               list_lengths,
+                                               list_prefix_interleave,
+                                               metric,
+                                               nprobe,
+                                               k,
+                                               dim,
+                                               neighbors,
+                                               distances,
+                                               greater,
+                                               batch_size,
+                                               stream,
+                                               gridDimX);
 }
 
 }  // namespace detail
