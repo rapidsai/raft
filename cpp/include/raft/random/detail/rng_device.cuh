@@ -560,6 +560,7 @@ struct PCGenerator {
     next(discard);
     pcg_state += rng_state.seed;
     next(discard);
+    skipahead(subsequence);
   }
 
   // Based on "Random Number Generation with Arbitrary Strides" F. B. Brown
