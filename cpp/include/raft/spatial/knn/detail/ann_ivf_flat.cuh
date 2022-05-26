@@ -574,7 +574,7 @@ cuivflStatus_t cuivflHandle<T>::queryIVFFlatGridSize(const uint32_t nprobe,
                                                                    dim_,
                                                                    nullptr,
                                                                    nullptr,
-                                                                   0,
+                                                                   stream_,
                                                                    greater_,
                                                                    veclen_,
                                                                    grid_dim_x_);

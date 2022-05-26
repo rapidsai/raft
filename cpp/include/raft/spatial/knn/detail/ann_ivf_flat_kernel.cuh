@@ -16,69 +16,34 @@
 
 #pragma once
 
+// #define USE_FAISS
+
 #include "../ann_common.h"
 #include "ann_utils.cuh"
-#include "knn_brute_force_faiss.cuh"
 #include "topk/warpsort_topk.cuh"
+
 #include <raft/common/device_loads_stores.cuh>
-
-#include "common_faiss.h"
-#include "processing.hpp"
-
-#include "processing.hpp"
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
+#include <raft/distance/distance.cuh>
 #include <raft/pow2_utils.cuh>
 
-//#include <label/classlabels.cuh>
-#include <raft/distance/distance.hpp>
-#include <raft/spatial/knn/faiss_mr.hpp>
-
-#include <faiss/gpu/GpuDistance.h>
-#include <faiss/gpu/GpuIndexFlat.h>
-#include <faiss/gpu/GpuIndexIVFFlat.h>
-#include <faiss/gpu/GpuIndexIVFPQ.h>
-#include <faiss/gpu/GpuIndexIVFScalarQuantizer.h>
-#include <faiss/gpu/GpuResources.h>
-#include <faiss/gpu/utils/Limits.cuh>
+#ifdef USE_FAISS
+#include <faiss/gpu/utils/Comparators.cuh>
 #include <faiss/gpu/utils/Select.cuh>
-#include <faiss/gpu/utils/Tensor.cuh>
-#include <faiss/utils/Heap.h>
+#endif
 
-#include <thrust/iterator/transform_iterator.h>
+#include <rmm/cuda_stream_view.hpp>
 
-#include <raft/distance/distance_type.hpp>
+namespace raft::spatial::knn::detail {
 
-#include <iostream>
-#include <set>
-
-namespace raft {
-namespace spatial {
-namespace knn {
-namespace detail {
-
-// #define DEBUG
-/// Init centriods
-template <typename T>
-void ivfflat_centriod_init(T* dataset, T* centriod, int nlist, int dim, int n)
-{
-  // srand (time(NULL));
-  int nparts = n / nlist;
-  int index  = rand() % nparts;
-  for (int i = 0; i < nlist; i++) {
-    memcpy(centriod + i * dim, dataset + i * nparts + index, sizeof(T) * dim);
-  }  // end for
-}  // end func ivfflat_centriod_init
-
-// search
-
-template <typename T, int veclen>
+template <typename T, int Veclen>
 __device__ __forceinline__ void queryLoadToShmem(const T* const& query,
                                                  T* queryShared,
                                                  const int loadDim)
 {
-  T queryReg[veclen];
-  const int loadIndex = loadDim * veclen;
+  T queryReg[Veclen];
+  const int loadIndex = loadDim * Veclen;
   ldg(queryReg, query + loadIndex);
   sts(&queryShared[loadIndex], queryReg);
 }
@@ -134,7 +99,7 @@ __device__ __forceinline__ void queryLoadToShmem<int8_t, 16>(const int8_t* const
 template <int kUnroll,
           int wordsPerVectorBlockDim,
           typename computeLambda,
-          int veclen,
+          int Veclen,
           typename T,
           typename AccT>
 struct loadAndComputeDist {
@@ -153,17 +118,17 @@ struct loadAndComputeDist {
                                                       IdxT baseShmemIndex,
                                                       IdxT iShmemIndex)
   {
-    T encV[kUnroll][veclen];
-    T queryRegs[kUnroll][veclen];
-    constexpr int stride  = kUnroll * veclen;
+    T encV[kUnroll][Veclen];
+    T queryRegs[kUnroll][Veclen];
+    constexpr int stride  = kUnroll * Veclen;
     const int shmemStride = baseShmemIndex + iShmemIndex * stride;
 #pragma unroll
     for (int j = 0; j < kUnroll; ++j) {
-      ldg(encV[j], data + (loadIndex + j * wordsPerVectorBlockDim) * veclen);
-      const int d = shmemStride + j * veclen;
+      ldg(encV[j], data + (loadIndex + j * wordsPerVectorBlockDim) * Veclen);
+      const int d = shmemStride + j * Veclen;
       lds(queryRegs[j], &queryShared[d]);
 #pragma unroll
-      for (int k = 0; k < veclen; ++k) {
+      for (int k = 0; k < Veclen; ++k) {
         computeDist(dist, queryRegs[j][k], encV[j][k]);
       }
     }
@@ -175,20 +140,20 @@ struct loadAndComputeDist {
                                                         IdxT baseLoadIndex,
                                                         const int laneId)
   {
-    T encV[kUnroll][veclen];
+    T encV[kUnroll][Veclen];
     T queryReg               = query[baseLoadIndex + laneId];
-    constexpr int stride     = kUnroll * veclen;
+    constexpr int stride     = kUnroll * Veclen;
     constexpr int totalIter  = WarpSize / stride;
     constexpr int gmemStride = stride * wordsPerVectorBlockDim;
 #pragma unroll
     for (int i = 0; i < totalIter; ++i, data += gmemStride) {
 #pragma unroll
       for (int j = 0; j < kUnroll; ++j) {
-        ldg(encV[j], (data + (laneId + j * wordsPerVectorBlockDim) * veclen));
-        T q[veclen];
-        const int d = (i * kUnroll + j) * veclen;
+        ldg(encV[j], (data + (laneId + j * wordsPerVectorBlockDim) * Veclen));
+        T q[Veclen];
+        const int d = (i * kUnroll + j) * Veclen;
 #pragma unroll
-        for (int k = 0; k < veclen; ++k) {
+        for (int k = 0; k < Veclen; ++k) {
           q[k] = shfl(queryReg, d + k, WarpSize);
           computeDist(dist, q[k], encV[j][k]);  //@TODO add other metrics
         }
@@ -201,13 +166,13 @@ struct loadAndComputeDist {
   {
     const int loadDim     = dimBlocks + laneId;
     T queryReg            = loadDim < dim ? query[loadDim] : 0;
-    const int loadDataIdx = laneId * veclen;
-    for (int d = 0; d < dim - dimBlocks; d += veclen, data += wordsPerVectorBlockDim * veclen) {
-      T enc[veclen];
-      T q[veclen];
+    const int loadDataIdx = laneId * Veclen;
+    for (int d = 0; d < dim - dimBlocks; d += Veclen, data += wordsPerVectorBlockDim * Veclen) {
+      T enc[Veclen];
+      T q[Veclen];
       ldg(enc, data + loadDataIdx);
 #pragma unroll
-      for (int k = 0; k < veclen; k++) {
+      for (int k = 0; k < Veclen; k++) {
         q[k] = shfl(queryReg, d + k, WarpSize);
         computeDist(dist, q[k], enc[k]);
       }
@@ -215,7 +180,7 @@ struct loadAndComputeDist {
   }
 };
 
-// This handles uint8_t 8, 16 veclens
+// This handles uint8_t 8, 16 Veclens
 template <int kUnroll, int wordsPerVectorBlockDim, typename computeLambda, int uint8_veclen>
 struct loadAndComputeDist<kUnroll,
                           wordsPerVectorBlockDim,
@@ -307,7 +272,7 @@ struct loadAndComputeDist<kUnroll,
   }
 };
 
-// Keep this specialized uint8 veclen = 4, because compiler is generating suboptimal code while
+// Keep this specialized uint8 Veclen = 4, because compiler is generating suboptimal code while
 // using above common template of int2/int4
 template <int kUnroll, int wordsPerVectorBlockDim, typename computeLambda>
 struct loadAndComputeDist<kUnroll, wordsPerVectorBlockDim, computeLambda, 4, uint8_t, uint32_t> {
@@ -745,9 +710,7 @@ struct loadAndComputeDist<kUnroll, wordsPerVectorBlockDim, computeLambda, 1, int
   }
 };
 
-//#define USE_FAISS 1
-
-template <int CAPACITY, int veclen, typename T, typename value_t, typename distLambda, bool GREATER>
+template <int Capacity, int Veclen, typename T, typename value_t, typename distLambda, bool GREATER>
 __global__ void interleaved_scan(
   const T* queries,        // Input: Query Vector; [batch_size, dim]
   uint32_t* coarse_index,  // Record the cluster(list) id; [batch_size,nprobe]
@@ -784,7 +747,7 @@ __global__ void interleaved_scan(
 
 #else
   extern __shared__ __align__(256) uint8_t smem_ext[];
-  topk::block_sort<topk::warp_sort_filtered, CAPACITY, !GREATER, float, size_t> queue(k, smem_ext);
+  topk::block_sort<topk::warp_sort_filtered, Capacity, !GREATER, float, size_t> queue(k, smem_ext);
 #endif
 
   using align_warp = Pow2<WarpSize>;
@@ -805,13 +768,13 @@ __global__ void interleaved_scan(
   __shared__ T queryShared[queryShmemSize];
 
   int shLoadDim = (dim < queryShmemSize) ? dim : queryShmemSize;
-  shLoadDim     = shLoadDim / veclen;
+  shLoadDim     = shLoadDim / Veclen;
 
   for (int loadDim = threadIdx.x; loadDim < shLoadDim; loadDim += blockDim.x) {
-    queryLoadToShmem<T, veclen>(query, queryShared, loadDim);
+    queryLoadToShmem<T, Veclen>(query, queryShared, loadDim);
   }
   __syncthreads();
-  shLoadDim = (dim > queryShmemSize) ? (shLoadDim * veclen) : dimBlocks;
+  shLoadDim = (dim > queryShmemSize) ? (shLoadDim * Veclen) : dimBlocks;
 
   for (int probeId = blockIdx.x; probeId < nprobe; probeId += gridDim.x) {
     uint32_t listId = coarse_index[queryId * nprobe + probeId];  // The id of cluster(list)
@@ -843,14 +806,14 @@ __global__ void interleaved_scan(
       if (valid) {
         /// load query from shared mem
         for (int dBase = 0; dBase < shLoadDim; dBase += WarpSize) {  //
-          constexpr int kUnroll   = WarpSize / veclen;
-          constexpr int stride    = kUnroll * veclen;
+          constexpr int kUnroll   = WarpSize / Veclen;
+          constexpr int stride    = kUnroll * Veclen;
           constexpr int totalIter = WarpSize / stride;
 
           loadAndComputeDist<kUnroll,
                              wordsPerVectorBlockDim,
                              decltype(computeDist),
-                             veclen,
+                             Veclen,
                              T,
                              value_t>
             obj(dist, computeDist);
@@ -862,12 +825,12 @@ __global__ void interleaved_scan(
       }
 
       if (dim > queryShmemSize) {
-        constexpr int kUnroll = WarpSize / veclen;
+        constexpr int kUnroll = WarpSize / Veclen;
         ;
         loadAndComputeDist<kUnroll,
                            wordsPerVectorBlockDim,
                            decltype(computeDist),
-                           veclen,
+                           Veclen,
                            T,
                            value_t>
           obj(dist, computeDist);
@@ -881,8 +844,8 @@ __global__ void interleaved_scan(
         if (valid) {
           /// Remainder chunk = dim - dimBlocks
           for (int d = 0; d < dim - dimBlocks;
-               d += veclen, data += wordsPerVectorBlockDim * veclen) {
-            loadAndComputeDist<1, wordsPerVectorBlockDim, decltype(computeDist), veclen, T, value_t>
+               d += Veclen, data += wordsPerVectorBlockDim * Veclen) {
+            loadAndComputeDist<1, wordsPerVectorBlockDim, decltype(computeDist), Veclen, T, value_t>
               obj(dist, computeDist);
             obj.runLoadShmemCompute(data, queryShared, laneId, dimBlocks + d, 0);
           }  // end for d < dim - dimBlocks
@@ -939,38 +902,60 @@ dim3 launchConfigGenerator(uint32_t numQueries, uint32_t nprobe, int32_t sMemSiz
   return grid;
 }
 
-template <int capacity, int veclen, typename T, typename acc_type>
-void launch_interleaved_scan_kernel(
-  const T* queries,        // Input: Query Vector; [batch_size, dim]
-  uint32_t* coarse_index,  // Record the cluster(list) id; [batch_size,nprobe]
-  uint32_t* list_index,    // Record the id of vector for each cluster(list); [nrow]
-  void* list_data,         // Record the full value of vector for each cluster(list) interleaved;
-                           // [nrow, dim]
-  uint32_t* list_lengths,  // The number of vectors in each cluster(list); [nlist]
-  uint32_t* list_prefix_interleave,     // The start offset of each cluster(list) for
-                                        // list_index; [nlist]
-  raft::distance::DistanceType metric,  // Function to process the different metric
-  const uint32_t nprobe,
-  const uint32_t k,
-  const uint32_t dim,
-  size_t* neighbors,  // [batch_size, nprobe]
-  float* distances,   // [batch_size, nprobe]
-  const bool greater,
-  const uint32_t batch_size,
-  cudaStream_t stream,
-  uint32_t& gridDimX)
+template <int Capacity, int Veclen, bool Greater, typename T, typename AccT, typename Lambda>
+void launch_with_lambda(Lambda lambda,
+                        raft::distance::DistanceType metric,
+                        const T* queries,
+                        uint32_t* coarse_index,
+                        uint32_t* list_index,
+                        T* list_data,
+                        uint32_t* list_lengths,
+                        uint32_t* list_prefix_interleave,
+                        const uint32_t nprobe,
+                        const uint32_t k,
+                        const uint32_t dim,
+                        size_t* neighbors,
+                        float* distances,
+                        const uint32_t batch_size,
+                        uint32_t& gridDimX,
+                        rmm::cuda_stream_view stream)
 {
+  constexpr auto kKernel = interleaved_scan<Capacity, Veclen, T, AccT, Lambda, Greater>;
 #ifdef USE_FAISS
   int smem_size = 0;
 #else
-  int smem_size = raft::spatial::knn::detail::topk::calc_smem_size_for_block_wide<acc_type, size_t>(
+  int smem_size = raft::spatial::knn::detail::topk::calc_smem_size_for_block_wide<AccT, size_t>(
     utils::kNumWarps, k);
 #endif
 
+  dim3 grid_dim = launchConfigGenerator(batch_size, nprobe, smem_size, kKernel);
+  if (gridDimX == 0) {
+    gridDimX = grid_dim.x;
+    return;
+  }
+  dim3 block_dim(utils::kThreadPerBlock);
+  kKernel<<<grid_dim, block_dim, smem_size, stream>>>(queries,
+                                                      coarse_index,
+                                                      list_index,
+                                                      list_data,
+                                                      list_lengths,
+                                                      list_prefix_interleave,
+                                                      metric,
+                                                      lambda,
+                                                      nprobe,
+                                                      k,
+                                                      dim,
+                                                      neighbors,
+                                                      distances);
+}
+
+template <int Capacity, int Veclen, bool Greater, typename T, typename acc_type, typename... Args>
+void launch_interleaved_scan_kernel(raft::distance::DistanceType metric, Args&&... args)
+{
   // Accumulation inner product lambda
   auto inner_prod_lambda = [] __device__(acc_type & acc, acc_type & x, acc_type & y) {
     if constexpr ((std::is_same<T, int8_t>{}) || (std::is_same<T, uint8_t>{})) {
-      if constexpr (veclen == 1) {
+      if constexpr (Veclen == 1) {
         acc += x * y;
       } else {
         acc = dp4a(x, y, acc);
@@ -983,7 +968,7 @@ void launch_interleaved_scan_kernel(
   // Accumulation euclidean L2 lambda
   auto euclidean_lambda = [] __device__(acc_type & acc, acc_type & x, acc_type & y) {
     if constexpr ((std::is_same<T, uint8_t>{})) {
-      if constexpr (veclen == 1) {
+      if constexpr (Veclen == 1) {
         const acc_type diff = x - y;
         acc += diff * diff;
       } else {
@@ -991,7 +976,7 @@ void launch_interleaved_scan_kernel(
         acc                 = dp4a(diff, diff, acc);
       }
     } else if constexpr (std::is_same<T, int8_t>{}) {
-      if constexpr (veclen == 1) {
+      if constexpr (Veclen == 1) {
         const acc_type diff = x - y;
         acc += diff * diff;
       } else {
@@ -1004,114 +989,13 @@ void launch_interleaved_scan_kernel(
     }
   };
 
-  dim3 block_dim(utils::kThreadPerBlock);
-
-  if (greater) {
-    if (metric == raft::distance::DistanceType::L2Expanded ||
-        metric == raft::distance::DistanceType::L2Unexpanded) {
-      constexpr auto interleaved_scan_euclidean_greater =
-        interleaved_scan<capacity, veclen, T, acc_type, decltype(euclidean_lambda), true>;
-      if (gridDimX == 0) {
-        dim3 grid_dim =
-          launchConfigGenerator(batch_size, nprobe, smem_size, interleaved_scan_euclidean_greater);
-        gridDimX = grid_dim.x;
-        return;
-      }
-      dim3 grid_dim =
-        launchConfigGenerator(batch_size, nprobe, smem_size, interleaved_scan_euclidean_greater);
-      interleaved_scan_euclidean_greater<<<grid_dim, block_dim, smem_size, stream>>>(
-        queries,
-        coarse_index,
-        list_index,
-        (T*)list_data,
-        list_lengths,
-        list_prefix_interleave,
-        metric,
-        euclidean_lambda,
-        nprobe,
-        k,
-        dim,
-        neighbors,
-        distances);
-    } else {
-      constexpr auto interleaved_scan_inner_prod_greater =
-        interleaved_scan<capacity, veclen, T, acc_type, decltype(inner_prod_lambda), true>;
-      if (gridDimX == 0) {
-        dim3 grid_dim =
-          launchConfigGenerator(batch_size, nprobe, smem_size, interleaved_scan_inner_prod_greater);
-        gridDimX = grid_dim.x;
-        return;
-      }
-      dim3 grid_dim =
-        launchConfigGenerator(batch_size, nprobe, smem_size, interleaved_scan_inner_prod_greater);
-      interleaved_scan_inner_prod_greater<<<grid_dim, block_dim, smem_size, stream>>>(
-        queries,
-        coarse_index,
-        list_index,
-        (T*)list_data,
-        list_lengths,
-        list_prefix_interleave,
-        metric,
-        inner_prod_lambda,
-        nprobe,
-        k,
-        dim,
-        neighbors,
-        distances);
-    }
+  if (metric == raft::distance::DistanceType::L2Expanded ||
+      metric == raft::distance::DistanceType::L2Unexpanded) {
+    launch_with_lambda<Capacity, Veclen, Greater, T, acc_type, decltype(euclidean_lambda)>(
+      euclidean_lambda, metric, args...);
   } else {
-    if (metric == raft::distance::DistanceType::L2Expanded ||
-        metric == raft::distance::DistanceType::L2Unexpanded) {
-      constexpr auto interleaved_scan_euclidean_ngreater =
-        interleaved_scan<capacity, veclen, T, acc_type, decltype(euclidean_lambda), false>;
-      if (gridDimX == 0) {
-        dim3 grid_dim =
-          launchConfigGenerator(batch_size, nprobe, smem_size, interleaved_scan_euclidean_ngreater);
-        gridDimX = grid_dim.x;
-        return;
-      }
-      dim3 grid_dim =
-        launchConfigGenerator(batch_size, nprobe, smem_size, interleaved_scan_euclidean_ngreater);
-      interleaved_scan_euclidean_ngreater<<<grid_dim, block_dim, smem_size, stream>>>(
-        queries,
-        coarse_index,
-        list_index,
-        (T*)list_data,
-        list_lengths,
-        list_prefix_interleave,
-        metric,
-        euclidean_lambda,
-        nprobe,
-        k,
-        dim,
-        neighbors,
-        distances);
-    } else {
-      constexpr auto interleaved_scan_inner_prod_ngreater =
-        interleaved_scan<capacity, veclen, T, acc_type, decltype(inner_prod_lambda), false>;
-      if (gridDimX == 0) {
-        dim3 grid_dim = launchConfigGenerator(
-          batch_size, nprobe, smem_size, interleaved_scan_inner_prod_ngreater);
-        gridDimX = grid_dim.x;
-        return;
-      }
-      dim3 grid_dim =
-        launchConfigGenerator(batch_size, nprobe, smem_size, interleaved_scan_inner_prod_ngreater);
-      interleaved_scan_inner_prod_ngreater<<<grid_dim, block_dim, smem_size, stream>>>(
-        queries,
-        coarse_index,
-        list_index,
-        (T*)list_data,
-        list_lengths,
-        list_prefix_interleave,
-        metric,
-        inner_prod_lambda,
-        nprobe,
-        k,
-        dim,
-        neighbors,
-        distances);
-    }
+    launch_with_lambda<Capacity, Veclen, Greater, T, acc_type, decltype(inner_prod_lambda)>(
+      inner_prod_lambda, metric, args...);
   }
 }
 
@@ -1131,18 +1015,18 @@ struct select_interleaved_scan_kernel {
    * two parameters and ends with both values equal to 1.
    */
   template <typename... Args>
-  static inline void run(int capacity, int veclen, Args&&... args)
+  static inline void run(int capacity, int veclen, bool greater, Args&&... args)
   {
     if constexpr (Capacity > 1) {
       if (capacity * 2 <= Capacity) {
         return select_interleaved_scan_kernel<T, AccT, Capacity / 2, Veclen>::run(
-          capacity, veclen, args...);
+          capacity, veclen, greater, args...);
       }
     }
     if constexpr (Veclen > 1) {
       if (veclen * 2 <= Veclen) {
         return select_interleaved_scan_kernel<T, AccT, Capacity, Veclen / 2>::run(
-          capacity, veclen, args...);
+          capacity, veclen, greater, args...);
       }
     }
     RAFT_EXPECTS(capacity == Capacity,
@@ -1150,15 +1034,37 @@ struct select_interleaved_scan_kernel {
     RAFT_EXPECTS(
       veclen == Veclen,
       "Veclen must be power-of-two not bigger than the maximum allowed size for this data type.");
-    return launch_interleaved_scan_kernel<Capacity, Veclen, T, AccT>(args...);
+    if (greater) {
+      launch_interleaved_scan_kernel<Capacity, Veclen, true, T, AccT>(args...);
+    } else {
+      launch_interleaved_scan_kernel<Capacity, Veclen, false, T, AccT>(args...);
+    }
   }
 };
+
+// rmm::cuda_stream_view stream,
+// const T* queries,        // Input: Query Vector; [batch_size, dim]
+// uint32_t* coarse_index,  // Record the cluster(list) id; [batch_size,nprobe]
+// uint32_t* list_index,    // Record the id of vector for each cluster(list); [nrow]
+// T* list_data,            // Record the full value of vector for each cluster(list) interleaved;
+//                          // [nrow, dim]
+// uint32_t* list_lengths,  // The number of vectors in each cluster(list); [nlist]
+// uint32_t* list_prefix_interleave,     // The start offset of each cluster(list) for
+//                                       // list_index; [nlist]
+// raft::distance::DistanceType metric,  // Function to process the different metric
+// const uint32_t nprobe,
+// const uint32_t k,
+// const uint32_t dim,
+// size_t* neighbors,  // [batch_size, nprobe]
+// float* distances,   // [batch_size, nprobe]
+// const uint32_t batch_size,
+// uint32_t& gridDimX
 
 template <typename T, typename AccT>
 void ivfflat_interleaved_scan(const T* queries,                  //[batch_size, dim]
                               uint32_t* coarse_index,            //[batch_size,nprobe]
                               uint32_t* list_index,              // [nrow]
-                              void* list_data,                   //[nrow, dim]
+                              T* list_data,                      //[nrow, dim]
                               uint32_t* list_lengths,            // [nlist]
                               uint32_t* list_prefix_interleave,  // [nlist]
                               const raft::distance::DistanceType metric,
@@ -1168,7 +1074,7 @@ void ivfflat_interleaved_scan(const T* queries,                  //[batch_size, 
                               const uint32_t dim,
                               size_t* neighbors,  // [batch_size, nprobe, k]
                               float* distances,   // [batch_size, nprobe, k]
-                              cudaStream_t stream,
+                              rmm::cuda_stream_view stream,
                               const bool greater,
                               const int veclen,
                               uint32_t& gridDimX)
@@ -1176,25 +1082,22 @@ void ivfflat_interleaved_scan(const T* queries,                  //[batch_size, 
   const int capacity = raft::spatial::knn::detail::topk::calc_capacity(k);
   select_interleaved_scan_kernel<T, AccT>::run(capacity,
                                                veclen,
+                                               greater,
+                                               metric,
                                                queries,
                                                coarse_index,
                                                list_index,
                                                list_data,
                                                list_lengths,
                                                list_prefix_interleave,
-                                               metric,
                                                nprobe,
                                                k,
                                                dim,
                                                neighbors,
                                                distances,
-                                               greater,
                                                batch_size,
-                                               stream,
-                                               gridDimX);
+                                               gridDimX,
+                                               stream);
 }
 
-}  // namespace detail
-}  // namespace knn
-}  // namespace spatial
-}  // namespace raft
+}  // namespace raft::spatial::knn::detail
