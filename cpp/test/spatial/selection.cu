@@ -361,12 +361,14 @@ struct with_ref {
       std::vector<KeyT> dists(spec.input_len * spec.n_inputs);
 
       raft::handle_t handle;
-      auto s = handle.get_stream();
-      rmm::device_uvector<KeyT> dists_d(spec.input_len * spec.n_inputs, s);
-      raft::random::RngState r(42);
-      normal(handle, r, dists_d.data(), dists_d.size(), KeyT(10.0), KeyT(100.0));
-      update_host(dists.data(), dists_d.data(), dists_d.size(), s);
-      s.synchronize();
+      {
+        auto s = handle.get_stream();
+        rmm::device_uvector<KeyT> dists_d(spec.input_len * spec.n_inputs, s);
+        raft::random::RngState r(42);
+        normal(handle, r, dists_d.data(), dists_d.size(), KeyT(10.0), KeyT(100.0));
+        update_host(dists.data(), dists_d.data(), dists_d.size(), s);
+        s.synchronize();
+      }
 
       return std::make_tuple(spec, algo, SelectInOutComputed<KeyT, IdxT>(spec, RefAlgo, dists));
     }
