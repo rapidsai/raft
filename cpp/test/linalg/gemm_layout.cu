@@ -121,7 +121,7 @@ class GemmLayoutTest : public ::testing::TestWithParam<GemmLayoutInputs<T>> {
 };
 
 const std::vector<GemmLayoutInputs<float>> inputsf = {
-  {80, 70, 80, true, true, true, 76433ULL},
+  {80, 70, 80, true, true, true, 76430ULL},
   {80, 100, 40, true, true, false, 426646ULL},
   {20, 100, 20, true, false, true, 237703ULL},
   {100, 60, 30, true, false, false, 538004ULL},
