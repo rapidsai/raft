@@ -399,14 +399,14 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/include/raft/version_config.hpp
 include("${rapids-cmake-dir}/export/write_dependencies.cmake")
 
 set(raft_components distance nn)
-set(raft_install_comp "" "")
+set(raft_install_comp raft raft)
 if(TARGET raft_distance_lib)
   list(APPEND raft_components distance-lib)
-  list(APPEND raft_install_comp _distance)
+  list(APPEND raft_install_comp distance)
 endif()
 if(TARGET raft_nn_lib)
   list(APPEND raft_components nn-lib)
-  list(APPEND raft_install_comp _nn)
+  list(APPEND raft_install_comp nn)
 endif()
 
 foreach(comp install_comp IN ZIP_LISTS raft_components raft_install_comp)
