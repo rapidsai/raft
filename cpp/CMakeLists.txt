@@ -366,7 +366,7 @@ install(TARGETS raft_nn
 if(TARGET raft_distance_lib)
   install(TARGETS raft_distance_lib
           DESTINATION ${lib_dir}
-          COMPONENT raft_distance
+          COMPONENT distance
           EXPORT raft-distance-lib-exports)
   install(DIRECTORY include/raft_distance
           DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
@@ -375,7 +375,7 @@ endif()
 if(TARGET raft_nn_lib)
   install(TARGETS raft_nn_lib
           DESTINATION ${lib_dir}
-          COMPONENT raft_nn
+          COMPONENT nn
           EXPORT raft-nn-lib-exports)
 endif()
 
@@ -415,7 +415,7 @@ foreach(comp install_comp IN ZIP_LISTS raft_components raft_install_comp)
           FILE raft-${comp}-targets.cmake
           NAMESPACE raft::
           DESTINATION "${lib_dir}/cmake/raft"
-          COMPONENT raft${install_comp}
+          COMPONENT ${install_comp}
   )
   export(
           EXPORT raft-${comp}-exports
