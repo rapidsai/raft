@@ -405,7 +405,7 @@ if(TARGET raft_distance_lib)
   list(APPEND raft_install_comp _distance)
 endif()
 if(TARGET raft_nn_lib)
-  list(APPEND raft_components  nn-lib)
+  list(APPEND raft_components nn-lib)
   list(APPEND raft_install_comp _nn)
 endif()
 
