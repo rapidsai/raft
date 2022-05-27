@@ -266,7 +266,10 @@ if(RAFT_COMPILE_DIST_LIBRARY)
                POSITION_INDEPENDENT_CODE           ON
                INTERFACE_POSITION_INDEPENDENT_CODE ON)
 
-  target_link_libraries(raft_distance_lib PRIVATE raft::raft)
+  target_link_libraries(raft_distance_lib
+    PUBLIC raft::raft
+           cuco::cuco
+    )
   target_compile_options(raft_distance_lib
           PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
           "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
@@ -281,7 +284,6 @@ endif()
 
 target_link_libraries(raft_distance INTERFACE
     raft::raft
-    $<$<BOOL:${RAFT_ENABLE_cuco_DEPENDENCY}>:cuco::cuco>
     $<TARGET_NAME_IF_EXISTS:raft_distance_lib>
     $<TARGET_NAME_IF_EXISTS:raft::raft_distance_lib>
 )
@@ -321,7 +323,9 @@ if(RAFT_COMPILE_NN_LIBRARY)
                POSITION_INDEPENDENT_CODE           ON
                INTERFACE_POSITION_INDEPENDENT_CODE ON)
 
-  target_link_libraries(raft_nn_lib PUBLIC faiss::faiss PRIVATE raft::raft)
+  target_link_libraries(raft_nn_lib
+    PUBLIC faiss::faiss
+           raft::raft)
   target_compile_options(raft_nn_lib
           PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
           "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
@@ -335,7 +339,6 @@ endif()
 
 target_link_libraries(raft_nn INTERFACE
     raft::raft
-    $<$<BOOL:${RAFT_ENABLE_NN_DEPENDENCIES}>:faiss::faiss>
     $<TARGET_NAME_IF_EXISTS:raft_nn_lib>
     $<TARGET_NAME_IF_EXISTS:raft::raft_nn_lib>)
 
@@ -352,18 +355,18 @@ install(TARGETS raft
 
 install(TARGETS raft_distance
         DESTINATION ${lib_dir}
-        COMPONENT raft_distance
+        COMPONENT raft
         EXPORT raft-distance-exports)
 
 install(TARGETS raft_nn
         DESTINATION ${lib_dir}
-        COMPONENT raft_nn
+        COMPONENT raft
         EXPORT raft-nn-exports)
 
 if(TARGET raft_distance_lib)
   install(TARGETS raft_distance_lib
           DESTINATION ${lib_dir}
-          COMPONENT raft_distance
+          COMPONENT distance
           EXPORT raft-distance-lib-exports)
   install(DIRECTORY include/raft_distance
           DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
@@ -372,7 +375,7 @@ endif()
 if(TARGET raft_nn_lib)
   install(TARGETS raft_nn_lib
           DESTINATION ${lib_dir}
-          COMPONENT raft_nn
+          COMPONENT nn
           EXPORT raft-nn-lib-exports)
 endif()
 
@@ -389,6 +392,44 @@ install(FILES include/raft.hpp
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/include/raft/version_config.hpp
         COMPONENT raft
         DESTINATION include/raft)
+
+##############################################################################
+# - export/install optional components  --------------------------------------
+
+include("${rapids-cmake-dir}/export/write_dependencies.cmake")
+
+set(raft_components distance nn)
+set(raft_install_comp raft raft)
+if(TARGET raft_distance_lib)
+  list(APPEND raft_components distance-lib)
+  list(APPEND raft_install_comp distance)
+endif()
+if(TARGET raft_nn_lib)
+  list(APPEND raft_components nn-lib)
+  list(APPEND raft_install_comp nn)
+endif()
+
+foreach(comp install_comp IN ZIP_LISTS raft_components raft_install_comp)
+  install(
+          EXPORT raft-${comp}-exports
+          FILE raft-${comp}-targets.cmake
+          NAMESPACE raft::
+          DESTINATION "${lib_dir}/cmake/raft"
+          COMPONENT ${install_comp}
+  )
+  export(
+          EXPORT raft-${comp}-exports
+          FILE ${RAFT_BINARY_DIR}/raft-${comp}-targets.cmake
+          NAMESPACE raft::
+  )
+  rapids_export_write_dependencies(
+          BUILD raft-${comp}-exports "${PROJECT_BINARY_DIR}/raft-${comp}-dependencies.cmake"
+  )
+  rapids_export_write_dependencies(
+          INSTALL raft-${comp}-exports "${PROJECT_BINARY_DIR}/rapids-cmake/raft/export/${install_comp}/raft-${comp}-dependencies.cmake"
+  )
+
+endforeach()
 
 ##############################################################################
 # - install export -----------------------------------------------------------
@@ -457,44 +498,6 @@ raft_export(BUILD raft
         DOCUMENTATION doc_string
         NAMESPACE raft::
         FINAL_CODE_BLOCK code_string)
-
-##############################################################################
-# - export/install optional components  --------------------------------------
-
-include("${rapids-cmake-dir}/export/write_dependencies.cmake")
-
-set(raft_components distance nn)
-set(raft_install_comp distance nn)
-if(TARGET raft_distance_lib)
-  list(APPEND raft_components distance-lib)
-  list(APPEND raft_install_comp distance)
-endif()
-if(TARGET raft_nn_lib)
-  list(APPEND raft_components  nn-lib)
-  list(APPEND raft_install_comp nn)
-endif()
-
-foreach(comp install_comp IN ZIP_LISTS raft_components raft_install_comp)
-  install(
-          EXPORT raft-${comp}-exports
-          FILE raft-${comp}-targets.cmake
-          NAMESPACE raft::
-          DESTINATION "${lib_dir}/cmake/raft"
-          COMPONENT raft_${install_comp}
-  )
-  export(
-          EXPORT raft-${comp}-exports
-          FILE ${RAFT_BINARY_DIR}/raft-${comp}-targets.cmake
-          NAMESPACE raft::
-  )
-  rapids_export_write_dependencies(
-          BUILD raft-${comp}-exports "${PROJECT_BINARY_DIR}/raft-${comp}-dependencies.cmake"
-  )
-  rapids_export_write_dependencies(
-          INSTALL raft-${comp}-exports "${PROJECT_BINARY_DIR}/rapids-cmake/raft/export/${install_comp}/raft-${comp}-dependencies.cmake"
-  )
-
-endforeach()
 
 ##############################################################################
 # - build test executable ----------------------------------------------------
