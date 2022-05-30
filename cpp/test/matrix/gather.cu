@@ -16,9 +16,8 @@
 
 #include "test_utils.h"
 #include <gtest/gtest.h>
+#include <raft/core/cudart_utils.hpp>
 #include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
-#include <raft/interruptible.hpp>
 #include <raft/matrix/gather.cuh>
 #include <raft/random/rng.cuh>
 #include <rmm/device_uvector.hpp>
@@ -69,14 +68,20 @@ struct GatherInputs {
 template <typename MatrixT, typename MapT>
 class GatherTest : public ::testing::TestWithParam<GatherInputs> {
  protected:
-  GatherTest() : d_in(0, stream), d_out_exp(0, stream), d_out_act(0, stream), d_map(0, stream) {}
+  GatherTest()
+    : stream(handle.get_stream()),
+      d_in(0, stream),
+      d_out_exp(0, stream),
+      d_out_act(0, stream),
+      d_map(0, stream)
+  {
+  }
 
   void SetUp() override
   {
     params = ::testing::TestWithParam<GatherInputs>::GetParam();
-    raft::random::Rng r(params.seed);
-    raft::random::Rng r_int(params.seed);
-    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
+    raft::random::RngState r(params.seed);
+    raft::random::RngState r_int(params.seed);
 
     uint32_t nrows      = params.nrows;
     uint32_t ncols      = params.ncols;
@@ -86,13 +91,13 @@ class GatherTest : public ::testing::TestWithParam<GatherInputs> {
     // input matrix setup
     d_in.resize(nrows * ncols, stream);
     h_in.resize(nrows * ncols);
-    r.uniform(d_in.data(), len, MatrixT(-1.0), MatrixT(1.0), stream);
+    raft::random::uniform(handle, r, d_in.data(), len, MatrixT(-1.0), MatrixT(1.0));
     raft::update_host(h_in.data(), d_in.data(), len, stream);
 
     // map setup
     d_map.resize(map_length, stream);
     h_map.resize(map_length);
-    r_int.uniformInt(d_map.data(), map_length, (MapT)0, nrows, stream);
+    raft::random::uniformInt(handle, r_int, d_map.data(), map_length, (MapT)0, nrows);
     raft::update_host(h_map.data(), d_map.data(), map_length, stream);
 
     // expected and actual output matrix setup
@@ -107,12 +112,12 @@ class GatherTest : public ::testing::TestWithParam<GatherInputs> {
     // launch device version of the kernel
     gatherLaunch(d_in.data(), ncols, nrows, d_map.data(), map_length, d_out_act.data(), stream);
 
-    raft::interruptible::synchronize(stream);
+    handle.sync_stream(stream);
   }
-  void TearDown() override { RAFT_CUDA_TRY(cudaStreamDestroy(stream)); }
 
  protected:
-  cudaStream_t stream = 0;
+  cudaStream_t stream;
+  raft::handle_t handle;
   GatherInputs params;
   std::vector<MatrixT> h_in, h_out;
   std::vector<MapT> h_map;

@@ -17,16 +17,16 @@
 #include "../test_utils.h"
 #include <gtest/gtest.h>
 #include <optional>
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
-#include <raft/handle.hpp>
-#include <rmm/device_uvector.hpp>
 #include <test_utils.h>
 #include <vector>
 
 #include <raft/cluster/kmeans.cuh>
+#include <raft/core/cudart_utils.hpp>
+#include <raft/core/handle.hpp>
+#include <raft/cuda_utils.cuh>
 #include <raft/random/make_blobs.cuh>
 #include <raft/stats/adjusted_rand_index.cuh>
+#include <rmm/device_uvector.hpp>
 #include <thrust/fill.h>
 
 namespace raft {
@@ -44,7 +44,8 @@ template <typename T>
 class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
  protected:
   KmeansTest()
-    : d_labels(0, stream),
+    : stream(handle.get_stream()),
+      d_labels(0, stream),
       d_labels_ref(0, stream),
       d_centroids(0, stream),
       d_sample_weight(0, stream)
@@ -53,7 +54,6 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
 
   void basicTest()
   {
-    raft::handle_t handle;
     testparams = ::testing::TestWithParam<KmeansInputs<T>>::GetParam();
 
     int n_samples              = testparams.n_row;
@@ -64,7 +64,6 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
     params.rng_state.seed      = 1;
     params.oversampling_factor = 0;
 
-    auto stream = handle.get_stream();
     auto X      = raft::make_device_matrix<T>(n_samples, n_features, stream);
     auto labels = raft::make_device_vector<int>(n_samples, stream);
 
@@ -136,7 +135,8 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
   void SetUp() override { basicTest(); }
 
  protected:
-  cudaStream_t stream = 0;
+  raft::handle_t handle;
+  cudaStream_t stream;
   KmeansInputs<T> testparams;
   rmm::device_uvector<int> d_labels;
   rmm::device_uvector<int> d_labels_ref;

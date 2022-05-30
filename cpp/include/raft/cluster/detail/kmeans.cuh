@@ -23,25 +23,23 @@
 #include <random>
 
 #include <cuda.h>
-#include <thrust/equal.h>
-#include <thrust/execution_policy.h>
 #include <thrust/fill.h>
-#include <thrust/for_each.h>
-#include <thrust/scan.h>
+#include <thrust/transform.h>
 
 #include <raft/cluster/detail/kmeans_helper.cuh>
 #include <raft/cluster/kmeans_params.hpp>
+#include <raft/core/cudart_utils.hpp>
+#include <raft/core/handle.hpp>
 #include <raft/core/logger.hpp>
+#include <raft/core/mdarray.hpp>
 #include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
 #include <raft/distance/distance_type.hpp>
-#include <raft/handle.hpp>
+#include <raft/linalg/binary_op.cuh>
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/linalg/reduce_cols_by_key.cuh>
 #include <raft/linalg/reduce_rows_by_key.cuh>
-#include <raft/mdarray.hpp>
 #include <raft/random/rng.cuh>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
@@ -473,6 +471,7 @@ void kmeans_fit_main(const raft::handle_t& handle,
                                               workspace,
                                               metric);
 
+  // TODO: add different templates for InType of binaryOp to avoid thrust transform
   thrust::transform(handle.get_thrust_policy(),
                     minClusterAndDistance.data(),
                     minClusterAndDistance.data() + minClusterAndDistance.size(),
@@ -958,6 +957,7 @@ void kmeans_predict(handle_t const& handle,
 
   // calculate cluster cost phi_x(C)
   rmm::device_scalar<cub::KeyValuePair<IndexT, DataT>> clusterCostD(stream);
+  // TODO: add different templates for InType of binaryOp to avoid thrust transform
   thrust::transform(handle.get_thrust_policy(),
                     minClusterAndDistance.data(),
                     minClusterAndDistance.data() + minClusterAndDistance.size(),
