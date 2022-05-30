@@ -34,7 +34,6 @@
 #include <raft/core/mdarray.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/distance/distance_type.hpp>
-#include <raft/linalg/binary_op.cuh>
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/norm.cuh>
