@@ -209,7 +209,7 @@ function(raft_export type project_name)
       set(scratch_dir "${PROJECT_BINARY_DIR}/rapids-cmake/${project_name}/export/${comp}/")
       file(MAKE_DIRECTORY "${scratch_dir}")
       install(DIRECTORY "${scratch_dir}" DESTINATION "${install_location}"
-        COMPONENT raft_${comp})
+        COMPONENT ${comp})
     endforeach()
 
   else()

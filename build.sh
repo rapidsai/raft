@@ -166,6 +166,7 @@ fi
 if hasArg tests || (( ${NUMARGS} == 0 )); then
     BUILD_TESTS=ON
     ENABLE_NN_DEPENDENCIES=ON
+    COMPILE_NN_LIBRARY=ON
     CMAKE_TARGET="${CMAKE_TARGET};test_raft"
 fi
 
