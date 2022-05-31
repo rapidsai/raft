@@ -269,7 +269,9 @@ const std::vector<AnnIvfFlatInputs> inputs = {
   {100, 10000, 16, 10, 20, 512, raft::distance::DistanceType::InnerProduct},
   {20, 100000, 16, 10, 20, 1024, raft::distance::DistanceType::InnerProduct},
   {1000, 100000, 16, 10, 20, 1024, raft::distance::DistanceType::InnerProduct},
-  {10000, 131072, 8, 10, 50, 1024, raft::distance::DistanceType::InnerProduct}};
+  {10000, 131072, 8, 10, 50, 1024, raft::distance::DistanceType::InnerProduct},
+
+  {1000, 10000, 4096, 20, 50, 1024, raft::distance::DistanceType::InnerProduct}};
 
 typedef AnnIVFFlatTest<float, float> AnnIVFFlatTestF;
 TEST_P(AnnIVFFlatTestF, AnnIVFFlat) { this->testIVFFlat(false); }
