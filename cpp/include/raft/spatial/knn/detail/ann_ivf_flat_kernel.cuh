@@ -720,19 +720,20 @@ struct loadAndComputeDist<kUnroll, wordsPerVectorBlockDim, Lambda, 1, int8_t, in
  * query_smem_elems must be multiple of WarpSize * Veclen
  */
 template <int Capacity, int Veclen, bool Greater, typename T, typename AccT, typename Lambda>
-__global__ void interleaved_scan_kernel(Lambda compute_dist,
-                                        const uint32_t query_smem_elems,
-                                        const T* queries,
-                                        const uint32_t* coarse_index,
-                                        const uint32_t* list_index,
-                                        const T* list_data,
-                                        const uint32_t* list_lengths,
-                                        const uint32_t* list_prefix_interleave,
-                                        const uint32_t nprobe,
-                                        const uint32_t k,
-                                        const uint32_t dim,
-                                        size_t* neighbors,
-                                        float* distances)
+__global__ void __launch_bounds__(utils::kThreadPerBlock)
+  interleaved_scan_kernel(Lambda compute_dist,
+                          const uint32_t query_smem_elems,
+                          const T* queries,
+                          const uint32_t* coarse_index,
+                          const uint32_t* list_index,
+                          const T* list_data,
+                          const uint32_t* list_lengths,
+                          const uint32_t* list_prefix_interleave,
+                          const uint32_t nprobe,
+                          const uint32_t k,
+                          const uint32_t dim,
+                          size_t* neighbors,
+                          float* distances)
 {
   extern __shared__ __align__(256) uint8_t interleaved_scan_kernel_smem[];
   // Using shared memory for the (part of the) query;
@@ -920,8 +921,9 @@ void launch_kernel(Lambda lambda,
     std::min<int>(max_query_smem / sizeof(T), Pow2<Veclen * WarpSize>::roundUp(dim));
   int smem_size = query_smem_elems * sizeof(T);
 #ifndef USE_FAISS
+  constexpr int kSubwarpSize = std::min<int>(Capacity, WarpSize);
   smem_size += raft::spatial::knn::detail::topk::calc_smem_size_for_block_wide<AccT, size_t>(
-    utils::kNumWarps, k);
+    utils::kThreadPerBlock / kSubwarpSize, k);
 #endif
 
   // power-of-two less than cuda limit (for better addr alignment)
