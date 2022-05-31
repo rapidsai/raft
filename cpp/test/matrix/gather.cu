@@ -70,6 +70,7 @@ class GatherTest : public ::testing::TestWithParam<GatherInputs> {
  protected:
   GatherTest()
     : stream(handle.get_stream()),
+      params(::testing::TestWithParam<GatherInputs>::GetParam()),
       d_in(0, stream),
       d_out_exp(0, stream),
       d_out_act(0, stream),
@@ -79,7 +80,6 @@ class GatherTest : public ::testing::TestWithParam<GatherInputs> {
 
   void SetUp() override
   {
-    params = ::testing::TestWithParam<GatherInputs>::GetParam();
     raft::random::RngState r(params.seed);
     raft::random::RngState r_int(params.seed);
 
@@ -116,8 +116,8 @@ class GatherTest : public ::testing::TestWithParam<GatherInputs> {
   }
 
  protected:
-  cudaStream_t stream;
   raft::handle_t handle;
+  cudaStream_t stream = 0;
   GatherInputs params;
   std::vector<MatrixT> h_in, h_out;
   std::vector<MapT> h_map;
