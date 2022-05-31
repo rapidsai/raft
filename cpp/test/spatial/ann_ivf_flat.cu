@@ -68,6 +68,7 @@ testing::AssertionResult devArrMatchKnnPair(const T* expected_idx,
                                             size_t rows,
                                             size_t cols,
                                             const DistT eps,
+                                            double min_recall,
                                             cudaStream_t stream = 0)
 {
   size_t size = rows * cols;
@@ -107,6 +108,12 @@ testing::AssertionResult devArrMatchKnnPair(const T* expected_idx,
     }
   }
   std::cout << "Recall = " << match_count << "/" << rows * cols << std::endl;
+  double actual_recall = static_cast<double>(match_count) / static_cast<double>(rows * cols);
+  if (actual_recall < min_recall - eps) {
+    return testing::AssertionFailure()
+           << "actual recall (" << actual_recall
+           << ") is smaller than the minimum expected recall (" << min_recall << ").";
+  }
   return testing::AssertionSuccess();
 }
 
@@ -207,6 +214,9 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs> {
                       search_queries.data(),
                       num_queries);
     handle_.sync_stream(stream_);
+
+    // unless something is really wrong with clustering, this could serve as a lower bound on recall
+    double min_recall = static_cast<double>(nprobe_) / static_cast<double>(nlist_);
     // verify.
     devArrMatchKnnPair(faiss_indices_.data(),
                        raft_indices_.data(),
@@ -215,6 +225,7 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs> {
                        num_queries,
                        k_,
                        float(0.001),
+                       min_recall,
                        stream_);
   }
 
