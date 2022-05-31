@@ -23,6 +23,7 @@
 #include "topk/warpsort_topk.cuh"
 
 #include <raft/common/device_loads_stores.cuh>
+#include <raft/core/logger.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/distance/distance.cuh>
@@ -37,6 +38,14 @@
 
 namespace raft::spatial::knn::detail {
 
+/**
+ * @brief Copy Veclen elements of type T from `query` to `queryShared` at position `loadDim *
+ * Veclen`.
+ *
+ * @param[in] query a pointer to a device global memory
+ * @param[out] queryShared a pointer to a device shared memory
+ * @param loadDim position at which to start copying elements.
+ */
 template <typename T, int Veclen>
 __device__ __forceinline__ void queryLoadToShmem(const T* const& query,
                                                  T* queryShared,
@@ -752,21 +761,24 @@ __global__ void interleaved_scan_kernel(Lambda compute_dist,
   auto query                           = queries + queryId * dim;
   constexpr int wordsPerVectorBlockDim = WarpSize;
 
-  // int wordsPerVectorBlock = wordsPerVectorBlockDim * dim;
-  const int dimBlocks = align_warp::roundDown(dim);
+  // How many full warps needed to compute the distance (without remainder)
+  const int full_warps_along_dim = align_warp::roundDown(dim);
 
+  // Using shared memory for the query;
+  // This allows to save on global memory bandwidth when reading index and query
+  // data at the same time.
   // This should be multiple of warpSize = 32
   constexpr uint32_t queryShmemSize = 2048;
   __shared__ T queryShared[queryShmemSize];
 
   int shLoadDim = (dim < queryShmemSize) ? dim : queryShmemSize;
-  shLoadDim     = shLoadDim / Veclen;
 
-  for (int loadDim = threadIdx.x; loadDim < shLoadDim; loadDim += blockDim.x) {
+  // load the query data from global to shared memory
+  for (int loadDim = threadIdx.x; loadDim * Veclen < shLoadDim; loadDim += blockDim.x) {
     queryLoadToShmem<T, Veclen>(query, queryShared, loadDim);
   }
   __syncthreads();
-  shLoadDim = (dim > queryShmemSize) ? (shLoadDim * Veclen) : dimBlocks;
+  shLoadDim = (dim > queryShmemSize) ? shLoadDim : full_warps_along_dim;
 
   // Every CUDA block scans one cluster at a time.
   for (int probeId = blockIdx.x; probeId < nprobe; probeId += gridDim.x) {
@@ -817,7 +829,7 @@ __global__ void interleaved_scan_kernel(Lambda compute_dist,
           for (int i = 0; i < totalIter; ++i, data += stride * wordsPerVectorBlockDim) {
             obj.runLoadShmemCompute(data, queryShared, laneId, dBase, i);
           }  // end for i < WarpSize / kUnroll
-        }    // end for dBase < dimBlocks
+        }    // end for dBase < full_warps_along_dim
       }
 
       if (dim > queryShmemSize) {
@@ -825,21 +837,21 @@ __global__ void interleaved_scan_kernel(Lambda compute_dist,
         ;
         loadAndComputeDist<kUnroll, wordsPerVectorBlockDim, decltype(compute_dist), Veclen, T, AccT>
           obj(dist, compute_dist);
-        for (int dBase = shLoadDim; dBase < dimBlocks; dBase += WarpSize) {  //
+        for (int dBase = shLoadDim; dBase < full_warps_along_dim; dBase += WarpSize) {  //
           obj.runLoadShflAndCompute(data, query, dBase, laneId);
         }
-        // Remainder chunk = dim - dimBlocks
-        obj.runLoadShflAndComputeRemainder(data, query, laneId, dim, dimBlocks);
-        // end for d < dim - dimBlocks
+        // Remainder chunk = dim - full_warps_along_dim
+        obj.runLoadShflAndComputeRemainder(data, query, laneId, dim, full_warps_along_dim);
+        // end for d < dim - full_warps_along_dim
       } else {
         if (valid) {
-          /// Remainder chunk = dim - dimBlocks
-          for (int d = 0; d < dim - dimBlocks;
+          /// Remainder chunk = dim - full_warps_along_dim
+          for (int d = 0; d < dim - full_warps_along_dim;
                d += Veclen, data += wordsPerVectorBlockDim * Veclen) {
             loadAndComputeDist<1, wordsPerVectorBlockDim, decltype(compute_dist), Veclen, T, AccT>
               obj(dist, compute_dist);
-            obj.runLoadShmemCompute(data, queryShared, laneId, dimBlocks + d, 0);
-          }  // end for d < dim - dimBlocks
+            obj.runLoadShmemCompute(data, queryShared, laneId, full_warps_along_dim + d, 0);
+          }  // end for d < dim - full_warps_along_dim
         }
       }
 
@@ -864,33 +876,23 @@ __global__ void interleaved_scan_kernel(Lambda compute_dist,
 #endif
 }  // end kernel
 
+/**
+ *  Configure the gridDim.x to maximize GPU occupancy, but reduce the output size
+ */
 template <typename T>
-dim3 configure_launch(uint32_t numQueries, uint32_t nprobe, int32_t sMemSize, T func)
+uint32_t configure_launch_x(uint32_t numQueries, uint32_t nprobe, int32_t sMemSize, T func)
 {
-  int devId;
-  RAFT_CUDA_TRY(cudaGetDevice(&devId));
-  int numSMs;
-  RAFT_CUDA_TRY(cudaDeviceGetAttribute(&numSMs, cudaDevAttrMultiProcessorCount, devId));
-  int numBlocksPerSm = 0;
-  dim3 grid;
+  int dev_id;
+  RAFT_CUDA_TRY(cudaGetDevice(&dev_id));
+  int num_sms;
+  RAFT_CUDA_TRY(cudaDeviceGetAttribute(&num_sms, cudaDevAttrMultiProcessorCount, dev_id));
+  int num_blocks_per_sm = 0;
   RAFT_CUDA_TRY(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
-    &numBlocksPerSm, func, utils::kThreadPerBlock, sMemSize));
+    &num_blocks_per_sm, func, utils::kThreadPerBlock, sMemSize));
 
-  std::size_t minGridSize = numSMs * numBlocksPerSm;
-  std::size_t yChunks     = numQueries;
-  std::size_t xChunks     = nprobe;
-  // grid.y                  = yChunks > minGridSize ? minGridSize : yChunks;
-  grid.y = yChunks;
-  grid.x = (minGridSize - grid.y) <= 0 ? 1 : xChunks;
-  if (grid.x != 1) {
-    std::size_t i = 1;
-    while (grid.y * i < minGridSize) {
-      i++;
-    }
-    grid.x = i >= xChunks ? xChunks : i;
-  }
-
-  return grid;
+  size_t min_grid_size = num_sms * num_blocks_per_sm;
+  size_t min_grid_x    = ceildiv<size_t>(min_grid_size, numQueries);
+  return min_grid_x > nprobe ? nprobe : static_cast<uint32_t>(min_grid_x);
 }
 
 template <int Capacity, int Veclen, bool Greater, typename T, typename AccT, typename Lambda>
@@ -907,7 +909,7 @@ void launch_kernel(Lambda lambda,
                    size_t* neighbors,
                    float* distances,
                    const uint32_t batch_size,
-                   uint32_t& gridDimX,
+                   uint32_t& grid_dim_x,
                    rmm::cuda_stream_view stream)
 {
   constexpr auto kKernel = interleaved_scan_kernel<Capacity, Veclen, Greater, T, AccT, Lambda>;
@@ -918,24 +920,40 @@ void launch_kernel(Lambda lambda,
     utils::kNumWarps, k);
 #endif
 
-  dim3 grid_dim = configure_launch(batch_size, nprobe, smem_size, kKernel);
-  if (gridDimX == 0) {
-    gridDimX = grid_dim.x;
+  // power-of-two less than cuda limit (for better addr alignment)
+  constexpr uint32_t kMaxGridY = 32768;
+
+  if (grid_dim_x == 0) {
+    grid_dim_x = configure_launch_x(std::min(kMaxGridY, batch_size), nprobe, smem_size, kKernel);
     return;
   }
-  dim3 block_dim(utils::kThreadPerBlock);
-  kKernel<<<grid_dim, block_dim, smem_size, stream>>>(lambda,
-                                                      queries,
-                                                      coarse_index,
-                                                      list_index,
-                                                      list_data,
-                                                      list_lengths,
-                                                      list_prefix_interleave,
-                                                      nprobe,
-                                                      k,
-                                                      dim,
-                                                      neighbors,
-                                                      distances);
+
+  for (uint32_t query_offset = 0; query_offset < batch_size; query_offset += kMaxGridY) {
+    uint32_t grid_dim_y = std::min<uint32_t>(kMaxGridY, batch_size - query_offset);
+    dim3 grid_dim(grid_dim_x, grid_dim_y, 1);
+    dim3 block_dim(utils::kThreadPerBlock);
+    RAFT_LOG_TRACE(
+      "Launching the ivf-flat interleaved_scan_kernel (%d, %d, 1) x (%d, 1, 1), nprobe = %d",
+      grid_dim.x,
+      grid_dim.y,
+      block_dim.x,
+      nprobe);
+    kKernel<<<grid_dim, block_dim, smem_size, stream>>>(lambda,
+                                                        queries,
+                                                        coarse_index,
+                                                        list_index,
+                                                        list_data,
+                                                        list_lengths,
+                                                        list_prefix_interleave,
+                                                        nprobe,
+                                                        k,
+                                                        dim,
+                                                        neighbors,
+                                                        distances);
+    queries += grid_dim_y * dim;
+    neighbors += grid_dim_y * grid_dim_x * k;
+    distances += grid_dim_y * grid_dim_x * k;
+  }
 }
 
 template <int Veclen, typename T, typename AccT>
@@ -1031,7 +1049,9 @@ struct select_interleaved_scan_kernel {
       }
     }
     RAFT_EXPECTS(capacity == Capacity,
-                 "Capacity must be power-of-two not bigger than the maximum allowed size.");
+                 "Capacity must be power-of-two not bigger than the maximum allowed size "
+                 "topk::kMaxCapacity (%d).",
+                 topk::kMaxCapacity);
     RAFT_EXPECTS(
       veclen == Veclen,
       "Veclen must be power-of-two not bigger than the maximum allowed size for this data type.");
@@ -1058,18 +1078,20 @@ struct select_interleaved_scan_kernel {
  * [nlist]
  * @param[in] metric type of the measured distance
  * @param[in] nprobe number of nearest clusters to query
- * @param[in] k number of nearest neighbors
+ * @param[in] k number of nearest neighbors.
+ *            NB: the maximum value of `k` is limited statically by `topk::kMaxCapacity`.
  * @param[in] batch_size number of query vectors
  * @param[in] dim dimensionality of search data and query vectors
  * @param[out] neighbors device pointer to the result indices for each query and cluster
- * [batch_size, nprobe, k]
+ * [batch_size, grid_dim_x, k]
  * @param[out] distances device pointer to the result distances for each query and cluster
- * [batch_size, nprobe, k]
+ * [batch_size, grid_dim_x, k]
  * @param[in] stream
  * @param[in] greater whether to select nearest (false) or furthest (true) points w.r.t. the given
  * metric.
  * @param[in] veclen (optimization parameters) size of the vector for vectorized processing
- * @param[inout] gridDimX number of blocks launched across all nprobe clusters.
+ * @param[inout] grid_dim_x number of blocks launched across all nprobe clusters;
+ *               (one block processes one or more probes, hence: 1 <= grid_dim_x <= nprobe)
  */
 template <typename T, typename AccT>
 void ivfflat_interleaved_scan(const T* queries,
@@ -1088,7 +1110,7 @@ void ivfflat_interleaved_scan(const T* queries,
                               rmm::cuda_stream_view stream,
                               const bool greater,
                               const int veclen,
-                              uint32_t& gridDimX)
+                              uint32_t& grid_dim_x)
 {
   const int capacity = raft::spatial::knn::detail::topk::calc_capacity(k);
   select_interleaved_scan_kernel<T, AccT>::run(capacity,
@@ -1107,7 +1129,7 @@ void ivfflat_interleaved_scan(const T* queries,
                                                neighbors,
                                                distances,
                                                batch_size,
-                                               gridDimX,
+                                               grid_dim_x,
                                                stream);
 }
 

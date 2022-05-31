@@ -123,7 +123,6 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs> {
       faiss_indices_(params_.num_queries * params_.k, stream_),
       faiss_distances_(params_.num_queries * params_.k, stream_)
   {
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream_));
     RAFT_CUDA_TRY(cudaMemsetAsync(database.data(), 0, database.size() * sizeof(DataT), stream_));
     RAFT_CUDA_TRY(
       cudaMemsetAsync(search_queries.data(), 0, search_queries.size() * sizeof(DataT), stream_));
@@ -135,13 +134,12 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs> {
       cudaMemsetAsync(faiss_indices_.data(), 0, faiss_indices_.size() * sizeof(int64_t), stream_));
     RAFT_CUDA_TRY(
       cudaMemsetAsync(faiss_distances_.data(), 0, faiss_distances_.size() * sizeof(T), stream_));
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream_));
+    handle_.sync_stream(stream_);
   }
 
  protected:
   void testIVFFlat(bool is8bit)
   {
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream_));
     if constexpr (std::is_same<DataT, uint8_t>{}) {
       naiveBfKnn<uint8_t, uint32_t>(faiss_distances_.data(),
                                     faiss_indices_.data(),
@@ -182,7 +180,7 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs> {
                                2.0f,
                                stream_);
     }
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream_));
+    handle_.sync_stream(stream_);
 
     raft::spatial::knn::IVFFlatParam ivfParams;
     ivfParams.nprobe = nprobe_;
@@ -199,7 +197,7 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs> {
                            database.data(),
                            num_db_vecs,
                            dim);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream_));
+    handle_.sync_stream(stream_);
     approx_knn_search(handle_,
                       raft_distances_.data(),
                       raft_indices_.data(),
@@ -208,7 +206,7 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs> {
                       k_,
                       search_queries.data(),
                       num_queries);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream_));
+    handle_.sync_stream(stream_);
     // verify.
     devArrMatchKnnPair(faiss_indices_.data(),
                        raft_indices_.data(),
@@ -218,12 +216,10 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs> {
                        k_,
                        float(0.001),
                        stream_);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream_));
   }
 
   void SetUp() override
   {
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream_));
     num_queries = params_.num_queries;
     num_db_vecs = params_.num_db_vecs;
     dim         = params_.dim;
@@ -241,7 +237,7 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs> {
       r.uniformInt(database.data(), num_db_vecs * dim, DataT(1), DataT(20), stream_);
       r.uniformInt(search_queries.data(), num_queries * dim, DataT(1), DataT(20), stream_);
     }
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream_));
+    handle_.sync_stream(stream_);
   }
 
  private:
@@ -280,7 +276,11 @@ const std::vector<AnnIvfFlatInputs> inputs = {
   {1000, 100000, 16, 10, 20, 1024, raft::distance::DistanceType::InnerProduct},
   {10000, 131072, 8, 10, 50, 1024, raft::distance::DistanceType::InnerProduct},
 
-  {1000, 10000, 4096, 20, 50, 1024, raft::distance::DistanceType::InnerProduct}};
+  {1000, 10000, 4096, 20, 50, 1024, raft::distance::DistanceType::InnerProduct},
+
+  {100000, 1024, 32, 10, 64, 64, raft::distance::DistanceType::InnerProduct},
+
+  {98306, 1024, 32, 10, 64, 64, raft::distance::DistanceType::InnerProduct}};
 
 typedef AnnIVFFlatTest<float, float> AnnIVFFlatTestF;
 TEST_P(AnnIVFFlatTestF, AnnIVFFlat) { this->testIVFFlat(false); }

@@ -603,6 +603,7 @@ cuivflStatus_t cuivflHandle<T>::cuivflSetSearchParameters(const uint32_t nprobe,
     search_mem_res.emplace(cur_memory_resource,
                            Pow2<256>::roundUp(max_batch * nprobe * max_k * 16));
   }
+
   return cuivflStatus_t::CUIVFL_STATUS_SUCCESS;
 }
 
