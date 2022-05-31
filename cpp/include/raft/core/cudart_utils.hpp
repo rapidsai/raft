@@ -35,8 +35,8 @@
 #include <execinfo.h>
 #include <iomanip>
 #include <iostream>
-#include <mutex>
 #include <memory>
+#include <mutex>
 
 ///@todo: enable once logging has been enabled in raft
 //#include "logger.hpp"
@@ -304,7 +304,8 @@ void print_device_vector(const char* variable_name,
                          OutStream& out)
 {
   auto host_mem = std::make_unique<T[]>(componentsCount);
-  CUDA_CHECK(cudaMemcpy(host_mem.get(), devMem, componentsCount * sizeof(T), cudaMemcpyDeviceToHost));
+  CUDA_CHECK(
+    cudaMemcpy(host_mem.get(), devMem, componentsCount * sizeof(T), cudaMemcpyDeviceToHost));
   print_host_vector(variable_name, host_mem.get(), componentsCount, out);
 }
 
