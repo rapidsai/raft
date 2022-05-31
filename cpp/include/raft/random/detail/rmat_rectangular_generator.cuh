@@ -50,7 +50,7 @@ __global__ void rmat_gen_kernel(IdxT* out, const ProbT* theta, IdxT r_scale, Idx
   }
   __syncthreads();
   IdxT src_id{0}, dst_id{0};
-  raft::random::PCGenerator gen{r.seed, r.base_subsequence, idx};
+  raft::random::PCGenerator gen{r.seed, r.base_subsequence + idx, 0};
   for (IdxT i = 0; i < max_scale; ++i) {
     auto a = s_theta[i * 4], ab = s_theta[i * 4 + 1], abc = s_theta[i * 4 + 2];
     ProbT val;
