@@ -39,70 +39,70 @@
 namespace raft::spatial::knn::detail {
 
 /**
- * @brief Copy Veclen elements of type T from `query` to `queryShared` at position `loadDim *
+ * @brief Copy Veclen elements of type T from `query` to `query_shared` at position `loadDim *
  * Veclen`.
  *
  * @param[in] query a pointer to a device global memory
- * @param[out] queryShared a pointer to a device shared memory
+ * @param[out] query_shared a pointer to a device shared memory
  * @param loadDim position at which to start copying elements.
  */
 template <typename T, int Veclen>
 __device__ __forceinline__ void queryLoadToShmem(const T* const& query,
-                                                 T* queryShared,
+                                                 T* query_shared,
                                                  const int loadDim)
 {
   T queryReg[Veclen];
   const int loadIndex = loadDim * Veclen;
   ldg(queryReg, query + loadIndex);
-  sts(&queryShared[loadIndex], queryReg);
+  sts(&query_shared[loadIndex], queryReg);
 }
 
 template <>
 __device__ __forceinline__ void queryLoadToShmem<uint8_t, 8>(const uint8_t* const& query,
-                                                             uint8_t* queryShared,
+                                                             uint8_t* query_shared,
                                                              const int loadDim)
 {
   constexpr int veclen = 2;  // 8 uint8_t
   uint32_t queryReg[veclen];
   const int loadIndex = loadDim * veclen;
   ldg(queryReg, reinterpret_cast<uint32_t const*>(query) + loadIndex);
-  sts(reinterpret_cast<uint32_t*>(queryShared) + loadIndex, queryReg);
+  sts(reinterpret_cast<uint32_t*>(query_shared) + loadIndex, queryReg);
 }
 
 template <>
 __device__ __forceinline__ void queryLoadToShmem<uint8_t, 16>(const uint8_t* const& query,
-                                                              uint8_t* queryShared,
+                                                              uint8_t* query_shared,
                                                               const int loadDim)
 {
   constexpr int veclen = 4;  // 16 uint8_t
   uint32_t queryReg[veclen];
   const int loadIndex = loadDim * veclen;
   ldg(queryReg, reinterpret_cast<uint32_t const*>(query) + loadIndex);
-  sts(reinterpret_cast<uint32_t*>(queryShared) + loadIndex, queryReg);
+  sts(reinterpret_cast<uint32_t*>(query_shared) + loadIndex, queryReg);
 }
 
 template <>
 __device__ __forceinline__ void queryLoadToShmem<int8_t, 8>(const int8_t* const& query,
-                                                            int8_t* queryShared,
+                                                            int8_t* query_shared,
                                                             const int loadDim)
 {
   constexpr int veclen = 2;  // 8 int8_t
   int32_t queryReg[veclen];
   const int loadIndex = loadDim * veclen;
   ldg(queryReg, reinterpret_cast<int32_t const*>(query) + loadIndex);
-  sts(reinterpret_cast<int32_t*>(queryShared) + loadIndex, queryReg);
+  sts(reinterpret_cast<int32_t*>(query_shared) + loadIndex, queryReg);
 }
 
 template <>
 __device__ __forceinline__ void queryLoadToShmem<int8_t, 16>(const int8_t* const& query,
-                                                             int8_t* queryShared,
+                                                             int8_t* query_shared,
                                                              const int loadDim)
 {
   constexpr int veclen = 4;  // 16 int8_t
   int32_t queryReg[veclen];
   const int loadIndex = loadDim * veclen;
   ldg(queryReg, reinterpret_cast<int32_t const*>(query) + loadIndex);
-  sts(reinterpret_cast<int32_t*>(queryShared) + loadIndex, queryReg);
+  sts(reinterpret_cast<int32_t*>(query_shared) + loadIndex, queryReg);
 }
 
 template <int kUnroll,
@@ -122,7 +122,7 @@ struct loadAndComputeDist {
 
   template <typename IdxT>
   __device__ __forceinline__ void runLoadShmemCompute(const T* const& data,
-                                                      const T* queryShared,
+                                                      const T* query_shared,
                                                       IdxT loadIndex,
                                                       IdxT baseShmemIndex,
                                                       IdxT iShmemIndex)
@@ -135,7 +135,7 @@ struct loadAndComputeDist {
     for (int j = 0; j < kUnroll; ++j) {
       ldg(encV[j], data + (loadIndex + j * wordsPerVectorBlockDim) * Veclen);
       const int d = shmemStride + j * Veclen;
-      lds(queryRegs[j], &queryShared[d]);
+      lds(queryRegs[j], &query_shared[d]);
 #pragma unroll
       for (int k = 0; k < Veclen; ++k) {
         compute_dist(dist, queryRegs[j][k], encV[j][k]);
@@ -206,7 +206,7 @@ struct loadAndComputeDist<kUnroll,
   }
 
   __device__ __forceinline__ void runLoadShmemCompute(const uint8_t* const& data,
-                                                      const uint8_t* queryShared,
+                                                      const uint8_t* query_shared,
                                                       int loadIndex,
                                                       int baseShmemIndex,
                                                       int iShmemIndex)
@@ -222,7 +222,7 @@ struct loadAndComputeDist<kUnroll,
           reinterpret_cast<unsigned const*>(data) + loadIndex +
             j * wordsPerVectorBlockDim * veclen_int);
       const int d = iShmemIndex * kUnroll + j * veclen_int;
-      lds(queryRegs[j], reinterpret_cast<unsigned const*>(queryShared + baseShmemIndex) + d);
+      lds(queryRegs[j], reinterpret_cast<unsigned const*>(query_shared + baseShmemIndex) + d);
 #pragma unroll
       for (int k = 0; k < veclen_int; k++) {
         compute_dist(dist, queryRegs[j][k], encV[j][k]);
@@ -294,7 +294,7 @@ struct loadAndComputeDist<kUnroll, wordsPerVectorBlockDim, Lambda, 4, uint8_t, u
   }
 
   __device__ __forceinline__ void runLoadShmemCompute(const uint8_t* const& data,
-                                                      const uint8_t* queryShared,
+                                                      const uint8_t* query_shared,
                                                       int loadIndex,
                                                       int baseShmemIndex,
                                                       int iShmemIndex)
@@ -306,7 +306,7 @@ struct loadAndComputeDist<kUnroll, wordsPerVectorBlockDim, Lambda, 4, uint8_t, u
     for (int j = 0; j < kUnroll; ++j) {
       encV[j]     = reinterpret_cast<unsigned const*>(data)[loadIndex + j * wordsPerVectorBlockDim];
       const int d = (iShmemIndex * kUnroll + j);
-      queryRegs[j] = reinterpret_cast<unsigned const*>(queryShared + baseShmemIndex)[d];
+      queryRegs[j] = reinterpret_cast<unsigned const*>(query_shared + baseShmemIndex)[d];
       compute_dist(dist, queryRegs[j], encV[j]);
     }
   }
@@ -362,7 +362,7 @@ struct loadAndComputeDist<kUnroll, wordsPerVectorBlockDim, Lambda, 2, uint8_t, u
   }
 
   __device__ __forceinline__ void runLoadShmemCompute(const uint8_t* const& data,
-                                                      const uint8_t* queryShared,
+                                                      const uint8_t* query_shared,
                                                       int loadIndex,
                                                       int baseShmemIndex,
                                                       int iShmemIndex)
@@ -375,7 +375,7 @@ struct loadAndComputeDist<kUnroll, wordsPerVectorBlockDim, Lambda, 2, uint8_t, u
       encV[j]     = reinterpret_cast<uint16_t const*>(data)[loadIndex + j * wordsPerVectorBlockDim];
       const int d = (iShmemIndex * kUnroll + j);
       queryRegs[j] = 0;
-      queryRegs[j] = reinterpret_cast<uint16_t const*>(queryShared + baseShmemIndex)[d];
+      queryRegs[j] = reinterpret_cast<uint16_t const*>(query_shared + baseShmemIndex)[d];
       compute_dist(dist, queryRegs[j], encV[j]);
     }
   }
@@ -434,7 +434,7 @@ struct loadAndComputeDist<kUnroll, wordsPerVectorBlockDim, Lambda, 1, uint8_t, u
   }
 
   __device__ __forceinline__ void runLoadShmemCompute(const uint8_t* const& data,
-                                                      const uint8_t* queryShared,
+                                                      const uint8_t* query_shared,
                                                       int loadIndex,
                                                       int baseShmemIndex,
                                                       int iShmemIndex)
@@ -445,7 +445,7 @@ struct loadAndComputeDist<kUnroll, wordsPerVectorBlockDim, Lambda, 1, uint8_t, u
     for (int j = 0; j < kUnroll; ++j) {
       encV[j]      = data[loadIndex + j * wordsPerVectorBlockDim];
       const int d  = (iShmemIndex * kUnroll + j);
-      queryRegs[j] = queryShared[baseShmemIndex + d];
+      queryRegs[j] = query_shared[baseShmemIndex + d];
       compute_dist(dist, queryRegs[j], encV[j]);
     }
   }
@@ -506,7 +506,7 @@ struct loadAndComputeDist<kUnroll, wordsPerVectorBlockDim, Lambda, int8_veclen, 
   }
 
   __device__ __forceinline__ void runLoadShmemCompute(const int8_t* const& data,
-                                                      const int8_t* queryShared,
+                                                      const int8_t* query_shared,
                                                       int loadIndex,
                                                       int baseShmemIndex,
                                                       int iShmemIndex)
@@ -521,7 +521,7 @@ struct loadAndComputeDist<kUnroll, wordsPerVectorBlockDim, Lambda, int8_veclen, 
           reinterpret_cast<int32_t const*>(data) +
             (loadIndex + j * wordsPerVectorBlockDim) * veclen_int);
       const int d = iShmemIndex * kUnroll + j * veclen_int;
-      lds(queryRegs[j], reinterpret_cast<int32_t const*>(queryShared + baseShmemIndex) + d);
+      lds(queryRegs[j], reinterpret_cast<int32_t const*>(query_shared + baseShmemIndex) + d);
 #pragma unroll
       for (int k = 0; k < veclen_int; k++) {
         compute_dist(dist, queryRegs[j][k], encV[j][k]);
@@ -587,7 +587,7 @@ struct loadAndComputeDist<kUnroll, wordsPerVectorBlockDim, Lambda, 2, int8_t, in
   {
   }
   __device__ __forceinline__ void runLoadShmemCompute(const int8_t* const& data,
-                                                      const int8_t* queryShared,
+                                                      const int8_t* query_shared,
                                                       int loadIndex,
                                                       int baseShmemIndex,
                                                       int iShmemIndex)
@@ -600,7 +600,7 @@ struct loadAndComputeDist<kUnroll, wordsPerVectorBlockDim, Lambda, 2, int8_t, in
       encV[j]     = reinterpret_cast<uint16_t const*>(data)[loadIndex + j * wordsPerVectorBlockDim];
       const int d = (iShmemIndex * kUnroll + j);
       queryRegs[j] = 0;
-      queryRegs[j] = reinterpret_cast<uint16_t const*>(queryShared + baseShmemIndex)[d];
+      queryRegs[j] = reinterpret_cast<uint16_t const*>(query_shared + baseShmemIndex)[d];
       compute_dist(dist, queryRegs[j], encV[j]);
     }
   }
@@ -655,7 +655,7 @@ struct loadAndComputeDist<kUnroll, wordsPerVectorBlockDim, Lambda, 1, int8_t, in
   }
 
   __device__ __forceinline__ void runLoadShmemCompute(const int8_t* const& data,
-                                                      const int8_t* queryShared,
+                                                      const int8_t* query_shared,
                                                       int loadIndex,
                                                       int baseShmemIndex,
                                                       int iShmemIndex)
@@ -669,7 +669,7 @@ struct loadAndComputeDist<kUnroll, wordsPerVectorBlockDim, Lambda, 1, int8_t, in
       encV[j]      = data[loadIndex + j * wordsPerVectorBlockDim];
       const int d  = (iShmemIndex * kUnroll + j);
       queryRegs[j] = 0;
-      queryRegs[j] = queryShared[baseShmemIndex + d];
+      queryRegs[j] = query_shared[baseShmemIndex + d];
       compute_dist(dist, queryRegs[j], encV[j]);
     }
   }
@@ -716,9 +716,12 @@ struct loadAndComputeDist<kUnroll, wordsPerVectorBlockDim, Lambda, 1, int8_t, in
 
 /**
  * See `ivfflat_interleaved_scan` for parameter docs.
+ *
+ * query_smem_elems must be multiple of WarpSize * Veclen
  */
 template <int Capacity, int Veclen, bool Greater, typename T, typename AccT, typename Lambda>
 __global__ void interleaved_scan_kernel(Lambda compute_dist,
+                                        const uint32_t query_smem_elems,
                                         const T* queries,
                                         const uint32_t* coarse_index,
                                         const uint32_t* list_index,
@@ -731,6 +734,12 @@ __global__ void interleaved_scan_kernel(Lambda compute_dist,
                                         size_t* neighbors,
                                         float* distances)
 {
+  extern __shared__ __align__(256) uint8_t interleaved_scan_kernel_smem[];
+  // Using shared memory for the (part of the) query;
+  // This allows to save on global memory bandwidth when reading index and query
+  // data at the same time.
+  // Its size is `query_smem_elems`.
+  T* query_shared = reinterpret_cast<T*>(interleaved_scan_kernel_smem);
 #ifdef USE_FAISS
   // temporary use of FAISS blockSelect for development purpose of k <= 32
   // for comparison purpose
@@ -748,8 +757,8 @@ __global__ void interleaved_scan_kernel(Lambda compute_dist,
       queue(identity, keyMax, smemK, smemV, k);
 
 #else
-  extern __shared__ __align__(256) uint8_t smem_ext[];
-  topk::block_sort<topk::warp_sort_filtered, Capacity, !Greater, float, size_t> queue(k, smem_ext);
+  topk::block_sort<topk::warp_sort_filtered, Capacity, !Greater, float, size_t> queue(
+    k, interleaved_scan_kernel_smem + query_smem_elems * sizeof(T));
 #endif
 
   using align_warp = Pow2<WarpSize>;
@@ -764,21 +773,14 @@ __global__ void interleaved_scan_kernel(Lambda compute_dist,
   // How many full warps needed to compute the distance (without remainder)
   const int full_warps_along_dim = align_warp::roundDown(dim);
 
-  // Using shared memory for the query;
-  // This allows to save on global memory bandwidth when reading index and query
-  // data at the same time.
-  // This should be multiple of warpSize = 32
-  constexpr uint32_t queryShmemSize = 2048;
-  __shared__ T queryShared[queryShmemSize];
-
-  int shLoadDim = (dim < queryShmemSize) ? dim : queryShmemSize;
+  int shLoadDim = (dim < query_smem_elems) ? dim : query_smem_elems;
 
   // load the query data from global to shared memory
   for (int loadDim = threadIdx.x; loadDim * Veclen < shLoadDim; loadDim += blockDim.x) {
-    queryLoadToShmem<T, Veclen>(query, queryShared, loadDim);
+    queryLoadToShmem<T, Veclen>(query, query_shared, loadDim);
   }
   __syncthreads();
-  shLoadDim = (dim > queryShmemSize) ? shLoadDim : full_warps_along_dim;
+  shLoadDim = (dim > query_smem_elems) ? shLoadDim : full_warps_along_dim;
 
   // Every CUDA block scans one cluster at a time.
   for (int probeId = blockIdx.x; probeId < nprobe; probeId += gridDim.x) {
@@ -827,12 +829,12 @@ __global__ void interleaved_scan_kernel(Lambda compute_dist,
             obj(dist, compute_dist);
 #pragma unroll
           for (int i = 0; i < totalIter; ++i, data += stride * wordsPerVectorBlockDim) {
-            obj.runLoadShmemCompute(data, queryShared, laneId, dBase, i);
+            obj.runLoadShmemCompute(data, query_shared, laneId, dBase, i);
           }  // end for i < WarpSize / kUnroll
         }    // end for dBase < full_warps_along_dim
       }
 
-      if (dim > queryShmemSize) {
+      if (dim > query_smem_elems) {
         constexpr int kUnroll = WarpSize / Veclen;
         ;
         loadAndComputeDist<kUnroll, wordsPerVectorBlockDim, decltype(compute_dist), Veclen, T, AccT>
@@ -850,7 +852,7 @@ __global__ void interleaved_scan_kernel(Lambda compute_dist,
                d += Veclen, data += wordsPerVectorBlockDim * Veclen) {
             loadAndComputeDist<1, wordsPerVectorBlockDim, decltype(compute_dist), Veclen, T, AccT>
               obj(dist, compute_dist);
-            obj.runLoadShmemCompute(data, queryShared, laneId, full_warps_along_dim + d, 0);
+            obj.runLoadShmemCompute(data, query_shared, laneId, full_warps_along_dim + d, 0);
           }  // end for d < dim - full_warps_along_dim
         }
       }
@@ -913,10 +915,12 @@ void launch_kernel(Lambda lambda,
                    rmm::cuda_stream_view stream)
 {
   constexpr auto kKernel = interleaved_scan_kernel<Capacity, Veclen, Greater, T, AccT, Lambda>;
-#ifdef USE_FAISS
-  int smem_size = 0;
-#else
-  int smem_size = raft::spatial::knn::detail::topk::calc_smem_size_for_block_wide<AccT, size_t>(
+  int max_query_smem     = 16384;
+  int query_smem_elems =
+    std::min<int>(max_query_smem / sizeof(T), Pow2<Veclen * WarpSize>::roundUp(dim));
+  int smem_size = query_smem_elems * sizeof(T);
+#ifndef USE_FAISS
+  smem_size += raft::spatial::knn::detail::topk::calc_smem_size_for_block_wide<AccT, size_t>(
     utils::kNumWarps, k);
 #endif
 
@@ -933,12 +937,15 @@ void launch_kernel(Lambda lambda,
     dim3 grid_dim(grid_dim_x, grid_dim_y, 1);
     dim3 block_dim(utils::kThreadPerBlock);
     RAFT_LOG_TRACE(
-      "Launching the ivf-flat interleaved_scan_kernel (%d, %d, 1) x (%d, 1, 1), nprobe = %d",
+      "Launching the ivf-flat interleaved_scan_kernel (%d, %d, 1) x (%d, 1, 1), nprobe = %d, "
+      "smem_size = %d",
       grid_dim.x,
       grid_dim.y,
       block_dim.x,
-      nprobe);
+      nprobe,
+      smem_size);
     kKernel<<<grid_dim, block_dim, smem_size, stream>>>(lambda,
+                                                        query_smem_elems,
                                                         queries,
                                                         coarse_index,
                                                         list_index,

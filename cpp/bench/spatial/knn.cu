@@ -332,7 +332,8 @@ struct knn : public fixture {
   rmm::device_uvector<IdxT> out_idxs_;
 };
 
-const std::vector<params> kInputs{{2000000, 128, 1000, 32}, {10000000, 128, 1000, 32}};
+const std::vector<params> kInputs{
+  {2000000, 128, 1000, 32}, {10000000, 128, 1000, 32}, {10000, 8192, 1000, 32}};
 
 const std::vector<TransferStrategy> kAllStrategies{TransferStrategy::NO_COPY,
                                                    TransferStrategy::COPY_PLAIN,
