@@ -520,7 +520,7 @@ cuivflStatus_t cuivflHandle<T>::cuivflBuildIndex(const T* dataset,
   ninterleave_ = 0;
   for (uint32_t i = 0; i < nlist_; i++) {
     list_prefix_interleaved_host_[i] = ninterleave_;
-    ninterleave_ += ((list_lengths_host_[i] - 1) / WarpSize + 1) * WarpSize;
+    ninterleave_ += Pow2<WarpSize>::roundUp(list_lengths_host_[i]);
   }
 
   list_data_host_.assign(ninterleave_ * dim_, 0);
