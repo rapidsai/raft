@@ -883,7 +883,7 @@ void kmeans_fit(handle_t const& handle,
   auto inertiaView = raft::make_host_scalar_view(&inertia);
   auto n_iterView  = raft::make_host_scalar_view(&n_iter);
 
-  kmeans_fit<DataT, IndexT>(
+  detail::kmeans_fit<DataT, IndexT>(
     handle, params, XView, sample_weightView, centroidsView, inertiaView, n_iterView);
 }
 
@@ -1009,14 +1009,66 @@ void kmeans_predict(handle_t const& handle,
   auto labelsView  = raft::make_device_vector_view(labels, n_samples);
   auto inertiaView = raft::make_host_scalar_view(&inertia);
 
-  kmeans_predict<DataT, IndexT>(handle,
-                                params,
-                                XView,
-                                sample_weightView,
-                                centroidsView,
-                                labelsView,
-                                normalize_weight,
-                                inertiaView);
+  detail::kmeans_predict<DataT, IndexT>(handle,
+                                        params,
+                                        XView,
+                                        sample_weightView,
+                                        centroidsView,
+                                        labelsView,
+                                        normalize_weight,
+                                        inertiaView);
+}
+
+template <typename DataT, typename IndexT = int>
+void kmeans_fit_predict(handle_t const& handle,
+                        const KMeansParams& params,
+                        raft::device_matrix_view<const DataT> X,
+                        std::optional<raft::device_vector_view<const DataT>> sample_weight,
+                        std::optional<raft::device_matrix_view<DataT>> centroids,
+                        raft::device_vector_view<IndexT> labels,
+                        raft::host_scalar_view<DataT> inertia,
+                        raft::host_scalar_view<IndexT> n_iter)
+{
+  if (!centroids.has_value()) {
+    auto n_features = X.extent(1);
+    auto centroids_matrix =
+      raft::make_device_matrix<DataT>(params.n_clusters, n_features, handle.get_stream());
+    detail::kmeans_fit<DataT, IndexT>(
+      handle, params, X, sample_weight, centroids_matrix.view(), inertia, n_iter);
+    detail::kmeans_predict<DataT, IndexT>(
+      handle, params, X, sample_weight, centroids_matrix.view(), labels, true, inertia);
+  } else {
+    detail::kmeans_fit<DataT, IndexT>(
+      handle, params, X, sample_weight, centroids.value(), inertia, n_iter);
+    detail::kmeans_predict<DataT, IndexT>(
+      handle, params, X, sample_weight, centroids.value(), labels, true, inertia);
+  }
+}
+
+template <typename DataT, typename IndexT = int>
+void kmeans_fit_predict(handle_t const& handle,
+                        const KMeansParams& params,
+                        const DataT* X,
+                        const DataT* sample_weight,
+                        DataT* centroids,
+                        IndexT n_samples,
+                        IndexT n_features,
+                        IndexT* labels,
+                        DataT& inertia,
+                        IndexT& n_iter)
+{
+  auto XView = raft::make_device_matrix_view(X, n_samples, n_features);
+  std::optional<raft::device_vector_view<const DataT>> sample_weightView = std::nullopt;
+  if (sample_weight) sample_weightView = raft::make_device_vector_view(sample_weight, n_samples);
+  std::optional<raft::device_matrix_view<DataT>> centroidsView = std::nullopt;
+  if (centroids)
+    centroidsView = raft::make_device_matrix_view(centroids, params.n_clusters, n_features);
+  auto labelsView  = raft::make_device_vector_view(labels, n_samples);
+  auto inertiaView = raft::make_host_scalar_view(&inertia);
+  auto n_iterView  = raft::make_host_scalar_view(&n_iter);
+
+  detail::kmeans_fit_predict<DataT, IndexT>(
+    handle, params, XView, sample_weightView, centroidsView, labelsView, inertiaView, n_iterView);
 }
 
 /**
@@ -1082,7 +1134,7 @@ void kmeans_transform(const raft::handle_t& handle,
   auto centroidsView = raft::make_device_matrix_view(centroids, params.n_clusters, n_features);
   auto X_newView     = raft::make_device_matrix_view(X_new, n_samples, n_features);
 
-  kmeans_transform<DataT, IndexT>(handle, params, XView, centroidsView, X_newView);
+  detail::kmeans_transform<DataT, IndexT>(handle, params, XView, centroidsView, X_newView);
 }
 }  // namespace detail
 }  // namespace cluster
