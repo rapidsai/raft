@@ -84,6 +84,7 @@ void _cuann_kmeans_predict_core(const handle_t& handle,
 //
 uint32_t _cuann_kmeans_predict_chunkSize(uint32_t numCenters, uint32_t numDataset)
 {
+  numCenters     = max(1, numCenters);
   uint32_t chunk = (1 << 20);
   if (chunk > (1 << 28) / numCenters) {
     chunk = (1 << 28) / numCenters;
@@ -282,7 +283,7 @@ bool _cuann_kmeans_adjust_centers(float* centers,  // [numCenters, dimCenters]
                                   const uint32_t* clusterSize,  // [numCenters]
                                   float threshold)
 {
-  // cudaDeviceSynchronize();
+  if (numCenters == 0) { return false; }
   bool adjusted                = false;
   static uint32_t i            = 0;
   static uint32_t iPrimes      = 0;
