@@ -26,9 +26,10 @@
 #include <raft/core/logger.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/distance/distance.hpp>
+#include <raft/distance/distance.cuh>
 #include <raft/distance/distance_type.hpp>
 #include <raft/linalg/gemm.cuh>
+#include <raft/linalg/unary_op.cuh>
 #include <raft/spatial/knn/ann_common.h>
 
 #include <rmm/cuda_stream_view.hpp>
@@ -86,26 +87,6 @@ enum cuivflStatus_t : unsigned int {
   CUIVFL_STATUS_UNSUPPORTED_DTYPE = 10,
   CUIVFL_STATUS_FAISS_ERROR       = 11,
   CUIVFL_STATUS_NOT_BUILD         = 12
-};
-
-template <typename T>
-struct ivfflat_config {
-};
-
-template <>
-struct ivfflat_config<float> {
-  using value_t                   = float;
-  static constexpr float kDivisor = 1.0;
-};
-template <>
-struct ivfflat_config<uint8_t> {
-  using value_t                   = uint32_t;
-  static constexpr float kDivisor = 256.0;
-};
-template <>
-struct ivfflat_config<int8_t> {
-  using value_t                   = int32_t;
-  static constexpr float kDivisor = 128.0;
 };
 
 template <typename T>
@@ -370,7 +351,6 @@ cuivflStatus_t cuivflHandle<T>::cuivflBuildOptimizedKmeans(float* centriod_manag
                                     dimDataset,
                                     subTrainset,
                                     dimDataset,
-                                    ivfflat_config<T>::kDivisor,
                                     stream_);
 
     for (uint32_t iter = 0; iter < 2 * numIterations; iter += 2) {
@@ -493,7 +473,7 @@ cuivflStatus_t cuivflHandle<T>::cuivflBuildIndex(const T* dataset,
   rmm::device_uvector<float> centriod_managed_buf(nlist_ * dim_, stream_, &managed_memory);
   auto centriod_managed_ptr = centriod_managed_buf.data();
 
-  if (this == NULL || nrow_ == 0) { return CUIVFL_STATUS_NOT_INITIALIZED; }
+  if (this == nullptr || nrow_ == 0) { return CUIVFL_STATUS_NOT_INITIALIZED; }
   if constexpr (!std::is_same_v<T, float> && !std::is_same_v<T, uint8_t> &&
                 !std::is_same_v<T, int8_t>) {
     return CUIVFL_STATUS_UNSUPPORTED_DTYPE;
@@ -568,23 +548,23 @@ cuivflStatus_t cuivflHandle<T>::queryIVFFlatGridSize(const uint32_t nprobe,
                                                      const uint32_t k)
 {
   // query the gridDimX size to store probes topK output
-  ivfflat_interleaved_scan<T, typename ivfflat_config<T>::value_t>(nullptr,
-                                                                   nullptr,
-                                                                   nullptr,
-                                                                   nullptr,
-                                                                   nullptr,
-                                                                   nullptr,
-                                                                   metric_type_,
-                                                                   nprobe,
-                                                                   k,
-                                                                   batch_size,
-                                                                   dim_,
-                                                                   nullptr,
-                                                                   nullptr,
-                                                                   stream_,
-                                                                   greater_,
-                                                                   veclen_,
-                                                                   grid_dim_x_);
+  ivfflat_interleaved_scan<T, typename utils::config<T>::value_t>(nullptr,
+                                                                  nullptr,
+                                                                  nullptr,
+                                                                  nullptr,
+                                                                  nullptr,
+                                                                  nullptr,
+                                                                  metric_type_,
+                                                                  nprobe,
+                                                                  k,
+                                                                  batch_size,
+                                                                  dim_,
+                                                                  nullptr,
+                                                                  nullptr,
+                                                                  stream_,
+                                                                  greater_,
+                                                                  veclen_,
+                                                                  grid_dim_x_);
   return cuivflStatus_t::CUIVFL_STATUS_SUCCESS;
 }
 
@@ -664,14 +644,8 @@ cuivflStatus_t cuivflHandle<T>::cuivflSearchImpl(const T* queries,  // [numQueri
   if constexpr (std::is_same_v<T, float>) {
     converted_queries_ptr = const_cast<float*>(queries);
   } else {
-    utils::_cuann_copy<T, float>(batch_size,
-                                 dim_,
-                                 queries,
-                                 dim_,
-                                 converted_queries_ptr,
-                                 dim_,
-                                 ivfflat_config<T>::kDivisor,
-                                 stream_);
+    linalg::unaryOp(
+      converted_queries_ptr, queries, batch_size * dim_, utils::mapping<T, float>{}, stream_);
   }
 
   float alpha = 1.0f;
@@ -743,7 +717,7 @@ cuivflStatus_t cuivflHandle<T>::cuivflSearchImpl(const T* queries,  // [numQueri
     indices_dev_ptr   = neighbors;
   }
 
-  ivfflat_interleaved_scan<T, typename ivfflat_config<T>::value_t>(
+  ivfflat_interleaved_scan<T, typename utils::config<T>::value_t>(
     queries,
     coarse_indices_dev.data(),
     list_index_dev_.data(),

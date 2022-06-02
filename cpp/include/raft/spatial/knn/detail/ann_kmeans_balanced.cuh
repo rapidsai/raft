@@ -23,8 +23,9 @@
 #include <raft/cudart_utils.h>
 #include <raft/distance/distance.hpp>
 #include <raft/distance/distance_type.hpp>
-#include <raft/interruptible.hpp>
 #include <raft/linalg/gemm.cuh>
+#include <raft/linalg/unary_op.cuh>
+#include <raft/matrix/matrix.cuh>
 
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_buffer.hpp>
@@ -133,19 +134,15 @@ void _cuann_kmeans_update_centers(float* centers,  // [numCenters, dimCenters]
                                   uint32_t* labels,  // [numDataset]
                                   raft::distance::DistanceType metric,
                                   uint32_t* clusterSize,  // [numCenters]
-                                  float* accumulatedCenters    = NULL,
+                                  float* accumulatedCenters    = nullptr,
                                   rmm::cuda_stream_view stream = rmm::cuda_stream_default)
 {
-  if (accumulatedCenters == NULL) {
+  if (accumulatedCenters == nullptr) {
     // accumulate
     utils::_cuann_memset(centers, 0, sizeof(float) * numCenters * dimCenters, stream);
     utils::_cuann_memset(clusterSize, 0, sizeof(uint32_t) * numCenters, stream);
-    float divisor;
-    if constexpr (std::is_same_v<T, float>) { divisor = 1.0; }
-    if constexpr (std::is_same_v<T, uint8_t>) { divisor = 256.0; }
-    if constexpr (std::is_same_v<T, int8_t>) { divisor = 128.0; }
     utils::_cuann_accumulate_with_label<T>(
-      numCenters, dimCenters, centers, clusterSize, numDataset, dataset, labels, divisor, stream);
+      numCenters, dimCenters, centers, clusterSize, numDataset, dataset, labels, stream);
   } else {
     copy(centers, accumulatedCenters, numCenters * dimCenters, stream);
   }
@@ -175,9 +172,9 @@ void _cuann_kmeans_predict(const handle_t& handle,
                            uint32_t* labels,  // [numDataset]
                            raft::distance::DistanceType metric,
                            bool isCenterSet             = true,
-                           void* _workspace             = NULL,
-                           float* tempCenters           = NULL,  // [numCenters, dimCenters]
-                           uint32_t* clusterSize        = NULL,  // [numCenters,]
+                           void* _workspace             = nullptr,
+                           float* tempCenters           = nullptr,  // [numCenters, dimCenters]
+                           uint32_t* clusterSize        = nullptr,  // [numCenters,]
                            bool updateCenter            = true,
                            rmm::cuda_stream_view stream = rmm::cuda_stream_default)
 {
@@ -194,7 +191,7 @@ void _cuann_kmeans_predict(const handle_t& handle,
       numDataset,
       [numCenters] __device__(uint32_t * out, uint32_t i) { *out = i % numCenters; },
       stream);
-    if (tempCenters != NULL && clusterSize != NULL) {
+    if (tempCenters != nullptr && clusterSize != nullptr) {
       // update centers
       _cuann_kmeans_update_centers(centers,
                                    numCenters,
@@ -214,7 +211,7 @@ void _cuann_kmeans_predict(const handle_t& handle,
   void* workspace = _workspace;
   rmm::device_buffer sub_workspace(0, stream);
 
-  if (_workspace == NULL) {
+  if (_workspace == nullptr) {
     sub_workspace.resize(_cuann_kmeans_predict_bufferSize(numCenters, dimCenters, numDataset),
                          stream);
     workspace = sub_workspace.data();
@@ -228,7 +225,7 @@ void _cuann_kmeans_predict(const handle_t& handle,
   workspace_core =
     (float*)((uint8_t*)bufDataset + utils::_cuann_aligned(sizeof(float) * chunk * dimCenters));
 
-  if (tempCenters != NULL && clusterSize != NULL) {
+  if (tempCenters != nullptr && clusterSize != nullptr) {
     utils::_cuann_memset(tempCenters, 0, sizeof(float) * numCenters * dimCenters, stream);
     utils::_cuann_memset(clusterSize, 0, sizeof(uint32_t) * numCenters, stream);
   }
@@ -244,11 +241,8 @@ void _cuann_kmeans_predict(const handle_t& handle,
       // No need to copy floats
       curDataset = bufDataset;
     } else {
-      float divisor;
-      if constexpr (std::is_same_v<T, uint8_t>) { divisor = 256.0; }
-      if constexpr (std::is_same_v<T, int8_t>) { divisor = 128.0; }
-      utils::_cuann_copy<T, float>(
-        nDataset, dimCenters, bufDataset, dimCenters, curDataset, dimCenters, divisor, stream);
+      linalg::unaryOp(
+        curDataset, bufDataset, nDataset * dimCenters, utils::mapping<T, float>{}, stream);
     }
 
     // predict
@@ -263,7 +257,7 @@ void _cuann_kmeans_predict(const handle_t& handle,
                                workspace_core,
                                stream);
 
-    if ((tempCenters != NULL) && (clusterSize != NULL)) {
+    if ((tempCenters != nullptr) && (clusterSize != nullptr)) {
       // accumulate
       utils::_cuann_accumulate_with_label<float>(numCenters,
                                                  dimCenters,
@@ -272,12 +266,11 @@ void _cuann_kmeans_predict(const handle_t& handle,
                                                  nDataset,
                                                  curDataset,
                                                  labels + is,
-                                                 1.0,
                                                  stream);
     }
   }
 
-  if ((tempCenters != NULL) && (clusterSize != NULL) && updateCenter) {
+  if ((tempCenters != nullptr) && (clusterSize != nullptr) && updateCenter) {
     _cuann_kmeans_update_centers(centers,
                                  numCenters,
                                  dimCenters,
@@ -320,10 +313,6 @@ bool _cuann_kmeans_adjust_centers(float* centers,  // [numCenters, dimCenters]
                                 2053, 2129, 2213, 2287, 2357, 2423, 2531, 2617, 2687, 2741};
   uint32_t average             = numDataset / numCenters;
   uint32_t ofst;
-  float divisor;
-  if constexpr (std::is_same_v<T, float>) { divisor = 1.0; }
-  if constexpr (std::is_same_v<T, uint8_t>) { divisor = 256.0; }
-  if constexpr (std::is_same_v<T, int8_t>) { divisor = 128.0; }
 
   do {
     iPrimes = (iPrimes + 1) % numPrimes;
@@ -343,7 +332,7 @@ bool _cuann_kmeans_adjust_centers(float* centers,  // [numCenters, dimCenters]
       constexpr float kWd = 1.0;
       float val           = 0;
       val += kWc * centers[j + ((uint64_t)dimCenters * li)];
-      val += kWd * dataset[j + ((uint64_t)dimCenters * i)] / divisor;
+      val += kWd * dataset[j + ((uint64_t)dimCenters * i)] / utils::config<T>::kDivisor;
       val /= kWc + kWd;
       sqsum += val * val;
       centers[j + ((uint64_t)dimCenters * l)] = val;
