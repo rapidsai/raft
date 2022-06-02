@@ -503,10 +503,10 @@ cuivflStatus_t cuivflHandle<T>::cuivflBuildIndex(const T* dataset,
   rmm::device_uvector<uint32_t> datasetLabels_buf(nrow_, stream_, &managed_memory);  // [numDataset]
   auto datasetLabels = datasetLabels_buf.data();
 
-  // Step 3: Predict labels of the whole dataset
+  // Predict labels of the whole dataset
   cuivflBuildOptimizedKmeans(centriod_managed_ptr, dataset, trainset, datasetLabels, nrow, ntrain);
 
-  // Step 3.2: Calculate the L2 related result
+  // Calculate the L2 related result
   centriod_norm_dev_.resize(nlist_, stream_);
 
   if (metric_type_ == raft::distance::DistanceType::L2Expanded) {
@@ -514,7 +514,7 @@ cuivflStatus_t cuivflHandle<T>::cuivflBuildIndex(const T* dataset,
     RAFT_LOG_TRACE_VEC(centriod_norm_dev_.data(), 20);
   }
 
-  // Step 4: Record the number of elements in each clusters
+  // Record the number of elements in each clusters
   handle_.sync_stream(stream_);
 
   list_prefix_interleaved_host_.resize(nlist_);
@@ -551,7 +551,7 @@ cuivflStatus_t cuivflHandle<T>::cuivflBuildIndex(const T* dataset,
   list_lengths_dev_.resize(nlist_, stream_);
   centriod_dev_.resize(nlist_ * dim_, stream_);
 
-  // Step 5: Read the list
+  // Read the list
   copy(list_prefix_interleaved_dev_.data(), list_prefix_interleaved_host_.data(), nlist_, stream_);
   copy(list_lengths_dev_.data(), list_lengths_host_.data(), nlist_, stream_);
   copy(centriod_dev_.data(), centriod_managed_ptr, nlist_ * dim_, stream_);
@@ -560,7 +560,7 @@ cuivflStatus_t cuivflHandle<T>::cuivflBuildIndex(const T* dataset,
   copy(list_index_dev_.data(), list_index_host_.data(), ninterleave_, stream_);
 
   return cuivflStatus_t::CUIVFL_STATUS_SUCCESS;
-}  // end func cuivflBuildIndex
+}
 
 template <typename T>
 cuivflStatus_t cuivflHandle<T>::queryIVFFlatGridSize(const uint32_t nprobe,
