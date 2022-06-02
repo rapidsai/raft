@@ -273,7 +273,8 @@ cuivflStatus_t cuivflHandle<T>::cuivflBuildOptimizedKmeans(float* centriod_manag
                           (iter != 0),
                           predictWorkspace.data(),
                           mesoClusterCentersTemp.data(),
-                          mesoClusterSize);
+                          mesoClusterSize,
+                          stream_);
 
     if (iter < 2 * (numIterations - 2)) {
       if (_cuann_kmeans_adjust_centers(mesoClusterCenters.data(),
@@ -284,13 +285,14 @@ cuivflStatus_t cuivflHandle<T>::cuivflBuildOptimizedKmeans(float* centriod_manag
                                        mesoClusterLabels.data(),
                                        metric_type_,
                                        mesoClusterSize,
-                                       (float)1.0 / 4)) {
+                                       (float)1.0 / 4,
+                                       stream_)) {
         iter -= 1;
       }  // end if _cuann_kmeans_adjust_centers
     }    // end if iter < 2 * (numIterations - 2)
   }      // end for (int iter = 0; iter < 2 * numIterations; iter += 2)
 
-  RAFT_CUDA_TRY(cudaDeviceSynchronize());
+  handle_.sync_stream(stream_);
 
   std::vector<uint32_t> numFineClusters(numMesoClusters);
   std::vector<uint32_t> csumFineClusters(numMesoClusters + 1);
@@ -368,8 +370,8 @@ cuivflStatus_t cuivflHandle<T>::cuivflBuildOptimizedKmeans(float* centriod_manag
                                     dimDataset,
                                     subTrainset,
                                     dimDataset,
-                                    ivfflat_config<T>::kDivisor);
-    RAFT_CUDA_TRY(cudaDeviceSynchronize());
+                                    ivfflat_config<T>::kDivisor,
+                                    stream_);
 
     for (uint32_t iter = 0; iter < 2 * numIterations; iter += 2) {
       RAFT_LOG_TRACE("Training kmeans of clusters in meso-cluster %u (numClusters: %u): %.1f / %u",
@@ -389,7 +391,8 @@ cuivflStatus_t cuivflHandle<T>::cuivflBuildOptimizedKmeans(float* centriod_manag
                             (iter != 0),
                             predictWorkspace.data(),
                             clusterCentersMP.data(),
-                            clusterSizeMP.data());
+                            clusterSizeMP.data(),
+                            stream_);
 
       if (iter < 2 * (numIterations - 2)) {
         if (_cuann_kmeans_adjust_centers(clusterCentersEach.data(),
@@ -400,16 +403,17 @@ cuivflStatus_t cuivflHandle<T>::cuivflBuildOptimizedKmeans(float* centriod_manag
                                          labelsMP.data(),
                                          metric_type_,
                                          clusterSizeMP.data(),
-                                         (float)1.0 / 4)) {
+                                         (float)1.0 / 4,
+                                         stream_)) {
           iter -= 1;
         }
       }
-      RAFT_CUDA_TRY(cudaDeviceSynchronize());
     }
-    RAFT_CUDA_TRY(cudaMemcpy(clusterCenters + (dimDataset * csumFineClusters[i]),
-                             clusterCentersEach.data(),
-                             sizeof(float) * numFineClusters[i] * dimDataset,
-                             cudaMemcpyDefault));
+    copy(clusterCenters + (dimDataset * csumFineClusters[i]),
+         clusterCentersEach.data(),
+         numFineClusters[i] * dimDataset,
+         stream_);
+    handle_.sync_stream(stream_);
     numClustersDone += numFineClusters[i];
   }  // end for (uint32_t i = 0; i < numMesoClusters; i++)
   assert(numClustersDone == numClusters);
@@ -435,7 +439,8 @@ cuivflStatus_t cuivflHandle<T>::cuivflBuildOptimizedKmeans(float* centriod_manag
                           predictWorkspace.data(),
                           clusterCentersMP.data(),
                           clusterSizeMP.data(),
-                          true);
+                          true,
+                          stream_);
   }  // end for (int iter = 0; iter < 2; iter++)
 
   RAFT_LOG_DEBUG("(%s) Final fitting.", __func__);
@@ -455,7 +460,8 @@ cuivflStatus_t cuivflHandle<T>::cuivflBuildOptimizedKmeans(float* centriod_manag
                         predictWorkspace.data(),
                         clusterCentersMP.data(),
                         clusterSizeMP.data(),
-                        true);
+                        true,
+                        stream_);
 
   _cuann_kmeans_predict(handle_,
                         clusterCenters,
@@ -469,7 +475,8 @@ cuivflStatus_t cuivflHandle<T>::cuivflBuildOptimizedKmeans(float* centriod_manag
                         predictWorkspace.data(),
                         clusterCentersMP.data(),
                         clusterSizeMP.data(),
-                        false);
+                        false,
+                        stream_);
 
   return cuivflStatus_t::CUIVFL_STATUS_SUCCESS;
 }  // end func cuivflBuildOptimizedKmeans
@@ -503,12 +510,12 @@ cuivflStatus_t cuivflHandle<T>::cuivflBuildIndex(const T* dataset,
   centriod_norm_dev_.resize(nlist_, stream_);
 
   if (metric_type_ == raft::distance::DistanceType::L2Expanded) {
-    utils::_cuann_sqsum(nlist_, dim_, centriod_managed_ptr, centriod_norm_dev_.data());
+    utils::_cuann_sqsum(nlist_, dim_, centriod_managed_ptr, centriod_norm_dev_.data(), stream_);
     RAFT_LOG_TRACE_VEC(centriod_norm_dev_.data(), 20);
   }
 
   // Step 4: Record the number of elements in each clusters
-  RAFT_CUDA_TRY(cudaDeviceSynchronize());
+  handle_.sync_stream(stream_);
 
   list_prefix_interleaved_host_.resize(nlist_);
   list_lengths_host_.assign(nlist_, 0);
@@ -544,7 +551,7 @@ cuivflStatus_t cuivflHandle<T>::cuivflBuildIndex(const T* dataset,
   list_lengths_dev_.resize(nlist_, stream_);
   centriod_dev_.resize(nlist_ * dim_, stream_);
 
-  // Step 3: Read the list
+  // Step 5: Read the list
   copy(list_prefix_interleaved_dev_.data(), list_prefix_interleaved_host_.data(), nlist_, stream_);
   copy(list_lengths_dev_.data(), list_lengths_host_.data(), nlist_, stream_);
   copy(centriod_dev_.data(), centriod_managed_ptr, nlist_ * dim_, stream_);
@@ -663,8 +670,8 @@ cuivflStatus_t cuivflHandle<T>::cuivflSearchImpl(const T* queries,  // [numQueri
                                  dim_,
                                  converted_queries_ptr,
                                  dim_,
-                                 stream_,
-                                 ivfflat_config<T>::kDivisor);
+                                 ivfflat_config<T>::kDivisor,
+                                 stream_);
   }
 
   float alpha = 1.0f;
@@ -673,12 +680,13 @@ cuivflStatus_t cuivflHandle<T>::cuivflSearchImpl(const T* queries,  // [numQueri
   if (metric_type_ == raft::distance::DistanceType::L2Expanded) {
     alpha = -2.0f;
     beta  = 1.0f;
-    utils::_cuann_sqsum(batch_size, dim_, converted_queries_ptr, query_norm_dev.data());
+    utils::_cuann_sqsum(batch_size, dim_, converted_queries_ptr, query_norm_dev.data(), stream_);
     utils::_cuann_outer_add(query_norm_dev.data(),
                             batch_size,
                             centriod_norm_dev_.data(),
                             nlist_,
-                            distance_buffer_dev.data());
+                            distance_buffer_dev.data(),
+                            stream_);
     RAFT_LOG_TRACE_VEC(centriod_norm_dev_.data(), 20);
     RAFT_LOG_TRACE_VEC(distance_buffer_dev.data(), 20);
   } else {

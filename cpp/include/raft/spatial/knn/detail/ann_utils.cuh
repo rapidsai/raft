@@ -23,11 +23,9 @@
 #include <raft/distance/distance.hpp>
 #include <raft/distance/distance_type.hpp>
 
-namespace raft {
-namespace spatial {
-namespace knn {
-namespace detail {
-namespace utils {
+#include <rmm/cuda_stream_view.hpp>
+
+namespace raft::spatial ::knn::detail::utils {
 
 constexpr int kThreadPerBlock = 128;
 constexpr int kNumWarps       = kThreadPerBlock / WarpSize;
@@ -45,18 +43,19 @@ size_t _cuann_aligned(size_t size, size_t unit = 128)
  * @param[in] value
  * @param[in] count
  */
-void _cuann_memset(void* ptr, int value, size_t count)
+void _cuann_memset(void* ptr, int value, size_t count, rmm::cuda_stream_view stream)
 {
   cudaPointerAttributes attr;
   cudaPointerGetAttributes(&attr, ptr);
   if (attr.type == cudaMemoryTypeDevice || attr.type == cudaMemoryTypeManaged) {
-    RAFT_CUDA_TRY(cudaMemset(ptr, value, count));
+    RAFT_CUDA_TRY(cudaMemsetAsync(ptr, value, count, stream));
   } else {
+    stream.synchronize();
     memset(ptr, value, count);
+    stream.synchronize();
   }
 }
 
-// argmin along column
 __global__ void kern_argmin(uint32_t nRows,
                             uint32_t nCols,
                             const float* a,  // [nRows, nCols]
@@ -94,22 +93,25 @@ __global__ void kern_argmin(uint32_t nRows,
   if (threadIdx.x == 0) { out[iRow] = smCol[0]; }
 }
 
-// argmin along column
+/**
+ * argmin along column
+ *
+ * NB: device-only
+ */
 void _cuann_argmin(uint32_t nRows,
                    uint32_t nCols,
                    const float* a,  // [nRows, nCols]
-                   uint32_t* out    // [nRows]
-)
+                   uint32_t* out,   // [nRows]
+                   rmm::cuda_stream_view stream)
 {
   uint32_t nThreads = 1024;
   while (nThreads > nCols) {
     nThreads /= 2;
   }
   nThreads = max(nThreads, 128);
-  kern_argmin<<<nRows, nThreads>>>(nRows, nCols, a, out);
+  kern_argmin<<<nRows, nThreads, 0, stream>>>(nRows, nCols, a, out);
 }
 
-// square sum along column
 __global__ void kern_sqsum(uint32_t nRows,
                            uint32_t nCols,
                            const float* a,  // [nRows, nCols]
@@ -132,19 +134,21 @@ __global__ void kern_sqsum(uint32_t nRows,
   if (threadIdx.x == 0) { out[iRow] = sqsum; }
 }
 
-// square sum along column
+/**
+ * square sum along column
+ *
+ * NB: device-only
+ */
 void _cuann_sqsum(uint32_t nRows,
                   uint32_t nCols,
                   const float* a,  // [numDataset, dimDataset]
-                  float* out       // [numDataset,]
-)
+                  float* out,      // [numDataset,]
+                  rmm::cuda_stream_view stream)
 {
   dim3 threads(32, 4, 1);  // DO NOT CHANGE
   dim3 blocks(ceildiv(nRows, threads.y), 1, 1);
-  kern_sqsum<<<blocks, threads>>>(nRows, nCols, a, out);
+  kern_sqsum<<<blocks, threads, 0, stream>>>(nRows, nCols, a, out);
 }
-
-// copy
 
 template <typename S, typename D>
 __global__ void kern_copy(uint32_t nRows,
@@ -161,7 +165,6 @@ __global__ void kern_copy(uint32_t nRows,
   dst[iCol + (ldDst * iRow)] = src[iCol + (ldSrc * iRow)];
 }
 
-// copy
 template <typename S, typename D>
 __global__ void kern_copy(uint32_t nRows,
                           uint32_t nCols,
@@ -178,6 +181,10 @@ __global__ void kern_copy(uint32_t nRows,
   dst[iCol + (ldDst * iRow)] = src[iCol + (ldSrc * iRow)] / divisor;
 }
 
+/**
+ *
+ * NB: device-only
+ */
 template <typename S, typename D>
 void _cuann_copy(uint32_t nRows,
                  uint32_t nCols,
@@ -185,29 +192,14 @@ void _cuann_copy(uint32_t nRows,
                  uint32_t ldSrc,
                  D* dst,  // [nRows, ldDst]
                  uint32_t ldDst,
-                 D divisor)
-{
-  uint32_t nThreads = 128;
-  uint32_t nBlocks  = ceildiv(nRows * nCols, nThreads);
-  kern_copy<S, D><<<nBlocks, nThreads>>>(nRows, nCols, src, ldSrc, dst, ldDst, divisor);
-}
-
-template <typename S, typename D>
-void _cuann_copy(uint32_t nRows,
-                 uint32_t nCols,
-                 const S* src,  // [nRows, ldSrc]
-                 uint32_t ldSrc,
-                 D* dst,  // [nRows, ldDst]
-                 uint32_t ldDst,
-                 cudaStream_t stream,
-                 D divisor)
+                 D divisor,
+                 rmm::cuda_stream_view stream)
 {
   uint32_t nThreads = 128;
   uint32_t nBlocks  = ceildiv(nRows * nCols, nThreads);
   kern_copy<S, D><<<nBlocks, nThreads, 0, stream>>>(nRows, nCols, src, ldSrc, dst, ldDst, divisor);
 }
 
-// accumulate
 template <typename T>
 __global__ void kern_accumulate_with_label(uint32_t nRowsOutput,
                                            uint32_t nCols,
@@ -251,7 +243,8 @@ void _cuann_accumulate_with_label(uint32_t nRowsOutput,
                                   uint32_t nRowsInput,
                                   const T* input,         // [nRowsInput, nCols,]
                                   const uint32_t* label,  // [nRowsInput,]
-                                  float divisor = 1.0)
+                                  float divisor,
+                                  rmm::cuda_stream_view stream)
 {
   bool useGPU = 1;
   cudaPointerAttributes attr;
@@ -270,11 +263,11 @@ void _cuann_accumulate_with_label(uint32_t nRowsOutput,
     // GPU
     uint32_t nThreads = 128;
     uint64_t nBlocks  = ceildiv((uint64_t)nRowsInput * nCols, (uint64_t)nThreads);
-    kern_accumulate_with_label<T>
-      <<<nBlocks, nThreads>>>(nRowsOutput, nCols, output, count, nRowsInput, input, label, divisor);
+    kern_accumulate_with_label<T><<<nBlocks, nThreads, 0, stream>>>(
+      nRowsOutput, nCols, output, count, nRowsInput, input, label, divisor);
   } else {
     // CPU
-    cudaDeviceSynchronize();
+    stream.synchronize();
     for (uint64_t i = 0; i < nRowsInput; i++) {
       uint64_t l = label[i];
       count[l] += 1;
@@ -282,10 +275,10 @@ void _cuann_accumulate_with_label(uint32_t nRowsOutput,
         output[j + (nCols * l)] += input[j + (nCols * i)] / divisor;
       }
     }
+    stream.synchronize();
   }
 }
 
-// normalize
 __global__ void kern_normalize(uint32_t nRows,
                                uint32_t nCols,
                                float* a,                   // [nRows, nCols]
@@ -315,6 +308,8 @@ __global__ void kern_normalize(uint32_t nRows,
 /**
  * @brief Normalize
  *
+ * NB: device-only
+ *
  * @param[in] nRows
  * @param[in] nCols
  * @param[inout] a device pointer
@@ -322,13 +317,13 @@ __global__ void kern_normalize(uint32_t nRows,
  */
 void _cuann_normalize(uint32_t nRows,
                       uint32_t nCols,
-                      float* a,                   // [nRows, nCols]
-                      const uint32_t* numSamples  // [nRows,]
-)
+                      float* a,                    // [nRows, nCols]
+                      const uint32_t* numSamples,  // [nRows,]
+                      rmm::cuda_stream_view stream)
 {
   dim3 threads(32, 4, 1);  // DO NOT CHANGE
   dim3 blocks(ceildiv(nRows, threads.y), 1, 1);
-  kern_normalize<<<blocks, threads>>>(nRows, nCols, a, numSamples);
+  kern_normalize<<<blocks, threads, 0, stream>>>(nRows, nCols, a, numSamples);
 }
 
 // divide
@@ -348,6 +343,8 @@ __global__ void kern_divide(uint32_t nRows,
 /**
  * @brief Divide
  *
+ * NB: device-only
+ *
  * @param[in] nRows
  * @param[in] nCols
  * @param[inout] a device pointer
@@ -355,16 +352,14 @@ __global__ void kern_divide(uint32_t nRows,
  */
 void _cuann_divide(uint32_t nRows,
                    uint32_t nCols,
-                   float* a,                   // [nRows, nCols]
-                   const uint32_t* numSamples  // [nRows,]
-)
+                   float* a,                    // [nRows, nCols]
+                   const uint32_t* numSamples,  // [nRows,]
+                   rmm::cuda_stream_view stream)
 {
   dim3 threads(128, 1, 1);
   dim3 blocks(ceildiv<uint64_t>((uint64_t)nRows * (uint64_t)nCols, threads.x), 1, 1);
-  kern_divide<<<blocks, threads>>>(nRows, nCols, a, numSamples);
+  kern_divide<<<blocks, threads, 0, stream>>>(nRows, nCols, a, numSamples);
 }
-
-// outer add
 __global__ void kern_outer_add(const float* a,
                                uint32_t numA,
                                const float* b,
@@ -381,17 +376,21 @@ __global__ void kern_outer_add(const float* a,
   c[gid]     = valA + valB;
 }
 
-// outer add
+/**
+ * outer add
+ *
+ * NB: device-only
+ */
 void _cuann_outer_add(const float* a,
                       uint32_t numA,
                       const float* b,
                       uint32_t numB,
-                      float* c  // [numA, numB]
-)
+                      float* c,  // [numA, numB]
+                      rmm::cuda_stream_view stream)
 {
   dim3 threads(128, 1, 1);
   dim3 blocks(ceildiv<uint64_t>((uint64_t)numA * (uint64_t)numB, threads.x), 1, 1);
-  kern_outer_add<<<blocks, threads>>>(a, numA, b, numB, c);
+  kern_outer_add<<<blocks, threads, 0, stream>>>(a, numA, b, numB, c);
 }
 
 // copy with row list
@@ -411,8 +410,6 @@ __global__ void kern_copy_with_list(uint32_t nRows,
   uint64_t iaRow             = rowList[iRow];
   dst[iCol + (ldDst * iRow)] = src[iCol + (ldSrc * iaRow)];
 }
-
-// copy with row list
 template <typename T>
 __global__ void kern_copy_with_list(uint32_t nRows,
                                     uint32_t nCols,
@@ -431,7 +428,11 @@ __global__ void kern_copy_with_list(uint32_t nRows,
   dst[iCol + (ldDst * iRow)] = src[iCol + (ldSrc * iaRow)] / divisor;
 }
 
-// copy with row list
+/**
+ * copy with row list
+ *
+ * NB: host or device
+ */
 template <typename T>
 void _cuann_copy_with_list(uint32_t nRows,
                            uint32_t nCols,
@@ -440,26 +441,25 @@ void _cuann_copy_with_list(uint32_t nRows,
                            uint32_t ldSrc,
                            float* dst,  // [nRows, ldDst]
                            uint32_t ldDst,
-                           float divisor = 1.0)
+                           float divisor,
+                           rmm::cuda_stream_view stream)
 {
   cudaPointerAttributes attr;
   cudaPointerGetAttributes(&attr, src);
   if (attr.type == cudaMemoryTypeUnregistered || attr.type == cudaMemoryTypeHost) {
+    stream.synchronize();
     for (uint64_t iRow = 0; iRow < nRows; iRow++) {
       uint64_t iaRow = rowList[iRow];
       for (uint64_t iCol = 0; iCol < nCols; iCol++) {
         dst[iCol + (ldDst * iRow)] = src[iCol + (ldSrc * iaRow)] / divisor;
       }
     }
+    stream.synchronize();
   } else {
     uint32_t nThreads = 128;
     uint32_t nBlocks  = ceildiv(nRows * nCols, nThreads);
     kern_copy_with_list<T>
-      <<<nBlocks, nThreads>>>(nRows, nCols, src, rowList, ldSrc, dst, ldDst, divisor);
+      <<<nBlocks, nThreads, 0, stream>>>(nRows, nCols, src, rowList, ldSrc, dst, ldDst, divisor);
   }
 }
-}  // namespace utils
-}  // namespace detail
-}  // namespace knn
-}  // namespace spatial
-}  // namespace raft
+}  // namespace raft::spatial::knn::detail::utils

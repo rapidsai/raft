@@ -40,7 +40,8 @@ void _cuann_kmeans_predict_core(const handle_t& handle,
                                 uint32_t numDataset,
                                 uint32_t* labels,  // [numDataset]
                                 raft::distance::DistanceType metric,
-                                float* workspace)
+                                float* workspace,
+                                rmm::cuda_stream_view stream)
 {
   const uint32_t dimDataset = dimCenters;
   float* sqsumCenters;  // [numCenters]
@@ -57,9 +58,9 @@ void _cuann_kmeans_predict_core(const handle_t& handle,
     alpha = -1.0;
     beta  = 0.0;
   } else {
-    utils::_cuann_sqsum(numCenters, dimCenters, centers, sqsumCenters);
-    utils::_cuann_sqsum(numDataset, dimDataset, dataset, sqsumDataset);
-    utils::_cuann_outer_add(sqsumDataset, numDataset, sqsumCenters, numCenters, distances);
+    utils::_cuann_sqsum(numCenters, dimCenters, centers, sqsumCenters, stream);
+    utils::_cuann_sqsum(numDataset, dimDataset, dataset, sqsumDataset, stream);
+    utils::_cuann_outer_add(sqsumDataset, numDataset, sqsumCenters, numCenters, distances, stream);
     alpha = -2.0;
     beta  = 1.0;
   }
@@ -77,8 +78,8 @@ void _cuann_kmeans_predict_core(const handle_t& handle,
                &beta,
                distances,
                numCenters,
-               handle.get_stream());
-  utils::_cuann_argmin(numDataset, numCenters, distances, labels);
+               stream);
+  utils::_cuann_argmin(numDataset, numCenters, distances, labels, stream);
 }
 
 //
@@ -132,29 +133,29 @@ void _cuann_kmeans_update_centers(float* centers,  // [numCenters, dimCenters]
                                   uint32_t* labels,  // [numDataset]
                                   raft::distance::DistanceType metric,
                                   uint32_t* clusterSize,  // [numCenters]
-                                  float* accumulatedCenters = NULL)
+                                  float* accumulatedCenters    = NULL,
+                                  rmm::cuda_stream_view stream = rmm::cuda_stream_default)
 {
   if (accumulatedCenters == NULL) {
     // accumulate
-    utils::_cuann_memset(centers, 0, sizeof(float) * numCenters * dimCenters);
-    utils::_cuann_memset(clusterSize, 0, sizeof(uint32_t) * numCenters);
+    utils::_cuann_memset(centers, 0, sizeof(float) * numCenters * dimCenters, stream);
+    utils::_cuann_memset(clusterSize, 0, sizeof(uint32_t) * numCenters, stream);
     float divisor;
     if constexpr (std::is_same_v<T, float>) { divisor = 1.0; }
     if constexpr (std::is_same_v<T, uint8_t>) { divisor = 256.0; }
     if constexpr (std::is_same_v<T, int8_t>) { divisor = 128.0; }
     utils::_cuann_accumulate_with_label<T>(
-      numCenters, dimCenters, centers, clusterSize, numDataset, dataset, labels, divisor);
+      numCenters, dimCenters, centers, clusterSize, numDataset, dataset, labels, divisor, stream);
   } else {
-    copy(centers, accumulatedCenters, numCenters * dimCenters, rmm::cuda_stream_default);
-    interruptible::synchronize(rmm::cuda_stream_default);
+    copy(centers, accumulatedCenters, numCenters * dimCenters, stream);
   }
 
   if (metric == raft::distance::DistanceType::InnerProduct) {
     // normalize
-    utils::_cuann_normalize(numCenters, dimCenters, centers, clusterSize);
+    utils::_cuann_normalize(numCenters, dimCenters, centers, clusterSize, stream);
   } else {
     // average
-    utils::_cuann_divide(numCenters, dimCenters, centers, clusterSize);
+    utils::_cuann_divide(numCenters, dimCenters, centers, clusterSize, stream);
   }
 }
 
@@ -173,11 +174,12 @@ void _cuann_kmeans_predict(const handle_t& handle,
                            uint32_t numDataset,
                            uint32_t* labels,  // [numDataset]
                            raft::distance::DistanceType metric,
-                           bool isCenterSet      = true,
-                           void* _workspace      = NULL,
-                           float* tempCenters    = NULL,  // [numCenters, dimCenters]
-                           uint32_t* clusterSize = NULL,  // [numCenters,]
-                           bool updateCenter     = true)
+                           bool isCenterSet             = true,
+                           void* _workspace             = NULL,
+                           float* tempCenters           = NULL,  // [numCenters, dimCenters]
+                           uint32_t* clusterSize        = NULL,  // [numCenters,]
+                           bool updateCenter            = true,
+                           rmm::cuda_stream_view stream = rmm::cuda_stream_default)
 {
   if (numDataset == 0) {
     RAFT_LOG_WARN("cuann_kmeans_predict: empty dataset (numDataset = %d, numCenters = %d)",
@@ -185,7 +187,6 @@ void _cuann_kmeans_predict(const handle_t& handle,
                   numCenters);
     return;
   }
-  rmm::cuda_stream_view stream = handle.get_stream();
   if (!isCenterSet) {
     // If centers are not set, the labels will be determined randomly.
     linalg::writeOnlyUnaryOp(
@@ -195,8 +196,16 @@ void _cuann_kmeans_predict(const handle_t& handle,
       stream);
     if (tempCenters != NULL && clusterSize != NULL) {
       // update centers
-      _cuann_kmeans_update_centers(
-        centers, numCenters, dimCenters, dataset, numDataset, labels, metric, clusterSize);
+      _cuann_kmeans_update_centers(centers,
+                                   numCenters,
+                                   dimCenters,
+                                   dataset,
+                                   numDataset,
+                                   labels,
+                                   metric,
+                                   clusterSize,
+                                   nullptr,
+                                   stream);
     }
     return;
   }
@@ -220,8 +229,8 @@ void _cuann_kmeans_predict(const handle_t& handle,
     (float*)((uint8_t*)bufDataset + utils::_cuann_aligned(sizeof(float) * chunk * dimCenters));
 
   if (tempCenters != NULL && clusterSize != NULL) {
-    utils::_cuann_memset(tempCenters, 0, sizeof(float) * numCenters * dimCenters);
-    utils::_cuann_memset(clusterSize, 0, sizeof(uint32_t) * numCenters);
+    utils::_cuann_memset(tempCenters, 0, sizeof(float) * numCenters * dimCenters, stream);
+    utils::_cuann_memset(clusterSize, 0, sizeof(uint32_t) * numCenters, stream);
   }
 
   for (uint64_t is = 0; is < numDataset; is += chunk) {
@@ -239,7 +248,7 @@ void _cuann_kmeans_predict(const handle_t& handle,
       if constexpr (std::is_same_v<T, uint8_t>) { divisor = 256.0; }
       if constexpr (std::is_same_v<T, int8_t>) { divisor = 128.0; }
       utils::_cuann_copy<T, float>(
-        nDataset, dimCenters, bufDataset, dimCenters, curDataset, dimCenters, divisor);
+        nDataset, dimCenters, bufDataset, dimCenters, curDataset, dimCenters, divisor, stream);
     }
 
     // predict
@@ -251,12 +260,20 @@ void _cuann_kmeans_predict(const handle_t& handle,
                                nDataset,
                                labels + is,
                                metric,
-                               workspace_core);
+                               workspace_core,
+                               stream);
 
     if ((tempCenters != NULL) && (clusterSize != NULL)) {
       // accumulate
-      utils::_cuann_accumulate_with_label<float>(
-        numCenters, dimCenters, tempCenters, clusterSize, nDataset, curDataset, labels + is);
+      utils::_cuann_accumulate_with_label<float>(numCenters,
+                                                 dimCenters,
+                                                 tempCenters,
+                                                 clusterSize,
+                                                 nDataset,
+                                                 curDataset,
+                                                 labels + is,
+                                                 1.0,
+                                                 stream);
     }
   }
 
@@ -269,14 +286,15 @@ void _cuann_kmeans_predict(const handle_t& handle,
                                  labels,
                                  metric,
                                  clusterSize,
-                                 tempCenters);
+                                 tempCenters,
+                                 stream);
   }
 }
 
 /**
  * @brief adjust centers which have small number of entries
  *
- * NB: all pointers are used on the CPU side.
+ * NB: all pointers are used on the host side.
  */
 template <typename T>
 bool _cuann_kmeans_adjust_centers(float* centers,  // [numCenters, dimCenters]
@@ -287,8 +305,10 @@ bool _cuann_kmeans_adjust_centers(float* centers,  // [numCenters, dimCenters]
                                   const uint32_t* labels,  // [numDataset]
                                   raft::distance::DistanceType metric,
                                   const uint32_t* clusterSize,  // [numCenters]
-                                  float threshold)
+                                  float threshold,
+                                  rmm::cuda_stream_view stream)
 {
+  stream.synchronize();
   if (numCenters == 0) { return false; }
   bool adjusted                = false;
   static uint32_t i            = 0;
@@ -337,6 +357,7 @@ bool _cuann_kmeans_adjust_centers(float* centers,  // [numCenters, dimCenters]
     adjusted = true;
     count += 1;
   }
+  stream.synchronize();
   return adjusted;
 }
 
