@@ -135,9 +135,15 @@ __global__ void kern_sqsum(uint32_t nRows,
 }
 
 /**
- * square sum along column
+ * @brief Square sum along rows (row-major).
  *
  * NB: device-only
+ *
+ * @param nRows
+ * @param nCols
+ * @param[in] a device pointer to the row-major matrix [nRows, nCols]
+ * @param[out] out device pointer to the vector of dot-products [nRows]
+ * @param stream
  */
 void _cuann_sqsum(uint32_t nRows,
                   uint32_t nCols,
@@ -145,9 +151,16 @@ void _cuann_sqsum(uint32_t nRows,
                   float* out,      // [numDataset,]
                   rmm::cuda_stream_view stream)
 {
-  dim3 threads(32, 4, 1);  // DO NOT CHANGE
+  dim3 threads(32, 4, 1);
   dim3 blocks(ceildiv(nRows, threads.y), 1, 1);
   kern_sqsum<<<blocks, threads, 0, stream>>>(nRows, nCols, a, out);
+  /**
+   * TODO: this can be replaced with the rowNorm helper as shown below.
+   * However, the rowNorm helper seems to incur a significant performance penalty
+   * (example case ann-search slowed down from 150ms to 186ms).
+   *
+   * raft::linalg::rowNorm(out, a, nCols, nRows, raft::linalg::L2Norm, true, stream);
+   */
 }
 
 template <typename S, typename D>
