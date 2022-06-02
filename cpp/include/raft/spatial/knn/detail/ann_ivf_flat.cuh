@@ -605,7 +605,7 @@ cuivflStatus_t cuivflHandle<T>::cuivflSearch(const T* queries,  // [numQueries, 
     "cuivflSearch(%u, %u, %zu)", batch_size, k, neighbors);
   cuivflSearchImpl<float>(queries, batch_size, k, neighbors, distances);
   return cuivflStatus_t::CUIVFL_STATUS_SUCCESS;
-}  // end func cuivflSearch
+}
 
 template <typename T>
 template <typename value_t>
@@ -739,6 +739,7 @@ cuivflStatus_t cuivflHandle<T>::cuivflSearchImpl(const T* queries,  // [numQueri
   RAFT_LOG_TRACE_VEC(distances_dev_ptr, 2 * k);
   RAFT_LOG_TRACE_VEC(indices_dev_ptr, 2 * k);
 
+  // Merge topk values from different blocks
   if (grid_dim_x_ > 1) {
     if (k <= raft::spatial::knn::detail::topk::kMaxCapacity) {
       topk::warp_sort_topk<value_t, size_t>(refined_distances_dev.data(),
@@ -762,9 +763,9 @@ cuivflStatus_t cuivflHandle<T>::cuivflSearchImpl(const T* queries,  // [numQueri
                                                  stream_,
                                                  &(search_mem_res.value()));
     }
-  }  // end if nprobe=1
+  }
 
   return cuivflStatus_t::CUIVFL_STATUS_SUCCESS;
-}  // end func cuivflHandle::cuivflSearchImpl
+}
 
 }  // namespace raft::spatial::knn::detail
