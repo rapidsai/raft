@@ -179,6 +179,12 @@ void _cuann_kmeans_predict(const handle_t& handle,
                            uint32_t* clusterSize = NULL,  // [numCenters,]
                            bool updateCenter     = true)
 {
+  if (numDataset == 0) {
+    RAFT_LOG_WARN("cuann_kmeans_predict: empty dataset (numDataset = %d, numCenters = %d)",
+                  numDataset,
+                  numCenters);
+    return;
+  }
   rmm::cuda_stream_view stream = handle.get_stream();
   if (!isCenterSet) {
     // If centers are not set, the labels will be determined randomly.
