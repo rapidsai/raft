@@ -26,6 +26,7 @@
 #include <raft/linalg/gemm.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/matrix/matrix.cuh>
+#include <raft/pow2_utils.cuh>
 
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_buffer.hpp>
@@ -59,9 +60,9 @@ void _cuann_kmeans_predict_core(const handle_t& handle,
     alpha = -1.0;
     beta  = 0.0;
   } else {
-    utils::_cuann_sqsum(numCenters, dimCenters, centers, sqsumCenters, stream);
-    utils::_cuann_sqsum(numDataset, dimDataset, dataset, sqsumDataset, stream);
-    utils::_cuann_outer_add(sqsumDataset, numDataset, sqsumCenters, numCenters, distances, stream);
+    utils::dots_along_rows(numCenters, dimCenters, centers, sqsumCenters, stream);
+    utils::dots_along_rows(numDataset, dimDataset, dataset, sqsumDataset, stream);
+    utils::outer_add(sqsumDataset, numDataset, sqsumCenters, numCenters, distances, stream);
     alpha = -2.0;
     beta  = 1.0;
   }
@@ -80,7 +81,7 @@ void _cuann_kmeans_predict_core(const handle_t& handle,
                distances,
                numCenters,
                stream);
-  utils::_cuann_argmin(numDataset, numCenters, distances, labels, stream);
+  utils::argmin_along_rows(numDataset, numCenters, distances, labels, stream);
 }
 
 //
@@ -104,20 +105,22 @@ size_t _cuann_kmeans_predict_bufferSize(uint32_t numCenters,
 {
   uint32_t chunk = _cuann_kmeans_predict_chunkSize(numCenters, numDataset);
   size_t size    = 0;
+  using align_t  = Pow2<128>;
   // float *curDataset;  // [chunk, dimCenters]
-  size += utils::_cuann_aligned(sizeof(float) * chunk * dimCenters);
+  size += align_t::roundUp(sizeof(float) * chunk * dimCenters);
   // void *bufDataset;  // [chunk, dimCenters]
-  size += utils::_cuann_aligned(sizeof(float) * chunk * dimCenters);
+  size += align_t::roundUp(sizeof(float) * chunk * dimCenters);
   // float *workspace;
-  size += utils::_cuann_aligned(sizeof(float) * (numCenters + chunk + (numCenters * chunk)));
+  size += align_t::roundUp(sizeof(float) * (numCenters + chunk + (numCenters * chunk)));
   return size;
 }
 
 /**
  * @brief update kmeans centers
  *
- * NB: `centers` and `clusterSize` must be accessible on GPU due to _cuann_divide/_cuann_normalize.
- *      The rest can be both, under assumption that all pointer are accessible from the same place.
+ * NB: `centers` and `clusterSize` must be accessible on GPU due to
+ * divide_along_rows/normalize_rows. The rest can be both, under assumption that all pointer are
+ * accessible from the same place.
  *
  * i.e. two variants are possible:
  *
@@ -139,20 +142,20 @@ void _cuann_kmeans_update_centers(float* centers,  // [numCenters, dimCenters]
 {
   if (accumulatedCenters == nullptr) {
     // accumulate
-    utils::_cuann_memset(centers, 0, sizeof(float) * numCenters * dimCenters, stream);
-    utils::_cuann_memset(clusterSize, 0, sizeof(uint32_t) * numCenters, stream);
-    utils::_cuann_accumulate_with_label<T>(
-      numCenters, dimCenters, centers, clusterSize, numDataset, dataset, labels, stream);
+    utils::memset(centers, 0, sizeof(float) * numCenters * dimCenters, stream);
+    utils::memset(clusterSize, 0, sizeof(uint32_t) * numCenters, stream);
+    utils::accumulate_into_selected<T>(
+      numDataset, dimCenters, centers, clusterSize, dataset, labels, stream);
   } else {
     copy(centers, accumulatedCenters, numCenters * dimCenters, stream);
   }
 
   if (metric == raft::distance::DistanceType::InnerProduct) {
     // normalize
-    utils::_cuann_normalize(numCenters, dimCenters, centers, clusterSize, stream);
+    utils::normalize_rows(numCenters, dimCenters, centers, stream);
   } else {
     // average
-    utils::_cuann_divide(numCenters, dimCenters, centers, clusterSize, stream);
+    utils::divide_along_rows(numCenters, dimCenters, centers, clusterSize, stream);
   }
 }
 
@@ -220,14 +223,13 @@ void _cuann_kmeans_predict(const handle_t& handle,
   T* bufDataset;      // [chunk, dimCenters]
   float* workspace_core;
   curDataset = (float*)workspace;
-  bufDataset =
-    (T*)((uint8_t*)curDataset + utils::_cuann_aligned(sizeof(float) * chunk * dimCenters));
+  bufDataset = (T*)((uint8_t*)curDataset + Pow2<128>::roundUp(sizeof(float) * chunk * dimCenters));
   workspace_core =
-    (float*)((uint8_t*)bufDataset + utils::_cuann_aligned(sizeof(float) * chunk * dimCenters));
+    (float*)((uint8_t*)bufDataset + Pow2<128>::roundUp(sizeof(float) * chunk * dimCenters));
 
   if (tempCenters != nullptr && clusterSize != nullptr) {
-    utils::_cuann_memset(tempCenters, 0, sizeof(float) * numCenters * dimCenters, stream);
-    utils::_cuann_memset(clusterSize, 0, sizeof(uint32_t) * numCenters, stream);
+    utils::memset(tempCenters, 0, sizeof(float) * numCenters * dimCenters, stream);
+    utils::memset(clusterSize, 0, sizeof(uint32_t) * numCenters, stream);
   }
 
   for (uint64_t is = 0; is < numDataset; is += chunk) {
@@ -242,7 +244,7 @@ void _cuann_kmeans_predict(const handle_t& handle,
       curDataset = bufDataset;
     } else {
       linalg::unaryOp(
-        curDataset, bufDataset, nDataset * dimCenters, utils::mapping<T, float>{}, stream);
+        curDataset, bufDataset, nDataset * dimCenters, utils::mapping<float>{}, stream);
     }
 
     // predict
@@ -259,14 +261,8 @@ void _cuann_kmeans_predict(const handle_t& handle,
 
     if ((tempCenters != nullptr) && (clusterSize != nullptr)) {
       // accumulate
-      utils::_cuann_accumulate_with_label<float>(numCenters,
-                                                 dimCenters,
-                                                 tempCenters,
-                                                 clusterSize,
-                                                 nDataset,
-                                                 curDataset,
-                                                 labels + is,
-                                                 stream);
+      utils::accumulate_into_selected<float>(
+        nDataset, dimCenters, tempCenters, clusterSize, curDataset, labels + is, stream);
     }
   }
 

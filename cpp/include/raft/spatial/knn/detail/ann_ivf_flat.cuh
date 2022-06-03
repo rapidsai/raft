@@ -344,14 +344,14 @@ cuivflStatus_t cuivflHandle<T>::cuivflBuildOptimizedKmeans(float* centriod_manag
     }
     assert(k == mesoClusterSize[i]);
 
-    utils::_cuann_copy_with_list<T>(mesoClusterSize[i],
-                                    dimDataset,
-                                    trainset,
-                                    idsTrainset,
-                                    dimDataset,
-                                    subTrainset,
-                                    dimDataset,
-                                    stream_);
+    utils::copy_selected<T>(mesoClusterSize[i],
+                            dimDataset,
+                            trainset,
+                            idsTrainset,
+                            dimDataset,
+                            subTrainset,
+                            dimDataset,
+                            stream_);
 
     for (uint32_t iter = 0; iter < 2 * numIterations; iter += 2) {
       RAFT_LOG_TRACE("Training kmeans of clusters in meso-cluster %u (numClusters: %u): %.1f / %u",
@@ -490,7 +490,7 @@ cuivflStatus_t cuivflHandle<T>::cuivflBuildIndex(const T* dataset,
   centriod_norm_dev_.resize(nlist_, stream_);
 
   if (metric_type_ == raft::distance::DistanceType::L2Expanded) {
-    utils::_cuann_sqsum(nlist_, dim_, centriod_managed_ptr, centriod_norm_dev_.data(), stream_);
+    utils::dots_along_rows(nlist_, dim_, centriod_managed_ptr, centriod_norm_dev_.data(), stream_);
     RAFT_LOG_TRACE_VEC(centriod_norm_dev_.data(), 20);
   }
 
@@ -645,7 +645,7 @@ cuivflStatus_t cuivflHandle<T>::cuivflSearchImpl(const T* queries,  // [numQueri
     converted_queries_ptr = const_cast<float*>(queries);
   } else {
     linalg::unaryOp(
-      converted_queries_ptr, queries, batch_size * dim_, utils::mapping<T, float>{}, stream_);
+      converted_queries_ptr, queries, batch_size * dim_, utils::mapping<float>{}, stream_);
   }
 
   float alpha = 1.0f;
@@ -654,13 +654,13 @@ cuivflStatus_t cuivflHandle<T>::cuivflSearchImpl(const T* queries,  // [numQueri
   if (metric_type_ == raft::distance::DistanceType::L2Expanded) {
     alpha = -2.0f;
     beta  = 1.0f;
-    utils::_cuann_sqsum(batch_size, dim_, converted_queries_ptr, query_norm_dev.data(), stream_);
-    utils::_cuann_outer_add(query_norm_dev.data(),
-                            batch_size,
-                            centriod_norm_dev_.data(),
-                            nlist_,
-                            distance_buffer_dev.data(),
-                            stream_);
+    utils::dots_along_rows(batch_size, dim_, converted_queries_ptr, query_norm_dev.data(), stream_);
+    utils::outer_add(query_norm_dev.data(),
+                     batch_size,
+                     centriod_norm_dev_.data(),
+                     nlist_,
+                     distance_buffer_dev.data(),
+                     stream_);
     RAFT_LOG_TRACE_VEC(centriod_norm_dev_.data(), 20);
     RAFT_LOG_TRACE_VEC(distance_buffer_dev.data(), 20);
   } else {

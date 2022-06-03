@@ -38,6 +38,8 @@
 
 namespace raft::spatial::knn::detail {
 
+constexpr int kThreadsPerBlock = 128;
+
 /**
  * @brief Copy Veclen elements of type T from `query` to `query_shared` at position `loadDim *
  * Veclen`.
@@ -720,7 +722,7 @@ struct loadAndComputeDist<kUnroll, wordsPerVectorBlockDim, Lambda, 1, int8_t, in
  * query_smem_elems must be multiple of WarpSize * Veclen
  */
 template <int Capacity, int Veclen, bool Greater, typename T, typename AccT, typename Lambda>
-__global__ void __launch_bounds__(utils::kThreadPerBlock)
+__global__ void __launch_bounds__(kThreadsPerBlock)
   interleaved_scan_kernel(Lambda compute_dist,
                           const uint32_t query_smem_elems,
                           const T* queries,
@@ -744,8 +746,8 @@ __global__ void __launch_bounds__(utils::kThreadPerBlock)
 #ifdef USE_FAISS
   // temporary use of FAISS blockSelect for development purpose of k <= 32
   // for comparison purpose
-  __shared__ float smemK[utils::kNumWarps * 32];
-  __shared__ size_t smemV[utils::kNumWarps * 32];
+  __shared__ float smemK[kThreadsPerBlock];
+  __shared__ size_t smemV[kThreadsPerBlock];
 
   constexpr auto Dir = Greater;
   constexpr auto identity =
@@ -754,7 +756,7 @@ __global__ void __launch_bounds__(utils::kThreadPerBlock)
     Dir ? std::numeric_limits<size_t>::min() : std::numeric_limits<size_t>::max();
 
   faiss::gpu::
-    BlockSelect<float, size_t, Dir, faiss::gpu::Comparator<float>, 32, 2, utils::kThreadPerBlock>
+    BlockSelect<float, size_t, Dir, faiss::gpu::Comparator<float>, 32, 2, kThreadsPerBlock>
       queue(identity, keyMax, smemK, smemV, k);
 
 #else
@@ -801,10 +803,11 @@ __global__ void __launch_bounds__(utils::kThreadPerBlock)
     // The number of interleaved group to be processed
     const uint32_t numBlocks = ceildiv<uint32_t>(numVecs, WarpSize);
 
+    constexpr uint32_t kNumWarps = kThreadsPerBlock / WarpSize;
     // Every warp reads WarpSize vectors and computes the distances to them.
     // Then, the distances and corresponding ids are distributed among the threads,
     // and each thread adds one (id, dist) pair to the filtering queue.
-    for (uint32_t block = warpId; block < numBlocks; block += utils::kNumWarps) {
+    for (uint32_t block = warpId; block < numBlocks; block += kNumWarps) {
       AccT dist = 0;
       // This is the vector a given lane/thread handles
       const uint32_t vec = block * WarpSize + laneId;
@@ -868,7 +871,7 @@ __global__ void __launch_bounds__(utils::kThreadPerBlock)
   /// Warp_wise topk
 #ifdef USE_FAISS
   queue.reduce();
-  for (int i = threadIdx.x; i < k; i += utils::kThreadPerBlock) {
+  for (int i = threadIdx.x; i < k; i += kThreadsPerBlock) {
     neighbors[queryId * k * gridDim.x + blockIdx.x * k + i] = (size_t)smemV[i];
     distances[queryId * k * gridDim.x + blockIdx.x * k + i] = smemK[i];
   }
@@ -891,7 +894,7 @@ uint32_t configure_launch_x(uint32_t numQueries, uint32_t nprobe, int32_t sMemSi
   RAFT_CUDA_TRY(cudaDeviceGetAttribute(&num_sms, cudaDevAttrMultiProcessorCount, dev_id));
   int num_blocks_per_sm = 0;
   RAFT_CUDA_TRY(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
-    &num_blocks_per_sm, func, utils::kThreadPerBlock, sMemSize));
+    &num_blocks_per_sm, func, kThreadsPerBlock, sMemSize));
 
   size_t min_grid_size = num_sms * num_blocks_per_sm;
   size_t min_grid_x    = ceildiv<size_t>(min_grid_size, numQueries);
@@ -923,7 +926,7 @@ void launch_kernel(Lambda lambda,
 #ifndef USE_FAISS
   constexpr int kSubwarpSize = std::min<int>(Capacity, WarpSize);
   smem_size += raft::spatial::knn::detail::topk::calc_smem_size_for_block_wide<AccT, size_t>(
-    utils::kThreadPerBlock / kSubwarpSize, k);
+    kThreadsPerBlock / kSubwarpSize, k);
 #endif
 
   // power-of-two less than cuda limit (for better addr alignment)
@@ -937,7 +940,7 @@ void launch_kernel(Lambda lambda,
   for (uint32_t query_offset = 0; query_offset < batch_size; query_offset += kMaxGridY) {
     uint32_t grid_dim_y = std::min<uint32_t>(kMaxGridY, batch_size - query_offset);
     dim3 grid_dim(grid_dim_x, grid_dim_y, 1);
-    dim3 block_dim(utils::kThreadPerBlock);
+    dim3 block_dim(kThreadsPerBlock);
     RAFT_LOG_TRACE(
       "Launching the ivf-flat interleaved_scan_kernel (%d, %d, 1) x (%d, 1, 1), nprobe = %d, "
       "smem_size = %d",
