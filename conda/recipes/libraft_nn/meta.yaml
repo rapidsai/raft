@@ -17,6 +17,7 @@ source:
 build:
   number: {{ GIT_DESCRIBE_NUMBER }}
   string: cuda{{ cuda_major }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
+  script_env:
     - PARALLEL_LEVEL
     - VERSION_SUFFIX
     - PROJECT_FLASH
