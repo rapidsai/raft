@@ -127,12 +127,14 @@ outputs:
       build:
         - cmake {{ cmake_version }}
       host:
+        - cudatoolkit {{ cuda_version }}.*
         - gmock {{ gtest_version }}
         - gtest {{ gtest_version }}
         - {{ pin_subpackage('libraft-distance', exact=True) }}
         - {{ pin_subpackage('libraft-headers', exact=True) }}
         - {{ pin_subpackage('libraft-nn', exact=True) }}
       run:
+        - cudatoolkit {{ cuda_spec }}
         - gmock {{ gtest_version }}
         - gtest {{ gtest_version }}
         - {{ pin_subpackage('libraft-distance', exact=True) }}
