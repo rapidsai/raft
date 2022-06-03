@@ -369,7 +369,8 @@ if(TARGET raft_distance_lib)
           COMPONENT distance
           EXPORT raft-distance-lib-exports)
   install(DIRECTORY include/raft_distance
-          DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+          DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+          COMPONENT distance)
 endif()
 
 if(TARGET raft_nn_lib)
