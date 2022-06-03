@@ -22,7 +22,9 @@ cd $WORKSPACE
 
 # If nightly build, append current YYMMDD to version
 if [[ "$BUILD_MODE" = "branch" && "$SOURCE_BRANCH" = branch-* ]] ; then
-  export VERSION_SUFFIX=`date +%y%m%d`
+  export VERSION_SUFFIX=$(date +%y%m%d)
+else
+  export VERSION_SUFFIX=""
 fi
 
 # Setup 'gpuci_conda_retry' for build retries (results in 2 total attempts)
