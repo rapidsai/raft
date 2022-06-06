@@ -36,11 +36,17 @@ outputs:
         - SCCACHE_BUCKET=rapids-sccache
         - SCCACHE_REGION=us-west-2
         - SCCACHE_IDLE_TIMEOUT=32768
+      ignore_run_exports_from:
+        - {{ compiler('cuda') }}+
       number: {{ GIT_DESCRIBE_NUMBER }}
       string: cuda{{ cuda_major }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
     requirements:
       build:
         - cmake {{ cmake_version }}
+        - { { compiler('c') } }
+        - { { compiler('cxx') } }
+        - { { compiler('cuda') } } { { cuda_version } }
+        - sysroot_{{ target_platform }} {{ sysroot_version }}
       host:
         - cudatoolkit {{ cuda_version }}.*
         - libcusolver {{ libcusolver_version }}
@@ -69,6 +75,10 @@ outputs:
     requirements:
       build:
         - cmake {{ cmake_version }}
+        - {{ compiler('c') }}
+        - {{ compiler('cxx') }}
+        - {{ compiler('cuda') }} {{ cuda_version }}
+        - sysroot_{{ target_platform }} {{ sysroot_version }}
       host:
         - cudatoolkit {{ cuda_version }}.*
         - librmm {{ minor_version }}
@@ -95,9 +105,15 @@ outputs:
       number: {{ GIT_DESCRIBE_NUMBER }}
       string: cuda{{ cuda_major }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
       script_env: *script_env
+      ignore_run_exports_from:
+        - {{ compiler('cuda') }}+
     requirements:
       build:
         - cmake {{ cmake_version }}
+        - {{ compiler('c') }}
+        - {{ compiler('cxx') }}
+        - {{ compiler('cuda') }} {{ cuda_version }}
+        - sysroot_{{ target_platform }} {{ sysroot_version }}
       host:
         - cudatoolkit {{ cuda_version }}.*
         - faiss-proc=*=cuda
@@ -123,9 +139,15 @@ outputs:
       number: {{ GIT_DESCRIBE_NUMBER }}
       string: cuda{{ cuda_major }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
       script_env: *script_env
+      ignore_run_exports_from:
+        - {{ compiler('cuda') }}+
     requirements:
       build:
         - cmake {{ cmake_version }}
+        - {{ compiler('c') }}
+        - {{ compiler('cxx') }}
+        - {{ compiler('cuda') }} {{ cuda_version }}
+        - sysroot_{{ target_platform }} {{ sysroot_version }}
       host:
         - cudatoolkit {{ cuda_version }}.*
         - gmock {{ gtest_version }}
