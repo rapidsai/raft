@@ -37,7 +37,7 @@ outputs:
         - SCCACHE_REGION=us-west-2
         - SCCACHE_IDLE_TIMEOUT=32768
       ignore_run_exports_from:
-        - {{ compiler('cuda') }}+
+        - {{ compiler('cuda') }}
       number: {{ GIT_DESCRIBE_NUMBER }}
       string: cuda{{ cuda_major }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
     requirements:
@@ -106,7 +106,7 @@ outputs:
       string: cuda{{ cuda_major }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
       script_env: *script_env
       ignore_run_exports_from:
-        - {{ compiler('cuda') }}+
+        - {{ compiler('cuda') }}
     requirements:
       build:
         - cmake {{ cmake_version }}
@@ -140,7 +140,7 @@ outputs:
       string: cuda{{ cuda_major }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
       script_env: *script_env
       ignore_run_exports_from:
-        - {{ compiler('cuda') }}+
+        - {{ compiler('cuda') }}
     requirements:
       build:
         - cmake {{ cmake_version }}

@@ -23,7 +23,7 @@ build:
     - CXX
     - VERSION_SUFFIX
   ignore_run_exports_from:
-    - {{ compiler('cuda') }}+
+    - {{ compiler('cuda') }}
 
 requirements:
   build:
