@@ -155,9 +155,6 @@ target_compile_options(test_raft
         "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
         )
 
-target_link_options(CUDA-SGEMM PRIVATE "LINKER:--no-as-needed")
-target_link_options(CUDA-SGEMM PRIVATE "LINKER:-lcublasLt")
-
 target_include_directories(test_raft
         PUBLIC  "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/test>"
         )
