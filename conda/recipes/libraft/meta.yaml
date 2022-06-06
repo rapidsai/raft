@@ -72,6 +72,8 @@ outputs:
       number: {{ GIT_DESCRIBE_NUMBER }}
       string: cuda{{ cuda_major }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
       script_env: *script_env
+      ignore_run_exports_from:
+        - {{ compiler('cuda') }}
     requirements:
       build:
         - cmake {{ cmake_version }}
