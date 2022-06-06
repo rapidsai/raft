@@ -12,3 +12,6 @@ sysroot_version:
 
 ucx_version:
   - "1.12.1"
+
+cmake_version:
+  - ">=3.20.1,!=3.23.0"

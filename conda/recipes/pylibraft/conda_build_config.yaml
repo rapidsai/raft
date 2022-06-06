@@ -9,3 +9,6 @@ cuda_compiler:
 
 sysroot_version:
   - "2.17"
+
+cmake_version:
+  - ">=3.20.1,!=3.23.0"

@@ -22,14 +22,16 @@ build:
 
 requirements:
   build:
+    - cmake {{ cmake_version }}
     - {{ compiler('c') }}
     - {{ compiler('cxx') }}
+    - {{ compiler('cuda') }} {{ cuda_version }}
     - sysroot_{{ target_platform }} {{ sysroot_version }}
   host:
     - python x.x
     - setuptools
     - cython>=0.29,<0.30
-    - cmake>=3.20.1,!=3.23.0
+    - cmake {{ cmake_version }}
     - scikit-build>=0.13.1
     - rmm {{ minor_version }}
     - libraft-headers {{ version }}
