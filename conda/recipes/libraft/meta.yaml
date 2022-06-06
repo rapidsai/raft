@@ -36,10 +36,10 @@ outputs:
         - SCCACHE_BUCKET=rapids-sccache
         - SCCACHE_REGION=us-west-2
         - SCCACHE_IDLE_TIMEOUT=32768
-      number: {{ GIT_DESCRIBE_NUMBER }}
-      string: cuda{{ cuda_major }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
+#      number: {{ GIT_DESCRIBE_NUMBER }}
       ignore_run_exports_from:
         - {{ compiler('cuda') }}
+      string: cuda{{ cuda_major }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
     requirements:
       build:
         - cmake {{ cmake_version }}
@@ -69,7 +69,7 @@ outputs:
     version: {{ version }}
     script: build_libraft_distance.sh
     build:
-      number: {{ GIT_DESCRIBE_NUMBER }}
+#      number: {{ GIT_DESCRIBE_NUMBER }}
       string: cuda{{ cuda_major }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
       ignore_run_exports_from:
         - {{ compiler('cuda') }}
