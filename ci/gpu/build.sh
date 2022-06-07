@@ -1,4 +1,6 @@
 #!/bin/bash
+
+
 # Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #########################################
 # RAFT GPU build and test script for CI #
@@ -29,6 +31,14 @@ unset GIT_DESCRIBE_TAG
 
 # ucx-py version
 export UCX_PY_VERSION='0.26.*'
+
+export CMAKE_CUDA_COMPILER_LAUNCHER="sccache"
+export CMAKE_CXX_COMPILER_LAUNCHER="sccache"
+export CMAKE_C_COMPILER_LAUNCHER="sccache"
+export SCCACHE_S3_KEY_PREFIX="libraft-$(uname -m)"
+export SCCACHE_BUCKET="rapids-sccache"
+export SCCACHE_REGION="us-west-2"
+export SCCACHE_IDLE_TIMEOUT="32768"
 
 ################################################################################
 # SETUP - Check environment
