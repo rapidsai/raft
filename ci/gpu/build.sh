@@ -47,7 +47,7 @@ conda activate rapids
 # Install pre-built conda packages from previous CI step
 gpuci_logger "Install libraft conda packages from CPU job"
 CONDA_ARTIFACT_PATH="$WORKSPACE/ci/artifacts/raft/cpu/.conda-bld/" # notice there is no `linux-64` here
-gpuci_mamba_retry install -c "${CONDA_ARTIFACT_PATH}" libraft-headers libraft-distance libraft-nn libraft-tests
+gpuci_mamba_retry install -c "${CONDA_ARTIFACT_PATH}" libraft-headers libraft-distance libraft-nn
 
 gpuci_logger "Check compiler versions"
 python --version
@@ -63,6 +63,18 @@ conda list --show-channel-urls
 # BUILD - Build RAFT tests
 ################################################################################
 
+gpuci_logger "Adding ${CONDA_PREFIX}/lib to LD_LIBRARY_PATH"
+
+export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
+
+gpuci_logger "Build C++ and Python targets"
+# These should link against the existing shared libs
+if hasArg --skip-tests; then
+  "$WORKSPACE/build.sh" libraft -v
+else
+  "$WORKSPACE/build.sh" libraft tests -v
+fi
+
 gpuci_logger "Build and install Python targets"
 CONDA_BLD_DIR="$WORKSPACE/.conda-bld"
 gpuci_mamba_retry install boa
@@ -72,6 +84,8 @@ gpuci_mamba_retry install -c "${CONDA_BLD_DIR}" -c "${CONDA_ARTIFACT_PATH}" pyra
 
 gpuci_logger "sccache stats"
 sccache --show-stats
+
+
 
 ################################################################################
 # TEST - Run GoogleTest and py.tests for RAFT
