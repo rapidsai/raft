@@ -16,73 +16,89 @@
 
 #include <raft/cuda_utils.cuh>
 #include <raft/distance/distance_type.hpp>
-#include <raft/spatial/knn/detail/selection_faiss.cuh>
+#include <raft/spatial/knn/knn.cuh>
 
 #include <rmm/device_uvector.hpp>
 
-namespace raft {
-namespace spatial {
-namespace knn {
+namespace raft::spatial::knn {
 template <typename DataType, typename AccT>
 __global__ void naiveDistanceKernel(float* dist,
-                                    int64_t* indices,
                                     const DataType* x,
                                     const DataType* y,
-                                    int m,
-                                    int n,
-                                    int k,
-                                    raft::distance::DistanceType type,
-                                    bool isRowMajor)
+                                    size_t m,
+                                    size_t n,
+                                    size_t k,
+                                    raft::distance::DistanceType type)
 {
-  int midx = threadIdx.x + blockIdx.x * blockDim.x;
-  int nidx = threadIdx.y + blockIdx.y * blockDim.y;
-  if (midx >= m || nidx >= n) return;
-  AccT acc = AccT(0);
-  for (int i = 0; i < k; ++i) {
-    int xidx = isRowMajor ? i + midx * k : i * m + midx;
-    int yidx = isRowMajor ? i + nidx * k : i * n + nidx;
-    if (type == raft::distance::DistanceType::InnerProduct) {
-      acc += x[xidx] * y[yidx];
-    } else {
-      AccT diff = x[xidx] - y[yidx];
-      acc += diff * diff;
+  size_t midx = threadIdx.x + blockIdx.x * blockDim.x;
+  if (midx >= m) return;
+  for (size_t nidx = threadIdx.y + blockIdx.y * blockDim.y; nidx < n;
+       nidx += blockDim.y * gridDim.y) {
+    AccT acc = AccT(0);
+    for (size_t i = 0; i < k; ++i) {
+      size_t xidx = i + midx * k;
+      size_t yidx = i + nidx * k;
+      if (type == raft::distance::DistanceType::InnerProduct) {
+        acc += x[xidx] * y[yidx];
+      } else {
+        AccT diff = x[xidx] - y[yidx];
+        acc += diff * diff;
+      }
     }
+    float dist_val = (float)acc;
+    if (type == raft::distance::DistanceType::L2SqrtExpanded ||
+        type == raft::distance::DistanceType::L2SqrtUnexpanded)
+      dist_val = raft::mySqrt(dist_val);
+    dist[midx * n + nidx] = dist_val;
   }
-  float dist_val = (float)acc;
-  if (type == raft::distance::DistanceType::L2SqrtExpanded ||
-      type == raft::distance::DistanceType::L2SqrtUnexpanded)
-    dist_val = raft::mySqrt(dist_val);
-  int outidx      = isRowMajor ? midx * n + nidx : midx + m * nidx;
-  dist[outidx]    = dist_val;
-  indices[outidx] = outidx;  // This is required because of the select_k API.
 }
 
-// currently using this naive kernel as FAISS & fusedL2kNN doesn't support 8-bit
+/**
+ * TODO: either replace this with brute_force_knn or with distance+select_k
+ *       when either distance or brute_force_knn support 8-bit int inputs.
+ */
 template <typename DataType, typename AccT>
 void naiveBfKnn(float* dist_topk,
                 int64_t* indices_topk,
                 const DataType* x,
                 const DataType* y,
-                int m,
-                int n,
-                int k,
-                int numOfNN,
+                size_t n_inputs,
+                size_t input_len,
+                size_t dim,
+                uint32_t k,
                 raft::distance::DistanceType type,
-                bool isRowMajor,
                 DataType metric_arg = 2.0f,
                 cudaStream_t stream = 0)
 {
-  static const dim3 TPB(16, 32, 1);
-  dim3 nblks(raft::ceildiv(m, (int)TPB.x), raft::ceildiv(n, (int)TPB.y), 1);
+  dim3 block_dim(16, 32, 1);
+  // maximum reasonable grid size in `y` direction
+  uint16_t grid_y =
+    static_cast<uint16_t>(std::min<size_t>(raft::ceildiv<size_t>(input_len, block_dim.y), 32768));
 
-  rmm::device_uvector<float> dist(m * n, stream);
-  rmm::device_uvector<int64_t> indices(m * n, stream);
-  naiveDistanceKernel<DataType, AccT>
-    <<<nblks, TPB, 0, stream>>>(dist.data(), indices.data(), x, y, m, n, k, type, isRowMajor);
-  detail::select_k(
-    dist.data(), indices.data(), m, n, dist_topk, indices_topk, true, numOfNN, stream);
+  // bound the memory used by this function
+  size_t max_batch_size =
+    std::min(n_inputs, raft::ceildiv<size_t>(size_t(1) << size_t(27), input_len));
+  rmm::device_uvector<float> dist(max_batch_size * input_len, stream);
+
+  for (size_t offset = 0; offset < n_inputs; offset += max_batch_size) {
+    size_t batch_size = std::min(max_batch_size, n_inputs - offset);
+    dim3 grid_dim(raft::ceildiv<size_t>(batch_size, block_dim.x), grid_y, 1);
+
+    naiveDistanceKernel<DataType, AccT><<<grid_dim, block_dim, 0, stream>>>(
+      dist.data(), x + offset * dim, y, batch_size, input_len, dim, type);
+
+    select_k<int64_t, float>(dist.data(),
+                             nullptr,
+                             batch_size,
+                             input_len,
+                             dist_topk + offset * k,
+                             indices_topk + offset * k,
+                             true,
+                             static_cast<int>(k),
+                             stream,
+                             SelectKAlgo::WARP_SORT);
+  }
   RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 }
-}  // namespace knn
-}  // namespace spatial
-}  // namespace raft
+
+}  // namespace raft::spatial::knn

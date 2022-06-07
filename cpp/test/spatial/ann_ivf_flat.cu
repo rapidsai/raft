@@ -15,13 +15,12 @@
  */
 
 #include "../test_utils.h"
-
 #include "./ann_base_kernel.cuh"
+
+#include <raft/core/logger.hpp>
 #include <raft/distance/distance_type.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/spatial/knn/ann.cuh>
-#include <raft/spatial/knn/detail/common_faiss.h>
-
 #include <raft/spatial/knn/knn.cuh>
 
 #include <rmm/cuda_stream_view.hpp>
@@ -43,7 +42,7 @@ struct AnnIvfFlatInputs {
   int k;
   int nprobe;
   int nlist;
-  raft::distance::DistanceType metric_;
+  raft::distance::DistanceType metric;
 };
 
 template <typename IdxT, typename DistT, typename compareDist>
@@ -61,54 +60,37 @@ struct idx_dist_pair {
 };
 
 template <typename T, typename DistT>
-testing::AssertionResult devArrMatchKnnPair(const T* expected_idx,
-                                            const T* actual_idx,
-                                            const DistT* expected_dist,
-                                            const DistT* actual_dist,
-                                            size_t rows,
-                                            size_t cols,
-                                            const DistT eps,
-                                            double min_recall,
-                                            cudaStream_t stream = 0)
+auto eval_knn(const std::vector<T>& expected_idx,
+              const std::vector<T>& actual_idx,
+              const std::vector<DistT>& expected_dist,
+              const std::vector<DistT>& actual_dist,
+              size_t rows,
+              size_t cols,
+              const DistT eps,
+              double min_recall) -> testing::AssertionResult
 {
-  size_t size = rows * cols;
-  std::unique_ptr<T[]> exp_idx_h(new T[size]);
-  std::unique_ptr<T[]> act_idx_h(new T[size]);
-  std::unique_ptr<DistT[]> exp_dist_h(new DistT[size]);
-  std::unique_ptr<DistT[]> act_dist_h(new DistT[size]);
-  raft::update_host<T>(exp_idx_h.get(), expected_idx, size, stream);
-  raft::update_host<T>(act_idx_h.get(), actual_idx, size, stream);
-  raft::update_host<DistT>(exp_dist_h.get(), expected_dist, size, stream);
-  raft::update_host<DistT>(act_dist_h.get(), actual_dist, size, stream);
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   size_t match_count = 0;
+  size_t total_count = static_cast<size_t>(rows) * static_cast<size_t>(cols);
   for (size_t i = 0; i < rows; ++i) {
     for (size_t k = 0; k < cols; ++k) {
       size_t idx_k  = i * cols + k;  // row major assumption!
-      auto act_idx  = act_idx_h.get()[idx_k];
-      auto act_dist = act_dist_h.get()[idx_k];
+      auto act_idx  = actual_idx[idx_k];
+      auto act_dist = actual_dist[idx_k];
       for (size_t j = 0; j < cols; ++j) {
         size_t idx    = i * cols + j;  // row major assumption!
-        auto exp_idx  = exp_idx_h.get()[idx];
-        auto exp_dist = exp_dist_h.get()[idx];
+        auto exp_idx  = expected_idx[idx];
+        auto exp_dist = expected_dist[idx];
         idx_dist_pair exp_kvp(exp_idx, exp_dist, raft::CompareApprox<DistT>(eps));
         idx_dist_pair act_kvp(act_idx, act_dist, raft::CompareApprox<DistT>(eps));
-        if (!(exp_kvp == act_kvp)) {
-          // return testing::AssertionFailure()
-          //        << "actual=" << act_kvp.idx << "," << act_kvp.dist << "!="
-          //        << "expected" << exp_kvp.idx << "," << exp_kvp.dist << " @" << i << "," << j;
-          // std::cout<< "actual = " << act_kvp.idx << "," << act_kvp.dist << " != "  <<
-          //           " expected = " << exp_kvp.idx << "," << exp_kvp.dist << " @" << i
-          //           << "," << j << std::endl;
-        } else {
+        if (exp_kvp == act_kvp) {
           match_count++;
           break;
         }
       }
     }
   }
-  std::cout << "Recall = " << match_count << "/" << rows * cols << std::endl;
-  double actual_recall = static_cast<double>(match_count) / static_cast<double>(rows * cols);
+  RAFT_LOG_INFO("Recall = %zu/%zu", match_count, total_count);
+  double actual_recall = static_cast<double>(match_count) / static_cast<double>(total_count);
   if (actual_recall < min_recall - eps) {
     return testing::AssertionFailure()
            << "actual recall (" << actual_recall
@@ -122,152 +104,116 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs> {
  public:
   AnnIVFFlatTest()
     : stream_(handle_.get_stream()),
-      params_(::testing::TestWithParam<AnnIvfFlatInputs>::GetParam()),
-      database(params_.num_db_vecs * params_.dim, stream_),
-      search_queries(params_.num_queries * params_.dim, stream_),
-      raft_indices_(params_.num_queries * params_.k, stream_),
-      raft_distances_(params_.num_queries * params_.k, stream_),
-      faiss_indices_(params_.num_queries * params_.k, stream_),
-      faiss_distances_(params_.num_queries * params_.k, stream_)
+      ps(::testing::TestWithParam<AnnIvfFlatInputs>::GetParam()),
+      database(0, stream_),
+      search_queries(0, stream_)
   {
-    RAFT_CUDA_TRY(cudaMemsetAsync(database.data(), 0, database.size() * sizeof(DataT), stream_));
-    RAFT_CUDA_TRY(
-      cudaMemsetAsync(search_queries.data(), 0, search_queries.size() * sizeof(DataT), stream_));
-    RAFT_CUDA_TRY(
-      cudaMemsetAsync(raft_indices_.data(), 0, raft_indices_.size() * sizeof(int64_t), stream_));
-    RAFT_CUDA_TRY(
-      cudaMemsetAsync(raft_distances_.data(), 0, raft_distances_.size() * sizeof(T), stream_));
-    RAFT_CUDA_TRY(
-      cudaMemsetAsync(faiss_indices_.data(), 0, faiss_indices_.size() * sizeof(int64_t), stream_));
-    RAFT_CUDA_TRY(
-      cudaMemsetAsync(faiss_distances_.data(), 0, faiss_distances_.size() * sizeof(T), stream_));
-    handle_.sync_stream(stream_);
   }
 
  protected:
   void testIVFFlat(bool is8bit)
   {
-    if constexpr (std::is_same<DataT, uint8_t>{}) {
-      naiveBfKnn<uint8_t, uint32_t>(faiss_distances_.data(),
-                                    faiss_indices_.data(),
-                                    search_queries.data(),
-                                    database.data(),
-                                    num_queries,
-                                    num_db_vecs,
-                                    dim,
-                                    k_,
-                                    metric,
-                                    true,
-                                    2.0f,
-                                    stream_);
-    } else if constexpr (std::is_same<DataT, int8_t>{}) {
-      naiveBfKnn<int8_t, int32_t>(faiss_distances_.data(),
-                                  faiss_indices_.data(),
-                                  search_queries.data(),
-                                  database.data(),
-                                  num_queries,
-                                  num_db_vecs,
-                                  dim,
-                                  k_,
-                                  metric,
-                                  true,
-                                  2.0f,
-                                  stream_);
-    } else if constexpr (std::is_same<DataT, float>{}) {
-      naiveBfKnn<float, float>(faiss_distances_.data(),
-                               faiss_indices_.data(),
+    size_t queries_size = ps.num_queries * ps.k;
+    std::vector<int64_t> indices_ivfflat(queries_size);
+    std::vector<int64_t> indices_naive(queries_size);
+    std::vector<T> distances_ivfflat(queries_size);
+    std::vector<T> distances_naive(queries_size);
+
+    {
+      rmm::device_uvector<T> distances_naive_dev(queries_size, stream_);
+      rmm::device_uvector<int64_t> indices_naive_dev(queries_size, stream_);
+      using acc_t = typename detail::utils::config<DataT>::value_t;
+      naiveBfKnn<DataT, acc_t>(distances_naive_dev.data(),
+                               indices_naive_dev.data(),
                                search_queries.data(),
                                database.data(),
-                               num_queries,
-                               num_db_vecs,
-                               dim,
-                               k_,
-                               metric,
-                               true,
+                               ps.num_queries,
+                               ps.num_db_vecs,
+                               ps.dim,
+                               ps.k,
+                               ps.metric,
                                2.0f,
                                stream_);
+      update_host(distances_naive.data(), distances_naive_dev.data(), queries_size, stream_);
+      update_host(indices_naive.data(), indices_naive_dev.data(), queries_size, stream_);
+      handle_.sync_stream(stream_);
     }
-    handle_.sync_stream(stream_);
 
-    raft::spatial::knn::IVFFlatParam ivfParams;
-    ivfParams.nprobe = nprobe_;
-    ivfParams.nlist  = nlist_;
-    raft::spatial::knn::knnIndex index;
-    index.index   = nullptr;
-    index.gpu_res = nullptr;
+    {
+      rmm::device_uvector<T> distances_ivfflat_dev(queries_size, stream_);
+      rmm::device_uvector<int64_t> indices_ivfflat_dev(queries_size, stream_);
+      raft::spatial::knn::IVFFlatParam ivfParams;
+      ivfParams.nprobe = ps.nprobe;
+      ivfParams.nlist  = ps.nlist;
+      raft::spatial::knn::knnIndex index;
+      index.index   = nullptr;
+      index.gpu_res = nullptr;
 
-    approx_knn_build_index(handle_,
-                           &index,
-                           dynamic_cast<raft::spatial::knn::knnIndexParam*>(&ivfParams),
-                           metric,
-                           0,
-                           database.data(),
-                           num_db_vecs,
-                           dim);
-    handle_.sync_stream(stream_);
-    approx_knn_search(handle_,
-                      raft_distances_.data(),
-                      raft_indices_.data(),
-                      &index,
-                      dynamic_cast<raft::spatial::knn::knnIndexParam*>(&ivfParams),
-                      k_,
-                      search_queries.data(),
-                      num_queries);
-    handle_.sync_stream(stream_);
+      approx_knn_build_index(handle_,
+                             &index,
+                             dynamic_cast<raft::spatial::knn::knnIndexParam*>(&ivfParams),
+                             ps.metric,
+                             0,
+                             database.data(),
+                             ps.num_db_vecs,
+                             ps.dim);
+      handle_.sync_stream(stream_);
+
+      approx_knn_search(handle_,
+                        distances_ivfflat_dev.data(),
+                        indices_ivfflat_dev.data(),
+                        &index,
+                        dynamic_cast<raft::spatial::knn::knnIndexParam*>(&ivfParams),
+                        ps.k,
+                        search_queries.data(),
+                        ps.num_queries);
+      update_host(distances_ivfflat.data(), distances_ivfflat_dev.data(), queries_size, stream_);
+      update_host(indices_ivfflat.data(), indices_ivfflat_dev.data(), queries_size, stream_);
+      handle_.sync_stream(stream_);
+    }
 
     // unless something is really wrong with clustering, this could serve as a lower bound on recall
-    double min_recall = static_cast<double>(nprobe_) / static_cast<double>(nlist_);
+    double min_recall = static_cast<double>(ps.nprobe) / static_cast<double>(ps.nlist);
     // verify.
-    devArrMatchKnnPair(faiss_indices_.data(),
-                       raft_indices_.data(),
-                       faiss_distances_.data(),
-                       raft_distances_.data(),
-                       num_queries,
-                       k_,
-                       float(0.001),
-                       min_recall,
-                       stream_);
+    eval_knn(indices_naive,
+             indices_ivfflat,
+             distances_naive,
+             distances_ivfflat,
+             ps.num_queries,
+             ps.k,
+             float(0.001),
+             min_recall);
   }
 
   void SetUp() override
   {
-    num_queries = params_.num_queries;
-    num_db_vecs = params_.num_db_vecs;
-    dim         = params_.dim;
-    k_          = params_.k;
-    metric      = params_.metric_;
-    nprobe_     = params_.nprobe;
-    nlist_      = params_.nlist;
+    database.resize(ps.num_db_vecs * ps.dim, stream_);
+    search_queries.resize(ps.num_queries * ps.dim, stream_);
 
-    unsigned long long int seed = 1234ULL;
-    raft::random::Rng r(seed);
+    raft::random::Rng r(1234ULL);
     if constexpr (std::is_same<DataT, float>{}) {
-      r.uniform(database.data(), num_db_vecs * dim, DataT(0.1), DataT(2.0), stream_);
-      r.uniform(search_queries.data(), num_queries * dim, DataT(0.1), DataT(2.0), stream_);
+      r.uniform(database.data(), ps.num_db_vecs * ps.dim, DataT(0.1), DataT(2.0), stream_);
+      r.uniform(search_queries.data(), ps.num_queries * ps.dim, DataT(0.1), DataT(2.0), stream_);
     } else {
-      r.uniformInt(database.data(), num_db_vecs * dim, DataT(1), DataT(20), stream_);
-      r.uniformInt(search_queries.data(), num_queries * dim, DataT(1), DataT(20), stream_);
+      r.uniformInt(database.data(), ps.num_db_vecs * ps.dim, DataT(1), DataT(20), stream_);
+      r.uniformInt(search_queries.data(), ps.num_queries * ps.dim, DataT(1), DataT(20), stream_);
     }
     handle_.sync_stream(stream_);
+  }
+
+  void TearDown() override
+  {
+    handle_.sync_stream(stream_);
+    database.resize(0, stream_);
+    search_queries.resize(0, stream_);
   }
 
  private:
   raft::handle_t handle_;
   rmm::cuda_stream_view stream_;
-  AnnIvfFlatInputs params_;
-  int num_queries;
-  int num_db_vecs;
-  int dim;
+  AnnIvfFlatInputs ps;
   rmm::device_uvector<DataT> database;
   rmm::device_uvector<DataT> search_queries;
-  rmm::device_uvector<int64_t> raft_indices_;
-  rmm::device_uvector<T> raft_distances_;
-  rmm::device_uvector<int64_t> faiss_indices_;
-  rmm::device_uvector<T> faiss_distances_;
-  int k_;
-  int nprobe_;
-  int nlist_;
-  raft::distance::DistanceType metric;
 };
 
 const std::vector<AnnIvfFlatInputs> inputs = {
