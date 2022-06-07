@@ -234,44 +234,44 @@ cuivflStatus_t cuivflHandle<T>::cuivflBuildOptimizedKmeans(float* centriod_manag
 
   auto mesoClusterSize = mesoClusterSize_buf.data();
 
-  size_t sizePredictWorkspace =
-    _cuann_kmeans_predict_bufferSize(numMesoClusters,  // number of centers
-                                     dimDataset,
-                                     numTrainset  // number of vectors
-    );
+  size_t sizePredictWorkspace = kmeans::predict_buffer_size(numMesoClusters,  // number of centers
+                                                            dimDataset,
+                                                            numTrainset  // number of vectors
+  );
   rmm::device_buffer predictWorkspace(sizePredictWorkspace, stream_);
   // Training meso-clusters
   for (uint32_t iter = 0; iter < 2 * numIterations; iter += 2) {
     RAFT_LOG_TRACE("Training kmeans of meso-clusters: %.1f / %u", (float)iter / 2, numIterations);
-    _cuann_kmeans_predict(handle_,
-                          mesoClusterCenters.data(),
-                          numMesoClusters,
-                          dimDataset,
-                          trainset,
-                          numTrainset,
-                          mesoClusterLabels.data(),
-                          metric_type_,
-                          (iter != 0),
-                          predictWorkspace.data(),
-                          mesoClusterCentersTemp.data(),
-                          mesoClusterSize,
-                          stream_);
+    kmeans::predict(handle_,
+                    mesoClusterCenters.data(),
+                    numMesoClusters,
+                    dimDataset,
+                    trainset,
+                    numTrainset,
+                    mesoClusterLabels.data(),
+                    metric_type_,
+                    (iter != 0),
+                    predictWorkspace.data(),
+                    mesoClusterCentersTemp.data(),
+                    mesoClusterSize,
+                    true,
+                    stream_);
 
-    if (iter < 2 * (numIterations - 2)) {
-      if (_cuann_kmeans_adjust_centers(mesoClusterCenters.data(),
-                                       numMesoClusters,
-                                       dimDataset,
-                                       trainset,
-                                       numTrainset,
-                                       mesoClusterLabels.data(),
-                                       metric_type_,
-                                       mesoClusterSize,
-                                       (float)1.0 / 4,
-                                       stream_)) {
+    if (iter + 1 < 2 * numIterations) {
+      if (kmeans::adjust_centers(mesoClusterCenters.data(),
+                                 numMesoClusters,
+                                 dimDataset,
+                                 trainset,
+                                 numTrainset,
+                                 mesoClusterLabels.data(),
+                                 metric_type_,
+                                 mesoClusterSize,
+                                 (float)1.0 / 4,
+                                 stream_)) {
         iter -= 1;
-      }  // end if _cuann_kmeans_adjust_centers
-    }    // end if iter < 2 * (numIterations - 2)
-  }      // end for (int iter = 0; iter < 2 * numIterations; iter += 2)
+      }
+    }
+  }
 
   handle_.sync_stream(stream_);
 
@@ -314,12 +314,11 @@ cuivflStatus_t cuivflHandle<T>::cuivflBuildOptimizedKmeans(float* centriod_manag
 
   sizePredictWorkspace = 0;
   for (uint32_t i = 0; i < numMesoClusters; i++) {
-    sizePredictWorkspace =
-      max(sizePredictWorkspace,
-          _cuann_kmeans_predict_bufferSize(numFineClusters[i],  // number of centers
-                                           dimDataset,
-                                           mesoClusterSize[i]  // number of vectors
-                                           ));
+    sizePredictWorkspace = max(sizePredictWorkspace,
+                               kmeans::predict_buffer_size(numFineClusters[i],  // number of centers
+                                                           dimDataset,
+                                                           mesoClusterSize[i]  // number of vectors
+                                                           ));
   }
 
   // label (cluster ID) of each vector
@@ -360,31 +359,32 @@ cuivflStatus_t cuivflHandle<T>::cuivflBuildOptimizedKmeans(float* centriod_manag
                      (float)iter / 2,
                      numIterations);
 
-      _cuann_kmeans_predict(handle_,
-                            clusterCentersEach.data(),
-                            numFineClusters[i],
-                            dimDataset,
-                            subTrainset,
-                            mesoClusterSize[i],
-                            labelsMP.data(),
-                            metric_type_,
-                            (iter != 0),
-                            predictWorkspace.data(),
-                            clusterCentersMP.data(),
-                            clusterSizeMP.data(),
-                            stream_);
+      kmeans::predict(handle_,
+                      clusterCentersEach.data(),
+                      numFineClusters[i],
+                      dimDataset,
+                      subTrainset,
+                      mesoClusterSize[i],
+                      labelsMP.data(),
+                      metric_type_,
+                      (iter != 0),
+                      predictWorkspace.data(),
+                      clusterCentersMP.data(),
+                      clusterSizeMP.data(),
+                      true,
+                      stream_);
 
-      if (iter < 2 * (numIterations - 2)) {
-        if (_cuann_kmeans_adjust_centers(clusterCentersEach.data(),
-                                         numFineClusters[i],
-                                         dimDataset,
-                                         subTrainset,
-                                         mesoClusterSize[i],
-                                         labelsMP.data(),
-                                         metric_type_,
-                                         clusterSizeMP.data(),
-                                         (float)1.0 / 4,
-                                         stream_)) {
+      if (iter + 1 < 2 * numIterations) {
+        if (kmeans::adjust_centers(clusterCentersEach.data(),
+                                   numFineClusters[i],
+                                   dimDataset,
+                                   subTrainset,
+                                   mesoClusterSize[i],
+                                   labelsMP.data(),
+                                   metric_type_,
+                                   clusterSizeMP.data(),
+                                   (float)1.0 / 4,
+                                   stream_)) {
           iter -= 1;
         }
       }
@@ -402,61 +402,61 @@ cuivflStatus_t cuivflHandle<T>::cuivflBuildOptimizedKmeans(float* centriod_manag
   clusterSizeMP.resize(numClusters, stream_);
 
   // [...]
-  sizePredictWorkspace = _cuann_kmeans_predict_bufferSize(numClusters, dimDataset, numTrainset);
+  sizePredictWorkspace = kmeans::predict_buffer_size(numClusters, dimDataset, numTrainset);
   predictWorkspace.resize(sizePredictWorkspace, stream_);
 
   // Fitting whole clusters using whole trainset.
   for (int iter = 0; iter < 2; iter++) {
-    _cuann_kmeans_predict(handle_,
-                          clusterCenters,
-                          numClusters,
-                          dimDataset,
-                          trainset,
-                          numTrainset,
-                          trainsetLabels.data(),
-                          metric_type_,
-                          true,
-                          predictWorkspace.data(),
-                          clusterCentersMP.data(),
-                          clusterSizeMP.data(),
-                          true,
-                          stream_);
+    kmeans::predict(handle_,
+                    clusterCenters,
+                    numClusters,
+                    dimDataset,
+                    trainset,
+                    numTrainset,
+                    trainsetLabels.data(),
+                    metric_type_,
+                    true,
+                    predictWorkspace.data(),
+                    clusterCentersMP.data(),
+                    clusterSizeMP.data(),
+                    true,
+                    stream_);
   }  // end for (int iter = 0; iter < 2; iter++)
 
   RAFT_LOG_DEBUG("(%s) Final fitting.", __func__);
 
-  sizePredictWorkspace = _cuann_kmeans_predict_bufferSize(numClusters, dimDataset, nrow_);
+  sizePredictWorkspace = kmeans::predict_buffer_size(numClusters, dimDataset, nrow_);
   predictWorkspace.resize(sizePredictWorkspace, stream_);
 
-  _cuann_kmeans_predict(handle_,
-                        clusterCenters,
-                        nlist_,
-                        dim_,
-                        dataset,
-                        nrow_,
-                        datasetLabels,
-                        metric_type_,
-                        true,
-                        predictWorkspace.data(),
-                        clusterCentersMP.data(),
-                        clusterSizeMP.data(),
-                        true,
-                        stream_);
+  kmeans::predict(handle_,
+                  clusterCenters,
+                  nlist_,
+                  dim_,
+                  dataset,
+                  nrow_,
+                  datasetLabels,
+                  metric_type_,
+                  true,
+                  predictWorkspace.data(),
+                  clusterCentersMP.data(),
+                  clusterSizeMP.data(),
+                  true,
+                  stream_);
 
-  _cuann_kmeans_predict(handle_,
-                        clusterCenters,
-                        nlist_,
-                        dim_,
-                        dataset,
-                        nrow_,
-                        datasetLabels,
-                        metric_type_,
-                        true,
-                        predictWorkspace.data(),
-                        clusterCentersMP.data(),
-                        clusterSizeMP.data(),
-                        false,
-                        stream_);
+  kmeans::predict(handle_,
+                  clusterCenters,
+                  nlist_,
+                  dim_,
+                  dataset,
+                  nrow_,
+                  datasetLabels,
+                  metric_type_,
+                  true,
+                  predictWorkspace.data(),
+                  clusterCentersMP.data(),
+                  clusterSizeMP.data(),
+                  false,
+                  stream_);
 
   return cuivflStatus_t::CUIVFL_STATUS_SUCCESS;
 }  // end func cuivflBuildOptimizedKmeans
