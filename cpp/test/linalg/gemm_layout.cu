@@ -66,7 +66,7 @@ class GemmLayoutTest : public ::testing::TestWithParam<GemmLayoutInputs<T>> {
     raft::handle_t handle;
     cudaStream_t stream = handle.get_stream();
 
-    raft::random::Rng r(params.seed);
+    raft::random::RngState r(params.seed);
 
     // We compute Z = X * Y and compare against reference result
     // Dimensions of X : M x K
@@ -85,8 +85,8 @@ class GemmLayoutTest : public ::testing::TestWithParam<GemmLayoutInputs<T>> {
     RAFT_CUDA_TRY(cudaMalloc(&refZ, zElems * sizeof(T)));
     RAFT_CUDA_TRY(cudaMalloc(&Z, zElems * sizeof(T)));
 
-    r.uniform(X, xElems, T(-10.0), T(10.0), stream);
-    r.uniform(Y, yElems, T(-10.0), T(10.0), stream);
+    uniform(handle, r, X, xElems, T(-10.0), T(10.0));
+    uniform(handle, r, Y, yElems, T(-10.0), T(10.0));
 
     dim3 blocks(raft::ceildiv<int>(params.M, 128), raft::ceildiv<int>(params.N, 4), 1);
     dim3 threads(128, 4, 1);
@@ -121,7 +121,7 @@ class GemmLayoutTest : public ::testing::TestWithParam<GemmLayoutInputs<T>> {
 };
 
 const std::vector<GemmLayoutInputs<float>> inputsf = {
-  {80, 70, 80, true, true, true, 76433ULL},
+  {80, 70, 80, true, true, true, 76430ULL},
   {80, 100, 40, true, true, false, 426646ULL},
   {20, 100, 20, true, false, true, 237703ULL},
   {100, 60, 30, true, false, false, 538004ULL},

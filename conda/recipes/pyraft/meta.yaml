@@ -19,21 +19,28 @@ source:
 build:
   number: {{ GIT_DESCRIBE_NUMBER }}
   string: cuda{{ cuda_major }}_py{{ py_version }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
-  script_env:
-    - CC
-    - CXX
-    - VERSION_SUFFIX
+  ignore_run_exports_from:
+    - {{ compiler('cuda') }}
 
 requirements:
   build:
+    - cmake {{ cmake_version }}
+    - {{ compiler('c') }}
+    - {{ compiler('cxx') }}
+    - {{ compiler('cuda') }} {{ cuda_version }}
+    - sysroot_{{ target_platform }} {{ sysroot_version }}
+  host:
     - python x.x
     - setuptools
     - cython>=0.29,<0.30
+    - cmake {{ cmake_version }}
+    - scikit-build>=0.13.1
     - rmm {{ minor_version }}
     - libraft-headers {{ version }}
     - cudatoolkit {{ cuda_version }}.*
     - cuda-python >=11.5,<12.0
     - nccl>=2.9.9
+    - ucx {{ ucx_version }}
     - ucx-py {{ ucx_py_version }}
     - ucx-proc=*=gpu
   run:
@@ -42,10 +49,11 @@ requirements:
     - libraft-headers {{ version }}
     - nccl>=2.9.9
     - rmm {{ minor_version }}
+    - ucx >={{ ucx_version }}
     - ucx-py {{ ucx_py_version }}
     - ucx-proc=*=gpu
-    - dask==2022.03.0
-    - distributed==2022.03.0
+    - dask==2022.05.2
+    - distributed==2022.05.2
     - cuda-python >=11.5,<12.0
     - joblib >=0.11
     - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}

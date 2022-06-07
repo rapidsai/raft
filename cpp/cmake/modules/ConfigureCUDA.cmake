@@ -26,6 +26,8 @@ endif()
 list(APPEND RAFT_CUDA_FLAGS --expt-extended-lambda --expt-relaxed-constexpr)
 list(APPEND RAFT_CXX_FLAGS "-DCUDA_API_PER_THREAD_DEFAULT_STREAM")
 list(APPEND RAFT_CUDA_FLAGS "-DCUDA_API_PER_THREAD_DEFAULT_STREAM")
+# make sure we produce smallest binary size
+list(APPEND RAFT_CUDA_FLAGS -Xfatbin=-compress-all)
 
 # set warnings as errors
 if(CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL 11.2.0)

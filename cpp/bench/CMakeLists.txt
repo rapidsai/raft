@@ -18,7 +18,18 @@ set(RAFT_CPP_BENCH_TARGET "bench_raft")
 
 # (please keep the filenames in alphabetical order)
 add_executable(${RAFT_CPP_BENCH_TARGET}
+  bench/distance/distance_cosine.cu
+  bench/distance/distance_exp_l2.cu
+  bench/distance/distance_l1.cu
+  bench/distance/distance_unexp_l2.cu
+  bench/linalg/add.cu
+  bench/linalg/map_then_reduce.cu
+  bench/linalg/matrix_vector_op.cu
   bench/linalg/reduce.cu
+  bench/random/make_blobs.cu
+  bench/random/permute.cu
+  bench/random/rng.cu
+  bench/spatial/fused_l2_nn.cu
   bench/spatial/selection.cu
   bench/main.cpp
 )
@@ -47,6 +58,8 @@ target_include_directories(${RAFT_CPP_BENCH_TARGET}
 target_link_libraries(${RAFT_CPP_BENCH_TARGET}
   PRIVATE
     raft::raft
+    raft::distance
+    raft::nn
     faiss::faiss
     benchmark::benchmark
     $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>

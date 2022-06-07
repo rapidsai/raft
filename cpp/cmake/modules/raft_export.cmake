@@ -172,7 +172,7 @@ function(raft_export type project_name)
     rapids_cmake_install_lib_dir(install_location)
     set(install_location "${install_location}/cmake/${project_name}")
 
-    set(scratch_dir "${PROJECT_BINARY_DIR}/rapids-cmake/${project_name}/export")
+    set(scratch_dir "${PROJECT_BINARY_DIR}/rapids-cmake/${project_name}/export/raft/")
 
     configure_package_config_file("${CMAKE_CURRENT_FUNCTION_LIST_DIR}/config.cmake.in"
             "${scratch_dir}/${project_name}-config.cmake"
@@ -185,7 +185,8 @@ function(raft_export type project_name)
     endif()
 
     install(EXPORT ${RAPIDS_EXPORT_SET} FILE ${project_name}-targets.cmake
-            NAMESPACE ${RAPIDS_PROJECT_VERSION} DESTINATION "${install_location}")
+            NAMESPACE ${RAPIDS_PROJECT_VERSION} DESTINATION "${install_location}"
+            COMPONENT raft)
 
     if(TARGET rapids_export_install_${RAPIDS_EXPORT_SET})
       include("${rapids-cmake-dir}/export/write_dependencies.cmake")
@@ -202,7 +203,14 @@ function(raft_export type project_name)
     endif()
 
     # Install everything we have generated
-    install(DIRECTORY "${scratch_dir}/" DESTINATION "${install_location}")
+    install(DIRECTORY "${scratch_dir}/" DESTINATION "${install_location}"
+            COMPONENT raft)
+    foreach(comp nn distance)
+      set(scratch_dir "${PROJECT_BINARY_DIR}/rapids-cmake/${project_name}/export/${comp}/")
+      file(MAKE_DIRECTORY "${scratch_dir}")
+      install(DIRECTORY "${scratch_dir}" DESTINATION "${install_location}"
+        COMPONENT ${comp})
+    endforeach()
 
   else()
     set(install_location "${PROJECT_BINARY_DIR}")

@@ -1,3 +1,67 @@
+# raft 22.06.00 (7 Jun 2022)
+
+## 🚨 Breaking Changes
+
+- Rng: removed cyclic dependency creating hard-to-debug compiler errors ([#639](https://github.com/rapidsai/raft/pull/639)) [@MatthiasKohl](https://github.com/MatthiasKohl)
+- Allow enabling NVTX markers by downstream projects after install ([#610](https://github.com/rapidsai/raft/pull/610)) [@achirkin](https://github.com/achirkin)
+- Rng: expose host-rng-state in host-only API ([#609](https://github.com/rapidsai/raft/pull/609)) [@MatthiasKohl](https://github.com/MatthiasKohl)
+
+## 🐛 Bug Fixes
+
+- For fixing the cuGraph test failures with PCG ([#690](https://github.com/rapidsai/raft/pull/690)) [@vinaydes](https://github.com/vinaydes)
+- Fix excessive memory used in selection test ([#689](https://github.com/rapidsai/raft/pull/689)) [@achirkin](https://github.com/achirkin)
+- Revert print vector changes because of std::vector&lt;bool&gt; ([#681](https://github.com/rapidsai/raft/pull/681)) [@lowener](https://github.com/lowener)
+- fix race in fusedL2knn smem read/write by adding a syncwarp ([#679](https://github.com/rapidsai/raft/pull/679)) [@mdoijade](https://github.com/mdoijade)
+- gemm: fix  parameter C mistakenly set as const ([#664](https://github.com/rapidsai/raft/pull/664)) [@achirkin](https://github.com/achirkin)
+- Fix SelectionTest: allow different indices when keys are equal. ([#659](https://github.com/rapidsai/raft/pull/659)) [@achirkin](https://github.com/achirkin)
+- Revert recent cmake updates ([#657](https://github.com/rapidsai/raft/pull/657)) [@cjnolet](https://github.com/cjnolet)
+- Don&#39;t install component dependency files in raft-header only mode ([#655](https://github.com/rapidsai/raft/pull/655)) [@robertmaynard](https://github.com/robertmaynard)
+- Rng: removed cyclic dependency creating hard-to-debug compiler errors ([#639](https://github.com/rapidsai/raft/pull/639)) [@MatthiasKohl](https://github.com/MatthiasKohl)
+- Fixing raft compile bug w/ RNG changes ([#634](https://github.com/rapidsai/raft/pull/634)) [@cjnolet](https://github.com/cjnolet)
+- Get `libcudacxx` from `cuco` ([#632](https://github.com/rapidsai/raft/pull/632)) [@trxcllnt](https://github.com/trxcllnt)
+- RNG API fixes ([#630](https://github.com/rapidsai/raft/pull/630)) [@MatthiasKohl](https://github.com/MatthiasKohl)
+- Fix mdspan accessor mixin offset policy. ([#628](https://github.com/rapidsai/raft/pull/628)) [@trivialfis](https://github.com/trivialfis)
+- Branch 22.06 merge 22.04 ([#625](https://github.com/rapidsai/raft/pull/625)) [@cjnolet](https://github.com/cjnolet)
+- fix issue in fusedL2knn which happens when rows are multiple of 256 ([#604](https://github.com/rapidsai/raft/pull/604)) [@mdoijade](https://github.com/mdoijade)
+
+## 🚀 New Features
+
+- Restore changes from #653 and #655 and correct cmake component dependencies ([#686](https://github.com/rapidsai/raft/pull/686)) [@robertmaynard](https://github.com/robertmaynard)
+- Adding handle and stream to pylibraft ([#683](https://github.com/rapidsai/raft/pull/683)) [@cjnolet](https://github.com/cjnolet)
+- Map CMake install components to conda library packages ([#653](https://github.com/rapidsai/raft/pull/653)) [@robertmaynard](https://github.com/robertmaynard)
+- Rng: expose host-rng-state in host-only API ([#609](https://github.com/rapidsai/raft/pull/609)) [@MatthiasKohl](https://github.com/MatthiasKohl)
+- mdspan/mdarray template functions and utilities ([#601](https://github.com/rapidsai/raft/pull/601)) [@divyegala](https://github.com/divyegala)
+
+## 🛠️ Improvements
+
+- Change build.sh to find C++ library by default ([#697](https://github.com/rapidsai/raft/pull/697)) [@vyasr](https://github.com/vyasr)
+- Pin `dask` and `distributed` for release ([#693](https://github.com/rapidsai/raft/pull/693)) [@galipremsagar](https://github.com/galipremsagar)
+- Pin `dask` &amp; `distributed` for release ([#680](https://github.com/rapidsai/raft/pull/680)) [@galipremsagar](https://github.com/galipremsagar)
+- Improve logging ([#673](https://github.com/rapidsai/raft/pull/673)) [@achirkin](https://github.com/achirkin)
+- Fix minor errors in CMake configuration ([#662](https://github.com/rapidsai/raft/pull/662)) [@vyasr](https://github.com/vyasr)
+- Pulling mdspan fork (from official rapids repo) into raft to remove dependency ([#649](https://github.com/rapidsai/raft/pull/649)) [@cjnolet](https://github.com/cjnolet)
+- Fixing the unit test issue(s) in RAFT ([#646](https://github.com/rapidsai/raft/pull/646)) [@vinaydes](https://github.com/vinaydes)
+- Build pyraft with scikit-build ([#644](https://github.com/rapidsai/raft/pull/644)) [@vyasr](https://github.com/vyasr)
+- Some fixes to pairwise distances for cupy integration ([#643](https://github.com/rapidsai/raft/pull/643)) [@cjnolet](https://github.com/cjnolet)
+- Require UCX 1.12.1+ ([#638](https://github.com/rapidsai/raft/pull/638)) [@jakirkham](https://github.com/jakirkham)
+- Updating raft rng host public API and adding docs ([#636](https://github.com/rapidsai/raft/pull/636)) [@cjnolet](https://github.com/cjnolet)
+- Build pylibraft with scikit-build ([#633](https://github.com/rapidsai/raft/pull/633)) [@vyasr](https://github.com/vyasr)
+- Add `cuda_lib_dir` to `library_dirs`, allow changing `UCX`/`RMM`/`Thrust`/`spdlog` locations via envvars in `setup.py` ([#624](https://github.com/rapidsai/raft/pull/624)) [@trxcllnt](https://github.com/trxcllnt)
+- Remove perf prints from MST ([#623](https://github.com/rapidsai/raft/pull/623)) [@divyegala](https://github.com/divyegala)
+- Enable components installation using CMake ([#621](https://github.com/rapidsai/raft/pull/621)) [@Ethyling](https://github.com/Ethyling)
+- Allow nullptr as input-indices argument of select_k ([#618](https://github.com/rapidsai/raft/pull/618)) [@achirkin](https://github.com/achirkin)
+- Update CMake pinning to allow newer CMake versions ([#617](https://github.com/rapidsai/raft/pull/617)) [@vyasr](https://github.com/vyasr)
+- Unpin `dask` &amp; `distributed` for development ([#616](https://github.com/rapidsai/raft/pull/616)) [@galipremsagar](https://github.com/galipremsagar)
+- Improve performance of select-top-k RADIX implementation ([#615](https://github.com/rapidsai/raft/pull/615)) [@achirkin](https://github.com/achirkin)
+- Moving more prims benchmarks to RAFT ([#613](https://github.com/rapidsai/raft/pull/613)) [@cjnolet](https://github.com/cjnolet)
+- Allow enabling NVTX markers by downstream projects after install ([#610](https://github.com/rapidsai/raft/pull/610)) [@achirkin](https://github.com/achirkin)
+- Improve performance of select-top-k  WARP_SORT implementation ([#606](https://github.com/rapidsai/raft/pull/606)) [@achirkin](https://github.com/achirkin)
+- Enable building static libs ([#602](https://github.com/rapidsai/raft/pull/602)) [@trxcllnt](https://github.com/trxcllnt)
+- Update `ucx-py` version ([#596](https://github.com/rapidsai/raft/pull/596)) [@ajschmidt8](https://github.com/ajschmidt8)
+- Fix merge conflicts ([#587](https://github.com/rapidsai/raft/pull/587)) [@ajschmidt8](https://github.com/ajschmidt8)
+- Making cuco, thrust, and mdspan optional dependencies. ([#585](https://github.com/rapidsai/raft/pull/585)) [@cjnolet](https://github.com/cjnolet)
+- Some RBC3D fixes ([#530](https://github.com/rapidsai/raft/pull/530)) [@cjnolet](https://github.com/cjnolet)
+
 # raft 22.04.00 (6 Apr 2022)
 
 ## 🚨 Breaking Changes

@@ -25,6 +25,10 @@
 #include <raft/spatial/knn/detail/fused_l2_knn.cuh>
 #include <raft/spatial/knn/knn.cuh>
 
+#if defined RAFT_NN_COMPILED
+#include <raft/spatial/knn/specializations.cuh>
+#endif
+
 #include <rmm/device_buffer.hpp>
 
 #include <gtest/gtest.h>
@@ -160,9 +164,9 @@ class FusedL2KNNTest : public ::testing::TestWithParam<FusedL2KNNInputs> {
     metric      = params_.metric_;
 
     unsigned long long int seed = 1234ULL;
-    raft::random::Rng r(seed);
-    r.uniform(database.data(), num_db_vecs * dim, T(-1.0), T(1.0), stream_);
-    r.uniform(search_queries.data(), num_queries * dim, T(-1.0), T(1.0), stream_);
+    raft::random::RngState r(seed);
+    uniform(handle_, r, database.data(), num_db_vecs * dim, T(-1.0), T(1.0));
+    uniform(handle_, r, search_queries.data(), num_queries * dim, T(-1.0), T(1.0));
   }
 
   void launchFaissBfknn()
@@ -212,12 +216,14 @@ class FusedL2KNNTest : public ::testing::TestWithParam<FusedL2KNNInputs> {
 
 const std::vector<FusedL2KNNInputs> inputs = {
   {100, 1000, 16, 10, raft::distance::DistanceType::L2Expanded},
+  {256, 256, 30, 10, raft::distance::DistanceType::L2Expanded},
   {1000, 10000, 16, 10, raft::distance::DistanceType::L2Expanded},
   {100, 1000, 16, 50, raft::distance::DistanceType::L2Expanded},
   {20, 10000, 16, 10, raft::distance::DistanceType::L2Expanded},
   {1000, 10000, 16, 50, raft::distance::DistanceType::L2Expanded},
   {1000, 10000, 32, 50, raft::distance::DistanceType::L2Expanded},
   {10000, 40000, 32, 30, raft::distance::DistanceType::L2Expanded},
+  {131072, 131072, 8, 60, raft::distance::DistanceType::L2Expanded},
   // L2 unexpanded
   {100, 1000, 16, 10, raft::distance::DistanceType::L2Unexpanded},
   {1000, 10000, 16, 10, raft::distance::DistanceType::L2Unexpanded},
@@ -225,7 +231,8 @@ const std::vector<FusedL2KNNInputs> inputs = {
   {20, 10000, 16, 50, raft::distance::DistanceType::L2Unexpanded},
   {1000, 10000, 16, 50, raft::distance::DistanceType::L2Unexpanded},
   {1000, 10000, 32, 50, raft::distance::DistanceType::L2Unexpanded},
-  {10000, 40000, 32, 30, raft::distance::DistanceType::L2Unexpanded}};
+  {10000, 40000, 32, 30, raft::distance::DistanceType::L2Unexpanded},
+  {131072, 131072, 8, 60, raft::distance::DistanceType::L2Unexpanded}};
 
 typedef FusedL2KNNTest<float> FusedL2KNNTestF;
 TEST_P(FusedL2KNNTestF, FusedBruteForce) { this->testBruteForce(); }

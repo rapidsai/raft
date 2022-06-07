@@ -13,11 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <experimental/mdspan>
 #include <gtest/gtest.h>
+#include <raft/core/mdarray.hpp>
+#include <raft/core/mdspan.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/mdarray.hpp>
 #include <rmm/cuda_stream.hpp>
 #include <rmm/device_uvector.hpp>
 #include <rmm/device_vector.hpp>
@@ -409,12 +409,14 @@ TEST(MDArray, FuncArg)
       make_device_matrix<float, layout_f_contiguous>(10, 10, rmm::cuda_stream_default);
     check_matrix_layout(d_matrix.view());
 
-    // FIXME(jiamingy): The slice has a default accessor instead of accessor_mixin, due to
-    // the hardcoded policy in submdspan implementation.  We need to have a rewritten
-    // version of submdspan for implementing padding.
-    // auto slice =
-    //   stdex::submdspan(d_matrix.view(), std::make_tuple(2ul, 4ul), std::make_tuple(2ul, 5ul));
-    // check_matrix_layout(slice);
+    auto slice =
+      stdex::submdspan(d_matrix.view(), std::make_tuple(2ul, 4ul), std::make_tuple(2ul, 5ul));
+    static_assert(slice.is_strided());
+    ASSERT_EQ(slice.extent(0), 2);
+    ASSERT_EQ(slice.extent(1), 3);
+    // is using device_accessor mixin.
+    static_assert(
+      std::is_same_v<decltype(slice)::accessor_type, device_matrix_view<float>::accessor_type>);
   }
 }
 }  // namespace raft

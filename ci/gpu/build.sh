@@ -27,7 +27,7 @@ export GIT_DESCRIBE_TAG=`git describe --tags`
 export MINOR_VERSION=`echo $GIT_DESCRIBE_TAG | grep -o -E '([0-9]+\.[0-9]+)'`
 
 # ucx-py version
-export UCX_PY_VERSION='0.25.*'
+export UCX_PY_VERSION='0.26.*'
 
 export CMAKE_CUDA_COMPILER_LAUNCHER="sccache"
 export CMAKE_CXX_COMPILER_LAUNCHER="sccache"
@@ -73,8 +73,8 @@ fi
 # Install the master version of dask, distributed, and dask-ml
 gpuci_logger "Install the master version of dask and distributed"
 set -x
-pip install "git+https://github.com/dask/distributed.git@2022.03.0" --upgrade --no-deps
-pip install "git+https://github.com/dask/dask.git@2022.03.0" --upgrade --no-deps
+pip install "git+https://github.com/dask/distributed.git@2022.05.2" --upgrade --no-deps
+pip install "git+https://github.com/dask/dask.git@2022.05.2" --upgrade --no-deps
 set +x
 
 # Install pre-built conda packages from previous CI step
@@ -105,7 +105,7 @@ gpuci_logger "Build C++ and Python targets"
 if hasArg --skip-tests; then
   "$WORKSPACE/build.sh" pyraft pylibraft libraft -v
 else
-  "$WORKSPACE/build.sh" pyraft pylibraft libraft tests bench  -v
+  "$WORKSPACE/build.sh" pyraft pylibraft libraft tests bench -v
 fi
 
 gpuci_logger "sccache stats"

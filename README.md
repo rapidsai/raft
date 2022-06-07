@@ -1,6 +1,6 @@
 # <div align="left"><img src="https://rapids.ai/assets/images/rapids_logo.png" width="90px"/>&nbsp;RAFT: Reusable Accelerated Functions and Tools</div>
 
-RAFT contains fundamental widely-used algorithms and primitives for data science, graph and machine learning. The algorithms are CUDA-accelerated and form building-blocks for rapidly composing analytics.
+RAFT contains fundamental widely-used algorithms and primitives for data science and machine learning. The algorithms are CUDA-accelerated and form building-blocks for rapidly composing analytics.
 
 By taking a primitives-based approach to algorithm development, RAFT 
 - accelerates algorithm construction time
@@ -115,7 +115,7 @@ Use the following command to install RAFT with conda (replace `rapidsai` with `r
 mamba install -c rapidsai libraft-headers libraft-nn libraft-distance pyraft pylibraft
 ```
 
-After installing RAFT, `find_package(raft COMPONENTS nn distance)` can be used in your CUDA/C++ build. `COMPONENTS` are optional and will depend on the packages installed.
+After installing RAFT, `find_package(raft COMPONENTS nn distance)` can be used in your CUDA/C++ cmake build to compile and/or link against needed dependencies in your raft target. `COMPONENTS` are optional and will depend on the packages installed.
 
 ### CPM
 
@@ -164,13 +164,13 @@ find_and_configure_raft(VERSION    ${RAFT_VERSION}.00
 )
 ```
 
-Several CMake targets can be made available by adding components in the table below to the `RAFT_COMPONENTS` list above, separated by spaces. The `raft::raft` target will always be available.
+Several CMake targets can be made available by adding components in the table below to the `RAFT_COMPONENTS` list above, separated by spaces. The `raft::raft` target will always be available. RAFT headers require, at a minimum, the CUDA toolkit libraries and RMM dependencies.
 
 | Component | Target | Description | Base Dependencies |
 | --- | --- | --- | --- |
-| n/a | `raft::raft` | Full RAFT header library | CUDA toolkit library, RMM, std::mdspan, cuCollections, Thrust, NVTools |
-| distance | `raft::distance` | Pre-compiled template specializations for raft::distance | raft::raft |
-| nn | `raft::nn` | Pre-compiled template specializations for raft::spatial::knn | raft::raft, FAISS |
+| n/a | `raft::raft` | Full RAFT header library | CUDA toolkit library, RMM, Thrust (optional), NVTools (optional) |
+| distance | `raft::distance` | Pre-compiled template specializations for raft::distance | raft::raft, cuCollections (optional)  |
+| nn | `raft::nn` | Pre-compiled template specializations for raft::spatial::knn | raft::raft, FAISS (optional) |
 
 ### Source
 

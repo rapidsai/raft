@@ -92,7 +92,7 @@ class MakeBlobsTest : public ::testing::TestWithParam<MakeBlobsInputs<T>> {
     // 4 x sigma indicates the test shouldn't fail 99.9% of the time.
     num_sigma = 50;
     auto len  = params.rows * params.cols;
-    raft::random::Rng r(params.seed, params.gtype);
+    raft::random::RngState r(params.seed, params.gtype);
 
     auto data   = make_device_matrix<T, layout>(handle, params.rows, params.cols);
     auto labels = make_device_vector<int>(handle, params.rows);
@@ -103,7 +103,7 @@ class MakeBlobsTest : public ::testing::TestWithParam<MakeBlobsInputs<T>> {
     RAFT_CUDA_TRY(cudaMemsetAsync(lens.data(), 0, lens.extent(0) * sizeof(int), stream));
     RAFT_CUDA_TRY(cudaMemsetAsync(mean_var.data(), 0, mean_var.size() * sizeof(T), stream));
 
-    r.uniform(mu_vec.data(), params.cols * params.n_clusters, T(-10.0), T(10.0), stream);
+    uniform(handle, r, mu_vec.data(), params.cols * params.n_clusters, T(-10.0), T(10.0));
 
     make_blobs<T, int, layout>(handle,
                                data.view(),
