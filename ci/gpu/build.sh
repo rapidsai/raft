@@ -51,11 +51,6 @@ gpuci_logger "Install libraft conda packages from CPU job"
 CONDA_ARTIFACT_PATH="$WORKSPACE/ci/artifacts/raft/cpu/.conda-bld/" # notice there is no `linux-64` here
 gpuci_mamba_retry install -c "${CONDA_ARTIFACT_PATH}" libraft-headers libraft-distance libraft-nn
 
-gpuci_logger "Check compiler versions"
-python --version
-$CC --version
-$CXX --version
-
 gpuci_logger "Check conda environment"
 conda info
 conda config --show-sources
