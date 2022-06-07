@@ -29,7 +29,11 @@
 #include <raft/pow2_utils.cuh>
 
 #include <rmm/cuda_stream_view.hpp>
-#include <rmm/device_buffer.hpp>
+#include <rmm/device_vector.hpp>
+#include <rmm/mr/device/per_device_resource.hpp>
+#include <rmm/mr/device/pool_memory_resource.hpp>
+
+#include <optional>
 
 namespace raft::spatial::knn::detail::kmeans {
 
@@ -41,12 +45,10 @@ void predict_core_(const handle_t& handle,
                    uint32_t n_rows,
                    uint32_t* labels,  // [n_rows]
                    raft::distance::DistanceType metric,
-                   float* workspace,
+                   rmm::mr::device_memory_resource* mr,
                    rmm::cuda_stream_view stream)
 {
-  float* sqsum_centers = workspace;                   // [n_clusters]
-  float* sqsum_data    = sqsum_centers + n_clusters;  // [n_rows]
-  float* distances     = sqsum_data + n_rows;         // [n_rows, n_clusters]
+  rmm::device_uvector<float> distances(n_rows * n_clusters, stream, mr);
 
   float alpha;
   float beta;
@@ -54,9 +56,12 @@ void predict_core_(const handle_t& handle,
     alpha = -1.0;
     beta  = 0.0;
   } else {
-    utils::dots_along_rows(n_clusters, dim, centers, sqsum_centers, stream);
-    utils::dots_along_rows(n_rows, dim, dataset, sqsum_data, stream);
-    utils::outer_add(sqsum_data, n_rows, sqsum_centers, n_clusters, distances, stream);
+    rmm::device_uvector<float> sqsum_centers(n_clusters, stream, mr);
+    rmm::device_uvector<float> sqsum_data(n_rows, stream, mr);
+    utils::dots_along_rows(n_clusters, dim, centers, sqsum_centers.data(), stream);
+    utils::dots_along_rows(n_rows, dim, dataset, sqsum_data.data(), stream);
+    utils::outer_add(
+      sqsum_data.data(), n_rows, sqsum_centers.data(), n_clusters, distances.data(), stream);
     alpha = -2.0;
     beta  = 1.0;
   }
@@ -72,40 +77,33 @@ void predict_core_(const handle_t& handle,
                dataset,
                dim,
                &beta,
-               distances,
+               distances.data(),
                n_clusters,
                stream);
-  utils::argmin_along_rows(n_rows, n_clusters, distances, labels, stream);
-}
-
-auto predict_chunk_size_(uint32_t n_clusters, uint32_t n_rows) -> uint32_t
-{
-  n_clusters     = max(1, n_clusters);
-  uint32_t chunk = (1 << 20);
-  if (chunk > (1 << 28) / n_clusters) {
-    chunk = (1 << 28) / n_clusters;
-    chunk += 32;
-    chunk -= chunk % 64;
-  }
-  chunk = min(chunk, n_rows);
-  return chunk;
+  utils::argmin_along_rows(n_rows, n_clusters, distances.data(), labels, stream);
 }
 
 /**
- * @brief Calculate the required workspace size for the `predict`.
+ * @brief Suggest a minibatch size for kmeans prediction.
+ *
+ * This function is used as a heuristic to split the work over a large dataset
+ * to reduce the size of temporary memory allocations.
+ *
+ * @param n_clusters number of clusters in kmeans clustering
+ * @param n_rows dataset size
+ * @return a suggested minibatch size
  */
-auto predict_buffer_size(uint32_t n_clusters, uint32_t dim, uint32_t n_rows) -> size_t
+constexpr auto calc_minibatch_size(uint32_t n_clusters, uint32_t n_rows) -> uint32_t
 {
-  uint32_t chunk = predict_chunk_size_(n_clusters, n_rows);
-  size_t size    = 0;
-  using align_t  = Pow2<128>;
-  // float *cur_dataset;  // [chunk, dim]
-  size += align_t::roundUp(sizeof(float) * chunk * dim);
-  // void *buf_dataset;  // [chunk, dim]
-  size += align_t::roundUp(sizeof(float) * chunk * dim);
-  // float *workspace;
-  size += align_t::roundUp(sizeof(float) * (n_clusters + chunk + (n_clusters * chunk)));
-  return size;
+  n_clusters              = std::max<uint32_t>(1, n_clusters);
+  uint32_t minibatch_size = (1 << 20);
+  if (minibatch_size > (1 << 28) / n_clusters) {
+    minibatch_size = (1 << 28) / n_clusters;
+    minibatch_size += 32;
+    minibatch_size -= minibatch_size % 64;
+  }
+  minibatch_size = std::min<uint32_t>(minibatch_size, n_rows);
+  return minibatch_size;
 }
 
 /**
@@ -189,11 +187,11 @@ void update_centers(float* centers,
  * @param[out] labels output predictions [n_rows]
  * @param metric
  * @param is_center_set
- * @param[in] _workspace optional
  * @param[in] centers_temp optional [n_clusters, dim]
  * @param[inout] cluster_sizes (optional) number of rows in each cluster [n_clusters]
  * @param shall_update_centers
  * @param stream
+ * @param mr (optional) memory resource to use for temporary allocations
  */
 template <typename T>
 void predict(const handle_t& handle,
@@ -205,11 +203,11 @@ void predict(const handle_t& handle,
              uint32_t* labels,
              raft::distance::DistanceType metric,
              bool is_center_set,
-             void* _workspace,
              float* centers_temp,
              uint32_t* cluster_sizes,
              bool shall_update_centers,
-             rmm::cuda_stream_view stream)
+             rmm::cuda_stream_view stream,
+             rmm::mr::device_memory_resource* mr = nullptr)
 {
   if (n_rows == 0) {
     RAFT_LOG_WARN(
@@ -231,57 +229,54 @@ void predict(const handle_t& handle,
     return;
   }
 
-  uint32_t chunk_max = predict_chunk_size_(n_clusters, n_rows);
-  void* workspace    = _workspace;
-  rmm::device_buffer sub_workspace(0, stream);
-
-  if (_workspace == nullptr) {
-    sub_workspace.resize(predict_buffer_size(n_clusters, dim, n_rows), stream);
-    workspace = sub_workspace.data();
-  }
-
-  // [chunk_max, dim]
-  auto cur_dataset = reinterpret_cast<float*>(workspace);
-  // [chunk_max, dim]
-  auto buf_dataset    = reinterpret_cast<T*>(reinterpret_cast<uint8_t*>(cur_dataset) +
-                                          Pow2<128>::roundUp(sizeof(float) * chunk_max * dim));
-  auto workspace_core = reinterpret_cast<float*>(
-    reinterpret_cast<uint8_t*>(buf_dataset) + Pow2<128>::roundUp(sizeof(float) * chunk_max * dim));
+  const uint32_t max_minibatch_size = calc_minibatch_size(n_clusters, n_rows);
 
   if (centers_temp != nullptr && cluster_sizes != nullptr) {
     utils::memset(centers_temp, 0, sizeof(float) * n_clusters * dim, stream);
     utils::memset(cluster_sizes, 0, sizeof(uint32_t) * n_clusters, stream);
   }
 
-  for (uint32_t offset = 0; offset < n_rows; offset += chunk_max) {
-    auto chunk = std::min<uint32_t>(chunk_max, n_rows - offset);
+  std::optional<rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource>> pool_res;
+  if (mr == nullptr) {
+    pool_res.emplace(rmm::mr::get_current_device_resource(),
+                     Pow2<256>::roundUp(max_minibatch_size * dim * 4));
+    mr = &(pool_res.value());
+  }
 
-    copy(buf_dataset, dataset + offset * dim, chunk * dim, stream);
-    handle.sync_stream(stream);
+  rmm::device_uvector<float> cur_dataset(max_minibatch_size * dim, stream, mr);
+  for (uint32_t offset = 0; offset < n_rows; offset += max_minibatch_size) {
+    auto minibatch_size = std::min<uint32_t>(max_minibatch_size, n_rows - offset);
 
     if constexpr (std::is_same_v<T, float>) {
-      // No need to copy floats
-      cur_dataset = buf_dataset;
+      copy(cur_dataset.data(), dataset + offset * dim, minibatch_size * dim, stream);
     } else {
-      linalg::unaryOp(cur_dataset, buf_dataset, chunk * dim, utils::mapping<float>{}, stream);
+      linalg::unaryOp(cur_dataset.data(),
+                      dataset + offset * dim,
+                      minibatch_size * dim,
+                      utils::mapping<float>{},
+                      stream);
     }
-
     // predict
     predict_core_(handle,
                   centers,
                   n_clusters,
                   dim,
-                  cur_dataset,
-                  chunk,
+                  cur_dataset.data(),
+                  minibatch_size,
                   labels + offset,
                   metric,
-                  workspace_core,
+                  mr,
                   stream);
 
     if ((centers_temp != nullptr) && (cluster_sizes != nullptr)) {
       // accumulate
-      utils::accumulate_into_selected<float>(
-        chunk, dim, centers_temp, cluster_sizes, cur_dataset, labels + offset, stream);
+      utils::accumulate_into_selected<float>(minibatch_size,
+                                             dim,
+                                             centers_temp,
+                                             cluster_sizes,
+                                             cur_dataset.data(),
+                                             labels + offset,
+                                             stream);
     }
   }
 

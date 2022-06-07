@@ -234,11 +234,11 @@ cuivflStatus_t cuivflHandle<T>::cuivflBuildOptimizedKmeans(float* centriod_manag
 
   auto mesoClusterSize = mesoClusterSize_buf.data();
 
-  size_t sizePredictWorkspace = kmeans::predict_buffer_size(numMesoClusters,  // number of centers
-                                                            dimDataset,
-                                                            numTrainset  // number of vectors
-  );
-  rmm::device_buffer predictWorkspace(sizePredictWorkspace, stream_);
+  rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource> kmeans_mem_res(
+    rmm::mr::get_current_device_resource(),
+    // an arbitrary guess on the upper bound of the workspace size
+    Pow2<256>::roundUp(kmeans::calc_minibatch_size(numMesoClusters, nrow) * dimDataset * 4));
+
   // Training meso-clusters
   for (uint32_t iter = 0; iter < 2 * numIterations; iter += 2) {
     RAFT_LOG_TRACE("Training kmeans of meso-clusters: %.1f / %u", (float)iter / 2, numIterations);
@@ -251,11 +251,11 @@ cuivflStatus_t cuivflHandle<T>::cuivflBuildOptimizedKmeans(float* centriod_manag
                     mesoClusterLabels.data(),
                     metric_type_,
                     (iter != 0),
-                    predictWorkspace.data(),
                     mesoClusterCentersTemp.data(),
                     mesoClusterSize,
                     true,
-                    stream_);
+                    stream_,
+                    &kmeans_mem_res);
 
     if (iter + 1 < 2 * numIterations) {
       if (kmeans::adjust_centers(mesoClusterCenters.data(),
@@ -312,19 +312,8 @@ cuivflStatus_t cuivflHandle<T>::cuivflBuildOptimizedKmeans(float* centriod_manag
   auto idsTrainset = idsTrainset_buf.data();
   auto subTrainset = subTrainset_buf.data();
 
-  sizePredictWorkspace = 0;
-  for (uint32_t i = 0; i < numMesoClusters; i++) {
-    sizePredictWorkspace = max(sizePredictWorkspace,
-                               kmeans::predict_buffer_size(numFineClusters[i],  // number of centers
-                                                           dimDataset,
-                                                           mesoClusterSize[i]  // number of vectors
-                                                           ));
-  }
-
   // label (cluster ID) of each vector
   rmm::device_uvector<uint32_t> labelsMP(mesoClusterSizeMax, stream_, &managed_memory);
-
-  predictWorkspace.resize(sizePredictWorkspace, stream_);
 
   rmm::device_uvector<float> clusterCentersEach(
     numFineClustersMax * dimDataset, stream_, &managed_memory);
@@ -368,11 +357,11 @@ cuivflStatus_t cuivflHandle<T>::cuivflBuildOptimizedKmeans(float* centriod_manag
                       labelsMP.data(),
                       metric_type_,
                       (iter != 0),
-                      predictWorkspace.data(),
                       clusterCentersMP.data(),
                       clusterSizeMP.data(),
                       true,
-                      stream_);
+                      stream_,
+                      &kmeans_mem_res);
 
       if (iter + 1 < 2 * numIterations) {
         if (kmeans::adjust_centers(clusterCentersEach.data(),
@@ -401,10 +390,6 @@ cuivflStatus_t cuivflHandle<T>::cuivflBuildOptimizedKmeans(float* centriod_manag
   clusterCentersMP.resize(numClusters * dimDataset, stream_);
   clusterSizeMP.resize(numClusters, stream_);
 
-  // [...]
-  sizePredictWorkspace = kmeans::predict_buffer_size(numClusters, dimDataset, numTrainset);
-  predictWorkspace.resize(sizePredictWorkspace, stream_);
-
   // Fitting whole clusters using whole trainset.
   for (int iter = 0; iter < 2; iter++) {
     kmeans::predict(handle_,
@@ -416,18 +401,15 @@ cuivflStatus_t cuivflHandle<T>::cuivflBuildOptimizedKmeans(float* centriod_manag
                     trainsetLabels.data(),
                     metric_type_,
                     true,
-                    predictWorkspace.data(),
                     clusterCentersMP.data(),
                     clusterSizeMP.data(),
                     true,
-                    stream_);
+                    stream_,
+                    &kmeans_mem_res);
   }  // end for (int iter = 0; iter < 2; iter++)
 
   RAFT_LOG_DEBUG("(%s) Final fitting.", __func__);
 
-  sizePredictWorkspace = kmeans::predict_buffer_size(numClusters, dimDataset, nrow_);
-  predictWorkspace.resize(sizePredictWorkspace, stream_);
-
   kmeans::predict(handle_,
                   clusterCenters,
                   nlist_,
@@ -437,11 +419,11 @@ cuivflStatus_t cuivflHandle<T>::cuivflBuildOptimizedKmeans(float* centriod_manag
                   datasetLabels,
                   metric_type_,
                   true,
-                  predictWorkspace.data(),
                   clusterCentersMP.data(),
                   clusterSizeMP.data(),
                   true,
-                  stream_);
+                  stream_,
+                  &kmeans_mem_res);
 
   kmeans::predict(handle_,
                   clusterCenters,
@@ -452,11 +434,11 @@ cuivflStatus_t cuivflHandle<T>::cuivflBuildOptimizedKmeans(float* centriod_manag
                   datasetLabels,
                   metric_type_,
                   true,
-                  predictWorkspace.data(),
                   clusterCentersMP.data(),
                   clusterSizeMP.data(),
                   false,
-                  stream_);
+                  stream_,
+                  &kmeans_mem_res);
 
   return cuivflStatus_t::CUIVFL_STATUS_SUCCESS;
 }  // end func cuivflBuildOptimizedKmeans
