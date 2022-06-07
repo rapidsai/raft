@@ -107,7 +107,7 @@ gpuci_logger "Check GPU usage"
 nvidia-smi
 
 gpuci_logger "GoogleTest for raft"
-cd "$WORKSPACE"
+cd "$WORKSPACE/cpp/build"
 GTEST_OUTPUT="xml:$WORKSPACE/test-results/raft_cpp/" ./test_raft
 
 gpuci_logger "Python pytest for pyraft"
