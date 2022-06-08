@@ -276,6 +276,25 @@ void linewiseOp(m_t* out,
     out, in, lineLen, nLines, alongLines, op, stream, vecs...);
 }
 
+template <typename m_t, typename idx_t = int, typename Lambda, typename... Vecs>
+void linewiseOpSpan(padded_matrix<m_t>& out,
+                    const padded_matrix<m_t>& in,
+                    const idx_t lineLen,
+                    const idx_t nLines,
+                    const bool alongLines,
+                    Lambda op,
+                    cudaStream_t stream,
+                    Vecs... vecs)
+{
+  common::nvtx::range<common::nvtx::domain::raft> fun_scope("linewiseOpSpan-%c-%zu (%zu, %zu)",
+                                                            alongLines ? 'l' : 'x',
+                                                            sizeof...(Vecs),
+                                                            size_t(lineLen),
+                                                            size_t(nLines));
+  detail::MatrixLinewiseOpSpan<16, 128, 256>::run<m_t, idx_t, Lambda, Vecs...>(
+    out, in, lineLen, nLines, alongLines, op, stream, vecs...);
+}
+
 };  // end namespace matrix
 };  // end namespace raft
 
