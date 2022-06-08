@@ -72,45 +72,25 @@ __global__ void write_ivf_flat_interleaved_index(
   }
 }
 
-/* CUIVFL status type */
-enum cuivflStatus_t : unsigned int {
-  CUIVFL_STATUS_SUCCESS           = 0,
-  CUIVFL_STATUS_ALLOC_FAILED      = 1,
-  CUIVFL_STATUS_NOT_INITIALIZED   = 2,
-  CUIVFL_STATUS_INVALID_VALUE     = 3,
-  CUIVFL_STATUS_INTERNAL_ERROR    = 4,
-  CUIVFL_STATUS_FILEIO_ERROR      = 5,
-  CUIVFL_STATUS_CUDA_ERROR        = 6,
-  CUIVFL_STATUS_CUBLAS_ERROR      = 7,
-  CUIVFL_STATUS_INVALID_POINTER   = 8,
-  CUIVFL_STATUS_VERSION_ERROR     = 9,
-  CUIVFL_STATUS_UNSUPPORTED_DTYPE = 10,
-  CUIVFL_STATUS_FAISS_ERROR       = 11,
-  CUIVFL_STATUS_NOT_BUILD         = 12
-};
-
 template <typename T>
 class cuivflHandle {
  public:
   cuivflHandle(const handle_t& handle,
                raft::distance::DistanceType metric_type,
                uint32_t dim,
-               uint32_t nlist,
-               uint32_t niter,
-               uint32_t device);
+               uint32_t n_lists,
+               uint32_t n_iters);
 
-  cuivflStatus_t cuivflBuildIndex(const T* dataset, T* trainset, uint32_t nrow, uint32_t nTrainset);
+  void cuivflBuildIndex(const T* dataset, T* trainset, uint32_t n_rows, uint32_t nTrainset);
 
-  cuivflStatus_t cuivflSetSearchParameters(const uint32_t nprobe,
-                                           const uint32_t max_batch,
-                                           const uint32_t max_k);
+  void cuivflSetSearchParameters(const uint32_t n_probes,
+                                 const uint32_t max_batch,
+                                 const uint32_t max_k);
 
-  cuivflStatus_t cuivflSearch(
-    const T* queries, uint32_t batch_size, uint32_t k, size_t* neighbors, float* distances);
+  void cuivflSearch(
+    const T* queries, uint32_t n_queries, uint32_t k, size_t* neighbors, float* distances);
 
-  cuivflStatus_t queryIVFFlatGridSize(const uint32_t nprobe,
-                                      const uint32_t batch_size,
-                                      const uint32_t k);
+  void queryIVFFlatGridSize(const uint32_t n_probes, const uint32_t n_queries, const uint32_t k);
   uint32_t getDim() { return dim_; }
 
  private:
@@ -119,27 +99,27 @@ class cuivflHandle {
 
   raft::distance::DistanceType metric_type_;
   bool greater_;
-  uint32_t nlist_;       // The number of inverted lists= the number of centriods
-  uint32_t niter_;       // The number of uint32_terations for kmeans to build the indexs
+  uint32_t n_lists_;     // The number of inverted lists= the number of centriods
+  uint32_t n_iters_;     // The number of uint32_terations for kmeans to build the indexs
   uint32_t dim_;         // The dimension of vectors for input dataset
-  uint32_t nprobe_;      // The number of clusters for searching
-  uint32_t nrow_;        // The number of elements for input dataset
+  uint32_t n_probes_;    // The number of clusters for searching
+  uint32_t n_rows_;      // The number of elements for input dataset
   size_t ninterleave_;   // The number of elements in 32 interleaved group for input dataset
   uint32_t veclen_;      // The vectorization length of dataset in index.
-  uint32_t grid_dim_x_;  // The number of blocks launched across nprobe.
+  uint32_t grid_dim_x_;  // The number of blocks launched across n_probes.
 
   // device pointer
   //  The device memory pointer; inverted list for data; size [ninterleave_, dim_]
   rmm::device_uvector<T> list_data_dev_;
   // The device memory pointer; inverted list for index; size [ninterleave_]
   rmm::device_uvector<uint32_t> list_index_dev_;
-  // The device memory pointer; Used for list_data_manage_ptr_; size [nlist_]
+  // The device memory pointer; Used for list_data_manage_ptr_; size [n_lists_]
   rmm::device_uvector<uint32_t> list_prefix_interleaved_dev_;
-  // The device memory pointer; the number of each cluster(list); size [nlist_]
+  // The device memory pointer; the number of each cluster(list); size [n_lists_]
   rmm::device_uvector<uint32_t> list_lengths_dev_;
-  // The device memory pointer; centriod; size [nlist_, dim_]
+  // The device memory pointer; centriod; size [n_lists_, dim_]
   rmm::device_uvector<float> centriod_dev_;
-  // The device memory pointer; centriod norm ; size [nlist_, dim_]
+  // The device memory pointer; centriod norm ; size [n_lists_, dim_]
   rmm::device_uvector<float> centriod_norm_dev_;
   // Memory pool for use during search; after the first search is done the pool is not likely to
   // resize, saving the costs of allocations.
@@ -150,35 +130,34 @@ class cuivflHandle {
   std::vector<T> list_data_host_;
   // The host memory pointer; inverted list for index; size [ninterleave_]
   std::vector<uint32_t> list_index_host_;
-  // The host memory pointer; Used for list_data_manage_ptr_; size [nlist_]
+  // The host memory pointer; Used for list_data_manage_ptr_; size [n_lists_]
   std::vector<uint32_t> list_prefix_interleaved_host_;
-  // The host memory pointer; the number of each cluster(list); size [nlist_]
+  // The host memory pointer; the number of each cluster(list); size [n_lists_]
   std::vector<uint32_t> list_lengths_host_;
 
-  cuivflStatus_t cuivflBuildOptimizedKmeans(float* centriod_managed_ptr,
-                                            const T* dataset,
-                                            T* trainset,
-                                            uint32_t* clusterSize,
-                                            uint32_t nrow,
-                                            uint32_t ntrain);
+  void cuivflBuildOptimizedKmeans(float* centriod_managed_ptr,
+                                  const T* dataset,
+                                  T* trainset,
+                                  uint32_t* clusterSize,
+                                  uint32_t n_rows,
+                                  uint32_t n_rows_train);
 
-  template <typename value_t>
-  cuivflStatus_t cuivflSearchImpl(
-    const T* queries, uint32_t batch_size, uint32_t k, size_t* neighbors, value_t* distances);
+  template <typename AccT>
+  void cuivflSearchImpl(
+    const T* queries, uint32_t n_queries, uint32_t k, size_t* neighbors, AccT* distances);
 };
 
 template <typename T>
 cuivflHandle<T>::cuivflHandle(const handle_t& handle,
                               raft::distance::DistanceType metric_type,
                               uint32_t dim,
-                              uint32_t nlist,
-                              uint32_t niter,
-                              uint32_t device)
+                              uint32_t n_lists,
+                              uint32_t n_iters)
   : handle_(handle),
     stream_(handle_.get_stream()),
     dim_(dim),
-    nlist_(nlist),
-    niter_(niter),
+    n_lists_(n_lists),
+    n_iters_(n_iters),
     metric_type_(metric_type),
     grid_dim_x_(0),
     list_data_dev_(0, stream_),
@@ -203,69 +182,64 @@ cuivflHandle<T>::cuivflHandle(const handle_t& handle,
  *
  */
 template <typename T>
-cuivflStatus_t cuivflHandle<T>::cuivflBuildOptimizedKmeans(float* centriod_managed_ptr,
-                                                           const T* dataset,
-                                                           T* trainset,
-                                                           uint32_t* datasetLabels,
-                                                           uint32_t nrow,
-                                                           uint32_t ntrain)
+void cuivflHandle<T>::cuivflBuildOptimizedKmeans(float* centriod_managed_ptr,
+                                                 const T* dataset,
+                                                 T* trainset,
+                                                 uint32_t* labels,
+                                                 uint32_t n_rows,
+                                                 uint32_t n_rows_train)
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
-    "cuivflBuildOptimizedKmeans(%u, %u)", nrow, ntrain);
-  uint32_t numTrainset   = ntrain;
-  uint32_t numClusters   = nlist_;
-  uint32_t dimDataset    = dim_;
-  uint32_t numIterations = niter_;
+    "cuivflBuildOptimizedKmeans(%u, %u)", n_rows, n_rows_train);
 
-  rmm::device_uvector<uint32_t> trainsetLabels(numTrainset, stream_);
+  rmm::device_uvector<uint32_t> trainset_labels(n_rows_train, stream_);
 
-  float* clusterCenters = centriod_managed_ptr;
+  float* cluster_centers = centriod_managed_ptr;
 
-  uint32_t numMesoClusters = pow((double)(numClusters), (double)1.0 / 2.0) + 0.5;
-  RAFT_LOG_DEBUG("(%s) # numMesoClusters: %u", __func__, numMesoClusters);
+  uint32_t n_mesoclusters = std::pow<double>(n_lists_, 0.5) + 0.5;
+  RAFT_LOG_DEBUG("(%s) # n_mesoclusters: %u", __func__, n_mesoclusters);
 
   rmm::mr::managed_memory_resource managed_memory;
-  rmm::device_uvector<float> mesoClusterCenters(
-    numMesoClusters * dimDataset, stream_, &managed_memory);
-  rmm::device_uvector<uint32_t> mesoClusterLabels(numTrainset, stream_, &managed_memory);
-  rmm::device_uvector<uint32_t> mesoClusterSize_buf(numMesoClusters, stream_, &managed_memory);
-  rmm::device_uvector<float> mesoClusterCentersTemp(
-    numMesoClusters * dimDataset, stream_, &managed_memory);
+  rmm::device_uvector<float> mesocluster_centers(n_mesoclusters * dim_, stream_, &managed_memory);
+  rmm::device_uvector<uint32_t> mesocluster_labels(n_rows_train, stream_, &managed_memory);
+  rmm::device_uvector<uint32_t> mesocluster_sizes_buf(n_mesoclusters, stream_, &managed_memory);
+  rmm::device_uvector<float> mesocluster_centers_tmp(
+    n_mesoclusters * dim_, stream_, &managed_memory);
 
-  auto mesoClusterSize = mesoClusterSize_buf.data();
+  auto mesocluster_sizes = mesocluster_sizes_buf.data();
 
   rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource> kmeans_mem_res(
     rmm::mr::get_current_device_resource(),
     // an arbitrary guess on the upper bound of the workspace size
-    Pow2<256>::roundUp(kmeans::calc_minibatch_size(numMesoClusters, nrow) * dimDataset * 4));
+    Pow2<256>::roundUp(kmeans::calc_minibatch_size(n_mesoclusters, n_rows) * dim_ * 4));
 
   // Training meso-clusters
-  for (uint32_t iter = 0; iter < 2 * numIterations; iter += 2) {
-    RAFT_LOG_TRACE("Training kmeans of meso-clusters: %.1f / %u", (float)iter / 2, numIterations);
+  for (uint32_t iter = 0; iter < 2 * n_iters_; iter += 2) {
+    RAFT_LOG_TRACE("Training kmeans of meso-clusters: %.1f / %u", (float)iter / 2, n_iters_);
     kmeans::predict(handle_,
-                    mesoClusterCenters.data(),
-                    numMesoClusters,
-                    dimDataset,
+                    mesocluster_centers.data(),
+                    n_mesoclusters,
+                    dim_,
                     trainset,
-                    numTrainset,
-                    mesoClusterLabels.data(),
+                    n_rows_train,
+                    mesocluster_labels.data(),
                     metric_type_,
                     (iter != 0),
-                    mesoClusterCentersTemp.data(),
-                    mesoClusterSize,
+                    mesocluster_centers_tmp.data(),
+                    mesocluster_sizes,
                     true,
                     stream_,
                     &kmeans_mem_res);
 
-    if (iter + 1 < 2 * numIterations) {
-      if (kmeans::adjust_centers(mesoClusterCenters.data(),
-                                 numMesoClusters,
-                                 dimDataset,
+    if (iter + 1 < 2 * n_iters_) {
+      if (kmeans::adjust_centers(mesocluster_centers.data(),
+                                 n_mesoclusters,
+                                 dim_,
                                  trainset,
-                                 numTrainset,
-                                 mesoClusterLabels.data(),
+                                 n_rows_train,
+                                 mesocluster_labels.data(),
                                  metric_type_,
-                                 mesoClusterSize,
+                                 mesocluster_sizes,
                                  (float)1.0 / 4,
                                  stream_)) {
         iter -= 1;
@@ -275,134 +249,128 @@ cuivflStatus_t cuivflHandle<T>::cuivflBuildOptimizedKmeans(float* centriod_manag
 
   handle_.sync_stream(stream_);
 
-  std::vector<uint32_t> numFineClusters(numMesoClusters);
-  std::vector<uint32_t> csumFineClusters(numMesoClusters + 1);
-  csumFineClusters[0] = 0;
+  std::vector<uint32_t> fine_clusters_nums(n_mesoclusters);
+  std::vector<uint32_t> fine_clusters_csum(n_mesoclusters + 1);
+  fine_clusters_csum[0] = 0;
 
-  uint32_t numClustersRemain  = numClusters;
-  uint32_t numTrainsetRemain  = numTrainset;
-  uint32_t mesoClusterSizeMax = 0;
-  uint32_t mesoClusterSizeSum = 0;
-  uint32_t numFineClustersSum = 0;  // checking
-  uint32_t numFineClustersMax = 0;
-  for (uint32_t i = 0; i < numMesoClusters; i++) {
-    if (i < numMesoClusters - 1) {
-      numFineClusters[i] = (double)numClustersRemain * mesoClusterSize[i] / numTrainsetRemain + .5;
+  uint32_t n_lists_rem            = n_lists_;
+  uint32_t n_rows_train_rem       = n_rows_train;
+  uint32_t mesocluster_size_max   = 0;
+  uint32_t mesocluster_size_sum   = 0;
+  uint32_t fine_clusters_nums_sum = 0;  // checking
+  uint32_t fine_clusters_nums_max = 0;
+  for (uint32_t i = 0; i < n_mesoclusters; i++) {
+    if (i < n_mesoclusters - 1) {
+      fine_clusters_nums[i] = (double)n_lists_rem * mesocluster_sizes[i] / n_rows_train_rem + .5;
     } else {
-      numFineClusters[i] = numClustersRemain;
+      fine_clusters_nums[i] = n_lists_rem;
     }
-    numClustersRemain -= numFineClusters[i];
-    numTrainsetRemain -= mesoClusterSize[i];
-    mesoClusterSizeMax = max(mesoClusterSizeMax, mesoClusterSize[i]);
-    mesoClusterSizeSum += mesoClusterSize[i];
-    numFineClustersSum += numFineClusters[i];
-    numFineClustersMax      = max(numFineClustersMax, numFineClusters[i]);
-    csumFineClusters[i + 1] = csumFineClusters[i] + numFineClusters[i];
-  }  // end for (uint32_t i = 0; i < numMesoClusters; i++)
+    n_lists_rem -= fine_clusters_nums[i];
+    n_rows_train_rem -= mesocluster_sizes[i];
+    mesocluster_size_max = max(mesocluster_size_max, mesocluster_sizes[i]);
+    mesocluster_size_sum += mesocluster_sizes[i];
+    fine_clusters_nums_sum += fine_clusters_nums[i];
+    fine_clusters_nums_max    = max(fine_clusters_nums_max, fine_clusters_nums[i]);
+    fine_clusters_csum[i + 1] = fine_clusters_csum[i] + fine_clusters_nums[i];
+  }
 
-  RAFT_LOG_DEBUG("(%s) # mesoClusterSizeSum: %u", __func__, mesoClusterSizeSum);
-  RAFT_LOG_DEBUG("(%s) # numFineClustersSum: %u", __func__, numFineClustersSum);
-  assert(mesoClusterSizeSum == numTrainset);
-  assert(numFineClustersSum == numClusters);
-  assert(csumFineClusters[numMesoClusters] == numClusters);
+  RAFT_LOG_DEBUG("(%s) # mesocluster_size_sum: %u", __func__, mesocluster_size_sum);
+  RAFT_LOG_DEBUG("(%s) # fine_clusters_nums_sum: %u", __func__, fine_clusters_nums_sum);
+  assert(mesocluster_size_sum == n_rows_train);
+  assert(fine_clusters_nums_sum == n_lists_);
+  assert(fine_clusters_csum[n_mesoclusters] == n_lists_);
 
-  rmm::device_uvector<uint32_t> idsTrainset_buf(mesoClusterSizeMax, stream_, &managed_memory);
-  rmm::device_uvector<float> subTrainset_buf(
-    mesoClusterSizeMax * dimDataset, stream_, &managed_memory);
-  auto idsTrainset = idsTrainset_buf.data();
-  auto subTrainset = subTrainset_buf.data();
+  rmm::device_uvector<uint32_t> mc_trainset_ids_buf(mesocluster_size_max, stream_, &managed_memory);
+  rmm::device_uvector<float> mc_trainset_buf(mesocluster_size_max * dim_, stream_, &managed_memory);
+  auto mc_trainset_ids = mc_trainset_ids_buf.data();
+  auto mc_trainset     = mc_trainset_buf.data();
 
   // label (cluster ID) of each vector
-  rmm::device_uvector<uint32_t> labelsMP(mesoClusterSizeMax, stream_, &managed_memory);
+  rmm::device_uvector<uint32_t> mc_trainset_labels(mesocluster_size_max, stream_, &managed_memory);
 
-  rmm::device_uvector<float> clusterCentersEach(
-    numFineClustersMax * dimDataset, stream_, &managed_memory);
-  rmm::device_uvector<float> clusterCentersMP(
-    numFineClustersMax * dimDataset, stream_, &managed_memory);
+  rmm::device_uvector<float> mc_trainset_ccenters(
+    fine_clusters_nums_max * dim_, stream_, &managed_memory);
+  rmm::device_uvector<float> mc_trainset_ccenters_tmp(
+    fine_clusters_nums_max * dim_, stream_, &managed_memory);
   // number of vectors in each cluster
-  rmm::device_uvector<uint32_t> clusterSizeMP(numFineClustersMax, stream_, &managed_memory);
+  rmm::device_uvector<uint32_t> mc_trainset_csizes_tmp(
+    fine_clusters_nums_max, stream_, &managed_memory);
 
   // Training clusters in each meso-clusters
-  uint32_t numClustersDone = 0;
-  for (uint32_t i = 0; i < numMesoClusters; i++) {
+  uint32_t n_clusters_done = 0;
+  for (uint32_t i = 0; i < n_mesoclusters; i++) {
     uint32_t k = 0;
-    for (uint32_t j = 0; j < numTrainset; j++) {
-      if (mesoClusterLabels.data()[j] != i) continue;
-      idsTrainset[k++] = j;
+    for (uint32_t j = 0; j < n_rows_train; j++) {
+      if (mesocluster_labels.data()[j] != i) continue;
+      mc_trainset_ids[k++] = j;
     }
-    assert(k == mesoClusterSize[i]);
+    assert(k == mesocluster_sizes[i]);
 
-    utils::copy_selected<T>(mesoClusterSize[i],
-                            dimDataset,
-                            trainset,
-                            idsTrainset,
-                            dimDataset,
-                            subTrainset,
-                            dimDataset,
-                            stream_);
+    utils::copy_selected<T>(
+      mesocluster_sizes[i], dim_, trainset, mc_trainset_ids, dim_, mc_trainset, dim_, stream_);
 
-    for (uint32_t iter = 0; iter < 2 * numIterations; iter += 2) {
-      RAFT_LOG_TRACE("Training kmeans of clusters in meso-cluster %u (numClusters: %u): %.1f / %u",
+    for (uint32_t iter = 0; iter < 2 * n_iters_; iter += 2) {
+      RAFT_LOG_TRACE("Training kmeans of clusters in meso-cluster %u (n_lists: %u): %.1f / %u",
                      i,
-                     numFineClusters[i],
+                     fine_clusters_nums[i],
                      (float)iter / 2,
-                     numIterations);
+                     n_iters_);
 
       kmeans::predict(handle_,
-                      clusterCentersEach.data(),
-                      numFineClusters[i],
-                      dimDataset,
-                      subTrainset,
-                      mesoClusterSize[i],
-                      labelsMP.data(),
+                      mc_trainset_ccenters.data(),
+                      fine_clusters_nums[i],
+                      dim_,
+                      mc_trainset,
+                      mesocluster_sizes[i],
+                      mc_trainset_labels.data(),
                       metric_type_,
                       (iter != 0),
-                      clusterCentersMP.data(),
-                      clusterSizeMP.data(),
+                      mc_trainset_ccenters_tmp.data(),
+                      mc_trainset_csizes_tmp.data(),
                       true,
                       stream_,
                       &kmeans_mem_res);
 
-      if (iter + 1 < 2 * numIterations) {
-        if (kmeans::adjust_centers(clusterCentersEach.data(),
-                                   numFineClusters[i],
-                                   dimDataset,
-                                   subTrainset,
-                                   mesoClusterSize[i],
-                                   labelsMP.data(),
+      if (iter + 1 < 2 * n_iters_) {
+        if (kmeans::adjust_centers(mc_trainset_ccenters.data(),
+                                   fine_clusters_nums[i],
+                                   dim_,
+                                   mc_trainset,
+                                   mesocluster_sizes[i],
+                                   mc_trainset_labels.data(),
                                    metric_type_,
-                                   clusterSizeMP.data(),
+                                   mc_trainset_csizes_tmp.data(),
                                    (float)1.0 / 4,
                                    stream_)) {
           iter -= 1;
         }
       }
     }
-    copy(clusterCenters + (dimDataset * csumFineClusters[i]),
-         clusterCentersEach.data(),
-         numFineClusters[i] * dimDataset,
+    copy(cluster_centers + (dim_ * fine_clusters_csum[i]),
+         mc_trainset_ccenters.data(),
+         fine_clusters_nums[i] * dim_,
          stream_);
     handle_.sync_stream(stream_);
-    numClustersDone += numFineClusters[i];
-  }  // end for (uint32_t i = 0; i < numMesoClusters; i++)
-  assert(numClustersDone == numClusters);
+    n_clusters_done += fine_clusters_nums[i];
+  }  // end for (uint32_t i = 0; i < n_mesoclusters; i++)
+  assert(n_clusters_done == n_lists_);
 
-  clusterCentersMP.resize(numClusters * dimDataset, stream_);
-  clusterSizeMP.resize(numClusters, stream_);
+  mc_trainset_ccenters_tmp.resize(n_lists_ * dim_, stream_);
+  mc_trainset_csizes_tmp.resize(n_lists_, stream_);
 
   // Fitting whole clusters using whole trainset.
   for (int iter = 0; iter < 2; iter++) {
     kmeans::predict(handle_,
-                    clusterCenters,
-                    numClusters,
-                    dimDataset,
+                    cluster_centers,
+                    n_lists_,
+                    dim_,
                     trainset,
-                    numTrainset,
-                    trainsetLabels.data(),
+                    n_rows_train,
+                    trainset_labels.data(),
                     metric_type_,
                     true,
-                    clusterCentersMP.data(),
-                    clusterSizeMP.data(),
+                    mc_trainset_ccenters_tmp.data(),
+                    mc_trainset_csizes_tmp.data(),
                     true,
                     stream_,
                     &kmeans_mem_res);
@@ -411,93 +379,90 @@ cuivflStatus_t cuivflHandle<T>::cuivflBuildOptimizedKmeans(float* centriod_manag
   RAFT_LOG_DEBUG("(%s) Final fitting.", __func__);
 
   kmeans::predict(handle_,
-                  clusterCenters,
-                  nlist_,
+                  cluster_centers,
+                  n_lists_,
                   dim_,
                   dataset,
-                  nrow_,
-                  datasetLabels,
+                  n_rows_,
+                  labels,
                   metric_type_,
                   true,
-                  clusterCentersMP.data(),
-                  clusterSizeMP.data(),
+                  mc_trainset_ccenters_tmp.data(),
+                  mc_trainset_csizes_tmp.data(),
                   true,
                   stream_,
                   &kmeans_mem_res);
 
   kmeans::predict(handle_,
-                  clusterCenters,
-                  nlist_,
+                  cluster_centers,
+                  n_lists_,
                   dim_,
                   dataset,
-                  nrow_,
-                  datasetLabels,
+                  n_rows_,
+                  labels,
                   metric_type_,
                   true,
-                  clusterCentersMP.data(),
-                  clusterSizeMP.data(),
+                  mc_trainset_ccenters_tmp.data(),
+                  mc_trainset_csizes_tmp.data(),
                   false,
                   stream_,
                   &kmeans_mem_res);
-
-  return cuivflStatus_t::CUIVFL_STATUS_SUCCESS;
-}  // end func cuivflBuildOptimizedKmeans
+}
 
 template <typename T>
-cuivflStatus_t cuivflHandle<T>::cuivflBuildIndex(const T* dataset,
-                                                 T* trainset,
-                                                 uint32_t nrow,
-                                                 uint32_t ntrain)
+void cuivflHandle<T>::cuivflBuildIndex(const T* dataset,
+                                       T* trainset,
+                                       uint32_t n_rows,
+                                       uint32_t n_rows_train)
 {
-  nrow_ = nrow;
+  n_rows_ = n_rows;
+  RAFT_EXPECTS(n_rows_ > 0, "empty dataset");
 
   rmm::mr::managed_memory_resource managed_memory;
-  rmm::device_uvector<float> centriod_managed_buf(nlist_ * dim_, stream_, &managed_memory);
+  rmm::device_uvector<float> centriod_managed_buf(n_lists_ * dim_, stream_, &managed_memory);
   auto centriod_managed_ptr = centriod_managed_buf.data();
 
-  if (this == nullptr || nrow_ == 0) { return CUIVFL_STATUS_NOT_INITIALIZED; }
-  if constexpr (!std::is_same_v<T, float> && !std::is_same_v<T, uint8_t> &&
-                !std::is_same_v<T, int8_t>) {
-    return CUIVFL_STATUS_UNSUPPORTED_DTYPE;
-  }
+  static_assert(std::is_same_v<T, float> || std::is_same_v<T, uint8_t> || std::is_same_v<T, int8_t>,
+                "unsupported data type");
 
   // Alloc manage memory for centriods, trainset and workspace
-  rmm::device_uvector<uint32_t> datasetLabels_buf(nrow_, stream_, &managed_memory);  // [numDataset]
-  auto datasetLabels = datasetLabels_buf.data();
+  rmm::device_uvector<uint32_t> labels_buf(n_rows_, stream_, &managed_memory);  // [numDataset]
+  auto labels = labels_buf.data();
 
   // Predict labels of the whole dataset
-  cuivflBuildOptimizedKmeans(centriod_managed_ptr, dataset, trainset, datasetLabels, nrow, ntrain);
+  cuivflBuildOptimizedKmeans(centriod_managed_ptr, dataset, trainset, labels, n_rows, n_rows_train);
 
   // Calculate the L2 related result
-  centriod_norm_dev_.resize(nlist_, stream_);
+  centriod_norm_dev_.resize(n_lists_, stream_);
 
   if (metric_type_ == raft::distance::DistanceType::L2Expanded) {
-    utils::dots_along_rows(nlist_, dim_, centriod_managed_ptr, centriod_norm_dev_.data(), stream_);
+    utils::dots_along_rows(
+      n_lists_, dim_, centriod_managed_ptr, centriod_norm_dev_.data(), stream_);
     RAFT_LOG_TRACE_VEC(centriod_norm_dev_.data(), 20);
   }
 
   // Record the number of elements in each clusters
   handle_.sync_stream(stream_);
 
-  list_prefix_interleaved_host_.resize(nlist_);
-  list_lengths_host_.assign(nlist_, 0);
-  for (uint32_t i = 0; i < nrow_; i++) {
-    uint32_t id_cluster = datasetLabels[i];
+  list_prefix_interleaved_host_.resize(n_lists_);
+  list_lengths_host_.assign(n_lists_, 0);
+  for (uint32_t i = 0; i < n_rows_; i++) {
+    uint32_t id_cluster = labels[i];
     list_lengths_host_[id_cluster] += 1;
   }
 
   ninterleave_ = 0;
-  for (uint32_t i = 0; i < nlist_; i++) {
+  for (uint32_t i = 0; i < n_lists_; i++) {
     list_prefix_interleaved_host_[i] = ninterleave_;
     ninterleave_ += Pow2<WarpSize>::roundUp(list_lengths_host_[i]);
   }
 
   list_data_host_.assign(ninterleave_ * dim_, 0);
   list_index_host_.assign(ninterleave_, 0);
-  list_lengths_host_.assign(nlist_, 0);
+  list_lengths_host_.assign(n_lists_, 0);
 
-  for (size_t i = 0; i < nrow_; i++) {
-    uint32_t id_cluster     = datasetLabels[i];
+  for (size_t i = 0; i < n_rows_; i++) {
+    uint32_t id_cluster     = labels[i];
     uint32_t current_add    = list_lengths_host_[id_cluster];
     uint32_t interleave_add = list_prefix_interleaved_host_[id_cluster];
     _ivfflat_interleaved(
@@ -509,25 +474,24 @@ cuivflStatus_t cuivflHandle<T>::cuivflBuildIndex(const T* dataset,
   // Store index on GPU memory: temp WAR until we've entire index building buffers on device
   list_data_dev_.resize(ninterleave_ * dim_, stream_);
   list_index_dev_.resize(ninterleave_, stream_);
-  list_prefix_interleaved_dev_.resize(nlist_, stream_);
-  list_lengths_dev_.resize(nlist_, stream_);
-  centriod_dev_.resize(nlist_ * dim_, stream_);
+  list_prefix_interleaved_dev_.resize(n_lists_, stream_);
+  list_lengths_dev_.resize(n_lists_, stream_);
+  centriod_dev_.resize(n_lists_ * dim_, stream_);
 
   // Read the list
-  copy(list_prefix_interleaved_dev_.data(), list_prefix_interleaved_host_.data(), nlist_, stream_);
-  copy(list_lengths_dev_.data(), list_lengths_host_.data(), nlist_, stream_);
-  copy(centriod_dev_.data(), centriod_managed_ptr, nlist_ * dim_, stream_);
+  copy(
+    list_prefix_interleaved_dev_.data(), list_prefix_interleaved_host_.data(), n_lists_, stream_);
+  copy(list_lengths_dev_.data(), list_lengths_host_.data(), n_lists_, stream_);
+  copy(centriod_dev_.data(), centriod_managed_ptr, n_lists_ * dim_, stream_);
 
   copy(list_data_dev_.data(), list_data_host_.data(), ninterleave_ * dim_, stream_);
   copy(list_index_dev_.data(), list_index_host_.data(), ninterleave_, stream_);
-
-  return cuivflStatus_t::CUIVFL_STATUS_SUCCESS;
 }
 
 template <typename T>
-cuivflStatus_t cuivflHandle<T>::queryIVFFlatGridSize(const uint32_t nprobe,
-                                                     const uint32_t batch_size,
-                                                     const uint32_t k)
+void cuivflHandle<T>::queryIVFFlatGridSize(const uint32_t n_probes,
+                                           const uint32_t n_queries,
+                                           const uint32_t k)
 {
   // query the gridDimX size to store probes topK output
   ivfflat_interleaved_scan<T, typename utils::config<T>::value_t>(nullptr,
@@ -537,9 +501,9 @@ cuivflStatus_t cuivflHandle<T>::queryIVFFlatGridSize(const uint32_t nprobe,
                                                                   nullptr,
                                                                   nullptr,
                                                                   metric_type_,
-                                                                  nprobe,
+                                                                  n_probes,
                                                                   k,
-                                                                  batch_size,
+                                                                  n_queries,
                                                                   dim_,
                                                                   nullptr,
                                                                   nullptr,
@@ -547,16 +511,16 @@ cuivflStatus_t cuivflHandle<T>::queryIVFFlatGridSize(const uint32_t nprobe,
                                                                   greater_,
                                                                   veclen_,
                                                                   grid_dim_x_);
-  return cuivflStatus_t::CUIVFL_STATUS_SUCCESS;
 }
 
 template <typename T>
-cuivflStatus_t cuivflHandle<T>::cuivflSetSearchParameters(const uint32_t nprobe,
-                                                          const uint32_t max_batch,
-                                                          const uint32_t max_k)
+void cuivflHandle<T>::cuivflSetSearchParameters(const uint32_t n_probes,
+                                                const uint32_t max_batch,
+                                                const uint32_t max_k)
 {
-  nprobe_ = nprobe;
-  if (nprobe_ <= 0) { return CUIVFL_STATUS_INVALID_VALUE; }
+  RAFT_EXPECTS(n_probes > 0,
+               "n_probes (number of clusters to probe in the search) must be positive.");
+  n_probes_ = n_probes;
   // Set the greater_
   if (metric_type_ == raft::distance::DistanceType::L2Expanded ||
       metric_type_ == raft::distance::DistanceType::L2Unexpanded) {
@@ -570,53 +534,50 @@ cuivflStatus_t cuivflHandle<T>::cuivflSetSearchParameters(const uint32_t nprobe,
   auto cur_memory_resource = rmm::mr::get_current_device_resource();
   if (!search_mem_res.has_value() || search_mem_res->get_upstream() != cur_memory_resource) {
     search_mem_res.emplace(cur_memory_resource,
-                           Pow2<256>::roundUp(max_batch * nprobe * max_k * 16));
+                           Pow2<256>::roundUp(max_batch * n_probes * max_k * 16));
   }
-
-  return cuivflStatus_t::CUIVFL_STATUS_SUCCESS;
 }
 
 template <typename T>
-cuivflStatus_t cuivflHandle<T>::cuivflSearch(const T* queries,  // [numQueries, dimDataset]
-                                             uint32_t batch_size,
-                                             uint32_t k,
-                                             size_t* neighbors,  // [numQueries, topK]
-                                             float* distances)
+void cuivflHandle<T>::cuivflSearch(const T* queries,  // [numQueries, dim]
+                                   uint32_t n_queries,
+                                   uint32_t k,
+                                   size_t* neighbors,  // [numQueries, topK]
+                                   float* distances)
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
-    "cuivflSearch(%u, %u, %zu)", batch_size, k, neighbors);
-  cuivflSearchImpl<float>(queries, batch_size, k, neighbors, distances);
-  return cuivflStatus_t::CUIVFL_STATUS_SUCCESS;
+    "cuivflSearch(%u, %u, %zu)", n_queries, k, neighbors);
+  cuivflSearchImpl<float>(queries, n_queries, k, neighbors, distances);
 }
 
 template <typename T>
-template <typename value_t>
-cuivflStatus_t cuivflHandle<T>::cuivflSearchImpl(const T* queries,  // [numQueries, dimDataset]
-                                                 uint32_t batch_size,
-                                                 uint32_t k,
-                                                 size_t* neighbors,  // [numQueries, topK]
-                                                 value_t* distances)
+template <typename AccT>
+void cuivflHandle<T>::cuivflSearchImpl(const T* queries,  // [numQueries, dim]
+                                       uint32_t n_queries,
+                                       uint32_t k,
+                                       size_t* neighbors,  // [numQueries, topK]
+                                       AccT* distances)
 {
-  uint32_t nprobe = std::min(nprobe_, nlist_);
-  grid_dim_x_     = 0;
-  queryIVFFlatGridSize(nprobe, batch_size, k);
+  uint32_t n_probes = std::min(n_probes_, n_lists_);
+  grid_dim_x_       = 0;
+  queryIVFFlatGridSize(n_probes, n_queries, k);
   auto search_mr = &(search_mem_res.value());
   // The norm of query
-  rmm::device_uvector<float> query_norm_dev(batch_size, stream_, search_mr);
+  rmm::device_uvector<float> query_norm_dev(n_queries, stream_, search_mr);
   // The distance value of cluster(list) and queries
-  rmm::device_uvector<float> distance_buffer_dev(batch_size * nlist_, stream_, search_mr);
+  rmm::device_uvector<float> distance_buffer_dev(n_queries * n_lists_, stream_, search_mr);
   // The topk distance value of cluster(list) and queries
-  rmm::device_uvector<float> coarse_distances_dev(batch_size * nprobe, stream_, search_mr);
+  rmm::device_uvector<float> coarse_distances_dev(n_queries * n_probes, stream_, search_mr);
   // The topk  index of cluster(list) and queries
-  rmm::device_uvector<uint32_t> coarse_indices_dev(batch_size * nprobe, stream_, search_mr);
+  rmm::device_uvector<uint32_t> coarse_indices_dev(n_queries * n_probes, stream_, search_mr);
   // The topk distance value of candicate vectors from each cluster(list)
-  rmm::device_uvector<value_t> refined_distances_dev(batch_size * nprobe * k, stream_, search_mr);
+  rmm::device_uvector<AccT> refined_distances_dev(n_queries * n_probes * k, stream_, search_mr);
   // The topk index of candicate vectors from each cluster(list)
-  rmm::device_uvector<size_t> refined_indices_dev(batch_size * nprobe * k, stream_, search_mr);
+  rmm::device_uvector<size_t> refined_indices_dev(n_queries * n_probes * k, stream_, search_mr);
 
   size_t float_query_size;
   if constexpr (std::is_integral_v<T>) {
-    float_query_size = batch_size * dim_;
+    float_query_size = n_queries * dim_;
   } else {
     float_query_size = 0;
   }
@@ -627,7 +588,7 @@ cuivflStatus_t cuivflHandle<T>::cuivflSearchImpl(const T* queries,  // [numQueri
     converted_queries_ptr = const_cast<float*>(queries);
   } else {
     linalg::unaryOp(
-      converted_queries_ptr, queries, batch_size * dim_, utils::mapping<float>{}, stream_);
+      converted_queries_ptr, queries, n_queries * dim_, utils::mapping<float>{}, stream_);
   }
 
   float alpha = 1.0f;
@@ -636,11 +597,11 @@ cuivflStatus_t cuivflHandle<T>::cuivflSearchImpl(const T* queries,  // [numQueri
   if (metric_type_ == raft::distance::DistanceType::L2Expanded) {
     alpha = -2.0f;
     beta  = 1.0f;
-    utils::dots_along_rows(batch_size, dim_, converted_queries_ptr, query_norm_dev.data(), stream_);
+    utils::dots_along_rows(n_queries, dim_, converted_queries_ptr, query_norm_dev.data(), stream_);
     utils::outer_add(query_norm_dev.data(),
-                     batch_size,
+                     n_queries,
                      centriod_norm_dev_.data(),
-                     nlist_,
+                     n_lists_,
                      distance_buffer_dev.data(),
                      stream_);
     RAFT_LOG_TRACE_VEC(centriod_norm_dev_.data(), 20);
@@ -653,8 +614,8 @@ cuivflStatus_t cuivflHandle<T>::cuivflSearchImpl(const T* queries,  // [numQueri
   linalg::gemm(handle_,
                true,
                false,
-               nlist_,
-               batch_size,
+               n_lists_,
+               n_queries,
                dim_,
                &alpha,
                centriod_dev_.data(),
@@ -663,38 +624,38 @@ cuivflStatus_t cuivflHandle<T>::cuivflSearchImpl(const T* queries,  // [numQueri
                dim_,
                &beta,
                distance_buffer_dev.data(),
-               nlist_,
+               n_lists_,
                stream_);
 
   RAFT_LOG_TRACE_VEC(distance_buffer_dev.data(), 20);
-  if (nprobe <= raft::spatial::knn::detail::topk::kMaxCapacity) {
-    topk::warp_sort_topk<value_t, uint32_t>(distance_buffer_dev.data(),
-                                            nullptr,
-                                            batch_size,
-                                            nlist_,
-                                            nprobe,
-                                            coarse_distances_dev.data(),
-                                            coarse_indices_dev.data(),
-                                            !greater_,
-                                            stream_);
+  if (n_probes <= raft::spatial::knn::detail::topk::kMaxCapacity) {
+    topk::warp_sort_topk<AccT, uint32_t>(distance_buffer_dev.data(),
+                                         nullptr,
+                                         n_queries,
+                                         n_lists_,
+                                         n_probes,
+                                         coarse_distances_dev.data(),
+                                         coarse_indices_dev.data(),
+                                         !greater_,
+                                         stream_);
   } else {
-    topk::radix_topk<value_t, uint32_t, 11, 512>(distance_buffer_dev.data(),
-                                                 nullptr,
-                                                 batch_size,
-                                                 nlist_,
-                                                 nprobe,
-                                                 coarse_distances_dev.data(),
-                                                 coarse_indices_dev.data(),
-                                                 !greater_,
-                                                 stream_,
-                                                 &(search_mem_res.value()));
+    topk::radix_topk<AccT, uint32_t, 11, 512>(distance_buffer_dev.data(),
+                                              nullptr,
+                                              n_queries,
+                                              n_lists_,
+                                              n_probes,
+                                              coarse_distances_dev.data(),
+                                              coarse_indices_dev.data(),
+                                              !greater_,
+                                              stream_,
+                                              &(search_mem_res.value()));
   }
-  RAFT_LOG_TRACE_VEC(coarse_indices_dev.data(), 1 * nprobe);
-  RAFT_LOG_TRACE_VEC(coarse_distances_dev.data(), 1 * nprobe);
+  RAFT_LOG_TRACE_VEC(coarse_indices_dev.data(), 1 * n_probes);
+  RAFT_LOG_TRACE_VEC(coarse_distances_dev.data(), 1 * n_probes);
 
-  value_t* distances_dev_ptr = refined_distances_dev.data();
-  size_t* indices_dev_ptr    = refined_indices_dev.data();
-  if (nprobe == 1 || grid_dim_x_ == 1) {
+  AccT* distances_dev_ptr = refined_distances_dev.data();
+  size_t* indices_dev_ptr = refined_indices_dev.data();
+  if (n_probes == 1 || grid_dim_x_ == 1) {
     distances_dev_ptr = distances;
     indices_dev_ptr   = neighbors;
   }
@@ -707,9 +668,9 @@ cuivflStatus_t cuivflHandle<T>::cuivflSearchImpl(const T* queries,  // [numQueri
     list_lengths_dev_.data(),
     list_prefix_interleaved_dev_.data(),
     metric_type_,
-    nprobe,
+    n_probes,
     k,
-    batch_size,
+    n_queries,
     dim_,
     indices_dev_ptr,
     distances_dev_ptr,
@@ -724,30 +685,28 @@ cuivflStatus_t cuivflHandle<T>::cuivflSearchImpl(const T* queries,  // [numQueri
   // Merge topk values from different blocks
   if (grid_dim_x_ > 1) {
     if (k <= raft::spatial::knn::detail::topk::kMaxCapacity) {
-      topk::warp_sort_topk<value_t, size_t>(refined_distances_dev.data(),
-                                            refined_indices_dev.data(),
-                                            batch_size,
-                                            k * grid_dim_x_,
-                                            k,
-                                            distances,
-                                            neighbors,
-                                            !greater_,
-                                            stream_);
+      topk::warp_sort_topk<AccT, size_t>(refined_distances_dev.data(),
+                                         refined_indices_dev.data(),
+                                         n_queries,
+                                         k * grid_dim_x_,
+                                         k,
+                                         distances,
+                                         neighbors,
+                                         !greater_,
+                                         stream_);
     } else {
-      topk::radix_topk<value_t, size_t, 11, 512>(refined_distances_dev.data(),
-                                                 refined_indices_dev.data(),
-                                                 batch_size,
-                                                 k * grid_dim_x_,
-                                                 k,
-                                                 distances,
-                                                 neighbors,
-                                                 !greater_,
-                                                 stream_,
-                                                 &(search_mem_res.value()));
+      topk::radix_topk<AccT, size_t, 11, 512>(refined_distances_dev.data(),
+                                              refined_indices_dev.data(),
+                                              n_queries,
+                                              k * grid_dim_x_,
+                                              k,
+                                              distances,
+                                              neighbors,
+                                              !greater_,
+                                              stream_,
+                                              &(search_mem_res.value()));
     }
   }
-
-  return cuivflStatus_t::CUIVFL_STATUS_SUCCESS;
 }
 
 }  // namespace raft::spatial::knn::detail

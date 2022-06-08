@@ -118,8 +118,8 @@ void approx_knn_cuivfl_ivfflat_build_index(const raft::handle_t& handle,
                                   cudaMemcpyDefault,
                                   stream));
 
-  index->handle_.get<T>() = std::make_unique<detail::cuivflHandle<T>>(
-    handle, metric, D, params->nlist, niter, index->device);
+  index->handle_.get<T>() =
+    std::make_unique<detail::cuivflHandle<T>>(handle, metric, D, params->nlist, niter);
 
   // NB: `trainset` is accessed by both CPU and GPU code here.
   index->handle_.get<T>()->cuivflBuildIndex(dataset, trainset.data(), n, ntrain);
