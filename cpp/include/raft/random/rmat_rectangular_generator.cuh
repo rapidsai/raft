@@ -38,10 +38,14 @@ namespace raft::random {
  * @param[in]  theta   distribution of each quadrant at each level of resolution.
  *                     Since these are probabilities, each of the 2x2 matrix for
  *                     each level of the RMAT must sum to one. [on device]
- *                     [dim = 1+log2(max(n_rows, n_cols)) x 2 x 2]
- * @param[in]  n_rows  number of source nodes
- * @param[in]  n_cols  number of destination nodes
+ *                     [dim = max(r_scale, c_scale) x 2 x 2]. Of course, it is assumed
+ *                     that each of the group of 2 x 2 numbers all sum up to 1.
+ * @param[in]  r_scale 2^r_scale represents the number of source nodes
+ * @param[in]  c_scale 2^c_scale represents the number of destination nodes
  * @param[in]  n_edges number of edges to generate
+ * @param[in]  clip_and_flip Generates only a lower triangular adjacency matrix (including
+ *                           the self-loop). Note that this would be meaningful only when
+ *                           `r_scale == c_scale`.
  * @param[in]  stream  cuda stream to schedule the work on
  * @param[in]  r       underlying state of the random generator. Especially useful when
  *                     one wants to call this API for multiple times in order to generate
@@ -54,15 +58,18 @@ namespace raft::random {
 
  * @note This also only generates directed graphs. If undirected graphs are needed, then a
  *       separate post-processing step is expected to be done by the caller.
+ *
+ * @{
  */
 template <typename IdxT, typename ProbT>
 void rmat_rectangular_gen(IdxT* out,
 			  IdxT* out_src,
 			  IdxT* out_dst,
 			  const ProbT* theta,
-			  IdxT n_rows,
-			  IdxT n_cols,
+			  IdxT r_scale,
+			  IdxT c_scale,
 			  IdxT n_edges,
+			  bool clip_and_flip,
 			  cudaStream_t stream,
 			  raft::random::RngState& r)
 {
@@ -70,11 +77,43 @@ void rmat_rectangular_gen(IdxT* out,
 				      out_src,
 				      out_dst,
 				      theta,
-				      n_rows,
-				      n_cols,
+				      r_scale,
+				      c_scale,
 				      n_edges,
 				      stream,
 				      r);
 }
+
+/**
+ * This is the same as the previous method but assumes the same a, b, c, d probability
+ * distributions across all the scales
+ */
+template <typename IdxT, typename ProbT>
+void rmat_rectangular_gen(IdxT* out,
+			  IdxT* out_src,
+			  IdxT* out_dst,
+			  ProbT a,
+			  ProbT b,
+			  ProbT c,
+			  IdxT r_scale,
+			  IdxT c_scale,
+			  IdxT n_edges,
+			  bool clip_and_flip,
+			  cudaStream_t stream,
+			  raft::random::RngState& r)
+{
+  detail::rmat_rectangular_gen_caller(out,
+				      out_src,
+				      out_dst,
+				      a,
+				      b,
+				      c,
+				      r_scale,
+				      c_scale,
+				      n_edges,
+				      stream,
+				      r);
+}
+/** @} */
 
 }  // end namespace raft::random
