@@ -29,7 +29,12 @@ namespace raft::random {
  *
  * @param[out] out     generated edgelist [on device] [dim = n_edges x 2]. On each row
  *                     the first element corresponds to the source node id while the
- *                     second, the destination node id.
+ *                     second, the destination node id. If you don't need this output
+ *                     then pass a `nullptr` in its place.
+ * @param[out] out_src list of source node id's [on device] [len = n_edges]. If you
+ *                     don't need this output then pass a `nullptr` in its place.
+ * @param[out] out_dst list of destination node id's [on device] [len = n_edges]. If
+ *                     you don't need this output then pass a `nullptr` in its place.
  * @param[in]  theta   distribution of each quadrant at each level of resolution.
  *                     Since these are probabilities, each of the 2x2 matrix for
  *                     each level of the RMAT must sum to one. [on device]
@@ -52,6 +57,8 @@ namespace raft::random {
  */
 template <typename IdxT, typename ProbT>
 void rmat_rectangular_gen(IdxT* out,
+			  IdxT* out_src,
+			  IdxT* out_dst,
 			  const ProbT* theta,
 			  IdxT n_rows,
 			  IdxT n_cols,
@@ -60,6 +67,8 @@ void rmat_rectangular_gen(IdxT* out,
 			  raft::random::RngState& r)
 {
   detail::rmat_rectangular_gen_caller(out,
+				      out_src,
+				      out_dst,
 				      theta,
 				      n_rows,
 				      n_cols,
