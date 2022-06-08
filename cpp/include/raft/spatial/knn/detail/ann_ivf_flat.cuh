@@ -31,6 +31,7 @@
 #include <raft/linalg/gemm.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/spatial/knn/ann_common.h>
+#include <raft/stats/histogram.cuh>
 
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_uvector.hpp>
@@ -39,38 +40,6 @@
 #include <rmm/mr/device/pool_memory_resource.hpp>
 
 namespace raft::spatial::knn::detail {
-
-template <typename T>
-void _ivfflat_interleaved(
-  T* list_data, const T* dataset, uint32_t dim, size_t index, size_t prefix, uint32_t veclen)
-{
-  size_t group_id = index / WarpSize;
-  size_t in_id    = (index % WarpSize) * veclen;
-  list_data += (prefix + group_id * WarpSize) * dim + in_id;
-
-  for (size_t i = 0; i < dim; i += veclen) {
-    for (size_t j = 0; j < veclen; j++) {
-      list_data[i * WarpSize + j] = dataset[i + j];
-    }
-  }
-}
-
-// This kernel intends to remove the dependency of having dataset in managed mem/host mem.
-//
-template <typename T>
-__global__ void write_ivf_flat_interleaved_index(
-  T* list_data, const T* dataset, uint32_t dim, size_t index, size_t prefix, uint32_t veclen)
-{
-  size_t group_id = index / WarpSize;
-  size_t in_id    = (index % WarpSize) * veclen;
-  list_data += (prefix + group_id * WarpSize) * dim + in_id;
-
-  for (size_t i = 0; i < dim; i += veclen) {
-    for (size_t j = 0; j < veclen; j++) {
-      list_data[i * WarpSize + j] = dataset[i + j];
-    }
-  }
-}
 
 template <typename T>
 class cuivflHandle {
@@ -104,17 +73,17 @@ class cuivflHandle {
   uint32_t dim_;         // The dimension of vectors for input dataset
   uint32_t n_probes_;    // The number of clusters for searching
   uint32_t n_rows_;      // The number of elements for input dataset
-  size_t ninterleave_;   // The number of elements in 32 interleaved group for input dataset
+  uint32_t index_size_;  // The number of elements in 32 interleaved group for input dataset
   uint32_t veclen_;      // The vectorization length of dataset in index.
   uint32_t grid_dim_x_;  // The number of blocks launched across n_probes.
 
   // device pointer
-  //  The device memory pointer; inverted list for data; size [ninterleave_, dim_]
+  //  The device memory pointer; inverted list for data; size [index_size_, dim_]
   rmm::device_uvector<T> list_data_dev_;
-  // The device memory pointer; inverted list for index; size [ninterleave_]
+  // The device memory pointer; inverted list for index; size [index_size_]
   rmm::device_uvector<uint32_t> list_index_dev_;
   // The device memory pointer; Used for list_data_manage_ptr_; size [n_lists_]
-  rmm::device_uvector<uint32_t> list_prefix_interleaved_dev_;
+  rmm::device_uvector<uint32_t> list_offsets_dev_;
   // The device memory pointer; the number of each cluster(list); size [n_lists_]
   rmm::device_uvector<uint32_t> list_lengths_dev_;
   // The device memory pointer; centriod; size [n_lists_, dim_]
@@ -124,16 +93,6 @@ class cuivflHandle {
   // Memory pool for use during search; after the first search is done the pool is not likely to
   // resize, saving the costs of allocations.
   std::optional<rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource>> search_mem_res;
-
-  // host pointer
-  //  The host memory pointer; inverted list for data; size [ninterleave_, dim_]
-  std::vector<T> list_data_host_;
-  // The host memory pointer; inverted list for index; size [ninterleave_]
-  std::vector<uint32_t> list_index_host_;
-  // The host memory pointer; Used for list_data_manage_ptr_; size [n_lists_]
-  std::vector<uint32_t> list_prefix_interleaved_host_;
-  // The host memory pointer; the number of each cluster(list); size [n_lists_]
-  std::vector<uint32_t> list_lengths_host_;
 
   void cuivflBuildOptimizedKmeans(float* centriod_managed_ptr,
                                   const T* dataset,
@@ -162,14 +121,10 @@ cuivflHandle<T>::cuivflHandle(const handle_t& handle,
     grid_dim_x_(0),
     list_data_dev_(0, stream_),
     list_index_dev_(0, stream_),
-    list_prefix_interleaved_dev_(0, stream_),
+    list_offsets_dev_(0, stream_),
     list_lengths_dev_(0, stream_),
     centriod_dev_(0, stream_),
-    centriod_norm_dev_(0, stream_),
-    list_index_host_(0),
-    list_prefix_interleaved_host_(0),
-    list_lengths_host_(0),
-    list_data_host_(0)
+    centriod_norm_dev_(0, stream_)
 {
   veclen_ = 16 / sizeof(T);
   while (dim % veclen_ != 0) {
@@ -410,6 +365,46 @@ void cuivflHandle<T>::cuivflBuildOptimizedKmeans(float* centriod_managed_ptr,
 }
 
 template <typename T>
+__global__ void build_index_kernel(const uint32_t* labels,
+                                   const uint32_t* list_offsets,
+                                   const T* dataset,
+                                   T* list_data,
+                                   uint32_t* list_index,
+                                   uint32_t* list_lengths,
+                                   uint32_t n_rows,
+                                   uint32_t dim,
+                                   uint32_t veclen)
+{
+  const int i = blockDim.x * blockIdx.x + threadIdx.x;
+  if (i >= n_rows) { return; }
+
+  auto list_id     = labels[i];
+  auto inlist_id   = atomicAdd(list_lengths + list_id, 1);
+  auto list_offset = list_offsets[list_id];
+
+  // Record the source vector id in the index
+  list_index[list_offset + inlist_id] = i;
+
+  // The data is written in interleaved groups of `WarpSize` vectors
+  using interleaved_group = Pow2<WarpSize>;
+  auto group_offset       = interleaved_group::roundDown(inlist_id);
+  auto ingroup_id         = interleaved_group::mod(inlist_id) * veclen;
+
+  // Point to the location of the interleaved group of vectors
+  list_data += (list_offset + group_offset) * dim;
+
+  // Point to the source vector
+  dataset += i * dim;
+
+  // Interleave dimensions of the source vector while recording it.
+  for (uint32_t l = 0; l < dim; l += veclen) {
+    for (uint32_t j = 0; j < veclen; j++) {
+      list_data[l * WarpSize + ingroup_id + j] = dataset[l + j];
+    }
+  }
+}
+
+template <typename T>
 void cuivflHandle<T>::cuivflBuildIndex(const T* dataset,
                                        T* trainset,
                                        uint32_t n_rows,
@@ -440,52 +435,55 @@ void cuivflHandle<T>::cuivflBuildIndex(const T* dataset,
       n_lists_, dim_, centriod_managed_ptr, centriod_norm_dev_.data(), stream_);
     RAFT_LOG_TRACE_VEC(centriod_norm_dev_.data(), 20);
   }
-
-  // Record the number of elements in each clusters
-  handle_.sync_stream(stream_);
-
-  list_prefix_interleaved_host_.resize(n_lists_);
-  list_lengths_host_.assign(n_lists_, 0);
-  for (uint32_t i = 0; i < n_rows_; i++) {
-    uint32_t id_cluster = labels[i];
-    list_lengths_host_[id_cluster] += 1;
-  }
-
-  ninterleave_ = 0;
-  for (uint32_t i = 0; i < n_lists_; i++) {
-    list_prefix_interleaved_host_[i] = ninterleave_;
-    ninterleave_ += Pow2<WarpSize>::roundUp(list_lengths_host_[i]);
-  }
-
-  list_data_host_.assign(ninterleave_ * dim_, 0);
-  list_index_host_.assign(ninterleave_, 0);
-  list_lengths_host_.assign(n_lists_, 0);
-
-  for (size_t i = 0; i < n_rows_; i++) {
-    uint32_t id_cluster     = labels[i];
-    uint32_t current_add    = list_lengths_host_[id_cluster];
-    uint32_t interleave_add = list_prefix_interleaved_host_[id_cluster];
-    _ivfflat_interleaved(
-      list_data_host_.data(), dataset + i * dim_, dim_, current_add, interleave_add, veclen_);
-    list_index_host_[interleave_add + current_add] = i;
-    list_lengths_host_[id_cluster] += 1;
-  }
-
-  // Store index on GPU memory: temp WAR until we've entire index building buffers on device
-  list_data_dev_.resize(ninterleave_ * dim_, stream_);
-  list_index_dev_.resize(ninterleave_, stream_);
-  list_prefix_interleaved_dev_.resize(n_lists_, stream_);
-  list_lengths_dev_.resize(n_lists_, stream_);
   centriod_dev_.resize(n_lists_ * dim_, stream_);
-
-  // Read the list
-  copy(
-    list_prefix_interleaved_dev_.data(), list_prefix_interleaved_host_.data(), n_lists_, stream_);
-  copy(list_lengths_dev_.data(), list_lengths_host_.data(), n_lists_, stream_);
   copy(centriod_dev_.data(), centriod_managed_ptr, n_lists_ * dim_, stream_);
 
-  copy(list_data_dev_.data(), list_data_host_.data(), ninterleave_ * dim_, stream_);
-  copy(list_index_dev_.data(), list_index_host_.data(), ninterleave_, stream_);
+  list_lengths_dev_.resize(n_lists_, stream_);
+  auto list_lengths = list_lengths_dev_.data();
+  stats::histogram(stats::HistType::HistTypeAuto,
+                   reinterpret_cast<int*>(list_lengths),
+                   n_lists_,
+                   labels,
+                   n_rows_,
+                   uint32_t(1),
+                   stream_);
+
+  // NB: stream_ must be equal to handle_.get_stream() to have the thrust functions executed in
+  // order with the rest
+  auto thrust_policy = handle_.get_thrust_policy();
+
+  list_offsets_dev_.resize(n_lists_ + 1, stream_);
+  auto list_offsets = list_offsets_dev_.data();
+
+  thrust::exclusive_scan(
+    thrust_policy,
+    list_lengths,
+    list_lengths + n_lists_ + 1,
+    list_offsets,
+    uint32_t(0),
+    [] __device__(uint32_t s, uint32_t l) { return s + Pow2<WarpSize>::roundUp(l); });
+
+  update_host(&index_size_, list_offsets + n_lists_, 1, stream_);
+  handle_.sync_stream(stream_);
+
+  list_data_dev_.resize(index_size_ * dim_, stream_);
+  list_index_dev_.resize(index_size_, stream_);
+
+  // we'll rebuild the list_lengths in the following kernels, using it as an atomic counter.
+  utils::memset(list_lengths, 0, sizeof(uint32_t) * n_lists_, stream_);
+
+  const dim3 block_dim(256);
+  const dim3 grid_dim(raft::ceildiv<uint32_t>(n_rows_, block_dim.x));
+  build_index_kernel<<<grid_dim, block_dim, 0, stream_>>>(labels,
+                                                          list_offsets,
+                                                          dataset,
+                                                          list_data_dev_.data(),
+                                                          list_index_dev_.data(),
+                                                          list_lengths,
+                                                          n_rows_,
+                                                          dim_,
+                                                          veclen_);
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 template <typename T>
@@ -660,24 +658,23 @@ void cuivflHandle<T>::cuivflSearchImpl(const T* queries,  // [numQueries, dim]
     indices_dev_ptr   = neighbors;
   }
 
-  ivfflat_interleaved_scan<T, typename utils::config<T>::value_t>(
-    queries,
-    coarse_indices_dev.data(),
-    list_index_dev_.data(),
-    list_data_dev_.data(),
-    list_lengths_dev_.data(),
-    list_prefix_interleaved_dev_.data(),
-    metric_type_,
-    n_probes,
-    k,
-    n_queries,
-    dim_,
-    indices_dev_ptr,
-    distances_dev_ptr,
-    stream_,
-    greater_,
-    veclen_,
-    grid_dim_x_);
+  ivfflat_interleaved_scan<T, typename utils::config<T>::value_t>(queries,
+                                                                  coarse_indices_dev.data(),
+                                                                  list_index_dev_.data(),
+                                                                  list_data_dev_.data(),
+                                                                  list_lengths_dev_.data(),
+                                                                  list_offsets_dev_.data(),
+                                                                  metric_type_,
+                                                                  n_probes,
+                                                                  k,
+                                                                  n_queries,
+                                                                  dim_,
+                                                                  indices_dev_ptr,
+                                                                  distances_dev_ptr,
+                                                                  stream_,
+                                                                  greater_,
+                                                                  veclen_,
+                                                                  grid_dim_x_);
 
   RAFT_LOG_TRACE_VEC(distances_dev_ptr, 2 * k);
   RAFT_LOG_TRACE_VEC(indices_dev_ptr, 2 * k);

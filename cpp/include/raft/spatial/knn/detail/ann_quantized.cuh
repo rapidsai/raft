@@ -177,12 +177,8 @@ void approx_knn_build_index(const handle_t& handle,
   if constexpr (std::is_same<T, uint8_t>{} || std::is_same<T, int8_t>{}) {
     if (dynamic_cast<IVFFlatParam*>(params)) {
       IVFFlatParam* IVFFlat_param = dynamic_cast<IVFFlatParam*>(params);
-
-      rmm::mr::managed_memory_resource managed_memory;
-      rmm::device_uvector<T> managed_index_array(n * D, stream, &managed_memory);
-      copy(managed_index_array.data(), index_array, n * D, stream);
       approx_knn_cuivfl_ivfflat_build_index(
-        handle, index, IVFFlat_param, metric, managed_index_array.data(), n, D);
+        handle, index, IVFFlat_param, metric, index_array, n, D);
     } else {
       RAFT_FAIL("IVF Flat algorithm required to fit int8 data");
     }
@@ -198,11 +194,8 @@ void approx_knn_build_index(const handle_t& handle,
           metric == raft::distance::DistanceType::L2Unexpanded ||
           metric == raft::distance::DistanceType::L2Expanded ||
           metric == raft::distance::DistanceType::InnerProduct) {
-        rmm::mr::managed_memory_resource managed_memory;
-        rmm::device_uvector<T> managed_index_array(n * D, stream, &managed_memory);
-        copy(managed_index_array.data(), index_array, n * D, stream);
         approx_knn_cuivfl_ivfflat_build_index(
-          handle, index, IVFFlat_param, metric, managed_index_array.data(), n, D);
+          handle, index, IVFFlat_param, metric, index_array, n, D);
       } else {
         raft::spatial::knn::RmmGpuResources* gpu_res = new raft::spatial::knn::RmmGpuResources();
         gpu_res->noTempMemory();
