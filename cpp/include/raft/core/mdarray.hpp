@@ -24,6 +24,7 @@
 #include <experimental/mdspan>
 #include <raft/core/handle.hpp>
 #include <raft/detail/mdarray.hpp>
+#include <raft/integer_utils.h>
 #include <rmm/cuda_stream_view.hpp>
 
 namespace raft {
@@ -55,8 +56,7 @@ class layout_padded_right : public layout_stride::mapping<Extents> {
     for (size_t r = __exts.rank() - 1; r > 0; r--) {
       strides[r] = stride;
       if (stride == 1) {
-        stride *=
-          std::max<size_t>(alignment, (__exts.extent(r) + alignment - 1) / alignment * alignment);
+        stride *= std::max<size_t>(alignment, round_up_safe(__exts.extent(r), alignment));
       } else {
         stride *= __exts.extent(r);
       }
@@ -88,8 +88,7 @@ class layout_padded_left : public layout_stride::mapping<Extents> {
     for (size_t r = 0; r < __exts.rank() - 1; r++) {
       strides[r] = stride;
       if (stride == 1) {
-        stride *=
-          std::max<size_t>(alignment, (__exts.extent(r) + alignment - 1) / alignment * alignment);
+        stride *= std::max<size_t>(alignment, round_up_safe(__exts.extent(r), alignment));
       } else {
         stride *= __exts.extent(r);
       }
@@ -110,7 +109,7 @@ class layout_padded_left : public layout_stride::mapping<Extents> {
  */
 template <typename ElementType,
           class Extents,
-          size_t ByteAlignment                 = 16,
+          size_t ByteAlignment                 = 128,
           typename ::std::enable_if<(ByteAlignment % sizeof(ElementType) == 0 ||
                                      sizeof(ElementType) % ByteAlignment == 0),
                                     int>::type = 0>
@@ -121,7 +120,7 @@ using layout_padded_row_major = layout_padded_right<Extents, ByteAlignment / siz
  */
 template <typename ElementType,
           class Extents,
-          size_t ByteAlignment                 = 16,
+          size_t ByteAlignment                 = 128,
           typename ::std::enable_if<(ByteAlignment % sizeof(ElementType) == 0 ||
                                      sizeof(ElementType) % ByteAlignment == 0),
                                     int>::type = 0>
