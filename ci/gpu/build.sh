@@ -19,12 +19,14 @@ function hasArg {
 export PATH=/opt/conda/bin:/usr/local/cuda/bin:$PATH
 export PARALLEL_LEVEL=${PARALLEL_LEVEL:-8}
 export CUDA_REL=${CUDA_VERSION%.*}
+CONDA_ARTIFACT_PATH=${WORKSPACE}/ci/artifacts/raft/cpu/.conda-bld/ # notice there is no `linux-64` here
+
 
 # Set home to the job's workspace
-export HOME="$WORKSPACE"
+export HOME=$WORKSPACE
 
 # Parse git describe
-cd "$WORKSPACE"
+cd $WORKSPACE
 export GIT_DESCRIBE_TAG=`git describe --tags`
 export MINOR_VERSION=`echo $GIT_DESCRIBE_TAG | grep -o -E '([0-9]+\.[0-9]+)'`
 unset GIT_DESCRIBE_TAG
@@ -46,10 +48,19 @@ gpuci_logger "Activate conda env"
 . /opt/conda/etc/profile.d/conda.sh
 conda activate rapids
 
+gpuci_logger "Install dependencies"
+gpuci_mamba_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
+      "cudatoolkit=${CUDA_REL}" \
+      "cudf=${MINOR_VERSION}" \
+      "dask-cudf=${MINOR_VERSION}" \
+      "dask-cuda=${MINOR_VERSION}" \
+      "ucx-py=${UCX_PY_VERSION}" \
+      "ucx-proc=*=gpu" \
+      "rapids-build-env=${MINOR_VERSION}.*"
+
 # Install pre-built conda packages from previous CI step
 gpuci_logger "Install libraft conda packages from CPU job"
-CONDA_ARTIFACT_PATH="$WORKSPACE/ci/artifacts/raft/cpu/.conda-bld/" # notice there is no `linux-64` here
-gpuci_mamba_retry install -c "${CONDA_ARTIFACT_PATH}" libraft-headers libraft-distance libraft-nn
+gpuci_mamba_retry install -y -c "${CONDA_ARTIFACT_PATH}" libraft-headers libraft-distance libraft-nn
 
 gpuci_logger "Check conda environment"
 conda info
@@ -64,13 +75,13 @@ gpuci_logger "Adding ${CONDA_PREFIX}/lib to LD_LIBRARY_PATH"
 
 export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
 
-gpuci_logger "Build C++ and Python targets"
-# These should link against the existing shared libs
-if hasArg --skip-tests; then
-  "$WORKSPACE/build.sh" libraft -v
-else
-  "$WORKSPACE/build.sh" libraft tests -v
-fi
+#gpuci_logger "Build C++ and Python targets"
+## These should link against the existing shared libs
+#if hasArg --skip-tests; then
+#  "$WORKSPACE/build.sh" libraft -v
+#else
+#  "$WORKSPACE/build.sh" libraft tests -v
+#fi
 
 gpuci_logger "Build and install Python targets"
 CONDA_BLD_DIR="$WORKSPACE/.conda-bld"
@@ -101,9 +112,17 @@ set +x
 gpuci_logger "Check GPU usage"
 nvidia-smi
 
-gpuci_logger "GoogleTest for raft"
-cd "$WORKSPACE/cpp/build"
-GTEST_OUTPUT="xml:$WORKSPACE/test-results/raft_cpp/" ./test_raft
+if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
+  gpuci_logger "GoogleTest for raft"
+  set -x
+  cd $WORKSPACE/cpp/build
+  GTEST_OUTPUT="xml:${WORKSPACE}/test-results/raft_cpp/" ./test_raft
+else
+  # Install pre-built conda packages from previous CI step
+  gpuci_logger "Install libraft conda packages from CPU job"
+  gpuci_mamba_retry install -y -c "${CONDA_ARTIFACT_PATH}" libraft-tests
+  GTEST_OUTPUT="xml:${WORKSPACE}/test-results/raft_cpp/" $CONDA_PREFIX/bin/gtests/libraft/test_raft
+fi
 
 gpuci_logger "Python pytest for pyraft"
 cd "$WORKSPACE/python/raft/raft/test"
@@ -112,6 +131,7 @@ python -m pytest --cache-clear --junitxml="$WORKSPACE/junit-pyraft.xml" -v -s
 gpuci_logger "Python pytest for pylibraft"
 cd "$WORKSPACE/python/pylibraft/pylibraft/test"
 python -m pytest --cache-clear --junitxml="$WORKSPACE/junit-pylibraft.xml" -v -s
+
 
 if [ "$(arch)" = "x86_64" ]; then
   gpuci_logger "Building docs"
