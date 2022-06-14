@@ -48,16 +48,6 @@ gpuci_logger "Activate conda env"
 . /opt/conda/etc/profile.d/conda.sh
 conda activate rapids
 
-gpuci_logger "Install dependencies"
-gpuci_mamba_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
-      "cudatoolkit=${CUDA_REL}" \
-      "cudf=${MINOR_VERSION}" \
-      "dask-cudf=${MINOR_VERSION}" \
-      "dask-cuda=${MINOR_VERSION}" \
-      "ucx-py=${UCX_PY_VERSION}" \
-      "ucx-proc=*=gpu" \
-      "rapids-build-env=${MINOR_VERSION}.*"
-
 # Install pre-built conda packages from previous CI step
 gpuci_logger "Install libraft conda packages from CPU job"
 gpuci_mamba_retry install -y -c "${CONDA_ARTIFACT_PATH}" libraft-headers libraft-distance libraft-nn
@@ -88,7 +78,7 @@ CONDA_BLD_DIR="$WORKSPACE/.conda-bld"
 gpuci_mamba_retry install boa
 gpuci_conda_retry mambabuild --no-build-id --croot "${CONDA_BLD_DIR}" conda/recipes/pyraft -c "${CONDA_ARTIFACT_PATH}" --python="${PYTHON}"
 gpuci_conda_retry mambabuild --no-build-id --croot "${CONDA_BLD_DIR}" conda/recipes/pylibraft -c "${CONDA_ARTIFACT_PATH}" --python="${PYTHON}"
-gpuci_mamba_retry install -c "${CONDA_BLD_DIR}" -c "${CONDA_ARTIFACT_PATH}" pyraft pylibraft
+gpuci_mamba_retry install -y -c "${CONDA_BLD_DIR}" -c "${CONDA_ARTIFACT_PATH}" pyraft pylibraft
 
 gpuci_logger "sccache stats"
 sccache --show-stats
