@@ -66,14 +66,6 @@ gpuci_logger "Adding ${CONDA_PREFIX}/lib to LD_LIBRARY_PATH"
 
 export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
 
-#gpuci_logger "Build C++ and Python targets"
-## These should link against the existing shared libs
-#if hasArg --skip-tests; then
-#  "$WORKSPACE/build.sh" libraft -v
-#else
-#  "$WORKSPACE/build.sh" libraft tests -v
-#fi
-
 gpuci_logger "Build and install Python targets"
 gpuci_mamba_retry install -y -c "${CONDA_BLD_DIR}" -c "${CONDA_ARTIFACT_PATH}" pyraft pylibraft
 
