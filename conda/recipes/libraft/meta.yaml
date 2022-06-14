@@ -49,6 +49,7 @@ outputs:
       host:
         - cudatoolkit {{ cuda_version }}.*
         - libcusolver {{ libcusolver_version }}
+        - libcusparse {{ libcusparse_version }}
         - librmm {{ minor_version }}
         - nccl {{ nccl_version }}
         - ucx-proc=*=gpu
