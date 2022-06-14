@@ -22,5 +22,8 @@ gtest_version:
 libcusolver_version:
   - ">=11.2.1"
 
+libcusparse_version:
+  - ">=11.5.0"
+
 libfaiss_version:
   - "1.7.0 *_cuda"

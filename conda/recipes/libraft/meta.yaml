@@ -56,6 +56,7 @@ outputs:
       run:
         - cudatoolkit {{ cuda_spec }}
         - libcusolver {{ libcusolver_version }}
+        - libcusparse {{ libcusparse_version }}
         - librmm {{ minor_version }}
         - nccl {{ nccl_version }}
         - ucx-proc=*=gpu
@@ -88,11 +89,12 @@ outputs:
         - {{ pin_subpackage('libraft-headers', exact=True) }}
       run:
         - cudatoolkit {{ cuda_spec }}
-        - libcusolver {{ libcusolver_version }}
         - librmm {{ minor_version }}
         - nccl {{ nccl_version }}
         - ucx-proc=*=gpu
         - ucx-py {{ ucx_py_version }}
+        - libcusolver {{ libcusolver_version }}
+        - libcusparse {{ libcusparse_version }}
         - {{ pin_subpackage('libraft-headers', exact=True) }}
     about:
       home: http://rapids.ai/
@@ -124,6 +126,7 @@ outputs:
         - cudatoolkit {{ cuda_spec }}
         - faiss-proc=*=cuda
         - libcusolver {{ libcusolver_version }}
+        - libcusparse {{ libcusparse_version }}
         - libfaiss {{ libfaiss_version }}
         - librmm {{ minor_version }}
         - {{ pin_subpackage('libraft-headers', exact=True) }}
@@ -157,6 +160,8 @@ outputs:
         - cudatoolkit {{ cuda_spec }}
         - gmock {{ gtest_version }}
         - gtest {{ gtest_version }}
+        - libcusolver {{ libcusolver_version }}
+        - libcusparse {{ libcusparse_version }}
         - {{ pin_subpackage('libraft-distance', exact=True) }}
         - {{ pin_subpackage('libraft-headers', exact=True) }}
         - {{ pin_subpackage('libraft-nn', exact=True) }}
