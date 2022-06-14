@@ -20,7 +20,7 @@ export PATH=/opt/conda/bin:/usr/local/cuda/bin:$PATH
 export PARALLEL_LEVEL=${PARALLEL_LEVEL:-8}
 export CUDA_REL=${CUDA_VERSION%.*}
 export CONDA_ARTIFACT_PATH=${WORKSPACE}/ci/artifacts/raft/cpu/.conda-bld/ # notice there is no `linux-64` here
-export CONDA_BLD_DIR="$WORKSPACE/.conda-bld"
+export CONDA_BLD_DIR=${WORKSPACE}/.conda-bld
 
 
 # Set home to the job's workspace
