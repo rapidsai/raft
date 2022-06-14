@@ -15,7 +15,7 @@ dependencies:
 - rapids-notebook-env=22.02.*
 - rapids-doc-env=22.02.*
 - rmm=22.02.*
-- dask-cuda=22.02.*
+- dask-cuda=22.08.
 - ucx>=1.12.1
 - ucx-py=0.27.*
 - ucx-proc=*=gpu
