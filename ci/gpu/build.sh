@@ -19,7 +19,8 @@ function hasArg {
 export PATH=/opt/conda/bin:/usr/local/cuda/bin:$PATH
 export PARALLEL_LEVEL=${PARALLEL_LEVEL:-8}
 export CUDA_REL=${CUDA_VERSION%.*}
-CONDA_ARTIFACT_PATH=${WORKSPACE}/ci/artifacts/raft/cpu/.conda-bld/ # notice there is no `linux-64` here
+export CONDA_ARTIFACT_PATH=${WORKSPACE}/ci/artifacts/raft/cpu/.conda-bld/ # notice there is no `linux-64` here
+export CONDA_BLD_DIR="$WORKSPACE/.conda-bld"
 
 
 # Set home to the job's workspace
@@ -74,10 +75,6 @@ export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
 #fi
 
 gpuci_logger "Build and install Python targets"
-CONDA_BLD_DIR="$WORKSPACE/.conda-bld"
-gpuci_mamba_retry install boa
-gpuci_conda_retry mambabuild --no-build-id --croot "${CONDA_BLD_DIR}" conda/recipes/pyraft -c "${CONDA_ARTIFACT_PATH}" --python="${PYTHON}"
-gpuci_conda_retry mambabuild --no-build-id --croot "${CONDA_BLD_DIR}" conda/recipes/pylibraft -c "${CONDA_ARTIFACT_PATH}" --python="${PYTHON}"
 gpuci_mamba_retry install -y -c "${CONDA_BLD_DIR}" -c "${CONDA_ARTIFACT_PATH}" pyraft pylibraft
 
 gpuci_logger "sccache stats"
@@ -125,6 +122,8 @@ python -m pytest --cache-clear --junitxml="$WORKSPACE/junit-pylibraft.xml" -v -s
 
 if [ "$(arch)" = "x86_64" ]; then
   gpuci_logger "Building docs"
+  gpuci_mamba_retry mambabuild --no-build-id --croot "${CONDA_BLD_DIR}" conda/recipes/pyraft -c "${CONDA_ARTIFACT_PATH}" --python="${PYTHON}"
+  gpuci_mamba_retry mambabuild --no-build-id --croot "${CONDA_BLD_DIR}" conda/recipes/pylibraft -c "${CONDA_ARTIFACT_PATH}" --python="${PYTHON}"
   gpuci_mamba_retry install "rapids-doc-env=${MINOR_VERSION}.*"
   "$WORKSPACE/build.sh" docs -v
 fi
