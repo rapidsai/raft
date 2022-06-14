@@ -37,7 +37,7 @@ if [[ "$BUILD_LIBRAFT" == "1" && "$UPLOAD_LIBRAFT" == "1" ]]; then
   gpuci_retry anaconda -t ${MY_UPLOAD_KEY} upload -u ${CONDA_USERNAME:-rapidsai} ${LABEL_OPTION} --skip-existing --no-progress ${LIBRAFT_FILES}
 fi
 
-if [[ "$BUILD_RAFT" == "1" ]]; then
+if [[ "$BUILD_RAFT" == "1" && "$UPLOAD_RAFT" == "1" ]]; then
   PYRAFT_FILE=$(conda build --no-build-id --croot ${CONDA_BLD_DIR} -c ${CONDA_LOCAL_CHANNEL} conda/recipes/pyraft --python=$PYTHON --output)
   PYLIBRAFT_FILE=$(conda build --no-build-id --croot ${CONDA_BLD_DIR} -c ${CONDA_LOCAL_CHANNEL} conda/recipes/pylibraft --python=$PYTHON --output)
   test -e ${PYRAFT_FILE}
