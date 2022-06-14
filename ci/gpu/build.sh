@@ -121,7 +121,7 @@ else
   # Install pre-built conda packages from previous CI step
   gpuci_logger "Install libraft conda packages from CPU job"
   gpuci_mamba_retry install -y -c "${CONDA_ARTIFACT_PATH}" libraft-tests
-  GTEST_OUTPUT="xml:${WORKSPACE}/test-results/raft_cpp/" $CONDA_PREFIX/bin/gtests/libraft/test_raft
+  GTEST_OUTPUT="xml:${WORKSPACE}/test-results/raft_cpp/" $CONDA_PREFIX/bin/libraft/gtests/test_raft
 fi
 
 gpuci_logger "Python pytest for pyraft"

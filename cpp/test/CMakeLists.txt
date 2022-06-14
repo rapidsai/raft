@@ -91,7 +91,7 @@ add_executable(test_raft
     test/sparse/convert_csr.cu
     test/sparse/connect_components.cu
     test/sparse/csr_row_slice.cu
-    test/sparse/csr_to_dense.cu
+#    test/sparse/csr_to_dense.cu
     test/sparse/csr_transpose.cu
     test/sparse/degree.cu
     test/sparse/dist_coo_spmv.cu
