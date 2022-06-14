@@ -101,12 +101,12 @@ function cmakeArgs {
         # There are possible weird edge cases that may cause this regex filter to output nothing and fail silently
         # the true pipe will catch any weird edge cases that may happen and will cause the program to fall back
         # on the invalid option error
-        CMAKE_ARGS=$(echo $ARGS | { grep -Eo "\-\-cmake\-args=\".+\"" || true; })
-        if [[ -n ${CMAKE_ARGS} ]]; then
-            # Remove the full  CMAKE_ARGS argument from list of args so that it passes validArgs function
-            ARGS=${ARGS//$CMAKE_ARGS/}
+        EXTRA_CMAKE_ARGS=$(echo $ARGS | { grep -Eo "\-\-cmake\-args=\".+\"" || true; })
+        if [[ -n ${EXTRA_CMAKE_ARGS} ]]; then
+            # Remove the full  EXTRA_CMAKE_ARGS argument from list of args so that it passes validArgs function
+            ARGS=${ARGS//$EXTRA_CMAKE_ARGS/}
             # Filter the full argument down to just the extra string that will be added to cmake call
-            CMAKE_ARGS=$(echo $CMAKE_ARGS | grep -Eo "\".+\"" | sed -e 's/^"//' -e 's/"$//')
+            EXTRA_CMAKE_ARGS=$(echo $EXTRA_CMAKE_ARGS | grep -Eo "\".+\"" | sed -e 's/^"//' -e 's/"$//')
         fi
     fi
 }
@@ -196,6 +196,11 @@ if [[ ${CMAKE_TARGET} == "" ]]; then
     CMAKE_TARGET="all"
 fi
 
+# Append `-DFIND_RAFT_CPP=ON` to EXTRA_CMAKE_ARGS unless a user specified the option.
+if [[ "${EXTRA_CMAKE_ARGS}" != *"DFIND_RAFT_CPP"* ]]; then
+    EXTRA_CMAKE_ARGS="${EXTRA_CMAKE_ARGS} -DFIND_RAFT_CPP=ON"
+fi
+
 # If clean given, run it prior to any other steps
 if (( ${CLEAN} == 1 )); then
     # If the dirs to clean are mounted dirs in a container, the
@@ -245,7 +250,7 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || has
           -DRAFT_COMPILE_DIST_LIBRARY=${COMPILE_DIST_LIBRARY} \
           -DRAFT_USE_FAISS_STATIC=${BUILD_STATIC_FAISS} \
           -DRAFT_ENABLE_thrust_DEPENDENCY=${ENABLE_thrust_DEPENDENCY} \
-          ${CMAKE_ARGS}
+          ${EXTRA_CMAKE_ARGS}
 
   if [[ ${CMAKE_TARGET} != "" ]]; then
       echo "-- Compiling targets: ${CMAKE_TARGET}, verbose=${VERBOSE_FLAG}"
@@ -261,9 +266,9 @@ fi
 if (( ${NUMARGS} == 0 )) || hasArg pyraft || hasArg docs; then
 
     cd ${REPODIR}/python/raft
-    python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace -- -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} -DCMAKE_LIBRARY_PATH=${LIBRAFT_BUILD_DIR} ${CMAKE_ARGS}
+    python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace -- -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} -DCMAKE_LIBRARY_PATH=${LIBRAFT_BUILD_DIR} ${EXTRA_CMAKE_ARGS}
     if [[ ${INSTALL_TARGET} != "" ]]; then
-        python setup.py install --single-version-externally-managed --record=record.txt -- -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} ${CMAKE_ARGS}
+        python setup.py install --single-version-externally-managed --record=record.txt -- -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} ${EXTRA_CMAKE_ARGS}
     fi
 fi
 
@@ -271,9 +276,9 @@ fi
 if (( ${NUMARGS} == 0 )) || hasArg pylibraft; then
 
     cd ${REPODIR}/python/pylibraft
-    python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace -- -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} -DCMAKE_LIBRARY_PATH=${LIBRAFT_BUILD_DIR} ${CMAKE_ARGS}
+    python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace -- -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} -DCMAKE_LIBRARY_PATH=${LIBRAFT_BUILD_DIR} ${EXTRA_CMAKE_ARGS}
     if [[ ${INSTALL_TARGET} != "" ]]; then
-        python setup.py install --single-version-externally-managed --record=record.txt -- -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} ${CMAKE_ARGS}
+        python setup.py install --single-version-externally-managed --record=record.txt -- -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} ${EXTRA_CMAKE_ARGS}
     fi
 fi
 
