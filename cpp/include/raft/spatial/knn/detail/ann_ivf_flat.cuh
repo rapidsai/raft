@@ -35,7 +35,6 @@
 
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_uvector.hpp>
-#include <rmm/mr/device/managed_memory_resource.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
 #include <rmm/mr/device/pool_memory_resource.hpp>
 
@@ -50,7 +49,7 @@ class cuivflHandle {
                uint32_t n_lists,
                uint32_t n_iters);
 
-  void cuivflBuildIndex(const T* dataset, T* trainset, uint32_t n_rows, uint32_t nTrainset);
+  void cuivflBuildIndex(const T* dataset, uint32_t n_rows);
 
   void cuivflSetSearchParameters(const uint32_t n_probes,
                                  const uint32_t max_batch,
@@ -86,20 +85,13 @@ class cuivflHandle {
   rmm::device_uvector<uint32_t> list_offsets_dev_;
   // The device memory pointer; the number of each cluster(list); size [n_lists_]
   rmm::device_uvector<uint32_t> list_lengths_dev_;
-  // The device memory pointer; centriod; size [n_lists_, dim_]
-  rmm::device_uvector<float> centriod_dev_;
-  // The device memory pointer; centriod norm ; size [n_lists_, dim_]
-  rmm::device_uvector<float> centriod_norm_dev_;
+  // The device memory pointer; centroid; size [n_lists_, dim_]
+  rmm::device_uvector<float> centers_dev_;
+  // The device memory pointer; centroid norm ; size [n_lists_, dim_]
+  rmm::device_uvector<float> centers_norms_dev_;
   // Memory pool for use during search; after the first search is done the pool is not likely to
   // resize, saving the costs of allocations.
   std::optional<rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource>> search_mem_res;
-
-  void cuivflBuildOptimizedKmeans(float* centriod_managed_ptr,
-                                  const T* dataset,
-                                  T* trainset,
-                                  uint32_t* clusterSize,
-                                  uint32_t n_rows,
-                                  uint32_t n_rows_train);
 
   template <typename AccT>
   void cuivflSearchImpl(
@@ -123,8 +115,8 @@ cuivflHandle<T>::cuivflHandle(const handle_t& handle,
     list_index_dev_(0, stream_),
     list_offsets_dev_(0, stream_),
     list_lengths_dev_(0, stream_),
-    centriod_dev_(0, stream_),
-    centriod_norm_dev_(0, stream_)
+    centers_dev_(0, stream_),
+    centers_norms_dev_(0, stream_)
 {
   // TODO: consider padding the dimensions and fixing veclen to its maximum possible value as a
   // template parameter (https://github.com/rapidsai/raft/issues/711)
@@ -132,238 +124,6 @@ cuivflHandle<T>::cuivflHandle(const handle_t& handle,
   while (dim % veclen_ != 0) {
     veclen_ = veclen_ >> 1;
   }
-}
-
-/**
- * NB: `dataset` is accessed only by GPU code, `trainset` accessed by CPU and GPU.
- *
- */
-template <typename T>
-void cuivflHandle<T>::cuivflBuildOptimizedKmeans(float* centriod_managed_ptr,
-                                                 const T* dataset,
-                                                 T* trainset,
-                                                 uint32_t* labels,
-                                                 uint32_t n_rows,
-                                                 uint32_t n_rows_train)
-{
-  common::nvtx::range<common::nvtx::domain::raft> fun_scope(
-    "cuivflBuildOptimizedKmeans(%u, %u)", n_rows, n_rows_train);
-
-  rmm::device_uvector<uint32_t> trainset_labels(n_rows_train, stream_);
-
-  float* cluster_centers = centriod_managed_ptr;
-
-  uint32_t n_mesoclusters = std::pow<double>(n_lists_, 0.5) + 0.5;
-  RAFT_LOG_DEBUG("(%s) # n_mesoclusters: %u", __func__, n_mesoclusters);
-
-  rmm::mr::managed_memory_resource managed_memory;
-  rmm::device_uvector<float> mesocluster_centers(n_mesoclusters * dim_, stream_, &managed_memory);
-  rmm::device_uvector<uint32_t> mesocluster_labels(n_rows_train, stream_, &managed_memory);
-  rmm::device_uvector<uint32_t> mesocluster_sizes_buf(n_mesoclusters, stream_, &managed_memory);
-  rmm::device_uvector<float> mesocluster_centers_tmp(
-    n_mesoclusters * dim_, stream_, &managed_memory);
-
-  auto mesocluster_sizes = mesocluster_sizes_buf.data();
-
-  rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource> kmeans_mem_res(
-    rmm::mr::get_current_device_resource(),
-    // an arbitrary guess on the upper bound of the workspace size
-    Pow2<256>::roundUp(kmeans::calc_minibatch_size(n_mesoclusters, n_rows) * dim_ * 4));
-
-  // Training meso-clusters
-  for (uint32_t iter = 0; iter < 2 * n_iters_; iter += 2) {
-    RAFT_LOG_TRACE("Training kmeans of meso-clusters: %.1f / %u", (float)iter / 2, n_iters_);
-    kmeans::predict(handle_,
-                    mesocluster_centers.data(),
-                    n_mesoclusters,
-                    dim_,
-                    trainset,
-                    n_rows_train,
-                    mesocluster_labels.data(),
-                    metric_type_,
-                    (iter != 0),
-                    mesocluster_centers_tmp.data(),
-                    mesocluster_sizes,
-                    true,
-                    stream_,
-                    &kmeans_mem_res);
-
-    if (iter + 1 < 2 * n_iters_) {
-      if (kmeans::adjust_centers(mesocluster_centers.data(),
-                                 n_mesoclusters,
-                                 dim_,
-                                 trainset,
-                                 n_rows_train,
-                                 mesocluster_labels.data(),
-                                 metric_type_,
-                                 mesocluster_sizes,
-                                 (float)1.0 / 4,
-                                 stream_)) {
-        iter -= 1;
-      }
-    }
-  }
-
-  handle_.sync_stream(stream_);
-
-  std::vector<uint32_t> fine_clusters_nums(n_mesoclusters);
-  std::vector<uint32_t> fine_clusters_csum(n_mesoclusters + 1);
-  fine_clusters_csum[0] = 0;
-
-  uint32_t n_lists_rem            = n_lists_;
-  uint32_t n_rows_train_rem       = n_rows_train;
-  uint32_t mesocluster_size_max   = 0;
-  uint32_t mesocluster_size_sum   = 0;
-  uint32_t fine_clusters_nums_sum = 0;  // checking
-  uint32_t fine_clusters_nums_max = 0;
-  for (uint32_t i = 0; i < n_mesoclusters; i++) {
-    if (i < n_mesoclusters - 1) {
-      fine_clusters_nums[i] = (double)n_lists_rem * mesocluster_sizes[i] / n_rows_train_rem + .5;
-    } else {
-      fine_clusters_nums[i] = n_lists_rem;
-    }
-    n_lists_rem -= fine_clusters_nums[i];
-    n_rows_train_rem -= mesocluster_sizes[i];
-    mesocluster_size_max = max(mesocluster_size_max, mesocluster_sizes[i]);
-    mesocluster_size_sum += mesocluster_sizes[i];
-    fine_clusters_nums_sum += fine_clusters_nums[i];
-    fine_clusters_nums_max    = max(fine_clusters_nums_max, fine_clusters_nums[i]);
-    fine_clusters_csum[i + 1] = fine_clusters_csum[i] + fine_clusters_nums[i];
-  }
-
-  RAFT_LOG_DEBUG("(%s) # mesocluster_size_sum: %u", __func__, mesocluster_size_sum);
-  RAFT_LOG_DEBUG("(%s) # fine_clusters_nums_sum: %u", __func__, fine_clusters_nums_sum);
-  assert(mesocluster_size_sum == n_rows_train);
-  assert(fine_clusters_nums_sum == n_lists_);
-  assert(fine_clusters_csum[n_mesoclusters] == n_lists_);
-
-  rmm::device_uvector<uint32_t> mc_trainset_ids_buf(mesocluster_size_max, stream_, &managed_memory);
-  rmm::device_uvector<float> mc_trainset_buf(mesocluster_size_max * dim_, stream_, &managed_memory);
-  auto mc_trainset_ids = mc_trainset_ids_buf.data();
-  auto mc_trainset     = mc_trainset_buf.data();
-
-  // label (cluster ID) of each vector
-  rmm::device_uvector<uint32_t> mc_trainset_labels(mesocluster_size_max, stream_, &managed_memory);
-
-  rmm::device_uvector<float> mc_trainset_ccenters(
-    fine_clusters_nums_max * dim_, stream_, &managed_memory);
-  rmm::device_uvector<float> mc_trainset_ccenters_tmp(
-    fine_clusters_nums_max * dim_, stream_, &managed_memory);
-  // number of vectors in each cluster
-  rmm::device_uvector<uint32_t> mc_trainset_csizes_tmp(
-    fine_clusters_nums_max, stream_, &managed_memory);
-
-  // Training clusters in each meso-clusters
-  uint32_t n_clusters_done = 0;
-  for (uint32_t i = 0; i < n_mesoclusters; i++) {
-    uint32_t k = 0;
-    for (uint32_t j = 0; j < n_rows_train; j++) {
-      if (mesocluster_labels.data()[j] != i) continue;
-      mc_trainset_ids[k++] = j;
-    }
-    assert(k == mesocluster_sizes[i]);
-
-    utils::copy_selected<T>(
-      mesocluster_sizes[i], dim_, trainset, mc_trainset_ids, dim_, mc_trainset, dim_, stream_);
-
-    for (uint32_t iter = 0; iter < 2 * n_iters_; iter += 2) {
-      RAFT_LOG_TRACE("Training kmeans of clusters in meso-cluster %u (n_lists: %u): %.1f / %u",
-                     i,
-                     fine_clusters_nums[i],
-                     (float)iter / 2,
-                     n_iters_);
-
-      kmeans::predict(handle_,
-                      mc_trainset_ccenters.data(),
-                      fine_clusters_nums[i],
-                      dim_,
-                      mc_trainset,
-                      mesocluster_sizes[i],
-                      mc_trainset_labels.data(),
-                      metric_type_,
-                      (iter != 0),
-                      mc_trainset_ccenters_tmp.data(),
-                      mc_trainset_csizes_tmp.data(),
-                      true,
-                      stream_,
-                      &kmeans_mem_res);
-
-      if (iter + 1 < 2 * n_iters_) {
-        if (kmeans::adjust_centers(mc_trainset_ccenters.data(),
-                                   fine_clusters_nums[i],
-                                   dim_,
-                                   mc_trainset,
-                                   mesocluster_sizes[i],
-                                   mc_trainset_labels.data(),
-                                   metric_type_,
-                                   mc_trainset_csizes_tmp.data(),
-                                   (float)1.0 / 4,
-                                   stream_)) {
-          iter -= 1;
-        }
-      }
-    }
-    copy(cluster_centers + (dim_ * fine_clusters_csum[i]),
-         mc_trainset_ccenters.data(),
-         fine_clusters_nums[i] * dim_,
-         stream_);
-    handle_.sync_stream(stream_);
-    n_clusters_done += fine_clusters_nums[i];
-  }  // end for (uint32_t i = 0; i < n_mesoclusters; i++)
-  assert(n_clusters_done == n_lists_);
-
-  mc_trainset_ccenters_tmp.resize(n_lists_ * dim_, stream_);
-  mc_trainset_csizes_tmp.resize(n_lists_, stream_);
-
-  // Fitting whole clusters using whole trainset.
-  for (int iter = 0; iter < 2; iter++) {
-    kmeans::predict(handle_,
-                    cluster_centers,
-                    n_lists_,
-                    dim_,
-                    trainset,
-                    n_rows_train,
-                    trainset_labels.data(),
-                    metric_type_,
-                    true,
-                    mc_trainset_ccenters_tmp.data(),
-                    mc_trainset_csizes_tmp.data(),
-                    true,
-                    stream_,
-                    &kmeans_mem_res);
-  }  // end for (int iter = 0; iter < 2; iter++)
-
-  RAFT_LOG_DEBUG("(%s) Final fitting.", __func__);
-
-  kmeans::predict(handle_,
-                  cluster_centers,
-                  n_lists_,
-                  dim_,
-                  dataset,
-                  n_rows_,
-                  labels,
-                  metric_type_,
-                  true,
-                  mc_trainset_ccenters_tmp.data(),
-                  mc_trainset_csizes_tmp.data(),
-                  true,
-                  stream_,
-                  &kmeans_mem_res);
-
-  kmeans::predict(handle_,
-                  cluster_centers,
-                  n_lists_,
-                  dim_,
-                  dataset,
-                  n_rows_,
-                  labels,
-                  metric_type_,
-                  true,
-                  mc_trainset_ccenters_tmp.data(),
-                  mc_trainset_csizes_tmp.data(),
-                  false,
-                  stream_,
-                  &kmeans_mem_res);
 }
 
 /**
@@ -434,45 +194,44 @@ __global__ void build_index_kernel(const uint32_t* labels,
 }
 
 template <typename T>
-void cuivflHandle<T>::cuivflBuildIndex(const T* dataset,
-                                       T* trainset,
-                                       uint32_t n_rows,
-                                       uint32_t n_rows_train)
+void cuivflHandle<T>::cuivflBuildIndex(const T* dataset, uint32_t n_rows)
 {
   n_rows_ = n_rows;
   RAFT_EXPECTS(n_rows_ > 0, "empty dataset");
 
-  rmm::mr::managed_memory_resource managed_memory;
-  rmm::device_uvector<float> centriod_managed_buf(n_lists_ * dim_, stream_, &managed_memory);
-  auto centriod_managed_ptr = centriod_managed_buf.data();
-
   static_assert(std::is_same_v<T, float> || std::is_same_v<T, uint8_t> || std::is_same_v<T, int8_t>,
                 "unsupported data type");
 
-  // Alloc manage memory for centriods, trainset and workspace
-  rmm::device_uvector<uint32_t> labels_buf(n_rows_, stream_, &managed_memory);  // [numDataset]
-  auto labels = labels_buf.data();
+  // kmeans cluster ids for the dataset
+  rmm::device_uvector<uint32_t> labels(n_rows_, stream_);
 
   // Predict labels of the whole dataset
-  cuivflBuildOptimizedKmeans(centriod_managed_ptr, dataset, trainset, labels, n_rows, n_rows_train);
+  centers_dev_.resize(n_lists_ * dim_, stream_);
+  kmeans::build_optimized_kmeans(handle_,
+                                 n_iters_,
+                                 dim_,
+                                 dataset,
+                                 n_rows,
+                                 labels.data(),
+                                 centers_dev_.data(),
+                                 n_lists_,
+                                 0.5,
+                                 metric_type_,
+                                 stream_);
 
-  // Calculate the L2 related result
-  centriod_norm_dev_.resize(n_lists_, stream_);
-
+  // Precompute the centers vector norms for L2Expanded distance
   if (metric_type_ == raft::distance::DistanceType::L2Expanded) {
-    utils::dots_along_rows(
-      n_lists_, dim_, centriod_managed_ptr, centriod_norm_dev_.data(), stream_);
-    RAFT_LOG_TRACE_VEC(centriod_norm_dev_.data(), 20);
+    centers_norms_dev_.resize(n_lists_, stream_);
+    utils::dots_along_rows(n_lists_, dim_, centers_dev_.data(), centers_norms_dev_.data(), stream_);
+    RAFT_LOG_TRACE_VEC(centers_norms_dev_.data(), 20);
   }
-  centriod_dev_.resize(n_lists_ * dim_, stream_);
-  copy(centriod_dev_.data(), centriod_managed_ptr, n_lists_ * dim_, stream_);
 
   list_lengths_dev_.resize(n_lists_, stream_);
   auto list_lengths = list_lengths_dev_.data();
   stats::histogram(stats::HistType::HistTypeAuto,
                    reinterpret_cast<int*>(list_lengths),
                    n_lists_,
-                   labels,
+                   labels.data(),
                    n_rows_,
                    uint32_t(1),
                    stream_);
@@ -503,7 +262,7 @@ void cuivflHandle<T>::cuivflBuildIndex(const T* dataset,
 
   const dim3 block_dim(256);
   const dim3 grid_dim(raft::ceildiv<uint32_t>(n_rows_, block_dim.x));
-  build_index_kernel<<<grid_dim, block_dim, 0, stream_>>>(labels,
+  build_index_kernel<<<grid_dim, block_dim, 0, stream_>>>(labels.data(),
                                                           list_offsets,
                                                           dataset,
                                                           list_data_dev_.data(),
@@ -627,11 +386,11 @@ void cuivflHandle<T>::cuivflSearchImpl(const T* queries,  // [numQueries, dim]
     utils::dots_along_rows(n_queries, dim_, converted_queries_ptr, query_norm_dev.data(), stream_);
     utils::outer_add(query_norm_dev.data(),
                      n_queries,
-                     centriod_norm_dev_.data(),
+                     centers_norms_dev_.data(),
                      n_lists_,
                      distance_buffer_dev.data(),
                      stream_);
-    RAFT_LOG_TRACE_VEC(centriod_norm_dev_.data(), 20);
+    RAFT_LOG_TRACE_VEC(centers_norms_dev_.data(), 20);
     RAFT_LOG_TRACE_VEC(distance_buffer_dev.data(), 20);
   } else {
     alpha = 1.0f;
@@ -645,7 +404,7 @@ void cuivflHandle<T>::cuivflSearchImpl(const T* queries,  // [numQueries, dim]
                n_queries,
                dim_,
                &alpha,
-               centriod_dev_.data(),
+               centers_dev_.data(),
                dim_,
                converted_queries_ptr,
                dim_,

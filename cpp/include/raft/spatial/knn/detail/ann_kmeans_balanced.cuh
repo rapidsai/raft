@@ -19,6 +19,7 @@
 #include "../ann_common.h"
 #include "ann_utils.cuh"
 
+#include <raft/common/nvtx.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/distance/distance.hpp>
@@ -30,6 +31,7 @@
 
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_vector.hpp>
+#include <rmm/mr/device/managed_memory_resource.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
 #include <rmm/mr/device/pool_memory_resource.hpp>
 
@@ -159,7 +161,7 @@ void update_centers(float* centers,
     utils::accumulate_into_selected<T>(
       n_rows, dim, centers, cluster_sizes, dataset, labels, stream);
   } else {
-    copy(centers, accumulated_centers, n_clusters * dim, stream);
+    raft::copy(centers, accumulated_centers, n_clusters * dim, stream);
   }
 
   if (metric == raft::distance::DistanceType::InnerProduct) {
@@ -209,6 +211,8 @@ void predict(const handle_t& handle,
              rmm::cuda_stream_view stream,
              rmm::mr::device_memory_resource* mr = nullptr)
 {
+  common::nvtx::range<common::nvtx::domain::raft> fun_scope(
+    "kmeans::predict(%u, %u)", n_rows, n_clusters);
   if (n_rows == 0) {
     RAFT_LOG_WARN(
       "cuann_kmeans_predict: empty dataset (n_rows = %d, n_clusters = %d)", n_rows, n_clusters);
@@ -248,7 +252,7 @@ void predict(const handle_t& handle,
     auto minibatch_size = std::min<uint32_t>(max_minibatch_size, n_rows - offset);
 
     if constexpr (std::is_same_v<T, float>) {
-      copy(cur_dataset.data(), dataset + offset * dim, minibatch_size * dim, stream);
+      raft::copy(cur_dataset.data(), dataset + offset * dim, minibatch_size * dim, stream);
     } else {
       linalg::unaryOp(cur_dataset.data(),
                       dataset + offset * dim,
@@ -333,6 +337,8 @@ auto adjust_centers(float* centers,
                     float threshold,
                     rmm::cuda_stream_view stream) -> bool
 {
+  common::nvtx::range<common::nvtx::domain::raft> fun_scope(
+    "kmeans::adjust_centers(%u, %u)", n_rows, n_clusters);
   stream.synchronize();
   if (n_clusters == 0) { return false; }
   constexpr static std::array kPrimes{29,   71,   113,  173,  229,  281,  349,  409,  463,  541,
@@ -382,6 +388,254 @@ auto adjust_centers(float* centers,
   }
   stream.synchronize();
   return adjusted;
+}
+
+/**
+ * NB: `dataset` is accessed only by GPU code, `trainset` accessed by CPU and GPU.
+ *
+ */
+template <typename T>
+void build_optimized_kmeans(const handle_t& handle,
+                            uint32_t n_iters,
+                            size_t dim,
+                            const T* dataset,  // device
+                            size_t n_rows,
+                            uint32_t* labels,        // device
+                            float* cluster_centers,  // device
+                            size_t n_clusters,
+                            double trainset_fraction,  // 0 < trainset_fraction <= 1
+                            raft::distance::DistanceType metric,
+                            rmm::cuda_stream_view stream)
+{
+  common::nvtx::range<common::nvtx::domain::raft> fun_scope(
+    "kmeans::build_optimized_kmeans(%u, %u)", n_rows, n_clusters);
+
+  auto trainset_ratio =
+    std::max<size_t>(1, n_rows / std::max<size_t>(trainset_fraction * n_rows, n_clusters));
+  auto n_rows_train = n_rows / trainset_ratio;
+
+  uint32_t n_mesoclusters = std::pow<double>(n_clusters, 0.5) + 0.5;
+  RAFT_LOG_DEBUG("(%s) # n_mesoclusters: %u", __func__, n_mesoclusters);
+
+  rmm::mr::managed_memory_resource managed_memory;
+  rmm::device_uvector<float> mesocluster_centers(n_mesoclusters * dim, stream, &managed_memory);
+  rmm::device_uvector<uint32_t> mesocluster_labels(n_rows_train, stream, &managed_memory);
+  rmm::device_uvector<uint32_t> mesocluster_sizes_buf(n_mesoclusters, stream, &managed_memory);
+  rmm::device_uvector<float> mesocluster_centers_tmp(n_mesoclusters * dim, stream, &managed_memory);
+
+  rmm::device_uvector<T> trainset(n_rows_train * dim, stream, &managed_memory);
+  // TODO: a proper sampling
+  RAFT_CUDA_TRY(cudaMemcpy2DAsync(trainset.data(),
+                                  sizeof(T) * dim,
+                                  dataset,
+                                  sizeof(T) * dim * trainset_ratio,
+                                  sizeof(T) * dim,
+                                  n_rows_train,
+                                  cudaMemcpyDefault,
+                                  stream));
+
+  auto mesocluster_sizes = mesocluster_sizes_buf.data();
+
+  rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource> kmeans_mem_res(
+    rmm::mr::get_current_device_resource(),
+    // an arbitrary guess on the upper bound of the workspace size
+    Pow2<256>::roundUp(kmeans::calc_minibatch_size(n_mesoclusters, n_rows) * dim * 4));
+
+  // Training meso-clusters
+  for (uint32_t iter = 0; iter < 2 * n_iters; iter += 2) {
+    RAFT_LOG_TRACE("Training kmeans of meso-clusters: %.1f / %u", (float)iter / 2, n_iters);
+    kmeans::predict(handle,
+                    mesocluster_centers.data(),
+                    n_mesoclusters,
+                    dim,
+                    trainset.data(),
+                    n_rows_train,
+                    mesocluster_labels.data(),
+                    metric,
+                    (iter != 0),
+                    mesocluster_centers_tmp.data(),
+                    mesocluster_sizes,
+                    true,
+                    stream,
+                    &kmeans_mem_res);
+
+    if (iter + 1 < 2 * n_iters) {
+      if (kmeans::adjust_centers(mesocluster_centers.data(),
+                                 n_mesoclusters,
+                                 dim,
+                                 trainset.data(),
+                                 n_rows_train,
+                                 mesocluster_labels.data(),
+                                 metric,
+                                 mesocluster_sizes,
+                                 (float)1.0 / 4,
+                                 stream)) {
+        iter -= 1;
+      }
+    }
+  }
+
+  handle.sync_stream(stream);
+
+  std::vector<uint32_t> fine_clusters_nums(n_mesoclusters);
+  std::vector<uint32_t> fine_clusters_csum(n_mesoclusters + 1);
+  fine_clusters_csum[0] = 0;
+
+  uint32_t n_lists_rem            = n_clusters;
+  uint32_t n_rows_train_rem       = n_rows_train;
+  uint32_t mesocluster_size_max   = 0;
+  uint32_t mesocluster_size_sum   = 0;
+  uint32_t fine_clusters_nums_sum = 0;  // checking
+  uint32_t fine_clusters_nums_max = 0;
+  for (uint32_t i = 0; i < n_mesoclusters; i++) {
+    if (i < n_mesoclusters - 1) {
+      fine_clusters_nums[i] = (double)n_lists_rem * mesocluster_sizes[i] / n_rows_train_rem + .5;
+    } else {
+      fine_clusters_nums[i] = n_lists_rem;
+    }
+    n_lists_rem -= fine_clusters_nums[i];
+    n_rows_train_rem -= mesocluster_sizes[i];
+    mesocluster_size_max = max(mesocluster_size_max, mesocluster_sizes[i]);
+    mesocluster_size_sum += mesocluster_sizes[i];
+    fine_clusters_nums_sum += fine_clusters_nums[i];
+    fine_clusters_nums_max    = max(fine_clusters_nums_max, fine_clusters_nums[i]);
+    fine_clusters_csum[i + 1] = fine_clusters_csum[i] + fine_clusters_nums[i];
+  }
+
+  RAFT_LOG_DEBUG("(%s) # mesocluster_size_sum: %u", __func__, mesocluster_size_sum);
+  RAFT_LOG_DEBUG("(%s) # fine_clusters_nums_sum: %u", __func__, fine_clusters_nums_sum);
+  assert(mesocluster_size_sum == n_rows_train);
+  assert(fine_clusters_nums_sum == n_clusters);
+  assert(fine_clusters_csum[n_mesoclusters] == n_clusters);
+
+  rmm::device_uvector<uint32_t> mc_trainset_ids_buf(mesocluster_size_max, stream, &managed_memory);
+  rmm::device_uvector<float> mc_trainset_buf(mesocluster_size_max * dim, stream, &managed_memory);
+  auto mc_trainset_ids = mc_trainset_ids_buf.data();
+  auto mc_trainset     = mc_trainset_buf.data();
+
+  // label (cluster ID) of each vector
+  rmm::device_uvector<uint32_t> mc_trainset_labels(mesocluster_size_max, stream, &managed_memory);
+
+  rmm::device_uvector<float> mc_trainset_ccenters(
+    fine_clusters_nums_max * dim, stream, &managed_memory);
+  rmm::device_uvector<float> mc_trainset_ccenters_tmp(
+    fine_clusters_nums_max * dim, stream, &managed_memory);
+  // number of vectors in each cluster
+  rmm::device_uvector<uint32_t> mc_trainset_csizes_tmp(
+    fine_clusters_nums_max, stream, &managed_memory);
+
+  // Training clusters in each meso-clusters
+  uint32_t n_clusters_done = 0;
+  for (uint32_t i = 0; i < n_mesoclusters; i++) {
+    uint32_t k = 0;
+    for (uint32_t j = 0; j < n_rows_train; j++) {
+      if (mesocluster_labels.data()[j] != i) continue;
+      mc_trainset_ids[k++] = j;
+    }
+    assert(k == mesocluster_sizes[i]);
+
+    utils::copy_selected<T>(
+      mesocluster_sizes[i], dim, trainset.data(), mc_trainset_ids, dim, mc_trainset, dim, stream);
+
+    for (uint32_t iter = 0; iter < 2 * n_iters; iter += 2) {
+      RAFT_LOG_TRACE("Training kmeans of clusters in meso-cluster %u (n_lists: %u): %.1f / %u",
+                     i,
+                     fine_clusters_nums[i],
+                     (float)iter / 2,
+                     n_iters);
+
+      kmeans::predict(handle,
+                      mc_trainset_ccenters.data(),
+                      fine_clusters_nums[i],
+                      dim,
+                      mc_trainset,
+                      mesocluster_sizes[i],
+                      mc_trainset_labels.data(),
+                      metric,
+                      (iter != 0),
+                      mc_trainset_ccenters_tmp.data(),
+                      mc_trainset_csizes_tmp.data(),
+                      true,
+                      stream,
+                      &kmeans_mem_res);
+
+      if (iter + 1 < 2 * n_iters) {
+        if (kmeans::adjust_centers(mc_trainset_ccenters.data(),
+                                   fine_clusters_nums[i],
+                                   dim,
+                                   mc_trainset,
+                                   mesocluster_sizes[i],
+                                   mc_trainset_labels.data(),
+                                   metric,
+                                   mc_trainset_csizes_tmp.data(),
+                                   (float)1.0 / 4,
+                                   stream)) {
+          iter -= 1;
+        }
+      }
+    }
+    raft::copy(cluster_centers + (dim * fine_clusters_csum[i]),
+               mc_trainset_ccenters.data(),
+               fine_clusters_nums[i] * dim,
+               stream);
+    handle.sync_stream(stream);
+    n_clusters_done += fine_clusters_nums[i];
+  }  // end for (uint32_t i = 0; i < n_mesoclusters; i++)
+  assert(n_clusters_done == n_clusters);
+
+  mc_trainset_ccenters_tmp.resize(n_clusters * dim, stream);
+  mc_trainset_csizes_tmp.resize(n_clusters, stream);
+
+  // Fitting whole clusters using whole trainset.
+  for (int iter = 0; iter < 2; iter++) {
+    // NB: labels.size == n_rows >= n_rows_train; the output is not used.
+    kmeans::predict(handle,
+                    cluster_centers,
+                    n_clusters,
+                    dim,
+                    trainset.data(),
+                    n_rows_train,
+                    labels,
+                    metric,
+                    true,
+                    mc_trainset_ccenters_tmp.data(),
+                    mc_trainset_csizes_tmp.data(),
+                    true,
+                    stream,
+                    &kmeans_mem_res);
+  }  // end for (int iter = 0; iter < 2; iter++)
+
+  RAFT_LOG_DEBUG("(%s) Final fitting.", __func__);
+
+  kmeans::predict(handle,
+                  cluster_centers,
+                  n_clusters,
+                  dim,
+                  dataset,
+                  n_rows,
+                  labels,
+                  metric,
+                  true,
+                  mc_trainset_ccenters_tmp.data(),
+                  mc_trainset_csizes_tmp.data(),
+                  true,
+                  stream,
+                  &kmeans_mem_res);
+
+  kmeans::predict(handle,
+                  cluster_centers,
+                  n_clusters,
+                  dim,
+                  dataset,
+                  n_rows,
+                  labels,
+                  metric,
+                  true,
+                  mc_trainset_ccenters_tmp.data(),
+                  mc_trainset_csizes_tmp.data(),
+                  false,
+                  stream,
+                  &kmeans_mem_res);
 }
 
 }  // namespace raft::spatial::knn::detail::kmeans

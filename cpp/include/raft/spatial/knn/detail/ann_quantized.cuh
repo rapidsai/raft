@@ -31,8 +31,6 @@
 #include <raft/spatial/knn/faiss_mr.hpp>
 
 #include <rmm/cuda_stream_view.hpp>
-#include <rmm/device_uvector.hpp>
-#include <rmm/mr/device/managed_memory_resource.hpp>
 
 #include <faiss/gpu/GpuDistance.h>
 #include <faiss/gpu/GpuIndexFlat.h>
@@ -99,30 +97,10 @@ void approx_knn_cuivfl_ivfflat_build_index(const raft::handle_t& handle,
                                            IntType n,
                                            IntType D)
 {
-  auto stream         = handle.get_stream();
-  int ratio           = 2;  // TODO: take these parameters from API
-  int niter           = 20;
-  const int dim       = D;
-  const size_t ntrain = n / ratio;
-  assert(ntrain > 0);
-
-  rmm::mr::managed_memory_resource managed_memory;
-  rmm::device_uvector<T> trainset(ntrain * dim, stream, &managed_memory);
-
-  RAFT_CUDA_TRY(cudaMemcpy2DAsync(trainset.data(),
-                                  sizeof(T) * dim,
-                                  dataset,
-                                  sizeof(T) * dim * ratio,
-                                  sizeof(T) * dim,
-                                  ntrain,
-                                  cudaMemcpyDefault,
-                                  stream));
-
+  int niter = 20;
   index->handle_.get<T>() =
     std::make_unique<detail::cuivflHandle<T>>(handle, metric, D, params->nlist, niter);
-
-  // NB: `trainset` is accessed by both CPU and GPU code here.
-  index->handle_.get<T>()->cuivflBuildIndex(dataset, trainset.data(), n, ntrain);
+  index->handle_.get<T>()->cuivflBuildIndex(dataset, n);
 }
 
 template <typename IntType = int>
