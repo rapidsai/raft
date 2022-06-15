@@ -126,6 +126,8 @@ cuivflHandle<T>::cuivflHandle(const handle_t& handle,
     centriod_dev_(0, stream_),
     centriod_norm_dev_(0, stream_)
 {
+  // TODO: consider padding the dimensions and fixing veclen to its maximum possible value as a
+  // template parameter (https://github.com/rapidsai/raft/issues/711)
   veclen_ = 16 / sizeof(T);
   while (dim % veclen_ != 0) {
     veclen_ = veclen_ >> 1;
