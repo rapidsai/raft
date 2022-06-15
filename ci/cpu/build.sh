@@ -5,6 +5,10 @@
 #########################################
 set -e
 
+export SCCACHE_S3_KEY_PREFIX="libraft-$(uname -m)"
+export SCCACHE_BUCKET="rapids-sccache"
+export SCCACHE_REGION="us-west-2"
+export SCCACHE_IDLE_TIMEOUT="32768"
 # Set path and build parallel level
 # openmpi dir is required on CentOS for finding MPI libs from cmake
 if [[ -e /etc/os-release ]] && (grep -qi centos /etc/os-release); then
