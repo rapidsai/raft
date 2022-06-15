@@ -391,19 +391,33 @@ auto adjust_centers(float* centers,
 }
 
 /**
- * NB: `dataset` is accessed only by GPU code, `trainset` accessed by CPU and GPU.
+ * kmeans
  *
+ * @tparam T element type
+ *
+ * @param handle
+ * @param n_iters number of training iterations
+ * @param dim number of columns in `centers` and `dataset`
+ * @param[in] dataset a device pointer to the source dataset [n_rows, dim]
+ * @param n_rows number of rows in the input
+ * @param[out] labels a device pointer to the output labels [n_rows]
+ * @param[out] cluster_centers a device pointer to the found cluster centers [n_cluster, dim]
+ * @param n_cluster
+ * @param trainset_fraction a fraction of rows in the `dataset` to sample for kmeans training;
+ *                            0 < trainset_fraction <= 1.
+ * @param metric the distance metric
+ * @param stream
  */
 template <typename T>
 void build_optimized_kmeans(const handle_t& handle,
                             uint32_t n_iters,
                             size_t dim,
-                            const T* dataset,  // device
+                            const T* dataset,
                             size_t n_rows,
-                            uint32_t* labels,        // device
-                            float* cluster_centers,  // device
+                            uint32_t* labels,
+                            float* cluster_centers,
                             size_t n_clusters,
-                            double trainset_fraction,  // 0 < trainset_fraction <= 1
+                            double trainset_fraction,
                             raft::distance::DistanceType metric,
                             rmm::cuda_stream_view stream)
 {
