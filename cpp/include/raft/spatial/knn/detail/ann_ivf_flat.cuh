@@ -364,6 +364,32 @@ void cuivflHandle<T>::cuivflBuildOptimizedKmeans(float* centriod_managed_ptr,
                   &kmeans_mem_res);
 }
 
+/**
+ * @brief Record the dataset into the index, one source row at a time.
+ *
+ * The index concists of the dataset rows, grouped by their labels (into clusters/lists).
+ * Within each cluster (list), the data is grouped into blocks of `WarpSize` interleaved
+ * vectors. Note, the total index length is slightly larger than the dataset length, because
+ * each cluster is padded by `WarpSize` elements
+ *
+ * CUDA launch grid:
+ *   X dimension must cover the dataset (n_rows), YZ are not used;
+ *   there are no dependencies between threads, hence no constraints on the block size.
+ *
+ * @tparam T the element type.
+ *
+ * @param[in] labels device pointer to the cluster ids for each row [n_rows]
+ * @param[in] list_offsets device pointer to the cluster offsets in the output (index) [n_lists]
+ * @param[in] dataset device poitner to the input data [n_rows, dim]
+ * @param[out] list_data device pointer to the output [index_size_, dim]
+ * @param[out] list_index device pointer to the source ids corr. to the output [index_size_]
+ * @param[out] list_lengths device pointer to the cluster sizes [n_lists];
+ *                          it's used as an atomic counter, and must be initialized with zeros.
+ * @param n_rows source length
+ * @param dim the dimensionality of the data
+ * @param veclen size of vectorized loads/stores; must satisfy `dim % veclen == 0`.
+ *
+ */
 template <typename T>
 __global__ void build_index_kernel(const uint32_t* labels,
                                    const uint32_t* list_offsets,
@@ -397,6 +423,7 @@ __global__ void build_index_kernel(const uint32_t* labels,
   dataset += i * dim;
 
   // Interleave dimensions of the source vector while recording it.
+  // NB: such `veclen` is selected, that `dim % veclen == 0`
   for (uint32_t l = 0; l < dim; l += veclen) {
     for (uint32_t j = 0; j < veclen; j++) {
       list_data[l * WarpSize + ingroup_id + j] = dataset[l + j];
@@ -469,7 +496,7 @@ void cuivflHandle<T>::cuivflBuildIndex(const T* dataset,
   list_data_dev_.resize(index_size_ * dim_, stream_);
   list_index_dev_.resize(index_size_, stream_);
 
-  // we'll rebuild the list_lengths in the following kernels, using it as an atomic counter.
+  // we'll rebuild the `list_lengths` in the following kernel, using it as an atomic counter.
   utils::memset(list_lengths, 0, sizeof(uint32_t) * n_lists_, stream_);
 
   const dim3 block_dim(256);
