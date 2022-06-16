@@ -49,9 +49,8 @@ using layout_f_contiguous = detail::stdex::layout_left;
 template <typename ElementType,
           typename Extents,
           typename LayoutPolicy   = layout_c_contiguous,
-          typename AccessorPolicy = accessor_type<ElementType>>
-using mdspan = detail::stdex::
-  mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>
+          typename AccessorPolicy = detail::stdex::default_accessor<ElementType>>
+using mdspan = detail::stdex::mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>;
 
 namespace detail {
 /**
@@ -60,33 +59,32 @@ namespace detail {
  */
 
 template <typename ElementType, typename Extents, typename LayoutPolicy, typename AccessorPolicy>
-void __takes_an_mdspan_ptr(
-  mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>*);
+void __takes_an_mdspan_ptr(mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>*);
 
 template <typename T, typename = void>
-struct __is_mdspan : std::false_type {
+struct is_mdspan : std::false_type {
 };
 template <typename T>
-struct __is_mdspan<T, std::void_t<decltype(__takes_an_mdspan_ptr(std::declval<T*>()))>>
+struct is_mdspan<T, std::void_t<decltype(__takes_an_mdspan_ptr(std::declval<T*>()))>>
   : std::true_type {
 };
 
 template <typename T>
-using __is_mdspan_t = __is_mdspan<std::remove_const_t<T>>;
+using is_mdspan_t = is_mdspan<std::remove_const_t<T>>;
 
 template <typename T>
-inline constexpr bool __is_mdspan_v = __is_mdspan_t<T>::value;
-} // namespace detail
+inline constexpr bool is_mdspan_v = is_mdspan_t<T>::value;
+}  // namespace detail
 
 template <typename...>
 struct is_mdspan : std::true_type {
 };
 template <typename T1>
-struct is_mdspan<T1> : detail::__is_mdspan_t<T1> {
+struct is_mdspan<T1> : detail::is_mdspan_t<T1> {
 };
 template <typename T1, typename... Tn>
 struct is_mdspan<T1, Tn...>
-  : std::conditional_t<detail::__is_mdspan_v<T1>, is_mdspan<Tn...>, std::false_type> {
+  : std::conditional_t<detail::is_mdspan_v<T1>, is_mdspan<Tn...>, std::false_type> {
 };
 
 /**
@@ -103,7 +101,8 @@ template <typename ElementType,
           typename Extents,
           typename LayoutPolicy   = layout_c_contiguous,
           typename AccessorPolicy = detail::stdex::default_accessor<ElementType>>
-using device_mdspan = mdspan<ElementType, Extents, LayoutPolicy, detail::device_accessor<AccessorPolicy>>;
+using device_mdspan =
+  mdspan<ElementType, Extents, LayoutPolicy, detail::device_accessor<AccessorPolicy>>;
 
 /**
  * @brief stdex::mdspan with host tag to avoid accessing incorrect memory location.
@@ -112,7 +111,8 @@ template <typename ElementType,
           typename Extents,
           typename LayoutPolicy   = layout_c_contiguous,
           typename AccessorPolicy = detail::stdex::default_accessor<ElementType>>
-using host_mdspan = mdspan<ElementType, Extents, LayoutPolicy, detail::host_accessor<AccessorPolicy>>;
+using host_mdspan =
+  mdspan<ElementType, Extents, LayoutPolicy, detail::host_accessor<AccessorPolicy>>;
 
 namespace detail {
 template <typename T, bool B>
