@@ -46,6 +46,13 @@ using layout_c_contiguous = detail::stdex::layout_right;
  */
 using layout_f_contiguous = detail::stdex::layout_left;
 
+template <typename ElementType,
+          typename Extents,
+          typename LayoutPolicy   = layout_c_contiguous,
+          typename AccessorPolicy = accessor_type<ElementType>>
+using mdspan = detail::stdex::
+  mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>
+
 namespace detail {
 /**
  * @\brief Template checks and helpers to determine if type T is an std::mdspan
@@ -54,7 +61,7 @@ namespace detail {
 
 template <typename ElementType, typename Extents, typename LayoutPolicy, typename AccessorPolicy>
 void __takes_an_mdspan_ptr(
-  detail::stdex::mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>*);
+  mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>*);
 
 template <typename T, typename = void>
 struct __is_mdspan : std::false_type {
@@ -69,21 +76,25 @@ using __is_mdspan_t = __is_mdspan<std::remove_const_t<T>>;
 
 template <typename T>
 inline constexpr bool __is_mdspan_v = __is_mdspan_t<T>::value;
+} // namespace detail
 
 template <typename...>
 struct is_mdspan : std::true_type {
 };
 template <typename T1>
-struct is_mdspan<T1> : __is_mdspan_t<T1> {
+struct is_mdspan<T1> : detail::__is_mdspan_t<T1> {
 };
 template <typename T1, typename... Tn>
 struct is_mdspan<T1, Tn...>
-  : std::conditional_t<__is_mdspan_v<T1>, is_mdspan<Tn...>, std::false_type> {
+  : std::conditional_t<detail::__is_mdspan_v<T1>, is_mdspan<Tn...>, std::false_type> {
 };
 
+/**
+ * @\brief Boolean to determine if variadic template types Tn are either
+ *          raft::host_mdspan/raft::device_mdspan or their derived types
+ */
 template <typename... Tn>
 inline constexpr bool is_mdspan_v = is_mdspan<Tn...>::value;
-}  // namespace detail
 
 /**
  * @brief stdex::mdspan with device tag to avoid accessing incorrect memory location.
@@ -92,8 +103,7 @@ template <typename ElementType,
           typename Extents,
           typename LayoutPolicy   = layout_c_contiguous,
           typename AccessorPolicy = detail::stdex::default_accessor<ElementType>>
-using device_mdspan = detail::stdex::
-  mdspan<ElementType, Extents, LayoutPolicy, detail::device_accessor<AccessorPolicy>>;
+using device_mdspan = mdspan<ElementType, Extents, LayoutPolicy, detail::device_accessor<AccessorPolicy>>;
 
 /**
  * @brief stdex::mdspan with host tag to avoid accessing incorrect memory location.
@@ -102,8 +112,7 @@ template <typename ElementType,
           typename Extents,
           typename LayoutPolicy   = layout_c_contiguous,
           typename AccessorPolicy = detail::stdex::default_accessor<ElementType>>
-using host_mdspan =
-  detail::stdex::mdspan<ElementType, Extents, LayoutPolicy, detail::host_accessor<AccessorPolicy>>;
+using host_mdspan = mdspan<ElementType, Extents, LayoutPolicy, detail::host_accessor<AccessorPolicy>>;
 
 namespace detail {
 template <typename T, bool B>
@@ -168,25 +177,6 @@ struct is_host_mdspan<T1, Tn...>
  */
 template <typename... Tn>
 inline constexpr bool is_host_mdspan_v = is_host_mdspan<Tn...>::value;
-
-template <typename...>
-struct is_mdspan : std::true_type {
-};
-template <typename T1>
-struct is_mdspan<T1> : std::disjunction<is_device_mdspan<T1>, is_host_mdspan<T1>> {
-};
-template <typename T1, typename... Tn>
-struct is_mdspan<T1, Tn...>
-  : std::conditional_t<std::disjunction_v<is_device_mdspan<T1>, is_host_mdspan<T1>>,
-                       is_mdspan<Tn...>,
-                       std::false_type> {
-};
-/**
- * @\brief Boolean to determine if variadic template types Tn are either
- *          raft::host_mdspan/raft::device_mdspan or their derived types
- */
-template <typename... Tn>
-inline constexpr bool is_mdspan_v = is_mdspan<Tn...>::value;
 
 /**
  * @brief Interface to implement an owning multi-dimensional array
