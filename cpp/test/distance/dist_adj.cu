@@ -102,8 +102,8 @@ class DistanceAdjTest : public ::testing::TestWithParam<DistanceAdjInputs<DataTy
     rmm::device_uvector<DataType> x(m * k, stream);
     rmm::device_uvector<DataType> y(n * k, stream);
 
-    uniform(r, x.data(), m * k, DataType(-1.0), DataType(1.0), stream);
-    uniform(r, y.data(), n * k, DataType(-1.0), DataType(1.0), stream);
+    uniform(handle, r, x.data(), m * k, DataType(-1.0), DataType(1.0));
+    uniform(handle, r, y.data(), n * k, DataType(-1.0), DataType(1.0));
 
     DataType threshold = params.eps;
 

@@ -91,8 +91,8 @@ class PowerTest : public ::testing::TestWithParam<PowerInputs<T>> {
     in2.resize(len, stream);
     out_ref.resize(len, stream);
     out.resize(len, stream);
-    uniform(r, in1.data(), len, T(1.0), T(2.0), stream);
-    uniform(r, in2.data(), len, T(1.0), T(2.0), stream);
+    uniform(handle, r, in1.data(), len, T(1.0), T(2.0));
+    uniform(handle, r, in2.data(), len, T(1.0), T(2.0));
 
     naivePowerElem(out_ref.data(), in1.data(), in2.data(), len, stream);
     naivePowerScalar(out_ref.data(), out_ref.data(), T(2), len, stream);

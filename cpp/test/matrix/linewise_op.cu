@@ -78,7 +78,7 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
     raft::random::RngState r(params.seed);
     const std::size_t workSizeElems = workSizeBytes / sizeof(T);
     rmm::device_uvector<T> blob(workSizeElems, stream);
-    uniform(r, blob.data(), workSizeElems, T(-1.0), T(1.0), stream);
+    uniform(handle, r, blob.data(), workSizeElems, T(-1.0), T(1.0));
     return blob;
   }
 

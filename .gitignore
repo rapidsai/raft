@@ -24,6 +24,10 @@ log
 .DS_Store
 dask-worker-space/
 *.egg-info/
+
+## scikit-build
+_skbuild
+
 ## eclipse
 .project
 .cproject

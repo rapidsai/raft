@@ -87,9 +87,9 @@ class MapTest : public ::testing::TestWithParam<MapInputs<InType, IdxType, OutTy
     raft::random::RngState r(params.seed);
 
     IdxType len = params.len;
-    uniform(r, in1.data(), len, InType(-1.0), InType(1.0), stream);
-    uniform(r, in2.data(), len, InType(-1.0), InType(1.0), stream);
-    uniform(r, in3.data(), len, InType(-1.0), InType(1.0), stream);
+    uniform(handle, r, in1.data(), len, InType(-1.0), InType(1.0));
+    uniform(handle, r, in2.data(), len, InType(-1.0), InType(1.0));
+    uniform(handle, r, in3.data(), len, InType(-1.0), InType(1.0));
 
     create_ref(out_ref.data(), in1.data(), in2.data(), in3.data(), params.scalar, len, stream);
     mapLaunch(out.data(), in1.data(), in2.data(), in3.data(), params.scalar, len, stream);

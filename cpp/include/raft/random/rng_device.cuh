@@ -20,7 +20,6 @@
 #pragma once
 
 #include "detail/rng_device.cuh"
-#include "rng.cuh"
 #include "rng_state.hpp"
 
 namespace raft {

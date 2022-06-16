@@ -116,7 +116,7 @@ class EigTest : public ::testing::TestWithParam<EigInputs<T>> {
     // test code for comparing two methods
     len = params.n * params.n;
 
-    uniform(r, cov_matrix_large.data(), len, T(-1.0), T(1.0), stream);
+    uniform(handle, r, cov_matrix_large.data(), len, T(-1.0), T(1.0));
 
     eigDC(handle,
           cov_matrix_large.data(),

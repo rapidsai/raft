@@ -83,7 +83,7 @@ class ReduceTest : public ::testing::TestWithParam<ReduceInputs<InType, OutType>
     int rows = params.rows, cols = params.cols;
     int len = rows * cols;
     outlen  = params.alongRows ? rows : cols;
-    uniform(r, data.data(), len, InType(-1.0), InType(1.0), stream);
+    uniform(handle, r, data.data(), len, InType(-1.0), InType(1.0));
     naiveReduction(
       dots_exp.data(), data.data(), cols, rows, params.rowMajor, params.alongRows, stream);
 

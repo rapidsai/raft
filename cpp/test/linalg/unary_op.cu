@@ -58,7 +58,7 @@ class UnaryOpTest : public ::testing::TestWithParam<UnaryOpInputs<InType, IdxTyp
   {
     raft::random::RngState r(params.seed);
     auto len = params.len;
-    uniform(r, in.data(), len, InType(-1.0), InType(1.0), stream);
+    uniform(handle, r, in.data(), len, InType(-1.0), InType(1.0));
     handle.sync_stream(stream);
   }
 

@@ -141,10 +141,10 @@ class MathTest : public ::testing::TestWithParam<MathInputs<T>> {
     T out_ratio_ref_h[4] = {0.125, 0.25, 0.25, 0.375};
     update_device(out_ratio_ref.data(), out_ratio_ref_h, 4, stream);
 
-    uniform(r, in_power.data(), len, T(-1.0), T(1.0), stream);
-    uniform(r, in_sqrt.data(), len, T(0.0), T(1.0), stream);
+    uniform(handle, r, in_power.data(), len, T(-1.0), T(1.0));
+    uniform(handle, r, in_sqrt.data(), len, T(0.0), T(1.0));
     // uniform(r, in_ratio, len, T(0.0), T(1.0));
-    uniform(r, in_sign_flip.data(), len, T(-100.0), T(100.0), stream);
+    uniform(handle, r, in_sign_flip.data(), len, T(-100.0), T(100.0));
 
     naivePower(in_power.data(), out_power_ref.data(), len, stream);
     power(in_power.data(), len, stream);

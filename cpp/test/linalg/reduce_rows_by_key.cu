@@ -106,14 +106,14 @@ class ReduceRowTest : public ::testing::TestWithParam<ReduceRowsInputs<T>> {
     int nobs       = params.nobs;
     uint32_t cols  = params.cols;
     uint32_t nkeys = params.nkeys;
-    uniform(r, in.data(), nobs * cols, T(0.0), T(2.0 / nobs), stream);
-    uniformInt(r_int, keys.data(), nobs, (uint32_t)0, nkeys, stream);
+    uniform(handle, r, in.data(), nobs * cols, T(0.0), T(2.0 / nobs));
+    uniformInt(handle, r_int, keys.data(), nobs, (uint32_t)0, nkeys);
 
     rmm::device_uvector<T> weight(0, stream);
     if (params.weighted) {
       weight.resize(nobs, stream);
       raft::random::RngState r(params.seed, raft::random::GeneratorType::GenPhilox);
-      uniform(r, weight.data(), nobs, T(1), params.max_weight, stream);
+      uniform(handle, r, weight.data(), nobs, T(1), params.max_weight);
     }
 
     naiveReduceRowsByKey(in.data(),

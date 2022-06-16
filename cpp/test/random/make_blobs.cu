@@ -103,7 +103,7 @@ class MakeBlobsTest : public ::testing::TestWithParam<MakeBlobsInputs<T>> {
     RAFT_CUDA_TRY(cudaMemsetAsync(lens.data(), 0, lens.extent(0) * sizeof(int), stream));
     RAFT_CUDA_TRY(cudaMemsetAsync(mean_var.data(), 0, mean_var.size() * sizeof(T), stream));
 
-    uniform(r, mu_vec.data(), params.cols * params.n_clusters, T(-10.0), T(10.0), stream);
+    uniform(handle, r, mu_vec.data(), params.cols * params.n_clusters, T(-10.0), T(10.0));
 
     make_blobs<T, int, layout>(handle,
                                data.view(),

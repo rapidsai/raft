@@ -57,11 +57,11 @@ class ternaryOpTest : public ::testing::TestWithParam<BinaryOpInputs<T>> {
     rmm::device_uvector<T> in2(len, stream);
     rmm::device_uvector<T> in3(len, stream);
 
-    fill(rng, out_add_ref.data(), len, T(6.0), stream);
-    fill(rng, out_mul_ref.data(), len, T(6.0), stream);
-    fill(rng, in1.data(), len, T(1.0), stream);
-    fill(rng, in2.data(), len, T(2.0), stream);
-    fill(rng, in3.data(), len, T(3.0), stream);
+    fill(handle, rng, out_add_ref.data(), len, T(6.0));
+    fill(handle, rng, out_mul_ref.data(), len, T(6.0));
+    fill(handle, rng, in1.data(), len, T(1.0));
+    fill(handle, rng, in2.data(), len, T(2.0));
+    fill(handle, rng, in3.data(), len, T(3.0));
 
     auto add = [] __device__(T a, T b, T c) { return a + b + c; };
     auto mul = [] __device__(T a, T b, T c) { return a * b * c; };
