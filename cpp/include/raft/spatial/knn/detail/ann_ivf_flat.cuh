@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "../ann_common.h"
 #include "ann_ivf_flat_kernel.cuh"
 #include "ann_kmeans_balanced.cuh"
 #include "ann_utils.cuh"
@@ -45,11 +46,9 @@ class cuivflHandle {
  public:
   cuivflHandle(const handle_t& handle,
                raft::distance::DistanceType metric_type,
-               uint32_t dim,
-               uint32_t n_lists,
-               uint32_t n_iters);
+               const ivf_flat_params& params);
 
-  void cuivflBuildIndex(const T* dataset, uint32_t n_rows);
+  void cuivflBuildIndex(const T* dataset, uint32_t n_rows, uint32_t dim);
 
   void cuivflSetSearchParameters(const uint32_t n_probes,
                                  const uint32_t max_batch,
@@ -59,36 +58,19 @@ class cuivflHandle {
     const T* queries, uint32_t n_queries, uint32_t k, size_t* neighbors, float* distances);
 
   void queryIVFFlatGridSize(const uint32_t n_probes, const uint32_t n_queries, const uint32_t k);
-  uint32_t getDim() { return dim_; }
+  uint32_t getDim() { return index_.has_value() ? index_->dim() : 0; }
 
  private:
   const handle_t& handle_;
   const rmm::cuda_stream_view stream_;
+  ivf_flat_params params_;
 
   raft::distance::DistanceType metric_type_;
   bool greater_;
-  uint32_t n_lists_;     // The number of inverted lists= the number of centriods
-  uint32_t n_iters_;     // The number of uint32_terations for kmeans to build the indexs
-  uint32_t dim_;         // The dimension of vectors for input dataset
-  uint32_t n_probes_;    // The number of clusters for searching
-  uint32_t n_rows_;      // The number of elements for input dataset
-  uint32_t index_size_;  // The number of elements in 32 interleaved group for input dataset
-  uint32_t veclen_;      // The vectorization length of dataset in index.
   uint32_t grid_dim_x_;  // The number of blocks launched across n_probes.
+  // The built index
+  std::optional<const ivf_flat_index<T>> index_ = std::nullopt;
 
-  // device pointer
-  //  The device memory pointer; inverted list for data; size [index_size_, dim_]
-  rmm::device_uvector<T> list_data_dev_;
-  // The device memory pointer; inverted list for index; size [index_size_]
-  rmm::device_uvector<uint32_t> list_index_dev_;
-  // The device memory pointer; Used for list_data_manage_ptr_; size [n_lists_]
-  rmm::device_uvector<uint32_t> list_offsets_dev_;
-  // The device memory pointer; the number of each cluster(list); size [n_lists_]
-  rmm::device_uvector<uint32_t> list_lengths_dev_;
-  // The device memory pointer; centroid; size [n_lists_, dim_]
-  rmm::device_uvector<float> centers_dev_;
-  // The device memory pointer; centroid norm ; size [n_lists_, dim_]
-  rmm::device_uvector<float> centers_norms_dev_;
   // Memory pool for use during search; after the first search is done the pool is not likely to
   // resize, saving the costs of allocations.
   std::optional<rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource>> search_mem_res;
@@ -101,35 +83,15 @@ class cuivflHandle {
 template <typename T>
 cuivflHandle<T>::cuivflHandle(const handle_t& handle,
                               raft::distance::DistanceType metric_type,
-                              uint32_t dim,
-                              uint32_t n_lists,
-                              uint32_t n_iters)
-  : handle_(handle),
-    stream_(handle_.get_stream()),
-    dim_(dim),
-    n_lists_(n_lists),
-    n_iters_(n_iters),
-    metric_type_(metric_type),
-    grid_dim_x_(0),
-    list_data_dev_(0, stream_),
-    list_index_dev_(0, stream_),
-    list_offsets_dev_(0, stream_),
-    list_lengths_dev_(0, stream_),
-    centers_dev_(0, stream_),
-    centers_norms_dev_(0, stream_)
+                              const ivf_flat_params& params)
+  : handle_(handle), stream_(handle_.get_stream()), params_(params), grid_dim_x_(0)
 {
-  // TODO: consider padding the dimensions and fixing veclen to its maximum possible value as a
-  // template parameter (https://github.com/rapidsai/raft/issues/711)
-  veclen_ = 16 / sizeof(T);
-  while (dim % veclen_ != 0) {
-    veclen_ = veclen_ >> 1;
-  }
 }
 
 /**
  * @brief Record the dataset into the index, one source row at a time.
  *
- * The index concists of the dataset rows, grouped by their labels (into clusters/lists).
+ * The index consists of the dataset rows, grouped by their labels (into clusters/lists).
  * Within each cluster (list), the data is grouped into blocks of `WarpSize` interleaved
  * vectors. Note, the total index length is slightly larger than the dataset length, because
  * each cluster is padded by `WarpSize` elements
@@ -143,9 +105,9 @@ cuivflHandle<T>::cuivflHandle(const handle_t& handle,
  * @param[in] labels device pointer to the cluster ids for each row [n_rows]
  * @param[in] list_offsets device pointer to the cluster offsets in the output (index) [n_lists]
  * @param[in] dataset device poitner to the input data [n_rows, dim]
- * @param[out] list_data device pointer to the output [index_size_, dim]
- * @param[out] list_index device pointer to the source ids corr. to the output [index_size_]
- * @param[out] list_lengths device pointer to the cluster sizes [n_lists];
+ * @param[out] list_data device pointer to the output [index_size, dim]
+ * @param[out] list_index device pointer to the source ids corr. to the output [index_size]
+ * @param[out] list_sizes_ptr device pointer to the cluster sizes [n_lists];
  *                          it's used as an atomic counter, and must be initialized with zeros.
  * @param n_rows source length
  * @param dim the dimensionality of the data
@@ -158,7 +120,7 @@ __global__ void build_index_kernel(const uint32_t* labels,
                                    const T* dataset,
                                    T* list_data,
                                    uint32_t* list_index,
-                                   uint32_t* list_lengths,
+                                   uint32_t* list_sizes_ptr,
                                    uint32_t n_rows,
                                    uint32_t dim,
                                    uint32_t veclen)
@@ -167,7 +129,7 @@ __global__ void build_index_kernel(const uint32_t* labels,
   if (i >= n_rows) { return; }
 
   auto list_id     = labels[i];
-  auto inlist_id   = atomicAdd(list_lengths + list_id, 1);
+  auto inlist_id   = atomicAdd(list_sizes_ptr + list_id, 1);
   auto list_offset = list_offsets[list_id];
 
   // Record the source vector id in the index
@@ -194,45 +156,44 @@ __global__ void build_index_kernel(const uint32_t* labels,
 }
 
 template <typename T>
-void cuivflHandle<T>::cuivflBuildIndex(const T* dataset, uint32_t n_rows)
+void cuivflHandle<T>::cuivflBuildIndex(const T* dataset, uint32_t n_rows, uint32_t dim)
 {
-  n_rows_ = n_rows;
-  RAFT_EXPECTS(n_rows_ > 0, "empty dataset");
-
   static_assert(std::is_same_v<T, float> || std::is_same_v<T, uint8_t> || std::is_same_v<T, int8_t>,
                 "unsupported data type");
+  RAFT_EXPECTS(n_rows > 0 && dim > 0, "empty dataset");
+
+  // TODO: consider padding the dimensions and fixing veclen to its maximum possible value as a
+  // template parameter (https://github.com/rapidsai/raft/issues/711)
+  uint32_t veclen = 16 / sizeof(T);
+  while (dim % veclen != 0) {
+    veclen = veclen >> 1;
+  }
+  auto n_lists = static_cast<uint32_t>(params_.nlist);
 
   // kmeans cluster ids for the dataset
-  rmm::device_uvector<uint32_t> labels(n_rows_, stream_);
+  rmm::device_uvector<uint32_t> labels(n_rows, stream_);
+  auto&& centers = make_array_for_index<float>(stream_, n_lists, dim);
 
   // Predict labels of the whole dataset
-  centers_dev_.resize(n_lists_ * dim_, stream_);
   kmeans::build_optimized_kmeans(handle_,
-                                 n_iters_,
-                                 dim_,
+                                 params_.kmeans_n_iters,
+                                 dim,
                                  dataset,
                                  n_rows,
                                  labels.data(),
-                                 centers_dev_.data(),
-                                 n_lists_,
-                                 0.5,
+                                 centers.data(),
+                                 n_lists,
+                                 params_.kmeans_trainset_fraction,
                                  metric_type_,
                                  stream_);
 
-  // Precompute the centers vector norms for L2Expanded distance
-  if (metric_type_ == raft::distance::DistanceType::L2Expanded) {
-    centers_norms_dev_.resize(n_lists_, stream_);
-    utils::dots_along_rows(n_lists_, dim_, centers_dev_.data(), centers_norms_dev_.data(), stream_);
-    RAFT_LOG_TRACE_VEC(centers_norms_dev_.data(), 20);
-  }
-
-  list_lengths_dev_.resize(n_lists_, stream_);
-  auto list_lengths = list_lengths_dev_.data();
+  auto&& list_sizes   = make_array_for_index<uint32_t>(stream_, n_lists);
+  auto list_sizes_ptr = list_sizes.data();
   stats::histogram(stats::HistType::HistTypeAuto,
-                   reinterpret_cast<int*>(list_lengths),
-                   n_lists_,
+                   reinterpret_cast<int*>(list_sizes_ptr),
+                   n_lists,
                    labels.data(),
-                   n_rows_,
+                   n_rows,
                    uint32_t(1),
                    stream_);
 
@@ -240,38 +201,57 @@ void cuivflHandle<T>::cuivflBuildIndex(const T* dataset, uint32_t n_rows)
   // order with the rest
   auto thrust_policy = handle_.get_thrust_policy();
 
-  list_offsets_dev_.resize(n_lists_ + 1, stream_);
-  auto list_offsets = list_offsets_dev_.data();
+  auto&& list_offsets   = make_array_for_index<uint32_t>(stream_, n_lists + 1);
+  auto list_offsets_ptr = list_offsets.data();
 
   thrust::exclusive_scan(
     thrust_policy,
-    list_lengths,
-    list_lengths + n_lists_ + 1,
-    list_offsets,
+    list_sizes_ptr,
+    list_sizes_ptr + n_lists + 1,
+    list_offsets_ptr,
     uint32_t(0),
     [] __device__(uint32_t s, uint32_t l) { return s + Pow2<WarpSize>::roundUp(l); });
 
-  update_host(&index_size_, list_offsets + n_lists_, 1, stream_);
+  uint32_t index_size;
+  update_host(&index_size, list_offsets_ptr + n_lists, 1, stream_);
   handle_.sync_stream(stream_);
 
-  list_data_dev_.resize(index_size_ * dim_, stream_);
-  list_index_dev_.resize(index_size_, stream_);
+  auto&& data    = make_array_for_index<T>(stream_, index_size, dim);
+  auto&& indices = make_array_for_index<uint32_t>(stream_, index_size);
 
-  // we'll rebuild the `list_lengths` in the following kernel, using it as an atomic counter.
-  utils::memset(list_lengths, 0, sizeof(uint32_t) * n_lists_, stream_);
+  // we'll rebuild the `list_sizes_ptr` in the following kernel, using it as an atomic counter.
+  utils::memset(list_sizes_ptr, 0, sizeof(uint32_t) * n_lists, stream_);
 
   const dim3 block_dim(256);
-  const dim3 grid_dim(raft::ceildiv<uint32_t>(n_rows_, block_dim.x));
+  const dim3 grid_dim(raft::ceildiv<uint32_t>(n_rows, block_dim.x));
   build_index_kernel<<<grid_dim, block_dim, 0, stream_>>>(labels.data(),
-                                                          list_offsets,
+                                                          list_offsets_ptr,
                                                           dataset,
-                                                          list_data_dev_.data(),
-                                                          list_index_dev_.data(),
-                                                          list_lengths,
-                                                          n_rows_,
-                                                          dim_,
-                                                          veclen_);
+                                                          data.data(),
+                                                          indices.data(),
+                                                          list_sizes_ptr,
+                                                          n_rows,
+                                                          dim,
+                                                          veclen);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
+
+  // Precompute the centers vector norms for L2Expanded distance
+  auto compute_norms = [&]() {
+    auto&& r = make_array_for_index<float>(stream_, params_.nlist);
+    utils::dots_along_rows(params_.nlist, dim, centers.data(), r.data(), stream_);
+    RAFT_LOG_TRACE_VEC(center_norms.data(), 20);
+    return r;
+  };
+  auto&& center_norms = metric_type_ == raft::distance::DistanceType::L2Expanded
+                          ? std::optional(compute_norms())
+                          : std::nullopt;
+
+  // assemble the index
+  index_.emplace(
+    ivf_flat_index<T>{veclen, data, indices, list_sizes, list_offsets, centers, center_norms});
+
+  // check index invariants
+  index_->check_consistency();
 }
 
 template <typename T>
@@ -280,23 +260,18 @@ void cuivflHandle<T>::queryIVFFlatGridSize(const uint32_t n_probes,
                                            const uint32_t k)
 {
   // query the gridDimX size to store probes topK output
-  ivfflat_interleaved_scan<T, typename utils::config<T>::value_t>(nullptr,
+  ivfflat_interleaved_scan<T, typename utils::config<T>::value_t>(index_.value(),
                                                                   nullptr,
                                                                   nullptr,
-                                                                  nullptr,
-                                                                  nullptr,
-                                                                  nullptr,
+                                                                  n_queries,
                                                                   metric_type_,
                                                                   n_probes,
                                                                   k,
-                                                                  n_queries,
-                                                                  dim_,
-                                                                  nullptr,
-                                                                  nullptr,
-                                                                  stream_,
                                                                   greater_,
-                                                                  veclen_,
-                                                                  grid_dim_x_);
+                                                                  nullptr,
+                                                                  nullptr,
+                                                                  grid_dim_x_,
+                                                                  stream_);
 }
 
 template <typename T>
@@ -306,7 +281,7 @@ void cuivflHandle<T>::cuivflSetSearchParameters(const uint32_t n_probes,
 {
   RAFT_EXPECTS(n_probes > 0,
                "n_probes (number of clusters to probe in the search) must be positive.");
-  n_probes_ = n_probes;
+  params_.nprobe = n_probes;
   // Set the greater_
   if (metric_type_ == raft::distance::DistanceType::L2Expanded ||
       metric_type_ == raft::distance::DistanceType::L2Unexpanded) {
@@ -344,14 +319,14 @@ void cuivflHandle<T>::cuivflSearchImpl(const T* queries,  // [numQueries, dim]
                                        size_t* neighbors,  // [numQueries, topK]
                                        AccT* distances)
 {
-  uint32_t n_probes = std::min(n_probes_, n_lists_);
+  uint32_t n_probes = std::min(params_.nprobe, params_.nlist);
   grid_dim_x_       = 0;
   queryIVFFlatGridSize(n_probes, n_queries, k);
   auto search_mr = &(search_mem_res.value());
   // The norm of query
   rmm::device_uvector<float> query_norm_dev(n_queries, stream_, search_mr);
   // The distance value of cluster(list) and queries
-  rmm::device_uvector<float> distance_buffer_dev(n_queries * n_lists_, stream_, search_mr);
+  rmm::device_uvector<float> distance_buffer_dev(n_queries * params_.nlist, stream_, search_mr);
   // The topk distance value of cluster(list) and queries
   rmm::device_uvector<float> coarse_distances_dev(n_queries * n_probes, stream_, search_mr);
   // The topk  index of cluster(list) and queries
@@ -363,7 +338,7 @@ void cuivflHandle<T>::cuivflSearchImpl(const T* queries,  // [numQueries, dim]
 
   size_t float_query_size;
   if constexpr (std::is_integral_v<T>) {
-    float_query_size = n_queries * dim_;
+    float_query_size = n_queries * index_->dim();
   } else {
     float_query_size = 0;
   }
@@ -374,7 +349,7 @@ void cuivflHandle<T>::cuivflSearchImpl(const T* queries,  // [numQueries, dim]
     converted_queries_ptr = const_cast<float*>(queries);
   } else {
     linalg::unaryOp(
-      converted_queries_ptr, queries, n_queries * dim_, utils::mapping<float>{}, stream_);
+      converted_queries_ptr, queries, n_queries * index_->dim(), utils::mapping<float>{}, stream_);
   }
 
   float alpha = 1.0f;
@@ -383,14 +358,15 @@ void cuivflHandle<T>::cuivflSearchImpl(const T* queries,  // [numQueries, dim]
   if (metric_type_ == raft::distance::DistanceType::L2Expanded) {
     alpha = -2.0f;
     beta  = 1.0f;
-    utils::dots_along_rows(n_queries, dim_, converted_queries_ptr, query_norm_dev.data(), stream_);
+    utils::dots_along_rows(
+      n_queries, index_->dim(), converted_queries_ptr, query_norm_dev.data(), stream_);
     utils::outer_add(query_norm_dev.data(),
                      n_queries,
-                     centers_norms_dev_.data(),
-                     n_lists_,
+                     index_->center_norms->data(),
+                     params_.nlist,
                      distance_buffer_dev.data(),
                      stream_);
-    RAFT_LOG_TRACE_VEC(centers_norms_dev_.data(), 20);
+    RAFT_LOG_TRACE_VEC(index_->center_norms->data(), 20);
     RAFT_LOG_TRACE_VEC(distance_buffer_dev.data(), 20);
   } else {
     alpha = 1.0f;
@@ -400,17 +376,17 @@ void cuivflHandle<T>::cuivflSearchImpl(const T* queries,  // [numQueries, dim]
   linalg::gemm(handle_,
                true,
                false,
-               n_lists_,
+               params_.nlist,
                n_queries,
-               dim_,
+               index_->dim(),
                &alpha,
-               centers_dev_.data(),
-               dim_,
+               index_->centers.data(),
+               index_->dim(),
                converted_queries_ptr,
-               dim_,
+               index_->dim(),
                &beta,
                distance_buffer_dev.data(),
-               n_lists_,
+               params_.nlist,
                stream_);
 
   RAFT_LOG_TRACE_VEC(distance_buffer_dev.data(), 20);
@@ -418,7 +394,7 @@ void cuivflHandle<T>::cuivflSearchImpl(const T* queries,  // [numQueries, dim]
     topk::warp_sort_topk<AccT, uint32_t>(distance_buffer_dev.data(),
                                          nullptr,
                                          n_queries,
-                                         n_lists_,
+                                         params_.nlist,
                                          n_probes,
                                          coarse_distances_dev.data(),
                                          coarse_indices_dev.data(),
@@ -428,7 +404,7 @@ void cuivflHandle<T>::cuivflSearchImpl(const T* queries,  // [numQueries, dim]
     topk::radix_topk<AccT, uint32_t, 11, 512>(distance_buffer_dev.data(),
                                               nullptr,
                                               n_queries,
-                                              n_lists_,
+                                              params_.nlist,
                                               n_probes,
                                               coarse_distances_dev.data(),
                                               coarse_indices_dev.data(),
@@ -446,23 +422,18 @@ void cuivflHandle<T>::cuivflSearchImpl(const T* queries,  // [numQueries, dim]
     indices_dev_ptr   = neighbors;
   }
 
-  ivfflat_interleaved_scan<T, typename utils::config<T>::value_t>(queries,
+  ivfflat_interleaved_scan<T, typename utils::config<T>::value_t>(index_.value(),
+                                                                  queries,
                                                                   coarse_indices_dev.data(),
-                                                                  list_index_dev_.data(),
-                                                                  list_data_dev_.data(),
-                                                                  list_lengths_dev_.data(),
-                                                                  list_offsets_dev_.data(),
+                                                                  n_queries,
                                                                   metric_type_,
                                                                   n_probes,
                                                                   k,
-                                                                  n_queries,
-                                                                  dim_,
+                                                                  greater_,
                                                                   indices_dev_ptr,
                                                                   distances_dev_ptr,
-                                                                  stream_,
-                                                                  greater_,
-                                                                  veclen_,
-                                                                  grid_dim_x_);
+                                                                  grid_dim_x_,
+                                                                  stream_);
 
   RAFT_LOG_TRACE_VEC(distances_dev_ptr, 2 * k);
   RAFT_LOG_TRACE_VEC(indices_dev_ptr, 2 * k);

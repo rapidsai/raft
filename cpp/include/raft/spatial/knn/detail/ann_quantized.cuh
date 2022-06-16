@@ -91,16 +91,14 @@ void approx_knn_ivfflat_build_index(
 template <typename T = float, typename IntType = int>
 void approx_knn_cuivfl_ivfflat_build_index(const raft::handle_t& handle,
                                            knnIndex* index,
-                                           IVFParam* params,
+                                           ivf_flat_params* params,
                                            raft::distance::DistanceType metric,
                                            T* dataset,
                                            IntType n,
                                            IntType D)
 {
-  int niter = 20;
-  index->handle_.get<T>() =
-    std::make_unique<detail::cuivflHandle<T>>(handle, metric, D, params->nlist, niter);
-  index->handle_.get<T>()->cuivflBuildIndex(dataset, n);
+  index->handle_.get<T>() = std::make_unique<detail::cuivflHandle<T>>(handle, metric, *params);
+  index->handle_.get<T>()->cuivflBuildIndex(dataset, n, D);
 }
 
 template <typename IntType = int>
@@ -153,8 +151,8 @@ void approx_knn_build_index(const handle_t& handle,
   // perform preprocessing
   // k set to 0 (unused during preprocessing / revertion)
   if constexpr (std::is_same<T, uint8_t>{} || std::is_same<T, int8_t>{}) {
-    if (dynamic_cast<IVFFlatParam*>(params)) {
-      IVFFlatParam* IVFFlat_param = dynamic_cast<IVFFlatParam*>(params);
+    if (dynamic_cast<ivf_flat_params*>(params)) {
+      ivf_flat_params* IVFFlat_param = dynamic_cast<ivf_flat_params*>(params);
       approx_knn_cuivfl_ivfflat_build_index(
         handle, index, IVFFlat_param, metric, index_array, n, D);
     } else {
@@ -164,8 +162,8 @@ void approx_knn_build_index(const handle_t& handle,
     std::unique_ptr<MetricProcessor<float>> query_metric_processor =
       create_processor<float>(metric, n, D, 0, false, stream);
 
-    if (dynamic_cast<IVFFlatParam*>(params)) {
-      IVFFlatParam* IVFFlat_param = dynamic_cast<IVFFlatParam*>(params);
+    if (dynamic_cast<ivf_flat_params*>(params)) {
+      ivf_flat_params* IVFFlat_param = dynamic_cast<ivf_flat_params*>(params);
       // cuivfl only supports L2/Inner product for now.
       if (metric == raft::distance::DistanceType::L2SqrtExpanded ||
           metric == raft::distance::DistanceType::L2SqrtUnexpanded ||
@@ -229,11 +227,11 @@ void approx_knn_search(const handle_t& handle,
     index->index->search(n, query_array, k, distances, indices);
 #else
   if constexpr (std::is_same<T, uint8_t>{} || std::is_same<T, int8_t>{}) {
-    if (dynamic_cast<IVFFlatParam*>(params)) {
-      IVFFlatParam* IVFFlat_param = dynamic_cast<IVFFlatParam*>(params);
-      int nprobe                  = IVFFlat_param->nprobe;
-      int max_batch               = n;
-      int max_k                   = k;
+    if (dynamic_cast<ivf_flat_params*>(params)) {
+      ivf_flat_params* IVFFlat_param = dynamic_cast<ivf_flat_params*>(params);
+      int nprobe                     = IVFFlat_param->nprobe;
+      int max_batch                  = n;
+      int max_k                      = k;
 
       index->handle_.get<T>()->cuivflSetSearchParameters(nprobe, max_batch, max_k);
       index->handle_.get<T>()->cuivflSearch(
@@ -244,11 +242,11 @@ void approx_knn_search(const handle_t& handle,
       index->metric, n, index->handle_.get<T>()->getDim(), k, false, handle.get_stream());
     query_metric_processor->preprocess(query_array);
 
-    if (dynamic_cast<IVFFlatParam*>(params)) {
-      IVFFlatParam* IVFFlat_param = dynamic_cast<IVFFlatParam*>(params);
-      int nprobe                  = IVFFlat_param->nprobe;
-      int max_batch               = n;
-      int max_k                   = k;
+    if (dynamic_cast<ivf_flat_params*>(params)) {
+      ivf_flat_params* IVFFlat_param = dynamic_cast<ivf_flat_params*>(params);
+      int nprobe                     = IVFFlat_param->nprobe;
+      int max_batch                  = n;
+      int max_k                      = k;
 
       index->handle_.get<T>()->cuivflSetSearchParameters(nprobe, max_batch, max_k);
       index->handle_.get<T>()->cuivflSearch(

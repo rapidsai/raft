@@ -36,9 +36,99 @@
 
 #include <rmm/cuda_stream_view.hpp>
 
+#include <optional>
+#include <raft/core/mdarray.hpp>
+
 namespace raft::spatial::knn::detail {
 
 constexpr int kThreadsPerBlock = 128;
+
+namespace md = std::experimental;
+
+template <typename T>
+struct ivf_flat_index {
+  using row_major = md::layout_right;
+  using extent_1d = md::extents<dynamic_extent>;
+  using extent_2d = md::extents<dynamic_extent, dynamic_extent>;
+
+  /**
+   * Vectorized load/store size in elements, determines the size of interleaved data chunks.
+   */
+  uint32_t veclen;
+
+  /**
+   * Inverted list data [size, dim].
+   *
+   * The data consists of the dataset rows, grouped by their labels (into clusters/lists).
+   * Within each list (cluster), the data is grouped into blocks of `WarpSize` interleaved
+   * vectors. Note, the total index length is slightly larger than the source dataset length,
+   * because each cluster is padded by `WarpSize` elements.
+   *
+   * Interleaving pattern:
+   * within groups of `WarpSize` rows, the data is interleaved with the block size equal to
+   * `veclen * sizeof(T)`. That is, a chunk of `veclen` consecutive components of one row is
+   * followed by a chunk of the same size of the next row, and so on.
+   *
+   * __Example__: veclen = 2, dim = 6, WarpSize = 32, list_size = 31
+   * `
+   *   x[ 0, 0], x[ 0, 1], x[ 1, 0], x[ 1, 1], ... x[14, 0], x[14, 1], x[15, 0], x[15, 1],
+   *   x[16, 0], x[16, 1], x[17, 0], x[17, 1], ... x[30, 0], x[30, 1],    -    ,    -    ,
+   *   x[ 0, 2], x[ 0, 3], x[ 1, 2], x[ 1, 3], ... x[14, 2], x[14, 3], x[15, 2], x[15, 3],
+   *   x[16, 2], x[16, 3], x[17, 2], x[17, 3], ... x[30, 2], x[30, 3],    -    ,    -    ,
+   *   x[ 0, 4], x[ 0, 5], x[ 1, 4], x[ 1, 5], ... x[14, 4], x[14, 5], x[15, 4], x[15, 5],
+   *   x[16, 4], x[16, 5], x[17, 4], x[17, 5], ... x[30, 4], x[30, 5],    -    ,    -    ,
+   * `
+   */
+  device_mdarray<T, extent_2d, row_major> data;
+  /** Inverted list indices: ids of items in the source data [size] */
+  device_mdarray<uint32_t, extent_1d, row_major> indices;
+
+  /** Sizes of the lists (clusters) [n_lists] */
+  device_mdarray<uint32_t, extent_1d, row_major> list_sizes;
+  /**
+   * Offsets into the lists [n_lists + 1].
+   * The last value contains the total length of the index.
+   */
+  device_mdarray<uint32_t, extent_1d, row_major> list_offsets;
+
+  /** k-means cluster centers corresponding to the lists [n_lists, dim] */
+  device_mdarray<float, extent_2d, row_major> centers;
+  /** (Optional) Precomputed norms of the `centers` w.r.t. the chosen distance metrix [n_lists]  */
+  std::optional<device_mdarray<float, extent_1d, row_major>> center_norms;
+
+  /** Total length of the index. */
+  constexpr inline auto size() const noexcept -> size_t { return data.extent(0); }
+  /** Dimensionality of the data. */
+  constexpr inline auto dim() const noexcept -> size_t { return data.extent(1); }
+  /** Number of clusters/inverted lists. */
+  constexpr inline auto n_lists() const noexcept -> size_t { return centers.extent(0); }
+
+  /** Throw an error if the index content is inconsistent. */
+  inline void check_consistency() const
+  {
+    RAFT_EXPECTS(dim() % veclen == 0, "dimensionality is not a multiple of the veclen");
+    RAFT_EXPECTS(data.extent(0) == indices.extent(0), "inconsistent index size");
+    RAFT_EXPECTS(data.extent(1) == centers.extent(1), "inconsistent data dimensionality");
+    RAFT_EXPECTS(                                             //
+      (centers.extent(0) == list_sizes.extent(0)) &&          //
+        (centers.extent(0) + 1 == list_offsets.extent(0)) &&  //
+        (!center_norms.has_value() || centers.extent(0) == center_norms->extent(0)),
+      "inconsistent number of lists (clusters)");
+  }
+};
+
+template <typename T, typename... Extents>
+static inline auto make_array_for_index(rmm::cuda_stream_view stream, Extents... exts)
+{
+  using extent_t  = md::extents<((void)exts, dynamic_extent)...>;
+  using mdarray_t = device_mdarray<T, extent_t, md::layout_right>;
+
+  typename mdarray_t::extents_type extent{exts...};
+  typename mdarray_t::mapping_type layout{extent};
+  typename mdarray_t::container_policy_type policy{stream};
+
+  return mdarray_t{layout, policy};
+}
 
 /**
  * @brief Copy Veclen elements of type T from `query` to `query_shared` at position `loadDim *
@@ -903,25 +993,21 @@ uint32_t configure_launch_x(uint32_t numQueries, uint32_t nprobe, int32_t sMemSi
 
 template <int Capacity, int Veclen, bool Greater, typename T, typename AccT, typename Lambda>
 void launch_kernel(Lambda lambda,
+                   const ivf_flat_index<T>& index,
                    const T* queries,
                    const uint32_t* coarse_index,
-                   const uint32_t* list_index,
-                   const T* list_data,
-                   const uint32_t* list_lengths,
-                   const uint32_t* list_prefix_interleave,
+                   const uint32_t num_queries,
                    const uint32_t nprobe,
                    const uint32_t k,
-                   const uint32_t dim,
                    size_t* neighbors,
                    float* distances,
-                   const uint32_t batch_size,
                    uint32_t& grid_dim_x,
                    rmm::cuda_stream_view stream)
 {
-  constexpr auto kKernel = interleaved_scan_kernel<Capacity, Veclen, Greater, T, AccT, Lambda>;
-  int max_query_smem     = 16384;
+  constexpr auto kKernel   = interleaved_scan_kernel<Capacity, Veclen, Greater, T, AccT, Lambda>;
+  const int max_query_smem = 16384;
   int query_smem_elems =
-    std::min<int>(max_query_smem / sizeof(T), Pow2<Veclen * WarpSize>::roundUp(dim));
+    std::min<int>(max_query_smem / sizeof(T), Pow2<Veclen * WarpSize>::roundUp(index.dim()));
   int smem_size = query_smem_elems * sizeof(T);
 #ifndef USE_FAISS
   constexpr int kSubwarpSize = std::min<int>(Capacity, WarpSize);
@@ -933,12 +1019,12 @@ void launch_kernel(Lambda lambda,
   constexpr uint32_t kMaxGridY = 32768;
 
   if (grid_dim_x == 0) {
-    grid_dim_x = configure_launch_x(std::min(kMaxGridY, batch_size), nprobe, smem_size, kKernel);
+    grid_dim_x = configure_launch_x(std::min(kMaxGridY, num_queries), nprobe, smem_size, kKernel);
     return;
   }
 
-  for (uint32_t query_offset = 0; query_offset < batch_size; query_offset += kMaxGridY) {
-    uint32_t grid_dim_y = std::min<uint32_t>(kMaxGridY, batch_size - query_offset);
+  for (uint32_t query_offset = 0; query_offset < num_queries; query_offset += kMaxGridY) {
+    uint32_t grid_dim_y = std::min<uint32_t>(kMaxGridY, num_queries - query_offset);
     dim3 grid_dim(grid_dim_x, grid_dim_y, 1);
     dim3 block_dim(kThreadsPerBlock);
     RAFT_LOG_TRACE(
@@ -953,16 +1039,16 @@ void launch_kernel(Lambda lambda,
                                                         query_smem_elems,
                                                         queries,
                                                         coarse_index,
-                                                        list_index,
-                                                        list_data,
-                                                        list_lengths,
-                                                        list_prefix_interleave,
+                                                        index.indices.data(),
+                                                        index.data.data(),
+                                                        index.list_sizes.data(),
+                                                        index.list_offsets.data(),
                                                         nprobe,
                                                         k,
-                                                        dim,
+                                                        index.dim(),
                                                         neighbors,
                                                         distances);
-    queries += grid_dim_y * dim;
+    queries += grid_dim_y * index.dim();
     neighbors += grid_dim_y * grid_dim_x * k;
     distances += grid_dim_y * grid_dim_x * k;
   }
@@ -1081,66 +1167,51 @@ struct select_interleaved_scan_kernel {
  * @tparam T value type
  * @tparam AccT accumulated type
  *
+ * @param index previously built ivf-flat index
  * @param[in] queries device pointer to the query vectors [batch_size, dim]
- * @param[in] coarse_index device pointer to the cluster (list) ids [batch_size, nprobe]
- * @param[in] list_index device pointer to the row ids in each cluster [nrow]
- * @param[in] list_data device pointer to the data in all clusters interleaved [nrow, dim]
- * @param[in] list_lengths device pointer to the numbers of vectors in each cluster [nlist]
- * @param[in] list_prefix_interleave device pointer to the offsets of each cluster in list_index
- * [nlist]
- * @param[in] metric type of the measured distance
- * @param[in] nprobe number of nearest clusters to query
- * @param[in] k number of nearest neighbors.
+ * @param[in] coarse_query_results device pointer to the cluster (list) ids [batch_size, n_probes]
+ * @param n_queries batch size
+ * @param metric type of the measured distance
+ * @param n_probes number of nearest clusters to query
+ * @param k number of nearest neighbors.
  *            NB: the maximum value of `k` is limited statically by `topk::kMaxCapacity`.
- * @param[in] batch_size number of query vectors
- * @param[in] dim dimensionality of search data and query vectors
+ * @param greater whether to select nearest (false) or furthest (true) points w.r.t. the given
+ * metric.
  * @param[out] neighbors device pointer to the result indices for each query and cluster
  * [batch_size, grid_dim_x, k]
  * @param[out] distances device pointer to the result distances for each query and cluster
  * [batch_size, grid_dim_x, k]
- * @param[in] stream
- * @param[in] greater whether to select nearest (false) or furthest (true) points w.r.t. the given
- * metric.
- * @param[in] veclen (optimization parameters) size of the vector for vectorized processing
- * @param[inout] grid_dim_x number of blocks launched across all nprobe clusters;
- *               (one block processes one or more probes, hence: 1 <= grid_dim_x <= nprobe)
+ * @param[inout] grid_dim_x number of blocks launched across all n_probes clusters;
+ *               (one block processes one or more probes, hence: 1 <= grid_dim_x <= n_probes)
+ * @param stream
  */
 template <typename T, typename AccT>
-void ivfflat_interleaved_scan(const T* queries,
-                              const uint32_t* coarse_index,
-                              const uint32_t* list_index,
-                              const T* list_data,
-                              const uint32_t* list_lengths,
-                              const uint32_t* list_prefix_interleave,
+void ivfflat_interleaved_scan(const ivf_flat_index<T>& index,
+                              const T* queries,
+                              const uint32_t* coarse_query_results,
+                              const uint32_t n_queries,
                               const raft::distance::DistanceType metric,
-                              const uint32_t nprobe,
+                              const uint32_t n_probes,
                               const uint32_t k,
-                              const uint32_t batch_size,
-                              const uint32_t dim,
+                              const bool greater,
                               size_t* neighbors,
                               float* distances,
-                              rmm::cuda_stream_view stream,
-                              const bool greater,
-                              const int veclen,
-                              uint32_t& grid_dim_x)
+                              uint32_t& grid_dim_x,
+                              rmm::cuda_stream_view stream)
 {
   const int capacity = raft::spatial::knn::detail::topk::calc_capacity(k);
   select_interleaved_scan_kernel<T, AccT>::run(capacity,
-                                               veclen,
+                                               index.veclen,
                                                greater,
                                                metric,
+                                               index,
                                                queries,
-                                               coarse_index,
-                                               list_index,
-                                               list_data,
-                                               list_lengths,
-                                               list_prefix_interleave,
-                                               nprobe,
+                                               coarse_query_results,
+                                               n_queries,
+                                               n_probes,
                                                k,
-                                               dim,
                                                neighbors,
                                                distances,
-                                               batch_size,
                                                grid_dim_x,
                                                stream);
 }

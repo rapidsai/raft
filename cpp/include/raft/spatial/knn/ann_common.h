@@ -16,15 +16,16 @@
 
 #pragma once
 
-#include <raft/distance/distance_type.hpp>
-
-#include "detail/ann_ivf_flat.cuh"
 #include <faiss/gpu/GpuIndex.h>
+#include <raft/distance/distance_type.hpp>
 #include <raft/spatial/knn/faiss_mr.hpp>
 
-namespace raft {
-namespace spatial {
-namespace knn {
+namespace raft::spatial::knn {
+
+namespace detail {
+template <typename T>
+class cuivflHandle;
+};
 
 struct cuivfl_handle_t {
   template <typename T>
@@ -119,11 +120,17 @@ struct knnIndexParam {
 };
 
 struct IVFParam : knnIndexParam {
+  /** The number of inverted lists (clusters) */
   int nlist;
+  /** The number of clusters to search. */
   int nprobe;
 };
 
-struct IVFFlatParam : IVFParam {
+struct ivf_flat_params : IVFParam {
+  /** The number of iterations searching for kmeans centers (index building). */
+  uint32_t kmeans_n_iters = 20;
+  /** The fraction of data to use during iterative kmeans building. */
+  double kmeans_trainset_fraction = 0.5;
 };
 
 struct IVFPQParam : IVFParam {
@@ -137,6 +144,4 @@ struct IVFSQParam : IVFParam {
   bool encodeResidual;
 };
 
-};  // namespace knn
-};  // namespace spatial
-};  // namespace raft
+};  // namespace raft::spatial::knn
