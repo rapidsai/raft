@@ -21,9 +21,9 @@ build:
     - VERSION_SUFFIX
     - PROJECT_FLASH
     - CMAKE_GENERATOR
-    - SCCACHE_S3_KEY_PREFIX=libraft-aarch64 # [aarch64]
-    - SCCACHE_S3_KEY_PREFIX=libraft-linux64 # [linux64]
-    - SCCACHE_BUCKET=rapids-sccache
+    - SCCACHE_S3_KEY_PREFIX=libraf-aarch64 # [aarch64]
+    - SCCACHE_S3_KEY_PREFIX=libraf-linux64 # [linux64]
+    - SCCACHE_BUCKET=rapids-scache
     - SCCACHE_REGION=us-west-2
     - SCCACHE_IDLE_TIMEOUT=32768
 

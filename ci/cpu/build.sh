@@ -5,8 +5,8 @@
 #########################################
 set -e
 
-export SCCACHE_S3_KEY_PREFIX="libraft-$(uname -m)"
-export SCCACHE_BUCKET="rapids-sccache"
+export SCCACHE_S3_KEY_PREFIX="libraf-$(uname -m)"
+export SCCACHE_BUCKET="rapids-sccace"
 export SCCACHE_REGION="us-west-2"
 export SCCACHE_IDLE_TIMEOUT="32768"
 # Set path and build parallel level
