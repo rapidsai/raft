@@ -92,9 +92,12 @@ auto eval_knn(const std::vector<T>& expected_idx,
   RAFT_LOG_INFO("Recall = %zu/%zu", match_count, total_count);
   double actual_recall = static_cast<double>(match_count) / static_cast<double>(total_count);
   if (actual_recall < min_recall - eps) {
-    return testing::AssertionFailure()
-           << "actual recall (" << actual_recall
-           << ") is smaller than the minimum expected recall (" << min_recall << ").";
+    RAFT_LOG_WARN("Recall is suspiciously too low (%f < %f)", actual_recall, min_recall);
+    if (match_count == 0 || actual_recall < min_recall * min_recall - eps) {
+      return testing::AssertionFailure()
+             << "actual recall (" << actual_recall
+             << ") is much smaller than the minimum expected recall (" << min_recall << ").";
+    }
   }
   return testing::AssertionSuccess();
 }
@@ -111,7 +114,7 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs> {
   }
 
  protected:
-  void testIVFFlat(bool is8bit)
+  void testIVFFlat()
   {
     size_t queries_size = ps.num_queries * ps.k;
     std::vector<int64_t> indices_ivfflat(queries_size);
@@ -142,16 +145,16 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs> {
     {
       rmm::device_uvector<T> distances_ivfflat_dev(queries_size, stream_);
       rmm::device_uvector<int64_t> indices_ivfflat_dev(queries_size, stream_);
-      raft::spatial::knn::ivf_flat_params ivfParams;
-      ivfParams.nprobe = ps.nprobe;
-      ivfParams.nlist  = ps.nlist;
+      raft::spatial::knn::ivf_flat_params params;
+      params.nprobe = ps.nprobe;
+      params.nlist  = ps.nlist;
       raft::spatial::knn::knnIndex index;
       index.index   = nullptr;
       index.gpu_res = nullptr;
 
       approx_knn_build_index(handle_,
                              &index,
-                             dynamic_cast<raft::spatial::knn::knnIndexParam*>(&ivfParams),
+                             dynamic_cast<raft::spatial::knn::knnIndexParam*>(&params),
                              ps.metric,
                              0,
                              database.data(),
@@ -163,7 +166,7 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs> {
                         distances_ivfflat_dev.data(),
                         indices_ivfflat_dev.data(),
                         &index,
-                        dynamic_cast<raft::spatial::knn::knnIndexParam*>(&ivfParams),
+                        dynamic_cast<raft::spatial::knn::knnIndexParam*>(&params),
                         ps.k,
                         search_queries.data(),
                         ps.num_queries);
@@ -175,14 +178,14 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs> {
     // unless something is really wrong with clustering, this could serve as a lower bound on recall
     double min_recall = static_cast<double>(ps.nprobe) / static_cast<double>(ps.nlist);
     // verify.
-    eval_knn(indices_naive,
-             indices_ivfflat,
-             distances_naive,
-             distances_ivfflat,
-             ps.num_queries,
-             ps.k,
-             float(0.001),
-             min_recall);
+    ASSERT_TRUE(eval_knn(indices_naive,
+                         indices_ivfflat,
+                         distances_naive,
+                         distances_ivfflat,
+                         ps.num_queries,
+                         ps.k,
+                         float(0.001),
+                         min_recall));
   }
 
   void SetUp() override
@@ -240,17 +243,17 @@ const std::vector<AnnIvfFlatInputs> inputs = {
   {98306, 1024, 32, 10, 64, 64, raft::distance::DistanceType::InnerProduct}};
 
 typedef AnnIVFFlatTest<float, float> AnnIVFFlatTestF;
-TEST_P(AnnIVFFlatTestF, AnnIVFFlat) { this->testIVFFlat(false); }
+TEST_P(AnnIVFFlatTestF, AnnIVFFlat) { this->testIVFFlat(); }
 
 INSTANTIATE_TEST_CASE_P(AnnIVFFlatTest, AnnIVFFlatTestF, ::testing::ValuesIn(inputs));
 
 typedef AnnIVFFlatTest<float, uint8_t> AnnIVFFlatTestF_uint8;
-TEST_P(AnnIVFFlatTestF_uint8, AnnIVFFlat) { this->testIVFFlat(true); }
+TEST_P(AnnIVFFlatTestF_uint8, AnnIVFFlat) { this->testIVFFlat(); }
 
 INSTANTIATE_TEST_CASE_P(AnnIVFFlatTest, AnnIVFFlatTestF_uint8, ::testing::ValuesIn(inputs));
 
 typedef AnnIVFFlatTest<float, int8_t> AnnIVFFlatTestF_int8;
-TEST_P(AnnIVFFlatTestF_int8, AnnIVFFlat) { this->testIVFFlat(true); }
+TEST_P(AnnIVFFlatTestF_int8, AnnIVFFlat) { this->testIVFFlat(); }
 
 INSTANTIATE_TEST_CASE_P(AnnIVFFlatTest, AnnIVFFlatTestF_int8, ::testing::ValuesIn(inputs));
 

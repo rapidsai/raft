@@ -97,11 +97,14 @@ struct ivf_flat_index {
   std::optional<device_mdarray<float, extent_1d, row_major>> center_norms;
 
   /** Total length of the index. */
-  constexpr inline auto size() const noexcept -> size_t { return data.extent(0); }
+  [[nodiscard]] constexpr inline auto size() const noexcept -> size_t { return data.extent(0); }
   /** Dimensionality of the data. */
-  constexpr inline auto dim() const noexcept -> size_t { return data.extent(1); }
+  [[nodiscard]] constexpr inline auto dim() const noexcept -> size_t { return data.extent(1); }
   /** Number of clusters/inverted lists. */
-  constexpr inline auto n_lists() const noexcept -> size_t { return centers.extent(0); }
+  [[nodiscard]] constexpr inline auto n_lists() const noexcept -> size_t
+  {
+    return centers.extent(0);
+  }
 
   /** Throw an error if the index content is inconsistent. */
   inline void check_consistency() const
@@ -114,6 +117,8 @@ struct ivf_flat_index {
         (centers.extent(0) + 1 == list_offsets.extent(0)) &&  //
         (!center_norms.has_value() || centers.extent(0) == center_norms->extent(0)),
       "inconsistent number of lists (clusters)");
+    RAFT_EXPECTS(reinterpret_cast<size_t>(data.data()) % (veclen * sizeof(T)) == 0,
+                 "The data storage pointer is not aligned to the vector length");
   }
 };
 
@@ -930,7 +935,6 @@ __global__ void __launch_bounds__(kThreadsPerBlock)
 
       if (dim > query_smem_elems) {
         constexpr int kUnroll = WarpSize / Veclen;
-        ;
         loadAndComputeDist<kUnroll, wordsPerVectorBlockDim, decltype(compute_dist), Veclen, T, AccT>
           obj(dist, compute_dist);
         for (int dBase = shLoadDim; dBase < full_warps_along_dim; dBase += WarpSize) {  //
@@ -1004,6 +1008,10 @@ void launch_kernel(Lambda lambda,
                    uint32_t& grid_dim_x,
                    rmm::cuda_stream_view stream)
 {
+  RAFT_EXPECTS(reinterpret_cast<size_t>(queries) % (Veclen * sizeof(T)) == 0,
+               "Queries data is not aligned to the vector load size (Veclen).");
+  RAFT_EXPECTS(Veclen == index.veclen,
+               "Configured Veclen does not match the index interleaving pattern.");
   constexpr auto kKernel   = interleaved_scan_kernel<Capacity, Veclen, Greater, T, AccT, Lambda>;
   const int max_query_smem = 16384;
   int query_smem_elems =

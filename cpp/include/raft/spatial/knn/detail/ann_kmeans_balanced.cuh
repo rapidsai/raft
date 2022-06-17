@@ -457,7 +457,6 @@ void build_optimized_kmeans(const handle_t& handle,
 
   // Training meso-clusters
   for (uint32_t iter = 0; iter < 2 * n_iters; iter += 2) {
-    RAFT_LOG_TRACE("Training kmeans of meso-clusters: %.1f / %u", (float)iter / 2, n_iters);
     kmeans::predict(handle,
                     mesocluster_centers.data(),
                     n_mesoclusters,
@@ -552,12 +551,6 @@ void build_optimized_kmeans(const handle_t& handle,
       mesocluster_sizes[i], dim, trainset.data(), mc_trainset_ids, dim, mc_trainset, dim, stream);
 
     for (uint32_t iter = 0; iter < 2 * n_iters; iter += 2) {
-      RAFT_LOG_TRACE("Training kmeans of clusters in meso-cluster %u (n_lists: %u): %.1f / %u",
-                     i,
-                     fine_clusters_nums[i],
-                     (float)iter / 2,
-                     n_iters);
-
       kmeans::predict(handle,
                       mc_trainset_ccenters.data(),
                       fine_clusters_nums[i],

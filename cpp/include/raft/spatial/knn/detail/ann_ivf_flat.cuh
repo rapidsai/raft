@@ -65,7 +65,7 @@ class cuivflHandle {
   const rmm::cuda_stream_view stream_;
   ivf_flat_params params_;
 
-  raft::distance::DistanceType metric_type_;
+  const raft::distance::DistanceType metric_type_;
   bool greater_;
   uint32_t grid_dim_x_;  // The number of blocks launched across n_probes.
   // The built index
@@ -84,7 +84,11 @@ template <typename T>
 cuivflHandle<T>::cuivflHandle(const handle_t& handle,
                               raft::distance::DistanceType metric_type,
                               const ivf_flat_params& params)
-  : handle_(handle), stream_(handle_.get_stream()), params_(params), grid_dim_x_(0)
+  : handle_(handle),
+    stream_(handle_.get_stream()),
+    params_(params),
+    grid_dim_x_(0),
+    metric_type_(metric_type)
 {
 }
 
@@ -239,7 +243,7 @@ void cuivflHandle<T>::cuivflBuildIndex(const T* dataset, uint32_t n_rows, uint32
   auto compute_norms = [&]() {
     auto&& r = make_array_for_index<float>(stream_, params_.nlist);
     utils::dots_along_rows(params_.nlist, dim, centers.data(), r.data(), stream_);
-    RAFT_LOG_TRACE_VEC(center_norms.data(), 20);
+    RAFT_LOG_TRACE_VEC(r.data(), 20);
     return r;
   };
   auto&& center_norms = metric_type_ == raft::distance::DistanceType::L2Expanded

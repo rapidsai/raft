@@ -27,74 +27,13 @@ template <typename T>
 class cuivflHandle;
 };
 
-struct cuivfl_handle_t {
-  template <typename T>
-  auto get() -> std::unique_ptr<detail::cuivflHandle<T>>&;
-
-  cuivfl_handle_t() {}
-
-  ~cuivfl_handle_t()
-  {
-    if (dtype_.has_value()) {
-      switch (*dtype_) {
-        case CUDA_R_32F: impl.float_.~unique_ptr(); break;
-        case CUDA_R_8U: impl.uint8_t_.~unique_ptr(); break;
-        case CUDA_R_8I: impl.int8_t_.~unique_ptr(); break;
-        default: break;
-      }
-    }
-  }
-
- private:
-  union handle {
-    void* dummy;
-    std::unique_ptr<detail::cuivflHandle<float>> float_;
-    std::unique_ptr<detail::cuivflHandle<uint8_t>> uint8_t_;
-    std::unique_ptr<detail::cuivflHandle<int8_t>> int8_t_;
-    handle() : dummy(nullptr){};
-    ~handle(){};
-  } impl;
-  std::optional<cudaDataType_t> dtype_;
-};
-
-template <>
-auto cuivfl_handle_t::get<float>() -> std::unique_ptr<detail::cuivflHandle<float>>&
-{
-  if (dtype_.has_value()) {
-    RAFT_EXPECTS(*dtype_ == CUDA_R_32F, "wrong element type");
-  } else {
-    *dtype_ = CUDA_R_32F;
-  }
-  return impl.float_;
-}
-
-template <>
-auto cuivfl_handle_t::get<uint8_t>() -> std::unique_ptr<detail::cuivflHandle<uint8_t>>&
-{
-  if (dtype_.has_value()) {
-    RAFT_EXPECTS(*dtype_ == CUDA_R_8U, "wrong element type");
-  } else {
-    *dtype_ = CUDA_R_8U;
-  }
-  return impl.uint8_t_;
-}
-
-template <>
-auto cuivfl_handle_t::get<int8_t>() -> std::unique_ptr<detail::cuivflHandle<int8_t>>&
-{
-  if (dtype_.has_value()) {
-    RAFT_EXPECTS(*dtype_ == CUDA_R_8I, "wrong element type");
-  } else {
-    *dtype_ = CUDA_R_8I;
-  }
-  return impl.int8_t_;
-}
-
 struct knnIndex {
   faiss::gpu::GpuIndex* index;
   raft::distance::DistanceType metric;
   float metricArg;
-  cuivfl_handle_t handle_;
+  std::unique_ptr<detail::cuivflHandle<float>> ivf_flat_float_;
+  std::unique_ptr<detail::cuivflHandle<uint8_t>> ivf_flat_uint8_t_;
+  std::unique_ptr<detail::cuivflHandle<int8_t>> ivf_flat_int8_t_;
 
   raft::spatial::knn::RmmGpuResources* gpu_res;
   int device;
@@ -103,7 +42,28 @@ struct knnIndex {
     delete index;
     delete gpu_res;
   }
+
+  template <typename T>
+  auto ivf_flat() -> std::unique_ptr<detail::cuivflHandle<T>>&;
 };
+
+template <>
+auto knnIndex::ivf_flat<float>() -> std::unique_ptr<detail::cuivflHandle<float>>&
+{
+  return ivf_flat_float_;
+}
+
+template <>
+auto knnIndex::ivf_flat<uint8_t>() -> std::unique_ptr<detail::cuivflHandle<uint8_t>>&
+{
+  return ivf_flat_uint8_t_;
+}
+
+template <>
+auto knnIndex::ivf_flat<int8_t>() -> std::unique_ptr<detail::cuivflHandle<int8_t>>&
+{
+  return ivf_flat_int8_t_;
+}
 
 enum QuantizerType : unsigned int {
   QT_8bit,
