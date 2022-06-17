@@ -22,10 +22,10 @@
 #include "utils.cuh"
 
 #include <raft/cudart_utils.h>
+
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
-#include <iostream>
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
@@ -40,6 +40,8 @@
 #include <thrust/transform_reduce.h>
 #include <thrust/tuple.h>
 #include <thrust/unique.h>
+
+#include <iostream>
 
 namespace raft {
 namespace mst {
