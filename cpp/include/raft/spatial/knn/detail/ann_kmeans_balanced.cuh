@@ -395,53 +395,49 @@ template <typename T>
 auto build_clusters(const handle_t& handle,
                     uint32_t n_iters,
                     size_t dim,
-                    const T* dataset_mptr,
+                    const T* dataset,  // managedl [n_rows, dim]
                     size_t n_rows,
                     size_t n_clusters,
+                    float* cluster_centers,    // managed; [n_clusters, dim]
+                    uint32_t* cluster_labels,  // managed; [n_rows]
+                    uint32_t* cluster_sizes,   // managed; [n_clusters]
                     raft::distance::DistanceType metric,
-                    rmm::mr::managed_memory_resource* managed_memory,
                     rmm::mr::device_memory_resource* device_memory,
                     rmm::cuda_stream_view stream)
 {
-  rmm::device_uvector<float> cluster_centers(n_clusters * dim, stream, managed_memory);
-  rmm::device_uvector<uint32_t> cluster_labels(n_rows, stream, managed_memory);
-  rmm::device_uvector<uint32_t> cluster_sizes(n_clusters, stream, managed_memory);
-  rmm::device_uvector<float> cluster_centers_tmp(n_clusters * dim, stream, managed_memory);
+  rmm::device_uvector<float> cluster_centers_tmp(n_clusters * dim, stream, device_memory);
 
-  // Training meso-clusters
   for (uint32_t iter = 0; iter < 2 * n_iters; iter += 2) {
     kmeans::predict(handle,
-                    cluster_centers.data(),
+                    cluster_centers,
                     n_clusters,
                     dim,
-                    dataset_mptr,
+                    dataset,
                     n_rows,
-                    cluster_labels.data(),
+                    cluster_labels,
                     metric,
                     (iter != 0),
                     cluster_centers_tmp.data(),
-                    cluster_sizes.data(),
+                    cluster_sizes,
                     true,
                     stream,
                     device_memory);
 
     if (iter + 1 < 2 * n_iters) {
-      if (kmeans::adjust_centers(cluster_centers.data(),
+      if (kmeans::adjust_centers(cluster_centers,
                                  n_clusters,
                                  dim,
-                                 dataset_mptr,
+                                 dataset,
                                  n_rows,
-                                 cluster_labels.data(),
+                                 cluster_labels,
                                  metric,
-                                 cluster_sizes.data(),
+                                 cluster_sizes,
                                  (float)1.0 / 4,
                                  stream)) {
         iter -= 1;
       }
     }
   }
-
-  return std::make_tuple(std::move(cluster_labels), std::move(cluster_sizes));
 }
 
 /** Calculate how many fine clusters should belong to each mesocluster. */
@@ -532,8 +528,6 @@ auto build_fine_clusters(const handle_t& handle,
 
   rmm::device_uvector<float> mc_trainset_ccenters(
     fine_clusters_nums_max * dim, stream, managed_memory);
-  rmm::device_uvector<float> mc_trainset_ccenters_tmp(
-    fine_clusters_nums_max * dim, stream, managed_memory);
   // number of vectors in each cluster
   rmm::device_uvector<uint32_t> mc_trainset_csizes_tmp(
     fine_clusters_nums_max, stream, managed_memory);
@@ -550,37 +544,19 @@ auto build_fine_clusters(const handle_t& handle,
     utils::copy_selected<T>(
       mesocluster_sizes[i], dim, dataset_mptr, mc_trainset_ids, dim, mc_trainset, dim, stream);
 
-    for (uint32_t iter = 0; iter < 2 * n_iters; iter += 2) {
-      kmeans::predict(handle,
-                      mc_trainset_ccenters.data(),
-                      fine_clusters_nums[i],
-                      dim,
-                      mc_trainset,
-                      mesocluster_sizes[i],
-                      mc_trainset_labels.data(),
-                      metric,
-                      (iter != 0),
-                      mc_trainset_ccenters_tmp.data(),
-                      mc_trainset_csizes_tmp.data(),
-                      true,
-                      stream,
-                      device_memory);
+    build_clusters(handle,
+                   n_iters,
+                   dim,
+                   mc_trainset,
+                   mesocluster_sizes[i],
+                   fine_clusters_nums[i],
+                   mc_trainset_ccenters.data(),
+                   mc_trainset_labels.data(),
+                   mc_trainset_csizes_tmp.data(),
+                   metric,
+                   device_memory,
+                   stream);
 
-      if (iter + 1 < 2 * n_iters) {
-        if (kmeans::adjust_centers(mc_trainset_ccenters.data(),
-                                   fine_clusters_nums[i],
-                                   dim,
-                                   mc_trainset,
-                                   mesocluster_sizes[i],
-                                   mc_trainset_labels.data(),
-                                   metric,
-                                   mc_trainset_csizes_tmp.data(),
-                                   (float)1.0 / 4,
-                                   stream)) {
-          iter -= 1;
-        }
-      }
-    }
     raft::copy(cluster_centers + (dim * fine_clusters_csum[i]),
                mc_trainset_ccenters.data(),
                fine_clusters_nums[i] * dim,
@@ -602,6 +578,7 @@ auto build_fine_clusters(const handle_t& handle,
  * @param[in] dataset a device pointer to the source dataset [n_rows, dim]
  * @param n_rows number of rows in the input
  * @param[out] labels a device pointer to the output labels [n_rows]
+ * @param[out] cluster_sizes a device pointer to the found cluster sizes [n_cluster]
  * @param[out] cluster_centers a device pointer to the found cluster centers [n_cluster, dim]
  * @param n_cluster
  * @param trainset_fraction a fraction of rows in the `dataset` to sample for kmeans training;
@@ -616,6 +593,7 @@ void build_optimized_kmeans(const handle_t& handle,
                             const T* dataset,
                             size_t n_rows,
                             uint32_t* labels,
+                            uint32_t* cluster_sizes,
                             float* cluster_centers,
                             size_t n_clusters,
                             double trainset_fraction,
@@ -649,22 +627,32 @@ void build_optimized_kmeans(const handle_t& handle,
                                   cudaMemcpyDefault,
                                   stream));
 
-  auto [mesocluster_labels_buf, mesocluster_sizes_buf] = build_clusters(handle,
-                                                                        n_iters,
-                                                                        dim,
-                                                                        trainset.data(),
-                                                                        n_rows_train,
-                                                                        n_mesoclusters,
-                                                                        metric,
-                                                                        &managed_memory,
-                                                                        &device_memory,
-                                                                        stream);
+  // build coarse clusters (mesoclusters)
+  rmm::device_uvector<uint32_t> mesocluster_labels_buf(n_rows_train, stream, &managed_memory);
+  rmm::device_uvector<uint32_t> mesocluster_sizes_buf(n_mesoclusters, stream, &managed_memory);
+  {
+    rmm::device_uvector<float> mesocluster_centers_buf(
+      n_mesoclusters * dim, stream, &managed_memory);
+    build_clusters(handle,
+                   n_iters,
+                   dim,
+                   trainset.data(),
+                   n_rows_train,
+                   n_mesoclusters,
+                   mesocluster_centers_buf.data(),
+                   mesocluster_labels_buf.data(),
+                   mesocluster_sizes_buf.data(),
+                   metric,
+                   &device_memory,
+                   stream);
+  }
 
   auto mesocluster_sizes  = mesocluster_sizes_buf.data();
   auto mesocluster_labels = mesocluster_labels_buf.data();
 
   handle.sync_stream(stream);
 
+  // build fine clusters
   auto [mesocluster_size_max, fine_clusters_nums_max, fine_clusters_nums, fine_clusters_csum] =
     arrange_fine_clusters(n_clusters, n_mesoclusters, n_rows_train, mesocluster_sizes);
 
@@ -688,10 +676,8 @@ void build_optimized_kmeans(const handle_t& handle,
   RAFT_EXPECTS(n_clusters_done == n_clusters, "Didn't process all clusters.");
 
   rmm::device_uvector<float> centers_temp(n_clusters * dim, stream, &device_memory);
-  // TODO: is this the same as list_sizes comptuer later?..
-  rmm::device_uvector<uint32_t> cluster_sizes(n_clusters, stream, &device_memory);
 
-  // Fitting whole clusters using whole trainset.
+  // fit clusters using the trainset
   for (int iter = 0; iter < 2; iter++) {
     // NB: labels.size == n_rows >= n_rows_train; the output is not used.
     kmeans::predict(handle,
@@ -704,14 +690,15 @@ void build_optimized_kmeans(const handle_t& handle,
                     metric,
                     true,
                     centers_temp.data(),
-                    cluster_sizes.data(),
+                    cluster_sizes,
                     true,
                     stream,
                     &device_memory);
-  }  // end for (int iter = 0; iter < 2; iter++)
+  }
 
   RAFT_LOG_DEBUG("(%s) Final fitting.", __func__);
 
+  // fit clusters using the whole dataset
   kmeans::predict(handle,
                   cluster_centers,
                   n_clusters,
@@ -722,7 +709,7 @@ void build_optimized_kmeans(const handle_t& handle,
                   metric,
                   true,
                   centers_temp.data(),
-                  cluster_sizes.data(),
+                  cluster_sizes,
                   true,
                   stream,
                   &device_memory);
@@ -737,7 +724,7 @@ void build_optimized_kmeans(const handle_t& handle,
                   metric,
                   true,
                   centers_temp.data(),
-                  cluster_sizes.data(),
+                  cluster_sizes,
                   false,
                   stream,
                   &device_memory);

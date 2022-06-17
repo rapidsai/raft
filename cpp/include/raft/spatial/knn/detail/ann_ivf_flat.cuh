@@ -176,7 +176,9 @@ void cuivflHandle<T>::cuivflBuildIndex(const T* dataset, uint32_t n_rows, uint32
 
   // kmeans cluster ids for the dataset
   rmm::device_uvector<uint32_t> labels(n_rows, stream_);
-  auto&& centers = make_array_for_index<float>(stream_, n_lists, dim);
+  auto&& centers      = make_array_for_index<float>(stream_, n_lists, dim);
+  auto&& list_sizes   = make_array_for_index<uint32_t>(stream_, n_lists);
+  auto list_sizes_ptr = list_sizes.data();
 
   // Predict labels of the whole dataset
   kmeans::build_optimized_kmeans(handle_,
@@ -185,21 +187,12 @@ void cuivflHandle<T>::cuivflBuildIndex(const T* dataset, uint32_t n_rows, uint32
                                  dataset,
                                  n_rows,
                                  labels.data(),
+                                 list_sizes_ptr,
                                  centers.data(),
                                  n_lists,
                                  params_.kmeans_trainset_fraction,
                                  metric_type_,
                                  stream_);
-
-  auto&& list_sizes   = make_array_for_index<uint32_t>(stream_, n_lists);
-  auto list_sizes_ptr = list_sizes.data();
-  stats::histogram(stats::HistType::HistTypeAuto,
-                   reinterpret_cast<int*>(list_sizes_ptr),
-                   n_lists,
-                   labels.data(),
-                   n_rows,
-                   uint32_t(1),
-                   stream_);
 
   // NB: stream_ must be equal to handle_.get_stream() to have the thrust functions executed in
   // order with the rest
