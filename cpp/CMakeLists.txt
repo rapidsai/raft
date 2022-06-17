@@ -17,7 +17,7 @@ set(RAPIDS_VERSION "22.06")
 set(RAFT_VERSION "${RAPIDS_VERSION}.00")
 
 cmake_minimum_required(VERSION 3.20.1 FATAL_ERROR)
-file(DOWNLOAD https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-22.06/RAPIDS.cmake
+file(DOWNLOAD https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-22.08/RAPIDS.cmake
         ${CMAKE_BINARY_DIR}/RAPIDS.cmake)
 include(${CMAKE_BINARY_DIR}/RAPIDS.cmake)
 include(rapids-cmake)
@@ -28,7 +28,7 @@ include(rapids-find)
 
 rapids_cuda_init_architectures(RAFT)
 
-project(RAFT VERSION ${RAFT_VERSION} LANGUAGES CXX CUDA)
+project(RAFT VERSION 22.08.00 LANGUAGES CXX CUDA)
 
 # Needed because GoogleBenchmark changes the state of FindThreads.cmake, causing subsequent runs to
 # have different values for the `Threads::Threads` target. Setting this flag ensures
@@ -72,10 +72,6 @@ if(BUILD_TESTS AND NOT RAFT_ENABLE_thrust_DEPENDENCY)
   message(VERBOSE "RAFT: BUILD_TESTS is enabled, overriding RAFT_ENABLE_thrust_DEPENDENCY")
   set(RAFT_ENABLE_thrust_DEPENDENCY ON)
 endif()
-
-# Currently, UCX and NCCL are only needed to build Pyraft and so a simple find_package() is sufficient
-option(RAFT_ENABLE_nccl_DEPENDENCY "Enable NCCL dependency" OFF)
-option(RAFT_ENABLE_ucx_DEPENDENCY "Enable ucx dependency" OFF)
 
 option(RAFT_EXCLUDE_FAISS_FROM_ALL "Exclude FAISS targets from RAFT's 'all' target" ON)
 
@@ -270,7 +266,10 @@ if(RAFT_COMPILE_DIST_LIBRARY)
                POSITION_INDEPENDENT_CODE           ON
                INTERFACE_POSITION_INDEPENDENT_CODE ON)
 
-  target_link_libraries(raft_distance_lib PRIVATE raft::raft)
+  target_link_libraries(raft_distance_lib
+    PUBLIC raft::raft
+           cuco::cuco
+    )
   target_compile_options(raft_distance_lib
           PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
           "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
@@ -285,7 +284,6 @@ endif()
 
 target_link_libraries(raft_distance INTERFACE
     raft::raft
-    $<$<BOOL:${RAFT_ENABLE_cuco_DEPENDENCY}>:cuco::cuco>
     $<TARGET_NAME_IF_EXISTS:raft_distance_lib>
     $<TARGET_NAME_IF_EXISTS:raft::raft_distance_lib>
 )
@@ -325,7 +323,9 @@ if(RAFT_COMPILE_NN_LIBRARY)
                POSITION_INDEPENDENT_CODE           ON
                INTERFACE_POSITION_INDEPENDENT_CODE ON)
 
-  target_link_libraries(raft_nn_lib PUBLIC faiss::faiss PRIVATE raft::raft)
+  target_link_libraries(raft_nn_lib
+    PUBLIC faiss::faiss
+           raft::raft)
   target_compile_options(raft_nn_lib
           PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
           "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
@@ -339,7 +339,6 @@ endif()
 
 target_link_libraries(raft_nn INTERFACE
     raft::raft
-    $<$<BOOL:${RAFT_ENABLE_NN_DEPENDENCIES}>:faiss::faiss>
     $<TARGET_NAME_IF_EXISTS:raft_nn_lib>
     $<TARGET_NAME_IF_EXISTS:raft::raft_nn_lib>)
 
@@ -367,16 +366,17 @@ install(TARGETS raft_nn
 if(TARGET raft_distance_lib)
   install(TARGETS raft_distance_lib
           DESTINATION ${lib_dir}
-          COMPONENT raft_distance
+          COMPONENT distance
           EXPORT raft-distance-lib-exports)
   install(DIRECTORY include/raft_distance
-          DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+          DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+          COMPONENT distance)
 endif()
 
 if(TARGET raft_nn_lib)
   install(TARGETS raft_nn_lib
           DESTINATION ${lib_dir}
-          COMPONENT raft_nn
+          COMPONENT nn
           EXPORT raft-nn-lib-exports)
 endif()
 
@@ -400,14 +400,14 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/include/raft/version_config.hpp
 include("${rapids-cmake-dir}/export/write_dependencies.cmake")
 
 set(raft_components distance nn)
-set(raft_install_comp "" "")
+set(raft_install_comp raft raft)
 if(TARGET raft_distance_lib)
   list(APPEND raft_components distance-lib)
-  list(APPEND raft_install_comp _distance)
+  list(APPEND raft_install_comp distance)
 endif()
 if(TARGET raft_nn_lib)
-  list(APPEND raft_components  nn-lib)
-  list(APPEND raft_install_comp _nn)
+  list(APPEND raft_components nn-lib)
+  list(APPEND raft_install_comp nn)
 endif()
 
 foreach(comp install_comp IN ZIP_LISTS raft_components raft_install_comp)
@@ -416,7 +416,7 @@ foreach(comp install_comp IN ZIP_LISTS raft_components raft_install_comp)
           FILE raft-${comp}-targets.cmake
           NAMESPACE raft::
           DESTINATION "${lib_dir}/cmake/raft"
-          COMPONENT raft${install_comp}
+          COMPONENT ${install_comp}
   )
   export(
           EXPORT raft-${comp}-exports

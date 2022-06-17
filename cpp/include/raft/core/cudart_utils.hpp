@@ -35,8 +35,8 @@
 #include <execinfo.h>
 #include <iomanip>
 #include <iostream>
+#include <memory>
 #include <mutex>
-#include <unordered_map>
 
 ///@todo: enable once logging has been enabled in raft
 //#include "logger.hpp"
@@ -294,7 +294,7 @@ void print_host_vector(const char* variable_name,
     if (i != 0) out << ",";
     out << host_mem[i];
   }
-  out << "];\n";
+  out << "];" << std::endl;
 }
 
 template <class T, class OutStream>
@@ -303,10 +303,32 @@ void print_device_vector(const char* variable_name,
                          size_t componentsCount,
                          OutStream& out)
 {
-  T* host_mem = new T[componentsCount];
-  CUDA_CHECK(cudaMemcpy(host_mem, devMem, componentsCount * sizeof(T), cudaMemcpyDeviceToHost));
-  print_host_vector(variable_name, host_mem, componentsCount, out);
-  delete[] host_mem;
+  auto host_mem = std::make_unique<T[]>(componentsCount);
+  CUDA_CHECK(
+    cudaMemcpy(host_mem.get(), devMem, componentsCount * sizeof(T), cudaMemcpyDeviceToHost));
+  print_host_vector(variable_name, host_mem.get(), componentsCount, out);
+}
+
+/**
+ * @brief Print an array given a device or a host pointer.
+ *
+ * @param[in] variable_name
+ * @param[in] ptr any pointer (device/host/managed, etc)
+ * @param[in] componentsCount array length
+ * @param out the output stream
+ */
+template <class T, class OutStream>
+void print_vector(const char* variable_name, const T* ptr, size_t componentsCount, OutStream& out)
+{
+  cudaPointerAttributes attr;
+  RAFT_CUDA_TRY(cudaPointerGetAttributes(&attr, ptr));
+  if (attr.hostPointer != nullptr) {
+    print_host_vector(variable_name, reinterpret_cast<T*>(attr.hostPointer), componentsCount, out);
+  } else if (attr.type == cudaMemoryTypeUnregistered) {
+    print_host_vector(variable_name, ptr, componentsCount, out);
+  } else {
+    print_device_vector(variable_name, ptr, componentsCount, out);
+  }
 }
 /** @} */
 

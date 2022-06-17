@@ -14,15 +14,15 @@
 
 cmake_minimum_required(VERSION 3.20.1 FATAL_ERROR)
 
-set(pylibraft_version 22.08.00)
+set(pyraft_version 22.08.00)
 
-file(DOWNLOAD https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-22.08/RAPIDS.cmake
+file(DOWNLOAD https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-22.06/RAPIDS.cmake
         ${CMAKE_BINARY_DIR}/RAPIDS.cmake)
 include(${CMAKE_BINARY_DIR}/RAPIDS.cmake)
 
 project(
-  pylibraft
-  VERSION ${pylibraft_version}
+  raft-python
+  VERSION ${pyraft_version}
   LANGUAGES # TODO: Building Python extension modules via the python_extension_module requires the C
             # language to be enabled here. The test project that is built in scikit-build to verify
             # various linking options for the python library is hardcoded to build with C, so until
@@ -35,10 +35,7 @@ option(FIND_RAFT_CPP "Search for existing RAFT C++ installations before defaulti
 
 # If the user requested it we attempt to find RAFT.
 if(FIND_RAFT_CPP)
-    find_package(raft ${pylibraft_version} REQUIRED COMPONENTS distance)
-    if(NOT TARGET raft::raft_distance_lib)
-        message(FATAL_ERROR "Building against a preexisting libraft library requires the distance component of that library to have been built!")
-    endif()
+    find_package(raft ${pyraft_version} REQUIRED)
 else()
   set(raft_FOUND OFF)
 endif()
@@ -48,24 +45,26 @@ if(NOT raft_FOUND)
   # pull in the required languages for the C++ project even if this project
   # does not require those languges.
   include(rapids-cuda)
-  rapids_cuda_init_architectures(pylibraft)
+  rapids_cuda_init_architectures(pyraft)
   enable_language(CUDA)
-  # Since pylibraft only enables CUDA optionally we need to manually include the file that
+  # Since pyraft only enables CUDA optionally we need to manually include the file that
   # rapids_cuda_init_architectures relies on `project` including.
-  include("${CMAKE_PROJECT_pylibraft_INCLUDE}")
+  include("${CMAKE_PROJECT_pyraft_INCLUDE}")
 
+  # pyraft doesn't actually use raft libraries, it just needs the headers, so
+  # we can turn off all library compilation and we don't need to install
+  # anything here.
   set(BUILD_TESTS OFF)
   set(BUILD_BENCH OFF)
   set(RAFT_COMPILE_LIBRARIES OFF)
-  set(RAFT_COMPILE_DIST_LIBRARY ON)
+  set(RAFT_COMPILE_DIST_LIBRARY OFF)
+  set(RAFT_COMPILE_NN_LIBRARY OFF)
   add_subdirectory(../../cpp raft-cpp)
-
-  # When building the C++ libraries from source we must copy
-  # libraft_distance.so alongside the pairwise_distance Cython library.
-  install(TARGETS raft_distance_lib DESTINATION pylibraft/distance)
 endif()
 
 include(rapids-cython)
 rapids_cython_init()
 
-add_subdirectory(pylibraft/distance)
+add_subdirectory(raft/common)
+add_subdirectory(raft/dask/common)
+add_subdirectory(raft/include_test)

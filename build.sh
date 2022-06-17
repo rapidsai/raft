@@ -18,7 +18,7 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libraft pyraft pylibraft docs tests bench clean -v -g --install --compile-libs --compile-nn --compile-dist --allgpuarch --no-nvtx --show_depr_warn -h --buildfaiss --minimal-deps"
+VALIDARGS="clean libraft pyraft pylibraft docs tests bench clean -v -g --install --compile-libs --compile-nn --compile-dist --allgpuarch --sccache --no-nvtx --show_depr_warn -h --buildfaiss --minimal-deps"
 HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"]
  where <target> is:
    clean            - remove all existing build artifacts and configuration (start over)
@@ -33,6 +33,7 @@ HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"]
  and <flag> is:
    -v                          - verbose build mode
    -g                          - build for debug
+   --sccache                    - enable sccache
    --compile-libs              - compile shared libraries for all components
    --compile-nn                - compile shared library for nn component
    --compile-dist              - compile shared library for distance component
@@ -68,9 +69,7 @@ ENABLE_NN_DEPENDENCIES=OFF
 
 ENABLE_thrust_DEPENDENCY=ON
 
-ENABLE_ucx_DEPENDENCY=OFF
-ENABLE_nccl_DEPENDENCY=OFF
-
+SCCACHE_ARGS=""
 NVTX=ON
 CLEAN=0
 UNINSTALL=0
@@ -104,12 +103,12 @@ function cmakeArgs {
         # There are possible weird edge cases that may cause this regex filter to output nothing and fail silently
         # the true pipe will catch any weird edge cases that may happen and will cause the program to fall back
         # on the invalid option error
-        CMAKE_ARGS=$(echo $ARGS | { grep -Eo "\-\-cmake\-args=\".+\"" || true; })
-        if [[ -n ${CMAKE_ARGS} ]]; then
-            # Remove the full  CMAKE_ARGS argument from list of args so that it passes validArgs function
-            ARGS=${ARGS//$CMAKE_ARGS/}
+        EXTRA_CMAKE_ARGS=$(echo $ARGS | { grep -Eo "\-\-cmake\-args=\".+\"" || true; })
+        if [[ -n ${EXTRA_CMAKE_ARGS} ]]; then
+            # Remove the full  EXTRA_CMAKE_ARGS argument from list of args so that it passes validArgs function
+            ARGS=${ARGS//$EXTRA_CMAKE_ARGS/}
             # Filter the full argument down to just the extra string that will be added to cmake call
-            CMAKE_ARGS=$(echo $CMAKE_ARGS | grep -Eo "\".+\"" | sed -e 's/^"//' -e 's/"$//')
+            EXTRA_CMAKE_ARGS=$(echo $EXTRA_CMAKE_ARGS | grep -Eo "\".+\"" | sed -e 's/^"//' -e 's/"$//')
         fi
     fi
 }
@@ -133,6 +132,10 @@ fi
 # Process flags
 if hasArg --install; then
     INSTALL_TARGET="install"
+fi
+
+if hasArg --sccache; then
+  SCCACHE_ARGS="-DCMAKE_CUDA_COMPILER_LAUNCHER=sccache -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache"
 fi
 
 if hasArg --minimal-deps; then
@@ -168,7 +171,9 @@ fi
 
 if hasArg tests || (( ${NUMARGS} == 0 )); then
     BUILD_TESTS=ON
+    COMPILE_DIST_LIBRARY=ON
     ENABLE_NN_DEPENDENCIES=ON
+    COMPILE_NN_LIBRARY=ON
     CMAKE_TARGET="${CMAKE_TARGET};test_raft"
 fi
 
@@ -198,6 +203,11 @@ if [[ ${CMAKE_TARGET} == "" ]]; then
     CMAKE_TARGET="all"
 fi
 
+# Append `-DFIND_RAFT_CPP=ON` to EXTRA_CMAKE_ARGS unless a user specified the option.
+if [[ "${EXTRA_CMAKE_ARGS}" != *"DFIND_RAFT_CPP"* ]]; then
+    EXTRA_CMAKE_ARGS="${EXTRA_CMAKE_ARGS} -DFIND_RAFT_CPP=ON"
+fi
+
 # If clean given, run it prior to any other steps
 if (( ${CLEAN} == 1 )); then
     # If the dirs to clean are mounted dirs in a container, the
@@ -220,11 +230,6 @@ if (( ${CLEAN} == 1 )); then
     cd ${REPODIR}
 fi
 
-# Pyraft requires ucx + nccl
-if (( ${NUMARGS} == 0 )) || hasArg pyraft || hasArg docs; then
-    ENABLE_nccl_DEPENDENCY=ON
-    ENABLE_ucx_DEPENDENCY=ON
-fi
 ################################################################################
 # Configure for building all C++ targets
 if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || hasArg bench; then
@@ -251,10 +256,9 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || has
           -DRAFT_COMPILE_NN_LIBRARY=${COMPILE_NN_LIBRARY} \
           -DRAFT_COMPILE_DIST_LIBRARY=${COMPILE_DIST_LIBRARY} \
           -DRAFT_USE_FAISS_STATIC=${BUILD_STATIC_FAISS} \
-          -DRAFT_ENABLE_nccl_DEPENDENCY=${ENABLE_nccl_DEPENDENCY} \
-          -DRAFT_ENABLE_ucx_DEPENDENCY=${ENABLE_ucx_DEPENDENCY} \
           -DRAFT_ENABLE_thrust_DEPENDENCY=${ENABLE_thrust_DEPENDENCY} \
-          ${CMAKE_ARGS}
+          ${SCCACHE_ARGS} \
+          ${EXTRA_CMAKE_ARGS}
 
   if [[ ${CMAKE_TARGET} != "" ]]; then
       echo "-- Compiling targets: ${CMAKE_TARGET}, verbose=${VERBOSE_FLAG}"
@@ -270,10 +274,9 @@ fi
 if (( ${NUMARGS} == 0 )) || hasArg pyraft || hasArg docs; then
 
     cd ${REPODIR}/python/raft
+    python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace -- -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} -DCMAKE_LIBRARY_PATH=${LIBRAFT_BUILD_DIR} ${EXTRA_CMAKE_ARGS}
     if [[ ${INSTALL_TARGET} != "" ]]; then
-        python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace --library-dir=${LIBRAFT_BUILD_DIR} install --single-version-externally-managed --record=record.txt
-    else
-        python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace --library-dir=${LIBRAFT_BUILD_DIR}
+        python setup.py install --single-version-externally-managed --record=record.txt -- -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} ${EXTRA_CMAKE_ARGS}
     fi
 fi
 
@@ -281,9 +284,9 @@ fi
 if (( ${NUMARGS} == 0 )) || hasArg pylibraft; then
 
     cd ${REPODIR}/python/pylibraft
-    python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace -- -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} -DCMAKE_LIBRARY_PATH=${LIBRAFT_BUILD_DIR} ${CMAKE_ARGS}
+    python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace -- -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} -DCMAKE_LIBRARY_PATH=${LIBRAFT_BUILD_DIR} ${EXTRA_CMAKE_ARGS}
     if [[ ${INSTALL_TARGET} != "" ]]; then
-        python setup.py install --single-version-externally-managed --record=record.txt -- -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} ${CMAKE_ARGS}
+        python setup.py install --single-version-externally-managed --record=record.txt -- -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} ${EXTRA_CMAKE_ARGS}
     fi
 fi
 
