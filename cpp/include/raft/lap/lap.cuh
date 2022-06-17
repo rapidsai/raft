@@ -31,6 +31,9 @@
 #include <raft/handle.hpp>
 #include <rmm/device_uvector.hpp>
 
+#include <thrust/execution_policy.h>
+#include <thrust/fill.h>
+
 #include "detail/d_structs.h"
 #include "detail/lap_functions.cuh"
 

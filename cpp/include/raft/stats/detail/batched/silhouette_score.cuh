@@ -22,6 +22,8 @@
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
 #include <thrust/device_vector.h>
+#include <thrust/fill.h>
+#include <thrust/reduce.h>
 
 namespace raft {
 namespace stats {

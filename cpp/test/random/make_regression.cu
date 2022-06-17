@@ -16,6 +16,7 @@
 
 #include <gtest/gtest.h>
 #include <thrust/count.h>
+#include <thrust/device_ptr.h>
 #include <thrust/device_vector.h>
 
 #include "../test_utils.h"

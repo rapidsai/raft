@@ -23,6 +23,7 @@
 #include <rmm/device_uvector.hpp>
 
 #include <thrust/device_ptr.h>
+#include <thrust/memory.h>
 
 namespace raft {
 namespace linalg {

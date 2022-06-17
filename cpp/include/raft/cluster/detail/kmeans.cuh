@@ -22,12 +22,19 @@
 
 #include <cuda.h>
 #include <thrust/binary_search.h>
+#include <thrust/device_ptr.h>
+#include <thrust/fill.h>
+#include <thrust/find.h>
+#include <thrust/functional.h>
 #include <thrust/gather.h>
 #include <thrust/iterator/constant_iterator.h>
+#include <thrust/memory.h>
 #include <thrust/random.h>
 #include <thrust/reduce.h>
+#include <thrust/scan.h>
 #include <thrust/sequence.h>
 #include <thrust/sort.h>
+#include <thrust/transform.h>
 
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
