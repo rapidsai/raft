@@ -36,6 +36,7 @@
 
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_uvector.hpp>
+#include <rmm/exec_policy.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
 #include <rmm/mr/device/pool_memory_resource.hpp>
 
@@ -48,16 +49,40 @@ class cuivflHandle {
                raft::distance::DistanceType metric_type,
                const ivf_flat_params& params);
 
+  /**
+   * @brief Build the index from the dataset for efficient search.
+   *
+   * @param[in] dataset a device pointer to a row-major matrix [n_rows, dim]
+   * @param n_rows number of samples
+   * @param dim the dimensionality of the data
+   */
   void cuivflBuildIndex(const T* dataset, uint32_t n_rows, uint32_t dim);
 
+  /**
+   * @brief Set the search parameters. Must be called before `cuivflSearch`
+   *
+   * @param n_probes number of clusters to look at for each query (affects speed vs recall).
+   * @param max_batch maximum number of queries (affects the required temp memory).
+   * @param max_k maximum number of neighbors to search for.
+   */
   void cuivflSetSearchParameters(const uint32_t n_probes,
                                  const uint32_t max_batch,
                                  const uint32_t max_k);
 
+  /**
+   * @brief Search ANN using the constructed index.
+   *
+   * @param[in] queries a device pointer to a row-major matrix [n_queries, dim]
+   * @param n_queries is the batch size
+   * @param k is the number of neighbors to find for each query.
+   * @param[out] neighbors a device pointer to the indices of the neighbors in the source dataset
+   * [n_queries, k]
+   * @param[out] distances a device pointer to the distances to the selected neighbors [n_queries,
+   * k]
+   */
   void cuivflSearch(
     const T* queries, uint32_t n_queries, uint32_t k, size_t* neighbors, float* distances);
 
-  void queryIVFFlatGridSize(const uint32_t n_probes, const uint32_t n_queries, const uint32_t k);
   uint32_t getDim() { return index_.has_value() ? index_->dim() : 0; }
 
  private:
@@ -78,6 +103,8 @@ class cuivflHandle {
   template <typename AccT>
   void cuivflSearchImpl(
     const T* queries, uint32_t n_queries, uint32_t k, size_t* neighbors, AccT* distances);
+
+  void queryIVFFlatGridSize(const uint32_t n_probes, const uint32_t n_queries, const uint32_t k);
 };
 
 template <typename T>
@@ -194,15 +221,12 @@ void cuivflHandle<T>::cuivflBuildIndex(const T* dataset, uint32_t n_rows, uint32
                                  metric_type_,
                                  stream_);
 
-  // NB: stream_ must be equal to handle_.get_stream() to have the thrust functions executed in
-  // order with the rest
-  auto thrust_policy = handle_.get_thrust_policy();
-
+  // Calculate offsets into cluster data using exclusive scan
   auto&& list_offsets   = make_array_for_index<uint32_t>(stream_, n_lists + 1);
   auto list_offsets_ptr = list_offsets.data();
 
   thrust::exclusive_scan(
-    thrust_policy,
+    rmm::exec_policy(stream_),
     list_sizes_ptr,
     list_sizes_ptr + n_lists + 1,
     list_offsets_ptr,
