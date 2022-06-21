@@ -98,7 +98,7 @@ void approx_knn_cuivfl_ivfflat_build_index(const raft::handle_t& handle,
                                            IntType D)
 {
   index->ivf_flat<T>() = std::make_unique<detail::ivf_flat_handle<T>>(handle, *params);
-  index->ivf_flat<T>()->build(dataset, n, D, metric);
+  index->ivf_flat<T>()->build(dataset, n, D, metric, handle.get_stream());
 }
 
 template <typename IntType = int>
@@ -230,7 +230,7 @@ void approx_knn_search(const handle_t& handle,
     if (dynamic_cast<ivf_flat_params*>(params)) {
       ivf_flat_params* IVFFlat_param = dynamic_cast<ivf_flat_params*>(params);
       index->ivf_flat<T>()->search(
-        query_array, n, k, IVFFlat_param->nprobe, (size_t*)indices, distances);
+        query_array, n, k, IVFFlat_param->nprobe, (size_t*)indices, distances, handle.get_stream());
     }
   } else if constexpr (std::is_same<T, float>{}) {
     std::unique_ptr<MetricProcessor<float>> query_metric_processor = create_processor<float>(
@@ -240,7 +240,7 @@ void approx_knn_search(const handle_t& handle,
     if (dynamic_cast<ivf_flat_params*>(params)) {
       ivf_flat_params* IVFFlat_param = dynamic_cast<ivf_flat_params*>(params);
       index->ivf_flat<T>()->search(
-        query_array, n, k, IVFFlat_param->nprobe, (size_t*)indices, distances);
+        query_array, n, k, IVFFlat_param->nprobe, (size_t*)indices, distances, handle.get_stream());
     }
     query_metric_processor->revert(query_array);
 

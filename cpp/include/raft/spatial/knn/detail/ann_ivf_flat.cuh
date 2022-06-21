@@ -46,7 +46,7 @@ template <typename T>
 class ivf_flat_handle {
  public:
   ivf_flat_handle(const handle_t& handle, ivf_flat_params params)
-    : handle_(handle), stream_(handle_.get_stream()), params_(std::move(params))
+    : handle_(handle), params_(std::move(params))
   {
   }
 
@@ -57,8 +57,13 @@ class ivf_flat_handle {
    * @param n_rows number of samples
    * @param dim the dimensionality of the data
    * @param metric distance type
+   * @param stream
    */
-  void build(const T* dataset, uint32_t n_rows, uint32_t dim, raft::distance::DistanceType metric);
+  void build(const T* dataset,
+             uint32_t n_rows,
+             uint32_t dim,
+             raft::distance::DistanceType metric,
+             rmm::cuda_stream_view stream);
 
   /**
    * @brief Search ANN using the constructed index.
@@ -71,13 +76,15 @@ class ivf_flat_handle {
    * [n_queries, k]
    * @param[out] distances a device pointer to the distances to the selected neighbors [n_queries,
    * k]
+   * @param stream
    */
   void search(const T* queries,
               uint32_t n_queries,
               uint32_t k,
               uint32_t n_probes,
               size_t* neighbors,
-              float* distances);
+              float* distances,
+              rmm::cuda_stream_view stream);
 
   /** Whether `build` method has already been succesfully invoked. */
   [[nodiscard]] auto is_trained() const -> bool { return index_.has_value(); }
@@ -87,8 +94,7 @@ class ivf_flat_handle {
 
  private:
   const handle_t& handle_;
-  const rmm::cuda_stream_view stream_;
-  ivf_flat_params params_;
+  const ivf_flat_params params_;
 
   // The built index
   std::optional<const ivf_flat_index<T>> index_ = std::nullopt;
@@ -101,9 +107,11 @@ class ivf_flat_handle {
   void search_impl(const T* queries,
                    uint32_t n_queries,
                    uint32_t k,
+                   uint32_t n_probes,
                    bool select_min,
                    size_t* neighbors,
-                   AccT* distances);
+                   AccT* distances,
+                   rmm::cuda_stream_view stream);
 };
 
 /**
@@ -177,7 +185,8 @@ template <typename T>
 void ivf_flat_handle<T>::build(const T* dataset,
                                uint32_t n_rows,
                                uint32_t dim,
-                               raft::distance::DistanceType metric)
+                               raft::distance::DistanceType metric,
+                               rmm::cuda_stream_view stream)
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "ivf_flat_handle::build(%u, %u)", n_rows, dim);
@@ -194,9 +203,9 @@ void ivf_flat_handle<T>::build(const T* dataset,
   auto n_lists = static_cast<uint32_t>(params_.nlist);
 
   // kmeans cluster ids for the dataset
-  rmm::device_uvector<uint32_t> labels(n_rows, stream_);
-  auto&& centers      = make_array_for_index<float>(stream_, n_lists, dim);
-  auto&& list_sizes   = make_array_for_index<uint32_t>(stream_, n_lists);
+  rmm::device_uvector<uint32_t> labels(n_rows, stream);
+  auto&& centers      = make_array_for_index<float>(stream, n_lists, dim);
+  auto&& list_sizes   = make_array_for_index<uint32_t>(stream, n_lists);
   auto list_sizes_ptr = list_sizes.data();
 
   // Predict labels of the whole dataset
@@ -211,14 +220,14 @@ void ivf_flat_handle<T>::build(const T* dataset,
                                  n_lists,
                                  params_.kmeans_trainset_fraction,
                                  metric,
-                                 stream_);
+                                 stream);
 
   // Calculate offsets into cluster data using exclusive scan
-  auto&& list_offsets   = make_array_for_index<uint32_t>(stream_, n_lists + 1);
+  auto&& list_offsets   = make_array_for_index<uint32_t>(stream, n_lists + 1);
   auto list_offsets_ptr = list_offsets.data();
 
   thrust::exclusive_scan(
-    rmm::exec_policy(stream_),
+    rmm::exec_policy(stream),
     list_sizes_ptr,
     list_sizes_ptr + n_lists + 1,
     list_offsets_ptr,
@@ -226,32 +235,32 @@ void ivf_flat_handle<T>::build(const T* dataset,
     [] __device__(uint32_t s, uint32_t l) { return s + Pow2<WarpSize>::roundUp(l); });
 
   uint32_t index_size;
-  update_host(&index_size, list_offsets_ptr + n_lists, 1, stream_);
-  handle_.sync_stream(stream_);
+  update_host(&index_size, list_offsets_ptr + n_lists, 1, stream);
+  handle_.sync_stream(stream);
 
-  auto&& data    = make_array_for_index<T>(stream_, index_size, dim);
-  auto&& indices = make_array_for_index<uint32_t>(stream_, index_size);
+  auto&& data    = make_array_for_index<T>(stream, index_size, dim);
+  auto&& indices = make_array_for_index<uint32_t>(stream, index_size);
 
   // we'll rebuild the `list_sizes_ptr` in the following kernel, using it as an atomic counter.
-  utils::memset(list_sizes_ptr, 0, sizeof(uint32_t) * n_lists, stream_);
+  utils::memset(list_sizes_ptr, 0, sizeof(uint32_t) * n_lists, stream);
 
   const dim3 block_dim(256);
   const dim3 grid_dim(raft::ceildiv<uint32_t>(n_rows, block_dim.x));
-  build_index_kernel<<<grid_dim, block_dim, 0, stream_>>>(labels.data(),
-                                                          list_offsets_ptr,
-                                                          dataset,
-                                                          data.data(),
-                                                          indices.data(),
-                                                          list_sizes_ptr,
-                                                          n_rows,
-                                                          dim,
-                                                          veclen);
+  build_index_kernel<<<grid_dim, block_dim, 0, stream>>>(labels.data(),
+                                                         list_offsets_ptr,
+                                                         dataset,
+                                                         data.data(),
+                                                         indices.data(),
+                                                         list_sizes_ptr,
+                                                         n_rows,
+                                                         dim,
+                                                         veclen);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   // Precompute the centers vector norms for L2Expanded distance
   auto compute_norms = [&]() {
-    auto&& r = make_array_for_index<float>(stream_, params_.nlist);
-    utils::dots_along_rows(params_.nlist, dim, centers.data(), r.data(), stream_);
+    auto&& r = make_array_for_index<float>(stream, n_lists);
+    utils::dots_along_rows(n_lists, dim, centers.data(), r.data(), stream);
     RAFT_LOG_TRACE_VEC(r.data(), 20);
     return r;
   };
@@ -273,12 +282,14 @@ void ivf_flat_handle<T>::search(const T* queries,
                                 uint32_t k,
                                 uint32_t n_probes,
                                 size_t* neighbors,
-                                float* distances)
+                                float* distances,
+                                rmm::cuda_stream_view stream)
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "ivf_flat_handle::search(%u, %u, %zu)", n_queries, k, neighbors);
 
-  params_.nprobe = n_probes;
+  RAFT_EXPECTS(is_trained(),
+               "The index must be trained before the search (ivf_flat_handle::build)");
   RAFT_EXPECTS(n_probes > 0,
                "n_probes (number of clusters to probe in the search) must be positive.");
 
@@ -301,7 +312,7 @@ void ivf_flat_handle<T>::search(const T* queries,
     search_mem_res_.emplace(cur_memory_resource, Pow2<256>::roundUp(n_queries * n_probes * k * 16));
   }
 
-  search_impl<float>(queries, n_queries, k, select_min, neighbors, distances);
+  search_impl<float>(queries, n_queries, k, n_probes, select_min, neighbors, distances, stream);
 }
 
 template <typename T>
@@ -309,24 +320,27 @@ template <typename AccT>
 void ivf_flat_handle<T>::search_impl(const T* queries,
                                      uint32_t n_queries,
                                      uint32_t k,
+                                     uint32_t n_probes,
                                      bool select_min,
                                      size_t* neighbors,
-                                     AccT* distances)
+                                     AccT* distances,
+                                     rmm::cuda_stream_view stream)
 {
-  uint32_t n_probes = std::min(params_.nprobe, params_.nlist);
-  auto search_mr    = &(search_mem_res_.value());
+  auto n_lists   = index_->n_lists();
+  n_probes       = std::min<uint32_t>(n_probes, n_lists);
+  auto search_mr = &(search_mem_res_.value());
   // The norm of query
-  rmm::device_uvector<float> query_norm_dev(n_queries, stream_, search_mr);
+  rmm::device_uvector<float> query_norm_dev(n_queries, stream, search_mr);
   // The distance value of cluster(list) and queries
-  rmm::device_uvector<float> distance_buffer_dev(n_queries * params_.nlist, stream_, search_mr);
+  rmm::device_uvector<float> distance_buffer_dev(n_queries * n_lists, stream, search_mr);
   // The topk distance value of cluster(list) and queries
-  rmm::device_uvector<float> coarse_distances_dev(n_queries * n_probes, stream_, search_mr);
+  rmm::device_uvector<float> coarse_distances_dev(n_queries * n_probes, stream, search_mr);
   // The topk  index of cluster(list) and queries
-  rmm::device_uvector<uint32_t> coarse_indices_dev(n_queries * n_probes, stream_, search_mr);
+  rmm::device_uvector<uint32_t> coarse_indices_dev(n_queries * n_probes, stream, search_mr);
   // The topk distance value of candicate vectors from each cluster(list)
-  rmm::device_uvector<AccT> refined_distances_dev(n_queries * n_probes * k, stream_, search_mr);
+  rmm::device_uvector<AccT> refined_distances_dev(n_queries * n_probes * k, stream, search_mr);
   // The topk index of candicate vectors from each cluster(list)
-  rmm::device_uvector<size_t> refined_indices_dev(n_queries * n_probes * k, stream_, search_mr);
+  rmm::device_uvector<size_t> refined_indices_dev(n_queries * n_probes * k, stream, search_mr);
 
   size_t float_query_size;
   if constexpr (std::is_integral_v<T>) {
@@ -334,14 +348,14 @@ void ivf_flat_handle<T>::search_impl(const T* queries,
   } else {
     float_query_size = 0;
   }
-  rmm::device_uvector<float> converted_queries_dev(float_query_size, stream_, search_mr);
+  rmm::device_uvector<float> converted_queries_dev(float_query_size, stream, search_mr);
   float* converted_queries_ptr = converted_queries_dev.data();
 
   if constexpr (std::is_same_v<T, float>) {
     converted_queries_ptr = const_cast<float*>(queries);
   } else {
     linalg::unaryOp(
-      converted_queries_ptr, queries, n_queries * index_->dim(), utils::mapping<float>{}, stream_);
+      converted_queries_ptr, queries, n_queries * index_->dim(), utils::mapping<float>{}, stream);
   }
 
   float alpha = 1.0f;
@@ -351,13 +365,13 @@ void ivf_flat_handle<T>::search_impl(const T* queries,
     alpha = -2.0f;
     beta  = 1.0f;
     utils::dots_along_rows(
-      n_queries, index_->dim(), converted_queries_ptr, query_norm_dev.data(), stream_);
+      n_queries, index_->dim(), converted_queries_ptr, query_norm_dev.data(), stream);
     utils::outer_add(query_norm_dev.data(),
                      n_queries,
                      index_->center_norms->data(),
-                     params_.nlist,
+                     n_lists,
                      distance_buffer_dev.data(),
-                     stream_);
+                     stream);
     RAFT_LOG_TRACE_VEC(index_->center_norms->data(), 20);
     RAFT_LOG_TRACE_VEC(distance_buffer_dev.data(), 20);
   } else {
@@ -368,7 +382,7 @@ void ivf_flat_handle<T>::search_impl(const T* queries,
   linalg::gemm(handle_,
                true,
                false,
-               params_.nlist,
+               n_lists,
                n_queries,
                index_->dim(),
                &alpha,
@@ -378,30 +392,30 @@ void ivf_flat_handle<T>::search_impl(const T* queries,
                index_->dim(),
                &beta,
                distance_buffer_dev.data(),
-               params_.nlist,
-               stream_);
+               n_lists,
+               stream);
 
   RAFT_LOG_TRACE_VEC(distance_buffer_dev.data(), 20);
   if (n_probes <= raft::spatial::knn::detail::topk::kMaxCapacity) {
     topk::warp_sort_topk<AccT, uint32_t>(distance_buffer_dev.data(),
                                          nullptr,
                                          n_queries,
-                                         params_.nlist,
+                                         n_lists,
                                          n_probes,
                                          coarse_distances_dev.data(),
                                          coarse_indices_dev.data(),
                                          select_min,
-                                         stream_);
+                                         stream);
   } else {
     topk::radix_topk<AccT, uint32_t, 11, 512>(distance_buffer_dev.data(),
                                               nullptr,
                                               n_queries,
-                                              params_.nlist,
+                                              n_lists,
                                               n_probes,
                                               coarse_distances_dev.data(),
                                               coarse_indices_dev.data(),
                                               select_min,
-                                              stream_,
+                                              stream,
                                               &(search_mem_res_.value()));
   }
   RAFT_LOG_TRACE_VEC(coarse_indices_dev.data(), 1 * n_probes);
@@ -424,7 +438,7 @@ void ivf_flat_handle<T>::search_impl(const T* queries,
                                                                     nullptr,
                                                                     nullptr,
                                                                     grid_dim_x,
-                                                                    stream_);
+                                                                    stream);
   } else {
     grid_dim_x = 1;
   }
@@ -445,7 +459,7 @@ void ivf_flat_handle<T>::search_impl(const T* queries,
                                                                   indices_dev_ptr,
                                                                   distances_dev_ptr,
                                                                   grid_dim_x,
-                                                                  stream_);
+                                                                  stream);
 
   RAFT_LOG_TRACE_VEC(distances_dev_ptr, 2 * k);
   RAFT_LOG_TRACE_VEC(indices_dev_ptr, 2 * k);
@@ -461,7 +475,7 @@ void ivf_flat_handle<T>::search_impl(const T* queries,
                                          distances,
                                          neighbors,
                                          select_min,
-                                         stream_);
+                                         stream);
     } else {
       topk::radix_topk<AccT, size_t, 11, 512>(refined_distances_dev.data(),
                                               refined_indices_dev.data(),
@@ -471,7 +485,7 @@ void ivf_flat_handle<T>::search_impl(const T* queries,
                                               distances,
                                               neighbors,
                                               select_min,
-                                              stream_,
+                                              stream,
                                               &(search_mem_res_.value()));
     }
   }
