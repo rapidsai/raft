@@ -46,7 +46,7 @@ template <typename T>
 class cuivflHandle {
  public:
   cuivflHandle(const handle_t& handle, const ivf_flat_params& params)
-    : handle_(handle), stream_(handle_.get_stream()), params_(params), grid_dim_x_(0)
+    : handle_(handle), stream_(handle_.get_stream()), params_(params)
   {
   }
 
@@ -96,7 +96,6 @@ class cuivflHandle {
   ivf_flat_params params_;
 
   bool greater_;
-  uint32_t grid_dim_x_;  // The number of blocks launched across n_probes.
   // The built index
   std::optional<const ivf_flat_index<T>> index_ = std::nullopt;
 
@@ -107,8 +106,6 @@ class cuivflHandle {
   template <typename AccT>
   void cuivflSearchImpl(
     const T* queries, uint32_t n_queries, uint32_t k, size_t* neighbors, AccT* distances);
-
-  void queryIVFFlatGridSize(const uint32_t n_probes, const uint32_t n_queries, const uint32_t k);
 };
 
 /**
@@ -271,26 +268,6 @@ void cuivflHandle<T>::cuivflBuildIndex(const T* dataset,
 }
 
 template <typename T>
-void cuivflHandle<T>::queryIVFFlatGridSize(const uint32_t n_probes,
-                                           const uint32_t n_queries,
-                                           const uint32_t k)
-{
-  // query the gridDimX size to store probes topK output
-  ivfflat_interleaved_scan<T, typename utils::config<T>::value_t>(index_.value(),
-                                                                  nullptr,
-                                                                  nullptr,
-                                                                  n_queries,
-                                                                  index_->metric,
-                                                                  n_probes,
-                                                                  k,
-                                                                  greater_,
-                                                                  nullptr,
-                                                                  nullptr,
-                                                                  grid_dim_x_,
-                                                                  stream_);
-}
-
-template <typename T>
 void cuivflHandle<T>::cuivflSetSearchParameters(const uint32_t n_probes,
                                                 const uint32_t max_batch,
                                                 const uint32_t max_k)
@@ -340,9 +317,7 @@ void cuivflHandle<T>::cuivflSearchImpl(const T* queries,  // [numQueries, dim]
                                        AccT* distances)
 {
   uint32_t n_probes = std::min(params_.nprobe, params_.nlist);
-  grid_dim_x_       = 0;
-  queryIVFFlatGridSize(n_probes, n_queries, k);
-  auto search_mr = &(search_mem_res.value());
+  auto search_mr    = &(search_mem_res.value());
   // The norm of query
   rmm::device_uvector<float> query_norm_dev(n_queries, stream_, search_mr);
   // The distance value of cluster(list) and queries
@@ -437,7 +412,27 @@ void cuivflHandle<T>::cuivflSearchImpl(const T* queries,  // [numQueries, dim]
 
   AccT* distances_dev_ptr = refined_distances_dev.data();
   size_t* indices_dev_ptr = refined_indices_dev.data();
-  if (n_probes == 1 || grid_dim_x_ == 1) {
+
+  uint32_t grid_dim_x = 0;
+  if (n_probes > 1) {
+    // query the gridDimX size to store probes topK output
+    ivfflat_interleaved_scan<T, typename utils::config<T>::value_t>(index_.value(),
+                                                                    nullptr,
+                                                                    nullptr,
+                                                                    n_queries,
+                                                                    index_->metric,
+                                                                    n_probes,
+                                                                    k,
+                                                                    greater_,
+                                                                    nullptr,
+                                                                    nullptr,
+                                                                    grid_dim_x,
+                                                                    stream_);
+  } else {
+    grid_dim_x = 1;
+  }
+
+  if (grid_dim_x == 1) {
     distances_dev_ptr = distances;
     indices_dev_ptr   = neighbors;
   }
@@ -452,19 +447,19 @@ void cuivflHandle<T>::cuivflSearchImpl(const T* queries,  // [numQueries, dim]
                                                                   greater_,
                                                                   indices_dev_ptr,
                                                                   distances_dev_ptr,
-                                                                  grid_dim_x_,
+                                                                  grid_dim_x,
                                                                   stream_);
 
   RAFT_LOG_TRACE_VEC(distances_dev_ptr, 2 * k);
   RAFT_LOG_TRACE_VEC(indices_dev_ptr, 2 * k);
 
   // Merge topk values from different blocks
-  if (grid_dim_x_ > 1) {
+  if (grid_dim_x > 1) {
     if (k <= raft::spatial::knn::detail::topk::kMaxCapacity) {
       topk::warp_sort_topk<AccT, size_t>(refined_distances_dev.data(),
                                          refined_indices_dev.data(),
                                          n_queries,
-                                         k * grid_dim_x_,
+                                         k * grid_dim_x,
                                          k,
                                          distances,
                                          neighbors,
@@ -474,7 +469,7 @@ void cuivflHandle<T>::cuivflSearchImpl(const T* queries,  // [numQueries, dim]
       topk::radix_topk<AccT, size_t, 11, 512>(refined_distances_dev.data(),
                                               refined_indices_dev.data(),
                                               n_queries,
-                                              k * grid_dim_x_,
+                                              k * grid_dim_x,
                                               k,
                                               distances,
                                               neighbors,
