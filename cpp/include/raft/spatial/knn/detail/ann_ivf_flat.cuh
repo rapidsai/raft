@@ -45,9 +45,10 @@ namespace raft::spatial::knn::detail {
 template <typename T>
 class cuivflHandle {
  public:
-  cuivflHandle(const handle_t& handle,
-               raft::distance::DistanceType metric_type,
-               const ivf_flat_params& params);
+  cuivflHandle(const handle_t& handle, const ivf_flat_params& params)
+    : handle_(handle), stream_(handle_.get_stream()), params_(params), grid_dim_x_(0)
+  {
+  }
 
   /**
    * @brief Build the index from the dataset for efficient search.
@@ -55,8 +56,12 @@ class cuivflHandle {
    * @param[in] dataset a device pointer to a row-major matrix [n_rows, dim]
    * @param n_rows number of samples
    * @param dim the dimensionality of the data
+   * @param metric distance type
    */
-  void cuivflBuildIndex(const T* dataset, uint32_t n_rows, uint32_t dim);
+  void cuivflBuildIndex(const T* dataset,
+                        uint32_t n_rows,
+                        uint32_t dim,
+                        raft::distance::DistanceType metric);
 
   /**
    * @brief Set the search parameters. Must be called before `cuivflSearch`
@@ -90,7 +95,6 @@ class cuivflHandle {
   const rmm::cuda_stream_view stream_;
   ivf_flat_params params_;
 
-  const raft::distance::DistanceType metric_type_;
   bool greater_;
   uint32_t grid_dim_x_;  // The number of blocks launched across n_probes.
   // The built index
@@ -106,18 +110,6 @@ class cuivflHandle {
 
   void queryIVFFlatGridSize(const uint32_t n_probes, const uint32_t n_queries, const uint32_t k);
 };
-
-template <typename T>
-cuivflHandle<T>::cuivflHandle(const handle_t& handle,
-                              raft::distance::DistanceType metric_type,
-                              const ivf_flat_params& params)
-  : handle_(handle),
-    stream_(handle_.get_stream()),
-    params_(params),
-    grid_dim_x_(0),
-    metric_type_(metric_type)
-{
-}
 
 /**
  * @brief Record the dataset into the index, one source row at a time.
@@ -187,7 +179,10 @@ __global__ void build_index_kernel(const uint32_t* labels,
 }
 
 template <typename T>
-void cuivflHandle<T>::cuivflBuildIndex(const T* dataset, uint32_t n_rows, uint32_t dim)
+void cuivflHandle<T>::cuivflBuildIndex(const T* dataset,
+                                       uint32_t n_rows,
+                                       uint32_t dim,
+                                       raft::distance::DistanceType metric)
 {
   static_assert(std::is_same_v<T, float> || std::is_same_v<T, uint8_t> || std::is_same_v<T, int8_t>,
                 "unsupported data type");
@@ -218,7 +213,7 @@ void cuivflHandle<T>::cuivflBuildIndex(const T* dataset, uint32_t n_rows, uint32
                                  centers.data(),
                                  n_lists,
                                  params_.kmeans_trainset_fraction,
-                                 metric_type_,
+                                 metric,
                                  stream_);
 
   // Calculate offsets into cluster data using exclusive scan
@@ -263,13 +258,13 @@ void cuivflHandle<T>::cuivflBuildIndex(const T* dataset, uint32_t n_rows, uint32
     RAFT_LOG_TRACE_VEC(r.data(), 20);
     return r;
   };
-  auto&& center_norms = metric_type_ == raft::distance::DistanceType::L2Expanded
+  auto&& center_norms = metric == raft::distance::DistanceType::L2Expanded
                           ? std::optional(compute_norms())
                           : std::nullopt;
 
   // assemble the index
-  index_.emplace(
-    ivf_flat_index<T>{veclen, data, indices, list_sizes, list_offsets, centers, center_norms});
+  index_.emplace(ivf_flat_index<T>{
+    veclen, metric, data, indices, list_sizes, list_offsets, centers, center_norms});
 
   // check index invariants
   index_->check_consistency();
@@ -285,7 +280,7 @@ void cuivflHandle<T>::queryIVFFlatGridSize(const uint32_t n_probes,
                                                                   nullptr,
                                                                   nullptr,
                                                                   n_queries,
-                                                                  metric_type_,
+                                                                  index_->metric,
                                                                   n_probes,
                                                                   k,
                                                                   greater_,
@@ -303,13 +298,17 @@ void cuivflHandle<T>::cuivflSetSearchParameters(const uint32_t n_probes,
   RAFT_EXPECTS(n_probes > 0,
                "n_probes (number of clusters to probe in the search) must be positive.");
   params_.nprobe = n_probes;
-  // Set the greater_
-  if (metric_type_ == raft::distance::DistanceType::L2Expanded ||
-      metric_type_ == raft::distance::DistanceType::L2Unexpanded) {
-    greater_ = false;
-  } else {
-    // Need to set this to true for inner product if need FAISS like behavior for inner product
-    greater_ = false;
+
+  switch (index_->metric) {
+    case raft::distance::DistanceType::InnerProduct:
+    case raft::distance::DistanceType::CosineExpanded:
+    case raft::distance::DistanceType::CorrelationExpanded:
+      // Similarity metrics have the opposite meaning, i.e. nearest neigbours are those with larger
+      // similarity (See the same logic at cpp/include/raft/sparse/selection/detail/knn.cuh:362
+      // {perform_k_selection})
+      greater_ = true;
+      break;
+    default: greater_ = false;
   }
 
   // Set memory buffer to be reused across searches
@@ -376,7 +375,7 @@ void cuivflHandle<T>::cuivflSearchImpl(const T* queries,  // [numQueries, dim]
   float alpha = 1.0f;
   float beta  = 0.0f;
 
-  if (metric_type_ == raft::distance::DistanceType::L2Expanded) {
+  if (index_->metric == raft::distance::DistanceType::L2Expanded) {
     alpha = -2.0f;
     beta  = 1.0f;
     utils::dots_along_rows(
@@ -447,7 +446,7 @@ void cuivflHandle<T>::cuivflSearchImpl(const T* queries,  // [numQueries, dim]
                                                                   queries,
                                                                   coarse_indices_dev.data(),
                                                                   n_queries,
-                                                                  metric_type_,
+                                                                  index_->metric,
                                                                   n_probes,
                                                                   k,
                                                                   greater_,

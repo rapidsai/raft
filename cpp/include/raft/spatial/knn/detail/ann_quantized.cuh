@@ -97,8 +97,8 @@ void approx_knn_cuivfl_ivfflat_build_index(const raft::handle_t& handle,
                                            IntType n,
                                            IntType D)
 {
-  index->ivf_flat<T>() = std::make_unique<detail::cuivflHandle<T>>(handle, metric, *params);
-  index->ivf_flat<T>()->cuivflBuildIndex(dataset, n, D);
+  index->ivf_flat<T>() = std::make_unique<detail::cuivflHandle<T>>(handle, *params);
+  index->ivf_flat<T>()->cuivflBuildIndex(dataset, n, D, metric);
 }
 
 template <typename IntType = int>

@@ -27,6 +27,7 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/distance/distance.cuh>
+#include <raft/distance/distance_type.hpp>
 #include <raft/pow2_utils.cuh>
 
 #ifdef USE_FAISS
@@ -55,6 +56,8 @@ struct ivf_flat_index {
    * Vectorized load/store size in elements, determines the size of interleaved data chunks.
    */
   uint32_t veclen;
+  /** Distance metric used for clustering. */
+  raft::distance::DistanceType metric;
 
   /**
    * Inverted list data [size, dim].
@@ -82,7 +85,6 @@ struct ivf_flat_index {
   device_mdarray<T, extent_2d, row_major> data;
   /** Inverted list indices: ids of items in the source data [size] */
   device_mdarray<uint32_t, extent_1d, row_major> indices;
-
   /** Sizes of the lists (clusters) [n_lists] */
   device_mdarray<uint32_t, extent_1d, row_major> list_sizes;
   /**
@@ -90,7 +92,6 @@ struct ivf_flat_index {
    * The last value contains the total length of the index.
    */
   device_mdarray<uint32_t, extent_1d, row_major> list_offsets;
-
   /** k-means cluster centers corresponding to the lists [n_lists, dim] */
   device_mdarray<float, extent_2d, row_major> centers;
   /** (Optional) Precomputed norms of the `centers` w.r.t. the chosen distance metrix [n_lists]  */

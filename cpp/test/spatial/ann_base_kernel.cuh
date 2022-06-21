@@ -93,7 +93,7 @@ void naiveBfKnn(float* dist_topk,
                              input_len,
                              dist_topk + offset * k,
                              indices_topk + offset * k,
-                             true,
+                             type != raft::distance::DistanceType::InnerProduct,
                              static_cast<int>(k),
                              stream,
                              SelectKAlgo::WARP_SORT);
