@@ -376,13 +376,13 @@ void minClusterAndDistanceCompute(
   const raft::device_vector_view<cub::KeyValuePair<IndexT, DataT>>& minClusterAndDistance,
   const raft::device_vector_view<DataT>& L2NormX,
   rmm::device_uvector<DataT>& L2NormBuf_OR_DistBuf,
-  rmm::device_uvector<char>& workspace,
-  raft::distance::DistanceType metric)
+  rmm::device_uvector<char>& workspace)
 {
   cudaStream_t stream     = handle.get_stream();
   auto n_samples          = X.extent(0);
   auto n_features         = X.extent(1);
   auto n_clusters         = centroids.extent(0);
+  auto metric             = params.metric;
   auto dataBatchSize      = getDataBatchSize(params, n_samples);
   auto centroidsBatchSize = getCentroidsBatchSize(params, n_clusters);
 
@@ -507,13 +507,13 @@ void minClusterDistanceCompute(const raft::handle_t& handle,
                                const raft::device_vector_view<DataT>& minClusterDistance,
                                const raft::device_vector_view<DataT>& L2NormX,
                                rmm::device_uvector<DataT>& L2NormBuf_OR_DistBuf,
-                               rmm::device_uvector<char>& workspace,
-                               raft::distance::DistanceType metric)
+                               rmm::device_uvector<char>& workspace)
 {
   cudaStream_t stream = handle.get_stream();
   auto n_samples      = X.extent(0);
   auto n_features     = X.extent(1);
   auto n_clusters     = centroids.extent(0);
+  auto metric         = params.metric;
 
   auto dataBatchSize      = getDataBatchSize(params, n_samples);
   auto centroidsBatchSize = getCentroidsBatchSize(params, n_clusters);
@@ -635,7 +635,6 @@ void countSamplesInCluster(const raft::handle_t& handle,
                            const raft::device_vector_view<DataT>& L2NormX,
                            const raft::device_matrix_view<DataT>& centroids,
                            rmm::device_uvector<char>& workspace,
-                           raft::distance::DistanceType metric,
                            const raft::device_vector_view<DataT>& sampleCountInCluster)
 {
   cudaStream_t stream = handle.get_stream();
@@ -657,22 +656,21 @@ void countSamplesInCluster(const raft::handle_t& handle,
   //   'key' is index to an sample in 'centroids' (index of the nearest
   //   centroid) and 'value' is the distance between the sample 'X[i]' and the
   //   'centroid[key]'
-  minClusterAndDistanceCompute(handle,
-                               params,
-                               X,
-                               (raft::device_matrix_view<const DataT>)centroids,
-                               minClusterAndDistance.view(),
-                               L2NormX,
-                               L2NormBuf_OR_DistBuf,
-                               workspace,
-                               metric);
+  detail::minClusterAndDistanceCompute(handle,
+                                       params,
+                                       X,
+                                       (raft::device_matrix_view<const DataT>)centroids,
+                                       minClusterAndDistance.view(),
+                                       L2NormX,
+                                       L2NormBuf_OR_DistBuf,
+                                       workspace);
 
   // Using TransformInputIteratorT to dereference an array of cub::KeyValuePair
   // and converting them to just return the Key to be used in reduce_rows_by_key
   // prims
-  KeyValueIndexOp<IndexT, DataT> conversion_op;
+  detail::KeyValueIndexOp<IndexT, DataT> conversion_op;
   cub::TransformInputIterator<IndexT,
-                              KeyValueIndexOp<IndexT, DataT>,
+                              detail::KeyValueIndexOp<IndexT, DataT>,
                               cub::KeyValuePair<IndexT, DataT>*>
     itr(minClusterAndDistance.data(), conversion_op);
 
