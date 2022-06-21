@@ -43,10 +43,10 @@
 namespace raft::spatial::knn::detail {
 
 template <typename T>
-class cuivflHandle {
+class ivf_flat_handle {
  public:
-  cuivflHandle(const handle_t& handle, const ivf_flat_params& params)
-    : handle_(handle), stream_(handle_.get_stream()), params_(params)
+  ivf_flat_handle(const handle_t& handle, ivf_flat_params params)
+    : handle_(handle), stream_(handle_.get_stream()), params_(std::move(params))
   {
   }
 
@@ -58,21 +58,7 @@ class cuivflHandle {
    * @param dim the dimensionality of the data
    * @param metric distance type
    */
-  void cuivflBuildIndex(const T* dataset,
-                        uint32_t n_rows,
-                        uint32_t dim,
-                        raft::distance::DistanceType metric);
-
-  /**
-   * @brief Set the search parameters. Must be called before `cuivflSearch`
-   *
-   * @param n_probes number of clusters to look at for each query (affects speed vs recall).
-   * @param max_batch maximum number of queries (affects the required temp memory).
-   * @param max_k maximum number of neighbors to search for.
-   */
-  void cuivflSetSearchParameters(const uint32_t n_probes,
-                                 const uint32_t max_batch,
-                                 const uint32_t max_k);
+  void build(const T* dataset, uint32_t n_rows, uint32_t dim, raft::distance::DistanceType metric);
 
   /**
    * @brief Search ANN using the constructed index.
@@ -80,32 +66,44 @@ class cuivflHandle {
    * @param[in] queries a device pointer to a row-major matrix [n_queries, dim]
    * @param n_queries is the batch size
    * @param k is the number of neighbors to find for each query.
+   * @param n_probes number of clusters to look at for each query (affects speed vs recall).
    * @param[out] neighbors a device pointer to the indices of the neighbors in the source dataset
    * [n_queries, k]
    * @param[out] distances a device pointer to the distances to the selected neighbors [n_queries,
    * k]
    */
-  void cuivflSearch(
-    const T* queries, uint32_t n_queries, uint32_t k, size_t* neighbors, float* distances);
+  void search(const T* queries,
+              uint32_t n_queries,
+              uint32_t k,
+              uint32_t n_probes,
+              size_t* neighbors,
+              float* distances);
 
-  uint32_t getDim() { return index_.has_value() ? index_->dim() : 0; }
+  /** Whether `build` method has already been succesfully invoked. */
+  [[nodiscard]] auto is_trained() const -> bool { return index_.has_value(); }
+
+  /** Dimensionality of the data, on which the index has been built. */
+  [[nodiscard]] auto data_dim() const -> uint32_t { return is_trained() ? index_->dim() : 0; }
 
  private:
   const handle_t& handle_;
   const rmm::cuda_stream_view stream_;
   ivf_flat_params params_;
 
-  bool greater_;
   // The built index
   std::optional<const ivf_flat_index<T>> index_ = std::nullopt;
 
   // Memory pool for use during search; after the first search is done the pool is not likely to
   // resize, saving the costs of allocations.
-  std::optional<rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource>> search_mem_res;
+  std::optional<rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource>> search_mem_res_;
 
   template <typename AccT>
-  void cuivflSearchImpl(
-    const T* queries, uint32_t n_queries, uint32_t k, size_t* neighbors, AccT* distances);
+  void search_impl(const T* queries,
+                   uint32_t n_queries,
+                   uint32_t k,
+                   bool select_min,
+                   size_t* neighbors,
+                   AccT* distances);
 };
 
 /**
@@ -176,11 +174,13 @@ __global__ void build_index_kernel(const uint32_t* labels,
 }
 
 template <typename T>
-void cuivflHandle<T>::cuivflBuildIndex(const T* dataset,
-                                       uint32_t n_rows,
-                                       uint32_t dim,
-                                       raft::distance::DistanceType metric)
+void ivf_flat_handle<T>::build(const T* dataset,
+                               uint32_t n_rows,
+                               uint32_t dim,
+                               raft::distance::DistanceType metric)
 {
+  common::nvtx::range<common::nvtx::domain::raft> fun_scope(
+    "ivf_flat_handle::build(%u, %u)", n_rows, dim);
   static_assert(std::is_same_v<T, float> || std::is_same_v<T, uint8_t> || std::is_same_v<T, int8_t>,
                 "unsupported data type");
   RAFT_EXPECTS(n_rows > 0 && dim > 0, "empty dataset");
@@ -268,14 +268,21 @@ void cuivflHandle<T>::cuivflBuildIndex(const T* dataset,
 }
 
 template <typename T>
-void cuivflHandle<T>::cuivflSetSearchParameters(const uint32_t n_probes,
-                                                const uint32_t max_batch,
-                                                const uint32_t max_k)
+void ivf_flat_handle<T>::search(const T* queries,
+                                uint32_t n_queries,
+                                uint32_t k,
+                                uint32_t n_probes,
+                                size_t* neighbors,
+                                float* distances)
 {
+  common::nvtx::range<common::nvtx::domain::raft> fun_scope(
+    "ivf_flat_handle::search(%u, %u, %zu)", n_queries, k, neighbors);
+
+  params_.nprobe = n_probes;
   RAFT_EXPECTS(n_probes > 0,
                "n_probes (number of clusters to probe in the search) must be positive.");
-  params_.nprobe = n_probes;
 
+  bool select_min;
   switch (index_->metric) {
     case raft::distance::DistanceType::InnerProduct:
     case raft::distance::DistanceType::CosineExpanded:
@@ -283,41 +290,31 @@ void cuivflHandle<T>::cuivflSetSearchParameters(const uint32_t n_probes,
       // Similarity metrics have the opposite meaning, i.e. nearest neigbours are those with larger
       // similarity (See the same logic at cpp/include/raft/sparse/selection/detail/knn.cuh:362
       // {perform_k_selection})
-      greater_ = true;
+      select_min = false;
       break;
-    default: greater_ = false;
+    default: select_min = true;
   }
 
   // Set memory buffer to be reused across searches
   auto cur_memory_resource = rmm::mr::get_current_device_resource();
-  if (!search_mem_res.has_value() || search_mem_res->get_upstream() != cur_memory_resource) {
-    search_mem_res.emplace(cur_memory_resource,
-                           Pow2<256>::roundUp(max_batch * n_probes * max_k * 16));
+  if (!search_mem_res_.has_value() || search_mem_res_->get_upstream() != cur_memory_resource) {
+    search_mem_res_.emplace(cur_memory_resource, Pow2<256>::roundUp(n_queries * n_probes * k * 16));
   }
-}
 
-template <typename T>
-void cuivflHandle<T>::cuivflSearch(const T* queries,  // [numQueries, dim]
-                                   uint32_t n_queries,
-                                   uint32_t k,
-                                   size_t* neighbors,  // [numQueries, topK]
-                                   float* distances)
-{
-  common::nvtx::range<common::nvtx::domain::raft> fun_scope(
-    "cuivflSearch(%u, %u, %zu)", n_queries, k, neighbors);
-  cuivflSearchImpl<float>(queries, n_queries, k, neighbors, distances);
+  search_impl<float>(queries, n_queries, k, select_min, neighbors, distances);
 }
 
 template <typename T>
 template <typename AccT>
-void cuivflHandle<T>::cuivflSearchImpl(const T* queries,  // [numQueries, dim]
-                                       uint32_t n_queries,
-                                       uint32_t k,
-                                       size_t* neighbors,  // [numQueries, topK]
-                                       AccT* distances)
+void ivf_flat_handle<T>::search_impl(const T* queries,
+                                     uint32_t n_queries,
+                                     uint32_t k,
+                                     bool select_min,
+                                     size_t* neighbors,
+                                     AccT* distances)
 {
   uint32_t n_probes = std::min(params_.nprobe, params_.nlist);
-  auto search_mr    = &(search_mem_res.value());
+  auto search_mr    = &(search_mem_res_.value());
   // The norm of query
   rmm::device_uvector<float> query_norm_dev(n_queries, stream_, search_mr);
   // The distance value of cluster(list) and queries
@@ -393,7 +390,7 @@ void cuivflHandle<T>::cuivflSearchImpl(const T* queries,  // [numQueries, dim]
                                          n_probes,
                                          coarse_distances_dev.data(),
                                          coarse_indices_dev.data(),
-                                         !greater_,
+                                         select_min,
                                          stream_);
   } else {
     topk::radix_topk<AccT, uint32_t, 11, 512>(distance_buffer_dev.data(),
@@ -403,9 +400,9 @@ void cuivflHandle<T>::cuivflSearchImpl(const T* queries,  // [numQueries, dim]
                                               n_probes,
                                               coarse_distances_dev.data(),
                                               coarse_indices_dev.data(),
-                                              !greater_,
+                                              select_min,
                                               stream_,
-                                              &(search_mem_res.value()));
+                                              &(search_mem_res_.value()));
   }
   RAFT_LOG_TRACE_VEC(coarse_indices_dev.data(), 1 * n_probes);
   RAFT_LOG_TRACE_VEC(coarse_distances_dev.data(), 1 * n_probes);
@@ -423,7 +420,7 @@ void cuivflHandle<T>::cuivflSearchImpl(const T* queries,  // [numQueries, dim]
                                                                     index_->metric,
                                                                     n_probes,
                                                                     k,
-                                                                    greater_,
+                                                                    select_min,
                                                                     nullptr,
                                                                     nullptr,
                                                                     grid_dim_x,
@@ -444,7 +441,7 @@ void cuivflHandle<T>::cuivflSearchImpl(const T* queries,  // [numQueries, dim]
                                                                   index_->metric,
                                                                   n_probes,
                                                                   k,
-                                                                  greater_,
+                                                                  select_min,
                                                                   indices_dev_ptr,
                                                                   distances_dev_ptr,
                                                                   grid_dim_x,
@@ -463,7 +460,7 @@ void cuivflHandle<T>::cuivflSearchImpl(const T* queries,  // [numQueries, dim]
                                          k,
                                          distances,
                                          neighbors,
-                                         !greater_,
+                                         select_min,
                                          stream_);
     } else {
       topk::radix_topk<AccT, size_t, 11, 512>(refined_distances_dev.data(),
@@ -473,9 +470,9 @@ void cuivflHandle<T>::cuivflSearchImpl(const T* queries,  // [numQueries, dim]
                                               k,
                                               distances,
                                               neighbors,
-                                              !greater_,
+                                              select_min,
                                               stream_,
-                                              &(search_mem_res.value()));
+                                              &(search_mem_res_.value()));
     }
   }
 }

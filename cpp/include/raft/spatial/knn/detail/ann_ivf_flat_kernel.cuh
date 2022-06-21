@@ -817,7 +817,7 @@ struct loadAndComputeDist<kUnroll, wordsPerVectorBlockDim, Lambda, 1, int8_t, in
  *
  * query_smem_elems must be multiple of WarpSize * Veclen
  */
-template <int Capacity, int Veclen, bool Greater, typename T, typename AccT, typename Lambda>
+template <int Capacity, int Veclen, bool Ascending, typename T, typename AccT, typename Lambda>
 __global__ void __launch_bounds__(kThreadsPerBlock)
   interleaved_scan_kernel(Lambda compute_dist,
                           const uint32_t query_smem_elems,
@@ -845,7 +845,7 @@ __global__ void __launch_bounds__(kThreadsPerBlock)
   __shared__ float smemK[kThreadsPerBlock];
   __shared__ size_t smemV[kThreadsPerBlock];
 
-  constexpr auto Dir = Greater;
+  constexpr auto Dir = !Ascending;
   constexpr auto identity =
     Dir ? std::numeric_limits<float>::min() : std::numeric_limits<float>::max();
   constexpr auto keyMax =
@@ -856,7 +856,7 @@ __global__ void __launch_bounds__(kThreadsPerBlock)
       queue(identity, keyMax, smemK, smemV, k);
 
 #else
-  topk::block_sort<topk::warp_sort_filtered, Capacity, !Greater, float, size_t> queue(
+  topk::block_sort<topk::warp_sort_filtered, Capacity, Ascending, float, size_t> queue(
     k, interleaved_scan_kernel_smem + query_smem_elems * sizeof(T));
 #endif
 
@@ -957,7 +957,7 @@ __global__ void __launch_bounds__(kThreadsPerBlock)
       }
 
       // Enqueue one element per thread
-      constexpr float kDummy = Greater ? lower_bound<float>() : upper_bound<float>();
+      constexpr float kDummy = Ascending ? upper_bound<float>() : lower_bound<float>();
       float val              = (valid) ? (float)dist : kDummy;
       queue.add(val, idx);
     }  // end for block < numBlocks
@@ -996,7 +996,7 @@ uint32_t configure_launch_x(uint32_t numQueries, uint32_t nprobe, int32_t sMemSi
   return min_grid_x > nprobe ? nprobe : static_cast<uint32_t>(min_grid_x);
 }
 
-template <int Capacity, int Veclen, bool Greater, typename T, typename AccT, typename Lambda>
+template <int Capacity, int Veclen, bool Ascending, typename T, typename AccT, typename Lambda>
 void launch_kernel(Lambda lambda,
                    const ivf_flat_index<T>& index,
                    const T* queries,
@@ -1013,7 +1013,7 @@ void launch_kernel(Lambda lambda,
                "Queries data is not aligned to the vector load size (Veclen).");
   RAFT_EXPECTS(Veclen == index.veclen,
                "Configured Veclen does not match the index interleaving pattern.");
-  constexpr auto kKernel   = interleaved_scan_kernel<Capacity, Veclen, Greater, T, AccT, Lambda>;
+  constexpr auto kKernel   = interleaved_scan_kernel<Capacity, Veclen, Ascending, T, AccT, Lambda>;
   const int max_query_smem = 16384;
   int query_smem_elems =
     std::min<int>(max_query_smem / sizeof(T), Pow2<Veclen * WarpSize>::roundUp(index.dim()));
@@ -1113,15 +1113,16 @@ struct inner_prod_dist {
 };
 
 /** Select the distance computation function and forward the rest of the arguments. */
-template <int Capacity, int Veclen, bool Greater, typename T, typename AccT, typename... Args>
+template <int Capacity, int Veclen, bool Ascending, typename T, typename AccT, typename... Args>
 void launch_with_fixed_consts(raft::distance::DistanceType metric, Args&&... args)
 {
   if (metric == raft::distance::DistanceType::L2Expanded ||
       metric == raft::distance::DistanceType::L2Unexpanded) {
-    launch_kernel<Capacity, Veclen, Greater, T, AccT, euclidean_dist<Veclen, T, AccT>>({}, args...);
+    launch_kernel<Capacity, Veclen, Ascending, T, AccT, euclidean_dist<Veclen, T, AccT>>({},
+                                                                                         args...);
   } else {
-    launch_kernel<Capacity, Veclen, Greater, T, AccT, inner_prod_dist<Veclen, T, AccT>>({},
-                                                                                        args...);
+    launch_kernel<Capacity, Veclen, Ascending, T, AccT, inner_prod_dist<Veclen, T, AccT>>({},
+                                                                                          args...);
   }
 }
 
@@ -1141,18 +1142,18 @@ struct select_interleaved_scan_kernel {
    * two parameters and ends with both values equal to 1.
    */
   template <typename... Args>
-  static inline void run(int capacity, int veclen, bool greater, Args&&... args)
+  static inline void run(int capacity, int veclen, bool select_min, Args&&... args)
   {
     if constexpr (Capacity > 1) {
       if (capacity * 2 <= Capacity) {
         return select_interleaved_scan_kernel<T, AccT, Capacity / 2, Veclen>::run(
-          capacity, veclen, greater, args...);
+          capacity, veclen, select_min, args...);
       }
     }
     if constexpr (Veclen > 1) {
       if (veclen * 2 <= Veclen) {
         return select_interleaved_scan_kernel<T, AccT, Capacity, Veclen / 2>::run(
-          capacity, veclen, greater, args...);
+          capacity, veclen, select_min, args...);
       }
     }
     RAFT_EXPECTS(capacity == Capacity,
@@ -1162,7 +1163,7 @@ struct select_interleaved_scan_kernel {
     RAFT_EXPECTS(
       veclen == Veclen,
       "Veclen must be power-of-two not bigger than the maximum allowed size for this data type.");
-    if (greater) {
+    if (select_min) {
       launch_with_fixed_consts<Capacity, Veclen, true, T, AccT>(args...);
     } else {
       launch_with_fixed_consts<Capacity, Veclen, false, T, AccT>(args...);
@@ -1184,7 +1185,7 @@ struct select_interleaved_scan_kernel {
  * @param n_probes number of nearest clusters to query
  * @param k number of nearest neighbors.
  *            NB: the maximum value of `k` is limited statically by `topk::kMaxCapacity`.
- * @param greater whether to select nearest (false) or furthest (true) points w.r.t. the given
+ * @param select_min whether to select nearest (true) or furthest (false) points w.r.t. the given
  * metric.
  * @param[out] neighbors device pointer to the result indices for each query and cluster
  * [batch_size, grid_dim_x, k]
@@ -1202,7 +1203,7 @@ void ivfflat_interleaved_scan(const ivf_flat_index<T>& index,
                               const raft::distance::DistanceType metric,
                               const uint32_t n_probes,
                               const uint32_t k,
-                              const bool greater,
+                              const bool select_min,
                               size_t* neighbors,
                               float* distances,
                               uint32_t& grid_dim_x,
@@ -1211,7 +1212,7 @@ void ivfflat_interleaved_scan(const ivf_flat_index<T>& index,
   const int capacity = raft::spatial::knn::detail::topk::calc_capacity(k);
   select_interleaved_scan_kernel<T, AccT>::run(capacity,
                                                index.veclen,
-                                               greater,
+                                               select_min,
                                                metric,
                                                index,
                                                queries,

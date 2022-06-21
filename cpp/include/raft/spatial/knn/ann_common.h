@@ -24,16 +24,16 @@ namespace raft::spatial::knn {
 
 namespace detail {
 template <typename T>
-class cuivflHandle;
+class ivf_flat_handle;
 };
 
 struct knnIndex {
   faiss::gpu::GpuIndex* index;
   raft::distance::DistanceType metric;
   float metricArg;
-  std::unique_ptr<detail::cuivflHandle<float>> ivf_flat_float_;
-  std::unique_ptr<detail::cuivflHandle<uint8_t>> ivf_flat_uint8_t_;
-  std::unique_ptr<detail::cuivflHandle<int8_t>> ivf_flat_int8_t_;
+  std::unique_ptr<detail::ivf_flat_handle<float>> ivf_flat_float_;
+  std::unique_ptr<detail::ivf_flat_handle<uint8_t>> ivf_flat_uint8_t_;
+  std::unique_ptr<detail::ivf_flat_handle<int8_t>> ivf_flat_int8_t_;
 
   raft::spatial::knn::RmmGpuResources* gpu_res;
   int device;
@@ -44,23 +44,23 @@ struct knnIndex {
   }
 
   template <typename T>
-  auto ivf_flat() -> std::unique_ptr<detail::cuivflHandle<T>>&;
+  auto ivf_flat() -> std::unique_ptr<detail::ivf_flat_handle<T>>&;
 };
 
 template <>
-auto knnIndex::ivf_flat<float>() -> std::unique_ptr<detail::cuivflHandle<float>>&
+auto knnIndex::ivf_flat<float>() -> std::unique_ptr<detail::ivf_flat_handle<float>>&
 {
   return ivf_flat_float_;
 }
 
 template <>
-auto knnIndex::ivf_flat<uint8_t>() -> std::unique_ptr<detail::cuivflHandle<uint8_t>>&
+auto knnIndex::ivf_flat<uint8_t>() -> std::unique_ptr<detail::ivf_flat_handle<uint8_t>>&
 {
   return ivf_flat_uint8_t_;
 }
 
 template <>
-auto knnIndex::ivf_flat<int8_t>() -> std::unique_ptr<detail::cuivflHandle<int8_t>>&
+auto knnIndex::ivf_flat<int8_t>() -> std::unique_ptr<detail::ivf_flat_handle<int8_t>>&
 {
   return ivf_flat_int8_t_;
 }

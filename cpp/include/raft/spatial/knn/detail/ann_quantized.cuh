@@ -97,8 +97,8 @@ void approx_knn_cuivfl_ivfflat_build_index(const raft::handle_t& handle,
                                            IntType n,
                                            IntType D)
 {
-  index->ivf_flat<T>() = std::make_unique<detail::cuivflHandle<T>>(handle, *params);
-  index->ivf_flat<T>()->cuivflBuildIndex(dataset, n, D, metric);
+  index->ivf_flat<T>() = std::make_unique<detail::ivf_flat_handle<T>>(handle, *params);
+  index->ivf_flat<T>()->build(dataset, n, D, metric);
 }
 
 template <typename IntType = int>
@@ -229,28 +229,18 @@ void approx_knn_search(const handle_t& handle,
   if constexpr (std::is_same<T, uint8_t>{} || std::is_same<T, int8_t>{}) {
     if (dynamic_cast<ivf_flat_params*>(params)) {
       ivf_flat_params* IVFFlat_param = dynamic_cast<ivf_flat_params*>(params);
-      int nprobe                     = IVFFlat_param->nprobe;
-      int max_batch                  = n;
-      int max_k                      = k;
-
-      index->ivf_flat<T>()->cuivflSetSearchParameters(nprobe, max_batch, max_k);
-      index->ivf_flat<T>()->cuivflSearch(
-        query_array, max_batch, max_k, (size_t*)indices, distances);
+      index->ivf_flat<T>()->search(
+        query_array, n, k, IVFFlat_param->nprobe, (size_t*)indices, distances);
     }
   } else if constexpr (std::is_same<T, float>{}) {
     std::unique_ptr<MetricProcessor<float>> query_metric_processor = create_processor<float>(
-      index->metric, n, index->ivf_flat<T>()->getDim(), k, false, handle.get_stream());
+      index->metric, n, index->ivf_flat<T>()->data_dim(), k, false, handle.get_stream());
     query_metric_processor->preprocess(query_array);
 
     if (dynamic_cast<ivf_flat_params*>(params)) {
       ivf_flat_params* IVFFlat_param = dynamic_cast<ivf_flat_params*>(params);
-      int nprobe                     = IVFFlat_param->nprobe;
-      int max_batch                  = n;
-      int max_k                      = k;
-
-      index->ivf_flat<T>()->cuivflSetSearchParameters(nprobe, max_batch, max_k);
-      index->ivf_flat<T>()->cuivflSearch(
-        query_array, max_batch, max_k, (size_t*)indices, distances);
+      index->ivf_flat<T>()->search(
+        query_array, n, k, IVFFlat_param->nprobe, (size_t*)indices, distances);
     }
     query_metric_processor->revert(query_array);
 
